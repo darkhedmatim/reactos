@@ -1,4 +1,4 @@
-/* $Id: xhaldrv.c,v 1.50 2004/11/21 06:51:18 ion Exp $
+/* $Id: xhaldrv.c,v 1.33 2003/06/27 00:16:33 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -12,7 +12,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/xhal.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -24,7 +26,6 @@
 
 #define  PARTITION_TBL_SIZE 4
 
-#include <pshpack1.h>
 
 typedef struct _PARTITION
 {
@@ -38,7 +39,7 @@ typedef struct _PARTITION
   unsigned char   EndingCylinder;				/* also a 10 bit nmbr, with same high 2 bit trick */
   unsigned int  StartingBlock;					/* first sector relative to start of disk */
   unsigned int  SectorCount;					/* number of sectors in partition */
-} PARTITION, *PPARTITION;
+} PACKED PARTITION, *PPARTITION;
 
 
 typedef struct _PARTITION_SECTOR
@@ -48,9 +49,7 @@ typedef struct _PARTITION_SECTOR
   UCHAR Reserved[2];				/* 0x1BC */
   PARTITION Partition[PARTITION_TBL_SIZE];	/* 0x1BE */
   USHORT Magic;					/* 0x1FE */
-} PARTITION_SECTOR, *PPARTITION_SECTOR;
-
-#include <poppack.h>
+} PACKED PARTITION_SECTOR, *PPARTITION_SECTOR;
 
 
 typedef enum _DISK_MANAGER
@@ -59,6 +58,7 @@ typedef enum _DISK_MANAGER
   OntrackDiskManager,
   EZ_Drive
 } DISK_MANAGER;
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -135,9 +135,21 @@ xHalQueryDriveLayout(IN PUNICODE_STRING DeviceName,
   DPRINT("DiskGeometry.BytesPerSector: %d\n",
 	 DiskGeometry.BytesPerSector);
 
-  if (DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA)
+  /* read the partition table */
+  Status = IoReadPartitionTable(DeviceObject,
+				DiskGeometry.BytesPerSector,
+				FALSE,
+				LayoutInfo);
+
+  if ((!NT_SUCCESS(Status) || (*LayoutInfo)->PartitionCount == 0) &&
+      DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA)
     {
       PDRIVE_LAYOUT_INFORMATION Buffer;
+
+      if (NT_SUCCESS(Status))
+	{
+	  ExFreePool(*LayoutInfo);
+	}
 
       /* Allocate a partition list for a single entry. */
       Buffer = ExAllocatePool(NonPagedPool,
@@ -151,18 +163,6 @@ xHalQueryDriveLayout(IN PUNICODE_STRING DeviceName,
 
 	  Status = STATUS_SUCCESS;
 	}
-      else
-        {
-	  Status = STATUS_UNSUCCESSFUL;
-	}
-    }
-  else
-    {
-      /* Read the partition table */
-      Status = IoReadPartitionTable(DeviceObject,
-				    DiskGeometry.BytesPerSector,
-				    FALSE,
-				    LayoutInfo);
     }
 
   ObDereferenceObject(FileObject);
@@ -172,26 +172,39 @@ xHalQueryDriveLayout(IN PUNICODE_STRING DeviceName,
 
 
 static NTSTATUS
-xHalpReadSector (IN PDEVICE_OBJECT DeviceObject,
-		 IN ULONG SectorSize,
-		 IN PLARGE_INTEGER SectorOffset,
-		 IN PVOID Sector)
+xHalpReadSector(IN PDEVICE_OBJECT DeviceObject,
+		IN ULONG SectorSize,
+		IN PLARGE_INTEGER SectorOffset,
+		OUT PVOID *Buffer)
 {
-  IO_STATUS_BLOCK StatusBlock;
   KEVENT Event;
+  IO_STATUS_BLOCK StatusBlock;
+  PUCHAR Sector;
   PIRP Irp;
   NTSTATUS Status;
 
-  DPRINT("xHalpReadSector() called\n");
+  DPRINT("xHalReadMBR()\n");
 
-  ASSERT(DeviceObject);
-  ASSERT(Sector);
+  assert(DeviceObject);
+  assert(Buffer);
+
+  *Buffer = NULL;
+
+  if (SectorSize < 512)
+    SectorSize = 512;
+  if (SectorSize > 4096)
+    SectorSize = 4096;
+
+  Sector = (PUCHAR)ExAllocatePool(PagedPool,
+				  SectorSize);
+  if (Sector == NULL)
+    return STATUS_NO_MEMORY;
 
   KeInitializeEvent(&Event,
 		    NotificationEvent,
 		    FALSE);
 
-  /* Read the sector */
+  /* Read MBR (Master Boot Record) */
   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_READ,
 				     DeviceObject,
 				     Sector,
@@ -214,33 +227,40 @@ xHalpReadSector (IN PDEVICE_OBJECT DeviceObject,
 
   if (!NT_SUCCESS(Status))
     {
-      DPRINT("Reading sector failed (Status 0x%08lx)\n",
+      DPRINT("Reading MBR failed (Status 0x%08lx)\n",
 	     Status);
+      ExFreePool(Sector);
       return Status;
     }
 
+  *Buffer = (PVOID)Sector;
   return Status;
 }
 
 
 static NTSTATUS
-xHalpWriteSector (IN PDEVICE_OBJECT DeviceObject,
-		  IN ULONG SectorSize,
-		  IN PLARGE_INTEGER SectorOffset,
-		  IN PVOID Sector)
+xHalpWriteSector(IN PDEVICE_OBJECT DeviceObject,
+		 IN ULONG SectorSize,
+		 IN PLARGE_INTEGER SectorOffset,
+		 OUT PVOID Sector)
 {
-  IO_STATUS_BLOCK StatusBlock;
   KEVENT Event;
+  IO_STATUS_BLOCK StatusBlock;
   PIRP Irp;
   NTSTATUS Status;
 
-  DPRINT("xHalpWriteSector() called\n");
+  DPRINT("xHalWriteMBR()\n");
+
+  if (SectorSize < 512)
+    SectorSize = 512;
+  if (SectorSize > 4096)
+    SectorSize = 4096;
 
   KeInitializeEvent(&Event,
 		    NotificationEvent,
 		    FALSE);
 
-  /* Write the sector */
+  /* Write MBR (Master Boot Record) */
   Irp = IoBuildSynchronousFsdRequest(IRP_MJ_WRITE,
 				     DeviceObject,
 				     Sector,
@@ -263,8 +283,9 @@ xHalpWriteSector (IN PDEVICE_OBJECT DeviceObject,
 
   if (!NT_SUCCESS(Status))
     {
-      DPRINT("Writing sector failed (Status 0x%08lx)\n",
+      DPRINT("Writing MBR failed (Status 0x%08lx)\n",
 	     Status);
+      return Status;
     }
 
   return Status;
@@ -279,38 +300,21 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
 {
   LARGE_INTEGER SectorOffset;
   PPARTITION_SECTOR Sector;
+  PULONG Shift;
   NTSTATUS Status;
 
   DPRINT("xHalExamineMBR()\n");
 
   *Buffer = NULL;
 
-  if (SectorSize < 512)
-    SectorSize = 512;
-  if (SectorSize > 4096)
-    SectorSize = 4096;
-
-  Sector = (PPARTITION_SECTOR) ExAllocatePool (PagedPool,
-					       SectorSize);
-  if (Sector == NULL)
-    {
-      DPRINT ("Partition sector allocation failed\n");
-      return;
-    }
-
-#if defined(__GNUC__)
-  SectorOffset.QuadPart = 0LL;
-#else
-  SectorOffset.QuadPart = 0;
-#endif
-  Status = xHalpReadSector (DeviceObject,
-			    SectorSize,
-			    &SectorOffset,
-			    (PVOID)Sector);
+  SectorOffset.QuadPart = 0ULL;
+  Status = xHalpReadSector(DeviceObject,
+			   SectorSize,
+			   &SectorOffset,
+			   (PVOID *)&Sector);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("xHalpReadSector() failed (Status %lx)\n", Status);
-      ExFreePool(Sector);
       return;
     }
 
@@ -332,7 +336,8 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
     {
       /* Found 'Ontrack Disk Manager'. Shift all sectors by 63 */
       DPRINT("Found 'Ontrack Disk Manager'!\n");
-      *((PULONG)Sector) = 63;
+      Shift = (PULONG)Sector;
+      *Shift = 63;
     }
 
   *Buffer = (PVOID)Sector;
@@ -353,7 +358,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
   if ((DriveNumber != AUTO_DRIVE) && (DriveNumber < 24))
     {
       /* Force assignment */
-      if ((ObSystemDeviceMap->DriveMap & (1 << DriveNumber)) != 0)
+      if ((SharedUserData->DosDeviceMap & (1 << DriveNumber)) != 0)
 	{
 	  DbgPrint("Drive letter already used!\n");
 	  return;
@@ -366,7 +371,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
       for (i = 2; i < 24; i++)
 	{
-	  if ((ObSystemDeviceMap->DriveMap & (1 << i)) == 0)
+	  if ((SharedUserData->DosDeviceMap & (1 << i)) == 0)
 	    {
 	      DriveNumber = i;
 	      break;
@@ -382,9 +387,9 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
 
   DPRINT("DriveNumber %d\n", DriveNumber);
 
-  /* Update the System Device Map */
-  ObSystemDeviceMap->DriveMap |= (1 << DriveNumber);
-  ObSystemDeviceMap->DriveType[DriveNumber] = DriveType;
+  /* Update the shared user page */
+  SharedUserData->DosDeviceMap |= (1 << DriveNumber);
+  SharedUserData->DosDeviceDriveType[DriveNumber] = DriveType;
 
   /* Build drive name */
   swprintf(DriveNameBuffer,
@@ -529,26 +534,23 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning bootable primary partition on first harddisk:\n");
   if (ConfigInfo->DiskCount > 0)
     {
-      if (LayoutArray[0])
-        {
-          /* Search for bootable partition */
-          for (j = 0; j < LayoutArray[0]->PartitionCount; j++)
+      /* Search for bootable partition */
+      for (j = 0; j < LayoutArray[0]->PartitionCount; j++)
+	{
+	  if ((LayoutArray[0]->PartitionEntry[j].BootIndicator == TRUE) &&
+	      IsRecognizedPartition(LayoutArray[0]->PartitionEntry[j].PartitionType))
 	    {
-	      if ((LayoutArray[0]->PartitionEntry[j].BootIndicator == TRUE) &&
-	          IsRecognizedPartition(LayoutArray[0]->PartitionEntry[j].PartitionType))
-	        {
-	          swprintf(Buffer2,
-		           L"\\Device\\Harddisk0\\Partition%d",
-		           LayoutArray[0]->PartitionEntry[j].PartitionNumber);
-	          RtlInitUnicodeString(&UnicodeString2,
-				       Buffer2);
+	      swprintf(Buffer2,
+		       L"\\Device\\Harddisk0\\Partition%d",
+		       LayoutArray[0]->PartitionEntry[j].PartitionNumber);
+	      RtlInitUnicodeString(&UnicodeString2,
+				   Buffer2);
 
-	          /* Assign drive */
-	          DPRINT("  %wZ\n", &UnicodeString2);
-	          HalpAssignDrive(&UnicodeString2,
-			          AUTO_DRIVE,
-			          DOSDEVICE_DRIVE_FIXED);
-		}
+	      /* Assign drive */
+	      DPRINT("  %wZ\n", &UnicodeString2);
+	      HalpAssignDrive(&UnicodeString2,
+			      AUTO_DRIVE,
+			      DOSDEVICE_DRIVE_FIXED);
 	    }
 	}
     }
@@ -557,30 +559,27 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning remaining primary partitions:\n");
   for (i = 0; i < ConfigInfo->DiskCount; i++)
     {
-      if (LayoutArray[i])
-        {
-          /* Search for primary partitions */
-          for (j = 0; (j < PARTITION_TBL_SIZE) && (j < LayoutArray[i]->PartitionCount); j++)
+      /* Search for primary partitions */
+      for (j = 0; (j < PARTITION_TBL_SIZE) && (j < LayoutArray[i]->PartitionCount); j++)
+	{
+	  if ((i == 0) && (LayoutArray[i]->PartitionEntry[j].BootIndicator == TRUE))
+	    continue;
+
+	  if (IsRecognizedPartition(LayoutArray[i]->PartitionEntry[j].PartitionType))
 	    {
-	      if ((i == 0) && (LayoutArray[i]->PartitionEntry[j].BootIndicator == TRUE))
-	        continue;
+	      swprintf(Buffer2,
+		       L"\\Device\\Harddisk%d\\Partition%d",
+		       i,
+		       LayoutArray[i]->PartitionEntry[j].PartitionNumber);
+	      RtlInitUnicodeString(&UnicodeString2,
+				   Buffer2);
 
-	      if (IsRecognizedPartition(LayoutArray[i]->PartitionEntry[j].PartitionType))
-	        {
-	          swprintf(Buffer2,
-		           L"\\Device\\Harddisk%d\\Partition%d",
-		           i,
-		           LayoutArray[i]->PartitionEntry[j].PartitionNumber);
-	          RtlInitUnicodeString(&UnicodeString2,
-				       Buffer2);
-
-	          /* Assign drive */
-	          DPRINT("  %wZ\n",
-		         &UnicodeString2);
-	                 HalpAssignDrive(&UnicodeString2,
-			 AUTO_DRIVE,
-			 DOSDEVICE_DRIVE_FIXED);
-		}
+	      /* Assign drive */
+	      DPRINT("  %wZ\n",
+		     &UnicodeString2);
+	      HalpAssignDrive(&UnicodeString2,
+			      AUTO_DRIVE,
+			      DOSDEVICE_DRIVE_FIXED);
 	    }
 	}
     }
@@ -619,25 +618,22 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
   DPRINT("Assigning removable disk drives:\n");
   for (i = 0; i < ConfigInfo->DiskCount; i++)
     {
-      if (LayoutArray[i])
-        {
-          /* Search for virtual partitions */
-          if (LayoutArray[i]->PartitionCount == 1 &&
-	      LayoutArray[i]->PartitionEntry[0].PartitionType == 0)
-	    {
-	      swprintf(Buffer2,
-		       L"\\Device\\Harddisk%d\\Partition1",
-		       i);
-	      RtlInitUnicodeString(&UnicodeString2,
-			           Buffer2);
+      /* Search for virtual partitions */
+      if (LayoutArray[i]->PartitionCount == 1 &&
+	  LayoutArray[i]->PartitionEntry[0].PartitionType == 0)
+	{
+	  swprintf(Buffer2,
+		   L"\\Device\\Harddisk%d\\Partition1",
+		   i);
+	  RtlInitUnicodeString(&UnicodeString2,
+			       Buffer2);
 
-	      /* Assign drive */
-	      DPRINT("  %wZ\n",
-		     &UnicodeString2);
-	      HalpAssignDrive(&UnicodeString2,
-			      AUTO_DRIVE,
-			      DOSDEVICE_DRIVE_REMOVABLE);
-	    }
+	  /* Assign drive */
+	  DPRINT("  %wZ\n",
+		 &UnicodeString2);
+	  HalpAssignDrive(&UnicodeString2,
+			  AUTO_DRIVE,
+			  DOSDEVICE_DRIVE_REMOVABLE);
 	}
     }
 
@@ -668,8 +664,8 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     }
 
   /* Assign cdrom drives */
-  DPRINT("CD-Rom drives: %d\n", ConfigInfo->CdRomCount);
-  for (i = 0; i < ConfigInfo->CdRomCount; i++)
+  DPRINT("CD-Rom drives: %d\n", ConfigInfo->CDRomCount);
+  for (i = 0; i < ConfigInfo->CDRomCount; i++)
     {
       swprintf(Buffer1,
 	       L"\\Device\\CdRom%d",
@@ -684,7 +680,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
 		      DOSDEVICE_DRIVE_CDROM);
     }
 
-  /* Anything else to do? */
+  /* Anything else ?? */
 
   ExFreePool(Buffer2);
   ExFreePool(Buffer1);
@@ -697,14 +693,13 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 			 BOOLEAN ReturnRecognizedPartitions,
 			 PDRIVE_LAYOUT_INFORMATION *PartitionBuffer)
 {
-  LARGE_INTEGER RealPartitionOffset;
-  ULONGLONG PartitionOffset;
-#if defined(__GNUC__)
-  ULONGLONG nextPartitionOffset = 0LL;
-#else
-  ULONGLONG nextPartitionOffset = 0;
-#endif
-  ULONGLONG containerOffset;
+  KEVENT Event;
+  IO_STATUS_BLOCK StatusBlock;
+  ULARGE_INTEGER PartitionOffset;
+  ULARGE_INTEGER RealPartitionOffset;
+  ULARGE_INTEGER nextPartitionOffset;
+  ULARGE_INTEGER containerOffset;
+  PIRP Irp;
   NTSTATUS Status;
   PPARTITION_SECTOR PartitionSector;
   PDRIVE_LAYOUT_INFORMATION LayoutBuffer;
@@ -722,12 +717,6 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 	 PartitionBuffer);
 
   *PartitionBuffer = NULL;
-
-  /* Check sector size */
-  if (SectorSize < 512)
-    SectorSize = 512;
-  if (SectorSize > 4096)
-    SectorSize = 4096;
 
   /* Check for 'Ontrack Disk Manager' */
   xHalExamineMBR(DeviceObject,
@@ -771,62 +760,64 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
   RtlZeroMemory(LayoutBuffer,
 		0x1000);
 
-#if defined(__GNUC__)
-  PartitionOffset = 0ULL;
-  containerOffset = 0ULL;
-#else
-  PartitionOffset = 0;
-  containerOffset = 0;
-#endif
+  PartitionOffset.QuadPart = (ULONGLONG)0;
+  containerOffset.QuadPart = (ULONGLONG)0;
 
   do
     {
-      DPRINT("PartitionOffset: %I64u\n", PartitionOffset / SectorSize);
+      DPRINT("PartitionOffset: %I64u\n", PartitionOffset.QuadPart / SectorSize);
 
-      /* Handle disk managers */
       if (DiskManager == OntrackDiskManager)
 	{
-	  /* Shift offset by 63 sectors */
-	  RealPartitionOffset.QuadPart = PartitionOffset + (ULONGLONG)(63 * SectorSize);
-	}
-#if defined(__GNUC__)
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0ULL)
-#else
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0)
-#endif
-	{
-	  /* Use sector 1 instead of sector 0 */
-	  RealPartitionOffset.QuadPart = (ULONGLONG)SectorSize;
+	  RealPartitionOffset.QuadPart = PartitionOffset.QuadPart + (ULONGLONG)(63 * SectorSize);
 	}
       else
 	{
-	  RealPartitionOffset.QuadPart = PartitionOffset;
+	  RealPartitionOffset.QuadPart = PartitionOffset.QuadPart;
 	}
 
-      DPRINT ("RealPartitionOffset: %I64u\n",
-	      RealPartitionOffset.QuadPart / SectorSize);
+      DPRINT("RealPartitionOffset: %I64u\n", RealPartitionOffset.QuadPart / SectorSize);
 
-      Status = xHalpReadSector (DeviceObject,
-				SectorSize,
-				&RealPartitionOffset,
-				PartitionSector);
+      KeInitializeEvent(&Event,
+			NotificationEvent,
+			FALSE);
+
+      Irp = IoBuildSynchronousFsdRequest(IRP_MJ_READ,
+					 DeviceObject,
+					 PartitionSector, //SectorBuffer,
+					 SectorSize,
+					 (PLARGE_INTEGER)&RealPartitionOffset,
+					 &Event,
+					 &StatusBlock);
+      Status = IoCallDriver(DeviceObject,
+			    Irp);
+      if (Status == STATUS_PENDING)
+	{
+	  KeWaitForSingleObject(&Event,
+				Executive,
+				KernelMode,
+				FALSE,
+				NULL);
+	  Status = StatusBlock.Status;
+	}
+
       if (!NT_SUCCESS(Status))
 	{
-	  DPRINT ("Failed to read partition table sector (Status = 0x%08lx)\n",
-		  Status);
-	  ExFreePool (PartitionSector);
-	  ExFreePool (LayoutBuffer);
-	  return Status;
+	  DPRINT("Failed to read partition table sector (Status = 0x%08lx)\n",
+		 Status);
+	  ExFreePool(PartitionSector);
+	  ExFreePool(LayoutBuffer);
+	  return(Status);
 	}
 
-      /* Check the boot sector id */
+      /* check the boot sector id */
       DPRINT("Magic %x\n", PartitionSector->Magic);
       if (PartitionSector->Magic != PARTITION_MAGIC)
 	{
-	  DPRINT ("Invalid partition sector magic\n");
-	  ExFreePool (PartitionSector);
+	  DbgPrint("Invalid partition sector magic\n");
+	  ExFreePool(PartitionSector);
 	  *PartitionBuffer = LayoutBuffer;
-	  return STATUS_SUCCESS;
+	  return(STATUS_SUCCESS);
 	}
 
 #ifndef NDEBUG
@@ -849,11 +840,7 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 	}
 #endif
 
-#if defined(__GNUC__)
-      if (PartitionOffset == 0ULL)
-#else
-      if (PartitionOffset == 0)
-#endif
+      if (PartitionOffset.QuadPart == 0ULL)
 	{
 	  LayoutBuffer->Signature = PartitionSector->Signature;
 	  DPRINT("Disk signature: %lx\n", LayoutBuffer->Signature);
@@ -863,18 +850,6 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 
       for (i = 0; i < PARTITION_TBL_SIZE; i++)
 	{
-	  if (IsContainerPartition(PartitionSector->Partition[i].PartitionType))
-	    {
-	      ExtendedFound = TRUE;
-	      if ((ULONGLONG) containerOffset == (ULONGLONG) 0)
-		{
-		  containerOffset = PartitionOffset;
-		}
-	      nextPartitionOffset = (ULONGLONG) containerOffset +
-		(ULONGLONG) PartitionSector->Partition[i].StartingBlock *
-		(ULONGLONG) SectorSize;
-	    }
-
 	  if ((ReturnRecognizedPartitions == FALSE) ||
 	       ((ReturnRecognizedPartitions == TRUE) &&
 	        IsRecognizedPartition(PartitionSector->Partition[i].PartitionType)))
@@ -883,7 +858,6 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 	      DPRINT("Partition %u: Normal Partition\n", i);
 	      Count = LayoutBuffer->PartitionCount;
 	      DPRINT("Logical Partition %u\n", Count);
-
 	      if (PartitionSector->Partition[i].StartingBlock == 0)
 		{
 		  LayoutBuffer->PartitionEntry[Count].StartingOffset.QuadPart = 0;
@@ -891,20 +865,17 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 	      else if (IsContainerPartition(PartitionSector->Partition[i].PartitionType))
 		{
 		  LayoutBuffer->PartitionEntry[Count].StartingOffset.QuadPart =
-		    (ULONGLONG) containerOffset +
-		    (ULONGLONG) PartitionSector->Partition[i].StartingBlock *
-		    (ULONGLONG) SectorSize;
+		    (ULONGLONG)PartitionOffset.QuadPart;
 		}
 	      else
 		{
 		  LayoutBuffer->PartitionEntry[Count].StartingOffset.QuadPart =
-		    (ULONGLONG)PartitionOffset +
+		    (ULONGLONG)PartitionOffset.QuadPart +
 		    ((ULONGLONG)PartitionSector->Partition[i].StartingBlock * (ULONGLONG)SectorSize);
 		}
 	      LayoutBuffer->PartitionEntry[Count].PartitionLength.QuadPart =
 		(ULONGLONG)PartitionSector->Partition[i].SectorCount * (ULONGLONG)SectorSize;
-	      LayoutBuffer->PartitionEntry[Count].HiddenSectors =
-		PartitionSector->Partition[i].StartingBlock;
+	      LayoutBuffer->PartitionEntry[Count].HiddenSectors = 0;
 
 	      if (IsRecognizedPartition(PartitionSector->Partition[i].PartitionType))
 		{
@@ -924,19 +895,29 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 		IsRecognizedPartition (PartitionSector->Partition[i].PartitionType);
 	      LayoutBuffer->PartitionEntry[Count].RewritePartition = FALSE;
 
-	      DPRINT(" %ld: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x rec: %d\n",
+	      DPRINT(" %ld: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x\n",
 		     Count,
 		     LayoutBuffer->PartitionEntry[Count].PartitionNumber,
 		     LayoutBuffer->PartitionEntry[Count].BootIndicator,
 		     LayoutBuffer->PartitionEntry[Count].PartitionType,
 		     LayoutBuffer->PartitionEntry[Count].StartingOffset.QuadPart,
-		     LayoutBuffer->PartitionEntry[Count].PartitionLength.QuadPart,
-		     LayoutBuffer->PartitionEntry[Count].RecognizedPartition);
+		     LayoutBuffer->PartitionEntry[Count].PartitionLength.QuadPart);
 
 	      LayoutBuffer->PartitionCount++;
 	    }
-	}
 
+	  if (IsContainerPartition(PartitionSector->Partition[i].PartitionType))
+	    {
+	      ExtendedFound = TRUE;
+	      if ((ULONGLONG) containerOffset.QuadPart == (ULONGLONG) 0)
+		{
+		  containerOffset = PartitionOffset;
+		}
+	      nextPartitionOffset.QuadPart = (ULONGLONG) containerOffset.QuadPart +
+		(ULONGLONG) PartitionSector->Partition[i].StartingBlock *
+		(ULONGLONG) SectorSize;
+	    }
+	}
       PartitionOffset = nextPartitionOffset;
     }
   while (ExtendedFound == TRUE);
@@ -954,120 +935,173 @@ xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
 			      IN ULONG PartitionNumber,
 			      IN ULONG PartitionType)
 {
+  return(STATUS_NOT_IMPLEMENTED);
+}
+
+
+NTSTATUS FASTCALL
+xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
+			  IN ULONG SectorSize,
+			  IN ULONG SectorsPerTrack,
+			  IN ULONG NumberOfHeads,
+			  IN PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
+{
   PPARTITION_SECTOR PartitionSector;
-  LARGE_INTEGER RealPartitionOffset;
-  ULONGLONG PartitionOffset;
-#if defined(__GNUC__)
-  ULONGLONG nextPartitionOffset = 0LL;
-#else
-  ULONGLONG nextPartitionOffset = 0;
-#endif
-  ULONGLONG containerOffset;
+  LARGE_INTEGER SectorOffset;
   NTSTATUS Status;
   ULONG i;
-  ULONG Number = 1;
-  BOOLEAN ExtendedFound = FALSE;
-  DISK_MANAGER DiskManager = NoDiskManager;
 
-  DPRINT ("xHalIoSetPartitionInformation(%p %lu %lu %lu)\n",
-	  DeviceObject,
-	  SectorSize,
-	  PartitionNumber,
-	  PartitionType);
+  ULONG StartBlock;
+  ULONG SectorCount;
+  ULONG StartCylinder;
+  ULONG StartSector;
+  ULONG StartHead;
+  ULONG EndCylinder;
+  ULONG EndSector;
+  ULONG EndHead;
+  ULONG lba;
+  ULONG x;
 
-  /* Check sector size */
-  if (SectorSize < 512)
-    SectorSize = 512;
-  if (SectorSize > 4096)
-    SectorSize = 4096;
+  DPRINT("xHalIoWritePartitionTable(%p %lu %lu %lu %p)\n",
+	 DeviceObject,
+	 SectorSize,
+	 SectorsPerTrack,
+   NumberOfHeads,
+	 PartitionBuffer);
+
+  assert(DeviceObject);
+  assert(PartitionBuffer);
 
   /* Check for 'Ontrack Disk Manager' */
-  xHalExamineMBR (DeviceObject,
-		  SectorSize,
-		  0x54,
-		  (PVOID*)(PVOID)&PartitionSector);
+  xHalExamineMBR(DeviceObject,
+		 SectorSize,
+		 0x54,
+		 (PVOID *) &PartitionSector);
   if (PartitionSector != NULL)
     {
-      DPRINT ("Found 'Ontrack Disk Manager'\n");
-      DiskManager = OntrackDiskManager;
-      ExFreePool (PartitionSector);
+      DPRINT1("Ontrack Disk Manager is not supported\n");
+      ExFreePool(PartitionSector);
+      return STATUS_UNSUCCESSFUL;
     }
 
   /* Check for 'EZ-Drive' */
-  xHalExamineMBR (DeviceObject,
-		  SectorSize,
-		  0x55,
-		  (PVOID*)(PVOID)&PartitionSector);
+  xHalExamineMBR(DeviceObject,
+		 SectorSize,
+		 0x55,
+		 (PVOID *) &PartitionSector);
   if (PartitionSector != NULL)
     {
-      DPRINT ("Found 'EZ-Drive'\n");
-      DiskManager = EZ_Drive;
-      ExFreePool (PartitionSector);
+      DPRINT1("EZ-Drive is not supported\n");
+      ExFreePool(PartitionSector);
+      return STATUS_UNSUCCESSFUL;
     }
 
-  /* Allocate partition sector */
-  PartitionSector = (PPARTITION_SECTOR) ExAllocatePool (PagedPool,
-							SectorSize);
-  if (PartitionSector == NULL)
+
+  for (i = 0; i < PartitionBuffer->PartitionCount; i++)
     {
-      return STATUS_INSUFFICIENT_RESOURCES;
+      if (IsContainerPartition(PartitionBuffer->PartitionEntry[i].PartitionType))
+        {
+          /* FIXME: Implement */
+          DPRINT1("Writing MBRs with extended partitions is not implemented\n");
+          return STATUS_UNSUCCESSFUL;
+        }
     }
 
-#if defined(__GNUC__)
-  PartitionOffset = 0ULL;
-  containerOffset = 0ULL;
-#else
-  PartitionOffset = 0;
-  containerOffset = 0;
-#endif
 
-  do
+  SectorOffset.QuadPart = 0ULL;
+  Status = xHalpReadSector(DeviceObject,
+			   SectorSize,
+			   &SectorOffset,
+			   (PVOID *) &PartitionSector);
+    if (!NT_SUCCESS(Status))
     {
-      DPRINT ("PartitionOffset: %I64u\n", PartitionOffset / SectorSize);
+      DPRINT1("xHalpReadSector() failed (Status %lx)\n", Status);
+      return Status;
+    }
 
-      /* Handle disk managers */
-      if (DiskManager == OntrackDiskManager)
-	{
-	  /* Shift offset by 63 sectors */
-	  RealPartitionOffset.QuadPart = PartitionOffset + (ULONGLONG)(63 * SectorSize);
-	}
-#if defined(__GNUC__)
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0ULL)
-#else
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0)
-#endif
-	{
-	  /* Use sector 1 instead of sector 0 */
-	  RealPartitionOffset.QuadPart = (ULONGLONG)SectorSize;
-	}
+  for (i = 0; i < PartitionBuffer->PartitionCount; i++)
+    {
+      if (PartitionBuffer->PartitionEntry[i].PartitionType != PARTITION_ENTRY_UNUSED)
+        {
+          /*
+           * CHS formulas:
+           * x = LBA DIV SectorsPerTrack
+           * cylinder = x DIV NumberOfHeads
+           * head = x MOD NumberOfHeads
+           * sector = (LBA MOD SectorsPerTrack) + 1
+           */
+
+          if (PartitionBuffer->PartitionEntry[i].BootIndicator)
+            {
+              PartitionSector->Partition[i].BootFlags |= 0x80;
+            }
+          else
+            {
+              PartitionSector->Partition[i].BootFlags &= ~0x80;
+            }
+    
+          PartitionSector->Partition[i].PartitionType = PartitionBuffer->PartitionEntry[i].PartitionType;
+
+          /* Compute starting CHS values */
+          lba = (PartitionBuffer->PartitionEntry[i].StartingOffset.QuadPart / SectorSize);
+          StartBlock = lba; /* Save this for later */
+          x = lba / SectorsPerTrack;
+          StartCylinder = x / NumberOfHeads;
+          StartHead = x % NumberOfHeads;
+          StartSector = (lba % SectorsPerTrack) + 1;
+          DPRINT("StartingOffset (LBA:%d  C:%d  H:%d  S:%d)\n", lba, StartCylinder, StartHead, StartSector);
+
+          /* Compute ending CHS values */
+          lba = (PartitionBuffer->PartitionEntry[i].StartingOffset.QuadPart
+            + (PartitionBuffer->PartitionEntry[i].PartitionLength.QuadPart - 1)) / SectorSize;
+          SectorCount = lba - StartBlock; /* Save this for later */
+          x = lba / SectorsPerTrack;
+          EndCylinder = x / NumberOfHeads;
+          EndHead = x % NumberOfHeads;
+          EndSector = (lba % SectorsPerTrack) + 1;
+          DPRINT("EndingOffset (LBA:%d  C:%d  H:%d  S:%d)\n", lba, EndCylinder, EndHead, EndSector);
+
+          /* Set startsector and sectorcount */
+          PartitionSector->Partition[i].StartingBlock = StartBlock;
+          PartitionSector->Partition[i].SectorCount = SectorCount;
+
+          /* Set starting CHS values */
+          PartitionSector->Partition[i].StartingCylinder = StartCylinder & 0xff;
+          PartitionSector->Partition[i].StartingHead = StartHead;
+          PartitionSector->Partition[i].StartingSector = ((StartCylinder & 0x0300) >> 2) + (StartSector & 0x3f);
+
+          /* Set ending CHS values */
+          PartitionSector->Partition[i].EndingCylinder = EndCylinder & 0xff;
+          PartitionSector->Partition[i].EndingHead = EndHead;
+          PartitionSector->Partition[i].EndingSector = ((EndCylinder & 0x0300) >> 2) + (EndSector & 0x3f);
+        }
       else
-	{
-	  RealPartitionOffset.QuadPart = PartitionOffset;
-	}
+        {
+          PartitionSector->Partition[i].BootFlags = 0;
+          PartitionSector->Partition[i].PartitionType = PARTITION_ENTRY_UNUSED;
+          PartitionSector->Partition[i].StartingHead = 0;
+          PartitionSector->Partition[i].StartingSector = 0;
+          PartitionSector->Partition[i].StartingCylinder = 0;
+          PartitionSector->Partition[i].EndingHead = 0;
+          PartitionSector->Partition[i].EndingSector = 0;
+          PartitionSector->Partition[i].EndingCylinder = 0;
+          PartitionSector->Partition[i].StartingBlock = 0;
+          PartitionSector->Partition[i].SectorCount = 0;
+        }
+    }
 
-      DPRINT ("RealPartitionOffset: %I64u\n",
-	      RealPartitionOffset.QuadPart / SectorSize);
 
-      Status = xHalpReadSector (DeviceObject,
-				SectorSize,
-				&RealPartitionOffset,
-				PartitionSector);
-      if (!NT_SUCCESS (Status))
-	{
-	  DPRINT ("Failed to read partition table sector (Status = 0x%08lx)\n",
-		  Status);
-	  ExFreePool (PartitionSector);
-	  return Status;
-	}
-
-      /* Check the boot sector id */
-      DPRINT("Magic %x\n", PartitionSector->Magic);
-      if (PartitionSector->Magic != PARTITION_MAGIC)
-	{
-	  DPRINT ("Invalid partition sector magic\n");
-	  ExFreePool (PartitionSector);
-	  return STATUS_UNSUCCESSFUL;
-	}
+  SectorOffset.QuadPart = 0ULL;
+  Status = xHalpWriteSector(DeviceObject,
+			    SectorSize,
+			    &SectorOffset,
+			    (PVOID) PartitionSector);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("xHalpWriteSector() failed (Status %lx)\n", Status);
+      ExFreePool(PartitionSector);
+      return Status;
+    }
 
 #ifndef NDEBUG
       for (i = 0; i < PARTITION_TBL_SIZE; i++)
@@ -1089,346 +1123,9 @@ xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
 	}
 #endif
 
-      ExtendedFound = FALSE;
-      for (i = 0; i < PARTITION_TBL_SIZE; i++)
-	{
-	  if (IsContainerPartition (PartitionSector->Partition[i].PartitionType))
-	    {
-	      ExtendedFound = TRUE;
-#if defined(__GNUC__)
-	      if (containerOffset == 0ULL)
-#else
-	      if (containerOffset == 0)
-#endif
-		{
-		  containerOffset = PartitionOffset;
-		}
-	      nextPartitionOffset = containerOffset +
-		(ULONGLONG) PartitionSector->Partition[i].StartingBlock *
-		(ULONGLONG) SectorSize;
-	    }
-
-	  /* Handle recognized partition */
-	  if (IsRecognizedPartition (PartitionSector->Partition[i].PartitionType))
-	    {
-	      if (Number == PartitionNumber)
-		{
-		  /* Set partition type */
-		  PartitionSector->Partition[i].PartitionType = PartitionType;
-
-		  /* Write partition sector */
-		  Status = xHalpWriteSector (DeviceObject,
-					     SectorSize,
-					     &RealPartitionOffset,
-					     PartitionSector);
-		  if (!NT_SUCCESS(Status))
-		    {
-		      DPRINT1("xHalpWriteSector() failed (Status %lx)\n", Status);
-		    }
-
-		  ExFreePool (PartitionSector);
-		  return Status;
-		}
-	      Number++;
-	    }
-	}
-
-      PartitionOffset = nextPartitionOffset;
-    }
-  while (ExtendedFound == TRUE);
-
   ExFreePool(PartitionSector);
 
-  return STATUS_UNSUCCESSFUL;
-}
-
-
-NTSTATUS FASTCALL
-xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
-			  IN ULONG SectorSize,
-			  IN ULONG SectorsPerTrack,
-			  IN ULONG NumberOfHeads,
-			  IN PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
-{
-  PPARTITION_SECTOR PartitionSector;
-  LARGE_INTEGER RealPartitionOffset;
-  ULONGLONG PartitionOffset;
-#if defined(__GNUC__)
-  ULONGLONG NextPartitionOffset = 0LL;
-#else
-  ULONGLONG NextPartitionOffset = 0;
-#endif
-  ULONGLONG ContainerOffset;
-  BOOLEAN ContainerEntry;
-  DISK_MANAGER DiskManager;
-  ULONG i;
-  ULONG j;
-  ULONG StartBlock;
-  ULONG SectorCount;
-  ULONG StartCylinder;
-  ULONG StartSector;
-  ULONG StartHead;
-  ULONG EndCylinder;
-  ULONG EndSector;
-  ULONG EndHead;
-  ULONG lba;
-  ULONG x;
-  NTSTATUS Status;
-
-  DPRINT ("xHalIoWritePartitionTable(%p %lu %lu %lu %p)\n",
-	  DeviceObject,
-	  SectorSize,
-	  SectorsPerTrack,
-	  NumberOfHeads,
-	  PartitionBuffer);
-
-  ASSERT(DeviceObject);
-  ASSERT(PartitionBuffer);
-
-  DiskManager = NoDiskManager;
-
-  /* Check sector size */
-  if (SectorSize < 512)
-    SectorSize = 512;
-  if (SectorSize > 4096)
-    SectorSize = 4096;
-
-  /* Check for 'Ontrack Disk Manager' */
-  xHalExamineMBR (DeviceObject,
-		  SectorSize,
-		  0x54,
-		  (PVOID*)(PVOID)&PartitionSector);
-  if (PartitionSector != NULL)
-    {
-      DPRINT ("Found 'Ontrack Disk Manager'\n");
-      DiskManager = OntrackDiskManager;
-      ExFreePool (PartitionSector);
-    }
-
-  /* Check for 'EZ-Drive' */
-  xHalExamineMBR (DeviceObject,
-		  SectorSize,
-		  0x55,
-		  (PVOID*)(PVOID)&PartitionSector);
-  if (PartitionSector != NULL)
-    {
-      DPRINT ("Found 'EZ-Drive'\n");
-      DiskManager = EZ_Drive;
-      ExFreePool (PartitionSector);
-    }
-
-  /* Allocate partition sector */
-  PartitionSector = (PPARTITION_SECTOR)ExAllocatePool(PagedPool,
-						      SectorSize);
-  if (PartitionSector == NULL)
-    {
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-  Status = STATUS_SUCCESS;
-#if defined(__GNUC__)
-  PartitionOffset = 0ULL;
-  ContainerOffset = 0ULL;
-#else
-  PartitionOffset = 0;
-  ContainerOffset = 0;
-#endif
-  for (i = 0; i < PartitionBuffer->PartitionCount; i += 4)
-    {
-      DPRINT ("PartitionOffset: %I64u\n", PartitionOffset);
-      DPRINT ("ContainerOffset: %I64u\n", ContainerOffset);
-
-      /* Handle disk managers */
-      if (DiskManager == OntrackDiskManager)
-	{
-	  /* Shift offset by 63 sectors */
-	  RealPartitionOffset.QuadPart = PartitionOffset + (ULONGLONG)(63 * SectorSize);
-	}
-#if defined(__GNUC__)
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0ULL)
-#else
-      else if (DiskManager == EZ_Drive && PartitionOffset == 0)
-#endif
-	{
-	  /* Use sector 1 instead of sector 0 */
-	  RealPartitionOffset.QuadPart = (ULONGLONG)SectorSize;
-	}
-      else
-	{
-	  RealPartitionOffset.QuadPart = PartitionOffset;
-	}
-
-      /* Write modified partition tables */
-      if (PartitionBuffer->PartitionEntry[i].RewritePartition == TRUE ||
-	  PartitionBuffer->PartitionEntry[i + 1].RewritePartition == TRUE ||
-	  PartitionBuffer->PartitionEntry[i + 2].RewritePartition == TRUE ||
-	  PartitionBuffer->PartitionEntry[i + 3].RewritePartition == TRUE)
-	{
-	  /* Read partition sector */
-	  Status = xHalpReadSector (DeviceObject,
-				    SectorSize,
-				    &RealPartitionOffset,
-				    PartitionSector);
-	  if (!NT_SUCCESS(Status))
-	    {
-	      DPRINT1 ("xHalpReadSector() failed (Status %lx)\n", Status);
-	      break;
-	    }
-
-	  /* Initialize a new partition sector */
-	  if (PartitionSector->Magic != PARTITION_MAGIC)
-	    {
-	      /* Create empty partition sector */
-	      RtlZeroMemory (PartitionSector,
-			     SectorSize);
-	      PartitionSector->Magic = PARTITION_MAGIC;
-	    }
-
-	  /* Update partition sector entries */
-	  for (j = 0; j < 4; j++)
-	    {
-	      if (PartitionBuffer->PartitionEntry[i + j].RewritePartition == TRUE)
-		{
-		  /* Set partition boot flag */
-		  if (PartitionBuffer->PartitionEntry[i + j].BootIndicator)
-		    {
-		      PartitionSector->Partition[j].BootFlags |= 0x80;
-		    }
-		  else
-		    {
-		      PartitionSector->Partition[j].BootFlags &= ~0x80;
-		    }
-
-		  /* Set partition type */
-		  PartitionSector->Partition[j].PartitionType =
-		    PartitionBuffer->PartitionEntry[i + j].PartitionType;
-
-		  /* Set partition data */
-#if defined(__GNUC__)
-		  if (PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart == 0ULL &&
-		      PartitionBuffer->PartitionEntry[i + j].PartitionLength.QuadPart == 0ULL)
-#else
-		  if (PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart == 0 &&
-		      PartitionBuffer->PartitionEntry[i + j].PartitionLength.QuadPart == 0)
-#endif
-		    {
-		      PartitionSector->Partition[j].StartingBlock = 0;
-		      PartitionSector->Partition[j].SectorCount = 0;
-		      PartitionSector->Partition[j].StartingCylinder = 0;
-		      PartitionSector->Partition[j].StartingHead = 0;
-		      PartitionSector->Partition[j].StartingSector = 0;
-		      PartitionSector->Partition[j].EndingCylinder = 0;
-		      PartitionSector->Partition[j].EndingHead = 0;
-		      PartitionSector->Partition[j].EndingSector = 0;
-		    }
-		  else
-		    {
-		      /*
-		       * CHS formulas:
-		       * x = LBA DIV SectorsPerTrack
-		       * cylinder = (x DIV NumberOfHeads) % 1024
-		       * head = x MOD NumberOfHeads
-		       * sector = (LBA MOD SectorsPerTrack) + 1
-		       */
-
-		      /* Compute starting CHS values */
-		      lba = (ULONG)((PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart) / SectorSize);
-		      x = lba / SectorsPerTrack;
-		      StartCylinder = (x / NumberOfHeads) %1024;
-		      StartHead = x % NumberOfHeads;
-		      StartSector = (lba % SectorsPerTrack) + 1;
-		      DPRINT ("StartingOffset (LBA:%d  C:%d  H:%d  S:%d)\n",
-			      lba, StartCylinder, StartHead, StartSector);
-
-		      /* Compute ending CHS values */
-		      lba = (ULONG)((PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart +
-			     (PartitionBuffer->PartitionEntry[i + j].PartitionLength.QuadPart - 1)) / SectorSize);
-		      x = lba / SectorsPerTrack;
-		      EndCylinder = (x / NumberOfHeads) % 1024;
-		      EndHead = x % NumberOfHeads;
-		      EndSector = (lba % SectorsPerTrack) + 1;
-		      DPRINT ("EndingOffset (LBA:%d  C:%d  H:%d  S:%d)\n",
-			      lba, EndCylinder, EndHead, EndSector);
-
-		      /* Set starting CHS values */
-		      PartitionSector->Partition[j].StartingCylinder = StartCylinder & 0xff;
-		      PartitionSector->Partition[j].StartingHead = StartHead;
-		      PartitionSector->Partition[j].StartingSector =
-			((StartCylinder & 0x0300) >> 2) + (StartSector & 0x3f);
-
-		      /* Set ending CHS values */
-		      PartitionSector->Partition[j].EndingCylinder = EndCylinder & 0xff;
-		      PartitionSector->Partition[j].EndingHead = EndHead;
-		      PartitionSector->Partition[j].EndingSector = 
-			((EndCylinder & 0x0300) >> 2) + (EndSector & 0x3f);
-
-		      /* Calculate start sector and sector count */
-		      if (IsContainerPartition (PartitionBuffer->PartitionEntry[i + j].PartitionType))
-		        {
-		          StartBlock =
-			    (PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart - ContainerOffset) / SectorSize;
-			}
-		      else
-		        {
-		          StartBlock =
-			    (PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart - NextPartitionOffset) / SectorSize;
-		        }
-		      SectorCount =
-			PartitionBuffer->PartitionEntry[i + j].PartitionLength.QuadPart / SectorSize;
-		      DPRINT ("LBA (StartBlock:%lu  SectorCount:%lu)\n",
-			      StartBlock, SectorCount);
-
-		      /* Set start sector and sector count */
-		      PartitionSector->Partition[j].StartingBlock = StartBlock;
-		      PartitionSector->Partition[j].SectorCount = SectorCount;
-		    }
-		}
-	    }
-
-	  /* Write partition sector */
-	  Status = xHalpWriteSector (DeviceObject,
-				     SectorSize,
-				     &RealPartitionOffset,
-				     PartitionSector);
-	  if (!NT_SUCCESS(Status))
-	    {
-	      DPRINT1("xHalpWriteSector() failed (Status %lx)\n", Status);
-	      break;
-	    }
-	}
-
-      ContainerEntry = FALSE;
-      for (j = 0; j < 4; j++)
-	{
-	  if (IsContainerPartition (PartitionBuffer->PartitionEntry[i + j].PartitionType))
-	    {
-	      ContainerEntry = TRUE;
-	      NextPartitionOffset = 
-		PartitionBuffer->PartitionEntry[i + j].StartingOffset.QuadPart;
-
-#if defined(__GNUC__)
-	      if (ContainerOffset == 0ULL)
-#else
-	      if (ContainerOffset == 0)
-#endif
-		{
-		  ContainerOffset = NextPartitionOffset;
-		}
-	    }
-	}
-
-      if (ContainerEntry == FALSE)
-	{
-	  DPRINT ("No container entry in partition sector!\n");
-	  break;
-	}
-
-      PartitionOffset = NextPartitionOffset;
-    }
-
-  ExFreePool (PartitionSector);
-
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 /* EOF */

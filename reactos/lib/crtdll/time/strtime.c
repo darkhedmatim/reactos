@@ -13,9 +13,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 char *_strtime(char* buf)
 {
 	time_t t;

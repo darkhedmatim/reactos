@@ -1,5 +1,7 @@
-#include "user32.h"
 #include <string.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <kernel32/error.h>
 
 /* FIXME: Currently IsBadWritePtr is implemented using VirtualQuery which
           does not seem to work properly for stack address space. */
@@ -33,10 +35,10 @@ BOOL STDCALL _InternalLoadString
   (actual resource ids) start from 1. See (1) and (2)
  */
  /* TODO: some sort of cache, here, would be great */
- hrsStringTable = FindResourceW
+ hrsStringTable = FindResource
  (
   (HMODULE)hInstance,
-  MAKEINTRESOURCEW((uID / 16) + 1), /* (2) */
+  MAKEINTRESOURCE((uID / 16) + 1), /* (2) */
   RT_STRING
  );
 
@@ -85,10 +87,6 @@ BOOL STDCALL _InternalLoadString
  return TRUE;
 }
 
-
-/*
- * @implemented
- */
 int STDCALL LoadStringA
 (
  HINSTANCE hInstance,
@@ -157,10 +155,6 @@ int STDCALL LoadStringA
  }
 }
 
-
-/*
- * @implemented
- */
 int STDCALL LoadStringW
 (
  HINSTANCE hInstance,

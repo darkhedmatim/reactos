@@ -1,4 +1,4 @@
-/* $Id: fls.c,v 1.4 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: fls.c,v 1.1 2003/05/29 00:36:41 hyperion Exp $
  *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS system libraries
@@ -13,11 +13,8 @@
 
 #include <k32.h>
 
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
-/*
- * @unimplemented
- */
 DWORD WINAPI FlsAlloc(PFLS_CALLBACK_FUNCTION lpCallback)
 {
  (void)lpCallback;
@@ -27,10 +24,6 @@ DWORD WINAPI FlsAlloc(PFLS_CALLBACK_FUNCTION lpCallback)
  return FLS_OUT_OF_INDEXES;
 }
 
-
-/*
- * @unimplemented
- */
 BOOL WINAPI FlsFree(DWORD dwFlsIndex)
 {
  (void)dwFlsIndex;
@@ -40,78 +33,22 @@ BOOL WINAPI FlsFree(DWORD dwFlsIndex)
  return FALSE;
 }
 
-
-/*
- * @implemented
- */
 PVOID WINAPI FlsGetValue(DWORD dwFlsIndex)
 {
- PVOID * ppFlsSlots;
- PVOID pRetVal;
- 
- if(dwFlsIndex >= 128) goto l_InvalidParam;
+ (void)dwFlsIndex;
 
- ppFlsSlots = NtCurrentTeb()->FlsSlots;
- 
- if(ppFlsSlots == NULL) goto l_InvalidParam;
-
- SetLastError(0);
- pRetVal = ppFlsSlots[dwFlsIndex + 2];
- 
- return pRetVal;
-
-l_InvalidParam:
- SetLastError(ERROR_INVALID_PARAMETER);
+ UNIMPLEMENTED;
+ SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
  return NULL;
 }
 
-
-/*
- * @implemented
- */
 BOOL WINAPI FlsSetValue(DWORD dwFlsIndex, PVOID lpFlsData)
 {
- PVOID * ppFlsSlots;
- TEB * pTeb = NtCurrentTeb();
+ (void)dwFlsIndex;
+ (void)lpFlsData;
 
- if(dwFlsIndex >= 128) goto l_InvalidParam;
-
- ppFlsSlots = pTeb->FlsSlots;
-
- if(ppFlsSlots == NULL)
- {
-  PEB * pPeb = pTeb->Peb;
-
-  ppFlsSlots = RtlAllocateHeap
-  (
-   pPeb->ProcessHeap,
-   HEAP_ZERO_MEMORY,
-   (128 + 2) * sizeof(PVOID)
-  );
-
-  if(ppFlsSlots == NULL) goto l_OutOfMemory;
-
-  pTeb->FlsSlots = ppFlsSlots;
-
-  RtlAcquirePebLock();
-
-  /* TODO: initialization */
-
-  RtlReleasePebLock();
- }
-
- ppFlsSlots[dwFlsIndex + 2] = lpFlsData;
- 
- return TRUE;
-
-l_OutOfMemory:
- SetLastError(ERROR_NOT_ENOUGH_MEMORY);
- goto l_Fail;
- 
-l_InvalidParam:
- SetLastError(ERROR_INVALID_PARAMETER);
-
-l_Fail:
+ UNIMPLEMENTED;
+ SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
  return FALSE;
 }
 

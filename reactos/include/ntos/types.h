@@ -19,18 +19,18 @@
 
 #include <basetsd.h>
 
-#ifndef STDCALL_FUNC
-#define STDCALL_FUNC(a)  (STDCALL a)
-#endif
+#ifdef __GNUC__
+#define STDCALL_FUNC STDCALL
+#else
+#define STDCALL_FUNC(a) (__stdcall a )
+#endif /*__GNUC__*/
 
 /* Fixed precision types */
 typedef signed char         INT8, *PINT8;
-typedef unsigned char       UINT8, *PUINT8;
-
-#ifndef __USE_W32API
 typedef signed short        INT16, *PINT16;
+
+typedef unsigned char       UINT8, *PUINT8;
 typedef unsigned short      UINT16, *PUINT16;
-#endif
 
 
 /* Check VOID before defining CHAR, SHORT */
@@ -44,14 +44,9 @@ typedef short SHORT;
 #ifndef __USE_W32API
 
 #ifdef i386
-#ifdef __GNUC__
 #define STDCALL     __attribute__ ((stdcall))
 #define CDECL       __attribute__ ((cdecl))
-#else
-#define STDCALL __stdcall
-#define CDECL __cdecl
-#endif
-#define CALLBACK    STDCALL
+#define CALLBACK    WINAPI
 #define PASCAL      WINAPI
 #else
 
@@ -90,13 +85,12 @@ typedef __WCHAR_TYPE__      wchar_t;
 #endif  /* wchar_t not already defined */
 
 
-/* #ifndef __cplusplus
-#ifndef _WCHAR_T_DEFINED
-#define _WCHAR_T_DEFINED
-typedef unsigned short wchar_t;
-#endif
-#endif
-*/
+//#ifndef __cplusplus
+//#ifndef _WCHAR_T_DEFINED
+//#define _WCHAR_T_DEFINED
+//typedef unsigned short wchar_t;
+//#endif
+//#endif
 
 typedef unsigned char UCHAR;
 typedef unsigned short USHORT;
@@ -116,7 +110,7 @@ typedef float *PFLOAT;
 typedef wchar_t *PWCH;
 typedef unsigned short *PWORD;
 
-#include <msvcrt/crttypes.h> /* for definition of LONGLONG, PLONGLONG etc */
+#include <msvcrt/crttypes.h> // for definition of LONGLONG, PLONGLONG etc
 
 typedef const void *LPCVOID;
 typedef BYTE *LPBYTE, *PBYTE;
@@ -138,8 +132,11 @@ typedef USHORT CSHORT;
 typedef const wchar_t *PCWSTR;
 typedef char* PCSZ;
 
-typedef DWORD STDCALL_FUNC (*PTHREAD_START_ROUTINE) (LPVOID);
-
+#ifdef __GNUC__
+typedef DWORD STDCALL (*PTHREAD_START_ROUTINE) (LPVOID);
+#else
+typedef DWORD (STDCALL *PTHREAD_START_ROUTINE) (LPVOID);
+#endif /*__GNUC__*/
 
 typedef union _LARGE_INTEGER
 {
@@ -175,12 +172,6 @@ typedef union _ULARGE_INTEGER
   ULONGLONG QuadPart;
 } ULARGE_INTEGER, *PULARGE_INTEGER;
 
-
-/* 
- * Moved here by AG
- * typedef ULARGE_INTEGER TIME, *PTIME;
- */
-
 typedef struct _FILETIME
 {
   DWORD dwLowDateTime;
@@ -198,9 +189,6 @@ typedef struct _SINGLE_LIST_ENTRY
   struct _SINGLE_LIST_ENTRY *Next;
 } SINGLE_LIST_ENTRY, *PSINGLE_LIST_ENTRY;
 
-#define SLIST_ENTRY SINGLE_LIST_ENTRY
-#define PSLIST_ENTRY PSINGLE_LIST_ENTRY
-
 typedef struct _UNICODE_STRING
 {
   USHORT Length;
@@ -209,8 +197,6 @@ typedef struct _UNICODE_STRING
 } UNICODE_STRING, *PUNICODE_STRING;
 
 typedef const UNICODE_STRING* PCUNICODE_STRING;
-
-#define UNICODE_NULL ((WCHAR)0)
 
 typedef struct _FLOATING_SAVE_AREA
 {
@@ -269,15 +255,12 @@ typedef unsigned short *PRTL_ATOM;
 
 #ifndef __USE_W32API
 
-#define CONTEXT_CONTROL            (CONTEXT_i386 | 1)
-#define CONTEXT_INTEGER            (CONTEXT_i386 | 2)
-#define CONTEXT_SEGMENTS           (CONTEXT_i386 | 4)
-#define CONTEXT_FLOATING_POINT     (CONTEXT_i386 | 8)
-#define CONTEXT_DEBUG_REGISTERS    (CONTEXT_i386 | 0x10)
-#define CONTEXT_EXTENDED_REGISTERS (CONTEXT_i386 | 0x20)
-#define CONTEXT_FULL               (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
-
-#define MAXIMUM_SUPPORTED_EXTENSION  512
+#define CONTEXT_CONTROL         (CONTEXT_i386 | 1)
+#define CONTEXT_INTEGER         (CONTEXT_i386 | 2)
+#define CONTEXT_SEGMENTS        (CONTEXT_i386 | 4)
+#define CONTEXT_FLOATING_POINT  (CONTEXT_i386 | 8)
+#define CONTEXT_DEBUG_REGISTERS (CONTEXT_i386 | 0x10)
+#define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
 
 #endif /* !__USE_W32API */
 
@@ -318,8 +301,6 @@ typedef struct _CONTEXT_X86
   DWORD   EFlags;
   DWORD   Esp;
   DWORD   SegSs;
-
-  BYTE    ExtendedRegisters[MAXIMUM_SUPPORTED_EXTENSION];
 } CONTEXT_X86, *PCONTEXT_X86, *LPCONTEXT_X86;
 
 typedef struct _CONTEXT_PPC
@@ -425,7 +406,7 @@ typedef struct value_ent
   DWORD  ve_type;
 } WVALENT, *PWVALENT;
 
-/* #include "except.h" */
+//#include "except.h"
 
 #ifndef __USE_W32API
 
@@ -460,6 +441,23 @@ typedef struct _SMALL_RECT
   SHORT Right;
   SHORT Bottom;
 } SMALL_RECT, *PSMALL_RECT;
+
+
+#ifdef __GNUC__
+typedef VOID STDCALL
+(*PTIMERAPCROUTINE)(
+	LPVOID lpArgToCompletionRoutine,
+	DWORD dwTimerLowValue,
+	DWORD dwTimerHighValue
+	);
+#else
+typedef VOID
+(STDCALL *PTIMERAPCROUTINE)(
+	LPVOID lpArgToCompletionRoutine,
+	DWORD dwTimerLowValue,
+	DWORD dwTimerHighValue
+	);
+#endif /*__GNUC__*/
 
 #include "except.h"
 

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: prop.c,v 1.11 2004/05/10 17:07:18 weiden Exp $
+/* $Id: prop.c,v 1.2 2003/05/18 17:16:17 ea Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -28,21 +28,26 @@
  */
 /* INCLUDES ******************************************************************/
 
-#include <w32k.h>
+#include <ddk/ntddk.h>
+#include <win32k/win32k.h>
+#include <include/object.h>
+#include <include/guicheck.h>
+#include <include/window.h>
+#include <include/class.h>
+#include <include/error.h>
+#include <include/winsta.h>
+#include <include/winpos.h>
+#include <include/callback.h>
+#include <include/msgqueue.h>
+#include <include/rect.h>
 
 //#define NDEBUG
 #include <debug.h>
 
-typedef struct _PROPLISTITEM
-{
-  ATOM Atom;
-  HANDLE Data;
-} PROPLISTITEM, *PPROPLISTITEM;
-
 /* FUNCTIONS *****************************************************************/
 
 PPROPERTY FASTCALL
-IntGetProp(PWINDOW_OBJECT WindowObject, ATOM Atom)
+W32kGetProp(PWINDOW_OBJECT WindowObject, ATOM Atom)
 {
   PLIST_ENTRY ListEntry;
   PPROPERTY Property;
@@ -60,78 +65,15 @@ IntGetProp(PWINDOW_OBJECT WindowObject, ATOM Atom)
   return(NULL);
 }
 
-NTSTATUS STDCALL
-NtUserBuildPropList(HWND hWnd,
-		    LPVOID Buffer,
-		    DWORD BufferSize,
-		    DWORD *Count)
+DWORD STDCALL
+NtUserBuildPropList(DWORD Unknown0,
+		    DWORD Unknown1,
+		    DWORD Unknown2,
+		    DWORD Unknown3)
 {
-  PWINDOW_OBJECT WindowObject;
-  PPROPERTY Property;
-  PLIST_ENTRY ListEntry;
-  PROPLISTITEM listitem, *li;
-  NTSTATUS Status;
-  DWORD Cnt = 0;
-  
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
-  {
-    return STATUS_INVALID_HANDLE;
-  }
-  
-  if(Buffer)
-  {
-    if(!BufferSize || (BufferSize % sizeof(PROPLISTITEM) != 0))
-    {
-      IntReleaseWindowObject(WindowObject);
-      return STATUS_INVALID_PARAMETER;
-    }
-    
-    /* copy list */
-    IntLockWindowProperties(WindowObject);
-    
-    li = (PROPLISTITEM *)Buffer;
-    ListEntry = WindowObject->PropListHead.Flink;
-    while((BufferSize >= sizeof(PROPLISTITEM)) && (ListEntry != &WindowObject->PropListHead))
-    {
-      Property = CONTAINING_RECORD(ListEntry, PROPERTY, PropListEntry);
-      listitem.Atom = Property->Atom;
-      listitem.Data = Property->Data;
-      
-      Status = MmCopyToCaller(li, &listitem, sizeof(PROPLISTITEM));
-      if(!NT_SUCCESS(Status))
-      {
-        IntUnLockWindowProperties(WindowObject);
-        IntReleaseWindowObject(WindowObject);
-        return Status;
-      }
-      
-      BufferSize -= sizeof(PROPLISTITEM);
-      Cnt++;
-      li++;
-      ListEntry = ListEntry->Flink;
-    }
-    
-    IntUnLockWindowProperties(WindowObject);
-  }
-  else
-  {
-    IntLockWindowProperties(WindowObject);
-    Cnt = WindowObject->PropListItems * sizeof(PROPLISTITEM);
-    IntUnLockWindowProperties(WindowObject);
-  }
-  
-  IntReleaseWindowObject(WindowObject);
-  
-  if(Count)
-  {
-    Status = MmCopyToCaller(Count, &Cnt, sizeof(DWORD));
-    if(!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-  }
-  
-  return STATUS_SUCCESS;
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 HANDLE STDCALL
@@ -141,27 +83,22 @@ NtUserRemoveProp(HWND hWnd, ATOM Atom)
   PPROPERTY Prop;
   HANDLE Data;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
-  {
-    SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-    return NULL;
-  }
-  
-  IntLockWindowProperties(WindowObject);
-  Prop = IntGetProp(WindowObject, Atom);
-  
+  WindowObject = W32kGetWindowObject(hWnd);
+  if (WindowObject == NULL)
+    {
+      return(NULL);
+    }
+
+  Prop = W32kGetProp(WindowObject, Atom);
   if (Prop == NULL)
     {
-      IntUnLockWindowProperties(WindowObject);
-      IntReleaseWindowObject(WindowObject);
+      W32kReleaseWindowObject(WindowObject);
       return(NULL);
     }
   Data = Prop->Data;
   RemoveEntryList(&Prop->PropListEntry);
   ExFreePool(Prop);
-  WindowObject->PropListItems--;
-  IntUnLockWindowProperties(WindowObject);
-  IntReleaseWindowObject(WindowObject);
+  W32kReleaseWindowObject(WindowObject);
   return(Data);
 }
 
@@ -172,65 +109,47 @@ NtUserGetProp(HWND hWnd, ATOM Atom)
   PPROPERTY Prop;
   HANDLE Data = NULL;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
-  {
-    SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-    return FALSE;
-  }
-  
-  IntLockWindowProperties(WindowObject);
-  Prop = IntGetProp(WindowObject, Atom);
+  WindowObject = W32kGetWindowObject(hWnd);
+  if (WindowObject == NULL)
+    {
+      return(FALSE);
+    }
+
+  Prop = W32kGetProp(WindowObject, Atom);
   if (Prop != NULL)
-  {
-    Data = Prop->Data;
-  }
-  IntUnLockWindowProperties(WindowObject);
-  IntReleaseWindowObject(WindowObject);
+    {
+      Data = Prop->Data;
+    }
+  W32kReleaseWindowObject(WindowObject);
   return(Data);
 }
-
-BOOL FASTCALL
-IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
-{
-  PPROPERTY Prop;
-
-  Prop = IntGetProp(Wnd, Atom);
-
-  if (Prop == NULL)
-  {
-    Prop = ExAllocatePoolWithTag(PagedPool, sizeof(PROPERTY), TAG_WNDPROP);
-    if (Prop == NULL)
-    {
-      return FALSE;
-    }
-    Prop->Atom = Atom;
-    InsertTailList(&Wnd->PropListHead, &Prop->PropListEntry);
-    Wnd->PropListItems++;
-  }
-
-  Prop->Data = Data;
-  return TRUE;
-}
-
 
 BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
   PWINDOW_OBJECT WindowObject;
-  BOOL ret;
+  PPROPERTY Prop;
 
-  if (!(WindowObject = IntGetWindowObject(hWnd)))
-  {
-    SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-    return FALSE;
-  }
-  
-  IntLockWindowProperties(WindowObject);
-  ret = IntSetProp(WindowObject, Atom, Data);
-  IntUnLockWindowProperties(WindowObject);
-  
-  IntReleaseWindowObject(WindowObject);
-  return ret;
+  WindowObject = W32kGetWindowObject(hWnd);
+  if (WindowObject == NULL)
+    {
+      return(FALSE);
+    }
+
+  Prop = W32kGetProp(WindowObject, Atom);
+  if (Prop == NULL)
+    {
+      Prop = ExAllocatePool(PagedPool, sizeof(PROPERTY));
+      if (Prop == NULL)
+	{
+	  W32kReleaseWindowObject(WindowObject);
+	  return(FALSE);
+	}
+      Prop->Atom = Atom;
+      InsertTailList(&WindowObject->PropListHead, &Prop->PropListEntry);
+    }
+  Prop->Data = Data;
+  W32kReleaseWindowObject(WindowObject);
+  return(TRUE);
 }
-
 /* EOF */

@@ -1,4 +1,4 @@
-/* $Id: putc.c,v 1.11 2004/08/20 00:57:44 navaraf Exp $
+/* $Id: putc.c,v 1.7 2002/12/08 16:14:28 robd Exp $
  *
  *  ReactOS msvcrt library
  *
@@ -24,7 +24,7 @@
  */
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/wchar.h>
 #include <msvcrt/errno.h>
@@ -62,9 +62,6 @@ int putc(int c, FILE* fp)
 }
 
 //wint_t putwc(wint_t c, FILE* fp)
-/*
- * @implemented
- */
 int putwc(wint_t c, FILE* fp)
 {
     // valid stream macro should check that fp is dword aligned
@@ -86,16 +83,16 @@ int putwc(wint_t c, FILE* fp)
             fp->_cnt -= sizeof(wchar_t);
             //*((wchar_t*)(fp->_ptr))++ = c;
             *((wchar_t*)(fp->_ptr)) = c;
-            fp->_ptr += sizeof(wchar_t);
+            ++((wchar_t*)(fp->_ptr));
             return (wint_t)c;
         } else {
 #if 1
             wint_t result;
             result = _flsbuf(c, fp);
-            if (result == (wint_t)EOF)
+            if (result == EOF)
                 return WEOF;
             result = _flsbuf((int)(c >> 8), fp);
-            if (result == (wint_t)EOF)
+            if (result == EOF)
                 return WEOF;
             return result;
 #else

@@ -1,11 +1,8 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 int rename(const char* old_, const char* new_)
 {
     if (old_ == NULL || new_ == NULL)

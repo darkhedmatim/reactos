@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: icon.c,v 1.24 2004/12/30 02:32:26 navaraf Exp $
+/* $Id: icon.c,v 1.6 2003/06/05 11:57:12 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/icon.c
@@ -28,7 +28,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <string.h>
 #include <stdlib.h>
 #include <debug.h>
@@ -36,133 +37,81 @@
 /* FUNCTIONS *****************************************************************/
 
 HICON
-ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
+ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired)
 {
-   BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
-   BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   ICONINFO IconInfo;
+  HANDLE hXORBitmap;
+  HANDLE hANDBitmap;
+  BITMAPINFO* bwBIH;
+  ICONINFO IconInfo;
+  HICON hIcon;
 
-   IconInfo.fIcon = TRUE;
-   IconInfo.xHotspot = xHotspot;
-   IconInfo.yHotspot = yHotspot;
+  //load the XOR bitmap
+  hXORBitmap = CreateDIBitmap(hDC, &IconImage->icHeader, CBM_INIT,
+			       ImageData, (BITMAPINFO*)IconImage, DIB_RGB_COLORS);
 
-   /* Load the XOR bitmap */
-   IconInfo.hbmColor = CreateDIBitmap(hDC, &IconImage->icHeader, CBM_INIT,
-                                      ImageData, (BITMAPINFO*)IconImage,
-                                      DIB_RGB_COLORS);
-
-   /* Make ImageData point to the start of the AND image data. */
-   ImageData = ((PBYTE)ImageData) + (((IconImage->icHeader.biWidth * 
+  //make ImageData point to the start of the AND image data
+  ImageData = ((PBYTE)ImageData) + (((IconImage->icHeader.biWidth * 
                                       IconImage->icHeader.biBitCount + 31) & ~31) >> 3) * 
                                       (IconImage->icHeader.biHeight );
 
-   /* Create a BITMAPINFO header for the monocrome part of the icon. */
-   bwBIH->bmiHeader.biBitCount = 1;
-   bwBIH->bmiHeader.biWidth = IconImage->icHeader.biWidth;
-   bwBIH->bmiHeader.biHeight = IconImage->icHeader.biHeight;
-   bwBIH->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-   bwBIH->bmiHeader.biPlanes = 1;
-   bwBIH->bmiHeader.biSizeImage = 0;
-   bwBIH->bmiHeader.biCompression = BI_RGB;
-   bwBIH->bmiHeader.biClrImportant = 0;
-   bwBIH->bmiHeader.biClrUsed = 0;
-   bwBIH->bmiHeader.biXPelsPerMeter = 0;
-   bwBIH->bmiHeader.biYPelsPerMeter = 0;
+  //create a BITMAPINFO header for the monocrome part of the icon
+  bwBIH = RtlAllocateHeap(RtlGetProcessHeap(), 0, sizeof (BITMAPINFOHEADER)+2*sizeof(RGBQUAD));
 
-   bwBIH->bmiColors[0].rgbBlue = 0;
-   bwBIH->bmiColors[0].rgbGreen = 0;
-   bwBIH->bmiColors[0].rgbRed = 0;
-   bwBIH->bmiColors[0].rgbReserved = 0;
+  bwBIH->bmiHeader.biBitCount = 1;
+  bwBIH->bmiHeader.biWidth = IconImage->icHeader.biWidth;
+  bwBIH->bmiHeader.biHeight = IconImage->icHeader.biHeight;
+  bwBIH->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bwBIH->bmiHeader.biPlanes = 1;
+  bwBIH->bmiHeader.biSizeImage = (((IconImage->icHeader.biWidth * 1 + 31) & ~31) >> 3) * 
+                                    (IconImage->icHeader.biHeight );
+  bwBIH->bmiHeader.biCompression = BI_RGB;
+  bwBIH->bmiHeader.biClrImportant = 0;
+  bwBIH->bmiHeader.biClrUsed = 0;
+  bwBIH->bmiHeader.biXPelsPerMeter = 0;
+  bwBIH->bmiHeader.biYPelsPerMeter = 0;
 
-   bwBIH->bmiColors[1].rgbBlue = 0xff;
-   bwBIH->bmiColors[1].rgbGreen = 0xff;
-   bwBIH->bmiColors[1].rgbRed = 0xff;
-   bwBIH->bmiColors[1].rgbReserved = 0;
+  bwBIH->bmiColors[0].rgbBlue = 0;
+  bwBIH->bmiColors[0].rgbGreen = 0;
+  bwBIH->bmiColors[0].rgbRed = 0;
+  bwBIH->bmiColors[0].rgbReserved = 0;
 
-   /* Load the AND bitmap. */
-   IconInfo.hbmMask = CreateDIBitmap(hDC, &bwBIH->bmiHeader, 0,
-                                     ImageData, bwBIH, DIB_RGB_COLORS);
-  
-   SetDIBits(hDC, IconInfo.hbmMask, 0, IconImage->icHeader.biHeight,
-             ImageData, bwBIH, DIB_RGB_COLORS);
-  
-   /* Create the icon based on everything we have so far */
-   return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  bwBIH->bmiColors[1].rgbBlue = 0xff;
+  bwBIH->bmiColors[1].rgbGreen = 0xff;
+  bwBIH->bmiColors[1].rgbRed = 0xff;
+  bwBIH->bmiColors[1].rgbReserved = 0;
+
+  //load the AND bitmap
+  hANDBitmap = CreateDIBitmap(hDC, &bwBIH->bmiHeader, CBM_INIT,
+			       ImageData, bwBIH, DIB_RGB_COLORS);
+
+  RtlFreeHeap(RtlGetProcessHeap(), 0, bwBIH);
+
+  IconInfo.fIcon = TRUE;
+  IconInfo.xHotspot = cxDesired/2;
+  IconInfo.yHotspot = cyDesired/2;
+  IconInfo.hbmColor = hXORBitmap;
+  IconInfo.hbmMask = hANDBitmap;
+
+  //Create the icon based on everything we have so far
+  hIcon = CreateIconIndirect(&IconInfo);
+
+  //clean up
+  DeleteObject(hXORBitmap);
+  DeleteObject(hANDBitmap);
+
+  return hIcon;
 }
 
-HICON
-ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
-{
-   /* FIXME - color cursors */
-   BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
-   BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   ICONINFO IconInfo;
-   PVOID XORImageData = ImageData;
-
-   IconInfo.fIcon = FALSE;
-   IconInfo.xHotspot = xHotspot;
-   IconInfo.yHotspot = yHotspot;
-  
-   /* Create a BITMAPINFO header for the monocrome part of the icon */
-   bwBIH->bmiHeader.biBitCount = 1;
-   bwBIH->bmiHeader.biWidth = IconImage->icHeader.biWidth;
-   bwBIH->bmiHeader.biHeight = IconImage->icHeader.biHeight;
-   bwBIH->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-   bwBIH->bmiHeader.biPlanes = 1;
-   bwBIH->bmiHeader.biSizeImage = 0;
-   bwBIH->bmiHeader.biCompression = BI_RGB;
-   bwBIH->bmiHeader.biClrImportant = 0;
-   bwBIH->bmiHeader.biClrUsed = 0;
-   bwBIH->bmiHeader.biXPelsPerMeter = 0;
-   bwBIH->bmiHeader.biYPelsPerMeter = 0;
-
-   bwBIH->bmiColors[0].rgbBlue = 0;
-   bwBIH->bmiColors[0].rgbGreen = 0;
-   bwBIH->bmiColors[0].rgbRed = 0;
-   bwBIH->bmiColors[0].rgbReserved = 0;
-
-   bwBIH->bmiColors[1].rgbBlue = 0xff;
-   bwBIH->bmiColors[1].rgbGreen = 0xff;
-   bwBIH->bmiColors[1].rgbRed = 0xff;
-   bwBIH->bmiColors[1].rgbReserved = 0;
-
-   /* Load the AND bitmap */
-   IconInfo.hbmMask = CreateDIBitmap(hDC, &bwBIH->bmiHeader, 0,
-                                     XORImageData, bwBIH, DIB_RGB_COLORS);
-   if (IconInfo.hbmMask)
-   {
-      SetDIBits(hDC, IconInfo.hbmMask, 0, IconImage->icHeader.biHeight, 
-                XORImageData, bwBIH, DIB_RGB_COLORS);
-   }
-  
-   IconInfo.hbmColor = (HBITMAP)0;
-  
-   /* Create the icon based on everything we have so far */
-   return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
-}
-
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 CopyIcon(
   HICON hIcon)
 {
   ICONINFO IconInfo;
-  
-  if(NtUserGetCursorIconInfo((HANDLE)hIcon, &IconInfo))
-  {
-    return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
-  }
-  return (HICON)0;
+  GetIconInfo(hIcon, &IconInfo);
+  return CreateIconIndirect(&IconInfo);
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 CreateIcon(
@@ -171,54 +120,38 @@ CreateIcon(
   int nHeight,
   BYTE cPlanes,
   BYTE cBitsPixel,
-  CONST BYTE *ANDbits,
-  CONST BYTE *XORbits)
+  CONST BYTE *lpbANDbits,
+  CONST BYTE *lpbXORbits)
 {
-  ICONINFO IconInfo;
-
-  IconInfo.fIcon = TRUE;
-  IconInfo.xHotspot = nWidth / 2;
-  IconInfo.yHotspot = nHeight / 2;
-  IconInfo.hbmMask = CreateBitmap(nWidth, nHeight, 1, 1, ANDbits);
-  if(!IconInfo.hbmMask)
-  {
-    return (HICON)0;
-  }
-  IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, cPlanes, cBitsPixel, XORbits);
-  if(!IconInfo.hbmColor)
-  {
-    DeleteObject(IconInfo.hbmMask);
-    return (HICON)0;
-  }
-  
-  return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  DPRINT("hInstance not used in this implementation\n");
+  return W32kCreateIcon(TRUE,
+                        nWidth,
+                        nHeight,
+                        cPlanes,
+                        cBitsPixel,
+                        nWidth/2,
+                        nHeight/2,
+                        lpbANDbits,
+                        lpbXORbits);
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 CreateIconFromResource(
   PBYTE presbits,
   DWORD dwResSize,
-  BOOL fIcon,
+  WINBOOL fIcon,
   DWORD dwVer)
 {
-  return CreateIconFromResourceEx(presbits, dwResSize, fIcon, dwVer, 0, 0, 0);
+  return CreateIconFromResourceEx( presbits, dwResSize, fIcon, dwVer, 0,0,0);
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 CreateIconFromResourceEx(
   PBYTE pbIconBits,
   DWORD cbIconBits,
-  BOOL fIcon,
+  WINBOOL fIcon,
   DWORD dwVersion,
   int cxDesired,
   int cyDesired,
@@ -230,131 +163,76 @@ CreateIconFromResourceEx(
   ULONG ColourCount;
   PVOID Data;
   HDC hScreenDc;
-  WORD wXHotspot;
-  WORD wYHotspot;
-  
-  /*
-    FIXME - does win support LR_SHARED? According to msdn it does but we don't
-            have useful information to identify the icon
-  if (uFlags & LR_SHARED)
-  {
-    DbgPrint("FIXME: need LR_SHARED support in CreateIconFromResourceEx()\n");
-  }
-  */
 
-  DPRINT("dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
+  DPRINT("fIcon, dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
 
-  if (! fIcon)
-    {
-      wXHotspot = (WORD)*pbIconBits;
-      pbIconBits+=2;
-      wYHotspot = (WORD)*pbIconBits;
-      pbIconBits+=2;
-      cbIconBits-=4;
-    }
-  else
-    {
-      wXHotspot = cxDesired / 2;
-      wYHotspot = cyDesired / 2;
-    }
-
-  /* get an safe copy of the icon data */
-  SafeIconImage = RtlAllocateHeap(GetProcessHeap(), 0, cbIconBits);
+  //get an safe copy of the icon data
+  SafeIconImage = RtlAllocateHeap(RtlGetProcessHeap(), 0, cbIconBits);
   memcpy(SafeIconImage, pbIconBits, cbIconBits);
-  
-  /* take into acount the origonal height was for both the AND and XOR images */
-  if(fIcon)
-    SafeIconImage->icHeader.biHeight /= 2;
-  
+
+  //take into acount the origonal hight was for both the AND and XOR images
+  SafeIconImage->icHeader.biHeight /= 2;
+
   if (SafeIconImage->icHeader.biSize == sizeof(BITMAPCOREHEADER))
-    {
+  {
       BITMAPCOREHEADER* Core = (BITMAPCOREHEADER*)SafeIconImage;
       ColourCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
       HeaderSize = sizeof(BITMAPCOREHEADER) + ColourCount * sizeof(RGBTRIPLE);
-    }
+  }
   else
-    {
+  {
       ColourCount = (SafeIconImage->icHeader.biBitCount <= 8) ? 
                        (1 << SafeIconImage->icHeader.biBitCount) : 0;
       HeaderSize = sizeof(BITMAPINFOHEADER) + ColourCount * sizeof(RGBQUAD);
-    }
+  }
 
-  /* make data point to the start of the XOR image data */
+  //make data point to the start of the XOR image data
   Data = (PBYTE)SafeIconImage + HeaderSize;
 
-  /* get a handle to the screen dc, the icon we create is going to be compatable with this */
-  hScreenDc = CreateCompatibleDC(NULL);
+  //get a handle to the screen dc, the icon we create is going to be compatable with this
+  hScreenDc = CreateDCW(L"DISPLAY", NULL, NULL, NULL);
   if (hScreenDc == NULL)
-    {
-      RtlFreeHeap(GetProcessHeap(), 0, SafeIconImage);
-      return(NULL);
-    }
+  {
+     RtlFreeHeap(RtlGetProcessHeap(), 0, SafeIconImage);
+     return(NULL);
+  }
 
-  if(fIcon)
-    hIcon = ICON_CreateIconFromData(hScreenDc, Data, SafeIconImage, cxDesired, cyDesired, wXHotspot, wYHotspot);
-  else
-    hIcon = ICON_CreateCursorFromData(hScreenDc, Data, SafeIconImage, cxDesired, cyDesired, wXHotspot, wYHotspot);
-  RtlFreeHeap(GetProcessHeap(), 0, SafeIconImage);
-  DeleteDC(hScreenDc);
-
+  hIcon = ICON_CreateIconFromData(hScreenDc, Data, SafeIconImage, cxDesired, cyDesired);
+  RtlFreeHeap(RtlGetProcessHeap(), 0, SafeIconImage);
   return hIcon;
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
-CreateIconIndirect(PICONINFO IconInfo)
+CreateIconIndirect(
+  PICONINFO piconinfo)
 {
-  BITMAP ColorBitmap;
-  BITMAP MaskBitmap;
+  BITMAP bmMask;
+  BITMAP bmColor;
 
-  if(!IconInfo)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return (HICON)0;
-  }
+  W32kGetObject( piconinfo->hbmMask, sizeof(BITMAP), &bmMask );
+  W32kGetObject( piconinfo->hbmColor, sizeof(BITMAP), &bmColor );
 
-  if(!GetObjectW(IconInfo->hbmMask, sizeof(BITMAP), &MaskBitmap))
-  {
-    return (HICON)0;
-  }
-  /* FIXME - does there really *have* to be a color bitmap? monochrome cursors don't have one */
-  if(IconInfo->hbmColor && !GetObjectW(IconInfo->hbmColor, sizeof(BITMAP), &ColorBitmap))
-  {
-    return (HICON)0;
-  }
-  
-  /* FIXME - i doubt this is right (monochrome cursors */
-  /*if(ColorBitmap.bmWidth != MaskBitmap.bmWidth ||
-     ColorBitmap.bmHeight != MaskBitmap.bmWidth)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return (HICON)0;
-  }*/
-  
-  return (HICON)NtUserCreateCursorIconHandle(IconInfo, TRUE);
+  return W32kCreateIcon(piconinfo->fIcon,
+			bmColor.bmWidth,
+			bmColor.bmHeight,
+			bmColor.bmPlanes,
+			bmColor.bmBitsPixel,
+			piconinfo->xHotspot,
+			piconinfo->yHotspot,
+			bmMask.bmBits,
+			bmColor.bmBits);
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DestroyIcon(
   HICON hIcon)
 {
-  return (BOOL)NtUserDestroyCursorIcon((HANDLE)hIcon, 0);
+  return W32kDeleteObject(hIcon);
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 DrawIcon(
   HDC hDC,
@@ -362,13 +240,11 @@ DrawIcon(
   int Y,
   HICON hIcon)
 {
-  return DrawIconEx(hDC, X, Y, hIcon, 0, 0, 0, NULL, DI_NORMAL | DI_DEFAULTSIZE);
+  return DrawIconEx (hDC, X, Y, hIcon, 0, 0, 0, NULL, DI_NORMAL | DI_COMPAT | DI_DEFAULTSIZE);
 }
 
-/*
- * @implemented
- */
-BOOL
+/* Ported from WINE20030408 */
+WINBOOL
 STDCALL
 DrawIconEx(
   HDC hdc,
@@ -381,29 +257,148 @@ DrawIconEx(
   HBRUSH hbrFlickerFreeDraw,
   UINT diFlags)
 {
-  return (BOOL)NtUserDrawIconEx(hdc, xLeft, yTop, hIcon, cxWidth, cyWidth, 
-                                   istepIfAniCur, hbrFlickerFreeDraw, diFlags, 
-                                   0, 0);
+    ICONINFO IconInfo;
+    BITMAP XORBitmap;
+    HDC hDC_off = 0, hMemDC;
+    BOOL result = FALSE, DoOffscreen;
+    HBITMAP hB_off = 0, hOld = 0;
+
+    if (!GetIconInfo(hIcon, &IconInfo))
+      return FALSE;
+
+    W32kGetObject(IconInfo.hbmColor, sizeof(BITMAP), &XORBitmap);
+
+    DPRINT("(hdc=%p,pos=%d.%d,hicon=%p,extend=%d.%d,istep=%d,br=%p,flags=0x%08x)\n",
+                 hdc,xLeft,yTop,hIcon,cxWidth,cyWidth,istepIfAniCur,hbrFlickerFreeDraw,diFlags );
+
+    hMemDC = CreateCompatibleDC (hdc);
+    if (diFlags & DI_COMPAT)
+        DPRINT("Ignoring flag DI_COMPAT\n");
+
+    if (!diFlags)
+    {
+	  diFlags = DI_NORMAL;
+    }
+
+    // Calculate the size of the destination image.
+    if (cxWidth == 0)
+    {
+      if (diFlags & DI_DEFAULTSIZE)
+	     cxWidth = GetSystemMetrics (SM_CXICON);
+      else
+	     cxWidth = XORBitmap.bmWidth;
+    }
+    if (cyWidth == 0)
+    {
+      if (diFlags & DI_DEFAULTSIZE)
+        cyWidth = GetSystemMetrics (SM_CYICON);
+      else
+	    cyWidth = XORBitmap.bmHeight;
+    }
+
+    DoOffscreen = (GetObjectType( hbrFlickerFreeDraw ) == OBJ_BRUSH);
+
+    if (DoOffscreen)
+    {
+      RECT r;
+
+      r.left = 0;
+      r.top = 0;
+      r.right = cxWidth;
+      r.bottom = cxWidth;
+
+      DbgPrint("in DrawIconEx calling: CreateCompatibleDC\n");
+      hDC_off = CreateCompatibleDC(hdc);
+
+      DbgPrint("in DrawIconEx calling: CreateCompatibleBitmap\n");
+      hB_off = CreateCompatibleBitmap(hdc, cxWidth, cyWidth);
+      if (hDC_off && hB_off)
+      {
+        DbgPrint("in DrawIconEx calling: SelectObject\n");
+        hOld = SelectObject(hDC_off, hB_off);
+
+        DbgPrint("in DrawIconEx calling: FillRect\n");
+        FillRect(hDC_off, &r, hbrFlickerFreeDraw);
+      }
+    }
+
+    if (hMemDC && (!DoOffscreen || (hDC_off && hB_off)))
+    {
+      COLORREF  oldFg, oldBg;
+      INT     nStretchMode;
+
+      nStretchMode = SetStretchBltMode (hdc, STRETCH_DELETESCANS);
+
+      oldFg = SetTextColor( hdc, RGB(0,0,0) );
+
+      oldBg = SetBkColor( hdc, RGB(255,255,255) );
+
+      if (IconInfo.hbmColor && IconInfo.hbmMask)
+      {
+        HBITMAP hBitTemp = SelectObject( hMemDC, IconInfo.hbmMask );
+        if (diFlags & DI_MASK)
+        {
+          if (DoOffscreen)
+            StretchBlt (hDC_off, 0, 0, cxWidth, cyWidth,
+               hMemDC, 0, 0, XORBitmap.bmWidth, XORBitmap.bmHeight, SRCAND);
+          else
+            StretchBlt (hdc, xLeft, yTop, cxWidth, cyWidth,
+                 hMemDC, 0, 0, XORBitmap.bmWidth, XORBitmap.bmHeight, SRCAND);
+        }
+        SelectObject( hMemDC, IconInfo.hbmColor );
+        if (diFlags & DI_IMAGE)
+        {
+          if (DoOffscreen)
+            StretchBlt (hDC_off, 0, 0, cxWidth, cyWidth,
+               hMemDC, 0, 0, XORBitmap.bmWidth, XORBitmap.bmHeight, SRCPAINT);
+          else
+            StretchBlt (hdc, xLeft, yTop, cxWidth, cyWidth,
+              hMemDC, 0, 0, XORBitmap.bmWidth, XORBitmap.bmHeight, SRCPAINT);
+        }
+        SelectObject( hMemDC, hBitTemp );
+        result = TRUE;
+      }
+
+      SetTextColor( hdc, oldFg );
+      SetBkColor( hdc, oldBg );
+      if (IconInfo.hbmColor)
+        DeleteObject( IconInfo.hbmColor );
+
+      if (IconInfo.hbmMask) 
+        DeleteObject( IconInfo.hbmMask );
+
+      SetStretchBltMode (hdc, nStretchMode);
+
+      if (DoOffscreen)
+      {
+        BitBlt(hdc, xLeft, yTop, cxWidth, cyWidth, hDC_off, 0, 0, SRCCOPY);
+        SelectObject(hDC_off, hOld);
+      }
+    }
+
+    if (hMemDC)
+      DeleteDC( hMemDC );
+    if (hDC_off)
+      DeleteDC(hDC_off);
+    if (hB_off)
+      DeleteObject(hB_off);
+    return result;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetIconInfo(
   HICON hIcon,
-  PICONINFO IconInfo)
+  PICONINFO piconinfo)
 {
-  /* FIXME - copy bitmaps */
-  return (BOOL)NtUserGetCursorIconInfo((HANDLE)hIcon, IconInfo);
+  return NtUserGetIconInfo(hIcon,
+                           &piconinfo->fIcon,
+                           &piconinfo->xHotspot,
+                           &piconinfo->yHotspot,
+                           &piconinfo->hbmMask,
+                           &piconinfo->hbmColor);
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 LoadIconA(
@@ -413,10 +408,6 @@ LoadIconA(
   return(LoadImageA(hInstance, lpIconName, IMAGE_ICON, 0, 0, LR_SHARED | LR_DEFAULTSIZE));
 }
 
-
-/*
- * @implemented
- */
 HICON
 STDCALL
 LoadIconW(
@@ -426,15 +417,11 @@ LoadIconW(
   return(LoadImageW(hInstance, lpIconName, IMAGE_ICON, 0, 0, LR_SHARED | LR_DEFAULTSIZE));
 }
 
-
-/*
- * @implemented
- */
 int
 STDCALL
 LookupIconIdFromDirectory(
   PBYTE presbits,
-  BOOL fIcon)
+  WINBOOL fIcon)
 {
     return LookupIconIdFromDirectoryEx( presbits, fIcon,
 	   fIcon ? GetSystemMetrics(SM_CXICON) : GetSystemMetrics(SM_CXCURSOR),
@@ -442,11 +429,11 @@ LookupIconIdFromDirectory(
 }
 
 /* Ported from WINE20030408 */
-GRPCURSORICONDIRENTRY*
-CURSORICON_FindBestCursor( GRPCURSORICONDIR *dir, int width, int height, int colors)
+CURSORICONDIRENTRY*
+CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, int height, int colors)
 {
     int i;
-    GRPCURSORICONDIRENTRY *entry, *bestEntry = NULL;
+    CURSORICONDIRENTRY *entry, *bestEntry = NULL;
     UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
     UINT iTempXDiff, iTempYDiff, iTempColorDiff;
 
@@ -463,8 +450,8 @@ CURSORICON_FindBestCursor( GRPCURSORICONDIR *dir, int width, int height, int col
     iColorDiff = 0xFFFFFFFF;
     for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
     {
-		iTempXDiff = abs(width - entry->ResInfo.icon.bWidth);
-		iTempYDiff = abs(height - entry->ResInfo.icon.bHeight);
+		iTempXDiff = abs(width - entry->Info.icon.bWidth);
+		iTempYDiff = abs(height - entry->Info.icon.bHeight);
 
         if(iTotalDiff > (iTempXDiff + iTempYDiff))
         {
@@ -477,10 +464,10 @@ CURSORICON_FindBestCursor( GRPCURSORICONDIR *dir, int width, int height, int col
     /* Find Best Colors for Best Fit */
     for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
     {
-        if(abs(width - entry->ResInfo.icon.bWidth) == (int) iXDiff &&
-            abs(height - entry->ResInfo.icon.bHeight) == (int) iYDiff)
+        if(abs(width - entry->Info.icon.bWidth) == (int) iXDiff &&
+            abs(height - entry->Info.icon.bHeight) == (int) iYDiff)
         {
-            iTempColorDiff = abs(colors - entry->ResInfo.icon.bColorCount);
+            iTempColorDiff = abs(colors - entry->Info.icon.bColorCount);
 
             if(iColorDiff > iTempColorDiff)
         	{
@@ -494,11 +481,11 @@ CURSORICON_FindBestCursor( GRPCURSORICONDIR *dir, int width, int height, int col
 }
 
 /* Ported from WINE20030408 */
-GRPCURSORICONDIRENTRY*
-CURSORICON_FindBestIcon( GRPCURSORICONDIR *dir, int width, int height, int colorbits)
+CURSORICONDIRENTRY*
+CURSORICON_FindBestIcon( CURSORICONDIR *dir, int width, int height, int colors)
 {
     int i;
-    GRPCURSORICONDIRENTRY *entry, *bestEntry = NULL;
+    CURSORICONDIRENTRY *entry, *bestEntry = NULL;
     UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
     UINT iTempXDiff, iTempYDiff, iTempColorDiff;
 
@@ -515,9 +502,9 @@ CURSORICON_FindBestIcon( GRPCURSORICONDIR *dir, int width, int height, int color
     iColorDiff = 0xFFFFFFFF;
     for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
       {
-	iTempXDiff = abs(width - entry->ResInfo.icon.bWidth);
+	iTempXDiff = abs(width - entry->Info.icon.bWidth);
 
-	iTempYDiff = abs(height - entry->ResInfo.icon.bHeight);
+	iTempYDiff = abs(height - entry->Info.icon.bHeight);
 
         if(iTotalDiff > (iTempXDiff + iTempYDiff))
         {
@@ -530,10 +517,10 @@ CURSORICON_FindBestIcon( GRPCURSORICONDIR *dir, int width, int height, int color
     /* Find Best Colors for Best Fit */
     for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
       {
-        if(abs(width - entry->ResInfo.icon.bWidth) == (int) iXDiff &&
-           abs(height - entry->ResInfo.icon.bHeight) == (int) iYDiff)
+        if(abs(width - entry->Info.icon.bWidth) == (int) iXDiff &&
+           abs(height - entry->Info.icon.bHeight) == (int) iYDiff)
         {
-            iTempColorDiff = abs(colorbits - entry->wBitCount);
+            iTempColorDiff = abs(colors - entry->Info.icon.bColorCount);
             if(iColorDiff > iTempColorDiff)
             {
                 bestEntry = entry;
@@ -546,47 +533,46 @@ CURSORICON_FindBestIcon( GRPCURSORICONDIR *dir, int width, int height, int color
 }
 
 /* Ported from WINE20030408 */
-/*
- * @implemented
- */
-INT STDCALL
+int
+STDCALL
 LookupIconIdFromDirectoryEx(
   PBYTE presbits,
-  BOOL fIcon,
+  WINBOOL fIcon,
   int cxDesired,
   int cyDesired,
   UINT Flags)
 {
-   GRPCURSORICONDIR *dir = (GRPCURSORICONDIR*)presbits;
-   UINT retVal = 0;
+    GRPICONDIR *dir = (GRPICONDIR*)presbits;
+    UINT retVal = 0;
 
-   if (dir && !dir->idReserved && (IMAGE_ICON == dir->idType || IMAGE_CURSOR == dir->idType))
-   {
-      GRPCURSORICONDIRENTRY *entry;
-      HDC hdc;
-      int ColorBits;
+    if( dir && !dir->idReserved && (dir->idType & 3) )
+    {
+	GRPICONDIRENTRY* entry;
+	HDC hdc;
+	UINT palEnts;
+	int colors;
+	hdc = GetDC(0);
+#if 0
+	palEnts = GetSystemPaletteEntries(hdc, 0, 0, NULL);
+	if (palEnts == 0)
+	palEnts = 256;
+#endif
+	palEnts = 16;  //use this until GetSystemPaletteEntries works
+	colors = (Flags & LR_MONOCHROME) ? 2 : palEnts;
 
-      hdc = GetDC(0);
-      if (Flags & LR_MONOCHROME)
-      {
-         ColorBits = 1;
-      }
-      else
-      {
-         ColorBits = GetDeviceCaps(hdc, BITSPIXEL);
-         if (ColorBits > 8)
-            ColorBits = 8;
-      }
-      ReleaseDC(0, hdc);
+	ReleaseDC(0, hdc);
 
-      entry = CURSORICON_FindBestIcon( dir, cxDesired, cyDesired, ColorBits );
+	entry = (GRPICONDIRENTRY*)CURSORICON_FindBestIcon( (CURSORICONDIR*)dir,
+	                                                   cxDesired,
+	                                                   cyDesired,
+	                                                   colors );
 
-      if (entry)
-         retVal = entry->nID;
-   }
-   else
-   {
+	if( entry )
+	    retVal = entry->nID;
+    }
+    else
+    {
        DbgPrint("invalid resource directory\n");
-   }
-   return retVal;
+    }
+    return retVal;
 }

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.12 2004/05/29 21:24:46 hbirr Exp $
+# $Id: Makefile,v 1.10 2003/02/02 19:24:15 hyperion Exp $
 
 
 PATH_TO_TOP = ../..
@@ -7,7 +7,7 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = secur32
 
-TARGET_BASE = $(TARGET_BASE_LIB_SECURE32)
+TARGET_BASE = 0x10000000
 
 TARGET_SDKLIBS = ntdll.a
 
@@ -17,9 +17,6 @@ TARGET_CFLAGS = \
  -Werror \
  -fno-builtin \
  -D__SECUR32__
-
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 

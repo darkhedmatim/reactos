@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: share.c,v 1.12 2004/08/25 15:01:48 navaraf Exp $
+/* $Id: share.c,v 1.8 2002/09/08 10:23:26 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -29,14 +29,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoUpdateShareAccess(PFILE_OBJECT FileObject,
 		    PSHARE_ACCESS ShareAccess)
@@ -82,9 +80,6 @@ IoUpdateShareAccess(PFILE_OBJECT FileObject,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 IoCheckShareAccess(IN ACCESS_MASK DesiredAccess,
 		   IN ULONG DesiredShareAccess,
@@ -100,7 +95,7 @@ IoCheckShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedDelete;
 
   ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  WriteAccess = (DesiredAccess & (FILE_READ_DATA | FILE_APPEND_DATA));
   DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
@@ -183,9 +178,6 @@ IoCheckShareAccess(IN ACCESS_MASK DesiredAccess,
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoRemoveShareAccess(IN PFILE_OBJECT FileObject,
 		    IN PSHARE_ACCESS ShareAccess)
@@ -231,9 +223,6 @@ IoRemoveShareAccess(IN PFILE_OBJECT FileObject,
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
 		 IN ULONG DesiredShareAccess,
@@ -248,7 +237,7 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedDelete;
 
   ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  WriteAccess = (DesiredAccess & (FILE_READ_DATA | FILE_APPEND_DATA));
   DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
@@ -292,9 +281,6 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 IoCheckDesiredAccess(IN OUT PACCESS_MASK DesiredAccess,
 		     IN ACCESS_MASK GrantedAccess)
@@ -308,9 +294,6 @@ IoCheckDesiredAccess(IN OUT PACCESS_MASK DesiredAccess,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
 			IN ULONG EaLength,
@@ -321,25 +304,19 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 IoCheckFunctionAccess(IN ACCESS_MASK GrantedAccess,
 		      IN UCHAR MajorFunction,
 		      IN UCHAR MinorFunction,
 		      IN ULONG IoControlCode,
-		      IN PVOID ExtraData OPTIONAL,
-		      IN PVOID ExtraData2 OPTIONAL)
+		      IN PFILE_INFORMATION_CLASS FileInformationClass OPTIONAL,
+		      IN PFS_INFORMATION_CLASS FsInformationClass OPTIONAL)
 {
   UNIMPLEMENTED;
   return(STATUS_NOT_IMPLEMENTED);
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 IoSetInformation(IN PFILE_OBJECT FileObject,
 		 IN FILE_INFORMATION_CLASS FileInformationClass,
@@ -351,9 +328,6 @@ IoSetInformation(IN PFILE_OBJECT FileObject,
 }
 
 
-/*
- * @unimplemented
- */
 BOOLEAN STDCALL
 IoFastQueryNetworkAttributes(IN POBJECT_ATTRIBUTES ObjectAttributes,
 			     IN ACCESS_MASK DesiredAccess,

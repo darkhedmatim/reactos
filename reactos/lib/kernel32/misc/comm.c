@@ -1,4 +1,4 @@
-/* $Id: comm.c,v 1.11 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: comm.c,v 1.7 2003/02/12 00:39:31 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -16,7 +16,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* BUILDCOMMDCB & BUILDCOMMDCBANDTIMEOUTS */
 
@@ -231,8 +231,8 @@ BOOL COMMDCB_ParseBool(LPWSTR * StrTail, BOOL * Value)
  ULONG_PTR nValue;
  static COMMDCB_PARAM_STRFLAG a_BoolFlags[] =
  {
-  { ROS_STRING_INITIALIZER(L"off"), FALSE },
-  { ROS_STRING_INITIALIZER(L"on"),  TRUE }
+  { UNICODE_STRING_INITIALIZER(L"off"), FALSE },
+  { UNICODE_STRING_INITIALIZER(L"on"),  TRUE }
  };
 
  /* try to recognize the next flag as a boolean */
@@ -338,9 +338,9 @@ COMMDCB_PARAM_HANDLER(dtr)
  ULONG_PTR nValue;
  static COMMDCB_PARAM_STRFLAG a_DTRFlags[] =
  {
-  { ROS_STRING_INITIALIZER(L"hs"),  DTR_CONTROL_HANDSHAKE },
-  { ROS_STRING_INITIALIZER(L"off"), DTR_CONTROL_DISABLE },
-  { ROS_STRING_INITIALIZER(L"on"),  DTR_CONTROL_ENABLE }
+  { UNICODE_STRING_INITIALIZER(L"hs"),  DTR_CONTROL_HANDSHAKE },
+  { UNICODE_STRING_INITIALIZER(L"off"), DTR_CONTROL_DISABLE },
+  { UNICODE_STRING_INITIALIZER(L"on"),  DTR_CONTROL_ENABLE }
  };
 
  (void)Timeouts;
@@ -458,10 +458,10 @@ COMMDCB_PARAM_HANDLER(rts)
  ULONG_PTR nValue;
  static COMMDCB_PARAM_STRFLAG a_RTSFlags[] =
  {
-  { ROS_STRING_INITIALIZER(L"hs"),  RTS_CONTROL_HANDSHAKE },
-  { ROS_STRING_INITIALIZER(L"off"), RTS_CONTROL_DISABLE },
-  { ROS_STRING_INITIALIZER(L"on"),  RTS_CONTROL_ENABLE },
-  { ROS_STRING_INITIALIZER(L"tg"),  RTS_CONTROL_TOGGLE }
+  { UNICODE_STRING_INITIALIZER(L"hs"),  RTS_CONTROL_HANDSHAKE },
+  { UNICODE_STRING_INITIALIZER(L"off"), RTS_CONTROL_DISABLE },
+  { UNICODE_STRING_INITIALIZER(L"on"),  RTS_CONTROL_ENABLE },
+  { UNICODE_STRING_INITIALIZER(L"tg"),  RTS_CONTROL_TOGGLE }
  };
 
  (void)Timeouts;
@@ -491,9 +491,9 @@ COMMDCB_PARAM_HANDLER(stop)
  ULONG_PTR nValue;
  static COMMDCB_PARAM_STRFLAG a_StopFlags[] =
  {
-  { ROS_STRING_INITIALIZER(L"1"),   ONESTOPBIT },
-  { ROS_STRING_INITIALIZER(L"1.5"), ONE5STOPBITS },
-  { ROS_STRING_INITIALIZER(L"2"),   TWOSTOPBITS }
+  { UNICODE_STRING_INITIALIZER(L"1"),   ONESTOPBIT },
+  { UNICODE_STRING_INITIALIZER(L"1.5"), ONE5STOPBITS },
+  { UNICODE_STRING_INITIALIZER(L"2"),   TWOSTOPBITS }
  };
 
  (void)Timeouts;
@@ -575,14 +575,11 @@ COMMDCB_PARAM_HANDLER(xon)
 /* FUNCTIONS */
 #define COMMDCB_PARAM(__P__) \
  { \
-  ROS_STRING_INITIALIZER(_L(#__P__)), \
+  UNICODE_STRING_INITIALIZER(_L(#__P__)), \
   (ULONG_PTR)&COMMDCB_ ## __P__ ## Param \
  }
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BuildCommDCBAndTimeoutsW
 (
@@ -702,15 +699,12 @@ InvalidParam:
 }
 
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BuildCommDCBAndTimeoutsA(LPCSTR lpDef, LPDCB lpDCB,	LPCOMMTIMEOUTS lpCommTimeouts)
 {
  NTSTATUS nErrCode;
- BOOL bRetVal;
+ WINBOOL bRetVal;
  ANSI_STRING strDef;
  UNICODE_STRING wstrDef;
 
@@ -731,36 +725,25 @@ BuildCommDCBAndTimeoutsA(LPCSTR lpDef, LPDCB lpDCB,	LPCOMMTIMEOUTS lpCommTimeout
  return bRetVal;
 }
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BuildCommDCBA(LPCSTR lpDef, LPDCB lpDCB)
 {
  return BuildCommDCBAndTimeoutsA(lpDef, lpDCB, NULL);
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 BuildCommDCBW(LPCWSTR lpDef, LPDCB lpDCB)
 {
  return BuildCommDCBAndTimeoutsW(lpDef, lpDCB, NULL);
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 ClearCommBreak(HANDLE hFile)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -770,15 +753,11 @@ ClearCommBreak(HANDLE hFile)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 ClearCommError(HANDLE hFile, LPDWORD lpErrors, LPCOMSTAT lpStat)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -823,11 +802,7 @@ CE_TXFULL The application tried to transmit a character, but the output buffer w
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 CommConfigDialogA(LPCSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 {
@@ -835,11 +810,7 @@ CommConfigDialogA(LPCSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 	return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 CommConfigDialogW(LPCWSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 {
@@ -847,15 +818,11 @@ CommConfigDialogW(LPCWSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 EscapeCommFunction(HANDLE hFile, DWORD dwFunc)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -894,11 +861,7 @@ EscapeCommFunction(HANDLE hFile, DWORD dwFunc)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommConfig(HANDLE hCommDev, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 {
@@ -906,15 +869,11 @@ GetCommConfig(HANDLE hCommDev, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommMask(HANDLE hFile, LPDWORD lpEvtMask)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -925,15 +884,11 @@ GetCommMask(HANDLE hFile, LPDWORD lpEvtMask)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommModemStatus(HANDLE hFile, LPDWORD lpModemStat)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -944,11 +899,7 @@ GetCommModemStatus(HANDLE hFile, LPDWORD lpModemStat)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommProperties(HANDLE hFile, LPCOMMPROP lpCommProp)
 {
@@ -956,15 +907,11 @@ GetCommProperties(HANDLE hFile, LPCOMMPROP lpCommProp)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommState(HANDLE hFile, LPDCB lpDCB)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	SERIAL_BAUD_RATE BaudRate;
@@ -1069,15 +1016,11 @@ GetCommState(HANDLE hFile, LPDCB lpDCB)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetCommTimeouts(HANDLE hFile, LPCOMMTIMEOUTS lpCommTimeouts)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -1093,11 +1036,7 @@ GetCommTimeouts(HANDLE hFile, LPCOMMTIMEOUTS lpCommTimeouts)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetDefaultCommConfigW(LPCWSTR lpszName, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 {
@@ -1105,11 +1044,7 @@ GetDefaultCommConfigW(LPCWSTR lpszName, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 	return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 GetDefaultCommConfigA(LPCSTR lpszName, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 {
@@ -1117,15 +1052,11 @@ GetDefaultCommConfigA(LPCSTR lpszName, LPCOMMCONFIG lpCC, LPDWORD lpdwSize)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 PurgeComm(HANDLE hFile, DWORD dwFlags)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -1136,15 +1067,11 @@ PurgeComm(HANDLE hFile, DWORD dwFlags)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCommBreak(HANDLE hFile)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -1154,11 +1081,7 @@ SetCommBreak(HANDLE hFile)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCommConfig(HANDLE hCommDev, LPCOMMCONFIG lpCC, DWORD dwSize)
 {
@@ -1166,15 +1089,11 @@ SetCommConfig(HANDLE hCommDev, LPCOMMCONFIG lpCC, DWORD dwSize)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCommMask(HANDLE hFile, DWORD dwEvtMask)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -1185,15 +1104,11 @@ SetCommMask(HANDLE hFile, DWORD dwEvtMask)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCommState(HANDLE	hFile, LPDCB lpDCB)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	SERIAL_BAUD_RATE BaudRate;
@@ -1316,15 +1231,11 @@ SetCommState(HANDLE	hFile, LPDCB lpDCB)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetCommTimeouts(HANDLE hFile, LPCOMMTIMEOUTS lpCommTimeouts)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 	SERIAL_TIMEOUTS Timeouts;
 
@@ -1344,11 +1255,7 @@ SetCommTimeouts(HANDLE hFile, LPCOMMTIMEOUTS lpCommTimeouts)
 	return TRUE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetDefaultCommConfigA(LPCSTR lpszName, LPCOMMCONFIG lpCC, DWORD dwSize)
 {
@@ -1356,11 +1263,7 @@ SetDefaultCommConfigA(LPCSTR lpszName, LPCOMMCONFIG lpCC, DWORD dwSize)
 	return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetDefaultCommConfigW(LPCWSTR lpszName, LPCOMMCONFIG lpCC, DWORD dwSize)
 {
@@ -1368,15 +1271,11 @@ SetDefaultCommConfigW(LPCWSTR lpszName, LPCOMMCONFIG lpCC, DWORD dwSize)
 	return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 SetupComm(HANDLE hFile, DWORD dwInQueue, DWORD dwOutQueue)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 	SERIAL_QUEUE_SIZE QueueSize;
 
@@ -1390,15 +1289,11 @@ SetupComm(HANDLE hFile, DWORD dwInQueue, DWORD dwOutQueue)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 TransmitCommChar(HANDLE hFile, char cChar)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -1409,15 +1304,11 @@ TransmitCommChar(HANDLE hFile, char cChar)
 	return TRUE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 WaitCommEvent(HANDLE hFile, LPDWORD lpEvtMask, LPOVERLAPPED lpOverlapped)
 {
-	BOOL result = FALSE;
+	WINBOOL result = FALSE;
 	DWORD dwBytesReturned;
 
 	if (hFile == INVALID_HANDLE_VALUE) {

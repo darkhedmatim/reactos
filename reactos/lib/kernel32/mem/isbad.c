@@ -1,4 +1,4 @@
-/* $Id: isbad.c,v 1.11 2004/09/14 14:01:25 weiden Exp $
+/* $Id: isbad.c,v 1.6 2003/04/29 22:39:57 gvg Exp $
  *
  * lib/kernel32/mem/isbad.c
  *
@@ -8,45 +8,36 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 /* FIXME: Stubs. What is it for? */
-/*
- * @implemented
- */
 UINT
 wcsnlen (
 	LPCWSTR	lpsz,
 	UINT	ucchMax
 	)
 {
-  UINT i = 0;
-  while( lpsz[i] && i < ucchMax ) i++;
-  return i;
+	DPRINT1("wcsnlen stub called\n");
+
+	return 0;
 }
 
 
 /* FIXME: Stubs. What is it for? */
-/*
- * @implemented
- */
 UINT
 strnlen (
 	LPCSTR	lpsz,
 	UINT	uiMax
 	)
 {
-  UINT i = 0;
-  while( lpsz[i] && i < uiMax ) i++;
-  return i;
+	DPRINT1("strnlen stub called\n");
+
+	return 0;
 }
 
 /* --- --- --- */
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadReadPtr (
 	CONST VOID	* lp,
@@ -91,10 +82,7 @@ IsBadReadPtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadHugeReadPtr (
 	CONST VOID	* lp,
@@ -105,10 +93,7 @@ IsBadHugeReadPtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadCodePtr (
 	FARPROC	lpfn
@@ -139,10 +124,7 @@ IsBadCodePtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadWritePtr (
 	LPVOID	lp,
@@ -194,10 +176,7 @@ IsBadWritePtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadHugeWritePtr (
 	LPVOID	lp,
@@ -208,10 +187,7 @@ IsBadHugeWritePtr (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 IsBadStringPtrW (
 	LPCWSTR	lpsz,
@@ -229,10 +205,7 @@ IsBadStringPtrW (
 }
 
 
-/*
- * @implemented
- */
-BOOL 
+WINBOOL 
 STDCALL
 IsBadStringPtrA (
 	LPCSTR	lpsz,

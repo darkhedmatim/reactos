@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CFF token stream parser (body)                                       */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -38,7 +38,6 @@
     cff_kind_none = 0,
     cff_kind_num,
     cff_kind_fixed,
-    cff_kind_fixed_thousand,
     cff_kind_string,
     cff_kind_bool,
     cff_kind_delta,
@@ -334,7 +333,7 @@
       offset->x  = cff_parse_fixed_thousand( data++ );
       offset->y  = cff_parse_fixed_thousand( data   );
 
-      temp = FT_ABS( matrix->yy );
+      temp = ABS( matrix->yy );
 
       *upm = (FT_UShort)FT_DivFix( 0x10000L, FT_DivFix( temp, 1000 ) );
 
@@ -430,8 +429,6 @@
           CFF_FIELD( code, name, cff_kind_num )
 #define CFF_FIELD_FIXED( code, name ) \
           CFF_FIELD( code, name, cff_kind_fixed )
-#define CFF_FIELD_FIXED_1000( code, name ) \
-          CFF_FIELD( code, name, cff_kind_fixed_thousand )
 #define CFF_FIELD_STRING( code, name ) \
           CFF_FIELD( code, name, cff_kind_string )
 #define CFF_FIELD_BOOL( code, name ) \
@@ -582,27 +579,23 @@
 
             case cff_kind_fixed:
               val = cff_parse_fixed( parser->stack );
-              goto Store_Number;
-
-            case cff_kind_fixed_thousand:
-              val = cff_parse_fixed_thousand( parser->stack );
 
             Store_Number:
               switch ( field->size )
               {
-              case (8 / FT_CHAR_BIT):
+              case 1:
                 *(FT_Byte*)q = (FT_Byte)val;
                 break;
 
-              case (16 / FT_CHAR_BIT):
+              case 2:
                 *(FT_Short*)q = (FT_Short)val;
                 break;
 
-              case (32 / FT_CHAR_BIT):
+              case 4:
                 *(FT_Int32*)q = (FT_Int)val;
                 break;
 
-              default:  /* for 64-bit systems */
+              default:  /* for 64-bit systems where long is 8 bytes */
                 *(FT_Long*)q = val;
               }
               break;
@@ -627,15 +620,15 @@
                   val += cff_parse_num( data++ );
                   switch ( field->size )
                   {
-                  case (8 / FT_CHAR_BIT):
+                  case 1:
                     *(FT_Byte*)q = (FT_Byte)val;
                     break;
 
-                  case (16 / FT_CHAR_BIT):
+                  case 2:
                     *(FT_Short*)q = (FT_Short)val;
                     break;
 
-                  case (32 / FT_CHAR_BIT):
+                  case 4:
                     *(FT_Int32*)q = (FT_Int)val;
                     break;
 

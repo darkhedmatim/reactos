@@ -1,8 +1,5 @@
 #include <msvcrt/math.h>
 
-/*
- * @implemented
- */
 double ceil (double __x)
 {
   register double __value;

@@ -1,11 +1,8 @@
-/* $Id: string.c,v 1.5 2004/01/28 20:55:18 ekohl Exp $
+/* $Id: string.c,v 1.3 2002/09/08 10:22:19 chorns Exp $
  *
  */
-#include <ddk/ntddk.h>
+#include <ntos.h>
 
-/*
- * @unimplemented
- */
 BOOLEAN
 STDCALL
 CTEAllocateString (
@@ -17,9 +14,6 @@ CTEAllocateString (
 }
 
 
-/*
- * @unimplemented
- */
 BOOLEAN
 STDCALL
 CTEInitString (
@@ -29,5 +23,6 @@ CTEInitString (
 {
 	return FALSE;
 }
+
 
 /* EOF */

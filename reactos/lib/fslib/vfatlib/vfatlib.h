@@ -11,35 +11,6 @@
 
 #define SECTORSIZE 512
 
-typedef struct _FAT16_BOOT_SECTOR
-{
-  unsigned char  magic0;                      // 0
-  unsigned char  res0;                        // 1
-  unsigned char  magic1;                      // 2
-  unsigned char  OEMName[8];                  // 3
-  unsigned short BytesPerSector;              // 11
-  unsigned char  SectorsPerCluster;           // 13
-  unsigned short ReservedSectors;             // 14
-  unsigned char  FATCount;                    // 16
-  unsigned short RootEntries;                 // 17
-  unsigned short Sectors;                     // 19
-  unsigned char  Media;                       // 21
-  unsigned short FATSectors;                  // 22
-  unsigned short SectorsPerTrack;             // 24
-  unsigned short Heads;                       // 26
-  unsigned long  HiddenSectors;               // 28
-  unsigned long  SectorsHuge;                 // 32
-  unsigned char  Drive;                       // 36
-  unsigned char  Res1;                        // 37
-  unsigned char  ExtBootSignature;            // 38
-  unsigned long  VolumeID;                    // 39
-  unsigned char  VolumeLabel[11];             // 43
-  unsigned char  SysType[8];                  // 54
-  unsigned char  Res2[446];                   // 62
-  unsigned long  Signature1;                  // 508
-} __attribute__((packed)) FAT16_BOOT_SECTOR, *PFAT16_BOOT_SECTOR;
-
-
 typedef struct _FAT32_BOOT_SECTOR
 {
   unsigned char  magic0;                      // 0
@@ -55,9 +26,9 @@ typedef struct _FAT32_BOOT_SECTOR
   unsigned char  Media;                       // 21
   unsigned short FATSectors;                  // 22
   unsigned short SectorsPerTrack;             // 24
-  unsigned short Heads;                       // 26
-  unsigned long  HiddenSectors;               // 28
-  unsigned long  SectorsHuge;                 // 32
+  unsigned short Heads;	                      // 22
+  unsigned long  HiddenSectors;               // 24
+  unsigned long  SectorsHuge;                 // 28
   unsigned long  FATSectors32;                // 36
   unsigned short ExtFlag;                     // 40
   unsigned short FSVersion;                   // 42
@@ -77,55 +48,10 @@ typedef struct _FAT32_BOOT_SECTOR
 
 typedef struct _FAT32_FSINFO
 {
-  unsigned long  LeadSig;          // 0
-  unsigned char  Res1[480];        // 4
-  unsigned long  StrucSig;         // 484
-  unsigned long  FreeCount;        // 488
-  unsigned long  NextFree;         // 492
-  unsigned long  Res2[3];          // 496
-  unsigned long  TrailSig;         // 508
+  unsigned int  LeadSig;          // 0
+  unsigned char Res1[480];        // 4
+  unsigned int  StrucSig;         // 484
+  unsigned int  FreeCount;        // 488
+  unsigned int  NextFree;         // 492
+  unsigned int  Res2;             // 496
 } __attribute__((packed)) FAT32_FSINFO, *PFAT32_FSINFO;
-
-
-typedef struct _FORMAT_CONTEXT
-{
-  PFMIFSCALLBACK Callback;
-  ULONG TotalSectorCount;
-  ULONG CurrentSectorCount;
-  BOOLEAN Success;
-  ULONG Percent;
-} FORMAT_CONTEXT, *PFORMAT_CONTEXT;
-
-
-NTSTATUS
-Fat12Format (HANDLE FileHandle,
-	     PPARTITION_INFORMATION PartitionInfo,
-	     PDISK_GEOMETRY DiskGeometry,
-	     PUNICODE_STRING Label,
-	     BOOLEAN QuickFormat,
-	     ULONG ClusterSize,
-	     PFORMAT_CONTEXT Context);
-
-NTSTATUS
-Fat16Format (HANDLE FileHandle,
-	     PPARTITION_INFORMATION PartitionInfo,
-	     PDISK_GEOMETRY DiskGeometry,
-	     PUNICODE_STRING Label,
-	     BOOLEAN QuickFormat,
-	     ULONG ClusterSize,
-	     PFORMAT_CONTEXT Context);
-
-NTSTATUS
-Fat32Format (HANDLE FileHandle,
-	     PPARTITION_INFORMATION PartitionInfo,
-	     PDISK_GEOMETRY DiskGeometry,
-	     PUNICODE_STRING Label,
-	     BOOLEAN QuickFormat,
-	     ULONG ClusterSize,
-	     PFORMAT_CONTEXT Context);
-
-VOID
-UpdateProgress (PFORMAT_CONTEXT Context,
-		ULONG Increment);
-
-/* EOF */

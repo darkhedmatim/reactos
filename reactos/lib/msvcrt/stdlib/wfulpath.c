@@ -7,14 +7,10 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _wfullpath(wchar_t* absPath, const wchar_t* relPath, size_t maxLength)
 {
     wchar_t* lpFilePart;

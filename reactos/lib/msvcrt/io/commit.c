@@ -1,12 +1,9 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 int _commit(int _fd)
 {
    if (! FlushFileBuffers(_get_osfhandle(_fd)) ) {

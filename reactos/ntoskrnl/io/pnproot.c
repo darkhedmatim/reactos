@@ -1,8 +1,8 @@
-/* $Id: pnproot.c,v 1.24 2004/10/24 09:13:18 navaraf Exp $
+/* $Id: pnproot.c,v 1.11 2003/01/16 17:53:56 ekohl Exp $
  *
  * COPYRIGHT:      See COPYING in the top level directory
  * PROJECT:        ReactOS kernel
- * FILE:           ntoskrnl/io/pnpmgr/pnproot.c
+ * FILE:           ntoskrnl/io/pnproot.c
  * PURPOSE:        PnP manager root device
  * PROGRAMMER:     Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -11,7 +11,11 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <reactos/bugcodes.h>
+#include <internal/io.h>
+#include <internal/registry.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -45,8 +49,6 @@ typedef enum {
 } PNPROOT_DEVICE_STATE;
 
 
-#include <pshpack1.h>
-
 typedef struct _PNPROOT_COMMON_DEVICE_EXTENSION
 {
   // Pointer to device object, this device extension is associated with
@@ -57,8 +59,7 @@ typedef struct _PNPROOT_COMMON_DEVICE_EXTENSION
   BOOLEAN Removed;
   // Current device power state for the device
   DEVICE_POWER_STATE DevicePowerState;
-} PNPROOT_COMMON_DEVICE_EXTENSION, *PPNPROOT_COMMON_DEVICE_EXTENSION;
-
+} __attribute((packed)) PNPROOT_COMMON_DEVICE_EXTENSION, *PPNPROOT_COMMON_DEVICE_EXTENSION;
 
 /* Physical Device Object device extension for a child device */
 typedef struct _PNPROOT_PDO_DEVICE_EXTENSION
@@ -69,8 +70,7 @@ typedef struct _PNPROOT_PDO_DEVICE_EXTENSION
   UNICODE_STRING DeviceID;
   // Instance ID
   UNICODE_STRING InstanceID;
-} PNPROOT_PDO_DEVICE_EXTENSION, *PPNPROOT_PDO_DEVICE_EXTENSION;
-
+} __attribute((packed)) PNPROOT_PDO_DEVICE_EXTENSION, *PPNPROOT_PDO_DEVICE_EXTENSION;
 
 /* Functional Device Object device extension for the PCI driver device object */
 typedef struct _PNPROOT_FDO_DEVICE_EXTENSION
@@ -90,10 +90,7 @@ typedef struct _PNPROOT_FDO_DEVICE_EXTENSION
   // Lock for namespace device list
   // FIXME: Use fast mutex instead?
   KSPIN_LOCK DeviceListLock;
-} PNPROOT_FDO_DEVICE_EXTENSION, *PPNPROOT_FDO_DEVICE_EXTENSION;
-
-#include <poppack.h>
-
+} __attribute((packed)) PNPROOT_FDO_DEVICE_EXTENSION, *PPNPROOT_FDO_DEVICE_EXTENSION;
 
 
 PDEVICE_OBJECT PnpRootDeviceObject;
@@ -244,49 +241,6 @@ PdoQueryId(
 
 
 NTSTATUS
-PdoQueryResources(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp,
-  PIO_STACK_LOCATION IrpSp)
-{
-  PCM_RESOURCE_LIST ResourceList;
-  ULONG ResourceListSize = FIELD_OFFSET(CM_RESOURCE_LIST, List);
-
-  ResourceList = ExAllocatePool(PagedPool, ResourceListSize);
-  if (ResourceList == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  ResourceList->Count = 0;
-
-  Irp->IoStatus.Information = (ULONG_PTR)ResourceList;
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-PdoQueryResourceRequirements(
-  IN PDEVICE_OBJECT DeviceObject,
-  IN PIRP Irp,
-  PIO_STACK_LOCATION IrpSp)
-{
-  PIO_RESOURCE_REQUIREMENTS_LIST ResourceList;
-  ULONG ResourceListSize = FIELD_OFFSET(IO_RESOURCE_REQUIREMENTS_LIST, List);
-
-  ResourceList = ExAllocatePool(PagedPool, ResourceListSize);
-  if (ResourceList == NULL)
-    return STATUS_INSUFFICIENT_RESOURCES;
-
-  RtlZeroMemory(ResourceList, ResourceListSize);
-  ResourceList->ListSize = ResourceListSize;
-
-  Irp->IoStatus.Information = (ULONG_PTR)ResourceList;
-
-  return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
 PnpRootPdoPnpControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)
@@ -303,44 +257,72 @@ PnpRootPdoPnpControl(
   NTSTATUS Status;
 
   DPRINT("Called\n");
-       	
+
   Status = Irp->IoStatus.Status;
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
   switch (IrpSp->MinorFunction) {
 #if 0
+  case IRP_MN_CANCEL_REMOVE_DEVICE:
+    break;
+
+  case IRP_MN_CANCEL_STOP_DEVICE:
+    break;
+
+  case IRP_MN_DEVICE_USAGE_NOTIFICATION:
+    break;
+
+  case IRP_MN_EJECT:
+    break;
+
   case IRP_MN_QUERY_BUS_INFORMATION:
     break;
 
+  case IRP_MN_QUERY_CAPABILITIES:
+    break;
+
   case IRP_MN_QUERY_DEVICE_RELATIONS:
-    /* FIXME: Handle for TargetDeviceRelation */
+    /* FIXME: Possibly handle for RemovalRelations */
+    break;
+
+  case IRP_MN_QUERY_DEVICE_TEXT:
     break;
 #endif
-
   case IRP_MN_QUERY_ID:
     Status = PdoQueryId(DeviceObject, Irp, IrpSp);
     break;
+#if 0
+  case IRP_MN_QUERY_PNP_DEVICE_STATE:
+    break;
+
+  case IRP_MN_QUERY_REMOVE_DEVICE:
+    break;
 
   case IRP_MN_QUERY_RESOURCE_REQUIREMENTS:
-    Status = PdoQueryResourceRequirements(DeviceObject, Irp, IrpSp);
     break;
 
   case IRP_MN_QUERY_RESOURCES:
-    Status = PdoQueryResources(DeviceObject, Irp, IrpSp);
+    break;
+
+  case IRP_MN_QUERY_STOP_DEVICE:
+    break;
+
+  case IRP_MN_REMOVE_DEVICE:
+    break;
+
+  case IRP_MN_SET_LOCK:
     break;
 
   case IRP_MN_START_DEVICE:
-  case IRP_MN_QUERY_STOP_DEVICE:
-  case IRP_MN_CANCEL_STOP_DEVICE:
-  case IRP_MN_STOP_DEVICE:
-  case IRP_MN_QUERY_REMOVE_DEVICE:
-  case IRP_MN_CANCEL_REMOVE_DEVICE:
-  case IRP_MN_REMOVE_DEVICE:
-  case IRP_MN_SURPRISE_REMOVAL:
-    Status = STATUS_SUCCESS;
     break;
 
+  case IRP_MN_STOP_DEVICE:
+    break;
+
+  case IRP_MN_SURPRISE_REMOVAL:
+    break;
+#endif
   default:
     DPRINT("Unknown IOCTL 0x%X\n", IrpSp->MinorFunction);
     break;
@@ -379,7 +361,6 @@ PnpRootPdoPowerControl(
   switch (IrpSp->MinorFunction) {
   default:
     DPRINT("Unknown IOCTL 0x%X\n", IrpSp->MinorFunction);
-    Status = STATUS_NOT_IMPLEMENTED;
     break;
   }
 
@@ -401,6 +382,7 @@ PnpRootFdoReadDeviceInfo(
   RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   PUNICODE_STRING DeviceDesc;
   WCHAR KeyName[MAX_PATH];
+  HANDLE KeyHandle;
   NTSTATUS Status;
 
   DPRINT("Called\n");
@@ -409,13 +391,25 @@ PnpRootFdoReadDeviceInfo(
 
   DeviceDesc = &Device->DeviceDescription;
 
-  wcscpy(KeyName, ENUM_NAME_ROOT);
+  wcscpy(KeyName, L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\");
+  wcscat(KeyName, ENUM_NAME_ROOT);
   wcscat(KeyName, L"\\");
   wcscat(KeyName, Device->ServiceName.Buffer);
   wcscat(KeyName, L"\\");
   wcscat(KeyName, Device->InstanceID.Buffer);
 
   DPRINT("KeyName %S\n", KeyName);
+
+  Status = RtlpGetRegistryHandle(
+    RTL_REGISTRY_ABSOLUTE,
+	  KeyName,
+		FALSE,
+		&KeyHandle);
+  if (!NT_SUCCESS(Status))
+  {
+    DPRINT("RtlpGetRegistryHandle() failed (Status %x)\n", Status);
+    return Status;
+  }
 
   RtlZeroMemory(QueryTable, sizeof(QueryTable));
 
@@ -426,11 +420,13 @@ PnpRootFdoReadDeviceInfo(
   QueryTable[0].EntryContext = DeviceDesc;
 
   Status = RtlQueryRegistryValues(
-    RTL_REGISTRY_ENUM,
-    KeyName,
-    QueryTable,
-    NULL,
-    NULL);
+    RTL_REGISTRY_HANDLE,
+	 	(PWSTR)KeyHandle,
+	 	QueryTable,
+	 	NULL,
+	 	NULL);
+
+  NtClose(KeyHandle);
 
   DPRINT("RtlQueryRegistryValues() returned status %x\n", Status);
 
@@ -472,7 +468,7 @@ PnpRootFdoEnumerateDevices(
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
-  RtlRosInitUnicodeStringFromLiteral(
+  RtlInitUnicodeStringFromLiteral(
     &KeyName,
     L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum\\" \
     ENUM_NAME_ROOT);
@@ -910,7 +906,8 @@ PnpRootAddDevice(
     TRUE,
     &PnpRootDeviceObject);
   if (!NT_SUCCESS(Status)) {
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    CPRINT("IoCreateDevice() failed with status 0x%X\n", Status);
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
   }
 
   DeviceExtension = (PPNPROOT_FDO_DEVICE_EXTENSION)PnpRootDeviceObject->DeviceExtension;
@@ -927,12 +924,12 @@ PnpRootAddDevice(
 
   if (!PnpRootDeviceObject) {
     CPRINT("PnpRootDeviceObject 0x%X\n", PnpRootDeviceObject);
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
   }
 
   if (!PhysicalDeviceObject) {
     CPRINT("PhysicalDeviceObject 0x%X\n", PhysicalDeviceObject);
-    KEBUGCHECKEX(PHASE1_INITIALIZATION_FAILED, Status, 0, 0, 0);
+    KeBugCheck(PHASE1_INITIALIZATION_FAILED);
   }
 
   InitializeListHead(&DeviceExtension->DeviceListHead);

@@ -1,7 +1,36 @@
-/* $Id: wcscmp.s,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/* 
+ * $Id: wcscmp.s,v 1.1 2003/05/27 18:58:15 hbirr Exp $
  */
 
-#define _UNICODE
-#include "tcscmp.h"
+/*
+ * int wcscmp (const wchar_t* s1, const wchar_t* s2)
+ */
 
-/* EOF */
+.globl	_wcscmp
+
+_wcscmp:
+	push	%ebp
+	mov	%esp,%ebp
+	push	%esi
+	push	%edi
+	mov	0x8(%ebp),%esi
+	mov	0xc(%ebp),%edi
+	cld
+.L1:	
+	lodsw
+	scasw
+	jne	.L2
+	test	%ax,%ax
+	jne	.L1
+	xor	%eax,%eax
+	jmp	.L3
+.L2:
+	sbb	%eax,%eax
+	or	$1,%al
+.L3:		
+	pop	%edi
+	pop	%esi
+	leave
+	ret
+	
+

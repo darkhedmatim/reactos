@@ -1,12 +1,11 @@
-#include "precomp.h"
+/* $Id: threadx.c,v 1.2 2003/04/20 19:42:50 gvg Exp $
+ *
+ */
+#include <windows.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/process.h>
-#include <msvcrt/internal/file.h>
 
 
-/*
- * @unimplemented
- */
 unsigned long _beginthreadex(
     void* security,
     unsigned stack_size,
@@ -21,21 +20,17 @@ unsigned long _beginthreadex(
    * Just call the API function. Any CRT specific processing is done in
    * DllMain DLL_THREAD_ATTACH
    */
-  NewThread = CreateThread ( security, stack_size,
-    (LPTHREAD_START_ROUTINE)start_address,
-    arglist, initflag, (PULONG)thrdaddr );
+  NewThread = CreateThread(security, stack_size, start_address, arglist, initflag, thrdaddr);
   if (NULL == NewThread)
     {
-    _dosmaperr( GetLastError() );
+    /* FIXME map GetLastError() to errno */
+    errno = ENOSYS;
     }
 
   return (unsigned long) NewThread;
 }
 
 
-/*
- * @implemented
- */
 void _endthreadex(unsigned retval)
 {
   /*

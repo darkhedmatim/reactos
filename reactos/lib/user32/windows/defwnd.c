@@ -1,4 +1,4 @@
-/* $Id: defwnd.c,v 1.149 2004/12/13 15:39:52 navaraf Exp $
+/* $Id: defwnd.c,v 1.52 2003/06/24 00:55:02 rcampbell Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -11,207 +11,807 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <windowsx.h>
+#include <windows.h>
+#include <user32.h>
 #include <window.h>
 #include <user32/wininternal.h>
 #include <string.h>
-#include <cursor.h>
-#include <menu.h>
-#include <scroll.h>
-#include <winpos.h>
 
 #define NDEBUG
 #include <debug.h>
 
-#ifndef WM_SETVISIBLE
-#define WM_SETVISIBLE 9
-#endif
-#ifndef WM_QUERYDROPOBJECT
-#define WM_QUERYDROPOBJECT  0x022B
-#endif
-
-LRESULT DefWndNCPaint(HWND hWnd, HRGN hRgn);
-LRESULT DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect);
-LRESULT DefWndNCActivate(HWND hWnd, WPARAM wParam);
-LRESULT DefWndNCHitTest(HWND hWnd, POINT Point);
-LRESULT DefWndNCLButtonDown(HWND hWnd, WPARAM wParam, LPARAM lParam);
-LRESULT DefWndNCLButtonDblClk(HWND hWnd, WPARAM wParam, LPARAM lParam);
-void FASTCALL MenuInitSysMenuPopup(HMENU Menu, DWORD Style, DWORD ClsStyle, LONG HitTest );
-
 /* GLOBALS *******************************************************************/
 
-COLORREF SysColors[NUM_SYSCOLORS] = {0};
-HPEN SysPens[NUM_SYSCOLORS] = {0};
-HBRUSH SysBrushes[NUM_SYSCOLORS] = {0};
+static HBITMAP hbSysMenu;
+/* TODO:  widgets will be cached here.
+static HBITMAP hbClose;
+static HBITMAP hbCloseD;
+static HBITMAP hbMinimize;
+static HBITMAP hbMinimizeD;
+static HBITMAP hbRestore;
+static HBITMAP hbRestoreD;
+static HBITMAP hbMaximize;
+static HBITMAP hbScrUp;
+static HBITMAP hbScrDwn;
+static HBITMAP hbScrLeft;
+static HBITMAP hbScrRight;
+*/
+static COLORREF SysColours[] =
+  {
+    RGB(224, 224, 224) /* COLOR_SCROLLBAR */,
+    RGB(58, 110, 165) /* COLOR_BACKGROUND */,
+    RGB(0, 0, 128) /* COLOR_ACTIVECAPTION */,
+    RGB(128, 128, 128) /* COLOR_INACTIVECAPTION */,
+    RGB(192, 192, 192) /* COLOR_MENU */,
+    RGB(192, 192, 192) /* COLOR_WINDOW */,
+    RGB(192, 192, 192) /* COLOR_WINDOWFRAME */,
+    RGB(0, 0, 0) /* COLOR_MENUTEXT */,
+    RGB(0, 0, 0) /* COLOR_WINDOWTEXT */,
+    RGB(255, 255, 255) /* COLOR_CAPTIONTEXT */,
+    RGB(128, 128, 128) /* COLOR_ACTIVEBORDER */,
+    RGB(255, 255, 255) /* COLOR_INACTIVEBORDER */,
+    RGB(255, 255, 232) /* COLOR_APPWORKSPACE */,
+    RGB(224, 224, 224) /* COLOR_HILIGHT */,
+    RGB(0, 0, 128) /* COLOR_HILIGHTTEXT */,
+    RGB(192, 192, 192) /* COLOR_BTNFACE */,
+    RGB(128, 128, 128) /* COLOR_BTNSHADOW */,
+    RGB(192, 192, 192) /* COLOR_GRAYTEXT */,
+    RGB(0, 0, 0) /* COLOR_BTNTEXT */,
+    RGB(192, 192, 192) /* COLOR_INACTIVECAPTIONTEXT */,
+    RGB(255, 255, 255) /* COLOR_BTNHILIGHT */,
+    RGB(32, 32, 32) /* COLOR_3DDKSHADOW */,
+    RGB(192, 192, 192) /* COLOR_3DLIGHT */,
+    RGB(0, 0, 0) /* COLOR_INFOTEXT */,
+    RGB(255, 255, 192) /* COLOR_INFOBK */,
+    RGB(184, 180, 184) /* COLOR_ALTERNATEBTNFACE */,
+    RGB(0, 0, 255) /* COLOR_HOTLIGHT */,
+    RGB(16, 132, 208) /* COLOR_GRADIENTACTIVECAPTION */,
+    RGB(181, 181, 181) /* COLOR_GRADIENTINACTIVECAPTION */,
+  };
 
-/* Bits in the dwKeyData */
-#define KEYDATA_ALT   0x2000
+static ATOM AtomInternalPos;
 
 /* FUNCTIONS *****************************************************************/
 
-void
-InitStockObjects(void)
+BOOL IsMaxBoxActive(HWND hWnd)
 {
-  /* FIXME - Instead of copying the stuff to usermode we should map the tables to
-             userland. The current implementation has one big flaw: the system color
-             table doesn't get updated when another process changes them. That's why
-             we should rather map the table into usermode. But it only affects the
-             SysColors table - the pens, brushes and stock objects are not affected
-             as their handles never change. But it'd be faster to map them, too. */
-  if(SysBrushes[0] == NULL)
-  {
-    /* only initialize once */
-    NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
-    NtUserGetSysColorPens(SysPens, NUM_SYSCOLORS);
-    NtUserGetSysColorBrushes(SysBrushes, NUM_SYSCOLORS);
-  }
+    ULONG uStyle = GetWindowLong( hWnd, GWL_STYLE );
+    return (uStyle & WS_MAXIMIZEBOX);
 }
 
-/*
- * @implemented
- */
+BOOL IsCloseBoxActive( HWND hWnd )
+{
+    ULONG uStyle = GetWindowLong(hWnd, GWL_STYLE );
+    return ( uStyle & WS_SYSMENU );
+}
+
+BOOL IsMinBoxActive( HWND hWnd )
+{
+    ULONG uStyle = GetWindowLong( hWnd, GWL_STYLE );
+    return (uStyle & WS_MINIMIZEBOX);
+}
+
+INT UIGetFrameSizeX( HWND hWnd )
+{
+    ULONG uStyle = GetWindowLong( hWnd, GWL_STYLE );
+
+    if ( uStyle & WS_THICKFRAME )
+        return GetSystemMetrics( SM_CXSIZEFRAME );
+    else
+        return GetSystemMetrics( SM_CXFRAME );
+}
+
+INT UIGetFrameSizeY( HWND hWnd )
+{
+    ULONG uStyle = GetWindowLong( hWnd, GWL_STYLE );
+
+    if ( uStyle & WS_THICKFRAME )
+        return GetSystemMetrics( SM_CYSIZEFRAME );
+    else
+        return GetSystemMetrics( SM_CYFRAME );
+}
+
+VOID
+UserSetupInternalPos( VOID )
+{
+  LPSTR Str = "SysIP";
+  AtomInternalPos = GlobalAddAtomA(Str);
+}
+
 DWORD STDCALL
 GetSysColor(int nIndex)
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysColors[nIndex];
-  }
-  
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return 0;
+  return SysColours[nIndex];
 }
 
-/*
- * @implemented
- */
 HPEN STDCALL
-GetSysColorPen(int nIndex)
+GetSysColorPen( int nIndex )
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysPens[nIndex];
-  }
-
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  return(CreatePen(PS_SOLID, 1, SysColours[nIndex]));
 }
 
-/*
- * @implemented
- */
 HBRUSH STDCALL
-GetSysColorBrush(int nIndex)
+GetSysColorBrush( int nIndex )
 {
-  if(nIndex >= 0 && nIndex <= NUM_SYSCOLORS)
-  {
-    return SysBrushes[nIndex];
-  }
-
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+  return(CreateSolidBrush(SysColours[nIndex]));
 }
 
-/*
- * @implemented
- */
+
+LRESULT STDCALL
+DefFrameProcA( HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam )
+{
+  UNIMPLEMENTED;
+  return((LRESULT)0);
+}
+
+LRESULT STDCALL
+DefFrameProcW(HWND hWnd,
+	      HWND hWndMDIClient,
+	      UINT uMsg,
+	      WPARAM wParam,
+	      LPARAM lParam)
+{
+  UNIMPLEMENTED;
+  return((LRESULT)0);
+}
+
+
 BOOL
-STDCALL
-SetSysColors(
-  int cElements,
-  CONST INT *lpaElements,
-  CONST COLORREF *lpaRgbValues)
+DefWndRedrawIconTitle(HWND hWnd)
 {
-  BOOL Ret;
-  struct
-  {
-    INT *Elements;
-    COLORREF *Colors;
-  } ChangeSysColors;
-
-  ChangeSysColors.Elements = (INT*)lpaElements;
-  ChangeSysColors.Colors = (COLORREF*)lpaRgbValues;
-  
-  if(cElements > 0)
-  {
-    Ret = NtUserSetSysColors(&ChangeSysColors, cElements);
-    if(Ret)
+  PINTERNALPOS lpPos = (PINTERNALPOS)GetPropA(hWnd,
+					      (LPSTR)(DWORD)AtomInternalPos);
+  if (lpPos != NULL)
     {
-      /* FIXME - just change it in the usermode structure, too, instead of asking win32k again */
-      NtUserGetSysColors(SysColors, NUM_SYSCOLORS);
+      if (lpPos->IconTitle != NULL)
+	{
+	  SendMessageA(lpPos->IconTitle, WM_SHOWWINDOW, TRUE, 0);
+	  InvalidateRect(lpPos->IconTitle, NULL, TRUE);
+	  return(TRUE);
+	}
     }
-  }
-  else
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    Ret = FALSE;
-  }
-  
-  return Ret;
+  return(FALSE);
 }
 
-void
-UserGetInsideRectNC(HWND hWnd, RECT *rect)
+BOOL
+UserHasMenu(HWND hWnd, ULONG Style)
 {
-    RECT WindowRect;
-    ULONG Style;
-    ULONG ExStyle;
+  return(!(Style & WS_CHILD) && GetWindowLong(hWnd, GWL_ID) != 0);
+}
 
-    Style = GetWindowLongW(hWnd, GWL_STYLE);
-    ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
-    GetWindowRect(hWnd, &WindowRect);
-    rect->top    = rect->left = 0;
-    rect->right  = WindowRect.right - WindowRect.left;
-    rect->bottom = WindowRect.bottom - WindowRect.top;
+ULONG
+UserHasAnyFrameStyle(ULONG Style, ULONG ExStyle)
+{
+  return((Style & (WS_THICKFRAME | WS_DLGFRAME | WS_BORDER)) ||
+	 (ExStyle & WS_EX_DLGMODALFRAME) ||
+	 (!(Style & (WS_CHILD | WS_POPUP))));
+}
 
-    if (Style & WS_ICONIC)
+ULONG
+UserHasDlgFrameStyle(ULONG Style, ULONG ExStyle)
+{
+  return((ExStyle & WS_EX_DLGMODALFRAME) ||
+	 ((Style & WS_DLGFRAME) && (!(Style & WS_THICKFRAME))));
+}
+
+ULONG
+UserHasThickFrameStyle(ULONG Style, ULONG ExStyle)
+{
+  return((Style & WS_THICKFRAME) &&
+	 (!((Style & (WS_DLGFRAME | WS_BORDER)) == WS_DLGFRAME)));
+}
+
+ULONG
+UserHasThinFrameStyle(ULONG Style, ULONG ExStyle)
+{
+  return((Style & WS_BORDER) ||
+	 (!(Style & (WS_CHILD | WS_POPUP))));
+}
+
+ULONG
+UserHasBigFrameStyle(ULONG Style, ULONG ExStyle)
+{
+  return((Style & (WS_THICKFRAME | WS_DLGFRAME)) ||
+	 (ExStyle & WS_EX_DLGMODALFRAME));
+}
+
+void UserGetInsideRectNC( HWND hWnd, RECT *rect )
+{
+  RECT WindowRect;
+  ULONG Style;
+  ULONG ExStyle;
+
+  Style = GetWindowLong(hWnd, GWL_STYLE);
+  ExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+  GetWindowRect(hWnd, &WindowRect);
+  rect->top    = rect->left = 0;
+  rect->right  = WindowRect.right - WindowRect.left;
+  rect->bottom = WindowRect.bottom - WindowRect.top;
+
+  if (Style & WS_ICONIC)
+    {
+      return;
+    }
+
+  /* Remove frame from rectangle */
+  if (UserHasThickFrameStyle(Style, ExStyle ))
+      {
+	InflateRect( rect, -GetSystemMetrics(SM_CXFRAME),
+		     -GetSystemMetrics(SM_CYFRAME) );
+      }
+    else
+      {
+	if (UserHasDlgFrameStyle(Style, ExStyle ))
+	  {
+	    InflateRect( rect, -GetSystemMetrics(SM_CXDLGFRAME),
+			 -GetSystemMetrics(SM_CYDLGFRAME));
+	    /* FIXME: this isn't in NC_AdjustRect? why not? */
+	    if (ExStyle & WS_EX_DLGMODALFRAME)
+	      InflateRect( rect, -1, 0 );
+	  }
+	else
+	  {
+	    if (UserHasThinFrameStyle(Style, ExStyle))
+	      {
+		InflateRect(rect, -GetSystemMetrics(SM_CXBORDER),
+			    -GetSystemMetrics(SM_CYBORDER));
+	      }
+	  }
+      }
+}
+
+void UserDrawSysMenuButton( HWND hWnd, HDC hDC, BOOL down )
+{
+  RECT Rect;
+  HDC hDcMem;
+  HBITMAP hSavedBitmap;
+
+  hbSysMenu = LoadBitmap(0, MAKEINTRESOURCE(OBM_CLOSE));
+  UserGetInsideRectNC(hWnd, &Rect);
+  hDcMem = CreateCompatibleDC(hDC);
+  hSavedBitmap = SelectObject(hDcMem, hbSysMenu);
+  BitBlt(hDC, Rect.left + 2, Rect.top +
+         2, 16, 16, hDcMem,
+         (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD) ?
+	 GetSystemMetrics(SM_CXSIZE): 0, 0, SRCCOPY);
+  SelectObject(hDcMem, hSavedBitmap);
+  DeleteDC(hDcMem);
+}
+
+/* FIXME:  Cache bitmaps, then just bitblt instead of calling DFC() (and
+           wasting precious CPU cycles) every time */
+
+static void UserDrawCloseButton ( HWND hWnd, HDC hDC, BOOL bDown )
+{
+    RECT rect;
+
+    BOOL bToolWindow = GetWindowLongA( hWnd, GWL_EXSTYLE ) & WS_EX_TOOLWINDOW;
+    INT iBmpWidth =  (bToolWindow ? GetSystemMetrics(SM_CXSMSIZE) :
+                      GetSystemMetrics(SM_CXSIZE)) - 2;
+    INT iBmpHeight = (bToolWindow ? GetSystemMetrics(SM_CYSMSIZE) :
+                      GetSystemMetrics(SM_CYSIZE) - 4);
+    INT OffsetX = UIGetFrameSizeY( hWnd );
+    INT OffsetY = UIGetFrameSizeY( hWnd );
+    
+    
+    if(!(GetWindowLong( hWnd, GWL_STYLE ) & WS_SYSMENU))
     {
         return;
     }
+    GetWindowRect( hWnd, &rect );
+    
+    rect.right = rect.right - rect.left;
+    rect.bottom = rect.bottom - rect.top;
+    rect.left = rect.top = 0;
+    SetRect(&rect,
+            rect.right - OffsetX - iBmpWidth - 3,
+            OffsetY + 2,
+            rect.right - OffsetX - 3,
+            rect.top + iBmpHeight + OffsetY + 2 );      
+            
+    DrawFrameControl( hDC, &rect, DFC_CAPTION,
+                      (DFCS_CAPTIONCLOSE |
+                       (bDown ? DFCS_PUSHED : 0) |
+                       (IsCloseBoxActive(hWnd) ? 0 : DFCS_INACTIVE)) );
+}
+           
+static void UserDrawMaxButton( HWND hWnd, HDC hDC, BOOL bDown )
+{
 
-    /* Remove frame from rectangle */
-    if (UserHasThickFrameStyle(Style, ExStyle ))
+    RECT rect;
+    INT iBmpWidth = GetSystemMetrics(SM_CXSIZE) - 2;
+    INT iBmpHeight = GetSystemMetrics(SM_CYSIZE) - 4;
+
+    INT OffsetX = UIGetFrameSizeY( hWnd );
+    INT OffsetY = UIGetFrameSizeY( hWnd );
+    
+    GetWindowRect( hWnd, &rect );
+
+    if (!IsMinBoxActive(hWnd) && !IsMaxBoxActive(hWnd))
+        return;    
+    if ((GetWindowLongA( hWnd, GWL_EXSTYLE ) & WS_EX_TOOLWINDOW) == TRUE)
+        return;   /* ToolWindows don't have min/max buttons */
+        
+    rect.right = rect.right - rect.left;
+    rect.bottom = rect.bottom - rect.top;
+    rect.left = rect.top = 0;
+    SetRect(&rect,
+            rect.right - OffsetX - (iBmpWidth*2) - 5,
+            OffsetY + 2,
+            rect.right - iBmpWidth - OffsetX - 5,
+            rect.top + iBmpHeight + OffsetY + 2 );
+    
+    DrawFrameControl( hDC, &rect, DFC_CAPTION,
+                     (IsZoomed(hWnd) ? DFCS_CAPTIONRESTORE : DFCS_CAPTIONMAX) |
+                     (bDown ? DFCS_PUSHED : 0) |
+                     (IsMaxBoxActive(hWnd) ? 0 : DFCS_INACTIVE) );
+    
+}
+
+static void UserDrawMinButton( HWND hWnd, HDC hDC, BOOL bDown )
+{
+
+    RECT rect;
+    INT iBmpWidth = GetSystemMetrics(SM_CXSIZE) - 2;
+    INT iBmpHeight = GetSystemMetrics(SM_CYSIZE) - 4;
+    
+    INT OffsetX = UIGetFrameSizeX( hWnd );
+    INT OffsetY = UIGetFrameSizeY( hWnd );
+    
+    GetWindowRect( hWnd, &rect );
+    
+    if (!IsMinBoxActive(hWnd) && !IsMaxBoxActive(hWnd))
+        return;    
+    if ((GetWindowLongA( hWnd, GWL_EXSTYLE ) & WS_EX_TOOLWINDOW) == TRUE)
+        return;   /* ToolWindows don't have min/max buttons */
+        
+    rect.right = rect.right - rect.left;
+    rect.bottom = rect.bottom - rect.top;
+    rect.left = rect.top = 0;
+    SetRect(&rect,
+            rect.right - OffsetX - (iBmpWidth*3) - 5,
+            OffsetY + 2,
+            rect.right - (iBmpWidth * 2) - OffsetX - 5,
+            rect.top + iBmpHeight + OffsetY + 2 );  
+    DrawFrameControl( hDC, &rect, DFC_CAPTION,
+                     DFCS_CAPTIONMIN | (bDown ? DFCS_PUSHED : 0) |
+                     (IsMinBoxActive(hWnd) ? 0 : DFCS_INACTIVE) );
+}
+
+static void UserDrawCaptionNC( HDC hDC, RECT *rect, HWND hWnd,
+			    DWORD style, BOOL active )
+{
+    RECT r = *rect;
+    char buffer[256];
+    /* FIXME:  Implement and Use DrawCaption() */
+    SelectObject( hDC, GetSysColorBrush(active ? COLOR_ACTIVECAPTION : COLOR_INACTIVECAPTION) );
+    
+	PatBlt(hDC,rect->left + GetSystemMetrics(SM_CXFRAME), rect->top +
+           GetSystemMetrics(SM_CYFRAME), rect->right - (GetSystemMetrics(SM_CXFRAME) * 2), (rect->top + 
+           GetSystemMetrics(SM_CYCAPTION)) - 1, PATCOPY );
+    
+    if (style & WS_SYSMENU)
     {
-        InflateRect(rect, -GetSystemMetrics(SM_CXFRAME),
-                    -GetSystemMetrics(SM_CYFRAME));
+        UserDrawSysMenuButton( hWnd, hDC, FALSE);
+        r.left += GetSystemMetrics(SM_CXSIZE) + 1;
+        UserDrawCloseButton( hWnd, hDC, FALSE);
+        r.right -= GetSystemMetrics(SM_CXSMSIZE) + 1;
+        UserDrawMinButton(hWnd, hDC, FALSE);
+        UserDrawMaxButton(hWnd, hDC, FALSE);
     }
-    else
+    if (GetWindowTextA( hWnd, buffer, sizeof(buffer) ))
     {
-        if (UserHasDlgFrameStyle(Style, ExStyle ))
-        {
-            InflateRect(rect, -GetSystemMetrics(SM_CXDLGFRAME),
-                        -GetSystemMetrics(SM_CYDLGFRAME));
-            /* FIXME: this isn't in NC_AdjustRect? why not? */
-            if (ExStyle & WS_EX_DLGMODALFRAME)
-	            InflateRect( rect, -1, 0 );
-        }
+        NONCLIENTMETRICS nclm;
+        HFONT hFont, hOldFont;
+
+        nclm.cbSize = sizeof(NONCLIENTMETRICS);
+        SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, 0, &nclm, 0);
+        SetTextColor(hDC, SysColours[ active ? COLOR_CAPTIONTEXT : COLOR_INACTIVECAPTIONTEXT]);
+        SetBkMode( hDC, TRANSPARENT );
+        if (style & WS_EX_TOOLWINDOW)
+            hFont = CreateFontIndirectW(&nclm.lfSmCaptionFont);
         else
-        {
-            if (UserHasThinFrameStyle(Style, ExStyle))
-            {
-                InflateRect(rect, -GetSystemMetrics(SM_CXBORDER),
-                            -GetSystemMetrics(SM_CYBORDER));
-            }
-        }
+            hFont = CreateFontIndirectW(&nclm.lfCaptionFont);
+        hOldFont = SelectObject(hDC, hFont);
+        TextOutA(hDC, r.left + (GetSystemMetrics(SM_CXDLGFRAME) * 2), rect->top + (nclm.lfCaptionFont.lfHeight / 2), buffer, strlen(buffer));
+        DeleteObject (SelectObject (hDC, hOldFont));
     }
 }
 
+VOID
+UserDrawFrameNC(HWND hWnd, RECT* rect, BOOL dlgFrame, BOOL active)
+{
+	HDC hDC = GetWindowDC(hWnd);
+    SelectObject( hDC, GetSysColorBrush(COLOR_WINDOW) ); 
+    DrawEdge(hDC, rect,EDGE_RAISED, BF_RECT | BF_MIDDLE);
+}
+
+void SCROLL_DrawScrollBar (HWND hWnd, HDC hDC, INT nBar, BOOL arrows, BOOL interior);
+
+VOID
+DefWndDoPaintNC(HWND hWnd, HRGN clip)
+{
+  ULONG Active;
+  HDC hDC;
+  RECT rect;
+  ULONG Style;
+  ULONG ExStyle;
+  Active = GetWindowLongW(hWnd, GWL_STYLE) & WIN_NCACTIVATED;
+  Style = GetWindowLong(hWnd, GWL_STYLE);
+  ExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+
+  hDC = GetDCEx(hWnd, (clip > (HRGN)1) ? clip : 0, DCX_USESTYLE | DCX_WINDOW |
+		((clip > (HRGN)1) ? (DCX_INTERSECTRGN | DCX_KEEPCLIPRGN) : 0));
+  if (hDC == 0)
+    {
+      return;
+    }
+
+  /* FIXME: Test whether we need to draw anything at all. */
+
+  GetWindowRect(hWnd, &rect);
+  rect.right = rect.right - rect.left;
+  rect.bottom = rect.bottom - rect.top;
+  rect.top = rect.left = 0;
+  SelectObject(hDC, GetSysColorPen(COLOR_WINDOWFRAME));
+  if (UserHasThickFrameStyle(Style, ExStyle))
+    {
+      UserDrawFrameNC(hWnd, &rect, FALSE, Active);
+    }
+  else if (UserHasDlgFrameStyle(Style, ExStyle))
+    {
+      UserDrawFrameNC(hWnd, &rect, TRUE, Active);
+    }
+  if (Style & WS_CAPTION)
+    {
+      RECT r = rect;
+      r.bottom = rect.top + GetSystemMetrics(SM_CYSIZE);
+      rect.top += GetSystemMetrics(SM_CYSIZE) +
+	GetSystemMetrics(SM_CYBORDER);
+      UserDrawCaptionNC(hDC, &r, hWnd, Style, Active);
+    }
+
+/*  FIXME: Draw menu bar.  */
+
+  DPRINT("drawing scrollbars..\n");
+/*  Draw scrollbars */
+  if (Style & WS_VSCROLL)
+      SCROLL_DrawScrollBar(hWnd, hDC, SB_VERT, TRUE, TRUE);
+  if (Style & WS_HSCROLL)
+      SCROLL_DrawScrollBar(hWnd, hDC, SB_HORZ, TRUE, TRUE);
+
+  /* FIXME: Draw size box.*/
+
+  ReleaseDC(hWnd, hDC);
+  
+}
+
+LRESULT
+DefWndPaintNC(HWND hWnd, HRGN clip)
+{
+  if (IsWindowVisible(hWnd))
+    {
+      if (IsIconic(hWnd))
+	{
+	  DefWndRedrawIconTitle(hWnd);
+	}
+      else
+	{
+	  DefWndDoPaintNC(hWnd, clip);
+	}
+    }
+  return(0);
+}
+
+LRESULT
+DefWndHitTestNC(HWND hWnd, POINT Point)
+{
+  RECT WindowRect;
+  ULONG Style = GetWindowLong(hWnd, GWL_STYLE);
+  ULONG ExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+
+  GetWindowRect(hWnd, &WindowRect);
+  if (!PtInRect(&WindowRect, Point))
+    {
+      
+      return(HTNOWHERE);
+    }
+  if (Style & WS_MINIMIZE)
+    {
+      return(HTCAPTION);
+    }
+  if (UserHasThickFrameStyle(Style, ExStyle))
+    {
+      InflateRect(&WindowRect, -GetSystemMetrics(SM_CXFRAME),
+		  -GetSystemMetrics(SM_CYFRAME));
+      if (!PtInRect(&WindowRect, Point))
+	{
+	  if (Point.y < WindowRect.top)
+	    {
+	      if (Point.x < (WindowRect.left + GetSystemMetrics(SM_CXSIZE)))
+		{
+		  return(HTTOPLEFT);
+		}
+	      if (Point.x >= (WindowRect.right - GetSystemMetrics(SM_CXSIZE)))
+		{
+		  return(HTTOPRIGHT);
+		}
+	      return(HTTOP);
+	    }
+	  if (Point.y >= WindowRect.bottom)
+	    {
+	      if (Point.x < (WindowRect.left + GetSystemMetrics(SM_CXSIZE)))
+		{
+		  return(HTBOTTOMLEFT);
+		}
+	      if (Point.x >= (WindowRect.right - GetSystemMetrics(SM_CXSIZE)))
+		{
+		  return(HTBOTTOMRIGHT);
+		}
+	      return(HTBOTTOM);
+	    }
+	  if (Point.x < WindowRect.left)
+	    {
+	      if (Point.y < (WindowRect.top + GetSystemMetrics(SM_CYSIZE)))
+		{
+		  return(HTTOPLEFT);
+		}
+	      if (Point.y >= (WindowRect.bottom - GetSystemMetrics(SM_CYSIZE)))
+		{
+		  return(HTBOTTOMLEFT);
+		}
+	      return(HTLEFT);
+	    }
+	  if (Point.x >= WindowRect.right)
+	    {
+	      if (Point.y < (WindowRect.top + GetSystemMetrics(SM_CYSIZE)))
+		{
+		  return(HTTOPRIGHT);
+		}
+	      if (Point.y >= (WindowRect.bottom - GetSystemMetrics(SM_CYSIZE)))
+		{
+		  return(HTBOTTOMRIGHT);
+		}
+	      return(HTRIGHT);
+	    }
+	}
+    }
+  else
+    {
+      if (UserHasDlgFrameStyle(Style, ExStyle))
+	{
+	  InflateRect(&WindowRect, -GetSystemMetrics(SM_CXDLGFRAME),
+		      -GetSystemMetrics(SM_CYDLGFRAME));
+	}
+      else if (UserHasThinFrameStyle(Style, ExStyle))
+	{
+	  InflateRect(&WindowRect, -GetSystemMetrics(SM_CXBORDER),
+		      -GetSystemMetrics(SM_CYBORDER));
+	}
+      if (!PtInRect(&WindowRect, Point))
+	{
+	  return(HTBORDER);
+	}
+    }
+
+  if ((Style & WS_CAPTION) == WS_CAPTION)
+    {
+      WindowRect.top += (GetSystemMetrics(SM_CYCAPTION) -
+	GetSystemMetrics(SM_CYBORDER));
+      if (!PtInRect(&WindowRect, Point))
+	{
+	  if ((Style & WS_SYSMENU) && !(ExStyle & WS_EX_TOOLWINDOW))
+	    {
+	      WindowRect.left += GetSystemMetrics(SM_CXSIZE);
+	      WindowRect.right -= GetSystemMetrics(SM_CXSIZE) + 1;
+	    }
+	  if (Point.x <= WindowRect.left)
+	    {
+	      return(HTSYSMENU);
+	    }
+	  if (WindowRect.right <= Point.x)
+	    {
+	      return(HTCLOSE);
+	    }
+
+	  if (Style & WS_MAXIMIZEBOX || Style & WS_MINIMIZEBOX)
+	    {
+	      WindowRect.right -= GetSystemMetrics(SM_CXSIZE) - 2;
+	    }
+	  if (Point.x >= WindowRect.right)
+	    {
+	      return(HTMAXBUTTON);
+	    }
+
+	  if (Style & WS_MINIMIZEBOX)
+	    {
+	      WindowRect.right -= GetSystemMetrics(SM_CXSIZE) - 2;
+	    }
+	  if (Point.x >= WindowRect.right)
+	    {
+	      return(HTMINBUTTON);
+	    }
+	  return(HTCAPTION);
+	}
+    }
+
+  ScreenToClient(hWnd, &Point);
+  GetClientRect(hWnd, &WindowRect);
+
+  if (PtInRect(&WindowRect, Point))
+    {
+      return(HTCLIENT);
+    }
+
+  if (Style & WS_VSCROLL)
+    {
+      WindowRect.right += GetSystemMetrics(SM_CXVSCROLL);
+      if (PtInRect(&WindowRect, Point))
+	{
+	  return(HTVSCROLL);
+	}
+    }
+
+  if (Style & WS_HSCROLL)
+    {
+      WindowRect.bottom += GetSystemMetrics(SM_CYHSCROLL);
+      if (PtInRect(&WindowRect, Point))
+	{
+	  if ((Style & WS_VSCROLL) &&
+	      (Point.x >= (WindowRect.right - GetSystemMetrics(SM_CXVSCROLL))))
+	    {
+	      return(HTSIZE);
+	    }
+	  return(HTHSCROLL);
+	}
+    }
+
+  if (UserHasMenu(hWnd, Style))
+    {
+      if (Point.y < 0 && Point.x >= 0 && Point.x <= WindowRect.right)
+	{
+	  return(HTMENU);
+	}
+    }
+
+  return(HTNOWHERE);
+}
+
+VOID
+DefWndDrawSysButton(HWND hWnd, HDC hDC, BOOL Down)
+{
+  UNIMPLEMENTED;
+}
+
+LRESULT
+DefWndHandleLButtonDownNC(HWND hWnd, WPARAM wParam, LPARAM lParam)
+{
+    switch (wParam)
+    {
+        case HTCAPTION:
+        {
+	        HWND hTopWnd = GetAncestor(hWnd, GA_ROOT);
+	        if (SetActiveWindow(hTopWnd) || GetActiveWindow() == hTopWnd)
+	        {
+	            SendMessageA(hWnd, WM_SYSCOMMAND, SC_MOVE + HTCAPTION, lParam);
+	        }
+	        break;
+        }
+        case HTSYSMENU:
+        {
+	        if (GetWindowLong(hWnd, GWL_STYLE) & WS_SYSMENU)
+            {
+	            if (!(GetWindowLong(hWnd, GWL_STYLE) & WS_MINIMIZE))
+	            {
+		            HDC hDC = GetWindowDC(hWnd);
+		            DefWndDrawSysButton(hWnd, hDC, TRUE);
+		            ReleaseDC(hWnd, hDC);
+	            }
+	        SendMessageA(hWnd, WM_SYSCOMMAND, SC_MOUSEMENU + HTSYSMENU,
+			             lParam);
+	        }
+            break;
+        }
+        case HTMENU:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_MOUSEMENU, lParam);
+            break;
+        }
+        case HTHSCROLL:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_HSCROLL + HTHSCROLL, lParam);
+            break;
+        }
+        case HTVSCROLL:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_VSCROLL + HTVSCROLL, lParam);
+            break;
+        }
+        case HTMINBUTTON:
+        {
+            UserDrawMinButton(hWnd, GetWindowDC(hWnd), IsMinBoxActive(hWnd) );
+            break;
+        }
+        case HTMAXBUTTON:
+        {
+            UserDrawMaxButton(hWnd,GetWindowDC(hWnd), IsMaxBoxActive(hWnd) );
+            break;
+        }
+        case HTCLOSE:
+        {
+            UserDrawCloseButton(hWnd,GetWindowDC(hWnd),TRUE);
+            break;
+        }
+        case HTLEFT:
+        case HTRIGHT:
+        case HTTOP:
+        case HTBOTTOM:
+        case HTTOPLEFT:
+        case HTTOPRIGHT:
+        case HTBOTTOMLEFT:
+        case HTBOTTOMRIGHT:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_SIZE + wParam - 2, lParam);
+            break;
+        }
+    }
+    return(0);
+}
+
+LRESULT
+DefWndHandleLButtonDblClkNC(HWND hWnd, WPARAM wParam, LPARAM lParam)
+{
+  UNIMPLEMENTED;
+  return(0);
+}
+
+LRESULT
+DefWndHandleLButtonUpNC(HWND hWnd, WPARAM wParam, LPARAM lParam)
+{
+    UserDrawMinButton(hWnd,GetWindowDC(hWnd),FALSE);
+    UserDrawMaxButton(hWnd,GetWindowDC(hWnd),FALSE);
+    UserDrawCloseButton(hWnd,GetWindowDC(hWnd),FALSE);
+    switch (wParam)
+    {
+        case HTMINBUTTON:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            break;
+        }
+        case HTMAXBUTTON:
+        {
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+            break;
+        }
+        case HTCLOSE:
+        {
+            SendMessageA(hWnd, WM_CLOSE, 0, 0);
+            SendMessageA(hWnd, WM_SYSCOMMAND, SC_CLOSE, 0);
+            break;
+        }
+    }
+  return(0);
+}
+
+LRESULT
+DefWndHandleActiveNC(HWND hWnd, WPARAM wParam)
+{
+  UNIMPLEMENTED;
+  return(0);
+}
 
 VOID
 DefWndSetRedraw(HWND hWnd, WPARAM wParam)
 {
-  if ((BOOL) wParam && 0 == (GetWindowLong(hWnd, GWL_STYLE) & WS_VISIBLE))
-    {
-      ShowWindow(hWnd, SW_NORMAL);
-    }
-
   UNIMPLEMENTED;
 }
 
-
 LRESULT
-DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
+DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
   /* Not for child windows. */
   if (hWnd != (HWND)wParam)
@@ -219,13 +819,13 @@ DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
       return(0);
     }
 
-  switch((INT_PTR) LOWORD(lParam))
+  switch(LOWORD(lParam))
     {
     case HTERROR:
       {
 	WORD Msg = HIWORD(lParam);
 	if (Msg == WM_LBUTTONDOWN || Msg == WM_MBUTTONDOWN ||
-	    Msg == WM_RBUTTONDOWN || Msg == WM_XBUTTONDOWN)
+	    Msg == WM_RBUTTONDOWN)
 	  {
 	    MessageBeep(0);
 	  }
@@ -234,7 +834,7 @@ DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
 
     case HTCLIENT:
       {
-	HICON hCursor = (HICON)GetClassLongW(hWnd, GCL_HCURSOR);
+	HICON hCursor = (HICON)GetClassLong(hWnd, GCL_HCURSOR);
 	if (hCursor)
 	  {
 	    SetCursor(hCursor);
@@ -246,692 +846,123 @@ DefWndHandleSetCursor(HWND hWnd, WPARAM wParam, LPARAM lParam, ULONG Style)
     case HTLEFT:
     case HTRIGHT:
       {
-        if (Style & WS_MAXIMIZE)
-        {
-          break;
-        }
 	return((LRESULT)SetCursor(LoadCursorW(0, IDC_SIZEWE)));
       }
 
     case HTTOP:
     case HTBOTTOM:
       {
-        if (Style & WS_MAXIMIZE)
-        {
-          break;
-        }
 	return((LRESULT)SetCursor(LoadCursorW(0, IDC_SIZENS)));
       }
 
     case HTTOPLEFT:
     case HTBOTTOMRIGHT:
       {
-        if (Style & WS_MAXIMIZE)
-        {
-          break;
-        }
 	return((LRESULT)SetCursor(LoadCursorW(0, IDC_SIZENWSE)));
       }
 
     case HTBOTTOMLEFT:
     case HTTOPRIGHT:
       {
-        if (GetWindowLongW(hWnd, GWL_STYLE) & WS_MAXIMIZE)
-        {
-          break;
-        }
 	return((LRESULT)SetCursor(LoadCursorW(0, IDC_SIZENESW)));
       }
     }
   return((LRESULT)SetCursor(LoadCursorW(0, IDC_ARROW)));
 }
 
-static LONG 
-DefWndStartSizeMove(HWND hWnd, WPARAM wParam, POINT *capturePoint)
-{
-  LONG hittest = 0;
-  POINT pt;
-  MSG msg;
-  RECT rectWindow;
-  ULONG Style = GetWindowLongW(hWnd, GWL_STYLE); 
-  
-  GetWindowRect(hWnd, &rectWindow);
-
-  if ((wParam & 0xfff0) == SC_MOVE)
-    {
-      /* Move pointer at the center of the caption */
-      RECT rect;
-      UserGetInsideRectNC(hWnd, &rect);
-      if (Style & WS_SYSMENU)
-	rect.left += GetSystemMetrics(SM_CXSIZE) + 1;
-      if (Style & WS_MINIMIZEBOX)
-	rect.right -= GetSystemMetrics(SM_CXSIZE) + 1;
-      if (Style & WS_MAXIMIZEBOX)
-	rect.right -= GetSystemMetrics(SM_CXSIZE) + 1;
-      pt.x = rectWindow.left + (rect.right - rect.left) / 2;
-      pt.y = rectWindow.top + rect.top + GetSystemMetrics(SM_CYSIZE)/2;
-      hittest = HTCAPTION;
-      *capturePoint = pt;
-    }
-  else  /* SC_SIZE */
-    {
-      while(!hittest)
-	{
-	  GetMessageW(&msg, NULL, 0, 0);
-	  switch(msg.message)
-	    {
-	    case WM_MOUSEMOVE:
-	      hittest = DefWndNCHitTest(hWnd, msg.pt);
-	      if ((hittest < HTLEFT) || (hittest > HTBOTTOMRIGHT))
-		hittest = 0;
-	      break;
-	      
-	    case WM_LBUTTONUP:
-	      return 0;
-	      
-	    case WM_KEYDOWN:
-	      switch(msg.wParam)
-		{
-		case VK_UP:
-		  hittest = HTTOP;
-		  pt.x =(rectWindow.left+rectWindow.right)/2;
-		  pt.y = rectWindow.top + GetSystemMetrics(SM_CYFRAME) / 2;
-		  break;
-		case VK_DOWN:
-		  hittest = HTBOTTOM;
-		  pt.x =(rectWindow.left+rectWindow.right)/2;
-		  pt.y = rectWindow.bottom - GetSystemMetrics(SM_CYFRAME) / 2;
-		  break;
-		case VK_LEFT:
-		  hittest = HTLEFT;
-		  pt.x = rectWindow.left + GetSystemMetrics(SM_CXFRAME) / 2;
-		  pt.y =(rectWindow.top+rectWindow.bottom)/2;
-		  break;
-		case VK_RIGHT:
-		  hittest = HTRIGHT;
-		  pt.x = rectWindow.right - GetSystemMetrics(SM_CXFRAME) / 2;
-		  pt.y =(rectWindow.top+rectWindow.bottom)/2;
-		  break;
-		case VK_RETURN:
-		case VK_ESCAPE: return 0;
-		}
-	    }
-	}
-      *capturePoint = pt;
-    }
-    SetCursorPos( pt.x, pt.y );
-    DefWndHandleSetCursor(hWnd, (WPARAM)hWnd, MAKELONG(hittest, WM_MOUSEMOVE), Style);
-    return hittest;
-}
-
-#define ON_LEFT_BORDER(hit) \
- (((hit) == HTLEFT) || ((hit) == HTTOPLEFT) || ((hit) == HTBOTTOMLEFT))
-#define ON_RIGHT_BORDER(hit) \
- (((hit) == HTRIGHT) || ((hit) == HTTOPRIGHT) || ((hit) == HTBOTTOMRIGHT))
-#define ON_TOP_BORDER(hit) \
- (((hit) == HTTOP) || ((hit) == HTTOPLEFT) || ((hit) == HTTOPRIGHT))
-#define ON_BOTTOM_BORDER(hit) \
- (((hit) == HTBOTTOM) || ((hit) == HTBOTTOMLEFT) || ((hit) == HTBOTTOMRIGHT))
-
-VOID STATIC 
-UserDrawWindowFrame(HDC hdc, const RECT *rect,
-		    ULONG width, ULONG height)
-{
-  static HBRUSH hDraggingRectBrush = NULL;
-  
-  if(!hDraggingRectBrush)
-  {
-    static HBITMAP hDraggingPattern = NULL;
-    const DWORD Pattern[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
-    
-    hDraggingPattern = CreateBitmap(8, 8, 1, 1, Pattern);
-    hDraggingRectBrush = CreatePatternBrush(hDraggingPattern);
-  }
-  
-  HBRUSH hbrush = SelectObject( hdc, hDraggingRectBrush );
-  PatBlt( hdc, rect->left, rect->top,
-	  rect->right - rect->left - width, height, PATINVERT );
-  PatBlt( hdc, rect->left, rect->top + height, width,
-	  rect->bottom - rect->top - height, PATINVERT );
-  PatBlt( hdc, rect->left + width, rect->bottom - 1,
-	  rect->right - rect->left - width, -height, PATINVERT );
-  PatBlt( hdc, rect->right - 1, rect->top, -width,
-	  rect->bottom - rect->top - height, PATINVERT );
-  SelectObject( hdc, hbrush );
-}
-
-VOID STATIC
-UserDrawMovingFrame(HDC hdc, RECT *rect, BOOL thickframe)
-{
-  if(thickframe)
-  {
-    UserDrawWindowFrame(hdc, rect, GetSystemMetrics(SM_CXFRAME), GetSystemMetrics(SM_CYFRAME));
-  }
-  else
-  {
-    UserDrawWindowFrame(hdc, rect, 1, 1);
-  }
-}
-
-VOID STATIC
-DefWndDoSizeMove(HWND hwnd, WORD wParam)
-{
-  HRGN DesktopRgn;
-  MSG msg;
-  RECT sizingRect, mouseRect, origRect, clipRect;
-  HDC hdc;
-  LONG hittest = (LONG)(wParam & 0x0f);
-  HCURSOR hDragCursor = 0, hOldCursor = 0;
-  POINT minTrack, maxTrack;
-  POINT capturePoint, pt;
-  ULONG Style = GetWindowLongW(hwnd, GWL_STYLE);
-  ULONG ExStyle = GetWindowLongW(hwnd, GWL_EXSTYLE); 
-  BOOL thickframe;
-  BOOL iconic = Style & WS_MINIMIZE;
-  BOOL moved = FALSE;
-  DWORD dwPoint = GetMessagePos();
-  BOOL DragFullWindows = FALSE;
-  HWND hWndParent = NULL;
-
-  SystemParametersInfoA(SPI_GETDRAGFULLWINDOWS, 0, &DragFullWindows, 0);
-  
-  pt.x = GET_X_LPARAM(dwPoint);
-  pt.y = GET_Y_LPARAM(dwPoint);
-  capturePoint = pt;
-  
-  if (IsZoomed(hwnd) || !IsWindowVisible(hwnd))
-    {
-      return;
-    }
-  
-  thickframe = UserHasThickFrameStyle(Style, ExStyle) && !(Style & WS_MINIMIZE);
-  if ((wParam & 0xfff0) == SC_MOVE)
-    {
-      if (!hittest) 
-	{
-	  hittest = DefWndStartSizeMove(hwnd, wParam, &capturePoint);
-	}
-      if (!hittest)
-	{
-	  return;
-	}
-    }
-  else  /* SC_SIZE */
-    {
-      if (!thickframe)
-	{
-	  return;
-	}
-      if (hittest && ((wParam & 0xfff0) != SC_MOUSEMENU))
-	{
-          hittest += (HTLEFT - WMSZ_LEFT);
-	}
-      else
-	{
-	  SetCapture(hwnd);
-	  hittest = DefWndStartSizeMove(hwnd, wParam, &capturePoint);
-	  if (!hittest)
-	    {
-	      ReleaseCapture();
-	      return;
-	    }
-	}
-    }
-
-  if (Style & WS_CHILD)
-    {
-      hWndParent = GetParent(hwnd);
-    }
-  
-  /* Get min/max info */
-  
-  WinPosGetMinMaxInfo(hwnd, NULL, NULL, &minTrack, &maxTrack);
-  GetWindowRect(hwnd, &sizingRect);
-  if (Style & WS_CHILD)
-    {
-      MapWindowPoints( 0, hWndParent, (LPPOINT)&sizingRect, 2 );
-      GetClientRect(hWndParent, &mouseRect );
-      clipRect = mouseRect;
-      MapWindowPoints(hWndParent, HWND_DESKTOP, (LPPOINT)&clipRect, 2);
-    }
-  else 
-    {
-      if(!(ExStyle & WS_EX_TOPMOST))
-      {
-        SystemParametersInfoW(SPI_GETWORKAREA, 0, &clipRect, 0);
-        mouseRect = clipRect;
-      }
-      else
-      {
-        SetRect(&mouseRect, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-        clipRect = mouseRect;
-      }
-    }
-  ClipCursor(&clipRect);
-  
-  origRect = sizingRect;
-  if (ON_LEFT_BORDER(hittest))
-    {
-      mouseRect.left  = max( mouseRect.left, sizingRect.right-maxTrack.x );
-      mouseRect.right = min( mouseRect.right, sizingRect.right-minTrack.x );
-    }
-  else if (ON_RIGHT_BORDER(hittest))
-    {
-      mouseRect.left  = max( mouseRect.left, sizingRect.left+minTrack.x );
-      mouseRect.right = min( mouseRect.right, sizingRect.left+maxTrack.x );
-    }
-  if (ON_TOP_BORDER(hittest))
-    {
-      mouseRect.top    = max( mouseRect.top, sizingRect.bottom-maxTrack.y );
-      mouseRect.bottom = min( mouseRect.bottom,sizingRect.bottom-minTrack.y);
-    }
-  else if (ON_BOTTOM_BORDER(hittest))
-    {
-      mouseRect.top    = max( mouseRect.top, sizingRect.top+minTrack.y );
-      mouseRect.bottom = min( mouseRect.bottom, sizingRect.top+maxTrack.y );
-    }
-  if (Style & WS_CHILD)
-    {      
-      MapWindowPoints( hWndParent, 0, (LPPOINT)&mouseRect, 2 );
-    }
-  
-  SendMessageA( hwnd, WM_ENTERSIZEMOVE, 0, 0 );
-  NtUserSetGUIThreadHandle(MSQ_STATE_MOVESIZE, hwnd);
-  if (GetCapture() != hwnd) SetCapture( hwnd );    
-  
-  if (Style & WS_CHILD)
-    {
-      /* Retrieve a default cache DC (without using the window style) */
-      hdc = GetDCEx(hWndParent, 0, DCX_CACHE);
-      DesktopRgn = NULL;
-    }
-  else
-    {
-      hdc = GetDC( 0 );
-      DesktopRgn = CreateRectRgnIndirect(&clipRect);
-    }
-  
-  SelectObject(hdc, DesktopRgn);
-  
-  if( iconic ) /* create a cursor for dragging */
-    {
-      HICON hIcon = (HICON)GetClassLongW(hwnd, GCL_HICON);
-      if(!hIcon) hIcon = (HICON)SendMessageW( hwnd, WM_QUERYDRAGICON, 0, 0L);
-      if( hIcon ) hDragCursor = CursorIconToCursor( hIcon, TRUE );
-      if( !hDragCursor ) iconic = FALSE;
-    }
-  
-  /* invert frame if WIN31_LOOK to indicate mouse click on caption */
-  if( !iconic && !DragFullWindows)
-    {
-      UserDrawMovingFrame( hdc, &sizingRect, thickframe);
-    }
-  
-  for(;;)
-    {
-      int dx = 0, dy = 0;
-
-      GetMessageW(&msg, 0, 0, 0);
-      
-      /* Exit on button-up, Return, or Esc */
-      if ((msg.message == WM_LBUTTONUP) ||
-	  ((msg.message == WM_KEYDOWN) && 
-	   ((msg.wParam == VK_RETURN) || (msg.wParam == VK_ESCAPE)))) break;
-      
-      if (msg.message == WM_PAINT)
-        {
-	  if(!iconic && !DragFullWindows) UserDrawMovingFrame( hdc, &sizingRect, thickframe );
-	  UpdateWindow( msg.hwnd );
-	  if(!iconic && !DragFullWindows) UserDrawMovingFrame( hdc, &sizingRect, thickframe );
-	  continue;
-        }
-      
-      if ((msg.message != WM_KEYDOWN) && (msg.message != WM_MOUSEMOVE))
-	continue;  /* We are not interested in other messages */
-      
-      pt = msg.pt;
-      
-      if (msg.message == WM_KEYDOWN) switch(msg.wParam)
-	{
-	case VK_UP:    pt.y -= 8; break;
-	case VK_DOWN:  pt.y += 8; break;
-	case VK_LEFT:  pt.x -= 8; break;
-	case VK_RIGHT: pt.x += 8; break;		
-	}
-      
-      pt.x = max( pt.x, mouseRect.left );
-      pt.x = min( pt.x, mouseRect.right );
-      pt.y = max( pt.y, mouseRect.top );
-      pt.y = min( pt.y, mouseRect.bottom );
-      
-      dx = pt.x - capturePoint.x;
-      dy = pt.y - capturePoint.y;
-      
-      if (dx || dy)
-	{
-	  if( !moved )
-	    {
-	      moved = TRUE;
-	      
-		if( iconic ) /* ok, no system popup tracking */
-		  {
-		    hOldCursor = SetCursor(hDragCursor);
-		    ShowCursor( TRUE );
-		  } 
-	    }
-	  
-	  if (msg.message == WM_KEYDOWN) SetCursorPos( pt.x, pt.y );
-	  else
-	    {
-	      RECT newRect = sizingRect;
-	      WPARAM wpSizingHit = 0;
-	      
-	      if (hittest == HTCAPTION) OffsetRect( &newRect, dx, dy );
-	      if (ON_LEFT_BORDER(hittest)) newRect.left += dx;
-	      else if (ON_RIGHT_BORDER(hittest)) newRect.right += dx;
-	      if (ON_TOP_BORDER(hittest)) newRect.top += dy;
-	      else if (ON_BOTTOM_BORDER(hittest)) newRect.bottom += dy;
-	      if(!iconic && !DragFullWindows) UserDrawMovingFrame( hdc, &sizingRect, thickframe );
-	      capturePoint = pt;
-	      
-	      /* determine the hit location */
-	      if (hittest >= HTLEFT && hittest <= HTBOTTOMRIGHT)
-		wpSizingHit = WMSZ_LEFT + (hittest - HTLEFT);
-	      SendMessageA( hwnd, WM_SIZING, wpSizingHit, (LPARAM)&newRect );
-	      
-	      if (!iconic)
-		{
-		  if(!DragFullWindows)
-		    UserDrawMovingFrame( hdc, &newRect, thickframe );
-		  else {
-		    /* To avoid any deadlocks, all the locks on the windows
-		       structures must be suspended before the SetWindowPos */
-		    SetWindowPos( hwnd, 0, newRect.left, newRect.top,
-				  newRect.right - newRect.left,
-				  newRect.bottom - newRect.top,
-				  ( hittest == HTCAPTION ) ? SWP_NOSIZE : 0 );
-		  }
-		}
-	      sizingRect = newRect;
-	    }
-	}
-    }
-  
-  ReleaseCapture();
-  ClipCursor(NULL);
-  if( iconic )
-    {
-      if( moved ) /* restore cursors, show icon title later on */
-	{
-	  ShowCursor( FALSE );
-	  SetCursor( hOldCursor );
-	}
-      DestroyCursor( hDragCursor );
-    }
-  else if(!DragFullWindows)
-      UserDrawMovingFrame( hdc, &sizingRect, thickframe );
-  
-  if (Style & WS_CHILD)
-    ReleaseDC( hWndParent, hdc );
-  else
-  {
-    ReleaseDC( 0, hdc );
-    if(DesktopRgn)
-    {
-      DeleteObject(DesktopRgn);
-    }
-  }
-  NtUserSetGUIThreadHandle(MSQ_STATE_MOVESIZE, NULL);
-  SendMessageA( hwnd, WM_EXITSIZEMOVE, 0, 0 );
-  SendMessageA( hwnd, WM_SETVISIBLE, !IsIconic(hwnd), 0L);
-  
-  /* window moved or resized */
-  if (moved)
-    {
-      /* if the moving/resizing isn't canceled call SetWindowPos
-       * with the new position or the new size of the window
-       */
-      if (!((msg.message == WM_KEYDOWN) && (msg.wParam == VK_ESCAPE)) )
-        {
-	  /* NOTE: SWP_NOACTIVATE prevents document window activation in Word 6 */
-	  if(!DragFullWindows)
-	    SetWindowPos( hwnd, 0, sizingRect.left, sizingRect.top,
-			  sizingRect.right - sizingRect.left,
-			  sizingRect.bottom - sizingRect.top,
-			  ( hittest == HTCAPTION ) ? SWP_NOSIZE : 0 );
-        }
-      else { /* restore previous size/position */
-	if(DragFullWindows)
-	  SetWindowPos( hwnd, 0, origRect.left, origRect.top,
-			origRect.right - origRect.left,
-			origRect.bottom - origRect.top,
-			( hittest == HTCAPTION ) ? SWP_NOSIZE : 0 );
-      }      
-    }
-  
-  if( IsWindow(hwnd) )
-    if( Style & WS_MINIMIZE )
-      {
-	/* Single click brings up the system menu when iconized */
-	
-	if( !moved ) 
-	  {
-	    if( Style & WS_SYSMENU ) 
-	      SendMessageA( hwnd, WM_SYSCOMMAND,
-			    SC_MOUSEMENU + HTSYSMENU, MAKELONG(pt.x,pt.y));
-	  }
-      }
-}
-
-
-/***********************************************************************
- *           DefWndTrackScrollBar
- *
- * Track a mouse button press on the horizontal or vertical scroll-bar.
- */
-STATIC VOID
-DefWndTrackScrollBar(HWND Wnd, WPARAM wParam, POINT Pt)
-{
-  INT ScrollBar;
-
-  if (SC_HSCROLL == (wParam & 0xfff0))
-    {
-      if (HTHSCROLL != (wParam & 0x0f))
-        {
-          return;
-        }
-      ScrollBar = SB_HORZ;
-    }
-  else  /* SC_VSCROLL */
-    {
-      if (HTVSCROLL != (wParam & 0x0f))
-        {
-          return;
-        }
-      ScrollBar = SB_VERT;
-    }
-  ScrollTrackScrollBar(Wnd, ScrollBar, Pt );
-}
-
-
 LRESULT
 DefWndHandleSysCommand(HWND hWnd, WPARAM wParam, POINT Pt)
 {
-  WINDOWPLACEMENT wp;
-  
-  switch (wParam & 0xfff0)
-    {
-      case SC_MOVE:
-      case SC_SIZE:
-	DefWndDoSizeMove(hWnd, wParam);
-	break;
-      case SC_MINIMIZE:
-        wp.length = sizeof(WINDOWPLACEMENT);
-        if(GetWindowPlacement(hWnd, &wp))
-        {
-          wp.showCmd = SW_MINIMIZE;
-          SetWindowPlacement(hWnd, &wp);
-        }
-        break;
-      case SC_MAXIMIZE:
-        wp.length = sizeof(WINDOWPLACEMENT);
-        if(GetWindowPlacement(hWnd, &wp))
-        {
-          wp.showCmd = SW_MAXIMIZE;
-          SetWindowPlacement(hWnd, &wp);
-        }
-        break;
-      case SC_RESTORE:
-        wp.length = sizeof(WINDOWPLACEMENT);
-        if(GetWindowPlacement(hWnd, &wp))
-        {
-          wp.showCmd = SW_RESTORE;
-          SetWindowPlacement(hWnd, &wp);
-        }
-        break;
-      case SC_CLOSE:
-        SendMessageA(hWnd, WM_CLOSE, 0, 0);
-        break;
-      case SC_MOUSEMENU:
-        MenuTrackMouseMenuBar(hWnd, wParam & 0x000f, Pt);
-	break;
-      case SC_KEYMENU:
-        MenuTrackKbdMenuBar(hWnd, wParam, Pt.x);
-	break;
-      case SC_VSCROLL:
-      case SC_HSCROLL:
-        DefWndTrackScrollBar(hWnd, wParam, Pt);
-	break;
+  UNIMPLEMENTED;
+  return(0);
+}
 
-      default:
-	/* FIXME: Implement */
-        UNIMPLEMENTED;
-        break;
+VOID
+DefWndAdjustRect(RECT* Rect, ULONG Style, BOOL Menu, ULONG ExStyle)
+{
+  if (Style & WS_ICONIC)
+    {
+      return;
     }
 
-  return(0);
+  if (UserHasThickFrameStyle(Style, ExStyle))
+    {
+      InflateRect(Rect, GetSystemMetrics(SM_CXFRAME),
+		  GetSystemMetrics(SM_CYFRAME));
+    }
+  else if (UserHasDlgFrameStyle(Style, ExStyle))
+    {
+      InflateRect(Rect, GetSystemMetrics(SM_CXDLGFRAME),
+		  GetSystemMetrics(SM_CYDLGFRAME));
+    }
+  else if (UserHasThinFrameStyle(Style, ExStyle))
+    {
+      InflateRect(Rect, GetSystemMetrics(SM_CXBORDER),
+		  GetSystemMetrics(SM_CYBORDER));
+    }
+  if (Style & WS_CAPTION)
+    {
+      Rect->top -= (GetSystemMetrics(SM_CYCAPTION) -
+	GetSystemMetrics(SM_CYBORDER)) + 1;
+    }
+  if (Menu)
+    {
+      Rect->top -= GetSystemMetrics(SM_CYMENU) + GetSystemMetrics(SM_CYBORDER);
+    }
+  if (Style & WS_VSCROLL)
+    {
+      Rect->right += GetSystemMetrics(SM_CXVSCROLL) - 1;
+      if (UserHasAnyFrameStyle(Style, ExStyle))
+	{
+	  Rect->right++;
+	}
+    }
+  if (Style & WS_HSCROLL)
+    {
+      Rect->bottom += GetSystemMetrics(SM_CYHSCROLL) - 1;
+      if (UserHasAnyFrameStyle(Style, ExStyle))
+	{
+	  Rect->bottom++;
+	}
+    }
+}
+
+LRESULT STDCALL
+DefWndNCCalcSize(HWND hWnd, RECT* Rect)
+{
+  LRESULT Result = 0;
+  LONG Style = GetClassLongW(hWnd, GCL_STYLE);
+  RECT TmpRect = {0, 0, 0, 0};
+
+  if (Style & CS_VREDRAW)
+    {
+      Result |= WVR_VREDRAW;
+    }
+  if (Style & CS_HREDRAW)
+    {
+      Result |= WVR_HREDRAW;
+    }
+
+  if (!(GetWindowLong(hWnd, GWL_STYLE) & WS_MINIMIZE))
+    {
+      DefWndAdjustRect(&TmpRect, GetWindowLong(hWnd, GWL_STYLE),
+		       FALSE, GetWindowLong(hWnd, GWL_EXSTYLE));
+      Rect->left -= TmpRect.left;
+      Rect->top -= TmpRect.top;
+      Rect->right -= TmpRect.right;
+      Rect->bottom -= TmpRect.bottom;
+      /* FIXME: Adjust if the window has a menu. */
+      Rect->bottom = max(Rect->top, Rect->bottom);
+      Rect->right = max(Rect->left, Rect->right);
+    }
+  return(Result);
 }
 
 LRESULT
 DefWndHandleWindowPosChanging(HWND hWnd, WINDOWPOS* Pos)
 {
-    POINT maxSize, minTrack;
-    LONG style = GetWindowLongA(hWnd, GWL_STYLE);
-
-    if (Pos->flags & SWP_NOSIZE) return 0;
-    if ((style & WS_THICKFRAME) || ((style & (WS_POPUP | WS_CHILD)) == 0))
-    {
-        WinPosGetMinMaxInfo(hWnd, &maxSize, NULL, &minTrack, NULL);
-        Pos->cx = min(Pos->cx, maxSize.x);
-        Pos->cy = min(Pos->cy, maxSize.y);
-        if (!(style & WS_MINIMIZE))
-        {
-            if (Pos->cx < minTrack.x) Pos->cx = minTrack.x;
-            if (Pos->cy < minTrack.y) Pos->cy = minTrack.y;
-        }
-    }
-    else
-    {
-        Pos->cx = max(Pos->cx, 0);
-        Pos->cy = max(Pos->cy, 0);
-    }
-    return 0;
-}
-
-/* Undocumented flags. */
-#define SWP_NOCLIENTMOVE          0x0800
-#define SWP_NOCLIENTSIZE          0x1000
-
-LRESULT
-DefWndHandleWindowPosChanged(HWND hWnd, WINDOWPOS* Pos)
-{
-  RECT Rect;
-
-  GetClientRect(hWnd, &Rect);
-  MapWindowPoints(hWnd, (GetWindowLongW(hWnd, GWL_STYLE) & WS_CHILD ?
-                         GetParent(hWnd) : NULL), (LPPOINT) &Rect, 2);
-
-  if (! (Pos->flags & SWP_NOCLIENTMOVE))
-    {
-      SendMessageW(hWnd, WM_MOVE, 0, MAKELONG(Rect.left, Rect.top));
-    }
-
-  if (! (Pos->flags & SWP_NOCLIENTSIZE))
-    {
-      WPARAM wp = SIZE_RESTORED;
-      if (IsZoomed(hWnd))
-        {
-          wp = SIZE_MAXIMIZED;
-        }
-      else if (IsIconic(hWnd))
-        {
-          wp = SIZE_MINIMIZED;
-        }
-      SendMessageW(hWnd, WM_SIZE, wp,
-                   MAKELONG(Rect.right - Rect.left, Rect.bottom - Rect.top));
-    }
-
+  UNIMPLEMENTED;
   return 0;
-}
-
-/***********************************************************************
- *           DefWndControlColor
- *
- * Default colors for control painting.
- */
-HBRUSH
-DefWndControlColor(HDC hDC, UINT ctlType)
-{
-  if (CTLCOLOR_SCROLLBAR == ctlType)
-    {
-      HBRUSH hb = GetSysColorBrush(COLOR_SCROLLBAR);
-      COLORREF bk = GetSysColor(COLOR_3DHILIGHT);
-      SetTextColor(hDC, GetSysColor(COLOR_3DFACE));
-      SetBkColor(hDC, bk);
-
-      /* if COLOR_WINDOW happens to be the same as COLOR_3DHILIGHT
-       * we better use 0x55aa bitmap brush to make scrollbar's background
-       * look different from the window background.
-       */
-      if (bk == GetSysColor(COLOR_WINDOW))
-	{
-          static const WORD wPattern55AA[] =
-          {
-              0x5555, 0xaaaa, 0x5555, 0xaaaa,
-              0x5555, 0xaaaa, 0x5555, 0xaaaa
-          };
-          static HBITMAP hPattern55AABitmap = NULL;
-          static HBRUSH hPattern55AABrush = NULL;
-          if (hPattern55AABrush == NULL)
-            {
-              hPattern55AABitmap = CreateBitmap(8, 8, 1, 1, wPattern55AA);
-              hPattern55AABrush = CreatePatternBrush(hPattern55AABitmap);
-            }
-          return hPattern55AABrush;
-	}
-      UnrealizeObject(hb);
-      return hb;
-    }
-
-  SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
-
-  if ((CTLCOLOR_EDIT == ctlType) || (CTLCOLOR_LISTBOX == ctlType))
-    {
-      SetBkColor(hDC, GetSysColor(COLOR_WINDOW));
-    }
-  else
-    {
-      SetBkColor(hDC, GetSysColor(COLOR_3DFACE));
-      return GetSysColorBrush(COLOR_3DFACE);
-    }
-
-  return GetSysColorBrush(COLOR_WINDOW);
-}
-
-VOID FASTCALL
-DefWndScreenshot(HWND hWnd)
-{
-   
 }
 
 LRESULT STDCALL
@@ -941,471 +972,407 @@ User32DefWindowProc(HWND hWnd,
 		    LPARAM lParam,
 		    BOOL bUnicode)
 {
-    switch (Msg)
+  switch (Msg)
     {
-	case WM_NCPAINT:
-	{
-            return DefWndNCPaint(hWnd, (HRGN)wParam);
-        }
+    case WM_NCPAINT:
+      {
+	return(DefWndPaintNC(hWnd, (HRGN)wParam));
+      }
+    case WM_WINDOWPOSCHANGING:
+      {
+        DbgPrint("WM_WINDOWPOSCHANGING\n\n");
+        break;
+      }
+    case WM_NCHITTEST:
+      {
+	POINT Point;
+	Point.x = SLOWORD(lParam);
+	Point.y = SHIWORD(lParam);
+	return(DefWndHitTestNC(hWnd, Point));
+      }
 
-        case WM_NCCALCSIZE:
-        {
-            return DefWndNCCalcSize(hWnd, (BOOL)wParam, (RECT*)lParam);
-        }
+    case WM_NCLBUTTONDOWN:
+      {
+	return(DefWndHandleLButtonDownNC(hWnd, wParam, lParam));
+      }
 
-        case WM_NCACTIVATE:
-        {
-            return DefWndNCActivate(hWnd, wParam);
-        }
+    case WM_NCLBUTTONUP:
+      {
+	return(DefWndHandleLButtonUpNC(hWnd, wParam, lParam));
+      }
 
-        case WM_NCHITTEST:
-        {
-            POINT Point;
-            Point.x = GET_X_LPARAM(lParam);
-            Point.y = GET_Y_LPARAM(lParam);
-            return (DefWndNCHitTest(hWnd, Point));
-        }
+    case WM_LBUTTONDBLCLK:
+    case WM_NCLBUTTONDBLCLK:
+      {
+	return(DefWndHandleLButtonDblClkNC(hWnd, wParam, lParam));
+      }
 
-        case WM_NCLBUTTONDOWN:
-        {
-            return (DefWndNCLButtonDown(hWnd, wParam, lParam));
-        }
-
-        case WM_NCLBUTTONDBLCLK:
-        {
-            return (DefWndNCLButtonDblClk(hWnd, wParam, lParam));
-        }
-
-        case WM_WINDOWPOSCHANGING:
-        {
-            return (DefWndHandleWindowPosChanging(hWnd, (WINDOWPOS*)lParam));
-        }
-
-        case WM_WINDOWPOSCHANGED:
-        {
-            return (DefWndHandleWindowPosChanged(hWnd, (WINDOWPOS*)lParam));
-        }
-
-        case WM_RBUTTONUP:
-        {
-            POINT Pt;
-            if (hWnd == GetCapture())
-            {
-                ReleaseCapture();
-            }
-            Pt.x = GET_X_LPARAM(lParam);
-            Pt.y = GET_Y_LPARAM(lParam);
-            ClientToScreen(hWnd, &Pt);
-            lParam = MAKELPARAM(Pt.x, Pt.y);
-            if (bUnicode)
-            {
-                SendMessageW(hWnd, WM_CONTEXTMENU, (WPARAM)hWnd, lParam);
-            }
-            else
-            {
-                SendMessageA(hWnd, WM_CONTEXTMENU, (WPARAM)hWnd, lParam);
-            }
-            break;
-        }
-
-        case WM_CONTEXTMENU:
-        {
-            if (GetWindowLongW(hWnd, GWL_STYLE) & WS_CHILD)
-            {
-                if (bUnicode)
-                {
-                    SendMessageW(GetParent(hWnd), Msg, wParam, lParam);
-                }
-                else
-                {
-                    SendMessageA(GetParent(hWnd), WM_CONTEXTMENU, wParam, lParam);
-                }
-            }
-            else
-            {
-                POINT Pt;
-                DWORD Style;
-                LONG HitCode;
-                
-                Style = GetWindowLongW(hWnd, GWL_STYLE);
-                
-                Pt.x = GET_X_LPARAM(lParam);
-                Pt.y = GET_Y_LPARAM(lParam);
-                if (Style & WS_CHILD)
-                {
-                    ScreenToClient(GetParent(hWnd), &Pt);
-                }
-
-                HitCode = DefWndNCHitTest(hWnd, Pt);
-
-                if (HitCode == HTCAPTION || HitCode == HTSYSMENU)
-                {
-                    HMENU SystemMenu;
-                    UINT Flags;
-                    
-                    if((SystemMenu = GetSystemMenu(hWnd, FALSE)))
-                    {
-                      MenuInitSysMenuPopup(SystemMenu, GetWindowLongW(hWnd, GWL_STYLE),
-                                           GetClassLongW(hWnd, GCL_STYLE), HitCode);
-                      
-                      if(HitCode == HTCAPTION)
-                        Flags = TPM_LEFTBUTTON | TPM_RIGHTBUTTON;
-                      else
-                        Flags = TPM_LEFTBUTTON;
-                      
-                      TrackPopupMenu(SystemMenu, Flags,
-                                     Pt.x, Pt.y, 0, hWnd, NULL);
-                    }
-                }
-	    }
-            break;
-        }
-        
-        case WM_PRINT:
-        {
-            /* FIXME: Implement. */
-            return (0);
-        }
-
-        case WM_PAINTICON:
-        case WM_PAINT:
-        {
-            PAINTSTRUCT Ps;
-            HDC hDC = BeginPaint(hWnd, &Ps);
-            if (hDC)
-            {	  	
-                HICON hIcon;
-                if (GetWindowLongW(hWnd, GWL_STYLE) & WS_MINIMIZE &&
-                    (hIcon = (HICON)GetClassLongW(hWnd, GCL_HICON)) != NULL)
-                {
-                    RECT ClientRect;
-                    INT x, y;
-                    GetClientRect(hWnd, &ClientRect);
-                    x = (ClientRect.right - ClientRect.left -
-                         GetSystemMetrics(SM_CXICON)) / 2;
-                    y = (ClientRect.bottom - ClientRect.top -
-                         GetSystemMetrics(SM_CYICON)) / 2;
-                    DrawIcon(hDC, x, y, hIcon);
-                } 
-                EndPaint(hWnd, &Ps);
-            }
-            return (0);
-        }
-
-        case WM_SYNCPAINT:
-        {
-            HRGN hRgn;
-            hRgn = CreateRectRgn(0, 0, 0, 0);
-            if (GetUpdateRgn(hWnd, hRgn, FALSE) != NULLREGION)
-            {
-                RedrawWindow(hWnd, NULL, hRgn,
-			        RDW_ERASENOW | RDW_ERASE | RDW_FRAME |
-                    RDW_ALLCHILDREN);
-            }
-            DeleteObject(hRgn);
-            return (0);
-        }
-
-        case WM_SETREDRAW:
-        {
-            DefWndSetRedraw(hWnd, wParam);
-            return (0);
-        }
-
-        case WM_CLOSE:
-        {
-            DestroyWindow(hWnd);
-            return (0);
-        }
-
-        case WM_MOUSEACTIVATE:
-        {
-            if (GetWindowLongW(hWnd, GWL_STYLE) & WS_CHILD)
-            {
-                LONG Ret;
-                if (bUnicode)
-                {
-                    Ret = SendMessageW(GetParent(hWnd), WM_MOUSEACTIVATE,
-                                       wParam, lParam);
-                }
-                else
-                {
-                    Ret = SendMessageA(GetParent(hWnd), WM_MOUSEACTIVATE,
-                                       wParam, lParam);
-                }
-                if (Ret)
-                {
-                    return (Ret);
-                }
-            }
-            return ((LOWORD(lParam) >= HTCLIENT) ? MA_ACTIVATE : MA_NOACTIVATE);
-        }
-
-        case WM_ACTIVATE:
-        {
-            /* Check if the window is minimized. */
-            if (LOWORD(wParam) != WA_INACTIVE &&
-                !(GetWindowLongW(hWnd, GWL_STYLE) & WS_MINIMIZE))
-            {
-                SetFocus(hWnd);
-            }
-            break;
-        }
-
-        case WM_MOUSEWHEEL:
-        {
-            if (GetWindowLongW(hWnd, GWL_STYLE) & WS_CHILD)
-            {
-                if (bUnicode)
-                {
-                    return (SendMessageW(GetParent(hWnd), WM_MOUSEWHEEL,
-                                         wParam, lParam));
-                }
-                else
-                {
-                    return (SendMessageA(GetParent(hWnd), WM_MOUSEWHEEL,
-                                         wParam, lParam));
-                }
-            }
-            break;
-        }
-
-        case WM_ERASEBKGND:
-        case WM_ICONERASEBKGND:
-        {
-            RECT Rect;
-            HBRUSH hBrush = (HBRUSH)GetClassLongW(hWnd, GCL_HBRBACKGROUND);
-
-            if (NULL == hBrush)
-            {
-                return 0;
-            }
-            if (GetClassLongW(hWnd, GCL_STYLE) & CS_PARENTDC)
-            {
-                /* can't use GetClipBox with a parent DC or we fill the whole parent */
-                GetClientRect(hWnd, &Rect);
-                DPtoLP((HDC)wParam, (LPPOINT)&Rect, 2);
-            }
-            else
-            {
-                GetClipBox((HDC)wParam, &Rect);
-            }
-            FillRect((HDC)wParam, &Rect, hBrush);
-            return (1);
-        }
-        
-        case WM_CTLCOLORMSGBOX:
-        case WM_CTLCOLOREDIT:
-        case WM_CTLCOLORLISTBOX:
-        case WM_CTLCOLORBTN:
-        case WM_CTLCOLORDLG:
-        case WM_CTLCOLORSTATIC:
-        case WM_CTLCOLORSCROLLBAR:
-	    return (LRESULT) DefWndControlColor((HDC)wParam, Msg - WM_CTLCOLORMSGBOX);
-
-        case WM_SETCURSOR:
-        {
-            ULONG Style = GetWindowLongW(hWnd, GWL_STYLE);
-            
-            if (Style & WS_CHILD)
-            {
-                if (LOWORD(lParam) < HTLEFT || LOWORD(lParam) > HTBOTTOMRIGHT)
-                {
-                    BOOL bResult;
-                    if (bUnicode)
-                    {
-                        bResult = SendMessageW(GetParent(hWnd), WM_SETCURSOR,
-                                               wParam, lParam);
-                    }
-                    else
-                    {
-                        bResult = SendMessageA(GetParent(hWnd), WM_SETCURSOR,
-                                               wParam, lParam);
-                    }
-                    if (bResult)
-                    {
-                        return(TRUE);
-                    }
-                }
-            }
-            return (DefWndHandleSetCursor(hWnd, wParam, lParam, Style));
-        }
-
-        case WM_SYSCOMMAND:
-        {
-            POINT Pt;
-            Pt.x = GET_X_LPARAM(lParam);
-            Pt.y = GET_Y_LPARAM(lParam);
-            return (DefWndHandleSysCommand(hWnd, wParam, Pt));
-        }
-
-        /* FIXME: Handle key messages. */
-/*
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        case WM_SYSKEYUP:
-        case WM_SYSCHAR:
-*/
-
-        /* FIXME: This is also incomplete. */
-        case WM_SYSKEYDOWN:
-        {
-            if (HIWORD(lParam) & KEYDATA_ALT)
-            {
-                if (wParam == VK_F4) /* Try to close the window */
-                {
-                    HWND top = GetAncestor(hWnd, GA_ROOT);
-                    if (!(GetClassLongW(top, GCL_STYLE) & CS_NOCLOSE))
-                    {
-                        if (bUnicode)
-                            PostMessageW(top, WM_SYSCOMMAND, SC_CLOSE, 0);
-                        else
-                            PostMessageA(top, WM_SYSCOMMAND, SC_CLOSE, 0);
-                    }
-                }
-                else if (wParam == VK_SNAPSHOT)
-                {
-                    DefWndScreenshot(hWnd);
-                }
-            }
-            break;
-        }
-        
-        case WM_SHOWWINDOW:
-        {
-            LONG Style;
-
-            if (!lParam)
-                return 0;
-            Style = GetWindowLongW(hWnd, GWL_STYLE);
-            if (!(Style & WS_POPUP))
-                return 0;
-            if ((Style & WS_VISIBLE) && wParam)
-                return 0;
-            if (!(Style & WS_VISIBLE) && !wParam)
-                return 0;
-            if (!GetWindow(hWnd, GW_OWNER))
-                return 0;
-            ShowWindow(hWnd, wParam ? SW_SHOWNA : SW_HIDE);
-            break;
-        }
-
-        case WM_CANCELMODE:
-        {
-            /* FIXME: Check for a desktop. */
-            if (GetCapture() == hWnd)
-            {
-                ReleaseCapture();
-            }
-            break;
-        }
-
-        case WM_VKEYTOITEM:
-        case WM_CHARTOITEM:
-            return (-1);
-/*
-        case WM_DROPOBJECT:
-  
-            break;
-*/
-        case WM_QUERYDROPOBJECT:
-        {
-            if (GetWindowLongW(hWnd, GWL_EXSTYLE) & WS_EX_ACCEPTFILES)
-            {
-                return(1);
-            }
-            break;
-        }
-
-        case WM_QUERYDRAGICON:
-        {
-            UINT Len;
-            HICON hIcon;
-
-            hIcon = (HICON)GetClassLongW(hWnd, GCL_HICON);
-            if (hIcon)
-            {
-                return ((LRESULT)hIcon);
-            }
-            for (Len = 1; Len < 64; Len++)
-            {
-                if ((hIcon = LoadIconW(NULL, MAKEINTRESOURCEW(Len))) != NULL)
-                {
-                    return((LRESULT)hIcon);
-                }
-            }
-            return ((LRESULT)LoadIconW(0, IDI_APPLICATION));
-        }
-
-        /* FIXME: WM_ISACTIVEICON */
-
-        case WM_NOTIFYFORMAT:
-        {
-            if (IsWindowUnicode(hWnd))
-            {
-                return(NFR_UNICODE);
-            }
-            else
-            {
-                return(NFR_ANSI);
-            }
-        }
-
-        case WM_SETICON:
-        {
-           INT Index = (wParam != 0) ? GCL_HICON : GCL_HICONSM;
-           HICON hOldIcon = (HICON)GetClassLongW(hWnd, Index);
-           SetClassLongW(hWnd, Index, lParam);
-           SetWindowPos(hWnd, 0, 0, 0, 0, 0,
-		       SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE |
-		       SWP_NOACTIVATE | SWP_NOZORDER);
-           return ((LRESULT)hOldIcon);
-        }
-
-        case WM_GETICON:
-        {
-            INT Index = (wParam == ICON_BIG) ? GCL_HICON : GCL_HICONSM;
-            return (GetClassLongW(hWnd, Index));
-        }
-
-        case WM_HELP:
-        {
-            if (bUnicode)
-            {
-                SendMessageW(GetParent(hWnd), Msg, wParam, lParam);
-            }
-            else
-            {
-                SendMessageA(GetParent(hWnd), Msg, wParam, lParam);
-            }
-            break;
-        }
-        
-        case WM_SYSTIMER:
-        {
-          THRDCARETINFO CaretInfo;
-          switch(wParam)
-          {
-            case 0xffff: /* Caret timer */
-              /* switch showing byte in win32k and get information about the caret */
-              if(NtUserSwitchCaretShowing(&CaretInfo) && (CaretInfo.hWnd == hWnd))
-              {
-                DrawCaret(hWnd, &CaretInfo);
-              }
-              break;
-          }
-          break;
-        }
-
-        case WM_QUERYOPEN:
-        case WM_QUERYENDSESSION:
-        {
-            return (1);
-        }
+    case WM_NCRBUTTONDOWN:
+      {
+	if (wParam == HTCAPTION)
+	  {
+	    SetCapture(hWnd);
+	  }
+	break;
+      }
+    case WM_LBUTTONUP:
+    {
+        break;
     }
-    return 0;
-}
+    case WM_RBUTTONUP:
+      {
+	POINT Pt;
+	if (hWnd == GetCapture())
+	  {
+	    ReleaseCapture();
+	  }
+	Pt.x = SLOWORD(lParam);
+	Pt.y = SHIWORD(lParam);
+	ClientToScreen(hWnd, &Pt);
+	lParam = MAKELPARAM(Pt.x, Pt.y);
+	if (bUnicode)
+	  {
+	    SendMessageW(hWnd, WM_CONTEXTMENU, (WPARAM)hWnd, lParam);
+	  }
+	else
+	  {
+	    SendMessageA (hWnd, WM_CONTEXTMENU, (WPARAM)hWnd, lParam);
+	  }
+	break;
+      }
 
+    case WM_NCRBUTTONUP:
+      {
+	/* Wine does nothing here. */
+	break;
+      }
+
+    case WM_CONTEXTMENU:
+      {
+	if (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)
+	  {
+	    if (bUnicode)
+	      {
+		SendMessageW(GetParent(hWnd), Msg, wParam, lParam);
+	      }
+	    else
+	      {
+		SendMessageA(hWnd, WM_CONTEXTMENU, wParam, lParam);
+	      }
+	  }
+	else
+	  {
+	    LONG HitCode;
+	    POINT Pt;
+
+	    Pt.x = SLOWORD(lParam);
+	    Pt.y = SHIWORD(lParam);
+
+	    if (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)
+	      {
+		ScreenToClient(GetParent(hWnd), &Pt);
+	      }
+
+	    HitCode = DefWndHitTestNC(hWnd, Pt);
+
+	    if (HitCode == HTCAPTION || HitCode == HTSYSMENU)
+	      {
+		TrackPopupMenu(GetSystemMenu(hWnd, FALSE),
+			       TPM_LEFTBUTTON | TPM_RIGHTBUTTON,
+			       Pt.x, Pt.y, 0, hWnd, NULL);
+	      }
+	  }
+	break;
+      }
+
+    case WM_NCACTIVATE:
+      {
+	return(DefWndHandleActiveNC(hWnd, wParam));
+      }
+
+    case WM_NCDESTROY:
+      {
+	return(0);
+      }
+
+    case WM_PRINT:
+      {
+	return(0);
+      }
+
+    case WM_PAINTICON:
+    case WM_PAINT:
+      {
+	PAINTSTRUCT Ps;
+	HDC hDC = BeginPaint(hWnd, &Ps);
+	if (hDC)
+	  {
+	  	
+	    HICON hIcon;
+	    if (GetWindowLongW(hWnd, GWL_STYLE) & WS_MINIMIZE &&
+		(hIcon = (HICON)GetClassLongW(hWnd, GCL_HICON)) != NULL)
+	      {
+		RECT WindowRect;
+		INT x, y;
+		GetWindowRect(hWnd, &WindowRect);
+		x = (WindowRect.right - WindowRect.left -
+		     GetSystemMetrics(SM_CXICON)) / 2;
+		y = (WindowRect.bottom - WindowRect.top -
+		     GetSystemMetrics(SM_CYICON)) / 2;
+		DrawIcon(hDC, x, y, hIcon);
+	      } 
+		if(GetWindowLong(hWnd, GWL_EXSTYLE) & WS_EX_CLIENTEDGE)
+		{
+			RECT WindowRect;
+			GetClientRect(hWnd, &WindowRect);
+			DrawEdge(hDC, &WindowRect, EDGE_SUNKEN, BF_RECT);
+		}
+	    EndPaint(hWnd, &Ps);
+	  }
+	return(0);
+      }
+
+    case WM_SYNCPAINT:
+      {
+	HRGN hRgn;
+	hRgn = CreateRectRgn(0, 0, 0, 0);
+	if (GetUpdateRgn(hWnd, hRgn, FALSE) != NULLREGION)
+	  {
+	    RedrawWindow(hWnd, NULL, hRgn,
+			 RDW_ERASENOW | RDW_ERASE | RDW_FRAME |
+			 RDW_ALLCHILDREN);
+	  }
+	DeleteObject(hRgn);
+	return(0);
+      }
+
+    case WM_SETREDRAW:
+      {
+	DefWndSetRedraw(hWnd, wParam);
+	return(0);
+      }
+
+    case WM_CLOSE:
+      {
+	DestroyWindow(hWnd);
+	return(0);
+      }
+
+    case WM_MOUSEACTIVATE:
+      {
+	if (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)
+	  {
+	    LONG Ret;
+	    if (bUnicode)
+	      {
+		Ret = SendMessageW(GetParent(hWnd), WM_MOUSEACTIVATE,
+				   wParam, lParam);
+	      }
+	    else
+	      {
+		Ret = SendMessageA(GetParent(hWnd), WM_MOUSEACTIVATE,
+				   wParam, lParam);
+	      }
+	    if (Ret)
+	      {
+		return(Ret);
+	      }
+	  }
+	return((LOWORD(lParam) >= HTCLIENT) ? MA_ACTIVATE : MA_NOACTIVATE);
+      }
+
+    case WM_ACTIVATE:
+      {
+	if (LOWORD(lParam) != WA_INACTIVE &&
+	    GetWindowLong(hWnd, GWL_STYLE) & WS_MINIMIZE)
+	  {
+	    /* Check if the window is minimized. */
+	    SetFocus(hWnd);
+	  }
+	break;
+      }
+
+    case WM_MOUSEWHEEL:
+      {
+	if (GetWindowLong(hWnd, GWL_STYLE & WS_CHILD))
+	  {
+	    if (bUnicode)
+	      {
+		return(SendMessageW(GetParent(hWnd), WM_MOUSEWHEEL,
+				    wParam, lParam));
+	      }
+	    else
+	      {
+		return(SendMessageA(GetParent(hWnd), WM_MOUSEWHEEL,
+				    wParam, lParam));
+	      }
+	  }
+	break;
+      }
+
+    case WM_ERASEBKGND:
+    case WM_ICONERASEBKGND:
+      {
+      	
+	RECT Rect;
+	HBRUSH hBrush = (HBRUSH)GetClassLongW(hWnd, GCL_HBRBACKGROUND);
+	GetClipBox((HDC)wParam, &Rect);
+	FillRect((HDC)wParam, &Rect, hBrush);
+	return(1);
+      }
+
+    case WM_GETDLGCODE:
+      {
+	return(0);
+      }
+
+      /* FIXME: Implement colour controls. */
+
+    case WM_SETCURSOR:
+      {
+	if (GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD)
+	  {
+	    if (LOWORD(lParam) < HTLEFT || LOWORD(lParam) > HTBOTTOMRIGHT)
+	      {
+		BOOL bResult;
+		if (bUnicode)
+		  {
+		    bResult = SendMessageW(GetParent(hWnd), WM_SETCURSOR,
+					   wParam, lParam);
+		  }
+		else
+		  {
+		    bResult = SendMessageA(GetParent(hWnd), WM_SETCURSOR,
+					   wParam, lParam);
+		  }
+		if (bResult)
+		  {
+		    return(TRUE);
+		  }
+	      }
+	  }
+	return(DefWndHandleSetCursor(hWnd, wParam, lParam));
+      }
+
+    case WM_SYSCOMMAND:
+      {
+	POINT Pt;
+	Pt.x = SLOWORD(lParam);
+	Pt.y = SHIWORD(lParam);
+	return(DefWndHandleSysCommand(hWnd, wParam, Pt));
+      }
+
+      /* FIXME: Handle key messages. */
+
+    case WM_SHOWWINDOW:
+      {
+	if (lParam)
+	  {
+	    return(0);
+	  }
+	/* FIXME: Not done correctly */
+	if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_VISIBLE && !wParam) ||
+	    (!(GetWindowLongW(hWnd, GWL_STYLE) & WS_VISIBLE) && wParam))
+	  {
+	    return(0);
+	  }
+	ShowWindow(hWnd, wParam ? SW_SHOWNA : SW_HIDE);
+	break;
+      }
+
+    case WM_CANCELMODE:
+      {
+	/* FIXME: Check for a desktop. */
+	if (GetCapture() == hWnd)
+	  {
+	    ReleaseCapture();
+	  }
+	break;
+      }
+
+    case WM_VKEYTOITEM:
+    case WM_CHARTOITEM:
+      return(-1);
+
+    case WM_DROPOBJECT:
+      /* FIXME: Implement this. */
+      break;
+
+    case WM_QUERYDROPOBJECT:
+      {
+	if (GetWindowLongW(hWnd, GWL_EXSTYLE) & WS_EX_ACCEPTFILES)
+	  {
+	    return(1);
+	  }
+	break;
+      }
+
+    case WM_QUERYDRAGICON:
+      {
+	UINT Len;
+	HICON hIcon;
+
+	hIcon = (HICON)GetClassLongW(hWnd, GCL_HICON);
+	if (hIcon)
+	  {
+	    return((LRESULT)hIcon);
+	  }
+	for (Len = 1; Len < 64; Len++)
+	  {
+	    if ((hIcon = LoadIconW(NULL, MAKEINTRESOURCE(Len))) != NULL)
+	      {
+		return((LRESULT)hIcon);
+	      }
+	  }
+	return((LRESULT)LoadIconW(0, IDI_APPLICATION));
+      }
+
+      /* FIXME: WM_ISACTIVEICON */
+
+    case WM_NOTIFYFORMAT:
+      {
+	if (IsWindowUnicode(hWnd))
+	  {
+	    return(NFR_UNICODE);
+	  }
+	else
+	  {
+	    return(NFR_ANSI);
+	  }
+      }
+
+    case WM_SETICON:
+      {
+	INT Index = (wParam != 0) ? GCL_HICON : GCL_HICONSM;
+	HICON hOldIcon = (HICON)GetClassLongW(hWnd, Index);
+	SetClassLongW(hWnd, Index, lParam);
+	SetWindowPos(hWnd, 0, 0, 0, 0, 0,
+		     SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE |
+		     SWP_NOACTIVATE | SWP_NOZORDER);
+	return((LRESULT)hOldIcon);
+      }
+
+    case WM_GETICON:
+      {
+	INT Index = (wParam != 0) ? GCL_HICON : GCL_HICONSM;
+	return(GetClassLongW(hWnd, Index));
+      }
+
+    case WM_HELP:
+      {
+	if (bUnicode)
+	  {
+	    SendMessageW(GetParent(hWnd), Msg, wParam, lParam);
+	  }
+	else
+	  {
+	    SendMessageA(GetParent(hWnd), Msg, wParam, lParam);
+	  }
+	break;
+      }
+    }
+  return 0;
+}
 
 LRESULT STDCALL
 DefWindowProcA(HWND hWnd,
@@ -1413,82 +1380,106 @@ DefWindowProcA(HWND hWnd,
 	       WPARAM wParam,
 	       LPARAM lParam)
 {
-    switch (Msg)
+  LRESULT Result;
+  static LPSTR WindowTextAtom = 0;
+  PSTR WindowText;
+
+  switch (Msg)
     {
-        case WM_NCCREATE:
-        {
-            return TRUE;
-        }
+    case WM_NCCREATE:
+      {
+	CREATESTRUCTA* Cs = (CREATESTRUCTA*)lParam;
+	if (HIWORD(Cs->lpszName))
+	  {
+	    if (0 == WindowTextAtom)
+	      {
+		WindowTextAtom =
+		  (LPSTR)(ULONG)GlobalAddAtomA("USER32!WindowTextAtomA");
+	      }
+	    WindowText = RtlAllocateHeap(RtlGetProcessHeap(), 0,
+					 strlen(Cs->lpszName) * sizeof(CHAR));
+	    strcpy(WindowText, Cs->lpszName);
+	    SetPropA(hWnd, WindowTextAtom, WindowText);
+	  }
+	return(1);
+      }
 
-        case WM_GETTEXTLENGTH:
-        {
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
-        }
+    case WM_NCCALCSIZE:
+      {
+	return(DefWndNCCalcSize(hWnd, (RECT*)lParam));
+      }
 
-        case WM_GETTEXT:
-        {
-            LPWSTR Buffer;
-            LPSTR AnsiBuffer = (LPSTR)lParam;
-            INT Length;
+    case WM_WINDOWPOSCHANGING:
+      {
+	return(DefWndHandleWindowPosChanging(hWnd, (WINDOWPOS*)lParam));
+      }
 
-            if (wParam > 1)
-            {
-                *((PWSTR)lParam) = '\0';
-            }
-            Buffer = HeapAlloc(GetProcessHeap(), 0, wParam * sizeof(WCHAR));
-            if (!Buffer)
-                return FALSE;
-            Length = NtUserInternalGetWindowText(hWnd, Buffer, wParam);
-            if (Length > 0 && wParam > 0 &&
-                !WideCharToMultiByte(CP_ACP, 0, Buffer, -1,
-                AnsiBuffer, wParam, NULL, NULL))
-            {
-                AnsiBuffer[0] = '\0';
-            }
+    case WM_GETTEXTLENGTH:
+      {
+	if (WindowTextAtom == 0 ||
+	    (WindowText = GetPropA(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    return(0);
+	  }
+	return(strlen(WindowText));
+      }
 
-            HeapFree(GetProcessHeap(), 0, Buffer);
+    case WM_GETTEXT:
+      {
+	if (WindowTextAtom == 0 ||
+	    (WindowText = GetPropA(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    if (wParam > 1)
+	      {
+		*((PSTR)lParam) = '\0';
+	      }
+	    return(0);
+	  }
+	strncpy((LPSTR)lParam, WindowText, wParam);
+	return(min(wParam, strlen(WindowText)));
+      }
 
-            return (LRESULT)Length;
-        }
+    case WM_SETTEXT:
+      {
+	if (0 == WindowTextAtom)
+	  {
+	    WindowTextAtom =
+	      (LPSTR)(DWORD)GlobalAddAtomA("USER32!WindowTextAtomW");
+	  }
+	if (WindowTextAtom != 0 &&
+	    (WindowText = GetPropA(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    RtlFreeHeap(RtlGetProcessHeap(), 0, WindowText);
+	  }
+	WindowText = RtlAllocateHeap(RtlGetProcessHeap(), 0,
+				     strlen((PSTR)lParam) * sizeof(CHAR));
+	strcpy(WindowText, (PSTR)lParam);
+	SetPropA(hWnd, WindowTextAtom, WindowText);
+        if (0 != (GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION))
+	  {
+	    DefWndPaintNC(hWnd, (HRGN) 1);
+	  }
+	Result = (LPARAM) TRUE;
+	break;
+      }
 
-        case WM_SETTEXT:
-        {
-            ANSI_STRING AnsiString;
-            UNICODE_STRING UnicodeString;
-            
-            if(lParam)
-            {
-              RtlInitAnsiString(&AnsiString, (LPSTR)lParam);
-              RtlAnsiStringToUnicodeString(&UnicodeString, &AnsiString, TRUE);
-              NtUserDefSetText(hWnd, &UnicodeString);
-              RtlFreeUnicodeString(&UnicodeString);
-            }
-            else
-              NtUserDefSetText(hWnd, NULL);
-            
-            if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
-            {
-                DefWndNCPaint(hWnd, (HRGN)1);
-            }
-            return TRUE;
-        }
+    case WM_NCDESTROY:
+      {
+	if (WindowTextAtom != 0 &&
+	    (WindowText = RemovePropA(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    RtlFreeHeap(GetProcessHeap(), 0, WindowText);
+	  }
+	return(0);
+      }
 
-/*
-        FIXME: Implement these.
-        case WM_IME_CHAR:
-        case WM_IME_KEYDOWN:
-        case WM_IME_KEYUP:
-        case WM_IME_STARTCOMPOSITION:
-        case WM_IME_COMPOSITION:
-        case WM_IME_ENDCOMPOSITION:
-        case WM_IME_SELECT:
-        case WM_IME_SETCONTEXT:
-*/
+    default:
+      Result = User32DefWindowProc(hWnd, Msg, wParam, lParam, FALSE);
+      break;
     }
 
-    return User32DefWindowProc(hWnd, Msg, wParam, lParam, FALSE);
+  return(Result);
 }
-
 
 LRESULT STDCALL
 DefWindowProcW(HWND hWnd,
@@ -1496,56 +1487,103 @@ DefWindowProcW(HWND hWnd,
 	       WPARAM wParam,
 	       LPARAM lParam)
 {
-    switch (Msg)
+  LRESULT Result;
+  static LPWSTR WindowTextAtom = 0;
+  PWSTR WindowText;
+
+  switch (Msg)
     {
-        case WM_NCCREATE:
-        {
-            return TRUE;
-        }
+    case WM_NCCREATE:
+      {
+	CREATESTRUCTW* Cs = (CREATESTRUCTW*)lParam;
+	if (HIWORD(Cs->lpszName))
+	  {
+	    if (0 == WindowTextAtom)
+	      {
+		WindowTextAtom =
+		  (LPWSTR)(DWORD)GlobalAddAtomW(L"USER32!WindowTextAtomW");
+	      }
+	    WindowText = RtlAllocateHeap(RtlGetProcessHeap(), 0,
+					 wcslen(Cs->lpszName) * sizeof(WCHAR));
+	    wcscpy(WindowText, Cs->lpszName);
+	    SetPropW(hWnd, WindowTextAtom, WindowText);
+	  }
+	return(1);
+      }
 
-        case WM_GETTEXTLENGTH:
-        {
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
-        }
+    case WM_NCCALCSIZE:
+      {
+	return(DefWndNCCalcSize(hWnd, (RECT*)lParam));
+      }
 
-        case WM_GETTEXT:
-        {
-            if (wParam > 1)
-            {
-                *((PWSTR)lParam) = L'\0';
-            }
-            return (LRESULT)NtUserInternalGetWindowText(hWnd, (PWSTR)lParam, wParam);
-        }
+    case WM_WINDOWPOSCHANGING:
+      {
+	return(DefWndHandleWindowPosChanging(hWnd, (WINDOWPOS*)lParam));
+      }
 
-        case WM_SETTEXT:
-        {
-            UNICODE_STRING UnicodeString;
+    case WM_GETTEXTLENGTH:
+      {
+	if (WindowTextAtom == 0 ||
+	    (WindowText = GetPropW(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    return(0);
+	  }
+	return(wcslen(WindowText));
+      }
 
-            if(lParam)
-              RtlInitUnicodeString(&UnicodeString, (LPWSTR)lParam);
-            
-            NtUserDefSetText(hWnd, (lParam ? &UnicodeString : NULL));
-            
-            if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
-            {
-                DefWndNCPaint(hWnd, (HRGN)1);
-            }
-            return (1);
-        }
+    case WM_GETTEXT:
+      {
+	if (WindowTextAtom == 0 ||
+	    (WindowText = GetPropW(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    if (wParam > 1)
+	      {
+		((PWSTR)lParam) = '\0';
+	      }
+	    return(0);
+	  }
+	wcsncpy((PWSTR)lParam, WindowText, wParam);
+	return(min(wParam, wcslen(WindowText)));
+      }
 
-        case WM_IME_CHAR:
-        {
-            SendMessageW(hWnd, WM_CHAR, wParam, lParam);
-            return (0);
-        }
+    case WM_SETTEXT:
+      {
+	if (WindowTextAtom != 0)
+	  {
+	    WindowTextAtom =
+	      (LPWSTR)(DWORD)GlobalAddAtom(L"USER32!WindowTextAtomW");
+	  }
+	if (WindowTextAtom != 0 &&
+	    (WindowText = GetPropW(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    RtlFreeHeap(RtlGetProcessHeap(), 0, WindowText);
+	  }
+	WindowText = RtlAllocateHeap(RtlGetProcessHeap(), 0,
+				     wcslen((PWSTR)lParam) * sizeof(WCHAR));
+	wcscpy(WindowText, (PWSTR)lParam);
+	SetPropW(hWnd, WindowTextAtom, WindowText);
+        if (0 != (GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION))
+	  {
+	    DefWndPaintNC(hWnd, (HRGN) 1);
+	  }
+	Result = (LPARAM) TRUE;
+	break;
+      }
 
-        case WM_IME_SETCONTEXT:
-        {
-            /* FIXME */
-            return (0);
-        }
+    case WM_NCDESTROY:
+      {
+	if (WindowTextAtom != 0 &&
+	    (WindowText = RemovePropW(hWnd, WindowTextAtom)) == NULL)
+	  {
+	    RtlFreeHeap(RtlGetProcessHeap(), 0, WindowText);
+	  }
+	return(0);
+      }
+
+    default:
+      Result = User32DefWindowProc(hWnd, Msg, wParam, lParam, TRUE);
+      break;
     }
 
-    return User32DefWindowProc(hWnd, Msg, wParam, lParam, TRUE);
+  return(Result);
 }
-

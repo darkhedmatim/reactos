@@ -7,8 +7,7 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/stdlib.h>
 
 #undef fullpath
@@ -17,9 +16,6 @@ char *fullpath(char *absPath, const char *relPath, size_t maxLength)
 	return _fullpath(absPath,relPath,maxLength );
 }
 
-/*
- * @implemented
- */
 char* _fullpath(char* absPath, const char* relPath, size_t maxLength)
 {
     char* lpFilePart;

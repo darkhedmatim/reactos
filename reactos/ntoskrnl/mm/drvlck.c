@@ -1,4 +1,4 @@
-/* $Id: drvlck.c,v 1.6 2004/08/15 16:39:06 chorns Exp $
+/* $Id: drvlck.c,v 1.3 2002/09/08 10:23:32 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -28,20 +30,17 @@ MmUnlockPagableImageSection(IN PVOID ImageSectionHandle)
  *                             MmLockPagableDataSection
  */
 {
-   //  MmUnlockMemoryArea((MEMORY_AREA *)ImageSectionHandle);
-   UNIMPLEMENTED;
+//  MmUnlockMemoryArea((MEMORY_AREA *)ImageSectionHandle);
+  UNIMPLEMENTED;
 }
 #endif
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 MmLockPagableSectionByHandle(IN PVOID ImageSectionHandle)
 {
-   //  MmLockMemoryArea((MEMORY_AREA *)ImageSectionHandle);
-   UNIMPLEMENTED;
+//  MmLockMemoryArea((MEMORY_AREA *)ImageSectionHandle);
+  UNIMPLEMENTED;
 }
 
 
@@ -49,48 +48,39 @@ MmLockPagableSectionByHandle(IN PVOID ImageSectionHandle)
 PVOID
 MmLockPagableCodeSection(IN PVOID AddressWithinSection)
 {
-   PVOID Handle;
-   Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
-   MmLockPagableSectionByHandle(Handle);
-   return(Handle);
+  PVOID Handle;
+  Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
+  MmLockPagableSectionByHandle(Handle);
+  return(Handle);
 }
 #endif
 
 
-/*
- * @implemented
- */
 PVOID STDCALL
 MmLockPagableDataSection(IN PVOID AddressWithinSection)
 {
-   PVOID Handle;
-   Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
-   MmLockPagableSectionByHandle(Handle);
-   return(Handle);
+  PVOID Handle;
+  Handle = MmOpenMemoryAreaByAddress(NULL,AddressWithinSection);
+  MmLockPagableSectionByHandle(Handle);
+  return(Handle);
 }
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 MmUnlockPagableImageSection(IN PVOID ImageSectionHandle)
-{}
+{
+}
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 MmPageEntireDriver(IN PVOID AddressWithinSection)
-{}
+{
+}
 
 
-/*
- * @unimplemented
- */
 VOID STDCALL
 MmResetDriverPaging(IN PVOID AddressWithinSection)
-{}
+{
+}
 
 /* EOF */

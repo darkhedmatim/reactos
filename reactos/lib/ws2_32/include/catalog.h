@@ -7,6 +7,7 @@
 #ifndef __CATALOG_H
 #define __CATALOG_H
 
+#include <ws2_32.h>
 #include <wsahelp.h>
 
 typedef struct _CATALOG_ENTRY {

@@ -1,4 +1,4 @@
-/* $Id: copy.c,v 1.6 2004/11/08 02:16:06 weiden Exp $
+/* $Id: copy.c,v 1.1 2003/03/20 19:19:22 rcampbell Exp $
  *
  *  COPY.C -- copy internal command.
  *
@@ -22,9 +22,18 @@
  *        Disabled prompting when used in batch mode.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_COPY
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 #define VERIFY  1               /* VERIFY Switch */
@@ -45,10 +54,10 @@ typedef struct tagFILES
 
 
 static BOOL DoSwitches (LPTSTR, LPDWORD);
-static BOOL AddFile (LPFILES, TCHAR *, int *, int *, LPDWORD);
-static BOOL AddFiles (LPFILES, TCHAR *, int *, int *, int *, LPDWORD);
+static BOOL AddFile (LPFILES, char *, int *, int *, LPDWORD);
+static BOOL AddFiles (LPFILES, char *, int *, int *, int *, LPDWORD);
 static BOOL GetDestination (LPFILES, LPFILES);
-static INT  ParseCommand (LPFILES, int, TCHAR **, LPDWORD);
+static INT  ParseCommand (LPFILES, int, char **, LPDWORD);
 static VOID DeleteFileList (LPFILES);
 static INT  Overwrite (LPTSTR);
 
@@ -74,7 +83,7 @@ DoSwitches (LPTSTR arg, LPDWORD lpdwFlags)
 	}
 	else if (_tcslen (arg) > 2)
 	{
-		error_too_many_parameters (_T(""));
+		error_too_many_parameters ("");
 		return FALSE;
 	}
 
@@ -108,11 +117,11 @@ DoSwitches (LPTSTR arg, LPDWORD lpdwFlags)
 
 
 static BOOL
-AddFile (LPFILES f, TCHAR *arg, int *source, int *dest, LPDWORD flags)
+AddFile (LPFILES f, char *arg, int *source, int *dest, LPDWORD flags)
 {
 	if (*dest)
 	{
-		error_too_many_parameters (_T(""));
+		error_too_many_parameters ("");
 		return FALSE;
 	}
 	if (*source)
@@ -140,16 +149,16 @@ AddFile (LPFILES f, TCHAR *arg, int *source, int *dest, LPDWORD flags)
 
 
 static BOOL
-AddFiles (LPFILES f, TCHAR *arg, int *source, int *dest,
+AddFiles (LPFILES f, char *arg, int *source, int *dest,
 		  int *count, LPDWORD flags)
 {
-	TCHAR t[128];
+	char t[128];
 	int j;
 	int k;
 
 	if (*dest)
 	{
-		error_too_many_parameters (_T(""));
+		error_too_many_parameters ("");
 		return FALSE;
 	}
 
@@ -228,13 +237,13 @@ GetDestination (LPFILES f, LPFILES dest)
 
 
 static INT
-ParseCommand (LPFILES f, int argc, TCHAR **arg, LPDWORD lpdwFlags)
+ParseCommand (LPFILES f, int argc, char **arg, LPDWORD lpdwFlags)
 {
 	INT i;
 	INT dest;
 	INT source;
 	INT count;
-	TCHAR temp[128];
+
 	dest = 0;
 	source = 0;
 	count = 0;
@@ -252,24 +261,14 @@ ParseCommand (LPFILES f, int argc, TCHAR **arg, LPDWORD lpdwFlags)
 				source = 0;
 			else if (!_tcschr(arg[i], _T('+')) && source)
 			{
-
-//				Make sure we have a clean workable path
-			
-				GetFullPathName( arg[i], 128, (LPTSTR) &temp, NULL);
-//				printf("A Input %s, Output %s\n", arg[i], temp);
-
-				if (!AddFile(f, (TCHAR *) &temp, &source, &dest, lpdwFlags))
+				if (!AddFile(f, arg[i], &source, &dest, lpdwFlags))
 					return -1;
 				f = f->next;
 				count++;
 			}
 			else
 			{
-
-				GetFullPathName( arg[i], 128, (LPTSTR) &temp, NULL);
-//				printf("B Input %s, Output %s\n", arg[i], temp);
-				
-				if (!AddFiles(f, (TCHAR *) &temp, &source, &dest, &count, lpdwFlags))
+				if (!AddFiles(f, arg[i], &source, &dest, &count, lpdwFlags))
 					return -1;
 				while (f->next != NULL)
 					f = f->next;
@@ -278,8 +277,8 @@ ParseCommand (LPFILES f, int argc, TCHAR **arg, LPDWORD lpdwFlags)
 	}
 
 #ifdef _DEBUG
-	DebugPrintf (_T("ParseCommand: flags has %s\n"),
-				 *lpdwFlags & ASCII ? _T("ASCII") : _T("BINARY"));
+	DebugPrintf ("ParseCommand: flags has %s\n",
+				 *lpdwFlags & ASCII ? "ASCII" : "BINARY");
 #endif
 	return count;
 }
@@ -338,7 +337,7 @@ int copy (LPTSTR source, LPTSTR dest, int append, LPDWORD lpdwFlags)
 	BOOL   bEof = FALSE;
 
 #ifdef _DEBUG
-	DebugPrintf (_T("checking mode\n"));
+	DebugPrintf ("checking mode\n");
 #endif
 
 	dwAttrib = GetFileAttributes (source);
@@ -486,16 +485,17 @@ int copy (LPTSTR source, LPTSTR dest, int append, LPDWORD lpdwFlags)
 
 
 static INT
-SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
-           TCHAR *drive_d, TCHAR *dir_d, TCHAR *file_d,
-           TCHAR *ext_d, int *append, LPDWORD lpdwFlags)
+SetupCopy (LPFILES sources, char **p, BOOL bMultiple,
+           char *drive_d, char *dir_d, char *file_d,
+           char *ext_d, int *append, LPDWORD lpdwFlags)
 {
 	WIN32_FIND_DATA find;
-	TCHAR drive_s[_MAX_DRIVE];
-	TCHAR dir_s[_MAX_DIR];
-	TCHAR file_s[_MAX_FNAME];
-	TCHAR ext_s[_MAX_EXT];
-	TCHAR from_merge[_MAX_PATH];
+
+	char drive_s[_MAX_DRIVE];
+	CHAR dir_s[_MAX_DIR];
+	char file_s[_MAX_FNAME];
+	char ext_s[_MAX_EXT];
+	char from_merge[_MAX_PATH];
 
 	LPTSTR real_source;
 	LPTSTR real_dest;
@@ -504,14 +504,13 @@ SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
 	BOOL bAll = FALSE;
 	BOOL bDone;
 	HANDLE hFind;
-	TCHAR temp[128];
 
 #ifdef _DEBUG
 	DebugPrintf (_T("SetupCopy\n"));
 #endif
 
-	real_source = (LPTSTR)malloc (MAX_PATH * sizeof(TCHAR));
-	real_dest = (LPTSTR)malloc (MAX_PATH * sizeof(TCHAR));
+	real_source = (LPTSTR)malloc (MAX_PATH);
+	real_dest = (LPTSTR)malloc (MAX_PATH);
 
 	if (!real_source || !real_dest)
 	{
@@ -525,14 +524,8 @@ SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
 
 	while (sources->next != NULL)
 	{
-
-/*		Force a clean full path
-*/
-		GetFullPathName( sources->szFile, 128, (LPTSTR) &temp, NULL);
-
-		_tsplitpath (sources->szFile, drive_s, dir_s, file_s, ext_s);
-
-		hFind = FindFirstFile ((TCHAR*)&temp, &find);
+		_splitpath (sources->szFile, drive_s, dir_s, file_s, ext_s);
+		hFind = FindFirstFile (sources->szFile, &find);
 		if (hFind == INVALID_HANDLE_VALUE)
 		{
 			error_file_not_found();
@@ -547,18 +540,12 @@ SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
 			if (find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				goto next;
 
-			_tmakepath(from_merge, drive_d, dir_d, file_d, ext_d);
-
+			_makepath(from_merge, drive_d, dir_d, file_d, ext_d);
 			if (from_merge[_tcslen(from_merge) - 1] == _T('\\'))
 				from_merge[_tcslen(from_merge) - 1] = 0;
 
-//			printf("Merge %s, filename %s\n", from_merge, find.cFileName);
-
 			if (IsDirectory (from_merge))
 			{
-
-//			printf("Merge DIR\n");
-			
 				bMultiple = FALSE;
 				_tcscat (from_merge, _T("\\"));
 				_tcscat (from_merge, find.cFileName);
@@ -567,13 +554,13 @@ SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
 				bMultiple = TRUE;
 
 			_tcscpy (real_dest, from_merge);
-			_tmakepath (real_source, drive_s, dir_s, find.cFileName, NULL);
+			_makepath (real_source, drive_s, dir_s, find.cFileName, NULL);
 
 #ifdef _DEBUG
-			DebugPrintf(_T("copying %S -> %S (%Sappending%S)\n"),
+			DebugPrintf (_T("copying %s -> %s (%sappending%s)\n"),
 						 real_source, real_dest,
-						 *append ? _T("") : _T("not "),
-						 sources->dwFlag & ASCII ? _T(", ASCII") : _T(", BINARY"));
+						 *append ? "" : "not ",
+						 sources->dwFlag & ASCII ? ", ASCII" : ", BINARY");
 #endif
 
 			if (IsValidFileName (real_dest) && !bAll)
@@ -619,11 +606,11 @@ SetupCopy (LPFILES sources, TCHAR **p, BOOL bMultiple,
 
 INT cmd_copy (LPTSTR first, LPTSTR rest)
 {
-	TCHAR **p;
-	TCHAR drive_d[_MAX_DRIVE];
-	TCHAR dir_d[_MAX_DIR];
-	TCHAR file_d[_MAX_FNAME];
-	TCHAR ext_d[_MAX_EXT];
+	char **p;
+	char drive_d[_MAX_DRIVE];
+	char dir_d[_MAX_DIR];
+	char file_d[_MAX_FNAME];
+	char ext_d[_MAX_EXT];
 
 	int argc;
 	int append;
@@ -695,10 +682,9 @@ INT cmd_copy (LPTSTR first, LPTSTR rest)
 	bDestFound = GetDestination (sources, &dest);
 	if (bDestFound)
 	{
-		_tsplitpath (dest.szFile, drive_d, dir_d, file_d, ext_d);
+		_splitpath (dest.szFile, drive_d, dir_d, file_d, ext_d);
 		if (IsDirectory (dest.szFile))
 		{
-//		printf("A szFile= %s, Dir = %s, File = %s, Ext = %s\n", dest.szFile, dir_d, file_d, ext_d);
 			_tcscat (dir_d, file_d);
 			_tcscat (dir_d, ext_d);
 			file_d[0] = _T('\0');
@@ -711,7 +697,7 @@ INT cmd_copy (LPTSTR first, LPTSTR rest)
 	else
 		bWildcards = FALSE;
 
-	if (_tcschr(rest, _T('+')))
+	if (strchr(rest, '+'))
 		bMultiple = TRUE;
 	else
 		bMultiple = FALSE;
@@ -721,9 +707,6 @@ INT cmd_copy (LPTSTR first, LPTSTR rest)
 
 	if (bDestFound && !bWildcards)
 	{
-
-//		_tcscpy(sources->szFile, dest.szFile);
-
 		copied = SetupCopy (sources, p, bMultiple, drive_d, dir_d, file_d, ext_d, &append, &dwFlags);
 	}
 	else if (bDestFound && bWildcards)
@@ -735,25 +718,21 @@ INT cmd_copy (LPTSTR first, LPTSTR rest)
 	}
 	else if (!bDestFound && !bMultiple)
 	{
-		_tsplitpath (sources->szFile, drive_d, dir_d, file_d, ext_d);
+		_splitpath (sources->szFile, drive_d, dir_d, file_d, ext_d);
 		if (IsDirectory (sources->szFile))
 		{
-//		printf("B File = %s, Ext = %s\n", file_d, ext_d);
-
 			_tcscat (dir_d, file_d);
 			_tcscat (dir_d, ext_d);
 			file_d[0] = _T('\0');
 			ext_d[0] = _T('\0');
 		}
-		copied = SetupCopy (sources, p, FALSE, _T(""), _T(""), file_d, ext_d, &append, &dwFlags);
+		copied = SetupCopy (sources, p, FALSE, "", "", file_d, ext_d, &append, &dwFlags);
 	}
 	else
 	{
-		_tsplitpath(sources->szFile, drive_d, dir_d, file_d, ext_d);
+		_splitpath(sources->szFile, drive_d, dir_d, file_d, ext_d);
 		if (IsDirectory (sources->szFile))
 		{
-//		printf("C File = %s, Ext = %s\n", file_d, ext_d);
-
 			_tcscat (dir_d, file_d);
 			_tcscat (dir_d, ext_d);
 			file_d[0] = _T('\0');
@@ -766,7 +745,7 @@ INT cmd_copy (LPTSTR first, LPTSTR rest)
 	}
 
 	DeleteFileList (sources);
-	freep ((VOID*)p);
+	freep (p);
 	ConOutPrintf (_T("        %d file(s) copied\n"), copied);
 
 	return 1;

@@ -21,9 +21,6 @@
 #include <msvcrt/msvcrtdbg.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _wmktemp (wchar_t *_template)
 {
   static int count = 0;

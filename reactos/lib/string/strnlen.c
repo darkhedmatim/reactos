@@ -1,7 +1,16 @@
-/* $Id: strnlen.c,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/*
+ * $Id: strnlen.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
 #include <string.h>
-#include "tcsnlen.h"
 
-/* EOF */
+int strnlen(const char *str, size_t count)
+{
+  const char *s;
+
+  if (str == 0)
+    return 0;
+  for (s = str; *s && count; ++s, count--);
+  return s-str;
+}
+

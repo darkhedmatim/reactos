@@ -29,16 +29,14 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.14 $
- * $Author: navaraf $
- * $Date: 2004/08/02 15:04:24 $
+ * $Revision: 1.8 $
+ * $Author: hyperion $
+ * $Date: 2003/04/22 03:20:25 $
  *
  */
 
-#ifndef	_ROS_TCHAR_H_
-#define _ROS_TCHAR_H_
-
-#include <msvcrt/string.h>
+#ifndef	_TCHAR_H_
+#define _TCHAR_H_
 
 /*
  * NOTE: This tests _UNICODE, which is different from the UNICODE define
@@ -116,7 +114,6 @@ typedef wchar_t TCHAR;
 #define	_tcsncat		wcsncat
 #define	_tcsncmp	wcsncmp
 #define	_tcsncpy	wcsncpy
-#define _tcsnlen        wcsnlen
 #define	_tcspbrk		wcspbrk
 #define	_tcsrchr		wcsrchr
 #define	_tcsspn		wcsspn
@@ -149,9 +146,6 @@ typedef wchar_t TCHAR;
 #define	_totlower	towlower
 #define	_ttoi		_wtoi
 #define	_tcsftime	wcsftime
-#define	_tsplitpath	_wsplitpath
-#define	_tmakepath	_wmakepath
-#define	_tfopen		_wfopen
 
 #else	/* Not _UNICODE */
 
@@ -224,7 +218,6 @@ typedef char TCHAR;
 #define	_tcsncat	strncat
 #define	_tcsncmp	strncmp
 #define	_tcsncpy	strncpy
-#define _tcsnlen        strnlen
 #define	_tcspbrk	strpbrk
 #define	_tcsrchr	strrchr
 #define _tcsspn		strspn
@@ -257,10 +250,8 @@ typedef char TCHAR;
 #define	_totlower	tolower
 #define	_ttoi		atoi
 #define _tcsftime	strftime
-#define	_tsplitpath	_splitpath
-#define	_tmakepath	_makepath
-#define	_tfopen		fopen
 
 #endif	/* Not _UNICODE */
 
 #endif	/* Not _TCHAR_H_ */
+

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: infcache.c,v 1.9 2004/12/30 16:02:12 royce Exp $
+/* $Id: infcache.c,v 1.5 2003/05/18 13:50:58 ekohl Exp $
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/infcache.c
@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "mkhive.h"
 #include "infcache.h"
@@ -57,7 +56,7 @@ typedef struct _INFCACHELINE
   struct _INFCACHELINE *Next;
   struct _INFCACHELINE *Prev;
 
-  ULONG FieldCount;
+  LONG FieldCount;
 
   PCHAR Key;
 
@@ -437,7 +436,7 @@ inline static int is_eol( struct parser *parser, const CHAR *ptr )
 /* push data from current token start up to pos into the current token */
 static int push_token( struct parser *parser, const CHAR *pos )
 {
-  ULONG len = pos - parser->start;
+  int len = pos - parser->start;
   const CHAR *src = parser->start;
   CHAR *dst = parser->token + parser->token_len;
 
@@ -491,6 +490,7 @@ static PVOID add_section_from_token( struct parser *parser )
 static struct field *add_field_from_token( struct parser *parser, int is_key )
 {
   PVOID field;
+  CHAR *text;
 
   if (!parser->line)  /* need to start a new line */
     {
@@ -1004,7 +1004,7 @@ InfFindFirstLine (HINF InfHandle,
 
   /* Iterate through list of sections */
   CacheSection = Cache->FirstSection;
-  while (CacheSection != NULL)
+  while (Section != NULL)
     {
       DPRINT("Comparing '%s' and '%s'\n", CacheSection->Name, Section);
 

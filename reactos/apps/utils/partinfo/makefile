@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.5 2003/11/14 17:13:22 weiden Exp $
+# $Id: makefile,v 1.3 2002/07/22 17:53:12 ekohl Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -10,7 +10,7 @@ TARGET_APPTYPE = console
 
 TARGET_NAME = partinfo
 
-TARGET_CFLAGS = -Wall -Werror -Wno-format
+#TARGET_CFLAGS = -fnative_struct
 
 TARGET_SDKLIBS = ntdll.a kernel32.a
 

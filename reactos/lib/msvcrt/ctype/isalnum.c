@@ -11,18 +11,12 @@
 
 
 #undef isalnum
-/*
- * @implemented
- */
 int isalnum(int c)
 {
     return _isctype(c, _ALPHA | _DIGIT);
 }
 
 #undef iswalnum
-/*
- * @implemented
- */
 int iswalnum(wint_t c)
 {
     return iswctype(c, _ALPHA | _DIGIT);

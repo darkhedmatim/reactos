@@ -104,7 +104,7 @@
    using Objective-C then you must use WINBOOL for Win32 operations.
 */
 #ifndef __OBJC__
-/* typedef WINBOOL BOOL; */
+//typedef WINBOOL BOOL;
 #endif /* !__OBJC__ */
 
 /* How do we get the VM page size on NT? */
@@ -163,10 +163,6 @@
 #define DUMMYSTRUCTNAME
 #define DUMMYSTRUCTNAME2
 #define DUMMYSTRUCTNAME3
-#endif
-
-#ifndef DECLARE_STDCALL_P
-#define DECLARE_STDCALL_P( type ) __stdcall type
 #endif
 
 #ifndef NO_STRICT

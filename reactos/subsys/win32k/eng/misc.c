@@ -16,8 +16,13 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: misc.c,v 1.9 2004/07/03 17:40:25 navaraf Exp $ */
-#include <w32k.h>
+/* $Id: misc.c,v 1.2 2003/05/18 17:16:17 ea Exp $ */
+#include <ddk/winddi.h>
+#include <include/dib.h>
+#include <include/object.h>
+#include <include/surface.h>
+#include "misc.h"
+#include "objects.h"
 
 BOOL STDCALL
 IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
@@ -31,7 +36,6 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
   SIZEL BitmapSize;
   POINTL SrcPoint;
   LONG Width;
-  RECTL ClippedDestRect;
 
   /* Normalize */
   if (DestRect->right < DestRect->left)
@@ -50,9 +54,9 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
   if (NULL != DestObj && STYPE_BITMAP != DestObj->iType &&
       (NULL == DestObj->pvScan0 || 0 == DestObj->lDelta))
     {
+    EnterLeave->DestGDI = (SURFGDI*)AccessInternalObjectFromUserObject(DestObj);
     /* Driver needs to support DrvCopyBits, else we can't do anything */
-    /* FIXME: Remove typecast! */
-    if (!(((BITMAPOBJ*)DestObj)->flHooks & HOOK_COPYBITS))
+    if (NULL == EnterLeave->DestGDI->CopyBits)
       {
       return FALSE;
       }
@@ -63,8 +67,8 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     Width = DIB_GetDIBWidthBytes(BitmapSize.cx, BitsPerFormat(DestObj->iBitmapFormat));
     EnterLeave->OutputBitmap = EngCreateBitmap(BitmapSize, Width,
                                                DestObj->iBitmapFormat,
-                                               BMF_TOPDOWN | BMF_NOZEROINIT, NULL);
-    *OutputObj = EngLockSurface((HSURF)EnterLeave->OutputBitmap);
+                                               BMF_NOZEROINIT, NULL);
+    *OutputObj = (SURFOBJ *) AccessUserObject((ULONG) EnterLeave->OutputBitmap);
 
     EnterLeave->DestRect.left = 0;
     EnterLeave->DestRect.top = 0;
@@ -72,41 +76,15 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     EnterLeave->DestRect.bottom = BitmapSize.cy;
     SrcPoint.x = DestRect->left;
     SrcPoint.y = DestRect->top;
-    ClippedDestRect = EnterLeave->DestRect;
-    if (SrcPoint.x < 0)
-      {
-        ClippedDestRect.left -= SrcPoint.x;
-        SrcPoint.x = 0;
-      }
-    if (DestObj->sizlBitmap.cx < SrcPoint.x + ClippedDestRect.right - ClippedDestRect.left)
-      {
-        ClippedDestRect.right = ClippedDestRect.left + DestObj->sizlBitmap.cx - SrcPoint.x;
-      }
-    if (SrcPoint.y < 0)
-      {
-        ClippedDestRect.top -= SrcPoint.y;
-        SrcPoint.y = 0;
-      }
-    if (DestObj->sizlBitmap.cy < SrcPoint.y + ClippedDestRect.bottom - ClippedDestRect.top)
-      {
-        ClippedDestRect.bottom = ClippedDestRect.top + DestObj->sizlBitmap.cy - SrcPoint.y;
-      }
     EnterLeave->TrivialClipObj = EngCreateClip();
     EnterLeave->TrivialClipObj->iDComplexity = DC_TRIVIAL;
-    if (ClippedDestRect.left < (*OutputObj)->sizlBitmap.cx &&
-        0 <= ClippedDestRect.right &&
-        SrcPoint.x < DestObj->sizlBitmap.cx &&
-        ClippedDestRect.top <= (*OutputObj)->sizlBitmap.cy &&
-        0 <= ClippedDestRect.bottom &&
-        SrcPoint.y < DestObj->sizlBitmap.cy &&
-        ! GDIDEVFUNCS(DestObj).CopyBits(
-                                        *OutputObj, DestObj,
+    if (! EnterLeave->DestGDI->CopyBits(*OutputObj, DestObj,
                                         EnterLeave->TrivialClipObj, NULL,
-                                        &ClippedDestRect, &SrcPoint))
+                                        &EnterLeave->DestRect, &SrcPoint))
       {
       EngDeleteClip(EnterLeave->TrivialClipObj);
       EngFreeMem((*OutputObj)->pvBits);
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+      EngDeleteSurface(EnterLeave->OutputBitmap);
       return FALSE;
       }
     EnterLeave->DestRect.left = DestRect->left;
@@ -134,7 +112,7 @@ BOOL STDCALL
 IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
 {
   POINTL SrcPoint;
-  BOOL Result = TRUE;
+  BOOL Result;
 
   if (EnterLeave->OutputObj != EnterLeave->DestObj && NULL != EnterLeave->OutputObj)
     {
@@ -142,45 +120,13 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
       {
       SrcPoint.x = 0;
       SrcPoint.y = 0;
-      if (EnterLeave->DestRect.left < 0)
-        {
-          SrcPoint.x = - EnterLeave->DestRect.left;
-          EnterLeave->DestRect.left = 0;
-        }
-      if (EnterLeave->DestObj->sizlBitmap.cx < EnterLeave->DestRect.right)
-        {
-          EnterLeave->DestRect.right = EnterLeave->DestObj->sizlBitmap.cx;
-        }
-      if (EnterLeave->DestRect.top < 0)
-        {
-          SrcPoint.y = - EnterLeave->DestRect.top;
-          EnterLeave->DestRect.top = 0;
-        }
-      if (EnterLeave->DestObj->sizlBitmap.cy < EnterLeave->DestRect.bottom)
-        {
-          EnterLeave->DestRect.bottom = EnterLeave->DestObj->sizlBitmap.cy;
-        }
-      if (SrcPoint.x < EnterLeave->OutputObj->sizlBitmap.cx &&
-          EnterLeave->DestRect.left <= EnterLeave->DestRect.right &&
-          EnterLeave->DestRect.left < EnterLeave->DestObj->sizlBitmap.cx &&
-          SrcPoint.y < EnterLeave->OutputObj->sizlBitmap.cy &&
-          EnterLeave->DestRect.top <= EnterLeave->DestRect.bottom &&
-          EnterLeave->DestRect.top < EnterLeave->DestObj->sizlBitmap.cy)
-        {
-          Result = GDIDEVFUNCS(EnterLeave->DestObj).CopyBits(
-                                                 EnterLeave->DestObj,
-                                                 EnterLeave->OutputObj,
-                                                 EnterLeave->TrivialClipObj, NULL,
-                                                 &EnterLeave->DestRect, &SrcPoint);
-        }
-      else
-        {
-          Result = TRUE;
-        }
+      Result = EnterLeave->DestGDI->CopyBits(EnterLeave->DestObj,
+                                             EnterLeave->OutputObj,
+                                             EnterLeave->TrivialClipObj, NULL,
+                                             &EnterLeave->DestRect, &SrcPoint);
       }
     EngFreeMem(EnterLeave->OutputObj->pvBits);
-    EngUnlockSurface(EnterLeave->OutputObj);
-    EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+    EngDeleteSurface(EnterLeave->OutputBitmap);
     EngDeleteClip(EnterLeave->TrivialClipObj);
     }
   else
@@ -190,28 +136,4 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
 
   return Result;
 }
-
-HANDLE STDCALL
-EngGetCurrentProcessId(VOID)
-{
-  /* http://www.osr.com/ddk/graphics/gdifncs_5ovb.htm */
-  return PsGetCurrentProcessId();
-}
-
-HANDLE STDCALL
-EngGetCurrentThreadId(VOID)
-{
-  /* http://www.osr.com/ddk/graphics/gdifncs_25rb.htm */
-  return PsGetCurrentThreadId();
-}
-
-HANDLE STDCALL
-EngGetProcessHandle(VOID)
-{
-  /* http://www.osr.com/ddk/graphics/gdifncs_3tif.htm
-     In Windows 2000 and later, the EngGetProcessHandle function always returns NULL.
-     FIXME - what does NT4 return? */
-  return NULL;
-}
-
 /* EOF */

@@ -15,9 +15,6 @@ int convert(char *endp, int bufsiz,int n);
 int _writecnv(int fn, void *buf, size_t bufsiz);
 
 
-/*
- * @implemented
- */
 int _flsbuf(int c, FILE *f)
 {
   char *base;

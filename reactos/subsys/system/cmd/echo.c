@@ -1,4 +1,4 @@
-/* $Id: echo.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: echo.c,v 1.1 2003/03/20 19:19:22 rcampbell Exp $
  *
  *  ECHO.C - internal echo commands.
  *
@@ -24,24 +24,31 @@
  *        Implemented 'echo.' and 'echoerr.'.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 INT CommandEcho (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("CommandEcho '%s' : '%s'\n"), cmd, param);
+	DebugPrintf ("CommandEcho '%s' : '%s'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		ConOutPuts (_T("Displays a message or switches command echoing on or off.\n"
-			       "\n"
-			       "  ECHO [ON | OFF]\n"
-			       "  ECHO [message]\n"
-			       "  ECHO.             prints an empty line\n"
-			       "\n"
-			       "Type ECHO without a parameter to display the current ECHO setting."));
+		ConOutPuts ("Displays a message or switches command echoing on or off.\n"
+			    "\n"
+			    "  ECHO [ON | OFF]\n"
+			    "  ECHO [message]\n"
+			    "  ECHO.             prints an empty line\n"
+			    "\n"
+			    "Type ECHO without a parameter to display the current ECHO setting.");
 		return 0;
 	}
 
@@ -70,19 +77,19 @@ INT CommandEcho (LPTSTR cmd, LPTSTR param)
 INT CommandEchos (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("CommandEchos '%s' : '%s'\n"), cmd, param);
+	DebugPrintf ("CommandEchos '%s' : '%s'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		ConOutPuts (_T("Display a messages without trailing carridge return and line feed.\n"
-		               "\n"
-		               "  ECHOS message"));
+		ConOutPuts ("Display a messages without trailing carridge return and line feed.\n"
+		            "\n"
+		            "  ECHOS message");
 		return 0;
 	}
 
 	if (*param)
-		ConOutPrintf (_T("%s"), param);
+		ConOutPrintf ("%s", param);
 
 	return 0;
 }
@@ -91,15 +98,15 @@ INT CommandEchos (LPTSTR cmd, LPTSTR param)
 INT CommandEchoerr (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("CommandEchoerr '%s' : '%s'\n"), cmd, param);
+	DebugPrintf ("CommandEchoerr '%s' : '%s'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		ConOutPuts (_T("Displays a message to the standard error.\n"
-		               "\n"
-		               "  ECHOERR message\n"
-		               "  ECHOERR.           prints an empty line"));
+		ConOutPuts ("Displays a message to the standard error.\n"
+		            "\n"
+		            "  ECHOERR message\n"
+		            "  ECHOERR.           prints an empty line");
 		return 0;
 	}
 
@@ -121,14 +128,14 @@ INT CommandEchoerr (LPTSTR cmd, LPTSTR param)
 INT CommandEchoserr (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("CommandEchoserr '%s' : '%s'\n"), cmd, param);
+	DebugPrintf ("CommandEchoserr '%s' : '%s'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		ConOutPuts (_T("Prints a messages to standard error output without trailing carridge return and line feed.\n"
-		               "\n"
-		               "  ECHOSERR message"));
+		ConOutPuts ("Prints a messages to standard error output without trailing carridge return and line feed.\n"
+		            "\n"
+		            "  ECHOSERR message");
 		return 0;
 	}
 

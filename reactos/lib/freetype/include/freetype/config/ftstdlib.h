@@ -5,7 +5,7 @@
 /*    ANSI-specific library and header configuration file (specification   */
 /*    only).                                                               */
 /*                                                                         */
-/*  Copyright 2002, 2003, 2004 by                                          */
+/*  Copyright 2002 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -73,27 +73,23 @@
 
 #include <ctype.h>
 
-#define ft_isalnum   isalnum
-#define ft_isupper   isupper
-#define ft_islower   islower
-#define ft_isdigit   isdigit
-#define ft_isxdigit  isxdigit
+#define ft_isalnum  isalnum
+#define ft_isupper  isupper
+#define ft_islower  islower
+#define ft_xdigit   isxdigit
 
 
 #include <string.h>
 
-#define ft_memcmp   memcmp
-#define ft_memcpy   memcpy
-#define ft_memmove  memmove
-#define ft_memset   memset
-#define ft_strcat   strcat
-#define ft_strcmp   strcmp
-#define ft_strcpy   strcpy
 #define ft_strlen   strlen
+#define ft_strcmp   strcmp
 #define ft_strncmp  strncmp
+#define ft_memcpy   memcpy
+#define ft_strcpy   strcpy
 #define ft_strncpy  strncpy
-#define ft_strrchr  strrchr
-
+#define ft_memset   memset
+#define ft_memmove  memmove
+#define ft_memcmp   memcmp
 
 #include <stdio.h>
 
@@ -112,7 +108,7 @@
 #define ft_qsort  qsort
 #define ft_exit   exit    /* only used to exit from unhandled exceptions */
 
-#define ft_atol   atol
+#define ft_atoi   atoi
 
 
   /**********************************************************************/

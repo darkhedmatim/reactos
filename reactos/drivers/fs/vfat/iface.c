@@ -16,19 +16,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: iface.c,v 1.74 2004/02/10 16:22:56 navaraf Exp $
+/* $Id: iface.c,v 1.68 2003/02/09 18:02:55 hbirr Exp $
  *
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/fs/vfat/iface.c
+ * FILE:             services/fs/vfat/iface.c
  * PURPOSE:          VFAT Filesystem
  * PROGRAMMER:       Jason Filby (jasonfilby@yahoo.com)
- *                   Hartmut Birr
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <rosrtl/string.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -53,7 +51,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
  */
 {
    PDEVICE_OBJECT DeviceObject;
-   UNICODE_STRING DeviceName = ROS_STRING_INITIALIZER(L"\\Fat");
+   UNICODE_STRING DeviceName = UNICODE_STRING_INITIALIZER(L"\\Fat");
    NTSTATUS Status;
 
    Status = IoCreateDevice(DriverObject,

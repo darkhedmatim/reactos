@@ -16,64 +16,65 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: wingl.c,v 1.9 2004/07/14 20:48:58 navaraf Exp $ */
-#include <w32k.h>
+/* $Id: wingl.c,v 1.6 2003/05/18 17:16:18 ea Exp $ */
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/wingl.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 INT
 STDCALL
-NtGdiChoosePixelFormat(HDC  hDC,
+W32kChoosePixelFormat(HDC  hDC,
                            CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 
 INT
 STDCALL
-NtGdiDescribePixelFormat(HDC  hDC,
+W32kDescribePixelFormat(HDC  hDC,
                              INT  PixelFormat,
                              UINT  BufSize,
                              LPPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
+W32kGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
                                     DWORD  BufSize, 
                                     CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 INT
 STDCALL
-NtGdiGetPixelFormat(HDC  hDC)
+W32kGetPixelFormat(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 BOOL
 STDCALL
-NtGdiSetPixelFormat(HDC  hDC,
+W32kSetPixelFormat(HDC  hDC,
                          INT  PixelFormat,
                          CONST PPIXELFORMATDESCRIPTOR  pfd)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 BOOL
 STDCALL
-NtGdiSwapBuffers(HDC  hDC)
+W32kSwapBuffers(HDC  hDC)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 /* EOF */

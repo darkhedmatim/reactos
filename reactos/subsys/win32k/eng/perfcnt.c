@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: perfcnt.c,v 1.4 2004/05/10 17:07:17 weiden Exp $
+/* $Id: perfcnt.c,v 1.2 2003/06/20 10:37:23 gvg Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -24,11 +24,13 @@
  * FILE:              subsys/win32k/eng/perfcnt.c
  * PROGRAMER:         Ge van Geldorp
  */
-#include <w32k.h>
 
-/*
- * @implemented
- */
+#include <ddk/ntddk.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
+#include <debug.h>
+
 VOID STDCALL
 EngQueryPerformanceFrequency(LONGLONG *Frequency)
 {
@@ -38,9 +40,6 @@ EngQueryPerformanceFrequency(LONGLONG *Frequency)
   *Frequency = Freq.QuadPart;
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 EngQueryPerformanceCounter(LONGLONG *Count)
 {

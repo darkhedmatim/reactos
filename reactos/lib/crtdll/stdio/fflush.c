@@ -20,9 +20,6 @@
 #include <msvcrt/io.h>
 
 
-/*
- * @implemented
- */
 int fflush(FILE *f)
 {
   char *base;
@@ -36,7 +33,7 @@ int fflush(FILE *f)
 
      __set_errno(0);
     _fwalk((void (*)(FILE *))fflush);
-    if (*_errno())
+    if (_errno)
       return EOF;
     __set_errno(e);
     return 0;
@@ -99,8 +96,6 @@ int fflush(FILE *f)
     } while (rn > 0);
     f->_flag &= ~_IODIRTY;
 
-// commit flushed data
-//    _commit(fileno(f));
   }
   if (OPEN4READING(f) && OPEN4WRITING(f) )
   {
@@ -110,9 +105,6 @@ int fflush(FILE *f)
   return 0;
 }
 
-/*
- * @implemented
- */
 int _flushall( void )
 {
 	return fflush(NULL);

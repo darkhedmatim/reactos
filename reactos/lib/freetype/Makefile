@@ -1,10 +1,12 @@
-# $Id: Makefile,v 1.12 2004/10/16 20:27:32 gvg Exp $
+# $Id: Makefile,v 1.4 2003/05/18 21:17:33 guido Exp $
 
 PATH_TO_TOP = ../..
 
 TARGET_TYPE = kmdll
 
 TARGET_NAME = freetype
+
+TARGET_NORC = yes
 
 TARGET_DEFONLY = yes
 
@@ -16,16 +18,11 @@ else
 CFLAGS_DBG :=
 endif
 
-TARGET_CFLAGS = $(CFLAGS_DBG) -Iinclude -Wall -Werror
-
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
+TARGET_CFLAGS = $(CFLAGS_DBG) -Iinclude -Wall
 
 ROS_OBJECTS = rosglue.o i386/setjmplongjmp.o
 
 TARGET_OBJECTS = objs/*.o $(ROS_OBJECTS)
-
-TARGET_CLEAN = objs/libfreetype.a
 
 include $(PATH_TO_TOP)/rules.mak
 
@@ -37,9 +34,9 @@ all: $(MK_FULLNAME) $(MK_NOSTRIPNAME)
 
 objs/*.o objs/libfreetype.a:
 ifeq ($(DBG), 1)
-	@$(MAKE) -f Makefile.freetype CFLAGS="-c -g -Wall -fno-strict-aliasing" CC:=$(CC)
+	@$(MAKE) -f Makefile.freetype CFLAGS="-c -g -Wall" CC:=$(CC)
 else
-	@$(MAKE) -f Makefile.freetype CFLAGS="-c -Wall -O3 -fno-strict-aliasing" CC:=$(CC)
+	@$(MAKE) -f Makefile.freetype CFLAGS="-c -Wall -O3" CC:=$(CC)
 endif
 
 # Automatic dependency tracking
@@ -56,12 +53,5 @@ freetype_def: objs/libfreetype.a
 
 etags: TAGS
 TAGS: i386/TAGS
-
-
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu
-
 
 # EOF

@@ -1,4 +1,4 @@
-/* $Id: ntvdm.c,v 1.4 2003/11/14 17:13:32 weiden Exp $
+/* $Id: ntvdm.c,v 1.2 2003/01/12 01:54:40 robd Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -33,7 +33,7 @@ void PrintString(char* fmt,...)
    vsprintf(buffer, fmt, ap);
    va_end(ap);
 
-   OutputDebugStringA(buffer);
+   OutputDebugString(buffer);
 }
 
 /*
@@ -95,7 +95,7 @@ BOOL
 StartVDM(PVDM_CONTROL_BLOCK vdm)
 {
    BOOL Result;
-   STARTUPINFOA StartupInfo;
+   STARTUPINFO StartupInfo;
 
    StartupInfo.cb = sizeof(StartupInfo);
    StartupInfo.lpReserved = NULL;
@@ -105,7 +105,7 @@ StartVDM(PVDM_CONTROL_BLOCK vdm)
    StartupInfo.cbReserved2 = 0;
    StartupInfo.lpReserved2 = 0;
 
-   Result = CreateProcessA(vdm->CommandLine,
+   Result = CreateProcess(vdm->CommandLine,
                           NULL,
                           NULL,
                           NULL,
@@ -204,6 +204,7 @@ CreateVDM(PVDM_CONTROL_BLOCK vdm)
 //    BOOL result = TRUE;
     SYSTEM_INFO inf;
     MEMORYSTATUS stat;
+	PVOID lpMem = NULL;
 
     GlobalMemoryStatus(&stat);
     if (stat.dwLength != sizeof(MEMORYSTATUS)) {
@@ -270,18 +271,20 @@ WinMain(HINSTANCE hInstance,  HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
 {
     VDM_CONTROL_BLOCK VdmCB;
     DWORD Result;
+    BOOL Success;
     ULONG i;
+    NTSTATUS Status;
     BOOL vdmStarted = FALSE;
 
-    WCHAR WelcomeMsg[] = L"ReactOS Virtual DOS Machine support.\n";
-    WCHAR PromptMsg[] = L"Type r<cr> to run, s<cr> to shutdown or q<cr> to quit now.";
+    CHAR WelcomeMsg[] = "ReactOS Virtual DOS Machine support.\n";
+    CHAR PromptMsg[] = "Type r<cr> to run, s<cr> to shutdown or q<cr> to quit now.";
     CHAR InputBuffer[255];
     
     AllocConsole();
-    SetConsoleTitleW(L"ntvdm");
-
-    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),
-                 WelcomeMsg, lstrlenW(WelcomeMsg),  // wcslen(WelcomeMsg),
+    SetConsoleTitle("ntvdm");
+	
+    WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE),
+                 WelcomeMsg, strlen(WelcomeMsg),  // wcslen(WelcomeMsg),
                  &Result, NULL);
 
     if (!CreateVDM(&VdmCB)) {
@@ -302,18 +305,18 @@ WinMain(HINSTANCE hInstance,  HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nSho
         //SetLastError();
         return 3;
     }
-
-    GetSystemDirectoryA(VdmCB.CommandLine, MAX_PATH);
+		
+    GetSystemDirectory(VdmCB.CommandLine, MAX_PATH);
     strcat(VdmCB.CommandLine, "\\hello.exe");
-    GetWindowsDirectoryA(VdmCB.CurrentDirectory, MAX_PATH);
+    GetWindowsDirectory(VdmCB.CurrentDirectory, MAX_PATH);
 
     for (;;) {
-        WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),
-                     PromptMsg, lstrlenW(PromptMsg),  // wcslen(PromptMsg),
+        WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE),
+                     PromptMsg, strlen(PromptMsg),  // wcslen(PromptMsg),
                      &Result, NULL);
         i = 0;
         do {
-            ReadConsoleA(GetStdHandle(STD_INPUT_HANDLE),
+            ReadConsole(GetStdHandle(STD_INPUT_HANDLE),
                         &InputBuffer[i], 1,
                         &Result, NULL);
             if (++i >= (sizeof(InputBuffer) - 1)) {

@@ -7,4 +7,3 @@ StartEndpointMapper(VOID);
 #endif /* __RPCSS_H__ */
 
 /* EOF */
-

@@ -92,8 +92,18 @@ DriverEntry(
 {
 
     NDIS_PROTOCOL_CHARACTERISTICS  ProtocolChar;
-    NDIS_STATUS Status = NDIS_STATUS_SUCCESS;
+    UNICODE_STRING MacDriverName;
+    UNICODE_STRING UnicodeDeviceName;
+    PDEVICE_OBJECT DeviceObject = NULL;
+    PDEVICE_EXTENSION DeviceExtension = NULL;
+    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS ErrorCode = STATUS_SUCCESS;
     NDIS_STRING ProtoName = NDIS_STRING_CONST("PacketDriver");
+    ULONG          DevicesCreated=0;
+    PWSTR          BindString;
+    PWSTR          ExportString;
+    PWSTR          BindStringSave;
+    PWSTR          ExportStringSave;
     NDIS_HANDLE    NdisProtocolHandle;
 	WCHAR* bindT;
 	PKEY_VALUE_PARTIAL_INFORMATION tcpBindingsP;
@@ -163,11 +173,11 @@ DriverEntry(
     NdisAllocateSpinLock(&Opened_Instances_Lock);
 
     // Set up the device driver entry points.
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = (PDRIVER_DISPATCH)NPF_Open;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = (PDRIVER_DISPATCH)NPF_Close;
-    DriverObject->MajorFunction[IRP_MJ_READ]   = (PDRIVER_DISPATCH)NPF_Read;
-    DriverObject->MajorFunction[IRP_MJ_WRITE]  = (PDRIVER_DISPATCH)NPF_Write;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL]  = (PDRIVER_DISPATCH)NPF_IoControl;
+    DriverObject->MajorFunction[IRP_MJ_CREATE] = NPF_Open;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = NPF_Close;
+    DriverObject->MajorFunction[IRP_MJ_READ]   = NPF_Read;
+    DriverObject->MajorFunction[IRP_MJ_WRITE]  = NPF_Write;
+    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL]  = NPF_IoControl;
     DriverObject->DriverUnload = NPF_Unload;
 
 /*
@@ -287,6 +297,7 @@ RegistryError:
 
 PWCHAR getAdaptersList(void)
 {
+	PKEY_VALUE_PARTIAL_INFORMATION result = NULL;
 	OBJECT_ATTRIBUTES objAttrs;
 	NTSTATUS status;
 	HANDLE keyHandle;
@@ -310,6 +321,7 @@ PWCHAR getAdaptersList(void)
 
     } else { //OK
 		ULONG resultLength;
+		KEY_VALUE_PARTIAL_INFORMATION valueInfo;
 		CHAR AdapInfo[1024];
 		UINT i=0;
 		
@@ -623,12 +635,12 @@ NPF_Unload(IN PDRIVER_OBJECT DriverObject)
 		}
 
         IoDeleteDevice(OldDeviceObject);
+    }
 
 	NdisDeregisterProtocol(
         &Status,
         NdisProtocolHandle
         );
-    }
 
 	// Free the adapters names
 	ExFreePool( bindP );
@@ -645,10 +657,14 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
     PINTERNAL_REQUEST   pRequest;
     ULONG               FunctionCode;
     NDIS_STATUS	        Status;
+    PLIST_ENTRY         PacketListEntry;
+	UINT				i;
 	PUCHAR				tpointer;
 	ULONG				dim,timeout;
 	PUCHAR				prog;
 	PPACKET_OID_DATA    OidData;
+	int					*StatsBuf;
+    PNDIS_PACKET        pPacket;
 	ULONG				mode;
 	PWSTR				DumpNameBuff;
 	PUCHAR				TmpBPFProgram;
@@ -706,7 +722,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 	case BIOCSENDPACKETSNOSYNC:
 
 		WriteRes = NPF_BufferedWrite(Irp,
-			(PCHAR)Irp->AssociatedIrp.SystemBuffer,
+			(PUCHAR)Irp->AssociatedIrp.SystemBuffer,
 			IrpSp->Parameters.DeviceIoControl.InputBufferLength,
 			SyncWrite);
 
@@ -804,7 +820,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 		//return
 		Open->Bhead = 0;
 		Open->Btail = 0;
-		Open->BLastByte = (UINT) -1;
+		(INT)Open->BLastByte = -1;
 		Open->Received = 0;		
 		Open->Dropped = 0;
 		Open->Accepted = 0;
@@ -951,7 +967,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 		Open->Buffer = tpointer;
 		Open->Bhead = 0;
 		Open->Btail = 0;
-		Open->BLastByte = (UINT) -1;
+		(INT)Open->BLastByte = -1;
 		
 		Open->BufSize = (UINT)dim;
 		EXIT_SUCCESS(dim);
@@ -1101,7 +1117,7 @@ NPF_IoControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_RequestComplete(
     IN NDIS_HANDLE   ProtocolBindingContext,
     IN PNDIS_REQUEST NdisRequest,
@@ -1114,6 +1130,7 @@ NPF_RequestComplete(
     PIRP                Irp;
     PINTERNAL_REQUEST   pRequest;
     UINT                FunctionCode;
+	KIRQL				OldIrq;
 
     PPACKET_OID_DATA    OidData;
 
@@ -1185,7 +1202,7 @@ NPF_RequestComplete(
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_Status(
     IN NDIS_HANDLE   ProtocolBindingContext,
     IN NDIS_STATUS   Status,
@@ -1203,7 +1220,7 @@ NPF_Status(
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_StatusComplete(
     IN NDIS_HANDLE  ProtocolBindingContext
     )
@@ -1232,6 +1249,7 @@ NPF_ReadRegistry(
 
     PWSTR      Bind       = L"Bind";
     PWSTR      Export     = L"Export";
+    PWSTR      Parameters = L"Parameters";
     PWSTR      Linkage    = L"Linkage";
 
     PWCHAR     Path;

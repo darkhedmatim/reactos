@@ -1,4 +1,4 @@
-/* $Id: sctrl.c,v 1.14 2004/08/15 17:03:15 chorns Exp $
+/* $Id: sctrl.c,v 1.9 2003/02/02 19:27:17 hyperion Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "advapi32.h"
+#define NTOS_MODE_USER
+#include <ntos.h>
+#include <windows.h>
+#include <string.h>
+#include <wchar.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -23,7 +28,7 @@ typedef struct
 {
   DWORD ThreadId;
   UNICODE_STRING ServiceName;
-  LPSERVICE_MAIN_FUNCTIONW MainFunction;
+  LPSERVICE_MAIN_FUNCTION MainFunction;
   LPHANDLER_FUNCTION HandlerFunction;
   SERVICE_STATUS ServiceStatus;
 } ACTIVE_SERVICE, *PACTIVE_SERVICE;
@@ -134,7 +139,7 @@ ScServiceDispatcher(HANDLE hPipe, PVOID p1, PVOID p2)
 DWORD WINAPI
 ScServiceMainStub(LPVOID Context)
 {
-  LPSERVICE_MAIN_FUNCTIONW lpServiceProc = (LPSERVICE_MAIN_FUNCTIONW)Context;
+  LPSERVICE_MAIN_FUNCTION lpServiceProc = (LPSERVICE_MAIN_FUNCTION)Context;
 
   /* FIXME: Send argc and argv (from command line) as arguments */
 
@@ -146,8 +151,6 @@ ScServiceMainStub(LPVOID Context)
 
 /**********************************************************************
  *	RegisterServiceCtrlHandlerA
- *
- * @implemented
  */
 SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerA(LPCSTR lpServiceName,
@@ -175,8 +178,6 @@ RegisterServiceCtrlHandlerA(LPCSTR lpServiceName,
 
 /**********************************************************************
  *	RegisterServiceCtrlHandlerW
- *
- * @implemented
  */
 SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerW(LPCWSTR lpServiceName,
@@ -198,8 +199,6 @@ RegisterServiceCtrlHandlerW(LPCWSTR lpServiceName,
 
 /**********************************************************************
  *	SetServiceBits
- *
- * @unimplemented
  */
 BOOL STDCALL
 SetServiceBits(SERVICE_STATUS_HANDLE hServiceStatus,
@@ -214,10 +213,8 @@ SetServiceBits(SERVICE_STATUS_HANDLE hServiceStatus,
 
 /**********************************************************************
  *	SetServiceObjectSecurity
- *
- * @unimplemented
  */
-BOOL STDCALL
+WINBOOL STDCALL
 SetServiceObjectSecurity(SC_HANDLE hService,
 			 SECURITY_INFORMATION dwSecurityInformation,
 			 PSECURITY_DESCRIPTOR lpSecurityDescriptor)
@@ -229,8 +226,6 @@ SetServiceObjectSecurity(SC_HANDLE hService,
 
 /**********************************************************************
  *	SetServiceStatus
- *
- * @implemented
  */
 BOOL STDCALL
 SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
@@ -255,14 +250,10 @@ SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
 
 /**********************************************************************
  *	StartServiceCtrlDispatcherA
- *
- * @unimplemented
  */
 BOOL STDCALL
 StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
 {
-  // FIXME how to deal with diffs between ANSI/UNICODE
-#if 0
   LPSERVICE_TABLE_ENTRYW ServiceStartTableW;
   ANSI_STRING ServiceNameA;
   UNICODE_STRING ServiceNameW;
@@ -316,17 +307,11 @@ StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
   RtlFreeHeap(RtlGetProcessHeap(), 0, ServiceStartTableW);
 
   return b;
-#else
-  UNIMPLEMENTED;
-  return 0;
-#endif
 }
 
 
 /**********************************************************************
  *	StartServiceCtrlDispatcherW
- *
- * @unimplemented
  */
 BOOL STDCALL
 StartServiceCtrlDispatcherW(LPSERVICE_TABLE_ENTRYW lpServiceStartTable)
@@ -335,7 +320,7 @@ StartServiceCtrlDispatcherW(LPSERVICE_TABLE_ENTRYW lpServiceStartTable)
   HANDLE hPipe;
   DWORD dwError;
 
-  DPRINT("StartServiceCtrlDispatcherW() called\n");
+  DPRINT1("StartServiceCtrlDispatcherW() called\n");
 
   i = 0;
   while (lpServiceStartTable[i].lpServiceProc != NULL)

@@ -2,9 +2,6 @@
 #include <msvcrt/stdlib.h>
 #include <msvcrt/string.h>
 
-/*
- * @implemented
- */
 void *_lsearch(const void *key, void *base, size_t *nelp, size_t width,
          int (*compar)(const void *, const void *))
 {

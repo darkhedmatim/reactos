@@ -88,9 +88,6 @@ DllMain(HANDLE hInstDll,
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcAddrIsIpx(void* unknown, void* unknown2)
@@ -98,10 +95,6 @@ SnmpSvcAddrIsIpx(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcAddrToSocket(void* unknown, void* unknown2)
@@ -109,10 +102,6 @@ SnmpSvcAddrToSocket(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcGetEnterpriseOID(void* unknown, void* unknown2)
@@ -120,10 +109,6 @@ SnmpSvcGetEnterpriseOID(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @implemented
- */
 LPVOID
 SNMP_FUNC_TYPE
 SnmpUtilMemAlloc(UINT nBytes)
@@ -133,10 +118,6 @@ SnmpUtilMemAlloc(UINT nBytes)
     return pMem;
 }
 
-
-/*
- * @implemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilMemFree(LPVOID pMem)
@@ -144,10 +125,6 @@ SnmpUtilMemFree(LPVOID pMem)
 	GlobalFree(pMem);
 }
 
-
-/*
- * @unimplemented
- */
 LPVOID
 SNMP_FUNC_TYPE
 SnmpUtilMemReAlloc(LPVOID pMem, UINT nBytes)
@@ -156,10 +133,6 @@ SnmpUtilMemReAlloc(LPVOID pMem, UINT nBytes)
     return pMem;
 }
 
-
-/*
- * @implemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcInitUptime()
@@ -167,10 +140,6 @@ SnmpSvcInitUptime()
     dwUptimeStartTicks = GetTickCount();
 }
 
-
-/*
- * @implemented
- */
 DWORD 
 SNMP_FUNC_TYPE
 SnmpSvcGetUptime()
@@ -181,10 +150,6 @@ SnmpSvcGetUptime()
     return dwUptime;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcSetLogLevel(INT nLogLevel)
@@ -206,10 +171,6 @@ SnmpSvcSetLogLevel(INT nLogLevel)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpSvcSetLogType(INT nLogType)
@@ -225,10 +186,6 @@ SnmpSvcSetLogType(INT nLogType)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpTfxClose(void* unknown, void* unknown2)
@@ -236,10 +193,6 @@ SnmpTfxClose(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpTfxOpen(void* unknown, void* unknown2)
@@ -247,10 +200,6 @@ SnmpTfxOpen(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpTfxQuery(void* unknown, void* unknown2)
@@ -258,10 +207,6 @@ SnmpTfxQuery(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilAnsiToUnicode(void* unknown, void* unknown2)
@@ -269,10 +214,6 @@ SnmpUtilAnsiToUnicode(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilAsnAnyCpy(AsnAny *pAnyDst, AsnAny *pAnySrc)
@@ -281,10 +222,6 @@ SnmpUtilAsnAnyCpy(AsnAny *pAnyDst, AsnAny *pAnySrc)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilAsnAnyFree(AsnAny *pAny)
@@ -292,10 +229,6 @@ SnmpUtilAsnAnyFree(AsnAny *pAny)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilDbgPrint(INT nLogLevel, LPSTR szFormat, ...)
@@ -317,10 +250,6 @@ SnmpUtilDbgPrint(INT nLogLevel, LPSTR szFormat, ...)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 LPSTR
 SNMP_FUNC_TYPE
 SnmpUtilIdsToA(UINT *Ids, UINT IdLength)
@@ -329,10 +258,6 @@ SnmpUtilIdsToA(UINT *Ids, UINT IdLength)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOctetsCmp(AsnOctetString *pOctets1, AsnOctetString *pOctets2)
@@ -341,10 +266,6 @@ SnmpUtilOctetsCmp(AsnOctetString *pOctets1, AsnOctetString *pOctets2)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOctetsCpy(AsnOctetString *pOctetsDst, AsnOctetString *pOctetsSrc)
@@ -353,10 +274,6 @@ SnmpUtilOctetsCpy(AsnOctetString *pOctetsDst, AsnOctetString *pOctetsSrc)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilOctetsFree(AsnOctetString *pOctets)
@@ -364,10 +281,6 @@ SnmpUtilOctetsFree(AsnOctetString *pOctets)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOctetsNCmp(AsnOctetString *pOctets1, AsnOctetString *pOctets2, UINT nChars)
@@ -376,10 +289,6 @@ SnmpUtilOctetsNCmp(AsnOctetString *pOctets1, AsnOctetString *pOctets2, UINT nCha
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOidAppend(AsnObjectIdentifier *pOidDst, AsnObjectIdentifier *pOidSrc)
@@ -391,9 +300,6 @@ SnmpUtilOidAppend(AsnObjectIdentifier *pOidDst, AsnObjectIdentifier *pOidSrc)
 }
 
 
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOidCmp(AsnObjectIdentifier *pOid1, AsnObjectIdentifier *pOid2)
@@ -402,10 +308,6 @@ SnmpUtilOidCmp(AsnObjectIdentifier *pOid1, AsnObjectIdentifier *pOid2)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOidCpy(AsnObjectIdentifier *pOidDst, AsnObjectIdentifier *pOidSrc)
@@ -414,10 +316,6 @@ SnmpUtilOidCpy(AsnObjectIdentifier *pOidDst, AsnObjectIdentifier *pOidSrc)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilOidFree(AsnObjectIdentifier *pOid)
@@ -425,10 +323,6 @@ SnmpUtilOidFree(AsnObjectIdentifier *pOid)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilOidNCmp(AsnObjectIdentifier *pOid1, AsnObjectIdentifier *pOid2, UINT nSubIds)
@@ -437,10 +331,6 @@ SnmpUtilOidNCmp(AsnObjectIdentifier *pOid1, AsnObjectIdentifier *pOid2, UINT nSu
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 LPSTR
 SNMP_FUNC_TYPE
 SnmpUtilOidToA(AsnObjectIdentifier *Oid)
@@ -449,10 +339,6 @@ SnmpUtilOidToA(AsnObjectIdentifier *Oid)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilPrintAsnAny(AsnAny *pAny)
@@ -460,10 +346,6 @@ SnmpUtilPrintAsnAny(AsnAny *pAny)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilPrintOid(AsnObjectIdentifier *Oid)
@@ -471,10 +353,6 @@ SnmpUtilPrintOid(AsnObjectIdentifier *Oid)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilUTF8ToUnicode(void* unknown, void* unknown2)
@@ -482,10 +360,6 @@ SnmpUtilUTF8ToUnicode(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilUnicodeToAnsi(void* unknown, void* unknown2)
@@ -493,10 +367,6 @@ SnmpUtilUnicodeToAnsi(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilUnicodeToUTF8(void* unknown, void* unknown2)
@@ -504,10 +374,6 @@ SnmpUtilUnicodeToUTF8(void* unknown, void* unknown2)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilVarBindCpy(SnmpVarBind *pVbDst, SnmpVarBind *pVbSrc)
@@ -516,10 +382,6 @@ SnmpUtilVarBindCpy(SnmpVarBind *pVbDst, SnmpVarBind *pVbSrc)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilVarBindFree(SnmpVarBind *pVb)
@@ -527,10 +389,6 @@ SnmpUtilVarBindFree(SnmpVarBind *pVb)
     UNIMPLEMENTED
 }
 
-
-/*
- * @unimplemented
- */
 SNMPAPI
 SNMP_FUNC_TYPE
 SnmpUtilVarBindListCpy(SnmpVarBindList *pVblDst, SnmpVarBindList *pVblSrc)
@@ -539,10 +397,6 @@ SnmpUtilVarBindListCpy(SnmpVarBindList *pVblDst, SnmpVarBindList *pVblSrc)
     return 0;
 }
 
-
-/*
- * @unimplemented
- */
 VOID
 SNMP_FUNC_TYPE
 SnmpUtilVarBindListFree(SnmpVarBindList *pVbl)

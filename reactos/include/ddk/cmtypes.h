@@ -4,7 +4,9 @@
  * Configuration Manager structures and typedefs
  */
 
-/* key query information class */
+/*
+ * key query information class 
+ */
 
 typedef enum _KEY_INFORMATION_CLASS
 {
@@ -46,19 +48,10 @@ typedef struct _KEY_NODE_INFORMATION
   WCHAR  Name[1];
 } KEY_NODE_INFORMATION, *PKEY_NODE_INFORMATION;
 
-
 /* key set information class */
-
-typedef enum _KEY_SET_INFORMATION_CLASS
-{
-  KeyLastWriteTimeInformation
-} KEY_SET_INFORMATION_CLASS;
-
-typedef struct _KEY_LAST_WRITE_TIME_INFORMATION
-{
-  LARGE_INTEGER  LastWriteTime;
-} KEY_LAST_WRITE_TIME_INFORMATION, *PKEY_LAST_WRITE_TIME_INFORMATION;
-
+/*
+ * KeyWriteTimeInformation
+ */
 
 /* key value information class */
 

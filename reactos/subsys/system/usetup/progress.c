@@ -1,18 +1,17 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "precomp.h"
+#include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
 
 #include "usetup.h"
 #include "progress.h"
-#include "console.h"
 
 /* FUNCTIONS ****************************************************************/
 
 
 static VOID
-DrawBorder(PPROGRESSBAR Bar)
+DrawBorder(PPROGRESS Bar)
 {
   COORD coPos;
   ULONG Written;
@@ -86,11 +85,12 @@ DrawBorder(PPROGRESSBAR Bar)
 
 
 static VOID
-DrawProgressBar(PPROGRESSBAR Bar)
+DrawProgressBar(PPROGRESS Bar)
 {
   CHAR TextBuffer[8];
   COORD coPos;
   ULONG Written;
+  SHORT i;
 
   /* Print percentage */
   sprintf(TextBuffer, "%-3lu%%", Bar->Percent);
@@ -122,17 +122,17 @@ DrawProgressBar(PPROGRESSBAR Bar)
 
 
 
-PPROGRESSBAR
+PPROGRESS
 CreateProgressBar(SHORT Left,
 		  SHORT Top,
 		  SHORT Right,
 		  SHORT Bottom)
 {
-  PPROGRESSBAR Bar;
+  PPROGRESS Bar;
 
-  Bar = (PPROGRESSBAR)RtlAllocateHeap(ProcessHeap,
-				      0,
-				      sizeof(PROGRESSBAR));
+  Bar = (PPROGRESS)RtlAllocateHeap(ProcessHeap,
+				   0,
+				   sizeof(PROGRESS));
   if (Bar == NULL)
     return(NULL);
 
@@ -156,7 +156,7 @@ CreateProgressBar(SHORT Left,
 
 
 VOID
-DestroyProgressBar(PPROGRESSBAR Bar)
+DestroyProgressBar(PPROGRESS Bar)
 {
   RtlFreeHeap(ProcessHeap,
 	      0,
@@ -164,7 +164,7 @@ DestroyProgressBar(PPROGRESSBAR Bar)
 }
 
 VOID
-ProgressSetStepCount(PPROGRESSBAR Bar,
+ProgressSetStepCount(PPROGRESS Bar,
 		     ULONG StepCount)
 {
   Bar->CurrentStep = 0;
@@ -175,7 +175,7 @@ ProgressSetStepCount(PPROGRESSBAR Bar,
 
 
 VOID
-ProgressNextStep(PPROGRESSBAR Bar)
+ProgressNextStep(PPROGRESS Bar)
 {
   CHAR TextBuffer[8];
   COORD coPos;
@@ -188,76 +188,6 @@ ProgressNextStep(PPROGRESSBAR Bar)
     return;
 
   Bar->CurrentStep++;
-
-  /* Calculate new percentage */
-  NewPercent = (ULONG)(((100.0 * (float)Bar->CurrentStep) / (float)Bar->StepCount) + 0.5);
-
-  /* Redraw precentage if changed */
-  if (Bar->Percent != NewPercent)
-    {
-      Bar->Percent = NewPercent;
-
-      sprintf(TextBuffer, "%-3lu%%", Bar->Percent);
-
-      coPos.X = Bar->Left + (Bar->Width - 2) / 2;
-      coPos.Y = Bar->Top;
-      WriteConsoleOutputCharacters(TextBuffer,
-				   4,
-				   coPos);
-    }
-
-  /* Calculate bar position */
-  NewPos = (ULONG)((((float)(Bar->Width - 2) * 2.0 * (float)Bar->CurrentStep) / (float)Bar->StepCount) + 0.5);
-
-  /* Redraw bar if changed */
-  if (Bar->Pos != NewPos)
-    {
-      Bar->Pos = NewPos;
-
-      for (coPos.Y = Bar->Top + 2; coPos.Y <= Bar->Bottom - 1; coPos.Y++)
-	{
-	  coPos.X = Bar->Left + 1;
-	  FillConsoleOutputCharacter(0xDB,
-				     Bar->Pos / 2,
-				     coPos,
-				     &Written);
-	  coPos.X += Bar->Pos/2;
-
-	  if (NewPos & 1)
-	    {
-	      FillConsoleOutputCharacter(0xDD,
-					 1,
-					 coPos,
-					 &Written);
-	      coPos.X++;
-	    }
-
-	  if (coPos.X <= Bar->Right - 1)
-	    {
-	      FillConsoleOutputCharacter(' ',
-					 Bar->Right - coPos.X,
-					 coPos,
-					 &Written);
-	    }
-	}
-    }
-}
-
-
-VOID
-ProgressSetStep (PPROGRESSBAR Bar,
-		 ULONG Step)
-{
-  CHAR TextBuffer[8];
-  COORD coPos;
-  ULONG Written;
-  ULONG NewPercent;
-  ULONG NewPos;
-
-  if (Step > Bar->StepCount)
-    return;
-
-  Bar->CurrentStep = Step;
 
   /* Calculate new percentage */
   NewPercent = (ULONG)(((100.0 * (float)Bar->CurrentStep) / (float)Bar->StepCount) + 0.5);

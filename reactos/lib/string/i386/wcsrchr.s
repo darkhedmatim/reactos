@@ -1,7 +1,35 @@
-/* $Id: wcsrchr.s,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/* 
+ * $Id: wcsrchr.s,v 1.1 2003/05/27 18:58:15 hbirr Exp $
  */
 
-#define _UNICODE
-#include "tcsrchr.h"
+/*
+ * wchar_t *wcsrchr (const wchar_t* str, wchar_t ch)
+ */
 
-/* EOF */
+.globl	_wcsrchr
+
+_wcsrchr:
+	push	%ebp
+	mov	%esp,%ebp
+	push	%esi
+	push	%edx
+	mov	0x8(%ebp),%esi
+	mov	0xc(%ebp),%edx
+	mov	$2,%ecx
+	cld
+.L1:	
+	lodsw
+	cmp	%ax,%dx
+	jne	.L2
+	mov	%esi,%ecx
+.L2:	
+	test	%ax,%ax
+	jne	.L1
+	mov	%ecx,%eax
+	sub	$2,%eax
+	pop	%edx
+	pop	%esi
+	leave
+	ret
+	
+

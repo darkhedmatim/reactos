@@ -1,4 +1,4 @@
-/* $Id: fgetchar.c,v 1.6 2003/07/11 17:25:32 royce Exp $
+/* $Id: fgetchar.c,v 1.5 2002/11/24 18:42:17 robd Exp $
  *
  *  ReactOS msvcrt library
  *
@@ -29,9 +29,6 @@ int	_fgetchar (void)
 	return _getch();
 }
 
-/*
- * @implemented
- */
 int	_fgetwchar (void)
 {
 	return _getch();

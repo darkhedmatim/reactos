@@ -27,9 +27,6 @@
 
 typedef int fpclass_t;
 
-/*
- * @implemented
- */
 fpclass_t _fpclass(double __d)
 {
 	double_t* d = (double_t*)&__d;

@@ -1,5 +1,5 @@
-#ifndef _WIN32K_ERROR_H
-#define _WIN32K_ERROR_H
+#ifndef __WIN32K_ERROR_H
+#define __WIN32K_ERROR_H
 
 VOID FASTCALL
 SetLastNtError(
@@ -9,9 +9,6 @@ VOID FASTCALL
 SetLastWin32Error(
   DWORD Status);
 
-NTSTATUS FASTCALL
-GetLastNtError();
-
-#endif /* _WIN32K_ERROR_H */
+#endif /* __WIN32K_ERROR_H */
 
 /* EOF */

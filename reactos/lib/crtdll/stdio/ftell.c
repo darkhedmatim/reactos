@@ -8,9 +8,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 long ftell(FILE *f)
 {
   long tres;

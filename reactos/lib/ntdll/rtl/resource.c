@@ -1,4 +1,4 @@
-/* $Id: resource.c,v 1.5 2003/07/11 13:50:23 royce Exp $
+/* $Id: resource.c,v 1.4 2003/04/02 21:55:15 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -28,9 +28,6 @@
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlInitializeResource(PRTL_RESOURCE Resource)
 {
@@ -70,9 +67,6 @@ RtlInitializeResource(PRTL_RESOURCE Resource)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlDeleteResource(PRTL_RESOURCE Resource)
 {
@@ -86,9 +80,6 @@ RtlDeleteResource(PRTL_RESOURCE Resource)
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlAcquireResourceExclusive(PRTL_RESOURCE Resource,
 			    BOOLEAN Wait)
@@ -138,9 +129,6 @@ done:
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlAcquireResourceShared(PRTL_RESOURCE Resource,
 			 BOOLEAN Wait)
@@ -183,9 +171,6 @@ done:
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlConvertExclusiveToShared(PRTL_RESOURCE Resource)
 {
@@ -217,9 +202,6 @@ RtlConvertExclusiveToShared(PRTL_RESOURCE Resource)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlConvertSharedToExclusive(PRTL_RESOURCE Resource)
 {
@@ -251,9 +233,6 @@ RtlConvertSharedToExclusive(PRTL_RESOURCE Resource)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlReleaseResource(PRTL_RESOURCE Resource)
 {
@@ -305,9 +284,6 @@ wake_exclusive:
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlDumpResource(PRTL_RESOURCE Resource)
 {

@@ -18,38 +18,41 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "user32.h"
+/*
+ * COPYRIGHT:        See COPYING in the top level directory
+ * PROJECT:          ReactOS User32
+ * PURPOSE:          Static control
+ * FILE:             lib/user32/controls/icontitle.c
+ * PROGRAMER:        Steven Edwards
+ * REVISION HISTORY: 2003/06/21 SAE Created
+ * NOTES:            Adapted from Wine
+ */
+
+#include "windows.h"
 #include "user32/regcontrol.h"
 #include "controls.h"
-#include "wine/unicode.h"
-
-#ifdef __REACTOS__
-#define MAKEINTATOMW(atom)  ((LPCWSTR)((ULONG_PTR)((WORD)(atom))))
-#define ICONTITLE_CLASS_ATOM MAKEINTATOMW(32772)
-#endif
 
 static BOOL bMultiLineTitle;
 static HFONT hIconTitleFont;
 
-static LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT CALLBACK IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
 /*********************************************************************
  * icon title class descriptor
  */
 const struct builtin_class_descr ICONTITLE_builtin_class =
 {
-    ICONTITLE_CLASS_ATOM, /* name */
-    0,                    /* style */
-    NULL,                 /* procA (winproc is Unicode only) */
-    IconTitleWndProc,     /* procW */
-    0,                    /* extra */
-    IDC_ARROW,            /* cursor */
-    0                     /* brush */
+    "ICONTITLE_CLASS_ATOM",     /* name */
+    CS_GLOBALCLASS,             /* style */
+    NULL,                       /* procA (winproc is Unicode only) */
+    (WNDPROC) IconTitleWndProc, /* procW */
+    0,                          /* extra */
+    (LPCSTR) IDC_ARROW,         /* cursor */ /* FIXME Wine uses IDC_ARROWA */
+    0                           /* brush */
 };
 
 
 
-#ifndef __REACTOS__
 /***********************************************************************
  *           ICONTITLE_Create
  */
@@ -68,19 +71,18 @@ HWND ICONTITLE_Create( HWND owner )
 	hWnd = CreateWindowExA( 0, ICONTITLE_CLASS_ATOM, NULL,
                                 style, 0, 0, 1, 1,
                                 owner, 0, instance, NULL );
-    WIN_SetOwner( hWnd, owner );  /* MDI depends on this */
+    //WIN_SetOwner( hWnd, owner );  /* MDI depends on this */
     SetWindowLongW( hWnd, GWL_STYLE,
                     GetWindowLongW( hWnd, GWL_STYLE ) & ~(WS_CAPTION | WS_BORDER) );
     return hWnd;
 }
-#endif
 
 /***********************************************************************
  *           ICONTITLE_SetTitlePos
  */
 static BOOL ICONTITLE_SetTitlePos( HWND hwnd, HWND owner )
 {
-    static const WCHAR emptyTitleText[] = {'<','.','.','.','>',0};
+    static WCHAR emptyTitleText[] = {'<','.','.','.','>',0};
     WCHAR str[80];
     HDC hDC;
     HFONT hPrevFont;
@@ -95,8 +97,8 @@ static BOOL ICONTITLE_SetTitlePos( HWND hwnd, HWND owner )
 
     if( !length )
     {
-        strcpyW( str, emptyTitleText );
-        length = strlenW( str );
+        lstrcpyW( str, emptyTitleText );
+        length = lstrlenW( str );
     }
 
     if (!(hDC = GetDC( hwnd ))) return FALSE;

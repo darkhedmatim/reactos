@@ -29,7 +29,16 @@
  *        Added PagePrompt() and FilePrompt().
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <tchar.h>
+
+#include "cmd.h"
 
 
 /*
@@ -90,7 +99,7 @@ BOOL CheckCtrlBreak (INT mode)
 			/* we need to be sure the string arrives on the screen! */
 			do
 				ConOutPuts (_T("\r\nCtrl-Break pressed.  Cancel batch file? (Yes/No/All) "));
-			while (!_tcschr (_T("YNA\3"), c = _totupper (cgetchar())) || !c);
+			while (!_tcschr ("YNA\3", c = _totupper (cgetchar())) || !c);
 
 			ConOutPuts (_T("\r\n"));
 
@@ -124,7 +133,7 @@ static BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry)
 		return FALSE;
 	}
 	_tcscpy (q, entry);
-
+		
 	oldarg = *arg;
 	*arg = realloc (oldarg, (*ac + 2) * sizeof (LPTSTR));
 	if (NULL == *arg)
@@ -318,7 +327,7 @@ VOID freep (LPTSTR *p)
 }
 
 
-LPTSTR _stpcpy (LPTSTR dest, LPTSTR src)
+LPTSTR stpcpy (LPTSTR dest, LPTSTR src)
 {
 	_tcscpy (dest, src);
 	return (dest + _tcslen (src));
@@ -350,8 +359,7 @@ BOOL IsValidPathName (LPCTSTR pszPath)
 
 BOOL IsValidFileName (LPCTSTR pszPath)
 {
-	DWORD attr = GetFileAttributes (pszPath);
-	return (attr != 0xFFFFFFFF && (! (attr & FILE_ATTRIBUTE_DIRECTORY)) );
+	return (GetFileAttributes (pszPath) != 0xFFFFFFFF);
 }
 
 
@@ -363,36 +371,29 @@ BOOL IsValidDirectory (LPCTSTR pszPath)
 
 BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 {
-	LPSTR lpString;
-	CHAR ch;
+	LPTSTR lpString;
+	TCHAR  ch;
 	DWORD  dwRead;
-	INT len;
-#ifdef _UNICODE
-	lpString = malloc(nBufferLength);
-#else
+
 	lpString = lpBuffer;
-#endif
-	len = 0;
+
 	while ((--nBufferLength >  0) &&
 		   ReadFile(hFile, &ch, 1, &dwRead, NULL) && dwRead)
 	{
-		if (ch == '\r')
+		if (ch == _T('\r'))
 		{
 			/* overread '\n' */
 			ReadFile (hFile, &ch, 1, &dwRead, NULL);
 			break;
 		}
-                lpString[len++] = ch;
+		*lpString++ = ch;
 	}
 
-	if (!dwRead && !len)
+	if (!dwRead && lpString == lpBuffer)
 		return FALSE;
 
-	lpString[len++] = '\0';
-#ifdef _UNICODE
-	MultiByteToWideChar(CP_ACP, 0, lpString, len, lpBuffer, len);
-	free(lpString);
-#endif
+	*lpString++ = _T('\0');
+
 	return TRUE;
 }
 
@@ -409,7 +410,7 @@ HWND GetConsoleWindow (VOID)
 	if(h)
 		return h;
 
-	GetConsoleTitle (original, sizeof(original) / sizeof(TCHAR));
+	GetConsoleTitle (original, sizeof(original));
 
 	_tcscpy (temp, original);
 	_tcscat (temp, _T("-xxx   "));
@@ -434,7 +435,7 @@ INT PagePrompt (VOID)
 {
 	INPUT_RECORD ir;
 
-	ConOutPrintf (_T("Press a key to continue...\n"));
+	ConOutPrintf ("Press a key to continue...\n");
 
 	RemoveBreakHandler ();
 	ConInDisable ();
@@ -505,7 +506,7 @@ INT FilePromptYN (LPTSTR szFormat, ...)
 		ConInKey (&ir);
                 cKey = _totlower (ir.Event.KeyEvent.uChar.AsciiChar);
                 if (_tcschr (szKeys, cKey[0]) == NULL)
-                        cKey = 0;
+                        cKey = 0;                        
 
 
 	}
@@ -574,7 +575,7 @@ INT FilePromptYNA (LPTSTR szFormat, ...)
 		ConInKey (&ir);
                 cKey = _totlower (ir.Event.KeyEvent.uChar.AsciiChar);
                 if (_tcschr (szKeys, cKey[0]) == NULL)
-                        cKey = 0;
+                        cKey = 0;                        
 
 
 	}

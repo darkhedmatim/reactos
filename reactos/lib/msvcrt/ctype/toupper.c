@@ -3,9 +3,6 @@
 
 
 #undef toupper
-/*
- * @implemented
- */
 int toupper(int c)
 {
    if (_isctype (c, _LOWER))
@@ -14,19 +11,13 @@ int toupper(int c)
 }
 
 #undef towupper
-/*
- * @implemented
- */
-wchar_t towupper(wchar_t c)
+int towupper(wint_t c)
 {
    if (iswctype (c, _LOWER))
       return (c + (L'A' - L'a'));
    return(c);
 }
 
-/*
- * @implemented
- */
 int _toupper(int c)
 {
    return (c + ('A' - 'a'));

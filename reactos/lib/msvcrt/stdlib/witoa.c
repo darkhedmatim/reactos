@@ -15,9 +15,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 char* _i64toa(__int64 value, char* string, int radix)
 {
   char tmp[65];
@@ -60,9 +57,6 @@ char* _i64toa(__int64 value, char* string, int radix)
   return string;
 }
 
-/*
- * @implemented
- */
 char* _ui64toa(unsigned __int64 value, char* string, int radix)
 {
   char tmp[65];

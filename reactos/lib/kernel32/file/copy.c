@@ -1,4 +1,4 @@
-/* $Id: copy.c,v 1.18 2004/01/23 21:16:03 ekohl Exp $
+/* $Id: copy.c,v 1.14 2003/03/16 12:57:32 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -15,7 +15,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* FUNCTIONS ****************************************************************/
@@ -28,8 +28,8 @@ CopyLoop (
 	LARGE_INTEGER		SourceFileSize,
 	LPPROGRESS_ROUTINE	lpProgressRoutine,
 	LPVOID			lpData,
-	BOOL			*pbCancel,
-	BOOL                 *KeepDest
+	WINBOOL			*pbCancel,
+	WINBOOL                 *KeepDest
 	)
 {
    NTSTATUS errCode;
@@ -39,7 +39,7 @@ CopyLoop (
    LARGE_INTEGER BytesCopied;
    DWORD CallbackReason;
    DWORD ProgressResult;
-   BOOL EndOfFileFound;
+   WINBOOL EndOfFileFound;
 
    *KeepDest = FALSE;
    errCode = NtAllocateVirtualMemory(NtCurrentProcess(),
@@ -190,18 +190,14 @@ SetLastWriteTime(
    return errCode;
 }
 
-
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 CopyFileExW (
 	LPCWSTR			lpExistingFileName,
 	LPCWSTR			lpNewFileName,
 	LPPROGRESS_ROUTINE	lpProgressRoutine,
 	LPVOID			lpData,
-	BOOL			*pbCancel,
+	WINBOOL			*pbCancel,
 	DWORD			dwCopyFlags
 	)
 {
@@ -210,8 +206,9 @@ CopyFileExW (
    IO_STATUS_BLOCK IoStatusBlock;
    FILE_STANDARD_INFORMATION FileStandard;
    FILE_BASIC_INFORMATION FileBasic;
-   BOOL RC = FALSE;
-   BOOL KeepDestOnError = FALSE;
+   FILE_DISPOSITION_INFORMATION FileDispInfo;
+   WINBOOL RC = FALSE;
+   WINBOOL KeepDestOnError = FALSE;
    DWORD SystemError;
 
    FileHandleSource = CreateFileW(lpExistingFileName,
@@ -307,17 +304,14 @@ CopyFileExW (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 CopyFileExA (
 	LPCSTR			lpExistingFileName,
 	LPCSTR			lpNewFileName,
 	LPPROGRESS_ROUTINE	lpProgressRoutine,
 	LPVOID			lpData,
-	BOOL			*pbCancel,
+	WINBOOL			*pbCancel,
 	DWORD			dwCopyFlags
 	)
 {
@@ -325,7 +319,7 @@ CopyFileExA (
 	UNICODE_STRING NewFileNameU;
 	ANSI_STRING ExistingFileName;
 	ANSI_STRING NewFileName;
-	BOOL Result;
+	WINBOOL Result;
 
 	RtlInitAnsiString (&ExistingFileName,
 	                   (LPSTR)lpExistingFileName);
@@ -371,15 +365,12 @@ CopyFileExA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 CopyFileA (
 	LPCSTR	lpExistingFileName,
 	LPCSTR	lpNewFileName,
-	BOOL	bFailIfExists
+	WINBOOL	bFailIfExists
 	)
 {
 	return CopyFileExA (lpExistingFileName,
@@ -391,15 +382,12 @@ CopyFileA (
 }
 
 
-/*
- * @implemented
- */
-BOOL
+WINBOOL
 STDCALL
 CopyFileW (
 	LPCWSTR	lpExistingFileName,
 	LPCWSTR	lpNewFileName,
-	BOOL	bFailIfExists
+	WINBOOL	bFailIfExists
 	)
 {
 	return CopyFileExW (lpExistingFileName,

@@ -1,33 +1,23 @@
-/*
- * CD-ROM Maker
- * by Philip J. Erdelsky
- * pje@acm.org
- * http://www.alumni.caltech.edu/~pje/
- *
- * ElTorito-Support
- * by Eric Kohl
- * ekohl@rz-online.de
- *
- * Linux port
- * by Casper S. Hornstrup
- * chorns@users.sourceforge.net
- *
- * Joliet support
- * by Filip Navara
- * xnavara@volny.cz
- * Limitations:
- * - No Joliet file name validations
- * - Very bad ISO file name generation
- *
- * $Id: cdmake.c,v 1.12 2004/08/25 20:47:22 chorns Exp $
- */
+/* $Id: cdmake.c,v 1.4 2003/06/21 09:11:24 guido Exp $ */
+/* CD-ROM Maker
+   by Philip J. Erdelsky
+   pje@acm.org
+   http://www.alumni.caltech.edu/~pje/
+
+  ElTorito-Support
+  by Eric Kohl
+  ekohl@rz-online.de
+
+  Linux port
+  by Casper S. Hornstrup
+  chorns@users.sourceforge.net
+  */
 
 /* According to his website, this file was released into the public domain by Phillip J. Erdelsky */
 
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef WIN32
@@ -38,7 +28,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <unistd.h>
 #endif
 #include <ctype.h>
 #include <setjmp.h>
@@ -54,6 +43,7 @@
 #define DIR_SEPARATOR_STRING "\\"
 #endif
 
+
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
 typedef unsigned long DWORD;
@@ -65,10 +55,8 @@ const BOOL FALSE = 0;
 // file system parameters
 
 #define MAX_LEVEL		8
-#define MAX_NAME_LENGTH		64
-#define MAX_CDNAME_LENGTH	8
-#define MAX_EXTENSION_LENGTH	10
-#define MAX_CDEXTENSION_LENGTH	3
+#define MAX_NAME_LENGTH		8
+#define MAX_EXTENSION_LENGTH	3
 #define SECTOR_SIZE		2048
 #define BUFFER_SIZE		(8 * SECTOR_SIZE)
 
@@ -105,15 +93,12 @@ typedef struct directory_record
   struct directory_record *parent;
   BYTE flags;
   char name[MAX_NAME_LENGTH+1];
-  char name_on_cd[MAX_CDNAME_LENGTH+1];
+  char name_on_cd[MAX_NAME_LENGTH+1];
   char extension[MAX_EXTENSION_LENGTH+1];
-  char extension_on_cd[MAX_CDEXTENSION_LENGTH+1];
-  char *joliet_name;
+  char extension_on_cd[MAX_EXTENSION_LENGTH+1];
   DATE_AND_TIME date_and_time;
   DWORD sector;
   DWORD size;
-  DWORD joliet_sector;
-  DWORD joliet_size;
   unsigned level;                             /* directory record only */
   WORD path_table_index;                      /* directory record only */
 } DIR_RECORD, *PDIR_RECORD;
@@ -160,12 +145,6 @@ char bootimage[512];
 BOOL eltorito;
 DWORD boot_catalog_sector;
 DWORD boot_image_sector;
-WORD boot_image_size;  // counted in 512 byte sectors
-
-BOOL joliet;
-DWORD joliet_path_table_size;
-DWORD joliet_little_endian_path_table_sector;
-DWORD joliet_big_endian_path_table_sector;
 
 /*-----------------------------------------------------------------------------
 This function edits a 32-bit unsigned number into a comma-delimited form, such
@@ -186,7 +165,7 @@ static char *edit_with_commas(DWORD x, BOOL pad)
   do
   {
     if (i % 4 == 2) s[--i] = ',';
-    s[--i] = (char)(x % 10 + '0');
+    s[--i] = x % 10 + '0';
   } while ((x/=10) != 0);
   if (pad)
   {
@@ -205,8 +184,6 @@ static void release_memory(void)
   {
     struct directory_record *next =
       root.next_in_memory->next_in_memory;
-    if (joliet)
-      free (root.joliet_name);
     free (root.next_in_memory);
     root.next_in_memory = next;
   }
@@ -222,18 +199,14 @@ This function edits and displays an error message and then jumps back to the
 error exit point in main().
 -----------------------------------------------------------------------------*/
 
-void error_exit ( const char* fmt, ... )
-{
-  va_list arg;
-
-  va_start(arg, fmt);
-  vprintf(fmt, arg);
-  va_end(arg);
-  printf("\n");
-  if (cd.file != NULL)
-    fclose(cd.file);
-  release_memory();
-  exit(1);
+#define error_exit(fmt,args...) \
+{ \
+  printf(fmt,##args); \
+  printf("\n"); \
+  if (cd.file != NULL) \
+    fclose(cd.file); \
+  release_memory(); \
+  exit(1); \
 }
 
 /*-----------------------------------------------------------------------------
@@ -281,14 +254,14 @@ specified endianity.
 
 static void write_little_endian_word(WORD x)
 {
-  write_byte((BYTE)x);
-  write_byte((BYTE)(x >> 8));
+  write_byte(x);
+  write_byte(x >> 8);
 }
 
 static void write_big_endian_word(WORD x)
 {
-  write_byte((BYTE)(x >> 8));
-  write_byte((BYTE)x);
+  write_byte(x >> 8);
+  write_byte(x);
 }
 
 static void write_both_endian_word(WORD x)
@@ -299,18 +272,18 @@ static void write_both_endian_word(WORD x)
 
 static void write_little_endian_dword(DWORD x)
 {
-  write_byte((BYTE)x);
-  write_byte((BYTE)(x >> 8));
-  write_byte((BYTE)(x >> 16));
-  write_byte((BYTE)(x >> 24));
+  write_byte(x);
+  write_byte(x >> 8);
+  write_byte(x >> 16);
+  write_byte(x >> 24);
 }
 
 static void write_big_endian_dword(DWORD x)
 {
-  write_byte((BYTE)(x >> 24));
-  write_byte((BYTE)(x >> 16));
-  write_byte((BYTE)(x >> 8));
-  write_byte((BYTE)x);
+  write_byte(x >> 24);
+  write_byte(x >> 16);
+  write_byte(x >> 8);
+  write_byte(x);
 }
 
 static void write_both_endian_dword(DWORD x)
@@ -343,20 +316,6 @@ static void write_string(char *s)
 }
 
 /*-----------------------------------------------------------------------------
-This function writes a ansi string as a big endian unicode string to the CD-ROM
-image. The terminating \0 is not written.
------------------------------------------------------------------------------*/
-
-static void write_string_as_big_endian_unicode(char *s)
-{
-  while (*s != 0)
-    {
-      write_byte(0);
-      write_byte(*s++);
-    }
-}
-
-/*-----------------------------------------------------------------------------
 This function writes a block of identical bytes to the CD-ROM image.
 -----------------------------------------------------------------------------*/
 
@@ -370,75 +329,41 @@ static void write_block(unsigned count, BYTE value)
 }
 
 /*-----------------------------------------------------------------------------
-This function writes a block of identical bige endian words to the CD-ROM image.
------------------------------------------------------------------------------*/
-
-static void write_word_block(unsigned count, WORD value)
-{
-  while (count != 0)
-    {
-      write_big_endian_word(value);
-      count--;
-    }
-}
-
-/*-----------------------------------------------------------------------------
 This function writes a directory record to the CD_ROM image.
 -----------------------------------------------------------------------------*/
 
 static void
 write_directory_record(PDIR_RECORD d,
-		       DIR_RECORD_TYPE DirType,
-		       BOOL joliet)
+		       DIR_RECORD_TYPE  DirType)
 {
   unsigned identifier_size;
   unsigned record_size;
 
-  if (joliet)
+  switch (DirType)
   {
-    if (DirType == DOT_RECORD || DirType == DOT_DOT_RECORD)
+    case DOT_RECORD:
+    case DOT_DOT_RECORD:
       identifier_size = 1;
-    else
-      identifier_size = strlen(d->joliet_name) * 2;
-  }
-  else
-  {
-    switch (DirType)
-    {
-      case DOT_RECORD:
-      case DOT_DOT_RECORD:
-        identifier_size = 1;
-        break;
-      case SUBDIRECTORY_RECORD:
-        /*printf ( "Subdir: %s\n", d->name_on_cd );*/
-        identifier_size = strlen(d->name_on_cd);
-        break;
-      case FILE_RECORD:
-        /*printf ( "File: %s.%s -> %s.%s\n", d->name, d->extension, d->name_on_cd, d->extension_on_cd );*/
-        identifier_size = strlen(d->name_on_cd) + 2;
-        if (d->extension_on_cd[0] != 0)
-          identifier_size += 1 + strlen(d->extension_on_cd);
-        break;
-    }
+      break;
+    case SUBDIRECTORY_RECORD:
+      identifier_size = strlen(d->name_on_cd);
+      break;
+    case FILE_RECORD:
+      identifier_size = strlen(d->name_on_cd) + 2;
+      if (d->extension_on_cd[0] != 0)
+        identifier_size += 1 + strlen(d->extension_on_cd);
+      break;
   }
   record_size = 33 + identifier_size;
   if ((identifier_size & 1) == 0)
     record_size++;
   if (cd.offset + record_size > SECTOR_SIZE)
     fill_sector();
-  write_byte((BYTE)record_size);
+  write_byte(record_size);
   write_byte(0); // number of sectors in extended attribute record
-  if (joliet)
-  {
-    write_both_endian_dword(d->joliet_sector);
-    write_both_endian_dword(d->joliet_size);
-  }
-  else
-  {
-    write_both_endian_dword(d->sector);
-    write_both_endian_dword(d->size);
-  }
-  write_byte((BYTE)(d->date_and_time.year - 1900));
+  write_both_endian_dword(d->sector);
+  write_both_endian_dword(d->size);
+  write_byte(d->date_and_time.year - 1900);
   write_byte(d->date_and_time.month);
   write_byte(d->date_and_time.day);
   write_byte(d->date_and_time.hour);
@@ -449,7 +374,7 @@ write_directory_record(PDIR_RECORD d,
   write_byte(0);  // file unit size for an interleaved file
   write_byte(0);  // interleave gap size for an interleaved file
   write_both_endian_word((WORD) 1); // volume sequence number
-  write_byte((BYTE)identifier_size);
+  write_byte(identifier_size);
   switch (DirType)
   {
     case DOT_RECORD:
@@ -459,26 +384,16 @@ write_directory_record(PDIR_RECORD d,
       write_byte(1);
       break;
     case SUBDIRECTORY_RECORD:
-      if (joliet)
-        write_string_as_big_endian_unicode(d->joliet_name);
-      else
-        write_string(d->name_on_cd);
+      write_string(d->name_on_cd);
       break;
     case FILE_RECORD:
-      if (joliet)
+      write_string(d->name_on_cd);
+      if (d->extension_on_cd[0] != 0)
       {
-        write_string_as_big_endian_unicode(d->joliet_name);
+        write_byte('.');
+        write_string(d->extension_on_cd);
       }
-      else
-      {
-        write_string(d->name_on_cd);
-        if (d->extension_on_cd[0] != 0)
-        {
-          write_byte('.');
-          write_string(d->extension_on_cd);
-        }
-        write_string(";1");
-      }
+      write_string(";1");
       break;
   }
   if ((identifier_size & 1) == 0)
@@ -500,7 +415,7 @@ static void convert_date_and_time(PDATE_AND_TIME dt, time_t *time)
   dt->minute = timedef->tm_min;
   dt->hour = timedef->tm_hour;
   dt->day = timedef->tm_mday;
-  dt->month = timedef->tm_mon + 1;
+  dt->month = timedef->tm_mon;
   dt->year = timedef->tm_year + 1900;
 }
 
@@ -511,103 +426,12 @@ It also converts small letters to capital letters and returns the
 result.
 -----------------------------------------------------------------------------*/
 
-static int check_for_punctuation(int c, const char *name)
+static int check_for_punctuation(int c, char *name)
 {
   c = toupper(c & 0xFF);
   if (!accept_punctuation_marks && !isalnum(c) && c != '_')
     error_exit("Punctuation mark in %s", name);
   return c;
-}
-
-#if WIN32
-#define strcasecmp stricmp
-#endif//WIN32
-
-/*-----------------------------------------------------------------------------
-This function checks to see if there's a cdname conflict.
------------------------------------------------------------------------------*/
-
-int cdname_exists ( PDIR_RECORD d )
-{
-  PDIR_RECORD p = d->parent->first_record;
-  while ( p )
-  {
-    if ( p != d
-      && !strcasecmp ( p->name_on_cd, d->name_on_cd )
-      && !strcasecmp ( p->extension_on_cd, d->extension_on_cd ) )
-      return 1;
-    p = p->next_in_directory;
-  }
-  return 0;
-}
-
-void parse_filename_into_dirrecord ( const char* filename, PDIR_RECORD d, BOOL dir )
-{
-  const char *s = filename;
-  char *t = d->name_on_cd;
-  char *n = d->name;
-  int joliet_length;
-
-  while (*s != 0)
-  {
-    if (*s == '.')
-    {
-      s++;
-      break;
-    }
-
-    if ( (t-d->name_on_cd) < sizeof(d->name_on_cd)-1 )
-      *t++ = check_for_punctuation(*s, filename);
-    else if (!joliet)
-      error_exit ( "'%s' is not ISO-9660, aborting...", filename );
-    if ( (n-d->name) < sizeof(d->name)-1 )
-      *n++ = *s;
-    else if (!joliet)
-      error_exit ( "'%s' is not ISO-9660, aborting...", filename );
-    s++;
-  }
-  if (strlen(s) > MAX_EXTENSION_LENGTH)
-    {
-      error_exit ( "'%s' has too long extension for cdmake, aborting...", filename );
-    }
-  *t = 0;
-  strcpy(d->extension, s);
-  t = d->extension_on_cd;
-  while ( *s != 0 )
-  {
-    if ( (t-d->extension_on_cd) < (sizeof(d->extension_on_cd)-1) )
-      *t++ = check_for_punctuation(*s, filename);
-    else if (!joliet)
-      error_exit ( "'%s' is not ISO-9660, aborting...", filename );
-    s++;
-  }
-  *t = 0;
-  *n = 0;
-
-  if ( dir )
-  {
-    if (d->extension[0] != 0)
-    {
-      if (joliet)
-        d->extension_on_cd[0] = 0;
-      else
-        error_exit("Directory with extension %s", filename);
-    }
-    d->flags = DIRECTORY_FLAG;
-  } else
-    d->flags = 0;
-
-  if ( cdname_exists ( d ) )
-    error_exit ( "'%s' is a duplicate file name, aborting...", filename );
-
-  if ( joliet )
-  {
-    joliet_length = strlen(filename);
-    if (joliet_length > 64)
-      error_exit ( "'%s' is not Joliet, aborting...", filename );
-    d->joliet_name = malloc(joliet_length + 1);
-    strcpy(d->joliet_name, filename);
-  }
 }
 
 /*-----------------------------------------------------------------------------
@@ -624,24 +448,54 @@ new_directory_record (struct _finddata_t *f,
 		      PDIR_RECORD parent)
 {
   PDIR_RECORD d;
+  char *s;
+  char *t;
+  char *n;
 
   d = malloc(sizeof(DIR_RECORD));
   if (d == NULL)
     error_exit("Insufficient memory");
-  memset ( d, 0, sizeof(DIR_RECORD) );
   d->next_in_memory = root.next_in_memory;
   root.next_in_memory = d;
+  {
+    s = f->name;
+    t = d->name_on_cd;
+    n = d->name;
 
-  /* I need the parent set before calling parse_filename_into_dirrecord(),
-  because that functions checks for duplicate file names*/
-  d->parent = parent;
-  parse_filename_into_dirrecord ( f->name, d, f->attrib & _A_SUBDIR );
+    while (*s != 0)
+    {
+      if (*s == '.')
+      {
+        s++;
+        break;
+      }
 
-  convert_date_and_time(&d->date_and_time, &f->time_write);
-  d->flags |= f->attrib & _A_HIDDEN ? HIDDEN_FLAG : 0;
-  d->size = d->joliet_size = f->size;
+      *t++ = check_for_punctuation(*s, f->name);
+      *n = *s;
+      s++;
+      n++;
+    }
+    *t = 0;
+    strcpy(d->extension, s);
+    t = d->extension_on_cd;
+    while (*s != 0)
+      *t++ = check_for_punctuation(*s++, f->name);
+    *t = 0;
+    *n = 0;
+  }
+  convert_date_and_time(&d->date_and_time, &f->time_create);
+  if (f->attrib & _A_SUBDIR)
+  {
+    if (d->extension[0] != 0)
+      error_exit("Directory with extension %s", f->name);
+    d->flags = DIRECTORY_FLAG;
+  }
+  else
+    d->flags = f->attrib & _A_HIDDEN ? HIDDEN_FLAG : 0;
+  d->size = f->size;
   d->next_in_directory = parent->first_record;
   parent->first_record = d;
+  d->parent = parent;
   return d;
 }
 
@@ -654,33 +508,59 @@ new_directory_record (struct dirent *entry,
 		      PDIR_RECORD parent)
 {
   PDIR_RECORD d;
-	/*
   char *s;
   char *t;
   char *n;
-	*/
 
   d = malloc(sizeof(DIR_RECORD));
   if (d == NULL)
     error_exit("Insufficient memory");
-  memset ( d, 0, sizeof(DIR_RECORD) );
   d->next_in_memory = root.next_in_memory;
   root.next_in_memory = d;
+  {
+    s = entry->d_name;
+    t = d->name_on_cd;
+    n = d->name;
 
-  /* I need the parent set before calling parse_filename_into_dirrecord(),
-  because that functions checks for duplicate file names*/
-  d->parent = parent;
-#ifdef HAVE_D_TYPE
-  parse_filename_into_dirrecord ( entry->d_name, d, entry->d_type == DT_DIR );
-#else
-  parse_filename_into_dirrecord ( entry->d_name, d, S_ISDIR(stbuf->st_mode) );
-#endif
+    while (*s != 0)
+    {
+      if (*s == '.')
+      {
+        s++;
+        break;
+      }
+
+      *t++ = check_for_punctuation(*s, entry->d_name);
+      *n = *s;
+      s++;
+      n++;
+    }
+    *t = 0;
+    strcpy(d->extension, s);
+    t = d->extension_on_cd;
+    while (*s != 0)
+      *t++ = check_for_punctuation(*s++, entry->d_name);
+    *t = 0;
+    *n = 0;
+  }
 
   convert_date_and_time(&d->date_and_time, &stbuf->st_mtime);
-  d->flags |= entry->d_name[0] == '.' ? HIDDEN_FLAG : 0;
-  d->size = d->joliet_size = stbuf->st_size;
+#ifdef HAVE_D_TYPE
+  if (entry->d_type == DT_DIR)
+#else
+  if (S_ISDIR(stbuf->st_mode))
+#endif
+  {
+    if (d->extension[0] != 0)
+      error_exit("Directory with extension %s", entry->d_name);
+    d->flags = DIRECTORY_FLAG;
+  }
+  else
+    d->flags = entry->d_name[0] == '.' ? HIDDEN_FLAG : 0;
+  d->size = stbuf->st_size;
   d->next_in_directory = parent->first_record;
   parent->first_record = d;
+  d->parent = parent;
   return d;
 }
 
@@ -759,7 +639,7 @@ make_directory_records (PDIR_RECORD d)
 	    {
 	      if (strcmp(f.name, DIRECTORY_TIMESTAMP) == 0)
 		{
-		  convert_date_and_time(&d->date_and_time, &f.time_write);
+		  convert_date_and_time(&d->date_and_time, &f.time_create);
 		}
 	      else
 		{
@@ -843,8 +723,8 @@ make_directory_records (PDIR_RECORD d)
           if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue; // skip self and parent
 
-          if (entry->d_type == DT_REG) // normal file
-            {
+	  if (entry->d_type == DT_REG) // normal file
+	    {
               // Check for an absolute path
               if (source[0] == DIR_SEPARATOR_CHAR)
                 {
@@ -860,27 +740,27 @@ make_directory_records (PDIR_RECORD d)
                   strcat(buf, entry->d_name);
                 }
 
-              if (stat(buf, &stbuf) == -1)
+	      if (stat(buf, &stbuf) == -1)
                 {
                   error_exit("Can't access '%s' (%s)\n", buf, strerror(errno));
                   return;
                 }
 
-              if (strcmp(entry->d_name, DIRECTORY_TIMESTAMP) == 0)
-                {
-                  convert_date_and_time(&d->date_and_time, &stbuf.st_ctime);
-                }
-              else
-                {
-                  if (verbosity == VERBOSE)
-                    {
-                      printf("%d: file %s\n", d->level, buf);
-                    }
-                  (void) new_directory_record(entry, &stbuf, d);
-                }
+	      if (strcmp(entry->d_name, DIRECTORY_TIMESTAMP) == 0)
+		{
+		  convert_date_and_time(&d->date_and_time, &stbuf.st_size);
+		}
+	      else
+		{
+		  if (verbosity == VERBOSE)
+		    {
+		      printf("%d: file %s\n", d->level, buf);
+		    }
+		  (void) new_directory_record(entry, &stbuf, d);
+		}
          }
       }
-      closedir(dirp);
+      closedir (dirp);
     }
   else
     {
@@ -892,22 +772,22 @@ make_directory_records (PDIR_RECORD d)
   if (dirp != NULL)
     {
       while ((entry = readdir (dirp)) != NULL)
-        {
-          if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-            continue; // skip self and parent
+	{
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+          continue; // skip self and parent
 
-          if (entry->d_type == DT_DIR) // directory
-            {
-              old_end_source = end_source;
-              append_string_to_source(entry->d_name);
-              *end_source++ = DIR_SEPARATOR_CHAR;
+	  if (entry->d_type == DT_DIR) // directory
+	    {
+	      old_end_source = end_source;
+	      append_string_to_source(entry->d_name);
+	      *end_source++ = DIR_SEPARATOR_CHAR;
               *end_source = 0;
-              if (verbosity == VERBOSE)
-                {
-                  printf("%d: directory %s\n", d->level + 1, source);
-                }
-              if (d->level < MAX_LEVEL)
-                {
+	      if (verbosity == VERBOSE)
+		{
+		  printf("%d: directory %s\n", d->level + 1, source);
+		}
+	      if (d->level < MAX_LEVEL)
+		{
                   // Check for an absolute path
                   if (source[0] == DIR_SEPARATOR_CHAR)
                     {
@@ -920,11 +800,11 @@ make_directory_records (PDIR_RECORD d)
                       strcat(buf, source);
                     }
 
-                  if (stat(buf, &stbuf) == -1)
-                    {
-                      error_exit("Can't access '%s' (%s)\n", buf, strerror(errno));
-                      return;
-                    }
+	          if (stat(buf, &stbuf) == -1)
+                   {
+                     error_exit("Can't access '%s' (%s)\n", buf, strerror(errno));
+                     return;
+                   }
 		  new_d = new_directory_record(entry, &stbuf, d);
 		  new_d->next_in_path_table = root.next_in_path_table;
 		  root.next_in_path_table = new_d;
@@ -939,7 +819,7 @@ make_directory_records (PDIR_RECORD d)
 	      *end_source = 0;
 	    }
         }
-      closedir(dirp);
+      closedir (dirp);
     }
   else
     {
@@ -953,7 +833,7 @@ make_directory_records (PDIR_RECORD d)
   if (dirp != NULL)
     {
       while ((entry = readdir (dirp)) != NULL)
-        {
+	{
           if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue; // skip self and parent
 
@@ -979,12 +859,12 @@ make_directory_records (PDIR_RECORD d)
             }
 
           if (S_ISDIR(stbuf.st_mode))
-            {
-              old_end_source = end_source;
-              append_string_to_source(entry->d_name);
-              *end_source++ = DIR_SEPARATOR_CHAR;
-              *end_source = 0;
-              if (verbosity == VERBOSE)
+	    {
+	      old_end_source = end_source;
+	      append_string_to_source(entry->d_name);
+	      *end_source++ = DIR_SEPARATOR_CHAR;
+	      *end_source = 0;
+	      if (verbosity == VERBOSE)
 		{
 		  printf("%d: directory %s\n", d->level + 1, source);
 		}
@@ -1002,14 +882,14 @@ make_directory_records (PDIR_RECORD d)
 		  error_exit("Directory is nested too deep");
 		}
 
-              end_source = old_end_source;
+	      end_source = old_end_source;
               *end_source = 0;
-            }
+	    }
           else if (S_ISREG(stbuf.st_mode))
-            {
-              if (strcmp(entry->d_name, DIRECTORY_TIMESTAMP) == 0)
+	    {
+	      if (strcmp(entry->d_name, DIRECTORY_TIMESTAMP) == 0)
 		{
-		  convert_date_and_time(&d->date_and_time, &stbuf.st_ctime);
+		  convert_date_and_time(&d->date_and_time, &stbuf.st_size);
 		}
 	      else
 		{
@@ -1049,7 +929,7 @@ static void get_file_specifications(PDIR_RECORD d)
   {
     get_file_specifications(d->parent);
     append_string_to_source(d->name);
-    if (((d->flags & DIRECTORY_FLAG) == 0 || joliet) && d->extension[0] != 0)
+    if ((d->flags & DIRECTORY_FLAG) == 0 && d->extension[0] != 0)
     {
       *end_source++ = '.';
       append_string_to_source(d->extension);
@@ -1085,7 +965,7 @@ static void pass(void)
 
   t = volume_label;
   for (i = 0; i < 32; i++)
-    write_byte( (BYTE)( (*t != 0) ? toupper(*t++) : ' ' ) );
+    write_byte(*t != 0 ? toupper(*t++) : ' ');
 
   write_block(8, 0);
   write_both_endian_dword(total_sectors);
@@ -1098,7 +978,7 @@ static void pass(void)
   write_little_endian_dword((DWORD) 0);  // second little endian path table
   write_big_endian_dword(big_endian_path_table_sector);
   write_big_endian_dword((DWORD) 0);  // second big endian path table
-  write_directory_record(&root, DOT_RECORD, FALSE);
+  write_directory_record(&root, DOT_RECORD);
   write_block(128, ' ');      // volume set identifier
   write_block(128, ' ');      // publisher identifier
   write_block(128, ' ');      // data preparer identifier
@@ -1132,53 +1012,6 @@ static void pass(void)
       fill_sector();
     }
 
-  // Supplementary Volume Descriptor
-
-  if (joliet)
-  {
-    write_string("\2CD001\1");
-    write_byte(0);
-    
-    write_word_block(16, L' '); // system identifier
-
-    t = volume_label;
-    for (i = 0; i < 16; i++)
-      write_big_endian_word( (BYTE)( (*t != 0) ? *t++ : ' ' ) );
-
-    write_block(8, 0);
-    write_both_endian_dword(total_sectors);
-    write_string("%/E");
-    write_block(29, 0);
-    write_both_endian_word((WORD) 1); // volume set size
-    write_both_endian_word((WORD) 1); // volume sequence number
-    write_both_endian_word((WORD) 2048); // sector size
-    write_both_endian_dword(joliet_path_table_size);
-    write_little_endian_dword(joliet_little_endian_path_table_sector);
-    write_little_endian_dword((DWORD) 0);  // second little endian path table
-    write_big_endian_dword(joliet_big_endian_path_table_sector);
-    write_big_endian_dword((DWORD) 0);  // second big endian path table
-    write_directory_record(&root, DOT_RECORD, TRUE);
-    write_word_block(64, ' ');      // volume set identifier
-    write_word_block(64, ' ');      // publisher identifier
-    write_word_block(64, ' ');      // data preparer identifier
-    write_word_block(64, ' ');      // application identifier
-    write_block(37, ' ');       // copyright file identifier
-    write_block(37, ' ');       // abstract file identifier
-    write_block(37, ' ');       // bibliographic file identifier
-    write_string("0000000000000000");  // volume creation
-    write_byte(0);
-    write_string("0000000000000000");  // most recent modification
-    write_byte(0);
-    write_string("0000000000000000");  // volume expires
-    write_byte(0);
-    write_string("0000000000000000");  // volume is effective
-    write_byte(0);
-    write_byte(1);
-    write_byte(0);
-    fill_sector();
-  }
-
-
   // Volume Descriptor Set Terminator
   write_string("\377CD001\1");
   fill_sector();
@@ -1203,8 +1036,8 @@ static void pass(void)
       write_big_endian_word(0);  // load segment = default (0x07c0)
       write_byte(0);  // partition type
       write_byte(0);  // unused
-      write_little_endian_word(boot_image_size);  // sector count
-      write_little_endian_dword(boot_image_sector);  // sector
+      write_little_endian_word(4);  // sector count
+      write_little_endian_dword(boot_image_sector);  // sector count
 
       fill_sector();
     }
@@ -1220,9 +1053,6 @@ static void pass(void)
       fseek(file, 0, SEEK_END);
       size = ftell(file);
       fseek(file, 0, SEEK_SET);
-      if (size == 0 || (size % 2048))
-        error_exit("Invalid boot image size (%lu bytes)\n", size);
-      boot_image_size = size / 512;
       while (size > 0)
       {
         n = BUFFER_SIZE - cd.count;
@@ -1258,7 +1088,7 @@ static void pass(void)
   for (d = root.next_in_path_table; d != NULL; d = d->next_in_path_table)
     {
       name_length = strlen(d->name_on_cd);
-      write_byte((BYTE)name_length);
+      write_byte(name_length);
       write_byte(0);  // number of sectors in extended attribute record
       write_little_endian_dword(d->sector);
       write_little_endian_word(d->parent->path_table_index);
@@ -1285,7 +1115,7 @@ static void pass(void)
   for (d = root.next_in_path_table; d != NULL; d = d->next_in_path_table)
     {
       name_length = strlen(d->name_on_cd);
-      write_byte((BYTE)name_length);
+      write_byte(name_length);
       write_byte(0);  // number of sectors in extended attribute record
       write_big_endian_dword(d->sector);
       write_big_endian_word(d->parent->path_table_index);
@@ -1295,87 +1125,20 @@ static void pass(void)
     }
   fill_sector();
 
-  if (joliet)
-  {
-    // Little Endian Path Table
-
-    joliet_little_endian_path_table_sector = cd.sector;
-    write_byte(1);
-    write_byte(0);  // number of sectors in extended attribute record
-    write_little_endian_dword(root.joliet_sector);
-    write_little_endian_word((WORD) 1);
-    write_byte(0);
-    write_byte(0);
-
-    for (d = root.next_in_path_table; d != NULL; d = d->next_in_path_table)
-      {
-        name_length = strlen(d->joliet_name) * 2;
-        write_byte((BYTE)name_length);
-        write_byte(0);  // number of sectors in extended attribute record
-        write_little_endian_dword(d->joliet_sector);
-        write_little_endian_word(d->parent->path_table_index);
-        write_string_as_big_endian_unicode(d->joliet_name);
-      }
-
-    joliet_path_table_size = (cd.sector - joliet_little_endian_path_table_sector) *
-        SECTOR_SIZE + cd.offset;
-    fill_sector();
-
-    // Big Endian Path Table
-
-    joliet_big_endian_path_table_sector = cd.sector;
-    write_byte(1);
-    write_byte(0);  // number of sectors in extended attribute record
-    write_big_endian_dword(root.joliet_sector);
-    write_big_endian_word((WORD) 1);
-    write_byte(0);
-    write_byte(0);
-
-    for (d = root.next_in_path_table; d != NULL; d = d->next_in_path_table)
-      {
-        name_length = strlen(d->joliet_name) * 2;
-        write_byte((BYTE)name_length);
-        write_byte(0);  // number of sectors in extended attribute record
-        write_big_endian_dword(d->joliet_sector);
-        write_big_endian_word(d->parent->path_table_index);
-        write_string_as_big_endian_unicode(d->joliet_name);
-      }
-    fill_sector();
-  }
-
   // directories and files
   for (d = &root; d != NULL; d = d->next_in_path_table)
     {
       // write directory
       d->sector = cd.sector;
-      write_directory_record(d, DOT_RECORD, FALSE);
-      write_directory_record(d == &root ? d : d->parent, DOT_DOT_RECORD, FALSE);
+      write_directory_record(d, DOT_RECORD);
+      write_directory_record(d == &root ? d : d->parent, DOT_DOT_RECORD);
       for (q = d->first_record; q != NULL; q = q->next_in_directory)
-        {
-          write_directory_record(q,
-                                 q->flags & DIRECTORY_FLAG ? SUBDIRECTORY_RECORD : FILE_RECORD,
-                                 FALSE);
-        }
+	{
+	  write_directory_record(q,
+				 q->flags & DIRECTORY_FLAG ? SUBDIRECTORY_RECORD : FILE_RECORD);
+	}
       fill_sector();
       d->size = (cd.sector - d->sector) * SECTOR_SIZE;
-
-      // write directory for joliet
-      if (joliet)
-      {
-        d->joliet_sector = cd.sector;
-        write_directory_record(d, DOT_RECORD, TRUE);
-        write_directory_record(d == &root ? d : d->parent, DOT_DOT_RECORD, TRUE);
-        for (q = d->first_record; q != NULL; q = q->next_in_directory)
-          {
-            write_directory_record(q,
-                                   q->flags & DIRECTORY_FLAG ? SUBDIRECTORY_RECORD : FILE_RECORD,
-                                   TRUE);
-          }
-        fill_sector();
-        d->joliet_size = (cd.sector - d->joliet_sector) * SECTOR_SIZE;
-        bytes_in_directories += d->joliet_size;
-      }
-
       number_of_directories++;
       bytes_in_directories += d->size;
 
@@ -1384,7 +1147,7 @@ static void pass(void)
       {
         if ((q->flags & DIRECTORY_FLAG) == 0)
         {
-          q->sector = q->joliet_sector = cd.sector;
+          q->sector = cd.sector;
           size = q->size;
           if (cd.file == NULL)
           {
@@ -1435,7 +1198,7 @@ static void pass(void)
 }
 
 static char HELP[] =
-  "CDMAKE  [-q] [-v] [-p] [-s N] [-m] [-b bootimage] [-j]  source  volume  image\n"
+  "CDMAKE  [-q] [-v] [-p] [-s N] [-m] [-b bootimage]  source  volume  image\n"
   "\n"
   "  source        specifications of base directory containing all files to\n"
   "                be written to CD-ROM image\n"
@@ -1449,8 +1212,7 @@ static char HELP[] =
   "                larger than N megabytes (i.e. 1024*1024*N bytes)\n"
   "  -m            accept punctuation marks other than underscores in\n"
   "                names and extensions\n"
-  "  -b bootimage  create bootable ElTorito CD-ROM using 'no emulation' mode\n"
-  "  -j            generate Joliet filename records\n";
+  "  -b bootimage  create bootable ElTorito CD-ROM using 'no emulation' mode\n";
 
 /*-----------------------------------------------------------------------------
 Program execution starts here.
@@ -1526,8 +1288,6 @@ int main(int argc, char **argv)
         show_progress = TRUE;
       else if (strcmp(argv[i], "-m") == 0)
         accept_punctuation_marks = TRUE;
-      else if (strcmp(argv[i], "-j") == 0)
-        joliet = TRUE;
       else if (strcmp(argv[i], "-b") == 0)
       {
         strcpy(bootimage, argv[++i]);

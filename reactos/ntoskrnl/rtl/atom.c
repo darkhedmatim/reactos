@@ -1,4 +1,4 @@
-/* $Id: atom.c,v 1.12 2004/10/30 14:02:04 navaraf Exp $
+/* $Id: atom.c,v 1.4 2002/09/08 10:23:41 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,9 +11,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/handle.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
+
+
 
 typedef struct _RTL_ATOM_ENTRY
 {
@@ -60,28 +65,22 @@ static PRTL_ATOM_TABLE GlobalAtomTable = NULL;
 /* FUNCTIONS *****************************************************************/
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
-NtAddAtom(
-   IN PWSTR AtomName,
-   IN ULONG AtomNameLength,
-   OUT PRTL_ATOM Atom)
+NtAddAtom(IN PWSTR AtomName,
+	  OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
 
    AtomTable = RtlpGetGlobalAtomTable();
    if (AtomTable == NULL)
-      return STATUS_ACCESS_DENIED;
+     return STATUS_ACCESS_DENIED;
 
-   return RtlAddAtomToAtomTable(AtomTable, AtomName, Atom);
+   return (RtlAddAtomToAtomTable(AtomTable,
+				 AtomName,
+				 Atom));
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtDeleteAtom(IN RTL_ATOM Atom)
 {
@@ -96,12 +95,8 @@ NtDeleteAtom(IN RTL_ATOM Atom)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtFindAtom(IN PWSTR AtomName,
-           IN ULONG AtomNameLength,
 	   OUT PRTL_ATOM Atom)
 {
    PRTL_ATOM_TABLE AtomTable;
@@ -116,9 +111,6 @@ NtFindAtom(IN PWSTR AtomName,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtQueryInformationAtom(RTL_ATOM Atom,
 		       ATOM_INFORMATION_CLASS AtomInformationClass,
@@ -159,9 +151,6 @@ NtQueryInformationAtom(RTL_ATOM Atom,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCreateAtomTable(ULONG TableSize,
 		   PRTL_ATOM_TABLE *AtomTable)
@@ -213,9 +202,6 @@ RtlCreateAtomTable(ULONG TableSize,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDestroyAtomTable(IN PRTL_ATOM_TABLE AtomTable)
 {
@@ -256,9 +242,6 @@ RtlDestroyAtomTable(IN PRTL_ATOM_TABLE AtomTable)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlEmptyAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 		  IN BOOLEAN DeletePinned)
@@ -308,9 +291,6 @@ RtlEmptyAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 		      IN PWSTR AtomName,
@@ -377,7 +357,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	return STATUS_NO_MEMORY;
      }
 
-   InsertTailList(&AtomTable->Slot[Hash], &Entry->List);
+   InsertTailList(&AtomTable->Slot[Hash], &Entry->List)
    RtlCreateUnicodeString (&Entry->Name,
 			   AtomName);
    Entry->RefCount = 1;
@@ -402,9 +382,6 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDeleteAtomFromAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 			   IN RTL_ATOM Atom)
@@ -461,9 +438,6 @@ RtlDeleteAtomFromAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlLookupAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 			 IN PWSTR AtomName,
@@ -524,9 +498,6 @@ RtlLookupAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 RtlPinAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 		      IN RTL_ATOM Atom)
@@ -563,9 +534,6 @@ RtlPinAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 			IN RTL_ATOM Atom,
@@ -576,12 +544,6 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 {
    ULONG Length;
    PRTL_ATOM_ENTRY AtomEntry;
-   WCHAR TempAtomName[12];
-
-   if (Atom == 0)
-     {
-	return STATUS_INVALID_HANDLE;
-     }
 
    if (Atom < 0xC000)
      {
@@ -595,19 +557,10 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	     *PinCount = 1;
 	  }
 
-	Length = swprintf(TempAtomName, L"#%lu", (ULONG)Atom);	
-
-	if (NameLength != NULL)
+	if ((AtomName != NULL) && (NameLength != NULL) && (NameLength > 0))
 	  {
+	     Length = swprintf(AtomName, L"#%lu", (ULONG)Atom);
 	     *NameLength = Length * sizeof(WCHAR);
-	     if (AtomName != NULL && *NameLength >= Length)
-	       {
-	          wcscpy(AtomName, TempAtomName);
-	       }
-	     else
-	       {
-	          return STATUS_BUFFER_TOO_SMALL;
-	       }
 	  }
 
 	return STATUS_SUCCESS;
@@ -637,19 +590,17 @@ RtlQueryAtomInAtomTable(IN PRTL_ATOM_TABLE AtomTable,
 	*PinCount = (ULONG)AtomEntry->Locked;
      }
 
-   if (NameLength != NULL)
+   if ((AtomName != NULL) && (NameLength != NULL))
      {
-	if (AtomName != NULL && *NameLength >= AtomEntry->Name.Length)
+	if (*NameLength < AtomEntry->Name.Length)
 	  {
-	     *NameLength = AtomEntry->Name.Length;
-	     memcpy(AtomName, AtomEntry->Name.Buffer, AtomEntry->Name.Length);
-          }
-        else
-          {
 	     *NameLength = AtomEntry->Name.Length;
 	     RtlpUnlockAtomTable(AtomTable);
 	     return STATUS_BUFFER_TOO_SMALL;
 	  }
+
+	Length = swprintf(AtomName, L"%s", AtomEntry->Name.Buffer);
+	*NameLength = Length * sizeof(WCHAR);
      }
 
    RtlpUnlockAtomTable(AtomTable);
@@ -745,11 +696,11 @@ RtlpCheckIntegerAtom(PWSTR AtomName,
    RtlInitUnicodeString(&AtomString,
 			p);
 
-   DPRINT("AtomString: %wZ\n", &AtomString);
+   DPRINT1("AtomString: %wZ\n", &AtomString);
 
    RtlUnicodeStringToInteger(&AtomString,10, &LongValue);
 
-   DPRINT("LongValue: %lu\n", LongValue);
+   DPRINT1("LongValue: %lu\n", LongValue);
 
    *AtomValue = (USHORT)(LongValue & 0x0000FFFF);
 
@@ -887,13 +838,12 @@ RtlpQueryAtomInformation(PRTL_ATOM_TABLE AtomTable,
 				    &Flags,
 				    AtomInformation->Name,
 				    &NameLength);
-
    if (!NT_SUCCESS(Status))
      {
 	return Status;
      }
 
-   DPRINT("NameLength: %lu\n", NameLength);
+   DPRINT1("NameLength: %lu\n", NameLength);
 
    if (ReturnLength != NULL)
      {
@@ -931,7 +881,7 @@ RtlpQueryAtomTableInformation(PRTL_ATOM_TABLE AtomTable,
 	Length += ((AtomTable->NumberOfAtoms - 1)* sizeof(RTL_ATOM));
      }
 
-   DPRINT("RequiredLength: %lu\n", Length);
+   DPRINT1("RequiredLength: %lu\n", Length);
 
    if (ReturnLength != NULL)
      {

@@ -1,6 +1,8 @@
 #ifndef __INCLUDE_INTERNAL_PORT_H
 #define __INCLUDE_INTERNAL_PORT_H
 
+#include <napi/lpc.h>
+
 typedef struct _EPORT_LISTENER
 {
   HANDLE ListenerPid;
@@ -11,11 +13,9 @@ typedef struct _EPORT
 {
   KSPIN_LOCK	Lock;
   KSEMAPHORE    Semaphore;
- 
-  USHORT	Type;
-  USHORT	State;
- 
-  struct _EPORT * RequestPort;
+  
+  ULONG		State;
+  
   struct _EPORT	* OtherPort;
   
   ULONG		QueueLength;
@@ -26,7 +26,11 @@ typedef struct _EPORT
   
   ULONG		MaxDataLength;
   ULONG		MaxConnectInfoLength;
-  ULONG		MaxPoolUsage; /* size of NP zone */
+
+  /*
+   * List of processes that can receive connection requests on this port.
+   */
+  LIST_ENTRY ListenerListHead;
 } EPORT, * PEPORT;
 
 
@@ -67,11 +71,6 @@ STDCALL
 LpcSendTerminationPort (PEPORT	Port,
 			TIME	CreationTime);
 
-/* EPORT.Type */
-
-#define EPORT_TYPE_SERVER_RQST_PORT   (0)
-#define EPORT_TYPE_SERVER_COMM_PORT   (1)
-#define EPORT_TYPE_CLIENT_COMM_PORT   (2)
 
 /* EPORT.State */
 
@@ -83,12 +82,6 @@ LpcSendTerminationPort (PEPORT	Port,
 #define EPORT_CONNECTED_CLIENT        (5)
 #define EPORT_CONNECTED_SERVER        (6)
 #define EPORT_DISCONNECTED            (7)
-
-/* Pool Tags */
-
-#define TAG_LPC_MESSAGE   TAG('L', 'p', 'c', 'M')
-#define TAG_LPC_ZONE      TAG('L', 'p', 'c', 'Z')
-
 
 typedef struct _QUEUEDMESSAGE
 {
@@ -134,15 +127,12 @@ NiCreatePort (PVOID			ObjectBody,
 /* Code in ntoskrnl/lpc/port.c */
 
 NTSTATUS STDCALL
-NiInitializePort (IN OUT  PEPORT	Port,
-		  IN      USHORT        Type,
-		  IN      PEPORT        Parent OPTIONAL);
+NiInitializePort (IN OUT	PEPORT	Port);
 NTSTATUS
 NiInitPort (VOID);
 
 extern POBJECT_TYPE	ExPortType;
-extern ULONG		LpcpNextMessageId;
-extern FAST_MUTEX	LpcpLock;
+extern ULONG		EiNextLpcMessageId;
 
 /* Code in ntoskrnl/lpc/reply.c */
 

@@ -401,7 +401,7 @@ u_int bpf_filter(pc, p, wirelen, buflen,mem_ex,tme,time_ref)
 			continue;
 
 		case BPF_ALU|BPF_NEG:
-			A = (u_int32)(-((int)A));
+			(int)A = -((int)A);
 			continue;
 
 		case BPF_MISC|BPF_TAX:
@@ -840,7 +840,7 @@ u_int bpf_filter_with_2_buffers(pc, p, pd, headersize, wirelen, buflen, mem_ex,t
 			continue;
 
 		case BPF_ALU|BPF_NEG:
-			A = (u_int32)(-((int)A));
+			(int)A = -((int)A);
 			continue;
 
 		case BPF_MISC|BPF_TAX:
@@ -959,4 +959,3 @@ bpf_validate(f, len,mem_ex_size)
 	}
 	return BPF_CLASS(f[len - 1].code) == BPF_RET;
 }
-

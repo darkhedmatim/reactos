@@ -7,17 +7,13 @@
  * UPDATE HISTORY:
  *              28/12/98: Created
  */
-
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/conio.h>
 #include <msvcrt/stdio.h>
 #include <msvcrt/io.h>
 #include <msvcrt/internal/console.h>
 
 
-/*
- * @implemented
- */
 int _getch(void)
 {
     DWORD  NumberOfCharsRead = 0;
@@ -39,9 +35,6 @@ int _getch(void)
 }
 
 #if 0
-/*
- * @unimplemented
- */
 int _getche(void)
 {
     int c;

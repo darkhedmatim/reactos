@@ -92,12 +92,16 @@
  *        input queue when you pressed <RETURN>. This sometimes caused
  *        some very strange effects.
  *        Fixed some command line editing annoyances.
- *
- *    30-Apr-2004 (Filip Navara <xnavara@volny.cz>)
- *        Fixed problems when the screen was scrolled away.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 SHORT maxx;
@@ -129,7 +133,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 	SHORT orgy;
 	SHORT curx;			/*current x/y cursor position*/
 	SHORT cury;
-	SHORT tempscreen;
 	INT   count;		/*used in some for loops*/
 	INT   current = 0;	/*the position of the cursor in the string (str)*/
 	INT   charcount = 0;/*chars in the string (str)*/
@@ -146,7 +149,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 		PrintPrompt();
 
 	GetCursorXY (&orgx, &orgy);
-	GetCursorXY (&curx, &cury);
 
 	memset (str, 0, maxlen * sizeof (TCHAR));
 
@@ -177,8 +179,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 
 						ClearCommandLine (str, maxlen, orgx, orgy);
 						current = charcount = 0;
-						curx = orgx;
-						cury = orgy;
 						bContinue=TRUE;
 						break;
 					}
@@ -192,7 +192,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 						History_del_current_entry(str);					
 						current = charcount = _tcslen (str);
 						ConOutPrintf (_T("%s"), str);
-						GetCursorXY (&curx, &cury);
 						bContinue=TRUE;
 						break;
 					}
@@ -222,16 +221,13 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 						str[current - 1] = _T('\0');
 						if (GetCursorX () != 0)
 						{
-							ConOutPrintf (_T("\b \b"));
-							curx--;
+							ConOutPrintf ("\b \b");
 						}
 						else
 						{
 							SetCursorXY ((SHORT)(maxx - 1), (SHORT)(GetCursorY () - 1));
 							ConOutChar (_T(' '));
 							SetCursorXY ((SHORT)(maxx - 1), (SHORT)(GetCursorY () - 1));
-							cury--;
-							curx = maxx - 1;
 						}
 					}
 					else
@@ -239,16 +235,9 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 						for (count = current - 1; count < charcount; count++)
 							str[count] = str[count + 1];
 						if (GetCursorX () != 0)
-						{
 							SetCursorXY ((SHORT)(GetCursorX () - 1), GetCursorY ());
-							curx--;
-						}
 						else
-						{
 							SetCursorXY ((SHORT)(maxx - 1), (SHORT)(GetCursorY () - 1));
-							cury--;
-							curx = maxx - 1;
-						}
 						GetCursorXY (&curx, &cury);
 						ConOutPrintf (_T("%s "), &str[current - 1]);
 						SetCursorXY (curx, cury);
@@ -282,8 +271,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				if (current != 0)
 				{
 					SetCursorXY (orgx, orgy);
-					curx = orgx;
-					cury = orgy;
 					current = 0;
 				}
 				break;
@@ -294,7 +281,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				{
 					SetCursorXY (orgx, orgy);
 					ConOutPrintf (_T("%s"), str);
-					GetCursorXY (&curx, &cury);
 					current = charcount;
 				}
 				break;
@@ -309,7 +295,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 					if (wLastKey != VK_TAB)
 					{
 						/* if first TAB, complete filename*/
-						tempscreen = charcount;
 						CompleteFilename (str, charcount);
 						charcount = _tcslen (str);
 						current = charcount;
@@ -320,24 +305,12 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 
 						SetCursorXY (orgx, orgy);
 						ConOutPrintf (_T("%s"), str);
-
-						if (tempscreen > charcount)
-						{
-							GetCursorXY (&curx, &cury);
-							for (count = tempscreen - charcount; count--; )
-								ConOutChar (_T(' '));
-							SetCursorXY (curx, cury);
-						}
-						else
-						{
-							if (((charcount + orgx) / maxx) + orgy > maxy - 1)
-								orgy += maxy - ((charcount + orgx) / maxx + orgy + 1);
-					        }
+						if ((charcount > (USHORT)(maxx - orgx)) && (orgy == maxy + 1))
+							orgy--;
 
 						/* set cursor position */
 						SetCursorXY ((orgx + current) % maxx,
 							     orgy + (orgx + current) / maxx);
-						GetCursorXY (&curx, &cury);
 					}
 					else
 					{
@@ -351,7 +324,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 							/* set cursor position */
 							SetCursorXY ((orgx + current) % maxx,
 								     orgy + (orgx + current) / maxx);
-							GetCursorXY (&curx, &cury);
 						}
 						
 					}
@@ -394,8 +366,6 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 			case VK_ESCAPE:
 				/* clear str  Make this callable! */
 				ClearCommandLine (str, maxlen, orgx, orgy);
-				curx = orgx;
-				cury = orgy;
 				current = charcount = 0;
 				break;
 
@@ -409,10 +379,7 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				ClearCommandLine (str, maxlen, orgx, orgy);
 				History (-1, str);
 				current = charcount = _tcslen (str);
-				if (((charcount + orgx) / maxx) + orgy > maxy - 1)
-					orgy += maxy - ((charcount + orgx) / maxx + orgy + 1);
 				ConOutPrintf (_T("%s"), str);
-				GetCursorXY (&curx, &cury);
 #endif
 				break;
 
@@ -422,10 +389,7 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				ClearCommandLine (str, maxlen, orgx, orgy);
 				History (1, str);
 				current = charcount = _tcslen (str);
-				if (((charcount + orgx) / maxx) + orgy > maxy - 1)
-					orgy += maxy - ((charcount + orgx) / maxx + orgy + 1);
 				ConOutPrintf (_T("%s"), str);
-				GetCursorXY (&curx, &cury);
 #endif
 				break;
 
@@ -435,16 +399,9 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				{
 					current--;
 					if (GetCursorX () == 0)
-					{
 						SetCursorXY ((SHORT)(maxx - 1), (SHORT)(GetCursorY () - 1));
-						curx = maxx - 1;
-						cury--;
-					}
 					else
-					{
 						SetCursorXY ((SHORT)(GetCursorX () - 1), GetCursorY ());
-						curx--;
-					}
 				}
 				else
 				{
@@ -462,18 +419,51 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				{
 					current++;
 					if (GetCursorX () == maxx - 1)
-					{
 						SetCursorXY (0, (SHORT)(GetCursorY () + 1));
-						curx = 0;
-						cury++;
-					}
 					else
-					{
 						SetCursorXY ((SHORT)(GetCursorX () + 1), GetCursorY ());
-						curx++;
-					}
 				}
 				break;
+
+#if 0
+
+#ifdef FEATURE_HISTORY
+			
+
+			/*!!!WARNING!!!*/
+				/*this will only work as long as the two if statement 
+				evaluates the same expression and a break is included
+				in each if statement.
+				This can be used for any combination using CTRL.
+				For other combinations is needed another system*/
+	
+			case 'K':
+				/*add the current command line to the history*/
+				if (ir.Event.KeyEvent.dwControlKeyState &
+					(LEFT_CTRL_PRESSED|RIGHT_CTRL_PRESSED))
+				{
+				
+					if (str[0])
+						History(0,str);
+
+					ClearCommandLine (str, maxlen, orgx, orgy);
+					current = charcount = 0;
+					break;
+				}
+
+			case 'D':
+				if (ir.Event.KeyEvent.dwControlKeyState &
+					(LEFT_CTRL_PRESSED|RIGHT_CTRL_PRESSED))
+				{
+					ClearCommandLine (str, maxlen, orgx, orgy);
+					History_del_current_entry(str);					
+					current = charcount = _tcslen (str);
+					ConOutPrintf (_T("%s"), str);
+					break;
+				}
+
+#endif/*FEATURE_HISTORY*/
+#endif/*0*/
 
 			default:
 #ifdef _UNICODE
@@ -481,30 +471,28 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 				if ((ch >= 32 && ch <= 255) && (charcount != (maxlen - 2)))
 #else
 				ch = ir.Event.KeyEvent.uChar.AsciiChar;
-				if ((UCHAR)ch >= 32 && (charcount != (maxlen - 2)))
+				if (ch >= 32 && (charcount != (maxlen - 2)))
 #endif /* _UNICODE */
 				{
 					/* insert character into string... */
 					if (bInsert && current != charcount)
 					{
-					        /* If this character insertion will cause screen scrolling,
-					         * adjust the saved origin of the command prompt. */
-					        tempscreen = _tcslen(str + current) + curx;
-						if ((tempscreen % maxx) == (maxx - 1) &&
-						    (tempscreen / maxx) + cury == (maxy - 1))
-						{
-							orgy--;
-							cury--;
-						}
-
 						for (count = charcount; count > current; count--)
 							str[count] = str[count - 1];
 						str[current++] = ch;
-						if (curx == maxx - 1)
-							curx = 0, cury++;
+						if (GetCursorX () == maxx - 1)
+						{
+							curx = 0;
+							cury = GetCursorY () + 1;
+						}
 						else
+						{
+							GetCursorXY (&curx, &cury);
 							curx++;
+						}
 						ConOutPrintf (_T("%s"), &str[current - 1]);
+						if ((_tcslen (str) > (USHORT)(maxx - orgx)) && (orgy == maxy + 1))
+							cury--;
 						SetCursorXY (curx, cury);
 						charcount++;
 					}
@@ -513,14 +501,10 @@ VOID ReadCommand (LPTSTR str, INT maxlen)
 						if (current == charcount)
 							charcount++;
 						str[current++] = ch;
-						if (GetCursorX () == maxx - 1 && GetCursorY () == maxy - 1)
-							orgy--, cury--;
-						if (GetCursorX () == maxx - 1)
-							curx = 0, cury++;
-						else
-							curx++;
 						ConOutChar (ch);
 					}
+					if ((_tcslen (str) > (USHORT)(maxx - orgx)) && (orgy == maxy + 1))
+						orgy--;
 				}
 #if 0
 				else

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cdrom.c,v 1.29 2004/07/03 17:40:21 navaraf Exp $
+/* $Id: cdrom.c,v 1.19 2003/05/01 17:50:03 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -37,7 +37,6 @@
 #include <ddk/scsi.h>
 #include <ddk/class2.h>
 #include <ddk/ntddscsi.h>
-#include <ntos/minmax.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -48,44 +47,10 @@
 #define SCSI_CDROM_TIMEOUT 10		/* Default timeout: 10 seconds */
 
 
-typedef struct _ERROR_RECOVERY_DATA6
-{
-  MODE_PARAMETER_HEADER Header;
-  MODE_READ_RECOVERY_PAGE ReadRecoveryPage;
-} ERROR_RECOVERY_DATA6, *PERROR_RECOVERY_DATA6;
-
-
-typedef struct _ERROR_RECOVERY_DATA10
-{
-  MODE_PARAMETER_HEADER10 Header;
-  MODE_READ_RECOVERY_PAGE ReadRecoveryPage;
-} ERROR_RECOVERY_DATA10, *PERROR_RECOVERY_DATA10;
-
-typedef struct _MODE_CAPABILITIES_DATA6
-{
-  MODE_PARAMETER_HEADER Header;
-  MODE_CAPABILITIES_PAGE2 CababilitiesPage;
-} MODE_CAPABILITIES_DATA6, *PMODE_CAPABILITIES_DATA6;
-
-typedef struct _MODE_CAPABILITIES_DATA10
-{
-  MODE_PARAMETER_HEADER10 Header;
-  MODE_CAPABILITIES_PAGE2 CababilitiesPage;
-} MODE_CAPABILITIES_DATA10, *PMODE_CAPABILITIES_DATA10;
-
 typedef struct _CDROM_DATA
 {
-  BOOLEAN PlayActive;
-  BOOLEAN RawAccess;
-  USHORT XaFlags;
-
+  ULONG Dummy;
 } CDROM_DATA, *PCDROM_DATA;
-
-/* CDROM_DATA.XaFlags */
-#define XA_USE_6_BYTE		0x0001
-#define XA_USE_10_BYTE		0x0002
-#define XA_USE_READ_CD		0x0004
-#define XA_NOT_SUPPORTED	0x0008
 
 
 BOOLEAN STDCALL
@@ -102,10 +67,6 @@ NTSTATUS STDCALL
 CdromClassCheckReadWrite(IN PDEVICE_OBJECT DeviceObject,
 			 IN PIRP Irp);
 
-static VOID
-CdromClassCreateMediaChangeEvent(IN PDEVICE_EXTENSION DeviceExtension,
-				 IN ULONG DeviceNumber);
-
 static NTSTATUS
 CdromClassCreateDeviceObject(IN PDRIVER_OBJECT DriverObject,
 			     IN PUNICODE_STRING RegistryPath,
@@ -121,14 +82,9 @@ NTSTATUS STDCALL
 CdromClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 			IN PIRP Irp);
 
-VOID STDCALL
-CdromClassStartIo (IN PDEVICE_OBJECT DeviceObject,
-		   IN PIRP Irp);
-
 NTSTATUS STDCALL
-CdromDeviceControlCompletion (IN PDEVICE_OBJECT DeviceObject,
-			      IN PIRP Irp,
-			      IN PVOID Context);
+CdromClassShutdownFlush(IN PDEVICE_OBJECT DeviceObject,
+			IN PIRP Irp);
 
 VOID STDCALL
 CdromTimerRoutine(IN PDEVICE_OBJECT DeviceObject,
@@ -175,14 +131,14 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
   InitData.DeviceType = FILE_DEVICE_CD_ROM;
   InitData.DeviceCharacteristics = FILE_REMOVABLE_MEDIA | FILE_READ_ONLY_DEVICE;
 
-  InitData.ClassError = NULL;
+  InitData.ClassError = NULL;	// CdromClassProcessError;
   InitData.ClassReadWriteVerification = CdromClassCheckReadWrite;
   InitData.ClassFindDeviceCallBack = CdromClassCheckDevice;
   InitData.ClassFindDevices = CdromClassFindDevices;
   InitData.ClassDeviceControl = CdromClassDeviceControl;
-  InitData.ClassShutdownFlush = NULL;
+  InitData.ClassShutdownFlush = CdromClassShutdownFlush;
   InitData.ClassCreateClose = NULL;
-  InitData.ClassStartIo = CdromClassStartIo;
+  InitData.ClassStartIo = NULL;
 
   return(ScsiClassInitialize(DriverObject,
 			     RegistryPath,
@@ -233,7 +189,7 @@ CdromClassFindDevices(IN PDRIVER_OBJECT DriverObject,
   PCHAR Buffer;
   ULONG Bus;
   ULONG DeviceCount;
-  BOOLEAN FoundDevice = FALSE;
+  BOOLEAN FoundDevice;
   NTSTATUS Status;
 
   DPRINT("CdromClassFindDevices() called.\n");
@@ -298,13 +254,13 @@ CdromClassFindDevices(IN PDRIVER_OBJECT DriverObject,
 						    RegistryPath,
 						    PortDeviceObject,
 						    PortNumber,
-						    ConfigInfo->CdRomCount,
+						    ConfigInfo->CDRomCount,
 						    PortCapabilities,
 						    UnitInfo,
 						    InitializationData);
 	      if (NT_SUCCESS(Status))
 		{
-		  ConfigInfo->CdRomCount++;
+		  ConfigInfo->CDRomCount++;
 		  FoundDevice = TRUE;
 		}
 	    }
@@ -383,27 +339,6 @@ CdromClassCheckReadWrite(IN PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID
-CdromClassCreateMediaChangeEvent(IN PDEVICE_EXTENSION DeviceExtension,
-				 IN ULONG DeviceNumber)
-{
-  WCHAR NameBuffer[MAX_PATH];
-  UNICODE_STRING Name;
-
-  swprintf (NameBuffer,
-	    L"\\Device\\MediaChangeEvent%lu",
-	    DeviceNumber);
-  RtlInitUnicodeString (&Name,
-			NameBuffer);
-
-  DeviceExtension->MediaChangeEvent =
-    IoCreateSynchronizationEvent (&Name,
-				  &DeviceExtension->MediaChangeEventHandle);
-
-  KeClearEvent (DeviceExtension->MediaChangeEvent);
-}
-
-
 /**********************************************************************
  * NAME							EXPORTED
  *	CdromClassCreateDeviceObject
@@ -440,14 +375,13 @@ CdromClassCreateDeviceObject(IN PDRIVER_OBJECT DriverObject,
 			     IN PSCSI_INQUIRY_DATA InquiryData,
 			     IN PCLASS_INIT_DATA InitializationData)
 {
-  PDEVICE_EXTENSION DiskDeviceExtension; /* defined in class2.h */
-  PDEVICE_OBJECT DiskDeviceObject;
-  PCDROM_DATA CdromData;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING UnicodeDeviceDirName;
   CHAR NameBuffer[80];
-  SCSI_REQUEST_BLOCK Srb;
-  PUCHAR Buffer;
-  ULONG Length;
-  PCDB Cdb;
+  PDEVICE_OBJECT DiskDeviceObject;
+  PDEVICE_EXTENSION DiskDeviceExtension; /* defined in class2.h */
+  HANDLE Handle;
+  PCDROM_DATA CdromData;
   NTSTATUS Status;
 
   DPRINT("CdromClassCreateDeviceObject() called\n");
@@ -498,7 +432,6 @@ CdromClassCreateDeviceObject(IN PDRIVER_OBJECT DriverObject,
   DiskDeviceExtension = DiskDeviceObject->DeviceExtension;
   DiskDeviceExtension->LockCount = 0;
   DiskDeviceExtension->DeviceNumber = DeviceNumber;
-  DiskDeviceExtension->DeviceObject = DiskDeviceObject;
   DiskDeviceExtension->PortDeviceObject = PortDeviceObject;
   DiskDeviceExtension->PhysicalDevice = DiskDeviceObject;
   DiskDeviceExtension->PortCapabilities = Capabilities;
@@ -579,328 +512,8 @@ CdromClassCreateDeviceObject(IN PDRIVER_OBJECT DriverObject,
 
   DPRINT("SectorSize: %lu\n", DiskDeviceExtension->DiskGeometry->BytesPerSector);
 
-  /* Initialize media change support */
-  CdromClassCreateMediaChangeEvent (DiskDeviceExtension,
-				    DeviceNumber);
-  if (DiskDeviceExtension->MediaChangeEvent != NULL)
-    {
-      DPRINT("Allocated media change event!\n");
+  /* FIXME: initialize media change support */
 
-      /* FIXME: Allocate media change IRP and SRB */
-    }
-
-  /* Use 6 byte xa commands by default */
-  CdromData->XaFlags |= XA_USE_6_BYTE;
-
-  /* Read 'error recovery page' to get additional drive capabilities */
-  Length = sizeof(MODE_READ_RECOVERY_PAGE) + MODE_HEADER_LENGTH;
-
-  RtlZeroMemory (&Srb,
-		 sizeof(SCSI_REQUEST_BLOCK));
-  Srb.CdbLength = 6;
-  Srb.TimeOutValue = DiskDeviceExtension->TimeOutValue;
-
-  Cdb = (PCDB)Srb.Cdb;
-  Cdb->MODE_SENSE.OperationCode = SCSIOP_MODE_SENSE;
-  Cdb->MODE_SENSE.PageCode = 0x01;
-  Cdb->MODE_SENSE.AllocationLength = (UCHAR)Length;
-
-  Buffer = ExAllocatePool (NonPagedPool,
-                           max(sizeof(ERROR_RECOVERY_DATA6), 
-			       max(sizeof(ERROR_RECOVERY_DATA10), 
-			           max(sizeof(MODE_CAPABILITIES_DATA6), 
-				       sizeof(MODE_CAPABILITIES_DATA10)))));
-  if (Buffer == NULL)
-    {
-      DPRINT1("Allocating recovery page buffer failed!\n");
-      return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-  Status = ScsiClassSendSrbSynchronous (DiskDeviceObject,
-					&Srb,
-					Buffer,
-					Length,
-					FALSE);
-
-  if (!NT_SUCCESS (Status))
-    {
-      DPRINT("MODE_SENSE(6) failed\n");
-
-      /* Try the 10 byte version */
-      Length = sizeof(MODE_READ_RECOVERY_PAGE) + MODE_HEADER_LENGTH10;
-
-      RtlZeroMemory (&Srb, 
-		     sizeof(SCSI_REQUEST_BLOCK));
-      Srb.CdbLength = 10;
-      Srb.TimeOutValue = DiskDeviceExtension->TimeOutValue;
-
-      Cdb = (PCDB)Srb.Cdb;
-      Cdb->MODE_SENSE10.OperationCode = SCSIOP_MODE_SENSE10;
-      Cdb->MODE_SENSE10.PageCode = 0x01;
-      Cdb->MODE_SENSE10.AllocationLength[0] = (UCHAR)(Length >> 8);
-      Cdb->MODE_SENSE10.AllocationLength[1] = (UCHAR)(Length & 0xFF);
-
-      Status = ScsiClassSendSrbSynchronous (DiskDeviceObject,
-					    &Srb,
-					    Buffer,
-					    Length,
-					    FALSE);
-
-      if (Status == STATUS_DATA_OVERRUN)
-	{
-	  DPRINT1("Data overrun\n");
-
-	  /* FIXME */
-	}
-      else if (NT_SUCCESS (Status))
-	{
-	  DPRINT("Use 10 byte commands\n");
-	  CdromData->XaFlags &= XA_USE_6_BYTE;
-	  CdromData->XaFlags |= XA_USE_10_BYTE;
-	}
-      else
-	{
-	  DPRINT("XA not supported\n");
-	  CdromData->XaFlags |= XA_NOT_SUPPORTED;
-	}
-    }
-  else
-    {
-      DPRINT("Use 6 byte commands\n");
-    }
-
-  /* Read 'capabilities & mechanical status page' to get additional drive capabilities */
-  Length = sizeof(MODE_READ_RECOVERY_PAGE) + MODE_HEADER_LENGTH;
-
-  if (!(CdromData->XaFlags & XA_NOT_SUPPORTED))
-    {
-      RtlZeroMemory (&Srb, sizeof(SCSI_REQUEST_BLOCK));
-      Srb.TimeOutValue = DiskDeviceExtension->TimeOutValue;
-      Cdb = (PCDB)Srb.Cdb;
-
-      if (CdromData->XaFlags & XA_USE_10_BYTE)
-        {
-          /* Try the 10 byte version */
-          Length = sizeof(MODE_CAPABILITIES_PAGE2) + MODE_HEADER_LENGTH10;
-
-          Srb.CdbLength = 10;
-          Cdb->MODE_SENSE10.OperationCode = SCSIOP_MODE_SENSE10;
-          Cdb->MODE_SENSE10.PageCode = 0x2a;
-          Cdb->MODE_SENSE10.AllocationLength[0] = (UCHAR)(Length >> 8);
-          Cdb->MODE_SENSE10.AllocationLength[1] = (UCHAR)(Length & 0xFF);
-	}
-      else
-        {
-          Length = sizeof(MODE_CAPABILITIES_PAGE2) + MODE_HEADER_LENGTH;
-
-          Srb.CdbLength = 6;
-          Cdb->MODE_SENSE.OperationCode = SCSIOP_MODE_SENSE;
-          Cdb->MODE_SENSE.PageCode = 0x2a;
-          Cdb->MODE_SENSE.AllocationLength = (UCHAR)Length;
-        }
-      Status = ScsiClassSendSrbSynchronous (DiskDeviceObject,
-					    &Srb,
-					    Buffer,
-					    Length,
-					    FALSE);
-      if (NT_SUCCESS (Status))
-	{
-#if 0
-          PMODE_CAPABILITIES_PAGE2 CapabilitiesData;
-	  if (CdromData->XaFlags & XA_USE_10_BYTE)
-	    {
-	      CapabilitiesData = (PMODE_CAPABILITIES_PAGE2)(Buffer + sizeof(MODE_PARAMETER_HEADER10));
-	    }
-	  else
-	    {
-	      CapabilitiesData = (PMODE_CAPABILITIES_PAGE2)(Buffer + sizeof(MODE_PARAMETER_HEADER));
-	    }
-
-	  DbgPrint("Capabilities for '%s':\n", NameBuffer);
-	  if (CapabilitiesData->Reserved2[0] & 0x20)
-	    {
-	      DbgPrint("  Drive supports reading of DVD-RAM discs\n");
-	    }
-	  if (CapabilitiesData->Reserved2[0] & 0x10)
-	    {
-	      DbgPrint("  Drive supports reading of DVD-R discs\n");
-	    }
-	  if (CapabilitiesData->Reserved2[0] & 0x08)
-	    {
-	      DbgPrint("  Drive supports reading of DVD-ROM discs\n");
-	    }
-	  if (CapabilitiesData->Reserved2[0] & 0x04)
-	    {
-	      DbgPrint("  Drive supports reading CD-R discs with addressing method 2\n");
-	    }
-	  if (CapabilitiesData->Reserved2[0] & 0x02)
-	    {
-	      DbgPrint("  Drive can read from CD-R/W (CD-E) discs (orange book, part III)\n");
-	    }
-	  if (CapabilitiesData->Reserved2[0] & 0x01)
-	    {
-	      DbgPrint("  Drive supports read from CD-R discs (orange book, part II)\n");
-	    }
-	  DPRINT("CapabilitiesData.Reserved2[1] %x\n", CapabilitiesData->Reserved2[1]);
-	  if (CapabilitiesData->Reserved2[1] & 0x01)
-	    {
-	      DbgPrint("  Drive can write to CD-R discs (orange book, part II)\n");
-	    }
-	  if (CapabilitiesData->Reserved2[1] & 0x02)
-	    {
-	      DbgPrint("  Drive can write to CD-R/W (CD-E) discs (orange book, part III)\n");
-	    }
-	  if (CapabilitiesData->Reserved2[1] & 0x04)
-	    {
-	      DbgPrint("  Drive can fake writes\n");
-	    }
-	  if (CapabilitiesData->Reserved2[1] & 0x10)
-	    {
-	      DbgPrint("  Drive can write DVD-R discs\n");
-	    }
-	  if (CapabilitiesData->Reserved2[1] & 0x20)
-	    {
-	      DbgPrint("  Drive can write DVD-RAM discs\n");
-	    }
-	  DPRINT("CapabilitiesData.Capabilities[0] %x\n", CapabilitiesData->Capabilities[0]);
-	  if (CapabilitiesData->Capabilities[0] & 0x01)
-	    {
-	      DbgPrint("  Drive supports audio play operations\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x02)
-	    {
-	      DbgPrint("  Drive can deliver a composite audio/video data stream\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x04)
-	    {
-	      DbgPrint("  Drive supports digital output on port 1\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x08)
-	    {
-	      DbgPrint("  Drive supports digital output on port 2\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x10)
-	    {
-	      DbgPrint("  Drive can read mode 2, form 1 (XA) data\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x20)
-	    {
-	      DbgPrint("  Drive can read mode 2, form 2 data\n");
-	    }
-	  if (CapabilitiesData->Capabilities[0] & 0x40)
-	    {
-	      DbgPrint("  Drive can read multisession discs\n");
-	    }
-	  DPRINT("CapabilitiesData.Capabilities[1] %x\n", CapabilitiesData->Capabilities[1]);
-	  if (CapabilitiesData->Capabilities[1] & 0x01)
-	    {
-	      DbgPrint("  Drive can read Red Book audio data\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x02)
-	    {
-	      DbgPrint("  Drive can continue a read cdda operation from a loss of streaming\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x04)
-	    {
-	      DbgPrint("  Subchannel reads can return combined R-W information\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x08)
-	    {
-	      DbgPrint("  R-W data will be returned deinterleaved and error corrected\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x10)
-	    {
-	      DbgPrint("  Drive supports C2 error pointers\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x20)
-	    {
-	      DbgPrint("  Drive can return International Standard Recording Code info\n");
-	    }
-	  if (CapabilitiesData->Capabilities[1] & 0x40)
-	    {
-	      DbgPrint("  Drive can return Media Catalog Number (UPC) info\n");
-	    }
-	  DPRINT("CapabilitiesData.Capabilities[2] %x\n", CapabilitiesData->Capabilities[2]);
-	  if (CapabilitiesData->Capabilities[2] & 0x01)
-	    {
-	      DbgPrint("  Drive can lock the door\n");
-	    }
-	  if (CapabilitiesData->Capabilities[2] & 0x02)
-	    {
-	      DbgPrint("  The door is locked\n");
-	    }
-	  if (CapabilitiesData->Capabilities[2] & 0x04)
-	    {
-	    }
-	  if (CapabilitiesData->Capabilities[2] & 0x08)
-	    {
-	      DbgPrint("  Drive can eject a disc or changer cartridge\n");
-	    }
-	  if (CapabilitiesData->Capabilities[2] & 0x10)
-	    {
-	      DbgPrint("  Drive supports C2 error pointers\n");
-	    }
-	  switch (CapabilitiesData->Capabilities[2] >> 5)
-	    {
-	      case 0:
-	        DbgPrint("  Drive use a caddy type loading mechanism\n");
-		break;
-	      case 1:
-	        DbgPrint("  Drive use a tray type loading mechanism\n");
-		break;
-	      case 2:
-	        DbgPrint("  Drive use a pop-up type loading mechanism\n");
-		break;
-	      case 4:
-	        DbgPrint("  Drive is a changer with individually changeable discs\n");
-		break;
-	      case 5:
-	        DbgPrint("  Drive is a changer with cartridge mechanism\n");
-		break;
-	    }
-	  DPRINT("CapabilitiesData.Capabilities[3] %x\n", CapabilitiesData->Capabilities[3]);
-	  if (CapabilitiesData->Capabilities[3] & 0x01)
-	    {
-	      DbgPrint("  Audio level for each channel can be controlled independently\n");
-	    }
-	  if (CapabilitiesData->Capabilities[3] & 0x02)
-	    {
-	      DbgPrint("  Audio for each channel can be muted independently\n");
-	    }
-	  if (CapabilitiesData->Capabilities[3] & 0x04)
-	    {
-	      DbgPrint("  Changer can report exact contents of slots\n");
-	    }
-	  if (CapabilitiesData->Capabilities[3] & 0x08)
-	    {
-	      DbgPrint("  Drive supports software slot selection\n");
-	    }
-	  DbgPrint("  Maximum speed is %d kB/s\n", 
-	          (CapabilitiesData->MaximumSpeedSupported[0] << 8) 
-		  | CapabilitiesData->MaximumSpeedSupported[1]);
-	  DbgPrint("  Current speed is %d kB/s\n", 
-	          (CapabilitiesData->CurrentSpeed[0] << 8) 
-		  | CapabilitiesData->CurrentSpeed[1]);
-	  DbgPrint("  Number of discrete volume levels is %d\n",
-	          (CapabilitiesData->Reserved3 << 8) 
-		  | CapabilitiesData->NumberVolumeLevels);
-	  DbgPrint("  Buffer size is %d kB\n",
-	          (CapabilitiesData->BufferSize[0] << 8) 
-		  | CapabilitiesData->BufferSize[1]);
-#endif
-	}
-      else
-	{
-	  DPRINT("XA not supported\n");
-	  CdromData->XaFlags |= XA_NOT_SUPPORTED;
-	}
-
-    }
-
-
-  ExFreePool (Buffer);
-
-  /* Initialize device timer */
   IoInitializeTimer(DiskDeviceObject,
 		    CdromTimerRoutine,
 		    NULL);
@@ -925,17 +538,13 @@ CdromClassCreateDeviceObject(IN PDRIVER_OBJECT DriverObject,
  * RETURNS:
  *	Status.
  */
+
 static NTSTATUS
-CdromClassReadTocEntry (PDEVICE_OBJECT DeviceObject,
-			UINT TrackNo,
-			PVOID Buffer,
-			UINT Length)
+CdromClassReadTocEntry(PDEVICE_OBJECT DeviceObject, UINT TrackNo, PVOID Buffer, UINT Length)
 {
-  PDEVICE_EXTENSION DeviceExtension;
+  PDEVICE_EXTENSION DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
   SCSI_REQUEST_BLOCK Srb;
   PCDB Cdb;
-
-  DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   RtlZeroMemory(&Srb, sizeof(SCSI_REQUEST_BLOCK));
   Srb.CdbLength = 10;
@@ -958,16 +567,11 @@ CdromClassReadTocEntry (PDEVICE_OBJECT DeviceObject,
 
 
 static NTSTATUS
-CdromClassReadLastSession (PDEVICE_OBJECT DeviceObject,
-			   UINT TrackNo,
-			   PVOID Buffer,
-			   UINT Length)
+CdromClassReadLastSession(PDEVICE_OBJECT DeviceObject, UINT TrackNo, PVOID Buffer, UINT Length)
 {
-  PDEVICE_EXTENSION DeviceExtension;
+  PDEVICE_EXTENSION DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
   SCSI_REQUEST_BLOCK Srb;
   PCDB Cdb;
-
-  DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   RtlZeroMemory(&Srb, sizeof(SCSI_REQUEST_BLOCK));
   Srb.CdbLength = 10;
@@ -1033,33 +637,34 @@ CdromClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
   switch (ControlCode)
     {
       case IOCTL_CDROM_GET_DRIVE_GEOMETRY:
-	DPRINT ("CdromClassDeviceControl: IOCTL_CDROM_GET_DRIVE_GEOMETRY\n");
+	DPRINT("IOCTL_CDROM_GET_DRIVE_GEOMETRY\n");
 	if (IrpStack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(DISK_GEOMETRY))
 	  {
-	    Status = STATUS_INFO_LENGTH_MISMATCH;
-	    break;
+	    Status = STATUS_INVALID_PARAMETER;
 	  }
-	IoMarkIrpPending (Irp);
-	IoStartPacket (DeviceObject,
-		       Irp,
-		       NULL,
-		       NULL);
-	return STATUS_PENDING;
-
-      case IOCTL_CDROM_CHECK_VERIFY:
-	DPRINT ("CdromClassDeviceControl: IOCTL_CDROM_CHECK_VERIFY\n");
-	if (OutputLength != 0 && OutputLength < sizeof (ULONG))
+	else
 	  {
-	    DPRINT1("Buffer too small\n");
-	    Status = STATUS_BUFFER_TOO_SMALL;
-	    break;
+	    PDISK_GEOMETRY Geometry;
+
+	    if (DeviceExtension->DiskGeometry == NULL)
+	      {
+		DPRINT("No cdrom geometry available!\n");
+		DeviceExtension->DiskGeometry = ExAllocatePool(NonPagedPool,
+							       sizeof(DISK_GEOMETRY));
+	      }
+	    Status = ScsiClassReadDriveCapacity(DeviceObject);
+	    if (NT_SUCCESS(Status))
+	      {
+		Geometry = (PDISK_GEOMETRY)Irp->AssociatedIrp.SystemBuffer;
+		RtlMoveMemory(Geometry,
+			      DeviceExtension->DiskGeometry,
+			      sizeof(DISK_GEOMETRY));
+
+		Status = STATUS_SUCCESS;
+		Information = sizeof(DISK_GEOMETRY);
+	      }
 	  }
-	IoMarkIrpPending (Irp);
-	IoStartPacket (DeviceObject,
-		       Irp,
-		       NULL,
-		       NULL);
-	return STATUS_PENDING;
+	break;
 
       case IOCTL_CDROM_READ_TOC:
 	DPRINT("IOCTL_CDROM_READ_TOC\n");
@@ -1141,18 +746,18 @@ CdromClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
   Irp->IoStatus.Status = Status;
   Irp->IoStatus.Information = Information;
   IoCompleteRequest(Irp,
-		    IO_DISK_INCREMENT);
+		    IO_NO_INCREMENT);
 
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 
 /**********************************************************************
- * NAME
- *	CdromClassStartIo
+ * NAME							EXPORTED
+ *	CdromClassShutdownFlush
  *
  * DESCRIPTION:
- *	Starts IRP processing.
+ *	Answer requests for shutdown and flush calls
  *
  * RUN LEVEL:
  *	PASSIVE_LEVEL
@@ -1163,453 +768,20 @@ CdromClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
  *		Standard dispatch arguments
  *
  * RETURNS:
- *	None.
+ *	Status.
  */
-VOID STDCALL
-CdromClassStartIo (IN PDEVICE_OBJECT DeviceObject,
-		   IN PIRP Irp)
-{
-  PDEVICE_EXTENSION DeviceExtension;
-  PIO_STACK_LOCATION IrpStack;
-  PIO_STACK_LOCATION SubIrpStack;
-  ULONG MaximumTransferLength;
-  ULONG TransferPages;
-  PSCSI_REQUEST_BLOCK Srb;
-  PIRP SubIrp;
-  PUCHAR SenseBuffer;
-  PVOID DataBuffer;
-  PCDB Cdb;
-
-  DPRINT("CdromClassStartIo() called!\n");
-
-  IoMarkIrpPending (Irp);
-
-  DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  IrpStack = IoGetCurrentIrpStackLocation (Irp);
-
-  MaximumTransferLength = DeviceExtension->PortCapabilities->MaximumTransferLength;
-
-  if (DeviceObject->Flags & DO_VERIFY_VOLUME)
-    {
-      if (!(IrpStack->Flags & SL_OVERRIDE_VERIFY_VOLUME))
-	{
-	  DPRINT1 ("Verify required\n");
-
-	  if (Irp->Tail.Overlay.Thread)
-	    {
-	      IoSetHardErrorOrVerifyDevice (Irp,
-					    DeviceObject);
-	    }
-	  Irp->IoStatus.Status = STATUS_VERIFY_REQUIRED;
-
-	  /* FIXME: Update drive capacity */
-
-	  return;
-	}
-    }
-
-  if (IrpStack->MajorFunction == IRP_MJ_READ)
-    {
-      DPRINT ("CdromClassStartIo: IRP_MJ_READ\n");
-
-      TransferPages =
-	ADDRESS_AND_SIZE_TO_SPAN_PAGES (MmGetMdlVirtualAddress(Irp->MdlAddress),
-					IrpStack->Parameters.Read.Length);
-
-      /* Check transfer size */
-      if ((IrpStack->Parameters.Read.Length > MaximumTransferLength) ||
-	  (TransferPages > DeviceExtension->PortCapabilities->MaximumPhysicalPages))
-	{
-	  /* Transfer size is too large - split it */
-	  TransferPages =
-	    DeviceExtension->PortCapabilities->MaximumPhysicalPages - 1;
-
-	  /* Adjust transfer size */
-	  if (MaximumTransferLength > TransferPages * PAGE_SIZE)
-	    MaximumTransferLength = TransferPages * PAGE_SIZE;
-
-	  if (MaximumTransferLength == 0)
-	    MaximumTransferLength = PAGE_SIZE;
-
-	  /* Split the transfer */
-	  ScsiClassSplitRequest (DeviceObject,
-				 Irp,
-				 MaximumTransferLength);
-	  return;
-	}
-      else
-	{
-	  /* Build SRB */
-	  ScsiClassBuildRequest (DeviceObject,
-				 Irp);
-	}
-    }
-  else if (IrpStack->MajorFunction == IRP_MJ_DEVICE_CONTROL)
-    {
-      DPRINT ("CdromClassStartIo: IRP_MJ_IRP_MJ_DEVICE_CONTROL\n");
-
-      /* Allocate an IRP for sending requests to the port driver */
-      SubIrp = IoAllocateIrp ((CCHAR)(DeviceObject->StackSize + 1),
-			      FALSE);
-      if (SubIrp == NULL)
-	{
-	  Irp->IoStatus.Information = 0;
-	  Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-	  IoCompleteRequest (Irp,
-			     IO_DISK_INCREMENT);
-	  IoStartNextPacket (DeviceObject,
-			     FALSE);
-	  return;
-	}
-
-      /* Allocate an SRB */
-      Srb = ExAllocatePool (NonPagedPool,
-			    sizeof (SCSI_REQUEST_BLOCK));
-      if (Srb == NULL)
-	{
-	  IoFreeIrp (SubIrp);
-	  Irp->IoStatus.Information = 0;
-	  Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-	  IoCompleteRequest (Irp,
-			     IO_DISK_INCREMENT);
-	  IoStartNextPacket (DeviceObject,
-			     FALSE);
-	  return;
-	}
-
-      /* Allocte a sense buffer */
-      SenseBuffer = ExAllocatePool (NonPagedPoolCacheAligned,
-				    SENSE_BUFFER_SIZE);
-      if (SenseBuffer == NULL)
-	{
-	  ExFreePool (Srb);
-	  IoFreeIrp (SubIrp);
-	  Irp->IoStatus.Information = 0;
-	  Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-	  IoCompleteRequest (Irp,
-			     IO_DISK_INCREMENT);
-	  IoStartNextPacket (DeviceObject,
-			     FALSE);
-	  return;
-	}
-
-      /* Initialize the IRP */
-      IoSetNextIrpStackLocation (SubIrp);
-      SubIrp->IoStatus.Information = 0;
-      SubIrp->IoStatus.Status = STATUS_SUCCESS;
-      SubIrp->Flags = 0;
-      SubIrp->UserBuffer = NULL;
-
-      SubIrpStack = IoGetCurrentIrpStackLocation (SubIrp);
-      SubIrpStack->DeviceObject = DeviceExtension->DeviceObject;
-      SubIrpStack->Parameters.Others.Argument2 = (PVOID)Irp;
-
-      /* Initialize next stack location */
-      SubIrpStack = IoGetNextIrpStackLocation (SubIrp);
-      SubIrpStack->MajorFunction = IRP_MJ_SCSI;
-      SubIrpStack->Parameters.DeviceIoControl.IoControlCode = IOCTL_SCSI_EXECUTE_IN;
-      SubIrpStack->Parameters.Scsi.Srb = Srb;
-
-      /* Initialize the SRB */
-      RtlZeroMemory(Srb,
-		    sizeof (SCSI_REQUEST_BLOCK));
-      Srb->Length = sizeof (SCSI_REQUEST_BLOCK);
-      Srb->PathId = DeviceExtension->PathId;
-      Srb->TargetId = DeviceExtension->TargetId;
-      Srb->Lun = DeviceExtension->Lun;
-      Srb->Function = SRB_FUNCTION_EXECUTE_SCSI;
-      Srb->SrbStatus = SRB_STATUS_SUCCESS;
-      Srb->ScsiStatus = 0;
-      Srb->NextSrb = 0;
-      Srb->OriginalRequest = SubIrp;
-      Srb->SenseInfoBuffer = SenseBuffer;
-      Srb->SenseInfoBufferLength = SENSE_BUFFER_SIZE;
-
-      /* Initialize the CDB */
-      Cdb = (PCDB)Srb->Cdb;
-
-      /* Set the completion routine */
-      IoSetCompletionRoutine (SubIrp,
-			      CdromDeviceControlCompletion,
-			      Srb,
-			      TRUE,
-			      TRUE,
-			      TRUE);
-
-      switch (IrpStack->Parameters.DeviceIoControl.IoControlCode)
-	{
-	  case IOCTL_CDROM_GET_DRIVE_GEOMETRY:
-	    DPRINT ("CdromClassStartIo: IOCTL_CDROM_GET_DRIVE_GEOMETRY\n");
-	    Srb->DataTransferLength = sizeof(READ_CAPACITY_DATA);
-	    Srb->CdbLength = 10;
-	    Srb->TimeOutValue = DeviceExtension->TimeOutValue;
-	    Srb->SrbFlags = SRB_FLAGS_DISABLE_SYNCH_TRANSFER | SRB_FLAGS_DATA_IN;
-	    Cdb->CDB10.OperationCode = SCSIOP_READ_CAPACITY;
-
-	    /* Allocate data buffer */
-	    DataBuffer = ExAllocatePool (NonPagedPoolCacheAligned,
-					 sizeof(READ_CAPACITY_DATA));
-	    if (DataBuffer == NULL)
-	      {
-		Irp->IoStatus.Information = 0;
-		Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-		IoCompleteRequest (Irp,
-				   IO_DISK_INCREMENT);
-		ExFreePool (SenseBuffer);
-		ExFreePool (Srb);
-		IoFreeIrp (SubIrp);
-		IoStartNextPacket (DeviceObject,
-				   FALSE);
-		return;
-	      }
-
-	    /* Allocate an MDL for the data buffer */
-	    SubIrp->MdlAddress = IoAllocateMdl (DataBuffer,
-						sizeof(READ_CAPACITY_DATA),
-						FALSE,
-						FALSE,
-						NULL);
-	    if (SubIrp->MdlAddress == NULL)
-	      {
-		Irp->IoStatus.Information = 0;
-		Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-		IoCompleteRequest (Irp,
-				   IO_DISK_INCREMENT);
-		ExFreePool (DataBuffer);
-		ExFreePool (SenseBuffer);
-		ExFreePool (Srb);
-		IoFreeIrp (SubIrp);
-		IoStartNextPacket (DeviceObject,
-				   FALSE);
-		return;
-	      }
-
-	    MmBuildMdlForNonPagedPool (SubIrp->MdlAddress);
-	    Srb->DataBuffer = DataBuffer;
-
-	    IoCallDriver (DeviceExtension->PortDeviceObject,
-			  SubIrp);
-	    return;
-
-	  case IOCTL_CDROM_CHECK_VERIFY:
-	    DPRINT ("CdromClassStartIo: IOCTL_CDROM_CHECK_VERIFY\n");
-	    Srb->CdbLength = 6;
-	    Srb->TimeOutValue = DeviceExtension->TimeOutValue * 2;
-	    Srb->SrbFlags = SRB_FLAGS_NO_DATA_TRANSFER;
-	    Cdb->CDB6GENERIC.OperationCode = SCSIOP_TEST_UNIT_READY;
-
-	    IoCallDriver (DeviceExtension->PortDeviceObject,
-			  SubIrp);
-	    return;
-
-	  default:
-	    IoCompleteRequest (Irp,
-			       IO_NO_INCREMENT);
-	    return;
-	}
-    }
-
-  /* Call the SCSI port driver */
-  IoCallDriver (DeviceExtension->PortDeviceObject,
-		Irp);
-}
-
 
 NTSTATUS STDCALL
-CdromDeviceControlCompletion (IN PDEVICE_OBJECT DeviceObject,
-			      IN PIRP Irp,
-			      IN PVOID Context)
+CdromClassShutdownFlush(IN PDEVICE_OBJECT DeviceObject,
+			IN PIRP Irp)
 {
-  PDEVICE_EXTENSION DeviceExtension;
-  PDEVICE_EXTENSION PhysicalExtension;
-  PIO_STACK_LOCATION IrpStack;
-  PIO_STACK_LOCATION OrigCurrentIrpStack;
-  PIO_STACK_LOCATION OrigNextIrpStack;
-  PSCSI_REQUEST_BLOCK Srb;
-  PIRP OrigIrp;
-  BOOLEAN Retry;
-  NTSTATUS Status;
+  DPRINT("CdromClassShutdownFlush() called!\n");
 
-  DPRINT ("CdromDeviceControlCompletion() called\n");
+  Irp->IoStatus.Status = STATUS_SUCCESS;
+  Irp->IoStatus.Information = 0;
+  IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-  DeviceExtension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
-  PhysicalExtension = (PDEVICE_EXTENSION)DeviceExtension->PhysicalDevice->DeviceExtension;
-  Srb = (PSCSI_REQUEST_BLOCK) Context;
-
-  IrpStack = IoGetCurrentIrpStackLocation (Irp);
-
-  /* Get the original IRP */
-  OrigIrp = (PIRP)IrpStack->Parameters.Others.Argument2;
-  OrigCurrentIrpStack = IoGetCurrentIrpStackLocation (OrigIrp);
-  OrigNextIrpStack = IoGetNextIrpStackLocation (OrigIrp);
-
-  if (SRB_STATUS(Srb->SrbStatus) == SRB_STATUS_SUCCESS)
-    {
-      Status = STATUS_SUCCESS;
-    }
-  else
-    {
-      DPRINT ("SrbStatus %lx\n", Srb->SrbStatus);
-
-      /* Interpret sense info */
-      Retry = ScsiClassInterpretSenseInfo (DeviceObject,
-					   Srb,
-					   IrpStack->MajorFunction,
-					   IrpStack->Parameters.DeviceIoControl.IoControlCode,
-					   MAXIMUM_RETRIES - (ULONG)OrigNextIrpStack->Parameters.Others.Argument1,
-					   &Status);
-      DPRINT ("Retry %u\n", Retry);
-
-      if (Retry == TRUE &&
-	  (ULONG)OrigNextIrpStack->Parameters.Others.Argument1 > 0)
-	{
-	  DPRINT1 ("Try again (Retry count %lu)\n",
-		   (ULONG)OrigNextIrpStack->Parameters.Others.Argument1);
-
-	  (ULONG)OrigNextIrpStack->Parameters.Others.Argument1--;
-
-	  /* Release 'old' buffers */
-	  ExFreePool (Srb->SenseInfoBuffer);
-	  if (Srb->DataBuffer)
-	    ExFreePool(Srb->DataBuffer);
-	  ExFreePool(Srb);
-
-	  if (Irp->MdlAddress != NULL)
-	    IoFreeMdl(Irp->MdlAddress);
-
-	  IoFreeIrp(Irp);
-
-	  /* Call the StartIo routine again */
-	  CdromClassStartIo (DeviceObject,
-			     OrigIrp);
-
-	  return STATUS_MORE_PROCESSING_REQUIRED;
-	}
-
-      DPRINT ("Status %lx\n", Status);
-    }
-
-  if (NT_SUCCESS (Status))
-    {
-      switch (OrigCurrentIrpStack->Parameters.DeviceIoControl.IoControlCode)
-	{
-	  case IOCTL_CDROM_GET_DRIVE_GEOMETRY:
-	    {
-	      PREAD_CAPACITY_DATA CapacityBuffer;
-	      ULONG LastSector;
-	      ULONG SectorSize;
-
-	      DPRINT ("CdromClassControlCompletion: IOCTL_CDROM_GET_DRIVE_GEOMETRY\n");
-
-	      CapacityBuffer = (PREAD_CAPACITY_DATA)Srb->DataBuffer;
-	      SectorSize = (((PUCHAR)&CapacityBuffer->BytesPerBlock)[0] << 24) |
-			   (((PUCHAR)&CapacityBuffer->BytesPerBlock)[1] << 16) |
-			   (((PUCHAR)&CapacityBuffer->BytesPerBlock)[2] << 8) |
-			    ((PUCHAR)&CapacityBuffer->BytesPerBlock)[3];
-
-	      LastSector = (((PUCHAR)&CapacityBuffer->LogicalBlockAddress)[0] << 24) |
-			   (((PUCHAR)&CapacityBuffer->LogicalBlockAddress)[1] << 16) |
-			   (((PUCHAR)&CapacityBuffer->LogicalBlockAddress)[2] << 8) |
-			    ((PUCHAR)&CapacityBuffer->LogicalBlockAddress)[3];
-
-	      if (SectorSize == 0)
-		SectorSize = 2048;
-	      DeviceExtension->DiskGeometry->BytesPerSector = SectorSize;
-
-	      DeviceExtension->PartitionLength.QuadPart = (LONGLONG)(LastSector + 1);
-	      WHICH_BIT(DeviceExtension->DiskGeometry->BytesPerSector,
-			DeviceExtension->SectorShift);
-	      DeviceExtension->PartitionLength.QuadPart =
-		(DeviceExtension->PartitionLength.QuadPart << DeviceExtension->SectorShift);
-
-	      if (DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA)
-		{
-		  DeviceExtension->DiskGeometry->MediaType = RemovableMedia;
-		}
-	      else
-		{
-		  DeviceExtension->DiskGeometry->MediaType = FixedMedia;
-		}
-	      DeviceExtension->DiskGeometry->Cylinders.QuadPart =
-		(LONGLONG)((LastSector + 1)/(32 * 64));
-	      DeviceExtension->DiskGeometry->SectorsPerTrack = 32;
-	      DeviceExtension->DiskGeometry->TracksPerCylinder = 64;
-
-	      RtlCopyMemory (OrigIrp->AssociatedIrp.SystemBuffer,
-			     DeviceExtension->DiskGeometry,
-			     sizeof(DISK_GEOMETRY));
-	      OrigIrp->IoStatus.Information = sizeof(DISK_GEOMETRY);
-	    }
-	    break;
-
-	  case IOCTL_CDROM_CHECK_VERIFY:
-	    DPRINT ("CdromDeviceControlCompletion: IOCTL_CDROM_CHECK_VERIFY\n");
-	    if (OrigCurrentIrpStack->Parameters.DeviceIoControl.OutputBufferLength != 0)
-	      {
-		/* Return the media change counter */
-		*((PULONG)(OrigIrp->AssociatedIrp.SystemBuffer)) =
-		  PhysicalExtension->MediaChangeCount;
-		OrigIrp->IoStatus.Information = sizeof(ULONG);
-	      }
-	    else
-	      {
-		OrigIrp->IoStatus.Information = 0;
-	      }
-	    break;
-
-	  default:
-	    OrigIrp->IoStatus.Information = 0;
-	    Status = STATUS_INVALID_DEVICE_REQUEST;
-	    break;
-	}
-    }
-
-  /* Release the SRB and associated buffers */
-  if (Srb != NULL)
-    {
-      DPRINT("Srb %p\n", Srb);
-
-      if (Srb->DataBuffer != NULL)
-	ExFreePool (Srb->DataBuffer);
-
-      if (Srb->SenseInfoBuffer != NULL)
-	ExFreePool (Srb->SenseInfoBuffer);
-
-      ExFreePool (Srb);
-    }
-
-  if (OrigIrp->PendingReturned)
-    {
-      IoMarkIrpPending (OrigIrp);
-    }
-
-  /* Release the MDL */
-  if (Irp->MdlAddress != NULL)
-    {
-      IoFreeMdl (Irp->MdlAddress);
-    }
-
-  /* Release the sub irp */
-  IoFreeIrp (Irp);
-
-  /* Set io status information */
-  OrigIrp->IoStatus.Status = Status;
-  if (!NT_SUCCESS(Status) && IoIsErrorUserInduced (Status))
-    {
-      IoSetHardErrorOrVerifyDevice (OrigIrp,
-				    DeviceObject);
-      OrigIrp->IoStatus.Information = 0;
-    }
-
-  /* Complete the original IRP */
-  IoCompleteRequest (OrigIrp,
-		     IO_DISK_INCREMENT);
-  IoStartNextPacket (DeviceObject,
-		     FALSE);
-
-  DPRINT ("CdromDeviceControlCompletion() done\n");
-
-  return STATUS_MORE_PROCESSING_REQUIRED;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -1617,7 +789,7 @@ VOID STDCALL
 CdromTimerRoutine(PDEVICE_OBJECT DeviceObject,
 		  PVOID Context)
 {
-  DPRINT ("CdromTimerRoutine() called\n");
+  DPRINT("CdromTimerRoutine() called\n");
 
 }
 

@@ -27,13 +27,26 @@
 #ifndef __USETUP_H__
 #define __USETUP_H__
 
-#ifdef assert
-#undef assert
-#endif
-#define assert(x)
+#define DPRINT1(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
+#define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
-#define ROUND_DOWN(N, S) (((N) / (S)) * (S))
-#define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
+#define DPRINT(args...)
+#define CHECKPOINT
+
+typedef enum
+{
+  FsFat = 0,
+  FsKeep = 1
+} FILE_SYSTEM;
+
+typedef struct _FILE_SYSTEM_LIST
+{
+  SHORT Left;
+  SHORT Top;
+  BOOLEAN ForceFormat;
+  FILE_SYSTEM CurrentFileSystem;
+  ULONG FileSystemCount;
+} FILE_SYSTEM_LIST, *PFILE_SYSTEM_LIST;
 
 extern HANDLE ProcessHeap;
 

@@ -10,7 +10,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/mm.h>
+#include <internal/ke.h>
+#include <internal/i386/segment.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -23,72 +28,68 @@ extern VOID MmSafeCopyToUserRestart(VOID);
 
 extern ULONG MmGlobalKernelPageDirectory[1024];
 
-BOOLEAN
+BOOLEAN 
 Mmi386MakeKernelPageTableGlobal(PVOID Address);
 
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS MmPageFault(ULONG Cs,
-                     PULONG Eip,
-                     PULONG Eax,
-                     ULONG Cr2,
-                     ULONG ErrorCode)
+		     PULONG Eip,
+		     PULONG Eax,
+		     ULONG Cr2,
+		     ULONG ErrorCode)
 {
    KPROCESSOR_MODE Mode;
    NTSTATUS Status;
-
+   
    DPRINT("MmPageFault(Eip %x, Cr2 %x, ErrorCode %x)\n",
-          *Eip, Cr2, ErrorCode);
-
+	  Eip, Cr2, ErrorCode);
+   
    if (ErrorCode & 0x4)
-   {
-      Mode = UserMode;
-   }
+     {
+	Mode = UserMode;
+     }
    else
-   {
-      Mode = KernelMode;
-   }
-
-   if (Mode == KernelMode && Cr2 >= KERNEL_BASE &&
-         Mmi386MakeKernelPageTableGlobal((PVOID)Cr2))
-   {
-      return(STATUS_SUCCESS);
-   }
+     {
+	Mode = KernelMode;
+     }
+   
+   if (Mode == KernelMode && Cr2 >= KERNEL_BASE && 
+       Mmi386MakeKernelPageTableGlobal((PVOID)Cr2))
+     {
+       return(STATUS_SUCCESS);
+     }
 
    if (ErrorCode & 0x1)
-   {
-      Status = MmAccessFault(Mode, Cr2, FALSE);
-   }
+     {
+	Status = MmAccessFault(Mode, Cr2, FALSE);
+     }
    else
-   {
-      Status = MmNotPresentFault(Mode, Cr2, FALSE);
-   }
-
+     {
+	Status = MmNotPresentFault(Mode, Cr2, FALSE);
+     }
+   
    if (KeGetCurrentThread() != NULL &&
-      KeGetCurrentThread()->Alerted[UserMode] != 0 &&
-      Cs != KERNEL_CS)
-   {
-      KIRQL oldIrql;
-      
-      KeRaiseIrql(APC_LEVEL, &oldIrql);
-      KiDeliverApc(KernelMode, NULL, NULL);
-      KeLowerIrql(oldIrql);
-   }
+       KeGetCurrentThread()->Alerted[1] != 0 &&
+       Cs != KERNEL_CS)
+     {
+       KiDeliverNormalApc();
+     }
    if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
-         ((*Eip) >= (ULONG)MmSafeCopyFromUserUnsafeStart) &&
-         ((*Eip) <= (ULONG)MmSafeCopyFromUserRestart))
-   {
-      (*Eip) = (ULONG)MmSafeCopyFromUserRestart;
-      (*Eax) = STATUS_ACCESS_VIOLATION;
-      return(STATUS_SUCCESS);
-   }
+       ((*Eip) >= (ULONG)MmSafeCopyFromUserUnsafeStart) &&
+       ((*Eip) <= (ULONG)MmSafeCopyFromUserRestart))
+     {
+	(*Eip) = (ULONG)MmSafeCopyFromUserRestart;
+	(*Eax) = STATUS_ACCESS_VIOLATION;
+	return(STATUS_SUCCESS);
+     }
    if (!NT_SUCCESS(Status) && (Mode == KernelMode) &&
-         ((*Eip) >= (ULONG)MmSafeCopyToUserUnsafeStart) &&
-         ((*Eip) <= (ULONG)MmSafeCopyToUserRestart))
-   {
-      (*Eip) = (ULONG)MmSafeCopyToUserRestart;
-      (*Eax) = STATUS_ACCESS_VIOLATION;
-      return(STATUS_SUCCESS);
-   }
+       ((*Eip) >= (ULONG)MmSafeCopyToUserUnsafeStart) &&
+       ((*Eip) <= (ULONG)MmSafeCopyToUserRestart))
+     {
+	(*Eip) = (ULONG)MmSafeCopyToUserRestart;
+	(*Eax) = STATUS_ACCESS_VIOLATION;
+	return(STATUS_SUCCESS);
+     }
    return(Status);
 }

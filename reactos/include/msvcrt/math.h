@@ -18,12 +18,12 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.6 $
- * $Author: navaraf $
- * $Date: 2003/12/26 09:52:37 $
+ * $Revision: 1.4 $
+ * $Author: robd $
+ * $Date: 2002/11/24 18:06:00 $
  *
  */
-/* added modfl */
+// added modfl 
 
 #ifndef _MATH_H_
 #define _MATH_H_
@@ -136,6 +136,23 @@ double  _y0 (double x);
 double  _y1 (double x);
 double  _yn (int n, double x);
 
+#ifndef _NO_OLDNAMES
+
+/*
+ * Non-underscored versions of non-ANSI functions. These reside in
+ * liboldnames.a. Provided for extra portability.
+ */
+double cabs (struct _complex x);
+double hypot (double x, double y);
+double j0 (double x);
+double j1 (double x);
+double jn (int n, double x);
+double y0 (double x);
+double y1 (double x);
+double yn (int n, double x);
+
+#endif  /* Not _NO_OLDNAMES */
+
 #endif  /* Not __STRICT_ANSI__ */
 
 #ifdef __cplusplus
@@ -169,12 +186,10 @@ double  linkme_modf(double x, double* ip);
 long double linkme_modfl(long double x,long double* ip);
 double  linkme_fmod(double x, double y);
 
-/*
- * linkme_log2
- * linkme_floor
- * linkme_ldexp
- * linkme_pow
- */
+//linkme_log2
+//linkme_floor
+//linkme_ldexp
+//linkme_pow
 
 #endif
 

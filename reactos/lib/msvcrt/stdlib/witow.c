@@ -1,4 +1,4 @@
-/* $Id: witow.c,v 1.3 2003/07/11 21:58:09 royce Exp $
+/* $Id: witow.c,v 1.2 2002/12/05 15:30:45 robd Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -17,9 +17,6 @@
 #include <msvcrt/internal/file.h>
 
 
-/*
- * @implemented
- */
 wchar_t* _i64tow(__int64 value, wchar_t* string, int radix)
 {
   wchar_t tmp[65];
@@ -60,9 +57,6 @@ wchar_t* _i64tow(__int64 value, wchar_t* string, int radix)
   return string;
 }
 
-/*
- * @implemented
- */
 wchar_t* _ui64tow(unsigned __int64 value, wchar_t* string, int radix)
 {
   wchar_t tmp[65];

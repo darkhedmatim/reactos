@@ -1,7 +1,13 @@
-/* $Id: strcpy.c,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/*
+ * $Id: strcpy.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
 #include <string.h>
-#include "tcscpy.h"
 
-/* EOF */
+char* strcpy(char *to, const char *from)
+{
+  char *save = to;
+
+  for (; (*to = *from); ++from, ++to);
+  return save;
+}

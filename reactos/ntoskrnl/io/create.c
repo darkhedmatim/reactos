@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.76 2004/12/23 23:55:56 ekohl Exp $
+/* $Id: create.c,v 1.65 2003/06/07 12:17:19 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,13 @@
 
 /* INCLUDES ***************************************************************/
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <internal/ob.h>
+#include <internal/io.h>
+#include <internal/id.h>
+#include <internal/pool.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -35,13 +41,11 @@
  *
  * REVISIONS
  * 
- * @unimplemented
  */
 NTSTATUS STDCALL
 NtDeleteFile(IN POBJECT_ATTRIBUTES ObjectAttributes)
 {
   UNIMPLEMENTED;
-  return(STATUS_NOT_IMPLEMENTED);
 }
 
 
@@ -56,6 +60,7 @@ NtDeleteFile(IN POBJECT_ATTRIBUTES ObjectAttributes)
  * RETURN VALUE
  *
  * REVISIONS
+ * 
  */
 NTSTATUS STDCALL
 IopCreateFile(PVOID			ObjectBody,
@@ -200,28 +205,24 @@ IopCreateFile(PVOID			ObjectBody,
  * 	
  * REVISIONS
  * 
- * @implemented
  */
 PFILE_OBJECT STDCALL
 IoCreateStreamFileObject(PFILE_OBJECT FileObject,
 			 PDEVICE_OBJECT DeviceObject)
 {
+  HANDLE		FileHandle;
   PFILE_OBJECT	CreatedFileObject;
   NTSTATUS Status;
 
   DPRINT("IoCreateStreamFileObject(FileObject %x, DeviceObject %x)\n",
 	 FileObject, DeviceObject);
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+  assert_irql(PASSIVE_LEVEL);
 
-  Status = ObCreateObject(KernelMode,
+  Status = ObRosCreateObject(&FileHandle,
+			  STANDARD_RIGHTS_REQUIRED,
+			  NULL,
 			  IoFileObjectType,
-			  NULL,
-			  KernelMode,
-			  NULL,
-			  sizeof(FILE_OBJECT),
-			  0,
-			  0,
 			  (PVOID*)&CreatedFileObject);
   if (!NT_SUCCESS(Status))
     {
@@ -245,7 +246,9 @@ IoCreateStreamFileObject(PFILE_OBJECT FileObject,
   // shouldn't we initialize the lock event, and several other things here too?
   KeInitializeEvent(&CreatedFileObject->Event, NotificationEvent, FALSE);
 
-  return CreatedFileObject;
+  ZwClose(FileHandle);
+
+  return(CreatedFileObject);
 }
 
 
@@ -316,13 +319,12 @@ IoCreateStreamFileObject(PFILE_OBJECT FileObject,
  * 	
  * REVISIONS
  * 
- * @implemented
  */
 NTSTATUS STDCALL
 IoCreateFile(OUT	PHANDLE			FileHandle,
 	     IN	ACCESS_MASK		DesiredAccess,
 	     IN	POBJECT_ATTRIBUTES	ObjectAttributes,
-	     OUT PIO_STATUS_BLOCK	IoStatusBlock,
+	     OUT	PIO_STATUS_BLOCK	IoStatusBlock,
 	     IN	PLARGE_INTEGER		AllocationSize		OPTIONAL,
 	     IN	ULONG			FileAttributes,
 	     IN	ULONG			ShareAccess,
@@ -338,54 +340,28 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
    NTSTATUS		Status;
    PIRP			Irp;
    PIO_STACK_LOCATION	StackLoc;
+   IO_STATUS_BLOCK      IoSB;
    IO_SECURITY_CONTEXT  SecurityContext;
-   KPROCESSOR_MODE PreviousMode;
    
    DPRINT("IoCreateFile(FileHandle %x, DesiredAccess %x, "
 	  "ObjectAttributes %x ObjectAttributes->ObjectName->Buffer %S)\n",
 	  FileHandle,DesiredAccess,ObjectAttributes,
 	  ObjectAttributes->ObjectName->Buffer);
    
-   ASSERT_IRQL(PASSIVE_LEVEL);
-
-  if (IoStatusBlock == NULL)
-    return STATUS_ACCESS_VIOLATION;
-
+   assert_irql(PASSIVE_LEVEL);
+   
    *FileHandle = 0;
 
-   PreviousMode = ExGetPreviousMode();
-
-   Status = ObCreateObject(PreviousMode,
-			   IoFileObjectType,
+   Status = ObRosCreateObject(FileHandle,
+			   DesiredAccess,
 			   ObjectAttributes,
-			   PreviousMode,
-			   NULL,
-			   sizeof(FILE_OBJECT),
-			   0,
-			   0,
+			   IoFileObjectType,
 			   (PVOID*)&FileObject);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT("ObCreateObject() failed! (Status %lx)\n", Status);
-	return Status;
+	DPRINT("ObRosCreateObject() failed! (Status %lx)\n", Status);
+	return(Status);
      }
-
-   RtlMapGenericMask(&DesiredAccess,
-                     BODY_TO_HEADER(FileObject)->ObjectType->Mapping);
-
-   Status = ObInsertObject ((PVOID)FileObject,
-			    NULL,
-			    DesiredAccess,
-			    0,
-			    NULL,
-			    FileHandle);
-   if (!NT_SUCCESS(Status))
-     {
-	DPRINT("ObInsertObject() failed! (Status %lx)\n", Status);
-	ObDereferenceObject (FileObject);
-	return Status;
-     }
-
    if (CreateOptions & FILE_SYNCHRONOUS_IO_ALERT)
      {
 	FileObject->Flags |= (FO_ALERTABLE_IO | FO_SYNCHRONOUS_IO);
@@ -395,7 +371,7 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
 	FileObject->Flags |= FO_SYNCHRONOUS_IO;
      }
 
-   if (CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING)
+   if( CreateOptions & FILE_NO_INTERMEDIATE_BUFFERING )
      FileObject->Flags |= FO_NO_INTERMEDIATE_BUFFERING;
 
    SecurityContext.SecurityQos = NULL; /* ?? */
@@ -417,15 +393,15 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
    if (Irp == NULL)
      {
 	ZwClose(*FileHandle);
-	return STATUS_UNSUCCESSFUL;
+	return (STATUS_UNSUCCESSFUL);
      }
 
    //trigger FileObject/Event dereferencing
    Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
-   Irp->UserIosb = IoStatusBlock;
+     
+   Irp->UserIosb = &IoSB;   //return iostatus
    Irp->AssociatedIrp.SystemBuffer = EaBuffer;
-   Irp->Tail.Overlay.AuxiliaryBuffer = NULL;
+   Irp->Tail.Overlay.AuxiliaryBuffer = (PCHAR)ExtraCreateParameters;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    Irp->UserEvent = &FileObject->Event;
    if (AllocationSize)
@@ -438,46 +414,35 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
     * IRP and prepare it.
     */
    StackLoc = IoGetNextIrpStackLocation(Irp);
-   StackLoc->MinorFunction = 0;
-   StackLoc->Flags = (UCHAR)Options;
-   StackLoc->Control = 0;
-   StackLoc->DeviceObject = FileObject->DeviceObject;
-   StackLoc->FileObject = FileObject;
-
    switch (CreateFileType)
      {
 	default:
 	case CreateFileTypeNone:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE;
-	  StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.Create.FileAttributes = (USHORT)FileAttributes;
-	  StackLoc->Parameters.Create.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.Create.EaLength = EaLength;
 	  break;
 	
 	case CreateFileTypeNamedPipe:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_NAMED_PIPE;
-	  StackLoc->Parameters.CreatePipe.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreatePipe.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreatePipe.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreatePipe.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreatePipe.Parameters = ExtraCreateParameters;
 	  break;
 
 	case CreateFileTypeMailslot:
 	  StackLoc->MajorFunction = IRP_MJ_CREATE_MAILSLOT;
-	  StackLoc->Parameters.CreateMailslot.SecurityContext = &SecurityContext;
-	  StackLoc->Parameters.CreateMailslot.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
-	  StackLoc->Parameters.CreateMailslot.Options |= (CreateDisposition << 24);
-	  StackLoc->Parameters.CreateMailslot.ShareAccess = (USHORT)ShareAccess;
-	  StackLoc->Parameters.CreateMailslot.Parameters = ExtraCreateParameters;
 	  break;
      }
-
+   StackLoc->MinorFunction = 0;
+   StackLoc->Flags = Options;
+   StackLoc->Control = 0;
+   StackLoc->DeviceObject = FileObject->DeviceObject;
+   StackLoc->FileObject = FileObject;
+   StackLoc->Parameters.Create.SecurityContext = &SecurityContext;
+   StackLoc->Parameters.Create.Options = (CreateOptions & FILE_VALID_OPTION_FLAGS);
+   StackLoc->Parameters.Create.Options |= (CreateDisposition << 24);
+   StackLoc->Parameters.Create.FileAttributes = FileAttributes;
+   StackLoc->Parameters.Create.ShareAccess = ShareAccess;
+   StackLoc->Parameters.Create.EaLength = EaLength;
+   
    /*
-    * Now call the driver and
+    * Now call the driver and 
     * possibly wait if it can
     * not complete the request
     * immediately.
@@ -488,10 +453,10 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
      {
 	KeWaitForSingleObject(&FileObject->Event,
 			      Executive,
-			      PreviousMode,
+			      KernelMode,
 			      FALSE,
 			      NULL);
-	Status = IoStatusBlock->Status;
+	Status = IoSB.Status;
      }
    if (!NT_SUCCESS(Status))
      {
@@ -501,12 +466,15 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
 
 	ZwClose(*FileHandle);
      }
-
-   ASSERT_IRQL(PASSIVE_LEVEL);
+   if (IoStatusBlock)
+     {
+       *IoStatusBlock = IoSB;
+     }
+   assert_irql(PASSIVE_LEVEL);
 
    DPRINT("Finished IoCreateFile() (*FileHandle) %x\n", (*FileHandle));
 
-   return Status;
+   return (Status);
 }
 
 
@@ -527,8 +495,6 @@ IoCreateFile(OUT	PHANDLE			FileHandle,
  * REVISIONS
  * 	2000-03-25 (ea)
  * 		Code originally in NtCreateFile moved in IoCreateFile.
- *
- * @implemented
  */
 NTSTATUS STDCALL
 NtCreateFile(PHANDLE FileHandle,
@@ -592,8 +558,6 @@ NtCreateFile(PHANDLE FileHandle,
  * 	
  * NOTE
  * 	Undocumented.
- *
- * @implemented
  */
 NTSTATUS STDCALL
 NtOpenFile(PHANDLE FileHandle,

@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.50 2004/12/24 19:02:32 greatlrd Exp $
+/* $Id: stubs.c,v 1.12 2003/06/03 22:26:12 ekohl Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -8,10 +8,11 @@
  * REVISION HISTORY:
  *       04-06-2001  CSH  Created
  */
-#include <w32k.h>
+#include <ddk/ntddk.h>
 
 #define NDEBUG
 #include <debug.h>
+
 
 DWORD
 STDCALL
@@ -55,7 +56,69 @@ NtUserBitBltSysBmp(
 
 DWORD
 STDCALL
+NtUserBlockInput(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserBuildHwndList(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5,
+  DWORD Unknown6)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserBuildNameList(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+
+DWORD
+STDCALL
 NtUserCallHwnd(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCallHwndLock(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCallHwndOpt(
   DWORD Unknown0,
   DWORD Unknown1)
 {
@@ -99,18 +162,71 @@ NtUserCallMsgFilter(
   return 0;
 }
 
-LONG
+DWORD
+STDCALL
+NtUserCallNoParam(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCallOneParam(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserChangeClipboardChain(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
 STDCALL
 NtUserChangeDisplaySettings(
-  PUNICODE_STRING lpszDeviceName,
-  LPDEVMODEW lpDevMode,
-  HWND hwnd,
-  DWORD dwflags,
-  LPVOID lParam)
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4)
 {
-  // UNIMPLEMENTED
-  DbgPrint("(%s:%i) WIN32K: %s UNIMPLEMENTED\n", __FILE__, __LINE__, __FUNCTION__ );
-  return DISP_CHANGE_BADMODE;
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCheckMenuItem(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCloseClipboard(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
 }
 
 DWORD
@@ -118,6 +234,51 @@ STDCALL
 NtUserConvertMemHandle(
   DWORD Unknown0,
   DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCopyAcceleratorTable(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCountClipboardFormats(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCreateAcceleratorTable(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserCreateCaret(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
 {
   UNIMPLEMENTED
 
@@ -177,13 +338,67 @@ NtUserDdeSetQualityOfService(
 
 DWORD
 STDCALL
+NtUserDefSetText(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDeleteMenu(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDestroyAcceleratorTable(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDestroyMenu(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDragDetect(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserDragObject(
-	   HWND    hwnd1,
-	   HWND    hwnd2,
-	   UINT    u1,
-	   DWORD   dw1,
-	   HCURSOR hc1
-	   )
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4)
 {
   UNIMPLEMENTED
 
@@ -232,13 +447,103 @@ NtUserDrawCaptionTemp(
   return 0;
 }
 
-BOOL
+DWORD
 STDCALL
-NtUserEnumDisplayDevices (
-  PUNICODE_STRING lpDevice, /* device name */
-  DWORD iDevNum, /* display device */
-  PDISPLAY_DEVICE lpDisplayDevice, /* device information */
-  DWORD dwFlags ) /* reserved */
+NtUserDrawIconEx(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5,
+  DWORD Unknown6,
+  DWORD Unknown7,
+  DWORD Unknown8,
+  DWORD Unknown9,
+  DWORD Unknown10)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserDrawMenuBarTemp(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEmptyClipboard(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEnableMenuItem(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEndMenu(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEnumDisplayDevices(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEnumDisplayMonitors(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserEnumDisplaySettings(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
 {
   UNIMPLEMENTED
 
@@ -285,6 +590,75 @@ DWORD
 STDCALL
 NtUserGetAsyncKeyState(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetCaretBlinkTime(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetCaretPos(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardData(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardFormatName(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardOwner(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardSequenceNumber(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetClipboardViewer(VOID)
 {
   UNIMPLEMENTED
 
@@ -341,6 +715,37 @@ NtUserGetCPD(
 
 DWORD
 STDCALL
+NtUserGetDoubleClickTime(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetGuiResources(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetGUIThreadInfo(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetImeHotKey(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -375,8 +780,77 @@ NtUserGetKeyboardLayoutName(
 
 DWORD
 STDCALL
+NtUserGetKeyboardState(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetKeyNameText(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetKeyState(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetListBoxInfo(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetMenuBarInfo(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetMenuIndex(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetMenuItemRect(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
 {
   UNIMPLEMENTED
 
@@ -399,9 +873,76 @@ NtUserGetMouseMovePointsEx(
 
 DWORD
 STDCALL
+NtUserGetPriorityClipboardFormat(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetSystemMenu(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetThreadState(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetTitleBarInfo(
   DWORD Unknown0,
   DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetUpdateRect(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserHideCaret(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserHiliteMenuItem(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
 {
   UNIMPLEMENTED
 
@@ -454,6 +995,16 @@ NtUserInitTask(
 
 DWORD
 STDCALL
+NtUserIsClipboardFormatAvailable(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserLoadKeyboardLayoutEx(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -470,6 +1021,44 @@ NtUserLoadKeyboardLayoutEx(
 DWORD
 STDCALL
 NtUserLockWorkStation(VOID)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserMapVirtualKeyEx(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserMenuItemFromPoint(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserMinMaximize(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
 {
   UNIMPLEMENTED
 
@@ -534,6 +1123,17 @@ NtUserNotifyWinEvent(
 
 DWORD
 STDCALL
+NtUserOpenClipboard(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserQueryUserCounters(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -546,11 +1146,35 @@ NtUserQueryUserCounters(
   return 0;
 }
 
+DWORD
+STDCALL
+NtUserRegisterHotKey(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
 
 DWORD
 STDCALL
 NtUserRegisterTasklist(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserRemoveMenu(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
 {
   UNIMPLEMENTED
 
@@ -565,6 +1189,50 @@ NtUserSBGetParms(
   DWORD Unknown1,
   DWORD Unknown2,
   DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSendInput(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetCapture(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetClipboardData(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetClipboardViewer(
+  DWORD Unknown0)
 {
   UNIMPLEMENTED
 
@@ -595,6 +1263,16 @@ NtUserSetDbgTag(
 
 DWORD
 STDCALL
+NtUserSetFocus(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserSetImeHotKey(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -607,6 +1285,71 @@ NtUserSetImeHotKey(
   return 0;
 }
 
+DWORD
+STDCALL
+NtUserSetKeyboardState(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetMenu(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetMenuContextHelpId(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetMenuDefaultItem(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetMenuFlagRtoL(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSetParent(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
 
 DWORD
 STDCALL
@@ -634,9 +1377,85 @@ NtUserSetSysColors(
 
 DWORD
 STDCALL
+NtUserSetSystemMenu(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserSetThreadState(
   DWORD Unknown0,
   DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserShowCaret(
+  DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserSystemParametersInfo(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserThunkedMenuInfo(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserThunkedMenuItemInfo(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserToUnicodeEx(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5,
+  DWORD Unknown6)
 {
   UNIMPLEMENTED
 
@@ -655,8 +1474,46 @@ NtUserTrackMouseEvent(
 
 DWORD
 STDCALL
+NtUserTrackPopupMenuEx(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserTranslateAccelerator(
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserUnloadKeyboardLayout(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserUnregisterHotKey(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 
@@ -689,6 +1546,17 @@ NtUserUpdateInstance(
 
 DWORD
 STDCALL
+NtUserUpdatePerUserSystemParameters(
+  DWORD Unknown0,
+  DWORD Unknown1)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
 NtUserUserHandleGrantAccess(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -703,6 +1571,17 @@ DWORD
 STDCALL
 NtUserValidateHandleSecure(
   DWORD Unknown0)
+{
+  UNIMPLEMENTED
+
+  return 0;
+}
+
+DWORD
+STDCALL
+NtUserValidateRect(
+  DWORD Unknown0,
+  DWORD Unknown1)
 {
   UNIMPLEMENTED
 

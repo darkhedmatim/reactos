@@ -1,4 +1,4 @@
-/* $Id: luid.c,v 1.10 2004/08/15 16:39:11 chorns Exp $
+/* $Id: luid.c,v 1.7 2003/05/31 11:10:30 ekohl Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -11,7 +11,8 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -24,7 +25,7 @@ static LARGE_INTEGER LuidValue;
 
 /* FUNCTIONS *****************************************************************/
 
-VOID INIT_FUNCTION
+VOID
 SepInitLuid(VOID)
 {
   KeInitializeSpinLock(&LuidLock);
@@ -33,9 +34,6 @@ SepInitLuid(VOID)
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 NtAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 {
@@ -57,9 +55,6 @@ NtAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlCopyLuid(IN PLUID LuidDest,
 	    IN PLUID LuidSrc)
@@ -69,9 +64,6 @@ RtlCopyLuid(IN PLUID LuidDest,
 }
 
 
-/*
- * @implemented
- */
 BOOLEAN STDCALL
 RtlEqualLuid(IN PLUID Luid1,
 	     IN PLUID Luid2)

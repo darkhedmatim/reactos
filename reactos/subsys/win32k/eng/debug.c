@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: debug.c,v 1.8 2004/05/10 17:07:17 weiden Exp $
+/* $Id: debug.c,v 1.4 2003/05/18 17:16:17 ea Exp $
  * 
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -26,11 +26,9 @@
  * REVISION HISTORY:
  *                 11/7/1999: Created
  */
-#include <w32k.h>
 
-/*
- * @implemented
- */
+#include <ddk/ntddk.h>
+
 VOID STDCALL
 EngDebugPrint(PCHAR StandardPrefix,
 	      PCHAR DebugMessage,

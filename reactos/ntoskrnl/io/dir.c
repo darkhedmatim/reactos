@@ -1,4 +1,4 @@
-/* $Id: dir.c,v 1.26 2004/12/23 12:34:59 ekohl Exp $
+/* $Id: dir.c,v 1.16 2003/05/22 00:47:04 gdalsnes Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,7 +11,9 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/io.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -19,9 +21,6 @@
 
 
 
-/*
- * @implemented
- */
 NTSTATUS
 STDCALL
 NtNotifyChangeDirectoryFile (
@@ -36,81 +35,10 @@ NtNotifyChangeDirectoryFile (
 	IN	BOOLEAN			WatchTree
 	)
 {
-   PIRP Irp;
-   PDEVICE_OBJECT DeviceObject;
-   PFILE_OBJECT FileObject;
-   NTSTATUS Status;
-   PIO_STACK_LOCATION IoStack;
-   KPROCESSOR_MODE PreviousMode;
-   
-   DPRINT("NtNotifyChangeDirectoryFile()\n");
-
-   PreviousMode = ExGetPreviousMode();
-
-   Status = ObReferenceObjectByHandle(FileHandle,
-				      FILE_LIST_DIRECTORY,
-				      IoFileObjectType,
-				      PreviousMode,
-				      (PVOID *)&FileObject,
-				      NULL);
-   
-   if (Status != STATUS_SUCCESS)
-     {
-	return(Status);
-     }
-   DeviceObject = FileObject->DeviceObject;
-   
-   Irp = IoAllocateIrp(DeviceObject->StackSize, TRUE);
-   if (Irp==NULL)
-     {
-	ObDereferenceObject(FileObject);
-	return STATUS_UNSUCCESSFUL;
-     }
-   
-   if (Event == NULL)
-     {
-       Event = &FileObject->Event;
-     }
-
-   /* Trigger FileObject/Event dereferencing */
-   Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
-   Irp->UserIosb = IoStatusBlock;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-   Irp->UserEvent = Event;
-   KeResetEvent( Event );
-   Irp->UserBuffer = Buffer;
-   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
-   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
-   
-   IoStack = IoGetNextIrpStackLocation(Irp);
-   
-   IoStack->MajorFunction = IRP_MJ_DIRECTORY_CONTROL;
-   IoStack->MinorFunction = IRP_MN_NOTIFY_CHANGE_DIRECTORY;
-   IoStack->Flags = 0;
-   IoStack->Control = 0;
-   IoStack->DeviceObject = DeviceObject;
-   IoStack->FileObject = FileObject;
-   
-   if (WatchTree)
-     {
-	IoStack->Flags = SL_WATCH_TREE;
-     }
-
-   IoStack->Parameters.NotifyDirectory.CompletionFilter = CompletionFilter;
-   IoStack->Parameters.NotifyDirectory.Length = BufferSize;
-   
-   Status = IoCallDriver(FileObject->DeviceObject,Irp);
-
-   /* FIXME: Should we wait here or not for synchronously opened files? */
-
-   return Status;
+	UNIMPLEMENTED;
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS
 STDCALL 
 NtQueryDirectoryFile(
@@ -158,21 +86,20 @@ NtQueryDirectoryFile(
    PFILE_OBJECT FileObject;
    NTSTATUS Status;
    PIO_STACK_LOCATION IoStack;
-   KPROCESSOR_MODE PreviousMode;
+   IO_STATUS_BLOCK IoSB;
    
    DPRINT("NtQueryDirectoryFile()\n");
-
-   PreviousMode = ExGetPreviousMode();
-
+   
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_LIST_DIRECTORY,
 				      IoFileObjectType,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID *)&FileObject,
 				      NULL);
    
    if (Status != STATUS_SUCCESS)
      {
+	ObDereferenceObject(FileObject);
 	return(Status);
      }
    DeviceObject = FileObject->DeviceObject;
@@ -184,16 +111,13 @@ NtQueryDirectoryFile(
 	return STATUS_UNSUCCESSFUL;
      }
    
-   /* Trigger FileObject/Event dereferencing */
+   //trigger FileObject/Event dereferencing
    Irp->Tail.Overlay.OriginalFileObject = FileObject;
-   Irp->RequestorMode = PreviousMode;
-   Irp->UserIosb = IoStatusBlock;
+   
+   Irp->UserIosb = &IoSB;
    Irp->UserEvent = &FileObject->Event;
-   Irp->Tail.Overlay.Thread = PsGetCurrentThread();
    KeResetEvent( &FileObject->Event );
    Irp->UserBuffer=FileInformation;
-   Irp->Overlay.AsynchronousParameters.UserApcRoutine = ApcRoutine;
-   Irp->Overlay.AsynchronousParameters.UserApcContext = ApcContext;
    
    IoStack = IoGetNextIrpStackLocation(Irp);
    
@@ -216,7 +140,7 @@ NtQueryDirectoryFile(
      {
 	IoStack->Flags = IoStack->Flags | SL_INDEX_SPECIFIED;
      }
-
+   
    IoStack->Parameters.QueryDirectory.FileInformationClass = 
      FileInformationClass;
    IoStack->Parameters.QueryDirectory.FileName = FileName;
@@ -225,21 +149,26 @@ NtQueryDirectoryFile(
    Status = IoCallDriver(FileObject->DeviceObject,Irp);
    if (Status==STATUS_PENDING && !(FileObject->Flags & FO_SYNCHRONOUS_IO))
      {
-	KeWaitForSingleObject(&FileObject->Event,
-			      Executive,
-			      PreviousMode,
-			      FileObject->Flags & FO_ALERTABLE_IO,
-			      NULL);
-	Status = IoStatusBlock->Status;
+	if (FileObject->Flags & FO_ALERTABLE_IO)
+	  {
+	     KeWaitForSingleObject(&FileObject->Event,Executive,KernelMode,TRUE,NULL);
+	  }
+	else
+	  {
+	     KeWaitForSingleObject(&FileObject->Event,Executive,KernelMode,FALSE,NULL);
+	  }
+	Status = IoSB.Status;
      }
-
+   if (IoStatusBlock)
+     {
+       *IoStatusBlock = IoSB;
+     }
    return(Status);
 }
 
 NTSTATUS STDCALL NtQueryOleDirectoryFile(VOID)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
 
 

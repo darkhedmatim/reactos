@@ -67,9 +67,6 @@ FILE *__alloc_file(void)
 }
 
 
-/*
- * @implemented
- */
 int _fcloseall( void )
 {
    __file_rec *fr = __file_rec_list;

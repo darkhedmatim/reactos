@@ -1,9 +1,8 @@
 #ifndef __INCLUDE_NAPI_TYPES_H
 #define __INCLUDE_NAPI_TYPES_H
 
-/* these should be moved to a file like ntdef.h */
+// these should be moved to a file like ntdef.h
 
-#ifndef __USE_W32API
 enum
 {
    DIRECTORY_QUERY,
@@ -12,7 +11,6 @@ enum
    DIRECTORY_CREATE_SUBDIRECTORY,
    DIRECTORY_ALL_ACCESS,
 };
-#endif
 
 /*
  * General type for status information
@@ -64,19 +62,19 @@ typedef enum _FILE_INFORMATION_CLASS
   FileMailslotQueryInformation,
   FileMailslotSetInformation,
   FileCompressionInformation,
-  FileObjectIdInformation,
+  FileCopyOnWriteInformation,
   FileCompletionInformation,
   FileMoveClusterInformation,
-  FileQuotaInformation,
-  FileReparsePointInformation,
+  FileOleClassIdInformation,
+  FileOleStateBitsInformation,
   FileNetworkOpenInformation,
-  FileAttributeTagInformation,
-  FileTrackingInformation,
-  FileIdBothDirectoryInformation,
-  FileIdFullDirectoryInformation,
-  FileValidDataLengthInformation,
-  FileShortNameInformation,
-  FileMaximumInformation
+  FileObjectIdInformation,
+  FileOleAllInformation,
+  FileOleDirectoryInformation,
+  FileContentIndexInformation,
+  FileInheritContentIndexInformation,
+  FileOleInformation,
+  FileMaximumInformation,
 } FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 
 typedef enum _SECTION_INHERIT {

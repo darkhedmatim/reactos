@@ -7,9 +7,6 @@ int fileno(FILE *f)
 }
 
 
-/*
- * @implemented
- */
 int _fileno(FILE *f) 
 {
 	return f->_file;

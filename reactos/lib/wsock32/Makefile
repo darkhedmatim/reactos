@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.6 2004/05/29 21:24:48 hbirr Exp $
+# $Id: Makefile,v 1.1 2003/04/03 22:44:19 gvg Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,7 +6,7 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = wsock32
 
-TARGET_BASE = $(TARGET_BASE_LIB_WSOCK32)
+TARGET_BASE = 0x75050000
 
 TARGET_CFLAGS = \
  -I./include \
@@ -15,12 +15,11 @@ TARGET_CFLAGS = \
  -fno-builtin \
  -DUNICODE \
  -DLE \
- -DDBG \
- -D__USE_W32API
+ -DDBG
 
 TARGET_LFLAGS = -nostartfiles -nostdlib
 
-TARGET_SDKLIBS = kernel32.a ws2_32.a mswsock.a
+TARGET_SDKLIBS = kernel32.a
 
 TARGET_OBJECTS = stubs.o
 

@@ -31,9 +31,16 @@
  *        Fixed little bug.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_SET
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "cmd.h"
 
 
 /* initial size of environment variable buffer */
@@ -87,10 +94,7 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		/* set or remove environment variable */
 		*p = _T('\0');
 		p++;
-		if (*p == _T('\0'))
-		{
-			p = NULL;
-		}
+
 		SetEnvironmentVariable (param, p);
 	}
 	else
@@ -103,16 +107,16 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		dwBuffer = GetEnvironmentVariable (param, pszBuffer, ENV_BUFFER_SIZE);
 		if (dwBuffer == 0)
 		{
-			ConErrPrintf (_T("CMD: Not in environment \"%s\"\n"), param);
+			ConErrPrintf ("CMD: Not in environment \"%s\"\n", param);
 			return 0;
 		}
 		else if (dwBuffer > ENV_BUFFER_SIZE)
 		{
 			pszBuffer = (LPTSTR)realloc (pszBuffer, dwBuffer * sizeof (TCHAR));
-			GetEnvironmentVariable (param, pszBuffer, dwBuffer);
+			GetEnvironmentVariable (param, pszBuffer, dwBuffer * sizeof (TCHAR));
 		}
-		ConOutPrintf (_T("%s\n"), pszBuffer);
 
+		ConOutPrintf ("%s\n", pszBuffer);
 		free (pszBuffer);
 
 		return 0;

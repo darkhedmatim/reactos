@@ -1,10 +1,6 @@
 #include <msvcrt/mbstring.h>
 
-/*
- * FIXME not correct
- *
- * @implemented
- */
+// not correct
 unsigned char * _mbsspnp(const unsigned char *s1, const unsigned char *s2)
 {
   const char *p = s1, *spanp;

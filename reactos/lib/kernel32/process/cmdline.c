@@ -1,4 +1,4 @@
-/* $Id: cmdline.c,v 1.19 2004/01/23 21:16:04 ekohl Exp $
+/* $Id: cmdline.c,v 1.16 2003/01/15 21:24:35 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include <kernel32/kernel32.h>
 
 
 /* GLOBALS ******************************************************************/
@@ -22,7 +22,7 @@
 static UNICODE_STRING CommandLineStringW;
 static ANSI_STRING CommandLineStringA;
 
-static BOOL bCommandLineInitialized = FALSE;
+static WINBOOL bCommandLineInitialized = FALSE;
 
 
 /* FUNCTIONS ****************************************************************/
@@ -66,9 +66,6 @@ InitCommandLines (VOID)
 }
 
 
-/*
- * @implemented
- */
 LPSTR STDCALL GetCommandLineA(VOID)
 {
 	if (bCommandLineInitialized == FALSE)
@@ -81,10 +78,6 @@ LPSTR STDCALL GetCommandLineA(VOID)
 	return(CommandLineStringA.Buffer);
 }
 
-
-/*
- * @implemented
- */
 LPWSTR STDCALL GetCommandLineW (VOID)
 {
 	if (bCommandLineInitialized == FALSE)

@@ -41,15 +41,15 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/*
- *	Return Code macros
- */
+//
+//	Return Code macros
+//
 #define	SUCCEEDED(Status)	((HRESULT)(Status) >= 0)
 #define	FAILED(Status)		((HRESULT)(Status)<0)
 
-/*
- *	Success Codes
- */
+//
+//	Success Codes
+//
 #define S_OK						0x00000000L
 #define S_FALSE						0x00000001L
 
@@ -234,17 +234,6 @@ extern "C" {
 #define ERROR_LOCKED                     212L
 #define ERROR_TOO_MANY_MODULES           214L
 #define ERROR_NESTING_NOT_ALLOWED        215L
-#define ERROR_CANNOT_SHRINK              216L
-#define ERROR_ZOMBIE_PROCESS             217L
-#define ERROR_STACK_IN_HIGH_MEMORY       218L
-#define ERROR_INVALID_EXITROUTINE_RING   219L
-#define ERROR_GETBUF_FAILED              220L
-#define ERROR_FLUSHBUF_FAILED            221L
-#define ERROR_TRANSFER_TOO_LONG          222L
-#define ERROR_FORCENOSWAP_FAILED         223L
-#define ERROR_SMG_NO_TARGET_WINDOW       224L
-#define ERROR_NO_CHILDREN                228L
-#define ERROR_INVALID_SCREEN_GROUP       229L
 #define ERROR_BAD_PIPE                   230L
 #define ERROR_PIPE_BUSY                  231L
 #define ERROR_NO_DATA                    232L
@@ -570,8 +559,6 @@ extern "C" {
 #define ERROR_PAGEFILE_QUOTA             1454L
 #define ERROR_COMMITMENT_LIMIT           1455L
 #define ERROR_MENU_ITEM_NOT_FOUND        1456L
-#define ERROR_TIMEOUT                    1460L
-#define ERROR_INVALID_MONITOR_HANDLE     1461L
 #define ERROR_EVENTLOG_FILE_CORRUPT      1500L
 #define ERROR_EVENTLOG_CANT_START        1501L
 #define ERROR_LOG_FILE_FULL              1502L

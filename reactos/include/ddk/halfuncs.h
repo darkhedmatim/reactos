@@ -1,9 +1,8 @@
 #ifndef __INCLUDE_DDK_HALFUNCS_H
 #define __INCLUDE_DDK_HALFUNCS_H
-/* $Id: halfuncs.h,v 1.12 2003/10/20 06:03:29 vizzini Exp $ */
+/* $Id: halfuncs.h,v 1.7 2003/06/21 14:25:30 gvg Exp $ */
 
 #include <ntos/haltypes.h>
-#include <ddk/iotypes.h>
 
 VOID STDCALL
 HalAcquireDisplayOwnership(IN PHAL_RESET_DISPLAY_PARAMETERS ResetDisplayParameters);
@@ -13,9 +12,10 @@ HalAdjustResourceList(PCM_RESOURCE_LIST	Resources);
 
 NTSTATUS STDCALL
 HalAllocateAdapterChannel(IN PADAPTER_OBJECT AdapterObject,
-			  IN PWAIT_CONTEXT_BLOCK WaitContextBlock,
+			  IN PDEVICE_OBJECT DeviceObject,
 			  IN ULONG NumberOfMapRegisters,
-			  IN PDRIVER_CONTROL ExecutionRoutine);
+			  IN PDRIVER_CONTROL ExecutionRoutine,
+			  IN PVOID Context);
 
 PVOID STDCALL
 HalAllocateCommonBuffer(PADAPTER_OBJECT AdapterObject,
@@ -97,18 +97,10 @@ HalGetBusDataByOffset(BUS_DATA_TYPE BusDataType,
 		      ULONG Offset,
 		      ULONG Length);
 
-/* Is this function really exported ??
+/* Is this function really exported ?? */
 ULONG
 HalGetDmaAlignmentRequirement(VOID);
-NTOSAPI
-DDKAPI
-*/
 
-ULONG STDCALL
-HalGetDmaAlignmentRequirement( 
-  VOID);
-
-			   
 BOOLEAN STDCALL
 HalGetEnvironmentVariable(IN PCH Name,
 			  OUT PCH Value,
@@ -152,6 +144,9 @@ HalRequestIpi(ULONG Unknown);
 FASTCALL
 HalRequestSoftwareInterrupt
 */
+
+VOID STDCALL
+HalReturnToFirmware(ULONG Action);
 
 ULONG STDCALL
 HalSetBusData(BUS_DATA_TYPE BusDataType,
@@ -285,6 +280,13 @@ WRITE_PORT_ULONG(PULONG Port,
 VOID STDCALL
 WRITE_PORT_USHORT(PUSHORT Port,
 		  USHORT Value);
+
+/* Non-standard functions */
+VOID STDCALL
+HalReleaseDisplayOwnership();
+
+BOOLEAN STDCALL
+HalQueryDisplayOwnership();
 
 #endif /* __INCLUDE_DDK_HALDDK_H */
 

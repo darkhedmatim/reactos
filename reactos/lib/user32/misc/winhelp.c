@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: winhelp.c,v 1.7 2004/08/15 21:36:28 chorns Exp $
+/* $Id: winhelp.c,v 1.3 2002/09/30 21:21:38 chorns Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/misc/winhelp.c
@@ -28,8 +28,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
 #include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
 
 /* WinHelp internal structure */
@@ -46,10 +47,7 @@ typedef struct
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 WinHelpA(HWND hWnd, LPCSTR lpszHelp, UINT uCommand, DWORD dwData)
 {
@@ -126,14 +124,10 @@ WinHelpA(HWND hWnd, LPCSTR lpszHelp, UINT uCommand, DWORD dwData)
 		lpwh->ofsData = 0;
 	}
 	GlobalUnlock(hwh);
-	return SendMessageA(hDest, WM_WINHELP, (WPARAM)hWnd, (LPARAM)hwh);
+	return SendMessage(hDest, WM_WINHELP, (WPARAM)hWnd, (LPARAM)hwh);
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 WinHelpW(HWND hWnd, LPCWSTR lpszHelp, UINT uCommand, DWORD dwData)
 {

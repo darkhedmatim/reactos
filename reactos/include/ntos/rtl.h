@@ -1,6 +1,7 @@
-/* $Id: rtl.h,v 1.41 2004/12/30 18:30:03 ion Exp $
+/* $Id: rtl.h,v 1.12 2003/06/07 16:16:38 chorns Exp $
  * 
  */
+
 #ifndef __DDK_RTL_H
 #define __DDK_RTL_H
 
@@ -12,7 +13,7 @@
 #endif /* __NTOSKRNL__ || __NTDRIVER__ || __NTHAL__ || __NTDLL__ || __NTAPP__ */
 
 #include <pe.h>
-#include <ole32/guiddef.h>
+
 
 #ifndef __USE_W32API
 
@@ -88,11 +89,10 @@
  * ARGUMENTS:
  *         ListHead = Caller supplied storage for the head of the list
  */
-static __inline VOID
-InitializeListHead(
-	IN PLIST_ENTRY  ListHead)
-{
-	ListHead->Flink = ListHead->Blink = ListHead;
+#define InitializeListHead(ListHead) \
+{ \
+	(ListHead)->Flink = (ListHead); \
+	(ListHead)->Blink = (ListHead); \
 }
 
 
@@ -108,17 +108,19 @@ InitializeListHead(
  *        ListHead = Head of the list
  *        Entry = Entry to insert
  */
-static __inline VOID
-InsertHeadList(
-	IN PLIST_ENTRY  ListHead,
-	IN PLIST_ENTRY  Entry)
-{ 
-	PLIST_ENTRY OldFlink;
-	OldFlink = ListHead->Flink;
-	Entry->Flink = OldFlink;
-	Entry->Blink = ListHead;
-	OldFlink->Blink = Entry;
-	ListHead->Flink = Entry;
+#define InsertHeadList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	OldFlink = (ListHead)->Flink; \
+	(ListEntry)->Flink = OldFlink; \
+	(ListEntry)->Blink = (ListHead); \
+	OldFlink->Blink = (ListEntry); \
+	(ListHead)->Flink = (ListEntry); \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
 }
 
 
@@ -136,17 +138,19 @@ InsertHeadList(
  *	ListHead = Head of the list
  *	Entry = Entry to insert
  */
-static __inline VOID
-InsertTailList(
-	IN PLIST_ENTRY  ListHead,
-	IN PLIST_ENTRY  Entry)
-{ 
-	PLIST_ENTRY OldBlink;
-	OldBlink = ListHead->Blink;
-	Entry->Flink = ListHead;
-	Entry->Blink = OldBlink;
-	OldBlink->Flink = Entry;
-	ListHead->Blink = Entry;
+#define InsertTailList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldBlink; \
+	OldBlink = (ListHead)->Blink; \
+	(ListEntry)->Flink = (ListHead); \
+	(ListEntry)->Blink = OldBlink; \
+	OldBlink->Flink = (ListEntry); \
+	(ListHead)->Blink = (ListEntry); \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink != NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
 }
 
 /*
@@ -180,24 +184,49 @@ InsertTailList(
  * RETURNS:
  *	The removed entry
  */
+/*
 #define PopEntryList(ListHead) \
 	(ListHead)->Next; \
 	{ \
-		PSINGLE_LIST_ENTRY _FirstEntry; \
-		_FirstEntry = (ListHead)->Next; \
-		if (_FirstEntry != NULL) \
-			(ListHead)->Next = _FirstEntry->Next; \
+		PSINGLE_LIST_ENTRY FirstEntry; \
+		FirstEntry = (ListHead)->Next; \
+		if (FirstEntry != NULL) \
+		{ \
+			(ListHead)->Next = FirstEntry->Next; \
+		} \
 	}
+*/
+static inline PSINGLE_LIST_ENTRY
+PopEntryList(PSINGLE_LIST_ENTRY ListHead)
+{
+  PSINGLE_LIST_ENTRY ListEntry;
+
+  ListEntry = ListHead->Next;
+  if (ListEntry!=NULL)
+  {
+    ListHead->Next = ListEntry->Next;
+  }
+
+  return(ListEntry);
+}
 
 #define RtlCopyMemory(Destination,Source,Length) \
 	memcpy((Destination),(Source),(Length))
 
-#define PushEntryList(_ListHead, _Entry) \
-	(_Entry)->Next = (_ListHead)->Next; \
-	(_ListHead)->Next = (_Entry); \
+static
+inline
+VOID
+PushEntryList (
+	PSINGLE_LIST_ENTRY	ListHead,
+	PSINGLE_LIST_ENTRY	Entry
+	)
+{
+	Entry->Next = ListHead->Next;
+	ListHead->Next = Entry;
+}
 
 /*
- *BOOLEAN
+ *VOID
  *RemoveEntryList (
  *	PLIST_ENTRY	Entry
  *	);
@@ -208,18 +237,21 @@ InsertTailList(
  * ARGUMENTS:
  *	ListEntry = Entry to remove
  */
-static __inline BOOLEAN
-RemoveEntryList(
-  IN PLIST_ENTRY  Entry)
-{
-  PLIST_ENTRY OldFlink;
-  PLIST_ENTRY OldBlink;
-
-  OldFlink = Entry->Flink;
-  OldBlink = Entry->Blink;
-  OldFlink->Blink = OldBlink;
-  OldBlink->Flink = OldFlink;
-  return (OldFlink == OldBlink);
+#define RemoveEntryList(ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	PLIST_ENTRY OldBlink; \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
+	OldFlink = (ListEntry)->Flink; \
+	OldBlink = (ListEntry)->Blink; \
+	OldFlink->Blink = OldBlink; \
+	OldBlink->Flink = OldFlink; \
+        (ListEntry)->Flink = NULL; \
+        (ListEntry)->Blink = NULL; \
 }
 
 
@@ -238,18 +270,42 @@ RemoveEntryList(
  * RETURNS:
  *	The removed entry
  */
-static __inline PLIST_ENTRY 
-RemoveHeadList(
-  IN PLIST_ENTRY  ListHead)
-{
-  PLIST_ENTRY Flink;
-  PLIST_ENTRY Entry;
+/*
+#define RemoveHeadList(ListHead) \
+	(ListHead)->Flink; \
+	{RemoveEntryList((ListHead)->Flink)}
+*/
+/*
+PLIST_ENTRY
+RemoveHeadList (
+	PLIST_ENTRY	ListHead
+	);
+*/
 
-  Entry = ListHead->Flink;
-  Flink = Entry->Flink;
-  ListHead->Flink = Flink;
-  Flink->Blink = ListHead;
-  return Entry;
+static
+inline
+PLIST_ENTRY
+RemoveHeadList (
+	PLIST_ENTRY	ListHead
+	)
+{
+	PLIST_ENTRY Old;
+	PLIST_ENTRY OldFlink;
+	PLIST_ENTRY OldBlink;
+
+	Old = ListHead->Flink;
+
+	OldFlink = ListHead->Flink->Flink;
+	OldBlink = ListHead->Flink->Blink;
+	OldFlink->Blink = OldBlink;
+	OldBlink->Flink = OldFlink;
+        if (Old != ListHead)
+     {
+        Old->Flink = NULL;
+        Old->Blink = NULL;
+     }
+   
+	return(Old);
 }
 
 
@@ -268,114 +324,43 @@ RemoveHeadList(
  * RETURNS:
  *	The removed entry
  */
-static __inline PLIST_ENTRY
-RemoveTailList(
-  IN PLIST_ENTRY  ListHead)
-{
-  PLIST_ENTRY Blink;
-  PLIST_ENTRY Entry;
-
-  Entry = ListHead->Blink;
-  Blink = Entry->Blink;
-  ListHead->Blink = Blink;
-  Blink->Flink = ListHead;
-  return Entry;
-}
-
-
 /*
- * FIFO versions are slower but ensures that entries with equal SortField value
- * are placed in FIFO order (assuming that entries are removed from Head).
- */
-
-#define InsertAscendingListFIFO(ListHead, Type, ListEntryField, NewEntry, SortField)\
-{\
-  PLIST_ENTRY current;\
-\
-  current = (ListHead)->Flink;\
-  while (current != (ListHead))\
-  {\
-    if (CONTAINING_RECORD(current, Type, ListEntryField)->SortField >\
-        (NewEntry)->SortField)\
-    {\
-      break;\
-    }\
-    current = current->Flink;\
-  }\
-\
-  InsertTailList(current, &((NewEntry)->ListEntryField));\
-}
-
-
-#define InsertDescendingListFIFO(ListHead, Type, ListEntryField, NewEntry, SortField)\
-{\
-  PLIST_ENTRY current;\
-\
-  current = (ListHead)->Flink;\
-  while (current != (ListHead))\
-  {\
-    if (CONTAINING_RECORD(current, Type, ListEntryField)->SortField <\
-        (NewEntry)->SortField)\
-    {\
-      break;\
-    }\
-    current = current->Flink;\
-  }\
-\
-  InsertTailList(current, &((NewEntry)->ListEntryField));\
-}
-
-
-#define InsertAscendingList(ListHead, Type, ListEntryField, NewEntry, SortField)\
-{\
-  PLIST_ENTRY current;\
-\
-  current = (ListHead)->Flink;\
-  while (current != (ListHead))\
-  {\
-    if (CONTAINING_RECORD(current, Type, ListEntryField)->SortField >=\
-        (NewEntry)->SortField)\
-    {\
-      break;\
-    }\
-    current = current->Flink;\
-  }\
-\
-  InsertTailList(current, &((NewEntry)->ListEntryField));\
-}
-
-
-#define InsertDescendingList(ListHead, Type, ListEntryField, NewEntry, SortField)\
-{\
-  PLIST_ENTRY current;\
-\
-  current = (ListHead)->Flink;\
-  while (current != (ListHead))\
-  {\
-    if (CONTAINING_RECORD(current, Type, ListEntryField)->SortField <=\
-        (NewEntry)->SortField)\
-    {\
-      break;\
-    }\
-    current = current->Flink;\
-  }\
-\
-  InsertTailList(current, &((NewEntry)->ListEntryField));\
-}
-
-
-/*
- * BOOLEAN
- * IsXstEntry (
- *  PLIST_ENTRY ListHead,
- *  PLIST_ENTRY Entry
- *  );
+#define RemoveTailList(ListHead) \
+	(ListHead)->Blink; \
+	{RemoveEntryList((ListHead)->Blink)}
 */
-#define IsFirstEntry(ListHead, Entry) ((ListHead)->Flink == Entry)
-  
-#define IsLastEntry(ListHead, Entry) ((ListHead)->Blink == Entry)
-  
-#define RtlEqualMemory(Destination,Source,Length)   (!memcmp((Destination), (Source), (Length)))
+/*
+PLIST_ENTRY
+RemoveTailList (
+	PLIST_ENTRY	ListHead
+	);
+*/
+
+static
+inline
+PLIST_ENTRY
+RemoveTailList (
+	PLIST_ENTRY ListHead
+	)
+{
+	PLIST_ENTRY Old;
+	PLIST_ENTRY OldFlink;
+	PLIST_ENTRY OldBlink;
+
+	Old = ListHead->Blink;
+
+	OldFlink = ListHead->Blink->Flink;
+	OldBlink = ListHead->Blink->Blink;
+	OldFlink->Blink = OldBlink;
+	OldBlink->Flink = OldFlink;
+   if (Old != ListHead)
+     {
+        Old->Flink = NULL;
+        Old->Blink = NULL;
+     }
+   
+	return(Old);
+}
 
 NTSTATUS
 STDCALL
@@ -384,10 +369,13 @@ RtlAppendUnicodeToString (
 	PWSTR		Source
 	);
 
-SIZE_T STDCALL
-RtlCompareMemory(IN const VOID *Source1,
-                 IN const VOID *Source2,
-                 IN SIZE_T Length);
+ULONG
+STDCALL
+RtlCompareMemory (
+	PVOID	Source1,
+	PVOID	Source2,
+	ULONG	Length
+	);
 
 BOOLEAN
 STDCALL
@@ -395,6 +383,11 @@ RtlEqualUnicodeString (
 	PUNICODE_STRING	String1,
 	PUNICODE_STRING	String2,
 	BOOLEAN		CaseInSensitive
+	);
+
+VOID
+RtlGetCallersAddress (
+	PVOID	* CallersAddress
 	);
 
 NTSTATUS
@@ -458,7 +451,7 @@ RtlZeroMemory (PVOID Destination, ULONG Length);
 #define RTL_REGISTRY_WINDOWS_NT 3
 #define RTL_REGISTRY_DEVICEMAP  4
 #define RTL_REGISTRY_USER       5
-#define RTL_REGISTRY_ENUM       6   /* ReactOS specific: Used internally in kernel only */
+#define RTL_REGISTRY_ENUM       6   // ReactOS specific: Used internally in kernel only
 #define RTL_REGISTRY_MAXIMUM    7
 
 #define RTL_REGISTRY_HANDLE     0x40000000
@@ -486,25 +479,90 @@ RtlZeroMemory (PVOID Destination, ULONG Length);
 #define LONG_MOST_SIGNIFICANT_BIT	3
 
 
-#define NLS_ANSI_CODE_PAGE       NlsAnsiCodePage
-#define NLS_LEAD_BYTE_INFO       NlsLeadByteInfo
-#define NLS_MB_CODE_PAGE_TAG     NlsMbCodePageTag
-#define NLS_MB_OEM_CODE_PAGE_TAG NlsMbOemCodePageTag
-#define NLS_OEM_LEAD_BYTE_INFO   NlsOemLeadByteInfo
 
 #if defined(__NTOSKRNL__) || defined(__NTDLL__)
-extern USHORT  EXPORTED NlsAnsiCodePage;
-extern PUSHORT EXPORTED NlsLeadByteInfo;
-extern BOOLEAN EXPORTED NlsMbCodePageTag;
-extern BOOLEAN EXPORTED NlsMbOemCodePageTag;
-extern PUSHORT EXPORTED NlsOemLeadByteInfo;
+#define NLS_MB_CODE_PAGE_TAG     NlsMbCodePageTag
+#define NLS_MB_OEM_CODE_PAGE_TAG NlsMbOemCodePageTag
 #else
-extern USHORT  IMPORTED NlsAnsiCodePage;
-extern PUSHORT IMPORTED NlsLeadByteInfo;
-extern BOOLEAN IMPORTED NlsMbCodePageTag;
-extern BOOLEAN IMPORTED NlsMbOemCodePageTag;
-extern PUSHORT IMPORTED NlsOemLeadByteInfo;
+#define NLS_MB_CODE_PAGE_TAG     (*NlsMbCodePageTag)
+#define NLS_MB_OEM_CODE_PAGE_TAG (*NlsMbOemCodePageTag)
 #endif /* __NTOSKRNL__ || __NTDLL__ */
+
+extern BOOLEAN NLS_MB_CODE_PAGE_TAG;
+extern BOOLEAN NLS_MB_OEM_CODE_PAGE_TAG;
+
+
+/*
+ * NOTE: ReactOS extensions
+ */
+#define RtlMin(X,Y) (((X) < (Y))? (X) : (Y))
+#define RtlMax(X,Y) (((X) > (Y))? (X) : (Y))
+#define RtlMin3(X,Y,Z) (((X) < (Y)) ? RtlMin(X,Z) : RtlMin(Y,Z))
+#define RtlMax3(X,Y,Z) (((X) > (Y)) ? RtlMax(X,Z) : RtlMax(Y,Z))
+
+
+/*
+ * VOID
+ * InitializeUnicodeString(PUNICODE_STRING DestinationString,
+ *                         USHORT Lenght,
+ *                         USHORT MaximumLength,
+ *                         PCWSTR Buffer);
+ *
+ * Initialize n UNICODE_STRING from its fields. Use when you know the values of
+ * all the fields in advance
+ */
+
+#define InitializeUnicodeString(__PDEST_STRING__,__LENGTH__,__MAXLENGTH__,__BUFFER__) \
+{ \
+  (__PDEST_STRING__)->Length = (__LENGTH__); \
+  (__PDEST_STRING__)->MaximumLength = (__MAXLENGTH__); \
+  (__PDEST_STRING__)->Buffer = (__BUFFER__); \
+}
+
+
+/*
+ * VOID
+ * RtlInitUnicodeStringFromLiteral(PUNICODE_STRING DestinationString,
+ *                                 PCWSTR SourceString);
+ *
+ * Initialize a UNICODE_STRING from a wide string literal. WARNING: use only with
+ * string literals and statically initialized arrays, it will calculate the wrong
+ * length otherwise
+ */
+
+#define RtlInitUnicodeStringFromLiteral(__PDEST_STRING__,__SOURCE_STRING__) \
+ InitializeUnicodeString( \
+  (__PDEST_STRING__), \
+  sizeof(__SOURCE_STRING__) - sizeof(WCHAR), \
+  sizeof(__SOURCE_STRING__), \
+  (__SOURCE_STRING__) \
+)
+
+
+/*
+ * Static initializer for UNICODE_STRING variables.
+ *
+ * Usage:
+ *    UNICODE_STRING wstr = UNICODE_STRING_INITIALIZER(L"string");
+ */
+
+#define UNICODE_STRING_INITIALIZER(__SOURCE_STRING__) \
+{ \
+  sizeof((__SOURCE_STRING__)) - sizeof(WCHAR), \
+  sizeof((__SOURCE_STRING__)), \
+  (__SOURCE_STRING__) \
+}
+
+
+/*
+ * Initializer for empty UNICODE_STRING variables.
+ *
+ * Usage:
+ *    UNICODE_STRING wstr = EMPTY_UNICODE_STRING;
+ */
+
+#define EMPTY_UNICODE_STRING {0, 0, NULL}
+
 
 /*
 VOID
@@ -520,74 +578,101 @@ PushEntryList (
 */
 
 
-NTSTATUS STDCALL
-RtlAbsoluteToSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD,
-			     PSECURITY_DESCRIPTOR RelSD,
-			     PULONG BufferLength);
-
-NTSTATUS STDCALL
-RtlAddAccessAllowedAce (PACL Acl,
-			ULONG Revision,
-			ACCESS_MASK AccessMask,
-			PSID Sid);
-
-NTSTATUS 
-STDCALL 
-RtlAddAccessAllowedAceEx(
-	IN OUT PACL pAcl,
-	IN DWORD dwAceRevision,
-	IN DWORD AceFlags,
-	IN DWORD AccessMask,
-	IN PSID pSid);
+#ifndef __USE_W32API
 
 
-NTSTATUS STDCALL
-RtlAddAccessDeniedAce (PACL Acl,
-		       ULONG Revision,
-		       ACCESS_MASK AccessMask,
-		       PSID Sid);
+/*
+ * An ReactOS extension
+ */
+static
+inline
+PSINGLE_LIST_ENTRY
+ PopEntrySList(
+	PSLIST_HEADER	ListHead
+	)
+{
+	PSINGLE_LIST_ENTRY ListEntry;
 
-NTSTATUS STDCALL
-RtlAddAce (PACL Acl,
-	   ULONG Revision,
-	   ULONG StartingIndex,
-	   PACE AceList,
-	   ULONG AceListLength);
+	ListEntry = ListHead->s.Next.Next;
+	if (ListEntry!=NULL)
+	{
+		ListHead->s.Next.Next = ListEntry->Next;
+    ListHead->s.Depth++;
+    ListHead->s.Sequence++;
+  }
+	return ListEntry;
+}
 
-NTSTATUS STDCALL
-RtlAddAtomToAtomTable (IN PRTL_ATOM_TABLE AtomTable,
-		       IN PWSTR AtomName,
-		       OUT PRTL_ATOM Atom);
 
-NTSTATUS STDCALL
-RtlAddAuditAccessAce (PACL Acl,
-		      ULONG Revision,
-		      ACCESS_MASK AccessMask,
-		      PSID Sid,
-		      BOOLEAN Success,
-		      BOOLEAN Failure);
+/*
+ * An ReactOS extension
+ */
+static
+inline
+VOID
+PushEntrySList (
+	PSLIST_HEADER	ListHead,
+	PSINGLE_LIST_ENTRY	Entry
+	)
+{
+	Entry->Next = ListHead->s.Next.Next;
+	ListHead->s.Next.Next = Entry;
+  ListHead->s.Depth++;
+  ListHead->s.Sequence++;
+}
 
-NTSTATUS STDCALL
-RtlAddRange (IN OUT PRTL_RANGE_LIST RangeList,
-	     IN ULONGLONG Start,
-	     IN ULONGLONG End,
-	     IN UCHAR Attributes,
-	     IN ULONG Flags,  /* RTL_RANGE_LIST_ADD_... flags */
-	     IN PVOID UserData OPTIONAL,
-	     IN PVOID Owner OPTIONAL);
+#else /* __USE_W32API */
 
-NTSTATUS STDCALL
-RtlAllocateAndInitializeSid (IN PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
-			     IN UCHAR SubAuthorityCount,
-			     IN ULONG SubAuthority0,
-			     IN ULONG SubAuthority1,
-			     IN ULONG SubAuthority2,
-			     IN ULONG SubAuthority3,
-			     IN ULONG SubAuthority4,
-			     IN ULONG SubAuthority5,
-			     IN ULONG SubAuthority6,
-			     IN ULONG SubAuthority7,
-			     OUT PSID *Sid);
+/*
+ * An ReactOS extension
+ */
+static
+inline
+PSINGLE_LIST_ENTRY
+ PopEntrySList(
+	PSLIST_HEADER	ListHead
+	)
+{
+	PSINGLE_LIST_ENTRY ListEntry;
+
+	ListEntry = ListHead->Next.Next;
+	if (ListEntry!=NULL)
+	{
+		ListHead->Next.Next = ListEntry->Next;
+    ListHead->Depth++;
+    ListHead->Sequence++;
+  }
+	return ListEntry;
+}
+
+
+/*
+ * An ReactOS extension
+ */
+static
+inline
+VOID
+PushEntrySList (
+	PSLIST_HEADER	ListHead,
+	PSINGLE_LIST_ENTRY	Entry
+	)
+{
+	Entry->Next = ListHead->Next.Next;
+	ListHead->Next.Next = Entry;
+  ListHead->Depth++;
+  ListHead->Sequence++;
+}
+
+#endif /* __USE_W32API */
+
+
+NTSTATUS
+STDCALL
+RtlAddAtomToAtomTable (
+	IN	PRTL_ATOM_TABLE	AtomTable,
+	IN	PWSTR		AtomName,
+	OUT	PRTL_ATOM	Atom
+	);
 
 PVOID STDCALL
 RtlAllocateHeap (
@@ -596,8 +681,11 @@ RtlAllocateHeap (
 	ULONG	Size
 	);
 
-WCHAR STDCALL
-RtlAnsiCharToUnicodeChar (IN CHAR AnsiChar);
+WCHAR
+STDCALL
+RtlAnsiCharToUnicodeChar (
+	CHAR	AnsiChar
+	);
 
 ULONG
 STDCALL
@@ -634,14 +722,6 @@ RtlAppendUnicodeStringToString (
 	PUNICODE_STRING	Source
 	);
 
-BOOLEAN STDCALL
-RtlAreAllAccessesGranted (ACCESS_MASK GrantedAccess,
-			  ACCESS_MASK DesiredAccess);
-
-BOOLEAN STDCALL
-RtlAreAnyAccessesGranted (ACCESS_MASK GrantedAccess,
-			  ACCESS_MASK DesiredAccess);
-
 BOOLEAN
 STDCALL
 RtlAreBitsClear (
@@ -667,23 +747,6 @@ RtlAssert (
 	PCHAR Message
 	);
 
-VOID
-STDCALL
-RtlCaptureContext (
-	OUT PCONTEXT ContextRecord
-	);
-
-USHORT
-STDCALL
-RtlCaptureStackBackTrace (
-	IN ULONG FramesToSkip,
-	IN ULONG FramesToCapture,
-	OUT PVOID *BackTrace,
-	OUT PULONG BackTraceHash OPTIONAL
-	);
-
-
-
 NTSTATUS
 STDCALL
 RtlCharToInteger (
@@ -707,23 +770,17 @@ RtlClearAllBits (
 
 VOID
 STDCALL
-RtlClearBit (
-	PRTL_BITMAP BitMapHeader,
-	ULONG BitNumber
-	);
-
-VOID
-STDCALL
 RtlClearBits (
 	IN	PRTL_BITMAP	BitMapHeader,
 	IN	ULONG		StartingIndex,
 	IN	ULONG		NumberToClear
 	);
 
-ULONG STDCALL
+DWORD
+STDCALL
 RtlCompactHeap (
-	HANDLE Heap,
-	ULONG	Flags
+	HANDLE	hheap,
+	DWORD	flags
 	);
 
 LONG
@@ -762,15 +819,15 @@ RtlCompressChunks(IN PUCHAR UncompressedBuffer,
 		  IN PVOID WorkSpace);
 
 LARGE_INTEGER STDCALL
-RtlConvertLongToLargeInteger (IN LONG SignedInteger);
+RtlConvertLongToLargeInteger(IN LONG SignedInteger);
 
 NTSTATUS STDCALL
-RtlConvertSidToUnicodeString (IN OUT PUNICODE_STRING String,
-			      IN PSID Sid,
-			      IN BOOLEAN AllocateString);
+RtlConvertSidToUnicodeString(IN OUT PUNICODE_STRING String,
+			     IN PSID Sid,
+			     IN BOOLEAN AllocateString);
 
 LARGE_INTEGER STDCALL
-RtlConvertUlongToLargeInteger (IN ULONG UnsignedInteger);
+RtlConvertUlongToLargeInteger(IN ULONG UnsignedInteger);
 
 #if 0
 VOID
@@ -800,10 +857,6 @@ RtlCopyLuidAndAttributesArray(ULONG Count,
 			      PLUID_AND_ATTRIBUTES Dest);
 
 NTSTATUS STDCALL
-RtlCopyRangeList (OUT PRTL_RANGE_LIST CopyRangeList,
-		  IN PRTL_RANGE_LIST RangeList);
-
-NTSTATUS STDCALL
 RtlCopySid(ULONG BufferLength,
 	   PSID Dest,
 	   PSID Src);
@@ -826,11 +879,6 @@ RtlCopyUnicodeString(PUNICODE_STRING DestinationString,
 		     PUNICODE_STRING SourceString);
 
 NTSTATUS STDCALL
-RtlCreateAcl (PACL Acl,
-	      ULONG AclSize,
-	      ULONG AclRevision);
-
-NTSTATUS STDCALL
 RtlCreateAtomTable(IN ULONG TableSize,
 		   IN OUT PRTL_ATOM_TABLE *AtomTable);
 
@@ -839,33 +887,36 @@ STDCALL
 RtlCreateHeap (
 	ULONG			Flags,
 	PVOID			BaseAddress,
-	ULONG			SizeToReserve,     /* dwMaximumSize */
-	ULONG			SizeToCommit,      /* dwInitialSize */
+	ULONG			SizeToReserve,     // dwMaximumSize
+	ULONG			SizeToCommit,      // dwInitialSize
 	PVOID			Unknown,
 	PRTL_HEAP_DEFINITION	Definition
 	);
 
-NTSTATUS STDCALL
-RtlCreateRegistryKey (ULONG RelativeTo,
-		      PWSTR Path);
-
-NTSTATUS STDCALL
-RtlCreateSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			     ULONG Revision);
+NTSTATUS
+STDCALL
+RtlCreateRegistryKey (
+	ULONG	RelativeTo,
+	PWSTR	Path
+	);
 
 NTSTATUS
 STDCALL
-RtlCreateSystemVolumeInformationFolder(
-	IN  PUNICODE_STRING VolumeRootPath
+RtlCreateSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor,
+	ULONG			Revision
+	);
+
+BOOLEAN
+STDCALL
+RtlCreateUnicodeString (
+	OUT	PUNICODE_STRING	Destination,
+	IN	PWSTR		Source
 	);
 
 BOOLEAN STDCALL
-RtlCreateUnicodeString (OUT PUNICODE_STRING Destination,
-			IN PWSTR Source);
-
-BOOLEAN STDCALL
-RtlCreateUnicodeStringFromAsciiz (OUT PUNICODE_STRING Destination,
-				  IN PCSZ Source);
+RtlCreateUnicodeStringFromAsciiz (OUT	PUNICODE_STRING	Destination,
+				  IN	PCSZ		Source);
 
 NTSTATUS
 STDCALL
@@ -905,51 +956,9 @@ RtlDecompressFragment(IN USHORT CompressionFormat,
 		      OUT PULONG FinalUncompressedSize,
 		      IN PVOID WorkSpace);
 
-PRTL_SPLAY_LINKS
-STDCALL
-RtlDelete (
-	PRTL_SPLAY_LINKS Links
-	);
-
 NTSTATUS STDCALL
-RtlDeleteAce (PACL Acl,
-	      ULONG AceIndex);
-
-NTSTATUS STDCALL
-RtlDeleteAtomFromAtomTable (IN PRTL_ATOM_TABLE AtomTable,
-			    IN RTL_ATOM Atom);
-
-BOOLEAN
-STDCALL
-RtlDeleteElementGenericTable (
-	PRTL_GENERIC_TABLE Table,
-	PVOID Buffer
-	);
-
-BOOLEAN
-STDCALL
-RtlDeleteElementGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID Buffer
-	);
-
-VOID
-STDCALL
-RtlDeleteNoSplay (
-	PRTL_SPLAY_LINKS Links,
-	PRTL_SPLAY_LINKS *Root
-	);
-
-
-NTSTATUS STDCALL
-RtlDeleteOwnersRanges (IN OUT PRTL_RANGE_LIST RangeList,
-		       IN PVOID Owner);
-
-NTSTATUS STDCALL
-RtlDeleteRange (IN OUT PRTL_RANGE_LIST RangeList,
-		IN ULONGLONG Start,
-		IN ULONGLONG End,
-		IN PVOID Owner);
+RtlDeleteAtomFromAtomTable(IN PRTL_ATOM_TABLE AtomTable,
+			   IN RTL_ATOM Atom);
 
 NTSTATUS STDCALL
 RtlDescribeChunk(IN USHORT CompressionFormat,
@@ -959,18 +968,10 @@ RtlDescribeChunk(IN USHORT CompressionFormat,
 		 OUT PULONG ChunkSize);
 
 NTSTATUS STDCALL
-RtlDestroyAtomTable (IN PRTL_ATOM_TABLE AtomTable);
+RtlDestroyAtomTable(IN PRTL_ATOM_TABLE AtomTable);
 
-HANDLE STDCALL
-RtlDestroyHeap (HANDLE hheap);
-
-NTSTATUS
-STDCALL
-RtlDispatchException(
-	PEXCEPTION_RECORD pExcptRec, 
-	CONTEXT * pContext 
-	);
-
+BOOL STDCALL
+RtlDestroyHeap(HANDLE hheap);
 
 NTSTATUS
 STDCALL
@@ -1008,54 +1009,6 @@ RtlEnlargedUnsignedMultiply (
 	ULONG	Multiplicand,
 	ULONG	Multiplier
 	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTable (
-	PRTL_GENERIC_TABLE Table,
-	BOOLEAN Restart
-	);
-	
-PVOID
-STDCALL
-RtlEnumerateGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	BOOLEAN Restart
-	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTableLikeADirectory (
-	IN PRTL_AVL_TABLE Table,
-	IN PRTL_AVL_MATCH_FUNCTION MatchFunction,
-	IN PVOID MatchData,
-	IN ULONG NextFlag,
-	IN OUT PVOID *RestartKey,
-	IN OUT PULONG DeleteCount,
-	IN OUT PVOID Buffer
-	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTableWithoutSplaying (
-	PRTL_GENERIC_TABLE Table,
-	PVOID *RestartKey
-	);
-
-PVOID
-STDCALL
-RtlEnumerateGenericTableWithoutSplayingAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID *RestartKey
-	);
-
-BOOLEAN STDCALL
-RtlEqualPrefixSid (PSID Sid1,
-		   PSID Sid2);
-
-BOOLEAN STDCALL
-RtlEqualSid (PSID Sid1,
-	     PSID Sid2);
 
 BOOLEAN
 STDCALL
@@ -1114,40 +1067,6 @@ RtlFindClearBitsAndSet (
 
 ULONG
 STDCALL
-RtlFindClearRuns (
-	PRTL_BITMAP BitMapHeader,
-	PRTL_BITMAP_RUN RunArray,
-	ULONG SizeOfRunArray,
-	BOOLEAN LocateLongestRuns
-	);
-
-ULONG
-STDCALL
-RtlFindLastBackwardRunClear (
-	IN PRTL_BITMAP BitMapHeader,
-	IN ULONG FromIndex,
-	IN PULONG StartingRunIndex
-	);
-
-ULONG
-STDCALL
-RtlFindNextForwardRunClear (
-	IN PRTL_BITMAP BitMapHeader,
-	IN ULONG FromIndex,
-	IN PULONG StartingRunIndex
-	);
-	
-
-PUNICODE_PREFIX_TABLE_ENTRY
-STDCALL
-RtlFindUnicodePrefix (
-	PUNICODE_PREFIX_TABLE PrefixTable,
-	PUNICODE_STRING FullName,
-	ULONG CaseInsensitiveIndex
-	);
-
-ULONG
-STDCALL
 RtlFindFirstRunClear (
 	PRTL_BITMAP	BitMapHeader,
 	PULONG		StartingIndex
@@ -1159,9 +1078,6 @@ RtlFindFirstRunSet (
 	PRTL_BITMAP	BitMapHeader,
 	PULONG		StartingIndex
 	);
-
-CCHAR STDCALL
-RtlFindLeastSignificantBit (IN ULONGLONG Set);
 
 ULONG
 STDCALL
@@ -1187,21 +1103,6 @@ RtlFindMessage (
 	OUT	PRTL_MESSAGE_RESOURCE_ENTRY	*MessageResourceEntry
 	);
 
-CCHAR STDCALL
-RtlFindMostSignificantBit (IN ULONGLONG Set);
-
-NTSTATUS STDCALL
-RtlFindRange (IN PRTL_RANGE_LIST RangeList,
-	      IN ULONGLONG Minimum,
-	      IN ULONGLONG Maximum,
-	      IN ULONG Length,
-	      IN ULONG Alignment,
-	      IN ULONG Flags,
-	      IN UCHAR AttributeAvailableMask,
-	      IN PVOID Context OPTIONAL,
-	      IN PRTL_CONFLICT_RANGE_CALLBACK Callback OPTIONAL,
-	      OUT PULONGLONG Start);
-
 ULONG
 STDCALL
 RtlFindSetBits (
@@ -1218,15 +1119,17 @@ RtlFindSetBitsAndClear (
 	ULONG		HintIndex
 	);
 
-BOOLEAN STDCALL
-RtlFirstFreeAce (PACL Acl,
-		 PACE* Ace);
+NTSTATUS
+STDCALL
+RtlFormatCurrentUserKeyPath (
+	IN OUT	PUNICODE_STRING	KeyPath
+	);
 
-NTSTATUS STDCALL
-RtlFormatCurrentUserKeyPath (IN OUT PUNICODE_STRING KeyPath);
-
-VOID STDCALL
-RtlFreeAnsiString (IN PANSI_STRING AnsiString);
+VOID
+STDCALL
+RtlFreeAnsiString (
+	PANSI_STRING	AnsiString
+	);
 
 BOOLEAN
 STDCALL
@@ -1236,128 +1139,35 @@ RtlFreeHeap (
 	PVOID	Address
 	);
 
-VOID STDCALL
-RtlFreeOemString (IN POEM_STRING OemString);
-
-VOID STDCALL
-RtlFreeRangeList (IN PRTL_RANGE_LIST RangeList);
-
-PVOID STDCALL
-RtlFreeSid (PSID Sid);
-
-VOID STDCALL
-RtlFreeUnicodeString (IN PUNICODE_STRING UnicodeString);
-
-VOID STDCALL
-RtlGenerate8dot3Name (IN PUNICODE_STRING Name,
-		      IN BOOLEAN AllowExtendedCharacters,
-		      IN OUT PGENERATE_NAME_CONTEXT Context,
-		      OUT PUNICODE_STRING Name8dot3);
-
-NTSTATUS STDCALL
-RtlGetAce (PACL Acl,
-	   ULONG AceIndex,
-	   PACE *Ace);
+VOID
+STDCALL
+RtlFreeOemString (
+	POEM_STRING	OemString
+	);
 
 VOID
 STDCALL
-RtlGetCallersAddress(
-	OUT PVOID *CallersAddress,
-	OUT PVOID *CallersCaller
+RtlFreeUnicodeString (
+	PUNICODE_STRING	UnicodeString
 	);
-
-NTSTATUS STDCALL
-RtlGetCompressionWorkSpaceSize (IN USHORT CompressionFormatAndEngine,
-				OUT PULONG CompressBufferAndWorkSpaceSize,
-				OUT PULONG CompressFragmentWorkSpaceSize);
-
-NTSTATUS STDCALL
-RtlGetControlSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-				 PSECURITY_DESCRIPTOR_CONTROL Control,
-				 PULONG Revision);
-
-NTSTATUS STDCALL
-RtlGetDaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			      PBOOLEAN DaclPresent,
-			      PACL* Dacl,
-			      PBOOLEAN DaclDefaulted);
 
 VOID STDCALL
-RtlGetDefaultCodePage (OUT PUSHORT AnsiCodePage,
-		       OUT PUSHORT OemCodePage);
+RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
+		     IN BOOLEAN AllowExtendedCharacters,
+		     IN OUT PGENERATE_NAME_CONTEXT Context,
+		     OUT PUNICODE_STRING Name8dot3);
 
-PVOID
+NTSTATUS STDCALL
+RtlGetCompressionWorkSpaceSize(IN USHORT CompressionFormatAndEngine,
+			       OUT PULONG CompressBufferAndWorkSpaceSize,
+			       OUT PULONG CompressFragmentWorkSpaceSize);
+
+VOID
 STDCALL
-RtlGetElementGenericTable(
-	PRTL_GENERIC_TABLE Table,
-	ULONG I
+RtlGetDefaultCodePage (
+	PUSHORT AnsiCodePage,
+	PUSHORT OemCodePage
 	);
-
-PVOID
-STDCALL
-RtlGetElementGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	ULONG I
-	);
-
-NTSTATUS STDCALL
-RtlGetFirstRange (IN PRTL_RANGE_LIST RangeList,
-		  OUT PRTL_RANGE_LIST_ITERATOR Iterator,
-		  OUT PRTL_RANGE *Range);
-
-NTSTATUS STDCALL
-RtlGetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			       PSID* Group,
-			       PBOOLEAN GroupDefaulted);
-
-NTSTATUS STDCALL
-RtlGetNextRange (IN OUT PRTL_RANGE_LIST_ITERATOR Iterator,
-		 OUT PRTL_RANGE *Range,
-		 IN BOOLEAN MoveForwards);
-
-ULONG
-STDCALL
-RtlGetNtGlobalFlags (
-	VOID
-	); 
-
-NTSTATUS STDCALL
-RtlGetOwnerSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			       PSID* Owner,
-			       PBOOLEAN OwnerDefaulted);
-
-NTSTATUS STDCALL
-RtlGetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			      PBOOLEAN SaclPresent,
-			      PACL* Sacl,
-			      PBOOLEAN SaclDefaulted);
-
-NTSTATUS
-STDCALL
-RtlGetSetBootStatusData(
-	HANDLE Filehandle,
-	BOOLEAN WriteMode,
-	DWORD DataClass,
-	PVOID Buffer,
-	ULONG BufferSize,
-	DWORD DataClass2
-	);
-
-NTSTATUS STDCALL
-RtlGUIDFromString (IN PUNICODE_STRING GuidString,
-		   OUT GUID* Guid);
-
-NTSTATUS
-STDCALL
-RtlHashUnicodeString(
-	IN const UNICODE_STRING *String,
-	IN BOOLEAN CaseInSensitive,
-	IN ULONG HashAlgorithm,
-	OUT PULONG HashValue
-	);
-
-PSID_IDENTIFIER_AUTHORITY STDCALL
-RtlIdentifierAuthoritySid (PSID Sid);
 
 PVOID
 STDCALL
@@ -1407,24 +1217,6 @@ RtlInitCodePageTable (
 
 VOID
 STDCALL
-RtlInitializeUnicodePrefix (
-	PUNICODE_PREFIX_TABLE PrefixTable
-	);
-
-NTSTATUS STDCALL
-RtlInitializeSid (PSID Sid,
-		  PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
-		  UCHAR SubAuthorityCount);
-
-VOID
-STDCALL
-RtlInitializeBitMap(
-  IN PRTL_BITMAP  BitMapHeader,
-  IN PULONG  BitMapBuffer,
-  IN ULONG  SizeOfBitMap); 
-  
-VOID
-STDCALL
 RtlInitNlsTables (
 	IN	PUSHORT		AnsiTableBase,
 	IN	PUSHORT		OemTableBase,
@@ -1458,89 +1250,29 @@ NTSTATUS
 STDCALL
 RtlInitializeContext (
 	IN	HANDLE			ProcessHandle,
-	OUT	PCONTEXT		ThreadContext,
-	IN	PVOID			ThreadStartParam  OPTIONAL,
-	IN	PTHREAD_START_ROUTINE	ThreadStartAddress,
-	IN	PINITIAL_TEB		InitialTeb
+	IN	PCONTEXT		Context,
+	IN	PVOID			Parameter,
+	IN	PTHREAD_START_ROUTINE	StartAddress,
+	IN OUT	PUSER_STACK		UserStack
 	);
 
 VOID
 STDCALL
 RtlInitializeGenericTable (
-	PRTL_GENERIC_TABLE Table,
-	PRTL_GENERIC_COMPARE_ROUTINE CompareRoutine,
-	PRTL_GENERIC_ALLOCATE_ROUTINE AllocateRoutine,
-	PRTL_GENERIC_FREE_ROUTINE FreeRoutine,
-	PVOID TableContext
+	IN OUT	PRTL_GENERIC_TABLE	Table,
+	IN	PVOID			CompareRoutine,
+	IN	PVOID			AllocateRoutine,
+	IN	PVOID			FreeRoutine,
+	IN	ULONG			UserParameter
 	);
-
-VOID
-STDCALL
-RtlInitializeGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	PRTL_AVL_COMPARE_ROUTINE CompareRoutine,
-	PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine,
-	PRTL_AVL_FREE_ROUTINE FreeRoutine,
-	PVOID TableContext
-	);
-
-VOID STDCALL
-RtlInitializeRangeList (IN OUT PRTL_RANGE_LIST RangeList);
 
 PVOID
 STDCALL
 RtlInsertElementGenericTable (
-	PRTL_GENERIC_TABLE Table,
-	PVOID Buffer,
-	ULONG BufferSize,
-	PBOOLEAN NewElement OPTIONAL
-	);
-
-PVOID
-STDCALL
-RtlInsertElementGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID Buffer,
-	ULONG BufferSize,
-	PBOOLEAN NewElement OPTIONAL
-	);
-
-PVOID
-STDCALL
-RtlInsertElementGenericTableFull (
-	PRTL_GENERIC_TABLE Table,
-	PVOID Buffer,
-	ULONG BufferSize,
-	PBOOLEAN NewElement OPTIONAL,
-	PVOID NodeOrParent,
-	TABLE_SEARCH_RESULT SearchResult
-	);
-
-PVOID
-STDCALL
-RtlInsertElementGenericTableFullAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID Buffer,
-	ULONG BufferSize,
-	PBOOLEAN NewElement OPTIONAL,
-	PVOID NodeOrParent,
-	TABLE_SEARCH_RESULT SearchResult
-	);
-
-BOOLEAN
-STDCALL
-RtlInsertUnicodePrefix (
-	PUNICODE_PREFIX_TABLE PrefixTable,
-	PUNICODE_STRING Prefix,
-	PUNICODE_PREFIX_TABLE_ENTRY PrefixTableEntry
-	);
-
-NTSTATUS
-STDCALL
-RtlInt64ToUnicodeString (
-	IN ULONGLONG Value,
-	IN ULONG Base OPTIONAL,
-	IN OUT PUNICODE_STRING String
+	IN OUT	PRTL_GENERIC_TABLE	Table,
+	IN	PVOID			Element,
+	IN	ULONG			ElementSize,
+	IN	ULONG			Unknown4
 	);
 
 NTSTATUS
@@ -1552,15 +1284,6 @@ RtlIntegerToChar (
 	IN OUT	PCHAR	String
 	);
 
-NTSTATUS 
-STDCALL
-RtlIntegerToUnicode(
-	IN ULONG Value,
-	IN ULONG Base  OPTIONAL,
-	IN ULONG Length OPTIONAL,
-	IN OUT LPWSTR String
-	);
-
 NTSTATUS
 STDCALL
 RtlIntegerToUnicodeString (
@@ -1569,173 +1292,19 @@ RtlIntegerToUnicodeString (
 	IN OUT	PUNICODE_STRING	String
 	);
 
-NTSTATUS STDCALL
-RtlInvertRangeList (OUT PRTL_RANGE_LIST InvertedRangeList,
-		    IN PRTL_RANGE_LIST RangeList);
-
-LPSTR
-STDCALL
-RtlIpv4AddressToStringA(
-	PULONG IP,
-	LPSTR Buffer
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4AddressToStringExA(
-	PULONG IP,
-	PULONG Port,
-	LPSTR Buffer,
-	PULONG MaxSize
-	);
-
-LPWSTR
-STDCALL
-RtlIpv4AddressToStringW(
-	PULONG IP,
-	LPWSTR Buffer
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4AddressToStringExW(
-	PULONG IP,
-	PULONG Port,
-	LPWSTR Buffer,
-	PULONG MaxSize
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4StringToAddressA(
-	IN LPSTR IpString,
-	IN ULONG Base,
-	OUT PVOID PtrToIpAddr,
-	OUT ULONG IpAddr
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4StringToAddressExA(
-	IN LPSTR IpString,
-	IN ULONG Base,
-	OUT PULONG IpAddr,
-	OUT PULONG Port
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4StringToAddressW(
-	IN LPWSTR IpString, 
-	IN ULONG Base, 
-	OUT PVOID PtrToIpAddr,
-	OUT ULONG IpAddr
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv4StringToAddressExW(
-	IN LPWSTR IpString,
-	IN ULONG Base,
-	OUT PULONG IpAddr,
-	OUT PULONG Port
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6AddressToStringA(
-	PULONG IP,
-	LPSTR Buffer
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6AddressToStringExA(
-	PULONG IP,
-	PULONG Port,
-	LPSTR Buffer,
-	PULONG MaxSize
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6AddressToStringW(
-	PULONG IP,
-	LPWSTR Buffer
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6AddressToStringExW(
-	PULONG IP,
-	PULONG Port,
-	LPWSTR Buffer,
-	PULONG MaxSize
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6StringToAddressA(
-	IN LPSTR IpString,
-	IN ULONG Base,
-	OUT PVOID PtrToIpAddr,
-	OUT ULONG IpAddr
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6StringToAddressExA(
-	IN LPSTR IpString,
-	IN ULONG Base,
-	OUT PULONG IpAddr,
-	OUT PULONG Port
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6StringToAddressW(
-	IN LPWSTR IpString,
-	IN ULONG Base,
-	OUT PVOID PtrToIpAddr,
-	OUT ULONG IpAddr
-	);
-
-NTSTATUS
-STDCALL
-RtlIpv6StringToAddressExW(
-	IN LPWSTR IpString,
-	IN ULONG Base,
-	OUT PULONG IpAddr,
-	OUT PULONG Port
-	);
-
 BOOLEAN
 STDCALL
 RtlIsGenericTableEmpty (
-	PRTL_GENERIC_TABLE Table
+	IN	PRTL_GENERIC_TABLE	Table
 	);
 
 BOOLEAN
 STDCALL
-RtlIsGenericTableEmptyAvl (
-	PRTL_AVL_TABLE Table
+RtlIsNameLegalDOS8Dot3 (
+	IN	PUNICODE_STRING	UnicodeName,
+	IN	PANSI_STRING	AnsiName,
+	OUT	PBOOLEAN	SpacesFound
 	);
-
-
-BOOLEAN STDCALL
-RtlIsNameLegalDOS8Dot3 (IN PUNICODE_STRING UnicodeName,
-			IN PANSI_STRING AnsiName,
-			OUT PBOOLEAN SpacesFound);
-
-NTSTATUS STDCALL
-RtlIsRangeAvailable (IN PRTL_RANGE_LIST RangeList,
-		     IN ULONGLONG Start,
-		     IN ULONGLONG End,
-		     IN ULONG Flags,
-		     IN UCHAR AttributeAvailableMask,
-		     IN PVOID Context OPTIONAL,
-		     IN PRTL_CONFLICT_RANGE_CALLBACK Callback OPTIONAL,
-		     OUT PBOOLEAN Available);
 
 ULONG
 STDCALL
@@ -1743,12 +1312,6 @@ RtlIsTextUnicode (
 	PVOID	Buffer,
 	ULONG	Length,
 	ULONG	*Flags
-	);
-
-BOOLEAN
-STDCALL
-RtlIsValidOemCharacter (
-	IN PWCHAR Char
 	);
 
 LARGE_INTEGER
@@ -1933,81 +1496,25 @@ RtlLargeIntegerSubtract (
 	LARGE_INTEGER	Subtrahend
 	);
 
-ULONG STDCALL
-RtlLengthRequiredSid (UCHAR SubAuthorityCount);
+ULONG
+STDCALL
+RtlLengthSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor
+	);
 
-ULONG STDCALL
-RtlLengthSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-ULONG STDCALL
-RtlLengthSid (PSID Sid);
+BOOL
+STDCALL
+RtlLockHeap (
+	HANDLE	hheap
+	);
 
 NTSTATUS
 STDCALL
-RtlLockBootStatusData(
-	HANDLE Filehandle
+RtlLookupAtomInAtomTable (
+	IN	PRTL_ATOM_TABLE	AtomTable,
+	IN	PWSTR		AtomName,
+	OUT	PRTL_ATOM	Atom
 	);
-
-BOOLEAN STDCALL
-RtlLockHeap (IN HANDLE Heap);
-
-NTSTATUS STDCALL
-RtlLookupAtomInAtomTable (IN PRTL_ATOM_TABLE AtomTable,
-			  IN PWSTR AtomName,
-			  OUT PRTL_ATOM Atom);
-
-PVOID
-STDCALL
-RtlLookupElementGenericTable (
-	PRTL_GENERIC_TABLE Table,
-	PVOID Buffer
-	);
-
-PVOID
-STDCALL
-RtlLookupElementGenericTableAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID Buffer
-	);
-
-PVOID
-STDCALL
-RtlLookupElementGenericTableFull (
-	PRTL_GENERIC_TABLE Table,
-	PVOID Buffer,
-	OUT PVOID *NodeOrParent,
-	OUT TABLE_SEARCH_RESULT *SearchResult
-	);
-
-PVOID
-STDCALL
-RtlLookupElementGenericTableFullAvl (
-	PRTL_AVL_TABLE Table,
-	PVOID Buffer,
-	OUT PVOID *NodeOrParent,
-	OUT TABLE_SEARCH_RESULT *SearchResult
-	);
-
-NTSTATUS STDCALL
-RtlMakeSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD,
-		       PSECURITY_DESCRIPTOR RelSD,
-		       PULONG BufferLength);
-
-VOID STDCALL
-RtlMapGenericMask (PACCESS_MASK AccessMask,
-		   PGENERIC_MAPPING GenericMapping);
-
-NTSTATUS
-STDCALL
-RtlMapSecurityErrorToNtStatus(
-	IN ULONG SecurityError
-	);
-
-NTSTATUS STDCALL
-RtlMergeRangeLists (OUT PRTL_RANGE_LIST MergedRangeList,
-		    IN PRTL_RANGE_LIST RangeList1,
-		    IN PRTL_RANGE_LIST RangeList2,
-		    IN ULONG Flags);
 
 NTSTATUS
 STDCALL
@@ -2015,7 +1522,7 @@ RtlMultiByteToUnicodeN (
 	PWCHAR UnicodeString,
 	ULONG  UnicodeSize,
 	PULONG ResultSize,
-	const PCHAR  MbString,
+	PCHAR  MbString,
 	ULONG  MbSize
 	);
 
@@ -2025,13 +1532,6 @@ RtlMultiByteToUnicodeSize (
 	PULONG UnicodeSize,
 	PCHAR  MbString,
 	ULONG  MbSize
-	);
-
-PUNICODE_PREFIX_TABLE_ENTRY
-STDCALL
-RtlNextUnicodePrefix (
-	PUNICODE_PREFIX_TABLE PrefixTable,
-	BOOLEAN Restart
 	);
 
 DWORD
@@ -2054,16 +1554,9 @@ RtlNtStatusToPsxErrno (
 
 ULONG
 STDCALL
-RtlNumberGenericTableElements(
-	PRTL_GENERIC_TABLE Table
+RtlNumberGenericTableElements (
+	IN	PRTL_GENERIC_TABLE	Table
 	);
-
-ULONG
-STDCALL
-RtlNumberGenericTableElementsAvl (
-	PRTL_AVL_TABLE Table
-	);
-
 
 ULONG
 STDCALL
@@ -2093,25 +1586,18 @@ RtlOemStringToUnicodeString (
 
 NTSTATUS
 STDCALL
-RtlOemToUnicodeN(
-	PWSTR UnicodeString,
-	ULONG MaxBytesInUnicodeString,
-	PULONG BytesInUnicodeString,
-	IN PCHAR OemString,
-	ULONG BytesInOemString
+RtlOemToUnicodeN (
+	PWCHAR	UnicodeString,
+	ULONG	UnicodeSize,
+	PULONG	ResultSize,
+	PCHAR	OemString,
+	ULONG	OemSize
 	);
 
 NTSTATUS STDCALL
 RtlPinAtomInAtomTable (
 	IN	PRTL_ATOM_TABLE	AtomTable,
 	IN	RTL_ATOM	Atom
-	);
-
-VOID
-FASTCALL
-RtlPrefetchMemoryNonTemporal(
-	IN PVOID Source,
-	IN SIZE_T Length
 	);
 
 BOOLEAN
@@ -2141,55 +1627,25 @@ RtlQueryAtomInAtomTable (
 	IN OUT	PULONG		NameLength OPTIONAL
 	);
 
-NTSTATUS STDCALL
-RtlQueryInformationAcl (PACL Acl,
-			PVOID Information,
-			ULONG InformationLength,
-			ACL_INFORMATION_CLASS InformationClass);
-
-NTSTATUS STDCALL
-RtlQueryTimeZoneInformation (IN OUT PTIME_ZONE_INFORMATION TimeZoneInformation);
-
-VOID STDCALL
-RtlRaiseException (IN PEXCEPTION_RECORD ExceptionRecord);
-
-VOID STDCALL
-RtlRaiseStatus(NTSTATUS Status);
-
-ULONG STDCALL
-RtlRandom (PULONG Seed);
-
-ULONG
+NTSTATUS
 STDCALL
-RtlRandomEx(
-	PULONG Seed
-	); 
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlRealPredecessor (
-	PRTL_SPLAY_LINKS Links
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlRealSuccessor (
-	PRTL_SPLAY_LINKS Links
-	);
-
-PVOID STDCALL
-RtlReAllocateHeap (
-	HANDLE Heap,
-	ULONG Flags,
-	PVOID Ptr,
-	ULONG Size
+RtlQueryTimeZoneInformation (
+	IN OUT	PTIME_ZONE_INFORMATION	TimeZoneInformation
 	);
 
 VOID
 STDCALL
-RtlRemoveUnicodePrefix (
-	PUNICODE_PREFIX_TABLE PrefixTable,
-	PUNICODE_PREFIX_TABLE_ENTRY PrefixTableEntry
+RtlRaiseException (
+	IN	PEXCEPTION_RECORD	ExceptionRecord
+	);
+
+LPVOID
+STDCALL
+RtlReAllocateHeap (
+	HANDLE	hheap,
+	DWORD	flags,
+	LPVOID	ptr,
+	DWORD	size
 	);
 
 NTSTATUS
@@ -2202,8 +1658,11 @@ RtlReserveChunk (
 	IN	ULONG	ChunkSize
 	);
 
-VOID STDCALL
-RtlResetRtlTranslations (IN PNLSTABLEINFO NlsTable);
+VOID
+STDCALL
+RtlResetRtlTranslations (
+	IN	PNLSTABLEINFO	NlsTable
+	);
 
 /*
  * VOID
@@ -2243,42 +1702,24 @@ RtlResetRtlTranslations (IN PNLSTABLEINFO NlsTable);
 		*((PUSHORT)(DestAddress))=*((PUSHORT)(SrcAddress)); \
 	}
 
-VOID STDCALL
-RtlSecondsSince1970ToTime (ULONG SecondsSince1970,
-			   PLARGE_INTEGER Time);
-
-VOID STDCALL
-RtlSecondsSince1980ToTime (ULONG SecondsSince1980,
-			   PLARGE_INTEGER Time);
-
-NTSTATUS STDCALL
-RtlSelfRelativeToAbsoluteSD (PSECURITY_DESCRIPTOR RelSD,
-			     PSECURITY_DESCRIPTOR AbsSD,
-			     PULONG AbsSDSize,
-			     PACL Dacl,
-			     PULONG DaclSize,
-			     PACL Sacl,
-			     PULONG SaclSize,
-			     PSID Owner,
-			     PULONG OwnerSize,
-			     PSID Group,
-			     PULONG GroupSize);
-
-NTSTATUS
+VOID
 STDCALL
-RtlSelfRelativeToAbsoluteSD2(
-	PSECURITY_DESCRIPTOR SelfRelativeSecurityDescriptor,
-	PULONG BufferSize
+RtlSecondsSince1970ToTime (
+	ULONG SecondsSince1970,
+	PLARGE_INTEGER Time
 	);
-
-VOID STDCALL
-RtlSetAllBits (IN PRTL_BITMAP BitMapHeader);
 
 VOID
 STDCALL
-RtlSetBit (
-	PRTL_BITMAP BitMapHeader,
-	ULONG BitNumber
+RtlSecondsSince1980ToTime (
+	ULONG SecondsSince1980,
+	PLARGE_INTEGER Time
+	);
+
+VOID
+STDCALL
+RtlSetAllBits (
+	IN	PRTL_BITMAP	BitMapHeader
 	);
 
 VOID
@@ -2289,48 +1730,27 @@ RtlSetBits (
 	ULONG		NumberToSet
 	);
 
-NTSTATUS STDCALL
-RtlSetDaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			      BOOLEAN DaclPresent,
-			      PACL Dacl,
-			      BOOLEAN DaclDefaulted);
-
-NTSTATUS STDCALL
-RtlSetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			       PSID Group,
-			       BOOLEAN GroupDefaulted);
-
-NTSTATUS STDCALL
-RtlSetOwnerSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			       PSID Owner,
-			       BOOLEAN OwnerDefaulted);
-
-NTSTATUS STDCALL
-RtlSetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor,
-			      BOOLEAN SaclPresent,
-			      PACL Sacl,
-			      BOOLEAN SaclDefaulted);
-
-NTSTATUS STDCALL
-RtlSetInformationAcl (PACL Acl,
-		      PVOID Information,
-		      ULONG InformationLength,
-		      ACL_INFORMATION_CLASS InformationClass);
-
-NTSTATUS STDCALL
-RtlSetTimeZoneInformation (IN OUT PTIME_ZONE_INFORMATION TimeZoneInformation);
-
-ULONG STDCALL
-RtlSizeHeap(
-	IN PVOID HeapHandle, 
-	IN ULONG Flags, 
-	IN PVOID MemoryPointer
-	); 
-
-PRTL_SPLAY_LINKS
+NTSTATUS
 STDCALL
-RtlSplay (
-	PRTL_SPLAY_LINKS Links
+RtlSetDaclSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor,
+	BOOLEAN			DaclPresent,
+	PACL			Dacl,
+	BOOLEAN			DaclDefaulted
+	);
+
+NTSTATUS
+STDCALL
+RtlSetTimeZoneInformation (
+	IN OUT	PTIME_ZONE_INFORMATION	TimeZoneInformation
+	);
+
+DWORD
+STDCALL
+RtlSizeHeap (
+	HANDLE	hheap,
+	DWORD	flags,
+	PVOID	pmem
 	);
 
 /*
@@ -2371,44 +1791,12 @@ RtlSplay (
 		*((PUSHORT)(Address))=(USHORT)(Value); \
 	}
 
-NTSTATUS STDCALL
-RtlStringFromGUID (IN REFGUID Guid,
-		   OUT PUNICODE_STRING GuidString);
-
-PULONG STDCALL
-RtlSubAuthoritySid (PSID Sid,
-		    ULONG SubAuthority);
-
-PULONG STDCALL
-RtlSubAuthoritySid (PSID Sid,
-		    ULONG SubAuthority);
-
-PUCHAR STDCALL
-RtlSubAuthorityCountSid (PSID Sid);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlSubtreePredecessor (
-	PRTL_SPLAY_LINKS Links
-	);
-
-PRTL_SPLAY_LINKS
-STDCALL
-RtlSubtreeSuccessor (
-	PRTL_SPLAY_LINKS Links
-	);
-
 BOOLEAN
 STDCALL
-RtlTestBit (
-	PRTL_BITMAP BitMapHeader,
-	ULONG BitNumber
+RtlTimeFieldsToTime (
+	PTIME_FIELDS	TimeFields,
+	PLARGE_INTEGER	Time
 	);
-
-
-BOOLEAN STDCALL
-RtlTimeFieldsToTime (PTIME_FIELDS TimeFields,
-		     PLARGE_INTEGER Time);
 
 BOOLEAN
 STDCALL
@@ -2426,24 +1814,10 @@ RtlTimeToSecondsSince1980 (
 
 VOID
 STDCALL
-RtlTimeToElapsedTimeFields( 
-	PLARGE_INTEGER Time, 
-	PTIME_FIELDS TimeFields 
-	);
-
-VOID
-STDCALL
 RtlTimeToTimeFields (
 	PLARGE_INTEGER	Time,
 	PTIME_FIELDS	TimeFields
 	);
-
-
-ULONG FASTCALL
-RtlUlongByteSwap (IN ULONG Source);
-
-ULONGLONG FASTCALL
-RtlUlonglongByteSwap (IN ULONGLONG Source);
 
 ULONG
 STDCALL
@@ -2528,16 +1902,10 @@ RtlUnicodeToOemN (
 	ULONG	UnicodeSize
 	);
 
-ULONG STDCALL
-RtlUniform (PULONG Seed);
-
-BOOLEAN STDCALL
-RtlUnlockHeap (IN HANDLE Heap);
-
-NTSTATUS
+BOOL
 STDCALL
-RtlUnlockBootStatusData(
-	HANDLE Filehandle
+RtlUnlockHeap (
+	HANDLE	hheap
 	);
 
 VOID
@@ -2618,70 +1986,35 @@ RtlUpcaseUnicodeToOemN (
 	ULONG	UnicodeSize
 	);
 
-CHAR STDCALL
-RtlUpperChar (CHAR Source);
+CHAR
+STDCALL
+RtlUpperChar (
+	CHAR	Source
+	);
 
-VOID STDCALL
-RtlUpperString (PSTRING DestinationString,
-		PSTRING SourceString);
+VOID
+STDCALL
+RtlUpperString (
+	PSTRING	DestinationString,
+	PSTRING	SourceString
+	);
 
-USHORT FASTCALL
-RtlUshortByteSwap (IN USHORT Source);
-
-BOOLEAN STDCALL
-RtlValidAcl (PACL Acl);
-
-BOOLEAN STDCALL
+BOOL
+STDCALL
 RtlValidateHeap (
-	HANDLE Heap,
-	ULONG	Flags,
+	HANDLE	hheap,
+	DWORD	flags,
 	PVOID	pmem
 	);
 
 BOOLEAN
 STDCALL
-RtlValidRelativeSecurityDescriptor (
-	IN PSECURITY_DESCRIPTOR SecurityDescriptorInput,
-	IN ULONG SecurityDescriptorLength,
-	IN SECURITY_INFORMATION RequiredInformation
+RtlValidSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor
 	);
 
 BOOLEAN STDCALL
-RtlValidSecurityDescriptor (IN PSECURITY_DESCRIPTOR SecurityDescriptor);
-
-BOOLEAN STDCALL
-RtlValidSid (IN PSID Sid);
-
-/*
-NTSTATUS
-STDCALL
-RtlVerifyVersionInfo(
-	IN PRTL_OSVERSIONINFOEXW VersionInfo,
-	IN ULONG TypeMask,
-	IN ULONGLONG  ConditionMask
-	);
-*/
-
-NTSTATUS
-STDCALL
-RtlVolumeDeviceToDosName(
-	IN  PVOID VolumeDeviceObject,
-	OUT PUNICODE_STRING DosName
-	);
-
-ULONG
-STDCALL
-RtlWalkFrameChain (
-	OUT PVOID *Callers,
-	IN ULONG Count,
-	IN ULONG Flags
-	);
-
-BOOLEAN STDCALL
-RtlZeroHeap(
-    IN PVOID HeapHandle,
-    IN ULONG Flags
-    );
+RtlValidSid(IN PSID Sid);
 
 ULONG
 STDCALL
@@ -2707,108 +2040,7 @@ RtlxUnicodeStringToOemSize (
 	IN	PUNICODE_STRING	UnicodeString
 	);
 
-NTSTATUS
-FASTCALL
-RtlpOemStringToCountedUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN POEM_STRING OemSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS 
-FASTCALL
-RtlpUpcaseUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN PCUNICODE_STRING UniSource,
-   IN BOOLEAN  AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS 
-FASTCALL
-RtlpUpcaseUnicodeStringToAnsiString(
-   IN OUT PANSI_STRING AnsiDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN  AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS 
-FASTCALL
-RtlpUpcaseUnicodeStringToCountedOemString(
-   IN OUT POEM_STRING OemDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS 
-FASTCALL
-RtlpUpcaseUnicodeStringToOemString (
-   IN OUT POEM_STRING OemDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN  AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS 
-FASTCALL
-RtlpDowncaseUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS
-FASTCALL
-RtlpAnsiStringToUnicodeString(
-   IN OUT PUNICODE_STRING DestinationString,
-   IN PANSI_STRING SourceString,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);   
-   
-NTSTATUS
-FASTCALL
-RtlpUnicodeStringToAnsiString(
-   IN OUT PANSI_STRING AnsiDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-NTSTATUS
-FASTCALL
-RtlpOemStringToUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN POEM_STRING OemSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
 
-NTSTATUS
-FASTCALL
-RtlpUnicodeStringToOemString(
-   IN OUT POEM_STRING OemDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN  AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-   
-BOOLEAN
-FASTCALL
-RtlpCreateUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN PWSTR  Source,
-   IN POOL_TYPE PoolType);   
-
-NTSTATUS
-FASTCALL
-RtlpUnicodeStringToCountedOemString(
-   IN OUT POEM_STRING OemDest,
-   IN PUNICODE_STRING UniSource,
-   IN BOOLEAN AllocateDestinationString,
-   IN POOL_TYPE PoolType);
-
-NTSTATUS STDCALL
-RtlpDuplicateUnicodeString(
-   INT AddNull,
-   IN PUNICODE_STRING SourceString,
-   PUNICODE_STRING DestinationString,
-   POOL_TYPE PoolType);
-   
 /* Register io functions */
 
 UCHAR
@@ -2899,12 +2131,84 @@ WRITE_REGISTER_BUFFER_ULONG (
 	);
 
 
+NTSTATUS STDCALL RtlCreateAcl(PACL Acl, ULONG AclSize, ULONG AclRevision);
+NTSTATUS STDCALL RtlQueryInformationAcl (PACL Acl, PVOID Information, ULONG InformationLength, ACL_INFORMATION_CLASS InformationClass);
+NTSTATUS STDCALL RtlSetInformationAcl (PACL Acl, PVOID Information, ULONG InformationLength, ACL_INFORMATION_CLASS InformationClass);
+BOOLEAN STDCALL RtlValidAcl (PACL Acl);
+
+NTSTATUS STDCALL RtlAddAccessAllowedAce(PACL Acl, ULONG Revision, ACCESS_MASK AccessMask, PSID Sid);
+NTSTATUS STDCALL RtlAddAccessDeniedAce(PACL Acl, ULONG Revision, ACCESS_MASK AccessMask, PSID Sid);
+NTSTATUS STDCALL RtlAddAce(PACL Acl, ULONG Revision, ULONG StartingIndex, PACE AceList, ULONG AceListLength);
+NTSTATUS STDCALL RtlAddAuditAccessAce (PACL Acl, ULONG Revision, ACCESS_MASK AccessMask, PSID Sid, BOOLEAN Success, BOOLEAN Failure);
+NTSTATUS STDCALL RtlDeleteAce(PACL Acl, ULONG AceIndex);
+BOOLEAN STDCALL RtlFirstFreeAce(PACL Acl, PACE* Ace);
+NTSTATUS STDCALL RtlGetAce(PACL Acl, ULONG AceIndex, PACE *Ace);
+
+NTSTATUS STDCALL RtlAbsoluteToSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD, PSECURITY_DESCRIPTOR RelSD, PULONG BufferLength);
+NTSTATUS STDCALL RtlMakeSelfRelativeSD (PSECURITY_DESCRIPTOR AbsSD, PSECURITY_DESCRIPTOR RelSD, PULONG BufferLength);
+NTSTATUS STDCALL RtlCreateSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, ULONG Revision);
+BOOLEAN STDCALL RtlValidSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor);
+ULONG STDCALL RtlLengthSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor);
+NTSTATUS STDCALL RtlSetDaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN DaclPresent, PACL Dacl, BOOLEAN DaclDefaulted);
+NTSTATUS STDCALL RtlGetDaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PBOOLEAN DaclPresent, PACL* Dacl, PBOOLEAN DaclDefauted);
+NTSTATUS STDCALL RtlSetOwnerSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PSID Owner, BOOLEAN OwnerDefaulted);
+NTSTATUS STDCALL RtlGetOwnerSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PSID* Owner, PBOOLEAN OwnerDefaulted);
+NTSTATUS STDCALL RtlSetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PSID Group, BOOLEAN GroupDefaulted);
+NTSTATUS STDCALL RtlGetGroupSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PSID* Group, PBOOLEAN GroupDefaulted);
+NTSTATUS STDCALL RtlGetControlSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PSECURITY_DESCRIPTOR_CONTROL Control, PULONG Revision);
+NTSTATUS STDCALL RtlSetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN SaclPresent, PACL Sacl, BOOLEAN SaclDefaulted);
+NTSTATUS STDCALL RtlGetSaclSecurityDescriptor (PSECURITY_DESCRIPTOR SecurityDescriptor, PBOOLEAN SaclPresent, PACL* Sacl, PBOOLEAN SaclDefauted);
+NTSTATUS STDCALL RtlSelfRelativeToAbsoluteSD (PSECURITY_DESCRIPTOR RelSD,
+					      PSECURITY_DESCRIPTOR AbsSD,
+					      PDWORD AbsSDSize,
+					      PACL Dacl,
+					      PDWORD DaclSize,
+					      PACL Sacl,
+					      PDWORD SaclSize,
+					      PSID Owner,
+					      PDWORD OwnerSize,
+					      PSID Group,
+					      PDWORD GroupSize);
+
+NTSTATUS STDCALL RtlAllocateAndInitializeSid (PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
+					      UCHAR SubAuthorityCount,
+					      ULONG SubAuthority0,
+					      ULONG SubAuthority1,
+					      ULONG SubAuthority2,
+					      ULONG SubAuthority3,
+					      ULONG SubAuthority4,
+					      ULONG SubAuthority5,
+					      ULONG SubAuthority6,
+					      ULONG SubAuthority7,
+					      PSID *Sid);
+ULONG STDCALL RtlLengthRequiredSid (UCHAR SubAuthorityCount);
+PSID_IDENTIFIER_AUTHORITY STDCALL RtlIdentifierAuthoritySid (PSID Sid);
+NTSTATUS STDCALL RtlInitializeSid (PSID Sid, PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, UCHAR SubAuthorityCount);
+PULONG STDCALL RtlSubAuthoritySid (PSID Sid, ULONG SubAuthority);
+BOOLEAN STDCALL RtlEqualPrefixSid (PSID Sid1, PSID Sid2);
+BOOLEAN STDCALL RtlEqualSid(PSID Sid1, PSID Sid2);
+PSID STDCALL RtlFreeSid (PSID Sid);
+ULONG STDCALL RtlLengthSid (PSID Sid);
+PULONG STDCALL RtlSubAuthoritySid (PSID Sid, ULONG SubAuthority);
+PUCHAR STDCALL RtlSubAuthorityCountSid (PSID Sid);
+BOOLEAN STDCALL RtlValidSid (PSID Sid);
+NTSTATUS STDCALL RtlConvertSidToUnicodeString (PUNICODE_STRING String, PSID Sid, BOOLEAN AllocateBuffer);
+
+BOOLEAN STDCALL RtlAreAllAccessesGranted (ACCESS_MASK GrantedAccess, ACCESS_MASK DesiredAccess);
+BOOLEAN STDCALL RtlAreAnyAccessesGranted (ACCESS_MASK GrantedAccess, ACCESS_MASK DesiredAccess);
+VOID STDCALL RtlMapGenericMask (PACCESS_MASK AccessMask, PGENERIC_MAPPING GenericMapping);
+
+ULONG STDCALL
+RtlRandom (PULONG Seed);
+
+ULONG STDCALL
+RtlUniform (PULONG Seed);
+
 /*  functions exported from NTOSKRNL.EXE which are considered RTL  */
 
 #if defined(__NTOSKRNL__) || defined(__NTDRIVER__) || defined(__NTHAL__) || defined(__NTDLL__) || defined(__NTAPP__)
 
 char *_itoa (int value, char *string, int radix);
-wchar_t *_itow (int value, wchar_t *string, int radix);
 int _snprintf(char * buf, size_t cnt, const char *fmt, ...);
 int _snwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, ...);
 int _stricmp(const char *s1, const char *s2);
@@ -2979,5 +2283,3 @@ int wctomb (char *mbchar, wchar_t wchar);
 #endif /* __NTOSKRNL__ || __NTDRIVER__ || __NTHAL__ || __NTDLL__ || __NTAPP__ */
 
 #endif /* __DDK_RTL_H */
-
-

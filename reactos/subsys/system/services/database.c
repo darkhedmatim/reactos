@@ -1,4 +1,4 @@
-/* $Id: database.c,v 1.19 2004/10/10 21:00:59 navaraf Exp $
+/* $Id: database.c,v 1.7 2002/09/08 10:23:47 chorns Exp $
  *
  * service control manager
  * 
@@ -27,7 +27,6 @@
 
 #define NTOS_MODE_USER
 #include <ntos.h>
-#include <rosrtl/string.h>
 
 #include <windows.h>
 #include <tchar.h>
@@ -46,8 +45,6 @@ typedef struct _SERVICE_GROUP
   UNICODE_STRING GroupName;
 
   BOOLEAN ServicesRunning;
-  ULONG TagCount;
-  PULONG TagArray;
 
 } SERVICE_GROUP, *PSERVICE_GROUP;
 
@@ -81,52 +78,6 @@ LIST_ENTRY ServiceListHead;
 
 /* FUNCTIONS *****************************************************************/
 
-static NTSTATUS STDCALL 
-CreateGroupOrderListRoutine(PWSTR ValueName,
-			    ULONG ValueType,
-			    PVOID ValueData,
-			    ULONG ValueLength,
-			    PVOID Context,
-			    PVOID EntryContext)
-{
-  PSERVICE_GROUP Group;
-
-  DPRINT("IopGetGroupOrderList(%S, %x, %x, %x, %x, %x)\n",
-         ValueName, ValueType, ValueData, ValueLength, Context, EntryContext);
-
-  if (ValueType == REG_BINARY &&
-      ValueData != NULL &&
-      ValueLength >= sizeof(DWORD) &&
-      ValueLength >= (*(PULONG)ValueData + 1) * sizeof(DWORD))
-    {
-      Group = (PSERVICE_GROUP)Context;
-      Group->TagCount = ((PULONG)ValueData)[0];
-      if (Group->TagCount > 0)
-        {
-	  if (ValueLength >= (Group->TagCount + 1) * sizeof(DWORD))
-            {
-              Group->TagArray = (PULONG)HeapAlloc(GetProcessHeap(),
-					          HEAP_ZERO_MEMORY,
-					          Group->TagCount * sizeof(DWORD));
-	      if (Group->TagArray == NULL)
-	        {
-		  Group->TagCount = 0;
-	          return STATUS_INSUFFICIENT_RESOURCES;
-		}
-	      RtlCopyMemory(Group->TagArray, 
-		            (PULONG)ValueData + 1, 
-			    Group->TagCount * sizeof(DWORD));
-	    }
-	  else
-	    {
-	      Group->TagCount = 0;
-	      return STATUS_UNSUCCESSFUL;
-	    }
-	}
-    }
-  return STATUS_SUCCESS;
-}
-
 static NTSTATUS STDCALL
 CreateGroupListRoutine(PWSTR ValueName,
 		       ULONG ValueType,
@@ -136,8 +87,6 @@ CreateGroupListRoutine(PWSTR ValueName,
 		       PVOID EntryContext)
 {
   PSERVICE_GROUP Group;
-  RTL_QUERY_REGISTRY_TABLE QueryTable[2];
-  NTSTATUS Status;
 
   if (ValueType == REG_SZ)
     {
@@ -156,17 +105,6 @@ CreateGroupListRoutine(PWSTR ValueName,
 	{
 	  return(STATUS_INSUFFICIENT_RESOURCES);
 	}
-      
-      RtlZeroMemory(&QueryTable, sizeof(QueryTable));
-      QueryTable[0].Name = (PWSTR)ValueData;
-      QueryTable[0].QueryRoutine = CreateGroupOrderListRoutine;
-
-      Status = RtlQueryRegistryValues(RTL_REGISTRY_CONTROL,
-				      L"GroupOrderList",
-				      QueryTable,
-				      (PVOID)Group,
-				      NULL);
-      DPRINT("%x %d %S\n", Status, Group->TagCount, (PWSTR)ValueData);
 
 
       InsertTailList(&GroupListHead,
@@ -245,10 +183,6 @@ CreateServiceListEntry(PUNICODE_STRING ServiceName)
   QueryTable[3].Flags = RTL_QUERY_REGISTRY_DIRECT;
   QueryTable[3].EntryContext = &Service->ServiceGroup;
 
-  QueryTable[4].Name = L"Tag";
-  QueryTable[4].Flags = RTL_QUERY_REGISTRY_DIRECT;
-  QueryTable[4].EntryContext = &Service->Tag;
-
   Status = RtlQueryRegistryValues(RTL_REGISTRY_SERVICES,
 				  ServiceName->Buffer,
 				  QueryTable,
@@ -266,8 +200,8 @@ CreateServiceListEntry(PUNICODE_STRING ServiceName)
   DPRINT("ServiceName: '%wZ'\n", &Service->ServiceName);
   DPRINT("RegistryPath: '%wZ'\n", &Service->RegistryPath);
   DPRINT("ServiceGroup: '%wZ'\n", &Service->ServiceGroup);
-  DPRINT("Start %lx  Type %lx  Tag %lx  ErrorControl %lx\n",
-	 Service->Start, Service->Type, Service->Tag, Service->ErrorControl);
+  DPRINT("Start %lx  Type %lx  ErrorControl %lx\n",
+	 Service->Start, Service->Type, Service->ErrorControl);
 
   /* Append service entry */
   InsertTailList(&ServiceListHead,
@@ -313,7 +247,7 @@ ScmCreateServiceDataBase(VOID)
   if (!NT_SUCCESS(Status))
     return(Status);
 
-  RtlRosInitUnicodeStringFromLiteral(&ServicesKeyName,
+  RtlInitUnicodeStringFromLiteral(&ServicesKeyName,
 		       L"\\Registry\\Machine\\System\\CurrentControlSet\\Services");
 
   InitializeObjectAttributes(&ObjectAttributes,
@@ -359,12 +293,6 @@ ScmCreateServiceDataBase(VOID)
 
 	      DPRINT("KeyName: '%wZ'\n", &SubKeyName);
 	      Status = CreateServiceListEntry(&SubKeyName);
-
-	      /* Ignore services without proper registry. */
-	      if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
-	        {
-	          Status = STATUS_SUCCESS;
-	        }
 	    }
 	}
 
@@ -390,7 +318,7 @@ ScmCheckDriver(PSERVICE Service)
   UNICODE_STRING DirName;
   HANDLE DirHandle;
   NTSTATUS Status;
-  PDIRECTORY_BASIC_INFORMATION DirInfo;
+  POBJDIR_INFORMATION DirInfo;
   ULONG BufferLength;
   ULONG DataLength;
   ULONG Index;
@@ -401,12 +329,12 @@ ScmCheckDriver(PSERVICE Service)
 
   if (Service->Type == SERVICE_KERNEL_DRIVER)
     {
-      RtlRosInitUnicodeStringFromLiteral(&DirName,
+      RtlInitUnicodeStringFromLiteral(&DirName,
 			   L"\\Driver");
     }
   else
     {
-      RtlRosInitUnicodeStringFromLiteral(&DirName,
+      RtlInitUnicodeStringFromLiteral(&DirName,
 			   L"\\FileSystem");
     }
 
@@ -424,7 +352,7 @@ ScmCheckDriver(PSERVICE Service)
       return(Status);
     }
 
-  BufferLength = sizeof(DIRECTORY_BASIC_INFORMATION) +
+  BufferLength = sizeof(OBJDIR_INFORMATION) +
 		 2 * MAX_PATH * sizeof(WCHAR);
   DirInfo = HeapAlloc(GetProcessHeap(),
 		      HEAP_ZERO_MEMORY,
@@ -494,6 +422,7 @@ ScmGetBootAndSystemDriverState(VOID)
 {
   PLIST_ENTRY ServiceEntry;
   PSERVICE CurrentService;
+  NTSTATUS Status;
 
   DPRINT("ScmGetBootAndSystemDriverState() called\n");
 
@@ -532,7 +461,6 @@ ScmStartService(PSERVICE Service,
   DPRINT("ScmStartService() called\n");
 
   Service->ControlPipeHandle = INVALID_HANDLE_VALUE;
-  DPRINT("Service->Type: %u\n", Service->Type);
 
   if (Service->Type == SERVICE_KERNEL_DRIVER ||
       Service->Type == SERVICE_FILE_SYSTEM_DRIVER ||
@@ -577,7 +505,7 @@ ScmStartService(PSERVICE Service,
 							4,
 							30000,
 							NULL);
-	  DPRINT("CreateNamedPipeW() done\n");
+	  DPRINT1("CreateNamedPipeW() done\n");
 	  if (Service->ControlPipeHandle == INVALID_HANDLE_VALUE)
 	    {
 	      DPRINT1("Failed to create control pipe!\n");
@@ -616,12 +544,12 @@ ScmStartService(PSERVICE Service,
 	    }
 	  else
 	    {
-	      DPRINT("Process Id: %lu  Handle %lx\n",
-		     ProcessInformation.dwProcessId,
-		     ProcessInformation.hProcess);
-	      DPRINT("Thread Id: %lu  Handle %lx\n",
-		     ProcessInformation.dwThreadId,
-		     ProcessInformation.hThread);
+	      DPRINT1("Process Id: %lu  Handle %lx\n",
+		      ProcessInformation.dwProcessId,
+		      ProcessInformation.hProcess);
+	      DPRINT1("Tread Id: %lu  Handle %lx\n",
+		      ProcessInformation.dwThreadId,
+		      ProcessInformation.hThread);
 
 	      /* Get process and thread ids */
 	      Service->ProcessId = ProcessInformation.dwProcessId;
@@ -633,7 +561,7 @@ ScmStartService(PSERVICE Service,
 	      /* FIXME: connect control pipe */
 	      if (ConnectNamedPipe(Service->ControlPipeHandle, NULL))
 		{
-		  DPRINT("Control pipe connected!\n");
+		  DPRINT1("Control pipe connected!\n");
 		  Status = STATUS_SUCCESS;
 		}
 	      else
@@ -707,7 +635,7 @@ ScmAutoStartServices(VOID)
   PLIST_ENTRY ServiceEntry;
   PSERVICE_GROUP CurrentGroup;
   PSERVICE CurrentService;
-  ULONG i;
+  NTSTATUS Status;
 
   /* Clear 'ServiceVisited' flag */
   ServiceEntry = ServiceListHead.Flink;
@@ -726,29 +654,6 @@ ScmAutoStartServices(VOID)
 
       DPRINT("Group '%wZ'\n", &CurrentGroup->GroupName);
 
-      /* Start all services witch have a valid tag */
-      for (i = 0; i < CurrentGroup->TagCount; i++)
-        {
-          ServiceEntry = ServiceListHead.Flink;
-          while (ServiceEntry != &ServiceListHead)
-	    {
-	      CurrentService = CONTAINING_RECORD(ServiceEntry, SERVICE, ServiceListEntry);
-
-	      if ((RtlEqualUnicodeString(&CurrentGroup->GroupName, &CurrentService->ServiceGroup, TRUE)) &&
-	          (CurrentService->Start == SERVICE_AUTO_START) &&
-	          (CurrentService->ServiceVisited == FALSE) &&
-		  (CurrentService->Tag == CurrentGroup->TagArray[i]))
-	        {
-	          CurrentService->ServiceVisited = TRUE;
-	          ScmStartService(CurrentService,
-			          CurrentGroup);
-	        }
-
-	      ServiceEntry = ServiceEntry->Flink;
-	    }
-        }
-
-      /* Start all services which have an invalid tag or which do not have a tag */ 
       ServiceEntry = ServiceListHead.Flink;
       while (ServiceEntry != &ServiceListHead)
 	{
@@ -775,7 +680,7 @@ ScmAutoStartServices(VOID)
     {
       CurrentService = CONTAINING_RECORD(ServiceEntry, SERVICE, ServiceListEntry);
 
-      if ((CurrentService->ServiceGroup.Length != 0) &&
+      if ((CurrentGroup->GroupName.Length > 0) &&
 	  (CurrentService->Start == SERVICE_AUTO_START) &&
 	  (CurrentService->ServiceVisited == FALSE))
 	{
@@ -793,7 +698,7 @@ ScmAutoStartServices(VOID)
     {
       CurrentService = CONTAINING_RECORD(ServiceEntry, SERVICE, ServiceListEntry);
 
-      if ((CurrentService->ServiceGroup.Length == 0) &&
+      if ((CurrentGroup->GroupName.Length == 0) &&
 	  (CurrentService->Start == SERVICE_AUTO_START) &&
 	  (CurrentService->ServiceVisited == FALSE))
 	{

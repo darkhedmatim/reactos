@@ -20,7 +20,14 @@
  *        Unicode and redirection safe!
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /*
@@ -35,7 +42,7 @@
 INT cmd_shift (LPTSTR cmd, LPTSTR param)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("cmd_shift: (\'%s\', \'%s\')\n"), cmd, param);
+	DebugPrintf ("cmd_shift: (\'%s\', \'%s\'\n", cmd, param);
 #endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))

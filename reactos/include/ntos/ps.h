@@ -26,22 +26,6 @@
 #define THREAD_PRIORITY_IDLE	(-15)
 #define THREAD_PRIORITY_LOWEST	(-2)
 
-/* Process priority classes */
-#define PROCESS_PRIORITY_CLASS_HIGH	(4) /* FIXME */
-#define PROCESS_PRIORITY_CLASS_IDLE	(0) /* FIXME */
-#define PROCESS_PRIORITY_CLASS_NORMAL	(2) /* FIXME */
-#define PROCESS_PRIORITY_CLASS_REALTIME	(5) /* FIXME */
-#define PROCESS_PRIORITY_CLASS_BELOW_NORMAL (1) /* FIXME */
-#define PROCESS_PRIORITY_CLASS_ABOVE_NORMAL (3) /* FIXME */
-
-/* Job access rights */
-#define JOB_OBJECT_ASSIGN_PROCESS	(1)
-#define JOB_OBJECT_SET_ATTRIBUTES	(2)
-#define JOB_OBJECT_QUERY	(4)
-#define JOB_OBJECT_TERMINATE	(8)
-#define JOB_OBJECT_SET_SECURITY_ATTRIBUTES	(16)
-#define JOB_OBJECT_ALL_ACCESS	(STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|31)
-
 #ifndef __USE_W32API
 
 /* Thread access rights */
@@ -93,8 +77,6 @@
 #define IDLE_PRIORITY_CLASS	(64)
 #define NORMAL_PRIORITY_CLASS	(32)
 #define REALTIME_PRIORITY_CLASS	(256)
-#define BELOW_NORMAL_PRIORITY_CLASS (16384)
-#define ABOVE_NORMAL_PRIORITY_CLASS (32768)
 
 /* ResumeThread / SuspendThread */
 #define MAXIMUM_SUSPEND_COUNT	(0x7f)
@@ -102,18 +84,11 @@
 #endif /* !__USE_W32API */
 
 #ifdef __NTOSKRNL__
-#ifdef __GNUC__
 extern struct _EPROCESS* EXPORTED PsInitialSystemProcess;
-extern POBJECT_TYPE EXPORTED      PsProcessType;
-extern POBJECT_TYPE EXPORTED      PsThreadType;
-#else /* __GNUC__ */
-/* Microsft-style */
-extern EXPORTED struct _EPROCESS* PsInitialSystemProcess;
-extern EXPORTED POBJECT_TYPE      PsProcessType;
-extern EXPORTED POBJECT_TYPE      PsThreadType;
-#endif /* __GNUC__ */
-#else /* __NTOSKRNL__ */
-#ifdef __GNUC__ // robd
+extern POBJECT_TYPE EXPORTED PsProcessType;
+extern POBJECT_TYPE EXPORTED PsThreadType;
+#else
+#ifdef __GNU__ // robd
 extern struct _EPROCESS* IMPORTED PsInitialSystemProcess;
 extern POBJECT_TYPE IMPORTED PsProcessType;
 extern POBJECT_TYPE IMPORTED PsThreadType;

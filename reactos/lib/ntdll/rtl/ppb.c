@@ -1,4 +1,4 @@
-/* $Id: ppb.c,v 1.20 2004/11/19 01:30:35 weiden Exp $
+/* $Id: ppb.c,v 1.17 2002/11/14 18:21:05 chorns Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <windows.h>
 #include <ntdll/ldr.h>
 #include <napi/teb.h>
 #include <ntdll/base.h>
@@ -23,16 +22,13 @@
 
 /* MACROS ****************************************************************/
 
-#define NORMALIZE(x,addr)   {if(x) x=(PVOID)((ULONG_PTR)(x)+(ULONG_PTR)(addr));}
-#define DENORMALIZE(x,addr) {if(x) x=(PVOID)((ULONG_PTR)(x)-(ULONG_PTR)(addr));}
+#define NORMALIZE(x,addr)   {if(x) x=(VOID*)((ULONG)(x)+(ULONG)(addr));}
+#define DENORMALIZE(x,addr) {if(x) x=(VOID*)((ULONG)(x)-(ULONG)(addr));}
 #define ALIGN(x,align)      (((ULONG)(x)+(align)-1UL)&(~((align)-1UL)))
 
 
 /* FUNCTIONS ****************************************************************/
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlAcquirePebLock(VOID)
 {
@@ -41,9 +37,6 @@ RtlAcquirePebLock(VOID)
 }
 
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlReleasePebLock(VOID)
 {
@@ -67,9 +60,6 @@ RtlpCopyParameterString(PWCHAR *Ptr,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 			   PUNICODE_STRING ImagePathName,
@@ -245,9 +235,6 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
    return STATUS_SUCCESS;
 }
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 RtlDestroyProcessParameters(PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
 {
@@ -261,8 +248,6 @@ RtlDestroyProcessParameters(PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
 
 /*
  * denormalize process parameters (Pointer-->Offset)
- *
- * @implemented
  */
 PRTL_USER_PROCESS_PARAMETERS STDCALL
 RtlDeNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)
@@ -286,8 +271,6 @@ RtlDeNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)
 
 /*
  * normalize process parameters (Offset-->Pointer)
- *
- * @implemented
  */
 PRTL_USER_PROCESS_PARAMETERS STDCALL
 RtlNormalizeProcessParams(PRTL_USER_PROCESS_PARAMETERS Params)

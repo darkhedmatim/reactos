@@ -1,4 +1,4 @@
-/* $Id: stubs.c,v 1.72 2004/12/27 16:48:29 navaraf Exp $
+/* $Id: stubs.c,v 1.22 2003/07/01 23:09:09 sedwards Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS user32.dll
@@ -7,35 +7,43 @@
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * NOTES:           If you implement a function, remove it from this file
  * UPDATE HISTORY:
- *      08-F05-2001  CSH  Created
+ *      08-05-2001  CSH  Created
  */
-
-#include "user32.h"
+#include <windows.h>
 #include <debug.h>
-#include <string.h>
-#include <mmsystem.h>
-#ifdef __USE_W32API
-typedef PVOID LPIMEPROW, LPIMEPROA;
-#endif
 
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
-AttachThreadInput(
-  DWORD idAttach,
-  DWORD idAttachTo,
-  BOOL fAttach)
+AnyPopup(VOID)
 {
   UNIMPLEMENTED;
   return FALSE;
 }
 
+WINBOOL
+STDCALL
+AttachThreadInput(
+  DWORD idAttach,
+  DWORD idAttachTo,
+  WINBOOL fAttach)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @unimplemented
- */
+long
+STDCALL
+BroadcastSystemMessage(
+  DWORD dwFlags,
+  LPDWORD lpdwRecipients,
+  UINT uiMessage,
+  WPARAM wParam,
+  LPARAM lParam)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
 long
 STDCALL
 BroadcastSystemMessageA(
@@ -49,10 +57,6 @@ BroadcastSystemMessageA(
   return 0;
 }
 
-
-/*
- * @unimplemented
- */
 long
 STDCALL
 BroadcastSystemMessageW(
@@ -66,10 +70,113 @@ BroadcastSystemMessageW(
   return 0;
 }
 
+WINBOOL
+STDCALL
+CheckRadioButton(
+  HWND hDlg,
+  int nIDFirstButton,
+  int nIDLastButton,
+  int nIDCheckButton)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @unimplemented
- */
+WINBOOL
+STDCALL
+ClientToScreen(
+  HWND hWnd,
+  LPPOINT lpPoint)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
+STDCALL
+ClipCursor(
+  CONST RECT *lpRect)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+HANDLE
+STDCALL
+CopyImage(
+  HANDLE hImage,
+  UINT uType,
+  int cxDesired,
+  int cyDesired,
+  UINT fuFlags)
+{
+  UNIMPLEMENTED;
+  return (HANDLE)0;
+}
+
+WINBOOL
+STDCALL
+DragDetect(
+  HWND hwnd,
+  POINT pt)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
+STDCALL
+EnableScrollBar(
+  HWND hWnd,
+  UINT wSBflags,
+  UINT wArrows)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+HWND
+STDCALL
+GetActiveWindow(VOID)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+HWND
+STDCALL
+GetCapture(VOID)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+UINT
+STDCALL
+GetDoubleClickTime(VOID)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HWND
+STDCALL
+GetFocus(VOID)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+DWORD
+STDCALL
+GetGuiResources(
+  HANDLE hProcess,
+  DWORD uiFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
 int
 STDCALL
 GetMouseMovePointsEx(
@@ -83,11 +190,35 @@ GetMouseMovePointsEx(
   return 0;
 }
 
+DWORD
+STDCALL
+GetQueueStatus(
+  UINT flags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
 
-/*
- * @unimplemented
- */
-BOOL
+HMENU
+STDCALL
+GetSystemMenu(
+  HWND hWnd,
+  WINBOOL bRevert)
+{
+  UNIMPLEMENTED;
+  return (HMENU)0;
+}
+
+WINBOOL
+STDCALL
+IsWindowEnabled(
+  HWND hWnd)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
 STDCALL
 LockWindowUpdate(
   HWND hWndLock)
@@ -96,11 +227,7 @@ LockWindowUpdate(
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 LockWorkStation(VOID)
 {
@@ -108,11 +235,209 @@ LockWorkStation(VOID)
   return FALSE;
 }
 
+WINBOOL
+STDCALL
+MessageBeep(
+  UINT uType)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @unimplemented
- */
-BOOL
+HMONITOR
+STDCALL
+MonitorFromPoint(
+  POINT pt,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+HMONITOR
+STDCALL
+MonitorFromRect(
+  LPRECT lprc,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+HMONITOR
+STDCALL
+MonitorFromWindow(
+  HWND hwnd,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return (HMONITOR)0;
+}
+
+DWORD
+STDCALL
+MsgWaitForMultipleObjects(
+  DWORD nCount,
+  CONST LPHANDLE pHandles,
+  WINBOOL fWaitAll,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+DWORD
+STDCALL
+MsgWaitForMultipleObjectsEx(
+  DWORD nCount,
+  CONST HANDLE pHandles,
+  DWORD dwMilliseconds,
+  DWORD dwWakeMask,
+  DWORD dwFlags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+#if 0
+HDEVNOTIFY
+STDCALL
+RegisterDeviceNotificationA(
+  HANDLE hRecipient,
+  LPVOID NotificationFilter,
+  DWORD Flags)
+{
+  UNIMPLEMENTED;
+  return (HDEVNOTIFY)0;
+}
+
+HDEVNOTIFY
+STDCALL
+RegisterDeviceNotificationW(
+  HANDLE hRecipient,
+  LPVOID NotificationFilter,
+  DWORD Flags)
+{
+  UNIMPLEMENTED;
+  return (HDEVNOTIFY)0;
+}
+#endif
+WINBOOL
+STDCALL
+RegisterHotKey(
+  HWND hWnd,
+  int id,
+  UINT fsModifiers,
+  UINT vk)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
+STDCALL
+ReleaseCapture(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
+STDCALL
+ScrollWindow(
+  HWND hWnd,
+  int XAmount,
+  int YAmount,
+  CONST RECT *lpRect,
+  CONST RECT *lpClipRect)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+int
+STDCALL
+ScrollWindowEx(
+  HWND hWnd,
+  int dx,
+  int dy,
+  CONST RECT *prcScroll,
+  CONST RECT *prcClip,
+  HRGN hrgnUpdate,
+  LPRECT prcUpdate,
+  UINT flags)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HWND
+STDCALL
+SetActiveWindow(
+  HWND hWnd)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+HWND
+STDCALL
+SetCapture(
+  HWND hWnd)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+WINBOOL
+STDCALL
+SetDoubleClickTime(
+  UINT uInterval)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+HWND
+STDCALL
+SetFocus(
+  HWND hWnd)
+{
+  UNIMPLEMENTED;
+  return (HWND)0;
+}
+
+VOID
+STDCALL
+SetLastErrorEx(
+  DWORD dwErrCode,
+  DWORD dwType)
+{
+  UNIMPLEMENTED;
+}
+
+WINBOOL
+STDCALL
+SetSysColors(
+  int cElements,
+  CONST INT *lpaElements,
+  CONST COLORREF *lpaRgbValues)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
+STDCALL
+SwapMouseButton(
+  WINBOOL fSwap)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL
 STDCALL
 TrackMouseEvent(
   LPTRACKMOUSEEVENT lpEventTrack)
@@ -121,11 +446,7 @@ TrackMouseEvent(
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL
+WINBOOL
 STDCALL
 UnregisterDeviceNotification(
   HDEVNOTIFY Handle)
@@ -134,10 +455,16 @@ UnregisterDeviceNotification(
   return FALSE;
 }
 
+WINBOOL
+STDCALL
+UnregisterHotKey(
+  HWND hWnd,
+  int id)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @unimplemented
- */
 DWORD
 STDCALL
 WaitForInputIdle(
@@ -148,760 +475,69 @@ WaitForInputIdle(
   return 0;
 }
 
+
+
+HHOOK
+STDCALL
+SetWindowsHookExA(
+    int idHook,
+    HOOKPROC lpfn,
+    HINSTANCE hMod,
+    DWORD dwThreadId)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HHOOK
+STDCALL
+SetWindowsHookExW(
+    int idHook,
+    HOOKPROC lpfn,
+    HINSTANCE hMod,
+    DWORD dwThreadId)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+VOID
+STDCALL
+keybd_event(
+	    BYTE bVk,
+	    BYTE bScan,
+	    DWORD dwFlags,
+	    DWORD dwExtraInfo)
+
+
+{
+  UNIMPLEMENTED
+}
+
+VOID
+STDCALL
+mouse_event(
+	    DWORD dwFlags,
+	    DWORD dx,
+	    DWORD dy,
+	    DWORD cButtons,
+	    DWORD dwExtraInfo)
+{
+  UNIMPLEMENTED
+}
+
 /******************************************************************************
  * SetDebugErrorLevel [USER32.@]
  * Sets the minimum error level for generating debugging events
  *
  * PARAMS
  *    dwLevel [I] Debugging error level
- *
- * @unimplemented
  */
 VOID
 STDCALL
 SetDebugErrorLevel( DWORD dwLevel )
 {
-    DbgPrint("(%ld): stub\n", dwLevel);
+  UNIMPLEMENTED
 }
 
 /* EOF */
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-EndTask(
-	HWND    hWnd,
-	BOOL fShutDown,
-	BOOL fForce)
-{
-    SendMessageW(hWnd, WM_CLOSE, 0, 0);
-    
-    if (IsWindow(hWnd))
-    {
-        if (fForce)
-            return DestroyWindow(hWnd);
-        else
-            return FALSE;
-    }
-    
-    return TRUE;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetAppCompatFlags ( HTASK hTask )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetInternalWindowPos(
-		     HWND hwnd,
-		     LPRECT rectWnd,
-		     LPPOINT ptIcon
-		     )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-LoadLocalFonts ( VOID )
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-LoadRemoteFonts ( VOID )
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-SetInternalWindowPos(
-		     HWND    hwnd,
-		     UINT    showCmd,
-		     LPRECT  rect,
-		     LPPOINT pt
-		     )
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-STDCALL
-RegisterSystemThread ( DWORD flags, DWORD reserved )
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-RegisterTasklist ( DWORD x )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-DragObject(
-	   HWND    hwnd1,
-	   HWND    hwnd2,
-	   UINT    u1,
-	   DWORD   dw1,
-	   HCURSOR hc1
-	   )
-{
-  return NtUserDragObject(hwnd1, hwnd2, u1, dw1, hc1);
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetUserObjectSecurity(
-		      HANDLE                hObj,
-		      PSECURITY_INFORMATION pSIRequested,
-		      PSECURITY_DESCRIPTOR  pSID,
-		      DWORD                 nLength,
-		      LPDWORD               lpnLengthNeeded
-		      )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-SetUserObjectSecurity(
-		      HANDLE                hObj,
-		      PSECURITY_INFORMATION pSIRequested,
-		      PSECURITY_DESCRIPTOR  pSID
-		      )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-UserRealizePalette ( HDC hDC )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-WINAPI
-SetSysColorsTemp(
-		 const COLORREF *pPens,
-		 const HBRUSH   *pBrushes,
-		 DWORD           n
-		 )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-WORD
-STDCALL
-CascadeChildWindows ( HWND hWndParent, WORD wFlags )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-WORD
-STDCALL
-TileChildWindows ( HWND hWndParent, WORD wFlags )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-HDESK
-STDCALL
-GetInputDesktop ( VOID )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetAccCursorInfo ( PCURSORINFO pci )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-ClientThreadSetup ( VOID )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-HDEVNOTIFY
-STDCALL
-RegisterDeviceNotificationW(
-    HANDLE hRecipient,
-    LPVOID NotificationFilter,
-    DWORD Flags
-    )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRawInputDeviceInfoW(
-    HANDLE hDevice,
-    UINT uiCommand,
-    LPVOID pData,
-    PUINT pcbSize)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LONG
-STDCALL
-BroadcastSystemMessageExW(
-    DWORD dwflags,
-    LPDWORD lpdwRecipients,
-    UINT uiMessage,
-    WPARAM wParam,
-    LPARAM lParam,
-    PBSMINFO pBSMInfo)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LONG
-STDCALL
-CsrBroadcastSystemMessageExW(
-    DWORD dwflags,
-    LPDWORD lpdwRecipients,
-    UINT uiMessage,
-    WPARAM wParam,
-    LPARAM lParam,
-    PBSMINFO pBSMInfo)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-HDEVNOTIFY
-STDCALL
-RegisterDeviceNotificationA(
-    HANDLE hRecipient,
-    LPVOID NotificationFilter,
-    DWORD Flags
-    )
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRawInputDeviceInfoA(
-    HANDLE hDevice,
-    UINT uiCommand,
-    LPVOID pData,
-    PUINT pcbSize)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LONG
-STDCALL
-BroadcastSystemMessageExA(
-    DWORD dwflags,
-    LPDWORD lpdwRecipients,
-    UINT uiMessage,
-    WPARAM wParam,
-    LPARAM lParam,
-    PBSMINFO pBSMInfo)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL 
-STDCALL
-AlignRects(LPRECT rect, DWORD b, DWORD c, DWORD d)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LRESULT
-STDCALL
-DefRawInputProc(
-    PRAWINPUT* paRawInput,
-    INT nInput,
-    UINT cbSizeHeader)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GetLayeredWindowAttributes(
-    HWND hwnd,
-    COLORREF *pcrKey,
-    BYTE *pbAlpha,
-    DWORD *pdwFlags)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRawInputBuffer(
-    PRAWINPUT   pData,
-    PUINT    pcbSize,
-    UINT         cbSizeHeader)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRawInputData(
-    HRAWINPUT    hRawInput,
-    UINT         uiCommand,
-    LPVOID      pData,
-    PUINT    pcbSize,
-    UINT         cbSizeHeader)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRawInputDeviceList(
-    PRAWINPUTDEVICELIST pRawInputDeviceList,
-    PUINT puiNumDevices,
-    UINT cbSize)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-GetRegisteredRawInputDevices(
-    PRAWINPUTDEVICE pRawInputDevices,
-    PUINT puiNumDevices,
-    UINT cbSize)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IsGUIThread(
-    BOOL bConvert)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-PrintWindow(
-    HWND hwnd,
-    HDC hdcBlt,
-    UINT nFlags)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-RegisterRawInputDevices(
-    PCRAWINPUTDEVICE pRawInputDevices,
-    UINT uiNumDevices,
-    UINT cbSize)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-WINNLSGetIMEHotkey( HWND hwnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-WINNLSEnableIME( HWND hwnd, BOOL enable)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-WINNLSGetEnableStatus( HWND hwnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPSetIMEW( HWND hwnd, LPIMEPROW ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPQueryIMEW( LPIMEPROW ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPGetIMEW( HWND hwnd, LPIMEPROW ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPSetIMEA( HWND hwnd, LPIMEPROA ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPQueryIMEA( LPIMEPROA ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-IMPGetIMEA( HWND hwnd, LPIMEPROA ime)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LRESULT 
-STDCALL
-SendIMEMessageExW(HWND hwnd,LPARAM lparam)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-LRESULT 
-STDCALL
-SendIMEMessageExA(HWND hwnd, LPARAM lparam)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL DisplayExitWindowsWarnings(ULONG flags)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL ReasonCodeNeedsBugID(ULONG reasoncode)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL ReasonCodeNeedsComment(ULONG reasoncode)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL CtxInitUser32(VOID)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL EnterReaderModeHelper(HWND hwnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetAppCompatFlags2(HTASK hTask)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL InitializeLpkHooks(FARPROC *hookfuncs)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-WORD STDCALL InitializeWin32EntryTable(UCHAR* EntryTablePlus0x1000)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL IsServerSideWindow(HWND wnd)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-typedef BOOL (CALLBACK *THEME_HOOK_FUNC) (DWORD state,PVOID arg2); //return type and 2nd parameter unknown
-/*
- * @unimplemented
- */
-BOOL STDCALL RegisterUserApiHook(HINSTANCE instance,THEME_HOOK_FUNC proc)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL UnregisterUserApiHook(VOID)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-HKL STDCALL LoadKeyboardLayoutEx(DWORD unknown,LPCWSTR pwszKLID,UINT Flags) //1st parameter unknown
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL AllowForegroundActivation(VOID)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID STDCALL ShowStartGlass(DWORD unknown)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOL STDCALL DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY_OF_SERVICE pqosPrev)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}

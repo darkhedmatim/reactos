@@ -22,9 +22,18 @@
  *    24-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed Win32 environment handling.
  */
-#include "precomp.h"
+
+#include "config.h"
 
 #ifdef INCLUDE_CMD_PATH
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "cmd.h"
+
 
 /* size of environment variable buffer */
 #define ENV_BUFFER_SIZE 1024
@@ -52,7 +61,7 @@ INT cmd_path (LPTSTR cmd, LPTSTR param)
 		dwBuffer = GetEnvironmentVariable (_T("PATH"), pszBuffer, ENV_BUFFER_SIZE);
 		if (dwBuffer == 0)
 		{
-			ConErrPrintf (_T("CMD: Not in environment \"PATH\"\n"));
+			ConErrPrintf ("CMD: Not in environment \"PATH\"\n");
 			return 0;
 		}
 		else if (dwBuffer > ENV_BUFFER_SIZE)

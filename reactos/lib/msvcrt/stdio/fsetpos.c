@@ -3,9 +3,6 @@
 #include <msvcrt/errno.h>
 #include <msvcrt/internal/file.h>
 
-/*
- * @implemented
- */
 int fsetpos(FILE *stream,const fpos_t *pos)
 {
   if (stream && pos)

@@ -13,6 +13,8 @@
 # fully.
 
 
+SEP := /
+
 # include OS/2-specific definitions
 include $(TOP_DIR)/builds/os2/os2-def.mk
 
@@ -21,6 +23,5 @@ include $(TOP_DIR)/builds/compiler/gcc.mk
 
 # include linking instructions
 include $(TOP_DIR)/builds/link_dos.mk
-
 
 # EOF

@@ -43,9 +43,6 @@ double atan (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double ceil (double __x)
 {
   register double __value;
@@ -60,9 +57,6 @@ double ceil (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double cos (double __x)
 {
   register double __value;
@@ -73,9 +67,6 @@ double cos (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double fabs (double __x)
 {
   register double __value;
@@ -86,9 +77,6 @@ double fabs (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double floor (double __x)
 {
   register double __value;
@@ -103,9 +91,6 @@ double floor (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double log (double __x)
 {
   register double __value;
@@ -130,9 +115,6 @@ double __log2 (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double pow (double __x, double __y)
 {
   register double __value, __exponent;
@@ -177,9 +159,6 @@ double pow (double __x, double __y)
   return __value;
 }
 
-/*
- * @implemented
- */
 double sin (double __x)
 {
   register double __value;
@@ -190,9 +169,6 @@ double sin (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double sqrt (double __x)
 {
   register double __value;
@@ -203,9 +179,6 @@ double sqrt (double __x)
   return __value;
 }
 
-/*
- * @implemented
- */
 double tan (double __x)
 {
   register double __value;

@@ -26,9 +26,6 @@
 #define __SQRT_DBL_MAX 1.3e+154
 #define __SQRT_DBL_MIN 2.3e-162
  
-/*
- * @implemented
- */
 double
 _hypot(double x, double y)
 {

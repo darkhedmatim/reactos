@@ -1,4 +1,4 @@
-/* $Id: open.c,v 1.19 2004/08/31 20:07:06 hbirr Exp $
+/* $Id: open.c,v 1.14 2002/12/26 17:26:41 robd Exp $
  *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
@@ -13,7 +13,7 @@
 
 // possibly store extra information at the handle
 
-#include "precomp.h"
+#include <windows.h>
 #if !defined(NDEBUG) && defined(DBG)
 #include <msvcrt/stdarg.h>
 #endif
@@ -91,9 +91,6 @@ char __is_text_file(FILE* p)
    return (!((p)->_flag&_IOSTRG) && (__pioinfo[(p)->_file].mode&O_TEXT));
 }
 
-/*
- * @implemented
- */
 int _open(const char* _path, int _oflag,...)
 {
 #if !defined(NDEBUG) && defined(DBG)
@@ -105,6 +102,7 @@ int _open(const char* _path, int _oflag,...)
    DWORD dwShareMode = 0;
    DWORD dwCreationDistribution = 0;
    DWORD dwFlagsAndAttributes = 0;
+   DWORD dwLastError;
    SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
 
 #if !defined(NDEBUG) && defined(DBG)
@@ -141,6 +139,11 @@ int _open(const char* _path, int _oflag,...)
    else //if ((_oflag & O_RDONLY) == O_RDONLY)
      dwDesiredAccess |= GENERIC_READ;
 #endif
+   if (( _oflag & S_IREAD ) == S_IREAD)
+     dwShareMode |= FILE_SHARE_READ;
+   
+   if (( _oflag & S_IWRITE ) == S_IWRITE)
+     dwShareMode |= FILE_SHARE_WRITE;
 
    if (( _oflag & (_O_CREAT | _O_EXCL)) == (_O_CREAT | _O_EXCL))
      dwCreationDistribution |= CREATE_NEW;
@@ -172,13 +175,6 @@ int _open(const char* _path, int _oflag,...)
    }
    if (_oflag & _O_NOINHERIT)
      sa.bInheritHandle = FALSE;
-
-   if (dwCreationDistribution == OPEN_EXISTING &&
-       (dwDesiredAccess & (GENERIC_WRITE|GENERIC_READ)) == GENERIC_READ) {
-      /* Allow always shared read for a file which is opened for read only */
-      dwShareMode |= FILE_SHARE_READ;
-   }
-
    hFile = CreateFileA(_path,
                dwDesiredAccess,
                dwShareMode, 
@@ -186,10 +182,17 @@ int _open(const char* _path, int _oflag,...)
                dwCreationDistribution,
                dwFlagsAndAttributes,
                NULL);
-	if (hFile == (HANDLE)-1) {
-		_dosmaperr(GetLastError());
-		return -1;
-	}
+   if (hFile == (HANDLE)-1) {
+     dwLastError = GetLastError();
+     if (dwLastError == ERROR_ALREADY_EXISTS) {
+        DPRINT("ERROR_ALREADY_EXISTS\n");
+        __set_errno(EEXIST);
+     } else {
+        DPRINT("%x\n", dwLastError);
+        __set_errno(ENOFILE);
+     }
+     return -1;
+   }
    DPRINT("OK\n");
    if (!(_oflag & (_O_TEXT|_O_BINARY))) {
        _oflag |= _fmode;
@@ -276,17 +279,11 @@ int __fileno_close(int _fd)
     return 0;
 }
 
-/*
- * @implemented
- */
 int _open_osfhandle(void* osfhandle, int flags)
 {
     return __fileno_alloc((HANDLE)osfhandle, flags);
 }
 
-/*
- * @implemented
- */
 void* _get_osfhandle( int fileno )
 {
     return filehnd(fileno);
@@ -352,7 +349,7 @@ BOOL __fileno_init(void)
    ULONG count = 0, i;
    HANDLE* pFile;
    char* pmode;
-   STARTUPINFOA StInfo;
+   STARTUPINFO StInfo;
 
    GetStartupInfoA(&StInfo);
    if (StInfo.lpReserved2 && StInfo.cbReserved2 >= sizeof(ULONG)) {

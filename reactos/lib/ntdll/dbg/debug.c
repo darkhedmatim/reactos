@@ -1,4 +1,4 @@
-/* $Id: debug.c,v 1.14 2004/01/06 16:08:02 ekohl Exp $
+/* $Id: debug.c,v 1.9 2003/04/26 23:13:28 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -13,9 +13,8 @@
 
 #include <ddk/ntddk.h>
 #include <ntdll/rtl.h>
-#include <rosrtl/string.h>
-#include <rosrtl/thread.h>
 #include <ntdll/dbg.h>
+#include <napi/lpc.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -63,9 +62,6 @@ DbgSsServerThread(PVOID Unused)
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgSsHandleKmApiMsg(ULONG Unknown1,
 		    HANDLE EventHandle)
@@ -74,9 +70,6 @@ DbgSsHandleKmApiMsg(ULONG Unknown1,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 DbgSsInitialize(HANDLE ReplyPort,
 		ULONG Unknown1,
@@ -84,7 +77,7 @@ DbgSsInitialize(HANDLE ReplyPort,
 		ULONG Unknown3)
 {
 	SECURITY_QUALITY_OF_SERVICE Qos;
-	UNICODE_STRING PortName = ROS_STRING_INITIALIZER(L"\\DbgSsApiPort");
+	UNICODE_STRING PortName = UNICODE_STRING_INITIALIZER(L"\\DbgSsApiPort");
 	NTSTATUS Status;
 
 	Qos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
@@ -123,14 +116,11 @@ DbgSsInitialize(HANDLE ReplyPort,
 }
 
 
-/*
- * @implemented
- */
 NTSTATUS STDCALL
 DbgUiConnectToDbg(VOID)
 {
 	SECURITY_QUALITY_OF_SERVICE Qos;
-	UNICODE_STRING PortName = ROS_STRING_INITIALIZER(L"\\DbgUiApiPort");
+	UNICODE_STRING PortName = UNICODE_STRING_INITIALIZER(L"\\DbgUiApiPort");
 	NTSTATUS Status;
 	PTEB Teb;
 	ULONG InfoSize;
@@ -164,9 +154,6 @@ DbgUiConnectToDbg(VOID)
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgUiContinue(PCLIENT_ID ClientId,
 	      ULONG ContinueStatus)
@@ -175,9 +162,6 @@ DbgUiContinue(PCLIENT_ID ClientId,
 }
 
 
-/*
- * @unimplemented
- */
 NTSTATUS STDCALL
 DbgUiWaitStateChange(ULONG Unknown1,
 		     ULONG Unknown2)
@@ -189,10 +173,9 @@ NTSTATUS STDCALL DbgUiRemoteBreakin(VOID)
 {
  DbgBreakPoint();
 
- RtlRosExitUserThread(0);
+ RtlExitUserThread(0);
 
  DbgBreakPoint();
- return STATUS_SUCCESS;
 }
 
 NTSTATUS STDCALL DbgUiIssueRemoteBreakin(HANDLE Process)

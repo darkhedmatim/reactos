@@ -1,7 +1,14 @@
-/* $Id: strcat.c,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/*
+ * $Id: strcat.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
 #include <string.h>
-#include "tcscat.h"
 
-/* EOF */
+char* strcat(char* s, const char* append)
+{
+    char* save = s;
+
+    for (; *s; ++s);
+        while ((*s++ = *append++));
+    return save;
+}

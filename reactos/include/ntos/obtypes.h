@@ -1,72 +1,23 @@
 #ifndef _INCLUDE_DDK_OBTYPES_H
 #define _INCLUDE_DDK_OBTYPES_H
-/* $Id: obtypes.h,v 1.9 2004/11/21 06:51:17 ion Exp $ */
+/* $Id: obtypes.h,v 1.3 2003/06/02 10:02:16 ekohl Exp $ */
 struct _DIRECTORY_OBJECT;
 struct _OBJECT_ATTRIBUTES;
 
 #ifndef __USE_W32API
 
-typedef struct _OBJECT_HANDLE_INFORMATION
-{
-  ULONG HandleAttributes;
-  ACCESS_MASK GrantedAccess;
-} OBJECT_HANDLE_INFORMATION, *POBJECT_HANDLE_INFORMATION;
-
-
-typedef struct _OBJECT_BASIC_INFORMATION
-{
-  ULONG Attributes;
-  ACCESS_MASK GrantedAccess;
-  ULONG HandleCount;
-  ULONG PointerCount;
-  ULONG PagedPoolUsage;
-  ULONG NonPagedPoolUsage;
-  ULONG Reserved[3];
-  ULONG NameInformationLength;
-  ULONG TypeInformationLength;
-  ULONG SecurityDescriptorLength;
-  LARGE_INTEGER CreateTime;
-} OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
-
+typedef ULONG ACCESS_STATE, *PACCESS_STATE;
 
 typedef struct _OBJECT_NAME_INFORMATION
 {
   UNICODE_STRING Name;
 } OBJECT_NAME_INFORMATION, *POBJECT_NAME_INFORMATION;
 
-
-typedef struct _OBJECT_TYPE_INFORMATION
+typedef struct _OBJECT_HANDLE_INFORMATION
 {
-  UNICODE_STRING Name;
-  ULONG ObjectCount;
-  ULONG ReferenceCount;
-  ULONG Reserved1[4];
-  ULONG PeakObjectCount;
-  ULONG PeakHandleCount;
-  ULONG Reserved2[4];
-  ULONG InvalidAttributes;
-  GENERIC_MAPPING GenericMapping;
-  ULONG ValidAccess;
-  UCHAR Unknown;
-  BOOLEAN MainitainHandleDatabase;
-  POOL_TYPE PoolType;
-  ULONG PagedPoolUsage;
-  ULONG NonPagedPoolUsage;
-} OBJECT_TYPE_INFORMATION, *POBJECT_TYPE_INFORMATION;
-
-
-typedef struct _OBJECT_ALL_TYPES_INFORMATION
-{
-  ULONG NumberOfTypes;
-  OBJECT_TYPE_INFORMATION TypeInformation[1];
-} OBJECT_ALL_TYPES_INFORMATION, *POBJECT_ALL_TYPES_INFORMATION;
-
-
-typedef struct _OBJECT_HANDLE_ATTRIBUTE_INFORMATION
-{
-  BOOLEAN Inherit;
-  BOOLEAN ProtectFromClose;
-} OBJECT_HANDLE_ATTRIBUTE_INFORMATION, *POBJECT_HANDLE_ATTRIBUTE_INFORMATION;
+  ULONG HandleAttributes;
+  ACCESS_MASK GrantedAccess;
+} OBJECT_HANDLE_INFORMATION, *POBJECT_HANDLE_INFORMATION;
 
 #endif /* __USE_W32API */
 
@@ -209,10 +160,8 @@ typedef struct _OBJECT_HEADER
    LONG HandleCount;
    BOOLEAN CloseInProcess;
    BOOLEAN Permanent;
-   BOOLEAN Inherit;
    struct _DIRECTORY_OBJECT* Parent;
    POBJECT_TYPE ObjectType;
-   PSECURITY_DESCRIPTOR SecurityDescriptor;
    
    /*
     * PURPOSE: Object type
@@ -253,36 +202,8 @@ typedef struct _HANDLE_TABLE
 
 typedef struct _HANDLE_TABLE *PHANDLE_TABLE;
 
-/*
- * FIXME: These will eventually become centerfold in the compliant Ob Manager
- * For now, they are only here so Device Map is properly defined before the header
- * changes
- */
-typedef struct _OBJECT_DIRECTORY_ENTRY {
-    struct _OBJECT_DIRECTORY_ENTRY *ChainLink;
-    PVOID Object;
-    ULONG HashValue;
-} OBJECT_DIRECTORY_ENTRY, *POBJECT_DIRECTORY_ENTRY;
-
-#define NUMBER_HASH_BUCKETS 37
-typedef struct _OBJECT_DIRECTORY {
-    struct _OBJECT_DIRECTORY_ENTRY *HashBuckets[NUMBER_HASH_BUCKETS];
-    struct _EX_PUSH_LOCK *Lock;
-    struct _DEVICE_MAP *DeviceMap;
-    ULONG SessionId;
-} OBJECT_DIRECTORY, *POBJECT_DIRECTORY;
-
-typedef struct _DEVICE_MAP {
-    POBJECT_DIRECTORY   DosDevicesDirectory;
-    POBJECT_DIRECTORY   GlobalDosDevicesDirectory;
-    ULONG               ReferenceCount;
-    ULONG               DriveMap;
-    UCHAR               DriveType[32];
-} DEVICE_MAP, *PDEVICE_MAP; 
-
 #endif /* __USE_W32API */
 
 extern POBJECT_TYPE ObDirectoryType;
-extern PDEVICE_MAP ObSystemDeviceMap;
 
 #endif /* ndef _INCLUDE_DDK_OBTYPES_H */

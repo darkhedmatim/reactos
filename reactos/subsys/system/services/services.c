@@ -1,4 +1,4 @@
-/* $Id: services.c,v 1.18 2004/04/12 17:20:47 navaraf Exp $
+/* $Id: services.c,v 1.11 2003/01/05 19:18:44 robd Exp $
  *
  * service control manager
  * 
@@ -31,12 +31,12 @@
 
 #define NTOS_MODE_USER
 #include <ntos.h>
-#include <stdio.h>
 #include <windows.h>
 
 #include "services.h"
 
-#define NDEBUG
+#define DBG
+//#define NDEBUG
 #include <debug.h>
 
 
@@ -210,14 +210,14 @@ ScmNamedPipeListenerThread(LPVOID Context)
 
 //    hPipe = (HANDLE)Context;
     for (;;) {
-        DPRINT("SCM: Waiting for new connection on named pipe...\n");
+        PrintString("SCM: Waiting for new connection on named pipe...\n");
         /* Create named pipe */
         if (!ScmCreateNamedPipe()) {
-            DPRINT1("\nSCM: Failed to create named pipe\n");
+            PrintString("\nSCM: Failed to create named pipe\n");
             break;
             //ExitThread(0);
         }
-        DPRINT("\nSCM: named pipe session created.\n");
+        PrintString("\nSCM: named pipe session created.\n");
         Sleep(10);
     }
     DPRINT("\n\nWARNING: ScmNamedPipeListenerThread(%x) - Aborted.\n\n", Context);
@@ -237,29 +237,10 @@ BOOL StartScmNamedPipeThreadListener(void)
                  &dwThreadId);
 
     if (!hThread) {
-        DPRINT1("SERVICES: Could not create thread (Status %lx)\n", GetLastError());
+        PrintString("SERVICES: Could not create thread (Status %lx)\n", GetLastError());
         return FALSE;
     }
     return TRUE;
-}
-
-VOID FASTCALL
-AcquireLoadDriverPrivilege(VOID)
-{
-    HANDLE hToken; 
-    TOKEN_PRIVILEGES tkp; 
-
-    /* Get a token for this process.  */
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-        /* Get the LUID for the debug privilege.  */
-        LookupPrivilegeValue(NULL, SE_LOAD_DRIVER_NAME, &tkp.Privileges[0].Luid); 
-
-        tkp.PrivilegeCount = 1;  /* one privilege to set */
-        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; 
-
-        /* Get the debug privilege for this process. */
-        AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0); 
-    }
 }
 
 int STDCALL
@@ -272,19 +253,16 @@ WinMain(HINSTANCE hInstance,
   HANDLE hEvent;
   NTSTATUS Status;
 
-  DPRINT("SERVICES: Service Control Manager\n");
-
-  /* Acquire privileges to load drivers */
-  AcquireLoadDriverPrivilege();
+  PrintString("SERVICES: Service Control Manager\n");
 
   /* Create start event */
   if (!ScmCreateStartEvent(&hScmStartEvent))
     {
-      DPRINT1("SERVICES: Failed to create start event\n");
+      PrintString("SERVICES: Failed to create start event\n");
       ExitThread(0);
     }
 
-  DPRINT("SERVICES: created start event with handle %x.\n", hScmStartEvent);
+  PrintString("SERVICES: created start event with handle %x.\n", hScmStartEvent);
 
   /* FIXME: more initialization */
 
@@ -293,7 +271,7 @@ WinMain(HINSTANCE hInstance,
   Status = ScmCreateServiceDataBase();
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("SERVICES: failed to create SCM database (Status %lx)\n", Status);
+      PrintString("SERVICES: failed to create SCM database (Status %lx)\n", Status);
       ExitThread(0);
     }
 
@@ -301,20 +279,20 @@ WinMain(HINSTANCE hInstance,
   ScmGetBootAndSystemDriverState();
 
 #if 0
-    DPRINT("SERVICES: Attempting to create named pipe...\n");
+    PrintString("SERVICES: Attempting to create named pipe...\n");
     /* Create named pipe */
     if (!ScmCreateNamedPipe()) {
-        DPRINT1("SERVICES: Failed to create named pipe\n");
+        PrintString("SERVICES: Failed to create named pipe\n");
         ExitThread(0);
     }
-    DPRINT("SERVICES: named pipe created successfully.\n");
+    PrintString("SERVICES: named pipe created successfully.\n");
 #else
-    DPRINT("SERVICES: Attempting to create named pipe listener...\n");
+    PrintString("SERVICES: Attempting to create named pipe listener...\n");
     if (!StartScmNamedPipeThreadListener()) {
-        DPRINT1("SERVICES: Failed to create named pipe listener thread.\n");
+        PrintString("SERVICES: Failed to create named pipe listener thread.\n");
         ExitThread(0);
     }
-    DPRINT("SERVICES: named pipe listener thread created.\n");
+    PrintString("SERVICES: named pipe listener thread created.\n");
 #endif
    /* FIXME: create listener thread for pipe */
 
@@ -322,7 +300,7 @@ WinMain(HINSTANCE hInstance,
   /* Register service process with CSRSS */
   RegisterServicesProcess(GetCurrentProcessId());
 
-  DPRINT("SERVICES: Initialized.\n");
+  PrintString("SERVICES: Initialized.\n");
 
   /* Signal start event */
   SetEvent(hScmStartEvent);
@@ -337,7 +315,7 @@ WinMain(HINSTANCE hInstance,
   /* FIXME: more to do ? */
 
 
-  DPRINT("SERVICES: Running.\n");
+  PrintString("SERVICES: Running.\n");
 
 #if 1
   hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -349,7 +327,7 @@ WinMain(HINSTANCE hInstance,
       }
 #endif
 
-  DPRINT("SERVICES: Finished.\n");
+  PrintString("SERVICES: Finished.\n");
 
   ExitThread(0);
   return(0);

@@ -1,4 +1,4 @@
-/* $Id: output.c,v 1.4 2003/11/17 02:12:50 hyperion Exp $
+/* $Id: output.c,v 1.1 2003/03/31 22:28:59 hyperion Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
@@ -16,8 +16,8 @@
 /* Open or create the mutex used to communicate with the debug monitor */
 HANDLE K32CreateDBMonMutex(void)
 {
- static SID_IDENTIFIER_AUTHORITY siaNTAuth = {SECURITY_NT_AUTHORITY};
- static SID_IDENTIFIER_AUTHORITY siaWorldAuth = {SECURITY_WORLD_SID_AUTHORITY};
+ static SID_IDENTIFIER_AUTHORITY siaNTAuth = SECURITY_NT_AUTHORITY;
+ static SID_IDENTIFIER_AUTHORITY siaWorldAuth = SECURITY_WORLD_SID_AUTHORITY;
 
  HANDLE hMutex;
 
@@ -234,10 +234,6 @@ l_Cleanup:
  return hMutex;
 }
 
-
-/*
- * @implemented
- */
 VOID WINAPI OutputDebugStringA(LPCSTR _OutputString)
 {
 #if 0
@@ -463,10 +459,6 @@ VOID WINAPI OutputDebugStringA(LPCSTR _OutputString)
 #endif
 }
 
-
-/*
- * @implemented
- */
 VOID WINAPI OutputDebugStringW(LPCWSTR _OutputString)
 {
  UNICODE_STRING wstrOut;

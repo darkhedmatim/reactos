@@ -18,9 +18,9 @@
  *  DISCLAIMED. This includes but is not limited to warranties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Revision: 1.7 $
- * $Author: royce $
- * $Date: 2003/08/11 02:59:57 $
+ * $Revision: 1.5 $
+ * $Author: robd $
+ * $Date: 2002/11/24 18:06:00 $
  *
  */
 /* Appropriated for Reactos Crtdll by Ariadne */
@@ -40,14 +40,6 @@
  * The minimum is zero.
  */
 #define RAND_MAX    0x7FFF
-
-#ifndef _MAX_PATH
-#define _MAX_DRIVE          3
-#define _MAX_FNAME          256
-#define _MAX_DIR            _MAX_FNAME
-#define _MAX_EXT            _MAX_FNAME
-#define _MAX_PATH           260
-#endif
 
 /* 
  * These values may be used as exit status codes.
@@ -171,7 +163,6 @@ void     _exit(int nStatus) _ATTRIB_NORETURN;
 int      _putenv(const char *val);
 void     _searchenv(const char *file, const char *var, char *path);
 void     _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext);
-void     _wsplitpath(const wchar_t* path, wchar_t* drive, wchar_t* dir, wchar_t* fname, wchar_t* ext);
 
 char*    _itoa(int nValue, char* sz, int nRadix);
 char*    _ltoa(long lnValue, char* sz, int nRadix);
@@ -229,16 +220,6 @@ unsigned long _lrotr(unsigned long value, int shift);
  * Undefine the no return attribute used in some function definitions
  */
 #undef  _ATTRIB_NORETURN
-
-#ifndef _DISABLE_TIDENTS
-#ifdef UNICODE
-#define _tsplitpath _wsplitpath
-#define _tmakepath _wmakepath
-#else
-#define _tsplitpath _splitpath
-#define _tmakepath _makepath
-#endif
-#endif /* _DISABLE_TIDENTS */
 
 #ifdef __cplusplus
 }

@@ -26,174 +26,28 @@
 #define KTHREAD_STACK_LIMIT       0x1C
 #define KTHREAD_TEB               0x20
 #define KTHREAD_KERNEL_STACK      0x28
-#define KTHREAD_NPX_STATE         0x31
-#define KTHREAD_APCSTATE_PROCESS  0x44
 #define KTHREAD_SERVICE_TABLE     0xDC
 #define KTHREAD_PREVIOUS_MODE     0x137
 #define KTHREAD_TRAP_FRAME        0x128
 #define KTHREAD_CALLBACK_STACK    0x120
 
+#define ETHREAD_THREADS_PROCESS   0x234
 
 #define KPROCESS_DIRECTORY_TABLE_BASE 0x18
-#define KPROCESS_LDT_DESCRIPTOR0      0x20
-#define KPROCESS_LDT_DESCRIPTOR1      0x24
-#define KPROCESS_IOPM_OFFSET          0x30
 
 #define KPCR_BASE                 0xFF000000
 
 #define KPCR_EXCEPTION_LIST       0x0
-#define KPCR_SELF                 0x1C
-#define KPCR_TSS                  0x40
+#define KPCR_SELF                 0x18
+#define KPCR_TSS                  0x3C
 #define KPCR_CURRENT_THREAD       0x124	
-#define KPCR_NPX_THREAD           0x2A4
 
 #ifndef __ASM__
-
-#include "fpu.h"
-
-#pragma pack(push,4)
-
-/* Fixme: Use correct types? */
-typedef struct _KPROCESSOR_STATE {
-   PCONTEXT ContextFrame;
-   PVOID SpecialRegisters;
-} KPROCESSOR_STATE;
-
-/* ProcessoR Control Block */ 
-typedef struct _KPRCB {
-	USHORT MinorVersion;
-	USHORT MajorVersion;
-	struct _KTHREAD *CurrentThread;
-	struct _KTHREAD *NextThread;
-	struct _KTHREAD *IdleThread;
-	UCHAR Number;
-	UCHAR Reserved;
-	USHORT BuildType;
-	ULONG SetMember;
-	UCHAR CpuType;
-	UCHAR CpuID;
-	USHORT CpuStep;
-	KPROCESSOR_STATE ProcessorState;
-	ULONG KernelReserved[16];
-	ULONG HalReserved[16];
-	UCHAR PrcbPad0[92];
-	PVOID LockQueue[33]; // Used for Queued Spinlocks
-	struct _KTHREAD *NpxThread;
-	ULONG InterruptCount;
-	ULONG KernelTime;
-	ULONG UserTime;
-	ULONG DpcTime;
-	ULONG DebugDpcTime;
-	ULONG InterruptTime;
-	ULONG AdjustDpcThreshold;
-	ULONG PageColor;
-	UCHAR SkipTick;
-	UCHAR DebuggerSavedIRQL;
-	UCHAR Spare1[6];
-	struct _KNODE *ParentNode;
-	ULONG MultiThreadProcessorSet;
-	struct _KPRCB *MultiThreadSetMaster;
-	ULONG ThreadStartCount[2];
-	ULONG CcFastReadNoWait;
-	ULONG CcFastReadWait;
-	ULONG CcFastReadNotPossible;
-	ULONG CcCopyReadNoWait;
-	ULONG CcCopyReadWait;
-	ULONG CcCopyReadNoWaitMiss;
-	ULONG KeAlignmentFixupCount;
-	ULONG SpareCounter0;
-	ULONG KeDcacheFlushCount;
-	ULONG KeExceptionDispatchCount;
-	ULONG KeFirstLevelTbFills;
-	ULONG KeFloatingEmulationCount;
-	ULONG KeIcacheFlushCount;
-	ULONG KeSecondLevelTbFills;
-	ULONG KeSystemCalls;
-	ULONG IoReadOperationCount;
-	ULONG IoWriteOperationCount;
-	ULONG IoOtherOperationCount;
-	LARGE_INTEGER IoReadTransferCount;
-	LARGE_INTEGER IoWriteTransferCount;
-	LARGE_INTEGER IoOtherTransferCount;
-	ULONG SpareCounter1[8];
-	PP_LOOKASIDE_LIST PPLookasideList[16];
-	PP_LOOKASIDE_LIST PPNPagedLookasideList[32];
-	PP_LOOKASIDE_LIST PPPagedLookasideList[32];
-	ULONG PacketBarrier;
-	ULONG ReverseStall;
-	PVOID IpiFrame;
-	UCHAR PrcbPad2[52];
-	PVOID CurrentPacket[3];
-	ULONG TargetSet;
-	ULONG_PTR WorkerRoutine;
-	ULONG IpiFrozen;
-	UCHAR PrcbPad3[40];
-	ULONG RequestSummary;
-	struct _KPRCB *SignalDone;
-	UCHAR PrcbPad4[56];
-	struct _KDPC_DATA DpcData[2];
-	PVOID DpcStack;
-	ULONG MaximumDpcQueueDepth;
-	ULONG DpcRequestRate;
-	ULONG MinimumDpcRate;
-	UCHAR DpcInterruptRequested;
-	UCHAR DpcThreadRequested;
-	UCHAR DpcRoutineActive;
-	UCHAR DpcThreadActive;
-	ULONG PrcbLock;
-	ULONG DpcLastCount;
-	ULONG TimerHand;
-	ULONG TimerRequest;
-	PVOID DpcThread;
-	struct _KEVENT *DpcEvent;
-	UCHAR ThreadDpcEnable;
-	BOOLEAN QuantumEnd;
-	UCHAR PrcbPad50;
-	UCHAR IdleSchedule;
-	ULONG DpcSetEventRequest;
-	UCHAR PrcbPad5[18];
-	LONG TickOffset;
-	struct _KDPC* CallDpc;
-	ULONG PrcbPad7[8];
-	LIST_ENTRY WaitListHead;
-	ULONG ReadySummary;
-	ULONG SelectNextLast;
-	LIST_ENTRY DispatcherReadyListHead[32];
-	SINGLE_LIST_ENTRY DeferredReadyListHead;
-	ULONG PrcbPad72[11];
-	PVOID ChainedInterruptList;
-	LONG LookasideIrpFloat;
-	LONG MmPageFaultCount;
-	LONG MmCopyOnWriteCount;
-	LONG MmTransitionCount;
-	LONG MmCacheTransitionCount;
-	LONG MmDemandZeroCount;
-	LONG MmPageReadCount;
-	LONG MmPageReadIoCount;
-	LONG MmCacheReadCount;
-	LONG MmCacheIoCount;
-	LONG MmDirtyPagesWriteCount;
-	LONG MmDirtyWriteIoCount;
-	LONG MmMappedPagesWriteCount;
-	LONG MmMappedWriteIoCount;
-	ULONG SpareFields0[1];
-	UCHAR VendorString[13];
-	UCHAR InitialApicId;
-	UCHAR LogicalProcessorsPerPhysicalProcessor;
-	ULONG MHz;
-	ULONG FeatureBits;
-	LARGE_INTEGER UpdateSignature;
-	LARGE_INTEGER IsrTime;
-	LARGE_INTEGER SpareField1;
-	FX_SAVE_AREA NpxSaveArea;
-	PROCESSOR_POWER_STATE PowerState;
-} KPRCB, *PKPRCB;
-
-#pragma pack(pop)
 
 #ifndef __USE_W32API
 
 #pragma pack(push,4)
+
 /*
  * Processor Control Region Thread Information Block
  */
@@ -207,72 +61,78 @@ typedef struct _KPCR_TIB {
     DWORD  Version;             /* 10 */
   };
   PVOID  ArbitraryUserPointer;  /* 14 */
-  struct _KPCR_TIB* Self;       /* 18 */
 } KPCR_TIB, *PKPCR_TIB; /* 18 */
+
+typedef struct _KPCR {
+  KPCR_TIB  Tib;                /* 00 */
+  struct _KPCR  *Self;          /* 18 */
+  struct _KPRCB  *PCRCB;        /* 1C */
+  KIRQL  Irql;                  /* 20 */
+  ULONG  IRR;                   /* 24 */
+  ULONG  IrrActive;             /* 28 */
+  ULONG  IDR;                   /* 2C */
+  PVOID  KdVersionBlock;        /* 30 */
+  PUSHORT  IDT;                 /* 34 */
+  PUSHORT  GDT;                 /* 38 */
+  struct _KTSS  *TSS;           /* 3C */
+  USHORT  MajorVersion;         /* 40 */
+  USHORT  MinorVersion;         /* 42 */
+  KAFFINITY  SetMember;         /* 44 */
+  ULONG  StallScaleFactor;      /* 48 */
+  UCHAR  DebugActive;           /* 4C */
+  UCHAR  ProcessorNumber;       /* 4D */
+  UCHAR  Reserved[2];           /* 4E */
+} KPCR;
+
+#pragma pack(pop)
+
+typedef struct _KPCR *PKPCR;
+
+#endif /* __USE_W32API */
+
+#pragma pack(push,4)
 
 /*
  * Processor Control Region
+ * The first part of this structure must match the KPCR structure in w32api
  */
-typedef struct _KPCR {
+typedef struct _IKPCR {
   KPCR_TIB  Tib;                /* 00 */
-  struct _KPCR  *Self;          /* 1C */
-  struct _KPRCB  *PCRCB;        /* 20 */
-  KIRQL  Irql;                  /* 24 */
-  ULONG  IRR;                   /* 28 */
-  ULONG  IrrActive;             /* 2C */
-  ULONG  IDR;                   /* 30 */
-  PVOID  KdVersionBlock;        /* 34 */
-  PUSHORT  IDT;                 /* 38 */
-  PUSHORT  GDT;                 /* 3C */
-  struct _KTSS  *TSS;           /* 40 */
-  USHORT  MajorVersion;         /* 44 */
-  USHORT  MinorVersion;         /* 46 */
-  KAFFINITY  SetMember;         /* 48 */
-  ULONG  StallScaleFactor;      /* 4C */
-  UCHAR  DebugActive;           /* 50 */
-  UCHAR  ProcessorNumber;       /* 51 */
-  UCHAR  Reserved;              /* 52 */
-  UCHAR  L2CacheAssociativity;  /* 53 */
-  ULONG  VdmAlert;              /* 54 */
-  ULONG  KernelReserved[14];    /* 58 */
-  ULONG  L2CacheSize;           /* 90 */
-  ULONG  HalReserved[16];       /* 94 */
-  ULONG  InterruptMode;         /* D4 */
-  UCHAR  KernelReserved2[0x48]; /* D8 */
-  KPRCB  PrcbData;              /* 120 */
-} KPCR, *PKPCR;
+  struct _KPCR  *Self;          /* 18 */
+  struct _KPRCB  *PCRCB;        /* 1C */
+  KIRQL  Irql;                  /* 20 */
+  ULONG  IRR;                   /* 24 */
+  ULONG  IrrActive;             /* 28 */
+  ULONG  IDR;                   /* 2C */
+  PVOID  KdVersionBlock;        /* 30 */
+  PUSHORT  IDT;                 /* 34 */
+  PUSHORT  GDT;                 /* 38 */
+  struct _KTSS  *TSS;           /* 3C */
+  USHORT  MajorVersion;         /* 40 */
+  USHORT  MinorVersion;         /* 42 */
+  KAFFINITY  SetMember;         /* 44 */
+  ULONG  StallScaleFactor;      /* 48 */
+  UCHAR  DebugActive;           /* 4C */
+  UCHAR  ProcessorNumber;       /* 4D */
+  UCHAR  Reserved[2];           /* 4E */
+  UCHAR  Reserved2[0xD4];       /* 50 */
+  struct _KTHREAD* CurrentThread; /* 124 */
+} IKPCR, *PIKPCR;
 
 #pragma pack(pop)
-#endif /* __USE_W32API */
-
 
 #ifndef __USE_W32API
-
-#ifdef MP
 
 static inline PKPCR KeGetCurrentKPCR(VOID)
 {
   ULONG value;
 
-#if defined(__GNUC__)
-  __asm__ __volatile__ ("movl %%fs:0x1C, %0\n\t"
+  __asm__ __volatile__ ("movl %%fs:0x18, %0\n\t"
 	  : "=r" (value)
     : /* no inputs */
     );
-#elif defined(_MSC_VER)
-  __asm mov eax, fs:0x1C;
-  __asm mov value, eax;
-#else
-#error Unknown compiler for inline assembler
-#endif
   return((PKPCR)value);
 }
-
-#else
-
-#define KeGetCurrentKPCR(X) ((PKPCR)KPCR_BASE)
-
-#endif
 
 #endif /* __USE_W32API */
 

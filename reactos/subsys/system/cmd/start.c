@@ -8,9 +8,16 @@
  *        Started.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_START
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
 
 
 INT cmd_start (LPTSTR first, LPTSTR rest)
@@ -46,11 +53,11 @@ INT cmd_start (LPTSTR first, LPTSTR rest)
 	if( !*rest )
 	  {
 	    // FIXME: use comspec instead
-	    rest = _T("cmd");
+	    rest = "cmd";
 	  }
 	/* get the PATH environment variable and parse it */
 	/* search the PATH environment variable for the binary */
-	param = _tcschr( rest, _T(' ') );  // skip program name to reach parameters
+	param = strchr( rest, ' ' );  // skip program name to reach parameters
 	if( param )
 	  {
 	    *param = 0;
@@ -66,7 +73,7 @@ INT cmd_start (LPTSTR first, LPTSTR rest)
 		!_tcsicmp (_tcsrchr (szFullName, _T('.')), _T(".cmd")))
 	{
 #ifdef _DEBUG
-		DebugPrintf (_T("[BATCH: %s %s]\n"), szFullName, rest);
+		DebugPrintf ("[BATCH: %s %s]\n", szFullName, rest);
 #endif
 		ConErrPuts (_T("No batch support at the moment!"));
 	}
@@ -78,13 +85,13 @@ INT cmd_start (LPTSTR first, LPTSTR rest)
 		STARTUPINFO stui;
 
 #ifdef _DEBUG
-		DebugPrintf (_T("[EXEC: %s %s]\n"), szFullName, rest);
+		DebugPrintf ("[EXEC: %s %s]\n", szFullName, rest);
 #endif
 		/* build command line for CreateProcess() */
 		_tcscpy (szFullCmdLine, first);
 		if( param )
 		  {
-		    _tcscat(szFullCmdLine, _T(" ") );
+		    _tcscat(szFullCmdLine, " " );
 		    _tcscat (szFullCmdLine, param);
 		  }
 
@@ -103,14 +110,14 @@ INT cmd_start (LPTSTR first, LPTSTR rest)
 				WaitForSingleObject (prci.hProcess, INFINITE);
 				GetExitCodeProcess (prci.hProcess, &dwExitCode);
 				nErrorLevel = (INT)dwExitCode;
+				CloseHandle (prci.hThread);
+				CloseHandle (prci.hProcess);
 			}
-			CloseHandle (prci.hThread);
-			CloseHandle (prci.hProcess);
 		}
 		else
 		{
 			ErrorMessage (GetLastError (),
-						  _T("Error executing CreateProcess()!!\n"));
+						  "Error executing CreateProcess()!!\n");
 		}
 	}
 

@@ -1,4 +1,4 @@
-/* $Id: dir.c,v 1.13 2004/12/25 11:22:37 navaraf Exp $
+/* $Id: dir.c,v 1.2 2003/05/09 21:58:05 ekohl Exp $
  *
  *  DIR.C - dir internal command.
  *
@@ -113,17 +113,23 @@
  *  
  *    23-Feb-2001 (Carl Nettelblad <cnettel@hem.passagen.se>)
  *        dir /s now works in deeper trees
- *
- *    28-Jan-2004 (Michael Fritscher <michael@fritscher.net>)
- *        Fix for /p, so it is working under Windows in GUI-mode, too. 
- *
- *    30-Apr-2004 (Filip Navara <xnavara@volny.cz>)
- *        Fix /w to print long names.
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_DIR
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
+
+#include "cmd.h"
+
+
+typedef BOOL STDCALL
+(*PGETFREEDISKSPACEEX)(LPCTSTR, PULARGE_INTEGER, PULARGE_INTEGER, PULARGE_INTEGER);
 
 
 /* flag definitions */
@@ -139,10 +145,6 @@ enum
 	DIR_NEW     = 0x0080,        /* /N new style */
 	DIR_FOUR    = 0x0100         /* /4 four digit year */
 };
-
-
-typedef BOOL STDCALL
-(*PGETFREEDISKSPACEEX)(LPCTSTR, PULARGE_INTEGER, PULARGE_INTEGER, PULARGE_INTEGER);
 
 
 /* Globally save the # of dirs, files and bytes,
@@ -277,36 +279,19 @@ DirReadParam (LPTSTR line, LPTSTR *param, LPDWORD lpFlags)
 		{
 			if (*param)
 			{
-				error_too_many_parameters (line);
+				error_too_many_parameters (*param);
 				return FALSE;
 			}
 
 			*param = line;
 
 			/* skip to end of line or next whitespace or next / */
-			if (*line != _T('\"'))
-			{
-				while (*line && !_istspace (*line) && *line != _T('/'))
-					line++;
-
-				/* if end of line, return */
-				if (!*line)
-					return TRUE;
-			}
-			else
-			{
-				/* skip over the initial quote */
-				(*param)++;
+			while (*line && !_istspace (*line) && *line != _T('/'))
 				line++;
 
-				while (*line && *line != _T('"'))
-					line++;
-
-				if (*line == _T('"'))
-					*line = 0;
-				else
-					return TRUE;
-			}
+			/* if end of line, return */
+			if (!*line)
+				return TRUE;
 
 			/* if parameter, remember to process it later */
 			if (*line == _T('/'))
@@ -396,11 +381,7 @@ DirParsePathspec (LPTSTR szPathspec, LPTSTR szPath, LPTSTR szFilespec)
 
 		szRootPath[0] = szPathspec[0];
 		start = szPathspec + 2;
-		if (!SetCurrentDirectory (szRootPath))
-		{
-			ErrorMessage (GetLastError(), NULL);
-			return 1;
-		}
+		SetCurrentDirectory (szRootPath);
 	}
 	else
 	{
@@ -459,33 +440,18 @@ DirParsePathspec (LPTSTR szPathspec, LPTSTR szPath, LPTSTR szFilespec)
 	_tcscpy (szFilespec, tmp+1);
 	ExtendFilespec (szFilespec);
 
-	if (tmp == start)
-	{
-		/* change to the root directory */
-		if (!SetCurrentDirectory (_T("\\")))
-		{
-			szFilespec[0] = _T('\0');
-			SetCurrentDirectory (szOrigPath);
-			error_path_not_found ();
-			return 1;
-		}
-	}
-	else
-	{
-    
-		*tmp = _T('\0');
+	*tmp = _T('\0');
 
-		/* change to this directory */
-		if (!SetCurrentDirectory (start))
-		{
-			*tmp = _T('\\');
-			szFilespec[0] = _T('\0');
-			SetCurrentDirectory (szOrigPath);
-			error_path_not_found ();
-			return 1;
-		}
+	/* change to this directory and get its full name */
+	if (!SetCurrentDirectory (start))
+	{
+		*tmp = _T('\\');
+		szFilespec[0] = _T('\0');
+		SetCurrentDirectory (szOrigPath);
+		error_path_not_found ();
+		return 1;
 	}
-        /* get the full name of the directory */
+
 	if (!GetCurrentDirectory (MAX_PATH, szPath))
 	{
 		*tmp = _T('\\');
@@ -511,23 +477,12 @@ DirParsePathspec (LPTSTR szPathspec, LPTSTR szPath, LPTSTR szFilespec)
 static BOOL
 IncLine (LPINT pLine, DWORD dwFlags)
 {
-	BOOL error;
-	CONSOLE_SCREEN_BUFFER_INFO lpConsoleScreenBufferInfo;
-	LONG WindowHeight;
-	error = GetConsoleScreenBufferInfo(hConsole, &lpConsoleScreenBufferInfo);
-	
-	WindowHeight= lpConsoleScreenBufferInfo.srWindow.Bottom - lpConsoleScreenBufferInfo.srWindow.Top;
-
-	if (!WindowHeight)  //That prevents bad behave if WindowHeight couln't calc
-	{
-		 WindowHeight= 1000000;
-	}
 	if (!(dwFlags & DIR_PAGE))
 		return FALSE;
 
 	(*pLine)++;
 
-	if (*pLine >= (int)maxy - 2 || *pLine >= WindowHeight) //Because I don't know if WindowsHeight work under all cases, perhaps then maxy is the right value
+	if (*pLine >= (int)maxy - 2)
 	{
 		*pLine = 0;
 		return (PagePrompt () == PROMPT_BREAK);
@@ -742,22 +697,22 @@ GetUserDiskFreeSpace(LPCTSTR lpRoot,
   DWORD dwBytPerSec;
   DWORD dwFreeCl;
   DWORD dwTotCl;
-  ULARGE_INTEGER TotalNumberOfBytes, TotalNumberOfFreeBytes;
 
   lpFreeSpace->QuadPart = 0;
 
   hInstance = LoadLibrary(_T("KERNEL32"));
   if (hInstance != NULL)
     {
-      pGetFreeDiskSpaceEx = (PGETFREEDISKSPACEEX)GetProcAddress(hInstance,
-#ifdef _UNICODE
-					                        "GetDiskFreeSpaceExW");
+#ifndef UNICODE
+      pGetFreeDiskSpaceEx = GetProcAddress(hInstance,
+					   "GetDiskFreeSpaceExA");
 #else
-				                                "GetDiskFreeSpaceExA");
+      pGetFreeDiskSpaceEx = GetProcAddress(hInstance,
+					   "GetDiskFreeSpaceExW");
 #endif
       if (pGetFreeDiskSpaceEx != NULL)
 	{
-	  if (pGetFreeDiskSpaceEx(lpRoot, lpFreeSpace, &TotalNumberOfBytes, &TotalNumberOfFreeBytes) == TRUE)
+	  if (pGetFreeDiskSpaceEx(lpRoot, lpFreeSpace, NULL, NULL) == TRUE)
 	    return;
 	}
       FreeLibrary(hInstance);
@@ -817,21 +772,10 @@ PrintSummary(LPTSTR szPath,
       GetUserDiskFreeSpace(szRoot, &uliFree);
       ConvertULargeInteger (uliFree, buffer, sizeof(buffer));
       ConOutPrintf (_T("   %15s bytes free\n"), buffer);
-      if (IncLine (pLine, dwFlags))
-        return 1;
     }
-  else
-    {
-      if ((dwFlags & DIR_BARE) == 0)
-        {
-	  ConOutPrintf (_T("\n"));
-          if (IncLine (pLine, dwFlags))
-            return 1;
-          ConOutPrintf (_T("\n"));
-	}
-      if (IncLine (pLine, dwFlags))
-         return 1;
-    }
+
+  if (IncLine (pLine, dwFlags))
+    return 1;
 
   return 0;
 }
@@ -854,9 +798,7 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 	TCHAR  buffer[32];
 	ULONG filecount = 0;
 	ULONG dircount = 0;
-	INT count = 0;
-	SHORT screenwidth;
-	INT longestfname = 0;
+	INT count;
 
 	bytecount.QuadPart = 0;
 
@@ -883,34 +825,6 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 		return 0;
 	}
 
-	/* Get the size of longest filename for wide listing. FN */
-	if (dwFlags & DIR_WIDE && (dwFlags & DIR_BARE) == 0)
-	{
-		do
-		{
-			if (_tcslen(file.cFileName) > longestfname)
-			{
-				longestfname = _tcslen(file.cFileName);
-				/* Directories get extra brackets around them. */
-				if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-					longestfname += 2;
-			}
-		}
-		while (FindNextFile (hFile, &file));
-		FindClose (hFile);
-
-		hFile = FindFirstFile (szFullPath, &file);
-
-		/* Count the highest number of columns */
-		GetScreenSize(&screenwidth, 0);
-
-		/* For counting columns of output */
-		count = 0;
-
-		/* Increase by the number of spaces behind file name */
-		longestfname += 3;
-	}
-
 	/* moved down here because if we are recursively searching and
 	 * don't find any files, we don't want just to print
 	 * Directory of C:\SOMEDIR
@@ -926,6 +840,9 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 		if (IncLine (pLine, dwFlags))
 			return 1;
 	}
+
+	/* For counting columns of output */
+	count = 0;
 
 	do
 	{
@@ -946,24 +863,27 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 
 			if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			{
-				_stprintf (buffer, _T("[%s]"), file.cFileName);
+				if (file.cAlternateFileName[0] == _T('\0'))
+					_stprintf (buffer, _T("[%s]"), file.cFileName);
+				else
+					_stprintf (buffer, _T("[%s]"), file.cAlternateFileName);
 				dircount++;
 			}
 			else
 			{
-				_stprintf (buffer, _T("%s"), file.cFileName);
+				if (file.cAlternateFileName[0] == _T('\0'))
+					_stprintf (buffer, _T("%s"), file.cFileName);
+				else
+					_stprintf (buffer, _T("%s"), file.cAlternateFileName);
 				filecount++;
 			}
 
-			ConOutPrintf (_T("%*s"), - longestfname, buffer);
+			ConOutPrintf (_T("%-15s"), buffer);
 			count++;
-			/* output as much columns as fits on the screen */
-			if (count >= (screenwidth / longestfname))
+			if (count == 5)
 			{
-				/* print the new line only if we aren't on the
-				 * last column, in this case it wraps anyway */
-				if (count * longestfname != screenwidth)
-					ConOutPrintf (_T("\n"));
+				/* output 5 columns */
+				ConOutPrintf (_T("\n"));
 				if (IncLine (pLine, dwFlags))
 					return 1;
 				count = 0;
@@ -1016,13 +936,7 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 				}
 
 				/* print file size */
-				if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-				{
-					ConOutPrintf (_T("         <JUNCTION>    "));
-					if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-						dircount++;
-				}
-				else if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				{
 					ConOutPrintf (_T("         <DIR>         "));
 					dircount++;
@@ -1076,7 +990,7 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 				/* print file size */
 				if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				{
-					ConOutPrintf (_T("%-14s"), _T("<DIR>"));
+					ConOutPrintf ("%-14s", "<DIR>");
 					dircount++;
 				}
 				else
@@ -1099,7 +1013,7 @@ DirList (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 				}
 
 				/* print long filename */
-				ConOutPrintf (_T(" %s\n"), file.cFileName);
+				ConOutPrintf (" %s\n", file.cFileName);
 			}
 
 			if (IncLine (pLine, dwFlags))
@@ -1151,7 +1065,7 @@ DirRead (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 	_tcscpy (szFullPath, szPath);
 	if (szFullPath[_tcslen (szFullPath) - 1] != _T('\\'))
 		_tcscat (szFullPath, _T("\\"));
-	_tcscat (szFullPath, _T("*"));
+	_tcscat (szFullPath, szFilespec);
 
 	hFile = FindFirstFile (szFullPath, &file);
 	if (hFile == INVALID_HANDLE_VALUE)
@@ -1176,6 +1090,17 @@ DirRead (LPTSTR szPath, LPTSTR szFilespec, LPINT pLine, DWORD dwFlags)
 				FindClose (hFile);
 				return 1;
 			}
+
+			if ((dwFlags & DIR_BARE) == 0)
+			{
+				ConOutPrintf ("\n");
+				if (IncLine (pLine, dwFlags) != 0)
+					return 1;
+				ConOutPrintf ("\n");
+				if (IncLine (pLine, dwFlags) != 0)
+					return 1;
+			}
+
 			if (DirRead (szFullPath, szFilespec, pLine, dwFlags) == 1)
 			{
 				FindClose (hFile);
@@ -1266,7 +1191,7 @@ INT CommandDir (LPTSTR first, LPTSTR rest)
 
 	/* default to current directory */
 	if (!param)
-		param = _T(".");
+		param = ".";
 
 	/* parse the directory info */
 	if (DirParsePathspec (param, szPath, szFilespec))

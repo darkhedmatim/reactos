@@ -1,4 +1,4 @@
-/* $Id: class2.h,v 1.5 2004/02/07 21:36:56 gvg Exp $
+/* $Id: class2.h,v 1.2 2003/04/26 22:51:21 ekohl Exp $
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -7,14 +7,13 @@
  * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
  */
 
-#ifndef __INCLUDE_DDK_CLASS2_H
-#define __INCLUDE_DDK_CLASS2_H
+#ifndef __STORAGE_INCLUDE_CLASS2_H
+#define __STORAGE_INCLUDE_CLASS2_H
 
 #include "ntddscsi.h"
 #include "srb.h"
 
-#define MAXIMUM_RETRIES    15
-#define RETRY_WAIT         2000000 /* 200 ms in units of 100 ns */
+#define MAXIMUM_RETRIES    4
 
 struct _CLASS_INIT_DATA;
 
@@ -109,13 +108,6 @@ typedef struct _DEVICE_EXTENSION
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
-typedef struct _COMPLETION_CONTEXT
-{
-  PDEVICE_OBJECT DeviceObject;
-  SCSI_REQUEST_BLOCK Srb;
-} COMPLETION_CONTEXT, *PCOMPLETION_CONTEXT;
-
-
 /* FUNCTIONS ****************************************************************/
 
 NTSTATUS STDCALL
@@ -144,12 +136,6 @@ NTSTATUS STDCALL
 ScsiClassDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 		       IN PIRP Irp);
 
-PVOID STDCALL
-ScsiClassFindModePage(IN PCHAR ModeSenseBuffer,
-		      IN ULONG Length,
-		      IN UCHAR PageMode,
-		      IN BOOLEAN Use6Byte);
-
 ULONG STDCALL
 ScsiClassFindUnclaimedDevices(IN PCLASS_INIT_DATA InitializationData,
 			      OUT PSCSI_ADAPTER_BUS_INFO AdapterInformation);
@@ -168,45 +154,42 @@ ScsiClassInitialize(IN PVOID Argument1,
 		    IN PCLASS_INIT_DATA InitializationData);
 
 VOID STDCALL
-ScsiClassInitializeSrbLookasideList(IN PDEVICE_EXTENSION DeviceExtension,
-				    IN ULONG NumberElements);
+ScsiClassInitializeSrbLookasideList(PDEVICE_EXTENSION DeviceExtension,
+				    ULONG NumberElements);
 
 NTSTATUS STDCALL
-ScsiClassInternalIoControl(IN PDEVICE_OBJECT DeviceObject,
-			   IN PIRP Irp);
+ScsiClassInternalIoControl(PDEVICE_OBJECT DeviceObject,
+			   PIRP Irp);
 
 BOOLEAN STDCALL
-ScsiClassInterpretSenseInfo(IN PDEVICE_OBJECT DeviceObject,
-			    IN PSCSI_REQUEST_BLOCK Srb,
-			    IN UCHAR MajorFunctionCode,
-			    IN ULONG IoDeviceCode,
-			    IN ULONG RetryCount,
-			    OUT NTSTATUS *Status);
+ScsiClassInterpretSenseInfo(PDEVICE_OBJECT DeviceObject,
+			    PSCSI_REQUEST_BLOCK Srb,
+			    UCHAR MajorFunctionCode,
+			    ULONG IoDeviceCode,
+			    ULONG RetryCount,
+			    NTSTATUS *Status);
 
 NTSTATUS STDCALL
-ScsiClassIoComplete(IN PDEVICE_OBJECT DeviceObject,
-		    IN PIRP Irp,
-		    IN PVOID Context);
+ScsiClassIoComplete(PDEVICE_OBJECT DeviceObject,
+		    PIRP Irp,
+		    PVOID Context);
 
 NTSTATUS STDCALL
-ScsiClassIoCompleteAssociated(IN PDEVICE_OBJECT DeviceObject,
-			      IN PIRP Irp,
-			      IN PVOID Context);
+ScsiClassIoCompleteAssociated(PDEVICE_OBJECT DeviceObject,
+			      PIRP Irp,
+			      PVOID Context);
 
 ULONG STDCALL
-ScsiClassModeSense(IN PDEVICE_OBJECT DeviceObject,
-		   IN PCHAR ModeSenseBuffer,
-		   IN ULONG Length,
-		   IN UCHAR PageMode);
+ScsiClassModeSense(PDEVICE_OBJECT DeviceObject,
+		   CHAR ModeSenseBuffer,
+		   ULONG Length,
+		   UCHAR PageMode);
 
 ULONG STDCALL
 ScsiClassQueryTimeOutRegistryValue(IN PUNICODE_STRING RegistryPath);
 
 NTSTATUS STDCALL
 ScsiClassReadDriveCapacity(IN PDEVICE_OBJECT DeviceObject);
-
-VOID STDCALL
-ScsiClassReleaseQueue(IN PDEVICE_OBJECT DeviceObject);
 
 NTSTATUS STDCALL
 ScsiClassSendSrbAsynchronous(PDEVICE_OBJECT DeviceObject,
@@ -224,10 +207,10 @@ ScsiClassSendSrbSynchronous(PDEVICE_OBJECT DeviceObject,
 			    BOOLEAN WriteToDevice);
 
 VOID STDCALL
-ScsiClassSplitRequest(IN PDEVICE_OBJECT DeviceObject,
-		      IN PIRP Irp,
-		      IN ULONG MaximumBytes);
+ScsiClassSplitRequest(PDEVICE_OBJECT DeviceObject,
+		      PIRP Irp,
+		      ULONG MaximumBytes);
 
-#endif /* __INCLUDE_DDK_CLASS2_H */
+#endif /* __STORAGE_INCLUDE_CLASS2_H */
 
 /* EOF */

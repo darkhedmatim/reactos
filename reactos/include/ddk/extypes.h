@@ -1,7 +1,19 @@
-/* $Id: extypes.h,v 1.25 2004/10/22 22:49:00 weiden Exp $ */
+/* $Id: extypes.h,v 1.15 2003/06/07 16:16:38 chorns Exp $ */
 
 #ifndef __INCLUDE_DDK_EXTYPES_H
 #define __INCLUDE_DDK_EXTYPES_H
+
+#ifdef __NTOSKRNL__
+extern POBJECT_TYPE EXPORTED ExDesktopObjectType;
+extern POBJECT_TYPE EXPORTED ExEventObjectType;
+extern POBJECT_TYPE EXPORTED ExWindowStationObjectType;
+extern POBJECT_TYPE EXPORTED ExIoCompletionType;
+#else
+extern POBJECT_TYPE IMPORTED ExDesktopObjectType;
+extern POBJECT_TYPE IMPORTED ExEventObjectType;
+extern POBJECT_TYPE IMPORTED ExWindowStationObjectType;
+extern POBJECT_TYPE IMPORTED ExIoCompletionType;
+#endif
 
 typedef ULONG INTERLOCKED_RESULT;
 typedef ULONG WORK_QUEUE_TYPE;
@@ -15,7 +27,7 @@ typedef struct _OWNER_ENTRY
      {
 	LONG OwnerCount;
 	ULONG TableSize;
-     }; /* anon */
+     } a;
 } OWNER_ENTRY, *POWNER_ENTRY;
 
 typedef struct _ERESOURCE
@@ -34,25 +46,10 @@ typedef struct _ERESOURCE
      {
 	PVOID Address;
 	ULONG CreatorBackTraceIndex;
-     }; /* anon */
+     } a;
    KSPIN_LOCK SpinLock;
 } ERESOURCE, *PERESOURCE;
 
-#define EX_RUNDOWN_ACTIVE       0x1
-#define EX_RUNDOWN_COUNT_SHIFT 0x1
-#define EX_RUNDOWN_COUNT_INC   (0x1 << EX_RUNDOWN_COUNT_SHIFT)
-
-typedef struct _RUNDOWN_DESCRIPTOR {
-    ULONG_PTR References;
-    KEVENT RundownEvent;
-} RUNDOWN_DESCRIPTOR, *PRUNDOWN_DESCRIPTOR;
-
-typedef struct _EX_RUNDOWN_REF {
-    union {
-        ULONG_PTR Count;
-        PRUNDOWN_DESCRIPTOR Ptr;
-    };
-} EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
 typedef struct 
 {
@@ -71,25 +68,26 @@ typedef struct _ZONE_HEADER
    ULONG TotalSegmentSize;
 } ZONE_HEADER, *PZONE_HEADER;
 
-typedef struct _ZONE_SEGMENT_HEADER
+typedef struct _ZONE_SEGMENT
 {
-   SINGLE_LIST_ENTRY SegmentList; /* was Entry */
-   PVOID Reserved;  /* was ULONG Size; */
-} ZONE_SEGMENT_HEADER, *PZONE_SEGMENT_HEADER;
+   SINGLE_LIST_ENTRY Entry;
+   ULONG size;
+} ZONE_SEGMENT, *PZONE_SEGMENT;
 
+typedef struct _ZONE_ENTRY
+{
+   SINGLE_LIST_ENTRY Entry;
+} ZONE_ENTRY, *PZONE_ENTRY;
 
 
 typedef VOID STDCALL_FUNC
 (*PWORKER_THREAD_ROUTINE)(PVOID Parameter);
 
-
-/* Modified by Andrew Greenwood, 16th July 2003: */
-
 typedef struct _WORK_QUEUE_ITEM
 {
-   LIST_ENTRY List;
-   PWORKER_THREAD_ROUTINE WorkerRoutine;
-   PVOID Parameter;
+   LIST_ENTRY Entry;
+   PWORKER_THREAD_ROUTINE Routine;
+   PVOID Context;
 } WORK_QUEUE_ITEM, *PWORK_QUEUE_ITEM;
 
 typedef PVOID STDCALL_FUNC
@@ -108,13 +106,13 @@ typedef union _SLIST_HEADER
 	SINGLE_LIST_ENTRY Next;
 	USHORT Depth;
 	USHORT Sequence;	
-     }; /* now anonymous */
+     } s;
 } SLIST_HEADER, *PSLIST_HEADER;
 
 typedef struct _NPAGED_LOOKASIDE_LIST
 {
    SLIST_HEADER ListHead;
-   USHORT Depth;
+   USHORT MinimumDepth;
    USHORT MaximumDepth;
    ULONG TotalAllocates;
    ULONG AllocateMisses;
@@ -129,13 +127,13 @@ typedef struct _NPAGED_LOOKASIDE_LIST
    ULONG LastTotalAllocates;
    ULONG LastAllocateMisses;
    ULONG Pad[2];
-   KSPIN_LOCK Obsoleted;
+   KSPIN_LOCK Lock;
 } NPAGED_LOOKASIDE_LIST, *PNPAGED_LOOKASIDE_LIST;
 
 typedef struct _PAGED_LOOKASIDE_LIST
 {
    SLIST_HEADER ListHead;
-   USHORT Depth;
+   USHORT MinimumDepth;
    USHORT MaximumDepth;
    ULONG TotalAllocates;
    ULONG AllocateMisses;
@@ -149,63 +147,9 @@ typedef struct _PAGED_LOOKASIDE_LIST
    LIST_ENTRY ListEntry;
    ULONG LastTotalAllocates;
    ULONG LastAllocateMisses;
-   FAST_MUTEX Obsoleted;
+   FAST_MUTEX Lock;
 } PAGED_LOOKASIDE_LIST, *PPAGED_LOOKASIDE_LIST;
 
-typedef struct _PP_LOOKASIDE_LIST {
-   struct _GENERAL_LOOKASIDE *P;
-   struct _GENERAL_LOOKASIDE *L;
-} PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
-
-typedef enum _EX_POOL_PRIORITY {
-    LowPoolPriority,
-    LowPoolPrioritySpecialPoolOverrun = 8,
-    LowPoolPrioritySpecialPoolUnderrun = 9,
-    NormalPoolPriority = 16,
-    NormalPoolPrioritySpecialPoolOverrun = 24,
-    NormalPoolPrioritySpecialPoolUnderrun = 25,
-    HighPoolPriority = 32,
-    HighPoolPrioritySpecialPoolOverrun = 40,
-    HighPoolPrioritySpecialPoolUnderrun = 41
-
-    } EX_POOL_PRIORITY;
-
-typedef enum _SUITE_TYPE {
-    SmallBusiness,
-    Enterprise,
-    BackOffice,
-    CommunicationServer,
-    TerminalServer,
-    SmallBusinessRestricted,
-    EmbeddedNT,
-    DataCenter,
-    SingleUserTS,
-    Personal,
-    Blade,
-    MaxSuiteType
-} SUITE_TYPE;
-
-typedef enum _HARDERROR_RESPONSE_OPTION {
-	OptionAbortRetryIgnore,
-	OptionOk,
-	OptionOkCancel,
-	OptionRetryCancel,
-	OptionYesNo,
-	OptionYesNoCancel,
-	OptionShutdownSystem
-} HARDERROR_RESPONSE_OPTION, *PHARDERROR_RESPONSE_OPTION;
-
-typedef enum _HARDERROR_RESPONSE {
-	ResponseReturnToCaller,
-	ResponseNotHandled,
-	ResponseAbort,
-	ResponseCancel,
-	ResponseIgnore,
-	ResponseNo,
-	ResponseOk,
-	ResponseRetry,
-	ResponseYes
-} HARDERROR_RESPONSE, *PHARDERROR_RESPONSE;
 
 /* callback object (not functional in NT4)*/
 

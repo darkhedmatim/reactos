@@ -26,9 +26,6 @@
 
 /* FUNCTIONS ***************************************************************/
 
-/*
- @implemented
-*/
 NTSTATUS STDCALL RtlCreateUserThread
 (
  HANDLE ProcessHandle,
@@ -54,7 +51,7 @@ NTSTATUS STDCALL RtlCreateUserThread
   SecurityDescriptor
  );
  
- return RtlRosCreateUserThread
+ return RtlRosCreateUserThreadEx
  (
   ProcessHandle,
   &oaThreadAttribs,
@@ -70,46 +67,78 @@ NTSTATUS STDCALL RtlCreateUserThread
  );
 }
 
-/*
- @implemented
-*/
-NTSTATUS STDCALL
-RtlInitializeContext(
-  IN HANDLE ProcessHandle,
-  OUT PCONTEXT ThreadContext,
-  IN PVOID ThreadStartParam  OPTIONAL,
-  IN PTHREAD_START_ROUTINE ThreadStartAddress,
-  IN PINITIAL_TEB InitialTeb)
+NTSTATUS STDCALL RtlInitializeContext
+(
+ HANDLE ProcessHandle,
+ PCONTEXT Context,
+ PVOID Parameter,
+ PTHREAD_START_ROUTINE StartAddress,
+ PUSER_STACK UserStack
+)
 {
- return RtlRosInitializeContext
+ return RtlRosInitializeContextEx
  (
   ProcessHandle,
-  ThreadContext,
-  ThreadStartAddress,
-  InitialTeb,
+  Context,
+  StartAddress,
+  UserStack,
   1,
-  (ULONG_PTR *)&ThreadStartParam
+  (ULONG_PTR *)&Parameter
  );
 }
 
-/*
- @implemented
-*/
 NTSTATUS STDCALL RtlFreeUserThreadStack
 (
  HANDLE ProcessHandle,
  HANDLE ThreadHandle
 )
 {
- return RtlRosFreeUserThreadStack(ProcessHandle, ThreadHandle);
+ THREAD_BASIC_INFORMATION tbiInfo;
+ NTSTATUS nErrCode;
+ ULONG nDummy;
+ ULONG nSize = 0;
+ PVOID pStackBase;
+ PTEB pTeb;
+
+ /* query basic information about the thread */
+ nErrCode = NtQueryInformationThread
+ (
+  ThreadHandle,
+  ThreadBasicInformation,
+  &tbiInfo,
+  sizeof(tbiInfo),
+  NULL
+ );
+
+ /* failure */
+ if(!NT_SUCCESS(nErrCode)) return nErrCode;
+ if(tbiInfo.TebBaseAddress == NULL) return STATUS_ACCESS_VIOLATION;
+
+ pTeb = (PTEB)tbiInfo.TebBaseAddress;
+
+ /* read the base address of the stack to be deallocated */
+ nErrCode = NtReadVirtualMemory
+ (
+  ProcessHandle,
+  &pTeb->DeallocationStack,
+  &pStackBase,
+  sizeof(pStackBase),
+  &nDummy
+ );
+
+ /* failure */
+ if(!NT_SUCCESS(nErrCode)) return nErrCode;
+ if(pStackBase == NULL) return STATUS_ACCESS_VIOLATION;
+
+ /* deallocate the stack */
+ nErrCode = NtFreeVirtualMemory(ProcessHandle, pStackBase, &nSize, MEM_RELEASE);
+
+ return nErrCode;
 }
 
-/*
- @implemented
-*/
-NTSTATUS STDCALL RtlExitUserThread(NTSTATUS Status)
+NTSTATUS STDCALL RtlExitUserThread(NTSTATUS nErrCode)
 {
- RtlRosExitUserThread(Status);
+ return NtTerminateThread(NtCurrentThread(), nErrCode);
 }
 
 /* EOF */

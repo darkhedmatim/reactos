@@ -1,4 +1,4 @@
-/* $Id: send.c,v 1.20 2004/11/13 22:27:16 hbirr Exp $
+/* $Id: send.c,v 1.9 2002/09/08 10:23:32 chorns Exp $
  * 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
@@ -11,14 +11,18 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+#include <internal/port.h>
+#include <internal/dbg.h>
+#include <internal/safe.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 
 /**********************************************************************
  * NAME
- *	LpcSendTerminationPort/2
  *
  * DESCRIPTION
  *
@@ -27,6 +31,7 @@
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL 
 LpcSendTerminationPort (IN PEPORT Port,
@@ -34,10 +39,7 @@ LpcSendTerminationPort (IN PEPORT Port,
 {
   NTSTATUS Status;
   LPC_TERMINATION_MESSAGE Msg;
-  
-#ifdef __USE_NT_LPC__
-  Msg.Header.MessageType = LPC_NEW_MESSAGE;
-#endif
+   
   Msg.CreationTime = CreationTime;
   Status = LpcRequestPort (Port, &Msg.Header);
   return(Status);
@@ -46,7 +48,6 @@ LpcSendTerminationPort (IN PEPORT Port,
 
 /**********************************************************************
  * NAME
- *	LpcSendDebugMessagePort/3
  *
  * DESCRIPTION
  *
@@ -55,6 +56,7 @@ LpcSendTerminationPort (IN PEPORT Port,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL 
 LpcSendDebugMessagePort (IN PEPORT Port,
@@ -100,8 +102,7 @@ LpcSendDebugMessagePort (IN PEPORT Port,
 
 /**********************************************************************
  * NAME
- *	LpcRequestPort/2
- *	
+ *
  * DESCRIPTION
  *
  * ARGUMENTS
@@ -109,42 +110,15 @@ LpcSendDebugMessagePort (IN PEPORT Port,
  * RETURN VALUE
  *
  * REVISIONS
- *	2002-03-01 EA
- *	I investigated this function a bit more in depth.
- *	It looks like the legal values for the MessageType field in the 
- *	message to send are in the range LPC_NEW_MESSAGE .. LPC_CLIENT_DIED,
- *	but LPC_DATAGRAM is explicitly forbidden.
  *
- * @implemented
  */
 NTSTATUS STDCALL LpcRequestPort (IN	PEPORT		Port,
 				 IN	PLPC_MESSAGE	LpcMessage)
 {
    NTSTATUS Status;
    
-   DPRINT("LpcRequestPort(PortHandle %08x, LpcMessage %08x)\n", Port, LpcMessage);
-
-#ifdef __USE_NT_LPC__
-   /* Check the message's type */
-   if (LPC_NEW_MESSAGE == LpcMessage->MessageType)
-   {
-      LpcMessage->MessageType = LPC_DATAGRAM;
-   }
-   else if (LPC_DATAGRAM == LpcMessage->MessageType)
-   {
-      return STATUS_INVALID_PARAMETER;
-   }
-   else if (LpcMessage->MessageType > LPC_CLIENT_DIED)
-   {
-      return STATUS_INVALID_PARAMETER;
-   }
-   /* Check the range offset */
-   if (0 != LpcMessage->VirtualRangesOffset)
-   {
-      return STATUS_INVALID_PARAMETER;
-   }
-#endif
-
+   DPRINT("LpcRequestPort(PortHandle %x LpcMessage %x)\n", Port, LpcMessage);
+   
    Status = EiReplyOrRequestPort(Port, 
 				 LpcMessage, 
 				 LPC_DATAGRAM,
@@ -157,7 +131,6 @@ NTSTATUS STDCALL LpcRequestPort (IN	PEPORT		Port,
 
 /**********************************************************************
  * NAME
- *	NtRequestPort/2
  *
  * DESCRIPTION
  *
@@ -167,7 +140,6 @@ NTSTATUS STDCALL LpcRequestPort (IN	PEPORT		Port,
  *
  * REVISIONS
  *
- * @implemented
  */
 NTSTATUS STDCALL NtRequestPort (IN	HANDLE		PortHandle,
 				IN	PLPC_MESSAGE	LpcMessage)
@@ -200,7 +172,6 @@ NTSTATUS STDCALL NtRequestPort (IN	HANDLE		PortHandle,
 
 /**********************************************************************
  * NAME
- *	NtRequestWaitReplyPort/3
  *
  * DESCRIPTION
  *
@@ -210,15 +181,12 @@ NTSTATUS STDCALL NtRequestPort (IN	HANDLE		PortHandle,
  *
  * REVISIONS
  *
- * @implemented
  */
 NTSTATUS STDCALL 
 NtRequestWaitReplyPort (IN HANDLE PortHandle,
 			PLPC_MESSAGE UnsafeLpcRequest,    
 			PLPC_MESSAGE UnsafeLpcReply)
 {
-   PETHREAD CurrentThread;
-   struct _KPROCESS *AttachedProcess;
    NTSTATUS Status;
    PEPORT Port;
    PQUEUEDMESSAGE Message;
@@ -240,55 +208,22 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 	return(Status);
      }
 
-   if (EPORT_DISCONNECTED == Port->State)
-     {
-	ObDereferenceObject(Port);
-	return STATUS_PORT_DISCONNECTED;
-     }
-
-   /* win32k sometimes needs to KeAttach() the CSRSS process in order to make
-      the PortHandle valid. Now that we've got the EPORT structure from the
-      handle we can undo this, so everything is normal again. Need to
-      re-KeAttach() before returning though */
-   CurrentThread = PsGetCurrentThread();
-   if (&CurrentThread->ThreadsProcess->Pcb == CurrentThread->Tcb.ApcState.Process)
-     {
-       AttachedProcess = NULL;
-     }
-   else
-     {
-       AttachedProcess = CurrentThread->Tcb.ApcState.Process;
-       KeDetachProcess();
-     }
-
    Status = MmCopyFromCaller(&LpcRequestMessageSize,
 			     &UnsafeLpcRequest->MessageSize,
 			     sizeof(USHORT));
    if (!NT_SUCCESS(Status))
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(Status);
      }
    if (LpcRequestMessageSize > (sizeof(LPC_MESSAGE) + MAX_MESSAGE_DATA))
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
    LpcRequest = ExAllocatePool(NonPagedPool, LpcRequestMessageSize);
    if (LpcRequest == NULL)
      {
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_NO_MEMORY);
      }
@@ -297,10 +232,6 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
    if (!NT_SUCCESS(Status))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(Status);
      }
@@ -308,20 +239,12 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
    if (LpcRequestMessageSize > (sizeof(LPC_MESSAGE) + MAX_MESSAGE_DATA))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
    if (LpcRequest->DataSize != (LpcRequest->MessageSize - sizeof(LPC_MESSAGE)))
      {
        ExFreePool(LpcRequest);
-       if (NULL != AttachedProcess)
-         {
-           KeAttachProcess(AttachedProcess);
-         }
        ObDereferenceObject(Port);
        return(STATUS_PORT_MESSAGE_TOO_LONG);
      }
@@ -332,12 +255,8 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 				 Port);
    if (!NT_SUCCESS(Status))
      {
-	DPRINT1("Enqueue failed\n");
+	DbgPrint("Enqueue failed\n");
 	ExFreePool(LpcRequest);
-        if (NULL != AttachedProcess)
-          {
-            KeAttachProcess(AttachedProcess);
-          }
 	ObDereferenceObject(Port);
 	return(Status);
      }
@@ -348,42 +267,24 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
    /*
     * Wait for a reply
     */
-   Status = KeWaitForSingleObject(&Port->Semaphore,
-			          UserRequest,
-			          UserMode,
-			          FALSE,
-			          NULL);
-   if (Status == STATUS_SUCCESS)
-     {
+   KeWaitForSingleObject(&Port->Semaphore,
+			 UserRequest,
+			 UserMode,
+			 FALSE,
+			 NULL);
    
-       /*
-        * Dequeue the reply
-        */
-       KeAcquireSpinLock(&Port->Lock, &oldIrql);
-       Message = EiDequeueMessagePort(Port);
-       KeReleaseSpinLock(&Port->Lock, oldIrql);
-       if (Message)
-         {
-           DPRINT("Message->Message.MessageSize %d\n",
-	          Message->Message.MessageSize);
-           Status = MmCopyToCaller(UnsafeLpcReply, &Message->Message, 
-			           Message->Message.MessageSize);
-           ExFreePool(Message);
-         }
-       else
-         Status = STATUS_UNSUCCESSFUL;
-     }
-   else
-     {
-       if (NT_SUCCESS(Status))
-         {
-	   Status = STATUS_UNSUCCESSFUL;
-	 }
-     }
-   if (NULL != AttachedProcess)
-     {
-       KeAttachProcess(AttachedProcess);
-     }
+   /*
+    * Dequeue the reply
+    */
+   KeAcquireSpinLock(&Port->Lock, &oldIrql);
+   Message = EiDequeueMessagePort(Port);
+   KeReleaseSpinLock(&Port->Lock, oldIrql);
+   DPRINT("Message->Message.MessageSize %d\n",
+	   Message->Message.MessageSize);
+   Status = MmCopyToCaller(UnsafeLpcReply, &Message->Message, 
+			   Message->Message.MessageSize);
+   ExFreePool(Message);
+   
    ObDereferenceObject(Port);
    
    return(Status);
@@ -392,8 +293,7 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
 
 /**********************************************************************
  * NAME
- *	NtWriteRequestData/6
- *	
+ *
  * DESCRIPTION
  *
  * ARGUMENTS
@@ -401,6 +301,7 @@ NtRequestWaitReplyPort (IN HANDLE PortHandle,
  * RETURN VALUE
  *
  * REVISIONS
+ *
  */
 NTSTATUS STDCALL NtWriteRequestData (HANDLE		PortHandle,
 				     PLPC_MESSAGE	Message,
@@ -410,7 +311,6 @@ NTSTATUS STDCALL NtWriteRequestData (HANDLE		PortHandle,
 				     PULONG		ReturnLength)
 {
    UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
 
 

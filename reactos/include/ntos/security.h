@@ -45,10 +45,7 @@
 #define SE_SELF_RELATIVE	(32768)
 #endif
 
-/* This is defined in the Win 32 API headers as something else: */
-#if defined(__NTOSKRNL__) || defined(__NTDRIVER__) || defined(__NTHAL__) || defined(__NTDLL__) || defined(__NTAPP__)
 typedef ULONG ACCESS_MODE, *PACCESS_MODE;
-#endif
 
 #if 0
 typedef struct _ACE_HEADER
@@ -122,21 +119,20 @@ typedef struct _SECURITY_DESCRIPTOR_CONTEXT
 #define DOMAIN_ALIAS_RID_REPLICATOR		(0x228L)
 
 /* ACCESS_MASK */
-/* Generic rights */
-#define GENERIC_READ			(0x80000000L)
-#define GENERIC_WRITE			(0x40000000L)
-#define GENERIC_EXECUTE			(0x20000000L)
+#define MAXIMUM_ALLOWED			(0x2000000L)
 #define GENERIC_ALL			(0x10000000L)
-#define MAXIMUM_ALLOWED			(0x02000000L)
-#define ACCESS_SYSTEM_SECURITY		(0x01000000L)
+#define GENERIC_EXECUTE			(0x20000000L)
+
+#define SECURITY_STATIC_TRACKING	(0)
+#define SECURITY_DYNAMIC_TRACKING	(1)
 
 /* Standard rights */
-#define STANDARD_RIGHTS_REQUIRED	(0x000f0000L)
-#define STANDARD_RIGHTS_WRITE		(0x00020000L)
-#define STANDARD_RIGHTS_READ		(0x00020000L)
-#define STANDARD_RIGHTS_EXECUTE		(0x00020000L)
-#define STANDARD_RIGHTS_ALL		(0x001f0000L)
-#define SPECIFIC_RIGHTS_ALL		(0x0000ffffL)
+#define STANDARD_RIGHTS_REQUIRED	(0xf0000L)
+#define STANDARD_RIGHTS_WRITE		(0x20000L)
+#define STANDARD_RIGHTS_READ		(0x20000L)
+#define STANDARD_RIGHTS_EXECUTE		(0x20000L)
+#define STANDARD_RIGHTS_ALL		(0x1f0000L)
+#define SPECIFIC_RIGHTS_ALL		(0xffffL)
 
 /* Token rights */
 #define TOKEN_ASSIGN_PRIMARY		(0x0001L)
@@ -155,15 +151,7 @@ typedef struct _SECURITY_DESCRIPTOR_CONTEXT
 
 typedef BOOL SECURITY_CONTEXT_TRACKING_MODE;
 
-#define SECURITY_STATIC_TRACKING	(0)
-#define SECURITY_DYNAMIC_TRACKING	(1)
-
 typedef ULONG SECURITY_INFORMATION, *PSECURITY_INFORMATION;
-
-#define OWNER_SECURITY_INFORMATION	(0x1L)
-#define GROUP_SECURITY_INFORMATION	(0x2L)
-#define DACL_SECURITY_INFORMATION	(0x4L)
-#define SACL_SECURITY_INFORMATION	(0x8L)
 
 typedef enum _TOKEN_INFORMATION_CLASS
 {
@@ -176,22 +164,15 @@ typedef enum _TOKEN_INFORMATION_CLASS
   TokenSource,
   TokenType,
   TokenImpersonationLevel,
-  TokenStatistics,
-  TokenRestrictedSids,
-  TokenSessionId,
-  TokenGroupsAndPrivileges,
-  TokenSessionReference,
-  TokenSandBoxInert,
-  TokenAuditPolicy,
-  TokenOrigin
+  TokenStatistics
 } TOKEN_INFORMATION_CLASS;
 
 typedef ULONG SECURITY_IMPERSONATION_LEVEL, *PSECURITY_IMPERSONATION_LEVEL;
 
-#define SecurityAnonymous ((SECURITY_IMPERSONATION_LEVEL)0)
-#define SecurityIdentification ((SECURITY_IMPERSONATION_LEVEL)1)
-#define SecurityImpersonation ((SECURITY_IMPERSONATION_LEVEL)2)
-#define SecurityDelegation ((SECURITY_IMPERSONATION_LEVEL)3)
+#define SecurityAnonymous ((SECURITY_IMPERSONATION_LEVEL)1)
+#define SecurityIdentification ((SECURITY_IMPERSONATION_LEVEL)2)
+#define SecurityImpersonation ((SECURITY_IMPERSONATION_LEVEL)3)
+#define SecurityDelegation ((SECURITY_IMPERSONATION_LEVEL)4)
 
 typedef ULONG ACCESS_MASK, *PACCESS_MASK;
 typedef ULONG TOKEN_TYPE, *PTOKEN_TYPE;
@@ -350,10 +331,6 @@ typedef struct _TOKEN_STATISTICS
   LUID  ModifiedId;
 } TOKEN_STATISTICS, *PTOKEN_STATISTICS;
 
-typedef struct _TOKEN_ORIGIN {
-  LUID OriginatingLogonSession;
-} TOKEN_ORIGIN, *PTOKEN_ORIGIN;
-
 typedef struct _GENERIC_MAPPING
 {
   ACCESS_MASK GenericRead;
@@ -368,15 +345,6 @@ typedef struct _PRIVILEGE_SET
   DWORD Control;
   LUID_AND_ATTRIBUTES Privilege[ANYSIZE_ARRAY];
 } PRIVILEGE_SET, *PPRIVILEGE_SET, *LPPRIVILEGE_SET;
-
-#define INITIAL_PRIVILEGE_COUNT 3
-
-typedef struct _INITIAL_PRIVILEGE_SET
-{
-  ULONG PrivilegeCount;
-  ULONG Control;
-  LUID_AND_ATTRIBUTES Privilege[INITIAL_PRIVILEGE_COUNT];
-} INITIAL_PRIVILEGE_SET, *PINITIAL_PRIVILEGE_SET;
 
 typedef struct _SECURITY_ATTRIBUTES
 {

@@ -1,8 +1,5 @@
 #include <msvcrt/mbstring.h>
 
-/*
- * @implemented
- */
 unsigned char * _mbstok(unsigned char *s, unsigned char *delim)
 {
   const char *spanp;

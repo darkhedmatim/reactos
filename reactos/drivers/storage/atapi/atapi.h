@@ -58,7 +58,6 @@ extern "C" {
 #define  IDE_REG_STATUS           0x0007
 #define    IDE_SR_BUSY              0x80
 #define    IDE_SR_DRDY              0x40
-#define    IDE_SR_WERR              0x20
 #define    IDE_SR_DRQ               0x08
 #define    IDE_SR_ERR               0x01
 #define  IDE_REG_COMMAND          0x0007
@@ -72,8 +71,6 @@ extern "C" {
 #define    IDE_CMD_PACKET           0xA0
 #define    IDE_CMD_READ_MULTIPLE    0xC4
 #define    IDE_CMD_WRITE_MULTIPLE   0xC5
-#define    IDE_CMD_READ_DMA         0xC8
-#define    IDE_CMD_WRITE_DMA        0xCA
 #define    IDE_CMD_FLUSH_CACHE      0xE7
 #define    IDE_CMD_FLUSH_CACHE_EXT  0xEA
 #define    IDE_CMD_IDENT_ATA_DRV    0xEC
@@ -112,16 +109,6 @@ extern "C" {
   (ScsiPortReadPortUchar((PUCHAR)((Address) + IDE_REG_STATUS)))
 #define IDEWriteCommand(Address, Data) \
   (ScsiPortWritePortUchar((PUCHAR)((Address) + IDE_REG_COMMAND), (Data)))
-#define IDEReadDMACommand(Address) \
-  (ScsiPortReadPortUchar((PUCHAR)((Address))))
-#define IDEWriteDMACommand(Address, Data) \
-  (ScsiPortWritePortUchar((PUCHAR)((Address)), (Data)))
-#define IDEReadDMAStatus(Address) \
-  (ScsiPortReadPortUchar((PUCHAR)((Address) + 2)))
-#define IDEWriteDMAStatus(Address, Data) \
-  (ScsiPortWritePortUchar((PUCHAR)((Address) + 2), (Data)))
-#define IDEWritePRDTable(Address, Data) \
-  (ScsiPortWritePortUlong((PULONG)((Address) + 4), (Data)))  
 
 
 //
@@ -199,7 +186,7 @@ typedef struct _IDE_DRIVE_IDENTIFY
   WORD  Reserved69[2];       /*69*/
   WORD  Reserved71[4];       /*71*/
   WORD  MaxQueueDepth;       /*75*/
-  WORD  Reserved76[4];       /*76*/
+  WORD  Reserved76[4];       /*79*/
   WORD  MajorRevision;       /*80*/
   WORD  MinorRevision;       /*81*/
   WORD  SupportedFeatures82; /*82*/
@@ -214,43 +201,6 @@ typedef struct _IDE_DRIVE_IDENTIFY
   WORD  Reserved104[151];    /*104*/
   WORD  Checksum;            /*255*/
 } IDE_DRIVE_IDENTIFY, *PIDE_DRIVE_IDENTIFY;
-
-
-/* Special ATAPI commands */
-
-#define ATAPI_FORMAT_UNIT	0x24
-#define ATAPI_MODE_SELECT	0x55
-#define ATAPI_MODE_SENSE	0x5A
-
-
-/* Special ATAPI_MODE_SELECT (12 bytes) command block */
-
-typedef struct _ATAPI_MODE_SELECT12
-{
-  UCHAR OperationCode;
-  UCHAR Reserved1:4;
-  UCHAR PFBit:1;
-  UCHAR Reserved2:3;
-  UCHAR Reserved3[5];
-  UCHAR ParameterListLengthMsb;
-  UCHAR ParameterListLengthLsb;
-  UCHAR Reserved4[3];
-} ATAPI_MODE_SELECT12, *PATAPI_MODE_SELECT12;
-
-
-/* Special ATAPI_MODE_SENSE (12 bytes) command block */
-
-typedef struct _ATAPI_MODE_SENSE12
-{
-  UCHAR OperationCode;
-  UCHAR Reserved1;
-  UCHAR PageCode:6;
-  UCHAR Pc:2;
-  UCHAR Reserved2[4];
-  UCHAR ParameterListLengthMsb;
-  UCHAR ParameterListLengthLsb;
-  UCHAR Reserved3[3];
-} ATAPI_MODE_SENSE12, *PATAPI_MODE_SENSE12;
 
 #ifdef __cplusplus
 }

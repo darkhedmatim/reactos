@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: cursor.c,v 1.23 2004/12/30 02:32:26 navaraf Exp $
+/* $Id: cursor.c,v 1.5 2003/05/12 19:30:00 jfilby Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/cursor.c
@@ -28,59 +28,22 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
-#include <string.h>
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
-#undef CopyCursor
-
-HBITMAP
-CopyBitmap(HBITMAP bmp);
-
-/* INTERNAL ******************************************************************/
-
-/* This callback routine is called directly after switching to gui mode */
-NTSTATUS STDCALL
-User32SetupDefaultCursors(PVOID Arguments, ULONG ArgumentLength)
-{
-  BOOL *DefaultCursor = (BOOL*)Arguments;
-  LRESULT Result = TRUE;
-  
-  if(*DefaultCursor)
-  {
-    /* set default cursor */
-    SetCursor(LoadCursorW(0, (LPCWSTR)IDC_ARROW));
-  }
-  else
-  {
-    /* FIXME load system cursor scheme */
-    SetCursor(0);
-    SetCursor(LoadCursorW(0, (LPCWSTR)IDC_ARROW));
-  }
-  
-  return(ZwCallbackReturn(&Result, sizeof(LRESULT), STATUS_SUCCESS));
-}
 
 /* FUNCTIONS *****************************************************************/
 
-
-/*
- * @implemented
- */
-HCURSOR STDCALL
-CopyCursor(HCURSOR pcur)
+WINBOOL STDCALL
+CreateCaret(HWND hWnd,
+	    HBITMAP hBitmap,
+	    int nWidth,
+	    int nHeight)
 {
-  ICONINFO IconInfo;
-  
-  if(NtUserGetCursorIconInfo((HANDLE)pcur, &IconInfo))
-  {
-    return (HCURSOR)NtUserCreateCursorIconHandle(&IconInfo, FALSE);
-  }
-  return (HCURSOR)0;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-/*
- * @implemented
- */
 HCURSOR STDCALL
 CreateCursor(HINSTANCE hInst,
 	     int xHotSpot,
@@ -90,142 +53,82 @@ CreateCursor(HINSTANCE hInst,
 	     CONST VOID *pvANDPlane,
 	     CONST VOID *pvXORPlane)
 {
-   ICONINFO IconInfo;
-   BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
-   BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   HDC hScreenDc;
 
-   hScreenDc = CreateCompatibleDC(NULL);
-   if (hScreenDc == NULL)
-      return NULL;
-
-   bwBIH->bmiHeader.biBitCount = 1;
-   bwBIH->bmiHeader.biWidth = nWidth;
-   bwBIH->bmiHeader.biHeight = -nHeight * 2;
-   bwBIH->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-   bwBIH->bmiHeader.biPlanes = 1;
-   bwBIH->bmiHeader.biSizeImage = 0;
-   bwBIH->bmiHeader.biCompression = BI_RGB;
-   bwBIH->bmiHeader.biClrImportant = 0;
-   bwBIH->bmiHeader.biClrUsed = 0;
-   bwBIH->bmiHeader.biXPelsPerMeter = 0;
-   bwBIH->bmiHeader.biYPelsPerMeter = 0;
-
-   bwBIH->bmiColors[0].rgbBlue = 0;
-   bwBIH->bmiColors[0].rgbGreen = 0;
-   bwBIH->bmiColors[0].rgbRed = 0;
-   bwBIH->bmiColors[0].rgbReserved = 0;
-
-   bwBIH->bmiColors[1].rgbBlue = 0xff;
-   bwBIH->bmiColors[1].rgbGreen = 0xff;
-   bwBIH->bmiColors[1].rgbRed = 0xff;
-   bwBIH->bmiColors[1].rgbReserved = 0;
-
-   IconInfo.hbmMask = CreateDIBitmap(hScreenDc, &bwBIH->bmiHeader, 0,
-                                     NULL, bwBIH, DIB_RGB_COLORS);
-   if (IconInfo.hbmMask)
-   {   
-      SetDIBits(hScreenDc, IconInfo.hbmMask, 0, nHeight, 
-                pvXORPlane, bwBIH, DIB_RGB_COLORS);
-      SetDIBits(hScreenDc, IconInfo.hbmMask, nHeight, nHeight, 
-                pvANDPlane, bwBIH, DIB_RGB_COLORS);
-   }
-   else
-   {
-      return NULL;
-   }
-
-   DeleteDC(hScreenDc);
-
-   IconInfo.fIcon = FALSE;
-   IconInfo.xHotspot = xHotSpot;
-   IconInfo.yHotspot = yHotSpot;
-   IconInfo.hbmColor = 0;
-  
-   return (HCURSOR)NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  UNIMPLEMENTED;
+  return (HCURSOR)0;
 }
 
+WINBOOL STDCALL
+DestroyCaret(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 DestroyCursor(HCURSOR hCursor)
 {
-  return (BOOL)NtUserDestroyCursorIcon((HANDLE)hCursor, 0);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+UINT STDCALL
+GetCaretBlinkTime(VOID)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
 
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
+GetCaretPos(LPPOINT lpPoint)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+WINBOOL STDCALL
 GetClipCursor(LPRECT lpRect)
 {
-  return NtUserGetClipCursor(lpRect);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @implemented
- */
 HCURSOR STDCALL
 GetCursor(VOID)
 {
-  CURSORINFO ci;
-  ci.cbSize = sizeof(CURSORINFO);
-  if(NtUserGetCursorInfo(&ci))
-    return ci.hCursor;
-  else
-    return (HCURSOR)0;
+  UNIMPLEMENTED;
+  return (HCURSOR)0;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetCursorInfo(PCURSORINFO pci)
 {
-  return (BOOL)NtUserGetCursorInfo(pci);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetCursorPos(LPPOINT lpPoint)
 {
-  BOOL res;
-  /* Windows doesn't check if lpPoint == NULL, we do */
-  if(!lpPoint)
-  {
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-  }
-  
-  res = NtUserGetCursorPos(lpPoint);
-
-  return res;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+WINBOOL STDCALL
+HideCaret(HWND hWnd)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @implemented
- */
 HCURSOR STDCALL
 LoadCursorA(HINSTANCE hInstance,
 	    LPCSTR lpCursorName)
 {
   return(LoadImageA(hInstance, lpCursorName, IMAGE_CURSOR, 0, 0,
-         LR_SHARED | LR_DEFAULTSIZE));
+		    LR_DEFAULTSIZE));
 }
 
-
-/*
- * @implemented
- */
 HCURSOR STDCALL
 LoadCursorFromFileA(LPCSTR lpFileName)
 {
@@ -238,10 +141,6 @@ LoadCursorFromFileA(LPCSTR lpFileName)
   return(Result);
 }
 
-
-/*
- * @implemented
- */
 HCURSOR STDCALL
 LoadCursorFromFileW(LPCWSTR lpFileName)
 {
@@ -249,67 +148,45 @@ LoadCursorFromFileW(LPCWSTR lpFileName)
 		    LR_LOADFROMFILE | LR_DEFAULTSIZE));
 }
 
-
-/*
- * @implemented
- */
 HCURSOR STDCALL
 LoadCursorW(HINSTANCE hInstance,
 	    LPCWSTR lpCursorName)
 {
   return(LoadImageW(hInstance, lpCursorName, IMAGE_CURSOR, 0, 0,
-		 LR_SHARED | LR_DEFAULTSIZE));
+		    LR_DEFAULTSIZE));
 }
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-ClipCursor(
-  CONST RECT *lpRect)
+WINBOOL STDCALL
+SetCaretBlinkTime(UINT uMSeconds)
 {
-  return NtUserClipCursor((RECT *)lpRect);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
+WINBOOL STDCALL
+SetCaretPos(int X,
+	    int Y)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @implemented
- */
 HCURSOR STDCALL
 SetCursor(HCURSOR hCursor)
 {
-  return NtUserSetCursor(hCursor);
+  UNIMPLEMENTED;
+  return (HCURSOR)0;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetCursorPos(int X,
 	     int Y)
 {
-  INPUT Input;
-  
-  Input.type = INPUT_MOUSE;
-  Input.mi.dx = (LONG)X;
-  Input.mi.dy = (LONG)Y;
-  Input.mi.mouseData = 0;
-  Input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
-  Input.mi.time = 0;
-  Input.mi.dwExtraInfo = 0;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-  return TRUE;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetSystemCursor(HCURSOR hcur,
 		DWORD id)
 {
@@ -317,19 +194,15 @@ SetSystemCursor(HCURSOR hcur,
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-int STDCALL
-ShowCursor(BOOL bShow)
+WINBOOL STDCALL
+ShowCaret(HWND hWnd)
 {
   UNIMPLEMENTED;
-  return 0;
+  return FALSE;
 }
 
-HCURSOR
-CursorIconToCursor(HICON hIcon, BOOL SemiTransparent)
+int STDCALL
+ShowCursor(WINBOOL bShow)
 {
   UNIMPLEMENTED;
   return 0;

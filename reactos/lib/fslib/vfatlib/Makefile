@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.6 2003/09/12 17:51:46 vizzini Exp $
+# $Id: Makefile,v 1.1 2003/04/05 19:40:41 chorns Exp $
 
 PATH_TO_TOP = ../../..
 
@@ -6,13 +6,7 @@ TARGET_TYPE = library
 
 TARGET_NAME = vfatlib
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS -Wall -Werror
-
 TARGET_OBJECTS = \
- fat12.o \
- fat16.o \
- fat32.o \
  vfatlib.o
  
 include $(PATH_TO_TOP)/rules.mak

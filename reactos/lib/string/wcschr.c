@@ -1,9 +1,20 @@
-/* $Id: wcschr.c,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/*
+ * $Id: wcschr.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
-#define _UNICODE
-#define _XINT wchar_t
-#include <wchar.h>
-#include "tcschr.h"
+#include <string.h>
 
-/* EOF */
+wchar_t *wcschr(const wchar_t *s, wchar_t c)
+{
+  wchar_t cc = c;
+  while (*s)
+  {
+    if (*s == cc)
+      return (wchar_t *)s;
+    s++;
+  }
+  if (cc == 0)
+    return (wchar_t *)s;
+  return 0;
+}
+

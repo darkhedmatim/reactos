@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2001, 2002, 2003 by
+# Copyright 1996-2000 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -16,7 +16,7 @@
 # This sub-Makefile is in charge of detecting the current platform.  It sets
 # the following variables:
 #
-#   BUILD_DIR    The configuration and system-specific directory.  Usually
+#   BUILD        The configuration and system-specific directory.  Usually
 #                `freetype/builds/$(PLATFORM)' but can be different for
 #                custom builds of the library.
 #
@@ -30,7 +30,6 @@
 #   DELETE       The shell command used to remove a given file.
 #   COPY         The shell command used to copy one file.
 #   SEP          The platform-specific directory separator.
-#   COMPILER_SEP The separator used in arguments of the compilation tools.
 #   CC           The compiler to use.
 #
 # You need to set the following variable(s) before calling it:
@@ -45,17 +44,17 @@ ifndef TOP_DIR
 endif
 
 # Set auto-detection default to `ansi' resp. UNIX-like operating systems.
+# Note that we delay evaluation of $(BUILD_CONFIG_), $(BUILD), and
+# $(CONFIG_RULES).
 #
-PLATFORM     := ansi
-DELETE       := $(RM)
-COPY         := cp
-SEP          := /
+PLATFORM := ansi
+DELETE   := $(RM)
+COPY     := cp
+SEP      := /
 
-BUILD_CONFIG := $(TOP_DIR)/builds
-
-# These two assignments must be delayed.
-BUILD_DIR    = $(BUILD_CONFIG)/$(PLATFORM)
-CONFIG_RULES = $(BUILD_DIR)/$(CONFIG_FILE)
+BUILD_CONFIG_ = $(TOP_DIR)$(SEP)builds$(SEP)
+BUILD         = $(BUILD_CONFIG_)$(PLATFORM)
+CONFIG_RULES  = $(BUILD)$(SEP)$(CONFIG_FILE)
 
 # We define the BACKSLASH variable to hold a single back-slash character.
 # This is needed because a line like
@@ -73,12 +72,12 @@ BACKSLASH := $(strip \ )
 
 # Find all auto-detectable platforms.
 #
-PLATFORMS := $(notdir $(subst /detect.mk,,$(wildcard $(BUILD_CONFIG)/*/detect.mk)))
-.PHONY: $(PLATFORMS) ansi
+PLATFORMS_ := $(notdir $(subst /detect.mk,,$(wildcard $(BUILD_CONFIG_)*/detect.mk)))
+.PHONY: $(PLATFORMS_) ansi
 
 # Filter out platform specified as setup target.
 #
-PLATFORM := $(firstword $(filter $(MAKECMDGOALS),$(PLATFORMS)))
+PLATFORM := $(firstword $(filter $(MAKECMDGOALS),$(PLATFORMS_)))
 
 # If no setup target platform was specified, enable auto-detection/
 # default platform.
@@ -95,7 +94,7 @@ ifeq ($(findstring ansi,$(MAKECMDGOALS)),)
   # directories.  Note that the calling order of the various `detect.mk'
   # files isn't predictable.
   #
-  include $(wildcard $(BUILD_CONFIG)/*/detect.mk)
+  include $(wildcard $(BUILD_CONFIG_)*/detect.mk)
 endif
 
 # In case no detection rule file was successful, use the default.
@@ -122,14 +121,13 @@ std_setup:
 	@echo ""
 	@echo "  platform                    $(PLATFORM)"
 	@echo "  compiler                    $(CC)"
-	@echo "  configuration directory     $(BUILD_DIR)"
+	@echo "  configuration directory     $(BUILD)"
 	@echo "  configuration rules         $(CONFIG_RULES)"
 	@echo ""
 	@echo "If this does not correspond to your system or settings please remove the file"
 	@echo "\`$(CONFIG_MK)' from this directory then read the INSTALL file for help."
 	@echo ""
-	@echo "Otherwise, simply type \`$(MAKE)' again to build the library,"
-	@echo "or \`$(MAKE) refdoc' to build the API reference (the latter needs python)."
+	@echo "Otherwise, simply type \`$(MAKE)' again to build the library."
 	@echo ""
 	@$(COPY) $(CONFIG_RULES) $(CONFIG_MK)
 
@@ -142,18 +140,4 @@ dos_setup:
 	@type builds\newline
 	@echo The following settings are used:
 	@type builds\newline
-	@echo   platformÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ$(PLATFORM)
-	@echo   compilerÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ$(CC)
-	@echo   configuration directoryÿÿÿÿÿÿ$(subst /,\,$(BUILD_DIR))
-	@echo   configuration rulesÿÿÿÿÿÿÿÿÿÿ$(subst /,\,$(CONFIG_RULES))
-	@type builds\newline
-	@echo If this does not correspond to your system or settings please remove the file
-	@echo '$(CONFIG_MK)' from this directory then read the INSTALL file for help.
-	@type builds\newline
-	@echo Otherwise, simply type 'make' again to build the library.
-	@echo or 'make refdoc' to build the API reference (the latter needs python).
-	@type builds\newline
-	@$(COPY) $(subst /,\,$(CONFIG_RULES) $(CONFIG_MK)) > nul
-
-
-# EOF
+	@echo   platform

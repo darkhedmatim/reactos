@@ -3,15 +3,12 @@
 #include <msvcrt/ctype.h>
 #include <msvcrt/errno.h>
 #include <msvcrt/stdlib.h>
-#include <msvcrt/internal/file.h>
 
 /*
  * Convert a string to an unsigned long integer.
  *
  * Ignores `locale' stuff.  Assumes that the upper and lower case
  * alphabets and digits are each contiguous.
- *
- * @implemented
  */
 unsigned long
 strtoul(const char *nptr, char **endptr, int base)

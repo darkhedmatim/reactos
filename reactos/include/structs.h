@@ -33,7 +33,6 @@
 #ifndef _GNU_H_WINDOWS32_STRUCTURES
 #define _GNU_H_WINDOWS32_STRUCTURES
 
-#include <base.h>
 #include <ntos/security.h>
 #include <ntos/time.h>
 #include <ntdll/rtl.h>
@@ -45,20 +44,15 @@
 #include <ntos/ps.h>
 #include <ntos/disk.h>
 #include <ntos/gditypes.h>
-
-/* NOTE - _DISABLE_TIDENTS exists to keep ReactOS's source from
-   accidentally utilitizing ANSI/UNICODE-generic structs, defines
-   or functions. */
-#ifndef _DISABLE_TIDENTS
-#  ifdef UNICODE
-#    define typedef_tident(ident) typedef ident##W ident;
-#  else
-#    define typedef_tident(ident) typedef ident##A ident;
-#  endif
-#else
-#  define typedef_tident(ident)
-#endif
-
+/*
+typedef struct _VALENT
+{
+   LPTSTR ve_valuename;
+   DWORD ve_valuelen;
+   DWORD ve_valueptr;
+   DWORD ve_type;
+} VALENT, *PVALENT;
+ */
 typedef struct _VALENT_A {
    LPSTR ve_valuename;
    DWORD ve_valuelen;
@@ -73,8 +67,13 @@ typedef struct _VALENT_W {
    DWORD  ve_type;
 } VALENTW, *PVALENTW;
 
-typedef_tident(VALENT)
-typedef_tident(PVALENT)
+#ifdef UNICODE
+typedef VALENTW VALENT;
+typedef PVALENTW PVALENT;
+#else
+typedef VALENTA VALENT;
+typedef PVALENTA PVALENT;
+#endif
 
 #ifndef WIN32_LEAN_AND_MEAN
 
@@ -142,17 +141,10 @@ typedef struct _ADAPTER_STATUS {
   WORD    name_count;
 } ADAPTER_STATUS;
 
-typedef struct _ADDJOB_INFO_1A {
-  LPSTR   Path;
+typedef struct _ADDJOB_INFO_1 {
+  LPTSTR  Path;
   DWORD   JobId;
-} ADDJOB_INFO_1A;
-
-typedef struct _ADDJOB_INFO_1W {
-  LPWSTR  Path;
-  DWORD   JobId;
-} ADDJOB_INFO_1W;
-
-typedef_tident(ADDJOB_INFO_1)
+} ADDJOB_INFO_1;
 
 typedef struct tagANIMATIONINFO {
   UINT cbSize;
@@ -166,11 +158,6 @@ typedef struct _RECT {
   LONG bottom;
 } RECT, *LPRECT, *LPCRECT, *PRECT,
 RECTL, *LPRECTL, *LPCRECTL, *PRECTL;
-
-typedef struct _PATRECT {
-	RECT r;
-	HBRUSH hBrush;
-} PATRECT, * PPATRECT;
 
 #if 0
 typedef struct _RECTL {
@@ -220,17 +207,13 @@ typedef struct _BITMAPCOREINFO {
   RGBTRIPLE         bmciColors[1];
 } BITMAPCOREINFO, *PBITMAPCOREINFO, *LPBITMAPCOREINFO;
 
-#include <pshpack1.h>
-
 typedef struct tagBITMAPFILEHEADER {
   WORD    bfType;
   DWORD   bfSize;
   WORD    bfReserved1;
   WORD    bfReserved2;
   DWORD   bfOffBits;
-} BITMAPFILEHEADER;
-
-#include <poppack.h>
+} BITMAPFILEHEADER __attribute__((packed));
 
 typedef struct tagBITMAPINFOHEADER {
   DWORD  biSize;
@@ -251,7 +234,7 @@ typedef struct tagRGBQUAD {
   BYTE    rgbGreen;
   BYTE    rgbRed;
   BYTE    rgbReserved;
-} RGBQUAD, *PRGBQUAD, *LPRGBQUAD;
+} RGBQUAD;
 
 typedef struct tagBITMAPINFO {
   BITMAPINFOHEADER bmiHeader;
@@ -304,7 +287,7 @@ typedef struct {
 typedef struct _BLOB {
   ULONG   cbSize;
   BYTE    *pBlobData;
-} BLOB, *PBLOB,*LPBLOB;
+} BLOB;
 #endif
 
 typedef struct _SHITEMID {
@@ -367,22 +350,6 @@ typedef struct tagPOINTS {
   SHORT y;
 } POINTS;
 
-typedef struct {
-	ULONG State[4];
-	ULONG Unknown[2];
-} MD4_CONTEXT, *PMD4_CONTEXT;
-
-typedef struct {
-	ULONG Unknown[2];
-	ULONG State[4];
-} MD5_CONTEXT, *PMD5_CONTEXT;
-
-typedef struct {
-	ULONG Unknown1[6];
-	ULONG State[5];
-	ULONG Unknown2[2];
-} SHA_CONTEXT, *PSHA_CONTEXT;
-
 typedef struct _tagCANDIDATEFORM {
   DWORD  dwIndex;
   DWORD  dwStyle;
@@ -399,6 +366,21 @@ typedef struct _tagCANDIDATELIST {
   DWORD  dwPageSize;
   DWORD  dwOffset[1];
 } CANDIDATELIST, *LPCANDIDATELIST;
+
+typedef struct tagCREATESTRUCT {
+  LPVOID    lpCreateParams;
+  HINSTANCE hInstance;
+  HMENU     hMenu;
+  HWND      hwndParent;
+  int       cy;
+  int       cx;
+  int       y;
+  int       x;
+  LONG      style;
+  LPCTSTR   lpszName;
+  LPCTSTR   lpszClass;
+  DWORD     dwExStyle;
+} CREATESTRUCT, *LPCREATESTRUCT;
 
 typedef struct tagCREATESTRUCTA {
   LPVOID    lpCreateParams;
@@ -430,83 +412,10 @@ typedef struct tagCREATESTRUCTW {
   DWORD     dwExStyle;
 } CREATESTRUCTW, *LPCREATESTRUCTW;
 
-typedef_tident(CREATESTRUCT)
-typedef_tident(LPCREATESTRUCT)
-
-typedef struct tagHW_PROFILE_INFOA {
-    DWORD  dwDockInfo;
-    CHAR   szHwProfileGuid[HW_PROFILE_GUIDLEN];
-    CHAR   szHwProfileName[MAX_PROFILE_LEN];
-} HW_PROFILE_INFOA, *LPHW_PROFILE_INFOA;
-typedef struct tagHW_PROFILE_INFOW {
-    DWORD  dwDockInfo;
-    WCHAR  szHwProfileGuid[HW_PROFILE_GUIDLEN];
-    WCHAR  szHwProfileName[MAX_PROFILE_LEN];
-} HW_PROFILE_INFOW, *LPHW_PROFILE_INFOW;
-
-typedef_tident(HW_PROFILE_INFO)
-typedef_tident(LPHW_PROFILE_INFO)
-typedef struct _tagDATETIME {
-    WORD    year;
-    WORD    month;
-    WORD    day;
-    WORD    hour;
-    WORD    min;
-    WORD    sec;
-} DATETIME;
-
-typedef struct _tagIMEPROA {
-    HWND        hWnd;
-    DATETIME    InstDate;
-    UINT        wVersion;
-    BYTE        szDescription[50];
-    BYTE        szName[80];
-    BYTE        szOptions[30];
-} IMEPROA,*PIMEPROA,*NPIMEPROA,FAR *LPIMEPROA;
-typedef struct _tagIMEPROW {
-    HWND        hWnd;
-    DATETIME    InstDate;
-    UINT        wVersion;
-    WCHAR       szDescription[50];
-    WCHAR       szName[80];
-    WCHAR       szOptions[30];
-} IMEPROW,*PIMEPROW,*NPIMEPROW,FAR *LPIMEPROW;
-typedef_tident(IMEPRO)
-typedef_tident(NPIMEPRO)
-typedef_tident(LPIMEPRO)
-typedef_tident(PIMEPRO)
-
-typedef struct _cpinfoexA {
-    UINT    MaxCharSize;
-    BYTE    DefaultChar[MAX_DEFAULTCHAR];
-    BYTE    LeadByte[MAX_LEADBYTES];
-    WCHAR   UnicodeDefaultChar;
-    UINT    CodePage;
-    CHAR    CodePageName[MAX_PATH];
-} CPINFOEXA, *LPCPINFOEXA;
-typedef struct _cpinfoexW {
-    UINT    MaxCharSize;
-    BYTE    DefaultChar[MAX_DEFAULTCHAR];
-    BYTE    LeadByte[MAX_LEADBYTES];
-    WCHAR   UnicodeDefaultChar;
-    UINT    CodePage;
-    WCHAR   CodePageName[MAX_PATH];
-} CPINFOEXW, *LPCPINFOEXW;
-
-typedef_tident(CPINFOEX)
-typedef_tident(LPCPINFOEX)
-
-typedef struct tagCBT_CREATEWNDA {
-  LPCREATESTRUCTA lpcs;
-  HWND            hwndInsertAfter;
-} CBT_CREATEWNDA;
-
-typedef struct tagCBT_CREATEWNDW {
-  LPCREATESTRUCTW lpcs;
-  HWND            hwndInsertAfter;
-} CBT_CREATEWNDW;
-
-typedef_tident(CBT_CREATEWND)
+typedef struct tagCBT_CREATEWND {
+  LPCREATESTRUCT lpcs;
+  HWND           hwndInsertAfter;
+} CBT_CREATEWND;
 
 typedef struct tagCBTACTIVATESTRUCT {
   WINBOOL fMouse;
@@ -521,7 +430,7 @@ typedef struct _CHAR_INFO {
   WORD Attributes;
 } CHAR_INFO, *PCHAR_INFO;
 
-typedef struct _charformatA {
+typedef struct _charformat {
   UINT     cbSize;
   DWORD    dwMask;
   DWORD    dwEffects;
@@ -530,22 +439,8 @@ typedef struct _charformatA {
   COLORREF crTextColor;
   BYTE     bCharSet;
   BYTE     bPitchAndFamily;
-  CHAR     szFaceName[LF_FACESIZE];
-} CHARFORMATA;
-
-typedef struct _charformatW {
-  UINT     cbSize;
-  DWORD    dwMask;
-  DWORD    dwEffects;
-  LONG     yHeight;
-  LONG     yOffset;
-  COLORREF crTextColor;
-  BYTE     bCharSet;
-  BYTE     bPitchAndFamily;
-  WCHAR    szFaceName[LF_FACESIZE];
-} CHARFORMATW;
-
-typedef_tident(CHARFORMAT)
+  TCHAR    szFaceName[LF_FACESIZE];
+} CHARFORMAT;
 
 typedef struct _charrange {
   LONG cpMin;
@@ -568,21 +463,6 @@ typedef struct {
   FONTSIGNATURE fs;
 } CHARSETINFO, *LPCHARSETINFO;
 
-typedef struct tagWCRANGE
-{
-    WCHAR  wcLow;
-    USHORT cGlyphs;
-} WCRANGE, *PWCRANGE,FAR *LPWCRANGE;
-
-typedef struct tagGLYPHSET
-{
-    DWORD    cbThis;
-    DWORD    flAccel;
-    DWORD    cGlyphsSupported;
-    DWORD    cRanges;
-    WCRANGE  ranges[1];
-} GLYPHSET, *PGLYPHSET, FAR *LPGLYPHSET;
-
 typedef struct {
   DWORD        lStructSize;
   HWND         hwndOwner;
@@ -592,29 +472,8 @@ typedef struct {
   DWORD        Flags;
   LPARAM       lCustData;
   LPCCHOOKPROC lpfnHook;
-  LPCSTR       lpTemplateName;
-} CHOOSECOLORA, *LPCHOOSECOLORA;
-
-typedef struct {
-  DWORD        lStructSize;
-  HWND         hwndOwner;
-  HWND         hInstance;
-  COLORREF     rgbResult;
-  COLORREF*    lpCustColors;
-  DWORD        Flags;
-  LPARAM       lCustData;
-  LPCCHOOKPROC lpfnHook;
-  LPCWSTR      lpTemplateName;
-} CHOOSECOLORW, *LPCHOOSECOLORW;
-
-typedef_tident(CHOOSECOLOR)
-typedef_tident(LPCHOOSECOLOR)
-
-typedef struct _OBJECT_TYPE_LIST {
-    WORD   Level;
-    WORD   Sbz;
-    GUID *ObjectType;
-} OBJECT_TYPE_LIST, *POBJECT_TYPE_LIST;
+  LPCTSTR      lpTemplateName;
+} CHOOSECOLOR, *LPCHOOSECOLOR;
 
 typedef struct tagLOGFONTA {
   LONG lfHeight;
@@ -650,69 +509,15 @@ typedef struct tagLOGFONTW {
   WCHAR lfFaceName[LF_FACESIZE];
 } LOGFONTW, *LPLOGFONTW, *PLOGFONTW;
 
-typedef_tident(LOGFONT)
-typedef_tident(LPLOGFONT)
-typedef_tident(PLOGFONT)
-
-typedef struct tagRAWINPUTHEADER {
-    DWORD dwType;
-    DWORD dwSize;
-    HANDLE hDevice;
-    WPARAM wParam;
-} RAWINPUTHEADER, *PRAWINPUTHEADER, *LPRAWINPUTHEADER;
-
-typedef struct tagRAWINPUTDEVICELIST {
-    HANDLE hDevice;
-    DWORD dwType;
-} RAWINPUTDEVICELIST, *PRAWINPUTDEVICELIST;
-
-typedef struct tagRAWINPUTDEVICE {
-    USHORT usUsagePage;
-    USHORT usUsage;
-    DWORD dwFlags;
-    HWND hwndTarget;
-} RAWINPUTDEVICE, *PRAWINPUTDEVICE, *LPRAWINPUTDEVICE;
-
-typedef CONST RAWINPUTDEVICE* PCRAWINPUTDEVICE;
-
-typedef struct tagRAWMOUSE {
-    USHORT usFlags;
-    union {
-        ULONG ulButtons;
-        struct  {
-            USHORT  usButtonFlags;
-            USHORT  usButtonData;
-        };
-    };
-    ULONG ulRawButtons;
-    LONG lLastX;
-    LONG lLastY;
-    ULONG ulExtraInformation;
-} RAWMOUSE, *PRAWMOUSE, *LPRAWMOUSE;
-
-typedef struct tagRAWKEYBOARD {
-    USHORT MakeCode;
-    USHORT Flags;
-    USHORT Reserved;
-    USHORT VKey;
-    UINT   Message;
-    ULONG ExtraInformation;
-} RAWKEYBOARD, *PRAWKEYBOARD, *LPRAWKEYBOARD;
-
-typedef struct tagRAWHID {
-    DWORD dwSizeHid;
-    DWORD dwCount;
-    BYTE bRawData[1];
-} RAWHID, *PRAWHID, *LPRAWHID;
-
-typedef struct tagRAWINPUT {
-    RAWINPUTHEADER header;
-    union {
-        RAWMOUSE    mouse;
-        RAWKEYBOARD keyboard;
-        RAWHID      hid;
-    } data;
-} RAWINPUT, *PRAWINPUT, *LPRAWINPUT;
+#ifdef UNICODE
+typedef LOGFONTW LOGFONT;
+typedef LPLOGFONTW LPLOGFONT;
+typedef PLOGFONTW PLOGFONT;
+#else
+typedef LOGFONTA LOGFONT;
+typedef LPLOGFONTA LPLOGFONT;
+typedef PLOGFONTA PLOGFONT;
+#endif
 
 typedef struct tagCHOOSEFONTA {
   DWORD        lStructSize;
@@ -752,8 +557,13 @@ typedef struct tagCHOOSEFONTW {
   INT          nSizeMax;
 } CHOOSEFONTW, *LPCHOOSEFONTW;
 
-typedef_tident(CHOOSEFONT)
-typedef_tident(LPCHOOSEFONT)
+#ifdef UNICODE
+typedef CHOOSEFONTW CHOOSEFONT;
+typedef LPCHOOSEFONTW LPCHOOSEFONT;
+#else
+typedef CHOOSEFONTA CHOOSEFONT;
+typedef LPCHOOSEFONTA LPCHOOSEFONT;
+#endif
 
 typedef struct _IDA {
   UINT cidl;
@@ -871,16 +681,14 @@ typedef struct _COMMTIMEOUTS {
 } COMMTIMEOUTS,*LPCOMMTIMEOUTS;
 
 typedef struct tagCOMPAREITEMSTRUCT {
-	UINT	CtlType;
-	UINT	CtlID;
-	HWND	hwndItem;
-	UINT	itemID1;
-	DWORD	itemData1;
-	UINT	itemID2;
-	DWORD	itemData2;
-	DWORD	dwLocaleId;
-} COMPAREITEMSTRUCT,*LPCOMPAREITEMSTRUCT;
-
+  UINT  CtlType;
+  UINT  CtlID;
+  HWND  hwndItem;
+  UINT  itemID1;
+  DWORD itemData1;
+  UINT  itemID2;
+  DWORD itemData2;
+} COMPAREITEMSTRUCT;
 
 typedef struct {
   COLORREF crText;
@@ -944,32 +752,6 @@ typedef struct tagCOPYDATASTRUCT {
   PVOID lpData;
 } COPYDATASTRUCT;
 
-typedef struct tagACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA {
-    PVOID lpInformation;
-    PVOID lpSectionBase;
-    ULONG ulSectionLength;
-    PVOID lpSectionGlobalDataBase;
-    ULONG ulSectionGlobalDataLength;
-} ACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA, *PACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA;
-typedef const ACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA *PCACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA;
-
-typedef struct tagACTCTX_SECTION_KEYED_DATA {
-    ULONG cbSize;
-    ULONG ulDataFormatVersion;
-    PVOID lpData;
-    ULONG ulLength;
-    PVOID lpSectionGlobalData;
-    ULONG ulSectionGlobalDataLength;
-    PVOID lpSectionBase;
-    ULONG ulSectionTotalLength;
-    HANDLE hActCtx;
-    ULONG ulAssemblyRosterIndex;
-// 2600 stops here
-    ULONG ulFlags;
-    ACTCTX_SECTION_KEYED_DATA_ASSEMBLY_METADATA AssemblyMetadata;
-} ACTCTX_SECTION_KEYED_DATA, *PACTCTX_SECTION_KEYED_DATA;
-typedef const ACTCTX_SECTION_KEYED_DATA * PCACTCTX_SECTION_KEYED_DATA;
-
 typedef struct _cpinfo {
   UINT MaxCharSize;
   BYTE DefaultChar[MAX_DEFAULTCHAR];
@@ -1019,133 +801,16 @@ typedef struct _CSADDR_INFO {
 } CSADDR_INFO;
 */
 
-typedef struct {
-    UINT cbSize;
-    HDESK hdesk;
-    HWND hwnd;
-    LUID luid;
-} BSMINFO, *PBSMINFO;
-
-typedef struct _currencyfmtA {
+typedef struct _currencyfmt {
   UINT      NumDigits;
   UINT      LeadingZero;
   UINT      Grouping;
-  LPSTR     lpDecimalSep;
-  LPSTR     lpThousandSep;
+  LPTSTR    lpDecimalSep;
+  LPTSTR    lpThousandSep;
   UINT      NegativeOrder;
   UINT      PositiveOrder;
-  LPSTR     lpCurrencySymbol;
-} CURRENCYFMTA;
-
-typedef struct _currencyfmtW {
-  UINT      NumDigits;
-  UINT      LeadingZero;
-  UINT      Grouping;
-  LPWSTR    lpDecimalSep;
-  LPWSTR    lpThousandSep;
-  UINT      NegativeOrder;
-  UINT      PositiveOrder;
-  LPWSTR    lpCurrencySymbol;
-} CURRENCYFMTW;
-
-typedef_tident(CURRENCYFMT)
-
-typedef struct _SERVICE_DESCRIPTIONA {
-    LPSTR       lpDescription;
-} SERVICE_DESCRIPTIONA, *LPSERVICE_DESCRIPTIONA;
-typedef struct _SERVICE_DESCRIPTIONW {
-    LPWSTR      lpDescription;
-} SERVICE_DESCRIPTIONW, *LPSERVICE_DESCRIPTIONW;
-typedef_tident(SERVICE_DESCRIPTION)
-typedef_tident(LPSERVICE_DESCRIPTION)
-
-typedef enum _SC_ACTION_TYPE {
-    SC_ACTION_NONE = 0,
-    SC_ACTION_RESTART = 1,
-    SC_ACTION_REBOOT = 2,
-    SC_ACTION_RUN_COMMAND = 3
-} SC_ACTION_TYPE;
-
-typedef struct _SC_ACTION {
-    SC_ACTION_TYPE  Type;
-    DWORD           Delay;
-} SC_ACTION, *LPSC_ACTION;
-
-typedef struct _SERVICE_FAILURE_ACTIONSA {
-    DWORD       dwResetPeriod;
-    LPSTR       lpRebootMsg;
-    LPSTR       lpCommand;
-    DWORD       cActions;
-    SC_ACTION * lpsaActions;
-} SERVICE_FAILURE_ACTIONSA, *LPSERVICE_FAILURE_ACTIONSA;
-
-typedef struct _SERVICE_FAILURE_ACTIONSW {
-    DWORD       dwResetPeriod;
-    LPWSTR      lpRebootMsg;
-    LPWSTR      lpCommand;
-    DWORD       cActions;
-    SC_ACTION * lpsaActions;
-} SERVICE_FAILURE_ACTIONSW, *LPSERVICE_FAILURE_ACTIONSW;
-
-typedef_tident(SERVICE_FAILURE_ACTIONS)
-typedef_tident(LPSERVICE_FAILURE_ACTIONS)
-
-typedef struct tagACTCTXA {
-    ULONG       cbSize;
-    DWORD       dwFlags;
-    LPCSTR      lpSource;
-    USHORT      wProcessorArchitecture;
-    LANGID      wLangId;
-    LPCSTR      lpAssemblyDirectory;
-    LPCSTR      lpResourceName;
-    LPCSTR      lpApplicationName;
-    HMODULE     hModule;
-} ACTCTXA, *PACTCTXA;
-
-typedef struct tagACTCTXW {
-    ULONG       cbSize;
-    DWORD       dwFlags;
-    LPCWSTR     lpSource;
-    USHORT      wProcessorArchitecture;
-    LANGID      wLangId;
-    LPCWSTR     lpAssemblyDirectory;
-    LPCWSTR     lpResourceName;
-    LPCWSTR     lpApplicationName;
-    HMODULE     hModule;
-} ACTCTXW, *PACTCTXW;
-
-typedef struct _JOB_SET_ARRAY {
-    HANDLE JobHandle;
-    DWORD MemberLevel;
-    DWORD Flags;
-} JOB_SET_ARRAY, *PJOB_SET_ARRAY;
-
-typedef struct _MEMORYSTATUSEX {
-    DWORD dwLength;
-    DWORD dwMemoryLoad;
-    DWORDLONG ullTotalPhys;
-    DWORDLONG ullAvailPhys;
-    DWORDLONG ullTotalPageFile;
-    DWORDLONG ullAvailPageFile;
-    DWORDLONG ullTotalVirtual;
-    DWORDLONG ullAvailVirtual;
-    DWORDLONG ullAvailExtendedVirtual;
-} MEMORYSTATUSEX, *LPMEMORYSTATUSEX;
-
-typedef const ACTCTXA *PCACTCTXA;
-typedef const ACTCTXW *PCACTCTXW;
-typedef_tident(ACTCTX)
-typedef_tident(PACTCTX)
-
-typedef struct _TRIVERTEX
-{
-    LONG    x;
-    LONG    y;
-    COLOR16 Red;
-    COLOR16 Green;
-    COLOR16 Blue;
-    COLOR16 Alpha;
-}TRIVERTEX,*PTRIVERTEX,*LPTRIVERTEX;
+  LPTSTR    lpCurrencySymbol;
+} CURRENCYFMT;
 
 typedef struct tagCURSORSHAPE {
   int     xHotSpot;
@@ -1172,15 +837,9 @@ typedef struct tagCWPSTRUCT {
   HWND    hwnd;
 } CWPSTRUCT;
 
-typedef struct _DATATYPES_INFO_1A {
-  LPSTR  pName;
-} DATATYPES_INFO_1A;
-
-typedef struct _DATATYPES_INFO_1W {
-  LPWSTR pName;
-} DATATYPES_INFO_1W;
-
-typedef_tident(DATATYPES_INFO_1)
+typedef struct _DATATYPES_INFO_1 {
+  LPTSTR pName;
+} DATATYPES_INFO_1;
 
 typedef struct {
   unsigned short bAppReturnCode:8,
@@ -1373,9 +1032,6 @@ typedef struct _DISK_PERFORMANCE {
   DWORD QueueDepth;
 } DISK_PERFORMANCE ;
 
-
-#include <pshpack1.h>
-
 typedef struct {
   DWORD style;
   DWORD dwExtendedStyle;
@@ -1384,7 +1040,7 @@ typedef struct {
   short cx;
   short cy;
   WORD  id;
-} DLGITEMTEMPLATE;
+} DLGITEMTEMPLATE PACKED;
 
 typedef DLGITEMTEMPLATE *LPDLGITEMTEMPLATE;
 typedef DLGITEMTEMPLATE *PDLGITEMTEMPLATE;
@@ -1397,64 +1053,32 @@ typedef struct {
   short y;
   short cx;
   short cy;
-} DLGTEMPLATE;
-
-#include <poppack.h>
-
+} DLGTEMPLATE PACKED;
 
 typedef DLGTEMPLATE *LPDLGTEMPLATE;
 typedef const DLGTEMPLATE *LPCDLGTEMPLATE;
 
-typedef struct _DOC_INFO_1A {
-  LPSTR  pDocName;
-  LPSTR  pOutputFile;
-  LPSTR  pDatatype;
-} DOC_INFO_1A;
+typedef struct _DOC_INFO_1 {
+  LPTSTR pDocName;
+  LPTSTR pOutputFile;
+  LPTSTR pDatatype;
+} DOC_INFO_1;
 
-typedef struct _DOC_INFO_1W {
-  LPWSTR pDocName;
-  LPWSTR pOutputFile;
-  LPWSTR pDatatype;
-} DOC_INFO_1W;
-
-typedef_tident(DOC_INFO_1)
-
-typedef struct _DOC_INFO_2A {
-  LPSTR  pDocName;
-  LPSTR  pOutputFile;
-  LPSTR  pDatatype;
+typedef struct _DOC_INFO_2 {
+  LPTSTR pDocName;
+  LPTSTR pOutputFile;
+  LPTSTR pDatatype;
   DWORD  dwMode;
   DWORD  JobId;
-} DOC_INFO_2A;
-
-typedef struct _DOC_INFO_2W {
-  LPWSTR pDocName;
-  LPWSTR pOutputFile;
-  LPWSTR pDatatype;
-  DWORD  dwMode;
-  DWORD  JobId;
-} DOC_INFO_2W;
-
-typedef_tident(DOC_INFO_2)
+} DOC_INFO_2;
 
 typedef struct {
   int     cbSize;
-  LPCSTR  lpszDocName;
-  LPCSTR  lpszOutput;
-  LPCSTR  lpszDatatype;
+  LPCTSTR lpszDocName;
+  LPCTSTR lpszOutput;
+  LPCTSTR lpszDatatype;
   DWORD   fwType;
-} DOCINFOA, *PDOCINFOA;
-
-typedef struct {
-  int     cbSize;
-  LPCWSTR lpszDocName;
-  LPCWSTR lpszOutput;
-  LPCWSTR lpszDatatype;
-  DWORD   fwType;
-} DOCINFOW, *PDOCINFOW;
-
-typedef_tident(DOCINFO)
-typedef_tident(PDOCINFO)
+} DOCINFO, *PDOCINFO;
 
 typedef struct {
   UINT uNotification;
@@ -1484,93 +1108,31 @@ typedef struct {
 
 
 
-typedef struct _EXTTEXTMETRIC
-    {
-    short   emSize;
-    short   emPointSize;
-    short   emOrientation;
-    short   emMasterHeight;
-    short   emMinScale;
-    short   emMaxScale;
-    short   emMasterUnits;
-    short   emCapHeight;
-    short   emXHeight;
-    short   emLowerCaseAscent;
-    short   emLowerCaseDescent;
-    short   emSlant;
-    short   emSuperScript;
-    short   emSubScript;
-    short   emSuperScriptSize;
-    short   emSubScriptSize;
-    short   emUnderlineOffset;
-    short   emUnderlineWidth;
-    short   emDoubleUpperUnderlineOffset;
-    short   emDoubleLowerUnderlineOffset;
-    short   emDoubleUpperUnderlineWidth;
-    short   emDoubleLowerUnderlineWidth;
-    short   emStrikeOutOffset;
-    short   emStrikeOutWidth;
-    WORD    emKernPairs;
-    WORD    emKernTracks;
-} EXTTEXTMETRIC, *PEXTTEXTMETRIC;
+typedef struct _DRIVER_INFO_1 {
+  LPTSTR pName;
+} DRIVER_INFO_1;
 
-typedef struct _DRIVER_INFO_1A {
-  LPSTR  pName;
-} DRIVER_INFO_1A;
-
-typedef struct _DRIVER_INFO_1W {
-  LPWSTR pName;
-} DRIVER_INFO_1W;
-
-typedef_tident(DRIVER_INFO_1)
-
-typedef struct _DRIVER_INFO_2A {
+typedef struct _DRIVER_INFO_2 {
   DWORD  cVersion;
-  LPSTR  pName;
-  LPSTR  pEnvironment;
-  LPSTR  pDriverPath;
-  LPSTR  pDataFile;
-  LPSTR  pConfigFile;
-} DRIVER_INFO_2A;
+  LPTSTR pName;
+  LPTSTR pEnvironment;
+  LPTSTR pDriverPath;
+  LPTSTR pDataFile;
+  LPTSTR pConfigFile;
+} DRIVER_INFO_2;
 
-typedef struct _DRIVER_INFO_2W {
+typedef struct _DRIVER_INFO_3 {
   DWORD  cVersion;
-  LPWSTR pName;
-  LPWSTR pEnvironment;
-  LPWSTR pDriverPath;
-  LPWSTR pDataFile;
-  LPWSTR pConfigFile;
-} DRIVER_INFO_2W;
-
-typedef_tident(DRIVER_INFO_2)
-
-typedef struct _DRIVER_INFO_3A {
-  DWORD  cVersion;
-  LPSTR  pName;
-  LPSTR  pEnvironment;
-  LPSTR  pDriverPath;
-  LPSTR  pDataFile;
-  LPSTR  pConfigFile;
-  LPSTR  pHelpFile;
-  LPSTR  pDependentFiles;
-  LPSTR  pMonitorName;
-  LPSTR  pDefaultDataType;
-} DRIVER_INFO_3A;
-
-typedef struct _DRIVER_INFO_3W {
-  DWORD  cVersion;
-  LPWSTR pName;
-  LPWSTR pEnvironment;
-  LPWSTR pDriverPath;
-  LPWSTR pDataFile;
-  LPWSTR pConfigFile;
-  LPWSTR pHelpFile;
-  LPWSTR pDependentFiles;
-  LPWSTR pMonitorName;
-  LPWSTR pDefaultDataType;
-} DRIVER_INFO_3W;
-
-typedef_tident(DRIVER_INFO_3)
+  LPTSTR pName;
+  LPTSTR pEnvironment;
+  LPTSTR pDriverPath;
+  LPTSTR pDataFile;
+  LPTSTR pConfigFile;
+  LPTSTR pHelpFile;
+  LPTSTR pDependentFiles;
+  LPTSTR pMonitorName;
+  LPTSTR pDefaultDataType;
+} DRIVER_INFO_3;
 
 typedef struct _editstream {
   DWORD dwCookie;
@@ -1649,7 +1211,7 @@ typedef struct tagEMRCREATEBRUSHINDIRECT
 typedef LONG LCSCSTYPE;
 typedef LONG LCSGAMUTMATCH;
 
-typedef struct tagLOGCOLORSPACEA {
+typedef struct tagLOGCOLORSPACE {
   DWORD         lcsSignature;
   DWORD         lcsVersion;
   DWORD         lcsSize;
@@ -1660,41 +1222,15 @@ typedef struct tagLOGCOLORSPACEA {
   DWORD         lcsGammaRed;
   DWORD         lcsGammaGreen;
   DWORD         lcsGammaBlue;
-  CHAR          lcsFilename[MAX_PATH];
-} LOGCOLORSPACEA, *LPLOGCOLORSPACEA;
+  TCHAR         lcsFilename[MAX_PATH];
+} LOGCOLORSPACE, *LPLOGCOLORSPACE;
 
-typedef struct tagLOGCOLORSPACEW {
-  DWORD         lcsSignature;
-  DWORD         lcsVersion;
-  DWORD         lcsSize;
-
-  LCSCSTYPE     lcsCSType;
-  LCSGAMUTMATCH lcsIntent;
-  CIEXYZTRIPLE  lcsEndpoints;
-  DWORD         lcsGammaRed;
-  DWORD         lcsGammaGreen;
-  DWORD         lcsGammaBlue;
-  WCHAR         lcsFilename[MAX_PATH];
-} LOGCOLORSPACEW, *LPLOGCOLORSPACEW;
-
-typedef_tident(LOGCOLORSPACE)
-
-typedef struct tagEMRCREATECOLORSPACEA
+typedef struct tagEMRCREATECOLORSPACE
 {
-  EMR            emr;
-  DWORD          ihCS;
-  LOGCOLORSPACEA lcs;
-} EMRCREATECOLORSPACEA, *PEMRCREATECOLORSPACEA;
-
-typedef struct tagEMRCREATECOLORSPACEW
-{
-  EMR            emr;
-  DWORD          ihCS;
-  LOGCOLORSPACEW lcs;
-} EMRCREATECOLORSPACEW, *PEMRCREATECOLORSPACEW;
-
-typedef_tident(EMRCREATECOLORSPACE)
-typedef_tident(PEMRCREATECOLORSPACE)
+  EMR           emr;
+  DWORD         ihCS;
+  LOGCOLORSPACE lcs;
+} EMRCREATECOLORSPACE, *PEMRCREATECOLORSPACE;
 
 typedef struct tagEMRCREATEDIBPATTERNBRUSHPT
 {
@@ -1789,8 +1325,8 @@ typedef struct tagPANOSE {
 
 typedef struct tagEXTLOGFONTA {
     LOGFONTA elfLogFont;
-    CHAR     elfFullName[LF_FULLFACESIZE];
-    CHAR     elfStyle[LF_FACESIZE];
+    BCHAR    elfFullName[LF_FULLFACESIZE];
+    BCHAR    elfStyle[LF_FACESIZE];
     DWORD    elfVersion;
     DWORD    elfStyleSize;
     DWORD    elfMatch;
@@ -1813,8 +1349,13 @@ typedef struct tagEXTLOGFONTW {
     PANOSE   elfPanose;
 } EXTLOGFONTW, *LPEXTLOGFONTW;
 
-typedef_tident(EXTLOGFONT)
-typedef_tident(LPEXTLOGFONT)
+#ifdef UNICODE
+typedef EXTLOGFONTW EXTLOGFONT;
+typedef LPEXTLOGFONTW LPEXTLOGFONT;
+#else
+typedef EXTLOGFONTA EXTLOGFONT;
+typedef LPEXTLOGFONTA LPEXTLOGFONT;
+#endif
 
 typedef struct tagEMREXTCREATEFONTINDIRECTW
 {
@@ -2338,10 +1879,6 @@ typedef struct tagENHMETAHEADER {
   DWORD nPalEntries;
   SIZEL szlDevice;
   SIZEL szlMillimeters;
-  DWORD cbPixelFormat;
-  DWORD offPixelFormat;
-  DWORD bOpenGL;
-  SIZEL szlMicrometers;
 } ENHMETAHEADER, *LPENHMETAHEADER;
 
 typedef struct tagENHMETARECORD {
@@ -2368,18 +1905,6 @@ typedef struct _SERVICE_STATUS {
   DWORD dwWaitHint;
 } SERVICE_STATUS, *LPSERVICE_STATUS;
 
-typedef struct _SERVICE_STATUS_PROCESS {
-    DWORD   dwServiceType;
-    DWORD   dwCurrentState;
-    DWORD   dwControlsAccepted;
-    DWORD   dwWin32ExitCode;
-    DWORD   dwServiceSpecificExitCode;
-    DWORD   dwCheckPoint;
-    DWORD   dwWaitHint;
-    DWORD   dwProcessId;
-    DWORD   dwServiceFlags;
-} SERVICE_STATUS_PROCESS, *LPSERVICE_STATUS_PROCESS;
-
 typedef struct _ENUM_SERVICE_STATUSA {
   LPSTR lpServiceName;
   LPSTR lpDisplayName;
@@ -2392,28 +1917,18 @@ typedef struct _ENUM_SERVICE_STATUSW {
   SERVICE_STATUS ServiceStatus;
 } ENUM_SERVICE_STATUSW, *LPENUM_SERVICE_STATUSW;
 
-typedef_tident(ENUM_SERVICE_STATUS)
-typedef_tident(LPENUM_SERVICE_STATUS)
-
-typedef struct _ENUM_SERVICE_STATUS_PROCESSA {
-    LPSTR                     lpServiceName;
-    LPSTR                     lpDisplayName;
-    SERVICE_STATUS_PROCESS    ServiceStatusProcess;
-} ENUM_SERVICE_STATUS_PROCESSA, *LPENUM_SERVICE_STATUS_PROCESSA;
-
-typedef struct _ENUM_SERVICE_STATUS_PROCESSW {
-    LPWSTR                    lpServiceName;
-    LPWSTR                    lpDisplayName;
-    SERVICE_STATUS_PROCESS    ServiceStatusProcess;
-} ENUM_SERVICE_STATUS_PROCESSW, *LPENUM_SERVICE_STATUS_PROCESSW;
-
-typedef_tident(ENUM_SERVICE_STATUS_PROCESS)
-typedef_tident(LPENUM_SERVICE_STATUS_PROCESS)
+#ifdef UNICODE
+#define ENUM_SERVICE_STATUS ENUM_SERVICE_STATUSW
+#define LPENUM_SERVICE_STATUS LPENUM_SERVICE_STATUSW
+#else
+#define ENUM_SERVICE_STATUS ENUM_SERVICE_STATUSA
+#define LPENUM_SERVICE_STATUS LPENUM_SERVICE_STATUSA
+#endif
 
 typedef struct tagENUMLOGFONTA {
   LOGFONTA elfLogFont;
-  CHAR     elfFullName[LF_FULLFACESIZE];
-  CHAR     elfStyle[LF_FACESIZE];
+  BCHAR    elfFullName[LF_FULLFACESIZE];
+  BCHAR    elfStyle[LF_FACESIZE];
 } ENUMLOGFONTA, *LPENUMLOGFONTA;
 
 typedef struct tagENUMLOGFONTW {
@@ -2422,14 +1937,19 @@ typedef struct tagENUMLOGFONTW {
   WCHAR    elfStyle[LF_FACESIZE];
 } ENUMLOGFONTW, *LPENUMLOGFONTW;
 
-typedef_tident(ENUMLOGFONT)
-typedef_tident(LPENUMLOGFONT)
+#ifdef UNICODE
+typedef ENUMLOGFONTW ENUMLOGFONT;
+typedef LPENUMLOGFONTW LPENUMLOGFONT;
+#else
+typedef ENUMLOGFONTA ENUMLOGFONT;
+typedef LPENUMLOGFONTA LPENUMLOGFONT;
+#endif
 
 typedef struct tagENUMLOGFONTEXA {
   LOGFONTA elfLogFont;
-  CHAR     elfFullName[LF_FULLFACESIZE];
-  CHAR     elfStyle[LF_FACESIZE];
-  CHAR     elfScript[LF_FACESIZE];
+  BCHAR    elfFullName[LF_FULLFACESIZE];
+  BCHAR    elfStyle[LF_FACESIZE];
+  BCHAR    elfScript[LF_FACESIZE];
 } ENUMLOGFONTEXA, *LPENUMLOGFONTEXA;
 
 typedef struct tagENUMLOGFONTEXW {
@@ -2439,30 +1959,13 @@ typedef struct tagENUMLOGFONTEXW {
   WCHAR    elfScript[LF_FACESIZE];
 } ENUMLOGFONTEXW, *LPENUMLOGFONTEXW;
 
-typedef_tident(ENUMLOGFONTEX)
-typedef_tident(LPENUMLOGFONTEX)
-
-typedef struct tagDESIGNVECTOR
-{
-    DWORD  dvReserved;
-    DWORD  dvNumAxes;
-    LONG   dvValues[MM_MAX_NUMAXES];
-} DESIGNVECTOR, *PDESIGNVECTOR, FAR *LPDESIGNVECTOR;
-
-typedef struct tagENUMLOGFONTEXDVA
-{
-    ENUMLOGFONTEXA elfEnumLogfontEx;
-    DESIGNVECTOR   elfDesignVector;
-} ENUMLOGFONTEXDVA, *PENUMLOGFONTEXDVA, FAR *LPENUMLOGFONTEXDVA;
-typedef struct tagENUMLOGFONTEXDVW
-{
-    ENUMLOGFONTEXW elfEnumLogfontEx;
-    DESIGNVECTOR   elfDesignVector;
-} ENUMLOGFONTEXDVW, *PENUMLOGFONTEXDVW, FAR *LPENUMLOGFONTEXDVW;
-
-typedef_tident(ENUMLOGFONTEXDV)
-typedef_tident(PENUMLOGFONTEXDV)
-typedef_tident(LPENUMLOGFONTEXDV)
+#ifdef UNICODE
+typedef ENUMLOGFONTEXW ENUMLOGFONTEX;
+typedef LPENUMLOGFONTEXW LPENUMLOGFONTEX;
+#else
+typedef ENUMLOGFONTEXA ENUMLOGFONTEX;
+typedef LPENUMLOGFONTEXA LPENUMLOGFONTEX;
+#endif
 
 typedef struct _EVENTLOGRECORD {
   DWORD  Length;
@@ -2558,31 +2061,14 @@ typedef struct {
   HWND         hwndOwner;
   HINSTANCE    hInstance;
   DWORD        Flags;
-  LPSTR        lpstrFindWhat;
-  LPSTR        lpstrReplaceWith;
+  LPTSTR        lpstrFindWhat;
+  LPTSTR        lpstrReplaceWith;
   WORD         wFindWhatLen;
   WORD         wReplaceWithLen;
-  LPARAM       lCustData;
+  LPARAM        lCustData;
   LPFRHOOKPROC lpfnHook;
-  LPCSTR       lpTemplateName;
-} FINDREPLACEA, *LPFINDREPLACEA;
-
-typedef struct {
-  DWORD        lStructSize;
-  HWND         hwndOwner;
-  HINSTANCE    hInstance;
-  DWORD        Flags;
-  LPWSTR       lpstrFindWhat;
-  LPWSTR       lpstrReplaceWith;
-  WORD         wFindWhatLen;
-  WORD         wReplaceWithLen;
-  LPARAM       lCustData;
-  LPFRHOOKPROC lpfnHook;
-  LPCWSTR      lpTemplateName;
-} FINDREPLACEW, *LPFINDREPLACEW;
-
-typedef_tident(FINDREPLACE)
-typedef_tident(LPFINDREPLACE)
+  LPCTSTR       lpTemplateName;
+} FINDREPLACE, *LPFINDREPLACE;
 
 typedef struct _findtext {
   CHARRANGE chrg;
@@ -2595,55 +2081,27 @@ typedef struct _findtextex {
   CHARRANGE chrgText;
 } FINDTEXTEX;
 
-typedef struct _FMS_GETDRIVEINFOA {
+typedef struct _FMS_GETDRIVEINFO {
   DWORD dwTotalSpace;
   DWORD dwFreeSpace;
-  CHAR   szPath[260];
-  CHAR   szVolume[14];
-  CHAR   szShare[128];
-} FMS_GETDRIVEINFOA;
+  TCHAR  szPath[260];
+  TCHAR  szVolume[14];
+  TCHAR  szShare[128];
+} FMS_GETDRIVEINFO;
 
-typedef struct _FMS_GETDRIVEINFOW {
-  DWORD dwTotalSpace;
-  DWORD dwFreeSpace;
-  WCHAR  szPath[260];
-  WCHAR  szVolume[14];
-  WCHAR  szShare[128];
-} FMS_GETDRIVEINFOW;
-
-typedef_tident(FMS_GETDRIVEINFO)
-
-typedef struct _FMS_GETFILESELA {
+typedef struct _FMS_GETFILESEL {
   FILETIME ftTime;
   DWORD    dwSize;
   BYTE     bAttr;
-  CHAR     szName[260];
-} FMS_GETFILESELA;
+  TCHAR     szName[260];
+} FMS_GETFILESEL;
 
-typedef struct _FMS_GETFILESELW {
-  FILETIME ftTime;
-  DWORD    dwSize;
-  BYTE     bAttr;
-  WCHAR     szName[260];
-} FMS_GETFILESELW;
-
-typedef_tident(FMS_GETFILESEL)
-
-typedef struct _FMS_LOADA {
+typedef struct _FMS_LOAD {
   DWORD dwSize;
-  CHAR  szMenuName[MENU_TEXT_LEN];
+  TCHAR  szMenuName[MENU_TEXT_LEN];
   HMENU hMenu;
   UINT  wMenuDelta;
-} FMS_LOADA;
-
-typedef struct _FMS_LOADW {
-  DWORD dwSize;
-  WCHAR  szMenuName[MENU_TEXT_LEN];
-  HMENU hMenu;
-  UINT  wMenuDelta;
-} FMS_LOADW;
-
-typedef_tident(FMS_LOAD)
+} FMS_LOAD;
 
 typedef struct _FMS_TOOLBARLOAD {
   DWORD        dwSize;
@@ -2655,21 +2113,12 @@ typedef struct _FMS_TOOLBARLOAD {
 } FMS_TOOLBARLOAD;
 
 
-typedef struct _FORM_INFO_1A {
-  DWORD  Flags;
-  LPSTR  pName;
+typedef struct _FORM_INFO_1 {
+  DWORD Flags;
+  LPTSTR pName;
   SIZEL  Size;
   RECTL  ImageableArea;
-} FORM_INFO_1A;
-
-typedef struct _FORM_INFO_1W {
-  DWORD  Flags;
-  LPWSTR pName;
-  SIZEL  Size;
-  RECTL  ImageableArea;
-} FORM_INFO_1W;
-
-typedef_tident(FORM_INFO_1)
+} FORM_INFO_1;
 
 typedef struct _FORMAT_PARAMETERS {
   MEDIA_TYPE MediaType;
@@ -2687,31 +2136,17 @@ typedef struct _formatrange {
   CHARRANGE chrg;
 } FORMATRANGE;
 
-typedef struct tagGCP_RESULTSA {
+typedef struct tagGCP_RESULTS {
   DWORD  lStructSize;
-  LPSTR  lpOutString;
+  LPTSTR  lpOutString;
   UINT  *lpOrder;
   INT  *lpDx;
   INT  *lpCaretPos;
-  LPSTR lpClass;
+  LPTSTR lpClass;
   UINT  *lpGlyphs;
   UINT  nGlyphs;
   UINT  nMaxFit;
-} GCP_RESULTSA, *LPGCP_RESULTSA;
-
-typedef struct tagGCP_RESULTSW {
-  DWORD  lStructSize;
-  LPWSTR  lpOutString;
-  UINT  *lpOrder;
-  INT  *lpDx;
-  INT  *lpCaretPos;
-  LPWSTR lpClass;
-  UINT  *lpGlyphs;
-  UINT  nGlyphs;
-  UINT  nMaxFit;
-} GCP_RESULTSW, *LPGCP_RESULTSW;
-
-typedef_tident(GCP_RESULTS)
+} GCP_RESULTS, *LPGCP_RESULTS;
 
 
 typedef struct _GLYPHMETRICS {
@@ -2732,27 +2167,15 @@ typedef struct _HD_HITTESTINFO {
   int iItem;
 } HD_HITTESTINFO;
 
-typedef struct _HD_ITEMA {
+typedef struct _HD_ITEM {
   UINT    mask;
   int     cxy;
-  LPSTR   pszText;
+  LPTSTR   pszText;
   HBITMAP hbm;
   int     cchTextMax;
   int     fmt;
   LPARAM  lParam;
-} HD_ITEMA;
-
-typedef struct _HD_ITEMW {
-  UINT    mask;
-  int     cxy;
-  LPWSTR  pszText;
-  HBITMAP hbm;
-  int     cchTextMax;
-  int     fmt;
-  LPARAM  lParam;
-} HD_ITEMW;
-
-typedef_tident(HD_ITEM)
+} HD_ITEM;
 
 typedef struct _WINDOWPOS {
   HWND hwnd;
@@ -2769,21 +2192,12 @@ typedef struct _HD_LAYOUT {
   WINDOWPOS  * pwpos;
 } HD_LAYOUT;
 
-typedef struct _HD_NOTIFYA {
-  NMHDR     hdr;
-  int       iItem;
-  int       iButton;
-  HD_ITEMA *pitem;
-} HD_NOTIFYA;
-
-typedef struct _HD_NOTIFYW {
-  NMHDR     hdr;
-  int       iItem;
-  int       iButton;
-  HD_ITEMW *pitem;
-} HD_NOTIFYW;
-
-typedef_tident(HD_NOTIFY)
+typedef struct _HD_NOTIFY {
+  NMHDR   hdr;
+  int     iItem;
+  int     iButton;
+  HD_ITEM  * pitem;
+} HD_NOTIFY;
 
 typedef  struct  tagHELPINFO {
   UINT   cbSize;
@@ -2794,21 +2208,27 @@ typedef  struct  tagHELPINFO {
   POINT  MousePos;
 } HELPINFO,   *LPHELPINFO;
 
-typedef struct tagMULTIKEYHELPA {
+typedef struct {
     DWORD   mkSize;
     CHAR    mkKeyList;
     CHAR    szKeyphrase[1];
 } MULTIKEYHELPA, *PMULTIKEYHELPA, *LPMULTIKEYHELPA;
 
-typedef struct tagMULTIKEYHELPW {
+typedef struct {
     DWORD   mkSize;
     WCHAR   mkKeyList;
     WCHAR   szKeyphrase[1];
 } MULTIKEYHELPW, *PMULTIKEYHELPW, *LPMULTIKEYHELPW;
 
-typedef_tident(MULTIKEYHELP)
-typedef_tident(PMULTIKEYHELP)
-typedef_tident(LPMULTIKEYHELP)
+typedef struct {
+  int   wStructSize;
+  int   x;
+  int   y;
+  int   dx;
+  int   dy;
+  int   wMax;
+  TCHAR rgchMember[2];
+} HELPWININFO;
 
 typedef struct {
 	int wStructSize;
@@ -2830,24 +2250,12 @@ typedef struct {
 	WCHAR rgchMember[2];
 } HELPWININFOW, *PHELPWININFOW, *LPHELPWININFOW;
 
-typedef_tident(HELPWININFO)
-typedef_tident(PHELPWININFO)
-typedef_tident(LPHELPWININFO)
 
-typedef struct tagHIGHCONTRASTA {
+typedef struct tagHIGHCONTRAST {
   UINT cbSize;
   DWORD dwFlags;
-  LPSTR lpszDefaultScheme;
-} HIGHCONTRASTA, *LPHIGHCONTRASTA;
-
-typedef struct tagHIGHCONTRASTW {
-  UINT cbSize;
-  DWORD dwFlags;
-  LPWSTR lpszDefaultScheme;
-} HIGHCONTRASTW, *LPHIGHCONTRASTW;
-
-typedef_tident(HIGHCONTRAST)
-typedef_tident(LPHIGHCONTRAST)
+  LPTSTR lpszDefaultScheme;
+} HIGHCONTRAST,  * LPHIGHCONTRAST;
 
 typedef struct tagHSZPAIR {
   HSZ hszSvc;
@@ -2878,8 +2286,13 @@ typedef struct tagICONMETRICSW {
   LOGFONTW lfFont;
 } ICONMETRICSW, *LPICONMETRICSW;
 
-typedef_tident(ICONMETRICS)
-typedef_tident(LPICONMETRICS)
+#ifdef UNICODE
+typedef ICONMETRICSW ICONMETRICS;
+typedef LPICONMETRICSW LPICONMETRICS;
+#else
+typedef ICONMETRICSA ICONMETRICS;
+typedef LPICONMETRICSA LPICONMETRICS;
+#endif
 
 typedef struct _IMAGEINFO {
   HBITMAP hbmImage;
@@ -2889,54 +2302,36 @@ typedef struct _IMAGEINFO {
   RECT    rcImage;
 } IMAGEINFO;
 
-typedef struct _JOB_INFO_1A {
+typedef struct _JOB_INFO_1 {
   DWORD  JobId;
-  LPSTR  pPrinterName;
-  LPSTR  pMachineName;
-  LPSTR  pUserName;
-  LPSTR  pDocument;
-  LPSTR  pDatatype;
-  LPSTR  pStatus;
+  LPTSTR pPrinterName;
+  LPTSTR pMachineName;
+  LPTSTR pUserName;
+  LPTSTR pDocument;
+  LPTSTR pDatatype;
+  LPTSTR pStatus;
   DWORD  Status;
   DWORD  Priority;
   DWORD  Position;
   DWORD  TotalPages;
   DWORD  PagesPrinted;
   SYSTEMTIME Submitted;
-} JOB_INFO_1A;
-
-typedef struct _JOB_INFO_1W {
-  DWORD  JobId;
-  LPWSTR pPrinterName;
-  LPWSTR pMachineName;
-  LPWSTR pUserName;
-  LPWSTR pDocument;
-  LPWSTR pDatatype;
-  LPWSTR pStatus;
-  DWORD  Status;
-  DWORD  Priority;
-  DWORD  Position;
-  DWORD  TotalPages;
-  DWORD  PagesPrinted;
-  SYSTEMTIME Submitted;
-} JOB_INFO_1W;
-
-typedef_tident(JOB_INFO_1)
+} JOB_INFO_1;
 
 #if 0
-typedef struct _JOB_INFO_2A {
+typedef struct _JOB_INFO_2 {
   DWORD      JobId;
-  LPSTR      pPrinterName;
-  LPSTR      pMachineName;
-  LPSTR      pUserName;
-  LPSTR      pDocument;
-  LPSTR      pNotifyName;
-  LPSTR      pDatatype;
-  LPSTR      pPrintProcessor;
-  LPSTR      pParameters;
-  LPSTR      pDriverName;
+  LPTSTR     pPrinterName;
+  LPTSTR     pMachineName;
+  LPTSTR     pUserName;
+  LPTSTR     pDocument;
+  LPTSTR     pNotifyName;
+  LPTSTR     pDatatype;
+  LPTSTR     pPrintProcessor;
+  LPTSTR     pParameters;
+  LPTSTR     pDriverName;
   LPDEVMODE  pDevMode;
-  LPSTR      pStatus;
+  LPTSTR     pStatus;
   PSECURITY_DESCRIPTOR pSecurityDescriptor;
   DWORD      Status;
   DWORD      Priority;
@@ -2948,36 +2343,8 @@ typedef struct _JOB_INFO_2A {
   SYSTEMTIME Submitted;
   DWORD      Time;
   DWORD      PagesPrinted ;
-} JOB_INFO_2A;
-
-typedef struct _JOB_INFO_2W {
-  DWORD      JobId;
-  LPWSTR     pPrinterName;
-  LPWSTR     pMachineName;
-  LPWSTR     pUserName;
-  LPWSTR     pDocument;
-  LPWSTR     pNotifyName;
-  LPWSTR     pDatatype;
-  LPWSTR     pPrintProcessor;
-  LPWSTR     pParameters;
-  LPWSTR     pDriverName;
-  LPDEVMODE  pDevMode;
-  LPWSTR     pStatus;
-  PSECURITY_DESCRIPTOR pSecurityDescriptor;
-  DWORD      Status;
-  DWORD      Priority;
-  DWORD      Position;
-  DWORD      StartTime;
-  DWORD      UntilTime;
-  DWORD      TotalPages;
-  DWORD      Size;
-  SYSTEMTIME Submitted;
-  DWORD      Time;
-  DWORD      PagesPrinted ;
-} JOB_INFO_2W;
-
-typedef_tident(JOB_INFO_2)
-#endif/*0*/
+} JOB_INFO_2;
+#endif
 
 typedef struct tagKERNINGPAIR {
   WORD wFirst;
@@ -2990,14 +2357,30 @@ typedef struct _LANA_ENUM {
   UCHAR lana[MAX_LANA];
 } LANA_ENUM;
 
-
-typedef struct tagLOADPARMS32 {
-  LPSTR lpEnvAddress;
-  LPSTR lpCmdLine;
-  LPSTR lpCmdShow;
-  DWORD dwReserved;
-} LOADPARMS32;
-
+typedef struct _LDT_ENTRY {
+  WORD LimitLow;
+  WORD BaseLow;
+  union {
+    struct {
+      BYTE BaseMid;
+      BYTE Flags1;
+      BYTE Flags2;
+      BYTE BaseHi;
+    } Bytes;
+    struct {
+      DWORD BaseMid : 8;
+      DWORD Type : 5;
+      DWORD Dpl : 2;
+      DWORD Pres : 1;
+      DWORD LimitHi : 4;
+      DWORD Sys : 1;
+      DWORD Reserved_0 : 1;
+      DWORD Default_Big : 1;
+      DWORD Granularity : 1;
+      DWORD BaseHi : 8;
+    } Bits;
+  } HighWord;
+} LDT_ENTRY, *PLDT_ENTRY, *LPLDT_ENTRY;
 
 typedef struct tagLOCALESIGNATURE {
   DWORD  lsUsb[4];
@@ -3022,81 +2405,39 @@ typedef long FXPT16DOT16,  * LPFXPT16DOT16;
 typedef LUID_AND_ATTRIBUTES LUID_AND_ATTRIBUTES_ARRAY[ANYSIZE_ARRAY];
 typedef LUID_AND_ATTRIBUTES_ARRAY *PLUID_AND_ATTRIBUTES_ARRAY;
 
-typedef struct _LV_COLUMNA {
+typedef struct _LV_COLUMN {
   UINT mask;
   int fmt;
   int cx;
-  LPSTR pszText;
+  LPTSTR pszText;
   int cchTextMax;
   int iSubItem;
-} LV_COLUMNA;
+} LV_COLUMN;
 
-typedef struct _LV_COLUMNW {
-  UINT mask;
-  int fmt;
-  int cx;
-  LPWSTR pszText;
-  int cchTextMax;
-  int iSubItem;
-} LV_COLUMNW;
-
-typedef_tident(LV_COLUMN)
-
-typedef struct _LV_ITEMA {
+typedef struct _LV_ITEM {
   UINT   mask;
   int    iItem;
   int    iSubItem;
   UINT   state;
   UINT   stateMask;
-  LPSTR  pszText;
+  LPTSTR  pszText;
   int    cchTextMax;
   int    iImage;
   LPARAM lParam;
-} LV_ITEMA;
+} LV_ITEM;
 
-typedef struct _LV_ITEMW {
-  UINT   mask;
-  int    iItem;
-  int    iSubItem;
-  UINT   state;
-  UINT   stateMask;
-  LPWSTR  pszText;
-  int    cchTextMax;
-  int    iImage;
-  LPARAM lParam;
-} LV_ITEMW;
+typedef struct tagLV_DISPINFO {
+  NMHDR   hdr;
+  LV_ITEM item;
+} LV_DISPINFO;
 
-typedef_tident(LV_ITEM)
-
-typedef struct tagLV_DISPINFOA {
-  NMHDR    hdr;
-  LV_ITEMA item;
-} LV_DISPINFOA;
-
-typedef struct tagLV_DISPINFOW {
-  NMHDR    hdr;
-  LV_ITEMW item;
-} LV_DISPINFOW;
-
-typedef_tident(LV_DISPINFO)
-
-typedef struct _LV_FINDINFOA {
+typedef struct _LV_FINDINFO {
   UINT flags;
-  LPCSTR psz;
+  LPCTSTR psz;
   LPARAM lParam;
   POINT pt;
   UINT vkDirection;
-} LV_FINDINFOA;
-
-typedef struct _LV_FINDINFOW {
-  UINT flags;
-  LPCWSTR psz;
-  LPARAM lParam;
-  POINT pt;
-  UINT vkDirection;
-} LV_FINDINFOW;
-
-typedef_tident(LV_FINDINFO)
+} LV_FINDINFO;
 
 typedef struct _LV_HITTESTINFO {
   POINT pt;
@@ -3117,9 +2458,9 @@ typedef struct _MAT2 {
   FIXED eM22;
 } MAT2, *LPMAT2;
 
-typedef struct tagMDICREATESTRUCTA {
-  LPCSTR  szClass;
-  LPCSTR  szTitle;
+typedef struct tagMDICREATESTRUCT {
+  LPCTSTR szClass;
+  LPCTSTR szTitle;
   HANDLE  hOwner;
   int     x;
   int     y;
@@ -3127,28 +2468,9 @@ typedef struct tagMDICREATESTRUCTA {
   int     cy;
   DWORD   style;
   LPARAM  lParam;
-} MDICREATESTRUCTA, *LPMDICREATESTRUCTA;
+} MDICREATESTRUCT;
 
-typedef struct tagMDICREATESTRUCTW {
-  LPCWSTR szClass;
-  LPCWSTR szTitle;
-  HANDLE  hOwner;
-  int     x;
-  int     y;
-  int     cx;
-  int     cy;
-  DWORD   style;
-  LPARAM  lParam;
-} MDICREATESTRUCTW, *LPMDICREATESTRUCTW;
-
-typedef_tident(MDICREATESTRUCT)
-typedef_tident(LPMDICREATESTRUCT)
-
-typedef struct tagMDINEXTMENU {
-	HMENU hmenuIn;
-	HMENU hmenuNext;
-	HWND hwndNext;
-} MDINEXTMENU,*PMDINEXTMENU,*LPMDINEXTMENU;
+typedef MDICREATESTRUCT *LPMDICREATESTRUCT;
 
 typedef struct tagMEASUREITEMSTRUCT {
   UINT  CtlType;
@@ -3185,8 +2507,7 @@ typedef struct {
   DWORD dwHelpId;
 } MENUEX_TEMPLATE_ITEM;
 
-
-typedef struct tagMENUITEMINFOA {
+typedef struct tagMENUITEMINFO {
   UINT    cbSize;
   UINT    fMask;
   UINT    fType;
@@ -3196,31 +2517,10 @@ typedef struct tagMENUITEMINFOA {
   HBITMAP hbmpChecked;
   HBITMAP hbmpUnchecked;
   DWORD   dwItemData;
-  LPSTR   dwTypeData;
+  LPTSTR  dwTypeData;
   UINT    cch;
-  HBITMAP  hbmpItem;
-} MENUITEMINFOA, *LPMENUITEMINFOA;
-typedef CONST MENUITEMINFOA* LPCMENUITEMINFOA;
-
-typedef struct tagMENUITEMINFOW {
-  UINT    cbSize;
-  UINT    fMask;
-  UINT    fType;
-  UINT    fState;
-  UINT    wID;
-  HMENU   hSubMenu;
-  HBITMAP hbmpChecked;
-  HBITMAP hbmpUnchecked;
-  DWORD   dwItemData;
-  LPWSTR  dwTypeData;
-  UINT    cch;
-  HBITMAP  hbmpItem;
-} MENUITEMINFOW, *LPMENUITEMINFOW;
-typedef CONST MENUITEMINFOW* LPCMENUITEMINFOW;
-
-typedef_tident(MENUITEMINFO)
-typedef_tident(LPMENUITEMINFO)
-typedef_tident(LPCMENUITEMINFO)
+} MENUITEMINFO, *LPMENUITEMINFO;
+typedef MENUITEMINFO CONST *LPCMENUITEMINFO;
 
 typedef struct {
   WORD mtOption;
@@ -3235,14 +2535,15 @@ typedef struct {
 typedef VOID MENUTEMPLATE, *LPMENUTEMPLATE;
 
 typedef struct tagMETAFILEPICT {
+#if 0
   LONG      mm;
   LONG      xExt;
   LONG      yExt;
   HMETAFILE hMF;
+#else
+  LONG      mm; // robd
+#endif
 } METAFILEPICT, *PMETAFILEPICT, *LPMETAFILEPICT;
-
-
-#include <pshpack1.h>
 
 typedef struct tagMETAHEADER {
   WORD  mtType;
@@ -3252,10 +2553,7 @@ typedef struct tagMETAHEADER {
   WORD  mtNoObjects;
   DWORD mtMaxRecord;
   WORD  mtNoParameters;
-} METAHEADER;
-
-#include <poppack.h>
-
+} METAHEADER PACKED;
 
 typedef struct tagMETARECORD {
   DWORD rdSize;
@@ -3359,49 +2657,24 @@ typedef struct tagMONERRSTRUCT {
   HANDLE hTask;
 } MONERRSTRUCT;
 
-typedef struct tagMONHSZSTRUCTA {
+typedef struct tagMONHSZSTRUCT {
   UINT   cb;
   WINBOOL   fsAction;
   DWORD  dwTime;
   HSZ    hsz;
   HANDLE hTask;
-  CHAR   str[1];
-} MONHSZSTRUCTA;
+  TCHAR   str[1];
+} MONHSZSTRUCT;
 
-typedef struct tagMONHSZSTRUCTW {
-  UINT   cb;
-  WINBOOL   fsAction;
-  DWORD  dwTime;
-  HSZ    hsz;
-  HANDLE hTask;
-  WCHAR   str[1];
-} MONHSZSTRUCTW;
+typedef struct _MONITOR_INFO_1 {
+  LPTSTR pName;
+} MONITOR_INFO_1;
 
-typedef_tident(MONHSZSTRUCT)
-
-typedef struct _MONITOR_INFO_1A {
-  LPSTR  pName;
-} MONITOR_INFO_1A;
-
-typedef struct _MONITOR_INFO_1W {
-  LPWSTR pName;
-} MONITOR_INFO_1W;
-
-typedef_tident(MONITOR_INFO_1)
-
-typedef struct _MONITOR_INFO_2A {
-  LPSTR  pName;
-  LPSTR  pEnvironment ;
-  LPSTR  pDLLName ;
-} MONITOR_INFO_2A;
-
-typedef struct _MONITOR_INFO_2W {
-  LPWSTR pName;
-  LPWSTR pEnvironment ;
-  LPWSTR pDLLName ;
-} MONITOR_INFO_2W;
-
-typedef_tident(MONITOR_INFO_2)
+typedef struct _MONITOR_INFO_2 {
+  LPTSTR pName;
+  LPTSTR pEnvironment ;
+  LPTSTR pDLLName ;
+} MONITOR_INFO_2;
 
 typedef struct tagMONLINKSTRUCT {
   UINT   cb;
@@ -3455,7 +2728,7 @@ typedef struct tagMSG {
   POINT  pt;
 } MSG, *LPMSG;
 
-typedef void (CALLBACK *MSGBOXCALLBACK) (LPHELPINFO lpHelpInfo);
+typedef void CALLBACK (*MSGBOXCALLBACK) (LPHELPINFO lpHelpInfo);
 
 typedef struct {
   UINT      cbSize;
@@ -3476,6 +2749,12 @@ typedef struct _msgfilter {
   WPARAM wParam;
   LPARAM lParam;
 } MSGFILTER;
+
+typedef struct tagMULTIKEYHELP {
+  DWORD  mkSize;
+  TCHAR  mkKeylist;
+  TCHAR  szKeyphrase[1];
+} MULTIKEYHELP;
 
 typedef struct _NAME_BUFFER {
   UCHAR name[NCBNAMSZ];
@@ -3506,84 +2785,41 @@ typedef struct _NCCALCSIZE_PARAMS {
   PWINDOWPOS  lppos;
 } NCCALCSIZE_PARAMS;
 
-typedef struct _NDDESHAREINFOA {
+typedef struct _NDDESHAREINFO {
   LONG   lRevision;
-  LPSTR  lpszShareName;
+  LPTSTR lpszShareName;
   LONG   lShareType;
-  LPSTR  lpszAppTopicList;
+  LPTSTR lpszAppTopicList;
   LONG   fSharedFlag;
   LONG   fService;
   LONG   fStartAppFlag;
   LONG   nCmdShow;
   LONG   qModifyId[2];
   LONG   cNumItems;
-  LPSTR  lpszItemList;
-}NDDESHAREINFOA;
+  LPTSTR lpszItemList;
+}NDDESHAREINFO;
 
-typedef struct _NDDESHAREINFOW {
-  LONG   lRevision;
-  LPWSTR lpszShareName;
-  LONG   lShareType;
-  LPWSTR lpszAppTopicList;
-  LONG   fSharedFlag;
-  LONG   fService;
-  LONG   fStartAppFlag;
-  LONG   nCmdShow;
-  LONG   qModifyId[2];
-  LONG   cNumItems;
-  LPWSTR lpszItemList;
-}NDDESHAREINFOW;
-
-typedef_tident(NDDESHAREINFO)
-
-typedef struct _NETRESOURCEA {
+typedef struct _NETRESOURCE {
   DWORD  dwScope;
   DWORD  dwType;
   DWORD  dwDisplayType;
   DWORD  dwUsage;
-  LPSTR  lpLocalName;
-  LPSTR  lpRemoteName;
-  LPSTR  lpComment;
-  LPSTR  lpProvider;
-} NETRESOURCEA, *LPNETRESOURCEA;
+  LPTSTR lpLocalName;
+  LPTSTR lpRemoteName;
+  LPTSTR lpComment;
+  LPTSTR lpProvider;
+} NETRESOURCE, *LPNETRESOURCE;
 
-typedef struct _NETRESOURCEW {
-  DWORD  dwScope;
-  DWORD  dwType;
-  DWORD  dwDisplayType;
-  DWORD  dwUsage;
-  LPWSTR lpLocalName;
-  LPWSTR lpRemoteName;
-  LPWSTR lpComment;
-  LPWSTR lpProvider;
-} NETRESOURCEW, *LPNETRESOURCEW;
-
-typedef_tident(NETRESOURCE)
-typedef_tident(LPNETRESOURCE)
-
-typedef struct tagNEWCPLINFOA {
+typedef struct tagNEWCPLINFO {
   DWORD dwSize;
   DWORD dwFlags;
   DWORD dwHelpContext;
   LONG  lData;
   HICON hIcon;
-  CHAR  szName[32];
-  CHAR  szInfo[64];
-  CHAR  szHelpFile[128];
-} NEWCPLINFOA;
-
-typedef struct tagNEWCPLINFOW {
-  DWORD dwSize;
-  DWORD dwFlags;
-  DWORD dwHelpContext;
-  LONG  lData;
-  HICON hIcon;
-  WCHAR  szName[32];
-  WCHAR  szInfo[64];
-  WCHAR  szHelpFile[128];
-} NEWCPLINFOW;
-
-typedef_tident(NEWCPLINFO)
+  TCHAR  szName[32];
+  TCHAR  szInfo[64];
+  TCHAR  szHelpFile[128];
+} NEWCPLINFO;
 
 typedef struct tagNEWTEXTMETRICA {
   LONG   tmHeight;
@@ -3597,10 +2833,10 @@ typedef struct tagNEWTEXTMETRICA {
   LONG   tmOverhang;
   LONG   tmDigitizedAspectX;
   LONG   tmDigitizedAspectY;
-  CHAR   tmFirstChar;
-  CHAR   tmLastChar;
-  CHAR   tmDefaultChar;
-  CHAR   tmBreakChar;
+  BCHAR  tmFirstChar;
+  BCHAR  tmLastChar;
+  BCHAR  tmDefaultChar;
+  BCHAR  tmBreakChar;
   BYTE   tmItalic;
   BYTE   tmUnderlined;
   BYTE   tmStruckOut;
@@ -3639,19 +2875,27 @@ typedef struct tagNEWTEXTMETRICW {
   UINT   ntmAvgWidth;
 } NEWTEXTMETRICW;
 
-typedef_tident(NEWTEXTMETRIC)
+#ifdef UNICODE
+typedef NEWTEXTMETRICA NEWTEXTMETRIC;
+#else
+typedef NEWTEXTMETRICW NEWTEXTMETRIC;
+#endif
 
 typedef struct tagNEWTEXTMETRICEXA {
-  NEWTEXTMETRICA ntmTm;
-  FONTSIGNATURE  ntmFontSig;
+  NEWTEXTMETRICA ntmentm;
+  FONTSIGNATURE  ntmeFontSignature;
 } NEWTEXTMETRICEXA;
 
 typedef struct tagNEWTEXTMETRICEXW {
-  NEWTEXTMETRICW ntmTm;
-  FONTSIGNATURE  ntmFontSig;
+  NEWTEXTMETRICW ntmentm;
+  FONTSIGNATURE  ntmeFontSignature;
 } NEWTEXTMETRICEXW;
 
-typedef_tident(NEWTEXTMETRICEX)
+#ifdef UNICODE
+typedef NEWTEXTMETRICEXA NEWTEXTMETRICEX;
+#else
+typedef NEWTEXTMETRICEXW NEWTEXTMETRICEX;
+#endif
 
 typedef struct tagNM_LISTVIEW {
   NMHDR hdr;
@@ -3666,54 +2910,27 @@ typedef struct tagNM_LISTVIEW {
 
 typedef struct _TREEITEM *HTREEITEM;
 
-typedef struct _TV_ITEMA {
+typedef struct _TV_ITEM {
   UINT       mask;
   HTREEITEM  hItem;
   UINT       state;
   UINT       stateMask;
-  LPSTR      pszText;
+  LPTSTR     pszText;
   int        cchTextMax;
   int        iImage;
   int        iSelectedImage;
   int        cChildren;
   LPARAM     lParam;
-} TV_ITEMA,   *LPTV_ITEMA;
+} TV_ITEM,   *LPTV_ITEM;
 
-typedef struct _TV_ITEMW {
-  UINT       mask;
-  HTREEITEM  hItem;
-  UINT       state;
-  UINT       stateMask;
-  LPWSTR     pszText;
-  int        cchTextMax;
-  int        iImage;
-  int        iSelectedImage;
-  int        cChildren;
-  LPARAM     lParam;
-} TV_ITEMW,   *LPTV_ITEMW;
-
-typedef_tident(TV_ITEM)
-typedef_tident(LPTV_ITEM)
-
-typedef struct _NM_TREEVIEWA {
+typedef struct _NM_TREEVIEW {
   NMHDR    hdr;
   UINT     action;
-  TV_ITEMA itemOld;
-  TV_ITEMA itemNew;
+  TV_ITEM  itemOld;
+  TV_ITEM  itemNew;
   POINT    ptDrag;
-} NM_TREEVIEWA, *LPNM_TREEVIEWA;
-
-typedef struct _NM_TREEVIEWW {
-  NMHDR    hdr;
-  UINT     action;
-  TV_ITEMW itemOld;
-  TV_ITEMW itemNew;
-  POINT    ptDrag;
-} NM_TREEVIEWW, *LPNM_TREEVIEWW;
-
-typedef_tident(NM_TREEVIEW)
-typedef_tident(LPNM_TREEVIEW)
-
+} NM_TREEVIEW;
+typedef NM_TREEVIEW   *LPNM_TREEVIEW;
 
 typedef struct _NM_UPDOWN {
   NMHDR    hdr;
@@ -3757,14 +2974,30 @@ typedef struct tagNONCLIENTMETRICSW {
   LOGFONTW lfMessageFont;
 } NONCLIENTMETRICSW, *LPNONCLIENTMETRICSW;
 
-typedef_tident(NONCLIENTMETRICS)
-typedef_tident(LPNONCLIENTMETRICS)
+#ifdef UNICODE
+typedef NONCLIENTMETRICSW NONCLIENTMETRICS;
+typedef LPNONCLIENTMETRICSW LPNONCLIENTMETRICS;
+#else
+typedef NONCLIENTMETRICSA NONCLIENTMETRICS;
+typedef LPNONCLIENTMETRICSA LPNONCLIENTMETRICS;
+#endif
 
-#include <serviceinfo.h>
+typedef struct _SERVICE_ADDRESS {
+  DWORD   dwAddressType;
+  DWORD   dwAddressFlags;
+  DWORD   dwAddressLength;
+  DWORD   dwPrincipalLength;
+  BYTE   *lpAddress;
+  BYTE   *lpPrincipal;
+} SERVICE_ADDRESS;
 
-#ifndef GUID_DEFINED
-#define GUID_DEFINED
+typedef struct _SERVICE_ADDRESSES {
+  DWORD   dwAddressCount;
+  SERVICE_ADDRESS   Addresses[1];
+} SERVICE_ADDRESSES, *LPSERVICE_ADDRESSES;
 
+#ifndef _GUID_DEFINED
+#define _GUID_DEFINED
 typedef struct _GUID
 {
     unsigned long  Data1;
@@ -3773,43 +3006,34 @@ typedef struct _GUID
     unsigned char Data4[8];
 } GUID, *LPGUID;
 typedef GUID CLSID, *LPCLSID;
+#endif
 
-#endif/*GUID_DEFINED*/
+typedef struct _SERVICE_INFO {
+  LPGUID   lpServiceType;
+  LPTSTR   lpServiceName;
+  LPTSTR   lpComment;
+  LPTSTR   lpLocale;
+  DWORD    dwDisplayHint;
+  DWORD    dwVersion;
+  DWORD    dwTime;
+  LPTSTR   lpMachineName;
+  LPSERVICE_ADDRESSES lpServiceAddress;
+  BLOB ServiceSpecificInfo;
+} SERVICE_INFO;
 
-typedef_tident(SERVICE_INFO);
-typedef_tident(LPSERVICE_INFO);
+typedef struct _NS_SERVICE_INFO {
+  DWORD   dwNameSpace;
+  SERVICE_INFO ServiceInfo;
+} NS_SERVICE_INFO;
 
-typedef struct _NS_SERVICE_INFOA {
-  DWORD         dwNameSpace;
-  SERVICE_INFOA ServiceInfo;
-} NS_SERVICE_INFOA;
-
-typedef struct _NS_SERVICE_INFOW {
-  DWORD         dwNameSpace;
-  SERVICE_INFOW ServiceInfo;
-} NS_SERVICE_INFOW;
-
-typedef_tident(NS_SERVICE_INFO);
-
-typedef struct _numberfmtA {
+typedef struct _numberfmt {
   UINT      NumDigits;
   UINT      LeadingZero;
   UINT      Grouping;
-  LPSTR     lpDecimalSep;
-  LPSTR     lpThousandSep;
+  LPTSTR    lpDecimalSep;
+  LPTSTR    lpThousandSep;
   UINT      NegativeOrder;
-} NUMBERFMTA;
-
-typedef struct _numberfmtW {
-  UINT      NumDigits;
-  UINT      LeadingZero;
-  UINT      Grouping;
-  LPWSTR    lpDecimalSep;
-  LPWSTR    lpThousandSep;
-  UINT      NegativeOrder;
-} NUMBERFMTW;
-
-typedef_tident(NUMBERFMT)
+} NUMBERFMT;
 
 typedef struct _OFSTRUCT {
   BYTE cBytes;
@@ -3820,69 +3044,34 @@ typedef struct _OFSTRUCT {
   CHAR szPathName[OFS_MAXPATHNAME];
 } OFSTRUCT, *LPOFSTRUCT;
 
-typedef struct tagOFNA {
+typedef struct tagOFN {
   DWORD         lStructSize;
   HWND          hwndOwner;
   HINSTANCE     hInstance;
-  LPCSTR        lpstrFilter;
-  LPSTR         lpstrCustomFilter;
+  LPCTSTR       lpstrFilter;
+  LPTSTR        lpstrCustomFilter;
   DWORD         nMaxCustFilter;
   DWORD         nFilterIndex;
-  LPSTR         lpstrFile;
+  LPTSTR        lpstrFile;
   DWORD         nMaxFile;
-  LPSTR         lpstrFileTitle;
+  LPTSTR        lpstrFileTitle;
   DWORD         nMaxFileTitle;
-  LPCSTR        lpstrInitialDir;
-  LPCSTR        lpstrTitle;
+  LPCTSTR       lpstrInitialDir;
+  LPCTSTR       lpstrTitle;
   DWORD         Flags;
   WORD          nFileOffset;
   WORD          nFileExtension;
-  LPCSTR        lpstrDefExt;
+  LPCTSTR       lpstrDefExt;
   DWORD         lCustData;
   LPOFNHOOKPROC lpfnHook;
-  LPCSTR        lpTemplateName;
-} OPENFILENAMEA, *LPOPENFILENAMEA;
+  LPCTSTR       lpTemplateName;
+} OPENFILENAME, *LPOPENFILENAME;
 
-typedef struct tagOFNW {
-  DWORD         lStructSize;
-  HWND          hwndOwner;
-  HINSTANCE     hInstance;
-  LPCWSTR       lpstrFilter;
-  LPWSTR        lpstrCustomFilter;
-  DWORD         nMaxCustFilter;
-  DWORD         nFilterIndex;
-  LPWSTR        lpstrFile;
-  DWORD         nMaxFile;
-  LPWSTR        lpstrFileTitle;
-  DWORD         nMaxFileTitle;
-  LPCWSTR       lpstrInitialDir;
-  LPCWSTR       lpstrTitle;
-  DWORD         Flags;
-  WORD          nFileOffset;
-  WORD          nFileExtension;
-  LPCWSTR       lpstrDefExt;
-  DWORD         lCustData;
-  LPOFNHOOKPROC lpfnHook;
-  LPCWSTR       lpTemplateName;
-} OPENFILENAMEW, *LPOPENFILENAMEW;
-
-typedef_tident(OPENFILENAME)
-typedef_tident(LPOPENFILENAME)
-
-typedef struct _OFNOTIFYA {
-  NMHDR           hdr;
-  LPOPENFILENAMEA lpOFN;
-  LPSTR           pszFile;
-} OFNOTIFYA, *LPOFNOTIFYA;
-
-typedef struct _OFNOTIFYW {
-  NMHDR           hdr;
-  LPOPENFILENAMEW lpOFN;
-  LPWSTR          pszFile;
-} OFNOTIFYW, *LPOFNOTIFYW;
-
-typedef_tident(OFNOTIFY)
-typedef_tident(LPOFNOTIFY)
+typedef struct _OFNOTIFY {
+  NMHDR          hdr;
+  LPOPENFILENAME lpOFN;
+  LPTSTR         pszFile;
+} OFNOTIFY, *LPOFNOTIFY;
 
 typedef struct _OSVERSIONINFOA {
   DWORD dwOSVersionInfoSize;
@@ -3900,9 +3089,13 @@ typedef struct _OSVERSIONINFOW {
   DWORD dwBuildNumber;
   DWORD dwPlatformId;
   WCHAR szCSDVersion[ 128 ];
-} OSVERSIONINFOW, *POSVERSIONINFOW, *LPOSVERSIONINFOW, RTL_OSVERSIONINFOW, *PRTL_OSVERSIONINFOW;
+} OSVERSIONINFOW, *POSVERSIONINFOW, *LPOSVERSIONINFOW;
 
-typedef_tident(OSVERSIONINFO)
+#ifdef UNICODE
+typedef OSVERSIONINFOA OSVERSIONINFO;
+#else
+typedef OSVERSIONINFOW OSVERSIONINFO;
+#endif
 
 typedef struct _OSVERSIONINFOEXA
 #if defined(__cplusplus)
@@ -3948,9 +3141,13 @@ typedef struct _OSVERSIONINFOEXW
  WORD wSuiteMask;
  BYTE wProductType;
  BYTE wReserved;
-} OSVERSIONINFOEXW, *POSVERSIONINFOEXW, *LPOSVERSIONINFOEXW, RTL_OSVERSIONINFOEXW, *PRTL_OSVERSIONINFOEXW;
+} OSVERSIONINFOEXW, *POSVERSIONINFOEXW, *LPOSVERSIONINFOEXW;
 
-typedef_tident(OSVERSIONINFOEX)
+#ifdef UNICODE
+typedef OSVERSIONINFOEXA OSVERSIONINFOEX;
+#else
+typedef OSVERSIONINFOEXW OSVERSIONINFOEX;
+#endif
 
 typedef struct tagTEXTMETRICA {
   LONG tmHeight;
@@ -3964,10 +3161,10 @@ typedef struct tagTEXTMETRICA {
   LONG tmOverhang;
   LONG tmDigitizedAspectX;
   LONG tmDigitizedAspectY;
-  CHAR tmFirstChar;
-  CHAR tmLastChar;
-  CHAR tmDefaultChar;
-  CHAR tmBreakChar;
+  BCHAR tmFirstChar;
+  BCHAR tmLastChar;
+  BCHAR tmDefaultChar;
+  BCHAR tmBreakChar;
   BYTE tmItalic;
   BYTE tmUnderlined;
   BYTE tmStruckOut;
@@ -3998,8 +3195,13 @@ typedef struct tagTEXTMETRICW {
   BYTE tmCharSet;
 } TEXTMETRICW, *LPTEXTMETRICW;
 
-typedef_tident(TEXTMETRIC)
-typedef_tident(LPTEXTMETRIC)
+#ifdef UNICODE
+typedef TEXTMETRICA TEXTMETRIC;
+typedef LPTEXTMETRICA LPTEXTMETRIC;
+#else
+typedef TEXTMETRICW TEXTMETRIC;
+typedef LPTEXTMETRICA LPTEXTMETRIC;
+#endif
 
 typedef struct _OUTLINETEXTMETRICA {
   UINT   otmSize;
@@ -4071,8 +3273,13 @@ typedef struct _OUTLINETEXTMETRICW {
   PSTR   otmpFullName;
 } OUTLINETEXTMETRICW, *LPOUTLINETEXTMETRICW;
 
-typedef_tident(OUTLINETEXTMETRIC)
-typedef_tident(LPOUTLINETEXTMETRIC)
+#ifdef UNICODE
+typedef OUTLINETEXTMETRICA OUTLINETEXTMETRIC;
+typedef LPOUTLINETEXTMETRICA LPOUTLINETEXTMETRIC;
+#else
+typedef OUTLINETEXTMETRICW OUTLINETEXTMETRIC;
+typedef LPOUTLINETEXTMETRICA LPOUTLINETEXTMETRIC;
+#endif
 
 typedef struct _OVERLAPPED {
   DWORD  Internal;
@@ -4082,7 +3289,7 @@ typedef struct _OVERLAPPED {
   HANDLE hEvent;
 } OVERLAPPED, *LPOVERLAPPED;
 
-typedef struct tagPSDA {
+typedef struct tagPSD {
     DWORD           lStructSize;
     HWND            hwndOwner;
     HGLOBAL         hDevMode;
@@ -4095,29 +3302,9 @@ typedef struct tagPSDA {
     LPARAM          lCustData;
     LPPAGESETUPHOOK lpfnPageSetupHook;
     LPPAGEPAINTHOOK lpfnPagePaintHook;
-    LPCSTR          lpPageSetupTemplateName;
+    LPCTSTR         lpPageSetupTemplateName;
     HGLOBAL         hPageSetupTemplate;
-} PAGESETUPDLGA, *LPPAGESETUPDLGA;
-
-typedef struct tagPSDW {
-    DWORD           lStructSize;
-    HWND            hwndOwner;
-    HGLOBAL         hDevMode;
-    HGLOBAL         hDevNames;
-    DWORD           Flags;
-    POINT           ptPaperSize;
-    RECT            rtMinMargin;
-    RECT            rtMargin;
-    HINSTANCE       hInstance;
-    LPARAM          lCustData;
-    LPPAGESETUPHOOK lpfnPageSetupHook;
-    LPPAGEPAINTHOOK lpfnPagePaintHook;
-    LPCWSTR         lpPageSetupTemplateName;
-    HGLOBAL         hPageSetupTemplate;
-} PAGESETUPDLGW, *LPPAGESETUPDLGW;
-
-typedef_tident(PAGESETUPDLG)
-typedef_tident(LPPAGESETUPDLG)
+} PAGESETUPDLG, *LPPAGESETUPDLG;
 
 typedef struct tagPAINTSTRUCT {
   HDC  hdc;
@@ -4201,65 +3388,33 @@ typedef struct _PERF_OBJECT_TYPE {
   LARGE_INTEGER PerfFreq;
 } PERF_OBJECT_TYPE;
 
-typedef struct _POLYTEXTA {
+typedef struct _POLYTEXT {
   int     x;
   int     y;
   UINT    n;
-  LPCSTR  lpstr;
+  LPCTSTR lpstr;
   UINT    uiFlags;
   RECT    rcl;
   int     *pdx;
-} POLYTEXTA, *LPPOLYTEXTA;
+} POLYTEXT, *LPPOLYTEXT;
 
-typedef struct _POLYTEXTW {
-  int     x;
-  int     y;
-  UINT    n;
-  LPCWSTR lpstr;
-  UINT    uiFlags;
-  RECT    rcl;
-  int     *pdx;
-} POLYTEXTW, *LPPOLYTEXTW;
+typedef struct _PORT_INFO_1 {
+  LPTSTR pName;
+} PORT_INFO_1;
 
-typedef_tident(POLYTEXT)
-typedef_tident(LPPOLYTEXT)
-
-typedef struct _PORT_INFO_1A {
-  LPSTR  pName;
-} PORT_INFO_1A;
-
-typedef struct _PORT_INFO_1W {
-  LPWSTR pName;
-} PORT_INFO_1W;
-
-typedef_tident(PORT_INFO_1)
-
-typedef struct _PORT_INFO_2A {
-  LPSTR  pPortName;
-  LPSTR  pMonitorName;
-  LPSTR  pDescription;
-  DWORD  fPortType;
-  DWORD  Reserved;
-} PORT_INFO_2A;
-
-typedef struct _PORT_INFO_2W {
-  LPWSTR pPortName;
-  LPWSTR pMonitorName;
-  LPWSTR pDescription;
-  DWORD  fPortType;
-  DWORD  Reserved;
-} PORT_INFO_2W;
-
-typedef_tident(PORT_INFO_2)
+typedef struct _PORT_INFO_2 {
+  LPSTR pPortName;
+  LPSTR pMonitorName;
+  LPSTR pDescription;
+  DWORD fPortType;
+  DWORD Reserved;
+} PORT_INFO_2;
 
 typedef struct _PREVENT_MEDIA_REMOVAL {
   BOOLEAN PreventMediaRemoval;
 } PREVENT_MEDIA_REMOVAL ;
 
-
-#include <pshpack1.h>
-
-typedef struct tagPDA {
+typedef struct tagPD {
   DWORD     lStructSize;
   HWND      hwndOwner;
   HANDLE    hDevMode;
@@ -4275,163 +3430,77 @@ typedef struct tagPDA {
   DWORD     lCustData;
   LPPRINTHOOKPROC lpfnPrintHook;
   LPSETUPHOOKPROC lpfnSetupHook;
-  LPCSTR    lpPrintTemplateName;
-  LPCSTR    lpSetupTemplateName;
+  LPCTSTR    lpPrintTemplateName;
+  LPCTSTR    lpSetupTemplateName;
   HANDLE    hPrintTemplate;
   HANDLE    hSetupTemplate;
-} PRINTDLGA, *LPPRINTDLGA;
-
-typedef struct tagPDW {
-  DWORD     lStructSize;
-  HWND      hwndOwner;
-  HANDLE    hDevMode;
-  HANDLE    hDevNames;
-  HDC       hDC;
-  DWORD     Flags;
-  WORD      nFromPage;
-  WORD      nToPage;
-  WORD      nMinPage;
-  WORD      nMaxPage;
-  WORD      nCopies;
-  HINSTANCE hInstance;
-  DWORD     lCustData;
-  LPPRINTHOOKPROC lpfnPrintHook;
-  LPSETUPHOOKPROC lpfnSetupHook;
-  LPCWSTR   lpPrintTemplateName;
-  LPCWSTR   lpSetupTemplateName;
-  HANDLE    hPrintTemplate;
-  HANDLE    hSetupTemplate;
-} PRINTDLGW, *LPPRINTDLGW;
-
-#include <poppack.h>
-
-
-typedef_tident(PRINTDLG)
-typedef_tident(LPPRINTDLG)
+} PRINTDLG PACKED, *LPPRINTDLG PACKED;
 
 typedef struct _PRINTER_DEFAULTSA
 {
-  LPSTR       pDatatype;
-  LPDEVMODEA  pDevMode;
+  LPTSTR      pDatatype;
+  LPDEVMODEA   pDevMode;
   ACCESS_MASK DesiredAccess;
 } PRINTER_DEFAULTSA, *PPRINTER_DEFAULTSA, *LPPRINTER_DEFAULTSA;
 
 typedef struct _PRINTER_DEFAULTSW
 {
-  LPWSTR      pDatatype;
-  LPDEVMODEW  pDevMode;
+  LPTSTR      pDatatype;
+  LPDEVMODEA   pDevMode;
   ACCESS_MASK DesiredAccess;
 } PRINTER_DEFAULTSW, *PPRINTER_DEFAULTSW, *LPPRINTER_DEFAULTSW;
 
-typedef_tident(PRINTER_DEFAULTS)
-typedef_tident(PPRINTER_DEFAULTS)
-typedef_tident(LPPRINTER_DEFAULTS)
-
-typedef struct _PRINTER_INFO_1A {
+typedef struct _PRINTER_INFO_1 {
   DWORD  Flags;
-  LPSTR  pDescription;
-  LPSTR  pName;
-  LPSTR  pComment;
-} PRINTER_INFO_1A, *PPRINTER_INFO_1A, *LPPRINTER_INFO_1A;
+  LPTSTR pDescription;
+  LPTSTR pName;
+  LPTSTR pComment;
+} PRINTER_INFO_1, *PPRINTER_INFO_1, *LPPRINTER_INFO_1;
 
-typedef struct _PRINTER_INFO_1W {
-  DWORD  Flags;
-  LPWSTR pDescription;
-  LPWSTR pName;
-  LPWSTR pComment;
-} PRINTER_INFO_1W, *PPRINTER_INFO_1W, *LPPRINTER_INFO_1W;
-
-typedef_tident(PRINTER_INFO_1)
-typedef_tident(PPRINTER_INFO_1)
-typedef_tident(LPPRINTER_INFO_1)
-
-#if 0
-typedef struct _PRINTER_INFO_2A {
-  LPSTR      pServerName;
-  LPSTR      pPrinterName;
-  LPSTR      pShareName;
-  LPSTR      pPortName;
-  LPSTR      pDriverName;
-  LPSTR      pComment;
-  LPSTR      pLocation;
-  LPDEVMODEA pDevMode;
-  LPSTR      pSepFile;
-  LPSTR      pPrintProcessor;
-  LPSTR      pDatatype;
-  LPSTR      pParameters;
+   #if 0
+typedef struct _PRINTER_INFO_2 {
+  LPTSTR    pServerName;
+  LPTSTR    pPrinterName;
+  LPTSTR    pShareName;
+  LPTSTR    pPortName;
+  LPTSTR    pDriverName;
+  LPTSTR    pComment;
+  LPTSTR    pLocation;
+  LPDEVMODE pDevMode;
+  LPTSTR    pSepFile;
+  LPTSTR    pPrintProcessor;
+  LPTSTR    pDatatype;
+  LPTSTR    pParameters;
   PSECURITY_DESCRIPTOR pSecurityDescriptor;
-  DWORD      Attributes;
-  DWORD      Priority;
-  DWORD      DefaultPriority;
-  DWORD      StartTime;
-  DWORD      UntilTime;
-  DWORD      Status;
-  DWORD      cJobs;
-  DWORD      AveragePPM;
-} PRINTER_INFO_2A;
+  DWORD     Attributes;
+  DWORD     Priority;
+  DWORD     DefaultPriority;
+  DWORD     StartTime;
+  DWORD     UntilTime;
+  DWORD     Status;
+  DWORD     cJobs;
+  DWORD     AveragePPM;
+} PRINTER_INFO_2;
 
-typedef struct _PRINTER_INFO_2W {
-  LPWSTR     pServerName;
-  LPWSTR     pPrinterName;
-  LPWSTR     pShareName;
-  LPWSTR     pPortName;
-  LPWSTR     pDriverName;
-  LPWSTR     pComment;
-  LPWSTR     pLocation;
-  LPDEVMODEW pDevMode;
-  LPWSTR     pSepFile;
-  LPWSTR     pPrintProcessor;
-  LPWSTR     pDatatype;
-  LPWSTR     pParameters;
-  PSECURITY_DESCRIPTOR pSecurityDescriptor;
-  DWORD      Attributes;
-  DWORD      Priority;
-  DWORD      DefaultPriority;
-  DWORD      StartTime;
-  DWORD      UntilTime;
-  DWORD      Status;
-  DWORD      cJobs;
-  DWORD      AveragePPM;
-} PRINTER_INFO_2W;
-
-typedef_tident(PRINTER_INFO_2)
 
 typedef struct _PRINTER_INFO_3 {
   PSECURITY_DESCRIPTOR pSecurityDescriptor;
 } PRINTER_INFO_3;
-#endif
+ #endif
 
-typedef struct _PRINTER_INFO_4A {
-  LPSTR  pPrinterName;
-  LPSTR  pServerName;
+typedef struct _PRINTER_INFO_4 {
+  LPTSTR  pPrinterName;
+  LPTSTR  pServerName;
   DWORD  Attributes;
-} PRINTER_INFO_4A;
+} PRINTER_INFO_4;
 
-typedef struct _PRINTER_INFO_4W {
-  LPWSTR pPrinterName;
-  LPWSTR pServerName;
-  DWORD  Attributes;
-} PRINTER_INFO_4W;
-
-typedef_tident(PRINTER_INFO_4)
-
-typedef struct _PRINTER_INFO_5A {
-  LPSTR     pPrinterName;
-  LPSTR     pPortName;
+typedef struct _PRINTER_INFO_5 {
+  LPTSTR    pPrinterName;
+  LPTSTR    pPortName;
   DWORD     Attributes;
   DWORD     DeviceNotSelectedTimeout;
   DWORD     TransmissionRetryTimeout;
-} PRINTER_INFO_5A;
-
-typedef struct _PRINTER_INFO_5W {
-  LPWSTR    pPrinterName;
-  LPWSTR    pPortName;
-  DWORD     Attributes;
-  DWORD     DeviceNotSelectedTimeout;
-  DWORD     TransmissionRetryTimeout;
-} PRINTER_INFO_5W;
-
-typedef_tident(PRINTER_INFO_5)
+} PRINTER_INFO_5;
 
 typedef struct _PRINTER_NOTIFY_INFO_DATA {
   WORD   Type;
@@ -4470,15 +3539,10 @@ typedef struct _PRINTER_NOTIFY_OPTIONS {
   PPRINTER_NOTIFY_OPTIONS_TYPE  pTypes;
 } PRINTER_NOTIFY_OPTIONS;
 
-typedef struct _PRINTPROCESSOR_INFO_1A {
-  LPSTR  pName;
-} PRINTPROCESSOR_INFO_1A;
+typedef struct _PRINTPROCESSOR_INFO_1 {
+  LPTSTR pName;
+} PRINTPROCESSOR_INFO_1;
 
-typedef struct _PRINTPROCESSOR_INFO_1W {
-  LPWSTR pName;
-} PRINTPROCESSOR_INFO_1W;
-
-typedef_tident(PRINTPROCESSOR_INFO_1)
 
 typedef struct _PROCESS_HEAP_ENTRY {
   PVOID lpData;
@@ -4500,111 +3564,59 @@ typedef struct _PROCESS_INFORMATION {
   DWORD dwThreadId;
 } PROCESS_INFORMATION, *LPPROCESS_INFORMATION;
 
-typedef UINT (CALLBACK *LPFNPSPCALLBACK) (HWND, UINT, LPVOID);
+typedef UINT CALLBACK (*LPFNPSPCALLBACK) (HWND, UINT, LPVOID);
 
-typedef struct _PROPSHEETPAGEA {
+typedef struct _PROPSHEETPAGE {
   DWORD     dwSize;
   DWORD     dwFlags;
   HINSTANCE hInstance;
   union {
-    LPCSTR         pszTemplate;
+    LPCTSTR        pszTemplate;
     LPCDLGTEMPLATE pResource;
   } u1;
   union {
-    HICON   hIcon;
-    LPCSTR  pszIcon;
+    HICON  hIcon;
+    LPCTSTR pszIcon;
   } u2;
-  LPCSTR  pszTitle;
+  LPCTSTR pszTitle;
   DLGPROC pfnDlgProc;
   LPARAM  lParam;
   LPFNPSPCALLBACK pfnCallback;
   UINT   * pcRefParent;
-} PROPSHEETPAGEA, *LPPROPSHEETPAGEA;
-typedef const PROPSHEETPAGEA* LPCPROPSHEETPAGEA;
-
-typedef struct _PROPSHEETPAGEW {
-  DWORD     dwSize;
-  DWORD     dwFlags;
-  HINSTANCE hInstance;
-  union {
-    LPCWSTR        pszTemplate;
-    LPCDLGTEMPLATE pResource;
-  } u1;
-  union {
-    HICON   hIcon;
-    LPCWSTR pszIcon;
-  } u2;
-  LPCWSTR pszTitle;
-  DLGPROC pfnDlgProc;
-  LPARAM  lParam;
-  LPFNPSPCALLBACK pfnCallback;
-  UINT   * pcRefParent;
-} PROPSHEETPAGEW, *LPPROPSHEETPAGEW;
-typedef const PROPSHEETPAGEW* LPCPROPSHEETPAGEW;
-
-typedef_tident(PROPSHEETPAGE)
-typedef_tident(LPPROPSHEETPAGE)
-typedef_tident(LPCPROPSHEETPAGE)
+} PROPSHEETPAGE,   *LPPROPSHEETPAGE;
+typedef const PROPSHEETPAGE   *LPCPROPSHEETPAGE;
 
 typedef struct _PSP *HPROPSHEETPAGE;
-
-typedef struct _PROPSHEETHEADERA {
+typedef struct _PROPSHEETHEADER {
   DWORD      dwSize;
   DWORD      dwFlags;
   HWND       hwndParent;
   HINSTANCE  hInstance;
   union {
-    HICON   hIcon;
-    LPCSTR  pszIcon;
+    HICON  hIcon;
+    LPCTSTR pszIcon;
   } u1;
-  LPCSTR     pszCaption;
+  LPCTSTR     pszCaption;
   UINT       nPages;
   union {
-    UINT    nStartPage;
-    LPCSTR  pStartPage;
+    UINT  nStartPage;
+    LPCTSTR pStartPage;
   } u2;
   union {
-    LPCPROPSHEETPAGEA  ppsp;
-    HPROPSHEETPAGE    *phpage;
+    LPCPROPSHEETPAGE    ppsp;
+    HPROPSHEETPAGE   *phpage;
   } u3;
   PFNPROPSHEETCALLBACK pfnCallback;
-} PROPSHEETHEADERA, *LPPROPSHEETHEADERA;
-typedef const PROPSHEETHEADERA *LPCPROPSHEETHEADERA;
-
-typedef struct _PROPSHEETHEADERW {
-  DWORD      dwSize;
-  DWORD      dwFlags;
-  HWND       hwndParent;
-  HINSTANCE  hInstance;
-  union {
-    HICON   hIcon;
-    LPCWSTR pszIcon;
-  } u1;
-  LPCWSTR    pszCaption;
-  UINT       nPages;
-  union {
-    UINT    nStartPage;
-    LPCWSTR pStartPage;
-  } u2;
-  union {
-    LPCPROPSHEETPAGEW  ppsp;
-    HPROPSHEETPAGE    *phpage;
-  } u3;
-  PFNPROPSHEETCALLBACK pfnCallback;
-} PROPSHEETHEADERW, *LPPROPSHEETHEADERW;
-typedef const PROPSHEETHEADERW *LPCPROPSHEETHEADERW;
-
-typedef_tident(PROPSHEETHEADER)
-typedef_tident(LPPROPSHEETHEADER)
-typedef_tident(LPCPROPSHEETHEADER)
+} PROPSHEETHEADER,   *LPPROPSHEETHEADER;
+typedef const PROPSHEETHEADER   *LPCPROPSHEETHEADER;
 
 /* PropertySheet callbacks */
-typedef WINBOOL (CALLBACK *LPFNADDPROPSHEETPAGE) (HPROPSHEETPAGE, LPARAM);
-typedef WINBOOL (CALLBACK *LPFNADDPROPSHEETPAGES) (LPVOID,
+typedef WINBOOL CALLBACK (*LPFNADDPROPSHEETPAGE) (HPROPSHEETPAGE, LPARAM);
+typedef WINBOOL CALLBACK (*LPFNADDPROPSHEETPAGES) (LPVOID,
 						   LPFNADDPROPSHEETPAGE,
 						   LPARAM);
 
-typedef  struct _PROTOCOL_INFOA {
+typedef  struct _PROTOCOL_INFO {
   DWORD  dwServiceFlags;
   INT  iAddressFamily;
   INT  iMaxSockAddr;
@@ -4612,52 +3624,24 @@ typedef  struct _PROTOCOL_INFOA {
   INT  iSocketType;
   INT  iProtocol;
   DWORD  dwMessageSize;
-  LPSTR  lpProtocol;
-} PROTOCOL_INFOA;
+  LPTSTR  lpProtocol;
+} PROTOCOL_INFO;
 
-typedef  struct _PROTOCOL_INFOW {
-  DWORD  dwServiceFlags;
-  INT  iAddressFamily;
-  INT  iMaxSockAddr;
-  INT  iMinSockAddr;
-  INT  iSocketType;
-  INT  iProtocol;
-  DWORD  dwMessageSize;
-  LPWSTR  lpProtocol;
-} PROTOCOL_INFOW;
-
-typedef_tident(PROTOCOL_INFO)
-
-typedef struct _PROVIDOR_INFO_1A {
-  LPSTR  pName;
-  LPSTR  pEnvironment ;
-  LPSTR  pDLLName ;
-} PROVIDOR_INFO_1A;
-
-typedef struct _PROVIDOR_INFO_1W {
-  LPWSTR pName;
-  LPWSTR pEnvironment ;
-  LPWSTR pDLLName ;
-} PROVIDOR_INFO_1W;
-
-typedef_tident(PROVIDOR_INFO_1)
+typedef struct _PROVIDOR_INFO_1 {
+  LPTSTR pName;
+  LPTSTR pEnvironment ;
+  LPTSTR pDLLName ;
+} PROVIDOR_INFO_1;
 
 typedef struct _PSHNOTIFY {
   NMHDR hdr;
   LPARAM lParam;
 } PSHNOTIFY,   *LPPSHNOTIFY;
 
-typedef struct _punctuationA {
+typedef struct _punctuation {
   UINT   iSize;
   LPSTR  szPunctuation;
-} PUNCTUATIONA;
-
-typedef struct _punctuationW {
-  UINT   iSize;
-  LPWSTR szPunctuation;
-} PUNCTUATIONW;
-
-typedef_tident(PUNCTUATION)
+} PUNCTUATION;
 
 typedef struct _QUERY_SERVICE_CONFIGA {
   DWORD dwServiceType;
@@ -4683,8 +3667,13 @@ typedef struct _QUERY_SERVICE_CONFIGW {
   LPWSTR lpDisplayName;
 } QUERY_SERVICE_CONFIGW, *LPQUERY_SERVICE_CONFIGW;
 
-typedef_tident(QUERY_SERVICE_CONFIG)
-typedef_tident(LPQUERY_SERVICE_CONFIG)
+#ifdef UNICODE
+#define QUERY_SERVICE_CONFIG QUERY_SERVICE_CONFIGW
+#define LPQUERY_SERVICE_CONFIG LPQUERY_SERVICE_CONFIGW
+#else
+#define QUERY_SERVICE_CONFIG QUERY_SERVICE_CONFIGA
+#define LPQUERY_SERVICE_CONFIG LPQUERY_SERVICE_CONFIGA
+#endif
 
 typedef struct _QUERY_SERVICE_LOCK_STATUSA {
   DWORD fIsLocked;
@@ -4698,177 +3687,80 @@ typedef struct _QUERY_SERVICE_LOCK_STATUSW {
   DWORD dwLockDuration;
 } QUERY_SERVICE_LOCK_STATUSW, *LPQUERY_SERVICE_LOCK_STATUSW;
 
-typedef_tident(QUERY_SERVICE_LOCK_STATUS)
-typedef_tident(LPQUERY_SERVICE_LOCK_STATUS)
+#ifdef UNICODE
+#define QUERY_SERVICE_LOCK_STATUS QUERY_SERVICE_LOCK_STATUSW
+#define LPQUERY_SERVICE_LOCK_STATUS LPQUERY_SERVICE_LOCK_STATUSW
+#else
+#define QUERY_SERVICE_LOCK_STATUS QUERY_SERVICE_LOCK_STATUSA
+#define LPQUERY_SERVICE_LOCK_STATUS LPQUERY_SERVICE_LOCK_STATUSA
+#endif
 
-typedef  struct  _RASAMBA {
+typedef  struct  _RASAMB {
   DWORD    dwSize;
   DWORD    dwError;
-  CHAR     szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
+  TCHAR    szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
   BYTE     bLana;
-} RASAMBA;
+} RASAMB;
 
-typedef  struct  _RASAMBW {
-  DWORD    dwSize;
-  DWORD    dwError;
-  WCHAR    szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
-  BYTE     bLana;
-} RASAMBW;
-
-typedef_tident(RASAMB)
-
-typedef struct _RASCONNA {
+typedef struct _RASCONN {
   DWORD     dwSize;
   HRASCONN  hrasconn;
-  CHAR      szEntryName[RAS_MaxEntryName + 1];
+  TCHAR     szEntryName[RAS_MaxEntryName + 1];
 
-  /* WINVER >= 0x400 */
   CHAR      szDeviceType[ RAS_MaxDeviceType + 1 ];
   CHAR      szDeviceName[ RAS_MaxDeviceName + 1 ];
+} RASCONN ;
 
-  /* WINVER >= 0x401 */
-  CHAR      szPhonebook[ MAX_PATH ];
-  DWORD     dwSubEntry;
-
-  /* WINVER >= 0x500 */
-  GUID      guidEntry;
-
-  /* WINVER >= 0x501 */
-  DWORD     dwSessionId;
-  DWORD     dwFlags;
-  LUID      luid;
-} RASCONNA ;
-
-typedef struct _RASCONNW {
-  DWORD     dwSize;
-  HRASCONN  hrasconn;
-  WCHAR     szEntryName[RAS_MaxEntryName + 1];
-
-  /* WINVER >= 0x400 */
-  WCHAR     szDeviceType[ RAS_MaxDeviceType + 1 ];
-  WCHAR     szDeviceName[ RAS_MaxDeviceName + 1 ];
-
-  /* WINVER >= 0x401 */
-  WCHAR     szPhonebook[ MAX_PATH ];
-  DWORD     dwSubEntry;
-
-  /* WINVER >= 0x500 */
-  GUID      guidEntry;
-
-  /* WINVER >= 0x501 */
-  DWORD     dwSessionId;
-  DWORD     dwFlags;
-  LUID      luid;
-} RASCONNW ;
-
-typedef_tident(RASCONN)
-
-typedef struct _RASCONNSTATUSA {
+typedef struct _RASCONNSTATUS {
   DWORD         dwSize;
   RASCONNSTATE  rasconnstate;
   DWORD         dwError;
-  CHAR          szDeviceType[RAS_MaxDeviceType + 1];
-  CHAR          szDeviceName[RAS_MaxDeviceName + 1];
-} RASCONNSTATUSA;
-
-typedef struct _RASCONNSTATUSW {
-  DWORD         dwSize;
-  RASCONNSTATE  rasconnstate;
-  DWORD         dwError;
-  WCHAR         szDeviceType[RAS_MaxDeviceType + 1];
-  WCHAR         szDeviceName[RAS_MaxDeviceName + 1];
-} RASCONNSTATUSW;
-
-typedef_tident(RASCONNSTATUS)
+  TCHAR         szDeviceType[RAS_MaxDeviceType + 1];
+  TCHAR         szDeviceName[RAS_MaxDeviceName + 1];
+} RASCONNSTATUS;
 
 typedef  struct  _RASDIALEXTENSIONS {
   DWORD    dwSize;
   DWORD    dwfOptions;
-  HWND     hwndParent;
+  HWND    hwndParent;
   DWORD    reserved;
 } RASDIALEXTENSIONS;
 
-typedef struct _RASDIALPARAMSA {
+typedef struct _RASDIALPARAMS {
   DWORD  dwSize;
-  CHAR   szEntryName[RAS_MaxEntryName + 1];
-  CHAR   szPhoneNumber[RAS_MaxPhoneNumber + 1];
-  CHAR   szCallbackNumber[RAS_MaxCallbackNumber + 1];
-  CHAR   szUserName[UNLEN + 1];
-  CHAR   szPassword[PWLEN + 1];
-  CHAR   szDomain[DNLEN + 1] ;
-} RASDIALPARAMSA;
+  TCHAR  szEntryName[RAS_MaxEntryName + 1];
+  TCHAR  szPhoneNumber[RAS_MaxPhoneNumber + 1];
+  TCHAR  szCallbackNumber[RAS_MaxCallbackNumber + 1];
+  TCHAR  szUserName[UNLEN + 1];
+  TCHAR  szPassword[PWLEN + 1];
+  TCHAR  szDomain[DNLEN + 1] ;
+} RASDIALPARAMS;
 
-typedef struct _RASDIALPARAMSW {
+typedef struct _RASENTRYNAME {
   DWORD  dwSize;
-  WCHAR  szEntryName[RAS_MaxEntryName + 1];
-  WCHAR  szPhoneNumber[RAS_MaxPhoneNumber + 1];
-  WCHAR  szCallbackNumber[RAS_MaxCallbackNumber + 1];
-  WCHAR  szUserName[UNLEN + 1];
-  WCHAR  szPassword[PWLEN + 1];
-  WCHAR  szDomain[DNLEN + 1] ;
-} RASDIALPARAMSW;
+  TCHAR  szEntryName[RAS_MaxEntryName + 1];
+}RASENTRYNAME;
 
-typedef_tident(RASDIALPARAMS)
-
-typedef struct _RASENTRYNAMEA {
-  DWORD  dwSize;
-  CHAR   szEntryName[RAS_MaxEntryName + 1];
-}RASENTRYNAMEA;
-
-typedef struct _RASENTRYNAMEW {
-  DWORD  dwSize;
-  WCHAR  szEntryName[RAS_MaxEntryName + 1];
-}RASENTRYNAMEW;
-
-typedef_tident(RASENTRYNAME)
-
-typedef  struct  _RASPPPIPA {
+typedef  struct  _RASPPPIP {
   DWORD    dwSize;
   DWORD    dwError;
-  CHAR     szIpAddress[ RAS_MaxIpAddress + 1 ];
-} RASPPPIPA;
+  TCHAR    szIpAddress[ RAS_MaxIpAddress + 1 ];
+} RASPPPIP;
 
-typedef  struct  _RASPPPIPW {
+typedef  struct  _RASPPPIPX {
   DWORD    dwSize;
   DWORD    dwError;
-  WCHAR    szIpAddress[ RAS_MaxIpAddress + 1 ];
-} RASPPPIPW;
+  TCHAR    szIpxAddress[ RAS_MaxIpxAddress + 1 ];
+} RASPPPIPX;
 
-typedef_tident(RASPPPIP)
-
-typedef  struct  _RASPPPIPXA {
-  DWORD    dwSize;
-  DWORD    dwError;
-  CHAR     szIpxAddress[ RAS_MaxIpxAddress + 1 ];
-} RASPPPIPXA;
-
-typedef  struct  _RASPPPIPXW {
-  DWORD    dwSize;
-  DWORD    dwError;
-  WCHAR    szIpxAddress[ RAS_MaxIpxAddress + 1 ];
-} RASPPPIPXW;
-
-typedef_tident(RASPPPIPX)
-
-typedef  struct  _RASPPPNBFA {
+typedef  struct  _RASPPPNBF {
   DWORD    dwSize;
   DWORD    dwError;
   DWORD    dwNetBiosError;
-  CHAR     szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
-  CHAR     szWorkstationName[ NETBIOS_NAME_LEN + 1 ];
+  TCHAR    szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
+  TCHAR    szWorkstationName[ NETBIOS_NAME_LEN + 1 ];
   BYTE     bLana;
-} RASPPPNBFA;
-
-typedef  struct  _RASPPPNBFW {
-  DWORD    dwSize;
-  DWORD    dwError;
-  DWORD    dwNetBiosError;
-  WCHAR    szNetBiosError[ NETBIOS_NAME_LEN + 1 ];
-  WCHAR    szWorkstationName[ NETBIOS_NAME_LEN + 1 ];
-  BYTE     bLana;
-} RASPPPNBFW;
-
-typedef_tident(RASPPPNBF)
+} RASPPPNBF;
 
 typedef struct _RASTERIZER_STATUS {
   short nSize;
@@ -4882,19 +3774,11 @@ typedef struct _REASSIGN_BLOCKS {
   DWORD BlockNumber[1];
 } REASSIGN_BLOCKS ;
 
-typedef struct _REMOTE_NAME_INFOA {
-  LPSTR   lpUniversalName;
-  LPSTR   lpConnectionName;
-  LPSTR   lpRemainingPath;
-} REMOTE_NAME_INFOA;
-
-typedef struct _REMOTE_NAME_INFOW {
-  LPWSTR  lpUniversalName;
-  LPWSTR  lpConnectionName;
-  LPWSTR  lpRemainingPath;
-} REMOTE_NAME_INFOW;
-
-typedef_tident(REMOTE_NAME_INFO)
+typedef struct _REMOTE_NAME_INFO {
+  LPTSTR  lpUniversalName;
+  LPTSTR  lpConnectionName;
+  LPTSTR  lpRemainingPath;
+} REMOTE_NAME_INFO;
 
 /*
  TODO: OLE
@@ -4964,48 +3848,36 @@ typedef struct tagSERIALKEYS {
 
 typedef struct _SERVICE_TABLE_ENTRYA {
   LPSTR lpServiceName;
-  LPSERVICE_MAIN_FUNCTIONA lpServiceProc;
+  LPSERVICE_MAIN_FUNCTION lpServiceProc;
 } SERVICE_TABLE_ENTRYA, *LPSERVICE_TABLE_ENTRYA;
 
 typedef struct _SERVICE_TABLE_ENTRYW {
   LPWSTR lpServiceName;
-  LPSERVICE_MAIN_FUNCTIONW lpServiceProc;
+  LPSERVICE_MAIN_FUNCTION lpServiceProc;
 } SERVICE_TABLE_ENTRYW, *LPSERVICE_TABLE_ENTRYW;
 
-typedef_tident(SERVICE_TABLE_ENTRY)
-typedef_tident(LPSERVICE_TABLE_ENTRY)
+#ifdef UNICODE
+#define SERVICE_TABLE_ENTRY SERVICE_TABLE_ENTRYW
+#define LPSERVICE_TABLE_ENTRY LPSERVICE_TABLE_ENTRYW
+#else
+#define SERVICE_TABLE_ENTRY SERVICE_TABLE_ENTRYA
+#define LPSERVICE_TABLE_ENTRY LPSERVICE_TABLE_ENTRYA
+#endif
 
-typedef struct _SERVICE_TYPE_VALUE_ABSA {
+
+typedef struct _SERVICE_TYPE_VALUE_ABS {
   DWORD   dwNameSpace;
   DWORD   dwValueType;
   DWORD   dwValueSize;
-  LPSTR   lpValueName;
+  LPTSTR  lpValueName;
   PVOID   lpValue;
-} SERVICE_TYPE_VALUE_ABSA;
+} SERVICE_TYPE_VALUE_ABS;
 
-typedef struct _SERVICE_TYPE_VALUE_ABSW {
-  DWORD   dwNameSpace;
-  DWORD   dwValueType;
-  DWORD   dwValueSize;
-  LPWSTR  lpValueName;
-  PVOID   lpValue;
-} SERVICE_TYPE_VALUE_ABSW;
-
-typedef_tident(SERVICE_TYPE_VALUE_ABS)
-
-typedef struct _SERVICE_TYPE_INFO_ABSA {
-  LPSTR                   lpTypeName;
+typedef struct _SERVICE_TYPE_INFO_ABS {
+  LPTSTR                  lpTypeName;
   DWORD                   dwValueCount;
-  SERVICE_TYPE_VALUE_ABSA Values[1];
-} SERVICE_TYPE_INFO_ABSA;
-
-typedef struct _SERVICE_TYPE_INFO_ABSW {
-  LPWSTR                  lpTypeName;
-  DWORD                   dwValueCount;
-  SERVICE_TYPE_VALUE_ABSW Values[1];
-} SERVICE_TYPE_INFO_ABSW;
-
-typedef_tident(SERVICE_TYPE_INFO_ABS)
+  SERVICE_TYPE_VALUE_ABS  Values[1];
+} SERVICE_TYPE_INFO_ABS;
 
 typedef struct _SESSION_BUFFER {
   UCHAR lsn;
@@ -5027,103 +3899,56 @@ typedef enum tagSHCONTF {
   SHCONTF_FOLDERS = 32,         
   SHCONTF_NONFOLDERS = 64,      
   SHCONTF_INCLUDEHIDDEN = 128,  
-  SHCONTF_INIT_ON_FIRST_NEXT = 256,
-  SHCONTF_NETPRINTERSRCH = 512,
-  SHCONTF_SHAREABLE = 1024,
-  SHCONTF_STORAGE = 2048
 } SHCONTF; 
  
-typedef struct _SHFILEINFO {
-  HICON hIcon;
-  int   iIcon;
-  DWORD dwAttributes;
-  char  szDisplayName[MAX_PATH];
-  char  szTypeName[80];
+typedef struct _SHFILEINFO { 
+  HICON hIcon;                   
+  int   iIcon;                   
+  DWORD dwAttributes;            
+  char  szDisplayName[MAX_PATH]; 
+  char  szTypeName[80];          
 } SHFILEINFO; 
 
-typedef WORD FILEOP_FLAGS;
-
-typedef struct _SHFILEOPSTRUCTA {
-  HWND         hwnd;
-  UINT         wFunc;
-  LPCSTR       pFrom;
-  LPCSTR       pTo;
-  FILEOP_FLAGS fFlags;
-  WINBOOL      fAnyOperationsAborted;
-  LPVOID       hNameMappings;
-  LPCSTR       lpszProgressTitle;
-} SHFILEOPSTRUCTA, *LPSHFILEOPSTRUCTA;
-
-typedef struct _SHFILEOPSTRUCTW {
-  HWND         hwnd;
-  UINT         wFunc;
-  LPCWSTR      pFrom;
-  LPCWSTR      pTo;
-  FILEOP_FLAGS fFlags;
-  WINBOOL      fAnyOperationsAborted;
-  LPVOID       hNameMappings;
-  LPCWSTR      lpszProgressTitle;
-} SHFILEOPSTRUCTW, *LPSHFILEOPSTRUCTW;
-
-typedef_tident(SHFILEOPSTRUCT)
-typedef_tident(LPSHFILEOPSTRUCT)
-
-typedef enum tagSHGDN {
-  SHGDN_NORMAL = 0,
-  SHGDN_INFOLDER = 1,
-  SHGDN_FORPARSING = 0x8000,
+typedef WORD FILEOP_FLAGS; 
+typedef struct _SHFILEOPSTRUCT { 
+  HWND         hwnd;                  
+  UINT         wFunc;                 
+  LPCSTR       pFrom;                 
+  LPCSTR       pTo;                   
+  FILEOP_FLAGS fFlags;                
+  WINBOOL         fAnyOperationsAborted; 
+  LPVOID       hNameMappings;         
+  LPCSTR       lpszProgressTitle;     
+} SHFILEOPSTRUCT,   *LPSHFILEOPSTRUCT; 
+ 
+typedef enum tagSHGDN { 
+  SHGDN_NORMAL = 0,           
+  SHGDN_INFOLDER = 1,         
+  SHGDN_FORPARSING = 0x8000,  
 } SHGNO; 
-
-typedef struct _SHNAMEMAPPINGA {
-  LPSTR  pszOldPath;
-  LPSTR  pszNewPath;
-  int    cchOldPath;
-  int    cchNewPath;
-} SHNAMEMAPPINGA, *LPSHNAMEMAPPINGA;
-
-typedef struct _SHNAMEMAPPINGW {
-  LPWSTR pszOldPath;
-  LPWSTR pszNewPath;
-  int    cchOldPath;
-  int    cchNewPath;
-} SHNAMEMAPPINGW, *LPSHNAMEMAPPINGW;
-
-typedef_tident(SHNAMEMAPPING)
-typedef_tident(LPSHNAMEMAPPING)
-
-typedef struct tagSOUNDSENTRYA {
-  UINT   cbSize;
-  DWORD  dwFlags; 
-  DWORD  iFSTextEffect; 
-  DWORD  iFSTextEffectMSec; 
-  DWORD  iFSTextEffectColorBits; 
-  DWORD  iFSGrafEffect; 
-  DWORD  iFSGrafEffectMSec; 
-  DWORD  iFSGrafEffectColor; 
-  DWORD  iWindowsEffect; 
-  DWORD  iWindowsEffectMSec; 
-  LPSTR  lpszWindowsEffectDLL; 
-  DWORD  iWindowsEffectOrdinal; 
-} SOUNDSENTRYA, *LPSOUNDSENTRYA; 
-
-typedef struct tagSOUNDSENTRYW {
-  UINT   cbSize;
-  DWORD  dwFlags; 
-  DWORD  iFSTextEffect; 
-  DWORD  iFSTextEffectMSec; 
-  DWORD  iFSTextEffectColorBits; 
-  DWORD  iFSGrafEffect; 
-  DWORD  iFSGrafEffectMSec; 
-  DWORD  iFSGrafEffectColor; 
-  DWORD  iWindowsEffect; 
-  DWORD  iWindowsEffectMSec; 
-  LPWSTR lpszWindowsEffectDLL; 
-  DWORD  iWindowsEffectOrdinal; 
-} SOUNDSENTRYW, *LPSOUNDSENTRYW; 
-
-typedef_tident(SOUNDSENTRY)
-typedef_tident(LPSOUNDSENTRY)
-
+ 
+typedef struct _SHNAMEMAPPING { 
+  LPSTR pszOldPath; 
+  LPSTR pszNewPath; 
+  int   cchOldPath; 
+  int   cchNewPath; 
+} SHNAMEMAPPING,   *LPSHNAMEMAPPING; 
+ 
+typedef struct tagSOUNDSENTRY {  
+  UINT cbSize; 
+  DWORD dwFlags; 
+  DWORD iFSTextEffect; 
+  DWORD iFSTextEffectMSec; 
+  DWORD iFSTextEffectColorBits; 
+  DWORD iFSGrafEffect; 
+  DWORD iFSGrafEffectMSec; 
+  DWORD iFSGrafEffectColor; 
+  DWORD iWindowsEffect; 
+  DWORD iWindowsEffectMSec; 
+  LPTSTR lpszWindowsEffectDLL; 
+  DWORD iWindowsEffectOrdinal; 
+} SOUNDSENTRY, *LPSOUNDSENTRY; 
+ 
 typedef struct _STARTUPINFOA {
   DWORD   cb;
   LPSTR   lpReserved;
@@ -5166,8 +3991,13 @@ typedef struct _STARTUPINFOW {
   HANDLE  hStdError;
 } STARTUPINFOW, *LPSTARTUPINFOW;
 
-typedef_tident(STARTUPINFO)
-typedef_tident(LPSTARTUPINFO)
+#ifdef UNICODE
+typedef STARTUPINFOW STARTUPINFO;
+typedef LPSTARTUPINFOW LPSTARTUPINFO;
+#else
+typedef STARTUPINFOA STARTUPINFO;
+typedef LPSTARTUPINFOA LPSTARTUPINFO;
+#endif /* UNICODE */
 
 typedef struct tagSTICKYKEYS {
   DWORD cbSize;
@@ -5293,74 +4123,66 @@ typedef struct _SYSTEM_POWER_STATUS {
 } SYSTEM_POWER_STATUS;
 typedef SYSTEM_POWER_STATUS *LPSYSTEM_POWER_STATUS;
 
-typedef struct _TAPE_CREATE_PARTITION {
-  ULONG Method;
-  ULONG Count;
-  ULONG Size;
-} TAPE_CREATE_PARTITION, *PTAPE_CREATE_PARTITION;
-
 typedef struct _TAPE_ERASE {
   ULONG Type;
-  BOOLEAN Immediate;
-} TAPE_ERASE, *PTAPE_ERASE;
+} TAPE_ERASE;
 
 typedef struct _TAPE_GET_DRIVE_PARAMETERS {
   BOOLEAN ECC;
   BOOLEAN Compression;
   BOOLEAN DataPadding;
   BOOLEAN ReportSetmarks;
-  ULONG DefaultBlockSize;
-  ULONG MaximumBlockSize;
-  ULONG MinimumBlockSize;
-  ULONG MaximumPartitionCount;
-  ULONG FeaturesLow;
-  ULONG FeaturesHigh;
-  ULONG EOTWarningZoneSize;
-} TAPE_GET_DRIVE_PARAMETERS, *PTAPE_GET_DRIVE_PARAMETERS;
+  ULONG   DefaultBlockSize;
+  ULONG   MaximumBlockSize;
+  ULONG   MinimumBlockSize;
+  ULONG   MaximumPartitionCount;
+  ULONG   FeaturesLow;
+  ULONG   FeaturesHigh;
+  ULONG   EOTWarningZoneSize;
+} TAPE_GET_DRIVE_PARAMETERS;
 
 typedef struct _TAPE_GET_MEDIA_PARAMETERS {
-  LARGE_INTEGER Capacity;
-  LARGE_INTEGER Remaining;
-  ULONG BlockSize;
-  ULONG PartitionCount;
+  LARGE_INTEGER   Capacity;
+  LARGE_INTEGER   Remaining;
+  DWORD   BlockSize;
+  DWORD   PartitionCount;
   BOOLEAN WriteProtected;
-} TAPE_GET_MEDIA_PARAMETERS, *PTAPE_GET_MEDIA_PARAMETERS;
+} TAPE_GET_MEDIA_PARAMETERS;
 
 typedef struct _TAPE_GET_POSITION {
   ULONG Type;
   ULONG Partition;
-  LARGE_INTEGER Offset;
-} TAPE_GET_POSITION, *PTAPE_GET_POSITION;
+  ULONG OffsetLow;
+  ULONG OffsetHigh;
+} TAPE_GET_POSITION;
 
 typedef struct _TAPE_PREPARE {
   ULONG Operation;
-  BOOLEAN Immediate;
-} TAPE_PREPARE, *PTAPE_PREPARE;
+} TAPE_PREPARE;
 
 typedef struct _TAPE_SET_DRIVE_PARAMETERS {
   BOOLEAN ECC;
   BOOLEAN Compression;
   BOOLEAN DataPadding;
   BOOLEAN ReportSetmarks;
-  ULONG EOTWarningZoneSize;
-} TAPE_SET_DRIVE_PARAMETERS, *PTAPE_SET_DRIVE_PARAMETERS;
+  ULONG   EOTWarningZoneSize;
+} TAPE_SET_DRIVE_PARAMETERS;
 
 typedef struct _TAPE_SET_MEDIA_PARAMETERS {
   ULONG BlockSize;
-} TAPE_SET_MEDIA_PARAMETERS, *PTAPE_SET_MEDIA_PARAMETERS;
+} TAPE_SET_MEDIA_PARAMETERS;
 
 typedef struct _TAPE_SET_POSITION {
   ULONG Method;
   ULONG Partition;
-  LARGE_INTEGER Offset;
-  BOOLEAN Immediate;
-} TAPE_SET_POSITION, *PTAPE_SET_POSITION;
+  ULONG OffsetLow;
+  ULONG OffsetHigh;
+} TAPE_SET_POSITION;
 
 typedef struct _TAPE_WRITE_MARKS {
   ULONG Type;
   ULONG Count;
-  BOOLEAN Immediate;
-} TAPE_WRITE_MARKS, *PTAPE_WRITE_MARKS;
+} TAPE_WRITE_MARKS;
 
 typedef struct {
   HINSTANCE hInst;
@@ -5378,84 +4200,42 @@ typedef struct _TBBUTTON {
 typedef const TBBUTTON  * LPCTBBUTTON;
 
 typedef struct {
-  NMHDR    hdr;
-  int      iItem;
+  NMHDR hdr;
+  int iItem;
   TBBUTTON tbButton;
-  int      cchText;
-  LPSTR    pszText;
-} TBNOTIFYA, *LPTBNOTIFYA;
+  int cchText;
+  LPTSTR pszText;
+} TBNOTIFY,  *LPTBNOTIFY;
 
 typedef struct {
-  NMHDR    hdr;
-  int      iItem;
-  TBBUTTON tbButton;
-  int      cchText;
-  LPWSTR   pszText;
-} TBNOTIFYW, *LPTBNOTIFYW;
-
-typedef_tident(TBNOTIFY)
-typedef_tident(LPTBNOTIFY)
-
-typedef struct {
-  HKEY    hkr;
-  LPCSTR  pszSubKey;
-  LPCSTR  pszValueName;
-} TBSAVEPARAMSA;
-
-typedef struct {
-  HKEY    hkr;
-  LPCWSTR pszSubKey;
-  LPCWSTR pszValueName;
-} TBSAVEPARAMSW;
-
-typedef_tident(TBSAVEPARAMS)
+  HKEY hkr;
+  LPCTSTR pszSubKey;
+  LPCTSTR pszValueName;
+} TBSAVEPARAMS;
 
 typedef struct _TC_HITTESTINFO {
   POINT pt;
   UINT  flags;
 } TC_HITTESTINFO;
 
-typedef struct _TC_ITEMA {
-  UINT   mask;
-  UINT   lpReserved1;
-  UINT   lpReserved2;
-  LPSTR  pszText;
-  int    cchTextMax;
-  int    iImage;
+typedef struct _TC_ITEM {
+  UINT mask;
+  UINT lpReserved1;
+  UINT lpReserved2;
+  LPTSTR pszText;
+  int cchTextMax;
+  int iImage;
   LPARAM lParam;
-} TC_ITEMA;
+} TC_ITEM;
 
-typedef struct _TC_ITEMW {
-  UINT   mask;
-  UINT   lpReserved1;
-  UINT   lpReserved2;
-  LPWSTR pszText;
-  int    cchTextMax;
-  int    iImage;
-  LPARAM lParam;
-} TC_ITEMW;
-
-typedef_tident(TC_ITEM)
-
-typedef struct _TC_ITEMHEADERA {
-  UINT   mask;
-  UINT   lpReserved1;
-  UINT   lpReserved2;
-  LPSTR  pszText;
-  int    cchTextMax;
-  int    iImage;
-} TC_ITEMHEADERA;
-
-typedef struct _TC_ITEMHEADERW {
-  UINT   mask;
-  UINT   lpReserved1;
-  UINT   lpReserved2;
-  LPWSTR pszText;
-  int    cchTextMax;
-  int    iImage;
-} TC_ITEMHEADERW;
-
-typedef_tident(TC_ITEMHEADER)
+typedef struct _TC_ITEMHEADER {
+  UINT mask;
+  UINT lpReserved1;
+  UINT lpReserved2;
+  LPTSTR pszText;
+  int cchTextMax;
+  int iImage;
+} TC_ITEMHEADER;
 
 typedef struct _TC_KEYDOWN {
   NMHDR hdr;
@@ -5463,17 +4243,10 @@ typedef struct _TC_KEYDOWN {
   UINT flags;
 } TC_KEYDOWN;
 
-typedef struct _textrangeA {
+typedef struct _textrange {
   CHARRANGE chrg;
-  LPSTR     lpstrText;
-} TEXTRANGEA;
-
-typedef struct _textrangeW {
-  CHARRANGE chrg;
-  LPWSTR    lpstrText;
-} TEXTRANGEW;
-
-typedef_tident(TEXTRANGE)
+  LPSTR lpstrText;
+} TEXTRANGE;
 
 typedef struct tagTOGGLEKEYS {
   DWORD cbSize;
@@ -5487,48 +4260,23 @@ typedef struct {
   UINT      uId;
   RECT      rect;
   HINSTANCE hinst;
-  LPSTR     lpszText;
-} TOOLINFOA, *PTOOLINFOA, *LPTOOLINFOA;
-
-typedef struct {
-  UINT      cbSize;
-  UINT      uFlags;
-  HWND      hwnd;
-  UINT      uId;
-  RECT      rect;
-  HINSTANCE hinst;
-  LPWSTR    lpszText;
-} TOOLINFOW, *PTOOLINFOW, *LPTOOLINFOW;
-
-typedef_tident(TOOLINFO)
-typedef_tident(PTOOLINFO)
-typedef_tident(LPTOOLINFO)
+  LPTSTR     lpszText;
+} TOOLINFO, *PTOOLINFO, *LPTOOLINFO;
 
 typedef struct {
   NMHDR     hdr;
-  LPSTR     lpszText;
-  CHAR      szText[80];
+  LPTSTR    lpszText;
+  char      szText[80];
   HINSTANCE hinst;
   UINT      uFlags;
-} TOOLTIPTEXTA, *LPTOOLTIPTEXTA;
-
-typedef struct {
-  NMHDR     hdr;
-  LPWSTR    lpszText;
-  WCHAR     szText[80];
-  HINSTANCE hinst;
-  UINT      uFlags;
-} TOOLTIPTEXTW, *LPTOOLTIPTEXTW;
-
-typedef_tident(TOOLTIPTEXT)
-typedef_tident(LPTOOLTIPTEXT)
+} TOOLTIPTEXT,   *LPTOOLTIPTEXT;
 
 typedef struct tagTPMPARAMS {
   UINT cbSize;
   RECT rcExclude;
 } TPMPARAMS,   *LPTPMPARAMS;
 
-#if 0 /* RobD - typedef removed due to conflict with mingw headers */
+#if 0 // RobD - typedef removed due to conflict with mingw headers
 typedef struct _TRANSMIT_FILE_BUFFERS {
   PVOID Head;
   DWORD HeadLength;
@@ -5537,20 +4285,11 @@ typedef struct _TRANSMIT_FILE_BUFFERS {
 } TRANSMIT_FILE_BUFFERS;
 #endif
 
-typedef struct _TT_HITTESTINFOA {
-  HWND      hwnd;
-  POINT     pt;
-  TOOLINFOA ti;
-} TTHITTESTINFOA, *LPHITTESTINFOA;
-
-typedef struct _TT_HITTESTINFOW {
-  HWND      hwnd;
-  POINT     pt;
-  TOOLINFOW ti;
-} TTHITTESTINFOW, *LPHITTESTINFOW;
-
-typedef_tident(TTHITTESTINFO)
-typedef_tident(LPHITTESTINFO)
+typedef struct _TT_HITTESTINFO {
+  HWND hwnd;
+  POINT pt;
+  TOOLINFO ti;
+} TTHITTESTINFO,   * LPHITTESTINFO;
 
 typedef struct tagTTPOLYCURVE {
   WORD    wType;
@@ -5562,40 +4301,24 @@ typedef struct _TTPOLYGONHEADER {
   DWORD   cb;
   DWORD   dwType;
   POINTFX pfxStart;
-} TTPOLYGONHEADER, *PTTPOLYGONHEADER, *LPTTPOLYGONHEADER;
+} TTPOLYGONHEADER,  * LPTTPOLYGONHEADER;
 
-typedef struct _TV_DISPINFOA {
-  NMHDR    hdr;
-  TV_ITEMA item;
-} TV_DISPINFOA;
-
-typedef struct _TV_DISPINFOW {
-  NMHDR    hdr;
-  TV_ITEMW item;
-} TV_DISPINFOW;
-
-typedef_tident(TV_DISPINFO)
+typedef struct _TV_DISPINFO {
+  NMHDR   hdr;
+  TV_ITEM item;
+} TV_DISPINFO;
 
 typedef struct _TVHITTESTINFO {
   POINT     pt;
   UINT      flags;
   HTREEITEM hItem;
-} TV_HITTESTINFO, *LPTV_HITTESTINFO;
+} TV_HITTESTINFO,   *LPTV_HITTESTINFO;
 
-typedef struct _TV_INSERTSTRUCTA {
+typedef struct _TV_INSERTSTRUCT {
   HTREEITEM hParent;
   HTREEITEM hInsertAfter;
-  TV_ITEMA  item;
-} TV_INSERTSTRUCTA, *LPTV_INSERTSTRUCTA;
-
-typedef struct _TV_INSERTSTRUCTW {
-  HTREEITEM hParent;
-  HTREEITEM hInsertAfter;
-  TV_ITEMW  item;
-} TV_INSERTSTRUCTW, *LPTV_INSERTSTRUCTW;
-
-typedef_tident(TV_INSERTSTRUCT)
-typedef_tident(LPTV_INSERTSTRUCT)
+  TV_ITEM   item;
+} TV_INSERTSTRUCT,   *LPTV_INSERTSTRUCT;
 
 typedef struct _TV_KEYDOWN {
   NMHDR hdr;
@@ -5614,15 +4337,9 @@ typedef struct {
   UINT nInc;
 } UDACCEL;
 
-typedef struct _UNIVERSAL_NAME_INFOA {
-  LPSTR   lpUniversalName;
-} UNIVERSAL_NAME_INFOA;
-
-typedef struct _UNIVERSAL_NAME_INFOW {
-  LPWSTR  lpUniversalName;
-} UNIVERSAL_NAME_INFOW;
-
-typedef_tident(UNIVERSAL_NAME_INFO)
+typedef struct _UNIVERSAL_NAME_INFO {
+  LPTSTR  lpUniversalName;
+} UNIVERSAL_NAME_INFO;
 
 typedef struct tagUSEROBJECTFLAGS {
   WINBOOL fInherit;
@@ -5677,9 +4394,15 @@ typedef struct _WIN32_FIND_DATAW {
   WCHAR    cAlternateFileName[ 14 ];
 } WIN32_FIND_DATAW, *LPWIN32_FIND_DATAW, *PWIN32_FIND_DATAW;
 
-typedef_tident(WIN32_FIND_DATA)
-typedef_tident(PWIN32_FIND_DATA)
-typedef_tident(LPWIN32_FIND_DATA)
+#ifdef UNICODE
+#define WIN32_FIND_DATA WIN32_FIND_DATAW
+#define PWIN32_FIND_DATA PWIN32_FIND_DATAW
+#define LPWIN32_FIND_DATA LPWIN32_FIND_DATAW
+#else
+#define WIN32_FIND_DATA WIN32_FIND_DATAA
+#define PWIN32_FIND_DATA PWIN32_FIND_DATAA
+#define LPWIN32_FIND_DATA LPWIN32_FIND_DATAA
+#endif
 
 typedef struct _WIN32_STREAM_ID {
   DWORD dwStreamId;
@@ -5724,7 +4447,11 @@ typedef struct _WNDCLASSW {
   LPCWSTR lpszClassName;
 } WNDCLASSW, *LPWNDCLASSW;
 
-typedef_tident(WNDCLASS)
+#ifdef UNICODE
+typedef WNDCLASSW WNDCLASS;
+#else
+typedef WNDCLASSA WNDCLASS;
+#endif
 
 typedef struct _WNDCLASSEXA {
   UINT    cbSize;
@@ -5756,45 +4483,27 @@ typedef struct _WNDCLASSEXW {
   HICON   hIconSm;
 } WNDCLASSEXW, *LPWNDCLASSEXW;
 
-typedef_tident(WNDCLASSEX)
+#ifdef UNICODE
+typedef WNDCLASSEXW WNDCLASSEX;
+#else
+typedef WNDCLASSEXA WNDCLASSEX;
+#endif
 
-typedef struct _CONNECTDLGSTRUCTA {
-  DWORD          cbStructure;
-  HWND           hwndOwner;
-  LPNETRESOURCEA lpConnRes;
-  DWORD          dwFlags;
-  DWORD          dwDevNum;
-} CONNECTDLGSTRUCTA, *LPCONNECTDLGSTRUCTA;
+typedef struct _CONNECTDLGSTRUCT {
+  DWORD cbStructure;
+  HWND hwndOwner;
+  LPNETRESOURCE lpConnRes;
+  DWORD dwFlags;
+  DWORD dwDevNum;
+} CONNECTDLGSTRUCT, *LPCONNECTDLGSTRUCT;
 
-typedef struct _CONNECTDLGSTRUCTW {
-  DWORD          cbStructure;
-  HWND           hwndOwner;
-  LPNETRESOURCEW lpConnRes;
-  DWORD          dwFlags;
-  DWORD          dwDevNum;
-} CONNECTDLGSTRUCTW, *LPCONNECTDLGSTRUCTW;
-
-typedef_tident(CONNECTDLGSTRUCT)
-typedef_tident(LPCONNECTDLGSTRUCT)
-
-typedef struct _DISCDLGSTRUCTA {
+typedef struct _DISCDLGSTRUCT {
   DWORD           cbStructure;
   HWND            hwndOwner;
-  LPSTR           lpLocalName;
-  LPSTR           lpRemoteName;
+  LPTSTR           lpLocalName;
+  LPTSTR           lpRemoteName;
   DWORD           dwFlags;
-} DISCDLGSTRUCTA, *LPDISCDLGSTRUCTA;
-
-typedef struct _DISCDLGSTRUCTW {
-  DWORD           cbStructure;
-  HWND            hwndOwner;
-  LPWSTR          lpLocalName;
-  LPWSTR          lpRemoteName;
-  DWORD           dwFlags;
-} DISCDLGSTRUCTW, *LPDISCDLGSTRUCTW;
-
-typedef_tident(DISCDLGSTRUCT)
-typedef_tident(LPDISCDLGSTRUCT)
+} DISCDLGSTRUCT, *LPDISCDLGSTRUCT;
 
 typedef struct _NETINFOSTRUCT{
     DWORD cbStructure;
@@ -5815,26 +4524,38 @@ typedef struct _NETCONNECTINFOSTRUCT{
   DWORD dwOptDataSize;
 } NETCONNECTINFOSTRUCT, *LPNETCONNECTINFOSTRUCT;
 
-typedef int (CALLBACK *ENUMMETAFILEPROC) (HDC, HANDLETABLE,
+typedef int CALLBACK (*ENUMMETAFILEPROC) (HDC, HANDLETABLE,
 					  METARECORD, int, LPARAM);
-typedef int (CALLBACK *ENHMETAFILEPROC) (HDC, HANDLETABLE,
+typedef int CALLBACK (*ENHMETAFILEPROC) (HDC, HANDLETABLE,
 					 ENHMETARECORD, int, LPARAM);
 
-typedef int (CALLBACK *ENUMFONTSPROCA) (LPLOGFONTA, LPTEXTMETRICA, DWORD, LPARAM);
-typedef int (CALLBACK *ENUMFONTSPROCW) (LPLOGFONTW, LPTEXTMETRICW, DWORD, LPARAM);
-typedef_tident(ENUMFONTSPROC)
-typedef int (CALLBACK *FONTENUMPROCA) (ENUMLOGFONTA *, NEWTEXTMETRICA *,
+typedef int CALLBACK (*ENUMFONTSPROCA) (LPLOGFONTA, LPTEXTMETRICA, DWORD, LPARAM);
+typedef int CALLBACK (*ENUMFONTSPROCW) (LPLOGFONTW, LPTEXTMETRICW, DWORD, LPARAM);
+#ifdef UNICODE
+typedef ENUMFONTSPROCW ENUMFONTSPROC;
+#else
+typedef ENUMFONTSPROCA ENUMFONTSPROC;
+#endif
+typedef int CALLBACK (*FONTENUMPROCA) (ENUMLOGFONTA *, NEWTEXTMETRICA *,
 				       int, LPARAM);
-typedef int (CALLBACK *FONTENUMPROCW) (ENUMLOGFONTW *, NEWTEXTMETRICW *,
+typedef int CALLBACK (*FONTENUMPROCW) (ENUMLOGFONTW *, NEWTEXTMETRICW *,
 				       int, LPARAM);
-typedef_tident(FONTENUMPROC)
-typedef int (CALLBACK *FONTENUMEXPROCA) (ENUMLOGFONTEXA *, NEWTEXTMETRICEXA *,
+#ifdef UNICODE
+typedef FONTENUMPROCW FONTENUMPROC;
+#else
+typedef FONTENUMPROCA FONTENUMPROC;
+#endif
+typedef int CALLBACK (*FONTENUMEXPROCA) (ENUMLOGFONTEXA *, NEWTEXTMETRICEXA *,
 				         int, LPARAM);
-typedef int (CALLBACK *FONTENUMEXPROCW) (ENUMLOGFONTEXW *, NEWTEXTMETRICEXW *,
+typedef int CALLBACK (*FONTENUMEXPROCW) (ENUMLOGFONTEXW *, NEWTEXTMETRICEXW *,
 				         int, LPARAM);
-typedef_tident(FONTENUMEXPROC)
+#ifdef UNICODE
+typedef FONTENUMEXPROCW FONTENUMEXPROC;
+#else
+typedef FONTENUMEXPROCA FONTENUMEXPROC;
+#endif
 
-typedef VOID (CALLBACK *LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD,
+typedef VOID CALLBACK (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD,
 							  LPOVERLAPPED);
 
 /*
@@ -6007,7 +4728,7 @@ typedef struct _DISPLAY_DEVICE {
 typedef HANDLE HMONITOR;
 typedef HANDLE HDEVNOTIFY;
 
-typedef BOOL (CALLBACK *MonitorEnumProc)(
+typedef BOOL CALLBACK (*MonitorEnumProc)(
   HMONITOR hMonitor,
   HDC hdcMonitor,
   LPRECT lprcMonitor,
@@ -6123,17 +4844,11 @@ typedef struct tagTITLEBARINFO {
   DWORD rgstate[CCHILDREN_TITLEBAR+1];
 } TITLEBARINFO, *PTITLEBARINFO, *LPTITLEBARINFO;
 
-typedef struct tagWINDOWINFO {
-  DWORD   cbSize;
-  RECT    rcWindow;
-  RECT    rcClient;
-  DWORD   dwStyle;
-  DWORD   dwExStyle;
-  DWORD   dwWindowStatus;
-  UINT    cxWindowBorders;
-  UINT    cyWindowBorders;
-  ATOM    atomWindowType;
-  WORD    wCreatorVersion;
+typedef struct {
+  HWND hwnd;
+  LPCTSTR szWindowName;
+  UINT32 fToBeClosed;
+  UINT32 fToBeTerminated;
 } WINDOWINFO, *PWINDOWINFO, *LPWINDOWINFO;
 
 typedef struct tagMOUSEINPUT {
@@ -6176,79 +4891,6 @@ typedef struct tagTRACKMOUSEEVENT {
   DWORD dwHoverTime;
 } TRACKMOUSEEVENT, *LPTRACKMOUSEEVENT;
 
-typedef IMAGE_THUNK_DATA *          PImgThunkData;
-typedef const IMAGE_THUNK_DATA *    PCImgThunkData;
-
-typedef struct ImgDelayDescr {
-    DWORD           grAttrs;
-    LPCSTR          szName;
-    HMODULE *       phmod;
-    PImgThunkData   pIAT;
-    PCImgThunkData  pINT;
-    PCImgThunkData  pBoundIAT;
-    PCImgThunkData  pUnloadIAT;
-    DWORD           dwTimeStamp;
-    } ImgDelayDescr, * PImgDelayDescr;
-
-typedef const ImgDelayDescr *   PCImgDelayDescr;
-
-typedef struct DelayLoadProc {
-    BOOL                fImportByName;
-    union {
-        LPCSTR          szProcName;
-        DWORD           dwOrdinal;
-        };
-    } DelayLoadProc;
-
-typedef struct DelayLoadInfo {
-    DWORD               cb;
-    PCImgDelayDescr     pidd;
-    FARPROC *           ppfn;
-    LPCSTR              szDll;
-    DelayLoadProc       dlp;
-    HMODULE             hmodCur;
-    FARPROC             pfnCur;
-    DWORD               dwLastError;
-    } DelayLoadInfo, * PDelayLoadInfo;
-
-typedef struct _RTL_HEAP_TAG_INFO {
-	ULONG AllocCount;
-	ULONG FreeCount;
-	ULONG MemoryUsed;
-} RTL_HEAP_TAG_INFO, *LPRTL_HEAP_TAG_INFO, *PRTL_HEAP_TAG_INFO;
-
-typedef struct _PORT_MESSAGE {
-	USHORT DataSize;
-	USHORT MessageSize;
-	USHORT MessageType;
-	USHORT VirtualRangesOffset;
-	CLIENT_ID ClientId;
-	ULONG MessageId;
-	ULONG SectionSize;
-//	UCHAR Data [];
-} PORT_MESSAGE,*PPORT_MESSAGE;
-
-typedef struct _PORT_SECTION_WRITE {
-	ULONG Length;
-	HANDLE SectionHandle;
-	ULONG SectionOffset;
-	ULONG ViewSize;
-	PVOID ViewBase;
-	PVOID TargetViewBase;
-} PORT_SECTION_WRITE,*PPORT_SECTION_WRITE;
-
-typedef struct _PORT_SECTION_READ {
-	ULONG Length;
-	ULONG ViewSize;
-	ULONG ViewBase;
-} PORT_SECTION_READ,*PPORT_SECTION_READ;
-
-typedef struct _FILE_QUOTA_LIST_INFORMATION {
-	ULONG NextEntryOffset;
-	ULONG SidLength;
-	SID Sid [1 ];
-} FILE_QUOTA_LIST_INFORMATION,*PFILE_QUOTA_LIST_INFORMATION;
-
 typedef struct _BLENDFUNCTION {
   BYTE     BlendOp;
   BYTE     BlendFlags;
@@ -6269,17 +4911,6 @@ typedef struct _WIN32_FILE_ATTRIBUTES_DATA {
     DWORD    nFileSizeLow;
 } WIN32_FILE_ATTRIBUTE_DATA, *LPWIN32_FILE_ATTRIBUTE_DATA;
 
-typedef struct _GRADIENT_TRIANGLE {
-  ULONG Vertex1;
-  ULONG Vertex2;
-  ULONG Vertex3;
-} GRADIENT_TRIANGLE, *PGRADIENT_TRIANGLE, *LPGRADIENT_TRIANGLE;
-
-typedef struct _GRADIENT_RECT {
-  ULONG UpperLeft;
-  ULONG LowerRight;
-} GRADIENT_RECT, *PGRADIENT_RECT, *LPGRADIENT_RECT;
-
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
@@ -6287,3 +4918,5 @@ typedef struct _GRADIENT_RECT {
 #endif /* WIN32_LEAN_AND_MEAN */
 
 #endif /* _GNU_H_WINDOWS32_STRUCTURES */
+
+

@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: dirctl.c,v 1.9 2004/12/23 12:38:41 ekohl Exp $
+/* $Id: dirctl.c,v 1.5 2003/02/13 22:24:16 hbirr Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -29,7 +29,7 @@
 
 #include <ddk/ntddk.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #include "ntfs.h"
@@ -492,7 +492,7 @@ NtfsQueryDirectory(PDEVICE_OBJECT DeviceObject,
   PFILE_NAMES_INFORMATION Buffer0 = NULL;
   PFCB Fcb;
   PCCB Ccb;
-//  FCB TempFcb;
+  FCB TempFcb;
   BOOLEAN First = FALSE;
   PIO_STACK_LOCATION Stack;
   PFILE_OBJECT FileObject;

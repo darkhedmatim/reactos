@@ -1,4 +1,4 @@
-/* $Id: regcontrol.h,v 1.10 2004/12/24 17:45:57 weiden Exp $
+/* $Id: regcontrol.h,v 1.3 2003/06/25 23:59:43 sedwards Exp $
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
@@ -11,28 +11,27 @@
 #ifndef ROS_REGCONTROL_H
 #define ROS_REGCONTROL_H
 
-#define IS_ATOM(x) \
-  (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
+/* Built-in class names (see _Undocumented_Windows_ p.418) */
+#define ICONTITLE_CLASS_ATOM MAKEINTATOMA(32772)  /* IconTitle */
 
 /* Built-in class descriptor */
 struct builtin_class_descr
 {
-    LPCWSTR name;    /* class name */
+    LPCSTR  name;    /* class name */
     UINT    style;   /* class style */
+    WNDPROC procA;   /* ASCII window procedure */
     WNDPROC procW;   /* Unicode window procedure */
-    WNDPROC procA;   /* Ansi window procedure */
     INT     extra;   /* window extra bytes */
-    LPCWSTR cursor;  /* cursor name */
+    LPCSTR  cursor;  /* cursor name */
     HBRUSH  brush;   /* brush or system color */
 };
 
-extern BOOL FASTCALL ControlsInit(LPCWSTR ClassName);
+extern void ControlsInit(void);
 
 extern const struct builtin_class_descr BUTTON_builtin_class;
 extern const struct builtin_class_descr COMBO_builtin_class;
 extern const struct builtin_class_descr COMBOLBOX_builtin_class;
 extern const struct builtin_class_descr DIALOG_builtin_class;
-extern const struct builtin_class_descr POPUPMENU_builtin_class;
 extern const struct builtin_class_descr DESKTOP_builtin_class;
 extern const struct builtin_class_descr EDIT_builtin_class;
 extern const struct builtin_class_descr ICONTITLE_builtin_class;

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    I/O stream support (body).                                           */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2004 by                                     */
+/*  Copyright 2000-2001, 2002 by                                           */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -210,7 +210,7 @@
       FT_Memory  memory = stream->memory;
 
 
-      if ( FT_QALLOC( stream->base, count ) )
+      if ( FT_ALLOC( stream->base, count ) )
         goto Exit;
 
       /* read it */
@@ -770,15 +770,15 @@
       p = (FT_Byte*)structure + fields->offset;
       switch ( fields->size )
       {
-      case (8 / FT_CHAR_BIT):
+      case 1:
         *(FT_Byte*)p = (FT_Byte)value;
         break;
 
-      case (16 / FT_CHAR_BIT):
+      case 2:
         *(FT_UShort*)p = (FT_UShort)value;
         break;
 
-      case (32 / FT_CHAR_BIT):
+      case 4:
         *(FT_UInt32*)p = (FT_UInt32)value;
         break;
 

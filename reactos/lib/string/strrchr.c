@@ -1,8 +1,22 @@
-/* $Id: strrchr.c,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/*
+ * $Id: strrchr.c,v 1.1 2003/05/27 18:56:15 hbirr Exp $
  */
 
-#define _XINT int
 #include <string.h>
-#include "tcsrchr.h"
 
-/* EOF */
+char *
+strrchr(const char *s, int c)
+{
+  char cc = c;
+  const char *sp=(char *)0;
+  while (*s)
+  {
+    if (*s == cc)
+      sp = s;
+    s++;
+  }
+  if (cc == 0)
+    sp = s;
+  return (char *)sp;
+}
+

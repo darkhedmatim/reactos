@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: input.c,v 1.27 2004/12/28 08:58:35 gvg Exp $
+/* $Id: input.c,v 1.6 2003/05/12 19:30:00 jfilby Exp $
  *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
@@ -28,29 +28,12 @@
 
 /* INCLUDES ******************************************************************/
 
-#include "user32.h"
+#include <windows.h>
+#include <user32.h>
 #include <debug.h>
-#include <wchar.h>
 
 /* FUNCTIONS *****************************************************************/
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-DragDetect(
-  HWND hWnd,
-  POINT pt)
-{
-  return NtUserDragDetect(hWnd, pt.x, pt.y);
-}
-
-
-/*
- * @unimplemented
- */
 HKL STDCALL
 ActivateKeyboardLayout(HKL hkl,
 		       UINT Flags)
@@ -59,38 +42,21 @@ ActivateKeyboardLayout(HKL hkl,
   return (HKL)0;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-BlockInput(BOOL fBlockIt)
+WINBOOL STDCALL
+BlockInput(WINBOOL fBlockIt)
 {
-  return NtUserBlockInput(fBlockIt);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 EnableWindow(HWND hWnd,
-	     BOOL bEnable)
+	     WINBOOL bEnable)
 {
-    LONG Style = NtUserGetWindowLong(hWnd, GWL_STYLE, FALSE);
-    Style = bEnable ? Style & ~WS_DISABLED : Style | WS_DISABLED;
-    NtUserSetWindowLong(hWnd, GWL_STYLE, Style, FALSE);
-    
-    SendMessageA(hWnd, WM_ENABLE, (LPARAM) IsWindowEnabled(hWnd), 0);
-    
-    // Return nonzero if it was disabled, or zero if it wasn't:
-    return IsWindowEnabled(hWnd);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
 SHORT STDCALL
 GetAsyncKeyState(int vKey)
 {
@@ -98,21 +64,6 @@ GetAsyncKeyState(int vKey)
   return 0;
 }
 
-
-/*
- * @implemented
- */
-UINT
-STDCALL
-GetDoubleClickTime(VOID)
-{
-  return NtUserGetDoubleClickTime();
-}
-
-
-/*
- * @unimplemented
- */
 HKL STDCALL
 GetKeyboardLayout(DWORD idThread)
 {
@@ -120,10 +71,12 @@ GetKeyboardLayout(DWORD idThread)
   return (HKL)0;
 }
 
+WINBOOL STDCALL GetInputState(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
 
-/*
- * @unimplemented
- */
 UINT STDCALL
 GetKBCodePage(VOID)
 {
@@ -131,60 +84,31 @@ GetKBCodePage(VOID)
   return 0;
 }
 
-
-/*
- * @implemented
- */
 int STDCALL
 GetKeyNameTextA(LONG lParam,
 		LPSTR lpString,
 		int nSize)
 {
-  LPWSTR intermediateString = 
-    HeapAlloc(GetProcessHeap(),0,nSize * sizeof(WCHAR));
-  int ret = 0;
-  UINT wstrLen = 0;
-  BOOL defChar = FALSE;
-
-  if( !intermediateString ) return 0;
-  ret = GetKeyNameTextW(lParam,intermediateString,nSize);
-  if( ret == 0 ) { lpString[0] = 0; return 0; }
-  
-  wstrLen = wcslen( intermediateString );
-  ret = WideCharToMultiByte(CP_ACP, 0, 
-			    intermediateString, wstrLen,
-			    lpString, nSize, ".", &defChar );
-  lpString[ret] = 0;
-  HeapFree(GetProcessHeap(),0,intermediateString);
-
-  return ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
-/*
- * @implemented
- */
 int STDCALL
 GetKeyNameTextW(LONG lParam,
 		LPWSTR lpString,
 		int nSize)
 {
-  return NtUserGetKeyNameText( lParam, lpString, nSize );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 SHORT STDCALL
 GetKeyState(int nVirtKey)
 {
- return (SHORT) NtUserGetKeyState((DWORD) nVirtKey);
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @unimplemented
- */
 UINT STDCALL
 GetKeyboardLayoutList(int nBuff,
 		      HKL FAR *lpList)
@@ -193,43 +117,27 @@ GetKeyboardLayoutList(int nBuff,
   return 0;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardLayoutNameA(LPSTR pwszKLID)
 {
   UNIMPLEMENTED;
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 {
   UNIMPLEMENTED;
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetKeyboardState(PBYTE lpKeyState)
 {
-  
-  return (BOOL) NtUserGetKeyboardState((LPBYTE) lpKeyState);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
 int STDCALL
 GetKeyboardType(int nTypeFlag)
 {
@@ -237,21 +145,13 @@ GetKeyboardType(int nTypeFlag)
   return 0;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 GetLastInputInfo(PLASTINPUTINFO plii)
 {
   UNIMPLEMENTED;
   return FALSE;
 }
 
-
-/*
- * @unimplemented
- */
 HKL STDCALL
 LoadKeyboardLayoutA(LPCSTR pwszKLID,
 		    UINT Flags)
@@ -260,10 +160,6 @@ LoadKeyboardLayoutA(LPCSTR pwszKLID,
   return (HKL)0;
 }
 
-
-/*
- * @unimplemented
- */
 HKL STDCALL
 LoadKeyboardLayoutW(LPCWSTR pwszKLID,
 		    UINT Flags)
@@ -272,56 +168,40 @@ LoadKeyboardLayoutW(LPCWSTR pwszKLID,
   return (HKL)0;
 }
 
-
-/*
- * @implemented
- */
 UINT STDCALL
 MapVirtualKeyA(UINT uCode,
 	       UINT uMapType)
 {
-  return MapVirtualKeyExA( uCode, uMapType, GetKeyboardLayout( 0 ) );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 UINT STDCALL
 MapVirtualKeyExA(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
 {
-  return MapVirtualKeyExW( uCode, uMapType, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 UINT STDCALL
 MapVirtualKeyExW(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
 {
-  return NtUserMapVirtualKeyEx( uCode, uMapType, 0, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 UINT STDCALL
 MapVirtualKeyW(UINT uCode,
 	       UINT uMapType)
 {
-  return MapVirtualKeyExW( uCode, uMapType, GetKeyboardLayout( 0 ) );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @unimplemented
- */
 DWORD STDCALL
 OemKeyScan(WORD wOemChar)
 {
@@ -329,71 +209,13 @@ OemKeyScan(WORD wOemChar)
   return 0;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-RegisterHotKey(HWND hWnd,
-	       int id,
-	       UINT fsModifiers,
-	       UINT vk)
-{
-  return (BOOL)NtUserRegisterHotKey(hWnd,
-                                       id,
-                                       fsModifiers,
-                                       vk);
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SetDoubleClickTime(UINT uInterval)
-{
-  return (BOOL)NtUserSystemParametersInfo(SPI_SETDOUBLECLICKTIME,
-                                             uInterval,
-                                             NULL,
-                                             0);
-}
-
-
-/*
- * @unimplemented
- */
-HWND STDCALL
-SetFocus(HWND hWnd)
-{
-  return NtUserSetFocus(hWnd);
-}
-
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 SetKeyboardState(LPBYTE lpKeyState)
 {
- return (BOOL) NtUserSetKeyboardState((LPBYTE)lpKeyState);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SwapMouseButton(
-  BOOL fSwap)
-{
-  return NtUserSwapMouseButton(fSwap);
-}
-
-
-/*
- * @implemented
- */
 int STDCALL
 ToAscii(UINT uVirtKey,
 	UINT uScanCode,
@@ -401,13 +223,10 @@ ToAscii(UINT uVirtKey,
 	LPWORD lpChar,
 	UINT uFlags)
 {
-  return ToAsciiEx(uVirtKey, uScanCode, lpKeyState, lpChar, uFlags, 0);
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 int STDCALL
 ToAsciiEx(UINT uVirtKey,
 	  UINT uScanCode,
@@ -416,20 +235,10 @@ ToAsciiEx(UINT uVirtKey,
 	  UINT uFlags,
 	  HKL dwhkl)
 {
-  WCHAR UniChars[2];
-  int Ret, CharCount;
-
-  Ret = ToUnicodeEx(uVirtKey, uScanCode, lpKeyState, UniChars, 2, uFlags, dwhkl);
-  CharCount = (Ret < 0 ? 1 : Ret);
-  WideCharToMultiByte(CP_ACP, 0, UniChars, CharCount, (LPSTR) lpChar, 2, NULL, NULL);
-
-  return Ret;
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 int STDCALL
 ToUnicode(UINT wVirtKey,
 	  UINT wScanCode,
@@ -438,14 +247,10 @@ ToUnicode(UINT wVirtKey,
 	  int cchBuff,
 	  UINT wFlags)
 {
-  return ToUnicodeEx( wVirtKey, wScanCode, lpKeyState, pwszBuff, cchBuff, 
-		      wFlags, 0 );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @unimplemented
- */
 int STDCALL
 ToUnicodeEx(UINT wVirtKey,
 	    UINT wScanCode,
@@ -455,89 +260,47 @@ ToUnicodeEx(UINT wVirtKey,
 	    UINT wFlags,
 	    HKL dwhkl)
 {
-  return NtUserToUnicodeEx( wVirtKey, wScanCode, lpKeyState, pwszBuff, cchBuff,
-			    wFlags, dwhkl );
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @unimplemented
- */
-BOOL STDCALL
+WINBOOL STDCALL
 UnloadKeyboardLayout(HKL hkl)
 {
   UNIMPLEMENTED;
   return FALSE;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-UnregisterHotKey(HWND hWnd,
-		 int id)
-{
-  return (BOOL)NtUserUnregisterHotKey(hWnd, id);
-}
-
-
-/*
- * @implemented
- */
 SHORT STDCALL
 VkKeyScanA(CHAR ch)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanW(wChar);
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 SHORT STDCALL
 VkKeyScanExA(CHAR ch,
 	     HKL dwhkl)
 {
-  WCHAR wChar;
-
-  if (IsDBCSLeadByte(ch)) return -1;
-
-  MultiByteToWideChar(CP_ACP, 0, &ch, 1, &wChar, 1);
-  return VkKeyScanExW(wChar, dwhkl);
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @unimplemented
- */
 SHORT STDCALL
 VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
   UNIMPLEMENTED;
-  return -1;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 SHORT STDCALL
 VkKeyScanW(WCHAR ch)
 {
-  return VkKeyScanExW(ch, GetKeyboardLayout(0));
+  UNIMPLEMENTED;
+  return 0;
 }
 
-
-/*
- * @implemented
- */
 UINT
 STDCALL
 SendInput(
@@ -545,78 +308,6 @@ SendInput(
   LPINPUT pInputs,
   int cbSize)
 {
-  return NtUserSendInput(nInputs, pInputs, cbSize);
+  UNIMPLEMENTED;
+  return 0;
 }
-
-/*
- * Private call for CSRSS
- */
-VOID
-STDCALL
-PrivateCsrssRegisterPrimitive(VOID)
-{
-  NtUserCallNoParam(NOPARAM_ROUTINE_REGISTER_PRIMITIVE);
-}
-
-/*
- * Another private call for CSRSS
- */
-VOID
-STDCALL
-PrivateCsrssAcquireOrReleaseInputOwnership(BOOL Release)
-{
-  NtUserAcquireOrReleaseInputOwnership(Release);
-}
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-keybd_event(
-	    BYTE bVk,
-	    BYTE bScan,
-	    DWORD dwFlags,
-	    ULONG_PTR dwExtraInfo)
-
-
-{
-  INPUT Input;
-  
-  Input.type = INPUT_KEYBOARD;
-  Input.ki.wVk = bVk;
-  Input.ki.wScan = bScan;
-  Input.ki.dwFlags = dwFlags;
-  Input.ki.time = 0;
-  Input.ki.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-}
-
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-mouse_event(
-	    DWORD dwFlags,
-	    DWORD dx,
-	    DWORD dy,
-	    DWORD dwData,
-	    ULONG_PTR dwExtraInfo)
-{
-  INPUT Input;
-  
-  Input.type = INPUT_MOUSE;
-  Input.mi.dx = dx;
-  Input.mi.dy = dy;
-  Input.mi.mouseData = dwData;
-  Input.mi.dwFlags = dwFlags;
-  Input.mi.time = 0;
-  Input.mi.dwExtraInfo = dwExtraInfo;
-  
-  NtUserSendInput(1, &Input, sizeof(INPUT));
-}
-
-/* EOF */

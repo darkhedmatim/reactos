@@ -1,203 +1,263 @@
-#include "precomp.h"
+#ifdef UNICODE
+#undef UNICODE
+#endif
 
+#undef WIN32_LEAN_AND_MEAN
+#include <string.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+#include <win32k/kapi.h>
 
-/*
- * @implemented
- */
 BOOL  
 STDCALL 
 TextOutA(
-	HDC  hdc,
-	int  nXStart,
-	int  nYStart,
-	LPCSTR  lpString,
-	int  cbString)
+	HDC  hDC,
+	int  XStart,
+	int  YStart,
+	LPCSTR  String,
+	int  Count)
 {
         ANSI_STRING StringA;
         UNICODE_STRING StringU;
 	BOOL ret;
 
-	if (NULL != lpString)
+	if (NULL != String)
 	{
-		RtlInitAnsiString(&StringA, (LPSTR)lpString);
+		RtlInitAnsiString(&StringA, (LPSTR)String);
 		RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 	} else
 		StringU.Buffer = NULL;
 
-	ret = TextOutW(hdc, nXStart, nYStart, StringU.Buffer, cbString);
+	ret = TextOutW(hDC, XStart, YStart, StringU.Buffer, Count);
 	RtlFreeUnicodeString(&StringU);
 	return ret;
 }
 
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 TextOutW(
-	HDC  hdc,
-	int  nXStart,
-	int  nYStart,
-	LPCWSTR  lpString,
-	int  cbString)
+	HDC  hDC,
+	int  XStart,
+	int  YStart,
+	LPCWSTR  String,
+	int  Count)
 {
-  return NtGdiTextOut(hdc, nXStart, nYStart, lpString, cbString);
+	return W32kTextOut(hDC, XStart, YStart, String, Count);
 }
 
+COLORREF  STDCALL 
+SetTextColor(HDC hDC, COLORREF color)
+{
+  return(W32kSetTextColor(hDC, color));
+}
 
-/*
- * @implemented
- */
+static BOOL
+MetricsCharConvert(WCHAR w, BCHAR *b)
+  {
+  UNICODE_STRING WString;
+  WCHAR WBuf[2];
+  ANSI_STRING AString;
+  CHAR ABuf[2];
+  NTSTATUS Status;
+
+  if (L'\0' == w)
+    {
+      *b = '\0';
+    }
+  else
+    {
+      WBuf[0] = w;
+      WBuf[1] = L'\0';
+      RtlInitUnicodeString(&WString, WBuf);
+      ABuf[0] = '*';
+      ABuf[1] = L'\0';
+      RtlInitAnsiString(&AString, ABuf);
+
+      Status = RtlUnicodeStringToAnsiString(&AString, &WString, FALSE);
+      if (! NT_SUCCESS(Status))
+	{
+	  SetLastError(RtlNtStatusToDosError(Status));
+	  return FALSE;
+	}
+      *b = ABuf[0];
+    }
+
+  return TRUE;
+  }
+
 BOOL 
 STDCALL 
 GetTextMetricsA(
 	HDC		hdc, 
-	LPTEXTMETRICA	lptm
+	LPTEXTMETRICA	tm
 	)
 {
   TEXTMETRICW tmw;
+  UNICODE_STRING WString;
+  WCHAR WBuf[256];
+  ANSI_STRING AString;
+  CHAR ABuf[256];
+  UINT Letter;
+  NTSTATUS Status;
 
-  if (! NtGdiGetTextMetrics(hdc, &tmw))
+  if (! W32kGetTextMetrics(hdc, &tmw))
     {
       return FALSE;
     }
 
-  return TextMetricW2A(lptm, &tmw);
+  tm->tmHeight = tmw.tmHeight;
+  tm->tmAscent = tmw.tmAscent;
+  tm->tmDescent = tmw.tmDescent;
+  tm->tmInternalLeading = tmw.tmInternalLeading;
+  tm->tmExternalLeading = tmw.tmExternalLeading;
+  tm->tmAveCharWidth = tmw.tmAveCharWidth;
+  tm->tmMaxCharWidth = tmw.tmMaxCharWidth;
+  tm->tmWeight = tmw.tmWeight;
+  tm->tmOverhang = tmw.tmOverhang;
+  tm->tmDigitizedAspectX = tmw.tmDigitizedAspectX;
+  tm->tmDigitizedAspectY = tmw.tmDigitizedAspectY;
+
+  /* The Unicode FirstChar/LastChar need not correspond to the ANSI
+     FirstChar/LastChar. For example, if the font contains glyphs for
+     letters A-Z and an accented version of the letter e, the Unicode
+     FirstChar would be A and the Unicode LastChar would be the accented
+     e. If you just translate those to ANSI, the range would become
+     letters A-E instead of A-Z.
+     We translate all possible ANSI chars to Unicode and find the first
+     and last translated character which fall into the Unicode FirstChar/
+     LastChar range and return the corresponding ANSI char. */
+
+  /* Setup an Ansi string containing all possible letters (note: skip '\0' at
+     the beginning since that would be interpreted as end-of-string, handle
+     '\0' special later */
+  for (Letter = 1; Letter < 256; Letter++)
+    {
+    ABuf[Letter - 1] = (CHAR) Letter;
+    WBuf[Letter - 1] = L' ';
+    }
+  ABuf[255] = '\0';
+  WBuf[255] = L'\0';
+  RtlInitAnsiString(&AString, ABuf);
+  RtlInitUnicodeString(&WString, WBuf);
+
+  /* Find the corresponding Unicode characters */
+  Status = RtlAnsiStringToUnicodeString(&WString, &AString, FALSE);
+  if (! NT_SUCCESS(Status))
+    {
+      SetLastError(RtlNtStatusToDosError(Status));
+      return FALSE;
+    }
+
+  /* Scan for the first ANSI character which maps to an Unicode character
+     in the range */
+  tm->tmFirstChar = '\0';
+  if (L'\0' != tmw.tmFirstChar)
+    {
+      for (Letter = 1; Letter < 256; Letter++)
+	{
+	  if (tmw.tmFirstChar <= WBuf[Letter - 1] &&
+	      WBuf[Letter - 1] <= tmw.tmLastChar)
+	    {
+	      tm->tmFirstChar = (CHAR) Letter;
+	      break;
+	    }
+	}
+    }
+
+  /* Scan for the last ANSI character which maps to an Unicode character
+     in the range */
+  tm->tmLastChar = '\0';
+  if (L'\0' != tmw.tmLastChar)
+    {
+      for (Letter = 255; 0 < Letter; Letter--)
+	{
+	  if (tmw.tmFirstChar <= WBuf[Letter - 1] &&
+	      WBuf[Letter - 1] <= tmw.tmLastChar)
+	    {
+	      tm->tmLastChar = (CHAR) Letter;
+	      break;
+	    }
+	}
+    }
+
+  if (! MetricsCharConvert(tmw.tmDefaultChar, &tm->tmDefaultChar) ||
+      ! MetricsCharConvert(tmw.tmBreakChar, &tm->tmBreakChar))
+    {
+      return FALSE;
+    }
+
+  tm->tmItalic = tmw.tmItalic;
+  tm->tmUnderlined = tmw.tmUnderlined;
+  tm->tmStruckOut = tmw.tmStruckOut;
+  tm->tmPitchAndFamily = tmw.tmPitchAndFamily;
+  tm->tmCharSet = tmw.tmCharSet;
+
+  return TRUE;
 }
 
-
-/*
- * @implemented
- */
 BOOL 
 STDCALL 
 GetTextMetricsW(
 	HDC		hdc, 
-	LPTEXTMETRICW	lptm
+	LPTEXTMETRICW	tm
 	)
 {
-  return NtGdiGetTextMetrics(hdc, lptm);
+	return W32kGetTextMetrics(hdc, tm);
 }
 
-
-/*
- * @implemented
- */
 BOOL
 APIENTRY
 GetTextExtentPointA(
-	HDC		hdc,
-	LPCSTR		lpString,
-	int		cbString,
-	LPSIZE		lpSize
+	HDC		hDC,
+	LPCSTR		String,
+	int		Count,
+	LPSIZE		Size
 	)
 {
         ANSI_STRING StringA;
         UNICODE_STRING StringU;
 	BOOL ret;
 
-	RtlInitAnsiString(&StringA, (LPSTR)lpString);
+	RtlInitAnsiString(&StringA, (LPSTR)String);
 	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-        ret = GetTextExtentPointW(hdc, StringU.Buffer, cbString, lpSize);
+        ret = GetTextExtentPointW(hDC, StringU.Buffer, Count, Size);
 
 	RtlFreeUnicodeString(&StringU);
 
 	return ret;
 }
 
-
-/*
- * @implemented
- */
 BOOL
 APIENTRY
 GetTextExtentPointW(
-	HDC		hdc,
-	LPCWSTR		lpString,
-	int		cbString,
-	LPSIZE		lpSize
+	HDC		hDC,
+	LPCWSTR		String,
+	int		Count,
+	LPSIZE		Size
 	)
 {
-  return NtGdiGetTextExtentPoint(hdc, lpString, cbString, lpSize);
+	return W32kGetTextExtentPoint(hDC, String, Count, Size);
 }
 
 
-/*
- * @implemented
- */
-BOOL
-APIENTRY
-GetTextExtentExPointW(
-	HDC		hdc,
-	LPCWSTR		lpszStr,
-	int		cchString,
-	int		nMaxExtent,
-	LPINT		lpnFit,
-	LPINT		alpDx,
-	LPSIZE		lpSize
-	)
-{
-  return NtGdiGetTextExtentExPoint (
-    hdc, lpszStr, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
-}
-
-
-/*
- * @implemented
- */
-BOOL
-APIENTRY
-GetTextExtentExPointA(
-	HDC		hdc,
-	LPCSTR		lpszStr,
-	int		cchString,
-	int		nMaxExtent,
-	LPINT		lpnFit,
-	LPINT		alpDx,
-	LPSIZE		lpSize
-	)
-{
-  NTSTATUS Status;
-  LPWSTR lpszStrW;
-  BOOL rc = 0;
-
-  Status = HEAP_strdupA2W ( &lpszStrW, lpszStr );
-  if (!NT_SUCCESS (Status))
-    SetLastError (RtlNtStatusToDosError(Status));
-  else
-  {
-    rc = NtGdiGetTextExtentExPoint (
-      hdc, lpszStrW, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
-
-    HEAP_free ( lpszStrW );
-  }
-
-  return rc;
-}
-
-
-/*
- * @implemented
- */
 BOOL
 APIENTRY
 GetTextExtentPoint32A(
-	HDC		hdc,
-	LPCSTR		lpString,
-	int		cbString,
-	LPSIZE		lpSize
+	HDC		hDC,
+	LPCSTR		String,
+	int		Count,
+	LPSIZE		Size
 	)
 {
   ANSI_STRING StringA;
   UNICODE_STRING StringU;
   BOOL ret;
 
-  RtlInitAnsiString(&StringA, (LPSTR)lpString);
+  RtlInitAnsiString(&StringA, (LPSTR)String);
   RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-  ret = GetTextExtentPoint32W(hdc, StringU.Buffer, cbString, lpSize);
+  ret = GetTextExtentPoint32W(hDC, StringU.Buffer, Count, Size);
 
   RtlFreeUnicodeString(&StringU);
 
@@ -205,107 +265,147 @@ GetTextExtentPoint32A(
 }
 
 
-/*
- * @implemented
- */
 BOOL
 APIENTRY
 GetTextExtentPoint32W(
-	HDC		hdc,
-	LPCWSTR		lpString,
-	int		cbString,
-	LPSIZE		lpSize
+	HDC		hDC,
+	LPCWSTR		String,
+	int		Count,
+	LPSIZE		Size
 	)
 {
-  return NtGdiGetTextExtentPoint32(hdc, lpString, cbString, lpSize);
+  return W32kGetTextExtentPoint32(hDC, String, Count, Size);
 }
 
-
-/*
- * @implemented
- */
 BOOL  
 STDCALL 
 ExtTextOutA(
-	HDC		hdc, 
+	HDC		hDC, 
 	int		X, 
 	int		Y, 
-	UINT		fuOptions, 
-	CONST RECT	*lprc,
-	LPCSTR		lpString, 
-	UINT		cbCount, 
-	CONST INT	*lpDx
+	UINT		Options, 
+	CONST RECT	*Rect,
+	LPCSTR		String, 
+	UINT		Count, 
+	CONST INT	*Spacings
 	)
 {
         ANSI_STRING StringA;
         UNICODE_STRING StringU;
 	BOOL ret;
 
-	RtlInitAnsiString(&StringA, (LPSTR)lpString);
+	RtlInitAnsiString(&StringA, (LPSTR)String);
 	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-        ret = ExtTextOutW(hdc, X, Y, fuOptions, lprc, StringU.Buffer, cbCount, lpDx);
+        ret = ExtTextOutW(hDC, X, Y, Options, Rect, StringU.Buffer, Count, Spacings);
 
 	RtlFreeUnicodeString(&StringU);
 
 	return ret;
 }
 
-
-/*
- * @implemented
- */
 BOOL  
 STDCALL 
 ExtTextOutW(
-	HDC		hdc, 
+	HDC		hDC, 
 	int		X, 
 	int		Y, 
-	UINT		fuOptions,	 
-	CONST RECT	*lprc,
-	LPCWSTR		lpString, 
-	UINT		cbCount, 
-	CONST INT	*lpDx
+	UINT		Options,	 
+	CONST RECT	*Rect,
+	LPCWSTR		String, 
+	UINT		Count, 
+	CONST INT	*Spacings
 	)
 {
-  return NtGdiExtTextOut(hdc, X, Y, fuOptions, lprc, lpString, cbCount, lpDx);
+	return W32kTextOut(hDC, X, Y, String, Count);
 }
 
-
-/*
- * @implemented
- */
-int
+HFONT
 STDCALL
-GetTextFaceW(
-	HDC	a0,
-	int	a1,
-	LPWSTR	a2
+CreateFontIndirectA(
+	CONST LOGFONTA		*lf
 	)
 {
-	return NtGdiGetTextFace(a0, a1, a2);
+        ANSI_STRING StringA;
+        UNICODE_STRING StringU;
+	HFONT ret;
+        LOGFONTW tlf;
+
+	RtlInitAnsiString(&StringA, (LPSTR)lf->lfFaceName);
+	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
+        memcpy(&tlf, lf, sizeof(LOGFONTA));
+        memcpy(&tlf.lfFaceName, &StringU.Buffer, StringU.Length);
+
+        ret = CreateFontIndirectW(&tlf);
+
+	RtlFreeUnicodeString(&StringU);
+
+	return ret;
 }
 
-
-/*
- * @implemented
- */
-int
+HFONT
 STDCALL
-GetTextFaceA( HDC hdc, INT count, LPSTR name )
+CreateFontIndirectW(
+	CONST LOGFONTW		*lf
+	)
 {
-    INT res = GetTextFaceW(hdc, 0, NULL);
-    LPWSTR nameW = HeapAlloc( GetProcessHeap(), 0, res * 2 );
-    GetTextFaceW( hdc, res, nameW );
-
-    if (name)
-    {
-        if (count && !WideCharToMultiByte( CP_ACP, 0, nameW, -1, name, count, NULL, NULL))
-            name[count-1] = 0;
-        res = strlen(name);
-    }
-    else
-        res = WideCharToMultiByte( CP_ACP, 0, nameW, -1, NULL, 0, NULL, NULL);
-    HeapFree( GetProcessHeap(), 0, nameW );
-    return res;
+	return W32kCreateFontIndirect((CONST LPLOGFONTW)lf);
 }
+
+HFONT
+STDCALL
+CreateFontA(
+	int	Height,
+	int	Width,
+	int	Escapement,
+	int	Orientation,
+	int	Weight,
+	DWORD	Italic,
+	DWORD	Underline,
+	DWORD	StrikeOut,
+	DWORD	CharSet,
+	DWORD	OutputPrecision,
+	DWORD	ClipPrecision,
+	DWORD	Quality,
+	DWORD	PitchAndFamily,
+	LPCSTR	Face
+	)
+{
+        ANSI_STRING StringA;
+        UNICODE_STRING StringU;
+	HFONT ret;
+
+	RtlInitAnsiString(&StringA, (LPSTR)Face);
+	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
+
+        ret = CreateFontW(Height, Width, Escapement, Orientation, Weight, Italic, Underline, StrikeOut,
+                          CharSet, OutputPrecision, ClipPrecision, Quality, PitchAndFamily, StringU.Buffer);
+
+	RtlFreeUnicodeString(&StringU);
+
+	return ret;
+}
+
+HFONT
+STDCALL
+CreateFontW(
+	int	Height,
+	int	Width,
+	int	Escapement,
+	int	Orientation,
+	int	Weight,
+	DWORD	Italic,
+	DWORD	Underline,
+	DWORD	StrikeOut,
+	DWORD	CharSet,
+	DWORD	OutputPrecision,
+	DWORD	ClipPrecision,
+	DWORD	Quality,
+	DWORD	PitchAndFamily,
+	LPCWSTR	Face
+	)
+{
+	return W32kCreateFont(Height, Width, Escapement, Orientation, Weight, Italic, Underline, StrikeOut,
+                          CharSet, OutputPrecision, ClipPrecision, Quality, PitchAndFamily, Face);
+}
+

@@ -1,4 +1,4 @@
-/* $Id: batch.c,v 1.5 2004/11/08 02:16:06 weiden Exp $
+/* $Id: batch.c,v 1.1 2003/03/20 19:19:22 rcampbell Exp $
  *
  *  BATCH.C - batch file processor for CMD.EXE.
  *
@@ -56,7 +56,16 @@
  *        Fixes made to get "for" working.
  */
 
-#include "precomp.h"
+#include "config.h"
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
+#include "batch.h"
 
 
 /* The stack of current batch contexts.
@@ -84,7 +93,7 @@ LPTSTR FindArg (INT n)
 	LPTSTR pp;
 
 #ifdef _DEBUG
-	DebugPrintf (_T("FindArg: (%d)\n"), n);
+	DebugPrintf ("FindArg: (%d)\n", n);
 #endif
 
 	if (bc == NULL)
@@ -122,7 +131,7 @@ LPTSTR BatchParams (LPTSTR s1, LPTSTR s2)
 
 	if (s1 && *s1)
 	{
-		s1 = _stpcpy (dp, s1);
+		s1 = stpcpy (dp, s1);
 		*s1++ = _T('\0');
 	}
 	else
@@ -171,7 +180,7 @@ LPTSTR BatchParams (LPTSTR s1, LPTSTR s2)
 VOID ExitBatch (LPTSTR msg)
 {
 #ifdef _DEBUG
-	DebugPrintf (_T("ExitBatch: (\'%s\')\n"), msg);
+	DebugPrintf ("ExitBatch: (\'%s\')\n", msg);
 #endif
 
 	if (bc != NULL)
@@ -201,7 +210,7 @@ VOID ExitBatch (LPTSTR msg)
 	}
 
 	if (msg && *msg)
-		ConOutPrintf (_T("%s\n"), msg);
+		ConOutPrintf ("%s\n", msg);
 }
 
 
@@ -221,7 +230,7 @@ BOOL Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param)
 						FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 
 #ifdef _DEBUG
-	DebugPrintf (_T("Batch: (\'%s\', \'%s\', \'%s\')  hFile = %x\n"),
+	DebugPrintf ("Batch: (\'%s\', \'%s\', \'%s\')  hFile = %x\n",
 				 fullname, firstword, param, hFile);
 #endif
 
@@ -267,7 +276,7 @@ BOOL Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param)
 	bc->params = BatchParams (firstword, param);
 
 #ifdef _DEBUG
-	DebugPrintf (_T("Batch: returns TRUE\n"));
+	DebugPrintf ("Batch: returns TRUE\n");
 #endif
 
 	return TRUE;
@@ -296,7 +305,7 @@ LPTSTR ReadBatchLine (LPBOOL bLocalEcho)
 		return NULL;
 
 #ifdef _DEBUG
-	DebugPrintf (_T("ReadBatchLine ()\n"));
+	DebugPrintf ("ReadBatchLine ()\n");
 #endif
 
 	while (1)
@@ -372,7 +381,7 @@ LPTSTR ReadBatchLine (LPBOOL bLocalEcho)
 				if ((*sp == _T('%')) && (*(sp + 1) == bc->forvar))
 				{
 					/* replace % var */
-					dp = _stpcpy (dp, fv);
+					dp = stpcpy (dp, fv);
 					sp += 2;
 				}
 				else

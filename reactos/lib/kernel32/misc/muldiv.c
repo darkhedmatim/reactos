@@ -1,4 +1,4 @@
-/* $Id: muldiv.c,v 1.2 2003/07/10 18:50:51 chorns Exp $
+/* $Id: muldiv.c,v 1.1 2002/12/06 13:14:14 robd Exp $
  *
  */
 #include <windows.h>
@@ -9,10 +9,9 @@
  * RETURNS
  *      Result of multiplication and division
  *      -1: Overflow occurred or Divisor was 0
- * FIXME! move to correct file
- *
- * @implemented
  */
+
+//FIXME! move to correct file
 INT STDCALL MulDiv(
              INT nMultiplicand,
              INT nMultiplier,
@@ -58,3 +57,5 @@ INT STDCALL MulDiv(
 
 #endif
 }
+
+

@@ -1,4 +1,4 @@
-/* $Id: disk.h,v 1.16 2004/08/19 18:12:28 navaraf Exp $
+/* $Id: disk.h,v 1.13 2003/06/22 16:33:44 ekohl Exp $
  *
  * COPYRIGHT:    See COPYING in the top level directory
  * PROJECT:      ReactOS kernel
@@ -65,7 +65,6 @@
 #define PARTITION_PREP                  0x41
 #define PARTITION_LDM                   0x42
 #define PARTITION_UNIX                  0x63
-#define PARTITION_EXT2                  0x83
 
 #define PARTITION_NTFT                  0x80
 #define VALID_NTFT                      0xC0
@@ -78,7 +77,7 @@
 #define PTOLDDOS16Bit                   0x04
 #define PTDosExtended                   0x05
 #define PTDos5xPrimary                  0x06
-#define PTIfs                           0x07	/* e.g.: HPFS, NTFS, etc */
+#define PTIfs                           0x07	// e.g.: HPFS, NTFS, etc
 #define PTAIX                           0x08
 #define PTAIXBootable                   0x09
 #define PTOS2BootMgr                    0x0A
@@ -117,8 +116,7 @@
      (P) == PARTITION_IFS          || \
      (P) == PARTITION_FAT32        || \
      (P) == PARTITION_FAT32_XINT13 || \
-     (P) == PARTITION_XINT13       || \
-     (P) == PARTITION_EXT2)
+     (P) == PARTITION_XINT13)
 
 #define IsContainerPartition(P)  \
     ((P) == PARTITION_EXTENDED || \
@@ -168,16 +166,16 @@ typedef struct _DISK_GEOMETRY
   DWORD BytesPerSector;
 } DISK_GEOMETRY, *PDISK_GEOMETRY;
 
+#ifndef __USE_W32API
+
 typedef struct _DRIVE_LAYOUT_INFORMATION
 {
   DWORD PartitionCount;
   DWORD Signature;
   PARTITION_INFORMATION PartitionEntry[1];
-} DRIVE_LAYOUT_INFORMATION;
+} DRIVE_LAYOUT_INFORMATION, *PDRIVE_LAYOUT_INFORMATION;
 
-#ifndef __USE_W32API
-typedef DRIVE_LAYOUT_INFORMATION *PDRIVE_LAYOUT_INFORMATION;
-#endif
+#endif /* !__USE_W32API */
 
 #endif /* __INCLUDE_DISK_H */
 

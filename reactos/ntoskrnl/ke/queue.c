@@ -16,7 +16,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: queue.c,v 1.12 2004/11/21 18:33:54 gdalsnes Exp $
+/* $Id: queue.c,v 1.6 2003/06/07 11:34:36 chorns Exp $
  *
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/queue.c
@@ -28,16 +28,16 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ke.h>
+#include <internal/id.h>
+#include <internal/ps.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-
-/*
- * @implemented
- */
 VOID STDCALL
 KeInitializeQueue(IN PKQUEUE Queue,
 		  IN ULONG Count OPTIONAL)
@@ -53,20 +53,13 @@ KeInitializeQueue(IN PKQUEUE Queue,
 }
 
 
-/*
- * @implemented
- *
- * Returns number of entries in the queue
- */
 LONG STDCALL
 KeReadStateQueue(IN PKQUEUE Queue)
 {
   return(Queue->Header.SignalState);
 }
 
-/*
- * Returns the previous number of entries in the queue
- */
+
 LONG STDCALL
 KiInsertQueue(
    IN PKQUEUE Queue,
@@ -78,8 +71,11 @@ KiInsertQueue(
   
    DPRINT("KiInsertQueue(Queue %x, Entry %x)\n", Queue, Entry);
    
+   KeAcquireDispatcherDatabaseLock(FALSE);
+   
    InitialState = Queue->Header.SignalState;
-
+   Queue->Header.SignalState++;
+   
    if (Head)
    {
       InsertHeadList(&Queue->EntryListHead, Entry);
@@ -88,189 +84,119 @@ KiInsertQueue(
    {
       InsertTailList(&Queue->EntryListHead, Entry);
    }
-   
-   //inc. num entries in queue
-   Queue->Header.SignalState++;
-   
-   /* Why the KeGetCurrentThread()->Queue != Queue?
-    * KiInsertQueue might be called from an APC for the current thread. 
-    * -Gunnar
-    */
-   if (Queue->CurrentCount < Queue->MaximumCount &&
-       !IsListEmpty(&Queue->Header.WaitListHead) &&
-       KeGetCurrentThread()->Queue != Queue)
+
+   if (Queue->CurrentCount < Queue->MaximumCount && InitialState == 0)
    {
-      KiDispatcherObjectWake(&Queue->Header);
+      KeDispatcherObjectWake(&Queue->Header);
    }
 
+   KeReleaseDispatcherDatabaseLock(FALSE);
    return InitialState;
 }
 
 
 
-/*
- * @implemented
- */
 LONG STDCALL
 KeInsertHeadQueue(IN PKQUEUE Queue,
 		  IN PLIST_ENTRY Entry)
 {
-   LONG Result;
-   KIRQL OldIrql;
-   
-   OldIrql = KeAcquireDispatcherDatabaseLock();
-   Result = KiInsertQueue(Queue,Entry,TRUE);
-   KeReleaseDispatcherDatabaseLock(OldIrql);
-   
-   return Result;
+   return KiInsertQueue(Queue,Entry,TRUE);
 }
 
 
-/*
- * @implemented
- */
 LONG STDCALL
 KeInsertQueue(IN PKQUEUE Queue,
 	      IN PLIST_ENTRY Entry)
 {
-   LONG Result;
-   KIRQL OldIrql;
-   
-   OldIrql = KeAcquireDispatcherDatabaseLock();
-   Result = KiInsertQueue(Queue,Entry,FALSE);
-   KeReleaseDispatcherDatabaseLock(OldIrql);
-   
-   return Result;
+   return KiInsertQueue(Queue,Entry,FALSE);
 }
 
 
-/*
- * @implemented
- */
 PLIST_ENTRY STDCALL
 KeRemoveQueue(IN PKQUEUE Queue,
 	      IN KPROCESSOR_MODE WaitMode,
 	      IN PLARGE_INTEGER Timeout OPTIONAL)
 {
-   
    PLIST_ENTRY ListEntry;
    NTSTATUS Status;
    PKTHREAD Thread = KeGetCurrentThread();
-   KIRQL OldIrql;
 
-   OldIrql = KeAcquireDispatcherDatabaseLock ();
+   KeAcquireDispatcherDatabaseLock(FALSE);
 
+   //assiciate new thread with queue?
    if (Thread->Queue != Queue)
    {
-      /*
-       * INVESTIGATE: What is the Thread->QueueListEntry used for? It's linked it into the
-       * Queue->ThreadListHead when the thread registers with the queue and unlinked when
-       * the thread registers with a new queue. The Thread->Queue already tells us what
-       * queue the thread is registered with.
-       * -Gunnar
-       */
-
-      //unregister thread from previous queue (if any)
-      if (Thread->Queue)
+      //remove association from other queue
+      if (!IsListEmpty(&Thread->QueueListEntry))
       {
          RemoveEntryList(&Thread->QueueListEntry);
-         Thread->Queue->CurrentCount--;
-         
-         if (Thread->Queue->CurrentCount < Thread->Queue->MaximumCount && 
-             !IsListEmpty(&Thread->Queue->EntryListHead))
-         {
-            KiDispatcherObjectWake(&Thread->Queue->Header);
-         }
       }
 
-      // register thread with this queue
-      InsertTailList(&Queue->ThreadListHead, &Thread->QueueListEntry);
+      //associate with this queue
+      InsertHeadList(&Queue->ThreadListHead, &Thread->QueueListEntry);
+      Queue->CurrentCount++;
       Thread->Queue = Queue;
    }
-   else /* if (Thread->Queue == Queue) */
+   
+   if (Queue->CurrentCount <= Queue->MaximumCount && !IsListEmpty(&Queue->EntryListHead))
    {
-      //dec. num running threads
-      Queue->CurrentCount--;
+      ListEntry = RemoveHeadList(&Queue->EntryListHead);
+      Queue->Header.SignalState--;
+      KeReleaseDispatcherDatabaseLock(FALSE);
+      return ListEntry;
    }
-   
-   
-   
-   
-   while (TRUE)
+
+   //need to wait for it...
+   KeReleaseDispatcherDatabaseLock(FALSE);
+
+   Status = KeWaitForSingleObject(Queue,
+                                  WrQueue,
+                                  WaitMode,
+                                  TRUE,//Alertable,
+                                  Timeout);
+
+   if (Status == STATUS_TIMEOUT || Status == STATUS_USER_APC)
    {
-      if (Queue->CurrentCount < Queue->MaximumCount && !IsListEmpty(&Queue->EntryListHead))
-      {
-         ListEntry = RemoveHeadList(&Queue->EntryListHead);
-         //dec. num entries in queue
-         Queue->Header.SignalState--;
-         //inc. num running threads
-         Queue->CurrentCount++;
-         
-         KeReleaseDispatcherDatabaseLock(OldIrql);
-         return ListEntry;
-      }
-      else
-      {
-         //inform KeWaitXxx that we are holding disp. lock
-         Thread->WaitNext = TRUE;
-         Thread->WaitIrql = OldIrql;
-
-         Status = KeWaitForSingleObject(Queue,
-                                        WrQueue,
-                                        WaitMode,
-                                        TRUE, //bAlertable
-                                        Timeout);
-
-         if (Status == STATUS_TIMEOUT || Status == STATUS_USER_APC)
-         {
-            return (PVOID)Status;
-         }
-         
-         OldIrql = KeAcquireDispatcherDatabaseLock ();
-      }
+      return (PVOID)Status;
    }
+   else
+   {
+      KeAcquireDispatcherDatabaseLock(FALSE);
+      ListEntry = RemoveHeadList(&Queue->EntryListHead);
+      KeReleaseDispatcherDatabaseLock(FALSE);
+      return ListEntry;
+   }
+
 }
 
 
-/*
- * @implemented
- */
 PLIST_ENTRY STDCALL
 KeRundownQueue(IN PKQUEUE Queue)
 {
    PLIST_ENTRY EnumEntry;
    PKTHREAD Thread;
-   KIRQL OldIrql;
 
    DPRINT("KeRundownQueue(Queue %x)\n", Queue);
 
-   /* I'm just guessing how this should work:-/
-    * -Gunnar 
-    */
-     
-   OldIrql = KeAcquireDispatcherDatabaseLock ();
+   //FIXME: should we wake thread waiting on a queue? 
 
-   //no thread must wait on queue at rundown
-   ASSERT(IsListEmpty(&Queue->Header.WaitListHead));
-   
-   // unlink threads and clear their Thread->Queue
+   KeAcquireDispatcherDatabaseLock(FALSE);
+
+   // Clear Queue and QueueListEntry members of all threads associated with this queue
    while (!IsListEmpty(&Queue->ThreadListHead))
    {
       EnumEntry = RemoveHeadList(&Queue->ThreadListHead);
+      InitializeListHead(EnumEntry);
       Thread = CONTAINING_RECORD(EnumEntry, KTHREAD, QueueListEntry);
       Thread->Queue = NULL;
    }
 
-   if (IsListEmpty(&Queue->EntryListHead))
-   {
-      EnumEntry = NULL;
-   }
-   else
-   {
+   if (!IsListEmpty(&Queue->EntryListHead))
       EnumEntry = Queue->EntryListHead.Flink;
-   }
+   else
+      EnumEntry = NULL;
 
-   KeReleaseDispatcherDatabaseLock (OldIrql);
+   KeReleaseDispatcherDatabaseLock(FALSE);
 
    return EnumEntry;
 }

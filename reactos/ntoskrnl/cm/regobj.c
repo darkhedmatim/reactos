@@ -6,7 +6,15 @@
  * UPDATE HISTORY:
 */
 
-#include <ntoskrnl.h>
+#define NTOS_MODE_KERNEL
+#include <ntos.h>
+#include <roscfg.h>
+#include <internal/ob.h>
+#include <limits.h>
+#include <string.h>
+#include <internal/registry.h>
+#include <ntos/minmax.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -138,15 +146,11 @@ CmiObjectParse(PVOID ParsedObject,
 	}
 
       /* Create new key object and put into linked list */
-      DPRINT("CmiObjectParse: %s\n", Path);
-      Status = ObCreateObject(KernelMode,
+      DPRINT("CmiObjectParse: %s\n", cPath);
+      Status = ObRosCreateObject(NULL,
+			      STANDARD_RIGHTS_REQUIRED,
+			      NULL,
 			      CmiKeyType,
-			      NULL,
-			      KernelMode,
-			      NULL,
-			      sizeof(KEY_OBJECT),
-			      0,
-			      0,
 			      (PVOID*)&FoundObject);
       if (!NT_SUCCESS(Status))
 	{
@@ -156,7 +160,7 @@ CmiObjectParse(PVOID ParsedObject,
 
       FoundObject->Flags = 0;
       FoundObject->KeyCell = SubKeyCell;
-      FoundObject->KeyCellOffset = BlockOffset;
+      FoundObject->BlockOffset = BlockOffset;
       FoundObject->RegistryHive = ParsedKey->RegistryHive;
       RtlCreateUnicodeString(&FoundObject->Name,
 			     KeyName.Buffer);
@@ -262,15 +266,11 @@ CmiObjectCreate(PVOID ObjectBody,
 VOID STDCALL
 CmiObjectDelete(PVOID DeletedObject)
 {
-  PKEY_OBJECT ParentKeyObject;
   PKEY_OBJECT KeyObject;
 
   DPRINT("Delete key object (%p)\n", DeletedObject);
 
   KeyObject = (PKEY_OBJECT) DeletedObject;
-  ParentKeyObject = KeyObject->ParentKey;
-
-  ObReferenceObject (ParentKeyObject);
 
   if (!NT_SUCCESS(CmiRemoveKeyFromList(KeyObject)))
     {
@@ -284,143 +284,14 @@ CmiObjectDelete(PVOID DeletedObject)
       DPRINT("delete really key\n");
 
       CmiRemoveSubKey(KeyObject->RegistryHive,
-		      ParentKeyObject,
+		      KeyObject->ParentKey,
 		      KeyObject);
 
-      NtQuerySystemTime (&ParentKeyObject->KeyCell->LastWriteTime);
-      CmiMarkBlockDirty (ParentKeyObject->RegistryHive,
-			 ParentKeyObject->KeyCellOffset);
-
-      if (!IsNoFileHive (KeyObject->RegistryHive) ||
-	  !IsNoFileHive (ParentKeyObject->RegistryHive))
+      if (!IsNoFileHive(KeyObject->RegistryHive))
 	{
-	  CmiSyncHives ();
+	  CmiSyncHives();
 	}
     }
-
-  ObDereferenceObject (ParentKeyObject);
-
-  if (KeyObject->NumberOfSubKeys)
-    {
-      KEBUGCHECK(REGISTRY_ERROR);
-    }
-
-  if (KeyObject->SizeOfSubKeys)
-    {
-      ExFreePool(KeyObject->SubKeys);
-    }
-}
-
-
-static NTSTATUS
-CmiQuerySecurityDescriptor(PKEY_OBJECT KeyObject,
-			   SECURITY_INFORMATION SecurityInformation,
-			   PSECURITY_DESCRIPTOR SecurityDescriptor,
-			   PULONG BufferLength)
-{
-  ULONG_PTR Current;
-  ULONG SidSize;
-  ULONG SdSize;
-  NTSTATUS Status;
-
-  DPRINT("CmiQuerySecurityDescriptor() called\n");
-
-  /*
-   * FIXME:
-   * This is a big hack!!
-   * We need to retrieve the security descriptor from the keys security cell!
-   */
-
-  if (SecurityInformation == 0)
-    {
-      return STATUS_ACCESS_DENIED;
-    }
-
-  SidSize = RtlLengthSid(SeWorldSid);
-  SdSize = sizeof(SECURITY_DESCRIPTOR) + (2 * SidSize);
-
-  if (*BufferLength < SdSize)
-    {
-      *BufferLength = SdSize;
-      return STATUS_BUFFER_TOO_SMALL;
-    }
-
-  *BufferLength = SdSize;
-
-  Status = RtlCreateSecurityDescriptor(SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      return Status;
-    }
-
-  SecurityDescriptor->Control |= SE_SELF_RELATIVE;
-  Current = (ULONG_PTR)SecurityDescriptor + sizeof(SECURITY_DESCRIPTOR);
-
-  if (SecurityInformation & OWNER_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Owner = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & GROUP_SECURITY_INFORMATION)
-    {
-      RtlCopyMemory((PVOID)Current,
-		    SeWorldSid,
-		    SidSize);
-      SecurityDescriptor->Group = (PSID)((ULONG_PTR)Current - (ULONG_PTR)SecurityDescriptor);
-      Current += SidSize;
-    }
-
-  if (SecurityInformation & DACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_DACL_PRESENT;
-    }
-
-  if (SecurityInformation & SACL_SECURITY_INFORMATION)
-    {
-      SecurityDescriptor->Control |= SE_SACL_PRESENT;
-    }
-
-  return STATUS_SUCCESS;
-}
-
-
-static NTSTATUS
-CmiAssignSecurityDescriptor(PKEY_OBJECT KeyObject,
-			    PSECURITY_DESCRIPTOR SecurityDescriptor)
-{
-#if 0
-  PREGISTRY_HIVE Hive;
-
-  DPRINT1("CmiAssignSecurityDescriptor() callled\n");
-
-  DPRINT1("KeyObject %p\n", KeyObject);
-  DPRINT1("KeyObject->RegistryHive %p\n", KeyObject->RegistryHive);
-
-  Hive = KeyObject->RegistryHive;
-  if (Hive == NULL)
-    {
-      DPRINT1("Create new root security cell\n");
-      return STATUS_SUCCESS;
-    }
-
-  if (Hive->RootSecurityCell == NULL)
-    {
-      DPRINT1("Create new root security cell\n");
-
-    }
-  else
-    {
-      DPRINT1("Search for security cell\n");
-
-    }
-#endif
-
-  return STATUS_SUCCESS;
 }
 
 
@@ -431,32 +302,9 @@ CmiObjectSecurity(PVOID ObjectBody,
 		  PSECURITY_DESCRIPTOR SecurityDescriptor,
 		  PULONG BufferLength)
 {
-  DPRINT("CmiObjectSecurity() called\n");
+  DPRINT1 ("CmiObjectSecurity() called\n");
 
-  switch (OperationCode)
-    {
-      case SetSecurityDescriptor:
-        DPRINT("Set security descriptor\n");
-        return STATUS_SUCCESS;
-
-      case QuerySecurityDescriptor:
-        DPRINT("Query security descriptor\n");
-        return CmiQuerySecurityDescriptor((PKEY_OBJECT)ObjectBody,
-					  SecurityInformation,
-					  SecurityDescriptor,
-					  BufferLength);
-
-      case DeleteSecurityDescriptor:
-        DPRINT("Delete security descriptor\n");
-        return STATUS_SUCCESS;
-
-      case AssignSecurityDescriptor:
-        DPRINT("Assign security descriptor\n");
-        return CmiAssignSecurityDescriptor((PKEY_OBJECT)ObjectBody,
-					   SecurityDescriptor);
-    }
-
-  return STATUS_UNSUCCESSFUL;
+  return STATUS_SUCCESS;
 }
 
 
@@ -650,7 +498,7 @@ CmiGetLinkTarget(PREGISTRY_HIVE RegistryHive,
 		 PKEY_CELL KeyCell,
 		 PUNICODE_STRING TargetPath)
 {
-  UNICODE_STRING LinkName = ROS_STRING_INITIALIZER(L"SymbolicLinkValue");
+  UNICODE_STRING LinkName = UNICODE_STRING_INITIALIZER(L"SymbolicLinkValue");
   PVALUE_CELL ValueCell;
   PDATA_CELL DataCell;
   NTSTATUS Status;
@@ -688,7 +536,7 @@ CmiGetLinkTarget(PREGISTRY_HIVE RegistryHive,
 
   if (ValueCell->DataSize > 0)
     {
-      DataCell = CmiGetCell (RegistryHive, ValueCell->DataOffset, NULL);
+      DataCell = CmiGetBlock(RegistryHive, ValueCell->DataOffset, NULL);
       RtlCopyMemory(TargetPath->Buffer,
 		    DataCell->Data,
 		    TargetPath->Length);

@@ -16,8 +16,7 @@
 #ifndef __INTERNAL_DEBUG
 #define __INTERNAL_DEBUG
 
-//#define UNIMPLEMENTED do {DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__); for(;;);  } while(0);
-#define UNIMPLEMENTED   DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
+#define UNIMPLEMENTED do {DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__); for(;;);  } while(0);
 
 /*  FIXME: should probably remove this later  */
 #if !defined(CHECKED) && !defined(NDEBUG)
@@ -32,25 +31,7 @@
 #endif
 #endif
 
-#ifndef ASSERT
-#ifndef NASSERT
-#define ASSERT(x) if (!(x)) {RtlAssert("#x",__FILE__,__LINE__, ""); }
-#else
-#define ASSERT(x)
-#endif
-#endif
-
-#ifndef ASSERTMSG
-#ifndef NASSERT
-#define ASSERTMSG(x,m) if (!(x)) {RtlAssert("#x",__FILE__,__LINE__, m); }
-#else
-#define ASSERTMSG(x)
-#endif
-#endif
-
-
-/* TODO: Make the output of file/line and the debug message atomic */
-#define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+#define DPRINT1(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
 #define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
 
@@ -58,11 +39,7 @@
 #define DPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
 #define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 #else
-#ifdef __GNUC__
 #define DPRINT(args...)
-#else
-#define DPRINT
-#endif	/* __GNUC__ */
 #define CHECKPOINT
 #endif /* NDEBUG */
 

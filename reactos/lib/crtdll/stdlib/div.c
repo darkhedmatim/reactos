@@ -1,9 +1,6 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 #include <msvcrt/stdlib.h>
 
-/*
- * @implemented
- */
 div_t
 div(int num, int denom)
 {

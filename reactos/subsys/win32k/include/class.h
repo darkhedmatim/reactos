@@ -1,9 +1,8 @@
-#ifndef _WIN32K_CLASS_H
-#define _WIN32K_CLASS_H
+#ifndef __WIN32K_CLASS_H
+#define __WIN32K_CLASS_H
 
 #include <windows.h>
 #include <ddk/ntddk.h>
-#include <ddk/ntapi.h>
 #include <napi/win32.h>
 
 #define IS_ATOM(x) \
@@ -11,26 +10,9 @@
 
 typedef struct _WNDCLASS_OBJECT
 {
-  UINT    cbSize;
-  UINT    style;
-  WNDPROC lpfnWndProcA;
-  WNDPROC lpfnWndProcW;
-  int     cbClsExtra;
-  int     cbWndExtra;
-  HANDLE  hInstance;
-  HICON   hIcon;
-  HCURSOR hCursor;
-  HBRUSH  hbrBackground;
-  UNICODE_STRING lpszMenuName;
-  RTL_ATOM Atom;
-  HICON   hIconSm;
+  WNDCLASSEX Class;
   BOOL Unicode;
-  BOOL Global;
   LIST_ENTRY ListEntry;
-  PCHAR   ExtraData;
-  /* list of windows */
-  FAST_MUTEX ClassWindowsListLock;
-  LIST_ENTRY ClassWindowsListHead;
 } WNDCLASS_OBJECT, *PWNDCLASS_OBJECT;
 
 NTSTATUS FASTCALL
@@ -39,43 +21,25 @@ InitClassImpl(VOID);
 NTSTATUS FASTCALL
 CleanupClassImpl(VOID);
 
-#define IntLockProcessClasses(W32Process) \
-  ExAcquireFastMutex(&(W32Process)->ClassListLock)
+NTSTATUS STDCALL
+ClassReferenceClassByName(PW32PROCESS Process,
+			  PWNDCLASS_OBJECT *Class,
+			  LPWSTR ClassName);
 
-#define IntUnLockProcessClasses(W32Process) \
-  ExReleaseFastMutex(&(W32Process)->ClassListLock)
+NTSTATUS FASTCALL
+ClassReferenceClassByAtom(PWNDCLASS_OBJECT *Class,
+			  RTL_ATOM ClassAtom);
 
-#define IntLockClassWindows(ClassObj) \
-  ExAcquireFastMutex(&(ClassObj)->ClassWindowsListLock)
-
-#define IntUnLockClassWindows(ClassObj) \
-  ExReleaseFastMutex(&(ClassObj)->ClassWindowsListLock)
-
-#define ClassDereferenceObject(ClassObj) \
-  ObmDereferenceObject(ClassObj)
-
-BOOL FASTCALL
-ClassReferenceClassByAtom(
-   PWNDCLASS_OBJECT* Class,
-   RTL_ATOM Atom,
-   HINSTANCE hInstance);
-
-BOOL FASTCALL
-ClassReferenceClassByName(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassName,
-   HINSTANCE hInstance);
-
-BOOL FASTCALL
-ClassReferenceClassByNameOrAtom(
-   PWNDCLASS_OBJECT *Class,
-   LPCWSTR ClassNameOrAtom,
-   HINSTANCE hInstance);
-
+NTSTATUS FASTCALL
+ClassReferenceClassByNameOrAtom(PWNDCLASS_OBJECT *Class,
+				LPWSTR ClassNameOrAtom);
+PWNDCLASS_OBJECT FASTCALL
+W32kCreateClass(LPWNDCLASSEXW lpwcx,
+		BOOL bUnicodeClass);
 struct _WINDOW_OBJECT;
 ULONG FASTCALL
-IntGetClassLong(struct _WINDOW_OBJECT *WindowObject, ULONG Offset, BOOL Ansi);
+W32kGetClassLong(struct _WINDOW_OBJECT* WindowObject, ULONG Offset);
 
-#endif /* _WIN32K_CLASS_H */
+#endif /* __WIN32K_CLASS_H */
 
 /* EOF */

@@ -8,16 +8,13 @@
  *              28/12/98: Created
  */
 
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/conio.h>
 #include <msvcrt/internal/console.h>
 
 
 // FIXME PeekCosoleInput returns more than keyboard hits
 
-/*
- * @unimplemented
- */
 int _kbhit(void)
 {
   //INPUT_RECORD InputRecord;

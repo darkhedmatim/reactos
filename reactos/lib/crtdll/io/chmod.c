@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include <windows.h>
 #include <msvcrt/io.h>
 
 #define NDEBUG
@@ -7,9 +7,6 @@
 #define mode_t int
 
 
-/*
- * @implemented
- */
 int _chmod(const char* filename, mode_t mode)
 {
     DWORD FileAttributes = 0;

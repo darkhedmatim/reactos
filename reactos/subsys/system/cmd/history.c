@@ -37,9 +37,24 @@
  *
  */ 
 
-#include "precomp.h"
+
+
+
+
+
+#include "config.h"
+
 
 #ifdef FEATURE_HISTORY
+
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#include "cmd.h"
+
 
 typedef struct tagHISTORY
 {
@@ -202,9 +217,9 @@ VOID del(LPHIST_ENTRY item)
 	if( item==NULL || item==Top || item==Bottom )
 	{
 #ifdef _DEBUG
-		DebugPrintf(_T("del in " __FILE__  ": retrning\n"
-			    "item is 0x%08x (Bottom is0x%08x)\n"),
-			    item, Bottom);			
+		DebugPrintf("del in " __FILE__  ": retrning\n"
+			"item is 0x%08x (Bottom is0x%08x)\n",
+			item, Bottom);			
 
 #endif
 		return;
@@ -252,7 +267,7 @@ VOID add_before_last(LPTSTR string)
 
 	/*allocte entry and string*/
 	tmp=malloc(sizeof(HIST_ENTRY));
-	tmp->string=malloc((_tcslen(string)+1)*sizeof(TCHAR));
+	tmp->string=malloc(_tcslen(string)+1);
 	_tcscpy(tmp->string,string);		
 	
 	
@@ -305,7 +320,7 @@ VOID add_at_bottom(LPTSTR string)
 
 		
 	/*fill bottom with string, it will become Bottom->next*/		
-	Bottom->string=malloc((_tcslen(string)+1)*sizeof(TCHAR));
+	Bottom->string=malloc(_tcslen(string)+1);
 	_tcscpy(Bottom->string,string);		
 	
 	/*save Bottom value*/

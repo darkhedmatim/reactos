@@ -2,9 +2,6 @@
 #include <msvcrt/ctype.h>
 
 #undef tolower
-/*
- * @implemented
- */
 int tolower(int c)
 {
    if (_isctype (c, _UPPER))
@@ -13,19 +10,14 @@ int tolower(int c)
 }
 
 #undef towlower
-/*
- * @implemented
- */
-wchar_t towlower(wchar_t c)
+int towlower(wint_t c)
+//wchar_t towlower(wchar_t c)
 {
    if (iswctype (c, _UPPER))
        return (c - (L'A' - L'a'));
    return(c);
 }
 
-/*
- * @implemented
- */
 int _tolower(int c)
 {
    return (c - ('A' - 'a'));

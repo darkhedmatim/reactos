@@ -1,4 +1,4 @@
-# $Id: makefile,v 1.109 2004/12/24 17:45:58 weiden Exp $
+# $Id: makefile,v 1.68 2003/06/21 18:06:11 ekohl Exp $
 
 PATH_TO_TOP = ../..
 
@@ -10,14 +10,7 @@ TARGET_BASE = 0x0
 
 TARGET_ENTRY = _DllMain@8
 
-TARGET_PCH = w32k.h
-
 TARGET_DDKLIBS = freetype.a
-
-TARGET_LIBS = \
-	$(SDK_PATH_LIB)/libpseh.a
-
-TARGET_REGTESTS = yes
 
 FREETYPE_DIR = $(PATH_TO_TOP)/lib/freetype
 
@@ -29,33 +22,21 @@ else
 CFLAGS_DBG :=
 endif
 
-ifeq ($(OPTIMIZED), 1)
-CFLAGS_OPT := -O2 -Wno-strict-aliasing
-else
-CFLAGS_OPT :=
-endif
-
 TARGET_CFLAGS =\
  $(CFLAGS_DBG) \
- -I. \
  -I$(PATH_TO_TOP)/ntoskrnl/include \
  -I$(FREETYPE_DIR)/include \
  -DUNICODE \
- -Wall -Werror \
- -D__USE_W32API -D_WIN32_WINNT=0x0501 \
- -DWINVER=0x600 -D_WIN32K_ \
- $(CFLAGS_OPT)
+ -Wall
 
 TARGET_LFLAGS =\
- $(PATH_TO_TOP)/dk/nkm/lib/libfreetype.a \
- $(PATH_TO_TOP)/dk/w32/lib/librosrtl.a \
+ $(PATH_TO_TOP)/dk/nkm/lib/freetype.a \
  --disable-stdcall-fixup
 
-ENG_OBJECTS= eng/debug.o eng/error.o eng/mem.o eng/brush.o eng/bitblt.o \
-    eng/clip.o eng/copybits.o eng/device.o eng/lineto.o \
-    eng/paint.o eng/palette.o eng/perfcnt.o eng/semaphor.o eng/surface.o \
-    eng/xlate.o eng/transblt.o eng/mouse.o eng/misc.o eng/sort.o \
-    eng/gradient.o eng/event.o eng/float.o
+ENG_OBJECTS= eng/debug.o eng/mem.o eng/brush.o eng/bitblt.o eng/clip.o \
+    eng/copybits.o eng/device.o eng/handle.o eng/lineto.o eng/paint.o \
+    eng/palette.o eng/perfcnt.o eng/surface.o eng/xlate.o eng/transblt.o \
+    eng/mouse.o eng/misc.o eng/nls.o
 
 MAIN_OBJECTS = main/dllmain.o main/svctabm.o
 
@@ -63,35 +44,33 @@ MISC_OBJECTS = misc/driver.o misc/error.o misc/math.o misc/object.o
 
 LDR_OBJECTS = ldr/loader.o
 
-NTUSER_OBJECTS = ntuser/accelerator.o ntuser/callback.o ntuser/caret.o ntuser/class.o \
-                 ntuser/clipboard.o ntuser/csr.o ntuser/cursoricon.o ntuser/focus.o ntuser/desktop.o \
-                 ntuser/guicheck.o ntuser/hook.o ntuser/hotkey.o ntuser/input.o \
-                 ntuser/keyboard.o ntuser/menu.o ntuser/message.o ntuser/metric.o \
-                 ntuser/misc.o ntuser/monitor.o ntuser/msgqueue.o ntuser/painting.o \
-                 ntuser/prop.o ntuser/scrollbar.o ntuser/stubs.o ntuser/timer.o \
-                 ntuser/useratom.o ntuser/vis.o ntuser/windc.o ntuser/window.o \
-                 ntuser/winpos.o ntuser/winsta.o
+NTUSER_OBJECTS = ntuser/class.o ntuser/guicheck.o ntuser/hook.o \
+                 ntuser/message.o ntuser/msgqueue.o ntuser/stubs.o \
+                 ntuser/userobj.o ntuser/window.o ntuser/winsta.o \
+		 ntuser/input.o ntuser/keyboard.o ntuser/callback.o \
+		 ntuser/winpos.o ntuser/painting.o ntuser/metric.o \
+		 ntuser/windc.o ntuser/prop.o ntuser/scrollbar.o \
+		 ntuser/timer.o ntuser/misc.o
 
 OBJECTS_OBJECTS = objects/bitmaps.o objects/brush.o objects/cliprgn.o  \
-                  objects/color.o objects/coord.o  \
-                  objects/dc.o objects/fillshap.o objects/gdiobj.o  \
-                  objects/icm.o objects/line.o objects/metafile.o objects/paint.o  \
+                  objects/color.o objects/coord.o objects/dc.o  \
+                  objects/fillshap.o objects/gdiobj.o objects/icm.o  \
+                  objects/line.o objects/metafile.o objects/paint.o  \
                   objects/path.o objects/pen.o objects/print.o  \
                   objects/region.o objects/text.o objects/wingl.o \
-                  objects/bezier.o objects/dib.o objects/palette.o \
-                  objects/rect.o objects/polyfill.o objects/stockobj.o
+                  objects/bezier.o objects/objconv.o objects/dib.o \
+                  objects/palette.o objects/rect.o objects/polyfill.o \
+                  objects/cursoricon.o
 
 DIB_OBJECTS = dib/dib.o dib/dib1bpp.o dib/dib4bpp.o dib/dib8bpp.o dib/dib16bpp.o \
               dib/dib24bpp.o dib/dib32bpp.o
 
-STUBS_OBJECTS = stubs/stubs.o stubs/xpstubs.o
-
-NTDDRAW_OBJECTS = ntddraw/stubs.o ntddraw/ddraw.o
+STUBS_OBJECTS = stubs/stubs.o
 
 TARGET_OBJECTS = \
   $(ENG_OBJECTS) $(MAIN_OBJECTS) $(MISC_OBJECTS) $(LDR_OBJECTS) \
   $(NTUSER_OBJECTS) $(OBJECTS_OBJECTS) $(STUBS_OBJECTS) \
-  $(MATH_OBJECTS) $(FLOAT_OBJECTS) $(DIB_OBJECTS) $(NTDDRAW_OBJECTS)
+  $(MATH_OBJECTS) $(FLOAT_OBJECTS) $(DIB_OBJECTS)
 
 TARGET_CLEAN = $(DEP_FILES) \
   dib/*.o \
@@ -101,7 +80,6 @@ TARGET_CLEAN = $(DEP_FILES) \
   misc/*.o \
   ntuser/*.o \
   objects/*.o \
-  ntddraw/*.o \
   stubs/*.o
 
 include $(PATH_TO_TOP)/rules.mak
@@ -111,7 +89,7 @@ include $(TOOLS_PATH)/helper.mk
 # Automatic dependency tracking
 DEP_OBJECTS := $(TARGET_OBJECTS)
 DEP_EXCLUDE_FILTER := main/svctabm.d
-include $(PATH_TO_TOP)/tools/depend.mk
+#include $(PATH_TO_TOP)/tools/depend.mk
 
 main/svctabm.o: main/svctab.c
 
@@ -121,14 +99,7 @@ main/svctabm.o: main/svctab.c
 	etags $(@D)/\*.c -o $(@D)/TAGS
 
 etags: TAGS
-TAGS: main/TAGS eng/TAGS ldr/TAGS misc/TAGS objects/TAGS stubs/TAGS ntuser/TAGS dib/TAGS ntddraw/TAGS
-	etags -i main/TAGS -i eng/TAGS -i ldr/TAGS -i misc/TAGS -i objects/TAGS -i stubs/TAGS -i ntuser/TAGS -i dib/TAGS -i ntddraw/TAGS
-
-
-docu:
-	doxygen Doxyfile
-
-.PHONY: docu
-
+TAGS: main/TAGS eng/TAGS ldr/TAGS misc/TAGS objects/TAGS stubs/TAGS ntuser/TAGS dib/TAGS
+	etags -i main/TAGS -i eng/TAGS -i ldr/TAGS -i misc/TAGS -i objects/TAGS -i stubs/TAGS -i ntuser/TAGS -i dib/TAGS
 
 # EOF

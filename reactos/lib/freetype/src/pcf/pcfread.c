@@ -2,7 +2,7 @@
 
     FreeType font driver for pcf fonts
 
-  Copyright 2000, 2001, 2002, 2003, 2004 by
+  Copyright 2000-2001, 2002 by
   Francesco Zappa Nardelli
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,7 @@ THE SOFTWARE.
 #include FT_INTERNAL_OBJECTS_H
 
 #include "pcf.h"
-#include "pcfdrivr.h"
+#include "pcfdriver.h"
 #include "pcfread.h"
 
 #include "pcferror.h"
@@ -49,7 +49,7 @@ THE SOFTWARE.
 
 
 #if defined( FT_DEBUG_LEVEL_TRACE )
-  static const char* const  tableNames[] =
+  static const char*  tableNames[] =
   {
     "prop", "accl", "mtrcs", "bmps", "imtrcs",
     "enc", "swidth", "names", "accel"
@@ -122,10 +122,7 @@ THE SOFTWARE.
       const char*  name = "?";
 
 
-      FT_TRACE4(( "pcf_read_TOC:\n" ));
-
-      FT_TRACE4(( "  number of tables: %ld\n", face->toc.count ));
-
+      FT_TRACE4(( "Tables count: %ld\n", face->toc.count ));
       tables = face->toc.tables;
       for ( i = 0; i < toc->count; i++ )
       {
@@ -133,12 +130,12 @@ THE SOFTWARE.
           if ( tables[i].type == (FT_UInt)( 1 << j ) )
             name = tableNames[j];
 
-        FT_TRACE4(( "  %d: type=%s, format=0x%X, "
-                    "size=%ld (0x%lX), offset=%ld (0x%lX)\n",
+        FT_TRACE4(( "Table %d: type=%-6s format=0x%04lX "
+                    "size=0x%06lX (%8ld) offset=0x%04lX\n",
                     i, name,
                     tables[i].format,
                     tables[i].size, tables[i].size,
-                    tables[i].offset, tables[i].offset ));
+                    tables[i].offset ));
       }
     }
 
@@ -253,22 +250,18 @@ THE SOFTWARE.
                           FT_ULong  *aformat,
                           FT_ULong  *asize )
   {
-    FT_Error  error = PCF_Err_Invalid_File_Format;
+    FT_Error  error = 0;
     FT_Int    i;
 
 
     for ( i = 0; i < ntables; i++ )
       if ( tables[i].type == type )
       {
-        if ( stream->pos > tables[i].offset ) {
-          error = PCF_Err_Invalid_Stream_Skip;
-          goto Fail;
-        }
+        if ( stream->pos > tables[i].offset )
+          return PCF_Err_Invalid_Stream_Skip;
 
-        if ( FT_STREAM_SKIP( tables[i].offset - stream->pos ) ) {
-          error = PCF_Err_Invalid_Stream_Skip;
-          goto Fail;
-        }
+        if ( FT_STREAM_SKIP( tables[i].offset - stream->pos ) )
+          return PCF_Err_Invalid_Stream_Skip;
 
         *asize   = tables[i].size;  /* unused - to be removed */
         *aformat = tables[i].format;
@@ -276,8 +269,7 @@ THE SOFTWARE.
         return PCF_Err_Ok;
       }
 
-  Fail:
-    return error;
+    return PCF_Err_Invalid_File_Format;
   }
 
 
@@ -373,9 +365,7 @@ THE SOFTWARE.
     if ( FT_READ_ULONG_LE( format ) )
       goto Bail;
 
-    FT_TRACE4(( "pcf_get_properties:\n" ));
-
-    FT_TRACE4(( "  format = %ld\n", format ));
+    FT_TRACE4(( "get_prop: format = %ld\n", format ));
 
     if ( !PCF_FORMAT_MATCH( format, PCF_DEFAULT_FORMAT ) )
       goto Bail;
@@ -387,7 +377,7 @@ THE SOFTWARE.
     if ( error )
       goto Bail;
 
-    FT_TRACE4(( "  nprop = %d\n", nprops ));
+    FT_TRACE4(( "get_prop: nprop = %d\n", nprops ));
 
     if ( FT_NEW_ARRAY( props, nprops ) )
       goto Bail;
@@ -424,7 +414,7 @@ THE SOFTWARE.
     if ( error )
       goto Bail;
 
-    FT_TRACE4(( "  string_size = %ld\n", string_size ));
+    FT_TRACE4(( "get_prop: string_size = %ld\n", string_size ));
 
     if ( FT_NEW_ARRAY( strings, string_size ) )
       goto Bail;
@@ -442,9 +432,7 @@ THE SOFTWARE.
       if ( FT_NEW_ARRAY( properties[i].name,
                          ft_strlen( strings + props[i].name ) + 1 ) )
         goto Bail;
-      ft_strcpy( properties[i].name, strings + props[i].name );
-
-      FT_TRACE4(( "  %s:", properties[i].name ));
+      ft_strcpy( properties[i].name,strings + props[i].name );
 
       properties[i].isString = props[i].isString;
 
@@ -454,15 +442,9 @@ THE SOFTWARE.
                            ft_strlen( strings + props[i].value ) + 1 ) )
           goto Bail;
         ft_strcpy( properties[i].value.atom, strings + props[i].value );
-
-        FT_TRACE4(( " `%s'\n", properties[i].value.atom ));
       }
       else
-      {
         properties[i].value.integer = props[i].value;
-
-        FT_TRACE4(( " %d\n", properties[i].value.integer ));
-      }
     }
 
     face->properties = properties;
@@ -531,8 +513,6 @@ THE SOFTWARE.
     if ( FT_NEW_ARRAY( face->metrics, nmetrics ) )
       return PCF_Err_Out_Of_Memory;
 
-    FT_TRACE4(( "pcf_get_metrics:\n" ));
-
     metrics = face->metrics;
     for ( i = 0; i < nmetrics; i++ )
     {
@@ -540,7 +520,7 @@ THE SOFTWARE.
 
       metrics[i].bits = 0;
 
-      FT_TRACE4(( "  idx %d: width=%d, "
+      FT_TRACE4(( "%d : width=%d, "
                   "lsb=%d, rsb=%d, ascent=%d, descent=%d, swidth=%d\n",
                   i,
                   ( metrics + i )->characterWidth,
@@ -603,8 +583,6 @@ THE SOFTWARE.
     if ( FT_NEW_ARRAY( offsets, nbitmaps ) )
       return error;
 
-    FT_TRACE4(( "pcf_get_bitmaps:\n" ));
-
     for ( i = 0; i < nbitmaps; i++ )
     {
       if ( PCF_BYTE_ORDER( format ) == MSBFirst )
@@ -612,8 +590,7 @@ THE SOFTWARE.
       else
         (void)FT_READ_LONG_LE( offsets[i] );
 
-      FT_TRACE4(( "  bitmap %d: offset %ld (0x%lX)\n",
-                  i, offsets[i], offsets[i] ));
+      FT_TRACE4(( "bitmap %d is at offset %ld\n", i, offsets[i] ));
     }
     if ( error )
       goto Bail;
@@ -629,13 +606,13 @@ THE SOFTWARE.
 
       sizebitmaps = bitmapSizes[PCF_GLYPH_PAD_INDEX( format )];
 
-      FT_TRACE4(( "  padding %d implies a size of %ld\n", i, bitmapSizes[i] ));
+      FT_TRACE4(( "padding %d implies a size of %ld\n", i, bitmapSizes[i] ));
     }
 
     FT_TRACE4(( "  %d bitmaps, padding index %ld\n",
                 nbitmaps,
                 PCF_GLYPH_PAD_INDEX( format ) ));
-    FT_TRACE4(( "  bitmap size = %d\n", sizebitmaps ));
+    FT_TRACE4(( "bitmap size = %d\n", sizebitmaps ));
 
     FT_UNUSED( sizebitmaps );       /* only used for debugging */
 
@@ -658,8 +635,8 @@ THE SOFTWARE.
   pcf_get_encodings( FT_Stream  stream,
                      PCF_Face   face )
   {
-    FT_Error      error  = PCF_Err_Ok;
-    FT_Memory     memory = FT_FACE(face)->memory;
+    FT_Error      error   = PCF_Err_Ok;
+    FT_Memory     memory  = FT_FACE(face)->memory;
     FT_ULong      format, size;
     int           firstCol, lastCol;
     int           firstRow, lastRow;
@@ -705,9 +682,7 @@ THE SOFTWARE.
     if ( !PCF_FORMAT_MATCH( format, PCF_DEFAULT_FORMAT ) )
       return PCF_Err_Invalid_File_Format;
 
-    FT_TRACE4(( "pdf_get_encodings:\n" ));
-
-    FT_TRACE4(( "  firstCol %d, lastCol %d, firstRow %d, lastRow %d\n",
+    FT_TRACE4(( "enc: firstCol %d, lastCol %d, firstRow %d, lastRow %d\n",
                 firstCol, lastCol, firstRow, lastRow ));
 
     nencoding = ( lastCol - firstCol + 1 ) * ( lastRow - firstRow + 1 );
@@ -734,13 +709,11 @@ THE SOFTWARE.
                                  firstCol );
 
         tmpEncoding[j].glyph = (FT_Short)encodingOffset;
-
-        FT_TRACE4(( "  code %d (0x%04X): idx %d\n",
-                    tmpEncoding[j].enc, tmpEncoding[j].enc,
-                    tmpEncoding[j].glyph ));
-
         j++;
       }
+
+      FT_TRACE4(( "enc n. %d ; Uni %ld ; Glyph %d\n",
+                  i, tmpEncoding[j - 1].enc, encodingOffset ));
     }
     FT_Stream_ExitFrame( stream );
 
@@ -884,116 +857,6 @@ THE SOFTWARE.
   }
 
 
-  static FT_Error
-  pcf_interpret_style( PCF_Face  pcf )
-  {
-    FT_Error   error  = PCF_Err_Ok;
-    FT_Face    face   = FT_FACE( pcf );
-    FT_Memory  memory = face->memory;
-
-    PCF_Property  prop;
-
-    char  *istr = NULL, *bstr = NULL;
-    char  *sstr = NULL, *astr = NULL;
-
-    int  parts = 0, len = 0;
-
-
-    face->style_flags = 0;
-
-    prop = pcf_find_property( pcf, "SLANT" );
-    if ( prop && prop->isString                                       &&
-         ( *(prop->value.atom) == 'O' || *(prop->value.atom) == 'o' ||
-           *(prop->value.atom) == 'I' || *(prop->value.atom) == 'i' ) )
-    {
-      face->style_flags |= FT_STYLE_FLAG_ITALIC;
-      istr = ( *(prop->value.atom) == 'O' || *(prop->value.atom) == 'o' )
-               ? (char *)"Oblique"
-               : (char *)"Italic";
-      len += ft_strlen( istr );
-      parts++;
-    }
-
-    prop = pcf_find_property( pcf, "WEIGHT_NAME" );
-    if ( prop && prop->isString                                       &&
-         ( *(prop->value.atom) == 'B' || *(prop->value.atom) == 'b' ) )
-    {
-      face->style_flags |= FT_STYLE_FLAG_BOLD;
-      bstr = (char *)"Bold";
-      len += ft_strlen( bstr );
-      parts++;
-    }
-
-    prop = pcf_find_property( pcf, "SETWIDTH_NAME" );
-    if ( prop && prop->isString                                        &&
-         *(prop->value.atom)                                           &&
-         !( *(prop->value.atom) == 'N' || *(prop->value.atom) == 'n' ) )
-    {
-      sstr = (char *)(prop->value.atom);
-      len += ft_strlen( sstr );
-      parts++;
-    }
-
-    prop = pcf_find_property( pcf, "ADD_STYLE_NAME" );
-    if ( prop && prop->isString                                        &&
-         *(prop->value.atom)                                           &&
-         !( *(prop->value.atom) == 'N' || *(prop->value.atom) == 'n' ) )
-    {
-      astr = (char *)(prop->value.atom);
-      len += ft_strlen( astr );
-      parts++;
-    }
-
-    if ( !parts || !len )
-      face->style_name = (char *)"Regular";
-    else
-    {
-      char          *style, *s;
-      unsigned int  i;
-
-
-      if ( FT_ALLOC( style, len + parts ) )
-        return error;
-
-      s = style;
-
-      if ( astr )
-      {
-        ft_strcpy( s, astr );
-        for ( i = 0; i < ft_strlen( astr ); i++, s++ )
-          if ( *s == ' ' )
-            *s = '-';                     /* replace spaces with dashes */
-        *(s++) = ' ';
-      }
-      if ( bstr )
-      {
-        ft_strcpy( s, bstr );
-        s += ft_strlen( bstr );
-        *(s++) = ' ';
-      }
-      if ( istr )
-      {
-        ft_strcpy( s, istr );
-        s += ft_strlen( istr );
-        *(s++) = ' ';
-      }
-      if ( sstr )
-      {
-        ft_strcpy( s, sstr );
-        for ( i = 0; i < ft_strlen( sstr ); i++, s++ )
-          if ( *s == ' ' )
-            *s = '-';                     /* replace spaces with dashes */
-        *(s++) = ' ';
-      }
-      *(--s) = '\0';        /* overwrite last ' ', terminate the string */
-
-      face->style_name = style;                     /* allocated string */
-    }
-
-    return error;
-  }
-
-
   FT_LOCAL_DEF( FT_Error )
   pcf_load_font( FT_Stream  stream,
                  PCF_Face   face )
@@ -1051,9 +914,10 @@ THE SOFTWARE.
     {
       FT_Face       root = FT_FACE( face );
       PCF_Property  prop;
+      int           size_set = 0;
 
 
-      root->num_faces  = 1;
+      root->num_faces = 1;
       root->face_index = 0;
       root->face_flags = FT_FACE_FLAG_FIXED_SIZES |
                          FT_FACE_FLAG_HORIZONTAL  |
@@ -1062,80 +926,95 @@ THE SOFTWARE.
       if ( face->accel.constantWidth )
         root->face_flags |= FT_FACE_FLAG_FIXED_WIDTH;
 
-      if ( ( error = pcf_interpret_style( face ) ) != 0 )
-         goto Exit;
+      root->style_flags = 0;
+      prop = pcf_find_property( face, "SLANT" );
+      if ( prop != NULL )
+        if ( prop->isString )
+          if ( ( *(prop->value.atom) == 'O' ) ||
+               ( *(prop->value.atom) == 'I' ) )
+            root->style_flags |= FT_STYLE_FLAG_ITALIC;
+
+      prop = pcf_find_property( face, "WEIGHT_NAME" );
+      if ( prop != NULL )
+        if ( prop->isString )
+          if ( *(prop->value.atom) == 'B' )
+            root->style_flags |= FT_STYLE_FLAG_BOLD;
+
+      root->style_name = (char *)"Regular";
+
+      if ( root->style_flags & FT_STYLE_FLAG_BOLD ) {
+        if ( root->style_flags & FT_STYLE_FLAG_ITALIC )
+          root->style_name = (char *)"Bold Italic";
+        else
+          root->style_name = (char *)"Bold";
+      }
+      else if ( root->style_flags & FT_STYLE_FLAG_ITALIC )
+        root->style_name = (char *)"Italic";
 
       prop = pcf_find_property( face, "FAMILY_NAME" );
-      if ( prop && prop->isString )
+      if ( prop != NULL )
       {
-        int  l = ft_strlen( prop->value.atom ) + 1;
+        if ( prop->isString )
+        {
+          int  l = ft_strlen( prop->value.atom ) + 1;
 
 
-        if ( FT_NEW_ARRAY( root->family_name, l ) )
-          goto Exit;
-        ft_strcpy( root->family_name, prop->value.atom );
+          if ( FT_NEW_ARRAY( root->family_name, l ) )
+            goto Exit;
+          ft_strcpy( root->family_name, prop->value.atom );
+        }
       }
       else
-        root->family_name = NULL;
+        root->family_name = 0;
 
-      /* Note: We shift all glyph indices by +1 since we must
-       * respect the convention that glyph 0 always corresponds
-       * to the "missing glyph".
-       *
-       * This implies bumping the number of "available" glyphs by 1.
-       */
-      root->num_glyphs = face->nmetrics + 1;
+      root->num_glyphs = face->nmetrics;
 
       root->num_fixed_sizes = 1;
       if ( FT_NEW_ARRAY( root->available_sizes, 1 ) )
         goto Exit;
 
+      prop = pcf_find_property( face, "PIXEL_SIZE" );
+      if ( prop != NULL )
       {
-        FT_Bitmap_Size*  bsize = root->available_sizes;
-        FT_Short         resolution_x = 0, resolution_y = 0;
+        root->available_sizes->height =
+        root->available_sizes->width  = (FT_Short)( prop->value.integer );
 
-
-        FT_MEM_ZERO( bsize, sizeof ( FT_Bitmap_Size ) );
-
-        bsize->height = face->accel.fontAscent + face->accel.fontDescent;
-
-        prop = pcf_find_property( face, "AVERAGE_WIDTH" );
-        if ( prop )
-          bsize->width = (FT_Short)( ( prop->value.integer + 5 ) / 10 );
-        else
-          bsize->width = bsize->height * 2/3;
-
+        size_set = 1;
+      }
+      else
+      {
         prop = pcf_find_property( face, "POINT_SIZE" );
-        if ( prop )
-          /* convert from 722.7 decipoints to 72 points per inch */
-          bsize->size =
-            (FT_Pos)( ( prop->value.integer * 64 * 7200 + 36135L ) / 72270L );
-
-        prop = pcf_find_property( face, "PIXEL_SIZE" );
-        if ( prop )
-          bsize->y_ppem = (FT_Short)prop->value.integer << 6;
-
-        prop = pcf_find_property( face, "RESOLUTION_X" );
-        if ( prop )
-          resolution_x = (FT_Short)prop->value.integer;
-
-        prop = pcf_find_property( face, "RESOLUTION_Y" );
-        if ( prop )
-          resolution_y = (FT_Short)prop->value.integer;
-
-        if ( bsize->y_ppem == 0 )
+        if ( prop != NULL )
         {
-          bsize->y_ppem = bsize->size;
-          if ( resolution_y )
-            bsize->y_ppem = bsize->y_ppem * resolution_y / 72;
+          PCF_Property  xres, yres, avgw;
+
+
+          xres = pcf_find_property( face, "RESOLUTION_X" );
+          yres = pcf_find_property( face, "RESOLUTION_Y" );
+          avgw = pcf_find_property( face, "AVERAGE_WIDTH" );
+
+          if ( ( yres != NULL ) && ( xres != NULL ) )
+          {
+            root->available_sizes->height =
+              (FT_Short)( prop->value.integer *
+                          yres->value.integer / 720 );
+
+              root->available_sizes->width =
+                (FT_Short)( prop->value.integer *
+                            xres->value.integer / 720 );
+
+            size_set = 1;
+          }
         }
-        if ( resolution_x && resolution_y )
-          bsize->x_ppem = bsize->y_ppem * resolution_x / resolution_y;
-        else
-          bsize->x_ppem = bsize->y_ppem;
       }
 
-      /* set up charset */
+      if (size_set == 0 )
+      {
+        root->available_sizes->width  = 12;
+        root->available_sizes->height = 12;
+      }
+
+      /* set-up charset */
       {
         PCF_Property  charset_registry = 0, charset_encoding = 0;
 
@@ -1143,19 +1022,23 @@ THE SOFTWARE.
         charset_registry = pcf_find_property( face, "CHARSET_REGISTRY" );
         charset_encoding = pcf_find_property( face, "CHARSET_ENCODING" );
 
-        if ( charset_registry && charset_registry->isString &&
-             charset_encoding && charset_encoding->isString )
+        if ( ( charset_registry != NULL ) &&
+             ( charset_encoding != NULL ) )
         {
-          if ( FT_NEW_ARRAY( face->charset_encoding,
-                             ft_strlen( charset_encoding->value.atom ) + 1 ) )
-            goto Exit;
+          if ( ( charset_registry->isString ) &&
+               ( charset_encoding->isString ) )
+          {
+            if ( FT_NEW_ARRAY( face->charset_encoding,
+                               ft_strlen( charset_encoding->value.atom ) + 1 ) )
+              goto Exit;
 
-          if ( FT_NEW_ARRAY( face->charset_registry,
-                             ft_strlen( charset_registry->value.atom ) + 1 ) )
-            goto Exit;
+            if ( FT_NEW_ARRAY( face->charset_registry,
+                               ft_strlen( charset_registry->value.atom ) + 1 ) )
+              goto Exit;
 
-          ft_strcpy( face->charset_registry, charset_registry->value.atom );
-          ft_strcpy( face->charset_encoding, charset_encoding->value.atom );
+            ft_strcpy( face->charset_registry, charset_registry->value.atom );
+            ft_strcpy( face->charset_encoding, charset_encoding->value.atom );
+          }
         }
       }
     }

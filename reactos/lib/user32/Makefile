@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.41 2004/12/03 23:37:43 blight Exp $
+# $Id: Makefile,v 1.17 2003/06/26 00:01:34 sedwards Exp $
 
 PATH_TO_TOP = ../..
 
@@ -6,33 +6,21 @@ TARGET_TYPE = dynlink
 
 TARGET_NAME = user32
 
-TARGET_PCH = include/user32.h
+TARGET_BASE = 0x77e70000
 
-TARGET_BASE = $(TARGET_BASE_LIB_USER32)
-
-TARGET_SDKLIBS = wine.a ntdll.a gdi32.a rosrtl.a kernel32.a advapi32.a
+TARGET_SDKLIBS = ntdll.a kernel32.a gdi32.a
 
 TARGET_CFLAGS = \
  -I./include \
  -DUNICODE \
- -D__REACTOS__ \
- -D__USE_W32API \
- -DWINVER=0x0600 \
- -D_WIN32_WINNT=0x0501 \
  -Wall \
  -Werror \
  -fno-builtin
 
-# require os code to explicitly request A/W version of structs/functions
-TARGET_CFLAGS += -D_DISABLE_TIDENTS
-
 TARGET_LFLAGS = -nostartfiles -nostdlib
-
-TARGET_RCFLAGS = --include-dir ./include
 
 CONTROLS_OBJECTS = \
 	controls/combo.o \
-	controls/edit.o \
 	controls/icontitle.o \
 	controls/listbox.o \
 	controls/scrollbar.o \
@@ -42,26 +30,20 @@ CONTROLS_OBJECTS = \
 
 MISC_OBJECTS = \
 	misc/dde.o \
-	misc/ddeclient.o \
-	misc/ddeserver.o \
 	misc/desktop.o \
 	misc/display.o \
 	misc/dllmain.o \
 	misc/exit.o \
-	misc/exticon.o \
-	misc/wsprintf.o \
+	misc/sprintf.o \
 	misc/stubs.o \
 	misc/winhelp.o \
 	misc/win32k.o \
 	misc/winsta.o \
 	misc/resources.o \
 	misc/object.o \
-	misc/timer.o \
-	misc/strpool.o \
-	misc/misc.o
+	misc/timer.o
 
 WINDOWS_OBJECTS = \
-	windows/caret.o \
 	windows/class.o \
 	windows/message.o \
 	windows/window.o \
@@ -84,8 +66,7 @@ WINDOWS_OBJECTS = \
 	windows/paint.o \
 	windows/prop.o \
 	windows/rect.o \
-	windows/text.o \
-	windows/winpos.o
+	windows/text.o
 
 TARGET_OBJECTS = \
   $(MISC_OBJECTS) \
@@ -101,7 +82,5 @@ include $(PATH_TO_TOP)/rules.mak
 include $(TOOLS_PATH)/helper.mk
 
 include $(TOOLS_PATH)/depend.mk
-
-include $(TOOLS_PATH)/config.mk
 
 # EOF

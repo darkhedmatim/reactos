@@ -1,7 +1,33 @@
-/* $Id: wcscat.s,v 1.2 2003/07/06 23:04:19 hyperion Exp $
+/* 
+ * $Id: wcscat.s,v 1.1 2003/05/27 18:58:15 hbirr Exp $
  */
 
-#define _UNICODE
-#include "tcscat.h"
+/*
+ * wchar_t *wcscat (wchar_t *dest, const wchar_t *append)
+ */
 
-/* EOF */
+.globl	_wcscat
+
+_wcscat:
+	push	%ebp
+	mov	%esp,%ebp
+	push	%esi
+	push	%edi
+	mov	0x8(%ebp),%edi
+	mov	0xc(%ebp),%esi
+	cld
+	xor	%eax,%eax
+	mov	$-1,%ecx
+	repne	scasw
+	sub	$2,%edi
+.L1:	
+	lodsw
+	stosw
+	test	%ax,%ax
+	jne	.L1
+	mov	0x8(%ebp),%eax
+	pop	%edi
+	pop	%esi
+	leave
+	ret
+

@@ -1,9 +1,9 @@
-/* $Id: crtmain.c,v 1.6 2004/08/15 18:16:37 chorns Exp $
+/* $Id: crtmain.c,v 1.4 2003/03/23 15:18:01 hbirr Exp $
  *
  * ReactOS MSVCRT.DLL Compatibility Library
  */
-
-#include "precomp.h"
+#include <windows.h>
+//#include <msvcrt/stdlib.h>
 
 #define NDEBUG
 #include <msvcrt/msvcrtdbg.h>
@@ -17,9 +17,6 @@ int _fltused;
 
 /* FUNCTIONS **************************************************************/
 
-/*
- * @unimplemented
- */
 int 
 STDCALL
 _except_handler3(void)
@@ -27,9 +24,6 @@ _except_handler3(void)
     return 0;
 }
 
-/*
- * @unimplemented
- */
 int
 STDCALL
 _local_unwind2(void)

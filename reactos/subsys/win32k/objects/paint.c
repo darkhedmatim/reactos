@@ -16,36 +16,41 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* $Id: paint.c,v 1.12 2004/07/14 20:48:58 navaraf Exp $ */
-#include <w32k.h>
+/* $Id: paint.c,v 1.9 2003/05/18 17:16:18 ea Exp $ */
+
+#undef WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ddk/ntddk.h>
+//#include <win32k/debug.h>
+#include <win32k/paint.h>
+
+#define NDEBUG
+#include <win32k/debug1.h>
 
 BOOL
 STDCALL
-NtGdiGdiFlush(VOID)
+W32kGdiFlush(VOID)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 DWORD
 STDCALL
-NtGdiGdiGetBatchLimit(VOID)
+W32kGdiGetBatchLimit(VOID)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 DWORD
 STDCALL
-NtGdiGdiSetBatchLimit(DWORD  Limit)
+W32kGdiSetBatchLimit(DWORD  Limit)
 {
   UNIMPLEMENTED;
-  return 0;
 }
 
 UINT
 STDCALL
-NtGdiGetBoundsRect(HDC  hDC,
+W32kGetBoundsRect(HDC  hDC,
                         LPRECT  Bounds,
                         UINT  Flags)
 {
@@ -55,7 +60,7 @@ NtGdiGetBoundsRect(HDC  hDC,
 
 UINT
 STDCALL
-NtGdiSetBoundsRect(HDC  hDC,
+W32kSetBoundsRect(HDC  hDC,
                         CONST PRECT  Bounds,
                         UINT  Flags)
 {

@@ -5,9 +5,6 @@ size_t _mbclen2(const unsigned int s);
 unsigned int _mbbtoupper(unsigned int c);
 
 
-/*
- * @implemented
- */
 int _mbsnicmp(const unsigned char* s1, const unsigned char* s2, size_t n)
 {
   if (n == 0)
@@ -26,9 +23,6 @@ int _mbsnicmp(const unsigned char* s1, const unsigned char* s2, size_t n)
   return 0;
 }
 
-/*
- * @implemented
- */
 int _mbsnbicmp(const unsigned char* s1, const unsigned char* s2, size_t n)
 {
   if (n == 0)

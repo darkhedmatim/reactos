@@ -1,29 +1,16 @@
-/*
- * Static control
+/* $Id: static.c,v 1.3 2003/06/16 13:46:26 gvg Exp $
  *
- * Copyright  David W. Metcalfe, 1993
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * COPYRIGHT:        See COPYING in the top level directory
+ * PROJECT:          ReactOS User32
+ * PURPOSE:          Static control
+ * FILE:             lib/user32/controls/static.c
+ * PROGRAMER:        Ge van Geldorp (ge@gse.nl)
+ * REVISION HISTORY: 2003/05/28 GvG Created
+ * NOTES:            Adapted from Wine
  */
 
-#include "user32.h"
+#include "windows.h"
 #include "user32/regcontrol.h"
-
-#ifndef __REACTOS__
-WINE_DEFAULT_DEBUG_CHANNEL(static);
-#endif
 
 static void STATIC_PaintOwnerDrawfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style );
@@ -31,8 +18,8 @@ static void STATIC_PaintRectfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintIconfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintBitmapfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintEtchedfn( HWND hwnd, HDC hdc, DWORD style );
-static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT CALLBACK StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT CALLBACK StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 static COLORREF color_windowframe, color_background, color_window;
 
@@ -72,23 +59,13 @@ static pfPaint staticPaintFunc[SS_TYPEMASK+1] =
  */
 const struct builtin_class_descr STATIC_builtin_class =
 {
-#ifdef __REACTOS__
-    L"Static",            /* name */
-    CS_DBLCLKS | CS_PARENTDC, /* style  */
-    (WNDPROC) StaticWndProcW,                  /* procW */
-    (WNDPROC) StaticWndProcA,                  /* procA */
-    STATIC_EXTRA_BYTES,                        /* extra */
-    (LPCWSTR) IDC_ARROW,                        /* cursor */ /* FIXME Wine uses IDC_ARROWA */
-    0                                          /* brush */
-#else
     "Static",            /* name */
-    CS_DBLCLKS | CS_PARENTDC, /* style  */
-    StaticWndProcA,      /* procA */
-    StaticWndProcW,      /* procW */
-    STATIC_EXTRA_BYTES,  /* extra */
-    IDC_ARROW,           /* cursor */
-    0                    /* brush */
-#endif
+    CS_GLOBALCLASS | CS_DBLCLKS | CS_PARENTDC, /* style  */
+    (WNDPROC) StaticWndProcA,                  /* procA */
+    (WNDPROC) StaticWndProcW,                  /* procW */
+    STATIC_EXTRA_BYTES,                        /* extra */
+    (LPCSTR) IDC_ARROW,                        /* cursor */ /* FIXME Wine uses IDC_ARROWA */
+    0                                          /* brush */
 };
 
 
@@ -99,29 +76,7 @@ const struct builtin_class_descr STATIC_builtin_class =
  */
 static HICON STATIC_SetIcon( HWND hwnd, HICON hicon, DWORD style )
 {
-#ifdef __REACTOS__
-    HICON prevIcon;
-
-    if ((style & SS_TYPEMASK) != SS_ICON) return 0;
-    prevIcon = (HICON)SetWindowLongA( hwnd, HICON_GWL_OFFSET, (LONG)hicon );
-    if (hicon)
-    {
-        ICONINFO info;
-        BITMAP bm;
-
-        if (!GetIconInfo(hicon, &info))
-        {
-            return 0;
-        }
-        if (!GetObjectW(info.hbmColor, sizeof(BITMAP), &bm))
-        {
-            return 0;
-        }
-        SetWindowPos( hwnd, 0, 0, 0, bm.bmWidth, bm.bmHeight,
-                        SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER );
-    }
-    return prevIcon;
-#else
+#if 0 /* FIXME */
     HICON prevIcon;
     CURSORICONINFO *info = hicon?(CURSORICONINFO *) GlobalLock16(HICON_16(hicon)):NULL;
 
@@ -138,6 +93,9 @@ static HICON STATIC_SetIcon( HWND hwnd, HICON hicon, DWORD style )
         GlobalUnlock16(HICON_16(hicon));
     }
     return prevIcon;
+#else
+    OutputDebugStringA("STATIC_SetIcon not implemented\n");
+    return NULL;
 #endif
 }
 
@@ -152,11 +110,7 @@ static HBITMAP STATIC_SetBitmap( HWND hwnd, HBITMAP hBitmap, DWORD style )
 
     if ((style & SS_TYPEMASK) != SS_BITMAP) return 0;
     if (hBitmap && GetObjectType(hBitmap) != OBJ_BITMAP) {
-#ifdef __REACTOS__
-  OutputDebugStringA("huh? hBitmap!=0, but not bitmap\n");
-#else
-	ERR("huh? hBitmap!=0, but not bitmap\n");
-#endif
+	OutputDebugStringA("huh? hBitmap!=0, but not bitmap\n");
     	return 0;
     }
     hOldBitmap = (HBITMAP)SetWindowLongA( hwnd, HICON_GWL_OFFSET, (LONG)hBitmap );
@@ -259,11 +213,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case WM_CREATE:
         if (style < 0L || style > SS_TYPEMASK)
         {
-#ifdef __REACTOS__
             OutputDebugStringA("Unknown style\n");
-#else
-            ERR("Unknown style 0x%02lx\n", style );
-#endif
             return -1;
         }
         /* initialise colours */
@@ -290,10 +240,10 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            HDC hdc = wParam ? (HDC)wParam : BeginPaint(hwnd, &ps);
+            BeginPaint(hwnd, &ps);
             if (staticPaintFunc[style])
-                (staticPaintFunc[style])( hwnd, hdc, full_style );
-            if (!wParam) EndPaint(hwnd, &ps);
+                (staticPaintFunc[style])( hwnd, ps.hdc, full_style );
+            EndPaint(hwnd, &ps);
         }
         break;
 
@@ -390,24 +340,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case WM_GETDLGCODE:
         return DLGC_STATIC;
 
-    case WM_LBUTTONDOWN:
-    case WM_NCLBUTTONDOWN:
-        if (full_style & SS_NOTIFY)
-            SendMessageW( GetParent(hwnd), WM_COMMAND,
-                          MAKEWPARAM( GetWindowLongW(hwnd,GWL_ID), STN_CLICKED ), (LPARAM)hwnd);
-        return 0;
-
-    case WM_LBUTTONDBLCLK:
-    case WM_NCLBUTTONDBLCLK:
-        if (full_style & SS_NOTIFY)
-            SendMessageW( GetParent(hwnd), WM_COMMAND,
-                          MAKEWPARAM( GetWindowLongW(hwnd,GWL_ID), STN_DBLCLK ), (LPARAM)hwnd);
-        return 0;
-
     case STM_GETIMAGE:
-#ifndef __REACTOS__
-    case STM_GETICON16:
-#endif
     case STM_GETICON:
         return GetWindowLongA( hwnd, HICON_GWL_OFFSET );
 
@@ -420,17 +353,12 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 	    lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)lParam, style );
 	    break;
 	default:
-#ifndef __REACTOS__
-	    FIXME("STM_SETIMAGE: Unhandled type %x\n", wParam);
-#endif
+	    OutputDebugStringA("STM_SETIMAGE: Unhandled type\n");
 	    break;
 	}
         InvalidateRect( hwnd, NULL, TRUE );
 	break;
 
-#ifndef __REACTOS__
-    case STM_SETICON16:
-#endif
     case STM_SETICON:
         lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)wParam, style );
         InvalidateRect( hwnd, NULL, TRUE );
@@ -446,7 +374,7 @@ static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 /***********************************************************************
  *           StaticWndProcA
  */
-static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT CALLBACK StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return StaticWndProc_common(hWnd, uMsg, wParam, lParam, FALSE);
@@ -455,7 +383,7 @@ static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 /***********************************************************************
  *           StaticWndProcW
  */
-static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT CALLBACK StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return StaticWndProc_common(hWnd, uMsg, wParam, lParam, TRUE);
@@ -494,19 +422,19 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style )
     switch (style & SS_TYPEMASK)
     {
     case SS_LEFT:
-	wFormat = DT_LEFT | DT_EXPANDTABS | DT_WORDBREAK;
+	wFormat = DT_LEFT | DT_EXPANDTABS | DT_WORDBREAK | DT_NOCLIP;
 	break;
 
     case SS_CENTER:
-	wFormat = DT_CENTER | DT_EXPANDTABS | DT_WORDBREAK;
+	wFormat = DT_CENTER | DT_EXPANDTABS | DT_WORDBREAK | DT_NOCLIP;
 	break;
 
     case SS_RIGHT:
-	wFormat = DT_RIGHT | DT_EXPANDTABS | DT_WORDBREAK;
+	wFormat = DT_RIGHT | DT_EXPANDTABS | DT_WORDBREAK | DT_NOCLIP;
 	break;
 
     case SS_SIMPLE:
-	wFormat = DT_LEFT | DT_SINGLELINE | DT_VCENTER;
+	wFormat = DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOCLIP;
 	break;
 
     case SS_LEFTNOWORDWRAP:
@@ -596,22 +524,27 @@ static void STATIC_PaintIconfn( HWND hwnd, HDC hdc, DWORD style )
 
 static void STATIC_PaintBitmapfn(HWND hwnd, HDC hdc, DWORD style )
 {
+    RECT rc;
+    HBRUSH hbrush;
     HDC hMemDC;
     HBITMAP hBitmap, oldbitmap;
 
-    /* message is still sent, even if the returned brush is not used */
-    SendMessageW( GetParent(hwnd), WM_CTLCOLORSTATIC,
+    GetClientRect( hwnd, &rc );
+    hbrush = (HBRUSH)SendMessageW( GetParent(hwnd), WM_CTLCOLORSTATIC,
 				   (WPARAM)hdc, (LPARAM)hwnd );
+    FillRect( hdc, &rc, hbrush );
 
     if ((hBitmap = (HBITMAP)GetWindowLongA( hwnd, HICON_GWL_OFFSET )))
     {
         BITMAP bm;
+	SIZE sz;
 
         if(GetObjectType(hBitmap) != OBJ_BITMAP) return;
         if (!(hMemDC = CreateCompatibleDC( hdc ))) return;
 	GetObjectW(hBitmap, sizeof(bm), &bm);
+	GetBitmapDimensionEx(hBitmap, &sz);
 	oldbitmap = SelectObject(hMemDC, hBitmap);
-	BitBlt(hdc, 0, 0, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0,
+	BitBlt(hdc, sz.cx, sz.cy, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0,
 	       SRCCOPY);
 	SelectObject(hMemDC, oldbitmap);
 	DeleteDC(hMemDC);

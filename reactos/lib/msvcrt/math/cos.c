@@ -2,9 +2,6 @@
 
 double cos (double __x);
 
-/*
- * @implemented
- */
 double cos (double __x)
 {
   register double __value;

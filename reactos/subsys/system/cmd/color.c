@@ -1,4 +1,4 @@
-/* $Id: color.c,v 1.6 2004/11/08 02:16:06 weiden Exp $
+/* $Id: color.c,v 1.2 2003/06/01 17:06:22 hbirr Exp $
  *
  *  COLOR.C - color internal command.
  *
@@ -18,10 +18,15 @@
  *        4nt's syntax implemented
  */
 
-#include "precomp.h"
+#include "config.h"
 
 #ifdef INCLUDE_CMD_COLOR
+#include <windows.h>
+#include <tchar.h>
+#include <string.h>
+#include <stdlib.h>
 
+#include "cmd.h"
 
 static VOID ColorHelp (VOID)
 {
@@ -63,26 +68,19 @@ VOID SetScreenColor (WORD wColor, BOOL bFill)
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	COORD coPos;
 
-	if ((wColor & 0xF) == (wColor &0xF0) >> 4)
+	if (bFill == TRUE)
 	{
-	  ConErrPuts (_T("Same colors error! (Background and foreground can't be the same color)")); 
-    }
-    else 
-    {
-	    if (bFill == TRUE)
-    	{
-    	     GetConsoleScreenBufferInfo (hConsole, &csbi);
+		GetConsoleScreenBufferInfo (hConsole, &csbi);
 
-    	     coPos.X = 0;
-    	     coPos.Y = 0;
-    	     FillConsoleOutputAttribute (hConsole,
+		coPos.X = 0;
+		coPos.Y = 0;
+		FillConsoleOutputAttribute (hConsole,
 		                            (WORD)(wColor & 0x00FF),
 		                            (csbi.dwSize.X)*(csbi.dwSize.Y),
 		                            coPos,
 		                            &dwWritten);
-        }
-        SetConsoleTextAttribute (hConsole, (WORD)(wColor & 0x00FF));
-    }
+	}
+	SetConsoleTextAttribute (hConsole, (WORD)(wColor & 0x00FF));
 }
 
 
@@ -109,11 +107,11 @@ INT CommandColor (LPTSTR first, LPTSTR rest)
 
 	if (StringToColor (&wColor, &rest) == FALSE)
 	{
-		ConErrPuts(_T("error in color specification"));
+		ConErrPuts("error in color specification");
 		return 1;
 	}
 
-	ConErrPrintf (_T("Color %x\n"), wColor);
+	ConErrPrintf ("Color %x\n", wColor);
 
 	if ((wColor & 0xF) == (wColor &0xF0) >> 4)
 	{
@@ -123,7 +121,7 @@ INT CommandColor (LPTSTR first, LPTSTR rest)
 
 	/* set color */
 	SetScreenColor (wColor,
-	                (_tcsstr (rest,_T("/F")) || _tcsstr (rest,_T("/f"))));
+	                (_tcsstr (rest,"/F") || _tcsstr (rest,"/f")));
 
 	return 0;
 }

@@ -2,7 +2,6 @@
 // Systems Internals
 // http://www.sysinternals.com
 #include <stdio.h>
-#include <string.h>
 #define NTOS_MODE_USER
 #include <ntos.h>
 #include <fmifs.h>
@@ -54,7 +53,7 @@ SIZEDEFINITION LegalSizes[] = {
 //----------------------------------------------------------------------
 void PrintWin32Error( PWCHAR Message, DWORD ErrorCode )
 {
-	LPWSTR lpMsgBuf;
+	LPVOID lpMsgBuf;
  
 	FormatMessageW( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 					NULL, ErrorCode, 
@@ -175,14 +174,12 @@ int ParseCommandLine( int argc, WCHAR *argv[] )
 // can interpret. If we wanted to halt the chkdsk we could return FALSE.
 //
 //----------------------------------------------------------------------
-BOOLEAN STDCALL
-FormatExCallback (CALLBACKCOMMAND Command,
-		  ULONG Modifier,
-		  PVOID Argument)
+BOOL __stdcall FormatExCallback( CALLBACKCOMMAND Command, DWORD Modifier, PVOID Argument )
 {
 	PDWORD percent;
 	PTEXTOUTPUT output;
 	PBOOLEAN status;
+	static createStructures = FALSE;
 
 	// 
 	// We get other types of commands, but we don't have to pay attention to them
@@ -191,7 +188,7 @@ FormatExCallback (CALLBACKCOMMAND Command,
 
 	case PROGRESS:
 		percent = (PDWORD) Argument;
-		printf("%lu percent completed.\r", *percent);
+		printf("%d percent completed.\r", *percent);
 		break;
 
 	case OUTPUT:
@@ -207,21 +204,6 @@ FormatExCallback (CALLBACKCOMMAND Command,
 			Error = TRUE;
 		}
 		break;
-	case DONEWITHSTRUCTURE:
-	case UNKNOWN2:
-	case UNKNOWN3:
-	case UNKNOWN4:
-	case UNKNOWN5:
-	case INSUFFICIENTRIGHTS:
-	case UNKNOWN7:
-	case UNKNOWN8:
-	case UNKNOWN9:
-	case UNKNOWNA:
-	case UNKNOWNC:
-	case UNKNOWND:
-	case STRUCTUREPROGRESS:
-		printf("Operation Not Supported");
-		return FALSE;
 	}
 	return TRUE;
 }
@@ -265,7 +247,7 @@ BOOLEAN LoadFMIFSEntryPoints()
 int wmain( int argc, WCHAR *argv[] )
 {
 	int badArg;
-	DWORD media = FMIFS_HARDDISK;
+	DWORD media;
 	DWORD driveType;
 	WCHAR fileSystem[1024];
 	WCHAR volumeName[1024];
@@ -321,11 +303,18 @@ int wmain( int argc, WCHAR *argv[] )
 	}
 
 	if( driveType != DRIVE_FIXED ) {
+
 		printf("Insert a new floppy in drive %C:\nand press Enter when ready...",
 			RootDirectory[0] );
 		fgetws( input, sizeof(input)/2, stdin );
 
 		media = FMIFS_FLOPPY;
+
+
+driveType = DRIVE_FIXED;
+media = FMIFS_HARDDISK;
+
+
 	}
 
 	//
@@ -396,7 +385,7 @@ int wmain( int argc, WCHAR *argv[] )
 		
 		if( totalNumberOfBytes.QuadPart > 1024*1024*10 ) {
 			
-			printf("Verifying %luM\n", (DWORD) (totalNumberOfBytes.QuadPart/(1024*1024)));
+			printf("Verifying %dM\n", (DWORD) (totalNumberOfBytes.QuadPart/(1024*1024)));
 			
 		} else {
 
@@ -407,7 +396,7 @@ int wmain( int argc, WCHAR *argv[] )
 
 		if( totalNumberOfBytes.QuadPart > 1024*1024*10 ) {
 			
-			printf("QuickFormatting %luM\n", (DWORD) (totalNumberOfBytes.QuadPart/(1024*1024)));
+			printf("QuickFormatting %dM\n", (DWORD) (totalNumberOfBytes.QuadPart/(1024*1024)));
 			
 		} else {
 
@@ -487,8 +476,8 @@ int wmain( int argc, WCHAR *argv[] )
 		PrintWin32Error( L"Could not query volume", GetLastError());
 		return -1;
 	}
-	printf("\nVolume Serial Number is %04X-%04X\n", (unsigned int)(serialNumber >> 16),
-					(unsigned int)(serialNumber & 0xFFFF) );
+	printf("\nVolume Serial Number is %04X-%04X\n", serialNumber >> 16,
+					serialNumber & 0xFFFF );
 			
 	return 0;
 }

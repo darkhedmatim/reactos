@@ -1,4 +1,4 @@
-/* $Id: exception.c,v 1.9 2004/06/25 16:39:41 weiden Exp $
+/* $Id: exception.c,v 1.4 2003/06/07 10:14:39 chorns Exp $
  *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
@@ -171,7 +171,7 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
       Context,
       &DispatcherContext,
       RegistrationFrame->handler);
-#ifdef DEBUG
+
     DPRINT("Exception handler said 0x%X\n", ReturnValue);
 	DPRINT("RegistrationFrame == 0x%.08x\n", RegistrationFrame);
 	{
@@ -184,7 +184,7 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
 		DPRINT("TryLevel == 0x%.08x\n", sp[5]);
 		DPRINT("EBP == 0x%.08x\n", sp[6]);
 	}
-#endif
+
     if (RegistrationFrame == NULL)
     {
       ExceptionRecord->ExceptionFlags &= ~EXCEPTION_NESTED_CALL;  // Turn off flag
@@ -247,9 +247,6 @@ RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
   return ExceptionContinueExecution;  
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlRaiseStatus(NTSTATUS Status)
 {
@@ -264,9 +261,6 @@ RtlRaiseStatus(NTSTATUS Status)
   RtlRaiseException (& ExceptionRecord);
 }
 
-/*
- * @implemented
- */
 VOID STDCALL
 RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
   PVOID ReturnAddress,
@@ -298,10 +292,6 @@ RtlUnwind(PEXCEPTION_REGISTRATION RegistrationFrame,
     pExceptRec->ExceptionRecord = NULL;
     pExceptRec->ExceptionAddress = ReturnAddress;
     pExceptRec->ExceptionInformation[0] = 0;
-  }
-  else
-  {
-    pExceptRec = ExceptionRecord;
   }
 
   if (RegistrationFrame)

@@ -80,6 +80,8 @@ NPF_Open(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     NDIS_STATUS     Status;
     NDIS_STATUS     ErrorStatus;
     UINT            i;
+	PUCHAR			tpointer;
+    PLIST_ENTRY     PacketListEntry;
 	PCHAR			EvName;
 
     IF_LOUD(DbgPrint("NPF: OpenAdapter\n");)
@@ -154,7 +156,7 @@ NPF_Open(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 	PacketItoa(NamedEventsCounter,(PUCHAR)(Open->ReadEventName.Buffer+21));
 
-	InterlockedIncrement((PLONG)&NamedEventsCounter);
+	InterlockedIncrement(&NamedEventsCounter);
 	
 	IF_LOUD(DbgPrint("\nCreated the named event for the read; name=%ws, counter=%d\n", Open->ReadEventName.Buffer,NamedEventsCounter-1);)
 
@@ -208,7 +210,7 @@ NPF_Open(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 	Open->Buffer = NULL;
 	Open->Bhead = 0;
 	Open->Btail = 0;
-	Open->BLastByte = (UINT) -1;
+	(INT)Open->BLastByte = -1;
 	Open->Dropped = 0;		//reset the dropped packets counter
 	Open->Received = 0;		//reset the received packets counter
 	Open->Accepted = 0;		//reset the accepted packets counter
@@ -277,7 +279,7 @@ NPF_Open(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
 
 //-------------------------------------------------------------------
 
-VOID STDCALL NPF_OpenAdapterComplete(
+VOID NPF_OpenAdapterComplete(
 	IN NDIS_HANDLE  ProtocolBindingContext,
     IN NDIS_STATUS  Status,
     IN NDIS_STATUS  OpenErrorStatus)
@@ -487,7 +489,7 @@ NPF_Close(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp)
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_CloseAdapterComplete(IN NDIS_HANDLE  ProtocolBindingContext,IN NDIS_STATUS  Status)
 {
     POPEN_INSTANCE    Open;
@@ -640,7 +642,7 @@ NPF_UnbindAdapter(
 
 //-------------------------------------------------------------------
 
-VOID STDCALL
+VOID
 NPF_ResetComplete(IN NDIS_HANDLE  ProtocolBindingContext,IN NDIS_STATUS  Status)
 
 {

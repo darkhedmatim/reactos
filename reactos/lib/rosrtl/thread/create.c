@@ -1,4 +1,4 @@
-/* $Id: create.c,v 1.7 2004/10/24 20:37:26 weiden Exp $
+/* $Id: create.c,v 1.3 2003/06/01 14:59:02 chorns Exp $
 */
 /*
 */
@@ -10,10 +10,7 @@
 #define NDEBUG
 #include <ntdll/ntdll.h>
 
-#include <rosrtl/thread.h>
-
-NTSTATUS STDCALL
-RtlRosCreateUserThread
+NTSTATUS STDCALL RtlRosCreateUserThreadEx
 (
  IN HANDLE ProcessHandle,
  IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -28,7 +25,8 @@ RtlRosCreateUserThread
  IN ULONG_PTR * Parameters
 )
 {
- INITIAL_TEB usUserInitialTeb;
+ USER_STACK usUserStack;
+ OBJECT_ATTRIBUTES oaThreadAttribs;
  CONTEXT ctxInitialContext;
  NTSTATUS nErrCode;
  HANDLE hThread;
@@ -41,7 +39,7 @@ RtlRosCreateUserThread
  nErrCode = RtlRosCreateStack
  (
   ProcessHandle,
-  &usUserInitialTeb,
+  &usUserStack,
   StackZeroBits,
   StackReserve,
   StackCommit
@@ -51,12 +49,12 @@ RtlRosCreateUserThread
  if(!NT_SUCCESS(nErrCode)) goto l_Fail;
 
  /* initialize the registers and stack for the thread */
- nErrCode = RtlRosInitializeContext
+ nErrCode = RtlRosInitializeContextEx
  (
   ProcessHandle,
   &ctxInitialContext,
   StartAddress,
-  &usUserInitialTeb,
+  &usUserStack,
   ParameterCount,
   Parameters
  );
@@ -73,7 +71,7 @@ RtlRosCreateUserThread
   ProcessHandle,
   ClientId,
   &ctxInitialContext,
-  &usUserInitialTeb,
+  &usUserStack,
   CreateSuspended
  );
 
@@ -85,16 +83,15 @@ RtlRosCreateUserThread
 
  /* failure */
 l_Fail:
- ASSERT(!NT_SUCCESS(nErrCode));
+ assert(!NT_SUCCESS(nErrCode));
 
  /* deallocate the stack */
- RtlRosDeleteStack(ProcessHandle, &usUserInitialTeb);
+ RtlRosDeleteStack(ProcessHandle, &usUserStack);
  
  return nErrCode;
 }
 
-NTSTATUS CDECL
-RtlRosCreateUserThreadVa
+NTSTATUS CDECL RtlRosCreateUserThreadVa
 (
  IN HANDLE ProcessHandle,
  IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -114,16 +111,8 @@ RtlRosCreateUserThreadVa
  
  va_start(vaArgs, ParameterCount);
  
- /*
-  FIXME: this code makes several non-portable assumptions:
-   - all parameters are passed on the stack
-   - the stack is a contiguous array of cells as large as an ULONG_PTR
-   - the stack grows downwards
-
-  This happens to work on the Intel x86, but is likely to bomb horribly on most
-  other platforms
- */
- nErrCode = RtlRosCreateUserThread
+ /* FIXME: this code assumes a stack growing downwards */
+ nErrCode = RtlRosCreateUserThreadEx
  (
   ProcessHandle,
   ObjectAttributes,

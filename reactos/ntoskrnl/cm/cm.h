@@ -14,10 +14,10 @@
 #define  REG_DEVICEMAP_KEY_NAME		L"\\Registry\\Machine\\HARDWARE\\DEVICEMAP"
 #define  REG_RESOURCEMAP_KEY_NAME	L"\\Registry\\Machine\\HARDWARE\\RESOURCEMAP"
 #define  REG_CLASSES_KEY_NAME		L"\\Registry\\Machine\\Software\\Classes"
-#define  REG_SYSTEM_KEY_NAME		L"\\Registry\\Machine\\SYSTEM"
-#define  REG_SOFTWARE_KEY_NAME		L"\\Registry\\Machine\\SOFTWARE"
-#define  REG_SAM_KEY_NAME		L"\\Registry\\Machine\\SAM"
-#define  REG_SEC_KEY_NAME		L"\\Registry\\Machine\\SECURITY"
+#define  REG_SYSTEM_KEY_NAME		L"\\Registry\\Machine\\System"
+#define  REG_SOFTWARE_KEY_NAME		L"\\Registry\\Machine\\Software"
+#define  REG_SAM_KEY_NAME		L"\\Registry\\Machine\\Sam"
+#define  REG_SEC_KEY_NAME		L"\\Registry\\Machine\\Security"
 #define  REG_USER_KEY_NAME		L"\\Registry\\User"
 #define  REG_DEFAULT_USER_KEY_NAME	L"\\Registry\\User\\.Default"
 #define  REG_CURRENT_USER_KEY_NAME	L"\\Registry\\User\\CurrentUser"
@@ -29,31 +29,27 @@
 #define  SAM_REG_FILE			L"\\SystemRoot\\System32\\Config\\SAM"
 #define  SEC_REG_FILE			L"\\SystemRoot\\System32\\Config\\SECURITY"
 
-#define  REG_SYSTEM_FILE_NAME		L"\\system"
-#define  REG_SOFTWARE_FILE_NAME		L"\\software"
-#define  REG_DEFAULT_USER_FILE_NAME	L"\\default"
-#define  REG_SAM_FILE_NAME		L"\\sam"
-#define  REG_SEC_FILE_NAME		L"\\security"
+#define  REG_SYSTEM_FILE_NAME		L"\\SYSTEM"
+#define  REG_SOFTWARE_FILE_NAME		L"\\SOFTWARE"
+#define  REG_DEFAULT_USER_FILE_NAME	L"\\DEFAULT"
+#define  REG_SAM_FILE_NAME		L"\\SAM"
+#define  REG_SEC_FILE_NAME		L"\\SECURITY"
 
 #define  REG_BLOCK_SIZE                4096
 #define  REG_HBIN_DATA_OFFSET          32
+#define  REG_BIN_ID                    0x6e696268
 #define  REG_INIT_BLOCK_LIST_SIZE      32
 #define  REG_INIT_HASH_TABLE_SIZE      3
 #define  REG_EXTEND_HASH_TABLE_SIZE    4
 #define  REG_VALUE_LIST_CELL_MULTIPLE  4
-
-#define  REG_HIVE_ID                   0x66676572
-#define  REG_BIN_ID                    0x6e696268
 #define  REG_KEY_CELL_ID               0x6b6e
-#define  REG_HASH_TABLE_CELL_ID        0x666c
+#define  REG_HASH_TABLE_BLOCK_ID       0x666c
 #define  REG_VALUE_CELL_ID             0x6b76
-#define  REG_SECURITY_CELL_ID          0x6b73
+#define  REG_HIVE_ID                   0x66676572
 
 
 // BLOCK_OFFSET = offset in file after header block
-typedef ULONG BLOCK_OFFSET, *PBLOCK_OFFSET;
-
-#include <pshpack1.h>
+typedef ULONG BLOCK_OFFSET;
 
 /* header for registry hive file : */
 typedef struct _HIVE_HEADER
@@ -84,7 +80,7 @@ typedef struct _HIVE_HEADER
 
   /* Offset into file from the byte after the end of the base block.
      If the hive is volatile, this is the actual pointer to the KEY_CELL */
-  BLOCK_OFFSET  RootKeyOffset;
+  BLOCK_OFFSET  RootKeyCell;
 
   /* Size of each hive block ? */
   ULONG  BlockSize;
@@ -100,18 +96,18 @@ typedef struct _HIVE_HEADER
 
   /* Checksum of first 0x200 bytes */
   ULONG  Checksum;
-} HIVE_HEADER, *PHIVE_HEADER;
+} __attribute__((packed)) HIVE_HEADER, *PHIVE_HEADER;
 
-typedef struct _BIN_HEADER
+typedef struct _HBIN
 {
   /* Bin identifier "hbin" (0x6E696268) */
-  ULONG  HeaderId;
+  ULONG  BlockId;
 
   /* Block offset of this bin */
-  BLOCK_OFFSET  BinOffset;
+  BLOCK_OFFSET  BlockOffset;
 
   /* Size in bytes, multiple of the block size (4KB) */
-  ULONG  BinSize;
+  ULONG  BlockSize;
 
   /* ? */
   ULONG  Unused1;
@@ -121,13 +117,13 @@ typedef struct _BIN_HEADER
 
   /* ? */
   ULONG  Unused2;
-} HBIN, *PHBIN;
+} __attribute__((packed)) HBIN, *PHBIN;
 
 typedef struct _CELL_HEADER
 {
   /* <0 if used, >0 if free */
   LONG  CellSize;
-} CELL_HEADER, *PCELL_HEADER;
+} __attribute__((packed)) CELL_HEADER, *PCELL_HEADER;
 
 typedef struct _KEY_CELL
 {
@@ -165,7 +161,7 @@ typedef struct _KEY_CELL
   ULONG  NumberOfValues;
 
   /* Block offset of VALUE_LIST_CELL */
-  BLOCK_OFFSET  ValueListOffset;
+  BLOCK_OFFSET  ValuesOffset;
 
   /* Block offset of security cell */
   BLOCK_OFFSET  SecurityKeyOffset;
@@ -184,17 +180,18 @@ typedef struct _KEY_CELL
 
   /* Name of key (not zero terminated) */
   UCHAR  Name[0];
-} KEY_CELL, *PKEY_CELL;
+} __attribute__((packed)) KEY_CELL, *PKEY_CELL;
 
 /* KEY_CELL.Flags constants */
 #define  REG_KEY_ROOT_CELL                 0x0C
 #define  REG_KEY_LINK_CELL                 0x10
 #define  REG_KEY_NAME_PACKED               0x20
 
+
 /*
  * Hash record
  *
- * HashValue:
+ * HashValue :
  *	packed name: four letters of value's name
  *	otherwise: Zero!
  */
@@ -202,7 +199,7 @@ typedef struct _HASH_RECORD
 {
   BLOCK_OFFSET  KeyOffset;
   ULONG  HashValue;
-} HASH_RECORD, *PHASH_RECORD;
+} __attribute__((packed)) HASH_RECORD, *PHASH_RECORD;
 
 typedef struct _HASH_TABLE_CELL
 {
@@ -210,64 +207,37 @@ typedef struct _HASH_TABLE_CELL
   USHORT  Id;
   USHORT  HashTableSize;
   HASH_RECORD  Table[0];
-} HASH_TABLE_CELL, *PHASH_TABLE_CELL;
+} __attribute__((packed)) HASH_TABLE_CELL, *PHASH_TABLE_CELL;
 
 
 typedef struct _VALUE_LIST_CELL
 {
   LONG  CellSize;
-  BLOCK_OFFSET  ValueOffset[0];
-} VALUE_LIST_CELL, *PVALUE_LIST_CELL;
+  BLOCK_OFFSET  Values[0];
+} __attribute__((packed)) VALUE_LIST_CELL, *PVALUE_LIST_CELL;
 
 typedef struct _VALUE_CELL
 {
   LONG  CellSize;
   USHORT Id;	// "kv"
   USHORT NameSize;	// length of Name
-  ULONG  DataSize;	// length of datas in the cell pointed by DataOffset
+  LONG  DataSize;	// length of datas in the cell pointed by DataOffset
   BLOCK_OFFSET  DataOffset;// datas are here if high bit of DataSize is set
   ULONG  DataType;
   USHORT Flags;
   USHORT Unused1;
   UCHAR  Name[0]; /* warning : not zero terminated */
-} VALUE_CELL, *PVALUE_CELL;
+} __attribute__((packed)) VALUE_CELL, *PVALUE_CELL;
 
 /* VALUE_CELL.Flags constants */
 #define REG_VALUE_NAME_PACKED             0x0001
-
-/* VALUE_CELL.DataSize mask constants */
-#define REG_DATA_SIZE_MASK                 0x7FFFFFFF
-#define REG_DATA_IN_OFFSET                 0x80000000
-
-
-typedef struct _SECURITY_CELL
-{
-  LONG  CellSize;
-  USHORT Id;	// "sk"
-  USHORT Reserved;
-  BLOCK_OFFSET PrevSecurityCell;
-  BLOCK_OFFSET NextSecurityCell;
-  ULONG RefCount;
-  ULONG SdSize;
-  UCHAR Data[0];
-} SECURITY_CELL, *PSECURITY_CELL;
 
 
 typedef struct _DATA_CELL
 {
   LONG  CellSize;
   UCHAR  Data[0];
-} DATA_CELL, *PDATA_CELL;
-
-#include <poppack.h>
-
-
-typedef struct _BLOCK_LIST_ENTRY
-{
-  PHBIN Bin;
-  PVOID Block;
-} BLOCK_LIST_ENTRY, *PBLOCK_LIST_ENTRY;
-
+} __attribute__((packed)) DATA_CELL, *PDATA_CELL;
 
 typedef struct _REGISTRY_HIVE
 {
@@ -279,13 +249,12 @@ typedef struct _REGISTRY_HIVE
   PHIVE_HEADER  HiveHeader;
   ULONG  UpdateCounter;
   ULONG  BlockListSize;
-  PBLOCK_LIST_ENTRY BlockList;
+  PHBIN  *BlockList;
   ULONG  FreeListSize;
   ULONG  FreeListMax;
   PCELL_HEADER *FreeList;
   BLOCK_OFFSET *FreeListOffset;
-
-  PSECURITY_CELL RootSecurityCell;
+  ERESOURCE  HiveResource;
 
   PULONG BitmapBuffer;
   RTL_BITMAP  DirtyBitMap;
@@ -337,7 +306,7 @@ typedef struct _KEY_OBJECT
   PREGISTRY_HIVE RegistryHive;
 
   /* Block offset of the key cell this key belongs in */
-  BLOCK_OFFSET KeyCellOffset;
+  BLOCK_OFFSET BlockOffset;
 
   /* KEY_CELL this key belong in */
   PKEY_CELL KeyCell;
@@ -369,18 +338,11 @@ extern POBJECT_TYPE CmiKeyType;
 extern KSPIN_LOCK CmiKeyListLock;
 
 extern LIST_ENTRY CmiHiveListHead;
+extern ERESOURCE CmiHiveListLock;
 
-extern ERESOURCE CmiRegistryLock;
-
-/* Registry Callback Function */
-typedef NTSTATUS (*PEX_CALLBACK_FUNCTION ) (
-    IN PVOID CallbackContext,
-    IN PVOID Argument1,
-    IN PVOID Argument2
-    );
 
 VOID
-CmiVerifyBinHeader(PHBIN BinHeader);
+CmiVerifyBinCell(PHBIN BinCell);
 VOID
 CmiVerifyKeyCell(PKEY_CELL KeyCell);
 VOID
@@ -391,7 +353,7 @@ VOID
 CmiVerifyRegistryHive(PREGISTRY_HIVE RegistryHive);
 
 #ifdef DBG
-#define VERIFY_BIN_HEADER CmiVerifyBinHeader
+#define VERIFY_BIN_CELL CmiVerifyBinCell
 #define VERIFY_KEY_CELL CmiVerifyKeyCell
 #define VERIFY_ROOT_KEY_CELL CmiVerifyRootKeyCell
 #define VERIFY_VALUE_CELL CmiVerifyValueCell
@@ -399,7 +361,7 @@ CmiVerifyRegistryHive(PREGISTRY_HIVE RegistryHive);
 #define VERIFY_KEY_OBJECT CmiVerifyKeyObject
 #define VERIFY_REGISTRY_HIVE CmiVerifyRegistryHive
 #else
-#define VERIFY_BIN_HEADER(x)
+#define VERIFY_BIN_CELL(x)
 #define VERIFY_KEY_CELL(x)
 #define VERIFY_ROOT_KEY_CELL(x)
 #define VERIFY_VALUE_CELL(x)
@@ -409,20 +371,11 @@ CmiVerifyRegistryHive(PREGISTRY_HIVE RegistryHive);
 #endif
 
 NTSTATUS STDCALL
-CmRegisterCallback(IN PEX_CALLBACK_FUNCTION Function,
-                   IN PVOID                 Context,
-                   IN OUT PLARGE_INTEGER    Cookie
-                    );
-
-NTSTATUS STDCALL
-CmUnRegisterCallback(IN LARGE_INTEGER    Cookie);
-
-NTSTATUS STDCALL
-CmiObjectParse(IN PVOID ParsedObject,
-	       OUT PVOID *NextObject,
-	       IN PUNICODE_STRING FullPath,
-	       IN OUT PWSTR *Path,
-	       IN ULONG Attribute);
+CmiObjectParse(IN PVOID  ParsedObject,
+	       OUT PVOID  *NextObject,
+	       IN PUNICODE_STRING  FullPath,
+	       IN OUT PWSTR  *Path,
+	       IN ULONG  Attribute);
 
 NTSTATUS STDCALL
 CmiObjectCreate(PVOID ObjectBody,
@@ -490,39 +443,38 @@ NTSTATUS
 CmiFlushRegistryHive(PREGISTRY_HIVE RegistryHive);
 
 ULONG
-CmiGetNumberOfSubKeys(PKEY_OBJECT KeyObject);
+CmiGetMaxNameLength(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell);
 
 ULONG
-CmiGetMaxNameLength(IN PKEY_OBJECT KeyObject);
+CmiGetMaxClassLength(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell);
 
 ULONG
-CmiGetMaxClassLength(IN PKEY_OBJECT KeyObject);
+CmiGetMaxValueNameLength(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell);
 
 ULONG
-CmiGetMaxValueNameLength(IN PREGISTRY_HIVE RegistryHive,
-			 IN PKEY_CELL KeyCell);
-
-ULONG
-CmiGetMaxValueDataLength(IN PREGISTRY_HIVE RegistryHive,
-			 IN PKEY_CELL KeyCell);
+CmiGetMaxValueDataLength(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell);
 
 NTSTATUS
-CmiScanForSubKey(IN PREGISTRY_HIVE RegistryHive,
-		 IN PKEY_CELL KeyCell,
-		 OUT PKEY_CELL *SubKeyCell,
+CmiScanForSubKey(IN PREGISTRY_HIVE  RegistryHive,
+		 IN PKEY_CELL  KeyCell,
+		 OUT PKEY_CELL  *SubKeyCell,
 		 OUT BLOCK_OFFSET *BlockOffset,
 		 IN PUNICODE_STRING KeyName,
-		 IN ACCESS_MASK DesiredAccess,
+		 IN ACCESS_MASK  DesiredAccess,
 		 IN ULONG Attributes);
 
 NTSTATUS
-CmiAddSubKey(IN PREGISTRY_HIVE RegistryHive,
-	     IN PKEY_OBJECT ParentKey,
+CmiAddSubKey(IN PREGISTRY_HIVE  RegistryHive,
+	     IN PKEY_OBJECT Parent,
 	     OUT PKEY_OBJECT SubKey,
 	     IN PUNICODE_STRING SubKeyName,
-	     IN ULONG TitleIndex,
-	     IN PUNICODE_STRING Class,
-	     IN ULONG CreateOptions);
+	     IN ULONG  TitleIndex,
+	     IN PUNICODE_STRING  Class,
+	     IN ULONG  CreateOptions);
 
 NTSTATUS
 CmiRemoveSubKey(IN PREGISTRY_HIVE RegistryHive,
@@ -530,49 +482,47 @@ CmiRemoveSubKey(IN PREGISTRY_HIVE RegistryHive,
 		IN PKEY_OBJECT SubKey);
 
 NTSTATUS
-CmiScanKeyForValue(IN PREGISTRY_HIVE RegistryHive,
-		   IN PKEY_CELL KeyCell,
-		   IN PUNICODE_STRING ValueName,
-		   OUT PVALUE_CELL *ValueCell,
-		   OUT BLOCK_OFFSET *VBOffset);
+CmiScanKeyForValue(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell,
+  IN PUNICODE_STRING  ValueName,
+  OUT PVALUE_CELL  *ValueCell,
+  OUT BLOCK_OFFSET *VBOffset);
 
 NTSTATUS
-CmiGetValueFromKeyByIndex(IN PREGISTRY_HIVE RegistryHive,
-			  IN PKEY_CELL KeyCell,
-			  IN ULONG Index,
-			  OUT PVALUE_CELL *ValueCell);
+CmiGetValueFromKeyByIndex(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell,
+  IN ULONG  Index,
+  OUT PVALUE_CELL  *ValueCell);
 
 NTSTATUS
-CmiAddValueToKey(IN PREGISTRY_HIVE RegistryHive,
-		 IN PKEY_CELL KeyCell,
-		 IN BLOCK_OFFSET KeyCellOffset,
-		 IN PUNICODE_STRING ValueName,
-		 OUT PVALUE_CELL *pValueCell,
-		 OUT BLOCK_OFFSET *pValueCellOffset);
+CmiAddValueToKey(IN PREGISTRY_HIVE  RegistryHive,
+  IN PKEY_CELL  KeyCell,
+  IN PUNICODE_STRING ValueName,
+  OUT PVALUE_CELL *pValueCell,
+  OUT BLOCK_OFFSET *pVBOffset);
 
 NTSTATUS
-CmiDeleteValueFromKey(IN PREGISTRY_HIVE RegistryHive,
-		      IN PKEY_CELL KeyCell,
+CmiDeleteValueFromKey(IN PREGISTRY_HIVE  RegistryHive,
+		      IN PKEY_CELL  KeyCell,
 		      IN BLOCK_OFFSET KeyCellOffset,
 		      IN PUNICODE_STRING ValueName);
 
 NTSTATUS
-CmiAllocateHashTableCell(IN PREGISTRY_HIVE RegistryHive,
-			 OUT PHASH_TABLE_CELL *HashBlock,
-			 OUT BLOCK_OFFSET *HBOffset,
-			 IN ULONG HashTableSize);
+CmiAllocateHashTableBlock(IN PREGISTRY_HIVE  RegistryHive,
+  OUT PHASH_TABLE_CELL  *HashBlock,
+  OUT BLOCK_OFFSET  *HBOffset,
+  IN ULONG  HashTableSize);
 
 PKEY_CELL
 CmiGetKeyFromHashByIndex(PREGISTRY_HIVE RegistryHive,
-			 PHASH_TABLE_CELL HashBlock,
-			 ULONG Index);
+PHASH_TABLE_CELL  HashBlock,
+ULONG  Index);
 
 NTSTATUS
-CmiAddKeyToHashTable(PREGISTRY_HIVE RegistryHive,
-		     PHASH_TABLE_CELL HashCell,
-		     BLOCK_OFFSET HashCellOffset,
-		     PKEY_CELL NewKeyCell,
-		     BLOCK_OFFSET NKBOffset);
+CmiAddKeyToHashTable(PREGISTRY_HIVE  RegistryHive,
+  PHASH_TABLE_CELL  HashBlock,
+  PKEY_CELL  NewKeyCell,
+  BLOCK_OFFSET  NKBOffset);
 
 NTSTATUS
 CmiRemoveKeyFromHashTable(PREGISTRY_HIVE RegistryHive,
@@ -580,35 +530,31 @@ CmiRemoveKeyFromHashTable(PREGISTRY_HIVE RegistryHive,
 			  BLOCK_OFFSET NKBOffset);
 
 NTSTATUS
-CmiAllocateValueCell(IN PREGISTRY_HIVE RegistryHive,
-		     OUT PVALUE_CELL *ValueCell,
-		     OUT BLOCK_OFFSET *VBOffset,
-		     IN PUNICODE_STRING ValueName);
+CmiAllocateValueCell(IN PREGISTRY_HIVE  RegistryHive,
+  OUT PVALUE_CELL  *ValueCell,
+  OUT BLOCK_OFFSET  *VBOffset,
+  IN PUNICODE_STRING ValueName);
 
 NTSTATUS
-CmiDestroyValueCell(PREGISTRY_HIVE RegistryHive,
-		    PVALUE_CELL ValueCell,
-		    BLOCK_OFFSET VBOffset);
+CmiDestroyValueCell(PREGISTRY_HIVE  RegistryHive,
+  PVALUE_CELL  ValueCell,
+  BLOCK_OFFSET  VBOffset);
 
 NTSTATUS
-CmiAllocateCell(PREGISTRY_HIVE RegistryHive,
-		LONG CellSize,
-		PVOID *Cell,
-		BLOCK_OFFSET *CellOffset);
+CmiAllocateBlock(PREGISTRY_HIVE  RegistryHive,
+  PVOID  *Block,
+  LONG  BlockSize,
+	BLOCK_OFFSET * pBlockOffset);
 
 NTSTATUS
-CmiDestroyCell(PREGISTRY_HIVE RegistryHive,
-	       PVOID Cell,
-	       BLOCK_OFFSET CellOffset);
-
-PHBIN
-CmiGetBin (PREGISTRY_HIVE RegistryHive,
-	   BLOCK_OFFSET CellOffset);
+CmiDestroyBlock(PREGISTRY_HIVE  RegistryHive,
+  PVOID  Block,
+  BLOCK_OFFSET Offset);
 
 PVOID
-CmiGetCell (PREGISTRY_HIVE RegistryHive,
-	    BLOCK_OFFSET CellOffset,
-	    OUT PHBIN *Bin);
+CmiGetBlock(PREGISTRY_HIVE  RegistryHive,
+	    BLOCK_OFFSET  BlockOffset,
+	    OUT PHBIN * ppBin);
 
 VOID
 CmiMarkBlockDirty(PREGISTRY_HIVE RegistryHive,
@@ -619,7 +565,7 @@ CmiMarkBinDirty(PREGISTRY_HIVE RegistryHive,
 		BLOCK_OFFSET BinOffset);
 
 NTSTATUS
-CmiAddFree(PREGISTRY_HIVE RegistryHive,
+CmiAddFree(PREGISTRY_HIVE  RegistryHive,
 	   PCELL_HEADER FreeBlock,
 	   BLOCK_OFFSET FreeOffset,
 	   BOOLEAN MergeFreeBlocks);
@@ -641,13 +587,13 @@ CmiGetPackedNameLength(IN PUNICODE_STRING Name,
 
 BOOLEAN
 CmiComparePackedNames(IN PUNICODE_STRING Name,
-		      IN PUCHAR NameBuffer,
+		      IN PCHAR NameBuffer,
 		      IN USHORT NameBufferSize,
 		      IN BOOLEAN NamePacked);
 
 VOID
 CmiCopyPackedName(PWCHAR NameBuffer,
-		  PUCHAR PackedNameBuffer,
+		  PCHAR PackedNameBuffer,
 		  ULONG PackedNameSize);
 
 BOOLEAN
