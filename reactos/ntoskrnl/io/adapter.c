@@ -1,5 +1,4 @@
-/* $Id: adapter.c,v 1.11 2004/08/15 16:39:03 chorns Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/adapter.c
@@ -11,38 +10,49 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
-
-/* DATA **********************************************************************/
-
-POBJECT_TYPE EXPORTED IoAdapterObjectType = NULL;	/* FIXME */
-POBJECT_TYPE EXPORTED IoDeviceHandlerObjectType = NULL;	/* FIXME */
-ULONG        EXPORTED IoDeviceHandlerObjectSize = 0;    /* FIXME */
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-IoAllocateAdapterChannel (PADAPTER_OBJECT	AdapterObject,
-			  PDEVICE_OBJECT	DeviceObject,
-			  ULONG		NumberOfMapRegisters,
-			  PDRIVER_CONTROL	ExecutionRoutine,
-			  PVOID		Context)
+NTSTATUS IoAllocateAdapterChannel(PADAPTER_OBJECT AdapterObject,
+				  PDEVICE_OBJECT DeviceObject,
+				  ULONG NumberOfMapRegisters,
+				  PDRIVER_CONTROL ExecutionRoutine,
+				  PVOID Context)
 {
-  DeviceObject->Queue.Wcb.DeviceObject = DeviceObject;
-  DeviceObject->Queue.Wcb.DeviceContext = Context;
-
-  return HalAllocateAdapterChannel( AdapterObject,
-				    &DeviceObject->Queue.Wcb,
-				    NumberOfMapRegisters,
-				    ExecutionRoutine);
+   UNIMPLEMENTED;
 }
 
+BOOLEAN IoFlushAdapterBuffers(PADAPTER_OBJECT AdapterObject,
+			      PMDL Mdl,
+			      PVOID MapRegisterBase,
+			      PVOID CurrentVa,
+			      ULONG Length,
+			      BOOLEAN WriteToDevice)
+{
+   UNIMPLEMENTED;
+}
 
-/* NOTE: Missing IoXXXAdapter finctions in HAL.DLL */
+PHYSICAL_ADDRESS IoMapTransfer(PADAPTER_OBJECT AdapterObject,
+			       PMDL Mdl,
+			       PVOID MapRegisterBase,
+			       PVOID CurrentVa,
+			       PULONG Length,
+			       BOOLEAN WriteToDevice)
+{
+   UNIMPLEMENTED;
+}
 
+VOID IoFreeAdapterChannel(PADAPTER_OBJECT AdapterObject)
+{
+   UNIMPLEMENTED;
+}
 
-/* EOF */
+VOID IoFreeMapRegisters(PADAPTER_OBJECT AdapterObject,
+			PVOID MapRegisterBase,
+			ULONG NumberOfMapRegisters)
+{
+   UNIMPLEMENTED;
+}

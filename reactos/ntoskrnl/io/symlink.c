@@ -1,5 +1,4 @@
-/* $Id: symlink.c,v 1.35 2004/10/22 20:25:54 ekohl Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/symlink.c
@@ -11,174 +10,139 @@
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
+/* GLOBALS ******************************************************************/
 
-/* FUNCTIONS ****************************************************************/
-
-/**********************************************************************
- * NAME							EXPORTED
- *	IoCreateSymbolicLink
- *
- * DESCRIPTION
- *
- * ARGUMENTS
- *
- * RETURN VALUE
- *
- * REVISIONS
- *
- * @implemented
- */
-NTSTATUS STDCALL
-IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName,
-		     PUNICODE_STRING DeviceName)
+typedef struct
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
+   CSHORT Type;
+   CSHORT Size;
+   UNICODE_STRING TargetName;
+   OBJECT_ATTRIBUTES Target;
+} SYMLNK_OBJECT, *PSYMLNK_OBJECT;
 
-  ASSERT_IRQL(PASSIVE_LEVEL);
+OBJECT_TYPE SymlinkObjectType = {{NULL,0,0},
+                                0,
+                                0,
+                                ULONG_MAX,
+                                ULONG_MAX,
+                                sizeof(SYMLNK_OBJECT),
+                                0,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               NULL,
+                               };                           
 
-  DPRINT("IoCreateSymbolicLink(SymbolicLinkName %wZ, DeviceName %wZ)\n",
-	 SymbolicLinkName,
-	 DeviceName);
+/* FUNCTIONS *****************************************************************/
 
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_PERMANENT,
-			     NULL,
-			     SePublicDefaultSd);
+NTSTATUS ZwOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
+				  IN ACCESS_MASK DesiredAccess,
+				  IN POBJECT_ATTRIBUTES ObjectAttributes)
+{
+   NTSTATUS Status;
+   PVOID Object;
+   PWSTR Ignored;
 
-  Status = NtCreateSymbolicLinkObject(&Handle,
-				      SYMBOLIC_LINK_ALL_ACCESS,
-				      &ObjectAttributes,
-				      DeviceName);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
-      return(Status);
-    }
+   Status =  ObOpenObjectByName(ObjectAttributes,&Object,&Ignored);
+   if (!NT_SUCCESS(Status))
+     {
+	return(Status);
+     }
+   *LinkHandle = ObAddHandle(Object);
+   return(STATUS_SUCCESS);
+}
 
-  NtClose(Handle);
+NTSTATUS ZwQuerySymbolicLinkObject(IN HANDLE LinkHandle,
+				   IN OUT PUNICODE_STRING LinkTarget,
+				   OUT PULONG ReturnedLength OPTIONAL)
+{
+   COMMON_BODY_HEADER* hdr = ObGetObjectByHandle(LinkHandle);
+   PSYMLNK_OBJECT SymlinkObject = (PSYMLNK_OBJECT)hdr;
 
-  return(STATUS_SUCCESS);
+   if (hdr==NULL)
+     {
+	return(STATUS_INVALID_HANDLE);
+     }
+   
+   RtlCopyUnicodeString(LinkTarget,SymlinkObject->Target.ObjectName);
+   if (ReturnedLength!=NULL)
+     {
+	*ReturnedLength=SymlinkObject->Target.Length;
+     }
+   return(STATUS_SUCCESS);
 }
 
 
-/**********************************************************************
- * NAME							EXPORTED
- *	IoCreateUnprotectedSymbolicLink
- *
- * DESCRIPTION
- *
- * ARGUMENTS
- *
- * RETURN VALUE
- *
- * REVISIONS
- *
- * @implemented
- */
-NTSTATUS STDCALL
-IoCreateUnprotectedSymbolicLink(PUNICODE_STRING SymbolicLinkName,
-				PUNICODE_STRING DeviceName)
+POBJECT IoOpenSymlink(POBJECT _Symlink)
 {
-  SECURITY_DESCRIPTOR SecurityDescriptor;
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  DPRINT("IoCreateUnprotectedSymbolicLink(SymbolicLinkName %wZ, DeviceName %wZ)\n",
-	 SymbolicLinkName,
-	 DeviceName);
-
-  Status = RtlCreateSecurityDescriptor(&SecurityDescriptor,
-				       SECURITY_DESCRIPTOR_REVISION);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("RtlCreateSecurityDescriptor() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  Status = RtlSetDaclSecurityDescriptor(&SecurityDescriptor,
-					TRUE,
-					NULL,
-					TRUE);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("RtlSetDaclSecurityDescriptor() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_PERMANENT,
-			     NULL,
-			     &SecurityDescriptor);
-
-  Status = NtCreateSymbolicLinkObject(&Handle,
-				      SYMBOLIC_LINK_ALL_ACCESS,
-				      &ObjectAttributes,
-				      DeviceName);
-  if (!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtCreateSymbolicLinkObject() failed (Status %lx)\n", Status);
-      return(Status);
-    }
-
-  NtClose(Handle);
-
-  return(STATUS_SUCCESS);
+   PVOID Result;
+   PSYMLNK_OBJECT Symlink = (PSYMLNK_OBJECT)_Symlink;
+   PWSTR Ignored;
+   
+   DPRINT("IoOpenSymlink(_Symlink %x)\n",Symlink);
+   
+   DPRINT("Target %w\n",Symlink->Target.ObjectName->Buffer);
+   
+   ObOpenObjectByName(&(Symlink->Target),&Result,&Ignored);
+   return(Result);
 }
 
-
-/**********************************************************************
- * NAME							EXPORTED
- *	IoDeleteSymbolicLink
- *
- * DESCRIPTION
- *
- * ARGUMENTS
- *
- * RETURN VALUE
- *
- * REVISIONS
- *
- * @implemented
- */
-NTSTATUS STDCALL
-IoDeleteSymbolicLink(PUNICODE_STRING SymbolicLinkName)
+VOID IoInitSymbolicLinkImplementation(VOID)
 {
-  OBJECT_ATTRIBUTES ObjectAttributes;
-  HANDLE Handle;
-  NTSTATUS Status;
-
-  ASSERT_IRQL(PASSIVE_LEVEL);
-
-  DPRINT("IoDeleteSymbolicLink (SymbolicLinkName %S)\n",
-	 SymbolicLinkName->Buffer);
-
-  InitializeObjectAttributes(&ObjectAttributes,
-			     SymbolicLinkName,
-			     OBJ_OPENLINK,
-			     NULL,
-			     NULL);
-
-  Status = NtOpenSymbolicLinkObject(&Handle,
-				    SYMBOLIC_LINK_ALL_ACCESS,
-				    &ObjectAttributes);
-  if (!NT_SUCCESS(Status))
-    return(Status);
-
-  Status = NtMakeTemporaryObject(Handle);
-  NtClose(Handle);
-
-  return(Status);
+   ANSI_STRING astring;
+   
+   RtlInitAnsiString(&astring,"Symbolic Link");
+   RtlAnsiStringToUnicodeString(&SymlinkObjectType.TypeName,&astring,TRUE);
+   ObRegisterType(OBJTYP_SYMLNK,&SymlinkObjectType);   
 }
 
-/* EOF */
+NTSTATUS IoCreateUnprotectedSymbolicLink(PUNICODE_STRING SymbolicLinkName,
+					 PUNICODE_STRING DeviceName)
+{
+   return(IoCreateSymbolicLink(SymbolicLinkName,DeviceName));
+}
+
+NTSTATUS IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName,
+			      PUNICODE_STRING DeviceName)
+{
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   HANDLE SymbolicLinkHandle;
+   PSYMLNK_OBJECT SymbolicLink;
+   PUNICODE_STRING TargetName;
+   
+   DPRINT("IoCreateSymbolicLink(SymbolicLinkName %w, DeviceName %w)\n",
+	  SymbolicLinkName->Buffer,DeviceName->Buffer);
+   
+   InitializeObjectAttributes(&ObjectAttributes,SymbolicLinkName,0,NULL,NULL);
+   SymbolicLink = ObGenericCreateObject(&SymbolicLinkHandle,0,
+					&ObjectAttributes,OBJTYP_SYMLNK);
+   if (SymbolicLink == NULL)
+     {
+	return(STATUS_UNSUCCESSFUL);
+     }
+   SymbolicLink->TargetName.Buffer = ExAllocatePool(NonPagedPool,
+					 ((wstrlen(DeviceName->Buffer)+1)*2));
+   SymbolicLink->TargetName.MaximumLength = wstrlen(DeviceName->Buffer);
+   SymbolicLink->TargetName.Length = 0;
+   RtlCopyUnicodeString(&(SymbolicLink->TargetName),DeviceName);
+   DPRINT("DeviceName %w\n",SymbolicLink->TargetName.Buffer);
+   InitializeObjectAttributes(&(SymbolicLink->Target),
+			      &(SymbolicLink->TargetName),0,NULL,NULL);
+   DPRINT("%s() = STATUS_SUCCESS\n",__FUNCTION__);
+   return(STATUS_SUCCESS);
+}
+
+NTSTATUS IoDeleteSymbolicLink(PUNICODE_STRING DeviceName)
+{
+   UNIMPLEMENTED;
+}
