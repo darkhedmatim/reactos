@@ -1,8 +1,7 @@
-/* $Id $
- *
+/*
  * COPYRIGHT:  See COPYING in the top directory
  * PROJECT:    ReactOS kernel v0.0.2
- * FILE:       ntoskrnl/ke/error.c
+ * FILE:       kernel/error.cc
  * PURPOSE:    Error reason setting/getting
  * PROGRAMMER: David Welch
  * UPDATE HISTORY:
@@ -11,52 +10,46 @@
 
 /* INCLUDE *****************************************************************/
 
-#include <ntoskrnl.h>
-#include <internal/debug.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+
+/* GLOBALS *****************************************************************/
+
+/*
+ * Last error code (this should be per process)
+ */
+DWORD error_code = 0;
 
 /* FUNCTIONS ***************************************************************/
 
+DWORD STDCALL GetLastError(VOID)
 /*
- * @unimplemented
+ * FUNCTION: Get the detailed error (if any) from the last function
+ * RECEIVES: Nothing
+ * RETURNS:
+ *           The error code
  */
-VOID
-STDCALL
-KiCoprocessorError(
-    VOID
-)
 {
-	UNIMPLEMENTED;
+        return(error_code);
 }
 
+
+VOID STDCALL SetLastError(DWORD dwErrCode)
 /*
- * @unimplemented
+ * FUNCTION: Set the last error code
+ * RECEIVES:
+ *           dwErrCode = the error code to set
+ * RETURNS: Nothing
  */
-VOID
-STDCALL
-KiUnexpectedInterrupt(
-    VOID
-)
 {
-	UNIMPLEMENTED;
+        error_code=dwErrCode;
 }
 
-NTSTATUS STDCALL 
-NtRaiseHardError(IN NTSTATUS Status,
-		 ULONG Unknown2,
-		 ULONG Unknown3,
-		 ULONG Unknown4,
-		 ULONG Unknown5,
-		 ULONG Unknown6)
+
+NTSTATUS STDCALL NtRaiseHardError(VOID)
 {
-  DPRINT1("Hard error %x\n", Status);
-  return(STATUS_SUCCESS);
 }
 
-NTSTATUS STDCALL 
-NtSetDefaultHardErrorPort(IN HANDLE PortHandle)
+NTSTATUS STDCALL NtSetDefaultHardErrorPort(VOID)
 {
-   UNIMPLEMENTED;
-   return(STATUS_NOT_IMPLEMENTED);
 }
-
-/* EOF */

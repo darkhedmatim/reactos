@@ -1,5 +1,4 @@
-/* $Id: queue.c,v 1.15 2004/08/15 16:39:03 chorns Exp $
- *
+/*
  * COPYRIGHT:                See COPYING in the top level directory
  * PROJECT:                  ReactOS kernel
  * FILE:                     ntoskrnl/io/queue.c
@@ -9,18 +8,15 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
+#include <windows.h>
+#include <ddk/ntddk.h>
+
 #define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoStartNextPacketByKey(PDEVICE_OBJECT DeviceObject,
+VOID IoStartNextPacketByKey(PDEVICE_OBJECT DeviceObject,
 			    BOOLEAN Cancelable,
 			    ULONG Key)
 /*
@@ -35,32 +31,23 @@ IoStartNextPacketByKey(PDEVICE_OBJECT DeviceObject,
 {
    PKDEVICE_QUEUE_ENTRY entry;
    PIRP Irp;
+   KIRQL oldirql;
    
-   entry = KeRemoveByKeyDeviceQueue(&DeviceObject->DeviceQueue,
-				    Key);
+   entry = KeRemoveByKeyDeviceQueue(&DeviceObject->DeviceQueue,Key);
    
-   if (entry != NULL)
+   if (entry!=NULL)
      {
-	Irp = CONTAINING_RECORD(entry,
-				IRP,
-				Tail.Overlay.DeviceQueueEntry);
+	Irp = CONTAINING_RECORD(entry,IRP,Tail.Overlay.DeviceQueueEntry);
         DeviceObject->CurrentIrp = Irp;
-	DPRINT("Next irp is %x\n", Irp);
-	DeviceObject->DriverObject->DriverStartIo(DeviceObject, Irp);
+	DeviceObject->DriverObject->DriverStartIo(DeviceObject,Irp);	
      }
    else
      {
-	DPRINT("No next irp\n");
         DeviceObject->CurrentIrp = NULL;
      }   
 }
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoStartNextPacket(PDEVICE_OBJECT DeviceObject, BOOLEAN Cancelable)
+VOID IoStartNextPacket(PDEVICE_OBJECT DeviceObject, BOOLEAN Cancelable)
 /*
  * FUNCTION: Removes the next packet from the device's queue and calls
  * the driver's StartIO
@@ -71,6 +58,7 @@ IoStartNextPacket(PDEVICE_OBJECT DeviceObject, BOOLEAN Cancelable)
 {
    PKDEVICE_QUEUE_ENTRY entry;
    PIRP Irp;
+   KIRQL oldirql;
    
    DPRINT("IoStartNextPacket(DeviceObject %x, Cancelable %d)\n",
 	  DeviceObject,Cancelable);
@@ -89,12 +77,7 @@ IoStartNextPacket(PDEVICE_OBJECT DeviceObject, BOOLEAN Cancelable)
      }
 }
 
-/*
- * @implemented
- */
-VOID
-STDCALL
-IoStartPacket(PDEVICE_OBJECT DeviceObject,
+VOID IoStartPacket(PDEVICE_OBJECT DeviceObject,
 		   PIRP Irp, PULONG Key, PDRIVER_CANCEL CancelFunction)
 /*
  * FUNCTION: Either call the device's StartIO routine with the packet or,
@@ -109,9 +92,7 @@ IoStartPacket(PDEVICE_OBJECT DeviceObject,
 {
    BOOLEAN stat;
    KIRQL oldirql;
-   
-   DPRINT("IoStartPacket(Irp %x)\n", Irp);
-   
+
    ASSERT_IRQL(DISPATCH_LEVEL);
    
    IoAcquireCancelSpinLock(&oldirql);
@@ -130,26 +111,16 @@ IoStartPacket(PDEVICE_OBJECT DeviceObject,
    else
      {
 	stat = KeInsertDeviceQueue(&DeviceObject->DeviceQueue,
-				   &Irp->Tail.Overlay.DeviceQueueEntry);
+				  &Irp->Tail.Overlay.DeviceQueueEntry);
      }
    
+   IoReleaseCancelSpinLock(oldirql);
    
    if (!stat)
      {			   
-        IoReleaseCancelSpinLock(DISPATCH_LEVEL);
         DeviceObject->CurrentIrp = Irp;
 	DeviceObject->DriverObject->DriverStartIo(DeviceObject,Irp);
-	if (oldirql < DISPATCH_LEVEL)
-	  {
-            KeLowerIrql(oldirql);
-        }
      }
-   else
-     {
-        IoReleaseCancelSpinLock(oldirql);
-     }
-
 }
 
 
-/* EOF */

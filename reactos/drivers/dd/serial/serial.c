@@ -1,23 +1,13 @@
-/* $Id: serial.c,v 1.11 2003/11/14 17:13:25 weiden Exp $
- *
- * Serial driver
- * Written by Jason Filby (jasonfilby@yahoo.com)
- * For ReactOS (www.reactos.com)
- *
- */
+/*
 
-#include <ddk/ntddk.h>
-//#include <internal/mmhal.h>
-//#include "../../../ntoskrnl/include/internal/i386/io.h"
-//#include "../../../ntoskrnl/include/internal/io.h"
+ ** Serial driver
+ ** Written by Jason Filby (jasonfilby@yahoo.com)
+ ** For ReactOS (www.sid-dis.com/reactos)
 
-#define outb_p(a,p) WRITE_PORT_UCHAR((PUCHAR)a,p)
-#define outw_p(a,p) WRITE_PORT_USHORT((PUSHORT)a,p)
-#define inb_p(p)    READ_PORT_UCHAR((PUCHAR)p)
+*/
 
-#define NDEBUG
-#include <debug.h>
-
+#include <internal/mmhal.h>
+#include <internal/hal/io.h>
 
 #define COM1    0x3F8
 #define COM2    0x2F8
@@ -32,6 +22,7 @@ int uart_detect(unsigned base)
 {
         // Returns 0 if no UART detected
 
+        int olddata=inb_p(base+4);
         outb_p(base+4, 0x10);
         if ((inb_p(base+6) & 0xf0)) return 0;
         return 1;
@@ -111,22 +102,22 @@ void InitializeSerial(void)
         {
                 if(uart_detect(comports[i])==0)
                 {
-                          DbgPrint("%s not detected\n", comname[i]);
+                          printk("%s not detected\n", comname[i]);
                 } else {
                           uart_init(comports[i]);
                           irq_level=irq_setup(comports[i]);
                           if(irq_level==-1)
                           {
-                                    DbgPrint("Warning: IRQ not detected!\n");
+                                    printk("Warning: IRQ not detected!\n");
                           } else {
-                                    DbgPrint("%s hooked to interrupt level %d\n", comname[i], irq_level);
+                                    printk("%s hooked to interrupt level %d\n", comname[i], irq_level);
                           };
                 };
         };
 };
 
 // For testing purposes
-void testserial(void)
+void testserial()
 {
         int i=0;
         char testc;
@@ -136,7 +127,7 @@ void testserial(void)
           char character;
         } x;
 
-        DbgPrint("Testing serial input...\n");
+        printk("Testing serial input...\n");
 
         while(i==0) {
           x.val=uart_getchar(COM1);
@@ -145,15 +136,14 @@ void testserial(void)
 
                 testc=inb_p(COM1);
 
-//    DbgPrint("(%x-%c)  %c\n", x.val, x.character, testc);
+//    printk("(%x-%c)  %c\n", x.val, x.character, testc);
         };
 };
 
-NTSTATUS STDCALL
-DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
+NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
-        DbgPrint("Serial Driver 0.0.2\n");
-//        InitializeSerial();
+        printk("Serial Driver 0.0.2\n");
+        InitializeSerial();
 //        testserial();
         return(STATUS_SUCCESS);
 };

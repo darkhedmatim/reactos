@@ -10,12 +10,12 @@
 /* INCLUDES *****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <string.h>
-#include "bitops.h"
+#include <internal/string.h>
+#include <internal/bitops.h>
 #include <ddk/ntifs.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include "minix.h"
 
@@ -105,9 +105,9 @@ NTSTATUS MinixReadInode(PDEVICE_OBJECT DeviceObject,
 			ULONG ino, 
 			struct minix_inode* result)
 {
+   PCCB Ccb;
    int block;
    struct minix_inode* inodes;
-   PVOID BaseAddress;
    
    DPRINT("MinixReadInode(ino %x, result %x)\n",ino,result);
    
@@ -116,21 +116,16 @@ NTSTATUS MinixReadInode(PDEVICE_OBJECT DeviceObject,
    DPRINT("Reading block %x offset %x\n",block,block*BLOCKSIZE);
    DPRINT("Index %x\n",(ino-1)%MINIX_INODES_PER_BLOCK);
    
-   BaseAddress = ExAllocatePool(NonPagedPool, PAGE_SIZE);
-   
-   MinixReadPage(DeviceObject,
-		 block,
-		 BaseAddress);
-
-   inodes = (struct minix_inode *)(BaseAddress + ((block % 4) * 512));
+   Ccb = CbAcquireForRead(&DeviceExt->Dccb,
+			  block);
+   inodes = (struct minix_inode *)Ccb->Buffer;
      
-   memcpy(result,
-	  &inodes[(ino-1)%MINIX_INODES_PER_BLOCK],
+   memcpy(result,&inodes[(ino-1)%MINIX_INODES_PER_BLOCK],
 	  sizeof(struct minix_inode));
    DPRINT("result->i_uid %x\n",result->i_uid);
    DPRINT("result->i_size %x\n",result->i_size);
-   
-   ExFreePool(BaseAddress);
 
+   CbReleaseFromRead(&DeviceExt->Dccb,Ccb);
+   
    return(STATUS_SUCCESS);
 }

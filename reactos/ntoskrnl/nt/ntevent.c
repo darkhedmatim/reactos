@@ -1,110 +1,68 @@
 /*
- *  ReactOS kernel
- *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-/*
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/nt/event.c
  * PURPOSE:         Named event support
- * PROGRAMMER:      Philip Susi and David Welch
+ * PROGRAMMER:      David Welch (welch@mcmail.com)
  * UPDATE HISTORY:
  *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
-#define NDEBUG
+#include <ddk/ntddk.h>
+#include <internal/ob.h>
+
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
-POBJECT_TYPE EXPORTED ExEventObjectType = NULL;
-
-static GENERIC_MAPPING ExpEventMapping = {
-	STANDARD_RIGHTS_READ | SYNCHRONIZE | EVENT_QUERY_STATE,
-	STANDARD_RIGHTS_WRITE | SYNCHRONIZE | EVENT_MODIFY_STATE,
-	STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE | EVENT_QUERY_STATE,
-	EVENT_ALL_ACCESS};
-
+POBJECT_TYPE ExEventType = NULL;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS STDCALL
-NtpCreateEvent(PVOID ObjectBody,
-	       PVOID Parent,
-	       PWSTR RemainingPath,
-	       POBJECT_ATTRIBUTES ObjectAttributes)
+VOID NtInitializeEventImplementation(VOID)
 {
-  DPRINT("NtpCreateEvent(ObjectBody %x, Parent %x, RemainingPath %S)\n",
-	 ObjectBody, Parent, RemainingPath);
-
-  if (RemainingPath != NULL && wcschr(RemainingPath+1, '\\') != NULL)
-    {
-      return(STATUS_UNSUCCESSFUL);
-    }
-
-  return(STATUS_SUCCESS);
+   ANSI_STRING AnsiName;
+   
+   ExEventType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
+   
+   RtlInitAnsiString(&AnsiName,"Event");
+   RtlAnsiStringToUnicodeString(&ExEventType->TypeName,&AnsiName,TRUE);
+   
+   ExEventType->MaxObjects = ULONG_MAX;
+   ExEventType->MaxHandles = ULONG_MAX;
+   ExEventType->TotalObjects = 0;
+   ExEventType->TotalHandles = 0;
+   ExEventType->PagedPoolCharge = 0;
+   ExEventType->NonpagedPoolCharge = sizeof(KEVENT);
+   ExEventType->Dump = NULL;
+   ExEventType->Open = NULL;
+   ExEventType->Close = NULL;
+   ExEventType->Delete = NULL;
+   ExEventType->Parse = NULL;
+   ExEventType->Security = NULL;
+   ExEventType->QueryName = NULL;
+   ExEventType->OkayToClose = NULL;
 }
 
-
-VOID INIT_FUNCTION
-NtInitializeEventImplementation(VOID)
+NTSTATUS STDCALL NtClearEvent(IN HANDLE EventHandle)
 {
-   ExEventObjectType = ExAllocatePool(NonPagedPool,sizeof(OBJECT_TYPE));
-   
-   RtlCreateUnicodeString(&ExEventObjectType->TypeName, L"Event");
-   
-   ExEventObjectType->Tag = TAG('E', 'V', 'T', 'T');
-   ExEventObjectType->MaxObjects = ULONG_MAX;
-   ExEventObjectType->MaxHandles = ULONG_MAX;
-   ExEventObjectType->TotalObjects = 0;
-   ExEventObjectType->TotalHandles = 0;
-   ExEventObjectType->PagedPoolCharge = 0;
-   ExEventObjectType->NonpagedPoolCharge = sizeof(KEVENT);
-   ExEventObjectType->Mapping = &ExpEventMapping;
-   ExEventObjectType->Dump = NULL;
-   ExEventObjectType->Open = NULL;
-   ExEventObjectType->Close = NULL;
-   ExEventObjectType->Delete = NULL;
-   ExEventObjectType->Parse = NULL;
-   ExEventObjectType->Security = NULL;
-   ExEventObjectType->QueryName = NULL;
-   ExEventObjectType->OkayToClose = NULL;
-   ExEventObjectType->Create = NtpCreateEvent;
-   ExEventObjectType->DuplicationNotify = NULL;
-
-   ObpCreateTypeObject(ExEventObjectType);
+   return(ZwClearEvent(EventHandle));
 }
 
-
-NTSTATUS STDCALL
-NtClearEvent(IN HANDLE EventHandle)
+NTSTATUS STDCALL ZwClearEvent(IN HANDLE EventHandle)
 {
    PKEVENT Event;
    NTSTATUS Status;
    
    Status = ObReferenceObjectByHandle(EventHandle,
 				      EVENT_MODIFY_STATE,
-				      ExEventObjectType,
+				      ExEventType,
 				      UserMode,
 				      (PVOID*)&Event,
 				      NULL);
-   if (!NT_SUCCESS(Status))
+   if (Status != STATUS_SUCCESS)
      {
 	return(Status);
      }
@@ -113,207 +71,125 @@ NtClearEvent(IN HANDLE EventHandle)
    return(STATUS_SUCCESS);
 }
 
+NTSTATUS STDCALL NtCreateEvent(OUT PHANDLE EventHandle,
+			       IN ACCESS_MASK DesiredAccess,
+			       IN POBJECT_ATTRIBUTES ObjectAttributes,
+			       IN BOOLEAN ManualReset,
+			       IN BOOLEAN InitialState)
+{
+   return(ZwCreateEvent(EventHandle,
+			DesiredAccess,
+			ObjectAttributes,
+			ManualReset,
+			InitialState));
+}
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-NtCreateEvent(OUT PHANDLE EventHandle,
-	      IN ACCESS_MASK DesiredAccess,
-	      IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
-	      IN EVENT_TYPE EventType,
-	      IN BOOLEAN InitialState)
+NTSTATUS STDCALL ZwCreateEvent(OUT PHANDLE EventHandle,
+			       IN ACCESS_MASK DesiredAccess,
+			       IN POBJECT_ATTRIBUTES ObjectAttributes,
+			       IN BOOLEAN ManualReset,
+			       IN BOOLEAN InitialState)
 {
    PKEVENT Event;
-   HANDLE hEvent;
-   NTSTATUS Status;
-   OBJECT_ATTRIBUTES SafeObjectAttributes;
    
-   if (ObjectAttributes != NULL)
+   Event = ObGenericCreateObject(EventHandle,
+				 DesiredAccess,
+				 ObjectAttributes,
+				 ExEventType);
+   if (ManualReset == TRUE)
      {
-       Status = MmCopyFromCaller(&SafeObjectAttributes, ObjectAttributes,
-				 sizeof(OBJECT_ATTRIBUTES));
-       if (!NT_SUCCESS(Status))
-	 {
-	   return(Status);
-	 }
-       ObjectAttributes = &SafeObjectAttributes;
+	KeInitializeEvent(Event,NotificationEvent,InitialState);
      }
-
-   Status = ObCreateObject(ExGetPreviousMode(),
-			   ExEventObjectType,
-			   ObjectAttributes,
-			   ExGetPreviousMode(),
-			   NULL,
-			   sizeof(KEVENT),
-			   0,
-			   0,
-			   (PVOID*)&Event);
-   if (!NT_SUCCESS(Status))
-     {
-	return(Status);
-     }
-   KeInitializeEvent(Event,
-		     EventType,
-		     InitialState);
-
-   Status = ObInsertObject ((PVOID)Event,
-			    NULL,
-			    DesiredAccess,
-			    0,
-			    NULL,
-			    &hEvent);
-   ObDereferenceObject(Event);
-   if (!NT_SUCCESS(Status))
-     {
-	return Status;
-     }
-
-   Status = MmCopyToCaller(EventHandle, &hEvent, sizeof(HANDLE));
-   if (!NT_SUCCESS(Status))
-     {
-	ZwClose(hEvent);
-	return(Status);
-     }
-   return(STATUS_SUCCESS);
-}
-
-
-NTSTATUS STDCALL
-NtOpenEvent(OUT PHANDLE EventHandle,
-	    IN ACCESS_MASK DesiredAccess,
-	    IN POBJECT_ATTRIBUTES ObjectAttributes)
-{
-   NTSTATUS Status;
-   HANDLE hEvent;
-
-   DPRINT("ObjectName '%wZ'\n", ObjectAttributes->ObjectName);
-
-   Status = ObOpenObjectByName(ObjectAttributes,
-			       ExEventObjectType,
-			       NULL,
-			       UserMode,
-			       DesiredAccess,
-			       NULL,
-			       &hEvent);
-             
-  if (!NT_SUCCESS(Status))
-  {
-    return(Status);
-  }
-
-   Status = MmCopyToCaller(EventHandle, &hEvent, sizeof(HANDLE));
-   if (!NT_SUCCESS(Status))
-     {
-       ZwClose(EventHandle);
-       return(Status);
-     }
-     
-   return(Status);
-}
-
-
-NTSTATUS STDCALL
-NtPulseEvent(IN HANDLE EventHandle,
-	     OUT PLONG PreviousState  OPTIONAL)
-{
-   PKEVENT Event;
-   NTSTATUS Status;
-
-   DPRINT("NtPulseEvent(EventHandle %x PreviousState %x)\n",
-	  EventHandle, PreviousState);
-
-   Status = ObReferenceObjectByHandle(EventHandle,
-				      EVENT_MODIFY_STATE,
-				      ExEventObjectType,
-				      UserMode,
-				      (PVOID*)&Event,
-				      NULL);
-   if (!NT_SUCCESS(Status))
-     {
-       return(Status);
-     }
-
-   KePulseEvent(Event, EVENT_INCREMENT, FALSE);
-
-   ObDereferenceObject(Event);
-   return(STATUS_SUCCESS);
-}
-
-
-NTSTATUS STDCALL
-NtQueryEvent(IN HANDLE EventHandle,
-	     IN EVENT_INFORMATION_CLASS EventInformationClass,
-	     OUT PVOID EventInformation,
-	     IN ULONG EventInformationLength,
-	     OUT PULONG ReturnLength  OPTIONAL)
-{
-   EVENT_BASIC_INFORMATION Info;
-   PKEVENT Event;
-   NTSTATUS Status;
-   ULONG RetLen;
-
-   if (EventInformationClass > EventBasicInformation)
-     return STATUS_INVALID_INFO_CLASS;
-
-   if (EventInformationLength < sizeof(EVENT_BASIC_INFORMATION))
-     return STATUS_INFO_LENGTH_MISMATCH;
-
-   Status = ObReferenceObjectByHandle(EventHandle,
-				      EVENT_QUERY_STATE,
-				      ExEventObjectType,
-				      UserMode,
-				      (PVOID*)&Event,
-				      NULL);
-   if (!NT_SUCCESS(Status))
-     return Status;
-
-   if (Event->Header.Type == InternalNotificationEvent)
-     Info.EventType = NotificationEvent;
    else
-     Info.EventType = SynchronizationEvent;
-   Info.EventState = KeReadStateEvent(Event);
-
-   Status = MmCopyToCaller(EventInformation, &Event,
-			   sizeof(EVENT_BASIC_INFORMATION));
-   if (!NT_SUCCESS(Status))
      {
-       ObDereferenceObject(Event);
-       return(Status);
+	KeInitializeEvent(Event,SynchronizationEvent,InitialState);
      }
-
-   if (ReturnLength != NULL)
-     {
-       RetLen = sizeof(EVENT_BASIC_INFORMATION);
-       Status = MmCopyToCaller(ReturnLength, &RetLen, sizeof(ULONG));
-       if (!NT_SUCCESS(Status))
-         {
-           ObDereferenceObject(Event);
-           return(Status);
-         }
-     }
-
-   ObDereferenceObject(Event);
    return(STATUS_SUCCESS);
 }
 
 
-NTSTATUS STDCALL
-NtResetEvent(IN HANDLE EventHandle,
-	     OUT PLONG PreviousState  OPTIONAL)
+NTSTATUS STDCALL NtOpenEvent(OUT PHANDLE EventHandle,
+			     IN ACCESS_MASK DesiredAccess,
+			     IN POBJECT_ATTRIBUTES ObjectAttributes)
+{
+   return(ZwOpenEvent(EventHandle,DesiredAccess,ObjectAttributes));
+}
+
+NTSTATUS STDCALL ZwOpenEvent(OUT PHANDLE EventHandle,
+			     IN ACCESS_MASK DesiredAccess,
+			     IN POBJECT_ATTRIBUTES ObjectAttributes)
+{
+   NTSTATUS Status;
+   PKEVENT Event;   
+   PWSTR Ignored;
+   
+   Status = ObOpenObjectByName(ObjectAttributes,(PVOID*)Event,&Ignored);
+   if (Status != STATUS_SUCCESS)
+     {
+	return(Status);
+     }
+   
+   *EventHandle = ObInsertHandle(KeGetCurrentProcess(),
+				 Event,
+				 DesiredAccess,
+				 FALSE);
+   
+   return(STATUS_SUCCESS);
+}
+
+NTSTATUS STDCALL NtPulseEvent(IN HANDLE EventHandle,
+			      IN PULONG PulseCount OPTIONAL)
+{
+   return(ZwPulseEvent(EventHandle,PulseCount));
+}
+
+NTSTATUS STDCALL ZwPulseEvent(IN HANDLE EventHandle, 
+			      IN PULONG PulseCount OPTIONAL)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtQueryEvent(IN HANDLE EventHandle,
+			      IN CINT EventInformationClass,
+			      OUT PVOID EventInformation,
+			      IN ULONG EventInformationLength,
+			      OUT PULONG ReturnLength)
+{
+   return(ZwQueryEvent(EventHandle,
+		       EventInformationClass,
+		       EventInformation,
+		       EventInformationLength,
+		       ReturnLength));
+}
+
+NTSTATUS STDCALL ZwQueryEvent(IN HANDLE EventHandle,
+			      IN CINT EventInformationClass,
+			      OUT PVOID EventInformation,
+			      IN ULONG EventInformationLength,
+			      OUT PULONG ReturnLength)
+{
+   UNIMPLEMENTED;
+}
+
+NTSTATUS STDCALL NtResetEvent(HANDLE EventHandle,
+			      PULONG NumberOfWaitingThreads OPTIONAL)
+{
+   return(ZwResetEvent(EventHandle,NumberOfWaitingThreads));
+}
+
+NTSTATUS STDCALL ZwResetEvent(HANDLE EventHandle,
+			      PULONG NumberOfWaitingThreads OPTIONAL)
 {
    PKEVENT Event;
    NTSTATUS Status;
    
-   DPRINT("NtResetEvent(EventHandle %x)\n", EventHandle);
-   
    Status = ObReferenceObjectByHandle(EventHandle,
 				      EVENT_MODIFY_STATE,
-				      ExEventObjectType,
+				      ExEventType,
 				      UserMode,
 				      (PVOID*)&Event,
 				      NULL);
-   if (!NT_SUCCESS(Status))
+   if (Status != STATUS_SUCCESS)
      {
 	return(Status);
      }
@@ -322,49 +198,29 @@ NtResetEvent(IN HANDLE EventHandle,
    return(STATUS_SUCCESS);
 }
 
+NTSTATUS STDCALL NtSetEvent(IN HANDLE EventHandle,
+			    PULONG NumberOfThreadsReleased)
+{
+   return(ZwSetEvent(EventHandle,NumberOfThreadsReleased));
+}
 
-/*
- * @implemented
- */
-NTSTATUS STDCALL
-NtSetEvent(IN HANDLE EventHandle,
-	   OUT PLONG PreviousState  OPTIONAL)
+NTSTATUS STDCALL ZwSetEvent(IN HANDLE EventHandle,
+			    PULONG NumberOfThreadsReleased)
 {
    PKEVENT Event;
    NTSTATUS Status;
    
-   DPRINT("NtSetEvent(EventHandle %x)\n", EventHandle);
-   
    Status = ObReferenceObjectByHandle(EventHandle,
 				      EVENT_MODIFY_STATE,
-				      ExEventObjectType,
+				      ExEventType,
 				      UserMode,
 				      (PVOID*)&Event,
 				      NULL);
-   if (!NT_SUCCESS(Status))
+   if (Status != STATUS_SUCCESS)
      {
 	return(Status);
      }
-   KeSetEvent(Event,EVENT_INCREMENT,FALSE);
+   KeSetEvent(Event,IO_NO_INCREMENT,FALSE);
    ObDereferenceObject(Event);
    return(STATUS_SUCCESS);
 }
-
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-NtTraceEvent(
-	IN ULONG TraceHandle,
-	IN ULONG Flags,
-	IN ULONG TraceHeaderLength,
-	IN struct _EVENT_TRACE_HEADER* TraceHeader
-	)
-{
-	UNIMPLEMENTED;
-	return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* EOF */

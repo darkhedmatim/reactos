@@ -1,28 +1,62 @@
-========================
-ReactOS Version 0.2.x
-Updated June 23rd, 2004
-========================
+Last updated 30/09/98
 
-1. What is ReactOS?
+-- Compiling
 
-   ReactOS is an Open Source effort to develop a quality operating system
-that is compatible with Windows NT applications and drivers.
+Type 'make' to build the kernel on linux using a djgpp cross compiler, or
+'make -fmakefile.dos' to build the kernel from dos using djgpp. No other 
+configuration are supported at the moment, sorry.
 
-   The ReactOS project, although currently focused on Windows NT 4.0
-compatibility, is always keeping an eye towards compatibility with
-future Windows NT releases, that is, Windows 2000 (NT 5.0) and
-Windows XP (NT 5.1).
+-- Running
 
-More information is available at http://www.reactos.com.
+To run the kernel start from a clean dos system (no emm386 or windows) and
+run 'boot.bat'. The kernel should boot, print diagnostic messages and begin
+executing a simple user-mode shell. By default the kernel boots with a
+minimum set of drivers but additional ones can be specified as the arguments
+to 'boot.bat'.
 
-2. Building ReactOS
+-- Problems
 
-See the INSTALL file for more details.
+This is strictly alpha quality software so expect plenty of those. If you
+are submitting a bug report, please see the section below. If you have a fix 
+for the problem, even better, please send all patches, fixes, enhancements etc 
+to me (David Welch), our coordinator Dennis Winkley or the kernel mailing
+list. (See contact addresses below)
 
-3. More information
+-- Bug Reports
 
-See the doc subdirectory for some sparse notes
+Thank you for taking the time to do this, we can only fix the bugs we know
+about, however please include as much information as possible. Say what you
+were trying to do at the time, what messages (if any) were displayed. If the
+kernel crashed, it should print a message like this
 
-4. Who is responsible
+     Exception s(r)
+     CS:EIP    p(q)
+     DS xxxxx ES xxxx FS xxxx
+     ...
+     Frames: xxxxx xxxxx xxxxx
 
-See the CREDITS file
+Please include the exception type and error code (s and r). The eip 
+address (q) is specific to your kernel, to be of use in fixing the problem
+it needs to be translated to a function name. Do this by running
+
+      nm --numeric-sort kimage > kernel.sym
+
+kernel.sym should include a list of functions and their address, look for the
+last function with an address less than the eip value. The functions should
+sorted in ascending order by address.
+
+If you suspect the problem is hardware related also include details of what
+hardware devices you have installed.  
+
+-- Contact addresses
+
+Overall coordinator, Jason Filby (jasonfilby@yahoo.com)
+Kernel coordinator, Dennis Winkley (dwinkley@mail.whitworth.edu)
+Me, David Welch (welch@mcmail.com)
+
+Specific components will probably have contact details for the authors in
+the source file, a partial list of those working on the kernel can be found
+on the kernel website. 
+
+-- Additional documentation
+

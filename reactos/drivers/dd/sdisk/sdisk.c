@@ -10,7 +10,7 @@
 /* INCLUDES ****************************************************************/
 
 #include <ddk/ntddk.h>
-#include <internal/halio.h>
+#include <internal/hal/io.h>
 
 #define NDEBUG
 #include <internal/debug.h>
@@ -24,8 +24,7 @@ static VOID SdWriteOffset(ULONG Offset)
    outl_p(PORT,Offset);
 }
 
-NTSTATUS STDCALL
-Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+NTSTATUS Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
  * ARGUMENTS:
@@ -79,7 +78,7 @@ Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	  {
 	     DPRINT("Offset %x\n",
 		    Stack->Parameters.Write.ByteOffset.LowPart+i);
-		  SdWriteOffset(Stack->Parameters.Write.ByteOffset.LowPart+i);
+		  SdWriteOffset(Stack->Parameters.Write.ByteOffset.LowPart+i);	  
 	     outsb(PORT,Buffer,512);
 	  }
 	status = STATUS_SUCCESS;

@@ -1,25 +1,8 @@
-/*
- * COPYRIGHT:        See COPYING in the top level directory
- * PROJECT:          ReactOS kernel
- * FILE:             drivers/dd/sound/mixer.c
- * PURPOSE:          Wave Mixer?
- * PROGRAMMER:       ?
- *     
- * UPDATE HISTORY: 
- *              ??/??/??: Created
- * 		10/23/02: Steven Edwards (Steven_Ed4153@yahoo.com)
- *			  Minor build fixes             
- */
-
-#include "dsp.h"
-#include "sb16.h"
-#include "mixer.h"
-
 unsigned char read_mixer(unsigned short base,unsigned char reg)
 {
 
-//	outb(base+0x04,reg);
-//	return inb(base+0x05);
+	outb(base+0x04,reg);
+	return inb(base+0x05);
 }
 
 unsigned char get_irq(SB16* sb16)

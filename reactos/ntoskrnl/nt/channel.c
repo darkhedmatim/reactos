@@ -8,65 +8,40 @@
  *                  Created 22/05/98
  */
 
-/*
- * NOTES:
- * 
- * An article on System Internals (http://www.sysinternals.com) reports
- * that these functions are unimplemented on nt version 3-5.
- * 
- */
-
 /* INCLUDES *****************************************************************/
 
-#include <ntoskrnl.h>
+#include <ddk/ntddk.h>
+
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS
-STDCALL
-NtCreateChannel(VOID)
+NTSTATUS STDCALL NtCreateChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
 
-
-NTSTATUS
-STDCALL
-NtListenChannel(VOID)
+NTSTATUS STDCALL NtListenChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
 
-NTSTATUS
-STDCALL
-NtOpenChannel(VOID)
+NTSTATUS STDCALL NtOpenChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
 
-
-NTSTATUS
-STDCALL
-NtReplyWaitSendChannel(VOID)
+NTSTATUS STDCALL NtReplyWaitSendChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
 
-
-NTSTATUS
-STDCALL
-NtSendWaitReplyChannel(VOID)
+NTSTATUS STDCALL NtSendWaitReplyChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
 
-
-NTSTATUS
-STDCALL
-NtSetContextChannel(VOID)
+NTSTATUS STDCALL NtSetContextChannel(VOID)
 {
-	return STATUS_NOT_IMPLEMENTED;
+   UNIMPLEMENTED;
 }
-
-/* EOF */

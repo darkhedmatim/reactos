@@ -1,37 +1,31 @@
-#include "precomp.h"
-#include <msvcrt/stdlib.h>
+#include <windows.h>
+#include <types.h>
 
-
-/*
- * @implemented
- */
-void* malloc(size_t _size)
+void* malloc(size_t size)
 {
-   return(HeapAlloc(GetProcessHeap(),0,_size));
+   return(HeapAlloc(GetProcessHeap(),
+		    0,
+		    size));
 }
 
-/*
- * @implemented
- */
-void free(void* _ptr)
+void free(void* ptr)
 {
-   HeapFree(GetProcessHeap(),0,_ptr);
+   HeapFree(GetProcessHeap(),
+	    0,
+	    ptr);
 }
 
-/*
- * @implemented
- */
-void* calloc(size_t _nmemb, size_t _size)
+void* calloc(size_t nmemb, size_t size)
 {
-   return(HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY, _nmemb*_size));
+   return(HeapAlloc(GetProcessHeap(),
+		       HEAP_ZERO_MEMORY,
+		       nmemb*size));
 }
 
-/*
- * @implemented
- */
-void* realloc(void* _ptr, size_t _size)
+void* realloc(void* ptr, size_t size)
 {
-   if (!_ptr)
-      return(HeapAlloc(GetProcessHeap(),0,_size));
-   return(HeapReAlloc(GetProcessHeap(),0,_ptr,_size));
+   return(HeapReAlloc(GetProcessHeap(),
+		      0,
+		      ptr,
+		      size));
 }

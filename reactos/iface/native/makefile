@@ -1,40 +1,19 @@
-# $Id: makefile,v 1.14 2004/07/21 18:17:50 chorns Exp $
-#
-# ReactOS Operating System
-#
-# Generate:
-# - genntdll
-# - ntoskrnl.exe service table;
-# - ntoskrnl.exe Zw functions stubs to call Nt functions from kernel mode;
-# - ntdll.dll stubs to call system functions from user mode applications.
-#
-PATH_TO_TOP = ../..
+all: genntdll$(EXE_POSTFIX) ../../lib/ntdll/napi.asm
 
-TARGET = genntdll
-SYSTEM_CALLS_DB = sysfuncs.lst
-NTDLL_STUBS = ../../lib/ntdll/napi.c
-KERNEL_SERVICE_TABLE = ../../include/ntdll/napi.h
-KERNEL_ZW_CALLS = ../../ntoskrnl/nt/zw.c
-NAPI_FILES = $(NTDLL_STUBS) $(KERNEL_SERVICE_TABLE) $(KERNEL_ZW_CALLS)
+../../lib/ntdll/napi.asm: sysfuncs.lst genntdll$(EXE_POSTFIX) ../../include/ntdll/napi.h
+	genntdll$(EXE_POSTFIX) sysfuncs.lst ../../lib/ntdll/napi.asm ../../include/ntdll/napi.h
 
-BASE_CFLAGS = -I../../include
+../../include/ntdll/napi.h: dummy
 
-all: $(TARGET)$(EXE_POSTFIX) $(NAPI_FILES)
+genntdll$(EXE_POSTFIX): genntdll.c
+	$(NATIVE_CC) -g genntdll.c -o genntdll$(EXE_POSTFIX)	
 
-$(NAPI_FILES): $(SYSTEM_CALLS_DB) $(TARGET)$(EXE_POSTFIX) 
-	@./$(TARGET)$(EXE_POSTFIX) \
-		$(SYSTEM_CALLS_DB) \
-		$(NTDLL_STUBS) \
-		$(KERNEL_SERVICE_TABLE) \
-		$(KERNEL_ZW_CALLS)
+sysfuncs.lst: dummy
 
-# (rjj) i removed the following option from line below: -If:\gnu\mingw32\include
-$(TARGET)$(EXE_POSTFIX): $(TARGET).c
-	$(HOST_CC) -g -Wall -Werror $(TARGET).c -o $(TARGET)$(EXE_POSTFIX) 
-
-clean:
-	- $(RM) $(TARGET)$(EXE_POSTFIX) $(NTDLL_STUBS) $(KERNEL_SERVICE_TABLE) $(KERNEL_ZW_CALLS)
+clean: dummy
+	$(RM) ../../lib/ntdll/sysfuncs.lst
+	$(RM) ../../include/ntdll/napi.h
 	
-.PHONY: all clean 
+dummy:
 
 include ../../rules.mak

@@ -1,76 +1,29 @@
-/* $Id: error.c,v 1.23 2004/10/24 12:36:12 weiden Exp $
- *
- * reactos/lib/kernel32/misc/error.c
- *
- */
+#include <windows.h>
+#include <ddk/ntddk.h>
 
-#include <k32.h>
+static DWORD LastError;
 
-#define NDEBUG
-#include "../include/debug.h"
-
-
-/*
- * @implemented
- */
-VOID
-STDCALL
-SetLastError (
-	DWORD	dwErrorCode
-	)
+DWORD RtlNtStatusToDosError(NTSTATUS Status)
 {
-	NtCurrentTeb ()->LastErrorValue = (ULONG) dwErrorCode;
+   return(0);
 }
 
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
-GetLastError (VOID)
+VOID SetLastError(DWORD dwErrorCode)
 {
-	return (DWORD) (NtCurrentTeb ()->LastErrorValue);
+   LastError = dwErrorCode;
 }
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-Beep (DWORD dwFreq, DWORD dwDuration)
+DWORD GetLastError(VOID)
 {
-    HANDLE hBeep;
-    BEEP_SET_PARAMETERS BeepSetParameters;
-    DWORD dwReturned;
-
-    hBeep = CreateFileW(L"\\\\.\\Beep",
-                       FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                       0,
-                       NULL,
-                       OPEN_EXISTING,
-                       0,
-                       NULL);
-    if (hBeep == INVALID_HANDLE_VALUE)
-        return FALSE;
-
-    /* Set beep data */
-    BeepSetParameters.Frequency = dwFreq;
-    BeepSetParameters.Duration  = dwDuration;
-
-    DeviceIoControl(hBeep,
-                    IOCTL_BEEP_SET,
-                    &BeepSetParameters,
-                    sizeof(BEEP_SET_PARAMETERS),
-                    NULL,
-                    0,
-                    &dwReturned,
-                    NULL);
-
-    CloseHandle (hBeep);
-
-    return TRUE;
+   return(LastError);
 }
 
-/* EOF */
+BOOL __ErrorReturnFalse(ULONG ErrorCode)
+{
+   return(FALSE);
+}
+
+PVOID __ErrorReturnNull(ULONG ErrorCode)
+{
+   return(NULL);
+}

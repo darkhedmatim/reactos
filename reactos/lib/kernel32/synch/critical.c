@@ -1,56 +1,40 @@
-/* $Id: critical.c,v 1.16 2004/01/29 23:41:36 navaraf Exp $
- *
+/*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/kernel32/sync/critical.c
- * PURPOSE:         Critical sections
+ * PURPOSE:         Critical regions
  * UPDATE HISTORY:
  *                  Created 30/09/98
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <k32.h>
-
-#define NDEBUG
-#include "../include/debug.h"
-
+#include <windows.h>
 
 /* FUNCTIONS *****************************************************************/
 
-/*
- * @implemented
- */
-VOID STDCALL
-InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
+VOID DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 {
-   NTSTATUS Status;
-
-   Status = RtlInitializeCriticalSection(lpCriticalSection);
-   if (!NT_SUCCESS(Status))
-     {
-	RtlRaiseStatus(Status);
-     }
+   lpCriticalSection->Reserved = -1;
 }
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-InitializeCriticalSectionAndSpinCount(
-    LPCRITICAL_SECTION lpCriticalSection,
-    DWORD dwSpinCount
-    )
+VOID EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 {
-    NTSTATUS Status;
-    
-    Status = RtlInitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount);
-    if (Status)
-      {
-         RtlRaiseStatus(Status);
-      }
-    return NT_SUCCESS(Status);
 }
 
-/* EOF */
+VOID InitializeCriticalSection(LPCRITICAL_SECTION pcritical)
+{
+   pcritical->LockCount = -1;
+   pcritical->RecursionCount = 0;
+   pcritical->LockSemaphore = NULL;
+   pcritical->OwningThread = (HANDLE)-1;
+   pcritical->Reserved = 0;
+}
+
+VOID LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
+{
+}
+
+BOOL TryEntryCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
+{
+}
