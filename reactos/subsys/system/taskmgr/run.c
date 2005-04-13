@@ -4,7 +4,6 @@
  *  run.c
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
- *                2005         Klemens Friedl <frik85@reactos.at>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,25 +21,24 @@
  */
     
 #include "precomp.h"
+#include <commctrl.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+#include <stdio.h>
+    
+#include "run.h"
 
 void TaskManager_OnFileNew(void)
 {
-    HMODULE          hShell32;
-    RUNFILEDLG       RunFileDlg;
+    HMODULE            hShell32;
+    RUNFILEDLG        RunFileDlg;
     OSVERSIONINFO    versionInfo;
     WCHAR            wTitle[40];
     WCHAR            wText[256];
-    TCHAR            szTemp[256];
-    char             szTitle[40];
-    char             szText[256];
-
-    /* Load language string from resource file */
-    LoadString(hInst, IDS_CREATENEWTASK, szTemp, 40);
-    strcpy(szTitle,szTemp);
-
-    LoadString(hInst, IDS_CREATENEWTASK_DESC, szTemp, 256);
-    strcpy(szText,szTemp);
-
+    char            szTitle[40] = "Create New Task";
+    char            szText[256] = "Type the name of a program, folder, document, or Internet resource, and Task Manager will open it for you.";
 
     hShell32 = LoadLibrary(_T("SHELL32.DLL"));
     RunFileDlg = (RUNFILEDLG)(FARPROC)GetProcAddress(hShell32, (char*)((long)0x3D));

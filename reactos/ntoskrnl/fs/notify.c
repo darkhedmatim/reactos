@@ -23,6 +23,7 @@ typedef struct _NOTIFY_ENTRY
    LIST_ENTRY ListEntry;
    PSTRING FullDirectoryName;
    BOOLEAN WatchTree;
+   BOOLEAN IgnoreBuffer;
    BOOLEAN PendingChanges;
    ULONG CompletionFilter;
    LIST_ENTRY IrpQueue;
@@ -394,7 +395,7 @@ FsRtlNotifyFullChangeDirectory (
    IN BOOLEAN           WatchTree,
    IN BOOLEAN           IgnoreBuffer,
    IN ULONG          CompletionFilter,
-   IN PIRP           Irp,
+   IN PIRP           NotifyIrp,
    IN PCHECK_FOR_TRAVERSE_ACCESS TraverseCallback  OPTIONAL,
 	IN	PSECURITY_SUBJECT_CONTEXT	SubjectContext		OPTIONAL
 	)
@@ -403,7 +404,7 @@ FsRtlNotifyFullChangeDirectory (
    PNOTIFY_ENTRY NotifyEntry;
    ULONG IrpBuffLen;
    
-   if (!Irp)
+   if (!NotifyIrp)
    {
       /* all other params are ignored if NotifyIrp == NULL */
       FsRtlpWatchedDirectoryWasDeleted(NotifySync, NotifyList, FsContext);
@@ -414,14 +415,14 @@ FsRtlNotifyFullChangeDirectory (
    
    ExAcquireFastMutex((PFAST_MUTEX)NotifySync);
    
-   IrpStack = IoGetCurrentIrpStackLocation(Irp);
+   IrpStack = IoGetCurrentIrpStackLocation(NotifyIrp);
    if (IrpStack->FileObject->Flags & FO_CLEANUP_COMPLETE)
    {
       ExReleaseFastMutex((PFAST_MUTEX)NotifySync);
       
-      Irp->IoStatus.Information = 0;
-      Irp->IoStatus.Status = STATUS_NOTIFY_CLEANUP;
-      IoCompleteRequest(Irp, IO_NO_INCREMENT);
+      NotifyIrp->IoStatus.Information = 0;
+      NotifyIrp->IoStatus.Status = STATUS_NOTIFY_CLEANUP;
+      IoCompleteRequest(NotifyIrp, IO_NO_INCREMENT);
       return;       
    }
    
@@ -462,13 +463,12 @@ FsRtlNotifyFullChangeDirectory (
                FSRTL_NOTIFY_TAG
                );
                
+            NotifyEntry->PrevEntry = NotifyEntry->Buffer;   
             NotifyEntry->BufferSize = IrpBuffLen;
          }
          _SEH_HANDLE
          {
-            /* ExAllocatePoolWithQuotaTag raised exception but we dont care.
-               The impl. doesnt require a buffer, so well continue as usual.
-            */
+            /* ExAllocatePoolWithQuotaTag raised exception */
          }
          _SEH_END;
       }
@@ -485,29 +485,26 @@ FsRtlNotifyFullChangeDirectory (
       /* No changes are pending. Queue the irp */
 
       /* Irp cancelation boilerplate */
-      
-      /* save NotifySych for use in the cancel routine */
-      Irp->Tail.Overlay.DriverContext[3] = NotifySync;
-
-      IoSetCancelRoutine(Irp, FsRtlpNotifyCancelRoutine);
-      if (Irp->Cancel && IoSetCancelRoutine(Irp, NULL))
+      IoSetCancelRoutine(NotifyIrp, FsRtlpNotifyCancelRoutine);
+      if (NotifyIrp->Cancel && IoSetCancelRoutine(NotifyIrp, NULL))
       {              
          //irp was canceled
          ExReleaseFastMutex((PFAST_MUTEX)NotifySync);
 
-         Irp->IoStatus.Status = STATUS_CANCELLED;
-         Irp->IoStatus.Information = 0;
+         NotifyIrp->IoStatus.Status = STATUS_CANCELLED;
+         NotifyIrp->IoStatus.Information = 0;
 
-         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         IoCompleteRequest(NotifyIrp, IO_NO_INCREMENT);
          return;
       }
 
-      IoMarkIrpPending(Irp);
+      IoMarkIrpPending(NotifyIrp);
 
       //FIXME: any point in setting irp status/information before queueing?
-      Irp->IoStatus.Status = STATUS_PENDING;
       
-      InsertTailList(&NotifyEntry->IrpQueue, &Irp->Tail.Overlay.ListEntry);
+      /* save NotifySych for use in the cancel routine */
+      NotifyIrp->Tail.Overlay.DriverContext[3] = NotifySync;
+      InsertTailList(&NotifyEntry->IrpQueue, &NotifyIrp->Tail.Overlay.ListEntry);
 
       ExReleaseFastMutex((PFAST_MUTEX)NotifySync);
       return;
@@ -527,29 +524,24 @@ FsRtlNotifyFullChangeDirectory (
       -Current irp buff was not large enough
       */
      
-      Irp->IoStatus.Information = 0;
-      Irp->IoStatus.Status = STATUS_NOTIFY_ENUM_DIR;
+      NotifyIrp->IoStatus.Information = 0;
+      NotifyIrp->IoStatus.Status = STATUS_NOTIFY_ENUM_DIR;
 
    }
    else
    {
-      PVOID Adr = MmGetSystemAddressForMdlSafe(Irp->MdlAddress, LowPagePriority);
+      /* terminate last entry */
+      NotifyEntry->PrevEntry->NextEntryOffset = 0;
+      
+      //FIXME: copy data correctly to user
+      memcpy(NotifyIrp->UserBuffer, NotifyEntry->Buffer, NotifyEntry->NextEntryOffset);
 
-      if (Adr)
-      {
-         memcpy(Adr, NotifyEntry->Buffer, NotifyEntry->NextEntryOffset);
-         Irp->IoStatus.Information = NotifyEntry->NextEntryOffset;
-      }
-      else
-      {
-         Irp->IoStatus.Information = 0;
-      }
-
-      Irp->IoStatus.Status = STATUS_SUCCESS;
+      NotifyIrp->IoStatus.Information = NotifyEntry->NextEntryOffset;
+      NotifyIrp->IoStatus.Status = STATUS_SUCCESS;
    }
    
    /* reset buffer */
-   NotifyEntry->PrevEntry = NULL;
+   NotifyEntry->PrevEntry = NotifyEntry->Buffer; 
    NotifyEntry->NextEntryOffset = 0;
    NotifyEntry->BufferExhausted = FALSE;
    
@@ -557,9 +549,7 @@ FsRtlNotifyFullChangeDirectory (
 
    ExReleaseFastMutex((PFAST_MUTEX)NotifySync);
    
-   IoCompleteRequest(Irp, IO_NO_INCREMENT);
-   
-   /* caller must return STATUS_PENDING */
+   IoCompleteRequest(NotifyIrp, IO_NO_INCREMENT);
 }
 
 
@@ -681,17 +671,13 @@ FsRtlNotifyFullReportChange (
    LIST_FOR_EACH_SAFE(EnumEntry, NotifyList, NotifyEntry, NOTIFY_ENTRY, ListEntry )
    {
       ASSERT(NotifyEntry->Unicode == FsRtlpIsUnicodePath(FullTargetName));
-      
+         
       /* rule out some easy cases */
-      /* FIXME: short vs. long names??? lower case/upper case/mixed case? */
+      /* FIXME: short vs. long names??? */
       if (!(FilterMatch & NotifyEntry->CompletionFilter)) continue;
       
-      FullDirLen = TargetNameOffset - (NotifyEntry->Unicode ? sizeof(WCHAR) : sizeof(char));
-      if (FullDirLen == 0)
-      {
-         /* special case for root dir */
-         FullDirLen = (NotifyEntry->Unicode ? sizeof(WCHAR) : sizeof(char));
-      }
+      FullDirLen = TargetNameOffset - (NotifyEntry->Unicode?sizeof(WCHAR):sizeof(char));
+      
       
       if (FullDirLen < NotifyEntry->FullDirectoryName->Length) continue;
       
@@ -699,7 +685,6 @@ FsRtlNotifyFullReportChange (
 
       DPRINT("NotifyEntry->FullDirectoryName: %wZ\n", NotifyEntry->FullDirectoryName);
       
-      /* FIXME: short vs. long names??? lower case/upper case/mixed case? */
       if (memcmp(NotifyEntry->FullDirectoryName->Buffer, 
             FullTargetName->Buffer, 
             NotifyEntry->FullDirectoryName->Length) != 0) continue;
@@ -766,31 +751,22 @@ FsRtlNotifyFullReportChange (
          }
          else
          {
-            CurrentEntry = (PFILE_NOTIFY_INFORMATION)            
-               MmGetSystemAddressForMdlSafe(Irp->MdlAddress, LowPagePriority);
-               
-            if (CurrentEntry)
-            {
-               CurrentEntry->Action = Action; 
-               CurrentEntry->NameLength = NameLenU;
-               CurrentEntry->NextEntryOffset = 0;
-
-               FsRtlpCopyName(
-                     CurrentEntry,
-                     NotifyEntry->Unicode,
-                     &RelativeName,
-                     StreamName
-                     );
-               
-               Irp->IoStatus.Information = RecordLen;
-            }
-            else
-            {
-               Irp->IoStatus.Information = 0;
-            }
+            //FIXME: copy data to user correctly
+            CurrentEntry = (PFILE_NOTIFY_INFORMATION)Irp->UserBuffer;
             
+            CurrentEntry->Action = Action; 
+            CurrentEntry->NameLength = NameLenU;
+            CurrentEntry->NextEntryOffset = 0;
+
+            FsRtlpCopyName(
+                  CurrentEntry,
+                  NotifyEntry->Unicode,
+                  &RelativeName,
+                  StreamName
+                  );
 
             Irp->IoStatus.Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = RecordLen;
          }
          
          /* avoid holding lock while completing irp */
@@ -827,10 +803,8 @@ FsRtlNotifyFullReportChange (
                       StreamName
                       );
          
-         if (NotifyEntry->PrevEntry)
-         {
-            NotifyEntry->PrevEntry->NextEntryOffset = (char*)CurrentEntry - (char*)NotifyEntry->PrevEntry;
-         }
+         /* adjust buffer */
+         NotifyEntry->PrevEntry->NextEntryOffset = (char*)CurrentEntry - (char*)NotifyEntry->PrevEntry;
          NotifyEntry->PrevEntry = CurrentEntry;
          NotifyEntry->NextEntryOffset += RecordLen;
  

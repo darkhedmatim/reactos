@@ -82,9 +82,11 @@ BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
  *  DWORD
  *
  */
-DWORD WINAPI AddIPAddress(IPAddr Address, IPMask Netmask, DWORD IfIndex, PULONG NteContext, PULONG NteInstance)
+DWORD WINAPI AddIPAddress(IPAddr Address, IPMask IpMask, DWORD IfIndex, PULONG NTEContext, PULONG NTEInstance)
 {
-    return addIPAddress( Address, Netmask, IfIndex, NteContext, NteInstance );
+  FIXME(":stub\n");
+  /* marking Win2K+ functions not supported */
+  return ERROR_NOT_SUPPORTED;
 }
 
 
@@ -402,7 +404,9 @@ DWORD WINAPI CreateProxyArpEntry(DWORD dwAddress, DWORD dwMask, DWORD dwIfIndex)
 DWORD WINAPI DeleteIPAddress(ULONG NTEContext)
 {
   TRACE("NTEContext %ld\n", NTEContext);
-  return deleteIpAddress( NTEContext );
+  FIXME(":stub\n");
+  /* marking Win2K+ functions not supported */
+  return ERROR_NOT_SUPPORTED;
 }
 
 

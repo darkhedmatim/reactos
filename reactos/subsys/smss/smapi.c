@@ -21,7 +21,7 @@ static HANDLE SmApiPort = INVALID_HANDLE_VALUE;
 SMAPI(SmInvalid)
 {
 	DPRINT("SM: %s called\n",__FUNCTION__);
-	Request->SmHeader.Status = STATUS_NOT_IMPLEMENTED;
+	Request->Status = STATUS_NOT_IMPLEMENTED;
 	return STATUS_SUCCESS;
 }
 
@@ -34,67 +34,14 @@ SM_PORT_API SmApi [] =
 	SmCompSes,	/* smapicomp.c */
 	SmInvalid,	/* obsolete */
 	SmInvalid,	/* unknown */
-	SmExecPgm,	/* smapiexec.c */
-	SmQryInfo	/* smapyqry.c */
+	SmExecPgm	/* smapiexec.c */
 };
-
-/* TODO: optimize this address computation (it should be done 
- * with a macro) */
-PSM_CONNECT_DATA FASTCALL SmpGetConnectData (PSM_PORT_MESSAGE Request)
-{
-	PLPC_MAX_MESSAGE LpcMaxMessage = (PLPC_MAX_MESSAGE) Request;
-	return (PSM_CONNECT_DATA) & LpcMaxMessage->Data[0];
-}
 
 #if !defined(__USE_NT_LPC__)
 NTSTATUS STDCALL
 SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request);
 #endif
 
-/**********************************************************************
- * SmpCallback/2
- *
- * The SM calls back a previously connected subsystem process to
- * authorizes it to bootstrap (initialize). The SM connects to a
- * named LPC port which name was sent in the connection data by the
- * candidate subsystem server process.
- */
-static NTSTATUS
-SmpCallbackServer (PSM_PORT_MESSAGE Request,
-		   PSM_CLIENT_DATA ClientData)
-{
-	NTSTATUS          Status = STATUS_SUCCESS;
-	PSM_CONNECT_DATA  ConnectData = SmpGetConnectData (Request);
-	UNICODE_STRING    CallbackPortName;
-	ULONG             CallbackPortNameLength = SM_SB_NAME_MAX_LENGTH; /* TODO: compute length */
-	SB_CONNECT_DATA   SbConnectData;
-	ULONG             SbConnectDataLength = sizeof SbConnectData;
-	
-	DPRINT("SM: %s called\n", __FUNCTION__);
-
-	if(IMAGE_SUBSYSTEM_NATIVE == ConnectData->SubSystemId)
-	{
-		DPRINT("SM: %s: we do not need calling back SM!\n",
-				__FUNCTION__);
-		return STATUS_SUCCESS;
-	}
-	RtlCopyMemory (ClientData->SbApiPortName,
-		       ConnectData->SbName,
-		       CallbackPortNameLength);
-	RtlInitUnicodeString (& CallbackPortName,
-			      ClientData->SbApiPortName);
-
-	SbConnectData.SmApiMax = (sizeof SmApi / sizeof SmApi[0]);
-	Status = NtConnectPort (& ClientData->SbApiPort,
-				& CallbackPortName,
-				NULL,
-				NULL,
-				NULL,
-				NULL,
-				& SbConnectData,
-				& SbConnectDataLength);
-	return Status;
-}
 
 /**********************************************************************
  * NAME
@@ -112,7 +59,8 @@ SmpApiConnectedThread(PVOID pConnectedPort)
 	SM_PORT_MESSAGE	Request = {{0}};
 	HANDLE          ConnectedPort = * (PHANDLE) pConnectedPort;
 
-	DPRINT("SM: %s called\n", __FUNCTION__);
+	DPRINT("SM: %s(%08lx) running\n", __FUNCTION__, pConnectedPort);
+	DPRINT("SM: %s(%08lx): ConnectedPort = %08lx\n",  __FUNCTION__, pConnectedPort, ConnectedPort);
 
 	while (TRUE)
 	{
@@ -142,13 +90,13 @@ SmpApiConnectedThread(PVOID pConnectedPort)
 			      Reply = NULL;
 			      break;
 			default:
-				if ((Request.SmHeader.ApiIndex) &&
-					(Request.SmHeader.ApiIndex < (sizeof SmApi / sizeof SmApi[0])))
+				if ((Request.ApiIndex) &&
+					(Request.ApiIndex < (sizeof SmApi / sizeof SmApi[0])))
 				{
-					Status = SmApi[Request.SmHeader.ApiIndex](&Request);
+					Status = SmApi[Request.ApiIndex](&Request);
 				      	Reply = (PLPC_MESSAGE) & Request;
 				} else {
-					Request.SmHeader.Status = STATUS_NOT_IMPLEMENTED;
+					Request.Status = STATUS_NOT_IMPLEMENTED;
 					Reply = (PLPC_MESSAGE) & Request;
 				}
 			}
@@ -174,7 +122,7 @@ SmpApiConnectedThread(PVOID pConnectedPort)
 NTSTATUS STDCALL
 SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 {
-	PSM_CONNECT_DATA ConnectData = SmpGetConnectData (Request);
+	PSM_CONNECT_DATA ConnectData = (PSM_CONNECT_DATA) ((PBYTE) Request) + sizeof (LPC_REQUEST);
 	NTSTATUS         Status = STATUS_SUCCESS;
 	BOOL             Accept = FALSE;
 	PSM_CLIENT_DATA  ClientData = NULL;
@@ -184,69 +132,46 @@ SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 	PHANDLE          ClientDataApiPortThread = & hClientDataApiPortThread;
 	PVOID            Context = NULL;
 	
-	DPRINT("SM: %s called:\n  SubSystemID=%d\n  SbName=\"%S\"\n",
-			__FUNCTION__, ConnectData->SubSystemId, ConnectData->SbName);
+	DPRINT("SM: %s called\n", __FUNCTION__);
 
 	if(sizeof (SM_CONNECT_DATA) == Request->Header.DataSize)
 	{
-		if(IMAGE_SUBSYSTEM_UNKNOWN == ConnectData->SubSystemId)
+		if(IMAGE_SUBSYSTEM_UNKNOWN == ConnectData->Subsystem)
 		{
 			/*
-			 * This is not a call to register an image set,
-			 * but a simple connection request from a process
+			 * This is not a call from an environment server
+			 * willing to register, but from any other process
 			 * that will use the SM API.
 			 */
-			DPRINT("SM: %s: simple request\n", __FUNCTION__);
+			DPRINT("SM: %s: req from NON subsys server process\n", __FUNCTION__);
 			ClientDataApiPort = & hClientDataApiPort;
 			ClientDataApiPortThread = & hClientDataApiPortThread;
 			Accept = TRUE;
 		} else {
-			DPRINT("SM: %s: request to register an image set\n", __FUNCTION__);
+			DPRINT("SM: %s: req from subsys server process\n", __FUNCTION__);
 			/*
-			 *  Reject GUIs classes: only odd subsystem IDs are
-			 *  allowed to register here (tty mode images).
+			 * SmCreateClient/2 is called here explicitly to *fail*.
+			 * If it succeeds, there is something wrong in the
+			 * connection request. An environment subsystem *never*
+			 * registers twice. (Security issue: maybe we will
+			 * write this event into the security log).
 			 */
-			if(1 == (ConnectData->SubSystemId % 2))
+			Status = SmCreateClient (Request, & ClientData);
+			if(STATUS_SUCCESS == Status)
 			{
-				DPRINT("SM: %s: id = %d\n", __FUNCTION__, ConnectData->SubSystemId);
-				/*
-				 * SmCreateClient/2 is called here explicitly to *fail*.
-				 * If it succeeds, there is something wrong in the
-				 * connection request. An environment subsystem *never*
-				 * registers twice. (security issue)
+				/* OK: the client is an environment subsystem
+				 * willing to manage a free image type.
 				 */
-				Status = SmCreateClient (Request, & ClientData);
-				if(STATUS_SUCCESS == Status)
-				{
-					DPRINT("SM: %s: ClientData = 0x%08lx\n",
-						__FUNCTION__, ClientData);
-					/*
-					 * OK: the client is an environment subsystem
-					 * willing to manage a free image type.
-					 */
-					ClientDataApiPort = & ClientData->ApiPort;
-					ClientDataApiPortThread = & ClientData->ApiPortThread;
-					/*
-					 * Call back the candidate environment subsystem
-					 * server (use the port name sent in in the 
-					 * connection request message).
-					 */
-					Status = SmpCallbackServer (Request, ClientData);
-					if(NT_SUCCESS(Status))
-					{
-						DPRINT("SM: %s: SmpCallbackServer OK\n",
-							__FUNCTION__);
-						Accept = TRUE;
-					} else {
-						DPRINT("SM: %s: SmpCallbackServer failed (Status=%08lx)\n",
-							__FUNCTION__, Status);
-						Status = SmDestroyClient (ConnectData->SubSystemId);
-					}
-				}
+				ClientDataApiPort = & ClientData->ApiPort;
+				ClientDataApiPortThread = & ClientData->ApiPortThread;
+				/*
+				 *  Reject GUIs: only odd subsystem IDs are
+				 *  allowed to register here.
+				 */
+				Accept = (1 == (ConnectData->Subsystem % 2));
 			}
 		}
 	}
-	DPRINT("SM: %s: before NtAcceptConnectPort\n", __FUNCTION__);
 #if defined(__USE_NT_LPC__)
 	Status = NtAcceptConnectPort (ClientDataApiPort,
 				      Context,
@@ -262,6 +187,8 @@ SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 				      NULL,
 				      NULL);
 #endif
+	DPRINT("SM: %s: ClientDataPort=0x%08lx\n", __FUNCTION__, ClientDataApiPort);
+	DPRINT("SM: %s: *ClientDataPort=0x%08lx\n", __FUNCTION__, *ClientDataApiPort);
 	if(Accept)
 	{
 		if(!NT_SUCCESS(Status))
@@ -320,8 +247,6 @@ SmpApiThread (HANDLE ListeningPort)
 {
 	NTSTATUS	Status = STATUS_SUCCESS;
 	LPC_MAX_MESSAGE	Request = {{0}};
-
-	DPRINT("SM: %s called\n", __FUNCTION__);
     
 	while (TRUE)
 	{

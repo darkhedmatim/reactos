@@ -195,22 +195,23 @@ Win32kThreadCallback (struct _ETHREAD *Thread,
           }
         }
 
-        if (hDesk != NULL)
+        Win32Thread->hDesktop = hDesk;
+
+        Status = ObReferenceObjectByHandle(hDesk,
+                 0,
+                 ExDesktopObjectType,
+                 KernelMode,
+                 (PVOID*)&Win32Thread->Desktop,
+                 NULL);
+
+        if(!NT_SUCCESS(Status))
         {
-          Status = ObReferenceObjectByHandle(hDesk,
-                                             0,
-                                             ExDesktopObjectType,
-                                             KernelMode,
-                                             (PVOID*)&Win32Thread->Desktop,
-                                             NULL);
+          DPRINT1("Unable to reference thread desktop handle 0x%x\n", hDesk);
+          Win32Thread->Desktop = NULL;
           NtClose(hDesk);
-          if(!NT_SUCCESS(Status))
-          {
-            DPRINT1("Unable to reference thread desktop handle 0x%x\n", hDesk);
-            Win32Thread->Desktop = NULL;
-          }
         }
       }
+
       Win32Thread->IsExiting = FALSE;
       IntDestroyCaret(Win32Thread);
       Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);

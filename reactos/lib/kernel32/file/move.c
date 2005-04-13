@@ -306,25 +306,52 @@ MoveFileWithProgressA (
 	DWORD			dwFlags
 	)
 {
-	PWCHAR ExistingFileNameW;
-   PWCHAR NewFileNameW;
-	BOOL ret;
-   
-   if (!(ExistingFileNameW = FilenameA2W(lpExistingFileName, FALSE)))
-      return FALSE;
+	UNICODE_STRING ExistingFileNameU;
+	UNICODE_STRING NewFileNameU;
+	ANSI_STRING ExistingFileName;
+	ANSI_STRING NewFileName;
+	BOOL Result;
 
-   if (!(NewFileNameW= FilenameA2W(lpNewFileName, TRUE)))
-      return FALSE;
+	RtlInitAnsiString (&ExistingFileName,
+	                   (LPSTR)lpExistingFileName);
 
-   ret = MoveFileWithProgressW (ExistingFileNameW ,
-                                   NewFileNameW,
+	RtlInitAnsiString (&NewFileName,
+	                   (LPSTR)lpNewFileName);
+
+	/* convert ansi (or oem) string to unicode */
+	if (bIsFileApiAnsi)
+	{
+		RtlAnsiStringToUnicodeString (&ExistingFileNameU,
+		                              &ExistingFileName,
+		                              TRUE);
+		RtlAnsiStringToUnicodeString (&NewFileNameU,
+		                              &NewFileName,
+		                              TRUE);
+	}
+	else
+	{
+		RtlOemStringToUnicodeString (&ExistingFileNameU,
+		                             &ExistingFileName,
+		                             TRUE);
+		RtlOemStringToUnicodeString (&NewFileNameU,
+		                             &NewFileName,
+		                             TRUE);
+	}
+
+	Result = MoveFileWithProgressW (ExistingFileNameU.Buffer,
+	                                NewFileNameU.Buffer,
 	                                lpProgressRoutine,
 	                                lpData,
 	                                dwFlags);
 
-   RtlFreeHeap (RtlGetProcessHeap (), 0, NewFileNameW);
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             ExistingFileNameU.Buffer);
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             NewFileNameU.Buffer);
 
-	return ret;
+	return Result;
 }
 
 

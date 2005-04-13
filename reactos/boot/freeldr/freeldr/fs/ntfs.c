@@ -21,7 +21,7 @@
  * Limitations:
  * - No support for compressed files.
  * - No attribute list support.
- * - May crash on corrupted filesystem.
+ * - May crash on currupted filesystem.
  */
 
 #include <freeldr.h>

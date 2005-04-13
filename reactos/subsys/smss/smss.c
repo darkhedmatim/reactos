@@ -56,8 +56,6 @@ NtProcessStartup(PPEB Peb)
   }
   /* Initialize the system */
   Status = InitSessionManager();
-  /* Watch required subsystems TODO */
-#if 0
   if (!NT_SUCCESS(Status))
     {
       int i;
@@ -92,8 +90,6 @@ ByeBye:
 		   0,0,0,0,0);
 
 //   NtTerminateProcess(NtCurrentProcess(), 0);
-#endif
-	NtTerminateThread(NtCurrentThread(), Status);
 }
 
 /* EOF */

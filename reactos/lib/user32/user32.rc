@@ -1,8 +1,7 @@
 /* $Id$ */
 
 #include <defines.h>
-#include <winuser.h>
-
+#include <messages.h>
 #include <resource.h>
 
 #define REACTOS_VERSION_DLL
@@ -62,4 +61,3 @@ OBM_MNARROW BITMAP "resources/obm_mnarrow.bmp"
 #include "En.rc"
 #include "Da.rc"
 #include "De.rc"
-#include "Sv.rc"

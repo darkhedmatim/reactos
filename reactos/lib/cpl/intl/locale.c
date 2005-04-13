@@ -23,68 +23,234 @@
  * PURPOSE:         Locale property page
  * PROGRAMMER:      Eric Kohl
  *                  Klemens Friedl
- *                  Aleksey Bragin
  */
-
-#define WINVER 0x0501
 
 #include <windows.h>
 #include <commctrl.h>
 #include <cpl.h>
 
-#include <stdio.h>
-
 #include "intl.h"
 #include "resource.h"
 
-HWND hList;
 
-BOOL CALLBACK LocalesEnumProc(
-  LPTSTR lpLocale // locale id
-)
+// FIXME:
+//        * change registry function (-> "HKCR\MIME\Database\Rfc1766")
+
+
+
+typedef struct _TZ_INFO
 {
-	LCID lcid;
-	TCHAR lang[255];
-	int index;
+  LONG Bias;
+  LONG StandardBias;
+  LONG DaylightBias;
+  SYSTEMTIME StandardDate;
+  SYSTEMTIME DaylightDate;
+} TZ_INFO, *PTZ_INFO;
 
-	swscanf(lpLocale, L"%lx", &lcid); // maybe use wcstoul?
+typedef struct _TIMEZONE_ENTRY
+{
+  struct _TIMEZONE_ENTRY *Prev;
+  struct _TIMEZONE_ENTRY *Next;
+  WCHAR Description[64];   /* 'Display' */
+  WCHAR StandardName[32];  /* 'Std' */
+  WCHAR DaylightName[32];  /* 'Dlt' */
+  TZ_INFO TimezoneInfo;    /* 'TZI' */
+  ULONG Index;             /* 'Index' */
+} TIMEZONE_ENTRY, *PTIMEZONE_ENTRY;
 
-	GetLocaleInfo(lcid, LOCALE_SLANGUAGE, lang, sizeof(lang));
 
-    index = SendMessageW(hList,
-		   CB_ADDSTRING,
-		   0,
-		   (LPARAM)lang);
 
-	SendMessageW(hList,
-		   CB_SETITEMDATA,
-		   index,
-		   (LPARAM)lcid);
+PTIMEZONE_ENTRY TimeZoneListHead = NULL;
+PTIMEZONE_ENTRY TimeZoneListTail = NULL;
 
-	return TRUE;
+
+
+
+static PTIMEZONE_ENTRY
+GetLargerTimeZoneEntry(DWORD Index)
+{
+  PTIMEZONE_ENTRY Entry;
+
+  Entry = TimeZoneListHead;
+  while (Entry != NULL)
+    {
+      if (Entry->Index >= Index)
+	return Entry;
+
+      Entry = Entry->Next;
+    }
+
+  return NULL;
 }
 
 
 static VOID
-CreateLanguagesList(HWND hwnd)
+CreateTimeZoneList(VOID)
 {
-	TCHAR langSel[255];
 
-	hList = hwnd;
-	EnumSystemLocalesW(LocalesEnumProc, LCID_SUPPORTED);
+  WCHAR szKeyName[256];
+  DWORD dwIndex;
+  DWORD dwNameSize;
+  DWORD dwValueSize;
+  LONG lError;
+  HKEY hZonesKey;
+  HKEY hZoneKey;
 
-	// Select current locale
-	GetLocaleInfo(GetUserDefaultLCID(), LOCALE_SLANGUAGE, langSel, sizeof(langSel)); // or should it be System?
-	
-	SendMessageW(hList,
-		   CB_SELECTSTRING,
-		   -1,
-		   (LPARAM)langSel);
+  PTIMEZONE_ENTRY Entry;
+  PTIMEZONE_ENTRY Current;
+
+
+
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+		    L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones",
+		    0,
+		    KEY_ALL_ACCESS,
+		    &hZonesKey))
+    return;
+
+  dwIndex = 0;
+  while (TRUE)
+    {
+      dwNameSize = 256;
+      lError = RegEnumKeyExW(hZonesKey,
+			     dwIndex,
+			     szKeyName,
+			     &dwNameSize,
+			     NULL,
+			     NULL,
+			     NULL,
+			     NULL);
+      if (lError != ERROR_SUCCESS && lError != ERROR_MORE_DATA)
+	break;
+
+
+      if (RegOpenKeyExW(hZonesKey,
+			szKeyName,
+			0,
+			KEY_ALL_ACCESS,
+			&hZoneKey))
+	break;
+
+
+      Entry = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(TIMEZONE_ENTRY));
+      if (Entry == NULL)
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      dwValueSize = 64 * sizeof(WCHAR);
+      if (RegQueryValueExW(hZonesKey,
+			   L"Display",
+			   NULL,
+			   NULL,
+			   (LPBYTE)&Entry->Description,
+			   &dwValueSize))
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      dwValueSize = 32 * sizeof(WCHAR);
+      if (RegQueryValueExW(hZonesKey,
+			   L"Std",
+			   NULL,
+			   NULL,
+			   (LPBYTE)&Entry->StandardName,
+			   &dwValueSize))
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      dwValueSize = 32 * sizeof(WCHAR);
+      if (RegQueryValueExW(hZonesKey,
+			   L"Dlt",
+			   NULL,
+			   NULL,
+			   (LPBYTE)&Entry->DaylightName,
+			   &dwValueSize))
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      dwValueSize = sizeof(DWORD);
+      if (RegQueryValueExW(hZonesKey,
+			   L"Index",
+			   NULL,
+			   NULL,
+			   (LPBYTE)&Entry->Index,
+			   &dwValueSize))
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      dwValueSize = sizeof(TZ_INFO);
+      if (RegQueryValueExW(hZonesKey,
+			   L"TZI",
+			   NULL,
+			   NULL,
+			   (LPBYTE)&Entry->TimezoneInfo,
+			   &dwValueSize))
+	{
+	  RegCloseKey(hZonesKey);
+	  break;
+	}
+
+      RegCloseKey(hZoneKey);
+
+      if (TimeZoneListHead == NULL &&
+	  TimeZoneListTail == NULL)
+	{
+	  Entry->Prev = NULL;
+	  Entry->Next = NULL;
+	  TimeZoneListHead = Entry;
+	  TimeZoneListTail = Entry;
+	}
+      else
+	{
+	  Current = GetLargerTimeZoneEntry(Entry->Index);
+	  if (Current != NULL)
+	    {
+	      if (Current == TimeZoneListHead)
+		{
+		  /* Prepend to head */
+		  Entry->Prev = NULL;
+		  Entry->Next = TimeZoneListHead;
+		  TimeZoneListHead->Prev = Entry;
+		  TimeZoneListHead = Entry;
+		}
+	      else
+		{
+		  /* Insert before current */
+		  Entry->Prev = Current->Prev;
+		  Entry->Next = Current;
+		  Current->Prev->Next = Entry;
+		  Current->Prev = Entry;
+		}
+	    }
+	  else
+	    {
+	      /* Append to tail */
+	      Entry->Prev = TimeZoneListTail;
+	      Entry->Next = NULL;
+	      TimeZoneListTail->Next = Entry;
+	      TimeZoneListTail = Entry;
+	    }
+	}
+
+      dwIndex++;
+    }
+
+  RegCloseKey(hZonesKey);
+
 }
 
-/*
+
 static VOID
-ShowLanguagesList(HWND hwnd)
+ShowTimeZoneList(HWND hwnd)
 {
   TIME_ZONE_INFORMATION TimeZoneInfo;
   PTIMEZONE_ENTRY Entry;
@@ -115,7 +281,9 @@ ShowLanguagesList(HWND hwnd)
 	       (WPARAM)dwIndex,
 	       0);
 }
-*/
+
+
+
 
 /* Property page dialog callback */
 INT_PTR CALLBACK
@@ -124,59 +292,16 @@ LocalePageProc(HWND hwndDlg,
 	       WPARAM wParam,
 	       LPARAM lParam)
 {
-	switch(uMsg)
-	{
-	case WM_INITDIALOG:
-		CreateLanguagesList(GetDlgItem(hwndDlg, IDC_LANGUAGELIST));
-		break;
-	case WM_COMMAND:
-		switch (LOWORD(wParam))
-		{
-		case IDC_LANGUAGELIST:
-			if (HIWORD(wParam) == CBN_SELCHANGE)
-			{
-				PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-			}
-			break;
-		}
-		break;
+  switch(uMsg)
+  {
+    case WM_INITDIALOG:
 
-	case WM_NOTIFY:
-		{
-			LPNMHDR lpnm = (LPNMHDR)lParam;
-			if (lpnm->code == PSN_APPLY)
-			{
-				// Apply changes
-				LCID NewLcid;
-				int iCurSel;
-				char tmp[100];
+      CreateTimeZoneList();
+      ShowTimeZoneList(GetDlgItem(hwndDlg, IDC_LANGUAGELIST));
 
-				// Acquire new value
-				iCurSel = SendMessageW(hList,
-					CB_GETCURSEL,
-					0,
-					0);
-				if (iCurSel == CB_ERR)
-					break;
-
-				NewLcid = SendMessageW(hList,
-					CB_GETITEMDATA,
-					iCurSel,
-					0);
-
-				if (NewLcid == CB_ERR)
-					break;
-
-
-				//TOOD: Actually set new locale
-
-				sprintf(tmp, "%x, cursel=%d", NewLcid, iCurSel);
-				MessageBoxA(hwndDlg, tmp, "debug", MB_OK);
-			}
-		}
-		break;
-	}
-	return FALSE;
+      break;
+  }
+  return FALSE;
 }
 
 

@@ -63,7 +63,7 @@ IntGdiCreatePenIndirect(PLOGPEN LogPen)
          break;
 
       default:
-         DPRINT1("FIXME: IntGdiCreatePenIndirect is UNIMPLEMENTED\n");
+         UNIMPLEMENTED;
    }
 
    PENOBJ_UnlockPen(hPen);

@@ -9,7 +9,6 @@ DELAYIMPORTS = shell32
 EXTRALIBS = $(LIBUNICODE)
 
 C_SRCS = \
-	pnp_c.c \
 	cfgmgr.c \
 	devinst.c \
 	dirid.c \
@@ -19,8 +18,7 @@ C_SRCS = \
 	parser.c \
 	queue.c \
 	setupcab.c \
-	stubs.c \
-	rpc.c
+	stubs.c
 
 C_SRCS16 = \
 	devinst16.c \

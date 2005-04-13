@@ -32,6 +32,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "user32.h"
+#include <messages.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

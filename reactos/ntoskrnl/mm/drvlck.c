@@ -40,7 +40,7 @@ VOID STDCALL
 MmLockPagableSectionByHandle(IN PVOID ImageSectionHandle)
 {
    //  MmLockMemoryArea((MEMORY_AREA *)ImageSectionHandle);
-   DPRINT1("MmLockPagableSectionByHandle is unimplemented\n");
+   UNIMPLEMENTED;
 }
 
 
@@ -63,8 +63,7 @@ PVOID STDCALL
 MmLockPagableDataSection(IN PVOID AddressWithinSection)
 {
    PVOID Handle;
-   Handle = MmLocateMemoryAreaByAddress(MmGetKernelAddressSpace(),
-                                        AddressWithinSection);
+   Handle = MmLocateMemoryAreaByAddress(NULL, AddressWithinSection);
    MmLockPagableSectionByHandle(Handle);
    return(Handle);
 }

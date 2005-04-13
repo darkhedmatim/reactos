@@ -49,14 +49,12 @@ NTSTATUS SmInitializeRegistry(VOID);
 
 /* initss.c */
 NTSTATUS SmLoadSubsystems(VOID);
+NTSTATUS SmRunCsrss(VOID);
+NTSTATUS SmRunWinlogon(VOID);
 
 /* smapi.c */
 #define SMAPI(n) \
 NTSTATUS FASTCALL n (PSM_PORT_MESSAGE Request)
-PSM_CONNECT_DATA FASTCALL SmpGetConnectData (PSM_PORT_MESSAGE);
-NTSTATUS SmCreateApiPort(VOID);
-VOID STDCALL SmpApiThread(PVOID);
-
 
 /* smapiexec.c */
 NTSTATUS STDCALL SmCreateUserProcess(LPWSTR ImagePath,
@@ -76,8 +74,8 @@ NTSTATUS FASTCALL SmExecPgm(PSM_PORT_MESSAGE);
 /* smapicomp.c */
 NTSTATUS FASTCALL SmCompSes(PSM_PORT_MESSAGE);
 
-/* smapiquery.c */
-NTSTATUS FASTCALL SmQryInfo(PSM_PORT_MESSAGE);
+NTSTATUS SmCreateApiPort(VOID);
+VOID STDCALL SmpApiThread(PVOID);
 
 /* client.c */
 typedef struct _SM_CLIENT_DATA
@@ -96,8 +94,6 @@ NTSTATUS SmInitializeClientManagement(VOID);
 NTSTATUS STDCALL SmCreateClient(PSM_PORT_MESSAGE,PSM_CLIENT_DATA*);
 NTSTATUS STDCALL SmDestroyClient(ULONG);
 NTSTATUS STDCALL SmCompleteClientInitialization (HANDLE hProcess);
-NTSTATUS FASTCALL SmGetClientBasicInformation (PSM_BASIC_INFORMATION);
-NTSTATUS FASTCALL SmGetSubSystemInformation (PSM_SUBSYSTEM_INFORMATION);
 
 /* debug.c */
 extern HANDLE DbgSsApiPort;

@@ -279,19 +279,6 @@ MmGetPhysicalMemoryRanges (
 	(((Mdl)->MdlFlags & (MDL_MAPPED_TO_SYSTEM_VA | MDL_SOURCE_IS_NONPAGED_POOL)) ? \
 		((Mdl)->MappedSystemVa):(MmMapLockedPages((Mdl),KernelMode)))
 
-/*
- * PVOID
- * MmGetSystemAddressForMdlSafe(
- *   IN PMDL  Mdl,
- *   IN MM_PAGE_PRIORITY  Priority)
- */
-#define MmGetSystemAddressForMdlSafe(_Mdl, _Priority) \
-  ((_Mdl)->MdlFlags & (MDL_MAPPED_TO_SYSTEM_VA \
-    | MDL_SOURCE_IS_NONPAGED_POOL)) ? \
-    (_Mdl)->MappedSystemVa : \
-    (PVOID) MmMapLockedPagesSpecifyCache((_Mdl), \
-      KernelMode, MmCached, NULL, FALSE, _Priority)
-
 PVOID
 STDCALL
 MmGetSystemRoutineAddress (
@@ -438,13 +425,6 @@ MmMapLockedPages (
 	PMDL		MemoryDescriptorList,
 	KPROCESSOR_MODE	AccessMode
 	);
-PVOID STDCALL
-MmMapLockedPagesSpecifyCache ( IN PMDL Mdl,
-                               IN KPROCESSOR_MODE AccessMode,
-                               IN MEMORY_CACHING_TYPE CacheType,
-                               IN PVOID BaseAddress,
-                               IN ULONG BugCheckOnFailure,
-                               IN MM_PAGE_PRIORITY Priority);   
 VOID
 STDCALL
 MmMapMemoryDumpMdl (

@@ -8,8 +8,6 @@ TARGET_NAME = ftp
 
 TARGET_INSTALLDIR = system32
 
-TARGET_CFLAGS = -D__USE_W32API
-
 TARGET_SDKLIBS = ws2_32.a iphlpapi.a
 # ntdll.a
 

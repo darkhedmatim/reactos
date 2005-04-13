@@ -21,6 +21,14 @@
  */
     
 #include "precomp.h"
+#include <commctrl.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+#include <stdio.h>
+    
+#include "font.h"
 
 void Font_DrawText(HDC hDC, LPCTSTR lpszText, int x, int y)
 {

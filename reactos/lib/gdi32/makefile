@@ -39,9 +39,7 @@ MISC_OBJECTS = \
  misc/win32k.o
 
 OBJECTS_OBJECTS = \
- objects/bitmap.o \
- objects/utils.o \
- objects/brush.o \
+ objects/bitblt.o \
  objects/dc.o \
  objects/font.o \
  objects/linedda.o \

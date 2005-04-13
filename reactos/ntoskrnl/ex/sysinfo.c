@@ -725,18 +725,18 @@ QSI_DEF(SystemDeviceInformation)
 /* Class 8 - Processor Performance Information */
 QSI_DEF(SystemProcessorPerformanceInformation)
 {
-	PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION Spi
-		= (PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) Buffer;
+	PSYSTEM_PROCESSORTIME_INFO Spi
+		= (PSYSTEM_PROCESSORTIME_INFO) Buffer;
 
         ULONG i;
 	LARGE_INTEGER CurrentTime;
 	PKPRCB Prcb;
 
-	*ReqSize = KeNumberProcessors * sizeof (SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION);
+	*ReqSize = KeNumberProcessors * sizeof (SYSTEM_PROCESSORTIME_INFO);
 	/*
-	 * Check user buffer's size
+	 * Check user buffer's size 
 	 */
-	if (Size < KeNumberProcessors * sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
+	if (Size < KeNumberProcessors * sizeof(SYSTEM_PROCESSORTIME_INFO))
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
@@ -745,16 +745,16 @@ QSI_DEF(SystemProcessorPerformanceInformation)
 	Prcb = ((PKPCR)KPCR_BASE)->Prcb;
 	for (i = 0; i < KeNumberProcessors; i++)
 	{
-	   Spi->IdleTime.QuadPart = (Prcb->IdleThread->KernelTime + Prcb->IdleThread->UserTime) * 100000LL; // IdleTime
-           Spi->KernelTime.QuadPart =  Prcb->KernelTime * 100000LL; // KernelTime
-           Spi->UserTime.QuadPart = Prcb->UserTime * 100000LL;
-           Spi->DpcTime.QuadPart = Prcb->DpcTime * 100000LL;
-           Spi->InterruptTime.QuadPart = Prcb->InterruptTime * 100000LL;
-           Spi->InterruptCount = Prcb->InterruptCount; // Interrupt Count
+	   Spi->TotalProcessorRunTime.QuadPart = (Prcb->IdleThread->KernelTime + Prcb->IdleThread->UserTime) * 100000LL; // IdleTime
+           Spi->TotalProcessorTime.QuadPart =  Prcb->KernelTime * 100000LL; // KernelTime
+           Spi->TotalProcessorUserTime.QuadPart = Prcb->UserTime * 100000LL;
+           Spi->TotalDPCTime.QuadPart = Prcb->DpcTime * 100000LL;
+           Spi->TotalInterruptTime.QuadPart = Prcb->InterruptTime * 100000LL;
+           Spi->TotalInterrupts = Prcb->InterruptCount; // Interrupt Count
 	   Spi++;
 	   Prcb = (PKPRCB)((ULONG_PTR)Prcb + PAGE_SIZE);
 	}
-
+     
 	return (STATUS_SUCCESS);
 }
 

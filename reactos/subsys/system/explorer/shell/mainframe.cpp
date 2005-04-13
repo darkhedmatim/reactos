@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004, 2005 Martin Fuchs
+ * Copyright 2003, 2004 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,19 +40,19 @@ extern HWND create_webchildwindow(const WebChildWndInfo& info);
 
 HWND MainFrameBase::Create(LPCTSTR path, bool mdi, UINT cmdshow)
 {
-	HWND hFrame;
+	HWND hMainFrame;
 
 #ifndef _NO_MDI	///@todo implement command line option to switch between MDI and SDI
 	if (mdi)
-		hFrame = MDIMainFrame::Create();
+		hMainFrame = MDIMainFrame::Create();
 	else
 #endif
-		hFrame = SDIMainFrame::Create();
+		hMainFrame = SDIMainFrame::Create();
 
-	if (hFrame) {
+	if (hMainFrame) {
 		HWND hwndOld = g_Globals._hMainWnd;
 
-		g_Globals._hMainWnd = hFrame;
+		g_Globals._hMainWnd = hMainFrame;
 
 		if (path) {
 			static String sPath = path;	// copy path to avoid accessing freed memory
@@ -62,8 +62,8 @@ HWND MainFrameBase::Create(LPCTSTR path, bool mdi, UINT cmdshow)
 		if (hwndOld)
 			DestroyWindow(hwndOld);
 
-		ShowWindow(hFrame, cmdshow);
-		UpdateWindow(hFrame);
+		ShowWindow(hMainFrame, cmdshow);
+		UpdateWindow(hMainFrame);
 
 		bool valid_dir = false;
 
@@ -78,12 +78,12 @@ HWND MainFrameBase::Create(LPCTSTR path, bool mdi, UINT cmdshow)
 
 		 // Open the first child window after initializing the application
 		if (valid_dir)
-			PostMessage(hFrame, PM_OPEN_WINDOW, 0, (LPARAM)path);
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, 0, (LPARAM)path);
 		else
-			PostMessage(hFrame, PM_OPEN_WINDOW, OWM_EXPLORE|OWM_DETAILS, 0);
+			PostMessage(hMainFrame, PM_OPEN_WINDOW, OWM_EXPLORE|OWM_DETAILS, 0);
 	}
 
-	return hFrame;
+	return hMainFrame;
 }
 
 
@@ -736,6 +736,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 	extraBtns.idCommand = ID_WEB_WINDOW;
 	SendMessage(_hextrabar, TB_INSERTBUTTON, INT_MAX, (LPARAM)&extraBtns);
 
+#define	W_VER_NT 0
 	if ((HIWORD(GetVersion())>>14) == W_VER_NT) {
 		 // insert NT object namespace button
 		extraBtns.iString = SendMessage(_hextrabar, TB_ADDSTRING, 0, (LPARAM)TEXT("NT Obj\0"));
@@ -842,34 +843,34 @@ HWND MDIMainFrame::Create()
 
 HWND MDIMainFrame::Create(LPCTSTR path, int mode)
 {
-	HWND hFrame = Create();
-	if (!hFrame)
+	HWND hMainFrame = Create();
+	if (!hMainFrame)
 		return 0;
 
-	ShowWindow(hFrame, SW_SHOW);
+	ShowWindow(hMainFrame, SW_SHOW);
 
-	MDIMainFrame* pMainFrame = GET_WINDOW(MDIMainFrame, hFrame);
+	MDIMainFrame* pMainFrame = GET_WINDOW(MDIMainFrame, hMainFrame);
 
 	if (pMainFrame)
 		pMainFrame->CreateChild(path, mode);
 
-	return hFrame;
+	return hMainFrame;
 }
 
 HWND MDIMainFrame::Create(LPCITEMIDLIST pidl, int mode)
 {
-	HWND hFrame = Create();
-	if (!hFrame)
+	HWND hMainFrame = Create();
+	if (!hMainFrame)
 		return 0;
 
-	ShowWindow(hFrame, SW_SHOW);
+	ShowWindow(hMainFrame, SW_SHOW);
 
-	MDIMainFrame* pMainFrame = GET_WINDOW(MDIMainFrame, hFrame);
+	MDIMainFrame* pMainFrame = GET_WINDOW(MDIMainFrame, hMainFrame);
 
 	if (pMainFrame)
 		pMainFrame->CreateChild(pidl, mode);
 
-	return hFrame;
+	return hMainFrame;
 }
 
 
@@ -1315,22 +1316,6 @@ HWND SDIMainFrame::Create(LPCITEMIDLIST pidl, int mode)
 	return hFrame;
 }
 
-HWND SDIMainFrame::Create(LPCTSTR path, int mode)
-{
-	HWND hFrame = Create();
-	if (!hFrame)
-		return 0;
-
-	ShowWindow(hFrame, SW_SHOW);
-
-	MDIMainFrame* pMainFrame = GET_WINDOW(MDIMainFrame, hFrame);
-
-	if (pMainFrame)
-		pMainFrame->CreateChild(path, mode);
-
-	return hFrame;
-}
-
 LRESULT SDIMainFrame::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 {
 	switch(nmsg) {
@@ -1652,16 +1637,17 @@ void SDIMainFrame::jump_to(LPCTSTR path, int mode)
 
 void SDIMainFrame::jump_to(LPCITEMIDLIST path, int mode)
 {
+/*@@todo
 	if (_shellBrowser.get() && (_shellpath_info._open_mode&~OWM_PIDL)==(mode&~OWM_PIDL)) {
 		ShellPath shell_path = path;
 
 		_shellBrowser->jump_to(shell_path);
 
 		_shellpath_info._shell_path = shell_path;
-	} else {
+	} else */{
 		_shellpath_info._open_mode = mode;
 		_shellpath_info._shell_path = path;
-		_shellpath_info._root_shell_path = SpecialFolderPath(CSIDL_DRIVES, _hwnd);	//@@
+		_shellpath_info._root_shell_path = DesktopFolderPath();	//@@
 
 		update_shell_browser();
 	}

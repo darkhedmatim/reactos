@@ -11,4 +11,3 @@ IDB_USRGRPIMAGES BITMAP "res/usrgrp.bmp"
 
 #include "aclui_En.rc"
 #include "aclui_De.rc"
-#include "aclui_Sv.rc"

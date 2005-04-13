@@ -559,10 +559,6 @@ VideoPortGetAccessRanges(
             {
                DeviceExtension->InterruptLevel = Descriptor->u.Interrupt.Level;
                DeviceExtension->InterruptVector = Descriptor->u.Interrupt.Vector;
-               if (Descriptor->ShareDisposition == CmResourceShareShared)
-                  DeviceExtension->InterruptShared = TRUE;
-               else
-                  DeviceExtension->InterruptShared = FALSE;
             }
          }
       }

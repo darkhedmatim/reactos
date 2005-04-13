@@ -1,6 +1,9 @@
 /* $Id$
  *
  */
+#ifdef __USE_W32API
+#undef __USE_W32API
+#endif 
 
 #include <errno.h>
 #include <internal/tls.h>

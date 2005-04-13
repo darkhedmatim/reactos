@@ -144,8 +144,6 @@ KeReleaseMutant(IN PKMUTANT Mutant,
         /* Make sure that the Owner Thread is the current Thread */
         if (Mutant->OwnerThread != CurrentThread) {
             
-            KeReleaseDispatcherDatabaseLock(OldIrql);
-            
             DPRINT1("Trying to touch a Mutant that the caller doesn't own!\n");
             ExRaiseStatus(STATUS_MUTANT_NOT_OWNED);
         }
@@ -164,28 +162,10 @@ KeReleaseMutant(IN PKMUTANT Mutant,
     /* Check if the signal state is only single */
     if (Mutant->Header.SignalState == 1) {
         
-        /* Check if it's below 0 now */
         if (PreviousState <= 0) {
         
-            /* Remove the mutant from the list */
             DPRINT("Removing Mutant\n");
             RemoveEntryList(&Mutant->MutantListEntry);
-            
-            /* Reenable APCs */
-            DPRINT("Re-enabling APCs\n");
-            CurrentThread->KernelApcDisable += Mutant->ApcDisable;
-            
-            /* Force an Interrupt if Apcs are pending */
-            if (!IsListEmpty(&CurrentThread->ApcState.ApcListHead[KernelMode])) {
-            
-                /* Make sure they aren't disabled though */
-                if (!CurrentThread->KernelApcDisable) {
-                
-                    /* Request the Interrupt */
-                    DPRINT("Requesting APC Interupt\n");
-                    HalRequestSoftwareInterrupt(APC_LEVEL);
-                }
-            }
         }
         
         /* Remove the Owning Thread and wake it */

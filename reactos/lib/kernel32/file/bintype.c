@@ -304,7 +304,10 @@ GetBinaryTypeA (
     LPDWORD lpBinaryType
     )
 {
-  PWCHAR ApplicationNameW;
+  ANSI_STRING FileNameA;
+  UNICODE_STRING FileName;
+  NTSTATUS Status;
+  BOOL Ret;
   
   if(!lpApplicationName || !lpBinaryType)
   {
@@ -312,10 +315,22 @@ GetBinaryTypeA (
     return FALSE;
   }
   
-  if (!(ApplicationNameW = FilenameA2W(lpApplicationName, FALSE)))
-     return FALSE;
+  RtlInitAnsiString(&FileNameA, (LPSTR)lpApplicationName);
   
-  return GetBinaryTypeW(ApplicationNameW, lpBinaryType);
+  if(bIsFileApiAnsi)
+    Status = RtlAnsiStringToUnicodeString(&FileName, &FileNameA, TRUE);
+  else
+    Status = RtlOemStringToUnicodeString(&FileName, &FileNameA, TRUE);
+  if(!NT_SUCCESS(Status))
+  {
+    SetLastErrorByStatus(Status);
+    return FALSE;
+  }
+  
+  Ret = GetBinaryTypeW(FileName.Buffer, lpBinaryType);
+  
+  RtlFreeUnicodeString(&FileName);
+  return Ret;
 }
 
 /* EOF */

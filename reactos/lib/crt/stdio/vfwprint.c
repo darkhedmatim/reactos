@@ -1,13 +1,14 @@
 /* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
 
-#include "precomp.h"
+#ifdef __USE_W32API
+#undef __USE_W32API
+#endif
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <internal/file.h>
 
-#include <ntdef.h>
 
 int _isnanl(double x);
 int _isinfl(double x);

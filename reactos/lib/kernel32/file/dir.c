@@ -34,13 +34,9 @@ CreateDirectoryA (
         LPSECURITY_ATTRIBUTES   lpSecurityAttributes
         )
 {
-   PWCHAR PathNameW;
-   
-   if (!(PathNameW = FilenameA2W(lpPathName, FALSE)))
-      return FALSE;
-
-   return CreateDirectoryW (PathNameW,
-                            lpSecurityAttributes);
+        return CreateDirectoryExA (NULL,
+                                   lpPathName,
+                                   lpSecurityAttributes);
 }
 
 
@@ -54,28 +50,25 @@ CreateDirectoryExA (
         LPCSTR                  lpNewDirectory,
         LPSECURITY_ATTRIBUTES   lpSecurityAttributes)
 {
-   PWCHAR TemplateDirectoryW;
-   PWCHAR NewDirectoryW;
+   PWCHAR TemplateDirectoryW = NULL;
+   PWCHAR NewDirectoryW = NULL;
    BOOL ret;
 
-   if (!(TemplateDirectoryW = FilenameA2W(lpTemplateDirectory, TRUE)))
+   if (lpTemplateDirectory != NULL &&
+       !(TemplateDirectoryW = FilenameA2W(lpTemplateDirectory, FALSE)))
       return FALSE;
       
-   if (!(NewDirectoryW = FilenameA2W(lpNewDirectory, FALSE)))
-   {
-      RtlFreeHeap (RtlGetProcessHeap (),
-                   0,
-                   TemplateDirectoryW);
+   if (!(NewDirectoryW = FilenameA2W(lpNewDirectory, TRUE)))
       return FALSE;
-   }
       
    ret = CreateDirectoryExW (TemplateDirectoryW,
-                             NewDirectoryW,
-                             lpSecurityAttributes);
+                               NewDirectoryW,
+                               lpSecurityAttributes);
 
-   RtlFreeHeap (RtlGetProcessHeap (),
-                0,
-                TemplateDirectoryW);
+   if (lpNewDirectory != NULL)
+          RtlFreeHeap (RtlGetProcessHeap (),
+                       0,
+                       NewDirectoryW);
 
    return ret;
 }
@@ -91,55 +84,9 @@ CreateDirectoryW (
         LPSECURITY_ATTRIBUTES   lpSecurityAttributes
         )
 {
-        OBJECT_ATTRIBUTES ObjectAttributes;
-        IO_STATUS_BLOCK IoStatusBlock;
-        UNICODE_STRING NtPathU;
-        HANDLE DirectoryHandle;
-        NTSTATUS Status;
-
-        DPRINT ("lpPathName %S lpSecurityAttributes %p\n",
-                lpPathName, lpSecurityAttributes);
-
-        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpPathName,
-                                           &NtPathU,
-                                           NULL,
-                                           NULL))
-        {
-                SetLastError(ERROR_PATH_NOT_FOUND);
-                return FALSE;
-        }
-
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &NtPathU,
-                                   OBJ_CASE_INSENSITIVE,
-                                   NULL,
-                                   (lpSecurityAttributes ? lpSecurityAttributes->lpSecurityDescriptor : NULL));
-
-        Status = NtCreateFile (&DirectoryHandle,
-                               GENERIC_READ,
-                               &ObjectAttributes,
-                               &IoStatusBlock,
-                               NULL,
-                               FILE_ATTRIBUTE_NORMAL,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               FILE_CREATE,
-                               FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-                               NULL,
-                               0);
-
-        RtlFreeHeap (RtlGetProcessHeap (),
-                     0,
-                     NtPathU.Buffer);
-
-        if (!NT_SUCCESS(Status))
-        {
-                SetLastErrorByStatus(Status);
-                return FALSE;
-        }
-
-        NtClose (DirectoryHandle);
-
-        return TRUE;
+        return CreateDirectoryExW (NULL,
+                                   lpPathName,
+                                   lpSecurityAttributes);
 }
 
 
@@ -156,178 +103,54 @@ CreateDirectoryExW (
 {
         OBJECT_ATTRIBUTES ObjectAttributes;
         IO_STATUS_BLOCK IoStatusBlock;
-        UNICODE_STRING NtPathU, NtTemplatePathU;
-        HANDLE DirectoryHandle, TemplateHandle;
-        FILE_EA_INFORMATION EaInformation;
+        UNICODE_STRING NtPathU;
+        HANDLE DirectoryHandle;
         NTSTATUS Status;
-        PVOID EaBuffer = NULL;
-        ULONG EaLength = 0;
 
         DPRINT ("lpTemplateDirectory %S lpNewDirectory %S lpSecurityAttributes %p\n",
                 lpTemplateDirectory, lpNewDirectory, lpSecurityAttributes);
 
-        /*
-         * Read the extended attributes from the template directory
-         */
+  // Can't create empty directory
+  if(lpNewDirectory == NULL || *lpNewDirectory == 0)
+  {
+    SetLastError(ERROR_PATH_NOT_FOUND);
+    return FALSE;
+  }
 
-        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpTemplateDirectory,
-                                           &NtTemplatePathU,
-                                           NULL,
-                                           NULL))
+        if (lpTemplateDirectory != NULL && *lpTemplateDirectory != 0)
         {
-                SetLastError(ERROR_PATH_NOT_FOUND);
+                // get object attributes from template directory
+                DPRINT("KERNEL32:FIXME:%s:%d\n",__FILE__,__LINE__);
                 return FALSE;
         }
-        
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &NtTemplatePathU,
-                                   OBJ_CASE_INSENSITIVE,
-                                   NULL,
-                                   NULL);
-
-        Status = NtCreateFile (&TemplateHandle,
-                               GENERIC_READ,
-                               &ObjectAttributes,
-                               &IoStatusBlock,
-                               NULL,
-                               0,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               FILE_OPEN,
-                               FILE_DIRECTORY_FILE,
-                               NULL,
-                               0);
-        if (!NT_SUCCESS(Status))
-        {
-                RtlFreeHeap (RtlGetProcessHeap (),
-                             0,
-                             NtTemplatePathU.Buffer);
-                SetLastErrorByStatus (Status);
-                return FALSE;
-        }
-        
-        for (;;)
-        {
-          Status = NtQueryInformationFile(TemplateHandle,
-                                          &IoStatusBlock,
-                                          &EaInformation,
-                                          sizeof(FILE_EA_INFORMATION),
-                                          FileEaInformation);
-          if (NT_SUCCESS(Status) && (EaInformation.EaSize != 0))
-          {
-            EaBuffer = RtlAllocateHeap(RtlGetProcessHeap(),
-                                       0,
-                                       EaInformation.EaSize);
-            if (EaBuffer == NULL)
-            {
-               Status = STATUS_INSUFFICIENT_RESOURCES;
-               break;
-            }
-            
-            Status = NtQueryEaFile(TemplateHandle,
-                                   &IoStatusBlock,
-                                   EaBuffer,
-                                   EaInformation.EaSize,
-                                   FALSE,
-                                   NULL,
-                                   0,
-                                   NULL,
-                                   TRUE);
-
-            if (NT_SUCCESS(Status))
-            {
-               /* we successfully read the extended attributes */
-               EaLength = EaInformation.EaSize;
-               break;
-            }
-            else
-            {
-               RtlFreeHeap(RtlGetProcessHeap(),
-                           0,
-                           EaBuffer);
-               EaBuffer = NULL;
-
-               if (Status != STATUS_BUFFER_TOO_SMALL)
-               {
-                  /* unless we just allocated not enough memory, break the loop
-                     and just continue without copying extended attributes */
-                  break;
-               }
-            }
-          }
-          else
-          {
-            /* failure or no extended attributes present, break the loop */
-            break;
-          }
-        }
-        
-        NtClose(TemplateHandle);
-        
-        RtlFreeHeap (RtlGetProcessHeap (),
-                     0,
-                     NtTemplatePathU.Buffer);
-        
-        if (!NT_SUCCESS(Status))
-        {
-                /* free the he extended attributes buffer */
-                if (EaBuffer != NULL)
-                {
-                        RtlFreeHeap (RtlGetProcessHeap (),
-                                     0,
-                                     EaBuffer);
-                }
-
-                SetLastErrorByStatus (Status);
-                return FALSE;
-        }
-
-        /*
-         * Create the new directory and copy over the extended attributes if
-         * needed
-         */
 
         if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpNewDirectory,
                                            &NtPathU,
                                            NULL,
                                            NULL))
-        {
-                /* free the he extended attributes buffer */
-                if (EaBuffer != NULL)
-                {
-                        RtlFreeHeap (RtlGetProcessHeap (),
-                                     0,
-                                     EaBuffer);
-                }
-                
-                SetLastError(ERROR_PATH_NOT_FOUND);
                 return FALSE;
-        }
 
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &NtPathU,
-                                   OBJ_CASE_INSENSITIVE,
-                                   NULL,
-                                   (lpSecurityAttributes ? lpSecurityAttributes->lpSecurityDescriptor : NULL));
+        DPRINT ("NtPathU \'%wZ\'\n", &NtPathU);
+
+        ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+        ObjectAttributes.RootDirectory = NULL;
+        ObjectAttributes.ObjectName = &NtPathU;
+        ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE | OBJ_INHERIT;
+        ObjectAttributes.SecurityDescriptor = NULL;
+        ObjectAttributes.SecurityQualityOfService = NULL;
 
         Status = NtCreateFile (&DirectoryHandle,
-                               GENERIC_READ,
+                               DIRECTORY_ALL_ACCESS,
                                &ObjectAttributes,
                                &IoStatusBlock,
                                NULL,
-                               FILE_ATTRIBUTE_NORMAL,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               FILE_ATTRIBUTE_DIRECTORY,
+                               0,
                                FILE_CREATE,
-                               FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-                               EaBuffer,
-                               EaLength);
-
-        /* free the he extended attributes buffer */
-        if (EaBuffer != NULL)
-        {
-                RtlFreeHeap (RtlGetProcessHeap (),
-                             0,
-                             EaBuffer);
-        }
+                               FILE_DIRECTORY_FILE,
+                               NULL,
+                               0);
+        DPRINT("Status: %lx\n", Status);
 
         RtlFreeHeap (RtlGetProcessHeap (),
                      0,
@@ -389,16 +212,17 @@ RemoveDirectoryW (
                                            NULL))
                 return FALSE;
 
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &NtPathU,
-                                   OBJ_CASE_INSENSITIVE,
-                                   NULL,
-                                   NULL);
+        ObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+        ObjectAttributes.RootDirectory = NULL;
+        ObjectAttributes.ObjectName = &NtPathU;
+        ObjectAttributes.Attributes = OBJ_CASE_INSENSITIVE| OBJ_INHERIT;
+        ObjectAttributes.SecurityDescriptor = NULL;
+        ObjectAttributes.SecurityQualityOfService = NULL;
 
         DPRINT("NtPathU '%S'\n", NtPathU.Buffer);
 
         Status = NtCreateFile (&DirectoryHandle,
-                               DELETE,
+                               FILE_WRITE_ATTRIBUTES,    /* 0x110080 */
                                &ObjectAttributes,
                                &IoStatusBlock,
                                NULL,
@@ -427,10 +251,18 @@ RemoveDirectoryW (
                                        &FileDispInfo,
                                        sizeof(FILE_DISPOSITION_INFORMATION),
                                        FileDispositionInformation);
-        NtClose(DirectoryHandle);
-        
         if (!NT_SUCCESS(Status))
         {
+                CHECKPOINT;
+                NtClose(DirectoryHandle);
+                SetLastErrorByStatus (Status);
+                return FALSE;
+        }
+
+        Status = NtClose (DirectoryHandle);
+        if (!NT_SUCCESS(Status))
+        {
+                CHECKPOINT;
                 SetLastErrorByStatus (Status);
                 return FALSE;
         }

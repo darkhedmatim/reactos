@@ -22,12 +22,14 @@ NtGdiCopyEnhMetaFile			2
 NtGdiCopyMetaFile			2
 NtGdiCreateBitmap			5
 NtGdiCreateBitmapIndirect		1
+NtGdiCreateBrushIndirect			1
 NtGdiCreateColorSpace			1
 NtGdiCreateCompatibleBitmap		3
 NtGdiCreateCompatableDC			1
 NtGdiCreateDC				4
 NtGdiCreateDIBitmap			6
-NtGdiCreateDIBBrush			4
+NtGdiCreateDIBPatternBrush		2
+NtGdiCreateDIBPatternBrushPt		2
 NtGdiCreateDIBSection			6
 NtGdiCreateDiscardableBitmap		3
 NtGdiCreateEllipticRgn			4
@@ -79,6 +81,7 @@ NtGdiExtSelectClipRgn			3
 NtGdiExtTextOut				8
 NtGdiFillPath				1
 NtGdiFillRgn				3
+NtGdiFixBrushOrgEx			0
 NtGdiFlattenPath				1
 NtGdiFloodFill				4
 NtGdiFrameRgn				5

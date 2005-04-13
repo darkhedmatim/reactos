@@ -18,10 +18,7 @@ endif
 
 TARGET_OBJECTS = \
 	acl.o \
-	ppb.o \
 	bit.o \
-	thread.o \
-	process.o \
 	bitmap.o \
 	bootdata.o \
 	compress.o \
@@ -49,7 +46,6 @@ TARGET_OBJECTS = \
 	unicode.o \
 	unicodeprefix.o \
 	version.o \
-	i386/chkstk.o \
 	i386/exception.o \
 	i386/except.o
 

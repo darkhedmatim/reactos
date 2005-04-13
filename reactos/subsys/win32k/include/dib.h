@@ -17,6 +17,6 @@ RGBQUAD * FASTCALL
 DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi);
 
 HPALETTE FASTCALL
-BuildDIBPalette (CONST BITMAPINFO *bmi, PINT paletteType);
+BuildDIBPalette (PBITMAPINFO bmi, PINT paletteType);
 
 #endif /* _WIN32K_DIB_H */

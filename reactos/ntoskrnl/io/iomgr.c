@@ -35,9 +35,9 @@ ULONGLONG             IoOtherTransferCount = 0;
 KSPIN_LOCK   EXPORTED IoStatisticsLock = 0;
 
 static GENERIC_MAPPING IopFileMapping = {FILE_GENERIC_READ,
-                FILE_GENERIC_WRITE,
-                FILE_GENERIC_EXECUTE,
-                FILE_ALL_ACCESS};
+					 FILE_GENERIC_WRITE,
+					 FILE_GENERIC_EXECUTE,
+					 FILE_ALL_ACCESS};
 
 /* FUNCTIONS ****************************************************************/
 
@@ -595,7 +595,6 @@ IoInit2(BOOLEAN BootLog)
   Status = IopInitializeDriverModule(
     DeviceNode,
     &ModuleObject,
-    &DeviceNode->ServiceName,
     TRUE,
     &DriverObject);
   if (!NT_SUCCESS(Status))

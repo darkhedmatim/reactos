@@ -5,13 +5,12 @@
   
   #include <debug.h>
   
-  /* FIXME: these prototypes MUST NOT be here! */
+  /* FIXME: this prototype MUST NOT be here! */
   NTSTATUS STDCALL
   IoAttachDeviceToDeviceStackSafe(
     IN PDEVICE_OBJECT SourceDevice,
     IN PDEVICE_OBJECT TargetDevice,
     OUT PDEVICE_OBJECT *AttachedToDeviceObject);
-  
 #elif defined(_MSC_VER)
   #include <ntddk.h>
   #include <ntddser.h>
@@ -20,7 +19,7 @@
   #define STDCALL
   
   #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
-  #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
+  #define CHECKPOINT1 DbgPrint("(%s:%d)\n")
   
   #define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
   
@@ -42,33 +41,13 @@
   #error Unknown compiler!
 #endif
 
-typedef enum
-{
+typedef enum {
   dsStopped,
   dsStarted,
   dsPaused,
   dsRemoved,
   dsSurpriseRemoved
 } SERIAL_DEVICE_STATE;
-
-typedef enum
-{
-	UartUnknown,
-	Uart8250,  /* initial version */
-	Uart16450, /* + 38.4 Kbps */
-	Uart16550, /* + 115 Kbps */
-	Uart16550A,/* + FIFO 16 bytes */
-	Uart16650, /* + FIFO 32 bytes, 230 Kbps, power management, auto-flow */
-	Uart16750  /* + FIFO 64 bytes, 460 Kbps */
-} UART_TYPE;
-
-typedef struct _CIRCULAR_BUFFER
-{
-	PUCHAR Buffer;
-	ULONG Length;
-	ULONG ReadPosition;
-	ULONG WritePosition;
-} CIRCULAR_BUFFER, *PCIRCULAR_BUFFER;
 
 typedef struct _SERIAL_DEVICE_EXTENSION
 {
@@ -79,81 +58,45 @@ typedef struct _SERIAL_DEVICE_EXTENSION
 	
 	ULONG SerialPortNumber;
 	
-	ULONG ComPort;
+	ULONG ComPort; /* FIXME: move to serenum */
 	ULONG BaudRate;
 	ULONG BaseAddress;
+	ULONG Irq;
 	PKINTERRUPT Interrupt;
-	KDPC ReceivedByteDpc;
-	KDPC SendByteDpc;
 	
 	SERIAL_LINE_CONTROL SerialLineControl;
-	UART_TYPE UartType;
 	ULONG WaitMask;
 	
-	ULONG BreakInterruptErrorCount;
 	SERIALPERF_STATS SerialPerfStats;
-	SERIAL_TIMEOUTS SerialTimeOuts;
-	BOOLEAN IsOpened;
-	KEVENT InputBufferNotEmpty;
-	CIRCULAR_BUFFER InputBuffer;
-	KSPIN_LOCK InputBufferLock;
-	CIRCULAR_BUFFER OutputBuffer;
-	KSPIN_LOCK OutputBufferLock;
+	BOOL IsOpened;
 	
 	/* Current values */
+	UCHAR IER; /* Base+1, Interrupt Enable Register */
 	UCHAR MCR; /* Base+4, Modem Control Register */
 	UCHAR MSR; /* Base+6, Modem Status Register */
 } SERIAL_DEVICE_EXTENSION, *PSERIAL_DEVICE_EXTENSION;
 
-typedef struct _WORKITEM_DATA
-{
-	PIRP Irp;
-	PIO_WORKITEM IoWorkItem;
-	
-	BOOLEAN UseIntervalTimeout;
-	BOOLEAN UseTotalTimeout;
-	LARGE_INTEGER IntervalTimeout;
-	LARGE_INTEGER TotalTimeoutTime;
-	BOOLEAN DontWait;
-	BOOLEAN ReadAtLeastOneByte;
-} WORKITEM_DATA, *PWORKITEM_DATA;
-
 #define SERIAL_TAG TAG('S', 'e', 'r', 'l')
-
-#define INFINITE ((ULONG)-1)
 
 /* Baud master clock */
 #define BAUD_CLOCK      1843200
-#define CLOCKS_PER_BIT  16
+#define CLOCKS_PER_BIT  16 
 
 /* UART registers and bits */
-#define   SER_RBR(x)   ((x)+0) /* Receive Register */
-#define   SER_THR(x)   ((x)+0) /* Transmit Register */
-#define   SER_DLL(x)   ((x)+0) /* Baud Rate Divisor LSB */
-#define   SER_IER(x)   ((x)+1) /* Interrupt Enable Register */
-#define     SR_IER_DATA_RECEIVED 0x01
-#define     SR_IER_THR_EMPTY     0x02
-#define     SR_IER_LSR_CHANGE    0x04
-#define     SR_IER_MSR_CHANGE    0x08
-#define     SR_IER_SLEEP_MODE    0x10 /* Uart >= 16750 */
-#define     SR_IER_LOW_POWER     0x20 /* Uart >= 16750 */
-#define   SER_DLM(x)   ((x)+1) /* Baud Rate Divisor MSB */
-#define   SER_IIR(x)   ((x)+2) /* Interrupt Identification Register */
-#define     SR_IIR_SELF          0x00
+#define   SER_RBR(x)   ((x)+0)
+#define   SER_THR(x)   ((x)+0)
+#define   SER_DLL(x)   ((x)+0)
+#define   SER_IER(x)   ((x)+1)
+#define   SER_DLM(x)   ((x)+1)
+#define   SER_FCR(x)   ((x)+1)
+#define   SER_IIR(x)   ((x)+2)
+#define     SR_IIR_SELF          0x01
 #define     SR_IIR_ID_MASK       0x07
 #define     SR_IIR_MSR_CHANGE    SR_IIR_SELF
 #define     SR_IIR_THR_EMPTY     (SR_IIR_SELF | 2)
 #define     SR_IIR_DATA_RECEIVED (SR_IIR_SELF | 4)
 #define     SR_IIR_ERROR         (SR_IIR_SELF | 6)
-#define   SER_FCR(x)   ((x)+2) /* FIFO Control Register (Uart >= 16550A) */
-#define     SR_FCR_ENABLE_FIFO 0x01
-#define     SR_FCR_CLEAR_RCVR  (0x02 | SR_FCR_ENABLE_FIFO)
-#define     SR_FCR_CLEAR_XMIT  (0x04 | SR_FCR_ENABLE_FIFO)
-#define     SR_FCR_1_BYTE      (0x00 | SR_FCR_ENABLE_FIFO)
-#define     SR_FCR_4_BYTES     (0x40 | SR_FCR_ENABLE_FIFO)
-#define     SR_FCR_8_BYTES     (0x80 | SR_FCR_ENABLE_FIFO)
-#define     SR_FCR_14_BYTES    (0xC0 | SR_FCR_ENABLE_FIFO)
-#define   SER_LCR(x)   ((x)+3) /* Line Control Register */
+#define   SER_LCR(x)   ((x)+3)
 #define     SR_LCR_CS5 0x00
 #define     SR_LCR_CS6 0x01
 #define     SR_LCR_CS7 0x02
@@ -167,59 +110,16 @@ typedef struct _WORKITEM_DATA
 #define     SR_LCR_PSP 0x38
 #define     SR_LCR_BRK 0x40
 #define     SR_LCR_DLAB 0x80
-#define   SER_MCR(x)   ((x)+4) /* Modem Control Register */
+#define   SER_MCR(x)   ((x)+4)
 #define     SR_MCR_DTR 0x01
 #define     SR_MCR_RTS 0x02
-#define   SER_LSR(x)   ((x)+5) /* Line Status Register */
-#define     SR_LSR_DATA_RECEIVED  0x01
-#define     SR_LSR_OVERRUN_ERROR  0x02
-#define     SR_LSR_PARITY_ERROR   0x04
-#define     SR_LSR_FRAMING_ERROR  0x08
-#define     SR_LSR_BREAK_INT      0x10
-#define     SR_LSR_THR_EMPTY      0x20
-#define     SR_LSR_TSR_EMPTY      0x40
-#define     SR_LSR_ERROR_IN_FIFO  0x80 /* Uart >= 16550A */
-#define   SER_MSR(x)   ((x)+6) /* Modem Status Register */
-#define     SR_MSR_CTS_CHANGED    0x01
-#define     SR_MSR_DSR_CHANGED    0x02
-#define     SR_MSR_RI_CHANGED     0x04
-#define     SR_MSR_DCD_CHANGED    0x08
-#define     SR_MSR_CTS            0x10 /* Clear To Send */
-#define     SR_MSR_DSR            0x20 /* Data Set Ready */
-#define     SI_MSR_RI             0x40 /* Ring Indicator */
-#define     SR_MSR_DCD            0x80 /* Data Carrier Detect */
-#define   SER_SCR(x)   ((x)+7) /* Scratch Pad Register */
-
-/************************************ circularbuffer.c */
-
-/* FIXME: transform these functions into #define? */
-NTSTATUS
-InitializeCircularBuffer(
-	IN PCIRCULAR_BUFFER pBuffer,
-	IN ULONG BufferSize);
-
-NTSTATUS
-FreeCircularBuffer(
-	IN PCIRCULAR_BUFFER pBuffer);
-
-BOOLEAN
-IsCircularBufferEmpty(
-	IN PCIRCULAR_BUFFER pBuffer);
-
-NTSTATUS
-PushCircularBufferEntry(
-	IN PCIRCULAR_BUFFER pBuffer,
-	IN UCHAR Entry);
-
-NTSTATUS
-PopCircularBufferEntry(
-	IN PCIRCULAR_BUFFER pBuffer,
-	OUT PUCHAR Entry);
-
-NTSTATUS
-IncreaseCircularBufferSize(
-	IN PCIRCULAR_BUFFER pBuffer,
-	IN ULONG NewBufferSize);
+#define   SER_LSR(x)   ((x)+5)
+#define     SR_LSR_DR  0x01
+#define     SR_LSR_TBE 0x20
+#define   SER_MSR(x)   ((x)+6)
+#define     SR_MSR_CTS 0x10
+#define     SR_MSR_DSR 0x20
+#define   SER_SCR(x)   ((x)+7)
 
 /************************************ cleanup.c */
 
@@ -266,41 +166,12 @@ SerialQueryInformation(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-/************************************ legacy.c */
-
-UART_TYPE
-SerialDetectUartType(
-	IN PUCHAR ComPortBase);
-
-NTSTATUS
-DetectLegacyDevices(
-	IN PDRIVER_OBJECT DriverObject);
-
 /************************************ misc.c */
 
 NTSTATUS
 ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
-
-NTSTATUS STDCALL
-ForwardIrpAndForget(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PIRP Irp);
-
-VOID STDCALL
-SerialReceiveByte(
-	IN PKDPC Dpc,
-	IN PVOID pDeviceExtension, // real type PSERIAL_DEVICE_EXTENSION
-	IN PVOID pByte,            // real type UCHAR
-	IN PVOID Unused);
-
-VOID STDCALL
-SerialSendByte(
-	IN PKDPC Dpc,
-	IN PVOID pDeviceExtension, // real type PSERIAL_DEVICE_EXTENSION
-	IN PVOID Unused1,
-	IN PVOID Unused2);
 
 BOOLEAN STDCALL
 SerialInterruptService(
@@ -310,22 +181,9 @@ SerialInterruptService(
 /************************************ pnp.c */
 
 NTSTATUS STDCALL
-SerialAddDeviceInternal(
-	IN PDRIVER_OBJECT DriverObject,
-	IN PDEVICE_OBJECT Pdo,
-	IN UART_TYPE UartType,
-	IN PULONG pComPortNumber OPTIONAL,
-	OUT PDEVICE_OBJECT* pFdo OPTIONAL);
-
-NTSTATUS STDCALL
 SerialAddDevice(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PDEVICE_OBJECT Pdo);
-
-NTSTATUS STDCALL
-SerialPnpStartDevice(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PCM_RESOURCE_LIST ResourceList);
 
 NTSTATUS STDCALL
 SerialPnp(

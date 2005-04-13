@@ -126,9 +126,8 @@ KeDelayExecutionThread(KPROCESSOR_MODE WaitMode,
         /* Insert the Timer into the Timer Lists and enable it */
         if (!KiInsertTimer(ThreadTimer, *Interval)) {    
 
-            /* FIXME: The timer already expired, we should find a new ready thread */
-            Status = STATUS_SUCCESS;
-            break;
+            /* FIXME: Unhandled case...what should we do? */
+            DPRINT1("Could not create timer for KeDelayExecutionThread\n");
         }    
         
         /* Handle Kernel Queues */
@@ -140,7 +139,7 @@ KeDelayExecutionThread(KPROCESSOR_MODE WaitMode,
 
         /* Block the Thread */
         DPRINT("Blocking the Thread: %d, %d, %x\n", Alertable, WaitMode, KeGetCurrentThread());
-        KiBlockThread(&Status, 
+        PsBlockThread(&Status, 
                       Alertable, 
                       WaitMode, 
                       DelayExecution);
@@ -327,7 +326,7 @@ KeWaitForSingleObject(PVOID Object,
 
         /* Block the Thread */
         DPRINT("Blocking the Thread: %d, %d, %d, %x\n", Alertable, WaitMode, WaitReason, KeGetCurrentThread());
-        KiBlockThread(&Status, 
+        PsBlockThread(&Status, 
                       Alertable, 
                       WaitMode, 
                       (UCHAR)WaitReason);
@@ -576,7 +575,7 @@ KeWaitForMultipleObjects(ULONG Count,
 
         /* Block the Thread */
         DPRINT("Blocking the Thread: %d, %d, %d, %x\n", Alertable, WaitMode, WaitReason, KeGetCurrentThread());
-        KiBlockThread(&Status, 
+        PsBlockThread(&Status, 
                       Alertable, 
                       WaitMode,
                       (UCHAR)WaitReason);
@@ -757,7 +756,7 @@ KiAbortWaitThread(PKTHREAD Thread,
 
     /* Reschedule the Thread */
     DPRINT("Unblocking the Thread\n");
-    KiUnblockThread(Thread, &WaitStatus, 0);
+    PsUnblockThread((PETHREAD)Thread, &WaitStatus, 0);
 }
 
 BOOLEAN
@@ -885,7 +884,7 @@ KeReleaseDispatcherDatabaseLock(KIRQL OldIrql)
     if (!KeIsExecutingDpc() && OldIrql < DISPATCH_LEVEL && KeGetCurrentThread() != NULL && 
         KeGetCurrentThread() == KeGetCurrentPrcb()->IdleThread) {
         
-        KiDispatchThreadNoLock(THREAD_STATE_READY);
+        PsDispatchThreadNoLock(THREAD_STATE_READY);
         KeLowerIrql(OldIrql);
         
     } else {

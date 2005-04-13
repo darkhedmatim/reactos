@@ -21,15 +21,11 @@ TARGET_OBJECTS = $(TARGET_NAME).o \
 		 init.o initheap.o initenv.o initobdir.o initdosdev.o \
 		 initrun.o initmv.o initwkdll.o initpage.o initss.o \
 		 initreg.o \
-		 smapi.o smapicomp.o smapiexec.o smapiquery.o \
+		 smapi.o smapicomp.o smapiexec.o \
 		 client.o debug.o print.o
-
-DEP_OBJECTS = $(TARGET_OBJECTS)
 
 include $(PATH_TO_TOP)/rules.mak
 
 include $(TOOLS_PATH)/helper.mk
-
-include $(TOOLS_PATH)/depend.mk
 
 # EOF

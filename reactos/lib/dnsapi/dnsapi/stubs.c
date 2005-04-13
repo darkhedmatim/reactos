@@ -1,6 +1,6 @@
 #include <windows.h>
 /*#include <windns.h>*/
-#include <winerror.h>
+#include <WinError.h>
 #define NTOS_MODE_USER
 #include <ntos.h>
 #include <debug.h>

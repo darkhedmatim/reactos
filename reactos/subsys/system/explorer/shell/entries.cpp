@@ -323,7 +323,7 @@ void Entry::extract_icon()
 
 	ICON_ID icon_id = ICID_NONE;
 
-	if (get_path(path) && _tcsncmp(path,TEXT("::{"),3))
+	if (get_path(path))
 		icon_id = g_Globals._icon_cache.extract(path);
 
 	if (icon_id == ICID_NONE) {

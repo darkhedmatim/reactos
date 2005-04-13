@@ -122,14 +122,10 @@
  *
  *    23-Feb-2001 (Carl Nettelblad <cnettel@hem.passagen.se>)
  *        Improved chdir/cd command.
- *
- *    02-Apr-2004 (Magnus Olsen <magnus@greatlord.com>)
- *        Remove all hard code string so they can be 
- *		  translate to other langues.
  */
 
 #include "precomp.h"
-#include "resource.h"
+
 
 #ifdef INCLUDE_CMD_CHDIR
 
@@ -158,15 +154,21 @@ INT cmd_chdir (LPTSTR cmd, LPTSTR param)
 	LPTSTR lpOldPath;
 	LPTSTR endofstring; /* pointer to the null character in the directory to change to */
 	LPTSTR lastquote; /* pointer to the last quotation mark in the directory to change to */
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	/*Should we better declare a variable containing _tsclen(dir) ? It's used a few times,
 	  but on the other hand paths are generally not very long*/
 
 	if (!_tcsncmp (param, _T("/?"), 2))
-	{		
-		LoadString( GetModuleHandle(NULL), STRING_CD_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
+	{
+		ConOutPuts (_T("Changes the current directory or displays it's name\n\n"
+					   "CHDIR [drive:][path]\n"
+					   "CHDIR[..|-]\n"
+					   "CD [drive:][path]\n"
+					   "CD[..|-]\n\n"
+					   "  ..   parent directory\n"
+					   "  -    previous directory\n\n"
+					   "Type CD drive: to display the current directory on the specified drive.\n"
+					   "Type CD without a parameter to display the current drive and directory."));
 		return 0;
 	}
 
@@ -279,13 +281,12 @@ INT cmd_mkdir (LPTSTR cmd, LPTSTR param)
 	LPTSTR place;	/* used to search for the \ when no space is used */
 	LPTSTR *p = NULL;
 	INT argc;
-    WCHAR szMsg[RC_STRING_MAX_SIZE];
+
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_MKDIR_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-
+		ConOutPuts (_T("Creates a directory.\n\n"
+					   "MKDIR [drive:]path\nMD [drive:]path"));
 		return 0;
 	}
 
@@ -320,8 +321,7 @@ INT cmd_mkdir (LPTSTR cmd, LPTSTR param)
 
 	if (!dir)
 	{
-		LoadString( GetModuleHandle(NULL), STRING_PARAM_ERROR, (LPTSTR) szMsg,sizeof(szMsg));
-		ConErrPrintf (_T((LPTSTR)szMsg));
+		ConErrPrintf (_T("Required parameter missing\n"));
 		return 1;
 	}
 
@@ -357,15 +357,10 @@ INT cmd_rmdir (LPTSTR cmd, LPTSTR param)
 	LPTSTR *p = NULL;
 	INT argc;
 
-	
-    WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_RMDIR_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-
-		ConOutPuts (_T((LPTSTR)szMsg));
-
+		ConOutPuts (_T("Removes a directory.\n\n"
+					   "RMDIR [drive:]path\nRD [drive:]path"));
 		return 0;
 	}
 
@@ -399,9 +394,7 @@ INT cmd_rmdir (LPTSTR cmd, LPTSTR param)
 
 	if (!dir)
 	{
-		LoadString( GetModuleHandle(NULL), STRING_PARAM_ERROR, (LPTSTR) szMsg,sizeof(szMsg));
-		ConErrPrintf (_T((LPTSTR)szMsg));
-
+		ConErrPrintf (_T("Required parameter missing\n"));
 		return 1;
 	}
 
@@ -430,12 +423,9 @@ INT cmd_rmdir (LPTSTR cmd, LPTSTR param)
  */
 INT CommandExit (LPTSTR cmd, LPTSTR param)
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_EXIT_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
+		ConOutPuts (_T("Exits the command line interpreter.\n\nEXIT"));
 		return 0;
 	}
 
@@ -451,12 +441,10 @@ INT CommandExit (LPTSTR cmd, LPTSTR param)
  */
 INT CommandRem (LPTSTR cmd, LPTSTR param)
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-	  LoadString( GetModuleHandle(NULL), STRING_REM_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-      ConOutPuts (_T((LPTSTR)szMsg));
+		ConOutPuts (_T("Starts a comment line in a batch file.\n\n"
+		               "REM [Comment]"));
 	}
 
 	return 0;

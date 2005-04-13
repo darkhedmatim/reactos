@@ -538,7 +538,6 @@ STRINGTABLE DISCARDABLE
 BEGIN
     IDS_APP_TITLE           "Opgavestyring"
     IDC_TASKMGR             "Opgavestyring"
-    IDS_IDLE_PROCESS        "System Idle Process"
 END
 
 STRINGTABLE DISCARDABLE

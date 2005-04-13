@@ -32,7 +32,7 @@ typedef struct _RpcConnection
   LPSTR NetworkAddr;
   LPSTR Endpoint;
   HANDLE conn, thread;
-  OVERLAPPED ovl[2];
+  OVERLAPPED ovl;
   USHORT MaxTransmissionSize;
   /* The active interface bound to server. */
   RPC_SYNTAX_IDENTIFIER ActiveInterface;

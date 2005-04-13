@@ -28,7 +28,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <windows.h>
-#include <winerror.h>
 #include <string.h>
 
 #include <samlib.h>

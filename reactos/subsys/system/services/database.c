@@ -327,7 +327,7 @@ ScmCreateServiceDataBase(VOID)
 			     NULL);
 
   Status = RtlpNtOpenKey(&ServicesKey,
-			 KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS,
+			 0x10001,
 			 &ObjectAttributes,
 			 0);
   if (!NT_SUCCESS(Status))

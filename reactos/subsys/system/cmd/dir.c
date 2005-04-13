@@ -129,7 +129,6 @@
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 #ifdef INCLUDE_CMD_DIR
 
@@ -210,9 +209,44 @@ static ULARGE_INTEGER recurse_bytes;
 static VOID
 	DirHelp (VOID)
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-	LoadString( GetModuleHandle(NULL), STRING_DIR_HELP1, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts(_T(
+		"DIR [drive:][path][filename] [/A[[:]attributes]] [/B] [/C] [/D] [/L] [/N]\n"
+		"  [/O[[:]sortorder]] [/P] [/Q] [/S] [/T[[:]timefield]] [/W] [/X] [/4]\n"
+		"\n"
+		"  [drive:][path][filename]\n"
+		"              Specifies drive, directory, and/or files to list.\n"
+		"\n"
+		"  /A          Displays files with specified attributes.\n"
+		"  attributes   D  Directories                R  Read-only files\n"
+		"               H  Hidden files               A  Files ready for archiving\n"
+		"               S  System files               -  Prefix meaning not\n"
+		"  /B          Uses bare format (no heading information or summary).\n"
+		"  /C          Display the thousand separator in file sizes.  This is the\n"
+		"              default.  Use /-C to disable display of separator.\n"
+		"  /D          Same as wide but files are list sorted by column.\n"
+		"  /L          Uses lowercase.\n"
+		"  /N          New long list format where filenames are on the far right.\n"
+		"  /O          List by files in sorted order.\n"
+		"  sortorder    N  By name (alphabetic)       S  By size (smallest first)\n"
+		"               E  By extension (alphabetic)  D  By date/time (oldest first)\n"
+		"               G  Group directories first    -  Prefix to reverse order\n"
+		"  /P          Pauses after each screenful of information.\n"
+		"  /Q          Display the owner of the file.\n"
+		"  /S          Displays files in specified directory and all subdirectories.\n"
+		"  /T          Controls which time field displayed or used for sorting\n"
+		"  timefield   C  Creation\n"
+		"              A  Last Access\n"
+		"              W  Last Written\n"
+		"  /W          Uses wide list format.\n"
+		"  /X          This displays the short names generated for non-8dot3 file\n"
+		"              names.  The format is that of /N with the short name inserted\n"
+		"              before the long name. If no short name is present, blanks are\n"
+		"              displayed in its place.\n"
+		"  /4          Displays four-digit years\n"
+		" \n"
+		"Switches may be preset in the DIRCMD environment variable.  Override\n"
+		"preset switches by prefixing any switch with - (hyphen)--for example, /-W.\n"
+      ));
 }
 
 
@@ -773,7 +807,6 @@ PrintDirectoryHeader (LPTSTR szPath, LPINT pLine, LPDIRSWITCHFLAGS lpFlags)
   TCHAR szVolName[80];
   DWORD dwSerialNr;
   LPTSTR p;
-  WCHAR szMsg[RC_STRING_MAX_SIZE];
 
   if (lpFlags->bBareFormat)
     return(TRUE);
@@ -825,27 +858,17 @@ PrintDirectoryHeader (LPTSTR szPath, LPINT pLine, LPDIRSWITCHFLAGS lpFlags)
     }
 
   /* print drive info */
-   
+  ConOutPrintf(_T(" Volume in drive %c"), szRootName[0]);
+
   if (szVolName[0] != _T('\0'))
-     {
-	  LoadString( GetModuleHandle(NULL), STRING_DIR_HELP2, (LPTSTR) szMsg,sizeof(szMsg));
-      ConOutPrintf (_T((LPTSTR)szMsg), szRootName[0], szVolName);
-	 }
+    ConOutPrintf(_T(" is %s\n"), szVolName);
   else
-     {
-	  LoadString( GetModuleHandle(NULL), STRING_DIR_HELP3, (LPTSTR) szMsg,sizeof(szMsg));
-      ConOutPrintf (_T((LPTSTR)szMsg), szRootName[0]);
-	 }
-
-  
-
+    ConOutPrintf(_T(" has no label\n"));
 
   /* print the volume serial number if the return was successful */
-	 
-  LoadString( GetModuleHandle(NULL), STRING_DIR_HELP4, (LPTSTR) szMsg,sizeof(szMsg));
-  ConOutPrintf (_T((LPTSTR)szMsg),
-	            HIWORD(dwSerialNr),
-	            LOWORD(dwSerialNr));
+  ConOutPrintf(_T(" Volume Serial Number is %04X-%04X\n"),
+	       HIWORD(dwSerialNr),
+	       LOWORD(dwSerialNr));
 
   return(TRUE);
 }
@@ -1056,7 +1079,6 @@ PrintSummary(LPTSTR szPath,
 TCHAR szBuffer[64];
 ULARGE_INTEGER uliFree;
 TCHAR szRoot[] = _T("A:\\");
-WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 
 	/* Here we check if we didn't find anything */
@@ -1073,17 +1095,15 @@ WCHAR szMsg[RC_STRING_MAX_SIZE];
 	if (lpFlags->bRecursive)
 	{
 		ConvertULargeInteger (u64Bytes, szBuffer, sizeof(szBuffer), lpFlags->bTSeperator);
-		
-		LoadString( GetModuleHandle(NULL), STRING_DIR_HELP5, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPrintf (_T((LPTSTR)szMsg),ulFiles, szBuffer);
+		ConOutPrintf (_T("\n     Total Files Listed:\n"));
+		ConOutPrintf(_T("%16i File(s)% 14s bytes\n"),ulFiles, szBuffer);
     }
 
 	/* Print total  directories and freespace */
 	szRoot[0] = szPath[0];
 	GetUserDiskFreeSpace(szRoot, &uliFree);
 	ConvertULargeInteger (uliFree, szBuffer, sizeof(szBuffer), lpFlags->bTSeperator);
-	LoadString( GetModuleHandle(NULL), STRING_DIR_HELP6, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPrintf (_T((LPTSTR)szMsg),ulDirs, szBuffer);
+    ConOutPrintf (_T("%16i Dir(s)% 15s bytes\n"),ulDirs, szBuffer);
 
   return 0;
 }
@@ -1388,7 +1408,6 @@ DirPrintFiles(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
 				LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags used */
 {
 TCHAR szTemp[MAX_PATH];			/* A buffer to format the directory header */
-WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	/* Print directory header */
 	_tcscpy(szTemp, szCurPath);
@@ -1398,10 +1417,7 @@ WCHAR szMsg[RC_STRING_MAX_SIZE];
 	   We are not printing in bare format
 	   and if we are in recursive mode... we must have results */
 	if (!(lpFlags->bBareFormat ) && !((lpFlags->bRecursive) && (dwCount <= 0)))
-	{
-		LoadString( GetModuleHandle(NULL), STRING_DIR_HELP7, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPrintf (_T( (LPTSTR)szMsg), szTemp);
-	}
+		ConOutPrintf("\n Directory of %s\n\n", szTemp);
 
 	/* Bare format */
 	if (lpFlags->bBareFormat)
@@ -1610,7 +1626,6 @@ DWORD dwCountFiles;						/* Counter for files */
 DWORD dwCountDirs;						/* Counter for directories */
 ULARGE_INTEGER u64CountBytes;			/* Counter for bytes */
 ULARGE_INTEGER u64Temp;					/* A temporary counter */
-WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	/* Initialize Variables */
 	ptrStartNode = NULL;
@@ -1728,8 +1743,8 @@ WCHAR szMsg[RC_STRING_MAX_SIZE];
 	if (!(lpFlags->bBareFormat) && (dwCount > 0))
 	{
 		ConvertULargeInteger(u64CountBytes, szBytes, 20, lpFlags->bTSeperator);
-		LoadString( GetModuleHandle(NULL), STRING_DIR_HELP8, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPrintf (_T((LPTSTR)szMsg),dwCountFiles, szBytes);
+		ConOutPrintf(_T("%16i File(s) %14s bytes\n"),
+			dwCountFiles, szBytes);
 	}
 
 	/* Add statistics to recursive statistics*/

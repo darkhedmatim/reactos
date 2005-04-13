@@ -30,6 +30,8 @@ PiInitProcessManager(VOID)
    PsInitProcessManagment();
    PsInitThreadManagment();
    PsInitIdleThread();
+   PsInitReaperThread();
+   PsInitialiseSuspendImplementation();
    PsInitialiseW32Call();
 }
 

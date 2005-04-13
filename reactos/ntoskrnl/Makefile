@@ -111,7 +111,6 @@ OBJECTS_KE = \
 	ke/sem.o \
 	ke/spinlock.o \
 	ke/timer.o \
-	ke/usercall.o \
 	ke/wait.o
 
 # Memory Manager (Mm)
@@ -227,11 +226,11 @@ OBJECTS_PS = \
 	ps/locale.o \
 	ps/process.o \
 	ps/psmgr.o \
-	ps/query.o \
-	ps/security.o \
 	ps/suspend.o \
 	ps/thread.o \
-	ps/win32.o
+	ps/tinfo.o \
+	ps/win32.o \
+	ps/w32call.o
 
 # Executive Subsystem (Ex)
 OBJECTS_EX = \

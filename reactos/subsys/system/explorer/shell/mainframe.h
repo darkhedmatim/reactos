@@ -135,7 +135,6 @@ struct SDIMainFrame : public ExtContextMenuHandlerT<
 	SDIMainFrame(HWND hwnd);
 
 	static HWND Create();
-	static HWND Create(LPCTSTR path, int mode=OWM_EXPLORE|OWM_DETAILS);
 	static HWND Create(LPCITEMIDLIST pidl, int mode=OWM_EXPLORE|OWM_DETAILS|OWM_PIDL);
 
 protected:

@@ -430,7 +430,6 @@ VOID NTAPI ReadWritePassive(PDRIVE_INFO DriveInfo,
   NTSTATUS Status;
   BOOLEAN DiskChanged;
   ULONG_PTR TransferByteOffset;
-  UCHAR Gap;
 
   PAGED_CODE();
 
@@ -522,15 +521,6 @@ VOID NTAPI ReadWritePassive(PDRIVE_INFO DriveInfo,
       DiskByteOffset = Stack->Parameters.Write.ByteOffset.u.LowPart;
       WriteToDevice = TRUE;
     }
-
-  /* 
-   * FIXME:
-   *   FloppyDeviceData.ReadWriteGapLength specify the value for the physical drive. 
-   *   We should set this value depend on the format of the inserted disk and possible
-   *   depend on the request (read or write). A value of 0 results in one rotation
-   *   between the sectors (7.2sec for reading a track).
-   */
-  Gap = DriveInfo->FloppyDeviceData.ReadWriteGapLength;
 
   /* 
    * Set up DMA transfer 
@@ -664,10 +654,10 @@ VOID NTAPI ReadWritePassive(PDRIVE_INFO DriveInfo,
       KdPrint(("floppy: ReadWritePassive(): computing number of sectors to transfer (StartSector 0x%x): ", StartSector));
 
       /* 1-based sector number */
-      if( (((DriveInfo->DiskGeometry.TracksPerCylinder - Head) * DriveInfo->DiskGeometry.SectorsPerTrack - StartSector) + 1 ) < 
+      if( ((DriveInfo->DiskGeometry.SectorsPerTrack - StartSector) + 1) < 
 	  (Length - TransferByteOffset) / DriveInfo->DiskGeometry.BytesPerSector)
 	{
-	  CurrentTransferSectors = (UCHAR)((DriveInfo->DiskGeometry.TracksPerCylinder - Head) * DriveInfo->DiskGeometry.SectorsPerTrack - StartSector) + 1;
+	  CurrentTransferSectors = (UCHAR)(DriveInfo->DiskGeometry.SectorsPerTrack - StartSector) + 1;
 	}
       else
 	{
@@ -713,7 +703,7 @@ VOID NTAPI ReadWritePassive(PDRIVE_INFO DriveInfo,
 
       /* Issue the read/write command to the controller.  Note that it expects the opposite of WriteToDevice. */ 
       if(HwReadWriteData(DriveInfo->ControllerInfo, !WriteToDevice, DriveInfo->UnitNumber, Cylinder, Head, StartSector, 
-			 DriveInfo->BytesPerSectorCode, DriveInfo->DiskGeometry.SectorsPerTrack, Gap, 0xff) != STATUS_SUCCESS)
+			 DriveInfo->BytesPerSectorCode, StartSector + CurrentTransferSectors, 0, 0xff) != STATUS_SUCCESS)
 	{
 	  KdPrint(("floppy: ReadWritePassive(): HwReadWriteData returned failure; unable to read; completing with STATUS_UNSUCCESSFUL\n"));
 	  RWFreeAdapterChannel(DriveInfo->ControllerInfo->AdapterObject);
@@ -733,7 +723,7 @@ VOID NTAPI ReadWritePassive(PDRIVE_INFO DriveInfo,
       /* Read is complete; flush & free adapter channel */
       IoFlushAdapterBuffers(DriveInfo->ControllerInfo->AdapterObject, Irp->MdlAddress, 
 			    DriveInfo->ControllerInfo->MapRegisterBase, 
-			    (PVOID)((ULONG_PTR)MmGetMdlVirtualAddress(Irp->MdlAddress) + TransferByteOffset),
+			    MmGetMdlVirtualAddress(Irp->MdlAddress),
 			    CurrentTransferBytes, WriteToDevice);
 
       /* Read the results from the drive */

@@ -22,20 +22,43 @@ VOID STDCALL
 IoUpdateShareAccess(PFILE_OBJECT FileObject,
 		    PSHARE_ACCESS ShareAccess)
 {
-   PAGED_CODE();
-   
-   if (FileObject->ReadAccess ||
-       FileObject->WriteAccess ||
-       FileObject->DeleteAccess)
+   if ((FileObject->ReadAccess == FALSE) &&
+       (FileObject->WriteAccess == FALSE) &&
+       (FileObject->DeleteAccess == FALSE))
      {
-       ShareAccess->OpenCount++;
+	return;
+     }
 
-       ShareAccess->Readers += FileObject->ReadAccess;
-       ShareAccess->Writers += FileObject->WriteAccess;
-       ShareAccess->Deleters += FileObject->DeleteAccess;
-       ShareAccess->SharedRead += FileObject->SharedRead;
-       ShareAccess->SharedWrite += FileObject->SharedWrite;
-       ShareAccess->SharedDelete += FileObject->SharedDelete;
+   ShareAccess->OpenCount++;
+
+   if (FileObject->ReadAccess == TRUE)
+     {
+	ShareAccess->Readers++;
+     }
+
+   if (FileObject->WriteAccess == TRUE)
+     {
+	ShareAccess->Writers++;
+     }
+
+   if (FileObject->DeleteAccess == TRUE)
+     {
+	ShareAccess->Deleters++;
+     }
+
+   if (FileObject->SharedRead == TRUE)
+     {
+	ShareAccess->SharedRead++;
+     }
+
+   if (FileObject->SharedWrite == TRUE)
+     {
+	ShareAccess->SharedWrite++;
+     }
+
+   if (FileObject->SharedDelete == TRUE)
+     {
+	ShareAccess->SharedDelete++;
      }
 }
 
@@ -56,48 +79,85 @@ IoCheckShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedRead;
   BOOLEAN SharedWrite;
   BOOLEAN SharedDelete;
-  
-  PAGED_CODE();
 
-  ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE)) != 0;
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA)) != 0;
-  DeleteAccess = (DesiredAccess & DELETE) != 0;
+  ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
+  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
   FileObject->WriteAccess = WriteAccess;
   FileObject->DeleteAccess = DeleteAccess;
 
-  if (ReadAccess || WriteAccess || DeleteAccess)
+  if (!ReadAccess && !WriteAccess && !DeleteAccess)
     {
-      SharedRead = (DesiredShareAccess & FILE_SHARE_READ) != 0;
-      SharedWrite = (DesiredShareAccess & FILE_SHARE_WRITE) != 0;
-      SharedDelete = (DesiredShareAccess & FILE_SHARE_DELETE) != 0;
+      return(STATUS_SUCCESS);
+    }
 
-      FileObject->SharedRead = SharedRead;
-      FileObject->SharedWrite = SharedWrite;
-      FileObject->SharedDelete = SharedDelete;
+  SharedRead = (DesiredShareAccess & FILE_SHARE_READ);
+  SharedWrite = (DesiredShareAccess & FILE_SHARE_WRITE);
+  SharedDelete = (DesiredShareAccess & FILE_SHARE_DELETE);
 
-      if ((ReadAccess && (ShareAccess->SharedRead < ShareAccess->OpenCount)) ||
-          (WriteAccess && (ShareAccess->SharedWrite < ShareAccess->OpenCount)) ||
-          (DeleteAccess && (ShareAccess->SharedDelete < ShareAccess->OpenCount)) ||
-          ((ShareAccess->Readers != 0) && !SharedRead) ||
-          ((ShareAccess->Writers != 0) && !SharedWrite) ||
-          ((ShareAccess->Deleters != 0) && !SharedDelete))
-        {
-          return(STATUS_SHARING_VIOLATION);
-        }
+  FileObject->SharedRead = SharedRead;
+  FileObject->SharedWrite = SharedWrite;
+  FileObject->SharedDelete = SharedDelete;
 
-      if (Update)
-        {
-          ShareAccess->OpenCount++;
+  if (ReadAccess)
+    {
+      if (ShareAccess->SharedRead < ShareAccess->OpenCount)
+	return(STATUS_SHARING_VIOLATION);
+    }
 
-          ShareAccess->Readers += ReadAccess;
-          ShareAccess->Writers += WriteAccess;
-          ShareAccess->Deleters += DeleteAccess;
-          ShareAccess->SharedRead += SharedRead;
-          ShareAccess->SharedWrite += SharedWrite;
-          ShareAccess->SharedDelete += SharedDelete;
-        }
+  if (WriteAccess)
+    {
+      if (ShareAccess->SharedWrite < ShareAccess->OpenCount)
+	return(STATUS_SHARING_VIOLATION);
+    }
+
+  if (DeleteAccess)
+    {
+      if (ShareAccess->SharedDelete < ShareAccess->OpenCount)
+	return(STATUS_SHARING_VIOLATION);
+    }
+
+  if (ShareAccess->Readers != 0)
+    {
+      if (SharedRead == FALSE)
+	return(STATUS_SHARING_VIOLATION);
+    }
+
+  if (ShareAccess->Writers != 0)
+    {
+      if (SharedWrite == FALSE)
+	return(STATUS_SHARING_VIOLATION);
+    }
+
+  if (ShareAccess->Deleters != 0)
+    {
+      if (SharedDelete == FALSE)
+	return(STATUS_SHARING_VIOLATION);
+    }
+
+  if (Update == TRUE)
+    {
+      ShareAccess->OpenCount++;
+
+      if (ReadAccess == TRUE)
+	ShareAccess->Readers++;
+
+      if (WriteAccess == TRUE)
+	ShareAccess->Writers++;
+
+      if (DeleteAccess == TRUE)
+	ShareAccess->Deleters++;
+
+      if (SharedRead == TRUE)
+	ShareAccess->SharedRead++;
+
+      if (SharedWrite == TRUE)
+	ShareAccess->SharedWrite++;
+
+      if (SharedDelete == TRUE)
+	ShareAccess->SharedDelete++;
     }
 
   return(STATUS_SUCCESS);
@@ -111,20 +171,43 @@ VOID STDCALL
 IoRemoveShareAccess(IN PFILE_OBJECT FileObject,
 		    IN PSHARE_ACCESS ShareAccess)
 {
-  PAGED_CODE();
-
-  if (FileObject->ReadAccess ||
-      FileObject->WriteAccess ||
-      FileObject->DeleteAccess)
+  if ((FileObject->ReadAccess == FALSE) &&
+      (FileObject->WriteAccess == FALSE) &&
+      (FileObject->DeleteAccess == FALSE))
     {
-      ShareAccess->OpenCount--;
+      return;
+    }
 
-      ShareAccess->Readers -= FileObject->ReadAccess;
-      ShareAccess->Writers -= FileObject->WriteAccess;
-      ShareAccess->Deleters -= FileObject->DeleteAccess;
-      ShareAccess->SharedRead -= FileObject->SharedRead;
-      ShareAccess->SharedWrite -= FileObject->SharedWrite;
-      ShareAccess->SharedDelete -= FileObject->SharedDelete;
+  ShareAccess->OpenCount--;
+
+  if (FileObject->ReadAccess == TRUE)
+    {
+      ShareAccess->Readers--;
+    }
+
+  if (FileObject->WriteAccess == TRUE)
+    {
+      ShareAccess->Writers--;
+    }
+
+  if (FileObject->DeleteAccess == TRUE)
+    {
+      ShareAccess->Deleters--;
+    }
+
+  if (FileObject->SharedRead == TRUE)
+    {
+      ShareAccess->SharedRead--;
+    }
+
+  if (FileObject->SharedWrite == TRUE)
+    {
+      ShareAccess->SharedWrite--;
+    }
+
+  if (FileObject->SharedDelete == TRUE)
+    {
+      ShareAccess->SharedDelete--;
     }
 }
 
@@ -144,12 +227,10 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
   BOOLEAN SharedRead;
   BOOLEAN SharedWrite;
   BOOLEAN SharedDelete;
-  
-  PAGED_CODE();
 
-  ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE)) != 0;
-  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA)) != 0;
-  DeleteAccess = (DesiredAccess & DELETE) != 0;
+  ReadAccess = (DesiredAccess & (FILE_READ_DATA | FILE_EXECUTE));
+  WriteAccess = (DesiredAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA));
+  DeleteAccess = (DesiredAccess & DELETE);
 
   FileObject->ReadAccess = ReadAccess;
   FileObject->WriteAccess = WriteAccess;
@@ -157,6 +238,10 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
 
   if (!ReadAccess && !WriteAccess && !DeleteAccess)
     {
+      FileObject->SharedRead = FALSE;
+      FileObject->SharedWrite = FALSE;
+      FileObject->SharedDelete = FALSE;
+
       ShareAccess->OpenCount = 0;
       ShareAccess->Readers = 0;
       ShareAccess->Writers = 0;
@@ -168,22 +253,22 @@ IoSetShareAccess(IN ACCESS_MASK DesiredAccess,
     }
   else
     {
-      SharedRead = (DesiredShareAccess & FILE_SHARE_READ) != 0;
-      SharedWrite = (DesiredShareAccess & FILE_SHARE_WRITE) != 0;
-      SharedDelete = (DesiredShareAccess & FILE_SHARE_DELETE) != 0;
+      SharedRead = (DesiredShareAccess & FILE_SHARE_READ);
+      SharedWrite = (DesiredShareAccess & FILE_SHARE_WRITE);
+      SharedDelete = (DesiredShareAccess & FILE_SHARE_DELETE);
 
       FileObject->SharedRead = SharedRead;
       FileObject->SharedWrite = SharedWrite;
       FileObject->SharedDelete = SharedDelete;
 
       ShareAccess->OpenCount = 1;
-      ShareAccess->Readers = ReadAccess;
-      ShareAccess->Writers = WriteAccess;
-      ShareAccess->Deleters = DeleteAccess;
+      ShareAccess->Readers = (ReadAccess) ? 1 : 0;
+      ShareAccess->Writers = (WriteAccess) ? 1 : 0;
+      ShareAccess->Deleters = (DeleteAccess) ? 1 : 0;
 
-      ShareAccess->SharedRead = SharedRead;
-      ShareAccess->SharedWrite = SharedWrite;
-      ShareAccess->SharedDelete = SharedDelete;
+      ShareAccess->SharedRead = (SharedRead) ? 1 : 0;
+      ShareAccess->SharedWrite = (SharedWrite) ? 1 : 0;
+      ShareAccess->SharedDelete = (SharedDelete) ? 1 : 0;
     }
 }
 
@@ -195,15 +280,12 @@ NTSTATUS STDCALL
 IoCheckDesiredAccess(IN OUT PACCESS_MASK DesiredAccess,
 		     IN ACCESS_MASK GrantedAccess)
 {
-  PAGED_CODE();
-  
   RtlMapGenericMask(DesiredAccess,
 		    IoFileObjectType->Mapping);
+  if ((*DesiredAccess & GrantedAccess) != GrantedAccess)
+    return(STATUS_ACCESS_DENIED);
 
-  if ((~(*DesiredAccess) & GrantedAccess) != 0)
-    return STATUS_ACCESS_DENIED;
-  else
-    return STATUS_SUCCESS;
+  return(STATUS_SUCCESS);
 }
 
 
@@ -261,7 +343,7 @@ IoSetInformation(IN PFILE_OBJECT FileObject,
 
 
    Status = ObReferenceObjectByPointer(FileObject,
-				       0, /* FIXME - depends on the information class */
+				       FILE_WRITE_ATTRIBUTES,
 				       IoFileObjectType,
 				       KernelMode);
    if (!NT_SUCCESS(Status))

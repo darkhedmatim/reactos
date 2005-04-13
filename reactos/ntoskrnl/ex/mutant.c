@@ -294,19 +294,16 @@ NtReleaseMutant(IN HANDLE MutantHandle,
                 IN PLONG PreviousCount  OPTIONAL)
 {
     PKMUTANT Mutant;
-    KPROCESSOR_MODE PreviousMode;
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
    
     PAGED_CODE();
-    
-    PreviousMode = ExGetPreviousMode();
-    
     DPRINT("NtReleaseMutant(MutantHandle 0%x PreviousCount 0%x)\n", 
             MutantHandle, 
             PreviousCount);
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode && PreviousCount) {
+    if(PreviousMode == UserMode && PreviousCount) {
         
         _SEH_TRY {
             
@@ -333,37 +330,25 @@ NtReleaseMutant(IN HANDLE MutantHandle,
     /* Check for Success and release if such */
     if(NT_SUCCESS(Status)) {
         
-        LONG Prev = 0;
+        LONG Prev;
         
-        /* release the mutant. doing so might raise an exception which we're
-           required to catch! */
-        _SEH_TRY {
-
-            Prev = KeReleaseMutant(Mutant, MUTANT_INCREMENT, FALSE, FALSE);
-
-        } _SEH_HANDLE {
-
-            Status = _SEH_GetExceptionCode();
-
-        } _SEH_END;
-        
+        /* Save the Old State */
+        DPRINT("Releasing Mutant\n");
+        Prev = KeReleaseMutant(Mutant, MUTANT_INCREMENT, FALSE, FALSE);
         ObDereferenceObject(Mutant);
 
-        if(NT_SUCCESS(Status)) {
-
-            /* Return it */
-            if(PreviousCount) {
-
-                _SEH_TRY {
-
-                    *PreviousCount = Prev;
-
-                } _SEH_HANDLE {
+        /* Return it */        
+        if(PreviousCount) {
+            
+            _SEH_TRY {
                 
-                    Status = _SEH_GetExceptionCode();
-
-                } _SEH_END;
-            }
+                *PreviousCount = Prev;
+            
+            } _SEH_HANDLE {
+                
+                Status = _SEH_GetExceptionCode();
+            
+            } _SEH_END;
         }
     }
 

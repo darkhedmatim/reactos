@@ -21,6 +21,19 @@
  */
 	
 #include "precomp.h"
+#include <commctrl.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <winnt.h>
+
+#include "perfpage.h"
+#include "perfdata.h"
+
+#include "graph.h"
+#include "graphctl.h"
 
 TGraphCtrl PerformancePageCpuUsageHistoryGraph;
 TGraphCtrl PerformancePageMemUsageHistoryGraph;

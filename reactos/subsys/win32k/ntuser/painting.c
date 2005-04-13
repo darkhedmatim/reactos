@@ -537,8 +537,7 @@ IntIsWindowDirty(PWINDOW_OBJECT Window)
 {
    return (Window->Style & WS_VISIBLE) &&
       ((Window->UpdateRegion != NULL) ||
-       (Window->Flags & WINDOWOBJECT_NEED_INTERNALPAINT) ||
-       (Window->Flags & WINDOWOBJECT_NEED_NCPAINT));
+       (Window->Flags & WINDOWOBJECT_NEED_INTERNALPAINT));
 }
 
 HWND STDCALL
@@ -874,7 +873,6 @@ NtUserGetUpdateRgn(HWND hWnd, HRGN hRgn, BOOL bErase)
       return ERROR;
    }
     
-   IntLockWindowUpdate(Window);
    if (Window->UpdateRegion == NULL)
    {
       RegionType = (NtGdiSetRectRgn(hRgn, 0, 0, 0, 0) ? NULLREGION : ERROR);
@@ -887,7 +885,6 @@ NtUserGetUpdateRgn(HWND hWnd, HRGN hRgn, BOOL bErase)
          Window->WindowRect.left - Window->ClientRect.left,
          Window->WindowRect.top - Window->ClientRect.top);
    }
-   IntUnLockWindowUpdate(Window);
 
    IntReleaseWindowObject(Window);
 
@@ -907,56 +904,49 @@ NtUserGetUpdateRgn(HWND hWnd, HRGN hRgn, BOOL bErase)
  */
 
 BOOL STDCALL
-NtUserGetUpdateRect(HWND hWnd, LPRECT UnsafeRect, BOOL bErase)
+NtUserGetUpdateRect(HWND Wnd, LPRECT UnsafeRect, BOOL Erase)
 {
-   PWINDOW_OBJECT Window;
-   RECT Rect;
-   INT RegionType;
-   PROSRGNDATA RgnData;
-   BOOL AlwaysPaint;
-   NTSTATUS Status;
+  RECT Rect;
+  HRGN Rgn;
+  PROSRGNDATA RgnData;
+  NTSTATUS Status;
 
-   if (!(Window = IntGetWindowObject(hWnd)))
-   {
-      SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-      return ERROR;
-   }
-    
-   IntLockWindowUpdate(Window);
-   if (Window->UpdateRegion == NULL)
-   {
-      Rect.left = Rect.top = Rect.right = Rect.bottom = 0;
-   }
-   else
-   {
-      RgnData = RGNDATA_LockRgn(Window->UpdateRegion);
-      ASSERT(RgnData != NULL);
-      RegionType = UnsafeIntGetRgnBox(RgnData, &Rect);
-      ASSERT(RegionType != ERROR);
-      RGNDATA_UnlockRgn(Window->UpdateRegion);
-   }
-   AlwaysPaint = (Window->Flags & WINDOWOBJECT_NEED_NCPAINT) ||
-                 (Window->Flags & WINDOWOBJECT_NEED_INTERNALPAINT);
-   IntUnLockWindowUpdate(Window);
+  Rgn = NtGdiCreateRectRgn(0, 0, 0, 0);
+  if (NULL == Rgn)
+    {
+      NtGdiDeleteObject(Rgn);
+      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+      return FALSE;
+    }
+  NtUserGetUpdateRgn(Wnd, Rgn, Erase);
+  RgnData = RGNDATA_LockRgn(Rgn);
+  if (NULL == RgnData)
+    {
+      NtGdiDeleteObject(Rgn);
+      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+      return FALSE;
+    }
+  if (ERROR == UnsafeIntGetRgnBox(RgnData, &Rect))
+    {
+      RGNDATA_UnlockRgn(Rgn);
+      NtGdiDeleteObject(Rgn);
+      SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
+      return FALSE;
+    }
+  RGNDATA_UnlockRgn(Rgn);
+  NtGdiDeleteObject(Rgn);
 
-   IntReleaseWindowObject(Window);
-
-   if (bErase && Rect.left < Rect.right && Rect.top < Rect.bottom)
-   {
-      NtUserRedrawWindow(hWnd, NULL, NULL, RDW_ERASENOW | RDW_NOCHILDREN);
-   }
-  
-   if (UnsafeRect != NULL)
-   {
+  if (UnsafeRect != NULL)
+    {
       Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
-      if (!NT_SUCCESS(Status))
-      {
-         SetLastWin32Error(ERROR_INVALID_PARAMETER);
-         return FALSE;
-      }
-   }
+      if (! NT_SUCCESS(Status))
+        {
+          SetLastWin32Error(ERROR_INVALID_PARAMETER);
+          return FALSE;
+        }
+    }
 
-   return (Rect.left < Rect.right && Rect.top < Rect.bottom) || AlwaysPaint;
+  return Rect.left < Rect.right && Rect.top < Rect.bottom;
 }
 
 /*

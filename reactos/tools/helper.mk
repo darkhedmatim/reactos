@@ -644,24 +644,13 @@ endif
 endif
 
 #
-# Enable Tree-Wide Optimization if Debug is on.
+# Enable Tree-Wide Optimization.
 # Protect uncompatible files here with an ifneq
 # if needed, until their problems can be found
 #
-ifneq ($(DBG),1)
+ifeq ($(DBG), 0)
   MK_CFLAGS += -O2 -Wno-strict-aliasing
   MK_CPPFLAGS += -O2 -Wno-strict-aliasing
-endif
-
-#
-# Force Optimization for w3seek
-#
-ifeq ($(OPTIMIZE),yes)
-    # Don't double it
-    ifneq ($(DBG),0)
-      MK_CFLAGS += -O2 -Wno-strict-aliasing
-      MK_CPPFLAGS += -O2 -Wno-strict-aliasing
-    endif
 endif
 
 ifneq ($(TARGET_LIBS),)

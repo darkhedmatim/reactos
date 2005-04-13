@@ -12,15 +12,9 @@
  *
  *    26 Sep 1999 (Paolo Pantaleo)
  *        Fixed timeout.
- *
- *    02 Apr 2005 (Magnus Olsen
- *        Remove Hardcode string so
- *        they can be translate
- *
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 #ifdef INCLUDE_CMD_CHOICE
 
@@ -103,8 +97,7 @@ IsKeyInString (LPTSTR lpString, TCHAR cKey, BOOL bCaseSensitive)
 INT
 CommandChoice (LPTSTR cmd, LPTSTR param)
 {
-	LPTSTR lpOptions;
-	TCHAR Options[2];
+	LPTSTR lpOptions = _T("YN");
 	LPTSTR lpText    = NULL;
 	BOOL   bNoPrompt = FALSE;
 	BOOL   bCaseSensitive = FALSE;
@@ -121,17 +114,21 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 	INT GCret;
 	TCHAR Ch;
 	DWORD amount,clk;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
-    LoadString( GetModuleHandle(NULL), STRING_CHOICE_OPTION, (LPTSTR) Options,sizeof(lpOptions));
-    lpOptions = _T(Options);
 
 	if (_tcsncmp (param, _T("/?"), 2) == 0)
 	{
-	 LoadString( GetModuleHandle(NULL), STRING_CHOICE_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-     ConOutPuts (_T((LPTSTR)szMsg));
-
-	 return 0;
+		ConOutPuts (_T("Waits for the user to choose one of a set of choices.\n"
+		               "\n"
+		               "CHOICE  [/C[:]choices][/N][/S][/T[:]c,nn][text]\n"
+		               "\n"
+		               "  /C[:]choices  Specifies allowable keys. Default is YN.\n"
+		               "  /N            Do not display choices and ? at the end of the prompt string.\n"
+		               "  /S            Treat choice keys as case sensitive.\n"
+		               "  /T[:]c,nn     Default choice to c after nn seconds.\n"
+		               "  text          Prompt string to display.\n"
+		               "\n"
+		               "ERRORLEVEL is set to offset of key user presses in choices."));
+		return 0;
 	}
 
 	/* retrieve text */
@@ -170,9 +167,7 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 
 				if (_tcslen (lpOptions) == 0)
 				{
-					
-					LoadString( GetModuleHandle(NULL), STRING_CHOICE_ERROR, (LPTSTR) szMsg,sizeof(szMsg));
-					ConErrPuts (_T((LPTSTR)szMsg));
+					ConErrPuts (_T("Invalid option. Expected format: /C[:]options"));
 					freep (arg);
 					return 1;
 				}
@@ -202,8 +197,7 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 
 				if (*s != _T(','))
 				{
-					LoadString( GetModuleHandle(NULL), STRING_CHOICE_ERROR_TXT, (LPTSTR) szMsg,sizeof(szMsg));
-                    ConErrPuts (_T((LPTSTR)szMsg));
+					ConErrPuts (_T("Invalid option. Expected format: /T[:]c,nn"));
 					freep (arg);
 					return 1;
 				}
@@ -214,8 +208,7 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 			}
 			else if (arg[i][0] == _T('/'))
 			{
-				LoadString( GetModuleHandle(NULL), STRING_CHOICE_ERROR_OPTION, (LPTSTR) szMsg,sizeof(szMsg));               
-				ConErrPrintf (_T((LPTSTR)szMsg), arg[i]);
+				ConErrPrintf (_T("Illegal Option: %s"), arg[i]);
 				freep (arg);
 				return 1;
 			}

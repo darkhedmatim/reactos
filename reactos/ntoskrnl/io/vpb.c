@@ -107,7 +107,7 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
    PreviousMode = ExGetPreviousMode();
 
    Status = ObReferenceObjectByHandle(FileHandle,
-				      0, /* FIXME - depends on the information class! */
+				      FILE_READ_ATTRIBUTES,
 				      IoFileObjectType,
 				      PreviousMode,
 				      (PVOID*)&FileObject,

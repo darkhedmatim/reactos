@@ -35,7 +35,6 @@
 #include <ntdll/rtl.h>
 #include <csrss/csrss.h>
 #include <rosrtl/string.h>
-#include <reactos/buildno.h>
 
 #include "api.h"
 
@@ -146,37 +145,78 @@ CsrpFreeCommandLine (HANDLE                 ProcessHeap,
 }
 
 
+/**********************************************************************
+ * NAME							PRIVATE
+ * 	CsrpOpenSmInitDoneEvent/0
+ */
+static NTSTATUS STDCALL
+CsrpOpenSmInitDoneEvent (PHANDLE CsrssInitEvent)
+{
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING    EventName;
+
+   DPRINT("CSR: %s called\n", __FUNCTION__);
+
+   RtlInitUnicodeString(& EventName,
+			L"\\CsrssInitDone");
+   InitializeObjectAttributes (& ObjectAttributes,
+				& EventName,
+				EVENT_ALL_ACCESS,
+				0,
+				NULL);
+   return NtOpenEvent (CsrssInitEvent,
+			EVENT_ALL_ACCESS,
+			& ObjectAttributes);
+}
+
 /* Native process' entry point */
 
 VOID STDCALL NtProcessStartup(PPEB Peb)
 {
    PRTL_USER_PROCESS_PARAMETERS RtlProcessParameters = NULL;
    COMMAND_LINE_ARGUMENT        CmdLineArg = {0};
+   HANDLE                       CsrssInitEvent = (HANDLE) 0;
    NTSTATUS                     Status = STATUS_SUCCESS;
 
-   PrintString("ReactOS Client/Server Run-Time %s (Build %s)\n",
-	     KERNEL_RELEASE_STR,
-	     KERNEL_VERSION_BUILD_STR);
+   DPRINT("CSR: %s\n", __FUNCTION__);
 
    RtlProcessParameters = RtlNormalizeProcessParams (Peb->ProcessParameters);
 
    /*==================================================================
-    * Parse the command line: TODO actually parse the cl, because
-    * it is required to load hosted server DLLs.
+    * Parse the command line.
     *================================================================*/
    Status = CsrpParseCommandLine (Peb->ProcessHeap,
 				  RtlProcessParameters,
 				  & CmdLineArg);
    if(STATUS_SUCCESS != Status)
    {
-	   DPRINT1("CSR: %s: CsrpParseCommandLine failed (Status=0x%08lx)\n",
-		__FUNCTION__, Status);
+	   DbgPrint("CSR: CsrpParseCommandLine failed (Status=0x%08lx)\n",
+		Status);
    }
+   /*
+    * Open the SM notification event to notify we are OK after
+    * subsystem server initialization.
+    */
+   Status = CsrpOpenSmInitDoneEvent(& CsrssInitEvent);
+   if (!NT_SUCCESS(Status))
+     {
+	DbgPrint("CSR: CsrpOpenSmInitDoneEvent failed (Status=0x%08lx)\n",
+			Status);
+     }
    /*==================================================================
     *	Initialize the Win32 environment subsystem server.
     *================================================================*/
    if (CsrServerInitialization (CmdLineArg.Count, CmdLineArg.Vector) == TRUE)
      {
+	/*=============================================================
+	 * Tell SM we are up and safe. If we fail to notify SM, it will
+	 * die and the kernel will bugcheck with
+	 * SESSION5_INITIALIZATION_FAILED.
+	 * TODO: this won't be necessary, because CSR will call SM
+	 * API SM_SESSION_COMPLETE.
+	 *===========================================================*/
+	NtSetEvent (CsrssInitEvent, NULL);
+
 	CsrpFreeCommandLine (Peb->ProcessHeap, & CmdLineArg);	
 	/*
 	 * Terminate the current thread only.

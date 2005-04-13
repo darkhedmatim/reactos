@@ -15,7 +15,6 @@
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 #ifdef FEATURE_DIRECTORY_STACK
 
@@ -140,13 +139,13 @@ INT CommandPushd (LPTSTR first, LPTSTR rest)
 	TCHAR curPath[MAX_PATH];
 	TCHAR newPath[MAX_PATH];
 	BOOL  bChangePath = FALSE;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	if (!_tcsncmp (rest, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_DIRSTACK_HELP1, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-		
+		ConOutPuts (_T("Stores the current directory for use by the POPD command, then\n"
+		               "changes to the specified directory.\n\n"
+		               "PUSHD [path | ..]\n\n"
+		               "  path        Specifies the directory to make the current directory"));
 		return 0;
 	}
 
@@ -173,13 +172,11 @@ INT CommandPushd (LPTSTR first, LPTSTR rest)
 INT CommandPopd (LPTSTR first, LPTSTR rest)
 {
 	TCHAR szPath[MAX_PATH];
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	if (!_tcsncmp(rest, _T("/?"), 2))
-	{   
-		LoadString( GetModuleHandle(NULL), STRING_DIRSTACK_HELP2, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-		
+	{
+		ConOutPuts (_T("Changes to the directory stored by the PUSHD command.\n\n"
+		               "POPD"));
 		return 0;
 	}
 
@@ -201,13 +198,12 @@ INT CommandPopd (LPTSTR first, LPTSTR rest)
 INT CommandDirs (LPTSTR first, LPTSTR rest)
 {
 	LPDIRENTRY lpDir;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	if (!_tcsncmp(rest, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_DIRSTACK_HELP3, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-		
+		ConOutPuts (_T("Prints the contents of the directory stack.\n"
+		               "\n"
+		               "DIRS"));
 		return 0;
 	}
 
@@ -216,9 +212,7 @@ INT CommandDirs (LPTSTR first, LPTSTR rest)
 
 	if (lpDir == NULL)
 	{
-		LoadString( GetModuleHandle(NULL), STRING_DIRSTACK_HELP4, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-		
+		ConOutPuts (_T("Directory stack empty"));
 		return 0;
 	}
 

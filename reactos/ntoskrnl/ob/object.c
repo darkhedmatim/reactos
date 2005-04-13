@@ -412,7 +412,7 @@ ObFindObject(POBJECT_ATTRIBUTES ObjectAttributes,
   else
     {
       Status = ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
-					 0,
+					 DIRECTORY_TRAVERSE,
 					 NULL,
 					 UserMode,
 					 &CurrentObject,
@@ -705,22 +705,6 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
 	  DPRINT1("ObFindObject() failed! (Status 0x%x)\n", Status);
 	  return Status;
 	}
-      if (Parent != NULL)
-        {
-          ParentHeader = BODY_TO_HEADER(Parent);
-        }
-      if (ParentHeader &&
-	  RemainingPath.Buffer == NULL)
-        {
-	  if (ParentHeader->ObjectType != Type
-	  	|| !(ObjectAttributes->Attributes & OBJ_OPENIF))
-	    {
-              ObDereferenceObject(Parent);
-	      return STATUS_OBJECT_NAME_COLLISION;
-	    }
-	  *Object = Parent;
-          return STATUS_OBJECT_EXISTS;
-	}
     }
   else
     {
@@ -765,6 +749,11 @@ ObCreateObject (IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
   RtlInitUnicodeString(&(Header->Name),NULL);
 
   DPRINT("Getting Parent and adding entry\n");
+  if (Parent != NULL)
+    {
+      ParentHeader = BODY_TO_HEADER(Parent);
+    }
+
   if (ParentHeader != NULL &&
       ParentHeader->ObjectType == ObDirectoryType &&
       RemainingPath.Buffer != NULL)

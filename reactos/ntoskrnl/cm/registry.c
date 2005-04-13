@@ -423,7 +423,7 @@ CmInitializeRegistry(VOID)
   ASSERT(NT_SUCCESS(Status));
   Status = ObInsertObject(RootKey,
 			  NULL,
-			  KEY_ALL_ACCESS,
+			  STANDARD_RIGHTS_REQUIRED,
 			  0,
 			  NULL,
 			  &RootKeyHandle);
@@ -462,7 +462,7 @@ CmInitializeRegistry(VOID)
 			     RootKeyHandle,
 			     NULL);
   Status = ZwCreateKey(&KeyHandle,
-		       KEY_ALL_ACCESS,
+		       STANDARD_RIGHTS_REQUIRED,
 		       &ObjectAttributes,
 		       0,
 		       NULL,
@@ -479,7 +479,7 @@ CmInitializeRegistry(VOID)
 			     RootKeyHandle,
 			     NULL);
   Status = ZwCreateKey(&KeyHandle,
-		       KEY_ALL_ACCESS,
+		       STANDARD_RIGHTS_REQUIRED,
 		       &ObjectAttributes,
 		       0,
 		       NULL,

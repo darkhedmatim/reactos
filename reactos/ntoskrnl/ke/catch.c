@@ -4,8 +4,7 @@
  * FILE:            ntoskrnl/ke/catch.c
  * PURPOSE:         Exception handling
  * 
- * PROGRAMMERS:     Anich Gregor
- *                  David Welch (welch@mcmail.com)
+ * PROGRAMMERS:     David Welch (welch@mcmail.com)
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
@@ -19,7 +18,7 @@
 
 ULONG
 RtlpDispatchException(IN PEXCEPTION_RECORD  ExceptionRecord,
-                      IN PCONTEXT  Context);
+	IN PCONTEXT  Context);
 
 /*
  * @unimplemented
@@ -57,15 +56,13 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
     /* Increase number of Exception Dispatches */
     KeGetCurrentPrcb()->KeExceptionDispatchCount++;
 
-    if (!Context)    
-    {
+    if (!Context) {
         
         /* Assume Full context */
         TContext.ContextFlags = CONTEXT_FULL;
         
         /* Check the mode */
-        if (PreviousMode == UserMode) 
-        {
+        if (PreviousMode == UserMode) {
             
             /* Add Debugger Registers if this is User Mode */
             TContext.ContextFlags = TContext.ContextFlags | CONTEXT_DEBUGGER;
@@ -79,15 +76,13 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
     }
 
 #if 0 /* FIXME: Isn't this right? With a break after? */
-    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) 
-    {
+    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) {
         Context->Eip--;
     }
 #endif
 
     /* Check if a Debugger is enabled */
-    if (KdDebuggerEnabled && KdDebugState & KD_DEBUG_GDB) 
-    {
+    if (KdDebuggerEnabled && KdDebugState & KD_DEBUG_GDB) {
     
         /* Break into it */
         Action = KdEnterDebuggerException (ExceptionRecord, Context, Tf);
@@ -97,16 +92,13 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
     if (Action == kdContinue) return;
     
     /* If the Debugger couldn't handle it... */
-    if (Action != kdDoNotHandleException) 
-    {
+    if (Action != kdDoNotHandleException) {
         
         /* See what kind of Exception this is */
-        if (PreviousMode == UserMode) 
-        {
+        if (PreviousMode == UserMode) {
             
             /* User mode exception, search the frames if we have to */
-            if (SearchFrames) 
-            {
+            if (SearchFrames) {
 
                 PULONG Stack;
                 ULONG CDest;
@@ -126,74 +118,70 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
                 if (Action == kdContinue) return;
 #endif
 
-                /* FIXME: Forward exception to user mode debugger */
+            /* FIXME: Forward exception to user mode debugger */
 
-                /* FIXME: Check user mode stack for enough space */
-        
-                /* Let usermode try and handle the exception. Setup Stack */
-                Stack = (PULONG)temp_space;
-                CDest = 3 + (ROUND_UP(sizeof(EXCEPTION_RECORD), 4) / 4);
-                /* Return Address */
-                Stack[0] = 0;
-                /* Pointer to EXCEPTION_RECORD structure */
-                Stack[1] = (ULONG)&pNewUserStack[3];
-                /* Pointer to CONTEXT structure */
-                Stack[2] = (ULONG)&pNewUserStack[CDest];
-                memcpy(&Stack[3], ExceptionRecord, sizeof(EXCEPTION_RECORD));
-                memcpy(&Stack[CDest], Context, sizeof(CONTEXT));
+            /* FIXME: Check user mode stack for enough space */
+    
+            /* Let usermode try and handle the exception. Setup Stack */
+            Stack = (PULONG)temp_space;
+            CDest = 3 + (ROUND_UP(sizeof(EXCEPTION_RECORD), 4) / 4);
+            /* Return Address */
+            Stack[0] = 0;
+            /* Pointer to EXCEPTION_RECORD structure */
+            Stack[1] = (ULONG)&pNewUserStack[3];
+            /* Pointer to CONTEXT structure */
+            Stack[2] = (ULONG)&pNewUserStack[CDest];
+            memcpy(&Stack[3], ExceptionRecord, sizeof(EXCEPTION_RECORD));
+            memcpy(&Stack[CDest], Context, sizeof(CONTEXT));
+            
+            /* Copy Stack */
+            StatusOfCopy = MmCopyToCaller(pNewUserStack,
+                                          temp_space,
+                                          (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
+            
+            /* Check for success */
+            if (NT_SUCCESS(StatusOfCopy)) {
                 
-                /* Copy Stack */
-                StatusOfCopy = MmCopyToCaller(pNewUserStack,
-                                              temp_space,
-                                              (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
+                /* Set new Stack Pointer */
+                Tf->Esp = (ULONG)pNewUserStack;
                 
-                /* Check for success */
-                if (NT_SUCCESS(StatusOfCopy)) 
-                {
-                    
-                    /* Set new Stack Pointer */
-                    Tf->Esp = (ULONG)pNewUserStack;
-                    
-                } 
-                else 
-                {
-                    
-                    /*
-                     * Now it really hit the ventilation device. Sorry,
-                     * can do nothing but kill the sucker.
-                     */
-                    ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
-                    DPRINT1("User-mode stack was invalid. Terminating target thread\n");
-                }
+            } else {
                 
-                /* Set EIP to the User-mode Dispathcer */
-                Tf->Eip = (ULONG)LdrpGetSystemDllExceptionDispatcher();
-                return;
+                /*
+                 * Now it really hit the ventilation device. Sorry,
+                 * can do nothing but kill the sucker.
+                 */
+                ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
+                DPRINT1("User-mode stack was invalid. Terminating target thread\n");
             }
+            
+            /* Set EIP to the User-mode Dispathcer */
+            Tf->Eip = (ULONG)LdrpGetSystemDllExceptionDispatcher();
+            return;
+        }
 
-            /* FIXME: Forward the exception to the debugger */
+        /* FIXME: Forward the exception to the debugger */
 
-            /* FIXME: Forward the exception to the process exception port */
+        /* FIXME: Forward the exception to the process exception port */
 
+                  
 #ifdef KDBG
-            /* Enter KDB if available */
-            Action = KdbEnterDebuggerException(ExceptionRecord, 
-                                                PreviousMode,
-                                                Context, 
-                                                Tf, 
-                                                FALSE);
+        /* Enter KDB if available */
+        Action = KdbEnterDebuggerException(ExceptionRecord, 
+                                            PreviousMode,
+                                            Context, 
+                                            Tf, 
+                                            FALSE);
 
-            /* Exit if we're continuing */
-            if (Action == kdContinue) return;
+        /* Exit if we're continuing */
+        if (Action == kdContinue) return;
 #endif
 
-            /* Terminate the offending thread */
-            DPRINT1("Unhandled UserMode exception, terminating thread\n");
-            ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
+        /* Terminate the offending thread */
+        DPRINT1("Unhandled UserMode exception, terminating thread\n");
+        ZwTerminateThread(NtCurrentThread(), ExceptionRecord->ExceptionCode);
         
-        } 
-        else 
-        {
+        } else {
 
             /* This is Kernel Mode */            
 #ifdef KDBG
@@ -214,8 +202,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
         
             /* If RtlpDispatchException() did not handle the exception then bugcheck */
             if (Value != ExceptionContinueExecution ||
-                0 != (ExceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE))    
-            {
+                0 != (ExceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE)) {
             
                 DPRINT("ExceptionRecord->ExceptionAddress = 0x%x\n", ExceptionRecord->ExceptionAddress);
 #ifdef KDBG

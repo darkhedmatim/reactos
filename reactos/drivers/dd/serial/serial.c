@@ -7,6 +7,7 @@
  * 
  * PROGRAMMERS:     Hervé Poussineau (poussine@freesurf.fr)
  */
+/* FIXME: call IoAcquireRemoveLock/IoReleaseRemoveLock around each I/O operation */
 
 //#define NDEBUG
 #include "serial.h"
@@ -25,13 +26,10 @@ DriverEntry(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PUNICODE_STRING RegPath)
 {
-	ULONG i;
-	
 	DriverObject->DriverUnload = DriverUnload;
 	DriverObject->DriverExtension->AddDevice = SerialAddDevice;
 	
-	for (i = 0; i < IRP_MJ_MAXIMUM_FUNCTION; i++)
-		DriverObject->MajorFunction[i] = ForwardIrpAndForget;
+	/* FIXME: send all other major functions to lower driver */
 	DriverObject->MajorFunction[IRP_MJ_CREATE] = SerialCreate;
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] = SerialClose;
 	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = SerialCleanup;
@@ -41,6 +39,6 @@ DriverEntry(
 	DriverObject->MajorFunction[IRP_MJ_QUERY_INFORMATION] = SerialQueryInformation;
 	DriverObject->MajorFunction[IRP_MJ_PNP] = SerialPnp;
 	DriverObject->MajorFunction[IRP_MJ_POWER] = SerialPower;
-	
-	return DetectLegacyDevices(DriverObject);
+
+	return STATUS_SUCCESS;
 }

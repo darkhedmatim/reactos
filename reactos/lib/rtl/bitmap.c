@@ -833,7 +833,8 @@ RtlSetBits(PRTL_BITMAP BitMapHeader,
   if (StartingIndex >= Size || NumberToSet == 0)
     return;
 
-  ASSERT(StartingIndex + NumberToSet <= Size);
+  if (StartingIndex + NumberToSet > Size)
+    NumberToSet = Size - StartingIndex;
 
   Ptr = (PULONG)BitMapHeader->Buffer + (StartingIndex / 32);
   while (NumberToSet)

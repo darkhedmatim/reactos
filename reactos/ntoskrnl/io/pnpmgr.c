@@ -508,7 +508,7 @@ IopCreateDeviceNode(PDEVICE_NODE ParentNode,
   DPRINT("ParentNode %x PhysicalDeviceObject %x\n",
     ParentNode, PhysicalDeviceObject);
 
-  Node = (PDEVICE_NODE)ExAllocatePool(NonPagedPool, sizeof(DEVICE_NODE));
+  Node = (PDEVICE_NODE)ExAllocatePool(PagedPool, sizeof(DEVICE_NODE));
   if (!Node)
     {
       return STATUS_INSUFFICIENT_RESOURCES;
@@ -1499,22 +1499,9 @@ IopActionInitChildServices(
       PDRIVER_OBJECT DriverObject;
 
       Status = IopLoadServiceModule(&DeviceNode->ServiceName, &ModuleObject);
-      if (NT_SUCCESS(Status) || Status == STATUS_IMAGE_ALREADY_LOADED)
+      if (NT_SUCCESS(Status))
       {
-         if (Status != STATUS_IMAGE_ALREADY_LOADED)
-            Status = IopInitializeDriverModule(DeviceNode, ModuleObject,
-               &DeviceNode->ServiceName, FALSE, &DriverObject);
-         else
-         {
-            /* get existing DriverObject pointer */
-            Status = IopCreateDriverObject(
-            	&DriverObject,
-            	&DeviceNode->ServiceName,
-            	OBJ_OPENIF,
-            	FALSE,
-            	ModuleObject->Base,
-            	ModuleObject->Length);
-         }
+         Status = IopInitializeDriverModule(DeviceNode, ModuleObject, FALSE, &DriverObject);
          if (NT_SUCCESS(Status))
          {
             /* Attach lower level filter drivers. */
@@ -1799,7 +1786,7 @@ PnpInit(VOID)
     * Create root device node
     */
 
-   Status = IopCreateDriverObject(&IopRootDriverObject, NULL, 0, FALSE, NULL, 0);
+   Status = IopCreateDriverObject(&IopRootDriverObject, NULL, FALSE, NULL, 0);
    if (!NT_SUCCESS(Status))
    {
       CPRINT("IoCreateDriverObject() failed\n");

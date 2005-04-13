@@ -20,13 +20,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-
-KPROCESSOR_MODE
-RtlpGetMode()
-{ 
-   return KernelMode; 
-}
-
 /*
  * @implemented
  */
@@ -45,12 +38,11 @@ RtlReleasePebLock(VOID)
 
 }
 
-
 PPEB
 STDCALL
 RtlpCurrentPeb(VOID)
 {
-   return ((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->Peb;
+    return ((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->Peb;
 }
 
 NTSTATUS 

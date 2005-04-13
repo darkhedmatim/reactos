@@ -121,8 +121,8 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 	DWORD ChannelSelect;
 	DWORD Controller;
 	ULONG MaximumLength;
-	BOOLEAN ChannelSetup = TRUE;
-	DMA_MODE DmaMode = {0};	
+	BOOLEAN ChannelSetup = FALSE;
+	DMA_MODE DmaMode;	
 
 	DPRINT("Entered Function\n");
   
@@ -174,7 +174,6 @@ HalGetAdapter (PDEVICE_DESCRIPTION	DeviceDescription,
 	
 	/* Set the Channel Selection */
 	ChannelSelect = DeviceDescription->DmaChannel & 0x03;
-	DmaMode.Channel = ChannelSelect;
 	
 	/* Get the Controller Setup */
 	Controller = (DeviceDescription->DmaChannel & 0x04) ? 2 : 1;

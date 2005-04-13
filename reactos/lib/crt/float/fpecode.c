@@ -1,3 +1,7 @@
+#ifdef __USE_W32API
+#undef __USE_W32API
+#endif
+
 #include <float.h>
 #include <internal/tls.h>
 

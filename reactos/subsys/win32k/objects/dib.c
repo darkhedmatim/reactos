@@ -19,15 +19,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <w32k.h>
-#include <pseh.h>
 
 UINT STDCALL
 NtGdiSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors)
 {
    PDC dc;
    PBITMAPOBJ BitmapObj;
-   PPALGDI PalGDI;
-   UINT Index;
 
    if (!(dc = DC_LockDc(hDC))) return 0;
    if (dc->IsIC)
@@ -58,24 +55,12 @@ NtGdiSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Col
       if (StartIndex + Entries > (1 << BitmapObj->dib->dsBmih.biBitCount))
          Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
 
-      PalGDI = PALETTE_LockPalette(BitmapObj->hDIBPalette);
-      _SEH_TRY
-      {
-         for (Index = StartIndex;
-              Index < StartIndex + Entries && Index < PalGDI->NumColors;
-              Index++)
-         {
-            PalGDI->IndexedColors[Index].peRed = Colors[Index - StartIndex].rgbRed;
-            PalGDI->IndexedColors[Index].peGreen = Colors[Index - StartIndex].rgbGreen;
-            PalGDI->IndexedColors[Index].peBlue = Colors[Index - StartIndex].rgbBlue;
-         }
-      }
-      _SEH_HANDLE
-      {
-         Entries = 0;
-      }
-      _SEH_END
-      PALETTE_UnlockPalette(BitmapObj->hDIBPalette);
+      MmCopyFromCaller(BitmapObj->ColorMap + StartIndex, Colors, Entries * sizeof(RGBQUAD));
+
+      /* Rebuild the palette. */
+      NtGdiDeleteObject(dc->w.hPalette);
+      dc->w.hPalette = PALETTE_AllocPaletteIndexedRGB(1 << BitmapObj->dib->dsBmih.biBitCount,
+                                                      BitmapObj->ColorMap);
    }
    else
       Entries = 0;
@@ -91,8 +76,6 @@ NtGdiGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
 {
    PDC dc;
    PBITMAPOBJ BitmapObj;
-   PPALGDI PalGDI;
-   UINT Index;
 
    if (!(dc = DC_LockDc(hDC))) return 0;
    if (dc->IsIC)
@@ -123,24 +106,7 @@ NtGdiGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
       if (StartIndex + Entries > (1 << BitmapObj->dib->dsBmih.biBitCount))
          Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
 
-      PalGDI = PALETTE_LockPalette(BitmapObj->hDIBPalette);
-      _SEH_TRY
-      {
-         for (Index = StartIndex;
-              Index < StartIndex + Entries && Index < PalGDI->NumColors;
-              Index++)
-         {
-            Colors[Index - StartIndex].rgbRed = PalGDI->IndexedColors[Index].peRed;
-            Colors[Index - StartIndex].rgbGreen = PalGDI->IndexedColors[Index].peGreen;
-            Colors[Index - StartIndex].rgbBlue = PalGDI->IndexedColors[Index].peBlue;
-         }
-      }
-      _SEH_HANDLE
-      {
-         Entries = 0;
-      }
-      _SEH_END
-      PALETTE_UnlockPalette(BitmapObj->hDIBPalette);
+      MmCopyToCaller(Colors, BitmapObj->ColorMap + StartIndex, Entries * sizeof(RGBQUAD));
    }
    else
       Entries = 0;
@@ -653,7 +619,7 @@ LONG STDCALL NtGdiGetBitmapBits(HBITMAP  hBitmap,
   return  ret;
 }
 
-HBITMAP FASTCALL
+static HBITMAP FASTCALL
 IntCreateDIBitmap(PDC Dc, const BITMAPINFOHEADER *header,
                   DWORD init, LPCVOID bits, const BITMAPINFO *data,
                   UINT coloruse)
@@ -918,12 +884,14 @@ DIB_CreateDIBSection(
     if(bi->biBitCount == 8) { Entries = 256; }
 
     if (Entries)
-      bmp->hDIBPalette = PALETTE_AllocPaletteIndexedRGB(Entries, bmi->bmiColors);
+    {
+      bmp->ColorMap = ExAllocatePoolWithTag(PagedPool, sizeof(RGBQUAD)*Entries, TAG_COLORMAP);
+      RtlCopyMemory(bmp->ColorMap, bmi->bmiColors, sizeof(RGBQUAD)*Entries);
+    }
     else
-      bmp->hDIBPalette = PALETTE_AllocPalette(PAL_BITFIELDS, 0, NULL,
-                                              dib->dsBitfields[0],
-                                              dib->dsBitfields[1],
-                                              dib->dsBitfields[2]);
+    {
+      bmp->ColorMap = NULL;
+    }
   }
 
   // Clean up in case of errors
@@ -1117,7 +1085,7 @@ DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi)
 }
 
 HPALETTE FASTCALL
-BuildDIBPalette (CONST BITMAPINFO *bmi, PINT paletteType)
+BuildDIBPalette (PBITMAPINFO bmi, PINT paletteType)
 {
   BYTE bits;
   ULONG ColorCount;

@@ -6,7 +6,7 @@ PATH_TO_TOP = ../..
 
 include $(PATH_TO_TOP)/rules.mak
 
-DRIVERS = acpi isapnp pci serenum
+DRIVERS = acpi isapnp pci
 
 all: $(DRIVERS)
 

@@ -441,7 +441,7 @@ KbdDpcRoutine(PKDPC Dpc,
 
    if (SystemArgument1 == NULL && DoSystemDebug != -1)
      {
-       if (KbdWorkItem != NULL && DoSystemDebug == 10) /* 10 is Tab + K (enter kernel debugger) */
+       if (KbdWorkItem != NULL)
          {
            IoQueueWorkItem(KbdWorkItem, (PIO_WORKITEM_ROUTINE)KbdWorkItemRoutine, DelayedWorkQueue, NULL);
          }

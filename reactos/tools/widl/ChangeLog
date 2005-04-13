@@ -1,52 +1,5 @@
 ChangeLog
 
-2005-04-03 ekohl
-
-   tools/widl/client.c
-   tools/widl/parser.l
-   tools/widl/parser.y
-   tools/widl/server.c
-   tools/widl/widltypes.h
-
-Support 'ref' and 'unique' attributes for pointers.
-
-2005-03-27 Jacek Caban (from WINE)
-
-  tools/widl/parser.y
-  tools/widl/y.tab.c
-
-Added handling of unsigned type
-
-2005-03-25 ekohl
-
-   tools/widl/client.c
-   tools/widl/server.c
-
-Generate code without L-value casts. Fix remaining issues.
-
-2005-03-21 navaraf
-
-   tools/widl/client.c
-
-Fix a typo in write_function_stubs.
-
-2005-03-20 navaraf
-
-   tools/widl/client.c
-   tools/widl/server.c
-
-Generate code without L-value casts.
-
-2005-03-20 ekohl
-
-   tools/widl/client.c
-   tools/widl/server.c
-
-Improve error messages.
-Don't start counting the type_offset for each new fuction. It is a global offset.
-Use only basic types in type- and proc-strings (e.g. unsigned long -> long).
-
-
 2005-03-13 ekohl
 
    tools/widl/server.c
@@ -68,6 +21,7 @@ Fixup *nix port, added include fcntl.h and unistd.h.
    tools/widl/write_msft.c
 
 -Wall -Werror and fix warnings
+
 
 
 2005-03-13 ekohl

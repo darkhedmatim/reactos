@@ -98,9 +98,6 @@ VOID LANUnregisterProtocol(
 VOID LANStartup();
 VOID LANShutdown();
 
-NTSTATUS TcpipLanGetDwordOid( PIP_INTERFACE Interface, NDIS_OID Oid, 
-                              PDWORD Result );
-
 NDIS_STATUS NDISCall(
     PLAN_ADAPTER Adapter,
     NDIS_REQUEST_TYPE Type,

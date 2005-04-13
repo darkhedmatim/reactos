@@ -54,13 +54,9 @@
  *    
  *    23-Feb-2001 (Carl Nettelblad <cnettel@hem.passagen.es>)
  *        Fixes made to get "for" working.
- *
- *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
- *        Remove all hardcode string to En.rc  
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 
 /* The stack of current batch contexts.
@@ -219,7 +215,6 @@ VOID ExitBatch (LPTSTR msg)
 BOOL Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param)
 {
 	HANDLE hFile;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	hFile = CreateFile (fullname, GENERIC_READ, FILE_SHARE_READ, NULL,
 						OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL |
@@ -232,8 +227,7 @@ BOOL Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param)
 
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		LoadString( GetModuleHandle(NULL), STRING_BATCH_ERROR, (LPTSTR) szMsg,sizeof(szMsg));
-        ConErrPrintf (_T((LPTSTR)szMsg));
+		ConErrPrintf (_T("Error opening batch file\n"));
 		return FALSE;
 	}
 

@@ -51,6 +51,5 @@ END
 #include "De.rc"
 #include "Dk.rc"
 #include "Es.rc"
-#include "Sv.rc"
 
 /* EOF */

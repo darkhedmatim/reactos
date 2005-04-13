@@ -60,7 +60,7 @@ SmpKnownDllsQueryRoutine(PWSTR ValueName,
 			     (HANDLE)Context,
 			     NULL);
   Status = NtOpenFile(&FileHandle,
-		      SYNCHRONIZE | FILE_EXECUTE | FILE_READ_DATA,
+		      SYNCHRONIZE | FILE_EXECUTE,
 		      &ObjectAttributes,
 		      &IoStatusBlock,
 		      FILE_SHARE_READ,

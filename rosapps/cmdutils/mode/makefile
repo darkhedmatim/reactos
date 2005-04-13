@@ -11,7 +11,7 @@ TARGET_SDKLIBS = ntdll.a
 
 TARGET_OBJECTS = $(TARGET_NAME).o 
 
-TARGET_CFLAGS = -D__USE_W32API
+#TARGET_GCCLIBS = iberty
 
 include $(PATH_TO_TOP)/rules.mak
 

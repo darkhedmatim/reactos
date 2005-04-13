@@ -159,7 +159,6 @@ ProRequest(
   if (QueueWorkItem) 
     {
       MiniQueueWorkItem(Adapter, NdisWorkItemRequest, (PVOID)NdisRequest);
-      KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
       return NDIS_STATUS_PENDING;
     } 
 

@@ -463,10 +463,6 @@ BITMAP_Cleanup(PVOID ObjectBody)
 		{
 			EngFreeUserMem(pBmp->SurfObj.pvBits);
 		}
-		if (pBmp->hDIBPalette)
-		{
-			NtGdiDeleteObject(pBmp->hDIBPalette);
-		}
 	}
 
 	return TRUE;
@@ -556,10 +552,8 @@ NtGdiExtFloodFill(
 	COLORREF  Color,
 	UINT  FillType)
 {
-   DPRINT1("FIXME: NtGdiExtFloodFill is UNIMPLEMENTED\n");
-   
-   /* lie and say we succeded */
-	return TRUE;
+	UNIMPLEMENTED;
+	return FALSE;
 }
 
 BOOL STDCALL

@@ -129,13 +129,9 @@
  *
  *    12-Jul-2004 (Jens Collin <jens.collin@lakhei.com>)
  *       Added ShellExecute call when all else fails to be able to "launch" any file.
- *
- *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
- *        Remove all hardcode string to En.rc  
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(StatCode)  ((NTSTATUS)(StatCode) >= 0)
@@ -552,7 +548,6 @@ VOID ParseCommandLine (LPTSTR cmd)
 {
 	TCHAR cmdline[CMDLINE_LENGTH];
 	LPTSTR s;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 #ifdef FEATURE_REDIRECTION
 	TCHAR in[CMDLINE_LENGTH] = _T("");
 	TCHAR out[CMDLINE_LENGTH] = _T("");
@@ -634,15 +629,13 @@ VOID ParseCommandLine (LPTSTR cmd)
 		                    FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hFile == INVALID_HANDLE_VALUE)
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR1, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), in);
+			ConErrPrintf (_T("Can't redirect input from file %s\n"), in);
 			return;
 		}
 
 		if (!SetStdHandle (STD_INPUT_HANDLE, hFile))
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR1, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), in);
+			ConErrPrintf (_T("Can't redirect input from file %s\n"), in);
 			return;
 		}
 #ifdef _DEBUG
@@ -666,9 +659,7 @@ VOID ParseCommandLine (LPTSTR cmd)
 				       TRUNCATE_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
 
       if (hFile[1] == INVALID_HANDLE_VALUE){
-
-         LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR2, (LPTSTR) szMsg,sizeof(szMsg));
-         ConErrPrintf (_T((LPTSTR)szMsg));
+         ConErrPrintf (_T("Error creating temporary file for pipe data\n"));
          return;
       }
 
@@ -720,16 +711,13 @@ VOID ParseCommandLine (LPTSTR cmd)
 		                    FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hFile == INVALID_HANDLE_VALUE)
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR3, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), out);
-
+			ConErrPrintf (_T("Can't redirect to file %s\n"), out);
 			return;
 		}
 
 		if (!SetStdHandle (STD_OUTPUT_HANDLE, hFile))
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR3, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), out);
+			ConErrPrintf (_T("Can't redirect to file %s\n"), out);
 			return;
 		}
 
@@ -782,17 +770,13 @@ VOID ParseCommandLine (LPTSTR cmd)
 			                    NULL);
 			if (hFile == INVALID_HANDLE_VALUE)
 			{
-				LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR3, (LPTSTR) szMsg,sizeof(szMsg));
-                ConErrPrintf (_T((LPTSTR)szMsg), err);
-
+				ConErrPrintf (_T("Can't redirect to file %s\n"), err);
 				return;
 			}
 		}
 		if (!SetStdHandle (STD_ERROR_HANDLE, hFile))
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR3, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), err);
-
+			ConErrPrintf (_T("Can't redirect to file %s\n"), err);
 			return;
 		}
 
@@ -922,7 +906,6 @@ ProcessInput (BOOL bFlag)
 	LPTSTR ip;
 	LPTSTR cp;
 	BOOL bEchoThisLine;
-	
 
 	do
 	{
@@ -1035,7 +1018,6 @@ ProcessInput (BOOL bFlag)
  */
 BOOL WINAPI BreakHandler (DWORD dwCtrlType)
 {
-	
 	if ((dwCtrlType != CTRL_C_EVENT) &&
 	    (dwCtrlType != CTRL_BREAK_EVENT))
 		return FALSE;
@@ -1076,36 +1058,26 @@ VOID RemoveBreakHandler (VOID)
 static VOID
 ShowCommands (VOID)
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	/* print command list */
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP1, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPrintf (_T((LPTSTR)szMsg));
+	ConOutPrintf (_T("\nInternal commands available:\n"));
 	PrintCommandList ();
 
 	/* print feature list */
-	 LoadString( GetModuleHandle(NULL), STRING_CMD_HELP2, (LPTSTR) szMsg,sizeof(szMsg));
-     ConOutPuts (_T((LPTSTR)szMsg));
-
-#ifdef FEATURE_ALIASES	
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP3, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts (_T("\nFeatures available:"));
+#ifdef FEATURE_ALIASES
+	ConOutPuts (_T("  [aliases]"));
 #endif
 #ifdef FEATURE_HISTORY
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP4, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts (_T("  [history]"));
 #endif
 #ifdef FEATURE_UNIX_FILENAME_COMPLETION
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP5, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts (_T("  [unix filename completion]"));
 #endif
 #ifdef FEATURE_DIRECTORY_STACK
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP6, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts (_T("  [directory stack]"));
 #endif
 #ifdef FEATURE_REDIRECTION
-	LoadString( GetModuleHandle(NULL), STRING_CMD_HELP7, (LPTSTR) szMsg,sizeof(szMsg));
-    ConOutPuts (_T((LPTSTR)szMsg));
+	ConOutPuts (_T("  [redirections and piping]"));
 #endif
 	ConOutChar (_T('\n'));
 }
@@ -1124,8 +1096,6 @@ Initialize (int argc, TCHAR* argv[])
 	TCHAR commandline[CMDLINE_LENGTH];
 	TCHAR ModuleName[_MAX_PATH + 1];
 	INT i;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	//INT len;
 	//TCHAR *ptr, *cmdLine;
 
@@ -1154,8 +1124,15 @@ Initialize (int argc, TCHAR* argv[])
 
 	if (argc >= 2 && !_tcsncmp (argv[1], _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_CMD_HELP8, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
+		ConOutPuts (_T("Starts a new instance of the ReactOS command line interpreter.\n"
+		               "\n"
+		               "CMD [/[C|K] command][/P][/Q][/T:bf]\n"
+		               "\n"
+		               "  /C command  Runs the specified command and terminates.\n"
+		               "  /K command  Runs the specified command and remains.\n"
+		               "  /P          CMD becomes permanent and runs autoexec.bat\n"
+		               "              (cannot be terminated).\n"
+		               "  /T:bf       Sets the background/foreground color (see COLOR command)."));
 		ExitProcess (0);
 	}
 	SetConsoleMode (hIn, ENABLE_PROCESSED_INPUT);
@@ -1259,8 +1236,7 @@ Initialize (int argc, TCHAR* argv[])
 
 		if (IsExistingFile (_T("commandline")))
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR4, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), commandline);
+			ConErrPrintf (_T("Running %s...\n", commandline));
 			ParseCommandLine (commandline);
 		}
 	}
@@ -1291,20 +1267,15 @@ Initialize (int argc, TCHAR* argv[])
 
 static VOID Cleanup (int argc, TCHAR *argv[])
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	/* run cmdexit.bat */
 	if (IsExistingFile (_T("cmdexit.bat")))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR5, (LPTSTR) szMsg,sizeof(szMsg));
-        ConErrPrintf (_T((LPTSTR)szMsg));
-
+		ConErrPrintf (_T("Running cmdexit.bat...\n"));
 		ParseCommandLine (_T("cmdexit.bat"));
 	}
 	else if (IsExistingFile (_T("\\cmdexit.bat")))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR5, (LPTSTR) szMsg,sizeof(szMsg));
-        ConErrPrintf (_T((LPTSTR)szMsg));
+		ConErrPrintf (_T("Running \\cmdexit.bat...\n"));
 		ParseCommandLine (_T("\\cmdexit.bat"));
 	}
 #ifndef __REACTOS__
@@ -1320,8 +1291,7 @@ static VOID Cleanup (int argc, TCHAR *argv[])
 
 		if (IsExistingFile (_T("commandline")))
 		{
-			LoadString( GetModuleHandle(NULL), STRING_CMD_ERROR4, (LPTSTR) szMsg,sizeof(szMsg));
-            ConErrPrintf (_T((LPTSTR)szMsg), commandline);
+			ConErrPrintf (_T("Running %s...\n"), commandline);
 			ParseCommandLine (commandline);
 		}
 	}

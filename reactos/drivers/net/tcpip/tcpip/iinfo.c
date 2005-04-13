@@ -33,21 +33,15 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID *ID,
 
     RtlZeroMemory( OutData, sizeof(IFENTRY) + MAX_IFDESCR_LEN );
 
-    OutData->Index = Interface->Index;
+    OutData->Index = ID->tei_instance + 1; 
     /* viz: tcpip keeps those indices */
-    OutData->Type = Interface == 
-        Loopback ? MIB_IF_TYPE_LOOPBACK : MIB_IF_TYPE_ETHERNET;
+    OutData->Type = Interface == Loopback ? IFENT_SOFTWARE_LOOPBACK : 0;
     OutData->Mtu = Interface->MTU;
     TI_DbgPrint(MAX_TRACE, 
 		("Getting interface speed\n"));
     OutData->PhysAddrLen = Interface->AddressLength;
-    OutData->AdminStatus = MIB_IF_ADMIN_STATUS_UP;
-    /* NDIS_HARDWARE_STATUS -> ROUTER_CONNECTION_STATE */
-    Status = GetInterfaceConnectionStatus( Interface, &OutData->OperStatus );
-
-    /* Not sure what to do here, but not ready seems a safe bet on failure */
-    if( !NT_SUCCESS(Status) ) 
-        OutData->OperStatus = NdisHardwareStatusNotReady;
+    OutData->AdminStatus = 1; /* XXX Up -- How do I know? */
+    OutData->OperStatus = 1; /* XXX Up -- How do I know? */
 
     IFDescr = (PCHAR)&OutData[1];
 
@@ -104,7 +98,5 @@ TDI_STATUS InfoInterfaceTdiSetEx( UINT InfoClass,
 				  TDIEntityID *id,
 				  PCHAR Buffer,
 				  UINT BufferSize ) {
-    TI_DbgPrint(MAX_TRACE, ("Got Request: Class %x Type %x Id %x, EntityID %x:%x\n",
-                InfoClass, InfoId, id->tei_entity, id->tei_instance));
     return TDI_INVALID_REQUEST;
 }

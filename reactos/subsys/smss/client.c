@@ -99,37 +99,6 @@ SmCompleteClientInitialization (HANDLE hProcess)
  * SIDE EFFECTS
  * 	SmpClientDirectory.Lock is released only on success.
  */
-static PSM_CLIENT_DATA FASTCALL
-SmpLookupClientUnsafe (USHORT           SubsystemId,
-		       PSM_CLIENT_DATA  * Parent)
-{
-	PSM_CLIENT_DATA Client = NULL;
-
-	DPRINT("SM: %s(%d) called\n", __FUNCTION__, SubsystemId);
-	
-	if(NULL != Parent)
-	{
-		*Parent = NULL;
-	}
-	if (SmpClientDirectory.Count > 0)
-	{
-		Client = SmpClientDirectory.Client;
-		while (NULL != Client)
-		{
-			if (SubsystemId == Client->SubsystemId)
-			{
-				break;
-			}
-			if(NULL != Parent)
-			{
-				*Parent = Client;
-			}
-			Client = Client->Next;
-		}
-	}
-	return Client;
-}
-
 static PSM_CLIENT_DATA STDCALL
 SmpLookupClient (USHORT SubsystemId)
 {
@@ -138,10 +107,18 @@ SmpLookupClient (USHORT SubsystemId)
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
-	Client = SmpLookupClientUnsafe (SubsystemId, NULL);
-	if(NULL != Client)
+	if (SmpClientDirectory.Count > 0)
 	{
-		RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
+		Client = SmpClientDirectory.Client;
+		while (NULL != Client)
+		{
+			if (SubsystemId == Client->SubsystemId)
+			{
+				RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
+				return Client;
+			}
+			Client = Client->Next;
+		}
 	}
 	/*
 	 * Note that we do *not* release SmpClientDirectory.Lock here
@@ -158,7 +135,7 @@ NTSTATUS STDCALL
 SmCreateClient(PSM_PORT_MESSAGE Request, PSM_CLIENT_DATA * ClientData)
 {
 	PSM_CLIENT_DATA pClient = NULL;
-	PSM_CONNECT_DATA ConnectData = SmpGetConnectData (Request);
+	PSM_CONNECT_DATA ConnectData = (PSM_CONNECT_DATA) ((PBYTE) Request) + sizeof (LPC_REQUEST);
 	ULONG SbApiPortNameSize = SM_CONNECT_DATA_SIZE(*Request);
 
 	DPRINT("SM: %s called\n", __FUNCTION__);
@@ -166,14 +143,14 @@ SmCreateClient(PSM_PORT_MESSAGE Request, PSM_CLIENT_DATA * ClientData)
 	/*
 	 * Check if a client for the ID already exist.
 	 */
-	if (SmpLookupClient(ConnectData->SubSystemId))
+	if (SmpLookupClient(ConnectData->Subsystem))
 	{
 		DPRINT("SM: %s: attempt to register again subsystem %d.\n",
 			__FUNCTION__,
-			ConnectData->SubSystemId);
+			ConnectData->Subsystem);
 		return STATUS_UNSUCCESSFUL;
 	}
-	DPRINT("SM: %s: registering subsystem ID=%d \n", __FUNCTION__, ConnectData->SubSystemId);
+	DPRINT("SM: %s: registering subsystem %d \n", __FUNCTION__, ConnectData->Subsystem);
 	/*
 	 * Allocate the storage for client data
 	 */
@@ -188,7 +165,7 @@ SmCreateClient(PSM_PORT_MESSAGE Request, PSM_CLIENT_DATA * ClientData)
 	/*
 	 * Initialize the client data
 	 */
-	pClient->SubsystemId = ConnectData->SubSystemId;
+	pClient->SubsystemId = ConnectData->Subsystem;
 	/* SM auto-initializes; other subsystems are required to call
 	 * SM_API_COMPLETE_SESSION via SMDLL. */
 	pClient->Initialized = (IMAGE_SUBSYSTEM_NATIVE == pClient->SubsystemId);
@@ -229,96 +206,16 @@ SmCreateClient(PSM_PORT_MESSAGE Request, PSM_CLIENT_DATA * ClientData)
 
 /**********************************************************************
  * 	SmpDestroyClient/1
- *
- * 	1. close any handle
- * 	2. kill client process
- * 	3. release resources
  */
 NTSTATUS STDCALL
 SmDestroyClient (ULONG SubsystemId)
 {
-	NTSTATUS         Status = STATUS_SUCCESS;
-	PSM_CLIENT_DATA  Parent = NULL;
-	PSM_CLIENT_DATA  Client = NULL;
-
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
-	Client = SmpLookupClientUnsafe (SubsystemId, & Parent);
-	if(NULL == Client)
-	{
-		DPRINT1("SM: %s: del req for non existent subsystem (id=%d)\n",
-			__FUNCTION__, SubsystemId);
-		Status = STATUS_NOT_FOUND;
-	}
-	else
-	{
-		/* 1st in the list? */
-		if(NULL == Parent)
-		{
-			SmpClientDirectory.Client = Client->Next;
-		}
-		else
-		{
-			if(NULL != Parent)
-			{
-				Parent->Next = Client->Next;
-			} else {
-				DPRINT1("SM: %s: n-th has no parent!\n", __FUNCTION__);
-				Status = STATUS_UNSUCCESSFUL; /* FIXME */
-			}
-		}
-		/* TODO: send shutdown or kill */
-		RtlFreeHeap (SmpHeap, 0, Client);
-		-- SmpClientDirectory.Count;
-	}
-	RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
-	return Status;
-}
-
-/* === Utilities for SmQryInfo === */
-
-/**********************************************************************
- * SmGetClientBasicInformation/1
- */
-NTSTATUS FASTCALL
-SmGetClientBasicInformation (PSM_BASIC_INFORMATION i)
-{
-	INT              Index = 0;
-	PSM_CLIENT_DATA  Client = NULL;
-
-	DPRINT("SM: %s called\n", __FUNCTION__);
-
-	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
-
-	i->SubSystemCount = SmpClientDirectory.Count;
-	i->Unused = 0;
-	
-	if (SmpClientDirectory.Count > 0)
-	{
-		Client = SmpClientDirectory.Client;
-		while ((NULL != Client) && (Index < SM_QRYINFO_MAX_SS_COUNT))
-		{
-			i->SubSystem[Index].Id        = Client->SubsystemId;
-			i->SubSystem[Index].Flags     = 0; /* TODO */
-			i->SubSystem[Index].ProcessId = 0; /* TODO */
-			Client = Client->Next;
-		}
-	}
-
+	/* TODO */
 	RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
 	return STATUS_SUCCESS;
-}
-
-/**********************************************************************
- * SmGetSubSystemInformation/1
- */
-NTSTATUS FASTCALL
-SmGetSubSystemInformation (PSM_SUBSYSTEM_INFORMATION i)
-{
-	DPRINT("SM: %s called\n", __FUNCTION__);
-
-	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

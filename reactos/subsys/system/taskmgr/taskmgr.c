@@ -4,7 +4,6 @@
  * TaskMgr.c : Defines the entry point for the application.
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
- *                2005         Klemens Friedl <frik85@reactos.at>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +21,29 @@
  */
 
 #include "precomp.h"
+#include <commctrl.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <winnt.h>
+
+#include "resource.h"
+#include "applpage.h"
+#include "procpage.h"
+#include "perfpage.h"
+#include "run.h"
+#include "perfdata.h"
+#include "optnmenu.h"
+#include "affinity.h"
+#include "priority.h"
+#include "debug.h"
+#include "endproc.h"
+#include "column.h"
+#include "about.h"
+#include "trayicon.h"
+#include "dbgchnl.h"
 
 #define STATUS_WINDOW   2001
 
@@ -459,17 +481,17 @@ BOOL OnCreate(HWND hWnd)
 #endif
 
     /* Insert tabs */
-    LoadString(hInst, IDS_TAB_APPS, szTemp, 256);
+    _tcscpy(szTemp, _T("Applications"));
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
     TabCtrl_InsertItem(hTabWnd, 0, &item);
-    LoadString(hInst, IDS_TAB_PROCESSES, szTemp, 256);
+    _tcscpy(szTemp, _T("Processes"));
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
     TabCtrl_InsertItem(hTabWnd, 1, &item);
-    LoadString(hInst, IDS_TAB_PERFORMANCE, szTemp, 256);
+    _tcscpy(szTemp, _T("Performance"));
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
@@ -932,7 +954,6 @@ void TaskManager_OnTabWndSelChange(void)
     HMENU hOptionsMenu;
     HMENU hViewMenu;
     HMENU hSubMenu;
-    TCHAR       szTemp[256];
 
     hMenu = GetMenu(hMainWnd);
     hViewMenu = GetSubMenu(hMenu, 2);
@@ -951,22 +972,13 @@ void TaskManager_OnTabWndSelChange(void)
         ShowWindow(hProcessPage, SW_HIDE);
         ShowWindow(hPerformancePage, SW_HIDE);
         BringWindowToTop(hApplicationPage);
-
-	LoadString(hInst, IDS_MENU_LARGEICONS, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_LARGE, szTemp);
-
-	LoadString(hInst, IDS_MENU_SMALLICONS, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SMALL, szTemp);
-
-	LoadString(hInst, IDS_MENU_DETAILS, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_DETAILS, szTemp);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_LARGE, _T("Lar&ge Icons"));
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SMALL, _T("S&mall Icons"));
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_DETAILS, _T("&Details"));
 
         if (GetMenuItemCount(hMenu) <= 4) {
             hSubMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_WINDOWSMENU));
-
-	    LoadString(hInst, IDS_MENU_WINDOWS, szTemp, 256);
-            InsertMenu(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT)hSubMenu, szTemp);
-
+            InsertMenu(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT)hSubMenu, _T("&Windows"));
             DrawMenuBar(hMainWnd);
         }
         if (TaskManagerSettings.View_LargeIcons)
@@ -986,13 +998,8 @@ void TaskManager_OnTabWndSelChange(void)
         ShowWindow(hProcessPage, SW_SHOW);
         ShowWindow(hPerformancePage, SW_HIDE);
         BringWindowToTop(hProcessPage);
-
-        LoadString(hInst, IDS_MENU_SELECTCOLUMNS, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SELECTCOLUMNS, szTemp);
-
-        LoadString(hInst, IDS_MENU_16BITTASK, szTemp, 256);
-        AppendMenu(hOptionsMenu, MF_STRING, ID_OPTIONS_SHOW16BITTASKS, szTemp);
-
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SELECTCOLUMNS, _T("&Select Columns..."));
+        AppendMenu(hOptionsMenu, MF_STRING, ID_OPTIONS_SHOW16BITTASKS, _T("&Show 16-bit tasks"));
         if (TaskManagerSettings.Show16BitTasks)
             CheckMenuItem(hOptionsMenu, ID_OPTIONS_SHOW16BITTASKS, MF_BYCOMMAND|MF_CHECKED);
         if (GetMenuItemCount(hMenu) > 4)
@@ -1016,19 +1023,10 @@ void TaskManager_OnTabWndSelChange(void)
             DrawMenuBar(hMainWnd);
         }
         hSubMenu = CreatePopupMenu();
-
-        LoadString(hInst, IDS_MENU_ONEGRAPHALLCPUS, szTemp, 256);
-        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHALL, szTemp);
-
-        LoadString(hInst, IDS_MENU_ONEGRAPHPERCPU, szTemp, 256);
-        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, szTemp);
-
-        LoadString(hInst, IDS_MENU_CPUHISTORY, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING|MF_POPUP, (UINT)hSubMenu, szTemp);
-
-        LoadString(hInst, IDS_MENU_SHOWKERNELTIMES, szTemp, 256);
-        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SHOWKERNELTIMES, szTemp);
-
+        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHALL, _T("&One Graph, All CPUs"));
+        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, _T("One Graph &Per CPU"));
+        AppendMenu(hViewMenu, MF_STRING|MF_POPUP, (UINT)hSubMenu, _T("&CPU History"));
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SHOWKERNELTIMES, _T("&Show Kernel Times"));
         if (TaskManagerSettings.ShowKernelTimes)
             CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
         else

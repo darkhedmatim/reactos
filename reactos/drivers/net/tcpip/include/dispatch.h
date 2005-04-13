@@ -56,14 +56,6 @@ NTSTATUS DispTdiSetInformationEx(
     PIRP Irp,
     PIO_STACK_LOCATION IrpSp);
 
-NTSTATUS DispTdiSetIPAddress(
-    PIRP Irp,
-    PIO_STACK_LOCATION IrpSp);
-
-NTSTATUS DispTdiDeleteIPAddress(
-    PIRP Irp,
-    PIO_STACK_LOCATION IrpSp);
-
 #endif /* __DISPATCH_H */
 
 /* EOF */

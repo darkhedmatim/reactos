@@ -81,18 +81,22 @@ SmCreateUserProcess (LPWSTR ImagePath,
 				       NULL,
 				       NULL,
 				       pProcessInfo);
-                   
-   RtlDestroyProcessParameters (ProcessParameters);
-   
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT1("SM: %s: Running \"%S\" failed (Status=0x%08lx)\n",
-			__FUNCTION__, ImagePathString.Buffer, Status);
+		CHAR AnsiBuffer [MAX_PATH];
+		INT i = 0;
+		for(i=0;ImagePathString.Buffer[i];i++)
+		{
+			/* raw U -> A */
+			AnsiBuffer [i] = (CHAR) (ImagePathString.Buffer[i] & 0xff);
+		}
+
+		DPRINT1("SM: %s: Running \"%s\" failed (Status=0x%08lx)\n",
+			AnsiBuffer, __FUNCTION__, Status);
 		return Status;
 	}
 
-   ZwResumeThread(pProcessInfo->ThreadHandle, NULL);
-
+	RtlDestroyProcessParameters (ProcessParameters);
 
 	/* Wait for process termination */
 	if(WaitForIt)
@@ -141,7 +145,7 @@ SmLookupSubsystem (IN     PWSTR   Name,
 	OBJECT_ATTRIBUTES  Oa = {0};
 	HANDLE             hKey = (HANDLE) 0;
 
-	DPRINT("SM: %s(Name='%S') called\n", __FUNCTION__, Name);
+	DPRINT("SM: %s called\n", __FUNCTION__);
 	/*
 	 * Prepare the key name to scan and
 	 * related object attributes.
@@ -253,7 +257,7 @@ SMAPI(SmExecPgm)
 	DPRINT("SM: %s called from CID(%lx|%lx)\n",
 		__FUNCTION__, Request->Header.ClientId.UniqueProcess,
 		Request->Header.ClientId.UniqueThread);
-	ExecPgm = & Request->Request.ExecPgm;
+	ExecPgm = & Request->ExecPgm;
 	/* Check if the name lenght is valid */
 	if((ExecPgm->NameLength > 0) &&
 	   (ExecPgm->NameLength <= SM_EXEXPGM_MAX_LENGTH) &&
@@ -264,7 +268,7 @@ SMAPI(SmExecPgm)
 		RtlCopyMemory (Name,
 			       ExecPgm->Name,
 			       (sizeof ExecPgm->Name[0] * ExecPgm->NameLength));
-		DPRINT("SM: %s: Name='%S'\n", __FUNCTION__, Name);
+		DPRINT("SM: %s: Name=[%wZ]\n", __FUNCTION__, Name);
 		/*
 		 * Check if program name is internal
 		 * (Is this correct? Debug is in the registry too)
@@ -277,7 +281,7 @@ SMAPI(SmExecPgm)
 			 * independent process; now it is embedded in the
 			 * SM for performance or security.
 			 */
-			Request->SmHeader.Status = SmInitializeDbgSs();
+			Request->Status = SmInitializeDbgSs();
 		}
 		else
 		{
@@ -299,20 +303,20 @@ SMAPI(SmExecPgm)
 				wcscat (ImagePath, Data);
 			
 				/* Create native process */
-				Request->SmHeader.Status = SmCreateUserProcess(ImagePath,
+				Request->Status = SmCreateUserProcess(ImagePath,
 								      L"", /* FIXME */
 								      FALSE, /* wait */
 				      				      NULL,
 			      					      FALSE, /* terminate */
 			      					      NULL);
 			}else{
-				Request->SmHeader.Status = Status;
+				Request->Status = Status;
 			}
 		}
 	}
 	else
 	{
-		Request->SmHeader.Status = Status = STATUS_INVALID_PARAMETER;
+		Request->Status = Status = STATUS_INVALID_PARAMETER;
 	}
 	return Status;
 }

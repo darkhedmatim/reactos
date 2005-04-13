@@ -19,25 +19,18 @@
  *
  *    20-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Redirection ready!
- *
- *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
- *        Remove all hardcode string to En.rc  
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 #ifdef INCLUDE_CMD_BEEP
 
 
 INT cmd_beep (LPTSTR cmd, LPTSTR param)
 {
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
-
 	if (_tcsncmp (param, _T("/?"), 2) == 0)
 	{
-		LoadString( GetModuleHandle(NULL), STRING_ALIAS_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
+		ConOutPuts (_T("Beep the speaker.\n\nBEEP"));
 		return 0;
 	}
 

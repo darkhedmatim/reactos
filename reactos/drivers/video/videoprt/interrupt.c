@@ -85,7 +85,7 @@ IntVideoPortSetupInterrupt(
          Irql,
          Irql,
          ConfigInfo->InterruptMode,
-         DeviceExtension->InterruptShared,
+         FALSE,
          Affinity,
          FALSE);
 

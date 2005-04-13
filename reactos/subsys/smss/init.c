@@ -39,7 +39,7 @@ SmpSignalInitEvent(VOID)
   NTSTATUS          Status = STATUS_SUCCESS;
   OBJECT_ATTRIBUTES ObjectAttributes = {0};
   UNICODE_STRING    EventName ={0};
-  HANDLE            ReactOSInitEvent = (HANDLE) 0;
+  HANDLE            ReactOSInitEvent = NULL;
 
   RtlInitUnicodeString (& EventName, L"\\ReactOSInitDone");
   InitializeObjectAttributes(&ObjectAttributes,
@@ -92,13 +92,16 @@ struct {
 	{TRUE,  SmInitializeClientManagement, "initialize client management"},
 	{TRUE,  SmLoadSubsystems,             "load subsystems"},
 	{FALSE, SmpSignalInitEvent,           "open ReactOS init notification event"},
+	{TRUE,  SmRunCsrss,                   "run csrss"},
+	{TRUE,  SmRunWinlogon,                "run winlogon"},
+	{TRUE,  SmInitializeDbgSs,            "initialize DbgSs"}
 };
 
 NTSTATUS
 InitSessionManager(VOID)
 {
-  INT i = 0;
-  NTSTATUS Status = STATUS_SUCCESS;
+  int i;
+  NTSTATUS Status;
 
   for (i=0; i < (sizeof InitRoutine / sizeof InitRoutine[0]); i++)
   {
@@ -115,6 +118,8 @@ InitSessionManager(VOID)
       }
     }
   }
+
+
   return(STATUS_SUCCESS);
 }
 

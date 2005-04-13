@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004, 2005 Martin Fuchs
+ * Copyright 2003, 2004 Martin Fuchs
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -50,8 +50,6 @@ ShellBrowser::ShellBrowser(HWND hwnd, HWND left_hwnd, WindowHandle& right_hwnd, 
 
 ShellBrowser::~ShellBrowser()
 {
-	TreeView_SetImageList(_left_hwnd, 0, TVSIL_NORMAL);
-
 	if (_pShellView)
 		_pShellView->Release();
 
@@ -73,7 +71,7 @@ LRESULT ShellBrowser::Init(HWND hWndFrame)
 
 	_hWndFrame = hWndFrame;
 
-	const String& root_name = GetDesktopFolder().get_name(_create_info._root_shell_path, SHGDN_FORADDRESSBAR);
+	const String& root_name = GetDesktopFolder().get_name(_create_info._root_shell_path, SHGDN_FORPARSING);
 
 	_root._drive_type = DRIVE_UNKNOWN;
 	lstrcpy(_root._volname, root_name);
@@ -485,9 +483,6 @@ MDIShellBrowserChild::MDIShellBrowserChild(HWND hwnd, const ShellChildWndInfo& i
 	_shellpath_info(info)	//@@ copies info -> no referenz to _create_info !
 {
 /**todo Conversion of shell path into path string -> store into URL history
-	const String& path = GetDesktopFolder().get_name(info._shell_path, SHGDN_FORADDRESSBAR);
-	const String& parsingpath = GetDesktopFolder().get_name(info._shell_path, SHGDN_FORPARSING);
-
 	 // store path into history
 	if (info._path && *info._path)
 		_url_history.push(info._path);

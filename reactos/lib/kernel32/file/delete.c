@@ -28,12 +28,30 @@ DeleteFileA (
 	LPCSTR	lpFileName
 	)
 {
-	PWCHAR FileNameW;
-   
-   if (!(FileNameW = FilenameA2W(lpFileName, FALSE)))
-      return FALSE;
+	UNICODE_STRING FileNameU;
+	ANSI_STRING FileName;
+	BOOL Result;
 
-	return DeleteFileW (FileNameW);
+	RtlInitAnsiString (&FileName,
+	                   (LPSTR)lpFileName);
+
+	/* convert ansi (or oem) string to unicode */
+	if (bIsFileApiAnsi)
+		RtlAnsiStringToUnicodeString (&FileNameU,
+		                              &FileName,
+		                              TRUE);
+	else
+		RtlOemStringToUnicodeString (&FileNameU,
+		                             &FileName,
+		                             TRUE);
+
+	Result = DeleteFileW (FileNameU.Buffer);
+
+	RtlFreeHeap (RtlGetProcessHeap (),
+	             0,
+	             FileNameU.Buffer);
+
+	return Result;
 }
 
 

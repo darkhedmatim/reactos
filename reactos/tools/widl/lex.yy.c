@@ -4555,7 +4555,6 @@ static struct keyword {
 	{"propput",			tPROPPUT},
 	{"propputref",			tPROPPUTREF},
 /* ... */
-	{"ptr",				tPTR},
 	{"public",			tPUBLIC},
 /* ... */
 	{"readonly",			tREADONLY},
@@ -4580,8 +4579,8 @@ static struct keyword {
 /* ... */
 	{"transmit_as",			tTRANSMITAS},
 	{"typedef",			tTYPEDEF},
-/* ... */
 	{"union",			tUNION},
+/* ... */
 	{"unique",			tUNIQUE},
 	{"unsigned",			tUNSIGNED},
 /* ... */

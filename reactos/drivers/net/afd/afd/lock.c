@@ -11,7 +11,6 @@
 #include "tdi_proto.h"
 #include "tdiconn.h"
 #include "debug.h"
-#include "pseh.h"
 
 /* Lock a method_neither request so it'll be available from DISPATCH_LEVEL */
 PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
@@ -56,23 +55,16 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
     if( NewBuf ) {
 	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
 
-        _SEH_TRY {
-            RtlCopyMemory( NewBuf, Buf, sizeof(AFD_WSABUF) * Count );
-            if( LockAddress ) {
-                NewBuf[Count].buf = AddressBuf;
-                NewBuf[Count].len = *AddressLen;
-                Count++;
-                NewBuf[Count].buf = (PVOID)AddressLen;
-                NewBuf[Count].len = sizeof(*AddressLen);
-                Count++;
-            }
-        } _SEH_HANDLE {
-            AFD_DbgPrint(MIN_TRACE,("Access violation copying buffer info "
-                                    "from userland (%x %x)\n", 
-                                    Buf, AddressLen));
-            ExFreePool( NewBuf );
-            return NULL;
-        } _SEH_END;
+	RtlCopyMemory( NewBuf, Buf, sizeof(AFD_WSABUF) * Count );
+
+	if( LockAddress ) {
+	    NewBuf[Count].buf = AddressBuf;
+	    NewBuf[Count].len = *AddressLen;
+	    Count++;
+	    NewBuf[Count].buf = (PVOID)AddressLen;
+	    NewBuf[Count].len = sizeof(*AddressLen);
+	    Count++;
+	}
 
 	for( i = 0; i < Count; i++ ) {
 	    AFD_DbgPrint(MID_TRACE,("Locking buffer %d (%x:%d)\n",
@@ -134,7 +126,6 @@ PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount ) {
     for( i = 0; FileObjects && i < HandleCount; i++ ) {
 	HandleArray[i].Status = 0;
 	HandleArray[i].Events = HandleArray[i].Events;
-        FileObjects[i].Handle = 0;
 	Status = ObReferenceObjectByHandle
 	    ( (PVOID)HandleArray[i].Handle,
 	      FILE_ALL_ACCESS,

@@ -88,11 +88,6 @@ typedef struct _KQUEUE
    LIST_ENTRY        ThreadListHead;
 } KQUEUE, *PKQUEUE;
 
-typedef struct _KGATE
-{
-    DISPATCHER_HEADER Header;
-} KGATE, *PKGATE;
-
 struct _KDPC;
 
 typedef struct _KTIMER

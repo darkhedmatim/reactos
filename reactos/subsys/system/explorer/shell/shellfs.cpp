@@ -235,7 +235,7 @@ void ShellDirectory::read_directory(int scan_flags)
 
 	TCHAR buffer[MAX_PATH];
 
-	if ((scan_flags&SCAN_FILESYSTEM) && get_path(buffer) && _tcsncmp(buffer,TEXT("::{"),3)) {
+	if ((scan_flags&SCAN_FILESYSTEM) && get_path(buffer)) {
 		Entry* entry = NULL;	// eliminate useless GCC warning by initializing entry
 
 		LPTSTR p = buffer + _tcslen(buffer);

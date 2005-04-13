@@ -437,7 +437,7 @@ VOID STDCALL MmProbeAndLockPages (PMDL Mdl,
                }
             }
             MmUnlockAddressSpace(AddressSpace);
-            ExRaiseStatus(STATUS_ACCESS_VIOLATION);
+            ExRaiseStatus(Status);
          }
       }
       else
@@ -461,7 +461,7 @@ VOID STDCALL MmProbeAndLockPages (PMDL Mdl,
                }
             }
             MmUnlockAddressSpace(AddressSpace);
-            ExRaiseStatus(STATUS_ACCESS_VIOLATION);
+            ExRaiseStatus(Status);
          }
       }
       Page = MmGetPfnForProcess(NULL, Address);

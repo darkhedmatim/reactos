@@ -4,7 +4,6 @@
  *  trayicon.c
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
- *                2005         Klemens Friedl <frik85@reactos.at>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +21,17 @@
  */
     
 #include "precomp.h"
+#include <commctrl.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <winnt.h>
+    
+#include "trayicon.h"
+#include "perfdata.h"
+#include "shellapi.h"
 
 HICON TrayIcon_GetProcessorUsageIcon(void)
 {
@@ -176,10 +186,9 @@ BOOL TrayIcon_ShellRemoveTrayIcon(void)
 
 BOOL TrayIcon_ShellUpdateTrayIcon(void)
 {
-    NOTIFYICONDATA  nid;
-    HICON           hIcon = NULL;
+    NOTIFYICONDATA    nid;
+    HICON            hIcon = NULL;
     BOOL            bRetVal;
-    TCHAR           szTemp[256];
     
     memset(&nid, 0, sizeof(NOTIFYICONDATA));
     
@@ -191,8 +200,7 @@ BOOL TrayIcon_ShellUpdateTrayIcon(void)
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_ONTRAYICON;
     nid.hIcon = hIcon;
-    LoadString(hInst, IDS_MSG_TRAYICONCPUUSAGE, szTemp, 256);
-    wsprintf(nid.szTip, szTemp, PerfDataGetProcessorUsage());
+    wsprintf(nid.szTip, _T("CPU Usage: %d%%"), PerfDataGetProcessorUsage());
     
     bRetVal = Shell_NotifyIcon(NIM_MODIFY, &nid);
     

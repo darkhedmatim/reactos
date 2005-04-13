@@ -44,7 +44,7 @@ NtReadFile (IN HANDLE FileHandle,
 {
   NTSTATUS Status;
   PFILE_OBJECT FileObject;
-  PIRP Irp = NULL;
+  PIRP Irp;
   PIO_STACK_LOCATION StackPtr;
   KPROCESSOR_MODE PreviousMode;
   PKEVENT EventObject = NULL;
@@ -92,46 +92,24 @@ NtReadFile (IN HANDLE FileHandle,
 				       PreviousMode,
 				       (PVOID*)&EventObject,
 				       NULL);
-    if (!NT_SUCCESS(Status))
-      {
-        ObDereferenceObject(FileObject);
-	return Status;
-      }
+      if (!NT_SUCCESS(Status))
+	{
+	  ObDereferenceObject(FileObject);
+	  return Status;
+	}
 
     KeClearEvent(EventObject);
   }
 
-  _SEH_TRY
-  {
-     Irp = IoBuildSynchronousFsdRequest(IRP_MJ_READ,
-				        FileObject->DeviceObject,
-				        Buffer,
-				        Length,
-				        ByteOffset,
-					EventObject,
-				        IoStatusBlock);
-  }
-  _SEH_HANDLE
-  {
-     Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
-  if (!NT_SUCCESS(Status) || Irp == NULL)
-  {
-     if (Event)
-     {
-        ObDereferenceObject(&EventObject);
-     }
-     ObDereferenceObject(FileObject);
-     if (Irp)
-     {
-        IoFreeIrp(Irp);
-     }
-     return NT_SUCCESS(Status) ? STATUS_INSUFFICIENT_RESOURCES : Status;
-  }
-
   KeClearEvent(&FileObject->Event);
+
+  Irp = IoBuildSynchronousFsdRequest(IRP_MJ_READ,
+				     FileObject->DeviceObject,
+				     Buffer,
+				     Length,
+				     ByteOffset,
+				     EventObject,
+				     IoStatusBlock);
 
   /* Trigger FileObject/Event dereferencing */
   Irp->Tail.Overlay.OriginalFileObject = FileObject;
@@ -194,7 +172,7 @@ NtWriteFile (IN HANDLE FileHandle,
   OBJECT_HANDLE_INFORMATION HandleInformation;
   NTSTATUS Status;
   PFILE_OBJECT FileObject;
-  PIRP Irp = NULL;
+  PIRP Irp;
   PIO_STACK_LOCATION StackPtr;
   KPROCESSOR_MODE PreviousMode;
   PKEVENT EventObject = NULL;
@@ -275,37 +253,15 @@ NtWriteFile (IN HANDLE FileHandle,
     KeClearEvent(EventObject);
   }
 
-  _SEH_TRY
-  {
-     Irp = IoBuildSynchronousFsdRequest(IRP_MJ_WRITE,
-				        FileObject->DeviceObject,
-				        Buffer,
-				        Length,
-				        ByteOffset,
-					EventObject,
-				        IoStatusBlock);
-  }
-  _SEH_HANDLE
-  {
-     Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
-  if (!NT_SUCCESS(Status) || Irp == NULL)
-  {
-     if (Event)
-     {
-        ObDereferenceObject(&EventObject);
-     }
-     ObDereferenceObject(FileObject);
-     if (Irp)
-     {
-        IoFreeIrp(Irp);
-     }
-     return NT_SUCCESS(Status) ? STATUS_INSUFFICIENT_RESOURCES : Status;
-  }
-
   KeClearEvent(&FileObject->Event);
+
+  Irp = IoBuildSynchronousFsdRequest(IRP_MJ_WRITE,
+				     FileObject->DeviceObject,
+				     Buffer,
+				     Length,
+				     ByteOffset,
+				     EventObject,
+				     IoStatusBlock);
 
   /* Trigger FileObject/Event dereferencing */
   Irp->Tail.Overlay.OriginalFileObject = FileObject;

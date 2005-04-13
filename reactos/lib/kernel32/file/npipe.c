@@ -330,15 +330,20 @@ ConnectNamedPipe(HANDLE hNamedPipe,
 			   0,
 			   NULL,
 			   0);
+  if ((lpOverlapped != NULL) && (Status == STATUS_PENDING))
+    return TRUE;
+
   if ((lpOverlapped == NULL) && (Status == STATUS_PENDING))
     {
       Status = NtWaitForSingleObject(hNamedPipe,
 				     FALSE,
 				     NULL);
-      if (NT_SUCCESS(Status))
+      if (!NT_SUCCESS(Status))
 	{
-	  Status = Iosb.Status;
+	  SetLastErrorByStatus(Status);
+	  return FALSE;
 	}
+      Status = Iosb.Status;
     }
 
   if ((!NT_SUCCESS(Status) && Status != STATUS_PIPE_CONNECTED) ||

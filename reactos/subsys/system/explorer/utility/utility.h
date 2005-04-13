@@ -59,8 +59,6 @@
 #define _MAX_PATH	260
 #endif
 
-#define	W_VER_NT 0	// constant for HIWORD(GetVersion())>>14
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -317,22 +315,16 @@ protected:
 struct Thread
 {
 	Thread()
-	 :	_alive(false),
-		_destroy(false)
+	 :	_alive(false)
 	{
 		_hThread = INVALID_HANDLE_VALUE;
-		_evtFinish = CreateEvent(NULL, TRUE, FALSE, NULL);
 	}
 
 	virtual ~Thread()
 	{
 		Stop();
 
-		CloseHandle(_evtFinish);
 		CloseHandle(_hThread);
-
-		if (_destroy)
-			delete this;
 	}
 
 	void Start()
@@ -345,8 +337,6 @@ struct Thread
 
 	void Stop()
 	{
-		SetEvent(_evtFinish);
-
 		if (_alive) {
 			{
 			Lock lock(_crit_sect);
@@ -368,9 +358,7 @@ protected:
 	static DWORD WINAPI ThreadProc(void* para);
 
 	HANDLE	_hThread;
-	HANDLE	_evtFinish;
 	bool	_alive;
-	bool	_destroy;
 };
 
 

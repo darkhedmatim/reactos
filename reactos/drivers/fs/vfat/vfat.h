@@ -241,8 +241,7 @@ typedef struct DEVICE_EXTENSION
 
   KSPIN_LOCK FcbListLock;
   LIST_ENTRY FcbListHead;
-  ULONG HashTableSize;
-  struct _HASHENTRY** FcbHashTable;
+  struct _HASHENTRY* FcbHashTable[FCB_HASH_TABLE_SIZE];
 
   PDEVICE_OBJECT StorageDevice;
   PFILE_OBJECT FATFileObject;

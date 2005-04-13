@@ -9,29 +9,16 @@ IntGdiCreateBrushXlate(PDC Dc, GDIBRUSHOBJ *BrushObj, BOOLEAN *Failed);
 VOID FASTCALL
 IntGdiInitBrushInstance(GDIBRUSHINST *BrushInst, PGDIBRUSHOBJ BrushObj, XLATEOBJ *XlateObj);
 
+HBRUSH FASTCALL
+IntGdiCreateBrushIndirect(PLOGBRUSH lb);
 
-HBRUSH STDCALL
-IntGdiCreateDIBBrush(
-   CONST BITMAPINFO *BitmapInfo,
-   UINT ColorSpec,
-   UINT BitmapInfoSize,
-   CONST VOID *PackedDIB);
+HBRUSH FASTCALL
+IntGdiCreateDIBPatternBrush(HGLOBAL hDIBPacked,
+                            UINT    ColorSpec);
 
-HBRUSH STDCALL
-IntGdiCreateHatchBrush(
-   INT Style,
-   COLORREF Color);
-
-HBRUSH STDCALL
-IntGdiCreatePatternBrush(
-   HBITMAP hBitmap);
-
-HBRUSH STDCALL
-IntGdiCreateSolidBrush(
-   COLORREF Color);
-
-HBRUSH STDCALL
-IntGdiCreateNullBrush(VOID);
+HBRUSH FASTCALL
+IntGdiCreateDIBPatternBrushPt(CONST VOID *PackedDIB,
+                              UINT       Usage);
 
 BOOL FASTCALL
 IntPatBlt(

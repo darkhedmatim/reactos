@@ -1401,17 +1401,17 @@ struct _SYSTEM_DEVICE_INFORMATION
 // SystemProcessorPerformanceInformation (8)
 // (one per processor in the system)
 typedef
-struct _SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION
+struct _SYSTEM_PROCESSORTIME_INFO
 {
-	LARGE_INTEGER	IdleTime;
-	LARGE_INTEGER	KernelTime;
-	LARGE_INTEGER	UserTime;
-	LARGE_INTEGER	DpcTime;
-	LARGE_INTEGER	InterruptTime;
-	ULONG	InterruptCount;
-	ULONG	Reserved;
+	TIME	TotalProcessorRunTime;
+	TIME	TotalProcessorTime;
+	TIME	TotalProcessorUserTime;
+	TIME	TotalDPCTime;
+	TIME	TotalInterruptTime;
+	ULONG	TotalInterrupts;
+	ULONG	Unused;
 
-} SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION, *PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION;
+} SYSTEM_PROCESSORTIME_INFO, *PSYSTEM_PROCESSORTIME_INFO;
 
 // SystemFlagsInformation (9)
 typedef

@@ -43,8 +43,11 @@ VfatCloseFile (PDEVICE_EXTENSION DeviceExt, PFILE_OBJECT FileObject)
      pFcb->RefCount--;
      FileObject->FsContext2 = NULL;
   }
-  else
+  else if (FileObject->FileName.Buffer)
   {
+    // This a FO, that was created outside from FSD.
+    // Some FO's are created with IoCreateStreamFileObject() insid from FSD.
+    // This FO's haven't a FileName.
     if (FileObject->DeletePending)
     {
       if (pFcb->Flags & FCB_DELETE_PENDING)

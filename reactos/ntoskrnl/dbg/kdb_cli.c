@@ -1678,12 +1678,11 @@ KdbpPrint(
 {
    STATIC CHAR Buffer[4096];
    STATIC BOOLEAN TerminalInitialized = FALSE;
-   STATIC BOOLEAN TerminalConnected = FALSE;
    STATIC BOOLEAN TerminalReportsSize = TRUE;
    CHAR c = '\0';
-   PCHAR p, p2;
+   PCHAR p;
    INT Length;
-   INT i, j;
+   INT i;
    INT RowsPrintedByTerminal;
    ULONG ScanCode;
    va_list ap;
@@ -1696,25 +1695,7 @@ KdbpPrint(
    if (!TerminalInitialized)
    {
       DbgPrint("\x1b[7h");      /* Enable linewrap */
-      
-      /* Query terminal type */
-      /*DbgPrint("\x1b[Z");*/
-      DbgPrint("\x05");
-      
       TerminalInitialized = TRUE;
-      Length = 0;
-      for (;;)
-      {
-         c = KdbpTryGetCharSerial(5000);
-         if (c == -1)
-            break;
-         Buffer[Length++] = c;
-         if (Length >= (sizeof (Buffer) - 1))
-            break;
-      }
-      Buffer[Length] = '\0';
-      if (Length > 0)
-         TerminalConnected = TRUE;
    }
 
    /* Get number of rows and columns in terminal */
@@ -1725,17 +1706,17 @@ KdbpPrint(
       {
          /* Try to query number of rows from terminal. A reply looks like "\x1b[8;24;80t" */
          TerminalReportsSize = FALSE;
-         DbgPrint("\x1b[18t");
-         c = KdbpTryGetCharSerial(5000);
+         //DbgPrint("\x1b[18t");
+         c = KdbpTryGetCharSerial(10);
          if (c == KEY_ESC)
          {
-            c = KdbpTryGetCharSerial(5000);
+            c = KdbpTryGetCharSerial(5);
             if (c == '[')
             {
                Length = 0;
                for (;;)
                {
-                  c = KdbpTryGetCharSerial(5000);
+                  c = KdbpTryGetCharSerial(5);
                   if (c == -1)
                      break;
                   Buffer[Length++] = c;
@@ -1833,20 +1814,6 @@ KdbpPrint(
       else
       {
          c = '\0';
-      }
-      
-      /* Remove escape sequences from the line if there's no terminal connected */
-      if (!TerminalConnected)
-      {
-         while ((p2 = strrchr(p, '\x1b')) != NULL) /* Look for escape character */
-         {
-            if (p2[1] == '[')
-            {
-               j = 2;
-               while (!isalpha(p2[j++]));
-               strcpy(p2, p2 + j);
-            }
-         }
       }
 
       DbgPrint("%s", p);
@@ -1953,12 +1920,12 @@ KdbpReadCommand(
    OUT PCHAR Buffer,
    IN  ULONG Size)
 {
-   CHAR Key;
+   CHAR Key, NextKey;
    PCHAR Orig = Buffer;
    ULONG ScanCode = 0;
    BOOLEAN EchoOn;
    STATIC CHAR LastCommand[1024] = "";
-   STATIC CHAR NextKey = '\0';
+   STATIC CHAR LastKey = '\0';
    INT CmdHistIndex = -1;
    INT i;
 
@@ -1968,8 +1935,7 @@ KdbpReadCommand(
    {
       if (KdDebugState & KD_DEBUG_KDSERIAL)
       {
-         Key = (NextKey == '\0') ? KdbpGetCharSerial() : NextKey;
-         NextKey = '\0';
+         Key = KdbpGetCharSerial();
          ScanCode = 0;
          if (Key == KEY_ESC) /* ESC */
          {
@@ -1995,9 +1961,7 @@ KdbpReadCommand(
       }
       else
       {
-         ScanCode = 0;
-         Key = (NextKey == '\0') ? KdbpGetCharKeyboard(&ScanCode) : NextKey;
-         NextKey = '\0';
+         Key = KdbpGetCharKeyboard(&ScanCode);
       }
 
       if ((Buffer - Orig) >= (Size - 1))
@@ -2016,8 +1980,6 @@ KdbpReadCommand(
             NextKey = KdbpTryGetCharSerial(5);
          else
             NextKey = KdbpTryGetCharKeyboard(&ScanCode, 5);
-         if (NextKey == '\n' || NextKey == -1) /* \n or no response at all */
-            NextKey = '\0';
          DbgPrint("\n");
 	 /*
 	  * Repeat the last command if the user presses enter. Reduces the
@@ -2034,6 +1996,7 @@ KdbpReadCommand(
             strncpy(LastCommand, Orig, sizeof (LastCommand));
             LastCommand[sizeof (LastCommand) - 1] = '\0';
          }
+         LastKey = Key;
          return;
       }
       else if (Key == KEY_BS || Key == KEY_DEL)
@@ -2116,6 +2079,7 @@ KdbpReadCommand(
          *Buffer = Key;
          Buffer++;
       }
+      LastKey = Key;
    }
 }
 
@@ -2199,18 +2163,6 @@ KdbpCliMainLoop(
       DbgPrint("\n");
    }
 
-   /* Flush the input buffer */
-   if (KdDebugState & KD_DEBUG_KDSERIAL)
-   {
-      while (KdbpTryGetCharSerial(1) != -1);
-   }
-   else
-   {
-      ULONG ScanCode;
-      while (KdbpTryGetCharKeyboard(&ScanCode, 1) != -1);
-   }
-
-   /* Main loop */
    do
    {
       /* Print the prompt */

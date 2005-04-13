@@ -147,12 +147,11 @@ RPC_STATUS RPCRT4_OpenConnection(RpcConnection* Connection)
                                          RPC_MAX_PACKET_SIZE, RPC_MAX_PACKET_SIZE, 5000, NULL);
         HeapFree(GetProcessHeap(), 0, pname);
         memset(&Connection->ovl, 0, sizeof(Connection->ovl));
-        Connection->ovl[0].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-	Connection->ovl[1].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-        if (!ConnectNamedPipe(Connection->conn, &Connection->ovl[0])) {
+        Connection->ovl.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+        if (!ConnectNamedPipe(Connection->conn, &Connection->ovl)) {
           WARN("Couldn't ConnectNamedPipe (error was %ld)\n", GetLastError());
           if (GetLastError() == ERROR_PIPE_CONNECTED) {
-            SetEvent(Connection->ovl[0].hEvent);
+            SetEvent(Connection->ovl.hEvent);
             return RPC_S_OK;
           } else if (GetLastError() == ERROR_IO_PENDING) {
             return RPC_S_OK;
@@ -172,11 +171,10 @@ RPC_STATUS RPCRT4_OpenConnection(RpcConnection* Connection)
                                          RPC_MAX_PACKET_SIZE, RPC_MAX_PACKET_SIZE, 5000, NULL);
         HeapFree(GetProcessHeap(), 0, pname);
         memset(&Connection->ovl, 0, sizeof(Connection->ovl));
-        Connection->ovl[0].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-        Connection->ovl[1].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-        if (!ConnectNamedPipe(Connection->conn, &Connection->ovl[0])) {
+        Connection->ovl.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+        if (!ConnectNamedPipe(Connection->conn, &Connection->ovl)) {
           if (GetLastError() == ERROR_PIPE_CONNECTED) {
-            SetEvent(Connection->ovl[0].hEvent);
+            SetEvent(Connection->ovl.hEvent);
             return RPC_S_OK;
           } else if (GetLastError() == ERROR_IO_PENDING) {
             return RPC_S_OK;
@@ -227,8 +225,7 @@ RPC_STATUS RPCRT4_OpenConnection(RpcConnection* Connection)
         /* pipe is connected; change to message-read mode. */
         dwMode = PIPE_READMODE_MESSAGE; 
         SetNamedPipeHandleState(conn, &dwMode, NULL, NULL);
-        Connection->ovl[0].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-        Connection->ovl[1].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+        Connection->ovl.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
         Connection->conn = conn;
       }
       /* protseq=ncacn_np: named pipes */
@@ -262,8 +259,7 @@ RPC_STATUS RPCRT4_OpenConnection(RpcConnection* Connection)
         /* pipe is connected; change to message-read mode. */
         dwMode = PIPE_READMODE_MESSAGE;
         SetNamedPipeHandleState(conn, &dwMode, NULL, NULL);
-        Connection->ovl[0].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-        Connection->ovl[1].hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+        Connection->ovl.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
         Connection->conn = conn;
       } else {
         ERR("protseq %s not supported\n", Connection->Protseq);
@@ -282,13 +278,9 @@ RPC_STATUS RPCRT4_CloseConnection(RpcConnection* Connection)
     CloseHandle(Connection->conn);
     Connection->conn = 0;
   }
-  if (Connection->ovl[0].hEvent) {
-    CloseHandle(Connection->ovl[0].hEvent);
-    Connection->ovl[0].hEvent = 0;
-  }
-  if (Connection->ovl[1].hEvent) {
-    CloseHandle(Connection->ovl[1].hEvent);
-    Connection->ovl[1].hEvent = 0;
+  if (Connection->ovl.hEvent) {
+    CloseHandle(Connection->ovl.hEvent);
+    Connection->ovl.hEvent = 0;
   }
   return RPC_S_OK;
 }
@@ -302,8 +294,7 @@ RPC_STATUS RPCRT4_SpawnConnection(RpcConnection** Connection, RpcConnection* Old
     /* because of the way named pipes work, we'll transfer the connected pipe
      * to the child, then reopen the server binding to continue listening */
     NewConnection->conn = OldConnection->conn;
-    NewConnection->ovl[0] = OldConnection->ovl[0];
-    NewConnection->ovl[1] = OldConnection->ovl[1];
+    NewConnection->ovl = OldConnection->ovl;
     OldConnection->conn = 0;
     memset(&OldConnection->ovl, 0, sizeof(OldConnection->ovl));
     *Connection = NewConnection;

@@ -24,13 +24,9 @@
  *
  *    20-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode and redirection safe!
- *
- *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
- *        Remove all hardcode string to En.rc  
  */
 
 #include "precomp.h"
-#include "resource.h"
 
 
 /*
@@ -45,16 +41,16 @@
 INT cmd_call (LPTSTR cmd, LPTSTR param)
 {
 	LPBATCH_CONTEXT n = NULL;
-	WCHAR szMsg[RC_STRING_MAX_SIZE];
 
 #ifdef _DEBUG
 	DebugPrintf (_T("cmd_call: (\'%s\',\'%s\')\n"), cmd, param);
 #endif
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
-		LoadString( GetModuleHandle(NULL), STRING_CALL_HELP, (LPTSTR) szMsg,sizeof(szMsg));
-        ConOutPuts (_T((LPTSTR)szMsg));
-
+		ConOutPuts (_T("Calls one batch program from another.\n\n"
+					   "CALL [drive:][path]filename [batch-parameter]\n\n"
+					   "  batch-parameter  Specifies any command-line information required by the\n"
+					   "                   batch program."));
 		return 0;
 	}
 

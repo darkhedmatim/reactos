@@ -349,10 +349,7 @@ IoGetDeviceObjectPointer(
       FILE_NON_DIRECTORY_FILE);
 
    if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("NtOpenFile failed, Status: 0x%x\n", Status);
       return Status;
-   }
 
    Status = ObReferenceObjectByHandle(
       FileHandle,
