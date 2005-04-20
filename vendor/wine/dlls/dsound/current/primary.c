@@ -130,8 +130,11 @@ static HRESULT DSOUND_PrimaryOpen(IDirectSoundImpl *This)
 			return err;
 		}
 
-		if (dsound->state == STATE_PLAYING) dsound->state = STATE_STARTING;
-		else if (dsound->state == STATE_STOPPING) dsound->state = STATE_STOPPED;
+		if (This->state == STATE_PLAYING) This->state = STATE_STARTING;
+		else if (This->state == STATE_STOPPING) This->state = STATE_STOPPED;
+		This->playpos = 0;
+		This->mixpos = 0;
+		FillMemory(This->buffer, This->buflen, (This->pwfx->wBitsPerSample == 8) ? 128 : 0);
 	}
 
 	return err;
@@ -492,7 +495,7 @@ static HRESULT WINAPI PrimaryBufferImpl_GetVolume(
 		return DSERR_INVALIDPARAM;
 	}
 
-	waveOutGetVolume(dsound->hwo, &ampfactors);
+	waveOutGetVolume(This->dsound->hwo, &ampfactors);
 	volpan.dwTotalLeftAmpFactor=ampfactors & 0xffff;
 	volpan.dwTotalRightAmpFactor=ampfactors >> 16;
 	DSOUND_AmpFactorToVolPan(&volpan);
@@ -813,7 +816,7 @@ static HRESULT WINAPI PrimaryBufferImpl_GetPan(
 		return DSERR_INVALIDPARAM;
 	}
 
-	waveOutGetVolume(dsound->hwo, &ampfactors);
+	waveOutGetVolume(This->dsound->hwo, &ampfactors);
 	volpan.dwTotalLeftAmpFactor=ampfactors & 0xffff;
 	volpan.dwTotalRightAmpFactor=ampfactors >> 16;
 	DSOUND_AmpFactorToVolPan(&volpan);

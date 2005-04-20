@@ -172,7 +172,7 @@ typedef void (CALLBACK *PFNSHGETSETTINGSPROC)(LPSHELLFLAGSTATE lpsfs, DWORD dwMa
  */
 IShellView * IShellView_Constructor( IShellFolder * pFolder)
 {	IShellViewImpl * sv;
-	sv=(IShellViewImpl*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IShellViewImpl));
+	sv=HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IShellViewImpl));
 	sv->ref=1;
 	sv->lpVtbl=&svvt;
 	sv->lpvtblOleCommandTarget=&ctvt;
@@ -217,7 +217,7 @@ static HRESULT OnDefaultCommand(IShellViewImpl * This)
 	{
 	  TRACE("ICommDlgBrowser::OnDefaultCommand\n");
 	  ret = ICommDlgBrowser_OnDefaultCommand(This->pCommDlgBrowser, (IShellView*)This);
-	  TRACE("--\n");
+	  TRACE("-- returns %08lx\n", ret);
 	}
 	return ret;
 }
@@ -962,7 +962,7 @@ static void ShellView_DoContextMenu(IShellViewImpl * This, WORD x, WORD y, BOOL 
 		  if (uCommand==FCIDM_SHVIEW_OPEN && IsInCommDlg(This))
 		  {
 		    TRACE("-- dlg: OnDefaultCommand\n");
-		    if (FAILED(OnDefaultCommand(This)))
+		    if (OnDefaultCommand(This) != S_OK)
 		    {
 		      ShellView_OpenSelectedItems(This);
 		    }
@@ -988,7 +988,7 @@ static void ShellView_DoContextMenu(IShellViewImpl * This, WORD x, WORD y, BOOL 
 	{
 	  hMenu = CreatePopupMenu();
 
-	  pCM = ISvBgCm_Constructor(This->pSFParent);
+	  pCM = ISvBgCm_Constructor(This->pSFParent, FALSE);
 	  IContextMenu2_QueryContextMenu(pCM, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, 0);
 
 	  uCommand = TrackPopupMenu( hMenu, TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
@@ -1977,7 +1977,7 @@ static HRESULT WINAPI IShellView_fnGetItemObject(IShellView * iface, UINT uItem,
 	switch(uItem)
 	{
 	  case SVGIO_BACKGROUND:
-	    *ppvOut = ISvBgCm_Constructor(This->pSFParent);
+	    *ppvOut = ISvBgCm_Constructor(This->pSFParent, FALSE);
 	    break;
 
 	  case SVGIO_SELECTION:

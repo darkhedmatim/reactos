@@ -186,7 +186,7 @@ DirectSoundCaptureEnumerateA(
     if (devs > 0) {
 	if (GetDeviceID(&DSDEVID_DefaultCapture, &guid) == DS_OK) {
     	    for (wid = 0; wid < devs; ++wid) {
-                if (IsEqualGUID( &guid, &capture_guids[wid] ) ) {
+                if (IsEqualGUID( &guid, &DSOUND_capture_guids[wid] ) ) {
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
@@ -203,8 +203,8 @@ DirectSoundCaptureEnumerateA(
 	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
-            if (lpDSEnumCallback(&capture_guids[wid], desc.szDesc, desc.szDrvname, lpContext) == FALSE)
+                  debugstr_guid(&DSOUND_capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
+            if (lpDSEnumCallback(&DSOUND_capture_guids[wid], desc.szDesc, desc.szDrvname, lpContext) == FALSE)
                 return DS_OK;
 	}
     }
@@ -248,7 +248,7 @@ DirectSoundCaptureEnumerateW(
     if (devs > 0) {
 	if (GetDeviceID(&DSDEVID_DefaultCapture, &guid) == DS_OK) {
     	    for (wid = 0; wid < devs; ++wid) {
-                if (IsEqualGUID( &guid, &capture_guids[wid] ) ) {
+                if (IsEqualGUID( &guid, &DSOUND_capture_guids[wid] ) ) {
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
@@ -269,12 +269,12 @@ DirectSoundCaptureEnumerateW(
 	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
-                  debugstr_guid(&capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
+                  debugstr_guid(&DSOUND_capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
             MultiByteToWideChar( CP_ACP, 0, desc.szDesc, -1,
                                  wDesc, sizeof(wDesc)/sizeof(WCHAR) );
             MultiByteToWideChar( CP_ACP, 0, desc.szDrvname, -1,
                                  wName, sizeof(wName)/sizeof(WCHAR) );
-            if (lpDSEnumCallback((LPGUID)&capture_guids[wid], wDesc, wName, lpContext) == FALSE)
+            if (lpDSEnumCallback((LPGUID)&DSOUND_capture_guids[wid], wDesc, wName, lpContext) == FALSE)
                 return DS_OK;
 	}
     }
@@ -306,7 +306,6 @@ DSOUND_capture_callback(
                 This->read_position = pHdr->dwBytesRecorded;
 		This->state = STATE_CAPTURING;
 	    }
-	    waveInUnprepareHeader(hwi,&(This->pwave[This->index]),sizeof(WAVEHDR));
 	    if (This->capture_buffer->nrofnotifies)
 		SetEvent(This->capture_buffer->notifies[This->index].hEventNotify);
 	    This->index = (This->index + 1) % This->nrofpwaves;
@@ -315,7 +314,6 @@ DSOUND_capture_callback(
 		This->state = STATE_STOPPED;
 	    } else {
 		if (This->state == STATE_CAPTURING) {
-		    waveInPrepareHeader(hwi,&(This->pwave[index]),sizeof(WAVEHDR));
 		    waveInAddBuffer(hwi, &(This->pwave[index]), sizeof(WAVEHDR));
 	        } else if (This->state == STATE_STOPPING) {
 		    TRACE("stopping\n");
@@ -509,7 +507,7 @@ IDirectSoundCaptureImpl_Initialize(
 
     /* enumerate WINMM audio devices and find the one we want */
     for (wid=0; wid<widn; wid++) {
-    	if (IsEqualGUID( lpcGUID, &capture_guids[wid]) ) {
+    	if (IsEqualGUID( lpcGUID, &DSOUND_capture_guids[wid]) ) {
 	    err = DS_OK;
 	    break;
 	}
@@ -569,8 +567,8 @@ IDirectSoundCaptureImpl_Initialize(
 
             if (err == DS_OK) {
                 This->drvcaps.dwFlags = 0;
-                strncpy(This->drvdesc.szDrvname, wic.szPname,
-                    sizeof(This->drvdesc.szDrvname));
+                lstrcpynA(This->drvdesc.szDrvname, wic.szPname,
+                          sizeof(This->drvdesc.szDrvname));
 
                 This->drvcaps.dwFlags |= DSCCAPS_EMULDRIVER;
                 This->drvcaps.dwFormats = wic.dwFormats;

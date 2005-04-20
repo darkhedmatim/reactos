@@ -46,6 +46,7 @@ typedef struct
 	IContextMenu2Vtbl *lpVtbl;
 	IShellFolder*	pSFParent;
 	DWORD		ref;
+	BOOL		bDesktop;
 } BgCmImpl;
 
 
@@ -54,14 +55,15 @@ static struct IContextMenu2Vtbl cmvt;
 /**************************************************************************
 *   ISVBgCm_Constructor()
 */
-IContextMenu2 *ISvBgCm_Constructor(IShellFolder*	pSFParent)
+IContextMenu2 *ISvBgCm_Constructor(IShellFolder* pSFParent, BOOL bDesktop)
 {
 	BgCmImpl* cm;
 
-	cm = (BgCmImpl*)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(BgCmImpl));
+	cm = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(BgCmImpl));
 	cm->lpVtbl = &cmvt;
 	cm->ref = 1;
 	cm->pSFParent = pSFParent;
+	cm->bDesktop = bDesktop;
 	if(pSFParent) IShellFolder_AddRef(pSFParent);
 
 	TRACE("(%p)->()\n",cm);
@@ -362,18 +364,28 @@ static HRESULT WINAPI ISVBgCm_fnInvokeCommand(
 	      case FCIDM_SHVIEW_NEWFOLDER:
 	        DoNewFolder(iface, lpSV);
 		break;
+
 	      case FCIDM_SHVIEW_INSERT:
 	        DoPaste(iface);
 	        break;
+
+	      case FCIDM_SHVIEW_PROPERTIES:
+		if (This->bDesktop) {
+		    ShellExecuteA(lpcmi->hwnd, "open", "rundll32.exe shell32.dll,Control_RunDLL desk.cpl", NULL, NULL, SW_SHOWNORMAL);
+		} else {
+		    FIXME("launch item properties dialog\n");
+		}
+		break;
+
 	      default:
-	        /* if it's a id just pass it to the parent shv */
-	        SendMessageA(hWndSV, WM_COMMAND, MAKEWPARAM(LOWORD(lpcmi->lpVerb), 0),0 );
+	        /* if it's an id just pass it to the parent shv */
+	        if (hWndSV) SendMessageA(hWndSV, WM_COMMAND, MAKEWPARAM(LOWORD(lpcmi->lpVerb), 0),0 );
 		break;
 	    }
 	  }
 
         if (lpSV)
-	  IShellView_Release(lpSV);	/* QueryActiveShellView does AddRef*/
+	  IShellView_Release(lpSV);	/* QueryActiveShellView does AddRef */
 
 	return NOERROR;
 }
