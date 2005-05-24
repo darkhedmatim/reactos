@@ -264,6 +264,9 @@ static HRESULT WINAPI IExtractIconW_fnGetIconLocation(
                 *piIndex = -IDI_SHELL_FOLDER;
             else if(IsEqualGUID(riid, &CLSID_NetworkPlaces))
                 *piIndex = -IDI_SHELL_MY_NETWORK_PLACES;
+            else if(IsEqualGUID(riid, &CLSID_UnixFolder) ||
+                    IsEqualGUID(riid, &CLSID_UnixDosFolder))
+                *piIndex = -IDI_SHELL_DRIVE;
             else
                 *piIndex = -IDI_SHELL_FOLDER;
 	  }
@@ -383,7 +386,7 @@ static HRESULT WINAPI IExtractIconW_fnExtract(IExtractIconW * iface, LPCWSTR psz
 	FIXME("(%p) (file=%p index=%d %p %p size=%08x) semi-stub\n", This, debugstr_w(pszFile), (signed)nIconIndex,
               phiconLarge, phiconSmall, nIconSize);
 
-        index = SIC_GetIconIndex(pszFile, nIconIndex);
+        index = SIC_GetIconIndex(pszFile, nIconIndex, 0);
 
 	if (phiconLarge)
 	  *phiconLarge = ImageList_GetIcon(ShellBigIconList, index, ILD_TRANSPARENT);
