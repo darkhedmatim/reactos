@@ -250,8 +250,8 @@
 @ stdcall SetupCommitFileQueue(long long ptr ptr) SetupCommitFileQueueW
 @ stdcall SetupCommitFileQueueA(long long ptr ptr)
 @ stdcall SetupCommitFileQueueW(long long ptr ptr)
-@ stub SetupCopyErrorA
-@ stub SetupCopyErrorW
+@ stdcall SetupCopyErrorA(long str str str str str long long str long ptr)
+@ stdcall SetupCopyErrorW(long wstr wstr wstr wstr wstr long long wstr long ptr)
 @ stdcall SetupCopyOEMInfA(str str long long ptr long ptr ptr)
 @ stdcall SetupCopyOEMInfW(wstr wstr long long ptr long ptr ptr)
 @ stdcall SetupCreateDiskSpaceListA(ptr long long)
@@ -261,8 +261,8 @@
 @ stub SetupDefaultQueueCallback
 @ stdcall SetupDefaultQueueCallbackA(ptr long long long)
 @ stdcall SetupDefaultQueueCallbackW(ptr long long long)
-@ stub SetupDeleteErrorA
-@ stub SetupDeleteErrorW
+@ stdcall SetupDeleteErrorA(long str str long long)
+@ stdcall SetupDeleteErrorW(long wstr wstr long long)
 @ stdcall SetupDestroyDiskSpaceList(long)
 @ stub SetupDiAskForOEMDisk
 @ stdcall SetupDiBuildClassInfoList(long ptr long ptr)
@@ -325,15 +325,15 @@
 @ stub SetupDiGetDeviceInstallParamsW
 @ stub SetupDiGetDeviceInstanceIdA
 @ stub SetupDiGetDeviceInstanceIdW
+@ stub SetupDiGetDeviceInterfaceAlias
+@ stdcall SetupDiGetDeviceInterfaceDetailA(long ptr ptr long ptr ptr)
+@ stdcall SetupDiGetDeviceInterfaceDetailW(long ptr ptr long ptr ptr)
 @ stdcall SetupDiGetDeviceRegistryPropertyA(long ptr long ptr ptr long ptr)
 @ stub SetupDiGetDeviceRegistryPropertyW
 @ stub SetupDiGetDriverInfoDetailA
 @ stub SetupDiGetDriverInfoDetailW
 @ stub SetupDiGetDriverInstallParamsA
 @ stub SetupDiGetDriverInstallParamsW
-@ stub SetupDiGetDeviceInterfaceAlias
-@ stdcall SetupDiGetDeviceInterfaceDetailA(long ptr ptr long ptr ptr)
-@ stdcall SetupDiGetDeviceInterfaceDetailW(long ptr ptr long ptr ptr)
 @ stub SetupDiGetHwProfileFriendlyNameA
 @ stub SetupDiGetHwProfileFriendlyNameExA
 @ stub SetupDiGetHwProfileFriendlyNameExW
@@ -383,6 +383,8 @@
 @ stub SetupDiUnremoveDevice
 @ stub SetupDuplicateDiskSpaceListA
 @ stub SetupDuplicateDiskSpaceListW
+@ stub SetupFileQueueAlternatePlatformA
+@ stub SetupFileQueueAlternatePlatformW
 @ stdcall SetupFindFirstLineA(long str str ptr)
 @ stdcall SetupFindFirstLineW(long wstr wstr ptr)
 @ stdcall SetupFindNextLine(ptr ptr)
@@ -493,8 +495,8 @@
 @ stub SetupRemoveInstallSectionFromDiskSpaceListW
 @ stub SetupRemoveSectionFromDiskSpaceListA
 @ stub SetupRemoveSectionFromDiskSpaceListW
-@ stub SetupRenameErrorA
-@ stub SetupRenameErrorW
+@ stdcall SetupRenameErrorA(long str str str long long)
+@ stdcall SetupRenameErrorW(long wstr wstr wstr long long)
 @ stub SetupScanFileQueue
 @ stdcall SetupScanFileQueueA(long long long ptr ptr ptr)
 @ stdcall SetupScanFileQueueW(long long long ptr ptr ptr)
@@ -502,8 +504,6 @@
 @ stub SetupSetDirectoryIdExA
 @ stub SetupSetDirectoryIdExW
 @ stdcall SetupSetDirectoryIdW(long long wstr)
-@ stub SetupFileQueueAlternatePlatformA
-@ stub SetupFileQueueAlternatePlatformW
 @ stdcall SetupSetFileQueueFlags(long long long)
 @ stub SetupSetPlatformPathOverrideA
 @ stub SetupSetPlatformPathOverrideW

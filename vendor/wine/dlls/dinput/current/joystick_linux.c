@@ -84,11 +84,11 @@ typedef struct {
 } POV;
 
 typedef struct JoystickImpl JoystickImpl;
-static IDirectInputDevice8AVtbl JoystickAvt;
-static IDirectInputDevice8WVtbl JoystickWvt;
+static const IDirectInputDevice8AVtbl JoystickAvt;
+static const IDirectInputDevice8WVtbl JoystickWvt;
 struct JoystickImpl
 {
-        LPVOID                          lpVtbl;
+        const void                     *lpVtbl;
         DWORD                           ref;
         GUID                            guid;
 	char				dev[32];
@@ -269,28 +269,27 @@ inline static DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 static HRESULT setup_dinput_options(JoystickImpl * device)
 {
-    char buffer[MAX_PATH+1];
+    char buffer[MAX_PATH+16];
     HKEY hkey, appkey = 0;
     DWORD len;
 
     buffer[MAX_PATH]='\0';
 
-    if (RegOpenKeyA( HKEY_LOCAL_MACHINE, "Software\\Wine\\dinput", &hkey)) hkey = 0;
+    /* @@ Wine registry key: HKCU\Software\Wine\DirectInput */
+    if (RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\DirectInput", &hkey)) hkey = 0;
 
     len = GetModuleFileNameA( 0, buffer, MAX_PATH );
     if (len && len < MAX_PATH) {
         HKEY tmpkey;
-
-        if (!RegOpenKeyA( HKEY_LOCAL_MACHINE, "Software\\Wine\\AppDefaults", &tmpkey )) {
-           char appname[MAX_PATH+16];
-           char *p = strrchr( buffer, '\\' );
-           if (p!=NULL) {
-                   strcpy(appname,p+1);
-                   strcat(appname,"\\dinput");
-                   TRACE("appname = [%s] \n",appname);
-                   if (RegOpenKeyA( tmpkey, appname, &appkey )) appkey = 0;
-           }
-           RegCloseKey( tmpkey );
+        /* @@ Wine registry key: HKCU\Software\Wine\AppDefaults\app.exe\DirectInput */
+        if (!RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\AppDefaults", &tmpkey ))
+        {
+            char *p, *appname = buffer;
+            if ((p = strrchr( appname, '/' ))) appname = p + 1;
+            if ((p = strrchr( appname, '\\' ))) appname = p + 1;
+            strcat( appname, "\\DirectInput" );
+            if (RegOpenKeyA( tmpkey, appname, &appkey )) appkey = 0;
+            RegCloseKey( tmpkey );
         }
     }
 
@@ -437,7 +436,7 @@ void calculate_ids(JoystickImpl* device)
     }
 }
 
-static HRESULT alloc_device(REFGUID rguid, LPVOID jvt, IDirectInputImpl *dinput, LPDIRECTINPUTDEVICEA* pdev)
+static HRESULT alloc_device(REFGUID rguid, const void *jvt, IDirectInputImpl *dinput, LPDIRECTINPUTDEVICEA* pdev)
 {
     DWORD i;
     JoystickImpl* newDevice;
@@ -1640,7 +1639,7 @@ HRESULT WINAPI JoystickWImpl_GetDeviceInfo(
     return DI_OK;
 }
 
-static IDirectInputDevice8AVtbl JoystickAvt =
+static const IDirectInputDevice8AVtbl JoystickAvt =
 {
 	IDirectInputDevice2AImpl_QueryInterface,
 	IDirectInputDevice2AImpl_AddRef,
@@ -1682,7 +1681,7 @@ static IDirectInputDevice8AVtbl JoystickAvt =
 # define XCAST(fun)	(void*)
 #endif
 
-static IDirectInputDevice8WVtbl SysJoystickWvt =
+static const IDirectInputDevice8WVtbl SysJoystickWvt =
 {
 	IDirectInputDevice2WImpl_QueryInterface,
 	XCAST(AddRef)IDirectInputDevice2AImpl_AddRef,

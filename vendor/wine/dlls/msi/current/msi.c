@@ -462,6 +462,7 @@ UINT WINAPI MsiGetProductInfoA(LPCSTR szProduct, LPCSTR szAttribute,
 {
     LPWSTR szwProduct = NULL, szwAttribute = NULL, szwBuffer = NULL;
     UINT r = ERROR_OUTOFMEMORY;
+    DWORD pcchwValueBuf = 0;
 
     TRACE("%s %s %p %p\n", debugstr_a(szProduct), debugstr_a(szAttribute),
           szBuffer, pcchValueBuf);
@@ -483,14 +484,17 @@ UINT WINAPI MsiGetProductInfoA(LPCSTR szProduct, LPCSTR szAttribute,
     if( szBuffer )
     {
         szwBuffer = HeapAlloc( GetProcessHeap(), 0, (*pcchValueBuf) * sizeof(WCHAR) );
+        pcchwValueBuf = *pcchValueBuf;
         if( !szwBuffer )     
             goto end;
     }
 
-    r = MsiGetProductInfoW( szwProduct, szwAttribute, szwBuffer, pcchValueBuf );
+    r = MsiGetProductInfoW( szwProduct, szwAttribute, szwBuffer, 
+                            &pcchwValueBuf );
 
     if( ERROR_SUCCESS == r )
-        WideCharToMultiByte(CP_ACP, 0, szwBuffer, -1, szBuffer, *pcchValueBuf, NULL, NULL);
+        *pcchValueBuf = WideCharToMultiByte(CP_ACP, 0, szwBuffer, pcchwValueBuf,
+                        szBuffer, *pcchValueBuf, NULL, NULL);
 
 end:
     HeapFree( GetProcessHeap(), 0, szwProduct );
@@ -513,6 +517,10 @@ UINT WINAPI MsiGetProductInfoW(LPCWSTR szProduct, LPCWSTR szAttribute,
         {'P','r','o','d','u','c','t','V','e','r','s','i','o','n',0};
     static const WCHAR szAssignmentType[] =
         {'A','s','s','i','g','n','m','e','n','t','T','y','p','e',0};
+    static const WCHAR szLanguage[] =
+        {'L','a','n','g','u','a','g','e',0};
+    static const WCHAR szProductLanguage[] =
+        {'P','r','o','d','u','c','t','L','a','n','g','u','a','g','e',0};
 
     FIXME("%s %s %p %p\n",debugstr_w(szProduct), debugstr_w(szAttribute),
           szBuffer, pcchValueBuf);
@@ -566,10 +574,24 @@ UINT WINAPI MsiGetProductInfoW(LPCWSTR szProduct, LPCWSTR szAttribute,
     }
     else if (strcmpW(szAttribute, szAssignmentType)==0)
     {
-        FIXME("0 (zero) if advertised, 1(one) if per machine.\n");
+        FIXME("0 (zero) if advertised or per user , 1(one) if per machine.\n");
         if (szBuffer)
-            szBuffer[0] = 1;
+        {
+            szBuffer[0] = '1';
+            szBuffer[1] = 0;
+        }
+        if (pcchValueBuf)
+            *pcchValueBuf = 1;
         r = ERROR_SUCCESS;
+    }
+    else if (strcmpW(szAttribute, szLanguage)==0)
+    {
+        r = MsiOpenProductW(szProduct, &hProduct);
+        if (ERROR_SUCCESS != r)
+            return r;
+
+        r = MsiGetPropertyW(hProduct, szProductLanguage, szBuffer, pcchValueBuf);
+        MsiCloseHandle(hProduct);
     }
     else
     {
@@ -817,7 +839,7 @@ INSTALLSTATE WINAPI MsiLocateComponentA(LPCSTR szComponent, LPSTR lpPathBuf,
     return INSTALLSTATE_UNKNOWN;
 }
 
-INSTALLSTATE WINAPI MsiLocateComponentW(LPCWSTR szComponent, LPSTR lpPathBuf,
+INSTALLSTATE WINAPI MsiLocateComponentW(LPCWSTR szComponent, LPWSTR lpPathBuf,
                 DWORD *pcchBuf)
 {
     FIXME("%s %p %08lx\n", debugstr_w(szComponent), lpPathBuf, *pcchBuf);
@@ -965,11 +987,16 @@ INSTALLSTATE WINAPI MsiGetComponentPathA(LPCSTR szProduct, LPCSTR szComponent,
     }
 
     if( pcchBuf && *pcchBuf > 0 )
+    {
         lpwPathBuf = HeapAlloc( GetProcessHeap(), 0, *pcchBuf * sizeof(WCHAR));
+        incoming_len = *pcchBuf;
+    }
     else
+    {
         lpwPathBuf = NULL;
+        incoming_len = 0;
+    }
 
-    incoming_len = *pcchBuf;
     rc = MsiGetComponentPathW(szwProduct, szwComponent, lpwPathBuf, pcchBuf);
 
     HeapFree( GetProcessHeap(), 0, szwProduct);
@@ -1264,7 +1291,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 typedef struct tagIClassFactoryImpl
 {
-    IClassFactoryVtbl *lpVtbl;
+    const IClassFactoryVtbl *lpVtbl;
 } IClassFactoryImpl;
 
 static HRESULT WINAPI MsiCF_QueryInterface(LPCLASSFACTORY iface,
@@ -1302,7 +1329,7 @@ static HRESULT WINAPI MsiCF_LockServer(LPCLASSFACTORY iface, BOOL dolock)
     return S_OK;
 }
 
-static IClassFactoryVtbl MsiCF_Vtbl =
+static const IClassFactoryVtbl MsiCF_Vtbl =
 {
     MsiCF_QueryInterface,
     MsiCF_AddRef,

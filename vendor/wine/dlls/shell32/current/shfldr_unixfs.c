@@ -23,7 +23,9 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <dirent.h>
-#include <unistd.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
 #endif
@@ -42,6 +44,7 @@
 #include "winuser.h"
 #include "objbase.h"
 #include "winreg.h"
+#include "shlwapi.h"
 #include "winternl.h"
 #include "wine/debug.h"
 
@@ -69,10 +72,16 @@ const GUID CLSID_UnixDosFolder = {0x9d20aae8, 0x0625, 0x44b0, {0x9c, 0xa7, 0x71,
     (sizeof(USHORT)+sizeof(PIDLTYPE)+sizeof(FileStruct)+(n)+sizeof(char)+sizeof(StatStruct))
 #define NAME_LEN_FROM_LPSHITEMID(s) \
     (((LPSHITEMID)s)->cb-sizeof(USHORT)-sizeof(PIDLTYPE)-sizeof(FileStruct)-sizeof(char)-sizeof(StatStruct))
-#define LPSTATSTRUCT_FROM_LPSHITEMID(s) ((StatStruct*)(((LPBYTE)s)+((LPSHITEMID)s)->cb-sizeof(StatStruct)))
+#define LPSTATSTRUCT_FROM_LPSHITEMID(s) \
+    (((s) && (((LPSHITEMID)s)->cb > SHITEMID_LEN_FROM_NAME_LEN(0))) ? \
+     ((StatStruct*)(((LPBYTE)s)+((LPSHITEMID)s)->cb-sizeof(StatStruct))) : \
+     (NULL))
 
 #define PATHMODE_UNIX 0
 #define PATHMODE_DOS  1
+
+/* ShellFolder attributes of the root folder ('/') */
+static DWORD dwRootAttr = 0;
 
 /* This structure is appended to shell32's FileStruct type in IDLs to store unix
  * filesystem specific informationen extracted with the stat system call.
@@ -81,6 +90,7 @@ typedef struct tagStatStruct {
     mode_t st_mode;
     uid_t  st_uid;
     gid_t  st_gid;
+    SFGAOF sfAttr;
 } StatStruct;
 
 /* UnixFolder object layout and typedef.
@@ -110,94 +120,75 @@ typedef struct _UnixFolder {
  *  FALSE, otherwise
  */
 static inline BOOL UNIXFS_is_pidl_of_type(LPITEMIDLIST pIDL, SHCONTF fFilter) {
-    LPSTR pszText = _ILGetTextPointer(pIDL);
-    if (!pszText) return FALSE;
-    if (pszText[0] == '.' && !(fFilter & SHCONTF_INCLUDEHIDDEN)) return FALSE;
+    LPPIDLDATA pIDLData = _ILGetDataPointer(pIDL);
+    if (!(fFilter & SHCONTF_INCLUDEHIDDEN) && pIDLData && 
+        (pIDLData->u.file.uFileAttribs & FILE_ATTRIBUTE_HIDDEN)) 
+    {
+        return FALSE;
+    }
     if (_ILIsFolder(pIDL) && (fFilter & SHCONTF_FOLDERS)) return TRUE;
     if (_ILIsValue(pIDL) && (fFilter & SHCONTF_NONFOLDERS)) return TRUE;
     return FALSE;
 }
 
 /******************************************************************************
- * UNIXFS_build_shitemid [Internal]
+ * UNIXFS_is_dos_device [Internal]
  *
- * Constructs a new SHITEMID for a single path item (up to the next '/' or 
- * '\0') into a buffer. Decorates the SHITEMID with information from a stat 
- * system call.
+ * Determines if a unix directory corresponds to any dos device.
  *
  * PARAMS
- *  name   [I] The name of the next path item. Terminated by either '\0' or '/'.
- *  pStat  [I] A stat struct variable obtained by a stat system call on the file.
- *  buffer [O] SHITEMID will be constructed here.
+ *  statPath [I] The stat struct of the directory, as returned by stat(2).
  *
  * RETURNS
- *  A pointer to the next '/' or '\0' character in name.
- *  
- * NOTES
- *  Minimum size of buffer is SHITEMID_LEN_FROM_NAME_LEN(strlen(name)).
- *  If what you need is a PIDLLIST with a single SHITEMID, don't forget to append
- *  a 0 USHORT value.
+ *  TRUE, if statPath corresponds to any dos drive letter
+ *  FALSE, otherwise
  */
-static char* UNIXFS_build_shitemid(char *name, struct stat *pStat, void *buffer) {
-    LARGE_INTEGER time;
-    FILETIME fileTime;
-    LPPIDLDATA pIDLData;
-    StatStruct *pStatStruct;
-    int cNameLen;
-    char *pSlash;
+static BOOL UNIXFS_is_dos_device(const struct stat *statPath) {
+    struct stat statDrive;
+    char *pszDrivePath;
+    DWORD dwDriveMap;
+    WCHAR wszDosDevice[4] = { 'A', ':', '\\', 0 };
 
-    TRACE("(name=%s, pStat=%p, buffer=%p)\n", debugstr_a(name), pStat, buffer);
-
-    pSlash = strchr(name, '/');
-    cNameLen = pSlash ? pSlash - name : strlen(name); 
-    
-    memset(buffer, 0, SHITEMID_LEN_FROM_NAME_LEN(cNameLen));
-    ((LPSHITEMID)buffer)->cb = SHITEMID_LEN_FROM_NAME_LEN(cNameLen) ;
-    
-    pIDLData = _ILGetDataPointer((LPCITEMIDLIST)buffer);
-    pIDLData->type = S_ISDIR(pStat->st_mode) ? PT_FOLDER : PT_VALUE;
-    pIDLData->u.file.dwFileSize = (DWORD)pStat->st_size;
-    RtlSecondsSince1970ToTime( pStat->st_mtime, &time );
-    fileTime.dwLowDateTime = time.u.LowPart;
-    fileTime.dwHighDateTime = time.u.HighPart;
-    FileTimeToDosDateTime(&fileTime, &pIDLData->u.file.uFileDate, &pIDLData->u.file.uFileTime);
-    pIDLData->u.file.uFileAttribs = 
-        (S_ISDIR(pStat->st_mode) ? FILE_ATTRIBUTE_DIRECTORY : 0) |
-        (name[0] == '.' ? FILE_ATTRIBUTE_HIDDEN : 0);
-    memcpy(pIDLData->u.file.szNames, name, cNameLen);
-
-    pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(buffer);
-    pStatStruct->st_mode = pStat->st_mode;
-    pStatStruct->st_uid = pStat->st_uid;
-    pStatStruct->st_gid = pStat->st_gid;
-
-    return pSlash ? pSlash+1 : (name + cNameLen);
+    for (dwDriveMap = GetLogicalDrives(); dwDriveMap; dwDriveMap >>= 1, wszDosDevice[0]++) {
+        if (!(dwDriveMap & 0x1)) continue;
+        pszDrivePath = wine_get_unix_file_name(wszDosDevice);
+        if (pszDrivePath && !stat(pszDrivePath, &statDrive)) {
+            HeapFree(GetProcessHeap(), 0, pszDrivePath);
+            if ((statPath->st_dev == statDrive.st_dev) && (statPath->st_ino == statDrive.st_ino))
+                return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 /******************************************************************************
- * UNIXFS_canonicalize_path [Internal]
+ * UNIXFS_get_unix_path [Internal]
  *
- * Evaluate "/.", "/.." and symbolic links for an absolute unix path.
+ * Convert an absolute dos path to an absolute canonicalized unix path.
+ * Evaluate "/.", "/.." and symbolic links.
  *
  * PARAMS
- *  pszUnixPath      [I] An absolute unix path
+ *  pszDosPath       [I] An absolute dos path
  *  pszCanonicalPath [O] Buffer of length FILENAME_MAX. Will receive the canonical path.
  *
  * RETURNS
  *  Success, TRUE
  *  Failure, FALSE - Path not existent, too long, insufficient rights, to many symlinks
  */
-static BOOL UNIXFS_canonicalize_path(const char *pszUnixPath, char *pszCanonicalPath)
+static BOOL UNIXFS_get_unix_path(LPCWSTR pszDosPath, char *pszCanonicalPath)
 {
-    char *pPathTail, *pElement, *pCanonicalTail, szPath[FILENAME_MAX];
+    char *pPathTail, *pElement, *pCanonicalTail, szPath[FILENAME_MAX], *pszUnixPath;
     struct stat fileStat;
     
-    TRACE("(pszUnixPath=%s, pszCanonicalPath=%p)\n", debugstr_a(pszUnixPath), pszCanonicalPath);
+    TRACE("(pszDosPath=%s, pszCanonicalPath=%p)\n", debugstr_w(pszDosPath), pszCanonicalPath);
     
-    if (!pszUnixPath || *pszUnixPath != '/')
+    if (!pszDosPath || pszDosPath[1] != ':')
         return FALSE;
 
+    pszUnixPath = wine_get_unix_file_name(pszDosPath);
+    if (!pszUnixPath) return FALSE;   
     strcpy(szPath, pszUnixPath);
+    HeapFree(GetProcessHeap(), 0, pszUnixPath);
    
     /* pCanonicalTail always points to the end of the canonical path constructed
      * thus far. pPathTail points to the still to be processed part of the input
@@ -294,6 +285,70 @@ static BOOL UNIXFS_canonicalize_path(const char *pszUnixPath, char *pszCanonical
 }
 
 /******************************************************************************
+ * UNIXFS_build_shitemid [Internal]
+ *
+ * Constructs a new SHITEMID for the last component of path 'pszUnixPath' into 
+ * buffer 'pIDL'. Decorates the SHITEMID with information from a stat system call.
+ *
+ * PARAMS
+ *  pszUnixPath [I] An absolute path. The SHITEMID will be build for the last component.
+ *  bParentIsFS [I] Set, if the parent of the last path component is within the wine filesystem.
+ *  pIDL        [O] SHITEMID will be constructed here.
+ *
+ * RETURNS
+ *  Success: A pointer to the terminating '\0' character of path.
+ *  Failure: NULL
+ *
+ * NOTES
+ *  Minimum size of pIDL is SHITEMID_LEN_FROM_NAME_LEN(strlen(last_component_of_path)).
+ *  If what you need is a PIDLLIST with a single SHITEMID, don't forget to append
+ *  a 0 USHORT value.
+ */
+static char* UNIXFS_build_shitemid(char *pszUnixPath, BOOL bParentIsFS, void *pIDL) {
+    LARGE_INTEGER time;
+    FILETIME fileTime;
+    LPPIDLDATA pIDLData;
+    struct stat fileStat;
+    StatStruct *pStatStruct;
+    char *pszComponent;
+    int cComponentLen;
+
+    TRACE("(pszUnixPath=%s, pIDL=%p)\n", debugstr_a(pszUnixPath), pIDL);
+
+    /* Compute the SHITEMID's length and wipe it. */
+    pszComponent = strrchr(pszUnixPath, '/') + 1;
+    cComponentLen = strlen(pszComponent);
+    memset(pIDL, 0, SHITEMID_LEN_FROM_NAME_LEN(cComponentLen));
+    ((LPSHITEMID)pIDL)->cb = SHITEMID_LEN_FROM_NAME_LEN(cComponentLen) ;
+   
+    /* We are only interested in regular files and directories. */
+    if (stat(pszUnixPath, &fileStat)) return NULL;
+    if (!S_ISDIR(fileStat.st_mode) && !S_ISREG(fileStat.st_mode)) return NULL;
+    
+    pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(pIDL);
+    pStatStruct->st_mode = fileStat.st_mode;
+    pStatStruct->st_uid = fileStat.st_uid;
+    pStatStruct->st_gid = fileStat.st_gid;
+    pStatStruct->sfAttr = S_ISDIR(fileStat.st_mode) ? (SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR) : 0;
+    if (bParentIsFS || UNIXFS_is_dos_device(&fileStat)) pStatStruct->sfAttr |= SFGAO_FILESYSTEM;
+
+    /* Set shell32's standard SHITEMID data fields. */
+    pIDLData = _ILGetDataPointer((LPCITEMIDLIST)pIDL);
+    pIDLData->type = S_ISDIR(fileStat.st_mode) ? PT_FOLDER : PT_VALUE;
+    pIDLData->u.file.dwFileSize = (DWORD)fileStat.st_size;
+    RtlSecondsSince1970ToTime( fileStat.st_mtime, &time );
+    fileTime.dwLowDateTime = time.u.LowPart;
+    fileTime.dwHighDateTime = time.u.HighPart;
+    FileTimeToDosDateTime(&fileTime, &pIDLData->u.file.uFileDate, &pIDLData->u.file.uFileTime);
+    pIDLData->u.file.uFileAttribs = 0;
+    if (S_ISDIR(fileStat.st_mode)) pIDLData->u.file.uFileAttribs |= FILE_ATTRIBUTE_DIRECTORY;
+    if (pszComponent[0] == '.') pIDLData->u.file.uFileAttribs |=  FILE_ATTRIBUTE_HIDDEN;
+    memcpy(pIDLData->u.file.szNames, pszComponent, cComponentLen);
+
+    return pszComponent + cComponentLen;
+}
+
+/******************************************************************************
  * UNIXFS_path_to_pidl [Internal]
  *
  * PARAMS
@@ -310,17 +365,15 @@ static BOOL UNIXFS_canonicalize_path(const char *pszUnixPath, char *pszCanonical
  */
 static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPITEMIDLIST *ppidl) {
     LPITEMIDLIST pidl;
-    struct stat fileStat;
-    int cSubDirs, cPidlLen, res, cPathLen;
+    int cSubDirs, cPidlLen, cPathLen;
     char *pSlash, szCompletePath[FILENAME_MAX], *pNextPathElement;
+    BOOL bParentIsFS = dwRootAttr & SFGAO_FILESYSTEM;
 
     TRACE("pUnixFolder=%p, path=%s, ppidl=%p\n", pUnixFolder, debugstr_w(path), ppidl);
    
     if (!ppidl || !path)
         return FALSE;
 
-    cPathLen = lstrlenW(path);
-    
     /* Build an absolute path and let pNextPathElement point to the interesting 
      * relative sub-path. We need the absolute path to call 'stat', but the pidl
      * will only contain the relative part.
@@ -328,19 +381,15 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
     if ((pUnixFolder->m_dwPathMode == PATHMODE_DOS) && (path[1] == ':')) 
     {
         /* Absolute dos path. Convert to unix */
-        char *pszUnixPath = wine_get_unix_file_name(path);
-        if (!UNIXFS_canonicalize_path(pszUnixPath, szCompletePath)) {
-            HeapFree(GetProcessHeap(), 0, pszUnixPath);
+        if (!UNIXFS_get_unix_path(path, szCompletePath))
             return FALSE;
-        }
-        HeapFree(GetProcessHeap(), 0, pszUnixPath);
-        pNextPathElement = szCompletePath + 1;
+        pNextPathElement = szCompletePath;
     } 
     else if ((pUnixFolder->m_dwPathMode == PATHMODE_UNIX) && (path[0] == '/')) 
     {
         /* Absolute unix path. Just convert to ANSI. */
         WideCharToMultiByte(CP_ACP, 0, path, -1, szCompletePath, FILENAME_MAX, NULL, NULL); 
-        pNextPathElement = szCompletePath + 1;
+        pNextPathElement = szCompletePath;
     } 
     else 
     {
@@ -349,7 +398,7 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
         memcpy(szCompletePath, pUnixFolder->m_pszPath, cBasePathLen);
         WideCharToMultiByte(CP_ACP, 0, path, -1, szCompletePath + cBasePathLen, 
                             FILENAME_MAX - cBasePathLen, NULL, NULL);
-        pNextPathElement = szCompletePath + cBasePathLen;
+        pNextPathElement = szCompletePath + cBasePathLen - 1;
         
         /* If in dos mode, replace '\' with '/' */
         if (pUnixFolder->m_dwPathMode == PATHMODE_DOS) {
@@ -361,48 +410,54 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
         }
     }
 
-    /* At this point, we have an absolute unix path in szCompletePath. */
-    TRACE("complete path: %s\n", szCompletePath);
+    /* Remove trailing slash, if present */
+    cPathLen = strlen(szCompletePath);
+    if (szCompletePath[cPathLen-1] == '/') 
+        szCompletePath[cPathLen-1] = '\0';
+
+    if ((szCompletePath[0] != '/') || (pNextPathElement[0] != '/')) {
+        ERR("szCompletePath: %s, pNextPathElment: %s\n", szCompletePath, pNextPathElement);
+        return FALSE;
+    }
+    
+    /* At this point, we have an absolute unix path in szCompletePath 
+     * and the relative portion of it in pNextPathElement. Both starting with '/'
+     * and _not_ terminated by a '/'. */
+    TRACE("complete path: %s, relative path: %s\n", szCompletePath, pNextPathElement);
     
     /* Count the number of sub-directories in the path */
-    cSubDirs = 1; /* Path may not be terminated with '/', thus start with 1 */
-    pSlash = strchr(pNextPathElement, '/');
-    while (pSlash && pSlash[1]) {
+    cSubDirs = 0;
+    pSlash = pNextPathElement;
+    while (pSlash) {
         cSubDirs++;
         pSlash = strchr(pSlash+1, '/');
     }
   
     /* Allocate enough memory to hold the path. The -cSubDirs is for the '/' 
      * characters, which are not stored in the ITEMIDLIST. */
-    cPidlLen = strlen(pNextPathElement) - cSubDirs + 1 + cSubDirs * SHITEMID_LEN_FROM_NAME_LEN(0) + sizeof(USHORT);
+    cPidlLen = strlen(pNextPathElement) - cSubDirs + cSubDirs * SHITEMID_LEN_FROM_NAME_LEN(0) + sizeof(USHORT);
     *ppidl = pidl = (LPITEMIDLIST)SHAlloc(cPidlLen);
     if (!pidl) return FALSE;
 
     /* Concatenate the SHITEMIDs of the sub-directories. */
     while (*pNextPathElement) {
-        pSlash = strchr(pNextPathElement, '/');
-        if (pSlash) {
-            *pSlash = '\0';
-            res = stat(szCompletePath, &fileStat);
-            *pSlash = '/';
-            if (res) {
-                SHFree(pidl);
-                return FALSE;
-            }
-        } else {
-            if (stat(szCompletePath, &fileStat)) {
-                SHFree(pidl);
-                return FALSE;
-            }
+        pSlash = strchr(pNextPathElement+1, '/');
+        if (pSlash) *pSlash = '\0';
+        pNextPathElement = UNIXFS_build_shitemid(szCompletePath, bParentIsFS, pidl);
+        if (pSlash) *pSlash = '/';
+            
+        if (!pNextPathElement) {
+            SHFree(pidl);
+            return FALSE;
         }
-                
-        pNextPathElement = UNIXFS_build_shitemid(pNextPathElement, &fileStat, pidl);
+        if (!bParentIsFS && (LPSTATSTRUCT_FROM_LPSHITEMID(pidl)->sfAttr & SFGAO_FILESYSTEM)) 
+            bParentIsFS = TRUE;
         pidl = ILGetNext(pidl);
     }
     pidl->mkid.cb = 0; /* Terminate the ITEMIDLIST */
 
-    if ((int)pidl-(int)*ppidl+sizeof(USHORT) > cPidlLen) /* We've corrupted the heap :( */ 
-        ERR("Computed length of pidl to small. Please report.\n");
+    if ((int)pidl-(int)*ppidl+sizeof(USHORT) != cPidlLen) /* We've corrupted the heap :( */ 
+        ERR("Computed length of pidl incorrect. Please report.\n");
     
     return TRUE;
 }
@@ -423,29 +478,45 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
 static BOOL UNIXFS_pidl_to_path(LPCITEMIDLIST pidl, UnixFolder *pUnixFolder) {
     LPCITEMIDLIST current = pidl, root;
     DWORD dwPathLen;
-    char *pNextDir;
+    char *pNextDir, szBasePath[FILENAME_MAX] = "/";
 
     TRACE("(pidl=%p, pUnixFolder=%p)\n", pidl, pUnixFolder);
+    pdump(pidl);
     
     pUnixFolder->m_pszPath = NULL;
 
     /* Find the UnixFolderClass root */
     while (current->mkid.cb) {
-        LPPIDLDATA pData = _ILGetDataPointer(current);
-        if (!pData) return FALSE;
-        if (pData->type == PT_GUID && 
-            (IsEqualIID(&CLSID_UnixFolder, &pData->u.guid.guid) ||
-             IsEqualIID(&CLSID_UnixDosFolder, &pData->u.guid.guid)))
+        if (_ILIsDrive(current) || /* The dos drive, which maps to '/' */
+            (_ILIsSpecialFolder(current) && 
+             (IsEqualIID(&CLSID_UnixFolder, _ILGetGUIDPointer(current)) ||
+              IsEqualIID(&CLSID_UnixDosFolder, _ILGetGUIDPointer(current)))))
         {
             break;
         }
         current = ILGetNext(current);
     }
-    root = current = ILGetNext(current);
+
+    if (current && current->mkid.cb) {
+        root = current = ILGetNext(current);
+        dwPathLen = 2; /* For the '/' prefix and the terminating '\0' */
+    } else if (_ILIsDesktop(pidl) || _ILIsValue(pidl) || _ILIsFolder(pidl)) {
+        /* Path rooted at Desktop */
+        WCHAR wszDesktopPath[MAX_PATH];
+        if (FAILED(SHGetSpecialFolderPathW(0, wszDesktopPath, CSIDL_DESKTOP, FALSE)))
+           return FALSE;
+        if (!UNIXFS_get_unix_path(wszDesktopPath, szBasePath))
+            return FALSE;
+        dwPathLen = strlen(szBasePath) + 1;
+        root = current;
+    } else {
+        ERR("Unknown pidl type!\n");
+        pdump(pidl);
+        return FALSE;
+    }
     
     /* Determine the path's length bytes */
-    dwPathLen = 2; /* For the '/' prefix and the terminating '\0' */
-    while (current->mkid.cb) {
+    while (current && current->mkid.cb) {
         dwPathLen += NAME_LEN_FROM_LPSHITEMID(current) + 1; /* For the '/' */
         current = ILGetNext(current);
     };
@@ -457,8 +528,9 @@ static BOOL UNIXFS_pidl_to_path(LPCITEMIDLIST pidl, UnixFolder *pUnixFolder) {
         return FALSE;
     }
     current = root;
-    *pNextDir++ = '/';
-    while (current->mkid.cb) {
+    strcpy(pNextDir, szBasePath);
+    pNextDir += strlen(szBasePath);
+    while (current && current->mkid.cb) {
         memcpy(pNextDir, _ILGetTextPointer(current), NAME_LEN_FROM_LPSHITEMID(current));
         pNextDir += NAME_LEN_FROM_LPSHITEMID(current);
         *pNextDir++ = '/';
@@ -496,11 +568,18 @@ static BOOL UNIXFS_build_subfolder_pidls(UnixFolder *pUnixFolder)
     DWORD cDirEntries, i;
     USHORT sLen;
     char *pszFQPath;
-
+    BOOL bParentIsFS = dwRootAttr & SFGAO_FILESYSTEM;
+    
     TRACE("(pUnixFolder=%p)\n", pUnixFolder);
     
     pUnixFolder->m_apidlSubDirs = NULL;
     pUnixFolder->m_cSubDirs = 0;
+
+    if (pUnixFolder->m_pidlLocation) {
+        StatStruct *statStruct = 
+            LPSTATSTRUCT_FROM_LPSHITEMID(ILFindLastID(pUnixFolder->m_pidlLocation));
+        if (statStruct) bParentIsFS = statStruct->sfAttr & SFGAO_FILESYSTEM;
+    }
   
     dir = opendir(pUnixFolder->m_pszPath);
     if (!dir) {
@@ -543,8 +622,6 @@ static BOOL UNIXFS_build_subfolder_pidls(UnixFolder *pUnixFolder)
         if (!strcmp(pDirEntry->d_name, ".") || !strcmp(pDirEntry->d_name, "..")) continue;
 
         sprintf(pszFQPath, "%s%s", pUnixFolder->m_pszPath, pDirEntry->d_name);
-        if (stat(pszFQPath, &fileStat)) continue;
-        if (!S_ISDIR(fileStat.st_mode) && !S_ISREG(fileStat.st_mode)) continue;
    
         sLen = strlen(pDirEntry->d_name);
         pid = (LPSHITEMID)SHAlloc(SHITEMID_LEN_FROM_NAME_LEN(sLen)+sizeof(USHORT));
@@ -552,7 +629,10 @@ static BOOL UNIXFS_build_subfolder_pidls(UnixFolder *pUnixFolder)
             WARN("SHAlloc failed!\n");
             return FALSE;
         }
-        UNIXFS_build_shitemid(pDirEntry->d_name, &fileStat, pid);
+        if (!UNIXFS_build_shitemid(pszFQPath, bParentIsFS, pid)) {
+            SHFree(pid);
+            continue;
+        }
         memset(((PBYTE)pid)+pid->cb, 0, sizeof(USHORT));
 
         pUnixFolder->m_apidlSubDirs[i++] = (LPITEMIDLIST)pid;
@@ -564,96 +644,6 @@ static BOOL UNIXFS_build_subfolder_pidls(UnixFolder *pUnixFolder)
 
     return TRUE;
 }
-
-/******************************************************************************
- * UnixFolderIcon 
- *
- * Singleton class, which is used by the shell to extract icons to represent
- * folders in tree- and listviews. Currently, all this singleton does is to
- * provide the shell with the absolute path to "shell32.dll" and with the 
- * indices of the closed and opened folder icons in the resources of this dll.
- */
-
-/* UnixFolderIcon object layout and typedef.
- */
-typedef struct _UnixFolderIcon {
-    const IExtractIconWVtbl *lpIExtractIconWVtbl;
-    BOOL bFolder;
-} UnixFolderIcon;
-
-static HRESULT WINAPI UnixFolderIcon_IExtractIconW_QueryInterface(IExtractIconW *iface, REFIID riid, 
-    void **ppv) 
-{
-    TRACE("(iface=%p, riid=%p, ppv=%p)\n", iface, riid, ppv);
-    
-    if (!ppv) return E_INVALIDARG;
-    
-    if (IsEqualIID(&IID_IUnknown, riid) ||
-        IsEqualIID(&IID_IExtractIconW, riid))
-    {
-        *ppv = iface;
-    } else {
-        *ppv = NULL;
-        return E_NOINTERFACE;
-    }
-
-    IExtractIconW_AddRef(iface);
-    return S_OK;
-}
-
-static ULONG WINAPI UnixFolderIcon_IExtractIconW_AddRef(IExtractIconW *iface) {
-    TRACE("(iface=%p)\n", iface);
-    return 2;
-}
-
-static ULONG WINAPI UnixFolderIcon_IExtractIconW_Release(IExtractIconW *iface) {
-    TRACE("(iface=%p)\n", iface);
-    return 1;
-}
-
-static HRESULT WINAPI UnixFolderIcon_IExtractIconW_GetIconLocation(IExtractIconW *iface, 
-    UINT uFlags, LPWSTR szIconFile, UINT cchMax, INT* piIndex, UINT* pwFlags)
-{
-    UnixFolderIcon *This = ADJUST_THIS(UnixFolderIcon, IExtractIconW, iface);
-        
-    TRACE("(iface=%p, uFlags=%u, szIconFile=%s, cchMax=%u, piIndex=%p, pwFlags=%p)\n",
-            iface, uFlags, debugstr_w(szIconFile), cchMax, piIndex, pwFlags);
-    
-    lstrcpynW(szIconFile, swShell32Name, cchMax);
-    if (This->bFolder) {
-        *piIndex = (uFlags & GIL_OPENICON) ? -IDI_SHELL_FOLDER_OPEN : -IDI_SHELL_FOLDER;
-    } else {
-        *piIndex = -IDI_SHELL_DOCUMENT;
-    }
-    *pwFlags = 0;
-
-    return S_OK;
-}
-
-static HRESULT WINAPI UnixFolderIcon_IExtractIconW_Extract(
-    IExtractIconW *iface, LPCWSTR pszFile, UINT nIconIndex, HICON* phiconLarge, HICON* phiconSmall, 
-    UINT nIconSize)
-{
-    TRACE("(iface=%p, pszFile=%s, nIconIndex=%u, phiconLarge=%p, phiconSmall=%p, nIconSize=%u)"
-          "stub\n", iface, debugstr_w(pszFile), nIconIndex, phiconLarge, phiconSmall, nIconSize);
-
-    return E_NOTIMPL;
-}
-
-/* VTable for the IExtractIconW interface of the UnixFolderIcon class. 
- */
-static const IExtractIconWVtbl UnixFolderIcon_IExtractIconW_Vtbl = {
-    UnixFolderIcon_IExtractIconW_QueryInterface,
-    UnixFolderIcon_IExtractIconW_AddRef,
-    UnixFolderIcon_IExtractIconW_Release,
-    UnixFolderIcon_IExtractIconW_GetIconLocation,
-    UnixFolderIcon_IExtractIconW_Extract
-};
-
-/* The singleton instance
- */
-UnixFolderIcon UnixFolderIconSingleton = { &UnixFolderIcon_IExtractIconW_Vtbl, TRUE };
-UnixFolderIcon UnixDocumentIconSingleton = { &UnixFolderIcon_IExtractIconW_Vtbl, FALSE };
 
 /******************************************************************************
  * UnixFolder
@@ -764,6 +754,9 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_EnumObjects(IShellFolder2* iface,
     TRACE("(iface=%p, hwndOwner=%p, grfFlags=%08lx, ppEnumIDList=%p)\n", 
             iface, hwndOwner, grfFlags, ppEnumIDList);
 
+    if (This->m_cSubDirs == -1) 
+        UNIXFS_build_subfolder_pidls(This);
+    
     newIterator = UnixSubFolderIterator_Construct(This, grfFlags);
     hr = IUnknown_QueryInterface(newIterator, &IID_IEnumIDList, (void**)ppEnumIDList);
     IUnknown_Release(newIterator);
@@ -782,6 +775,9 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_BindToObject(IShellFolder2* iface
     TRACE("(iface=%p, pidl=%p, pbcReserver=%p, riid=%p, ppvOut=%p)\n", 
             iface, pidl, pbcReserved, riid, ppvOut);
 
+    if (!pidl || !pidl->mkid.cb)
+        return E_INVALIDARG;
+    
     if (This->m_dwPathMode == PATHMODE_DOS)
         hr = UnixDosFolder_Constructor(NULL, &IID_IPersistFolder2, (void**)&persistFolder);
     else
@@ -883,20 +879,31 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_CreateViewObject(IShellFolder2* i
 static HRESULT WINAPI UnixFolder_IShellFolder2_GetAttributesOf(IShellFolder2* iface, UINT cidl, 
     LPCITEMIDLIST* apidl, SFGAOF* rgfInOut)
 {
-    UINT i;
-    SFGAOF flags= ~(SFGAOF)0;
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
+    const StatStruct *pStatStruct;
         
-    TRACE("(iface=%p, cidl=%u, apidl=%p, rgfInOut=%p) semi-stub\n", iface, cidl, apidl, rgfInOut);
-   
-    for (i=0; i<cidl; i++) {
-        LPPIDLDATA pData = _ILGetDataPointer(apidl[i]);
-        if (!pData) continue;
-        if (pData->type == PT_FOLDER) flags &= (SFGAO_FILESYSTEM|SFGAO_FILESYSANCESTOR|SFGAO_FOLDER|SFGAO_HASSUBFOLDER);
-        if (pData->type == PT_VALUE) flags &= SFGAO_FILESYSTEM;
+    TRACE("(iface=%p, cidl=%u, apidl=%p, rgfInOut=%p)\n", iface, cidl, apidl, rgfInOut);
+ 
+    if (!rgfInOut || (cidl && !apidl)) 
+        return E_INVALIDARG;
+    
+    if (cidl == 0) {
+        if (!strcmp(This->m_pszPath, "/")) {
+            *rgfInOut &= dwRootAttr;
+        } else {
+            pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(ILFindLastID(This->m_pidlLocation));
+            if (!pStatStruct) return E_FAIL;                
+            *rgfInOut &= pStatStruct->sfAttr;
+        }
+    } else {
+        UINT i;
+        for (i=0; i<cidl; i++) {
+            pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(apidl[i]);
+            if (!pStatStruct) return E_INVALIDARG;
+            *rgfInOut &= pStatStruct->sfAttr;
+        }
     }
     
-    *rgfInOut = *rgfInOut & flags;
-            
     return S_OK;
 }
 
@@ -915,14 +922,18 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetUIObjectOf(IShellFolder2* ifac
         *ppvOut = IDataObject_Constructor(hwndOwner, This->m_pidlLocation, apidl, cidl);
         return S_OK;
     } else if (IsEqualIID(&IID_IExtractIconA, riid)) {
-        FIXME("IExtractIconA\n");
-        return E_FAIL;
-    } else if (IsEqualIID(&IID_IExtractIconW, riid)) {
+        LPITEMIDLIST pidl;
         if (cidl != 1) return E_FAIL;
-        if (_ILIsFolder(apidl[0])) 
-            *ppvOut = &UnixFolderIconSingleton;
-        else
-            *ppvOut = &UnixDocumentIconSingleton;
+        pidl = ILCombine(This->m_pidlLocation, apidl[0]);
+        *ppvOut = (LPVOID)IExtractIconA_Constructor(pidl);
+        SHFree(pidl);
+        return S_OK;
+    } else if (IsEqualIID(&IID_IExtractIconW, riid)) {
+        LPITEMIDLIST pidl;
+        if (cidl != 1) return E_FAIL;
+        pidl = ILCombine(This->m_pidlLocation, apidl[0]);
+        *ppvOut = (LPVOID)IExtractIconW_Constructor(pidl);
+        SHFree(pidl);
         return S_OK;
     } else if (IsEqualIID(&IID_IDropTarget, riid)) {
         FIXME("IDropTarget\n");
@@ -956,6 +967,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* i
             if (This->m_dwPathMode == PATHMODE_DOS) {
                 char path[MAX_PATH];
                 GetFullPathNameA(lpName->u.cStr, MAX_PATH, path, NULL);
+                PathRemoveBackslashA(path);
                 strcpy(lpName->u.cStr, path);
             }
         } else {
@@ -1157,9 +1169,16 @@ static HRESULT WINAPI UnixFolder_IPersistFolder2_Initialize(IPersistFolder2* ifa
     
     pdump(pidl);
     
-    UNIXFS_pidl_to_path(pidl, This);
-    UNIXFS_build_subfolder_pidls(This);
-   
+    if (!UNIXFS_pidl_to_path(pidl, This))
+        return E_FAIL;
+
+    if (!strcmp(This->m_pszPath, "/")) {
+        struct stat statRoot;
+        if (stat(This->m_pszPath, &statRoot)) return E_FAIL;
+        dwRootAttr = SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR;
+        if (UNIXFS_is_dos_device(&statRoot)) dwRootAttr |= SFGAO_FILESYSTEM;
+    }
+    
     return S_OK;
 }
 
@@ -1212,7 +1231,7 @@ static HRESULT CreateUnixFolder(IUnknown *pUnkOuter, REFIID riid, LPVOID *ppv, D
         pUnixFolder->m_cRef = 0;
         pUnixFolder->m_pszPath = NULL;
         pUnixFolder->m_apidlSubDirs = NULL;
-        pUnixFolder->m_cSubDirs = 0;
+        pUnixFolder->m_cSubDirs = -1;
         pUnixFolder->m_dwPathMode = dwPathMode;
 
         UnixFolder_IShellFolder2_AddRef(STATIC_CAST(IShellFolder2, pUnixFolder));

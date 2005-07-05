@@ -184,7 +184,7 @@ static HRESULT WINAPI IKsBufferPropertySetImpl_QuerySupport(
     return E_PROP_ID_UNSUPPORTED;
 }
 
-static IKsPropertySetVtbl iksbvt = {
+static const IKsPropertySetVtbl iksbvt = {
     IKsBufferPropertySetImpl_QueryInterface,
     IKsBufferPropertySetImpl_AddRef,
     IKsBufferPropertySetImpl_Release,
@@ -609,7 +609,10 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
 	 IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultVoicePlayback) ) {
 	ULONG wod;
 	unsigned int wodn;
-	TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_RENDER\n");
+        if (IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultPlayback) )
+            TRACE("DSDEVID_DefaultPlayback\n");
+        else
+            TRACE("DSDEVID_DefaultVoicePlayback\n");
 	ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_RENDER;
 	wodn = waveOutGetNumDevs();
 	for (wod = 0; wod < wodn; wod++) {
@@ -655,7 +658,10 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
 	       IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultVoiceCapture) ) {
 	ULONG wid;
 	unsigned int widn;
-	TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE\n");
+        if (IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultCapture) )
+            TRACE("DSDEVID_DefaultCapture\n");
+        else
+            TRACE("DSDEVID_DefaultVoiceCapture\n");
 	ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE;
 	widn = waveInGetNumDevs();
 	for (wid = 0; wid < widn; wid++) {
@@ -682,7 +688,7 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
                         if (err == DS_OK && drv)
                             ppd->Type = DIRECTSOUNDDEVICE_TYPE_VXD;
                         else
-                            WARN("waveOutMessage(DRV_QUERYDSOUNDIFACE) failed\n");
+                            WARN("waveInMessage(DRV_QUERYDSOUNDIFACE) failed\n");
                         break;
 		    } else {
                         WARN("no memory\n");
@@ -702,11 +708,12 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
 	ULONG wod;
 	unsigned int wodn;
 	/* given specific device so try the render devices first */
+        TRACE("Checking renderer devices\n");
 	wodn = waveOutGetNumDevs();
 	for (wod = 0; wod < wodn; wod++) {
             if (IsEqualGUID( &ppd->DeviceId, &DSOUND_renderer_guids[wod] ) ) {
                 DSDRIVERDESC desc;
-                TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_RENDER\n");
+                TRACE("DSOUND_renderer_guids[%ld]\n", wod);
                 ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_RENDER;
                 ppd->WaveDeviceId = wod;
                 err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&(desc),0));
@@ -749,12 +756,13 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
         if (found == FALSE) {
             ULONG wid;
             unsigned int widn;
-            TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE\n");
+            TRACE("Checking capture devices\n");
             ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE;
             widn = waveInGetNumDevs();
             for (wid = 0; wid < widn; wid++) {
-                if (IsEqualGUID( &ppd->DeviceId, &DSOUND_capture_guids[wod] ) ) {
+                if (IsEqualGUID( &ppd->DeviceId, &DSOUND_capture_guids[wid] ) ) {
                     DSDRIVERDESC desc;
+                    TRACE("DSOUND_capture_guids[%ld]\n", wid);
                     ppd->WaveDeviceId = wid;
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&(desc),0));
                     if (err == DS_OK) {
@@ -776,7 +784,7 @@ static HRESULT WINAPI DSPROPERTY_DescriptionA(
                             if (err == DS_OK && drv)
                                 ppd->Type = DIRECTSOUNDDEVICE_TYPE_VXD;
                             else
-                                WARN("waveOutMessage(DRV_QUERYDSOUNDIFACE) failed\n");
+                                WARN("waveInMessage(DRV_QUERYDSOUNDIFACE) failed\n");
                             found = TRUE;
                             break;
                         } else {
@@ -842,12 +850,16 @@ static HRESULT WINAPI DSPROPERTY_DescriptionW(
 	 IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultVoicePlayback) ) {
 	ULONG wod;
 	unsigned int wodn;
-	TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_RENDER\n");
+        if (IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultPlayback) )
+            TRACE("DSDEVID_DefaultPlayback\n");
+        else
+            TRACE("DSDEVID_DefaultVoicePlayback\n");
 	ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_RENDER;
 	wodn = waveOutGetNumDevs();
 	for (wod = 0; wod < wodn; wod++) {
             if (IsEqualGUID( &dev_guid, &DSOUND_renderer_guids[wod] ) ) {
                 DSDRIVERDESC desc;
+                TRACE("DSOUND_renderer_guids[%ld]\n", wod);
                 ppd->WaveDeviceId = wod;
                 err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&(desc),0));
                 if (err == DS_OK) {
@@ -888,7 +900,10 @@ static HRESULT WINAPI DSPROPERTY_DescriptionW(
 	       IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultVoiceCapture) ) {
 	ULONG wid;
 	unsigned int widn;
-	TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE\n");
+        if (IsEqualGUID( &ppd->DeviceId , &DSDEVID_DefaultCapture))
+            TRACE("DSDEVID_DefaultCapture\n");
+        else
+            TRACE("DSDEVID_DefaultVoiceCapture\n");
 	ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE;
 	widn = waveInGetNumDevs();
 	for (wid = 0; wid < widn; wid++) {
@@ -934,12 +949,13 @@ static HRESULT WINAPI DSPROPERTY_DescriptionW(
 	BOOL found = FALSE;
 	ULONG wod;
 	unsigned int wodn;
+        TRACE("Checking renderer devices\n");
 	/* given specific device so try the render devices first */
 	wodn = waveOutGetNumDevs();
 	for (wod = 0; wod < wodn; wod++) {
             if (IsEqualGUID( &ppd->DeviceId, &DSOUND_renderer_guids[wod] ) ) {
                 DSDRIVERDESC desc;
-                TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_RENDER\n");
+                TRACE("DSOUND_renderer_guids[%ld]\n", wod);
                 ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_RENDER;
                 ppd->WaveDeviceId = wod;
                 err = mmErr(waveOutMessage((HWAVEOUT)wod,DRV_QUERYDSOUNDDESC,(DWORD)&(desc),0));
@@ -982,12 +998,13 @@ static HRESULT WINAPI DSPROPERTY_DescriptionW(
         if (found == FALSE) {
             ULONG wid;
             unsigned int widn;
-            TRACE("DataFlow=DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE\n");
+            TRACE("Checking capture devices\n");
             ppd->DataFlow = DIRECTSOUNDDEVICE_DATAFLOW_CAPTURE;
             widn = waveInGetNumDevs();
             for (wid = 0; wid < widn; wid++) {
                 if (IsEqualGUID( &dev_guid, &DSOUND_capture_guids[wid] ) ) {
                     DSDRIVERDESC desc;
+                    TRACE("DSOUND_capture_guids[%ld]\n", wid);
                     ppd->WaveDeviceId = wid;
                     err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&(desc),0));
                     if (err == DS_OK) {
@@ -1476,7 +1493,7 @@ static HRESULT WINAPI IKsPrivatePropertySetImpl_QuerySupport(
     return E_PROP_ID_UNSUPPORTED;
 }
 
-static IKsPropertySetVtbl ikspvt = {
+static const IKsPropertySetVtbl ikspvt = {
     IKsPrivatePropertySetImpl_QueryInterface,
     IKsPrivatePropertySetImpl_AddRef,
     IKsPrivatePropertySetImpl_Release,
@@ -1491,7 +1508,7 @@ HRESULT WINAPI IKsPrivatePropertySetImpl_Create(
     IKsPrivatePropertySetImpl *iks;
 
     iks = HeapAlloc(GetProcessHeap(),0,sizeof(*iks));
-    iks->ref = 0;
+    iks->ref = 1;
     iks->lpVtbl = &ikspvt;
 
     *piks = iks;

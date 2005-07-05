@@ -68,7 +68,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(dsound);
 #define DS_SND_QUEUE_MAX 28 /* max number of fragments to prebuffer */
 #define DS_SND_QUEUE_MIN 12 /* min number of fragments to prebuffer */
 
-IDirectSoundImpl*	DSOUND_renderer = NULL;
+DirectSoundDevice*	DSOUND_renderer[MAXWAVEDRIVERS];
 GUID                    DSOUND_renderer_guids[MAXWAVEDRIVERS];
 GUID                    DSOUND_capture_guids[MAXWAVEDRIVERS];
 
@@ -116,7 +116,8 @@ inline static DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
                                     char *buffer, DWORD size )
 {
     if (appkey && !RegQueryValueExA( appkey, name, 0, NULL, buffer, &size )) return 0;
-    return RegQueryValueExA( defkey, name, 0, NULL, buffer, &size );
+    if (defkey && !RegQueryValueExA( defkey, name, 0, NULL, buffer, &size )) return 0;
+    return ERROR_FILE_NOT_FOUND;
 }
 
 
@@ -126,35 +127,29 @@ inline static DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 void setup_dsound_options(void)
 {
-    char buffer[MAX_PATH+1];
+    char buffer[MAX_PATH+16];
     HKEY hkey, appkey = 0;
     DWORD len;
 
     buffer[MAX_PATH]='\0';
 
-    if (RegCreateKeyExA( HKEY_LOCAL_MACHINE, "Software\\Wine\\Wine\\Config\\dsound", 0, NULL,
-                         REG_OPTION_VOLATILE, KEY_ALL_ACCESS, NULL, &hkey, NULL ))
-    {
-        ERR("Cannot create config registry key\n" );
-        ExitProcess(1);
-    }
+    /* @@ Wine registry key: HKCU\Software\Wine\DirectSound */
+    if (RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\DirectSound", &hkey )) hkey = 0;
 
     len = GetModuleFileNameA( 0, buffer, MAX_PATH );
     if (len && len < MAX_PATH)
     {
         HKEY tmpkey;
-
-        if (!RegOpenKeyA( HKEY_LOCAL_MACHINE, "Software\\Wine\\Wine\\Config\\AppDefaults", &tmpkey ))
+        /* @@ Wine registry key: HKCU\Software\Wine\AppDefaults\app.exe\DirectSound */
+        if (!RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\AppDefaults", &tmpkey ))
         {
-           char appname[MAX_PATH+16];
-           char *p = strrchr( buffer, '\\' );
-           if (p!=NULL) {
-                   lstrcpynA(appname,p+1,MAX_PATH);
-                   strcat(appname,"\\dsound");
-                   TRACE("appname = [%s] \n",appname);
-                   if (RegOpenKeyA( tmpkey, appname, &appkey )) appkey = 0;
-                       RegCloseKey( tmpkey );
-           }
+            char *p, *appname = buffer;
+            if ((p = strrchr( appname, '/' ))) appname = p + 1;
+            if ((p = strrchr( appname, '\\' ))) appname = p + 1;
+            strcat( appname, "\\DirectSound" );
+            TRACE("appname = [%s] \n",appname);
+            if (RegOpenKeyA( tmpkey, appname, &appkey )) appkey = 0;
+            RegCloseKey( tmpkey );
         }
     }
 
@@ -193,7 +188,7 @@ void setup_dsound_options(void)
 	    ds_default_capture = atoi(buffer);
 
     if (appkey) RegCloseKey( appkey );
-    RegCloseKey( hkey );
+    if (hkey) RegCloseKey( hkey );
 
     if (ds_emuldriver != DS_EMULDRIVER )
        WARN("ds_emuldriver = %d (default=%d)\n",ds_emuldriver, DS_EMULDRIVER);
@@ -460,10 +455,10 @@ static HRESULT WINAPI DSCF_CreateInstance(
 	*ppobj = NULL;
 
 	if ( IsEqualIID( &IID_IDirectSound, riid ) )
-		return DSOUND_Create(0,(LPDIRECTSOUND*)ppobj,pOuter);
+		return DSOUND_Create((LPDIRECTSOUND*)ppobj,pOuter);
 
 	if ( IsEqualIID( &IID_IDirectSound8, riid ) )
-		return DSOUND_Create8(0,(LPDIRECTSOUND8*)ppobj,pOuter);
+		return DSOUND_Create8((LPDIRECTSOUND8*)ppobj,pOuter);
 
 	WARN("(%p,%p,%s,%p) Interface not found!\n",This,pOuter,debugstr_guid(riid),ppobj);	
 	return E_NOINTERFACE;
@@ -475,7 +470,7 @@ static HRESULT WINAPI DSCF_LockServer(LPCLASSFACTORY iface,BOOL dolock) {
 	return S_OK;
 }
 
-static IClassFactoryVtbl DSCF_Vtbl = {
+static const IClassFactoryVtbl DSCF_Vtbl = {
 	DSCF_QueryInterface,
 	DSCF_AddRef,
 	DSCF_Release,
@@ -543,7 +538,7 @@ DSPCF_LockServer(LPCLASSFACTORY iface,BOOL dolock) {
 	return S_OK;
 }
 
-static IClassFactoryVtbl DSPCF_Vtbl = {
+static const IClassFactoryVtbl DSPCF_Vtbl = {
 	DSPCF_QueryInterface,
 	DSPCF_AddRef,
 	DSPCF_Release,
@@ -554,7 +549,7 @@ static IClassFactoryVtbl DSPCF_Vtbl = {
 static IClassFactoryImpl DSOUND_PRIVATE_CF = { &DSPCF_Vtbl, 1 };
 
 /*******************************************************************************
- * DllGetClassObject [DSOUND.5]
+ * DllGetClassObject [DSOUND.@]
  * Retrieves class object from a DLL object
  *
  * NOTES
@@ -664,6 +659,8 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_ATTACH:
         TRACE("DLL_PROCESS_ATTACH\n");
         for (i = 0; i < MAXWAVEDRIVERS; i++) {
+            DSOUND_renderer[i] = NULL;
+            DSOUND_capture[i] = NULL;
             INIT_GUID(DSOUND_renderer_guids[i], 0xbd6dd71a, 0x3deb, 0x11d1, 0xb1, 0x71, 0x00, 0xc0, 0x4f, 0xc2, 0x00, 0x00 + i);
             INIT_GUID(DSOUND_capture_guids[i],  0xbd6dd71b, 0x3deb, 0x11d1, 0xb1, 0x71, 0x00, 0xc0, 0x4f, 0xc2, 0x00, 0x00 + i);
         }
