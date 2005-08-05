@@ -103,10 +103,10 @@ typedef struct _msft_typeinfo_t
     msft_typelib_t *typelib;
     MSFT_TypeInfoBase *typeinfo;
 
-    int var_data_allocated;
+    unsigned int var_data_allocated;
     int *var_data;
 
-    int func_data_allocated;
+    unsigned int func_data_allocated;
     int *func_data;
 
     int vars_allocated;
@@ -1458,7 +1458,8 @@ static HRESULT add_func_desc(msft_typeinfo_t* typeinfo, func_t *func, int index)
 
 static HRESULT add_var_desc(msft_typeinfo_t *typeinfo, UINT index, var_t* var)
 {
-    int offset, typedata_size, id;
+    int offset, id;
+    unsigned int typedata_size;
     INT *typedata;
     int var_datawidth;
     int var_alignment;
@@ -1751,7 +1752,7 @@ static void add_dispatch(msft_typelib_t *typelib)
     guidentry.guid = iid_idispatch;
     guidentry.hreftype = 1;
     guidentry.next_hash = -1;
-    impinfo.res0 = 0x301 << 16;
+    impinfo.flags = TKIND_INTERFACE << 24 | MSFT_IMPINFO_OFFSET_IS_GUID;
     impinfo.oImpFile = impfile_offset;
     impinfo.oGuid = ctl2_alloc_guid(typelib, &guidentry);
     typelib->typelib_header.dispatchpos = alloc_importinfo(typelib, &impinfo) | 0x01;

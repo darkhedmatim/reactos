@@ -49,6 +49,7 @@
 #include "wine/debug.h"
 
 #include "shell32_main.h"
+#include "shellfolder.h"
 #include "shfldr.h"
 #include "shresdef.h"
 #include "pidl.h"
@@ -65,46 +66,58 @@ const GUID CLSID_UnixDosFolder = {0x9d20aae8, 0x0625, 0x44b0, {0x9c, 0xa7, 0x71,
  * alloc a byte for the terminating '\0' of 'name'. Two of the
  * additional bytes are for SHITEMID's cb field. One is for IDLDATA's
  * type field. One is for FileStruct's szNames field, to terminate
- * the alternate DOS name, which we don't use here. And then there's
- * the additional StatStruct.
+ * the alternate DOS name, which we don't use here.
  */
 #define SHITEMID_LEN_FROM_NAME_LEN(n) \
-    (sizeof(USHORT)+sizeof(PIDLTYPE)+sizeof(FileStruct)+(n)+sizeof(char)+sizeof(StatStruct))
+    (sizeof(USHORT)+sizeof(PIDLTYPE)+sizeof(FileStruct)+(n)+sizeof(char))
 #define NAME_LEN_FROM_LPSHITEMID(s) \
-    (((LPSHITEMID)s)->cb-sizeof(USHORT)-sizeof(PIDLTYPE)-sizeof(FileStruct)-sizeof(char)-sizeof(StatStruct))
-#define LPSTATSTRUCT_FROM_LPSHITEMID(s) \
-    (((s) && (((LPSHITEMID)s)->cb > SHITEMID_LEN_FROM_NAME_LEN(0))) ? \
-     ((StatStruct*)(((LPBYTE)s)+((LPSHITEMID)s)->cb-sizeof(StatStruct))) : \
-     (NULL))
+    (((LPSHITEMID)s)->cb-sizeof(USHORT)-sizeof(PIDLTYPE)-sizeof(FileStruct)-sizeof(char))
 
 #define PATHMODE_UNIX 0
 #define PATHMODE_DOS  1
-
-/* ShellFolder attributes of the root folder ('/') */
-static DWORD dwRootAttr = 0;
-
-/* This structure is appended to shell32's FileStruct type in IDLs to store unix
- * filesystem specific informationen extracted with the stat system call.
- */
-typedef struct tagStatStruct {
-    mode_t st_mode;
-    uid_t  st_uid;
-    gid_t  st_gid;
-    SFGAOF sfAttr;
-} StatStruct;
 
 /* UnixFolder object layout and typedef.
  */
 typedef struct _UnixFolder {
     const IShellFolder2Vtbl  *lpIShellFolder2Vtbl;
-    const IPersistFolder2Vtbl *lpIPersistFolder2Vtbl;
-    ULONG m_cRef;
+    const IPersistFolder3Vtbl *lpIPersistFolder3Vtbl;
+    const ISFHelperVtbl *lpISFHelperVtbl;
+    LONG m_cRef;
     CHAR *m_pszPath;
     LPITEMIDLIST m_pidlLocation;
-    LPITEMIDLIST *m_apidlSubDirs;
-    DWORD m_cSubDirs;
     DWORD m_dwPathMode;
+    DWORD m_dwAttributes;
 } UnixFolder;
+
+/******************************************************************************
+ * UNIXFS_is_rooted_at_desktop [Internal]
+ *
+ * Checks if the unixfs namespace extension is rooted at desktop level.
+ *
+ * RETURNS
+ *  TRUE, if unixfs is rooted at desktop level
+ *  FALSE, if not.
+ */
+BOOL UNIXFS_is_rooted_at_desktop(void) {
+    HKEY hKey;
+    WCHAR *pwszCLSID_UnixDosFolder, wszRootedAtDesktop[69 + CHARS_IN_GUID] = { 
+        'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\',
+        'W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\',
+        'E','x','p','l','o','r','e','r','\\','D','e','s','k','t','o','p','\\',
+        'N','a','m','e','S','p','a','c','e','\\',0 }; 
+
+    if (FAILED(StringFromCLSID(&CLSID_UnixDosFolder, &pwszCLSID_UnixDosFolder)))
+        return FALSE;
+    
+    lstrcatW(wszRootedAtDesktop, pwszCLSID_UnixDosFolder);
+    CoTaskMemFree(pwszCLSID_UnixDosFolder);
+    
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, wszRootedAtDesktop, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+        return FALSE;
+        
+    RegCloseKey(hKey);
+    return TRUE;
+}
 
 /******************************************************************************
  * UNIXFS_is_pidl_of_type [INTERNAL]
@@ -250,11 +263,17 @@ static BOOL UNIXFS_get_unix_path(LPCWSTR pszDosPath, char *pszCanonicalPath)
                 if (cLinkLen + cTailLen + 1 > FILENAME_MAX)
                     return FALSE;
                     
+                /* Avoid double slashes. */
+                if (szSymlink[cLinkLen-1] == '/' && pPathTail[0] == '/') {
+                    szSymlink[cLinkLen-1] = '\0';
+                    cLinkLen--;
+                }
+                
                 memcpy(szSymlink + cLinkLen, pPathTail, cTailLen + 1);
                 memcpy(szPath, szSymlink, cLinkLen + cTailLen + 1);
                 *pszCanonicalPath = '\0';
-                    pCanonicalTail = pszCanonicalPath;
-                    pPathTail = szPath;
+                pCanonicalTail = pszCanonicalPath;
+                pPathTail = szPath;
             } else {
                 /* Relative link. Expand into szPath and continue. */
                 char szTemp[FILENAME_MAX];
@@ -277,7 +296,7 @@ static BOOL UNIXFS_get_unix_path(LPCWSTR pszDosPath, char *pszCanonicalPath)
             pCanonicalTail += pPathTail - pElement;
             *pPathTail = cTemp;
         }
-    } while (pPathTail[0] == '/' && pPathTail[1]); /* Also handles paths terminated by '/' */
+    } while (pPathTail[0] == '/');
    
     TRACE("--> %s\n", debugstr_a(pszCanonicalPath));
     
@@ -288,11 +307,10 @@ static BOOL UNIXFS_get_unix_path(LPCWSTR pszDosPath, char *pszCanonicalPath)
  * UNIXFS_build_shitemid [Internal]
  *
  * Constructs a new SHITEMID for the last component of path 'pszUnixPath' into 
- * buffer 'pIDL'. Decorates the SHITEMID with information from a stat system call.
+ * buffer 'pIDL'.
  *
  * PARAMS
  *  pszUnixPath [I] An absolute path. The SHITEMID will be build for the last component.
- *  bParentIsFS [I] Set, if the parent of the last path component is within the wine filesystem.
  *  pIDL        [O] SHITEMID will be constructed here.
  *
  * RETURNS
@@ -304,12 +322,11 @@ static BOOL UNIXFS_get_unix_path(LPCWSTR pszDosPath, char *pszCanonicalPath)
  *  If what you need is a PIDLLIST with a single SHITEMID, don't forget to append
  *  a 0 USHORT value.
  */
-static char* UNIXFS_build_shitemid(char *pszUnixPath, BOOL bParentIsFS, void *pIDL) {
+static char* UNIXFS_build_shitemid(char *pszUnixPath, void *pIDL) {
     LARGE_INTEGER time;
     FILETIME fileTime;
     LPPIDLDATA pIDLData;
     struct stat fileStat;
-    StatStruct *pStatStruct;
     char *pszComponent;
     int cComponentLen;
 
@@ -325,13 +342,6 @@ static char* UNIXFS_build_shitemid(char *pszUnixPath, BOOL bParentIsFS, void *pI
     if (stat(pszUnixPath, &fileStat)) return NULL;
     if (!S_ISDIR(fileStat.st_mode) && !S_ISREG(fileStat.st_mode)) return NULL;
     
-    pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(pIDL);
-    pStatStruct->st_mode = fileStat.st_mode;
-    pStatStruct->st_uid = fileStat.st_uid;
-    pStatStruct->st_gid = fileStat.st_gid;
-    pStatStruct->sfAttr = S_ISDIR(fileStat.st_mode) ? (SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR) : 0;
-    if (bParentIsFS || UNIXFS_is_dos_device(&fileStat)) pStatStruct->sfAttr |= SFGAO_FILESYSTEM;
-
     /* Set shell32's standard SHITEMID data fields. */
     pIDLData = _ILGetDataPointer((LPCITEMIDLIST)pIDL);
     pIDLData->type = S_ISDIR(fileStat.st_mode) ? PT_FOLDER : PT_VALUE;
@@ -367,7 +377,6 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
     LPITEMIDLIST pidl;
     int cSubDirs, cPidlLen, cPathLen;
     char *pSlash, szCompletePath[FILENAME_MAX], *pNextPathElement;
-    BOOL bParentIsFS = dwRootAttr & SFGAO_FILESYSTEM;
 
     TRACE("pUnixFolder=%p, path=%s, ppidl=%p\n", pUnixFolder, debugstr_w(path), ppidl);
    
@@ -388,7 +397,7 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
     else if ((pUnixFolder->m_dwPathMode == PATHMODE_UNIX) && (path[0] == '/')) 
     {
         /* Absolute unix path. Just convert to ANSI. */
-        WideCharToMultiByte(CP_ACP, 0, path, -1, szCompletePath, FILENAME_MAX, NULL, NULL); 
+        WideCharToMultiByte(CP_UNIXCP, 0, path, -1, szCompletePath, FILENAME_MAX, NULL, NULL); 
         pNextPathElement = szCompletePath;
     } 
     else 
@@ -396,7 +405,7 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
         /* Relative dos or unix path. Concat with this folder's path */
         int cBasePathLen = strlen(pUnixFolder->m_pszPath);
         memcpy(szCompletePath, pUnixFolder->m_pszPath, cBasePathLen);
-        WideCharToMultiByte(CP_ACP, 0, path, -1, szCompletePath + cBasePathLen, 
+        WideCharToMultiByte(CP_UNIXCP, 0, path, -1, szCompletePath + cBasePathLen, 
                             FILENAME_MAX - cBasePathLen, NULL, NULL);
         pNextPathElement = szCompletePath + cBasePathLen - 1;
         
@@ -410,6 +419,14 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
         }
     }
 
+    /* Special case for the root folder. */
+    if (!strcmp(szCompletePath, "/")) {
+        *ppidl = pidl = (LPITEMIDLIST)SHAlloc(sizeof(USHORT));
+        if (!pidl) return FALSE;
+        pidl->mkid.cb = 0; /* Terminate the ITEMIDLIST */
+        return TRUE;
+    }
+    
     /* Remove trailing slash, if present */
     cPathLen = strlen(szCompletePath);
     if (szCompletePath[cPathLen-1] == '/') 
@@ -443,15 +460,13 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
     while (*pNextPathElement) {
         pSlash = strchr(pNextPathElement+1, '/');
         if (pSlash) *pSlash = '\0';
-        pNextPathElement = UNIXFS_build_shitemid(szCompletePath, bParentIsFS, pidl);
+        pNextPathElement = UNIXFS_build_shitemid(szCompletePath, pidl);
         if (pSlash) *pSlash = '/';
             
         if (!pNextPathElement) {
             SHFree(pidl);
             return FALSE;
         }
-        if (!bParentIsFS && (LPSTATSTRUCT_FROM_LPSHITEMID(pidl)->sfAttr & SFGAO_FILESYSTEM)) 
-            bParentIsFS = TRUE;
         pidl = ILGetNext(pidl);
     }
     pidl->mkid.cb = 0; /* Terminate the ITEMIDLIST */
@@ -463,203 +478,14 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
 }
 
 /******************************************************************************
- * UNIXFS_pidl_to_path [Internal]
- *
- * Construct the unix path that corresponds to a fully qualified ITEMIDLIST
- *
- * PARAMS
- *  pidl [I] ITEMIDLIST that specifies the absolute location of the folder
- *  path [O] The corresponding unix path as a zero terminated ascii string
- *
- * RETURNS
- *  Success: TRUE
- *  Failure: FALSE, pidl doesn't specify a unix path or out of memory
- */
-static BOOL UNIXFS_pidl_to_path(LPCITEMIDLIST pidl, UnixFolder *pUnixFolder) {
-    LPCITEMIDLIST current = pidl, root;
-    DWORD dwPathLen;
-    char *pNextDir, szBasePath[FILENAME_MAX] = "/";
-
-    TRACE("(pidl=%p, pUnixFolder=%p)\n", pidl, pUnixFolder);
-    pdump(pidl);
-    
-    pUnixFolder->m_pszPath = NULL;
-
-    /* Find the UnixFolderClass root */
-    while (current->mkid.cb) {
-        if (_ILIsDrive(current) || /* The dos drive, which maps to '/' */
-            (_ILIsSpecialFolder(current) && 
-             (IsEqualIID(&CLSID_UnixFolder, _ILGetGUIDPointer(current)) ||
-              IsEqualIID(&CLSID_UnixDosFolder, _ILGetGUIDPointer(current)))))
-        {
-            break;
-        }
-        current = ILGetNext(current);
-    }
-
-    if (current && current->mkid.cb) {
-        root = current = ILGetNext(current);
-        dwPathLen = 2; /* For the '/' prefix and the terminating '\0' */
-    } else if (_ILIsDesktop(pidl) || _ILIsValue(pidl) || _ILIsFolder(pidl)) {
-        /* Path rooted at Desktop */
-        WCHAR wszDesktopPath[MAX_PATH];
-        if (FAILED(SHGetSpecialFolderPathW(0, wszDesktopPath, CSIDL_DESKTOP, FALSE)))
-           return FALSE;
-        if (!UNIXFS_get_unix_path(wszDesktopPath, szBasePath))
-            return FALSE;
-        dwPathLen = strlen(szBasePath) + 1;
-        root = current;
-    } else {
-        ERR("Unknown pidl type!\n");
-        pdump(pidl);
-        return FALSE;
-    }
-    
-    /* Determine the path's length bytes */
-    while (current && current->mkid.cb) {
-        dwPathLen += NAME_LEN_FROM_LPSHITEMID(current) + 1; /* For the '/' */
-        current = ILGetNext(current);
-    };
-
-    /* Build the path */
-    pUnixFolder->m_pszPath = pNextDir = SHAlloc(dwPathLen);
-    if (!pUnixFolder->m_pszPath) {
-        WARN("SHAlloc failed!\n");
-        return FALSE;
-    }
-    current = root;
-    strcpy(pNextDir, szBasePath);
-    pNextDir += strlen(szBasePath);
-    while (current && current->mkid.cb) {
-        memcpy(pNextDir, _ILGetTextPointer(current), NAME_LEN_FROM_LPSHITEMID(current));
-        pNextDir += NAME_LEN_FROM_LPSHITEMID(current);
-        *pNextDir++ = '/';
-        current = ILGetNext(current);
-    }
-    *pNextDir='\0';
-    
-    TRACE("--> %s\n", pUnixFolder->m_pszPath);
-    return TRUE;
-}
-
-/******************************************************************************
- * UNIXFS_build_subfolder_pidls [Internal]
- *
- * Builds an array of subfolder PIDLs relative to a unix directory
- *
- * PARAMS
- *  path   [I] Name of a unix directory as a zero terminated ascii string
- *  apidl  [O] The array of PIDLs
- *  pCount [O] Size of apidl
- *
- * RETURNS
- *  Success: TRUE
- *  Failure: FALSE, path is not a valid unix directory or out of memory
- *
- * NOTES
- *  The array of PIDLs and each PIDL are allocated with SHAlloc. You'll have
- *  to release each PIDL as well as the array itself with SHFree.
- */
-static BOOL UNIXFS_build_subfolder_pidls(UnixFolder *pUnixFolder)
-{
-    struct dirent *pDirEntry;
-    struct stat fileStat;
-    DIR *dir;
-    DWORD cDirEntries, i;
-    USHORT sLen;
-    char *pszFQPath;
-    BOOL bParentIsFS = dwRootAttr & SFGAO_FILESYSTEM;
-    
-    TRACE("(pUnixFolder=%p)\n", pUnixFolder);
-    
-    pUnixFolder->m_apidlSubDirs = NULL;
-    pUnixFolder->m_cSubDirs = 0;
-
-    if (pUnixFolder->m_pidlLocation) {
-        StatStruct *statStruct = 
-            LPSTATSTRUCT_FROM_LPSHITEMID(ILFindLastID(pUnixFolder->m_pidlLocation));
-        if (statStruct) bParentIsFS = statStruct->sfAttr & SFGAO_FILESYSTEM;
-    }
-  
-    dir = opendir(pUnixFolder->m_pszPath);
-    if (!dir) {
-        WARN("Failed to open directory '%s'.\n", pUnixFolder->m_pszPath);
-        return FALSE;
-    }
-
-    /* Allocate space for fully qualified paths */
-    pszFQPath = SHAlloc(strlen(pUnixFolder->m_pszPath) + PATH_MAX);
-    if (!pszFQPath) {
-        WARN("SHAlloc failed!\n");
-        return FALSE;
-    }
- 
-    /* Count number of directory entries. */
-    for (cDirEntries = 0, pDirEntry = readdir(dir); pDirEntry; pDirEntry = readdir(dir)) { 
-        if (!strcmp(pDirEntry->d_name, ".") || !strcmp(pDirEntry->d_name, "..")) continue;
-        sprintf(pszFQPath, "%s%s", pUnixFolder->m_pszPath, pDirEntry->d_name);
-        if (!stat(pszFQPath, &fileStat) && (S_ISDIR(fileStat.st_mode) || S_ISREG(fileStat.st_mode))) cDirEntries++;
-    }
-
-    /* If there are no entries, we are done. */
-    if (cDirEntries == 0) {
-        closedir(dir);
-        SHFree(pszFQPath);
-        return TRUE;
-    }
-
-    /* Allocate the array of PIDLs */
-    pUnixFolder->m_apidlSubDirs = SHAlloc(cDirEntries * sizeof(LPITEMIDLIST));
-    if (!pUnixFolder->m_apidlSubDirs) {
-        WARN("SHAlloc failed!\n");
-        return FALSE;
-    }
-  
-    /* Allocate and initialize one SHITEMID per sub-directory. */
-    for (rewinddir(dir), pDirEntry = readdir(dir), i = 0; pDirEntry; pDirEntry = readdir(dir)) {
-        LPSHITEMID pid;
-            
-        if (!strcmp(pDirEntry->d_name, ".") || !strcmp(pDirEntry->d_name, "..")) continue;
-
-        sprintf(pszFQPath, "%s%s", pUnixFolder->m_pszPath, pDirEntry->d_name);
-   
-        sLen = strlen(pDirEntry->d_name);
-        pid = (LPSHITEMID)SHAlloc(SHITEMID_LEN_FROM_NAME_LEN(sLen)+sizeof(USHORT));
-        if (!pid) {
-            WARN("SHAlloc failed!\n");
-            return FALSE;
-        }
-        if (!UNIXFS_build_shitemid(pszFQPath, bParentIsFS, pid)) {
-            SHFree(pid);
-            continue;
-        }
-        memset(((PBYTE)pid)+pid->cb, 0, sizeof(USHORT));
-
-        pUnixFolder->m_apidlSubDirs[i++] = (LPITEMIDLIST)pid;
-    }
-    
-    pUnixFolder->m_cSubDirs = i;    
-    closedir(dir);
-    SHFree(pszFQPath);
-
-    return TRUE;
-}
-
-/******************************************************************************
  * UnixFolder
  *
  * Class whose heap based instances represent unix filesystem directories.
  */
 
 static void UnixFolder_Destroy(UnixFolder *pUnixFolder) {
-    DWORD i;
-
     TRACE("(pUnixFolder=%p)\n", pUnixFolder);
     
-    if (pUnixFolder->m_apidlSubDirs) 
-        for (i=0; i < pUnixFolder->m_cSubDirs; i++) 
-            SHFree(pUnixFolder->m_apidlSubDirs[i]);
-    SHFree(pUnixFolder->m_apidlSubDirs);
     SHFree(pUnixFolder->m_pszPath);
     ILFree(pUnixFolder->m_pidlLocation);
     SHFree(pUnixFolder);
@@ -678,10 +504,12 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_QueryInterface(IShellFolder2 *ifa
         IsEqualIID(&IID_IShellFolder2, riid)) 
     {
         *ppv = &This->lpIShellFolder2Vtbl;
-    } else if (IsEqualIID(&IID_IPersistFolder2, riid) || IsEqualIID(&IID_IPersistFolder, riid) || 
-               IsEqualIID(&IID_IPersist, riid)) 
+    } else if (IsEqualIID(&IID_IPersistFolder3, riid) || IsEqualIID(&IID_IPersistFolder2, riid) || 
+               IsEqualIID(&IID_IPersistFolder, riid) || IsEqualIID(&IID_IPersist, riid)) 
     {
-        *ppv = &This->lpIPersistFolder2Vtbl;
+        *ppv = &This->lpIPersistFolder3Vtbl;
+    } else if (IsEqualIID(&IID_ISFHelper, riid)) {
+        *ppv = &This->lpISFHelperVtbl;
     } else {
         *ppv = NULL;
         return E_NOINTERFACE;
@@ -727,22 +555,21 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_ParseDisplayName(IShellFolder2* i
     result = UNIXFS_path_to_pidl(This, lpszDisplayName, ppidl);
     if (result && pdwAttributes && *pdwAttributes)
     {
-        /* need to traverse to the last element for the attribute */
-        LPCITEMIDLIST pidl, last_pidl;
-        pidl = last_pidl = *ppidl;
-        while(pidl && pidl->mkid.cb)
-        {
-            last_pidl = pidl;
-            pidl = ILGetNext(pidl);
-        }
-        SHELL32_GetItemAttributes((IShellFolder*)iface, last_pidl, pdwAttributes);
+        IShellFolder *pParentSF;
+        LPCITEMIDLIST pidlLast;
+        HRESULT hr;
+        
+        hr = SHBindToParent(*ppidl, &IID_IShellFolder, (LPVOID*)&pParentSF, &pidlLast);
+        if (FAILED(hr)) return E_FAIL;
+        IShellFolder_GetAttributesOf(pParentSF, 1, &pidlLast, pdwAttributes);
+        IShellFolder_Release(pParentSF);
     }
 
     if (!result) TRACE("FAILED!\n");
     return result ? S_OK : E_FAIL;
 }
 
-static IUnknown *UnixSubFolderIterator_Construct(UnixFolder *pUnixFolder, SHCONTF fFilter);
+static IUnknown *UnixSubFolderIterator_Constructor(UnixFolder *pUnixFolder, SHCONTF fFilter);
 
 static HRESULT WINAPI UnixFolder_IShellFolder2_EnumObjects(IShellFolder2* iface, HWND hwndOwner, 
     SHCONTF grfFlags, IEnumIDList** ppEnumIDList)
@@ -754,10 +581,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_EnumObjects(IShellFolder2* iface,
     TRACE("(iface=%p, hwndOwner=%p, grfFlags=%08lx, ppEnumIDList=%p)\n", 
             iface, hwndOwner, grfFlags, ppEnumIDList);
 
-    if (This->m_cSubDirs == -1) 
-        UNIXFS_build_subfolder_pidls(This);
-    
-    newIterator = UnixSubFolderIterator_Construct(This, grfFlags);
+    newIterator = UnixSubFolderIterator_Constructor(This, grfFlags);
     hr = IUnknown_QueryInterface(newIterator, &IID_IEnumIDList, (void**)ppEnumIDList);
     IUnknown_Release(newIterator);
     
@@ -768,7 +592,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_BindToObject(IShellFolder2* iface
     LPBC pbcReserved, REFIID riid, void** ppvOut)
 {
     UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
-    IPersistFolder2 *persistFolder;
+    IPersistFolder3 *persistFolder;
     LPITEMIDLIST pidlSubFolder;
     HRESULT hr;
         
@@ -779,16 +603,16 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_BindToObject(IShellFolder2* iface
         return E_INVALIDARG;
     
     if (This->m_dwPathMode == PATHMODE_DOS)
-        hr = UnixDosFolder_Constructor(NULL, &IID_IPersistFolder2, (void**)&persistFolder);
+        hr = UnixDosFolder_Constructor(NULL, &IID_IPersistFolder3, (void**)&persistFolder);
     else
-        hr = UnixFolder_Constructor(NULL, &IID_IPersistFolder2, (void**)&persistFolder);
+        hr = UnixFolder_Constructor(NULL, &IID_IPersistFolder3, (void**)&persistFolder);
         
     if (!SUCCEEDED(hr)) return hr;
     hr = IPersistFolder_QueryInterface(persistFolder, riid, (void**)ppvOut);
     
     pidlSubFolder = ILCombine(This->m_pidlLocation, pidl);
-    IPersistFolder2_Initialize(persistFolder, pidlSubFolder);
-    IPersistFolder2_Release(persistFolder);
+    IPersistFolder3_Initialize(persistFolder, pidlSubFolder);
+    IPersistFolder3_Release(persistFolder);
     ILFree(pidlSubFolder);
 
     return hr;
@@ -880,7 +704,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetAttributesOf(IShellFolder2* if
     LPCITEMIDLIST* apidl, SFGAOF* rgfInOut)
 {
     UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
-    const StatStruct *pStatStruct;
+    HRESULT hr = S_OK;
         
     TRACE("(iface=%p, cidl=%u, apidl=%p, rgfInOut=%p)\n", iface, cidl, apidl, rgfInOut);
  
@@ -888,23 +712,30 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetAttributesOf(IShellFolder2* if
         return E_INVALIDARG;
     
     if (cidl == 0) {
-        if (!strcmp(This->m_pszPath, "/")) {
-            *rgfInOut &= dwRootAttr;
-        } else {
-            pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(ILFindLastID(This->m_pidlLocation));
-            if (!pStatStruct) return E_FAIL;                
-            *rgfInOut &= pStatStruct->sfAttr;
-        }
+        *rgfInOut &= This->m_dwAttributes;
     } else {
+        char szAbsolutePath[FILENAME_MAX], *pszRelativePath;
         UINT i;
+
+        *rgfInOut &= SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME|
+                     SFGAO_FILESYSTEM;
+        lstrcpyA(szAbsolutePath, This->m_pszPath);
+        pszRelativePath = szAbsolutePath + lstrlenA(szAbsolutePath);
         for (i=0; i<cidl; i++) {
-            pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(apidl[i]);
-            if (!pStatStruct) return E_INVALIDARG;
-            *rgfInOut &= pStatStruct->sfAttr;
+            if ((*rgfInOut & SFGAO_FILESYSTEM) && !(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+                struct stat fileStat;
+                char *pszName = _ILGetTextPointer(apidl[i]);
+                if (!pszName) return E_INVALIDARG;
+                lstrcpyA(pszRelativePath, pszName);
+                if (stat(szAbsolutePath, &fileStat) || !UNIXFS_is_dos_device(&fileStat))
+                    *rgfInOut &= ~SFGAO_FILESYSTEM;
+            }
+            if (!_ILIsFolder(apidl[i])) 
+                *rgfInOut &= ~(SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR);
         }
     }
     
-    return S_OK;
+    return hr;
 }
 
 static HRESULT WINAPI UnixFolder_IShellFolder2_GetUIObjectOf(IShellFolder2* iface, HWND hwndOwner, 
@@ -986,16 +817,93 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* i
         strcpy(lpName->u.cStr, pszFileName ? pszFileName : "");
     }
 
+    /* If in dos mode, do some post-processing on the path.
+     * (e.g. remove filename extension, if uFlags & SHGDN_FOREDITING) 
+     */
+    if (SUCCEEDED(hr) && This->m_dwPathMode == PATHMODE_DOS && !_ILIsFolder(pidl))
+        SHELL_FS_ProcessDisplayFilename(lpName->u.cStr, uFlags);
+    
     TRACE("--> %s\n", lpName->u.cStr);
     
     return hr;
 }
 
-static HRESULT WINAPI UnixFolder_IShellFolder2_SetNameOf(IShellFolder2* This, HWND hwnd, 
+static HRESULT WINAPI UnixFolder_IShellFolder2_SetNameOf(IShellFolder2* iface, HWND hwnd, 
     LPCITEMIDLIST pidl, LPCOLESTR lpszName, SHGDNF uFlags, LPITEMIDLIST* ppidlOut)
 {
-    TRACE("stub\n");
-    return E_NOTIMPL;
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
+
+    char szSrc[FILENAME_MAX], szDest[FILENAME_MAX], szDosDest[MAX_PATH];
+    WCHAR wszDosDest[MAX_PATH];
+    int cBasePathLen = lstrlenA(This->m_pszPath);
+    struct stat statDest;
+    LPITEMIDLIST pidlSrc, pidlDest;
+   
+    TRACE("(iface=%p, hwnd=%p, pidl=%p, lpszName=%s, uFlags=0x%08lx, ppidlOut=%p)\n",
+          iface, hwnd, pidl, debugstr_w(lpszName), uFlags, ppidlOut); 
+
+    /* pidl has to contain a single non-empty SHITEMID */
+    if (_ILIsDesktop(pidl) || !_ILIsPidlSimple(pidl) || !_ILGetTextPointer(pidl))
+        return E_INVALIDARG;
+   
+    if (ppidlOut)
+        *ppidlOut = NULL;
+    
+    /* build source path */
+    memcpy(szSrc, This->m_pszPath, cBasePathLen);
+    lstrcpyA(szSrc+cBasePathLen, _ILGetTextPointer(pidl));
+
+    /* build destination path */
+    if (uFlags & SHGDN_FORPARSING) { /* absolute path in lpszName */
+        WideCharToMultiByte(CP_UNIXCP, 0, lpszName, -1, szDest, FILENAME_MAX, NULL, NULL);
+    } else {
+        WCHAR wszSrcRelative[MAX_PATH];
+        memcpy(szDest, This->m_pszPath, cBasePathLen);
+        WideCharToMultiByte(CP_UNIXCP, 0, lpszName, -1, szDest+cBasePathLen, 
+                            FILENAME_MAX-cBasePathLen, NULL, NULL);
+
+        /* uFlags is SHGDN_FOREDITING of SHGDN_FORADDRESSBAR. If the filename's 
+         * extension is hidden to the user, we have to append it. */
+        if (_ILSimpleGetTextW(pidl, wszSrcRelative, MAX_PATH) && 
+            SHELL_FS_HideExtension(wszSrcRelative))
+        {
+            char *pszExt = PathFindExtensionA(_ILGetTextPointer(pidl));
+            lstrcatA(szDest, pszExt);
+        }
+    } 
+
+    TRACE("src=%s dest=%s\n", szSrc, szDest);
+
+    /* Fail, if destination does already exist */
+    if (!stat(szDest, &statDest)) 
+        return E_FAIL;
+
+    /* Rename the file */
+    if (rename(szSrc, szDest)) 
+        return E_FAIL;
+    
+    /* Build a pidl for the path of the renamed file */
+    if (!GetFullPathNameA(szDest, MAX_PATH, szDosDest, NULL) ||
+        !MultiByteToWideChar(CP_UNIXCP, 0, szDosDest, -1, wszDosDest, MAX_PATH) ||
+        !UNIXFS_path_to_pidl(This, wszDosDest, &pidlDest))
+    {
+        rename(szDest, szSrc); /* Undo the renaming */
+        return E_FAIL;
+    }
+    
+    /* Inform the shell */
+    pidlSrc = ILCombine(This->m_pidlLocation, pidl);
+    if (_ILIsFolder(ILFindLastID(pidlDest))) 
+        SHChangeNotify(SHCNE_RENAMEFOLDER, SHCNF_IDLIST, pidlSrc, pidlDest);
+    else 
+        SHChangeNotify(SHCNE_RENAMEITEM, SHCNF_IDLIST, pidlSrc, pidlDest);
+    ILFree(pidlSrc);
+    ILFree(pidlDest);
+    
+    if (ppidlOut) 
+        _ILCreateFromPathW(wszDosDest, ppidlOut);
+    
+    return S_OK;
 }
 
 static HRESULT WINAPI UnixFolder_IShellFolder2_EnumSearches(IShellFolder2* iface, 
@@ -1033,21 +941,23 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDetailsEx(IShellFolder2* iface
     return E_NOTIMPL;
 }
 
-#define SHELLVIEWCOLUMNS 6 
+#define SHELLVIEWCOLUMNS 7 
 
 static HRESULT WINAPI UnixFolder_IShellFolder2_GetDetailsOf(IShellFolder2* iface, 
     LPCITEMIDLIST pidl, UINT iColumn, SHELLDETAILS *psd)
 {
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
     HRESULT hr = E_FAIL;
     struct passwd *pPasswd;
     struct group *pGroup;
     static const shvheader SFHeader[SHELLVIEWCOLUMNS] = {
         {IDS_SHV_COLUMN1,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-        {IDS_SHV_COLUMN5,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
+        {IDS_SHV_COLUMN2,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
+        {IDS_SHV_COLUMN3,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
+        {IDS_SHV_COLUMN4,  SHCOLSTATE_TYPE_DATE | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 12},
+        {IDS_SHV_COLUMN5,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 9},
         {IDS_SHV_COLUMN10, SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 7},
-        {IDS_SHV_COLUMN11, SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 7},
-        {IDS_SHV_COLUMN2,  SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 8},
-        {IDS_SHV_COLUMN4,  SHCOLSTATE_TYPE_DATE | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10}
+        {IDS_SHV_COLUMN11, SHCOLSTATE_TYPE_STR  | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 7}
     };
 
     TRACE("(iface=%p, pidl=%p, iColumn=%d, psd=%p) stub\n", iface, pidl, iColumn, psd);
@@ -1062,7 +972,16 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDetailsOf(IShellFolder2* iface
         LoadStringA(shell32_hInstance, SFHeader[iColumn].colnameid, psd->str.u.cStr, MAX_PATH);
         return S_OK;
     } else {
-        StatStruct *pStatStruct = LPSTATSTRUCT_FROM_LPSHITEMID(pidl);
+        struct stat statItem;
+        if (iColumn == 4 || iColumn == 5 || iColumn == 6) {
+            char szPath[FILENAME_MAX], *pszFile = _ILGetTextPointer(pidl);
+            if (!pszFile) 
+                return E_INVALIDARG;
+            lstrcpyA(szPath, This->m_pszPath);
+            lstrcatA(szPath, pszFile);
+            if (stat(szPath, &statItem)) 
+                return E_INVALIDARG;
+        }
         psd->str.u.cStr[0] = '\0';
         psd->str.uType = STRRET_CSTR;
         switch (iColumn) {
@@ -1070,31 +989,34 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDetailsOf(IShellFolder2* iface
                 hr = IShellFolder2_GetDisplayNameOf(iface, pidl, SHGDN_NORMAL|SHGDN_INFOLDER, &psd->str);
                 break;
             case 1:
-                psd->str.u.cStr[0] = S_ISDIR(pStatStruct->st_mode) ? 'd' : '-';
-                psd->str.u.cStr[1] = (pStatStruct->st_mode & S_IRUSR) ? 'r' : '-';
-                psd->str.u.cStr[2] = (pStatStruct->st_mode & S_IWUSR) ? 'w' : '-';
-                psd->str.u.cStr[3] = (pStatStruct->st_mode & S_IXUSR) ? 'x' : '-';
-                psd->str.u.cStr[4] = (pStatStruct->st_mode & S_IRGRP) ? 'r' : '-';
-                psd->str.u.cStr[5] = (pStatStruct->st_mode & S_IWGRP) ? 'w' : '-';
-                psd->str.u.cStr[6] = (pStatStruct->st_mode & S_IXGRP) ? 'x' : '-';
-                psd->str.u.cStr[7] = (pStatStruct->st_mode & S_IROTH) ? 'r' : '-';
-                psd->str.u.cStr[8] = (pStatStruct->st_mode & S_IWOTH) ? 'w' : '-';
-                psd->str.u.cStr[9] = (pStatStruct->st_mode & S_IXOTH) ? 'x' : '-';
-                psd->str.u.cStr[10] = '\0';
-                break;
-            case 2:
-                pPasswd = getpwuid(pStatStruct->st_uid);
-                if (pPasswd) strcpy(psd->str.u.cStr, pPasswd->pw_name);
-                break;
-            case 3:
-                pGroup = getgrgid(pStatStruct->st_gid);
-                if (pGroup) strcpy(psd->str.u.cStr, pGroup->gr_name);
-                break;
-            case 4:
                 _ILGetFileSize(pidl, psd->str.u.cStr, MAX_PATH);
                 break;
-            case 5:
+            case 2:
+                _ILGetFileType (pidl, psd->str.u.cStr, MAX_PATH);
+                break;
+            case 3:
                 _ILGetFileDate(pidl, psd->str.u.cStr, MAX_PATH);
+                break;
+            case 4:
+                psd->str.u.cStr[0] = S_ISDIR(statItem.st_mode) ? 'd' : '-';
+                psd->str.u.cStr[1] = (statItem.st_mode & S_IRUSR) ? 'r' : '-';
+                psd->str.u.cStr[2] = (statItem.st_mode & S_IWUSR) ? 'w' : '-';
+                psd->str.u.cStr[3] = (statItem.st_mode & S_IXUSR) ? 'x' : '-';
+                psd->str.u.cStr[4] = (statItem.st_mode & S_IRGRP) ? 'r' : '-';
+                psd->str.u.cStr[5] = (statItem.st_mode & S_IWGRP) ? 'w' : '-';
+                psd->str.u.cStr[6] = (statItem.st_mode & S_IXGRP) ? 'x' : '-';
+                psd->str.u.cStr[7] = (statItem.st_mode & S_IROTH) ? 'r' : '-';
+                psd->str.u.cStr[8] = (statItem.st_mode & S_IWOTH) ? 'w' : '-';
+                psd->str.u.cStr[9] = (statItem.st_mode & S_IXOTH) ? 'x' : '-';
+                psd->str.u.cStr[10] = '\0';
+                break;
+            case 5:
+                pPasswd = getpwuid(statItem.st_uid);
+                if (pPasswd) strcpy(psd->str.u.cStr, pPasswd->pw_name);
+                break;
+            case 6:
+                pGroup = getgrgid(statItem.st_gid);
+                if (pGroup) strcpy(psd->str.u.cStr, pGroup->gr_name);
                 break;
         }
     }
@@ -1134,57 +1056,114 @@ static const IShellFolder2Vtbl UnixFolder_IShellFolder2_Vtbl = {
     UnixFolder_IShellFolder2_MapColumnToSCID
 };
 
-static HRESULT WINAPI UnixFolder_IPersistFolder2_QueryInterface(IPersistFolder2* This, REFIID riid, 
+static HRESULT WINAPI UnixFolder_IPersistFolder3_QueryInterface(IPersistFolder3* This, REFIID riid, 
     void** ppvObject)
 {
     return UnixFolder_IShellFolder2_QueryInterface(
-                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder2, This), riid, ppvObject);
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder3, This), riid, ppvObject);
 }
 
-static ULONG WINAPI UnixFolder_IPersistFolder2_AddRef(IPersistFolder2* This)
+static ULONG WINAPI UnixFolder_IPersistFolder3_AddRef(IPersistFolder3* This)
 {
     return UnixFolder_IShellFolder2_AddRef(
-                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder2, This));
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder3, This));
 }
 
-static ULONG WINAPI UnixFolder_IPersistFolder2_Release(IPersistFolder2* This)
+static ULONG WINAPI UnixFolder_IPersistFolder3_Release(IPersistFolder3* This)
 {
     return UnixFolder_IShellFolder2_Release(
-                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder2, This));
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, IPersistFolder3, This));
 }
 
-static HRESULT WINAPI UnixFolder_IPersistFolder2_GetClassID(IPersistFolder2* This, CLSID* pClassID)
+static HRESULT WINAPI UnixFolder_IPersistFolder3_GetClassID(IPersistFolder3* This, CLSID* pClassID)
 {
     TRACE("stub\n");
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI UnixFolder_IPersistFolder2_Initialize(IPersistFolder2* iface, LPCITEMIDLIST pidl)
+static HRESULT WINAPI UnixFolder_IPersistFolder3_Initialize(IPersistFolder3* iface, LPCITEMIDLIST pidl)
 {
-    UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder2, iface);
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder3, iface);
+    struct stat statPrefix;
+    LPCITEMIDLIST current = pidl, root;
+    DWORD dwPathLen;
+    char *pNextDir, szBasePath[FILENAME_MAX] = "/";
     
     TRACE("(iface=%p, pidl=%p)\n", iface, pidl);
 
-    This->m_pidlLocation = ILClone(pidl);
-    
-    pdump(pidl);
-    
-    if (!UNIXFS_pidl_to_path(pidl, This))
-        return E_FAIL;
+    /* Find the UnixFolderClass root */
+    while (current->mkid.cb) {
+        if (_ILIsSpecialFolder(current) && 
+            (IsEqualIID(&CLSID_UnixFolder, _ILGetGUIDPointer(current)) ||
+             IsEqualIID(&CLSID_UnixDosFolder, _ILGetGUIDPointer(current))))
+        {
+            break;
+        }
+        current = ILGetNext(current);
+    }
 
-    if (!strcmp(This->m_pszPath, "/")) {
-        struct stat statRoot;
-        if (stat(This->m_pszPath, &statRoot)) return E_FAIL;
-        dwRootAttr = SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR;
-        if (UNIXFS_is_dos_device(&statRoot)) dwRootAttr |= SFGAO_FILESYSTEM;
+    if (current && current->mkid.cb) {
+        root = current = ILGetNext(current);
+        dwPathLen = 2; /* For the '/' prefix and the terminating '\0' */
+    } else if (_ILIsDesktop(pidl) || _ILIsValue(pidl) || _ILIsFolder(pidl)) {
+        /* Path rooted at Desktop */
+        WCHAR wszDesktopPath[MAX_PATH];
+        if (FAILED(SHGetSpecialFolderPathW(0, wszDesktopPath, CSIDL_DESKTOP, FALSE)))
+           return E_FAIL;
+        PathAddBackslashW(wszDesktopPath);
+        if (!UNIXFS_get_unix_path(wszDesktopPath, szBasePath))
+            return E_FAIL;
+        dwPathLen = strlen(szBasePath) + 1;
+        root = current = pidl;
+    } else {
+        ERR("Unknown pidl type!\n");
+        pdump(pidl);
+        return E_INVALIDARG;
     }
     
+    /* Determine the path's length bytes */
+    while (current && current->mkid.cb) {
+        dwPathLen += NAME_LEN_FROM_LPSHITEMID(current) + 1; /* For the '/' */
+        current = ILGetNext(current);
+    };
+
+    /* Build the path */
+    This->m_dwAttributes = SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME;
+    This->m_pidlLocation = ILClone(pidl);
+    This->m_pszPath = pNextDir = SHAlloc(dwPathLen);
+    if (!This->m_pszPath || !This->m_pidlLocation) {
+        WARN("SHAlloc failed!\n");
+        return E_FAIL;
+    }
+    current = root;
+    strcpy(pNextDir, szBasePath);
+    pNextDir += strlen(szBasePath);
+    if (This->m_dwPathMode == PATHMODE_UNIX)
+        This->m_dwAttributes |= SFGAO_FILESYSTEM;
+    if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+        *pNextDir = '\0';
+        if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
+            This->m_dwAttributes |= SFGAO_FILESYSTEM;
+    }
+    while (current && current->mkid.cb) {
+        memcpy(pNextDir, _ILGetTextPointer(current), NAME_LEN_FROM_LPSHITEMID(current));
+        pNextDir += NAME_LEN_FROM_LPSHITEMID(current);
+        if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+            *pNextDir = '\0';
+            if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
+                This->m_dwAttributes |= SFGAO_FILESYSTEM;
+        }
+        *pNextDir++ = '/';
+        current = ILGetNext(current);
+    }
+    *pNextDir='\0';
+ 
     return S_OK;
 }
 
-static HRESULT WINAPI UnixFolder_IPersistFolder2_GetCurFolder(IPersistFolder2* iface, LPITEMIDLIST* ppidl)
+static HRESULT WINAPI UnixFolder_IPersistFolder3_GetCurFolder(IPersistFolder3* iface, LPITEMIDLIST* ppidl)
 {
-    UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder2, iface);
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder3, iface);
     
     TRACE ("(iface=%p, ppidl=%p)\n", iface, ppidl);
 
@@ -1193,16 +1172,251 @@ static HRESULT WINAPI UnixFolder_IPersistFolder2_GetCurFolder(IPersistFolder2* i
     *ppidl = ILClone (This->m_pidlLocation);
     return S_OK;
 }
+
+static HRESULT WINAPI UnixFolder_IPersistFolder3_InitializeEx(IPersistFolder3 *iface, IBindCtx *pbc, 
+    LPCITEMIDLIST pidlRoot, const PERSIST_FOLDER_TARGET_INFO *ppfti)
+{
+    UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder3, iface);
+    WCHAR wszTargetDosPath[MAX_PATH];
+    char szTargetPath[FILENAME_MAX] = "";
     
+    TRACE("(iface=%p, pbc=%p, pidlRoot=%p, ppfti=%p)\n", iface, pbc, pidlRoot, ppfti);
+
+    /* If no PERSIST_FOLDER_TARGET_INFO is given InitializeEx is equivalent to Initialize. */
+    if (!ppfti) 
+        return IPersistFolder3_Initialize(iface, pidlRoot);
+
+    if (ppfti->csidl != -1) {
+        if (SUCCEEDED(SHGetFolderPathW(0, ppfti->csidl, NULL, 0, wszTargetDosPath))) {
+            UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath);
+        }
+    } else if (*ppfti->szTargetParsingName) {
+        UNIXFS_get_unix_path(ppfti->szTargetParsingName, szTargetPath);
+    } else if (ppfti->pidlTargetFolder) {
+        if (SHGetPathFromIDListW(ppfti->pidlTargetFolder, wszTargetDosPath)) {
+            UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath);
+        }
+    }
+
+    This->m_pszPath = SHAlloc(lstrlenA(szTargetPath)+1);
+    if (!This->m_pszPath) 
+        return E_FAIL;
+    lstrcpyA(This->m_pszPath, szTargetPath);
+    This->m_pidlLocation = ILClone(pidlRoot);
+    This->m_dwAttributes = (ppfti->dwAttributes == -1) ? ppfti->dwAttributes :
+        SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME|SFGAO_FILESYSTEM;
+
+    return S_OK;
+}
+
+static HRESULT WINAPI UnixFolder_IPersistFolder3_GetFolderTargetInfo(IPersistFolder3 *iface, 
+    PERSIST_FOLDER_TARGET_INFO *ppfti)
+{
+    FIXME("(iface=%p, ppfti=%p) stub\n", iface, ppfti);
+    return E_NOTIMPL;
+}
+
 /* VTable for UnixFolder's IPersistFolder interface.
  */
-static const IPersistFolder2Vtbl UnixFolder_IPersistFolder2_Vtbl = {
-    UnixFolder_IPersistFolder2_QueryInterface,
-    UnixFolder_IPersistFolder2_AddRef,
-    UnixFolder_IPersistFolder2_Release,
-    UnixFolder_IPersistFolder2_GetClassID,
-    UnixFolder_IPersistFolder2_Initialize,
-    UnixFolder_IPersistFolder2_GetCurFolder
+static const IPersistFolder3Vtbl UnixFolder_IPersistFolder3_Vtbl = {
+    UnixFolder_IPersistFolder3_QueryInterface,
+    UnixFolder_IPersistFolder3_AddRef,
+    UnixFolder_IPersistFolder3_Release,
+    UnixFolder_IPersistFolder3_GetClassID,
+    UnixFolder_IPersistFolder3_Initialize,
+    UnixFolder_IPersistFolder3_GetCurFolder,
+    UnixFolder_IPersistFolder3_InitializeEx,
+    UnixFolder_IPersistFolder3_GetFolderTargetInfo
+};
+
+static HRESULT WINAPI UnixFolder_ISFHelper_QueryInterface(ISFHelper* iface, REFIID riid, 
+    void** ppvObject)
+{
+    return UnixFolder_IShellFolder2_QueryInterface(
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, ISFHelper, iface), riid, ppvObject);
+}
+
+static ULONG WINAPI UnixFolder_ISFHelper_AddRef(ISFHelper* iface)
+{
+    return UnixFolder_IShellFolder2_AddRef(
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, ISFHelper, iface));
+}
+
+static ULONG WINAPI UnixFolder_ISFHelper_Release(ISFHelper* iface)
+{
+    return UnixFolder_IShellFolder2_Release(
+                (IShellFolder2*)ADJUST_THIS(UnixFolder, ISFHelper, iface));
+}
+
+static HRESULT WINAPI UnixFolder_ISFHelper_GetUniqueName(ISFHelper* iface, LPSTR lpName, UINT uLen)
+{
+    UnixFolder *This = ADJUST_THIS(UnixFolder, ISFHelper, iface);
+    IEnumIDList *pEnum;
+    HRESULT hr;
+    LPITEMIDLIST pidlElem;
+    DWORD dwFetched;
+    int i;
+    static const char szNewFolder[] = "New Folder";
+
+    TRACE("(iface=%p, lpName=%p, uLen=%u)\n", iface, lpName, uLen);
+    
+    if (uLen < sizeof(szNewFolder)+3)
+        return E_INVALIDARG;
+
+    hr = IShellFolder2_EnumObjects(STATIC_CAST(IShellFolder2, This), 0,
+                                   SHCONTF_FOLDERS|SHCONTF_NONFOLDERS|SHCONTF_INCLUDEHIDDEN, &pEnum);
+    if (SUCCEEDED(hr)) {
+        lstrcpyA(lpName, szNewFolder);
+        IEnumIDList_Reset(pEnum);
+        i = 2;
+        while ((IEnumIDList_Next(pEnum, 1, &pidlElem, &dwFetched) == S_OK) && (dwFetched == 1)) {
+            if (!strcasecmp(_ILGetTextPointer(pidlElem), lpName)) {
+                IEnumIDList_Reset(pEnum);
+                sprintf(lpName, "%s %d", szNewFolder, i++);
+                if (i > 99) {
+                    hr = E_FAIL;
+                    break;
+                }
+            }
+        }
+        IEnumIDList_Release(pEnum);
+    }
+    return hr;
+}
+
+static HRESULT WINAPI UnixFolder_ISFHelper_AddFolder(ISFHelper* iface, HWND hwnd, LPCSTR pszName, 
+    LPITEMIDLIST* ppidlOut)
+{
+    UnixFolder *This = ADJUST_THIS(UnixFolder, ISFHelper, iface);
+    char szNewDir[FILENAME_MAX];
+
+    TRACE("(iface=%p, hwnd=%p, pszName=%s, ppidlOut=%p)\n", iface, hwnd, pszName, ppidlOut);
+
+    if (ppidlOut)
+        *ppidlOut = NULL;
+    
+    lstrcpyA(szNewDir, This->m_pszPath);
+    lstrcatA(szNewDir, pszName);
+
+    if (mkdir(szNewDir, 0755)) {
+        char szMessage[256 + FILENAME_MAX];
+        char szCaption[256];
+
+        LoadStringA(shell32_hInstance, IDS_CREATEFOLDER_DENIED, szCaption, sizeof(szCaption));
+        sprintf(szMessage, szCaption, szNewDir);
+        LoadStringA(shell32_hInstance, IDS_CREATEFOLDER_CAPTION, szCaption, sizeof(szCaption));
+        MessageBoxA(hwnd, szMessage, szCaption, MB_OK | MB_ICONEXCLAMATION);
+
+        return E_FAIL;
+    } else {
+        LPITEMIDLIST pidlRelative;
+        WCHAR wszName[MAX_PATH];
+
+        /* Inform the shell */
+        MultiByteToWideChar(CP_UNIXCP, 0, pszName, -1, wszName, MAX_PATH);
+        if (UNIXFS_path_to_pidl(This, wszName, &pidlRelative)) {
+            LPITEMIDLIST pidlAbsolute = ILCombine(This->m_pidlLocation, pidlRelative);
+            if (ppidlOut)
+                *ppidlOut = pidlRelative;
+            else
+                ILFree(pidlRelative);
+            SHChangeNotify(SHCNE_MKDIR, SHCNF_IDLIST, pidlAbsolute, NULL);
+            ILFree(pidlAbsolute);
+        }
+        return S_OK;
+    }
+}
+
+static HRESULT WINAPI UnixFolder_ISFHelper_DeleteItems(ISFHelper* iface, UINT cidl, 
+    LPCITEMIDLIST* apidl)
+{
+    UnixFolder *This = ADJUST_THIS(UnixFolder, ISFHelper, iface);
+    char szAbsolute[FILENAME_MAX], *pszRelative;
+    LPITEMIDLIST pidlAbsolute;
+    HRESULT hr = S_OK;
+    UINT i;
+    
+    TRACE("(iface=%p, cidl=%d, apidl=%p)\n", iface, cidl, apidl);
+
+    lstrcpyA(szAbsolute, This->m_pszPath);
+    pszRelative = szAbsolute + lstrlenA(szAbsolute);
+    
+    for (i=0; i<cidl && SUCCEEDED(hr); i++) {
+        lstrcpyA(pszRelative, _ILGetTextPointer(apidl[i]));
+        pidlAbsolute = ILCombine(This->m_pidlLocation, apidl[i]);
+        if (_ILIsFolder(apidl[i])) {
+            if (rmdir(szAbsolute)) {
+                hr = E_FAIL;
+            } else {
+                SHChangeNotify(SHCNE_RMDIR, SHCNF_IDLIST, pidlAbsolute, NULL);
+            }
+        } else if (_ILIsValue(apidl[i])) {
+            if (unlink(szAbsolute)) {
+                hr = E_FAIL;
+            } else {
+                SHChangeNotify(SHCNE_DELETE, SHCNF_IDLIST, pidlAbsolute, NULL);
+            }
+        }
+        ILFree(pidlAbsolute);
+    }
+        
+    return hr;
+}
+
+static HRESULT WINAPI UnixFolder_ISFHelper_CopyItems(ISFHelper* iface, IShellFolder *psfFrom, 
+    UINT cidl, LPCITEMIDLIST *apidl)
+{
+    UnixFolder *This = ADJUST_THIS(UnixFolder, ISFHelper, iface);
+    DWORD dwAttributes;
+    UINT i;
+    HRESULT hr;
+    char szAbsoluteDst[FILENAME_MAX], *pszRelativeDst;
+    
+    TRACE("(iface=%p, psfFrom=%p, cidl=%d, apidl=%p): semi-stub\n", iface, psfFrom, cidl, apidl);
+
+    if (!psfFrom || !cidl || !apidl)
+        return E_INVALIDARG;
+
+    /* All source items have to be filesystem items. */
+    dwAttributes = SFGAO_FILESYSTEM;
+    hr = IShellFolder_GetAttributesOf(psfFrom, cidl, apidl, &dwAttributes);
+    if (FAILED(hr) || !(dwAttributes & SFGAO_FILESYSTEM)) 
+        return E_INVALIDARG;
+
+    lstrcpyA(szAbsoluteDst, This->m_pszPath);
+    pszRelativeDst = szAbsoluteDst + strlen(szAbsoluteDst);
+    
+    for (i=0; i<cidl; i++) {
+        WCHAR wszSrc[MAX_PATH];
+        char szSrc[FILENAME_MAX];
+        STRRET strret;
+
+        /* Build the unix path of the current source item. */
+        if (FAILED(IShellFolder_GetDisplayNameOf(psfFrom, apidl[i], SHGDN_FORPARSING, &strret)))
+            return E_FAIL;
+        if (FAILED(StrRetToBufW(&strret, apidl[i], wszSrc, MAX_PATH)))
+            return E_FAIL;
+        if (!UNIXFS_get_unix_path(wszSrc, szSrc)) 
+            return E_FAIL;
+
+        /* Build the unix path of the current destination item */
+        lstrcpyA(pszRelativeDst, _ILGetTextPointer(apidl[i]));
+
+        FIXME("Would copy %s to %s. Not yet implemented.\n", szSrc, szAbsoluteDst);
+    }
+    return S_OK;
+}
+
+/* VTable for UnixFolder's ISFHelper interface
+ */
+static const ISFHelperVtbl UnixFolder_ISFHelper_Vtbl = {
+    UnixFolder_ISFHelper_QueryInterface,
+    UnixFolder_ISFHelper_AddRef,
+    UnixFolder_ISFHelper_Release,
+    UnixFolder_ISFHelper_GetUniqueName,
+    UnixFolder_ISFHelper_AddFolder,
+    UnixFolder_ISFHelper_DeleteItems,
+    UnixFolder_ISFHelper_CopyItems
 };
 
 /******************************************************************************
@@ -1227,11 +1441,10 @@ static HRESULT CreateUnixFolder(IUnknown *pUnkOuter, REFIID riid, LPVOID *ppv, D
     
     if(pUnixFolder) {
         pUnixFolder->lpIShellFolder2Vtbl = &UnixFolder_IShellFolder2_Vtbl;
-        pUnixFolder->lpIPersistFolder2Vtbl = &UnixFolder_IPersistFolder2_Vtbl;
+        pUnixFolder->lpIPersistFolder3Vtbl = &UnixFolder_IPersistFolder3_Vtbl;
+        pUnixFolder->lpISFHelperVtbl = &UnixFolder_ISFHelper_Vtbl;
         pUnixFolder->m_cRef = 0;
         pUnixFolder->m_pszPath = NULL;
-        pUnixFolder->m_apidlSubDirs = NULL;
-        pUnixFolder->m_cSubDirs = -1;
         pUnixFolder->m_dwPathMode = dwPathMode;
 
         UnixFolder_IShellFolder2_AddRef(STATIC_CAST(IShellFolder2, pUnixFolder));
@@ -1262,16 +1475,17 @@ HRESULT WINAPI UnixDosFolder_Constructor(IUnknown *pUnkOuter, REFIID riid, LPVOI
  */
 typedef struct _UnixSubFolderIterator {
     const IEnumIDListVtbl *lpIEnumIDListVtbl;
-    ULONG m_cRef;
-    UnixFolder *m_pUnixFolder;
-    ULONG m_cIdx;
+    LONG m_cRef;
     SHCONTF m_fFilter;
+    DIR *m_dirFolder;
+    char m_szFolder[FILENAME_MAX];
 } UnixSubFolderIterator;
 
 static void UnixSubFolderIterator_Destroy(UnixSubFolderIterator *iterator) {
     TRACE("(iterator=%p)\n", iterator);
-        
-    UnixFolder_IShellFolder2_Release((IShellFolder2*)iterator->m_pUnixFolder);
+
+    if (iterator->m_dirFolder)
+        closedir(iterator->m_dirFolder);
     SHFree(iterator);
 }
 
@@ -1321,46 +1535,58 @@ static HRESULT WINAPI UnixSubFolderIterator_IEnumIDList_Next(IEnumIDList* iface,
     LPITEMIDLIST* rgelt, ULONG* pceltFetched)
 {
     UnixSubFolderIterator *This = ADJUST_THIS(UnixSubFolderIterator, IEnumIDList, iface);
-    ULONG i;
+    ULONG i = 0;
 
-    TRACE("(iface=%p, celt=%ld, rgelt=%p, pceltFetched=%p)\n", iface, celt, rgelt, pceltFetched);
-   
-    for (i=0; (i < celt) && (This->m_cIdx < This->m_pUnixFolder->m_cSubDirs); This->m_cIdx++) {
-        LPITEMIDLIST pCurrent = This->m_pUnixFolder->m_apidlSubDirs[This->m_cIdx];
-        if (UNIXFS_is_pidl_of_type(pCurrent, This->m_fFilter)) {
-            rgelt[i] = ILClone(pCurrent);
+    /* This->m_dirFolder will be NULL if the user doesn't have access rights for the dir. */
+    if (This->m_dirFolder) {
+        char *pszRelativePath = This->m_szFolder + lstrlenA(This->m_szFolder);
+        struct dirent *pDirEntry;
+
+        while (i < celt) {
+            pDirEntry = readdir(This->m_dirFolder);
+            if (!pDirEntry) break; /* No more entries */
+            if (!strcmp(pDirEntry->d_name, ".") || !strcmp(pDirEntry->d_name, "..")) continue;
+
+            /* Temporarily build absolute path in This->m_szFolder. Then construct a pidl
+             * and see if it passes the filter. 
+             */
+            lstrcpyA(pszRelativePath, pDirEntry->d_name);
+            rgelt[i] = (LPITEMIDLIST)SHAlloc(SHITEMID_LEN_FROM_NAME_LEN(lstrlenA(pszRelativePath))+sizeof(USHORT));
+            if (!UNIXFS_build_shitemid(This->m_szFolder, rgelt[i]) ||
+                !UNIXFS_is_pidl_of_type(rgelt[i], This->m_fFilter)) 
+            {
+                SHFree(rgelt[i]);
+                continue;
+            }
+            memset(((PBYTE)rgelt[i])+rgelt[i]->mkid.cb, 0, sizeof(USHORT));
             i++;
         }
+        *pszRelativePath = '\0'; /* Restore the original path in This->m_szFolder. */
     }
-
+    
     if (pceltFetched)
         *pceltFetched = i;
 
-    return i == celt ? S_OK : S_FALSE;
+    return (i == 0) ? S_FALSE : S_OK;
 }
-
+    
 static HRESULT WINAPI UnixSubFolderIterator_IEnumIDList_Skip(IEnumIDList* iface, ULONG celt)
 {
-    UnixSubFolderIterator *This = ADJUST_THIS(UnixSubFolderIterator, IEnumIDList, iface);
-    ULONG i;
+    LPITEMIDLIST *apidl;
+    ULONG cFetched;
+    HRESULT hr;
     
     TRACE("(iface=%p, celt=%ld)\n", iface, celt);
 
-    for (i=0; i < celt; i++) {
-        while (This->m_cIdx < This->m_pUnixFolder->m_cSubDirs &&
-               !UNIXFS_is_pidl_of_type(This->m_pUnixFolder->m_apidlSubDirs[This->m_cIdx], This->m_fFilter)) 
-        {
-            This->m_cIdx++;
-        }
-        This->m_cIdx++;
-    }
-    
-    if (This->m_cIdx > This->m_pUnixFolder->m_cSubDirs) {
-        This->m_cIdx = This->m_pUnixFolder->m_cSubDirs;
-        return S_FALSE;
-    } else {
-        return S_OK;
-    }
+    /* Call IEnumIDList::Next and delete the resulting pidls. */
+    apidl = (LPITEMIDLIST*)SHAlloc(celt * sizeof(LPITEMIDLIST));
+    hr = IEnumIDList_Next(iface, celt, apidl, &cFetched);
+    if (SUCCEEDED(hr))
+        while (cFetched--) 
+            SHFree(apidl[cFetched]);
+    SHFree(apidl);
+
+    return hr;
 }
 
 static HRESULT WINAPI UnixSubFolderIterator_IEnumIDList_Reset(IEnumIDList* iface)
@@ -1369,7 +1595,8 @@ static HRESULT WINAPI UnixSubFolderIterator_IEnumIDList_Reset(IEnumIDList* iface
         
     TRACE("(iface=%p)\n", iface);
 
-    This->m_cIdx = 0;
+    if (This->m_dirFolder)
+        rewinddir(This->m_dirFolder);
     
     return S_OK;
 }
@@ -1393,7 +1620,7 @@ static const IEnumIDListVtbl UnixSubFolderIterator_IEnumIDList_Vtbl = {
     UnixSubFolderIterator_IEnumIDList_Clone
 };
 
-static IUnknown *UnixSubFolderIterator_Construct(UnixFolder *pUnixFolder, SHCONTF fFilter) {
+static IUnknown *UnixSubFolderIterator_Constructor(UnixFolder *pUnixFolder, SHCONTF fFilter) {
     UnixSubFolderIterator *iterator;
 
     TRACE("(pUnixFolder=%p)\n", pUnixFolder);
@@ -1401,12 +1628,11 @@ static IUnknown *UnixSubFolderIterator_Construct(UnixFolder *pUnixFolder, SHCONT
     iterator = SHAlloc((ULONG)sizeof(UnixSubFolderIterator));
     iterator->lpIEnumIDListVtbl = &UnixSubFolderIterator_IEnumIDList_Vtbl;
     iterator->m_cRef = 0;
-    iterator->m_cIdx = 0;
-    iterator->m_pUnixFolder = pUnixFolder;
     iterator->m_fFilter = fFilter;
+    iterator->m_dirFolder = opendir(pUnixFolder->m_pszPath);
+    lstrcpyA(iterator->m_szFolder, pUnixFolder->m_pszPath);
 
     UnixSubFolderIterator_IEnumIDList_AddRef((IEnumIDList*)iterator);
-    UnixFolder_IShellFolder2_AddRef((IShellFolder2*)pUnixFolder);
     
     return (IUnknown*)iterator;
 }

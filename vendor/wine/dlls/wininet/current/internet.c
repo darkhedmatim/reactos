@@ -91,9 +91,9 @@ HINTERNET WINAPI INTERNET_InternetOpenUrlW(LPWININETAPPINFOW hIC, LPCWSTR lpszUr
 static VOID INTERNET_ExecuteWork(void);
 
 static DWORD g_dwTlsErrIndex = TLS_OUT_OF_INDEXES;
-static DWORD dwNumThreads;
-static DWORD dwNumIdleThreads;
-static DWORD dwNumJobs;
+static LONG dwNumThreads;
+static LONG dwNumIdleThreads;
+static LONG dwNumJobs;
 static HANDLE hEventArray[2];
 #define hQuitEvent hEventArray[0]
 #define hWorkEvent hEventArray[1]
@@ -2151,6 +2151,15 @@ BOOL WINAPI InternetSetOptionW(HINTERNET hInternet, DWORD dwOption,
     case INTERNET_OPTION_DISABLE_PASSPORT_AUTH:
 	TRACE("Option INTERNET_OPTION_DISABLE_PASSPORT_AUTH: harmless stub, since not enabled\n");
 	break;
+    case INTERNET_OPTION_RECEIVE_TIMEOUT:
+        FIXME("Option INTERNET_OPTION_RECEIVE_TIMEOUT: STUB\n");
+        break;
+    case INTERNET_OPTION_SEND_TIMEOUT:
+        FIXME("Option INTERNET_OPTION_SEND_TIMEOUT: STUB\n");
+        break;
+    case INTERNET_OPTION_CONNECT_RETRIES:
+        FIXME("Option INTERNET_OPTION_CONNECT_RETRIES: STUB\n");
+        break;
     default:
         FIXME("Option %ld STUB\n",dwOption);
         INTERNET_SetLastError(ERROR_INVALID_PARAMETER);
@@ -3201,15 +3210,22 @@ lend:
     }
 }
 
-/***********************************************************************
+/**********************************************************
+ *	InternetQueryDataAvailable (WININET.@)
  *
+ * Determines how much data is available to be read.
+ *
+ * RETURNS
+ *   If there is data available then TRUE, otherwise if there
+ *   is not or an error occurred then FALSE. Use GetLastError() to
+ *   check for ERROR_NO_MORE_FILES to see if it was the former.
  */
 BOOL WINAPI InternetQueryDataAvailable( HINTERNET hFile,
                                 LPDWORD lpdwNumberOfBytesAvailble,
                                 DWORD dwFlags, DWORD dwConext)
 {
     LPWININETHTTPREQW lpwhr;
-    INT retval = -1;
+    BOOL retval = FALSE;
     char buffer[4048];
 
     lpwhr = (LPWININETHTTPREQW) WININET_GetObject( hFile );
@@ -3241,7 +3257,7 @@ BOOL WINAPI InternetQueryDataAvailable( HINTERNET hFile,
     WININET_Release( &lpwhr->hdr );
 
     TRACE("<-- %i\n",retval);
-    return (retval+1);
+    return retval;
 }
 
 

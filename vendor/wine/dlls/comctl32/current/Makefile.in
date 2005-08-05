@@ -6,7 +6,7 @@ VPATH     = @srcdir@
 MODULE    = comctl32.dll
 IMPORTLIB = libcomctl32.$(IMPLIBEXT)
 IMPORTS   = user32 gdi32 advapi32 kernel32
-DELAYIMPORTS = winmm
+DELAYIMPORTS = winmm uxtheme
 EXTRALIBS = $(LIBUNICODE)
 
 C_SRCS = \
@@ -15,7 +15,9 @@ C_SRCS = \
 	comctl32undoc.c \
 	commctrl.c \
 	datetime.c \
+	dpa.c \
 	draglist.c \
+	dsa.c \
 	flatsb.c \
 	header.c \
 	hotkey.c \
