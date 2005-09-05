@@ -431,7 +431,7 @@ static HRESULT WINAPI ISF_Desktop_fnGetAttributesOf (IShellFolder2 * iface,
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
     HRESULT hr = S_OK;
     const static DWORD dwDesktopAttributes = 
-        SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGE_ANCESTOR |
+        SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR |
         SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_FILESYSTEM | SFGAO_HASSUBFOLDER;
 
     TRACE ("(%p)->(cidl=%d apidl=%p mask=%p (0x%08lx))\n",
@@ -665,8 +665,19 @@ static HRESULT WINAPI ISF_Desktop_fnGetDisplayNameOf (IShellFolder2 * iface,
         }
         else
         {
-            /* file system folder */
-            _ILSimpleGetText (pidl, strRet->u.cStr, MAX_PATH);
+            int cLen = 0;
+                
+            /* file system folder or file rooted at the desktop */
+            if ((GET_SHGDN_FOR(dwFlags) == SHGDN_FORPARSING) &&
+                (GET_SHGDN_RELATION(dwFlags) != SHGDN_INFOLDER))
+            {
+                WideCharToMultiByte(CP_ACP, 0, This->sPathTarget, -1, strRet->u.cStr, MAX_PATH,
+                                    NULL, NULL);
+                PathAddBackslashA(strRet->u.cStr);
+                cLen = lstrlenA(strRet->u.cStr);
+            }
+    
+            _ILSimpleGetText (pidl, strRet->u.cStr + cLen, MAX_PATH - cLen);
 
             if (!_ILIsFolder(pidl))
                 SHELL_FS_ProcessDisplayFilename(strRet->u.cStr, dwFlags);

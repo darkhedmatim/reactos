@@ -379,6 +379,9 @@ typedef struct tagLISTVIEW_INFO
 #define LV_FL_DT_FLAGS  (DT_TOP | DT_NOPREFIX | DT_EDITCONTROL | DT_CENTER | DT_WORDBREAK | DT_NOCLIP)
 #define LV_SL_DT_FLAGS  (DT_VCENTER | DT_NOPREFIX | DT_EDITCONTROL | DT_SINGLELINE | DT_WORD_ELLIPSIS | DT_END_ELLIPSIS)
 
+/* Image index from state */
+#define STATEIMAGEINDEX(x) (((x) & LVIS_STATEIMAGEMASK) >> 12)
+
 /* The time in milliseconds to reset the search in the list */
 #define KEY_DELAY       450
 
@@ -1243,8 +1246,8 @@ static BOOL iterator_frameditems(ITERATOR* i, LISTVIEW_INFO* infoPtr, const RECT
 	TRACE("building icon ranges:\n");
 	for (nItem = 0; nItem < infoPtr->nItemCount; nItem++)
 	{
-            rcItem.left = (LONG)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
-	    rcItem.top = (LONG)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
+            rcItem.left = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
+	    rcItem.top = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
 	    rcItem.right = rcItem.left + infoPtr->nItemWidth;
 	    rcItem.bottom = rcItem.top + infoPtr->nItemHeight;
 	    if (IntersectRect(&rcTemp, &rcItem, &frame))
@@ -1841,8 +1844,8 @@ static void LISTVIEW_GetItemOrigin(LISTVIEW_INFO *infoPtr, INT nItem, LPPOINT lp
 
     if ((uView == LVS_SMALLICON) || (uView == LVS_ICON))
     {
-	lpptPosition->x = (LONG)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
-	lpptPosition->y = (LONG)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
+	lpptPosition->x = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
+	lpptPosition->y = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
     }
     else if (uView == LVS_LIST)
     {
@@ -2218,8 +2221,8 @@ static BOOL LISTVIEW_MoveIconTo(LISTVIEW_INFO *infoPtr, INT nItem, const POINT *
     
     if (!isNew)
     { 
-        old.x = (LONG)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
-        old.y = (LONG)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
+        old.x = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosX, nItem);
+        old.y = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosY, nItem);
     
         if (lppt->x == old.x && lppt->y == old.y) return TRUE;
 	LISTVIEW_InvalidateItem(infoPtr, nItem);
@@ -2227,8 +2230,8 @@ static BOOL LISTVIEW_MoveIconTo(LISTVIEW_INFO *infoPtr, INT nItem, const POINT *
 
     /* Allocating a POINTER for every item is too resource intensive,
      * so we'll keep the (x,y) in different arrays */
-    if (!DPA_SetPtr(infoPtr->hdpaPosX, nItem, (void *)lppt->x)) return FALSE;
-    if (!DPA_SetPtr(infoPtr->hdpaPosY, nItem, (void *)lppt->y)) return FALSE;
+    if (!DPA_SetPtr(infoPtr->hdpaPosX, nItem, (void *)(LONG_PTR)lppt->x)) return FALSE;
+    if (!DPA_SetPtr(infoPtr->hdpaPosY, nItem, (void *)(LONG_PTR)lppt->y)) return FALSE;
 
     LISTVIEW_InvalidateItem(infoPtr, nItem);
 
@@ -2307,8 +2310,8 @@ static void LISTVIEW_GetAreaRect(LISTVIEW_INFO *infoPtr, LPRECT lprcView)
     case LVS_SMALLICON:
 	for (i = 0; i < infoPtr->nItemCount; i++)
 	{
-	    x = (LONG)DPA_GetPtr(infoPtr->hdpaPosX, i);
-           y = (LONG)DPA_GetPtr(infoPtr->hdpaPosY, i);
+	    x = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosX, i);
+            y = (LONG_PTR)DPA_GetPtr(infoPtr->hdpaPosY, i);
 	    lprcView->right = max(lprcView->right, x);
 	    lprcView->bottom = max(lprcView->bottom, y);
 	}
@@ -3729,7 +3732,7 @@ static BOOL LISTVIEW_DrawItem(LISTVIEW_INFO *infoPtr, HDC hdc, INT nItem, INT nS
     /* state icons */
     if (infoPtr->himlState && !IsRectEmpty(&rcState))
     {
-        UINT uStateImage = (lvItem.state & LVIS_STATEIMAGEMASK) >> 12;
+        UINT uStateImage = STATEIMAGEINDEX(lvItem.state);
         if (uStateImage)
 	{
 	     TRACE("uStateImage=%d\n", uStateImage);
@@ -6100,7 +6103,7 @@ static INT LISTVIEW_HitTest(LISTVIEW_INFO *infoPtr, LPLVHITTESTINFO lpht, BOOL s
 	lpht->flags |= LVHT_ONITEMICON;
     else if (PtInRect(&rcLabel, opt))
 	lpht->flags |= LVHT_ONITEMLABEL;
-    else if (infoPtr->himlState && ((lvItem.state & LVIS_STATEIMAGEMASK) >> 12) && PtInRect(&rcState, opt))
+    else if (infoPtr->himlState && STATEIMAGEINDEX(lvItem.state) && PtInRect(&rcState, opt))
 	lpht->flags |= LVHT_ONITEMSTATEICON;
     if (lpht->flags & LVHT_ONITEM)
 	lpht->flags &= ~LVHT_NOWHERE;
@@ -6829,7 +6832,7 @@ static DWORD LISTVIEW_SetExtendedListViewStyle(LISTVIEW_INFO *infoPtr, DWORD dwM
  *
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
- * [I} hCurosr : the new hot cursor handle
+ * [I] hCursor : the new hot cursor handle
  *
  * RETURN:
  * Returns the previous hot cursor
@@ -7516,7 +7519,6 @@ static LRESULT LISTVIEW_Create(HWND hwnd, const CREATESTRUCTW *lpcs)
   LISTVIEW_INFO *infoPtr;
   UINT uView = lpcs->style & LVS_TYPEMASK;
   LOGFONTW logFont;
-  BOOL themingActive = IsAppThemed() && IsThemeActive();
 
   TRACE("(lpcs=%p)\n", lpcs);
 
@@ -7599,7 +7601,7 @@ static LRESULT LISTVIEW_Create(HWND hwnd, const CREATESTRUCTW *lpcs)
     }
   }
 
-  if (themingActive) OpenThemeData(hwnd, themeClass);
+  OpenThemeData(hwnd, themeClass);
 
   return 0;
 
@@ -8104,13 +8106,13 @@ static LRESULT LISTVIEW_LButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, 
  * DESCRIPTION:
  * Processes mouse down messages (left mouse button).
  *
- * PARAMETER(S):
- * [I] infoPtr : valid pointer to the listview structure
- * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * PARAMETERS:
+ *   infoPtr  [I ] valid pointer to the listview structure
+ *   wKey     [I ] key flag
+ *   x,y      [I ] mouse coordinate
  *
  * RETURN:
- * Zero
+ *   Zero
  */
 static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
 {
@@ -8140,12 +8142,12 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
   {
     if ((infoPtr->dwLvExStyle & LVS_EX_CHECKBOXES) && (lvHitTestInfo.flags & LVHT_ONITEMSTATEICON))
     {
-        DWORD state = LISTVIEW_GetItemState(infoPtr, nItem, LVIS_STATEIMAGEMASK) >> 12;
+        DWORD state = STATEIMAGEINDEX(LISTVIEW_GetItemState(infoPtr, nItem, LVIS_STATEIMAGEMASK));
         if(state == 1 || state == 2)
         {
             LVITEMW lvitem;
             state ^= 3;
-            lvitem.state = state << 12;
+            lvitem.state = INDEXTOSTATEIMAGEMASK(state);
             lvitem.stateMask = LVIS_STATEIMAGEMASK;
             LISTVIEW_SetItemState(infoPtr, nItem, &lvitem);
         }
@@ -8219,13 +8221,13 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
  * DESCRIPTION:
  * Processes mouse up messages (left mouse button).
  *
- * PARAMETER(S):
- * [I] infoPtr : valid pointer to the listview structure
- * [I] wKey : key flag
- * [I] x,y : mouse coordinate
+ * PARAMETERS:
+ *   infoPtr [I ] valid pointer to the listview structure
+ *   wKey    [I ] key flag
+ *   x,y     [I ] mouse coordinate
  *
  * RETURN:
- * Zero
+ *   Zero
  */
 static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT y)
 {
@@ -8415,15 +8417,13 @@ static LRESULT LISTVIEW_HeaderNotification(LISTVIEW_INFO *infoPtr, const NMHEADE
 static BOOL LISTVIEW_NCPaint(LISTVIEW_INFO *infoPtr, HRGN region)
 {
     HTHEME theme = GetWindowTheme (infoPtr->hwndSelf);
-    BOOL themingActive = IsAppThemed() && IsThemeActive();
-    BOOL doTheming = themingActive  && (theme != NULL);
     HDC dc;
     RECT r;
     HRGN cliprgn;
     int cxEdge = GetSystemMetrics (SM_CXEDGE),
         cyEdge = GetSystemMetrics (SM_CYEDGE);
 
-    if (!doTheming) return FALSE;
+    if (!theme) return FALSE;
 
     GetWindowRect(infoPtr->hwndSelf, &r);
 

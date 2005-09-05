@@ -1258,13 +1258,16 @@ BOOL WINAPI SHGetPathFromIDListW(LPCITEMIDLIST pidl, LPWSTR pszPath)
 
     dwAttributes = SFGAO_FILESYSTEM;
     hr = IShellFolder_GetAttributesOf(psfFolder, 1, &pidlLast, &dwAttributes);
-    if (FAILED(hr) || !(dwAttributes & SFGAO_FILESYSTEM)) return FALSE;
+    if (FAILED(hr) || !(dwAttributes & SFGAO_FILESYSTEM)) {
+        IShellFolder_Release(psfFolder);
+        return FALSE;
+    }
                 
     hr = IShellFolder_GetDisplayNameOf(psfFolder, pidlLast, SHGDN_FORPARSING, &strret);
+    IShellFolder_Release(psfFolder);
     if (FAILED(hr)) return FALSE;
 
     hr = StrRetToBufW(&strret, pidlLast, pszPath, MAX_PATH);
-    IShellFolder_Release(psfFolder);
 
     TRACE_(shell)("-- %s, 0x%08lx\n",debugstr_w(pszPath), hr);
     return SUCCEEDED(hr);
@@ -1983,7 +1986,14 @@ BOOL _ILGetFileDate (LPCITEMIDLIST pidl, LPSTR pOut, UINT uOutSize)
     {
         FileTimeToLocalFileTime(&ft, &lft);
         FileTimeToSystemTime (&lft, &time);
+
         ret = GetDateFormatA(LOCALE_USER_DEFAULT,DATE_SHORTDATE,&time, NULL,  pOut, uOutSize);
+        if (ret) 
+        {
+            /* Append space + time without seconds */
+            pOut[ret-1] = ' ';
+            GetTimeFormatA(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &time, NULL, &pOut[ret], uOutSize - ret);
+        }
     }
     else
     {
