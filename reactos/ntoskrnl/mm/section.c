@@ -2308,11 +2308,11 @@ MmCreateDataFileSection(PSECTION_OBJECT *SectionObject,
     * (as in case of the EXT2FS driver by Manoj Paul Joseph where the
     * standard file information is filled on first request).
     */
-   Status = IoQueryFileInformation(FileObject,
-                                   FileStandardInformation,
-                                   sizeof(FILE_STANDARD_INFORMATION),
+   Status = NtQueryInformationFile(FileHandle,
+                                   &Iosb,
                                    &FileInfo,
-                                   &Iosb.Information);
+                                   sizeof(FILE_STANDARD_INFORMATION),
+                                   FileStandardInformation);
    if (!NT_SUCCESS(Status))
    {
       ObDereferenceObject(Section);
@@ -2342,10 +2342,11 @@ MmCreateDataFileSection(PSECTION_OBJECT *SectionObject,
 
    if (MaximumSize.QuadPart > FileInfo.EndOfFile.QuadPart)
    {
-      Status = IoSetInformation(FileObject,
-                                FileAllocationInformation,
-                                sizeof(LARGE_INTEGER),
-                                &MaximumSize);
+      Status = NtSetInformationFile(FileHandle,
+                                    &Iosb,
+                                    &MaximumSize,
+                                    sizeof(LARGE_INTEGER),
+                                    FileAllocationInformation);
       if (!NT_SUCCESS(Status))
       {
          ObDereferenceObject(Section);
@@ -3317,8 +3318,11 @@ NtCreateSection (OUT PHANDLE SectionHandle,
    {
      _SEH_TRY
      {
+       ProbeForRead(MaximumSize,
+                    sizeof(LARGE_INTEGER),
+                    sizeof(ULONG));
        /* make a copy on the stack */
-       SafeMaximumSize = ProbeForReadLargeInteger(MaximumSize);
+       SafeMaximumSize = *MaximumSize;
        MaximumSize = &SafeMaximumSize;
      }
      _SEH_HANDLE
@@ -3398,7 +3402,9 @@ NtOpenSection(PHANDLE   SectionHandle,
    {
      _SEH_TRY
      {
-       ProbeForWriteHandle(SectionHandle);
+       ProbeForWrite(SectionHandle,
+                     sizeof(HANDLE),
+                     sizeof(ULONG));
      }
      _SEH_HANDLE
      {
@@ -3568,15 +3574,21 @@ NtMapViewOfSection(IN HANDLE SectionHandle,
      {
        if(BaseAddress != NULL)
        {
-         ProbeForWritePointer(BaseAddress);
+         ProbeForWrite(BaseAddress,
+                       sizeof(PVOID),
+                       sizeof(ULONG));
          SafeBaseAddress = *BaseAddress;
        }
        if(SectionOffset != NULL)
        {
-         ProbeForWriteLargeInteger(SectionOffset);
+         ProbeForWrite(SectionOffset,
+                       sizeof(LARGE_INTEGER),
+                       sizeof(ULONG));
          SafeSectionOffset = *SectionOffset;
        }
-       ProbeForWriteUlong(ViewSize);
+       ProbeForWrite(ViewSize,
+                     sizeof(ULONG),
+                     sizeof(ULONG));
        SafeViewSize = *ViewSize;
      }
      _SEH_HANDLE
@@ -4059,15 +4071,15 @@ NtQuerySection(IN HANDLE SectionHandle,
                   PMM_IMAGE_SECTION_OBJECT ImageSectionObject;
                   ImageSectionObject = Section->ImageSection;
 
-                  Sii->TransferAddress = (PVOID)ImageSectionObject->EntryPoint;
-                  Sii->MaximumStackSize = ImageSectionObject->StackReserve;
-                  Sii->CommittedStackSize = ImageSectionObject->StackCommit;
-                  Sii->SubsystemType = ImageSectionObject->Subsystem;
-                  Sii->SubSystemMinorVersion = ImageSectionObject->MinorSubsystemVersion;
-                  Sii->SubSystemMajorVersion = ImageSectionObject->MajorSubsystemVersion;
-                  Sii->ImageCharacteristics = ImageSectionObject->ImageCharacteristics;
-                  Sii->Machine = ImageSectionObject->Machine;
-                  Sii->ImageContainsCode = ImageSectionObject->Executable;
+                  Sii->EntryPoint = ImageSectionObject->EntryPoint;
+                  Sii->StackReserve = ImageSectionObject->StackReserve;
+                  Sii->StackCommit = ImageSectionObject->StackCommit;
+                  Sii->Subsystem = ImageSectionObject->Subsystem;
+                  Sii->MinorSubsystemVersion = ImageSectionObject->MinorSubsystemVersion;
+                  Sii->MajorSubsystemVersion = ImageSectionObject->MajorSubsystemVersion;
+                  Sii->Characteristics = ImageSectionObject->ImageCharacteristics;
+                  Sii->ImageNumber = ImageSectionObject->Machine;
+                  Sii->Executable = ImageSectionObject->Executable;
                }
 
                if (ResultLength != NULL)
@@ -4122,8 +4134,11 @@ NtExtendSection(IN HANDLE SectionHandle,
    {
      _SEH_TRY
      {
+       ProbeForRead(NewMaximumSize,
+                    sizeof(LARGE_INTEGER),
+                    sizeof(ULONG));
        /* make a copy on the stack */
-       SafeNewMaximumSize = ProbeForReadLargeInteger(NewMaximumSize);
+       SafeNewMaximumSize = *NewMaximumSize;
        NewMaximumSize = &SafeNewMaximumSize;
      }
      _SEH_HANDLE

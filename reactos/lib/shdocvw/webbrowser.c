@@ -239,7 +239,7 @@ static HRESULT WINAPI WB_get_Busy(IWebBrowser *iface, VARIANT_BOOL *pBool)
  * IWebBrowser virtual function table for IE Web Browser component
  */
 
-static const IWebBrowserVtbl WB_Vtbl =
+static IWebBrowserVtbl WB_Vtbl =
 {
     WB_QueryInterface,
     WB_AddRef,

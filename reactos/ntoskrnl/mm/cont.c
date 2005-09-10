@@ -28,44 +28,16 @@ MmFreeContinuousPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
    }
 }
 
-/**********************************************************************
- * NAME       EXPORTED
- * MmAllocateContiguousMemorySpecifyCache@32
- *
- * DESCRIPTION
-  *  Allocates a range of physically contiguous memory
- * with a cache parameter.
- *
- * ARGUMENTS
- * NumberOfBytes
- *  Size of the memory block to allocate;
- *
- * LowestAcceptableAddress
- *  Lowest address valid for the caller.
- *
- * HighestAcceptableAddress
- *  Highest address valid for the caller.
- *
- * BoundaryAddressMultiple
- *  Address multiple not to be crossed by allocated buffer (optional).
- *
- * CacheType
- *  Type of caching to use.
- *
- * RETURN VALUE
- *  The virtual address of the memory block on success;
- * NULL on error.
- *
- * REVISIONS
- *
+/*
  * @implemented
  */
 PVOID STDCALL
-MmAllocateContiguousMemorySpecifyCache(IN SIZE_T NumberOfBytes,
-                                       IN PHYSICAL_ADDRESS LowestAcceptableAddress OPTIONAL,
-                                       IN PHYSICAL_ADDRESS HighestAcceptableAddress,
-                                       IN PHYSICAL_ADDRESS BoundaryAddressMultiple OPTIONAL,
-                                       IN MEMORY_CACHING_TYPE CacheType OPTIONAL)
+MmAllocateContiguousAlignedMemory(IN ULONG NumberOfBytes,
+                                  IN PHYSICAL_ADDRESS LowestAcceptableAddress OPTIONAL,
+                                  IN PHYSICAL_ADDRESS HighestAcceptableAddress,
+                                  IN PHYSICAL_ADDRESS BoundaryAddressMultiple OPTIONAL,
+                                  IN MEMORY_CACHING_TYPE CacheType OPTIONAL,
+                                  IN ULONG Alignment)
 {
    PMEMORY_AREA MArea;
    NTSTATUS Status;
@@ -94,7 +66,7 @@ MmAllocateContiguousMemorySpecifyCache(IN SIZE_T NumberOfBytes,
                                &MArea,
                                FALSE,
                                FALSE,
-                               (PHYSICAL_ADDRESS)0LL);
+                               BoundaryAddressMultiple);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
 
    if (!NT_SUCCESS(Status))
@@ -105,7 +77,7 @@ MmAllocateContiguousMemorySpecifyCache(IN SIZE_T NumberOfBytes,
    PBase = MmGetContinuousPages(NumberOfBytes,
                                 LowestAcceptableAddress,
                                 HighestAcceptableAddress,
-                                BoundaryAddressMultiple);
+                                Alignment);
    if (PBase == 0)
    {
       MmLockAddressSpace(MmGetKernelAddressSpace());
@@ -119,7 +91,7 @@ MmAllocateContiguousMemorySpecifyCache(IN SIZE_T NumberOfBytes,
    for (i = 0; i < (PAGE_ROUND_UP(NumberOfBytes) / PAGE_SIZE); i++, PBase++)
    {
       MmCreateVirtualMapping(NULL,
-                             (char*)BaseAddress + (i * PAGE_SIZE),
+                             (char*)BaseAddress + (i * 4096),
                              Attributes,
                              &PBase,
 			     1);
@@ -158,11 +130,18 @@ PVOID STDCALL
 MmAllocateContiguousMemory (IN ULONG NumberOfBytes,
                             IN PHYSICAL_ADDRESS HighestAcceptableAddress)
 {
-   return MmAllocateContiguousMemorySpecifyCache(NumberOfBytes,
-                                                 (PHYSICAL_ADDRESS)0LL,
-                                                 HighestAcceptableAddress,
-                                                 (PHYSICAL_ADDRESS)0LL,
-                                                 MmCached);
+   PHYSICAL_ADDRESS LowestAcceptableAddress;
+   PHYSICAL_ADDRESS BoundaryAddressMultiple;
+
+   LowestAcceptableAddress.QuadPart = 0;
+   BoundaryAddressMultiple.QuadPart = 0;
+
+   return(MmAllocateContiguousAlignedMemory(NumberOfBytes,
+          LowestAcceptableAddress,
+          HighestAcceptableAddress,
+          BoundaryAddressMultiple,
+          MmCached,
+          PAGE_SIZE));
 }
 
 
@@ -198,6 +177,53 @@ MmFreeContiguousMemory(IN PVOID BaseAddress)
                          MmFreeContinuousPage,
                          NULL);
    MmUnlockAddressSpace(MmGetKernelAddressSpace());
+}
+
+/**********************************************************************
+ * NAME       EXPORTED
+ * MmAllocateContiguousMemorySpecifyCache@32
+ *
+ * DESCRIPTION
+  *  Allocates a range of physically contiguous memory
+ * with a cache parameter.
+ *
+ * ARGUMENTS
+ * NumberOfBytes
+ *  Size of the memory block to allocate;
+ *
+ * LowestAcceptableAddress
+ *  Lowest address valid for the caller.
+ *
+ * HighestAcceptableAddress
+ *  Highest address valid for the caller.
+ *
+ * BoundaryAddressMultiple
+ *  Address multiple not to be crossed by allocated buffer (optional).
+ *
+ * CacheType
+ *  Type of caching to use.
+ *
+ * RETURN VALUE
+ *  The virtual address of the memory block on success;
+ * NULL on error.
+ *
+ * REVISIONS
+ *
+ * @implemented
+ */
+PVOID STDCALL
+MmAllocateContiguousMemorySpecifyCache (IN ULONG NumberOfBytes,
+                                        IN PHYSICAL_ADDRESS LowestAcceptableAddress,
+                                        IN PHYSICAL_ADDRESS HighestAcceptableAddress,
+                                        IN PHYSICAL_ADDRESS BoundaryAddressMultiple OPTIONAL,
+                                        IN MEMORY_CACHING_TYPE CacheType)
+{
+   return(MmAllocateContiguousAlignedMemory(NumberOfBytes,
+          LowestAcceptableAddress,
+          HighestAcceptableAddress,
+          BoundaryAddressMultiple,
+          CacheType,
+          PAGE_SIZE));
 }
 
 /**********************************************************************

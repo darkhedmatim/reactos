@@ -26,5 +26,4 @@
 	<file>string.c</file>
 	<file>volume.c</file>
 	<file>vfatfs.rc</file>
-	<pch>vfat.h</pch>
 </module>

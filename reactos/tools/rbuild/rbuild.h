@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #ifndef __RBUILD_H
 #define __RBUILD_H
 
@@ -193,8 +176,7 @@ enum ModuleType
 	LiveIso = 14,
 	Test = 15,
 	RpcServer = 16,
-	RpcClient = 17,
-	Alias = 18
+	RpcClient = 17
 };
 
 enum HostType
@@ -231,9 +213,8 @@ public:
 	HostType host;
 	std::string installBase;
 	std::string installName;
-	std::string aliasedModuleName;
 	bool useWRC;
-	bool allowWarnings;
+	bool enableWarnings;
 	bool enabled;
 
 	Module ( const Project& project,
@@ -245,11 +226,11 @@ public:
 	bool HasImportLibrary () const;
 	bool IsDLL () const;
 	bool GenerateInOutputTree () const;
-	std::string GetTargetName () const; // "foo.exe"
-	std::string GetDependencyPath () const; // "path/foo.exe" or "path/libfoo.a"
-	std::string GetBasePath () const; // "path"
-	std::string GetPath () const; // "path/foo.exe"
-	std::string GetPathWithPrefix ( const std::string& prefix ) const; // "path/prefixfoo.exe"
+	std::string GetTargetName () const;
+	std::string GetDependencyPath () const;
+	std::string GetBasePath () const;
+	std::string GetPath () const;
+	std::string GetPathWithPrefix ( const std::string& prefix ) const;
 	void GetTargets ( string_list& ) const;
 	std::string GetInvocationTarget ( const int index ) const;
 	bool HasFileWithExtension ( const IfableData&, const std::string& extension ) const;
@@ -273,7 +254,6 @@ public:
 	const Project& project;
 	const Module* module;
 	const XMLElement* node;
-	const Module* baseModule;
 	std::string directory;
 	std::string basePath;
 
@@ -740,16 +720,7 @@ private:
 };
 
 extern std::string
-Right ( const std::string& s, size_t n );
-
-extern std::string
-Replace ( const std::string& s, const std::string& find, const std::string& with );
-
-extern std::string
 FixSeparator ( const std::string& s );
-
-extern std::string
-DosSeparator ( const std::string& s );
 
 extern std::string
 ReplaceExtension (

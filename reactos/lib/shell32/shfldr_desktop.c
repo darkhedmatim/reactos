@@ -60,14 +60,16 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    const IShellFolder2Vtbl *lpVtbl;
-    LONG ref;
+    IShellFolder2Vtbl *lpVtbl;
+    DWORD ref;
 
     CLSID *pclsid;
 
     /* both paths are parsible from the desktop */
     LPWSTR sPathTarget;     /* complete path to target used for enumeration and ChangeNotify */
     LPITEMIDLIST pidlRoot;  /* absolute pidl */
+
+    int dwAttributes;        /* attributes returned by GetAttributesOf FIXME: use it */
 
     UINT cfShellIDList;        /* clipboardformat for IDropTarget */
     BOOL fAcceptFmt;        /* flag for pending Drop */
@@ -427,9 +429,6 @@ static HRESULT WINAPI ISF_Desktop_fnGetAttributesOf (IShellFolder2 * iface,
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
     HRESULT hr = S_OK;
-    const static DWORD dwDesktopAttributes = 
-        SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR |
-        SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_FILESYSTEM | SFGAO_HASSUBFOLDER;
 
     TRACE ("(%p)->(cidl=%d apidl=%p mask=%p (0x%08lx))\n",
            This, cidl, apidl, rgfInOut, rgfInOut ? *rgfInOut : 0);
@@ -441,20 +440,13 @@ static HRESULT WINAPI ISF_Desktop_fnGetAttributesOf (IShellFolder2 * iface,
 
     if (*rgfInOut == 0)
         *rgfInOut = ~0;
-    
-    if(cidl == 0) {
-        *rgfInOut &= dwDesktopAttributes; 
-    } else {
-        while (cidl > 0 && *apidl) {
-            pdump (*apidl);
-            if (_ILIsDesktop(*apidl)) { 
-                *rgfInOut &= dwDesktopAttributes;
-            } else {
-                SHELL32_GetItemAttributes (_IShellFolder_ (This), *apidl, rgfInOut);
-            }
-            apidl++;
-            cidl--;
-        }
+
+    while (cidl > 0 && *apidl)
+    {
+        pdump (*apidl);
+        SHELL32_GetItemAttributes (_IShellFolder_ (This), *apidl, rgfInOut);
+        apidl++;
+        cidl--;
     }
     /* make sure SFGAO_VALIDATE is cleared, some apps depend on that */
     *rgfInOut &= ~SFGAO_VALIDATE;
@@ -662,19 +654,8 @@ static HRESULT WINAPI ISF_Desktop_fnGetDisplayNameOf (IShellFolder2 * iface,
         }
         else
         {
-            int cLen = 0;
-                
-            /* file system folder or file rooted at the desktop */
-            if ((GET_SHGDN_FOR(dwFlags) == SHGDN_FORPARSING) &&
-                (GET_SHGDN_RELATION(dwFlags) != SHGDN_INFOLDER))
-            {
-                WideCharToMultiByte(CP_ACP, 0, This->sPathTarget, -1, strRet->u.cStr, MAX_PATH,
-                                    NULL, NULL);
-                PathAddBackslashA(strRet->u.cStr);
-                cLen = lstrlenA(strRet->u.cStr);
-            }
-    
-            _ILSimpleGetText (pidl, strRet->u.cStr + cLen, MAX_PATH - cLen);
+            /* file system folder */
+            _ILSimpleGetText (pidl, strRet->u.cStr, MAX_PATH);
 
             if (!_ILIsFolder(pidl))
                 SHELL_FS_ProcessDisplayFilename(strRet->u.cStr, dwFlags);
@@ -827,7 +808,7 @@ static HRESULT WINAPI ISF_Desktop_fnMapColumnToSCID (
     return E_NOTIMPL;
 }
 
-static const IShellFolder2Vtbl vt_MCFldr_ShellFolder2 =
+static IShellFolder2Vtbl vt_MCFldr_ShellFolder2 =
 {
     ISF_Desktop_fnQueryInterface,
     ISF_Desktop_fnAddRef,

@@ -297,8 +297,8 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     BOOLEAN GotExtendedCrashInfo = FALSE;
     PVOID Address = 0;
     PLIST_ENTRY CurrentEntry;
-    PLDR_DATA_TABLE_ENTRY CurrentModule = NULL;
-    extern LIST_ENTRY ModuleListHead;
+    MODULE_TEXT_SECTION* CurrentSection = NULL;
+    extern LIST_ENTRY ModuleTextListHead;
 #if 0
     CHAR PrintString[100];
 #endif
@@ -321,17 +321,17 @@ KeBugCheckWithTf(ULONG BugCheckCode,
         Address = (PVOID)Tf->Eip;
 
         /* Try to get information on the module */
-        CurrentEntry = ModuleListHead.Flink;
-        while (CurrentEntry != &ModuleListHead) 
+        CurrentEntry = ModuleTextListHead.Flink;
+        while (CurrentEntry != &ModuleTextListHead && CurrentEntry) 
         {
             /* Get the current Section */
-            CurrentModule = CONTAINING_RECORD(CurrentEntry,
-                                              LDR_DATA_TABLE_ENTRY,
-                                              InLoadOrderModuleList);
+            CurrentSection = CONTAINING_RECORD(CurrentEntry,
+                                               MODULE_TEXT_SECTION,
+                                               ListEntry);
 
             /* Check if this is the right one */
-            if ((Address != NULL && (Address >= (PVOID)CurrentModule->DllBase &&
-                 Address < (PVOID)((ULONG_PTR)CurrentModule->DllBase + CurrentModule->SizeOfImage)))) 
+            if ((Address != NULL && (Address >= (PVOID)CurrentSection->Base &&
+                 Address < (PVOID)(CurrentSection->Base + CurrentSection->Length)))) 
             {
                 /* We got it */
                 GotExtendedCrashInfo = TRUE;
@@ -366,12 +366,12 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     {
 #if 0
         sprintf(PrintString, 
-                "The problem seems to be caused by the following file: %wZ\n\n",
-                &CurrentModule->BaseDllName);
+                "The problem seems to be caused by the following file: %S\n\n",
+                CurrentSection->Name);
         InbvDisplayString(PrintString);
 #else
-        DbgPrint("The problem seems to be caused by the following file: %wZ\n\n",
-                 &CurrentModule->BaseDllName);
+        DbgPrint("The problem seems to be caused by the following file: %S\n\n",
+                 CurrentSection->Name);
 #endif
     }
 
@@ -401,17 +401,17 @@ KeBugCheckWithTf(ULONG BugCheckCode,
     {
 #if 0
         sprintf(PrintString,
-                "***    %wZ - Address 0x%p base at 0x%p, DateStamp 0x%x\n\n",
-                &CurrentModule->BaseDllName,
+                "***    %S - Address 0x%p base at 0x%p, DateStamp 0x%x\n\n",
+                CurrentSection->Name,
                 Address,
-                (PVOID)CurrentModule->DllBase,
+                (PVOID)CurrentSection->Base,
                 0);
         InbvDisplayString(PrintString);
 #else
-        DbgPrint("***    %wZ - Address 0x%p base at 0x%p, DateStamp 0x%x\n\n",
-                 &CurrentModule->BaseDllName,
+        DbgPrint("***    %S - Address 0x%p base at 0x%p, DateStamp 0x%x\n\n",
+                 CurrentSection->Name,
                  Address,
-                 (PVOID)CurrentModule->DllBase,
+                 (PVOID)CurrentSection->Base,
                  0);
 #endif
     }

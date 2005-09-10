@@ -263,15 +263,10 @@ CreateOperation(FILE *Out, unsigned Bpp, PROPINFO RopInfo, unsigned SourceBpp,
       Cast = "";
       Dest = "*DestPtr";
     }
-  else if (16 == Bpp)
+  else
     {
       Cast = "(USHORT) ";
       Dest = "*((PUSHORT) DestPtr)";
-    }
-  else
-    {
-      Cast = "(UCHAR) ";
-      Dest = "*((PUCHAR) DestPtr)";
     }
   Output(Out, "%s = ", Dest);
   if (ROPCODE_GENERIC == RopInfo->RopCode)
@@ -428,14 +423,7 @@ CreateGetSource(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
               Output(Out, ") & 0x%x)", (1 << SourceBpp) - 1);
             }
         }
-      if (32 == Bpp)
-        {
-          Output(Out, ")%s;\n", After);
-        }
-      else
-        {
-          Output(Out, " & 0x%x)%s;\n", (1 << Bpp) - 1, After);
-        }
+      Output(Out, " & 0xffff)%s;\n", After);
       if (SourceBpp <= 16)
         {
           Output(Out, "SourcePixels--;\n");
@@ -448,72 +436,20 @@ CreateGetSource(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
 }
 
 static void
-CreateCounts(FILE *Out, unsigned Bpp)
+CreateCounts(FILE *Out)
 {
   MARK(Out);
-  if (32 != Bpp)
-    {
-      if (8 < Bpp)
-        {
-          Output(Out, "LeftCount = ((ULONG_PTR) DestBase >> 1) & 0x01;\n");
-        }
-      else
-        {
-          Output(Out, "LeftCount = (ULONG_PTR) DestBase & 0x03;\n");
-          Output(Out, "if (BltInfo->DestRect.right - BltInfo->DestRect.left < "
-                      "LeftCount)\n");
-          Output(Out, "{\n");
-          Output(Out, "LeftCount = BltInfo->DestRect.right - "
-                      "BltInfo->DestRect.left;\n");
-          Output(Out, "}\n");
-        }
-      Output(Out, "CenterCount = (BltInfo->DestRect.right - BltInfo->DestRect.left -\n");
-      Output(Out, "               LeftCount) / %u;\n", 32 / Bpp);
-      Output(Out, "RightCount = (BltInfo->DestRect.right - BltInfo->DestRect.left -\n");
-      Output(Out, "              LeftCount - %u * CenterCount);\n", 32 / Bpp);
-    }
-  else
-    {
-      Output(Out, "CenterCount = BltInfo->DestRect.right - BltInfo->DestRect.left;\n");
-    }
-}
-
-static void
-CreateSetSinglePixel(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
-                     unsigned SourceBpp)
-{
-  if (RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE))
-    {
-      CreateGetSource(Out, Bpp, RopInfo, Flags, SourceBpp, 0);
-      MARK(Out);
-    }
-  if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
-    {
-      Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
-      Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
-      Output(Out, "{\n");
-      Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
-      Output(Out, "}\n");
-    }
-  if ((RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE) &&
-       Bpp != SourceBpp) ||
-      (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE)))
-    {
-      Output(Out, "\n");
-    }
-  CreateOperation(Out, Bpp, RopInfo, SourceBpp, 16);
-  Output(Out, ";\n");
-  MARK(Out);
-  Output(Out, "\n");
-  Output(Out, "DestPtr = (PULONG)((char *) DestPtr + %u);\n", Bpp / 8);
+  Output(Out, "LeftCount = ((ULONG_PTR) DestBase >> 1) & 0x01;\n");
+  Output(Out, "CenterCount = (BltInfo->DestRect.right - BltInfo->DestRect.left -\n");
+  Output(Out, "               LeftCount) / 2;\n");
+  Output(Out, "RightCount = (BltInfo->DestRect.right - BltInfo->DestRect.left -\n");
+  Output(Out, "              LeftCount - 2 * CenterCount);\n");
 }
 
 static void
 CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
               unsigned SourceBpp)
 {
-  unsigned Partial;
-
   MARK(Out);
   if (RopInfo->UsesSource)
     {
@@ -522,7 +458,7 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
           CreateBase(Out, 1, Flags, SourceBpp);
         }
       CreateBase(Out, 0, Flags, Bpp);
-      CreateCounts(Out, Bpp);
+      CreateCounts(Out);
       MARK(Out);
     }
   if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
@@ -582,53 +518,56 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
   else
     {
       Output(Out, "\n");
-      if (32 != Bpp)
+      Output(Out, "if (0 != LeftCount)\n");
+      Output(Out, "{\n");
+      if (RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE))
         {
-          if (16 == Bpp)
-            {
-            Output(Out, "if (0 != LeftCount)\n");
-            }
-          else
-            {
-            Output(Out, "for (i = 0; i < LeftCount; i++)\n");
-            }
-          Output(Out, "{\n");
-          CreateSetSinglePixel(Out, Bpp, RopInfo,
-                               (16 == Bpp ? Flags | FLAG_FORCERAWSOURCEAVAIL :
-                               Flags), SourceBpp);
+          CreateGetSource(Out, Bpp, RopInfo, Flags | FLAG_FORCERAWSOURCEAVAIL,
+                          SourceBpp, 0);
           MARK(Out);
+        }
+      if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
+        {
+          Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
+          Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
+          Output(Out, "{\n");
+          Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
           Output(Out, "}\n");
+        }
+      if ((RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE) &&
+           Bpp != SourceBpp) ||
+          (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE)))
+        {
           Output(Out, "\n");
         }
+      CreateOperation(Out, Bpp, RopInfo, SourceBpp, 16);
+      Output(Out, ";\n");
+      MARK(Out);
+      Output(Out, "\n");
+      Output(Out, "DestPtr = (PULONG)((char *) DestPtr + 2);\n");
+      Output(Out, "}\n");
+      Output(Out, "\n");
       Output(Out, "for (i = 0; i < CenterCount; i++)\n");
       Output(Out, "{\n");
       if (RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE))
         {
-          for (Partial = 0; Partial < 32 / Bpp; Partial++)
-            {
-              CreateGetSource(Out, Bpp, RopInfo, Flags, SourceBpp,
-                              Partial * Bpp);
-              MARK(Out);
-            }
+          CreateGetSource(Out, Bpp, RopInfo, Flags, SourceBpp, 0);
+          CreateGetSource(Out, Bpp, RopInfo, Flags, SourceBpp, 16);
+          MARK(Out);
           Output(Out, "\n");
         }
       if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
         {
-          for (Partial = 0; Partial < 32 / Bpp; Partial++)
-            {
-              if (0 == Partial)
-                {
-                  Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
-                }
-              else
-                {
-                  Output(Out, "Pattern |= DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest) << %u;\n", Partial * Bpp);
-                }
-              Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
-              Output(Out, "{\n");
-              Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
-              Output(Out, "}\n");
-            }
+          Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
+          Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
+          Output(Out, "{\n");
+          Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
+          Output(Out, "}\n");
+          Output(Out, "Pattern |= DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest) << 16;\n");
+          Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
+          Output(Out, "{\n");
+          Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
+          Output(Out, "}\n");
           Output(Out, "\n");
         }
       CreateOperation(Out, Bpp, RopInfo, SourceBpp, 32);
@@ -638,22 +577,27 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
       Output(Out, "DestPtr++;\n");
       Output(Out, "}\n");
       Output(Out, "\n");
-      if (32 != Bpp)
+      Output(Out, "if (0 != RightCount)\n");
+      Output(Out, "{\n");
+      if (RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE))
         {
-          if (16 == Bpp)
-            {
-              Output(Out, "if (0 != RightCount)\n");
-            }
-          else
-            {
-              Output(Out, "for (i = 0; i < RightCount; i++)\n");
-            }
-          Output(Out, "{\n");
-          CreateSetSinglePixel(Out, Bpp, RopInfo, Flags, SourceBpp);
+          CreateGetSource(Out, Bpp, RopInfo, Flags, SourceBpp, 0);
           MARK(Out);
-          Output(Out, "}\n");
+        }
+      if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
+        {
+          Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
+        }
+      if ((RopInfo->UsesSource && 0 == (Flags & FLAG_FORCENOUSESSOURCE)) ||
+          (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE)))
+        {
           Output(Out, "\n");
         }
+      CreateOperation(Out, Bpp, RopInfo, SourceBpp, 16);
+      Output(Out, ";\n");
+      MARK(Out);
+      Output(Out, "}\n");
+      Output(Out, "\n");
       if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
         {
           if (0 == (Flags & FLAG_BOTTOMUP))
@@ -772,7 +716,6 @@ static void
 CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
 {
   int First;
-  unsigned Partial;
 
   MARK(Out);
   Output(Out, "\n");
@@ -798,6 +741,12 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
     {
       Output(Out, "ULONG LineIndex, LineCount;\n");
       Output(Out, "ULONG i;\n");
+#ifdef TODO
+      if (RopInfo->UsesSource)
+        {
+          Output(Out, "ULONG SourceX, SourceY;\n");
+        }
+#endif
       if (RopInfo->UsesPattern)
         {
           Output(Out, "ULONG PatternX =0, PatternY = 0, BasePatternX = 0;\n");
@@ -826,14 +775,7 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
           Output(Out, "ULONG RawSource;\n");
           Output(Out, "unsigned SourcePixels, BaseSourcePixels;\n");
         }
-      if (32 == Bpp)
-        {
-          Output(Out, "ULONG CenterCount;\n");
-        }
-      else
-        {
-          Output(Out, "ULONG LeftCount, CenterCount, RightCount;\n");
-        }
+      Output(Out, "ULONG LeftCount, CenterCount, RightCount;\n");
       if (ROPCODE_GENERIC == RopInfo->RopCode)
         {
           Output(Out, "BOOLEAN UsesDest, UsesSource, UsesPattern;\n");
@@ -846,7 +788,7 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
       if (! RopInfo->UsesSource)
         {
           CreateBase(Out, 0, 0, Bpp);
-          CreateCounts(Out, Bpp);
+          CreateCounts(Out);
           MARK(Out);
         }
       Output(Out, "LineCount = BltInfo->DestRect.bottom - BltInfo->DestRect.top;\n");
@@ -873,26 +815,8 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
               Output(Out, "if (UsesPattern)\n");
               Output(Out, "{\n");
             }
-          for (Partial = 0; Partial < 32 / Bpp; Partial++)
-            {
-              if (0 == Partial)
-                {
-                  Output(Out, "Pattern = BltInfo->Brush->iSolidColor");
-                }
-              else
-                {
-                  Output(Out, "          (BltInfo->Brush->iSolidColor << %d)",
-                         Partial * Bpp);
-                }
-              if (32 / Bpp <= Partial + 1)
-                {
-                  Output(Out, ";\n");
-                }
-              else
-                {
-                  Output(Out, " |\n");
-                }
-            }
+          Output(Out, "Pattern = BltInfo->Brush->iSolidColor |\n");
+          Output(Out, "          (BltInfo->Brush->iSolidColor << 16);\n");
           if (ROPCODE_PATINVERT == RopInfo->RopCode ||
               ROPCODE_MERGECOPY == RopInfo->RopCode)
             {
@@ -968,29 +892,16 @@ CreateBitBlt(FILE *Out, unsigned Bpp)
   Output(Out, "}\n");
 }
 
-static void
-Generate(char *OutputDir, unsigned Bpp)
+int
+main(int argc, char *argv[])
 {
   FILE *Out;
   unsigned RopCode;
+  unsigned Bpp;
   PROPINFO RopInfo;
-  char *FileName;
 
-  FileName = malloc(strlen(OutputDir) + 12);
-  if (NULL == FileName)
-    {
-      fprintf(stderr, "Out of memory\n");
-      exit(1);
-    }
-  strcpy(FileName, OutputDir);
-  if ('/' != FileName[strlen(FileName) - 1])
-    {
-      strcat(FileName, "/");
-    }
-  sprintf(FileName + strlen(FileName), "dib%ugen.c", Bpp);
-
-  Out = fopen(FileName, "w");
-  free(FileName);
+  Bpp = 16;
+  Out = fopen(argv[1], "w");
   if (NULL == Out)
     {
       perror("Error opening output file");
@@ -1017,19 +928,6 @@ Generate(char *OutputDir, unsigned Bpp)
   CreateBitBlt(Out, Bpp);
 
   fclose(Out);
-}
-
-int
-main(int argc, char *argv[])
-{
-  unsigned Index;
-  static unsigned DestBpp[] =
-    { 8, 16, 32 };
-
-  for (Index = 0; Index < sizeof(DestBpp) / sizeof(DestBpp[0]); Index++)
-    {
-      Generate(argv[1], DestBpp[Index]);
-    }
 
   return 0;
 }

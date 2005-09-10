@@ -33,6 +33,13 @@
 #define NDEBUG
 #include <internal/debug.h>
 
+#define EX_OBJ_TO_HDR(eob) ((POBJECT_HEADER)((ULONG_PTR)(eob) &                \
+  ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
+  EX_HANDLE_ENTRY_AUDITONCLOSE)))
+#define EX_HTE_TO_HDR(hte) ((POBJECT_HEADER)((ULONG_PTR)((hte)->u1.Object) &   \
+  ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
+  EX_HANDLE_ENTRY_AUDITONCLOSE)))
+
 #define GENERIC_ANY (GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL)
 
 /* GLOBALS *****************************************************************/
@@ -90,6 +97,7 @@ ObpQueryHandleAttributes(HANDLE Handle,
 {
   PHANDLE_TABLE HandleTable;
   PHANDLE_TABLE_ENTRY HandleTableEntry;
+  LONG ExHandle;
 
   PAGED_CODE();
 
@@ -98,17 +106,18 @@ ObpQueryHandleAttributes(HANDLE Handle,
   if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
   {
     HandleTable = ObpKernelHandleTable;
-    Handle = ObKernelHandleToHandle(Handle);
+    ExHandle = HANDLE_TO_EX_HANDLE(ObKernelHandleToHandle(Handle));
   }
   else
   {
     HandleTable = PsGetCurrentProcess()->ObjectTable;
+    ExHandle = HANDLE_TO_EX_HANDLE(Handle);
   }
 
   KeEnterCriticalRegion();
 
   HandleTableEntry = ExMapHandleToPointer(HandleTable,
-                                          Handle);
+                                          ExHandle);
   if (HandleTableEntry == NULL)
     {
       KeLeaveCriticalRegion();
@@ -133,6 +142,7 @@ ObpSetHandleAttributes(HANDLE Handle,
 {
   PHANDLE_TABLE HandleTable;
   PHANDLE_TABLE_ENTRY HandleTableEntry;
+  LONG ExHandle;
 
   PAGED_CODE();
 
@@ -141,17 +151,18 @@ ObpSetHandleAttributes(HANDLE Handle,
   if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
   {
     HandleTable = ObpKernelHandleTable;
-    Handle = ObKernelHandleToHandle(Handle);
+    ExHandle = HANDLE_TO_EX_HANDLE(ObKernelHandleToHandle(Handle));
   }
   else
   {
     HandleTable = PsGetCurrentProcess()->ObjectTable;
+    ExHandle = HANDLE_TO_EX_HANDLE(Handle);
   }
 
   KeEnterCriticalRegion();
 
   HandleTableEntry = ExMapHandleToPointer(HandleTable,
-                                          Handle);
+                                          ExHandle);
   if (HandleTableEntry == NULL)
     {
       KeLeaveCriticalRegion();
@@ -186,6 +197,7 @@ ObpDeleteHandle(PHANDLE_TABLE HandleTable,
    PHANDLE_TABLE_ENTRY HandleEntry;
    PVOID Body;
    POBJECT_HEADER ObjectHeader;
+   LONG ExHandle = HANDLE_TO_EX_HANDLE(Handle);
 
    PAGED_CODE();
 
@@ -194,7 +206,7 @@ ObpDeleteHandle(PHANDLE_TABLE HandleTable,
    KeEnterCriticalRegion();
 
    HandleEntry = ExMapHandleToPointer(HandleTable,
-                                      Handle);
+                                      ExHandle);
    if(HandleEntry != NULL)
    {
      if(HandleEntry->u1.ObAttributes & EX_HANDLE_ENTRY_PROTECTFROMCLOSE)
@@ -215,7 +227,7 @@ ObpDeleteHandle(PHANDLE_TABLE HandleTable,
      /* destroy and unlock the handle entry */
      ExDestroyHandleByEntry(HandleTable,
                             HandleEntry,
-                            Handle);
+                            ExHandle);
 
      KeLeaveCriticalRegion();
 
@@ -240,8 +252,9 @@ ObDuplicateObject(PEPROCESS SourceProcess,
   HANDLE_TABLE_ENTRY NewHandleEntry;
   PVOID ObjectBody;
   POBJECT_HEADER ObjectHeader;
+  LONG ExTargetHandle;
+  LONG ExSourceHandle;
   ULONG NewHandleCount;
-  HANDLE NewTargetHandle;
 
   PAGED_CODE();
 
@@ -255,10 +268,12 @@ ObDuplicateObject(PEPROCESS SourceProcess,
     SourceHandleTable = SourceProcess->ObjectTable;
   }
 
+  ExSourceHandle = HANDLE_TO_EX_HANDLE(SourceHandle);
+
   KeEnterCriticalRegion();
 
   SourceHandleEntry = ExMapHandleToPointer(SourceHandleTable,
-                                           SourceHandle);
+                                           ExSourceHandle);
   if (SourceHandleEntry == NULL)
     {
       KeLeaveCriticalRegion();
@@ -308,9 +323,9 @@ ObDuplicateObject(PEPROCESS SourceProcess,
   KeLeaveCriticalRegion();
 
   /* attempt to create the new handle */
-  NewTargetHandle = ExCreateHandle(TargetProcess->ObjectTable,
-                                   &NewHandleEntry);
-  if (NewTargetHandle != NULL)
+  ExTargetHandle = ExCreateHandle(TargetProcess->ObjectTable,
+                                  &NewHandleEntry);
+  if (ExTargetHandle != EX_INVALID_HANDLE)
   {
     if (Options & DUPLICATE_CLOSE_SOURCE)
     {
@@ -320,7 +335,7 @@ ObDuplicateObject(PEPROCESS SourceProcess,
 
     ObDereferenceObject(ObjectBody);
 
-    *TargetHandle = NewTargetHandle;
+    *TargetHandle = EX_HANDLE_TO_HANDLE(ExTargetHandle);
 
     return STATUS_SUCCESS;
   }
@@ -388,7 +403,9 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
    {
      _SEH_TRY
      {
-       ProbeForWriteHandle(TargetHandle);
+       ProbeForWrite(TargetHandle,
+                     sizeof(HANDLE),
+                     sizeof(ULONG));
      }
      _SEH_HANDLE
      {
@@ -597,7 +614,7 @@ ObpCreateHandle(PEPROCESS Process,
 {
    HANDLE_TABLE_ENTRY NewEntry;
    POBJECT_HEADER ObjectHeader;
-   HANDLE Handle;
+   LONG ExHandle;
 
    PAGED_CODE();
 
@@ -629,10 +646,10 @@ ObpCreateHandle(PEPROCESS Process,
      NewEntry.u1.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
    NewEntry.u2.GrantedAccess = GrantedAccess;
 
-   Handle = ExCreateHandle(Process->ObjectTable,
-                           &NewEntry);
-   DPRINT("ObCreateHandle(0x%x)==0x%x [HT:0x%x]\n", ObjectHeader, Handle, Process->ObjectTable);
-   if(Handle != NULL)
+   ExHandle = ExCreateHandle(Process->ObjectTable,
+                             &NewEntry);
+   DPRINT("ObCreateHandle(0x%x)==0x%x [HT:0x%x]\n", ObjectHeader, *HandleReturn, Process->ObjectTable);
+   if(ExHandle != EX_INVALID_HANDLE)
    {
      if(InterlockedIncrement(&ObjectHeader->HandleCount) == 1)
      {
@@ -642,7 +659,7 @@ ObpCreateHandle(PEPROCESS Process,
 			         UserMode);
      }
 
-     *HandleReturn = Handle;
+     *HandleReturn = EX_HANDLE_TO_HANDLE(ExHandle);
 
      return STATUS_SUCCESS;
    }
@@ -660,6 +677,7 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
 {
   PHANDLE_TABLE_ENTRY HandleEntry;
   PEPROCESS Process;
+  LONG ExHandle = HANDLE_TO_EX_HANDLE(Handle);
 
   PAGED_CODE();
 
@@ -670,7 +688,7 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
   KeEnterCriticalRegion();
 
   HandleEntry = ExMapHandleToPointer(Process->ObjectTable,
-                                     Handle);
+                                     ExHandle);
   if(HandleEntry != NULL)
   {
     *GenerateOnClose = (HandleEntry->u1.ObAttributes & EX_HANDLE_ENTRY_AUDITONCLOSE) != 0;
@@ -718,6 +736,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
    PVOID ObjectBody;
    ACCESS_MASK GrantedAccess;
    ULONG Attributes;
+   LONG ExHandle;
 
    PAGED_CODE();
 
@@ -788,17 +807,18 @@ ObReferenceObjectByHandle(HANDLE Handle,
    if(ObIsKernelHandle(Handle, AccessMode))
    {
       HandleTable = ObpKernelHandleTable;
-      Handle = ObKernelHandleToHandle(Handle);
+      ExHandle = HANDLE_TO_EX_HANDLE(ObKernelHandleToHandle(Handle));
    }
    else
    {
       HandleTable = PsGetCurrentProcess()->ObjectTable;
+      ExHandle = HANDLE_TO_EX_HANDLE(Handle);
    }
 
    KeEnterCriticalRegion();
 
    HandleEntry = ExMapHandleToPointer(HandleTable,
-				      Handle);
+				      ExHandle);
    if (HandleEntry == NULL)
      {
         KeLeaveCriticalRegion();
@@ -1089,9 +1109,6 @@ ObInsertObject(IN PVOID Object,
                                                                     AssignSecurityDescriptor,
                                                                     0,
                                                                     NewSecurityDescriptor,
-                                                                    NULL,
-                                                                    NULL,
-                                                                    NonPagedPool,
                                                                     NULL);
         }
         else

@@ -43,13 +43,13 @@ GetHandleInformation (HANDLE hObject,
   switch ((ULONG)hObject)
   {
     case STD_INPUT_HANDLE:
-      hObject = Ppb->StandardInput;
+      hObject = Ppb->hStdInput;
       break;
     case STD_OUTPUT_HANDLE:
-      hObject = Ppb->StandardOutput;
+      hObject = Ppb->hStdOutput;
       break;
     case STD_ERROR_HANDLE:
-      hObject = Ppb->StandardError;
+      hObject = Ppb->hStdError;
       break;
   }
 
@@ -95,13 +95,13 @@ SetHandleInformation (HANDLE hObject,
   switch ((ULONG)hObject)
   {
     case STD_INPUT_HANDLE:
-      hObject = Ppb->StandardInput;
+      hObject = Ppb->hStdInput;
       break;
     case STD_OUTPUT_HANDLE:
-      hObject = Ppb->StandardOutput;
+      hObject = Ppb->hStdOutput;
       break;
     case STD_ERROR_HANDLE:
-      hObject = Ppb->StandardError;
+      hObject = Ppb->hStdError;
       break;
   }
 
@@ -153,13 +153,13 @@ BOOL STDCALL CloseHandle(HANDLE  hObject)
    switch ((ULONG)hObject)
    {
      case STD_INPUT_HANDLE:
-       hObject = Ppb->StandardInput;
+       hObject = Ppb->hStdInput;
        break;
      case STD_OUTPUT_HANDLE:
-       hObject = Ppb->StandardOutput;
+       hObject = Ppb->hStdOutput;
        break;
      case STD_ERROR_HANDLE:
-       hObject = Ppb->StandardError;
+       hObject = Ppb->hStdError;
        break;
    }
 
@@ -198,13 +198,13 @@ BOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
    switch ((ULONG)hSourceHandle)
    {
      case STD_INPUT_HANDLE:
-       hSourceHandle = Ppb->StandardInput;
+       hSourceHandle = Ppb->hStdInput;
        break;
      case STD_OUTPUT_HANDLE:
-       hSourceHandle = Ppb->StandardOutput;
+       hSourceHandle = Ppb->hStdOutput;
        break;
      case STD_ERROR_HANDLE:
-       hSourceHandle = Ppb->StandardError;
+       hSourceHandle = Ppb->hStdError;
        break;
    }
 

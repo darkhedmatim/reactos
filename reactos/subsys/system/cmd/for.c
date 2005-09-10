@@ -141,10 +141,6 @@ INT cmd_for (LPTSTR cmd, LPTSTR param)
 		bc->bEcho = bc->prev->bEcho;
 	else
 		bc->bEcho = bEcho;
-		bc->In[0] = _T('\0');
-		bc->Out[0] = _T('\0');
-		bc->Err[0] = _T('\0');
-
 
 	return 0;
 }

@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
  * FILE:        lib/advapi32/misc/logon.c
@@ -6,7 +7,7 @@
  * PROGRAMMER:  Eric Kohl
  */
 
-#include <advapi32.h>
+#include "advapi32.h"
 #define NDEBUG
 #include <debug.h>
 
@@ -130,70 +131,17 @@ CreateProcessAsUserW (HANDLE hToken,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
-LogonUserA(LPSTR lpszUsername,
-           LPSTR lpszDomain,
-           LPSTR lpszPassword,
-           DWORD dwLogonType,
-           DWORD dwLogonProvider,
-           PHANDLE phToken)
+LogonUserA (LPSTR lpszUsername,
+	    LPSTR lpszDomain,
+	    LPSTR lpszPassword,
+	    DWORD dwLogonType,
+	    DWORD dwLogonProvider,
+	    PHANDLE phToken)
 {
-    UNICODE_STRING UserName;
-    UNICODE_STRING Domain;
-    UNICODE_STRING Password;
-    NTSTATUS Status;
-    BOOL ret = FALSE;
-
-    UserName.Buffer = NULL;
-    Domain.Buffer = NULL;
-    Password.Buffer = NULL;
-
-    Status = RtlCreateUnicodeStringFromAsciiz(&UserName,
-                                              lpszUsername);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        goto UsernameDone;
-    }
-
-    Status = RtlCreateUnicodeStringFromAsciiz(&Domain,
-                                              lpszDomain);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        goto DomainDone;
-    }
-
-    Status = RtlCreateUnicodeStringFromAsciiz(&Password,
-                                              lpszPassword);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        goto PasswordDone;
-    }
-
-    ret = LogonUserW(UserName.Buffer,
-                     Domain.Buffer,
-                     Password.Buffer,
-                     dwLogonType,
-                     dwLogonProvider,
-                     phToken);
-
-    if (Password.Buffer != NULL)
-        RtlFreeUnicodeString(&Password);
-
-PasswordDone:
-    if (Domain.Buffer != NULL)
-        RtlFreeUnicodeString(&Domain);
-
-DomainDone:
-    if (UserName.Buffer != NULL)
-        RtlFreeUnicodeString(&UserName);
-
-UsernameDone:
-    return ret;
+  return FALSE;
 }
 
 

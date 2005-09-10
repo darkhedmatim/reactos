@@ -70,12 +70,12 @@ VOID PrintDate (VOID)
 
 VOID PrintTime (VOID)
 {
-	TCHAR szMsg[RC_STRING_MAX_SIZE];	
-        SYSTEMTIME t;
-        GetLocalTime(&t); 
-  
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	TCHAR szTime[32];
+
+	GetTimeFormat(LOCALE_USER_DEFAULT, 0, NULL, NULL,
+	              szTime, sizeof(szTime));
+
 	LoadString(CMD_ModuleHandle, STRING_LOCALE_HELP1, szMsg, RC_STRING_MAX_SIZE);
-	ConOutPrintf(_T("%s: %02d%c%02d%c%02d%c%02d\n"), szMsg,  t.wHour, cTimeSeparator,
-		             t.wMinute , cTimeSeparator,
-		             t.wSecond , cDecimalSeparator, t.wMilliseconds );
+	ConOutPrintf(_T("%s: %s\n"), szMsg, szTime);
 }

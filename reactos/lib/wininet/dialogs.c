@@ -135,8 +135,10 @@ static BOOL WININET_GetSetPassword( HWND hdlg, LPCWSTR szServer,
     WCHAR szResource[0x80], szUserPass[0x40];
     LPWSTR p;
     HWND hUserItem, hPassItem;
-    UINT r_len;
+    DWORD r, dwMagic = 19;
+    UINT r_len, u_len;
     WORD sz;
+    static const WCHAR szColon[] = { ':',0 };
     static const WCHAR szbs[] = { '/', 0 };
 
     hUserItem = GetDlgItem( hdlg, IDC_USERNAME );
@@ -156,11 +158,6 @@ static BOOL WININET_GetSetPassword( HWND hdlg, LPCWSTR szServer,
     if( bSet )
     {
 #ifndef __REACTOS__
-
-        DWORD r, dwMagic = 19;
-        UNIT u_len;
-        static const WCHAR szColon[] = { ':',0 };
-
         szUserPass[0] = 0;
         GetWindowTextW( hUserItem, szUserPass, 
                         (sizeof szUserPass-1)/sizeof(WCHAR) );

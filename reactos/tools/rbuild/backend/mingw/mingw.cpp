@@ -1,30 +1,9 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
+
 #include "../../pch.h"
 
 #include "mingw.h"
 #include <assert.h>
-#ifdef _MSC_VER
-#define popen _popen
-#define pclose _pclose
-#else
 #include <dirent.h>
-#endif//_MSC_VER
 #include "modulehandler.h"
 
 #ifdef WIN32
@@ -93,7 +72,6 @@ Directory::Add ( const char* subdir )
 bool
 Directory::mkdir_p ( const char* path )
 {
-#ifndef _MSC_VER
 	DIR *directory;
 	directory = opendir ( path );
 	if ( directory != NULL )
@@ -101,16 +79,9 @@ Directory::mkdir_p ( const char* path )
 		closedir ( directory );
 		return false;
 	}
-#endif//_MSC_VER
 
 	if ( MKDIR ( path ) != 0 )
-	{
-#ifdef _MSC_VER
-		if ( errno == EEXIST )
-			return false;
-#endif//_MSC_VER
 		throw AccessDeniedException ( string ( path ) );
-	}
 	return true;
 }
 
@@ -364,7 +335,6 @@ void
 MingwBackend::ProcessNormal ()
 {
 	DetectCompiler ();
-	DetectBinutils ();
 	DetectNetwideAssembler ();
 	DetectPipeSupport ();
 	DetectPCHSupport ();
@@ -579,8 +549,6 @@ MingwBackend::IncludeInAllTarget ( const Module& module ) const
 	if ( module.type == LiveIso )
 		return false;
 	if ( module.type == Test )
-		return false;
-	if ( module.type == Alias )
 		return false;
 	return true;
 }
@@ -817,111 +785,6 @@ MingwBackend::TryToDetectThisNetwideAssembler ( const string& assembler )
 	return (exitcode == 0);
 }
 
-bool
-MingwBackend::TryToDetectThisBinutils ( const string& binutils )
-{
-	string command = ssprintf (
-		"%s -v 1>%s",
-		binutils.c_str (),
-		NUL,
-		NUL );
-	int exitcode = system ( command.c_str () );
-	return (exitcode == 0);
-}
-
-string
-MingwBackend::GetBinutilsVersion ( const string& binutilsCommand )
-{
-	FILE *fp;
-	int ch, i;
-	char buffer[81];
-
-	string versionCommand = ssprintf ( "%s -v",
-	                                   binutilsCommand.c_str (),
-	                                   NUL,
-	                                   NUL );
-	fp = popen ( versionCommand.c_str () , "r" );
-	for( i = 0; ( i < 80 ) && ( feof ( fp ) == 0 ); i++ )
-	{
-		buffer[i] = (char) ch;
-		ch = fgetc( fp );
-	}
-	buffer[i] = '\0';
-	pclose ( fp );
-	
-	char separators[] = " ";
-	char *token;
-	char *prevtoken;
-	
-	token = strtok ( buffer, separators );
-	while ( token != NULL )
-	{
-		prevtoken = token;
-		token = strtok ( NULL, separators );
-	}
-	string version = string ( prevtoken );
-	int firstSpace = version.find_last_not_of ( " \t" );
-	if ( firstSpace != -1 )
-		return string ( version, 0, firstSpace - 1);
-	else
-		return version;
-}
-
-bool
-MingwBackend::IsSupportedBinutilsVersion ( const string& binutilsVersion )
-{
-	if ( ( ( strcmp ( binutilsVersion.c_str (), "20040902") >= 0 ) &&
-	       ( strcmp ( binutilsVersion.c_str (), "20041008") <= 0 ) ) ||
-    	       ( strcmp ( binutilsVersion.c_str (), "20031001") < 0 ) )
-		return false;
-	else
-		return true;
-}
-
-void
-MingwBackend::DetectBinutils ()
-{
-	printf ( "Detecting binutils..." );
-
-	bool detectedBinutils = false;
-	const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
-	if ( ROS_PREFIXValue.length () > 0 )
-	{
-		binutilsPrefix = ROS_PREFIXValue;
-		binutilsCommand = binutilsPrefix + "-ld";
-		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-	}
-#if defined(WIN32)
-	if ( !detectedBinutils )
-	{
-		binutilsPrefix = "";
-		binutilsCommand = "ld";
-		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-	}
-#endif
-	if ( !detectedBinutils )
-	{
-		binutilsPrefix = "mingw32";
-		binutilsCommand = binutilsPrefix + "-ld";
-		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-	}
-	if ( detectedBinutils )
-	{
-		const string& binutilsVersion = GetBinutilsVersion ( binutilsCommand );
-		if ( IsSupportedBinutilsVersion ( binutilsVersion ) )
-			printf ( "detected (%s)\n", binutilsCommand.c_str () );
-		else
-		{
-			printf ( "detected (%s), but with unsupported version (%s)\n",
-			         binutilsCommand.c_str (),
-			         binutilsVersion.c_str () );
-			throw UnsupportedBuildToolException ( binutilsCommand, binutilsVersion );
-		}
-	}
-	else
-		printf ( "not detected\n" );
-}
-
 void
 MingwBackend::DetectNetwideAssembler ()
 {
@@ -1098,19 +961,6 @@ MingwBackend::OutputNonModuleInstallTargets ()
 	}
 }
 
-const Module&
-MingwBackend::GetAliasedModuleOrModule ( const Module& module ) const
-{
-	if ( module.aliasedModuleName.size () > 0 )
-	{
-		const Module* aliasedModule = ProjectNode.LocateModule ( module.aliasedModuleName );
-		assert ( aliasedModule );
-		return *aliasedModule;
-	}
-	else
-		return module;
-}
-
 void
 MingwBackend::OutputModuleInstallTargets ()
 {
@@ -1121,9 +971,8 @@ MingwBackend::OutputModuleInstallTargets ()
 			continue;
 		if ( module.installName.length () > 0 )
 		{
-			const Module& aliasedModule = GetAliasedModuleOrModule ( module );
 			string sourceFilename = MingwModuleHandler::PassThruCacheDirectory (
-				NormalizeFilename ( aliasedModule.GetPath () ),
+				NormalizeFilename ( module.GetPath () ),
 				outputDirectory );
 			OutputInstallTarget ( sourceFilename,
 			                      module.installName,

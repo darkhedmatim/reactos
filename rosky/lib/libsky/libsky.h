@@ -3,10 +3,6 @@
 
 void __cdecl DbgPrint(char *, ...);
 
-#if defined(DBG)
-#undef DBG
-#endif
-
 #ifdef DEBUG
 # ifdef NDEBUG
 #  define DBG(...)

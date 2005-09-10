@@ -24,7 +24,6 @@
 #ifndef VIDEOPRT_H
 #define VIDEOPRT_H
 
-#include <stdio.h>
 #include <ddk/ntddk.h>
 #include <ddk/miniport.h>
 #include <ddk/video.h>
@@ -106,61 +105,61 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
 
 /* agp.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntAgpGetInterface(
    IN PVOID HwDeviceExtension,
    IN OUT PINTERFACE Interface);
 
 /* dispatch.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortAddDevice(
    IN PDRIVER_OBJECT DriverObject,
    IN PDEVICE_OBJECT PhysicalDeviceObject);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchOpen(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchClose(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchCleanup(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchDeviceControl(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchPnp(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortDispatchPower(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
 
-VOID NTAPI
+VOID STDCALL
 IntVideoPortUnload(PDRIVER_OBJECT DriverObject);
 
 /* timer.c */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IntVideoPortSetupTimer(
    IN PDEVICE_OBJECT DeviceObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension);
 
 /* interrupt.c */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IntVideoPortSetupInterrupt(
    IN PDEVICE_OBJECT DeviceObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
@@ -168,7 +167,7 @@ IntVideoPortSetupInterrupt(
 
 /* resource.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortMapPhysicalMemory(
    IN HANDLE Process,
    IN PHYSICAL_ADDRESS PhysicalAddress,
@@ -181,12 +180,12 @@ IntVideoPortMapPhysicalMemory(
 extern ULONG CsrssInitialized;
 extern PKPROCESS Csrss;
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortEnumerateChildren(
    IN PVOID HwDeviceExtension,
    IN PVOID Reserved);
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortGetProcAddress(
    IN PVOID HwDeviceExtension,
    IN PUCHAR FunctionName);
@@ -197,14 +196,14 @@ IntAttachToCSRSS(PKPROCESS *CallingProcess, PKAPC_STATE ApcState);
 VOID FASTCALL
 IntDetachFromCSRSS(PKPROCESS *CallingProcess, PKAPC_STATE ApcState);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortCreateAdapterDeviceObject(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
    IN PDEVICE_OBJECT PhysicalDeviceObject  OPTIONAL,
    OUT PDEVICE_OBJECT *DeviceObject  OPTIONAL);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortFindAdapter(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
@@ -212,20 +211,20 @@ IntVideoPortFindAdapter(
 
 /* int10.c */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 IntInt10AllocateBuffer(
    IN PVOID Context,
    OUT PUSHORT Seg,
    OUT PUSHORT Off,
    IN OUT PULONG Length);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 IntInt10FreeBuffer(
    IN PVOID Context,
    IN USHORT Seg,
    IN USHORT Off);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 IntInt10ReadMemory(
    IN PVOID Context,
    IN USHORT Seg,
@@ -233,7 +232,7 @@ IntInt10ReadMemory(
    OUT PVOID Buffer,
    IN ULONG Length);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 IntInt10WriteMemory(
    IN PVOID Context,
    IN USHORT Seg,
@@ -241,12 +240,12 @@ IntInt10WriteMemory(
    IN PVOID Buffer,
    IN ULONG Length);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 IntInt10CallBios(
    IN PVOID Context,
    IN OUT PINT10_BIOS_ARGUMENTS BiosArguments);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortInt10(
    IN PVOID HwDeviceExtension,
    IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments);

@@ -31,7 +31,6 @@ static GENERIC_MAPPING ExEventPairMapping = {
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpInitializeEventPairImplementation(VOID)
 {
   OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -66,11 +65,13 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
     DPRINT("NtCreateEventPair: 0x%p\n", EventPairHandle);
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode) {
+    if(PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(EventPairHandle);
+            ProbeForWrite(EventPairHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -140,11 +141,13 @@ NtOpenEventPair(OUT PHANDLE EventPairHandle,
     PAGED_CODE();
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode) {
+    if(PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(EventPairHandle);
+            ProbeForWrite(EventPairHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();

@@ -176,7 +176,7 @@ HGLOBAL RenderFILENAMEA (LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 	char szTemp[MAX_PATH], *szFileName;
 	LPITEMIDLIST pidl;
 	HGLOBAL hGlobal;
-	BOOL bSuccess;
+	HRESULT hr;
 
 	TRACE("(%p,%p,%u)\n", pidlRoot, apidl, cidl);
 
@@ -185,9 +185,9 @@ HGLOBAL RenderFILENAMEA (LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 	if (!pidl)
 		return 0;
 
-	bSuccess = SHGetPathFromIDListA(pidl, szTemp);
+	hr = SHELL_GetPathFromIDListA(pidl, szTemp, MAX_PATH);
 	SHFree(pidl);
-	if (!bSuccess)
+	if (FAILED(hr))
 		return 0;
 
 	size = strlen(szTemp) + 1;
@@ -208,7 +208,7 @@ HGLOBAL RenderFILENAMEW (LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 	WCHAR szTemp[MAX_PATH], *szFileName;
 	LPITEMIDLIST pidl;
 	HGLOBAL hGlobal;
-	BOOL bSuccess;
+	HRESULT hr;
 
 	TRACE("(%p,%p,%u)\n", pidlRoot, apidl, cidl);
 
@@ -217,9 +217,9 @@ HGLOBAL RenderFILENAMEW (LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 	if (!pidl)
 		return 0;
 
-	bSuccess = SHGetPathFromIDListW(pidl, szTemp);
+	hr = SHELL_GetPathFromIDListW(pidl, szTemp, MAX_PATH);
 	SHFree(pidl);
-	if (!bSuccess)
+	if (FAILED(hr))
 		return 0;
 
 	size = (strlenW(szTemp)+1) * sizeof(WCHAR);

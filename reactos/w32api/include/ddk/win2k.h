@@ -50,8 +50,6 @@ typedef enum _BUS_DATA_TYPE {
   MaximumBusDataType
 } BUS_DATA_TYPE, *PBUS_DATA_TYPE;
 
-#pragma pack(pop)
-
 NTOSAPI
 VOID
 DDKAPI
@@ -96,6 +94,8 @@ IoWritePartitionTable(
     MDL_SOURCE_IS_NONPAGED_POOL)) ? \
       ((Mdl)->MappedSystemVa) : \
       (MmMapLockedPages((Mdl), KernelMode)))
+
+#pragma pack(pop)
 
 #ifdef __cplusplus
 }

@@ -563,7 +563,7 @@ NtGdiCreateDIBBrush(
    CONST VOID *PackedDIB)
 {
    BITMAPINFO *SafeBitmapInfoAndData;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    HBRUSH hBrush;
 
    SafeBitmapInfoAndData = EngAllocMem(0, BitmapInfoSize, 0);
@@ -573,24 +573,10 @@ NtGdiCreateDIBBrush(
       return NULL;
    }
 
-   _SEH_TRY
-   {
-      ProbeForRead(BitmapInfoAndData,
-                   BitmapInfoSize,
-                   1);
-      RtlCopyMemory(SafeBitmapInfoAndData,
-                    BitmapInfoAndData,
-                    BitmapInfoSize);
-   }
-   _SEH_HANDLE
-   {
-      Status = _SEH_GetExceptionCode();
-   }
-   _SEH_END;
-   
+   Status = MmCopyFromCaller(SafeBitmapInfoAndData, BitmapInfoAndData,
+                             BitmapInfoSize);
    if (!NT_SUCCESS(Status))
    {
-      EngFreeMem(SafeBitmapInfoAndData);
       SetLastNtError(Status);
       return 0;
    }
@@ -646,23 +632,11 @@ NtGdiSetBrushOrgEx(HDC hDC, INT XOrg, INT YOrg, LPPOINT Point)
 
    if (Point != NULL)
    {
-      NTSTATUS Status = STATUS_SUCCESS;
+      NTSTATUS Status;
       POINT SafePoint;
       SafePoint.x = dc->w.brushOrgX;
       SafePoint.y = dc->w.brushOrgY;
-      _SEH_TRY
-      {
-         ProbeForWrite(Point,
-                       sizeof(POINT),
-                       1);
-         *Point = SafePoint;
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
+      Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
       if(!NT_SUCCESS(Status))
       {
         DC_UnlockDc(dc);
@@ -687,7 +661,7 @@ NtGdiPolyPatBlt(
    ULONG Reserved)
 {
    PPATRECT rb = NULL;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    BOOL Ret;
 
    if (cRects > 0)
@@ -698,21 +672,7 @@ NtGdiPolyPatBlt(
          SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
          return FALSE;
       }
-      _SEH_TRY
-      {
-         ProbeForRead(pRects,
-                      cRects * sizeof(PATRECT),
-                      1);
-         RtlCopyMemory(rb,
-                       pRects,
-                       cRects * sizeof(PATRECT));
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
+      Status = MmCopyFromCaller(rb, pRects, sizeof(PATRECT) * cRects);
       if (!NT_SUCCESS(Status))
       {
          ExFreePool(rb);

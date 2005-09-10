@@ -9,7 +9,6 @@
  */
 #include <msafd.h>
 
-#include <debug.h>
 
 INT
 WSPAPI

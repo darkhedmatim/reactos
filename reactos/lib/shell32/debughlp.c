@@ -245,7 +245,7 @@ static void dump_pidl_hex( LPCITEMIDLIST pidl )
         if( i!=(n-1) && (i%max_line) != (max_line-1) )
             continue;
         szAscii[ (i%max_line)+1 ] = 0;
-        ERR("%-*s   %s\n", max_line*3, szHex, szAscii );
+        DPRINTF("%-*s   %s\n", max_line*3, szHex, szAscii );
     }
 }
 
@@ -295,8 +295,8 @@ static char shdebugstr_buf2[100];
 static char * shdebugstr_buf = shdebugstr_buf1;
 
 static struct {
-	REFIID riid;
-	const char *name;
+	REFIID	riid;
+	char 	*name;
 } InterfaceDesc[] = {
 	{&IID_IUnknown,			"IID_IUnknown"},
 	{&IID_IClassFactory,		"IID_IClassFactory"},
@@ -325,7 +325,7 @@ static struct {
 const char * shdebugstr_guid( const struct _GUID *id )
 {
 	int i;
-	const char* name = NULL;
+	char* name = NULL;
 	char clsidbuf[100];
 
 	shdebugstr_buf = (shdebugstr_buf == shdebugstr_buf1) ? shdebugstr_buf2 : shdebugstr_buf1;

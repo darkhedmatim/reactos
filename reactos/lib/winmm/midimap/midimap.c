@@ -26,7 +26,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"

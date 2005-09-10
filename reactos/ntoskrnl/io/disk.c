@@ -907,8 +907,7 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 
 	  if ((ReturnRecognizedPartitions == FALSE) ||
 	       ((ReturnRecognizedPartitions == TRUE) &&
-	        !IsContainerPartition(PartitionSector->Partition[i].PartitionType) &&
-                PartitionSector->Partition[i].PartitionType != PARTITION_ENTRY_UNUSED))
+	        IsRecognizedPartition(PartitionSector->Partition[i].PartitionType)))
 	    {
 	      /* handle normal partition */
 	      DPRINT("Partition %u: Normal Partition\n", i);
@@ -937,17 +936,13 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 	      LayoutBuffer->PartitionEntry[Count].HiddenSectors =
 		PartitionSector->Partition[i].StartingBlock;
 
-	      if (!IsContainerPartition(PartitionSector->Partition[i].PartitionType) &&
-                  PartitionSector->Partition[i].PartitionType != PARTITION_ENTRY_UNUSED)
+	      if (IsRecognizedPartition(PartitionSector->Partition[i].PartitionType))
 		{
-                  LayoutBuffer->PartitionEntry[Count].RecognizedPartition = TRUE;
-                  /* WinXP returns garbage as PartitionNumber */
 		  LayoutBuffer->PartitionEntry[Count].PartitionNumber = Number;
 		  Number++;
 		}
 	      else
 		{
-                  LayoutBuffer->PartitionEntry[Count].RecognizedPartition = FALSE;
 		  LayoutBuffer->PartitionEntry[Count].PartitionNumber = 0;
 		}
 
@@ -955,6 +950,8 @@ xHalIoReadPartitionTable(PDEVICE_OBJECT DeviceObject,
 		PartitionSector->Partition[i].PartitionType;
 	      LayoutBuffer->PartitionEntry[Count].BootIndicator =
 		(PartitionSector->Partition[i].BootFlags & 0x80)?TRUE:FALSE;
+	      LayoutBuffer->PartitionEntry[Count].RecognizedPartition =
+		IsRecognizedPartition (PartitionSector->Partition[i].PartitionType);
 	      LayoutBuffer->PartitionEntry[Count].RewritePartition = FALSE;
 
 	      DPRINT(" %ld: nr: %d boot: %1x type: %x start: 0x%I64x count: 0x%I64x rec: %d\n",

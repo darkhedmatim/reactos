@@ -65,7 +65,7 @@ NTSTATUS EnableIRQ(PDEVICE_OBJECT DeviceObject)
     ULONG Vector;
     KIRQL IRQ_Level;
     KAFFINITY Affinity;
-    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS Status;
 
     Vector = HalGetInterruptVector(Isa,     // FIX THIS
                                    0,       // FIX THIS

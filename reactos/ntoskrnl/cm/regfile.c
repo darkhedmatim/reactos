@@ -858,8 +858,8 @@ CmiInitNonVolatileRegistryHive (PREGISTRY_HIVE RegistryHive,
 	 RegistryHive, Filename);
 
   /* Duplicate Filename */
-  Status = RtlCreateUnicodeString(&RegistryHive->HiveFileName,
-                                  Filename);
+  Status = RtlpCreateUnicodeString(&RegistryHive->HiveFileName,
+              Filename, NonPagedPool);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("RtlpCreateUnicodeString() failed (Status %lx)\n", Status);
@@ -869,9 +869,8 @@ CmiInitNonVolatileRegistryHive (PREGISTRY_HIVE RegistryHive,
   /* Create log file name */
   RegistryHive->LogFileName.Length = (wcslen(Filename) + 4) * sizeof(WCHAR);
   RegistryHive->LogFileName.MaximumLength = RegistryHive->LogFileName.Length + sizeof(WCHAR);
-  RegistryHive->LogFileName.Buffer = ExAllocatePoolWithTag(PagedPool,
-						           RegistryHive->LogFileName.MaximumLength,
-                                                           TAG('U', 'S', 'T', 'R'));
+  RegistryHive->LogFileName.Buffer = ExAllocatePool(NonPagedPool,
+						    RegistryHive->LogFileName.MaximumLength);
   if (RegistryHive->LogFileName.Buffer == NULL)
     {
       RtlFreeUnicodeString(&RegistryHive->HiveFileName);
@@ -4064,10 +4063,6 @@ CmiCopyKey (PREGISTRY_HIVE DstHive,
 	  return Status;
 	}
       NewKeyCell->HashTableOffset = NewHashTableOffset;
-    }
-  else
-    {
-      NewHashTableCell = NULL;
     }
 
   /* Allocate and copy value list and values */

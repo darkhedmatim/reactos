@@ -28,8 +28,6 @@ INT CommandScreen (LPTSTR cmd, LPTSTR param)
 		return 0;
 	}
 
-	nErrorLevel = 0;
-
 	//get row
 	while(_istspace(*param))
 		param++;
@@ -44,7 +42,6 @@ INT CommandScreen (LPTSTR cmd, LPTSTR param)
 	if (y<0 || y>(maxy-1))
 	{
 		ConOutResPuts(STRING_SCREEN_ROW);
-		
 		return 1;
 	}
 

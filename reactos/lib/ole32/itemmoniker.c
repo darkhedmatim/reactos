@@ -45,14 +45,14 @@ const CLSID CLSID_ItemMoniker = {
 /* ItemMoniker data structure */
 typedef struct ItemMonikerImpl{
 
-    const IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
+    IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
 
     /* The ROT (RunningObjectTable implementation) uses the IROTData interface to test whether
      * two monikers are equal. That's whay IROTData interface is implemented by monikers.
      */
-    const IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
+    IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
     LPOLESTR itemName; /* item name identified by this ItemMoniker */
 
@@ -60,11 +60,6 @@ typedef struct ItemMonikerImpl{
 
     IUnknown *pMarshal; /* custom marshaler */
 } ItemMonikerImpl;
-
-static inline IMoniker *impl_from_IROTData( IROTData *iface )
-{
-    return (IMoniker *)((char*)iface - FIELD_OFFSET(ItemMonikerImpl, lpvtbl2));
-}
 
 /********************************************************************************/
 /* ItemMoniker prototype functions :                                            */
@@ -118,7 +113,7 @@ static HRESULT WINAPI ItemMonikerROTDataImpl_GetComparisonData(IROTData* iface,B
 /********************************************************************************/
 /* Virtual function table for the ItemMonikerImpl class which  include IPersist,*/
 /* IPersistStream and IMoniker functions.                                       */
-static const IMonikerVtbl VT_ItemMonikerImpl =
+static IMonikerVtbl VT_ItemMonikerImpl =
     {
     ItemMonikerImpl_QueryInterface,
     ItemMonikerImpl_AddRef,
@@ -147,7 +142,7 @@ static const IMonikerVtbl VT_ItemMonikerImpl =
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class.                               */
-static const IROTDataVtbl VT_ROTDataImpl =
+static IROTDataVtbl VT_ROTDataImpl =
 {
     ItemMonikerROTDataImpl_QueryInterface,
     ItemMonikerROTDataImpl_AddRef,
@@ -934,7 +929,7 @@ HRESULT WINAPI ItemMonikerImpl_IsSystemMoniker(IMoniker* iface,DWORD* pwdMksys)
 HRESULT WINAPI ItemMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid,VOID** ppvObject)
 {
 
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p,%p,%p)\n",iface,riid,ppvObject);
 
@@ -946,7 +941,7 @@ HRESULT WINAPI ItemMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid
  */
 ULONG   WINAPI ItemMonikerROTDataImpl_AddRef(IROTData *iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -958,7 +953,7 @@ ULONG   WINAPI ItemMonikerROTDataImpl_AddRef(IROTData *iface)
  */
 ULONG   WINAPI ItemMonikerROTDataImpl_Release(IROTData* iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -973,7 +968,7 @@ HRESULT WINAPI ItemMonikerROTDataImpl_GetComparisonData(IROTData* iface,
                                                          ULONG cbMax,
                                                          ULONG* pcbData)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
     ItemMonikerImpl *This1 = (ItemMonikerImpl *)This;
     int len = (strlenW(This1->itemName)+1);
     int i;

@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #include "../../pch.h"
 #include <assert.h>
 
@@ -237,9 +220,6 @@ MingwModuleHandler::InstanciateHandler (
 		case RpcClient:
 			handler = new MingwRpcClientModuleHandler ( module );
 			break;
-		case Alias:
-			handler = new MingwAliasModuleHandler ( module );
-			break;
 		default:
 			throw UnknownModuleTypeException (
 				module.node.location,
@@ -288,20 +268,6 @@ MingwModuleHandler::GetActualSourceFilename (
 	}
 	else
 		return filename;
-}
-
-string
-MingwModuleHandler::GetExtraDependencies (
-	const string& filename ) const
-{
-	string extension = GetExtension ( filename );
-	if ( extension == ".idl" || extension == ".IDL" )
-	{
-		string basename = GetBasename ( filename );
-		return GetRpcServerHeaderFilename ( basename ) + " " + GetRpcClientHeaderFilename ( basename );
-	}
-	else
-		return "";
 }
 
 string
@@ -469,38 +435,13 @@ MingwModuleHandler::GetObjectFilename (
 	return obj_file;
 }
 
-string
-MingwModuleHandler::GetModuleCleanTarget ( const Module& module ) const
-{
-	return module.name + "_clean";
-}
-
-void
-MingwModuleHandler::GetReferencedObjectLibraryModuleCleanTargets ( vector<string>& moduleNames ) const
-{
-	for ( size_t i = 0; i < module.non_if_data.libraries.size (); i++ )
- 	{
- 		Library& library = *module.non_if_data.libraries[i];
-		if ( library.importedModule->type == ObjectLibrary )
- 			moduleNames.push_back ( GetModuleCleanTarget ( *library.importedModule ) );
-	}
-}
-
 void
 MingwModuleHandler::GenerateCleanTarget () const
 {
-	if ( module.type == Alias )
+	if ( 0 == clean_files.size() )
 		return;
-	
-	fprintf ( fMakefile,
-	          ".PHONY: %s_clean\n",
-                  module.name.c_str() );
-	vector<string> referencedModuleNames;
-	GetReferencedObjectLibraryModuleCleanTargets ( referencedModuleNames );
-	fprintf ( fMakefile,
-	          "%s: %s\n\t-@${rm}",
-	          GetModuleCleanTarget ( module ).c_str(),
-	          v2s ( referencedModuleNames, 10 ).c_str () );
+	fprintf ( fMakefile, ".PHONY: %s_clean\n", module.name.c_str() );
+	fprintf ( fMakefile, "%s_clean:\n\t-@${rm}", module.name.c_str() );
 	for ( size_t i = 0; i < clean_files.size(); i++ )
 	{
 		if ( 9==((i+1)%10) )
@@ -721,19 +662,10 @@ MingwModuleHandler::GenerateMacro (
 
 	for ( i = 0; i < data.includes.size(); i++ )
 	{
-		const Include& include = *data.includes[i];
-		string includeDirectory;
-		if ( include.baseModule != NULL &&
-		     ( include.baseModule->type == RpcServer ||
-		       include.baseModule->type == RpcClient ) )
-			includeDirectory = PassThruCacheDirectory ( NormalizeFilename ( include.directory ),
-	                                                            backend->intermediateDirectory );
-		else
-			includeDirectory = include.directory;
 		fprintf (
 			fMakefile,
 			" -I%s",
-			includeDirectory.c_str() );
+			data.includes[i]->directory.c_str() );
 	}
 	for ( i = 0; i < data.defines.size(); i++ )
 	{
@@ -934,13 +866,10 @@ MingwModuleHandler::GetPrecompiledHeaderFilename () const
 void
 MingwModuleHandler::GenerateGccCommand (
 	const string& sourceFilename,
-	const string& extraDependencies,
 	const string& cc,
 	const string& cflagsMacro )
 {
 	string dependencies = sourceFilename;
-	if ( extraDependencies != "" )
-		dependencies += " " + extraDependencies;
 	if ( module.pch && use_pch )
 		dependencies += " " + GetPrecompiledHeaderFilename ();
 	
@@ -1111,8 +1040,7 @@ MingwModuleHandler::GetWidlFlags ( const File& file )
 string
 MingwModuleHandler::GetRpcServerHeaderFilename ( string basename ) const
 {
-	return PassThruCacheDirectory ( basename + "_s.h",
-	                                backend->intermediateDirectory );
+	return basename + "_s.h";
 }
 		
 void
@@ -1125,6 +1053,11 @@ MingwModuleHandler::GenerateWidlCommandsServer (
 
 	string basename = GetBasename ( file.name );
 
+	/*string generatedHeaderFilename = PassThruCacheDirectory (
+		basename + ".h",
+		backend->intermediateDirectory );
+	CLEAN_FILE(generatedHeaderFilename);
+	*/
 	string generatedHeaderFilename = GetRpcServerHeaderFilename ( basename );
 	CLEAN_FILE(generatedHeaderFilename);
 
@@ -1153,8 +1086,7 @@ MingwModuleHandler::GenerateWidlCommandsServer (
 string
 MingwModuleHandler::GetRpcClientHeaderFilename ( string basename ) const
 {
-	return PassThruCacheDirectory ( basename + "_c.h",
-	                                backend->intermediateDirectory );
+	return basename + "_c.h";
 }
 
 void
@@ -1167,6 +1099,11 @@ MingwModuleHandler::GenerateWidlCommandsClient (
 
 	string basename = GetBasename ( file.name );
 
+	/*string generatedHeaderFilename = PassThruCacheDirectory (
+		basename + ".h",
+		backend->intermediateDirectory );
+	CLEAN_FILE(generatedHeaderFilename);
+	*/
 	string generatedHeaderFilename = GetRpcClientHeaderFilename ( basename );
 	CLEAN_FILE(generatedHeaderFilename);
 
@@ -1219,7 +1156,6 @@ MingwModuleHandler::GenerateCommands (
 	if ( extension == ".c" || extension == ".C" )
 	{
 		GenerateGccCommand ( file.name,
-		                     "",
 		                     cc,
 		                     cflagsMacro );
 		return;
@@ -1229,7 +1165,6 @@ MingwModuleHandler::GenerateCommands (
 	          extension == ".cxx" || extension == ".CXX" )
 	{
 		GenerateGccCommand ( file.name,
-		                     "",
 		                     cppc,
 		                     cflagsMacro );
 		return;
@@ -1257,7 +1192,6 @@ MingwModuleHandler::GenerateCommands (
 	{
 		GenerateWinebuildCommands ( file.name );
 		GenerateGccCommand ( GetActualSourceFilename ( file.name ),
-		                     "",
 		                     cc,
 		                     cflagsMacro );
 		return;
@@ -1267,7 +1201,6 @@ MingwModuleHandler::GenerateCommands (
 		GenerateWidlCommands ( file,
 		                       widlflagsMacro );
 		GenerateGccCommand ( GetActualSourceFilename ( file.name ),
-		                     GetExtraDependencies ( file.name ),
 		                     cc,
 		                     cflagsMacro );
 		return;
@@ -1412,15 +1345,14 @@ MingwModuleHandler::GenerateLinkerCommand (
 	const string& linker,
 	const string& linkerParameters,
 	const string& objectsMacro,
-	const string& libsMacro,
-	const string& pefixupParameters )
+	const string& libsMacro )
 {
 	string target ( GetTargetMacro ( module ) );
 	string target_folder ( GetDirectory ( GetTargetFilename ( module, NULL ) ) );
 	string def_file = GetDefinitionFilename ();
 
 	fprintf ( fMakefile,
-		"%s: %s %s $(RSYM_TARGET) $(PEFIXUP_TARGET) | %s\n",
+		"%s: %s %s $(RSYM_TARGET) | %s\n",
 		target.c_str (),
 		def_file.c_str (),
 		dependencies.c_str (),
@@ -1452,11 +1384,6 @@ MingwModuleHandler::GenerateLinkerCommand (
 		          GetLinkerMacro ().c_str () );
 	
 		fprintf ( fMakefile,
-		          "\t$(Q)$(PEFIXUP_TARGET) %s -exports %s\n",
-		          target.c_str (),
-		          pefixupParameters.c_str() );
-
-		fprintf ( fMakefile,
 		          "\t-@${rm} %s 2>$(NUL)\n",
 		          temp_exp.c_str () );
 	}
@@ -1470,14 +1397,6 @@ MingwModuleHandler::GenerateLinkerCommand (
 		          objectsMacro.c_str (),
 		          libsMacro.c_str (),
 		          GetLinkerMacro ().c_str () );
-
-		if ( pefixupParameters.length() != 0 )
-		{
-			fprintf ( fMakefile,
-			          "\t$(Q)$(PEFIXUP_TARGET) %s -exports %s\n",
-			          target.c_str (),
-		        	  pefixupParameters.c_str() );
-		}
 	}
 
 	GenerateBuildMapCode ();
@@ -1689,6 +1608,7 @@ MingwModuleHandler::GetRpcHeaderDependencies (
 		if ( library.importedModule->type == RpcServer ||
 		     library.importedModule->type == RpcClient )
 		{
+
 			for ( size_t j = 0; j < library.importedModule->non_if_data.files.size (); j++ )
 			{
 				File& file = *library.importedModule->non_if_data.files[j];
@@ -1750,7 +1670,7 @@ MingwModuleHandler::GenerateOtherMacros ()
 	string globalCflags = "-g";
 	if ( backend->usePipe )
 		globalCflags += " -pipe";
-	if ( !module.allowWarnings )
+	if ( !module.enableWarnings )
 		globalCflags += " -Werror";
 	
 	fprintf (
@@ -2067,11 +1987,10 @@ MingwModuleHandler::GetWidlObjectDependencies (
 	const string& filename ) const
 {
 	string basename = GetBasename ( filename );
-	string serverSourceDependency = PassThruCacheDirectory (
+	string serverDependency = PassThruCacheDirectory (
 		NormalizeFilename ( basename + "_s.c" ),
 		backend->intermediateDirectory );
-	dependencies.push_back ( serverSourceDependency );
-	dependencies.push_back ( GetRpcServerHeaderFilename ( basename ) );
+	dependencies.push_back ( serverDependency );
 }
 
 void
@@ -2176,8 +2095,7 @@ MingwKernelModuleHandler::GenerateKernelModuleTarget ()
 		                        "${gcc}",
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "-sections" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2263,8 +2181,7 @@ MingwKernelModeDLLModuleHandler::GenerateKernelModeDLLModuleTarget ()
 		                        "${gcc}",
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "-sections" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2311,8 +2228,7 @@ MingwKernelModeDriverModuleHandler::GenerateKernelModeDriverModuleTarget ()
 		                        "${gcc}",
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "-sections" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2358,8 +2274,7 @@ MingwNativeDLLModuleHandler::GenerateNativeDLLModuleTarget ()
 		                        "${gcc}",
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2405,8 +2320,7 @@ MingwNativeCUIModuleHandler::GenerateNativeCUIModuleTarget ()
 		                        "${gcc}",
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2458,8 +2372,7 @@ MingwWin32DLLModuleHandler::GenerateWin32DLLModuleTarget ()
 		                        linker,
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2511,8 +2424,7 @@ MingwWin32CUIModuleHandler::GenerateWin32CUIModuleTarget ()
 		                        linker,
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2564,8 +2476,7 @@ MingwWin32GUIModuleHandler::GenerateWin32GUIModuleTarget ()
 		                        linker,
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -2905,13 +2816,12 @@ MingwLiveIsoModuleHandler::OutputModuleCopyCommands ( string& livecdDirectory,
 			continue;
 		if ( m.installName.length () > 0 )
 		{
-			const Module& aliasedModule = backend->GetAliasedModuleOrModule ( m  );
 			string sourceFilename = MingwModuleHandler::PassThruCacheDirectory (
-				NormalizeFilename ( aliasedModule.GetPath () ),
+				NormalizeFilename ( m.GetPath () ),
 				backend->outputDirectory );
 			OutputCopyCommand ( sourceFilename,
-			                    m.installName,
-			                    livecdDirectory + SSEP + reactosDirectory + SSEP + m.installBase );
+		                        m.installName,
+		                        livecdDirectory + SSEP + reactosDirectory + SSEP + m.installBase );
 		}
 	}
 }
@@ -3064,8 +2974,7 @@ MingwTestModuleHandler::GenerateTestModuleTarget ()
 		                        linker,
 		                        linkerParameters,
 		                        objectsMacro,
-		                        libsMacro,
-		                        "" );
+		                        libsMacro );
 	}
 	else
 	{
@@ -3087,7 +2996,6 @@ MingwRpcServerModuleHandler::Process ()
 	GenerateRules ();
 }
 
-
 MingwRpcClientModuleHandler::MingwRpcClientModuleHandler (
 	const Module& module_ )
 
@@ -3099,17 +3007,4 @@ void
 MingwRpcClientModuleHandler::Process ()
 {
 	GenerateRules ();
-}
-
-
-MingwAliasModuleHandler::MingwAliasModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwAliasModuleHandler::Process ()
-{
 }

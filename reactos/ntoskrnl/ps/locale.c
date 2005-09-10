@@ -199,40 +199,28 @@ NTSTATUS STDCALL
 NtQueryDefaultLocale(IN BOOLEAN UserProfile,
 		     OUT PLCID DefaultLocaleId)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
+  PAGED_CODE();
 
-    PAGED_CODE();
+  if (DefaultLocaleId == NULL)
+    return STATUS_UNSUCCESSFUL;
 
-    _SEH_TRY
+  if (UserProfile)
     {
-        if (KeGetPreviousMode() != KernelMode)
-        {
-            ProbeForWriteLangid(DefaultLocaleId);
-        }
-        
-        if (UserProfile)
-        {
-            if (!PsDefaultThreadLocaleInitialized)
-	        {
-	            PiInitThreadLocale();
-	        }
+      if (!PsDefaultThreadLocaleInitialized)
+	{
+	  PiInitThreadLocale();
+	}
 
-            /* set thread locale */
-           *DefaultLocaleId = PsDefaultThreadLocaleId;
-        }
-        else
-        {
-            /* set system locale */
-            *DefaultLocaleId = PsDefaultSystemLocaleId;
-        }
+      /* set thread locale */
+      *DefaultLocaleId = PsDefaultThreadLocaleId;
     }
-    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
+  else
     {
-        Status = _SEH_GetExceptionCode();
+      /* set system locale */
+      *DefaultLocaleId = PsDefaultSystemLocaleId;
     }
-    _SEH_END;
 
-    return Status;
+  return STATUS_SUCCESS;
 }
 
 
@@ -365,36 +353,16 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
   ULONG Value;
   HANDLE UserKey;
   HANDLE KeyHandle;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   PAGED_CODE();
-  
-  _SEH_TRY
-  {
-    if (KeGetPreviousMode() != KernelMode)
-    {
-      ProbeForWriteLangid(LanguageId);
-    }
-
-    *LanguageId = PsInstallUILanguageId;
-  }
-  _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-  
-  if (!NT_SUCCESS(Status))
-  {
-    return Status;
-  }
 
   Status = RtlOpenCurrentUser(KEY_READ,
 			      &UserKey);
   if (!NT_SUCCESS(Status))
     {
-      Value = PsInstallUILanguageId;
-      goto ReturnSuccess;
+      *LanguageId = PsInstallUILanguageId;
+      return STATUS_SUCCESS;
     }
 
   InitializeObjectAttributes(&ObjectAttributes,
@@ -407,8 +375,8 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     {
-      Value = PsInstallUILanguageId;
-      goto ReturnSuccess;
+      *LanguageId = PsInstallUILanguageId;
+      return STATUS_SUCCESS;
     }
 
   ValueInfo = (PKEY_VALUE_PARTIAL_INFORMATION)ValueBuffer;
@@ -425,8 +393,8 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 
   if (!NT_SUCCESS(Status) || ValueInfo->Type != REG_SZ)
     {
-      Value = PsInstallUILanguageId;
-      goto ReturnSuccess;
+      *LanguageId = PsInstallUILanguageId;
+      return STATUS_SUCCESS;
     }
 
   ValueString.Length = ValueInfo->DataLength;
@@ -438,25 +406,15 @@ NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 				     &Value);
   if (!NT_SUCCESS(Status))
     {
-      Value = PsInstallUILanguageId;
-      goto ReturnSuccess;
+      *LanguageId = PsInstallUILanguageId;
+      return STATUS_SUCCESS;
     }
 
   DPRINT("Default language id: %04lx\n", Value);
 
-ReturnSuccess:
-  _SEH_TRY
-  {
-    *LanguageId = Value;
-    Status = STATUS_SUCCESS;
-  }
-  _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  *LanguageId = Value;
 
-  return Status;
+  return STATUS_SUCCESS;
 }
 
 
@@ -466,26 +424,11 @@ ReturnSuccess:
 NTSTATUS STDCALL
 NtQueryInstallUILanguage(OUT PLANGID LanguageId)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
-    
-    PAGED_CODE();
+  PAGED_CODE();
 
-    _SEH_TRY
-    {
-        if (KeGetPreviousMode() != KernelMode)
-        {
-            ProbeForWriteLangid(LanguageId);
-        }
+  *LanguageId = PsInstallUILanguageId;
 
-        *LanguageId = PsInstallUILanguageId;
-    }
-    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-    {
-        Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    return Status;
+  return STATUS_SUCCESS;
 }
 
 

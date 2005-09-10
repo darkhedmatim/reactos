@@ -22,9 +22,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <user32.h>
-#define NDEBUG
-#include <debug.h>
+#include <stdarg.h>
+#include <string.h>
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "winerror.h"
+#include "dde.h"
+#include "ddeml.h"
+#include "wine/debug.h"
+#include "dde_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ddeml);
 

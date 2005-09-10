@@ -27,12 +27,9 @@
  */
 #include <windows.h>
 #include <stdio.h>
-#include <rosky.h>
+#include <rosky/rosky.h>
 #include "libskygi.h"
 #include "resource.h"
-
-#define NDEBUG
-#include <debug.h>
 
 typedef struct
 {

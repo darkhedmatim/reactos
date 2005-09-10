@@ -11,7 +11,6 @@
  */
 #include <windows.h>
 /* #define NDEBUG */
-#include <debug.h>
 #include "libsky.h"
 
 

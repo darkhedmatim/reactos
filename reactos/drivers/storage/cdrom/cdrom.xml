@@ -4,7 +4,6 @@
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<library>class2</library>
-	<include base="cdrom">..</include>
 	<file>cdrom.c</file>
 	<file>cdrom.rc</file>
 </module>

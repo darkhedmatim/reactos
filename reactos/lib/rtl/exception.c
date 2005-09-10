@@ -1,15 +1,21 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * PURPOSE:         User-mode exception support
- * FILE:            lib/rtl/exception.c
- * PROGRAMERS:      David Welch <welch@cwcom.net>
- *                  Skywing <skywing@valhallalegends.com>
- *                  KJK::Hyperion <noog@libero.it>
+/* $Id$
+ *
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           User-mode exception support
+ * FILE:              lib/ntdll/rtl/exception.c
+ * PROGRAMERS:        David Welch <welch@cwcom.net>
+ *                    Skywing <skywing@valhallalegends.com>
+ *                    KJK::Hyperion <noog@libero.it>
+ * UPDATES:           Skywing, 09/11/2003: Implemented RtlRaiseException and
+ *                    KiUserRaiseExceptionDispatcher.
+ *                    KJK::Hyperion, 22/06/2004: Moved the common parts here,
+ *                    left the user-mode code in ntdll
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -61,7 +67,7 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
   ExceptionRecord->ExceptionAddress = (PVOID)(*(((PULONG)Context.Ebp)+1));
   Context.ContextFlags = CONTEXT_FULL;
 
-  Status = NtRaiseException(ExceptionRecord, &Context, TRUE);
+  Status = ZwRaiseException(ExceptionRecord, &Context, TRUE);
   RtlRaiseException(ExceptionRecord);
   RtlRaiseStatus(Status);
 }

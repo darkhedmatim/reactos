@@ -26,7 +26,7 @@
  * UPDATE HISTORY:
  *      07/01/2005  Created
  */
-#include <precomp.h>
+#include "acluilib.h"
 
 #define CI_TEXT_MARGIN_WIDTH    (8)
 #define CI_TEXT_MARGIN_HEIGHT   (3)
@@ -94,31 +94,6 @@ static VOID ChangeCheckItemFocus(IN PCHECKLISTWND infoPtr,
                                  IN UINT NewFocusBox);
 
 /******************************************************************************/
-
-static LRESULT
-NotifyControlParent(IN PCHECKLISTWND infoPtr,
-                    IN UINT code,
-                    IN OUT PVOID data)
-{
-    LRESULT Ret = 0;
-    
-    if (infoPtr->hNotify != NULL)
-    {
-        LPNMHDR pnmh = (LPNMHDR)data;
-        
-        pnmh->hwndFrom = infoPtr->hSelf;
-        pnmh->idFrom = GetWindowLongPtr(infoPtr->hSelf,
-                                        GWLP_ID);
-        pnmh->code = code;
-        
-        Ret = SendMessage(infoPtr->hNotify,
-                          WM_NOTIFY,
-                          (WPARAM)pnmh->idFrom,
-                          (LPARAM)pnmh);
-    }
-    
-    return Ret;
-}
 
 static PCHECKITEM
 FindCheckItemByIndex(IN PCHECKLISTWND infoPtr,
@@ -352,11 +327,22 @@ PtToCheckItemBox(IN PCHECKLISTWND infoPtr,
                  OUT UINT *CheckBox,
                  OUT BOOL *DirectlyInCheckBox)
 {
+    LONG Style;
     INT FirstVisible, Index;
     PCHECKITEM Item;
     
-    FirstVisible = GetScrollPos(infoPtr->hSelf,
-                                SB_VERT);
+    Style = GetWindowLong(infoPtr->hSelf,
+                          GWL_STYLE);
+    
+    if (Style & WS_VSCROLL)
+    {
+        FirstVisible = GetScrollPos(infoPtr->hSelf,
+                                    SB_VERT);
+    }
+    else
+    {
+        FirstVisible = 0;
+    }
     
     Index = FirstVisible + (ppt->y / infoPtr->ItemHeight);
     
@@ -524,10 +510,12 @@ ClearCheckBoxes(IN PCHECKLISTWND infoPtr)
 }
 
 static VOID
-UpdateControl(IN PCHECKLISTWND infoPtr)
+UpdateControl(IN PCHECKLISTWND infoPtr,
+              IN BOOL AllowChangeStyle)
 {
     RECT rcClient;
     SCROLLINFO ScrollInfo;
+    LONG Style;
     INT VisibleItems;
     
     GetClientRect(infoPtr->hSelf,
@@ -553,6 +541,28 @@ UpdateControl(IN PCHECKLISTWND infoPtr)
                   &ScrollInfo,
                   TRUE);
 
+    if (AllowChangeStyle)
+    {
+        Style = GetWindowLong(infoPtr->hSelf,
+                              GWL_STYLE);
+
+        /* determine whether the vertical scrollbar has to be visible or not */
+        if (ScrollInfo.nMax > VisibleItems &&
+            !(Style & WS_VSCROLL))
+        {
+            SetWindowLong(infoPtr->hSelf,
+                          GWL_STYLE,
+                          Style | WS_VSCROLL);
+        }
+        else if (ScrollInfo.nMax <= VisibleItems &&
+                 (Style & WS_VSCROLL))
+        {
+            SetWindowLong(infoPtr->hSelf,
+                          GWL_STYLE,
+                          Style & ~WS_VSCROLL);
+        }
+    }
+
     RedrawWindow(infoPtr->hSelf,
                  NULL,
                  NULL,
@@ -563,14 +573,25 @@ static VOID
 UpdateCheckItem(IN PCHECKLISTWND infoPtr,
                 IN PCHECKITEM Item)
 {
+    LONG Style;
     RECT rcClient;
     INT VisibleFirst, VisibleItems;
     INT Index = CheckItemToIndex(infoPtr,
                                  Item);
     if (Index != -1)
     {
-        VisibleFirst = GetScrollPos(infoPtr->hSelf,
-                                    SB_VERT);
+        Style = GetWindowLong(infoPtr->hSelf,
+                              GWL_STYLE);
+
+        if (Style & WS_VSCROLL)
+        {
+            VisibleFirst = GetScrollPos(infoPtr->hSelf,
+                                        SB_VERT);
+        }
+        else
+        {
+            VisibleFirst = 0;
+        }
         
         if (Index >= VisibleFirst)
         {
@@ -601,62 +622,69 @@ static VOID
 MakeCheckItemVisible(IN PCHECKLISTWND infoPtr,
                      IN PCHECKITEM Item)
 {
+    LONG Style;
     RECT rcClient;
     INT VisibleFirst, VisibleItems, NewPos;
     INT Index = CheckItemToIndex(infoPtr,
                                  Item);
     if (Index != -1)
     {
-        VisibleFirst = GetScrollPos(infoPtr->hSelf,
-                                    SB_VERT);
-    
-        if (Index <= VisibleFirst)
-        {
-            NewPos = Index;
-        }
-        else
-        {
-            GetClientRect(infoPtr->hSelf,
-                          &rcClient);
+        Style = GetWindowLong(infoPtr->hSelf,
+                              GWL_STYLE);
 
-            VisibleItems = (rcClient.bottom - rcClient.top) / infoPtr->ItemHeight;
-            if (Index - VisibleItems + 1 > VisibleFirst)
+        if (Style & WS_VSCROLL)
+        {
+            VisibleFirst = GetScrollPos(infoPtr->hSelf,
+                                        SB_VERT);
+        
+            if (Index <= VisibleFirst)
             {
-                NewPos = Index - VisibleItems + 1;
+                NewPos = Index;
             }
             else
             {
-                NewPos = VisibleFirst;
-            }
-        }
-        
-        if (VisibleFirst != NewPos)
-        {
-            SCROLLINFO ScrollInfo;
-            
-            ScrollInfo.cbSize = sizeof(ScrollInfo);
-            ScrollInfo.fMask = SIF_POS;
-            ScrollInfo.nPos = NewPos;
-            NewPos = SetScrollInfo(infoPtr->hSelf,
-                                   SB_VERT,
-                                   &ScrollInfo,
-                                   TRUE);
+                GetClientRect(infoPtr->hSelf,
+                              &rcClient);
 
+                VisibleItems = (rcClient.bottom - rcClient.top) / infoPtr->ItemHeight;
+                if (Index - VisibleItems + 1 > VisibleFirst)
+                {
+                    NewPos = Index - VisibleItems + 1;
+                }
+                else
+                {
+                    NewPos = VisibleFirst;
+                }
+            }
+            
             if (VisibleFirst != NewPos)
             {
-                ScrollWindowEx(infoPtr->hSelf,
-                               0,
-                               (NewPos - VisibleFirst) * infoPtr->ItemHeight,
-                               NULL,
-                               NULL,
-                               NULL,
-                               NULL,
-                               SW_INVALIDATE | SW_SCROLLCHILDREN);
+                SCROLLINFO ScrollInfo;
+                
+                ScrollInfo.cbSize = sizeof(ScrollInfo);
+                ScrollInfo.fMask = SIF_POS;
+                ScrollInfo.nPos = NewPos;
+                NewPos = SetScrollInfo(infoPtr->hSelf,
+                                       SB_VERT,
+                                       &ScrollInfo,
+                                       TRUE);
 
-                RedrawWindow(infoPtr->hSelf,
-                             NULL,
-                             NULL,
-                             RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_NOCHILDREN);
+                if (VisibleFirst != NewPos)
+                {
+                    ScrollWindowEx(infoPtr->hSelf,
+                                   0,
+                                   (NewPos - VisibleFirst) * infoPtr->ItemHeight,
+                                   NULL,
+                                   NULL,
+                                   NULL,
+                                   NULL,
+                                   SW_INVALIDATE | SW_SCROLLCHILDREN);
+
+                    RedrawWindow(infoPtr->hSelf,
+                                 NULL,
+                                 NULL,
+                                 RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW | RDW_NOCHILDREN);
+                }
             }
         }
     }
@@ -716,7 +744,8 @@ RetChangeControlFont(IN PCHECKLISTWND infoPtr,
                     infoPtr->ItemHeight - (2 * CI_TEXT_MARGIN_HEIGHT));
     }
     
-    UpdateControl(infoPtr);
+    UpdateControl(infoPtr,
+                  TRUE);
 
     return hOldFont;
 }
@@ -755,6 +784,7 @@ PaintControl(IN PCHECKLISTWND infoPtr,
     INT ScrollPos;
     PCHECKITEM FirstItem, Item;
     RECT rcClient;
+    LONG Style;
     UINT VisibleFirstIndex = rcUpdate->top / infoPtr->ItemHeight;
     UINT LastTouchedIndex = rcUpdate->bottom / infoPtr->ItemHeight;
     
@@ -764,8 +794,18 @@ PaintControl(IN PCHECKLISTWND infoPtr,
     
     GetClientRect(infoPtr->hSelf, &rcClient);
     
-    ScrollPos = GetScrollPos(infoPtr->hSelf,
-                             SB_VERT);
+    Style = GetWindowLong(infoPtr->hSelf,
+                          GWL_STYLE);
+    
+    if (Style & WS_VSCROLL)
+    {
+        ScrollPos = GetScrollPos(infoPtr->hSelf,
+                                 SB_VERT);
+    }
+    else
+    {
+        ScrollPos = 0;
+    }
     
     FirstItem = FindCheckItemByIndex(infoPtr,
                                      ScrollPos + VisibleFirstIndex);
@@ -1061,14 +1101,25 @@ UpdateCheckItemBox(IN PCHECKLISTWND infoPtr,
                    IN PCHECKITEM Item,
                    IN UINT ItemBox)
 {
+    LONG Style;
     RECT rcClient;
     INT VisibleFirst, VisibleItems;
     INT Index = CheckItemToIndex(infoPtr,
                                  Item);
     if (Index != -1)
     {
-        VisibleFirst = GetScrollPos(infoPtr->hSelf,
-                                    SB_VERT);
+        Style = GetWindowLong(infoPtr->hSelf,
+                              GWL_STYLE);
+
+        if (Style & WS_VSCROLL)
+        {
+            VisibleFirst = GetScrollPos(infoPtr->hSelf,
+                                        SB_VERT);
+        }
+        else
+        {
+            VisibleFirst = 0;
+        }
 
         if (Index >= VisibleFirst)
         {
@@ -1130,29 +1181,20 @@ ChangeCheckItemHotTrack(IN PCHECKLISTWND infoPtr,
 }
 #endif
 
-static BOOL
+static VOID
 ChangeCheckBox(IN PCHECKLISTWND infoPtr,
                IN PCHECKITEM CheckItem,
                IN UINT CheckItemBox)
 {
-    NMCHANGEITEMCHECKBOX CheckData;
-    DWORD OldState = CheckItem->State;
+    DWORD NewState, OldState = CheckItem->State;
     DWORD CheckedBit = ((infoPtr->FocusedCheckItemBox == CLB_DENY) ? CIS_DENY : CIS_ALLOW);
     BOOL Checked = (CheckItem->State & CheckedBit) != 0;
 
-    CheckData.OldState = OldState;
-    CheckData.NewState = (Checked ? OldState & ~CheckedBit : OldState | CheckedBit);
-    CheckData.CheckBox = infoPtr->FocusedCheckItemBox;
-    CheckData.Checked = !Checked;
+    NewState = (Checked ? OldState & ~CheckedBit : OldState | CheckedBit);
 
-    if (NotifyControlParent(infoPtr,
-                            CLN_CHANGINGITEMCHECKBOX,
-                            &CheckData) != (LRESULT)-1)
-    {
-        CheckItem->State = CheckData.NewState;
-    }
-    
-    return (CheckItem->State != OldState);
+    /* FIXME - send a notification message */
+
+    CheckItem->State = NewState;
 }
 
 static VOID
@@ -1202,12 +1244,23 @@ MapItemToRect(IN PCHECKLISTWND infoPtr,
     if (Index != -1)
     {
         RECT rcClient;
+        LONG Style;
         INT VisibleFirst;
         
         GetClientRect(infoPtr->hSelf, &rcClient);
         
-        VisibleFirst = GetScrollPos(infoPtr->hSelf,
-                                    SB_VERT);
+        Style = GetWindowLong(infoPtr->hSelf,
+                              GWL_STYLE);
+
+        if (Style & WS_VSCROLL)
+        {
+            VisibleFirst = GetScrollPos(infoPtr->hSelf,
+                                        SB_VERT);
+        }
+        else
+        {
+            VisibleFirst = 0;
+        }
         
         prcItem->left = rcClient.left;
         prcItem->right = rcClient.right;
@@ -1687,7 +1740,8 @@ CheckListWndProc(IN HWND hwnd,
                                            &Index);
             if (Item != NULL)
             {
-                UpdateControl(infoPtr);
+                UpdateControl(infoPtr,
+                              TRUE);
                 Ret = (LRESULT)Index;
             }
             else
@@ -1707,7 +1761,8 @@ CheckListWndProc(IN HWND hwnd,
                                       Item);
                 if (Ret)
                 {
-                    UpdateControl(infoPtr);
+                    UpdateControl(infoPtr,
+                                  TRUE);
                 }
             }
             else
@@ -1749,7 +1804,8 @@ CheckListWndProc(IN HWND hwnd,
                         }
                     }
 
-                    UpdateControl(infoPtr);
+                    UpdateControl(infoPtr,
+                                  TRUE);
                 }
                 Ret = TRUE;
             }
@@ -1769,14 +1825,14 @@ CheckListWndProc(IN HWND hwnd,
         case CLM_CLEAR:
         {
             ClearCheckItems(infoPtr);
-            UpdateControl(infoPtr);
+            UpdateControl(infoPtr,
+                          TRUE);
             break;
         }
         
         case CLM_SETCHECKBOXCOLUMN:
         {
             infoPtr->CheckBoxLeft[wParam != CLB_DENY] = (INT)lParam;
-            UpdateControl(infoPtr);
             Ret = 1;
             break;
         }
@@ -1792,7 +1848,8 @@ CheckListWndProc(IN HWND hwnd,
             Ret = (LRESULT)ClearCheckBoxes(infoPtr);
             if (Ret)
             {
-                UpdateControl(infoPtr);
+                UpdateControl(infoPtr,
+                              TRUE);
             }
             break;
         }
@@ -1835,9 +1892,18 @@ CheckListWndProc(IN HWND hwnd,
         
         case WM_STYLECHANGED:
         {
+            LPSTYLESTRUCT Style = (LPSTYLESTRUCT)lParam;
+            
             if (wParam == (WPARAM)GWL_STYLE)
             {
-                UpdateControl(infoPtr);
+                BOOL AllowChangeStyle;
+
+                /* don't allow the control to enable/disable the vertical scrollbar
+                   if this message was invoked due to such a window style change! */
+                AllowChangeStyle = ((Style->styleNew & WS_VSCROLL) == (Style->styleOld & WS_VSCROLL));
+
+                UpdateControl(infoPtr,
+                              AllowChangeStyle);
             }
             break;
         }
@@ -1846,7 +1912,8 @@ CheckListWndProc(IN HWND hwnd,
         {
             EscapeQuickSearch(infoPtr);
             
-            UpdateControl(infoPtr);
+            UpdateControl(infoPtr,
+                          TRUE);
             break;
         }
         
@@ -2051,20 +2118,9 @@ CheckListWndProc(IN HWND hwnd,
                     if (PtItem == infoPtr->FocusedCheckItem && InCheckBox &&
                         PtItemBox == infoPtr->FocusedCheckItemBox)
                     {
-                        UINT OtherBox = ((PtItemBox == CLB_ALLOW) ? CLB_DENY : CLB_ALLOW);
-                        DWORD OtherStateMask = ((OtherBox == CLB_ALLOW) ?
-                                                (CIS_ALLOW | CIS_ALLOWDISABLED) :
-                                                (CIS_DENY | CIS_DENYDISABLED));
-                        DWORD OtherStateOld = PtItem->State & OtherStateMask;
-                        if (ChangeCheckBox(infoPtr,
-                                           PtItem,
-                                           PtItemBox) &&
-                            ((PtItem->State & OtherStateMask) != OtherStateOld))
-                        {
-                            UpdateCheckItemBox(infoPtr,
-                                               infoPtr->FocusedCheckItem,
-                                               OtherBox);
-                        }
+                        ChangeCheckBox(infoPtr,
+                                       PtItem,
+                                       PtItemBox);
                     }
                     
                     UpdateCheckItemBox(infoPtr,
@@ -2117,32 +2173,16 @@ CheckListWndProc(IN HWND hwnd,
                         if (infoPtr->FocusedCheckItem != NULL &&
                             infoPtr->QuickSearchHitItem == NULL)
                         {
-                            UINT OtherBox;
-                            DWORD OtherStateMask;
-                            DWORD OtherStateOld;
-
                             MakeCheckItemVisible(infoPtr,
                                                  infoPtr->FocusedCheckItem);
 
-                            OtherBox =  ((infoPtr->FocusedCheckItemBox == CLB_ALLOW) ? CLB_DENY : CLB_ALLOW);
-                            OtherStateMask = ((OtherBox == CLB_ALLOW) ?
-                                              (CIS_ALLOW | CIS_ALLOWDISABLED) :
-                                              (CIS_DENY | CIS_DENYDISABLED));
-                            OtherStateOld = infoPtr->FocusedCheckItem->State & OtherStateMask;
-                            if (ChangeCheckBox(infoPtr,
+                            ChangeCheckBox(infoPtr,
+                                           infoPtr->FocusedCheckItem,
+                                           infoPtr->FocusedCheckItemBox);
+
+                            UpdateCheckItemBox(infoPtr,
                                                infoPtr->FocusedCheckItem,
-                                               infoPtr->FocusedCheckItemBox))
-                            {
-                                UpdateCheckItemBox(infoPtr,
-                                                   infoPtr->FocusedCheckItem,
-                                                   infoPtr->FocusedCheckItemBox);
-                                if ((infoPtr->FocusedCheckItem->State & OtherStateMask) != OtherStateOld)
-                                {
-                                    UpdateCheckItemBox(infoPtr,
-                                                       infoPtr->FocusedCheckItem,
-                                                       OtherBox);
-                                }
-                            }
+                                               infoPtr->FocusedCheckItemBox);
                         }
                     }
                     break;
@@ -2196,29 +2236,15 @@ CheckListWndProc(IN HWND hwnd,
                 infoPtr->FocusedCheckItem != NULL &&
                 infoPtr->FocusedPushed)
             {
-                UINT OtherBox = ((infoPtr->FocusedCheckItemBox == CLB_ALLOW) ? CLB_DENY : CLB_ALLOW);
-                DWORD OtherStateMask = ((OtherBox == CLB_ALLOW) ?
-                                        (CIS_ALLOW | CIS_ALLOWDISABLED) :
-                                        (CIS_DENY | CIS_DENYDISABLED));
-                DWORD OtherStateOld = infoPtr->FocusedCheckItem->State & OtherStateMask;
-
                 infoPtr->FocusedPushed = FALSE;
 
-                if (ChangeCheckBox(infoPtr,
-                                   infoPtr->FocusedCheckItem,
-                                   infoPtr->FocusedCheckItemBox))
-                {
-                    UpdateCheckItemBox(infoPtr,
-                                       infoPtr->FocusedCheckItem,
-                                       infoPtr->FocusedCheckItemBox);
+                ChangeCheckBox(infoPtr,
+                               infoPtr->FocusedCheckItem,
+                               infoPtr->FocusedCheckItemBox);
 
-                    if ((infoPtr->FocusedCheckItem->State & OtherStateMask) != OtherStateOld)
-                    {
-                        UpdateCheckItemBox(infoPtr,
-                                           infoPtr->FocusedCheckItem,
-                                           OtherBox);
-                    }
-                }
+                UpdateCheckItemBox(infoPtr,
+                                   infoPtr->FocusedCheckItem,
+                                   infoPtr->FocusedCheckItemBox);
             }
             break;
         }
@@ -2348,7 +2374,8 @@ CheckListWndProc(IN HWND hwnd,
         
         case WM_SIZE:
         {
-            UpdateControl(infoPtr);
+            UpdateControl(infoPtr,
+                          TRUE);
             break;
         }
         
@@ -2539,15 +2566,15 @@ RegisterCheckListControl(HINSTANCE hInstance)
 {
     WNDCLASS wc;
     
+    ZeroMemory(&wc, sizeof(WNDCLASS));
+    
     wc.style = CS_DBLCLKS;
     wc.lpfnWndProc = CheckListWndProc;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = sizeof(PCHECKLISTWND);
     wc.hInstance = hInstance;
-    wc.hIcon = NULL;
     wc.hCursor = LoadCursor(0, (LPWSTR)IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.lpszMenuName = NULL;
     wc.lpszClassName = L"CHECKLIST_ACLUI";
     
     return RegisterClass(&wc) != 0;

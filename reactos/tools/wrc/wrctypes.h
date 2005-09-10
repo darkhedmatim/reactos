@@ -87,10 +87,10 @@
 #define RES_BLOCKSIZE	512
 
 typedef struct res {
-	unsigned int	allocsize;	/* Allocated datablock size */
-	unsigned int	size;		/* Actual size of data */
-	unsigned int	dataidx;	/* Tag behind the resource-header */
-	char		*data;
+	int	allocsize;	/* Allocated datablock size */
+	int	size;		/* Actual size of data */
+	int	dataidx;	/* Tag behind the resource-header */
+	char	*data;
 } res_t;
 
 /* Resource strings are slightly more complex because they include '\0' */
@@ -441,11 +441,6 @@ typedef struct bitmap {
 	raw_data_t	*data;
 } bitmap_t;
 
-typedef struct html {
-	DWORD		memopt;
-	raw_data_t	*data;
-} html_t;
-
 typedef struct rcdata {
 	DWORD		memopt;
 	raw_data_t	*data;
@@ -620,7 +615,6 @@ typedef struct resource {
 		menu_t		*men;
 		menuex_t	*menex;
 		messagetable_t	*msg;
-		html_t		*html;
 		rcdata_t	*rdt;
 		stringtable_t	*stt;
 		toolbar_t	*tbt;

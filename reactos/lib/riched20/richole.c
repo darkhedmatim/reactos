@@ -36,8 +36,8 @@
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
 typedef struct IRichEditOleImpl {
-    const IRichEditOleVtbl *lpVtbl;
-    LONG ref;
+    IRichEditOleVtbl *lpVtbl;
+    DWORD ref;
 } IRichEditOleImpl;
 
 /* there is no way to be consistent across different sets of headers - mingw, Wine, Win32 SDK*/
@@ -228,7 +228,7 @@ IRichEditOle_fnSetLinkAvailable(IRichEditOle *me, LONG iob, BOOL fAvailable)
     return E_NOTIMPL;
 }
 
-static const IRichEditOleVtbl revt = {
+static IRichEditOleVtbl revt = {
     IRichEditOle_fnQueryInterface,
     IRichEditOle_fnAddRef,
     IRichEditOle_fnRelease,

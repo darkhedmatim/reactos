@@ -31,8 +31,8 @@
 #include <ddk/scsi.h>
 #include <ddk/ntdddisk.h>
 #include <ddk/ntddscsi.h>
-#include <include/class2.h>
-#include <diskdump/diskdump.h>
+#include <ddk/class2.h>
+#include <ddk/core.h>
 
 #include <ndk/extypes.h>
 #include <ndk/rtlfuncs.h>
@@ -243,7 +243,7 @@ DiskDumpFinish(VOID)
 NTSTATUS STDCALL
 DiskDumpWrite(LARGE_INTEGER Address, PMDL Mdl)
 {
-  KIRQL OldIrql = 0, OldIrql2 = 0;
+  KIRQL OldIrql, OldIrql2;
   KIRQL CurrentIrql = KeGetCurrentIrql();
 
   if (CurrentIrql < (CoreDumpPortDeviceExtension->Interrupt->SynchronizeIrql - 1))
@@ -371,9 +371,7 @@ DiskDumpPrepare(PDEVICE_OBJECT DeviceObject, PDUMP_POINTERS DumpPointers)
 			      *FunctionNameList + 2);
 	      Hint = *(PWORD)((DWORD)DriverBase + *FunctionNameList);
 	    }
-#if 0
 	  DPRINT("  Hint:%04x  Name:%s\n", Hint, pName);
-#endif
 
 	  for (i = 0; i < (sizeof(DiskDumpExports) / sizeof(DiskDumpExports[0])); i++)
 	    {

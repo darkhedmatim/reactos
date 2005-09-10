@@ -1,13 +1,17 @@
-/* COPYRIGHT:       See COPYING in the top level directory
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/rtl/env.c
  * PURPOSE:         Environment functions
  * PROGRAMMER:      Eric Kohl
+ * UPDATE HISTORY:
+ *                  Created 30/09/98
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -512,16 +516,13 @@ RtlQueryEnvironmentVariable_U(PWSTR Environment,
    }
 
    if (Environment == NULL)
-   {
       return(STATUS_VARIABLE_NOT_FOUND);
-   }
 
    Value->Length = 0;
    if (SysEnvUsed == TRUE)
       RtlAcquirePebLock();
 
    wcs = Environment;
-   DPRINT("Starting search at :%p\n", wcs);
    while (*wcs)
    {
       var.Buffer = wcs++;
@@ -529,14 +530,12 @@ RtlQueryEnvironmentVariable_U(PWSTR Environment,
       if (wcs == NULL)
       {
          wcs = var.Buffer + wcslen(var.Buffer);
-         DPRINT("Search at :%S\n", wcs);
       }
       if (*wcs)
       {
          var.Length = var.MaximumLength = (wcs - var.Buffer) * sizeof(WCHAR);
          val = ++wcs;
          wcs += wcslen(wcs);
-         DPRINT("Search at :%S\n", wcs);
 
          if (RtlEqualUnicodeString(&var, Name, TRUE))
          {
@@ -567,7 +566,7 @@ RtlQueryEnvironmentVariable_U(PWSTR Environment,
    if (SysEnvUsed == TRUE)
       RtlReleasePebLock();
 
-   DPRINT1("Return STATUS_VARIABLE_NOT_FOUND: %wZ\n", Name);
+   DPRINT("Return STATUS_VARIABLE_NOT_FOUND\n");
    return(STATUS_VARIABLE_NOT_FOUND);
 }
 

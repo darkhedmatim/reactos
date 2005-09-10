@@ -75,13 +75,12 @@ DWORD WINAPI SHStringFromGUIDA(REFGUID,LPSTR,INT);
  */
 LPSECURITY_ATTRIBUTES WINAPI _CreateAllAccessSecurityAttributes(
 	LPSECURITY_ATTRIBUTES lpAttr,
-	PSECURITY_DESCRIPTOR lpSec,
-        DWORD p3)
+	PSECURITY_DESCRIPTOR lpSec)
 {
   /* This function is used within SHLWAPI only to create security attributes
    * for shell semaphores. */
 
-  TRACE("(%p,%p,%08lx)\n", lpAttr, lpSec, p3);
+  TRACE("(%p,%p)\n", lpAttr, lpSec);
 
   if (!(GetVersion() & 0x80000000))  /* NT */
   {
@@ -427,7 +426,7 @@ HANDLE WINAPI _SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
     StrCpyNW(szBuff + iPrefixLen, lpszName, iBuffLen - iPrefixLen);
 
   /* Initialise security attributes */
-  pSecAttr = _CreateAllAccessSecurityAttributes(&sAttr, &sd, 0);
+  pSecAttr = _CreateAllAccessSecurityAttributes(&sAttr, &sd);
 
   if (!(hRet = CreateSemaphoreW(pSecAttr , iInitial, MAXLONG, szBuff)))
     hRet = OpenSemaphoreW(SYNCHRONIZE|SEMAPHORE_MODIFY_STATE, 0, szBuff);

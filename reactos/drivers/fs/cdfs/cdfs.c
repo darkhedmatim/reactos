@@ -28,12 +28,15 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "cdfs.h"
+#include <ddk/ntddk.h>
 
 #define NDEBUG
 #include <debug.h>
 
-/* FUNCTIONS ****************************************************************/
+#include "cdfs.h"
+
+
+/* GLOBALS *****************************************************************/
 
 PCDFS_GLOBAL_DATA CdfsGlobalData;
 

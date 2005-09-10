@@ -1,20 +1,5 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
+// XML.cpp
+
 #include "pch.h"
 
 #ifdef _MSC_VER
@@ -172,31 +157,21 @@ Path::RelativeFromWorkingDirectory ()
 string
 Path::RelativeFromWorkingDirectory ( const string& path )
 {
-	return Path::RelativeFromDirectory ( path, working_directory );
-}
-
-string
-Path::RelativeFromDirectory (
-	const string& path,
-	const string& base_directory )
-{
-	vector<string> vbase, vpath, vout;
-	Path::Split ( vbase, base_directory, true );
+	vector<string> vwork, vpath, vout;
+	Path::Split ( vwork, working_directory, true );
 	Path::Split ( vpath, path, true );
 #ifdef WIN32
 	// this squirreliness is b/c win32 has drive letters and *nix doesn't...
 	// not possible to do relative across different drive letters
-	if ( vbase[0] != vpath[0] )
+	if ( vwork[0] != vpath[0] )
 		return path;
 #endif
 	size_t i = 0;
-	while ( i < vbase.size() && i < vpath.size() && vbase[i] == vpath[i] )
+	while ( i < vwork.size() && i < vpath.size() && vwork[i] == vpath[i] )
 		++i;
-	if ( vbase.size() == vpath.size() && i == vpath.size() )
-		return ".";
-	if ( i < vbase.size() )
+	if ( i < vwork.size() )
 	{
-		// path goes above our base directory, we will need some ..'s
+		// path goes above our working directory, we will need some ..'s
 		for ( size_t j = 0; j < i; j++ )
 			vout.push_back ( ".." );
 	}
@@ -223,12 +198,11 @@ Path::Split ( vector<string>& out,
 	out.resize ( 0 );
 	while ( p )
 	{
-		if ( strcmp ( prev, "." ) )
-			out.push_back ( prev );
+		out.push_back ( prev );
 		prev = p;
 		p = strtok ( NULL, "/\\" );
 	}
-	if ( include_last && strcmp ( prev, "." ) )
+	if ( include_last )
 		out.push_back ( prev );
 }
 

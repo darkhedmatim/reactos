@@ -10,7 +10,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <csrss.h>
+#include "csrss.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -284,8 +284,8 @@ CsrpCreateListenPort (IN     LPWSTR  Name,
                                NULL,
                                FALSE,
                                0,
-                               0,
-                               0,
+                               NULL,
+                               NULL,
                                (PTHREAD_START_ROUTINE) ListenThread,
                                Port,
                                NULL,
@@ -458,10 +458,7 @@ CsrpApiRegisterDef (ULONG argc, PWSTR* argv)
 static NTSTATUS
 CsrpCCTS (ULONG argc, PWSTR* argv)
 {
-    ULONG Dummy;
-    ULONG DummyLength = sizeof(Dummy);
-	return CsrClientConnectToServer(L"\\Windows",
-			0, &Dummy, &DummyLength, NULL);
+	return CsrClientConnectToServer(NULL, 0, NULL, NULL, 0, NULL);
 }
 
 /**********************************************************************
@@ -479,7 +476,7 @@ CsrpRunWinlogon (ULONG argc, PWSTR* argv)
 	UNICODE_STRING                ImagePath;
 	UNICODE_STRING                CommandLine;
 	PRTL_USER_PROCESS_PARAMETERS  ProcessParameters = NULL;
-	RTL_USER_PROCESS_INFORMATION  ProcessInfo;
+	RTL_PROCESS_INFO              ProcessInfo;
 
 
 	DPRINT("CSR: %s called\n", __FUNCTION__);

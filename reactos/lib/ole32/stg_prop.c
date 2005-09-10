@@ -63,10 +63,9 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(storage);
 
-static inline StorageImpl *impl_from_IPropertySetStorage( IPropertySetStorage *iface )
-{
-    return (StorageImpl *)((char*)iface - FIELD_OFFSET(StorageImpl, base.pssVtbl));
-}
+#define _IPropertySetStorage_Offset ((int)(&(((StorageImpl*)0)->base.pssVtbl)))
+#define _ICOM_THIS_From_IPropertySetStorage(class, name) \
+    class* This = (class*)(((char*)name)-_IPropertySetStorage_Offset)
 
 /* These are documented in MSDN, e.g.
  * http://msdn.microsoft.com/library/en-us/stg/stg/property_set_header.asp
@@ -148,15 +147,15 @@ static HRESULT PropertyStorage_PropVariantCopy(PROPVARIANT *prop,
 static HRESULT PropertyStorage_StringCopy(LPCSTR src, LCID srcCP, LPSTR *dst,
  LCID targetCP);
 
-static const IPropertyStorageVtbl IPropertyStorage_Vtbl;
+static IPropertyStorageVtbl IPropertyStorage_Vtbl;
 
 /***********************************************************************
  * Implementation of IPropertyStorage
  */
 typedef struct tagPropertyStorage_impl
 {
-    const IPropertyStorageVtbl *vtbl;
-    LONG ref;
+    IPropertyStorageVtbl *vtbl;
+    DWORD ref;
     CRITICAL_SECTION cs;
     IStream *stm;
     BOOL  dirty;
@@ -1022,7 +1021,7 @@ static HRESULT PropertyStorage_ReadDictionary(PropertyStorage_impl *This,
             ptr[cbEntry - 1] = '\0';
         else
             *((LPWSTR)ptr + cbEntry / sizeof(WCHAR)) = '\0';
-        hr = PropertyStorage_StoreNameWithId(This, (char*)ptr, This->codePage, propid);
+        hr = PropertyStorage_StoreNameWithId(This, ptr, This->codePage, propid);
         if (This->codePage == CP_UNICODE)
         {
             /* Unicode entries are padded to DWORD boundaries */
@@ -1060,7 +1059,7 @@ static HRESULT PropertyStorage_ReadProperty(PropertyStorage_impl *This,
         TRACE("Read byte 0x%x\n", prop->u.bVal);
         break;
     case VT_I2:
-        StorageUtl_ReadWord(data, 0, (WORD*)&prop->u.iVal);
+        StorageUtl_ReadWord(data, 0, &prop->u.iVal);
         TRACE("Read short %d\n", prop->u.iVal);
         break;
     case VT_UI2:
@@ -1069,7 +1068,7 @@ static HRESULT PropertyStorage_ReadProperty(PropertyStorage_impl *This,
         break;
     case VT_INT:
     case VT_I4:
-        StorageUtl_ReadDWord(data, 0, (DWORD*)&prop->u.lVal);
+        StorageUtl_ReadDWord(data, 0, &prop->u.lVal);
         TRACE("Read long %ld\n", prop->u.lVal);
         break;
     case VT_UINT:
@@ -2040,7 +2039,7 @@ static HRESULT WINAPI IPropertySetStorage_fnQueryInterface(
     REFIID riid,
     void** ppvObject)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     return IStorage_QueryInterface( (IStorage*)This, riid, ppvObject );
 }
 
@@ -2052,7 +2051,7 @@ static HRESULT WINAPI IPropertySetStorage_fnQueryInterface(
 static ULONG WINAPI IPropertySetStorage_fnAddRef(
     IPropertySetStorage *ppstg)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     return IStorage_AddRef( (IStorage*)This );
 }
 
@@ -2064,7 +2063,7 @@ static ULONG WINAPI IPropertySetStorage_fnAddRef(
 static ULONG WINAPI IPropertySetStorage_fnRelease(
     IPropertySetStorage *ppstg)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     return IStorage_Release( (IStorage*)This );
 }
 
@@ -2079,7 +2078,7 @@ static HRESULT WINAPI IPropertySetStorage_fnCreate(
     DWORD grfMode,
     IPropertyStorage** ppprstg)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     WCHAR name[CCH_MAX_PROPSTG_NAME];
     IStream *stm = NULL;
     HRESULT r;
@@ -2134,7 +2133,7 @@ static HRESULT WINAPI IPropertySetStorage_fnOpen(
     DWORD grfMode,
     IPropertyStorage** ppprstg)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     IStream *stm = NULL;
     WCHAR name[CCH_MAX_PROPSTG_NAME];
     HRESULT r;
@@ -2177,7 +2176,7 @@ static HRESULT WINAPI IPropertySetStorage_fnDelete(
     IPropertySetStorage *ppstg,
     REFFMTID rfmtid)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     IStorage *stg = NULL;
     WCHAR name[CCH_MAX_PROPSTG_NAME];
     HRESULT r;
@@ -2202,7 +2201,7 @@ static HRESULT WINAPI IPropertySetStorage_fnEnum(
     IPropertySetStorage *ppstg,
     IEnumSTATPROPSETSTG** ppenum)
 {
-    StorageImpl *This = impl_from_IPropertySetStorage(ppstg);
+    _ICOM_THIS_From_IPropertySetStorage(StorageImpl, ppstg);
     FIXME("%p\n", This);
     return E_NOTIMPL;
 }
@@ -2211,7 +2210,7 @@ static HRESULT WINAPI IPropertySetStorage_fnEnum(
 /***********************************************************************
  * vtables
  */
-const IPropertySetStorageVtbl IPropertySetStorage_Vtbl =
+IPropertySetStorageVtbl IPropertySetStorage_Vtbl =
 {
     IPropertySetStorage_fnQueryInterface,
     IPropertySetStorage_fnAddRef,
@@ -2222,7 +2221,7 @@ const IPropertySetStorageVtbl IPropertySetStorage_Vtbl =
     IPropertySetStorage_fnEnum
 };
 
-static const IPropertyStorageVtbl IPropertyStorage_Vtbl =
+static IPropertyStorageVtbl IPropertyStorage_Vtbl =
 {
     IPropertyStorage_fnQueryInterface,
     IPropertyStorage_fnAddRef,
@@ -2311,7 +2310,7 @@ HRESULT WINAPI FmtIdToPropStgName(const FMTID *rfmtid, LPOLESTR str)
             }
             else
             {
-                if (++fmtptr < (const BYTE *)rfmtid + sizeof(FMTID))
+                if (++fmtptr < (BYTE *)rfmtid + sizeof(FMTID))
                     i |= *fmtptr << bitsRemaining;
                 *pstr++ = (WCHAR)(fmtMap[i & CHARMASK]);
                 bitsRemaining += BITS_PER_BYTE - BITS_IN_CHARMASK;

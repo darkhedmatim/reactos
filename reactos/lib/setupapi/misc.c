@@ -25,6 +25,7 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
+#include "winver.h"
 #include "setupapi.h"
 
 #include "wine/unicode.h"
@@ -161,7 +162,7 @@ LONG WINAPI QueryRegistryValue(HKEY hKey,
 {
     LONG lError;
 
-    TRACE("%p %s %p %p %p\n",
+    TRACE("%lx %s %p %p %p\n",
           hKey, debugstr_w(lpValueName), lpData, lpType, lpcbData);
 
     /* Get required buffer size */
@@ -283,7 +284,7 @@ LPWSTR WINAPI MultiByteToUnicode(LPCSTR lpMultiByteStr, UINT uCodePage)
     LPWSTR lpUnicodeStr;
     int nLength;
 
-    TRACE("%s %d\n", debugstr_a(lpMultiByteStr), uCodePage);
+    TRACE("%s %lu\n", debugstr_a(lpMultiByteStr), uCodePage);
 
     nLength = MultiByteToWideChar(uCodePage, 0, lpMultiByteStr,
                                   -1, NULL, 0);
@@ -326,7 +327,7 @@ LPSTR WINAPI UnicodeToMultiByte(LPCWSTR lpUnicodeStr, UINT uCodePage)
     LPSTR lpMultiByteStr;
     int nLength;
 
-    TRACE("%s %d\n", debugstr_w(lpUnicodeStr), uCodePage);
+    TRACE("%s %lu\n", debugstr_w(lpUnicodeStr), uCodePage);
 
     nLength = WideCharToMultiByte(uCodePage, 0, lpUnicodeStr, -1,
                                   NULL, 0, NULL, NULL);
@@ -666,7 +667,7 @@ DWORD WINAPI OpenAndMapFileForRead(LPCWSTR lpFileName,
  */
 BOOL WINAPI UnmapAndCloseFile(HANDLE hFile, HANDLE hMapping, LPVOID lpBuffer)
 {
-    TRACE("%p %p %p\n",
+    TRACE("%x %x %p\n",
           hFile, hMapping, lpBuffer);
 
     if (!UnmapViewOfFile(lpBuffer))

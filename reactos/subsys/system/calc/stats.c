@@ -21,7 +21,6 @@
 #include <stdio.h> // sprintf
 
 #include <windows.h>
-#include <tchar.h>
 
 #include "stats.h"
 #include "resource.h"
@@ -42,8 +41,8 @@ BOOL CALLBACK StatsDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 
     case WM_INITDIALOG:
         hWndListBox = CreateWindow(
-            TEXT("LISTBOX"),	// pointer to registered class name
-            TEXT("Listbox"),	// pointer to window name
+            "LISTBOX",	// pointer to registered class name
+            "Listbox",	// pointer to window name
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_BORDER | LBS_NOINTEGRALHEIGHT,	// window style
                     6,	// horizontal position of window
                     6,	// vertical position of window
@@ -101,7 +100,7 @@ BOOL CALLBACK StatsDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 
     case WM_PAINT:
       {
-        TCHAR s[CALC_BUF_SIZE];
+        char s[CALC_BUF_SIZE];
         int lb_count;
         HFONT hFont;
         HFONT hFontOrg;
@@ -111,10 +110,10 @@ BOOL CALLBACK StatsDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
         hFontOrg = SelectObject(hdc, hFont);
 
         lb_count = SendMessage(hWndListBox, LB_GETCOUNT, 0, 0);
-        _stprintf(s, TEXT("n=%d"), lb_count);
+        sprintf(s, "n=%d", lb_count);
 
         SetBkMode(hdc, TRANSPARENT);
-        TextOut(hdc, 98, 121, s, _tcslen(s));
+        TextOut(hdc, 98, 121, s, strlen(s));
         SelectObject(hdc, hFontOrg);
         EndPaint( hDlg, &ps );
 
@@ -122,7 +121,7 @@ BOOL CALLBACK StatsDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
       }
 	case WM_CLOSE:
         hWndDlgStats = 0;                                 // invalidate stats dialog
-        SendMessage(GetParent(hDlg), WM_CHAR, TEXT('\x13'), 1); // disable stats related calculator buttons
+        SendMessage(GetParent(hDlg), WM_CHAR, '\x13', 1); // disable stats related calculator buttons
         DestroyWindow( hDlg );
 
         return 0;

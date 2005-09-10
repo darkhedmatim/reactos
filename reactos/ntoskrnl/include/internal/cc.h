@@ -13,9 +13,6 @@ typedef struct _BCB
     LARGE_INTEGER FileSize;
     KSPIN_LOCK BcbLock;
     ULONG RefCount;
-#if defined(DBG) || defined(KDBG)
-	BOOLEAN Trace; /* enable extra trace output for this BCB and it's cache segments */
-#endif
 } BCB, *PBCB;
 
 typedef struct _CACHE_SEGMENT
@@ -94,7 +91,7 @@ CcInitView(VOID);
 
 NTSTATUS
 CcRosFreeCacheSegment(
-    PBCB,
+    PBCB, 
     PCACHE_SEGMENT
 );
 
@@ -108,14 +105,14 @@ VOID CcInit(VOID);
 
 NTSTATUS
 CcRosUnmapCacheSegment(
-    PBCB Bcb,
-    ULONG FileOffset,
+    PBCB Bcb, 
+    ULONG FileOffset, 
     BOOLEAN NowDirty
 );
 
 PCACHE_SEGMENT
 CcRosLookupCacheSegment(
-    PBCB Bcb,
+    PBCB Bcb, 
     ULONG FileOffset
 );
 
@@ -132,13 +129,13 @@ CcInitCacheZeroPage(VOID);
 
 NTSTATUS
 CcRosMarkDirtyCacheSegment(
-    PBCB Bcb,
+    PBCB Bcb, 
     ULONG FileOffset
 );
 
 NTSTATUS
 CcRosFlushDirtyPages(
-    ULONG Target,
+    ULONG Target, 
     PULONG Count
 );
 
@@ -160,7 +157,7 @@ CcRosReleaseCacheSegment(
     BOOLEAN	    Mapped
 );
 
-NTSTATUS
+NTSTATUS 
 STDCALL
 CcRosRequestCacheSegment(
     BCB*		    Bcb,

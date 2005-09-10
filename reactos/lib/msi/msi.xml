@@ -1,4 +1,4 @@
-<module name="msi" type="win32dll" baseaddress="${BASEADDRESS_MSI}" installbase="system32" installname="msi.dll" allowwarnings="true">
+<module name="msi" type="win32dll" baseaddress="${BASEADDRESS_MSI}" installbase="system32" installname="msi.dll" warnings="true">
 	<importlibrary definition="msi.spec.def" />
 	<include base="msi">.</include>
 	<include base="ReactOS">include/wine</include>
@@ -15,7 +15,6 @@
 	<library>gdi32</library>
 	<library>advapi32</library>
 	<library>shell32</library>
-	<library>shlwapi</library>
 	<library>winmm</library>
 	<library>cabinet</library>
 	<library>ole32</library>
@@ -23,7 +22,6 @@
 	<library>version</library>
 	<file>action.c</file>
 	<file>appsearch.c</file>
-	<file>classes.c</file>
 	<file>cond.tab.c</file>
 	<file>create.c</file>
 	<file>custom.c</file>
@@ -31,13 +29,9 @@
 	<file>delete.c</file>
 	<file>dialog.c</file>
 	<file>distinct.c</file>
-	<file>events.c</file>
-	<file>files.c</file>
 	<file>format.c</file>
 	<file>handle.c</file>
-	<file>helpers.c</file>
 	<file>insert.c</file>
-	<file>install.c</file>
 	<file>msi.c</file>
 	<file>msiquery.c</file>
 	<file>order.c</file>
@@ -47,14 +41,12 @@
 	<file>registry.c</file>
 	<file>regsvr.c</file>
 	<file>select.c</file>
-	<file>source.c</file>
 	<file>sql.tab.c</file>
 	<file>string.c</file>
 	<file>suminfo.c</file>
 	<file>table.c</file>
 	<file>tokenize.c</file>
 	<file>update.c</file>
-	<file>upgrade.c</file>
 	<file>where.c</file>
 	<file>msi.spec</file>
 	<file>msi.rc</file>

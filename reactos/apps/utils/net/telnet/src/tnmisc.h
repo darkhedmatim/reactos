@@ -9,7 +9,7 @@ BOOL SpawnProcess(char *cmd_line, PROCESS_INFORMATION *pi);
 
 int GetWin32Version(void);
 
-HWND TelnetGetConsoleWindow(void);
+HWND GetConsoleWindow();
 
 bool SetIcon(HWND hConsoleWindow, HANDLE hIcon, LPARAM *pOldBIcon, LPARAM *pOldSIcon,
 			 const char *icondir);

@@ -1,4 +1,4 @@
-<module name="setupapi" type="win32dll" baseaddress="${BASEADDRESS_SETUPAPI}" installbase="system32" installname="setupapi.dll" allowwarnings="true">
+<module name="setupapi" type="win32dll" baseaddress="${BASEADDRESS_SETUPAPI}" installbase="system32" installname="setupapi.dll" warnings="true">
 	<importlibrary definition="setupapi.spec.def" />
 	<include base="setupapi">.</include>
 	<include base="ReactOS">include/wine</include>
@@ -12,7 +12,6 @@
 	<define name="WINVER">0x501</define>
 	<define name="__WINESRC__" />
 	<define name="_SETUPAPI_" />
-	<define name="_SETUPAPI_VER">0x501</define>
 	<library>pnp_client</library>
 	<library>wine</library>
 	<library>ntdll</library>

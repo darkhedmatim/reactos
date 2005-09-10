@@ -14,8 +14,10 @@
 #define NDEBUG
 #include <internal/debug.h>
 
-/* FIXME: NDK */
-#define MAXIMUM_SUSPEND_COUNT 0x7F
+#ifndef MUTANT_INCREMENT
+#define MUTANT_INCREMENT                1
+#endif
+
 #define THREAD_ALERT_INCREMENT 2
 
 extern EX_WORK_QUEUE ExWorkerQueue[MaximumWorkQueue];
@@ -26,6 +28,7 @@ extern EX_WORK_QUEUE ExWorkerQueue[MaximumWorkQueue];
 LIST_ENTRY PriorityListHead[MAXIMUM_PRIORITY];
 static ULONG PriorityListMask = 0;
 ULONG IdleProcessorMask = 0;
+extern BOOLEAN DoneInitYet;
 extern PETHREAD PspReaperList;
 
 /* FUNCTIONS *****************************************************************/
@@ -229,7 +232,7 @@ KiDispatchThread(ULONG NewThreadStatus)
 {
     KIRQL OldIrql;
 
-    if (KeGetCurrentPrcb()->IdleThread == NULL) {
+    if (!DoneInitYet || KeGetCurrentPrcb()->IdleThread == NULL) {
         return;
     }
 
@@ -270,9 +273,6 @@ KiUnblockThread(PKTHREAD Thread,
                 Thread->Priority = Thread->BasePriority + Increment;
                 Thread->PriorityDecrement = Increment;
             }
-
-            /* Also decrease quantum */
-            Thread->Quantum--;
 
         } else {
 
@@ -318,53 +318,6 @@ KiUnblockThread(PKTHREAD Thread,
         }
     }
 }
-
-VOID
-STDCALL
-KiAdjustQuantumThread(IN PKTHREAD Thread)
-{
-    KPRIORITY Priority;
-
-    /* Don't adjust for RT threads */
-    if ((Thread->Priority < LOW_REALTIME_PRIORITY) &&
-        Thread->BasePriority < LOW_REALTIME_PRIORITY - 2)
-    {
-        /* Decrease Quantum by one and see if we've ran out */
-        if (--Thread->Quantum <= 0)
-        {
-            /* Return quantum */
-            Thread->Quantum = Thread->QuantumReset;
-
-            /* Calculate new Priority */
-            Priority = Thread->Priority - (Thread->PriorityDecrement + 1);
-
-            /* Normalize it if we've gone too low */
-            if (Priority < Thread->BasePriority) Priority = Thread->BasePriority;
-
-            /* Reset the priority decrement, we've done it */
-            Thread->PriorityDecrement = 0;
-
-            /* Set the new priority, if needed */
-            if (Priority != Thread->Priority)
-            {
-                /* 
-                 * FIXME: This should be a call to KiSetPriorityThread but
-                 * due to the current ""scheduler"" in ROS, it can't be done
-                 * cleanly since it actualyl dispatches threads instead.
-                 */
-                Thread->Priority = Priority;
-            }
-            else
-            {
-                /* FIXME: Priority hasn't changed, find a new thread */
-            }
-        }
-    }
-
-    /* Nothing to do... */
-    return;
-}
-
 
 VOID
 STDCALL
@@ -434,29 +387,6 @@ KeGetPreviousMode(VOID)
     return (ULONG)PsGetCurrentThread()->Tcb.PreviousMode;
 }
 
-BOOLEAN
-STDCALL
-KeDisableThreadApcQueueing(IN PKTHREAD Thread)
-{
-    KIRQL OldIrql;
-    BOOLEAN PreviousState;
-
-    /* Lock the Dispatcher Database */
-    OldIrql = KeAcquireDispatcherDatabaseLock();
-
-    /* Save old state */
-    PreviousState = Thread->ApcQueueable;
-
-    /* Disable it now */
-    Thread->ApcQueueable = FALSE;
-
-    /* Release the Lock */
-    KeReleaseDispatcherDatabaseLock(OldIrql);
-
-    /* Return old state */
-    return PreviousState;
-}
-
 VOID
 STDCALL
 KeRundownThread(VOID)
@@ -506,8 +436,7 @@ KeResumeThread(PKTHREAD Thread)
     ULONG PreviousCount;
     KIRQL OldIrql;
 
-    DPRINT("KeResumeThread (Thread %p called). %x, %x\n", Thread,
-            Thread->SuspendCount, Thread->FreezeCount);
+    DPRINT("KeResumeThread (Thread %p called). %x, %x\n", Thread, Thread->SuspendCount, Thread->FreezeCount);
 
     /* Lock the Dispatcher */
     OldIrql = KeAcquireDispatcherDatabaseLock();
@@ -597,14 +526,6 @@ KeSuspendThread(PKTHREAD Thread)
 
     /* Save the Old Count */
     PreviousCount = Thread->SuspendCount;
-
-    /* Handle the maximum */
-    if (PreviousCount == MAXIMUM_SUSPEND_COUNT)
-    {
-        /* Raise an exception */
-        KeReleaseDispatcherDatabaseLock(OldIrql);
-        ExRaiseStatus(STATUS_SUSPEND_COUNT_EXCEEDED);
-    }
 
     /* Increment it */
     Thread->SuspendCount++;
@@ -1027,219 +948,37 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
     }
 }
 
-LONG
-STDCALL
-KeQueryBasePriorityThread(IN PKTHREAD Thread)
-{
-    LONG BasePriorityIncrement;
-    KIRQL OldIrql;
-    PKPROCESS Process;
-
-    /* Lock the Dispatcher Database */
-    OldIrql = KeAcquireDispatcherDatabaseLock();
-
-    /* Get the Process */
-    Process = Thread->ApcStatePointer[0]->Process;
-
-    /* Calculate the BPI */
-    BasePriorityIncrement = Thread->BasePriority - Process->BasePriority;
-
-    /* If saturation occured, return the SI instead */
-    if (Thread->Saturation) BasePriorityIncrement = (HIGH_PRIORITY + 1) / 2 *
-                                                    Thread->Saturation;
-
-    /* Release Lock */
-    KeReleaseDispatcherDatabaseLock(OldIrql);
-
-    /* Return Increment */
-    return BasePriorityIncrement;
-}
-
-VOID
-STDCALL
-KiSetPriorityThread(PKTHREAD Thread,
-                    KPRIORITY Priority,
-                    PBOOLEAN Released)
-{
-    KPRIORITY OldPriority = Thread->Priority;
-    ULONG Mask;
-    int i;
-    PKPCR Pcr;
-    DPRINT("Changing prio to : %lx\n", Priority);
-
-    /* Check if priority changed */
-    if (OldPriority != Priority)
-    {
-        /* Set it */
-        Thread->Priority = Priority;
-
-        /* Choose action based on thread's state */
-        if (Thread->State == Ready)
-        {
-            /* Remove it from the current queue */
-            KiRemoveFromThreadList(Thread);
-            
-            /* Re-insert it at its current priority */
-            KiInsertIntoThreadList(Priority, Thread);
-
-            /* Check if the old priority was lower */
-            if (KeGetCurrentThread()->Priority < Priority)
-            {
-                /* Dispatch it immediately */
-                KiDispatchThreadNoLock(Ready);
-                *Released = TRUE;
-                return;
-            }
-        }
-        else if (Thread->State == Running)
-        {
-            /* Check if the new priority is lower */
-            if (Priority < OldPriority)
-            {
-                /* Check for threads with a higher priority */
-                Mask = ~((1 << (Priority + 1)) - 1);
-                if (PriorityListMask & Mask)
-                {
-                    /* Found a thread, is it us? */
-                    if (Thread == KeGetCurrentThread())
-                    {
-                        /* Dispatch us */
-                        KiDispatchThreadNoLock(Ready);
-                        *Released = TRUE;
-                        return;
-                    } 
-                    else
-                    {
-                        /* Loop every CPU */
-                        for (i = 0; i < KeNumberProcessors; i++)
-                        {
-                            /* Get the PCR for this CPU */
-                            Pcr = (PKPCR)(KPCR_BASE + i * PAGE_SIZE);
-
-                            /* Reschedule if the new one is already on a CPU */
-                            if (Pcr->Prcb->CurrentThread == Thread)
-                            {
-                                KeReleaseDispatcherDatabaseLockFromDpcLevel();
-                                KiRequestReschedule(i);
-                                *Released = TRUE;
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /* Return to caller */
-    return;
-}
-
+/*
+ * @implemented
+ */
+LONG STDCALL
+KeSetBasePriorityThread (PKTHREAD	Thread,
+			 LONG		Increment)
 /*
  * Sets thread's base priority relative to the process' base priority
  * Should only be passed in THREAD_PRIORITY_ constants in pstypes.h
- *
- * @implemented
  */
-LONG
-STDCALL
-KeSetBasePriorityThread (PKTHREAD Thread,
-                         LONG Increment)
 {
-    KIRQL OldIrql;
-    PKPROCESS Process;
-    KPRIORITY Priority;
-    KPRIORITY CurrentBasePriority;
-    KPRIORITY BasePriority;
-    BOOLEAN Released = FALSE;
-    LONG CurrentIncrement;
-       
-    /* Lock the Dispatcher Database */
-    OldIrql = KeAcquireDispatcherDatabaseLock();
-
-    /* Get the process and calculate current BP and BPI */
-    Process = Thread->ApcStatePointer[0]->Process;
-    CurrentBasePriority = Thread->BasePriority;
-    CurrentIncrement = CurrentBasePriority - Process->BasePriority;
-
-    /* Change to use the SI if Saturation was used */
-    if (Thread->Saturation) CurrentIncrement = (HIGH_PRIORITY + 1) / 2 *
-                                               Thread->Saturation;
-
-    /* Now check if saturation is being used for the new value */
-    if (abs(Increment) >= ((HIGH_PRIORITY + 1) / 2))
-    {
-        /* Check if we need positive or negative saturation */
-        Thread->Saturation = (Increment > 0) ? 1 : -1;
-    }
-
-    /* Normalize the Base Priority */
-    BasePriority = Process->BasePriority + Increment;
-    if (Process->BasePriority >= LOW_REALTIME_PRIORITY)
-    {
-        /* Check if it's too low */
-        if (BasePriority < LOW_REALTIME_PRIORITY)
-            BasePriority = LOW_REALTIME_PRIORITY;
-
-        /* Check if it's too high */
-        if (BasePriority > HIGH_PRIORITY) BasePriority = HIGH_PRIORITY;
-
-        /* We are at RTP, so use the raw BP */
-        Priority = BasePriority;
-    }
-    else
-    {
-        /* Check if it's entering RTP */
-        if (BasePriority >= LOW_REALTIME_PRIORITY)
-            BasePriority = LOW_REALTIME_PRIORITY - 1;
-
-        /* Check if it's too low */
-        if (BasePriority <= LOW_PRIORITY)
-            BasePriority = 1;
-
-        /* If Saturation is used, then use the raw BP */
-        if (Thread->Saturation)
-        {
-            Priority = BasePriority;
-        }
-        else
-        {
-            /* Calculate the new priority */
-            Priority = Thread->Priority + (BasePriority - CurrentBasePriority)-
-                       Thread->PriorityDecrement;
-
-            /* Make sure it won't enter RTP ranges */
-            if (Priority >= LOW_REALTIME_PRIORITY)
-                Priority = LOW_REALTIME_PRIORITY - 1;
-        }
-    }
-
-    /* Finally set the new base priority */
-    Thread->BasePriority = BasePriority;
-
-    /* Reset the decrements */
-    Thread->DecrementCount = 0;
-    Thread->PriorityDecrement = 0;
-
-    /* If the priority will change, reset quantum and change it for real */
-    if (Priority != Thread->Priority)
-    {
-        Thread->Quantum = Thread->QuantumReset;
-        KiSetPriorityThread(Thread, Priority, &Released);
-    }
-
-    /* Release Lock if needed */
-    if (!Released)
-    {
-        KeReleaseDispatcherDatabaseLock(OldIrql);
-    }
-    else
-    {
-        KeLowerIrql(OldIrql);
-    }
-
-    /* Return the Old Increment */
-    return CurrentIncrement;
+   KPRIORITY Priority;
+   if (Increment < -2)
+     {
+       Increment = -2;
+     }
+   else if (Increment > 2)
+     {
+       Increment = 2;
+     }
+   Priority = ((PETHREAD)Thread)->ThreadsProcess->Pcb.BasePriority + Increment;
+   if (Priority < LOW_PRIORITY)
+   {
+     Priority = LOW_PRIORITY;
+   }
+   else if (Priority >= MAXIMUM_PRIORITY)
+     {
+       Thread->BasePriority = HIGH_PRIORITY;
+     }
+   KeSetPriorityThread(Thread, Priority);
+   return 1;
 }
 
 /*
@@ -1251,35 +990,79 @@ KeSetPriorityThread(PKTHREAD Thread,
                     KPRIORITY Priority)
 {
     KPRIORITY OldPriority;
-    BOOLEAN Released = FALSE;
     KIRQL OldIrql;
+    PKTHREAD CurrentThread;
+    ULONG Mask;
+    int i;
+    PKPCR Pcr;
 
-    /* Lock the Dispatcher Database */
+    if (Priority < LOW_PRIORITY || Priority >= MAXIMUM_PRIORITY) {
+
+        KEBUGCHECK(0);
+    }
+
     OldIrql = KeAcquireDispatcherDatabaseLock();
 
-    /* Save the old Priority */
     OldPriority = Thread->Priority;
 
-    /* Reset the Quantum and Decrements */
-    Thread->Quantum = Thread->QuantumReset;
-    Thread->DecrementCount = 0;
-    Thread->PriorityDecrement = 0;
+    if (OldPriority != Priority) {
 
-    /* Set the new Priority */
-    KiSetPriorityThread(Thread, Priority, &Released);
+        CurrentThread = KeGetCurrentThread();
 
-    /* Release Lock if needed */
-    if (!Released)
-    {
-        KeReleaseDispatcherDatabaseLock(OldIrql);
+        if (Thread->State == Ready) {
+
+            KiRemoveFromThreadList(Thread);
+            Thread->BasePriority = Thread->Priority = (CHAR)Priority;
+            KiInsertIntoThreadList(Priority, Thread);
+
+            if (CurrentThread->Priority < Priority) {
+
+                KiDispatchThreadNoLock(Ready);
+                KeLowerIrql(OldIrql);
+                return (OldPriority);
+            }
+
+        } else if (Thread->State == Running)  {
+
+            Thread->BasePriority = Thread->Priority = (CHAR)Priority;
+
+            if (Priority < OldPriority) {
+
+                /* Check for threads with a higher priority */
+                Mask = ~((1 << (Priority + 1)) - 1);
+                if (PriorityListMask & Mask) {
+
+                    if (Thread == CurrentThread) {
+
+                        KiDispatchThreadNoLock(Ready);
+                        KeLowerIrql(OldIrql);
+                        return (OldPriority);
+
+                    } else {
+
+                        for (i = 0; i < KeNumberProcessors; i++) {
+
+                            Pcr = (PKPCR)(KPCR_BASE + i * PAGE_SIZE);
+
+                            if (Pcr->Prcb->CurrentThread == Thread) {
+
+                                KeReleaseDispatcherDatabaseLockFromDpcLevel();
+                                KiRequestReschedule(i);
+                                KeLowerIrql(OldIrql);
+                                return (OldPriority);
+                            }
+                        }
+                    }
+                }
+            }
+        }  else  {
+
+            Thread->BasePriority = Thread->Priority = (CHAR)Priority;
+        }
     }
-    else
-    {
-        KeLowerIrql(OldIrql);
-    }
 
-    /* Return Old Priority */
-    return OldPriority;
+    KeReleaseDispatcherDatabaseLock(OldIrql);
+    return(OldPriority);
 }
 
 /*
@@ -1299,12 +1082,7 @@ KeSetAffinityThread(PKTHREAD Thread,
 
     DPRINT("KeSetAffinityThread(Thread %x, Affinity %x)\n", Thread, Affinity);
 
-    /* Verify correct affinity */
-    if ((Affinity & Thread->ApcStatePointer[0]->Process->Affinity) !=
-        Affinity || !Affinity)
-    {
-        KEBUGCHECK(INVALID_AFFINITY_SET);
-    }
+    ASSERT(Affinity & ((1 << KeNumberProcessors) - 1));
 
     OldIrql = KeAcquireDispatcherDatabaseLock();
 
@@ -1435,7 +1213,7 @@ KeTestAlertThread(IN KPROCESSOR_MODE AlertMode)
 
         Thread->Alerted[AlertMode] = FALSE;
 
-    } else if ((AlertMode != KernelMode) && (!IsListEmpty(&Thread->ApcState.ApcListHead[UserMode]))) {
+    } else if ((AlertMode == UserMode) && (!IsListEmpty(&Thread->ApcState.ApcListHead[UserMode]))) {
 
         /* If the mode is User and the Queue isn't empty, set Pending */
         Thread->ApcState.UserApcPending = TRUE;
@@ -1480,7 +1258,9 @@ NtAlertResumeThread(IN  HANDLE ThreadHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteUlong(SuspendCount);
+            ProbeForWrite(SuspendCount,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
 
         } _SEH_HANDLE {
 
@@ -1576,30 +1356,26 @@ NtDelayExecution(IN BOOLEAN Alertable,
     /* Check if parameters are valid */
     if(PreviousMode != KernelMode) {
 
-        Status = STATUS_SUCCESS;
-        
         _SEH_TRY {
+
+            ProbeForRead(DelayInterval,
+                         sizeof(LARGE_INTEGER),
+                         sizeof(ULONG));
 
             /* make a copy on the kernel stack and let DelayInterval point to it so
                we don't need to wrap KeDelayExecutionThread in SEH! */
-            SafeInterval = ProbeForReadLargeInteger(DelayInterval);
-            DelayInterval = &SafeInterval;
+            SafeInterval = *DelayInterval;
 
         } _SEH_HANDLE {
 
             Status = _SEH_GetExceptionCode();
         } _SEH_END;
-        
-        if (!NT_SUCCESS(Status))
-        {
-            return Status;
-        }
    }
 
    /* Call the Kernel Function */
    Status = KeDelayExecutionThread(PreviousMode,
                                    Alertable,
-                                   DelayInterval);
+                                   &SafeInterval);
 
    /* Return Status */
    return Status;

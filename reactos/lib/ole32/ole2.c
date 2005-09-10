@@ -46,7 +46,6 @@
 #include "ole2ver.h"
 #include "wownt32.h"
 
-#include "wine/unicode.h"
 #include "wine/winbase16.h"
 #include "wine/wingdi16.h"
 #include "wine/winuser16.h"
@@ -294,8 +293,8 @@ void WINAPI OleUninitialize(void)
 /******************************************************************************
  *		OleInitializeWOW	[OLE32.@]
  */
-HRESULT WINAPI OleInitializeWOW(DWORD x, DWORD y) {
-        FIXME("(0x%08lx, 0x%08lx),stub!\n",x, y);
+HRESULT WINAPI OleInitializeWOW(DWORD x) {
+        FIXME("(0x%08lx),stub!\n",x);
         return 0;
 }
 
@@ -394,7 +393,7 @@ HRESULT WINAPI OleRegGetUserType(
   DWORD   cbData;
   HKEY    clsidKey;
   LONG    hres;
-  LPSTR   buffer;
+  LPBYTE  buffer;
   HRESULT retVal;
   /*
    * Initialize the out parameter.
@@ -464,7 +463,7 @@ HRESULT WINAPI OleRegGetUserType(
 			  "",
 			  NULL,
 			  &dwKeyType,
-			  (LPBYTE) buffer,
+			  buffer,
 			  &cbData);
 
   RegCloseKey(clsidKey);
@@ -2295,20 +2294,20 @@ HRESULT WINAPI OleCreate(
  */
 HRESULT WINAPI OleSetAutoConvert(REFCLSID clsidOld, REFCLSID clsidNew)
 {
-    static const WCHAR wszAutoConvertTo[] = {'A','u','t','o','C','o','n','v','e','r','t','T','o',0};
-    HKEY hkey = NULL;
-    WCHAR szClsidNew[CHARS_IN_GUID];
+    HKEY hkey = 0;
+    char buf[200], szClsidNew[200];
     HRESULT res = S_OK;
 
+    /* FIXME: convert to Unicode */
     TRACE("(%s,%s)\n", debugstr_guid(clsidOld), debugstr_guid(clsidNew));
-    
-    if (COM_OpenKeyForCLSID(clsidOld, KEY_READ | KEY_WRITE, &hkey))
+    sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
+    WINE_StringFromCLSID(clsidNew, szClsidNew);
+    if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
     {
         res = REGDB_E_CLASSNOTREG;
 	goto done;
     }
-    StringFromGUID2(clsidNew, szClsidNew, CHARS_IN_GUID);
-    if (RegSetValueW(hkey, wszAutoConvertTo, REG_SZ, szClsidNew, (strlenW(szClsidNew)+1) * sizeof(WCHAR)))
+    if (RegSetValueA(hkey, "AutoConvertTo", REG_SZ, szClsidNew, strlen(szClsidNew)+1))
     {
         res = REGDB_E_WRITEREGDB;
 	goto done;
@@ -2322,16 +2321,7 @@ done:
 /******************************************************************************
  *              OleDoAutoConvert        [OLE32.@]
  */
-HRESULT WINAPI OleDoAutoConvert(LPSTORAGE pStg, LPCLSID pClsidNew)
-{
-    FIXME("(%p,%p) : stub\n",pStg,pClsidNew);
-    return E_NOTIMPL;
-}
-
-/******************************************************************************
- *              OleDoAutoConvert        [OLE2.79]
- */
-HRESULT WINAPI OleDoAutoConvert16(LPSTORAGE pStg, LPCLSID pClsidNew)
+HRESULT WINAPI OleDoAutoConvert(IStorage *pStg, LPCLSID pClsidNew)
 {
     FIXME("(%p,%p) : stub\n",pStg,pClsidNew);
     return E_NOTIMPL;

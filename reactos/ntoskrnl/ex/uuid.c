@@ -41,9 +41,7 @@ static ULONG UuidCount;
 
 /* FUNCTIONS ****************************************************************/
 
-VOID
-INIT_FUNCTION
-STDCALL
+VOID INIT_FUNCTION
 ExpInitUuids(VOID)
 {
   ExInitializeFastMutex(&UuidMutex);
@@ -212,18 +210,6 @@ ExpCreateUuids(PULARGE_INTEGER Time,
   return STATUS_SUCCESS;
 }
 
-/*
- * @unimplemented
- */
-NTSTATUS
-STDCALL
-ExUuidCreate(
-    OUT UUID *Uuid
-    )
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
 
 /*
  * @unimplemented

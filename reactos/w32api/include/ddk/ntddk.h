@@ -38,10 +38,6 @@
 
 /* Base types, structures and definitions */
 typedef short CSHORT;
-typedef ULONG CLONG;
-typedef CCHAR *PCCHAR;
-typedef CSHORT *PCSHORT;
-typedef CLONG *PCLONG;
 typedef CONST int CINT;
 typedef CONST char *PCSZ;
 

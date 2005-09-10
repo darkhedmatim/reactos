@@ -8,12 +8,6 @@
 #define RESTRICTED_POINTER
 
 #define NTAPI __stdcall
-#if !defined(_M_CEE_PURE)
-#define NTAPI_INLINE    NTAPI
-#else
-#define NTAPI_INLINE
-#endif
-
 #define OBJ_INHERIT          0x00000002
 #define OBJ_PERMANENT        0x00000010
 #define OBJ_EXCLUSIVE        0x00000020
@@ -56,9 +50,6 @@ typedef STRING ANSI_STRING;
 typedef PSTRING PANSI_STRING;
 typedef STRING OEM_STRING;
 typedef PSTRING POEM_STRING;
-typedef CONST STRING* PCOEM_STRING;
-typedef STRING CANSI_STRING;
-typedef PSTRING PCANSI_STRING;
 typedef LARGE_INTEGER PHYSICAL_ADDRESS, *PPHYSICAL_ADDRESS;
 typedef enum _SECTION_INHERIT {
   ViewShare = 1,
@@ -81,15 +72,4 @@ typedef struct _OBJECT_ATTRIBUTES {
 #endif
 #define NOTHING
 #define RTL_CONSTANT_STRING(s) { sizeof(s)-sizeof((s)[0]), sizeof(s), s }
-#define TYPE_ALIGNMENT( t ) FIELD_OFFSET( struct { char x; t test; }, test )
-
-#define MINCHAR   0x80
-#define MAXCHAR   0x7f
-#define MINSHORT  0x8000
-#define MAXSHORT  0x7fff
-#define MINLONG   0x80000000
-#define MAXLONG   0x7fffffff
-#define MAXUCHAR  0xff
-#define MAXUSHORT 0xffff
-#define MAXULONG  0xffffffff
 #endif /* _NTDEF_H */

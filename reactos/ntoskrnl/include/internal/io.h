@@ -23,15 +23,6 @@ typedef struct _IO_COMPLETION_PACKET
     IO_STATUS_BLOCK IoStatus;
 } IO_COMPLETION_PACKET, *PIO_COMPLETION_PACKET;
 
-/* List of Bus Type GUIDs */
-typedef struct _IO_BUS_TYPE_GUID_LIST
-{
-    ULONG GuidCount;
-    FAST_MUTEX Lock;
-    GUID Guids[1];
-} IO_BUS_TYPE_GUID_LIST, *PIO_BUS_TYPE_GUID_LIST;
-extern PIO_BUS_TYPE_GUID_LIST IopBusTypeGuidList;
-
 /* Packet Types */
 #define IrpCompletionPacket     0x1
 #define IrpMiniCompletionPacket 0x2
@@ -254,6 +245,13 @@ IopInitiatePnpIrp(
     PIO_STACK_LOCATION Stack
 );
 
+BOOLEAN
+IopCreateUnicodeString(
+    PUNICODE_STRING	Destination,
+    PWSTR Source,
+    POOL_TYPE PoolType
+);
+
 NTSTATUS
 IoCreateDriverList(VOID);
 
@@ -359,14 +357,14 @@ NTSTATUS
 FASTCALL
 IopLoadServiceModule(
     IN PUNICODE_STRING ServiceName,
-    OUT PLDR_DATA_TABLE_ENTRY *ModuleObject
+    OUT PMODULE_OBJECT *ModuleObject
 );
 
 NTSTATUS 
 FASTCALL
 IopInitializeDriverModule(
     IN PDEVICE_NODE DeviceNode,
-    IN PLDR_DATA_TABLE_ENTRY ModuleObject,
+    IN PMODULE_OBJECT ModuleObject,
     IN PUNICODE_STRING ServiceName,
     IN BOOLEAN FileSystemDriver,
     OUT PDRIVER_OBJECT *DriverObject
@@ -409,10 +407,7 @@ IopSecurityFile(
     SECURITY_OPERATION_CODE OperationCode,
     SECURITY_INFORMATION SecurityInformation,
     PSECURITY_DESCRIPTOR SecurityDescriptor,
-    PULONG BufferLength,
-	PSECURITY_DESCRIPTOR *OldSecurityDescriptor,    
-    POOL_TYPE PoolType,
-    PGENERIC_MAPPING GenericMapping
+    PULONG BufferLength
 );
 
 NTSTATUS

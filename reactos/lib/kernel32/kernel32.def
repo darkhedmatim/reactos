@@ -135,8 +135,6 @@ CreateRemoteThread@28
 CreateSemaphoreA@16
 CreateSemaphoreW@16
 CreateSocketHandle@0
-CreateSymbolicLinkA@12
-CreateSymbolicLinkW@12
 CreateTapePartition@16
 CreateThread@24
 CreateTimerQueue@0
@@ -374,7 +372,6 @@ GetExpandedNameA@8
 GetExpandedNameW@8
 GetFileAttributesA@4
 GetFileAttributesW@4
-GetFileAttributesByHandle@12
 GetFileAttributesExA@12
 GetFileAttributesExW@12
 GetFileInformationByHandle@8
@@ -589,7 +586,6 @@ IsDebuggerPresent@0
 IsProcessInJob@12
 IsProcessorFeaturePresent@4
 IsSystemResumeAutomatic@0
-IsThreadAFiber@0
 IsValidCodePage@4
 IsValidLanguageGroup@8
 IsValidLocale@8
@@ -773,7 +769,6 @@ SetConsoleCursorPosition@8
 SetConsoleDisplayMode@12
 SetConsoleFont@8
 SetConsoleHardwareState@12
-SetConsoleHistoryInfo@4
 SetConsoleIcon@4
 SetConsoleInputExeNameA@4
 SetConsoleInputExeNameW@4
@@ -788,7 +783,6 @@ SetConsoleNumberOfCommandsW@8
 ;SetConsoleOS2OemFormat
 SetConsoleOutputCP@4
 SetConsolePalette@12
-SetConsoleScreenBufferInfoEx@8
 SetConsoleScreenBufferSize@8
 SetConsoleTextAttribute@8
 SetConsoleTitleA@4
@@ -810,7 +804,6 @@ SetFileApisToANSI@0
 SetFileApisToOEM@0
 SetFileAttributesA@8
 SetFileAttributesW@8
-SetFileAttributesByHandle@12
 SetFilePointer@16
 SetFilePointerEx@20
 SetFileShortNameA@8

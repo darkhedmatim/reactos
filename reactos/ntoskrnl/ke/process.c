@@ -17,7 +17,7 @@
 
 /* GLOBALS   *****************************************************************/
 
-KSERVICE_TABLE_DESCRIPTOR
+SSDT_ENTRY
 __declspec(dllexport)
 KeServiceDescriptorTable[SSDT_MAX_ENTRIES] = {
     { MainSSDT, NULL, NUMBER_OF_SYSCALLS, MainSSPT },
@@ -26,7 +26,7 @@ KeServiceDescriptorTable[SSDT_MAX_ENTRIES] = {
     { NULL,     NULL,   0,   NULL   }
 };
 
-KSERVICE_TABLE_DESCRIPTOR
+SSDT_ENTRY
 KeServiceDescriptorTableShadow[SSDT_MAX_ENTRIES] = {
     { MainSSDT, NULL, NUMBER_OF_SYSCALLS, MainSSPT },
     { NULL,     NULL,   0,   NULL   },
@@ -89,7 +89,6 @@ KeInitializeProcess(PKPROCESS Process,
 
     /* Initialize the Thread List */
     InitializeListHead(&Process->ThreadListHead);
-    KeInitializeSpinLock(&Process->ProcessLock);
     DPRINT("The Process has now been initalized with the Kernel\n");
 }
 
@@ -139,7 +138,6 @@ KeAttachProcess(PKPROCESS Process)
 
     /* Lock Dispatcher */
     OldIrql = KeAcquireDispatcherDatabaseLock();
-    KeAcquireSpinLockAtDpcLevel(&Thread->ApcQueueLock);
 
     /* Crash system if DPC is being executed! */
     if (KeIsExecutingDpc()) {
@@ -152,7 +150,6 @@ KeAttachProcess(PKPROCESS Process)
     if (Thread->ApcState.Process == Process || Thread->ApcStateIndex != OriginalApcEnvironment) {
 
         DPRINT("Process already Attached. Exitting\n");
-        KeReleaseSpinLockFromDpcLevel(&Thread->ApcQueueLock);
         KeReleaseDispatcherDatabaseLock(OldIrql);
     } else {
 
@@ -194,7 +191,6 @@ KiAttachProcess(PKTHREAD Thread, PKPROCESS Process, KIRQL ApcLock, PRKAPC_STATE 
     KiSwapProcess(Process, SavedApcState->Process);
 
     /* Return to old IRQL*/
-    KeReleaseSpinLockFromDpcLevel(&Thread->ApcQueueLock);
     KeReleaseDispatcherDatabaseLock(ApcLock);
 
     DPRINT("KiAttachProcess Completed Sucesfully\n");
@@ -236,7 +232,6 @@ KeStackAttachProcess(IN PKPROCESS Process,
     UpdatePageDirs(Thread, Process);
 
     OldIrql = KeAcquireDispatcherDatabaseLock();
-    KeAcquireSpinLockAtDpcLevel(&Thread->ApcQueueLock);
 
     /* Crash system if DPC is being executed! */
     if (KeIsExecutingDpc()) {
@@ -278,7 +273,6 @@ KeDetachProcess (VOID)
     /* Get Current Thread and Lock */
     Thread = KeGetCurrentThread();
     OldIrql = KeAcquireDispatcherDatabaseLock();
-    KeAcquireSpinLockAtDpcLevel(&Thread->ApcQueueLock);
 
     /* Check if it's attached */
     DPRINT("Current ApcStateIndex: %x\n", Thread->ApcStateIndex);
@@ -303,7 +297,6 @@ KeDetachProcess (VOID)
     KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Unlock Dispatcher */
-    KeReleaseSpinLockFromDpcLevel(&Thread->ApcQueueLock);
     KeReleaseDispatcherDatabaseLock(OldIrql);
 }
 
@@ -327,7 +320,6 @@ KeUnstackDetachProcess (
 
     Thread = KeGetCurrentThread();
     OldIrql = KeAcquireDispatcherDatabaseLock();
-    KeAcquireSpinLockAtDpcLevel(&Thread->ApcQueueLock);
 
     /* Sorry Buddy, can't help you if you've got APCs or just aren't attached */
     if ((Thread->ApcStateIndex == OriginalApcEnvironment) || (Thread->ApcState.KernelApcInProgress)) {
@@ -355,34 +347,30 @@ KeUnstackDetachProcess (
     KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Return to old IRQL*/
-    KeReleaseSpinLockFromDpcLevel(&Thread->ApcQueueLock);
     KeReleaseDispatcherDatabaseLock(OldIrql);
 }
 
 /*
  * @implemented
  */
-BOOLEAN
-STDCALL
-KeAddSystemServiceTable(PULONG_PTR Base,
-                        PULONG Count OPTIONAL,
-                        ULONG Limit,
-                        PUCHAR Number,
-                        ULONG Index)
+BOOLEAN STDCALL
+KeAddSystemServiceTable(PSSDT SSDT,
+                        PULONG ServiceCounterTable,
+                        ULONG NumberOfServices,
+                        PSSPT SSPT,
+                        ULONG TableIndex)
 {
-    /* Check if descriptor table entry is free */
-    if ((Index > SSDT_MAX_ENTRIES - 1) ||
-        (KeServiceDescriptorTable[Index].Base) ||
-        (KeServiceDescriptorTableShadow[Index].Base))
-    {
+    /* check if descriptor table entry is free */
+    if ((TableIndex > SSDT_MAX_ENTRIES - 1) ||
+        (KeServiceDescriptorTable[TableIndex].SSDT != NULL) ||
+        (KeServiceDescriptorTableShadow[TableIndex].SSDT != NULL))
         return FALSE;
-    }
 
-    /* Initialize the shadow service descriptor table */
-    KeServiceDescriptorTableShadow[Index].Base = Base;
-    KeServiceDescriptorTableShadow[Index].Limit = Limit;
-    KeServiceDescriptorTableShadow[Index].Number = Number;
-    KeServiceDescriptorTableShadow[Index].Count = Count;
+    /* initialize the shadow service descriptor table */
+    KeServiceDescriptorTableShadow[TableIndex].SSDT = SSDT;
+    KeServiceDescriptorTableShadow[TableIndex].SSPT = SSPT;
+    KeServiceDescriptorTableShadow[TableIndex].NumberOfServices = NumberOfServices;
+    KeServiceDescriptorTableShadow[TableIndex].ServiceCounterTable = ServiceCounterTable;
 
     return TRUE;
 }
@@ -392,31 +380,31 @@ KeAddSystemServiceTable(PULONG_PTR Base,
  */
 BOOLEAN
 STDCALL
-KeRemoveSystemServiceTable(IN ULONG Index)
+KeRemoveSystemServiceTable(IN ULONG TableIndex)
 {
     /* Make sure the Index is valid */
-    if (Index > SSDT_MAX_ENTRIES - 1) return FALSE;
+    if (TableIndex > SSDT_MAX_ENTRIES - 1) return FALSE;
 
     /* Is there a Normal Descriptor Table? */
-    if (!KeServiceDescriptorTable[Index].Base)
-    {
+    if (!KeServiceDescriptorTable[TableIndex].SSDT) {
+
         /* Not with the index, is there a shadow at least? */
-        if (!KeServiceDescriptorTableShadow[Index].Base) return FALSE;
+        if (!KeServiceDescriptorTableShadow[TableIndex].SSDT) return FALSE;
     }
 
     /* Now clear from the Shadow Table. */
-    KeServiceDescriptorTableShadow[Index].Base = NULL;
-    KeServiceDescriptorTableShadow[Index].Number = NULL;
-    KeServiceDescriptorTableShadow[Index].Limit = 0;
-    KeServiceDescriptorTableShadow[Index].Count = NULL;
+    KeServiceDescriptorTableShadow[TableIndex].SSDT = NULL;
+    KeServiceDescriptorTableShadow[TableIndex].SSPT = NULL;
+    KeServiceDescriptorTableShadow[TableIndex].NumberOfServices = 0;
+    KeServiceDescriptorTableShadow[TableIndex].ServiceCounterTable = NULL;
 
     /* Check if we should clean from the Master one too */
-    if (Index == 1)
-    {
-        KeServiceDescriptorTable[Index].Base = NULL;
-        KeServiceDescriptorTable[Index].Number = NULL;
-        KeServiceDescriptorTable[Index].Limit = 0;
-        KeServiceDescriptorTable[Index].Count = NULL;
+    if (TableIndex == 1) {
+
+        KeServiceDescriptorTable[TableIndex].SSDT = NULL;
+        KeServiceDescriptorTable[TableIndex].SSPT = NULL;
+        KeServiceDescriptorTable[TableIndex].NumberOfServices = 0;
+        KeServiceDescriptorTable[TableIndex].ServiceCounterTable = NULL;
     }
 
     return TRUE;

@@ -19,11 +19,6 @@ struct _KPCR;
 struct _KPRCB;
 struct _KEXCEPTION_FRAME;
 
-extern PVOID KeUserApcDispatcher;
-extern PVOID KeUserCallbackDispatcher;
-extern PVOID KeUserExceptionDispatcher;
-extern PVOID KeRaiseUserExceptionDispatcher;
-
 #define IPI_REQUEST_FUNCTIONCALL    0
 #define IPI_REQUEST_APC		    1
 #define IPI_REQUEST_DPC		    2
@@ -86,10 +81,6 @@ NTSTATUS
 FASTCALL
 KiSwapContext(PKTHREAD NewThread);
 
-VOID
-STDCALL
-KiAdjustQuantumThread(IN PKTHREAD Thread);
-
 /* gmutex.c ********************************************************************/
 
 VOID
@@ -119,7 +110,7 @@ KiIpiServiceRoutine(IN PKTRAP_FRAME TrapFrame,
 		    IN struct _KEXCEPTION_FRAME* ExceptionFrame);
 
 VOID
-KiIpiSendRequest(KAFFINITY TargetSet,
+KiIpiSendRequest(ULONG TargetSet,
 		 ULONG IpiRequest);
 
 VOID
@@ -222,16 +213,6 @@ KeRundownThread(VOID);
 
 NTSTATUS KeReleaseThread(PKTHREAD Thread);
 
-LONG
-STDCALL
-KeQueryBasePriorityThread(IN PKTHREAD Thread);
-
-VOID
-STDCALL
-KiSetPriorityThread(PKTHREAD Thread,
-                    KPRIORITY Priority,
-                    PBOOLEAN Released);
-
 VOID
 STDCALL
 KeStackAttachProcess (
@@ -272,10 +253,6 @@ ULONG
 STDCALL
 KeForceResumeThread(IN PKTHREAD Thread);
 
-BOOLEAN
-STDCALL
-KeDisableThreadApcQueueing(IN PKTHREAD Thread);
-
 BOOLEAN STDCALL KiInsertTimer(PKTIMER Timer, LARGE_INTEGER DueTime);
 
 VOID inline FASTCALL KiSatisfyObjectWait(PDISPATCHER_HEADER Object, PKTHREAD Thread);
@@ -314,12 +291,6 @@ VOID STDCALL KiInitializeUserApc(IN PVOID Reserved,
 			 IN PVOID NormalContext,
 			 IN PVOID SystemArgument1,
 			 IN PVOID SystemArgument2);
-
-PLIST_ENTRY
-STDCALL
-KeFlushQueueApc(IN PKTHREAD Thread,
-                IN KPROCESSOR_MODE PreviousMode);
-
 
 VOID STDCALL KiAttachProcess(struct _KTHREAD *Thread, struct _KPROCESS *Process, KIRQL ApcLock, struct _KAPC_STATE *SavedApcState);
 

@@ -57,7 +57,7 @@
  *
  * - ORPC is RPC for OLE; once we have a working RPC framework, we can
  *   use it to implement out-of-process OLE client/server communications.
- *   ATM there is maybe a disconnect between the marshalling in the OLE DLLs
+ *   ATM there is maybe a disconnect between the marshalling in the OLE DLL's
  *   and the marshalling going on here [TODO: well, is there or not?]
  * 
  * - In-source API Documentation, at least for those functions which we have
@@ -536,7 +536,7 @@ RPC_STATUS WINAPI UuidToStringA(UUID *Uuid, unsigned char** StringUuid)
 
   if (!Uuid) Uuid = &uuid_nil;
 
-  sprintf( (char*)*StringUuid, "%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+  sprintf(*StringUuid, "%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
                  Uuid->Data1, Uuid->Data2, Uuid->Data3,
                  Uuid->Data4[0], Uuid->Data4[1], Uuid->Data4[2],
                  Uuid->Data4[3], Uuid->Data4[4], Uuid->Data4[5],
@@ -587,13 +587,14 @@ static const BYTE hex2bin[] =
 /***********************************************************************
  *		UuidFromStringA (RPCRT4.@)
  */
-RPC_STATUS WINAPI UuidFromStringA(unsigned char* s, UUID *uuid)
+RPC_STATUS WINAPI UuidFromStringA(unsigned char* str, UUID *uuid)
 {
+    BYTE *s = (BYTE *)str;
     int i;
 
     if (!s) return UuidCreateNil( uuid );
 
-    if (strlen((char*)s) != 36) return RPC_S_INVALID_STRING_UUID;
+    if (strlen(s) != 36) return RPC_S_INVALID_STRING_UUID;
 
     if ((s[8]!='-') || (s[13]!='-') || (s[18]!='-') || (s[23]!='-'))
         return RPC_S_INVALID_STRING_UUID;
@@ -667,7 +668,7 @@ RPC_STATUS WINAPI UuidFromStringW(unsigned short* s, UUID *uuid)
  *              DllRegisterServer (RPCRT4.@)
  */
 
-HRESULT WINAPI DllRegisterServer( void )
+HRESULT WINAPI RPCRT4_DllRegisterServer( void )
 {
     FIXME( "(): stub\n" );
     return S_OK;
@@ -809,7 +810,7 @@ RPC_STATUS RPC_ENTRY DceErrorInqTextA (RPC_STATUS e, unsigned char *buffer)
     WCHAR bufferW [MAX_RPC_ERROR_TEXT];
     if ((status = DceErrorInqTextW (e, bufferW)) == RPC_S_OK)
     {
-        if (!WideCharToMultiByte(CP_ACP, 0, bufferW, -1, (LPSTR)buffer, MAX_RPC_ERROR_TEXT,
+        if (!WideCharToMultiByte(CP_ACP, 0, bufferW, -1, buffer, MAX_RPC_ERROR_TEXT,
                 NULL, NULL))
         {
             ERR ("Failed to translate error");

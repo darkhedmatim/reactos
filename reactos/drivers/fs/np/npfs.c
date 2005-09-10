@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
  * FILE:       drivers/fs/np/mount.c
@@ -8,10 +9,11 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
+#include "npfs.h"
+
 #define NDEBUG
 #include <debug.h>
-
-#include "npfs.h"
 
 /* FUNCTIONS *****************************************************************/
 

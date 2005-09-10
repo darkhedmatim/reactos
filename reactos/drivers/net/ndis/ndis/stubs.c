@@ -38,10 +38,11 @@ NdisCompleteUnbindAdapter(
 }
 
 
+#undef NdisInterlockedAddUlong
+
 /*
  * @implemented
  */
-#undef NdisInterlockedAddUlong
 VOID
 EXPORT
 NdisInterlockedAddUlong (
@@ -53,10 +54,11 @@ NdisInterlockedAddUlong (
 }
 
 
+#undef NdisInterlockedInsertHeadList
+
 /*
  * @implemented
  */
-#undef NdisInterlockedInsertHeadList
 PLIST_ENTRY
 EXPORT
 NdisInterlockedInsertHeadList(
@@ -68,10 +70,11 @@ NdisInterlockedInsertHeadList(
 }
 
 
+#undef NdisInterlockedInsertTailList
+
 /*
  * @implemented
  */
-#undef NdisInterlockedInsertTailList
 PLIST_ENTRY
 EXPORT
 NdisInterlockedInsertTailList(
@@ -83,10 +86,11 @@ NdisInterlockedInsertTailList(
 }
 
 
+#undef NdisInterlockedRemoveHeadList
+
 /*
  * @implemented
  */
-#undef NdisInterlockedRemoveHeadList
 PLIST_ENTRY
 EXPORT
 NdisInterlockedRemoveHeadList(
@@ -113,19 +117,19 @@ NdisMapFile(
 typedef struct _NDIS_HANDLE_OBJECT
 {
   HANDLE FileHandle;
-  BOOLEAN Mapped;
+  BOOL Mapped;
   ULONG FileLength;
   PVOID MapBuffer;
 } NDIS_HANDLE_OBJECT, *PNDIS_HANDLE_OBJECT;
 
-__inline
+inline
 PNDIS_HANDLE_OBJECT
 NDIS_HANDLE_TO_POBJECT ( NDIS_HANDLE handle )
 {
   return (PNDIS_HANDLE_OBJECT)handle;
 }
 
-__inline
+inline
 NDIS_HANDLE
 NDIS_POBJECT_TO_HANDLE ( PNDIS_HANDLE_OBJECT obj )
 {
@@ -179,10 +183,11 @@ NdisIMDeInitializeDeviceInstance(
 }
 
 
+#undef NdisIMInitializeDeviceInstance
+
 /*
  * @unimplemented
  */
-#undef NdisIMInitializeDeviceInstance
 NDIS_STATUS
 EXPORT
 NdisIMInitializeDeviceInstance(
@@ -215,7 +220,6 @@ NdisIMRegisterLayeredMiniport(
 /*
  * @unimplemented
  */
-#undef NdisMWanIndicateReceive
 VOID
 EXPORT
 NdisMWanIndicateReceive(
@@ -232,7 +236,6 @@ NdisMWanIndicateReceive(
 /*
  * @unimplemented
  */
-#undef NdisMWanIndicateReceiveComplete
 VOID
 EXPORT
 NdisMWanIndicateReceiveComplete(
@@ -245,7 +248,6 @@ NdisMWanIndicateReceiveComplete(
 /*
  * @unimplemented
  */
-#undef NdisMWanSendComplete
 VOID
 EXPORT
 NdisMWanSendComplete(
@@ -539,10 +541,11 @@ NdisGetSystemUptime(
 }
 
 
+#undef NdisInterlockedDecrement
+
 /*
  * @implemented
  */
-#undef NdisInterlockedDecrement
 LONG
 EXPORT
 NdisInterlockedDecrement(
@@ -558,10 +561,11 @@ NdisInterlockedDecrement(
 }
 
 
+#undef NdisInterlockedIncrement
+
 /*
  * @implemented
  */
-#undef NdisInterlockedIncrement
 LONG
 EXPORT
 NdisInterlockedIncrement(
@@ -580,7 +584,6 @@ NdisInterlockedIncrement(
 /*
  * @implemented
  */
-#undef NdisInterlockedPopEntrySList
 PSINGLE_LIST_ENTRY
 EXPORT
 NdisInterlockedPopEntrySList(
@@ -600,7 +603,6 @@ NdisInterlockedPopEntrySList(
 /*
  * @implemented
  */
-#undef NdisInterlockedPushEntrySList
 PSINGLE_LIST_ENTRY
 EXPORT
 NdisInterlockedPushEntrySList(
@@ -853,6 +855,24 @@ NdisReadPcmciaAttributeMemory(
     return 0;
 }
 
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisReleaseReadWriteLock(
+    IN  PNDIS_RW_LOCK   Lock,
+    IN  PLOCK_STATE     LockState)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
+ */
+{
+    UNIMPLEMENTED
+}
 
 /*
  * @unimplemented

@@ -10,10 +10,9 @@
  */
 
 #include "ndissys.h"
-#include "efilter.h"
 
 BOOLEAN
-NTAPI
+EXPORT
 EthCreateFilter(
     IN  UINT                MaximumMulticastAddresses,
     IN  PUCHAR              AdapterAddress,
@@ -33,15 +32,15 @@ EthCreateFilter(
  *       shouldn't be problem.
  */
 {
-  PETHI_FILTER NewFilter;
+  PETH_FILTER NewFilter;
 
-  NewFilter = ExAllocatePool(NonPagedPool, sizeof(ETHI_FILTER));
+  NewFilter = ExAllocatePool(NonPagedPool, sizeof(ETH_FILTER));
   if (NewFilter != NULL)
     {
-      RtlZeroMemory(NewFilter, sizeof(ETHI_FILTER));
+      RtlZeroMemory(NewFilter, sizeof(ETH_FILTER));
       NewFilter->MaxMulticastAddresses = MaximumMulticastAddresses;
       RtlCopyMemory(NewFilter->AdapterAddress, AdapterAddress, ETH_LENGTH_OF_ADDRESS);
-      *Filter = (PETH_FILTER)NewFilter;
+      *Filter = NewFilter;
       return TRUE;
     }
   return FALSE;
@@ -88,7 +87,7 @@ EthFilterDprIndicateReceive(
      * in the boot process with Filter NULL.  We need to investigate whether
      * this should be handled or not allowed. */
     if( !Filter ) return;
-    MiniIndicateData((PLOGICAL_ADAPTER)((PETHI_FILTER)Filter)->Miniport,
+    MiniIndicateData((PLOGICAL_ADAPTER)Filter->Miniport,
 		     MacReceiveContext,
 		     HeaderBuffer,
 		     HeaderBufferSize,
@@ -120,7 +119,7 @@ EthFilterDprIndicateReceiveComplete(
 
   if( !Filter ) return;
 
-  Adapter = (PLOGICAL_ADAPTER)((PETHI_FILTER)Filter)->Miniport;
+  Adapter = (PLOGICAL_ADAPTER)Filter->Miniport;
 
   NDIS_DbgPrint(MAX_TRACE, ("acquiring miniport block lock\n"));
   KeAcquireSpinLock(&Adapter->NdisMiniportBlock.Lock, &OldIrql);
@@ -132,7 +131,7 @@ EthFilterDprIndicateReceiveComplete(
           AdapterBinding = CONTAINING_RECORD(CurrentEntry, ADAPTER_BINDING, AdapterListEntry);
 
           (*AdapterBinding->ProtocolBinding->Chars.ReceiveCompleteHandler)(
-              AdapterBinding->NdisOpenBlock.ProtocolBindingContext);
+              AdapterBinding->NdisOpenBlock.NdisCommonOpenBlock.ProtocolBindingContext);
 
           CurrentEntry = CurrentEntry->Flink;
         }

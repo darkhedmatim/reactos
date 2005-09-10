@@ -9,7 +9,6 @@ extern "C" {
 #endif
 
 #include <ole2.h>
-#include <urlmon.h>
 
 typedef interface IErrorLog *LPERRORLOG;
 typedef interface IPropertyBag *LPPROPERTYBAG;

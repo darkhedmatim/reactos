@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    PostScript Type 1 decoding routines (body).                          */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 2000-2001, 2002, 2003, 2004 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -796,8 +796,7 @@
           FT_TRACE4(( " closepath" ));
 
           close_contour( builder );
-          if ( !( builder->parse_state == T1_Parse_Have_Path   ||
-                  builder->parse_state == T1_Parse_Have_Moveto ) )
+          if ( builder->parse_state != T1_Parse_Have_Path )
             goto Syntax_Error;
           builder->parse_state = T1_Parse_Have_Width;
           break;

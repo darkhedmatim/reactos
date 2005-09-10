@@ -107,7 +107,6 @@ INT cmd_vol (LPTSTR cmd, LPTSTR param)
 	/* print the header */
 	if (!PrintVolumeHeader (szRootPath))
   {    
-	    nErrorLevel = 1;
 		return 1;
   }
 

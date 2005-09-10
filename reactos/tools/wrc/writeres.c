@@ -46,7 +46,7 @@
 void write_resfile(char *outname, resource_t *top)
 {
 	FILE *fo;
-	unsigned int ret;
+	int ret;
 	char zeros[3] = {0, 0, 0};
 
 	fo = fopen(outname, "wb");

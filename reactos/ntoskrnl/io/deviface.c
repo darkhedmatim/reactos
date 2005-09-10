@@ -118,8 +118,6 @@ IoGetDeviceInterfaces(
    ULONG j = 0;
    OBJECT_ATTRIBUTES ObjectAttributes;
 
-   ASSERT_IRQL(PASSIVE_LEVEL);
-
    Status = RtlStringFromGUID(InterfaceClassGuid, &GuidString);
    if (!NT_SUCCESS(Status))
    {
@@ -133,7 +131,7 @@ IoGetDeviceInterfaces(
    BaseKeyName.Length = wcslen(BaseKeyString) * sizeof(WCHAR);
    BaseKeyName.MaximumLength = BaseKeyName.Length + (38 * sizeof(WCHAR));
    BaseKeyName.Buffer = ExAllocatePool(
-      PagedPool,
+      NonPagedPool,
       BaseKeyName.MaximumLength);
    ASSERT(BaseKeyName.Buffer != NULL);
    wcscpy(BaseKeyName.Buffer, BaseKeyString);
@@ -199,7 +197,7 @@ IoGetDeviceInterfaces(
          return Status;
       }
 
-      fip = (PKEY_FULL_INFORMATION)ExAllocatePool(PagedPool, Size);
+      fip = (PKEY_FULL_INFORMATION)ExAllocatePool(NonPagedPool, Size);
       ASSERT(fip != NULL);
 
       Status = ZwQueryKey(
@@ -239,7 +237,7 @@ IoGetDeviceInterfaces(
             return Status;
          }
 
-         bip = (PKEY_BASIC_INFORMATION)ExAllocatePool(PagedPool, Size);
+         bip = (PKEY_BASIC_INFORMATION)ExAllocatePool(NonPagedPool, Size);
          ASSERT(bip != NULL);
 
          Status = ZwEnumerateKey(
@@ -264,7 +262,7 @@ IoGetDeviceInterfaces(
 
          SubKeyName.Length = 0;
          SubKeyName.MaximumLength = BaseKeyName.Length + bip->NameLength + sizeof(WCHAR);
-         SubKeyName.Buffer = ExAllocatePool(PagedPool, SubKeyName.MaximumLength);
+         SubKeyName.Buffer = ExAllocatePool(NonPagedPool, SubKeyName.MaximumLength);
          ASSERT(SubKeyName.Buffer != NULL);
          TempString.Length = TempString.MaximumLength = bip->NameLength;
          TempString.Buffer = bip->Name;
@@ -316,7 +314,7 @@ IoGetDeviceInterfaces(
             return Status;
          }
 
-         bfip = (PKEY_FULL_INFORMATION)ExAllocatePool(PagedPool, Size);
+         bfip = (PKEY_FULL_INFORMATION)ExAllocatePool(NonPagedPool, Size);
          ASSERT(bfip != NULL);
 
          Status = ZwQueryKey(
@@ -364,7 +362,7 @@ IoGetDeviceInterfaces(
                return Status;
             }
 
-            bip = (PKEY_BASIC_INFORMATION)ExAllocatePool(PagedPool, Size);
+            bip = (PKEY_BASIC_INFORMATION)ExAllocatePool(NonPagedPool, Size);
             ASSERT(bip != NULL);
 
             Status = ZwEnumerateKey(
@@ -397,7 +395,7 @@ IoGetDeviceInterfaces(
 
             SymbolicLinkKeyName.Length = 0;
             SymbolicLinkKeyName.MaximumLength = SubKeyName.Length + bip->NameLength + sizeof(WCHAR);
-            SymbolicLinkKeyName.Buffer = ExAllocatePool(PagedPool, SymbolicLinkKeyName.MaximumLength);
+            SymbolicLinkKeyName.Buffer = ExAllocatePool(NonPagedPool, SymbolicLinkKeyName.MaximumLength);
             ASSERT(SymbolicLinkKeyName.Buffer != NULL);
             TempString.Length = TempString.MaximumLength = bip->NameLength;
             TempString.Buffer = bip->Name;
@@ -407,7 +405,7 @@ IoGetDeviceInterfaces(
 
             ControlKeyName.Length = 0;
             ControlKeyName.MaximumLength = SymbolicLinkKeyName.Length + Control.Length + sizeof(WCHAR);
-            ControlKeyName.Buffer = ExAllocatePool(PagedPool, ControlKeyName.MaximumLength);
+            ControlKeyName.Buffer = ExAllocatePool(NonPagedPool, ControlKeyName.MaximumLength);
             ASSERT(ControlKeyName.Buffer != NULL);
             RtlCopyUnicodeString(&ControlKeyName, &SymbolicLinkKeyName);
             RtlAppendUnicodeStringToString(&ControlKeyName, &Control);
@@ -468,7 +466,7 @@ IoGetDeviceInterfaces(
                return Status;
             }
 
-            vpip = (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePool(PagedPool, Size);
+            vpip = (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePool(NonPagedPool, Size);
             ASSERT(vpip != NULL);
 
             Status = ZwQueryValueKey(
@@ -504,7 +502,7 @@ IoGetDeviceInterfaces(
                if (SymLinkList == NULL)
                {
                   SymLinkListSize = vpip->DataLength;
-                  SymLinkList = ExAllocatePool(PagedPool, SymLinkListSize + sizeof(WCHAR));
+                  SymLinkList = ExAllocatePool(NonPagedPool, SymLinkListSize + sizeof(WCHAR));
                   ASSERT(SymLinkList != NULL);
                   RtlCopyMemory(SymLinkList, vpip->Data, vpip->DataLength);
                   SymLinkList[vpip->DataLength / sizeof(WCHAR)] = 0;
@@ -519,7 +517,7 @@ IoGetDeviceInterfaces(
                   OldSymLinkList = SymLinkList;
                   OldSymLinkListSize = SymLinkListSize;
                   SymLinkListSize += vpip->DataLength;
-                  SymLinkList = ExAllocatePool(PagedPool, SymLinkListSize + sizeof(WCHAR));
+                  SymLinkList = ExAllocatePool(NonPagedPool, SymLinkListSize + sizeof(WCHAR));
                   ASSERT(SymLinkList != NULL);
                   RtlCopyMemory(SymLinkList, OldSymLinkList, OldSymLinkListSize);
                   ExFreePool(OldSymLinkList);
@@ -546,7 +544,7 @@ IoGetDeviceInterfaces(
       }
       else
       {
-         SymLinkList = ExAllocatePool(PagedPool, 2 * sizeof(WCHAR));
+         SymLinkList = ExAllocatePool(NonPagedPool, 2 * sizeof(WCHAR));
          SymLinkList[0] = 0;
       }
 
@@ -589,8 +587,6 @@ IoRegisterDeviceInterface(
    ULONG i;
    NTSTATUS Status;
 
-   ASSERT_IRQL(PASSIVE_LEVEL);
-
    if (!(PhysicalDeviceObject->Flags & DO_BUS_ENUMERATED_DEVICE))
    {
      DPRINT("PhysicalDeviceObject 0x%p is not a valid Pdo\n", PhysicalDeviceObject);
@@ -618,13 +614,13 @@ IoRegisterDeviceInterface(
    ASSERT(PdoNameInfo->Name.Length);
 
    /* Create base key name for this interface: HKLM\SYSTEM\CurrentControlSet\Control\DeviceClasses\{GUID} */
-   ASSERT(((PEXTENDED_DEVOBJ_EXTENSION)PhysicalDeviceObject->DeviceObjectExtension)->DeviceNode);
-   InstancePath = &((PEXTENDED_DEVOBJ_EXTENSION)PhysicalDeviceObject->DeviceObjectExtension)->DeviceNode->InstancePath;
+   ASSERT(PhysicalDeviceObject->DeviceObjectExtension->DeviceNode);
+   InstancePath = &PhysicalDeviceObject->DeviceObjectExtension->DeviceNode->InstancePath;
    BaseKeyName.Length = wcslen(BaseKeyString) * sizeof(WCHAR);
    BaseKeyName.MaximumLength = BaseKeyName.Length
       + GuidString.Length;
    BaseKeyName.Buffer = ExAllocatePool(
-      PagedPool,
+      NonPagedPool,
       BaseKeyName.MaximumLength);
    if (!BaseKeyName.Buffer)
    {
@@ -666,7 +662,7 @@ IoRegisterDeviceInterface(
       sizeof(WCHAR) +     /* 1  = size of # */
       GuidString.Length;
    InterfaceKeyName.Buffer = ExAllocatePool(
-      PagedPool,
+      NonPagedPool,
       InterfaceKeyName.MaximumLength);
    if (!InterfaceKeyName.Buffer)
    {
@@ -734,7 +730,7 @@ IoRegisterDeviceInterface(
    if (ReferenceString && ReferenceString->Length)
       SubKeyName.MaximumLength += ReferenceString->Length;
    SubKeyName.Buffer = ExAllocatePool(
-      PagedPool,
+      NonPagedPool,
       SubKeyName.MaximumLength);
    if (!SubKeyName.Buffer)
    {
@@ -787,7 +783,7 @@ IoRegisterDeviceInterface(
    if (ReferenceString && ReferenceString->Length)
       SymbolicLinkName->MaximumLength += sizeof(WCHAR) + ReferenceString->Length;
    SymbolicLinkName->Buffer = ExAllocatePool(
-      PagedPool,
+      NonPagedPool,
       SymbolicLinkName->MaximumLength);
    if (!SymbolicLinkName->Buffer)
    {
@@ -815,7 +811,7 @@ IoRegisterDeviceInterface(
       RtlAppendUnicodeToString(SymbolicLinkName, L"\\");
       RtlAppendUnicodeStringToString(SymbolicLinkName, ReferenceString);
    }
-   SymbolicLinkName->Buffer[SymbolicLinkName->Length/sizeof(WCHAR)] = L'\0';
+   SymbolicLinkName->Buffer[SymbolicLinkName->Length] = '\0';
 
    /* Create symbolic link */
    DPRINT("IoRegisterDeviceInterface(): creating symbolic link %wZ -> %wZ\n", SymbolicLinkName, &PdoNameInfo->Name);

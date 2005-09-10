@@ -10,7 +10,9 @@
 #define _ZWFUNCS_H
 
 /* DEPENDENCIES **************************************************************/
-#define _WMIKM_
+#include "lpctypes.h"
+#include "zwtypes.h"
+#include "kdtypes.h"
 #include <evntrace.h>
 
 /* FUNCTION TYPES ************************************************************/
@@ -18,30 +20,18 @@
 /* PROTOTYPES ****************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAcceptConnectPort(
     PHANDLE PortHandle,
-    PVOID PortContext OPTIONAL,
-    PPORT_MESSAGE ConnectionRequest,
-    BOOLEAN AcceptConnection,
-    PPORT_VIEW ServerView OPTIONAL,
-    PREMOTE_PORT_VIEW ClientView OPTIONAL
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwAcceptConnectPort(
-    PHANDLE PortHandle,
-    PVOID PortContext OPTIONAL,
-    PPORT_MESSAGE ConnectionRequest,
-    BOOLEAN AcceptConnection,
-    PPORT_VIEW ServerView OPTIONAL,
-    PREMOTE_PORT_VIEW ClientView OPTIONAL
+    HANDLE NamedPortHandle,
+    PLPC_MESSAGE ServerReply,
+    BOOLEAN AcceptIt,
+    PLPC_SECTION_WRITE WriteMap,
+    PLPC_SECTION_READ ReadMap
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAccessCheck(
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     IN HANDLE ClientToken,
@@ -53,9 +43,8 @@ NtAccessCheck(
     OUT PNTSTATUS AccessStatus
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAccessCheck(
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     IN HANDLE ClientToken,
@@ -67,12 +56,11 @@ ZwAccessCheck(
     OUT PNTSTATUS AccessStatus
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtAccessCheckAndAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
-    IN PVOID HandleId,
+    IN PHANDLE ObjectHandle,
     IN PUNICODE_STRING ObjectTypeName,
     IN PUNICODE_STRING ObjectName,
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
@@ -85,16 +73,15 @@ NtAccessCheckAndAuditAlarm(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAddAtom(
     IN     PWSTR  AtomName,
     IN     ULONG AtomNameLength,
     IN OUT PRTL_ATOM  Atom
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAddAtom(
     IN     PWSTR  AtomName,
     IN     ULONG AtomNameLength,
@@ -102,23 +89,21 @@ ZwAddAtom(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAddBootEntry(
     IN PUNICODE_STRING EntryName,
     IN PUNICODE_STRING EntryValue
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAddBootEntry(
     IN PUNICODE_STRING EntryName,
     IN PUNICODE_STRING EntryValue
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtAdjustGroupsToken(
     IN HANDLE TokenHandle,
     IN BOOLEAN  ResetToDefault,
@@ -128,9 +113,8 @@ NtAdjustGroupsToken(
     OUT PULONG  ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAdjustGroupsToken(
     IN HANDLE TokenHandle,
     IN BOOLEAN  ResetToDefault,
@@ -140,9 +124,8 @@ ZwAdjustGroupsToken(
     OUT PULONG  ReturnLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtAdjustPrivilegesToken(
     IN HANDLE  TokenHandle,
     IN BOOLEAN  DisableAllPrivileges,
@@ -152,9 +135,8 @@ NtAdjustPrivilegesToken(
     OUT PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAdjustPrivilegesToken(
     IN HANDLE  TokenHandle,
     IN BOOLEAN  DisableAllPrivileges,
@@ -165,48 +147,45 @@ ZwAdjustPrivilegesToken(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAlertResumeThread(
     IN HANDLE ThreadHandle,
     OUT PULONG SuspendCount
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAlertResumeThread(
     IN HANDLE ThreadHandle,
     OUT PULONG SuspendCount
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAlertThread(
     IN HANDLE ThreadHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAlertThread(
     IN HANDLE ThreadHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAllocateLocallyUniqueId(
     OUT LUID *LocallyUniqueId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAllocateLocallyUniqueId(
     OUT PLUID Luid
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAllocateUuids(
     PULARGE_INTEGER Time,
     PULONG Range,
@@ -214,9 +193,8 @@ NtAllocateUuids(
     PUCHAR Seed
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAllocateUuids(
     PULARGE_INTEGER Time,
     PULONG Range,
@@ -224,9 +202,8 @@ ZwAllocateUuids(
     PUCHAR Seed
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtAllocateVirtualMemory(
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
@@ -236,9 +213,8 @@ NtAllocateVirtualMemory(
     IN ULONG  Protect
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAllocateVirtualMemory(
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
@@ -249,31 +225,29 @@ ZwAllocateVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtAssignProcessToJobObject(
     HANDLE JobHandle,
     HANDLE ProcessHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwAssignProcessToJobObject(
     HANDLE JobHandle,
     HANDLE ProcessHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCallbackReturn(
     PVOID Result,
     ULONG ResultLength,
     NTSTATUS Status
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCallbackReturn(
     PVOID Result,
     ULONG ResultLength,
@@ -281,83 +255,76 @@ ZwCallbackReturn(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCancelIoFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCancelIoFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCancelTimer(
     IN HANDLE TimerHandle,
     OUT PBOOLEAN CurrentState OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtClearEvent(
     IN HANDLE EventHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwClearEvent(
     IN HANDLE EventHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateJobObject(
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
     POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateJobObject(
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
     POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtClose(
     IN HANDLE Handle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwClose(
     IN HANDLE Handle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtCloseObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
     IN BOOLEAN GenerateOnClose
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCloseObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -365,72 +332,67 @@ ZwCloseObjectAuditAlarm(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCompleteConnectPort(
     HANDLE PortHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCompleteConnectPort(
     HANDLE PortHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtConnectPort(
     PHANDLE PortHandle,
     PUNICODE_STRING PortName,
     PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-    PPORT_VIEW ClientView OPTIONAL,
-    PREMOTE_PORT_VIEW ServerView OPTIONAL,
-    PULONG MaxMessageLength OPTIONAL,
-    PVOID ConnectionInformation OPTIONAL,
-    PULONG ConnectionInformationLength OPTIONAL
+    PLPC_SECTION_WRITE SectionInfo,
+    PLPC_SECTION_READ MapInfo,
+    PULONG MaxMessageSize,
+    PVOID ConnectInfo,
+    PULONG ConnectInfoLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwConnectPort(
     PHANDLE PortHandle,
     PUNICODE_STRING PortName,
     PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-    PPORT_VIEW ClientView OPTIONAL,
-    PREMOTE_PORT_VIEW ServerView OPTIONAL,
-    PULONG MaxMessageLength OPTIONAL,
-    PVOID ConnectionInformation OPTIONAL,
-    PULONG ConnectionInformationLength OPTIONAL
+    PLPC_SECTION_WRITE SectionInfo,
+    PLPC_SECTION_READ MapInfo,
+    PULONG MaxMessageSize,
+    PVOID ConnectInfo,
+    PULONG ConnectInfoLength
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtContinue(
     IN PCONTEXT Context,
     IN BOOLEAN TestAlert
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwContinue(
     IN PCONTEXT Context,
-    IN BOOLEAN TestAlert
+    IN CINT IrqLevel
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateDirectoryObject(
     OUT PHANDLE DirectoryHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateDirectoryObject(
     OUT PHANDLE DirectoryHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -438,7 +400,7 @@ ZwCreateDirectoryObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateEvent(
     OUT PHANDLE EventHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -447,9 +409,8 @@ NtCreateEvent(
     IN BOOLEAN InitialState
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateEvent(
     OUT PHANDLE EventHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -459,25 +420,23 @@ ZwCreateEvent(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateEventPair(
     OUT PHANDLE EventPairHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateEventPair(
     OUT PHANDLE EventPairHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateFile(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -492,9 +451,8 @@ NtCreateFile(
     IN ULONG EaLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateFile(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -510,7 +468,7 @@ ZwCreateFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateIoCompletion(
     OUT PHANDLE             IoCompletionHandle,
     IN  ACCESS_MASK         DesiredAccess,
@@ -518,9 +476,8 @@ NtCreateIoCompletion(
     IN  ULONG               NumberOfConcurrentThreads
     );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateIoCompletion(
    OUT PHANDLE             IoCompletionHandle,
    IN  ACCESS_MASK         DesiredAccess,
@@ -529,7 +486,7 @@ ZwCreateIoCompletion(
    );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateKey(
     OUT PHANDLE KeyHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -540,9 +497,8 @@ NtCreateKey(
     IN PULONG Disposition OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateKey(
     OUT PHANDLE KeyHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -554,7 +510,7 @@ ZwCreateKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateMailslotFile(
     OUT PHANDLE MailSlotFileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -566,9 +522,8 @@ NtCreateMailslotFile(
     IN PLARGE_INTEGER TimeOut
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateMailslotFile(
     OUT PHANDLE MailSlotFileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -581,7 +536,7 @@ ZwCreateMailslotFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateMutant(
     OUT PHANDLE MutantHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -589,9 +544,8 @@ NtCreateMutant(
     IN BOOLEAN InitialOwner
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateMutant(
     OUT PHANDLE MutantHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -600,7 +554,7 @@ ZwCreateMutant(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateNamedPipeFile(
     OUT PHANDLE NamedPipeFileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -618,9 +572,8 @@ NtCreateNamedPipeFile(
     IN PLARGE_INTEGER DefaultTimeOut
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateNamedPipeFile(
     OUT PHANDLE NamedPipeFileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -639,7 +592,7 @@ ZwCreateNamedPipeFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreatePagingFile(
     IN PUNICODE_STRING FileName,
     IN PLARGE_INTEGER InitialSize,
@@ -647,9 +600,8 @@ NtCreatePagingFile(
     IN ULONG Reserved
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreatePagingFile(
     IN PUNICODE_STRING FileName,
     IN PLARGE_INTEGER InitialSize,
@@ -658,28 +610,27 @@ ZwCreatePagingFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreatePort(
     PHANDLE PortHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
-    ULONG MaxConnectionInfoLength,
-    ULONG MaxMessageLength,
-    ULONG MaxPoolUsage
+    ULONG MaxConnectInfoLength,
+    ULONG MaxDataLength,
+    ULONG NPMessageQueueSize OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
-ZwCreatePort(
+STDCALL
+NtCreatePort(
     PHANDLE PortHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
-    ULONG MaxConnectionInfoLength,
-    ULONG MaxMessageLength,
-    ULONG MaxPoolUsage
+    ULONG MaxConnectInfoLength,
+    ULONG MaxDataLength,
+    ULONG NPMessageQueueSize OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateProcess(
     OUT PHANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -691,9 +642,8 @@ NtCreateProcess(
     IN HANDLE ExceptionPort OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateProcess(
     OUT PHANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -706,7 +656,7 @@ ZwCreateProcess(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateProfile(
     OUT PHANDLE ProfileHandle,
     IN HANDLE ProcessHandle,
@@ -719,9 +669,8 @@ NtCreateProfile(
     IN KAFFINITY ProcessorMask
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateProfile(
     OUT PHANDLE ProfileHandle,
     IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -734,9 +683,8 @@ ZwCreateProfile(
     IN ULONG ProcessorMask
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateSection(
     OUT PHANDLE SectionHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -747,9 +695,8 @@ NtCreateSection(
     IN HANDLE FileHandle OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateSection(
     OUT PHANDLE SectionHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -761,7 +708,7 @@ ZwCreateSection(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateSemaphore(
     OUT PHANDLE SemaphoreHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -770,9 +717,8 @@ NtCreateSemaphore(
     IN LONG MaximumCount
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateSemaphore(
     OUT PHANDLE SemaphoreHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -782,7 +728,7 @@ ZwCreateSemaphore(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateSymbolicLinkObject(
     OUT PHANDLE SymbolicLinkHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -790,9 +736,8 @@ NtCreateSymbolicLinkObject(
     IN PUNICODE_STRING Name
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateSymbolicLinkObject(
     OUT PHANDLE SymbolicLinkHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -801,7 +746,7 @@ ZwCreateSymbolicLinkObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateThread(
     OUT PHANDLE ThreadHandle,
     IN  ACCESS_MASK DesiredAccess,
@@ -813,9 +758,8 @@ NtCreateThread(
     IN  BOOLEAN CreateSuspended
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateThread(
     OUT PHANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -828,7 +772,7 @@ ZwCreateThread(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateTimer(
     OUT PHANDLE TimerHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -836,20 +780,17 @@ NtCreateTimer(
     IN TIMER_TYPE TimerType
 );
 
-#ifdef NTOS_MODE_USER
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateTimer(
     OUT PHANDLE TimerHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL,
     IN TIMER_TYPE TimerType
 );
-#endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateToken(
     OUT PHANDLE TokenHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -866,9 +807,8 @@ NtCreateToken(
     IN PTOKEN_SOURCE TokenSource
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateToken(
     OUT PHANDLE TokenHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -886,7 +826,7 @@ ZwCreateToken(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateWaitablePort(
     PHANDLE PortHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
@@ -895,9 +835,8 @@ NtCreateWaitablePort(
     ULONG NPMessageQueueSize OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwCreateWaitablePort(
     PHANDLE PortHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
@@ -907,86 +846,79 @@ ZwCreateWaitablePort(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDelayExecution(
     IN BOOLEAN Alertable,
     IN LARGE_INTEGER *Interval
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDelayExecution(
     IN BOOLEAN Alertable,
     IN LARGE_INTEGER *Interval
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteAtom(
     IN RTL_ATOM Atom
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteAtom(
     IN RTL_ATOM Atom
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteBootEntry(
     IN PUNICODE_STRING EntryName,
     IN PUNICODE_STRING EntryValue
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteBootEntry(
     IN PUNICODE_STRING EntryName,
     IN PUNICODE_STRING EntryValue
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteKey(
     IN HANDLE KeyHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteKey(
     IN HANDLE KeyHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
     IN BOOLEAN GenerateOnClose
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -994,23 +926,21 @@ ZwDeleteObjectAuditAlarm(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDeleteValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeleteValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtDeviceIoControlFile(
     IN HANDLE DeviceHandle,
     IN HANDLE Event OPTIONAL,
@@ -1024,9 +954,8 @@ NtDeviceIoControlFile(
     IN ULONG OutputBufferSize
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDeviceIoControlFile(
     IN HANDLE DeviceHandle,
     IN HANDLE Event OPTIONAL,
@@ -1041,20 +970,19 @@ ZwDeviceIoControlFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDisplayString(
     IN PUNICODE_STRING DisplayString
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDisplayString(
     IN PUNICODE_STRING DisplayString
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDuplicateObject(
     IN HANDLE SourceProcessHandle,
     IN HANDLE SourceHandle,
@@ -1065,9 +993,8 @@ NtDuplicateObject(
     IN ULONG Options
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwDuplicateObject(
     IN HANDLE SourceProcessHandle,
     IN HANDLE SourceHandle,
@@ -1078,9 +1005,8 @@ ZwDuplicateObject(
     IN ULONG Options
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtDuplicateToken(
     IN HANDLE ExistingTokenHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1091,22 +1017,21 @@ NtDuplicateToken(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtEnumerateBootEntries(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwEnumerateBootEntries(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtEnumerateKey(
     IN HANDLE KeyHandle,
     IN ULONG Index,
@@ -1116,9 +1041,8 @@ NtEnumerateKey(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwEnumerateKey(
     IN HANDLE KeyHandle,
     IN ULONG Index,
@@ -1129,7 +1053,7 @@ ZwEnumerateKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtEnumerateValueKey(
     IN HANDLE KeyHandle,
     IN ULONG Index,
@@ -1139,9 +1063,8 @@ NtEnumerateValueKey(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwEnumerateValueKey(
     IN HANDLE KeyHandle,
     IN ULONG Index,
@@ -1152,31 +1075,29 @@ ZwEnumerateValueKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtExtendSection(
     IN HANDLE SectionHandle,
     IN PLARGE_INTEGER NewMaximumSize
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwExtendSection(
     IN HANDLE SectionHandle,
     IN PLARGE_INTEGER NewMaximumSize
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFindAtom(
     IN  PWSTR AtomName,
     IN  ULONG AtomNameLength,
     OUT PRTL_ATOM Atom OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFindAtom(
     IN  PWSTR AtomName,
     IN  ULONG AtomNameLength,
@@ -1184,45 +1105,41 @@ ZwFindAtom(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFlushBuffersFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock
 );
 
-#ifdef NTOS_MODE_USER
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFlushBuffersFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock
 );
-#endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFlushInstructionCache(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
-    IN ULONG NumberOfBytesToFlush
+    IN UINT NumberOfBytesToFlush
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFlushKey(
     IN HANDLE KeyHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFlushKey(
     IN HANDLE KeyHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFlushVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
@@ -1231,17 +1148,15 @@ NtFlushVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtFlushWriteBuffer(VOID);
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFlushWriteBuffer(VOID);
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtFreeVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  *BaseAddress,
@@ -1249,9 +1164,8 @@ NtFreeVirtualMemory(
     IN ULONG  FreeType
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFreeVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  *BaseAddress,
@@ -1259,9 +1173,8 @@ ZwFreeVirtualMemory(
     IN ULONG  FreeType
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtFsControlFile(
     IN HANDLE DeviceHandle,
     IN HANDLE Event OPTIONAL,
@@ -1275,9 +1188,8 @@ NtFsControlFile(
     IN ULONG OutputBufferSize
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwFsControlFile(
     IN HANDLE DeviceHandle,
     IN HANDLE Event OPTIONAL,
@@ -1292,22 +1204,21 @@ ZwFsControlFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtGetContextThread(
     IN HANDLE ThreadHandle,
     OUT PCONTEXT Context
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwGetContextThread(
     IN HANDLE ThreadHandle,
     OUT PCONTEXT Context
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtGetPlugPlayEvent(
     IN ULONG Reserved1,
     IN ULONG Reserved2,
@@ -1316,53 +1227,49 @@ NtGetPlugPlayEvent(
 );
 
 ULONG
-NTAPI
+STDCALL
 NtGetTickCount(
     VOID
 );
 
-NTSYSAPI
 ULONG
-NTAPI
+STDCALL
 ZwGetTickCount(
     VOID
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtImpersonateClientOfPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE ClientMessage
+    PLPC_MESSAGE ClientMessage
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwImpersonateClientOfPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE ClientMessage
+    PLPC_MESSAGE ClientMessage
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtImpersonateThread(
     IN HANDLE ThreadHandle,
     IN HANDLE ThreadToImpersonate,
     IN PSECURITY_QUALITY_OF_SERVICE SecurityQualityOfService
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwImpersonateThread(
     IN HANDLE ThreadHandle,
     IN HANDLE ThreadToImpersonate,
     IN PSECURITY_QUALITY_OF_SERVICE SecurityQualityOfService
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtInitiatePowerAction(
     POWER_ACTION SystemAction,
     SYSTEM_POWER_STATE MinSystemState,
@@ -1370,9 +1277,8 @@ NtInitiatePowerAction(
     BOOLEAN Asynchronous
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwInitiatePowerAction(
     POWER_ACTION SystemAction,
     SYSTEM_POWER_STATE MinSystemState,
@@ -1381,94 +1287,87 @@ ZwInitiatePowerAction(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtInitializeRegistry(
     BOOLEAN SetUpBoot
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwInitializeRegistry(
     BOOLEAN SetUpBoot
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtIsProcessInJob(
     IN HANDLE ProcessHandle,
     IN HANDLE JobHandle OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwIsProcessInJob(
     IN HANDLE ProcessHandle,
     IN HANDLE JobHandle OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtListenPort(HANDLE PortHandle,
-             PPORT_MESSAGE ConnectionRequest
+             PLPC_MESSAGE LpcMessage
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwListenPort(HANDLE PortHandle,
-             PPORT_MESSAGE ConnectionRequest
+             PLPC_MESSAGE LpcMessage
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtLoadDriver(
     IN PUNICODE_STRING DriverServiceName
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwLoadDriver(
     IN PUNICODE_STRING DriverServiceName
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtLoadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwLoadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtLoadKey2(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes,
     IN ULONG Flags
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwLoadKey2(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes,
     IN ULONG Flags
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtLockFile(
     IN  HANDLE FileHandle,
     IN  HANDLE Event OPTIONAL,
@@ -1477,15 +1376,13 @@ NtLockFile(
     OUT PIO_STATUS_BLOCK IoStatusBlock,
     IN  PLARGE_INTEGER ByteOffset,
     IN  PLARGE_INTEGER Length,
-    IN  ULONG Key,
+    IN  PULONG Key,
     IN  BOOLEAN FailImmediatedly,
     IN  BOOLEAN ExclusiveLock
 );
 
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwLockFile(
     IN  HANDLE FileHandle,
     IN  HANDLE Event OPTIONAL,
@@ -1494,13 +1391,13 @@ ZwLockFile(
     OUT PIO_STATUS_BLOCK IoStatusBlock,
     IN  PLARGE_INTEGER ByteOffset,
     IN  PLARGE_INTEGER Length,
-    IN  ULONG Key,
+    IN  PULONG Key,
     IN  BOOLEAN FailImmediatedly,
     IN  BOOLEAN ExclusiveLock
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtLockVirtualMemory(
     HANDLE ProcessHandle,
     PVOID BaseAddress,
@@ -1508,9 +1405,8 @@ NtLockVirtualMemory(
     PULONG NumberOfBytesLocked
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwLockVirtualMemory(
     HANDLE ProcessHandle,
     PVOID BaseAddress,
@@ -1519,33 +1415,31 @@ ZwLockVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtMakePermanentObject(
     IN HANDLE Object
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwMakePermanentObject(
     IN HANDLE Object
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtMakeTemporaryObject(
     IN HANDLE Handle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwMakeTemporaryObject(
     IN HANDLE Handle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtMapViewOfSection(
     IN HANDLE SectionHandle,
     IN HANDLE ProcessHandle,
@@ -1559,9 +1453,8 @@ NtMapViewOfSection(
     IN ULONG AccessProtection
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwMapViewOfSection(
     IN HANDLE SectionHandle,
     IN HANDLE ProcessHandle,
@@ -1576,7 +1469,7 @@ ZwMapViewOfSection(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtNotifyChangeDirectoryFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -1589,9 +1482,8 @@ NtNotifyChangeDirectoryFile(
     IN BOOLEAN WatchTree
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwNotifyChangeDirectoryFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -1605,7 +1497,7 @@ ZwNotifyChangeDirectoryFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtNotifyChangeKey(
     IN HANDLE KeyHandle,
     IN HANDLE Event,
@@ -1619,9 +1511,8 @@ NtNotifyChangeKey(
     IN BOOLEAN WatchSubtree
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwNotifyChangeKey(
     IN HANDLE KeyHandle,
     IN HANDLE Event,
@@ -1636,16 +1527,15 @@ ZwNotifyChangeKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenDirectoryObject(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenDirectoryObject(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1653,16 +1543,15 @@ ZwOpenDirectoryObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenEvent(
     OUT PHANDLE EventHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenEvent(
     OUT PHANDLE EventHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1670,25 +1559,23 @@ ZwOpenEvent(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenEventPair(
     OUT PHANDLE EventPairHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenEventPair(
     OUT PHANDLE EventPairHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenFile(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1698,9 +1585,8 @@ NtOpenFile(
     IN ULONG OpenOptions
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenFile(
     OUT PHANDLE FileHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1711,16 +1597,15 @@ ZwOpenFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenIoCompletion(
     OUT PHANDLE CompetionPort,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenIoCompletion(
     OUT PHANDLE CompetionPort,
     IN ACCESS_MASK DesiredAccess,
@@ -1728,16 +1613,15 @@ ZwOpenIoCompletion(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenJobObject(
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
     POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenJobObject(
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
@@ -1745,16 +1629,15 @@ ZwOpenJobObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenKey(
     OUT PHANDLE KeyHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenKey(
     OUT PHANDLE KeyHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1762,25 +1645,23 @@ ZwOpenKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenMutant(
     OUT PHANDLE MutantHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenMutant(
     OUT PHANDLE MutantHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -1796,9 +1677,8 @@ NtOpenObjectAuditAlarm(
     OUT PBOOLEAN GenerateOnClose
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -1814,9 +1694,8 @@ ZwOpenObjectAuditAlarm(
     OUT PBOOLEAN GenerateOnClose
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenProcess(
     OUT PHANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1824,9 +1703,8 @@ NtOpenProcess(
     IN PCLIENT_ID ClientId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenProcess(
     OUT PHANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1834,27 +1712,24 @@ ZwOpenProcess(
     IN PCLIENT_ID ClientId
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenProcessToken(
     IN HANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
     OUT PHANDLE TokenHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenProcessToken(
     IN HANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
     OUT PHANDLE TokenHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenProcessTokenEx(
     IN HANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1862,9 +1737,8 @@ NtOpenProcessTokenEx(
     OUT PHANDLE TokenHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenProcessTokenEx(
     IN HANDLE ProcessHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1873,16 +1747,15 @@ ZwOpenProcessTokenEx(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenSection(
     OUT PHANDLE SectionHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenSection(
     OUT PHANDLE SectionHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1890,16 +1763,15 @@ ZwOpenSection(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenSemaphore(
     OUT PHANDLE SemaphoreHandle,
     IN ACCESS_MASK DesiredAcces,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenSemaphore(
     OUT PHANDLE SemaphoreHandle,
     IN ACCESS_MASK DesiredAcces,
@@ -1907,16 +1779,15 @@ ZwOpenSemaphore(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenSymbolicLinkObject(
     OUT PHANDLE SymbolicLinkHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenSymbolicLinkObject(
     OUT PHANDLE SymbolicLinkHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1924,7 +1795,7 @@ ZwOpenSymbolicLinkObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenThread(
     OUT PHANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1932,9 +1803,8 @@ NtOpenThread(
     IN PCLIENT_ID ClientId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenThread(
     OUT PHANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1942,9 +1812,8 @@ ZwOpenThread(
     IN PCLIENT_ID ClientId
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenThreadToken(
     IN HANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1952,9 +1821,8 @@ NtOpenThreadToken(
     OUT PHANDLE TokenHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenThreadToken(
     IN HANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1962,9 +1830,8 @@ ZwOpenThreadToken(
     OUT PHANDLE TokenHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenThreadTokenEx(
     IN HANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1973,9 +1840,8 @@ NtOpenThreadTokenEx(
     OUT PHANDLE TokenHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenThreadTokenEx(
     IN HANDLE ThreadHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -1985,35 +1851,30 @@ ZwOpenThreadTokenEx(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenTimer(
     OUT PHANDLE TimerHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
-
-#ifdef NTOS_MODE_USER
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwOpenTimer(
     OUT PHANDLE TimerHandle,
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes
 );
-#endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtPlugPlayControl(
     IN PLUGPLAY_CONTROL_CLASS PlugPlayControlClass,
     IN OUT PVOID Buffer,
     IN ULONG BufferSize
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtPowerInformation(
     POWER_INFORMATION_LEVEL PowerInformationLevel,
     PVOID InputBuffer,
@@ -2022,9 +1883,8 @@ NtPowerInformation(
     ULONG OutputBufferLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwPowerInformation(
     POWER_INFORMATION_LEVEL PowerInformationLevel,
     PVOID InputBuffer,
@@ -2033,27 +1893,24 @@ ZwPowerInformation(
     ULONG OutputBufferLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtPrivilegeCheck(
     IN HANDLE ClientToken,
     IN PPRIVILEGE_SET RequiredPrivileges,
     IN PBOOLEAN Result
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwPrivilegeCheck(
     IN HANDLE ClientToken,
     IN PPRIVILEGE_SET RequiredPrivileges,
     IN PBOOLEAN Result
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtPrivilegedServiceAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PUNICODE_STRING ServiceName,
@@ -2062,9 +1919,8 @@ NtPrivilegedServiceAuditAlarm(
     IN BOOLEAN AccessGranted
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwPrivilegedServiceAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PUNICODE_STRING ServiceName,
@@ -2073,9 +1929,8 @@ ZwPrivilegedServiceAuditAlarm(
     IN BOOLEAN AccessGranted
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtPrivilegeObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -2085,9 +1940,8 @@ NtPrivilegeObjectAuditAlarm(
     IN BOOLEAN AccessGranted
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwPrivilegeObjectAuditAlarm(
     IN PUNICODE_STRING SubsystemName,
     IN PVOID HandleId,
@@ -2098,7 +1952,7 @@ ZwPrivilegeObjectAuditAlarm(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtProtectVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID *BaseAddress,
@@ -2107,9 +1961,8 @@ NtProtectVirtualMemory(
     OUT PULONG OldAccessProtection
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwProtectVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID *BaseAddress,
@@ -2119,30 +1972,28 @@ ZwProtectVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtPulseEvent(
     IN HANDLE EventHandle,
     IN PLONG PulseCount OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwPulseEvent(
     IN HANDLE EventHandle,
     IN PLONG PulseCount OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryAttributesFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     OUT PFILE_BASIC_INFORMATION FileInformation
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryAttributesFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     OUT PFILE_BASIC_INFORMATION FileInformation
@@ -2150,66 +2001,60 @@ ZwQueryAttributesFile(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryBootEntryOrder(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryBootEntryOrder(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryBootOptions(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryBootOptions(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
-
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryDefaultLocale(
     IN BOOLEAN UserProfile,
     OUT PLCID DefaultLocaleId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryDefaultLocale(
     IN BOOLEAN UserProfile,
     OUT PLCID DefaultLocaleId
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryDefaultUILanguage(
     PLANGID LanguageId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryDefaultUILanguage(
     PLANGID LanguageId
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryDirectoryFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -2224,9 +2069,8 @@ NtQueryDirectoryFile(
     IN BOOLEAN RestartScan
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryDirectoryFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -2242,7 +2086,7 @@ ZwQueryDirectoryFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryDirectoryObject(
     IN     HANDLE DirectoryHandle,
     OUT    PVOID Buffer,
@@ -2253,9 +2097,8 @@ NtQueryDirectoryObject(
     OUT    PULONG ReturnLength OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryDirectoryObject(
     IN     HANDLE DirectoryHandle,
     OUT    PVOID Buffer,
@@ -2267,7 +2110,7 @@ ZwQueryDirectoryObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryEaFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2280,10 +2123,8 @@ NtQueryEaFile(
     IN BOOLEAN RestartScan
 );
 
-#ifdef NTOS_MODE_USER
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryEaFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2295,10 +2136,9 @@ ZwQueryEaFile(
     IN PULONG EaIndex OPTIONAL,
     IN BOOLEAN RestartScan
 );
-#endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryEvent(
     IN HANDLE EventHandle,
     IN EVENT_INFORMATION_CLASS EventInformationClass,
@@ -2306,10 +2146,8 @@ NtQueryEvent(
     IN ULONG EventInformationLength,
     OUT PULONG ReturnLength
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryEvent(
     IN HANDLE EventHandle,
     IN EVENT_INFORMATION_CLASS EventInformationClass,
@@ -2319,22 +2157,21 @@ ZwQueryEvent(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryFullAttributesFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     OUT PFILE_NETWORK_OPEN_INFORMATION FileInformation
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryFullAttributesFile(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     OUT PFILE_NETWORK_OPEN_INFORMATION FileInformation
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationAtom(
     IN  RTL_ATOM Atom,
     IN  ATOM_INFORMATION_CLASS AtomInformationClass,
@@ -2343,9 +2180,8 @@ NtQueryInformationAtom(
     OUT PULONG ReturnLength OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationAtom(
     IN  RTL_ATOM Atom,
     IN  ATOM_INFORMATION_CLASS AtomInformationClass,
@@ -2354,9 +2190,8 @@ ZwQueryInformationAtom(
     OUT PULONG ReturnLength OPTIONAL
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2365,9 +2200,8 @@ NtQueryInformationFile(
     IN FILE_INFORMATION_CLASS FileInformationClass
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationFile(
     HANDLE FileHandle,
     PIO_STATUS_BLOCK IoStatusBlock,
@@ -2377,7 +2211,7 @@ ZwQueryInformationFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationJobObject(
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -2386,9 +2220,8 @@ NtQueryInformationJobObject(
     PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationJobObject(
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -2398,21 +2231,20 @@ ZwQueryInformationJobObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationPort(
     HANDLE PortHandle,
-    PORT_INFORMATION_CLASS PortInformationClass,
+    CINT PortInformationClass,
     PVOID PortInformation,
     ULONG PortInformationLength,
     PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationPort(
     HANDLE PortHandle,
-    PORT_INFORMATION_CLASS PortInformationClass,
+    CINT PortInformationClass,
     PVOID PortInformation,
     ULONG PortInformationLength,
     PULONG ReturnLength
@@ -2420,7 +2252,7 @@ ZwQueryInformationPort(
 
 #ifndef _NTDDK_
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationProcess(
     IN HANDLE  ProcessHandle,
     IN PROCESSINFOCLASS  ProcessInformationClass,
@@ -2429,9 +2261,8 @@ NtQueryInformationProcess(
     OUT PULONG  ReturnLength OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationProcess(
     IN HANDLE  ProcessHandle,
     IN PROCESSINFOCLASS  ProcessInformationClass,
@@ -2442,7 +2273,7 @@ ZwQueryInformationProcess(
 #endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationThread(
     IN HANDLE ThreadHandle,
     IN THREADINFOCLASS ThreadInformationClass,
@@ -2451,9 +2282,8 @@ NtQueryInformationThread(
     OUT PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationThread(
     IN HANDLE ThreadHandle,
     IN THREADINFOCLASS ThreadInformationClass,
@@ -2462,9 +2292,8 @@ ZwQueryInformationThread(
     OUT PULONG ReturnLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationToken(
     IN HANDLE TokenHandle,
     IN TOKEN_INFORMATION_CLASS TokenInformationClass,
@@ -2473,9 +2302,8 @@ NtQueryInformationToken(
     OUT PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInformationToken(
     IN HANDLE TokenHandle,
     IN TOKEN_INFORMATION_CLASS TokenInformationClass,
@@ -2485,35 +2313,33 @@ ZwQueryInformationToken(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInstallUILanguage(
     PLANGID LanguageId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryInstallUILanguage(
     PLANGID LanguageId
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryIntervalProfile(
     IN  KPROFILE_SOURCE ProfileSource,
     OUT PULONG Interval
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryIntervalProfile(
     OUT PULONG Interval,
     OUT KPROFILE_SOURCE ClockSource
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryIoCompletion(
     IN  HANDLE IoCompletionHandle,
     IN  IO_COMPLETION_INFORMATION_CLASS IoCompletionInformationClass,
@@ -2522,9 +2348,8 @@ NtQueryIoCompletion(
     OUT PULONG ResultLength OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryIoCompletion(
     IN  HANDLE IoCompletionHandle,
     IN  IO_COMPLETION_INFORMATION_CLASS IoCompletionInformationClass,
@@ -2534,7 +2359,7 @@ ZwQueryIoCompletion(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryKey(
     IN HANDLE KeyHandle,
     IN KEY_INFORMATION_CLASS KeyInformationClass,
@@ -2543,9 +2368,8 @@ NtQueryKey(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryKey(
     IN HANDLE KeyHandle,
     IN KEY_INFORMATION_CLASS KeyInformationClass,
@@ -2554,9 +2378,8 @@ ZwQueryKey(
     OUT PULONG ResultLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryQuotaInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2569,9 +2392,8 @@ NtQueryQuotaInformationFile(
     IN BOOLEAN RestartScan
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryQuotaInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2585,7 +2407,7 @@ ZwQueryQuotaInformationFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryMultipleValueKey(
     IN HANDLE KeyHandle,
     IN OUT PKEY_VALUE_ENTRY ValueList,
@@ -2595,9 +2417,8 @@ NtQueryMultipleValueKey(
     OUT PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryMultipleValueKey(
     IN HANDLE KeyHandle,
     IN OUT PKEY_VALUE_ENTRY ValueList,
@@ -2608,7 +2429,7 @@ ZwQueryMultipleValueKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryMutant(
     IN HANDLE MutantHandle,
     IN MUTANT_INFORMATION_CLASS MutantInformationClass,
@@ -2617,9 +2438,8 @@ NtQueryMutant(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryMutant(
     IN HANDLE MutantHandle,
     IN MUTANT_INFORMATION_CLASS MutantInformationClass,
@@ -2629,7 +2449,7 @@ ZwQueryMutant(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryObject(
     IN HANDLE ObjectHandle,
     IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
@@ -2638,9 +2458,8 @@ NtQueryObject(
     OUT PULONG ResultLength OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryObject(
     IN HANDLE ObjectHandle,
     IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
@@ -2650,22 +2469,21 @@ ZwQueryObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryPerformanceCounter(
     IN PLARGE_INTEGER Counter,
     IN PLARGE_INTEGER Frequency
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryPerformanceCounter(
     IN PLARGE_INTEGER Counter,
     IN PLARGE_INTEGER Frequency
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySection(
     IN HANDLE SectionHandle,
     IN SECTION_INFORMATION_CLASS SectionInformationClass,
@@ -2674,9 +2492,8 @@ NtQuerySection(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySection(
     IN HANDLE SectionHandle,
     IN SECTION_INFORMATION_CLASS SectionInformationClass,
@@ -2685,9 +2502,8 @@ ZwQuerySection(
     OUT PULONG ResultLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySecurityObject(
     IN HANDLE Handle,
     IN SECURITY_INFORMATION SecurityInformation,
@@ -2696,9 +2512,8 @@ NtQuerySecurityObject(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySecurityObject(
     IN HANDLE Handle,
     IN SECURITY_INFORMATION SecurityInformation,
@@ -2708,7 +2523,7 @@ ZwQuerySecurityObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySemaphore(
     IN  HANDLE SemaphoreHandle,
     IN  SEMAPHORE_INFORMATION_CLASS SemaphoreInformationClass,
@@ -2717,9 +2532,8 @@ NtQuerySemaphore(
     OUT PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySemaphore(
     IN  HANDLE SemaphoreHandle,
     IN  SEMAPHORE_INFORMATION_CLASS SemaphoreInformationClass,
@@ -2729,16 +2543,15 @@ ZwQuerySemaphore(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySymbolicLinkObject(
     IN HANDLE SymLinkObjHandle,
     OUT PUNICODE_STRING LinkTarget,
     OUT PULONG DataWritten OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySymbolicLinkObject(
     IN HANDLE SymLinkObjHandle,
     OUT PUNICODE_STRING LinkName,
@@ -2746,7 +2559,7 @@ ZwQuerySymbolicLinkObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySystemEnvironmentValue(
     IN PUNICODE_STRING Name,
     OUT PWSTR Value,
@@ -2754,9 +2567,8 @@ NtQuerySystemEnvironmentValue(
     PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySystemEnvironmentValue(
     IN PUNICODE_STRING Name,
     OUT PVOID Value,
@@ -2765,7 +2577,7 @@ ZwQuerySystemEnvironmentValue(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySystemInformation(
     IN  SYSTEM_INFORMATION_CLASS SystemInformationClass,
     OUT PVOID SystemInformation,
@@ -2773,9 +2585,8 @@ NtQuerySystemInformation(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySystemInformation(
     IN  SYSTEM_INFORMATION_CLASS SystemInformationClass,
     OUT PVOID SystemInformation,
@@ -2784,20 +2595,19 @@ ZwQuerySystemInformation(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQuerySystemTime(
     OUT PLARGE_INTEGER CurrentTime
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQuerySystemTime(
     OUT PLARGE_INTEGER CurrentTime
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryTimer(
     IN HANDLE TimerHandle,
     IN TIMER_INFORMATION_CLASS TimerInformationClass,
@@ -2806,9 +2616,8 @@ NtQueryTimer(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryTimer(
     IN HANDLE TimerHandle,
     IN TIMER_INFORMATION_CLASS TimerInformationClass,
@@ -2818,16 +2627,15 @@ ZwQueryTimer(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryTimerResolution(
     OUT PULONG MinimumResolution,
     OUT PULONG MaximumResolution,
     OUT PULONG ActualResolution
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryTimerResolution(
     OUT PULONG MinimumResolution,
     OUT PULONG MaximumResolution,
@@ -2835,7 +2643,7 @@ ZwQueryTimerResolution(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName,
@@ -2845,9 +2653,8 @@ NtQueryValueKey(
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName,
@@ -2858,31 +2665,29 @@ ZwQueryValueKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID Address,
-    IN MEMORY_INFORMATION_CLASS VirtualMemoryInformationClass,
+    IN IN CINT VirtualMemoryInformationClass,
     OUT PVOID VirtualMemoryInformation,
     IN ULONG Length,
     OUT PULONG ResultLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID Address,
-    IN MEMORY_INFORMATION_CLASS VirtualMemoryInformationClass,
+    IN IN CINT VirtualMemoryInformationClass,
     OUT PVOID VirtualMemoryInformation,
     IN ULONG Length,
     OUT PULONG ResultLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryVolumeInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2891,9 +2696,8 @@ NtQueryVolumeInformationFile(
     IN FS_INFORMATION_CLASS FsInformationClass
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueryVolumeInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -2903,7 +2707,7 @@ ZwQueryVolumeInformationFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueueApcThread(
     HANDLE ThreadHandle,
     PKNORMAL_ROUTINE ApcRoutine,
@@ -2912,9 +2716,8 @@ NtQueueApcThread(
     PVOID SystemArgument2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwQueueApcThread(
     HANDLE ThreadHandle,
     PKNORMAL_ROUTINE ApcRoutine,
@@ -2924,16 +2727,15 @@ ZwQueueApcThread(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRaiseException(
     IN PEXCEPTION_RECORD ExceptionRecord,
     IN PCONTEXT Context,
     IN BOOLEAN SearchFrames
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRaiseException(
     IN PEXCEPTION_RECORD ExceptionRecord,
     IN PCONTEXT Context,
@@ -2941,19 +2743,18 @@ ZwRaiseException(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRaiseHardError(
     IN NTSTATUS ErrorStatus,
     IN ULONG NumberOfParameters,
-    IN ULONG UnicodeStringParameterMask,
-    IN PULONG_PTR Parameters,
-    IN ULONG ValidResponseOptions,
-    OUT PULONG Response
-); 
+    IN PUNICODE_STRING UnicodeStringParameterMask OPTIONAL,
+    IN PVOID *Parameters,
+    IN HARDERROR_RESPONSE_OPTION ResponseOption,
+    OUT PHARDERROR_RESPONSE Response
+);
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRaiseHardError(
     IN NTSTATUS ErrorStatus,
     IN ULONG NumberOfParameters,
@@ -2963,9 +2764,8 @@ ZwRaiseHardError(
     OUT PHARDERROR_RESPONSE Response
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtReadFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -2978,9 +2778,8 @@ NtReadFile(
     IN PULONG Key OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReadFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -2994,7 +2793,7 @@ ZwReadFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReadFileScatter(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -3007,9 +2806,8 @@ NtReadFileScatter(
     IN PULONG Key OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReadFileScatter(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -3023,22 +2821,21 @@ ZwReadFileScatter(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReadRequestData(
     HANDLE PortHandle,
-    PPORT_MESSAGE Message,
+    PLPC_MESSAGE Message,
     ULONG Index,
     PVOID Buffer,
     ULONG BufferLength,
     PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReadRequestData(
     HANDLE PortHandle,
-    PPORT_MESSAGE Message,
+    PLPC_MESSAGE Message,
     ULONG Index,
     PVOID Buffer,
     ULONG BufferLength,
@@ -3046,7 +2843,7 @@ ZwReadRequestData(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReadVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
@@ -3054,10 +2851,8 @@ NtReadVirtualMemory(
     IN ULONG  NumberOfBytesToRead,
     OUT PULONG NumberOfBytesRead
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReadVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
@@ -3067,44 +2862,41 @@ ZwReadVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRegisterThreadTerminatePort(
     HANDLE TerminationPort
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRegisterThreadTerminatePort(
     HANDLE TerminationPort
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReleaseMutant(
     IN HANDLE MutantHandle,
     IN PLONG ReleaseCount OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReleaseMutant(
     IN HANDLE MutantHandle,
     IN PLONG ReleaseCount OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReleaseSemaphore(
     IN  HANDLE SemaphoreHandle,
     IN  LONG ReleaseCount,
     OUT PLONG PreviousCount
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReleaseSemaphore(
     IN  HANDLE SemaphoreHandle,
     IN  LONG ReleaseCount,
@@ -3112,7 +2904,7 @@ ZwReleaseSemaphore(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRemoveIoCompletion(
     IN  HANDLE IoCompletionHandle,
     OUT PVOID *CompletionKey,
@@ -3121,9 +2913,8 @@ NtRemoveIoCompletion(
     IN  PLARGE_INTEGER Timeout OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRemoveIoCompletion(
     IN  HANDLE IoCompletionHandle,
     OUT PVOID *CompletionKey,
@@ -3133,16 +2924,15 @@ ZwRemoveIoCompletion(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReplaceKey(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     IN HANDLE Key,
     IN POBJECT_ATTRIBUTES ReplacedObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReplaceKey(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     IN HANDLE Key,
@@ -3150,112 +2940,104 @@ ZwReplaceKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcReply
+    PLPC_MESSAGE LpcReply
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcReply
+    PLPC_MESSAGE LpcReply
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReplyWaitReceivePort(
     HANDLE PortHandle,
-    PVOID *PortContext OPTIONAL,
-    PPORT_MESSAGE ReplyMessage OPTIONAL,
-    PPORT_MESSAGE ReceiveMessage
+    PULONG PortId,
+    PLPC_MESSAGE MessageReply,
+    PLPC_MESSAGE MessageRequest
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReplyWaitReceivePort(
     HANDLE PortHandle,
-    PVOID *PortContext OPTIONAL,
-    PPORT_MESSAGE ReplyMessage,
-    PPORT_MESSAGE ReceiveMessage
+    PULONG PortId,
+    PLPC_MESSAGE MessageReply,
+    PLPC_MESSAGE MessageRequest
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtReplyWaitReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE ReplyMessage
+    PLPC_MESSAGE ReplyMessage
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwReplyWaitReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE ReplyMessage
+    PLPC_MESSAGE ReplyMessage
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRequestPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcMessage);
+    PLPC_MESSAGE LpcMessage);
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRequestPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcMessage
+    PLPC_MESSAGE LpcMessage
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtRequestWaitReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcReply,
-    PPORT_MESSAGE LpcRequest
+    PLPC_MESSAGE LpcReply,
+    PLPC_MESSAGE LpcRequest
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRequestWaitReplyPort(
     HANDLE PortHandle,
-    PPORT_MESSAGE LpcReply,
-    PPORT_MESSAGE LpcRequest
+    PLPC_MESSAGE LpcReply,
+    PLPC_MESSAGE LpcRequest
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtResetEvent(
     HANDLE EventHandle,
     PLONG NumberOfWaitingThreads OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwResetEvent(
     HANDLE EventHandle,
     PLONG NumberOfWaitingThreads OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRestoreKey(
     HANDLE KeyHandle,
     HANDLE FileHandle,
     ULONG RestoreFlags
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwRestoreKey(
     HANDLE KeyHandle,
     HANDLE FileHandle,
@@ -3263,184 +3045,139 @@ ZwRestoreKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtResumeThread(
     IN HANDLE ThreadHandle,
     OUT PULONG SuspendCount
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwResumeThread(
     IN HANDLE ThreadHandle,
     OUT PULONG SuspendCount
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtResumeProcess(
     IN HANDLE ProcessHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwResumeProcess(
     IN HANDLE ProcessHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSaveKey(
     IN HANDLE KeyHandle,
     IN HANDLE FileHandle
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSaveKey(
     IN HANDLE KeyHandle,
     IN HANDLE FileHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSaveKeyEx(
     IN HANDLE KeyHandle,
     IN HANDLE FileHandle,
     IN ULONG Flags
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSaveKeyEx(
     IN HANDLE KeyHandle,
     IN HANDLE FileHandle,
     IN ULONG Flags
 );
 
-
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
-NtSecureConnectPort(
-    PHANDLE PortHandle,
-    PUNICODE_STRING PortName,
-    PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-    PPORT_VIEW ClientView OPTIONAL,
-    PSID Sid OPTIONAL,
-    PREMOTE_PORT_VIEW ServerView OPTIONAL,
-    PULONG MaxMessageLength OPTIONAL,
-    PVOID ConnectionInformation OPTIONAL,
-    PULONG ConnectionInformationLength OPTIONAL
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwSecureConnectPort(
-    PHANDLE PortHandle,
-    PUNICODE_STRING PortName,
-    PSECURITY_QUALITY_OF_SERVICE SecurityQos,
-    PPORT_VIEW ClientView OPTIONAL,
-    PSID Sid OPTIONAL,
-    PREMOTE_PORT_VIEW ServerView OPTIONAL,
-    PULONG MaxMessageLength OPTIONAL,
-    PVOID ConnectionInformation OPTIONAL,
-    PULONG ConnectionInformationLength OPTIONAL
-);
-
-NTSTATUS
-NTAPI
+STDCALL
 NtSetBootEntryOrder(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetBootEntryOrder(
     IN ULONG Unknown1,
     IN ULONG Unknown2
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetBootOptions(
     ULONG Unknown1,
     ULONG Unknown2
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetBootOptions(
     ULONG Unknown1,
     ULONG Unknown2
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetContextThread(
     IN HANDLE ThreadHandle,
     IN PCONTEXT Context
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetContextThread(
     IN HANDLE ThreadHandle,
     IN PCONTEXT Context
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetDefaultLocale(
     IN BOOLEAN UserProfile,
     IN LCID DefaultLocaleId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetDefaultLocale(
     IN BOOLEAN UserProfile,
     IN LCID DefaultLocaleId
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetDefaultUILanguage(
     LANGID LanguageId
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetDefaultUILanguage(
     LANGID LanguageId
 );
-
 NTSTATUS
-NTAPI
+STDCALL
 NtSetDefaultHardErrorPort(
     IN HANDLE PortHandle
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetDefaultHardErrorPort(
     IN HANDLE PortHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetEaFile(
     IN HANDLE FileHandle,
     IN PIO_STATUS_BLOCK IoStatusBlock,
@@ -3448,61 +3185,53 @@ NtSetEaFile(
     ULONG EaBufferSize
 );
 
-#ifdef NTOS_MODE_USER
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetEaFile(
     IN HANDLE FileHandle,
     IN PIO_STATUS_BLOCK IoStatusBlock,
     PVOID EaBuffer,
     ULONG EaBufferSize
 );
-#endif
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetEvent(
     IN HANDLE EventHandle,
     OUT PLONG PreviousState  OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetEvent(
     IN HANDLE EventHandle,
     OUT PLONG PreviousState  OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetHighEventPair(
     IN HANDLE EventPairHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetHighEventPair(
     IN HANDLE EventPairHandle
 );
 NTSTATUS
-NTAPI
+STDCALL
 NtSetHighWaitLowEventPair(
     IN HANDLE EventPairHandle
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetHighWaitLowEventPair(
     IN HANDLE EventPairHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationFile(
     IN HANDLE FileHandle,
     IN PIO_STATUS_BLOCK IoStatusBlock,
@@ -3511,9 +3240,8 @@ NtSetInformationFile(
     IN FILE_INFORMATION_CLASS FileInformationClass
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationFile(
     IN HANDLE FileHandle,
     IN PIO_STATUS_BLOCK IoStatusBlock,
@@ -3523,7 +3251,7 @@ ZwSetInformationFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationJobObject(
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -3531,9 +3259,8 @@ NtSetInformationJobObject(
     ULONG JobInformationLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationJobObject(
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -3542,7 +3269,7 @@ ZwSetInformationJobObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationKey(
     IN HANDLE KeyHandle,
     IN KEY_SET_INFORMATION_CLASS KeyInformationClass,
@@ -3550,9 +3277,8 @@ NtSetInformationKey(
     IN ULONG KeyInformationLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationKey(
     IN HANDLE KeyHandle,
     IN KEY_SET_INFORMATION_CLASS KeyInformationClass,
@@ -3561,7 +3287,7 @@ ZwSetInformationKey(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationObject(
     IN HANDLE ObjectHandle,
     IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
@@ -3569,9 +3295,8 @@ NtSetInformationObject(
     IN ULONG Length
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationObject(
     IN HANDLE ObjectHandle,
     IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
@@ -3580,7 +3305,7 @@ ZwSetInformationObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationProcess(
     IN HANDLE ProcessHandle,
     IN PROCESSINFOCLASS ProcessInformationClass,
@@ -3588,19 +3313,16 @@ NtSetInformationProcess(
     IN ULONG ProcessInformationLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationThread(
     IN HANDLE ThreadHandle,
     IN THREADINFOCLASS ThreadInformationClass,
     IN PVOID ThreadInformation,
     IN ULONG ThreadInformationLength
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationThread(
     IN HANDLE ThreadHandle,
     IN THREADINFOCLASS ThreadInformationClass,
@@ -3608,9 +3330,8 @@ ZwSetInformationThread(
     IN ULONG ThreadInformationLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationToken(
     IN HANDLE TokenHandle,
     IN TOKEN_INFORMATION_CLASS TokenInformationClass,
@@ -3618,9 +3339,8 @@ NtSetInformationToken(
     IN ULONG TokenInformationLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetInformationToken(
     IN HANDLE TokenHandle,
     IN TOKEN_INFORMATION_CLASS TokenInformationClass,
@@ -3629,7 +3349,7 @@ ZwSetInformationToken(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetIoCompletion(
     IN HANDLE IoCompletionPortHandle,
     IN PVOID CompletionKey,
@@ -3638,9 +3358,8 @@ NtSetIoCompletion(
     IN ULONG CompletionInformation
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetIoCompletion(
     IN HANDLE IoCompletionPortHandle,
     IN PVOID CompletionKey,
@@ -3650,22 +3369,21 @@ ZwSetIoCompletion(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetIntervalProfile(
     ULONG Interval,
     KPROFILE_SOURCE ClockSource
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetIntervalProfile(
     ULONG Interval,
     KPROFILE_SOURCE ClockSource
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetLdtEntries(
     ULONG Selector1,
     LDT_ENTRY LdtEntry1,
@@ -3674,63 +3392,57 @@ NtSetLdtEntries(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetLowEventPair(
     HANDLE EventPair
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetLowEventPair(
     HANDLE EventPair
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetLowWaitHighEventPair(
     HANDLE EventPair
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetLowWaitHighEventPair(
     HANDLE EventPair
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetQuotaInformationFile(
     HANDLE FileHandle,
     PIO_STATUS_BLOCK IoStatusBlock,
-    PVOID Buffer,
+    PFILE_QUOTA_INFORMATION Buffer,
     ULONG BufferLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetQuotaInformationFile(
     HANDLE FileHandle,
     PIO_STATUS_BLOCK IoStatusBlock,
-    PVOID Buffer,
+    PFILE_QUOTA_INFORMATION Buffer,
     ULONG BufferLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetSecurityObject(
     IN HANDLE Handle,
     IN SECURITY_INFORMATION SecurityInformation,
     IN PSECURITY_DESCRIPTOR SecurityDescriptor
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetSecurityObject(
     IN HANDLE Handle,
     IN SECURITY_INFORMATION SecurityInformation,
@@ -3738,40 +3450,36 @@ ZwSetSecurityObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetSystemEnvironmentValue(
     IN PUNICODE_STRING VariableName,
     IN PUNICODE_STRING Value
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetSystemEnvironmentValue(
     IN PUNICODE_STRING VariableName,
     IN PUNICODE_STRING Value
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetSystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     IN PVOID SystemInformation,
     IN ULONG SystemInformationLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetSystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     IN PVOID SystemInformation,
     IN ULONG SystemInformationLength
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetSystemPowerState(
     IN POWER_ACTION SystemAction,
     IN SYSTEM_POWER_STATE MinSystemState,
@@ -3779,22 +3487,21 @@ NtSetSystemPowerState(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetSystemTime(
     IN PLARGE_INTEGER SystemTime,
     IN PLARGE_INTEGER NewSystemTime OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetSystemTime(
     IN PLARGE_INTEGER SystemTime,
     IN PLARGE_INTEGER NewSystemTime OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetTimer(
     IN HANDLE TimerHandle,
     IN PLARGE_INTEGER DueTime,
@@ -3806,16 +3513,15 @@ NtSetTimer(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetTimerResolution(
     IN ULONG RequestedResolution,
     IN BOOLEAN SetOrUnset,
     OUT PULONG ActualResolution
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetTimerResolution(
     IN ULONG RequestedResolution,
     IN BOOLEAN SetOrUnset,
@@ -3823,20 +3529,19 @@ ZwSetTimerResolution(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetUuidSeed(
     IN PUCHAR UuidSeed
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetUuidSeed(
     IN PUCHAR UuidSeed
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName,
@@ -3846,9 +3551,8 @@ NtSetValueKey(
     IN ULONG DataSize
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetValueKey(
     IN HANDLE KeyHandle,
     IN PUNICODE_STRING ValueName,
@@ -3858,9 +3562,8 @@ ZwSetValueKey(
     IN ULONG DataSize
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtSetVolumeInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -3869,9 +3572,8 @@ NtSetVolumeInformationFile(
     IN FS_INFORMATION_CLASS FsInformationClass
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSetVolumeInformationFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
@@ -3881,20 +3583,19 @@ ZwSetVolumeInformationFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtShutdownSystem(
     IN SHUTDOWN_ACTION Action
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwShutdownSystem(
     IN SHUTDOWN_ACTION Action
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSignalAndWaitForSingleObject(
     IN HANDLE SignalObject,
     IN HANDLE WaitObject,
@@ -3902,9 +3603,8 @@ NtSignalAndWaitForSingleObject(
     IN PLARGE_INTEGER Time
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSignalAndWaitForSingleObject(
     IN HANDLE SignalObject,
     IN HANDLE WaitObject,
@@ -3913,61 +3613,57 @@ ZwSignalAndWaitForSingleObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtStartProfile(
     HANDLE ProfileHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwStartProfile(
     HANDLE ProfileHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtStopProfile(
     HANDLE ProfileHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwStopProfile(
     HANDLE ProfileHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSuspendProcess(
     IN HANDLE ProcessHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSuspendProcess(
     IN HANDLE ProcessHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSuspendThread(
     IN HANDLE ThreadHandle,
     IN PULONG PreviousSuspendCount
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwSuspendThread(
     IN HANDLE ThreadHandle,
     IN PULONG PreviousSuspendCount
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSystemDebugControl(
     DEBUG_CONTROL_CODE ControlCode,
     PVOID InputBuffer,
@@ -3978,65 +3674,60 @@ NtSystemDebugControl(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTerminateProcess(
     IN HANDLE ProcessHandle,
     IN NTSTATUS ExitStatus
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTerminateProcess(
     IN HANDLE ProcessHandle,
     IN NTSTATUS ExitStatus
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTerminateThread(
     IN HANDLE ThreadHandle,
     IN NTSTATUS ExitStatus
 );
-
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTerminateThread(
     IN HANDLE ThreadHandle,
     IN NTSTATUS ExitStatus
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTerminateJobObject(
     HANDLE JobHandle,
     NTSTATUS ExitStatus
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTerminateJobObject(
     HANDLE JobHandle,
     NTSTATUS ExitStatus
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTestAlert(
     VOID
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTestAlert(
     VOID
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTraceEvent(
     IN ULONG TraceHandle,
     IN ULONG Flags,
@@ -4044,9 +3735,8 @@ NtTraceEvent(
     IN struct _EVENT_TRACE_HEADER* TraceHeader
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTraceEvent(
     IN ULONG TraceHandle,
     IN ULONG Flags,
@@ -4055,16 +3745,15 @@ ZwTraceEvent(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtTranslateFilePath(
     ULONG Unknown1,
     ULONG Unknown2,
     ULONG Unknown3
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwTranslateFilePath(
     ULONG Unknown1,
     ULONG Unknown2,
@@ -4072,55 +3761,51 @@ ZwTranslateFilePath(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtUnloadDriver(
     IN PUNICODE_STRING DriverServiceName
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwUnloadDriver(
     IN PUNICODE_STRING DriverServiceName
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtUnloadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwUnloadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtUnlockFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
     IN PLARGE_INTEGER ByteOffset,
     IN PLARGE_INTEGER Lenght,
-    OUT ULONG Key OPTIONAL
+    OUT PULONG Key OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwUnlockFile(
     IN HANDLE FileHandle,
     OUT PIO_STATUS_BLOCK IoStatusBlock,
     IN PLARGE_INTEGER ByteOffset,
     IN PLARGE_INTEGER Lenght,
-    OUT ULONG Key OPTIONAL
+    OUT PULONG Key OPTIONAL
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtUnlockVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
@@ -4128,9 +3813,8 @@ NtUnlockVirtualMemory(
     OUT PULONG NumberOfBytesUnlocked OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwUnlockVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress,
@@ -4139,29 +3823,28 @@ ZwUnlockVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtUnmapViewOfSection(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwUnmapViewOfSection(
     IN HANDLE ProcessHandle,
     IN PVOID BaseAddress
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtVdmControl(
     ULONG ControlCode,
     PVOID ControlData
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtW32Call(
     IN ULONG RoutineIndex,
     IN PVOID Argument,
@@ -4171,7 +3854,7 @@ NtW32Call(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWaitForMultipleObjects(
     IN ULONG Count,
     IN HANDLE Object[],
@@ -4180,9 +3863,8 @@ NtWaitForMultipleObjects(
     IN PLARGE_INTEGER Time
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWaitForMultipleObjects(
     IN ULONG Count,
     IN HANDLE Object[],
@@ -4192,16 +3874,15 @@ ZwWaitForMultipleObjects(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWaitForSingleObject(
     IN HANDLE Object,
     IN BOOLEAN Alertable,
     IN PLARGE_INTEGER Time
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWaitForSingleObject(
     IN HANDLE Object,
     IN BOOLEAN Alertable,
@@ -4209,34 +3890,31 @@ ZwWaitForSingleObject(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWaitHighEventPair(
     IN HANDLE EventPairHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWaitHighEventPair(
     IN HANDLE EventPairHandle
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWaitLowEventPair(
     IN HANDLE EventPairHandle
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWaitLowEventPair(
     IN HANDLE EventPairHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
-NTAPI
+STDCALL
 NtWriteFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -4249,9 +3927,8 @@ NtWriteFile(
     IN PULONG Key OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWriteFile(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -4265,7 +3942,7 @@ ZwWriteFile(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWriteFileGather(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -4278,9 +3955,8 @@ NtWriteFileGather(
     IN PULONG Key OPTIONAL
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWriteFileGather(
     IN HANDLE FileHandle,
     IN HANDLE Event OPTIONAL,
@@ -4294,22 +3970,21 @@ ZwWriteFileGather(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWriteRequestData(
     HANDLE PortHandle,
-    PPORT_MESSAGE Message,
+    PLPC_MESSAGE Message,
     ULONG Index,
     PVOID Buffer,
     ULONG BufferLength,
     PULONG ReturnLength
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWriteRequestData(
     HANDLE PortHandle,
-    PPORT_MESSAGE Message,
+    PLPC_MESSAGE Message,
     ULONG Index,
     PVOID Buffer,
     ULONG BufferLength,
@@ -4317,7 +3992,7 @@ ZwWriteRequestData(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWriteVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  BaseAddress,
@@ -4326,9 +4001,8 @@ NtWriteVirtualMemory(
     OUT PULONG NumberOfBytesWritten
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwWriteVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  BaseAddress,
@@ -4338,16 +4012,40 @@ ZwWriteVirtualMemory(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 NtYieldExecution(
     VOID
 );
 
-NTSYSAPI
 NTSTATUS
-NTAPI
+STDCALL
 ZwYieldExecution(
     VOID
 );
 
+
+static inline struct _PEB * NtCurrentPeb(void)
+{
+    struct _PEB * pPeb;
+
+#if defined(__GNUC__)
+
+    __asm__ __volatile__
+    (
+      "movl %%fs:0x30, %0\n" /* fs:30h == Teb->Peb */
+      : "=r" (pPeb) /* can't have two memory operands */
+      : /* no inputs */
+    );
+
+#elif defined(_MSC_VER)
+
+    __asm mov eax, fs:0x30;
+    __asm mov pPeb, eax
+
+#else
+#error Unknown compiler for inline assembler
+#endif
+
+    return pPeb;
+}
 #endif

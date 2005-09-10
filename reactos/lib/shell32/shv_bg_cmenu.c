@@ -43,14 +43,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 */
 typedef struct
 {
-	const IContextMenu2Vtbl *lpVtbl;
+	IContextMenu2Vtbl *lpVtbl;
 	IShellFolder*	pSFParent;
-	LONG		ref;
+	DWORD		ref;
 	BOOL		bDesktop;
 } BgCmImpl;
 
 
-static const IContextMenu2Vtbl cmvt;
+static struct IContextMenu2Vtbl cmvt;
 
 /**************************************************************************
 *   ISVBgCm_Constructor()
@@ -361,10 +361,6 @@ static HRESULT WINAPI ISVBgCm_fnInvokeCommand(
 	  {
 	    switch(LOWORD(lpcmi->lpVerb))
 	    {
-	      case FCIDM_SHVIEW_REFRESH:
-	        if (lpSV) IShellView_Refresh(lpSV);
-	        break;
-
 	      case FCIDM_SHVIEW_NEWFOLDER:
 	        DoNewFolder(iface, lpSV);
 		break;
@@ -449,7 +445,7 @@ static HRESULT WINAPI ISVBgCm_fnHandleMenuMsg(
 * IContextMenu2 VTable
 *
 */
-static const IContextMenu2Vtbl cmvt =
+static struct IContextMenu2Vtbl cmvt =
 {
 	ISVBgCm_fnQueryInterface,
 	ISVBgCm_fnAddRef,

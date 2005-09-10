@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID-keyed Type1 font loader (body).                                  */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -324,8 +324,8 @@
               if ( !name )
                 break;
 
-              if ( cur[0] == name[0]                                 &&
-                   len == (FT_PtrDist)ft_strlen( (const char*)name ) )
+              if ( cur[0] == name[0]                     &&
+                   len == ft_strlen( (const char*)name ) )
               {
                 FT_PtrDist  n;
 
@@ -536,11 +536,11 @@
       }
 
       if ( ft_isdigit( *p ) )
-        val = (FT_Byte)( *p - '0' );
+        val = *p - '0';
       else if ( *p >= 'a' && *p <= 'f' )
-        val = (FT_Byte)( *p - 'a' );
+        val = *p - 'a';
       else if ( *p >= 'A' && *p <= 'F' )
-        val = (FT_Byte)( *p - 'A' + 10 );
+        val = *p - 'A' + 10;
       else if ( *p == ' '  ||
                 *p == '\t' ||
                 *p == '\r' ||
@@ -563,14 +563,14 @@
       }
 
       if ( upper_nibble )
-        *d = (FT_Byte)( val << 4 );
+        *d = val << 4;
       else
       {
-        *d = (FT_Byte)( *d + val );
+        *d += val;
         d++;
       }
 
-      upper_nibble = (FT_Byte)( 1 - upper_nibble );
+      upper_nibble = 1 - upper_nibble;
 
       if ( done )
         break;

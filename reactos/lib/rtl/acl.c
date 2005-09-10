@@ -1,13 +1,17 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * PURPOSE:         Security manager
- * FILE:            lib/rtl/acl.c
- * PROGRAMER:       David Welch <welch@cwcom.net>
+/* $Id$
+ *
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Security manager
+ * FILE:              lib/rtl/acl.c
+ * PROGRAMER:         David Welch <welch@cwcom.net>
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -65,7 +69,7 @@ RtlFirstFreeAce(PACL Acl,
 NTSTATUS STDCALL
 RtlGetAce(PACL Acl,
           ULONG AceIndex,
-          PVOID *Ace)
+          PACE *Ace)
 {
    ULONG i;
 
@@ -78,7 +82,7 @@ RtlGetAce(PACL Acl,
       return(STATUS_INVALID_PARAMETER);
    }
    
-   *Ace = (PVOID)((PACE)(Acl + 1));
+   *Ace = (PACE)(Acl + 1);
 
    for (i = 0; i < AceIndex; i++)
    {
@@ -86,7 +90,7 @@ RtlGetAce(PACL Acl,
       {
          return(STATUS_INVALID_PARAMETER);
       }
-      *Ace = (PVOID)((PACE)((ULONG_PTR)(*Ace) + ((PACE)(*Ace))->Header.AceSize));
+      *Ace = (PACE)((ULONG_PTR)(*Ace) + (*Ace)->Header.AceSize);
    }
 
    if ((ULONG_PTR)*Ace >= (ULONG_PTR)Acl + Acl->AclSize)
@@ -258,7 +262,7 @@ NTSTATUS STDCALL
 RtlAddAce(PACL Acl,
           ULONG AclRevision,
           ULONG StartingIndex,
-          PVOID AceList,
+          PACE AceList,
           ULONG AceListLength)
 {
    PACE Ace;
@@ -290,7 +294,7 @@ RtlAddAce(PACL Acl,
         Current = (PACE)((ULONG_PTR)Current + Current->Header.AceSize),
         ++NewAceCount)
    {
-      if (((PACE)AceList)->Header.AceType == ACCESS_ALLOWED_COMPOUND_ACE_TYPE &&
+      if (AceList->Header.AceType == ACCESS_ALLOWED_COMPOUND_ACE_TYPE &&
           AclRevision < ACL_REVISION3)
       {
          return(STATUS_INVALID_PARAMETER);

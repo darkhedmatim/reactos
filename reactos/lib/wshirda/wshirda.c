@@ -9,8 +9,6 @@
  */
 #include "wshirda.h"
 
-#include <debug.h>
-
 #ifdef DBG
 
 /* See debug.h for debug/trace constants */

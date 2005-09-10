@@ -29,6 +29,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
+#include <ddk/core.h>
 #define NDEBUG
 #include <internal/debug.h>
 
@@ -651,7 +652,7 @@ MmInitializeCrashDump(HANDLE PageFileHandle, ULONG PageFileNum)
    UNICODE_STRING DiskDumpName = RTL_CONSTANT_STRING(L"DiskDump");
    ANSI_STRING ProcName;
    PIO_STACK_LOCATION StackPtr;
-   PLDR_DATA_TABLE_ENTRY ModuleObject;
+   PMODULE_OBJECT ModuleObject;
 
    Status = ZwFsControlFile(PageFileHandle,
                             0,
@@ -730,7 +731,7 @@ MmInitializeCrashDump(HANDLE PageFileHandle, ULONG PageFileNum)
       return(STATUS_OBJECT_NAME_NOT_FOUND);
    }
    RtlInitAnsiString(&ProcName, "DiskDumpFunctions");
-   Status = LdrGetProcedureAddress(ModuleObject->DllBase,
+   Status = LdrGetProcedureAddress(ModuleObject->Base,
                                    &ProcName,
                                    0,
                                    (PVOID*)&MmCoreDumpFunctions);
@@ -801,12 +802,18 @@ NtCreatePagingFile(IN PUNICODE_STRING FileName,
    {
       return(Status);
    }
-   if (PreviousMode != KernelMode)
+   if (PreviousMode == UserMode)
    {
       _SEH_TRY
       {
-         SafeInitialSize = ProbeForReadLargeInteger(InitialSize);
-         SafeMaximumSize = ProbeForReadLargeInteger(MaximumSize);
+         ProbeForRead(InitialSize,
+                      sizeof(LARGE_INTEGER),
+                      sizeof(ULONG));
+         SafeInitialSize = *InitialSize;
+         ProbeForRead(MaximumSize,
+                      sizeof(LARGE_INTEGER),
+                      sizeof(ULONG));
+         SafeMaximumSize = *MaximumSize;
       }
       _SEH_HANDLE
       {

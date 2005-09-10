@@ -35,23 +35,11 @@ BOOL STDCALL
 NtGdiSetEmptyRect(PRECT UnsafeRect)
 {
   RECT Rect;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   IntGdiSetEmptyRect(&Rect);
 
-  _SEH_TRY
-  {
-    ProbeForWrite(UnsafeRect,
-                  sizeof(RECT),
-                  1);
-    *UnsafeRect = Rect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
+  Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -70,21 +58,10 @@ IntGdiIsEmptyRect(const RECT* Rect)
 BOOL STDCALL
 NtGdiIsEmptyRect(const RECT* UnsafeRect)
 {
-  RECT Rect = {0};
-  NTSTATUS Status = STATUS_SUCCESS;
+  RECT Rect;
+  NTSTATUS Status;
 
-  _SEH_TRY
-  {
-    ProbeForRead(UnsafeRect,
-                 sizeof(RECT),
-                 1);
-    Rect = *UnsafeRect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyFromCaller(&Rect, UnsafeRect, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -107,20 +84,9 @@ BOOL STDCALL
 NtGdiOffsetRect(LPRECT UnsafeRect, INT x, INT y)
 {
   RECT Rect;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
-  _SEH_TRY
-  {
-    ProbeForRead(UnsafeRect,
-                 sizeof(RECT),
-                 1);
-    Rect = *UnsafeRect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyFromCaller(&Rect, UnsafeRect, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -129,18 +95,7 @@ NtGdiOffsetRect(LPRECT UnsafeRect, INT x, INT y)
 
   IntGdiOffsetRect(&Rect, x, y);
 
-  _SEH_TRY
-  {
-    ProbeForWrite(UnsafeRect,
-                  sizeof(RECT),
-                  1);
-    *UnsafeRect = Rect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -187,25 +142,16 @@ BOOL STDCALL
 NtGdiUnionRect(PRECT UnsafeDest, const RECT* UnsafeSrc1, const RECT* UnsafeSrc2)
 {
   RECT Dest, Src1, Src2;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   BOOL Ret;
 
-  _SEH_TRY
-  {
-    ProbeForRead(UnsafeSrc1,
-                 sizeof(RECT),
-                 1);
-    ProbeForRead(UnsafeSrc2,
-                 sizeof(RECT),
-                 1);
-    Src1 = *UnsafeSrc1;
-    Src2 = *UnsafeSrc2;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyFromCaller(&Src1, UnsafeSrc1, sizeof(RECT));
+  if (! NT_SUCCESS(Status))
+    {
+      SetLastNtError(Status);
+      return FALSE;
+    }
+  Status = MmCopyFromCaller(&Src2, UnsafeSrc2, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -216,18 +162,7 @@ NtGdiUnionRect(PRECT UnsafeDest, const RECT* UnsafeSrc1, const RECT* UnsafeSrc2)
 
   if (Ret)
     {
-      _SEH_TRY
-      {
-        ProbeForWrite(UnsafeDest,
-                      sizeof(RECT),
-                      1);
-        *UnsafeDest = Dest;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      Status = MmCopyToCaller(UnsafeDest, &Dest, sizeof(RECT));
       if (! NT_SUCCESS(Status))
         {
           SetLastNtError(Status);
@@ -251,22 +186,11 @@ BOOL STDCALL
 NtGdiSetRect(PRECT UnsafeRect, INT left, INT top, INT right, INT bottom)
 {
   RECT Rect;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   IntGdiSetRect(&Rect, left, top, right, bottom);
 
-  _SEH_TRY
-  {
-    ProbeForWrite(UnsafeRect,
-                  sizeof(RECT),
-                  1);
-    *UnsafeRect = Rect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyToCaller(UnsafeRect, &Rect, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -299,25 +223,16 @@ BOOL STDCALL
 NtGdiIntersectRect(PRECT UnsafeDest, const RECT* UnsafeSrc1, const RECT* UnsafeSrc2)
 {
   RECT Dest, Src1, Src2;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   BOOL Ret;
 
-  _SEH_TRY
-  {
-    ProbeForRead(UnsafeSrc1,
-                 sizeof(RECT),
-                 1);
-    ProbeForRead(UnsafeSrc2,
-                 sizeof(RECT),
-                 1);
-    Src1 = *UnsafeSrc1;
-    Src2 = *UnsafeSrc2;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
+  Status = MmCopyFromCaller(&Src1, UnsafeSrc1, sizeof(RECT));
+  if (! NT_SUCCESS(Status))
+    {
+      SetLastNtError(Status);
+      return FALSE;
+    }
+  Status = MmCopyFromCaller(&Src2, UnsafeSrc2, sizeof(RECT));
   if (! NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -328,18 +243,7 @@ NtGdiIntersectRect(PRECT UnsafeDest, const RECT* UnsafeSrc1, const RECT* UnsafeS
 
   if (Ret)
     {
-      _SEH_TRY
-      {
-        ProbeForWrite(UnsafeDest,
-                      sizeof(RECT),
-                      1);
-        *UnsafeDest = Dest;
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
+      Status = MmCopyToCaller(UnsafeDest, &Dest, sizeof(RECT));
       if (! NT_SUCCESS(Status))
         {
           SetLastNtError(Status);

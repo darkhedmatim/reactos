@@ -12,6 +12,7 @@
 115 stub -noname CreateFromDesktop
 116 stub -noname DDECreatePostNotify
 117 stub -noname DDEHandleViewFolderNotify
+@ stub IEAboutBox
 118 stdcall -noname ShellDDEInit(long)
 119 stub -noname SHCreateDesktop
 120 stub -noname SHDesktopMessageLoop
@@ -102,12 +103,12 @@
 229 stub -noname SafeOpenPromptForPackager
 
 @ stdcall -private DllCanUnloadNow()
-@ stdcall -private DllGetClassObject(ptr ptr ptr)
+@ stdcall -private DllGetClassObject(long long ptr)
 @ stdcall -private DllGetVersion(ptr)
 @ stdcall -private DllInstall(long wstr)
 @ stdcall -private DllRegisterServer()
-@ stub DllRegisterWindowClasses
 @ stdcall -private DllUnregisterServer()
+@ stub DllRegisterWindowClasses
 @ stub DoAddToFavDlg
 @ stub DoAddToFavDlgW
 @ stub DoFileDownload
@@ -117,10 +118,9 @@
 @ stub DoPrivacyDlg
 @ stub HlinkFrameNavigate
 @ stub HlinkFrameNavigateNHL
-@ stub IEAboutBox
-@ stub IEWriteErrorLog
 @ stub ImportPrivacySettings
 @ stub InstallReg_RunDLL
+@ stub IEWriteErrorLog
 @ stdcall OpenURL(long long str long)
 @ stub SHGetIDispatchForFolder
 @ stdcall SetQueryNetSessionCount(long)

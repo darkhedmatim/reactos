@@ -16,7 +16,7 @@
 /* PROTOTYPES ****************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 SeCaptureSecurityDescriptor(
     IN PSECURITY_DESCRIPTOR OriginalSecurityDescriptor,
     IN KPROCESSOR_MODE CurrentMode,
@@ -26,20 +26,7 @@ SeCaptureSecurityDescriptor(
 );
 
 NTSTATUS
-NTAPI
-SeCreateAccessState(
-    PACCESS_STATE AccessState,
-    PAUX_DATA AuxData,
-    ACCESS_MASK Access,
-    PGENERIC_MAPPING GenericMapping
-);
-
-VOID
-NTAPI
-SeDeleteAccessState(IN PACCESS_STATE AccessState);
-
-NTSTATUS
-NTAPI
+STDCALL
 SeReleaseSecurityDescriptor(
     IN PSECURITY_DESCRIPTOR CapturedSecurityDescriptor,
     IN KPROCESSOR_MODE CurrentMode,
@@ -47,7 +34,7 @@ SeReleaseSecurityDescriptor(
 );
 
 SECURITY_IMPERSONATION_LEVEL
-NTAPI
+STDCALL
 SeTokenImpersonationLevel(
     IN PACCESS_TOKEN Token
 );

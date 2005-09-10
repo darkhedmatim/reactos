@@ -1,5 +1,3 @@
-#include <windef.h>
-#include <wingdi.h>
 #include <ddk/ntddk.h>
 #include <ddk/ntddvdeo.h>
 #include <ddk/winddi.h>

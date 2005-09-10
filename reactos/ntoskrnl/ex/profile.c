@@ -74,7 +74,6 @@ ExpDeleteProfile(PVOID ObjectBody)
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpInitializeProfileImplementation(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -94,6 +93,7 @@ ExpInitializeProfileImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.DeleteProcedure = ExpDeleteProfile;
     ObjectTypeInitializer.ValidAccessMask = STANDARD_RIGHTS_ALL;
+    ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExProfileObjectType);
 }
 
@@ -126,7 +126,9 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(ProfileHandle);
+            ProbeForWrite(ProfileHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
 
             ProbeForWrite(Buffer,
                           BufferSize,
@@ -236,9 +238,13 @@ NtQueryPerformanceCounter(OUT PLARGE_INTEGER PerformanceCounter,
 
         _SEH_TRY {
 
-            ProbeForWriteLargeInteger(PerformanceCounter);
+            ProbeForWrite(PerformanceCounter,
+                          sizeof(LARGE_INTEGER),
+                          sizeof(ULONG));
 
-            ProbeForWriteLargeInteger(PerformanceFrequency);
+            ProbeForWrite(PerformanceFrequency,
+                          sizeof(LARGE_INTEGER),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -406,7 +412,9 @@ NtQueryIntervalProfile(IN  KPROFILE_SOURCE ProfileSource,
 
         _SEH_TRY {
 
-            ProbeForWriteUlong(Interval);
+            ProbeForWrite(Interval,
+                          sizeof(ULONG),
+                          sizeof(ULONG));
 
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 

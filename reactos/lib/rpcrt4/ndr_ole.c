@@ -79,7 +79,7 @@ static HMODULE LoadCOM(void)
  * (which also implements the MInterfacePointer structure) */
 typedef struct RpcStreamImpl
 {
-  const IStreamVtbl *lpVtbl;
+  IStreamVtbl *lpVtbl;
   DWORD RefCount;
   PMIDL_STUB_MESSAGE pMsg;
   LPDWORD size;
@@ -126,18 +126,13 @@ static HRESULT WINAPI RpcStream_Read(LPSTREAM iface,
                                     ULONG *pcbRead)
 {
   RpcStreamImpl *This = (RpcStreamImpl *)iface;
-  HRESULT hr = S_OK;
-  if (This->pos + cb > *This->size)
-  {
-    cb = *This->size - This->pos;
-    hr = S_FALSE;
-  }
+  if (This->pos + cb > *This->size) cb = *This->size - This->pos;
   if (cb) {
     memcpy(pv, This->data + This->pos, cb);
     This->pos += cb;
   }
   if (pcbRead) *pcbRead = cb;
-  return hr;
+  return S_OK;
 }
 
 static HRESULT WINAPI RpcStream_Write(LPSTREAM iface,
@@ -146,8 +141,6 @@ static HRESULT WINAPI RpcStream_Write(LPSTREAM iface,
                                      ULONG *pcbWritten)
 {
   RpcStreamImpl *This = (RpcStreamImpl *)iface;
-  if (This->data + cb > (char *)This->pMsg->BufferEnd)
-    return STG_E_MEDIUMFULL;
   memcpy(This->data + This->pos, pv, cb);
   This->pos += cb;
   if (This->pos > *This->size) *This->size = This->pos;
@@ -189,7 +182,7 @@ static HRESULT WINAPI RpcStream_SetSize(LPSTREAM iface,
   return S_OK;
 }
 
-static const IStreamVtbl RpcStream_Vtbl =
+static IStreamVtbl RpcStream_Vtbl =
 {
   RpcStream_QueryInterface,
   RpcStream_AddRef,
@@ -223,7 +216,7 @@ static LPSTREAM RpcStream_Create(PMIDL_STUB_MESSAGE pStubMsg, BOOL init)
   return (LPSTREAM)This;
 }
 
-static const IID* get_ip_iid(PMIDL_STUB_MESSAGE pStubMsg, unsigned char *pMemory, PFORMAT_STRING pFormat)
+const IID* get_ip_iid(PMIDL_STUB_MESSAGE pStubMsg, unsigned char *pMemory, PFORMAT_STRING pFormat)
 {
   const IID *riid;
   if (!pFormat) return &IID_IUnknown;
@@ -254,15 +247,11 @@ unsigned char * WINAPI NdrInterfacePointerMarshall(PMIDL_STUB_MESSAGE pStubMsg,
   TRACE("(%p,%p,%p)\n", pStubMsg, pMemory, pFormat);
   pStubMsg->MaxCount = 0;
   if (!LoadCOM()) return NULL;
-  if (pStubMsg->Buffer + sizeof(DWORD) < pStubMsg->BufferEnd) {
-    stream = RpcStream_Create(pStubMsg, TRUE);
-    if (stream) {
-      hr = COM_MarshalInterface(stream, riid, (LPUNKNOWN)pMemory,
-                                pStubMsg->dwDestContext, pStubMsg->pvDestContext,
-                                MSHLFLAGS_NORMAL);
-      IStream_Release(stream);
-    }
-  }
+  stream = RpcStream_Create(pStubMsg, TRUE);
+  hr = COM_MarshalInterface(stream, riid, (LPUNKNOWN)pMemory,
+                           pStubMsg->dwDestContext, pStubMsg->pvDestContext,
+                           MSHLFLAGS_NORMAL);
+  IStream_Release(stream);
   return NULL;
 }
 
@@ -280,13 +269,9 @@ unsigned char * WINAPI NdrInterfacePointerUnmarshall(PMIDL_STUB_MESSAGE pStubMsg
   TRACE("(%p,%p,%p,%d)\n", pStubMsg, ppMemory, pFormat, fMustAlloc);
   if (!LoadCOM()) return NULL;
   *(LPVOID*)ppMemory = NULL;
-  if (pStubMsg->Buffer + sizeof(DWORD) < pStubMsg->BufferEnd) {
-    stream = RpcStream_Create(pStubMsg, FALSE);
-    if (stream) {
-      hr = COM_UnmarshalInterface(stream, &IID_NULL, (LPVOID*)ppMemory);
-      IStream_Release(stream);
-    }
-  }
+  stream = RpcStream_Create(pStubMsg, FALSE);
+  hr = COM_UnmarshalInterface(stream, &IID_NULL, (LPVOID*)ppMemory);
+  IStream_Release(stream);
   return NULL;
 }
 
@@ -307,7 +292,7 @@ void WINAPI NdrInterfacePointerBufferSize(PMIDL_STUB_MESSAGE pStubMsg,
                             pStubMsg->dwDestContext, pStubMsg->pvDestContext,
                             MSHLFLAGS_NORMAL);
   TRACE("size=%ld\n", size);
-  if (size) pStubMsg->BufferLength += sizeof(DWORD) + size;
+  pStubMsg->BufferLength += sizeof(DWORD) + size;
 }
 
 /***********************************************************************

@@ -214,6 +214,33 @@ NdisIMSwitchToMiniport(
  */
 VOID
 EXPORT
+NdisInitializeInterrupt(
+    OUT     PNDIS_STATUS                Status,
+    IN OUT  PNDIS_INTERRUPT             Interrupt,
+    IN      NDIS_HANDLE                 NdisAdapterHandle,
+    IN      PNDIS_INTERRUPT_SERVICE     InterruptServiceRoutine,
+    IN      PVOID                       InterruptContext,
+    IN      PNDIS_DEFERRED_PROCESSING   DeferredProcessingRoutine,
+    IN      UINT                        InterruptVector,
+    IN      UINT                        InterruptLevel,
+    IN      BOOLEAN                     SharedInterrupt,
+    IN      NDIS_INTERRUPT_MODE         InterruptMode)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 4.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
 NdisMapIoSpace(
     OUT PNDIS_STATUS            Status,
     OUT PVOID                   *VirtualAddress,
@@ -348,8 +375,49 @@ NdisRegisterAdapterShutdownHandler(
  */
 VOID
 EXPORT
+NdisRegisterMac(
+    OUT PNDIS_STATUS                Status,
+    OUT PNDIS_HANDLE                NdisMacHandle,
+    IN  NDIS_HANDLE                 NdisWrapperHandle,
+    IN  NDIS_HANDLE                 MacMacContext,
+    IN  PNDIS_MAC_CHARACTERISTICS   MacCharacteristics,
+    IN  UINT                        CharacteristicsLength)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 4.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
 NdisReleaseAdapterResources(
     IN  NDIS_HANDLE NdisAdapterHandle)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 4.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisRemoveInterrupt(
+    IN  PNDIS_INTERRUPT Interrupt)
 /*
  * FUNCTION:
  * ARGUMENTS:
@@ -384,10 +452,11 @@ NdisSetupDmaTransfer(
 }
 
 
-/*
- * @implemented
- */
 #undef NdisUpdateSharedMemory
+
+/*
+ * @unimplemented
+ */
 VOID
 EXPORT
 NdisUpdateSharedMemory(
@@ -402,7 +471,7 @@ NdisUpdateSharedMemory(
  *    NDIS 4.0
  */
 {
-    /* No-op. */
+    UNIMPLEMENTED
 }
 
 /* EOF */

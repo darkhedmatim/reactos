@@ -290,11 +290,9 @@ ERRCODES_RC = lib$(SEP)kernel32$(SEP)errcodes.rc
 
 include lib/lib.mak
 include tools/tools.mak
-include boot/freeldr/bootsect/bootsect.mak
 -include makefile.auto
 
 PREAUTO := \
-	$(BIN2C_TARGET) \
 	$(BIN2RES_TARGET) \
 	$(BUILDNO_H) \
 	$(BUGCODES_H) \
@@ -308,10 +306,6 @@ makefile.auto: $(RBUILD_TARGET) $(PREAUTO) $(XMLBUILDFILES)
 	$(ECHO_RBUILD)
 	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) mingw
 
-.PHONY: msvc
-msvc: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) msvc
 
 $(BUGCODES_H) $(BUGCODES_RC): $(WMC_TARGET) $(NTOSKRNL_MC)
 	$(ECHO_WMC)

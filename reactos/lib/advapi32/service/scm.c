@@ -12,7 +12,7 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <advapi32.h>
+#include "advapi32.h"
 #include "svcctl_c.h"
 
 #define NDEBUG
@@ -192,25 +192,6 @@ ControlService(SC_HANDLE        hService,
 
   return TRUE;
 }
-
-
-/**********************************************************************
- *  ControlServiceEx
- *
- * @unimplemented
- */
-BOOL STDCALL
-ControlServiceEx(IN SC_HANDLE hService,
-                 IN DWORD dwControl,
-                 IN DWORD dwInfoLevel,
-                 IN OUT PVOID pControlParams)
-{
-    DPRINT1("ControlServiceEx(0x%p, 0x%x, 0x%x, 0x%p) UNIMPLEMENTED!\n",
-            hService, dwControl, dwInfoLevel, pControlParams);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
-}
-
 
 
 /**********************************************************************
@@ -947,9 +928,7 @@ UnlockServiceDatabase(SC_LOCK ScLock)
 {
   DWORD dwError;
 
-#if 0
   DPRINT("UnlockServiceDatabase(%x)\n", hSCManager);
-#endif
 
   HandleBind();
 

@@ -4,8 +4,8 @@
 /*                                                                         */
 /*    Amiga-specific FreeType low-level system interface (body).           */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2005 by                                     */
-/*  David Turner, Robert Wilhelm, Werner Lemberg and Detlef Würkner.       */
+/*  Copyright 1996-2001, 2002 by                                           */
+/*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
 /*  modified, and distributed under the terms of the FreeType project      */
@@ -24,58 +24,66 @@
   /*************************************************************************/
 
 
-  /*************************************************************************/
-  /*                                                                       */
-  /* Maintained by Detlef Würkner <TetiSoft@apg.lahn.de>                   */
-  /*                                                                       */
-  /* Based on the original ftsystem.c,                                     */
-  /* modified to avoid fopen(), fclose(), fread(), fseek(), ftell(),       */
-  /* malloc(), realloc(), and free().                                      */
-  /*                                                                       */
-  /* Those C library functions are often not thread-safe or cant be        */
-  /* used in a shared Amiga library. If thats not a problem for you,       */
-  /* you can of course use the default ftsystem.c with C library calls     */
-  /* instead.                                                              */
-  /*                                                                       */
-  /* This implementation needs exec V39+ because it uses AllocPooled() etc */
-  /*                                                                       */
-  /*************************************************************************/
+// Maintained by Detlef Würkner <TetiSoft@apg.lahn.de>
 
-#define __NOLIBBASE__
-#define __NOGLOBALIFACE__
-#define __USE_INLINE__
-#include <proto/exec.h>
-#include <dos/stdio.h>
-#include <proto/dos.h>
-#ifdef __amigaos4__
-extern struct ExecIFace *IExec;
-extern struct DOSIFace  *IDOS;
-#else
-extern struct Library   *SysBase;
-extern struct Library   *DOSBase;
+// TetiSoft: Modified to avoid fopen() fclose() fread() fseek() ftell()
+// malloc() realloc() and free() which can't be used in an amiga
+// shared run-time library linked with libinit.o
+
+#include <exec/memory.h>
+
+#ifdef __GNUC__
+// Avoid warnings "struct X declared inside parameter list"
+#include <exec/devices.h>
+#include <exec/io.h>
+#include <exec/semaphores.h>
+#include <dos/exall.h>
 #endif
 
-#define IOBUF_SIZE 512
+// Necessary with OS3.9 includes
+#define __USE_SYSBASE
 
-/* structure that helps us to avoid
- * useless calls of Seek() and Read()
+#include <proto/exec.h>
+#include <proto/dos.h>
+
+#ifndef __GNUC__
+/* TetiSoft: Missing in alib_protos.h, see amiga.lib autodoc
+ * (These amiga.lib functions work under AmigaOS V33 and up)
  */
-struct SysFile
-{
-  BPTR  file;
-  ULONG iobuf_start;
-  ULONG iobuf_end;
-  UBYTE iobuf[IOBUF_SIZE];
-};
+extern APTR __asm
+AsmCreatePool( register __d0 ULONG             memFlags,
+               register __d1 ULONG             puddleSize,
+               register __d2 ULONG             threshSize,
+               register __a6 struct ExecBase*  SysBase );
 
-#ifndef __amigaos4__
-/* C implementation of AllocVecPooled (see autodoc exec/AllocPooled) */
+extern VOID __asm
+AsmDeletePool( register __a0 APTR              poolHeader,
+               register __a6 struct ExecBase*  SysBase );
+
+extern APTR __asm
+AsmAllocPooled( register __a0 APTR              poolHeader,
+                register __d0 ULONG             memSize,
+                register __a6 struct ExecBase*  SysBase );
+
+extern VOID __asm
+AsmFreePooled( register __a0 APTR              poolHeader,
+               register __a1 APTR              memory,
+               register __d0 ULONG             memSize,
+               register __a6 struct ExecBase*  SysBase);
+#endif
+
+
+// TetiSoft: C implementation of AllocVecPooled (see autodoc exec/AllocPooled)
 APTR
-Alloc_VecPooled( APTR   poolHeader,
-                 ULONG  memSize )
+AllocVecPooled( APTR   poolHeader,
+                ULONG  memSize )
 {
   ULONG  newSize = memSize + sizeof ( ULONG );
+#ifdef __GNUC__
   ULONG  *mem = AllocPooled( poolHeader, newSize );
+#else
+  ULONG  *mem = AsmAllocPooled( poolHeader, newSize, SysBase );
+#endif
 
   if ( !mem )
     return NULL;
@@ -83,16 +91,21 @@ Alloc_VecPooled( APTR   poolHeader,
   return mem + 1;
 }
 
-/* C implementation of FreeVecPooled (see autodoc exec/AllocPooled) */
+
+// TetiSoft: C implementation of FreeVecPooled (see autodoc exec/AllocPooled)
 void
-Free_VecPooled( APTR  poolHeader,
-                APTR  memory )
+FreeVecPooled( APTR  poolHeader,
+               APTR  memory )
 {
   ULONG  *realmem = (ULONG *)memory - 1;
 
+#ifdef __GNUC__
   FreePooled( poolHeader, realmem, *realmem );
-}
+#else
+ AsmFreePooled( poolHeader, realmem, *realmem, SysBase );
 #endif
+}
+
 
 #include <ft2build.h>
 #include FT_CONFIG_CONFIG_H
@@ -141,11 +154,10 @@ Free_VecPooled( APTR  poolHeader,
   ft_alloc( FT_Memory  memory,
             long       size )
   {
-#ifdef __amigaos4__
+//  FT_UNUSED( memory );
+
+//  return malloc( size );
     return AllocVecPooled( memory->user, size );
-#else
-    return Alloc_VecPooled( memory->user, size );
-#endif
   }
 
 
@@ -175,22 +187,19 @@ Free_VecPooled( APTR  poolHeader,
               long       new_size,
               void*      block )
   {
+//  FT_UNUSED( memory );
+//  FT_UNUSED( cur_size );
+
+//  return realloc( block, new_size );
+
     void* new_block;
 
-#ifdef __amigaos4__
     new_block = AllocVecPooled ( memory->user, new_size );
-#else
-    new_block = Alloc_VecPooled ( memory->user, new_size );
-#endif
     if ( new_block != NULL )
     {
       CopyMem ( block, new_block,
                 ( new_size > cur_size ) ? cur_size : new_size );
-#ifdef __amigaos4__
       FreeVecPooled ( memory->user, block );
-#else
-      Free_VecPooled ( memory->user, block );
-#endif
     }
     return new_block;
   }
@@ -205,19 +214,19 @@ Free_VecPooled( APTR  poolHeader,
   /*    The memory release function.                                       */
   /*                                                                       */
   /* <Input>                                                               */
-  /*    memory  :: A pointer to the memory object.                         */
+  /*    memory :: A pointer to the memory object.                          */
   /*                                                                       */
-  /*    block   :: The address of block in memory to be freed.             */
+  /*    block  :: The address of block in memory to be freed.              */
   /*                                                                       */
   FT_CALLBACK_DEF( void )
   ft_free( FT_Memory  memory,
            void*      block )
   {
-#ifdef __amigaos4__
+//  FT_UNUSED( memory );
+
+//  free( block );
+
     FreeVecPooled( memory->user, block );
-#else
-    Free_VecPooled( memory->user, block );
-#endif
   }
 
 
@@ -239,13 +248,14 @@ Free_VecPooled( APTR  poolHeader,
 
   /* We use the macro STREAM_FILE for convenience to extract the       */
   /* system-specific stream handle from a given FreeType stream object */
-#define STREAM_FILE( stream )  ( (struct SysFile *)stream->descriptor.pointer )
+// #define STREAM_FILE( stream )  ( (FILE*)stream->descriptor.pointer )
+#define STREAM_FILE( stream )  ( (BPTR)stream->descriptor.pointer )     // TetiSoft
 
 
   /*************************************************************************/
   /*                                                                       */
   /* <Function>                                                            */
-  /*    ft_amiga_stream_close                                              */
+  /*    ft_close_stream                                                    */
   /*                                                                       */
   /* <Description>                                                         */
   /*    The function to close a stream.                                    */
@@ -254,13 +264,10 @@ Free_VecPooled( APTR  poolHeader,
   /*    stream :: A pointer to the stream object.                          */
   /*                                                                       */
   FT_CALLBACK_DEF( void )
-  ft_amiga_stream_close( FT_Stream  stream )
+  ft_close_stream( FT_Stream  stream )
   {
-    struct SysFile* sysfile;
-
-    sysfile = STREAM_FILE( stream );
-    Close ( sysfile->file );
-    FreeMem ( sysfile, sizeof ( struct SysFile ));
+//  fclose( STREAM_FILE( stream ) );
+    Close( STREAM_FILE( stream ) );     // TetiSoft
 
     stream->descriptor.pointer = NULL;
     stream->size               = 0;
@@ -271,7 +278,7 @@ Free_VecPooled( APTR  poolHeader,
   /*************************************************************************/
   /*                                                                       */
   /* <Function>                                                            */
-  /*    ft_amiga_stream_io                                                 */
+  /*    ft_io_stream                                                       */
   /*                                                                       */
   /* <Description>                                                         */
   /*    The function to open a stream.                                     */
@@ -289,89 +296,22 @@ Free_VecPooled( APTR  poolHeader,
   /*    The number of bytes actually read.                                 */
   /*                                                                       */
   FT_CALLBACK_DEF( unsigned long )
-  ft_amiga_stream_io( FT_Stream       stream,
-                      unsigned long   offset,
-                      unsigned char*  buffer,
-                      unsigned long   count )
+  ft_io_stream( FT_Stream       stream,
+                unsigned long   offset,
+                unsigned char*  buffer,
+                unsigned long   count )
   {
-    struct SysFile* sysfile;
-    unsigned long   read_bytes;
+//  FILE*  file;
+    BPTR   file;        // TetiSoft
 
-    if ( count != 0 )
-    {
-      sysfile = STREAM_FILE( stream );
 
-      /* handle the seek */
-      if ( (offset < sysfile->iobuf_start) || (offset + count > sysfile->iobuf_end) )
-      {
-        /* requested offset implies we need a buffer refill */
-        if ( !sysfile->iobuf_end || offset != (sysfile->iobuf_end + 1) )
-        {
-          /* a physical seek is necessary */
-          Seek( sysfile->file, offset, OFFSET_BEGINNING );
-        }
-        sysfile->iobuf_start = offset;
-        sysfile->iobuf_end = 0; /* trigger a buffer refill */
-      }
+    file = STREAM_FILE( stream );
 
-      /* handle the read */
-      if ( offset + count <= sysfile->iobuf_end )
-      {
-        /* we have buffer and requested bytes are all inside our buffer */
-        CopyMem( &sysfile->iobuf[offset - sysfile->iobuf_start], buffer, count );
-        read_bytes = count;
-      }
-      else
-      {
-        /* (re)fill buffer */
-        if ( count <= IOBUF_SIZE )
-        {
-          /* requested bytes is a subset of the buffer */
-          read_bytes = Read( sysfile->file, sysfile->iobuf, IOBUF_SIZE );
-          if ( read_bytes == -1UL )
-          {
-            /* error */
-            read_bytes = 0;
-          }
-          else
-          {
-            sysfile->iobuf_end = offset + read_bytes;
-            CopyMem( sysfile->iobuf, buffer, count );
-            if ( read_bytes > count )
-            {
-              read_bytes = count;
-            }
-          }
-        }
-        else
-        {
-          /* we actually need more than our buffer can hold, so we decide
-          ** to do a single big read, and then copy the last IOBUF_SIZE
-          ** bytes of that to our internal buffer for later use */
-          read_bytes = Read( sysfile->file, buffer, count );
-          if ( read_bytes == -1UL )
-          {
-            /* error */
-            read_bytes = 0;
-          }
-          else
-          {
-            ULONG bufsize;
+//  fseek( file, offset, SEEK_SET );
+    Seek( file, offset, OFFSET_BEGINNING );     // TetiSoft
 
-            bufsize = ( read_bytes > IOBUF_SIZE ) ? IOBUF_SIZE : read_bytes;
-            sysfile->iobuf_end = offset + read_bytes;
-            sysfile->iobuf_start = sysfile->iobuf_end - bufsize;
-            CopyMem( &buffer[read_bytes - bufsize] , sysfile->iobuf, bufsize );
-          }
-        }
-      }
-    }
-    else
-    {
-      read_bytes = 0;
-    }
-
-    return read_bytes;
+//  return (unsigned long)fread( buffer, 1, count, file );
+    return (unsigned long)FRead( file, buffer, 1, count);
   }
 
 
@@ -381,50 +321,40 @@ Free_VecPooled( APTR  poolHeader,
   FT_Stream_Open( FT_Stream    stream,
                   const char*  filepathname )
   {
-    struct FileInfoBlock*  fib;
-    struct SysFile*        sysfile;
+//  FILE*                  file;
+    BPTR                   file; // TetiSoft
+    struct FileInfoBlock*  fib;  // TetiSoft
 
 
     if ( !stream )
       return FT_Err_Invalid_Stream_Handle;
 
-#ifdef __amigaos4__
-    sysfile = AllocMem ( sizeof (struct SysFile ), MEMF_SHARED );
-#else
-    sysfile = AllocMem ( sizeof (struct SysFile ), MEMF_PUBLIC );
-#endif
-    if ( !sysfile )
+//  file = fopen( filepathname, "rb" );
+    file = Open( filepathname, MODE_OLDFILE );  // TetiSoft
+    if ( !file )
     {
       FT_ERROR(( "FT_Stream_Open:" ));
       FT_ERROR(( " could not open `%s'\n", filepathname ));
 
       return FT_Err_Cannot_Open_Resource;
     }
-    sysfile->file = Open( (STRPTR)filepathname, MODE_OLDFILE );
-    if ( !sysfile->file )
-    {
-      FreeMem ( sysfile, sizeof ( struct SysFile ));
-      FT_ERROR(( "FT_Stream_Open:" ));
-      FT_ERROR(( " could not open `%s'\n", filepathname ));
 
-      return FT_Err_Cannot_Open_Resource;
-    }
-
+//  fseek( file, 0, SEEK_END );
+//  astream->size = ftell( file );
+//  fseek( file, 0, SEEK_SET );
     fib = AllocDosObject( DOS_FIB, NULL );
     if ( !fib )
     {
-      Close ( sysfile->file );
-      FreeMem ( sysfile, sizeof ( struct SysFile ));
+      Close ( file );
       FT_ERROR(( "FT_Stream_Open:" ));
       FT_ERROR(( " could not open `%s'\n", filepathname ));
 
       return FT_Err_Cannot_Open_Resource;
     }
-    if ( !( ExamineFH( sysfile->file, fib ) ) )
+    if ( !( ExamineFH( file, fib ) ) )
     {
       FreeDosObject( DOS_FIB, fib );
-      Close ( sysfile->file );
-      FreeMem ( sysfile, sizeof ( struct SysFile ));
+      Close ( file );
       FT_ERROR(( "FT_Stream_Open:" ));
       FT_ERROR(( " could not open `%s'\n", filepathname ));
 
@@ -433,17 +363,17 @@ Free_VecPooled( APTR  poolHeader,
     stream->size = fib->fib_Size;
     FreeDosObject( DOS_FIB, fib );
 
-    stream->descriptor.pointer = (void *)sysfile;
+//  stream->descriptor.pointer = file;
+    stream->descriptor.pointer = (void *)file;
+
     stream->pathname.pointer   = (char*)filepathname;
-    sysfile->iobuf_start       = 0;
-    sysfile->iobuf_end         = 0;
     stream->pos                = 0;
 
-    stream->read  = ft_amiga_stream_io;
-    stream->close = ft_amiga_stream_close;
+    stream->read  = ft_io_stream;
+    stream->close = ft_close_stream;
 
     FT_TRACE1(( "FT_Stream_Open:" ));
-    FT_TRACE1(( " opened `%s' (%ld bytes) successfully\n",
+    FT_TRACE1(( " opened `%s' (%d bytes) successfully\n",
                 filepathname, stream->size ));
 
     return FT_Err_Ok;
@@ -457,7 +387,7 @@ Free_VecPooled( APTR  poolHeader,
 
   extern void
   ft_mem_debug_done( FT_Memory  memory );
-  
+
 #endif
 
 
@@ -469,17 +399,15 @@ Free_VecPooled( APTR  poolHeader,
     FT_Memory  memory;
 
 
-#ifdef __amigaos4__
-    memory = (FT_Memory)AllocVec( sizeof ( *memory ), MEMF_SHARED );
-#else
+//  memory = (FT_Memory)malloc( sizeof ( *memory ) );
     memory = (FT_Memory)AllocVec( sizeof ( *memory ), MEMF_PUBLIC );
-#endif
     if ( memory )
     {
-#ifdef __amigaos4__
-      memory->user = CreatePool( MEMF_SHARED, 16384, 16384 );
+//    memory->user = 0;
+#ifdef __GNUC__
+      memory->user = CreatePool( MEMF_PUBLIC, 2048, 2048 );
 #else
-      memory->user = CreatePool( MEMF_PUBLIC, 16384, 16384 );
+      memory->user = AsmCreatePool( MEMF_PUBLIC, 2048, 2048, SysBase );
 #endif
       if ( memory->user == NULL )
       {
@@ -493,7 +421,7 @@ Free_VecPooled( APTR  poolHeader,
         memory->free    = ft_free;
 #ifdef FT_DEBUG_MEMORY
         ft_mem_debug_init( memory );
-#endif    
+#endif
       }
     }
 
@@ -508,15 +436,15 @@ Free_VecPooled( APTR  poolHeader,
   {
 #ifdef FT_DEBUG_MEMORY
     ft_mem_debug_done( memory );
-#endif  
+#endif
 
+#ifdef __GNUC__
     DeletePool( memory->user );
+#else
+    AsmDeletePool( memory->user, SysBase );
+#endif
     FreeVec( memory );
   }
 
-/*
-Local Variables:
-coding: latin-1
-End:
-*/
+
 /* END */

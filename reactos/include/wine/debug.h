@@ -3,18 +3,7 @@
 
 #include "../roscfg.h"
 #include <stdarg.h>
-#include <windows.h>
 #include <wchar.h>
-
-/* Add ROS Master debug functions if not added yet */
-#ifndef __INTERNAL_DEBUG
-#ifdef YDEBUG
-#undef NDEBUG
-#else
-#define NDEBUG
-#endif
-#include <reactos/debug.h>
-#endif
 
 #ifndef __GNUC__
 #define	__FUNCTION__ ""
@@ -23,6 +12,25 @@
 
 unsigned long DbgPrint(char *Format,...);
 
+#ifdef DBG
+#define DPRINT1 DbgPrint("(%s:%d:%s) ",__FILE__,__LINE__,__FUNCTION__), DbgPrint
+#else
+#define DPRINT1(args...)
+#endif
+
+#if !defined(DBG) || !defined(YDEBUG)
+#ifdef __GNUC__
+#define DPRINT(args...)
+#else
+#define DPRINT
+#endif
+#else
+#define DPRINT DbgPrint("(%s:%d:%s) ",__FILE__,__LINE__,__FUNCTION__), DbgPrint
+#endif
+
+#define UNIMPLEMENTED   DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
+
+
 struct _GUID;
 
 /* Exported definitions and macros */
@@ -30,7 +38,6 @@ struct _GUID;
 /* These function return a printable version of a string, including
    quotes.  The string will be valid for some time, but not indefinitely
    as strings are re-used.  */
-extern const char *wine_dbgstr_w( const WCHAR *s );
 extern const char *wine_dbgstr_an( const char * s, int n );
 extern const char *wine_dbgstr_wn( const wchar_t *s, int n );
 extern const char *wine_dbgstr_guid( const struct _GUID *id );
@@ -44,24 +51,6 @@ inline static const char *debugstr_a( const char *s )  { return wine_dbgstr_an( 
 inline static const char *debugstr_w( const wchar_t *s ) { return wine_dbgstr_wn( s, 80 ); }
 inline static const char *debugres_a( const char *s )  { return wine_dbgstr_an( s, 80 ); }
 inline static const char *debugres_w( const wchar_t *s ) { return wine_dbgstr_wn( s, 80 ); }
-
-static inline const char *wine_dbgstr_point( const POINT *pt )
-{
-    if (!pt) return "(null)";
-    return wine_dbg_sprintf( "(%ld,%ld)", pt->x, pt->y );
-}
-
-static inline const char *wine_dbgstr_size( const SIZE *size )
-{
-    if (!size) return "(null)";
-    return wine_dbg_sprintf( "(%ld,%ld)", size->cx, size->cy );
-}
-
-static inline const char *wine_dbgstr_rect( const RECT *rect )
-{
-    if (!rect) return "(null)";
-    return wine_dbg_sprintf( "(%ld,%ld)-(%ld,%ld)", rect->left, rect->top, rect->right, rect->bottom );
-}
 
 #define TRACE        DPRINT
 #define TRACE_(ch)   DPRINT

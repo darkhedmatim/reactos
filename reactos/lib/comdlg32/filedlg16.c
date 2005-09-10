@@ -46,7 +46,7 @@ typedef struct tagFD16_PRIVATE
  *                              FD16_MapOfnStruct16          [internal]
  *      map a 16 bits structure to an Unicode one
  */
-static void FD16_MapOfnStruct16(LPOPENFILENAME16 ofn16, LPOPENFILENAMEW ofnW, BOOL open)
+void FD16_MapOfnStruct16(LPOPENFILENAME16 ofn16, LPOPENFILENAMEW ofnW, BOOL open)
 {
     OPENFILENAMEA ofnA;
     /* first convert to linear pointers */
@@ -85,7 +85,7 @@ static void FD16_MapOfnStruct16(LPOPENFILENAME16 ofn16, LPOPENFILENAMEW ofnW, BO
  * by a 16 bits application
  *
  */
-static BOOL FD16_GetTemplate(PFD31_DATA lfs)
+BOOL FD16_GetTemplate(PFD31_DATA lfs)
 {
     PFD16_PRIVATE priv = (PFD16_PRIVATE) lfs->private1632;
     LPOPENFILENAME16 ofn16 = priv->ofn16;
@@ -183,7 +183,7 @@ static BOOL CALLBACK FD16_Init(LPARAM lParam, PFD31_DATA lfs, DWORD data)
  *
  *      called from the common 16/32 code to call the appropriate hook
  */
-static BOOL CALLBACK FD16_CallWindowProc(PFD31_DATA lfs, UINT wMsg, WPARAM wParam,
+BOOL CALLBACK FD16_CallWindowProc(PFD31_DATA lfs, UINT wMsg, WPARAM wParam,
                                  LPARAM lParam)
 {
     PFD16_PRIVATE priv = (PFD16_PRIVATE) lfs->private1632;

@@ -91,14 +91,6 @@ typedef struct {
     } str;
 } awstring;
 
-typedef struct {
-    BOOL unicode;
-    union {
-       LPCSTR a;
-       LPCWSTR w;
-    } str;
-} awcstring;
-
 typedef struct tagMSISUMMARYINFO
 {
     MSIOBJECTHDR hdr;
@@ -333,7 +325,7 @@ static DWORD write_string( LPBYTE data, DWORD ofs, LPCSTR str )
     DWORD len = lstrlenA( str ) + 1;
     write_dword( data, ofs, len );
     if( data )
-        memcpy( &data[ofs + 4], str, len );
+        lstrcpyA( &data[ofs + 4], str );
     return (7 + len) & ~3;
 }
 
@@ -635,7 +627,7 @@ UINT WINAPI MsiSummaryInfoGetPropertyW(
 }
 
 static UINT set_prop( MSIHANDLE handle, UINT uiProperty, UINT uiDataType,
-               INT iValue, FILETIME* pftValue, awcstring *str )
+               INT iValue, FILETIME* pftValue, awstring *str )
 {
     MSISUMMARYINFO *si;
     PROPVARIANT *prop;
@@ -709,9 +701,9 @@ end:
 }
 
 UINT WINAPI MsiSummaryInfoSetPropertyW( MSIHANDLE handle, UINT uiProperty,
-               UINT uiDataType, INT iValue, FILETIME* pftValue, LPCWSTR szValue )
+               UINT uiDataType, INT iValue, FILETIME* pftValue, LPWSTR szValue )
 {
-    awcstring str;
+    awstring str;
 
     TRACE("%ld %u %u %i %p %s\n", handle, uiProperty, uiDataType,
           iValue, pftValue, debugstr_w(szValue) );
@@ -722,9 +714,9 @@ UINT WINAPI MsiSummaryInfoSetPropertyW( MSIHANDLE handle, UINT uiProperty,
 }
 
 UINT WINAPI MsiSummaryInfoSetPropertyA( MSIHANDLE handle, UINT uiProperty,
-               UINT uiDataType, INT iValue, FILETIME* pftValue, LPCSTR szValue )
+               UINT uiDataType, INT iValue, FILETIME* pftValue, LPSTR szValue )
 {
-    awcstring str;
+    awstring str;
 
     TRACE("%ld %u %u %i %p %s\n", handle, uiProperty, uiDataType,
           iValue, pftValue, debugstr_a(szValue) );

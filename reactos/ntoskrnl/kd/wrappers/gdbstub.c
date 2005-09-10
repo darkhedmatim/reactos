@@ -242,7 +242,6 @@ GspGetPacket()
 	    {
 	      GdbPutChar ('+');	/* successful transfer */
 
-#if 0
 	      /* if a sequence char is present, reply the sequence ID */
 	      if (Buffer[2] == ':')
 		{
@@ -251,7 +250,6 @@ GspGetPacket()
 
 		  return &Buffer[3];
 		}
-#endif
 
 	      return &Buffer[0];
 	    }
@@ -862,12 +860,10 @@ GspQuery(PCHAR Request)
     GspMem2Hex ((PCHAR) &ThreadCount, &GspOutBuffer[2], 1, TRUE);
   }
 #endif
-#if 0
   else if (strncmp (Command, "Offsets", 7) == 0)
   {
     strcpy (GspOutBuffer, "Text=0;Data=0;Bss=0");
   }
-#endif
 }
 
 VOID
@@ -1068,7 +1064,6 @@ GspSetHwBreakpoint(ULONG BreakpointNumber,
 }
 
 
-static BOOL gdb_attached_yet = TRUE;
 /*
  * This function does all command procesing for interfacing to gdb.
  */
@@ -1081,9 +1076,10 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
   BOOLEAN Stepping;
   LONG Address;
   LONG Length;
-  LONG SigVal = 0;
+  LONG SigVal;
   LONG NewPC;
   PCHAR ptr;
+  LONG Esp;
 
   /* FIXME: Stop on other CPUs too */
   /* Disable hardware debugging while we are inside the stub */
@@ -1102,7 +1098,7 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
     {
       GspAccessLocation = NULL;
       GspMemoryError = TRUE;
-      TrapFrame->Eip += 3;
+      TrapFrame->Eip += 2;
     }
   else
     {
@@ -1115,45 +1111,36 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
           GspDbgThread = NULL;
         }
 
-      /* ugly hack to avoid attempting to send status at the very
-       * beginning, right when GDB is trying to query the stub */
-      if (gdb_attached_yet) {
-	  LONG Esp;
-	  
-	stop_reply:
-	  /* reply to host that an exception has occurred */
-	  SigVal = GspComputeSignal (ExceptionRecord->ExceptionCode);
-	  
-	  ptr = &GspOutBuffer[0];
+      /* reply to host that an exception has occurred */
+      SigVal = GspComputeSignal (ExceptionRecord->ExceptionCode);
 
-	  *ptr++ = 'T';			/* notify gdb with signo, PC, FP and SP */
-	  *ptr++ = HexChars[(SigVal >> 4) & 0xf];
-	  *ptr++ = HexChars[SigVal & 0xf];
+      ptr = &GspOutBuffer[0];
 
-	  *ptr++ = HexChars[ESP];
-	  *ptr++ = ':';
-	  
-	  Esp = GspGetEspFromTrapFrame (TrapFrame);		       /* SP */
-	  ptr = GspMem2Hex ((PCHAR) &Esp, ptr, 4, 0);
-	  *ptr++ = ';';
-	  
-	  *ptr++ = HexChars[EBP];
-	  *ptr++ = ':';
-	  ptr = GspMem2Hex ((PCHAR) &TrapFrame->Ebp, ptr, 4, 0);       /* FP */
-	  *ptr++ = ';';
-	  
-	  *ptr++ = HexChars[PC];
-	  *ptr++ = ':';
-	  ptr = GspMem2Hex((PCHAR) &TrapFrame->Eip, ptr, 4, 0);        /* PC */
-	  *ptr++ = ';';
+      *ptr++ = 'T';			/* notify gdb with signo, PC, FP and SP */
+      *ptr++ = HexChars[(SigVal >> 4) & 0xf];
+      *ptr++ = HexChars[SigVal & 0xf];
 
-	  *ptr = '\0';
+      *ptr++ = HexChars[ESP];
+      *ptr++ = ':';
 
-	  GspPutPacket (&GspOutBuffer[0]);
-      } else {
-	  gdb_attached_yet = 1;
-      }
-      
+      Esp = GspGetEspFromTrapFrame (TrapFrame);			/* SP */
+      ptr = GspMem2Hex ((PCHAR) &Esp, ptr, 4, 0);
+      *ptr++ = ';';
+
+      *ptr++ = HexChars[EBP];
+      *ptr++ = ':';
+      ptr = GspMem2Hex ((PCHAR) &TrapFrame->Ebp, ptr, 4, 0); 	/* FP */
+      *ptr++ = ';';
+
+      *ptr++ = HexChars[PC];
+      *ptr++ = ':';
+      ptr = GspMem2Hex((PCHAR) &TrapFrame->Eip, ptr, 4, 0); 	/* PC */
+      *ptr++ = ';';
+
+      *ptr = '\0';
+
+      GspPutPacket (&GspOutBuffer[0]);
+
       Stepping = FALSE;
 
       while (TRUE)
@@ -1165,8 +1152,6 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
           switch (*ptr++)
             {
             case '?':
-		/* a little hack to send more complete status information */
-		goto stop_reply;
               GspOutBuffer[0] = 'S';
               GspOutBuffer[1] = HexChars[SigVal >> 4];
               GspOutBuffer[2] = HexChars[SigVal % 16];
@@ -1473,7 +1458,7 @@ VOID
 KdGdbListModules()
 {
   PLIST_ENTRY CurrentEntry;
-  PLDR_DATA_TABLE_ENTRY Current;
+  PMODULE_OBJECT Current;
   ULONG ModuleCount;
 
   DPRINT1("\n");
@@ -1483,10 +1468,10 @@ KdGdbListModules()
   CurrentEntry = ModuleListHead.Flink;
   while (CurrentEntry != (&ModuleListHead))
     {
-      Current = CONTAINING_RECORD (CurrentEntry, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList);
+	    Current = CONTAINING_RECORD (CurrentEntry, MODULE_OBJECT, ListEntry);
 
-      DbgPrint ("Module %wZ  Base 0x%.08x  Length 0x%.08x\n",
-        &Current->BaseDllName, Current->DllBase, Current->SizeOfImage);
+      DbgPrint ("Module %S  Base 0x%.08x  Length 0x%.08x\n",
+        Current->BaseName.Buffer, Current->Base, Current->Length);
 
       ModuleCount++;
       CurrentEntry = CurrentEntry->Flink;

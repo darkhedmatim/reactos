@@ -786,7 +786,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   HWND NewWindow;
   LONG WindowCount;
   MSG Msg;
-  PWCHAR Buffer, Title;
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) lParam;
 
   switch(msg)
@@ -795,20 +794,8 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         SetWindowLongW(hWnd, GWL_USERDATA, 0);
         return 0;
       case PM_CREATE_CONSOLE:
-        Buffer = HeapAlloc(Win32CsrApiHeap, 0,
-                           Console->Title.Length + sizeof(WCHAR));
-        if (NULL != Buffer)
-          {
-            memcpy(Buffer, Console->Title.Buffer, Console->Title.Length);
-            Buffer[Console->Title.Length / sizeof(WCHAR)] = L'\0';
-            Title = Buffer;
-          }
-        else
-          {
-            Title = L"";
-          }
         NewWindow = CreateWindowW(L"ConsoleWindowClass",
-                                  Title,
+                                  Console->Title.Buffer,
                                   WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
@@ -818,10 +805,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                                   NULL,
                                   (HINSTANCE) GetModuleHandleW(NULL),
                                   (PVOID) Console);
-        if (NULL != Buffer)
-          {
-            HeapFree(Win32CsrApiHeap, 0, Buffer);
-          }
         Console->hWindow = NewWindow;
         if (NULL != NewWindow)
           {
@@ -951,25 +934,7 @@ GuiInitScreenBuffer(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buffer)
 STATIC BOOL STDCALL
 GuiChangeTitle(PCSRSS_CONSOLE Console)
 {
-  PWCHAR Buffer, Title;
-
-  Buffer = HeapAlloc(Win32CsrApiHeap, 0,
-                     Console->Title.Length + sizeof(WCHAR));
-  if (NULL != Buffer)
-    {
-      memcpy(Buffer, Console->Title.Buffer, Console->Title.Length);
-      Buffer[Console->Title.Length / sizeof(WCHAR)] = L'\0';
-      Title = Buffer;
-    }
-  else
-    {
-      Title = L"";
-    }
-  SendMessageW(Console->hWindow, WM_SETTEXT, 0, (LPARAM) Title);
-  if (NULL != Buffer)
-    {
-      HeapFree(Win32CsrApiHeap, 0, Buffer);
-    }
+  SendMessageW(Console->hWindow, WM_SETTEXT, 0, (LPARAM) Console->Title.Buffer);
 
   return TRUE;
 }

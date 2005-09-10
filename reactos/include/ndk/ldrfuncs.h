@@ -11,17 +11,13 @@
 
 /* DEPENDENCIES **************************************************************/
 #include "ldrtypes.h"
-/* FIXME: this needs be implemented in the w32api ddk */
-#ifdef _MSC_VER
-#include <ntimage.h>
-#endif
 
 /* FUNCTION TYPES ************************************************************/
 
 /* PROTOTYPES ****************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrAccessResource(
     IN  PVOID BaseAddress,
     IN  PIMAGE_RESOURCE_DATA_ENTRY ResourceDataEntry,
@@ -30,7 +26,7 @@ LdrAccessResource(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrFindResource_U(
     IN  PVOID BaseAddress,
     IN  PLDR_RESOURCE_INFO ResourceInfo,
@@ -39,7 +35,7 @@ LdrFindResource_U(
 );
 
 NTSTATUS
-NTAPI 
+STDCALL 
 LdrFindResourceDirectory_U(
     IN PVOID BaseAddress,
     IN PLDR_RESOURCE_INFO ResourceInfo,
@@ -48,7 +44,7 @@ LdrFindResourceDirectory_U(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrGetProcedureAddress(
     IN PVOID BaseAddress,
     IN PANSI_STRING Name,

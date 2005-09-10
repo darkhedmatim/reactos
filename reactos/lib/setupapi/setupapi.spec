@@ -8,7 +8,7 @@
 @ stub CMP_Report_LogOn
 @ stub CMP_UnregisterNotification
 @ stub CMP_WaitNoPendingInstallEvents
-@ stub CMP_WaitServicesAvailable
+@ stub CMP_WaitServices
 @ stub CM_Add_Empty_Log_Conf
 @ stub CM_Add_Empty_Log_Conf_Ex
 @ stub CM_Add_IDA
@@ -55,26 +55,26 @@
 @ stub CM_Free_Res_Des_Handle
 @ stdcall CM_Get_Child(ptr long long)
 @ stdcall CM_Get_Child_Ex(ptr long long long)
-@ stdcall CM_Get_Class_Key_NameA(ptr str ptr long)
-@ stdcall CM_Get_Class_Key_NameW(ptr wstr ptr long)
-@ stdcall CM_Get_Class_Key_Name_ExA(ptr str ptr long long)
-@ stdcall CM_Get_Class_Key_Name_ExW(ptr wstr ptr long long)
-@ stdcall CM_Get_Class_NameA(ptr str ptr long)
-@ stdcall CM_Get_Class_NameW(ptr wstr ptr long)
-@ stdcall CM_Get_Class_Name_ExA(ptr str ptr long long)
-@ stdcall CM_Get_Class_Name_ExW(ptr wstr ptr long long)
-@ stdcall CM_Get_Depth(ptr long long)
-@ stdcall CM_Get_Depth_Ex(ptr long long long)
-@ stdcall CM_Get_DevNode_Registry_PropertyA(long long ptr ptr ptr long)
-@ stdcall CM_Get_DevNode_Registry_PropertyW(long long ptr ptr ptr long)
-@ stdcall CM_Get_DevNode_Registry_Property_ExA(long long ptr ptr ptr long long)
-@ stdcall CM_Get_DevNode_Registry_Property_ExW(long long ptr ptr ptr long long)
-@ stdcall CM_Get_DevNode_Status(ptr ptr long long)
-@ stdcall CM_Get_DevNode_Status_Ex(ptr ptr long long long)
-@ stdcall CM_Get_Device_IDA(long str long long)
-@ stdcall CM_Get_Device_IDW(long wstr long long)
-@ stdcall CM_Get_Device_ID_ExA(long str long long long)
-@ stdcall CM_Get_Device_ID_ExW(long wstr long long long)
+@ stub CM_Get_Class_Key_NameA
+@ stub CM_Get_Class_Key_NameW
+@ stub CM_Get_Class_Key_Name_ExA
+@ stub CM_Get_Class_Key_Name_ExW
+@ stub CM_Get_Class_NameA
+@ stub CM_Get_Class_NameW
+@ stub CM_Get_Class_Name_ExA
+@ stub CM_Get_Class_Name_ExW
+@ stub CM_Get_Depth
+@ stub CM_Get_Depth_Ex
+@ stub CM_Get_DevNode_Registry_PropertyA
+@ stub CM_Get_DevNode_Registry_PropertyW
+@ stub CM_Get_DevNode_Registry_Property_ExA
+@ stub CM_Get_DevNode_Registry_Property_ExW
+@ stub CM_Get_DevNode_Status
+@ stub CM_Get_DevNode_Status_Ex
+@ stub CM_Get_Device_IDA
+@ stub CM_Get_Device_IDW
+@ stub CM_Get_Device_ID_ExA
+@ stub CM_Get_Device_ID_ExW
 @ stdcall CM_Get_Device_ID_ListA(str str long long)
 @ stdcall CM_Get_Device_ID_ListW(wstr wstr long long)
 @ stdcall CM_Get_Device_ID_List_ExA(str str long long long)
@@ -83,8 +83,8 @@
 @ stdcall CM_Get_Device_ID_List_SizeW(ptr wstr long)
 @ stdcall CM_Get_Device_ID_List_Size_ExA(ptr str long long)
 @ stdcall CM_Get_Device_ID_List_Size_ExW(ptr wstr long long)
-@ stdcall CM_Get_Device_ID_Size(ptr long long)
-@ stdcall CM_Get_Device_ID_Size_Ex(ptr long long long)
+@ stub CM_Get_Device_ID_Size
+@ stub CM_Get_Device_ID_Size_Ex
 @ stub CM_Get_Device_Interface_AliasA
 @ stub CM_Get_Device_Interface_AliasW
 @ stub CM_Get_Device_Interface_Alias_ExA
@@ -128,7 +128,6 @@
 @ stub CM_Intersect_Range_List
 @ stub CM_Invert_Range_List
 @ stub CM_Is_Dock_Station_Present
-@ stub CM_Is_Dock_Station_Present_Ex
 @ stdcall CM_Locate_DevNodeA(ptr str long)
 @ stdcall CM_Locate_DevNodeW(ptr wstr long)
 @ stdcall CM_Locate_DevNode_ExA(ptr str long long)
@@ -139,10 +138,10 @@
 @ stub CM_Move_DevNode
 @ stub CM_Move_DevNode_Ex
 @ stub CM_Next_Range
-@ stdcall CM_Open_Class_KeyA(ptr str long long ptr long)
-@ stdcall CM_Open_Class_KeyW(ptr wstr long long ptr long)
-@ stdcall CM_Open_Class_Key_ExA(ptr str long long ptr long long)
-@ stdcall CM_Open_Class_Key_ExW(ptr wstr long long ptr long long)
+@ stub CM_Open_Class_KeyA
+@ stub CM_Open_Class_KeyW
+@ stub CM_Open_Class_Key_ExA
+@ stub CM_Open_Class_Key_ExW
 @ stub CM_Open_DevNode_Key
 @ stub CM_Open_DevNode_Key_Ex
 @ stub CM_Query_Arbitrator_Free_Data
@@ -166,17 +165,16 @@
 @ stub CM_Request_Device_EjectA
 @ stub CM_Request_Device_EjectW
 @ stub CM_Request_Eject_PC
-@ stub CM_Request_Eject_PC_Ex
 @ stub CM_Reset_Children_Marks
 @ stub CM_Reset_Children_Marks_Ex
 @ stub CM_Run_Detection
 @ stub CM_Run_Detection_Ex
-@ stdcall CM_Set_DevNode_Problem(long long long)
-@ stdcall CM_Set_DevNode_Problem_Ex(long long long long)
-@ stdcall CM_Set_DevNode_Registry_PropertyA(long long ptr long long)
-@ stdcall CM_Set_DevNode_Registry_PropertyW(long long ptr long long)
-@ stdcall CM_Set_DevNode_Registry_Property_ExA(long long ptr long long long)
-@ stdcall CM_Set_DevNode_Registry_Property_ExW(long long ptr long long long)
+@ stub CM_Set_DevNode_Problem
+@ stub CM_Set_DevNode_Problem_Ex
+@ stub CM_Set_DevNode_Registry_PropertyA
+@ stub CM_Set_DevNode_Registry_PropertyW
+@ stub CM_Set_DevNode_Registry_Property_ExA
+@ stub CM_Set_DevNode_Registry_Property_ExW
 @ stub CM_Set_HW_Prof
 @ stub CM_Set_HW_Prof_Ex
 @ stub CM_Set_HW_Prof_FlagsA
@@ -249,10 +247,11 @@
 @ stdcall SetupCloseFileQueue(ptr)
 @ stdcall SetupCloseInfFile(long)
 @ stub SetupCloseLog
+@ stdcall SetupCommitFileQueue(long long ptr ptr) SetupCommitFileQueueW
 @ stdcall SetupCommitFileQueueA(long long ptr ptr)
 @ stdcall SetupCommitFileQueueW(long long ptr ptr)
-@ stdcall SetupCopyErrorA(long str str str str str long long str long ptr)
-@ stdcall SetupCopyErrorW(long wstr wstr wstr wstr wstr long long wstr long ptr)
+@ stub SetupCopyErrorA
+@ stub SetupCopyErrorW
 @ stdcall SetupCopyOEMInfA(str str long long ptr long ptr ptr)
 @ stdcall SetupCopyOEMInfW(wstr wstr long long ptr long ptr ptr)
 @ stdcall SetupCreateDiskSpaceListA(ptr long long)
@@ -262,14 +261,14 @@
 @ stub SetupDefaultQueueCallback
 @ stdcall SetupDefaultQueueCallbackA(ptr long long long)
 @ stdcall SetupDefaultQueueCallbackW(ptr long long long)
-@ stdcall SetupDeleteErrorA(long str str long long)
-@ stdcall SetupDeleteErrorW(long wstr wstr long long)
+@ stub SetupDeleteErrorA
+@ stub SetupDeleteErrorW
 @ stdcall SetupDestroyDiskSpaceList(long)
 @ stub SetupDiAskForOEMDisk
 @ stdcall SetupDiBuildClassInfoList(long ptr long ptr)
 @ stdcall SetupDiBuildClassInfoListExA(long ptr long ptr str ptr)
 @ stdcall SetupDiBuildClassInfoListExW(long ptr long ptr wstr ptr)
-@ stdcall SetupDiBuildDriverInfoList(long ptr long)
+@ stub SetupDiBuildDriverInfoList
 @ stdcall SetupDiCallClassInstaller(long ptr ptr)
 @ stub SetupDiCancelDriverInfoSearch
 @ stub SetupDiChangeState
@@ -289,16 +288,17 @@
 @ stdcall SetupDiCreateDeviceInfoListExA(ptr long str ptr)
 @ stdcall SetupDiCreateDeviceInfoListExW(ptr long wstr ptr)
 @ stub SetupDiDeleteDevRegKey
-@ stdcall SetupDiDeleteDeviceInfo(long ptr)
+@ stub SetupDiDeleteDeviceInfo
 @ stub SetupDiDeleteDeviceInterfaceData
+@ stub SetupDiDeleteDeviceRegKey
 @ stub SetupDiDestroyClassImageList
 @ stdcall SetupDiDestroyDeviceInfoList(long)
-@ stdcall SetupDiDestroyDriverInfoList(long ptr long)
+@ stub SetupDiDestroyDriverInfoList
 @ stub SetupDiDrawMiniIcon
 @ stdcall SetupDiEnumDeviceInfo(long long ptr)
 @ stdcall SetupDiEnumDeviceInterfaces(long ptr ptr long ptr)
-@ stdcall SetupDiEnumDriverInfoA(long ptr long long ptr)
-@ stdcall SetupDiEnumDriverInfoW(long ptr long long ptr)
+@ stub SetupDiEnumDriverInfoA
+@ stub SetupDiEnumDriverInfoW
 @ stdcall SetupDiGetActualSectionToInstallA(long str str long ptr ptr)
 @ stdcall SetupDiGetActualSectionToInstallW(long wstr wstr long ptr ptr)
 @ stub SetupDiGetClassBitmapIndex
@@ -322,11 +322,11 @@
 @ stdcall SetupDiGetDeviceInfoListDetailA(ptr ptr)
 @ stdcall SetupDiGetDeviceInfoListDetailW(ptr ptr)
 @ stdcall SetupDiGetDeviceInstallParamsA(ptr ptr ptr)
-@ stdcall SetupDiGetDeviceInstallParamsW(ptr ptr ptr)
+@ stub SetupDiGetDeviceInstallParamsW
 @ stub SetupDiGetDeviceInstanceIdA
 @ stub SetupDiGetDeviceInstanceIdW
 @ stdcall SetupDiGetDeviceRegistryPropertyA(long ptr long ptr ptr long ptr)
-@ stdcall SetupDiGetDeviceRegistryPropertyW(long ptr long ptr ptr long ptr)
+@ stub SetupDiGetDeviceRegistryPropertyW
 @ stub SetupDiGetDriverInfoDetailA
 @ stub SetupDiGetDriverInfoDetailW
 @ stub SetupDiGetDriverInstallParamsA
@@ -345,31 +345,28 @@
 @ stub SetupDiGetINFClassW
 @ stub SetupDiGetSelectedDevice
 @ stub SetupDiGetSelectedDriverA
-@ stdcall SetupDiGetSelectedDriverW(ptr ptr ptr)
+@ stub SetupDiGetSelectedDriverW
 @ stub SetupDiGetWizardPage
 @ stdcall SetupDiInstallClassA(long str long ptr)
 @ stub SetupDiInstallClassExA
 @ stub SetupDiInstallClassExW
 @ stdcall SetupDiInstallClassW(long wstr long ptr)
-@ stdcall SetupDiInstallDevice(ptr ptr)
-@ stdcall SetupDiInstallDeviceInterfaces(ptr ptr)
-@ stdcall SetupDiInstallDriverFiles(ptr ptr)
+@ stub SetupDiInstallDevice
+@ stub SetupDiInstallDriverFiles
 @ stub SetupDiLoadClassIcon
 @ stub SetupDiMoveDuplicateDevice
 @ stdcall SetupDiOpenClassRegKey(ptr long)
 @ stdcall SetupDiOpenClassRegKeyExA(ptr long long str ptr)
 @ stdcall SetupDiOpenClassRegKeyExW(ptr long long wstr ptr)
 @ stdcall SetupDiOpenDevRegKey(ptr ptr long long long long)
-@ stdcall SetupDiOpenDeviceInfoA(ptr str long long ptr)
-@ stdcall SetupDiOpenDeviceInfoW(ptr wstr long long ptr)
+@ stub SetupDiOpenDeviceInfoA
+@ stub SetupDiOpenDeviceInfoW
 @ stdcall SetupDiOpenDeviceInterfaceA(ptr str long ptr)
 @ stub SetupDiOpenDeviceInterfaceRegKey
 @ stdcall SetupDiOpenDeviceInterfaceW(ptr wstr long ptr)
-@ stdcall SetupDiRegisterCoDeviceInstallers(ptr ptr)
 @ stub SetupDiRegisterDeviceInfo
 @ stub SetupDiRemoveDevice
 @ stub SetupDiRemoveDeviceInterface
-@ stdcall SetupDiSelectBestCompatDrv(ptr ptr)
 @ stub SetupDiSelectDevice
 @ stub SetupDiSelectOEMDrv
 @ stdcall SetupDiSetClassInstallParamsA(ptr ptr ptr long)
@@ -382,7 +379,7 @@
 @ stub SetupDiSetDriverInstallParamsW
 @ stub SetupDiSetSelectedDevice
 @ stub SetupDiSetSelectedDriverA
-@ stdcall SetupDiSetSelectedDriverW(ptr ptr ptr)
+@ stub SetupDiSetSelectedDriverW
 @ stub SetupDiUnremoveDevice
 @ stub SetupDuplicateDiskSpaceListA
 @ stub SetupDuplicateDiskSpaceListW
@@ -402,9 +399,9 @@
 @ stdcall SetupGetFileQueueCount(long long ptr)
 @ stdcall SetupGetFileQueueFlags(long ptr)
 @ stub SetupGetInfFileListA
-@ stdcall SetupGetInfFileListW(wstr long wstr long ptr)
+@ stub SetupGetInfFileListW
 @ stdcall SetupGetInfInformationA(ptr long ptr long ptr)
-@ stdcall SetupGetInfInformationW(ptr long ptr long ptr)
+@ stub SetupGetInfInformationW
 @ stub SetupGetInfSections
 @ stdcall SetupGetIntField(ptr long ptr)
 @ stdcall SetupGetLineByIndexA(long str long ptr)
@@ -496,8 +493,8 @@
 @ stub SetupRemoveInstallSectionFromDiskSpaceListW
 @ stub SetupRemoveSectionFromDiskSpaceListA
 @ stub SetupRemoveSectionFromDiskSpaceListW
-@ stdcall SetupRenameErrorA(long str str str long long)
-@ stdcall SetupRenameErrorW(long wstr wstr wstr long long)
+@ stub SetupRenameErrorA
+@ stub SetupRenameErrorW
 @ stub SetupScanFileQueue
 @ stdcall SetupScanFileQueueA(long long long ptr ptr ptr)
 @ stdcall SetupScanFileQueueW(long long long ptr ptr ptr)
@@ -505,8 +502,8 @@
 @ stub SetupSetDirectoryIdExA
 @ stub SetupSetDirectoryIdExW
 @ stdcall SetupSetDirectoryIdW(long long wstr)
-@ stdcall SetupSetFileQueueAlternatePlatformA(ptr ptr str)
-@ stdcall SetupSetFileQueueAlternatePlatformW(ptr ptr wstr)
+@ stub SetupFileQueueAlternatePlatformA
+@ stub SetupFileQueueAlternatePlatformW
 @ stdcall SetupSetFileQueueFlags(long long long)
 @ stub SetupSetPlatformPathOverrideA
 @ stub SetupSetPlatformPathOverrideW
@@ -517,16 +514,16 @@
 @ stub ShouldDeviceBeExcluded
 @ stdcall StampFileSecurity(wstr ptr)
 @ stdcall StringTableAddString(ptr wstr long)
-@ stdcall StringTableAddStringEx(ptr wstr long ptr long)
+@ stub StringTableAddStringEx
 @ stdcall StringTableDestroy(ptr)
 @ stdcall StringTableDuplicate(ptr)
 @ stub StringTableEnum
-@ stdcall StringTableGetExtraData(ptr long ptr long)
+@ stub StringTableGetExtraData
 @ stdcall StringTableInitialize()
-@ stdcall StringTableInitializeEx(long long)
+@ stub StringTableInitializeEx
 @ stdcall StringTableLookUpString(ptr wstr long)
-@ stdcall StringTableLookUpStringEx(ptr wstr long ptr ptr)
-@ stdcall StringTableSetExtraData(ptr long ptr long)
+@ stub StringTableLookUpStringEx
+@ stub StringTableSetExtraData
 @ stdcall StringTableStringFromId(ptr long)
 @ stdcall StringTableStringFromIdEx(ptr long ptr ptr)
 @ stdcall StringTableTrim(ptr)

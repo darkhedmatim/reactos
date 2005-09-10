@@ -51,13 +51,13 @@ WinMain(HINSTANCE hInst,
   if (!LoadString(hInstance,
                   IDS_CAPTION,
                   szCaption,
-                  (sizeof szCaption / sizeof szCaption[0])))
+                  256))
     return 0;
 
   if (!LoadString(hInstance,
                   IDS_TEXT,
                   szText,
-                  (sizeof szText / sizeof szText[0])))
+                  256))
     return 0;
 
   MessageBox(NULL,

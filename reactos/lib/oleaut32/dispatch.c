@@ -17,6 +17,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
+ * TODO: Type coercion is implemented in variant.c but not called yet.
  */
 
 #include "config.h"
@@ -77,7 +78,11 @@ HRESULT WINAPI DispInvoke(
 	EXCEPINFO  *pexcepinfo,   /* [out] Destination for exception information */
 	UINT       *puArgErr)     /* [out] Destination for bad argument */
 {
-    TRACE("\n");
+    /**
+     * TODO:
+     * For each param, call DispGetParam to perform type coercion
+     */
+    FIXME("Coercion of arguments not implemented\n");
 
     return ITypeInfo_Invoke(ptinfo, _this, dispidMember, wFlags,
                             pparams, pvarResult, pexcepinfo, puArgErr);
@@ -214,10 +219,10 @@ HRESULT WINAPI CreateStdDispatch(
 
 typedef struct
 {
-    const IDispatchVtbl *lpVtbl;
+    IDispatchVtbl *lpVtbl;
     void * pvThis;
     ITypeInfo * pTypeInfo;
-    LONG ref;
+    ULONG ref;
 } StdDispatch;
 
 /******************************************************************************
@@ -417,7 +422,7 @@ static HRESULT WINAPI StdDispatch_Invoke(LPDISPATCH iface, DISPID dispIdMember, 
     return DispInvoke(This->pvThis, This->pTypeInfo, dispIdMember, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 }
 
-static const IDispatchVtbl StdDispatch_VTable =
+static IDispatchVtbl StdDispatch_VTable =
 {
   StdDispatch_QueryInterface,
   StdDispatch_AddRef,

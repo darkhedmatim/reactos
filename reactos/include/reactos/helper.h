@@ -1,7 +1,6 @@
 #ifndef _HELPER_H
 #define _HELPER_H
-
-/* FIXME: clean this mess up and move to NDK */
+ 
 #define ROUNDUP(a,b)	((((a)+(b)-1)/(b))*(b))
 #define ROUNDDOWN(a,b)	(((a)/(b))*(b))
 #define ROUND_UP ROUNDUP
@@ -11,10 +10,8 @@
 #define ABS_VALUE(V) (((V) < 0) ? -(V) : (V))
 #define RtlRosMin(X,Y) (((X) < (Y))? (X) : (Y))
 #define RtlRosMin3(X,Y,Z) (((X) < (Y)) ? RtlRosMin(X,Z) : RtlRosMin(Y,Z))
-#ifndef KEBUGCHECK
 #define KEBUGCHECKEX(a,b,c,d,e) DbgPrint("KeBugCheckEx at %s:%i\n",__FILE__,__LINE__), KeBugCheckEx(a,b,c,d,e)
 #define KEBUGCHECK(a) DbgPrint("KeBugCheck at %s:%i\n",__FILE__,__LINE__), KeBugCheck(a)
-#endif
 #define EXPORTED __declspec(dllexport)
 #define IMPORTED __declspec(dllimport)
 #define LIST_FOR_EACH(entry, head) \
@@ -44,8 +41,7 @@
 #define SECONDS_TO_100NS(seconds) (((LONGLONG)(seconds)) * MILLIS_TO_100NS(1000))
 #define MINUTES_TO_100NS(minutes) (((LONGLONG)(minutes)) * SECONDS_TO_100NS(60))
 #define HOURS_TO_100NS(hours) (((LONGLONG)(hours)) * MINUTES_TO_100NS(60))
-#define UNICODIZE1(x) L##x
-#define UNICODIZE(x) UNICODIZE1(x)
+#define TYPE_ALIGNMENT(t) FIELD_OFFSET(struct { char x; t test; }, test)
 #define InsertAscendingListFIFO(ListHead, Type, ListEntryField, NewEntry, SortField)\
 {\
   PLIST_ENTRY current;\

@@ -45,15 +45,15 @@ typedef struct tagENUMLIST
 
 typedef struct
 {
-	const IEnumIDListVtbl          *lpVtbl;
-	LONG				ref;
+	IEnumIDListVtbl                *lpVtbl;
+	DWORD				ref;
 	LPENUMLIST			mpFirst;
 	LPENUMLIST			mpLast;
 	LPENUMLIST			mpCurrent;
 
 } IEnumIDListImpl;
 
-static const IEnumIDListVtbl eidlvt;
+static struct IEnumIDListVtbl eidlvt;
 
 /**************************************************************************
  *  AddToEnumList()
@@ -367,7 +367,7 @@ static HRESULT WINAPI IEnumIDList_fnClone(
 /**************************************************************************
  *  IEnumIDList_fnVTable
  */
-static const IEnumIDListVtbl eidlvt =
+static IEnumIDListVtbl eidlvt =
 {
 	IEnumIDList_fnQueryInterface,
 	IEnumIDList_fnAddRef,

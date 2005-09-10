@@ -29,7 +29,7 @@
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortCreateEvent(
    IN PVOID HwDeviceExtension,
    IN ULONG EventFlag,
@@ -59,7 +59,7 @@ VideoPortCreateEvent(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortDeleteEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
@@ -72,7 +72,7 @@ VideoPortDeleteEvent(
  * @implemented
  */
 
-LONG NTAPI
+LONG STDCALL
 VideoPortSetEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
@@ -84,7 +84,7 @@ VideoPortSetEvent(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortClearEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
@@ -96,7 +96,7 @@ VideoPortClearEvent(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortWaitForSingleObject(
    IN PVOID HwDeviceExtension,
    IN PVOID Object,

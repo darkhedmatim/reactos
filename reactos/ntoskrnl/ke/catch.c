@@ -63,7 +63,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
         TContext.ContextFlags = CONTEXT_FULL;
 
         /* Check the mode */
-        if (PreviousMode != KernelMode)
+        if (PreviousMode == UserMode)
         {
             /* Add Debugger Registers if this is User Mode */
             TContext.ContextFlags = TContext.ContextFlags | CONTEXT_DEBUGGER;
@@ -91,7 +91,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
     if (Action != kdDoNotHandleException)
     {
         /* See what kind of Exception this is */
-        if (PreviousMode != KernelMode)
+        if (PreviousMode == UserMode)
         {
             /* User mode exception, search the frames if we have to */
             if (SearchFrames)
@@ -100,7 +100,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
                 ULONG CDest;
                 char temp_space[12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)]; /* FIXME: HACKHACK */
                 PULONG pNewUserStack = (PULONG)(Tf->Esp - (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
-                NTSTATUS Status = STATUS_SUCCESS;
+                NTSTATUS StatusOfCopy;
 
                 /* Enter Debugger if available */
                 Action = KdpEnterDebuggerException(ExceptionRecord,
@@ -130,23 +130,12 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
                 memcpy(&Stack[CDest], Context, sizeof(CONTEXT));
 
                 /* Copy Stack */
-                _SEH_TRY
-                {
-                    ProbeForWrite(pNewUserStack,
-                                  12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT),
-                                  1);
-                    RtlCopyMemory(pNewUserStack,
-                                  temp_space,
-                                  12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT));
-                }
-                _SEH_HANDLE
-                {
-                    Status = _SEH_GetExceptionCode();
-                }
-                _SEH_END;
+                StatusOfCopy = MmCopyToCaller(pNewUserStack,
+                                              temp_space,
+                                              (12 + sizeof(EXCEPTION_RECORD) + sizeof(CONTEXT)));
 
                 /* Check for success */
-                if (NT_SUCCESS(Status))
+                if (NT_SUCCESS(StatusOfCopy))
                 {
                     /* Set new Stack Pointer */
                     Tf->Esp = (ULONG)pNewUserStack;
@@ -161,7 +150,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
                     DPRINT1("User-mode stack was invalid. Terminating target thread\n");
                 }
                 /* Set EIP to the User-mode Dispathcer */
-                Tf->Eip = (ULONG)KeUserExceptionDispatcher;
+                Tf->Eip = (ULONG)LdrpGetSystemDllExceptionDispatcher();
                 return;
             }
 

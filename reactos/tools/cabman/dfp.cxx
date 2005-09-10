@@ -1016,13 +1016,11 @@ unsigned long CDFParser::PerformFileCopy()
     char SrcName[MAX_PATH];
     char DstName[MAX_PATH];
     char InfLine[MAX_PATH];
-    char Options[128];
     char BaseFilename[MAX_PATH];
 
-    *SrcName = '\0';
-    *DstName = '\0';
+    strcpy(SrcName, "");
+    strcpy(DstName, "");
 
-    // source file
     i = CurrentChar;
     while ((i < LineLength) &&
         ((ch = Line[i]) != ' ') &&
@@ -1037,7 +1035,6 @@ unsigned long CDFParser::PerformFileCopy()
     strcpy(BaseFilename, CurrentString);
     strcat(SrcName, BaseFilename);
 
-    // destination
     SkipSpaces();
 
     if (CurrentToken != TokenEnd) {
@@ -1053,24 +1050,6 @@ unsigned long CDFParser::PerformFileCopy()
         CurrentToken = TokenString;
         CurrentChar += i + 1;
         strcpy(DstName, CurrentString);
-    }
-
-    // options (it may be empty)
-    SkipSpaces ();
-
-    if (CurrentToken != TokenEnd) {
-        j = strlen(CurrentString); i = 0;
-        while ((CurrentChar + i < LineLength) &&
-            ((ch = Line[CurrentChar + i]) != ' ') &&
-             (ch != 0x09) &&
-             (ch != ';')) {
-            CurrentString[j + i] = ch;
-            i++;
-        }
-        CurrentString[j + i] = '\0';
-        CurrentToken = TokenString;
-        CurrentChar += i + 1;
-        strcpy(Options, CurrentString);
     }
 
     if (!CabinetCreated) {
@@ -1099,35 +1078,26 @@ unsigned long CDFParser::PerformFileCopy()
 
     DPRINT(MID_TRACE, ("Adding file: '%s'   destination: '%s'.\n", SrcName, DstName));
 
+    sprintf(InfLine, "%s=%s", GetFileName(SrcName), DstName);
+    WriteInfLine(InfLine);
+
     Status = AddFile(SrcName);
     if (Status == CAB_STATUS_CANNOT_OPEN) {
 	    strcpy(SrcName, FileRelativePath);
 	    strcat(SrcName, BaseFilename);
     	Status = AddFile(SrcName);
     }
-    switch (Status)
-    {
-    case CAB_STATUS_SUCCESS:
-        sprintf(InfLine, "%s=%s", GetFileName(SrcName), DstName);
-        WriteInfLine(InfLine);
-        break;
-    case CAB_STATUS_CANNOT_OPEN:
-	if (strstr(Options,"optional"))
-	{
-		Status = CAB_STATUS_SUCCESS;
-	        printf("Optional file does not exist: %s.\n", SrcName);
-	} else {
-	        printf("File does not exist: %s.\n", SrcName);
-	}
-        break;
-    case CAB_STATUS_NOMEMORY:
-        printf("Insufficient memory to add file: %s.\n", SrcName);
-        break;
-    default:
-        printf("Cannot add file: %s (%lu).\n", SrcName, Status);
-        break;
+    if (Status != CAB_STATUS_SUCCESS) {
+        if (Status == CAB_STATUS_CANNOT_OPEN)
+		    printf("File does not exist: %s.\n", SrcName);
+        else if (Status == CAB_STATUS_NOMEMORY)
+            printf("Insufficient memory to add file: %s.\n", SrcName);
+        else
+            printf("Cannot add file: %s (%lu).\n", SrcName, Status);
+        return Status;
     }
-    return Status;
+
+    return CAB_STATUS_SUCCESS;
 }
 
 

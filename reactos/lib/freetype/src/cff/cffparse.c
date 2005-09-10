@@ -143,8 +143,8 @@
                   FT_Int    power_ten )
   {
     FT_Byte*  p    = start;
-    FT_Long   num, divider, result, exponent;
-    FT_Int    sign = 0, exponent_sign = 0;
+    FT_Long   num, divider, result, exp;
+    FT_Int    sign = 0, exp_sign = 0;
     FT_UInt   nib;
     FT_UInt   phase;
 
@@ -212,13 +212,13 @@
     /* read exponent, if any */
     if ( nib == 12 )
     {
-      exponent_sign = 1;
-      nib           = 11;
+      exp_sign = 1;
+      nib      = 11;
     }
 
     if ( nib == 11 )
     {
-      exponent = 0;
+      exp = 0;
 
       for (;;)
       {
@@ -239,13 +239,13 @@
         if ( nib >= 10 )
           break;
 
-        exponent = exponent * 10 + nib;
+        exp = exp * 10 + nib;
       }
 
-      if ( exponent_sign )
-        exponent = -exponent;
+      if ( exp_sign )
+        exp = -exp;
 
-      power_ten += (FT_Int)exponent;
+      power_ten += (FT_Int)exp;
     }
 
     /* raise to power of ten if needed */

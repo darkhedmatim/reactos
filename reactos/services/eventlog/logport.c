@@ -50,7 +50,7 @@ InitLogPort(VOID)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING PortName;
-  PORT_MESSAGE Request;
+  LPC_MAX_MESSAGE Request;
   NTSTATUS Status;
 
   ConnectPortHandle = NULL;
@@ -76,7 +76,7 @@ InitLogPort(VOID)
     }
 
   Status = NtListenPort(ConnectPortHandle,
-			&Request);
+			&Request.Header);
   if (!NT_SUCCESS(Status))
     {
       DPRINT1("NtListenPort() failed (Status %lx)\n", Status);
@@ -115,10 +115,11 @@ ByeBye:
   return Status;
 }
 
+
 static NTSTATUS
 ProcessPortMessage(VOID)
 {
-  IO_ERROR_LPC Request;
+  LPC_MAX_MESSAGE Request;
   PIO_ERROR_LOG_MESSAGE Message;
 //#ifndef NDEBUG
   ULONG i;
@@ -145,23 +146,23 @@ ProcessPortMessage(VOID)
 
       DPRINT("Received message\n");
 
-      if (Request.Header.u2.s2.Type == LPC_PORT_CLOSED)
+      if (Request.Header.MessageType == LPC_PORT_CLOSED)
 	{
 	  DPRINT("Port closed\n");
 
 	  return STATUS_SUCCESS;
 	}
-      if (Request.Header.u2.s2.Type == LPC_REQUEST)
+      if (Request.Header.MessageType == LPC_REQUEST)
 	{
 	  DPRINT("Received request\n");
 
 	}
-      else if (Request.Header.u2.s2.Type == LPC_DATAGRAM)
+      else if (Request.Header.MessageType == LPC_DATAGRAM)
 	{
 	  DPRINT("Received datagram\n");
 
 
-	  Message = (PIO_ERROR_LOG_MESSAGE)&Request.Message;
+	  Message = (PIO_ERROR_LOG_MESSAGE)&Request.Data;
 
 	  DPRINT("Message->Type %hx\n", Message->Type);
 	  DPRINT("Message->Size %hu\n", Message->Size);

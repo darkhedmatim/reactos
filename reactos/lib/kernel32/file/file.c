@@ -22,6 +22,7 @@
 
 BOOL bIsFileApiAnsi = TRUE; // set the file api to ansi or oem
 
+
 /* FUNCTIONS ****************************************************************/
 
 
@@ -177,30 +178,20 @@ FilenameW2A_N(
 /*
  * @implemented
  */
-VOID
-STDCALL
+VOID STDCALL
 SetFileApisToOEM(VOID)
 {
-    /* Set the correct Base Api */
-    Basep8BitStringToUnicodeString = (PRTL_CONVERT_STRING)RtlOemStringToUnicodeString;
-
-    /* FIXME: Old, deprecated way */
-    bIsFileApiAnsi = FALSE;
+   bIsFileApiAnsi = FALSE;
 }
 
 
 /*
  * @implemented
  */
-VOID
-STDCALL
+VOID STDCALL
 SetFileApisToANSI(VOID)
 {
-    /* Set the correct Base Api */
-    Basep8BitStringToUnicodeString = RtlAnsiStringToUnicodeString;
-
-    /* FIXME: Old, deprecated way */
-    bIsFileApiAnsi = TRUE;
+   bIsFileApiAnsi = TRUE;
 }
 
 
@@ -543,15 +534,15 @@ GetFileType(HANDLE hFile)
   switch ((ULONG)hFile)
     {
       case STD_INPUT_HANDLE:
-	hFile = NtCurrentPeb()->ProcessParameters->StandardInput;
+	hFile = NtCurrentPeb()->ProcessParameters->hStdInput;
 	break;
 
       case STD_OUTPUT_HANDLE:
-	hFile = NtCurrentPeb()->ProcessParameters->StandardOutput;
+	hFile = NtCurrentPeb()->ProcessParameters->hStdOutput;
 	break;
 
       case STD_ERROR_HANDLE:
-	hFile = NtCurrentPeb()->ProcessParameters->StandardError;
+	hFile = NtCurrentPeb()->ProcessParameters->hStdError;
 	break;
     }
 
@@ -964,92 +955,6 @@ GetFileAttributesW(LPCWSTR lpFileName)
   return Result ? FileAttributeData.dwFileAttributes : INVALID_FILE_ATTRIBUTES;
 }
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-GetFileAttributesByHandle(IN HANDLE hFile,
-                          OUT LPDWORD dwFileAttributes,
-                          IN DWORD dwFlags)
-{
-    FILE_BASIC_INFORMATION FileBasic;
-    IO_STATUS_BLOCK IoStatusBlock;
-    NTSTATUS Status;
-    
-    UNREFERENCED_PARAMETER(dwFlags);
-    
-    if (IsConsoleHandle(hFile))
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-    
-    Status = NtQueryInformationFile(hFile,
-                                    &IoStatusBlock,
-                                    &FileBasic,
-                                    sizeof(FileBasic),
-                                    FileBasicInformation);
-    if (NT_SUCCESS(Status))
-    {
-        *dwFileAttributes = FileBasic.FileAttributes;
-        return TRUE;
-    }
-    
-    SetLastErrorByStatus(Status);
-    return FALSE;
-}
-
-
-/*
- * @implemented
- */
-BOOL STDCALL
-SetFileAttributesByHandle(IN HANDLE hFile,
-                          IN DWORD dwFileAttributes,
-                          IN DWORD dwFlags)
-{
-    FILE_BASIC_INFORMATION FileBasic;
-    IO_STATUS_BLOCK IoStatusBlock;
-    NTSTATUS Status;
-
-    UNREFERENCED_PARAMETER(dwFlags);
-    
-    if (IsConsoleHandle(hFile))
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
-    Status = NtQueryInformationFile(hFile,
-                                    &IoStatusBlock,
-                                    &FileBasic,
-                                    sizeof(FileBasic),
-                                    FileBasicInformation);
-    if (NT_SUCCESS(Status))
-    {
-        FileBasic.FileAttributes = dwFileAttributes;
-        
-        Status = NtSetInformationFile(hFile,
-                                      &IoStatusBlock,
-                                      &FileBasic,
-                                      sizeof(FileBasic),
-                                      FileBasicInformation);
-    }
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-    
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
 BOOL STDCALL
 SetFileAttributesA(
    LPCSTR lpFileName,

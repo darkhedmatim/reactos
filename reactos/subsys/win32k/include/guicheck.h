@@ -1,7 +1,7 @@
 #ifndef _WIN32K_GUICHECK_H
 #define _WIN32K_GUICHECK_H
 
-BOOL FASTCALL co_IntGraphicsCheck(BOOL Create);
+BOOL FASTCALL IntGraphicsCheck(BOOL Create);
 BOOL FASTCALL IntCreatePrimarySurface();
 VOID FASTCALL IntDestroyPrimarySurface();
 

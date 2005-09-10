@@ -10,18 +10,18 @@
 
 /* We are the Kernel */
 #define NTKERNELAPI
-#define _NTSYSTEM_
+
+/* include the ntoskrnl config.h file */
+#include "config.h"
 
 /* DDK/IFS/NDK Headers */
 #include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
 #include <ddk/wdmguid.h>
-#include <ndk/ntndk.h>
 #include <ndk/sysguid.h>
-#include <ndk/asm.h>
-
-/* FIXME: Temporary until CC Ros is gone */
-#include <ccros.h>        
+#include <ndk/ntndk.h>
+#undef IO_TYPE_FILE
+#define IO_TYPE_FILE                    0x0F5L /* Temp Hack */
 
 /* ReactOS Headers */
 #include <reactos/version.h>
@@ -29,12 +29,7 @@
 #include <reactos/bugcodes.h>
 #include <reactos/rossym.h>
 
-/* Disk Dump Driver Header */
-#include <diskdump/diskdump.h>
-
 /* C Headers */
-#include <stdio.h>
-#include <ctype.h>
 #include <malloc.h>
 #include <wchar.h>
 
@@ -46,4 +41,3 @@
 
 /* Internal Headers */
 #include "internal/ntoskrnl.h"
-#include "config.h"

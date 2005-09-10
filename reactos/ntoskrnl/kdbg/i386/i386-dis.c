@@ -47,7 +47,8 @@ extern void DbgPrint(const char *format, ...);
 extern unsigned int KdbSymPrintAddress(void* address);
 struct disassemble_info;
 
-extern long KdbpSafeReadMemory(void*, void*, unsigned int);
+#define KdbpSafeReadMemory(dst, src, size) MmSafeCopyFromUser(dst, src, size)
+extern long MmSafeCopyFromUser(void *Dest, void *Src, unsigned long NumberOfBytes);
 
 
 int

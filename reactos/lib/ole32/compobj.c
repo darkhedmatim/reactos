@@ -76,8 +76,6 @@ typedef LPCSTR LPCOLESTR16;
 
 HINSTANCE OLE32_hInstance = 0; /* FIXME: make static ... */
 
-#define ARRAYSIZE(array) (sizeof(array)/sizeof((array)[0]))
-
 /****************************************************************************
  * This section defines variables internal to the COM module.
  *
@@ -197,7 +195,7 @@ static void COMPOBJ_UninitProcess( void )
     UnregisterClassW(wszAptWinClass, OLE32_hInstance);
 }
 
-static void COM_TlsDestroy(void)
+static void COM_TlsDestroy()
 {
     struct oletls *info = NtCurrentTeb()->ReservedForOle;
     if (info)
@@ -224,6 +222,9 @@ static APARTMENT *apartment_construct(DWORD model)
 
     apt = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*apt));
     apt->tid = GetCurrentThreadId();
+    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+                    GetCurrentProcess(), &apt->thread,
+                    THREAD_ALL_ACCESS, FALSE, 0);
 
     list_init(&apt->proxies);
     list_init(&apt->stubmgrs);
@@ -357,6 +358,7 @@ DWORD apartment_release(struct apartment *apt)
 
         DEBUG_CLEAR_CRITSEC_NAME(&apt->cs);
         DeleteCriticalSection(&apt->cs);
+        CloseHandle(apt->thread);
 
         HeapFree(GetProcessHeap(), 0, apt);
     }
@@ -809,29 +811,27 @@ HRESULT WINAPI CoCreateGuid(GUID *pguid)
  */
 HRESULT WINAPI __CLSIDFromStringA(LPCSTR idstr, CLSID *id)
 {
-  const BYTE *s;
+  const BYTE *s = (const BYTE *) idstr;
   int	i;
   BYTE table[256];
 
-  if (!idstr) {
-    memset( id, 0, sizeof (CLSID) );
-    return S_OK;
-  }
+  if (!s)
+	  s = "{00000000-0000-0000-0000-000000000000}";
+  else {  /* validate the CLSID string */
 
-  /* validate the CLSID string */
-  if (strlen(idstr) != 38)
-    return CO_E_CLASSSTRING;
+      if (strlen(s) != 38)
+          return CO_E_CLASSSTRING;
 
-  s = (const BYTE *) idstr;
-  if ((s[0]!='{') || (s[9]!='-') || (s[14]!='-') || (s[19]!='-') || (s[24]!='-') || (s[37]!='}'))
-    return CO_E_CLASSSTRING;
+      if ((s[0]!='{') || (s[9]!='-') || (s[14]!='-') || (s[19]!='-') || (s[24]!='-') || (s[37]!='}'))
+          return CO_E_CLASSSTRING;
 
-  for (i=1; i<37; i++) {
-    if ((i == 9)||(i == 14)||(i == 19)||(i == 24)) continue;
-    if (!(((s[i] >= '0') && (s[i] <= '9'))  ||
-          ((s[i] >= 'a') && (s[i] <= 'f'))  ||
-          ((s[i] >= 'A') && (s[i] <= 'F'))))
-       return CO_E_CLASSSTRING;
+      for (i=1; i<37; i++) {
+          if ((i == 9)||(i == 14)||(i == 19)||(i == 24)) continue;
+          if (!(((s[i] >= '0') && (s[i] <= '9'))  ||
+                ((s[i] >= 'a') && (s[i] <= 'f'))  ||
+                ((s[i] >= 'A') && (s[i] <= 'F'))))
+              return CO_E_CLASSSTRING;
+      }
   }
 
   TRACE("%s -> %p\n", s, id);
@@ -981,16 +981,6 @@ INT WINAPI StringFromGUID2(REFGUID id, LPOLESTR str, INT cmax)
   return MultiByteToWideChar( CP_ACP, 0, xguid, -1, str, cmax );
 }
 
-/* open HKCR\\CLSID\\{string form of clsid} key */
-DWORD COM_OpenKeyForCLSID(REFCLSID clsid, REGSAM access, HKEY *key)
-{
-    static const WCHAR wszCLSIDSlash[] = {'C','L','S','I','D','\\',0};
-    WCHAR path[CHARS_IN_GUID + ARRAYSIZE(wszCLSIDSlash) - 1];
-    strcpyW(path, wszCLSIDSlash);
-    StringFromGUID2(clsid, path + strlenW(wszCLSIDSlash), CHARS_IN_GUID);
-    return RegOpenKeyExW(HKEY_CLASSES_ROOT, path, 0, access, key);
-}
-
 /******************************************************************************
  *               ProgIDFromCLSID [OLE32.@]
  *
@@ -1007,42 +997,43 @@ DWORD COM_OpenKeyForCLSID(REFCLSID clsid, REGSAM access, HKEY *key)
  */
 HRESULT WINAPI ProgIDFromCLSID(REFCLSID clsid, LPOLESTR *lplpszProgID)
 {
-  static const WCHAR wszProgID[] = {'P','r','o','g','I','D',0};
-  HKEY     hkey = NULL;
-  HKEY     hkey_clsid;
+  char     strCLSID[50], *buf, *buf2;
+  DWORD    buf2len;
+  HKEY     xhkey;
+  LPMALLOC mllc;
   HRESULT  ret = S_OK;
 
-  if (ERROR_SUCCESS != COM_OpenKeyForCLSID(clsid, KEY_READ, &hkey_clsid))
+  WINE_StringFromCLSID(clsid, strCLSID);
+
+  buf = HeapAlloc(GetProcessHeap(), 0, strlen(strCLSID)+14);
+  sprintf(buf,"CLSID\\%s\\ProgID", strCLSID);
+  if (RegOpenKeyA(HKEY_CLASSES_ROOT, buf, &xhkey))
     ret = REGDB_E_CLASSNOTREG;
 
-  if (ret == S_OK)
-  {
-    if (RegOpenKeyExW(hkey_clsid, wszProgID, 0, KEY_READ, &hkey))
-      ret = REGDB_E_CLASSNOTREG;
-    RegCloseKey(hkey_clsid);
-  }
+  HeapFree(GetProcessHeap(), 0, buf);
 
   if (ret == S_OK)
   {
-    LONG progidlen = 0;
-
-    if (RegQueryValueW(hkey, NULL, NULL, &progidlen))
+    buf2 = HeapAlloc(GetProcessHeap(), 0, 255);
+    buf2len = 255;
+    if (RegQueryValueA(xhkey, NULL, buf2, &buf2len))
       ret = REGDB_E_CLASSNOTREG;
 
     if (ret == S_OK)
     {
-      *lplpszProgID = CoTaskMemAlloc(progidlen * sizeof(WCHAR));
-      if (*lplpszProgID)
-      {
-        if (RegQueryValueW(hkey, NULL, *lplpszProgID, &progidlen))
-          ret = REGDB_E_CLASSNOTREG;
-      }
-      else
+      if (CoGetMalloc(0,&mllc))
         ret = E_OUTOFMEMORY;
+      else
+      {
+          DWORD len = MultiByteToWideChar( CP_ACP, 0, buf2, -1, NULL, 0 );
+          *lplpszProgID = IMalloc_Alloc(mllc, len * sizeof(WCHAR) );
+          MultiByteToWideChar( CP_ACP, 0, buf2, -1, *lplpszProgID, len );
+      }
     }
+    HeapFree(GetProcessHeap(), 0, buf2);
+    RegCloseKey(xhkey);
   }
 
-  RegCloseKey(hkey);
   return ret;
 }
 
@@ -1062,7 +1053,7 @@ HRESULT WINAPI ProgIDFromCLSID(REFCLSID clsid, LPOLESTR *lplpszProgID)
 HRESULT WINAPI CLSIDFromProgID16(LPCOLESTR16 progid, LPCLSID riid)
 {
 	char	*buf,buf2[80];
-	LONG	buf2len;
+	DWORD	buf2len;
 	HRESULT	err;
 	HKEY	xhkey;
 
@@ -1098,8 +1089,8 @@ HRESULT WINAPI CLSIDFromProgID16(LPCOLESTR16 progid, LPCLSID riid)
 HRESULT WINAPI CLSIDFromProgID(LPCOLESTR progid, LPCLSID riid)
 {
     static const WCHAR clsidW[] = { '\\','C','L','S','I','D',0 };
-    WCHAR buf2[CHARS_IN_GUID];
-    LONG buf2len = sizeof(buf2);
+    char buf2[80];
+    DWORD buf2len = sizeof(buf2);
     HKEY xhkey;
 
     WCHAR *buf = HeapAlloc( GetProcessHeap(),0,(strlenW(progid)+8) * sizeof(WCHAR) );
@@ -1112,13 +1103,13 @@ HRESULT WINAPI CLSIDFromProgID(LPCOLESTR progid, LPCLSID riid)
     }
     HeapFree(GetProcessHeap(),0,buf);
 
-    if (RegQueryValueW(xhkey,NULL,buf2,&buf2len))
+    if (RegQueryValueA(xhkey,NULL,buf2,&buf2len))
     {
         RegCloseKey(xhkey);
         return CO_E_CLASSSTRING;
     }
     RegCloseKey(xhkey);
-    return CLSIDFromString(buf2,riid);
+    return __CLSIDFromStringA(buf2,riid);
 }
 
 
@@ -1160,41 +1151,46 @@ HRESULT WINAPI CLSIDFromProgID(LPCOLESTR progid, LPCLSID riid)
  */
 HRESULT WINAPI CoGetPSClsid(REFIID riid, CLSID *pclsid)
 {
-    static const WCHAR wszInterface[] = {'I','n','t','e','r','f','a','c','e','\\',0};
-    static const WCHAR wszPSC[] = {'\\','P','r','o','x','y','S','t','u','b','C','l','s','i','d','3','2',0};
-    WCHAR path[ARRAYSIZE(wszInterface) - 1 + CHARS_IN_GUID - 1 + ARRAYSIZE(wszPSC)];
-    WCHAR value[CHARS_IN_GUID];
-    LONG len;
-    HKEY hkey;
+    char *buf, buf2[40];
+    DWORD buf2len;
+    HKEY xhkey;
 
     TRACE("() riid=%s, pclsid=%p\n", debugstr_guid(riid), pclsid);
 
-    /* Interface\\{string form of riid}\\ProxyStubClsid32 */
-    strcpyW(path, wszInterface);
-    StringFromGUID2(riid, path + ARRAYSIZE(wszInterface) - 1, CHARS_IN_GUID);
-    strcpyW(path + ARRAYSIZE(wszInterface) - 1 + CHARS_IN_GUID - 1, wszPSC);
+    /* Get the input iid as a string */
+    WINE_StringFromCLSID(riid, buf2);
+    /* Allocate memory for the registry key we will construct.
+       (length of iid string plus constant length of static text */
+    buf = HeapAlloc(GetProcessHeap(), 0, strlen(buf2)+27);
+    if (buf == NULL)
+        return E_OUTOFMEMORY;
+
+    /* Construct the registry key we want */
+    sprintf(buf,"Interface\\%s\\ProxyStubClsid32", buf2);
 
     /* Open the key.. */
-    if (RegOpenKeyExW(HKEY_CLASSES_ROOT, path, 0, KEY_READ, &hkey))
+    if (RegOpenKeyA(HKEY_CLASSES_ROOT, buf, &xhkey))
     {
         WARN("No PSFactoryBuffer object is registered for IID %s\n", debugstr_guid(riid));
+        HeapFree(GetProcessHeap(),0,buf);
         return REGDB_E_IIDNOTREG;
     }
+    HeapFree(GetProcessHeap(),0,buf);
 
     /* ... Once we have the key, query the registry to get the
        value of CLSID as a string, and convert it into a
        proper CLSID structure to be passed back to the app */
-    len = sizeof(value);
-    if (ERROR_SUCCESS != RegQueryValueW(hkey, NULL, value, &len))
+    buf2len = sizeof(buf2);
+    if ( (RegQueryValueA(xhkey,NULL,buf2,&buf2len)) )
     {
-        RegCloseKey(hkey);
+        RegCloseKey(xhkey);
         return REGDB_E_IIDNOTREG;
     }
-    RegCloseKey(hkey);
+    RegCloseKey(xhkey);
 
     /* We have the CLSid we want back from the registry as a string, so
        lets convert it into a CLSID structure */
-    if (CLSIDFromString(value, pclsid) != NOERROR)
+    if ( (__CLSIDFromStringA(buf2,pclsid)) != NOERROR)
         return REGDB_E_IIDNOTREG;
 
     TRACE ("() Returning CLSID=%s\n", debugstr_guid(pclsid));
@@ -1401,8 +1397,6 @@ HRESULT WINAPI CoRegisterClassObject(
   newClass->classIdentifier = *rclsid;
   newClass->runContext      = dwClsContext;
   newClass->connectFlags    = flags;
-  newClass->pMarshaledData  = NULL;
-
   /*
    * Use the address of the chain node as the cookie since we are sure it's
    * unique. FIXME: not on 64-bit platforms.
@@ -1534,24 +1528,25 @@ end:
 }
 
 /***********************************************************************
- *	COM_RegReadPath	[internal]
+ *	compobj_RegReadPath	[internal]
  *
  *	Reads a registry value and expands it when necessary
  */
-HRESULT COM_RegReadPath(HKEY hkeyroot, const WCHAR *keyname, const WCHAR *valuename, WCHAR * dst, DWORD dstlen)
+static HRESULT
+compobj_RegReadPath(char * keyname, char * valuename, char * dst, DWORD dstlen)
 {
 	HRESULT hres;
 	HKEY key;
 	DWORD keytype;
-	WCHAR src[MAX_PATH];
-	DWORD dwLength = dstlen * sizeof(WCHAR);
+	char src[MAX_PATH];
+	DWORD dwLength = dstlen;
 
-	if((hres = RegOpenKeyExW(hkeyroot, keyname, 0, KEY_READ, &key)) == ERROR_SUCCESS) {
-          if( (hres = RegQueryValueExW(key, NULL, NULL, &keytype, (LPBYTE)src, &dwLength)) == ERROR_SUCCESS ) {
+	if((hres = RegOpenKeyExA(HKEY_CLASSES_ROOT, keyname, 0, KEY_READ, &key)) == ERROR_SUCCESS) {
+          if( (hres = RegQueryValueExA(key, NULL, NULL, &keytype, (LPBYTE)src, &dwLength)) == ERROR_SUCCESS ) {
             if (keytype == REG_EXPAND_SZ) {
-              if (dstlen <= ExpandEnvironmentStringsW(src, dst, dstlen)) hres = ERROR_MORE_DATA;
+              if (dstlen <= ExpandEnvironmentStringsA(src, dst, dstlen)) hres = ERROR_MORE_DATA;
             } else {
-              lstrcpynW(dst, src, dstlen);
+              lstrcpynA(dst, src, dstlen);
             }
 	  }
           RegCloseKey (key);
@@ -1560,6 +1555,7 @@ HRESULT COM_RegReadPath(HKEY hkeyroot, const WCHAR *keyname, const WCHAR *valuen
 }
 
 /***********************************************************************
+ *           CoGetClassObject [COMPOBJ.7]
  *           CoGetClassObject [OLE32.@]
  *
  * FIXME.  If request allows of several options and there is a failure
@@ -1569,10 +1565,16 @@ HRESULT COM_RegReadPath(HKEY hkeyroot, const WCHAR *keyname, const WCHAR *valuen
  */
 HRESULT WINAPI CoGetClassObject(
     REFCLSID rclsid, DWORD dwClsContext, COSERVERINFO *pServerInfo,
-    REFIID iid, LPVOID *ppv)
-{
+    REFIID iid, LPVOID *ppv
+) {
     LPUNKNOWN	regClassObject;
     HRESULT	hres = E_UNEXPECTED;
+    char	xclsid[80];
+    HINSTANCE hLibrary;
+    typedef HRESULT (CALLBACK *DllGetClassObjectFunc)(REFCLSID clsid, REFIID iid, LPVOID *ppv);
+    DllGetClassObjectFunc DllGetClassObject;
+
+    WINE_StringFromCLSID((LPCLSID)rclsid,xclsid);
 
     TRACE("\n\tCLSID:\t%s,\n\tIID:\t%s\n", debugstr_guid(rclsid), debugstr_guid(iid));
 
@@ -1587,7 +1589,9 @@ HRESULT WINAPI CoGetClassObject(
      */
     if (S_OK == COM_GetRegisteredClassObject(rclsid, dwClsContext, &regClassObject))
     {
-      /* Get the required interface from the retrieved pointer. */
+      /*
+       * Get the required interface from the retrieved pointer.
+       */
       hres = IUnknown_QueryInterface(regClassObject, iid, ppv);
 
       /*
@@ -1601,49 +1605,32 @@ HRESULT WINAPI CoGetClassObject(
     }
 
     /* first try: in-process */
-    if ((CLSCTX_INPROC_SERVER | CLSCTX_INPROC_HANDLER) & dwClsContext)
-    {
-        static const WCHAR wszInprocServer32[] = {'I','n','p','r','o','c','S','e','r','v','e','r','3','2',0};
-        HINSTANCE hLibrary;
-        typedef HRESULT (CALLBACK *DllGetClassObjectFunc)(REFCLSID clsid, REFIID iid, LPVOID *ppv);
-        DllGetClassObjectFunc DllGetClassObject;
-        WCHAR dllpath[MAX_PATH+1];
-        HKEY hkey;
+    if ((CLSCTX_INPROC_SERVER | CLSCTX_INPROC_HANDLER) & dwClsContext) {
+	char keyname[MAX_PATH];
+	char dllpath[MAX_PATH+1];
 
-        if (ERROR_SUCCESS != COM_OpenKeyForCLSID(rclsid, KEY_READ, &hkey))
-        {
-            ERR("class %s not registered\n", debugstr_guid(rclsid));
-            hres = REGDB_E_CLASSNOTREG;
-        }
+	sprintf(keyname,"CLSID\\%s\\InprocServer32",xclsid);
 
-        if (COM_RegReadPath(hkey, wszInprocServer32, NULL, dllpath, ARRAYSIZE(dllpath)) != ERROR_SUCCESS)
-        {
-            /* failure: CLSID is not found in registry */
-            WARN("class %s not registered inproc\n", debugstr_guid(rclsid));
+	if ( compobj_RegReadPath(keyname, NULL, dllpath, sizeof(dllpath)) != ERROR_SUCCESS) {
+	    /* failure: CLSID is not found in registry */
+           WARN("class %s not registered inproc\n", xclsid);
             hres = REGDB_E_CLASSNOTREG;
-        }
-        else
-        {
-            if ((hLibrary = LoadLibraryExW(dllpath, 0, LOAD_WITH_ALTERED_SEARCH_PATH)) == 0)
-            {
-                /* failure: DLL could not be loaded */
-                ERR("couldn't load InprocServer32 dll %s\n", debugstr_w(dllpath));
-                hres = E_ACCESSDENIED; /* FIXME: or should this be CO_E_DLLNOTFOUND? */
-            }
-            else if (!(DllGetClassObject = (DllGetClassObjectFunc)GetProcAddress(hLibrary, "DllGetClassObject")))
-            {
-                /* failure: the dll did not export DllGetClassObject */
-                ERR("couldn't find function DllGetClassObject in %s\n", debugstr_w(dllpath));
-                FreeLibrary( hLibrary );
-                hres = CO_E_DLLNOTFOUND;
-            }
-            else
-            {
-                /* OK: get the ClassObject */
-                COMPOBJ_DLLList_Add( hLibrary );
-                return DllGetClassObject(rclsid, iid, ppv);
-            }
-        }
+	} else {
+	  if ((hLibrary = LoadLibraryExA(dllpath, 0, LOAD_WITH_ALTERED_SEARCH_PATH)) == 0) {
+	    /* failure: DLL could not be loaded */
+	    ERR("couldn't load InprocServer32 dll %s\n", dllpath);
+	    hres = E_ACCESSDENIED; /* FIXME: or should this be CO_E_DLLNOTFOUND? */
+	  } else if (!(DllGetClassObject = (DllGetClassObjectFunc)GetProcAddress(hLibrary, "DllGetClassObject"))) {
+	    /* failure: the dll did not export DllGetClassObject */
+	    ERR("couldn't find function DllGetClassObject in %s\n", dllpath);
+	    FreeLibrary( hLibrary );
+	    hres = CO_E_DLLNOTFOUND;
+	  } else {
+	    /* OK: get the ClassObject */
+	    COMPOBJ_DLLList_Add( hLibrary );
+	    return DllGetClassObject(rclsid, iid, ppv);
+	  }
+	}
     }
 
     /* Next try out of process */
@@ -1660,23 +1647,6 @@ HRESULT WINAPI CoGetClassObject(
     }
 
     return hres;
-}
-
-/***********************************************************************
- *           CoGetClassObject [COMPOBJ.7]
- *
- */
-HRESULT WINAPI CoGetClassObject16(
-    REFCLSID rclsid, DWORD dwClsContext, COSERVERINFO *pServerInfo,
-    REFIID iid, LPVOID *ppv)
-{
-    FIXME(", stub!\n\tCLSID:\t%s,\n\tIID:\t%s\n", debugstr_guid(rclsid), debugstr_guid(iid));
-
-    if (pServerInfo) {
-	FIXME("\tpServerInfo: name=%s\n",debugstr_w(pServerInfo->pwszName));
-	FIXME("\t\tpAuthInfo=%p\n",pServerInfo->pAuthInfo);
-    }
-    return E_NOTIMPL;
 }
 /***********************************************************************
  *        CoResumeClassObjects (OLE32.@)
@@ -1786,8 +1756,8 @@ HRESULT WINAPI GetClassFile(LPCOLESTR filePathName,CLSID *pclsid)
 
     return MK_E_INVALIDEXTENSION;
 }
-
 /***********************************************************************
+ *           CoCreateInstance [COMPOBJ.13]
  *           CoCreateInstance [OLE32.@]
  */
 HRESULT WINAPI CoCreateInstance(
@@ -1852,23 +1822,6 @@ HRESULT WINAPI CoCreateInstance(
 		debugstr_guid(iid), debugstr_guid(rclsid),hres);
 
 	return hres;
-}
-
-/***********************************************************************
- *           CoCreateInstance [COMPOBJ.13]
- */
-HRESULT WINAPI CoCreateInstance16(
-	REFCLSID rclsid,
-	LPUNKNOWN pUnkOuter,
-	DWORD dwClsContext,
-	REFIID iid,
-	LPVOID *ppv)
-{
-  FIXME("(%s, %p, %lx, %s, %p), stub!\n", 
-	debugstr_guid(rclsid), pUnkOuter, dwClsContext, debugstr_guid(iid),
-	ppv
-  );
-  return E_NOTIMPL;
 }
 
 /***********************************************************************
@@ -2201,27 +2154,28 @@ HRESULT WINAPI CoSetState(IUnknown * pv)
  */
 HRESULT WINAPI OleGetAutoConvert(REFCLSID clsidOld, LPCLSID pClsidNew)
 {
-    static const WCHAR wszAutoConvertTo[] = {'A','u','t','o','C','o','n','v','e','r','t','T','o',0};
-    HKEY hkey = NULL;
-    WCHAR buf[CHARS_IN_GUID];
-    LONG len;
+    HKEY hkey = 0;
+    char buf[200];
+    WCHAR wbuf[200];
+    DWORD len;
     HRESULT res = S_OK;
 
-    if (ERROR_SUCCESS != COM_OpenKeyForCLSID(clsidOld, KEY_READ, &hkey))
+    sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
+    if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
     {
         res = REGDB_E_CLASSNOTREG;
-        goto done;
+	goto done;
     }
-
-    len = sizeof(buf);
+    len = 200;
     /* we can just query for the default value of AutoConvertTo key like that,
        without opening the AutoConvertTo key and querying for NULL (default) */
-    if (RegQueryValueW(hkey, wszAutoConvertTo, buf, &len))
+    if (RegQueryValueA(hkey,"AutoConvertTo",buf,&len))
     {
         res = REGDB_E_KEYMISSING;
-        goto done;
+	goto done;
     }
-    res = CLSIDFromString(buf, pClsidNew);
+    MultiByteToWideChar( CP_ACP, 0, buf, -1, wbuf, sizeof(wbuf)/sizeof(WCHAR) );
+    CLSIDFromString(wbuf,pClsidNew);
 done:
     if (hkey) RegCloseKey(hkey);
     return res;
@@ -2245,26 +2199,27 @@ done:
  */
 HRESULT WINAPI CoTreatAsClass(REFCLSID clsidOld, REFCLSID clsidNew)
 {
-    static const WCHAR wszAutoTreatAs[] = {'A','u','t','o','T','r','e','a','t','A','s',0};
-    static const WCHAR wszTreatAs[] = {'T','r','e','a','t','A','s',0};
-    HKEY hkey = NULL;
-    WCHAR szClsidNew[CHARS_IN_GUID];
+    HKEY hkey = 0;
+    char buf[47];
+    char szClsidNew[39];
     HRESULT res = S_OK;
-    WCHAR auto_treat_as[CHARS_IN_GUID];
+    char auto_treat_as[39];
     LONG auto_treat_as_size = sizeof(auto_treat_as);
     CLSID id;
 
-    if (ERROR_SUCCESS != COM_OpenKeyForCLSID(clsidOld, KEY_READ | KEY_WRITE, &hkey))
+    sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
+    WINE_StringFromCLSID(clsidNew, szClsidNew);
+    if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
     {
         res = REGDB_E_CLASSNOTREG;
 	goto done;
     }
     if (!memcmp( clsidOld, clsidNew, sizeof(*clsidOld) ))
     {
-       if (!RegQueryValueW(hkey, wszAutoTreatAs, auto_treat_as, &auto_treat_as_size) &&
-           !CLSIDFromString(auto_treat_as, &id))
+       if (!RegQueryValueA(hkey, "AutoTreatAs", auto_treat_as, &auto_treat_as_size) &&
+           !__CLSIDFromStringA(auto_treat_as, &id))
        {
-           if (RegSetValueW(hkey, wszTreatAs, REG_SZ, auto_treat_as, sizeof(auto_treat_as)))
+           if (RegSetValueA(hkey, "TreatAs", REG_SZ, auto_treat_as, strlen(auto_treat_as)+1))
            {
                res = REGDB_E_WRITEREGDB;
                goto done;
@@ -2272,14 +2227,13 @@ HRESULT WINAPI CoTreatAsClass(REFCLSID clsidOld, REFCLSID clsidNew)
        }
        else
        {
-           RegDeleteKeyW(hkey, wszTreatAs);
+           RegDeleteKeyA(hkey, "TreatAs");
            goto done;
        }
     }
-    else if (!StringFromGUID2(clsidNew, szClsidNew, ARRAYSIZE(szClsidNew)) &&
-             !RegSetValueW(hkey, wszTreatAs, REG_SZ, szClsidNew, sizeof(szClsidNew)))
+    else if (RegSetValueA(hkey, "TreatAs", REG_SZ, szClsidNew, strlen(szClsidNew)+1))
     {
-        res = REGDB_E_WRITEREGDB;
+       res = REGDB_E_WRITEREGDB;
 	goto done;
     }
 
@@ -2306,31 +2260,32 @@ done:
  */
 HRESULT WINAPI CoGetTreatAsClass(REFCLSID clsidOld, LPCLSID clsidNew)
 {
-    static const WCHAR wszTreatAs[] = {'T','r','e','a','t','A','s',0};
-    HKEY hkey = NULL;
-    WCHAR szClsidNew[CHARS_IN_GUID];
+    HKEY hkey = 0;
+    char buf[200], szClsidNew[200];
     HRESULT res = S_OK;
     LONG len = sizeof(szClsidNew);
 
     FIXME("(%s,%p)\n", debugstr_guid(clsidOld), clsidNew);
+    sprintf(buf,"CLSID\\");WINE_StringFromCLSID(clsidOld,&buf[6]);
     memcpy(clsidNew,clsidOld,sizeof(CLSID)); /* copy over old value */
 
-    if (COM_OpenKeyForCLSID(clsidOld, KEY_READ, &hkey))
+    if (RegOpenKeyA(HKEY_CLASSES_ROOT,buf,&hkey))
     {
         res = REGDB_E_CLASSNOTREG;
 	goto done;
     }
-    if (RegQueryValueW(hkey, wszTreatAs, szClsidNew, &len))
+    if (RegQueryValueA(hkey, "TreatAs", szClsidNew, &len))
     {
         res = S_FALSE;
 	goto done;
     }
-    res = CLSIDFromString(szClsidNew,clsidNew);
+    res = __CLSIDFromStringA(szClsidNew,clsidNew);
     if (FAILED(res))
-        ERR("Failed CLSIDFromStringA(%s), hres 0x%08lx\n", debugstr_w(szClsidNew), res);
+    	FIXME("Failed CLSIDFromStringA(%s), hres %lx?\n",szClsidNew,res);
 done:
     if (hkey) RegCloseKey(hkey);
     return res;
+
 }
 
 /******************************************************************************
@@ -2489,16 +2444,6 @@ BOOL WINAPI CoIsHandlerConnected(IUnknown *pUnk)
     FIXME("%p\n", pUnk);
 
     return TRUE;
-}
-
-/***********************************************************************
- *           CoAllowSetForegroundWindow [OLE32.@]
- *
- */
-HRESULT WINAPI CoAllowSetForegroundWindow(IUnknown *pUnk, void *pvReserved)
-{
-    FIXME("(%p, %p): stub\n", pUnk, pvReserved);
-    return S_OK;
 }
  
 /***********************************************************************

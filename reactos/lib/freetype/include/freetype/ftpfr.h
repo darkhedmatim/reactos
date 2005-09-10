@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType API for accessing PFR-specific data (specification only).   */
 /*                                                                         */
-/*  Copyright 2002, 2003, 2004 by                                          */
+/*  Copyright 2002, 2003 by                                                */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -41,7 +41,7 @@ FT_BEGIN_HEADER
   /*    PFR Fonts                                                          */
   /*                                                                       */
   /* <Abstract>                                                            */
-  /*    PFR/TrueDoc specific API.                                          */
+  /*    PFR/TrueDoc specific APIs                                          */
   /*                                                                       */
   /* <Description>                                                         */
   /*    This section contains the declaration of PFR-specific functions.   */
@@ -166,7 +166,7 @@ FT_BEGIN_HEADER
 
 FT_END_HEADER
 
-#endif /* __FTPFR_H__ */
+#endif /* __FTBDF_H__ */
 
 
 /* END */

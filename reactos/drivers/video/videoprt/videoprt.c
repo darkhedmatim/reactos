@@ -30,7 +30,7 @@ PKPROCESS Csrss = NULL;
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(
    IN PDRIVER_OBJECT DriverObject,
    IN PUNICODE_STRING RegistryPath)
@@ -38,7 +38,7 @@ DriverEntry(
    return STATUS_SUCCESS;
 }
 
-PVOID NTAPI
+PVOID STDCALL
 IntVideoPortImageDirectoryEntryToData(
    PVOID BaseAddress,
    ULONG Directory)
@@ -60,7 +60,7 @@ IntVideoPortImageDirectoryEntryToData(
    return (PVOID)((ULONG_PTR)BaseAddress + Va);
 }
 
-PVOID NTAPI
+PVOID STDCALL
 IntVideoPortGetProcAddress(
    IN PVOID HwDeviceExtension,
    IN PUCHAR FunctionName)
@@ -116,7 +116,7 @@ IntVideoPortGetProcAddress(
    return NULL;
 }
 
-VOID NTAPI
+VOID STDCALL
 IntVideoPortDeferredRoutine(
    IN PKDPC Dpc,
    IN PVOID DeferredContext,
@@ -128,7 +128,7 @@ IntVideoPortDeferredRoutine(
    ((PMINIPORT_DPC_ROUTINE)SystemArgument1)(HwDeviceExtension, SystemArgument2);
 }
 
-ULONG NTAPI
+ULONG STDCALL
 IntVideoPortAllocateDeviceNumber(VOID)
 {
    NTSTATUS Status;
@@ -163,7 +163,7 @@ IntVideoPortAllocateDeviceNumber(VOID)
    return DeviceNumber;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortCreateAdapterDeviceObject(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
@@ -308,7 +308,7 @@ IntVideoPortCreateAdapterDeviceObject(
 
 
 /* FIXME: we have to detach the device object in IntVideoPortFindAdapter if it fails */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortFindAdapter(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
@@ -518,7 +518,7 @@ IntDetachFromCSRSS(PKPROCESS *CallingProcess, PKAPC_STATE ApcState)
  * @implemented
  */
 
-ULONG NTAPI
+ULONG STDCALL
 VideoPortInitialize(
    IN PVOID Context1,
    IN PVOID Context2,
@@ -534,26 +534,10 @@ VideoPortInitialize(
    DPRINT("VideoPortInitialize\n");
 
    /*
-    * As a first thing do parameter checks.
-    */
-
-   if (HwInitializationData->HwInitDataSize > sizeof(VIDEO_HW_INITIALIZATION_DATA))
-   {
-      return STATUS_REVISION_MISMATCH;
-   }
-
-   if (HwInitializationData->HwFindAdapter == NULL ||
-       HwInitializationData->HwInitialize == NULL ||
-       HwInitializationData->HwStartIO == NULL)
-   {
-      return STATUS_INVALID_PARAMETER;
-   }
-
-   /*
     * NOTE:
     * The driver extension can be already allocated in case that we were
     * called by legacy driver and failed detecting device. Some miniport
-    * drivers in that case adjust parameters and call VideoPortInitialize
+    * drivers in that case adjust parameters and calls VideoPortInitialize
     * again.
     */
 
@@ -570,34 +554,6 @@ VideoPortInitialize(
       {
          return Status;
       }
-
-      /*
-       * Save the registry path. This should be done only once even if
-       * VideoPortInitialize is called multiple times.
-       */
-
-      if (RegistryPath->Length != 0)
-      {
-         DriverExtension->RegistryPath.Length = 0;
-         DriverExtension->RegistryPath.MaximumLength =
-            RegistryPath->Length + sizeof(UNICODE_NULL);
-         DriverExtension->RegistryPath.Buffer =
-            ExAllocatePoolWithTag(
-               PagedPool,
-               DriverExtension->RegistryPath.MaximumLength,
-               TAG('U', 'S', 'T', 'R'));
-         if (DriverExtension->RegistryPath.Buffer == NULL)
-         {
-            RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
-            return STATUS_INSUFFICIENT_RESOURCES;
-         }
-
-         RtlCopyUnicodeString(&DriverExtension->RegistryPath, RegistryPath);
-      }
-      else
-      {
-         RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
-      }
    }
 
    /*
@@ -607,9 +563,9 @@ VideoPortInitialize(
    RtlCopyMemory(
       &DriverExtension->InitializationData,
       HwInitializationData,
-      HwInitializationData->HwInitDataSize);
-   if (HwInitializationData->HwInitDataSize <
-       sizeof(VIDEO_HW_INITIALIZATION_DATA))
+      min(sizeof(VIDEO_HW_INITIALIZATION_DATA),
+          HwInitializationData->HwInitDataSize));
+   if (sizeof(VIDEO_HW_INITIALIZATION_DATA) > HwInitializationData->HwInitDataSize)
    {
       RtlZeroMemory((PVOID)((ULONG_PTR)&DriverExtension->InitializationData +
                                        HwInitializationData->HwInitDataSize),
@@ -617,6 +573,27 @@ VideoPortInitialize(
                     HwInitializationData->HwInitDataSize);
    }
    DriverExtension->HwContext = HwContext;
+
+   /* we can't use RtlDuplicateUnicodeString because only ntdll exposes it... */
+   if (RegistryPath->Length != 0)
+   {
+      DriverExtension->RegistryPath.Length = 0;
+      DriverExtension->RegistryPath.MaximumLength = RegistryPath->Length + sizeof(UNICODE_NULL);
+      DriverExtension->RegistryPath.Buffer = ExAllocatePoolWithTag(PagedPool,
+                                                                   DriverExtension->RegistryPath.MaximumLength,
+                                                                   TAG('U', 'S', 'T', 'R'));
+      if (DriverExtension->RegistryPath.Buffer == NULL)
+      {
+         RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
+         return STATUS_INSUFFICIENT_RESOURCES;
+      }
+
+      RtlCopyUnicodeString(&DriverExtension->RegistryPath, RegistryPath);
+   }
+   else
+   {
+      RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
+   }
 
    switch (HwInitializationData->HwInitDataSize)
    {
@@ -698,7 +675,7 @@ VideoPortDebugPrint(
  * @unimplemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortLogError(
    IN PVOID HwDeviceExtension,
    IN PVIDEO_REQUEST_PACKET Vrp OPTIONAL,
@@ -717,7 +694,7 @@ VideoPortLogError(
  * @implemented
  */
 
-UCHAR NTAPI
+UCHAR STDCALL
 VideoPortGetCurrentIrql(VOID)
 {
    return KeGetCurrentIrql();
@@ -730,7 +707,7 @@ typedef struct QueryRegistryCallbackContext
    PMINIPORT_GET_REGISTRY_ROUTINE HwGetRegistryRoutine;
 } QUERY_REGISTRY_CALLBACK_CONTEXT, *PQUERY_REGISTRY_CALLBACK_CONTEXT;
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 QueryRegistryCallback(
    IN PWSTR ValueName,
    IN ULONG ValueType,
@@ -755,7 +732,7 @@ QueryRegistryCallback(
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortGetRegistryParameters(
    IN PVOID HwDeviceExtension,
    IN PWSTR ParameterName,
@@ -803,7 +780,7 @@ VideoPortGetRegistryParameters(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortSetRegistryParameters(
    IN PVOID HwDeviceExtension,
    IN PWSTR ValueName,
@@ -825,7 +802,7 @@ VideoPortSetRegistryParameters(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortGetVgaStatus(
    IN PVOID HwDeviceExtension,
    OUT PULONG VgaStatus)
@@ -853,7 +830,7 @@ VideoPortGetVgaStatus(
  * @implemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortGetRomImage(
    IN PVOID HwDeviceExtension,
    IN PVOID Unused1,
@@ -911,7 +888,7 @@ VideoPortGetRomImage(
  * @implemented
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VideoPortScanRom(
    IN PVOID HwDeviceExtension,
    IN PUCHAR RomBase,
@@ -945,7 +922,7 @@ VideoPortScanRom(
  * @implemented
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VideoPortSynchronizeExecution(
    IN PVOID HwDeviceExtension,
    IN VIDEO_SYNCHRONIZE_PRIORITY Priority,
@@ -995,7 +972,7 @@ VideoPortSynchronizeExecution(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortEnumerateChildren(
    IN PVOID HwDeviceExtension,
    IN PVOID Reserved)
@@ -1083,7 +1060,7 @@ VideoPortEnumerateChildren(
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortCreateSecondaryDisplay(
    IN PVOID HwDeviceExtension,
    IN OUT PVOID *SecondaryDeviceExtension,
@@ -1097,7 +1074,7 @@ VideoPortCreateSecondaryDisplay(
  * @implemented
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VideoPortQueueDpc(
    IN PVOID HwDeviceExtension,
    IN PMINIPORT_DPC_ROUTINE CallbackRoutine,
@@ -1113,7 +1090,7 @@ VideoPortQueueDpc(
  * @unimplemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortGetAssociatedDeviceExtension(IN PVOID DeviceObject)
 {
    DPRINT1("VideoPortGetAssociatedDeviceExtension: Unimplemented.\n");
@@ -1124,7 +1101,7 @@ VideoPortGetAssociatedDeviceExtension(IN PVOID DeviceObject)
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortGetVersion(
    IN PVOID HwDeviceExtension,
    IN OUT PVPOSVERSIONINFO VpOsVersionInfo)
@@ -1162,7 +1139,7 @@ VideoPortGetVersion(
  * @unimplemented
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VideoPortCheckForDeviceExistence(
    IN PVOID HwDeviceExtension,
    IN USHORT VendorId,
@@ -1180,7 +1157,7 @@ VideoPortCheckForDeviceExistence(
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortRegisterBugcheckCallback(
    IN PVOID HwDeviceExtension,
    IN ULONG BugcheckCode,
@@ -1195,7 +1172,7 @@ VideoPortRegisterBugcheckCallback(
  * @implemented
  */
 
-LONGLONG NTAPI
+LONGLONG STDCALL
 VideoPortQueryPerformanceCounter(
    IN PVOID HwDeviceExtension,
    OUT PLONGLONG PerformanceFrequency OPTIONAL)
@@ -1211,7 +1188,7 @@ VideoPortQueryPerformanceCounter(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortAcquireDeviceLock(
    IN PVOID  HwDeviceExtension)
 {
@@ -1230,7 +1207,7 @@ VideoPortAcquireDeviceLock(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortReleaseDeviceLock(
    IN PVOID  HwDeviceExtension)
 {
@@ -1244,13 +1221,3 @@ VideoPortReleaseDeviceLock(
    ASSERT(Status == 0);
 }
 
-/*
- * @unimplemented
- */
-
-VOID NTAPI
-VpNotifyEaData(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PVOID Data)
-{
-}

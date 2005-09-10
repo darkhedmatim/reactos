@@ -445,19 +445,19 @@ static GUID const CLSID_RecordInfo = {
 
 extern GUID const CLSID_PSDispatch;
 
-GUID const CLSID_PSEnumVariant = {
+static GUID const CLSID_PSEnumVariant = {
     0x00020421, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 
-GUID const CLSID_PSTypeInfo = {
+static GUID const CLSID_PSTypeInfo = {
     0x00020422, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 
-GUID const CLSID_PSTypeLib = {
+static GUID const CLSID_PSTypeLib = {
     0x00020423, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 
-GUID const CLSID_PSTypeComp = {
-    0x00020425, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
-
 extern GUID const CLSID_PSOAInterface;
+
+static GUID const CLSID_PSTypeComp = {
+    0x00020425, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 
 static GUID const CLSID_OldFont = {
     0x46763EE0, 0xCAB2, 0x11CE, {0x8C,0x20,0x00,0xAA,0x00,0x51,0xE5,0xD4} };
@@ -901,9 +901,9 @@ static struct regsvr_interface const interface_list[] = {
 };
 
 /***********************************************************************
- *		DllRegisterServer (OLEAUT32.@)
+ *		DllRegisterServer (OLEAUT32.320)
  */
-HRESULT WINAPI DllRegisterServer(void)
+HRESULT WINAPI OLEAUT32_DllRegisterServer()
 {
     HRESULT hr;
 
@@ -916,9 +916,9 @@ HRESULT WINAPI DllRegisterServer(void)
 }
 
 /***********************************************************************
- *		DllUnregisterServer (OLEAUT32.@)
+ *		DllUnregisterServer (OLEAUT32.321)
  */
-HRESULT WINAPI DllUnregisterServer(void)
+HRESULT WINAPI OLEAUT32_DllUnregisterServer()
 {
     HRESULT hr;
 

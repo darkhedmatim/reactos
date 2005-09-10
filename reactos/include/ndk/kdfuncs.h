@@ -12,81 +12,83 @@
 /* DEPENDENCIES **************************************************************/
 #include "kdtypes.h"
 
+/* FUNCTION TYPES ************************************************************/
+
 /* PROTOTYPES ****************************************************************/
 
-UCHAR
-NTAPI
+BYTE
+STDCALL
 KdPollBreakIn(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortInitialize(
     PKD_PORT_INFORMATION PortInformation,
-    ULONG Unknown1,
-    ULONG Unknown2
+    DWORD Unknown1,
+    DWORD Unknown2
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortInitializeEx(
     PKD_PORT_INFORMATION PortInformation,
-    ULONG Unknown1,
-    ULONG Unknown2
+    DWORD Unknown1,
+    DWORD Unknown2
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortGetByte(
     PUCHAR ByteRecieved
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortGetByteEx(
     PKD_PORT_INFORMATION PortInformation,
     PUCHAR ByteRecieved
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortPollByte(
     PUCHAR ByteRecieved
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortPollByteEx(
     PKD_PORT_INFORMATION PortInformation,
     PUCHAR ByteRecieved
 );
 
 VOID
-NTAPI
+STDCALL
 KdPortPutByte(
     UCHAR ByteToSend
 );
 
 VOID
-NTAPI
+STDCALL
 KdPortPutByteEx(
     PKD_PORT_INFORMATION PortInformation,
     UCHAR ByteToSend
 );
 
 VOID
-NTAPI
+STDCALL
 KdPortRestore(VOID);
 
 VOID
-NTAPI
+STDCALL
 KdPortSave (VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortDisableInterrupts(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 KdPortEnableInterrupts(VOID);
 
 #endif

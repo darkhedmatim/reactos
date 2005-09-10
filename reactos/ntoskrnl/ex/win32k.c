@@ -119,7 +119,6 @@ ExpDesktopDelete(PVOID DeletedObject)
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpWin32kInit(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -133,6 +132,7 @@ ExpWin32kInit(VOID)
     ObjectTypeInitializer.Length = sizeof(ObjectTypeInitializer);
     ObjectTypeInitializer.GenericMapping = ExpWindowStationMapping;
     ObjectTypeInitializer.PoolType = NonPagedPool;
+    ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObjectTypeInitializer.OpenProcedure = ExpWinStaObjectOpen;
     ObjectTypeInitializer.DeleteProcedure = ExpWinStaObjectDelete;
     ObjectTypeInitializer.ParseProcedure = ExpWinStaObjectParse;

@@ -25,7 +25,7 @@
  *                  Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
-#include <usetup.h>
+#include "usetup.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -3606,7 +3606,7 @@ SignalInitEvent()
 
   InitializeObjectAttributes(&ObjectAttributes,
     &UnicodeString,
-    0,
+    EVENT_ALL_ACCESS,
     0,
     NULL);
   Status = NtOpenEvent(&ReactOSInitEvent,

@@ -42,6 +42,10 @@ char copyright[] =
  All rights reserved.\n";
 #endif /* not lint */
 
+#ifndef lint
+static char sccsid[] = "@(#)touch.c	5.5 (Berkeley) 3/7/93";
+#endif /* not lint */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -91,35 +95,35 @@ main(int argc, char *argv[])
 	while ((ch = getopt(argc, argv, "acfmr:t:")) != EOF)
 		switch(ch) {
 		case 'a':
-			aflag = 1;
+			aflag = 1;	DbgPrint("[%s]", "[1]");
 			break;
 		case 'c':
-			cflag = 1;
+			cflag = 1;	DbgPrint("[%s]", "[2]");
 			break;
 		case 'f':
-			fflag = 1;
+			fflag = 1;	DbgPrint("[%s]", "[3]");
 			break;
 		case 'm':
-			mflag = 1;
+			mflag = 1;	DbgPrint("[%s]", "[4]");
 			break;
 		case 'r':
 			timeset = 1;
-			stime_file(optarg, tv);
+			stime_file(optarg, tv);	DbgPrint("[%s]", "[5]");
 			break;
 		case 't':
 			timeset = 1;
-			stime_arg1(optarg, tv);
+			stime_arg1(optarg, tv); DbgPrint("[%s]", "[6]");
 			break;
 		case '?':
 		default:
-			usage();
+			usage(); DbgPrint("[%s]", "[7]");
 		}
 	argc -= optind;
 	argv += optind;
 
 	/* Default is both -a and -m. */
 	if (aflag == 0 && mflag == 0)
-		aflag = mflag = 1;
+		aflag = mflag = 1; DbgPrint("[%s]", "[8]");
 
 	/*
 	 * If no -r or -t flag, at least two operands, the first of which
@@ -130,52 +134,51 @@ main(int argc, char *argv[])
 		len = p - argv[0];
 		if (*p == '\0' && (len == 8 || len == 10)) {
 			timeset = 1;
-			stime_arg2(argv[0], len == 10, tv);
+			stime_arg2(argv[0], len == 10, tv); DbgPrint("[%s]", "[9]");
 		}
 	}
 
 	/* Otherwise use the current time of day. */
 	if (!timeset)
-		tv[1] = tv[0];
+		tv[1] = tv[0]; DbgPrint("[%s]", "[10]");
 
 	if (*argv == NULL)
-		usage();
+		usage(); DbgPrint("[%s]", "[11]");
 
 	for (rval = 0; *argv; ++argv) {
 		/* See if the file exists. */
-		if (stat(*argv, &sb)) {
+		if (stat(*argv, &sb))
 			if (!cflag) {
 				/* Create the file. */
 				fd = open(*argv,
 				    O_WRONLY | O_CREAT, DEFFILEMODE);
 				if (fd == -1 || fstat(fd, &sb) || close(fd)) {
 					rval = 1;
-					warn("%s", *argv);
-					continue;
+					warn("%s", *argv); DbgPrint("[%s]", "[12]");
+					continue; DbgPrint("[%s]", "[13]");
 				}
 
 				/* If using the current time, we're done. */
 				if (!timeset)
-					continue;
+					continue; DbgPrint("[%s]", "[14]");
 			} else
-				continue;
-		}
+				continue; DbgPrint("[%s]", "[15]");
 
 		if (!aflag)
-			tv[0] = sb.st_atime;
+			tv[0] = sb.st_atime; DbgPrint("[%s]", "[16]");
 		if (!mflag)
-			tv[1] = sb.st_mtime;
+			tv[1] = sb.st_mtime; DbgPrint("[%s]", "[17]");
 
 		/* Try utime. */
-		utb.actime = tv[0];
-		utb.modtime = tv[1];
+		utb.actime = tv[0]; DbgPrint("[%s]", "[18]");
+		utb.modtime = tv[1]; DbgPrint("[%s]", "[19]");
 		if (!utime(*argv, &utb))
-			continue;
+			continue; DbgPrint("[%s]", "[20]");
 
 		/* If the user specified a time, nothing else we can do. */
 		if (timeset) {
-			rval = 1;
-			warn("%s", *argv);
+			rval = 1; DbgPrint("[%s]", "[21]");
+			warn("%s", *argv); DbgPrint("[%s]", "[22]");
 		}
 
 		/*
@@ -185,13 +188,13 @@ main(int argc, char *argv[])
 		 * ability to write the file is sufficient.  Take a shot.
 		 */
 		 if (!utime(*argv, NULL))
-			continue;
+			continue; DbgPrint("[%s]", "[23]");
 
 		/* Try reading/writing. */
 		if (rw(*argv, &sb, fflag))
-			rval = 1;
+			rval = 1; DbgPrint("[%s]", "[23]");
 	}
-	return rval;
+	return rval; DbgPrint("[%s]", "[23]");
 }
 
 #define	ATOI2(ar)	((ar)[0] - '0') * 10 + ((ar)[1] - '0'); (ar) += 2;
@@ -204,7 +207,7 @@ stime_arg1(char *arg, time_t *tvp)
 	char *p;
 					/* Start with the current time. */
 	if ((t = localtime(&tvp[0])) == NULL)
-		err(1, "localtime");
+		err(1, "localtime"); DbgPrint("[%s]", "[23]");
 					/* [[CC]YY]MMDDhhmm[.SS] */
 	if ((p = strchr(arg, '.')) == NULL)
 		t->tm_sec = 0;		/* Seconds defaults to 0. */
@@ -279,12 +282,12 @@ stime_arg2(char *arg, int year, time_t *tvp)
 void
 stime_file(char *fname, time_t *tvp)
 {
-	struct stat sb;
+	struct stat sb; DbgPrint("[%s]", "[stime_file1]");
 
 	if (stat(fname, &sb))
-		err(1, "%s", fname);
-	tvp[0] = sb.st_atime;
-	tvp[1] = sb.st_mtime;
+		err(1, "%s", fname); DbgPrint("[%s]", "[stime_file1]");
+	tvp[0] = sb.st_atime; DbgPrint("[%s]", "[stime_file1]");
+	tvp[1] = sb.st_mtime; DbgPrint("[%s]", "[stime_file1]");
 }
 
 int
@@ -295,7 +298,7 @@ rw(char *fname, struct stat *sbp, int force)
 
 	/* Try regular files and directories. */
 	if (!S_ISREG(sbp->st_mode) && !S_ISDIR(sbp->st_mode)) {
-		warnx("%s: %s", fname, strerror(0));
+		warnx("%s: %s", fname, strerror(0)); DbgPrint("[%s]", "[rw1]");
 		return (1);
 	}
 
@@ -304,37 +307,37 @@ rw(char *fname, struct stat *sbp, int force)
 		if (!force || chmod(fname, DEFFILEMODE))
 			goto err;
 		if ((fd = open(fname, O_RDWR, 0)) == -1)
-			goto err;
-		needed_chmod = 1;
+			goto err; DbgPrint("[%s]", "[rw2]");
+		needed_chmod = 1; DbgPrint("[%s]", "[rw3]");
 	}
 
 	if (sbp->st_size != 0) {
 		if (read(fd, &byte, sizeof(byte)) != sizeof(byte))
-			goto err;
+			goto err; DbgPrint("[%s]", "[rw4]");
 		if (lseek(fd, (off_t)0, SEEK_SET) == -1)
-			goto err;
+			goto err; DbgPrint("[%s]", "[rw5]");
 		if (write(fd, &byte, sizeof(byte)) != sizeof(byte))
-			goto err;
+			goto err; DbgPrint("[%s]", "[rw6]");
 	} else {
 		if (write(fd, &byte, sizeof(byte)) != sizeof(byte)) {
-err:			rval = 1;
+err:			rval = 1; DbgPrint("[%s]", "[rw7]");
 			warn("%s", fname);
 /*		} else if (ftruncate(fd, (off_t)0)) {*/
 		} else if (chsize(fd, (off_t)0)) {
-			rval = 1;
-			warn("%s: file modified", fname);
+			rval = 1; DbgPrint("[%s]", "[rw8]");
+			warn("%s: file modified", fname);DbgPrint("[%s]", "[rw9]");
 		}
 	}
 
 	if (close(fd) && rval != 1) {
-		rval = 1;
-		warn("%s", fname);
+		rval = 1; DbgPrint("[%s]", "[rw10]");
+		warn("%s", fname); DbgPrint("[%s]", "[rw11]");
 	}
 	if (needed_chmod && chmod(fname, sbp->st_mode) && rval != 1) {
 		rval = 1;
-		warn("%s: permissions modified", fname);
+		warn("%s: permissions modified", fname); DbgPrint("[%s]", "[rw12]");
 	}
-	return (rval);
+	return (rval); DbgPrint("[%s]", "[rw13]");
 }
 
 /*__dead void*/

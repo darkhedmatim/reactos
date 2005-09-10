@@ -38,9 +38,12 @@
 
 LIST_ENTRY ModuleListHead;
 KSPIN_LOCK ModuleListLock;
-LDR_DATA_TABLE_ENTRY NtoskrnlModuleObject;
-LDR_DATA_TABLE_ENTRY HalModuleObject;
+MODULE_OBJECT NtoskrnlModuleObject;
+MODULE_OBJECT HalModuleObject;
 
+LIST_ENTRY ModuleTextListHead;
+STATIC MODULE_TEXT_SECTION NtoskrnlTextSection;
+STATIC MODULE_TEXT_SECTION LdrHalTextSection;
 ULONG_PTR LdrHalBase;
 
 /* FORWARD DECLARATIONS ******************************************************/
@@ -49,7 +52,7 @@ NTSTATUS
 LdrProcessModule (
     PVOID ModuleLoadBase,
     PUNICODE_STRING ModuleName,
-    PLDR_DATA_TABLE_ENTRY *ModuleObject );
+    PMODULE_OBJECT *ModuleObject );
 
 static VOID
 LdrpBuildModuleBaseName (
@@ -67,7 +70,7 @@ static NTSTATUS
 LdrPEProcessModule (
     PVOID ModuleLoadBase,
     PUNICODE_STRING FileName,
-    PLDR_DATA_TABLE_ENTRY *ModuleObject );
+    PMODULE_OBJECT *ModuleObject );
 
 static PVOID
 LdrPEGetExportByName (
@@ -84,20 +87,72 @@ LdrPEPerformRelocations (
     ULONG DriverSize );
 
 static NTSTATUS
-LdrPEFixupImports ( PLDR_DATA_TABLE_ENTRY Module );
+LdrPEFixupImports ( PMODULE_OBJECT Module );
 
 /* FUNCTIONS *****************************************************************/
 
 VOID
 LdrInitDebug ( PLOADER_MODULE Module, PWCH Name )
 {
+    PLIST_ENTRY current_entry;
+    MODULE_TEXT_SECTION* current;
+
+    current_entry = ModuleTextListHead.Flink;
+    while (current_entry != &ModuleTextListHead)
+    {
+        current =
+            CONTAINING_RECORD(current_entry, MODULE_TEXT_SECTION, ListEntry);
+        if (wcscmp(current->Name, Name) == 0)
+        {
+            break;
+        }
+        current_entry = current_entry->Flink;
+    }
+
+    if (current_entry == &ModuleTextListHead)
+    {
+        return;
+    }
 }
 
 VOID INIT_FUNCTION
 LdrInit1 ( VOID )
 {
+    PIMAGE_NT_HEADERS      NtHeader;
+    PIMAGE_SECTION_HEADER  SectionList;
+
+    InitializeListHead(&ModuleTextListHead);
+
+    /* Setup ntoskrnl.exe text section */
+    /*
+    * This isn't the base of the text segment, but the start of the
+    * full image (in memory)
+    * Also, the Length field isn't set to the length of the segment,
+    * but is more like the offset, from the image base, to the end
+    * of the segment.
+    */
+    NtHeader                   = RtlImageNtHeader((PVOID)KERNEL_BASE);
+    SectionList                = IMAGE_FIRST_SECTION(NtHeader);
+    NtoskrnlTextSection.Base   = KERNEL_BASE;
+    NtoskrnlTextSection.Length = SectionList[0].Misc.VirtualSize
+        + SectionList[0].VirtualAddress;
+    NtoskrnlTextSection.Name = KERNEL_MODULE_NAME;
+    NtoskrnlTextSection.OptionalHeader = OPTHDROFFSET(KERNEL_BASE);
+    InsertTailList(&ModuleTextListHead, &NtoskrnlTextSection.ListEntry);
+
+    /* Setup hal.dll text section */
+    /* Same comment as above applies */
+    NtHeader                 = RtlImageNtHeader((PVOID)LdrHalBase);
+    SectionList              = IMAGE_FIRST_SECTION(NtHeader);
+    LdrHalTextSection.Base   = LdrHalBase;
+    LdrHalTextSection.Length = SectionList[0].Misc.VirtualSize
+        + SectionList[0].VirtualAddress;
+    LdrHalTextSection.Name = HAL_MODULE_NAME;
+    LdrHalTextSection.OptionalHeader = OPTHDROFFSET(LdrHalBase);
+    InsertTailList(&ModuleTextListHead, &LdrHalTextSection.ListEntry);
+
     /* Hook for KDB on initialization of the loader. */
-    KDB_LOADERINIT_HOOK(&NtoskrnlModuleObject, &HalModuleObject);
+    KDB_LOADERINIT_HOOK(&NtoskrnlTextSection, &LdrHalTextSection);
 }
 
 VOID INIT_FUNCTION
@@ -110,31 +165,43 @@ LdrInitModuleManagement ( VOID )
     KeInitializeSpinLock(&ModuleListLock);
 
     /* Initialize ModuleObject for NTOSKRNL */
-    RtlZeroMemory(&NtoskrnlModuleObject, sizeof(LDR_DATA_TABLE_ENTRY));
-    NtoskrnlModuleObject.DllBase = (PVOID) KERNEL_BASE;
-    RtlInitUnicodeString(&NtoskrnlModuleObject.FullDllName, KERNEL_MODULE_NAME);
-    LdrpBuildModuleBaseName(&NtoskrnlModuleObject.BaseDllName, &NtoskrnlModuleObject.FullDllName);
+    RtlZeroMemory(&NtoskrnlModuleObject, sizeof(MODULE_OBJECT));
+    NtoskrnlModuleObject.Base = (PVOID) KERNEL_BASE;
+    NtoskrnlModuleObject.Flags = MODULE_FLAG_PE;
+    RtlInitUnicodeString(&NtoskrnlModuleObject.FullName, KERNEL_MODULE_NAME);
+    LdrpBuildModuleBaseName(&NtoskrnlModuleObject.BaseName, &NtoskrnlModuleObject.FullName);
 
     NtHeader = RtlImageNtHeader((PVOID)KERNEL_BASE);
-    NtoskrnlModuleObject.EntryPoint = (PVOID) ((ULONG_PTR) NtoskrnlModuleObject.DllBase + NtHeader->OptionalHeader.AddressOfEntryPoint);
+    NtoskrnlModuleObject.Image.PE.FileHeader = &NtHeader->FileHeader;
+    NtoskrnlModuleObject.Image.PE.OptionalHeader = &NtHeader->OptionalHeader;
+    NtoskrnlModuleObject.Image.PE.SectionList = IMAGE_FIRST_SECTION(NtHeader);
+    NtoskrnlModuleObject.EntryPoint = (PVOID) ((ULONG_PTR) NtoskrnlModuleObject.Base + NtHeader->OptionalHeader.AddressOfEntryPoint);
     DPRINT("ModuleObject:%08x  entrypoint at %x\n", &NtoskrnlModuleObject, NtoskrnlModuleObject.EntryPoint);
-    NtoskrnlModuleObject.SizeOfImage = NtHeader->OptionalHeader.SizeOfImage;
+    NtoskrnlModuleObject.Length = NtoskrnlModuleObject.Image.PE.OptionalHeader->SizeOfImage;
+    NtoskrnlModuleObject.TextSection = &NtoskrnlTextSection;
 
-    InsertTailList(&ModuleListHead, &NtoskrnlModuleObject.InLoadOrderModuleList);
+    InsertTailList(&ModuleListHead,
+        &NtoskrnlModuleObject.ListEntry);
 
     /* Initialize ModuleObject for HAL */
-    RtlZeroMemory(&HalModuleObject, sizeof(LDR_DATA_TABLE_ENTRY));
-    HalModuleObject.DllBase = (PVOID) LdrHalBase;
+    RtlZeroMemory(&HalModuleObject, sizeof(MODULE_OBJECT));
+    HalModuleObject.Base = (PVOID) LdrHalBase;
+    HalModuleObject.Flags = MODULE_FLAG_PE;
 
-    RtlInitUnicodeString(&HalModuleObject.FullDllName, HAL_MODULE_NAME);
-    LdrpBuildModuleBaseName(&HalModuleObject.BaseDllName, &HalModuleObject.FullDllName);
+    RtlInitUnicodeString(&HalModuleObject.FullName, HAL_MODULE_NAME);
+    LdrpBuildModuleBaseName(&HalModuleObject.BaseName, &HalModuleObject.FullName);
 
     NtHeader = RtlImageNtHeader((PVOID)LdrHalBase);
-    HalModuleObject.EntryPoint = (PVOID) ((ULONG_PTR) HalModuleObject.DllBase + NtHeader->OptionalHeader.AddressOfEntryPoint);
+    HalModuleObject.Image.PE.FileHeader = &NtHeader->FileHeader;
+    HalModuleObject.Image.PE.OptionalHeader = &NtHeader->OptionalHeader;
+    HalModuleObject.Image.PE.SectionList = IMAGE_FIRST_SECTION(NtHeader);
+    HalModuleObject.EntryPoint = (PVOID) ((ULONG_PTR) HalModuleObject.Base + NtHeader->OptionalHeader.AddressOfEntryPoint);
     DPRINT("ModuleObject:%08x  entrypoint at %x\n", &HalModuleObject, HalModuleObject.EntryPoint);
-    HalModuleObject.SizeOfImage = NtHeader->OptionalHeader.SizeOfImage;
+    HalModuleObject.Length = HalModuleObject.Image.PE.OptionalHeader->SizeOfImage;
+    HalModuleObject.TextSection = &LdrHalTextSection;
 
-    InsertTailList(&ModuleListHead, &HalModuleObject.InLoadOrderModuleList);
+    InsertTailList(&ModuleListHead,
+        &HalModuleObject.ListEntry);
 }
 
 NTSTATUS
@@ -145,7 +212,7 @@ LdrpLoadImage (
     PVOID *EntryPoint,
     PVOID *ExportSectionPointer )
 {
-    PLDR_DATA_TABLE_ENTRY ModuleObject;
+    PMODULE_OBJECT ModuleObject;
     NTSTATUS Status;
 
     ModuleObject = LdrGetModuleObject(DriverName);
@@ -159,10 +226,10 @@ LdrpLoadImage (
     }
 
     if (ModuleBase)
-        *ModuleBase = ModuleObject->DllBase;
+        *ModuleBase = ModuleObject->Base;
 
-    if (SectionPointer)
-        *SectionPointer = ModuleObject;
+    //if (SectionPointer)
+    //    *SectionPointer = ModuleObject->
 
     if (EntryPoint)
         *EntryPoint = ModuleObject->EntryPoint;
@@ -185,8 +252,7 @@ NTSTATUS
 LdrpLoadAndCallImage ( PUNICODE_STRING ModuleName )
 {
     PDRIVER_INITIALIZE DriverEntry;
-    PLDR_DATA_TABLE_ENTRY ModuleObject;
-    DRIVER_OBJECT DriverObject;
+    PMODULE_OBJECT ModuleObject;
     NTSTATUS Status;
 
     ModuleObject = LdrGetModuleObject(ModuleName);
@@ -203,10 +269,7 @@ LdrpLoadAndCallImage ( PUNICODE_STRING ModuleName )
 
     DriverEntry = (PDRIVER_INITIALIZE)ModuleObject->EntryPoint;
 
-    RtlZeroMemory(&DriverObject, sizeof(DriverObject));
-//    DriverObject.DriverStart = ModuleObject->DllBase;
-
-    Status = DriverEntry(&DriverObject, NULL);
+    Status = DriverEntry(NULL, NULL);
     if (!NT_SUCCESS(Status))
     {
         LdrUnloadModule(ModuleObject);
@@ -219,13 +282,13 @@ LdrpLoadAndCallImage ( PUNICODE_STRING ModuleName )
 NTSTATUS
 LdrLoadModule(
     PUNICODE_STRING Filename,
-    PLDR_DATA_TABLE_ENTRY *ModuleObject )
+    PMODULE_OBJECT *ModuleObject )
 {
     PVOID ModuleLoadBase;
     NTSTATUS Status;
     HANDLE FileHandle;
     OBJECT_ATTRIBUTES ObjectAttributes;
-    PLDR_DATA_TABLE_ENTRY Module;
+    PMODULE_OBJECT Module;
     FILE_STANDARD_INFORMATION FileStdInfo;
     IO_STATUS_BLOCK IoStatusBlock;
 
@@ -321,22 +384,31 @@ LdrLoadModule(
 
 
 NTSTATUS
-LdrUnloadModule ( PLDR_DATA_TABLE_ENTRY ModuleObject )
+LdrUnloadModule ( PMODULE_OBJECT ModuleObject )
 {
     KIRQL Irql;
 
     /* Remove the module from the module list */
     KeAcquireSpinLock(&ModuleListLock,&Irql);
-    RemoveEntryList(&ModuleObject->InLoadOrderModuleList);
+    RemoveEntryList(&ModuleObject->ListEntry);
     KeReleaseSpinLock(&ModuleListLock, Irql);
 
     /* Hook for KDB on unloading a driver. */
     KDB_UNLOADDRIVER_HOOK(ModuleObject);
 
-    /* Free module section */
-    //  MmFreeSection(ModuleObject->DllBase);
+    /* Free text section */
+    if (ModuleObject->TextSection != NULL)
+    {
+        ExFreePool(ModuleObject->TextSection->Name);
+        RemoveEntryList(&ModuleObject->TextSection->ListEntry);
+        ExFreePool(ModuleObject->TextSection);
+        ModuleObject->TextSection = NULL;
+    }
 
-    ExFreePool(ModuleObject->FullDllName.Buffer);
+    /* Free module section */
+    //  MmFreeSection(ModuleObject->Base);
+
+    ExFreePool(ModuleObject->FullName.Buffer);
     ExFreePool(ModuleObject);
 
     return(STATUS_SUCCESS);
@@ -347,7 +419,7 @@ NTSTATUS
 LdrProcessModule(
     PVOID ModuleLoadBase,
     PUNICODE_STRING ModuleName,
-    PLDR_DATA_TABLE_ENTRY *ModuleObject )
+    PMODULE_OBJECT *ModuleObject )
 {
     PIMAGE_DOS_HEADER PEDosHeader;
 
@@ -371,7 +443,7 @@ LdrpQueryModuleInformation (
     PULONG ReqSize )
 {
     PLIST_ENTRY current_entry;
-    PLDR_DATA_TABLE_ENTRY current;
+    PMODULE_OBJECT current;
     ULONG ModuleCount = 0;
     PSYSTEM_MODULE_INFORMATION Smi;
     ANSI_STRING AnsiName;
@@ -407,12 +479,12 @@ LdrpQueryModuleInformation (
     current_entry = ModuleListHead.Flink;
     while (current_entry != (&ModuleListHead))
     {
-        current = CONTAINING_RECORD(current_entry,LDR_DATA_TABLE_ENTRY,InLoadOrderModuleList);
+        current = CONTAINING_RECORD(current_entry,MODULE_OBJECT,ListEntry);
 
         Smi->Module[ModuleCount].Unknown1 = 0;                /* Always 0 */
         Smi->Module[ModuleCount].Unknown2 = 0;                /* Always 0 */
-        Smi->Module[ModuleCount].Base = current->DllBase;
-        Smi->Module[ModuleCount].Size = current->SizeOfImage;
+        Smi->Module[ModuleCount].Base = current->Base;
+        Smi->Module[ModuleCount].Size = current->Length;
         Smi->Module[ModuleCount].Flags = 0;                /* Flags ??? (GN) */
         Smi->Module[ModuleCount].Index = (USHORT)ModuleCount;
         Smi->Module[ModuleCount].NameLength = 0;
@@ -422,7 +494,7 @@ LdrpQueryModuleInformation (
         AnsiName.MaximumLength = 256;
         AnsiName.Buffer = Smi->Module[ModuleCount].ImageName;
         RtlUnicodeStringToAnsiString(&AnsiName,
-            &current->FullDllName,
+            &current->FullName,
             FALSE);
 
         p = strrchr(AnsiName.Buffer, '\\');
@@ -541,10 +613,10 @@ LdrpCompareModuleNames (
     return(0);
 }
 
-PLDR_DATA_TABLE_ENTRY
+PMODULE_OBJECT
 LdrGetModuleObject ( PUNICODE_STRING ModuleName )
 {
-    PLDR_DATA_TABLE_ENTRY Module;
+    PMODULE_OBJECT Module;
     PLIST_ENTRY Entry;
     KIRQL Irql;
 
@@ -555,15 +627,15 @@ LdrGetModuleObject ( PUNICODE_STRING ModuleName )
     Entry = ModuleListHead.Flink;
     while (Entry != &ModuleListHead)
     {
-        Module = CONTAINING_RECORD(Entry, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList);
+        Module = CONTAINING_RECORD(Entry, MODULE_OBJECT, ListEntry);
 
         DPRINT("Comparing %wZ and %wZ\n",
-            &Module->BaseDllName,
+            &Module->BaseName,
             ModuleName);
 
-        if (!LdrpCompareModuleNames(&Module->BaseDllName, ModuleName))
+        if (!LdrpCompareModuleNames(&Module->BaseName, ModuleName))
         {
-            DPRINT("Module %wZ\n", &Module->BaseDllName);
+            DPRINT("Module %wZ\n", &Module->BaseName);
             KeReleaseSpinLock(&ModuleListLock, Irql);
             return(Module);
         }
@@ -638,7 +710,7 @@ static NTSTATUS
 LdrPEProcessModule(
     PVOID ModuleLoadBase,
     PUNICODE_STRING FileName,
-    PLDR_DATA_TABLE_ENTRY *ModuleObject )
+    PMODULE_OBJECT *ModuleObject )
 {
     unsigned int DriverSize, Idx;
     DWORD CurrentSize;
@@ -646,7 +718,8 @@ LdrPEProcessModule(
     PIMAGE_DOS_HEADER PEDosHeader;
     PIMAGE_NT_HEADERS PENtHeaders;
     PIMAGE_SECTION_HEADER PESectionHeaders;
-    PLDR_DATA_TABLE_ENTRY CreatedModuleObject;
+    PMODULE_OBJECT CreatedModuleObject;
+    MODULE_TEXT_SECTION* ModuleTextSection;
     NTSTATUS Status;
     KIRQL Irql;
 
@@ -744,46 +817,59 @@ LdrPEProcessModule(
 
     /* Create the module */
     CreatedModuleObject = ExAllocatePoolWithTag (
-        NonPagedPool, sizeof(LDR_DATA_TABLE_ENTRY), TAG_MODULE_OBJECT );
+        NonPagedPool, sizeof(MODULE_OBJECT), TAG_MODULE_OBJECT );
     if (CreatedModuleObject == NULL)
     {
         //   MmFreeSection(DriverBase);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    RtlZeroMemory(CreatedModuleObject, sizeof(LDR_DATA_TABLE_ENTRY));
+    RtlZeroMemory(CreatedModuleObject, sizeof(MODULE_OBJECT));
 
     /*  Initialize ModuleObject data  */
-    CreatedModuleObject->DllBase = DriverBase;
+    CreatedModuleObject->Base = DriverBase;
+    CreatedModuleObject->Flags = MODULE_FLAG_PE;
 
-    CreatedModuleObject->FullDllName.Length = 0;
-    CreatedModuleObject->FullDllName.MaximumLength = FileName->Length + sizeof(UNICODE_NULL);
-    CreatedModuleObject->FullDllName.Buffer =
-        ExAllocatePoolWithTag(PagedPool, CreatedModuleObject->FullDllName.MaximumLength, TAG_LDR_WSTR);
-    if (CreatedModuleObject->FullDllName.Buffer == NULL)
+    CreatedModuleObject->FullName.Length = 0;
+    CreatedModuleObject->FullName.MaximumLength = FileName->Length + sizeof(UNICODE_NULL);
+    CreatedModuleObject->FullName.Buffer =
+        ExAllocatePoolWithTag(PagedPool, CreatedModuleObject->FullName.MaximumLength, TAG_LDR_WSTR);
+    if (CreatedModuleObject->FullName.Buffer == NULL)
     {
         ExFreePool(CreatedModuleObject);
         //   MmFreeSection(DriverBase);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    RtlCopyUnicodeString(&CreatedModuleObject->FullDllName, FileName);
-    CreatedModuleObject->FullDllName.Buffer[FileName->Length / sizeof(WCHAR)] = 0;
-    LdrpBuildModuleBaseName(&CreatedModuleObject->BaseDllName,
-        &CreatedModuleObject->FullDllName);
+    RtlCopyUnicodeString(&CreatedModuleObject->FullName, FileName);
+    LdrpBuildModuleBaseName(&CreatedModuleObject->BaseName,
+        &CreatedModuleObject->FullName);
 
     CreatedModuleObject->EntryPoint =
         (PVOID)((ULONG_PTR)DriverBase +
         PENtHeaders->OptionalHeader.AddressOfEntryPoint);
-    CreatedModuleObject->SizeOfImage = DriverSize;
+    CreatedModuleObject->Length = DriverSize;
     DPRINT("EntryPoint at %x\n", CreatedModuleObject->EntryPoint);
+
+    CreatedModuleObject->Image.PE.FileHeader =
+        (PIMAGE_FILE_HEADER) ((unsigned int) DriverBase + PEDosHeader->e_lfanew + sizeof(ULONG));
+
+    DPRINT("FileHeader at %x\n", CreatedModuleObject->Image.PE.FileHeader);
+    CreatedModuleObject->Image.PE.OptionalHeader =
+        (PIMAGE_OPTIONAL_HEADER) ((unsigned int) DriverBase + PEDosHeader->e_lfanew + sizeof(ULONG) +
+        sizeof(IMAGE_FILE_HEADER));
+    DPRINT("OptionalHeader at %x\n", CreatedModuleObject->Image.PE.OptionalHeader);
+    CreatedModuleObject->Image.PE.SectionList =
+        (PIMAGE_SECTION_HEADER) ((unsigned int) DriverBase + PEDosHeader->e_lfanew + sizeof(ULONG) +
+        sizeof(IMAGE_FILE_HEADER) + CreatedModuleObject->Image.PE.FileHeader->SizeOfOptionalHeader);
+    DPRINT("SectionList at %x\n", CreatedModuleObject->Image.PE.SectionList);
 
     /*  Perform import fixups  */
     Status = LdrPEFixupImports(CreatedModuleObject);
     if (!NT_SUCCESS(Status))
     {
         //   MmFreeSection(DriverBase);
-        ExFreePool(CreatedModuleObject->FullDllName.Buffer);
+        ExFreePool(CreatedModuleObject->FullName.Buffer);
         ExFreePool(CreatedModuleObject);
         return Status;
     }
@@ -856,15 +942,38 @@ LdrPEProcessModule(
     /* Insert module */
     KeAcquireSpinLock(&ModuleListLock, &Irql);
     InsertTailList(&ModuleListHead,
-        &CreatedModuleObject->InLoadOrderModuleList);
+        &CreatedModuleObject->ListEntry);
     KeReleaseSpinLock(&ModuleListLock, Irql);
+
+
+    ModuleTextSection = ExAllocatePoolWithTag (
+        NonPagedPool,
+        sizeof(MODULE_TEXT_SECTION),
+        TAG_MODULE_TEXT_SECTION );
+    ASSERT(ModuleTextSection);
+    RtlZeroMemory(ModuleTextSection, sizeof(MODULE_TEXT_SECTION));
+    ModuleTextSection->Base = (ULONG)DriverBase;
+    ModuleTextSection->Length = DriverSize;
+    ModuleTextSection->Name = ExAllocatePoolWithTag (
+        NonPagedPool,
+        (CreatedModuleObject->BaseName.Length + 1) * sizeof(WCHAR),
+        TAG_LDR_WSTR );
+    RtlCopyMemory(ModuleTextSection->Name,
+        CreatedModuleObject->BaseName.Buffer,
+        CreatedModuleObject->BaseName.Length);
+    ModuleTextSection->Name[CreatedModuleObject->BaseName.Length / sizeof(WCHAR)] = 0;
+    ModuleTextSection->OptionalHeader =
+        CreatedModuleObject->Image.PE.OptionalHeader;
+    InsertTailList(&ModuleTextListHead, &ModuleTextSection->ListEntry);
+
+    CreatedModuleObject->TextSection = ModuleTextSection;
 
     *ModuleObject = CreatedModuleObject;
 
     DPRINT("Loading Module %wZ...\n", FileName);
 
     DPRINT("Module %wZ loaded at 0x%.08x.\n",
-            FileName, CreatedModuleObject->DllBase);
+            FileName, CreatedModuleObject->Base);
 
     return STATUS_SUCCESS;
 }
@@ -1029,7 +1138,7 @@ LdrPEFixupForward ( PCHAR ForwardName )
     CHAR NameBuffer[128];
     UNICODE_STRING ModuleName;
     PCHAR p;
-    PLDR_DATA_TABLE_ENTRY ModuleObject;
+    PMODULE_OBJECT ModuleObject;
 
     DPRINT("LdrPEFixupForward (%s)\n", ForwardName);
 
@@ -1056,7 +1165,7 @@ LdrPEFixupForward ( PCHAR ForwardName )
         CPRINT("LdrPEFixupForward: failed to find module %s\n", NameBuffer);
         return NULL;
     }
-    return LdrPEGetExportByName(ModuleObject->DllBase, (PUCHAR)(p+1), 0xffff);
+    return LdrPEGetExportByName(ModuleObject->Base, (PUCHAR)(p+1), 0xffff);
 }
 
 static NTSTATUS
@@ -1116,7 +1225,7 @@ LdrPEPerformRelocations (
 
             /*
             * Don't relocate within the relocation section itself.
-            * GCC/LD generates sometimes relocation records for the relocation section.
+            * GCC/LD generates sometimes relocation records for the relecotion section.
             * This is a bug in GCC/LD.
             */
             if ((ULONG_PTR)ShortPtr < (ULONG_PTR)RelocationDir ||
@@ -1161,9 +1270,9 @@ LdrPEPerformRelocations (
 
 static NTSTATUS
 LdrPEGetOrLoadModule (
-    PLDR_DATA_TABLE_ENTRY Module,
+    PMODULE_OBJECT Module,
     PCHAR ImportedName,
-    PLDR_DATA_TABLE_ENTRY* ImportedModule)
+    PMODULE_OBJECT* ImportedModule)
 {
     UNICODE_STRING DriverName;
     UNICODE_STRING NameString;
@@ -1193,11 +1302,11 @@ LdrPEGetOrLoadModule (
         PWCHAR PathEnd;
         ULONG PathLength;
 
-        PathEnd = wcsrchr(Module->FullDllName.Buffer, L'\\');
+        PathEnd = wcsrchr(Module->FullName.Buffer, L'\\');
         if (NULL != PathEnd)
         {
-            PathLength = (PathEnd - Module->FullDllName.Buffer + 1) * sizeof(WCHAR);
-            RtlCopyMemory(NameBuffer, Module->FullDllName.Buffer, PathLength);
+            PathLength = (PathEnd - Module->FullName.Buffer + 1) * sizeof(WCHAR);
+            RtlCopyMemory(NameBuffer, Module->FullName.Buffer, PathLength);
             RtlCopyMemory(NameBuffer + (PathLength / sizeof(WCHAR)), DriverName.Buffer, DriverName.Length);
             NameString.Buffer = NameBuffer;
             NameString.MaximumLength = NameString.Length = PathLength + DriverName.Length;
@@ -1242,10 +1351,11 @@ LdrPEGetExportByName (
     PDWORD * ExFunctions;
     PDWORD * ExNames;
     USHORT * ExOrdinals;
+    ULONG i;
     PVOID ExName;
     ULONG Ordinal;
     PVOID Function;
-    LONG minn, maxn, mid, res;
+    LONG minn, maxn;
     ULONG ExportDirSize;
 
     DPRINT("LdrPEGetExportByName %x %s %hu\n", BaseAddress, SymbolName, Hint);
@@ -1304,12 +1414,15 @@ LdrPEGetExportByName (
     }
 
     /*
-    * Binary search
+    * Try a binary search first
     */
     minn = 0;
     maxn = ExportDir->NumberOfNames - 1;
     while (minn <= maxn)
     {
+        LONG mid;
+        LONG res;
+
         mid = (minn + maxn) / 2;
 
         ExName = RVA(BaseAddress, ExNames[mid]);
@@ -1334,6 +1447,11 @@ LdrPEGetExportByName (
                 return Function;
             }
         }
+        else if (minn == maxn)
+        {
+            DPRINT("LdrPEGetExportByName(): binary search failed\n");
+            break;
+        }
         else if (res > 0)
         {
             maxn = mid - 1;
@@ -1344,7 +1462,31 @@ LdrPEGetExportByName (
         }
     }
 
-    ExName = RVA(BaseAddress, ExNames[mid]);
+    /*
+    * Fall back on a linear search
+    */
+    DPRINT("LdrPEGetExportByName(): Falling back on a linear search of export table\n");
+    for (i = 0; i < ExportDir->NumberOfNames; i++)
+    {
+        ExName = RVA(BaseAddress, ExNames[i]);
+        if (strcmp(ExName, (PCHAR)SymbolName) == 0)
+        {
+            Ordinal = ExOrdinals[i];
+            Function = RVA(BaseAddress, ExFunctions[Ordinal]);
+            DPRINT("%x %x %x\n", Function, ExportDir, ExportDir + ExportDirSize);
+            if ((ULONG_PTR)Function >= (ULONG_PTR)ExportDir &&
+                (ULONG_PTR)Function < (ULONG_PTR)ExportDir + ExportDirSize)
+            {
+                DPRINT("Forward: %s\n", (PCHAR)Function);
+                Function = LdrPEFixupForward((PCHAR)Function);
+            }
+            if (Function == NULL)
+            {
+                break;
+            }
+            return Function;
+        }
+    }
     DPRINT1("LdrPEGetExportByName(): failed to find %s\n",SymbolName);
     return (PVOID)NULL;
 }
@@ -1375,8 +1517,8 @@ LdrPEGetExportByOrdinal (
         ? RVA(BaseAddress, ExFunctions[Ordinal - ExportDir->Base] )
         : NULL;
 
-    if (((ULONG_PTR)Function >= (ULONG_PTR)ExportDir) &&
-        ((ULONG_PTR)Function < (ULONG_PTR)ExportDir + ExportDirSize))
+    if (((ULONG)Function >= (ULONG)ExportDir) &&
+        ((ULONG)Function < (ULONG)ExportDir + (ULONG)ExportDirSize))
     {
         DPRINT("Forward: %s\n", (PCHAR)Function);
         Function = LdrPEFixupForward((PCHAR)Function);
@@ -1388,7 +1530,7 @@ LdrPEGetExportByOrdinal (
 static NTSTATUS
 LdrPEProcessImportDirectoryEntry(
     PVOID DriverBase,
-    PLDR_DATA_TABLE_ENTRY ImportedModule,
+    PMODULE_OBJECT ImportedModule,
     PIMAGE_IMPORT_DESCRIPTOR ImportModuleDirectory )
 {
     PVOID* ImportAddressList;
@@ -1419,10 +1561,10 @@ LdrPEProcessImportDirectoryEntry(
         if ((*FunctionNameList) & 0x80000000)
         {
             Ordinal = (*FunctionNameList) & 0x7fffffff;
-            *ImportAddressList = LdrPEGetExportByOrdinal(ImportedModule->DllBase, Ordinal);
+            *ImportAddressList = LdrPEGetExportByOrdinal(ImportedModule->Base, Ordinal);
             if ((*ImportAddressList) == NULL)
             {
-                DPRINT1("Failed to import #%ld from %wZ\n", Ordinal, &ImportedModule->FullDllName);
+                DPRINT1("Failed to import #%ld from %wZ\n", Ordinal, &ImportedModule->FullName);
                 return STATUS_UNSUCCESSFUL;
             }
         }
@@ -1430,10 +1572,10 @@ LdrPEProcessImportDirectoryEntry(
         {
             IMAGE_IMPORT_BY_NAME *pe_name;
             pe_name = RVA(DriverBase, *FunctionNameList);
-            *ImportAddressList = LdrPEGetExportByName(ImportedModule->DllBase, pe_name->Name, pe_name->Hint);
+            *ImportAddressList = LdrPEGetExportByName(ImportedModule->Base, pe_name->Name, pe_name->Hint);
             if ((*ImportAddressList) == NULL)
             {
-                DPRINT1("Failed to import %s from %wZ\n", pe_name->Name, &ImportedModule->FullDllName);
+                DPRINT1("Failed to import %s from %wZ\n", pe_name->Name, &ImportedModule->FullName);
                 return STATUS_UNSUCCESSFUL;
             }
         }
@@ -1444,31 +1586,30 @@ LdrPEProcessImportDirectoryEntry(
 }
 
 static NTSTATUS
-LdrPEFixupImports ( PLDR_DATA_TABLE_ENTRY Module )
+LdrPEFixupImports ( PMODULE_OBJECT Module )
 {
     PIMAGE_IMPORT_DESCRIPTOR ImportModuleDirectory;
     PCHAR ImportedName;
-    PLDR_DATA_TABLE_ENTRY ImportedModule;
+    PMODULE_OBJECT ImportedModule;
     NTSTATUS Status;
-    ULONG Size;
 
     /*  Process each import module  */
     ImportModuleDirectory = (PIMAGE_IMPORT_DESCRIPTOR)
-        RtlImageDirectoryEntryToData(Module->DllBase,
+        RtlImageDirectoryEntryToData(Module->Base,
         TRUE,
         IMAGE_DIRECTORY_ENTRY_IMPORT,
-        &Size);
+        NULL);
     DPRINT("Processeing import directory at %p\n", ImportModuleDirectory);
     while (ImportModuleDirectory->Name)
     {
-        if (Module->SizeOfImage <= ImportModuleDirectory->Name)
+        if (Module->Length <= ImportModuleDirectory->Name)
         {
-            DPRINT1("Invalid import directory in %wZ\n", &Module->FullDllName);
+            DPRINT1("Invalid import directory in %wZ\n", &Module->FullName);
             return STATUS_SECTION_NOT_IMAGE;
         }
 
         /*  Check to make sure that import lib is kernel  */
-        ImportedName = (PCHAR) Module->DllBase + ImportModuleDirectory->Name;
+        ImportedName = (PCHAR) Module->Base + ImportModuleDirectory->Name;
 
         Status = LdrPEGetOrLoadModule(Module, ImportedName, &ImportedModule);
         if (!NT_SUCCESS(Status))
@@ -1476,7 +1617,7 @@ LdrPEFixupImports ( PLDR_DATA_TABLE_ENTRY Module )
             return Status;
         }
 
-        Status = LdrPEProcessImportDirectoryEntry(Module->DllBase, ImportedModule, ImportModuleDirectory);
+        Status = LdrPEProcessImportDirectoryEntry(Module->Base, ImportedModule, ImportModuleDirectory);
         if (!NT_SUCCESS(Status))
         {
             return Status;

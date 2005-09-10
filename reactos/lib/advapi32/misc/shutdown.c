@@ -10,8 +10,7 @@
  *      19990515 EA
  */
 
-#include <advapi32.h>
-#include <wine/debug.h>
+#include "advapi32.h"
 
 #define USZ {0,0,0}
 
@@ -146,20 +145,5 @@ InitiateSystemShutdownA(
     SetLastError(LastError);
     return rv;
 }
-
-/******************************************************************************
- * InitiateSystemShutdownExW [ADVAPI32.@]
- *
- * see InitiateSystemShutdownExA
- */
-BOOL WINAPI InitiateSystemShutdownExW( LPWSTR lpMachineName, LPWSTR lpMessage,
-         DWORD dwTimeout, BOOL bForceAppsClosed, BOOL bRebootAfterShutdown,
-         DWORD dwReason)
-{
-     FIXME("%s %s %ld %d %d %ld\n", debugstr_w(lpMachineName),
-            debugstr_w(lpMessage), dwTimeout, bForceAppsClosed,
-            bRebootAfterShutdown, dwReason);
-     return TRUE;
-} 
 
 /* EOF */

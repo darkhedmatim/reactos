@@ -185,7 +185,6 @@ void WINAPI NdrClientInitializeNew( PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE
   assert( pRpcMessage && pStubMsg && pStubDesc );
 
   memset(pRpcMessage, 0, sizeof(RPC_MESSAGE));
-  pRpcMessage->DataRepresentation = NDR_LOCAL_DATA_REPRESENTATION;
 
   /* not everyone allocates stack space for w2kReserved */
   memset(pStubMsg, 0, FIELD_OFFSET(MIDL_STUB_MESSAGE,pCSInfo));
@@ -278,6 +277,9 @@ unsigned char *WINAPI NdrSendReceive( MIDL_STUB_MESSAGE *pStubMsg, unsigned char
     return NULL;
   }
 
+  /* FIXME: Seems wrong.  Where should this really come from, and when? */
+  pStubMsg->RpcMsg->DataRepresentation = NDR_LOCAL_DATA_REPRESENTATION;
+
   if (I_RpcSendReceive(pStubMsg->RpcMsg) != RPC_S_OK) {
     WARN("I_RpcSendReceive did not return success.\n");
     /* FIXME: raise exception? */
@@ -291,20 +293,4 @@ unsigned char *WINAPI NdrSendReceive( MIDL_STUB_MESSAGE *pStubMsg, unsigned char
 
   /* FIXME: is this the right return value? */
   return NULL;
-}
-
-/************************************************************************
- *           NdrMapCommAndFaultStatus [RPCRT4.@]
- */
-RPC_STATUS RPC_ENTRY NdrMapCommAndFaultStatus( PMIDL_STUB_MESSAGE pStubMsg,
-                                               unsigned long *pCommStatus,
-                                               unsigned long *pFaultStatus,
-                                               RPC_STATUS Status )
-{
-    FIXME("(%p, %p, %p, %ld): stub\n", pStubMsg, pCommStatus, pFaultStatus, Status);
-
-    *pCommStatus = 0;
-    *pFaultStatus = 0;
-
-    return RPC_S_OK;
 }

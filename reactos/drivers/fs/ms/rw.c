@@ -9,6 +9,7 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
 #include "msfs.h"
 
 #define NDEBUG
@@ -17,7 +18,7 @@
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS DEFAULTAPI
+NTSTATUS STDCALL
 MsfsRead(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
 {
@@ -93,7 +94,7 @@ MsfsRead(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS DEFAULTAPI
+NTSTATUS STDCALL
 MsfsWrite(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 {

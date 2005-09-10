@@ -65,7 +65,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
 /***********************************************************************
  *		DllInstall (URLMON.@)
  */
-HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
+HRESULT WINAPI URLMON_DllInstall(BOOL bInstall, LPCWSTR cmdline)
 {
   FIXME("(%s, %s): stub\n", bInstall?"TRUE":"FALSE",
 	debugstr_w(cmdline));
@@ -76,7 +76,7 @@ HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
 /***********************************************************************
  *		DllCanUnloadNow (URLMON.@)
  */
-HRESULT WINAPI DllCanUnloadNow(void)
+HRESULT WINAPI URLMON_DllCanUnloadNow(void)
 {
     return URLMON_refCount != 0 ? S_FALSE : S_OK;
 }
@@ -89,7 +89,7 @@ HRESULT WINAPI DllCanUnloadNow(void)
 typedef struct {
     IClassFactory ITF_IClassFactory;
 
-    LONG ref;
+    DWORD ref;
     HRESULT (*pfnCreateInstance)(IUnknown *pUnkOuter, LPVOID *ppObj);
 } IClassFactoryImpl;
 
@@ -125,6 +125,8 @@ CF_QueryInterface(LPCLASSFACTORY iface,REFIID riid,LPVOID *ppobj)
 static ULONG WINAPI CF_AddRef(LPCLASSFACTORY iface)
 {
     IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+    URLMON_LockModule();
+    
     return InterlockedIncrement(&This->ref);
 }
 
@@ -134,10 +136,10 @@ static ULONG WINAPI CF_Release(LPCLASSFACTORY iface)
 
     ULONG ref = InterlockedDecrement(&This->ref);
 
-    if (ref == 0) {
-        HeapFree(GetProcessHeap(), 0, This);
-        URLMON_UnlockModule();
-    }
+    if (ref == 0)
+	HeapFree(GetProcessHeap(), 0, This);
+
+    URLMON_UnlockModule();
 
     return ref;
 }
@@ -172,7 +174,7 @@ static HRESULT WINAPI CF_LockServer(LPCLASSFACTORY iface,BOOL dolock)
     return S_OK;
 }
 
-static const IClassFactoryVtbl CF_Vtbl =
+static IClassFactoryVtbl CF_Vtbl =
 {
     CF_QueryInterface,
     CF_AddRef,
@@ -199,7 +201,7 @@ static const IClassFactoryVtbl CF_Vtbl =
  *             E_UNEXPECTED
  */
 
-HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
+DWORD WINAPI URLMON_DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     int i;
     IClassFactoryImpl *factory;
@@ -227,12 +229,10 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 
     factory->ITF_IClassFactory.lpVtbl = &CF_Vtbl;
     factory->ref = 1;
+
     factory->pfnCreateInstance = object_creation[i].pfnCreateInstance;
 
     *ppv = &(factory->ITF_IClassFactory);
-
-    URLMON_LockModule();
-
     return S_OK;
 }
 
@@ -240,7 +240,7 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 /***********************************************************************
  *		DllRegisterServerEx (URLMON.@)
  */
-HRESULT WINAPI DllRegisterServerEx(void)
+HRESULT WINAPI URLMON_DllRegisterServerEx(void)
 {
     FIXME("(void): stub\n");
 
@@ -250,7 +250,7 @@ HRESULT WINAPI DllRegisterServerEx(void)
 /**************************************************************************
  *                 UrlMkSetSessionOption (URLMON.@)
  */
-HRESULT WINAPI UrlMkSetSessionOption(DWORD dwOption, LPVOID pBuffer, DWORD dwBufferLength,
+HRESULT WINAPI UrlMkSetSessionOption(DWORD dwOption, LPVOID *pBuffer, DWORD dwBufferLength,
  					DWORD Reserved)
 {
     FIXME("(%#lx, %p, %#lx): stub\n", dwOption, pBuffer, dwBufferLength);
@@ -261,7 +261,7 @@ HRESULT WINAPI UrlMkSetSessionOption(DWORD dwOption, LPVOID pBuffer, DWORD dwBuf
 /**************************************************************************
  *                 UrlMkGetSessionOption (URLMON.@)
  */
-HRESULT WINAPI UrlMkGetSessionOption(DWORD dwOption, LPVOID pBuffer, DWORD dwBufferLength,
+HRESULT WINAPI UrlMkGetSessionOption(DWORD dwOption, LPVOID *pBuffer, DWORD dwBufferLength,
                                         DWORD* pdwBufferLength, DWORD dwReserved)
 {
     FIXME("(%#lx, %p, %#lx, %p): stub\n", dwOption, pBuffer, dwBufferLength, pdwBufferLength);
@@ -269,22 +269,16 @@ HRESULT WINAPI UrlMkGetSessionOption(DWORD dwOption, LPVOID pBuffer, DWORD dwBuf
     return S_OK;
 }
 
-static const CHAR Agent[] = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)";
-
 /**************************************************************************
  *                 ObtainUserAgentString (URLMON.@)
  */
-HRESULT WINAPI ObtainUserAgentString(DWORD dwOption, LPSTR pcszUAOut, DWORD *cbSize)
+HRESULT WINAPI ObtainUserAgentString(DWORD dwOption, LPCSTR pcszUAOut, DWORD *cbSize)
 {
     FIXME("(%ld, %p, %p): stub\n", dwOption, pcszUAOut, cbSize);
 
     if(dwOption) {
       ERR("dwOption: %ld, must be zero\n", dwOption);
     }
-
-    if (sizeof(Agent) < *cbSize)
-        *cbSize = sizeof(Agent);
-    lstrcpynA(pcszUAOut, Agent, *cbSize); 
 
     return S_OK;
 }

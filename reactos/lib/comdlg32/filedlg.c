@@ -67,7 +67,6 @@
 #include "wine/unicode.h"
 #include "wingdi.h"
 #include "winuser.h"
-#include "winreg.h"
 #include "commdlg.h"
 #include "dlgs.h"
 #include "cdlg.h"
@@ -713,7 +712,7 @@ static void ArrangeCtrlPositions(HWND hwndChildDlg, HWND hwndParentDlg, BOOL hid
                  0, 0, rectChild.right, rectChild.bottom, SWP_NOACTIVATE);
 }
 
-static INT_PTR CALLBACK FileOpenDlgProcUserTemplate(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK FileOpenDlgProcUserTemplate(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch(uMsg) {
     case WM_INITDIALOG:
@@ -722,7 +721,7 @@ static INT_PTR CALLBACK FileOpenDlgProcUserTemplate(HWND hwnd, UINT uMsg, WPARAM
     return FALSE;
 }
 
-static HWND CreateTemplateDialog(FileOpenDlgInfos *fodInfos, HWND hwnd)
+HWND CreateTemplateDialog(FileOpenDlgInfos *fodInfos, HWND hwnd)
 {
     LPCVOID template;
     HRSRC hRes;
@@ -850,7 +849,7 @@ void SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode)
 
 static INT_PTR FILEDLG95_Handle_GetFilePath(HWND hwnd, DWORD size, LPVOID buffer)
 {
-    UINT sizeUsed = 0, n, total;
+    INT_PTR sizeUsed = 0, n, total;
     LPWSTR lpstrFileList = NULL;
     WCHAR lpstrCurrentDir[MAX_PATH];
     FileOpenDlgInfos *fodInfos = (FileOpenDlgInfos *) GetPropA(hwnd,FileOpenDlgInfosStr);
@@ -912,7 +911,7 @@ static INT_PTR FILEDLG95_Handle_GetFilePath(HWND hwnd, DWORD size, LPVOID buffer
 
 static INT_PTR FILEDLG95_Handle_GetFileSpec(HWND hwnd, DWORD size, LPVOID buffer)
 {
-    UINT sizeUsed = 0;
+    INT_PTR sizeUsed = 0;
     LPWSTR lpstrFileList = NULL;
     FileOpenDlgInfos *fodInfos = (FileOpenDlgInfos *) GetPropA(hwnd,FileOpenDlgInfosStr);
 
@@ -1711,9 +1710,8 @@ BOOL FILEDLG95_OnOpenMultipleFiles(HWND hwnd, LPWSTR lpstrFileList, UINT nFileCo
  *
  * If the function succeeds, the return value is nonzero.
  */
-#define ONOPEN_BROWSE 1
-#define ONOPEN_OPEN   2
-#define ONOPEN_SEARCH 3
+#define ONOPEN_OPEN   1
+#define ONOPEN_SEARCH 2
 static void FILEDLG95_OnOpenMessage(HWND hwnd, int idCaption, int idText)
 {
   WCHAR strMsgTitle[MAX_PATH];
@@ -1740,15 +1738,15 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
 
   TRACE("hwnd=%p\n", hwnd);
 
+  if(BrowseSelectedFolder(hwnd))
+      return FALSE;
+
   /* get the files from the edit control */
   nFileCount = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed, '\0');
 
   /* try if the user selected a folder in the shellview */
   if(nFileCount == 0)
-  {
-      BrowseSelectedFolder(hwnd);
       return FALSE;
-  }
 
   if(nFileCount > 1)
   {
@@ -1809,12 +1807,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
     lpstrPathAndFile: cleaned up path
  */
 
-  if (nFileCount &&
-      (fodInfos->ofnInfos->Flags & OFN_NOVALIDATE) &&
-      !(fodInfos->ofnInfos->Flags & OFN_FILEMUSTEXIST))
-    nOpenAction = ONOPEN_OPEN;
-  else
-    nOpenAction = ONOPEN_BROWSE;
+  nOpenAction = ONOPEN_OPEN;
 
   /* don't apply any checks with OFN_NOVALIDATE */
   {
@@ -1848,8 +1841,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
       *p = 0;
       lpszTemp = lpszTemp + strlenW(lpwstrTemp);
 
-      /* There are no wildcards when OFN_NOVALIDATE is set */
-      if(*lpszTemp==0 && !(fodInfos->ofnInfos->Flags & OFN_NOVALIDATE))
+      if(*lpszTemp==0)
       {
         static const WCHAR wszWild[] = { '*', '?', 0 };
 	/* if the last element is a wildcard do a search */
@@ -1948,6 +1940,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
         int iPos;
         LPWSTR lpszTemp = PathFindFileNameW(lpstrPathAndFile);
         DWORD len;
+	IPersistFolder2 * ppf2;
 
         /* replace the current filter */
         if(fodInfos->ShellInfos.lpstrCurrentFilter)
@@ -1959,12 +1952,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
         /* set the filter cb to the extension when possible */
         if(-1 < (iPos = FILEDLG95_FILETYPE_SearchExt(fodInfos->DlgInfos.hwndFileTypeCB, lpszTemp)))
         CBSetCurSel(fodInfos->DlgInfos.hwndFileTypeCB, iPos);
-      }
-      /* fall through */
-    case ONOPEN_BROWSE:   /* browse to the highest folder we could bind to */
-      TRACE("ONOPEN_BROWSE\n");
-      {
-	IPersistFolder2 * ppf2;
+
         if(SUCCEEDED(IShellFolder_QueryInterface( lpsf, &IID_IPersistFolder2, (LPVOID*)&ppf2)))
         {
           LPITEMIDLIST pidlCurrent;
@@ -1974,10 +1962,11 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
 	  {
 	    IShellBrowser_BrowseObject(fodInfos->Shell.FOIShellBrowser, pidlCurrent, SBSP_ABSOLUTE);
 	  }
-	  else if( nOpenAction == ONOPEN_SEARCH )
+	  else
 	  {
             IShellView_Refresh(fodInfos->Shell.FOIShellView);
 	  }
+          SendCustomDlgNotificationMessage(hwnd, CDN_FOLDERCHANGE);
           COMDLG32_SHFree(pidlCurrent);
         }
       }
@@ -1995,47 +1984,50 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
 	  fodInfos->ofnInfos->Flags &= ~OFN_READONLY;
 
         /* Attach the file extension with file name*/
-        ext = PathFindExtensionW(lpstrPathAndFile);
-        if (! *ext)
+
+        if(!PathIsDirectoryW(lpstrPathAndFile))
         {
-            /* if no extension is specified with file name, then */
-            /* attach the extension from file filter or default one */
+            if((ext = PathFindExtensionW(lpstrPathAndFile)) == NULL)
+            {
+                /* if no extension is specified with file name, then */
+                /* attach the extension from file filter or default one */
             
-            WCHAR *filterExt = NULL;
-            LPWSTR lpstrFilter = NULL;
-            static const WCHAR szwDot[] = {'.',0};
-            int PathLength = strlenW(lpstrPathAndFile);
+                WCHAR *filterExt = NULL;
+                LPWSTR lpstrFilter = NULL;
+                static const WCHAR szwDot[] = {'.',0};
+                int PathLength = strlenW(lpstrPathAndFile);
 
-            /* Attach the dot*/
-            strcatW(lpstrPathAndFile, szwDot);
+                /* Attach the dot*/
+                strcatW(lpstrPathAndFile, szwDot);
     
-            /*Get the file extension from file type filter*/
-            lpstrFilter = (LPWSTR) CBGetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB,
-                                             fodInfos->ofnInfos->nFilterIndex-1);
+                /*Get the file extension from file type filter*/
+                lpstrFilter = (LPWSTR) CBGetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB,
+                                                        fodInfos->ofnInfos->nFilterIndex-1);
 
-            if (lpstrFilter != (LPWSTR)CB_ERR)  /* control is not empty */
-                filterExt = PathFindExtensionW(lpstrFilter);
+                if (lpstrFilter != (LPWSTR)CB_ERR)  /* control is not empty */
+                    filterExt = PathFindExtensionW(lpstrFilter);
 
-            if ( filterExt && *filterExt ) /* attach the file extension from file type filter*/
-                strcatW(lpstrPathAndFile, filterExt + 1);
-            else if ( fodInfos->defext ) /* attach the default file extension*/
-                strcatW(lpstrPathAndFile, fodInfos->defext);
+                if ( filterExt && *filterExt ) /* attach the file extension from file type filter*/
+                    strcatW(lpstrPathAndFile, filterExt + 1);
+                else if ( fodInfos->defext ) /* attach the default file extension*/
+                    strcatW(lpstrPathAndFile, fodInfos->defext);
 
-            /* In Open dialog: if file does not exist try without extension */
-            if (!(fodInfos->DlgInfos.dwDlgProp & FODPROP_SAVEDLG) && !PathFileExistsW(lpstrPathAndFile))
-                  lpstrPathAndFile[PathLength] = '\0';
+                /* In Open dialog: if file does not exist try without extension */
+                if (!(fodInfos->DlgInfos.dwDlgProp & FODPROP_SAVEDLG) && !PathFileExistsW(lpstrPathAndFile))
+                    lpstrPathAndFile[PathLength] = '\0';
+            }
+        
+            if (fodInfos->defext) /* add default extension */
+            {
+                /* Set/clear the output OFN_EXTENSIONDIFFERENT flag */
+                if (*ext)
+                    ext++;
+                if (!lstrcmpiW(fodInfos->defext, ext))
+                    fodInfos->ofnInfos->Flags &= ~OFN_EXTENSIONDIFFERENT;
+                else
+                    fodInfos->ofnInfos->Flags |= OFN_EXTENSIONDIFFERENT;
+            }
         }
-
-	if (fodInfos->defext) /* add default extension */
-	{
-	  /* Set/clear the output OFN_EXTENSIONDIFFERENT flag */
-	  if (*ext)
-	    ext++;
-	  if (!lstrcmpiW(fodInfos->defext, ext))
-	    fodInfos->ofnInfos->Flags &= ~OFN_EXTENSIONDIFFERENT;
-	  else
-	    fodInfos->ofnInfos->Flags |= OFN_EXTENSIONDIFFERENT;
-	}
 
 	/* In Save dialog: check if the file already exists */
 	if (fodInfos->DlgInfos.dwDlgProp & FODPROP_SAVEDLG
@@ -2494,27 +2486,6 @@ static void FILEDLG95_FILETYPE_Clean(HWND hwnd)
  *
  * Initialisation of the look in combo box
  */
-
-/* Small helper function, to determine if the unixfs shell extension is rooted 
- * at the desktop. Copied from dlls/shell32/shfldr_unixfs.c. 
- */
-static inline BOOL FILEDLG95_unixfs_is_rooted_at_desktop(void) {
-    HKEY hKey;
-    const static WCHAR wszRootedAtDesktop[] = { 'S','o','f','t','w','a','r','e','\\',
-        'M','i','c','r','o','s','o','f','t','\\','W','i','n','d','o','w','s','\\',
-        'C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\',
-        'E','x','p','l','o','r','e','r','\\','D','e','s','k','t','o','p','\\',
-        'N','a','m','e','S','p','a','c','e','\\','{','9','D','2','0','A','A','E','8',
-        '-','0','6','2','5','-','4','4','B','0','-','9','C','A','7','-',
-        '7','1','8','8','9','C','2','2','5','4','D','9','}',0 };
-    
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, wszRootedAtDesktop, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
-        return FALSE;
-        
-    RegCloseKey(hKey);
-    return TRUE;
-}
-
 static void FILEDLG95_LOOKIN_Init(HWND hwndCombo)
 {
   IShellFolder	*psfRoot, *psfDrives;
@@ -2554,31 +2525,26 @@ static void FILEDLG95_LOOKIN_Init(HWND hwndCombo)
       {
 	FILEDLG95_LOOKIN_AddItem(hwndCombo, pidlTmp,LISTEND);
 
-	/* If the unixfs extension is rooted, we don't expand the drives by default */
-	if (!FILEDLG95_unixfs_is_rooted_at_desktop()) 
+	/* special handling for CSIDL_DRIVES */
+	if (COMDLG32_PIDL_ILIsEqual(pidlTmp, pidlDrives))
 	{
-	  /* special handling for CSIDL_DRIVES */
-	  if (COMDLG32_PIDL_ILIsEqual(pidlTmp, pidlDrives))
+	  if(SUCCEEDED(IShellFolder_BindToObject(psfRoot, pidlTmp, NULL, &IID_IShellFolder, (LPVOID*)&psfDrives)))
 	  {
-	    if(SUCCEEDED(IShellFolder_BindToObject(psfRoot, pidlTmp, NULL, &IID_IShellFolder, (LPVOID*)&psfDrives)))
+	    /* enumerate the drives */
+	    if(SUCCEEDED(IShellFolder_EnumObjects(psfDrives, hwndCombo,SHCONTF_FOLDERS, &lpeDrives)))
 	    {
-	      /* enumerate the drives */
-	      if(SUCCEEDED(IShellFolder_EnumObjects(psfDrives, hwndCombo,SHCONTF_FOLDERS, &lpeDrives)))
+	      while (S_OK == IEnumIDList_Next(lpeDrives, 1, &pidlTmp1, NULL))
 	      {
-	        while (S_OK == IEnumIDList_Next(lpeDrives, 1, &pidlTmp1, NULL))
-	        {
-	          pidlAbsTmp = COMDLG32_PIDL_ILCombine(pidlTmp, pidlTmp1);
-	          FILEDLG95_LOOKIN_AddItem(hwndCombo, pidlAbsTmp,LISTEND);
-	          COMDLG32_SHFree(pidlAbsTmp);
-	          COMDLG32_SHFree(pidlTmp1);
-	        }
-	        IEnumIDList_Release(lpeDrives);
+	        pidlAbsTmp = COMDLG32_PIDL_ILCombine(pidlTmp, pidlTmp1);
+	        FILEDLG95_LOOKIN_AddItem(hwndCombo, pidlAbsTmp,LISTEND);
+	        COMDLG32_SHFree(pidlAbsTmp);
+	        COMDLG32_SHFree(pidlTmp1);
 	      }
-	      IShellFolder_Release(psfDrives);
+	      IEnumIDList_Release(lpeDrives);
 	    }
+	    IShellFolder_Release(psfDrives);
 	  }
 	}
-
         COMDLG32_SHFree(pidlTmp);
       }
       IEnumIDList_Release(lpeRoot);
@@ -3208,9 +3174,6 @@ LPITEMIDLIST GetPidlFromDataObject ( IDataObject *doSelected, UINT nPidlIndex)
 
     TRACE("sv=%p index=%u\n", doSelected, nPidlIndex);
 
-    if (!doSelected)
-        return NULL;
-	
     /* Set the FORMATETC structure*/
     SETDefFormatEtc(formatetc, RegisterClipboardFormatA(CFSTR_SHELLIDLIST), TYMED_HGLOBAL);
 
@@ -3537,7 +3500,7 @@ static BOOL CALLBACK FD32_Init(LPARAM lParam, PFD31_DATA lfs, DWORD data)
  *
  *      called from the common 16/32 code to call the appropriate hook
  */
-static BOOL CALLBACK FD32_CallWindowProc(PFD31_DATA lfs, UINT wMsg, WPARAM wParam,
+BOOL CALLBACK FD32_CallWindowProc(PFD31_DATA lfs, UINT wMsg, WPARAM wParam,
                                  LPARAM lParam)
 {
     BOOL ret;

@@ -935,7 +935,7 @@ LONG  WINAPI SHRegWriteUSValueA(HUSKEY hUSKey, LPCSTR pszValue, DWORD dwType,
 LONG  WINAPI SHRegWriteUSValueW(HUSKEY hUSKey, LPCWSTR pszValue, DWORD dwType,
                                 LPVOID pvData, DWORD cbData, DWORD dwFlags)
 {
-    DWORD dummy;
+    LONG dummy;
     LPSHUSKEY hKey = (LPSHUSKEY)hUSKey;
     LONG ret = ERROR_SUCCESS;
 
@@ -1191,12 +1191,13 @@ DWORD WINAPI SHSetValueA(HKEY hKey, LPCSTR lpszSubKey, LPCSTR lpszValue,
 {
   DWORD dwRet = ERROR_SUCCESS, dwDummy;
   HKEY  hSubKey;
+  static const char  szEmpty[] = { '\0' };
 
   TRACE("(hkey=%p,%s,%s,%ld,%p,%ld)\n", hKey, debugstr_a(lpszSubKey),
           debugstr_a(lpszValue), dwType, pvData, cbData);
 
   if (lpszSubKey && *lpszSubKey)
-    dwRet = RegCreateKeyExA(hKey, lpszSubKey, 0, NULL,
+    dwRet = RegCreateKeyExA(hKey, lpszSubKey, 0, szEmpty,
                             0, KEY_SET_VALUE, NULL, &hSubKey, &dwDummy);
   else
     hSubKey = hKey;
@@ -1219,12 +1220,13 @@ DWORD WINAPI SHSetValueW(HKEY hKey, LPCWSTR lpszSubKey, LPCWSTR lpszValue,
 {
   DWORD dwRet = ERROR_SUCCESS, dwDummy;
   HKEY  hSubKey;
+  static const WCHAR szEmpty[] = { '\0' };
 
   TRACE("(hkey=%p,%s,%s,%ld,%p,%ld)\n", hKey, debugstr_w(lpszSubKey),
         debugstr_w(lpszValue), dwType, pvData, cbData);
 
   if (lpszSubKey && *lpszSubKey)
-    dwRet = RegCreateKeyExW(hKey, lpszSubKey, 0, NULL,
+    dwRet = RegCreateKeyExW(hKey, lpszSubKey, 0, szEmpty,
                             0, KEY_SET_VALUE, NULL, &hSubKey, &dwDummy);
   else
     hSubKey = hKey;

@@ -1,9 +1,12 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:         See COPYING in the top level directory
- * PROJECT:           ReactOS system libraries
+ * PROJECT:           ReactOS kernel
  * PURPOSE:           Rtl registry functions
  * FILE:              lib/rtl/registry.c
  * PROGRAMER:         Eric Kohl
+ * REVISION HISTORY:
+ *                    2000/08/11: Created
  */
 
 /*
@@ -12,14 +15,14 @@
  *	- support RTL_QUERY_REGISTRY_DELETE
  */
 
-/* INCLUDES *****************************************************************/
+/* INCLUDES ****************************************************************/
 
-#include <rtl.h>
+#define __NTDRIVER__
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_RTLREGISTRY TAG('R', 't', 'l', 'R')
 
 /* FUNCTIONS ***************************************************************/
 
@@ -302,10 +305,11 @@ RtlFormatCurrentUserKeyPath (OUT PUNICODE_STRING KeyPath)
 
   KeyPath->Length = 0;
   KeyPath->MaximumLength = Length;
-  KeyPath->Buffer = RtlpAllocateStringMemory(KeyPath->MaximumLength, TAG_USTR);
+  KeyPath->Buffer = ExAllocatePool (PagedPool,
+				    KeyPath->MaximumLength);
   if (KeyPath->Buffer == NULL)
     {
-      DPRINT1 ("RtlpAllocateMemory() failed\n");
+      DPRINT1 ("ExAllocatePool() failed\n");
       RtlFreeUnicodeString (&SidString);
       return STATUS_NO_TOKEN;
     }
@@ -446,7 +450,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 			       QueryEntry->Name);
 
 	  BufferSize = sizeof (KEY_VALUE_PARTIAL_INFORMATION) + 4096;
-	  ValueInfo = RtlpAllocateMemory(BufferSize, TAG_RTLREGISTRY);
+	  ValueInfo = ExAllocatePool(PagedPool, BufferSize);
 	  if (ValueInfo == NULL)
 	    {
 	      Status = STATUS_NO_MEMORY;
@@ -463,7 +467,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 	    {
 	      if (QueryEntry->Flags & RTL_QUERY_REGISTRY_REQUIRED)
 		{
-		  RtlpFreeMemory(ValueInfo, TAG_RTLREGISTRY);
+		  ExFreePool(ValueInfo);
 		  Status = STATUS_OBJECT_NAME_NOT_FOUND;
 		  break;
 		}
@@ -479,7 +483,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    {
 		      ValueString->Length = SourceString->Length;
 		      ValueString->MaximumLength = SourceString->MaximumLength;
-		      ValueString->Buffer = RtlpAllocateMemory(BufferSize, TAG_RTLREGISTRY);
+		      ValueString->Buffer = ExAllocatePool(PagedPool, BufferSize);
 		      if (!ValueString->Buffer)
 			break;
 		      ValueString->Buffer[0] = 0;
@@ -517,7 +521,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  if (ValueString->Buffer == NULL)
 		    {
 		      ValueString->MaximumLength = ValueInfo->DataLength;
-		      ValueString->Buffer = RtlpAllocateMemory(ValueString->MaximumLength, TAG_RTLREGISTRY);
+		      ValueString->Buffer = ExAllocatePool(PagedPool, ValueString->MaximumLength);
 		      if (ValueString->Buffer == NULL)
 			{
 			  Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -540,7 +544,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 
 		  ValueString = (PUNICODE_STRING)QueryEntry->EntryContext;
 
-		  ExpandBuffer = RtlpAllocateMemory(ValueInfo->DataLength * 2, TAG_RTLREGISTRY);
+		  ExpandBuffer = ExAllocatePool(PagedPool, ValueInfo->DataLength * 2);
 		  if (ExpandBuffer == NULL)
 		    {
 		      Status = STATUS_NO_MEMORY;
@@ -563,7 +567,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		    {
 		      ValueString->MaximumLength = EnvExpandedValue.Length + sizeof(WCHAR);
 		      ValueString->Length = EnvExpandedValue.Length;
-		      ValueString->Buffer = RtlpAllocateMemory(ValueString->MaximumLength, TAG_RTLREGISTRY);
+		      ValueString->Buffer = ExAllocatePool(PagedPool, ValueString->MaximumLength);
 		      if (ValueString->Buffer == NULL)
 			{
 			  Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -581,7 +585,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 			 ValueString->Length);
 		  ((PWSTR)ValueString->Buffer)[ValueString->Length / sizeof(WCHAR)] = 0;
 
-		  RtlpFreeMemory(ExpandBuffer, TAG_RTLREGISTRY);
+		  ExFreePool(ExpandBuffer);
 		}
 	      else
 		{
@@ -597,7 +601,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 
 	    }
 
-	  RtlpFreeMemory(ValueInfo, TAG_RTLREGISTRY);
+	  ExFreePool(ValueInfo);
 	}
       else
 	{
@@ -608,7 +612,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 				   QueryEntry->Name);
 
 	      BufferSize = sizeof (KEY_VALUE_PARTIAL_INFORMATION) + 4096;
-	      ValueInfo = RtlpAllocateMemory(BufferSize, TAG_RTLREGISTRY);
+	      ValueInfo = ExAllocatePool(PagedPool, BufferSize);
 	      if (ValueInfo == NULL)
 		{
 		  Status = STATUS_NO_MEMORY;
@@ -657,7 +661,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		{
 		  DPRINT("Expand REG_EXPAND_SZ type\n");
 
-		  ExpandBuffer = RtlpAllocateMemory(ValueInfo->DataLength * 2, TAG_RTLREGISTRY);
+		  ExpandBuffer = ExAllocatePool(PagedPool, ValueInfo->DataLength * 2);
 		  if (ExpandBuffer == NULL)
 		    {
 		      Status = STATUS_NO_MEMORY;
@@ -684,7 +688,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 						    Context,
 						    QueryEntry->EntryContext);
 
-		  RtlpFreeMemory(ExpandBuffer, TAG_RTLREGISTRY);
+		  ExFreePool(ExpandBuffer);
 		}
 	      else
 		{
@@ -702,7 +706,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 
 		}
 
-	      RtlpFreeMemory(ValueInfo, TAG_RTLREGISTRY);
+	      ExFreePool(ValueInfo);
 	      if (!NT_SUCCESS(Status))
 		break;
 	    }
@@ -723,14 +727,14 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 	      DPRINT("Enumerate values\n");
 
 	      BufferSize = sizeof(KEY_VALUE_FULL_INFORMATION) + 4096;
-	      FullValueInfo = RtlpAllocateMemory(BufferSize, TAG_RTLREGISTRY);
+	      FullValueInfo = ExAllocatePool(PagedPool, BufferSize);
 	      if (FullValueInfo == NULL)
 		{
 		  Status = STATUS_NO_MEMORY;
 		  break;
 		}
 	      ValueNameSize = 256 * sizeof(WCHAR);
-	      ValueName = RtlpAllocateMemory(ValueNameSize, TAG_RTLREGISTRY);
+	      ValueName = ExAllocatePool(PagedPool, ValueNameSize);
 	      if (ValueName == NULL)
 	        {
 		  Status = STATUS_NO_MEMORY;
@@ -763,9 +767,9 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  if (FullValueInfo->NameLength > ValueNameSize - sizeof(WCHAR))
 		    {
 		      /* Should not happen, because the name length is limited to 255 characters */
-		      RtlpFreeMemory(ValueName, TAG_RTLREGISTRY);
+		      ExFreePool(ValueName);
 		      ValueNameSize = FullValueInfo->NameLength + sizeof(WCHAR);
-		      ValueName = RtlpAllocateMemory(ValueNameSize, TAG_RTLREGISTRY);
+		      ValueName = ExAllocatePool(PagedPool, ValueNameSize);
 		      if (ValueName == NULL)
 		        {
 		          Status = STATUS_NO_MEMORY;
@@ -804,7 +808,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		      DPRINT("Expand REG_EXPAND_SZ type\n");
 
 		      StringPtr = (PWSTR)((ULONG_PTR)FullValueInfo + FullValueInfo->DataOffset);
-		      ExpandBuffer = RtlpAllocateMemory(FullValueInfo->DataLength * 2, TAG_RTLREGISTRY);
+		      ExpandBuffer = ExAllocatePool(PagedPool, FullValueInfo->DataLength * 2);
 		      if (ExpandBuffer == NULL)
 			{
 			  Status = STATUS_NO_MEMORY;
@@ -831,7 +835,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 							Context,
 							QueryEntry->EntryContext);
 
-		       RtlpFreeMemory(ExpandBuffer, TAG_RTLREGISTRY);
+		       ExFreePool(ExpandBuffer);
 		    }
 		  else
 		    {
@@ -851,8 +855,8 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
 		  Index++;
 		}
 
-	      RtlpFreeMemory(FullValueInfo, TAG_RTLREGISTRY);
-	      RtlpFreeMemory(ValueName, TAG_RTLREGISTRY);
+	      ExFreePool(FullValueInfo);
+	      ExFreePool(ValueName);
 	      if (!NT_SUCCESS(Status))
 		break;
 	    }
@@ -959,7 +963,7 @@ RtlpNtEnumerateSubKey(IN HANDLE KeyHandle,
     {
       BufferLength = SubKeyName->MaximumLength +
 		     sizeof(KEY_BASIC_INFORMATION);
-      KeyInfo = RtlpAllocateMemory(BufferLength, TAG_RTLREGISTRY);
+      KeyInfo = ExAllocatePool(PagedPool,	BufferLength);
       if (KeyInfo == NULL)
 	return(STATUS_NO_MEMORY);
     }
@@ -988,7 +992,7 @@ RtlpNtEnumerateSubKey(IN HANDLE KeyHandle,
 
   if (KeyInfo != NULL)
     {
-      RtlpFreeMemory(KeyInfo, TAG_RTLREGISTRY);
+      ExFreePool(KeyInfo);
     }
 
   return(Status);
@@ -1046,7 +1050,7 @@ RtlpNtQueryValueKey(IN HANDLE KeyHandle,
   if (DataLength != NULL)
     BufferLength = *DataLength;
 
-  ValueInfo = RtlpAllocateMemory(BufferLength, TAG_RTLREGISTRY);
+  ValueInfo = ExAllocatePool(PagedPool, BufferLength);
   if (ValueInfo == NULL)
     return(STATUS_NO_MEMORY);
 
@@ -1072,7 +1076,7 @@ RtlpNtQueryValueKey(IN HANDLE KeyHandle,
 	}
     }
 
-  RtlpFreeMemory(ValueInfo, TAG_RTLREGISTRY);
+  ExFreePool(ValueInfo);
 
   return(Status);
 }

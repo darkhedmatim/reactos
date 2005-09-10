@@ -1,4 +1,6 @@
-/*
+/* $Id$
+ *
+ *
  * FILE:             DirEntry.c
  * PURPOSE:          Routines to manipulate directory entries.
  * COPYRIGHT:        See COPYING in the top level directory
@@ -53,7 +55,7 @@ BOOLEAN FATIsDirectoryEmpty(PVFATFCB Fcb)
        Index = 2;
      }
 
-   FileOffset.QuadPart = 0;
+   FileOffset.QuadPart = 0LL;
    MaxIndex = Fcb->RFCB.FileSize.u.LowPart / sizeof(FAT_DIR_ENTRY);
 
    while (Index < MaxIndex)
@@ -99,7 +101,7 @@ BOOLEAN FATXIsDirectoryEmpty(PVFATFCB Fcb)
 
    Index = 0;
 
-   FileOffset.QuadPart = 0;
+   FileOffset.QuadPart = 0LL;
    MaxIndex = Fcb->RFCB.FileSize.u.LowPart / sizeof(FATX_DIR_ENTRY);
 
    while (Index < MaxIndex)
@@ -304,7 +306,7 @@ NTSTATUS FATGetNextDirEntry(PVOID * pContext,
                   {
                     shortCheckSum = (((shortCheckSum & 1) << 7)
                                   | ((shortCheckSum & 0xfe) >> 1))
-                                  + fatDirEntry->ShortName[i];
+                                  + fatDirEntry->Filename[i];
 		  }
 	        if (shortCheckSum != CheckSum && DirContext->LongNameU.Buffer[0])
 		  {

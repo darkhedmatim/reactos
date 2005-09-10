@@ -32,8 +32,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
 
 /* DEFINES *******************************************************************/
 
@@ -83,6 +81,13 @@ typedef struct _MSGBOXINFO {
 } MSGBOXINFO, *PMSGBOXINFO;
 
 /* INTERNAL FUNCTIONS ********************************************************/
+
+static inline unsigned int strlenW( const WCHAR *str )
+{
+    const WCHAR *s = str;
+    while (*s) s++;
+    return s - str;
+}
 
 static INT_PTR CALLBACK MessageBoxProc( HWND hwnd, UINT message,
                                         WPARAM wParam, LPARAM lParam )

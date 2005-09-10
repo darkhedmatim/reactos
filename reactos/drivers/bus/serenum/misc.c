@@ -25,7 +25,7 @@ SerenumDuplicateUnicodeString(
 		return STATUS_SUCCESS;
 	}
 
-	Destination->Buffer = ExAllocatePoolWithTag(PoolType, Source->MaximumLength, SERENUM_TAG);
+	Destination->Buffer = ExAllocatePool(PoolType, Source->MaximumLength);
 	if (Destination->Buffer == NULL)
 	{
 		return STATUS_INSUFFICIENT_RESOURCES;

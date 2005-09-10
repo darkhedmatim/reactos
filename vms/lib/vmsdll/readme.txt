@@ -1,4 +1,4 @@
-VMSDLL - ReactOS VMS+ Environment Subsystem Client Library
+VMSDLL - ReactOS VMS+ Environment Subsystem
 
 lib = Library APIs
 

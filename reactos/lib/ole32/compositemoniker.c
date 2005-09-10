@@ -37,7 +37,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
-static const CLSID CLSID_CompositeMoniker = {
+const CLSID CLSID_CompositeMoniker = {
   0x309, 0, 0, {0xC0, 0, 0, 0, 0, 0, 0, 0x46}
 };
 
@@ -46,15 +46,15 @@ static const CLSID CLSID_CompositeMoniker = {
 /* CompositeMoniker data structure */
 typedef struct CompositeMonikerImpl{
 
-    const IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
+    IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
 
     /* The ROT (RunningObjectTable implementation) uses the IROTData
      * interface to test whether two monikers are equal. That's why IROTData
      * interface is implemented by monikers.
      */
-    const IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
+    IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
     IMoniker** tabMoniker; /* dynamaic table containing all components (monikers) of this composite moniker */
 
@@ -68,9 +68,9 @@ typedef struct CompositeMonikerImpl{
 /* EnumMoniker data structure */
 typedef struct EnumMonikerImpl{
 
-    const IEnumMonikerVtbl *lpVtbl;  /* VTable relative to the IEnumMoniker interface.*/
+    IEnumMonikerVtbl *lpVtbl;  /* VTable relative to the IEnumMoniker interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
     IMoniker** tabMoniker; /* dynamic table containing the enumerated monikers */
 
@@ -80,10 +80,6 @@ typedef struct EnumMonikerImpl{
 
 } EnumMonikerImpl;
 
-static inline IMoniker *impl_from_IROTData( IROTData *iface )
-{
-    return (IMoniker *)((char*)iface - FIELD_OFFSET(CompositeMonikerImpl, lpvtbl2));
-}
 
 static HRESULT EnumMonikerImpl_CreateEnumMoniker(IMoniker** tabMoniker,ULONG tabSize,ULONG currentPos,BOOL leftToRigth,IEnumMoniker ** ppmk);
 
@@ -1212,7 +1208,7 @@ CompositeMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid,
                VOID** ppvObject)
 {
 
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p,%p,%p)\n",iface,riid,ppvObject);
 
@@ -1225,7 +1221,7 @@ CompositeMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid,
 static ULONG WINAPI
 CompositeMonikerROTDataImpl_AddRef(IROTData *iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -1237,7 +1233,7 @@ CompositeMonikerROTDataImpl_AddRef(IROTData *iface)
  */
 static ULONG WINAPI CompositeMonikerROTDataImpl_Release(IROTData* iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -1392,7 +1388,7 @@ EnumMonikerImpl_Clone(IEnumMoniker* iface,IEnumMoniker** ppenum)
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class                                */
-static const IEnumMonikerVtbl VT_EnumMonikerImpl =
+static IEnumMonikerVtbl VT_EnumMonikerImpl =
 {
     EnumMonikerImpl_QueryInterface,
     EnumMonikerImpl_AddRef,
@@ -1457,7 +1453,7 @@ EnumMonikerImpl_CreateEnumMoniker(IMoniker** tabMoniker, ULONG tabSize,
 /* Virtual function table for the CompositeMonikerImpl class which includes     */
 /* IPersist, IPersistStream and IMoniker functions.                             */
 
-static const IMonikerVtbl VT_CompositeMonikerImpl =
+static IMonikerVtbl VT_CompositeMonikerImpl =
 {
     CompositeMonikerImpl_QueryInterface,
     CompositeMonikerImpl_AddRef,
@@ -1486,7 +1482,7 @@ static const IMonikerVtbl VT_CompositeMonikerImpl =
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class.                               */
-static const IROTDataVtbl VT_ROTDataImpl =
+static IROTDataVtbl VT_ROTDataImpl =
 {
     CompositeMonikerROTDataImpl_QueryInterface,
     CompositeMonikerROTDataImpl_AddRef,

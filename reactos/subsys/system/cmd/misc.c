@@ -381,10 +381,10 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	while ((--nBufferLength >  0) &&
 		   ReadFile(hFile, &ch, 1, &dwRead, NULL) && dwRead)
 	{
-		if ((ch == '\n') || (ch == '\r'))
+		if (ch == '\r')
 		{
-			/* read it*/
-			lpString[len++] = ch;
+			/* overread '\n' */
+			ReadFile (hFile, &ch, 1, &dwRead, NULL);
 			break;
 		}
 		lpString[len++] = ch;

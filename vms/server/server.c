@@ -1,6 +1,6 @@
-/* $Id$
+/* $Id: $
  *
- * server.c - VMS Enviroment Subsystem Server - Initialization
+ * init.c - VMS Enviroment Subsystem Server - Initialization
  * 
  * ReactOS Operating System
  * 
@@ -23,60 +23,44 @@
  *
  * --------------------------------------------------------------------
  */
-#include "vmssrv.h"
+#define __USE_NT_LPC__
+#include "vmsss.h"
 
 //#define NDEBUG
 #include <debug.h>
 
-HANDLE VmsApiPort = NULL;
 
 /**********************************************************************
  * NAME							PRIVATE
- * 	VmsStaticServerThread/1
+ * 	VmspCreatePort/1
  */
-VOID STDCALL VmsStaticServerThread (PVOID x)
+NTSTATUS VmsRunServer (VOID)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	PPORT_MESSAGE Request = (PPORT_MESSAGE) x;
-	PPORT_MESSAGE Reply = NULL;
+	LPC_MAX_MESSAGE Request;
+	PLPC_MESSAGE Reply = NULL;
 	ULONG MessageType = 0;
 
-	DPRINT("VMSSRV: %s called\n", __FUNCTION__);
-
-	MessageType = Request->u2.s2.Type;
-	DPRINT("VMSSRV: %s received a message (Type=%d)\n",
-		__FUNCTION__, MessageType);
-	switch (MessageType)
+	while (TRUE)
 	{
-		default:
-			Reply = Request;
-			Status = NtReplyPort (VmsApiPort, Reply);
-			break;
-	}
-}
-
-/*=====================================================================
- * 	PUBLIC API
- *===================================================================*/
-
-NTSTATUS STDCALL ServerDllInitialization (ULONG ArgumentCount,
-					  LPWSTR *Argument)
-{
-	NTSTATUS Status = STATUS_SUCCESS;
-	
-	DPRINT("VMSSRV: %s called\n", __FUNCTION__);
-
-	// Get the listening port from csrsrv.dll
-	VmsApiPort = CsrQueryApiPort ();
-	if (NULL == VmsApiPort)
-	{
-		return STATUS_UNSUCCESSFUL;
-	}
-	// Register our message dispatcher
-	Status = CsrAddStaticServerThread (VmsStaticServerThread);
-	if (NT_SUCCESS(Status))
-	{
-		//TODO: perform the real VMS server internal initialization here
+		Status = NtReplyWaitReceivePort (VmsApiPort,
+						 0,
+						 Reply,
+						 & Request);
+		if(NT_SUCCESS(Status))
+		{
+			MessageType = PORT_MESSAGE_TYPE(Request);
+			DPRINT("VMS: %s received a message (Type=%d)\n",
+					__FUNCTION__, MessageType);
+			switch(MessageType)
+			{
+			default:
+				continue;
+			}
+		}else{
+			DPRINT("VMS: %s: NtReplyWaitReceivePort failed (Status=%08lx)\n",
+					__FUNCTION__, Status);
+		}
 	}
 	return Status;
 }

@@ -26,14 +26,12 @@
 #include <machine.h>
 
 
-BOOL DiskGetActivePartitionEntry(ULONG DriveNumber,
-                                 PPARTITION_TABLE_ENTRY PartitionTableEntry,
-                                 ULONG *ActivePartition)
+BOOL DiskGetActivePartitionEntry(ULONG DriveNumber, PPARTITION_TABLE_ENTRY PartitionTableEntry)
 {
 	ULONG			BootablePartitionCount = 0;
+	ULONG			ActivePartition = 0;
 	MASTER_BOOT_RECORD	MasterBootRecord;
 
-	*ActivePartition = 0;
 	// Read master boot record
 	if (!DiskReadBootRecord(DriveNumber, 0, &MasterBootRecord))
 	{
@@ -44,22 +42,22 @@ BOOL DiskGetActivePartitionEntry(ULONG DriveNumber,
 	if (MasterBootRecord.PartitionTable[0].BootIndicator == 0x80)
 	{
 		BootablePartitionCount++;
-		*ActivePartition = 1;
+		ActivePartition = 0;
 	}
 	if (MasterBootRecord.PartitionTable[1].BootIndicator == 0x80)
 	{
 		BootablePartitionCount++;
-		*ActivePartition = 2;
+		ActivePartition = 1;
 	}
 	if (MasterBootRecord.PartitionTable[2].BootIndicator == 0x80)
 	{
 		BootablePartitionCount++;
-		*ActivePartition = 3;
+		ActivePartition = 2;
 	}
 	if (MasterBootRecord.PartitionTable[3].BootIndicator == 0x80)
 	{
 		BootablePartitionCount++;
-		*ActivePartition = 4;
+		ActivePartition = 3;
 	}
 
 	// Make sure there was only one bootable partition
@@ -75,9 +73,7 @@ BOOL DiskGetActivePartitionEntry(ULONG DriveNumber,
 	}
 
 	// Copy the partition table entry
-	RtlCopyMemory(PartitionTableEntry,
-	              &MasterBootRecord.PartitionTable[*ActivePartition - 1],
-	              sizeof(PARTITION_TABLE_ENTRY));
+	RtlCopyMemory(PartitionTableEntry, &MasterBootRecord.PartitionTable[ActivePartition], sizeof(PARTITION_TABLE_ENTRY));
 
 	return TRUE;
 }

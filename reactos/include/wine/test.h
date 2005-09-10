@@ -24,9 +24,6 @@
 #include <stdarg.h>
 #include "windows.h"
 
-/* prototype for dbgprint */
-ULONG CDECL DbgPrint(IN PCH  Format,IN ...);
-
 /* debug level */
 extern int winetest_debug;
 

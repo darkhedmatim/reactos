@@ -193,7 +193,6 @@ ReportDetectedDevice(
 ByeBye:
 	if (Pdo)
 	{
-		ASSERT(PdoDeviceExtension);
 		if (PdoDeviceExtension->DeviceDescription.Buffer)
 			RtlFreeUnicodeString(&PdoDeviceExtension->DeviceDescription);
 		if (PdoDeviceExtension->DeviceId.Buffer)
@@ -473,7 +472,7 @@ SerenumDetectLegacyDevice(
 	ULONG Command;
 	SERIAL_TIMEOUTS Timeouts;
 	SERIAL_LINE_CONTROL LCR;
-	ULONG i, Count = 0;
+	ULONG i, Count;
 	UCHAR Buffer[16];
 	UNICODE_STRING DeviceDescription;
 	UNICODE_STRING DeviceId;

@@ -29,7 +29,7 @@
 #include "msiquery.h"
 #include "objbase.h"
 #include "objidl.h"
-#include "winnls.h"
+#include "wine/unicode.h"
 #include "wine/list.h"
 
 #define MSI_DATASIZEMASK 0x00ff
@@ -55,7 +55,7 @@ struct tagMSIOBJECTHDR
 {
     UINT magic;
     UINT type;
-    LONG refcount;
+    DWORD refcount;
     msihandledestructor destructor;
     struct tagMSIOBJECTHDR *next;
     struct tagMSIOBJECTHDR *prev;
@@ -66,7 +66,7 @@ typedef struct tagMSIDATABASE
     MSIOBJECTHDR hdr;
     IStorage *storage;
     string_table *strings;
-    LPCWSTR mode;
+    LPWSTR mode;
     MSITABLE *first_table, *last_table;
 } MSIDATABASE;
 
@@ -129,9 +129,10 @@ typedef struct tagMSIVIEWOPS
     UINT (*set_int)( struct tagMSIVIEW *, UINT row, UINT col, UINT val );
 
     /*
-     * Inserts a new row into the database from the records contents
+     * Inserts a new, blank row into the database
+     *  *row receives the number of the new row
      */
-    UINT (*insert_row)( struct tagMSIVIEW *, MSIRECORD * );
+    UINT (*insert_row)( struct tagMSIVIEW *, UINT *row );
 
     /*
      * execute - loads the underlying data into memory so it can be read
@@ -185,36 +186,33 @@ typedef struct tagMSIPACKAGE
 {
     MSIOBJECTHDR hdr;
     MSIDATABASE *db;
-    struct list components;
-    struct list features;
-    struct list files;
-    struct list folders;
+    struct tagMSIFEATURE *features;
+    UINT loaded_features;
+    struct tagMSIFOLDER  *folders;
+    UINT loaded_folders;
+    struct tagMSICOMPONENT *components;
+    UINT loaded_components;
+    struct tagMSIFILE *files;
+    UINT loaded_files;
     LPWSTR ActionFormat;
     LPWSTR LastAction;
 
-    struct list classes;
-    struct list extensions;
-    struct tagMSIPROGID *progids;
-    UINT loaded_progids;
-    struct tagMSIVERB *verbs;
-    UINT loaded_verbs;
-    struct list mimes;
-    struct list appids;
-    
-    struct tagMSISCRIPT *script;
+    LPWSTR *DeferredAction;
+    UINT DeferredActionCount;
+
+    LPWSTR *CommitAction;
+    UINT CommitActionCount;
 
     struct tagMSIRUNNINGACTION *RunningAction;
     UINT RunningActionCount;
 
     LPWSTR PackagePath;
-    LPWSTR msiFilePath;
-    LPWSTR ProductCode;
 
     UINT CurrentInstallState;
     msi_dialog *dialog;
     LPWSTR next_dialog;
-    
-    struct list subscriptions;
+
+    BOOL ExecuteSequenceRun;
 } MSIPACKAGE;
 
 typedef struct tagMSIPREVIEW
@@ -274,8 +272,8 @@ extern HRESULT init_string_table( IStorage *stg );
 
 
 /* string table functions */
-extern BOOL msi_addstring( string_table *st, UINT string_no, const CHAR *data, int len, UINT refcount );
-extern BOOL msi_addstringW( string_table *st, UINT string_no, const WCHAR *data, int len, UINT refcount );
+extern BOOL msi_addstring( string_table *st, int string_no, const CHAR *data, int len, UINT refcount );
+extern BOOL msi_addstringW( string_table *st, int string_no, const WCHAR *data, int len, UINT refcount );
 extern UINT msi_id2stringW( string_table *st, UINT string_no, LPWSTR buffer, UINT *sz );
 extern UINT msi_id2stringA( string_table *st, UINT string_no, LPSTR buffer, UINT *sz );
 
@@ -300,7 +298,7 @@ extern UINT read_raw_stream_data( MSIDATABASE*, LPCWSTR stname,
                               USHORT **pdata, UINT *psz );
 
 /* action internals */
-extern UINT ACTION_DoTopLevelINSTALL( MSIPACKAGE *, LPCWSTR, LPCWSTR, LPCWSTR );
+extern UINT ACTION_DoTopLevelINSTALL( MSIPACKAGE *, LPCWSTR, LPCWSTR );
 extern void ACTION_free_package_structures( MSIPACKAGE* );
 extern UINT ACTION_DialogBox( MSIPACKAGE*, LPCWSTR);
 
@@ -311,17 +309,12 @@ extern const WCHAR *MSI_RecordGetString( MSIRECORD *, unsigned int );
 extern MSIRECORD *MSI_CreateRecord( unsigned int );
 extern UINT MSI_RecordSetInteger( MSIRECORD *, unsigned int, int );
 extern UINT MSI_RecordSetStringW( MSIRECORD *, unsigned int, LPCWSTR );
-extern UINT MSI_RecordSetStringA( MSIRECORD *, unsigned int, LPCSTR );
 extern BOOL MSI_RecordIsNull( MSIRECORD *, unsigned int );
 extern UINT MSI_RecordGetStringW( MSIRECORD * , unsigned int, LPWSTR, DWORD *);
 extern UINT MSI_RecordGetStringA( MSIRECORD *, unsigned int, LPSTR, DWORD *);
 extern int MSI_RecordGetInteger( MSIRECORD *, unsigned int );
 extern UINT MSI_RecordReadStream( MSIRECORD *, unsigned int, char *, DWORD *);
 extern unsigned int MSI_RecordGetFieldCount( MSIRECORD *rec );
-extern UINT MSI_RecordSetStreamW( MSIRECORD *, unsigned int, LPCWSTR );
-extern UINT MSI_RecordSetStreamA( MSIRECORD *, unsigned int, LPCSTR );
-extern UINT MSI_RecordDataSize( MSIRECORD *, unsigned int );
-extern UINT MSI_RecordStreamToFile( MSIRECORD *, unsigned int, LPCWSTR );
 
 /* stream internals */
 extern UINT get_raw_stream( MSIHANDLE hdb, LPCWSTR stname, IStream **stm );
@@ -332,12 +325,8 @@ extern void enum_stream_names( IStorage *stg );
 extern UINT MSI_OpenDatabaseW( LPCWSTR, LPCWSTR, MSIDATABASE ** );
 extern UINT MSI_DatabaseOpenViewW(MSIDATABASE *, LPCWSTR, MSIQUERY ** );
 extern UINT MSI_OpenQuery( MSIDATABASE *, MSIQUERY **, LPCWSTR, ... );
-typedef UINT (*record_func)( MSIRECORD *, LPVOID );
+typedef UINT (*record_func)( MSIRECORD *rec, LPVOID param );
 extern UINT MSI_IterateRecords( MSIQUERY *, DWORD *, record_func, LPVOID );
-extern MSIRECORD *MSI_QueryGetRecord( MSIDATABASE *db, LPCWSTR query, ... );
-extern UINT MSI_DatabaseImport( MSIDATABASE *, LPCWSTR, LPCWSTR );
-extern UINT MSI_DatabaseExport( MSIDATABASE *, LPCWSTR, LPCWSTR, LPCWSTR );
-extern UINT MSI_DatabaseGetPrimaryKeys( MSIDATABASE *, LPCWSTR, MSIRECORD ** );
 
 /* view internals */
 extern UINT MSI_ViewExecute( MSIQUERY*, MSIRECORD * );
@@ -351,15 +340,15 @@ extern UINT MSI_SetTargetPathW( MSIPACKAGE *, LPCWSTR, LPCWSTR );
 extern UINT MSI_SetPropertyW( MSIPACKAGE *, LPCWSTR, LPCWSTR );
 extern INT MSI_ProcessMessage( MSIPACKAGE *, INSTALLMESSAGE, MSIRECORD * );
 extern UINT MSI_GetPropertyW( MSIPACKAGE *, LPCWSTR, LPWSTR, DWORD * );
-extern UINT MSI_GetPropertyA(MSIPACKAGE *, LPCSTR, LPSTR, DWORD* );
 extern MSICONDITION MSI_EvaluateConditionW( MSIPACKAGE *, LPCWSTR );
+extern UINT MSI_SetPropertyW( MSIPACKAGE *, LPCWSTR, LPCWSTR );
 extern UINT MSI_GetComponentStateW( MSIPACKAGE *, LPWSTR, INSTALLSTATE *, INSTALLSTATE * );
 extern UINT MSI_GetFeatureStateW( MSIPACKAGE *, LPWSTR, INSTALLSTATE *, INSTALLSTATE * );
 extern UINT WINAPI MSI_SetFeatureStateW(MSIPACKAGE*, LPCWSTR, INSTALLSTATE );
 
 /* for deformating */
-extern UINT MSI_FormatRecordW( MSIPACKAGE *, MSIRECORD *, LPWSTR, DWORD * );
-extern UINT MSI_FormatRecordA( MSIPACKAGE *, MSIRECORD *, LPSTR, DWORD * );
+extern UINT MSI_FormatRecordW(MSIPACKAGE* package, MSIRECORD* record, 
+                              LPWSTR buffer, DWORD *size);
     
 /* registry data encoding/decoding functions */
 extern BOOL unsquash_guid(LPCWSTR in, LPWSTR out);
@@ -375,12 +364,10 @@ extern UINT MSIREG_OpenUserComponentsKey(LPCWSTR szComponent, HKEY* key, BOOL cr
 extern UINT MSIREG_OpenComponentsKey(LPCWSTR szComponent, HKEY* key, BOOL create);
 extern UINT MSIREG_OpenProductsKey(LPCWSTR szProduct, HKEY* key, BOOL create);
 extern UINT MSIREG_OpenUserFeaturesKey(LPCWSTR szProduct, HKEY* key, BOOL create);
-extern UINT MSIREG_OpenUserComponentsKey(LPCWSTR szComponent, HKEY* key, BOOL create);
 extern UINT MSIREG_OpenUpgradeCodesKey(LPCWSTR szProduct, HKEY* key, BOOL create);
-extern UINT MSIREG_OpenUserUpgradeCodesKey(LPCWSTR szProduct, HKEY* key, BOOL create);
 
 /* msi dialog interface */
-typedef UINT (*msi_dialog_event_handler)( MSIPACKAGE*, LPCWSTR, LPCWSTR, msi_dialog* );
+typedef VOID (*msi_dialog_event_handler)( MSIPACKAGE*, LPCWSTR, LPCWSTR, msi_dialog* );
 extern msi_dialog *msi_dialog_create( MSIPACKAGE*, LPCWSTR, msi_dialog_event_handler );
 extern UINT msi_dialog_run_message_loop( msi_dialog* );
 extern void msi_dialog_end_dialog( msi_dialog* );
@@ -389,18 +376,6 @@ extern void msi_dialog_do_preview( msi_dialog* );
 extern void msi_dialog_destroy( msi_dialog* );
 extern BOOL msi_dialog_register_class( void );
 extern void msi_dialog_unregister_class( void );
-extern void msi_dialog_handle_event( msi_dialog*, LPCWSTR, LPCWSTR, MSIRECORD * );
-
-/* preview */
-extern MSIPREVIEW *MSI_EnableUIPreview( MSIDATABASE * );
-extern UINT MSI_PreviewDialogW( MSIPREVIEW *, LPCWSTR );
-
-/* undocumented functions */
-UINT WINAPI MsiCreateAndVerifyInstallerDirectory( DWORD );
-UINT WINAPI MsiDecomposeDescriptorW( LPCWSTR, LPWSTR, LPWSTR, LPWSTR, DWORD * );
-UINT WINAPI MsiDecomposeDescriptorA( LPCSTR, LPSTR, LPSTR, LPSTR, DWORD * );
-LANGID WINAPI MsiLoadStringW( MSIHANDLE, UINT, LPWSTR, int, LANGID );
-LANGID WINAPI MsiLoadStringA( MSIHANDLE, UINT, LPSTR, int, LANGID );
 
 /* UI globals */
 extern INSTALLUILEVEL gUILevel;
@@ -440,8 +415,8 @@ inline static LPWSTR strdupW( LPCWSTR src )
 {
     LPWSTR dest;
     if (!src) return NULL;
-    dest = HeapAlloc(GetProcessHeap(), 0, (lstrlenW(src)+1)*sizeof(WCHAR));
-    lstrcpyW(dest, src);
+    dest = HeapAlloc(GetProcessHeap(), 0, (strlenW(src)+1)*sizeof(WCHAR));
+    strcpyW(dest, src);
     return dest;
 }
 

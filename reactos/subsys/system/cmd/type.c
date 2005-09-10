@@ -37,12 +37,12 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR  buff[256];
 	HANDLE hFile, hConsoleOut;
+	DWORD  dwRead;
+	DWORD  dwWritten;
 	BOOL   bRet;
 	INT    argc,i;
 	LPTSTR *argv;
 	LPTSTR errmsg;
-	BOOL bPaging = FALSE;
-	BOOL bFirstTime = TRUE;
 
 	hConsoleOut=GetStdHandle (STD_OUTPUT_HANDLE);
 
@@ -50,7 +50,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 	{
 		ConOutResPaging(TRUE,STRING_TYPE_HELP1);
 		return 0;
-	}	
+	}
 
 	if (!*param)
 	{
@@ -60,24 +60,14 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 
 	argv = split (param, &argc, TRUE);
 
-	for(i = 0; i < argc; i++)
-	{
-		if(*argv[i] == _T('/') && _tcslen(argv[i]) >= 2 && _totupper(argv[i][1]) == _T('P'))
-		{
-			bPaging = TRUE;
-		}
-	}
-
 	for (i = 0; i < argc; i++)
 	{
-		if (_T('/') == argv[i][0] && _totupper(argv[i][1]) != _T('P'))
+		if (_T('/') == argv[i][0])
 		{
 			LoadString(CMD_ModuleHandle, STRING_TYPE_ERROR1, szMsg, RC_STRING_MAX_SIZE);
 			ConErrPrintf(szMsg, argv[i] + 1);
 			continue;
 		}
-
-    	nErrorLevel = 0;
 
 		hFile = CreateFile(argv[i],
 			GENERIC_READ,
@@ -98,26 +88,17 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 			               NULL);
 			ConErrPrintf (_T("%s - %s"), argv[i], errmsg);
 			LocalFree (errmsg);
-      nErrorLevel = 1;
 			continue;
 		}
-		
+
 		do
 		{
-                        bRet = FileGetString (hFile, buff, sizeof(buff) / sizeof(TCHAR));
-			if(bPaging)
-			{
-				if(bRet)
-					ConOutPrintfPaging(bFirstTime, buff);
-			}
-			else
-			{				
-				if(bRet)
-					ConOutPrintf(buff);
-			}
-			bFirstTime = FALSE;
+			bRet = ReadFile(hFile,buff,sizeof(buff),&dwRead,NULL);
 
-		} while(bRet);
+			if (dwRead>0 && bRet)
+				WriteFile(hConsoleOut,buff,dwRead,&dwWritten,NULL);
+
+		} while(dwRead>0 && bRet);
 
 		CloseHandle(hFile);
 	}

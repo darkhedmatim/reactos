@@ -14,7 +14,6 @@
 #define __INCLUDE_ACPI_TYPES_H
 
 #include <ddk/ntddk.h>
-#include <stdio.h>
 
 typedef UCHAR                              UINT8;
 typedef USHORT                             UINT16;

@@ -2,6 +2,6 @@
  * ReactOS SkyOS headers
  */
 
-#include <structs.h>
-#include <defines.h>
+#include <rosky/structs.h>
+#include <rosky/defines.h>
 

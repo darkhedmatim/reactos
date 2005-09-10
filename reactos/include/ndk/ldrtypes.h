@@ -61,17 +61,11 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     ULONG Flags;
     USHORT LoadCount;
     USHORT TlsIndex;
-    union
-    {
-        LIST_ENTRY HashLinks;
-        PVOID SectionPointer;
-    };
+    LIST_ENTRY HashLinks;
+    PVOID SectionPointer;
     ULONG CheckSum;
-    union
-    {
-        ULONG TimeDateStamp;
-        PVOID LoadedImports;
-    };
+    ULONG TimeDateStamp;
+    PVOID LoadedImports;
     PVOID EntryPointActivationContext;
     PVOID PatchInformation;
 #if defined(DBG) || defined(KDBG)

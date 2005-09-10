@@ -10,11 +10,8 @@
  *      08/12/2004  Created
  */
 #include <windows.h>
-#include <rosky.h>
+#include <rosky/rosky.h>
 #include "libskygi.h"
-
-#define NDEBUG
-#include <debug.h>
 
 
 /*

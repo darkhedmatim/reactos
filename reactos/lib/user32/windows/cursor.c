@@ -29,9 +29,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
-
 #undef CopyCursor
 
 HBITMAP

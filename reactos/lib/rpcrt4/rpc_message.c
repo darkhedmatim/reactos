@@ -41,11 +41,10 @@
 #include "rpc_binding.h"
 #include "rpc_misc.h"
 #include "rpc_defs.h"
-#include "rpc_message.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(rpc);
 
-static DWORD RPCRT4_GetHeaderSize(RpcPktHdr *Header)
+DWORD RPCRT4_GetHeaderSize(RpcPktHdr *Header)
 {
   static const DWORD header_sizes[] = {
     sizeof(Header->request), 0, sizeof(Header->response),
@@ -68,7 +67,7 @@ static DWORD RPCRT4_GetHeaderSize(RpcPktHdr *Header)
   return ret;
 }
 
-static VOID RPCRT4_BuildCommonHeader(RpcPktHdr *Header, unsigned char PacketType,
+VOID RPCRT4_BuildCommonHeader(RpcPktHdr *Header, unsigned char PacketType,
                               unsigned long DataRepresentation)
 {
   Header->common.rpc_ver = RPC_VER_MAJOR;
@@ -84,7 +83,7 @@ static VOID RPCRT4_BuildCommonHeader(RpcPktHdr *Header, unsigned char PacketType
   /* Flags and fragment length are computed in RPCRT4_Send. */
 }                              
 
-static RpcPktHdr *RPCRT4_BuildRequestHeader(unsigned long DataRepresentation,
+RpcPktHdr *RPCRT4_BuildRequestHeader(unsigned long DataRepresentation,
                                      unsigned long BufferLength,
                                      unsigned short ProcNum,
                                      UUID *ObjectUuid)
@@ -114,7 +113,7 @@ static RpcPktHdr *RPCRT4_BuildRequestHeader(unsigned long DataRepresentation,
   return header;
 }
 
-static RpcPktHdr *RPCRT4_BuildResponseHeader(unsigned long DataRepresentation,
+RpcPktHdr *RPCRT4_BuildResponseHeader(unsigned long DataRepresentation,
                                       unsigned long BufferLength)
 {
   RpcPktHdr *header;
@@ -483,10 +482,19 @@ fail:
  */
 RPC_STATUS WINAPI I_RpcGetBuffer(PRPC_MESSAGE pMsg)
 {
+  RpcBinding* bind = (RpcBinding*)pMsg->Handle;
+
   TRACE("(%p): BufferLength=%d\n", pMsg, pMsg->BufferLength);
   /* FIXME: pfnAllocate? */
-  pMsg->Buffer = HeapAlloc(GetProcessHeap(), 0, pMsg->BufferLength);
-
+  if (bind->server) {
+    /* it turns out that the original buffer data must still be available
+     * while the RPC server is marshalling a reply, so we should not deallocate
+     * it, we'll leave deallocating the original buffer to the RPC server */
+    pMsg->Buffer = HeapAlloc(GetProcessHeap(), 0, pMsg->BufferLength);
+  } else {
+    HeapFree(GetProcessHeap(), 0, pMsg->Buffer);
+    pMsg->Buffer = HeapAlloc(GetProcessHeap(), 0, pMsg->BufferLength);
+  }
   TRACE("Buffer=%p\n", pMsg->Buffer);
   /* FIXME: which errors to return? */
   return pMsg->Buffer ? S_OK : E_OUTOFMEMORY;

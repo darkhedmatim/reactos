@@ -16,53 +16,53 @@
 /* PROTOTYPES ****************************************************************/
 
 VOID
-NTAPI
+STDCALL
 InbvAcquireDisplayOwnership(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 InbvCheckDisplayOwnership(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 InbvDisplayString(
     IN PCHAR String
 );
 
 VOID
-NTAPI
+STDCALL
 InbvEnableBootDriver(
     IN BOOLEAN Enable
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 InbvEnableDisplayString(
     IN BOOLEAN Enable
 );
 
 VOID
-NTAPI
+STDCALL
 InbvInstallDisplayStringFilter(
     IN PVOID Unknown
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 InbvIsBootDriverInstalled(VOID);
 
 VOID
-NTAPI
+STDCALL
 InbvNotifyDisplayOwnershipLost(
     IN PVOID Callback
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 InbvResetDisplay(VOID);
 
 VOID
-NTAPI
+STDCALL
 InbvSetScrollRegion(
     IN ULONG Left,
     IN ULONG Top,
@@ -71,13 +71,13 @@ InbvSetScrollRegion(
 );
 
 VOID
-NTAPI
+STDCALL
 InbvSetTextColor(
     IN ULONG Color
 );
 
 VOID
-NTAPI
+STDCALL
 InbvSolidColorFill(
     IN ULONG Left,
     IN ULONG Top,
@@ -87,15 +87,15 @@ InbvSolidColorFill(
 );
 
 VOID
-NTAPI
+STDCALL
 VidCleanUp(VOID);
 
-BOOLEAN
-NTAPI
+BOOL
+STDCALL
 VidResetDisplay(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 VidIsBootDriverInstalled(VOID);
 
 #endif

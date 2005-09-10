@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #include "pch.h"
 #include <assert.h>
 
@@ -22,34 +5,6 @@
 
 using std::string;
 using std::vector;
-
-string
-Right ( const string& s, size_t n )
-{
-	if ( n > s.size() )
-		return s;
-	return string ( &s[s.size()-n] );
-}
-
-string
-Replace ( const string& s, const string& find, const string& with )
-{
-	string ret;
-	const char* p = s.c_str();
-	while ( p )
-	{
-		const char* p2 = strstr ( p, find.c_str() );
-		if ( !p2 )
-			break;
-		if ( p2 > p )
-			ret += string ( p, p2-p );
-		ret += with;
-		p = p2 + find.size();
-	}
-	if ( *p )
-		ret += p;
-	return ret;
-}
 
 string
 FixSeparator ( const string& s )
@@ -60,19 +15,6 @@ FixSeparator ( const string& s )
 	{
 		*p++ = CSEP;
 		p = strchr ( p, CBAD_SEP );
-	}
-	return s2;
-}
-
-string
-DosSeparator ( const string& s )
-{
-	string s2(s);
-	char* p = strchr ( &s2[0], '/' );
-	while ( p )
-	{
-		*p++ = '\\';
-		p = strchr ( p, '/' );
 	}
 	return s2;
 }
@@ -318,26 +260,11 @@ Module::Module ( const Project& project,
 	else
 		useWRC = true;
 
-	att = moduleNode.GetAttribute ( "allowwarnings", false );
-	if ( att == NULL )
-	{
-		att = moduleNode.GetAttribute ( "warnings", false );
-		if ( att != NULL )
-		{
-			printf ( "%s: WARNING: 'warnings' attribute of <module> is deprecated, use 'allowwarnings' instead\n",
-				moduleNode.location.c_str() );
-		}
-	}
+	att = moduleNode.GetAttribute ( "warnings", false );
 	if ( att != NULL )
-		allowWarnings = att->value == "true";
+		enableWarnings = att->value == "true";
 	else
-		allowWarnings = false;
-
-	att = moduleNode.GetAttribute ( "aliasof", false );
-	if ( type == Alias && att != NULL )
-		aliasedModuleName = att->value;
-	else
-		aliasedModuleName = "";
+		enableWarnings = false;
 }
 
 Module::~Module ()
@@ -360,22 +287,6 @@ Module::~Module ()
 void
 Module::ProcessXML()
 {
-	if ( type == Alias )
-	{
-		if ( aliasedModuleName == name )
-			throw InvalidBuildFileException (
-				node.location,
-				"module '%s' cannot link against itself",
-				name.c_str() );
-	  	const Module* m = project.LocateModule ( aliasedModuleName );
-		if ( !m )
-			throw InvalidBuildFileException (
-				node.location,
-				"module '%s' trying to alias non-existant module '%s'",
-				name.c_str(),
-				aliasedModuleName.c_str() );
-	}
-
 	size_t i;
 	for ( i = 0; i < node.subElements.size(); i++ )
 		ProcessXMLSubElement ( *node.subElements[i], path );
@@ -615,8 +526,6 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return RpcServer;
 	if ( attribute.value == "rpcclient" )
 		return RpcClient;
-	if ( attribute.value == "alias" )
-		return Alias;
 	throw InvalidAttributeValueException ( location,
 	                                       attribute.name,
 	                                       attribute.value );
@@ -656,8 +565,6 @@ Module::GetDefaultModuleExtension () const
 			return ".o";
 		case RpcClient:
 			return ".o";
-		case Alias:
-			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
 	                                  __LINE__ );
@@ -694,7 +601,6 @@ Module::GetDefaultModuleEntrypoint () const
 		case LiveIso:
 		case RpcServer:
 		case RpcClient:
-		case Alias:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -729,7 +635,6 @@ Module::GetDefaultModuleBaseaddress () const
 		case LiveIso:
 		case RpcServer:
 		case RpcClient:
-		case Alias:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -766,7 +671,6 @@ Module::IsDLL () const
 		case LiveIso:
 		case RpcServer:
 		case RpcClient:
-		case Alias:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -797,7 +701,6 @@ Module::GenerateInOutputTree () const
 		case ObjectLibrary:
 		case RpcServer:
 		case RpcClient:
-		case Alias:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,

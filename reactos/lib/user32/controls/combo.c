@@ -20,9 +20,18 @@
  * FIXME: roll up in Netscape 3.01.
  */
 
+#define __WINE__
 #include <user32.h>
+#include <stdarg.h>
+#include <string.h>
+
 #define NDEBUG
-#include <debug.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "controls.h"
+#include "wine/debug.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(combo);
 
@@ -1820,8 +1829,8 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
 {
       LPHEADCOMBO lphc = (LPHEADCOMBO)GetWindowLongA( hwnd, 0 );
 
-      //TRACE("[%p]: msg %s wp %08x lp %08lx\n",
-      //      hwnd, SPY_GetMsgName(message, hwnd), wParam, lParam );
+      TRACE("[%p]: msg %s wp %08x lp %08lx\n",
+            hwnd, SPY_GetMsgName(message, hwnd), wParam, lParam );
 
       if( lphc || message == WM_NCCREATE )
       switch(message)

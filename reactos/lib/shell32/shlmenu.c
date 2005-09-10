@@ -75,9 +75,8 @@ static BOOL bAbortInit;
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-static LPFMINFO FM_GetMenuInfo(HMENU hmenu)
-{
-	MENUINFO	MenuInfo;
+LPFMINFO FM_GetMenuInfo(HMENU hmenu)
+{	MENUINFO	MenuInfo;
 	LPFMINFO	menudata;
 
 	MenuInfo.cbSize = sizeof(MENUINFO);
@@ -411,7 +410,6 @@ BOOL WINAPI FileMenu_AppendItemAW(
 
 	return ret;
 }
-
 /*************************************************************************
  * FileMenu_InsertUsingPidl			[SHELL32.110]
  *
@@ -830,16 +828,16 @@ void WINAPI FileMenu_AbortInitMenu (void)
  *					 or NULL at failure.
  */
 LPVOID WINAPI SHFind_InitMenuPopup (HMENU hMenu, HWND hWndParent, DWORD w, DWORD x)
-{
-	FIXME("hmenu=%p hwnd=%p 0x%08lx 0x%08lx stub\n",
+{	FIXME("hmenu=%p hwnd=%p 0x%08lx 0x%08lx stub\n",
 		hMenu,hWndParent,w,x);
 	return NULL; /* this is supposed to be a pointer */
 }
 
 /*************************************************************************
- * _SHIsMenuSeparator   (internal)
+ * Shell_MergeMenus				[SHELL32.67]
+ *
  */
-static BOOL _SHIsMenuSeparator(HMENU hm, int i)
+BOOL _SHIsMenuSeparator(HMENU hm, int i)
 {
 	MENUITEMINFOW mii;
 
@@ -859,9 +857,8 @@ static BOOL _SHIsMenuSeparator(HMENU hm, int i)
 	return(FALSE);
 }
 
-/*************************************************************************
- * Shell_MergeMenus				[SHELL32.67]
- */
+/**********************************************************************/
+
 HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uIDAdjust, UINT uIDAdjustMax, ULONG uFlags)
 {	int		nItem;
 	HMENU		hmSubMenu;

@@ -1,4 +1,4 @@
-/* $Id$
+/* $Id: process.cpp,v 1.6 2003/01/07 16:23:11 robd Exp $
 */
 /*
  *
@@ -31,7 +31,7 @@ APIRET STDCALL DosSleep(ULONG msec)
 }
 
 
-/* $Id$ */
+/* $Id: process.cpp,v 1.6 2003/01/07 16:23:11 robd Exp $ */
 /* Terminates the current thread or the current Process.
 	Decission is made by action 
 	FIXME:	move this code to OS2.EXE */

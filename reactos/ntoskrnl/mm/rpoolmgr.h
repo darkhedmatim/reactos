@@ -50,13 +50,7 @@ typedef unsigned long rulong;
 
 #ifndef R_STACK
 // R_STACK is the number of stack entries to store in blocks for debug purposes
-#define R_STACK 6
-#else // R_STACK
-#if R_STACK > 0 && R_STACK < 6
-/* Increase the frame depth to get a reasonable back trace */
-#undef R_STACK
-#define R_STACK 6
-#endif // R_STACK > 0 && R_STACK < 6
+#define R_STACK 3
 #endif//R_STACK
 
 #ifndef R_TAG
@@ -263,10 +257,10 @@ static void
 RFreeFillStack ( PR_FREE free )
 {
 	int i;
-	ULONG stack[R_STACK+3]; // need to skip 3 known levels of stack trace
+	ULONG stack[R_EXTRA_STACK_UP+3]; // need to skip 3 known levels of stack trace
 	memset ( stack, 0xCD, sizeof(stack) );
-	R_GET_STACK_FRAMES ( stack, R_STACK+3 );
-	for ( i = 0; i < R_STACK; i++ )
+	R_GET_STACK_FRAMES ( stack, R_EXTRA_STACK_UP+3 );
+	for ( i = 0; i < R_EXTRA_STACK_UP; i++ )
 		free->LastOwnerStack[i] = stack[i+3];
 }
 
@@ -274,10 +268,10 @@ static void
 RUsedFillStack ( PR_USED used )
 {
 	int i;
-	ULONG stack[R_STACK+2]; // need to skip 2 known levels of stack trace
+	ULONG stack[R_EXTRA_STACK_UP+2]; // need to skip 2 known levels of stack trace
 	memset ( stack, 0xCD, sizeof(stack) );
-	R_GET_STACK_FRAMES ( stack, R_STACK+2 );
-	for ( i = 0; i < R_STACK; i++ )
+	R_GET_STACK_FRAMES ( stack, R_EXTRA_STACK_UP+2 );
+	for ( i = 0; i < R_EXTRA_STACK_UP; i++ )
 		used->LastOwnerStack[i] = stack[i+2];
 }
 #endif
@@ -328,7 +322,6 @@ RPoolInit ( void* PoolBase, rulong PoolSize, int align1, int align2, int align3 
 	return pool;
 }
 
-#if R_RZ
 static const char*
 RFormatTag ( rulong Tag, char* buf )
 {
@@ -342,7 +335,6 @@ RFormatTag ( rulong Tag, char* buf )
 	}
 	return buf;
 }
-#endif
 
 #if !R_RZ
 #define RUsedRedZoneCheck(pUsed,Addr,file,line, printzone)
@@ -727,9 +719,9 @@ RPoolAlloc ( PR_POOL pool, rulong NumberOfBytes, rulong Tag, rulong align )
 	{
 		if ( (NewBlock = RQueRemove ( &pool->Que[que][align] )) )
 		{
+			R_RELEASE_MUTEX(pool);
 			RiUsedInit ( NewBlock, Tag );
 			RiUsedInitRedZone ( NewBlock, NumberOfBytes );
-			R_RELEASE_MUTEX(pool);
 			return RHdrToBody(NewBlock);
 		}
 		queBytes = 16 << que;
@@ -873,10 +865,11 @@ try_again:
 	NewBlock = (PR_USED)BestBlock;
 	RiUsedInit ( NewBlock, Tag );
 
+	R_RELEASE_MUTEX(pool);
+
 	/*  RtlZeroMemory(RHdrToBody(NewBlock), NumberOfBytes);*/
 
 	RiUsedInitRedZone ( NewBlock, NumberOfBytes );
-	R_RELEASE_MUTEX(pool);
 
 	return RHdrToBody(NewBlock);
 }
@@ -940,7 +933,6 @@ RPoolFree ( PR_POOL pool, void* Addr )
 	R_RELEASE_MUTEX(pool);
 }
 
-#if 0
 static void
 RPoolDumpByTag ( PR_POOL pool, rulong Tag )
 {
@@ -971,7 +963,6 @@ RPoolDumpByTag ( PR_POOL pool, rulong Tag )
 
 	R_DEBUG ( "Entries found for tag '%s': %i\n", tag, count );
 }
-#endif
 
 rulong
 RPoolQueryTag ( void* Addr )

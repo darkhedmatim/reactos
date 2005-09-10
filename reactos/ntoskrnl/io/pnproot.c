@@ -159,21 +159,23 @@ PnpRootCreateDevice(
 
   PdoDeviceExtension->Common.DevicePowerState = PowerDeviceD0;
 
-  if (!RtlCreateUnicodeString(
+  if (!IopCreateUnicodeString(
     &PdoDeviceExtension->DeviceID,
     ENUM_NAME_ROOT \
-    L"\\LEGACY_UNKNOWN"))
+    L"\\LEGACY_UNKNOWN",
+    PagedPool))
   {
     /* FIXME: */
-    DPRINT("RtlCreateUnicodeString() failed\n");
+    DPRINT("IopCreateUnicodeString() failed\n");
   }
 
-  if (!RtlCreateUnicodeString(
+  if (!IopCreateUnicodeString(
     &PdoDeviceExtension->InstanceID,
-    L"0000"))
+    L"0000",
+    PagedPool))
   {
     /* FIXME: */
-    DPRINT("RtlCreateUnicodeString() failed\n");
+    DPRINT("IopCreateUnicodeString() failed\n");
   }
 
   ExInterlockedInsertTailList(
@@ -211,11 +213,12 @@ PdoQueryId(
 
   switch (IrpSp->Parameters.QueryId.IdType) {
     case BusQueryDeviceID:
-      Status = RtlDuplicateUnicodeString(TRUE,
-                                         &DeviceExtension->DeviceID,
-                                         &String);
+      Status = IopCreateUnicodeString(
+        &String,
+        DeviceExtension->DeviceID.Buffer,
+        PagedPool);
 
-      DPRINT("DeviceID: %wZ\n", &String);
+      DPRINT("DeviceID: %S\n", String.Buffer);
 
       Irp->IoStatus.Information = (ULONG_PTR)String.Buffer;
       break;
@@ -226,9 +229,10 @@ PdoQueryId(
       break;
 
     case BusQueryInstanceID:
-      Status = RtlDuplicateUnicodeString(TRUE,
-                                         &DeviceExtension->InstanceID,
-                                         &String);
+      Status = IopCreateUnicodeString(
+        &String,
+        DeviceExtension->InstanceID.Buffer,
+        PagedPool);
 
       DPRINT("InstanceID: %S\n", String.Buffer);
 
@@ -701,30 +705,31 @@ PnpRootFdoEnumerateDevices(
 
       RtlZeroMemory(Device, sizeof(PNPROOT_DEVICE));
 
-      if (!RtlCreateUnicodeString(&Device->ServiceName, KeyInfo->Name))
+      if (!IopCreateUnicodeString(&Device->ServiceName, KeyInfo->Name, PagedPool))
       {
         /* FIXME: */
-        DPRINT("RtlCreateUnicodeString() failed\n");
+        DPRINT("IopCreateUnicodeString() failed\n");
       }
 
       wcscpy(Buffer, ENUM_NAME_ROOT);
       wcscat(Buffer, L"\\");
       wcscat(Buffer, KeyInfo->Name);
 
-      if (!RtlCreateUnicodeString(&Device->DeviceID, Buffer))
+      if (!IopCreateUnicodeString(&Device->DeviceID, Buffer, PagedPool))
       {
         /* FIXME: */
-        DPRINT("RtlCreateUnicodeString() failed\n");
+        DPRINT("IopCreateUnicodeString() failed\n");
       }
 
       DPRINT("Got entry: %S\n", Device->DeviceID.Buffer);
 
-      if (!RtlCreateUnicodeString(
+      if (!IopCreateUnicodeString(
         &Device->InstanceID,
-        SubKeyInfo->Name))
+        SubKeyInfo->Name,
+        PagedPool))
       {
         /* FIXME: */
-        DPRINT("RtlCreateUnicodeString() failed\n");
+        DPRINT("IopCreateUnicodeString() failed\n");
       }
 
       Status = PnpRootFdoReadDeviceInfo(Device);
@@ -838,9 +843,10 @@ PnpRootQueryBusRelations(
 
       PdoDeviceExtension->Common.DevicePowerState = PowerDeviceD0;
 
-      if (!RtlCreateUnicodeString(
+      if (!IopCreateUnicodeString(
         &PdoDeviceExtension->DeviceID,
-        Device->DeviceID.Buffer))
+        Device->DeviceID.Buffer,
+        PagedPool))
       {
         DPRINT("Insufficient resources\n");
         /* FIXME: */
@@ -850,9 +856,10 @@ PnpRootQueryBusRelations(
         &PdoDeviceExtension->DeviceID,
         Device->Pdo);
 
-      if (!RtlCreateUnicodeString(
+      if (!IopCreateUnicodeString(
         &PdoDeviceExtension->InstanceID,
-        Device->InstanceID.Buffer))
+        Device->InstanceID.Buffer,
+        PagedPool))
       {
         DPRINT("Insufficient resources\n");
         /* FIXME: */

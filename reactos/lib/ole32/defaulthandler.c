@@ -70,19 +70,19 @@ struct DefaultHandler
   /*
    * List all interface VTables here
    */
-  const IOleObjectVtbl*      lpVtbl;
-  const IUnknownVtbl*        lpvtblIUnknown;
-  const IDataObjectVtbl*     lpvtblIDataObject;
-  const IRunnableObjectVtbl* lpvtblIRunnableObject;
+  IOleObjectVtbl*      lpvtbl1;
+  IUnknownVtbl*        lpvtbl2;
+  IDataObjectVtbl*     lpvtbl3;
+  IRunnableObjectVtbl* lpvtbl4;
 
   /*
    * Reference count of this object
    */
-  LONG ref;
+  ULONG ref;
 
   /*
    * IUnknown implementation of the outer object.
-p   */
+   */
   IUnknown* outerUnknown;
 
   /*
@@ -123,31 +123,15 @@ p   */
 typedef struct DefaultHandler DefaultHandler;
 
 /*
- * Here, I define utility functions to help with the casting of the
+ * Here, I define utility macros to help with the casting of the
  * "this" parameter.
  * There is a version to accommodate all of the VTables implemented
  * by this object.
  */
-static inline DefaultHandler *impl_from_IOleObject( IOleObject *iface )
-{
-    return (DefaultHandler *)((char*)iface - FIELD_OFFSET(DefaultHandler, lpVtbl));
-}
-
-static inline DefaultHandler *impl_from_NDIUnknown( IUnknown *iface )
-{
-    return (DefaultHandler *)((char*)iface - FIELD_OFFSET(DefaultHandler, lpvtblIUnknown));
-}
-
-static inline DefaultHandler *impl_from_IDataObject( IDataObject *iface )
-{
-    return (DefaultHandler *)((char*)iface - FIELD_OFFSET(DefaultHandler, lpvtblIDataObject));
-}
-
-static inline DefaultHandler *impl_from_IRunnableObject( IRunnableObject *iface )
-{
-    return (DefaultHandler *)((char*)iface - FIELD_OFFSET(DefaultHandler, lpvtblIRunnableObject));
-}
-
+#define _ICOM_THIS_From_IOleObject(class,name)       class* this = (class*)name
+#define _ICOM_THIS_From_NDIUnknown(class, name)      class* this = (class*)(((char*)name)-sizeof(void*))
+#define _ICOM_THIS_From_IDataObject(class, name)     class* this = (class*)(((char*)name)-2*sizeof(void*))
+#define _ICOM_THIS_From_IRunnableObject(class, name) class* this = (class*)(((char*)name)-3*sizeof(void*))
 
 /*
  * Prototypes for the methods of the DefaultHandler class.
@@ -341,7 +325,7 @@ static HRESULT WINAPI DefaultHandler_SetContainedObject(
 /*
  * Virtual function tables for the DefaultHandler class.
  */
-static const IOleObjectVtbl DefaultHandler_IOleObject_VTable =
+static IOleObjectVtbl DefaultHandler_IOleObject_VTable =
 {
   DefaultHandler_QueryInterface,
   DefaultHandler_AddRef,
@@ -369,14 +353,14 @@ static const IOleObjectVtbl DefaultHandler_IOleObject_VTable =
   DefaultHandler_SetColorScheme
 };
 
-static const IUnknownVtbl DefaultHandler_NDIUnknown_VTable =
+static IUnknownVtbl DefaultHandler_NDIUnknown_VTable =
 {
   DefaultHandler_NDIUnknown_QueryInterface,
   DefaultHandler_NDIUnknown_AddRef,
   DefaultHandler_NDIUnknown_Release,
 };
 
-static const IDataObjectVtbl DefaultHandler_IDataObject_VTable =
+static IDataObjectVtbl DefaultHandler_IDataObject_VTable =
 {
   DefaultHandler_IDataObject_QueryInterface,
   DefaultHandler_IDataObject_AddRef,
@@ -392,7 +376,7 @@ static const IDataObjectVtbl DefaultHandler_IDataObject_VTable =
   DefaultHandler_EnumDAdvise
 };
 
-static const IRunnableObjectVtbl DefaultHandler_IRunnableObject_VTable =
+static IRunnableObjectVtbl DefaultHandler_IRunnableObject_VTable =
 {
   DefaultHandler_IRunnableObject_QueryInterface,
   DefaultHandler_IRunnableObject_AddRef,
@@ -448,13 +432,13 @@ HRESULT WINAPI OleCreateDefaultHandler(
   /*
    * Make sure it supports the interface required by the caller.
    */
-  hr = IUnknown_QueryInterface((IUnknown*)&(newHandler->lpvtblIUnknown), riid, ppvObj);
+  hr = IUnknown_QueryInterface((IUnknown*)&(newHandler->lpvtbl2), riid, ppvObj);
 
   /*
    * Release the reference obtained in the constructor. If
    * the QueryInterface was unsuccessful, it will free the class.
    */
-  IUnknown_Release((IUnknown*)&(newHandler->lpvtblIUnknown));
+  IUnknown_Release((IUnknown*)&(newHandler->lpvtbl2));
 
   return hr;
 }
@@ -479,10 +463,10 @@ static DefaultHandler* DefaultHandler_Construct(
   /*
    * Initialize the virtual function table.
    */
-  newObject->lpVtbl = &DefaultHandler_IOleObject_VTable;
-  newObject->lpvtblIUnknown = &DefaultHandler_NDIUnknown_VTable;
-  newObject->lpvtblIDataObject = &DefaultHandler_IDataObject_VTable;
-  newObject->lpvtblIRunnableObject = &DefaultHandler_IRunnableObject_VTable;
+  newObject->lpvtbl1 = &DefaultHandler_IOleObject_VTable;
+  newObject->lpvtbl2 = &DefaultHandler_NDIUnknown_VTable;
+  newObject->lpvtbl3 = &DefaultHandler_IDataObject_VTable;
+  newObject->lpvtbl4 = &DefaultHandler_IRunnableObject_VTable;
 
   /*
    * Start with one reference count. The caller of this function
@@ -497,7 +481,7 @@ static DefaultHandler* DefaultHandler_Construct(
    * lifetime.
    */
   if (pUnkOuter==NULL)
-    pUnkOuter = (IUnknown*)&(newObject->lpvtblIUnknown);
+    pUnkOuter = (IUnknown*)&(newObject->lpvtbl2);
 
   newObject->outerUnknown = pUnkOuter;
 
@@ -596,7 +580,7 @@ static HRESULT WINAPI DefaultHandler_NDIUnknown_QueryInterface(
             REFIID         riid,
             void**         ppvObject)
 {
-  DefaultHandler *this = impl_from_NDIUnknown(iface);
+  _ICOM_THIS_From_NDIUnknown(DefaultHandler, iface);
 
   /*
    * Perform a sanity check on the parameters.
@@ -618,15 +602,15 @@ static HRESULT WINAPI DefaultHandler_NDIUnknown_QueryInterface(
   }
   else if (memcmp(&IID_IOleObject, riid, sizeof(IID_IOleObject)) == 0)
   {
-    *ppvObject = (IOleObject*)&(this->lpVtbl);
+    *ppvObject = (IOleObject*)&(this->lpvtbl1);
   }
   else if (memcmp(&IID_IDataObject, riid, sizeof(IID_IDataObject)) == 0)
   {
-    *ppvObject = (IDataObject*)&(this->lpvtblIDataObject);
+    *ppvObject = (IDataObject*)&(this->lpvtbl3);
   }
   else if (memcmp(&IID_IRunnableObject, riid, sizeof(IID_IRunnableObject)) == 0)
   {
-    *ppvObject = (IRunnableObject*)&(this->lpvtblIRunnableObject);
+    *ppvObject = (IRunnableObject*)&(this->lpvtbl4);
   }
   else
   {
@@ -666,7 +650,7 @@ static HRESULT WINAPI DefaultHandler_NDIUnknown_QueryInterface(
 static ULONG WINAPI DefaultHandler_NDIUnknown_AddRef(
             IUnknown*      iface)
 {
-  DefaultHandler *this = impl_from_NDIUnknown(iface);
+  _ICOM_THIS_From_NDIUnknown(DefaultHandler, iface);
   return InterlockedIncrement(&this->ref);
 }
 
@@ -681,7 +665,7 @@ static ULONG WINAPI DefaultHandler_NDIUnknown_AddRef(
 static ULONG WINAPI DefaultHandler_NDIUnknown_Release(
             IUnknown*      iface)
 {
-  DefaultHandler *this = impl_from_NDIUnknown(iface);
+  _ICOM_THIS_From_NDIUnknown(DefaultHandler, iface);
   ULONG ref;
 
   /*
@@ -712,7 +696,7 @@ static HRESULT WINAPI DefaultHandler_QueryInterface(
             REFIID           riid,
             void**           ppvObject)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   return IUnknown_QueryInterface(this->outerUnknown, riid, ppvObject);
 }
@@ -725,7 +709,7 @@ static HRESULT WINAPI DefaultHandler_QueryInterface(
 static ULONG WINAPI DefaultHandler_AddRef(
             IOleObject*        iface)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   return IUnknown_AddRef(this->outerUnknown);
 }
@@ -738,7 +722,7 @@ static ULONG WINAPI DefaultHandler_AddRef(
 static ULONG WINAPI DefaultHandler_Release(
             IOleObject*        iface)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   return IUnknown_Release(this->outerUnknown);
 }
@@ -755,7 +739,7 @@ static HRESULT WINAPI DefaultHandler_SetClientSite(
 	    IOleObject*        iface,
 	    IOleClientSite*    pClientSite)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, pClientSite);
 
@@ -790,7 +774,7 @@ static HRESULT WINAPI DefaultHandler_GetClientSite(
 	    IOleObject*        iface,
 	    IOleClientSite**   ppClientSite)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   /*
    * Sanity check.
@@ -821,7 +805,7 @@ static HRESULT WINAPI DefaultHandler_SetHostNames(
 	    LPCOLESTR          szContainerApp,
 	    LPCOLESTR          szContainerObj)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %s, %s)\n",
 	iface,
@@ -904,7 +888,7 @@ static HRESULT WINAPI DefaultHandler_GetMoniker(
 	    DWORD              dwWhichMoniker,
 	    IMoniker**         ppmk)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %ld, %ld, %p)\n",
 	iface, dwAssign, dwWhichMoniker, ppmk);
@@ -983,7 +967,7 @@ static HRESULT WINAPI DefaultHandler_EnumVerbs(
 	    IOleObject*        iface,
 	    IEnumOLEVERB**     ppEnumOleVerb)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, ppEnumOleVerb);
 
@@ -1023,7 +1007,7 @@ static HRESULT WINAPI DefaultHandler_GetUserClassID(
 	    IOleObject*        iface,
 	    CLSID*             pClsid)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, pClsid);
 
@@ -1051,7 +1035,7 @@ static HRESULT WINAPI DefaultHandler_GetUserType(
 	    DWORD              dwFormOfType,
 	    LPOLESTR*          pszUserType)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %ld, %p)\n", iface, dwFormOfType, pszUserType);
 
@@ -1092,7 +1076,7 @@ static HRESULT WINAPI DefaultHandler_GetExtent(
   IViewObject2*   cacheView = NULL;
   HRESULT         hres;
 
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %lx, %p)\n", iface, dwDrawAspect, psizel);
 
@@ -1139,7 +1123,7 @@ static HRESULT WINAPI DefaultHandler_Advise(
 	    DWORD*             pdwConnection)
 {
   HRESULT hres = S_OK;
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %p, %p)\n", iface, pAdvSink, pdwConnection);
 
@@ -1173,7 +1157,7 @@ static HRESULT WINAPI DefaultHandler_Unadvise(
 	    IOleObject*        iface,
 	    DWORD              dwConnection)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %ld)\n", iface, dwConnection);
 
@@ -1200,7 +1184,7 @@ static HRESULT WINAPI DefaultHandler_EnumAdvise(
 	    IOleObject*        iface,
 	    IEnumSTATDATA**    ppenumAdvise)
 {
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, ppenumAdvise);
 
@@ -1236,7 +1220,7 @@ static HRESULT WINAPI DefaultHandler_GetMiscStatus(
 	    DWORD*             pdwStatus)
 {
   HRESULT hres;
-  DefaultHandler *this = impl_from_IOleObject(iface);
+  _ICOM_THIS_From_IOleObject(DefaultHandler, iface);
 
   TRACE("(%p, %lx, %p)\n", iface, dwAspect, pdwStatus);
 
@@ -1278,7 +1262,7 @@ static HRESULT WINAPI DefaultHandler_IDataObject_QueryInterface(
            REFIID           riid,
             void**           ppvObject)
 {
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   return IUnknown_QueryInterface(this->outerUnknown, riid, ppvObject);
 }
@@ -1291,7 +1275,7 @@ static HRESULT WINAPI DefaultHandler_IDataObject_QueryInterface(
 static ULONG WINAPI DefaultHandler_IDataObject_AddRef(
             IDataObject*     iface)
 {
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   return IUnknown_AddRef(this->outerUnknown);
 }
@@ -1304,7 +1288,7 @@ static ULONG WINAPI DefaultHandler_IDataObject_AddRef(
 static ULONG WINAPI DefaultHandler_IDataObject_Release(
             IDataObject*     iface)
 {
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   return IUnknown_Release(this->outerUnknown);
 }
@@ -1324,7 +1308,7 @@ static HRESULT WINAPI DefaultHandler_GetData(
   IDataObject* cacheDataObject = NULL;
   HRESULT      hres;
 
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %p, %p)\n", iface, pformatetcIn, pmedium);
 
@@ -1368,7 +1352,7 @@ static HRESULT WINAPI DefaultHandler_QueryGetData(
   IDataObject* cacheDataObject = NULL;
   HRESULT      hres;
 
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, pformatetc);
 
@@ -1421,7 +1405,7 @@ static HRESULT WINAPI DefaultHandler_SetData(
   IDataObject* cacheDataObject = NULL;
   HRESULT      hres;
 
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %p, %p, %d)\n", iface, pformatetc, pmedium, fRelease);
 
@@ -1456,7 +1440,7 @@ static HRESULT WINAPI DefaultHandler_EnumFormatEtc(
 	    IEnumFORMATETC** ppenumFormatEtc)
 {
   HRESULT hres;
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %lx, %p)\n", iface, dwDirection, ppenumFormatEtc);
 
@@ -1481,7 +1465,7 @@ static HRESULT WINAPI DefaultHandler_DAdvise(
 	    DWORD*           pdwConnection)
 {
   HRESULT hres = S_OK;
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %p, %ld, %p, %p)\n",
 	iface, pformatetc, advf, pAdvSink, pdwConnection);
@@ -1519,7 +1503,7 @@ static HRESULT WINAPI DefaultHandler_DUnadvise(
 	    IDataObject*     iface,
 	    DWORD            dwConnection)
 {
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %ld)\n", iface, dwConnection);
 
@@ -1548,7 +1532,7 @@ static HRESULT WINAPI DefaultHandler_EnumDAdvise(
 	    IDataObject*     iface,
 	    IEnumSTATDATA**  ppenumAdvise)
 {
-  DefaultHandler *this = impl_from_IDataObject(iface);
+  _ICOM_THIS_From_IDataObject(DefaultHandler, iface);
 
   TRACE("(%p, %p)\n", iface, ppenumAdvise);
 
@@ -1590,7 +1574,7 @@ static HRESULT WINAPI DefaultHandler_IRunnableObject_QueryInterface(
             REFIID               riid,
             void**               ppvObject)
 {
-  DefaultHandler *this = impl_from_IRunnableObject(iface);
+  _ICOM_THIS_From_IRunnableObject(DefaultHandler, iface);
 
   return IUnknown_QueryInterface(this->outerUnknown, riid, ppvObject);
 }
@@ -1603,7 +1587,7 @@ static HRESULT WINAPI DefaultHandler_IRunnableObject_QueryInterface(
 static ULONG WINAPI DefaultHandler_IRunnableObject_AddRef(
             IRunnableObject*     iface)
 {
-  DefaultHandler *this = impl_from_IRunnableObject(iface);
+  _ICOM_THIS_From_IRunnableObject(DefaultHandler, iface);
 
   return IUnknown_AddRef(this->outerUnknown);
 }
@@ -1616,7 +1600,7 @@ static ULONG WINAPI DefaultHandler_IRunnableObject_AddRef(
 static ULONG WINAPI DefaultHandler_IRunnableObject_Release(
             IRunnableObject*     iface)
 {
-  DefaultHandler *this = impl_from_IRunnableObject(iface);
+  _ICOM_THIS_From_IRunnableObject(DefaultHandler, iface);
 
   return IUnknown_Release(this->outerUnknown);
 }

@@ -237,7 +237,9 @@ NtCreateIoCompletion(OUT PHANDLE IoCompletionHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(IoCompletionHandle);
+            ProbeForWrite(IoCompletionHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_HANDLE {
 
             Status = _SEH_GetExceptionCode();
@@ -307,7 +309,9 @@ NtOpenIoCompletion(OUT PHANDLE IoCompletionHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(IoCompletionHandle);
+            ProbeForWrite(IoCompletionHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_HANDLE {
 
             Status = _SEH_GetExceptionCode();
@@ -428,14 +432,21 @@ NtRemoveIoCompletion(IN  HANDLE IoCompletionHandle,
 
         _SEH_TRY {
 
-            ProbeForWritePointer(CompletionKey);
-            ProbeForWritePointer(CompletionContext);
+            ProbeForWrite(CompletionKey,
+                          sizeof(PVOID),
+                          sizeof(ULONG));
+            ProbeForWrite(CompletionContext,
+                          sizeof(PVOID),
+                          sizeof(ULONG));
             ProbeForWrite(IoStatusBlock,
                           sizeof(IO_STATUS_BLOCK),
                           sizeof(ULONG));
             if (Timeout != NULL) {
 
-                SafeTimeout = ProbeForReadLargeInteger(Timeout);
+                ProbeForRead(Timeout,
+                             sizeof(LARGE_INTEGER),
+                             sizeof(ULONG));
+                SafeTimeout = *Timeout;
                 Timeout = &SafeTimeout;
             }
         } _SEH_HANDLE {

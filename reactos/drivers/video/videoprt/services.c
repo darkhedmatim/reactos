@@ -23,19 +23,19 @@
 
 #include "videoprt.h"
 
-VOID NTAPI
+VOID STDCALL
 IntInterfaceReference(PVOID Context)
 {
    /* Do nothing */
 }
 
-VOID NTAPI
+VOID STDCALL
 IntInterfaceDereference(PVOID Context)
 {
    /* Do nothing */
 }
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortQueryServices(
   IN PVOID HwDeviceExtension,
   IN VIDEO_PORT_SERVICES ServicesType,
@@ -89,7 +89,7 @@ VideoPortQueryServices(
    return ERROR_INVALID_FUNCTION;
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VideoPortGetAgpServices(
    IN PVOID HwDeviceExtension,
    OUT PVIDEO_PORT_AGP_SERVICES AgpServices)

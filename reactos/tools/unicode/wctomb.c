@@ -142,52 +142,45 @@ static inline int wcstombs_sbcs( const struct sbcs_table *table,
         ret = -1;
     }
 
-    while (srclen >= 16)
+    if (dst <= (const char *)src && dst + 16 > (const char *)src)
     {
-        dst[0]  = uni2cp_low[uni2cp_high[src[0]  >> 8] + (src[0]  & 0xff)];
-        dst[1]  = uni2cp_low[uni2cp_high[src[1]  >> 8] + (src[1]  & 0xff)];
-        dst[2]  = uni2cp_low[uni2cp_high[src[2]  >> 8] + (src[2]  & 0xff)];
-        dst[3]  = uni2cp_low[uni2cp_high[src[3]  >> 8] + (src[3]  & 0xff)];
-        dst[4]  = uni2cp_low[uni2cp_high[src[4]  >> 8] + (src[4]  & 0xff)];
-        dst[5]  = uni2cp_low[uni2cp_high[src[5]  >> 8] + (src[5]  & 0xff)];
-        dst[6]  = uni2cp_low[uni2cp_high[src[6]  >> 8] + (src[6]  & 0xff)];
-        dst[7]  = uni2cp_low[uni2cp_high[src[7]  >> 8] + (src[7]  & 0xff)];
-        dst[8]  = uni2cp_low[uni2cp_high[src[8]  >> 8] + (src[8]  & 0xff)];
-        dst[9]  = uni2cp_low[uni2cp_high[src[9]  >> 8] + (src[9]  & 0xff)];
-        dst[10] = uni2cp_low[uni2cp_high[src[10] >> 8] + (src[10] & 0xff)];
-        dst[11] = uni2cp_low[uni2cp_high[src[11] >> 8] + (src[11] & 0xff)];
-        dst[12] = uni2cp_low[uni2cp_high[src[12] >> 8] + (src[12] & 0xff)];
-        dst[13] = uni2cp_low[uni2cp_high[src[13] >> 8] + (src[13] & 0xff)];
-        dst[14] = uni2cp_low[uni2cp_high[src[14] >> 8] + (src[14] & 0xff)];
-        dst[15] = uni2cp_low[uni2cp_high[src[15] >> 8] + (src[15] & 0xff)];
-        src += 16;
-        dst += 16;
-        srclen -= 16;
+        /* overlapping buffers, do it char by char */
+        while (srclen--)
+        {
+            *dst++ = uni2cp_low[uni2cp_high[*src >> 8] + (*src & 0xff)];
+            src++;
+        }
+        return ret;
     }
 
-    /* now handle remaining characters */
-    src += srclen;
-    dst += srclen;
-    switch(srclen)
+    for (;;)
     {
-    case 15: dst[-15] = uni2cp_low[uni2cp_high[src[-15] >> 8] + (src[-15] & 0xff)];
-    case 14: dst[-14] = uni2cp_low[uni2cp_high[src[-14] >> 8] + (src[-14] & 0xff)];
-    case 13: dst[-13] = uni2cp_low[uni2cp_high[src[-13] >> 8] + (src[-13] & 0xff)];
-    case 12: dst[-12] = uni2cp_low[uni2cp_high[src[-12] >> 8] + (src[-12] & 0xff)];
-    case 11: dst[-11] = uni2cp_low[uni2cp_high[src[-11] >> 8] + (src[-11] & 0xff)];
-    case 10: dst[-10] = uni2cp_low[uni2cp_high[src[-10] >> 8] + (src[-10] & 0xff)];
-    case 9:  dst[-9]  = uni2cp_low[uni2cp_high[src[-9]  >> 8] + (src[-9]  & 0xff)];
-    case 8:  dst[-8]  = uni2cp_low[uni2cp_high[src[-8]  >> 8] + (src[-8]  & 0xff)];
-    case 7:  dst[-7]  = uni2cp_low[uni2cp_high[src[-7]  >> 8] + (src[-7]  & 0xff)];
-    case 6:  dst[-6]  = uni2cp_low[uni2cp_high[src[-6]  >> 8] + (src[-6]  & 0xff)];
-    case 5:  dst[-5]  = uni2cp_low[uni2cp_high[src[-5]  >> 8] + (src[-5]  & 0xff)];
-    case 4:  dst[-4]  = uni2cp_low[uni2cp_high[src[-4]  >> 8] + (src[-4]  & 0xff)];
-    case 3:  dst[-3]  = uni2cp_low[uni2cp_high[src[-3]  >> 8] + (src[-3]  & 0xff)];
-    case 2:  dst[-2]  = uni2cp_low[uni2cp_high[src[-2]  >> 8] + (src[-2]  & 0xff)];
-    case 1:  dst[-1]  = uni2cp_low[uni2cp_high[src[-1]  >> 8] + (src[-1]  & 0xff)];
-    case 0: break;
+        switch(srclen)
+        {
+        default:
+        case 16: dst[15] = uni2cp_low[uni2cp_high[src[15] >> 8] + (src[15] & 0xff)];
+        case 15: dst[14] = uni2cp_low[uni2cp_high[src[14] >> 8] + (src[14] & 0xff)];
+        case 14: dst[13] = uni2cp_low[uni2cp_high[src[13] >> 8] + (src[13] & 0xff)];
+        case 13: dst[12] = uni2cp_low[uni2cp_high[src[12] >> 8] + (src[12] & 0xff)];
+        case 12: dst[11] = uni2cp_low[uni2cp_high[src[11] >> 8] + (src[11] & 0xff)];
+        case 11: dst[10] = uni2cp_low[uni2cp_high[src[10] >> 8] + (src[10] & 0xff)];
+        case 10: dst[9]  = uni2cp_low[uni2cp_high[src[9]  >> 8] + (src[9]  & 0xff)];
+        case 9:  dst[8]  = uni2cp_low[uni2cp_high[src[8]  >> 8] + (src[8]  & 0xff)];
+        case 8:  dst[7]  = uni2cp_low[uni2cp_high[src[7]  >> 8] + (src[7]  & 0xff)];
+        case 7:  dst[6]  = uni2cp_low[uni2cp_high[src[6]  >> 8] + (src[6]  & 0xff)];
+        case 6:  dst[5]  = uni2cp_low[uni2cp_high[src[5]  >> 8] + (src[5]  & 0xff)];
+        case 5:  dst[4]  = uni2cp_low[uni2cp_high[src[4]  >> 8] + (src[4]  & 0xff)];
+        case 4:  dst[3]  = uni2cp_low[uni2cp_high[src[3]  >> 8] + (src[3]  & 0xff)];
+        case 3:  dst[2]  = uni2cp_low[uni2cp_high[src[2]  >> 8] + (src[2]  & 0xff)];
+        case 2:  dst[1]  = uni2cp_low[uni2cp_high[src[1]  >> 8] + (src[1]  & 0xff)];
+        case 1:  dst[0]  = uni2cp_low[uni2cp_high[src[0]  >> 8] + (src[0]  & 0xff)];
+        case 0: break;
+        }
+        if (srclen < 16) return ret;
+        dst += 16;
+        src += 16;
+        srclen -= 16;
     }
-    return ret;
 }
 
 /* slow version of wcstombs_sbcs that handles the various flags */
@@ -198,16 +191,12 @@ static int wcstombs_sbcs_slow( const struct sbcs_table *table, int flags,
 {
     const unsigned char  * const uni2cp_low = table->uni2cp_low;
     const unsigned short * const uni2cp_high = table->uni2cp_high;
-    unsigned char def;
+    const unsigned char table_default = table->info.def_char & 0xff;
     unsigned int len;
     int tmp;
     WCHAR composed;
 
-    if (!defchar)
-        def = table->info.def_char & 0xff;
-    else
-        def = *defchar;
-
+    if (!defchar) defchar = (const char*)&table_default;
     if (!used) used = &tmp;  /* avoid checking on every char */
     *used = 0;
 
@@ -229,7 +218,7 @@ static int wcstombs_sbcs_slow( const struct sbcs_table *table, int flags,
             /* no mapping for the composed char, check the other flags */
             if (flags & WC_DEFAULTCHAR) /* use the default char instead */
             {
-                *dst = def;
+                *dst = *defchar;
                 *used = 1;
                 src++;  /* skip the non-spacing char */
                 srclen--;
@@ -246,7 +235,7 @@ static int wcstombs_sbcs_slow( const struct sbcs_table *table, int flags,
         *dst = uni2cp_low[uni2cp_high[wch >> 8] + (wch & 0xff)];
         if (!is_valid_sbcs_mapping( table, flags, wch, *dst ))
         {
-            *dst = def;
+            *dst = *defchar;
             *used = 1;
         }
     }

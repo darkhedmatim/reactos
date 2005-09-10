@@ -7,11 +7,11 @@
 #ifndef __WSHIRDA_H
 #define __WSHIRDA_H
 
+#include <wsahelp.h>
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
-
-#include <wsahelp.h>
+#include <debug.h>
 
 #define EXPORT STDCALL
 

@@ -18,7 +18,7 @@
 class File
 {
 public:
-#ifdef WIN32
+#ifdef _MSC_VER
 	typedef __int64 fileoff_t;
 	typedef unsigned __int64 filesize_t;
 #else//_MSC_VER

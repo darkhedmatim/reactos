@@ -56,18 +56,18 @@ BOOL PidlToSicIndex (IShellFolder * sh, LPCITEMIDLIST pidl, BOOL bBigIcon, UINT 
 INT SIC_GetIconIndex (LPCWSTR sSourceFile, INT dwSourceIndex, DWORD dwFlags );
 
 /* Classes Root */
-BOOL HCR_MapTypeToValueW(LPCWSTR szExtension, LPWSTR szFileType, LONG len, BOOL bPrependDot);
+BOOL HCR_MapTypeToValueW(LPCWSTR szExtension, LPWSTR szFileType, DWORD len, BOOL bPrependDot);
 BOOL HCR_GetExecuteCommandW( HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LPWSTR szDest, DWORD len );
 BOOL HCR_GetDefaultIconW(LPCWSTR szClass, LPWSTR szDest, DWORD len, LPDWORD dwNr);
 BOOL HCR_GetDefaultIconFromGUIDW(REFIID riid, LPWSTR szDest, DWORD len, LPDWORD dwNr);
 BOOL HCR_GetClassNameW(REFIID riid, LPWSTR szDest, DWORD len);
 
 /* ANSI versions of above functions, supposed to go away as soon as they are not used anymore */
-BOOL HCR_MapTypeToValueA(LPCSTR szExtension, LPSTR szFileType, LONG len, BOOL bPrependDot);
+BOOL HCR_MapTypeToValueA(LPCSTR szExtension, LPSTR szFileType, DWORD len, BOOL bPrependDot);
 BOOL HCR_GetDefaultIconA(LPCSTR szClass, LPSTR szDest, DWORD len, LPDWORD dwNr);
 BOOL HCR_GetClassNameA(REFIID riid, LPSTR szDest, DWORD len);
 
-BOOL HCR_GetFolderAttributes(LPCITEMIDLIST pidlFolder, LPDWORD dwAttributes);
+BOOL HCR_GetFolderAttributes(REFIID riid, LPDWORD szDest);
 
 INT_PTR CALLBACK AboutDlgProc(HWND,UINT,WPARAM,LPARAM);
 DWORD WINAPI ParseFieldA(LPCSTR src, DWORD nField, LPSTR dst, DWORD len);
@@ -94,8 +94,6 @@ HRESULT WINAPI IFileSystemBindData_Constructor(const WIN32_FIND_DATAW *pfd, LPBC
 HRESULT WINAPI IControlPanel_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI UnixFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI UnixDosFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
-HRESULT WINAPI FolderShortcut_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
-HRESULT WINAPI MyDocuments_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
 extern HRESULT CPanel_GetIconLocationW(LPITEMIDLIST, LPWSTR, UINT, int*);
 HRESULT WINAPI CPanel_ExtractIconA(LPITEMIDLIST pidl, LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
 HRESULT WINAPI CPanel_ExtractIconW(LPITEMIDLIST pidl, LPCWSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
@@ -104,6 +102,12 @@ HRESULT WINAPI IAutoComplete_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVO
 
 LPEXTRACTICONA	IExtractIconA_Constructor(LPCITEMIDLIST);
 LPEXTRACTICONW	IExtractIconW_Constructor(LPCITEMIDLIST);
+HRESULT		CreateStreamOnFile (LPCWSTR pszFilename, DWORD grfMode, IStream ** ppstm);
+
+/* FIXME: rename the functions when the shell32.dll has it's own exports namespace */
+HRESULT WINAPI  SHELL32_DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID * ppv);
+HRESULT WINAPI  SHELL32_DllCanUnloadNow(void);
+
 
 /* menu merging */
 #define MM_ADDSEPARATOR         0x00000001L
@@ -163,9 +167,6 @@ HGLOBAL16   WINAPI InternalExtractIcon16(HINSTANCE16,LPCSTR,UINT16,WORD);
 BOOL16      WINAPI ShellAbout16(HWND16,LPCSTR,LPCSTR,HICON16);
 BOOL16      WINAPI AboutDlgProc16(HWND16,UINT16,WPARAM16,LPARAM);
 
-void WINAPI _InsertMenuItem (HMENU hmenu, UINT indexMenu, BOOL fByPosition,
-			UINT wID, UINT fType, LPCSTR dwTypeData, UINT fState);
-
 inline static BOOL SHELL_OsIsUnicode(void)
 {
     /* if high-bit of version is 0, we are emulating NT */
@@ -220,7 +221,6 @@ UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
 
 extern WCHAR swShell32Name[MAX_PATH];
 
-BOOL UNIXFS_is_rooted_at_desktop(void);
 extern const GUID CLSID_UnixFolder;
 extern const GUID CLSID_UnixDosFolder;
 

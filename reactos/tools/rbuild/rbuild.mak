@@ -1,19 +1,3 @@
-# Copyright (C) 2005 Casper S. Hornstrup
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
 RBUILD_BASE = $(TOOLS_BASE_)rbuild
 RBUILD_BASE_ = $(RBUILD_BASE)$(SEP)
 RBUILD_INT = $(INTERMEDIATE_)$(RBUILD_BASE)
@@ -102,23 +86,6 @@ $(RBUILD_DEVCPP_OUT): | $(RBUILD_BACKEND_OUT)
 	${mkdir} $@
 endif
 
-RBUILD_MSVC_BASE = $(RBUILD_BACKEND_BASE_)msvc
-RBUILD_MSVC_BASE_ = $(RBUILD_MSVC_BASE)$(SEP)
-RBUILD_MSVC_INT = $(INTERMEDIATE_)$(RBUILD_MSVC_BASE)
-RBUILD_MSVC_INT_ = $(RBUILD_MSVC_INT)$(SEP)
-RBUILD_MSVC_OUT = $(OUTPUT_)$(RBUILD_MSVC_BASE)
-RBUILD_MSVC_OUT_ = $(RBUILD_MSVC_OUT)$(SEP)
-
-$(RBUILD_MSVC_INT): | $(RBUILD_BACKEND_INT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-
-ifneq ($(INTERMEDIATE),$(OUTPUT))
-$(RBUILD_MSVC_OUT): | $(RBUILD_BACKEND_OUT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-endif
-
 
 RBUILD_TARGET = \
 	$(EXEPREFIX)$(RBUILD_OUT_)rbuild$(EXEPOSTFIX)
@@ -136,16 +103,9 @@ RBUILD_BACKEND_DEVCPP_BASE_SOURCES = $(addprefix $(RBUILD_DEVCPP_BASE_), \
 	devcpp.cpp \
 	)
 
-RBUILD_BACKEND_MSVC_BASE_SOURCES = $(addprefix $(RBUILD_MSVC_BASE_), \
-	genguid.cpp \
-	msvc.cpp \
-	msvcmaker.cpp \
-	)
-
 RBUILD_BACKEND_SOURCES = \
 	$(RBUILD_BACKEND_MINGW_BASE_SOURCES) \
 	$(RBUILD_BACKEND_DEVCPP_BASE_SOURCES) \
-	$(RBUILD_BACKEND_MSVC_BASE_SOURCES) \
 	$(RBUILD_BACKEND_BASE_)backend.cpp
 
 RBUILD_COMMON_SOURCES = \
@@ -191,9 +151,6 @@ RBUILD_OBJECTS = \
 RBUILD_BACKEND_DEVCPP_HEADERS = \
 	devcpp.h
 
-RBUILD_BACKEND_MSVCCPP_HEADERS = \
-	msvc.h
-
 RBUILD_BACKEND_MINGW_HEADERS = \
 	mingw.h \
 	modulehandler.h
@@ -201,7 +158,6 @@ RBUILD_BACKEND_MINGW_HEADERS = \
 RBUILD_BACKEND_HEADERS = \
 	backend.h \
 	$(addprefix devcpp$(SEP), $(RBUILD_BACKEND_DEVCPP_HEADERS)) \
-	$(addprefix msvc$(SEP), $(RBUILD_BACKEND_MSVC_HEADERS)) \
 	$(addprefix mingw$(SEP), $(RBUILD_BACKEND_MINGW_HEADERS))
 
 RBUILD_HEADERS = \
@@ -243,9 +199,9 @@ RBUILD_TEST_OBJECTS = \
 	$(RBUILD_COMMON_OBJECTS) \
 	$(RBUILD_TEST_SPECIAL_OBJECTS)
 
-RBUILD_HOST_CXXFLAGS = -I$(RBUILD_BASE) $(TOOLS_CPPFLAGS)
+RBUILD_HOST_CXXFLAGS = -g -I$(RBUILD_BASE) -Werror -Wall
 
-RBUILD_HOST_LFLAGS = $(TOOLS_LFLAGS)
+RBUILD_HOST_LFLAGS = -g
 
 .PHONY: rbuild
 rbuild: $(RBUILD_TARGET)
@@ -347,18 +303,6 @@ $(RBUILD_MINGW_INT_)proxymakefile.o: $(RBUILD_MINGW_BASE_)proxymakefile.cpp $(RB
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_DEVCPP_INT_)devcpp.o: $(RBUILD_DEVCPP_BASE_)devcpp.cpp $(RBUILD_HEADERS) | $(RBUILD_DEVCPP_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_MSVC_INT_)genguid.o: $(RBUILD_MSVC_BASE_)genguid.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CFLAGS) -c $< -o $@
-
-$(RBUILD_MSVC_INT_)msvc.o: $(RBUILD_MSVC_BASE_)msvc.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_MSVC_INT_)msvcmaker.o: $(RBUILD_MSVC_BASE_)msvcmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
 	$(ECHO_CC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 

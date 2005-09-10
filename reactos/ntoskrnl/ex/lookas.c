@@ -26,7 +26,6 @@ KSPIN_LOCK ExpPagedLookasideListLock;
 
 VOID 
 INIT_FUNCTION
-STDCALL
 ExpInitLookasideLists()
 {
     /* Initialize Lock and Listhead */

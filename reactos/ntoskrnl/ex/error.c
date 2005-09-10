@@ -92,10 +92,10 @@ VOID
 STDCALL
 ExRaiseHardError(IN NTSTATUS ErrorStatus,
                  IN ULONG NumberOfParameters,
-                 IN ULONG UnicodeStringParameterMask,
-                 IN PULONG_PTR Parameters,
-                 IN ULONG ValidResponseOptions,
-                 OUT PULONG Response)
+                 IN PUNICODE_STRING UnicodeStringParameterMask OPTIONAL,
+                 IN PVOID *Parameters,
+                 IN HARDERROR_RESPONSE_OPTION ResponseOption,
+                 OUT PHARDERROR_RESPONSE Response)
 {
     UNIMPLEMENTED;
 }
@@ -104,10 +104,10 @@ NTSTATUS
 STDCALL
 NtRaiseHardError(IN NTSTATUS ErrorStatus,
                  IN ULONG NumberOfParameters,
-                 IN ULONG UnicodeStringParameterMask,
-                 IN PULONG_PTR Parameters,
-                 IN ULONG ValidResponseOptions,
-                 OUT PULONG Response)
+                 IN PUNICODE_STRING UnicodeStringParameterMask  OPTIONAL,
+                 IN PVOID *Parameters,
+                 IN HARDERROR_RESPONSE_OPTION ResponseOption,
+                 OUT PHARDERROR_RESPONSE Response)
 {
     DPRINT1("Hard error %x\n", ErrorStatus);
 
@@ -116,7 +116,7 @@ NtRaiseHardError(IN NTSTATUS ErrorStatus,
                      NumberOfParameters,
                      UnicodeStringParameterMask,
                      Parameters,
-                     ValidResponseOptions,
+                     ResponseOption,
                      Response);
 
     /* Return Success */

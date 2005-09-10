@@ -187,24 +187,12 @@ int STDCALL NtGdiGetClipBox(HDC  hDC,
 			   LPRECT  rc)
 {
   int Ret;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
   RECT Saferect;
 
   Ret = IntGdiGetClipBox(hDC, &Saferect);
 
-  _SEH_TRY
-  {
-    ProbeForWrite(rc,
-                  sizeof(RECT),
-                  1);
-    *rc = Saferect;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
+  Status = MmCopyToCaller(rc, &Saferect, sizeof(RECT));
   if(!NT_SUCCESS(Status))
   {
 
@@ -327,28 +315,8 @@ int STDCALL NtGdiOffsetClipRgn(HDC  hDC,
                        int  XOffset,
                        int  YOffset)
 {
-  INT Result;
-  DC *dc;
-
-  if(!(dc = DC_LockDc(hDC)))
-  {
-    SetLastWin32Error(ERROR_INVALID_HANDLE);
-    return ERROR;
-  }
-
-  if(dc->w.hClipRgn != NULL)
-  {
-    Result = NtGdiOffsetRgn(dc->w.hClipRgn,
-                            XOffset,
-                            YOffset);
-  }
-  else
-  {
-    Result = NULLREGION;
-  }
-  
-  DC_UnlockDc(dc);
-  return Result;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 BOOL STDCALL NtGdiPtVisible(HDC  hDC,
@@ -373,7 +341,7 @@ BOOL STDCALL NtGdiPtVisible(HDC  hDC,
 BOOL STDCALL NtGdiRectVisible(HDC  hDC,
                       CONST PRECT  UnsafeRect)
 {
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    PROSRGNDATA Rgn;
    PDC dc = DC_LockDc(hDC);
    BOOL Result = FALSE;
@@ -385,23 +353,10 @@ BOOL STDCALL NtGdiRectVisible(HDC  hDC,
       return FALSE;
    }
 
-   _SEH_TRY
-   {
-      ProbeForRead(UnsafeRect,
-                   sizeof(RECT),
-                   1);
-      Rect = *UnsafeRect;
-   }
-   _SEH_HANDLE
-   {
-      Status = _SEH_GetExceptionCode();
-   }
-   _SEH_END;
-
+   Status = MmCopyFromCaller(&Rect, UnsafeRect, sizeof(RECT));
    if(!NT_SUCCESS(Status))
    {
       DC_UnlockDc(dc);
-      SetLastNtError(Status);
       return FALSE;
    }
 

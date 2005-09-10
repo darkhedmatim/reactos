@@ -386,8 +386,6 @@ DWORD WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
         {
             hr = SHBindToParent( pidl, &IID_IShellFolder, (LPVOID*)&psfParent,
                                 (LPCITEMIDLIST*)&pidlLast );
-            if (SUCCEEDED(hr))
-                pidlLast = ILClone(pidlLast);
             ILFree(pidl);
         }
         else
@@ -720,63 +718,6 @@ HICON WINAPI ExtractIconW(HINSTANCE hInstance, LPCWSTR lpszFile, UINT nIconIndex
     return NULL;
 }
 
-/*************************************************************************
- * Printer_LoadIconsW        [SHELL32.205]
- */
-VOID WINAPI Printer_LoadIconsW(LPCWSTR wsPrinterName, HICON * pLargeIcon, HICON * pSmallIcon)
-{
-    INT iconindex=IDI_SHELL_PRINTER;
-
-    TRACE("(%s, %p, %p)\n", debugstr_w(wsPrinterName), pLargeIcon, pSmallIcon);
-
-    /* We should check if wsPrinterName is
-       1. the Default Printer or not
-       2. connected or not
-       3. a Local Printer or a Network-Printer
-       and use different Icons
-    */
-    if((wsPrinterName != NULL) && (wsPrinterName[0] != 0))
-    {
-        FIXME("(select Icon by PrinterName %s not implemented)\n", debugstr_w(wsPrinterName));
-    }
-
-    if(pLargeIcon != NULL)
-        *pLargeIcon = LoadImageW(shell32_hInstance,
-                                 (LPCWSTR) MAKEINTRESOURCE(iconindex), IMAGE_ICON,
-                                 0, 0, LR_DEFAULTCOLOR|LR_DEFAULTSIZE);
-
-    if(pSmallIcon != NULL)
-        *pSmallIcon = LoadImageW(shell32_hInstance,
-                                 (LPCWSTR) MAKEINTRESOURCE(iconindex), IMAGE_ICON,
-                                 16, 16, LR_DEFAULTCOLOR);
-}
-
-/*************************************************************************
- * Printers_RegisterWindowW        [SHELL32.213]
- * used by "printui.dll":
- * find the Window of the given Type for the specific Printer and 
- * return the already existent hwnd or open a new window
- */
-BOOL WINAPI Printers_RegisterWindowW(LPCWSTR wsPrinter, DWORD dwType,
-            HANDLE * phClassPidl, HWND * phwnd)
-{
-    FIXME("(%s, %lx, %p (%p), %p (%p)) stub!\n", debugstr_w(wsPrinter), dwType,
-                phClassPidl, (phClassPidl != NULL) ? *(phClassPidl) : NULL,
-                phwnd, (phwnd != NULL) ? *(phwnd) : NULL);
-
-    return FALSE;
-} 
-
-/*************************************************************************
- * Printers_UnregisterWindow      [SHELL32.214]
- */
-VOID WINAPI Printers_UnregisterWindow(HANDLE hClassPidl, HWND hwnd)
-{
-    FIXME("(%p, %p) stub!\n", hClassPidl, hwnd);
-} 
-
-/*************************************************************************/
-
 typedef struct
 {
     LPCWSTR  szApp;
@@ -1044,6 +985,14 @@ void WINAPI FreeIconList( DWORD dw )
 }
 
 
+/*************************************************************************
+ * ShellDDEInit (SHELL32.@)
+ */
+void WINAPI ShellDDEInit(BOOL start)
+{
+    FIXME("stub: %d\n", start);
+}
+
 /***********************************************************************
  * DllGetVersion [SHELL32.@]
  *
@@ -1060,7 +1009,7 @@ void WINAPI FreeIconList( DWORD dw )
  *     Returns version of a shell32.dll from IE4.01 SP1.
  */
 
-HRESULT WINAPI DllGetVersion (DLLVERSIONINFO *pdvi)
+HRESULT WINAPI SHELL32_DllGetVersion (DLLVERSIONINFO *pdvi)
 {
     /* FIXME: shouldn't these values come from the version resource? */
     if (pdvi->cbSize == sizeof(DLLVERSIONINFO) ||
@@ -1146,7 +1095,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
  *    LPCWSTR pszCmdLine - command line (unused by shell32?)
  */
 
-HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
+HRESULT WINAPI SHELL32_DllInstall(BOOL bInstall, LPCWSTR cmdline)
 {
     FIXME("%s %s: stub\n", bInstall ? "TRUE":"FALSE", debugstr_w(cmdline));
     return S_OK;        /* indicate success */
@@ -1155,7 +1104,7 @@ HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
 /***********************************************************************
  *              DllCanUnloadNow (SHELL32.@)
  */
-HRESULT WINAPI DllCanUnloadNow(void)
+HRESULT WINAPI SHELL32_DllCanUnloadNow(void)
 {
     FIXME("stub\n");
     return S_FALSE;

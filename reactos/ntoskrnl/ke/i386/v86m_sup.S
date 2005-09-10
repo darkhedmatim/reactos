@@ -6,7 +6,7 @@
  *                  Created 09/10/00
  */
 
-#include <ndk/asm.h>
+#include <internal/asm.h>
  
 .globl _Ki386RetToV86Mode
 .globl _KiV86Complete

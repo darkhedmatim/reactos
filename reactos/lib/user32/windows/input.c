@@ -29,8 +29,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -164,22 +162,24 @@ GetDoubleClickTime(VOID)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 HKL STDCALL
 GetKeyboardLayout(DWORD idThread)
 {
-  return (HKL)NtUserCallOneParam((DWORD) idThread,  ONEPARAM_ROUTINE_GETKEYBOARDLAYOUT);
+  UNIMPLEMENTED;
+  return (HKL)0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT STDCALL
 GetKBCodePage(VOID)
 {
-  return GetOEMCP();
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -246,15 +246,12 @@ GetKeyboardLayoutList(int nBuff,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 GetKeyboardLayoutNameA(LPSTR pwszKLID)
 {
-  WCHAR buf[KL_NAMELENGTH];
-    
-  if (GetKeyboardLayoutNameW(buf))
-    return WideCharToMultiByte( CP_ACP, 0, buf, -1, pwszKLID, KL_NAMELENGTH, NULL, NULL ) != 0;
+  UNIMPLEMENTED;
   return FALSE;
 }
 
@@ -271,7 +268,7 @@ GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 GetKeyboardState(PBYTE lpKeyState)
@@ -282,12 +279,13 @@ GetKeyboardState(PBYTE lpKeyState)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 GetKeyboardType(int nTypeFlag)
 {
-return (int)NtUserCallOneParam((DWORD) nTypeFlag,  ONEPARAM_ROUTINE_GETKEYBOARDTYPE);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -303,22 +301,14 @@ GetLastInputInfo(PLASTINPUTINFO plii)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 HKL STDCALL
 LoadKeyboardLayoutA(LPCSTR pwszKLID,
 		    UINT Flags)
 {
-  HKL ret;
-  UNICODE_STRING pwszKLIDW;
-        
-  if (pwszKLID) RtlCreateUnicodeStringFromAsciiz(&pwszKLIDW, pwszKLID);
-  else pwszKLIDW.Buffer = NULL;
-                
-  ret = LoadKeyboardLayoutW(pwszKLIDW.Buffer, Flags);
-  RtlFreeUnicodeString(&pwszKLIDW);
-  return ret;
-
+  UNIMPLEMENTED;
+  return (HKL)0;
 }
 
 
@@ -381,24 +371,13 @@ MapVirtualKeyW(UINT uCode,
 
 
 /*
- * @implemented
- */ 
+ * @unimplemented
+ */
 DWORD STDCALL
 OemKeyScan(WORD wOemChar)
 {
-  WCHAR p;
-  SHORT Vk;
-  UINT Scan;
-
-  MultiByteToWideChar(CP_OEMCP, 0, (PCSTR)&wOemChar, 1, &p, 1);
-  Vk = VkKeyScanW(p);
-  Scan = MapVirtualKeyW((Vk & 0x00ff), 0);
-  if(!Scan) return -1;
-  /* 
-     Page 450-1, MS W2k SuperBible by SAMS. Return, low word has the
-     scan code and high word has the shift state.
-   */
-  return ((Vk & 0xff00) << 8) | Scan;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 
@@ -432,7 +411,7 @@ SetDoubleClickTime(UINT uInterval)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 HWND STDCALL
 SetFocus(HWND hWnd)
@@ -442,7 +421,7 @@ SetFocus(HWND hWnd)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 SetKeyboardState(LPBYTE lpKeyState)
@@ -516,7 +495,7 @@ ToUnicode(UINT wVirtKey,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int STDCALL
 ToUnicodeEx(UINT wVirtKey,
@@ -586,13 +565,14 @@ VkKeyScanExA(CHAR ch,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 SHORT STDCALL
 VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
-  return (SHORT) NtUserVkKeyScanEx((DWORD) ch,(DWORD) dwhkl,(DWORD)NULL);
+  UNIMPLEMENTED;
+  return -1;
 }
 
 

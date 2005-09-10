@@ -1,10 +1,7 @@
 #ifndef NTFS_H
 #define NTFS_H
 
-#include <ddk/ntddk.h>
 #include <ddk/ntifs.h>
-#include <ddk/ntdddisk.h>
-#include <ccros.h>
 
 #define USE_ROS_CC_AND_FS
 

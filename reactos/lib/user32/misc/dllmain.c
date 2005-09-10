@@ -1,11 +1,16 @@
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
 
 /* FIXME: Belongs to some header. */
-BOOL STDCALL GdiDllInitialize(HANDLE, DWORD, LPVOID);
+WINBOOL STDCALL GdiDllInitialize(HANDLE, DWORD, LPVOID);
 void InitStockObjects(void);
 VOID DeleteFrameBrushes(VOID);
+
+#ifdef DBG
+
+/* See debug.h for debug/trace constants */
+DWORD DebugTraceLevel = MIN_TRACE;
+
+#endif /* DBG */
 
 extern CRITICAL_SECTION gcsMPH;
 static ULONG User32TlsIndex;
@@ -42,15 +47,15 @@ VOID
 Init(VOID)
 {
   /* Set up the kernel callbacks. */
-  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
+  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
     (PVOID)User32CallWindowProcFromKernel;
-  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
+  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
     (PVOID)User32CallSendAsyncProcForKernel;
-  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
+  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
     (PVOID)User32LoadSysMenuTemplateForKernel;
-  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
+  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
     (PVOID)User32SetupDefaultCursors;
-  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
+  NtCurrentTeb()->Peb->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
     (PVOID)User32CallHookProcFromKernel;
 
   /* Allocate an index for user32 thread local data. */

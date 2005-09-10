@@ -15,8 +15,8 @@
 
 /* GLOBALS *****************************************************************/
 
-extern LDR_DATA_TABLE_ENTRY NtoskrnlModuleObject;
-extern LDR_DATA_TABLE_ENTRY HalModuleObject;
+extern MODULE_OBJECT NtoskrnlModuleObject;
+extern MODULE_OBJECT HalModuleObject;
 
 ULONG EXPORTED MmUserProbeAddress = 0;
 PVOID EXPORTED MmHighestUserAddress = NULL;
@@ -26,6 +26,50 @@ PVOID EXPORTED MmSystemRangeStart = NULL;
 MM_STATS MmStats;
 
 /* FUNCTIONS ****************************************************************/
+
+
+NTSTATUS STDCALL
+MmCopyToCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
+{
+  NTSTATUS Status;
+
+  if (ExGetPreviousMode() == UserMode)
+    {
+      if (Dest >= MmSystemRangeStart)
+   {
+     return(STATUS_ACCESS_VIOLATION);
+   }
+      Status = MmSafeCopyToUser(Dest, Src, NumberOfBytes);
+      return(Status);
+    }
+  else
+    {
+      memcpy(Dest, Src, NumberOfBytes);
+      return(STATUS_SUCCESS);
+    }
+}
+
+NTSTATUS STDCALL
+MmCopyFromCaller(PVOID Dest, const VOID *Src, ULONG NumberOfBytes)
+{
+  NTSTATUS Status;
+
+  if (ExGetPreviousMode() == UserMode)
+    {
+      if (Src >= MmSystemRangeStart)
+   {
+     return(STATUS_ACCESS_VIOLATION);
+   }
+      Status = MmSafeCopyFromUser(Dest, Src, NumberOfBytes);
+      return(Status);
+    }
+  else
+    {
+      memcpy(Dest, Src, NumberOfBytes);
+      return(STATUS_SUCCESS);
+    }
+}
+
 
 
 NTSTATUS MmReleaseMemoryArea(PEPROCESS Process, PMEMORY_AREA Marea)
@@ -454,14 +498,14 @@ MmGetSystemRoutineAddress (
     return NULL;
   }
 
-  Status = LdrGetProcedureAddress(NtoskrnlModuleObject.DllBase,
+  Status = LdrGetProcedureAddress(NtoskrnlModuleObject.Base,
                                   &AnsiRoutineName,
                                   0,
                                   &ProcAddress);
 
   if(!NT_SUCCESS(Status))
   {
-    Status = LdrGetProcedureAddress(HalModuleObject.DllBase,
+    Status = LdrGetProcedureAddress(HalModuleObject.Base,
                                     &AnsiRoutineName,
                                     0,
                                     &ProcAddress);

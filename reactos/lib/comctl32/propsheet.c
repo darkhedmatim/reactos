@@ -33,6 +33,7 @@
  *   - Enforcing of minimal wizard size
  *   - Messages:
  *     o PSM_GETRESULT
+ *     o PSM_IDTOINDEX
  *     o PSM_INSERTPAGE
  *     o PSM_RECALCPAGESIZES
  *     o PSM_SETHEADERSUBTITLE
@@ -44,6 +45,7 @@
  *     o PSN_QUERYINITIALFOCUS
  *     o PSN_TRANSLATEACCELERATOR
  *   - Styles:
+ *     o PSH_WIZARDHASFINISH
  *     o PSH_RTLREADING
  *     o PSH_STRETCHWATERMARK
  *     o PSH_USEPAGELANG
@@ -66,7 +68,6 @@
 #include "commctrl.h"
 #include "prsht.h"
 #include "comctl32.h"
-#include "uxtheme.h"
 
 #include "wine/debug.h"
 #include "wine/unicode.h"
@@ -120,7 +121,6 @@ typedef struct tagPropSheetInfo
   BOOL isModeless;
   BOOL hasHelp;
   BOOL hasApply;
-  BOOL hasFinish;
   BOOL useCallback;
   BOOL restartWindows;
   BOOL rebootSystem;
@@ -162,7 +162,7 @@ const WCHAR PropSheetInfoStr[] =
 /******************************************************************************
  * Prototypes
  */
-static INT_PTR PROPSHEET_CreateDialog(PropSheetInfo* psInfo);
+static int PROPSHEET_CreateDialog(PropSheetInfo* psInfo);
 static BOOL PROPSHEET_SizeMismatch(HWND hwndDlg, PropSheetInfo* psInfo);
 static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo);
 static BOOL PROPSHEET_AdjustButtons(HWND hwndParent, PropSheetInfo* psInfo);
@@ -233,11 +233,13 @@ static VOID PROPSHEET_UnImplementedFlags(DWORD dwFlags)
 
   /*
    * unhandled header flags:
+   *  PSH_WIZARDHASFINISH    0x00000010
    *  PSH_RTLREADING         0x00000800
    *  PSH_STRETCHWATERMARK   0x00040000
    *  PSH_USEPAGELANG        0x00200000
    */
 
+    add_flag(PSH_WIZARDHASFINISH);
     add_flag(PSH_RTLREADING);
     add_flag(PSH_STRETCHWATERMARK);
     add_flag(PSH_USEPAGELANG);
@@ -339,7 +341,6 @@ static BOOL PROPSHEET_CollectSheetInfoA(LPCPROPSHEETHEADERA lppsh,
 
   psInfo->hasHelp = dwFlags & PSH_HASHELP;
   psInfo->hasApply = !(dwFlags & PSH_NOAPPLYNOW);
-  psInfo->hasFinish = dwFlags & PSH_WIZARDHASFINISH;
   psInfo->useCallback = (dwFlags & PSH_USECALLBACK )&& (lppsh->pfnCallback);
   psInfo->isModeless = dwFlags & PSH_MODELESS;
 
@@ -395,7 +396,6 @@ static BOOL PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
 
   psInfo->hasHelp = dwFlags & PSH_HASHELP;
   psInfo->hasApply = !(dwFlags & PSH_NOAPPLYNOW);
-  psInfo->hasFinish = dwFlags & PSH_WIZARDHASFINISH;
   psInfo->useCallback = (dwFlags & PSH_USECALLBACK) && (lppsh->pfnCallback);
   psInfo->isModeless = dwFlags & PSH_MODELESS;
 
@@ -451,9 +451,6 @@ BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
   const WORD*  p;
   DWORD dwFlags;
   int width, height;
-
-  if (!lppsp)
-    return FALSE;
 
   TRACE("\n");
   psInfo->proppage[index].hpage = (HPROPSHEETPAGE)lppsp;
@@ -594,7 +591,7 @@ BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
 
     if ( !HIWORD( lppsp->pszTitle ) )
     {
-      if (!LoadStringW( lppsp->hInstance, (DWORD_PTR)lppsp->pszTitle,szTitle,sizeof(szTitle) ))
+      if (!LoadStringW( lppsp->hInstance, (UINT)lppsp->pszTitle,szTitle,sizeof(szTitle) ))
       {
         pTitle = pszNull;
 	FIXME("Could not load resource #%04x?\n",LOWORD(lppsp->pszTitle));
@@ -643,7 +640,7 @@ BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
  *
  * Creates the actual property sheet.
  */
-INT_PTR PROPSHEET_CreateDialog(PropSheetInfo* psInfo)
+int PROPSHEET_CreateDialog(PropSheetInfo* psInfo)
 {
   LRESULT ret;
   LPCVOID template;
@@ -711,7 +708,7 @@ INT_PTR PROPSHEET_CreateDialog(PropSheetInfo* psInfo)
    * -1 (error). */
   if( psInfo->unicode )
   {
-    ret = (INT_PTR)CreateDialogIndirectParamW(psInfo->ppshheader.hInstance,
+    ret = (int)CreateDialogIndirectParamW(psInfo->ppshheader.hInstance,
                                           (LPDLGTEMPLATEW) temp,
                                           psInfo->ppshheader.hwndParent,
                                           PROPSHEET_DialogProc,
@@ -720,7 +717,7 @@ INT_PTR PROPSHEET_CreateDialog(PropSheetInfo* psInfo)
   }
   else
   {
-    ret = (INT_PTR)CreateDialogIndirectParamA(psInfo->ppshheader.hInstance,
+    ret = (int)CreateDialogIndirectParamA(psInfo->ppshheader.hInstance,
                                           (LPDLGTEMPLATEA) temp,
                                           psInfo->ppshheader.hwndParent,
                                           PROPSHEET_DialogProc,
@@ -830,8 +827,8 @@ static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo)
 
   rc.right -= rc.left;
   rc.bottom -= rc.top;
-  TRACE("setting tab %p, rc (0,0)-(%ld,%ld)\n",
-        hwndTabCtrl, rc.right, rc.bottom);
+  TRACE("setting tab %08lx, rc (0,0)-(%ld,%ld)\n",
+        (DWORD)hwndTabCtrl, rc.right, rc.bottom);
   SetWindowPos(hwndTabCtrl, 0, 0, 0, rc.right, rc.bottom,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
@@ -846,8 +843,8 @@ static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo)
   /*
    * Resize the property sheet.
    */
-  TRACE("setting dialog %p, rc (0,0)-(%ld,%ld)\n",
-        hwndDlg, rc.right, rc.bottom);
+  TRACE("setting dialog %08lx, rc (0,0)-(%ld,%ld)\n",
+        (DWORD)hwndDlg, rc.right, rc.bottom);
   SetWindowPos(hwndDlg, 0, 0, 0, rc.right, rc.bottom,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   return TRUE;
@@ -882,8 +879,8 @@ static BOOL PROPSHEET_AdjustSizeWizard(HWND hwndDlg, PropSheetInfo* psInfo)
   AdjustWindowRect(&rc, GetWindowLongW(hwndDlg, GWL_STYLE), FALSE);
 
   /* Resize the property sheet */
-  TRACE("setting dialog %p, rc (0,0)-(%ld,%ld)\n",
-        hwndDlg, rc.right, rc.bottom);
+  TRACE("setting dialog %08lx, rc (0,0)-(%ld,%ld)\n",
+        (DWORD)hwndDlg, rc.right, rc.bottom);
   SetWindowPos(hwndDlg, 0, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
@@ -1007,8 +1004,6 @@ static BOOL PROPSHEET_AdjustButtonsWizard(HWND hwndParent,
 
   if (psInfo->hasHelp)
     num_buttons++;
-  if (psInfo->hasFinish)
-    num_buttons++;
 
   /*
    * Obtain the size of the buttons.
@@ -1029,47 +1024,40 @@ static BOOL PROPSHEET_AdjustButtonsWizard(HWND hwndParent,
    * All buttons will be at this y coordinate.
    */
   y = rcSheet.bottom - (padding.y + buttonHeight);
-  
+
+  /*
+   * Position the Next and the Finish buttons.
+   */
+  hwndButton = GetDlgItem(hwndParent, IDC_NEXT_BUTTON);
+
+  x = rcSheet.right - ((padding.x + buttonWidth) * (num_buttons - 1));
+
+  SetWindowPos(hwndButton, 0, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+  hwndButton = GetDlgItem(hwndParent, IDC_FINISH_BUTTON);
+
+  SetWindowPos(hwndButton, 0, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+  ShowWindow(hwndButton, SW_HIDE);
+
   /*
    * Position the Back button.
    */
   hwndButton = GetDlgItem(hwndParent, IDC_BACK_BUTTON);
 
-  x = rcSheet.right - ((padding.x + buttonWidth) * (num_buttons - 1)) - buttonWidth;
+  x -= buttonWidth;
 
   SetWindowPos(hwndButton, 0, x, y, 0, 0,
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-  /*
-   * Position the Next button.
-   */
-  hwndButton = GetDlgItem(hwndParent, IDC_NEXT_BUTTON);
-  
-  x += buttonWidth;
-  
-  SetWindowPos(hwndButton, 0, x, y, 0, 0,
-               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-  /*
-   * Position the Finish button.
-   */
-  hwndButton = GetDlgItem(hwndParent, IDC_FINISH_BUTTON);
-  
-  if (psInfo->hasFinish)
-    x += padding.x + buttonWidth;
-
-  SetWindowPos(hwndButton, 0, x, y, 0, 0,
-               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-  if (!psInfo->hasFinish)
-    ShowWindow(hwndButton, SW_HIDE);
 
   /*
    * Position the Cancel button.
    */
   hwndButton = GetDlgItem(hwndParent, IDCANCEL);
 
-  x += padding.x + buttonWidth;
+  x = rcSheet.right - ((padding.x + buttonWidth) * (num_buttons - 2));
 
   SetWindowPos(hwndButton, 0, x, y, 0, 0,
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1081,7 +1069,7 @@ static BOOL PROPSHEET_AdjustButtonsWizard(HWND hwndParent,
 
   if (psInfo->hasHelp)
   {
-    x += padding.x + buttonWidth;
+    x = rcSheet.right - (padding.x + buttonWidth);
 
     SetWindowPos(hwndButton, 0, x, y, 0, 0,
                  SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1364,7 +1352,7 @@ static UINT GetTemplateSize(DLGTEMPLATE* pTemplate)
   TRACE("%d items\n",nrofitems);
   while (nrofitems > 0)
     {
-      p = (WORD*)(((DWORD_PTR)p + 3) & ~3); /* DWORD align */
+      p = (WORD*)(((DWORD)p + 3) & ~3); /* DWORD align */
       
       /* skip header */
       p += (istemplateex ? sizeof(MyDLGITEMTEMPLATEEX) : sizeof(DLGITEMTEMPLATE))/sizeof(WORD);
@@ -1545,8 +1533,6 @@ static BOOL PROPSHEET_CreatePage(HWND hwndParent,
       SetWindowSubclass(hwndPage, PROPSHEET_WizardSubclassProc, 1,
                         (DWORD_PTR)ppshpage);
   }
-  if (!(psInfo->ppshheader.dwFlags & INTRNL_ANY_WIZARD))
-      EnableThemeDialogTexture (hwndPage, ETDT_ENABLETAB);
 
   return TRUE;
 }
@@ -1567,7 +1553,7 @@ static VOID PROPSHEET_LoadWizardBitmaps(PropSheetInfo *psInfo)
         !(psInfo->ppshheader.dwFlags & PSH_USEHBMWATERMARK))
     {
       ((PropSheetInfo *)psInfo)->ppshheader.u4.hbmWatermark = 
-        CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT_PTR)psInfo->ppshheader.u4.pszbmWatermark, 0, NULL, 0);
+        CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT)psInfo->ppshheader.u4.pszbmWatermark, 0, NULL, 0);
     }
 
     /* Same behavior as for watermarks */
@@ -1575,7 +1561,7 @@ static VOID PROPSHEET_LoadWizardBitmaps(PropSheetInfo *psInfo)
         !(psInfo->ppshheader.dwFlags & PSH_USEHBMHEADER))
     {
       ((PropSheetInfo *)psInfo)->ppshheader.u5.hbmHeader = 
-        CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT_PTR)psInfo->ppshheader.u5.pszbmHeader, 0, NULL, 0);
+        CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT)psInfo->ppshheader.u5.pszbmHeader, 0, NULL, 0);
     }
   }
 }
@@ -1636,6 +1622,9 @@ static BOOL PROPSHEET_ShowPage(HWND hwndDlg, int index, PropSheetInfo * psInfo)
       else
 	  ShowWindow(hwndLineHeader, SW_SHOW);
   }
+
+  InvalidateRgn(hwndDlg, NULL, TRUE);
+  UpdateWindow(hwndDlg);
 
   return TRUE;
 }
@@ -2207,7 +2196,6 @@ static void PROPSHEET_SetTitleW(HWND hwndDlg, DWORD dwStyle, LPCWSTR lpszText)
  */
 static void PROPSHEET_SetFinishTextA(HWND hwndDlg, LPCSTR lpszText)
 {
-  PropSheetInfo* psInfo = (PropSheetInfo*) GetPropW(hwndDlg, PropSheetInfoStr);
   HWND hwndButton = GetDlgItem(hwndDlg, IDC_FINISH_BUTTON);
 
   TRACE("'%s'\n", lpszText);
@@ -2223,12 +2211,9 @@ static void PROPSHEET_SetFinishTextA(HWND hwndDlg, LPCSTR lpszText)
   hwndButton = GetDlgItem(hwndDlg, IDC_BACK_BUTTON);
   ShowWindow(hwndButton, SW_HIDE);
 
-  if (!psInfo->hasFinish)
-  {
-    /* Hide Next button */
-    hwndButton = GetDlgItem(hwndDlg, IDC_NEXT_BUTTON);
-    ShowWindow(hwndButton, SW_HIDE);
-  }
+  /* Hide Next button */
+  hwndButton = GetDlgItem(hwndDlg, IDC_NEXT_BUTTON);
+  ShowWindow(hwndButton, SW_HIDE);
 }
 
 /******************************************************************************
@@ -2236,7 +2221,6 @@ static void PROPSHEET_SetFinishTextA(HWND hwndDlg, LPCSTR lpszText)
  */
 static void PROPSHEET_SetFinishTextW(HWND hwndDlg, LPCWSTR lpszText)
 {
-  PropSheetInfo* psInfo = (PropSheetInfo*) GetPropW(hwndDlg, PropSheetInfoStr);
   HWND hwndButton = GetDlgItem(hwndDlg, IDC_FINISH_BUTTON);
 
   TRACE("'%s'\n", debugstr_w(lpszText));
@@ -2252,12 +2236,9 @@ static void PROPSHEET_SetFinishTextW(HWND hwndDlg, LPCWSTR lpszText)
   hwndButton = GetDlgItem(hwndDlg, IDC_BACK_BUTTON);
   ShowWindow(hwndButton, SW_HIDE);
 
-  if (!psInfo->hasFinish)
-  {
-    /* Hide Next button */
-    hwndButton = GetDlgItem(hwndDlg, IDC_NEXT_BUTTON);
-    ShowWindow(hwndButton, SW_HIDE);
-  }
+  /* Hide Next button */
+  hwndButton = GetDlgItem(hwndDlg, IDC_NEXT_BUTTON);
+  ShowWindow(hwndButton, SW_HIDE);
 }
 
 /******************************************************************************
@@ -2458,8 +2439,6 @@ static BOOL PROPSHEET_RemovePage(HWND hwndDlg,
  */
 static void PROPSHEET_SetWizButtons(HWND hwndDlg, DWORD dwFlags)
 {
-  PropSheetInfo* psInfo = (PropSheetInfo*) GetPropW(hwndDlg,
-                                                    PropSheetInfoStr);
   HWND hwndBack   = GetDlgItem(hwndDlg, IDC_BACK_BUTTON);
   HWND hwndNext   = GetDlgItem(hwndDlg, IDC_NEXT_BUTTON);
   HWND hwndFinish = GetDlgItem(hwndDlg, IDC_FINISH_BUTTON);
@@ -2475,11 +2454,8 @@ static void PROPSHEET_SetWizButtons(HWND hwndDlg, DWORD dwFlags)
 
   if (dwFlags & PSWIZB_NEXT)
   {
-    if (!psInfo->hasFinish)
-    {
-      /* Hide the Finish button */
-      ShowWindow(hwndFinish, SW_HIDE);
-    }
+    /* Hide the Finish button */
+    ShowWindow(hwndFinish, SW_HIDE);
 
     /* Show and enable the Next button */
     ShowWindow(hwndNext, SW_SHOW);
@@ -2489,27 +2465,20 @@ static void PROPSHEET_SetWizButtons(HWND hwndDlg, DWORD dwFlags)
     SendMessageW(hwndDlg, DM_SETDEFID, IDC_NEXT_BUTTON, 0);
   }
 
-  if (!psInfo->hasFinish)
+  if ((dwFlags & PSWIZB_FINISH) || (dwFlags & PSWIZB_DISABLEDFINISH))
   {
-    if ((dwFlags & PSWIZB_FINISH) || (dwFlags & PSWIZB_DISABLEDFINISH))
-    {
-      /* Hide the Next button */
-      ShowWindow(hwndNext, SW_HIDE);
-      
-      /* Show the Finish button */
-      ShowWindow(hwndFinish, SW_SHOW);
+    /* Hide the Next button */
+    ShowWindow(hwndNext, SW_HIDE);
 
-      if (!(dwFlags & PSWIZB_DISABLEDFINISH))
-      {
-        EnableWindow(hwndFinish, TRUE);
+    /* Show the Finish button */
+    ShowWindow(hwndFinish, SW_SHOW);
 
-        /* Set the Finish button as the default pushbutton  */
-        SendMessageW(hwndDlg, DM_SETDEFID, IDC_FINISH_BUTTON, 0);
-      }
-    }
+    if (dwFlags & PSWIZB_FINISH)
+      EnableWindow(hwndFinish, TRUE);
+
+    /* Set the Finish button as the default pushbutton  */
+    SendMessageW(hwndDlg, DM_SETDEFID, IDC_FINISH_BUTTON, 0);
   }
-  else if (!(dwFlags & PSWIZB_DISABLEDFINISH))
-    EnableWindow(hwndFinish, TRUE);
 }
 
 /******************************************************************************
@@ -2627,17 +2596,7 @@ static LRESULT PROPSHEET_IndexToPage(HWND hwndDlg, int iPageIndex)
  */
 static LRESULT PROPSHEET_IdToIndex(HWND hwndDlg, int iPageId)
 {
-    int index;
-    LPCPROPSHEETPAGEW psp;
-    PropSheetInfo * psInfo = (PropSheetInfo*) GetPropW(hwndDlg,
-                                                       PropSheetInfoStr);
-    TRACE("(%p, %d)\n", hwndDlg, iPageId);
-    for (index = 0; index < psInfo->nPages; index++) {
-        psp = (LPCPROPSHEETPAGEW)psInfo->proppage[index].hpage;
-        if (psp->u.pszTemplate == MAKEINTRESOURCEW(iPageId))
-            return index;
-    }
-
+    FIXME("(%p, %d): stub\n", hwndDlg, iPageId);
     return -1;
 }
 
@@ -2802,9 +2761,9 @@ static INT do_loop(PropSheetInfo *psInfo)
  *| ID_PSREBOOTSYSTEM - The user must reboot the computer for the changes to take effect.
  *| ID_PSRESTARTWINDOWS - The user must restart Windows for the changes to take effect.
  */
-INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
+INT WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
 {
-  INT_PTR bRet = 0;
+  int bRet = 0;
   PropSheetInfo* psInfo = (PropSheetInfo*) GlobalAlloc(GPTR,
                                                        sizeof(PropSheetInfo));
   UINT i, n;
@@ -2853,9 +2812,9 @@ INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
  *
  * See PropertySheetA.
  */
-INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
+INT WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
 {
-  INT_PTR bRet = 0;
+  int bRet = 0;
   PropSheetInfo* psInfo = (PropSheetInfo*) GlobalAlloc(GPTR,
                                                        sizeof(PropSheetInfo));
   UINT i, n;
@@ -3241,7 +3200,7 @@ static LRESULT PROPSHEET_Paint(HWND hwnd, HDC hdcParam)
 	    }
 	    else
 	    {
-		nLength = LoadStringW(ppshpage->hInstance, (UINT_PTR)ppshpage->pszHeaderTitle,
+		nLength = LoadStringW(ppshpage->hInstance, (UINT)ppshpage->pszHeaderTitle,
 				      szBuffer, 256);
 		if (nLength != 0)
 		{
@@ -3265,7 +3224,7 @@ static LRESULT PROPSHEET_Paint(HWND hwnd, HDC hdcParam)
 	    }
 	    else
 	    {
-		nLength = LoadStringW(ppshpage->hInstance, (UINT_PTR)ppshpage->pszHeaderSubTitle,
+		nLength = LoadStringW(ppshpage->hInstance, (UINT)ppshpage->pszHeaderSubTitle,
 				      szBuffer, 256);
 		if (nLength != 0)
 		{
@@ -3443,7 +3402,7 @@ PROPSHEET_DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
          WCHAR szText[256];
 
          if (LoadStringW(psInfo->ppshheader.hInstance,
-                         (UINT_PTR)psInfo->ppshheader.pszCaption, szText, 255))
+                 (UINT)psInfo->ppshheader.pszCaption, szText, 255))
             PROPSHEET_SetTitleW(hwnd, psInfo->ppshheader.dwFlags, szText);
       }
       else
@@ -3514,10 +3473,6 @@ PROPSHEET_DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
       return FALSE;
     }
-  
-    case WM_SYSCOLORCHANGE:
-      COMCTL32_RefreshSysColors();
-      return FALSE;
 
     case PSM_GETCURRENTPAGEHWND:
     {

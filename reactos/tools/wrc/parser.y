@@ -121,7 +121,6 @@
  *			- Added extra comment about grammar
  */
 #include "config.h"
-#include "wine/port.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -252,7 +251,6 @@ static int rsrcid_to_token(int lookahead);
 	fontdir_t	*fnd;
 	menu_t		*men;
 	menuex_t	*menex;
-	html_t		*html;
 	rcdata_t	*rdt;
 	stringtable_t	*stt;
 	stt_entry_t	*stte;
@@ -287,7 +285,7 @@ static int rsrcid_to_token(int lookahead);
 %token <str> tSTRING tIDENT tFILENAME
 %token <raw> tRAWDATA
 %token tACCELERATORS tBITMAP tCURSOR tDIALOG tDIALOGEX tMENU tMENUEX tMESSAGETABLE
-%token tRCDATA tVERSIONINFO tSTRINGTABLE tFONT tFONTDIR tICON tHTML
+%token tRCDATA tVERSIONINFO tSTRINGTABLE tFONT tFONTDIR tICON
 %token tAUTO3STATE tAUTOCHECKBOX tAUTORADIOBUTTON tCHECKBOX tDEFPUSHBUTTON
 %token tPUSHBUTTON tRADIOBUTTON tSTATE3 /* PUSHBOX */
 %token tGROUPBOX tCOMBOBOX tLISTBOX tSCROLLBAR
@@ -325,7 +323,6 @@ static int rsrcid_to_token(int lookahead);
 %type <iptr>	helpid
 %type <dlgex> 	dialogex dlgex_attribs
 %type <ctl>	exctrls gen_exctrl lab_exctrl exctrl_desc
-%type <html>	html
 %type <rdt> 	rcdata
 %type <raw>	raw_data raw_elements opt_data file_raw
 %type <veri> 	versioninfo fix_version
@@ -647,7 +644,6 @@ resource_definition
 			$$ = NULL;
 		}
 	| messagetable	{ $$ = new_resource(res_msg, $1, WRC_MO_MOVEABLE | WRC_MO_DISCARDABLE, $1->data->lvc.language); }
-	| html		{ $$ = new_resource(res_html, $1, $1->memopt, $1->data->lvc.language); }
 	| rcdata	{ $$ = new_resource(res_rdt, $1, $1->memopt, $1->data->lvc.language); }
 	| toolbar	{ $$ = new_resource(res_toolbar, $1, $1->memopt, $1->lvc.language); }
 	| userres	{ $$ = new_resource(res_usr, $1, $1->memopt, $1->data->lvc.language); }
@@ -726,10 +722,6 @@ messagetable
 			yywarning("MESSAGETABLE not supported in 16-bit mode");
 		$$ = new_messagetable($3, $2);
 		}
-	;
-
-/* ------------------------------ HTML ------------------------------ */
-html	: tHTML loadmemopts file_raw	{ $$ = new_html($3, $2); }
 	;
 
 /* ------------------------------ RCData ------------------------------ */
@@ -3025,10 +3017,6 @@ static int rsrcid_to_token(int lookahead)
 		type = "TOOLBAR";
 		token = tTOOLBAR;
 		break;
-	case WRC_RT_HTML:
-		type = "HTML";
-		token = tHTML;
-		break;
 
 	case WRC_RT_STRING:
 		type = "STRINGTABLE";
@@ -3044,6 +3032,7 @@ static int rsrcid_to_token(int lookahead)
 	case WRC_RT_DLGINCLUDE:
 	case WRC_RT_PLUGPLAY:
 	case WRC_RT_VXD:
+	case WRC_RT_HTML:
 		yywarning("Usertype uses reserved type ID %d, which is not supported by wrc yet", yylval.num);
 	default:
 		return lookahead;

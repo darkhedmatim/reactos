@@ -67,13 +67,13 @@ static const char * GPA_string = "Failed to get entry point %s for hinst = 0x%08
 #define GPA(dest, hinst, name) \
 	if(!(dest = (void*)GetProcAddress(hinst,name)))\
 	{ \
-	  ERR((LPSTR)GPA_string, debugstr_a(name), hinst); \
+	  ERR(GPA_string, debugstr_a(name), hinst); \
 	  return FALSE; \
 	}
 
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD Reason, LPVOID Reserved)
 {
-	TRACE("(%p, %ld, %p)\n", hInstance, Reason, Reserved);
+	TRACE("(%p, %08lx, %p)\n", hInstance, Reason, Reserved);
 
 	switch(Reason)
 	{

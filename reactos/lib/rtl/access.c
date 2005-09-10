@@ -1,13 +1,15 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
+/*
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            lib/rtl/access.c
  * PURPOSE:         Access rights handling functions
+ *
  * PROGRAMMERS:     Eric Kohl
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>

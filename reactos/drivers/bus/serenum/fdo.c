@@ -124,10 +124,9 @@ SerenumFdoQueryBusRelations(
 	}
 	NumPDO = (DeviceExtension->AttachedPdo != NULL ? 1 : 0);
 
-	DeviceRelations = (PDEVICE_RELATIONS)ExAllocatePoolWithTag(
+	DeviceRelations = (PDEVICE_RELATIONS)ExAllocatePool(
 		PagedPool,
-		sizeof(DEVICE_RELATIONS) + sizeof(PDEVICE_OBJECT) * (NumPDO - 1),
-		SERENUM_TAG);
+		sizeof(DEVICE_RELATIONS) + sizeof(PDEVICE_OBJECT) * (NumPDO - 1));
 	if (!DeviceRelations)
 		return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -188,7 +187,7 @@ SerenumFdoPnp(
 			{
 				case BusRelations:
 				{
-					PDEVICE_RELATIONS DeviceRelations = NULL;
+					PDEVICE_RELATIONS DeviceRelations;
 					DPRINT("Serenum: IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / BusRelations\n");
 					Status = SerenumFdoQueryBusRelations(DeviceObject, &DeviceRelations);
 					Information = (ULONG_PTR)DeviceRelations;

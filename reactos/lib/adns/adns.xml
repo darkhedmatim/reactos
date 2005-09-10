@@ -1,4 +1,4 @@
-<module name="adns" type="staticlibrary" allowwarnings="true">
+<module name="adns" type="staticlibrary">
 	<include base="adns">src</include>
 	<include base="adns">adns_win32</include>
 	<define name="__USE_W32API" />

@@ -329,9 +329,6 @@ extern LARGE_INTEGER                IoOtherTransferCount;
 #define PIN_NO_READ                     (4)
 #define PIN_IF_BCB                      (8)
 
-#define RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE 1
-#define RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING 2
-
 /* also in winnt.h */
 #define SEC_BASED	0x00200000
 #define SEC_NO_CHANGE	0x00400000
@@ -630,31 +627,6 @@ typedef struct _EX_RUNDOWN_REF {
     } DUMMYUNIONNAME;
 } EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
-#define EX_PUSH_LOCK_LOCK_V          ((ULONG_PTR)0x0)
-#define EX_PUSH_LOCK_LOCK            ((ULONG_PTR)0x1)
-#define EX_PUSH_LOCK_WAITING         ((ULONG_PTR)0x2)
-#define EX_PUSH_LOCK_WAKING          ((ULONG_PTR)0x4)
-#define EX_PUSH_LOCK_MULTIPLE_SHARED ((ULONG_PTR)0x8)
-#define EX_PUSH_LOCK_SHARE_INC       ((ULONG_PTR)0x10)
-#define EX_PUSH_LOCK_PTR_BITS        ((ULONG_PTR)0xf)
-
-typedef struct _EX_PUSH_LOCK
-{
-    union
-    {
-        struct
-        {
-            ULONG_PTR Locked:1;
-            ULONG_PTR Waiting:1;
-            ULONG_PTR Waking:1;
-            ULONG_PTR MultipleShared:1;
-            ULONG_PTR Shared:sizeof (ULONG_PTR) * 8 - 4;
-        };
-        ULONG_PTR Value;
-        PVOID Ptr;
-    };
-} EX_PUSH_LOCK, *PEX_PUSH_LOCK;
-
 typedef struct _FILE_ACCESS_INFORMATION {
     ACCESS_MASK AccessFlags;
 } FILE_ACCESS_INFORMATION, *PFILE_ACCESS_INFORMATION;
@@ -902,7 +874,7 @@ typedef struct _FILE_MAILSLOT_QUERY_INFORMATION {
 } FILE_MAILSLOT_QUERY_INFORMATION, *PFILE_MAILSLOT_QUERY_INFORMATION;
 
 typedef struct _FILE_MAILSLOT_SET_INFORMATION {
-    PLARGE_INTEGER ReadTimeout;
+    LARGE_INTEGER ReadTimeout;
 } FILE_MAILSLOT_SET_INFORMATION, *PFILE_MAILSLOT_SET_INFORMATION;
 
 typedef struct _FILE_MODE_INFORMATION {
@@ -1311,6 +1283,7 @@ typedef struct _QUERY_PATH_RESPONSE {
     ULONG LengthAccepted;
 } QUERY_PATH_RESPONSE, *PQUERY_PATH_RESPONSE;
 
+#pragma pack(push,8)
 typedef struct _RETRIEVAL_POINTERS_BUFFER {
     ULONG               ExtentCount;
     LARGE_INTEGER       StartingVcn;
@@ -1319,81 +1292,13 @@ typedef struct _RETRIEVAL_POINTERS_BUFFER {
         LARGE_INTEGER   Lcn;
     } Extents[1];
 } RETRIEVAL_POINTERS_BUFFER, *PRETRIEVAL_POINTERS_BUFFER;
+#pragma pack(pop)
 
 typedef struct _RTL_SPLAY_LINKS {
     struct _RTL_SPLAY_LINKS *Parent;
     struct _RTL_SPLAY_LINKS *LeftChild;
     struct _RTL_SPLAY_LINKS *RightChild;
 } RTL_SPLAY_LINKS, *PRTL_SPLAY_LINKS;
-
-typedef enum _RTL_GENERIC_COMPARE_RESULTS
-{
-    GenericLessThan,
-    GenericGreaterThan,
-    GenericEqual
-} RTL_GENERIC_COMPARE_RESULTS;
-
-#if defined(USE_LPC6432)
-#define LPC_CLIENT_ID CLIENT_ID64
-#define LPC_SIZE_T ULONGLONG
-#define LPC_PVOID ULONGLONG
-#define LPC_HANDLE ULONGLONG
-#else
-#define LPC_CLIENT_ID CLIENT_ID
-#define LPC_SIZE_T SIZE_T
-#define LPC_PVOID PVOID
-#define LPC_HANDLE HANDLE
-#endif
-
-typedef struct _PORT_MESSAGE
-{
-    union
-    {
-        struct
-        {
-            CSHORT DataLength;
-            CSHORT TotalLength;
-        } s1;
-        ULONG Length;
-    } u1;
-    union
-    {
-        struct
-        {
-            CSHORT Type;
-            CSHORT DataInfoOffset;
-        } s2;
-        ULONG ZeroInit;
-    } u2;
-    union
-    {
-        LPC_CLIENT_ID ClientId;
-        double DoNotUseThisField;
-    };
-    ULONG MessageId;
-    union
-    {
-        LPC_SIZE_T ClientViewSize;
-        ULONG CallbackId;
-    };
-} PORT_MESSAGE, *PPORT_MESSAGE;
-
-typedef struct _PORT_VIEW
-{
-    ULONG Length;
-    LPC_HANDLE SectionHandle;
-    ULONG SectionOffset;
-    LPC_SIZE_T ViewSize;
-    LPC_PVOID ViewBase;
-    LPC_PVOID ViewRemoteBase;
-} PORT_VIEW, *PPORT_VIEW;
-
-typedef struct _REMOTE_PORT_VIEW
-{
-    ULONG Length;
-    LPC_SIZE_T ViewSize;
-    LPC_PVOID ViewBase;
-} REMOTE_PORT_VIEW, *PREMOTE_PORT_VIEW;
 
 typedef struct _SE_EXPORTS {
 
@@ -1453,11 +1358,6 @@ typedef struct _SE_EXPORTS {
 
 } SE_EXPORTS, *PSE_EXPORTS;
 
-typedef struct
-{
-  LARGE_INTEGER StartingLcn;
-} STARTING_LCN_INPUT_BUFFER, *PSTARTING_LCN_INPUT_BUFFER;
-
 typedef struct _STARTING_VCN_INPUT_BUFFER {
     LARGE_INTEGER StartingVcn;
 } STARTING_VCN_INPUT_BUFFER, *PSTARTING_VCN_INPUT_BUFFER;
@@ -1501,13 +1401,6 @@ typedef struct _VAD_HEADER {
     ULONG       Unknown;
     LIST_ENTRY  Secured;
 } VAD_HEADER, *PVAD_HEADER;
-
-typedef struct
-{
-  LARGE_INTEGER StartingLcn;
-  LARGE_INTEGER BitmapSize;
-  UCHAR Buffer[1];
-} VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
 
 #if (VER_PRODUCTBUILD >= 2600)
 
@@ -1592,27 +1485,6 @@ typedef struct _READ_LIST {
 } READ_LIST, *PREAD_LIST;
 
 #endif
-
-typedef NTSTATUS
-(NTAPI * PRTL_HEAP_COMMIT_ROUTINE) (
-    IN PVOID  Base,
-    IN OUT PVOID  *CommitAddress,
-    IN OUT PSIZE_T  CommitSize
-);
-
-typedef struct _RTL_HEAP_PARAMETERS {
-    ULONG                     Length;
-    SIZE_T                    SegmentReserve;
-    SIZE_T                    SegmentCommit;
-    SIZE_T                    DeCommitFreeBlockThreshold;
-    SIZE_T                    DeCommitTotalFreeThreshold;
-    SIZE_T                    MaximumAllocationSize;
-    SIZE_T                    VirtualMemoryThreshold;
-    SIZE_T                    InitialCommit;
-    SIZE_T                    InitialReserve;
-    PRTL_HEAP_COMMIT_ROUTINE  CommitRoutine;
-    SIZE_T                    Reserved[2];
-} RTL_HEAP_PARAMETERS, *PRTL_HEAP_PARAMETERS;
 
 NTKERNELAPI
 BOOLEAN
@@ -2299,18 +2171,6 @@ FsRtlCopyWrite (
 );
 
 NTKERNELAPI
-PVOID
-NTAPI
-RtlCreateHeap (
-    IN ULONG                Flags,
-    IN PVOID                HeapBase OPTIONAL,
-    IN SIZE_T               ReserveSize OPTIONAL,
-    IN SIZE_T               CommitSize OPTIONAL,
-    IN PVOID                Lock OPTIONAL,
-    IN PRTL_HEAP_PARAMETERS Parameters OPTIONAL
-);
-
-NTKERNELAPI
 BOOLEAN
 NTAPI
 FsRtlCurrentBatchOplock (
@@ -2337,13 +2197,6 @@ VOID
 NTAPI
 FsRtlDeregisterUncProvider (
     IN HANDLE Handle
-);
-
-NTKERNELAPI
-PVOID
-NTAPI
-RtlDestroyHeap(
-    IN PVOID HeapHandle
 );
 
 NTKERNELAPI
@@ -2540,8 +2393,13 @@ FsRtlIsNtstatusExpected (
     IN NTSTATUS Ntstatus
 );
 
+#define NLS_MB_CODE_PAGE_TAG NlsMbCodePageTag
+#define NLS_MB_OEM_CODE_PAGE_TAG NlsMbOemCodePageTag
+#define NLS_MB_CODE_PAGE_TAG NlsMbOemCodePageTag
 #define NLS_OEM_LEAD_BYTE_INFO NlsOemLeadByteInfo
 
+extern BOOLEAN NlsMbCodePageTag;
+extern BOOLEAN NlsMbOemCodePageTag;
 extern PUSHORT NlsOemLeadByteInfo;
 
 #define FsRtlIsLeadDbcsCharacter(DBCS_CHAR) (                               \
@@ -3584,7 +3442,7 @@ NTSTATUS
 NTAPI
 RtlAbsoluteToSelfRelativeSD (
     IN PSECURITY_DESCRIPTOR              AbsoluteSecurityDescriptor,
-    IN OUT PSECURITY_DESCRIPTOR SelfRelativeSecurityDescriptor,
+    IN OUT PSECURITY_DESCRIPTOR_RELATIVE SelfRelativeSecurityDescriptor,
     IN PULONG                            BufferLength
 );
 
@@ -3693,15 +3551,6 @@ RtlDescribeChunk (
 );
 
 NTSYSAPI
-NTSTATUS
-NTAPI
-RtlDowncaseUnicodeString(
-    IN OUT PUNICODE_STRING UniDest,
-    IN PCUNICODE_STRING UniSource,
-    IN BOOLEAN AllocateDestinationString
-);
-
-NTSYSAPI
 BOOLEAN
 NTAPI
 RtlEqualSid (
@@ -3796,7 +3645,7 @@ NTSYSAPI
 ULONG
 NTAPI
 RtlLengthRequiredSid (
-    IN ULONG SubAuthorityCount
+    IN UCHAR SubAuthorityCount
 );
 
 NTSYSAPI
@@ -4349,14 +4198,6 @@ ZwFlushInstructionCache (
     IN HANDLE   ProcessHandle,
     IN PVOID    BaseAddress OPTIONAL,
     IN ULONG    FlushSize
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwFlushBuffersFile(
-    IN HANDLE FileHandle,
-    OUT PIO_STATUS_BLOCK IoStatusBlock
 );
 
 #if (VER_PRODUCTBUILD >= 2195)

@@ -24,13 +24,12 @@
 #include <objbase.h>
 #include <stdio.h>
 
+#include "msiexec.h"
+
 #include "wine/debug.h"
 #include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(msiexec);
-
-typedef HRESULT (WINAPI *DLLREGISTERSERVER)(void);
-typedef HRESULT (WINAPI *DLLUNREGISTERSERVER)(void);
 
 struct string_list
 {
@@ -387,7 +386,7 @@ static int chomp( WCHAR *str )
 	return count;
 }
 
-static void process_args( WCHAR *cmdline, int *pargc, WCHAR ***pargv )
+void process_args( WCHAR *cmdline, int *pargc, WCHAR ***pargv )
 {
 	WCHAR **argv, *p = msi_strdup(cmdline);
 	int i, n;
@@ -405,7 +404,7 @@ static void process_args( WCHAR *cmdline, int *pargc, WCHAR ***pargv )
 	*pargv = argv;
 }
 
-static BOOL process_args_from_reg( LPWSTR ident, int *pargc, WCHAR ***pargv )
+BOOL process_args_from_reg( LPWSTR ident, int *pargc, WCHAR ***pargv )
 {
 	LONG r;
 	HKEY hkey = 0, hkeyArgs = 0;

@@ -30,8 +30,8 @@
 
 BOOL INTERNAL_CALL GDI_CleanupForProcess (struct _EPROCESS *Process);
 
-extern ULONG_PTR Win32kSSDT[];
-extern UCHAR Win32kSSPT[];
+extern SSDT Win32kSSDT[];
+extern SSPT Win32kSSPT[];
 extern ULONG Win32kNumberOfSysCalls;
 
 PSHARED_SECTION_POOL SessionSharedSectionPool = NULL;
@@ -42,10 +42,6 @@ Win32kProcessCallback(struct _EPROCESS *Process,
                       BOOLEAN Create)
 {
     PW32PROCESS Win32Process;
-    DECLARE_RETURN(NTSTATUS);
-    
-    DPRINT("Enter Win32kProcessCallback\n");
-    UserEnterExclusive();
     
     /* Get the Win32 Process */
     Win32Process = PsGetProcessWin32Process(Process);
@@ -58,7 +54,7 @@ Win32kProcessCallback(struct _EPROCESS *Process,
                                              sizeof(W32PROCESS),
                                              TAG('W', '3', '2', 'p'));
 
-        if (Win32Process == NULL) RETURN( STATUS_NO_MEMORY);
+        if (Win32Process == NULL) return STATUS_NO_MEMORY;
 
         RtlZeroMemory(Win32Process, sizeof(W32PROCESS));
         
@@ -71,8 +67,10 @@ Win32kProcessCallback(struct _EPROCESS *Process,
       DPRINT("Creating W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
 
       InitializeListHead(&Win32Process->ClassListHead);
+      ExInitializeFastMutex(&Win32Process->ClassListLock);
 
       InitializeListHead(&Win32Process->MenuListHead);
+      ExInitializeFastMutex(&Win32Process->MenuListLock);
 
       InitializeListHead(&Win32Process->PrivateFontListHead);
       ExInitializeFastMutex(&Win32Process->PrivateFontListLock);
@@ -103,7 +101,7 @@ Win32kProcessCallback(struct _EPROCESS *Process,
 
       GDI_CleanupForProcess(Process);
 
-      co_IntGraphicsCheck(FALSE);
+      IntGraphicsCheck(FALSE);
 
       /*
        * Deregister logon application automatically
@@ -114,12 +112,7 @@ Win32kProcessCallback(struct _EPROCESS *Process,
       }
     }
 
-  RETURN( STATUS_SUCCESS);
-  
-CLEANUP:
-  UserLeave();
-  DPRINT("Leave Win32kProcessCallback, ret=%i\n",_ret_);
-  END_CLEANUP;
+  return STATUS_SUCCESS;
 }
 
 
@@ -130,10 +123,6 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
 {
     struct _EPROCESS *Process;
     PW32THREAD Win32Thread;
-    DECLARE_RETURN(NTSTATUS);
-    
-    DPRINT("Enter Win32kThreadCallback\n");
-    UserEnterExclusive();
 
     Process = Thread->ThreadsProcess;
     
@@ -148,7 +137,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
                                             sizeof(W32THREAD),
                                             TAG('W', '3', '2', 't'));
 
-        if (Win32Thread == NULL) RETURN( STATUS_NO_MEMORY);
+        if (Win32Thread == NULL) return STATUS_NO_MEMORY;
 
         RtlZeroMemory(Win32Thread, sizeof(W32THREAD));
         
@@ -210,24 +199,22 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
         }
       }
       Win32Thread->IsExiting = FALSE;
-      co_IntDestroyCaret(Win32Thread);
+      IntDestroyCaret(Win32Thread);
       Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);
       Win32Thread->KeyboardLayout = W32kGetDefaultKeyLayout();
       Win32Thread->MessagePumpHookValue = 0;
       InitializeListHead(&Win32Thread->WindowListHead);
+      ExInitializeFastMutex(&Win32Thread->WindowListLock);
       InitializeListHead(&Win32Thread->W32CallbackListHead);
     }
   else
     {
-      PSINGLE_LIST_ENTRY e;
-      
       DPRINT("Destroying W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
 
       Win32Thread->IsExiting = TRUE;
       HOOK_DestroyThreadHooks(Thread);
       UnregisterThreadHotKeys(Thread);
-      /* what if this co_ func crash in umode? what will clean us up then? */
-      co_DestroyThreadWindows(Thread);
+      DestroyThreadWindows(Thread);
       IntBlockInput(Win32Thread, FALSE);
       MsqDestroyMessageQueue(Win32Thread->MessageQueue);
       IntCleanupThreadCallbacks(Win32Thread);
@@ -235,25 +222,9 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
       {
         ObDereferenceObject(Win32Thread->Desktop);
       }
-      
-      /* cleanup user object references stack */
-      e = PopEntryList(&Win32Thread->ReferencesList);
-      while (e)
-      {
-         PUSER_REFERENCE_ENTRY ref = CONTAINING_RECORD(e, USER_REFERENCE_ENTRY, Entry);
-         DPRINT1("thread clean: remove reference obj 0x%x\n",ref->obj);
-         ObmDereferenceObject(ref->obj);
-         
-         e = PopEntryList(&Win32Thread->ReferencesList);
-      }
     }
 
-  RETURN( STATUS_SUCCESS);
-  
-CLEANUP:
-  UserLeave();
-  DPRINT("Leave Win32kThreadCallback, ret=%i\n",_ret_);
-  END_CLEANUP;
+  return STATUS_SUCCESS;
 }
 
 /* Only used in ntuser/input.c KeyboardThreadMain(). If it's
@@ -343,13 +314,6 @@ DriverEntry (
   if (!NT_SUCCESS(Status))
   {
     DPRINT1("Failed to initialize the shared section pool: Status 0x%x\n", Status);
-  }
-
-  Status = InitUserImpl();
-  if (!NT_SUCCESS(Status))
-  {
-    DPRINT1("Failed to initialize user implementation!\n");
-    return STATUS_UNSUCCESSFUL;
   }
 
   Status = InitWindowStationImpl();

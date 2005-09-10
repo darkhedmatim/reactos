@@ -152,7 +152,6 @@ VOID ConErrChar (TCHAR);
 VOID ConErrPuts (LPTSTR);
 VOID ConErrPrintf (LPTSTR, ...);
 VOID ConOutFormatMessage (DWORD MessageId, ...);
-VOID ConErrFormatMessage (DWORD MessageId, ...);
 
 SHORT GetCursorX  (VOID);
 SHORT GetCursorY  (VOID);
@@ -228,7 +227,6 @@ VOID CompleteFilename (LPTSTR, INT);
 INT  ShowCompletionMatches (LPTSTR, INT);
 #endif
 #ifdef FEATURE_4NT_FILENAME_COMPLETION
-VOID CompleteFilename (LPTSTR, BOOL, LPTSTR, INT);
 #endif
 
 
@@ -293,8 +291,6 @@ INT CommandMemory (LPTSTR, LPTSTR);
 
 
 /* Prototypes for MISC.C */
-INT GetRootPath(TCHAR *InPath,TCHAR *OutPath,INT size);
-BOOL SetRootPath(TCHAR *InPath);
 TCHAR  cgetchar (VOID);
 BOOL   CheckCtrlBreak (INT);
 LPTSTR *split (LPTSTR, LPINT, BOOL);

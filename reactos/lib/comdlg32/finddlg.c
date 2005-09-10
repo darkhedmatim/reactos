@@ -62,7 +62,7 @@ BOOL16 CALLBACK ReplaceTextDlgProc16(HWND16 hWnd, UINT16 wMsg, WPARAM16 wParam,
  * by a 16 bits application
  * FIXME : no test was done for the user-provided template cases
  */
-static BOOL FINDDLG_Get16BitsTemplate(LFRPRIVATE lfr)
+BOOL FINDDLG_Get16BitsTemplate(LFRPRIVATE lfr)
 {
     LPFINDREPLACE16 fr16 = lfr->fr16;
 
@@ -150,7 +150,7 @@ static BOOL FINDDLG_Get16BitsTemplate(LFRPRIVATE lfr)
  *
  * Free resources allocated
  */
-static void FINDDLG_FreeResources(LFRPRIVATE lfr)
+void FINDDLG_FreeResources(LFRPRIVATE lfr)
 {
     /* free resources */
     if (lfr->fr16->Flags & FR_ENABLETEMPLATEHANDLE)

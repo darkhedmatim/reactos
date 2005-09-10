@@ -51,7 +51,6 @@ ExpDeleteMutant(PVOID ObjectBody)
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpInitializeMutantImplementation(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -68,6 +67,7 @@ ExpInitializeMutantImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.DeleteProcedure = ExpDeleteMutant;
     ObjectTypeInitializer.ValidAccessMask = MUTANT_ALL_ACCESS;
+    ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExMutantObjectType);
 }
 
@@ -90,11 +90,13 @@ NtCreateMutant(OUT PHANDLE MutantHandle,
     DPRINT("NtCreateMutant(0x%p, 0x%x, 0x%p)\n", MutantHandle, DesiredAccess, ObjectAttributes);
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode) {
+    if(PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(MutantHandle);
+            ProbeForWrite(MutantHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -167,11 +169,13 @@ NtOpenMutant(OUT PHANDLE MutantHandle,
     DPRINT("NtOpenMutant(0x%p, 0x%x, 0x%p)\n", MutantHandle, DesiredAccess, ObjectAttributes);
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode) {
+    if(PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(MutantHandle);
+            ProbeForWrite(MutantHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -301,7 +305,9 @@ NtReleaseMutant(IN HANDLE MutantHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteLong(PreviousCount);
+            ProbeForWrite(PreviousCount,
+                          sizeof(LONG),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();

@@ -9,11 +9,6 @@ HKCR,".exe","",0x00000000,"exefile"
 HKCR,"exefile\Defaulticon","",0x00000000,"%1"
 HKCR,"exefile\shell\open\command","",0x00000000,"""%1"" %*"
 
-; Show icons for inf (installation) files
-HKCR,".inf","",0x00000000,"inffile"
-HKCR,"inffile\DefaultIcon","",0x00000000,"%SystemRoot%\System32\shell32.dll,-151"
-HKCR,"inffile\shell\Install\command","",0x00020000,"%SystemRoot%\System32\rundll32.exe setupapi,InstallHinfSection DefaultInstall 132 %1"
-
 ; Show icons for shortcuts in shell views (lnkfile is handled specially in shell32)
 ; Don't display extension for shortcuts
 HKCR,".lnk","",0x00000000,"lnkfile"
@@ -45,7 +40,7 @@ HKCR,"cplfile\shell\cplopen\command","",0x00020000,"%SystemRoot%\system32\rundll
 ; install notepad as handler for .txt files
 HKCR,".txt","",0x00000000,"txtfile"
 HKCR,".txt","Content Type",0x00000000,"text/plain"
-HKCR,"txtfile\shell\open\command","",0x00020000,"%SystemRoot%\System32\notepad.exe %1"
+HKCR,"txtfile\shell\open\command","",0x00020000,"%SystemRoot%\bin\notepad.exe %1"
 
 HKCR,"CLSID",,0x00000012
 

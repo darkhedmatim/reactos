@@ -41,9 +41,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
  */
 typedef struct SecManagerImpl{
 
-    const IInternetSecurityManagerVtbl* lpvtbl1;  /* VTable relative to the IInternetSecurityManager interface.*/
+    IInternetSecurityManagerVtbl*  lpvtbl1;  /* VTable relative to the IInternetSecurityManager interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
 } SecManagerImpl;
 
@@ -82,6 +82,8 @@ static ULONG WINAPI SecManagerImpl_AddRef(IInternetSecurityManager* iface)
 
     TRACE("(%p)->(ref before=%lu)\n",This, refCount - 1);
 
+    URLMON_LockModule();
+
     return refCount;
 }
 
@@ -95,8 +97,9 @@ static ULONG WINAPI SecManagerImpl_Release(IInternetSecurityManager* iface)
     /* destroy the object if there's no more reference on it */
     if (!refCount){
         HeapFree(GetProcessHeap(),0,This);
-        URLMON_UnlockModule();
     }
+
+    URLMON_UnlockModule();
 
     return refCount;
 }
@@ -171,7 +174,7 @@ static HRESULT WINAPI SecManagerImpl_GetZoneMappings(IInternetSecurityManager *i
     return E_NOTIMPL;
 }
 
-static const IInternetSecurityManagerVtbl VT_SecManagerImpl =
+static IInternetSecurityManagerVtbl VT_SecManagerImpl =
 {
     SecManagerImpl_QueryInterface,
     SecManagerImpl_AddRef,
@@ -198,9 +201,6 @@ HRESULT SecManagerImpl_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
     This->ref          = 1;
 
     *ppobj = This;
-
-    URLMON_LockModule();
-
     return S_OK;
 }
 
@@ -209,8 +209,8 @@ HRESULT SecManagerImpl_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
  *
  */
 typedef struct {
-    const IInternetZoneManagerVtbl* lpVtbl;
-    LONG ref;
+    IInternetZoneManagerVtbl* lpVtbl;
+    ULONG ref;
 } ZoneMgrImpl;
 
 /********************************************************************
@@ -247,6 +247,8 @@ static ULONG WINAPI ZoneMgrImpl_AddRef(IInternetZoneManager* iface)
 
     TRACE("(%p)->(ref before=%lu)\n",This, refCount - 1);
 
+    URLMON_LockModule();
+
     return refCount;
 }
 
@@ -260,10 +262,10 @@ static ULONG WINAPI ZoneMgrImpl_Release(IInternetZoneManager* iface)
 
     TRACE("(%p)->(ref before=%lu)\n",This, refCount + 1);
 
-    if(!refCount) {
+    if(!refCount)
         HeapFree(GetProcessHeap(), 0, This);
-        URLMON_UnlockModule();
-    }
+
+    URLMON_UnlockModule();
     
     return refCount;
 }
@@ -428,7 +430,7 @@ static HRESULT WINAPI ZoneMgrImpl_CopyTemplatePoliciesToZone(IInternetZoneManage
 /********************************************************************
  *      IInternetZoneManager_Construct
  */
-static const IInternetZoneManagerVtbl ZoneMgrImplVtbl = {
+static IInternetZoneManagerVtbl ZoneMgrImplVtbl = {
     ZoneMgrImpl_QueryInterface,
     ZoneMgrImpl_AddRef,
     ZoneMgrImpl_Release,
@@ -454,8 +456,6 @@ HRESULT ZoneMgrImpl_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
     ret->lpVtbl = &ZoneMgrImplVtbl;
     ret->ref = 1;
     *ppobj = (IInternetZoneManager*)ret;
-
-    URLMON_LockModule();
 
     return S_OK;
 }

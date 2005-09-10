@@ -1,68 +1,57 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/ex/zone.c
+ * FILE:            ntoskrnl/mm/zone.c
  * PURPOSE:         Implements zone buffers
  *
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
- *                  David Welch (welch@mcmail.com)
+ * PROGRAMMERS:     David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES ****************************************************************/
 
 #include <ntoskrnl.h>
-#define NDEBUG
-#include <debug.h>
 
 /* FUNCTIONS ***************************************************************/
 
+// undocumented? from extypes.h in here for now...
+
+//typedef struct _ZONE_ENTRY
+//{
+//   SINGLE_LIST_ENTRY Entry;
+//} ZONE_ENTRY, *PZONE_ENTRY;
+
+
+
 /*
  * @implemented
  */
 NTSTATUS
 STDCALL
-ExExtendZone(PZONE_HEADER Zone,
-             PVOID Segment,
-             ULONG SegmentSize)
+ExExtendZone (
+	PZONE_HEADER	Zone,
+	PVOID		Segment,
+	ULONG		SegmentSize
+	)
 {
-    ULONG_PTR Entry;
-    ULONG i;
+   PZONE_SEGMENT_HEADER entry;
+   PZONE_SEGMENT_HEADER seg;
+   unsigned int i;
 
-    /* 
-     * BlockSize and Segment must be 8-byte aligned.
-     * Blocksize cannot exceed Segment Size.
-     */
-    if (((ULONG_PTR)Segment & 7) || 
-        (SegmentSize & 7) || 
-        (Zone->BlockSize > SegmentSize))
-    {
-        DPRINT1("Invalid ExExtendZone Alignment and/or Size\n");
-        return STATUS_INVALID_PARAMETER;
-    }
+   seg = (PZONE_SEGMENT_HEADER)Segment;
+   seg->Reserved = (PVOID) SegmentSize;
 
-    /* Link the Zone and Segment */
-    PushEntryList(&Zone->SegmentList,&((PZONE_SEGMENT_HEADER)Segment)->SegmentList);
+   PushEntryList(&Zone->SegmentList,&seg->SegmentList);
 
-    /* Get to the first entry */
-    Entry = (ULONG_PTR)Segment + sizeof(ZONE_SEGMENT_HEADER);
+   entry = (PZONE_SEGMENT_HEADER)( ((char*)seg) + sizeof(ZONE_SEGMENT_HEADER) );
 
-    /* Loop through the segments */
-    for (i = sizeof(ZONE_SEGMENT_HEADER);
-         i <= SegmentSize - Zone->BlockSize;
-         i+= Zone->BlockSize)
-    {
-        /* Link the Free and Segment Lists */
-        PushEntryList(&Zone->FreeList, (PSINGLE_LIST_ENTRY)Entry);
-
-        /* Go to the next entry */
-        Entry += Zone->BlockSize;
-    }
-
-    /* Update Segment Size */
-    Zone->TotalSegmentSize += i;
-
-    /* Return Success */
-    return STATUS_SUCCESS;
+   for (i=0;i<(SegmentSize / Zone->BlockSize);i++)
+     {
+	PushEntryList(&Zone->FreeList,&entry->SegmentList);
+	entry = (PZONE_SEGMENT_HEADER)(((char*)entry) + sizeof(PZONE_SEGMENT_HEADER) +
+			      Zone->BlockSize);
+     }
+   return(STATUS_SUCCESS);
 }
 
 
@@ -71,26 +60,34 @@ ExExtendZone(PZONE_HEADER Zone,
  */
 NTSTATUS
 STDCALL
-ExInterlockedExtendZone(PZONE_HEADER Zone,
-                        PVOID Segment,
-                        ULONG SegmentSize,
-                        PKSPIN_LOCK	Lock)
+ExInterlockedExtendZone (
+	PZONE_HEADER	Zone,
+	PVOID		Segment,
+	ULONG		SegmentSize,
+	PKSPIN_LOCK	Lock
+	)
 {
-    NTSTATUS Status;
-    KIRQL OldIrql;
+   NTSTATUS ret;
+   KIRQL oldlvl;
 
-    /* Get the lock */
-    KeAcquireSpinLock(Lock, &OldIrql);
-
-    /* Extend the Zone */
-    Status = ExExtendZone(Zone, Segment, SegmentSize);
-
-    /* Release lock and return status */
-    KeReleaseSpinLock(Lock, OldIrql);
-    return Status;
+   KeAcquireSpinLock(Lock,&oldlvl);
+   ret = ExExtendZone(Zone,Segment,SegmentSize);
+   KeReleaseSpinLock(Lock,oldlvl);
+   return(ret);
 }
 
 
+/*
+ * @implemented
+ */
+NTSTATUS
+STDCALL
+ExInitializeZone (
+	PZONE_HEADER	Zone,
+	ULONG		BlockSize,
+	PVOID		InitialSegment,
+	ULONG		InitialSegmentSize
+	)
 /*
  * FUNCTION: Initalizes a zone header
  * ARGUMENTS:
@@ -99,60 +96,31 @@ ExInterlockedExtendZone(PZONE_HEADER Zone,
  *          InitialSegment = Initial segment of storage allocated by the
  *                           caller
  *          InitialSegmentSize = Initial size of the segment
- *
- * @implemented
  */
-NTSTATUS
-STDCALL
-ExInitializeZone(PZONE_HEADER Zone,
-                 ULONG BlockSize,
-                 PVOID InitialSegment,
-                 ULONG InitialSegmentSize)
 {
-    ULONG i;
-    ULONG_PTR Entry;
+   unsigned int i;
+   PZONE_SEGMENT_HEADER seg;
+   PZONE_SEGMENT_HEADER entry;
 
-    /* 
-     * BlockSize and Segment must be 8-byte aligned.
-     * Blocksize cannot exceed Segment Size.
-     */
-    if (((ULONG_PTR)InitialSegment & 7) ||
-        (InitialSegmentSize & 7) ||
-        (BlockSize > InitialSegmentSize))
-    {
-        DPRINT1("Invalid ExInitializeZone Alignment and/or Size\n");
-        return STATUS_INVALID_PARAMETER;
-    }
+   Zone->FreeList.Next=NULL;
+   Zone->SegmentList.Next=NULL;
+   Zone->BlockSize=BlockSize;
+   Zone->TotalSegmentSize = InitialSegmentSize;
 
-    /* Set the Zone Header */
-    Zone->BlockSize = BlockSize;
+   seg = (PZONE_SEGMENT_HEADER)InitialSegment;
+   seg->Reserved = (PVOID*) InitialSegmentSize;
 
-    /* Link empty list */
-    Zone->FreeList.Next = NULL;
-    Zone->SegmentList.Next = NULL;
-    PushEntryList(&Zone->SegmentList, &((PZONE_SEGMENT_HEADER)InitialSegment)->SegmentList);
-    ((PZONE_SEGMENT_HEADER)InitialSegment)->Reserved = NULL;
+   PushEntryList(&Zone->SegmentList,&seg->SegmentList);
 
-    /* Get first entry */
-    Entry = (ULONG_PTR)InitialSegment + sizeof(ZONE_SEGMENT_HEADER);
+   entry = (PZONE_SEGMENT_HEADER)( ((char*)seg) + sizeof(ZONE_SEGMENT_HEADER) );
 
-    /* Loop through the segments */
-    for (i = sizeof(ZONE_SEGMENT_HEADER);
-         i <= InitialSegmentSize - BlockSize;
-         i+= BlockSize)
-    {
-        /* Link the Free and Segment Lists */
-        PushEntryList(&Zone->FreeList, (PSINGLE_LIST_ENTRY)Entry);
+   for (i=0;i<(InitialSegmentSize / BlockSize);i++)
+     {
+	PushEntryList(&Zone->FreeList,&entry->SegmentList);
+	entry = (PZONE_SEGMENT_HEADER)(((char*)entry) + sizeof(PZONE_SEGMENT_HEADER) + BlockSize);
+     }
 
-        /* Go to the next entry */
-        Entry += Zone->BlockSize;
-    }
-
-    /* Update Segment Size */
-    Zone->TotalSegmentSize += i;
-
-    /* Return success */
-    return STATUS_SUCCESS;
+   return(STATUS_SUCCESS);
 }
 
 /* EOF */

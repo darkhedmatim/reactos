@@ -65,6 +65,9 @@ HRESULT WINAPI SHILCreateFromPathW (
 	LPITEMIDLIST * ppidl,
 	DWORD *attributes);
 
+LPITEMIDLIST WINAPI ILCreateFromPathA(LPCSTR path);
+LPITEMIDLIST WINAPI ILCreateFromPathW(LPCWSTR path);
+
 /*
 	string functions
 */
@@ -120,6 +123,15 @@ void WINAPI RunFileDlg(
 	UINT uFlags);
 
 void WINAPI ExitWindowsDialog(HWND hwndOwner);
+
+BOOL WINAPI GetFileNameFromBrowse(
+	HWND hwndOwner,
+	LPSTR lpstrFile,
+	DWORD nMaxFile,
+	LPCSTR lpstrInitialDir,
+	LPCSTR lpstrDefExt,
+	LPCSTR lpstrFilter,
+	LPCSTR lpstrTitle);
 
 BOOL WINAPI SHFindComputer(
 	LPCITEMIDLIST pidlRoot,

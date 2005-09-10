@@ -9,11 +9,10 @@
 /* INCLUDES ******************************************************************/
 
 /* Internal Win32k Headers */
-#include <include/ntuser.h>
-#include <include/win32.h>
 #include <include/ssec.h>
 #include <include/accelerator.h>
 #include <include/callback.h>
+#include <include/caret.h>
 #include <include/class.h>
 #include <include/cleanup.h>
 #include <include/clipboard.h>
@@ -53,12 +52,10 @@
 #include <include/useratom.h>
 #include <include/vis.h>
 #include <include/window.h>
-#include <include/caret.h>
-#include <include/userfuncs.h>
 #include <include/winpos.h>
 #include <include/winsta.h>
-#include <include/mmcopy.h>
 #include <eng/objects.h>
 #include <eng/misc.h>
 #include <dib/dib.h>
+
 /* EOF */

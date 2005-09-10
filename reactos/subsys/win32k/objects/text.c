@@ -114,7 +114,7 @@ static CHARSETINFO FontTci[MAXTCIINDEX] = {
   { DEFAULT_CHARSET, 0, FS(0)},
   /* reserved for system */
   { DEFAULT_CHARSET, 0, FS(0)},
-  { SYMBOL_CHARSET, 42 /* CP_SYMBOL */, FS(31)},
+  { SYMBOL_CHARSET, CP_SYMBOL, FS(31)},
 };
 
 VOID FASTCALL
@@ -256,24 +256,22 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
    HANDLE FileHandle;
    OBJECT_ATTRIBUTES ObjectAttributes;
    FILE_STANDARD_INFORMATION FileStdInfo;
-   PVOID Buffer = NULL;
+   PVOID Buffer;
    IO_STATUS_BLOCK Iosb;
    INT Error;
    FT_Face Face;
    ANSI_STRING AnsiFaceName;
    PFONT_ENTRY Entry;
-   PSECTION_OBJECT SectionObject;
-   ULONG ViewSize = 0;
 
    /* Open the font file */
 
    InitializeObjectAttributes(&ObjectAttributes, FileName, 0, NULL, NULL);
    Status = ZwOpenFile(
       &FileHandle,
-      FILE_GENERIC_READ | SYNCHRONIZE,
+      GENERIC_READ | SYNCHRONIZE,
       &ObjectAttributes,
       &Iosb,
-      FILE_SHARE_READ,
+      0,
       FILE_SYNCHRONOUS_IO_NONALERT);
 
    if (!NT_SUCCESS(Status))
@@ -282,24 +280,58 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
       return 0;
    }
 
-   Status = MmCreateSection(&SectionObject, SECTION_ALL_ACCESS,
-                            NULL, NULL, PAGE_READONLY,
-                            0, FileHandle, NULL);
+   /* Get the size of the file */
+
+   Status = NtQueryInformationFile(
+      FileHandle,
+      &Iosb,
+      &FileStdInfo,
+      sizeof(FileStdInfo),
+      FileStandardInformation);
+
    if (!NT_SUCCESS(Status))
    {
-      DPRINT("Could not map file: %wZ\n", FileName);
+      DPRINT("Could not get file size\n");
+      ZwClose(FileHandle);
+      return 0;
+   }
+
+   /* Allocate pageable memory for the font */
+
+   Buffer = ExAllocatePoolWithTag(
+      PagedPool,
+      FileStdInfo.EndOfFile.u.LowPart,
+      TAG_FNTFILE);
+
+   if (Buffer == NULL)
+   {
+      DPRINT("Could not allocate memory for font");
+      ZwClose(FileHandle);
+      return 0;
+   }
+
+   /* Load the font into memory chunk */
+
+   Status = ZwReadFile(
+      FileHandle,
+      NULL,
+      NULL,
+      NULL,
+      &Iosb,
+      Buffer,
+      FileStdInfo.EndOfFile.u.LowPart,
+      NULL,
+      NULL);
+
+   if (!NT_SUCCESS(Status))
+   {
+      DPRINT("Could not read the font file into memory");
+      ExFreePool(Buffer);
       ZwClose(FileHandle);
       return 0;
    }
 
    ZwClose(FileHandle);
-
-   Status = MmMapViewInSystemSpace(SectionObject, &Buffer, &ViewSize);
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT("Could not map file: %wZ\n", FileName);
-      return Status;
-   }
 
    IntLockFreeType;
    Error = FT_New_Memory_Face(
@@ -316,7 +348,7 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
          DPRINT("Unknown font file format\n");
       else
          DPRINT("Error reading font file (error code: %u)\n", Error);
-      ObDereferenceObject(SectionObject);
+      ExFreePool(Buffer);
       return 0;
    }
 
@@ -324,7 +356,7 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
    if (!Entry)
    {
       FT_Done_Face(Face);
-      ObDereferenceObject(SectionObject);
+      ExFreePool(Buffer);
       SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
       return 0;
    }
@@ -333,7 +365,7 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
    if(FontGDI == NULL)
    {
       FT_Done_Face(Face);
-      ObDereferenceObject(SectionObject);
+      ExFreePool(Buffer);
       ExFreePool(Entry);
       SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
       return 0;
@@ -1012,7 +1044,7 @@ FontFamilyFillInfo(PFONTFAMILYINFO Info, PCWSTR FaceName, PFONTGDI FontGDI)
   TEXTMETRICW *TM;
   NEWTEXTMETRICW *Ntm;
 
-  RtlZeroMemory(Info, sizeof(FONTFAMILYINFO));
+  ZeroMemory(Info, sizeof(FONTFAMILYINFO));
   Size = IntGetOutlineTextMetrics(FontGDI, 0, NULL);
   Otm = ExAllocatePoolWithTag(PagedPool, Size, TAG_GDITEXT);
   if (NULL == Otm)

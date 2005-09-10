@@ -1,262 +1,297 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS System Libraries
- * FILE:        lib/kernel32/thread/fiber.c
- * PURPOSE:     Fiber Implementation
- * PROGRAMMERS: 
- *              Alex Ionescu (alex@relsoft.net)
- *              KJK::Hyperion <noog@libero.it>
+/* $Id$
+ *
+ * FILE: lib/kernel32/thread/fiber.c
+ *
+ * ReactOS Kernel32.dll
+ *
  */
 #include <k32.h>
+
+/* FIXME */
+#include <rosrtl/thread.h>
 
 #define NDEBUG
 #include "../include/debug.h"
 
-typedef struct _FIBER                                      /* Field offsets:  */
-{                                                          /* 32 bit   64 bit */
-    /* this must be the first field */
-    LPVOID Parameter;                                      /*   0x00     0x00 */
-    struct _EXCEPTION_REGISTRATION_RECORD * ExceptionList; /*   0x04     0x08 */
-    LPVOID StackBase;                                      /*   0x08     0x10 */
-    LPVOID StackLimit;                                     /*   0x0C     0x18 */
-    LPVOID DeallocationStack;                              /*   0x10     0x20 */
-    CONTEXT Context;                                       /*   0x14     0x28 */
-    ULONG GuaranteedStackBytes;                            /*   0x2E0         */
-    PVOID FlsData;                                         /*   0x2E4         */
-    PVOID ActivationContextStack;                          /*   0x2E8         */
-} FIBER, *PFIBER;
+struct _FIBER                                           /* Field offsets:  */
+{                                                       /* 32 bit   64 bit */
+ /* this must be the first field */
+ LPVOID Parameter;                                      /*   0x00     0x00 */
+
+ struct _EXCEPTION_REGISTRATION_RECORD * ExceptionList; /*   0x04     0x08 */
+ LPVOID StackBase;                                      /*   0x08     0x10 */
+ LPVOID StackLimit;                                     /*   0x0C     0x18 */
+ LPVOID DeallocationStack;                              /*   0x10     0x20 */
+ ULONG_PTR Flags;                                       /*   0x14     0x28 */
+#if defined(_M_IX86)
+ /* control flow registers */
+ DWORD Eip;                                             /*   0x18     ---- */
+ DWORD Esp;                                             /*   0x1C     ---- */
+ DWORD Ebp;                                             /*   0x20     ---- */
+
+ /* general-purpose registers that must be preserved across calls */
+ DWORD Ebx;                                             /*   0x24     ---- */
+ DWORD Esi;                                             /*   0x28     ---- */
+ DWORD Edi;                                             /*   0x2C     ---- */
+
+ /* floating point save area (optional) */
+ FLOATING_SAVE_AREA FloatSave;                          /*   0x30     ---- */
+#else
+#error Unspecified or unsupported architecture.
+#endif
+};
+
+typedef struct _FIBER FIBER, * PFIBER;
+
+__declspec(noreturn) void WINAPI FiberStartup(PVOID lpStartAddress);
 
 /*
  * @implemented
  */
-BOOL
-WINAPI
-ConvertFiberToThread(VOID)
+BOOL WINAPI ConvertFiberToThread(void)
 {
-    PTEB pTeb = NtCurrentTeb();
-    DPRINT1("Converting Fiber to Thread\n");
+ PTEB pTeb = NtCurrentTeb();
 
-    /* the current thread isn't running a fiber: failure */
-    if(!pTeb->HasFiberData)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
+ /* the current thread isn't running a fiber: failure */
+ if(!pTeb->IsFiber)
+ {
+  SetLastError(ERROR_INVALID_PARAMETER);
+  return FALSE;
+ }
 
-    /* this thread won't run a fiber anymore */
-    pTeb->HasFiberData = FALSE;
+ /* this thread won't run a fiber anymore */
+ pTeb->IsFiber = FALSE;
 
-    /* free the fiber */
-    if(pTeb->Tib.FiberData != NULL)
-    {
-        RtlFreeHeap(GetProcessHeap(), 0, pTeb->Tib.FiberData);
-    }
+ /* free the fiber */
+ if(pTeb->Tib.FiberData != NULL)
+  RtlFreeHeap(pTeb->Peb->ProcessHeap, 0, pTeb->Tib.FiberData);
 
-    /* success */
-    return TRUE;
+ /* success */
+ return TRUE;
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-WINAPI
-ConvertThreadToFiberEx(LPVOID lpParameter, 
-                       DWORD dwFlags)
+LPVOID WINAPI ConvertThreadToFiberEx(LPVOID lpParameter, DWORD dwFlags)
 {
-    PTEB pTeb = NtCurrentTeb();
-    PFIBER pfCurFiber;
-    DPRINT1("Converting Thread to Fiber\n");
+ PTEB pTeb = NtCurrentTeb();
+ PFIBER pfCurFiber;
 
-    /* the current thread is already a fiber */
-    if(pTeb->HasFiberData && pTeb->Tib.FiberData) return pTeb->Tib.FiberData;
+ /* the current thread is already a fiber */
+ if(pTeb->IsFiber && pTeb->Tib.FiberData) return pTeb->Tib.FiberData;
 
-    /* allocate the fiber */
-    pfCurFiber = (PFIBER)RtlAllocateHeap(GetProcessHeap(), 
-                                         0,
-                                         sizeof(FIBER));
+ /* allocate the fiber */
+ pfCurFiber = (PFIBER)RtlAllocateHeap(pTeb->Peb->ProcessHeap, 0, sizeof(FIBER));
 
-    /* failure */
-    if(pfCurFiber == NULL)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return NULL;
-    }
+ /* failure */
+ if(pfCurFiber == NULL)
+ {
+  SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+  return NULL;
+ }
 
-    /* copy some contextual data from the thread to the fiber */
-    pfCurFiber->ExceptionList = pTeb->Tib.ExceptionList;
-    pfCurFiber->StackBase = pTeb->Tib.StackBase;
-    pfCurFiber->StackLimit = pTeb->Tib.StackLimit;
-    pfCurFiber->DeallocationStack = pTeb->DeallocationStack;
-    pfCurFiber->FlsData = pTeb->FlsData;
-    pfCurFiber->GuaranteedStackBytes = pTeb->GuaranteedStackBytes;
-    pfCurFiber->ActivationContextStack = pTeb->ActivationContextStackPointer;
-    pfCurFiber->Context.ContextFlags = CONTEXT_FULL;
-    
-    /* Save FPU State if requsted */
-    if (dwFlags & FIBER_FLAG_FLOAT_SWITCH)
-    {
-        pfCurFiber->Context.ContextFlags |= CONTEXT_FLOATING_POINT;
-    }
+ pfCurFiber->Parameter = lpParameter;
+ pfCurFiber->Flags = dwFlags;
 
-    /* associate the fiber to the current thread */
-    pTeb->Tib.FiberData = pfCurFiber;
-    pTeb->HasFiberData = TRUE;
+ /* copy some contextual data from the thread to the fiber */
+ pfCurFiber->ExceptionList = pTeb->Tib.ExceptionList;
+ pfCurFiber->StackBase = pTeb->Tib.StackBase;
+ pfCurFiber->StackLimit = pTeb->Tib.StackLimit;
+ pfCurFiber->DeallocationStack = pTeb->DeallocationStack;
 
-    /* success */
-    return (LPVOID)pfCurFiber;
+ /* associate the fiber to the current thread */
+ pTeb->Tib.FiberData = pfCurFiber;
+ pTeb->IsFiber = TRUE;
+
+ /* success */
+ return (LPVOID)pfCurFiber;
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-WINAPI
-ConvertThreadToFiber(LPVOID lpParameter)
+LPVOID WINAPI ConvertThreadToFiber(LPVOID lpParameter)
 {
-    /* Call the newer function */
-    return ConvertThreadToFiberEx(lpParameter, 0);
+ return ConvertThreadToFiberEx(lpParameter, 0);
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-WINAPI
-CreateFiber(SIZE_T dwStackSize,
-            LPFIBER_START_ROUTINE lpStartAddress,
-            LPVOID lpParameter)
+LPVOID WINAPI CreateFiber
+(
+ SIZE_T dwStackSize,
+ LPFIBER_START_ROUTINE lpStartAddress,
+ LPVOID lpParameter
+)
 {
-    /* Call the Newer Function */
-    return CreateFiberEx(dwStackSize, 0, 0, lpStartAddress, lpParameter);
+ return CreateFiberEx(dwStackSize, 0, 0, lpStartAddress, lpParameter);
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-WINAPI
-CreateFiberEx(SIZE_T dwStackCommitSize,
-              SIZE_T dwStackReserveSize,
-              DWORD dwFlags,
-              LPFIBER_START_ROUTINE lpStartAddress,
-              LPVOID lpParameter)
+LPVOID WINAPI CreateFiberEx
+(
+ SIZE_T dwStackCommitSize,
+ SIZE_T dwStackReserveSize,
+ DWORD dwFlags,
+ LPFIBER_START_ROUTINE lpStartAddress,
+ LPVOID lpParameter
+)
 {
-    PFIBER pfCurFiber;
-    NTSTATUS nErrCode;
-    INITIAL_TEB usFiberInitialTeb;
-    CONTEXT ctxFiberContext;
-    PVOID ActivationContextStack = NULL;
-    DPRINT1("Creating Fiber\n");
+ PFIBER pfCurFiber;
+ NTSTATUS nErrCode;
+ PSIZE_T pnStackReserve = NULL;
+ PSIZE_T pnStackCommit = NULL;
+ INITIAL_TEB usFiberInitialTeb;
+ CONTEXT ctxFiberContext;
+ PTEB pTeb = NtCurrentTeb();
 
-    #ifdef SXS_SUPPORT_ENABLED
-    /* Allocate the Activation Context Stack */
-    nErrCode = RtlAllocateActivationContextStack(&ActivationContextStack);
-    #endif
-    
-    /* Allocate the fiber */
-    pfCurFiber = (PFIBER)RtlAllocateHeap(GetProcessHeap(), 
-                                         0,
-                                         sizeof(FIBER));
-    /* Failure */
-    if(pfCurFiber == NULL)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return NULL;
-    }
+ /* allocate the fiber */
+ pfCurFiber = (PFIBER)RtlAllocateHeap(pTeb->Peb->ProcessHeap, 0, sizeof(FIBER));
 
-    /* Create the stack for the fiber */
-    nErrCode = BasepCreateStack(NtCurrentProcess(),
-                                dwStackCommitSize,
-                                dwStackReserveSize,
-                                &usFiberInitialTeb);
-    /* Failure */
-    if(!NT_SUCCESS(nErrCode)) 
-    {
-        /* Free the fiber */
-        RtlFreeHeap(GetProcessHeap(), 0, pfCurFiber);
+ /* failure */
+ if(pfCurFiber == NULL)
+ {
+  SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+  return NULL;
+ }
 
-        /* Failure */
-        SetLastErrorByStatus(nErrCode);
-        return NULL;
-    }
-    
-    /* Clear the context */
-    RtlZeroMemory(&pfCurFiber->Context, sizeof(CONTEXT));
-    
-    /* copy the data into the fiber */
-    pfCurFiber->StackBase = usFiberInitialTeb.StackBase;
-    pfCurFiber->StackLimit = usFiberInitialTeb.StackLimit;
-    pfCurFiber->DeallocationStack = usFiberInitialTeb.AllocatedStackBase;
-    pfCurFiber->Parameter = lpParameter;
-    pfCurFiber->ExceptionList = (struct _EXCEPTION_REGISTRATION_RECORD *)-1;
-    pfCurFiber->GuaranteedStackBytes = 0;
-    pfCurFiber->FlsData = NULL;
-    pfCurFiber->ActivationContextStack = ActivationContextStack;
-    pfCurFiber->Context.ContextFlags = CONTEXT_FULL;
-    
-    /* Save FPU State if requsted */
-    if (dwFlags & FIBER_FLAG_FLOAT_SWITCH)
-    {
-        pfCurFiber->Context.ContextFlags |= CONTEXT_FLOATING_POINT;
-    }
-    
-    /* initialize the context for the fiber */
-    BasepInitializeContext(&ctxFiberContext,
-                           lpParameter,
-                           lpStartAddress,
-                           usFiberInitialTeb.StackBase,
-                           2);
- 
-    /* Return the Fiber */ 
-    return pfCurFiber;
+ /* if the stack reserve or commit size weren't specified, use defaults */
+ if(dwStackReserveSize > 0) pnStackReserve = &dwStackReserveSize;
+ if(dwStackCommitSize > 0) pnStackCommit = &dwStackCommitSize;
+
+ /* create the stack for the fiber */
+ nErrCode = RtlRosCreateStack
+ (
+  NtCurrentProcess(),
+  &usFiberInitialTeb,
+  0,
+  pnStackReserve,
+  pnStackCommit
+ );
+
+ /* failure */
+ if(!NT_SUCCESS(nErrCode)) goto l_CleanupFiber;
+
+ /* initialize the context for the fiber */
+ nErrCode = RtlRosInitializeContext
+ (
+  NtCurrentProcess(),
+  &ctxFiberContext,
+  FiberStartup,
+  &usFiberInitialTeb,
+  1,
+  (ULONG_PTR *)&lpStartAddress
+ );
+
+ /* failure */
+ if(!NT_SUCCESS(nErrCode)) goto l_CleanupStack;
+
+ /* copy the data into the fiber */
+
+ /* fixed-size stack */
+ if(usFiberInitialTeb.StackBase && usFiberInitialTeb.StackLimit)
+ {
+  pfCurFiber->StackBase = usFiberInitialTeb.StackBase;
+  pfCurFiber->StackLimit = usFiberInitialTeb.StackLimit;
+  pfCurFiber->DeallocationStack = usFiberInitialTeb.StackLimit;
+ }
+ /* expandable stack */
+ else if
+ (
+  usFiberInitialTeb.StackCommit &&
+  usFiberInitialTeb.StackCommitMax &&
+  usFiberInitialTeb.StackReserved
+ )
+ {
+  pfCurFiber->StackBase = usFiberInitialTeb.StackCommit;
+  pfCurFiber->StackLimit = usFiberInitialTeb.StackCommitMax;
+  pfCurFiber->DeallocationStack = usFiberInitialTeb.StackReserved;
+ }
+ /* bad initial stack */
+ else goto l_CleanupStack;
+
+ pfCurFiber->Parameter = lpParameter;
+ pfCurFiber->Flags = dwFlags;
+ pfCurFiber->ExceptionList = (struct _EXCEPTION_REGISTRATION_RECORD *)-1;
+
+#if defined(_M_IX86)
+
+ pfCurFiber->Eip = ctxFiberContext.Eip;
+ pfCurFiber->Esp = ctxFiberContext.Esp;
+ pfCurFiber->Ebp = ctxFiberContext.Ebp;
+ pfCurFiber->Ebx = ctxFiberContext.Ebx;
+ pfCurFiber->Esi = ctxFiberContext.Esi;
+ pfCurFiber->Edi = ctxFiberContext.Edi;
+
+ if(dwFlags & FIBER_FLAG_FLOAT_SWITCH)
+  pfCurFiber->FloatSave = ctxFiberContext.FloatSave;
+
+#else
+#error Unspecified or unsupported architecture.
+#endif
+
+ return pfCurFiber;
+
+l_CleanupStack:
+ /* free the stack */
+ RtlRosDeleteStack(NtCurrentProcess(), &usFiberInitialTeb);
+
+l_CleanupFiber:
+ /* free the fiber */
+ RtlFreeHeap(pTeb->Peb->ProcessHeap, 0, pfCurFiber);
+
+ /* failure */
+ ASSERT(!NT_SUCCESS(nErrCode));
+ SetLastErrorByStatus(nErrCode);
+ return NULL;
 }
+
 
 /*
  * @implemented
  */
-VOID
-WINAPI
-DeleteFiber(LPVOID lpFiber)
+void WINAPI DeleteFiber(LPVOID lpFiber)
 {
-    SIZE_T nSize = 0;
-    PVOID pStackAllocBase = ((PFIBER)lpFiber)->DeallocationStack;
+ SIZE_T nSize = 0;
+ PVOID pStackAllocBase = ((PFIBER)lpFiber)->DeallocationStack;
+ PTEB pTeb = NtCurrentTeb();
 
-    /* free the fiber */
-    RtlFreeHeap(GetProcessHeap(), 0, lpFiber);
+ /* free the fiber */
+ RtlFreeHeap(pTeb->Peb->ProcessHeap, 0, lpFiber);
 
-    /* the fiber is deleting itself: let the system deallocate the stack */
-    if(NtCurrentTeb()->Tib.FiberData == lpFiber) ExitThread(1);
+ /* the fiber is deleting itself: let the system deallocate the stack */
+ if(pTeb->Tib.FiberData == lpFiber) ExitThread(1);
 
-    /* deallocate the stack */
-    NtFreeVirtualMemory(NtCurrentProcess(),
-                        &pStackAllocBase,
-                        &nSize,
-                        MEM_RELEASE);
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-IsThreadAFiber(VOID)
-{
-    return NtCurrentTeb()->HasFiberData;
+ /* deallocate the stack */
+ NtFreeVirtualMemory
+ (
+  NtCurrentProcess(),
+  &pStackAllocBase,
+  &nSize,
+  MEM_RELEASE
+ );
 }
 
 
-__declspec(noreturn)
-VOID
-WINAPI
-BaseFiberStartup(VOID)
+__declspec(noreturn) extern void WINAPI ThreadStartup
+(
+ LPTHREAD_START_ROUTINE lpStartAddress,
+ LPVOID lpParameter
+);
+
+
+__declspec(noreturn) void WINAPI FiberStartup(PVOID lpStartAddress)
 {
-    PFIBER Fiber = GetFiberData();
-    
-    /* Call the Thread Startup Routine */
-    DPRINT1("Starting Fiber\n");
-    BaseThreadStartup((LPTHREAD_START_ROUTINE)Fiber->Context.Eax,
-                      (LPVOID)Fiber->Context.Ebx);
+ /* FIXME? this should be pretty accurate */
+ ThreadStartup(lpStartAddress, GetFiberData());
 }
 
 /* EOF */

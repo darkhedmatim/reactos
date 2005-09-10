@@ -1,4 +1,3 @@
-<group>
 <directory name="acledit">
 	<xi:include href="acledit/acledit.xml" />
 </directory>
@@ -38,14 +37,8 @@
 <directory name="crtdll">
 	<xi:include href="crtdll/crtdll.xml" />
 </directory>
-<directory name="d3d8thk">
-	<xi:include href="d3d8thk/d3d8thk.xml" />
-</directory>
 <directory name="dbghelp">
 	<xi:include href="dbghelp/dbghelp.xml" />
-</directory>
-<directory name="ddraw">
-	<xi:include href="ddraw/ddraw.xml" />
 </directory>
 <directory name="devenum">
 	<xi:include href="devenum/devenum.xml" />
@@ -98,14 +91,41 @@
 <directory name="imm32">
 	<xi:include href="imm32/imm32.xml" />
 </directory>
-<directory name="intrlck">
-	<xi:include href="intrlck/intrlck.xml" />
-</directory>
 <directory name="iphlpapi">
 	<xi:include href="iphlpapi/iphlpapi.xml" />
 </directory>
-<directory name="keyboard">
-	<xi:include href="keyboard/directory.xml" />
+<directory name="kbdda">
+	<xi:include href="kbdda/kbdda.xml" />
+</directory>
+<directory name="kbddv">
+	<xi:include href="kbddv/kbddv.xml" />
+</directory>
+<directory name="kbdes">
+	<xi:include href="kbdes/kbdes.xml" />
+</directory>
+<directory name="kbdfr">
+	<xi:include href="kbdfr/kbdfr.xml" />
+</directory>
+<directory name="kbdgr">
+	<xi:include href="kbdgr/kbdgr.xml" />
+</directory>
+<directory name="kbdru">
+	<xi:include href="kbdru/kbdru.xml" />
+</directory>
+<directory name="kbdse">
+	<xi:include href="kbdse/kbdse.xml" />
+</directory>
+<directory name="kbdsg">
+	<xi:include href="kbdsg/kbdsg.xml" />
+</directory>
+<directory name="kbduk">
+	<xi:include href="kbduk/kbduk.xml" />
+</directory>
+<directory name="kbdus">
+	<xi:include href="kbdus/kbdus.xml" />
+</directory>
+<directory name="kbdbe">
+	<xi:include href="kbdbe/kbdbe.xml" />
 </directory>
 <directory name="kernel32">
 	<xi:include href="kernel32/kernel32.xml" />
@@ -164,20 +184,11 @@
 <directory name="ntdll">
 	<xi:include href="ntdll/ntdll.xml" />
 </directory>
-<directory name="ntmarta">
-	<xi:include href="ntmarta/ntmarta.xml" />
-</directory>
-<directory name="objsel">
-	<xi:include href="objsel/objsel.xml" />
-</directory>
 <directory name="ole32">
 	<xi:include href="ole32/ole32.xml" />
 </directory>
 <directory name="oleaut32">
 	<xi:include href="oleaut32/oleaut32.xml" />
-</directory>
-<directory name="oledlg">
-        <xi:include href="oledlg/oledlg.xml" />
 </directory>
 <directory name="olepro32">
 	<xi:include href="olepro32/olepro32.xml" />
@@ -196,6 +207,9 @@
 </directory>
 <directory name="riched20">
 	<xi:include href="riched20/riched20.xml" />
+</directory>
+<directory name="rosrtl">
+	<xi:include href="rosrtl/rosrtl.xml" />
 </directory>
 <directory name="rossym">
 	<xi:include href="rossym/rossym.xml" />
@@ -293,4 +307,3 @@
 <directory name="zlib">
 	<xi:include href="zlib/zlib.xml" />
 </directory>
-</group>

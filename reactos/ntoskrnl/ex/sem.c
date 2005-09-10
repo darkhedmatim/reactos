@@ -2,9 +2,9 @@
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/sem.c
- * PURPOSE:         Semaphore Implementation
+ * PURPOSE:         Synchronization primitives
  *
- * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)- Reformatting, bug fixes.
  *                  David Welch (welch@mcmail.com)
  */
 
@@ -18,23 +18,20 @@
 
 POBJECT_TYPE ExSemaphoreObjectType;
 
-static GENERIC_MAPPING ExSemaphoreMapping =
-{
+static GENERIC_MAPPING ExSemaphoreMapping = {
     STANDARD_RIGHTS_READ    | SEMAPHORE_QUERY_STATE,
     STANDARD_RIGHTS_WRITE   | SEMAPHORE_MODIFY_STATE,
     STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE | SEMAPHORE_QUERY_STATE,
-    SEMAPHORE_ALL_ACCESS
-};
+    SEMAPHORE_ALL_ACCESS};
 
-static const INFORMATION_CLASS_INFO ExSemaphoreInfoClass[] =
-{
+static const INFORMATION_CLASS_INFO ExSemaphoreInfoClass[] = {
+
      /* SemaphoreBasicInformation */
     ICI_SQ_SAME( sizeof(SEMAPHORE_BASIC_INFORMATION), sizeof(ULONG), ICIF_QUERY ),
 };
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpInitializeSemaphoreImplementation(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -49,8 +46,8 @@ ExpInitializeSemaphoreImplementation(VOID)
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(KSEMAPHORE);
     ObjectTypeInitializer.GenericMapping = ExSemaphoreMapping;
     ObjectTypeInitializer.PoolType = NonPagedPool;
-    ObjectTypeInitializer.InvalidAttributes = OBJ_OPENLINK;
     ObjectTypeInitializer.ValidAccessMask = SEMAPHORE_ALL_ACCESS;
+    ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExSemaphoreObjectType);
 }
 
@@ -69,27 +66,29 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
     HANDLE hSemaphore;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
+
     PAGED_CODE();
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode)
-    {
-        _SEH_TRY 
-        {
-            ProbeForWriteHandle(SemaphoreHandle);
-        }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
+    if(PreviousMode != KernelMode) {
+
+        _SEH_TRY {
+
+            ProbeForWrite(SemaphoreHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
+        } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
             Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
+
+        } _SEH_END;
 
         if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure the counts make sense */
-    if (MaximumCount <= 0 || InitialCount < 0 || InitialCount > MaximumCount)
-    {
+    if (!MaximumCount || InitialCount < 0 || InitialCount > MaximumCount) {
+
         DPRINT("Invalid Count Data!\n");
         return STATUS_INVALID_PARAMETER;
     }
@@ -106,8 +105,8 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
                             (PVOID*)&Semaphore);
 
     /* Check for Success */
-    if (NT_SUCCESS(Status))
-    {
+    if (NT_SUCCESS(Status)) {
+
         /* Initialize it */
         KeInitializeSemaphore(Semaphore,
                               InitialCount,
@@ -123,17 +122,17 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
         ObDereferenceObject(Semaphore);
 
         /* Check for success and return handle */
-        if(NT_SUCCESS(Status))
-        {
-            _SEH_TRY
-            {
+        if(NT_SUCCESS(Status)) {
+
+            _SEH_TRY {
+
                 *SemaphoreHandle = hSemaphore;
-            }
-            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-            {
+
+            } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
                 Status = _SEH_GetExceptionCode();
-            }
-            _SEH_END;
+
+            } _SEH_END;
         }
     }
 
@@ -153,20 +152,22 @@ NtOpenSemaphore(OUT PHANDLE SemaphoreHandle,
     HANDLE hSemaphore;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
+
     PAGED_CODE();
 
     /* Check Output Safety */
-    if(PreviousMode != KernelMode)
-    {
-        _SEH_TRY
-        {
-            ProbeForWriteHandle(SemaphoreHandle);
-        }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
+    if(PreviousMode == UserMode) {
+
+        _SEH_TRY {
+
+            ProbeForWrite(SemaphoreHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
+        } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
             Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
+
+        } _SEH_END;
 
         if(!NT_SUCCESS(Status)) return Status;
     }
@@ -181,15 +182,16 @@ NtOpenSemaphore(OUT PHANDLE SemaphoreHandle,
                                 &hSemaphore);
 
     /* Check for success and return handle */
-    if(NT_SUCCESS(Status))
-    {
-        _SEH_TRY
-        {
+    if(NT_SUCCESS(Status)) {
+
+        _SEH_TRY {
+
             *SemaphoreHandle = hSemaphore;
-        }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
+
+        } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
             Status = _SEH_GetExceptionCode();
+
         } _SEH_END;
     }
 
@@ -222,8 +224,8 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
                                 ReturnLength,
                                 PreviousMode,
                                 &Status);
-    if(!NT_SUCCESS(Status))
-    {
+    if(!NT_SUCCESS(Status)) {
+
         /* Invalid buffers */
         DPRINT("NtQuerySemaphore() failed, Status: 0x%x\n", Status);
         return Status;
@@ -238,10 +240,10 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
                                        NULL);
 
     /* Check for success */
-    if(NT_SUCCESS(Status))
-    {
-        _SEH_TRY
-        {
+    if(NT_SUCCESS(Status)) {
+
+        _SEH_TRY {
+
             PSEMAPHORE_BASIC_INFORMATION BasicInfo = (PSEMAPHORE_BASIC_INFORMATION)SemaphoreInformation;
 
             /* Return the basic information */
@@ -251,10 +253,10 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
             /* Return length */
             if(ReturnLength) *ReturnLength = sizeof(SEMAPHORE_BASIC_INFORMATION);
 
-        }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
+        } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
             Status = _SEH_GetExceptionCode();
+
         } _SEH_END;
 
         /* Dereference the Object */
@@ -281,24 +283,25 @@ NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
     PAGED_CODE();
 
     /* Check buffer validity */
-    if(PreviousCount && PreviousMode != KernelMode)
-    {
-        _SEH_TRY
-        {
-            ProbeForWriteLong(PreviousCount);
-         }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
+    if(PreviousCount != NULL && PreviousMode == UserMode) {
+
+        _SEH_TRY {
+
+            ProbeForWrite(PreviousCount,
+                          sizeof(LONG),
+                          sizeof(ULONG));
+         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
             Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
+
+        } _SEH_END;
 
         if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure count makes sense */
-    if (ReleaseCount <= 0)
-    {
+    if (!ReleaseCount) {
+
         DPRINT("Invalid Release Count\n");
         return STATUS_INVALID_PARAMETER;
     }
@@ -312,28 +315,28 @@ NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
                                        NULL);
 
     /* Check for success */
-    if (NT_SUCCESS(Status))
-    {
-        /* Release the semaphore */
-        _SEH_TRY
-        {
-            LONG PrevCount = KeReleaseSemaphore(Semaphore,
-                                                IO_NO_INCREMENT,
-                                                ReleaseCount,
-                                                FALSE);
-            ObDereferenceObject(Semaphore);
+    if (NT_SUCCESS(Status)) {
 
-            /* Return the old count if requested */
-            if(PreviousCount)
-            {
+        /* Release the semaphore */
+        LONG PrevCount = KeReleaseSemaphore(Semaphore,
+                                            IO_NO_INCREMENT,
+                                            ReleaseCount,
+                                            FALSE);
+        ObDereferenceObject(Semaphore);
+
+        /* Return it */
+        if(PreviousCount) {
+
+            _SEH_TRY {
+
                 *PreviousCount = PrevCount;
-            }
+
+            } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
+
+                Status = _SEH_GetExceptionCode();
+
+            } _SEH_END;
         }
-        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
     }
 
     /* Return Status */

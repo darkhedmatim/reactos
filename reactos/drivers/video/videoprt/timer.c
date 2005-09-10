@@ -25,7 +25,7 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-VOID NTAPI
+VOID STDCALL
 IntVideoPortTimerRoutine(
    IN PDEVICE_OBJECT DeviceObject,
    IN PVOID ServiceContext)
@@ -38,7 +38,7 @@ IntVideoPortTimerRoutine(
       &DeviceExtension->MiniPortDeviceExtension);
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IntVideoPortSetupTimer(
    IN PDEVICE_OBJECT DeviceObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension)
@@ -73,7 +73,7 @@ IntVideoPortSetupTimer(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortStartTimer(IN PVOID HwDeviceExtension)
 {
    DPRINT("VideoPortStartTimer\n");
@@ -84,7 +84,7 @@ VideoPortStartTimer(IN PVOID HwDeviceExtension)
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortStopTimer(IN PVOID HwDeviceExtension)
 {
    DPRINT("VideoPortStopTimer\n");

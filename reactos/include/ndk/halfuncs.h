@@ -16,16 +16,31 @@
 
 /* PROTOTYPES ****************************************************************/
 
+VOID
+STDCALL
+HalAcquireDisplayOwnership(
+    IN PHAL_RESET_DISPLAY_PARAMETERS ResetDisplayParameters
+);
+
 BOOLEAN
-NTAPI
+STDCALL
 HalQueryDisplayOwnership(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 HalAllProcessorsStarted(VOID);
 
+NTSTATUS
+STDCALL
+HalAllocateAdapterChannel(
+    IN PADAPTER_OBJECT AdapterObject,
+    IN PWAIT_CONTEXT_BLOCK WaitContextBlock,
+    IN ULONG NumberOfMapRegisters,
+    IN PDRIVER_CONTROL ExecutionRoutine
+);
+
 BOOLEAN
-NTAPI
+STDCALL
 HalBeginSystemInterrupt(
     ULONG Vector,
     KIRQL Irql,
@@ -33,20 +48,20 @@ HalBeginSystemInterrupt(
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalDisableSystemInterrupt(
     ULONG Vector,
     KIRQL Irql
 );
 
 VOID
-NTAPI
+STDCALL
 HalDisplayString (
     IN PCHAR String
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalEnableSystemInterrupt(
     ULONG Vector,
     KIRQL Irql,
@@ -54,14 +69,14 @@ HalEnableSystemInterrupt(
 );
 
 VOID
-NTAPI
+STDCALL
 HalEndSystemInterrupt(
     KIRQL Irql,
     ULONG Vector
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalGetEnvironmentVariable(
     PCH Name,
     PCH Value,
@@ -69,25 +84,25 @@ HalGetEnvironmentVariable(
 );
 
 VOID
-NTAPI
+STDCALL
 HalInitializeProcessor(
     ULONG ProcessorNumber,
     PVOID ProcessorStack
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalInitSystem(
     ULONG BootPhase,
     PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalQueryDisplayOwnership(VOID);
 
 VOID
-NTAPI
+STDCALL
 HalReportResourceUsage(VOID);
 
 VOID
@@ -97,37 +112,37 @@ HalRequestSoftwareInterrupt(
 );
 
 VOID
-NTAPI
+STDCALL
 HalReleaseDisplayOwnership(VOID);
 
 VOID
-NTAPI
+STDCALL
 HalReturnToFirmware(
     FIRMWARE_REENTRY Action
 );
 
 VOID
-NTAPI
+STDCALL
 HalRequestIpi(
     ULONG Unknown
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalSetEnvironmentVariable(
     IN PCH Name,
     IN PCH Value
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 HalStartNextProcessor(
     ULONG Unknown1,
     ULONG Unknown2
 );
 
 VOID
-NTAPI
+STDCALL
 IoAssignDriveLetters(
     struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
     PSTRING NtDeviceName,

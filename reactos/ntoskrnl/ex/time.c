@@ -27,9 +27,7 @@ ULONG ExpTimeZoneId;
 
 /* FUNCTIONS ****************************************************************/
 
-VOID
-INIT_FUNCTION
-STDCALL
+VOID INIT_FUNCTION
 ExpInitTimeZoneInfo(VOID)
 {
   LARGE_INTEGER CurrentTime;
@@ -161,10 +159,15 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
   {
     _SEH_TRY
     {
-      NewSystemTime = ProbeForReadLargeInteger(SystemTime);
+      ProbeForRead(SystemTime,
+                   sizeof(LARGE_INTEGER),
+                   sizeof(ULONG));
+      NewSystemTime = *SystemTime;
       if(PreviousTime != NULL)
       {
-        ProbeForWriteLargeInteger(PreviousTime);
+        ProbeForWrite(PreviousTime,
+                      sizeof(LARGE_INTEGER),
+                      sizeof(ULONG));
       }
     }
     _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
@@ -241,7 +244,9 @@ NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
   {
     _SEH_TRY
     {
-      ProbeForWriteLargeInteger(SystemTime);
+      ProbeForRead(SystemTime,
+                   sizeof(LARGE_INTEGER),
+                   sizeof(ULONG));
 
       /* it's safe to pass the pointer directly to KeQuerySystemTime as it's just
          a basic copy to these pointer, if it raises an exception nothing dangerous

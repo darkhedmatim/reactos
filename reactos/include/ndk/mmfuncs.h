@@ -14,7 +14,7 @@
 
 /* PROTOTYPES ****************************************************************/
 NTSTATUS
-NTAPI
+STDCALL
 MmUnmapViewOfSection(
     struct _EPROCESS* Process,
     PVOID BaseAddress

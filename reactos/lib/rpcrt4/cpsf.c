@@ -116,7 +116,7 @@ static HRESULT WINAPI CStdPSFactory_CreateStub(LPPSFACTORYBUFFER iface,
                                   ProxyInfo->pStubVtblList[Index], iface, ppStub);
 }
 
-static const IPSFactoryBufferVtbl CStdPSFactory_Vtbl =
+static IPSFactoryBufferVtbl CStdPSFactory_Vtbl =
 {
   CStdPSFactory_QueryInterface,
   CStdPSFactory_AddRef,
@@ -183,11 +183,11 @@ HRESULT WINAPI NdrDllRegisterProxy(HMODULE hDll,
       if (RegCreateKeyExA(HKEY_CLASSES_ROOT, keyname, 0, NULL, 0,
                           KEY_WRITE, NULL, &key, NULL) == ERROR_SUCCESS) {
         if (name)
-          RegSetValueExA(key, NULL, 0, REG_SZ, (LPBYTE)name, strlen(name));
+          RegSetValueExA(key, NULL, 0, REG_SZ, name, strlen(name));
         if (RegCreateKeyExA(key, "ProxyStubClsid32", 0, NULL, 0,
                             KEY_WRITE, NULL, &subkey, NULL) == ERROR_SUCCESS) {
           snprintf(module, sizeof(module), "{%s}", clsid);
-          RegSetValueExA(subkey, NULL, 0, REG_SZ, (LPBYTE)module, strlen(module));
+          RegSetValueExA(subkey, NULL, 0, REG_SZ, module, strlen(module));
           RegCloseKey(subkey);
         }
         RegCloseKey(key);
@@ -205,7 +205,7 @@ HRESULT WINAPI NdrDllRegisterProxy(HMODULE hDll,
                         KEY_WRITE, NULL, &key, NULL) == ERROR_SUCCESS) {
       if (RegCreateKeyExA(key, "InProcServer32", 0, NULL, 0,
                           KEY_WRITE, NULL, &subkey, NULL) == ERROR_SUCCESS) {
-        RegSetValueExA(subkey, NULL, 0, REG_SZ, (LPBYTE)module, strlen(module));
+        RegSetValueExA(subkey, NULL, 0, REG_SZ, module, strlen(module));
         RegCloseKey(subkey);
       }
       RegCloseKey(key);

@@ -117,7 +117,7 @@ static RpcPacket* spacket_head;
 static RpcPacket* spacket_tail;
 static HANDLE server_sem;
 
-static LONG worker_count, worker_free, worker_tls;
+static DWORD worker_count, worker_free, worker_tls;
 
 static UUID uuid_nil;
 
@@ -739,14 +739,14 @@ RPC_STATUS WINAPI RpcServerUseProtseqEpExA( unsigned char *Protseq, UINT MaxCall
 {
   RpcServerProtseq* ps;
 
-  TRACE("(%s,%u,%s,%p,{%u,%lu,%lu})\n", debugstr_a( (char*)Protseq ), MaxCalls,
-       debugstr_a( (char*)Endpoint ), SecurityDescriptor,
+  TRACE("(%s,%u,%s,%p,{%u,%lu,%lu})\n", debugstr_a( Protseq ), MaxCalls,
+       debugstr_a( Endpoint ), SecurityDescriptor,
        lpPolicy->Length, lpPolicy->EndpointFlags, lpPolicy->NICFlags );
 
   ps = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(RpcServerProtseq));
   ps->MaxCalls = MaxCalls;
-  ps->Protseq = RPCRT4_strdupA((char*)Protseq);
-  ps->Endpoint = RPCRT4_strdupA((char*)Endpoint);
+  ps->Protseq = RPCRT4_strdupA(Protseq);
+  ps->Endpoint = RPCRT4_strdupA(Endpoint);
 
   return RPCRT4_use_protseq(ps);
 }
@@ -776,7 +776,7 @@ RPC_STATUS WINAPI RpcServerUseProtseqEpExW( LPWSTR Protseq, UINT MaxCalls, LPWST
  */
 RPC_STATUS WINAPI RpcServerUseProtseqA(unsigned char *Protseq, unsigned int MaxCalls, void *SecurityDescriptor)
 {
-  TRACE("(Protseq == %s, MaxCalls == %d, SecurityDescriptor == ^%p)\n", debugstr_a((char*)Protseq), MaxCalls, SecurityDescriptor);
+  TRACE("(Protseq == %s, MaxCalls == %d, SecurityDescriptor == ^%p)\n", debugstr_a(Protseq), MaxCalls, SecurityDescriptor);
   return RpcServerUseProtseqEpA(Protseq, MaxCalls, NULL, SecurityDescriptor);
 }
 
@@ -858,11 +858,8 @@ RPC_STATUS WINAPI RpcServerRegisterIf2( RPC_IF_HANDLE IfSpec, UUID* MgrTypeUuid,
   LeaveCriticalSection(&server_cs);
 
   if (sif->Flags & RPC_IF_AUTOLISTEN) {
+    /* well, start listening, I think... */
     RPCRT4_start_listen(TRUE);
-
-    /* make sure server is actually listening on the interface before
-     * returning */
-    RPCRT4_sync_with_server_thread();
   }
 
   return RPC_S_OK;

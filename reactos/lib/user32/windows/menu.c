@@ -34,8 +34,7 @@
 /* INCLUDES ******************************************************************/
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
+#include "../controls/controls.h"
 
 /* internal popup menu window messages */
 #define MM_SETMENUHANDLE (WM_USER + 0)
@@ -3275,11 +3274,7 @@ MenuTrackMenu(HMENU Menu, UINT Flags, INT x, INT y,
               case WM_SYSKEYDOWN:
                 switch (Msg.wParam)
                   {
-                    DbgPrint("Menu.c WM_SYSKEYDOWN wPram %d\n",Msg.wParam);
                     case VK_MENU:
-                      fEndMenu = TRUE;
-                      break;
-                    case VK_LMENU:
                       fEndMenu = TRUE;
                       break;
                   }
@@ -3800,7 +3795,7 @@ GetMenuItemInfoW(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 GetMenuItemRect(HWND hWnd,
@@ -3808,7 +3803,8 @@ GetMenuItemRect(HWND hWnd,
 		UINT uItem,
 		LPRECT lprcItem)
 {
-  return NtUserGetMenuItemRect( hWnd, hMenu, uItem, lprcItem);
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 
@@ -4327,7 +4323,7 @@ ModifyMenuA(
 
   if(!GetMenuItemInfoA( hMnu,
                         uPosition,
-                       (BOOL)(MF_BYPOSITION & uFlags),
+                       (BOOL)!(MF_BYPOSITION & uFlags),
                         &mii)) return FALSE;
 
   if(uFlags & MF_BITMAP)
@@ -4397,7 +4393,7 @@ ModifyMenuA(
 
   return SetMenuItemInfoA( hMnu,
                            uPosition,
-                          (BOOL)(MF_BYPOSITION & uFlags),
+                          (BOOL)!(MF_BYPOSITION & uFlags),
                            &mii);
 }
 
@@ -4424,7 +4420,7 @@ ModifyMenuW(
 
   if(!NtUserMenuItemInfo( hMnu,
                           uPosition,
-                         (BOOL)(MF_BYPOSITION & uFlags),
+                         (BOOL)!(MF_BYPOSITION & uFlags),
                          (PROSMENUITEMINFO) &mii,
                           FALSE)) return FALSE;
 
@@ -4494,7 +4490,7 @@ ModifyMenuW(
 
   return SetMenuItemInfoW( hMnu,
                            uPosition,
-                           (BOOL)(MF_BYPOSITION & uFlags),
+                           (BOOL)!(MF_BYPOSITION & uFlags),
                            &mii);
 }
 
@@ -4558,7 +4554,7 @@ SetMenuInfo(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -4569,28 +4565,13 @@ SetMenuItemBitmaps(
   HBITMAP hBitmapUnchecked,
   HBITMAP hBitmapChecked)
 {
-  ROSMENUITEMINFO uItem;
-
-  if(!(NtUserMenuItemInfo(hMenu, uPosition, 
-                 (BOOL)(MF_BYPOSITION & uFlags), &uItem, FALSE))) return FALSE;
-
-  if (!hBitmapChecked && !hBitmapUnchecked)
-  {
-    uItem.fState &= ~MF_USECHECKBITMAPS;
-  }
-  else  /* Install new bitmaps */
-  {
-    uItem.hbmpChecked = hBitmapChecked;
-    uItem.hbmpUnchecked = hBitmapUnchecked;
-    uItem.fState |= MF_USECHECKBITMAPS;
-  }
- return NtUserMenuItemInfo(hMenu, uPosition,
-                                 (BOOL)(MF_BYPOSITION & uFlags), &uItem, TRUE);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -4633,7 +4614,7 @@ SetMenuItemInfoA(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL

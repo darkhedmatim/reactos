@@ -27,7 +27,7 @@
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortCreateSpinLock(
    IN PVOID HwDeviceExtension,
    OUT PSPIN_LOCK *SpinLock)
@@ -44,7 +44,7 @@ VideoPortCreateSpinLock(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortDeleteSpinLock(
    IN PVOID HwDeviceExtension,
    IN PSPIN_LOCK SpinLock)
@@ -58,7 +58,7 @@ VideoPortDeleteSpinLock(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortAcquireSpinLock(
    IN PVOID HwDeviceExtension,
    IN PSPIN_LOCK SpinLock,
@@ -72,7 +72,7 @@ VideoPortAcquireSpinLock(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortAcquireSpinLockAtDpcLevel(
    IN PVOID HwDeviceExtension,
    IN PSPIN_LOCK SpinLock)
@@ -85,7 +85,7 @@ VideoPortAcquireSpinLockAtDpcLevel(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortReleaseSpinLock(
    IN PVOID HwDeviceExtension,
    IN PSPIN_LOCK SpinLock,
@@ -99,7 +99,7 @@ VideoPortReleaseSpinLock(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortReleaseSpinLockFromDpcLevel(
    IN PVOID HwDeviceExtension,
    IN PSPIN_LOCK SpinLock)

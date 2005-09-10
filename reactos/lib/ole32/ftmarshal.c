@@ -37,9 +37,9 @@
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 typedef struct _FTMarshalImpl {
-	const IUnknownVtbl *lpVtbl;
-	LONG ref;
-	const IMarshalVtbl *lpvtblFTM;
+	IUnknownVtbl *lpVtbl;
+	DWORD ref;
+	IMarshalVtbl *lpvtblFTM;
 
 	IUnknown *pUnkOuter;
 } FTMarshalImpl;
@@ -47,10 +47,8 @@ typedef struct _FTMarshalImpl {
 #define _IFTMUnknown_(This)(IUnknown*)&(This->lpVtbl)
 #define _IFTMarshal_(This) (IMarshal*)&(This->lpvtblFTM)
 
-static inline FTMarshalImpl *impl_from_IMarshal( IMarshal *iface )
-{
-    return (FTMarshalImpl *)((char*)iface - FIELD_OFFSET(FTMarshalImpl, lpvtblFTM));
-}
+#define _IFTMarshall_Offset ((int)(&(((FTMarshalImpl*)0)->lpvtblFTM)))
+#define _ICOM_THIS_From_IFTMarshal(class, name) class* This = (class*)(((char*)name)-_IFTMarshall_Offset);
 
 /* inner IUnknown to handle aggregation */
 static HRESULT WINAPI
@@ -95,7 +93,7 @@ static ULONG WINAPI IiFTMUnknown_fnRelease (IUnknown * iface)
     return 0;
 }
 
-static const IUnknownVtbl iunkvt =
+static IUnknownVtbl iunkvt =
 {
 	IiFTMUnknown_fnQueryInterface,
 	IiFTMUnknown_fnAddRef,
@@ -106,7 +104,7 @@ static HRESULT WINAPI
 FTMarshalImpl_QueryInterface (LPMARSHAL iface, REFIID riid, LPVOID * ppv)
 {
 
-    FTMarshalImpl *This = impl_from_IMarshal(iface);
+    _ICOM_THIS_From_IFTMarshal (FTMarshalImpl, iface);
 
     TRACE ("(%p)->(\n\tIID:\t%s,%p)\n", This, debugstr_guid (riid), ppv);
     return IUnknown_QueryInterface (This->pUnkOuter, riid, ppv);
@@ -116,7 +114,7 @@ static ULONG WINAPI
 FTMarshalImpl_AddRef (LPMARSHAL iface)
 {
 
-    FTMarshalImpl *This = impl_from_IMarshal(iface);
+    _ICOM_THIS_From_IFTMarshal (FTMarshalImpl, iface);
 
     TRACE ("\n");
     return IUnknown_AddRef (This->pUnkOuter);
@@ -126,7 +124,7 @@ static ULONG WINAPI
 FTMarshalImpl_Release (LPMARSHAL iface)
 {
 
-    FTMarshalImpl *This = impl_from_IMarshal(iface);
+    _ICOM_THIS_From_IFTMarshal (FTMarshalImpl, iface);
 
     TRACE ("\n");
     return IUnknown_Release (This->pUnkOuter);
@@ -148,7 +146,7 @@ FTMarshalImpl_GetMarshalSizeMax (LPMARSHAL iface, REFIID riid, void *pv, DWORD d
     IMarshal *pMarshal = NULL;
     HRESULT hres;
 
-    FTMarshalImpl *This = impl_from_IMarshal(iface);
+    _ICOM_THIS_From_IFTMarshal (FTMarshalImpl, iface);
 
     FIXME ("(), stub!\n");
 
@@ -174,7 +172,7 @@ FTMarshalImpl_MarshalInterface (LPMARSHAL iface, IStream * pStm, REFIID riid, vo
     IMarshal *pMarshal = NULL;
     HRESULT hres;
 
-    FTMarshalImpl *This = impl_from_IMarshal(iface);
+    _ICOM_THIS_From_IFTMarshal (FTMarshalImpl, iface);
 
     FIXME ("(), stub!\n");
 
@@ -210,7 +208,7 @@ static HRESULT WINAPI FTMarshalImpl_DisconnectObject (LPMARSHAL iface, DWORD dwR
     return S_OK;
 }
 
-static const IMarshalVtbl ftmvtbl =
+static IMarshalVtbl ftmvtbl =
 {
 	FTMarshalImpl_QueryInterface,
 	FTMarshalImpl_AddRef,

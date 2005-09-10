@@ -78,8 +78,8 @@ ControlNormalTest(HANDLE hThread,
             PERFORM_TEST_ARGS *Args,
             DWORD TimeOut)
 {
-  _FILETIME time;
-  _FILETIME executionTime;
+  FILETIME time;
+  FILETIME executionTime;
   DWORD status;
 
   status = _WaitForSingleObject(hThread, TimeOut);

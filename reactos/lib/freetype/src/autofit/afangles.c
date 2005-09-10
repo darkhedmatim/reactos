@@ -1,24 +1,4 @@
-/***************************************************************************/
-/*                                                                         */
-/*  afangles.c                                                             */
-/*                                                                         */
-/*    Routines used to compute vector angles with limited accuracy         */
-/*    and very high speed.  It also contains sorting routines (body).      */
-/*                                                                         */
-/*  Copyright 2003, 2004, 2005 by                                          */
-/*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
-/*                                                                         */
-/*  This file is part of the FreeType project, and may only be used,       */
-/*  modified, and distributed under the terms of the FreeType project      */
-/*  license, LICENSE.TXT.  By continuing to use, modify, or distribute     */
-/*  this file you indicate that you have read the license and              */
-/*  understand and accept it fully.                                        */
-/*                                                                         */
-/***************************************************************************/
-
-
 #include "aftypes.h"
-
 
 /*
  * a python script used to generate the following table
@@ -26,29 +6,30 @@
 
 import sys, math
 
-units = 256
-scale = units/math.pi
-comma = ""
+units  = 256
+scale  = units/math.pi
+comma  = ""
 
 print ""
-print "table of arctan( 1/2^n ) for PI = " + repr( units / 65536.0 ) + " units"
+print "table of arctan( 1/2^n ) for PI = " + repr(units/65536.0) + " units"
 
-r = [-1] + range( 32 )
+r = [-1] + range(32)
 
 for n in r:
-    if n >= 0:
-        x = 1.0 / ( 2.0 ** n )   # tangent value
-    else:
-        x = 2.0 ** ( -n )
 
-    angle  = math.atan( x )      # arctangent
-    angle2 = angle * scale       # arctangent in FT_Angle units
+    if n >= 0:
+        x = 1.0/(2.0**n)    # tangent value
+    else:
+        x = 2.0**(-n)
+
+    angle  = math.atan(x)    # arctangent
+    angle2 = angle*scale     # arctangent in FT_Angle units
 
     # determine which integer value for angle gives the best tangent
-    lo  = int( angle2 )
+    lo  = int(angle2)
     hi  = lo + 1
-    tlo = math.tan( lo / scale )
-    thi = math.tan( hi / scale )
+    tlo = math.tan(lo/scale)
+    thi = math.tan(hi/scale)
 
     errlo = abs( tlo - x )
     errhi = abs( thi - x )
@@ -60,7 +41,7 @@ for n in r:
     if angle2 <= 0:
         break
 
-    sys.stdout.write( comma + repr( int( angle2 ) ) )
+    sys.stdout.write( comma + repr( int(angle2) ) )
     comma = ", "
 
 *
@@ -141,7 +122,7 @@ for n in r:
     }
 
     if ( y > 0 )
-      theta = -theta;
+      theta = - theta;
 
     arctanptr = af_angle_arctan_table;
 
@@ -186,9 +167,9 @@ for n in r:
 #if 0
     /* round theta */
     if ( theta >= 0 )
-      theta =  FT_PAD_ROUND( theta, 2 );
+      theta =   FT_PAD_ROUND( theta, 2 );
     else
-      theta = -FT_PAD_ROUND( -theta, 2 );
+      theta = - FT_PAD_ROUND( -theta, 2 );
 #endif
 
     vec->x = x;
@@ -196,7 +177,7 @@ for n in r:
   }
 
 
-  /* cf. documentation in fttrigon.h */
+  /* documentation is in fttrigon.h */
 
   FT_LOCAL_DEF( AF_Angle )
   af_angle_atan( FT_Fixed  dx,
@@ -217,12 +198,12 @@ for n in r:
   }
 
 
+
   FT_LOCAL_DEF( AF_Angle )
   af_angle_diff( AF_Angle  angle1,
                  AF_Angle  angle2 )
   {
     AF_Angle  delta = angle2 - angle1;
-
 
     delta %= AF_ANGLE_2PI;
     if ( delta < 0 )
@@ -235,9 +216,12 @@ for n in r:
   }
 
 
+ /* well, this needs to be somewhere, right :-)
+  */
+
   FT_LOCAL_DEF( void )
-  af_sort_pos( FT_UInt  count,
-               FT_Pos*  table )
+  af_sort_pos( FT_UInt   count,
+               FT_Pos*   table )
   {
     FT_UInt  i, j;
     FT_Pos   swap;
@@ -282,7 +266,6 @@ for n in r:
 
 
 #ifdef TEST
-
 #include <stdio.h>
 #include <math.h>
 
@@ -291,21 +274,19 @@ int main( void )
   int  angle;
   int  dist;
 
-
   for ( dist = 100; dist < 1000; dist++ )
   {
-    for ( angle = AF_ANGLE_PI; angle < AF_ANGLE_2PI * 4; angle++ )
+    for ( angle = AF_ANGLE_PI; angle < AF_ANGLE_2PI*4; angle++ )
     {
-      double  a = ( angle * 3.1415926535 ) / ( 1.0 * AF_ANGLE_PI );
-      int     dx, dy, angle1, angle2, delta;
+      double a = (angle*3.1415926535)/(1.0*AF_ANGLE_PI);
+      int    dx, dy, angle1, angle2, delta;
 
+      dx = dist * cos(a);
+      dy = dist * sin(a);
 
-      dx = dist * cos( a );
-      dy = dist * sin( a );
-
-      angle1 = ( ( atan2( dy, dx ) * AF_ANGLE_PI ) / 3.1415926535 );
-      angle2 = af_angle_atan( dx, dy );
-      delta  = ( angle2 - angle1 ) % AF_ANGLE_2PI;
+      angle1  = ((atan2(dy,dx)*AF_ANGLE_PI)/3.1415926535);
+      angle2  = af_angle_atan( dx, dy );
+      delta   = (angle2 - angle1) % AF_ANGLE_2PI;
       if ( delta < 0 )
         delta = -delta;
 
@@ -318,8 +299,4 @@ int main( void )
   }
   return 0;
 }
-
-#endif /* TEST */
-
-
-/* END */
+#endif

@@ -161,102 +161,85 @@ PFN_TYPE
 MmGetContinuousPages(ULONG NumberOfBytes,
                      PHYSICAL_ADDRESS LowestAcceptableAddress,
                      PHYSICAL_ADDRESS HighestAcceptableAddress,
-                     PHYSICAL_ADDRESS BoundaryAddressMultiple)
+                     ULONG Alignment)
 {
    ULONG NrPages;
-   ULONG i, j;
+   ULONG i;
    ULONG start;
-   ULONG last;
    ULONG length;
-   ULONG boundary;
    KIRQL oldIrql;
 
    NrPages = PAGE_ROUND_UP(NumberOfBytes) / PAGE_SIZE;
 
    KeAcquireSpinLock(&PageListLock, &oldIrql);
 
-   last = min(HighestAcceptableAddress.QuadPart / PAGE_SIZE, MmPageArraySize - 1);
-   boundary = BoundaryAddressMultiple.QuadPart / PAGE_SIZE;
-
-   for (j = 0; j < 2; j++)
+   start = -1;
+   length = 0;
+   for (i = (LowestAcceptableAddress.QuadPart / PAGE_SIZE); i < (HighestAcceptableAddress.QuadPart / PAGE_SIZE); )
    {
-      start = -1;
-      length = 0;
-      /* First try to allocate the pages above the 16MB area. This may fail 
-       * because there are not enough continuous pages or we cannot allocate 
-       * pages above the 16MB area because the caller has specify an upper limit. 
-       * The second try uses the specified lower limit.
-       */
-      for (i = j == 0 ? 0x100000 / PAGE_SIZE : LowestAcceptableAddress.QuadPart / PAGE_SIZE; i <= last; )
+      if (MmPageArray[i].Flags.Type ==  MM_PHYSICAL_PAGE_FREE)
       {
-         if (MmPageArray[i].Flags.Type == MM_PHYSICAL_PAGE_FREE)
+         if (start == (ULONG)-1)
          {
-            if (start == (ULONG)-1)
-            {
-               start = i;
-               length = 1;
-            }
-            else
-            {
-               length++;
-               if (boundary)
-               {
-                  if (start / boundary != i / boundary)
-                  {
-                      start = i;
-                      length = 1;
-                  }
-               }
-            }
-            if (length == NrPages)
-            {
-               break;
-            }
+            start = i;
+            length = 1;
          }
          else
          {
-            start = (ULONG)-1;
+            length++;
          }
          i++;
+         if (length == NrPages)
+         {
+            break;
+         }
       }
-
-      if (start != (ULONG)-1 && length == NrPages)
+      else
       {
-         for (i = start; i < (start + length); i++)
-         {
-            RemoveEntryList(&MmPageArray[i].ListEntry);
-            if (MmPageArray[i].Flags.Zero == 0)
-            {
-               UnzeroedPageCount--;
-            }
-            MmStats.NrFreePages--;
-            MmStats.NrSystemPages++;
-            MmPageArray[i].Flags.Type = MM_PHYSICAL_PAGE_USED;
-            MmPageArray[i].Flags.Consumer = MC_NPPOOL;
-            MmPageArray[i].ReferenceCount = 1;
-            MmPageArray[i].LockCount = 0;
-            MmPageArray[i].MapCount = 0;
-            MmPageArray[i].SavedSwapEntry = 0;
-            InsertTailList(&UsedPageListHeads[MC_NPPOOL],
-                           &MmPageArray[i].ListEntry);
-         }
-         KeReleaseSpinLock(&PageListLock, oldIrql);
-         for (i = start; i < (start + length); i++)
-         {
-            if (MmPageArray[i].Flags.Zero == 0)
-            {
-	       MiZeroPage(i);
-            }
-            else
-            {
-      	       MmPageArray[i].Flags.Zero = 0;
-            }
-         }
-         return start;
+         start = -1;
+         /*
+          * Fast forward to the base of the next aligned region
+          */
+         i = ROUND_UP((i + 1), (Alignment / PAGE_SIZE));
       }
    }
+   if (start == (ULONG)-1 || length != NrPages)
+   {
+      KeReleaseSpinLock(&PageListLock, oldIrql);
+      return 0;
+   }
+   for (i = start; i < (start + length); i++)
+   {
+      RemoveEntryList(&MmPageArray[i].ListEntry);
+      if (MmPageArray[i].Flags.Zero == 0)
+      {
+         UnzeroedPageCount--;
+      }
+      MmStats.NrFreePages--;
+      MmStats.NrSystemPages++;
+      MmPageArray[i].Flags.Type = MM_PHYSICAL_PAGE_USED;
+      MmPageArray[i].Flags.Consumer = MC_NPPOOL;
+      MmPageArray[i].ReferenceCount = 1;
+      MmPageArray[i].LockCount = 0;
+      MmPageArray[i].MapCount = 0;
+      MmPageArray[i].SavedSwapEntry = 0;
+      InsertTailList(&UsedPageListHeads[MC_NPPOOL],
+                     &MmPageArray[i].ListEntry);
+   }
    KeReleaseSpinLock(&PageListLock, oldIrql);
-   return 0;
+   for (i = start; i < (start + length); i++)
+   {
+      if (MmPageArray[i].Flags.Zero == 0)
+      {
+	 MiZeroPage(i);
+      }
+      else
+      {
+      	 MmPageArray[i].Flags.Zero = 0;
+      }
+   }
+
+   return start;
 }
 
 

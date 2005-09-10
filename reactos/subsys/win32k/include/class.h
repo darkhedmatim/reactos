@@ -24,6 +24,7 @@ typedef struct _WNDCLASS_OBJECT
   LIST_ENTRY ListEntry;
   PCHAR   ExtraData;
   /* list of windows */
+  FAST_MUTEX ClassWindowsListLock;
   LIST_ENTRY ClassWindowsListHead;
 } WNDCLASS_OBJECT, *PWNDCLASS_OBJECT;
 
@@ -32,6 +33,18 @@ InitClassImpl(VOID);
 
 NTSTATUS FASTCALL
 CleanupClassImpl(VOID);
+
+#define IntLockProcessClasses(W32Process) \
+  ExAcquireFastMutex(&(W32Process)->ClassListLock)
+
+#define IntUnLockProcessClasses(W32Process) \
+  ExReleaseFastMutex(&(W32Process)->ClassListLock)
+
+#define IntLockClassWindows(ClassObj) \
+  ExAcquireFastMutex(&(ClassObj)->ClassWindowsListLock)
+
+#define IntUnLockClassWindows(ClassObj) \
+  ExReleaseFastMutex(&(ClassObj)->ClassWindowsListLock)
 
 #define ClassDereferenceObject(ClassObj) \
   ObmDereferenceObject(ClassObj)

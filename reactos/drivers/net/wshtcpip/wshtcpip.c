@@ -8,8 +8,17 @@
  *   CSH 01/09-2000 Created
  */
 #include <wshtcpip.h>
-#define NDEBUG
-#include <debug.h>
+
+#ifdef DBG
+
+/* See debug.h for debug/trace constants */
+DWORD DebugTraceLevel = MAX_TRACE;
+
+#endif /* DBG */
+
+/* To make the linker happy */
+VOID STDCALL KeBugCheck (ULONG	BugCheckCode) {}
+
 
 BOOL
 EXPORT
@@ -17,7 +26,7 @@ DllMain(HANDLE hInstDll,
         ULONG dwReason,
         PVOID Reserved)
 {
-    DPRINT("DllMain of wshtcpip.dll\n");
+    WSH_DbgPrint(MIN_TRACE, ("DllMain of wshtcpip.dll\n"));
 
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
@@ -282,7 +291,7 @@ WSHOpenSocket2(
     UNICODE_STRING RawDeviceName = RTL_CONSTANT_STRING(DD_RAW_IP_DEVICE_NAME);
     NTSTATUS Status;
 
-    DPRINT("");
+    WSH_DbgPrint(MAX_TRACE, ("\n"));
 
     switch (*SocketType) {
     case SOCK_STREAM:

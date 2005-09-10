@@ -48,13 +48,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
  */
 typedef struct ConnectionPointImpl {
 
-  const IConnectionPointVtbl *lpvtbl;
+  IConnectionPointVtbl       *lpvtbl;
 
   /* IUnknown of our main object*/
   IUnknown *Obj;
 
   /* Reference count */
-  LONG ref;
+  DWORD ref;
 
   /* IID of sink interface */
   IID iid;
@@ -66,7 +66,7 @@ typedef struct ConnectionPointImpl {
   DWORD nSinks;
 } ConnectionPointImpl;
 
-static const IConnectionPointVtbl ConnectionPointImpl_VTable;
+static IConnectionPointVtbl ConnectionPointImpl_VTable;
 
 
 /************************************************************************
@@ -74,9 +74,9 @@ static const IConnectionPointVtbl ConnectionPointImpl_VTable;
  */
 typedef struct EnumConnectionsImpl {
 
-  const IEnumConnectionsVtbl *lpvtbl;
+  IEnumConnectionsVtbl       *lpvtbl;
 
-  LONG ref;
+  DWORD ref;
 
   /* IUnknown of ConnectionPoint, used for ref counting */
   IUnknown *pUnk;
@@ -351,7 +351,7 @@ static HRESULT WINAPI ConnectionPointImpl_EnumConnections(
   return hr;
 }
 
-static const IConnectionPointVtbl ConnectionPointImpl_VTable =
+static IConnectionPointVtbl ConnectionPointImpl_VTable =
 {
   ConnectionPointImpl_QueryInterface,
   ConnectionPointImpl_AddRef,
@@ -364,7 +364,7 @@ static const IConnectionPointVtbl ConnectionPointImpl_VTable =
 };
 
 
-static const IEnumConnectionsVtbl EnumConnectionsImpl_VTable;
+static IEnumConnectionsVtbl EnumConnectionsImpl_VTable;
 static ULONG WINAPI EnumConnectionsImpl_AddRef(IEnumConnections* iface);
 
 /************************************************************************
@@ -587,7 +587,7 @@ static HRESULT WINAPI EnumConnectionsImpl_Clone(IEnumConnections* iface,
   return S_OK;
 }
 
-static const IEnumConnectionsVtbl EnumConnectionsImpl_VTable =
+static IEnumConnectionsVtbl EnumConnectionsImpl_VTable =
 {
   EnumConnectionsImpl_QueryInterface,
   EnumConnectionsImpl_AddRef,

@@ -636,10 +636,6 @@ extern "C" {
 #define TB_SETUNICODEFORMAT	CCM_SETUNICODEFORMAT
 #define TB_GETUNICODEFORMAT	CCM_GETUNICODEFORMAT
 #endif
-#if (_WIN32_WINNT >= 0x0501)
-#define TB_GETMETRICS		(WM_USER + 101)
-#define TB_SETMETRICS		(WM_USER + 102)
-#endif /* _WIN32_WINNT >= 0x0501 */
 #define TBBF_LARGE 1
 #define TBN_GETBUTTONINFOA	(TBN_FIRST-0)
 #define TBN_BEGINDRAG	(TBN_FIRST-1)
@@ -674,11 +670,6 @@ extern "C" {
 #define TBNF_TEXT	2
 #define TBNF_DI_SETITEM	0x10000000
 #endif /* _WIN32_IE >= 0x0500 */
-#if (_WIN32_WINNT >= 0x0501)
-#define TBMF_PAD	1
-#define TBMF_BARPAD	2
-#define TBMF_BUTTONSPACING	4
-#endif /* _WIN32_IE >= 0x0501 */
 #define TTS_ALWAYSTIP	1
 #define TTS_NOPREFIX	2
 #if( _WIN32_IE >= 0x0500 )
@@ -2058,6 +2049,13 @@ typedef struct tagLVBKIMAGEW {
 	int yOffsetPercent;
 } LVBKIMAGEW, *LPLVBKIMAGEW;
 #endif /* _WIN32_IE >= 0x400 */
+typedef struct {
+	NMHDR hdr;
+	int iItem;
+	TBBUTTON tbButton;
+	int cchText;
+	LPTSTR pszText;
+} TBNOTIFY,*LPTBNOTIFY;
 typedef struct _IMAGEINFO {
 	HBITMAP hbmImage;
 	HBITMAP hbmMask;
@@ -2278,18 +2276,6 @@ typedef struct {
 	UINT nIDNew;
 	int nButtons;
 } TBREPLACEBITMAP,*LPTBREPLACEBITMAP;
-#if (_WIN32_WINNT >= 0x0501)
-typedef struct {
-	UINT cbSize;
-	DWORD dwMask;
-	INT cxPad;
-	INT cyPad;
-	INT cxBarPad;
-	INT cyBarPad;
-	INT cxButtonSpacing;
-	INT cyButtonSpacing;
-} TBMETRICS, *LPTBMETRICS;
-#endif /* _WIN32_WINNT >= 0x0501 */
 typedef struct tagNMTOOLBARA {
 	NMHDR hdr;
 	int iItem;

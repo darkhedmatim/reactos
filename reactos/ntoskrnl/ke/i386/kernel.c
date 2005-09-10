@@ -66,10 +66,6 @@ Ki386GetCpuId(VOID)
    {
       /* Get the feature flags. */
       Ki386Cpuid(1, &Eax, &Ke386CpuidExMisc, &Ke386CpuidFlags2, &Pcr->PrcbData.FeatureBits);
-
-      DPRINT ("Model:  %x\n", (Eax & 0xf00) == 0xf00 ? ((Eax >> 4) & 0xf) | ((Eax >> 12) & 0xf0) : (Eax >> 4) & 0xf);
-      DPRINT ("Family: %x\n", (Eax & 0xf00) == 0xf00 ? ((Eax >> 8) & 0xf) + ((Eax >> 20) & 0xff) : (Eax >> 8) & 0xf);
-
       /* Get the cache alignment, if it is available */
       if (Pcr->PrcbData.FeatureBits & (1<<19))
       {
@@ -186,22 +182,18 @@ KePrepareForApplicationProcessorInit(ULONG Id)
    */
   memset(Pcr, 0, PAGE_SIZE);
   Pcr->Number = Id;
-  Pcr->SetMember = 1 << Id;
-  Pcr->NtTib.Self = &Pcr->NtTib;
+  Pcr->Tib.Self = &Pcr->Tib;
   Pcr->Self = (PKPCR)Pcr;
   Pcr->Prcb = &Pcr->PrcbData;
   Pcr->Irql = SYNCH_LEVEL;
 
-  Pcr->PrcbData.SetMember = 1 << Id;
   Pcr->PrcbData.MHz = BootPcr->PrcbData.MHz;
   Pcr->StallScaleFactor = BootPcr->StallScaleFactor;
 
   /* Mark the end of the exception handler list */
-  Pcr->NtTib.ExceptionList = (PVOID)-1;
+  Pcr->Tib.ExceptionList = (PVOID)-1;
 
   KiGdtPrepareForApplicationProcessorInit(Id);
-
-  KeActiveProcessors |= 1 << Id;
 }
 
 VOID
@@ -287,13 +279,11 @@ KeInit1(PCHAR CommandLine, PULONG LastKernelAddress)
    KPCR->Self = (PKPCR)KPCR;
    KPCR->Prcb = &KPCR->PrcbData;
    KPCR->Irql = SYNCH_LEVEL;
-   KPCR->NtTib.Self = &KPCR->NtTib;
+   KPCR->Tib.Self = &KPCR->Tib;
    KPCR->GDT = KiBootGdt;
    KPCR->IDT = (PUSHORT)KiIdt;
    KPCR->TSS = &KiBootTss;
    KPCR->Number = 0;
-   KPCR->SetMember = 1 << 0;
-   KPCR->PrcbData.SetMember = 1 << 0;
    KiPcrInitDone = 1;
    PcrsAllocated++;
 
@@ -308,15 +298,12 @@ KeInit1(PCHAR CommandLine, PULONG LastKernelAddress)
    KiCheckFPU();
 
    /* Mark the end of the exception handler list */
-   KPCR->NtTib.ExceptionList = (PVOID)-1;
+   KPCR->Tib.ExceptionList = (PVOID)-1;
 
    KeInitDpc(KPCR->Prcb);
 
    KeInitExceptions ();
    KeInitInterrupts ();
-
-   KeActiveProcessors |= 1 << 0;
-
 
    if (KPCR->PrcbData.FeatureBits & X86_FEATURE_PGE)
    {

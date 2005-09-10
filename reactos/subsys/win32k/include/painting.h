@@ -8,9 +8,17 @@
 VOID FASTCALL
 IntValidateParent(PWINDOW_OBJECT Child, HRGN ValidRegion);
 BOOL FASTCALL
-co_UserRedrawWindow(PWINDOW_OBJECT Wnd, const RECT* UpdateRect, HRGN UpdateRgn, ULONG Flags);
+IntRedrawWindow(PWINDOW_OBJECT Wnd, const RECT* UpdateRect, HRGN UpdateRgn, ULONG Flags);
 BOOL FASTCALL
 IntGetPaintMessage(HWND hWnd, UINT MsgFilterMin, UINT MsgFilterMax, PW32THREAD Thread,
                    MSG *Message, BOOL Remove);
+BOOL STDCALL
+NtUserValidateRgn(HWND hWnd, HRGN hRgn);
+
+#define IntLockWindowUpdate(Window) \
+  ExAcquireFastMutex(&Window->UpdateLock)
+
+#define IntUnLockWindowUpdate(Window) \
+  ExReleaseFastMutex(&Window->UpdateLock)
 
 #endif /* _WIN32K_PAINTING_H */

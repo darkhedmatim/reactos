@@ -155,6 +155,7 @@ IntEngWindowChanged(
 
   ASSERT_IRQL(PASSIVE_LEVEL);
 
+  ExAcquireFastMutex(&Window->WndObjListLock);
   CurrentEntry = Window->WndObjListHead.Flink;
   while (CurrentEntry != &Window->WndObjListHead)
     {
@@ -188,6 +189,7 @@ IntEngWindowChanged(
         }
     }
 
+  ExReleaseFastMutex(&Window->WndObjListLock);
 }
 
 /*
@@ -197,7 +199,7 @@ WNDOBJ*
 STDCALL
 EngCreateWnd(
   SURFOBJ          *pso,
-  HWND              hWnd,
+  HWND              hwnd,
   WNDOBJCHANGEPROC  pfn,
   FLONG             fl,
   int               iPixelFormat)
@@ -205,38 +207,33 @@ EngCreateWnd(
   WNDGDI *WndObjInt = NULL;
   WNDOBJ *WndObjUser = NULL;
   PWINDOW_OBJECT Window;
-  BOOL calledFromUser;
-  DECLARE_RETURN(WNDOBJ*);
 
   DPRINT("EngCreateWnd: pso = 0x%x, hwnd = 0x%x, pfn = 0x%x, fl = 0x%x, pixfmt = %d\n",
-         pso, hWnd, pfn, fl, iPixelFormat);
-
-  calledFromUser = UserIsEntered();
-  if (!calledFromUser){
-     UserEnterShared();
-  }
+         pso, hwnd, pfn, fl, iPixelFormat);
 
   /* Get window object */
-  Window = UserGetWindowObject(hWnd);
+  Window = IntGetWindowObject(hwnd);
   if (Window == NULL)
     {
-      RETURN( NULL);
+      return NULL;
     }
 
   /* Create WNDOBJ */
   WndObjInt = EngAllocMem(0, sizeof (WNDGDI), TAG_WNDOBJ);
   if (WndObjInt == NULL)
     {
+      IntReleaseWindowObject(Window);
       DPRINT1("Failed to allocate memory for a WND structure!\n");
-      RETURN( NULL);
+      return NULL;
     }
 
   /* Fill the clipobj */
   WndObjInt->ClientClipObj = NULL;
   if (!IntEngWndUpdateClipObj(WndObjInt, Window))
     {
+      IntReleaseWindowObject(Window);
       EngFreeMem(WndObjInt);
-      RETURN( NULL);
+      return NULL;
     }
 
   /* Fill user object */
@@ -245,25 +242,22 @@ EngCreateWnd(
   WndObjUser->pvConsumer = NULL;
 
   /* Fill internal object */
-  WndObjInt->Hwnd = hWnd;
+  WndObjInt->Hwnd = hwnd;
   WndObjInt->ChangeProc = pfn;
   WndObjInt->Flags = fl;
   WndObjInt->PixelFormat = iPixelFormat;
 
   /* associate object with window */
+  ExAcquireFastMutex(&Window->WndObjListLock);
   InsertTailList(&Window->WndObjListHead, &WndObjInt->ListEntry);
+  ExReleaseFastMutex(&Window->WndObjListLock);
+
+  /* release resources */
+  IntReleaseWindowObject(Window);
 
   DPRINT("EngCreateWnd: SUCCESS!\n");
   
-  RETURN( WndObjUser);
-  
-CLEANUP:
-
-  if (!calledFromUser){
-    UserLeave();
-  }
-
-  END_CLEANUP;
+  return WndObjUser;
 }
 
 
@@ -277,14 +271,8 @@ EngDeleteWnd(
 {
   WNDGDI *WndObjInt = ObjToGDI(pwo, WND);
   PWINDOW_OBJECT Window;
-  BOOL calledFromUser; 
 
   DPRINT("EngDeleteWnd: pwo = 0x%x\n", pwo);
-
-  calledFromUser = UserIsEntered();
-  if (!calledFromUser){
-     UserEnterExclusive();
-  }
 
   /* Get window object */
   Window = IntGetWindowObject(WndObjInt->Hwnd);
@@ -296,13 +284,11 @@ EngDeleteWnd(
   else
     {
       /* Remove object from window */
+      ExAcquireFastMutex(&Window->WndObjListLock);
       RemoveEntryList(&WndObjInt->ListEntry);
+      ExReleaseFastMutex(&Window->WndObjListLock);
       IntReleaseWindowObject(Window);
     }
-
-  if (!calledFromUser){
-     UserLeave();
-  }
 
   /* Free resources */
   IntEngDeleteClipRegion(WndObjInt->ClientClipObj);

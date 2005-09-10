@@ -253,7 +253,7 @@ static void BuildCallFrom16Func( FILE *outfile, const char *profile, const char 
         fprintf( outfile, "void" );
     fprintf( outfile, " );\n" );
 
-    fprintf( outfile, "static %s __wine_%s_CallFrom16_%s( proc_%s_t proc, unsigned char *args%s )\n",
+    fprintf( outfile, "static %s __stdcall __wine_%s_CallFrom16_%s( proc_%s_t proc, unsigned char *args%s )\n",
              ret_type, make_c_identifier(prefix), profile, profile,
              reg_func? ", void *context" : "" );
 
@@ -362,10 +362,15 @@ static void output_stub_funcs( FILE *outfile, const DLLSPEC *spec )
         ORDDEF *odp = spec->ordinals[i];
         if (!odp || odp->type != TYPE_STUB) continue;
         fprintf( outfile, "#ifdef __GNUC__\n" );
-        fprintf( outfile, "extern void __wine_spec_unimplemented_stub( const char *module, const char *func ) __attribute__((noreturn));\n" );
-        fprintf( outfile, "#else\n" );
-        fprintf( outfile, "extern void __wine_spec_unimplemented_stub( const char *module, const char *func );\n" );
-        fprintf( outfile, "#endif\n\n" );
+        fprintf( outfile, "static void __wine_unimplemented( const char *func ) __attribute__((noreturn));\n" );
+        fprintf( outfile, "#endif\n" );
+        fprintf( outfile, "static void __wine_unimplemented( const char *func )\n{\n" );
+        fprintf( outfile, "  extern void __stdcall RaiseException( unsigned int, unsigned int, unsigned int, const void ** );\n" );
+        fprintf( outfile, "  const void *args[2];\n" );
+        fprintf( outfile, "  args[0] = \"%s\";\n", spec->file_name );
+        fprintf( outfile, "  args[1] = func;\n" );
+        fprintf( outfile, "  for (;;) RaiseException( 0x%08x, %d, 2, args );\n}\n\n",
+                 EXCEPTION_WINE_STUB, EH_NONCONTINUABLE );
         break;
     }
     for (i = 0; i <= spec->limit; i++)
@@ -376,7 +381,7 @@ static void output_stub_funcs( FILE *outfile, const DLLSPEC *spec )
         strcpy( odp->link_name, "__wine_stub_" );
         strcat( odp->link_name, odp->name );
         for (p = odp->link_name; *p; p++) if (!isalnum(*p)) *p = '_';
-        fprintf( outfile, "static void %s(void) { __wine_spec_unimplemented_stub(__wine_spec16_file_name, \"%s\"); }\n",
+        fprintf( outfile, "static void %s(void) { __wine_unimplemented(\"%s\"); }\n",
                  odp->link_name, odp->name );
     }
 }
@@ -392,7 +397,7 @@ void BuildSpec16File( FILE *outfile, DLLSPEC *spec )
     ORDDEF **type, **typelist;
     int i, nFuncs, nTypes;
     unsigned char *resdir_buffer, *resdata_buffer, *et_buffer, *data_buffer;
-    char string[256];
+    unsigned char string[256];
     unsigned int ne_offset, segtable_offset, impnames_offset;
     unsigned int entrypoint_size, callfrom_size;
     unsigned int code_size, code_offset;
@@ -408,7 +413,6 @@ void BuildSpec16File( FILE *outfile, DLLSPEC *spec )
     /* File header */
 
     output_file_header( outfile );
-    fprintf( outfile, "static const char __wine_spec16_file_name[] = \"%s\";\n", spec->file_name );
     fprintf( outfile, "extern unsigned short __wine_call_from_16_word();\n" );
     fprintf( outfile, "extern unsigned int __wine_call_from_16_long();\n" );
     fprintf( outfile, "extern void __wine_call_from_16_regs();\n" );
@@ -776,7 +780,6 @@ void BuildSpec16File( FILE *outfile, DLLSPEC *spec )
             }
             arg_types[j / 10] |= type << (3 * (j % 10));
         }
-        if (typelist[i]->type == TYPE_VARARGS) arg_types[j / 10] |= ARG_VARARG << (3 * (j % 10));
         if (typelist[i]->flags & FLAG_REGISTER) arg_types[0] |= ARG_REGISTER;
         if (typelist[i]->flags & FLAG_RET16) arg_types[0] |= ARG_RET16;
 

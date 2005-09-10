@@ -35,15 +35,11 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-#define STGM_ACCESS_MODE(stgm)   ((stgm)&0x0000f)
-#define STGM_SHARE_MODE(stgm)    ((stgm)&0x000f0)
-#define STGM_CREATE_MODE(stgm)   ((stgm)&0x0f000)
-
 /* Layout of ISHFileStream object */
 typedef struct
 {
-  const IStreamVtbl *lpVtbl;
-  LONG     ref;
+  IStreamVtbl *lpVtbl;
+  ULONG    ref;
   HANDLE   hFile;
   DWORD    dwMode;
   LPOLESTR lpszPath;
@@ -69,7 +65,8 @@ static HRESULT WINAPI IStream_fnQueryInterface(IStream *iface, REFIID riid, LPVO
      IsEqualIID(riid, &IID_IStream))
   {
     *ppvObj = This;
-    IStream_AddRef(iface);
+
+    IStream_AddRef((IStream*)*ppvObj);
     return S_OK;
   }
   return E_NOINTERFACE;
@@ -115,21 +112,22 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
 static HRESULT WINAPI IStream_fnRead(IStream *iface, void* pv, ULONG cb, ULONG* pcbRead)
 {
   ISHFileStream *This = (ISHFileStream *)iface;
+  HRESULT hRet = S_OK;
   DWORD dwRead = 0;
 
   TRACE("(%p,%p,0x%08lx,%p)\n", This, pv, cb, pcbRead);
 
   if (!pv)
-    return STG_E_INVALIDPOINTER;
-
-  if (!ReadFile(This->hFile, pv, cb, &dwRead, NULL))
+    hRet = STG_E_INVALIDPOINTER;
+  else if (!ReadFile(This->hFile, pv, cb, &dwRead, NULL))
   {
-    ERR("error %ld reading file\n", GetLastError());
-    return HRESULT_FROM_WIN32(GetLastError());
+    hRet = (HRESULT)GetLastError();
+    if(hRet > 0)
+      hRet = HRESULT_FROM_WIN32(hRet);
   }
   if (pcbRead)
     *pcbRead = dwRead;
-  return S_OK;
+  return hRet;
 }
 
 /**************************************************************************
@@ -138,28 +136,24 @@ static HRESULT WINAPI IStream_fnRead(IStream *iface, void* pv, ULONG cb, ULONG* 
 static HRESULT WINAPI IStream_fnWrite(IStream *iface, const void* pv, ULONG cb, ULONG* pcbWritten)
 {
   ISHFileStream *This = (ISHFileStream *)iface;
+  HRESULT hRet = S_OK;
   DWORD dwWritten = 0;
 
   TRACE("(%p,%p,0x%08lx,%p)\n", This, pv, cb, pcbWritten);
 
   if (!pv)
-    return STG_E_INVALIDPOINTER;
-
-  switch (STGM_ACCESS_MODE(This->dwMode))
+    hRet = STG_E_INVALIDPOINTER;
+  else if (!(This->dwMode & STGM_WRITE))
+    hRet = E_FAIL;
+  else if (!WriteFile(This->hFile, pv, cb, &dwWritten, NULL))
   {
-  case STGM_WRITE:
-  case STGM_READWRITE:
-    break;
-  default:
-    return E_FAIL;
+    hRet = (HRESULT)GetLastError();
+    if(hRet > 0)
+      hRet = HRESULT_FROM_WIN32(hRet);
   }
-
-  if (!WriteFile(This->hFile, pv, cb, &dwWritten, NULL))
-    return HRESULT_FROM_WIN32(GetLastError());
-
   if (pcbWritten)
     *pcbWritten = dwWritten;
-  return S_OK;
+  return hRet;
 }
 
 /**************************************************************************
@@ -175,8 +169,6 @@ static HRESULT WINAPI IStream_fnSeek(IStream *iface, LARGE_INTEGER dlibMove,
 
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
   dwPos = SetFilePointer(This->hFile, dlibMove.u.LowPart, NULL, dwOrigin);
-  if( dwPos == INVALID_SET_FILE_POINTER )
-     return E_FAIL;
 
   if (pNewPos)
   {
@@ -194,15 +186,8 @@ static HRESULT WINAPI IStream_fnSetSize(IStream *iface, ULARGE_INTEGER libNewSiz
   ISHFileStream *This = (ISHFileStream *)iface;
 
   TRACE("(%p,%ld)\n", This, libNewSize.u.LowPart);
-
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
-  if( ! SetFilePointer( This->hFile, libNewSize.QuadPart, NULL, FILE_BEGIN ) )
-    return E_FAIL;
-
-  if( ! SetEndOfFile( This->hFile ) )
-    return E_FAIL;
-
-  return S_OK;
+  return E_NOTIMPL;
 }
 
 /**************************************************************************
@@ -340,7 +325,7 @@ static HRESULT WINAPI IStream_fnClone(IStream *iface, IStream** ppstm)
   return E_NOTIMPL;
 }
 
-static const IStreamVtbl SHLWAPI_fsVTable =
+static struct IStreamVtbl SHLWAPI_fsVTable =
 {
   IStream_fnQueryInterface,
   IStream_fnAddRef,
@@ -418,27 +403,29 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
 
   *lppStream = NULL;
 
-  if (dwMode & STGM_TRANSACTED)
+  if (dwMode & ~(STGM_WRITE|STGM_READWRITE|STGM_SHARE_DENY_NONE|STGM_SHARE_DENY_READ|STGM_CREATE))
+  {
+    WARN("Invalid mode 0x%08lX\n", dwMode);
     return E_INVALIDARG;
+  }
 
   /* Access */
-  switch (STGM_ACCESS_MODE(dwMode))
+  switch (dwMode & (STGM_WRITE|STGM_READWRITE))
   {
+  case STGM_READWRITE|STGM_WRITE:
   case STGM_READWRITE:
     dwAccess = GENERIC_READ|GENERIC_WRITE;
     break;
   case STGM_WRITE:
     dwAccess = GENERIC_WRITE;
     break;
-  case STGM_READ:
+  default:
     dwAccess = GENERIC_READ;
     break;
-  default:
-    return E_INVALIDARG;
   }
 
   /* Sharing */
-  switch (STGM_SHARE_MODE(dwMode))
+  switch (dwMode & STGM_SHARE_DENY_READ)
   {
   case STGM_SHARE_DENY_READ:
     dwShare = FILE_SHARE_WRITE;
@@ -449,24 +436,17 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
   case STGM_SHARE_EXCLUSIVE:
     dwShare = 0;
     break;
-  case STGM_SHARE_DENY_NONE:
-    dwShare = FILE_SHARE_READ|FILE_SHARE_WRITE;
-    break;
   default:
-    return E_INVALIDARG;
+    dwShare = FILE_SHARE_READ|FILE_SHARE_WRITE;
   }
 
-  switch(STGM_CREATE_MODE(dwMode))
-  {
-  case STGM_FAILIFTHERE:
-    dwCreate = OPEN_EXISTING;
-    break;
-  case STGM_CREATE:
+  /* FIXME: Creation Flags, MSDN is fuzzy on the mapping... */
+  if (dwMode == STGM_FAILIFTHERE)
+    dwCreate = bCreate ? CREATE_NEW : OPEN_EXISTING;
+  else if (dwMode & STGM_CREATE)
     dwCreate = CREATE_ALWAYS;
-    break;
-  default:
-    return E_INVALIDARG;
-  }
+  else
+    dwCreate = OPEN_ALWAYS;
 
   /* Open HANDLE to file */
   hFile = CreateFileW(lpszPath, dwAccess, dwShare, NULL, dwCreate,
@@ -498,12 +478,19 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
 HRESULT WINAPI SHCreateStreamOnFileW(LPCWSTR lpszPath, DWORD dwMode,
                                    IStream **lppStream)
 {
+  DWORD dwAttr;
+
   TRACE("(%s,%ld,%p)\n", debugstr_w(lpszPath), dwMode, lppStream);
 
   if (!lpszPath || !lppStream)
     return E_INVALIDARG;
 
-  return SHCreateStreamOnFileEx(lpszPath, dwMode, 0, FALSE, NULL, lppStream);
+  dwAttr = GetFileAttributesW(lpszPath);
+  if (dwAttr == INVALID_FILE_ATTRIBUTES)
+    dwAttr = 0;
+
+  return SHCreateStreamOnFileEx(lpszPath, dwMode|STGM_WRITE, dwAttr,
+                                TRUE, NULL, lppStream);
 }
 
 /*************************************************************************

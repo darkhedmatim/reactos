@@ -9,14 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef DWORD (STDCALL _LPTHREAD_START_ROUTINE)(LPVOID lpParameter);
-
-typedef struct __FILETIME
-{
-  DWORD dwLowDateTime;
-  DWORD dwHighDateTime;
-} _FILETIME, *_PFILETIME, *_LPFILETIME;
-
 extern void SetupOnce();
 
 #define _SetupOnce() \
@@ -203,7 +195,7 @@ _ExitProcess(UINT uExitCode);
 
 HANDLE STDCALL
 _CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, DWORD dwStackSize,
-              _LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter,
+              LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter,
               DWORD dwCreationFlags, LPDWORD lpThreadId);
 
 WINBOOL STDCALL
@@ -219,11 +211,9 @@ VOID STDCALL
 _CloseHandle(HANDLE handle);
 
 BOOL STDCALL
-_GetThreadTimes(HANDLE hThread,
-                _LPFILETIME lpCreationTime,
-                _LPFILETIME lpExitTime,
-                _LPFILETIME lpKernelTime,
-                _LPFILETIME lpUserTime);
+_GetThreadTimes(HANDLE hThread, LPFILETIME lpCreationTime,
+	            LPFILETIME lpExitTime, LPFILETIME lpKernelTime,
+	            LPFILETIME lpUserTime);
 
 BOOL STDCALL
 _SetPriorityClass(HANDLE hProcess, DWORD dwPriorityClass);

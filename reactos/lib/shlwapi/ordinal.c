@@ -74,6 +74,11 @@ extern HMODULE SHLWAPI_hversion;
 
 extern DWORD SHLWAPI_ThreadRef_index;
 
+/* following is GUID for IObjectWithSite::SetSite  -- see _174           */
+static DWORD id1[4] = {0xfc4801a3, 0x11cf2ba9, 0xaa0029a2, 0x52733d00};
+/* following is GUID for IPersistMoniker::GetClassID  -- see _174        */
+static DWORD id2[4] = {0x79eac9ee, 0x11cebaf9, 0xaa00828c, 0x0ba94b00};
+
 /* Function pointers for GET_FUNC macro; these need to be global because of gcc bug */
 typedef LPITEMIDLIST (WINAPI *fnpSHBrowseForFolderW)(LPBROWSEINFOW);
 static  fnpSHBrowseForFolderW pSHBrowseForFolderW;
@@ -134,7 +139,7 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  The reason for these functions to be there is to provide a wrapper
  for unicode functions to provide these functions on systems without
  unicode functions eg. win95/win98. Since we have such functions we just
- call these. If running Wine with native DLLs, some late bound calls may
+ call these. If running Wine with native DLL's, some late bound calls may
  fail. However, it is better to implement the functions in the forward DLL
  and recommend the builtin rather than reimplementing the calls here!
 */
@@ -1491,39 +1496,48 @@ HRESULT WINAPI IUnknown_SetOwner(IUnknown *pUnk, ULONG arg)
 /*************************************************************************
  *      @	[SHLWAPI.174]
  *
- * Call either IObjectWithSite_SetSite() or IInternetSecurityManager_SetSecuritySite() on
- * an object.
+ * Call either IObjectWithSite_SetSite() or IPersistMoniker_GetClassID() on
+ * an interface.
  *
+ * RETURNS
+ *  Success: S_OK.
+ *  Failure: E_FAIL, if p1 is NULL.
+ *           E_NOINTERFACE If p1 does not support the IPersist interface,
+ *           Or an HRESULT error code.
  */
-HRESULT WINAPI IUnknown_SetSite(
-        IUnknown *obj,        /* [in]   OLE object     */
-        IUnknown *site)       /* [in]   Site interface */
+DWORD WINAPI IUnknown_SetSite(
+        IUnknown *p1,     /* [in]   OLE object                          */
+        LPVOID *p2)       /* [out]  ptr for call results */
 {
-    HRESULT hr;
-    IObjectWithSite *iobjwithsite;
-    IInternetSecurityManager *isecmgr;
+    DWORD ret, aa;
+    IUnknown *iobjectwithsite;
 
-    if (!obj) return E_FAIL;
+    if (!p1) return E_FAIL;
 
-    hr = IUnknown_QueryInterface(obj, &IID_IObjectWithSite, (LPVOID *)&iobjwithsite);
-    TRACE("IID_IObjectWithSite QI ret=%08lx, %p\n", hr, iobjwithsite);
-    if (SUCCEEDED(hr))
-    {
-	hr = IObjectWithSite_SetSite(iobjwithsite, site);
-	TRACE("done IObjectWithSite_SetSite ret=%08lx\n", hr);
-	IUnknown_Release(iobjwithsite);
+    /* see if SetSite interface exists for IObjectWithSite object */
+    ret = IUnknown_QueryInterface((IUnknown *)p1, (REFIID)id1, (LPVOID *)&iobjectwithsite);
+    TRACE("first IU_QI ret=%08lx, iobjectwithsite=%p\n", ret, iobjectwithsite);
+    if (ret) {
+
+	/* see if GetClassId interface exists for IPersistMoniker object */
+	ret = IUnknown_QueryInterface(p1, (REFIID)id2, (LPVOID *)&aa);
+	TRACE("second IU_QI ret=%08lx, aa=%08lx\n", ret, aa);
+	if (ret) return ret;
+
+	/* fake a GetClassId call */
+	ret = IOleWindow_GetWindow((IOleWindow *)aa, (HWND*)p2);
+	TRACE("second IU_QI doing 0x0c ret=%08lx, *p2=%08lx\n", ret,
+	      *(LPDWORD)p2);
+	IUnknown_Release((IUnknown *)aa);
     }
-    else
-    {
-	hr = IUnknown_QueryInterface(obj, &IID_IInternetSecurityManager, (LPVOID *)&isecmgr);
-	TRACE("IID_IInternetSecurityManager QI ret=%08lx, %p\n", hr, isecmgr);
-	if (FAILED(hr)) return hr;
-
-	hr = IInternetSecurityManager_SetSecuritySite(isecmgr, (IInternetSecurityMgrSite *)site);
-	TRACE("done IInternetSecurityManager_SetSecuritySite ret=%08lx\n", hr);
-	IUnknown_Release(isecmgr);
+    else {
+	/* fake a SetSite call */
+	ret = IOleWindow_GetWindow((IOleWindow *)iobjectwithsite, (HWND*)p2);
+	TRACE("first IU_QI doing 0x0c ret=%08lx, *p2=%08lx\n", ret,
+	      *(LPDWORD)p2);
+	IUnknown_Release((IUnknown *)iobjectwithsite);
     }
-    return hr;
+    return ret;
 }
 
 /*************************************************************************
@@ -1948,14 +1962,14 @@ HRESULT WINAPI IUnknown_HandleIRestrict(LPUNKNOWN lpUnknown, PVOID lpArg1,
  */
 HMENU WINAPI SHGetMenuFromID(HMENU hMenu, UINT uID)
 {
-  MENUITEMINFOW mi;
+  MENUITEMINFOA mi;
 
-  TRACE("(%p,%u)\n", hMenu, uID);
+  TRACE("(%p,%uld)\n", hMenu, uID);
 
-  mi.cbSize = sizeof(mi);
+  mi.cbSize = sizeof(MENUITEMINFOA);
   mi.fMask = MIIM_SUBMENU;
 
-  if (!GetMenuItemInfoW(hMenu, uID, FALSE, &mi))
+  if (!GetMenuItemInfoA(hMenu, uID, 0, &mi))
     return NULL;
 
   return mi.hSubMenu;
@@ -2217,127 +2231,61 @@ BOOL WINAPI SHIsChildOrSelf(HWND hParent, HWND hChild)
 }
 
 /*************************************************************************
- *    FDSA functions.  Manage a dynamic array of fixed size memory blocks.
- */
-
-typedef struct
-{
-    DWORD num_items;       /* Number of elements inserted */
-    void *mem;             /* Ptr to array */
-    DWORD blocks_alloced;  /* Number of elements allocated */
-    BYTE inc;              /* Number of elements to grow by when we need to expand */
-    BYTE block_size;       /* Size in bytes of an element */
-    BYTE flags;            /* Flags */
-} FDSA_info;
-
-#define FDSA_FLAG_INTERNAL_ALLOC 0x01 /* When set we have allocated mem internally */
-
-/*************************************************************************
  *      @	[SHLWAPI.208]
  *
- * Initialize an FDSA arrary. 
+ * Some sort of memory management process.
  */
-BOOL WINAPI FDSA_Initialize(DWORD block_size, DWORD inc, FDSA_info *info, void *mem,
-                            DWORD init_blocks)
+DWORD WINAPI FDSA_Initialize(
+	DWORD    a,
+	DWORD    b,
+	LPVOID   c,
+	LPVOID   d,
+	DWORD    e)
 {
-    TRACE("(0x%08lx 0x%08lx %p %p 0x%08lx)\n", block_size, inc, info, mem, init_blocks);
-
-    if(inc == 0)
-        inc = 1;
-
-    if(mem)
-        memset(mem, 0, block_size * init_blocks);
-    
-    info->num_items = 0;
-    info->inc = inc;
-    info->mem = mem;
-    info->blocks_alloced = init_blocks;
-    info->block_size = block_size;
-    info->flags = 0;
-
-    return TRUE;
+    FIXME("(0x%08lx 0x%08lx %p %p 0x%08lx) stub\n",
+	  a, b, c, d, e);
+    return 1;
 }
 
 /*************************************************************************
  *      @	[SHLWAPI.209]
  *
- * Destroy an FDSA array
+ * Some sort of memory management process.
  */
-BOOL WINAPI FDSA_Destroy(FDSA_info *info)
+DWORD WINAPI FDSA_Destroy(
+	LPVOID   a)
 {
-    TRACE("(%p)\n", info);
-
-    if(info->flags & FDSA_FLAG_INTERNAL_ALLOC)
-    {
-        HeapFree(GetProcessHeap(), 0, info->mem);
-        return FALSE;
-    }
-
-    return TRUE;
+    FIXME("(%p) stub\n",
+	  a);
+    return 1;
 }
 
 /*************************************************************************
  *      @	[SHLWAPI.210]
  *
- * Insert element into an FDSA array
+ * Some sort of memory management process.
  */
-DWORD WINAPI FDSA_InsertItem(FDSA_info *info, DWORD where, void *block)
+DWORD WINAPI FDSA_InsertItem(
+	LPVOID   a,
+	DWORD    b,
+	LPVOID   c)
 {
-    TRACE("(%p 0x%08lx %p)\n", info, where, block);
-    if(where > info->num_items)
-        where = info->num_items;
-
-    if(info->num_items >= info->blocks_alloced)
-    {
-        DWORD size = (info->blocks_alloced + info->inc) * info->block_size;
-        if(info->flags & 0x1)
-            info->mem = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, info->mem, size);
-        else
-        {
-            void *old_mem = info->mem;
-            info->mem = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
-            memcpy(info->mem, old_mem, info->blocks_alloced * info->block_size);
-        }
-        info->blocks_alloced += info->inc;
-        info->flags |= 0x1;
-    }
-
-    if(where < info->num_items)
-    {
-        memmove((char*)info->mem + (where + 1) * info->block_size,
-                (char*)info->mem + where * info->block_size,
-                (info->num_items - where) * info->block_size);
-    }
-    memcpy((char*)info->mem + where * info->block_size, block, info->block_size);
-
-    info->num_items++;
-    return where;
+    FIXME("(%p 0x%08lx %p) stub\n",
+	  a, b, c);
+    return 0;
 }
 
 /*************************************************************************
  *      @	[SHLWAPI.211]
- *
- * Delete an element from an FDSA array.
  */
-BOOL WINAPI FDSA_DeleteItem(FDSA_info *info, DWORD where)
+DWORD WINAPI FDSA_DeleteItem(
+	LPVOID   a,
+	DWORD    b)
 {
-    TRACE("(%p 0x%08lx)\n", info, where);
-
-    if(where >= info->num_items)
-        return FALSE;
-
-    if(where < info->num_items - 1)
-    {
-        memmove((char*)info->mem + where * info->block_size,
-                (char*)info->mem + (where + 1) * info->block_size,
-                (info->num_items - where - 1) * info->block_size);
-    }
-    memset((char*)info->mem + (info->num_items - 1) * info->block_size,
-           0, info->block_size);
-    info->num_items--;
-    return TRUE;
+    FIXME("(%p 0x%08lx) stub\n",
+	  a, b);
+    return 1;
 }
-
 
 typedef struct {
     REFIID   refid;
@@ -3579,31 +3527,6 @@ BOOL WINAPI GetOpenFileNameWrapW(LPOPENFILENAMEW ofn)
   return pGetOpenFileNameW(ofn);
 }
 
-/*************************************************************************
- *      @	[SHLWAPI.404]
- */
-HRESULT WINAPI IUnknown_EnumObjects(LPSHELLFOLDER lpFolder, HWND hwnd, SHCONTF flags, IEnumIDList **ppenum)
-{
-    IPersist *persist;
-    HRESULT hr;
-
-    hr = IShellFolder_QueryInterface(lpFolder, &IID_IPersist, (LPVOID)&persist);
-    if(SUCCEEDED(hr))
-    {
-        CLSID clsid;
-        hr = IPersist_GetClassID(persist, &clsid);
-        if(SUCCEEDED(hr))
-        {
-            if(IsEqualCLSID(&clsid, &CLSID_ShellFSFolder))
-                hr = IShellFolder_EnumObjects(lpFolder, hwnd, flags, ppenum);
-            else
-                hr = E_FAIL;
-        }
-        IPersist_Release(persist);
-    }
-    return hr;
-}
-
 /* INTERNAL: Map from HLS color space to RGB */
 static WORD WINAPI ConvertHue(int wHue, WORD wMid1, WORD wMid2)
 {
@@ -3719,16 +3642,6 @@ BOOL WINAPI MLFreeLibrary(HMODULE hModule)
 BOOL WINAPI SHFlushSFCacheWrap(void) {
   FIXME(": stub\n");
   return TRUE;
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.425]
- */
-BOOL WINAPI DeleteMenuWrap(HMENU hmenu, UINT pos, UINT flags)
-{
-    /* FIXME: This should do more than simply call DeleteMenu */
-    FIXME("%p %08x %08x): semi-stub\n", hmenu, pos, flags);
-    return DeleteMenu(hmenu, pos, flags);
 }
 
 /*************************************************************************
@@ -3993,19 +3906,6 @@ BOOL WINAPI IsOS(DWORD feature)
 }
 
 /*************************************************************************
- * @  [SHLWAPI.439]
- */
-HRESULT WINAPI SHLoadRegUIStringW(HKEY hkey, LPCWSTR value, LPWSTR buf, DWORD size)
-{
-    DWORD type, sz = size;
-
-    if(RegQueryValueExW(hkey, value, NULL, &type, (LPBYTE)buf, &sz) != ERROR_SUCCESS)
-        return E_FAIL;
-
-    return SHLoadIndirectString(buf, buf, size, NULL);
-}
-
-/*************************************************************************
  * @  [SHLWAPI.478]
  *
  * Call IInputObject_TranslateAcceleratorIO() on an object.
@@ -4222,14 +4122,13 @@ BOOL WINAPI SHIsLowMemoryMachine (DWORD x)
  */
 INT WINAPI GetMenuPosFromID(HMENU hMenu, UINT wID)
 {
- MENUITEMINFOW mi;
+ MENUITEMINFOA mi;
  INT nCount = GetMenuItemCount(hMenu), nIter = 0;
 
  while (nIter < nCount)
  {
-   mi.cbSize = sizeof(mi);
-   mi.fMask = MIIM_ID;
-   if (GetMenuItemInfoW(hMenu, nIter, TRUE, &mi) && mi.wID == wID)
+   mi.wID = 0;
+   if (!GetMenuItemInfoA(hMenu, nIter, TRUE, &mi) && mi.wID == wID)
      return nIter;
    nIter++;
  }

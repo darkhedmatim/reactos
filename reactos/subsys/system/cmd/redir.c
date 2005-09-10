@@ -78,12 +78,6 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 	/* find and remove all the redirections first */
 	while (*sp)
 	{
-		if (*sp == _T('^'))
-		{
-			*dp++ = *sp++;
-			*dp++ = *sp++;
-			continue;
-		}
 		if ((*sp == _T('"')) || (*sp == _T('\'')))
 		{
 			/* No redirects inside quotes */
@@ -96,7 +90,7 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 			*dp++ = *sp++;
 		}
 		else if ((*sp == _T('<')) || (*sp == _T('>')) ||
-				 (*sp == _T('1')) || (*sp == _T('2')) || (*sp == _T('&')))
+				 (*sp == _T('2')) || (*sp == _T('&')))
 		{
 			/* MS-DOS ignores multiple redirection symbols and uses the last */
 			/* redirection, so we'll emulate that and not check */
@@ -134,42 +128,6 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 					*ofn++ = *sp++;
 				*ofn = _T('\0');
 			}
-
-                        else if (*sp == _T('1'))
-			{
-				/* output redirection */
-				sp++;
-
-				if (*sp == _T('>'))
-				{
-					/* output redirection */
-				        *lpnFlags |= OUTPUT_REDIRECTION;
-				        sp++;
-
-				        /* append request ? */
-				        if (*sp == _T('>'))
-				        {
-					        *lpnFlags |= OUTPUT_APPEND;
-					        sp++;
-				        }
-				}
-				else
-				{
-					/* no redirection!! copy the '1' character! */
-					sp--;
-					*dp++ = *sp++;
-					continue;
-				}
-
-				while (_istspace (*sp))
-					sp++;
-
-				/* copy file name */
-				while (*sp && !IsRedirection (*sp) && !_istspace (*sp))
-					*ofn++ = *sp++;
-				*ofn = _T('\0');
-			}
-
 			else if (*sp == _T('2'))
 			{
 				/* error redirection */
@@ -189,7 +147,7 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 				}
 				else
 				{
-					/* no redirection!! copy the '2'  character! */
+					/* no redirection!! copy the '2' character! */
 					sp--;
 					*dp++ = *sp++;
 					continue;
@@ -240,7 +198,6 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 		else
 			*dp++ = *sp++;
 	}
-
 	*dp++ = _T('\0');
 	*dp = _T('\0');
 
@@ -248,13 +205,7 @@ INT GetRedirection (LPTSTR s, LPTSTR ifn, LPTSTR ofn, LPTSTR efn, LPINT lpnFlags
 	sp = s;
 	while (*sp)
 	{
-		if (*sp == _T('^'))
-		{
-			sp++;
-			sp++;
-			continue;
-		}
-		else if ((*sp == _T('"')) || (*sp == _T('\'')))
+		if ((*sp == _T('"')) || (*sp == _T('\'')))
 		{
 			TCHAR qc = *sp;
 

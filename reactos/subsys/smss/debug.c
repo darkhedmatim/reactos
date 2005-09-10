@@ -33,7 +33,6 @@
 
 HANDLE DbgSsApiPort = (HANDLE) 0;
 HANDLE DbgUiApiPort = (HANDLE) 0;
-HANDLE hSmDbgApiPort = (HANDLE) 0;
 
 /* FUNCTIONS *********************************************************/
 
@@ -41,12 +40,11 @@ static VOID STDCALL
 DbgSsApiPortThread (PVOID dummy)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	PORT_MESSAGE	Request ;
+	LPC_MAX_MESSAGE	Request = {{0}};
     
-    RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
 	while (TRUE)
 	{
-		Status = NtListenPort (DbgSsApiPort, & Request);
+		Status = NtListenPort (DbgSsApiPort, & Request.Header);
 		if (!NT_SUCCESS(Status))
 		{
 			DPRINT1("SM: %s: NtListenPort() failed! (Status==x%08lx)\n", __FUNCTION__, Status);
@@ -61,12 +59,11 @@ static VOID STDCALL
 DbgUiApiPortThread (PVOID dummy)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	PORT_MESSAGE	Request;
+	LPC_MAX_MESSAGE	Request = {{0}};
     
-    RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
 	while (TRUE)
 	{
-		Status = NtListenPort (DbgUiApiPort, & Request);
+		Status = NtListenPort (DbgUiApiPort, & Request.Header);
 		if (!NT_SUCCESS(Status))
 		{
 			DPRINT1("SM: %s: NtListenPort() failed! (Status==x%08lx)\n", __FUNCTION__, Status);
@@ -95,7 +92,7 @@ SmpCreatePT (IN OUT PHANDLE hPort,
 	RtlInitUnicodeString (& PortName, wcPortName);
 	InitializeObjectAttributes (& ObjectAttributes,
 				    & PortName,
-				    0,
+				    PORT_ALL_ACCESS,
 				    NULL,
        				    NULL);
 	Status = NtCreatePort (hPort,
@@ -112,8 +109,8 @@ SmpCreatePT (IN OUT PHANDLE hPort,
 			    NULL,
       			    FALSE,
       			    0,
-      			    0,
-      			    0,
+      			    NULL,
+      			    NULL,
       			    (PTHREAD_START_ROUTINE) procServingThread,
       			    hPort,
       			    & Thread,
@@ -136,19 +133,8 @@ SmInitializeDbgSs (VOID)
 	NTSTATUS  Status = STATUS_SUCCESS;
 	HANDLE    hDbgSsApiPortThread = (HANDLE) 0;
 
-
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
-	/* Self register */
-	Status = SmRegisterInternalSubsystem (L"Debug",
-						(USHORT)-1,
-						& hSmDbgApiPort);
-	if (!NT_SUCCESS(Status))
-	{
-		DPRINT1("DBG:%s: SmRegisterInternalSubsystem failed with Status=%08lx\n",
-			__FUNCTION__, Status);
-		return Status;
-	}
 	/* Create the \DbgSsApiPort object (LPC) */
 	Status = SmpCreatePT(& DbgSsApiPort,
 			     SM_DBGSS_PORT_NAME,

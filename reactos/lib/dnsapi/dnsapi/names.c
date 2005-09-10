@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include <windows.h>
 #include <winerror.h>
 #include <windns.h>

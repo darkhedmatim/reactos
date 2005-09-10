@@ -10,9 +10,11 @@
 
 /* INCLUDES ****************************************************************/
 
-#ifndef NDEBUG
+#include <ddk/ntddk.h>
+#include <ddk/ntddkbd.h>
+#include <ddk/ntdd8042.h>
+
 #define NDEBUG
-#endif
 #include <debug.h>
 
 #include "i8042prt.h"
@@ -32,18 +34,18 @@
 /*
  * FUNCTION: Write data to a port, waiting first for it to become ready
  */
-BOOLEAN I8042Write(PDEVICE_EXTENSION DevExt, PUCHAR addr, UCHAR data)
+BOOLEAN I8042Write(PDEVICE_EXTENSION DevExt, int addr, BYTE data)
 {
 	ULONG ResendIterations = DevExt->Settings.PollingIterations;
 
-	while ((KBD_IBF & READ_PORT_UCHAR(I8042_CTRL_PORT)) &&
+	while ((KBD_IBF & READ_PORT_UCHAR((PUCHAR)I8042_CTRL_PORT)) &&
 	       (ResendIterations--))
 	{
 		KeStallExecutionProcessor(50);
 	}
 
 	if (ResendIterations) {
-		WRITE_PORT_UCHAR(addr,data);
+		WRITE_PORT_UCHAR((PUCHAR)addr,data);
 		DPRINT("Sent %x to %x\n", data, addr);
 		return TRUE;
 	}
@@ -54,7 +56,7 @@ BOOLEAN I8042Write(PDEVICE_EXTENSION DevExt, PUCHAR addr, UCHAR data)
 /*
  * FUNCTION: Write data to a port, without waiting first
  */
-static BOOLEAN I8042WriteNoWait(PDEVICE_EXTENSION DevExt, int addr, UCHAR data)
+static BOOLEAN I8042WriteNoWait(PDEVICE_EXTENSION DevExt, int addr, BYTE data)
 {
 	WRITE_PORT_UCHAR((PUCHAR)addr,data);
 	DPRINT("Sent %x to %x\n", data, addr);
@@ -65,10 +67,10 @@ static BOOLEAN I8042WriteNoWait(PDEVICE_EXTENSION DevExt, int addr, UCHAR data)
 /*
  * FUNCTION: Read data from port 0x60
  */
-NTSTATUS I8042ReadData(UCHAR *Data)
+NTSTATUS I8042ReadData(BYTE *Data)
 {
-	UCHAR Status;
-	Status=READ_PORT_UCHAR(I8042_CTRL_PORT);
+	BYTE Status;
+	Status=READ_PORT_UCHAR((PUCHAR)I8042_CTRL_PORT);
 
 	// If data is available
 	if ((Status & KBD_OBF)) {
@@ -82,16 +84,16 @@ NTSTATUS I8042ReadData(UCHAR *Data)
 	return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS I8042ReadStatus(UCHAR *Status)
+NTSTATUS I8042ReadStatus(BYTE *Status)
 {
-	Status[0]=READ_PORT_UCHAR(I8042_CTRL_PORT);
+	Status[0]=READ_PORT_UCHAR((PUCHAR)I8042_CTRL_PORT);
 	return STATUS_SUCCESS;
 }
 
 /*
  * FUNCTION: Read data from port 0x60
  */
-NTSTATUS I8042ReadDataWait(PDEVICE_EXTENSION DevExt, UCHAR *Data)
+NTSTATUS I8042ReadDataWait(PDEVICE_EXTENSION DevExt, BYTE *Data)
 {
 	ULONG Counter = DevExt->Settings.PollingIterations;
 	NTSTATUS Status;
@@ -110,7 +112,7 @@ NTSTATUS I8042ReadDataWait(PDEVICE_EXTENSION DevExt, UCHAR *Data)
 
 VOID I8042Flush()
 {
-	UCHAR Ignore;
+	BYTE Ignore;
 
 	while (STATUS_SUCCESS == I8042ReadData(&Ignore)) {
 		; /* drop */
@@ -139,7 +141,7 @@ NTSTATUS STDCALL I8042SynchWritePort(PDEVICE_EXTENSION DevExt,
 {
 	NTSTATUS Status;
 	UCHAR Ack;
-	ULONG ResendIterations = DevExt->Settings.ResendIterations + 1;
+	UINT ResendIterations = DevExt->Settings.ResendIterations + 1;
 
 	do {
 		if (Port)
@@ -151,7 +153,7 @@ NTSTATUS STDCALL I8042SynchWritePort(PDEVICE_EXTENSION DevExt,
 
 		if (WaitForAck) {
 			Status = I8042ReadDataWait(DevExt, &Ack);
-			if (!NT_SUCCESS(Status))
+			if (Status != STATUS_SUCCESS)
 				return Status;
 			if (Ack == KBD_ACK)
 				return STATUS_SUCCESS;
@@ -309,7 +311,7 @@ BOOLEAN STDCALL I8042PacketIsr(PDEVICE_EXTENSION DevExt,
 
 VOID I8042PacketDpc(PDEVICE_EXTENSION DevExt)
 {
-	BOOLEAN FinishIrp = FALSE;
+	BOOL FinishIrp = FALSE;
 	NTSTATUS Result = STATUS_INTERNAL_ERROR; /* Shouldn't happen */
 	KIRQL Irql;
 
@@ -424,7 +426,7 @@ VOID STDCALL I8042SendHookWorkItem(PDEVICE_OBJECT DeviceObject,
 					      I8042SynchReadPort,
 					      I8042SynchWritePortKbd,
 					      FALSE);
-			if (!NT_SUCCESS(Status)) {
+			if (Status != STATUS_SUCCESS) {
 				WorkItemData->Irp->IoStatus.Status = Status;
 				goto hookworkitemdone;
 			}
@@ -509,11 +511,8 @@ NTSTATUS STDCALL I8042CreateDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 static NTSTATUS STDCALL I8042BasicDetect(PDEVICE_EXTENSION DevExt)
 {
 	NTSTATUS Status;
-	UCHAR Value = 0;
-	ULONG Counter;
-
-	DevExt->MouseExists = FALSE;
-	DevExt->KeyboardExists = FALSE;
+	UCHAR Value;
+	UINT Counter;
 
 	I8042Flush();
 
@@ -526,26 +525,37 @@ static NTSTATUS STDCALL I8042BasicDetect(PDEVICE_EXTENSION DevExt)
 		Status = I8042ReadDataWait(DevExt, &Value);
 	} while ((Counter--) && (STATUS_TIMEOUT == Status));
 
-	if (!NT_SUCCESS(Status))
+	if (Status != STATUS_SUCCESS)
 		return Status;
 
 	if (Value != 0x55) {
 		DPRINT1("Got %x instead of 55\n", Value);
 		return STATUS_IO_DEVICE_ERROR;
 	}
+	if (!I8042Write(DevExt, I8042_CTRL_PORT, KBD_LINE_TEST))
+		return STATUS_TIMEOUT;
 
-	if (I8042Write(DevExt, I8042_CTRL_PORT, KBD_LINE_TEST))
-	{
-		Status = I8042ReadDataWait(DevExt, &Value);
-		if (NT_SUCCESS(Status) && Value == 0)
-			DevExt->KeyboardExists = TRUE;
+	Status = I8042ReadDataWait(DevExt, &Value);
+	if (Status != STATUS_SUCCESS)
+		return Status;
+
+	if (Value == 0) {
+		DevExt->KeyboardExists = TRUE;
+	} else {
+		DevExt->KeyboardExists = FALSE;
 	}
 
-	if (I8042Write(DevExt, I8042_CTRL_PORT, MOUSE_LINE_TEST))
-	{
-		Status = I8042ReadDataWait(DevExt, &Value);
-		if (NT_SUCCESS(Status) && Value == 0)
-			DevExt->MouseExists = TRUE;
+	if (!I8042Write(DevExt, I8042_CTRL_PORT, MOUSE_LINE_TEST))
+		return STATUS_TIMEOUT;
+
+	Status = I8042ReadDataWait(DevExt, &Value);
+	if (Status != STATUS_SUCCESS)
+		return Status;
+
+	if (Value == 0) {
+		DevExt->MouseExists = TRUE;
+	} else {
+		DevExt->MouseExists = FALSE;
 	}
 
 	return STATUS_SUCCESS;
@@ -556,31 +566,28 @@ static NTSTATUS STDCALL I8042Initialize(PDEVICE_EXTENSION DevExt)
 	NTSTATUS Status;
 
 	Status = I8042BasicDetect(DevExt);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT1("Basic keyboard detection failed: %x\n", Status);
 		return Status;
 	}
 
 	if (!DevExt->KeyboardExists) {
-		DPRINT("Keyboard port not detected\n");
+		DPRINT("Keyboard not detected\n")
 		if (DevExt->Settings.Headless)
 			/* Act as if it exists regardless */
 			DevExt->KeyboardExists = TRUE;
 	} else {
-		DPRINT("Keyboard port detected\n");
+		DPRINT("Keyboard detected\n");
 		DevExt->KeyboardExists = I8042DetectKeyboard(DevExt);
 	}
 
 	if (DevExt->KeyboardExists) {
-		DPRINT("Keyboard detected\n");
 		I8042KeyboardEnable(DevExt);
 		I8042KeyboardEnableInterrupt(DevExt);
 	}
 
-	if (DevExt->MouseExists) {
-		DPRINT("Mouse detected\n");
+	if (DevExt->MouseExists)
 		I8042MouseEnable(DevExt);
-	}
 
 	return STATUS_SUCCESS;
 }

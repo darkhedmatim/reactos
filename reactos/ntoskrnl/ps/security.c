@@ -75,11 +75,13 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
 
    PreviousMode = ExGetPreviousMode();
 
-   if(PreviousMode != KernelMode)
+   if(PreviousMode == UserMode)
    {
      _SEH_TRY
      {
-       ProbeForWriteHandle(TokenHandle);
+       ProbeForWrite(TokenHandle,
+                     sizeof(HANDLE),
+                     sizeof(ULONG));
      }
      _SEH_HANDLE
      {

@@ -553,7 +553,11 @@ int main(int argc, char * argv[])
         status = CABMgr.Run();
     }
 
-    return (status ? 0 : 1);
+    if (status) {
+      return 0;
+    } else {
+      return 1;
+    }
 }
 
 /* EOF */

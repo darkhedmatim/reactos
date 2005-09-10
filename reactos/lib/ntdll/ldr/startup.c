@@ -17,7 +17,6 @@
 
 VOID RtlInitializeHeapManager (VOID);
 VOID LdrpInitLoader(VOID);
-VOID STDCALL RtlpInitDeferedCriticalSection(VOID);
 
 /* GLOBALS *******************************************************************/
 
@@ -67,35 +66,14 @@ LoadImageFileExecutionOptions(PPEB Peb)
     NTSTATUS Status = STATUS_SUCCESS;
     ULONG Value = 0;
     UNICODE_STRING ValueString;
-    UNICODE_STRING ImageName;
-    UNICODE_STRING ImagePathName;
     WCHAR ValueBuffer[64];
     ULONG ValueSize;
 
     if (Peb->ProcessParameters &&
         Peb->ProcessParameters->ImagePathName.Length > 0)
       {
-        DPRINT("%wZ\n", &Peb->ProcessParameters->ImagePathName);
-
-        ImagePathName = Peb->ProcessParameters->ImagePathName;
-        ImageName.Buffer = ImagePathName.Buffer + ImagePathName.Length / sizeof(WCHAR);
-        ImageName.Length = 0;
-        while (ImagePathName.Buffer < ImageName.Buffer)
-        {
-            ImageName.Buffer--;
-            if (*ImageName.Buffer == L'\\')
-            {
-               ImageName.Buffer++;
-               break;
-            }
-        }
-        ImageName.Length = ImagePathName.Length - (ImageName.Buffer - ImagePathName.Buffer) * sizeof(WCHAR);
-        ImageName.MaximumLength = ImageName.Length + ImagePathName.MaximumLength - ImagePathName.Length;
-
-        DPRINT("%wZ\n", &ImageName);
-
         /* global flag */
-        Status = LdrQueryImageFileExecutionOptions (&ImageName,
+        Status = LdrQueryImageFileExecutionOptions (&Peb->ProcessParameters->ImagePathName,
 				                    L"GlobalFlag",
 				                    REG_SZ,
 						    (PVOID)ValueBuffer,
@@ -103,15 +81,12 @@ LoadImageFileExecutionOptions(PPEB Peb)
 						    &ValueSize);
         if (NT_SUCCESS(Status))
           {
-            ValueString.Buffer = ValueBuffer;
-	    ValueString.Length = ValueSize - sizeof(WCHAR);
+            ValueString.Buffer = ValueBuffer + 1;
+	    ValueString.Length = ValueSize - 2 * sizeof(WCHAR);
 	    ValueString.MaximumLength = sizeof(ValueBuffer);
-	    Status = RtlUnicodeStringToInteger(&ValueString, 16, &Value);
-            if (NT_SUCCESS(Status))
-              {
-                Peb->NtGlobalFlag |= Value;
-	        DPRINT("GlobalFlag: Key='%S', Value=%08x\n", ValueBuffer, Value);
-              }
+	    RtlUnicodeStringToInteger(&ValueString, 16, &Value);
+            Peb->NtGlobalFlag |= Value;
+	    DPRINT("GlobalFlag: Key='%S', Value=%08x\n", ValueBuffer, Value);
 	  }
         /*
 	 * FIXME:

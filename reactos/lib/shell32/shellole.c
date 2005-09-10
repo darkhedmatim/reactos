@@ -163,7 +163,7 @@ HRESULT WINAPI SHCoCreateInstance(
 
 	/* now we create an instance */
 	if (bLoadFromShell32) {
-	    if (! SUCCEEDED(DllGetClassObject(myclsid, &IID_IClassFactory,(LPVOID*)&pcf))) {
+	    if (! SUCCEEDED(SHELL32_DllGetClassObject(myclsid, &IID_IClassFactory,(LPVOID*)&pcf))) {
 	        ERR("LoadFromShell failed for CLSID=%s\n", shdebugstr_guid(myclsid));
 	    }
 	} else if (bLoadWithoutCOM) {
@@ -214,7 +214,7 @@ end:
 /*************************************************************************
  * DllGetClassObject   [SHELL32.@]
  */
-HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
+HRESULT WINAPI SHELL32_DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
 {
 	HRESULT	hres = E_OUTOFMEMORY;
 	IClassFactory * pcf = NULL;
@@ -276,11 +276,11 @@ DWORD WINAPI SHCLSIDFromStringAW (LPVOID clsid, CLSID *id)
  */
 
 /* set the vtable later */
-static const IMallocVtbl VT_Shell_IMalloc32;
+static IMallocVtbl VT_Shell_IMalloc32;
 
 /* this is the static object instance */
 typedef struct {
-	const IMallocVtbl *lpVtbl;
+	IMallocVtbl *lpVtbl;
 	DWORD dummy;
 } _ShellMalloc;
 
@@ -384,7 +384,7 @@ static VOID WINAPI IShellMalloc_fnHeapMinimize(LPMALLOC iface)
 	TRACE("()\n");
 }
 
-static const IMallocVtbl VT_Shell_IMalloc32 =
+static IMallocVtbl VT_Shell_IMalloc32 =
 {
 	IShellMalloc_fnQueryInterface,
 	IShellMalloc_fnAddRefRelease,
@@ -499,15 +499,15 @@ HRESULT WINAPI SHGetDesktopFolder(IShellFolder **psf)
 
 typedef struct
 {
-    const IClassFactoryVtbl    *lpVtbl;
-    LONG                        ref;
+    IClassFactoryVtbl          *lpVtbl;
+    DWORD                       ref;
     CLSID			*rclsid;
     LPFNCREATEINSTANCE		lpfnCI;
     const IID *			riidInst;
-    LONG *			pcRefDll; /* pointer to refcounter in external dll (ugrrr...) */
+    ULONG *			pcRefDll; /* pointer to refcounter in external dll (ugrrr...) */
 } IDefClFImpl;
 
-static const IClassFactoryVtbl dclfvt;
+static IClassFactoryVtbl dclfvt;
 
 /**************************************************************************
  *  IDefClF_fnConstructor
@@ -614,7 +614,7 @@ static HRESULT WINAPI IDefClF_fnLockServer(LPCLASSFACTORY iface, BOOL fLock)
 	return E_NOTIMPL;
 }
 
-static const IClassFactoryVtbl dclfvt =
+static IClassFactoryVtbl dclfvt =
 {
     IDefClF_fnQueryInterface,
     IDefClF_fnAddRef,
@@ -639,7 +639,7 @@ HRESULT WINAPI SHCreateDefClassObject(
               shdebugstr_guid(riid), ppv, lpfnCI, pcRefDll, shdebugstr_guid(riidInst));
 
 	if (! IsEqualCLSID(riid, &IID_IClassFactory) ) return E_NOINTERFACE;
-	if (! (pcf = IDefClF_fnConstructor(lpfnCI, (PLONG)pcRefDll, riidInst))) return E_OUTOFMEMORY;
+	if (! (pcf = IDefClF_fnConstructor(lpfnCI, pcRefDll, riidInst))) return E_OUTOFMEMORY;
 	*ppv = pcf;
 	return NOERROR;
 }

@@ -574,7 +574,7 @@ COMMDCB_PARAM_HANDLER(xon)
 /* FUNCTIONS */
 #define COMMDCB_PARAM(__P__) \
  { \
-  RTL_CONSTANT_STRING(L""UNICODIZE(#__P__ )), \
+  RTL_CONSTANT_STRING( L""#__P__ ), \
   (ULONG_PTR)&COMMDCB_ ## __P__ ## Param \
  }
 
@@ -834,7 +834,7 @@ STDCALL
 CommConfigDialogA(LPCSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 {
 	PWCHAR NameW;
-	DWORD result;
+	BOOL result;
 
 	/* don't use the static thread buffer so operations in serialui
 	   don't overwrite the string */
@@ -858,9 +858,9 @@ BOOL
 STDCALL
 CommConfigDialogW(LPCWSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 {
-	DWORD (STDCALL *drvCommDlgW)(LPCWSTR, HWND, LPCOMMCONFIG);
+	BOOL (STDCALL *drvCommDlgW)(LPCWSTR, HWND, LPCOMMCONFIG);
 	HMODULE hSerialuiDll;
-	DWORD result;
+	BOOL result;
 
 	//FIXME: Get dll name from registry. (setupapi needed)
 	if(!(hSerialuiDll = LoadLibraryW(L"serialui.dll")))
@@ -869,8 +869,7 @@ CommConfigDialogW(LPCWSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 		return FALSE;
 	}
 
-	drvCommDlgW = (DWORD (STDCALL *)(LPCWSTR, HWND, LPCOMMCONFIG))
-					GetProcAddress(hSerialuiDll, "drvCommConfigDialogW");
+	drvCommDlgW = GetProcAddress(hSerialuiDll, "drvCommConfigDialogW");
 
 	if(!drvCommDlgW)
 	{
@@ -880,10 +879,8 @@ CommConfigDialogW(LPCWSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
 	}
 
 	result = drvCommDlgW(lpszName, hWnd, lpCC);
-	SetLastError(result);
 	FreeLibrary(hSerialuiDll);
-	
-	return (result == ERROR_SUCCESS ? TRUE : FALSE);
+	return result;
 }
 
 

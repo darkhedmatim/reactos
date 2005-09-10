@@ -31,22 +31,26 @@ http://msdn.microsoft.com/library/default.asp?url=/library/en-us/msi/setup/msifo
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
+#include "winreg.h"
 #include "wine/debug.h"
+#include "fdi.h"
 #include "msi.h"
+#include "msiquery.h"
+#include "fcntl.h"
+#include "objbase.h"
+#include "objidl.h"
 #include "msipriv.h"
 #include "winnls.h"
+#include "winuser.h"
+#include "shlobj.h"
 #include "wine/unicode.h"
+#include "winver.h"
 #include "action.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(msi);
 
 
-static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr, 
-                                     WCHAR** data, DWORD len, MSIRECORD* record,
-                                     BOOL* in_group);
-
-
-static LPWSTR build_default_format(MSIRECORD* record)
+LPWSTR build_default_format(MSIRECORD* record)
 {
     int i;  
     int count;
@@ -79,62 +83,39 @@ static const WCHAR* scanW(LPCWSTR buf, WCHAR token, DWORD len)
 static LPWSTR deformat_component(MSIPACKAGE* package, LPCWSTR key, DWORD* sz)
 {
     LPWSTR value = NULL;
-    MSICOMPONENT *comp;
+    INT index;
 
     *sz = 0;
     if (!package)
         return NULL;
 
     ERR("POORLY HANDLED DEFORMAT.. [$componentkey] \n");
-    comp = get_loaded_component(package,key);
-    if (comp)
+    index = get_loaded_component(package,key);
+    if (index >= 0)
     {
-        value = resolve_folder(package, comp->Directory, FALSE, FALSE, NULL);
+        value = resolve_folder(package, package->components[index].Directory, 
+                                       FALSE, FALSE, NULL);
         *sz = (strlenW(value)) * sizeof(WCHAR);
     }
 
     return value;
 }
 
-static LPWSTR deformat_file(MSIPACKAGE* package, LPCWSTR key, DWORD* sz, 
-                            BOOL shortname)
+static LPWSTR deformat_file(MSIPACKAGE* package, LPCWSTR key, DWORD* sz)
 {
     LPWSTR value = NULL;
-    MSIFILE *file;
+    INT index;
 
     *sz = 0;
 
     if (!package)
         return NULL;
 
-    file = get_loaded_file( package, key );
-    if (file)
+    index = get_loaded_file(package,key);
+    if (index >=0)
     {
-        if (!shortname)
-        {
-            value = strdupW( file->TargetPath );
-            *sz = (strlenW(value)) * sizeof(WCHAR);
-        }
-        else
-        {
-            DWORD size = 0;
-            size = GetShortPathNameW( file->TargetPath, NULL, 0 );
-
-            if (size > 0)
-            {
-                *sz = (size-1) * sizeof (WCHAR);
-                size ++;
-                value = HeapAlloc(GetProcessHeap(),0,size * sizeof(WCHAR));
-                GetShortPathNameW( file->TargetPath, value, size );
-            }
-            else
-            {
-                ERR("Unable to get ShortPath size (%s)\n",
-                    debugstr_w( file->TargetPath) );
-                value = NULL;
-                *sz = 0;
-            }
-        }
+        value = strdupW(package->files[index].TargetPath);
+        *sz = (strlenW(value)) * sizeof(WCHAR);
     }
 
     return value;
@@ -233,45 +214,6 @@ static LPWSTR deformat_property(MSIPACKAGE* package, LPCWSTR key, DWORD* chunk)
     return value;
 }
 
-/*
- * Groups cannot be nested. They are just treated as from { to next } 
- */
-static BOOL find_next_group(LPCWSTR source, DWORD len_remaining,
-                                    LPWSTR *group, LPCWSTR *mark, 
-                                    LPCWSTR* mark2)
-{
-    int i;
-    BOOL found = FALSE;
-
-    *mark = scanW(source,'{',len_remaining);
-    if (!*mark)
-        return FALSE;
-
-    for (i = 1; (*mark - source) + i < len_remaining; i++)
-    {
-        if ((*mark)[i] == '}')
-        {
-            found = TRUE;
-            break;
-        }
-    }
-    if (! found)
-        return FALSE;
-
-    *mark2 = &(*mark)[i]; 
-
-    i = *mark2 - *mark;
-    *group = HeapAlloc(GetProcessHeap(),0,i*sizeof(WCHAR));
-
-    i -= 1;
-    memcpy(*group,&(*mark)[1],i*sizeof(WCHAR));
-    (*group)[i] = 0;
-
-    TRACE("Found group %s\n",debugstr_w(*group));
-    return TRUE;
-}
-
-
 static BOOL find_next_outermost_key(LPCWSTR source, DWORD len_remaining,
                                     LPWSTR *key, LPCWSTR *mark, LPCWSTR* mark2, 
                                     BOOL *nested)
@@ -317,71 +259,13 @@ static BOOL find_next_outermost_key(LPCWSTR source, DWORD len_remaining,
     return TRUE;
 }
 
-static LPWSTR deformat_group(MSIPACKAGE* package, LPWSTR group, DWORD len, 
-                      MSIRECORD* record, DWORD* size)
-{
-    LPWSTR value;
-    LPCWSTR mark, mark2;
-    LPWSTR key;
-    BOOL nested;
-    INT failcount;
-    static const WCHAR fmt[] = {'{','%','s','}',0};
-    UINT sz;
-
-    if (!group || group[0] == 0) 
-    {
-        *size = 0;
-        return NULL;
-    }
-    /* if no [] then group is returned as is */
-
-     if (!find_next_outermost_key(group, len, &key, &mark, &mark2, &nested))
-     {
-         *size = (len+2)*sizeof(WCHAR);
-         value = HeapAlloc(GetProcessHeap(),0,*size);
-         sprintfW(value,fmt,group);
-         /* do not return size of the null at the end */
-         *size = (len+1)*sizeof(WCHAR);
-         return value;
-     }
-
-     HeapFree(GetProcessHeap(),0,key);
-     failcount = 0;
-     sz = deformat_string_internal(package, group, &value, strlenW(group),
-                                     record, &failcount);
-     if (failcount==0)
-     {
-        *size = sz * sizeof(WCHAR);
-        return value;
-     }
-     else if (failcount < 0)
-     {
-         LPWSTR v2;
-
-         v2 = HeapAlloc(GetProcessHeap(),0,(sz+2)*sizeof(WCHAR));
-         v2[0] = '{';
-         memcpy(&v2[1],value,sz*sizeof(WCHAR));
-         v2[sz+1]='}';
-         HeapFree(GetProcessHeap(),0,value);
-
-         *size = (sz+2)*sizeof(WCHAR);
-         return v2;
-     }
-     else
-     {
-         *size = 0;
-         return NULL;
-     }
-}
-
 
 /*
  * len is in WCHARs
  * return is also in WCHARs
  */
 static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr, 
-                                     WCHAR** data, DWORD len, MSIRECORD* record,
-                                     INT* failcount)
+                                     WCHAR** data, DWORD len, MSIRECORD* record)
 {
     LPCWSTR mark = NULL;
     LPCWSTR mark2 = NULL;
@@ -401,16 +285,15 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
         return 0;
     }
 
-    TRACE("Starting with %s\n",debugstr_wn(ptr,len));
+    TRACE("Starting with %s\n",debugstr_w(ptr));
 
     /* scan for special characters... fast exit */
-    if ((!scanW(ptr,'[',len) || (scanW(ptr,'[',len) && !scanW(ptr,']',len))) && 
-        (scanW(ptr,'{',len) && !scanW(ptr,'}',len)))
+    if (!scanW(ptr,'[',len) || (scanW(ptr,'[',len) && !scanW(ptr,']',len)))
     {
         /* not formatted */
         *data = HeapAlloc(GetProcessHeap(),0,(len*sizeof(WCHAR)));
         memcpy(*data,ptr,len*sizeof(WCHAR));
-        TRACE("Returning %s\n",debugstr_wn(*data,len));
+        TRACE("Returning %s\n",debugstr_w(*data));
         return len;
     }
   
@@ -418,23 +301,14 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
 
     while (progress - ptr < len)
     {
-        /* seek out first group if existing */
-        if (find_next_group(progress, len - (progress - ptr), &key,
-                                &mark, &mark2))
-        {
-            value = deformat_group(package, key, strlenW(key)+1, record, 
-                            &chunk);
-            key = NULL;
-            nested = FALSE;
-        }
         /* formatted string located */
-        else if (!find_next_outermost_key(progress, len - (progress - ptr), 
-                                &key, &mark, &mark2, &nested))
+        if (!find_next_outermost_key(progress, len - (progress - ptr), &key,
+                                     &mark, &mark2, &nested))
         {
             LPBYTE nd2;
 
-            TRACE("after value %s \n",debugstr_wn((LPWSTR)newdata,
-                                    size/sizeof(WCHAR)));
+            TRACE("after value %s .. %s\n",debugstr_w((LPWSTR)newdata),
+                                       debugstr_w(mark));
             chunk = (len - (progress - ptr)) * sizeof(WCHAR);
             TRACE("after chunk is %li + %li\n",size,chunk);
             if (size)
@@ -469,43 +343,33 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
         {
             TRACE("Nested key... %s\n",debugstr_w(key));
             deformat_string_internal(package, key, &value, strlenW(key)+1,
-                                     record, failcount);
+                                     record);
 
             HeapFree(GetProcessHeap(),0,key);
             key = value;
         }
 
-        TRACE("Current %s .. %s\n",debugstr_wn((LPWSTR)newdata, 
-                                size/sizeof(WCHAR)),debugstr_w(key));
+        TRACE("Current %s .. %s\n",debugstr_w((LPWSTR)newdata),debugstr_w(key));
 
         if (!package)
         {
             /* only deformat number indexs */
-            if (key && is_key_number(key))
-            {
+            if (is_key_number(key))
                 value = deformat_index(record,key,&chunk);  
-                if (!chunk && failcount && *failcount >= 0)
-                    (*failcount)++;
-            }
             else
             {
-                if (failcount)
-                    *failcount = -1;
-                if(key)
-                {
-                    DWORD keylen = strlenW(key);
-                    chunk = (keylen + 2)*sizeof(WCHAR);
-                    value = HeapAlloc(GetProcessHeap(),0,chunk);
-                    value[0] = '[';
-                    memcpy(&value[1],key,keylen*sizeof(WCHAR));
-                    value[1+keylen] = ']';
-                }
+                DWORD keylen = strlenW(key);
+                chunk = (keylen + 2)*sizeof(WCHAR);
+                value = HeapAlloc(GetProcessHeap(),0,chunk);
+                value[0] = '[';
+                memcpy(&value[1],key,keylen*sizeof(WCHAR));
+                value[1+keylen] = ']';
             }
         }
         else
         {
             sz = 0;
-            if (key) switch (key[0])
+            switch (key[0])
             {
                 case '~':
                     value = deformat_NULL(&chunk);
@@ -514,10 +378,8 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
                     value = deformat_component(package,&key[1],&chunk);
                 break;
                 case '#':
-                    value = deformat_file(package,&key[1], &chunk, FALSE);
-                break;
                 case '!': /* should be short path */
-                    value = deformat_file(package,&key[1], &chunk, TRUE);
+                    value = deformat_file(package,&key[1], &chunk);
                 break;
                 case '\\':
                     value = deformat_escape(&key[1],&chunk);
@@ -526,17 +388,8 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
                     value = deformat_environment(package,&key[1],&chunk);
                 break;
                 default:
-                    /* index keys cannot be nested */
                     if (is_key_number(key))
-                        if (!nested)
-                            value = deformat_index(record,key,&chunk);
-                        else
-                        {
-                            static const WCHAR fmt[] = {'[','%','s',']',0};
-                            value = HeapAlloc(GetProcessHeap(),0,10);
-                            sprintfW(value,fmt,key);
-                            chunk = strlenW(value)*sizeof(WCHAR);
-                        }
+                        value = deformat_index(record,key,&chunk);
                     else
                         value = deformat_property(package,key,&chunk);
                 break;      
@@ -559,14 +412,11 @@ static DWORD deformat_string_internal(MSIPACKAGE *package, LPCWSTR ptr,
             size+=chunk;   
             HeapFree(GetProcessHeap(),0,value);
         }
-        else if (failcount && *failcount >=0 )
-            (*failcount)++;
 
         progress = mark2+1;
     }
 
-    TRACE("after everything %s\n",debugstr_wn((LPWSTR)newdata, 
-                            size/sizeof(WCHAR)));
+    TRACE("after everything %s\n",debugstr_w((LPWSTR)newdata));
 
     *data = (LPWSTR)newdata;
     return size / sizeof(WCHAR);
@@ -590,7 +440,7 @@ UINT MSI_FormatRecordW( MSIPACKAGE* package, MSIRECORD* record, LPWSTR buffer,
     TRACE("(%s)\n",debugstr_w(rec));
 
     len = deformat_string_internal(package,rec,&deformated,strlenW(rec),
-                                   record, NULL);
+                                   record);
 
     if (buffer)
     {
@@ -637,7 +487,7 @@ UINT MSI_FormatRecordA( MSIPACKAGE* package, MSIRECORD* record, LPSTR buffer,
     TRACE("(%s)\n",debugstr_w(rec));
 
     len = deformat_string_internal(package,rec,&deformated,strlenW(rec),
-                                   record, NULL);
+                                   record);
     lenA = WideCharToMultiByte(CP_ACP,0,deformated,len,NULL,0,NULL,NULL);
 
     if (buffer)

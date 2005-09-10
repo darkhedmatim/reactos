@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
  * FILE:       drivers/fs/np/rw.c
@@ -8,10 +9,11 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
+#include "npfs.h"
+
 #define NDEBUG
 #include <debug.h>
-
-#include "npfs.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -25,7 +27,7 @@ VOID HexDump(PUCHAR Buffer, ULONG Length)
 
   DbgPrint("---------------\n");
 
-  for (i = 0; i < Length; i+= 16)
+  for (i = 0; i < ROUND_UP(Length, 16); i+= 16)
     {
       memset(Line, ' ', 64);
       Line[64] = 0;
@@ -182,7 +184,6 @@ NpfsWaiterThread(PVOID InitContext)
 		      ThreadContext->Count++;
                       ThreadContext->DeviceExt->EmptyWaiterCount--;
 		   }
-		   KeUnlockMutex(&ThreadContext->DeviceExt->PipeListLock);
 		   break;
 		default:
 		   KEBUGCHECK(0);
@@ -203,6 +204,7 @@ NpfsWaiterThread(PVOID InitContext)
 	  Terminate = TRUE;
         }
      }
+   KeUnlockMutex(&ThreadContext->DeviceExt->PipeListLock);
    ExFreePool(ThreadContext);
 }
 
@@ -398,7 +400,6 @@ NpfsRead(IN PDEVICE_OBJECT DeviceObject,
         {
 	   if (Fcb->PipeState == FILE_PIPE_CONNECTED_STATE)
 	   {
-	      ASSERT(Fcb->OtherSide != NULL);
 	      KeSetEvent(&Fcb->OtherSide->WriteEvent, IO_NO_INCREMENT, FALSE);
 	   }
 	   if (Information > 0 &&
@@ -429,7 +430,7 @@ NpfsRead(IN PDEVICE_OBJECT DeviceObject,
 	   }
 	   else
 	   {
-              Context = (PNPFS_CONTEXT)&Irp->Tail.Overlay.DriverContext;
+              PNPFS_CONTEXT Context = (PNPFS_CONTEXT)&Irp->Tail.Overlay.DriverContext;
 
               Context->WaitEvent = &Fcb->ReadEvent;
 	      Status = NpfsAddWaitingReadWriteRequest(DeviceObject, Irp);

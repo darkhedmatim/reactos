@@ -10,8 +10,9 @@
  *	 Alex 16/07/2004 - Complete Rewrite
  */
 
+#include <roscfg.h>
+#include <string.h>
 #include <msafd.h>
-
 #include <debug.h>
 
 INT

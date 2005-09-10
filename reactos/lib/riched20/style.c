@@ -249,23 +249,14 @@ void ME_DumpStyleToBuf(CHARFORMAT2W *pFmt, char buf[2048])
   ME_DumpStyleEffect(&p, "Text protected:", pFmt, CFM_PROTECTED);
 }
 
-
-static void
-ME_LogFontFromStyle(HDC hDC, LOGFONTW *lf, ME_Style *s, int nZoomNumerator, int nZoomDenominator)
+void ME_LogFontFromStyle(HDC hDC, LOGFONTW *lf, ME_Style *s)
 {
   int rx, ry;
   rx = GetDeviceCaps(hDC, LOGPIXELSX);
   ry = GetDeviceCaps(hDC, LOGPIXELSY);
   ZeroMemory(lf, sizeof(LOGFONTW));
   lstrcpyW(lf->lfFaceName, s->fmt.szFaceName);
-
-  if (nZoomNumerator == 0)
-  {
-    nZoomNumerator = 1;
-    nZoomDenominator = 1;
-  }
-  lf->lfHeight = -s->fmt.yHeight*ry*nZoomNumerator/nZoomDenominator/1440;
-  
+  lf->lfHeight = -s->fmt.yHeight*ry/1440;
   lf->lfWeight = 400;
   if (s->fmt.dwEffects & s->fmt.dwMask & CFM_BOLD)
     lf->lfWeight = 700;
@@ -277,8 +268,6 @@ ME_LogFontFromStyle(HDC hDC, LOGFONTW *lf, ME_Style *s, int nZoomNumerator, int 
     lf->lfUnderline = 1;
   if (s->fmt.dwEffects & s->fmt.dwMask & CFM_STRIKEOUT)
     lf->lfStrikeOut = 1;
-  if (s->fmt.dwEffects & s->fmt.dwMask & (CFM_SUBSCRIPT|CFM_SUPERSCRIPT))
-    lf->lfHeight = (lf->lfHeight*2)/3;
 /*lf.lfQuality = PROOF_QUALITY; */
   lf->lfPitchAndFamily = s->fmt.bPitchAndFamily;
   lf->lfCharSet = s->fmt.bCharSet;
@@ -303,7 +292,7 @@ HFONT ME_SelectStyleFont(ME_TextEditor *editor, HDC hDC, ME_Style *s)
   assert(hDC);
   assert(s);
   
-  ME_LogFontFromStyle(hDC, &lf, s, editor->nZoomNumerator, editor->nZoomDenominator);
+  ME_LogFontFromStyle(hDC, &lf, s);
   
   for (i=0; i<HFONT_CACHE_SIZE; i++)
     editor->pFontCache[i].nAge++;

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    TrueType Glyph Loader (body).                                        */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -25,7 +25,6 @@
 #include FT_OUTLINE_H
 
 #include "ttgload.h"
-#include "ttpload.h"
 
 #ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
 #include "ttgxvar.h"
@@ -75,7 +74,7 @@
   /*************************************************************************/
   /*                                                                       */
   /* <Function>                                                            */
-  /*    tt_face_get_metrics                                                */
+  /*    TT_Get_Metrics                                                     */
   /*                                                                       */
   /* <Description>                                                         */
   /*    Returns the horizontal or vertical metrics in font units for a     */
@@ -97,104 +96,34 @@
   /*    This function will much probably move to another component in the  */
   /*    near future, but I haven't decided which yet.                      */
   /*                                                                       */
-#ifdef FT_OPTIMIZE_MEMORY
-
-  static void
-  tt_face_get_metrics( TT_Face     face,
-                       FT_Bool     vertical,
-                       FT_UInt     idx,
-                       FT_Short   *abearing,
-                       FT_UShort  *aadvance )
+  FT_LOCAL_DEF( void )
+  TT_Get_Metrics( TT_HoriHeader*  header,
+                  FT_UInt         idx,
+                  FT_Short*       bearing,
+                  FT_UShort*      advance )
   {
-    TT_HoriHeader*  header;
-    FT_Byte*        p;
-    FT_Byte*        limit;
-    FT_UShort       k;
-
-
-    if ( vertical )
-    {
-      header = (TT_HoriHeader*)&face->vertical;
-      p      = face->vert_metrics;
-      limit  = p + face->vert_metrics_size;
-    }
-    else
-    {
-      header = &face->horizontal;
-      p      = face->horz_metrics;
-      limit  = p + face->horz_metrics_size;
-    }
-    
-    k = header->number_Of_HMetrics;
-    
-    if ( k > 0 )
-    {
-      if ( idx < (FT_UInt)k )
-      {
-        p += 4 * idx;
-        if ( p + 4 > limit )
-          goto NoData;
-          
-        *aadvance = FT_NEXT_USHORT( p );
-        *abearing = FT_NEXT_SHORT( p );
-      }
-      else
-      {
-        p += 4 * ( k - 1 );
-        if ( p + 4 > limit )
-          goto NoData;
-          
-        *aadvance = FT_NEXT_USHORT( p );
-        p += 2 + 2 * ( idx - k );
-        if ( p + 2 > limit )
-          *abearing = 0;
-        else
-          *abearing = FT_PEEK_SHORT( p );
-      }
-    }
-    else
-    {
-    NoData:
-      *abearing = 0;
-      *aadvance = 0;
-    }
-  }
-
-#else /* !FT_OPTIMIZE_MEMORY */
-
-  static void
-  tt_face_get_metrics( TT_Face     face,
-                       FT_Bool     vertical,
-                       FT_UInt     idx,
-                       FT_Short   *abearing,
-                       FT_UShort  *aadvance )
-  {
-    TT_HoriHeader*  header = vertical ? (TT_HoriHeader*)&face->vertical
-                                      :                 &face->horizontal;
     TT_LongMetrics  longs_m;
-    FT_UShort       k      = header->number_Of_HMetrics;
+    FT_UShort       k = header->number_Of_HMetrics;
 
 
     if ( k == 0 )
     {
-      *abearing = *aadvance = 0;
+      *bearing = *advance = 0;
       return;
     }
 
     if ( idx < (FT_UInt)k )
     {
-      longs_m   = (TT_LongMetrics)header->long_metrics + idx;
-      *abearing = longs_m->bearing;
-      *aadvance = longs_m->advance;
+      longs_m  = (TT_LongMetrics )header->long_metrics + idx;
+      *bearing = longs_m->bearing;
+      *advance = longs_m->advance;
     }
     else
     {
-      *abearing = ((TT_ShortMetrics*)header->short_metrics)[idx - k];
-      *aadvance = ((TT_LongMetrics)header->long_metrics)[k - 1].advance;
+      *bearing = ((TT_ShortMetrics*)header->short_metrics)[idx - k];
+      *advance = ((TT_LongMetrics )header->long_metrics)[k - 1].advance;
     }
   }
-
-#endif /* !FT_OPTIMIZE_MEMORY */
 
 
   /*************************************************************************/
@@ -210,7 +139,7 @@
                 FT_Short*   lsb,
                 FT_UShort*  aw )
   {
-    tt_face_get_metrics( face, 0, idx, lsb, aw );
+    TT_Get_Metrics( &face->horizontal, idx, lsb, aw );
 
     if ( check && face->postscript.isFixedPitch )
       *aw = face->horizontal.advance_Width_Max;
@@ -223,41 +152,17 @@
   /* in the font's `hdmx' table (if any).                                  */
   /*                                                                       */
   static FT_Byte*
-  Get_Advance_WidthPtr( TT_Face  face,
-                        FT_Int   ppem,
-                        FT_UInt  gindex )
+  Get_Advance_Widths( TT_Face    face,
+                      FT_UShort  ppem )
   {
-#ifdef FT_OPTIMIZE_MEMORY
-
-    FT_UInt   nn;
-    FT_Byte*  result      = NULL;
-    FT_ULong  record_size = face->hdmx_record_size;
-    FT_Byte*  record      = face->hdmx_table + 8;
-    
-
-    for ( nn = 0; nn < face->hdmx_record_count; nn++ )
-      if ( face->hdmx_record_sizes[nn] == ppem )
-      {
-        gindex += 2;
-        if ( gindex < record_size )
-          result = record + gindex;
-        break;
-      }
-
-    return result;
-
-#else
-
     FT_UShort  n;
 
 
     for ( n = 0; n < face->hdmx.num_records; n++ )
       if ( face->hdmx.records[n].ppem == ppem )
-        return &face->hdmx.records[n].widths[gindex];
+        return face->hdmx.records[n].widths;
 
     return NULL;
-
-#endif
   }
 
 
@@ -284,7 +189,7 @@
     FT_UNUSED( check );
 
     if ( face->vertical_info )
-      tt_face_get_metrics( face, 1, idx, tsb, ah );
+      TT_Get_Metrics( (TT_HoriHeader *)&face->vertical, idx, tsb, ah );
 
 #if 1             /* Emperically determined, at variance with what MS said */
 
@@ -520,8 +425,6 @@
     /* reading the point tags */
     flag       = (FT_Byte*)outline->tags;
     flag_limit = flag + n_points;
-
-    FT_ASSERT( flag != NULL );
 
     while ( flag < flag_limit )
     {
@@ -892,10 +795,12 @@
     if ( IS_HINTED( load->load_flags ) )
     {
       FT_Pos  x = zone->org[n_points-4].x;
+      FT_Pos  y = zone->org[n_points-2].y;
 
 
       x = FT_PIX_ROUND( x ) - x;
-      translate_array( n_points, zone->org, x, 0 );
+      y = FT_PIX_ROUND( y ) - y;
+      translate_array( n_points, zone->org, x, y );
 
       org_to_cur( n_points, zone );
 
@@ -913,6 +818,8 @@
           goto Exit;
 
         load->exec->is_composite     = FALSE;
+        load->exec->pedantic_hinting = (FT_Bool)( load->load_flags &
+                                                  FT_LOAD_PEDANTIC );
         load->exec->pts              = *zone;
         load->exec->pts.n_points    += 4;
 
@@ -1114,7 +1021,13 @@
 
 #endif /* FT_CONFIG_OPTION_INCREMENTAL */
 
-    offset = tt_face_get_location( face, glyph_index, &count );
+    {
+      offset = face->glyph_locations[glyph_index];
+      count  = 0;
+
+      if ( glyph_index < (FT_UInt)face->num_locations - 1 )
+        count = (FT_UInt)( face->glyph_locations[glyph_index + 1] - offset );
+    }
 
     if ( count == 0 )
     {
@@ -1137,9 +1050,10 @@
         FT_Memory  memory = loader->face->memory;
 
 
-        error = TT_Vary_Get_Glyph_Deltas( (TT_Face)(loader->face),
-                                          glyph_index, &deltas, 4 );
-        if ( error )
+        if ( (error = TT_Vary_Get_Glyph_Deltas( (TT_Face)(loader->face),
+                                                glyph_index,
+                                                &deltas,
+                                                4 ) ) )
           goto Exit;
 
         loader->pp1.x += deltas[0].x; loader->pp1.y += deltas[0].y;
@@ -1287,7 +1201,7 @@
                         face,
                         glyph_index,
                         &deltas,
-                        gloader->current.num_subglyphs + 4 )) != 0 )
+                        gloader->current.num_subglyphs + 4 ) ) )
           goto Exit;
 
         /* Note: No subglyph reallocation here, our pointers are stable. */
@@ -1635,6 +1549,8 @@
           if ( IS_HINTED( loader->load_flags ) && n_ins > 0 )
           {
             exec->is_composite     = TRUE;
+            exec->pedantic_hinting =
+              (FT_Bool)( loader->load_flags & FT_LOAD_PEDANTIC );
             error = TT_Run_Context( exec, ((TT_Size)loader->size)->debug );
             if ( error && exec->pedantic_hinting )
               goto Fail;
@@ -1812,7 +1728,7 @@
            face->root.internal->incremental_interface->funcs->get_glyph_metrics )
       {
         FT_Incremental_MetricsRec  metrics;
-        FT_Error                   error = TT_Err_Ok;
+        FT_Error                   error = 0;
 
 
         metrics.bearing_x = 0;
@@ -1877,13 +1793,12 @@
     if ( !face->postscript.isFixedPitch && size &&
          IS_HINTED( loader->load_flags )        )
     {
-      FT_Byte*  widthp = Get_Advance_WidthPtr( face,
-                                               size->root.metrics.x_ppem,
-                                               glyph_index );
+      FT_Byte*  widths = Get_Advance_Widths( face,
+                                             size->root.metrics.x_ppem );
 
 
-      if ( widthp )
-        glyph->metrics.horiAdvance = *widthp << 6;
+      if ( widths )
+        glyph->metrics.horiAdvance = widths[glyph_index] << 6;
     }
 
     /* set glyph dimensions */
@@ -1937,7 +1852,7 @@
     face   = (TT_Face)glyph->face;
     sfnt   = (SFNT_Service)face->sfnt;
     stream = face->root.stream;
-    error  = TT_Err_Ok;
+    error  = 0;
 
     if ( !size || ( load_flags & FT_LOAD_NO_SCALE )   ||
                   ( load_flags & FT_LOAD_NO_RECURSE ) )
@@ -2033,7 +1948,7 @@
 
     /* update the glyph zone bounds */
     {
-      FT_GlyphLoader  gloader = FT_FACE_DRIVER( face )->glyph_loader;
+      FT_GlyphLoader  gloader = FT_FACE_DRIVER(face)->glyph_loader;
 
 
       loader.gloader = gloader;
@@ -2059,12 +1974,6 @@
       /* load default graphics state - if needed */
       if ( size->GS.instruct_control & 2 )
         loader.exec->GS = tt_default_graphics_state;
-
-      loader.exec->pedantic_hinting =
-         FT_BOOL( load_flags & FT_LOAD_PEDANTIC );
-
-      loader.exec->grayscale =
-         FT_BOOL( FT_LOAD_TARGET_MODE( load_flags ) != FT_LOAD_TARGET_MONO );
     }
 
 #endif /* TT_CONFIG_OPTION_BYTECODE_INTERPRETER */

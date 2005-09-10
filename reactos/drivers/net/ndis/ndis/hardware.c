@@ -12,6 +12,7 @@
  *
  */
 
+#include <roscfg.h>
 #include "ndissys.h"
 
 
@@ -61,7 +62,7 @@ NdisMPciAssignResources(
     IN  ULONG                   SlotNumber,
     OUT PNDIS_RESOURCE_LIST     *AssignedResources)
 {
-  PNDIS_MINIPORT_BLOCK MiniportBlock = (PNDIS_MINIPORT_BLOCK)MiniportHandle;
+  PNDIS_MINIPORT_BLOCK MiniportBlock = &((PLOGICAL_ADAPTER)MiniportHandle)->NdisMiniportBlock;
 
   if (MiniportBlock->BusType != PCIBus ||
       MiniportBlock->AllocatedResources == NULL)
@@ -196,10 +197,11 @@ NdisReadPciSlotInformation(
     IN  PVOID       Buffer,
     IN  ULONG       Length)
 {
-  PNDIS_MINIPORT_BLOCK Adapter = (PNDIS_MINIPORT_BLOCK)NdisAdapterHandle;
+  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)NdisAdapterHandle;
   /* Slot number is ignored since W2K for all NDIS drivers. */
   return HalGetBusDataByOffset(PCIConfiguration,
-                               Adapter->BusNumber, Adapter->SlotNumber,
+                               Adapter->NdisMiniportBlock.BusNumber,
+                               Adapter->NdisMiniportBlock.SlotNumber,
                                Buffer, Offset, Length);
 }
 
@@ -216,10 +218,11 @@ NdisWritePciSlotInformation(
     IN  PVOID       Buffer,
     IN  ULONG       Length)
 {
-  PNDIS_MINIPORT_BLOCK Adapter = (PNDIS_MINIPORT_BLOCK)NdisAdapterHandle;
+  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)NdisAdapterHandle;
   /* Slot number is ignored since W2K for all NDIS drivers. */
   return HalSetBusDataByOffset(PCIConfiguration,
-                               Adapter->BusNumber, Adapter->SlotNumber,
+                               Adapter->NdisMiniportBlock.BusNumber,
+                               Adapter->NdisMiniportBlock.SlotNumber,
                                Buffer, Offset, Length);
 }
 

@@ -9,15 +9,16 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
 #include "msfs.h"
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS DEFAULTAPI
+NTSTATUS STDCALL
 MsfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp)
 {

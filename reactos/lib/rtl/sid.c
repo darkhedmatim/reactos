@@ -1,19 +1,20 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:         See COPYING in the top level directory
- * PROJECT:           ReactOS system libraries
+ * PROJECT:           ReactOS kernel
  * PURPOSE:           Security manager
  * FILE:              lib/rtl/sid.c
  * PROGRAMER:         David Welch <welch@cwcom.net>
+ * REVISION HISTORY:
+ *                 26/07/98: Added stubs for security functions
  */
 
 /* INCLUDES *****************************************************************/
-
-#include <rtl.h>
+#define __NTDRIVER__
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
-
-#define TAG_SID TAG('p', 'S', 'i', 'd')
 
 /* FUNCTIONS ***************************************************************/
 
@@ -38,7 +39,7 @@ RtlValidSid(IN PSID Sid_)
  * @implemented
  */
 ULONG STDCALL
-RtlLengthRequiredSid(IN ULONG SubAuthorityCount)
+RtlLengthRequiredSid(IN UCHAR SubAuthorityCount)
 {
   PAGED_CODE_RTL();
 
@@ -243,8 +244,8 @@ RtlAllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority,
   if (Sid == NULL)
     return STATUS_INVALID_PARAMETER;
 
-  pSid = RtlpAllocateMemory(sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG),
-                            TAG_SID);
+  pSid = (PSID)ExAllocatePool(PagedPool,
+			      sizeof(SID) + (SubAuthorityCount - 1) * sizeof(ULONG));
   if (pSid == NULL)
     return STATUS_NO_MEMORY;
 
@@ -293,7 +294,7 @@ RtlFreeSid(IN PSID Sid)
 {
    PAGED_CODE_RTL();
 
-   RtlpFreeMemory(Sid, TAG_SID);
+   ExFreePool(Sid);
    return NULL;
 }
 
@@ -369,8 +370,7 @@ RtlConvertSidToUnicodeString(PUNICODE_STRING String,
    Length = (wcs - Buffer) * sizeof(WCHAR);
    if (AllocateBuffer)
    {
-      String->Buffer = RtlpAllocateMemory(Length + sizeof(WCHAR),
-                                          TAG_SID);
+      String->Buffer = ExAllocatePool(PagedPool,Length + sizeof(WCHAR));
       if (String->Buffer == NULL)
          return STATUS_NO_MEMORY;
       String->MaximumLength = Length + sizeof(WCHAR);

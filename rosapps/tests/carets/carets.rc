@@ -1,4 +1,4 @@
-#include <windows.h>
+#include <defines.h>
 #include <reactos/resource.h>
 #include "resource.h"
 

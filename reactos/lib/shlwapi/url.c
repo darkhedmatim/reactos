@@ -23,7 +23,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
@@ -1399,7 +1398,7 @@ HRESULT WINAPI UrlHashA(LPCSTR pszUrl, unsigned char *lpDest, DWORD nDestLen)
   if (IsBadStringPtrA(pszUrl, -1) || IsBadWritePtr(lpDest, nDestLen))
     return E_INVALIDARG;
 
-  HashData((LPSTR)pszUrl, (int)strlen(pszUrl), lpDest, nDestLen);
+  HashData((const BYTE*)pszUrl, (int)strlen(pszUrl), lpDest, nDestLen);
   return S_OK;
 }
 
@@ -1421,7 +1420,7 @@ HRESULT WINAPI UrlHashW(LPCWSTR pszUrl, unsigned char *lpDest, DWORD nDestLen)
    * return the same digests for the same URL.
    */
   WideCharToMultiByte(0, 0, pszUrl, -1, szUrl, MAX_PATH, 0, 0);
-  HashData((BYTE*)szUrl, (int)strlen(szUrl), lpDest, nDestLen);
+  HashData((const BYTE*)szUrl, (int)strlen(szUrl), lpDest, nDestLen);
   return S_OK;
 }
 

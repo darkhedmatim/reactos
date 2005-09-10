@@ -25,7 +25,7 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IntVideoPortInterruptRoutine(
    IN struct _KINTERRUPT *Interrupt,
    IN PVOID ServiceContext)
@@ -38,7 +38,7 @@ IntVideoPortInterruptRoutine(
       &DeviceExtension->MiniPortDeviceExtension);
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IntVideoPortSetupInterrupt(
    IN PDEVICE_OBJECT DeviceObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
@@ -105,7 +105,7 @@ IntVideoPortSetupInterrupt(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
 {
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
@@ -127,7 +127,7 @@ VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortDisableInterrupt(IN PVOID HwDeviceExtension)
 {
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;

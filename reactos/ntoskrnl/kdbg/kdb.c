@@ -1206,7 +1206,7 @@ KdbEnterDebuggerException(
    ul = min(ExpNr, RTL_NUMBER_OF(KdbEnterConditions) - 1);
    EnterCondition = KdbEnterConditions[ul][FirstChance ? 0 : 1];
    if (EnterCondition == KdbDoNotEnter ||
-       (EnterCondition == KdbEnterFromUmode && PreviousMode == KernelMode) ||
+       (EnterCondition == KdbEnterFromUmode && PreviousMode != UserMode) ||
        (EnterCondition == KdbEnterFromKmode && PreviousMode != KernelMode))
    {
       EnterConditionMet = FALSE;
@@ -1548,48 +1548,4 @@ KdbpGetCommandLineSettings(PCHAR p1)
 
         p1 = p2;
     }
-}
-
-NTSTATUS
-KdbpSafeReadMemory(OUT PVOID Dest,
-                   IN PVOID Src,
-                   IN ULONG Bytes)
-{
-   NTSTATUS Status = STATUS_SUCCESS;
-
-   _SEH_TRY
-   {
-      RtlCopyMemory(Dest,
-                    Src,
-                    Bytes);
-   }
-   _SEH_HANDLE
-   {
-      Status = _SEH_GetExceptionCode();
-   }
-   _SEH_END;
-   
-   return Status;
-}
-
-NTSTATUS
-KdbpSafeWriteMemory(OUT PVOID Dest,
-                    IN PVOID Src,
-                    IN ULONG Bytes)
-{
-   NTSTATUS Status = STATUS_SUCCESS;
-
-   _SEH_TRY
-   {
-      RtlCopyMemory(Dest,
-                    Src,
-                    Bytes);
-   }
-   _SEH_HANDLE
-   {
-      Status = _SEH_GetExceptionCode();
-   }
-   _SEH_END;
-
-   return Status;
 }

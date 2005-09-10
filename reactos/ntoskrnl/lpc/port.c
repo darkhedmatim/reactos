@@ -121,7 +121,7 @@ LpcpInitializePort (IN OUT  PEPORT Port,
  */
 NTSTATUS STDCALL
 NtImpersonateClientOfPort (HANDLE		PortHandle,
-			   PPORT_MESSAGE	ClientMessage)
+			   PLPC_MESSAGE	ClientMessage)
 {
   UNIMPLEMENTED;
   return(STATUS_NOT_IMPLEMENTED);

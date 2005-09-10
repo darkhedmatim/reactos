@@ -88,8 +88,8 @@ const CLSID CLSID_PSFactoryBuffer = { 0x00000320, 0, 0, {0xc0, 0, 0, 0, 0, 0, 0,
  * COM will load the appropriate interface stubs and proxies as needed.
  */
 typedef struct _CFStub {
-    const IRpcStubBufferVtbl   *lpvtbl;
-    LONG			ref;
+    IRpcStubBufferVtbl	*lpvtbl;
+    DWORD			ref;
 
     LPUNKNOWN			pUnkServer;
 } CFStub;
@@ -117,10 +117,7 @@ CFStub_Release(LPRPCSTUBBUFFER iface) {
     ULONG ref;
 
     ref = InterlockedDecrement(&This->ref);
-    if (!ref) {
-        IRpcStubBuffer_Disconnect(iface);
-        HeapFree(GetProcessHeap(),0,This);
-    }
+    if (!ref) HeapFree(GetProcessHeap(),0,This);
     return ref;
 }
 
@@ -137,12 +134,9 @@ static void WINAPI
 CFStub_Disconnect(LPRPCSTUBBUFFER iface) {
     CFStub *This = (CFStub *)iface;
 
-    if (This->pUnkServer) {
-        IUnknown_Release(This->pUnkServer);
-        This->pUnkServer = NULL;
-    }
+    IUnknown_Release(This->pUnkServer);
+    This->pUnkServer = NULL;
 }
-
 static HRESULT WINAPI
 CFStub_Invoke(
     LPRPCSTUBBUFFER iface,RPCOLEMESSAGE* msg,IRpcChannelBuffer* chanbuf
@@ -243,7 +237,7 @@ CFStub_DebugServerRelease(LPRPCSTUBBUFFER iface,void *pv) {
     FIXME("(%p), stub!\n",pv);
 }
 
-static const IRpcStubBufferVtbl cfstubvt = {
+static IRpcStubBufferVtbl cfstubvt = {
     CFStub_QueryInterface,
     CFStub_AddRef,
     CFStub_Release,
@@ -275,7 +269,7 @@ CFStub_Construct(LPRPCSTUBBUFFER *ppv) {
 typedef struct _CFProxy {
     const IClassFactoryVtbl		*lpvtbl_cf;
     const IRpcProxyBufferVtbl	*lpvtbl_proxy;
-    LONG				ref;
+    DWORD				ref;
 
     IRpcChannelBuffer			*chanbuf;
     IUnknown *outer_unknown;
@@ -302,8 +296,7 @@ static ULONG WINAPI IRpcProxyBufferImpl_Release(LPRPCPROXYBUFFER iface) {
     ULONG ref = InterlockedDecrement(&This->ref);
 
     if (!ref) {
-	IRpcChannelBuffer_Release(This->chanbuf);
-	This->chanbuf = NULL;
+	IRpcChannelBuffer_Release(This->chanbuf);This->chanbuf = NULL;
 	HeapFree(GetProcessHeap(),0,This);
     }
     return ref;
@@ -427,14 +420,14 @@ static HRESULT WINAPI CFProxy_LockServer(LPCLASSFACTORY iface,BOOL fLock) {
     return S_OK;
 }
 
-static const IRpcProxyBufferVtbl pspbvtbl = {
+static IRpcProxyBufferVtbl pspbvtbl = {
     IRpcProxyBufferImpl_QueryInterface,
     IRpcProxyBufferImpl_AddRef,
     IRpcProxyBufferImpl_Release,
     IRpcProxyBufferImpl_Connect,
     IRpcProxyBufferImpl_Disconnect
 };
-static const IClassFactoryVtbl cfproxyvt = {
+static IClassFactoryVtbl cfproxyvt = {
     CFProxy_QueryInterface,
     CFProxy_AddRef,
     CFProxy_Release,
@@ -466,7 +459,7 @@ CFProxy_Construct(IUnknown *pUnkOuter, LPVOID *ppv,LPVOID *ppProxy) {
 typedef struct
 {
     const IRpcStubBufferVtbl *lpVtbl;
-    LONG refs;
+    ULONG refs;
     IRemUnknown *iface;
 } RemUnkStub;
 
@@ -552,15 +545,12 @@ static HRESULT WINAPI RemUnkStub_Invoke(LPRPCSTUBBUFFER iface,
     hr = IRemUnknown_RemQueryInterface(This->iface, &ipid, cRefs, cIids, iids, &pQIResults);
 
     /* out */
-    pMsg->cbBuffer = cIids * sizeof(REMQIRESULT) + sizeof(HRESULT);
+    pMsg->cbBuffer = cIids * sizeof(REMQIRESULT);
 
     I_RpcGetBuffer((RPC_MESSAGE *)pMsg);
+    if (hr) return hr;
 
     buf = pMsg->Buffer;
-    *(HRESULT *)buf = hr;
-    buf += sizeof(HRESULT);
-    
-    if (hr) return hr;
     /* FIXME: pQIResults is a unique pointer so pQIResults can be NULL! */
     memcpy(buf, pQIResults, cIids * sizeof(REMQIRESULT));
 
@@ -664,7 +654,7 @@ static HRESULT RemUnkStub_Construct(IRpcStubBuffer **ppStub)
     RemUnkStub *This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
     if (!This) return E_OUTOFMEMORY;
     This->lpVtbl = &RemUnkStub_VTable;
-    This->refs = 1;
+    This->refs = 0;
     This->iface = NULL;
     *ppStub = (IRpcStubBuffer*)This;
     return S_OK;
@@ -674,7 +664,7 @@ static HRESULT RemUnkStub_Construct(IRpcStubBuffer **ppStub)
 typedef struct _RemUnkProxy {
     const IRemUnknownVtbl		*lpvtbl_remunk;
     const IRpcProxyBufferVtbl	*lpvtbl_proxy;
-    LONG				refs;
+    DWORD				refs;
 
     IRpcChannelBuffer			*chan;
     IUnknown *outer_unknown;
@@ -754,14 +744,8 @@ static HRESULT WINAPI RemUnkProxy_RemQueryInterface(LPREMUNKNOWN iface,
 
     hr = IRpcChannelBuffer_SendReceive(This->chan, &msg, &status);
 
-    buf = msg.Buffer;
-
     if (SUCCEEDED(hr)) {
-        hr = *(HRESULT *)buf;
-        buf += sizeof(HRESULT);
-    }
-
-    if (SUCCEEDED(hr)) {
+      buf = msg.Buffer;
       *ppQIResults = CoTaskMemAlloc(cIids*sizeof(REMQIRESULT));
       memcpy(*ppQIResults, buf, cIids*sizeof(REMQIRESULT));
     }
@@ -862,14 +846,13 @@ static HRESULT WINAPI RURpcProxyBufferImpl_QueryInterface(LPRPCPROXYBUFFER iface
 
 static ULONG WINAPI RURpcProxyBufferImpl_AddRef(LPRPCPROXYBUFFER iface) {
     ICOM_THIS_MULTI(RemUnkProxy,lpvtbl_proxy,iface);
-    TRACE("%p, %ld\n", iface, This->refs + 1);
     return InterlockedIncrement(&This->refs);
 }
 
 static ULONG WINAPI RURpcProxyBufferImpl_Release(LPRPCPROXYBUFFER iface) {
     ICOM_THIS_MULTI(RemUnkProxy,lpvtbl_proxy,iface);
     ULONG ref = InterlockedDecrement(&This->refs);
-    TRACE("%p, %ld\n", iface, ref);
+
     if (!ref) {
 	IRpcChannelBuffer_Release(This->chan);This->chan = NULL;
 	HeapFree(GetProcessHeap(),0,This);
@@ -880,14 +863,12 @@ static ULONG WINAPI RURpcProxyBufferImpl_Release(LPRPCPROXYBUFFER iface) {
 static HRESULT WINAPI RURpcProxyBufferImpl_Connect(LPRPCPROXYBUFFER iface,IRpcChannelBuffer* pRpcChannelBuffer) {
     ICOM_THIS_MULTI(RemUnkProxy,lpvtbl_proxy,iface);
 
-    TRACE("%p, %p\n", iface, pRpcChannelBuffer);
     This->chan = pRpcChannelBuffer;
     IRpcChannelBuffer_AddRef(This->chan);
     return S_OK;
 }
 static void WINAPI RURpcProxyBufferImpl_Disconnect(LPRPCPROXYBUFFER iface) {
     ICOM_THIS_MULTI(RemUnkProxy,lpvtbl_proxy,iface);
-    TRACE("%p, %p\n", iface, This->chan);
     if (This->chan) {
 	IRpcChannelBuffer_Release(This->chan);
 	This->chan = NULL;
@@ -975,7 +956,7 @@ PSFacBuf_CreateStub(
     return E_FAIL;
 }
 
-static const IPSFactoryBufferVtbl psfacbufvtbl = {
+static IPSFactoryBufferVtbl psfacbufvtbl = {
     PSFacBuf_QueryInterface,
     PSFacBuf_AddRef,
     PSFacBuf_Release,
@@ -984,12 +965,12 @@ static const IPSFactoryBufferVtbl psfacbufvtbl = {
 };
 
 /* This is the whole PSFactoryBuffer object, just the vtableptr */
-static const IPSFactoryBufferVtbl *lppsfac = &psfacbufvtbl;
+static IPSFactoryBufferVtbl *lppsfac = &psfacbufvtbl;
 
 /***********************************************************************
  *           DllGetClassObject [OLE32.@]
  */
-HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv)
+HRESULT WINAPI OLE32_DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv)
 {
     *ppv = NULL;
     if (IsEqualIID(rclsid, &CLSID_PSFactoryBuffer))

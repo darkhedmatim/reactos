@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
  * FILE:       drivers/fs/np/fsctrl.c
@@ -9,10 +10,11 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
+#include "npfs.h"
+
 #define NDEBUG
 #include <debug.h>
-
-#include "npfs.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -168,7 +170,7 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
    NTSTATUS Status;
    PNPFS_FCB OtherSide;
    PNPFS_PIPE Pipe;
-   BOOLEAN Server;
+   BOOL Server;
 
    DPRINT("NpfsDisconnectPipe()\n");
 
@@ -185,7 +187,6 @@ NpfsDisconnectPipe(PNPFS_FCB Fcb)
       Server = (Fcb->PipeEnd == FILE_PIPE_SERVER_END);
       OtherSide = Fcb->OtherSide;
       Fcb->OtherSide = NULL;
-      Fcb->PipeState = FILE_PIPE_DISCONNECTED_STATE;
       /* Lock the server first */
       if (Server)
       {
@@ -463,7 +464,7 @@ NpfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 	break;
 
       default:
-	DPRINT("IoControlCode: %x\n", IoStack->Parameters.FileSystemControl.FsControlCode);
+	DPRINT("IoControlCode: %x\n", IoStack->Parameters.FileSystemControl.FsControlCode)
 	Status = STATUS_UNSUCCESSFUL;
     }
 

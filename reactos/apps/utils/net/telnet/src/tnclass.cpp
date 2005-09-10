@@ -78,7 +78,7 @@ void Telnet::DoInit() {
 	telSetConsoleTitle("No Connection");
 
 	// Change the icon
-	hConsoleWindow = TelnetGetConsoleWindow();
+	hConsoleWindow = GetConsoleWindow();
 	iconChange = SetIcon(hConsoleWindow, 0, &oldBIcon, &oldSIcon, ini.get_startdir());
 
 	if (WSAStartup(MAKEWORD(1, 1), &WsaData)) {
@@ -105,7 +105,7 @@ MapLoader(KeyTrans, Charmap),
 Console(GetStdHandle(STD_OUTPUT_HANDLE)),
 TelHandler(Network, Console, Parser),
 ThreadParams(TelHandler),
-Clipboard(TelnetGetConsoleWindow(), Network),
+Clipboard(GetConsoleWindow(), Network),
 Mouse(Clipboard),
 Scroller(Mouse, ini.get_scroll_size()),
 Parser(Console, KeyTrans, Scroller, Network, Charmap) {
@@ -117,7 +117,7 @@ MapLoader(KeyTrans, Charmap),
 Console(GetStdHandle(STD_OUTPUT_HANDLE)),
 TelHandler(Network, Console, Parser),
 ThreadParams(TelHandler),
-Clipboard(TelnetGetConsoleWindow(), Network),
+Clipboard(GetConsoleWindow(), Network),
 Mouse(Clipboard),
 Scroller(Mouse, ini.get_scroll_size()),
 Parser(Console, KeyTrans, Scroller, Network, Charmap) {
@@ -206,7 +206,7 @@ int Telnet::Open(const char *szHost1, const char *strPort1){
 			SetConsoleCtrlHandler(ControlEventHandler, TRUE);
 
 		hThread = CreateThread(0, 0,
-			telProcessNetwork,
+			(LPTHREAD_START_ROUTINE) telProcessNetwork,
 			(LPVOID)&ThreadParams, 0, &idThread);
 		// This helps the display thread a little (Paul Brannan 8/3/98)
 		SetThreadPriority(hThread, THREAD_PRIORITY_ABOVE_NORMAL);

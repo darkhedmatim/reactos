@@ -8,7 +8,7 @@
  *                  Created 01/11/98
  */
 
-#include <advapi32.h>
+#include "advapi32.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -327,7 +327,8 @@ CheckTokenMembership (HANDLE ExistingTokenHandle,
                       PSID SidToCheck,
                       PBOOL IsMember)
 {
-  HANDLE AccessToken = NULL;
+  HANDLE AccessToken;
+  BOOL ReleaseToken = FALSE;
   BOOL Result = FALSE;
   DWORD dwSize;
   DWORD i;
@@ -352,6 +353,7 @@ CheckTokenMembership (HANDLE ExistingTokenHandle,
       goto ByeBye;
     }
     CloseHandle(ExistingTokenHandle);
+    ReleaseToken = TRUE;
   }
   else
   {
@@ -362,6 +364,7 @@ CheckTokenMembership (HANDLE ExistingTokenHandle,
       /* Duplicate token to have a impersonation token */
       if (!DuplicateToken(ExistingTokenHandle, SecurityAnonymous, &AccessToken))
         return FALSE;
+      ReleaseToken = TRUE;
     }
     else
       AccessToken = ExistingTokenHandle;
@@ -392,7 +395,7 @@ CheckTokenMembership (HANDLE ExistingTokenHandle,
 ByeBye:
   if (lpGroups != NULL)
     HeapFree(GetProcessHeap(), 0, lpGroups);
-  if (AccessToken != NULL && AccessToken != ExistingTokenHandle)
+  if (ReleaseToken)
     CloseHandle(AccessToken);
 
   return Result;

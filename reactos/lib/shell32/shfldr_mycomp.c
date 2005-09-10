@@ -55,22 +55,20 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 */
 
 typedef struct {
-    const IShellFolder2Vtbl   *lpVtbl;
-    LONG                ref;
-    const IPersistFolder2Vtbl *lpVtblPersistFolder2;
+    IShellFolder2Vtbl   *lpVtbl;
+    DWORD                ref;
+    IPersistFolder2Vtbl *lpVtblPersistFolder2;
 
     /* both paths are parsible from the desktop */
     LPITEMIDLIST pidlRoot;    /* absolute pidl */
+    int dwAttributes;        /* attributes returned by GetAttributesOf FIXME: use it */
 } IGenericSFImpl;
 
-static const IShellFolder2Vtbl vt_ShellFolder2;
-static const IPersistFolder2Vtbl vt_PersistFolder2;
+static struct IShellFolder2Vtbl vt_ShellFolder2;
+static struct IPersistFolder2Vtbl vt_PersistFolder2;
 
-static inline IGenericSFImpl *impl_from_IPersistFolder2( IPersistFolder2 *iface )
-{
-    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpVtblPersistFolder2));
-}
-
+#define _IPersistFolder2_Offset ((int)(&(((IGenericSFImpl*)0)->lpVtblPersistFolder2)))
+#define _ICOM_THIS_From_IPersistFolder2(class, name) class* This = (class*)(((char*)name)-_IPersistFolder2_Offset);
 
 /*
   converts This to an interface pointer
@@ -87,7 +85,7 @@ static inline IGenericSFImpl *impl_from_IPersistFolder2( IPersistFolder2 *iface 
 *   IShellFolder [MyComputer] implementation
 */
 
-static const shvheader MyComputerSFHeader[] = {
+static shvheader MyComputerSFHeader[] = {
     {IDS_SHV_COLUMN1, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
     {IDS_SHV_COLUMN3, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
     {IDS_SHV_COLUMN6, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
@@ -440,23 +438,13 @@ static HRESULT WINAPI ISF_MyComputer_fnGetAttributesOf (IShellFolder2 * iface,
 
     if (*rgfInOut == 0)
         *rgfInOut = ~0;
-    
-    if(cidl == 0){
-        IShellFolder *psfParent = NULL;
-        LPCITEMIDLIST rpidl = NULL;
 
-        hr = SHBindToParent(This->pidlRoot, &IID_IShellFolder, (LPVOID*)&psfParent, (LPCITEMIDLIST*)&rpidl);
-        if(SUCCEEDED(hr)) {
-            SHELL32_GetItemAttributes (psfParent, rpidl, rgfInOut);
-            IShellFolder_Release(psfParent);
-        }
-    } else {
-        while (cidl > 0 && *apidl) {
-            pdump (*apidl);
-            SHELL32_GetItemAttributes (_IShellFolder_ (This), *apidl, rgfInOut);
-            apidl++;
-            cidl--;
-        }
+    while (cidl > 0 && *apidl)
+    {
+        pdump (*apidl);
+        SHELL32_GetItemAttributes (_IShellFolder_ (This), *apidl, rgfInOut);
+        apidl++;
+        cidl--;
     }
     /* make sure SFGAO_VALIDATE is cleared, some apps depend on that */
     *rgfInOut &= ~SFGAO_VALIDATE;
@@ -827,7 +815,7 @@ static HRESULT WINAPI ISF_MyComputer_fnMapColumnToSCID (
     return E_NOTIMPL;
 }
 
-static const IShellFolder2Vtbl vt_ShellFolder2 =
+static IShellFolder2Vtbl vt_ShellFolder2 =
 {
     ISF_MyComputer_fnQueryInterface,
     ISF_MyComputer_fnAddRef,
@@ -858,7 +846,7 @@ static const IShellFolder2Vtbl vt_ShellFolder2 =
 static HRESULT WINAPI IMCFldr_PersistFolder2_QueryInterface (
                IPersistFolder2 * iface, REFIID iid, LPVOID * ppvObj)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
 
     TRACE ("(%p)\n", This);
 
@@ -870,7 +858,7 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_QueryInterface (
  */
 static ULONG WINAPI IMCFldr_PersistFolder2_AddRef (IPersistFolder2 * iface)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -882,7 +870,7 @@ static ULONG WINAPI IMCFldr_PersistFolder2_AddRef (IPersistFolder2 * iface)
  */
 static ULONG WINAPI IMCFldr_PersistFolder2_Release (IPersistFolder2 * iface)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -895,7 +883,7 @@ static ULONG WINAPI IMCFldr_PersistFolder2_Release (IPersistFolder2 * iface)
 static HRESULT WINAPI IMCFldr_PersistFolder2_GetClassID (
                IPersistFolder2 * iface, CLSID * lpClassId)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
 
     TRACE ("(%p)\n", This);
 
@@ -914,7 +902,7 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_GetClassID (
 static HRESULT WINAPI IMCFldr_PersistFolder2_Initialize (
                IPersistFolder2 * iface, LPCITEMIDLIST pidl)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
     TRACE ("(%p)->(%p)\n", This, pidl);
     return E_NOTIMPL;
 }
@@ -925,7 +913,7 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_Initialize (
 static HRESULT WINAPI IMCFldr_PersistFolder2_GetCurFolder (
                IPersistFolder2 * iface, LPITEMIDLIST * pidl)
 {
-    IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
+    _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
 
     TRACE ("(%p)->(%p)\n", This, pidl);
 
@@ -935,7 +923,7 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_GetCurFolder (
     return S_OK;
 }
 
-static const IPersistFolder2Vtbl vt_PersistFolder2 =
+static IPersistFolder2Vtbl vt_PersistFolder2 =
 {
     IMCFldr_PersistFolder2_QueryInterface,
     IMCFldr_PersistFolder2_AddRef,

@@ -1,14 +1,18 @@
-/*
- * COPYRIGHT:         See COPYING in the top level directory
- * PROJECT:           ReactOS system libraries
- * FILE:              lib/rtl/time.c
- * PURPOSE:           Conversion between Time and TimeFields
- * PROGRAMMER:        Rex Jolliff (rex@lvcablemodem.com)
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
+ * FILE:            lib/rtl/time.c
+ * PURPOSE:         Conversion between Time and TimeFields
+ * PROGRAMMER:      Rex Jolliff (rex@lvcablemodem.com)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
+ *   08/03/98  RJJ  Implemented these functions
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>

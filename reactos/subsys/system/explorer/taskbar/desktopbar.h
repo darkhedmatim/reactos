@@ -30,8 +30,7 @@
 #define	TITLE_EXPLORERBAR		TEXT("")	// use an empty window title, so windows taskmanager does not show the window in its application list
 
 
-#define	DESKTOPBARBAR_HEIGHT	(GetSystemMetrics(SM_CYSIZE) + 5 * GetSystemMetrics(SM_CYEDGE))
-#define	REBARBAND_HEIGHT	(GetSystemMetrics(SM_CYSIZE) + 2 * GetSystemMetrics(SM_CYEDGE))
+#define	DESKTOPBARBAR_HEIGHT	29
 
 
 #define	IDC_START				0x1000
@@ -90,7 +89,6 @@ protected:
 
 	LRESULT	Init(LPCREATESTRUCT pcs);
 	LRESULT	WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam);
-	int		Notify(int id, NMHDR* pnmh);
 	int		Command(int id, int code);
 
 	void	Resize(int cx, int cy);

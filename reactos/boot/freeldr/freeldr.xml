@@ -10,6 +10,3 @@
 	<xi:include href="freeldr/freeldr.xml" />
 	<xi:include href="freeldr/setupldr.xml" />
 </directory>
-<directory name="install">
-	<xi:include href="install/installfreeldr.xml" />
-</directory>

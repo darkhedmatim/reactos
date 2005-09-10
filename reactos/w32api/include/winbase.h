@@ -1,15 +1,12 @@
-#ifndef _WINBASE_
-#define _WINBASE_
+#ifndef _WINBASE_H
+#define _WINBASE_H
 #if __GNUC__ >= 3
 #pragma GCC system_header
 #endif
 
-#if !defined(_KERNEL32_)
+#ifndef WINBASEAPI
 #define WINBASEAPI DECLSPEC_IMPORT
-#else
-#define WINBASEAPI
 #endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -130,6 +127,8 @@ extern "C" {
 #define PROGRESS_QUIET	3
 #define CALLBACK_CHUNK_FINISHED	0
 #define CALLBACK_STREAM_SWITCH	1
+#define COPY_FILE_FAIL_IF_EXISTS	1
+#define COPY_FILE_RESTARTABLE	2
 #define OFS_MAXPATHNAME 128
 #define FILE_MAP_ALL_ACCESS     0xf001f
 #define FILE_MAP_READ   4
@@ -170,7 +169,7 @@ extern "C" {
 #define BELOW_NORMAL_PRIORITY_CLASS	0x00004000
 #define ABOVE_NORMAL_PRIORITY_CLASS	0x00008000
 #define CREATE_BREAKAWAY_FROM_JOB	0x01000000
-#define CREATE_PRESERVE_CODE_AUTHZ_LEVEL 0x02000000
+#define CREATE_WITH_USERPROFILE		0x02000000
 #define CREATE_DEFAULT_ERROR_MODE	0x04000000
 #define CREATE_NO_WINDOW		0x08000000
 #define PROFILE_USER			0x10000000
@@ -182,10 +181,6 @@ extern "C" {
 #define OPEN_EXISTING	3
 #define OPEN_ALWAYS	4
 #define TRUNCATE_EXISTING	5
-#define COPY_FILE_ALLOW_DECRYPTED_DESTINATION 0x00000008
-#define COPY_FILE_FAIL_IF_EXISTS 0x00000001
-#define COPY_FILE_RESTARTABLE 0x00000002
-#define COPY_FILE_OPEN_SOURCE_FOR_WRITE 0x00000004
 #define FILE_FLAG_WRITE_THROUGH	0x80000000
 #define FILE_FLAG_OVERLAPPED	1073741824
 #define FILE_FLAG_NO_BUFFERING	536870912
@@ -504,9 +499,6 @@ extern "C" {
 #define QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX 0x00000004
 #define QUERY_ACTCTX_FLAG_ACTCTX_IS_HMODULE 0x00000008
 #define QUERY_ACTCTX_FLAG_ACTCTX_IS_ADDRESS 0x00000010
-#if (_WIN32_WINNT >= 0x0600)
-#define SYMLINK_FLAG_DIRECTORY 0x1
-#endif
 #endif /* (_WIN32_WINNT >= 0x0501) */
 #if (_WIN32_WINNT >= 0x0500)
 #define REPLACEFILE_WRITE_THROUGH 0x00000001
@@ -516,16 +508,12 @@ extern "C" {
 #define FIBER_FLAG_FLOAT_SWITCH 0x1
 #endif
 #define FLS_OUT_OF_INDEXES 0xFFFFFFFF
-#define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 
 #ifndef RC_INVOKED
-#ifndef _FILETIME_
-#define _FILETIME_
 typedef struct _FILETIME {
 	DWORD dwLowDateTime;
 	DWORD dwHighDateTime;
 } FILETIME,*PFILETIME,*LPFILETIME;
-#endif
 typedef struct _BY_HANDLE_FILE_INFORMATION {
 	DWORD	dwFileAttributes;
 	FILETIME	ftCreationTime;
@@ -1060,7 +1048,6 @@ void WINAPI AddRefActCtx(HANDLE);
 #if (_WIN32_WINNT >= 0x0500)
 PVOID WINAPI AddVectoredExceptionHandler(ULONG,PVECTORED_EXCEPTION_HANDLER);
 #endif
-BOOL WINAPI AccessCheckByType(PSECURITY_DESCRIPTOR,PSID,HANDLE,DWORD,POBJECT_TYPE_LIST,DWORD,PGENERIC_MAPPING,PPRIVILEGE_SET,LPDWORD,LPDWORD,LPBOOL);
 BOOL WINAPI AdjustTokenGroups(HANDLE,BOOL,PTOKEN_GROUPS,DWORD,PTOKEN_GROUPS,PDWORD);
 BOOL WINAPI AdjustTokenPrivileges(HANDLE,BOOL,PTOKEN_PRIVILEGES,DWORD,PTOKEN_PRIVILEGES,PDWORD);
 BOOL WINAPI AllocateAndInitializeSid(PSID_IDENTIFIER_AUTHORITY,BYTE,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,PSID*);
@@ -1109,6 +1096,10 @@ BOOL WINAPI CopyFileA(LPCSTR,LPCSTR,BOOL);
 BOOL WINAPI CopyFileW(LPCWSTR,LPCWSTR,BOOL);
 BOOL WINAPI CopyFileExA(LPCSTR,LPCSTR,LPPROGRESS_ROUTINE,LPVOID,LPBOOL,DWORD);
 BOOL WINAPI CopyFileExW(LPCWSTR,LPCWSTR,LPPROGRESS_ROUTINE,LPVOID,LPBOOL,DWORD);
+#define RtlMoveMemory memmove
+#define RtlCopyMemory memcpy
+#define RtlFillMemory(d,l,f) memset((d), (f), (l))
+#define RtlZeroMemory(d,l) RtlFillMemory((d),(l),0)
 #define MoveMemory RtlMoveMemory
 #define CopyMemory RtlCopyMemory
 #define FillMemory RtlFillMemory
@@ -2093,7 +2084,6 @@ typedef PCACTCTXW PCACTCTX;
 #define ReportEvent ReportEventW
 #define SearchPath SearchPathW
 #define SetComputerName SetComputerNameW
-#define SetComputerNameEx SetComputerNameExW
 #define SetCurrentDirectory SetCurrentDirectoryW
 #define SetDefaultCommConfig SetDefaultCommConfigW
 #if (_WIN32_WINNT >= 0x0502)
@@ -2292,7 +2282,6 @@ typedef ENUMRESTYPEPROCA ENUMRESTYPEPROC;
 #define ReportEvent ReportEventA
 #define SearchPath SearchPathA
 #define SetComputerName SetComputerNameA
-#define SetComputerNameEx SetComputerNameExA
 #define SetCurrentDirectory SetCurrentDirectoryA
 #define SetDefaultCommConfig SetDefaultCommConfigA
 #if (_WIN32_WINNT >= 0x0502)

@@ -44,64 +44,42 @@ NtEarlyInitVdm(VOID)
 NTSTATUS STDCALL NtVdmControl(ULONG ControlCode,
 			      PVOID ControlData)
 {
-  KPROCESSOR_MODE PreviousMode;
-  NTSTATUS Status = STATUS_SUCCESS;
-  
-  PreviousMode = ExGetPreviousMode();
-  
-  if (PreviousMode != KernelMode)
+  switch (ControlCode)
   {
-    _SEH_TRY
+    case 0:
+      memcpy(ControlData, OrigIVT, 1024);
+      break;
+
+    case 1:
+      memcpy(ControlData, OrigBDA, 256);
+      break;
+
+    case 2:
     {
-      switch (ControlCode)
-      {
-        case 0:
-          ProbeForWrite(ControlData,
-                        1024,
-                        1);
-          memcpy(ControlData, OrigIVT, 1024);
-          break;
+      KV86M_REGISTERS V86Registers;
+      ULONG ret;
 
-        case 1:
-          ProbeForWrite(ControlData,
-                        256,
-                        1);
-          memcpy(ControlData, OrigBDA, 256);
-          break;
+      ret = MmCopyFromCaller(&V86Registers,
+                             ControlData,
+                             sizeof(KV86M_REGISTERS));
+      if(!NT_SUCCESS(ret)) return ret;
 
-        case 2:
-        {
-          KV86M_REGISTERS V86Registers;
-          
-          ProbeForWrite(ControlData,
-                        sizeof(KV86M_REGISTERS),
-                        1);
-          memcpy(&V86Registers,
-                 ControlData,
-                 sizeof(KV86M_REGISTERS));
+      /* FIXME: This should use ->VdmObjects */
+      KeGetCurrentProcess()->Unused = 1;
+      Ki386RetToV86Mode(&V86Registers, &V86Registers);
 
-          /* FIXME: This should use ->VdmObjects */
-          KeGetCurrentProcess()->Unused = 1;
-          Ki386RetToV86Mode(&V86Registers, &V86Registers);
+      /* FIXME: This should use ->VdmObjects */
+      KeGetCurrentProcess()->Unused = 0;
 
-          /* FIXME: This should use ->VdmObjects */
-          KeGetCurrentProcess()->Unused = 0;
-          
-          memcpy(ControlData,
-                 &V86Registers,
-                 sizeof(KV86M_REGISTERS));
-          break;
-        }
-      }
+      ret = MmCopyToCaller(ControlData,
+                           &V86Registers,
+                           sizeof(KV86M_REGISTERS));
+      if(!NT_SUCCESS(ret)) return ret;
+
+      break;
     }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
   }
-  
-  return Status;
+  return(STATUS_SUCCESS);
 }
 
 /* EOF */

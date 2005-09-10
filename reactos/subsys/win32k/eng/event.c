@@ -36,7 +36,7 @@ BOOL
 STDCALL
 EngCreateEvent ( OUT PEVENT *Event )
 {
-  (*Event) = ExAllocatePool(NonPagedPool, sizeof(KEVENT));
+  (*Event) = ExAllocatePool(NonPagedPool, sizeof(TAG_DRIVER));
   if ((*Event) == NULL)
     {
       return FALSE;

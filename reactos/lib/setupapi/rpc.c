@@ -21,12 +21,10 @@
 #include <windows.h>
 #include <rpc.h>
 #include <rpcdce.h>
-#include <setupapi.h>
 #include "rpc_private.h"
 
 
 static RPC_BINDING_HANDLE LocalBindingHandle = NULL;
-static HSTRING_TABLE LocalStringTable = NULL;
 
 
 RPC_STATUS
@@ -67,48 +65,22 @@ PnpUnbindRpc(RPC_BINDING_HANDLE *BindingHandle)
 }
 
 
-BOOL
-PnpGetLocalHandles(RPC_BINDING_HANDLE *BindingHandle,
-                   HSTRING_TABLE *StringTable)
+RPC_STATUS
+PnpGetLocalBindingHandle(RPC_BINDING_HANDLE *BindingHandle)
 {
     if (LocalBindingHandle != NULL)
     {
-        if (BindingHandle != NULL)
-            *BindingHandle = LocalBindingHandle;
-
-        if (StringTable != NULL)
-            *StringTable = LocalStringTable;
-
-        return TRUE;
+        BindingHandle = LocalBindingHandle;
+        return RPC_S_OK;
     }
 
-    LocalStringTable = StringTableInitialize();
-    if (LocalStringTable == NULL)
-        return FALSE;
-
-    if (PnpBindRpc(NULL, &LocalBindingHandle) != RPC_S_OK)
-    {
-        StringTableDestroy(LocalStringTable);
-        return FALSE;
-    }
-
-    StringTableAddString(LocalStringTable, L"PLT", 1);
-
-    if (BindingHandle != NULL)
-        *BindingHandle = LocalBindingHandle;
-
-    if (StringTable != NULL)
-        *StringTable = LocalStringTable;
-
-    return TRUE;
+    return PnpBindRpc(NULL, BindingHandle);
 }
 
 
 RPC_STATUS
 PnpUnbindLocalBindingHandle(VOID)
 {
-    StringTableDestroy(LocalStringTable);
-    LocalStringTable = NULL;
     return PnpUnbindRpc(&LocalBindingHandle);
 }
 

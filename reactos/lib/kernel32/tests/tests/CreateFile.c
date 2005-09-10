@@ -1,7 +1,6 @@
-#include <k32.h>
-
-#ifdef __GNUC__
+#include "../../k32.h"
 #include "regtests.h"
+
 #define NDEBUG
 #include "../../include/debug.h"
 
@@ -125,5 +124,3 @@ static void RunTest()
 }
 
 _Dispatcher(CreatefileTest, "CreateFileW")
-
-#endif

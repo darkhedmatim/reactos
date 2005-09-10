@@ -1,4 +1,6 @@
-/*
+/* $Id$ 
+ *
+ *
  * FILE:             drivers/fs/vfat/fastio.c
  * PURPOSE:          Fast IO routines.
  * COPYRIGHT:        See COPYING in the top level directory

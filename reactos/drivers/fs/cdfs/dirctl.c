@@ -29,12 +29,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "cdfs.h"
+#include <ddk/ntddk.h>
 
 #define NDEBUG
 #include <debug.h>
 
-/* FUNCTIONS ****************************************************************/
+#include "cdfs.h"
+
+/* DEFINES ******************************************************************/
 
 #define ROUND_DOWN(N, S) (((N) / (S)) * (S))
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))

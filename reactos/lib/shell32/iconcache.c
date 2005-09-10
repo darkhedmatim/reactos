@@ -407,27 +407,24 @@ BOOL SIC_Initialize(void)
 	  return(FALSE);
 	}
 
-	ShellSmallIconList = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,0x20);
-	ShellBigIconList = ImageList_Create(32,32,ILC_COLOR32|ILC_MASK,0,0x20);
+       ShellSmallIconList = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,0x20);
+       ShellBigIconList = ImageList_Create(32,32,ILC_COLOR32|ILC_MASK,0,0x20);
 
-	ImageList_SetBkColor(ShellSmallIconList, CLR_NONE);
-	ImageList_SetBkColor(ShellBigIconList, CLR_NONE);
+       ImageList_SetBkColor(ShellSmallIconList, CLR_NONE);
+       ImageList_SetBkColor(ShellBigIconList, CLR_NONE);
 
-	/*
-	 * Wine will extract and cache all shell32 icons here. That's because
-	 * they are unable to extract resources from their built-in DLLs.
-	 * We don't need that, but we still want to make sure that the very
-	 * first icon in the image lists is icon 1 from shell32.dll, since
-	 * that's the default icon.
-	 */
-	index = 1;
-	hSm = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(index), IMAGE_ICON, cx_small, cy_small, LR_SHARED);
-	hLg = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(index), IMAGE_ICON, cx_large, cy_large, LR_SHARED);
-
-	if(hSm)
+	for (index=1; index<39; index++)
 	{
-          SIC_IconAppend (swShell32Name, index - 1, hSm, hLg, 0);
-          SIC_IconAppend (swShell32Name, -index, hSm, hLg, 0);
+	  hSm = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(index), IMAGE_ICON, cx_small, cy_small, LR_SHARED);
+	  hLg = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(index), IMAGE_ICON, cx_large, cy_large, LR_SHARED);
+
+	  if(!hSm)
+	  {
+	    hSm = LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(1), IMAGE_ICON, cx_small, cy_small, LR_SHARED);
+	    hLg = LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(1), IMAGE_ICON, cx_large, cy_large, LR_SHARED);
+	  }
+         SIC_IconAppend (swShell32Name, index - 1, hSm, hLg, 0);
+         SIC_IconAppend (swShell32Name, -index, hSm, hLg, 0);
 	}
 
 	TRACE("hIconSmall=%p hIconBig=%p\n",ShellSmallIconList, ShellBigIconList);
@@ -673,12 +670,7 @@ HICON WINAPI ExtractAssociatedIconA(HINSTANCE hInst, LPSTR lpIconPath, LPWORD lp
 {	
     HICON hIcon = NULL;
     INT len = MultiByteToWideChar(CP_ACP, 0, lpIconPath, -1, NULL, 0);
-    /* Note that we need to allocate MAX_PATH, since we are supposed to fill
-     * the correct executable if there is no icon in lpIconPath directly.
-     * lpIconPath itself is supposed to be large enough, so make sure lpIconPathW
-     * is large enough too. Yes, I am puking too.
-     */
-    LPWSTR lpIconPathW = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR));
+    LPWSTR lpIconPathW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
 
     TRACE("%p %s %p\n", hInst, debugstr_a(lpIconPath), lpiIcon);
 
@@ -686,18 +678,11 @@ HICON WINAPI ExtractAssociatedIconA(HINSTANCE hInst, LPSTR lpIconPath, LPWORD lp
     {
         MultiByteToWideChar(CP_ACP, 0, lpIconPath, -1, lpIconPathW, len);
         hIcon = ExtractAssociatedIconW(hInst, lpIconPathW, lpiIcon);
-        WideCharToMultiByte(CP_ACP, 0, lpIconPathW, -1, lpIconPath, MAX_PATH , NULL, NULL);
         HeapFree(GetProcessHeap(), 0, lpIconPathW);
     }
     return hIcon;
 }
 
-/*************************************************************************
- *				ExtractAssociatedIconW (SHELL32.@)
- *
- * Return icon for given file (either from file itself or from associated
- * executable) and patch parameters if needed.
- */
 HICON WINAPI ExtractAssociatedIconW(HINSTANCE hInst, LPWSTR lpIconPath, LPWORD lpiIcon)
 {
     HICON hIcon = NULL;

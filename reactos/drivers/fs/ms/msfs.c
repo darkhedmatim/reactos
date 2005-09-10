@@ -9,6 +9,7 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <ntifs.h>
 #include "msfs.h"
 
 #define NDEBUG
@@ -17,7 +18,7 @@
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath)
 {

@@ -68,14 +68,17 @@ void __stdcall _SEHLocalUnwind
  }
 }
 
-void __cdecl _SEHCallHandler
+__declspec(noreturn) void __cdecl _SEHCallHandler
 (
  _SEHPortableFrame_t * frame,
  _SEHPortableTryLevel_t * trylevel
 )
 {
+ DbgPrint("_SEHCallHandler: REG %p\n", _SEHCurrentRegistration());
  _SEHGlobalUnwind(frame);
+ DbgPrint("_SEHCallHandler: REG %p\n", _SEHCurrentRegistration());
  _SEHLocalUnwind(frame, trylevel);
+ DbgPrint("_SEHCallHandler: REG %p\n", _SEHCurrentRegistration());
  frame->SPF_Handler(trylevel);
 }
 

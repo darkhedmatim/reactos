@@ -11,7 +11,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#define NDEBUG
 #include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -244,7 +243,7 @@ NTSTATUS STDCALL
 IoSetInformation(IN PFILE_OBJECT FileObject,
 		 IN FILE_INFORMATION_CLASS FileInformationClass,
 		 IN ULONG Length,
-		 IN PVOID FileInformation)
+		 OUT PVOID FileInformation)
 {
    IO_STATUS_BLOCK IoStatusBlock;
    PIRP Irp;

@@ -41,8 +41,8 @@
 typedef struct
 {
     /* IUnknown fields */
-    const IClassFactoryVtbl *lpVtbl;
-    LONG ref;
+    IClassFactoryVtbl *lpVtbl;
+    DWORD ref;
 } IClassFactoryImpl;
 
 extern IClassFactoryImpl SHDOCVW_ClassFactory;
@@ -54,11 +54,38 @@ extern IClassFactoryImpl SHDOCVW_ClassFactory;
 typedef struct
 {
     /* IUnknown fields */
-    const IOleObjectVtbl *lpVtbl;
-    LONG ref;
+    IOleObjectVtbl *lpVtbl;
+    DWORD ref;
 } IOleObjectImpl;
 
 extern IOleObjectImpl SHDOCVW_OleObject;
+
+
+/**********************************************************************
+ * IOleInPlaceObject declaration for SHDOCVW.DLL
+ */
+typedef struct
+{
+    /* IUnknown fields */
+    IOleInPlaceObjectVtbl *lpVtbl;
+    DWORD ref;
+} IOleInPlaceObjectImpl;
+
+extern IOleInPlaceObjectImpl SHDOCVW_OleInPlaceObject;
+
+
+/**********************************************************************
+ * IOleControl declaration for SHDOCVW.DLL
+ */
+typedef struct
+{
+    /* IUnknown fields */
+    IOleControlVtbl *lpVtbl;
+    DWORD ref;
+} IOleControlImpl;
+
+extern IOleControlImpl SHDOCVW_OleControl;
+
 
 /**********************************************************************
  * IWebBrowser declaration for SHDOCVW.DLL
@@ -66,8 +93,8 @@ extern IOleObjectImpl SHDOCVW_OleObject;
 typedef struct
 {
     /* IUnknown fields */
-    const IWebBrowserVtbl *lpVtbl;
-    LONG ref;
+    IWebBrowserVtbl *lpVtbl;
+    DWORD ref;
 } IWebBrowserImpl;
 
 extern IWebBrowserImpl SHDOCVW_WebBrowser;
@@ -79,8 +106,8 @@ extern IWebBrowserImpl SHDOCVW_WebBrowser;
 typedef struct
 {
     /* IUnknown fields */
-    const IProvideClassInfoVtbl *lpVtbl;
-    LONG ref;
+    IProvideClassInfoVtbl *lpVtbl;
+    DWORD ref;
 } IProvideClassInfoImpl;
 
 extern IProvideClassInfoImpl SHDOCVW_ProvideClassInfo;
@@ -92,8 +119,8 @@ extern IProvideClassInfoImpl SHDOCVW_ProvideClassInfo;
 typedef struct
 {
     /* IUnknown fields */
-    const IProvideClassInfo2Vtbl *lpVtbl;
-    LONG ref;
+    IProvideClassInfo2Vtbl *lpVtbl;
+    DWORD ref;
 } IProvideClassInfo2Impl;
 
 extern IProvideClassInfo2Impl SHDOCVW_ProvideClassInfo2;
@@ -105,8 +132,8 @@ extern IProvideClassInfo2Impl SHDOCVW_ProvideClassInfo2;
 typedef struct
 {
     /* IUnknown fields */
-    const IPersistStorageVtbl *lpVtbl;
-    LONG ref;
+    IPersistStorageVtbl *lpVtbl;
+    DWORD ref;
 } IPersistStorageImpl;
 
 extern IPersistStorageImpl SHDOCVW_PersistStorage;
@@ -118,8 +145,8 @@ extern IPersistStorageImpl SHDOCVW_PersistStorage;
 typedef struct
 {
     /* IUnknown fields */
-    const IPersistStreamInitVtbl *lpVtbl;
-    LONG ref;
+    IPersistStreamInitVtbl *lpVtbl;
+    DWORD ref;
 } IPersistStreamInitImpl;
 
 extern IPersistStreamInitImpl SHDOCVW_PersistStreamInit;
@@ -131,8 +158,8 @@ extern IPersistStreamInitImpl SHDOCVW_PersistStreamInit;
 typedef struct
 {
     /* IUnknown fields */
-    const IQuickActivateVtbl *lpVtbl;
-    LONG ref;
+    IQuickActivateVtbl *lpVtbl;
+    DWORD ref;
 } IQuickActivateImpl;
 
 extern IQuickActivateImpl SHDOCVW_QuickActivate;
@@ -144,8 +171,8 @@ extern IQuickActivateImpl SHDOCVW_QuickActivate;
 typedef struct
 {
     /* IUnknown fields */
-    const IConnectionPointContainerVtbl *lpVtbl;
-    LONG ref;
+    IConnectionPointContainerVtbl *lpVtbl;
+    DWORD ref;
 } IConnectionPointContainerImpl;
 
 extern IConnectionPointContainerImpl SHDOCVW_ConnectionPointContainer;
@@ -157,15 +184,17 @@ extern IConnectionPointContainerImpl SHDOCVW_ConnectionPointContainer;
 typedef struct
 {
     /* IUnknown fields */
-    const IConnectionPointVtbl *lpVtbl;
-    LONG ref;
+    IConnectionPointVtbl *lpVtbl;
+    DWORD ref;
 } IConnectionPointImpl;
+
+extern IConnectionPointImpl SHDOCVW_ConnectionPoint;
 
 /**********************************************************************
  * Dll lifetime tracking declaration for shdocvw.dll
  */
 extern LONG SHDOCVW_refCount;
-static inline void SHDOCVW_LockModule(void) { InterlockedIncrement( &SHDOCVW_refCount ); }
-static inline void SHDOCVW_UnlockModule(void) { InterlockedDecrement( &SHDOCVW_refCount ); }
+static inline void SHDOCVW_LockModule() { InterlockedIncrement( &SHDOCVW_refCount ); }
+static inline void SHDOCVW_UnlockModule() { InterlockedDecrement( &SHDOCVW_refCount ); }
 
 #endif /* __WINE_SHDOCVW_H */

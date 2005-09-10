@@ -50,12 +50,12 @@ VIS_ComputeVisibleRegion(
    {
       if(!(ClipRgn = VIS_ComputeVisibleRegion(Window, FALSE, ClipChildren, ClipSiblings)))
       {
-         return NtGdiCreateRectRgn(0, 0, 0, 0);
+        return NtGdiCreateRectRgn(0, 0, 0, 0);
       }
       if(!(VisRgn = UnsafeIntCreateRectRgnIndirect(&Window->ClientRect)))
       {
-         NtGdiDeleteObject(VisRgn);
-         return NtGdiCreateRectRgn(0, 0, 0, 0);
+        NtGdiDeleteObject(VisRgn);
+        return NtGdiCreateRectRgn(0, 0, 0, 0);
       }
       LeftOffset = Window->ClientRect.left - Window->WindowRect.left;
       TopOffset = Window->ClientRect.top - Window->WindowRect.top;
@@ -77,7 +77,7 @@ VIS_ComputeVisibleRegion(
     */
 
    PreviousWindow = Window;
-   CurrentWindow = Window->Parent;
+   CurrentWindow = IntGetParentObject(Window);
    while (CurrentWindow)
    {
       if (!(CurrentWindow->Style & WS_VISIBLE))
@@ -90,8 +90,9 @@ VIS_ComputeVisibleRegion(
       NtGdiDeleteObject(ClipRgn);
 
       if ((PreviousWindow->Style & WS_CLIPSIBLINGS) ||
-            (PreviousWindow == Window && ClipSiblings))
+          (PreviousWindow == Window && ClipSiblings))
       {
+         IntLockRelatives(CurrentWindow);
          CurrentSibling = CurrentWindow->FirstChild;
          while (CurrentSibling != NULL && CurrentSibling != PreviousWindow)
          {
@@ -101,23 +102,26 @@ VIS_ComputeVisibleRegion(
                /* Combine it with the window region if available */
                if(CurrentSibling->WindowRegion && !(CurrentSibling->Style & WS_MINIMIZE))
                {
-                  NtGdiOffsetRgn(ClipRgn, -CurrentSibling->WindowRect.left, -CurrentSibling->WindowRect.top);
-                  NtGdiCombineRgn(ClipRgn, ClipRgn, CurrentSibling->WindowRegion, RGN_AND);
-                  NtGdiOffsetRgn(ClipRgn, CurrentSibling->WindowRect.left, CurrentSibling->WindowRect.top);
+                 NtGdiOffsetRgn(ClipRgn, -CurrentSibling->WindowRect.left, -CurrentSibling->WindowRect.top);
+                 NtGdiCombineRgn(ClipRgn, ClipRgn, CurrentSibling->WindowRegion, RGN_AND);
+                 NtGdiOffsetRgn(ClipRgn, CurrentSibling->WindowRect.left, CurrentSibling->WindowRect.top);
                }
                NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_DIFF);
                NtGdiDeleteObject(ClipRgn);
             }
             CurrentSibling = CurrentSibling->NextSibling;
          }
+         IntUnLockRelatives(CurrentWindow);
       }
 
       PreviousWindow = CurrentWindow;
-      CurrentWindow = CurrentWindow->Parent;
+      CurrentWindow = IntGetParentObject(CurrentWindow);
+      IntReleaseWindowObject(PreviousWindow);
    }
 
    if (ClipChildren)
    {
+      IntLockRelatives(Window);
       CurrentWindow = Window->FirstChild;
       while (CurrentWindow)
       {
@@ -127,22 +131,23 @@ VIS_ComputeVisibleRegion(
             /* Combine it with the window region if available */
             if(CurrentWindow->WindowRegion && !(CurrentWindow->Style & WS_MINIMIZE))
             {
-               NtGdiOffsetRgn(ClipRgn, -CurrentWindow->WindowRect.left, -CurrentWindow->WindowRect.top);
-               NtGdiCombineRgn(ClipRgn, ClipRgn, CurrentWindow->WindowRegion, RGN_AND);
-               NtGdiOffsetRgn(ClipRgn, CurrentWindow->WindowRect.left, CurrentWindow->WindowRect.top);
+              NtGdiOffsetRgn(ClipRgn, -CurrentWindow->WindowRect.left, -CurrentWindow->WindowRect.top);
+              NtGdiCombineRgn(ClipRgn, ClipRgn, CurrentWindow->WindowRegion, RGN_AND);
+              NtGdiOffsetRgn(ClipRgn, CurrentWindow->WindowRect.left, CurrentWindow->WindowRect.top);
             }
             NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_DIFF);
             NtGdiDeleteObject(ClipRgn);
          }
          CurrentWindow = CurrentWindow->NextSibling;
       }
+      IntUnLockRelatives(Window);
    }
 
    if(Window->WindowRegion && !(Window->Style & WS_MINIMIZE))
    {
-      NtGdiOffsetRgn(VisRgn, -LeftOffset, -TopOffset);
-      NtGdiCombineRgn(VisRgn, VisRgn, Window->WindowRegion, RGN_AND);
-      return VisRgn;
+     NtGdiOffsetRgn(VisRgn, -LeftOffset, -TopOffset);
+     NtGdiCombineRgn(VisRgn, VisRgn, Window->WindowRegion, RGN_AND);
+     return VisRgn;
    }
 
    NtGdiOffsetRgn(VisRgn, -LeftOffset, -TopOffset);
@@ -151,30 +156,26 @@ VIS_ComputeVisibleRegion(
 }
 
 VOID FASTCALL
-co_VIS_WindowLayoutChanged(
+VIS_WindowLayoutChanged(
    PWINDOW_OBJECT Window,
    HRGN NewlyExposed)
 {
    HRGN Temp;
    PWINDOW_OBJECT Parent;
 
-   ASSERT_REFS_CO(Window);
-
    Temp = NtGdiCreateRectRgn(0, 0, 0, 0);
    NtGdiCombineRgn(Temp, NewlyExposed, NULL, RGN_COPY);
 
-   Parent = Window->Parent;
+   Parent = IntGetParentObject(Window);
    if(Parent)
    {
       NtGdiOffsetRgn(Temp,
                      Window->WindowRect.left - Parent->ClientRect.left,
                      Window->WindowRect.top - Parent->ClientRect.top);
-
-      UserRefObjectCo(Parent);
-      co_UserRedrawWindow(Parent, NULL, Temp,
-                          RDW_FRAME | RDW_ERASE | RDW_INVALIDATE |
-                          RDW_ALLCHILDREN);
-      UserDerefObjectCo(Parent);
+     IntRedrawWindow(Parent, NULL, Temp,
+                     RDW_FRAME | RDW_ERASE | RDW_INVALIDATE |
+                     RDW_ALLCHILDREN);
+     IntReleaseWindowObject(Parent);
    }
    NtGdiDeleteObject(Temp);
 }

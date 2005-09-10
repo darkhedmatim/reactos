@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #ifndef MINGW_H
 #define MINGW_H
 
@@ -68,12 +51,9 @@ public:
 	virtual void Process ();
 	std::string AddDirectoryTarget ( const std::string& directory,
 	                                 Directory* directoryTree );
-	const Module& GetAliasedModuleOrModule ( const Module& module ) const;
 	std::string compilerPrefix;
 	std::string compilerCommand;
 	std::string nasmCommand;
-	std::string binutilsPrefix;
-	std::string binutilsCommand;
 	bool usePipe;
 	Directory* intermediateDirectory;
 	Directory* outputDirectory;
@@ -110,10 +90,6 @@ private:
 	bool TryToDetectThisCompiler ( const std::string& compiler );
 	void DetectCompiler ();
 	bool TryToDetectThisNetwideAssembler ( const std::string& assembler );
-	bool TryToDetectThisBinutils ( const std::string& binutils );
-	std::string GetBinutilsVersion ( const std::string& binutilsCommand );
-	bool IsSupportedBinutilsVersion ( const std::string& binutilsVersion );
-	void DetectBinutils ();
 	void DetectNetwideAssembler ();
 	void DetectPipeSupport ();
 	void DetectPCHSupport ();

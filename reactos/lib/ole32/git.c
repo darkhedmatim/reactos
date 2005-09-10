@@ -72,7 +72,7 @@ typedef struct StdGITEntry
 /* Class data */
 typedef struct StdGlobalInterfaceTableImpl
 {
-  const IGlobalInterfaceTableVtbl *lpVtbl;
+  IGlobalInterfaceTableVtbl *lpVtbl;
 
   ULONG ref;
   struct StdGITEntry* firstEntry;
@@ -360,7 +360,7 @@ static HRESULT WINAPI GITCF_LockServer(LPCLASSFACTORY iface, BOOL fLock)
     return S_OK;
 }
 
-static const IClassFactoryVtbl GITClassFactoryVtbl = {
+static IClassFactoryVtbl GITClassFactoryVtbl = {
     GITCF_QueryInterface,
     GITCF_AddRef,
     GITCF_Release,
@@ -368,7 +368,7 @@ static const IClassFactoryVtbl GITClassFactoryVtbl = {
     GITCF_LockServer
 };
 
-static const IClassFactoryVtbl *PGITClassFactoryVtbl = &GITClassFactoryVtbl;
+static IClassFactoryVtbl *PGITClassFactoryVtbl = &GITClassFactoryVtbl;
 
 HRESULT StdGlobalInterfaceTable_GetFactory(LPVOID *ppv)
 {
@@ -378,7 +378,7 @@ HRESULT StdGlobalInterfaceTable_GetFactory(LPVOID *ppv)
 }
 
 /* Virtual function table */
-static const IGlobalInterfaceTableVtbl StdGlobalInterfaceTableImpl_Vtbl =
+static IGlobalInterfaceTableVtbl StdGlobalInterfaceTableImpl_Vtbl =
 {
   StdGlobalInterfaceTable_QueryInterface,
   StdGlobalInterfaceTable_AddRef,

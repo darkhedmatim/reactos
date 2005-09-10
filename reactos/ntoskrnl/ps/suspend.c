@@ -45,11 +45,13 @@ NtResumeThread(IN HANDLE ThreadHandle,
            ThreadHandle, SuspendCount);
 
     /* Check buffer validity */
-    if(SuspendCount && PreviousMode != KernelMode) {
+    if(SuspendCount && PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteUlong(SuspendCount);
+            ProbeForWrite(SuspendCount,
+                          sizeof(ULONG),
+                          sizeof(ULONG));
          } _SEH_HANDLE {
 
             Status = _SEH_GetExceptionCode();
@@ -113,20 +115,25 @@ NtSuspendThread(IN HANDLE ThreadHandle,
 {
     PETHREAD Thread;
     ULONG Prev;
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
+    KPROCESSOR_MODE PreviousMode;
     NTSTATUS Status = STATUS_SUCCESS;
+
     PAGED_CODE();
 
+    PreviousMode = ExGetPreviousMode();
+
     /* Check buffer validity */
-    if(PreviousSuspendCount && PreviousMode != KernelMode)
-    {
-        _SEH_TRY
-        {
-            ProbeForWriteUlong(PreviousSuspendCount);
-         }
-        _SEH_HANDLE
-        {
+    if(PreviousSuspendCount && PreviousMode == UserMode) {
+
+        _SEH_TRY {
+
+            ProbeForWrite(PreviousSuspendCount,
+                          sizeof(ULONG),
+                          sizeof(ULONG));
+         } _SEH_HANDLE {
+
             Status = _SEH_GetExceptionCode();
+
         } _SEH_END;
 
         if(!NT_SUCCESS(Status)) return Status;
@@ -139,34 +146,30 @@ NtSuspendThread(IN HANDLE ThreadHandle,
                                        PreviousMode,
                                        (PVOID*)&Thread,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
+    if (!NT_SUCCESS(Status)) {
 
-    /* Guard with SEH because KeSuspendThread can raise an exception */
-    _SEH_TRY
-    {
-        /* Make sure the thread isn't terminating */
-        if ((Thread != PsGetCurrentThread()) && (Thread->Terminated))
-        {
-            ObDereferenceObject(Thread);
-            return STATUS_THREAD_IS_TERMINATING;
-        }
-
-        /* Call the Kernel function */
-        Prev = KeSuspendThread(&Thread->Tcb);
-
-        /* Return the Previous Count */
-        if (PreviousSuspendCount) *PreviousSuspendCount = Prev;
+        return Status;
     }
-    _SEH_HANDLE
-    {
-        Status = _SEH_GetExceptionCode();
 
-        /* Don't fail if we merely couldn't write the handle back */
-        if (Status != STATUS_SUSPEND_COUNT_EXCEEDED) Status = STATUS_SUCCESS;
-    } _SEH_END;
+    /* Call the Kernel Function */
+    Prev = KeSuspendThread(&Thread->Tcb);
 
-    /* Return */
-    ObDereferenceObject(Thread);
+    /* Return it */
+    if(PreviousSuspendCount) {
+
+        _SEH_TRY {
+
+            *PreviousSuspendCount = Prev;
+
+        } _SEH_HANDLE {
+
+            Status = _SEH_GetExceptionCode();
+
+        } _SEH_END;
+    }
+
+    /* Dereference and Return */
+    ObDereferenceObject((PVOID)Thread);
     return Status;
 }
 

@@ -1,4 +1,6 @@
 /*
+ * $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/fs/vfat/fat.c
@@ -14,6 +16,8 @@
 #include "vfat.h"
 
 /* GLOBALS ******************************************************************/
+
+#define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
 
 #define  CACHEPAGESIZE(pDeviceExt) ((pDeviceExt)->FatInfo.BytesPerCluster > PAGE_SIZE ? \
 		   (pDeviceExt)->FatInfo.BytesPerCluster : PAGE_SIZE)

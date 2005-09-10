@@ -11,19 +11,20 @@
  *   3  Oct 2003 Vizzini - formatting and minor bugfixing
  */
 
+#include <roscfg.h>
 #include "ndissys.h"
 
 
 #ifdef DBG
 
 /* See debug.h for debug/trace constants */
-ULONG DebugTraceLevel = MIN_TRACE;
-//ULONG DebugTraceLevel = DEBUG_ULTRA;
+DWORD DebugTraceLevel = MIN_TRACE;
+//DWORD DebugTraceLevel = DEBUG_ULTRA;
 
 #endif /* DBG */
 
 
-VOID NTAPI MainUnload(
+VOID STDCALL MainUnload(
     PDRIVER_OBJECT DriverObject)
 /*
  * FUNCTION: Unloads the driver
@@ -36,7 +37,7 @@ VOID NTAPI MainUnload(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     PDRIVER_OBJECT DriverObject,
     PUNICODE_STRING RegistryPath)
@@ -70,7 +71,7 @@ DriverEntry(
  * @implemented
  */
 VOID
-_cdecl
+CDECL
 NdisWriteErrorLogEntry(
     IN  NDIS_HANDLE     NdisAdapterHandle,
     IN  NDIS_ERROR_CODE ErrorCode,
@@ -91,6 +92,25 @@ NdisWriteErrorLogEntry(
 {
   NDIS_DbgPrint(MIN_TRACE, ("ERROR: ErrorCode 0x%x\n", ErrorCode));
   /* ASSERT(0); */
+}
+
+
+/*
+ * @implemented
+ */
+VOID
+EXPORT
+NdisInitializeReadWriteLock(
+    IN  PNDIS_RW_LOCK   Lock)
+/*
+ * FUNCTION: Initialize a NDIS_RW_LOCK
+ * ARGUMENTS:
+ *     Lock: pointer to the lock to initialize
+ * NOTES:
+ *    NDIS 5.0
+ */
+{
+  memset(Lock,0,sizeof(NDIS_RW_LOCK));
 }
 
 

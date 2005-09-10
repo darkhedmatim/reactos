@@ -93,7 +93,7 @@ start = r'''
 
 column = r'''
   \s*         # any number of whitespace
-  \*{1}(?!/)  # followed by precisely one asterisk not followed by `/'
+  \*{1}       # followed by precisely one asterisk
   (.*)        # then anything (group1)
 '''
 

@@ -91,9 +91,10 @@ lstrcpynA(
 
       do
         {
-          if ('\0' == *s)
-            break;
-          *d++ = *s++;
+          if ('\0' == (*d++ = *s++))
+            {
+              break;
+            }
         }
       while(1 != --iMaxLength);
       *d = '\0';
@@ -238,9 +239,10 @@ lstrcpynW(
 
       do
         {
-          if (L'\0' == *s)
-            break;
-          *d++ = *s++;
+          if (L'\0' == (*d++ = *s++))
+            {
+              break;
+            }
         }
       while(1 != --iMaxLength);
       *d = L'\0';

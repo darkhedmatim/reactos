@@ -218,7 +218,7 @@ BOOL IniAddSettingValueToSection(ULONG SectionId, PCHAR SettingName, PCHAR Setti
 	RtlZeroMemory(SectionItem, sizeof(INI_SECTION_ITEM));
 
 	// Allocate the setting name buffer
-	SectionItem->ItemName = MmAllocateMemory(strlen(SettingName) + 1);
+	SectionItem->ItemName = MmAllocateMemory(strlen(SettingName));
 	if (!SectionItem->ItemName)
 	{
 		MmFreeMemory(SectionItem);
@@ -226,7 +226,7 @@ BOOL IniAddSettingValueToSection(ULONG SectionId, PCHAR SettingName, PCHAR Setti
 	}
 
 	// Allocate the setting value buffer
-	SectionItem->ItemValue = MmAllocateMemory(strlen(SettingValue) + 1);
+	SectionItem->ItemValue = MmAllocateMemory(strlen(SettingValue));
 	if (!SectionItem->ItemValue)
 	{
 		MmFreeMemory(SectionItem->ItemName);

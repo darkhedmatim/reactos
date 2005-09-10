@@ -16,6 +16,7 @@
 #ifndef __INTERNAL_DEBUG
 #define __INTERNAL_DEBUG
 
+//#define UNIMPLEMENTED do {DbgPrint("%s at %s:%d is unimplemented, have a nice day\n",__FUNCTION__,__FILE__,__LINE__); for(;;);  } while(0);
 #define UNIMPLEMENTED   DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
 
 /*  FIXME: should probably remove this later  */
@@ -47,34 +48,31 @@
 #endif
 #endif
 
-/* Print stuff only on Debug Builds*/
+/* TODO: Make the output of file/line and the debug message atomic */
 #ifdef DBG
-    
-    /* These are always printed */
-    #define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
-    #define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
-
-    /* These are printed only if NDEBUG is NOT defined */
-    #ifndef NDEBUG
-    
-        #define DPRINT DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
-        #define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
-    
-    #else
-    
-        #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-        #define CHECKPOINT
-    
-    #endif
-
+#define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+#define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 #else
-
-    /* On non-debug builds, we never show these */
-    #define DPRINT1(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #define CHECKPOINT1
-    #define CHECKPOINT
+#ifdef __GNUC__
+#define DPRINT1(args...)
+#define CHECKPOINT1
+#else
+#define DPRINT1
+#define CHECKPOINT1
+#endif	/* __GNUC__ */
 #endif
+
+#ifndef NDEBUG
+#define DPRINT(args...) do { DbgPrint("(%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0);
+#define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
+#else
+#ifdef __GNUC__
+#define DPRINT(args...)
+#else
+#define DPRINT
+#endif	/* __GNUC__ */
+#define CHECKPOINT
+#endif /* NDEBUG */
 
 /*
  * FUNCTION: Assert a maximum value for the current irql

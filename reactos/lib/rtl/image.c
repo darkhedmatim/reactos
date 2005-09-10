@@ -1,18 +1,20 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * FILE:            lib/rtl/image.c
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
+ * FILE:            lib/ntdll/rtl/image.c
  * PURPOSE:         Image handling functions
  * PROGRAMMER:      Eric Kohl
+ * UPDATE HISTORY:
+ *                  17/03/2000 Created
  */
 
-/* INCLUDES *****************************************************************/
-
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
 
-/* FUNCTIONS *****************************************************************/
+/* FUNCTIONS ****************************************************************/
 
 /*
  * @implemented
@@ -47,21 +49,13 @@ PVOID
 STDCALL
 RtlImageDirectoryEntryToData (
 	PVOID	BaseAddress,
-	BOOLEAN	bMappedAsImage,
+	BOOLEAN	bFlag,
 	ULONG	Directory,
 	PULONG	Size
 	)
 {
 	PIMAGE_NT_HEADERS NtHeader;
 	ULONG Va;
-
-	/* Magic flag for non-mapped images. */
-	if ((ULONG_PTR)BaseAddress & 1)
-	{
-		BaseAddress = (PVOID)((ULONG_PTR)BaseAddress & ~1);
-		bMappedAsImage = FALSE;
-        }
-
 
 	NtHeader = RtlImageNtHeader (BaseAddress);
 	if (NtHeader == NULL)
@@ -74,9 +68,10 @@ RtlImageDirectoryEntryToData (
 	if (Va == 0)
 		return NULL;
 
-	*Size = NtHeader->OptionalHeader.DataDirectory[Directory].Size;
+	if (Size)
+		*Size = NtHeader->OptionalHeader.DataDirectory[Directory].Size;
 
-	if (bMappedAsImage || Va < NtHeader->OptionalHeader.SizeOfHeaders)
+	if (bFlag)
 		return (PVOID)((ULONG_PTR)BaseAddress + Va);
 
 	/* image mapped as ordinary file, we must find raw pointer */

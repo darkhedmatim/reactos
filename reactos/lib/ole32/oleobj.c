@@ -41,9 +41,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
  */
 typedef struct OleAdviseHolderImpl
 {
-  const IOleAdviseHolderVtbl *lpVtbl;
+  IOleAdviseHolderVtbl *lpVtbl;
 
-  LONG ref;
+  DWORD ref;
 
   DWORD         maxSinks;
   IAdviseSink** arrayOfSinks;
@@ -306,7 +306,7 @@ OleAdviseHolderImpl_SendOnClose (LPOLEADVISEHOLDER iface)
 /**************************************************************************
  *  OleAdviseHolderImpl_VTable
  */
-static const IOleAdviseHolderVtbl oahvt =
+static struct IOleAdviseHolderVtbl oahvt =
 {
     OleAdviseHolderImpl_QueryInterface,
     OleAdviseHolderImpl_AddRef,
@@ -323,7 +323,7 @@ static const IOleAdviseHolderVtbl oahvt =
  *  OleAdviseHolderImpl_Constructor
  */
 
-static LPOLEADVISEHOLDER OleAdviseHolderImpl_Constructor(void)
+static LPOLEADVISEHOLDER OleAdviseHolderImpl_Constructor()
 {
   OleAdviseHolderImpl* lpoah;
   DWORD                index;
@@ -355,9 +355,9 @@ typedef struct DataAdviseConnection {
 
 typedef struct DataAdviseHolder
 {
-  const IDataAdviseHolderVtbl *lpVtbl;
+  IDataAdviseHolderVtbl *lpVtbl;
 
-  LONG                  ref;
+  DWORD                 ref;
   DWORD                 maxCons;
   DataAdviseConnection* Connections;
 } DataAdviseHolder;
@@ -625,7 +625,7 @@ static HRESULT WINAPI     DataAdviseHolder_SendOnDataChange(
 /**************************************************************************
  *  DataAdviseHolderImpl_VTable
  */
-static const IDataAdviseHolderVtbl DataAdviseHolderImpl_VTable =
+static struct IDataAdviseHolderVtbl DataAdviseHolderImpl_VTable =
 {
   DataAdviseHolder_QueryInterface,
   DataAdviseHolder_AddRef,
@@ -639,7 +639,7 @@ static const IDataAdviseHolderVtbl DataAdviseHolderImpl_VTable =
 /******************************************************************************
  * DataAdviseHolder_Constructor
  */
-static IDataAdviseHolder* DataAdviseHolder_Constructor(void)
+static IDataAdviseHolder* DataAdviseHolder_Constructor()
 {
   DataAdviseHolder* newHolder;
 

@@ -45,10 +45,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(uxtheme);
 
 BOOL MSSTYLES_GetNextInteger(LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, int *value);
 BOOL MSSTYLES_GetNextToken(LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, LPWSTR lpBuff, DWORD buffSize);
-void MSSTYLES_ParseThemeIni(PTHEME_FILE tf, BOOL setMetrics);
+void MSSTYLES_ParseThemeIni(PTHEME_FILE tf);
 
 extern HINSTANCE hDllInst;
-extern int alphaBlendMode;
 
 #define MSSTYLES_VERSION 0x0003
 
@@ -215,13 +214,6 @@ void MSSTYLES_CloseThemeFile(PTHEME_FILE tf)
                     HeapFree(GetProcessHeap(), 0, pcls);
                 }
             }
-            while (tf->images)
-            {
-                PTHEME_IMAGE img = tf->images;
-                tf->images = img->next;
-                DeleteObject (img->image);
-                HeapFree (GetProcessHeap(), 0, img);
-            }
             HeapFree(GetProcessHeap(), 0, tf);
         }
     }
@@ -232,7 +224,7 @@ void MSSTYLES_CloseThemeFile(PTHEME_FILE tf)
  *
  * Set the current active theme
  */
-HRESULT MSSTYLES_SetActiveTheme(PTHEME_FILE tf, BOOL setMetrics)
+HRESULT MSSTYLES_SetActiveTheme(PTHEME_FILE tf)
 {
     if(tfActiveTheme)
         MSSTYLES_CloseThemeFile(tfActiveTheme);
@@ -241,7 +233,7 @@ HRESULT MSSTYLES_SetActiveTheme(PTHEME_FILE tf, BOOL setMetrics)
     {
 	tfActiveTheme->dwRefCount++;
 	if(!tfActiveTheme->classes)
-	    MSSTYLES_ParseThemeIni(tfActiveTheme, setMetrics);
+	    MSSTYLES_ParseThemeIni(tfActiveTheme);
     }
     return S_OK;
 }
@@ -261,7 +253,7 @@ PUXINI_FILE MSSTYLES_GetThemeIni(PTHEME_FILE tf)
  *
  * Retrieve the ini file for the selected color/style
  */
-static PUXINI_FILE MSSTYLES_GetActiveThemeIni(PTHEME_FILE tf)
+PUXINI_FILE MSSTYLES_GetActiveThemeIni(PTHEME_FILE tf)
 {
     static const WCHAR szFileResNamesResource[] = {
         'F','I','L','E','R','E','S','N','A','M','E','S','\0'
@@ -328,7 +320,7 @@ static PUXINI_FILE MSSTYLES_GetActiveThemeIni(PTHEME_FILE tf)
  *     iPartId             Location to store part id
  *     iStateId            Location to store state id
  */
-static BOOL MSSTYLES_ParseIniSectionName(LPCWSTR lpSection, DWORD dwLen, LPWSTR szAppName, LPWSTR szClassName, int *iPartId, int *iStateId)
+BOOL MSSTYLES_ParseIniSectionName(LPCWSTR lpSection, DWORD dwLen, LPWSTR szAppName, LPWSTR szClassName, int *iPartId, int *iStateId)
 {
     WCHAR sec[255];
     WCHAR part[60] = {'\0'};
@@ -431,7 +423,7 @@ PTHEME_CLASS MSSTYLES_FindClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszC
  * RETURNS
  *  The class added, or a class previously added with the same name
  */
-static PTHEME_CLASS MSSTYLES_AddClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName)
+PTHEME_CLASS MSSTYLES_AddClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName)
 {
     PTHEME_CLASS cur = MSSTYLES_FindClass(tf, pszAppName, pszClassName);
     if(cur) return cur;
@@ -488,7 +480,7 @@ PTHEME_PARTSTATE MSSTYLES_FindPartState(PTHEME_CLASS tc, int iPartId, int iState
  * RETURNS
  *  The part/state added, or a part/state previously added with the same IDs
  */
-static PTHEME_PARTSTATE MSSTYLES_AddPartState(PTHEME_CLASS tc, int iPartId, int iStateId)
+PTHEME_PARTSTATE MSSTYLES_AddPartState(PTHEME_CLASS tc, int iPartId, int iStateId)
 {
     PTHEME_PARTSTATE cur = MSSTYLES_FindPartState(tc, iPartId, iStateId, NULL);
     if(cur) return cur;
@@ -515,7 +507,7 @@ static PTHEME_PARTSTATE MSSTYLES_AddPartState(PTHEME_CLASS tc, int iPartId, int 
  * RETURNS
  *  The property found, or NULL
  */
-static PTHEME_PROPERTY MSSTYLES_LFindProperty(PTHEME_PROPERTY tp, int iPropertyPrimitive, int iPropertyId)
+PTHEME_PROPERTY MSSTYLES_LFindProperty(PTHEME_PROPERTY tp, int iPropertyPrimitive, int iPropertyId)
 {
     PTHEME_PROPERTY cur = tp;
     while(cur) {
@@ -604,7 +596,7 @@ PTHEME_PROPERTY MSSTYLES_FindMetric(int iPropertyPrimitive, int iPropertyId)
  * RETURNS
  *  The property added, or a property previously added with the same IDs
  */
-static PTHEME_PROPERTY MSSTYLES_AddProperty(PTHEME_PARTSTATE ps, int iPropertyPrimitive, int iPropertyId, LPCWSTR lpValue, DWORD dwValueLen, BOOL isGlobal)
+PTHEME_PROPERTY MSSTYLES_AddProperty(PTHEME_PARTSTATE ps, int iPropertyPrimitive, int iPropertyId, LPCWSTR lpValue, DWORD dwValueLen, BOOL isGlobal)
 {
     PTHEME_PROPERTY cur = MSSTYLES_PSFindProperty(ps, iPropertyPrimitive, iPropertyId);
     /* Should duplicate properties overwrite the original, or be ignored? */
@@ -645,7 +637,7 @@ static PTHEME_PROPERTY MSSTYLES_AddProperty(PTHEME_PARTSTATE ps, int iPropertyPr
  * RETURNS
  *  The property added, or a property previously added with the same IDs
  */
-static PTHEME_PROPERTY MSSTYLES_AddMetric(PTHEME_FILE tf, int iPropertyPrimitive, int iPropertyId, LPCWSTR lpValue, DWORD dwValueLen)
+PTHEME_PROPERTY MSSTYLES_AddMetric(PTHEME_FILE tf, int iPropertyPrimitive, int iPropertyId, LPCWSTR lpValue, DWORD dwValueLen)
 {
     PTHEME_PROPERTY cur = MSSTYLES_FFindMetric(tf, iPropertyPrimitive, iPropertyId);
     /* Should duplicate properties overwrite the original, or be ignored? */
@@ -672,7 +664,7 @@ static PTHEME_PROPERTY MSSTYLES_AddMetric(PTHEME_FILE tf, int iPropertyPrimitive
  * PARAMS
  *     tf                  Theme to parse
  */
-void MSSTYLES_ParseThemeIni(PTHEME_FILE tf, BOOL setMetrics)
+void MSSTYLES_ParseThemeIni(PTHEME_FILE tf)
 {
     static const WCHAR szSysMetrics[] = {'S','y','s','M','e','t','r','i','c','s','\0'};
     static const WCHAR szGlobals[] = {'g','l','o','b','a','l','s','\0'};
@@ -717,10 +709,6 @@ void MSSTYLES_ParseThemeIni(PTHEME_FILE tf, BOOL setMetrics)
                             FIXME("Invalid color value for %s\n", debugstr_w(szPropertyName));
                         }
                     }
-		    else if (setMetrics && (iPropertyId == TMT_FLATMENUS)) {
-			BOOL flatMenus = (*lpValue == 'T') || (*lpValue == 't');
-			SystemParametersInfoW (SPI_SETFLATMENU, 0, (PVOID)(INT_PTR)flatMenus, 0);
-		    }
                     /* Catch all metrics, including colors */
                     MSSTYLES_AddMetric(tf, iPropertyPrimitive, iPropertyId, lpValue, dwValueLen);
                 }
@@ -728,7 +716,7 @@ void MSSTYLES_ParseThemeIni(PTHEME_FILE tf, BOOL setMetrics)
                     TRACE("Unknown system metric %s\n", debugstr_w(szPropertyName));
                 }
             }
-            if (setMetrics && (colorCount > 0))
+            if(colorCount > 0)
                 SetSysColors(colorCount, colorElements, colorRgb);
             continue;
         }
@@ -818,8 +806,6 @@ PTHEME_CLASS MSSTYLES_OpenThemeClass(LPCWSTR pszAppName, LPCWSTR pszClassList)
     }
     if(cls) {
         TRACE("Opened app %s, class %s from list %s\n", debugstr_w(cls->szAppName), debugstr_w(cls->szClassName), debugstr_w(pszClassList));
-	cls->tf = tfActiveTheme;
-	cls->tf->dwRefCount++;
     }
     return cls;
 }
@@ -833,12 +819,11 @@ PTHEME_CLASS MSSTYLES_OpenThemeClass(LPCWSTR pszAppName, LPCWSTR pszClassList)
  *     tc                  Theme class to close
  *
  * NOTES
- *  The MSSTYLES_CloseThemeFile decreases the refcount of the owning
- *  theme file and cleans it up, if needed.
+ *  There is currently no need clean anything up for theme classes,
+ *  so do nothing for now
  */
 HRESULT MSSTYLES_CloseThemeClass(PTHEME_CLASS tc)
 {
-    MSSTYLES_CloseThemeFile (tc->tf);
     return S_OK;
 }
 
@@ -876,43 +861,10 @@ PTHEME_PROPERTY MSSTYLES_FindProperty(PTHEME_CLASS tc, int iPartId, int iStateId
     return NULL;
 }
 
-/* Prepare a bitmap to be used for alpha blending */
-static BOOL prepare_alpha (HBITMAP bmp, BOOL* hasAlpha)
-{
-    DIBSECTION dib;
-    int n;
-    BYTE* p;
-
-    *hasAlpha = FALSE;
-
-    if (!bmp || GetObjectW( bmp, sizeof(dib), &dib ) != sizeof(dib))
-        return FALSE;
-
-    if(dib.dsBm.bmBitsPixel != 32)
-        /* nothing to do */
-        return TRUE;
-
-    *hasAlpha = TRUE;
-    p = (BYTE*)dib.dsBm.bmBits;
-    n = abs(dib.dsBmih.biHeight) * dib.dsBmih.biWidth;
-    /* AlphaBlend() wants premultiplied alpha, so do that now */
-    while (n-- > 0)
-    {
-        int a = p[3]+1;
-        p[0] = (p[0] * a) >> 8;
-        p[1] = (p[1] * a) >> 8;
-        p[2] = (p[2] * a) >> 8;
-        p += 4;
-    }
-
-    return TRUE;
-}
-
-HBITMAP MSSTYLES_LoadBitmap (PTHEME_CLASS tc, LPCWSTR lpFilename, BOOL* hasAlpha)
+HBITMAP MSSTYLES_LoadBitmap(HDC hdc, PTHEME_CLASS tc, LPCWSTR lpFilename)
 {
     WCHAR szFile[MAX_PATH];
     LPWSTR tmp;
-    PTHEME_IMAGE img;
     lstrcpynW(szFile, lpFilename, sizeof(szFile)/sizeof(szFile[0]));
     tmp = szFile;
     do {
@@ -920,30 +872,7 @@ HBITMAP MSSTYLES_LoadBitmap (PTHEME_CLASS tc, LPCWSTR lpFilename, BOOL* hasAlpha
         if(*tmp == '/') *tmp = '_';
         if(*tmp == '.') *tmp = '_';
     } while(*tmp++);
-
-    /* Try to locate in list of loaded images */
-    img = tc->tf->images;
-    while (img)
-    {
-        if (lstrcmpiW (szFile, img->name) == 0)
-        {
-            TRACE ("found %p %s: %p\n", img, debugstr_w (img->name), img->image);
-            *hasAlpha = img->hasAlpha;
-            return img->image;
-        }
-        img = img->next;
-    }
-    /* Not found? Load from resources */
-    img = HeapAlloc (GetProcessHeap(), 0, sizeof (THEME_IMAGE));
-    img->image = LoadImageW(tc->hTheme, szFile, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
-    prepare_alpha (img->image, hasAlpha);
-    img->hasAlpha = *hasAlpha;
-    /* ...and stow away for later reuse. */
-    lstrcpyW (img->name, szFile);
-    img->next = tc->tf->images;
-    tc->tf->images = img;
-    TRACE ("new %p %s: %p\n", img, debugstr_w (img->name), img->image);
-    return img->image;
+    return LoadImageW(tc->hTheme, szFile, IMAGE_BITMAP, 0, 0, LR_SHARED|LR_CREATEDIBSECTION);
 }
 
 BOOL MSSTYLES_GetNextInteger(LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, int *value)

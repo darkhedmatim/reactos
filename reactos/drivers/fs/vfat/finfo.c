@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/fs/vfat/finfo.c
@@ -82,8 +83,8 @@ VfatGetStandardInformation(PVFATFCB FCB,
 
   if (vfatFCBIsDirectory(FCB))
     {
-      StandardInfo->AllocationSize.QuadPart = 0;
-      StandardInfo->EndOfFile.QuadPart = 0;
+      StandardInfo->AllocationSize.QuadPart = 0LL;
+      StandardInfo->EndOfFile.QuadPart = 0LL;
       StandardInfo->Directory = TRUE;
     }
   else

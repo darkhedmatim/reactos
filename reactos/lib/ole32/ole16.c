@@ -50,10 +50,10 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
-static HTASK16 hETask = 0;
-static WORD Table_ETask[62];
+HTASK16 hETask = 0;
+WORD Table_ETask[62];
 
-static LPMALLOC16 currentMalloc16=NULL;
+LPMALLOC16 currentMalloc16=NULL;
 
 /* --- IMalloc16 implementation */
 
@@ -61,7 +61,7 @@ static LPMALLOC16 currentMalloc16=NULL;
 typedef struct
 {
         /* IUnknown fields */
-        const IMalloc16Vtbl    *lpVtbl;
+        IMalloc16Vtbl          *lpVtbl;
         DWORD                   ref;
         /* IMalloc16 fields */
 } IMalloc16Impl;
@@ -69,7 +69,7 @@ typedef struct
 /******************************************************************************
  *		IMalloc16_QueryInterface	[COMPOBJ.500]
  */
-HRESULT IMalloc16_fnQueryInterface(IMalloc16* iface,REFIID refiid,LPVOID *obj) {
+HRESULT WINAPI IMalloc16_fnQueryInterface(IMalloc16* iface,REFIID refiid,LPVOID *obj) {
         IMalloc16Impl *This = (IMalloc16Impl *)iface;
 
 	TRACE("(%p)->QueryInterface(%s,%p)\n",This,debugstr_guid(refiid),obj);
@@ -85,7 +85,7 @@ HRESULT IMalloc16_fnQueryInterface(IMalloc16* iface,REFIID refiid,LPVOID *obj) {
 /******************************************************************************
  *		IMalloc16_AddRef	[COMPOBJ.501]
  */
-ULONG IMalloc16_fnAddRef(IMalloc16* iface) {
+ULONG WINAPI IMalloc16_fnAddRef(IMalloc16* iface) {
         IMalloc16Impl *This = (IMalloc16Impl *)iface;
 	TRACE("(%p)->AddRef()\n",This);
 	return 1; /* cannot be freed */
@@ -94,7 +94,7 @@ ULONG IMalloc16_fnAddRef(IMalloc16* iface) {
 /******************************************************************************
  *		IMalloc16_Release	[COMPOBJ.502]
  */
-ULONG IMalloc16_fnRelease(IMalloc16* iface) {
+ULONG WINAPI IMalloc16_fnRelease(IMalloc16* iface) {
         IMalloc16Impl *This = (IMalloc16Impl *)iface;
 	TRACE("(%p)->Release()\n",This);
 	return 1; /* cannot be freed */
@@ -103,7 +103,7 @@ ULONG IMalloc16_fnRelease(IMalloc16* iface) {
 /******************************************************************************
  * IMalloc16_Alloc [COMPOBJ.503]
  */
-SEGPTR IMalloc16_fnAlloc(IMalloc16* iface,DWORD cb) {
+SEGPTR WINAPI IMalloc16_fnAlloc(IMalloc16* iface,DWORD cb) {
         IMalloc16Impl *This = (IMalloc16Impl *)iface;
 	TRACE("(%p)->Alloc(%ld)\n",This,cb);
         return MapLS( HeapAlloc( GetProcessHeap(), 0, cb ) );
@@ -112,7 +112,7 @@ SEGPTR IMalloc16_fnAlloc(IMalloc16* iface,DWORD cb) {
 /******************************************************************************
  * IMalloc16_Free [COMPOBJ.505]
  */
-VOID IMalloc16_fnFree(IMalloc16* iface,SEGPTR pv)
+VOID WINAPI IMalloc16_fnFree(IMalloc16* iface,SEGPTR pv)
 {
     void *ptr = MapSL(pv);
     IMalloc16Impl *This = (IMalloc16Impl *)iface;
@@ -124,7 +124,7 @@ VOID IMalloc16_fnFree(IMalloc16* iface,SEGPTR pv)
 /******************************************************************************
  * IMalloc16_Realloc [COMPOBJ.504]
  */
-SEGPTR IMalloc16_fnRealloc(IMalloc16* iface,SEGPTR pv,DWORD cb)
+SEGPTR WINAPI IMalloc16_fnRealloc(IMalloc16* iface,SEGPTR pv,DWORD cb)
 {
     SEGPTR ret;
     IMalloc16Impl *This = (IMalloc16Impl *)iface;
@@ -144,7 +144,7 @@ SEGPTR IMalloc16_fnRealloc(IMalloc16* iface,SEGPTR pv,DWORD cb)
 /******************************************************************************
  * IMalloc16_GetSize [COMPOBJ.506]
  */
-DWORD IMalloc16_fnGetSize(const IMalloc16* iface,SEGPTR pv)
+DWORD WINAPI IMalloc16_fnGetSize(const IMalloc16* iface,SEGPTR pv)
 {
 	IMalloc16Impl *This = (IMalloc16Impl *)iface;
         TRACE("(%p)->GetSize(%08lx)\n",This,pv);
@@ -154,7 +154,7 @@ DWORD IMalloc16_fnGetSize(const IMalloc16* iface,SEGPTR pv)
 /******************************************************************************
  * IMalloc16_DidAlloc [COMPOBJ.507]
  */
-INT16 IMalloc16_fnDidAlloc(const IMalloc16* iface,LPVOID pv) {
+INT16 WINAPI IMalloc16_fnDidAlloc(const IMalloc16* iface,LPVOID pv) {
         IMalloc16 *This = (IMalloc16 *)iface;
 	TRACE("(%p)->DidAlloc(%p)\n",This,pv);
 	return (INT16)-1;
@@ -163,7 +163,7 @@ INT16 IMalloc16_fnDidAlloc(const IMalloc16* iface,LPVOID pv) {
 /******************************************************************************
  * IMalloc16_HeapMinimize [COMPOBJ.508]
  */
-LPVOID IMalloc16_fnHeapMinimize(IMalloc16* iface) {
+LPVOID WINAPI IMalloc16_fnHeapMinimize(IMalloc16* iface) {
         IMalloc16Impl *This = (IMalloc16Impl *)iface;
 	TRACE("(%p)->HeapMinimize()\n",This);
 	return NULL;
@@ -196,7 +196,7 @@ IMalloc16_Constructor()
 #undef VTENT
         msegvt16 = MapLS( &vt16 );
     }
-    This->lpVtbl = (const IMalloc16Vtbl*)msegvt16;
+    This->lpVtbl = (IMalloc16Vtbl*)msegvt16;
     This->ref = 1;
     return (LPMALLOC16)MapLS( This );
 }
@@ -285,6 +285,10 @@ HRESULT WINAPI CLSIDFromString16(
   return __CLSIDFromStringA(idstr,id);
 }
 
+extern BOOL WINAPI K32WOWCallback16Ex(	DWORD vpfn16, DWORD dwFlags,
+					DWORD cbArgs, LPVOID pArgs,
+					LPDWORD pdwRetCode );
+
 /******************************************************************************
  *		_xmalloc16	[internal]
  * Allocates size bytes from the standard ole16 allocator.
@@ -305,8 +309,8 @@ _xmalloc16(DWORD size, SEGPTR *ptr) {
   /* No need for a Callback entry, we have WOWCallback16Ex which does
    * everything we need.
    */
-  if (!WOWCallback16Ex(
-      (DWORD)((const IMalloc16Vtbl*)MapSL(
+  if (!K32WOWCallback16Ex(
+      (DWORD)((IMalloc16Vtbl*)MapSL(
 	  (SEGPTR)((LPMALLOC16)MapSL((SEGPTR)mllc))->lpVtbl  )
       )->Alloc,
       WCB16_CDECL,
@@ -352,22 +356,23 @@ HRESULT WINAPI ProgIDFromCLSID16(
   REFCLSID clsid, /* [in] class id as found in registry */
   LPOLESTR16 *lplpszProgID/* [out] associated Prog ID */
 ) {
-  static const WCHAR wszProgID[] = {'P','r','o','g','I','D',0};
+  char     strCLSID[50], *buf, *buf2;
+  DWORD    buf2len;
   HKEY     xhkey;
-  HKEY     hkey;
   HRESULT  ret = S_OK;
 
-  if (COM_OpenKeyForCLSID(clsid, KEY_READ, &hkey))
+  WINE_StringFromCLSID(clsid, strCLSID);
+
+  buf = HeapAlloc(GetProcessHeap(), 0, strlen(strCLSID)+14);
+  sprintf(buf,"CLSID\\%s\\ProgID", strCLSID);
+  if (RegOpenKeyA(HKEY_CLASSES_ROOT, buf, &xhkey))
     ret = REGDB_E_CLASSNOTREG;
-  
-  if ((ret == S_OK) &&
-      RegOpenKeyW(hkey, wszProgID, &xhkey))
-    ret = REGDB_E_CLASSNOTREG;
+
+  HeapFree(GetProcessHeap(), 0, buf);
 
   if (ret == S_OK)
   {
-    LONG buf2len;
-    char *buf2 = HeapAlloc(GetProcessHeap(), 0, 255);
+    buf2 = HeapAlloc(GetProcessHeap(), 0, 255);
     buf2len = 255;
     if (RegQueryValueA(xhkey, NULL, buf2, &buf2len))
       ret = REGDB_E_CLASSNOTREG;
@@ -424,8 +429,12 @@ HRESULT WINAPI CoRegisterClassObject16(
 	DWORD flags,        /* [in] REGCLS flags indicating how connections are made */
 	LPDWORD lpdwRegister
 ) {
+	char	buf[80];
+
+	WINE_StringFromCLSID(rclsid,buf);
+
 	FIXME("(%s,%p,0x%08lx,0x%08lx,%p),stub\n",
-		debugstr_guid(rclsid),pUnk,dwClsContext,flags,lpdwRegister
+		buf,pUnk,dwClsContext,flags,lpdwRegister
 	);
 	return 0;
 }
@@ -501,19 +510,4 @@ BOOL WINAPI COMPOBJ_DllEntryPoint(DWORD Reason, HINSTANCE16 hInst, WORD ds, WORD
 {
         TRACE("(%08lx, %04x, %04x, %04x, %08lx, %04x)\n", Reason, hInst, ds, HeapSize, res1, res2);
         return TRUE;
-}
-
-/***********************************************************************
- *           CoMemAlloc [COMPOBJ.151]
- */
-SEGPTR WINAPI CoMemAlloc(DWORD size, DWORD dwMemContext, DWORD x) {
-	HRESULT		hres;
-	SEGPTR		segptr;
-
-	/* FIXME: check context handling */
-	TRACE("(%ld, 0x%08lx, 0x%08lx)\n", size, dwMemContext, x);
-	hres = _xmalloc16(size, &segptr);
-	if (hres != S_OK)
-		return (SEGPTR)0;
-	return segptr;
 }

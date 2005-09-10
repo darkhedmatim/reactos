@@ -4,13 +4,13 @@
 4 pascal CoGetMalloc(long ptr) CoGetMalloc16
 5 pascal CoRegisterClassObject(ptr ptr long long ptr) CoRegisterClassObject16
 6 pascal CoRevokeClassObject(long) CoRevokeClassObject16
-7 pascal CoGetClassObject(ptr long ptr ptr ptr) CoGetClassObject16
+7 pascal CoGetClassObject(ptr long ptr ptr ptr) CoGetClassObject
 8 stub COMARSHALINTERFACE
 9 stub COUNMARSHALINTERFACE
 10 stub COLOADLIBRARY
 11 stub COFREELIBRARY
 12 stub COFREEALLLIBRARIES
-13 pascal CoCreateInstance(ptr ptr long ptr ptr) CoCreateInstance16
+13 pascal CoCreateInstance(ptr ptr long ptr ptr) CoCreateInstance
 14 stub STRINGFROMIID
 15 pascal CoDisconnectObject(ptr long) CoDisconnectObject
 16 stub CORELEASEMARSHALDATA
@@ -20,7 +20,7 @@
 20 pascal CLSIDFromString(str ptr) CLSIDFromString16
 21 stub ISVALIDPTRIN
 22 stub ISVALIDPTROUT
-23 pascal IsValidInterface(segptr) IsValidInterface16
+23 stub ISVALIDINTERFACE
 24 stub ISVALIDIID
 25 stub RESULTFROMSCODE
 26 stub GETSCODE
@@ -147,7 +147,7 @@
 148 stub MKVDEFAULTHASHKEY
 149 stub DELETE16
 150 stub COMEMCTXOF
-151 pascal CoMemAlloc(long long long)
+151 stub COMEMALLOC
 152 stub COMEMFREE
 153 stub SHRREALLOC
 154 stub ___EXPORTEDSTUB

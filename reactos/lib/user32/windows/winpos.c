@@ -55,11 +55,3 @@ SetActiveWindow(HWND hWnd)
   return(NtUserSetActiveWindow(hWnd));
 }
 
-/*
- * @unimplemented
- */
-UINT STDCALL
-ArrangeIconicWindows(HWND hWnd)
-{
-  return NtUserCallHwndLock( hWnd, HWNDLOCK_ROUTINE_ARRANGEICONICWINDOWS);
-}

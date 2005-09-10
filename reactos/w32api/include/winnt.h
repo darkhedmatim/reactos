@@ -34,7 +34,6 @@
 extern "C" {
 #endif
 
-#include <ctype.h>
 #include <winerror.h>
 
 #ifndef RC_INVOKED
@@ -156,8 +155,8 @@ typedef LONGLONG USN;
 #define Int64ShraMod32(a,b) ((LONGLONG)(a)>>(b))
 #define Int64ShrlMod32(a,b) ((DWORDLONG)(a)>>(b))
 #endif
-#define ANSI_NULL ((CHAR)0)
-#define UNICODE_NULL ((WCHAR)0)
+#define ANSI_NULL '\0'
+#define UNICODE_NULL L'\0'
 typedef BYTE BOOLEAN,*PBOOLEAN;
 #endif
 typedef BYTE FCHAR;
@@ -190,7 +189,6 @@ typedef DWORD FLONG;
 #define CONTAINER_INHERIT_ACE	2
 #define NO_PROPAGATE_INHERIT_ACE	4
 #define INHERIT_ONLY_ACE	8
-#define INHERITED_ACE	10
 #define VALID_INHERIT_FLAGS	16
 #define SUCCESSFUL_ACCESS_ACE_FLAG	64
 #define FAILED_ACCESS_ACE_FLAG	128
@@ -262,6 +260,14 @@ typedef DWORD FLONG;
 #define FILE_VALID_PIPE_OPTION_FLAGS		0x00000032
 #define FILE_VALID_MAILSLOT_OPTION_FLAGS	0x00000032
 #define FILE_VALID_SET_FLAGS			0x00000036
+
+#define FILE_SUPERSEDE			0x00000000
+#define FILE_OPEN			0x00000001
+#define FILE_CREATE			0x00000002
+#define FILE_OPEN_IF			0x00000003
+#define FILE_OVERWRITE			0x00000004
+#define FILE_OVERWRITE_IF		0x00000005
+#define FILE_MAXIMUM_DISPOSITION	0x00000005
 
 #define FILE_DIRECTORY_FILE		0x00000001
 #define FILE_WRITE_THROUGH		0x00000002
@@ -349,6 +355,7 @@ typedef DWORD FLONG;
 /* also in ddk/winddk.h */
 #define DUPLICATE_CLOSE_SOURCE		0x00000001
 #define DUPLICATE_SAME_ACCESS		0x00000002
+#define DUPLICATE_SAME_ATTRIBUTES	0x00000004
 /* end winddk.k */
 
 #define MAILSLOT_NO_MESSAGE	((DWORD)-1)
@@ -392,7 +399,6 @@ typedef DWORD FLONG;
  * a  SID_IDENTIFIER_AUTHORITY, eg.
  * SID_IDENTIFIER_AUTHORITY aNullSidAuthority = {SECURITY_NULL_SID_AUTHORITY};
  */
-#define SID_MAX_SUB_AUTHORITIES     15
 #define SECURITY_NULL_SID_AUTHORITY	{0,0,0,0,0,0}
 #define SECURITY_WORLD_SID_AUTHORITY	{0,0,0,0,0,1}
 #define SECURITY_LOCAL_SID_AUTHORITY	{0,0,0,0,0,2}
@@ -437,73 +443,6 @@ typedef DWORD FLONG;
 #define DOMAIN_ALIAS_RID_PRINT_OPS	0x226L
 #define DOMAIN_ALIAS_RID_BACKUP_OPS	0x227L
 #define DOMAIN_ALIAS_RID_REPLICATOR	0x228L
-
-typedef enum
-{
-    WinNullSid = 0,
-    WinWorldSid,
-    WinLocalSid,
-    WinCreatorOwnerSid,
-    WinCreatorGroupSid,
-    WinCreatorOwnerServerSid,
-    WinCreatorGroupServerSid,
-    WinNtAuthoritySid,
-    WinDialupSid,
-    WinNetworkSid,
-    WinBatchSid,
-    WinInteractiveSid,
-    WinServiceSid,
-    WinAnonymousSid,
-    WinProxySid,
-    WinEnterpriseControllersSid,
-    WinSelfSid,
-    WinAuthenticatedUserSid,
-    WinRestrictedCodeSid,
-    WinTerminalServerSid,
-    WinRemoteLogonIdSid,
-    WinLogonIdsSid,
-    WinLocalSystemSid,
-    WinLocalServiceSid,
-    WinNetworkServiceSid,
-    WinBuiltinDomainSid,
-    WinBuiltinAdministratorsSid,
-    WinBuiltinUsersSid,
-    WinBuiltinGuestsSid,
-    WinBuiltinPowerUsersSid,
-    WinBuiltinAccountOperatorsSid,
-    WinBuiltinSystemOperatorsSid,
-    WinBuiltinPrintOperatorsSid,
-    WinBuiltinBackupOperatorsSid,
-    WinBuiltinReplicatorSid,
-    WinBuiltinPreWindows2000CompatibleAccessSid,
-    WinBuiltinRemoteDesktopUsersSid,
-    WinBuiltinNetworkConfigurationOperatorsSid,
-    WinAccountAdministratorSid,
-    WinAccountGuestSid,
-    WinAccountKrbtgtSid,
-    WinAccountDomainAdminsSid,
-    WinAccountDomainUsersSid,
-    WinAccountDomainGuestsSid,
-    WinAccountComputersSid,
-    WinAccountControllersSid,
-    WinAccountCertAdminsSid,
-    WinAccountSchemaAdminsSid,
-    WinAccountEnterpriseAdminsSid,
-    WinAccountPolicyAdminsSid,
-    WinAccountRasAndIasServersSid,
-    WinNTLMAuthenticationSid,
-    WinDigestAuthenticationSid,
-    WinSChannelAuthenticationSid,
-    WinThisOrganizationSid,
-    WinOtherOrganizationSid,
-    WinBuiltinIncomingForestTrustBuildersSid,
-    WinBuiltinPerfMonitoringUsersSid,
-    WinBuiltinPerfLoggingUsersSid,
-    WinBuiltinAuthorizationAccessSid,
-    WinBuiltinTerminalServerLicenseServersSid,
-    WinBuiltinDCOMUsersSid
-} WELL_KNOWN_SID_TYPE;
-
 #define SE_CREATE_TOKEN_NAME	TEXT("SeCreateTokenPrivilege")
 #define SE_ASSIGNPRIMARYTOKEN_NAME	TEXT("SeAssignPrimaryTokenPrivilege")
 #define SE_LOCK_MEMORY_NAME	TEXT("SeLockMemoryPrivilege")
@@ -831,10 +770,6 @@ typedef enum
 #define GROUP_SECURITY_INFORMATION 2
 #define DACL_SECURITY_INFORMATION 4
 #define SACL_SECURITY_INFORMATION 8
-#define PROTECTED_DACL_SECURITY_INFORMATION     0x80000000
-#define PROTECTED_SACL_SECURITY_INFORMATION     0x40000000
-#define UNPROTECTED_DACL_SECURITY_INFORMATION   0x20000000
-#define UNPROTECTED_SACL_SECURITY_INFORMATION   0x10000000
 #define MAXIMUM_PROCESSORS 32
 #define PAGE_NOACCESS	0x0001
 #define PAGE_READONLY	0x0002
@@ -883,7 +818,7 @@ typedef enum
 #define FIELD_OFFSET(t,f) ((LONG)&(((t*)0)->f))
 #ifndef CONTAINING_RECORD
 #define CONTAINING_RECORD(address, type, field) \
-  ((type *)(((ULONG_PTR)address) - (ULONG_PTR)(&(((type *)0)->field))))
+  ((type*)((PCHAR)(address) - (PCHAR)(&((type *)0)->field)))
 #endif
 /* end winddk.h */
 #define IMAGE_SIZEOF_FILE_HEADER	20
@@ -1534,7 +1469,7 @@ typedef struct _ACL_SIZE_INFORMATION {
 } ACL_SIZE_INFORMATION;
 
 /* FIXME: add more machines */
-#if defined(_X86_) || defined(linux)
+#ifdef _X86_
 #define SIZE_OF_80387_REGISTERS	80
 #define CONTEXT_i386	0x10000
 #define CONTEXT_i486	0x10000
@@ -2235,14 +2170,14 @@ typedef struct _SECURITY_DESCRIPTOR {
 	PACL Dacl;
 } SECURITY_DESCRIPTOR, *PSECURITY_DESCRIPTOR, *PISECURITY_DESCRIPTOR;
 typedef struct _SECURITY_DESCRIPTOR_RELATIVE {
-    BYTE Revision;
-    BYTE Sbz1;
-    SECURITY_DESCRIPTOR_CONTROL Control;
-    DWORD Owner;
-    DWORD Group;
-    DWORD Sacl;
-    DWORD Dacl;
-} SECURITY_DESCRIPTOR_RELATIVE, *PISECURITY_DESCRIPTOR_RELATIVE;
+	UCHAR  Revision;
+	UCHAR  Sbz1;
+	SECURITY_DESCRIPTOR_CONTROL Control;
+	ULONG Owner;
+	ULONG Group;
+	ULONG Sacl;
+	ULONG Dacl;
+} SECURITY_DESCRIPTOR_RELATIVE, *PSECURITY_DESCRIPTOR_RELATIVE, *PISECURITY_DESCRIPTOR_RELATIVE;
 typedef enum _TOKEN_INFORMATION_CLASS {
 	TokenUser=1,TokenGroups,TokenPrivileges,TokenOwner,
 	TokenPrimaryGroup,TokenDefaultDacl,TokenSource,TokenType,
@@ -2382,8 +2317,6 @@ typedef union _SLIST_HEADER {
 } SLIST_HEADER,*PSLIST_HEADER;
 #endif /* !_SLIST_HEADER_ */
 
-/* FIXME: Please oh please stop including winnt.h from the DDK... */
-#ifndef __NTDDK_H
 typedef struct _RTL_CRITICAL_SECTION_DEBUG {
 	WORD Type;
 	WORD CreatorBackTraceIndex;
@@ -2401,8 +2334,6 @@ typedef struct _RTL_CRITICAL_SECTION {
 	HANDLE LockSemaphore;
 	ULONG_PTR SpinCount;
 } RTL_CRITICAL_SECTION,*PRTL_CRITICAL_SECTION;
-#endif
-
 typedef struct _EVENTLOGRECORD {
 	DWORD Length;
 	DWORD Reserved;
@@ -2551,7 +2482,7 @@ typedef struct _IMAGE_OPTIONAL_HEADER32 {
 	WORD MinorImageVersion;
 	WORD MajorSubsystemVersion;
 	WORD MinorSubsystemVersion;
-	DWORD Win32VersionValue;
+	DWORD Reserved1;
 	DWORD SizeOfImage;
 	DWORD SizeOfHeaders;
 	DWORD CheckSum;
@@ -2897,26 +2828,20 @@ typedef struct _IMAGE_RESOURCE_DATA_ENTRY {
 	DWORD Reserved;
 } IMAGE_RESOURCE_DATA_ENTRY,*PIMAGE_RESOURCE_DATA_ENTRY;
 typedef struct _IMAGE_LOAD_CONFIG_DIRECTORY {
-    DWORD Size;
-    DWORD TimeDateStamp;
-    WORD MajorVersion;
-    WORD MinorVersion;
-    DWORD GlobalFlagsClear;
-    DWORD GlobalFlagsSet;
-    DWORD CriticalSectionDefaultTimeout;
-    DWORD DeCommitFreeBlockThreshold;
-    DWORD DeCommitTotalFreeThreshold;
-    DWORD LockPrefixTable;
-    DWORD MaximumAllocationSize;
-    DWORD VirtualMemoryThreshold;
-    DWORD ProcessHeapFlags;
-    DWORD ProcessAffinityMask;
-    WORD CSDVersion;
-    WORD Reserved1;
-    DWORD EditList;
-    DWORD SecurityCookie;
-    DWORD SEHandlerTable;
-    DWORD SEHandlerCount;
+	DWORD Characteristics;
+	DWORD TimeDateStamp;
+	WORD MajorVersion;
+	WORD MinorVersion;
+	DWORD GlobalFlagsClear;
+	DWORD GlobalFlagsSet;
+	DWORD CriticalSectionDefaultTimeout;
+	DWORD DeCommitFreeBlockThreshold;
+	DWORD DeCommitTotalFreeThreshold;
+	PVOID LockPrefixTable;
+	DWORD MaximumAllocationSize;
+	DWORD VirtualMemoryThreshold;
+	DWORD ProcessHeapFlags;
+	DWORD Reserved[4];
 } IMAGE_LOAD_CONFIG_DIRECTORY,*PIMAGE_LOAD_CONFIG_DIRECTORY;
 typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY {
 	DWORD BeginAddress;
@@ -3096,15 +3021,6 @@ typedef union _FILE_SEGMENT_ELEMENT {
 #define JOB_OBJECT_MSG_PROCESS_MEMORY_LIMIT   9
 #define JOB_OBJECT_MSG_JOB_MEMORY_LIMIT       10
 
-#define JOB_OBJECT_ASSIGN_PROCESS           1
-#define JOB_OBJECT_SET_ATTRIBUTES           2
-#define JOB_OBJECT_QUERY                    4
-#define JOB_OBJECT_TERMINATE                8
-#define JOB_OBJECT_SET_SECURITY_ATTRIBUTES  16
-#define JOB_OBJECT_ALL_ACCESS               (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|31)
-
-/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
-#ifndef __NTDDK_H
 typedef enum _JOBOBJECTINFOCLASS {
 	JobObjectBasicAccountingInformation = 1,
 	JobObjectBasicLimitInformation,
@@ -3118,8 +3034,6 @@ typedef enum _JOBOBJECTINFOCLASS {
 	JobObjectJobSetInformation,
 	MaxJobObjectInfoClass
 } JOBOBJECTINFOCLASS;
-#endif
-
 typedef struct _JOBOBJECT_BASIC_ACCOUNTING_INFORMATION {
 	LARGE_INTEGER TotalUserTime;
 	LARGE_INTEGER TotalKernelTime;
@@ -3181,6 +3095,7 @@ typedef struct _JOBOBJECT_JOBSET_INFORMATION {
 
 /* Fixme: Making these defines conditional on WINVER will break ddk includes */
 #if 1 /* (WINVER >= 0x0500) */
+#include <pshpack4.h>
 
 #define ES_SYSTEM_REQUIRED                0x00000001
 #define ES_DISPLAY_REQUIRED               0x00000002
@@ -3346,7 +3261,6 @@ typedef struct _SYSTEM_BATTERY_STATE {
 	ULONG  DefaultAlert2;
 } SYSTEM_BATTERY_STATE, *PSYSTEM_BATTERY_STATE;
 
-typedef DWORD EXECUTION_STATE;
 typedef enum _POWER_INFORMATION_LEVEL {
 	SystemPowerPolicyAc,
 	SystemPowerPolicyDc,
@@ -3473,6 +3387,7 @@ typedef struct _ADMINISTRATOR_POWER_POLICY {
 	ULONG  MinSpindownTimeout;
 	ULONG  MaxSpindownTimeout;
 } ADMINISTRATOR_POWER_POLICY, *PADMINISTRATOR_POWER_POLICY;
+#include <poppack.h>
 #endif /* WINVER >= 0x0500 */
 
 typedef VOID (NTAPI *WAITORTIMERCALLBACKFUNC)(PVOID,BOOLEAN);
@@ -3488,25 +3403,6 @@ typedef OSVERSIONINFOEXA OSVERSIONINFOEX,*POSVERSIONINFOEX,*LPOSVERSIONINFOEX;
 #if (WIN32_WINNT >= 0x0500)
 ULONGLONG WINAPI VerSetConditionMask(ULONGLONG,DWORD,BYTE);
 #endif
-
-SIZE_T
-STDCALL
-RtlCompareMemory (
-    const VOID *Source1,
-    const VOID *Source2,
-    SIZE_T Length
-    );
-
-#define RtlMoveMemory memmove
-#define RtlCopyMemory memcpy
-#define RtlFillMemory(d,l,f) memset((d), (f), (l))
-#define RtlZeroMemory(d,l) RtlFillMemory((d),(l),0)
-
-typedef struct _OBJECT_TYPE_LIST {
-    WORD   Level;
-    WORD   Sbz;
-    GUID *ObjectType;
-} OBJECT_TYPE_LIST, *POBJECT_TYPE_LIST;
 
 #if defined(__GNUC__)
 

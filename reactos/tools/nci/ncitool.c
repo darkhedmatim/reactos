@@ -130,7 +130,7 @@ WriteFileHeader(FILE * StubFile,
             " * PROGRAMMER:      Computer Generated File. See tools/nci/ncitool.c\n"
             " * REMARK:          DO NOT EDIT OR COMMIT MODIFICATIONS TO THIS FILE\n"
             " */\n\n\n"
-            "#include <ndk/asm.h>\n\n",
+            "#define KUSER_SHARED_SYSCALL 0x7FFE0300\n\n",
             FileDescription,
             FileLocation);
 }
@@ -288,7 +288,6 @@ GetNameAndArgumentsFromDb(char Line[],
     
         /* Skip this entry */
         *NtSyscallName = NULL;
-        *SyscallArguments = NULL;
     }
 }
 
@@ -337,10 +336,7 @@ CreateStubs(FILE * SyscallDb,
              
         /* Extract the Name and Arguments */
         GetNameAndArgumentsFromDb(Line, &NtSyscallName, &SyscallArguments); 
-        if (SyscallArguments != NULL)
-            StackBytes = ARGS_TO_BYTES(strtoul(SyscallArguments, NULL, 0));
-        else
-            StackBytes = 0;
+        StackBytes = ARGS_TO_BYTES(strtoul(SyscallArguments, NULL, 0));
  
         /* Make sure we really extracted something */
         if (NtSyscallName) {
@@ -420,7 +416,7 @@ CreateSystemServiceTable(FILE *SyscallDb,
 
     /* First we build the SSDT */
     fprintf(SyscallTable,"\n\n\n");
-    fprintf(SyscallTable,"ULONG_PTR %sSSDT[] = {\n", Name);
+    fprintf(SyscallTable,"SSDT %sSSDT[] = {\n", Name);
 
     /* We loop, incrementing the System Call Index, until the end of the file */
     for (SyscallId = 0; ((!feof(SyscallDb)) && (fgets(Line, sizeof(Line), SyscallDb) != NULL));) {
@@ -435,7 +431,7 @@ CreateSystemServiceTable(FILE *SyscallDb,
             if (SyscallId > 0) fprintf(SyscallTable,",\n");
         
             /* Write the syscall name in the service table. */
-            fprintf(SyscallTable,"\t\t(ULONG_PTR)%s", NtSyscallName);
+            fprintf(SyscallTable,"\t\t(PVOID (NTAPI *)(VOID))%s", NtSyscallName);
             
             /* Only increase if we actually added something */
             SyscallId++;
@@ -448,7 +444,7 @@ CreateSystemServiceTable(FILE *SyscallDb,
     /* Now we build the SSPT */
     rewind(SyscallDb);
     fprintf(SyscallTable,"\n\n\n");
-    fprintf(SyscallTable,"UCHAR %sSSPT[] = {\n", Name);
+    fprintf(SyscallTable,"SSPT %sSSPT[] = {\n", Name);
 
     for (SyscallId = 0; ((!feof(SyscallDb)) && (fgets(Line, sizeof(Line), SyscallDb) != NULL));) {
 
@@ -462,10 +458,7 @@ CreateSystemServiceTable(FILE *SyscallDb,
             if (SyscallId > 0) fprintf(SyscallTable,",\n");
             
             /* Write the syscall arguments in the argument table. */
-            if (SyscallArguments != NULL)
-                fprintf(SyscallTable,"\t\t%lu * sizeof(void *)",strtoul(SyscallArguments, NULL, 0));
-            else
-                fprintf(SyscallTable,"\t\t0");
+            fprintf(SyscallTable,"\t\t%lu * sizeof(void *)",strtoul(SyscallArguments, NULL, 0));
                     
             /* Only increase if we actually added something */
             SyscallId++;

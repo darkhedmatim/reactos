@@ -10,25 +10,16 @@
 #define _POTYPES_H
 
 /* DEPENDENCIES **************************************************************/
-#ifndef NTOS_MODE_USER
-#include <ntpoapi.h>
-#endif
+#include <ddk/ntpoapi.h>
 
 /* EXPORTED DATA *************************************************************/
 
 /* CONSTANTS *****************************************************************/
 
 /* ENUMERATIONS **************************************************************/
-typedef enum _SYSTEM_DOCK_STATE
-{
-    SystemDockStateUnknown,
-    SystemUndocked,
-    SystemDocked
-} SYSTEM_DOCK_STATE, *PSYSTEM_DOCK_STATE;
 
 /* TYPES *********************************************************************/
 
-#ifndef NTOS_MODE_USER
 typedef struct _PROCESSOR_POWER_STATE
 {
     PVOID IdleFunction;
@@ -90,5 +81,5 @@ typedef struct _PO_DEVICE_NOTIFY
     ULONG ChildCount;
     ULONG ActiveChild;
 } PO_DEVICE_NOTIFY, *PPO_DEVICE_NOTIFY;
-#endif
+
 #endif

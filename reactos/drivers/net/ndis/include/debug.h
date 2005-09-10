@@ -14,6 +14,7 @@
 #define MID_TRACE      0x00000002
 #define MAX_TRACE      0x00000003
 
+#define DEBUG_REFCOUNT 0x00000100
 #define DEBUG_MINIPORT 0x00000200
 #define DEBUG_PROTOCOL 0x00000400
 #define DEBUG_PACKET   0x00000800
@@ -21,7 +22,7 @@
 
 #ifdef DBG
 
-extern ULONG DebugTraceLevel;
+extern DWORD DebugTraceLevel;
 
 #ifdef _MSC_VER
 

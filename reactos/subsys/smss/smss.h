@@ -1,7 +1,6 @@
 #ifndef _SMSS_H_INCLUDED_
 #define _SMSS_H_INCLUDED_
 
-#include <stdio.h>
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
@@ -48,7 +47,6 @@ NTSTATUS SmCreatePagingFiles(VOID);
 NTSTATUS SmInitializeRegistry(VOID);
 
 /* initss.c */
-NTSTATUS STDCALL SmRegisterInternalSubsystem(LPWSTR,USHORT,PHANDLE);
 NTSTATUS SmLoadSubsystems(VOID);
 
 /* smapi.c */
@@ -64,7 +62,7 @@ NTSTATUS STDCALL SmCreateUserProcess(LPWSTR ImagePath,
 				     LPWSTR CommandLine,
 				     BOOLEAN WaitForIt,
 				     PLARGE_INTEGER Timeout OPTIONAL,
-				     PRTL_USER_PROCESS_INFORMATION UserProcessInfo OPTIONAL);
+				     PRTL_PROCESS_INFO UserProcessInfo OPTIONAL);
 NTSTATUS FASTCALL SmExecPgm(PSM_PORT_MESSAGE);
 
 /* smapicomp.c */
@@ -90,10 +88,11 @@ typedef struct _SM_CLIENT_DATA
   HANDLE	        ApiPortThread;
   HANDLE	        SbApiPort;
   WCHAR	                SbApiPortName [SM_SB_NAME_MAX_LENGTH];
+  struct _SM_CLIENT_DATA * Next;
 
 } SM_CLIENT_DATA, *PSM_CLIENT_DATA;
 NTSTATUS SmInitializeClientManagement (VOID);
-NTSTATUS STDCALL SmCreateClient (PRTL_USER_PROCESS_INFORMATION,PWSTR);
+NTSTATUS STDCALL SmCreateClient (PRTL_PROCESS_INFO,PWSTR);
 NTSTATUS STDCALL SmDestroyClient (ULONG);
 NTSTATUS STDCALL SmBeginClientInitialization (PSM_PORT_MESSAGE,PSM_CLIENT_DATA*);
 NTSTATUS STDCALL SmCompleteClientInitialization (ULONG);

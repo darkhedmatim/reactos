@@ -51,15 +51,15 @@ WaitForSingleObjectEx(HANDLE hHandle,
   switch ((ULONG)hHandle)
     {
       case STD_INPUT_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->StandardInput;
+	hHandle = NtCurrentPeb()->ProcessParameters->hStdInput;
 	break;
 
       case STD_OUTPUT_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->StandardOutput;
+	hHandle = NtCurrentPeb()->ProcessParameters->hStdOutput;
 	break;
 
       case STD_ERROR_HANDLE:
-	hHandle = NtCurrentPeb()->ProcessParameters->StandardError;
+	hHandle = NtCurrentPeb()->ProcessParameters->hStdError;
 	break;
     }
 
@@ -91,19 +91,15 @@ WaitForSingleObjectEx(HANDLE hHandle,
       TimePtr = &Time;
     }
 
-  do
+  Status = NtWaitForSingleObject(hHandle,
+				 (BOOLEAN) bAlertable,
+				 TimePtr);
+
+  if (HIWORD(Status))
     {
-      Status = NtWaitForSingleObject(hHandle,
-				     (BOOLEAN) bAlertable,
-				     TimePtr);
-
-      if (HIWORD(Status))
-        {
-          SetLastErrorByStatus (Status);
-          return WAIT_FAILED;
-        }
-
-    } while (Status == STATUS_ALERTED && bAlertable);
+      SetLastErrorByStatus (Status);
+      return WAIT_FAILED;
+    }
 
   return Status;
 }
@@ -163,15 +159,15 @@ WaitForMultipleObjectsEx(DWORD nCount,
       switch ((DWORD)lpHandles[i])
 	{
 	  case STD_INPUT_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->StandardInput;
+	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdInput;
 	    break;
 
 	  case STD_OUTPUT_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->StandardOutput;
+	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdOutput;
 	    break;
 
 	  case STD_ERROR_HANDLE:
-	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->StandardError;
+	    HandleBuffer[i] = NtCurrentPeb()->ProcessParameters->hStdError;
 	    break;
 
 	  default:
@@ -214,25 +210,21 @@ WaitForMultipleObjectsEx(DWORD nCount,
       TimePtr = &Time;
     }
 
-  do
-    {
-      Status = NtWaitForMultipleObjects (nCount,
-				         HandleBuffer,
-				         bWaitAll  ? WaitAll : WaitAny,
-				         (BOOLEAN)bAlertable,
-				         TimePtr);
-      if (HIWORD(Status))
-        {
-          SetLastErrorByStatus (Status);
-          Status = WAIT_FAILED;
-        }
-
-    } while (Status == STATUS_ALERTED && bAlertable);
-
+  Status = NtWaitForMultipleObjects (nCount,
+				     HandleBuffer,
+				     bWaitAll  ? WaitAll : WaitAny,
+				     (BOOLEAN)bAlertable,
+				     TimePtr);
   if (HandleBuffer != Handle)
-  {
+    {
       RtlFreeHeap(RtlGetProcessHeap(), 0, HandleBuffer);
-  }
+    }
+
+  if (HIWORD(Status))
+    {
+      SetLastErrorByStatus (Status);
+      return WAIT_FAILED;
+    }
 
   return Status;
 }
@@ -255,15 +247,15 @@ SignalObjectAndWait(HANDLE hObjectToSignal,
   switch ((ULONG)hObjectToWaitOn)
     {
       case STD_INPUT_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->StandardInput;
+	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdInput;
 	break;
 
       case STD_OUTPUT_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->StandardOutput;
+	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdOutput;
 	break;
 
       case STD_ERROR_HANDLE:
-	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->StandardError;
+	hObjectToWaitOn = NtCurrentPeb()->ProcessParameters->hStdError;
 	break;
     }
 
@@ -274,7 +266,7 @@ SignalObjectAndWait(HANDLE hObjectToSignal,
 	{
 	  DPRINT1("Console handles are not supported yet!\n");
 	  SetLastError(ERROR_INVALID_HANDLE);
-	  return WAIT_FAILED;
+	  return FALSE;
 	}
     }
 
@@ -288,22 +280,17 @@ SignalObjectAndWait(HANDLE hObjectToSignal,
       TimePtr = &Time;
     }
 
-  do
+  Status = NtSignalAndWaitForSingleObject (hObjectToSignal,
+					   hObjectToWaitOn,
+					   (BOOLEAN)bAlertable,
+					   TimePtr);
+  if (!NT_SUCCESS(Status))
     {
-      Status = NtSignalAndWaitForSingleObject (hObjectToSignal,
-					       hObjectToWaitOn,
-					       (BOOLEAN)bAlertable,
-					       TimePtr);
-      if (!NT_SUCCESS(Status))
-        {
-          SetLastErrorByStatus (Status);
-          return WAIT_FAILED;
-        }
+      SetLastErrorByStatus (Status);
+      return FALSE;
+    }
 
-    } while (Status == STATUS_ALERTED && bAlertable);
-
-  /* STATUS_SUCCESS maps to WAIT_OBJECT_0 */
-  return Status;
+  return TRUE;
 }
 
 /* EOF */

@@ -1,13 +1,17 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            lib/rtl/atom.c
  * PURPOSE:         Atom managment
- * PROGRAMMER:      Thomas Weidenmueller
+ * PROGRAMMER:      Nobody
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -93,6 +97,9 @@ RtlpCheckIntegerAtom(PWSTR AtomName,
    if (!((ULONG)AtomName & 0xFFFF0000))
      {
         LoValue = (USHORT)((ULONG)AtomName & 0xFFFF);
+
+        if (LoValue >= 0xC000)
+          return FALSE;
 
         if (LoValue == 0)
           LoValue = 0xC000;
@@ -237,7 +244,7 @@ RtlEmptyAtomTable(PRTL_ATOM_TABLE AtomTable,
                   BOOLEAN DeletePinned)
 {
    PRTL_ATOM_TABLE_ENTRY *CurrentBucket, *LastBucket;
-   PRTL_ATOM_TABLE_ENTRY CurrentEntry, NextEntry, *PtrEntry;
+   PRTL_ATOM_TABLE_ENTRY CurrentEntry, NextEntry;
 
    DPRINT("RtlEmptyAtomTable (AtomTable %p DeletePinned %x)\n",
           AtomTable, DeletePinned);
@@ -254,26 +261,17 @@ RtlEmptyAtomTable(PRTL_ATOM_TABLE AtomTable,
         CurrentBucket++)
      {
         NextEntry = *CurrentBucket;
-        PtrEntry = CurrentBucket;
+        *CurrentBucket = NULL;
 
         while (NextEntry != NULL)
           {
              CurrentEntry = NextEntry;
              NextEntry = NextEntry->HashLink;
 
-             if (DeletePinned || !(CurrentEntry->Flags & RTL_ATOM_IS_PINNED))
-               {
-                 *PtrEntry = NextEntry;
+             RtlpFreeAtomHandle(AtomTable,
+                                CurrentEntry);
 
-                 RtlpFreeAtomHandle(AtomTable,
-                                    CurrentEntry);
-
-                 RtlpFreeAtomTableEntry(CurrentEntry);
-               }
-             else
-               {
-                 PtrEntry = &CurrentEntry->HashLink;
-               }
+             RtlpFreeAtomTableEntry(CurrentEntry);
           }
      }
 
@@ -387,7 +385,7 @@ RtlAddAtomToAtomTable(IN PRTL_ATOM_TABLE AtomTable,
         else
           {
              /* The caller supplied an empty atom name! */
-             Status = STATUS_OBJECT_NAME_INVALID;
+             Status = STATUS_INVALID_PARAMETER;
           }
      }
 
@@ -598,10 +596,19 @@ RtlQueryAtomInAtomTable(PRTL_ATOM_TABLE AtomTable,
 
              if (*NameLength < Length + sizeof(WCHAR))
                {
-                  *NameLength = Length;
-                  Status = STATUS_BUFFER_TOO_SMALL;
+                  /* prevent underflow! */
+                  if (*NameLength >= sizeof(WCHAR))
+                    {
+                       Length = *NameLength - sizeof(WCHAR);
+                    }
+                  else
+                    {
+                       Length = 0;
+                       Status = STATUS_BUFFER_TOO_SMALL;
+                    }
                }
-             else 
+
+             if (Length)
                {
                   RtlCopyMemory(AtomName,
                                 NameString,
@@ -639,10 +646,19 @@ RtlQueryAtomInAtomTable(PRTL_ATOM_TABLE AtomTable,
 
              if (*NameLength < Length + sizeof(WCHAR))
                {
-                  *NameLength = Length;
-                  Status = STATUS_BUFFER_TOO_SMALL;
+                  /* prevent underflow! */
+                  if (*NameLength >= sizeof(WCHAR))
+                    {
+                       Length = *NameLength - sizeof(WCHAR);
+                    }
+                  else
+                    {
+                       Length = 0;
+                       Status = STATUS_BUFFER_TOO_SMALL;
+                    }
                }
-             else
+
+             if (Length)
                {
                   RtlCopyMemory(AtomName,
                                 Entry->Name,

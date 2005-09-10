@@ -14,17 +14,17 @@
 #include <ntdll.h>
 #define NDEBUG
 #include <debug.h>
+#include <rosrtl/thread.h>
 
 /* FUNCTIONS *****************************************************************/
 
 static HANDLE DbgSsApiPort = NULL;
 static HANDLE DbgSsReplyPort = NULL;
-static NTSTATUS (STDCALL * DbgSsCallback)(PVOID,PVOID) = NULL;
 
 
 typedef struct _LPC_DBGSS_MESSAGE
 {
-	PORT_MESSAGE Header;
+	LPC_MESSAGE Header;
 	ULONG Unknown1;
 	ULONG Unknown2;
 	ULONG Unknown3;
@@ -45,7 +45,7 @@ DbgSsServerThread(PVOID Unused)
 		Status = NtReplyWaitReceivePort (DbgSsApiPort,
 		                                 NULL,
 		                                 NULL,
-		                                 (PPORT_MESSAGE)&Message);
+		                                 (PLPC_MESSAGE)&Message);
 		if (!NT_SUCCESS(Status))
 		{
 			DbgPrint ("DbgSs: NtReplyWaitReceivePort failed - Status == %lx\n",
@@ -78,7 +78,7 @@ DbgSsHandleKmApiMsg(ULONG Unknown1,
  */
 NTSTATUS STDCALL
 DbgSsInitialize(HANDLE ReplyPort,
-		PVOID Callback,
+		ULONG Unknown1,
 		ULONG Unknown2,
 		ULONG Unknown3)
 {
@@ -103,7 +103,7 @@ DbgSsInitialize(HANDLE ReplyPort,
 		return Status;
 
 	DbgSsReplyPort = ReplyPort;
-	DbgSsCallback = Callback;
+//	UnknownData1 = Unknown1;
 //	UnknownData2 = Unknown2;
 //	UnknownData3 = Unknown3;
 
@@ -111,8 +111,8 @@ DbgSsInitialize(HANDLE ReplyPort,
 	                              NULL,
 	                              FALSE,
 	                              0,
-	                              0,
-	                              0,
+	                              NULL,
+	                              NULL,
 	                              (PTHREAD_START_ROUTINE)DbgSsServerThread,
 	                              NULL,
 	                              NULL,
@@ -184,11 +184,14 @@ DbgUiWaitStateChange(ULONG Unknown1,
   return STATUS_NOT_IMPLEMENTED;
 }
 
-VOID STDCALL DbgUiRemoteBreakin(VOID)
+NTSTATUS STDCALL DbgUiRemoteBreakin(VOID)
 {
  DbgBreakPoint();
 
- RtlExitUserThread(STATUS_SUCCESS);
+ RtlRosExitUserThread(0);
+
+ DbgBreakPoint();
+ return STATUS_SUCCESS;
 }
 
 NTSTATUS STDCALL DbgUiIssueRemoteBreakin(HANDLE Process)
@@ -204,8 +207,8 @@ NTSTATUS STDCALL DbgUiIssueRemoteBreakin(HANDLE Process)
   NULL,
   FALSE,
   0,
-  nStackSize,
-  nStackSize,
+  &nStackSize,
+  &nStackSize,
   (PTHREAD_START_ROUTINE)DbgUiRemoteBreakin,
   NULL,
   &hThread,

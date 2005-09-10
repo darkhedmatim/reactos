@@ -14,26 +14,24 @@
     NtGdiPtInRegion((WndObject)->WindowRegion, (INT)((x) - (WndObject)->WindowRect.left), \
                     (INT)((y) - (WndObject)->WindowRect.top))))
 
-UINT
-FASTCALL co_WinPosArrangeIconicWindows(PWINDOW_OBJECT parent);
 BOOL FASTCALL
-IntGetClientOrigin(PWINDOW_OBJECT Window, LPPOINT Point);
+IntGetClientOrigin(HWND hWnd, LPPOINT Point);
 LRESULT FASTCALL
-co_WinPosGetNonClientSize(PWINDOW_OBJECT Window, RECT* WindowRect, RECT* ClientRect);
+WinPosGetNonClientSize(HWND Wnd, RECT* WindowRect, RECT* ClientRect);
 UINT FASTCALL
-co_WinPosGetMinMaxInfo(PWINDOW_OBJECT Window, POINT* MaxSize, POINT* MaxPos,
+WinPosGetMinMaxInfo(PWINDOW_OBJECT Window, POINT* MaxSize, POINT* MaxPos,
 		    POINT* MinTrack, POINT* MaxTrack);
 UINT FASTCALL
-co_WinPosMinMaximize(PWINDOW_OBJECT WindowObject, UINT ShowFlag, RECT* NewPos);
+WinPosMinMaximize(PWINDOW_OBJECT WindowObject, UINT ShowFlag, RECT* NewPos);
 BOOLEAN FASTCALL
-co_WinPosSetWindowPos(PWINDOW_OBJECT Wnd, HWND WndInsertAfter, INT x, INT y, INT cx,
+WinPosSetWindowPos(HWND Wnd, HWND WndInsertAfter, INT x, INT y, INT cx,
 		   INT cy, UINT flags);
 BOOLEAN FASTCALL
-co_WinPosShowWindow(PWINDOW_OBJECT Window, INT Cmd);
+WinPosShowWindow(HWND Wnd, INT Cmd);
 USHORT FASTCALL
-co_WinPosWindowFromPoint(PWINDOW_OBJECT ScopeWin, PUSER_MESSAGE_QUEUE OnlyHitTests, POINT *WinPoint,
+WinPosWindowFromPoint(PWINDOW_OBJECT ScopeWin, PUSER_MESSAGE_QUEUE OnlyHitTests, POINT *WinPoint,
 		      PWINDOW_OBJECT* Window);
-VOID FASTCALL co_WinPosActivateOtherWindow(PWINDOW_OBJECT Window);
+VOID FASTCALL WinPosActivateOtherWindow(PWINDOW_OBJECT Window);
 
 PINTERNALPOS FASTCALL WinPosInitInternalPos(PWINDOW_OBJECT WindowObject,
                                             POINT *pt, PRECT RestoreRect);

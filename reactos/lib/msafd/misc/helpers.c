@@ -10,8 +10,7 @@
  *	 Alex 16/07/2004 - Complete Rewrite
  */
 #include <msafd.h>
-
-#include <debug.h>
+#include <helpers.h>
 
 CRITICAL_SECTION HelperDLLDatabaseLock;
 LIST_ENTRY HelperDLLDatabaseListHead;

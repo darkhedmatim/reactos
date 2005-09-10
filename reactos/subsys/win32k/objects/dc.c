@@ -69,7 +69,7 @@ VOID FASTCALL Int##FuncName ( PDC dc, LP##type pt) \
 } \
 BOOL STDCALL NtGdi##FuncName ( HDC hdc, LP##type pt ) \
 { \
-  NTSTATUS Status = STATUS_SUCCESS; \
+  NTSTATUS Status; \
   type Safept; \
   PDC dc; \
   if(!pt) \
@@ -84,18 +84,7 @@ BOOL STDCALL NtGdi##FuncName ( HDC hdc, LP##type pt ) \
   } \
   Int##FuncName( dc, &Safept); \
   DC_UnlockDc(dc); \
-  _SEH_TRY \
-  { \
-    ProbeForWrite(pt, \
-                  sizeof( type ), \
-                  1); \
-    *pt = Safept; \
-  } \
-  _SEH_HANDLE \
-  { \
-    Status = _SEH_GetExceptionCode(); \
-  } \
-  _SEH_END; \
+  Status = MmCopyToCaller(pt, &Safept, sizeof( type )); \
   if(!NT_SUCCESS(Status)) \
   { \
     SetLastNtError(Status); \
@@ -667,8 +656,7 @@ IntCreatePrimarySurface()
    SIZEL SurfSize;
    RECTL SurfaceRect;
    SURFOBJ *SurfObj;
-   BOOL calledFromUser;
-   
+
    if (! IntPrepareDriverIfNeeded())
    {
       return FALSE;
@@ -689,11 +677,6 @@ IntCreatePrimarySurface()
 
    PrimarySurface.DriverFunctions.AssertMode(PrimarySurface.PDev, TRUE);
 
-   calledFromUser = UserIsEntered(); //fixme: possibly upgrade a shared lock
-   if (!calledFromUser){
-      UserEnterExclusive();
-   }
-
    /* attach monitor */
    IntAttachMonitor(&PrimarySurface, PrimarySurface.DisplayNumber);
 
@@ -711,11 +694,7 @@ IntCreatePrimarySurface()
    GDIDEV(SurfObj)->Pointer.Pos.y = (SurfaceRect.bottom - SurfaceRect.top) / 2;
 
    EngUnlockSurface(SurfObj);
-   co_IntShowDesktop(IntGetActiveDesktop(), SurfSize.cx, SurfSize.cy);
-
-   if (!calledFromUser){
-      UserLeave();
-   }
+   IntShowDesktop(IntGetActiveDesktop(), SurfSize.cx, SurfSize.cy);
 
    return TRUE;
 }
@@ -723,21 +702,10 @@ IntCreatePrimarySurface()
 VOID FASTCALL
 IntDestroyPrimarySurface()
   {
-    BOOL calledFromUser; 
-     
     DRIVER_UnreferenceDriver(L"DISPLAY");
-
-    calledFromUser = UserIsEntered();
-    if (!calledFromUser){
-       UserEnterExclusive();
-    }
 
     /* detach monitor */
     IntDetachMonitor(&PrimarySurface);
-
-    if (!calledFromUser){
-       UserLeave();
-    }
 
     /*
      * FIXME: Hide a mouse pointer there. Also because we have to prevent
@@ -767,8 +735,7 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
   HDC      hDC = NULL;
   HRGN     hVisRgn;
   UNICODE_STRING StdDriver;
-  BOOL calledFromUser;
-  
+
   RtlInitUnicodeString(&StdDriver, L"DISPLAY");
 
   if (NULL == Driver || 0 == RtlCompareUnicodeString(Driver, &StdDriver, TRUE))
@@ -781,26 +748,10 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
               return NULL;
             }
         }
-      else
+      else if (! IntGraphicsCheck(TRUE))
         {
-          calledFromUser = UserIsEntered();
-          if (!calledFromUser){
-             UserEnterExclusive();
-          }
-          
-          if (! co_IntGraphicsCheck(TRUE))
-          {
-            if (!calledFromUser){
-               UserLeave();
-            } 
-            DPRINT1("Unable to initialize graphics, returning NULL dc\n");
-            return NULL;
-          }
-          
-          if (!calledFromUser){
-            UserLeave();
-          } 
-          
+          DPRINT1("Unable to initialize graphics, returning NULL dc\n");
+          return NULL;
         }
     }
 
@@ -879,25 +830,11 @@ NtGdiCreateDC(PUNICODE_STRING Driver,
   UNICODE_STRING SafeDriver, SafeDevice;
   DEVMODEW SafeInitData;
   HDC Ret;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   if(InitData)
   {
-    _SEH_TRY
-    {
-      ProbeForRead(InitData,
-                   sizeof(DEVMODEW),
-                   1);
-      RtlCopyMemory(&SafeInitData,
-                    InitData,
-                    sizeof(DEVMODEW));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
+    Status = MmCopyFromCaller(&SafeInitData, InitData, sizeof(DEVMODEW));
     if(!NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -941,24 +878,11 @@ NtGdiCreateIC(PUNICODE_STRING Driver,
   UNICODE_STRING SafeDriver, SafeDevice;
   DEVMODEW SafeInitData;
   HDC Ret;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   if(InitData)
   {
-    _SEH_TRY
-    {
-      ProbeForRead(InitData,
-                   sizeof(DEVMODEW),
-                   1);
-      RtlCopyMemory(&SafeInitData,
-                    InitData,
-                    sizeof(DEVMODEW));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
+    Status = MmCopyFromCaller(&SafeInitData, InitData, sizeof(DEVMODEW));
     if(!NT_SUCCESS(Status))
     {
       SetLastNtError(Status);
@@ -1159,7 +1083,7 @@ NtGdiGetDCOrgEx(HDC  hDC, LPPOINT  Point)
   BOOL Ret;
   DC *dc;
   POINT SafePoint;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   if(!Point)
   {
@@ -1176,19 +1100,7 @@ NtGdiGetDCOrgEx(HDC  hDC, LPPOINT  Point)
 
   Ret = IntGdiGetDCOrgEx(dc, &SafePoint);
 
-  _SEH_TRY
-  {
-    ProbeForWrite(Point,
-                  sizeof(POINT),
-                  1);
-    *Point = SafePoint;
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
+  Status = MmCopyToCaller(Point, &SafePoint, sizeof(POINT));
   if(!NT_SUCCESS(Status))
   {
     SetLastNtError(Status);
@@ -1441,7 +1353,7 @@ NtGdiSetDCState ( HDC hDC, HDC hDCSave )
 INT FASTCALL
 IntGdiGetDeviceCaps(PDC dc, INT Index)
 {
-  INT ret = 0;
+  INT ret;
   POINT  pt;
 
   /* Retrieve capability */
@@ -1716,28 +1628,10 @@ NtGdiGetObject(HANDLE handle, INT count, LPVOID buffer)
 {
   INT Ret;
   LPVOID SafeBuf;
-  NTSTATUS Status = STATUS_SUCCESS;
+  NTSTATUS Status;
 
   if (count <= 0)
   {
-    return 0;
-  }
-  
-  _SEH_TRY
-  {
-    ProbeForWrite(buffer,
-                  count,
-                  1);
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-  
-  if(!NT_SUCCESS(Status))
-  {
-    SetLastNtError(Status);
     return 0;
   }
 
@@ -1750,19 +1644,7 @@ NtGdiGetObject(HANDLE handle, INT count, LPVOID buffer)
 
   Ret = IntGdiGetObject(handle, count, SafeBuf);
 
-  _SEH_TRY
-  {
-    /* pointer already probed! */
-    RtlCopyMemory(buffer,
-                  SafeBuf,
-                  count);
-  }
-  _SEH_HANDLE
-  {
-    Status = _SEH_GetExceptionCode();
-  }
-  _SEH_END;
-
+  Status = MmCopyToCaller(buffer, SafeBuf, count);
   ExFreePool(SafeBuf);
   if(!NT_SUCCESS(Status))
   {

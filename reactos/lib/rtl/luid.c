@@ -1,13 +1,17 @@
-/* COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * PURPOSE:         Locally unique identifier (LUID) helper functions
- * FILE:            lib/rtl/luid.c
- * PROGRAMER:       Eric Kohl <ekohl@zr-online.de>
+/* $Id$
+ *
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS kernel
+ * PURPOSE:           Locally unique identifier (LUID) helper functions
+ * FILE:              lib/rtl/luid.c
+ * PROGRAMER:         Eric Kohl <ekohl@zr-online.de>
+ * REVISION HISTORY:
+ *                    15/04/2000: Created
  */
 
 /* INCLUDES *****************************************************************/
 
-#include <rtl.h>
+#include "rtl.h"
 
 #define NDEBUG
 #include <debug.h>

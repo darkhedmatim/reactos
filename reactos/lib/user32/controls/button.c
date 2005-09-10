@@ -19,7 +19,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define __WINE__
 #include <user32.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "controls.h"
+#include "wine/unicode.h"
+#include "wine/debug.h"
+
+#ifdef __REACTOS__
+HPEN STDCALL GetSysColorPen(int nIndex);
+#endif
 
 /* GetWindowLong offsets for window extra information */
 #define STATE_GWL_OFFSET  0
@@ -114,33 +126,33 @@ const struct builtin_class_descr BUTTON_builtin_class =
 };
 
 
-__inline static LONG get_button_state( HWND hwnd )
+inline static LONG get_button_state( HWND hwnd )
 {
     return GetWindowLongA( hwnd, STATE_GWL_OFFSET );
 }
 
-__inline static void set_button_state( HWND hwnd, LONG state )
+inline static void set_button_state( HWND hwnd, LONG state )
 {
     SetWindowLongA( hwnd, STATE_GWL_OFFSET, state );
 }
 
-__inline static HFONT get_button_font( HWND hwnd )
+inline static HFONT get_button_font( HWND hwnd )
 {
     return (HFONT)GetWindowLongA( hwnd, HFONT_GWL_OFFSET );
 }
 
-__inline static void set_button_font( HWND hwnd, HFONT font )
+inline static void set_button_font( HWND hwnd, HFONT font )
 {
     SetWindowLongA( hwnd, HFONT_GWL_OFFSET, (LONG)font );
 }
 
-__inline static UINT get_button_type( LONG window_style )
+inline static UINT get_button_type( LONG window_style )
 {
     return (window_style & 0x0f);
 }
 
 /* paint a button of any type */
-__inline static void paint_button( HWND hwnd, LONG style, UINT action )
+inline static void paint_button( HWND hwnd, LONG style, UINT action )
 {
     if (btnPaintFunc[style] && IsWindowVisible(hwnd))
     {
@@ -151,7 +163,7 @@ __inline static void paint_button( HWND hwnd, LONG style, UINT action )
 }
 
 /* retrieve the button text; returned buffer must be freed by caller */
-__inline static WCHAR *get_button_text( HWND hwnd )
+inline static WCHAR *get_button_text( HWND hwnd )
 {
     INT len = 512;
     WCHAR *buffer = HeapAlloc( GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR) );

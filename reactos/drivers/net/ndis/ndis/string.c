@@ -16,7 +16,6 @@
 /*
  * @implemented
  */
-#undef NdisAnsiStringToUnicodeString
 NDIS_STATUS
 EXPORT
 NdisAnsiStringToUnicodeString(
@@ -40,12 +39,12 @@ NdisAnsiStringToUnicodeString(
       (PANSI_STRING)SourceString, FALSE);
 }
 
+#undef NdisEqualString
 
 
 /*
  * @implemented
  */
-#undef NdisEqualString
 BOOLEAN
 EXPORT
 NdisEqualString(
@@ -75,7 +74,6 @@ NdisEqualString(
 /*
  * @implemented
  */
-#undef NdisInitAnsiString
 VOID
 EXPORT
 NdisInitAnsiString(
@@ -129,7 +127,6 @@ NdisInitializeString(
 /*
  * @implemented
  */
-#undef NdisInitUnicodeString
 VOID
 EXPORT
 NdisInitUnicodeString(
@@ -154,7 +151,6 @@ NdisInitUnicodeString(
 /*
  * @implemented
  */
-#undef NdisUnicodeStringToAnsiString
 NDIS_STATUS
 EXPORT
 NdisUnicodeStringToAnsiString(
@@ -183,7 +179,6 @@ NdisUnicodeStringToAnsiString(
 /*
  * @implemented
  */
-#undef NdisUpcaseUnicodeString
 NTSTATUS
 EXPORT
 NdisUpcaseUnicodeString(

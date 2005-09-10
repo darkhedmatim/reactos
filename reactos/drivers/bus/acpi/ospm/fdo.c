@@ -162,10 +162,6 @@ AcpiCreateResourceList(PCM_RESOURCE_LIST* pResourceList,
         Done = TRUE;
         break;
       }
-      default:
-      {
-        break;
-      }
     }
     resource = (RESOURCE *) ((NATIVE_UINT) resource + (NATIVE_UINT) resource->length);
   }
@@ -305,10 +301,6 @@ AcpiCreateResourceList(PCM_RESOURCE_LIST* pResourceList,
         Done = TRUE;
         break;
       }
-      default:
-      {
-        break;
-      }
     }
     resource = (RESOURCE *) ((NATIVE_UINT) resource + (NATIVE_UINT) resource->length);
   }
@@ -328,6 +320,7 @@ FdoQueryBusRelations(
   PFDO_DEVICE_EXTENSION DeviceExtension;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
+  ANSI_STRING AnsiString;
   ACPI_STATUS AcpiStatus;
   PACPI_DEVICE Device;
   NTSTATUS Status = STATUS_SUCCESS;
@@ -479,7 +472,7 @@ FdoQueryBusRelations(
   return Status;
 }
 
-#ifndef NDEBUG
+
 static VOID
 ACPIPrintInfo(
   PFDO_DEVICE_EXTENSION DeviceExtension)
@@ -499,7 +492,7 @@ ACPIPrintInfo(
            (DeviceExtension->SystemStates[5]?'+':'-'));
   DbgPrint("+------------------------------------------------------------\n");
 }
-#endif
+
 
 static NTSTATUS
 ACPIInitializeInternalDriver(
@@ -694,7 +687,6 @@ FdoSetPower(
       break;
     default:
       Status = STATUS_UNSUCCESSFUL;
-      return Status;
     }
     if (!DeviceExtension->SystemStates[AcpiState]) {
       DPRINT("System sleep state S%d is not supported by hardware\n", AcpiState);

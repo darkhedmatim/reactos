@@ -177,8 +177,9 @@ BeepDeviceControl(PDEVICE_OBJECT DeviceObject,
 
   /* do the beep!! */
   DPRINT("Beep:\n  Freq: %lu Hz\n  Dur: %lu ms\n",
-	 BeepParam->Frequency,
-	 BeepParam->Duration);
+	 pbsp->Frequency,
+	 pbsp->Duration);
+
   if (BeepParam->Duration >= 0)
     {
       DueTime.QuadPart = (LONGLONG)BeepParam->Duration * -10000;

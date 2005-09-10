@@ -44,8 +44,9 @@ int nb_lib_paths = 0;
 int nb_errors = 0;
 int display_warnings = 0;
 int kill_at = 0;
+int debugging = 0;
 
-#if defined(__i386__) || defined(__x86_64__)
+#ifdef __i386__
 enum target_cpu target_cpu = CPU_x86;
 #elif defined(__sparc__)
 enum target_cpu target_cpu = CPU_SPARC;
@@ -74,8 +75,8 @@ char *input_file_name = NULL;
 char *spec_file_name = NULL;
 const char *output_file_name = NULL;
 
-char *ld_command = NULL;
-char *nm_command = NULL;
+char *ld_command = "ld";
+char *nm_command = "nm";
 
 static FILE *output_file;
 static const char *current_src_dir;
@@ -96,35 +97,6 @@ enum exec_mode_values
 };
 
 static enum exec_mode_values exec_mode = MODE_NONE;
-
-static const struct
-{
-    const char *name;
-    enum target_cpu cpu;
-} cpu_names[] =
-{
-    { "i386",    CPU_x86 },
-    { "i486",    CPU_x86 },
-    { "i586",    CPU_x86 },
-    { "i686",    CPU_x86 },
-    { "i786",    CPU_x86 },
-    { "sparc",   CPU_SPARC },
-    { "alpha",   CPU_ALPHA },
-    { "powerpc", CPU_POWERPC }
-};
-
-static const struct
-{
-    const char *name;
-    enum target_platform platform;
-} platform_names[] =
-{
-    { "macos",   PLATFORM_APPLE },
-    { "darwin",  PLATFORM_APPLE },
-    { "sunos",   PLATFORM_SVR4 },
-    { "windows", PLATFORM_WINDOWS },
-    { "winnt",   PLATFORM_WINDOWS }
-};
 
 /* set the dll file name from the input file name */
 static void set_dll_file_name( const char *name, DLLSPEC *spec )
@@ -165,56 +137,6 @@ static void set_subsystem( const char *subsystem, DLLSPEC *spec )
     free( str );
 }
 
-/* set the target CPU and platform */
-static void set_target( const char *target )
-{
-    unsigned int i;
-    char *p, *platform, *spec = xstrdup( target );
-
-    /* target specification is in the form CPU-MANUFACTURER-OS or CPU-MANUFACTURER-KERNEL-OS */
-
-    /* get the CPU part */
-
-    if (!(p = strchr( spec, '-' ))) fatal_error( "Invalid target specification '%s'\n", target );
-    *p++ = 0;
-    for (i = 0; i < sizeof(cpu_names)/sizeof(cpu_names[0]); i++)
-    {
-        if (!strcmp( cpu_names[i].name, spec )) break;
-    }
-    if (i < sizeof(cpu_names)/sizeof(cpu_names[0])) target_cpu = cpu_names[i].cpu;
-    else fatal_error( "Unrecognized CPU '%s'\n", spec );
-
-    platform = p;
-    if ((p = strrchr( p, '-' ))) platform = p + 1;
-
-    /* get the OS part */
-
-    target_platform = PLATFORM_UNSPECIFIED;  /* default value */
-    for (i = 0; i < sizeof(platform_names)/sizeof(platform_names[0]); i++)
-    {
-        if (!strncmp( platform_names[i].name, platform, strlen(platform_names[i].name) ))
-        {
-            target_platform = platform_names[i].platform;
-            break;
-        }
-    }
-
-    free( spec );
-
-    if (!ld_command)
-    {
-        ld_command = xmalloc( strlen(target) + sizeof("-ld") );
-        strcpy( ld_command, target );
-        strcat( ld_command, "-ld" );
-    }
-    if (!nm_command)
-    {
-        nm_command = xmalloc( strlen(target) + sizeof("-nm") );
-        strcpy( nm_command, target );
-        strcat( nm_command, "-nm" );
-    }
-}
-
 /* cleanup on program exit */
 static void cleanup(void)
 {
@@ -233,32 +155,30 @@ static void exit_on_signal( int sig )
 static const char usage_str[] =
 "Usage: winebuild [OPTIONS] [FILES]\n\n"
 "Options:\n"
-"   -C, --source-dir=DIR     Look for source files in DIR\n"
-"   -d, --delay-lib=LIB      Import the specified library in delayed mode\n"
-"   -D SYM                   Ignored for C flags compatibility\n"
-"   -E, --export=FILE        Export the symbols defined in the .spec or .def file\n"
-"   -e, --entry=FUNC         Set the DLL entry point function (default: DllMain)\n"
-"   -f FLAGS                 Compiler flags (only -fPIC is supported)\n"
-"   -F, --filename=DLLFILE   Set the DLL filename (default: from input file name)\n"
-"   -h, --help               Display this help message\n"
-"   -H, --heap=SIZE          Set the heap size for a Win16 dll\n"
-"   -i, --ignore=SYM[,SYM]   Ignore specified symbols when resolving imports\n"
-"   -I DIR                   Ignored for C flags compatibility\n"
-"   -k, --kill-at            Kill stdcall decorations in generated .def files\n"
-"   -K, FLAGS                Compiler flags (only -KPIC is supported)\n"
+"    -C --source-dir=DIR     Look for source files in DIR\n"
+"    -d --delay-lib=LIB      Import the specified library in delayed mode\n"
+"    -D SYM                  Ignored for C flags compatibility\n"
+"    -E --export=FILE        Export the symbols defined in the .spec or .def file\n"
+"    -e --entry=FUNC         Set the DLL entry point function (default: DllMain)\n"
+"    -f FLAGS                Compiler flags (only -fPIC is supported)\n"
+"    -F --filename=DLLFILE   Set the DLL filename (default: from input file name)\n"
+"    -h --help               Display this help message\n"
+"    -H --heap=SIZE          Set the heap size for a Win16 dll\n"
+"    -i --ignore=SYM[,SYM]   Ignore specified symbols when resolving imports\n"
+"    -I DIR                  Ignored for C flags compatibility\n"
+"    -k --kill-at            Kill stdcall decorations in generated .def files\n"
+"    -K FLAGS                Compiler flags (only -KPIC is supported)\n"
 "       --ld-cmd=LD          Command to use for linking (default: ld)\n"
-"   -l, --library=LIB        Import the specified library\n"
-"   -L, --library-path=DIR   Look for imports libraries in DIR\n"
-"   -M, --main-module=MODULE Set the name of the main module for a Win16 dll\n"
+"    -l --library=LIB        Import the specified library\n"
+"    -L --library-path=DIR   Look for imports libraries in DIR\n"
+"    -M --main-module=MODULE Set the name of the main module for a Win16 dll\n"
 "       --nm-cmd=NM          Command to use to get undefined symbols (default: nm)\n"
-"   -N, --dll-name=DLLNAME   Set the DLL name (default: from input file name)\n"
-"   -o, --output=NAME        Set the output file name (default: stdout)\n"
-"   -r, --res=RSRC.RES       Load resources from RSRC.RES\n"
+"    -N --dll-name=DLLNAME   Set the DLL name (default: from input file name)\n"
+"    -o --output=NAME        Set the output file name (default: stdout)\n"
+"    -r --res=RSRC.RES       Load resources from RSRC.RES\n"
 "       --subsystem=SUBSYS   Set the subsystem (one of native, windows, console)\n"
-"       --target=TARGET      Specify target CPU and platform for cross-compiling\n"
-"   -u, --undefined=SYMBOL   Add an undefined reference to SYMBOL when linking\n"
 "       --version            Print the version and exit\n"
-"   -w, --warnings           Turn on warnings\n"
+"    -w --warnings           Turn on warnings\n"
 "\nMode options:\n"
 "       --dll                Build a .c file from a .spec or .def file\n"
 "       --def                Build a .def file from a .spec file\n"
@@ -281,11 +201,10 @@ enum long_options_values
     LONG_OPT_RELAY32,
     LONG_OPT_SUBSYSTEM,
     LONG_OPT_VERSION,
-    LONG_OPT_TARGET,
     LONG_OPT_PEDLL
 };
 
-static const char short_options[] = "C:D:E:F:H:I:K:L:M:N:d:e:f:hi:kl:m:o:r:u:w";
+static const char short_options[] = "C:D:E:F:H:I:K:L:M:N:d:e:f:hi:kl:m:o:r:w";
 
 static const struct option long_options[] =
 {
@@ -298,7 +217,6 @@ static const struct option long_options[] =
     { "relay16",  0, 0, LONG_OPT_RELAY16 },
     { "relay32",  0, 0, LONG_OPT_RELAY32 },
     { "subsystem",1, 0, LONG_OPT_SUBSYSTEM },
-    { "target",   1, 0, LONG_OPT_TARGET },
     { "version",  0, 0, LONG_OPT_VERSION },
     { "pedll",    1, 0, LONG_OPT_PEDLL },
     /* aliases for short options */
@@ -317,7 +235,6 @@ static const struct option long_options[] =
     { "dll-name",      1, 0, 'N' },
     { "output",        1, 0, 'o' },
     { "res",           1, 0, 'r' },
-    { "undefined",     1, 0, 'u' },
     { "warnings",      0, 0, 'w' },
     { NULL,            0, 0, 0 }
 };
@@ -375,6 +292,7 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             lib_path[nb_lib_paths++] = xstrdup( optarg );
             break;
         case 'M':
+            spec->owner_name = xstrdup( optarg );
             spec->type = SPEC_WIN16;
             break;
         case 'N':
@@ -424,9 +342,6 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             res_files = xrealloc( res_files, (nb_res_files+1) * sizeof(*res_files) );
             res_files[nb_res_files++] = xstrdup( optarg );
             break;
-        case 'u':
-            add_extra_ld_symbol( optarg );
-            break;
         case 'w':
             display_warnings = 1;
             break;
@@ -457,9 +372,6 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             break;
         case LONG_OPT_SUBSYSTEM:
             set_subsystem( optarg, spec );
-            break;
-        case LONG_OPT_TARGET:
-            set_target( optarg );
             break;
         case LONG_OPT_VERSION:
             printf( "winebuild version " PACKAGE_VERSION "\n" );
@@ -558,6 +470,9 @@ int main(int argc, char **argv)
     output_file = stdout;
     argv = parse_options( argc, argv, spec );
 
+    /* we only support relay debugging on i386 */
+    debugging = (target_cpu == CPU_x86);
+
     switch(exec_mode)
     {
     case MODE_DLL:
@@ -572,7 +487,7 @@ int main(int argc, char **argv)
                 fatal_error( "Win16 specs are not supported in ReactOS version of winebuild\n" );
                 break;
             case SPEC_WIN32:
-                read_undef_symbols( spec, argv );
+                read_undef_symbols( argv );
                 BuildSpec32File( output_file, spec );
                 break;
             default: assert(0);
@@ -584,7 +499,7 @@ int main(int argc, char **argv)
         load_resources( argv, spec );
         load_import_libs( argv );
         if (spec_file_name && !parse_input_file( spec )) break;
-        read_undef_symbols( spec, argv );
+        read_undef_symbols( argv );
         BuildSpec32File( output_file, spec );
         break;
     case MODE_DEF:

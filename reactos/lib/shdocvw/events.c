@@ -27,7 +27,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shdocvw);
 
-static IConnectionPointImpl SHDOCVW_ConnectionPoint;
 
 static const GUID IID_INotifyDBEvents =
     { 0xdb526cc0, 0xd188, 0x11cd, { 0xad, 0x48, 0x00, 0xaa, 0x00, 0x3c, 0x9c, 0xb6 } };
@@ -102,7 +101,7 @@ static HRESULT WINAPI WBCPC_FindConnectionPoint(LPCONNECTIONPOINTCONTAINER iface
  * IConnectionPointContainer virtual function table for IE Web Browser component
  */
 
-static const IConnectionPointContainerVtbl WBCPC_Vtbl =
+static IConnectionPointContainerVtbl WBCPC_Vtbl =
 {
     WBCPC_QueryInterface,
     WBCPC_AddRef,
@@ -194,7 +193,7 @@ static HRESULT WINAPI WBCP_EnumConnections(LPCONNECTIONPOINT iface,
  * IConnectionPoint virtual function table for IE Web Browser component
  */
 
-static const IConnectionPointVtbl WBCP_Vtbl =
+static IConnectionPointVtbl WBCP_Vtbl =
 {
     WBCP_QueryInterface,
     WBCP_AddRef,
@@ -206,4 +205,4 @@ static const IConnectionPointVtbl WBCP_Vtbl =
     WBCP_EnumConnections
 };
 
-static IConnectionPointImpl SHDOCVW_ConnectionPoint = {&WBCP_Vtbl};
+IConnectionPointImpl SHDOCVW_ConnectionPoint = {&WBCP_Vtbl};

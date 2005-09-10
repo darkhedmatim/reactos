@@ -11,16 +11,18 @@
 
 /* INCLUDES ****************************************************************/
 
-#ifndef NDEBUG
+#include <ddk/ntddk.h>
+#include <ddk/ntddkbd.h>
+#include <ddk/ntdd8042.h>
+
 #define NDEBUG
-#endif
 #include <debug.h>
 
 #include "i8042prt.h"
 
 /* GLOBALS *******************************************************************/
 
-static UCHAR TypematicTable[] = {
+static BYTE TypematicTable[] = {
 	0x00, 0x00, 0x00, 0x05, 0x08, 0x0B, 0x0D, 0x0F, 0x10, 0x12, /*  0-9 */
 	0x13, 0x14, 0x15, 0x16, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1A, /* 10-19 */
 	0x1B, 0x1C, 0x1C, 0x1C, 0x1D, 0x1D, 0x1E };
@@ -85,12 +87,12 @@ NTSTATUS STDCALL I8042SynchWritePortKbd(PVOID Context,
 BOOLEAN STDCALL I8042InterruptServiceKbd(struct _KINTERRUPT *Interrupt,
                                              VOID * Context)
 {
-	UCHAR Output;
-	UCHAR PortStatus;
+	BYTE Output;
+	BYTE PortStatus;
 	NTSTATUS Status;
 	PDEVICE_EXTENSION DevExt = (PDEVICE_EXTENSION) Context;
 	BOOLEAN HookContinue = FALSE, HookReturn;
-	ULONG Iterations = 0;
+	UINT Iterations = 0;
 
 	KEYBOARD_INPUT_DATA *InputData =
 	                         DevExt->KeyboardBuffer + DevExt->KeysInBuffer;
@@ -226,7 +228,7 @@ VOID STDCALL I8042DpcRoutineKbd(PKDPC Dpc,
 	if (!DevExt->KeyboardData.ClassService)
 		return;
 
-	((PSERVICE_CALLBACK_ROUTINE) DevExt->KeyboardData.ClassService)(
+	((KEYBOARD_CLASS_SERVICE_CALLBACK) DevExt->KeyboardData.ClassService)(
 		                 DevExt->KeyboardData.ClassDeviceObject,
 		                 DevExt->KeyboardBuffer,
 		                 DevExt->KeyboardBuffer + KeysInBufferCopy,
@@ -238,9 +240,9 @@ VOID STDCALL I8042DpcRoutineKbd(PKDPC Dpc,
 }
 
 /* You have to send the rate/delay in a somewhat awkward format */
-static UCHAR I8042GetTypematicByte(USHORT Rate, USHORT Delay)
+static USHORT I8042GetTypematicByte(USHORT Rate, USHORT Delay)
 {
-	UCHAR ret;
+	USHORT ret;
 
 	if (Rate < 3) {
 		ret = 0x0;
@@ -603,7 +605,7 @@ BOOLEAN STDCALL I8042KeyboardEnableInterrupt(PDEVICE_EXTENSION DevExt)
 	}
 
 	Status = I8042ReadDataWait(DevExt, &Value);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT1("No response after read i8042 mode\n");
 		return FALSE;
 	}
@@ -628,7 +630,7 @@ BOOLEAN STDCALL I8042DetectKeyboard(PDEVICE_EXTENSION DevExt)
 {
 	NTSTATUS Status;
 	UCHAR Value;
-	ULONG RetryCount = 10;
+	UINT RetryCount = 10;
 
 	DPRINT("Detecting keyboard\n");
 
@@ -638,13 +640,13 @@ BOOLEAN STDCALL I8042DetectKeyboard(PDEVICE_EXTENSION DevExt)
 		Status = I8042SynchWritePort(DevExt, 0, KBD_GET_ID, TRUE);
 	} while (STATUS_TIMEOUT == Status && RetryCount--);
 
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT1("Can't write GET_ID (%x)\n", Status);
 		return FALSE;
 	}
 
 	Status = I8042ReadDataWait(DevExt, &Value);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT1("No response after GET_ID\n");
 		/* Could be an AT keyboard */
 		DevExt->KeyboardIsAT = TRUE;
@@ -661,7 +663,7 @@ BOOLEAN STDCALL I8042DetectKeyboard(PDEVICE_EXTENSION DevExt)
 	DPRINT("Keyboard ID: %x", Value);
 
 	Status = I8042ReadDataWait(DevExt, &Value);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT("Partial ID\n");
 		return FALSE;
 	}
@@ -670,12 +672,12 @@ BOOLEAN STDCALL I8042DetectKeyboard(PDEVICE_EXTENSION DevExt)
 
 detectsetleds:
 	Status = I8042SynchWritePort(DevExt, 0, KBD_SET_LEDS, TRUE);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT("Can't write SET_LEDS (%x)\n", Status);
 		return FALSE;
 	}
 	Status = I8042SynchWritePort(DevExt, 0, 0, TRUE);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT("Can't finish SET_LEDS (%x)\n", Status);
 		return FALSE;
 	}
@@ -688,7 +690,7 @@ detectsetleds:
 	}
 
 	Status = I8042ReadDataWait(DevExt, &Value);
-	if (!NT_SUCCESS(Status)) {
+	if (Status != STATUS_SUCCESS) {
 		DPRINT1("No response after read i8042 mode\n");
 		return FALSE;
 	}
@@ -711,7 +713,6 @@ detectsetleds:
 /* debug stuff */
 VOID STDCALL
 KdpServiceDispatcher(ULONG Code, PVOID Context1, PVOID Context2);
-#define EnterDebugger ((PVOID)0x25)
 
 static VOID STDCALL I8042DebugWorkItem(PDEVICE_OBJECT DeviceObject,
                                        PVOID Context)
@@ -726,10 +727,5 @@ static VOID STDCALL I8042DebugWorkItem(PDEVICE_OBJECT DeviceObject,
 	if (!Key)
 		return;
 
-#ifdef __REACTOS__
-	/* We hope kernel would understand this. If
-	 * that's not the case, nothing would happen.
-	 */
-	KdpServiceDispatcher(TAG('R', 'o', 's', ' '), EnterDebugger, NULL);
-#endif /* __REACTOS__ */
+	KdpServiceDispatcher(TAG('R', 'o', 's', ' '), (PVOID)Key, NULL);
 }

@@ -80,7 +80,7 @@ QueryPathOfRegTypeLib16(
 {
 	char	xguid[80];
 	char	typelibkey[100],pathname[260];
-	LONG	plen;
+	DWORD	plen;
 
        	TRACE("\n");
 

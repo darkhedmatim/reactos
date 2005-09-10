@@ -90,7 +90,6 @@ StartServices (VOID)
    STARTUPINFO StartupInfo;
    PROCESS_INFORMATION ProcessInformation;
    DWORD Count;
-   WCHAR ServiceString[] = L"services.exe";
 
    /* Start the service control manager (services.exe) */
 
@@ -106,8 +105,8 @@ StartServices (VOID)
    PrintString(L"WL: Creating new process - \"services.exe\".\n");
 #endif
 
-   Result = CreateProcess(NULL,
-                          ServiceString,
+   Result = CreateProcess(L"services.exe",
+                          NULL,
                           NULL,
                           NULL,
                           FALSE,
@@ -473,8 +472,8 @@ DoLogonUser (PWCHAR Name,
 				 NULL,
 				 NULL,
 				 FALSE,
-				 CREATE_UNICODE_ENVIRONMENT,
-				 lpEnvironment,
+				 CREATE_NEW_CONSOLE,// | CREATE_UNICODE_ENVIRONMENT,
+				 lpEnvironment, // NULL,
 				 CurrentDirectory,
 				 &StartupInfo,
 				 &ProcessInformation);
@@ -593,8 +592,6 @@ WinMain(HINSTANCE hInstance,
     DbgPrint("WL: Cannot switch to Winlogon desktop (0x%X)\n", GetLastError());
   }
 
-  InitServices();
-  
   /* Check for pending setup */
   if (GetSetupType () != 0)
   {
@@ -617,6 +614,8 @@ WinMain(HINSTANCE hInstance,
     ExitProcess(2);
     return 2;
   }
+
+  InitServices();
 
 #if 0
    /* real winlogon uses "Winlogon" */

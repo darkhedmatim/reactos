@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/fs/vfat/fsctl.c
@@ -33,7 +34,6 @@
 #define  CACHEPAGESIZE(pDeviceExt) ((pDeviceExt)->FatInfo.BytesPerCluster > PAGE_SIZE ? \
 		   (pDeviceExt)->FatInfo.BytesPerCluster : PAGE_SIZE)
 
-#define VOLUME_IS_DIRTY 0x00000001
 
 static NTSTATUS
 VfatHasFileSystem(PDEVICE_OBJECT DeviceToMount,
@@ -421,7 +421,7 @@ VfatMount (PVFAT_IRP_CONTEXT IrpContext)
    HashTableSize = FCB_HASH_TABLE_SIZE;
    DPRINT("VFAT: Recognized volume\n");
    Status = IoCreateDevice(VfatGlobalData->DriverObject,
-			   ROUND_UP(sizeof (DEVICE_EXTENSION), sizeof(ULONG)) + sizeof(HASHENTRY*) * HashTableSize,
+			   ROUND_UP(sizeof (DEVICE_EXTENSION), sizeof(DWORD)) + sizeof(HASHENTRY*) * HashTableSize,
 			   NULL,
 			   FILE_DEVICE_FILE_SYSTEM,
 			   0,
@@ -434,8 +434,8 @@ VfatMount (PVFAT_IRP_CONTEXT IrpContext)
 
    DeviceObject->Flags = DeviceObject->Flags | DO_DIRECT_IO;
    DeviceExt = (PVOID) DeviceObject->DeviceExtension;
-   RtlZeroMemory(DeviceExt, ROUND_UP(sizeof(DEVICE_EXTENSION), sizeof(ULONG)) + sizeof(HASHENTRY*) * HashTableSize);
-   DeviceExt->FcbHashTable = (HASHENTRY**)((ULONG_PTR)DeviceExt + ROUND_UP(sizeof(DEVICE_EXTENSION), sizeof(ULONG)));
+   RtlZeroMemory(DeviceExt, ROUND_UP(sizeof(DEVICE_EXTENSION), sizeof(DWORD)) + sizeof(HASHENTRY*) * HashTableSize);
+   DeviceExt->FcbHashTable = (HASHENTRY**)((ULONG_PTR)DeviceExt + ROUND_UP(sizeof(DEVICE_EXTENSION), sizeof(DWORD)));
    DeviceExt->HashTableSize = HashTableSize;
 
    /* use same vpb as device disk */
@@ -703,7 +703,7 @@ VfatGetRetrievalPointers(PVFAT_IRP_CONTEXT IrpContext)
    DeviceExt = IrpContext->DeviceExt;
    FileObject = IrpContext->FileObject;
    Stack = IrpContext->Stack;
-   if (Stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(STARTING_VCN_INPUT_BUFFER) ||
+   if (Stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(LARGE_INTEGER) ||
        Stack->Parameters.DeviceIoControl.Type3InputBuffer == NULL)
    {
       return STATUS_INVALID_PARAMETER;
@@ -718,7 +718,7 @@ VfatGetRetrievalPointers(PVFAT_IRP_CONTEXT IrpContext)
 
    ExAcquireResourceSharedLite(&Fcb->MainResource, TRUE);
 
-   Vcn = ((PSTARTING_VCN_INPUT_BUFFER)Stack->Parameters.DeviceIoControl.Type3InputBuffer)->StartingVcn;
+   Vcn = *(PLARGE_INTEGER)Stack->Parameters.DeviceIoControl.Type3InputBuffer;
    RetrievalPointers = IrpContext->Irp->UserBuffer;
 
    MaxExtentCount = ((Stack->Parameters.DeviceIoControl.OutputBufferLength - sizeof(RetrievalPointers->ExtentCount) - sizeof(RetrievalPointers->StartingVcn)) / sizeof(RetrievalPointers->Extents[0]));

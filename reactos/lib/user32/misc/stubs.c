@@ -11,8 +11,9 @@
  */
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
+#ifdef __USE_W32API
+typedef PVOID LPIMEPROW, LPIMEPROA;
+#endif
 
 /*
  * @unimplemented

@@ -218,7 +218,7 @@ static LPVIRTNODE *pvnlist = NULL;
 static DWORD vn_num = 0;
 static DWORD vn_last = 0;
 
-static RETERR16 VCP_VirtnodeCreate(LPVCPFILESPEC vfsSrc, LPVCPFILESPEC vfsDst, WORD fl, LPARAM lParam, LPEXPANDVTBL lpExpandVtbl)
+RETERR16 VCP_VirtnodeCreate(LPVCPFILESPEC vfsSrc, LPVCPFILESPEC vfsDst, WORD fl, LPARAM lParam, LPEXPANDVTBL lpExpandVtbl)
 {
     HANDLE heap;
     LPVIRTNODE lpvn;
@@ -266,8 +266,7 @@ static RETERR16 VCP_VirtnodeCreate(LPVCPFILESPEC vfsSrc, LPVCPFILESPEC vfsDst, W
     return OK;
 }
 
-#if 0
-static BOOL VCP_VirtnodeDelete(LPVIRTNODE lpvnDel)
+BOOL VCP_VirtnodeDelete(LPVIRTNODE lpvnDel)
 {
     DWORD n;
     RETERR16 cbres;
@@ -284,7 +283,6 @@ static BOOL VCP_VirtnodeDelete(LPVIRTNODE lpvnDel)
     }
     return FALSE;
 }
-#endif
 
 /***********************************************************************
  *		VcpOpen (SETUPX.200)
@@ -454,7 +452,7 @@ LPCSTR WINAPI VcpExplain16(LPVIRTNODE lpVn, DWORD dwWhat)
     return buffer;
 }
 
-static RETERR16 VCP_CheckPaths(void)
+RETERR16 VCP_CheckPaths(void)
 {
     DWORD n;
     LPVIRTNODE lpvn;
@@ -472,7 +470,7 @@ static RETERR16 VCP_CheckPaths(void)
     return OK;
 }
 
-static RETERR16 VCP_CopyFiles(void)
+RETERR16 VCP_CopyFiles(void)
 {
     char fn_src[MAX_PATH], fn_dst[MAX_PATH];
     RETERR16 res = OK, cbres;
@@ -561,8 +559,7 @@ RETERR16 WINAPI VcpClose16(WORD fl, LPCSTR lpszBackupDest)
     return OK;
 }
 
-#if 0
-static RETERR16 VCP_RenameFiles(void)
+RETERR16 VCP_RenameFiles(void)
 {
     char fn_src[MAX_PATH], fn_dst[MAX_PATH];
     RETERR16 res = OK, cbres;
@@ -585,7 +582,6 @@ static RETERR16 VCP_RenameFiles(void)
     cbres = VCP_Callback(&vcp_status, VCPM_VSTATRENAMEEND, 0, 0, VCP_MsgRef);
     return res;
 }
-#endif
 
 /***********************************************************************
  *		vcpDefCallbackProc (SETUPX.202)
@@ -620,7 +616,7 @@ static INT_PTR CALLBACK VCP_UI_FileCopyDlgProc(HWND hWndDlg, UINT iMsg, WPARAM w
     return retval;
 }
 
-static BOOL VCP_UI_GetDialogTemplate(LPCVOID *template32)
+BOOL VCP_UI_GetDialogTemplate(LPCVOID *template32)
 {
     HRSRC hResInfo;
     HGLOBAL hDlgTmpl32;
@@ -650,7 +646,7 @@ VCP_UI_FileCopyWndProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-static void VCP_UI_RegisterProgressClass(void)
+void VCP_UI_RegisterProgressClass(void)
 {
     static BOOL registered = FALSE;
     WNDCLASSA wndClass;
@@ -671,7 +667,7 @@ static void VCP_UI_RegisterProgressClass(void)
     RegisterClassA (&wndClass);
 }
 
-static RETERR16 VCP_UI_NodeCompare(LPVIRTNODE vn1, LPVIRTNODE vn2)
+RETERR16 VCP_UI_NodeCompare(LPVIRTNODE vn1, LPVIRTNODE vn2)
 {
     LPCSTR file1, file2;
     file1 = vsmGetStringRawName16(vn1->vfsSrc.vhstrFileName);
@@ -679,7 +675,7 @@ static RETERR16 VCP_UI_NodeCompare(LPVIRTNODE vn1, LPVIRTNODE vn2)
     return (RETERR16)strcmp(file1, file2);
 }
 
-static RETERR16 VCP_UI_CopyStart(void)
+RETERR16 VCP_UI_CopyStart(void)
 {
     LPCVOID template32;
     char buf[256]; /* plenty */
@@ -719,7 +715,7 @@ static RETERR16 VCP_UI_CopyStart(void)
     if (RegSetValueExA(hKeyConflict, "Dirty", 0, REG_BINARY, (LPBYTE)&dirty, 1))
 	return VCPN_FAIL;
     len = 12;
-    if (!(RegQueryValueExA(hKeyConflict, "BackupDirectory", NULL, 0, (LPBYTE)BackupDir, &len)))
+    if (!(RegQueryValueExA(hKeyConflict, "BackupDirectory", NULL, 0, BackupDir, &len)))
 	strcpy(BackupDir, "VCM");
 
     /* create C:\WINDOWS\[BackupDir] and set registry key to it */

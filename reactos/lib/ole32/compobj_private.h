@@ -96,8 +96,8 @@ struct ifproxy
   struct list entry;       /* entry in proxy_manager list (CS parent->cs) */
   struct proxy_manager *parent; /* owning proxy_manager (RO) */
   LPVOID iface;            /* interface pointer (RO) */
-  STDOBJREF stdobjref;     /* marshal data that represents this object (RO) */
   IID iid;                 /* interface ID (RO) */
+  IPID ipid;               /* imported interface ID (RO) */
   LPRPCPROXYBUFFER proxy;  /* interface proxy (RO) */
   DWORD refs;              /* imported (public) references (MUTEX parent->remoting_mutex) */
   IRpcChannelBuffer *chan; /* channel to object (CS parent->cs) */
@@ -107,13 +107,12 @@ struct ifproxy
 struct proxy_manager
 {
   const IMultiQIVtbl *lpVtbl;
-  const IMarshalVtbl *lpVtblMarshal;
   struct apartment *parent; /* owning apartment (RO) */
   struct list entry;        /* entry in apartment (CS parent->cs) */
   OXID oxid;                /* object exported ID (RO) */
   OID oid;                  /* object ID (RO) */
   struct list interfaces;   /* imported interfaces (CS cs) */
-  LONG refs;                /* proxy reference count (LOCK) */
+  DWORD refs;               /* proxy reference count (LOCK) */
   CRITICAL_SECTION cs;      /* thread safety for this object and children */
   ULONG sorflags;           /* STDOBJREF flags (RO) */
   IRemUnknown *remunk;      /* proxy to IRemUnknown used for lifecycle management (CS cs) */
@@ -125,11 +124,12 @@ struct apartment
 {
   struct list entry;       
 
-  LONG  refs;              /* refcount of the apartment (LOCK) */
+  DWORD refs;              /* refcount of the apartment (LOCK) */
   DWORD model;             /* threading model (RO) */
   DWORD tid;               /* thread id (RO) */
+  HANDLE thread;           /* thread handle (RO) */
   OXID oxid;               /* object exporter ID (RO) */
-  LONG ipidc;              /* interface pointer ID counter, starts at 1 (LOCK) */
+  DWORD ipidc;             /* interface pointer ID counter, starts at 1 (LOCK) */
   HWND win;                /* message window (RO) */
   CRITICAL_SECTION cs;     /* thread safety */
   LPMESSAGEFILTER filter;  /* message filter (CS cs) */
@@ -163,7 +163,6 @@ extern void* StdGlobalInterfaceTableInstance;
 extern HRESULT WINE_StringFromCLSID(const CLSID *id,LPSTR idstr);
 HRESULT WINAPI __CLSIDFromStringA(LPCSTR idstr, CLSID *id);
 
-DWORD COM_OpenKeyForCLSID(REFCLSID clsid, REGSAM access, HKEY *key);
 HRESULT MARSHAL_GetStandardMarshalCF(LPVOID *ppv);
 
 /* Stub Manager */
@@ -256,7 +255,5 @@ static inline APARTMENT* COM_CurrentApt(void)
 #endif
 
 extern HINSTANCE OLE32_hInstance; /* FIXME: make static */
-
-#define CHARS_IN_GUID 39 /* including NULL */
 
 #endif /* __WINE_OLE_COMPOBJ_H */

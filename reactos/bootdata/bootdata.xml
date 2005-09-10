@@ -1,4 +1,3 @@
-<group>
 <cdfile>autorun.inf</cdfile>
 <cdfile>icon.ico</cdfile>
 <cdfile>readme.txt</cdfile>
@@ -13,4 +12,3 @@
 <directory name="livecd">
 	<xi:include href="livecd/livecd.xml" />
 </directory>
-</group>

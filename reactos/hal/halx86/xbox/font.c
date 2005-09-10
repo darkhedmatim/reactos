@@ -11,12 +11,11 @@
  * Note: Converted from the XFree vga.bdf font
  */
 
-#define NDEBUG
-
 #include <ddk/ntddk.h>
 #include "halxbox.h"
 
 #include <internal/debug.h>
+#define NDEBUG
 #include <debug.h>
 
 BYTE XboxFont8x16[256 * 16] =

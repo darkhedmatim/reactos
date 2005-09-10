@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/fs/npfs/volume.c
@@ -7,6 +8,9 @@
  */
 
 /* INCLUDES *****************************************************************/
+
+#include <ntifs.h>
+#include <wchar.h>
 
 #define NDEBUG
 #include <debug.h>

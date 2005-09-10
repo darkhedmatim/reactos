@@ -1,3 +1,7 @@
+1 stdcall -private DllCanUnloadNow() MSI_DllCanUnloadNow
+2 stdcall -private DllGetClassObject(ptr ptr ptr) MSI_DllGetClassObject
+3 stdcall -private DllRegisterServer() MSI_DllRegisterServer
+4 stdcall -private DllUnregisterServer() MSI_DllUnregisterServer
 5 stdcall MsiAdvertiseProductA(str str str long)
 6 stdcall MsiAdvertiseProductW(wstr wstr wstr long)
 7 stdcall MsiCloseAllHandles()
@@ -7,7 +11,7 @@
 11 stub MsiConfigureFeatureA
 12 stub MsiConfigureFeatureFromDescriptorA
 13 stub MsiConfigureFeatureFromDescriptorW
-14 stdcall MsiConfigureFeatureW(str str ptr)
+14 stub MsiConfigureFeatureW
 15 stdcall MsiConfigureProductA(str long long)
 16 stdcall MsiConfigureProductW(wstr long long)
 17 stdcall MsiCreateRecord(long)
@@ -56,7 +60,7 @@
 60 stdcall MsiGetFeatureUsageW(wstr wstr ptr ptr)
 61 stub MsiGetFeatureValidStatesA
 62 stub MsiGetFeatureValidStatesW
-63 stdcall MsiGetLanguage(long)
+63 stub MsiGetLanguage
 64 stdcall MsiGetMode(long long)
 65 stdcall MsiGetProductCodeA(str str)
 66 stdcall MsiGetProductCodeW(wstr wstr)
@@ -127,8 +131,8 @@
 131 stdcall MsiReinstallProductW(wstr long)
 132 stub MsiSequenceA
 133 stub MsiSequenceW
-134 stdcall MsiSetComponentStateA(long str long)
-135 stdcall MsiSetComponentStateW(long wstr long)
+134 stub MsiSetComponentStateA
+135 stub MsiSetComponentStateW
 136 stdcall MsiSetExternalUIA(ptr long ptr)
 137 stdcall MsiSetExternalUIW(ptr long ptr)
 138 stdcall MsiSetFeatureStateA(long str long)
@@ -154,8 +158,8 @@
 158 stdcall MsiViewClose(long)
 159 stdcall MsiViewExecute(long long)
 160 stdcall MsiViewFetch(long ptr)
-161 stdcall MsiViewGetErrorA(long ptr ptr)
-162 stdcall MsiViewGetErrorW(long ptr ptr)
+161 stub MsiViewGetErrorA
+162 stub MsiViewGetErrorW
 163 stdcall MsiViewModify(long long long)
 164 stdcall MsiDatabaseIsTablePersistentA(long str)
 165 stdcall MsiDatabaseIsTablePersistentW(long wstr)
@@ -175,7 +179,7 @@
 179 stub MsiGetPatchInfoW
 180 stub MsiEnumPatchesA
 181 stub MsiEnumPatchesW
-182 stdcall -private DllGetVersion(ptr)
+182 stdcall DllGetVersion(ptr) MSI_DllGetVersion
 183 stub MsiGetProductCodeFromPackageCodeA
 184 stub MsiGetProductCodeFromPackageCodeW
 185 stub MsiCreateTransformSummaryInfoA
@@ -230,8 +234,3 @@
 234 stub MsiDeleteUserDataW
 235 stub Migrate10CachedPackagesA
 236 stub Migrate10CachedPackagesW
-
-@ stdcall -private DllCanUnloadNow()
-@ stdcall -private DllGetClassObject(ptr ptr ptr)
-@ stdcall -private DllRegisterServer()
-@ stdcall -private DllUnregisterServer()

@@ -42,21 +42,16 @@ const CLSID CLSID_AntiMoniker = {
 /* AntiMoniker data structure */
 typedef struct AntiMonikerImpl{
 
-    const IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
+    IMonikerVtbl*  lpvtbl1;  /* VTable relative to the IMoniker interface.*/
 
     /* The ROT (RunningObjectTable implementation) uses the IROTData interface to test whether
      * two monikers are equal. That's whay IROTData interface is implemented by monikers.
      */
-    const IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
+    IROTDataVtbl*  lpvtbl2;  /* VTable relative to the IROTData interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
 } AntiMonikerImpl;
-
-static inline IMoniker *impl_from_IROTData( IROTData *iface )
-{
-    return (IMoniker *)((char*)iface - FIELD_OFFSET(AntiMonikerImpl, lpvtbl2));
-}
 
 
 /*******************************************************************************
@@ -490,7 +485,7 @@ AntiMonikerImpl_IsSystemMoniker(IMoniker* iface,DWORD* pwdMksys)
 static HRESULT WINAPI
 AntiMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid,VOID** ppvObject)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p,%p,%p)\n",iface,riid,ppvObject);
 
@@ -502,7 +497,7 @@ AntiMonikerROTDataImpl_QueryInterface(IROTData *iface,REFIID riid,VOID** ppvObje
  */
 static ULONG WINAPI AntiMonikerROTDataImpl_AddRef(IROTData *iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -514,7 +509,7 @@ static ULONG WINAPI AntiMonikerROTDataImpl_AddRef(IROTData *iface)
  */
 static ULONG WINAPI AntiMonikerROTDataImpl_Release(IROTData* iface)
 {
-    IMoniker *This = impl_from_IROTData(iface);
+    ICOM_THIS_From_IROTData(IMoniker, iface);
 
     TRACE("(%p)\n",iface);
 
@@ -535,7 +530,7 @@ AntiMonikerROTDataImpl_GetComparaisonData(IROTData* iface, BYTE* pbData,
 /********************************************************************************/
 /* Virtual function table for the AntiMonikerImpl class which  include IPersist,*/
 /* IPersistStream and IMoniker functions.                                       */
-static const IMonikerVtbl VT_AntiMonikerImpl =
+static IMonikerVtbl VT_AntiMonikerImpl =
 {
     AntiMonikerImpl_QueryInterface,
     AntiMonikerImpl_AddRef,
@@ -564,7 +559,7 @@ static const IMonikerVtbl VT_AntiMonikerImpl =
 
 /********************************************************************************/
 /* Virtual function table for the IROTData class.                               */
-static const IROTDataVtbl VT_ROTDataImpl =
+static IROTDataVtbl VT_ROTDataImpl =
 {
     AntiMonikerROTDataImpl_QueryInterface,
     AntiMonikerROTDataImpl_AddRef,

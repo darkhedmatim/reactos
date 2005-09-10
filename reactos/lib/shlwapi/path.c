@@ -2979,7 +2979,7 @@ UINT WINAPI PathGetCharTypeW(WCHAR ch)
  *
  * Internal helper for PathMakeSystemFolderW.
  */
-static BOOL WINAPI SHLWAPI_UseSystemForSystemFolders(void)
+static BOOL WINAPI SHLWAPI_UseSystemForSystemFolders()
 {
   static BOOL bCheckedReg = FALSE;
   static BOOL bUseSystemForSystemFolders = FALSE;

@@ -237,15 +237,8 @@ KdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
                            BOOLEAN FirstChance);
 /* other functions */
 
-NTSTATUS
-KdbpSafeReadMemory(OUT PVOID Dest,
-                   IN PVOID Src,
-                   IN ULONG Bytes);
-
-NTSTATUS
-KdbpSafeWriteMemory(OUT PVOID Dest,
-                    IN PVOID Src,
-                    IN ULONG Bytes);
+#define KdbpSafeReadMemory(dst, src, size)   MmSafeCopyFromUser(dst, src, size)
+#define KdbpSafeWriteMemory(dst, src, size)  MmSafeCopyToUser(dst, src, size)
 
 #define KdbpGetCharKeyboard(ScanCode) KdbpTryGetCharKeyboard(ScanCode, 0)
 CHAR

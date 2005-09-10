@@ -173,7 +173,7 @@ NtGetPlugPlayEvent(IN ULONG Reserved1,
   DPRINT("NtGetPlugPlayEvent() called\n");
 
   /* Function can only be called from user-mode */
-  if (KeGetPreviousMode() == KernelMode)
+  if (KeGetPreviousMode() != UserMode)
   {
     DPRINT1("NtGetPlugPlayEvent cannot be called from kernel mode!\n");
     return STATUS_ACCESS_DENIED;
@@ -224,35 +224,8 @@ NtGetPlugPlayEvent(IN ULONG Reserved1,
 
 
 static PDEVICE_OBJECT
-IopTraverseDeviceNode(PDEVICE_NODE Node, PUNICODE_STRING DeviceInstance)
-{
-    PDEVICE_OBJECT DeviceObject;
-    PDEVICE_NODE ChildNode;
-
-    if (RtlEqualUnicodeString(&Node->InstancePath,
-                              DeviceInstance, TRUE))
-        return Node->PhysicalDeviceObject;
-
-    /* Traversal of all children nodes */
-    for (ChildNode = Node->Child;
-         ChildNode != NULL;
-         ChildNode = ChildNode->NextSibling)
-    {
-        DeviceObject = IopTraverseDeviceNode(ChildNode, DeviceInstance);
-        if (DeviceObject != NULL)
-        {
-            return DeviceObject;
-        }
-    }
-
-    return NULL;
-}
-
-
-static PDEVICE_OBJECT
 IopGetDeviceObjectFromDeviceInstance(PUNICODE_STRING DeviceInstance)
 {
-#if 0
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING KeyName, ValueName;
     LPWSTR KeyNameBuffer;
@@ -335,7 +308,7 @@ IopGetDeviceObjectFromDeviceInstance(PUNICODE_STRING DeviceInstance)
     ZwClose(ControlKeyHandle);
     if (!NT_SUCCESS(Status))
     {
-        DPRINT1("Failed to query the 'DeviceReference' value (Status %lx)\n", Status);
+        DPRINT1("Failed to open the 'Control' key (Status %lx)\n", Status);
         return NULL;
     }
 
@@ -363,28 +336,7 @@ IopGetDeviceObjectFromDeviceInstance(PUNICODE_STRING DeviceInstance)
     DPRINT("IopGetDeviceObjectFromDeviceInstance() done\n");
 
     return DeviceObject;
-#endif
-
-    if (IopRootDeviceNode == NULL)
-        return NULL;
-
-    if (DeviceInstance == NULL ||
-        DeviceInstance->Length == 0
-        )
-    {
-        if (IopRootDeviceNode->PhysicalDeviceObject)
-        {
-            ObReferenceObject(IopRootDeviceNode->PhysicalDeviceObject);
-            return IopRootDeviceNode->PhysicalDeviceObject;
-        }
-        else
-            return NULL;
-    }
-
-    return IopTraverseDeviceNode(IopRootDeviceNode, DeviceInstance);
-
 }
-
 
 
 static NTSTATUS
@@ -439,7 +391,7 @@ IopGetRelatedDevice(PPLUGPLAY_CONTROL_RELATED_DEVICE_DATA RelatedDeviceData)
         if (DeviceObject == NULL)
             return STATUS_NO_SUCH_DEVICE;
 
-        DeviceNode = ((PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension)->DeviceNode;
+        DeviceNode = DeviceObject->DeviceObjectExtension->DeviceNode;
     }
 
     switch (RelatedDeviceData->Relation)
@@ -518,7 +470,7 @@ IopDeviceStatus(PPLUGPLAY_CONTROL_STATUS_DATA StatusData)
     if (DeviceObject == NULL)
         return STATUS_NO_SUCH_DEVICE;
 
-    DeviceNode = ((PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension)->DeviceNode;
+    DeviceNode = DeviceObject->DeviceObjectExtension->DeviceNode;
 
     switch (StatusData->Operation)
     {
@@ -559,7 +511,7 @@ IopGetDeviceDepth(PPLUGPLAY_CONTROL_DEPTH_DATA DepthData)
     if (DeviceObject == NULL)
         return STATUS_NO_SUCH_DEVICE;
 
-    DeviceNode = ((PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension)->DeviceNode;
+    DeviceNode = DeviceObject->DeviceObjectExtension->DeviceNode;
 
     DepthData->Depth = DeviceNode->Level;
 
@@ -636,7 +588,7 @@ NtPlugPlayControl(IN PLUGPLAY_CONTROL_CLASS PlugPlayControlClass,
            PlugPlayControlClass, Buffer, BufferLength);
 
     /* Function can only be called from user-mode */
-    if (KeGetPreviousMode() == KernelMode)
+    if (KeGetPreviousMode() != UserMode)
     {
         DPRINT1("NtGetPlugPlayEvent cannot be called from kernel mode!\n");
         return STATUS_ACCESS_DENIED;

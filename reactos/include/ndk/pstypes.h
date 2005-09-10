@@ -11,50 +11,37 @@
 
 /* DEPENDENCIES **************************************************************/
 #include "ldrtypes.h"
-#include "mmtypes.h"
-#include "obtypes.h"
-#include "extypes.h"
-#ifndef NTOS_MODE_USER
-#include "setypes.h"
-#endif
+#include "rtltypes.h"
 
 /* EXPORTED DATA *************************************************************/
 
-#ifndef NTOS_MODE_USER
-extern NTSYSAPI struct _EPROCESS* PsInitialSystemProcess;
-extern NTSYSAPI POBJECT_TYPE PsProcessType;
-#endif
+extern NTOSAPI struct _EPROCESS* PsInitialSystemProcess;
+extern NTOSAPI POBJECT_TYPE PsProcessType;
+extern NTOSAPI POBJECT_TYPE PsThreadType;
 
 /* CONSTANTS *****************************************************************/
 
 /* These are not exposed to drivers normally */
-#ifndef NTOS_MODE_USER
-    #define JOB_OBJECT_ASSIGN_PROCESS           1
-    #define JOB_OBJECT_SET_ATTRIBUTES           2
-    #define JOB_OBJECT_QUERY                    4
-    #define JOB_OBJECT_TERMINATE                8
-    #define JOB_OBJECT_SET_SECURITY_ATTRIBUTES  16
-    #define JOB_OBJECT_ALL_ACCESS               (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|31)
+#ifndef _NTOS_MODE_USER
+    #define JOB_OBJECT_ASSIGN_PROCESS    (1)
+    #define JOB_OBJECT_SET_ATTRIBUTES    (2)
+    #define JOB_OBJECT_QUERY    (4)
+    #define JOB_OBJECT_TERMINATE    (8)
+    #define JOB_OBJECT_SET_SECURITY_ATTRIBUTES    (16)
+    #define JOB_OBJECT_ALL_ACCESS    (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|31)
 #endif
+
+#define THREAD_ALERT 0x4
 
 #define USER_SHARED_DATA (0x7FFE0000)
 
-#ifdef NTOS_MODE_USER
-/* Macros for current Process/Thread built-in 'special' ID */
-#define NtCurrentProcess()                      ((HANDLE)(LONG_PTR)-1)
-#define ZwCurrentProcess()                      NtCurrentProcess()
-#define NtCurrentThread()                       ((HANDLE)(LONG_PTR)-2)
-#define ZwCurrentThread()                       NtCurrentThread()
-#endif
-
 /* Process priority classes */
-#define PROCESS_PRIORITY_CLASS_INVALID          0
-#define PROCESS_PRIORITY_CLASS_IDLE             1
-#define PROCESS_PRIORITY_CLASS_NORMAL           2
-#define PROCESS_PRIORITY_CLASS_HIGH             3
-#define PROCESS_PRIORITY_CLASS_REALTIME         4
-#define PROCESS_PRIORITY_CLASS_BELOW_NORMAL     5
-#define PROCESS_PRIORITY_CLASS_ABOVE_NORMAL     6
+#define PROCESS_PRIORITY_CLASS_HIGH	(4) /* FIXME */
+#define PROCESS_PRIORITY_CLASS_IDLE	(0) /* FIXME */
+#define PROCESS_PRIORITY_CLASS_NORMAL	(2) /* FIXME */
+#define PROCESS_PRIORITY_CLASS_REALTIME	(5) /* FIXME */
+#define PROCESS_PRIORITY_CLASS_BELOW_NORMAL (1) /* FIXME */
+#define PROCESS_PRIORITY_CLASS_ABOVE_NORMAL (3) /* FIXME */
 
 /* Global Flags */
 #define FLG_STOP_ON_EXCEPTION          0x00000001
@@ -87,133 +74,30 @@ extern NTSYSAPI POBJECT_TYPE PsProcessType;
 
 /* ENUMERATIONS **************************************************************/
 
-#ifdef NTOS_MODE_USER
-typedef enum _PROCESSINFOCLASS
-{
-    ProcessBasicInformation,
-    ProcessQuotaLimits,
-    ProcessIoCounters,
-    ProcessVmCounters,
-    ProcessTimes,
-    ProcessBasePriority,
-    ProcessRaisePriority,
-    ProcessDebugPort,
-    ProcessExceptionPort,
-    ProcessAccessToken,
-    ProcessLdtInformation,
-    ProcessLdtSize,
-    ProcessDefaultHardErrorMode,
-    ProcessIoPortHandlers,
-    ProcessPooledUsageAndLimits,
-    ProcessWorkingSetWatch,
-    ProcessUserModeIOPL,
-    ProcessEnableAlignmentFaultFixup,
-    ProcessPriorityClass,
-    ProcessWx86Information,
-    ProcessHandleCount,
-    ProcessAffinityMask,
-    ProcessPriorityBoost,
-    ProcessDeviceMap,
-    ProcessSessionInformation,
-    ProcessForegroundInformation,
-    ProcessWow64Information,
-    ProcessImageFileName,
-    ProcessLUIDDeviceMapsEnabled,
-    ProcessBreakOnTermination,
-    ProcessDebugObjectHandle,
-    ProcessDebugFlags,
-    ProcessHandleTracing,
-    ProcessIoPriority,
-    ProcessExecuteFlags,
-    ProcessTlsInformation,
-    ProcessCookie,
-    ProcessImageInformation,
-    ProcessCycleTime,
-    ProcessPagePriority,
-    ProcessInstrumentationCallback,
-    MaxProcessInfoClass
-} PROCESSINFOCLASS;
-
-typedef enum _THREADINFOCLASS
-{
-    ThreadBasicInformation,
-    ThreadTimes,
-    ThreadPriority,
-    ThreadBasePriority,
-    ThreadAffinityMask,
-    ThreadImpersonationToken,
-    ThreadDescriptorTableEntry,
-    ThreadEnableAlignmentFaultFixup,
-    ThreadEventPair_Reusable,
-    ThreadQuerySetWin32StartAddress,
-    ThreadZeroTlsCell,
-    ThreadPerformanceCount,
-    ThreadAmILastThread,
-    ThreadIdealProcessor,
-    ThreadPriorityBoost,
-    ThreadSetTlsArrayAddress,
-    ThreadIsIoPending,
-    ThreadHideFromDebugger,
-    ThreadBreakOnTermination,
-    ThreadSwitchLegacyState,
-    ThreadIsTerminated,
-    ThreadLastSystemCall,
-    ThreadIoPriority,
-    ThreadCycleTime,
-    ThreadPagePriority,
-    ThreadActualBasePriority,
-    MaxThreadInfoClass
-} THREADINFOCLASS;
-#endif
-
-#ifndef NTOS_MODE_USER
-typedef enum _JOBOBJECTINFOCLASS
-{
-    JobObjectBasicAccountingInformation = 1,
-    JobObjectBasicLimitInformation,
-    JobObjectBasicProcessIdList,
-    JobObjectBasicUIRestrictions,
-    JobObjectSecurityLimitInformation,
-    JobObjectEndOfJobTimeInformation,
-    JobObjectAssociateCompletionPortInformation,
-    JobObjectBasicAndIoAccountingInformation,
-    JobObjectExtendedLimitInformation,
-    JobObjectJobSetInformation,
-    MaxJobObjectInfoClass
-} JOBOBJECTINFOCLASS;
-#endif
-
 /* FUNCTION TYPES ************************************************************/
-typedef VOID (NTAPI *PPEBLOCKROUTINE)(PVOID);
+typedef VOID (STDCALL *PPEBLOCKROUTINE)(PVOID);
 
-#ifndef NTOS_MODE_USER
 typedef NTSTATUS
-(NTAPI *PW32_PROCESS_CALLBACK)(
+(STDCALL *PW32_PROCESS_CALLBACK)(
     struct _EPROCESS *Process,
     BOOLEAN Create
 );
 
 typedef NTSTATUS
-(NTAPI *PW32_THREAD_CALLBACK)(
+(STDCALL *PW32_THREAD_CALLBACK)(
     struct _ETHREAD *Thread,
     BOOLEAN Create
 );
-#endif
 
 /* TYPES *********************************************************************/
 
-#ifdef NTOS_MODE_USER
-typedef struct _CLIENT_ID
-{
-    HANDLE UniqueProcess;
-    HANDLE UniqueThread;
-} CLIENT_ID, *PCLIENT_ID;
-#endif
-
-struct _W32THREAD;
-struct _W32PROCESS;
-
 struct _ETHREAD;
+
+typedef struct _CURDIR
+{
+    UNICODE_STRING DosPath;
+    PVOID Handle;
+} CURDIR, *PCURDIR;
 
 typedef struct _DESCRIPTOR_TABLE_ENTRY
 {
@@ -236,7 +120,7 @@ typedef struct _PEB
     HANDLE Mutant;                                   /* 04h */
     PVOID ImageBaseAddress;                          /* 08h */
     PPEB_LDR_DATA Ldr;                               /* 0Ch */
-    struct _RTL_USER_PROCESS_PARAMETERS *ProcessParameters;  /* 10h */
+    PRTL_USER_PROCESS_PARAMETERS ProcessParameters;  /* 10h */
     PVOID SubSystemData;                             /* 14h */
     PVOID ProcessHeap;                               /* 18h */
     PVOID FastPebLock;                               /* 1Ch */
@@ -281,12 +165,12 @@ typedef struct _PEB
     ULONG ImageProcessAffinityMask;                  /* C0h */
     ULONG GdiHandleBuffer[0x22];                     /* C4h */
     PVOID PostProcessInitRoutine;                    /* 14Ch */
-    struct _RTL_BITMAP *TlsExpansionBitmap;          /* 150h */
+    PVOID *TlsExpansionBitmap;                       /* 150h */
     ULONG TlsExpansionBitmapBits[0x20];              /* 154h */
     ULONG SessionId;                                 /* 1D4h */
     PVOID AppCompatInfo;                             /* 1D8h */
     UNICODE_STRING CSDVersion;                       /* 1DCh */
-} PEB, *PPEB;
+} PEB;
 
 typedef struct _GDI_TEB_BATCH
 {
@@ -297,165 +181,85 @@ typedef struct _GDI_TEB_BATCH
 
 typedef struct _INITIAL_TEB
 {
-    PVOID PreviousStackBase;
-    PVOID PreviousStackLimit;
     PVOID StackBase;
     PVOID StackLimit;
-    PVOID AllocatedStackBase;
+    PVOID StackCommit;
+    PVOID StackCommitMax;
+    PVOID StackReserved;
 } INITIAL_TEB, *PINITIAL_TEB;
-
-typedef struct _TEB_ACTIVE_FRAME_CONTEXT 
-{
-    ULONG Flags;
-    LPSTR FrameName;
-} TEB_ACTIVE_FRAME_CONTEXT, *PTEB_ACTIVE_FRAME_CONTEXT;
-
-typedef struct _TEB_ACTIVE_FRAME
-{
-    ULONG Flags;
-    struct _TEB_ACTIVE_FRAME *Previous;
-    PTEB_ACTIVE_FRAME_CONTEXT Context;
-} TEB_ACTIVE_FRAME, *PTEB_ACTIVE_FRAME;
 
 typedef struct _TEB
 {
-    NT_TIB Tib;                             /* 00h */
-    PVOID EnvironmentPointer;               /* 1Ch */
-    CLIENT_ID Cid;                          /* 20h */
-    PVOID ActiveRpcHandle;                  /* 28h */
-    PVOID ThreadLocalStoragePointer;        /* 2Ch */
-    struct _PEB *ProcessEnvironmentBlock;   /* 30h */
-    ULONG LastErrorValue;                   /* 34h */
-    ULONG CountOfOwnedCriticalSections;     /* 38h */
-    PVOID CsrClientThread;                  /* 3Ch */
-    struct _W32THREAD* Win32ThreadInfo;     /* 40h */
-    ULONG User32Reserved[0x1A];             /* 44h */
-    ULONG UserReserved[5];                  /* ACh */
-    PVOID WOW32Reserved;                    /* C0h */
-    LCID CurrentLocale;                     /* C4h */
-    ULONG FpSoftwareStatusRegister;         /* C8h */
-    PVOID SystemReserved1[0x36];            /* CCh */
-    LONG ExceptionCode;                     /* 1A4h */
-    struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer; /* 1A8h */
-    UCHAR SpareBytes1[0x28];                /* 1ACh */
-    GDI_TEB_BATCH GdiTebBatch;              /* 1D4h */
-    CLIENT_ID RealClientId;                 /* 6B4h */
-    PVOID GdiCachedProcessHandle;           /* 6BCh */
-    ULONG GdiClientPID;                     /* 6C0h */
-    ULONG GdiClientTID;                     /* 6C4h */
-    PVOID GdiThreadLocalInfo;               /* 6C8h */
-    ULONG Win32ClientInfo[62];              /* 6CCh */
-    PVOID glDispatchTable[0xE9];            /* 7C4h */
-    ULONG glReserved1[0x1D];                /* B68h */
-    PVOID glReserved2;                      /* BDCh */
-    PVOID glSectionInfo;                    /* BE0h */
-    PVOID glSection;                        /* BE4h */
-    PVOID glTable;                          /* BE8h */
-    PVOID glCurrentRC;                      /* BECh */
-    PVOID glContext;                        /* BF0h */
-    NTSTATUS LastStatusValue;               /* BF4h */
-    UNICODE_STRING StaticUnicodeString;     /* BF8h */
-    WCHAR StaticUnicodeBuffer[0x105];       /* C00h */
-    PVOID DeallocationStack;                /* E0Ch */
-    PVOID TlsSlots[0x40];                   /* E10h */
-    LIST_ENTRY TlsLinks;                    /* F10h */
-    PVOID Vdm;                              /* F18h */
-    PVOID ReservedForNtRpc;                 /* F1Ch */
-    PVOID DbgSsReserved[0x2];               /* F20h */
-    ULONG HardErrorDisabled;                /* F28h */
-    PVOID Instrumentation[14];              /* F2Ch */
-    PVOID SubProcessTag;                    /* F64h */
-    PVOID EtwTraceData;                     /* F68h */
-    PVOID WinSockData;                      /* F6Ch */
-    ULONG GdiBatchCount;                    /* F70h */
-    BOOLEAN InDbgPrint;                     /* F74h */
-    BOOLEAN FreeStackOnTermination;         /* F75h */
-    BOOLEAN HasFiberData;                   /* F76h */
-    UCHAR IdealProcessor;                   /* F77h */
-    ULONG GuaranteedStackBytes;             /* F78h */
-    PVOID ReservedForPerf;                  /* F7Ch */
-    PVOID ReservedForOle;                   /* F80h */
-    ULONG WaitingOnLoaderLock;              /* F84h */
-    ULONG SparePointer1;                    /* F88h */
-    ULONG SoftPatchPtr1;                    /* F8Ch */
-    ULONG SoftPatchPtr2;                    /* F90h */
-    PVOID *TlsExpansionSlots;               /* F94h */
-    ULONG ImpersionationLocale;             /* F98h */
-    ULONG IsImpersonating;                  /* F9Ch */
-    PVOID NlsCache;                         /* FA0h */
-    PVOID pShimData;                        /* FA4h */
-    ULONG HeapVirualAffinity;               /* FA8h */
-    PVOID CurrentTransactionHandle;         /* FACh */
-    PTEB_ACTIVE_FRAME ActiveFrame;          /* FB0h */
-    PVOID FlsData;                          /* FB4h */
-    UCHAR SafeThunkCall;                    /* FB8h */
-    UCHAR BooleanSpare[3];                  /* FB9h */
+    NT_TIB Tib;                         /* 00h */
+    PVOID EnvironmentPointer;           /* 1Ch */
+    CLIENT_ID Cid;                      /* 20h */
+    PVOID ActiveRpcInfo;                /* 28h */
+    PVOID ThreadLocalStoragePointer;    /* 2Ch */
+    struct _PEB *Peb;                   /* 30h */
+    ULONG LastErrorValue;               /* 34h */
+    ULONG CountOfOwnedCriticalSections; /* 38h */
+    PVOID CsrClientThread;              /* 3Ch */
+    struct _W32THREAD* Win32ThreadInfo; /* 40h */
+    ULONG Win32ClientInfo[0x1F];        /* 44h */
+    PVOID WOW32Reserved;                /* C0h */
+    LCID CurrentLocale;                 /* C4h */
+    ULONG FpSoftwareStatusRegister;     /* C8h */
+    PVOID SystemReserved1[0x36];        /* CCh */
+    PVOID Spare1;                       /* 1A4h */
+    LONG ExceptionCode;                 /* 1A8h */
+    UCHAR SpareBytes1[0x28];            /* 1ACh */
+    PVOID SystemReserved2[0xA];         /* 1D4h */
+    GDI_TEB_BATCH GdiTebBatch;          /* 1FCh */
+    ULONG gdiRgn;                       /* 6DCh */
+    ULONG gdiPen;                       /* 6E0h */
+    ULONG gdiBrush;                     /* 6E4h */
+    CLIENT_ID RealClientId;             /* 6E8h */
+    PVOID GdiCachedProcessHandle;       /* 6F0h */
+    ULONG GdiClientPID;                 /* 6F4h */
+    ULONG GdiClientTID;                 /* 6F8h */
+    PVOID GdiThreadLocaleInfo;          /* 6FCh */
+    PVOID UserReserved[5];              /* 700h */
+    PVOID glDispatchTable[0x118];       /* 714h */
+    ULONG glReserved1[0x1A];            /* B74h */
+    PVOID glReserved2;                  /* BDCh */
+    PVOID glSectionInfo;                /* BE0h */
+    PVOID glSection;                    /* BE4h */
+    PVOID glTable;                      /* BE8h */
+    PVOID glCurrentRC;                  /* BECh */
+    PVOID glContext;                    /* BF0h */
+    NTSTATUS LastStatusValue;           /* BF4h */
+    UNICODE_STRING StaticUnicodeString; /* BF8h */
+    WCHAR StaticUnicodeBuffer[0x105];   /* C00h */
+    PVOID DeallocationStack;            /* E0Ch */
+    PVOID TlsSlots[0x40];               /* E10h */
+    LIST_ENTRY TlsLinks;                /* F10h */
+    PVOID Vdm;                          /* F18h */
+    PVOID ReservedForNtRpc;             /* F1Ch */
+    PVOID DbgSsReserved[0x2];           /* F20h */
+    ULONG HardErrorDisabled;            /* F28h */
+    PVOID Instrumentation[0x10];        /* F2Ch */
+    PVOID WinSockData;                  /* F6Ch */
+    ULONG GdiBatchCount;                /* F70h */
+    USHORT _Spare2;                     /* F74h */
+    BOOLEAN IsFiber;                    /* F76h */
+    UCHAR Spare3;                       /* F77h */
+    ULONG _Spare4;                      /* F78h */
+    ULONG _Spare5;                      /* F7Ch */
+    PVOID ReservedForOle;               /* F80h */
+    ULONG WaitingOnLoaderLock;          /* F84h */
+    ULONG _Unknown[11];                 /* F88h */
+    PVOID FlsSlots;                     /* FB4h */
+    PVOID WineDebugInfo;                /* Needed for WINE DLL's  */
 } TEB, *PTEB;
 
-#ifdef NTOS_MODE_USER
-typedef struct _PROCESS_BASIC_INFORMATION
-{
-    NTSTATUS ExitStatus;
-    PPEB PebBaseAddress;
-    ULONG_PTR AffinityMask;
-    KPRIORITY BasePriority;
-    ULONG_PTR UniqueProcessId;
-    ULONG_PTR InheritedFromUniqueProcessId;
-} PROCESS_BASIC_INFORMATION,*PPROCESS_BASIC_INFORMATION;
-
-typedef struct _PROCESS_ACCESS_TOKEN
-{
-    HANDLE Token;
-    HANDLE Thread;
-} PROCESS_ACCESS_TOKEN, *PPROCESS_ACCESS_TOKEN;
-
-typedef struct _PROCESS_DEVICEMAP_INFORMATION
-{
-    union
-    {
-        struct
-        {
-            HANDLE DirectoryHandle;
-        } Set;
-        struct
-        {
-            ULONG DriveMap;
-            UCHAR DriveType[32];
-        } Query;
-    };
-} PROCESS_DEVICEMAP_INFORMATION, *PPROCESS_DEVICEMAP_INFORMATION;
-
-typedef struct _KERNEL_USER_TIMES
-{
-    LARGE_INTEGER CreateTime;
-    LARGE_INTEGER ExitTime;
-    LARGE_INTEGER KernelTime;
-    LARGE_INTEGER UserTime;
-} KERNEL_USER_TIMES, *PKERNEL_USER_TIMES;
-
-typedef struct _PROCESS_SESSION_INFORMATION
-{
-    ULONG SessionId;
-} PROCESS_SESSION_INFORMATION, *PPROCESS_SESSION_INFORMATION;
-#endif
-
-typedef struct _PROCESS_PRIORITY_CLASS
-{
-    BOOLEAN Foreground;
-    UCHAR   PriorityClass;
-} PROCESS_PRIORITY_CLASS, *PPROCESS_PRIORITY_CLASS;
-
-typedef struct _THREAD_BASIC_INFORMATION
-{
-    NTSTATUS ExitStatus;
-    PVOID TebBaseAddress;
-    CLIENT_ID ClientId;
-    KAFFINITY AffinityMask;
-    KPRIORITY Priority;
-    KPRIORITY BasePriority;
-} THREAD_BASIC_INFORMATION, *PTHREAD_BASIC_INFORMATION;
-
+/* KERNEL MODE ONLY **********************************************************/
 #ifndef NTOS_MODE_USER
+
+#include "mmtypes.h"
+#include "obtypes.h"
+#include "extypes.h"
+#include "setypes.h"
+
 /* FIXME: see note in mmtypes.h */
 #ifdef _NTOSKRNL_
 #include <internal/mm.h>
@@ -463,10 +267,10 @@ typedef struct _THREAD_BASIC_INFORMATION
 
 typedef struct _EPROCESS_QUOTA_ENTRY
 {
-    SIZE_T Usage;
-    SIZE_T Limit;
-    SIZE_T Peak;
-    SIZE_T Return;
+    ULONG Usage;
+    ULONG Limit;
+    ULONG Peak;
+    ULONG Return;
 } EPROCESS_QUOTA_ENTRY, *PEPROCESS_QUOTA_ENTRY;
 
 typedef struct _EPROCESS_QUOTA_BLOCK
@@ -495,6 +299,13 @@ typedef struct _PS_IMPERSONATION_INFORMATION
 } PS_IMPERSONATION_INFORMATION, *PPS_IMPERSONATION_INFORMATION;
 
 #include <pshpack4.h>
+/*
+ * NAME:           ETHREAD
+ * DESCRIPTION:    Internal Executive Thread Structure.
+ * PORTABILITY:    Architecture Independent.
+ * KERNEL VERSION: 5.2
+ * DOCUMENTATION:  http://reactos.com/wiki/index.php/ETHREAD
+ */
 typedef struct _ETHREAD
 {
     KTHREAD                        Tcb;                         /* 1C0 */
@@ -538,7 +349,7 @@ typedef struct _ETHREAD
     PKSTART_ROUTINE                StartAddress;                /* 21C */
     union
     {
-        PVOID                      Win32StartAddress;           /* 220 */
+        PTHREAD_START_ROUTINE      Win32StartAddress;           /* 220 */
         ULONG                      LpcReceivedMessageId;        /* 220 */
     };
     LIST_ENTRY                     ThreadListEntry;             /* 224 */
@@ -596,6 +407,13 @@ typedef struct _ETHREAD
     UCHAR                          ActiveFaultCount;            /* 24E */
 } ETHREAD;
 
+/*
+ * NAME:           EPROCESS
+ * DESCRIPTION:    Internal Executive Process Structure.
+ * PORTABILITY:    Architecture Independent.
+ * KERNEL VERSION: 5.2
+ * DOCUMENTATION:  http://reactos.com/wiki/index.php/EPROCESS
+ */
 typedef struct _EPROCESS
 {
     KPROCESS              Pcb;                          /* 000 */
@@ -737,15 +555,15 @@ typedef struct _EPROCESS
 #include <pshpack1.h>
 typedef struct _PS_JOB_TOKEN_FILTER
 {
-    ULONG CapturedSidCount;
+    UINT CapturedSidCount;
     PSID_AND_ATTRIBUTES CapturedSids;
-    ULONG CapturedSidsLength;
-    ULONG CapturedGroupCount;
+    UINT CapturedSidsLength;
+    UINT CapturedGroupCount;
     PSID_AND_ATTRIBUTES CapturedGroups;
-    ULONG CapturedGroupsLength;
-    ULONG CapturedPrivilegeCount;
+    UINT CapturedGroupsLength;
+    UINT CapturedPrivilegeCount;
     PLUID_AND_ATTRIBUTES CapturedPrivileges;
-    ULONG CapturedPrivilegesLength;
+    UINT CapturedPrivilegesLength;
 } PS_JOB_TOKEN_FILTER, *PPS_JOB_TOKEN_FILTER;
 
 typedef struct _EJOB
@@ -758,27 +576,27 @@ typedef struct _EJOB
     LARGE_INTEGER TotalKernelTime;
     LARGE_INTEGER ThisPeriodTotalUserTime;
     LARGE_INTEGER ThisPeriodTotalKernelTime;
-    ULONG TotalPageFaultCount;
-    ULONG TotalProcesses;
-    ULONG ActiveProcesses;
-    ULONG TotalTerminatedProcesses;
+    UINT TotalPageFaultCount;
+    UINT TotalProcesses;
+    UINT ActiveProcesses;
+    UINT TotalTerminatedProcesses;
     LARGE_INTEGER PerProcessUserTimeLimit;
     LARGE_INTEGER PerJobUserTimeLimit;
-    ULONG LimitFlags;
-    ULONG MinimumWorkingSetSize;
-    ULONG MaximumWorkingSetSize;
-    ULONG ActiveProcessLimit;
-    ULONG Affinity;
-    UCHAR PriorityClass;
-    ULONG UIRestrictionsClass;
-    ULONG SecurityLimitFlags;
+    UINT LimitFlags;
+    UINT MinimumWorkingSetSize;
+    UINT MaximumWorkingSetSize;
+    UINT ActiveProcessLimit;
+    UINT Affinity;
+    BYTE PriorityClass;
+    UINT UIRestrictionsClass;
+    UINT SecurityLimitFlags;
     PVOID Token;
     PPS_JOB_TOKEN_FILTER Filter;
-    ULONG EndOfJobTimeAction;
+    UINT EndOfJobTimeAction;
     PVOID CompletionPort;
     PVOID CompletionKey;
-    ULONG SessionId;
-    ULONG SchedulingClass;
+    UINT SessionId;
+    UINT SchedulingClass;
     ULONGLONG ReadOperationCount;
     ULONGLONG WriteOperationCount;
     ULONGLONG OtherOperationCount;
@@ -786,11 +604,11 @@ typedef struct _EJOB
     ULONGLONG WriteTransferCount;
     ULONGLONG OtherTransferCount;
     IO_COUNTERS IoInfo;
-    ULONG ProcessMemoryLimit;
-    ULONG JobMemoryLimit;
-    ULONG PeakProcessMemoryUsed;
-    ULONG PeakJobMemoryUsed;
-    ULONG CurrentJobMemoryUsed;
+    UINT ProcessMemoryLimit;
+    UINT JobMemoryLimit;
+    UINT PeakProcessMemoryUsed;
+    UINT PeakJobMemoryUsed;
+    UINT CurrentJobMemoryUsed;
     KGUARDED_MUTEX MemoryLimitsLock;
     ULONG MemberLevel;
     ULONG JobFlags;

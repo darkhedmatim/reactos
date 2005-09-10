@@ -33,7 +33,7 @@ typedef struct _PERFDATA
 	WCHAR				UserName[MAX_PATH];
 	ULONG				SessionId;
 	ULONG				CPUUsage;
-	LARGE_INTEGER		CPUTime;
+	TIME				CPUTime;
 	ULONG				WorkingSetSizeBytes;
 	ULONG				PeakWorkingSetSizeBytes;
 	ULONG				WorkingSetSizeDelta;
@@ -49,9 +49,9 @@ typedef struct _PERFDATA
 	ULONG				GDIObjectCount;
 	//IO_COUNTERS			IOCounters;
 
-	LARGE_INTEGER		UserTime;
-	LARGE_INTEGER		KernelTime;
-	LARGE_INTEGER		CreateTime;
+	TIME				UserTime;
+	TIME				KernelTime;
+	LARGE_INTEGER			CreateTime;
 } PERFDATA, *PPERFDATA;
 
 #define SystemTimeInformation			3

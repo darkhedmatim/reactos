@@ -53,7 +53,7 @@ public:
 	{
 		ASSERT ( i < _end );
 		reserve ( i + 1 );
-		_arr[i].reset ( p );
+		_arr[i].reset ( ptr );
 	}
 
 	void push_back ( auto_ptr<T>& p )

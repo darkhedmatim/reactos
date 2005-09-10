@@ -25,7 +25,8 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#include <precomp.h>
+#include "precomp.h"
+#include <shlobj.h>
 
 
 /* FUNCTIONS ***************************************************************/

@@ -108,7 +108,7 @@ DWORD WINAPI WNetCachePassword(
     if( valname )
     {
         r = RegSetValueExA( hkey, valname, 0, REG_BINARY, 
-                            (LPBYTE)pbPassword, cbPassword );
+                            pbPassword, cbPassword );
         if( r )
             r = WN_CANCEL;
         else
@@ -202,7 +202,7 @@ DWORD WINAPI WNetGetCachedPassword(
     if( valname )
     {
         sz = *pcbPassword;
-        r = RegQueryValueExA( hkey, valname, 0, &type, (LPBYTE)pbPassword, &sz );
+        r = RegQueryValueExA( hkey, valname, 0, &type, pbPassword, &sz );
         *pcbPassword = sz;
         if( r )
             r = WN_CANCEL;

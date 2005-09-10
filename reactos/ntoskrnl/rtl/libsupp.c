@@ -18,30 +18,9 @@
 
 
 KPROCESSOR_MODE
-STDCALL
 RtlpGetMode()
 {
    return KernelMode;
-}
-
-PVOID
-STDCALL
-RtlpAllocateMemory(UINT Bytes,
-                   ULONG Tag)
-{
-    return ExAllocatePoolWithTag(PagedPool,
-                                 (SIZE_T)Bytes,
-                                 Tag);
-}
-
-
-VOID
-STDCALL
-RtlpFreeMemory(PVOID Mem,
-               ULONG Tag)
-{
-    ExFreePoolWithTag(Mem,
-                      Tag);
 }
 
 /*
@@ -62,13 +41,6 @@ RtlReleasePebLock(VOID)
 
 }
 
-NTSTATUS
-STDCALL
-LdrShutdownThread(VOID)
-{
-    return STATUS_SUCCESS;
-}
-
 
 PPEB
 STDCALL
@@ -79,15 +51,25 @@ RtlpCurrentPeb(VOID)
 
 NTSTATUS
 STDCALL
-RtlDeleteHeapLock(
+RtlDeleteCriticalSection(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
     return STATUS_SUCCESS;
 }
 
+DWORD
+STDCALL
+RtlSetCriticalSectionSpinCount(
+   PRTL_CRITICAL_SECTION CriticalSection,
+   DWORD SpinCount
+   )
+{
+   return 0;
+}
+
 NTSTATUS
 STDCALL
-RtlEnterHeapLock(
+RtlEnterCriticalSection(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
     ExAcquireFastMutex((PFAST_MUTEX) CriticalSection);
@@ -96,7 +78,7 @@ RtlEnterHeapLock(
 
 NTSTATUS
 STDCALL
-RtlInitializeHeapLock(
+RtlInitializeCriticalSection(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
    ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
@@ -105,12 +87,32 @@ RtlInitializeHeapLock(
 
 NTSTATUS
 STDCALL
-RtlLeaveHeapLock(
+RtlLeaveCriticalSection(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
     ExReleaseFastMutex((PFAST_MUTEX) CriticalSection );
     return STATUS_SUCCESS;
 }
+
+BOOLEAN
+STDCALL
+RtlTryEnterCriticalSection(
+    PRTL_CRITICAL_SECTION CriticalSection)
+{
+    return ExTryToAcquireFastMutex((PFAST_MUTEX) CriticalSection );
+}
+
+
+NTSTATUS
+STDCALL
+RtlInitializeCriticalSectionAndSpinCount(
+    PRTL_CRITICAL_SECTION CriticalSection,
+    ULONG SpinCount)
+{
+    ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
+    return STATUS_SUCCESS;
+}
+
 
 #ifdef DBG
 VOID FASTCALL
@@ -226,35 +228,33 @@ VOID
 RtlpFreeAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
 {
    ExDestroyHandle(AtomTable->ExHandleTable,
-                   (HANDLE)((ULONG_PTR)Entry->HandleIndex << 2));
+                   (LONG)Entry->HandleIndex);
 }
 
 BOOLEAN
 RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
 {
    HANDLE_TABLE_ENTRY ExEntry;
-   HANDLE Handle;
-   USHORT HandleIndex;
+   LONG HandleIndex;
    
    ExEntry.u1.Object = Entry;
    ExEntry.u2.GrantedAccess = 0x1; /* FIXME - valid handle */
    
-   Handle = ExCreateHandle(AtomTable->ExHandleTable,
+   HandleIndex = ExCreateHandle(AtomTable->ExHandleTable,
                                 &ExEntry);
-   if (Handle != NULL)
+   if (HandleIndex != EX_INVALID_HANDLE)
    {
-      HandleIndex = (USHORT)((ULONG_PTR)Handle >> 2);
       /* FIXME - Handle Indexes >= 0xC000 ?! */
-      if ((ULONG_PTR)HandleIndex >> 2 < 0xC000)
+      if (HandleIndex < 0xC000)
       {
-         Entry->HandleIndex = HandleIndex;
-         Entry->Atom = 0xC000 + HandleIndex;
+         Entry->HandleIndex = (USHORT)HandleIndex;
+         Entry->Atom = 0xC000 + (USHORT)HandleIndex;
          
          return TRUE;
       }
       else
          ExDestroyHandle(AtomTable->ExHandleTable,
-                         Handle);
+                         HandleIndex);
    }
    
    return FALSE;
@@ -264,47 +264,21 @@ PRTL_ATOM_TABLE_ENTRY
 RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
 {
    PHANDLE_TABLE_ENTRY ExEntry;
-   PRTL_ATOM_TABLE_ENTRY Entry = NULL;
-   
-   /* NOTE: There's no need to explicitly enter a critical region because it's
-            guaranteed that we're in a critical region right now (as we hold
-            the atom table lock) */
    
    ExEntry = ExMapHandleToPointer(AtomTable->ExHandleTable,
-                                  (HANDLE)((ULONG_PTR)Index << 2));
+                                  (LONG)Index);
    if (ExEntry != NULL)
    {
+      PRTL_ATOM_TABLE_ENTRY Entry;
+      
       Entry = ExEntry->u1.Object;
       
       ExUnlockHandleTableEntry(AtomTable->ExHandleTable,
                                ExEntry);
+      return Entry;
    }
    
-   return Entry;
-}
-
-/* FIXME - RtlpCreateUnicodeString is obsolete and should be removed ASAP! */
-BOOLEAN FASTCALL
-RtlpCreateUnicodeString(
-   IN OUT PUNICODE_STRING UniDest,
-   IN PCWSTR  Source,
-   IN POOL_TYPE PoolType)
-{
-   ULONG Length;
-
-   Length = (wcslen (Source) + 1) * sizeof(WCHAR);
-   UniDest->Buffer = ExAllocatePoolWithTag(PoolType, Length, TAG('U', 'S', 'T', 'R'));
-   if (UniDest->Buffer == NULL)
-      return FALSE;
-
-   RtlCopyMemory (UniDest->Buffer,
-                  Source,
-                  Length);
-
-   UniDest->MaximumLength = Length;
-   UniDest->Length = Length - sizeof (WCHAR);
-
-   return TRUE;
+   return NULL;
 }
 
 /* EOF */

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType API for accessing Windows fnt-specific data.                */
 /*                                                                         */
-/*  Copyright 2003, 2004 by                                                */
+/*  Copyright 2003 by                                                      */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -38,10 +38,10 @@ FT_BEGIN_HEADER
   /*    winfnt_fonts                                                       */
   /*                                                                       */
   /* <Title>                                                               */
-  /*    Window FNT Files                                                   */
+  /*    Window FNT Fonts                                                   */
   /*                                                                       */
   /* <Abstract>                                                            */
-  /*    Windows FNT specific API.                                          */
+  /*    Windows FNT specific APIs                                          */
   /*                                                                       */
   /* <Description>                                                         */
   /*    This section contains the declaration of Windows FNT specific      */

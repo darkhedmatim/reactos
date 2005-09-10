@@ -7,7 +7,6 @@
 EXPORTS
 CcRosInitializeFileCache@8
 CcRosReleaseFileCache@4
-CcRosTraceCacheMap@8
 CcCanIWrite@16
 CcCopyRead@24
 CcCopyWrite@20
@@ -139,6 +138,8 @@ ExReleaseResourceForThreadLite@8
 @ExReleaseResourceLite@4
 @ExReleaseRundownProtection@4
 @ExReleaseRundownProtectionEx@8
+ExRosDumpPagedPoolByTag@4
+ExRosQueryPoolTag@4
 @ExRundownCompleted@4
 ExSemaphoreObjectType DATA
 ExSetResourceOwnerPointer@8
@@ -681,6 +682,7 @@ MmAddPhysicalMemory@8
 MmAddVerifierThunks@8
 MmAdjustWorkingSetSize@12
 MmAdvanceMdl@8
+MmAllocateContiguousAlignedMemory@36
 MmAllocateContiguousMemory@12
 MmAllocateContiguousMemorySpecifyCache@32
 MmAllocateMappingAddress@8
@@ -688,6 +690,8 @@ MmAllocateNonCachedMemory@4
 MmAllocatePagesForMdl@28
 MmBuildMdlForNonPagedPool@4
 MmCanFileBeTruncated@8
+MmCopyFromCaller@12
+MmCopyToCaller@12
 MmCreateMdl@12
 MmCreateSection@32
 MmDbgTranslatePhysicalAddress@8
@@ -757,7 +761,6 @@ NlsAnsiCodePage DATA
 NlsLeadByteInfo DATA
 NlsMbCodePageTag DATA
 NlsMbOemCodePageTag DATA
-NlsOemCodePage DATA
 NlsOemLeadByteInfo DATA
 NtAddAtom@12
 NtAdjustPrivilegesToken@24
@@ -872,10 +875,8 @@ PsDereferenceImpersonationToken@4=PsDereferencePrimaryToken@4
 PsDereferencePrimaryToken@4
 PsDisableImpersonation@8
 PsEstablishWin32Callouts@4
-PsGetCurrentProcess@0=KeGetCurrentProcess@0
 PsGetCurrentProcessId@0
 PsGetCurrentProcessSessionId@0
-PsGetCurrentThread@0=KeGetCurrentThread@0
 PsGetCurrentThreadId@0
 PsGetCurrentThreadPreviousMode@0
 PsGetCurrentThreadStackBase@0
@@ -936,10 +937,9 @@ PsSetCreateThreadNotifyRoutine@4
 PsSetJobUIRestrictionsClass@8
 PsSetLegoNotifyRoutine@4
 PsSetProcessPriorityClass@8
-PsSetProcessPriorityByClass@8
 PsSetProcessSecurityPort@8
 PsSetProcessWin32Process@8
-PsSetProcessWindowStation@8
+PsSetProcessWin32WindowStation@8
 PsSetThreadHardErrorsAreDisabled@8
 PsSetThreadWin32Thread@8
 PsSetLoadImageNotifyRoutine@4
@@ -962,7 +962,7 @@ RtlAddRange@36
 ;RtlAllocateAndInitializeSid
 RtlAllocateHeap@12
 RtlAnsiCharToUnicodeChar@4
-RtlAnsiStringToUnicodeSize@4=RtlxAnsiStringToUnicodeSize@4
+RtlAnsiStringToUnicodeSize@4
 RtlAnsiStringToUnicodeString@12
 RtlAppendAsciizToString@8
 RtlAppendStringToString@8
@@ -1149,7 +1149,7 @@ RtlNumberGenericTableElementsAvl@4
 RtlNumberOfClearBits@4
 RtlNumberOfSetBits@4
 RtlOemStringToCountedUnicodeString@12
-RtlOemStringToUnicodeSize@4=RtlxOemStringToUnicodeSize@4
+RtlOemStringToUnicodeSize@4
 RtlOemStringToUnicodeString@12
 RtlOemToUnicodeN@20
 RtlPinAtomInAtomTable@8
@@ -1193,11 +1193,11 @@ RtlTimeToSecondsSince1980@8
 RtlTimeToTimeFields@8
 @RtlUlongByteSwap@4
 @RtlUlonglongByteSwap@8
-RtlUnicodeStringToAnsiSize@4=RtlxUnicodeStringToAnsiSize@4
+RtlUnicodeStringToAnsiSize@4
 RtlUnicodeStringToAnsiString@12
 RtlUnicodeStringToCountedOemString@12
 RtlUnicodeStringToInteger@12
-RtlUnicodeStringToOemSize@4=RtlxUnicodeStringToOemSize@4
+RtlUnicodeStringToOemSize@4
 RtlUnicodeStringToOemString@12
 RtlUnicodeToCustomCPN@24
 RtlUnicodeToMultiByteN@20

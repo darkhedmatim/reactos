@@ -34,7 +34,6 @@ static const INFORMATION_CLASS_INFO ExEventInfoClass[] = {
 
 VOID
 INIT_FUNCTION
-STDCALL
 ExpInitializeEventImplementation(VOID)
 {
   OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
@@ -50,6 +49,7 @@ ExpInitializeEventImplementation(VOID)
   ObjectTypeInitializer.GenericMapping = ExpEventMapping;
   ObjectTypeInitializer.PoolType = NonPagedPool;
   ObjectTypeInitializer.ValidAccessMask = EVENT_ALL_ACCESS;
+  ObjectTypeInitializer.UseDefaultObject = TRUE;
   ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExEventObjectType);
 }
 
@@ -110,7 +110,9 @@ NtCreateEvent(OUT PHANDLE EventHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(EventHandle);
+            ProbeForWrite(EventHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -188,7 +190,9 @@ NtOpenEvent(OUT PHANDLE EventHandle,
 
         _SEH_TRY {
 
-            ProbeForWriteHandle(EventHandle);
+            ProbeForWrite(EventHandle,
+                          sizeof(HANDLE),
+                          sizeof(ULONG));
         } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -242,11 +246,13 @@ NtPulseEvent(IN HANDLE EventHandle,
             EventHandle, PreviousState);
 
     /* Check buffer validity */
-    if(PreviousState && PreviousMode != KernelMode) {
+    if(PreviousState && PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteLong(PreviousState);
+            ProbeForWrite(PreviousState,
+                          sizeof(LONG),
+                          sizeof(ULONG));
          } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -376,11 +382,13 @@ NtResetEvent(IN HANDLE EventHandle,
             EventHandle, PreviousState);
 
     /* Check buffer validity */
-    if(PreviousState && PreviousMode != KernelMode) {
+    if(PreviousState && PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteLong(PreviousState);
+            ProbeForWrite(PreviousState,
+                          sizeof(LONG),
+                          sizeof(ULONG));
          } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();
@@ -441,11 +449,13 @@ NtSetEvent(IN HANDLE EventHandle,
            EventHandle, PreviousState);
 
     /* Check buffer validity */
-    if(PreviousState != NULL && PreviousMode != KernelMode) {
+    if(PreviousState != NULL && PreviousMode == UserMode) {
 
         _SEH_TRY {
 
-            ProbeForWriteLong(PreviousState);
+            ProbeForWrite(PreviousState,
+                          sizeof(LONG),
+                          sizeof(ULONG));
          } _SEH_EXCEPT(_SEH_ExSystemExceptionFilter) {
 
             Status = _SEH_GetExceptionCode();

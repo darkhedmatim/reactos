@@ -251,8 +251,8 @@ IoAttachDevice(PDEVICE_OBJECT SourceDevice,
                PDEVICE_OBJECT *AttachedDevice)
 {
    NTSTATUS Status;
-   PFILE_OBJECT FileObject = NULL;
-   PDEVICE_OBJECT TargetDevice = NULL;
+   PFILE_OBJECT FileObject;
+   PDEVICE_OBJECT TargetDevice;
 
     /* Call the helper routine for an attach operation */
     DPRINT("IoAttachDevice\n");
@@ -336,17 +336,17 @@ IoAttachDeviceToDeviceStackSafe(IN PDEVICE_OBJECT SourceDevice,
                                 OUT PDEVICE_OBJECT *AttachedToDeviceObject)
 {
     PDEVICE_OBJECT AttachedDevice;
-    PEXTENDED_DEVOBJ_EXTENSION SourceDeviceExtension;
+    PDEVOBJ_EXTENSION SourceDeviceExtension;
 
     DPRINT("IoAttachDeviceToDeviceStack(SourceDevice 0x%p, TargetDevice 0x%p)\n",
             SourceDevice, TargetDevice);
 
     /* Get the Attached Device and source extension */
     AttachedDevice = IoGetAttachedDevice(TargetDevice);
-    SourceDeviceExtension = (PEXTENDED_DEVOBJ_EXTENSION)SourceDevice->DeviceObjectExtension;
+    SourceDeviceExtension = SourceDevice->DeviceObjectExtension;
 
     /* Make sure that it's in a correct state */
-    if (!(((PEXTENDED_DEVOBJ_EXTENSION)AttachedDevice->DeviceObjectExtension)->ExtensionFlags &
+    if (!(AttachedDevice->DeviceObjectExtension->ExtensionFlags &
         (DOE_UNLOAD_PENDING | DOE_DELETE_PENDING |
          DOE_REMOVE_PENDING | DOE_REMOVE_PROCESSED)))
     {
@@ -455,7 +455,7 @@ IoCreateDevice(PDRIVER_OBJECT DriverObject,
 
     /* Total Size */
     TotalSize = AlignedDeviceExtensionSize +
-                sizeof(DEVICE_OBJECT) + sizeof(EXTENDED_DEVOBJ_EXTENSION);
+                sizeof(DEVICE_OBJECT) + sizeof(DEVOBJ_EXTENSION);
     DPRINT("TotalSize %x\n", TotalSize);
 
     /* Create the Device Object */
@@ -503,9 +503,7 @@ IoCreateDevice(PDRIVER_OBJECT DriverObject,
     /* Set Device Object Data */
     CreatedDeviceObject->DeviceType = DeviceType;
     CreatedDeviceObject->Characteristics = DeviceCharacteristics;
-    CreatedDeviceObject->DeviceExtension = DeviceExtensionSize ?
-                                           CreatedDeviceObject + 1 :
-                                           NULL;
+    CreatedDeviceObject->DeviceExtension = CreatedDeviceObject + 1;
     CreatedDeviceObject->StackSize = 1;
     CreatedDeviceObject->AlignmentRequirement = 1; /* FIXME */
 
@@ -545,20 +543,7 @@ IoCreateDevice(PDRIVER_OBJECT DriverObject,
     }
 
     /* Create the Device Queue */
-    if (CreatedDeviceObject->DeviceType == FILE_DEVICE_DISK_FILE_SYSTEM ||
-        CreatedDeviceObject->DeviceType == FILE_DEVICE_FILE_SYSTEM ||
-        CreatedDeviceObject->DeviceType == FILE_DEVICE_CD_ROM_FILE_SYSTEM ||
-        CreatedDeviceObject->DeviceType == FILE_DEVICE_NETWORK_FILE_SYSTEM ||
-        CreatedDeviceObject->DeviceType == FILE_DEVICE_TAPE_FILE_SYSTEM)
-    {
-        /* Simple FS Devices, they don't need a real Device Queue */
-        InitializeListHead(&CreatedDeviceObject->Queue.ListEntry);
-    }
-    else
-    {
-        /* An actual Device, initialize its DQ */
-        KeInitializeDeviceQueue(&CreatedDeviceObject->DeviceQueue);
-    }
+    KeInitializeDeviceQueue(&CreatedDeviceObject->DeviceQueue);
 
     /* Insert the Object */
     Status = ObInsertObject(CreatedDeviceObject,
@@ -624,7 +609,7 @@ IoDeleteDevice(PDEVICE_OBJECT DeviceObject)
    }
 
    /* I guess this should be removed later... but it shouldn't cause problems */
-   ((PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension)->ExtensionFlags |= DOE_DELETE_PENDING;
+   DeviceObject->DeviceObjectExtension->ExtensionFlags |= DOE_DELETE_PENDING;
 
    /* Make the object temporary. This should automatically remove the device
       from the namespace */
@@ -650,7 +635,7 @@ IoDetachDevice(PDEVICE_OBJECT TargetDevice)
     DPRINT("IoDetachDevice(TargetDevice 0x%p)\n", TargetDevice);
 
     /* Remove the attachment */
-    ((PEXTENDED_DEVOBJ_EXTENSION)TargetDevice->AttachedDevice->DeviceObjectExtension)->AttachedTo = NULL;
+    TargetDevice->AttachedDevice->DeviceObjectExtension->AttachedTo = NULL;
     TargetDevice->AttachedDevice = NULL;
 }
 
@@ -758,7 +743,7 @@ STDCALL
 IoGetDeviceAttachmentBaseRef(IN PDEVICE_OBJECT DeviceObject)
 {
     /* Return the attached Device */
-    return (((PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension)->AttachedTo);
+    return (DeviceObject->DeviceObjectExtension->AttachedTo);
 }
 
 /*
@@ -790,7 +775,7 @@ STDCALL
 IoGetDiskDeviceObject(IN  PDEVICE_OBJECT FileSystemDeviceObject,
                       OUT PDEVICE_OBJECT *DiskDeviceObject)
 {
-    PEXTENDED_DEVOBJ_EXTENSION DeviceExtension;
+    PDEVOBJ_EXTENSION DeviceExtension;
     PVPB Vpb;
     KIRQL OldIrql;
 
@@ -801,7 +786,7 @@ IoGetDiskDeviceObject(IN  PDEVICE_OBJECT FileSystemDeviceObject,
     IoAcquireVpbSpinLock(&OldIrql);
 
     /* Get the Device Extension */
-    DeviceExtension = (PEXTENDED_DEVOBJ_EXTENSION)FileSystemDeviceObject->DeviceObjectExtension;
+    DeviceExtension = FileSystemDeviceObject->DeviceObjectExtension;
 
     /* Make sure this one has a VPB too */
     Vpb = DeviceExtension->Vpb;
@@ -825,7 +810,7 @@ PDEVICE_OBJECT
 STDCALL
 IoGetLowerDeviceObject(IN PDEVICE_OBJECT DeviceObject)
 {
-    PEXTENDED_DEVOBJ_EXTENSION DeviceExtension = (PEXTENDED_DEVOBJ_EXTENSION)DeviceObject->DeviceObjectExtension;
+    PDEVOBJ_EXTENSION DeviceExtension = DeviceObject->DeviceObjectExtension;
     PDEVICE_OBJECT LowerDeviceObject = NULL;
 
     /* Make sure it's not getting deleted */

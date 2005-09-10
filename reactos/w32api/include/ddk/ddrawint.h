@@ -5,20 +5,8 @@
 #ifndef __DD_INCLUDED__
 #define __DD_INCLUDED__
 
-#ifndef _NO_DDRAWINT_NO_COM
-#ifndef _NO_COM
-#define _NO_COM
 #include <ddraw.h>
-#include <ddk/ddrawi.h> /* FIXME: We shouldn't include this header. */
-#undef _NO_COM
-#else
-#include <ddraw.h>
-#include <ddk/ddrawi.h> /* FIXME: We shouldn't include this header. */
-#endif
-#else
-#include <ddraw.h>
-#include <ddk/ddrawi.h> /* FIXME: We shouldn't include this header. */
-#endif
+#include <ddk/ddrawi.h>
 
 #ifdef __cplusplus
 extern "C" {

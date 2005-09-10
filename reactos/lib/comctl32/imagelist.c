@@ -1084,8 +1084,8 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
     bMask = (himl->flags & ILC_MASK) && (fStyle & ILD_MASK) ;
     bBlend = (fStyle & (ILD_BLEND25 | ILD_BLEND50) ) && !bMask;
 
-    TRACE("himl(%p) hbmMask(%p) iImage(%d) x(%d) y(%d) cx(%d) cy(%d)\n",
-          himl, himl->hbmMask, pimldp->i, pimldp->x, pimldp->y, cx, cy);
+    TRACE("himl(0x%lx) hbmMask(%p) iImage(%d) x(%d) y(%d) cx(%d) cy(%d)\n",
+          (DWORD)himl, himl->hbmMask, pimldp->i, pimldp->x, pimldp->y, cx, cy);
 
     /* we will use these DCs to access the images and masks in the ImageList */
     hImageListDC = himl->hdcImage;
@@ -2226,51 +2226,25 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT i, HICON hIcon)
     HBITMAP hbmOldSrc;
     ICONINFO  ii;
     BITMAP  bmp;
-    BOOL    ret;
 
     TRACE("(%p %d %p)\n", himl, i, hIcon);
 
-    if (!is_valid(himl)) {
-        ERR("invalid image list\n");
-        return -1;
-    }
-    if ((i >= himl->cMaxImage) || (i < -1)) {
-        ERR("invalid image index %d / %d\n", i, himl->cMaxImage);
-        return -1;
-    }
+    if (!is_valid(himl))
+	return -1;
+    if ((i >= himl->cMaxImage) || (i < -1))
+	return -1;
 
     hBestFitIcon = CopyImage(
         hIcon, IMAGE_ICON,
         himl->cx, himl->cy,
         LR_COPYFROMRESOURCE);
-    /* the above will fail if the icon wasn't loaded from a resource, so try
-     * again without LR_COPYFROMRESOURCE flag */
-    if (!hBestFitIcon)
-        hBestFitIcon = CopyImage(
-            hIcon, IMAGE_ICON,
-            himl->cx, himl->cy,
-            0);
-    if (!hBestFitIcon)
-        return -1;
 
-    ret = GetIconInfo (hBestFitIcon, &ii);
-    if (!ret) {
-        DestroyIcon(hBestFitIcon);
-        return -1;
-    }
-
+    GetIconInfo (hBestFitIcon, &ii);
+    if (ii.hbmMask == 0)
+	ERR("no mask!\n");
     if (ii.hbmColor == 0)
 	ERR("no color!\n");
-    ret = GetObjectW (ii.hbmMask, sizeof(BITMAP), (LPVOID)&bmp);
-    if (!ret) {
-        ERR("couldn't get mask bitmap info\n");
-        if (ii.hbmColor)
-            DeleteObject (ii.hbmColor);
-        if (ii.hbmMask)
-            DeleteObject (ii.hbmMask);
-        DestroyIcon(hBestFitIcon);
-        return -1;
-    }
+    GetObjectA (ii.hbmMask, sizeof(BITMAP), (LPVOID)&bmp);
 
     if (i == -1) {
         if (himl->cCurImage + 1 > himl->cMaxImage)
@@ -2302,7 +2276,8 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT i, HICON hIcon)
 
     SelectObject (hdcImage, hbmOldSrc);
 
-    DestroyIcon(hBestFitIcon);
+    if(hBestFitIcon)
+	DestroyIcon(hBestFitIcon);
     if (hdcImage)
 	DeleteDC (hdcImage);
     if (ii.hbmColor)

@@ -40,9 +40,6 @@ LUID SeAuditPrivilege;
 LUID SeSystemEnvironmentPrivilege;
 LUID SeChangeNotifyPrivilege;
 LUID SeRemoteShutdownPrivilege;
-LUID SeUndockPrivilege;
-LUID SeSyncAgentPrivilege;
-LUID SeEnableDelegationPrivilege;
 
 
 /* FUNCTIONS ***************************************************************/
@@ -96,12 +93,6 @@ SepInitPrivileges (VOID)
   SeChangeNotifyPrivilege.HighPart = 0;
   SeRemoteShutdownPrivilege.LowPart = SE_REMOTE_SHUTDOWN_PRIVILEGE;
   SeRemoteShutdownPrivilege.HighPart = 0;
-  SeUndockPrivilege.LowPart = SE_UNDOCK_PRIVILEGE;
-  SeUndockPrivilege.HighPart = 0;
-  SeSyncAgentPrivilege.LowPart = SE_SYNC_AGENT_PRIVILEGE;
-  SeSyncAgentPrivilege.HighPart = 0;
-  SeEnableDelegationPrivilege.LowPart = SE_ENABLE_DELEGATION_PRIVILEGE;
-  SeEnableDelegationPrivilege.HighPart = 0;
 }
 
 

@@ -88,8 +88,9 @@ static CRITICAL_SECTION_DEBUG critsect_debug =
 };
 static CRITICAL_SECTION keyboard_crit = { &critsect_debug, -1, 0, 0, 0, 0 };
 
-#ifndef __REACTOS__
 static DWORD keyboard_users;
+
+#ifndef __REACTOS__
 static HHOOK keyboard_hook;
 #endif
 
@@ -98,7 +99,10 @@ void reactos_input_keyboard();
 
 void reactos_input_keyboard()
 {
+  MSG msg;
+  BOOL fDone;
   int disk_code = -1;
+  BOOL down;
   BYTE oldDInputKeyState[256];
   int t;
   

@@ -217,7 +217,6 @@ IoInit (VOID)
     ObjectTypeInitializer.DeleteProcedure = IopDeleteFile;
     ObjectTypeInitializer.SecurityProcedure = IopSecurityFile;
     ObjectTypeInitializer.QueryNameProcedure = IopQueryNameFile;
-    ObjectTypeInitializer.UseDefaultObject = FALSE;
     ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &IoFileObjectType);
 
   /*
@@ -322,7 +321,7 @@ IoInit2(BOOLEAN BootLog)
 {
   PDEVICE_NODE DeviceNode;
   PDRIVER_OBJECT DriverObject;
-  LDR_DATA_TABLE_ENTRY ModuleObject;
+  MODULE_OBJECT ModuleObject;
   NTSTATUS Status;
 
   PnpInit2();
@@ -343,8 +342,8 @@ IoInit2(BOOLEAN BootLog)
       return;
     }
 
-  ModuleObject.DllBase = NULL;
-  ModuleObject.SizeOfImage = 0;
+  ModuleObject.Base = NULL;
+  ModuleObject.Length = 0;
   ModuleObject.EntryPoint = RawFsDriverEntry;
 
   Status = IopInitializeDriverModule(

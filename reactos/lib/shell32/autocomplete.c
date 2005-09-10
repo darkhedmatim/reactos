@@ -62,9 +62,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 typedef struct
 {
-    const IAutoCompleteVtbl  *lpVtbl;
-    const IAutoComplete2Vtbl *lpvtblAutoComplete2;
-    LONG ref;
+    IAutoCompleteVtbl  *lpVtbl;
+    IAutoComplete2Vtbl *lpvtblAutoComplete2;
+    DWORD ref;
     BOOL  enabled;
     HWND hwndEdit;
     HWND hwndListBox;
@@ -76,14 +76,11 @@ typedef struct
     AUTOCOMPLETEOPTIONS options;
 } IAutoCompleteImpl;
 
-static const IAutoCompleteVtbl acvt;
-static const IAutoComplete2Vtbl ac2vt;
+static struct IAutoCompleteVtbl acvt;
+static struct IAutoComplete2Vtbl ac2vt;
 
-static inline IAutoCompleteImpl *impl_from_IAutoComplete2( IAutoComplete2 *iface )
-{
-    return (IAutoCompleteImpl *)((char*)iface - FIELD_OFFSET(IAutoCompleteImpl, lpvtblAutoComplete2));
-}
-
+#define _IAutoComplete2_Offset ((int)(&(((IAutoCompleteImpl*)0)->lpvtblAutoComplete2)))
+#define _ICOM_THIS_From_IAutoComplete2(class, name) class* This = (class*)(((char*)name)-_IAutoComplete2_Offset);
 
 /*
   converts This to an interface pointer
@@ -315,7 +312,7 @@ static HRESULT WINAPI IAutoComplete_fnInit(
 /**************************************************************************
  *  IAutoComplete_fnVTable
  */
-static const IAutoCompleteVtbl acvt =
+static IAutoCompleteVtbl acvt =
 {
     IAutoComplete_fnQueryInterface,
     IAutoComplete_fnAddRef,
@@ -332,7 +329,7 @@ static HRESULT WINAPI IAutoComplete2_fnQueryInterface(
     REFIID riid,
     LPVOID *ppvObj)
 {
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl, iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, shdebugstr_guid (riid), ppvObj);
 
@@ -345,7 +342,7 @@ static HRESULT WINAPI IAutoComplete2_fnQueryInterface(
 static ULONG WINAPI IAutoComplete2_fnAddRef(
 	IAutoComplete2 * iface)
 {
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl,iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -358,7 +355,7 @@ static ULONG WINAPI IAutoComplete2_fnAddRef(
 static ULONG WINAPI IAutoComplete2_fnRelease(
 	IAutoComplete2 * iface)
 {
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl,iface);
 
     TRACE ("(%p)->(count=%lu)\n", This, This->ref);
 
@@ -372,7 +369,7 @@ static HRESULT WINAPI IAutoComplete2_fnEnable(
     IAutoComplete2 * iface,
     BOOL fEnable)
 {
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl, iface);
 
     TRACE ("(%p)->(%s)\n", This, (fEnable)?"true":"false");
 
@@ -389,7 +386,7 @@ static HRESULT WINAPI IAutoComplete2_fnInit(
     LPCOLESTR pwzsRegKeyPath,
     LPCOLESTR pwszQuickComplete)
 {
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl, iface);
 
     TRACE("(%p)\n", This);
 
@@ -405,7 +402,7 @@ static HRESULT WINAPI IAutoComplete2_fnGetOptions(
 {
     HRESULT hr = S_OK;
 
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl, iface);
 
     TRACE("(%p) -> (%p)\n", This, pdwFlag);
 
@@ -423,7 +420,7 @@ static HRESULT WINAPI IAutoComplete2_fnSetOptions(
 {
     HRESULT hr = S_OK;
 
-    IAutoCompleteImpl *This = impl_from_IAutoComplete2(iface);
+    _ICOM_THIS_From_IAutoComplete2(IAutoCompleteImpl, iface);
 
     TRACE("(%p) -> (0x%lx)\n", This, dwFlag);
 
@@ -435,7 +432,7 @@ static HRESULT WINAPI IAutoComplete2_fnSetOptions(
 /**************************************************************************
  *  IAutoComplete2_fnVTable
  */
-static const IAutoComplete2Vtbl ac2vt =
+static IAutoComplete2Vtbl ac2vt =
 {
     IAutoComplete2_fnQueryInterface,
     IAutoComplete2_fnAddRef,

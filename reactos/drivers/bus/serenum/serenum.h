@@ -17,7 +17,7 @@
   #define STDCALL
 
   #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
-  #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
+  #define CHECKPOINT1 DbgPrint("(%s:%d)\n")
   #define DPRINT DPRINT1
   #define CHECKPOINT CHECKPOINT1
 #else

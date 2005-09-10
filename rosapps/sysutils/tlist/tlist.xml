@@ -1,4 +1,4 @@
-<module name="tlist" type="win32cui" installbase="system32" installname="tlist.exe">
+<module name="tlist" type="win32cui" installbase="system32" installname="tlist.exe" warnings="true">
 	<define name="__USE_W32API" />
 	<library>epsapi</library>
 	<!-- <library>tgetopt</library> -->

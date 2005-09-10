@@ -82,11 +82,11 @@ static UINT DELETE_set_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT va
     return ERROR_FUNCTION_FAILED;
 }
 
-static UINT DELETE_insert_row( struct tagMSIVIEW *view, MSIRECORD *record )
+static UINT DELETE_insert_row( struct tagMSIVIEW *view, UINT *num )  
 {
     MSIDELETEVIEW *dv = (MSIDELETEVIEW*)view;
 
-    TRACE("%p %p\n", dv, record );
+    TRACE("%p %p\n", dv, num );
 
     return ERROR_FUNCTION_FAILED;
 }

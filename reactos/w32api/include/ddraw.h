@@ -43,9 +43,7 @@
 #ifndef __WINE_DDRAW_H
 #define __WINE_DDRAW_H
 
-#ifndef _NO_COM
 #include <objbase.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +56,6 @@ extern "C" {
 /*****************************************************************************
  * Predeclare the interfaces
  */
-#ifndef _NO_COM
 #ifndef __DDRAW_GUID_DEFINED__
 DEFINE_GUID( CLSID_DirectDraw,		0xD7B70EE0,0x4340,0x11CF,0xB0,0x63,0x00,0x20,0xAF,0xC2,0xCD,0x35 );
 DEFINE_GUID( CLSID_DirectDraw7,         0x3C305196,0x50DB,0x11D3,0x9C,0xFE,0x00,0xC0,0x4F,0xD9,0x30,0xC5 );
@@ -76,7 +73,6 @@ DEFINE_GUID( IID_IDirectDrawPalette,	0x6C14DB84,0xA733,0x11CE,0xA5,0x21,0x00,0x2
 DEFINE_GUID( IID_IDirectDrawClipper,	0x6C14DB85,0xA733,0x11CE,0xA5,0x21,0x00,0x20,0xAF,0x0B,0xE5,0x60 );
 DEFINE_GUID( IID_IDirectDrawColorControl,0x4B9F0EE0,0x0D7E,0x11D0,0x9B,0x06,0x00,0xA0,0xC9,0x03,0xA3,0xB8 );
 DEFINE_GUID( IID_IDirectDrawGammaControl,0x69C11C3E,0xB46B,0x11D1,0xAD,0x7A,0x00,0xC0,0x4F,0xC2,0x9B,0x4E );
-#endif
 #endif
 
 typedef struct IDirectDraw *LPDIRECTDRAW;
@@ -1073,16 +1069,15 @@ typedef struct {
 	WORD	blue[256];
 } DDGAMMARAMP,*LPDDGAMMARAMP;
 
+typedef BOOL (CALLBACK *LPDDENUMCALLBACKA)(GUID *, LPSTR, LPSTR, LPVOID);
+typedef BOOL (CALLBACK *LPDDENUMCALLBACKW)(GUID *, LPWSTR, LPWSTR, LPVOID);
+DECL_WINELIB_TYPE_AW(LPDDENUMCALLBACK)
+
 typedef HRESULT (CALLBACK *LPDDENUMMODESCALLBACK)(LPDDSURFACEDESC, LPVOID);
 typedef HRESULT (CALLBACK *LPDDENUMMODESCALLBACK2)(LPDDSURFACEDESC2, LPVOID);
 typedef HRESULT (CALLBACK *LPDDENUMSURFACESCALLBACK)(LPDIRECTDRAWSURFACE, LPDDSURFACEDESC, LPVOID);
 typedef HRESULT (CALLBACK *LPDDENUMSURFACESCALLBACK2)(LPDIRECTDRAWSURFACE4, LPDDSURFACEDESC2, LPVOID);
 typedef HRESULT (CALLBACK *LPDDENUMSURFACESCALLBACK7)(LPDIRECTDRAWSURFACE7, LPDDSURFACEDESC2, LPVOID);
-
-#ifndef _NO_COM
-typedef BOOL (CALLBACK *LPDDENUMCALLBACKA)(GUID *, LPSTR, LPSTR, LPVOID);
-typedef BOOL (CALLBACK *LPDDENUMCALLBACKW)(GUID *, LPWSTR, LPWSTR, LPVOID);
-DECL_WINELIB_TYPE_AW(LPDDENUMCALLBACK)
 
 typedef BOOL (CALLBACK *LPDDENUMCALLBACKEXA)(GUID *, LPSTR, LPSTR, LPVOID, HMONITOR);
 typedef BOOL (CALLBACK *LPDDENUMCALLBACKEXW)(GUID *, LPWSTR, LPWSTR, LPVOID, HMONITOR);
@@ -1095,7 +1090,6 @@ HRESULT WINAPI DirectDrawEnumerateExW( LPDDENUMCALLBACKEXW lpCallback, LPVOID lp
 typedef HRESULT (WINAPI * LPDIRECTDRAWENUMERATEEXA)( LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, DWORD dwFlags);
 typedef HRESULT (WINAPI * LPDIRECTDRAWENUMERATEEXW)( LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, DWORD dwFlags);
 DECL_WINELIB_TYPE_AW(LPDIRECTDRAWENUMERATEEX)
-#endif /* _NO_COM */
 
 /* flags for DirectDrawEnumerateEx */
 #define DDENUM_ATTACHEDSECONDARYDEVICES	0x00000001
@@ -1235,7 +1229,6 @@ typedef struct tagDDDEVICEIDENTIFIER2 {
   DWORD   dwWHQLLevel;				/* Windows Hardware Quality Lab certification level */
 } DDDEVICEIDENTIFIER2, * LPDDDEVICEIDENTIFIER2;
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawPalette interface
  */
@@ -1275,10 +1268,8 @@ DECLARE_INTERFACE_(IDirectDrawPalette,IUnknown)
 #define IDirectDrawPalette_Initialize(p,a,b,c)   (p)->Initialize(a,b,c)
 #define IDirectDrawPalette_SetEntries(p,a,b,c,d) (p)->SetEntries(a,b,c,d)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawClipper interface
  */
@@ -1324,10 +1315,8 @@ DECLARE_INTERFACE_(IDirectDrawClipper,IUnknown)
 #define IDirectDrawClipper_SetClipList(p,a,b)     (p)->SetClipList(a,b)
 #define IDirectDrawClipper_SetHWnd(p,a,b)         (p)->SetHWnd(a,b)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDraw interface
  */
@@ -1415,7 +1404,6 @@ DECLARE_INTERFACE_(IDirectDraw,IUnknown)
 #define IDirectDraw_SetDisplayMode(p,a,b,c)     (p)->SetDisplayMode(a,b,c)
 #define IDirectDraw_WaitForVerticalBlank(p,a,b) (p)->WaitForVerticalBlank(a,b)
 #endif
-#endif /* _NO_COM */
 
 
 /* flags for Lock() */
@@ -1429,7 +1417,6 @@ DECLARE_INTERFACE_(IDirectDraw,IUnknown)
 #define DDLOCK_DISCARDCONTENTS  0x00002000
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDraw2 interface
  */
@@ -1526,10 +1513,8 @@ DECLARE_INTERFACE_(IDirectDraw2,IUnknown)
 /*** IDirectDraw2 methods ***/
 #define IDirectDraw2_GetAvailableVidMem(p,a,b,c) (p)->GetAvailableVidMem(a,b,c)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDraw4 interface
  */
@@ -1638,10 +1623,8 @@ DECLARE_INTERFACE_(IDirectDraw4,IUnknown)
 #define IDirectDraw4_TestCooperativeLevel(p)    (p)->TestCooperativeLevel()
 #define IDirectDraw4_GetDeviceIdentifier(p,a,b) (p)->GetDeviceIdentifier(a,b)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDraw7 interface
  */
@@ -1762,10 +1745,8 @@ DECLARE_INTERFACE_(IDirectDraw7,IUnknown)
 #define IDirectDraw7_StartModeTest(p,a,b,c)     (p)->StartModeTest(a,b,c)
 #define IDirectDraw7_EvaluateMode(p,a,b)        (p)->EvaluateMode(a,b)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawSurface interface
  */
@@ -1892,10 +1873,8 @@ DECLARE_INTERFACE_(IDirectDrawSurface,IUnknown)
 #define IDirectDrawSurface_UpdateOverlayDisplay(p,a)    (p)->UpdateOverlayDisplay(a)
 #define IDirectDrawSurface_UpdateOverlayZOrder(p,a,b)   (p)->UpdateOverlayZOrder(a,b)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawSurface2 interface
  */
@@ -2037,10 +2016,8 @@ DECLARE_INTERFACE_(IDirectDrawSurface2,IUnknown)
 #define IDirectDrawSurface2_PageLock(p,a)       (p)->PageLock(a)
 #define IDirectDrawSurface2_PageUnlock(p,a)     (p)->PageUnlock(a)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawSurface3 interface
  */
@@ -2188,10 +2165,8 @@ DECLARE_INTERFACE_(IDirectDrawSurface3,IUnknown)
 /*** IDirectDrawSurface3 methods ***/
 #define IDirectDrawSurface3_SetSurfaceDesc(p,a,b) (p)->SetSurfaceDesc(a,b)
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawSurface4 interface
  */
@@ -2356,10 +2331,8 @@ DECLARE_INTERFACE_(IDirectDrawSurface4,IUnknown)
 #define IDirectDrawSurface4_GetUniquenessValue(p,a)   (p)->GetUniquenessValue(a)
 #define IDirectDrawSurface4_ChangeUniquenessValue(p)  (p)->ChangeUniquenessValue()
 #endif
-#endif /* _NO_COM */
 
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawSurface7 interface
  */
@@ -2537,9 +2510,7 @@ DECLARE_INTERFACE_(IDirectDrawSurface7,IUnknown)
 #define IDirectDrawSurface7_SetLOD(p,a)               (p)->SetLOD(a)
 #define IDirectDrawSurface7_GetLOD(p,a)               (p)->GetLOD(a)
 #endif
-#endif /* _NO_COM */
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawColorControl interface
  */
@@ -2573,9 +2544,7 @@ DECLARE_INTERFACE_(IDirectDrawColorControl,IUnknown)
 #define IDirectDrawColorControl_GetColorControls(p,a) (p)->GetColorControls(a)
 #define IDirectDrawColorControl_SetColorControls(p,a) (p)->SetColorControls(a)
 #endif
-#endif /* _NO_COM */
 
-#ifndef _NO_COM
 /*****************************************************************************
  * IDirectDrawGammaControl interface
  */
@@ -2609,16 +2578,14 @@ DECLARE_INTERFACE_(IDirectDrawGammaControl,IUnknown)
 #define IDirectDrawGammaControl_GetGammaRamp(p,a,b)   (p)->GetGammaRamp(a,b)
 #define IDirectDrawGammaControl_SetGammaRamp(p,a,b)   (p)->SetGammaRamp(a,b)
 #endif
-#endif /* _NO_COM */
 
-#ifndef _NO_COM
+
 HRESULT WINAPI DirectDrawCreate(LPGUID,LPDIRECTDRAW*,LPUNKNOWN);
 HRESULT WINAPI DirectDrawCreateEx(LPGUID,LPVOID*,REFIID,LPUNKNOWN);
 HRESULT WINAPI DirectDrawEnumerateA(LPDDENUMCALLBACKA,LPVOID);
 HRESULT WINAPI DirectDrawEnumerateW(LPDDENUMCALLBACKW,LPVOID);
 #define DirectDrawEnumerate WINELIB_NAME_AW(DirectDrawEnumerate)
 HRESULT WINAPI DirectDrawCreateClipper(DWORD,LPDIRECTDRAWCLIPPER*,LPUNKNOWN);
-#endif /* _NO_COM */
 
 #ifdef __cplusplus
 } /* extern "C" */

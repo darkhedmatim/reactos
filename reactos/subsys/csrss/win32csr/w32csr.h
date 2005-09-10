@@ -4,7 +4,7 @@
 #include <ndk/ntndk.h>
 
 /* Our own BLUE.SYS Driver for Console Output */
-#include <blue/ntddblue.h>
+#include <ddk/ntddblue.h>
 
 /* External Winlogon Header */
 #include <winlogon.h>

@@ -49,9 +49,9 @@ static const WCHAR BSCBHolder[] = { '_','B','S','C','B','_','H','o','l','d','e',
 /*static BOOL registered_wndclass = FALSE;*/
 
 typedef struct {
-    const IBindingVtbl *lpVtbl;
+    IBindingVtbl *lpVtbl;
 
-    LONG ref;
+    ULONG ref;
 
     LPWSTR URLName;
 
@@ -273,7 +273,7 @@ static void Binding_FinishedDownload(Binding *This, HRESULT hr)
     This->pbscb = 0;
 }
 
-static const IBindingVtbl BindingVtbl =
+static IBindingVtbl BindingVtbl =
 {
     Binding_QueryInterface,
     Binding_AddRef,
@@ -289,9 +289,9 @@ static const IBindingVtbl BindingVtbl =
 /* filemoniker data structure */
 typedef struct {
 
-    const IMonikerVtbl* lpvtbl;  /* VTable relative to the IMoniker interface.*/
+    IMonikerVtbl*  lpvtbl;  /* VTable relative to the IMoniker interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
     LPOLESTR URLName; /* URL string identified by this URLmoniker */
 } URLMonikerImpl;
@@ -340,6 +340,8 @@ static ULONG WINAPI URLMonikerImpl_AddRef(IMoniker* iface)
 
     TRACE("(%p)->(ref before=%lu)\n",This, refCount - 1);
 
+    URLMON_LockModule();
+
     return refCount;
 }
 
@@ -357,9 +359,9 @@ static ULONG WINAPI URLMonikerImpl_Release(IMoniker* iface)
     if (!refCount) {
         HeapFree(GetProcessHeap(),0,This->URLName);
         HeapFree(GetProcessHeap(),0,This);
-
-        URLMON_UnlockModule();
     }
+
+    URLMON_UnlockModule();
 
     return refCount;
 }
@@ -598,7 +600,7 @@ static HRESULT WINAPI URLMonikerImpl_BindToStorage(IMoniker* iface,
             if(SUCCEEDED(hres)) {
                 WCHAR *urlcopy, *tmpwc;
                 URL_COMPONENTSW url;
-                WCHAR *host, *path, *partial_path, *user, *pass;
+                WCHAR *host, *path, *user, *pass;
                 DWORD lensz = sizeof(bind->expected_size);
                 DWORD dwService = 0;
                 BOOL bSuccess;
@@ -636,7 +638,7 @@ static HRESULT WINAPI URLMonikerImpl_BindToStorage(IMoniker* iface,
                 memset(&url, 0, sizeof(url));
                 url.dwStructSize = sizeof(url);
                 url.dwSchemeLength = url.dwHostNameLength = url.dwUrlPathLength = url.dwUserNameLength = url.dwPasswordLength = 1;
-                InternetCrackUrlW(urlcopy, 0, ICU_ESCAPE, &url);
+                InternetCrackUrlW(urlcopy, 0, 0, &url);
                 host = HeapAlloc(GetProcessHeap(), 0, (url.dwHostNameLength + 1) * sizeof(WCHAR));
                 memcpy(host, url.lpszHostName, url.dwHostNameLength * sizeof(WCHAR));
                 host[url.dwHostNameLength] = '\0';
@@ -797,9 +799,9 @@ static HRESULT WINAPI URLMonikerImpl_BindToStorage(IMoniker* iface,
                     break;
 
                 case INTERNET_SCHEME_FILE:
-                    partial_path = bind->URLName + 5; /* Skip the "file:" part */
-                    if ((partial_path[0] != '/' && partial_path[0] != '\\') ||
-                        (partial_path[1] != '/' && partial_path[1] != '\\'))
+                    path = bind->URLName + 5; /* Skip the "file:" part */
+                    if ((path[0] != '/' && path[0] != '\\') ||
+                        (path[1] != '/' && path[1] != '\\'))
                     {
                         hres = E_FAIL;
                     }
@@ -807,10 +809,10 @@ static HRESULT WINAPI URLMonikerImpl_BindToStorage(IMoniker* iface,
                     {
                         HANDLE h;
 
-                        partial_path += 2;
-                        if (partial_path[0] == '/' || partial_path[0] == '\\')
-                            ++partial_path;
-                        h = CreateFileW(partial_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
+                        path += 2;
+                        if (path[0] == '/' || path[0] == '\\')
+                            ++path;
+                        h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
                         if (h == (HANDLE) HFILE_ERROR)
                         {
                             hres = HRESULT_FROM_WIN32(GetLastError());
@@ -1101,7 +1103,7 @@ static HRESULT WINAPI URLMonikerImpl_IsSystemMoniker(IMoniker* iface,DWORD* pwdM
 /********************************************************************************/
 /* Virtual function table for the URLMonikerImpl class which  include IPersist,*/
 /* IPersistStream and IMoniker functions.                                       */
-static const IMonikerVtbl VT_URLMonikerImpl =
+static IMonikerVtbl VT_URLMonikerImpl =
 {
     URLMonikerImpl_QueryInterface,
     URLMonikerImpl_AddRef,
@@ -1134,7 +1136,7 @@ static const IMonikerVtbl VT_URLMonikerImpl =
 static HRESULT URLMonikerImpl_Construct(URLMonikerImpl* This, LPCOLESTR lpszLeftURLName, LPCOLESTR lpszURLName)
 {
     HRESULT hres;
-    DWORD sizeStr = INTERNET_MAX_URL_LENGTH;
+    DWORD sizeStr;
 
     TRACE("(%p,%s,%s)\n",This,debugstr_w(lpszLeftURLName),debugstr_w(lpszURLName));
     memset(This, 0, sizeof(*This));
@@ -1167,8 +1169,6 @@ static HRESULT URLMonikerImpl_Construct(URLMonikerImpl* This, LPCOLESTR lpszLeft
     }
     else
         strcpyW(This->URLName,lpszURLName);
-
-    URLMON_LockModule();
 
     return S_OK;
 }
@@ -1255,12 +1255,11 @@ HRESULT WINAPI CreateURLMoniker(IMoniker *pmkContext, LPCWSTR szURL, IMoniker **
 	return E_OUTOFMEMORY;
 
     if(pmkContext) {
+        CLSID clsid;
         IBindCtx* bind;
-        DWORD dwMksys = 0;
-        IMoniker_IsSystemMoniker(pmkContext, &dwMksys);
-        if(dwMksys == MKSYS_URLMONIKER && SUCCEEDED(CreateBindCtx(0, &bind))) {
-            IMoniker_GetDisplayName(pmkContext, bind, NULL, &lefturl);
-            TRACE("lefturl = %s\n", debugstr_w(lefturl));
+        IMoniker_GetClassID(pmkContext, &clsid);
+        if(IsEqualCLSID(&clsid, &CLSID_StdURLMoniker) && SUCCEEDED(CreateBindCtx(0, &bind))) {
+            URLMonikerImpl_GetDisplayName(pmkContext, bind, NULL, &lefturl);
             IBindCtx_Release(bind);
         }
     }
@@ -1735,13 +1734,4 @@ HRESULT WINAPI HlinkNavigateString( IUnknown *pUnk, LPCWSTR szTarget )
     TRACE("%p %s\n", pUnk, debugstr_w( szTarget ) );
     return HlinkSimpleNavigateToString( 
                szTarget, NULL, NULL, pUnk, NULL, NULL, 0, 0 );
-}
-
-/***********************************************************************
- *           GetSoftwareUpdateInfo (URLMON.@)
- */
-HRESULT WINAPI GetSoftwareUpdateInfo( LPCWSTR szDistUnit, LPSOFTDISTINFO psdi )
-{
-    FIXME("%s %p\n", debugstr_w(szDistUnit), psdi );
-    return E_FAIL;
 }

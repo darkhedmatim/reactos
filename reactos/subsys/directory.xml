@@ -1,4 +1,3 @@
-<group>
 <directory name="csrss">
 	<xi:include href="csrss/csrss.xml" />
 </directory>
@@ -14,4 +13,3 @@
 <directory name="win32k">
 	<xi:include href="win32k/win32k.xml" />
 </directory>
-</group>

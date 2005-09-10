@@ -40,8 +40,8 @@ SM_PORT_API SmApi [] =
  * with a macro) */
 PSM_CONNECT_DATA FASTCALL SmpGetConnectData (PSM_PORT_MESSAGE Request)
 {
-	PPORT_MESSAGE PortMessage = (PPORT_MESSAGE) Request;
-	return (PSM_CONNECT_DATA)(PortMessage + 1);
+	PLPC_MAX_MESSAGE LpcMaxMessage = (PLPC_MAX_MESSAGE) Request;
+	return (PSM_CONNECT_DATA) & LpcMaxMessage->Data[0];
 }
 
 #if !defined(__USE_NT_LPC__)
@@ -71,7 +71,7 @@ SmpCallbackServer (PSM_PORT_MESSAGE Request,
 
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
-	if (	((USHORT)-1 == ConnectData->SubSystemId) ||
+	if (	(IMAGE_SUBSYSTEM_UNKNOWN == ConnectData->SubSystemId) ||
 		(IMAGE_SUBSYSTEM_NATIVE  == ConnectData->SubSystemId))
 	{
 		DPRINT("SM: %s: we do not need calling back SM!\n",
@@ -107,28 +107,28 @@ VOID STDCALL
 SmpApiConnectedThread(PVOID pConnectedPort)
 {
 	NTSTATUS	Status = STATUS_SUCCESS;
-	PPORT_MESSAGE	Reply = NULL;
-	SM_PORT_MESSAGE	Request;
+	PVOID		Unknown = NULL;
+	PLPC_MESSAGE	Reply = NULL;
+	SM_PORT_MESSAGE	Request = {{0}};
 	HANDLE          ConnectedPort = * (PHANDLE) pConnectedPort;
 
 	DPRINT("SM: %s called\n", __FUNCTION__);
-    RtlZeroMemory(&Request, sizeof(SM_PORT_MESSAGE));
 
 	while (TRUE)
 	{
 		DPRINT("SM: %s: waiting for message\n",__FUNCTION__);
 
 		Status = NtReplyWaitReceivePort(ConnectedPort,
-						NULL,
+						(PULONG) & Unknown,
 						Reply,
-						(PPORT_MESSAGE) & Request);
+						(PLPC_MESSAGE) & Request);
 		if (NT_SUCCESS(Status))
 		{
 			DPRINT("SM: %s: message received (type=%d)\n",
 				__FUNCTION__,
-				Request.Header.u2.s2.Type);
+				PORT_MESSAGE_TYPE(Request));
 
-			switch (Request.Header.u2.s2.Type)
+			switch (Request.Header.MessageType)
 			{
 			case LPC_CONNECTION_REQUEST:
 				SmpHandleConnectionRequest (&Request);
@@ -146,10 +146,10 @@ SmpApiConnectedThread(PVOID pConnectedPort)
 					(Request.SmHeader.ApiIndex < (sizeof SmApi / sizeof SmApi[0])))
 				{
 					Status = SmApi[Request.SmHeader.ApiIndex](&Request);
-				      	Reply = (PPORT_MESSAGE) & Request;
+				      	Reply = (PLPC_MESSAGE) & Request;
 				} else {
 					Request.SmHeader.Status = STATUS_NOT_IMPLEMENTED;
-					Reply = (PPORT_MESSAGE) & Request;
+					Reply = (PLPC_MESSAGE) & Request;
 				}
 			}
 		} else {
@@ -187,7 +187,7 @@ SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 	DPRINT("SM: %s called:\n  SubSystemID=%d\n  SbName=\"%S\"\n",
 			__FUNCTION__, ConnectData->SubSystemId, ConnectData->SbName);
 
-	if(sizeof (SM_CONNECT_DATA) == Request->Header.u1.s1.DataLength)
+	if(sizeof (SM_CONNECT_DATA) == Request->Header.DataSize)
 	{
 		if(IMAGE_SUBSYSTEM_UNKNOWN == ConnectData->SubSystemId)
 		{
@@ -248,7 +248,7 @@ SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 #if defined(__USE_NT_LPC__)
 	Status = NtAcceptConnectPort (ClientDataApiPort,
 				      Context,
-				      (PPORT_MESSAGE) Request,
+				      (PLPC_MESSAGE) Request,
 				      Accept,
 				      NULL,
 				      NULL);
@@ -282,8 +282,8 @@ SmpHandleConnectionRequest (PSM_PORT_MESSAGE Request)
 					     NULL,
 					     FALSE,
 					     0,
-					     0,
-					     0,
+					     NULL,
+					     NULL,
 					     (PTHREAD_START_ROUTINE) SmpApiConnectedThread,
 					     ClientDataApiPort,
 					     ClientDataApiPortThread,
@@ -317,10 +317,9 @@ VOID STDCALL
 SmpApiThread (HANDLE ListeningPort)
 {
 	NTSTATUS	Status = STATUS_SUCCESS;
-	SM_PORT_MESSAGE	Request;
+	LPC_MAX_MESSAGE	Request = {{0}};
 
 	DPRINT("SM: %s called\n", __FUNCTION__);
-    RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
 
 	while (TRUE)
 	{
@@ -330,7 +329,7 @@ SmpApiThread (HANDLE ListeningPort)
 			DPRINT1("SM: %s: NtListenPort() failed! (Status==x%08lx)\n", __FUNCTION__, Status);
 			break;
 		}
-		Status = SmpHandleConnectionRequest (& Request);
+		Status = SmpHandleConnectionRequest ((PSM_PORT_MESSAGE) & Request);
 		if(!NT_SUCCESS(Status))
 		{
 			DPRINT1("SM: %s: SmpHandleConnectionRequest failed (Status=0x%08lx)\n",
@@ -363,7 +362,7 @@ SmCreateApiPort(VOID)
 
   InitializeObjectAttributes(&ObjectAttributes,
 			     &UnicodeString,
-			     0,
+			     PORT_ALL_ACCESS,
 			     NULL,
 			     NULL);
 
@@ -384,8 +383,8 @@ SmCreateApiPort(VOID)
 		      NULL,
 		      FALSE,
 		      0,
-		      0,
-		      0,
+		      NULL,
+		      NULL,
 		      (PTHREAD_START_ROUTINE)SmpApiThread,
 		      (PVOID)SmApiPort,
 		      NULL,

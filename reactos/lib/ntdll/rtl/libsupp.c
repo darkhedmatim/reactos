@@ -1,12 +1,13 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            lib/ntdll/rtl/libsup.c
  * PURPOSE:         Rtl library support routines
  * PROGRAMMER:      Gunnar Dalsnes
+ * UPDATE HISTORY:
+ *
  */
-
-/* INCLUDES *****************************************************************/
 
 #include <ntdll.h>
 #define NDEBUG
@@ -15,107 +16,57 @@
 /* FUNCTIONS ***************************************************************/
 
 KPROCESSOR_MODE
-STDCALL
 RtlpGetMode()
 {
    return UserMode;
 }
 
-PPEB
+
+PVOID
 STDCALL
-RtlpCurrentPeb(VOID)
+ExAllocatePool(
+   IN POOL_TYPE   PoolType,
+   IN SIZE_T      Bytes
+)
 {
-    return NtCurrentPeb();
-}
-
-
-/*
- * @implemented
- */
-VOID STDCALL
-RtlAcquirePebLock(VOID)
-{
-   PPEB Peb = NtCurrentPeb ();
-   Peb->FastPebLockRoutine (Peb->FastPebLock);
-}
-
-
-/*
- * @implemented
- */
-VOID STDCALL
-RtlReleasePebLock(VOID)
-{
-   PPEB Peb = NtCurrentPeb ();
-   Peb->FastPebUnlockRoutine (Peb->FastPebLock);
-}
-
-/*
-* @implemented
-*/
-ULONG
-STDCALL
-RtlGetNtGlobalFlags(VOID)
-{
-	PPEB pPeb = NtCurrentPeb();
-	return pPeb->NtGlobalFlag;
-}
-
-NTSTATUS
-STDCALL
-RtlDeleteHeapLock(
-    PRTL_CRITICAL_SECTION CriticalSection)
-{
-    return RtlDeleteCriticalSection(CriticalSection);
-}
-
-NTSTATUS
-STDCALL
-RtlEnterHeapLock(
-    PRTL_CRITICAL_SECTION CriticalSection)
-{
-    return RtlEnterCriticalSection(CriticalSection);
-}
-
-NTSTATUS
-STDCALL
-RtlInitializeHeapLock(
-    PRTL_CRITICAL_SECTION CriticalSection)
-{
-     return RtlInitializeCriticalSection(CriticalSection );
-}
-
-NTSTATUS
-STDCALL
-RtlLeaveHeapLock(
-    PRTL_CRITICAL_SECTION CriticalSection)
-{
-    return RtlLeaveCriticalSection(CriticalSection );
+   return RtlAllocateHeap (
+      RtlGetProcessHeap (),
+      0,
+      Bytes);
 }
 
 PVOID
 STDCALL
-RtlpAllocateMemory(UINT Bytes,
-                   ULONG Tag)
+ExAllocatePoolWithTag(
+   IN POOL_TYPE   PoolType,
+   IN SIZE_T      Bytes,
+   IN ULONG       Tag
+)
 {
-    UNREFERENCED_PARAMETER(Tag);
-    
-    return RtlAllocateHeap(RtlGetProcessHeap(),
-                           0,
-                           Bytes);
+   return RtlAllocateHeap (
+      RtlGetProcessHeap (),
+      0,
+      Bytes);
 }
-
 
 VOID
 STDCALL
-RtlpFreeMemory(PVOID Mem,
-               ULONG Tag)
+ExFreePool(IN PVOID Mem)
 {
-    UNREFERENCED_PARAMETER(Tag);
-    
-    RtlFreeHeap(RtlGetProcessHeap(),
-                0,
-                Mem);
+   RtlFreeHeap (
+      RtlGetProcessHeap (),
+      0,
+      Mem);
+}
+
+VOID
+STDCALL
+ExFreePoolWithTag(IN PVOID Mem, IN ULONG Tag)
+{
+   RtlFreeHeap (
+      RtlGetProcessHeap (),
+      0,
+      Mem);
 }
 
 
@@ -221,8 +172,8 @@ RtlpFreeAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
    PRTL_HANDLE_TABLE_ENTRY RtlHandleEntry;
    
    if (RtlIsValidIndexHandle(&AtomTable->RtlHandleTable,
-                             (ULONG)Entry->HandleIndex,
-                             &RtlHandleEntry))
+                             &RtlHandleEntry,
+                             (ULONG)Entry->HandleIndex))
    {
       RtlFreeHandle(&AtomTable->RtlHandleTable,
                     RtlHandleEntry);
@@ -271,8 +222,8 @@ RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
    PRTL_HANDLE_TABLE_ENTRY RtlHandle;
    
    if (RtlIsValidIndexHandle(&AtomTable->RtlHandleTable,
-                             Index,
-                             &RtlHandle))
+                             &RtlHandle,
+                             Index))
    {
       PRTL_ATOM_HANDLE AtomHandle = (PRTL_ATOM_HANDLE)RtlHandle;
 

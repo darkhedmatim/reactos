@@ -36,8 +36,6 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 	if (dwErrorCode == ERROR_SUCCESS)
 		return;
 
-  nErrorLevel = 1;
-
 	if (szFormat)
 	{
 		va_start (arg_ptr, szFormat);
@@ -80,14 +78,14 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 
 		default:
 			LoadString(CMD_ModuleHandle, STRING_ERROR_ERROR1, szMsg, RC_STRING_MAX_SIZE);
-			ConOutPrintf(szMsg);
+			ConErrPrintf(szMsg);
 			return;
 	}
 
 	if (szFormat)
-		ConOutPrintf (_T("%s -- %s\n"), szMsg, szMessage);
+		ConErrPrintf (_T("%s -- %s\n"), szMsg, szMessage);
 	else
-		ConOutPrintf (_T("%s\n"), szMsg);
+		ConErrPrintf (_T("%s\n"), szMsg);
 #endif
 }
 
@@ -97,7 +95,6 @@ VOID error_parameter_format(TCHAR ch)
 
 	LoadString(CMD_ModuleHandle, STRING_ERROR_PARAMETERF_ERROR, szMsg, RC_STRING_MAX_SIZE);
 	ConErrPrintf(szMsg, ch);
-  nErrorLevel = 1;
 }
 
 
@@ -107,7 +104,6 @@ VOID error_invalid_switch (TCHAR ch)
 
 	LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_SWITCH, szMsg, RC_STRING_MAX_SIZE);
 	ConErrPrintf(szMsg, ch);
-  nErrorLevel = 1;
 }
 
 
@@ -117,7 +113,6 @@ VOID error_too_many_parameters (LPTSTR s)
 
 	LoadString(CMD_ModuleHandle, STRING_ERROR_TOO_MANY_PARAMETERS, szMsg, RC_STRING_MAX_SIZE);
 	ConErrPrintf(szMsg, s);
-  nErrorLevel = 1;
 }
 
 
@@ -148,14 +143,12 @@ VOID error_sfile_not_found (LPTSTR f)
 VOID error_req_param_missing (VOID)
 {
 	ConErrResPuts(STRING_ERROR_REQ_PARAM_MISSING);
-  nErrorLevel = 1;
 }
 
 
 VOID error_invalid_drive (VOID)
 {
 	ConErrResPuts(STRING_ERROR_INVALID_DRIVE);
-  nErrorLevel = 1;
 }
 
 
@@ -169,21 +162,18 @@ VOID error_bad_command (VOID)
 VOID error_no_pipe (VOID)
 {
 	ConErrResPuts(STRING_ERROR_CANNOTPIPE);
-  nErrorLevel = 1;
 }
 
 
 VOID error_out_of_memory (VOID)
 {
 	ConErrResPuts(STRING_ERROR_OUT_OF_MEMORY);
-  nErrorLevel = 1;
 }
 
 
 VOID error_invalid_parameter_format (LPTSTR s)
 {
 	ConErrResPuts(STRING_ERROR_INVALID_PARAM_FORMAT);
-  nErrorLevel = 1;
 }
 
 
@@ -197,8 +187,6 @@ VOID error_syntax (LPTSTR s)
 		ConErrPrintf(_T("%s - %s\n"), szMsg, s);
 	else
 		ConErrPrintf(_T("%s.\n"), szMsg);
-
-  nErrorLevel = 1;
 }
 
 

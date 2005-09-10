@@ -60,8 +60,13 @@ CreateIoCompletionPort(
 
    if ( FileHandle != INVALID_HANDLE_VALUE )
    {
+#ifdef __USE_W32API
       CompletionInformation.Port = CompletionPort;
       CompletionInformation.Key  = (PVOID)CompletionKey;
+#else
+      CompletionInformation.IoCompletionHandle = CompletionPort;
+      CompletionInformation.CompletionKey  = CompletionKey;
+#endif
 
       errCode = NtSetInformationFile(FileHandle,
                                      &IoStatusBlock,

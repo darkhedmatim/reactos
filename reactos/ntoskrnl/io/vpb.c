@@ -86,49 +86,17 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
    PFILE_OBJECT FileObject;
    PDEVICE_OBJECT DeviceObject;
    PIRP Irp;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    PIO_STACK_LOCATION StackPtr;
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
 
+   ASSERT(IoStatusBlock != NULL);
+   ASSERT(FsInformation != NULL);
+
    DPRINT("FsInformation %p\n", FsInformation);
 
    PreviousMode = ExGetPreviousMode();
-   
-   if (PreviousMode != KernelMode)
-   {
-        _SEH_TRY
-        {
-            if (IoStatusBlock != NULL)
-            {
-                ProbeForWrite(IoStatusBlock,
-                              sizeof(IO_STATUS_BLOCK),
-                              sizeof(ULONG));
-            }
-
-            if (Length != 0)
-            {
-                ProbeForWrite(FsInformation,
-                              Length,
-                              1);
-            }
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
-
-        if (!NT_SUCCESS(Status))
-        {
-            return Status;
-        }
-   }
-   else
-   {
-       ASSERT(IoStatusBlock != NULL);
-       ASSERT(FsInformation != NULL);
-   }
 
    Status = ObReferenceObjectByHandle(FileHandle,
 				      0, /* FIXME - depends on the information class! */
@@ -197,18 +165,10 @@ NtQueryVolumeInformationFile(IN HANDLE FileHandle,
 
    if (NT_SUCCESS(Status))
      {
-        _SEH_TRY
-        {
-            DPRINT("Information %lu\n", IoStatusBlock->Information);
-            RtlCopyMemory(FsInformation,
-                          SystemBuffer,
-                          IoStatusBlock->Information);
-	}
-	_SEH_HANDLE
-	{
-            Status = _SEH_GetExceptionCode();
-	}
-        _SEH_END;
+	DPRINT("Information %lu\n", IoStatusBlock->Information);
+	MmSafeCopyToUser(FsInformation,
+			 SystemBuffer,
+			 IoStatusBlock->Information);
      }
 
    ExFreePool(SystemBuffer);
@@ -316,43 +276,10 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
    PVOID SystemBuffer;
    KPROCESSOR_MODE PreviousMode;
 
+   ASSERT(IoStatusBlock != NULL);
+   ASSERT(FsInformation != NULL);
+
    PreviousMode = ExGetPreviousMode();
-   
-   if (PreviousMode != KernelMode)
-   {
-      Status = STATUS_SUCCESS;
-      _SEH_TRY
-      {
-         if (IoStatusBlock != NULL)
-         {
-            ProbeForWrite(IoStatusBlock,
-                          sizeof(IO_STATUS_BLOCK),
-                          sizeof(ULONG));
-         }
-
-         if (Length != 0)
-         {
-            ProbeForRead(FsInformation,
-                         Length,
-                         1);
-         }
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
-      if (!NT_SUCCESS(Status))
-      {
-         return Status;
-      }
-   }
-   else
-   {
-      ASSERT(IoStatusBlock != NULL);
-      ASSERT(FsInformation != NULL);
-   }
 
    Status = ObReferenceObjectByHandle(FileHandle,
 				      FILE_WRITE_ATTRIBUTES,
@@ -379,41 +306,14 @@ NtSetVolumeInformationFile(IN HANDLE FileHandle,
 					TAG_SYSB);
    if (SystemBuffer == NULL)
      {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto failfreeirp;
+	IoFreeIrp(Irp);
+	ObDereferenceObject(FileObject);
+	return(STATUS_INSUFFICIENT_RESOURCES);
      }
 
-   if (PreviousMode != KernelMode)
-   {
-      _SEH_TRY
-      {
-         /* no need to probe again */
-         RtlCopyMemory(SystemBuffer,
-                       FsInformation,
-                       Length);
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
-      if (!NT_SUCCESS(Status))
-      {
-         ExFreePoolWithTag(SystemBuffer,
-                           TAG_SYSB);
-failfreeirp:
-         IoFreeIrp(Irp);
-         ObDereferenceObject(FileObject);
-         return Status;
-      }
-   }
-   else
-   {
-      RtlCopyMemory(SystemBuffer,
-                    FsInformation,
-                    Length);
-   }
+   MmSafeCopyFromUser(SystemBuffer,
+		      FsInformation,
+		      Length);
 
    /* Trigger FileObject/Event dereferencing */
    Irp->Tail.Overlay.OriginalFileObject = FileObject;
@@ -443,15 +343,7 @@ failfreeirp:
 			      PreviousMode,
 			      FALSE,
 			      NULL);
-        _SEH_TRY
-        {
-           Status = IoStatusBlock->Status;
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
+	Status = IoStatusBlock->Status;
      }
 
    ExFreePool(SystemBuffer);

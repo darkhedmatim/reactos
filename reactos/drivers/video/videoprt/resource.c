@@ -25,7 +25,7 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IntVideoPortMapPhysicalMemory(
    IN HANDLE Process,
    IN PHYSICAL_ADDRESS PhysicalAddress,
@@ -76,7 +76,7 @@ IntVideoPortMapPhysicalMemory(
 }
 
 
-PVOID NTAPI
+PVOID STDCALL
 IntVideoPortMapMemory(
    IN PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension,
    IN PHYSICAL_ADDRESS IoAddress,
@@ -231,7 +231,7 @@ IntVideoPortMapMemory(
    return NULL;
 }
 
-VOID NTAPI
+VOID STDCALL
 IntVideoPortUnmapMemory(
    IN PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension,
    IN PVOID MappedAddress)
@@ -283,7 +283,7 @@ IntVideoPortUnmapMemory(
  * @implemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortGetDeviceBase(
    IN PVOID HwDeviceExtension,
    IN PHYSICAL_ADDRESS IoAddress,
@@ -304,7 +304,7 @@ VideoPortGetDeviceBase(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortFreeDeviceBase(
    IN PVOID HwDeviceExtension,
    IN PVOID MappedAddress)
@@ -319,7 +319,7 @@ VideoPortFreeDeviceBase(
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortMapBankedMemory(
    IN PVOID HwDeviceExtension,
    IN PHYSICAL_ADDRESS PhysicalAddress,
@@ -341,7 +341,7 @@ VideoPortMapBankedMemory(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortMapMemory(
    IN PVOID HwDeviceExtension,
    IN PHYSICAL_ADDRESS PhysicalAddress,
@@ -371,7 +371,7 @@ VideoPortMapMemory(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortUnmapMemory(
    IN PVOID HwDeviceExtension,
    IN PVOID VirtualAddress,
@@ -390,7 +390,7 @@ VideoPortUnmapMemory(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortGetAccessRanges(
    IN PVOID HwDeviceExtension,
    IN ULONG NumRequestedResources,
@@ -576,90 +576,24 @@ VideoPortGetAccessRanges(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortVerifyAccessRanges(
    IN PVOID HwDeviceExtension,
    IN ULONG NumAccessRanges,
    IN PVIDEO_ACCESS_RANGE AccessRanges)
 {
-   PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
-   BOOLEAN ConflictDetected;
-   ULONG i;
-   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
-   PCM_RESOURCE_LIST ResourceList;
-   ULONG ResourceListSize;
-   NTSTATUS Status;
-
-   DPRINT("VideoPortVerifyAccessRanges\n");
-
-   DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
-   
-   /* Create the resource list */
-   ResourceListSize = sizeof(CM_RESOURCE_LIST)
-      + (NumAccessRanges - 1) * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
-   ResourceList = ExAllocatePool(PagedPool, ResourceListSize);
-   if (!ResourceList)
-   {
-      DPRINT("ExAllocatePool() failed\n");
-      return ERROR_INVALID_PARAMETER;
-   }
-   
-   /* Fill resource list */
-   ResourceList->Count = 1;
-   ResourceList->List[0].InterfaceType = DeviceExtension->AdapterInterfaceType;
-   ResourceList->List[0].BusNumber = DeviceExtension->SystemIoBusNumber;
-   ResourceList->List[0].PartialResourceList.Version = 1;
-   ResourceList->List[0].PartialResourceList.Revision = 1;
-   ResourceList->List[0].PartialResourceList.Count = NumAccessRanges;
-   for (i = 0; i < NumAccessRanges; i++, AccessRanges++)
-   {
-      PartialDescriptor = &ResourceList->List[0].PartialResourceList.PartialDescriptors[i];
-      if (AccessRanges->RangeInIoSpace)
-      {
-         PartialDescriptor->Type = CmResourceTypePort;
-         PartialDescriptor->u.Port.Start = AccessRanges->RangeStart;
-         PartialDescriptor->u.Port.Length = AccessRanges->RangeLength;
-      }
-      else
-      {
-         PartialDescriptor->Type = CmResourceTypeMemory;
-         PartialDescriptor->u.Memory.Start = AccessRanges->RangeStart;
-         PartialDescriptor->u.Memory.Length = AccessRanges->RangeLength;
-      }
-      if (AccessRanges->RangeShareable)
-         PartialDescriptor->ShareDisposition = CmResourceShareShared;
-      else
-         PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
-      PartialDescriptor->Flags = 0;
-      if (AccessRanges->RangePassive & VIDEO_RANGE_PASSIVE_DECODE)
-         PartialDescriptor->Flags |= CM_RESOURCE_PORT_PASSIVE_DECODE;
-      if (AccessRanges->RangePassive & VIDEO_RANGE_10_BIT_DECODE)
-         PartialDescriptor->Flags |= CM_RESOURCE_PORT_10_BIT_DECODE;
-   }
-   
-   /* Try to acquire all resource ranges */
-   Status = IoReportResourceForDetection(
-      DeviceExtension->DriverObject,
-      NULL, 0, /* Driver List */
-      DeviceExtension->PhysicalDeviceObject,
-      ResourceList, ResourceListSize,
-      &ConflictDetected);
-   ExFreePool(ResourceList);
-   
-   if (!NT_SUCCESS(Status) || ConflictDetected)
-      return ERROR_INVALID_PARAMETER;
-   else
-      return NO_ERROR;
+   DPRINT1("VideoPortVerifyAccessRanges not implemented\n");
+   return NO_ERROR;
 }
 
 /*
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortGetDeviceData(
    IN PVOID HwDeviceExtension,
    IN VIDEO_DEVICE_DATA_TYPE DeviceDataType,
@@ -675,7 +609,7 @@ VideoPortGetDeviceData(
  * @implemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortAllocatePool(
    IN PVOID HwDeviceExtension,
    IN VP_POOL_TYPE PoolType,
@@ -690,7 +624,7 @@ VideoPortAllocatePool(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortFreePool(
    IN PVOID HwDeviceExtension,
    IN PVOID Ptr)
@@ -702,7 +636,7 @@ VideoPortFreePool(
  * @implemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortAllocateBuffer(
    IN PVOID HwDeviceExtension,
    IN ULONG Size,
@@ -717,7 +651,7 @@ VideoPortAllocateBuffer(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortReleaseBuffer(
    IN PVOID HwDeviceExtension,
    IN PVOID Ptr)
@@ -730,7 +664,7 @@ VideoPortReleaseBuffer(
  * @unimplemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 VideoPortLockBuffer(
    IN PVOID HwDeviceExtension,
    IN PVOID BaseAddress,
@@ -745,7 +679,7 @@ VideoPortLockBuffer(
  * @unimplemented
  */
 
-VOID NTAPI
+VOID STDCALL
 VideoPortUnlockBuffer(
    IN PVOID HwDeviceExtension,
    IN PVOID Mdl)
@@ -757,7 +691,7 @@ VideoPortUnlockBuffer(
  * @unimplemented
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VideoPortSetTrappedEmulatorPorts(
    IN PVOID HwDeviceExtension,
    IN ULONG NumAccessRanges,
@@ -772,7 +706,7 @@ VideoPortSetTrappedEmulatorPorts(
  * @implemented
  */
 
-ULONG NTAPI
+ULONG STDCALL
 VideoPortGetBusData(
    IN PVOID HwDeviceExtension,
    IN BUS_DATA_TYPE BusDataType,
@@ -807,7 +741,7 @@ VideoPortGetBusData(
  * @implemented
  */
 
-ULONG NTAPI
+ULONG STDCALL
 VideoPortSetBusData(
    IN PVOID HwDeviceExtension,
    IN BUS_DATA_TYPE BusDataType,

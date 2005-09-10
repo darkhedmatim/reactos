@@ -41,8 +41,8 @@ typedef struct {
 } fieldstr;
 
 typedef struct {
-    const IRecordInfoVtbl *lpVtbl;
-    LONG ref;
+    IRecordInfoVtbl *lpVtbl;
+    ULONG ref;
 
     GUID guid;
     UINT lib_index;
@@ -476,7 +476,7 @@ static HRESULT WINAPI IRecordInfoImpl_RecordDestroy(IRecordInfo *iface, PVOID pv
     return S_OK;
 }
 
-static const IRecordInfoVtbl IRecordInfoImplVtbl = {
+static IRecordInfoVtbl IRecordInfoImplVtbl = {
     IRecordInfoImpl_QueryInterface,
     IRecordInfoImpl_AddRef,
     IRecordInfoImpl_Release,

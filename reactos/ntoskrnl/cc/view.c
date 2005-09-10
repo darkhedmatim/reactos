@@ -81,82 +81,11 @@ void* _alloca(size_t size);
 #error Unknown compiler for alloca intrinsic stack allocation "function"
 #endif
 
-#if defined(DBG) || defined(KDBG)
-static void CcRosCacheSegmentIncRefCount_ ( PCACHE_SEGMENT cs, const char* file, int line )
-{
-	++cs->ReferenceCount;
-	if ( cs->Bcb->Trace )
-	{
-		DbgPrint("(%s:%i) CacheSegment %p ++RefCount=%d, Dirty %d, PageOut %d\n",
-			file, line, cs, cs->ReferenceCount, cs->Dirty, cs->PageOut );
-	}
-}
-static void CcRosCacheSegmentDecRefCount_ ( PCACHE_SEGMENT cs, const char* file, int line )
-{
-	--cs->ReferenceCount;
-	if ( cs->Bcb->Trace )
-	{
-		DbgPrint("(%s:%i) CacheSegment %p --RefCount=%d, Dirty %d, PageOut %d\n",
-			file, line, cs, cs->ReferenceCount, cs->Dirty, cs->PageOut );
-	}
-}
-#define CcRosCacheSegmentIncRefCount(cs) CcRosCacheSegmentIncRefCount_(cs,__FILE__,__LINE__)
-#define CcRosCacheSegmentDecRefCount(cs) CcRosCacheSegmentDecRefCount_(cs,__FILE__,__LINE__)
-#else
-#define CcRosCacheSegmentIncRefCount(cs) (++((cs)->ReferenceCount))
-#define CcRosCacheSegmentDecRefCount(cs) (--((cs)->ReferenceCount))
-#endif
 
 NTSTATUS
 CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg);
 
 /* FUNCTIONS *****************************************************************/
-
-VOID
-STDCALL
-CcRosTraceCacheMap (
-	PBCB Bcb,
-	BOOLEAN Trace )
-{
-#if defined(DBG) || defined(KDBG)
-	KIRQL oldirql;
-	PLIST_ENTRY current_entry;
-	PCACHE_SEGMENT current;
-
-	if ( !Bcb )
-		return;
-
-	Bcb->Trace = Trace;
-
-	if ( Trace )
-	{
-		DPRINT1("Enabling Tracing for CacheMap 0x%p:\n", Bcb );
-
-		ExAcquireFastMutex(&ViewLock);
-		KeAcquireSpinLock(&Bcb->BcbLock, &oldirql);
-
-		current_entry = Bcb->BcbSegmentListHead.Flink;
-		while (current_entry != &Bcb->BcbSegmentListHead)
-		{
-			current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT, BcbSegmentListEntry);
-			current_entry = current_entry->Flink;
-
-			DPRINT1("  CacheSegment 0x%p enabled, RefCount %d, Dirty %d, PageOut %d\n",
-				current, current->ReferenceCount, current->Dirty, current->PageOut );
-		}
-		KeReleaseSpinLock(&Bcb->BcbLock, oldirql);
-		ExReleaseFastMutex(&ViewLock);
-	}
-	else
-	{
-		DPRINT1("Disabling Tracing for CacheMap 0x%p:\n", Bcb );
-	}
-
-#else
-	Bcb = Bcb;
-	Trace = Trace;
-#endif
-}
 
 NTSTATUS
 CcRosFlushCacheSegment(PCACHE_SEGMENT CacheSegment)
@@ -171,7 +100,7 @@ CcRosFlushCacheSegment(PCACHE_SEGMENT CacheSegment)
       CacheSegment->Dirty = FALSE;
       RemoveEntryList(&CacheSegment->DirtySegmentListEntry);
       DirtyPageCount -= CacheSegment->Bcb->CacheSegmentSize / PAGE_SIZE;
-      CcRosCacheSegmentDecRefCount ( CacheSegment );
+      CacheSegment->ReferenceCount--;
       KeReleaseSpinLock(&CacheSegment->Bcb->BcbLock, oldIrql);
       ExReleaseFastMutex(&ViewLock);
     }
@@ -314,7 +243,7 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 	     ULONG i;
 	     NTSTATUS Status;
 
-         CcRosCacheSegmentIncRefCount(current);
+             current->ReferenceCount++;
 	     last = current;
 	     current->PageOut = TRUE;
              KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
@@ -331,8 +260,8 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 	       }
              ExAcquireFastMutex(&ViewLock);
              KeAcquireSpinLock(&current->Bcb->BcbLock, &oldIrql);
-             CcRosCacheSegmentDecRefCount(current);
-             current->PageOut = FALSE;
+	     current->ReferenceCount--;
+	     current->PageOut = FALSE;
              KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
              current_entry = &current->CacheSegmentLRUListEntry;
 	     continue;
@@ -386,14 +315,14 @@ CcRosReleaseCacheSegment(PBCB Bcb,
      CacheSeg->MappedCount++;
   }
   KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
-  CcRosCacheSegmentDecRefCount(CacheSeg);
+  CacheSeg->ReferenceCount--;
   if (Mapped && CacheSeg->MappedCount == 1)
   {
-      CcRosCacheSegmentIncRefCount(CacheSeg);
+      CacheSeg->ReferenceCount++;
   }
   if (!WasDirty && CacheSeg->Dirty)
   {
-      CcRosCacheSegmentIncRefCount(CacheSeg);
+      CacheSeg->ReferenceCount++;
   }
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
   ExReleaseFastMutex(&ViewLock);
@@ -422,7 +351,7 @@ CcRosLookupCacheSegment(PBCB Bcb, ULONG FileOffset)
       if (current->FileOffset <= FileOffset &&
 	  (current->FileOffset + Bcb->CacheSegmentSize) > FileOffset)
 	{
-      CcRosCacheSegmentIncRefCount(current);
+	  current->ReferenceCount++;
 	  KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
           ExAcquireFastMutex(&current->Lock);
 	  return(current);
@@ -458,7 +387,7 @@ CcRosMarkDirtyCacheSegment(PBCB Bcb, ULONG FileOffset)
   else
   {
      KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
-     CcRosCacheSegmentDecRefCount(CacheSeg);
+     CacheSeg->ReferenceCount--;
      KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
   }
 
@@ -501,14 +430,14 @@ CcRosUnmapCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty)
   }
 
   KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
-  CcRosCacheSegmentDecRefCount(CacheSeg);
+  CacheSeg->ReferenceCount--;
   if (!WasDirty && NowDirty)
   {
-     CcRosCacheSegmentIncRefCount(CacheSeg);
+     CacheSeg->ReferenceCount++;
   }
   if (CacheSeg->MappedCount == 0)
   {
-     CcRosCacheSegmentDecRefCount(CacheSeg);
+     CacheSeg->ReferenceCount--;
   }
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 
@@ -551,12 +480,6 @@ CcRosCreateCacheSegment(PBCB Bcb,
   current->PageOut = FALSE;
   current->FileOffset = ROUND_DOWN(FileOffset, Bcb->CacheSegmentSize);
   current->Bcb = Bcb;
-#if defined(DBG) || defined(KDBG)
-  if ( Bcb->Trace )
-  {
-    DPRINT1("CacheMap 0x%p: new Cache Segment: 0x%p\n", Bcb, current );
-  }
-#endif
   current->MappedCount = 0;
   current->DirtySegmentListEntry.Flink = NULL;
   current->DirtySegmentListEntry.Blink = NULL;
@@ -581,17 +504,8 @@ CcRosCreateCacheSegment(PBCB Bcb,
      if (current->FileOffset <= FileOffset &&
       	(current->FileOffset + Bcb->CacheSegmentSize) > FileOffset)
      {
-	CcRosCacheSegmentIncRefCount(current);
+	current->ReferenceCount++;
 	KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
-#if defined(DBG) || defined(KDBG)
-	if ( Bcb->Trace )
-	{
-		DPRINT1("CacheMap 0x%p: deleting newly created Cache Segment 0x%p ( found existing one 0x%p )\n",
-			Bcb,
-			(*CacheSeg),
-			current );
-	}
-#endif
 	ExReleaseFastMutex(&(*CacheSeg)->Lock);
 	ExReleaseFastMutex(&ViewLock);
 	ExFreeToNPagedLookasideList(&CacheSegLookasideList, *CacheSeg);
@@ -847,12 +761,6 @@ CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg)
   KIRQL oldIrql;
 #endif
   DPRINT("Freeing cache segment 0x%p\n", CacheSeg);
-#if defined(DBG) || defined(KDBG)
-	if ( CacheSeg->Bcb->Trace )
-	{
-		DPRINT1("CacheMap 0x%p: deleting Cache Segment: 0x%p\n", CacheSeg->Bcb, CacheSeg );
-	}
-#endif
 #ifdef CACHE_BITMAP
   RegionSize = CacheSeg->Bcb->CacheSegmentSize / PAGE_SIZE;
 
@@ -970,7 +878,7 @@ CcFlushCache(IN PSECTION_OBJECT_POINTERS SectionObjectPointers,
 	    }
             KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
 	    ExReleaseFastMutex(&current->Lock);
-            CcRosCacheSegmentDecRefCount(current);
+	    current->ReferenceCount--;
 	    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 	 }
 
@@ -1045,9 +953,6 @@ CcRosDeleteFileCache(PFILE_OBJECT FileObject, PBCB Bcb)
 	 }
          InsertHeadList(&FreeList, &current->BcbSegmentListEntry);
       }
-#if defined(DBG) || defined(KDBG)
-      Bcb->Trace = FALSE;
-#endif
       KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 
       ExReleaseFastMutex(&ViewLock);

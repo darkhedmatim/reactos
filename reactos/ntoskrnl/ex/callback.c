@@ -71,8 +71,6 @@ KEVENT ExpCallbackEvent;
  * TRUE if the Callback Object Type was successfully created.
  */
 VOID
-INIT_FUNCTION
-STDCALL
 ExpInitializeCallbacks(VOID)
 {
    OBJECT_ATTRIBUTES ObjectAttributes;
@@ -91,6 +89,7 @@ ExpInitializeCallbacks(VOID)
    ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(CALLBACK_OBJECT);
    ObjectTypeInitializer.GenericMapping = ExpCallbackMapping;
    ObjectTypeInitializer.PoolType = NonPagedPool;
+   ObjectTypeInitializer.UseDefaultObject = TRUE;
 
    Status = ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExCallbackObjectType);
 

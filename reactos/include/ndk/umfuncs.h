@@ -8,166 +8,153 @@
 #define _UMFUNCS_H
 
 /* DEPENDENCIES **************************************************************/
-struct _CSR_API_MESSAGE;
-struct _CSR_CAPTURE_BUFFER;
+#include "ldrtypes.h"
+#include "lpctypes.h"
+#include "rtltypes.h"
 
 /* PROTOTYPES ****************************************************************/
 
 /*
  * CSR Functions
  */
-PVOID
-NTAPI
-CsrAllocateCaptureBuffer(
-    ULONG ArgumentCount,
-    ULONG BufferSize
-);
-
-ULONG
-NTAPI
-CsrAllocateMessagePointer(
-    struct _CSR_CAPTURE_BUFFER *CaptureBuffer,
-	ULONG MessageLength,
-	PVOID *CaptureData
-);
-
-VOID
-NTAPI
-CsrCaptureMessageBuffer(
-    struct _CSR_CAPTURE_BUFFER *CaptureBuffer,
-	PVOID MessageString,
-	ULONG StringLength,
-	PVOID *CapturedData
-);
-
 NTSTATUS
-NTAPI
+STDCALL
 CsrClientConnectToServer(
     PWSTR ObjectDirectory,
     ULONG ServerId,
-    PVOID ConnectionInfo,
-    PULONG ConnectionInfoSize,
-    PBOOLEAN ServerToServerCall
+    PVOID Unknown,
+    PVOID Context,
+    ULONG ContextLength,
+    PULONG Unknown2
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 CsrClientCallServer(
     struct _CSR_API_MESSAGE *Request,
-    struct _CSR_CAPTURE_BUFFER *CaptureBuffer OPTIONAL,
+    PVOID CapturedBuffer OPTIONAL,
     ULONG ApiNumber,
     ULONG RequestLength
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 CsrIdentifyAlertableThread(VOID);
 
-VOID
-NTAPI
-CsrFreeCaptureBuffer(struct _CSR_CAPTURE_BUFFER *CaptureBuffer);
-
 NTSTATUS
-NTAPI
+STDCALL
 CsrNewThread(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 CsrSetPriorityClass(
     HANDLE Process,
     PULONG PriorityClass
 );
 
 VOID
-NTAPI
+STDCALL
 CsrProbeForRead(
-    IN PVOID Address,
+    IN CONST PVOID Address,
     IN ULONG Length,
     IN ULONG Alignment
 );
 
 VOID
-NTAPI
+STDCALL
 CsrProbeForWrite(
-    IN PVOID Address,
+    IN CONST PVOID Address,
     IN ULONG Length,
     IN ULONG Alignment
 );
+
+NTSTATUS
+STDCALL
+CsrCaptureParameterBuffer(
+    PVOID ParameterBuffer,
+    ULONG ParameterBufferSize,
+    PVOID* ClientAddress,
+    PVOID* ServerAddress
+);
+
+NTSTATUS
+STDCALL
+CsrReleaseParameterBuffer(PVOID ClientAddress);
 
 /*
  * Debug Functions
  */
 ULONG
-__cdecl
+CDECL
 DbgPrint(
     IN PCH  Format,
     IN ...
 );
 
 VOID
-NTAPI
+STDCALL
 DbgBreakPoint(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 DbgSsInitialize(
     HANDLE ReplyPort,
-    PVOID Callback,
+    ULONG Unknown1,
     ULONG Unknown2,
     ULONG Unknown3
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 DbgUiConnectToDbg(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 DbgUiContinue(
     PCLIENT_ID ClientId,
     ULONG ContinueStatus
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 DbgUiWaitStateChange(
     ULONG Unknown1,
     ULONG Unknown2
 );
 
-VOID
-NTAPI
+NTSTATUS
+STDCALL
 DbgUiRemoteBreakin(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 DbgUiIssueRemoteBreakin(HANDLE Process);
 
 /*
  * Loader Functions
  */
 NTSTATUS
-NTAPI
+STDCALL
 LdrDisableThreadCalloutsForDll(IN PVOID BaseAddress);
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrGetDllHandle(
-    IN PWSTR DllPath OPTIONAL,
-    IN PULONG DllCharacteristics,
+    IN PWCHAR Path OPTIONAL,
+    IN ULONG Unknown2,
     IN PUNICODE_STRING DllName,
-    OUT PVOID *DllHandle
+    OUT PVOID *BaseAddress
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrFindEntryForAddress(
     IN PVOID Address,
     OUT PLDR_DATA_TABLE_ENTRY *Module
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrGetProcedureAddress(
     IN PVOID BaseAddress,
     IN PANSI_STRING Name,
@@ -176,7 +163,7 @@ LdrGetProcedureAddress(
 );
 
 VOID
-NTAPI
+STDCALL
 LdrInitializeThunk(
     ULONG Unknown1,
     ULONG Unknown2,
@@ -185,7 +172,7 @@ LdrInitializeThunk(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrLoadDll(
     IN PWSTR SearchPath OPTIONAL,
     IN ULONG LoadFlags,
@@ -194,7 +181,7 @@ LdrLoadDll(
 );
 
 PIMAGE_BASE_RELOCATION
-NTAPI
+STDCALL
 LdrProcessRelocationBlock(
     IN PVOID Address,
     IN USHORT Count,
@@ -203,7 +190,7 @@ LdrProcessRelocationBlock(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrQueryImageFileExecutionOptions(
     IN PUNICODE_STRING SubKey,
     IN PCWSTR ValueName,
@@ -214,7 +201,7 @@ LdrQueryImageFileExecutionOptions(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrQueryProcessModuleInformation(
     IN PMODULE_INFORMATION ModuleInformation OPTIONAL,
     IN ULONG Size OPTIONAL,
@@ -222,19 +209,19 @@ LdrQueryProcessModuleInformation(
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrShutdownProcess(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrShutdownThread(VOID);
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrUnloadDll(IN PVOID BaseAddress);
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrVerifyImageMatchesChecksum(
     IN HANDLE FileHandle,
     ULONG Unknown1,

@@ -6,7 +6,9 @@
 
  ** The class driver between win32k and the various mouse port drivers
 
- ** FIXME: Support IRP cancellation properly.
+ ** TODO: Change interface to win32k to a callback instead of ReadFile IO
+          Add support for multiple port devices
+
 */
 
 #include <ddk/ntddk.h>
@@ -24,7 +26,7 @@ BOOLEAN MouseClassCallBack(
    PMOUSE_INPUT_DATA MouseDataEnd, PULONG ConsumedCount)
 {
    PDEVICE_EXTENSION ClassDeviceExtension = ClassDeviceObject->DeviceExtension;
-   PIRP Irp = NULL;
+   PIRP Irp;
    KIRQL OldIrql;
    PIO_STACK_LOCATION Stack;
    ULONG InputCount = MouseDataEnd - MouseDataStart;
@@ -51,6 +53,8 @@ BOOLEAN MouseClassCallBack(
       Irp->IoStatus.Information = sizeof(MOUSE_INPUT_DATA);
       Stack->Parameters.Read.Length = sizeof(MOUSE_INPUT_DATA);
 
+      IoStartNextPacket(ClassDeviceObject, FALSE);
+      IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
       ClassDeviceExtension->ReadIsPending = FALSE;
 
       /* Skip the packet we just sent away */
@@ -90,13 +94,7 @@ BOOLEAN MouseClassCallBack(
       KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
       (*ConsumedCount) += ReadSize;
    } else {
-      DPRINT("MouseClassCallBack() entered, InputCount = %d - DOING NOTHING\n", InputCount);
-   }
-
-   if (Irp != NULL)
-   {
-      IoStartNextPacket(ClassDeviceObject, FALSE);
-      IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
+      DPRINT("MouseClassCallBack() entered, InputCount = %d - DOING NOTHING\n", *InputCount);
    }
 
    DPRINT("Leaving MouseClassCallBack\n");

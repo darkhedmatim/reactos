@@ -32,6 +32,7 @@
 #include "query.h"
 #include "wine/list.h"
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
 #define YYLEX_PARAM info
 #define YYPARSE_PARAM info
@@ -54,13 +55,12 @@ static INT SQL_getint( void *info );
 static int SQL_lex( void *SQL_lval, SQL_input *info );
 
 static void *parser_alloc( void *info, unsigned int sz );
-static column_info *parser_alloc_column( void *info, LPCWSTR table, LPCWSTR column );
 
-static BOOL SQL_MarkPrimaryKeys( column_info *cols, column_info *keys);
+static BOOL SQL_MarkPrimaryKeys( create_col_info *cols, string_list *keys);
 
 static struct expr * EXPR_complex( void *info, struct expr *l, UINT op, struct expr *r );
-static struct expr * EXPR_column( void *info, column_info *column );
-static struct expr * EXPR_ival( void *info, int val );
+static struct expr * EXPR_column( void *info, LPWSTR column );
+static struct expr * EXPR_ival( void *info, struct sql_str *, int sign );
 static struct expr * EXPR_sval( void *info, struct sql_str * );
 static struct expr * EXPR_wildcard( void *info );
 
@@ -72,11 +72,13 @@ static struct expr * EXPR_wildcard( void *info );
 {
     struct sql_str str;
     LPWSTR string;
-    column_info *column_list;
+    string_list *column_list;
+    value_list *val_list;
     MSIVIEW *query;
     struct expr *expr;
     USHORT column_type;
-    int integer;
+    create_col_info *column_info;
+    column_assignment update_col_info;
 }
 
 %token TK_ABORT TK_AFTER TK_AGG_FUNCTION TK_ALL TK_AND TK_AS TK_ASC
@@ -123,14 +125,15 @@ static struct expr * EXPR_wildcard( void *info );
 %nonassoc END_OF_FILE ILLEGAL SPACE UNCLOSED_STRING COMMENT FUNCTION
           COLUMN AGG_FUNCTION.
 
-%type <string> table id
-%type <column_list> selcollist column column_and_type column_def table_def
-%type <column_list> column_assignment update_assign_list constlist
-%type <query> query from fromtable selectfrom unorderedsel
+%type <string> column table id
+%type <column_list> selcollist
+%type <query> query from fromtable unorderedsel selectfrom
 %type <query> oneupdate onedelete oneselect onequery onecreate oneinsert
 %type <expr> expr val column_val const_val
 %type <column_type> column_type data_type data_type_l data_count
-%type <integer> number
+%type <column_info> column_def table_def
+%type <val_list> constlist
+%type <update_col_info> column_assignment update_assign_list
 
 %%
 
@@ -207,7 +210,7 @@ oneupdate:
             SQL_input* sql = (SQL_input*) info;
             MSIVIEW *update = NULL; 
 
-            UPDATE_CreateView( sql->db, &update, $2, $4, $6 );
+            UPDATE_CreateView( sql->db, &update, $2, &$4, $6 );
             if( !update )
                 YYABORT;
             $$ = update;
@@ -238,27 +241,33 @@ table_def:
     ;
 
 column_def:
-    column_def TK_COMMA column_and_type
+    column_def TK_COMMA column column_type
         {
-            column_info *ci;
+            create_col_info *ci;
 
             for( ci = $1; ci->next; ci = ci->next )
                 ;
 
-            ci->next = $3;
-            $$ = $1;
-        }
-  | column_and_type
-        {
-            $$ = $1;
-        }
-    ;
+            ci->next = HeapAlloc( GetProcessHeap(), 0, sizeof *$$ );
+            if( !ci->next )
+            {
+                /* FIXME: free $1 */
+                YYABORT;
+            }
+            ci->next->colname = $3;
+            ci->next->type = $4;
+            ci->next->next = NULL;
 
-column_and_type:
-    column column_type
-        {
             $$ = $1;
+        }
+  | column column_type
+        {
+            $$ = HeapAlloc( GetProcessHeap(), 0, sizeof *$$ );
+            if( ! $$ )
+                YYABORT;
+            $$->colname = $1;
             $$->type = $2;
+            $$->next = NULL;
         }
     ;
 
@@ -317,11 +326,13 @@ data_type:
     ;
 
 data_count:
-    number
+    TK_INTEGER
         {
-            if( ( $1 > 255 ) || ( $1 < 0 ) )
+            SQL_input* sql = (SQL_input*) info;
+            int val = SQL_getint(sql);
+            if( ( val > 255 ) || ( val < 0 ) )
                 YYABORT;
-            $$ = $1;
+            $$ = val;
         }
     ;
 
@@ -375,9 +386,30 @@ selectfrom:
 
 selcollist:
     column 
+        { 
+            string_list *list;
+
+            list = HeapAlloc( GetProcessHeap(), 0, sizeof *list );
+            if( !list )
+                YYABORT;
+            list->string = $1;
+            list->next = NULL;
+
+            $$ = list;
+            TRACE("Collist %s\n",debugstr_w($$->string));
+        }
   | column TK_COMMA selcollist
         { 
-            $1->next = $3;
+            string_list *list;
+
+            list = HeapAlloc( GetProcessHeap(), 0, sizeof *list );
+            if( !list )
+                YYABORT;
+            list->string = $1;
+            list->next = $3;
+
+            $$ = list;
+            TRACE("From table: %s\n",debugstr_w($$->string));
         }
   | TK_STAR
         {
@@ -495,18 +527,25 @@ val:
 constlist:
     const_val
         {
-            $$ = parser_alloc_column( info, NULL, NULL );
-            if( !$$ )
+            value_list *vals;
+
+            vals = parser_alloc( info, sizeof *vals );
+            if( !vals )
                 YYABORT;
-            $$->val = $1;
+            vals->val = $1;
+            vals->next = NULL;
+            $$ = vals;
         }
   | const_val TK_COMMA constlist
         {
-            $$ = parser_alloc_column( info, NULL, NULL );
-            if( !$$ )
+            value_list *vals;
+
+            vals = parser_alloc( info, sizeof *vals );
+            if( !vals )
                 YYABORT;
-            $$->val = $1;
-            $$->next = $3;
+            vals->val = $1;
+            vals->next = $3;
+            $$ = vals;
         }
     ;
 
@@ -514,29 +553,38 @@ update_assign_list:
     column_assignment
   | column_assignment TK_COMMA update_assign_list
         {
+            $1.col_list->next = $3.col_list;
+            $1.val_list->next = $3.val_list;
             $$ = $1;
-            $$->next = $3;
         }
     ;
 
 column_assignment:
     column TK_EQ const_val
         {
-            $$ = $1;
-            $$->val = $3;
+            $$.col_list = HeapAlloc( GetProcessHeap(), 0, sizeof *$$.col_list );
+            if( !$$.col_list )
+                YYABORT;
+            $$.col_list->string = $1;
+            $$.col_list->next = NULL;
+            $$.val_list = HeapAlloc( GetProcessHeap(), 0, sizeof *$$.val_list );
+            if( !$$.val_list )
+                YYABORT;
+            $$.val_list->val = $3;
+            $$.val_list->next = 0;
         }
     ;
 
 const_val:
-    number
+    TK_INTEGER
         {
-            $$ = EXPR_ival( info, $1 );
+            $$ = EXPR_ival( info, &$1, 1 );
             if( !$$ )
                 YYABORT;
         }
-  | TK_MINUS number
+  | TK_MINUS  TK_INTEGER
         {
-            $$ = EXPR_ival( info, -$2 );
+            $$ = EXPR_ival( info, &$2, -1 );
             if( !$$ )
                 YYABORT;
         }
@@ -566,15 +614,11 @@ column_val:
 column:
     table TK_DOT id
         {
-            $$ = parser_alloc_column( info, $1, $3 );
-            if( !$$ )
-                YYABORT;
+            $$ = $3;  /* FIXME */
         }
   | id
         {
-            $$ = parser_alloc_column( info, NULL, $1 );
-            if( !$$ )
-                YYABORT;
+            $$ = $1;
         }
     ;
 
@@ -594,13 +638,6 @@ id:
         }
     ;
 
-number:
-    TK_INTEGER
-        {
-            $$ = SQL_getint( info );
-        }
-    ;
-
 %%
 
 static void *parser_alloc( void *info, unsigned int sz )
@@ -611,23 +648,6 @@ static void *parser_alloc( void *info, unsigned int sz )
     mem = HeapAlloc( GetProcessHeap(), 0, sizeof (struct list) + sz );
     list_add_tail( sql->mem, mem );
     return &mem[1];
-}
-
-static column_info *parser_alloc_column( void *info, LPCWSTR table, LPCWSTR column )
-{
-    column_info *col;
-
-    col = parser_alloc( info, sizeof (*col) );
-    if( col )
-    {
-        col->table = table;
-        col->column = column;
-        col->val = NULL;
-        col->type = 0;
-        col->next = NULL;
-    }
-
-    return col;
 }
 
 int SQL_lex( void *SQL_lval, SQL_input *sql )
@@ -681,19 +701,8 @@ INT SQL_getint( void *info )
 {
     SQL_input* sql = (SQL_input*) info;
     LPCWSTR p = &sql->command[sql->n];
-    INT i, r = 0;
 
-    for( i=0; i<sql->len; i++ )
-    {
-        if( '0' > p[i] || '9' < p[i] )
-        {
-            ERR("should only be numbers here!\n");
-            break;
-        }
-        r = (p[i]-'0') + r*10;
-    }
-
-    return r;
+    return atoiW( p );
 }
 
 int SQL_error( const char *str )
@@ -724,24 +733,24 @@ static struct expr * EXPR_complex( void *info, struct expr *l, UINT op, struct e
     return e;
 }
 
-static struct expr * EXPR_column( void *info, column_info *column )
+static struct expr * EXPR_column( void *info, LPWSTR column )
 {
     struct expr *e = parser_alloc( info, sizeof *e );
     if( e )
     {
         e->type = EXPR_COLUMN;
-        e->u.sval = column->column;
+        e->u.sval = column;
     }
     return e;
 }
 
-static struct expr * EXPR_ival( void *info, int val )
+static struct expr * EXPR_ival( void *info, struct sql_str *str, int sign )
 {
     struct expr *e = parser_alloc( info, sizeof *e );
     if( e )
     {
         e->type = EXPR_IVAL;
-        e->u.ival = val;
+        e->u.ival = atoiW( str->data ) * sign;
     }
     return e;
 }
@@ -757,20 +766,19 @@ static struct expr * EXPR_sval( void *info, struct sql_str *str )
     return e;
 }
 
-static BOOL SQL_MarkPrimaryKeys( column_info *cols,
-                                 column_info *keys )
+static BOOL SQL_MarkPrimaryKeys( create_col_info *cols, string_list *keys)
 {
-    column_info *k;
+    string_list *k;
     BOOL found = TRUE;
 
     for( k = keys; k && found; k = k->next )
     {
-        column_info *c;
+        create_col_info *c;
 
         found = FALSE;
         for( c = cols; c && !found; c = c->next )
         {
-             if( lstrcmpW( k->column, c->column ) )
+             if( lstrcmpW( k->string, c->colname ) )
                  continue;
              c->type |= MSITYPE_KEY;
              found = TRUE;

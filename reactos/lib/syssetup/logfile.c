@@ -31,7 +31,7 @@
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
-#include <syssetup/syssetup.h>
+#include <syssetup.h>
 
 
 /* GLOBALS ******************************************************************/

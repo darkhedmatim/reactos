@@ -77,7 +77,7 @@ IoConnectInterrupt(PKINTERRUPT* InterruptObject,
     
     PAGED_CODE();
 
-    DPRINT("IoConnectInterrupt(Vector %x)\n",Vector);
+    DPRINT1("IoConnectInterrupt(Vector %x)\n",Vector);
 
     /* Convert the Mask */
     ProcessorEnableMask &= ((1 << KeNumberProcessors) - 1);

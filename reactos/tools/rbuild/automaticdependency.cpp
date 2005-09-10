@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #include "pch.h"
 #include <assert.h>
 
@@ -376,12 +359,11 @@ AutomaticDependency::GetIncludeDirectories ( vector<Include*>& includes,
                                              Include& currentDirectory,
                                              bool searchCurrentDirectory )
 {
-	size_t i;
 	if ( searchCurrentDirectory )
 		includes.push_back( &currentDirectory );
-	for ( i = 0; i < module.non_if_data.includes.size (); i++ )
+	for ( size_t i = 0; i < module.non_if_data.includes.size (); i++ )
 		includes.push_back( module.non_if_data.includes[i] );
-	for ( i = 0; i < module.project.non_if_data.includes.size (); i++ )
+	for ( size_t i = 0; i < module.project.non_if_data.includes.size (); i++ )
 		includes.push_back( module.project.non_if_data.includes[i] );
 }
 
@@ -470,12 +452,11 @@ void
 AutomaticDependency::CheckAutomaticDependenciesForModule ( Module& module,
                                                            bool verbose )
 {
-	size_t mi;
 	vector<const Module*> modules;
 	GetModulesToCheck ( module, modules );
-	for ( mi = 0; mi < modules.size (); mi++ )
+	for ( size_t mi = 0; mi < modules.size (); mi++ )
 		ParseFiles ( *modules[mi] );
-	for ( mi = 0; mi < modules.size (); mi++ )
+	for ( size_t mi = 0; mi < modules.size (); mi++ )
 		CheckAutomaticDependencies ( *modules[mi], verbose );
 }
 

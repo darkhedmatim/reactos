@@ -96,12 +96,14 @@ struct stub_manager *new_stub_manager(APARTMENT *apt, IUnknown *object, MSHLFLAG
     return sm;
 }
 
-/* caller must remove stub manager from apartment prior to calling this function */
+/* m->apt->cs must be held on entry to this function */
 static void stub_manager_delete(struct stub_manager *m)
 {
     struct list *cursor;
 
     TRACE("destroying %p (oid=%s)\n", m, wine_dbgstr_longlong(m->oid));
+
+    list_remove(&m->entry);
 
     /* release every ifstub */
     while ((cursor = list_head(&m->ifstubs)))
@@ -228,15 +230,9 @@ ULONG stub_manager_int_release(struct stub_manager *This)
 
     TRACE("after %ld\n", refs);
 
-    /* remove from apartment so no other thread can access it... */
-    if (!refs)
-        list_remove(&This->entry);
-
-    LeaveCriticalSection(&apt->cs);
-
-    /* ... so now we can delete it without being inside the apartment critsec */
     if (!refs)
         stub_manager_delete(This);
+    LeaveCriticalSection(&apt->cs);
 
     return refs;
 }
@@ -340,7 +336,7 @@ HRESULT ipid_to_stub_manager(const IPID *ipid, APARTMENT **stub_apt, struct stub
         *stub_apt = apartment_findfromtid(ipid->Data2);
     if (!*stub_apt)
     {
-        TRACE("Couldn't find apartment corresponding to TID 0x%04x\n", ipid->Data2);
+        ERR("Couldn't find apartment corresponding to TID 0x%04x\n", ipid->Data2);
         return RPC_E_INVALID_OBJECT;
     }
     *stubmgr_ret = get_stub_manager_from_ipid(*stub_apt, ipid);
@@ -413,9 +409,9 @@ struct ifstub *stub_manager_new_ifstub(struct stub_manager *m, IRpcStubBuffer *s
     if (!stub) return NULL;
 
     stub->stubbuffer = sb;
-    if (sb) IRpcStubBuffer_AddRef(sb);
+    IUnknown_AddRef(sb);
 
-    IUnknown_AddRef(iptr);
+    /* no need to ref this, same object as sb */
     stub->iface = iptr;
 
     stub->iid = *iid;
@@ -450,7 +446,7 @@ static void stub_manager_delete_ifstub(struct stub_manager *m, struct ifstub *if
 
     RPC_UnregisterInterface(&ifstub->iid);
         
-    if (ifstub->stubbuffer) IUnknown_Release(ifstub->stubbuffer);
+    IUnknown_Release(ifstub->stubbuffer);
     IUnknown_Release(ifstub->iface);
 
     HeapFree(GetProcessHeap(), 0, ifstub);
@@ -481,9 +477,7 @@ BOOL stub_manager_notify_unmarshal(struct stub_manager *m)
     default:
         WARN("object OID %s already unmarshaled\n",
             wine_dbgstr_longlong(m->oid));
-        ret = TRUE; /* FIXME: the state management should be per-ifstub, so
-                     * it is disabled at the moment so that InstallShield
-                     * works again */
+        ret = FALSE;
         break;
     }
 
@@ -511,9 +505,9 @@ void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs)
         break;
     }
 
-    LeaveCriticalSection(&m->lock);
-
     stub_manager_ext_release(m, refs);
+
+    LeaveCriticalSection(&m->lock);
 }
 
 /* is an ifstub table marshaled? */
@@ -545,7 +539,7 @@ const IID IID_IRemUnknown = { 0x00000131, 0, 0, {0xc0, 0, 0, 0, 0, 0, 0, 0x46} }
 typedef struct rem_unknown
 {
     const IRemUnknownVtbl *lpVtbl;
-    LONG refs;
+    ULONG refs;
 } RemUnknown;
 
 static const IRemUnknownVtbl RemUnknown_Vtbl;

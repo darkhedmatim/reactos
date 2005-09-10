@@ -514,15 +514,15 @@ BOOLEAN DIB_1BPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
    int zoomX;
    int zoomY;
    int count;
-   int saveX = 0;
+   int saveX;
    int saveY;
    BOOLEAN DesIsBiggerY=FALSE;
 
-   SrcSizeY = SourceRect->bottom - SourceRect->top;
-   SrcSizeX = SourceRect->right - SourceRect->left;
-
-   DesSizeY = DestRect->bottom - DestRect->top;
-   DesSizeX = DestRect->right - DestRect->left;
+   SrcSizeY = SourceRect->bottom;
+   SrcSizeX = SourceRect->right;
+  
+   DesSizeY = DestRect->bottom;
+   DesSizeX = DestRect->right;   
 
    zoomX = DesSizeX / SrcSizeX;
    if (zoomX==0) zoomX=1;

@@ -498,7 +498,7 @@ KiHandleFpuFault(PKTRAP_FRAME Tf, ULONG ExceptionNr)
 
       PreviousMode = ((Tf->Cs & 0xffff) == USER_CS) ? (UserMode) : (KernelMode);
       DPRINT("Math/Xmm fault happened! (PreviousMode = %s)\n",
-              (PreviousMode != KernelMode) ? ("UserMode") : ("KernelMode"));
+              (PreviousMode == UserMode) ? ("UserMode") : ("KernelMode"));
 
       ASSERT(NpxThread == CurrentThread); /* FIXME: Is not always true I think */
 

@@ -46,11 +46,8 @@ typedef struct _THEME_PARTSTATE {
     struct _THEME_PARTSTATE *next;
 } THEME_PARTSTATE, *PTHEME_PARTSTATE;
 
-struct _THEME_FILE;
-
 typedef struct _THEME_CLASS {
     HMODULE hTheme;
-    struct _THEME_FILE* tf;
     WCHAR szAppName[MAX_THEME_APP_NAME];
     WCHAR szClassName[MAX_THEME_CLASS_NAME];
     PTHEME_PARTSTATE partstate;
@@ -58,14 +55,6 @@ typedef struct _THEME_CLASS {
 
     struct _THEME_CLASS *next;
 } THEME_CLASS, *PTHEME_CLASS;
-
-typedef struct _THEME_IMAGE {
-    WCHAR name[MAX_PATH];
-    HBITMAP image;
-    BOOL hasAlpha;
-    
-    struct _THEME_IMAGE *next;
-} THEME_IMAGE, *PTHEME_IMAGE;
 
 typedef struct _THEME_FILE {
     DWORD dwRefCount;
@@ -79,14 +68,13 @@ typedef struct _THEME_FILE {
 
     PTHEME_CLASS classes;
     PTHEME_PROPERTY metrics;
-    PTHEME_IMAGE images;
 } THEME_FILE, *PTHEME_FILE;
 
 typedef void* PUXINI_FILE;
 
 HRESULT MSSTYLES_OpenThemeFile(LPCWSTR lpThemeFile, LPCWSTR pszColorName, LPCWSTR pszSizeName, PTHEME_FILE *tf);
 void MSSTYLES_CloseThemeFile(PTHEME_FILE tf);
-HRESULT MSSTYLES_SetActiveTheme(PTHEME_FILE tf, BOOL setMetrics);
+HRESULT MSSTYLES_SetActiveTheme(PTHEME_FILE tf);
 PTHEME_CLASS MSSTYLES_OpenThemeClass(LPCWSTR pszAppName, LPCWSTR pszClassList);
 HRESULT MSSTYLES_CloseThemeClass(PTHEME_CLASS tc);
 BOOL MSSTYLES_LookupProperty(LPCWSTR pszPropertyName, int *dwPrimitive, int *dwId);
@@ -97,7 +85,7 @@ PTHEME_PARTSTATE MSSTYLES_FindPartState(PTHEME_CLASS tc, int iPartId, int iState
 PTHEME_CLASS MSSTYLES_FindClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName);
 PTHEME_PROPERTY MSSTYLES_FindProperty(PTHEME_CLASS tc, int iPartId, int iStateId, int iPropertyPrimitive, int iPropertyId);
 PTHEME_PROPERTY MSSTYLES_FindMetric(int iPropertyPrimitive, int iPropertyId);
-HBITMAP MSSTYLES_LoadBitmap(PTHEME_CLASS tc, LPCWSTR lpFilename, BOOL* hasAlpha);
+HBITMAP MSSTYLES_LoadBitmap(HDC hdc, PTHEME_CLASS tc, LPCWSTR lpFilename);
 
 HRESULT MSSTYLES_GetPropertyBool(PTHEME_PROPERTY tp, BOOL *pfVal);
 HRESULT MSSTYLES_GetPropertyColor(PTHEME_PROPERTY tp, COLORREF *pColor);

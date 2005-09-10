@@ -15,7 +15,4 @@ install:
 clean:
 	@$(MAKE) -C $(TOP) $(DEFAULT)_clean
 
-test:
-	@$(MAKE) -C $(TOP) $(DEFAULT)_test
-
 $(DEFAULT)_clean: clean

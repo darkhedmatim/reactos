@@ -906,7 +906,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(7) _IDispatchProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(7) _IDispatchProxyVtbl = 
 {
     { &IID_IDispatch },
     {
@@ -929,7 +929,7 @@ static const PRPC_STUB_FUNCTION IDispatch_table[] =
     IDispatch_RemoteInvoke_Stub
 };
 
-static const CInterfaceStubVtbl _IDispatchStubVtbl =
+const CInterfaceStubVtbl _IDispatchStubVtbl =
 {
     {
         &IID_IDispatch,
@@ -1447,7 +1447,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(7) _IEnumVARIANTProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(7) _IEnumVARIANTProxyVtbl = 
 {
     { &IID_IEnumVARIANT },
     {
@@ -1470,7 +1470,7 @@ static const PRPC_STUB_FUNCTION IEnumVARIANT_table[] =
     IEnumVARIANT_Clone_Stub
 };
 
-static const CInterfaceStubVtbl _IEnumVARIANTStubVtbl =
+const CInterfaceStubVtbl _IEnumVARIANTStubVtbl =
 {
     {
         &IID_IEnumVARIANT,
@@ -2009,7 +2009,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(5) _ITypeCompProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(5) _ITypeCompProxyVtbl = 
 {
     { &IID_ITypeComp },
     {
@@ -2028,7 +2028,7 @@ static const PRPC_STUB_FUNCTION ITypeComp_table[] =
     ITypeComp_RemoteBindType_Stub
 };
 
-static const CInterfaceStubVtbl _ITypeCompStubVtbl =
+const CInterfaceStubVtbl _ITypeCompStubVtbl =
 {
     {
         &IID_ITypeComp,
@@ -4804,7 +4804,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(22) _ITypeInfoProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(22) _ITypeInfoProxyVtbl = 
 {
     { &IID_ITypeInfo },
     {
@@ -4857,7 +4857,7 @@ static const PRPC_STUB_FUNCTION ITypeInfo_table[] =
     ITypeInfo_LocalReleaseVarDesc_Stub
 };
 
-static const CInterfaceStubVtbl _ITypeInfoStubVtbl =
+const CInterfaceStubVtbl _ITypeInfoStubVtbl =
 {
     {
         &IID_ITypeInfo,
@@ -7141,7 +7141,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(37) _ITypeInfo2ProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(37) _ITypeInfo2ProxyVtbl = 
 {
     { &IID_ITypeInfo2 },
     {
@@ -7224,7 +7224,7 @@ static const PRPC_STUB_FUNCTION ITypeInfo2_table[] =
     ITypeInfo2_GetAllImplTypeCustData_Stub
 };
 
-static const CInterfaceStubVtbl _ITypeInfo2StubVtbl =
+const CInterfaceStubVtbl _ITypeInfo2StubVtbl =
 {
     {
         &IID_ITypeInfo2,
@@ -8924,7 +8924,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(13) _ITypeLibProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(13) _ITypeLibProxyVtbl = 
 {
     { &IID_ITypeLib },
     {
@@ -8959,7 +8959,7 @@ static const PRPC_STUB_FUNCTION ITypeLib_table[] =
     ITypeLib_LocalReleaseTLibAttr_Stub
 };
 
-static const CInterfaceStubVtbl _ITypeLibStubVtbl =
+const CInterfaceStubVtbl _ITypeLibStubVtbl =
 {
     {
         &IID_ITypeLib,
@@ -9631,7 +9631,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(17) _ITypeLib2ProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(17) _ITypeLib2ProxyVtbl = 
 {
     { &IID_ITypeLib2 },
     {
@@ -10330,7 +10330,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(8) _IErrorInfoProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(8) _IErrorInfoProxyVtbl = 
 {
     { &IID_IErrorInfo },
     {
@@ -10355,7 +10355,7 @@ static const PRPC_STUB_FUNCTION IErrorInfo_table[] =
     IErrorInfo_GetHelpContext_Stub
 };
 
-static const CInterfaceStubVtbl _IErrorInfoStubVtbl =
+const CInterfaceStubVtbl _IErrorInfoStubVtbl =
 {
     {
         &IID_IErrorInfo,
@@ -10926,7 +10926,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(8) _ICreateErrorInfoProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(8) _ICreateErrorInfoProxyVtbl = 
 {
     { &IID_ICreateErrorInfo },
     {
@@ -10951,7 +10951,7 @@ static const PRPC_STUB_FUNCTION ICreateErrorInfo_table[] =
     ICreateErrorInfo_SetHelpContext_Stub
 };
 
-static const CInterfaceStubVtbl _ICreateErrorInfoStubVtbl =
+const CInterfaceStubVtbl _ICreateErrorInfoStubVtbl =
 {
     {
         &IID_ICreateErrorInfo,
@@ -11080,7 +11080,7 @@ NdrStubInitialize(
     
 }
 
-static const CINTERFACE_PROXY_VTABLE(4) _ISupportErrorInfoProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(4) _ISupportErrorInfoProxyVtbl = 
 {
     { &IID_ISupportErrorInfo },
     {
@@ -11097,7 +11097,7 @@ static const PRPC_STUB_FUNCTION ISupportErrorInfo_table[] =
     ISupportErrorInfo_InterfaceSupportsErrorInfo_Stub
 };
 
-static const CInterfaceStubVtbl _ISupportErrorInfoStubVtbl =
+const CInterfaceStubVtbl _ISupportErrorInfoStubVtbl =
 {
     {
         &IID_ISupportErrorInfo,
@@ -11347,7 +11347,7 @@ static const MIDL_STUB_DESC Object_StubDesc =
     0   /* Reserved5 */
     };
 
-static const CINTERFACE_PROXY_VTABLE(4) _ITypeFactoryProxyVtbl = 
+const CINTERFACE_PROXY_VTABLE(4) _ITypeFactoryProxyVtbl = 
 {
     { &IID_ITypeFactory },
     {
@@ -11364,7 +11364,7 @@ static const PRPC_STUB_FUNCTION ITypeFactory_table[] =
     ITypeFactory_CreateFromTypeInfo_Stub
 };
 
-static const CInterfaceStubVtbl _ITypeFactoryStubVtbl =
+const CInterfaceStubVtbl _ITypeFactoryStubVtbl =
 {
     {
         &IID_ITypeFactory,
@@ -13702,39 +13702,39 @@ static const MIDL_TYPE_FORMAT_STRING __MIDL_TypeFormatString =
         }
     };
 
-static const CInterfaceProxyVtbl * _oaidl_ProxyVtblList[] = 
+const CInterfaceProxyVtbl * _oaidl_ProxyVtblList[] = 
 {
-    ( const CInterfaceProxyVtbl *) &_IDispatchProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeInfoProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeLibProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeCompProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_IEnumVARIANTProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeLib2ProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeInfo2ProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_IErrorInfoProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ITypeFactoryProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ICreateErrorInfoProxyVtbl,
-    ( const CInterfaceProxyVtbl *) &_ISupportErrorInfoProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_IDispatchProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeInfoProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeLibProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeCompProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_IEnumVARIANTProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeLib2ProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeInfo2ProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_IErrorInfoProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ITypeFactoryProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ICreateErrorInfoProxyVtbl,
+    ( CInterfaceProxyVtbl *) &_ISupportErrorInfoProxyVtbl,
     0
 };
 
-static const CInterfaceStubVtbl * _oaidl_StubVtblList[] = 
+const CInterfaceStubVtbl * _oaidl_StubVtblList[] = 
 {
-    ( const CInterfaceStubVtbl *) &_IDispatchStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeInfoStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeLibStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeCompStubVtbl,
-    ( const CInterfaceStubVtbl *) &_IEnumVARIANTStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeLib2StubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeInfo2StubVtbl,
-    ( const CInterfaceStubVtbl *) &_IErrorInfoStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ITypeFactoryStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ICreateErrorInfoStubVtbl,
-    ( const CInterfaceStubVtbl *) &_ISupportErrorInfoStubVtbl,
+    ( CInterfaceStubVtbl *) &_IDispatchStubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeInfoStubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeLibStubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeCompStubVtbl,
+    ( CInterfaceStubVtbl *) &_IEnumVARIANTStubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeLib2StubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeInfo2StubVtbl,
+    ( CInterfaceStubVtbl *) &_IErrorInfoStubVtbl,
+    ( CInterfaceStubVtbl *) &_ITypeFactoryStubVtbl,
+    ( CInterfaceStubVtbl *) &_ICreateErrorInfoStubVtbl,
+    ( CInterfaceStubVtbl *) &_ISupportErrorInfoStubVtbl,
     0
 };
 
-static const PCInterfaceName _oaidl_InterfaceNamesList[] = 
+PCInterfaceName const _oaidl_InterfaceNamesList[] = 
 {
     "IDispatch",
     "ITypeInfo",
@@ -13767,8 +13767,8 @@ int __stdcall _oaidl_IID_Lookup( const IID * pIID, int * pIndex )
 
 const ExtendedProxyFileInfo oaidl_ProxyFileInfo = 
 {
-    (const PCInterfaceProxyVtblList *) & _oaidl_ProxyVtblList,
-    (const PCInterfaceStubVtblList *) & _oaidl_StubVtblList,
+    (PCInterfaceProxyVtblList *) & _oaidl_ProxyVtblList,
+    (PCInterfaceStubVtblList *) & _oaidl_StubVtblList,
     (const PCInterfaceName * ) & _oaidl_InterfaceNamesList,
     0, /* no delegation */
     & _oaidl_IID_Lookup, 

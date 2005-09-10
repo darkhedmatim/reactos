@@ -6,7 +6,6 @@
 @ stdcall CLSIDFromProgID(wstr ptr)
 @ stdcall CLSIDFromString(wstr ptr)
 @ stdcall CoAddRefServerProcess()
-@ stdcall CoAllowSetForegroundWindow(ptr ptr)
 @ stdcall CoBuildVersion()
 @ stdcall CoCopyProxy(ptr ptr)
 @ stdcall CoCreateFreeThreadedMarshaler(ptr ptr)
@@ -66,8 +65,8 @@
 @ stdcall CoRevokeMallocSpy()
 @ stdcall CoSetProxyBlanket(ptr long long wstr long long ptr long)
 @ stdcall CoSetState(ptr)
-@ stdcall CoSuspendClassObjects()
 @ stub CoSwitchCallContext
+@ stdcall CoSuspendClassObjects()
 @ stdcall CoTaskMemAlloc(long)
 @ stdcall CoTaskMemFree(ptr)
 @ stdcall CoTaskMemRealloc(ptr long)
@@ -91,7 +90,7 @@
 @ stub CreatePointerMoniker       #@ stdcall (ptr ptr) return 0,ERR_NOTIMPLEMENTED
 @ stdcall CreateStreamOnHGlobal(ptr long ptr)
 @ stdcall DllDebugObjectRPCHook(long ptr)
-@ stdcall -private DllGetClassObject (ptr ptr ptr)
+@ stdcall -private DllGetClassObject (ptr ptr ptr) OLE32_DllGetClassObject
 @ stub DllGetClassObjectWOW
 @ stdcall -private DllRegisterServer()
 @ stdcall -private DllUnregisterServer()
@@ -147,8 +146,8 @@
 @ stub HWND_UserMarshal
 @ stub HWND_UserSize
 @ stub HWND_UserUnmarshal
-@ stdcall IIDFromString(wstr ptr) CLSIDFromString
 @ stub I_RemoteMain
+@ stdcall IIDFromString(wstr ptr) CLSIDFromString
 @ stdcall IsAccelerator(long long ptr long)
 @ stdcall IsEqualGUID(ptr ptr)
 @ stub IsValidIid
@@ -189,7 +188,7 @@
 @ stdcall OleGetIconOfClass(ptr ptr long)
 @ stub OleGetIconOfFile
 @ stdcall OleInitialize(ptr)
-@ stdcall OleInitializeWOW(long long)
+@ stdcall OleInitializeWOW(long)
 @ stdcall OleIsCurrentClipboard(ptr)
 @ stdcall OleIsRunning(ptr)
 @ stdcall OleLoad(ptr ptr ptr ptr)
@@ -227,17 +226,13 @@
 @ stdcall RegisterDragDrop(long ptr)
 @ stdcall ReleaseStgMedium(ptr)
 @ stdcall RevokeDragDrop(long)
+@ stdcall SetConvertStg(ptr long)
+@ stub SetDocumentBitStg
+@ stdcall SetErrorInfo(long ptr)
 @ stub SNB_UserFree
 @ stub SNB_UserMarshal
 @ stub SNB_UserSize
 @ stub SNB_UserUnmarshal
-@ stub STGMEDIUM_UserFree
-@ stub STGMEDIUM_UserMarshal
-@ stub STGMEDIUM_UserSize
-@ stub STGMEDIUM_UserUnmarshal
-@ stdcall SetConvertStg(ptr long)
-@ stub SetDocumentBitStg
-@ stdcall SetErrorInfo(long ptr)
 @ stdcall StgCreateDocfile(wstr long long ptr)
 @ stdcall StgCreateDocfileOnILockBytes(ptr long long ptr)
 @ stdcall StgCreatePropSetStg(ptr long ptr)
@@ -246,6 +241,10 @@
 @ stub StgGetIFillLockBytesOnILockBytes
 @ stdcall StgIsStorageFile(wstr)
 @ stdcall StgIsStorageILockBytes(ptr)
+@ stub STGMEDIUM_UserFree
+@ stub STGMEDIUM_UserMarshal
+@ stub STGMEDIUM_UserSize
+@ stub STGMEDIUM_UserUnmarshal
 @ stub StgOpenAsyncDocfileOnIFillLockBytes
 @ stdcall StgOpenStorage(wstr ptr long ptr long ptr)
 @ stdcall StgOpenStorageEx(wstr long long long ptr ptr ptr ptr)

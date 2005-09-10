@@ -405,79 +405,6 @@ ExpDisplayNotice(VOID)
     HalDisplayString(str);
     
 }
-
-INIT_FUNCTION
-NTSTATUS
-ExpLoadInitialProcess(PHANDLE ProcessHandle,
-                      PHANDLE ThreadHandle)
-{
-    UNICODE_STRING ImagePath = RTL_CONSTANT_STRING(L"\\SystemRoot\\system32\\smss.exe");
-    HANDLE SystemProcessHandle;
-    NTSTATUS Status;
-    PRTL_USER_PROCESS_PARAMETERS Params=NULL;
-    RTL_USER_PROCESS_INFORMATION Info;
-
-    /* Create a handle to the process */
-    Status = ObpCreateHandle(PsGetCurrentProcess(),
-                             PsInitialSystemProcess,
-                             PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                             FALSE,
-                             &SystemProcessHandle);
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to create a handle for the system process!\n");
-        return Status;
-    }
-
-    /* Create the Parameters */
-    Status = RtlCreateProcessParameters(&Params,
-                                        &ImagePath,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        NULL);
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to create ppb!\n");
-        ZwClose(SystemProcessHandle);
-        return Status;
-    }
-
-    DPRINT("Creating process\n");
-    Status = RtlCreateUserProcess(&ImagePath,
-                                  OBJ_CASE_INSENSITIVE,
-                                  Params,
-                                  NULL,
-                                  NULL,
-                                  SystemProcessHandle,
-                                  FALSE,
-                                  NULL,
-                                  NULL,
-                                  &Info);
-    
-    /* Close the handle and free the params */
-    ZwClose(SystemProcessHandle);
-    RtlDestroyProcessParameters(Params);
-
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtCreateProcess() failed (Status %lx)\n", Status);
-        return(Status);
-    }
-
-    /* Start it up */
-    ZwResumeThread(Info.ThreadHandle, NULL);
-
-    /* Return Handles */
-    *ProcessHandle = Info.ProcessHandle;
-    *ThreadHandle = Info.ThreadHandle;
-    DPRINT("Process created successfully\n");
-    return STATUS_SUCCESS;
-}
    
 VOID
 INIT_FUNCTION
@@ -541,7 +468,7 @@ ExpInitializeExecutive(VOID)
     ObInit();
 
     /* Initialize Lookaside Lists */
-    ExpInitLookasideLists();
+    ExInit2();
 
     /* Set up Region Maps, Sections and the Paging File */
     MmInit2();
@@ -579,7 +506,7 @@ ExpInitializeExecutive(VOID)
     HalInitSystem(1, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
     /* Initialize Basic System Objects and Worker Threads */
-    ExInit2();
+    ExInit3();
 
     /* Create the system handle table, assign it to the system process, create
        the client id table and assign a PID for the system process. This needs
@@ -648,7 +575,7 @@ ExpInitializeExecutive(VOID)
     IoInit3();
 
     /* Load the System DLL and its Entrypoints */
-    PsLocateSystemDll();
+    LdrpInitializeSystemDll();
 
     /* Initialize the Default Locale */
     PiInitDefaultLocale();
@@ -677,7 +604,7 @@ ExpInitializeExecutive(VOID)
     }
 
     /* Launch initial process */
-    Status = ExpLoadInitialProcess(&ProcessHandle,
+    Status = LdrLoadInitialProcess(&ProcessHandle,
                                    &ThreadHandle);
 
     /* Check for success, Bugcheck if we failed */
@@ -744,21 +671,25 @@ ExpInitializeExecutive(VOID)
     ZwClose(ProcessHandle);
 }
 
-VOID
-STDCALL
-INIT_FUNCTION
+VOID INIT_FUNCTION
 ExInit2(VOID)
 {
-    ExpInitializeEventImplementation();
-    ExpInitializeEventPairImplementation();
-    ExpInitializeMutantImplementation();
-    ExpInitializeSemaphoreImplementation();
-    ExpInitializeTimerImplementation();
-    LpcpInitSystem();
-    ExpInitializeProfileImplementation();
-    ExpWin32kInit();
-    ExpInitUuids();
-    ExpInitializeHandleTables();
+  ExpInitLookasideLists();
+}
+
+VOID INIT_FUNCTION
+ExInit3 (VOID)
+{
+  ExpInitializeEventImplementation();
+  ExpInitializeEventPairImplementation();
+  ExpInitializeMutantImplementation();
+  ExpInitializeSemaphoreImplementation();
+  ExpInitializeTimerImplementation();
+  LpcpInitSystem();
+  ExpInitializeProfileImplementation();
+  ExpWin32kInit();
+  ExpInitUuids();
+  ExpInitializeHandleTables();
 }
 
 /* EOF */

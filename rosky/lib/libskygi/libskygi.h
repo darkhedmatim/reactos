@@ -3,11 +3,7 @@
 
 ULONG DbgPrint(PCH Format,...);
 
-#if defined(DBG)
-#undef DBG
-#endif
-
-#define DBG DPRINT
+#define DBG DbgPrint
 #define STUB DbgPrint("Stub in %s:%i: ", __FILE__, __LINE__); DbgPrint
 
 #endif /* __LIBSKY_H */

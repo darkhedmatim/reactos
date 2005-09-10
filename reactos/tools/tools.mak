@@ -5,10 +5,6 @@ TOOLS_INT_ = $(TOOLS_INT)$(SEP)
 TOOLS_OUT = $(OUTPUT_)$(TOOLS_BASE)
 TOOLS_OUT_ = $(TOOLS_OUT)$(SEP)
 
-TOOLS_CFLAGS = -Wall -Wpointer-arith -Wno-strict-aliasing
-TOOLS_CPPFLAGS = -Wall -Wpointer-arith
-TOOLS_LFLAGS =
-
 $(TOOLS_INT): | $(INTERMEDIATE)
 	$(ECHO_MKDIR)
 	${mkdir} $@
@@ -20,9 +16,7 @@ $(TOOLS_OUT): | $(OUTPUT)
 endif
 
 
-include tools/bin2c.mak
 include tools/rsym.mak
-include tools/pefixup.mak
 include tools/bin2res/bin2res.mak
 include tools/buildno/buildno.mak
 include tools/cabman/cabman.mak

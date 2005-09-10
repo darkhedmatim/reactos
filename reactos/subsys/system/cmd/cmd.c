@@ -164,10 +164,10 @@ HANDLE hIn;
 HANDLE hOut;
 HANDLE hConsole;
 HANDLE CMD_ModuleHandle;
-HMODULE NtDllModule;
 
-static NtQueryInformationProcessProc NtQueryInformationProcessPtr = NULL;
-static NtReadVirtualMemoryProc       NtReadVirtualMemoryPtr = NULL;
+static NtQueryInformationProcessProc NtQueryInformationProcessPtr;
+static NtReadVirtualMemoryProc       NtReadVirtualMemoryPtr;
+static BOOL NtDllChecked = FALSE;
 
 #ifdef INCLUDE_CMD_COLOR
 WORD wColor;              /* current color */
@@ -193,6 +193,28 @@ static BOOL IsConsoleProcess(HANDLE Process)
 	PROCESS_BASIC_INFORMATION Info;
 	PEB ProcessPeb;
 	ULONG BytesRead;
+	HMODULE NtDllModule;
+
+	/* Some people like to run ReactOS cmd.exe on Win98, it helps in the
+           build process. So don't link implicitly against ntdll.dll, load it
+           dynamically instead */
+	if (! NtDllChecked)
+	{
+		NtDllChecked = TRUE;
+		NtDllModule = LoadLibrary(_T("ntdll.dll"));
+		if (NULL == NtDllModule)
+		{
+			/* Probably non-WinNT system. Just wait for the commands
+                           to finish. */
+			NtQueryInformationProcessPtr = NULL;
+			NtReadVirtualMemoryPtr = NULL;
+			return TRUE;
+		}
+		NtQueryInformationProcessPtr = (NtQueryInformationProcessProc)
+                                               GetProcAddress(NtDllModule, "NtQueryInformationProcess");
+		NtReadVirtualMemoryPtr = (NtReadVirtualMemoryProc)
+		                         GetProcAddress(NtDllModule, "NtReadVirtualMemory");
+	}
 
 	if (NULL == NtQueryInformationProcessPtr || NULL == NtReadVirtualMemoryPtr)
 	{
@@ -287,98 +309,22 @@ static BOOL RunFile(LPTSTR filename)
 /*
  * This command (in first) was not found in the command table
  *
- * Full  - whole command line
- * First - first word on command line
- * Rest  - rest of command line
+ * first - first word on command line
+ * rest  - rest of command line
  */
 
 static VOID
-Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest)
+Execute (LPTSTR full, LPTSTR first, LPTSTR rest)
 {
 	TCHAR szFullName[MAX_PATH];
-	TCHAR *first = NULL;
-	TCHAR *rest = NULL; 
-	TCHAR *full = NULL; 
+#ifndef __REACTOS__
 	TCHAR szWindowTitle[MAX_PATH];
+#endif
 	DWORD dwExitCode = 0;
 
 #ifdef _DEBUG
 	DebugPrintf (_T("Execute: \'%s\' \'%s\'\n"), first, rest);
 #endif
-
-	/* we need biger buffer that First, Rest, Full are already 
-	   need rewrite some code to use realloc when it need instead 
-	   of add 512bytes extra */
-
-	first = malloc ( _tcslen(First) + 512 * sizeof(TCHAR)); 
-	if (first == NULL)
-	{
-	 error_out_of_memory();
-	 return ;
-	}
-
-	rest =	malloc ( _tcslen(Rest) + 512 * sizeof(TCHAR)); 
-	if (rest == NULL)
-	{
-	 free (full);
-	 error_out_of_memory();
-	 return ;
-	}
-
-	full =	malloc ( _tcslen(Full) + 512 * sizeof(TCHAR));
-	if (full == NULL)
-	{
-	 free (full);
-	 free (rest);
-	 error_out_of_memory();
-	 return ;
-	}
-
-
-	/* Though it was already parsed once, we have a different set of rules
-	   for parsing before we pass to CreateProccess */
-	if(!_tcschr(Full,_T('\"')))
-	{		 
-		_tcscpy(first,First);
-		_tcscpy(rest,Rest);
-		_tcscpy(full,Full);
-	}
-	else
-	{
-		INT i = 0;		
-		BOOL bInside = FALSE;
-		rest[0] = _T('\0');
-		full[0] = _T('\0');
-		first[0] = _T('\0');
-		_tcscpy(first,Full);
-		/* find the end of the command and start of the args */
-		for(i = 0; i < _tcslen(first); i++)
-		{
-			if(!_tcsncmp(&first[i], _T("\""), 1))
-				bInside = !bInside;
-			if(!_tcsncmp(&first[i], _T(" "), 1) && !bInside)
-			{
-				_tcscpy(rest,&first[i]);
-				first[i] = _T('\0');
-				break;
-			}
-
-		}
-		i = 0;
-		/* remove any slashes */
-		while(i < _tcslen(first))
-		{
-			if(first[i] == _T('\"'))
-				memmove(&first[i],&first[i + 1], _tcslen(&first[i]) * sizeof(TCHAR));
-			else
-				i++;
-		}
-		/* Drop quotes around it just in case there is a space */
-		_tcscpy(full,_T("\""));
-		_tcscat(full,first);
-		_tcscat(full,_T("\" "));
-		_tcscat(full,rest);
-	}
 
 	/* check for a drive change */
 	if ((_istalpha (first[0])) && (!_tcscmp (first + 1, _T(":"))))
@@ -408,7 +354,9 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest)
 		return;
 	}
 
+#ifndef __REACTOS__
 	GetConsoleTitle (szWindowTitle, MAX_PATH);
+#endif
 
 	/* check if this is a .BAT or .CMD file */
 	if (!_tcsicmp (_tcsrchr (szFullName, _T('.')), _T(".bat")) ||
@@ -490,11 +438,9 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest)
 	/* Get code page if it has been change */
 	InputCodePage= GetConsoleCP();
     OutputCodePage = GetConsoleOutputCP();
-    SetConsoleTitle (szWindowTitle);
-
- free(first);
- free(rest);
- free(full);
+#ifndef __REACTOS__
+	SetConsoleTitle (szWindowTitle);
+#endif
 }
 
 
@@ -630,7 +576,7 @@ VOID ParseCommandLine (LPTSTR cmd)
 	INT  nRedirFlags = 0;
 	INT  Length;
 	UINT Attributes;
-	BOOL bNewBatch = TRUE;
+
 	HANDLE hOldConIn;
 	HANDLE hOldConOut;
 	HANDLE hOldConErr;
@@ -683,20 +629,6 @@ VOID ParseCommandLine (LPTSTR cmd)
 		;
 	_tcscpy (err, t);
 
-	if(bc && !_tcslen (in) && _tcslen (bc->In))
-		_tcscpy(in, bc->In);
-	if(bc && !out[0] && _tcslen(bc->Out))
-	{
-		nRedirFlags |= OUTPUT_APPEND;
-		_tcscpy(out, bc->Out);
-	}
-	if(bc && !_tcslen (err) && _tcslen (bc->Err))
-	{
-		nRedirFlags |= ERROR_APPEND;
-		_tcscpy(err, bc->Err);
-	}
-		
-
 	/* Set up the initial conditions ... */
 	/* preserve STDIN, STDOUT and STDERR handles */
 	hOldConIn  = GetStdHandle (STD_INPUT_HANDLE);
@@ -709,10 +641,6 @@ VOID ParseCommandLine (LPTSTR cmd)
 		HANDLE hFile;
 		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
 
-    /* we need make sure the LastError msg is zero before calling CreateFile */
-		SetLastError(0); 
-
-    /* Set up pipe for the standard input handler */
 		hFile = CreateFile (in, GENERIC_READ, FILE_SHARE_READ, &sa, OPEN_EXISTING,
 		                    FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hFile == INVALID_HANDLE_VALUE)
@@ -723,7 +651,7 @@ VOID ParseCommandLine (LPTSTR cmd)
 		}
 
 		if (!SetStdHandle (STD_INPUT_HANDLE, hFile))
-		{      
+		{
 			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR1, szMsg, RC_STRING_MAX_SIZE);
 			ConErrPrintf(szMsg, in);
 			return;
@@ -740,19 +668,15 @@ VOID ParseCommandLine (LPTSTR cmd)
 	while (num-- > 1)
 	{
 		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-    
-    /* Create unique temporary file name */
-		GetTempFileName (szTempPath, _T("CMD"), 0, szFileName[1]);
 
-    /* we need make sure the LastError msg is zero before calling CreateFile */
-		 SetLastError(0); 
+		/* Create unique temporary file name */
+		GetTempFileName (szTempPath, _T("CMD"), 0, szFileName[1]);
 
 		/* Set current stdout to temporary file */
 		hFile[1] = CreateFile (szFileName[1], GENERIC_WRITE, 0, &sa,
 				       TRUNCATE_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
-		
-    if (hFile[1] == INVALID_HANDLE_VALUE)
-		{            
+		if (hFile[1] == INVALID_HANDLE_VALUE)
+		{
 			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR2, szMsg, RC_STRING_MAX_SIZE);
 			ConErrPrintf(szMsg);
 			return;
@@ -785,9 +709,6 @@ VOID ParseCommandLine (LPTSTR cmd)
 		_tcscpy (szFileName[0], szFileName[1]);
 		*szFileName[1] = _T('\0');
 
-    /* we need make sure the LastError msg is zero before calling CreateFile */
-		SetLastError(0); 
-
 		/* open new stdin file */
 		hFile[0] = CreateFile (szFileName[0], GENERIC_READ, 0, &sa,
 		                       OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
@@ -803,37 +724,15 @@ VOID ParseCommandLine (LPTSTR cmd)
 		/* Final output to here */
 		HANDLE hFile;
 		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-		
-    /* we need make sure the LastError msg is zero before calling CreateFile */
-		SetLastError(0); 
 
-    hFile = CreateFile (out, GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE, &sa,
+		hFile = CreateFile (out, GENERIC_WRITE, FILE_SHARE_READ, &sa,
 		                    (nRedirFlags & OUTPUT_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
-		                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
-		
-    if (hFile == INVALID_HANDLE_VALUE)
+		                    FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile == INVALID_HANDLE_VALUE)
 		{
-      INT size = _tcslen(out)-1;
-      
-      if (out[size] != _T(':'))
-      {
-			   LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
-			   ConErrPrintf(szMsg, out);
-			   return;
-      }
-      
-      out[size]=_T('\0');
-      hFile = CreateFile (out, GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE, &sa,
-		                    (nRedirFlags & OUTPUT_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
-		                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
-
-     if (hFile == INVALID_HANDLE_VALUE)
-     {
-			   LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
-			   ConErrPrintf(szMsg, out);
-			   return;
-      }
-      
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, out);
+			return;
 		}
 
 		if (!SetStdHandle (STD_OUTPUT_HANDLE, hFile))
@@ -885,10 +784,10 @@ VOID ParseCommandLine (LPTSTR cmd)
 		{
 			hFile = CreateFile (err,
 			                    GENERIC_WRITE,
-			                    FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
+			                    0,
 			                    &sa,
 			                    (nRedirFlags & ERROR_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
-			                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
+			                    FILE_ATTRIBUTE_NORMAL,
 			                    NULL);
 			if (hFile == INVALID_HANDLE_VALUE)
 			{
@@ -925,17 +824,12 @@ VOID ParseCommandLine (LPTSTR cmd)
 			CloseHandle (hErr);
 		hOldConErr = INVALID_HANDLE_VALUE;
 	}
-
-	if(bc)
-		bNewBatch = FALSE;
 #endif
 
 	/* process final command */
 	DoCommand (s);
 
 #ifdef FEATURE_REDIRECTION
-	if(bNewBatch && bc)
-		AddBatchRedirection(in, out, err);
 	/* close old stdin file */
 #if 0  /* buggy implementation */
 	SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
@@ -1037,7 +931,7 @@ ProcessInput (BOOL bFlag)
 	LPTSTR cp;
 	BOOL bEchoThisLine;
 
- 
+
 	do
 	{
 		/* if no batch input then... */
@@ -1054,7 +948,7 @@ ProcessInput (BOOL bFlag)
 		cp = commandline;
 		while (*ip)
 		{
-         if (*ip == _T('%'))
+			if (*ip == _T('%'))
 			{
 				switch (*++ip)
 				{
@@ -1104,14 +998,12 @@ ProcessInput (BOOL bFlag)
 		            GetCurrentDirectory (MAX_PATH, szPath);
                 cp = _stpcpy (cp, szPath);                 
               }
+
               /* %TIME% */
               else if (_tcsicmp(ip,_T("time")) ==0)
               {
-                TCHAR szTime[40];                                                                               
-                SYSTEMTIME t;
-                GetSystemTime(&t); 
-
-                _sntprintf(szTime ,40,_T("%02d%c%02d%c%02d%c%02d"), t.wHour, cTimeSeparator,t.wMinute , cTimeSeparator,t.wSecond , cDecimalSeparator, t.wMilliseconds );
+                TCHAR szTime[40];                                                               
+                GetTimeFormat(LOCALE_USER_DEFAULT, 0, NULL, NULL, szTime, sizeof(szTime));              
                 cp = _stpcpy (cp, szTime);                 	              
               }
               
@@ -1172,18 +1064,8 @@ ProcessInput (BOOL bFlag)
                 evar = malloc ( 512 * sizeof(TCHAR));
                 if (evar==NULL) 
                     return 1; 
-					 SetLastError(0);
+
                 size = GetEnvironmentVariable (ip, evar, 512);
-					 if(GetLastError() == ERROR_ENVVAR_NOT_FOUND)
-					 {
-						 /* if no env var is found you must 
-						    continue with what was input*/
-					   cp = _stpcpy (cp, _T("%"));
-						cp = _stpcpy (cp, ip);
-						cp = _stpcpy (cp, _T("%"));
-					 }
-					 else
-					 {
                 if (size > 512)
                 {
                     evar = realloc(evar,size * sizeof(TCHAR) );
@@ -1198,7 +1080,6 @@ ProcessInput (BOOL bFlag)
                 {
 								 cp = _stpcpy (cp, evar);
                 }
-					 }
 
                 free(evar);
               }
@@ -1338,35 +1219,9 @@ Initialize (int argc, TCHAR* argv[])
 	TCHAR commandline[CMDLINE_LENGTH];
 	TCHAR ModuleName[_MAX_PATH + 1];
 	INT i;
-	TCHAR lpBuffer[2];
 
 	//INT len;
 	//TCHAR *ptr, *cmdLine;
-	
-	/* get version information */
-	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	GetVersionEx (&osvi);
-
-	/* Some people like to run ReactOS cmd.exe on Win98, it helps in the
-           build process. So don't link implicitly against ntdll.dll, load it
-           dynamically instead */
-
-	if (osvi.dwPlatformId == VER_PLATFORM_WIN32_NT)
-	{
-		/* ntdll is always present on NT */
-		NtDllModule = GetModuleHandle(TEXT("ntdll.dll"));
-	}
-	else
-	{
-		/* not all 9x versions have a ntdll.dll, try to load it */
-		NtDllModule = LoadLibrary(TEXT("ntdll.dll"));
-	}
-
-	if (NtDllModule != NULL)
-	{
-		NtQueryInformationProcessPtr = (NtQueryInformationProcessProc)GetProcAddress(NtDllModule, "NtQueryInformationProcess");
-		NtReadVirtualMemoryPtr = (NtReadVirtualMemoryProc)GetProcAddress(NtDllModule, "NtReadVirtualMemory");
-	}
 
 
 #ifdef _DEBUG
@@ -1380,18 +1235,15 @@ Initialize (int argc, TCHAR* argv[])
 	DebugPrintf (_T("]\n"));
 #endif
 
+	/* get version information */
+	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	GetVersionEx (&osvi);
+
 	InitLocale ();
 
 	/* get default input and output console handles */
 	hOut = GetStdHandle (STD_OUTPUT_HANDLE);
 	hIn  = GetStdHandle (STD_INPUT_HANDLE);
-
-	/* Set EnvironmentVariable PROMPT if it does not exists any env value. 
-	   for you can change the EnvirommentVariable for prompt before cmd start 
-	   this patch are not 100% right, if it does not exists a PROMPT value cmd should use
-	   $P$G as defualt not set EnvirommentVariable PROMPT to $P$G if it does not exists */
-	if (GetEnvironmentVariable(_T("PROMPT"),lpBuffer, 2 * sizeof(TCHAR)) == 0) 
-	    SetEnvironmentVariable (_T("PROMPT"), _T("$P$G"));
 
 
 	if (argc >= 2 && !_tcsncmp (argv[1], _T("/?"), 2))
@@ -1590,11 +1442,6 @@ static VOID Cleanup (int argc, TCHAR *argv[])
 	RemoveBreakHandler ();
 	SetConsoleMode( GetStdHandle( STD_INPUT_HANDLE ),
 			ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT );
-
-	if (NtDllModule != NULL)
-	{
-		FreeLibrary(NtDllModule);
-	}
 }
 
 #ifdef __REACTOS__
@@ -1648,12 +1495,11 @@ PWCHAR * _CommandLineToArgvW(PWCHAR lpCmdLine, int *pNumArgs)
  * main function
  */
 #ifdef _UNICODE
-int _main(void)
+int main(void)
 #else
-int _main (int argc, char *argv[])
+int main (int argc, char *argv[])
 #endif
 {
-  TCHAR startPath[MAX_PATH];
   CONSOLE_SCREEN_BUFFER_INFO Info;
   INT nExitCode;
 #ifdef _UNICODE
@@ -1665,9 +1511,7 @@ int _main (int argc, char *argv[])
   argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 #endif
 #endif
-      
-  GetCurrentDirectory(MAX_PATH,startPath);
-  _tchdir(startPath);
+     
 
   SetFileApisToOEM();
   InputCodePage= 0;
@@ -1678,7 +1522,7 @@ int _main (int argc, char *argv[])
 			OPEN_EXISTING, 0, NULL);
   if (GetConsoleScreenBufferInfo(hConsole, &Info) == FALSE)
     {
-      ConErrFormatMessage(GetLastError());
+      ConOutFormatMessage(GetLastError());
       return(1);
     }
   wColor = Info.wAttributes;

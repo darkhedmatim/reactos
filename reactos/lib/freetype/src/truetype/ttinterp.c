@@ -844,17 +844,22 @@
   /*************************************************************************/
   /*                                                                       */
   /* Before an opcode is executed, the interpreter verifies that there are */
-  /* enough arguments on the stack, with the help of the `Pop_Push_Count'  */
+  /* enough arguments on the stack, with the help of the Pop_Push_Count    */
   /* table.                                                                */
   /*                                                                       */
   /* For each opcode, the first column gives the number of arguments that  */
   /* are popped from the stack; the second one gives the number of those   */
   /* that are pushed in result.                                            */
   /*                                                                       */
-  /* Opcodes which have a varying number of parameters in the data stream  */
-  /* (NPUSHB, NPUSHW) are handled specially; they have a negative value in */
-  /* the `opcode_length' table, and the value in `Pop_Push_Count' is set   */
-  /* to zero.                                                              */
+  /* Note that for opcodes with a varying number of parameters, either 0   */
+  /* or 1 arg is verified before execution, depending on the nature of the */
+  /* instruction:                                                          */
+  /*                                                                       */
+  /* - if the number of arguments is given by the bytecode stream or the   */
+  /*   loop variable, 0 is chosen.                                         */
+  /*                                                                       */
+  /* - if the first argument is a count n that is followed by arguments    */
+  /*   a1 .. an, then 1 is chosen.                                         */
   /*                                                                       */
   /*************************************************************************/
 
@@ -1151,7 +1156,7 @@
     1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
     1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
 
-   -1,-2, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
+   -1,-1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
     1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
     1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
     1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,
@@ -2469,7 +2474,7 @@
     W = Vx * Vx + Vy * Vy;
 
     /* Now, we want that Sqrt( W ) = 0x4000 */
-    /* Or 0x10000000 <= W < 0x10004000        */
+    /* Or 0x1000000 <= W < 0x1004000        */
 
     if ( Vx < 0 )
     {
@@ -2487,7 +2492,7 @@
     else
       S2 = FALSE;
 
-    while ( W < 0x10000000L )
+    while ( W < 0x1000000L )
     {
       /* We need to increase W by a minimal amount */
       if ( Vx < Vy )
@@ -2498,7 +2503,7 @@
       W = Vx * Vx + Vy * Vy;
     }
 
-    while ( W >= 0x10004000L )
+    while ( W >= 0x1004000L )
     {
       /* We need to decrease W by a minimal amount */
       if ( Vx < Vy )
@@ -4156,7 +4161,7 @@
       {
         if ( CUR.IP + 1 > CUR.codeSize )
           goto Fail_Overflow;
-        CUR.length = 2 - CUR.length * CUR.code[CUR.IP + 1];
+        CUR.length = CUR.code[CUR.IP + 1] + 2;
       }
 
       if ( CUR.IP + CUR.length <= CUR.codeSize )
@@ -6612,6 +6617,8 @@
   /* Opcode range: 0x88                                                    */
   /* Stack:        uint32 --> uint32                                       */
   /*                                                                       */
+  /* XXX: According to Apple specs, bits 1 & 2 of the argument ought to be */
+  /*      consulted before rotated/stretched info is returned.             */
   static void
   Ins_GETINFO( INS_ARG )
   {
@@ -6620,21 +6627,18 @@
 
     K = 0;
 
-    /* We return MS rasterizer version 1.7 for the font scaler. */
+    /* We return then Windows 3.1 version number */
+    /* for the font scaler                       */
     if ( ( args[0] & 1 ) != 0 )
-      K = 35;
+      K = 3;
 
-    /* Has the glyph been rotated? */
-    if ( ( args[0] & 2 ) != 0 && CUR.tt_metrics.rotated )
+    /* Has the glyph been rotated ? */
+    if ( CUR.tt_metrics.rotated )
       K |= 0x80;
 
-    /* Has the glyph been stretched? */
-    if ( ( args[0] & 4 ) != 0 && CUR.tt_metrics.stretched )
-      K |= 1 << 8;
-
-    /* Are we hinting for grayscale? */
-    if ( ( args[0] & 32 ) != 0 && CUR.grayscale )
-      K |= (1 << 12);
+    /* Has the glyph been stretched ? */
+    if ( CUR.tt_metrics.stretched )
+      K |= 0x100;
 
     args[0] = K;
   }
@@ -7039,7 +7043,7 @@
         if ( CUR.IP + 1 > CUR.codeSize )
           goto LErrorCodeOverflow_;
 
-        CUR.length = 2 - CUR.length * CUR.code[CUR.IP + 1];
+        CUR.length = CUR.code[CUR.IP + 1] + 2;
       }
 
       if ( CUR.IP + CUR.length > CUR.codeSize )

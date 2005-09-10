@@ -5,6 +5,5 @@
 #define REACTOS_STR_INTERNAL_NAME	"userinit\0"
 #define REACTOS_STR_ORIGINAL_FILENAME	"userinit.dll\0"
 #include <reactos/version.rc>
-
 #include "En.rc"
-#include "Sv.rc"
+

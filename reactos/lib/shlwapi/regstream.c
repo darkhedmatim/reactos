@@ -35,9 +35,8 @@
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 typedef struct
-{
-	const IStreamVtbl *lpVtbl;
-	LONG   ref;
+{	IStreamVtbl *lpVtbl;
+	DWORD  ref;
 	HKEY   hKey;
 	LPBYTE pbBuffer;
 	DWORD  dwLength;
@@ -256,7 +255,7 @@ static HRESULT WINAPI IStream_fnClone (IStream * iface, IStream** ppstm)
 	return E_NOTIMPL;
 }
 
-static const IStreamVtbl rstvt =
+static struct IStreamVtbl rstvt =
 {
 	IStream_fnQueryInterface,
 	IStream_fnAddRef,
@@ -306,7 +305,7 @@ static HRESULT WINAPI IStream_fnReadDummy(IStream *iface, LPVOID pv, ULONG cb, U
   return E_NOTIMPL;
 }
 
-static const IStreamVtbl DummyRegStreamVTable =
+static struct IStreamVtbl DummyRegStreamVTable =
 {
   IStream_fnQueryInterface,
   IStream_fnAddRefDummy,  /* Overridden */

@@ -147,7 +147,6 @@ typedef struct tagME_Paragraph
   int nFlags;
   int nYPos, nHeight;
   int nLastPaintYPos, nLastPaintHeight;
-  int nRows;
   struct tagME_DisplayItem *prev_para, *next_para, *document;
 } ME_Paragraph;
 
@@ -247,7 +246,6 @@ typedef struct tagME_FontCacheItem
 typedef struct tagME_TextEditor
 {
   HWND hWnd;
-  BOOL bEmulateVersion10;
   BOOL bCaretShown;
   ME_TextBuffer *pBuffer;
   ME_Cursor *pCursors;
@@ -269,9 +267,6 @@ typedef struct tagME_TextEditor
   ME_OutStream *pStream;
   BOOL bScrollX, bScrollY;
   int nScrollPosY;
-  int nZoomNumerator, nZoomDenominator;
-  RECT rcFormat;
-  BOOL bRedraw;
 } ME_TextEditor;
 
 typedef struct tagME_Context

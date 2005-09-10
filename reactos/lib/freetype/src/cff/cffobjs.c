@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    OpenType objects manager (body).                                     */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -74,49 +74,30 @@
     sbit_metrics = &size->strike_metrics;
 
     error = sfnt->set_sbit_strike( face,
-                                   metrics->x_ppem,
-                                   metrics->y_ppem,
+                                   metrics->x_ppem, metrics->y_ppem,
                                    &strike_index );
 
     if ( !error )
     {
-      /* XXX: TODO: move this code to the SFNT module where it belongs */
-
-#ifdef FT_OPTIMIZE_MEMORY
-
-      FT_Byte*    strike = face->sbit_table + 8 + strike_index*48;
-
-      sbit_metrics->ascender  = (FT_Char)strike[16] << 6;  /* hori.ascender  */
-      sbit_metrics->descender = (FT_Char)strike[17] << 6;  /* hori.descender */
-
-      /* XXX: Is this correct? */
-      sbit_metrics->max_advance = ( (FT_Char)strike[22] + /* min_origin_SB  */
-                                             strike[18] + /* max_width      */
-                                    (FT_Char)strike[23]   /* min_advance_SB */
-                                                        ) << 6;
-
-#else /* !OPTIMIZE_MEMORY */
-
       TT_SBit_Strike  strike = face->sbit_strikes + strike_index;
 
 
+      sbit_metrics->x_ppem = metrics->x_ppem;
+      sbit_metrics->y_ppem = metrics->y_ppem;
+
       sbit_metrics->ascender  = strike->hori.ascender << 6;
       sbit_metrics->descender = strike->hori.descender << 6;
+
+      /* XXX: Is this correct? */
+      sbit_metrics->height = sbit_metrics->ascender -
+                             sbit_metrics->descender;
 
       /* XXX: Is this correct? */
       sbit_metrics->max_advance = ( strike->hori.min_origin_SB  +
                                     strike->hori.max_width      +
                                     strike->hori.min_advance_SB ) << 6;
 
-#endif /* !OPTIMIZE_MEMORY */
-
-      /* XXX: Is this correct? */
-      sbit_metrics->height = sbit_metrics->ascender -
-                             sbit_metrics->descender;
-
-      sbit_metrics->x_ppem = metrics->x_ppem;
-      sbit_metrics->y_ppem = metrics->y_ppem;
-      size->strike_index   = (FT_UInt)strike_index;
+      size->strike_index = (FT_UInt)strike_index;
     }
     else
     {
@@ -386,7 +367,6 @@
     FT_Bool             pure_cff    = 1;
     FT_Bool             sfnt_format = 0;
 
-
 #if 0
     FT_FACE_FIND_GLOBAL_SERVICE( face, sfnt,     SFNT );
     FT_FACE_FIND_GLOBAL_SERVICE( face, psnames,  POSTSCRIPT_NAMES );
@@ -423,14 +403,6 @@
       /* if we are performing a simple font format check, exit immediately */
       if ( face_index < 0 )
         return CFF_Err_Ok;
-
-      /* UNDOCUMENTED!  A CFF in an SFNT can have only a single font. */
-      if ( face_index > 0 )
-      {
-        FT_ERROR(( "cff_face_init: invalid face index\n" ));
-        error = CFF_Err_Invalid_Argument;
-        goto Exit;
-      }
 
       sfnt_format = 1;
 
@@ -478,7 +450,6 @@
       CFF_FontRecDict  dict;
       FT_Memory        memory = cffface->memory;
       FT_Int32         flags;
-      FT_UInt          i;
 
 
       if ( FT_NEW( cff ) )
@@ -493,8 +464,7 @@
       cff->psnames  = (void*)psnames;
 
       /* Complement the root flags with some interesting information. */
-      /* Note that this is only necessary for pure CFF and CEF fonts; */
-      /* SFNT based fonts use the `name' table instead.               */
+      /* Note that this is only necessary for pure CFF and CEF fonts. */
 
       cffface->num_glyphs = cff->num_glyphs;
 
@@ -516,7 +486,7 @@
         char*  style_name = NULL;
 
 
-        /* set up num_faces */
+        /* Set up num_faces. */
         cffface->num_faces = cff->num_faces;
 
         /* compute number of glyphs */
@@ -536,10 +506,10 @@
         cffface->height    = (FT_Short)(
           ( ( cffface->ascender - cffface->descender ) * 12 ) / 10 );
 
-        if ( !dict->units_per_em )
-          dict->units_per_em = 1000;
-
-        cffface->units_per_EM = dict->units_per_em;
+        if ( dict->units_per_em )
+          cffface->units_per_EM = dict->units_per_em;
+        else
+          cffface->units_per_EM = 1000;
 
         cffface->underline_position  =
           (FT_Short)( dict->underline_position >> 16 );
@@ -557,21 +527,10 @@
                                                     psnames );
           char*  fullp  = full;
           char*  family = cffface->family_name;
-          char*  family_name = 0;
-
-
-          if ( dict->family_name )
-          {
-            family_name = cff_index_get_sid_string( &cff->string_index,
-                                                    dict->family_name,
-                                                    psnames);
-            if ( family_name )
-              family = family_name;
-          }
 
           /* We try to extract the style name from the full name.   */
           /* We need to ignore spaces and dashes during the search. */
-          if ( full && family )
+          if ( full )
           {
             while ( *fullp )
             {
@@ -599,7 +558,7 @@
 
               if ( !*family && *fullp )
               {
-                /* The full name begins with the same characters as the  */
+                /* Rhe full name begins with the same characters as the  */
                 /* family name, with spaces and dashes removed.  In this */
                 /* case, the remaining string in `fullp' will be used as */
                 /* the style name.                                       */
@@ -607,9 +566,6 @@
               }
               break;
             }
-
-            if ( family_name )
-              FT_FREE( family_name );
             FT_FREE( full );
           }
         }
@@ -677,44 +633,7 @@
           FT_FREE( weight );
         }
 
-        /* double check */
-        if ( !(flags & FT_STYLE_FLAG_BOLD) && cffface->style_name )
-          if ( !strncmp( cffface->style_name, "Bold", 4 )  ||
-               !strncmp( cffface->style_name, "Black", 5 ) )
-            flags |= FT_STYLE_FLAG_BOLD;
-
         cffface->style_flags = flags;
-      }
-      else
-      {
-        if ( !dict->units_per_em )
-          dict->units_per_em = face->root.units_per_EM;
-      }
-
-      /* handle font matrix settings in subfonts (if any) */
-      for ( i = cff->num_subfonts; i > 0; i-- )
-      {
-        CFF_FontRecDict  sub = &cff->subfonts[i - 1]->font_dict;
-        CFF_FontRecDict  top = &cff->top_font.font_dict;
-
-
-        if ( sub->units_per_em )
-        {
-          FT_Matrix  scale;
-
-
-          scale.xx = scale.yy = (FT_Fixed)FT_DivFix( top->units_per_em,
-                                                     sub->units_per_em );
-          scale.xy = scale.yx = 0;
-
-          FT_Matrix_Multiply( &scale, &sub->font_matrix );
-          FT_Vector_Transform( &sub->font_offset, &scale );
-        }
-        else
-        {
-          sub->font_matrix = top->font_matrix;
-          sub->font_offset = top->font_offset;
-        }
       }
 
 #ifndef FT_CONFIG_OPTION_NO_GLYPH_NAMES

@@ -83,7 +83,7 @@ BOOL STDCALL NtGdiAnimatePalette(HPALETTE hPal, UINT StartIndex,
         UINT pal_entries;
         HDC hDC;
         PDC dc;	
-      PWINDOW_OBJECT Wnd;
+		HWND hHwd;
         const PALETTEENTRY *pptr = PaletteColors;
  
         palPtr = (PPALGDI)PALETTE_LockPalette(hPal);
@@ -109,8 +109,8 @@ BOOL STDCALL NtGdiAnimatePalette(HPALETTE hPal, UINT StartIndex,
         PALETTE_UnlockPalette(palPtr);
  
         /* Immediately apply the new palette if current window uses it */		
-      Wnd = UserGetDesktopWindow();
-        hDC =  (HDC)UserGetWindowDC(Wnd);
+		hHwd = NtUserGetDesktopWindow();
+        hDC =  (HDC)NtUserGetWindowDC(hHwd);
         dc = DC_LockDc(hDC);
         if (NULL != dc)
         {
@@ -122,7 +122,7 @@ BOOL STDCALL NtGdiAnimatePalette(HPALETTE hPal, UINT StartIndex,
           else
             DC_UnlockDc(dc);
         }		
-      UserReleaseDC(Wnd,hDC);   
+		NtUserReleaseDC(hHwd,hDC);   
     }
     return TRUE;
 }
@@ -588,40 +588,33 @@ NtGdiSetSystemPaletteUse(HDC hDC, UINT Usage)
  return old;
 }
 
-/*
-   Win 2k Graphics API, Black Book. by coriolis.com
-   Page 62, Note that Steps 3, 5, and 6 are not required for Windows NT(tm)
-   and Windows 2000(tm).
-
-   Step 5. UnrealizeObject(hTrackBrush);
- */
 BOOL STDCALL
 NtGdiUnrealizeObject(HGDIOBJ hgdiobj)
 {
 
    GDIOBJHDR * ptr;
    DWORD objectType;
-   BOOL Ret = FALSE;
+
+   UNIMPLEMENTED;
       
    ptr = GDIOBJ_LockObj(hgdiobj, GDI_OBJECT_TYPE_DONTCARE);
    if (ptr == 0)
      {
         SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return Ret;
+        return FALSE;
      }
    objectType = GDIOBJ_GetObjectType(hgdiobj);
    switch(objectType)
      {
-/*
-    msdn.microsoft.com,
-    "Windows 2000/XP: If hgdiobj is a brush, UnrealizeObject does nothing,
-    and the function returns TRUE. Use SetBrushOrgEx to set the origin of
-    a brush."
- */
+         case GDI_OBJECT_TYPE_PALETTE:
+           {
+           /* Make sure this is a Palette object!*/
+              DPRINT1("GDI_OBJECT_TYPE_PALETTE\n");
+              break;
+           }
          case GDI_OBJECT_TYPE_BRUSH:
            {
-              DPRINT("GDI_OBJECT_TYPE_BRUSH\n");
-              Ret = TRUE;
+              DPRINT1("GDI_OBJECT_TYPE_BRUSH\n");
               break;
            }
          default:
@@ -630,42 +623,21 @@ NtGdiUnrealizeObject(HGDIOBJ hgdiobj)
      }
 
    GDIOBJ_UnlockObjByPtr(ptr);
-   return Ret;
+   return FALSE;
 }
 
 BOOL STDCALL
 NtGdiUpdateColors(HDC hDC)
 {
-   PWINDOW_OBJECT Wnd;
-   BOOL calledFromUser, ret;
+   HWND hWnd;
 
-   calledFromUser = UserIsEntered();
-   
-   if (!calledFromUser){
-      UserEnterExclusive();
-   }
-
-   Wnd = IntGetWindowObject(IntWindowFromDC(hDC));
-   if (Wnd == NULL)
+   hWnd = (HWND)NtUserCallOneParam((DWORD)hDC, ONEPARAM_ROUTINE_WINDOWFROMDC);
+   if (hWnd == NULL)
    {
       SetLastWin32Error(ERROR_INVALID_WINDOW_HANDLE);
-
-      if (!calledFromUser){
-         UserLeave();
-      }
-      
       return FALSE;
    }
-   
-   ret = co_UserRedrawWindow(Wnd, NULL, 0, RDW_INVALIDATE);
-   
-   IntReleaseWindowObject(Wnd); //temp hack
-   
-   if (!calledFromUser){
-      UserLeave();
-   }
-   
-   return ret;
+   return NtUserRedrawWindow(hWnd, NULL, 0, RDW_INVALIDATE);
 }
 
 INT STDCALL COLOR_PaletteLookupPixel(PALETTEENTRY *palPalEntry, INT size,

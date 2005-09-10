@@ -154,7 +154,7 @@ NtGdiExtEscape(
    PDC      pDC = DC_LockDc(hDC);
    LPVOID   SafeInData = NULL;
    LPVOID   SafeOutData = NULL;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    INT      Result;
 
    if ( pDC == NULL )
@@ -170,25 +170,6 @@ NtGdiExtEscape(
 
    if ( InSize && UnsafeInData )
    {
-      _SEH_TRY
-      {
-        ProbeForRead(UnsafeInData,
-                     InSize,
-                     1);
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-      
-      if (!NT_SUCCESS(Status))
-      {
-        DC_UnlockDc(pDC);
-        SetLastNtError(Status);
-        return -1;
-      }
-      
       SafeInData = ExAllocatePoolWithTag ( PagedPool, InSize, TAG_PRINT );
       if ( !SafeInData )
       {
@@ -196,20 +177,7 @@ NtGdiExtEscape(
          SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
          return -1;
       }
-      
-      _SEH_TRY
-      {
-        /* pointers were already probed! */
-        RtlCopyMemory(SafeInData,
-                      UnsafeInData,
-                      InSize);
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
+      Status = MmCopyFromCaller ( SafeInData, UnsafeInData, InSize );
       if ( !NT_SUCCESS(Status) )
       {
          ExFreePool ( SafeInData );
@@ -221,32 +189,13 @@ NtGdiExtEscape(
 
    if ( OutSize && UnsafeOutData )
    {
-      _SEH_TRY
-      {
-        ProbeForWrite(UnsafeOutData,
-                      OutSize,
-                      1);
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
-      if (!NT_SUCCESS(Status))
-      {
-        SetLastNtError(Status);
-        goto freeout;
-      }
-      
       SafeOutData = ExAllocatePoolWithTag ( PagedPool, OutSize, TAG_PRINT );
       if ( !SafeOutData )
       {
-         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-freeout:
          if ( SafeInData )
             ExFreePool ( SafeInData );
          DC_UnlockDc(pDC);
+         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
          return -1;
       }
    }
@@ -260,19 +209,7 @@ freeout:
 
    if ( SafeOutData )
    {
-      _SEH_TRY
-      {
-        /* pointers were already probed! */
-        RtlCopyMemory(UnsafeOutData,
-                      SafeOutData,
-                      OutSize);
-      }
-      _SEH_HANDLE
-      {
-        Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
+      Status = MmCopyToCaller ( UnsafeOutData, SafeOutData, OutSize );
       ExFreePool ( SafeOutData );
       if ( !NT_SUCCESS(Status) )
       {

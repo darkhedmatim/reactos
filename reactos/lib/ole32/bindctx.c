@@ -50,9 +50,9 @@ typedef struct BindCtxObject{
 /* BindCtx data strucrture */
 typedef struct BindCtxImpl{
 
-    const IBindCtxVtbl *lpVtbl; /* VTable relative to the IBindCtx interface.*/
+    IBindCtxVtbl *lpVtbl; /* VTable relative to the IBindCtx interface.*/
 
-    LONG ref; /* reference counter for this object */
+    ULONG ref; /* reference counter for this object */
 
     BindCtxObject* bindCtxTable; /* this is a table in which all bounded objects are stored*/
     DWORD          bindCtxTableLastIndex;  /* first free index in the table */
@@ -474,7 +474,7 @@ static HRESULT BindCtxImpl_GetObjectIndex(BindCtxImpl* This,
 }
 
 /* Virtual function table for the BindCtx class. */
-static const IBindCtxVtbl VT_BindCtxImpl =
+static IBindCtxVtbl VT_BindCtxImpl =
 {
     BindCtxImpl_QueryInterface,
     BindCtxImpl_AddRef,

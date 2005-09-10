@@ -22,7 +22,8 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "../include/debug.h"
+#include "debug.h"
+
 
 static const char bom_utf8[] = {0xEF,0xBB,0xBF};
 
@@ -83,7 +84,7 @@ static RTL_CRITICAL_SECTION PROFILE_CritSect = { &critsect_debug, -1, 0, 0, 0, 0
 static const char hex[16] = "0123456789ABCDEF";
 
 
-static __inline WCHAR *memchrW( const WCHAR *ptr, WCHAR ch, size_t n )
+static inline WCHAR *memchrW( const WCHAR *ptr, WCHAR ch, size_t n )
 {
     const WCHAR *end;
     for (end = ptr + n; ptr < end; ptr++)
@@ -92,7 +93,7 @@ static __inline WCHAR *memchrW( const WCHAR *ptr, WCHAR ch, size_t n )
     return NULL;
 }
 
-static __inline WCHAR *memrchrW( const WCHAR *ptr, WCHAR ch, size_t n )
+static inline WCHAR *memrchrW( const WCHAR *ptr, WCHAR ch, size_t n )
 {
     const WCHAR *end, *ret = NULL;
     for (end = ptr + n; ptr < end; ptr++)
@@ -121,12 +122,14 @@ static void PROFILE_CopyEntry( LPWSTR buffer, LPCWSTR value, int len,
             quote = *value++;
     }
 
-    lstrcpynW( buffer, value, len );
+    wcsncpy( buffer, value, len );
+    if (quote && ((size_t)len >= wcslen(value)))
+        buffer[wcslen(buffer) - 1] = '\0';
 }
 
 
 /* byte-swaps shorts in-place in a buffer. len is in WCHARs */
-static __inline void PROFILE_ByteSwapShortBuffer(WCHAR * buffer, int len)
+static inline void PROFILE_ByteSwapShortBuffer(WCHAR * buffer, int len)
 {
     int i;
     USHORT * shortbuffer = (USHORT *)buffer;
@@ -136,7 +139,7 @@ static __inline void PROFILE_ByteSwapShortBuffer(WCHAR * buffer, int len)
 
 
 /* writes any necessary encoding marker to the file */
-static __inline void PROFILE_WriteMarker(HANDLE hFile, ENCODING encoding)
+static inline void PROFILE_WriteMarker(HANDLE hFile, ENCODING encoding)
 {
     DWORD dwBytesWritten;
     DWORD bom;
@@ -285,7 +288,7 @@ static void PROFILE_Free( PROFILESECTION *section )
 
 
 /* returns 1 if a character white space else 0 */
-static __inline int PROFILE_isspaceW(WCHAR c)
+static inline int PROFILE_isspaceW(WCHAR c)
 {
    if (iswspace(c))
        return 1;
@@ -296,7 +299,7 @@ static __inline int PROFILE_isspaceW(WCHAR c)
 }
 
 
-static __inline ENCODING PROFILE_DetectTextEncoding(const void * buffer, int * len)
+static inline ENCODING PROFILE_DetectTextEncoding(const void * buffer, int * len)
 {
     DWORD flags = IS_TEXT_UNICODE_SIGNATURE |
                   IS_TEXT_UNICODE_REVERSE_SIGNATURE |
@@ -960,7 +963,7 @@ static INT PROFILE_GetSectionNames( LPWSTR buffer, UINT len )
             {
                 if (f > 0)
                 {
-                    memcpy(buf, section->name, (f - 1) * sizeof(WCHAR));
+                    wcsncpy(buf, section->name, f - 1);
                     buf += f - 1;
                     *buf++ = '\0';
                 }
@@ -1155,13 +1158,13 @@ static int PROFILE_GetPrivateProfileString( LPCWSTR section, LPCWSTR entry,
                 break;
         }
 
-        if (*p == ' ') /* ouch, contained trailing ' ' */
-        {
+       if (*p == ' ') /* ouch, contained trailing ' ' */
+       {
            int len = (int)(p - def_val);
            LPWSTR p;
 
            p = HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR));
-           memcpy(p, def_val, len * sizeof(WCHAR));
+           wcsncpy(p, def_val, len);
            p[len] = '\0';
            pDefVal = p;
         }
@@ -1182,7 +1185,7 @@ static int PROFILE_GetPrivateProfileString( LPCWSTR section, LPCWSTR entry,
     }
     else
     {
-       lstrcpynW( buffer, pDefVal, len );
+       wcsncpy( buffer, pDefVal, len );
        ret = wcslen( buffer );
     }
 

@@ -36,9 +36,14 @@
  *
  */
 
+#define __WINE__
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
+#include "controls.h"
+#include "wine/unicode.h"
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(edit);
 WINE_DECLARE_DEBUG_CHANNEL(combo);
@@ -162,10 +167,10 @@ typedef struct
  *	We still like to call them internally
  *	"static inline" makes them more like macro's
  */
-static __inline BOOL	EDIT_EM_CanUndo(EDITSTATE *es);
-static __inline void	EDIT_EM_EmptyUndoBuffer(EDITSTATE *es);
-static __inline void	EDIT_WM_Clear(EDITSTATE *es);
-static __inline void	EDIT_WM_Cut(EDITSTATE *es);
+static inline BOOL	EDIT_EM_CanUndo(EDITSTATE *es);
+static inline void	EDIT_EM_EmptyUndoBuffer(EDITSTATE *es);
+static inline void	EDIT_WM_Clear(EDITSTATE *es);
+static inline void	EDIT_WM_Cut(EDITSTATE *es);
 
 /*
  *	Helper functions only valid for one type of control
@@ -305,7 +310,7 @@ const struct builtin_class_descr EDIT_builtin_class =
  *	EM_CANUNDO
  *
  */
-static __inline BOOL EDIT_EM_CanUndo(EDITSTATE *es)
+static inline BOOL EDIT_EM_CanUndo(EDITSTATE *es)
 {
 	return (es->undo_insert_count || strlenW(es->undo_text));
 }
@@ -316,7 +321,7 @@ static __inline BOOL EDIT_EM_CanUndo(EDITSTATE *es)
  *	EM_EMPTYUNDOBUFFER
  *
  */
-static __inline void EDIT_EM_EmptyUndoBuffer(EDITSTATE *es)
+static inline void EDIT_EM_EmptyUndoBuffer(EDITSTATE *es)
 {
 	es->undo_insert_count = 0;
 	*es->undo_text = '\0';
@@ -328,7 +333,7 @@ static __inline void EDIT_EM_EmptyUndoBuffer(EDITSTATE *es)
  *	WM_CLEAR
  *
  */
-static __inline void EDIT_WM_Clear(EDITSTATE *es)
+static inline void EDIT_WM_Clear(EDITSTATE *es)
 {
 	static const WCHAR empty_stringW[] = {0};
 
@@ -345,7 +350,7 @@ static __inline void EDIT_WM_Clear(EDITSTATE *es)
  *	WM_CUT
  *
  */
-static __inline void EDIT_WM_Cut(EDITSTATE *es)
+static inline void EDIT_WM_Cut(EDITSTATE *es)
 {
 	EDIT_WM_Copy(es);
 	EDIT_WM_Clear(es);
@@ -401,7 +406,7 @@ static HBRUSH EDIT_NotifyCtlColor(EDITSTATE *es, HDC hdc)
 	return (HBRUSH)SendMessageW(GetParent(es->hwndSelf), msg, (WPARAM)hdc, (LPARAM)es->hwndSelf);
 }
 
-static __inline LRESULT DefWindowProcT(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, BOOL unicode)
+static inline LRESULT DefWindowProcT(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, BOOL unicode)
 {
 	if(unicode)
 		return DefWindowProcW(hwnd, msg, wParam, lParam);
@@ -428,7 +433,7 @@ static LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
 	EDITSTATE *es = (EDITSTATE *)GetWindowLongW( hwnd, 0 );
 	LRESULT result = 0;
 
-        //TRACE("hwnd=%p msg=%x (%s) wparam=%x lparam=%lx\n", hwnd, msg, SPY_GetMsgName(msg, hwnd), wParam, lParam);
+        TRACE("hwnd=%p msg=%x (%s) wparam=%x lparam=%lx\n", hwnd, msg, SPY_GetMsgName(msg, hwnd), wParam, lParam);
 
 	if (!es && msg != WM_NCCREATE)
 		return DefWindowProcT(hwnd, msg, wParam, lParam, unicode);

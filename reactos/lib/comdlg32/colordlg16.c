@@ -71,7 +71,7 @@ typedef struct CCPRIVATE
 /***********************************************************************
  *                              CC_WMInitDialog16                  [internal]
  */
-static LONG CC_WMInitDialog16( HWND hDlg, WPARAM wParam, LPARAM lParam )
+LONG CC_WMInitDialog16( HWND hDlg, WPARAM wParam, LPARAM lParam )
 {
    int i, res;
    int r, g, b;
@@ -190,7 +190,7 @@ static LONG CC_WMInitDialog16( HWND hDlg, WPARAM wParam, LPARAM lParam )
 /***********************************************************************
  *                              CC_WMCommand16                  [internal]
  */
-static LRESULT CC_WMCommand16( HWND hDlg, WPARAM wParam, LPARAM lParam, WORD notifyCode, HWND hwndCtl )
+LRESULT CC_WMCommand16( HWND hDlg, WPARAM wParam, LPARAM lParam, WORD notifyCode, HWND hwndCtl )
 {
     int  r, g, b, i, xx;
     UINT cokmsg;

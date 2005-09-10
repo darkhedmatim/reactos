@@ -12,20 +12,12 @@
 /* DEPENDENCIES **************************************************************/
 #include "ketypes.h"
 
+/* FUNCTION TYPES ************************************************************/
+
 /* PROTOTYPES ****************************************************************/
 
-BOOLEAN
-NTAPI
-KeAddSystemServiceTable(
-    PULONG_PTR Base,
-    PULONG Count OPTIONAL,
-    ULONG Limit,
-    PUCHAR Number,
-    ULONG Index
-);
-
 VOID
-NTAPI
+STDCALL
 KeInitializeApc(
     IN PKAPC  Apc,
     IN PKTHREAD  Thread,
@@ -38,7 +30,7 @@ KeInitializeApc(
 );
 
 VOID
-NTAPI
+STDCALL
 KeEnterKernelDebugger(VOID);
 
 VOID
@@ -54,7 +46,7 @@ KiReleaseSpinLock(
 );
 
 VOID
-NTAPI
+STDCALL
 KiDeliverApc(
     IN KPROCESSOR_MODE PreviousMode,
     IN PVOID Reserved,
@@ -62,34 +54,81 @@ KiDeliverApc(
 );
 
 VOID
-NTAPI
+STDCALL
 KiDispatchInterrupt(VOID);
 
+
+BOOLEAN
+STDCALL
+KeAreApcsDisabled(
+    VOID
+    );
+
 VOID
-NTAPI
+STDCALL
+KeFlushQueuedDpcs(
+    VOID
+    );
+
+ULONG
+STDCALL
+KeGetRecommendedSharedDataAlignment(
+    VOID
+    );
+
+ULONG
+STDCALL
+KeQueryRuntimeThread(
+    IN PKTHREAD Thread,
+    OUT PULONG UserTime
+    );
+
+BOOLEAN
+STDCALL
+KeSetKernelStackSwapEnable(
+    IN BOOLEAN Enable
+    );
+
+BOOLEAN
+STDCALL
+KeDeregisterBugCheckReasonCallback(
+    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord
+    );
+
+BOOLEAN
+STDCALL
+KeRegisterBugCheckReasonCallback(
+    IN PKBUGCHECK_REASON_CALLBACK_RECORD CallbackRecord,
+    IN PKBUGCHECK_REASON_CALLBACK_ROUTINE CallbackRoutine,
+    IN KBUGCHECK_CALLBACK_REASON Reason,
+    IN PUCHAR Component
+    );
+
+VOID
+STDCALL
 KeTerminateThread(
     IN KPRIORITY        Increment
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KeIsAttachedProcess(VOID);
 
 BOOLEAN
-NTAPI
+STDCALL
 KeIsExecutingDpc(
     VOID
 );
 
 VOID
-NTAPI
+STDCALL
 KeSetEventBoostPriority(
     IN PKEVENT Event,
     IN PKTHREAD *Thread OPTIONAL
 );
 
 PCONFIGURATION_COMPONENT_DATA
-NTAPI
+STDCALL
 KeFindConfigurationNextEntry(
     IN PCONFIGURATION_COMPONENT_DATA Child,
     IN CONFIGURATION_CLASS Class,
@@ -99,7 +138,7 @@ KeFindConfigurationNextEntry(
 );
 
 PCONFIGURATION_COMPONENT_DATA
-NTAPI
+STDCALL
 KeFindConfigurationEntry(
     IN PCONFIGURATION_COMPONENT_DATA Child,
     IN CONFIGURATION_CLASS Class,
@@ -108,45 +147,57 @@ KeFindConfigurationEntry(
 );
 
 VOID
-NTAPI
+STDCALL
 KeFlushEntireTb(
     IN BOOLEAN Unknown,
     IN BOOLEAN CurrentCpuOnly
 );
 
 VOID
-NTAPI
+STDCALL
+KeRevertToUserAffinityThread(
+    VOID
+);
+
+VOID
+STDCALL
 KiCoprocessorError(
     VOID
 );
 
 VOID
-NTAPI
+STDCALL
 KiUnexpectedInterrupt(
     VOID
 );
 
 VOID
-NTAPI
+STDCALL
 KeSetDmaIoCoherency(
     IN ULONG Coherency
 );
 
 VOID
-NTAPI
+STDCALL
 KeSetProfileIrql(
     IN KIRQL ProfileIrql
 );
 
 NTSTATUS
-NTAPI
+STDCALL
 KeSetAffinityThread(
     PKTHREAD Thread,
     KAFFINITY Affinity
 );
 
+VOID
+STDCALL
+KeSetSystemAffinityThread(
+    IN KAFFINITY Affinity
+);
+
 NTSTATUS
-NTAPI
+STDCALL
 KeUserModeCallback(
     IN ULONG FunctionID,
     IN PVOID InputBuffer,
@@ -156,14 +207,14 @@ KeUserModeCallback(
 );
 
 VOID
-NTAPI
+STDCALL
 KeSetTimeIncrement(
     IN ULONG MaxIncrement,
     IN ULONG MinIncrement
 );
 
 VOID
-NTAPI
+STDCALL
 KeInitializeInterrupt(
     PKINTERRUPT InterruptObject,
     PKSERVICE_ROUTINE ServiceRoutine,
@@ -179,19 +230,19 @@ KeInitializeInterrupt(
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KeConnectInterrupt(
     PKINTERRUPT InterruptObject
 );
 
 BOOLEAN
-NTAPI
+STDCALL
 KeDisconnectInterrupt(
     PKINTERRUPT InterruptObject
 );
 
 PKPROCESS
-NTAPI
+STDCALL
 KeGetCurrentProcess(
     VOID
 );
@@ -203,10 +254,36 @@ KeSetGdtSelector(
     ULONG Value2
 );
 
+LONG
+STDCALL
+KeReadStateMutant(
+    IN PKMUTANT Mutant
+);
+
+VOID
+STDCALL
+KeInitializeMutant(
+    IN PKMUTANT Mutant,
+    IN BOOLEAN InitialOwner
+);
+
+LONG
+STDCALL
+KeReleaseMutant(
+    IN PKMUTANT Mutant,
+    IN KPRIORITY Increment,
+    IN BOOLEAN Abandon,
+    IN BOOLEAN Wait
+);
+
 NTSTATUS
-NTAPI
+STDCALL
 KeRaiseUserException(
     IN NTSTATUS ExceptionCode
     );
+
+VOID
+STDCALL
+KeFlushWriteBuffer(VOID);
 
 #endif

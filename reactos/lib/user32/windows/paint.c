@@ -29,8 +29,6 @@
 /* INCLUDES ******************************************************************/
 
 #include <user32.h>
-#define NDEBUG
-#include <debug.h>
 
 static HBRUSH FrameBrushes[13];
 static HBITMAP hHatch;
@@ -217,7 +215,7 @@ SetWindowRgn(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL

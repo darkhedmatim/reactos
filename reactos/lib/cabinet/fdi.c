@@ -243,7 +243,7 @@ HFDI __cdecl FDICreate(
  *
  * returns the file pointer position of a file handle.
  */
-static long FDI_getoffset(HFDI hfdi, INT_PTR hf)
+long FDI_getoffset(HFDI hfdi, INT_PTR hf)
 {
   return PFDI_SEEK(hfdi, hf, 0L, SEEK_CUR);
 }
@@ -254,7 +254,7 @@ static long FDI_getoffset(HFDI hfdi, INT_PTR hf)
  * we can't use _msize; the user might not be using malloc, so we require
  * an explicit specification of the previous size.  inefficient.
  */
-static void *FDI_realloc(HFDI hfdi, void *mem, size_t prevsize, size_t newsize)
+void *FDI_realloc(HFDI hfdi, void *mem, size_t prevsize, size_t newsize)
 {
   void *rslt = NULL;
   char *irslt, *imem;
@@ -273,7 +273,7 @@ static void *FDI_realloc(HFDI hfdi, void *mem, size_t prevsize, size_t newsize)
  *
  * allocate and read an arbitrarily long string from the cabinet
  */
-static char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
+char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
 {
   size_t len=256,
          oldlen = 0,
@@ -326,7 +326,7 @@ static char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
  * process the cabinet header in the style of FDIIsCabinet, but
  * without the sanity checks (and bug)
  */
-static BOOL FDI_read_entries(
+BOOL FDI_read_entries(
         HFDI             hfdi,
         INT_PTR          hf,
         PFDICABINETINFO  pfdici,
@@ -632,7 +632,7 @@ BOOL __cdecl FDIIsCabinet(
  *
  * Initialize a model which decodes symbols from [s] to [s]+[n]-1
  */
-static void QTMfdi_initmodel(struct QTMmodel *m, struct QTMmodelsym *sym, int n, int s) {
+void QTMfdi_initmodel(struct QTMmodel *m, struct QTMmodelsym *sym, int n, int s) {
   int i;
   m->shiftsleft = 4;
   m->entries    = n;
@@ -649,7 +649,7 @@ static void QTMfdi_initmodel(struct QTMmodel *m, struct QTMmodelsym *sym, int n,
 /******************************************************************
  * QTMfdi_init (internal)
  */
-static int QTMfdi_init(int window, int level, fdi_decomp_state *decomp_state) {
+int QTMfdi_init(int window, int level, fdi_decomp_state *decomp_state) {
   unsigned int wndsize = 1 << window;
   int msz = window * 2, i;
   cab_ULONG j;
@@ -701,7 +701,7 @@ static int QTMfdi_init(int window, int level, fdi_decomp_state *decomp_state) {
 /************************************************************
  * LZXfdi_init (internal)
  */
-static int LZXfdi_init(int window, fdi_decomp_state *decomp_state) {
+int LZXfdi_init(int window, fdi_decomp_state *decomp_state) {
   cab_ULONG wndsize = 1 << window;
   int i, j, posn_slots;
 
@@ -755,7 +755,7 @@ static int LZXfdi_init(int window, fdi_decomp_state *decomp_state) {
 /****************************************************
  * NONEfdi_decomp(internal)
  */
-static int NONEfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
+int NONEfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 {
   if (inlen != outlen) return DECR_ILLEGALDATA;
   memcpy(CAB(outbuf), CAB(inbuf), (size_t) inlen);
@@ -765,7 +765,7 @@ static int NONEfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 /********************************************************
  * Ziphuft_free (internal)
  */
-static void fdi_Ziphuft_free(HFDI hfdi, struct Ziphuft *t)
+void fdi_Ziphuft_free(HFDI hfdi, struct Ziphuft *t)
 {
   register struct Ziphuft *p, *q;
 
@@ -782,7 +782,7 @@ static void fdi_Ziphuft_free(HFDI hfdi, struct Ziphuft *t)
 /*********************************************************
  * fdi_Ziphuft_build (internal)
  */
-static cab_LONG fdi_Ziphuft_build(cab_ULONG *b, cab_ULONG n, cab_ULONG s, cab_UWORD *d, cab_UWORD *e,
+cab_LONG fdi_Ziphuft_build(cab_ULONG *b, cab_ULONG n, cab_ULONG s, cab_UWORD *d, cab_UWORD *e,
 struct Ziphuft **t, cab_LONG *m, fdi_decomp_state *decomp_state)
 {
   cab_ULONG a;                   	/* counter for codes of length k */
@@ -1045,7 +1045,7 @@ cab_LONG fdi_Zipinflate_codes(struct Ziphuft *tl, struct Ziphuft *td,
 /***********************************************************
  * Zipinflate_stored (internal)
  */
-static cab_LONG fdi_Zipinflate_stored(fdi_decomp_state *decomp_state)
+cab_LONG fdi_Zipinflate_stored(fdi_decomp_state *decomp_state)
 /* "decompress" an inflated type 0 (stored) block. */
 {
   cab_ULONG n;           /* number of bytes in block */
@@ -1089,7 +1089,7 @@ static cab_LONG fdi_Zipinflate_stored(fdi_decomp_state *decomp_state)
 /******************************************************
  * fdi_Zipinflate_fixed (internal)
  */
-static cab_LONG fdi_Zipinflate_fixed(fdi_decomp_state *decomp_state)
+cab_LONG fdi_Zipinflate_fixed(fdi_decomp_state *decomp_state)
 {
   struct Ziphuft *fixed_tl;
   struct Ziphuft *fixed_td;
@@ -1135,7 +1135,7 @@ static cab_LONG fdi_Zipinflate_fixed(fdi_decomp_state *decomp_state)
 /**************************************************************
  * fdi_Zipinflate_dynamic (internal)
  */
-static cab_LONG fdi_Zipinflate_dynamic(fdi_decomp_state *decomp_state)
+cab_LONG fdi_Zipinflate_dynamic(fdi_decomp_state *decomp_state)
  /* decompress an inflated type 2 (dynamic Huffman codes) block. */
 {
   cab_LONG i;          	/* temporary variables */
@@ -1270,7 +1270,7 @@ static cab_LONG fdi_Zipinflate_dynamic(fdi_decomp_state *decomp_state)
 /*****************************************************
  * fdi_Zipinflate_block (internal)
  */
-static cab_LONG fdi_Zipinflate_block(cab_LONG *e, fdi_decomp_state *decomp_state) /* e == last block flag */
+cab_LONG fdi_Zipinflate_block(cab_LONG *e, fdi_decomp_state *decomp_state) /* e == last block flag */
 { /* decompress an inflated block */
   cab_ULONG t;           	/* block type */
   register cab_ULONG b;     /* bit buffer */
@@ -1308,7 +1308,7 @@ static cab_LONG fdi_Zipinflate_block(cab_LONG *e, fdi_decomp_state *decomp_state
 /****************************************************
  * ZIPfdi_decomp(internal)
  */
-static int ZIPfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
+int ZIPfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 {
   cab_LONG e;               /* last block flag */
 
@@ -1336,7 +1336,7 @@ static int ZIPfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 /*******************************************************************
  * QTMfdi_decomp(internal)
  */
-static int QTMfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
+int QTMfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 {
   cab_UBYTE *inpos  = CAB(inbuf);
   cab_UBYTE *window = QTM(window);
@@ -1462,7 +1462,7 @@ static int QTMfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state)
 /************************************************************
  * fdi_lzx_read_lens (internal)
  */
-static int fdi_lzx_read_lens(cab_UBYTE *lens, cab_ULONG first, cab_ULONG last, struct lzx_bits *lb,
+int fdi_lzx_read_lens(cab_UBYTE *lens, cab_ULONG first, cab_ULONG last, struct lzx_bits *lb,
                   fdi_decomp_state *decomp_state) {
   cab_ULONG i,j, x,y;
   int z;
@@ -1509,7 +1509,7 @@ static int fdi_lzx_read_lens(cab_UBYTE *lens, cab_ULONG first, cab_ULONG last, s
 /*******************************************************
  * LZXfdi_decomp(internal)
  */
-static int LZXfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state) {
+int LZXfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state) {
   cab_UBYTE *inpos  = CAB(inbuf);
   cab_UBYTE *endinp = inpos + inlen;
   cab_UBYTE *window = LZX(window);
@@ -1841,7 +1841,7 @@ static int LZXfdi_decomp(int inlen, int outlen, fdi_decomp_state *decomp_state) 
  * is also where we jump to additional cabinets in the case of split
  * cab's, and provide (some of) the NEXT_CABINET notification semantics.
  */
-static int fdi_decomp(struct fdi_file *fi, int savemode, fdi_decomp_state *decomp_state,
+int fdi_decomp(struct fdi_file *fi, int savemode, fdi_decomp_state *decomp_state,
   char *pszCabPath, PFNFDINOTIFY pfnfdin, void *pvUser)
 {
   cab_ULONG bytes = savemode ? fi->length : fi->offset - CAB(offset);

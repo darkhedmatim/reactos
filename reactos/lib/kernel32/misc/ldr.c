@@ -43,7 +43,7 @@ GetDllLoadPath(LPCWSTR lpModule)
 	}
 	else
 	{
-	        ModuleName = NtCurrentTeb()->ProcessEnvironmentBlock->ProcessParameters->ImagePathName;
+	        ModuleName = NtCurrentTeb()->Peb->ProcessParameters->ImagePathName;
 	        lpModule = ModuleName.Buffer;
 	        lpModuleEnd = lpModule + (ModuleName.Length / sizeof(WCHAR));
 	}

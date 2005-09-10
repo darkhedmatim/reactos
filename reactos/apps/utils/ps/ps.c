@@ -268,7 +268,7 @@ int main()
         	WriteFile(stdout, buf1, lstrlen(buf1), &r, NULL);
 
 		EnumThreadWindows((DWORD)CurrentProcess->Threads[ti].ClientId.UniqueThread,
-		                  (WNDENUMPROC) EnumThreadProc,
+		                  (ENUMWINDOWSPROC) EnumThreadProc,
 		                  (LPARAM)(LPTSTR) szWindowName );
 	   }
 	   CurrentProcess = (PSYSTEM_PROCESSES)((ULONG_PTR)CurrentProcess +

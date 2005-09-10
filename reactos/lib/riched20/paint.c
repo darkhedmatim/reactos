@@ -94,7 +94,7 @@ void ME_PaintContent(ME_TextEditor *editor, HDC hDC, BOOL bOnlyNew, RECT *rcUpda
   ME_DestroyContext(&c);
 }
 
-static void ME_MarkParagraphRange(ME_TextEditor *editor, ME_DisplayItem *p1,
+void ME_MarkParagraphRange(ME_TextEditor *editor, ME_DisplayItem *p1,
                            ME_DisplayItem *p2, int nFlags)
 {
   ME_DisplayItem *p3;  
@@ -113,7 +113,7 @@ static void ME_MarkParagraphRange(ME_TextEditor *editor, ME_DisplayItem *p1,
   } while (p1 != p2);
 }
 
-static void ME_MarkOffsetRange(ME_TextEditor *editor, int from, int to, int nFlags)
+void ME_MarkOffsetRange(ME_TextEditor *editor, int from, int to, int nFlags)
 {
   ME_Cursor c1, c2;
   ME_CursorFromCharOfs(editor, from, &c1);
@@ -122,7 +122,7 @@ static void ME_MarkOffsetRange(ME_TextEditor *editor, int from, int to, int nFla
   ME_MarkParagraphRange(editor, ME_GetParagraph(c1.pRun), ME_GetParagraph(c2.pRun), nFlags);
 }
 
-static void ME_MarkSelectionForRepaint(ME_TextEditor *editor)
+void ME_MarkSelectionForRepaint(ME_TextEditor *editor)
 {
   int from, to, from2, to2, end;
   
@@ -154,15 +154,12 @@ void ME_Repaint(ME_TextEditor *editor)
   if (ME_WrapMarkedParagraphs(editor)) {
     ME_UpdateScrollBar(editor);
   }
-  if (editor->bRedraw)
-  {
-    hDC = GetDC(editor->hWnd);
-    ME_HideCaret(editor);
-    ME_PaintContent(editor, hDC, TRUE, NULL);
-    ReleaseDC(editor->hWnd, hDC);
-    ME_ShowCaret(editor);
-    ME_EnsureVisible(editor, pCursor->pRun);
-  }
+  hDC = GetDC(editor->hWnd);
+  ME_HideCaret(editor);
+  ME_PaintContent(editor, hDC, TRUE, NULL);
+  ReleaseDC(editor->hWnd, hDC);
+  ME_ShowCaret(editor);
+  ME_EnsureVisible(editor, pCursor->pRun);
 }
 
 void ME_UpdateRepaint(ME_TextEditor *editor)
@@ -176,49 +173,18 @@ void ME_UpdateRepaint(ME_TextEditor *editor)
   ME_SendSelChange(editor);
 }
 
-
-void
-ME_RewrapRepaint(ME_TextEditor *editor)
-{
-  ME_MarkAllForWrapping(editor);
-  ME_WrapMarkedParagraphs(editor);
-  ME_UpdateScrollBar(editor);
-  ME_Repaint(editor);
-}
-
-
-static void ME_DrawTextWithStyle(ME_Context *c, int x, int y, LPCWSTR szText, int nChars, 
+void ME_DrawTextWithStyle(ME_Context *c, int x, int y, LPCWSTR szText, int nChars, 
   ME_Style *s, int *width, int nSelFrom, int nSelTo, int ymin, int cy) {
   HDC hDC = c->hDC;
   HGDIOBJ hOldFont;
   COLORREF rgbOld, rgbBack;
-  int yOffset = 0, yTwipsOffset = 0;
   hOldFont = ME_SelectStyleFont(c->editor, hDC, s);
   rgbBack = ME_GetBackColor(c->editor);
   if ((s->fmt.dwMask & CFM_COLOR) && (s->fmt.dwEffects & CFE_AUTOCOLOR))
     rgbOld = SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
   else
     rgbOld = SetTextColor(hDC, s->fmt.crTextColor);
-  if ((s->fmt.dwMask & s->fmt.dwEffects) & CFM_OFFSET) {
-    yTwipsOffset = s->fmt.yOffset;
-  }
-  if ((s->fmt.dwMask & s->fmt.dwEffects) & (CFM_SUPERSCRIPT | CFM_SUBSCRIPT)) {
-    if (s->fmt.dwEffects & CFE_SUPERSCRIPT) yTwipsOffset = s->fmt.yHeight/3;
-    if (s->fmt.dwEffects & CFE_SUBSCRIPT) yTwipsOffset = -s->fmt.yHeight/12;
-  }
-  if (yTwipsOffset)
-  {
-    int numerator = 1;
-    int denominator = 1;
-    
-    if (c->editor->nZoomNumerator)
-    {
-      numerator = c->editor->nZoomNumerator;
-      denominator = c->editor->nZoomDenominator;
-    }
-    yOffset = yTwipsOffset * GetDeviceCaps(hDC, LOGPIXELSY) * numerator / denominator / 1440;
-  }
-  ExtTextOutW(hDC, x, y-yOffset, 0, NULL, szText, nChars, NULL);
+  ExtTextOutW(hDC, x, y, 0, NULL, szText, nChars, NULL);
   if (width) {
     SIZE sz;
     GetTextExtentPoint32W(hDC, szText, nChars, &sz);
@@ -238,7 +204,7 @@ static void ME_DrawTextWithStyle(ME_Context *c, int x, int y, LPCWSTR szText, in
   ME_UnselectStyleFont(c->editor, hDC, s, hOldFont);
 }
 
-static void ME_DebugWrite(HDC hDC, POINT *pt, WCHAR *szText) {
+void ME_DebugWrite(HDC hDC, POINT *pt, WCHAR *szText) {
   int align = SetTextAlign(hDC, TA_LEFT|TA_TOP);
   HGDIOBJ hFont = SelectObject(hDC, GetStockObject(DEFAULT_GUI_FONT));
   COLORREF color = SetTextColor(hDC, RGB(128,128,128));
@@ -276,7 +242,7 @@ void ME_DrawGraphics(ME_Context *c, int x, int y, ME_Run *run,
   }
 }
 
-static void ME_DrawRun(ME_Context *c, int x, int y, ME_DisplayItem *rundi, ME_Paragraph *para) {
+void ME_DrawRun(ME_Context *c, int x, int y, ME_DisplayItem *rundi, ME_Paragraph *para) {
   ME_Run *run = &rundi->member.run;
   int runofs = run->nCharOfs+para->nCharOfs;
   
@@ -418,13 +384,10 @@ void ME_Scroll(ME_TextEditor *editor, int cx, int cy)
   GetScrollInfo(hWnd, SB_VERT, &si);
   si.nPos = editor->nScrollPosY -= cy;
   SetScrollInfo(hWnd, SB_VERT, &si, TRUE);
-  if (editor->bRedraw)
-  {
-    if (abs(cy) > editor->sizeWindow.cy)
-      InvalidateRect(editor->hWnd, NULL, TRUE);
-    else
-      ScrollWindowEx(hWnd, cx, cy, NULL, NULL, NULL, NULL, SW_ERASE|SW_INVALIDATE);
-  }
+  if (abs(cy) > editor->sizeWindow.cy)
+    InvalidateRect(editor->hWnd, NULL, TRUE);
+  else
+    ScrollWindowEx(hWnd, cx, cy, NULL, NULL, NULL, NULL, SW_ERASE|SW_INVALIDATE);
 }
 
 void ME_UpdateScrollBar(ME_TextEditor *editor)
@@ -501,41 +464,13 @@ void ME_EnsureVisible(ME_TextEditor *editor, ME_DisplayItem *pRun)
   if (yrel < 0) {
     editor->nScrollPosY = y;
     SetScrollPos(hWnd, SB_VERT, y, TRUE);
-    if (editor->bRedraw)
-    {
-      ScrollWindow(hWnd, 0, -yrel, NULL, NULL);
-      UpdateWindow(hWnd);
-    }
+    ScrollWindow(hWnd, 0, -yrel, NULL, NULL);
+    UpdateWindow(hWnd);
   } else if (yrel + yheight > editor->sizeWindow.cy) {
     int newy = y+yheight-editor->sizeWindow.cy;
     editor->nScrollPosY = newy;
     SetScrollPos(hWnd, SB_VERT, newy, TRUE);
-    if (editor->bRedraw)
-    {
-      ScrollWindow(hWnd, 0, -(newy-yold), NULL, NULL);
-      UpdateWindow(hWnd);
-    }
+    ScrollWindow(hWnd, 0, -(newy-yold), NULL, NULL);
+    UpdateWindow(hWnd);
   }
-}
-        
-
-BOOL
-ME_SetZoom(ME_TextEditor *editor, int numerator, int denominator)
-{
-  /* TODO: Zoom images and objects */
-
-  if (numerator != 0)
-  {
-    if (denominator == 0)
-      return FALSE;
-    if (1.0 / 64.0 > (float)numerator / (float)denominator
-        || (float)numerator / (float)denominator > 64.0)
-      return FALSE;
-  }
-  
-  editor->nZoomNumerator = numerator;
-  editor->nZoomDenominator = denominator;
-  
-  ME_RewrapRepaint(editor);
-  return TRUE;
 }

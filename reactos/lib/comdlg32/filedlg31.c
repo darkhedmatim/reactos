@@ -303,7 +303,7 @@ LONG FD31_WMDrawItem(HWND hWnd, WPARAM wParam, LPARAM lParam,
  *                              FD31_UpdateResult            [internal]
  *      update the displayed file name (with path)
  */
-static void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
+void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
 {
     int lenstr2;
     LPOPENFILENAMEW ofnW = lfs->ofnW;
@@ -341,7 +341,7 @@ static void FD31_UpdateResult(PFD31_DATA lfs, WCHAR *tmpstr)
  *                              FD31_UpdateFileTitle         [internal]
  *      update the displayed file name (without path)
  */
-static void FD31_UpdateFileTitle(PFD31_DATA lfs)
+void FD31_UpdateFileTitle(PFD31_DATA lfs)
 {
   LONG lRet;
   LPOPENFILENAMEW ofnW = lfs->ofnW;

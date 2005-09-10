@@ -789,12 +789,12 @@ HRESULT WINAPI SafeArrayLock(SAFEARRAY *psa)
   if (!psa)
     return E_INVALIDARG;
 
-  ulLocks = InterlockedIncrement( (LONG*) &psa->cLocks);
+  ulLocks = InterlockedIncrement(&psa->cLocks);
 
   if (ulLocks > 0xffff) /* Maximum of 16384 locks at a time */
   {
     WARN("Out of locks!\n");
-    InterlockedDecrement( (LONG*) &psa->cLocks);
+    InterlockedDecrement(&psa->cLocks);
     return E_UNEXPECTED;
   }
   return S_OK;
@@ -823,10 +823,10 @@ HRESULT WINAPI SafeArrayUnlock(SAFEARRAY *psa)
   if (!psa)
     return E_INVALIDARG;
 
-  if ((LONG)InterlockedDecrement( (LONG*) &psa->cLocks) < 0)
+  if ((LONG)InterlockedDecrement(&psa->cLocks) < 0)
   {
     WARN("Unlocked but no lock held!\n");
-    InterlockedIncrement( (LONG*) &psa->cLocks);
+    InterlockedIncrement(&psa->cLocks);
     return E_UNEXPECTED;
   }
   return S_OK;

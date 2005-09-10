@@ -49,7 +49,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(msi);
  */
 #define LPCTSTR LPCWSTR
 
-static void MSI_FreePackage( MSIOBJECTHDR *arg)
+void MSI_FreePackage( MSIOBJECTHDR *arg)
 {
     MSIPACKAGE *package= (MSIPACKAGE*) arg;
 
@@ -377,19 +377,18 @@ MSIPACKAGE *MSI_CreatePackage( MSIDATABASE *db )
         msiobj_addref( &db->hdr );
 
         package->db = db;
-        list_init( &package->components );
-        list_init( &package->features );
-        list_init( &package->files );
-        list_init( &package->folders );
+        package->features = NULL;
+        package->folders = NULL;
+        package->components = NULL;
+        package->files = NULL;
+        package->loaded_features = 0;
+        package->loaded_folders = 0;
+        package->loaded_components= 0;
+        package->loaded_files = 0;
         package->ActionFormat = NULL;
         package->LastAction = NULL;
         package->dialog = NULL;
         package->next_dialog = NULL;
-        list_init( &package->subscriptions );
-        list_init( &package->appids );
-        list_init( &package->classes );
-        list_init( &package->mimes );
-        list_init( &package->extensions );
 
         /* OK, here is where we do a slew of things to the database to 
          * prep for all that is to come as a package */
@@ -408,8 +407,6 @@ UINT MSI_OpenPackageW(LPCWSTR szPackage, MSIPACKAGE **pPackage)
     MSIDATABASE *db = NULL;
     MSIPACKAGE *package;
     MSIHANDLE handle;
-    DWORD size;
-    static const WCHAR szProductCode[]= {'P','r','o','d','u','c','t','C','o','d','e',0};
 
     TRACE("%s %p\n", debugstr_w(szPackage), pPackage);
 
@@ -447,13 +444,6 @@ UINT MSI_OpenPackageW(LPCWSTR szPackage, MSIPACKAGE **pPackage)
         MSI_SetPropertyW( package, Database, szPackage );
     }
 
-    /* this property must exist */
-    size  = 0;
-    MSI_GetPropertyW(package,szProductCode,NULL,&size);
-    size ++;
-    package->ProductCode = HeapAlloc(GetProcessHeap(),0,size * sizeof(WCHAR));
-    MSI_GetPropertyW(package,szProductCode,package->ProductCode, &size);
-    
     *pPackage = package;
 
     return ERROR_SUCCESS;
@@ -463,40 +453,18 @@ UINT WINAPI MsiOpenPackageExW(LPCWSTR szPackage, DWORD dwOptions, MSIHANDLE *phP
 {
     MSIPACKAGE *package = NULL;
     UINT ret;
-    WCHAR path[MAX_PATH];
-    WCHAR filename[MAX_PATH];
-    static const WCHAR szMSI[] = {'M','S','I',0};
 
     TRACE("%s %08lx %p\n",debugstr_w(szPackage), dwOptions, phPackage);
 
-    /* copy the msi file to a temp file to pervent locking a CD
-     * with a multi disc install 
-     */ 
-    if( szPackage[0] == '#' )
-        strcpyW(filename,szPackage);
-    else
-    {
-        GetTempPathW(MAX_PATH, path);
-        GetTempFileNameW(path, szMSI, 0, filename);
-
-        CopyFileW(szPackage, filename, FALSE);
-
-        TRACE("Opening relocated package %s\n",debugstr_w(filename));
-    }
-    
     if( dwOptions )
         FIXME("dwOptions %08lx not supported\n", dwOptions);
 
-    ret = MSI_OpenPackageW( filename, &package);
+    ret = MSI_OpenPackageW( szPackage, &package);
     if( ret == ERROR_SUCCESS )
     {
         *phPackage = alloc_msihandle( &package->hdr );
         msiobj_release( &package->hdr );
     }
-
-    if( szPackage[0] != '#' )
-        DeleteFileW(filename);
-
     return ret;
 }
 
@@ -884,7 +852,7 @@ UINT WINAPI MsiGetPropertyA(MSIHANDLE hInstall, LPCSTR szName, LPSTR szValueBuf,
     MSIPACKAGE *package;
     UINT ret;
 
-    TRACE("%lu %s %p\n", hInstall, debugstr_a(szName), pchValueBuf);
+    TRACE("%lu %s %lu\n", hInstall, debugstr_a(szName), *pchValueBuf);
 
     if (0 == hInstall)
         return ERROR_INVALID_HANDLE;
@@ -893,10 +861,6 @@ UINT WINAPI MsiGetPropertyA(MSIHANDLE hInstall, LPCSTR szName, LPSTR szValueBuf,
     if (NULL != szValueBuf && NULL == pchValueBuf)
         return ERROR_INVALID_PARAMETER;
 
-    /* This was tested against native msi */
-    if (NULL == szValueBuf && NULL != pchValueBuf)
-        *pchValueBuf = 0;
-
     package = msihandle2msiinfo( hInstall, MSIHANDLETYPE_PACKAGE);
     if (!package)
         return ERROR_INVALID_HANDLE;
@@ -904,10 +868,10 @@ UINT WINAPI MsiGetPropertyA(MSIHANDLE hInstall, LPCSTR szName, LPSTR szValueBuf,
     msiobj_release( &package->hdr );
 
     /* MsiGetProperty does not return error codes on missing properties */
-    if (ret != ERROR_MORE_DATA)
-        ret = ERROR_SUCCESS;
-
-    return ret;
+    if (ret!= ERROR_MORE_DATA)
+        return ERROR_SUCCESS;
+    else
+        return ret;
 }
 
   
@@ -917,18 +881,12 @@ UINT WINAPI MsiGetPropertyW(MSIHANDLE hInstall, LPCWSTR szName,
     MSIPACKAGE *package;
     UINT ret;
 
-    TRACE("%lu %s %p\n", hInstall, debugstr_w(szName), pchValueBuf);
-
     if (0 == hInstall)
         return ERROR_INVALID_HANDLE;
     if (NULL == szName)
         return ERROR_INVALID_PARAMETER;
     if (NULL != szValueBuf && NULL == pchValueBuf)
         return ERROR_INVALID_PARAMETER;
-
-    /* This was tested against native msi */
-    if (NULL == szValueBuf && NULL != pchValueBuf)
-        *pchValueBuf = 0;
 
     package = msihandle2msiinfo( hInstall, MSIHANDLETYPE_PACKAGE);
     if (!package)
@@ -937,8 +895,8 @@ UINT WINAPI MsiGetPropertyW(MSIHANDLE hInstall, LPCWSTR szName,
     msiobj_release( &package->hdr );
 
     /* MsiGetProperty does not return error codes on missing properties */
-    if (ret != ERROR_MORE_DATA)
-        ret = ERROR_SUCCESS;
-
-    return ret;
+    if (ret!= ERROR_MORE_DATA)
+        return ERROR_SUCCESS;
+    else
+        return ret;
 }

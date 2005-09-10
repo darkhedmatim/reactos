@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2005 Casper S. Hornstrup
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 #ifndef MINGW_MODULEHANDLER_H
 #define MINGW_MODULEHANDLER_H
 
@@ -85,7 +68,6 @@ protected:
 	std::string GetWorkingDirectory () const;
 	std::string GetBasename ( const std::string& filename ) const;
 	std::string GetActualSourceFilename ( const std::string& filename ) const;
-	std::string GetExtraDependencies ( const std::string& filename ) const;
 	std::string GetModuleArchiveFilename () const;
 	bool IsGeneratedFile ( const File& file ) const;
 	std::string GetImportLibraryDependency ( const Module& importedModule );
@@ -113,8 +95,7 @@ protected:
 	                             const std::string& linker,
 	                             const std::string& linkerParameters,
 	                             const std::string& objectsMacro,
-	                             const std::string& libsMacro,
-	                             const std::string& pefixupParameters );
+	                             const std::string& libsMacro );
 	void GeneratePhonyTarget() const;
 	void GenerateRules ();
 	void GenerateImportLibraryTargetIfNeeded ();
@@ -145,7 +126,6 @@ private:
 	std::string GenerateNasmParameters () const;
 	std::string MingwModuleHandler::GetPrecompiledHeaderFilename () const;
 	void GenerateGccCommand ( const std::string& sourceFilename,
-	                          const std::string& extraDependencies,
 	                          const std::string& cc,
 	                          const std::string& cflagsMacro );
 	void GenerateGccAssemblerCommand ( const std::string& sourceFilename,
@@ -202,8 +182,6 @@ private:
 	void GetRpcHeaderDependencies ( std::vector<std::string>& dependencies ) const;
 	std::string GetRpcServerHeaderFilename ( std::string basename ) const;
 	std::string GetRpcClientHeaderFilename ( std::string basename ) const;
-	std::string GetModuleCleanTarget ( const Module& module ) const;
-	void GetReferencedObjectLibraryModuleCleanTargets ( std::vector<std::string>& moduleNames ) const;
 public:
 	const Module& module;
 	string_list clean_files;
@@ -439,14 +417,6 @@ class MingwRpcClientModuleHandler : public MingwModuleHandler
 {
 public:
 	MingwRpcClientModuleHandler ( const Module& module );
-	virtual HostType DefaultHost() { return HostFalse; }
-	virtual void Process ();
-};
-
-class MingwAliasModuleHandler : public MingwModuleHandler
-{
-public:
-	MingwAliasModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
 };

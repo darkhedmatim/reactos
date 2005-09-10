@@ -20,7 +20,7 @@
 #include "ndissys.h"
 
 
-VOID NTAPI
+VOID STDCALL
 MiniportTimerDpc(
     PKDPC Dpc,
     PVOID DeferredContext,
@@ -74,7 +74,6 @@ NdisCancelTimer(
 /*
  * @implemented
  */
-#undef NdisGetCurrentSystemTime
 VOID
 EXPORT
 NdisGetCurrentSystemTime (
@@ -215,7 +214,6 @@ NdisMSetPeriodicTimer(
 /*
  * @implemented
  */
-#undef NdisMSetTimer
 VOID
 EXPORT
 NdisMSetTimer(
