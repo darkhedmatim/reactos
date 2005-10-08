@@ -464,14 +464,14 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
         if (pSlash) *pSlash = '/';
             
         if (!pNextPathElement) {
-            SHFree(pidl);
+            SHFree(*ppidl);
             return FALSE;
         }
         pidl = ILGetNext(pidl);
     }
     pidl->mkid.cb = 0; /* Terminate the ITEMIDLIST */
 
-    if ((int)pidl-(int)*ppidl+sizeof(USHORT) != cPidlLen) /* We've corrupted the heap :( */ 
+    if ((char *)pidl-(char *)*ppidl+sizeof(USHORT) != cPidlLen) /* We've corrupted the heap :( */ 
         ERR("Computed length of pidl incorrect. Please report.\n");
     
     return TRUE;
@@ -783,6 +783,22 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetUIObjectOf(IShellFolder2* ifac
     }
 }
 
+/******************************************************************************
+ * Translate file name from unix to ANSI encoding.
+ */
+static void strcpyn_U2A(char *win_fn, UINT win_fn_len, const char *unix_fn)
+{
+    UINT len;
+    WCHAR *unicode_fn;
+
+    len = MultiByteToWideChar(CP_UNIXCP, 0, unix_fn, -1, NULL, 0);
+    unicode_fn = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+    MultiByteToWideChar(CP_UNIXCP, 0, unix_fn, -1, unicode_fn, len);
+
+    WideCharToMultiByte(CP_ACP, 0, unicode_fn, len, win_fn, win_fn_len, NULL, NULL);
+    HeapFree(GetProcessHeap(), 0, unicode_fn);
+}
+
 static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* iface, 
     LPCITEMIDLIST pidl, SHGDNF uFlags, STRRET* lpName)
 {
@@ -797,7 +813,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* i
         if (!pidl || !pidl->mkid.cb) {
             lpName->uType = STRRET_CSTR;
             if (This->m_dwPathMode == PATHMODE_UNIX) {
-                strcpy(lpName->u.cStr, This->m_pszPath);
+                strcpyn_U2A(lpName->u.cStr, MAX_PATH, This->m_pszPath);
             } else {
                 WCHAR *pwszDosPath = wine_get_dos_file_name(This->m_pszPath);
                 if (!pwszDosPath)
@@ -808,7 +824,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* i
             }
         } else {
             IShellFolder *pSubFolder;
-            USHORT emptyIDL = 0;
+            SHITEMID emptyIDL = { 0, { 0 } };
 
             hr = IShellFolder_BindToObject(iface, pidl, NULL, &IID_IShellFolder, (void**)&pSubFolder);
             if (!SUCCEEDED(hr)) return hr;
@@ -819,7 +835,7 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetDisplayNameOf(IShellFolder2* i
     } else {
         char *pszFileName = _ILGetTextPointer(pidl);
         lpName->uType = STRRET_CSTR;
-        strcpy(lpName->u.cStr, pszFileName ? pszFileName : "");
+        strcpyn_U2A(lpName->u.cStr, MAX_PATH, pszFileName ? pszFileName : "");
     }
 
     /* If in dos mode, do some post-processing on the path.
@@ -1205,15 +1221,23 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_InitializeEx(IPersistFolder3 *i
         return IPersistFolder3_Initialize(iface, pidlRoot);
 
     if (ppfti->csidl != -1) {
-        if (SUCCEEDED(SHGetFolderPathW(0, ppfti->csidl, NULL, 0, wszTargetDosPath))) {
-            UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath);
+        if (FAILED(SHGetFolderPathW(0, ppfti->csidl, NULL, 0, wszTargetDosPath)) ||
+            !UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath))
+        {
+            return E_FAIL;
         }
     } else if (*ppfti->szTargetParsingName) {
-        UNIXFS_get_unix_path(ppfti->szTargetParsingName, szTargetPath);
-    } else if (ppfti->pidlTargetFolder) {
-        if (SHGetPathFromIDListW(ppfti->pidlTargetFolder, wszTargetDosPath)) {
-            UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath);
+        if (!UNIXFS_get_unix_path(ppfti->szTargetParsingName, szTargetPath)) {
+            return E_FAIL;
         }
+    } else if (ppfti->pidlTargetFolder) {
+        if (!SHGetPathFromIDListW(ppfti->pidlTargetFolder, wszTargetDosPath) ||
+            !UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath))
+        {
+            return E_FAIL;
+        }
+    } else {
+        return E_FAIL;
     }
 
     This->m_pszPath = SHAlloc(lstrlenA(szTargetPath)+1);
@@ -1221,8 +1245,8 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_InitializeEx(IPersistFolder3 *i
         return E_FAIL;
     lstrcpyA(This->m_pszPath, szTargetPath);
     This->m_pidlLocation = ILClone(pidlRoot);
-    This->m_dwAttributes = (ppfti->dwAttributes == -1) ? ppfti->dwAttributes :
-        SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME|SFGAO_FILESYSTEM;
+    This->m_dwAttributes = (ppfti->dwAttributes != -1) ? ppfti->dwAttributes :
+        (SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME|SFGAO_FILESYSTEM);
 
     return S_OK;
 }
@@ -1516,6 +1540,11 @@ static HRESULT CreateUnixFolder(IUnknown *pUnkOuter, REFIID riid, LPVOID *ppv, c
 {
     HRESULT hr = E_FAIL;
     UnixFolder *pUnixFolder = SHAlloc((ULONG)sizeof(UnixFolder));
+   
+    if (pUnkOuter) {
+        FIXME("Aggregation not yet implemented!\n");
+        return CLASS_E_NOAGGREGATION;
+    }
     
     if(pUnixFolder) {
         pUnixFolder->lpIShellFolder2Vtbl = &UnixFolder_IShellFolder2_Vtbl;

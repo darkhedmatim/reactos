@@ -468,7 +468,7 @@ static HRESULT WINAPI IDirectSoundImpl_DuplicateSoundBuffer(
     }
 
     /* FIXME: hack to make sure we have a secondary buffer */
-    if ((DWORD)((SecondaryBufferImpl *)psb)->dsb == (DWORD)This) {
+    if ((IDirectSoundImpl *)((SecondaryBufferImpl *)psb)->dsb == This) {
         WARN("trying to duplicate primary buffer\n");
         *ppdsb = NULL;
         return DSERR_INVALIDCALL;
@@ -545,13 +545,13 @@ static HRESULT WINAPI IDirectSoundImpl_DuplicateSoundBuffer(
     CopyMemory(dsb->pwfx, pdsb->pwfx, size);
 
     InitializeCriticalSection(&(dsb->lock));
-    dsb->lock.DebugInfo->Spare[1] = (DWORD)"DSOUNDBUFFER_lock";
+    dsb->lock.DebugInfo->Spare[0] = (DWORD_PTR)"DSOUNDBUFFER_lock";
 
     /* register buffer */
     hres = DSOUND_AddBuffer(This, dsb);
     if (hres != DS_OK) {
         IDirectSoundBuffer8_Release(psb);
-        dsb->lock.DebugInfo->Spare[1] = 0;
+        dsb->lock.DebugInfo->Spare[0] = 0;
         DeleteCriticalSection(&(dsb->lock));
         HeapFree(GetProcessHeap(),0,dsb->buffer);
         HeapFree(GetProcessHeap(),0,dsb->pwfx);
@@ -575,7 +575,7 @@ static HRESULT WINAPI IDirectSoundImpl_SetCooperativeLevel(
     DWORD level)
 {
     IDirectSoundImpl *This = (IDirectSoundImpl *)iface;
-    TRACE("(%p,%08lx,%s)\n",This,(DWORD)hwnd,dumpCooperativeLevel(level));
+    TRACE("(%p,%p,%s)\n",This,hwnd,dumpCooperativeLevel(level));
 
     if (level==DSSCL_PRIORITY || level==DSSCL_EXCLUSIVE) {
         WARN("level=%s not fully supported\n",
@@ -711,7 +711,7 @@ static HRESULT WINAPI IDirectSoundImpl_Initialize(
     device->guid = devGUID;
 
     /* DRV_QUERYDSOUNDIFACE is a "Wine extension" to get the DSound interface */
-    waveOutMessage((HWAVEOUT)wod, DRV_QUERYDSOUNDIFACE, (DWORD)&device->driver, 0);
+    waveOutMessage((HWAVEOUT)wod, DRV_QUERYDSOUNDIFACE, (DWORD_PTR)&device->driver, 0);
 
     /* Disable the direct sound driver to force emulation if requested. */
     if (ds_hw_accel == DS_HW_ACCEL_EMULATION)
@@ -744,7 +744,7 @@ static HRESULT WINAPI IDirectSoundImpl_Initialize(
 
         hr = mmErr(waveOutOpen(&(device->hwo),
                                 device->drvdesc.dnDevNode, device->pwfx,
-                                (DWORD)DSOUND_callback, (DWORD)device,
+                                (DWORD_PTR)DSOUND_callback, (DWORD)device,
                                 flags));
         if (hr != DS_OK) {
             WARN("waveOutOpen failed\n");
@@ -817,7 +817,7 @@ static HRESULT WINAPI IDirectSoundImpl_Initialize(
         DSOUND_renderer[device->drvdesc.dnDevNode] = device;
         timeBeginPeriod(DS_TIME_RES);
         DSOUND_renderer[device->drvdesc.dnDevNode]->timerID = timeSetEvent(DS_TIME_DEL, DS_TIME_RES, DSOUND_timer,
-            (DWORD)DSOUND_renderer[device->drvdesc.dnDevNode], TIME_PERIODIC | TIME_CALLBACK_FUNCTION);
+            (DWORD_PTR)DSOUND_renderer[device->drvdesc.dnDevNode], TIME_PERIODIC | TIME_CALLBACK_FUNCTION);
     } else {
         WARN("DSOUND_PrimaryCreate failed\n");
     }
@@ -931,7 +931,7 @@ static HRESULT DirectSoundDevice_Create(DirectSoundDevice ** ppDevice)
     device->pwfx->cbSize = 0;
 
     InitializeCriticalSection(&(device->mixlock));
-    device->mixlock.DebugInfo->Spare[1] = (DWORD)"DSOUND_mixlock";
+    device->mixlock.DebugInfo->Spare[0] = (DWORD_PTR)"DSOUND_mixlock";
 
     RtlInitializeResource(&(device->buffer_list_lock));
 
@@ -989,7 +989,7 @@ static ULONG DirectSoundDevice_Release(DirectSoundDevice * device)
 	HeapFree(GetProcessHeap(),0,device->tmp_buffer);
 	HeapFree(GetProcessHeap(),0,device->buffer);
         RtlDeleteResource(&device->buffer_list_lock);
-        device->mixlock.DebugInfo->Spare[1] = 0;
+        device->mixlock.DebugInfo->Spare[0] = 0;
         DeleteCriticalSection(&device->mixlock);
         HeapFree(GetProcessHeap(),0,device);
         TRACE("(%p) released\n", device); 
@@ -1170,7 +1170,7 @@ static HRESULT WINAPI IDirectSound_IDirectSound_SetCooperativeLevel(
     DWORD level)
 {
     IDirectSound_IDirectSound *This = (IDirectSound_IDirectSound *)iface;
-    TRACE("(%p,%08lx,%s)\n",This,(DWORD)hwnd,dumpCooperativeLevel(level));
+    TRACE("(%p,%p,%s)\n",This,hwnd,dumpCooperativeLevel(level));
     return IDirectSoundImpl_SetCooperativeLevel(This->pds,hwnd,level);
 }
 
@@ -1409,7 +1409,7 @@ static HRESULT WINAPI IDirectSound8_IDirectSound_SetCooperativeLevel(
     DWORD level)
 {
     IDirectSound8_IDirectSound *This = (IDirectSound8_IDirectSound *)iface;
-    TRACE("(%p,%08lx,%s)\n",This,(DWORD)hwnd,dumpCooperativeLevel(level));
+    TRACE("(%p,%p,%s)\n",This,hwnd,dumpCooperativeLevel(level));
     return IDirectSoundImpl_SetCooperativeLevel(This->pds,hwnd,level);
 }
 
@@ -1570,7 +1570,7 @@ static HRESULT WINAPI IDirectSound8_IDirectSound8_SetCooperativeLevel(
     DWORD level)
 {
     IDirectSound8_IDirectSound8 *This = (IDirectSound8_IDirectSound8 *)iface;
-    TRACE("(%p,%08lx,%s)\n",This,(DWORD)hwnd,dumpCooperativeLevel(level));
+    TRACE("(%p,%p,%s)\n",This,hwnd,dumpCooperativeLevel(level));
     return IDirectSoundImpl_SetCooperativeLevel(This->pds,hwnd,level);
 }
 

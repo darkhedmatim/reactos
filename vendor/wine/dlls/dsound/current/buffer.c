@@ -89,8 +89,8 @@ static HRESULT WINAPI IDirectSoundNotifyImpl_SetNotificationPositions(
 	if (TRACE_ON(dsound)) {
 	    unsigned int	i;
 	    for (i=0;i<howmuch;i++)
-		TRACE("notify at %ld to 0x%08lx\n",
-		    notify[i].dwOffset,(DWORD)notify[i].hEventNotify);
+		TRACE("notify at %ld to %p\n",
+		    notify[i].dwOffset,notify[i].hEventNotify);
 	}
 
 	if (This->dsb->hwnotify) {
@@ -365,7 +365,7 @@ static ULONG WINAPI IDirectSoundBufferImpl_Release(LPDIRECTSOUNDBUFFER8 iface)
     if (!ref) {
 	DSOUND_RemoveBuffer(This->dsound, This);
 
-	This->lock.DebugInfo->Spare[1] = 0;
+	This->lock.DebugInfo->Spare[0] = 0;
 	DeleteCriticalSection(&(This->lock));
 
 	if (This->hwbuf) {
@@ -1152,7 +1152,7 @@ HRESULT WINAPI IDirectSoundBufferImpl_Create(
 		DSOUND_RecalcVolPan(&(dsb->volpan));
 
 	InitializeCriticalSection(&(dsb->lock));
-        dsb->lock.DebugInfo->Spare[1] = (DWORD)"DSOUNDBUFFER_lock";
+        dsb->lock.DebugInfo->Spare[0] = (DWORD_PTR)"DSOUNDBUFFER_lock";
 
 	/* register buffer if not primary */
 	if (!(dsbd->dwFlags & DSBCAPS_PRIMARYBUFFER)) {
@@ -1160,7 +1160,7 @@ HRESULT WINAPI IDirectSoundBufferImpl_Create(
 		if (err != DS_OK) {
 			HeapFree(GetProcessHeap(),0,dsb->buffer->memory);
 			HeapFree(GetProcessHeap(),0,dsb->buffer);
-        		dsb->lock.DebugInfo->Spare[1] = 0;
+        		dsb->lock.DebugInfo->Spare[0] = 0;
 			DeleteCriticalSection(&(dsb->lock));
 			HeapFree(GetProcessHeap(),0,dsb->pwfx);
 			HeapFree(GetProcessHeap(),0,dsb);

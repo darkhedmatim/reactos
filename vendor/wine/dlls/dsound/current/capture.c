@@ -266,7 +266,7 @@ static HRESULT DirectSoundCaptureDevice_Create(
     device->state = STATE_STOPPED;
 
     InitializeCriticalSection( &(device->lock) );
-    device->lock.DebugInfo->Spare[1] = (DWORD)"DSCAPTURE_lock";
+    device->lock.DebugInfo->Spare[0] = (DWORD_PTR)"DSCAPTURE_lock";
 
     *ppDevice = device;
 
@@ -308,7 +308,7 @@ DirectSoundCaptureEnumerateA(
 	if (GetDeviceID(&DSDEVID_DefaultCapture, &guid) == DS_OK) {
     	    for (wid = 0; wid < devs; ++wid) {
                 if (IsEqualGUID( &guid, &DSOUND_capture_guids[wid] ) ) {
-                    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
+                    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD_PTR)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
                               "Primary Sound Capture Driver",desc.szDrvname,lpContext);
@@ -321,7 +321,7 @@ DirectSoundCaptureEnumerateA(
     }
 
     for (wid = 0; wid < devs; ++wid) {
-	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
+	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD_PTR)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
                   debugstr_guid(&DSOUND_capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
@@ -370,7 +370,7 @@ DirectSoundCaptureEnumerateW(
 	if (GetDeviceID(&DSDEVID_DefaultCapture, &guid) == DS_OK) {
     	    for (wid = 0; wid < devs; ++wid) {
                 if (IsEqualGUID( &guid, &DSOUND_capture_guids[wid] ) ) {
-                    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
+                    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD_PTR)&desc,0));
                     if (err == DS_OK) {
                         TRACE("calling lpDSEnumCallback(NULL,\"%s\",\"%s\",%p)\n",
                               "Primary Sound Capture Driver",desc.szDrvname,lpContext);
@@ -387,7 +387,7 @@ DirectSoundCaptureEnumerateW(
     }
 
     for (wid = 0; wid < devs; ++wid) {
-	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD)&desc,0));
+	err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDDESC,(DWORD_PTR)&desc,0));
 	if (err == DS_OK) {
             TRACE("calling lpDSEnumCallback(%s,\"%s\",\"%s\",%p)\n",
                   debugstr_guid(&DSOUND_capture_guids[wid]),desc.szDesc,desc.szDrvname,lpContext);
@@ -509,7 +509,7 @@ static ULONG DirectSoundCaptureDevice_Release(
         }
 
         HeapFree(GetProcessHeap(), 0, device->pwfx);
-        device->lock.DebugInfo->Spare[1] = 0;
+        device->lock.DebugInfo->Spare[0] = 0;
         DeleteCriticalSection( &(device->lock) );
         DSOUND_capture[device->drvdesc.dnDevNode] = NULL;
         HeapFree(GetProcessHeap(), 0, device);
@@ -681,7 +681,7 @@ IDirectSoundCaptureImpl_Initialize(
     This->device = device;
     device->guid = devGUID;
 
-    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDIFACE,(DWORD)&(This->device->driver),0));
+    err = mmErr(waveInMessage((HWAVEIN)wid,DRV_QUERYDSOUNDIFACE,(DWORD_PTR)&(This->device->driver),0));
     if ( (err != DS_OK) && (err != DSERR_UNSUPPORTED) ) {
 	WARN("waveInMessage failed; err=%lx\n",err);
 	return err;
@@ -896,7 +896,7 @@ DSOUND_CreateDirectSoundCaptureBuffer(
 		flags |= WAVE_DIRECTSOUND;
             err = mmErr(waveInOpen(&(ipDSC->device->hwi),
                 ipDSC->device->drvdesc.dnDevNode, ipDSC->device->pwfx,
-                (DWORD)DSOUND_capture_callback, (DWORD)ipDSC->device, flags));
+                (DWORD_PTR)DSOUND_capture_callback, (DWORD)ipDSC->device, flags));
             if (err != DS_OK) {
                 WARN("waveInOpen failed\n");
 		This->dsound->device->capture_buffer = 0;
@@ -986,8 +986,8 @@ static HRESULT WINAPI IDirectSoundCaptureNotifyImpl_SetNotificationPositions(
     if (TRACE_ON(dsound)) {
 	unsigned int i;
 	for (i=0;i<howmuch;i++)
-	    TRACE("notify at %ld to 0x%08lx\n",
-	    notify[i].dwOffset,(DWORD)notify[i].hEventNotify);
+	    TRACE("notify at %ld to %p\n",
+	    notify[i].dwOffset,notify[i].hEventNotify);
     }
 
     if (This->dscb->hwnotify) {
