@@ -27,6 +27,7 @@
 #define NONAMELESSUNION
 #include "windef.h"
 #include "winbase.h"
+#include "winuser.h"
 #include "winreg.h"
 #include "mmsystem.h"
 #include "winternl.h"
@@ -45,6 +46,7 @@ static ULONG WINAPI IDirectSound8_IDirectSound_AddRef(LPDIRECTSOUND iface);
 static ULONG WINAPI IDirectSound8_IDirectSound8_AddRef(LPDIRECTSOUND8 iface);
 
 static HRESULT DirectSoundDevice_Create(DirectSoundDevice ** ppDevice);
+static ULONG DirectSoundDevice_AddRef(DirectSoundDevice * device);
 static ULONG DirectSoundDevice_Release(DirectSoundDevice * device);
 
 static const char * dumpCooperativeLevel(DWORD level)
@@ -246,9 +248,13 @@ static ULONG WINAPI IDirectSoundImpl_Release(
     TRACE("(%p) ref was %ld\n", This, ref + 1);
 
     if (!ref) {
-        if (This->device)
-            DirectSoundDevice_Release(This->device);
-
+        if (This->device) {
+            if (DirectSoundDevice_Release(This->device) != 0) {
+                /* device not released so make sure primary reference to This removed */
+                if (This->device->primary)
+                    This->device->primary->dsound = NULL;
+            }
+        }
         HeapFree(GetProcessHeap(),0,This);
         TRACE("(%p) released\n", This);
     }
@@ -324,6 +330,7 @@ static HRESULT WINAPI DSOUND_CreateSoundBuffer(
             WARN("Primary Buffer already created\n");
             IDirectSoundBuffer_AddRef((LPDIRECTSOUNDBUFFER8)(This->device->primary));
             *ppdsb = (LPDIRECTSOUNDBUFFER)(This->device->primary);
+            This->device->primary->dsound = This;
         } else {
            This->device->dsbd = *dsbd;
            hres = PrimaryBufferImpl_Create(This, (PrimaryBufferImpl**)&(This->device->primary), &(This->device->dsbd));
@@ -359,7 +366,7 @@ static HRESULT WINAPI DSOUND_CreateSoundBuffer(
         if (dsb) {
             hres = SecondaryBufferImpl_Create(dsb, (SecondaryBufferImpl**)ppdsb);
             if (*ppdsb) {
-                dsb->dsb = (SecondaryBufferImpl*)*ppdsb;
+                dsb->secondary = (SecondaryBufferImpl*)*ppdsb;
                 IDirectSoundBuffer_AddRef((LPDIRECTSOUNDBUFFER)*ppdsb);
             } else
                 WARN("SecondaryBufferImpl_Create failed\n");
@@ -528,7 +535,7 @@ static HRESULT WINAPI IDirectSoundImpl_DuplicateSoundBuffer(
     dsb->dsound = This;
     dsb->ds3db = NULL;
     dsb->iks = NULL; /* FIXME? */
-    dsb->dsb = NULL;
+    dsb->secondary = NULL;
 
     /* variable sized struct so calculate size based on format */
     size = sizeof(WAVEFORMATEX) + pdsb->pwfx->cbSize;
@@ -560,7 +567,7 @@ static HRESULT WINAPI IDirectSoundImpl_DuplicateSoundBuffer(
     } else {
         hres = SecondaryBufferImpl_Create(dsb, (SecondaryBufferImpl**)ppdsb);
         if (*ppdsb) {
-            dsb->dsb = (SecondaryBufferImpl*)*ppdsb;
+            dsb->secondary = (SecondaryBufferImpl*)*ppdsb;
             IDirectSoundBuffer_AddRef((LPDIRECTSOUNDBUFFER8)*ppdsb);
         } else
             WARN("SecondaryBufferImpl_Create failed\n");
@@ -691,7 +698,7 @@ static HRESULT WINAPI IDirectSoundImpl_Initialize(
     if (DSOUND_renderer[wod]) {
         if (IsEqualGUID(&devGUID, &DSOUND_renderer[wod]->guid)) {
             device = DSOUND_renderer[wod];
-            device->ref++;
+            DirectSoundDevice_AddRef(device);
             This->device = device;
             return DS_OK;
         } else {
@@ -940,14 +947,20 @@ static HRESULT DirectSoundDevice_Create(DirectSoundDevice ** ppDevice)
     return DS_OK;
 }
 
+static ULONG DirectSoundDevice_AddRef(DirectSoundDevice * device)
+{
+    ULONG ref = InterlockedIncrement(&(device->ref));
+    TRACE("(%p) ref was %ld\n", device, ref - 1);
+    return ref;
+}
+
 static ULONG DirectSoundDevice_Release(DirectSoundDevice * device)
 {
-    int i;
     HRESULT hr;
-    TRACE("(%p) ref was %lu\n", device, device->ref);
-
-    device->ref--;
-    if (device->ref == 0) {
+    ULONG ref = InterlockedDecrement(&(device->ref));
+    TRACE("(%p) ref was %lu\n", device, ref + 1);
+    if (!ref) {
+        int i;
         timeKillEvent(device->timerID);
         timeEndPeriod(DS_TIME_RES);
         /* wait for timer to expire */
@@ -994,7 +1007,7 @@ static ULONG DirectSoundDevice_Release(DirectSoundDevice * device)
         HeapFree(GetProcessHeap(),0,device);
         TRACE("(%p) released\n", device); 
     }
-    return device->ref;
+    return ref;
 }
 
 HRESULT WINAPI IDirectSoundImpl_Create(

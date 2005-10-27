@@ -805,7 +805,7 @@ static const WCHAR szSHUserFolders[] = {'S','o','f','t','w','a','r','e','\\','M'
 /* This defaults to L"Documents and Settings" on Windows 2000/XP, but we're
  * acting more Windows 9x-like for now.
  */
-static const WCHAR szDefaultProfileDirW[] = {'w','i','n','d','o','w','s','\\','p','r','o','f','i','l','e','s','\0'};
+static const WCHAR szDefaultProfileDirW[] = {'p','r','o','f','i','l','e','s','\0'};
 static const WCHAR AllUsersW[] = {'A','l','l',' ','U','s','e','r','s','\0'};
 
 typedef enum _CSIDL_Type {
@@ -1259,18 +1259,28 @@ static HRESULT _SHGetDefaultValue(BYTE folder, LPWSTR pszPath)
     switch (folder)
     {
         case CSIDL_PERSONAL:
+        case CSIDL_MYMUSIC:
+        case CSIDL_MYPICTURES:
+        case CSIDL_MYVIDEO:
         {
             const char *home = getenv("HOME");
 
             /* special case for "My Documents", map to $HOME */
             if (home)
             {
-                WCHAR homeW[MAX_PATH];
+                LPWSTR homeW = wine_get_dos_file_name(home);
 
-                MultiByteToWideChar(CP_UNIXCP, 0, home, -1, homeW, MAX_PATH);
-                if (GetFullPathNameW(homeW, MAX_PATH, pszPath, NULL) != 0 &&
-                 PathIsDirectoryW(pszPath))
-                    hr = S_OK;
+                if (homeW)
+                {
+                    if (PathIsDirectoryW(homeW))
+                    {
+                        lstrcpynW(pszPath, homeW, MAX_PATH);
+                        hr = S_OK;
+                    }
+                    HeapFree(GetProcessHeap(), 0, homeW);
+                }
+                else
+                    hr = HRESULT_FROM_WIN32(GetLastError());
             }
             break;
         }
@@ -1282,13 +1292,22 @@ static HRESULT _SHGetDefaultValue(BYTE folder, LPWSTR pszPath)
             /* special case for Desktop, map to $HOME/Desktop if it exists */
             if (home)
             {
-                WCHAR desktopW[MAX_PATH];
+                LPWSTR homeW = wine_get_dos_file_name(home);
 
-                MultiByteToWideChar(CP_UNIXCP, 0, home, -1, desktopW, MAX_PATH);
-                PathAppendW(desktopW, DesktopW);
-                if (GetFullPathNameW(desktopW, MAX_PATH, pszPath, NULL) != 0 &&
-                 PathIsDirectoryW(pszPath))
-                    hr = S_OK;
+                if (homeW)
+                {
+                    lstrcpynW(pszPath, homeW, MAX_PATH);
+                    if (PathAppendW(pszPath, DesktopW))
+                    {
+                        if (PathIsDirectoryW(pszPath))
+                            hr = S_OK;
+                    }
+                    else
+                        hr = HRESULT_FROM_WIN32(GetLastError());
+                    HeapFree(GetProcessHeap(), 0, homeW);
+                }
+                else
+                    hr = HRESULT_FROM_WIN32(GetLastError());
             }
             break;
         }
@@ -1581,7 +1600,8 @@ static HRESULT _SHExpandEnvironmentStrings(LPCWSTR szSrc, LPWSTR szDest)
     {
         WCHAR szDefaultProfilesPrefix[MAX_PATH];
 
-        strcpyW(szDefaultProfilesPrefix, SystemDriveW);
+        GetWindowsDirectoryW(szDefaultProfilesPrefix, MAX_PATH);
+        PathAddBackslashW(szDefaultProfilesPrefix);
         PathAppendW(szDefaultProfilesPrefix, szDefaultProfileDirW);
         hr = _SHGetProfilesValue(key, ProfilesDirectoryW, szProfilesPrefix,
          szDefaultProfilesPrefix);
@@ -1888,6 +1908,7 @@ static HRESULT _SHRegisterUserShellFolders(BOOL bDefault)
      CSIDL_PROGRAMS,
      CSIDL_PERSONAL,
      CSIDL_FAVORITES,
+     CSIDL_APPDATA,
      CSIDL_STARTUP,
      CSIDL_RECENT,
      CSIDL_SENDTO,
