@@ -4338,8 +4338,7 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeOfImplType(
 	HREFTYPE  *pRefType)
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
-    int i;
-    HRESULT hr = S_OK;
+    int(i);
     TLBImplType *pImpl = This->impltypelist;
 
     TRACE("(%p) index %d\n", This, index);
@@ -4359,7 +4358,8 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeOfImplType(
       }
       else
       {
-        hr = TYPE_E_ELEMENTNOTFOUND;
+        if (!pImpl) return TYPE_E_ELEMENTNOTFOUND;
+        *pRefType = pImpl->hRef;
       }
     }
     else
@@ -4370,21 +4370,15 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeOfImplType(
         pImpl = pImpl->next;
       }
 
-      if (pImpl)
-        *pRefType = pImpl->hRef;
-      else
-        hr = TYPE_E_ELEMENTNOTFOUND;
+      if (!pImpl) return TYPE_E_ELEMENTNOTFOUND;
+
+      *pRefType = pImpl->hRef;
+
+      TRACE("-- 0x%08lx\n", pImpl->hRef );
     }
 
-    if(TRACE_ON(ole))
-    {
-        if(SUCCEEDED(hr))
-            TRACE("SUCCESS -- hRef = 0x%08lx\n", *pRefType );
-        else
-            TRACE("FAILURE -- hresult = 0x%08lx\n", hr);
-    }
+    return S_OK;
 
-    return hr;
 }
 
 /* ITypeInfo::GetImplTypeFlags

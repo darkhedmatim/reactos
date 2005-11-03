@@ -36,9 +36,8 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
  * a neutral version. This is to get localized bitmaps for example.
  */
 
-#include "De.rc"
 #include "En.rc"
-#include "Ja.rc"
+#include "De.rc"
 #include "Nl.rc"
 #include "Pl.rc"
 #include "Sv.rc"

@@ -515,12 +515,7 @@ static void write_typeformatstring(type_t *iface)
                         if (type != NULL)
                             type_type = type->type;
 
-                        if (ref_attr)
-                            print_server("0x11, 0x00,    /* FC_RP */\n");
-                        else if (unique_attr)
-                            print_server("0x12, 0x00,    /* FC_UP */\n");
-                        else if (ptr_attr)
-                            print_server("0x14, 0x00,    /* FC_FP */\n");
+                        print_server("0x11, 0x00,    /* FC_RP */\n");
                         print_server("NdrFcShort(0x02),\n");
 
                         if (string_attr)
@@ -627,7 +622,7 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
     int last_size = -1;
     int in_attr;
     int out_attr;
-    int string_attr, unique_attr;
+    int string_attr;
     void *sizeis_attr;
     int empty_line;
     var_t *var;
@@ -897,7 +892,6 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
             out_attr = is_attr(var->attrs, ATTR_OUT);
             in_attr = is_attr(var->attrs, ATTR_IN);
             string_attr = is_attr(var->attrs, ATTR_STRING);
-            unique_attr = is_attr(var->attrs, ATTR_UNIQUE);
 
             /* set 'in' attribute if neither 'in' nor 'out' is found */
             if (!out_attr && !in_attr)
@@ -905,7 +899,6 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
 
             if (var->ptr_level == 1 &&
                 string_attr &&
-                unique_attr == 0 &&
                 (var->type->type == RPC_FC_BYTE ||
                  var->type->type == RPC_FC_CHAR ||
                  var->type->type == RPC_FC_WCHAR))
@@ -975,7 +968,6 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
     int string_attr;
     int ptr_attr, ref_attr, unique_attr;
     void *sizeis_attr;
-    int default_align = 0;
 
     if (!func->args)
         return;
@@ -1019,21 +1011,23 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
                             print_server("(unsigned char)0);\n");
                             indent--;
                             fprintf(server, "\n");
-                            default_align = 1;
+                            print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                            fprintf(server, "\n");
                         }
                     }
                     else if (sizeis_attr)
                     {
-                        print_server("NdrConformantArrayUnmarshall(\n");
-                        indent++;
-                        print_server("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
-                        print_server("(unsigned char __RPC_FAR * __RPC_FAR *)&%s,\n", var->name);
-                        print_server("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u],\n",
-                                     local_type_offset + 4);
-                        print_server("(unsigned char)0);\n");
-                        indent--;
-                        fprintf(server, "\n");
-                        default_align = 1;
+                            print_server("NdrConformantArrayUnmarshall(\n");
+                            indent++;
+                            print_server("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
+                            print_server("(unsigned char __RPC_FAR * __RPC_FAR *)&%s,\n", var->name);
+                            print_server("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u],\n",
+                                         local_type_offset + 4);
+                            print_server("(unsigned char)0);\n");
+                            indent--;
+                            fprintf(server, "\n");
+                            print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                            fprintf(server, "\n");
                     }
                     else
                     {
@@ -1082,13 +1076,6 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
 
                         if (size != 0)
                         {
-                            if (default_align)
-                            {
-                                print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                                fprintf(server, "\n");
-                                default_align = 0;
-                            }
-                            else
                             if (alignment != 0)
                                 print_server("_StubMsg.Buffer += %u;\n", alignment);
 
@@ -1117,7 +1104,6 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
                     print_server("(unsigned char)0);\n");
                     indent--;
                     fprintf(server, "\n");
-                    default_align = 1;
                 }
 
             }
@@ -1170,13 +1156,6 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
 
                     if (size != 0)
                     {
-                        if (default_align)
-                        {
-                            print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                            fprintf(server, "\n");
-                            default_align = 0;
-                        }
-                        else
                         if (alignment != 0)
                             print_server("_StubMsg.Buffer += %u;\n", alignment);
 
@@ -1206,7 +1185,6 @@ static void unmarshall_in_arguments(func_t *func, unsigned int *type_offset)
                         print_server("(unsigned char)0);\n");
                         indent--;
                         fprintf(server, "\n");
-                        default_align = 1;
                     }
                 }
             }
@@ -1230,7 +1208,6 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
     int ptr_attr, ref_attr, unique_attr;
     void *sizeis_attr;
     unsigned int local_type_offset = *type_offset;
-    int default_align = 0;
 
     def = func->def;
 
@@ -1272,7 +1249,8 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
                                      local_type_offset + 4);
                         indent--;
                         fprintf(server, "\n");
-                        default_align = 1;
+                        print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                        fprintf(server, "\n");
                     }
                     else
                     {
@@ -1291,7 +1269,8 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
                                      local_type_offset + 4);
                         indent--;
                         fprintf(server, "\n");
-                        default_align = 1;
+                        print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                        fprintf(server, "\n");
                     }
                 }
                 else if (is_base_type(var->type))
@@ -1341,6 +1320,9 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
 
                     if (size != 0)
                     {
+                        if (alignment != 0)
+                            print_server("_StubMsg.Buffer += %u;\n", alignment);
+
                         if (var->ptr_level == 1)
                         {
                             if (unique_attr)
@@ -1353,20 +1335,9 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
                                              local_type_offset);
                                 indent--;
                                 fprintf(server, "\n");
-                                default_align = 1;
                             }
                             else
                             {
-                                if (default_align)
-                                {
-                                    print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                                    fprintf(server, "\n");
-                                    default_align = 0;
-                                }
-                                else
-                                if (alignment != 0)
-                                    print_server("_StubMsg.Buffer += %u;\n", alignment);
-
                                 fprintf(server, "\n");
                                 print_server("*((");
                                 write_type(server, var->type, NULL, var->tname);
@@ -1398,7 +1369,6 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
                     print_server("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
                                  local_type_offset + 4);
                     indent--;
-                    default_align = 1;
                 }
             }
 
@@ -1441,13 +1411,6 @@ static void marshall_out_arguments(func_t *func, unsigned int *type_offset)
         }
 
         fprintf(server, "\n");
-        if (default_align)
-        {
-            print_server("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-            fprintf(server, "\n");
-            default_align = 0;
-        }
-        else
         if (alignment != 0)
             print_server("_StubMsg.Buffer += %u;\n", alignment);
         print_server("*((");
@@ -1487,7 +1450,7 @@ static int use_return_buffer(func_t *func)
 static void cleanup_return_buffer(func_t *func, unsigned int *type_offset)
 {
     var_t *var;
-    int string_attr, unique_attr;
+    int string_attr;
     void *sizeis_attr;
     unsigned int local_type_offset = *type_offset;
 
@@ -1501,9 +1464,8 @@ static void cleanup_return_buffer(func_t *func, unsigned int *type_offset)
         {
             sizeis_attr = get_attrp(var->attrs, ATTR_SIZEIS);
             string_attr = is_attr(var->attrs, ATTR_STRING);
-            unique_attr = is_attr(var->attrs, ATTR_UNIQUE);
 
-            if (sizeis_attr != NULL && unique_attr == 0)
+            if (sizeis_attr != NULL)
             {
                 if (first_arg == 0)
                     fprintf(server, "\n");

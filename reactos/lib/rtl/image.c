@@ -17,7 +17,7 @@
 /*
  * @implemented
  */
-PIMAGE_NT_HEADERS NTAPI
+PIMAGE_NT_HEADERS STDCALL
 RtlImageNtHeader (IN PVOID BaseAddress)
 {
   PIMAGE_NT_HEADERS NtHeader;
@@ -44,7 +44,7 @@ RtlImageNtHeader (IN PVOID BaseAddress)
  * @implemented
  */
 PVOID
-NTAPI
+STDCALL
 RtlImageDirectoryEntryToData (
 	PVOID	BaseAddress,
 	BOOLEAN	bMappedAsImage,
@@ -88,7 +88,7 @@ RtlImageDirectoryEntryToData (
  * @implemented
  */
 PIMAGE_SECTION_HEADER
-NTAPI
+STDCALL
 RtlImageRvaToSection (
 	PIMAGE_NT_HEADERS	NtHeader,
 	PVOID			BaseAddress,
@@ -118,7 +118,7 @@ RtlImageRvaToSection (
  * @implemented
  */
 ULONG
-NTAPI
+STDCALL
 RtlImageRvaToVa (
 	PIMAGE_NT_HEADERS	NtHeader,
 	PVOID			BaseAddress,

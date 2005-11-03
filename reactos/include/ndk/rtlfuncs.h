@@ -542,14 +542,6 @@ RtlSelfRelativeToAbsoluteSD(
 NTSYSAPI
 NTSTATUS
 NTAPI
-RtlSelfRelativeToAbsoluteSD2(
-    IN OUT PSECURITY_DESCRIPTOR SelfRelativeSD,
-    OUT PULONG BufferSize
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
 RtlSetControlSecurityDescriptor(
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     IN SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
@@ -1997,19 +1989,6 @@ NTAPI
 RtlUniform(PULONG Seed);
 
 /*
- * Network Functions
- */
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlIpv4StringToAddressW(
-    IN LPWSTR IpString,
-    IN ULONG Base,
-    OUT PULONG PtrToIpAddr,
-    OUT PULONG IpAddr
-);
-
-/*
  * Time Functions
  */
 NTSYSAPI
@@ -2063,10 +2042,6 @@ NTSTATUS
 NTAPI
 RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation);
 
-NTSYSAPI
-BOOLEAN
-NTAPI
-RtlGetNtProductType(OUT PNT_PRODUCT_TYPE ProductType);
 
 static __inline struct _PEB* NtCurrentPeb (void) 
 {

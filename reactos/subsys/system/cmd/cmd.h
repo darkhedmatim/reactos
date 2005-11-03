@@ -43,7 +43,12 @@
 
 
 /* command line buffer length */
+#ifdef __REACTOS__
 #define CMDLINE_LENGTH  8192
+#else
+#define CMDLINE_LENGTH  8192
+//#define CMDLINE_LENGTH  1024
+#endif
 
 /* global variables */
 extern HANDLE hOut;
@@ -293,7 +298,6 @@ INT GetRootPath(TCHAR *InPath,TCHAR *OutPath,INT size);
 BOOL SetRootPath(TCHAR *InPath);
 TCHAR  cgetchar (VOID);
 BOOL   CheckCtrlBreak (INT);
-BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry);
 LPTSTR *split (LPTSTR, LPINT, BOOL);
 VOID   freep (LPTSTR *);
 LPTSTR _stpcpy (LPTSTR, LPCTSTR);
@@ -301,7 +305,9 @@ BOOL   IsValidPathName (LPCTSTR);
 BOOL   IsExistingFile (LPCTSTR);
 BOOL   IsExistingDirectory (LPCTSTR);
 BOOL   FileGetString (HANDLE, LPTSTR, INT);
-VOID   GetPathCase(TCHAR *, TCHAR *);
+#ifndef __REACTOS__
+HWND   GetConsoleWindow(VOID);
+#endif
 
 #define PROMPT_NO    0
 #define PROMPT_YES   1

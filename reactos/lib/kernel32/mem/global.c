@@ -536,11 +536,6 @@ GlobalReAlloc(HGLOBAL hMem,
     {
         if(ISPOINTER(hMem))
         {
-            if (!(uFlags & GMEM_MOVEABLE))
-            {
-                heap_flags |= HEAP_REALLOC_IN_PLACE_ONLY;
-            }
-
             /* reallocate fixed memory */
             hnew = (HANDLE)RtlReAllocateHeap(GetProcessHeap(), heap_flags, (LPVOID) hMem, dwBytes);
         }
@@ -548,47 +543,37 @@ GlobalReAlloc(HGLOBAL hMem,
         {
             /* reallocate a moveable block */
             phandle= HANDLE_TO_INTERN(hMem);
-            hnew = hMem;
-            
             if (0 != dwBytes)
             {
-               if(phandle->Pointer)
-               {
-
-                   if (phandle->LockCount && !(uFlags & GMEM_MOVEABLE))
-                   {
-                       /* Locked memory cant normally move but the MEM_MOVEABLE flag
-                        * override this behaviour. But in this case that flag was not passed.
-                        */ 
-                       heap_flags |= HEAP_REALLOC_IN_PLACE_ONLY;
-                   }
-
-                   palloc = RtlReAllocateHeap(GetProcessHeap(), heap_flags,
-                                      (PVOID)((ULONG_PTR)phandle->Pointer - HANDLE_SIZE),
-                                      dwBytes + HANDLE_SIZE);
-                   if (0 == palloc)
-                   {
-                       hnew = 0;
-                   }
-                   else
-                   {
-                       *(PHANDLE)palloc = hMem;
-                       phandle->Pointer = (PVOID)((ULONG_PTR)palloc + HANDLE_SIZE);
-                   }
-               }
-               else
-               {
-                   palloc = RtlAllocateHeap(GetProcessHeap(), heap_flags, dwBytes + HANDLE_SIZE);
-                   if (0 == palloc)
-                   {
-                       hnew = 0;
-                   }
-                   else
-                   {
-                       *(PHANDLE)palloc = hMem;
-                       phandle->Pointer = (PVOID)((ULONG_PTR)palloc + HANDLE_SIZE);
-                   }
-               }
+                hnew = hMem;
+                if(phandle->Pointer)
+                {
+                    palloc = RtlReAllocateHeap(GetProcessHeap(), heap_flags,
+                                         (PVOID)((ULONG_PTR)phandle->Pointer - HANDLE_SIZE),
+                                         dwBytes + HANDLE_SIZE);
+                    if (0 == palloc)
+                    {
+                        hnew = 0;
+                    }
+                    else
+                    {
+                        *(PHANDLE)palloc = hMem;
+                        phandle->Pointer = (PVOID)((ULONG_PTR)palloc + HANDLE_SIZE);
+                    }
+                }
+                else
+                {
+                    palloc = RtlAllocateHeap(GetProcessHeap(), heap_flags, dwBytes + HANDLE_SIZE);
+                    if (0 == palloc)
+                    {
+                        hnew = 0;
+                    }
+                    else
+                    {
+                        *(PHANDLE)palloc = hMem;
+                        phandle->Pointer = (PVOID)((ULONG_PTR)palloc + HANDLE_SIZE);
+                    }
+                }
             }
             else
             {
@@ -600,7 +585,6 @@ GlobalReAlloc(HGLOBAL hMem,
             }
         }
     }
-
     HeapUnlock(GetProcessHeap());
 
     return hnew;

@@ -20,7 +20,6 @@
 
 #include <stdio.h> // sprintf
 #include <math.h>
-#include <stdlib.h>
 
 #include <windows.h>
 #include <tchar.h>
@@ -270,7 +269,6 @@ LRESULT WINAPI MainProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
 
         DestroyCalc( &calc );
-		DestroyMenus();
         PostQuitMessage( 0 );
         return 0;
 
@@ -471,7 +469,7 @@ LRESULT WINAPI MainProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 int len;
                 TCHAR *s;
                 HGLOBAL hGlobalMemory;
-                LPTSTR pGlobalMemory;
+                PSTR pGlobalMemory;
 
                 if (!(len = _tcslen(calc.display)))
                     return 0;
@@ -507,10 +505,10 @@ LRESULT WINAPI MainProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case TEXT('\x16'): // Ctrl+V Paste
             {
                 TCHAR *s;
-                TCHAR c;
+                int c;
                 int cmd = 0;
-                size_t size = 0;
-                size_t i = 0;
+                int size = 0;
+                int i = 0;
                 HGLOBAL hGlobalMemory;
                 LPTSTR pGlobalMemory;
 
@@ -2841,12 +2839,6 @@ void DestroyCalc (CALC *calc)
 {
     int i;
 
-    for (i=0;i<calc->numButtons;i++)
-        DestroyWindow(calc->cb[i].hBtn);
-}
-
-void DestroyMenus()
-{
     if (menus[MENU_STD] != 0)
         DestroyMenu(menus[MENU_STD]);
 
@@ -2855,6 +2847,9 @@ void DestroyMenus()
 
     if (menus[MENU_SCIWS] != 0)
         DestroyMenu(menus[MENU_SCIWS]);
+
+    for (i=0;i<calc->numButtons;i++)
+        DestroyWindow(calc->cb[i].hBtn);
 }
 
 void calc_buffer_format(CALC *calc) {
@@ -2939,6 +2934,7 @@ void calc_buffer_format(CALC *calc) {
 void calc_buffer_display(CALC *calc) {
     TCHAR *p;
     TCHAR s[CALC_BUF_SIZE];
+    TCHAR r[CALC_BUF_SIZE] = TEXT("0");
     int point=0;
     calcfloat real;
 
@@ -2966,10 +2962,11 @@ void calc_buffer_display(CALC *calc) {
             else {
                 int i = 0;
                 int lz = 0;
+                calcfloat r;
                 int exp = 0;
 
-                real = calc_atof(calc->buffer, calc->numBase);
-                _stprintf(s, FMT_DESC_EXP, real);
+                r = calc_atof(calc->buffer, calc->numBase);
+                _stprintf(s, FMT_DESC_EXP, r);
                 // remove leading zeros in exponent
                 p = s;
                 while (*p) {
@@ -3025,11 +3022,13 @@ void calc_buffer_display(CALC *calc) {
             if (!point && calc->numBase == NBASE_DECIMAL)
                 _tcscat(s, TEXT("."));
 
-            if (*s == TEXT('.'))
-                _tcscpy(calc->display, TEXT("0"));
-            else
-                calc->display[0] = 0;
-            _tcscat(calc->display, s);
+            if (*s == TEXT('.')) {
+                _tcscat(r, s);
+                _tcscpy(calc->display, r);
+            }
+            else {
+                _tcscpy(calc->display, s);
+            }
         }
     }
     InvalidateRect(calc->hWnd, NULL, FALSE);
@@ -3079,7 +3078,7 @@ TCHAR *calc_sep(TCHAR *s)
         r[i++] = c;
         if (x++ % 3 == 0)
             r[i++] = TEXT(',');
-        if (n == 0)
+        if (n == -1)
             break;
     }
 
@@ -3412,11 +3411,12 @@ int parse(int wParam, int lParam)
                 else {
                     calc.memory = calc_atof(calc.buffer, calc.numBase);
                 }
-                return 0;
             }
+            return 0;
         }
-        // fall through for Enter processing
+        break;
 
+        // fall through for Enter processing ... but there is a bug here in Ctrl+M vs. Return
     case TEXT('='):
         {
             calcfloat r = calc.operand;

@@ -31,10 +31,6 @@
 using std::string;
 using std::vector;
 
-#ifdef OUT
-#undef OUT
-#endif//OUT
-
 void
 MSVCBackend::_generate_vcproj ( const Module& module )
 {
@@ -53,8 +49,8 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	}
 
 	string module_type = GetExtension(module.GetTargetName());
-	bool lib = (module.type == ObjectLibrary) || (module_type == ".lib") || (module_type == ".a");
-	bool dll = (module_type == ".dll") || (module_type == ".cpl");
+	bool lib = (module_type == ".lib") || (module_type == ".a");
+	bool dll = (module_type == ".dll");
 	bool exe = (module_type == ".exe");
 	// TODO FIXME - need more checks here for 'sys' and possibly 'drv'?
 
@@ -113,10 +109,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			if ( !strncmp(incs[i]->directory.c_str(), "w32api", 6 ) )
 				continue;
 
-			// explicitly omit include/wine directories
-			if ( !strncmp(incs[i]->directory.c_str(), "include\\wine", 12 ) )
-				continue;
-
 			string path = Path::RelativeFromDirectory (
 				incs[i]->directory,
 				module.GetBasePath() );
@@ -144,8 +136,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 	std::vector<std::string> cfgs;
 
-	cfgs.push_back ( "Debug" );
-	cfgs.push_back ( "Release" );
+	cfgs.push_back ( module.name + " - Win32" );
 
 	if (!no_cpp)
 	{
@@ -176,28 +167,14 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	fprintf ( OUT, "<?xml version=\"1.0\" encoding = \"Windows-1252\"?>\r\n" );
 	fprintf ( OUT, "<VisualStudioProject\r\n" );
 	fprintf ( OUT, "\tProjectType=\"Visual C++\"\r\n" );
-
-	if (configuration.VSProjectVersion.empty())
-		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
-
-	fprintf ( OUT, "\tVersion=\"%s\"\r\n", configuration.VSProjectVersion.c_str() );
+	fprintf ( OUT, "\tVersion=\"7.00\"\r\n" );
 	fprintf ( OUT, "\tName=\"%s\"\r\n", module.name.c_str() );
-	fprintf ( OUT, "\tProjectGUID=\"%s\"\r\n", module.guid.c_str() ); 
 	fprintf ( OUT, "\tKeyword=\"Win32Proj\">\r\n" );
 
 	fprintf ( OUT, "\t<Platforms>\r\n" );
 	fprintf ( OUT, "\t\t<Platform\r\n" );
 	fprintf ( OUT, "\t\t\tName=\"Win32\"/>\r\n" );
 	fprintf ( OUT, "\t</Platforms>\r\n" );
-
-	fprintf ( OUT, "\t<ToolFiles>\r\n" );
-	fprintf ( OUT, "\t\t<ToolFile\r\n" );
-
-	string path = Path::RelativeFromDirectory ( ProjectNode.name, module.GetBasePath() );
-	path.erase(path.find(ProjectNode.name, 0), ProjectNode.name.size() + 1);
-
-	fprintf ( OUT, "\t\t\tRelativePath=\"%s/gccasm.rules\"/>\r\n", path.c_str() );
-	fprintf ( OUT, "\t</ToolFiles>\r\n" );
 
 	int n = 0;
 
@@ -224,7 +201,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 		fprintf ( OUT, "\t\t\t\tAdditionalIncludeDirectories=\"" );
 		bool multiple_includes = false;
-		fprintf ( OUT, "./;" );
 		for ( i = 0; i < includes.size(); i++ )
 		{
 			const string& include = includes[i];
@@ -270,8 +246,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			if ( i > 0 )
 				fprintf ( OUT, ";" );
-
-			defines[i] = _replace_str(defines[i], "\"","&quot;"); 
 			fprintf ( OUT, "%s", defines[i].c_str() );
 		}
 		fprintf ( OUT, "\"\r\n" );
@@ -293,7 +267,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCLibrarianTool\"\r\n" );
-			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s%s\"/>\r\n", module.name.c_str(), module_type.c_str() );
+			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s.%s\"/>\r\n", module.name.c_str(), module_type.c_str() );
 		}
 		else
 		{
@@ -309,7 +283,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			}
 			fprintf ( OUT, "\"\r\n" );
 
-			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s%s\"\r\n", module.name.c_str(), module_type.c_str() );
+			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s.%s\"\r\n", module.name.c_str(), module_type.c_str() );
 			fprintf ( OUT, "\t\t\t\tLinkIncremental=\"%d\"\r\n", debug ? 2 : 1 );
 			fprintf ( OUT, "\t\t\t\tGenerateDebugInformation=\"TRUE\"\r\n" );
 
@@ -324,7 +298,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		fprintf ( OUT, "\t\t\t\tName=\"VCResourceCompilerTool\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tAdditionalIncludeDirectories=\"" );
 		multiple_includes = false;
-		fprintf ( OUT, "./;" );
 		for ( i = 0; i < includes.size(); i++ )
 		{
 			const string& include = includes[i];
@@ -361,30 +334,12 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	// Source files
 	fprintf ( OUT, "\t\t<Filter\r\n" );
 	fprintf ( OUT, "\t\t\tName=\"Source Files\"\r\n" );
-	fprintf ( OUT, "\t\t\tFilter=\"cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;S\">\r\n" );
+	fprintf ( OUT, "\t\t\tFilter=\"cpp;c;cxx;rc;def;r;odl;idl;hpj;bat\">\r\n" );
 	for ( size_t isrcfile = 0; isrcfile < source_files.size(); isrcfile++ )
 	{
 		const string& source_file = DosSeparator(source_files[isrcfile]);
 		fprintf ( OUT, "\t\t\t<File\r\n" );
 		fprintf ( OUT, "\t\t\t\tRelativePath=\"%s\">\r\n", source_file.c_str() );
-
-		if (configuration.VSProjectVersion < "8.00") {
-			if (source_file.at(source_file.size() - 1) == 'S') {
-				for ( size_t iconfig = 0; iconfig < cfgs.size(); iconfig++ )
-				{
-					std::string& config = cfgs[iconfig];
-					fprintf ( OUT, "\t\t\t\t<FileConfiguration\r\n" );
-					fprintf ( OUT, "\t\t\t\t\tName=\"" );
-					fprintf ( OUT, config.c_str());
-					fprintf ( OUT, "|Win32\">\r\n" );
-					fprintf ( OUT, "\t\t\t\t\t<Tool\r\n" );
-					fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
-					fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n" );
-					fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
-					fprintf ( OUT, "\t\t\t\t</FileConfiguration>\r\n" );
-				}
-			}
-		}
 		fprintf ( OUT, "\t\t\t</File>\r\n" );
 	}
 	fprintf ( OUT, "\t\t</Filter>\r\n" );
@@ -422,165 +377,49 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	fclose(OUT);
 }
 
-std::string
-MSVCBackend::_replace_str(std::string string1, const std::string &find_str, const std::string &replace_str)
-{
-        std::string::size_type pos = string1.find(find_str, 0);
-        int intLen = find_str.length();
-
-        while(std::string::npos != pos)
-        {
-                string1.replace(pos, intLen, replace_str);
-                pos = string1.find(find_str, intLen + pos);
-        }
-
-        return string1;
-} 
-
-std::string
-MSVCBackend::_get_solution_verion ( void ) {
-    string version;
-
-    if (configuration.VSProjectVersion.empty())
-        configuration.VSProjectVersion = MS_VS_DEF_VERSION;
-
-    if (configuration.VSProjectVersion == "7.00")
-		version = "7.00";
-
-    if (configuration.VSProjectVersion == "7.10")
-		version = "8.00";
-
-    if (configuration.VSProjectVersion == "8.00")
-		version = "9.00";
-
-	return version;
-}
-
-
-void
-MSVCBackend::_generate_rules_file ( FILE* OUT )
-{
-	fprintf ( OUT, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" );
-	fprintf ( OUT, "<VisualStudioToolFile\r\n" );
-	fprintf ( OUT, "\tName=\"GCC Assembler\"\r\n" );
-	fprintf ( OUT, "\tVersion=\"%s\"\r\n", _get_solution_verion().c_str() );
-	fprintf ( OUT, "\t>\r\n" );
-	fprintf ( OUT, "\t<Rules>\r\n" );
-	fprintf ( OUT, "\t\t<CustomBuildRule\r\n" );
-	fprintf ( OUT, "\t\t\tName=\"Assembler\"\r\n" );
-	fprintf ( OUT, "\t\t\tDisplayName=\"Assembler Files\"\r\n" );
-	fprintf ( OUT, "\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n" );
-	fprintf ( OUT, "\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"\r\n" );	
-	fprintf ( OUT, "\t\t\tFileExtensions=\"*.S\"\r\n" );
-	fprintf ( OUT, "\t\t\tExecutionDescription=\"asm\"\r\n" );
-	fprintf ( OUT, "\t\t\t>\r\n" );
-	fprintf ( OUT, "\t\t\t<Properties>\r\n" );
-	fprintf ( OUT, "\t\t\t</Properties>\r\n" );
-	fprintf ( OUT, "\t\t</CustomBuildRule>\r\n" );
-	fprintf ( OUT, "\t</Rules>\r\n" );
-	fprintf ( OUT, "</VisualStudioToolFile>\r\n" );
-}
-
 void
 MSVCBackend::_generate_sln_header ( FILE* OUT )
 {
-    fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_verion().c_str() );
-    fprintf ( OUT, "# Visual Studio 2005\r\n" );
+    fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version 9.00\r\n" );
+    fprintf ( OUT, "# Visual C++ Express 2005\r\n" );
     fprintf ( OUT, "\r\n" );
-}
-
-
-void
-MSVCBackend::_generate_sln_project (
-	FILE* OUT,
-	const Module& module,
-	std::string vcproj_file,
-	std::string sln_guid,
-	std::string vcproj_guid,
-	const std::vector<Dependency*>& dependencies )
-{
-	vcproj_file = DosSeparator ( std::string(".\\") + vcproj_file );
-
-	fprintf ( OUT, "Project(\"%s\") = \"%s\", \"%s\", \"%s\"\r\n", sln_guid.c_str() , module.name.c_str(), vcproj_file.c_str(), vcproj_guid.c_str() );
-
-	//FIXME: only omit ProjectDependencies in VS 2005 when there are no dependencies
-	//NOTE: VS 2002 do not use ProjectSection; it uses GlobalSection instead
-	if ((configuration.VSProjectVersion == "7.10") || (dependencies.size() > 0)) {
-		fprintf ( OUT, "\tProjectSection(ProjectDependencies) = postProject\r\n" );
-		for ( size_t i = 0; i < dependencies.size(); i++ )
-		{
-			Dependency& dependency = *dependencies[i];
-			fprintf ( OUT, "\t\t%s = %s\r\n", dependency.module.guid.c_str(), dependency.module.guid.c_str() );
-		}
-		fprintf ( OUT, "\tEndProjectSection\r\n" );
-	}
-
-	fprintf ( OUT, "EndProject\r\n" );
-}
-
-
-void
-MSVCBackend::_generate_sln_footer ( FILE* OUT )
-{
-	fprintf ( OUT, "Global\r\n" );
-	fprintf ( OUT, "\tGlobalSection(SolutionConfiguration) = preSolution\r\n" );
-	fprintf ( OUT, "\t\tDebug = Debug\r\n" );
-	fprintf ( OUT, "\t\tRelease = Release\r\n" );
-	fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	fprintf ( OUT, "\tGlobalSection(ProjectConfiguration) = postSolution\r\n" );
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
-	{
-		Module& module = *ProjectNode.modules[i];
-		std::string guid = module.guid;
-		_generate_sln_configurations ( OUT, guid.c_str() );
-	} 
-	fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	fprintf ( OUT, "\tGlobalSection(ExtensibilityGlobals) = postSolution\r\n" );
-	fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	fprintf ( OUT, "\tGlobalSection(ExtensibilityAddIns) = postSolution\r\n" );
-	fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	
-	if (configuration.VSProjectVersion == "7.00") {
-		fprintf ( OUT, "\tGlobalSection(ProjectDependencies) = postSolution\r\n" );
-		//FIXME: Add dependencies for VS 2002
-		fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	}
-
-	if (configuration.VSProjectVersion == "8.00") {
-		fprintf ( OUT, "\tGlobalSection(SolutionProperties) = preSolution\r\n" );
-        	fprintf ( OUT, "\t\tHideSolutionNode = FALSE\r\n" );
-		fprintf ( OUT, "\tEndGlobalSection\r\n" );
-	}
-
-	fprintf ( OUT, "EndGlobal\r\n" );
-	fprintf ( OUT, "\r\n" );
-}
-
-
-void
-MSVCBackend::_generate_sln_configurations ( FILE* OUT, std::string vcproj_guid )
-{
-	fprintf ( OUT, "\t\t%s.Debug.ActiveCfg = Debug|Win32\r\n", vcproj_guid.c_str() );
-	fprintf ( OUT, "\t\t%s.Debug.Build.0 = Debug|Win32\r\n", vcproj_guid.c_str() );
-	fprintf ( OUT, "\t\t%s.Debug.Release.ActiveCfg = Release|Win32\r\n", vcproj_guid.c_str() );
-	fprintf ( OUT, "\t\t%s.Debug.Release.Build.0 = Release|Win32\r\n", vcproj_guid.c_str() );
 }
 
 void
 MSVCBackend::_generate_sln ( FILE* OUT )
 {
-	string sln_guid = "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}";
-	vector<string> guids;
-
 	_generate_sln_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
 	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
 		Module& module = *ProjectNode.modules[i];
-		
+
 		std::string vcproj_file = VcprojFileName ( module );
-		_generate_sln_project ( OUT, module, vcproj_file, sln_guid, module.guid, module.dependencies );
-	}
-	_generate_sln_footer ( OUT );
+		_generate_dsw_project ( OUT, module, vcproj_file, module.dependencies );
+    }
+//    _generate_dsw_footer ( OUT );
 }
 
+
+
+/*
+	m_devFile << "Microsoft Visual Studio Solution File, Format Version 9.00" << endl;
+	m_devFile << "# Visual C++ Express 2005" << endl;
+
+	m_devFile << "# FIXME Project listings here" << endl;
+	m_devFile << "EndProject" << endl;
+	m_devFile << "Global" << endl;
+	m_devFile << "	GlobalSection(SolutionConfigurationPlatforms) = preSolution" << endl;
+	m_devFile << "		Debug|Win32 = Debug|Win32" << endl;
+	m_devFile << "		Release|Win32 = Release|Win32" << endl;
+	m_devFile << "	EndGlobalSection" << endl;
+	m_devFile << "	GlobalSection(ProjectConfigurationPlatforms) = postSolution" << endl;
+	m_devFile << "	#FIXME Project Listings Here" << endl;
+	m_devFile << "	EndGlobalSection" << endl;
+	m_devFile << "	GlobalSection(SolutionProperties) = preSolution" << endl;
+	m_devFile << "		HideSolutionNode = FALSE" << endl;
+	m_devFile << "	EndGlobalSection" << endl;
+	m_devFile << "EndGlobal" << endl;
+
+	m_devFile << endl << endl;
+*/

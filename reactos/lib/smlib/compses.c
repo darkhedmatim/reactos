@@ -5,7 +5,11 @@
  * FILE:            lib/smlib/compses.c
  * PURPOSE:         Call SM API SM_API_COMPLETE_SESSION
  */
-#include "precomp.h"
+#include <windows.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
+
+#include <sm/helper.h>
 
 #define NDEBUG
 #include <debug.h>

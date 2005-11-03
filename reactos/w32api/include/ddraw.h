@@ -59,7 +59,7 @@ extern "C" {
  * Predeclare the interfaces
  */
 #ifndef _NO_COM
-#if defined( _WIN32 ) && !defined( _NO_COM )
+#ifndef __DDRAW_GUID_DEFINED__
 DEFINE_GUID( CLSID_DirectDraw,		0xD7B70EE0,0x4340,0x11CF,0xB0,0x63,0x00,0x20,0xAF,0xC2,0xCD,0x35 );
 DEFINE_GUID( CLSID_DirectDraw7,         0x3C305196,0x50DB,0x11D3,0x9C,0xFE,0x00,0xC0,0x4F,0xD9,0x30,0xC5 );
 DEFINE_GUID( CLSID_DirectDrawClipper,	0x593817A0,0x7DB3,0x11CF,0xA2,0xDE,0x00,0xAA,0x00,0xb9,0x33,0x56 );
@@ -97,8 +97,7 @@ typedef struct IDirectDrawGammaControl *LPDIRECTDRAWGAMMACONTROL;
 #define DDENUMRET_CANCEL	0
 #define DDENUMRET_OK		1
 
-#define DD_OK			S_OK
-#define DD_FALSE        S_FALSE
+#define DD_OK			0
 
 
 #define _FACDD		0x876
@@ -386,11 +385,6 @@ typedef struct _DDSCAPS {
 #define DDSCAPS2_DONOTPERSIST           0x00040000
 /* indicates surface is part of a stereo flipping chain */
 #define DDSCAPS2_STEREOSURFACELEFT      0x00080000
-
-typedef struct
-{
-	BYTE blue, green, red, alpha;
-} DDARGB, *PDDARGB;
 
 typedef struct _DDSCAPS2 {
 	DWORD	dwCaps;	/* capabilities of surface wanted */
@@ -998,13 +992,13 @@ typedef struct _DDSURFACEDESC
 	union {
 		LONG	lPitch;	/* 10: distance to start of next line (return value only)*/
 		DWORD	dwLinearSize;
-	};
+	} DUMMYUNIONNAME1;
 	DWORD	dwBackBufferCount;/* 14: number of back buffers requested*/
 	union {
 		DWORD	dwMipMapCount;/* 18:number of mip-map levels requested*/
 		DWORD	dwZBufferBitDepth;/*18: depth of Z buffer requested*/
 		DWORD	dwRefreshRate;/* 18:refresh rate (used when display mode is described)*/
-	};
+	} DUMMYUNIONNAME2;
 	DWORD	dwAlphaBitDepth;/* 1C:depth of alpha buffer requested*/
 	DWORD	dwReserved;	/* 20:reserved*/
 	LPVOID	lpSurface;	/* 24:pointer to the associated surface memory*/
@@ -1025,27 +1019,28 @@ typedef struct _DDSURFACEDESC2
 	union {
 		LONG	lPitch;	      /*10: distance to start of next line (return value only)*/
 		DWORD   dwLinearSize; /*10: formless late-allocated optimized surface size */
-	};
+	} DUMMYUNIONNAME1;
 	DWORD	dwBackBufferCount;/* 14: number of back buffers requested*/
 	union {
 		DWORD	dwMipMapCount;/* 18:number of mip-map levels requested*/
 		DWORD	dwRefreshRate;/* 18:refresh rate (used when display mode is described)*/
 		DWORD   dwSrcVBHandle;/* 18:source used in VB::Optimize */
-	};
+	} DUMMYUNIONNAME2;
 	DWORD	dwAlphaBitDepth;/* 1C:depth of alpha buffer requested*/
 	DWORD	dwReserved;	/* 20:reserved*/
 	LPVOID	lpSurface;	/* 24:pointer to the associated surface memory*/
 	union {
 		DDCOLORKEY	ddckCKDestOverlay; /* 28: CK for dest overlay use*/
 		DWORD 		dwEmptyFaceColor;  /* 28: color for empty cubemap faces */
-	};
+	} DUMMYUNIONNAME3;
 	DDCOLORKEY	ddckCKDestBlt;	/* 30: CK for destination blt use*/
 	DDCOLORKEY	ddckCKSrcOverlay;/* 38: CK for source overlay use*/
 	DDCOLORKEY	ddckCKSrcBlt;	/* 40: CK for source blt use*/
+
 	union {
 		DDPIXELFORMAT	ddpfPixelFormat;/* 48: pixel format description of the surface*/
 		DWORD 		dwFVF;	/* 48: vertex format description of vertex buffers */
-	};
+	} DUMMYUNIONNAME4;
 	DDSCAPS2	ddsCaps;  /* 68: DDraw surface caps */
 	DWORD		dwTextureStage; /* 78: stage in multitexture cascade */
 } DDSURFACEDESC2,*LPDDSURFACEDESC2;

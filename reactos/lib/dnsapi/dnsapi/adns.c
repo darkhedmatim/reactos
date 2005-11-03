@@ -8,10 +8,10 @@
  *              12/15/03 -- Created
  */
 
-#include "precomp.h"
-
-#define NDEBUG
-#include <debug.h>
+#include <windows.h>
+#include <winerror.h>
+#include <windns.h>
+#include <internal/windns.h>
 
 DNS_STATUS DnsIntTranslateAdnsToDNS_STATUS( int Status ) {
   switch( Status ) {

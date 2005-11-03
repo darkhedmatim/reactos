@@ -755,6 +755,7 @@ IoCreateFile(OUT PHANDLE  FileHandle,
    IO_SECURITY_CONTEXT  SecurityContext;
    KPROCESSOR_MODE      AccessMode;
    HANDLE               LocalHandle;
+   IO_STATUS_BLOCK      LocalIoStatusBlock;
    LARGE_INTEGER        SafeAllocationSize;
    PVOID                SystemEaBuffer = NULL;
    NTSTATUS  Status = STATUS_SUCCESS;
@@ -987,7 +988,7 @@ IoCreateFile(OUT PHANDLE  FileHandle,
    //trigger FileObject/Event dereferencing
    Irp->Tail.Overlay.OriginalFileObject = FileObject;
    Irp->RequestorMode = AccessMode;
-   Irp->UserIosb = IoStatusBlock;
+   Irp->UserIosb = &LocalIoStatusBlock;
    Irp->AssociatedIrp.SystemBuffer = SystemEaBuffer;
    Irp->Tail.Overlay.AuxiliaryBuffer = NULL;
    Irp->Tail.Overlay.Thread = PsGetCurrentThread();
@@ -1053,7 +1054,7 @@ IoCreateFile(OUT PHANDLE  FileHandle,
                              AccessMode,
                              FALSE,
                              NULL);
-       Status = IoStatusBlock->Status;
+       Status = LocalIoStatusBlock.Status;
      }
    if (!NT_SUCCESS(Status))
      {
@@ -1068,6 +1069,7 @@ IoCreateFile(OUT PHANDLE  FileHandle,
        _SEH_TRY
          {
            *FileHandle = LocalHandle;
+           *IoStatusBlock = LocalIoStatusBlock;
          }
        _SEH_HANDLE
          {
@@ -1378,41 +1380,20 @@ STDCALL
 NtCancelIoFile(IN HANDLE FileHandle,
                OUT PIO_STATUS_BLOCK IoStatusBlock)
 {
+   NTSTATUS Status;
    PFILE_OBJECT FileObject;
    PETHREAD Thread;
    PIRP Irp;
    KIRQL OldIrql;
    BOOLEAN OurIrpsInList = FALSE;
    LARGE_INTEGER Interval;
-   KPROCESSOR_MODE PreviousMode;
-   NTSTATUS Status = STATUS_SUCCESS;
 
-   PAGED_CODE();
+   if ((ULONG_PTR)IoStatusBlock >= (ULONG_PTR)MmUserProbeAddress &&
+       KeGetPreviousMode() != KernelMode)
+      return STATUS_ACCESS_VIOLATION;
 
-   PreviousMode = KeGetPreviousMode();
-
-   if (PreviousMode != KernelMode)
-   {
-      _SEH_TRY
-      {
-         ProbeForWrite(IoStatusBlock,
-                       sizeof(IO_STATUS_BLOCK),
-                       sizeof(ULONG));
-      }
-      _SEH_HANDLE
-      {
-         Status = _SEH_GetExceptionCode();
-      }
-      _SEH_END;
-
-      if (!NT_SUCCESS(Status)) return Status;
-   }
-
-   Status = ObReferenceObjectByHandle(FileHandle,
-                                      0,
-                                      IoFileObjectType,
-                                      PreviousMode,
-                                      (PVOID*)&FileObject,
+   Status = ObReferenceObjectByHandle(FileHandle, 0, IoFileObjectType,
+                                      KeGetPreviousMode(), (PVOID*)&FileObject,
                                       NULL);
    if (!NT_SUCCESS(Status))
       return Status;
@@ -1550,39 +1531,23 @@ NtCreateMailslotFile(OUT PHANDLE FileHandle,
     MAILSLOT_CREATE_PARAMETERS Buffer;
 
     DPRINT("NtCreateMailslotFile(FileHandle 0x%p, DesiredAccess %x, "
-           "ObjectAttributes 0x%p)\n",
-           FileHandle,DesiredAccess,ObjectAttributes);
-
+           "ObjectAttributes 0x%p ObjectAttributes->ObjectName->Buffer %S)\n",
+           FileHandle,DesiredAccess,ObjectAttributes,
+           ObjectAttributes->ObjectName->Buffer);
     PAGED_CODE();
 
     /* Check for Timeout */
-    if (TimeOut != NULL)
+    if (TimeOut)
     {
-        if (KeGetPreviousMode() != KernelMode)
-        {
-            NTSTATUS Status = STATUS_SUCCESS;
-
-            _SEH_TRY
-            {
-                Buffer.ReadTimeout = ProbeForReadLargeInteger(TimeOut);
-            }
-            _SEH_HANDLE
-            {
-                Status = _SEH_GetExceptionCode();
-            }
-            _SEH_END;
-
-            if (!NT_SUCCESS(Status)) return Status;
-        }
-        else
-        {
-            Buffer.ReadTimeout = *TimeOut;
-        }
-
+        /* Enable it */
         Buffer.TimeoutSpecified = TRUE;
+
+        /* FIXME: Add SEH */
+        Buffer.ReadTimeout = *TimeOut;
     }
     else
     {
+        /* No timeout */
         Buffer.TimeoutSpecified = FALSE;
     }
 
@@ -1627,39 +1592,25 @@ NtCreateNamedPipeFile(PHANDLE FileHandle,
     NAMED_PIPE_CREATE_PARAMETERS Buffer;
 
     DPRINT("NtCreateNamedPipeFile(FileHandle 0x%p, DesiredAccess %x, "
-           "ObjectAttributes 0x%p)\n",
-            FileHandle,DesiredAccess,ObjectAttributes);
-
+           "ObjectAttributes 0x%p ObjectAttributes->ObjectName->Buffer %S)\n",
+            FileHandle,DesiredAccess,ObjectAttributes,
+            ObjectAttributes->ObjectName->Buffer);
     PAGED_CODE();
 
     /* Check for Timeout */
-    if (DefaultTimeout != NULL)
+    if (DefaultTimeout)
     {
-        if (KeGetPreviousMode() != KernelMode)
-        {
-            NTSTATUS Status = STATUS_SUCCESS;
-
-            _SEH_TRY
-            {
-                Buffer.DefaultTimeout = ProbeForReadLargeInteger(DefaultTimeout);
-            }
-            _SEH_HANDLE
-            {
-                Status = _SEH_GetExceptionCode();
-            }
-            _SEH_END;
-
-            if (!NT_SUCCESS(Status)) return Status;
-        }
-        else
-        {
-            Buffer.DefaultTimeout = *DefaultTimeout;
-        }
-
+        /* Enable it */
         Buffer.TimeoutSpecified = TRUE;
+
+        /* FIXME: Add SEH */
+        Buffer.DefaultTimeout = *DefaultTimeout;
     }
     else
+    {
+        /* No timeout */
         Buffer.TimeoutSpecified = FALSE;
+    }
 
     /* Set Settings */
     Buffer.NamedPipeType = NamedPipeType;
@@ -1773,8 +1724,6 @@ NTSTATUS
 STDCALL
 NtFlushWriteBuffer(VOID)
 {
-    PAGED_CODE();
-
     KeFlushWriteBuffer();
     return STATUS_SUCCESS;
 }
@@ -1797,56 +1746,20 @@ NtFlushBuffersFile(IN  HANDLE FileHandle,
     PFILE_OBJECT FileObject = NULL;
     PIRP Irp;
     PIO_STACK_LOCATION StackPtr;
-    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS Status;
     PDEVICE_OBJECT DeviceObject;
     KEVENT Event;
     BOOLEAN LocalEvent = FALSE;
-    ACCESS_MASK DesiredAccess = FILE_WRITE_DATA;
-    OBJECT_HANDLE_INFORMATION ObjectHandleInfo;
-    KPROCESSOR_MODE PreviousMode;
-
-    PAGED_CODE();
-
-    PreviousMode = KeGetPreviousMode();
-
-    if (PreviousMode != KernelMode)
-    {
-        _SEH_TRY
-        {
-            ProbeForWrite(IoStatusBlock,
-                          sizeof(IO_STATUS_BLOCK),
-                          sizeof(ULONG));
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
-
-        if (!NT_SUCCESS(Status)) return Status;
-    }
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
 
     /* Get the File Object */
     Status = ObReferenceObjectByHandle(FileHandle,
-                                       0,
-                                       IoFileObjectType,
+                                       FILE_WRITE_DATA,
+                                       NULL,
                                        PreviousMode,
                                        (PVOID*)&FileObject,
-                                       &ObjectHandleInfo);
-    if (!NT_SUCCESS(Status)) return(Status);
-
-    /* check if the handle has either FILE_WRITE_DATA or FILE_APPEND_DATA was
-       granted. However, if this is a named pipe, make sure we don't ask for
-       FILE_APPEND_DATA as it interferes with the FILE_CREATE_PIPE_INSTANCE
-       access right! */
-    if (!(FileObject->Flags & FO_NAMED_PIPE))
-        DesiredAccess |= FILE_APPEND_DATA;
-    if (!RtlAreAnyAccessesGranted(ObjectHandleInfo.GrantedAccess,
-                                  DesiredAccess))
-    {
-        ObDereferenceObject(FileObject);
-        return STATUS_ACCESS_DENIED;
-    }
+                                       NULL);
+    if (Status != STATUS_SUCCESS) return(Status);
 
     /* Check if this is a direct open or not */
     if (FileObject->Flags & FO_DIRECT_DEVICE_OPEN)
@@ -2055,17 +1968,12 @@ NtLockFile(IN HANDLE FileHandle,
     PDEVICE_OBJECT DeviceObject;
     PKEVENT Event = NULL;
     BOOLEAN LocalEvent = FALSE;
-    KPROCESSOR_MODE PreviousMode;
-    LARGE_INTEGER CapturedByteOffset, CapturedLength;
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
     OBJECT_HANDLE_INFORMATION HandleInformation;
-
-    PAGED_CODE();
-
-    PreviousMode = KeGetPreviousMode();
-
-    CapturedByteOffset.QuadPart = 0;
-    CapturedLength.QuadPart = 0;
+     
+    /* FIXME: instead of this, use SEH */
+    if (!Length || !ByteOffset) return STATUS_INVALID_PARAMETER;
 
     /* Get File Object */
     Status = ObReferenceObjectByHandle(FileHandle,
@@ -2076,41 +1984,12 @@ NtLockFile(IN HANDLE FileHandle,
                                        &HandleInformation);
     if (!NT_SUCCESS(Status)) return Status;
 
-    if (PreviousMode != KernelMode)
+    /* Must have FILE_READ_DATA | FILE_WRITE_DATA access */
+    if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_READ_DATA)))
     {
-        /* Must have either FILE_READ_DATA or FILE_WRITE_DATA access unless
-           we're in KernelMode! */
-        if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_READ_DATA)))
-        {
-            DPRINT1("Invalid access rights\n");
-            ObDereferenceObject(FileObject);
-            return STATUS_ACCESS_DENIED;
-        }
-
-        _SEH_TRY
-        {
-            ProbeForWrite(IoStatusBlock,
-                          sizeof(IO_STATUS_BLOCK),
-                          sizeof(ULONG));
-            CapturedByteOffset = ProbeForReadLargeInteger(ByteOffset);
-            CapturedLength = ProbeForReadLargeInteger(Length);
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
-
-        if (!NT_SUCCESS(Status))
-        {
-            ObDereferenceObject(FileObject);
-            return Status;
-        }
-    }
-    else
-    {
-        CapturedByteOffset = *ByteOffset;
-        CapturedLength = *Length;
+        DPRINT1("Invalid access rights\n");
+        ObDereferenceObject(FileObject);
+        return STATUS_ACCESS_DENIED;
     }
 
     /* Get Event Object */
@@ -2164,7 +2043,7 @@ NtLockFile(IN HANDLE FileHandle,
         ObDereferenceObject(FileObject);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-    *LocalLength = CapturedLength;
+    *LocalLength = *Length;
     
     /* Set up the IRP */
     Irp->RequestorMode = PreviousMode;
@@ -2181,8 +2060,8 @@ NtLockFile(IN HANDLE FileHandle,
     
     /* Set Parameters */
     StackPtr->Parameters.LockControl.Length = LocalLength;
-    StackPtr->Parameters.LockControl.ByteOffset = CapturedByteOffset;
-    StackPtr->Parameters.LockControl.Key = Key;
+    StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
+    StackPtr->Parameters.LockControl.Key = Key ? Key : 0;
 
     /* Set Flags */
     if (FailImmediately) StackPtr->Flags = SL_FAIL_IMMEDIATELY;
@@ -2830,7 +2709,7 @@ NtReadFile(IN HANDLE FileHandle,
            OUT PIO_STATUS_BLOCK IoStatusBlock,
            OUT PVOID Buffer,
            IN ULONG Length,
-           IN PLARGE_INTEGER ByteOffset OPTIONAL,
+           IN PLARGE_INTEGER ByteOffset OPTIONAL, /* NOT optional for asynch. operations! */
            IN PULONG Key OPTIONAL)
 {
     NTSTATUS Status = STATUS_SUCCESS;
@@ -2838,19 +2717,14 @@ NtReadFile(IN HANDLE FileHandle,
     PIRP Irp = NULL;
     PDEVICE_OBJECT DeviceObject;
     PIO_STACK_LOCATION StackPtr;
-    KPROCESSOR_MODE PreviousMode;
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     BOOLEAN LocalEvent = FALSE;
     PKEVENT EventObject = NULL;
-    LARGE_INTEGER CapturedByteOffset;
 
     DPRINT("NtReadFile(FileHandle 0x%p Buffer 0x%p Length %x ByteOffset 0x%p, "
            "IoStatusBlock 0x%p)\n", FileHandle, Buffer, Length, ByteOffset,
             IoStatusBlock);
-
     PAGED_CODE();
-    
-    PreviousMode = KeGetPreviousMode();
-    CapturedByteOffset.QuadPart = 0;
 
     /* Validate User-Mode Buffers */
     if(PreviousMode != KernelMode)
@@ -2860,14 +2734,11 @@ NtReadFile(IN HANDLE FileHandle,
             ProbeForWrite(IoStatusBlock,
                           sizeof(IO_STATUS_BLOCK),
                           sizeof(ULONG));
+            #if 0
             ProbeForWrite(Buffer,
                           Length,
-                          1);
-            if (ByteOffset != NULL)
-            {
-                CapturedByteOffset = ProbeForReadLargeInteger(ByteOffset);
-            }
-            /* FIXME - probe other pointers and capture information */
+                          sizeof(ULONG));
+            #endif
         }
         _SEH_HANDLE
         {
@@ -2876,13 +2747,6 @@ NtReadFile(IN HANDLE FileHandle,
         _SEH_END;
 
         if(!NT_SUCCESS(Status)) return Status;
-    }
-    else
-    {
-        if (ByteOffset != NULL)
-        {
-            CapturedByteOffset = *ByteOffset;
-        }
     }
 
     /* Get File Object */
@@ -2895,9 +2759,9 @@ NtReadFile(IN HANDLE FileHandle,
     if (!NT_SUCCESS(Status)) return Status;
 
     /* Check the Byte Offset */
-    if (ByteOffset == NULL ||
-        (CapturedByteOffset.u.LowPart == FILE_USE_FILE_POINTER_POSITION &&
-         CapturedByteOffset.u.HighPart == -1))
+    if (!ByteOffset ||
+        (ByteOffset->u.LowPart == FILE_USE_FILE_POINTER_POSITION &&
+         ByteOffset->u.HighPart == -1))
     {
         /* a valid ByteOffset is required if asynch. op. */
         if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
@@ -2908,7 +2772,7 @@ NtReadFile(IN HANDLE FileHandle,
         }
 
         /* Use the Current Byte OFfset */
-        CapturedByteOffset = FileObject->CurrentByteOffset;
+        ByteOffset = &FileObject->CurrentByteOffset;
     }
 
     /* Check for event */
@@ -2957,7 +2821,7 @@ NtReadFile(IN HANDLE FileHandle,
                                            DeviceObject,
                                            Buffer,
                                            Length,
-                                           &CapturedByteOffset,
+                                           ByteOffset,
                                            EventObject,
                                            IoStatusBlock);
         if (Irp == NULL)
@@ -3412,7 +3276,7 @@ NtUnlockFile(IN  HANDLE FileHandle,
              OUT PIO_STATUS_BLOCK IoStatusBlock,
              IN  PLARGE_INTEGER ByteOffset,
              IN  PLARGE_INTEGER Length,
-             IN  ULONG Key OPTIONAL)
+             OUT ULONG Key OPTIONAL)
 {
     PFILE_OBJECT FileObject = NULL;
     PLARGE_INTEGER LocalLength = NULL;
@@ -3421,17 +3285,12 @@ NtUnlockFile(IN  HANDLE FileHandle,
     PDEVICE_OBJECT DeviceObject;
     KEVENT Event;
     BOOLEAN LocalEvent = FALSE;
-    KPROCESSOR_MODE PreviousMode;
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
-    LARGE_INTEGER CapturedByteOffset, CapturedLength;
     OBJECT_HANDLE_INFORMATION HandleInformation;
-
-    PAGED_CODE();
-
-    PreviousMode = KeGetPreviousMode();
-
-    CapturedByteOffset.QuadPart = 0;
-    CapturedLength.QuadPart = 0;
+     
+    /* FIXME: instead of this, use SEH */
+    if (!Length || !ByteOffset) return STATUS_INVALID_PARAMETER;
 
     /* Get File Object */
     Status = ObReferenceObjectByHandle(FileHandle,
@@ -3442,41 +3301,12 @@ NtUnlockFile(IN  HANDLE FileHandle,
                                        &HandleInformation);
     if (!NT_SUCCESS(Status)) return Status;
 
-    if (PreviousMode != KernelMode)
+    /* Must have FILE_READ_DATA | FILE_WRITE_DATA access */
+    if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_READ_DATA)))
     {
-        /* Must have either FILE_READ_DATA or FILE_WRITE_DATA access unless we're
-           in KernelMode! */
-        if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_READ_DATA)))
-        {
-            DPRINT1("Invalid access rights\n");
-            ObDereferenceObject(FileObject);
-            return STATUS_ACCESS_DENIED;
-        }
-
-        _SEH_TRY
-        {
-            ProbeForWrite(IoStatusBlock,
-                          sizeof(IO_STATUS_BLOCK),
-                          sizeof(ULONG));
-            CapturedByteOffset = ProbeForReadLargeInteger(ByteOffset);
-            CapturedLength = ProbeForReadLargeInteger(Length);
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
-
-        if (!NT_SUCCESS(Status))
-        {
-            ObDereferenceObject(FileObject);
-            return Status;
-        }
-    }
-    else
-    {
-        CapturedByteOffset = *ByteOffset;
-        CapturedLength = *Length;
+        DPRINT1("Invalid access rights\n");
+        ObDereferenceObject(FileObject);
+        return STATUS_ACCESS_DENIED;
     }
 
     /* Check if this is a direct open or not */
@@ -3519,7 +3349,7 @@ NtUnlockFile(IN  HANDLE FileHandle,
         ObDereferenceObject(FileObject);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-    *LocalLength = CapturedLength;
+    *LocalLength = *Length;
     
     /* Set up the IRP */
     Irp->Flags = (LocalEvent) ? IRP_SYNCHRONOUS_API : 0;
@@ -3537,8 +3367,8 @@ NtUnlockFile(IN  HANDLE FileHandle,
     
     /* Set Parameters */
     StackPtr->Parameters.LockControl.Length = LocalLength;
-    StackPtr->Parameters.LockControl.ByteOffset = CapturedByteOffset;
-    StackPtr->Parameters.LockControl.Key = Key;
+    StackPtr->Parameters.LockControl.ByteOffset = *ByteOffset;
+    StackPtr->Parameters.LockControl.Key = Key ? Key : 0;
 
     /* Call the Driver */
     Status = IoCallDriver(DeviceObject, Irp);
@@ -3594,49 +3424,34 @@ NtWriteFile (IN HANDLE FileHandle,
              IN PLARGE_INTEGER ByteOffset OPTIONAL, /* NOT optional for asynch. operations! */
              IN PULONG Key OPTIONAL)
 {
-    OBJECT_HANDLE_INFORMATION ObjectHandleInfo;
+    OBJECT_HANDLE_INFORMATION HandleInformation;
     NTSTATUS Status = STATUS_SUCCESS;
     PFILE_OBJECT FileObject;
     PIRP Irp = NULL;
     PDEVICE_OBJECT DeviceObject;
     PIO_STACK_LOCATION StackPtr;
-    KPROCESSOR_MODE PreviousMode;
+    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     BOOLEAN LocalEvent = FALSE;
     PKEVENT EventObject = NULL;
-    LARGE_INTEGER CapturedByteOffset;
-    ULONG CapturedKey = 0;
-    ACCESS_MASK DesiredAccess = FILE_WRITE_DATA;
 
     DPRINT("NtWriteFile(FileHandle 0x%p Buffer 0x%p Length %x ByteOffset 0x%p, "
             "IoStatusBlock 0x%p)\n", FileHandle, Buffer, Length, ByteOffset,
             IoStatusBlock);
-
-    PAGED_CODE();
-
-    PreviousMode = KeGetPreviousMode();
-    CapturedByteOffset.QuadPart = 0;
 
     /* Validate User-Mode Buffers */
     if(PreviousMode != KernelMode)
     {
         _SEH_TRY
         {
+            #if 0
             ProbeForWrite(IoStatusBlock,
                           sizeof(IO_STATUS_BLOCK),
                           sizeof(ULONG));
 
             ProbeForRead(Buffer,
                          Length,
-                         1);
-            if (ByteOffset != NULL)
-            {
-                CapturedByteOffset = ProbeForReadLargeInteger(ByteOffset);
-            }
-
-            if (Key != NULL)
-            {
-                CapturedKey = ProbeForReadUlong(Key);
-            }
+                         sizeof(ULONG));
+            #endif
         }
         _SEH_HANDLE
         {
@@ -3646,17 +3461,6 @@ NtWriteFile (IN HANDLE FileHandle,
 
         if(!NT_SUCCESS(Status)) return Status;
     }
-    else
-    {
-        if (ByteOffset != NULL)
-        {
-            CapturedByteOffset = *ByteOffset;
-        }
-        if (Key != NULL)
-        {
-            CapturedKey = *Key;
-        }
-    }
 
     /* Get File Object */
     Status = ObReferenceObjectByHandle(FileHandle,
@@ -3664,29 +3468,24 @@ NtWriteFile (IN HANDLE FileHandle,
                                        IoFileObjectType,
                                        PreviousMode,
                                        (PVOID*)&FileObject,
-                                       &ObjectHandleInfo);
+                                       &HandleInformation);
     if (!NT_SUCCESS(Status)) return Status;
 
-    /* check if the handle has either FILE_WRITE_DATA or FILE_APPEND_DATA was
-       granted. However, if this is a named pipe, make sure we don't ask for
-       FILE_APPEND_DATA as it interferes with the FILE_CREATE_PIPE_INSTANCE
-       access right! */
-    if (!(FileObject->Flags & FO_NAMED_PIPE))
-        DesiredAccess |= FILE_APPEND_DATA;
-    if (!RtlAreAnyAccessesGranted(ObjectHandleInfo.GrantedAccess,
-                                  DesiredAccess))
+    /* Must have FILE_WRITE_DATA | FILE_APPEND_DATA access */
+    if (!(HandleInformation.GrantedAccess & (FILE_WRITE_DATA | FILE_APPEND_DATA)))
     {
+        DPRINT1("Invalid access rights\n");
         ObDereferenceObject(FileObject);
         return STATUS_ACCESS_DENIED;
     }
 
     /* Check if we got write Access */
-    if (ObjectHandleInfo.GrantedAccess & FILE_WRITE_DATA)
+    if (HandleInformation.GrantedAccess & FILE_WRITE_DATA)
     {
         /* Check the Byte Offset */
-        if (ByteOffset == NULL ||
-            (CapturedByteOffset.u.LowPart == FILE_USE_FILE_POINTER_POSITION &&
-             CapturedByteOffset.u.HighPart == -1))
+        if (!ByteOffset ||
+            (ByteOffset->u.LowPart == FILE_USE_FILE_POINTER_POSITION &&
+             ByteOffset->u.HighPart == -1))
         {
             /* a valid ByteOffset is required if asynch. op. */
             if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
@@ -3697,11 +3496,10 @@ NtWriteFile (IN HANDLE FileHandle,
             }
 
             /* Use the Current Byte OFfset */
-            CapturedByteOffset = FileObject->CurrentByteOffset;
+            ByteOffset = &FileObject->CurrentByteOffset;
         }
     }
-    else if ((ObjectHandleInfo.GrantedAccess & FILE_APPEND_DATA) &&
-             !(FileObject->Flags & FO_NAMED_PIPE))
+    else if (HandleInformation.GrantedAccess & FILE_APPEND_DATA)
     {
         /* a valid ByteOffset is required if asynch. op. */
         if (!(FileObject->Flags & FO_SYNCHRONOUS_IO))
@@ -3712,8 +3510,8 @@ NtWriteFile (IN HANDLE FileHandle,
         }
 
         /* Give the drivers somethign to understand */
-        CapturedByteOffset.u.LowPart = FILE_WRITE_TO_END_OF_FILE;
-        CapturedByteOffset.u.HighPart = 0xffffffff;
+        ByteOffset->u.LowPart = FILE_WRITE_TO_END_OF_FILE;
+        ByteOffset->u.HighPart = 0xffffffff;
     }
 
     /* Check if we got an event */
@@ -3762,7 +3560,7 @@ NtWriteFile (IN HANDLE FileHandle,
                                            DeviceObject,
                                            Buffer,
                                            Length,
-                                           &CapturedByteOffset,
+                                           ByteOffset,
                                            EventObject,
                                            IoStatusBlock);
         if (Irp == NULL)
@@ -3803,7 +3601,7 @@ NtWriteFile (IN HANDLE FileHandle,
     /* Setup Stack Data */
     StackPtr = IoGetNextIrpStackLocation(Irp);
     StackPtr->FileObject = FileObject;
-    StackPtr->Parameters.Write.Key = CapturedKey;
+    StackPtr->Parameters.Write.Key = Key ? *Key : 0;
     if (FileObject->Flags & FO_WRITE_THROUGH) StackPtr->Flags = SL_WRITE_THROUGH;
 
     /* Call the Driver */

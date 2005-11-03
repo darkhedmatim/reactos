@@ -19,7 +19,7 @@
 /* PRIVATE FUNCTIONS *******************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlpCreateUserStack(HANDLE hProcess,
                     ULONG StackReserve,
                     ULONG StackCommit,
@@ -154,7 +154,7 @@ RtlpCreateUserStack(HANDLE hProcess,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlpFreeUserStack(HANDLE hProcess,
                   PINITIAL_TEB InitialTeb)
 {
@@ -173,7 +173,7 @@ RtlpFreeUserStack(HANDLE hProcess,
  @implemented
 */
 NTSTATUS 
-NTAPI 
+STDCALL 
 RtlCreateUserThread(HANDLE ProcessHandle,
                     PSECURITY_DESCRIPTOR SecurityDescriptor,
                     BOOLEAN CreateSuspended,
@@ -254,7 +254,7 @@ RtlCreateUserThread(HANDLE ProcessHandle,
  @implemented
 */
 VOID
-NTAPI
+STDCALL
 RtlInitializeContext(IN HANDLE ProcessHandle,
                      OUT PCONTEXT ThreadContext,
                      IN PVOID ThreadStartParam  OPTIONAL,
@@ -312,7 +312,7 @@ RtlInitializeContext(IN HANDLE ProcessHandle,
  * @implemented
  */
 VOID 
-NTAPI 
+STDCALL 
 RtlExitUserThread(NTSTATUS Status)
 {
     /* Call the Loader and tell him to notify the DLLs */
@@ -327,7 +327,7 @@ RtlExitUserThread(NTSTATUS Status)
  @implemented
 */
 VOID 
-NTAPI 
+STDCALL 
 RtlFreeUserThreadStack(HANDLE ProcessHandle,
                        HANDLE ThreadHandle)
 {
@@ -366,7 +366,7 @@ RtlFreeUserThreadStack(HANDLE ProcessHandle,
 }
 
 PTEB
-NTAPI
+STDCALL
 _NtCurrentTeb(VOID)
 {
     /* Return the TEB */

@@ -181,19 +181,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 /******************************************************************************/
 
-/* we need to destroy the main menu before destroying the main window
-   to avoid a memory leak */
-
-void DestroyMainMenu() {
-	DestroyMenu(hMenuFrame);
-}
-
-/******************************************************************************/
-
 void ExitInstance(HINSTANCE hInstance)
 {
     UnregisterHexEditorClass(hInstance);
-    
+    DestroyMenu(hMenuFrame);
     DestroyMenu(hPopupMenus);
     UnloadAclUiDll();
 }

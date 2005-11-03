@@ -17,8 +17,7 @@
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 RtlAreAllAccessesGranted(ACCESS_MASK GrantedAccess,
                          ACCESS_MASK DesiredAccess)
 {
@@ -26,37 +25,41 @@ RtlAreAllAccessesGranted(ACCESS_MASK GrantedAccess,
   return ((GrantedAccess & DesiredAccess) == DesiredAccess);
 }
 
+
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 RtlAreAnyAccessesGranted(ACCESS_MASK GrantedAccess,
                          ACCESS_MASK DesiredAccess)
 {
-    PAGED_CODE_RTL();
-    return ((GrantedAccess & DesiredAccess) != 0);
+  PAGED_CODE_RTL();
+  return ((GrantedAccess & DesiredAccess) != 0);
 }
+
 
 /*
  * @implemented
  */
-VOID
-NTAPI
+VOID STDCALL
 RtlMapGenericMask(PACCESS_MASK AccessMask,
                   PGENERIC_MAPPING GenericMapping)
 {
-    PAGED_CODE_RTL();
+  PAGED_CODE_RTL();
 
-    if (*AccessMask & GENERIC_READ) *AccessMask |= GenericMapping->GenericRead;
+  if (*AccessMask & GENERIC_READ)
+    *AccessMask |= GenericMapping->GenericRead;
 
-    if (*AccessMask & GENERIC_WRITE) *AccessMask |= GenericMapping->GenericWrite;
+  if (*AccessMask & GENERIC_WRITE)
+    *AccessMask |= GenericMapping->GenericWrite;
 
-    if (*AccessMask & GENERIC_EXECUTE) *AccessMask |= GenericMapping->GenericExecute;
+  if (*AccessMask & GENERIC_EXECUTE)
+    *AccessMask |= GenericMapping->GenericExecute;
 
-    if (*AccessMask & GENERIC_ALL) *AccessMask |= GenericMapping->GenericAll;
+  if (*AccessMask & GENERIC_ALL)
+    *AccessMask |= GenericMapping->GenericAll;
 
-    *AccessMask &= ~(GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL);
+  *AccessMask &= ~(GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL);
 }
 
 /* EOF */

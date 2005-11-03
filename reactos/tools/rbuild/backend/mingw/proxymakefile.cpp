@@ -62,7 +62,7 @@ ProxyMakefile::GeneratePathToParentDirectory ( int numberOfParentDirectories )
 	for ( int i = 0; i < numberOfParentDirectories; i++ )
 	{
 		if ( path != "" )
-			path += sSep;
+			path += SSEP;
 		path += "..";
 	}
 	return path;
@@ -75,7 +75,7 @@ ProxyMakefile::GetPathToTopDirectory ( Module& module )
 	string basePath = NormalizeFilename ( module.GetBasePath () );
 	for ( size_t i = 0; i < basePath.length (); i++ )
 	{
-		if ( basePath[i] == cSep )
+		if ( basePath[i] == CSEP )
 			numberOfDirectories++;
 	}
 	return GeneratePathToParentDirectory ( numberOfDirectories );
@@ -99,7 +99,7 @@ ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
 	string pathToTopDirectory;
 	if ( outputTree.length () > 0 )
 	{
-		base = outputTree + sSep + module.GetBasePath ();
+		base = outputTree + SSEP + module.GetBasePath ();
 		Path path;
 		pathToTopDirectory = working_directory;
 	}
@@ -108,7 +108,7 @@ ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
 		base = module.GetBasePath ();
 		pathToTopDirectory = GetPathToTopDirectory ( module );
 	}
-	string proxyMakefile = NormalizeFilename ( base + sSep + "GNUmakefile" );
+	string proxyMakefile = NormalizeFilename ( base + SSEP "GNUmakefile" );
 	string defaultTarget = module.name;
 
 	buf = (char*) malloc ( 10*1024 );

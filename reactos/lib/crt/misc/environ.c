@@ -178,7 +178,6 @@ char **DuplicateEnvironment(char **original_environment, int wide)
          return original_environment;
       }
    }
-   *newenvptr = NULL;
 
    return newenv;
 }

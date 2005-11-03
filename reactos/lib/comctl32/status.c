@@ -96,7 +96,7 @@ typedef struct
 #define VERT_BORDER 2
 #define HORZ_GAP    2
 
-static const WCHAR themeClass[] = { 'S','t','a','t','u','s',0 };
+const static WCHAR themeClass[] = { 'S','t','a','t','u','s',0 };
 
 /* prototype */
 static void

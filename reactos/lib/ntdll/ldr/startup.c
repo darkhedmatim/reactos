@@ -17,7 +17,7 @@
 
 VOID RtlInitializeHeapManager (VOID);
 VOID LdrpInitLoader(VOID);
-VOID NTAPI RtlpInitDeferedCriticalSection(VOID);
+VOID STDCALL RtlpInitDeferedCriticalSection(VOID);
 
 /* GLOBALS *******************************************************************/
 
@@ -240,7 +240,7 @@ finish:
 /* FUNCTIONS *****************************************************************/
 
 VOID
-NTAPI
+STDCALL
 LdrpInit(PCONTEXT Context,
          PVOID SystemArgument1,
          PVOID SystemArgument2)

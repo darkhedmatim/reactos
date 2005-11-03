@@ -55,24 +55,11 @@ string
 FixSeparator ( const string& s )
 {
 	string s2(s);
-	char* p = strchr ( &s2[0], cBadSep );
+	char* p = strchr ( &s2[0], CBAD_SEP );
 	while ( p )
 	{
-		*p++ = cSep;
-		p = strchr ( p, cBadSep );
-	}
-	return s2;
-}
-
-string
-FixSeparatorForSystemCommand ( const string& s )
-{
-	string s2(s);
-	char* p = strchr ( &s2[0], DEF_CBAD_SEP );
-	while ( p )
-	{
-		*p++ = DEF_CSEP;
-		p = strchr ( p, DEF_CBAD_SEP );
+		*p++ = CSEP;
+		p = strchr ( p, CBAD_SEP );
 	}
 	return s2;
 }
@@ -124,7 +111,7 @@ GetSubPath (
 			"<directory> tag has invalid characters in 'name' attribute" );
 	if ( !path.size() )
 		return att_value;
-	return FixSeparator(path + cSep + att_value);
+	return FixSeparator(path + CSEP + att_value);
 }
 
 string
@@ -142,7 +129,7 @@ GetExtension ( const string& filename )
 string
 GetDirectory ( const string& filename )
 {
-	size_t index = filename.find_last_of ( cSep );
+	size_t index = filename.find_last_of ( CSEP );
 	if ( index == string::npos )
 		return "";
 	else
@@ -152,7 +139,7 @@ GetDirectory ( const string& filename )
 string
 GetFilename ( const string& filename )
 {
-	size_t index = filename.find_last_of ( cSep );
+	size_t index = filename.find_last_of ( CSEP );
 	if ( index == string::npos )
 		return filename;
 	else
@@ -224,7 +211,6 @@ Module::Module ( const Project& project,
 	  node (moduleNode),
 	  importLibrary (NULL),
 	  bootstrap (NULL),
-	  linkerScript (NULL),
 	  pch (NULL),
 	  cplusplus (false),
 	  host (HostDefault)
@@ -261,25 +247,6 @@ Module::Module ( const Project& project,
 		extension = att->value;
 	else
 		extension = GetDefaultModuleExtension ();
-
-	att = moduleNode.GetAttribute ( "unicode", false );
-	if ( att != NULL )
-	{
-		const char* p = att->value.c_str();
-		if ( !stricmp ( p, "true" ) || !stricmp ( p, "yes" ) )
-			isUnicode = true;
-		else if ( !stricmp ( p, "false" ) || !stricmp ( p, "no" ) )
-			isUnicode = false;
-		else
-		{
-			throw InvalidAttributeValueException (
-				moduleNode.location,
-				"unicode",
-				att->value );
-		}
-	}
-	else
-		isUnicode = false;
 
 	att = moduleNode.GetAttribute ( "entrypoint", false );
 	if ( att != NULL )
@@ -386,8 +353,6 @@ Module::~Module ()
 		delete linkerFlags[i];
 	for ( i = 0; i < stubbedComponents.size(); i++ )
 		delete stubbedComponents[i];
-	if ( linkerScript )
-		delete linkerScript;
 	if ( pch )
 		delete pch;
 }
@@ -425,8 +390,6 @@ Module::ProcessXML()
 	for ( i = 0; i < stubbedComponents.size(); i++ )
 		stubbedComponents[i]->ProcessXML();
 	non_if_data.ProcessXML();
-	if ( linkerScript )
-		linkerScript->ProcessXML();
 	if ( pch )
 		pch->ProcessXML();
 }
@@ -466,7 +429,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 			else if ( !stricmp ( ext.c_str(), ".cxx" ) )
 				cplusplus = true;
 		}
-		File* pFile = new File ( FixSeparator ( path + cSep + e.value ),
+		File* pFile = new File ( FixSeparator ( path + CSEP + e.value ),
 		                         first,
 		                         switches,
 		                         false );
@@ -574,15 +537,6 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		linkerFlags.push_back ( new LinkerFlag ( project, this, e ) );
 		subs_invalid = true;
 	}
-	else if ( e.name == "linkerscript" )
-	{
-		if ( linkerScript )
-			throw InvalidBuildFileException (
-				e.location,
-				"Only one <linkerscript> is valid per module" );
-		linkerScript = new LinkerScript ( project, this, e );
-		subs_invalid = true;
-	}
 	else if ( e.name == "component" )
 	{
 		stubbedComponents.push_back ( new StubbedComponent ( this, e ) );
@@ -610,7 +564,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 				e.location,
 				"Only one <pch> is valid per module" );
 		pch = new PchFile (
-			e, *this, File ( FixSeparator ( path + cSep + e.value ), false, "", true ) );
+			e, *this, File ( FixSeparator ( path + CSEP + e.value ), false, "", true ) );
 		subs_invalid = true;
 	}
 	if ( subs_invalid && e.subElements.size() > 0 )
@@ -674,7 +628,7 @@ Module::GetDefaultModuleExtension () const
 	switch (type)
 	{
 		case BuildTool:
-			return ExePostfix;
+			return EXEPOSTFIX;
 		case StaticLibrary:
 			return ".a";
 		case ObjectLibrary:
@@ -726,15 +680,9 @@ Module::GetDefaultModuleEntrypoint () const
 			return "_DllMain@12";
 		case Win32CUI:
 		case Test:
-			if ( isUnicode )
-				return "_wmainCRTStartup";
-			else
-				return "_mainCRTStartup";
+			return "_mainCRTStartup";
 		case Win32GUI:
-			if ( isUnicode )
-				return "_wWinMainCRTStartup";
-			else
-				return "_WinMainCRTStartup";
+			return "_WinMainCRTStartup";
 		case KernelModeDriver:
 			return "_DriverEntry@8";
 		case BuildTool:
@@ -881,7 +829,7 @@ string
 Module::GetPath () const
 {
 	if ( path.length() > 0 )
-		return path + cSep + GetTargetName ();
+		return path + CSEP + GetTargetName ();
 	else
 		return GetTargetName ();
 }
@@ -889,7 +837,7 @@ Module::GetPath () const
 string
 Module::GetPathWithPrefix ( const string& prefix ) const
 {
-	return path + cSep + prefix + GetTargetName ();
+	return path + CSEP + prefix + GetTargetName ();
 }
 
 string
@@ -927,7 +875,7 @@ Module::InvokeModule () const
 	for ( size_t i = 0; i < invocations.size (); i++ )
 	{
 		Invoke& invoke = *invocations[i];
-		string command = FixSeparatorForSystemCommand(invoke.invokeModule->GetPath ()) + " " + invoke.GetParameters ();
+		string command = invoke.invokeModule->GetPath () + " " + invoke.GetParameters ();
 		printf ( "Executing '%s'\n\n", command.c_str () );
 		int exitcode = system ( command.c_str () );
 		if ( exitcode != 0 )
@@ -1047,7 +995,7 @@ Invoke::ProcessXMLSubElementInput ( const XMLElement& e )
 	bool subs_invalid = false;
 	if ( e.name == "inputfile" && e.value.size () > 0 )
 	{
-		input.push_back ( new InvokeFile ( e, FixSeparator ( module.path + cSep + e.value ) ) );
+		input.push_back ( new InvokeFile ( e, FixSeparator ( module.path + CSEP + e.value ) ) );
 		subs_invalid = true;
 	}
 	if ( subs_invalid && e.subElements.size() > 0 )
@@ -1062,7 +1010,7 @@ Invoke::ProcessXMLSubElementOutput ( const XMLElement& e )
 	bool subs_invalid = false;
 	if ( e.name == "outputfile" && e.value.size () > 0 )
 	{
-		output.push_back ( new InvokeFile ( e, FixSeparator ( module.path + cSep + e.value ) ) );
+		output.push_back ( new InvokeFile ( e, FixSeparator ( module.path + CSEP + e.value ) ) );
 		subs_invalid = true;
 	}
 	if ( subs_invalid && e.subElements.size() > 0 )

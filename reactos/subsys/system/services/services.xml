@@ -10,10 +10,8 @@
 	<library>user32</library>
 	<library>advapi32</library>
 	<library>rpcrt4</library>
-	<file>config.c</file>
 	<file>database.c</file>
 	<file>rpcserver.c</file>
 	<file>services.c</file>
 	<file>services.rc</file>
-	<pch>services.h</pch>
 </module>

@@ -11,14 +11,14 @@
 <directory name="devmgr">
         <xi:include href="devmgr/devmgr.xml" />
 </directory>
+<directory name="dhcp">
+	<xi:include href="dhcp/dhcp.xml" />
+</directory>
 <directory name="expand">
 	<xi:include href="expand/expand.xml" />
 </directory>
 <directory name="explorer">
 	<xi:include href="explorer/explorer.xml" />
-</directory>
-<directory name="gettype">
-	<xi:include href="gettype/gettype.xml" />
 </directory>
 <directory name="hostname">
 	<xi:include href="hostname/hostname.xml" />
@@ -31,9 +31,6 @@
 </directory>
 <directory name="lsass">
 	<xi:include href="lsass/lsass.xml" />
-</directory>
-<directory name="msconfig">
-	<xi:include href="msconfig/msconfig.xml" />
 </directory>
 <directory name="msiexec">
 	<xi:include href="msiexec/msiexec.xml" />

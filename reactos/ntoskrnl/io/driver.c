@@ -465,7 +465,7 @@ IopLoadServiceModule(
       return Status;
    }
    
-   //IopDisplayLoadingMessage(ServiceName->Buffer, TRUE);
+   IopDisplayLoadingMessage(ServiceName->Buffer, TRUE);
 
    /*
     * Normalize the image path for all later processing.
@@ -529,9 +529,6 @@ IopLoadServiceModule(
                break;
             }
          }
-         if (!NT_SUCCESS(Status))
-            /* Try to load it. It may just have been installed by PnP manager */
-            Status = LdrLoadModule(&ServiceImagePath, ModuleObject);
       }
 
       /*

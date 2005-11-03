@@ -14,7 +14,7 @@
 
 /* GLOBALS ******************************************************************/
 
-VOID NTAPI
+VOID STDCALL
 RtlInitializeHandleTable(ULONG TableSize,
 			 ULONG HandleSize,
 			 PRTL_HANDLE_TABLE HandleTable)
@@ -31,7 +31,7 @@ RtlInitializeHandleTable(ULONG TableSize,
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlDestroyHandleTable(PRTL_HANDLE_TABLE HandleTable)
 {
    PVOID ArrayPointer;
@@ -53,7 +53,7 @@ RtlDestroyHandleTable(PRTL_HANDLE_TABLE HandleTable)
 /*
  * @implemented
  */
-PRTL_HANDLE_TABLE_ENTRY NTAPI
+PRTL_HANDLE_TABLE_ENTRY STDCALL
 RtlAllocateHandle(PRTL_HANDLE_TABLE HandleTable,
 		  PULONG Index)
 {
@@ -121,7 +121,7 @@ RtlAllocateHandle(PRTL_HANDLE_TABLE HandleTable,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlFreeHandle(PRTL_HANDLE_TABLE HandleTable,
 	      PRTL_HANDLE_TABLE_ENTRY Handle)
 {
@@ -145,7 +145,7 @@ RtlFreeHandle(PRTL_HANDLE_TABLE HandleTable,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlIsValidHandle(PRTL_HANDLE_TABLE HandleTable,
 		 PRTL_HANDLE_TABLE_ENTRY Handle)
 {
@@ -161,7 +161,7 @@ RtlIsValidHandle(PRTL_HANDLE_TABLE HandleTable,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlIsValidIndexHandle(IN PRTL_HANDLE_TABLE HandleTable,
 		      IN ULONG Index,
 		      OUT PRTL_HANDLE_TABLE_ENTRY *Handle)

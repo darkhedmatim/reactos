@@ -28,7 +28,6 @@
 #include <shellapi.h>
 #include <objsel.h>
 #include <objbase.h>
-#include <ole2.h>
 
 #include "main.h"
 #include "regproc.h"
@@ -470,43 +469,34 @@ BOOL PrintRegistryHive(HWND hWnd, LPTSTR path)
     return TRUE;
 }
 
-BOOL CopyKeyName(HWND hWnd, HKEY hRootKey, LPCTSTR keyName)
+static BOOL CopyKeyName(HWND hWnd, LPCTSTR keyName)
 {
-    BOOL bClipboardOpened = FALSE;
-    BOOL bSuccess = FALSE;
-    TCHAR szBuffer[512];
-    HGLOBAL hGlobal;
-    LPTSTR s;
+    BOOL result;
 
-    if (!OpenClipboard(hWnd))
-        goto done;
-    bClipboardOpened = TRUE;
+    result = OpenClipboard(hWnd);
+    if (result) {
+        result = EmptyClipboard();
+        if (result) {
 
-    if (!EmptyClipboard())
-        goto done;
+            /*HANDLE hClipData;*/
+            /*hClipData = SetClipboardData(UINT uFormat, HANDLE hMem);*/
 
-    if (!RegKeyGetName(szBuffer, sizeof(szBuffer) / sizeof(szBuffer[0]), hRootKey, keyName))
-        goto done;
-
-    hGlobal = GlobalAlloc(GMEM_MOVEABLE, (_tcslen(szBuffer) + 1) * sizeof(TCHAR));
-    if (!hGlobal)
-        goto done;
-
-    s = GlobalLock(hGlobal);
-    _tcscpy(s, szBuffer);
-    GlobalUnlock(hGlobal);
-
-#ifdef UNICODE
-    SetClipboardData(CF_UNICODETEXT, hGlobal);
-#else
-    SetClipboardData(CF_TEXT, hGlobal);
-#endif
-    bSuccess = TRUE;
-
-done:
-    if (bClipboardOpened)
-        CloseClipboard();
-    return bSuccess;
+        } else {
+            /* error emptying clipboard*/
+            /* DWORD dwError = GetLastError(); */
+            ;
+        }
+        if (!CloseClipboard()) {
+            /* error closing clipboard*/
+            /* DWORD dwError = GetLastError(); */
+            ;
+        }
+    } else {
+        /* error opening clipboard*/
+        /* DWORD dwError = GetLastError(); */
+        ;
+    }
+    return result;
 }
 
 static BOOL CreateNewValue(HKEY hRootKey, LPCTSTR pszKeyPath, DWORD dwType)
@@ -869,7 +859,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     case ID_EDIT_COPYKEYNAME:
-        CopyKeyName(hWnd, hKeyRoot, keyPath);
+        CopyKeyName(hWnd, _T(""));
         break;
     case ID_EDIT_PERMISSIONS:
         if(keyPath != NULL && _tcslen(keyPath) > 0)

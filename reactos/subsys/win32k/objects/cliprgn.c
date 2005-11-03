@@ -348,7 +348,6 @@ int STDCALL NtGdiOffsetClipRgn(HDC  hDC,
     Result = NtGdiOffsetRgn(dc->w.hClipRgn,
                             XOffset,
                             YOffset);
-    CLIPPING_UpdateGCRegion(dc);
   }
   else
   {

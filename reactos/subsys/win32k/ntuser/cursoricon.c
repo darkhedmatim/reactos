@@ -1269,82 +1269,7 @@ NtUserSetSystemCursor(
 }
 
 
-#define STRETCH_CAN_SRCCOPY_ONLY
-
-#ifdef STRETCH_CAN_SRCCOPY_ONLY
-void
-FASTCALL
-DoStretchBlt(HDC DcDest, int XDest, int YDest, int WidthDest, int HeightDest,
-             HDC DcSrc, int XSrc, int YSrc, int WidthSrc, int HeightSrc,
-             DWORD Rop3, BOOL Color)
-{
-   HDC DcStretched;
-   HBITMAP BitmapStretched;
-   HBITMAP OldBitmap;
-
-   if (WidthDest == WidthSrc && HeightDest == HeightSrc)
-   {
-      NtGdiBitBlt(DcDest, XDest, YDest, WidthDest, HeightDest,
-                  DcSrc, XSrc, YSrc, Rop3);
-   }
-   else if (SRCCOPY == Rop3)
-   {
-      NtGdiStretchBlt(DcDest, XDest, YDest, WidthDest, HeightDest,
-                      DcSrc, XSrc, YSrc, WidthSrc, HeightSrc,
-                      Rop3);
-   }
-   else
-   {
-      DcStretched = NtGdiCreateCompatibleDC(DcSrc);
-      if (NULL == DcStretched)
-      {
-         DPRINT1("Failed to create compatible DC\n");
-         return;
-      }
-      if (Color)
-      {
-         BitmapStretched = NtGdiCreateCompatibleBitmap(DcDest, WidthDest,
-                                                       HeightDest);
-      }
-      else
-      {
-         BitmapStretched = NtGdiCreateBitmap(WidthDest, HeightDest, 1, 1, NULL);
-      }
-      if (NULL == BitmapStretched)
-      {
-         NtGdiDeleteDC(DcStretched);
-         DPRINT1("Failed to create temporary bitmap\n");
-         return;
-      }
-      OldBitmap = NtGdiSelectObject(DcStretched, BitmapStretched);
-      if (NULL == OldBitmap)
-      {
-         NtGdiDeleteObject(BitmapStretched);
-         NtGdiDeleteDC(DcStretched);
-         DPRINT1("Failed to create temporary bitmap\n");
-         return;
-      }
-      if (! NtGdiStretchBlt(DcStretched, 0, 0, WidthDest, HeightDest,
-                            DcSrc, XSrc, YSrc, WidthSrc, HeightSrc,
-                            SRCCOPY) ||
-          ! NtGdiBitBlt(DcDest, XDest, YDest, WidthDest, HeightDest,
-                        DcStretched, 0, 0, Rop3))
-      {
-         DPRINT1("Failed to blt\n");
-      }
-      NtGdiSelectObject(DcStretched, OldBitmap);
-      NtGdiDeleteObject(BitmapStretched);
-      NtGdiDeleteDC(DcStretched);
-   }
-}
-#else
-#define DoStretchBlt(DcDest, XDest, YDest, WidthDest, HeightDest, \
-                     DcSrc, XSrc, YSrc, WidthSrc, HeightSrc, Rop3, Color) \
-        NtGdiStretchBlt((DcDest), (XDest), (YDest), (WidthDest), (HeightDest), \
-                        (DcSrc), (XSrc), (YSrc), (WidthSrc), (HeightSrc), \
-                        (Rop3))
-#endif /* STRETCH_CAN_SRCCOPY_ONLY */
-
+#define CANSTRETCHBLT 0
 /*
  * @implemented
  */
@@ -1356,7 +1281,7 @@ NtUserDrawIconEx(
    int yTop,
    HICON hIcon,
    int cxWidth,
-   int cyHeight,
+   int cyWidth,
    UINT istepIfAniCur,
    HBRUSH hbrFlickerFreeDraw,
    UINT diFlags,
@@ -1374,7 +1299,10 @@ NtUserDrawIconEx(
    HBITMAP hbmOff = (HBITMAP)0;
    HGDIOBJ hOldOffBrush = 0, hOldOffBmp = 0, hOldMem;
    BOOL Ret = FALSE;
+#if CANSTRETCHBLT
+
    INT nStretchMode;
+#endif
 
    DECLARE_RETURN(BOOL);
 
@@ -1421,8 +1349,8 @@ NtUserDrawIconEx(
 
    if(!cxWidth)
       cxWidth = ((diFlags & DI_DEFAULTSIZE) ? UserGetSystemMetrics(SM_CXICON) : IconSize.cx);
-   if(!cyHeight)
-      cyHeight = ((diFlags & DI_DEFAULTSIZE) ? UserGetSystemMetrics(SM_CYICON) : IconSize.cy);
+   if(!cyWidth)
+      cyWidth = ((diFlags & DI_DEFAULTSIZE) ? UserGetSystemMetrics(SM_CYICON) : IconSize.cy);
 
    DoFlickerFree = (hbrFlickerFreeDraw && (NtGdiGetObjectType(hbrFlickerFreeDraw) == OBJ_BRUSH));
 
@@ -1430,13 +1358,13 @@ NtUserDrawIconEx(
    {
       RECT r;
       r.right = cxWidth;
-      r.bottom = cyHeight;
+      r.bottom = cyWidth;
 
       hdcOff = NtGdiCreateCompatibleDC(hdc);
       if(!hdcOff)
          goto done;
 
-      hbmOff = NtGdiCreateCompatibleBitmap(hdc, cxWidth, cyHeight);
+      hbmOff = NtGdiCreateCompatibleBitmap(hdc, cxWidth, cyWidth);
       if(!hbmOff)
       {
          NtGdiDeleteDC(hdcOff);
@@ -1455,7 +1383,10 @@ NtUserDrawIconEx(
    if(!DoFlickerFree)
       hdcOff = hdc;
 
+#if CANSTRETCHBLT
+
    nStretchMode = NtGdiSetStretchBltMode(hdcOff, STRETCH_DELETESCANS);
+#endif
 
    oldFg = NtGdiSetTextColor(hdcOff, RGB(0, 0, 0));
    oldBg = NtGdiSetBkColor(hdcOff, RGB(255, 255, 255));
@@ -1463,18 +1394,27 @@ NtUserDrawIconEx(
    if(diFlags & DI_MASK)
    {
       hOldMem = NtGdiSelectObject(hdcMem, hbmMask);
+#if CANSTRETCHBLT
 
-      DoStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft),
-                   (DoFlickerFree ? 0 : yTop), cxWidth, cyHeight, hdcMem,
-                   0, 0, IconSize.cx, IconSize.cy,
-                   ((diFlags & DI_IMAGE) ? SRCAND : SRCCOPY), FALSE);
+      NtGdiStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                      cxWidth, cyWidth, hdcMem, 0, 0, IconSize.cx, IconSize.cy,
+                      ((diFlags & DI_IMAGE) ? SRCAND : SRCCOPY));
+#else
+
+      NtGdiBitBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                  cxWidth, cyWidth, hdcMem, 0, 0, ((diFlags & DI_IMAGE) ? SRCAND : SRCCOPY));
+#endif
 
       if(!hbmColor && (bmpMask.bmHeight == 2 * bmpMask.bmWidth) && (diFlags & DI_IMAGE))
       {
-         DoStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft),
-                      (DoFlickerFree ? 0 : yTop), cxWidth, cyHeight, hdcMem,
-                      0, IconSize.cy, IconSize.cx, IconSize.cy, SRCINVERT,
-                      FALSE);
+#if CANSTRETCHBLT
+         NtGdiStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                         cxWidth, cyWidth, hdcMem, 0, IconSize.cy, IconSize.cx, IconSize.cy, SRCINVERT);
+#else
+
+         NtGdiBitBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                     cxWidth, cyWidth, hdcMem, 0, IconSize.cy, SRCINVERT);
+#endif
 
          diFlags &= ~DI_IMAGE;
       }
@@ -1484,23 +1424,30 @@ NtUserDrawIconEx(
    if(diFlags & DI_IMAGE)
    {
       hOldMem = NtGdiSelectObject(hdcMem, (hbmColor ? hbmColor : hbmMask));
+#if CANSTRETCHBLT
 
-      DoStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft),
-                   (DoFlickerFree ? 0 : yTop), cxWidth, cyHeight, hdcMem,
-                   0, (hbmColor ? 0 : IconSize.cy), IconSize.cx, IconSize.cy,
-                   ((diFlags & DI_MASK) ? SRCINVERT : SRCCOPY),
-                   NULL != hbmColor);
+      NtGdiStretchBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                      cxWidth, cyWidth, hdcMem, 0, (hbmColor ? 0 : IconSize.cy),
+                      IconSize.cx, IconSize.cy, ((diFlags & DI_MASK) ? SRCINVERT : SRCCOPY));
+#else
+
+      NtGdiBitBlt(hdcOff, (DoFlickerFree ? 0 : xLeft), (DoFlickerFree ? 0 : yTop),
+                  cxWidth, cyWidth, hdcMem, 0, (hbmColor ? 0 : IconSize.cy),
+                  ((diFlags & DI_MASK) ? SRCINVERT : SRCCOPY));
+#endif
 
       NtGdiSelectObject(hdcMem, hOldMem);
    }
 
    if(DoFlickerFree)
-      NtGdiBitBlt(hdc, xLeft, yTop, cxWidth, cyHeight, hdcOff, 0, 0, SRCCOPY);
+      NtGdiBitBlt(hdc, xLeft, yTop, cxWidth, cyWidth, hdcOff, 0, 0, SRCCOPY);
 
    NtGdiSetTextColor(hdcOff, oldFg);
    NtGdiSetBkColor(hdcOff, oldBg);
+#if CANSTRETCHBLT
 
-   NtGdiSetStretchBltMode(hdcOff, nStretchMode);
+   SetStretchBltMode(hdcOff, nStretchMode);
+#endif
 
    Ret = TRUE;
 

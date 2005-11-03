@@ -23,6 +23,11 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "resource.h"
 
 #define MAX_LOADSTRING  100
@@ -35,6 +40,11 @@ extern HWND      hFrameWnd;
 extern HMENU     hMenuFrame;
 
 extern TCHAR szTitle[];
+extern TCHAR szFrameClass[];
 
+#ifdef __cplusplus
+};
+#endif
 
 #endif // __MAIN_H__
+

@@ -37,12 +37,8 @@
 
 #if defined(WIN32)
 #define DIR_SEPARATOR "\\"
-#define C_SEP '\\'
-#define C_BAD_SEP '/'
 #else
 #define DIR_SEPARATOR "/"
-#define C_SEP '/'
-#define C_BAD_SEP '\\'
 #endif
 
 extern int mkstemps(char *template, int suffix_len);
@@ -279,22 +275,6 @@ int process_resources(const char* input_file_name, const char* specific_file_nam
     return c == EOF;
 }
 
-char* fix_path_sep(char* name)
-{
-    char *new_name, *ptr;
-
-    ptr = new_name = strdup(name);
-    while(*ptr)
-    {
-        if (*ptr == C_BAD_SEP)
-        {
-            *ptr = C_SEP;
-        }
-        ptr++;
-    }
-    return new_name;
-}
-
 int main(int argc, char **argv)
 {
     int convert_dir = 0, optc;
@@ -315,14 +295,14 @@ int main(int argc, char **argv)
 	case 'i':
 	case 'o':
 	    if (specific_file_name) usage();
-	    specific_file_name = fix_path_sep(optarg);
+	    specific_file_name = optarg;
 	    optc = ((optc == 'i') ? 'a' : 'x');
 	    if (convert_dir && convert_dir != optc) usage();
 	    convert_dir = optc;
 	break;
 	case 'b':
 	    if (relative_path) usage();
-	    relative_path = fix_path_sep(optarg);
+	    relative_path = optarg;
 	break;
 	case 'f':
 	    force_overwrite = 1;
@@ -340,7 +320,7 @@ int main(int argc, char **argv)
     }
 
     if (optind + 1 != argc) usage();
-    input_file_name = fix_path_sep(argv[optind]);
+    input_file_name = argv[optind];
 
     if (!convert_dir) usage();
 

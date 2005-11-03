@@ -30,45 +30,6 @@
 
 HINSTANCE hDllInstance;
 
-static PSID
-AceHeaderToSID(IN PACE_HEADER AceHeader)
-{
-    PSID Sid = NULL;
-    switch (AceHeader->AceType)
-    {
-        case ACCESS_ALLOWED_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_ALLOWED_ACE)AceHeader)->SidStart;
-            break;
-#if 0
-        case ACCESS_ALLOWED_CALLBACK_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_ALLOWED_CALLBACK_ACE)AceHeader)->SidStart;
-            break;
-        case ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_ALLOWED_CALLBACK_OBJECT_ACE)AceHeader)->SidStart;
-            break;
-#endif
-        case ACCESS_ALLOWED_OBJECT_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_ALLOWED_OBJECT_ACE)AceHeader)->SidStart;
-            break;
-        case ACCESS_DENIED_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_DENIED_ACE)AceHeader)->SidStart;
-            break;
-#if 0
-        case ACCESS_DENIED_CALLBACK_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_DENIED_CALLBACK_ACE)AceHeader)->SidStart;
-            break;
-        case ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_DENIED_CALLBACK_OBJECT_ACE)AceHeader)->SidStart;
-            break;
-#endif
-        case SYSTEM_AUDIT_OBJECT_ACE_TYPE:
-            Sid = (PSID)&((PACCESS_DENIED_OBJECT_ACE)AceHeader)->SidStart;
-            break;
-    }
-
-    return Sid;
-}
-
 static VOID
 DestroySecurityPage(IN PSECURITY_PAGE sp)
 {
@@ -88,22 +49,10 @@ static VOID
 FreePrincipalsList(IN PPRINCIPAL_LISTITEM *PrincipalsListHead)
 {
     PPRINCIPAL_LISTITEM CurItem, NextItem;
-    PACE_ENTRY AceEntry, NextAceEntry;
     
     CurItem = *PrincipalsListHead;
     while (CurItem != NULL)
     {
-        /* Free all ACEs */
-        AceEntry = CurItem->ACEs;
-        while (AceEntry != NULL)
-        {
-            NextAceEntry = AceEntry->Next;
-            HeapFree(GetProcessHeap(),
-                     0,
-                     AceEntry);
-            AceEntry = NextAceEntry;
-        }
-
         /* free the SID string if present */
         if (CurItem->DisplayString != NULL)
         {
@@ -121,40 +70,9 @@ FreePrincipalsList(IN PPRINCIPAL_LISTITEM *PrincipalsListHead)
     *PrincipalsListHead = NULL;
 }
 
-static PACE_ENTRY
-AddAceToPrincipal(IN PPRINCIPAL_LISTITEM Principal,
-                  IN PACE_HEADER AceHeader)
-{
-    PACE_ENTRY AceEntry, *AceLink;
-
-    AceEntry = HeapAlloc(GetProcessHeap(),
-                         0,
-                         sizeof(ACE_ENTRY) + AceHeader->AceSize);
-    if (AceEntry != NULL)
-    {
-        AceEntry->Next = NULL;
-
-        /* copy the ACE */
-        CopyMemory(AceEntry + 1,
-                   AceHeader,
-                   AceHeader->AceSize);
-
-        /* append it to the list */
-        AceLink = &Principal->ACEs;
-        while (*AceLink != NULL)
-        {
-            AceLink = &(*AceLink)->Next;
-        }
-        *AceLink = AceEntry;
-    }
-
-    return AceEntry;
-}
-
 static PPRINCIPAL_LISTITEM
-FindSidInPrincipalsListAddAce(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
-                              IN PSID Sid,
-                              IN PACE_HEADER AceHeader)
+FindSidInPrincipalsList(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
+                        IN PSID Sid)
 {
     PPRINCIPAL_LISTITEM CurItem;
     
@@ -165,14 +83,7 @@ FindSidInPrincipalsListAddAce(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
         if (EqualSid((PSID)(CurItem + 1),
                      Sid))
         {
-            if (AddAceToPrincipal(CurItem,
-                                  AceHeader) != NULL)
-            {
-                return CurItem;
-            }
-
-            /* unable to add the ACE to the principal */
-            break;
+            return CurItem;
         }
     }
     
@@ -181,21 +92,15 @@ FindSidInPrincipalsListAddAce(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
 
 static BOOL
 AddPrincipalToList(IN PSECURITY_PAGE sp,
-                   IN PSID Sid,
-                   IN PACE_HEADER AceHeader)
+                   IN PSID Sid)
 {
-    PPRINCIPAL_LISTITEM PrincipalListItem = NULL;
-    PACE_ENTRY AceEntry = NULL;
-    BOOL Ret = FALSE;
-
-    if (!FindSidInPrincipalsListAddAce(sp->PrincipalsListHead,
-                                       Sid,
-                                       AceHeader))
+    if (!FindSidInPrincipalsList(sp->PrincipalsListHead,
+                                 Sid))
     {
         DWORD SidLength, AccountNameSize, DomainNameSize;
         SID_NAME_USE SidNameUse;
         DWORD LookupResult;
-        PPRINCIPAL_LISTITEM PrincipalListItem, *PrincipalLink;
+        PPRINCIPAL_LISTITEM AceListItem, *NextAcePtr;
 
         AccountNameSize = 0;
         DomainNameSize = 0;
@@ -213,82 +118,69 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
             if (LookupResult != ERROR_NONE_MAPPED &&
                 LookupResult != ERROR_INSUFFICIENT_BUFFER)
             {
-                goto Cleanup;
+                return FALSE;
             }
         }
         
-        PrincipalLink = &sp->PrincipalsListHead;
-        while (*PrincipalLink != NULL)
+        NextAcePtr = &sp->PrincipalsListHead;
+        for (AceListItem = sp->PrincipalsListHead;
+             AceListItem != NULL;
+             AceListItem = AceListItem->Next)
         {
-            PrincipalLink = &(*PrincipalLink)->Next;
+            NextAcePtr = &AceListItem->Next;
         }
         
         SidLength = GetLengthSid(Sid);
 
-        /* allocate the principal */
-        PrincipalListItem = HeapAlloc(GetProcessHeap(),
-                                      0,
-                                      sizeof(PRINCIPAL_LISTITEM) + SidLength +
-                                          ((AccountNameSize + DomainNameSize) * sizeof(WCHAR)));
-        if (PrincipalListItem != NULL)
+        /* allocate the ace */
+        AceListItem = HeapAlloc(GetProcessHeap(),
+                                0,
+                                sizeof(PRINCIPAL_LISTITEM) + SidLength +
+                                    ((AccountNameSize + DomainNameSize) * sizeof(WCHAR)));
+        if (AceListItem != NULL)
         {
-            PrincipalListItem->AccountName = (LPWSTR)((ULONG_PTR)(PrincipalListItem + 1) + SidLength);
-            PrincipalListItem->DomainName = PrincipalListItem->AccountName + AccountNameSize;
+            AceListItem->AccountName = (LPWSTR)((ULONG_PTR)(AceListItem + 1) + SidLength);
+            AceListItem->DomainName = AceListItem->AccountName + AccountNameSize;
 
             CopySid(SidLength,
-                    (PSID)(PrincipalListItem + 1),
+                    (PSID)(AceListItem + 1),
                     Sid);
 
             LookupResult = ERROR_SUCCESS;
             if (!LookupAccountSid(sp->ServerName,
                                   Sid,
-                                  PrincipalListItem->AccountName,
+                                  AceListItem->AccountName,
                                   &AccountNameSize,
-                                  PrincipalListItem->DomainName,
+                                  AceListItem->DomainName,
                                   &DomainNameSize,
                                   &SidNameUse))
             {
                 LookupResult = GetLastError();
                 if (LookupResult != ERROR_NONE_MAPPED)
                 {
-                    goto Cleanup;
+                    HeapFree(GetProcessHeap(),
+                             0,
+                             AceListItem);
+                    return FALSE;
                 }
             }
 
             if (AccountNameSize == 0)
             {
-                PrincipalListItem->AccountName = NULL;
+                AceListItem->AccountName = NULL;
             }
             if (DomainNameSize == 0)
             {
-                PrincipalListItem->DomainName = NULL;
+                AceListItem->DomainName = NULL;
             }
 
-            /* allocate some memory for the ACE and copy it */
-            AceEntry = HeapAlloc(GetProcessHeap(),
-                                 0,
-                                 sizeof(ACE_ENTRY) + AceHeader->AceSize);
-            if (AceEntry == NULL)
-            {
-                goto Cleanup;
-            }
-            AceEntry->Next = NULL;
-            CopyMemory(AceEntry + 1,
-                       AceHeader,
-                       AceHeader->AceSize);
-
-            /* add the ACE to the list */
-            PrincipalListItem->ACEs = AceEntry;
-
-            PrincipalListItem->Next = NULL;
-            Ret = TRUE;
-
+            AceListItem->Next = NULL;
             if (LookupResult == ERROR_NONE_MAPPED)
             {
                 if (!ConvertSidToStringSid(Sid,
-                                           &PrincipalListItem->DisplayString))
+                                           &AceListItem->DisplayString))
                 {
-                    PrincipalListItem->DisplayString = NULL;
+                    AceListItem->DisplayString = NULL;
                 }
             }
             else
@@ -296,7 +188,7 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                 LSA_HANDLE LsaHandle;
                 NTSTATUS Status;
 
-                PrincipalListItem->DisplayString = NULL;
+                AceListItem->DisplayString = NULL;
 
                 /* read the domain of the SID */
                 if (OpenLSAPolicyHandle(sp->ServerName,
@@ -328,7 +220,7 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                             DomainName = NULL;
                         }
 
-                        PrincipalListItem->SidNameUse = Names->Use;
+                        AceListItem->SidNameUse = Names->Use;
 
                         switch (Names->Use)
                         {
@@ -344,7 +236,7 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                                         DomainName = &PolicyAccountDomainInfo->DomainName;
 
                                         /* make the user believe this is a group */
-                                        PrincipalListItem->SidNameUse = SidTypeGroup;
+                                        AceListItem->SidNameUse = SidTypeGroup;
                                     }
                                 }
                                 /* fall through */
@@ -355,19 +247,19 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                                 {
                                     SIZE_T Size = (AccountNameSize + DomainName->Length +
                                                    Names->Name.Length + 6) * sizeof(WCHAR);
-                                    PrincipalListItem->DisplayString = (LPWSTR)LocalAlloc(LMEM_FIXED,
+                                    AceListItem->DisplayString = (LPWSTR)LocalAlloc(LMEM_FIXED,
                                                                                     Size);
-                                    if (PrincipalListItem->DisplayString != NULL)
+                                    if (AceListItem->DisplayString != NULL)
                                     {
                                         WCHAR *s;
 
                                         /* NOTE: LSA_UNICODE_STRINGs are not always NULL-terminated! */
 
-                                        wcscpy(PrincipalListItem->DisplayString,
-                                               PrincipalListItem->AccountName);
-                                        wcscat(PrincipalListItem->DisplayString,
+                                        wcscpy(AceListItem->DisplayString,
+                                               AceListItem->AccountName);
+                                        wcscat(AceListItem->DisplayString,
                                                L" (");
-                                        s = PrincipalListItem->DisplayString + wcslen(PrincipalListItem->DisplayString);
+                                        s = AceListItem->DisplayString + wcslen(AceListItem->DisplayString);
                                         CopyMemory(s,
                                                    DomainName->Buffer,
                                                    DomainName->Length);
@@ -380,17 +272,12 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                                         *(s++) = L')';
                                         *s = L'\0';
                                     }
-                                    else
-                                    {
-                                        Ret = FALSE;
-                                        break;
-                                    }
 
                                     /* mark the ace as a user unless it's a
                                        BUILTIN account */
                                     if (PolicyAccountDomainInfo == NULL)
                                     {
-                                        PrincipalListItem->SidNameUse = SidTypeUser;
+                                        AceListItem->SidNameUse = SidTypeUser;
                                     }
                                 }
                                 break;
@@ -399,7 +286,7 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                             case SidTypeWellKnownGroup:
                             {
                                 /* make the user believe this is a group */
-                                PrincipalListItem->SidNameUse = SidTypeGroup;
+                                AceListItem->SidNameUse = SidTypeGroup;
                                 break;
                             }
 
@@ -422,38 +309,12 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                 }
             }
 
-            if (Ret)
-            {
-                /* append item to the principals list */
-                *PrincipalLink = PrincipalListItem;
-            }
+            /* append item to the cached ACL */
+            *NextAcePtr = AceListItem;
         }
     }
 
-    if (!Ret)
-    {
-Cleanup:
-        if (PrincipalListItem != NULL)
-        {
-            if (PrincipalListItem->DisplayString != NULL)
-            {
-                LocalFree((HLOCAL)PrincipalListItem->DisplayString);
-            }
-
-            HeapFree(GetProcessHeap(),
-                     0,
-                     PrincipalListItem);
-        }
-
-        if (AceEntry != NULL)
-        {
-            HeapFree(GetProcessHeap(),
-                     0,
-                     AceEntry);
-        }
-    }
-
-    return Ret;
+    return TRUE;
 }
 
 static VOID
@@ -481,24 +342,21 @@ ReloadPrincipalsList(IN PSECURITY_PAGE sp)
             DaclPresent && Dacl != NULL)
         {
             PSID Sid;
-            PACE_HEADER AceHeader;
+            PVOID Ace;
             ULONG AceIndex;
             
             for (AceIndex = 0;
                  AceIndex < Dacl->AceCount;
                  AceIndex++)
             {
-                if (GetAce(Dacl,
-                           AceIndex,
-                           (LPVOID*)&AceHeader) &&
-                    AceHeader != NULL)
-                {
-                    Sid = AceHeaderToSID(AceHeader);
+                GetAce(Dacl,
+                       AceIndex,
+                       &Ace);
 
-                    AddPrincipalToList(sp,
-                                       Sid,
-                                       AceHeader);
-                }
+                Sid = (PSID)&((PACCESS_ALLOWED_ACE)Ace)->SidStart;
+                
+                AddPrincipalToList(sp,
+                                   Sid);
             }
         }
         LocalFree((HLOCAL)SecurityDescriptor);
@@ -676,21 +534,18 @@ LoadPermissionsList(IN PSECURITY_PAGE sp,
     HRESULT hRet;
     PSI_ACCESS AccessList;
     ULONG nAccessList, DefaultAccessIndex;
-    WCHAR szSpecialPermissions[255];
-    BOOLEAN SpecialPermissionsPresent = FALSE;
-    ACCESS_MASK SpecialPermissionsMask = 0;
-
+    
     /* clear the permissions list */
-
+    
     SendMessage(sp->hAceCheckList,
                 CLM_CLEAR,
                 0,
                 0);
-
+    
     /* query the access rights from the server */
     hRet = sp->psi->lpVtbl->GetAccessRights(sp->psi,
                                             GuidObjectType,
-                                            dwFlags, /* FIXME */
+                                            dwFlags,
                                             &AccessList,
                                             &nAccessList,
                                             &DefaultAccessIndex);
@@ -699,13 +554,13 @@ LoadPermissionsList(IN PSECURITY_PAGE sp,
         LPCWSTR NameStr;
         PSI_ACCESS CurAccess, LastAccess;
         WCHAR NameBuffer[MAX_PATH];
-
+        
         /* save the default access rights to be used when adding ACEs later */
         if (DefaultAccess != NULL)
         {
             *DefaultAccess = AccessList[DefaultAccessIndex];
         }
-
+        
         LastAccess = AccessList + nAccessList;
         for (CurAccess = &AccessList[0];
              CurAccess != LastAccess;
@@ -735,36 +590,9 @@ LoadPermissionsList(IN PSECURITY_PAGE sp,
 
                 SendMessage(sp->hAceCheckList,
                             CLM_ADDITEM,
-                            (WPARAM)CurAccess->mask,
+                            CIS_NONE,
                             (LPARAM)NameStr);
             }
-            else if (CurAccess->dwFlags & SI_ACCESS_SPECIFIC)
-            {
-                SpecialPermissionsPresent = TRUE;
-                SpecialPermissionsMask |= CurAccess->mask;
-            }
-        }
-    }
-
-    /* add the special permissions check item in case the specific access rights
-       aren't displayed */
-    if (SpecialPermissionsPresent &&
-        LoadString(hDllInstance,
-                   IDS_SPECIAL_PERMISSIONS,
-                   szSpecialPermissions,
-                   sizeof(szSpecialPermissions) / sizeof(szSpecialPermissions[0])))
-    {
-        /* add the special permissions check item */
-        sp->SpecialPermCheckIndex = (INT)SendMessage(sp->hAceCheckList,
-                                                     CLM_ADDITEM,
-                                                     (WPARAM)SpecialPermissionsMask,
-                                                     (LPARAM)szSpecialPermissions);
-        if (sp->SpecialPermCheckIndex != -1)
-        {
-            SendMessage(sp->hAceCheckList,
-                        CLM_SETITEMSTATE,
-                        (WPARAM)sp->SpecialPermCheckIndex,
-                        CIS_ALLOWDISABLED | CIS_DENYDISABLED | CIS_NONE);
         }
     }
 }
@@ -1011,62 +839,16 @@ EndDeferWnds:
                            hWndDeny);
 }
 
-static PACE_HEADER
-BuildDefaultPrincipalAce(IN PSECURITY_PAGE sp,
-                         IN PSID pSid)
-{
-    PACCESS_ALLOWED_ACE Ace;
-    DWORD SidLen;
-    WORD AceSize;
-
-    SidLen = GetLengthSid(pSid);
-    AceSize = sizeof(ACCESS_ALLOWED_ACE) + (WORD)SidLen - sizeof(DWORD);
-    Ace = HeapAlloc(GetProcessHeap(),
-                    0,
-                    AceSize);
-    if (Ace != NULL)
-    {
-        Ace->Header.AceType = ACCESS_ALLOWED_ACE_TYPE;
-        Ace->Header.AceFlags = 0; /* FIXME */
-        Ace->Header.AceSize = AceSize;
-        Ace->Mask = sp->DefaultAccess.mask;
-
-        if (CopySid(SidLen,
-                    (PSID)&Ace->SidStart,
-                    pSid))
-        {
-            return &Ace->Header;
-        }
-
-        HeapFree(GetProcessHeap(),
-                 0,
-                 Ace);
-    }
-
-    return NULL;
-}
-
 static BOOL
 AddSelectedPrincipal(IN IDsObjectPicker *pDsObjectPicker,
                      IN HWND hwndParent  OPTIONAL,
                      IN PSID pSid,
                      IN PVOID Context  OPTIONAL)
 {
-    PACE_HEADER AceHeader;
     PSECURITY_PAGE sp = (PSECURITY_PAGE)Context;
     
-    AceHeader = BuildDefaultPrincipalAce(sp,
-                                         pSid);
-    if (AceHeader != NULL)
-    {
-        AddPrincipalToList(sp,
-                           pSid,
-                           AceHeader);
-
-        HeapFree(GetProcessHeap(),
-                 0,
-                 AceHeader);
-    }
+    AddPrincipalToList(sp,
+                       pSid);
 
     return TRUE;
 }
@@ -1259,9 +1041,23 @@ SecurityPageProc(IN HWND hwndDlg,
                 /* hide controls in case the flags aren't present */
                 if (sp->ObjectInfo.dwFlags & SI_ADVANCED)
                 {
+                    WCHAR szSpecialPermissions[255];
+                    
                     /* editing the permissions is least the user can do when
                        the advanced button is showed */
                     sp->ObjectInfo.dwFlags |= SI_EDIT_PERMS;
+                    
+                    if (LoadString(hDllInstance,
+                                   IDS_SPECIAL_PERMISSIONS,
+                                   szSpecialPermissions,
+                                   sizeof(szSpecialPermissions) / sizeof(szSpecialPermissions[0])))
+                    {
+                        /* add the special permissions check item */
+                        sp->SpecialPermCheckIndex = (INT)SendMessage(sp->hAceCheckList,
+                                                                     CLM_ADDITEM,
+                                                                     CIS_ALLOWDISABLED | CIS_DENYDISABLED | CIS_NONE,
+                                                                     (LPARAM)szSpecialPermissions);
+                    }
                 }
                 else
                 {
@@ -1458,8 +1254,7 @@ EditSecurity(IN HWND hwndOwner,
     return Ret;
 }
 
-BOOL
-WINAPI
+BOOL STDCALL
 DllMain(IN HINSTANCE hinstDLL,
         IN DWORD dwReason,
         IN LPVOID lpvReserved)

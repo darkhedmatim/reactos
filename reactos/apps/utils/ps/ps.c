@@ -22,9 +22,8 @@
 	Thanks to Filip Navara patch for fixing the Xp crash problem.
 */
 
-#define NTOS_MODE_USER
-#define WIN32_NO_STATUS
 #include <windows.h>
+#define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
 typedef struct _SYSTEM_THREADS 	 

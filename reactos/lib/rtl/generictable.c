@@ -18,7 +18,7 @@
 * @unimplemented
 */
 BOOLEAN
-NTAPI
+STDCALL
 RtlDeleteElementGenericTable (
 	PRTL_GENERIC_TABLE Table,
 	PVOID Buffer
@@ -32,7 +32,7 @@ RtlDeleteElementGenericTable (
 * @unimplemented
 */
 BOOLEAN
-NTAPI
+STDCALL
 RtlDeleteElementGenericTableAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID Buffer
@@ -46,7 +46,7 @@ RtlDeleteElementGenericTableAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlEnumerateGenericTable (
 	PRTL_GENERIC_TABLE Table,
 	BOOLEAN Restart
@@ -60,7 +60,7 @@ RtlEnumerateGenericTable (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlEnumerateGenericTableAvl (
 	PRTL_AVL_TABLE Table,
 	BOOLEAN Restart
@@ -74,7 +74,7 @@ RtlEnumerateGenericTableAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlEnumerateGenericTableLikeADirectory (
 	IN PRTL_AVL_TABLE Table,
 	IN PRTL_AVL_MATCH_FUNCTION MatchFunction,
@@ -93,7 +93,7 @@ RtlEnumerateGenericTableLikeADirectory (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlEnumerateGenericTableWithoutSplaying (
 	PRTL_GENERIC_TABLE Table,
 	PVOID *RestartKey
@@ -107,7 +107,7 @@ RtlEnumerateGenericTableWithoutSplaying (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlEnumerateGenericTableWithoutSplayingAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID *RestartKey
@@ -121,7 +121,7 @@ RtlEnumerateGenericTableWithoutSplayingAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlGetElementGenericTable(
 	PRTL_GENERIC_TABLE Table,
 	ULONG I
@@ -135,7 +135,7 @@ RtlGetElementGenericTable(
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlGetElementGenericTableAvl (
 	PRTL_AVL_TABLE Table,
 	ULONG I
@@ -149,7 +149,7 @@ RtlGetElementGenericTableAvl (
 * @unimplemented
 */
 VOID
-NTAPI
+STDCALL
 RtlInitializeGenericTable (
 	PRTL_GENERIC_TABLE Table,
 	PRTL_GENERIC_COMPARE_ROUTINE CompareRoutine,
@@ -165,7 +165,7 @@ RtlInitializeGenericTable (
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlInitializeGenericTableAvl(IN OUT PRTL_AVL_TABLE Table,
                              IN PRTL_AVL_COMPARE_ROUTINE CompareRoutine,
                              IN PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine,
@@ -187,7 +187,7 @@ RtlInitializeGenericTableAvl(IN OUT PRTL_AVL_TABLE Table,
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlInsertElementGenericTable (
 	PRTL_GENERIC_TABLE Table,
 	PVOID Buffer,
@@ -203,7 +203,7 @@ RtlInsertElementGenericTable (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlInsertElementGenericTableAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID Buffer,
@@ -219,7 +219,7 @@ RtlInsertElementGenericTableAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlInsertElementGenericTableFull (
 	PRTL_GENERIC_TABLE Table,
 	PVOID Buffer,
@@ -237,7 +237,7 @@ RtlInsertElementGenericTableFull (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlInsertElementGenericTableFullAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID Buffer,
@@ -256,7 +256,7 @@ RtlInsertElementGenericTableFullAvl (
 * @unimplemented
 */
 BOOLEAN
-NTAPI
+STDCALL
 RtlIsGenericTableEmpty (
 	PRTL_GENERIC_TABLE Table
 	)
@@ -269,7 +269,7 @@ RtlIsGenericTableEmpty (
 * @unimplemented
 */
 BOOLEAN
-NTAPI
+STDCALL
 RtlIsGenericTableEmptyAvl (
 	PRTL_AVL_TABLE Table
 	)
@@ -283,7 +283,7 @@ RtlIsGenericTableEmptyAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlLookupElementGenericTable (
 	PRTL_GENERIC_TABLE Table,
 	PVOID Buffer
@@ -297,7 +297,7 @@ RtlLookupElementGenericTable (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlLookupElementGenericTableAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID Buffer
@@ -311,7 +311,7 @@ RtlLookupElementGenericTableAvl (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlLookupElementGenericTableFull (
 	PRTL_GENERIC_TABLE Table,
 	PVOID Buffer,
@@ -327,7 +327,7 @@ RtlLookupElementGenericTableFull (
 * @unimplemented
 */
 PVOID
-NTAPI
+STDCALL
 RtlLookupElementGenericTableFullAvl (
 	PRTL_AVL_TABLE Table,
 	PVOID Buffer,
@@ -343,7 +343,7 @@ RtlLookupElementGenericTableFullAvl (
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlNumberGenericTableElements(IN PRTL_GENERIC_TABLE Table)
 {
   return Table->NumberGenericTableElements;
@@ -353,7 +353,7 @@ RtlNumberGenericTableElements(IN PRTL_GENERIC_TABLE Table)
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlNumberGenericTableElementsAvl(IN PRTL_AVL_TABLE Table)
 {
   return Table->NumberGenericTableElements;

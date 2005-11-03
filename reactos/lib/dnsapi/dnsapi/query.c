@@ -8,10 +8,12 @@
  *              12/15/03 -- Created
  */
 
-#include "precomp.h"
-
-#define NDEBUG
-#include <debug.h>
+#include <windows.h>
+#include <winerror.h>
+#include <windns.h>
+#include <internal/windns.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
 
 /* DnsQuery ****************************
  * Begin a DNS query, and allow the result to be placed in the application

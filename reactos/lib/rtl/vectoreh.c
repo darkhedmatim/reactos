@@ -28,7 +28,7 @@ typedef struct _RTL_VECTORED_EXCEPTION_HANDLER
 
 /* FUNCTIONS ***************************************************************/
 
-EXCEPTION_DISPOSITION NTAPI
+EXCEPTION_DISPOSITION
 RtlpExecuteVectoredExceptionHandlers(IN PEXCEPTION_RECORD  ExceptionRecord,
                                      IN PCONTEXT  Context)
 {
@@ -74,7 +74,7 @@ RtlpInitializeVectoredExceptionHandling(VOID)
 /*
  * @implemented
  */
-PVOID NTAPI
+PVOID STDCALL
 RtlAddVectoredExceptionHandler(IN ULONG FirstHandler,
                                IN PVECTORED_EXCEPTION_HANDLER VectoredHandler)
 {
@@ -107,7 +107,7 @@ RtlAddVectoredExceptionHandler(IN ULONG FirstHandler,
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlRemoveVectoredExceptionHandler(IN PVOID VectoredHandlerHandle)
 {
   PLIST_ENTRY CurrentEntry;

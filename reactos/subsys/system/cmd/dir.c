@@ -216,10 +216,9 @@ static ULARGE_INTEGER recurse_bytes;
  * displays help screen for dir
  * Rob Lake
  */
-static VOID 
-DirHelp(VOID)
+static VOID DirHelp(VOID)
 {
-  ConOutResPaging(TRUE, STRING_DIR_HELP1);
+  ConOutResPuts(STRING_DIR_HELP1);
 }
 
 
@@ -229,36 +228,30 @@ DirHelp(VOID)
  *
  * Parse the parameters and switches of the command line and exports them
  */
-static BOOL 
+static BOOL
 DirReadParam(LPTSTR Line,				/* [IN] The line with the parameters & switches */
-			LPTSTR** params,			/* [OUT] The parameters after parsing */
-			LPINT entries,				/* [OUT] The number of parameters after parsing */
-			LPDIRSWITCHFLAGS lpFlags)	/* [IN/OUT] The flags after calculating switches */
+	     LPTSTR *param,			/* [OUT] The parameters after parsing */
+	     LPDIRSWITCHFLAGS lpFlags)	/* [IN/OUT] The flags after calculating switches */
 {
-	TCHAR cCurSwitch;	/* The current switch */
-	TCHAR cCurChar;		/* Current examing character */
-	TCHAR cCurUChar;	/* Current upper examing character */
-	BOOL bNegative;		/* Negative switch */
-	BOOL bPNegative;	/* Negative switch parameter */
-	BOOL bIntoQuotes;	/* A flag showing if we are in quotes (") */
-	LPTSTR ptrStart;	/* A pointer to the first character of a parameter */
-	LPTSTR ptrEnd;		/* A pointer to the last character of a parameter */
-	LPTSTR temp;
-
-	/* Initialize parameter array */
-	*params = malloc(sizeof(LPTSTR));
-	if(!params)
-		return FALSE;
-	*params = NULL;
-	*entries = 0;
-	ptrStart = NULL;
-	ptrEnd = NULL;
+  TCHAR cCurSwitch;	/* The current switch */
+  TCHAR cCurChar;	/* Current examing character */
+  TCHAR cCurUChar;	/* Current upper examing character */
+  BOOL bNegative;	/* Negative switch */
+  BOOL bPNegative;	/* Negative switch parameter */
+  BOOL bIntoQuotes;	/* A flag showing if we are in quotes (") */
+  LPTSTR ptrLast;	/* A pointer to the last character of param */
+  UINT t = 0;
+  
 
 	/* Initialize variables; */
 	cCurSwitch = _T(' ');
 	bNegative = FALSE;
 	bPNegative = FALSE;
 	bIntoQuotes = FALSE;
+
+	/* No parameters yet  */
+	*param = NULL;
+	ptrLast = NULL;
 
 	/* We suppose that switch parameters
 	   were given to avoid setting them to default
@@ -268,6 +261,31 @@ DirReadParam(LPTSTR Line,				/* [IN] The line with the parameters & switches */
 	lpFlags->stTimeField.bParSetted = TRUE;
 
 	
+	/* Add correct handling of *. */
+	for(t=0;t<_tcslen(Line);t++)
+	{		  
+	  static INT count=0;  
+
+	  if ((count==0) && (Line[t]==_T('*'))) 
+		   count++;
+	        
+	  else if ((count==1) && (Line[t]==_T('.'))) 
+		   count++;
+	 
+	  else if ((count==2) && (Line[t]==_T('*'))) 
+		   count++; 
+
+	  else if (!_istspace(Line[t]))
+	       {
+		      if (count==2) 	          
+	              lpFlags->bWideListColSort = ! bNegative;	      
+		      count=-1;
+	       }	 
+	  }
+
+	  
+
+
 	/* Main Loop (see README_DIR.txt) */
 	/* scan the command line char per char, and we process its char */
 	while (*Line)
@@ -359,25 +377,8 @@ DirReadParam(LPTSTR Line,				/* [IN] The line with the parameters & switches */
 				if (!bIntoQuotes)
 				{
 					cCurSwitch = _T(' ');
-					if(ptrStart && ptrEnd)
-					{		
-						temp = malloc((ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-						if(!temp)
-							return FALSE;
-						memcpy(temp, ptrStart, (ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-						temp[(ptrEnd - ptrStart + 1)] = _T('\0');
-						if(!add_entry(entries, params, temp))
-						{
-							free(temp);
-							freep(*params);
-							return FALSE;
-						}
-
-						free(temp);
-
-						ptrStart = NULL;
-						ptrEnd = NULL;
-					}
+					if ((*param) && !(ptrLast))
+						ptrLast = Line;
 				}
 
 			}
@@ -385,35 +386,19 @@ DirReadParam(LPTSTR Line,				/* [IN] The line with the parameters & switches */
 			{
 				/* Process a quote */
 				bIntoQuotes = !bIntoQuotes;
-				if(!bIntoQuotes)
-					ptrEnd = Line;
+				if (!bIntoQuotes) ptrLast = Line;
 			}
 			else
 			{
 				/* Process a character for parameter */
-				if ((cCurSwitch == _T(' ')) && ptrStart && ptrEnd)
-				{		
-					temp = malloc((ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-					if(!temp)
-						return FALSE;
-					memcpy(temp, ptrStart, (ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-					temp[(ptrEnd - ptrStart + 1)] = _T('\0');
-					if(!add_entry(entries, params, temp))
-					{
-						free(temp);
-						freep(*params);
-						return FALSE;
-					}
-
-					free(temp);
-
-					ptrStart = NULL;
-					ptrEnd = NULL;
+				if ((cCurSwitch == _T(' ')) && (*param))
+				{
+					error_too_many_parameters(Line);
+					return FALSE;
 				}
 				cCurSwitch = _T('P');
-				if(!ptrStart)
-					ptrStart = ptrEnd = Line;
-				ptrEnd = Line;
+				if (!(*param))
+					*param = Line;
 			}
 		}
 		else
@@ -562,25 +547,7 @@ DirReadParam(LPTSTR Line,				/* [IN] The line with the parameters & switches */
 		Line++;
 	}
 	/* Terminate the parameters */
-	if(ptrStart && ptrEnd)
-	{		
-		temp = malloc((ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-		if(!temp)
-			return FALSE;
-		memcpy(temp, ptrStart, (ptrEnd - ptrStart) + 2 * sizeof (TCHAR));
-		temp[(ptrEnd - ptrStart + 1)] = _T('\0');
-		if(!add_entry(entries, params, temp))
-		{
-			free(temp);
-			freep(*params);
-			return FALSE;
-		}
-
-		free(temp);
-
-		ptrStart = NULL;
-		ptrEnd = NULL;
-	}
+	if (ptrLast) *ptrLast = 0;
 
 	/* Calculate the switches with no switch paramater  */
 	if (!(lpFlags->stAttribs.bParSetted))
@@ -1178,21 +1145,7 @@ PrintSummary(LPTSTR szPath,
 		   ConOutPrintf(szMsg,ulFiles, szBuffer);
 	}
 
-	/* Print File Summary */
-	/* Condition to print summary is:
-	   If we are not in bare format and if we have results! */
-	if (ulFiles > 0)
-	{
-		ConvertULargeInteger(u64Bytes, szBuffer, 20, lpFlags->bTSeperator);
-		LoadString(CMD_ModuleHandle, STRING_DIR_HELP8, szMsg, RC_STRING_MAX_SIZE);
-		if(lpFlags->bPause)
-		   ConOutPrintfPaging(FALSE,szMsg,ulFiles, szBuffer);
-		else
-		   ConOutPrintf(szMsg,ulFiles, szBuffer);
-
-	}
-
-	/* Print total directories and freespace */
+	/* Print total  directories and freespace */
 	szRoot[0] = szPath[0];
 	GetUserDiskFreeSpace(szRoot, &uliFree);
 	ConvertULargeInteger(uliFree, szBuffer, sizeof(szBuffer), lpFlags->bTSeperator);
@@ -1222,8 +1175,7 @@ TCHAR* getExt(const TCHAR* file)
  *
  * Get the name of the file without extension
  */
-static LPTSTR 
-getName(const TCHAR* file, TCHAR * dest)
+static LPTSTR getName(const TCHAR* file, TCHAR * dest)
 {
 	int iLen;
 	LPTSTR end;
@@ -1323,9 +1275,9 @@ DirPrintNewList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN]Files' Info */
  */
 static VOID
 DirPrintWideList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
-				 DWORD dwCount,			/* [IN] The quantity of files */
-				 TCHAR *szCurPath,		/* [IN] Full path of current directory */
-				 LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags used */
+		 DWORD dwCount,			/* [IN] The quantity of files */
+		 TCHAR *szCurPath,		/* [IN] Full path of current directory */
+		 LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags used */
 {
   SHORT iScreenWidth;
   USHORT iColumns;
@@ -1515,9 +1467,9 @@ ULARGE_INTEGER u64FileSize;		/* The file size */
  */
 static VOID
 DirPrintBareList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
-				 DWORD dwCount,			/* [IN] The number of files */
-				 LPTSTR lpCurPath,		/* [IN] Full path of current directory */
-				 LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags used */
+		 DWORD dwCount,			/* [IN] The number of files */
+		 LPTSTR lpCurPath,		/* [IN] Full path of current directory */
+		 LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags used */
 {
 	TCHAR szFullName[MAX_PATH];
 	DWORD i;
@@ -1559,9 +1511,9 @@ DirPrintBareList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
  */
 static VOID
 DirPrintFiles(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
-			  DWORD dwCount,			/* [IN] The quantity of files */
-			  TCHAR *szCurPath,			/* [IN] Full path of current directory */
-			  LPDIRSWITCHFLAGS lpFlags)		/* [IN] The flags used */
+	      DWORD dwCount,			/* [IN] The quantity of files */
+	      TCHAR *szCurPath,			/* [IN] Full path of current directory */
+	      LPDIRSWITCHFLAGS lpFlags)		/* [IN] The flags used */
 {
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR szTemp[MAX_PATH];			/* A buffer to format the directory header */
@@ -1620,8 +1572,8 @@ DirPrintFiles(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
  */
 static BOOL
 CompareFiles(LPWIN32_FIND_DATA lpFile1,	/* [IN] A pointer to WIN32_FIND_DATA of file 1 */
-			 LPWIN32_FIND_DATA lpFile2,	/* [IN] A pointer to WIN32_FIND_DATA of file 2 */
-			 LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags that we use to list */
+	     LPWIN32_FIND_DATA lpFile2,	/* [IN] A pointer to WIN32_FIND_DATA of file 2 */
+	     LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags that we use to list */
 {
   ULARGE_INTEGER u64File1;
   ULARGE_INTEGER u64File2;
@@ -1771,9 +1723,9 @@ QsortFiles(LPWIN32_FIND_DATA ptrArray[],	/* [IN/OUT] The array with file info po
  */
 static INT
 DirList(LPTSTR szPath,			/* [IN] The path that dir starts */
-		LPTSTR szFilespec,		/* [IN] The type of file that we are looking for */
-		LPINT pLine,			/* FIXME: Maybe used for paginating */
-		LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags of the listing */
+	LPTSTR szFilespec,		/* [IN] The type of file that we are looking for */
+	LPINT pLine,			/* FIXME: Maybe used for paginating */
+	LPDIRSWITCHFLAGS lpFlags)	/* [IN] The flags of the listing */
 {
 	HANDLE hSearch;							/* The handle of the search */
 	HANDLE hRecSearch;						/* The handle for searching recursivly */
@@ -1783,11 +1735,13 @@ DirList(LPTSTR szPath,			/* [IN] The path that dir starts */
 	PDIRFINDLISTNODE ptrNextNode;	/* A pointer used for relatives refernces */
 TCHAR szFullPath[MAX_PATH];				/* The full path that we are listing with trailing \ */
 TCHAR szFullFileSpec[MAX_PATH];			/* The full path with file specs that we ll request\ */
+TCHAR szBytes[20];						/* A string for converting ULARGE integer */
 DWORD dwCount;							/* A counter of files found in directory */
 DWORD dwCountFiles;						/* Counter for files */
 DWORD dwCountDirs;						/* Counter for directories */
 ULARGE_INTEGER u64CountBytes;			/* Counter for bytes */
 ULARGE_INTEGER u64Temp;					/* A temporary counter */
+TCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	/* Initialize Variables */
 	ptrStartNode = NULL;
@@ -1924,6 +1878,20 @@ ULARGE_INTEGER u64Temp;					/* A temporary counter */
 	/* Free array */
 	free(ptrFileArray);
 
+	/* Print Directory Summary */
+	/* Condition to print summary is:
+	   If we are not in bare format and if we have results! */
+	if (!(lpFlags->bBareFormat) && (dwCount > 0))
+	{
+		ConvertULargeInteger(u64CountBytes, szBytes, 20, lpFlags->bTSeperator);
+		LoadString(CMD_ModuleHandle, STRING_DIR_HELP8, szMsg, RC_STRING_MAX_SIZE);
+		if(lpFlags->bPause)
+		   ConOutPrintfPaging(FALSE,szMsg,dwCountFiles, szBytes);
+		else
+		   ConOutPrintf(szMsg,dwCountFiles, szBytes);
+
+	}
+
 	/* Add statistics to recursive statistics*/
 	recurse_dir_cnt += dwCountDirs;
 	recurse_file_cnt += dwCountFiles;
@@ -1977,21 +1945,16 @@ ULARGE_INTEGER u64Temp;					/* A temporary counter */
  *
  * internal dir command
  */
-INT 
-CommandDir(LPTSTR first, LPTSTR rest)
+INT CommandDir(LPTSTR first, LPTSTR rest)
 {
-	TCHAR	dircmd[256];	/* A variable to store the DIRCMD enviroment variable */
-	TCHAR	cDrive;
-	TCHAR	szPath[MAX_PATH];
-	TCHAR	szFilespec[MAX_PATH];
-	LPTSTR*	params;
-	INT		entries = 0;
-	INT		nLine = 0;
-	UINT	loop = 0;
+	TCHAR  dircmd[256];	/* A variable to store the DIRCMD enviroment variable */
+	TCHAR  szPath[MAX_PATH];
+	TCHAR  szFilespec[MAX_PATH];
+	LPTSTR param;
+	INT    nLine = 0;
 	DIRSWITCHFLAGS stFlags;
 
 	/* Initialize variables */
-	cDrive = 0;
 	recurse_dir_cnt = 0L;
 	recurse_file_cnt = 0L;
 	recurse_bytes.QuadPart = 0;
@@ -2017,80 +1980,70 @@ CommandDir(LPTSTR first, LPTSTR rest)
 	stFlags.stOrderBy.bUnSet = FALSE;
 
 	nErrorLevel = 0;
-	
+
 	/* read the parameters from the DIRCMD environment variable */
 	if (GetEnvironmentVariable (_T("DIRCMD"), dircmd, 256))
-		if (!DirReadParam(dircmd, &params, &entries, &stFlags))
+		if (!DirReadParam(dircmd, &param, &stFlags))
 		{
 			nErrorLevel = 1;
 			return 1;
 		}
 
 	/* read the parameters */
-	if (!DirReadParam(rest, &params, &entries, &stFlags))
+	if (!DirReadParam(rest, &param, &stFlags))
 	{
 		nErrorLevel = 1;
 		return 1;
 	}
 
 	/* default to current directory */
-	if(entries == 0) {
-		if(!add_entry(&entries, &params, _T("."))) {
-			nErrorLevel = 1;
-			return 1;
-		}
+	if (!param)
+		param = _T(".");
+
+	/* parse the directory info */
+	if (DirParsePathspec (param, szPath, szFilespec))
+	{
+		nErrorLevel = 1;
+		return 1;
 	}
 
-	for(loop = 0; loop < entries; loop++)
+/* <Debug :>
+   Uncomment this to show the final state of switch flags*/
+#ifdef _DEBUG
 	{
-		/* parse the directory info */
-		if (DirParsePathspec (params[loop], szPath, szFilespec))
+		int i;
+		ConOutPrintf(_T("Attributes mask/value %x/%x\n"),stFlags.stAttribs.dwAttribMask,stFlags.stAttribs.dwAttribVal  );
+		ConOutPrintf(_T("(B) Bare format : %i\n"), stFlags.bBareFormat );
+		ConOutPrintf(_T("(C) Thousand : %i\n"), stFlags.bTSeperator );
+		ConOutPrintf(_T("(W) Wide list : %i\n"), stFlags.bWideList );
+		ConOutPrintf(_T("(D) Wide list sort by column : %i\n"), stFlags.bWideListColSort );
+		ConOutPrintf(_T("(L) Lowercase : %i\n"), stFlags.bLowerCase );
+		ConOutPrintf(_T("(N) New : %i\n"), stFlags.bNewLongList );
+		ConOutPrintf(_T("(O) Order : %i\n"), stFlags.stOrderBy.sCriteriaCount );
+		for (i =0;i<stFlags.stOrderBy.sCriteriaCount;i++)
+			ConOutPrintf(_T(" Order Criteria [%i]: %i (Reversed: %i)\n"),i, stFlags.stOrderBy.eCriteria[i], stFlags.stOrderBy.bCriteriaRev[i] );
+		ConOutPrintf(_T("(P) Pause : %i\n"), stFlags.bPause  );
+		ConOutPrintf(_T("(Q) Owner : %i\n"), stFlags.bUser );
+		ConOutPrintf(_T("(S) Recursive : %i\n"), stFlags.bRecursive );
+		ConOutPrintf(_T("(T) Time field : %i\n"), stFlags.stTimeField.eTimeField );
+		ConOutPrintf(_T("(X) Short names : %i\n"), stFlags.bShortName );
+		ConOutPrintf(_T("Parameter : %s\n"), param );
+	}
+#endif
+
+	/* print the header  */
+	if (!stFlags.bBareFormat)
+		if (!PrintDirectoryHeader (szPath, &nLine, &stFlags))
 		{
 			nErrorLevel = 1;
 			return 1;
 		}
 
-	/* <Debug :>
-	   Uncomment this to show the final state of switch flags*/
-	#ifdef _DEBUG
-		{
-			int i;
-			ConOutPrintf(_T("Attributes mask/value %x/%x\n"),stFlags.stAttribs.dwAttribMask,stFlags.stAttribs.dwAttribVal  );
-			ConOutPrintf(_T("(B) Bare format : %i\n"), stFlags.bBareFormat );
-			ConOutPrintf(_T("(C) Thousand : %i\n"), stFlags.bTSeperator );
-			ConOutPrintf(_T("(W) Wide list : %i\n"), stFlags.bWideList );
-			ConOutPrintf(_T("(D) Wide list sort by column : %i\n"), stFlags.bWideListColSort );
-			ConOutPrintf(_T("(L) Lowercase : %i\n"), stFlags.bLowerCase );
-			ConOutPrintf(_T("(N) New : %i\n"), stFlags.bNewLongList );
-			ConOutPrintf(_T("(O) Order : %i\n"), stFlags.stOrderBy.sCriteriaCount );
-			for (i =0;i<stFlags.stOrderBy.sCriteriaCount;i++)
-				ConOutPrintf(_T(" Order Criteria [%i]: %i (Reversed: %i)\n"),i, stFlags.stOrderBy.eCriteria[i], stFlags.stOrderBy.bCriteriaRev[i] );
-			ConOutPrintf(_T("(P) Pause : %i\n"), stFlags.bPause  );
-			ConOutPrintf(_T("(Q) Owner : %i\n"), stFlags.bUser );
-			ConOutPrintf(_T("(S) Recursive : %i\n"), stFlags.bRecursive );
-			ConOutPrintf(_T("(T) Time field : %i\n"), stFlags.stTimeField.eTimeField );
-			ConOutPrintf(_T("(X) Short names : %i\n"), stFlags.bShortName );
-			ConOutPrintf(_T("Parameter : %s\n"), params[loop] );
-		}
-	#endif
-
-		/* Print the drive header if the drive changed */
-		if(cDrive != szPath[0] && !stFlags.bBareFormat) {
-			if (!PrintDirectoryHeader (szPath, &nLine, &stFlags)) {
-				nErrorLevel = 1;
-				return 1;
-			}
-
-			cDrive = szPath[0];
-		}
-		
-
-		/* do the actual dir */
-		if (DirList (szPath, szFilespec, &nLine, &stFlags))
-		{
-			nErrorLevel = 1;
-			return 1;
-		}
+	/* do the actual dir */
+	if (DirList (szPath, szFilespec, &nLine, &stFlags))
+	{
+		nErrorLevel = 1;
+		return 1;
 	}
 
 	/* print the footer */

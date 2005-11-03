@@ -625,7 +625,7 @@ HINSTANCE16 WINAPI ShellExecute16( HWND16 hWnd, LPCSTR lpOperation,
     seiW.dwHotKey = 0;
     seiW.hProcess = hProcess;
 
-    SHELL_execute( &seiW, SHELL_Execute16, FALSE );
+    ShellExecuteExW32 (&seiW, SHELL_Execute16);
 
     if (wVerb) SHFree(wVerb);
     if (wFile) SHFree(wFile);

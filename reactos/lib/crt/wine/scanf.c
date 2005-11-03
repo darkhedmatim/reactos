@@ -33,7 +33,6 @@
 #include "winternl.h"
 #include "msvcrt.h"
 */
-#define WIN32_NO_STATUS
 
 #include <stdarg.h>
 #include <wchar.h>

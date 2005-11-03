@@ -61,9 +61,8 @@
         #define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
     
     #else
-		#if defined (__STDC__)
-			#define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-		#endif
+    
+        #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
         #define CHECKPOINT
     
     #endif
@@ -71,10 +70,8 @@
 #else
 
     /* On non-debug builds, we never show these */
-    #if defined (__STDC__)
     #define DPRINT1(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #endif
     #define CHECKPOINT1
     #define CHECKPOINT
 #endif

@@ -9,9 +9,7 @@
 #define BOOL unsigned long
 #define SC_HANDLE unsigned int
 #define SC_LOCK unsigned int
-#define LPSTR char*
 #define LPCSTR char*
-#define LPWSTR wchar_t*
 #define LPCWSTR wchar_t*
 #define LPDWORD unsigned long*
 
@@ -78,22 +76,6 @@ cpp_quote("#endif")
                                    [in] BOOL BootAcceptable);
 
 
-  /* Function 11 */
-  DWORD ScmrChangeServiceConfigW([in] handle_t BindingHandle,
-                                 [in] SC_HANDLE hSCManager,
-                                 [in] DWORD dwServiceType,
-                                 [in] DWORD dwStartType,
-                                 [in] DWORD dwErrorControl,
-                                 [in, string, unique] LPCWSTR lpBinaryPathName,
-                                 [in, string, unique] LPCWSTR lpLoadOrderGroup,
-                                 [in, out, unique] LPDWORD lpdwTagId,
-                                 [in, size_is(dwDependenciesLength), unique] LPCWSTR lpDependencies,
-                                 [in] DWORD dwDependenciesLength,
-                                 [in, string, unique] LPCWSTR lpServiceStartName,
-                                 [in, size_is(dwPasswordLength), unique] LPCWSTR lpPassword,
-                                 [in] DWORD dwPasswordLength,
-                                 [in, string, unique] LPCWSTR lpDisplayName);
-
   /* Function 12 */
   DWORD ScmrCreateServiceW([in] handle_t BindingHandle,
                            [in] SC_HANDLE hSCManager,
@@ -127,21 +109,6 @@ cpp_quote("#endif")
                              [in, string] LPCWSTR lpServiceName,
                              [in] DWORD dwDesiredAccess,
                              [out] SC_HANDLE *hScm);
-
-
-  /* Function 20 */
-  DWORD ScmrGetServiceDisplayNameW([in] handle_t BindingHandle,
-                                   [in] SC_HANDLE hSCManager,
-                                   [in, string, ref] LPCWSTR lpServiceName,
-                                   [out, size_is(*lpcchBuffer), unique] LPWSTR lpDisplayName,
-                                   [in, out, ref] LPDWORD lpcchBuffer);
-
-  /* Function 21 */
-  DWORD ScmrGetServiceKeyNameW([in] handle_t BindingHandle,
-                               [in] SC_HANDLE hSCManager,
-                               [in, string, ref] LPCWSTR lpDisplayName,
-                               [out, size_is(*lpcchBuffer), unique] LPWSTR lpServiceName,
-                               [in, out, ref] LPDWORD lpcchBuffer);
 
 
   /* Function 27 */

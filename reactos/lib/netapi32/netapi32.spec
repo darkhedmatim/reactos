@@ -157,7 +157,7 @@
 @ stub NetServerDiskEnum
 @ stdcall NetServerEnum(wstr long ptr long ptr ptr long wstr ptr)
 @ stub NetServerEnumEx
-@ stdcall NetServerGetInfo(wstr long ptr)
+@ stub NetServerGetInfo
 @ stub NetServerSetInfo
 @ stub NetServerTransportAdd
 @ stub NetServerTransportAddEx

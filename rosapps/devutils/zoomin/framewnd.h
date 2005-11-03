@@ -23,10 +23,17 @@
 #ifndef __FRAMEWND_H__
 #define __FRAMEWND_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 LRESULT CALLBACK FrameWndProc(HWND, UINT, WPARAM, LPARAM);
 
 
-#define WNDCLASS_ZOOMIN TEXT("ZOOMIN")
-
+#ifdef __cplusplus
+};
+#endif
 
 #endif // __FRAMEWND_H__
+

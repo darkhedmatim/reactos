@@ -1278,7 +1278,6 @@ MmAccessFaultSectionView(PMADDRESS_SPACE AddressSpace,
     */
    MiCopyFromUserPage(NewPage, PAddress);
 
-   MmLockAddressSpace(AddressSpace);
    /*
     * Delete the old entry.
     */
@@ -1287,6 +1286,7 @@ MmAccessFaultSectionView(PMADDRESS_SPACE AddressSpace,
    /*
     * Set the PTE to point to the new page
     */
+   MmLockAddressSpace(AddressSpace);
    Status = MmCreateVirtualMapping(AddressSpace->Process,
                                    Address,
                                    Region->Protect,
@@ -1298,6 +1298,7 @@ MmAccessFaultSectionView(PMADDRESS_SPACE AddressSpace,
       KEBUGCHECK(0);
       return(Status);
    }
+   MmInsertRmap(NewPage, AddressSpace->Process, PAddress);
    if (!NT_SUCCESS(Status))
    {
       DbgPrint("Unable to create virtual mapping\n");
@@ -1313,7 +1314,6 @@ MmAccessFaultSectionView(PMADDRESS_SPACE AddressSpace,
     * Unshare the old page.
     */
    MmDeleteRmap(OldPage, AddressSpace->Process, PAddress);
-   MmInsertRmap(NewPage, AddressSpace->Process, PAddress);
    MmLockSectionSegment(Segment);
    MmUnsharePageEntrySectionSegment(Section, Segment, Offset, FALSE, FALSE);
    MmUnlockSectionSegment(Segment);
@@ -1332,11 +1332,6 @@ MmPageOutDeleteMapping(PVOID Context, PEPROCESS Process, PVOID Address)
    PFN_TYPE Page;
 
    PageOutContext = (MM_SECTION_PAGEOUT_CONTEXT*)Context;
-   if (Process)
-   {
-      MmLockAddressSpace(&Process->AddressSpace);
-   }
-
    MmDeleteVirtualMapping(Process,
                           Address,
                           FALSE,
@@ -1348,25 +1343,18 @@ MmPageOutDeleteMapping(PVOID Context, PEPROCESS Process, PVOID Address)
    }
    if (!PageOutContext->Private)
    {
-      MmLockSectionSegment(PageOutContext->Segment);
       MmUnsharePageEntrySectionSegment(PageOutContext->Section,
                                        PageOutContext->Segment,
                                        PageOutContext->Offset,
                                        PageOutContext->WasDirty,
                                        TRUE);
-      MmUnlockSectionSegment(PageOutContext->Segment);
    }
-   if (Process)
-   {
-      MmUnlockAddressSpace(&Process->AddressSpace);
-   }
-   
-   if (PageOutContext->Private)
+   else
    {
       MmReleasePageMemoryConsumer(MC_USER, Page);
    }
 
-   DPRINT("PhysicalAddress %x, Address %x\n", Page << PAGE_SHIFT, Address);
+   DPRINT("PhysicalAddress %I64x, Address %x\n", Page, Address);
 }
 
 NTSTATUS
@@ -1573,11 +1561,9 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
    else if (!Context.WasDirty && Context.Private && SwapEntry != 0)
    {
       MmSetSavedSwapEntryPage(Page, 0);
-      MmLockAddressSpace(AddressSpace);
       Status = MmCreatePageFileMapping(AddressSpace->Process,
                                        Address,
                                        SwapEntry);
-      MmUnlockAddressSpace(AddressSpace);
       if (!NT_SUCCESS(Status))
       {
          KEBUGCHECK(0);
@@ -1597,7 +1583,7 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
       if (SwapEntry == 0)
       {
          MmShowOutOfSpaceMessagePagingFile();
-         MmLockAddressSpace(AddressSpace);
+
          /*
           * For private pages restore the old mappings.
           */
@@ -1632,7 +1618,6 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
             Entry = MAKE_SSE(Page << PAGE_SHIFT, 1);
             MmSetPageEntrySectionSegment(Context.Segment, Context.Offset, Entry);
          }
-         MmUnlockAddressSpace(AddressSpace);
          PageOp->Status = STATUS_UNSUCCESSFUL;
          MmspCompleteAndReleasePageOp(PageOp);
          return(STATUS_PAGEFILE_QUOTA);
@@ -1651,7 +1636,6 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
        * As above: undo our actions.
        * FIXME: Also free the swap page.
        */
-      MmLockAddressSpace(AddressSpace);
       if (Context.Private)
       {
          Status = MmCreateVirtualMapping(AddressSpace->Process,
@@ -1678,7 +1662,6 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
          Entry = MAKE_SSE(Page << PAGE_SHIFT, 1);
          MmSetPageEntrySectionSegment(Context.Segment, Context.Offset, Entry);
       }
-      MmUnlockAddressSpace(AddressSpace);
       PageOp->Status = STATUS_UNSUCCESSFUL;
       MmspCompleteAndReleasePageOp(PageOp);
       return(STATUS_UNSUCCESSFUL);
@@ -1701,11 +1684,9 @@ MmPageOutSectionView(PMADDRESS_SPACE AddressSpace,
 
    if (Context.Private)
    {
-      MmLockAddressSpace(AddressSpace);
       Status = MmCreatePageFileMapping(AddressSpace->Process,
                                        Address,
                                        SwapEntry);
-      MmUnlockAddressSpace(AddressSpace);
       if (!NT_SUCCESS(Status))
       {
          KEBUGCHECK(0);
@@ -1766,7 +1747,7 @@ MmWritePageSectionView(PMADDRESS_SPACE AddressSpace,
        * memory area was mapped at an offset in the file which is page aligned
        * then note this is a direct mapped page.
        */
-      if (((Offset + Segment->FileOffset) % PAGE_SIZE) == 0 &&
+      if ((Offset + MemoryArea->Data.SectionData.ViewOffset % PAGE_SIZE) == 0 &&
             (Offset + PAGE_SIZE <= Segment->RawLength || !IsImageSection))
       {
          DirectMapped = TRUE;
@@ -1994,7 +1975,8 @@ MmQuerySectionView(PMEMORY_AREA MemoryArea,
    }
    Info->BaseAddress = RegionBaseAddress;
    Info->AllocationProtect = MemoryArea->Attributes;
-   Info->RegionSize = Region->Length;
+   Info->RegionSize = PAGE_ROUND_UP((ULONG_PTR)MemoryArea->EndingAddress -
+                                    (ULONG_PTR)MemoryArea->StartingAddress);
    Info->State = MEM_COMMIT;
    Info->Protect = Region->Protect;
 
@@ -2831,7 +2813,6 @@ MmspPageAlignSegments
    ULONG i;
    ULONG LastSegment;
    BOOLEAN Initialized;
-   PMM_SECTION_SEGMENT EffectiveSegment;
 
    if (Flags & EXEFMT_LOAD_ASSUME_SEGMENTS_PAGE_ALIGNED)
    {
@@ -2841,10 +2822,11 @@ MmspPageAlignSegments
 
    Initialized = FALSE;
    LastSegment = 0;
-   EffectiveSegment = &ImageSectionObject->Segments[LastSegment];
 
    for ( i = 0; i < ImageSectionObject->NrSegments; ++ i )
    {
+      PMM_SECTION_SEGMENT EffectiveSegment = &ImageSectionObject->Segments[LastSegment];
+
       /*
        * The first segment requires special handling
        */
@@ -2898,14 +2880,11 @@ MmspPageAlignSegments
 
             EffectiveSegment = &ImageSectionObject->Segments[LastSegment];
 
-            if (LastSegment != i)
-            {
-               /*
-                * Copy the current segment. If necessary, the effective segment
-                * will be expanded later
-                */
-               *EffectiveSegment = *Segment;
-            }
+            /*
+             * Copy the current segment. If necessary, the effective segment
+             * will be expanded later
+             */
+            *EffectiveSegment = *Segment;
 
             /*
              * Page-align the virtual size. We know for sure the virtual address
@@ -2958,7 +2937,7 @@ MmspPageAlignSegments
             /*
              * Extend the virtual size
              */
-            ASSERT(PAGE_ROUND_UP(Segment->VirtualAddress + Segment->Length) >= EndOfEffectiveSegment);
+            ASSERT(PAGE_ROUND_UP(Segment->VirtualAddress + Segment->Length) > EndOfEffectiveSegment);
 
             EffectiveSegment->Length = PAGE_ROUND_UP(Segment->VirtualAddress + Segment->Length) -
                                        EffectiveSegment->VirtualAddress;
@@ -3002,7 +2981,6 @@ MmspPageAlignSegments
          }
       }
    }
-   ImageSectionObject->NrSegments = LastSegment + 1;
 
    return TRUE;
 }
@@ -3816,7 +3794,7 @@ MmFreeSectionPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
    }
 }
 
-STATIC NTSTATUS
+NTSTATUS
 MmUnmapViewOfSegment(PMADDRESS_SPACE AddressSpace,
                      PVOID BaseAddress)
 {
@@ -3879,8 +3857,6 @@ MmUnmapViewOfSection(PEPROCESS Process,
    PMEMORY_AREA MemoryArea;
    PMADDRESS_SPACE AddressSpace;
    PSECTION_OBJECT Section;
-   PMM_PAGEOP PageOp;
-   ULONG_PTR Offset;
 
    DPRINT("Opening memory area Process %x BaseAddress %x\n",
           Process, BaseAddress);
@@ -3888,51 +3864,13 @@ MmUnmapViewOfSection(PEPROCESS Process,
    ASSERT(Process);
 
    AddressSpace = &Process->AddressSpace;
-   
-   MmLockAddressSpace(AddressSpace);
    MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace,
                                             BaseAddress);
    if (MemoryArea == NULL ||
        MemoryArea->Type != MEMORY_AREA_SECTION_VIEW ||
        MemoryArea->DeleteInProgress)
    {
-      MmUnlockAddressSpace(AddressSpace);
       return STATUS_NOT_MAPPED_VIEW;
-   }
-
-   MemoryArea->DeleteInProgress = TRUE;
-
-   while (MemoryArea->PageOpCount)
-   {
-      Offset = PAGE_ROUND_UP((ULONG_PTR)MemoryArea->EndingAddress - (ULONG_PTR)MemoryArea->StartingAddress);
-
-      while (Offset)
-      {
-         Offset -= PAGE_SIZE;
-         PageOp = MmCheckForPageOp(MemoryArea, NULL, NULL,
-                                   MemoryArea->Data.SectionData.Segment,
-                                   Offset + MemoryArea->Data.SectionData.ViewOffset);
-         if (PageOp)
-         {
-            MmUnlockAddressSpace(AddressSpace);
-            Status = MmspWaitForPageOpCompletionEvent(PageOp);
-            if (Status != STATUS_SUCCESS)
-            {
-               DPRINT1("Failed to wait for page op, status = %x\n", Status);
-               KEBUGCHECK(0);
-            }
-            MmLockAddressSpace(AddressSpace);
-            MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace,
-                                                     BaseAddress);
-            if (MemoryArea == NULL ||
-                MemoryArea->Type != MEMORY_AREA_SECTION_VIEW)
-            {
-               MmUnlockAddressSpace(AddressSpace);
-               return STATUS_NOT_MAPPED_VIEW;
-            }
-            break;
-         }
-      }
    }
 
    Section = MemoryArea->Data.SectionData.Section;
@@ -3984,7 +3922,6 @@ MmUnmapViewOfSection(PEPROCESS Process,
    {
       Status = MmUnmapViewOfSegment(AddressSpace, BaseAddress);
    }
-   MmUnlockAddressSpace(AddressSpace);
    return(STATUS_SUCCESS);
 }
 
@@ -4030,7 +3967,9 @@ NtUnmapViewOfSection (HANDLE ProcessHandle,
       return(Status);
    }
 
+   MmLockAddressSpace(&Process->AddressSpace);
    Status = MmUnmapViewOfSection(Process, BaseAddress);
+   MmUnlockAddressSpace(&Process->AddressSpace);
 
    ObDereferenceObject(Process);
 
@@ -4520,7 +4459,7 @@ MmMapViewOfSection(IN PVOID SectionObject,
                                   *ViewSize,
                                   Protect,
                                   ViewOffset,
-                                  (AllocationType & MEM_TOP_DOWN) == MEM_TOP_DOWN);
+                                  (AllocationType & MEM_TOP_DOWN));
       MmUnlockSectionSegment(Section->Segment);
       if (!NT_SUCCESS(Status))
       {

@@ -300,7 +300,7 @@ static const WORD table_c0000001[411] =
       ERROR_NO_SYSTEM_RESOURCES,              /* c000009a (STATUS_INSUFFICIENT_RESOURCES) */
       ERROR_PATH_NOT_FOUND,                   /* c000009b (STATUS_DFS_EXIT_PATH_FOUND) */
       ERROR_CRC,                              /* c000009c (STATUS_DEVICE_DATA_ERROR) */
-      ERROR_DEVICE_NOT_CONNECTED,             /* c000009d (STATUS_DEVICE_NOT_CONNECTED) */
+      ERROR_NOT_READY,                        /* c000009d (STATUS_DEVICE_NOT_CONNECTED) */
       ERROR_NOT_READY,                        /* c000009e (STATUS_DEVICE_POWER_FAILURE) */
       ERROR_INVALID_ADDRESS,                  /* c000009f (STATUS_FREE_VM_NOT_AT_BASE) */
       ERROR_INVALID_ADDRESS,                  /* c00000a0 (STATUS_MEMORY_NOT_ALLOCATED) */
@@ -813,7 +813,7 @@ static const ERROR_TABLE ErrorTable[] =
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 RtlAssert(PVOID FailedAssertion,
           PVOID FileName,
           ULONG LineNumber,
@@ -842,7 +842,7 @@ RtlAssert(PVOID FailedAssertion,
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlMapSecurityErrorToNtStatus(
 	IN ULONG SecurityError
 	)
@@ -870,7 +870,7 @@ RtlMapSecurityErrorToNtStatus(
  *
  * @implemented
  */
-DWORD NTAPI
+DWORD STDCALL
 RtlNtStatusToDosErrorNoTeb(IN NTSTATUS Status)
 {
    PERROR_TABLE Table = (PERROR_TABLE)ErrorTable;
@@ -907,7 +907,7 @@ RtlNtStatusToDosErrorNoTeb(IN NTSTATUS Status)
    if (HIWORD(Status) == 0x8007)
       return LOWORD(Status);
 
-   DPRINT1("RTL: RtlNtStatusToDosErrorNoTeb(0x%lx): no valid W32 error mapping\n", Status);
+   DbgPrint("RTL: RtlNtStatusToDosErrorNoTeb(0x%lx): no valid W32 error mapping\n", Status);
 
    return ERROR_MR_MID_NOT_FOUND;
 }
@@ -932,7 +932,7 @@ RtlNtStatusToDosErrorNoTeb(IN NTSTATUS Status)
  *
  * @implemented
  */
-DWORD NTAPI
+DWORD STDCALL
 RtlNtStatusToDosError(IN NTSTATUS Status)
 {
    PTEB Teb = NtCurrentTeb ();
@@ -966,7 +966,7 @@ RtlNtStatusToDosError(IN NTSTATUS Status)
  * REVISIONS
  *  1999-11-30 ea
  */
-INT NTAPI
+INT STDCALL
 RtlNtStatusToPsxErrno(IN NTSTATUS Status)
 {
 #if 0
@@ -981,7 +981,7 @@ RtlNtStatusToPsxErrno(IN NTSTATUS Status)
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlGetLastNtStatus(VOID)
 {
   return NtCurrentTeb()->LastStatusValue;
@@ -991,7 +991,7 @@ RtlGetLastNtStatus(VOID)
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlGetLastWin32Error(VOID)
 {
   return NtCurrentTeb()->LastErrorValue;
@@ -1001,7 +1001,7 @@ RtlGetLastWin32Error(VOID)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlSetLastWin32Error(IN ULONG Error)
 {
   NtCurrentTeb()->LastErrorValue = Error;
@@ -1011,7 +1011,7 @@ RtlSetLastWin32Error(IN ULONG Error)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlSetLastWin32ErrorAndNtStatusFromNtStatus(IN NTSTATUS Status)
 {
   NtCurrentTeb()->LastErrorValue = RtlNtStatusToDosError(Status);

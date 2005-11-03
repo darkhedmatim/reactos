@@ -44,7 +44,7 @@ static const UNICODE_STRING _nul = RTL_CONSTANT_STRING(L"NUL");
 /*
  * @implemented
  */
-ULONG NTAPI RtlGetLongestNtPathLength (VOID)
+ULONG STDCALL RtlGetLongestNtPathLength (VOID)
 {
    return (MAX_PATH + 9);
 }
@@ -54,7 +54,7 @@ ULONG NTAPI RtlGetLongestNtPathLength (VOID)
  * @implemented
  *
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlDetermineDosPathNameType_U(PCWSTR Path)
 {
    DPRINT("RtlDetermineDosPathNameType_U %S\n", Path);
@@ -95,7 +95,7 @@ RtlDetermineDosPathNameType_U(PCWSTR Path)
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlIsDosDeviceName_U(PWSTR DeviceName)
 {
    ULONG Type;
@@ -188,7 +188,7 @@ RtlIsDosDeviceName_U(PWSTR DeviceName)
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlGetCurrentDirectory_U(ULONG MaximumLength,
 			 PWSTR Buffer)
 {
@@ -231,7 +231,7 @@ RtlGetCurrentDirectory_U(ULONG MaximumLength,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlSetCurrentDirectory_U(PUNICODE_STRING dir)
 {
    UNICODE_STRING full;
@@ -677,7 +677,7 @@ done:
  *
  * @implemented
  */
-DWORD NTAPI RtlGetFullPathName_U(
+DWORD STDCALL RtlGetFullPathName_U(
    const WCHAR* name,
    ULONG size,
    WCHAR* buffer,
@@ -733,7 +733,7 @@ DWORD NTAPI RtlGetFullPathName_U(
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlDosPathNameToNtPathName_U(PWSTR dosname,
 			     PUNICODE_STRING ntname,
 			     PWSTR *FilePart,
@@ -858,7 +858,7 @@ RtlDosPathNameToNtPathName_U(PWSTR dosname,
  * @implemented
  */
 ULONG
-NTAPI
+STDCALL
 RtlDosSearchPath_U (
 	WCHAR *sp,
 	WCHAR *name,
@@ -934,7 +934,7 @@ RtlDosSearchPath_U (
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlDoesFileExists_U(IN PWSTR FileName)
 {
 	UNICODE_STRING NtFileName;
@@ -978,7 +978,7 @@ RtlDoesFileExists_U(IN PWSTR FileName)
 /*
  * @unimplemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlDosPathNameToRelativeNtPathName_U(PVOID Unknown1,
                                      PVOID Unknown2,
                                      PVOID Unknown3,
@@ -993,20 +993,20 @@ RtlDosPathNameToRelativeNtPathName_U(PVOID Unknown1,
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlReleaseRelativeName(PVOID Unknown)
 {
     DPRINT1("RtlReleaseRelativeName(0x%p) UNIMPLEMENTED\n", Unknown);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlpEnsureBufferSize(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
 {
     DPRINT1("RtlpEnsureBufferSize: stub\n");
     return STATUS_NOT_IMPLEMENTED;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlNtPathNameToDosPathName(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
 {
     DPRINT1("RtlNtPathNameToDosPathName: stub\n");

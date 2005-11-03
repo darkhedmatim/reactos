@@ -20,7 +20,7 @@
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlInitializeResource(PRTL_RESOURCE Resource)
 {
    NTSTATUS Status;
@@ -62,7 +62,7 @@ RtlInitializeResource(PRTL_RESOURCE Resource)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlDeleteResource(PRTL_RESOURCE Resource)
 {
    RtlDeleteCriticalSection(&Resource->Lock);
@@ -78,7 +78,7 @@ RtlDeleteResource(PRTL_RESOURCE Resource)
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlAcquireResourceExclusive(PRTL_RESOURCE Resource,
 			    BOOLEAN Wait)
 {
@@ -130,7 +130,7 @@ done:
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlAcquireResourceShared(PRTL_RESOURCE Resource,
 			 BOOLEAN Wait)
 {
@@ -175,7 +175,7 @@ done:
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlConvertExclusiveToShared(PRTL_RESOURCE Resource)
 {
    RtlEnterCriticalSection(&Resource->Lock);
@@ -209,7 +209,7 @@ RtlConvertExclusiveToShared(PRTL_RESOURCE Resource)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlConvertSharedToExclusive(PRTL_RESOURCE Resource)
 {
    NTSTATUS Status;
@@ -243,7 +243,7 @@ RtlConvertSharedToExclusive(PRTL_RESOURCE Resource)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlReleaseResource(PRTL_RESOURCE Resource)
 {
    RtlEnterCriticalSection(&Resource->Lock);
@@ -297,7 +297,7 @@ wake_exclusive:
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlDumpResource(PRTL_RESOURCE Resource)
 {
    DbgPrint("RtlDumpResource(%p):\n\tactive count = %i\n\twaiting readers = %i\n\twaiting writers = %i\n",

@@ -41,30 +41,21 @@
 
 typedef std::vector<std::string> string_list;
 
-extern std::string ExePrefix;
-extern std::string ExePostfix;
-extern std::string sSep;
-extern std::string sBadSep;
-extern char cSep;
-extern char cBadSep;
-
 #ifdef WIN32
-#define DEF_EXEPREFIX ""
-#define DEF_EXEPOSTFIX ".exe"
-#define DEF_CSEP '\\'
-#define DEF_CBAD_SEP '/'
-#define DEF_SSEP "\\"
-#define DEF_SBAD_SEP "/"
+#define EXEPREFIX ""
+#define EXEPOSTFIX ".exe"
+#define CSEP '\\'
+#define CBAD_SEP '/'
+#define SSEP "\\"
+#define SBAD_SEP "/"
 #else
-#define DEF_EXEPREFIX "./"
-#define DEF_EXEPOSTFIX ""
-#define DEF_CSEP '/'
-#define DEF_CBAD_SEP '\\'
-#define DEF_SSEP "/"
-#define DEF_SBAD_SEP "\\"
+#define EXEPREFIX "./"
+#define EXEPOSTFIX ""
+#define CSEP '/'
+#define CBAD_SEP '\\'
+#define SSEP "/"
+#define SBAD_SEP "\\"
 #endif
-
-#define MS_VS_DEF_VERSION "7.10"
 
 class Project;
 class IfableData;
@@ -80,7 +71,6 @@ class ImportLibrary;
 class If;
 class CompilerFlag;
 class LinkerFlag;
-class LinkerScript;
 class Property;
 class TestSupportCode;
 class WineResource;
@@ -105,7 +95,6 @@ public:
 	bool AutomaticDependencies;
 	bool CheckDependenciesForModuleOnly;
 	std::string CheckDependenciesForModuleOnlyModule;
-	std::string VSProjectVersion;
 	bool MakeHandlesInstallDirectories;
 	bool GenerateProxyMakefilesInSourceTree;
 };
@@ -222,7 +211,6 @@ public:
 	const XMLElement& node;
 	std::string xmlbuildFile;
 	std::string name;
-	std::string guid;
 	std::string extension;
 	std::string entrypoint;
 	std::string baseaddress;
@@ -230,7 +218,6 @@ public:
 	ModuleType type;
 	ImportLibrary* importLibrary;
 	bool mangledSymbols;
-	bool isUnicode;
 	Bootstrap* bootstrap;
 	IfableData non_if_data;
 	std::vector<Invoke*> invocations;
@@ -238,7 +225,6 @@ public:
 	std::vector<CompilerFlag*> compilerFlags;
 	std::vector<LinkerFlag*> linkerFlags;
 	std::vector<StubbedComponent*> stubbedComponents;
-	LinkerScript* linkerScript;
 	PchFile* pch;
 	bool cplusplus;
 	std::string prefix;
@@ -482,24 +468,6 @@ public:
 	void ProcessXML();
 private:
 	void Initialize();
-};
-
-
-class LinkerScript
-{
-public:
-	const Project& project;
-	const Module* module;
-	const XMLElement& node;
-	const Module* baseModule;
-	std::string directory;
-	std::string basePath;
-
-	LinkerScript ( const Project& project,
-	               const Module* module,
-	               const XMLElement& node );
-	~LinkerScript ();
-	void ProcessXML();
 };
 
 
@@ -779,9 +747,6 @@ Replace ( const std::string& s, const std::string& find, const std::string& with
 
 extern std::string
 FixSeparator ( const std::string& s );
-
-extern std::string
-FixSeparatorForSystemCommand ( const std::string& s );
 
 extern std::string
 DosSeparator ( const std::string& s );

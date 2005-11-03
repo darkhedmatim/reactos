@@ -47,7 +47,7 @@ typedef struct _RTL_RANGE_ENTRY
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlAddRange (IN OUT PRTL_RANGE_LIST RangeList,
 	     IN ULONGLONG Start,
 	     IN ULONGLONG End,
@@ -142,7 +142,7 @@ RtlAddRange (IN OUT PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlCopyRangeList (OUT PRTL_RANGE_LIST CopyRangeList,
 		  IN PRTL_RANGE_LIST RangeList)
 {
@@ -196,7 +196,7 @@ RtlCopyRangeList (OUT PRTL_RANGE_LIST CopyRangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlDeleteOwnersRanges (IN OUT PRTL_RANGE_LIST RangeList,
 		       IN PVOID Owner)
 {
@@ -241,7 +241,7 @@ RtlDeleteOwnersRanges (IN OUT PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlDeleteRange (IN OUT PRTL_RANGE_LIST RangeList,
 		IN ULONGLONG Start,
 		IN ULONGLONG End,
@@ -301,7 +301,7 @@ RtlDeleteRange (IN OUT PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlFindRange (IN PRTL_RANGE_LIST RangeList,
 	      IN ULONGLONG Minimum,
 	      IN ULONGLONG Maximum,
@@ -399,7 +399,7 @@ RtlFindRange (IN PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlFreeRangeList (IN PRTL_RANGE_LIST RangeList)
 {
   PLIST_ENTRY Entry;
@@ -438,7 +438,7 @@ RtlFreeRangeList (IN PRTL_RANGE_LIST RangeList)
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlGetFirstRange (IN PRTL_RANGE_LIST RangeList,
 		  OUT PRTL_RANGE_LIST_ITERATOR Iterator,
 		  OUT PRTL_RANGE *Range)
@@ -478,7 +478,7 @@ RtlGetFirstRange (IN PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlGetNextRange (IN OUT PRTL_RANGE_LIST_ITERATOR Iterator,
 		 OUT PRTL_RANGE *Range,
 		 IN BOOLEAN MoveForwards)
@@ -524,7 +524,7 @@ RtlGetNextRange (IN OUT PRTL_RANGE_LIST_ITERATOR Iterator,
  *
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlInitializeRangeList (IN OUT PRTL_RANGE_LIST RangeList)
 {
   InitializeListHead (&RangeList->ListHead);
@@ -550,7 +550,7 @@ RtlInitializeRangeList (IN OUT PRTL_RANGE_LIST RangeList)
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlInvertRangeList (OUT PRTL_RANGE_LIST InvertedRangeList,
 		    IN PRTL_RANGE_LIST RangeList)
 {
@@ -650,7 +650,7 @@ RtlInvertRangeList (OUT PRTL_RANGE_LIST InvertedRangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlIsRangeAvailable (IN PRTL_RANGE_LIST RangeList,
 		     IN ULONGLONG Start,
 		     IN ULONGLONG End,
@@ -710,7 +710,7 @@ RtlIsRangeAvailable (IN PRTL_RANGE_LIST RangeList,
  *
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlMergeRangeLists (OUT PRTL_RANGE_LIST MergedRangeList,
 		    IN PRTL_RANGE_LIST RangeList1,
 		    IN PRTL_RANGE_LIST RangeList2,

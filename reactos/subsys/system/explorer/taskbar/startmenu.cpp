@@ -257,7 +257,9 @@ void StartMenu::AddShellEntries(const ShellDirectory& dir, int max, const String
 		*ignore_name = '\0';
 
 	String lwr_filter = _create_info._filter;
-	lwr_filter.toLower();
+#ifndef __WINE__ ///@todo _tcslwr() for Wine
+	_tcslwr((LPTSTR)lwr_filter.c_str());
+#endif
 
 	int cnt = 0;
 	for(Entry*entry=dir._down; entry; entry=entry->_next) {
@@ -279,8 +281,10 @@ void StartMenu::AddShellEntries(const ShellDirectory& dir, int max, const String
 			String lwr_name = entry->_data.cFileName;
 			String lwr_disp = entry->_display_name;
 
-			lwr_name.toLower();
-			lwr_disp.toLower();
+#ifndef __WINE__ ///@todo _tcslwr() for Wine
+			_tcslwr((LPTSTR)lwr_name.c_str());
+			_tcslwr((LPTSTR)lwr_disp.c_str());
+#endif
 
 			if (!_tcsstr(lwr_name,lwr_filter) && !_tcsstr(lwr_disp,lwr_filter))
 				continue;
@@ -1544,6 +1548,7 @@ StartMenuRoot::StartMenuRoot(HWND hwnd)
 
 	try {
 		 // insert directory "<user name>\Start Menu"
+
 		ShellDirectory usr_startmenu(GetDesktopFolder(), SpecialFolderPath(CSIDL_STARTMENU, _hwnd), _hwnd);
 		_dirs.push_back(StartMenuDirectory(usr_startmenu, (LPCTSTR)SpecialFolderFSPath(CSIDL_PROGRAMS, _hwnd)));
 	} catch(COMException&) {
@@ -1743,9 +1748,7 @@ LRESULT	StartMenuRoot::Init(LPCREATESTRUCT pcs)
 		AddButton(ResString(IDS_SHUTDOWN),	ICID_LOGOFF, false, IDC_SHUTDOWN);
 
 
-#ifndef _ROS_
 	AddButton(ResString(IDS_TERMINATE),	ICID_LOGOFF, false, IDC_TERMINATE);
-#endif
 
 
 #ifdef __MINGW32__
@@ -1908,11 +1911,9 @@ int StartMenuHandler::Command(int id, int code)
 		ShowLogoffDialog(g_Globals._hwndDesktopBar);
 		break;
 
-#ifndef _ROS_
 	  case IDC_TERMINATE:
 		DestroyWindow(GetParent(_hwnd));
 		break;
-#endif
 
 	  case IDC_SHUTDOWN:
 		CloseStartMenu(id);
@@ -2051,13 +2052,11 @@ int StartMenuHandler::Command(int id, int code)
 
 void StartMenuHandler::ShowSearchDialog()
 {
-#ifndef _ROS_	///@todo to be removed when SHFindFiles() will be implemented in shell32.dll
 	static DynamicFct<SHFINDFILES> SHFindFiles(TEXT("SHELL32"), 90);
 
 	if (SHFindFiles)
 		(*SHFindFiles)(NULL, NULL);
 	else
-#endif
 		MessageBox(0, TEXT("SHFindFiles() not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
 }
 
@@ -2212,7 +2211,9 @@ void FavoritesMenu::AddEntries()
 	super::AddEntries();
 
 	String lwr_filter = _create_info._filter;
-	lwr_filter.toLower();
+#ifndef __WINE__ ///@todo _tcslwr() for Wine
+	_tcslwr((LPTSTR)lwr_filter.c_str());
+#endif
 
 	for(BookmarkList::iterator it=_bookmarks.begin(); it!=_bookmarks.end(); ++it) {
 		BookmarkNode& node = *it;
@@ -2239,9 +2240,11 @@ void FavoritesMenu::AddEntries()
 				String lwr_desc = bookmark._description;
 				String lwr_url = bookmark._url;
 
-				lwr_name.toLower();
-				lwr_desc.toLower();
-				lwr_url.toLower();
+#ifndef __WINE__ ///@todo _tcslwr() for Wine
+				_tcslwr((LPTSTR)lwr_name.c_str());
+				_tcslwr((LPTSTR)lwr_desc.c_str());
+				_tcslwr((LPTSTR)lwr_url.c_str());
+#endif
 
 				if (!_tcsstr(lwr_name,lwr_filter) && !_tcsstr(lwr_desc,lwr_filter) && !_tcsstr(lwr_url,lwr_filter))
 					continue;

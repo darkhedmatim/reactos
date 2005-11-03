@@ -627,8 +627,9 @@ LPITEMIDLIST WINAPI SHBrowseForFolderA (LPBROWSEINFOA lpbi)
     bi.pidlRoot = lpbi->pidlRoot;
     if (lpbi->pszDisplayName)
     {
-        bi.pszDisplayName = HeapAlloc( GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR) );
-        MultiByteToWideChar( CP_ACP, 0, lpbi->pszDisplayName, -1, bi.pszDisplayName, MAX_PATH );
+        len = MultiByteToWideChar( CP_ACP, 0, lpbi->pszDisplayName, -1, NULL, 0 );
+        bi.pszDisplayName = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) );
+        MultiByteToWideChar( CP_ACP, 0, lpbi->pszDisplayName, -1, bi.pszDisplayName, len );
     }
     else
         bi.pszDisplayName = NULL;

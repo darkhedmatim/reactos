@@ -60,9 +60,10 @@ static LONG AbortInstall = 0;
 
 /* Helper functions */
 
-LONG CALLBACK VectoredExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo)
+LONG WINAPI ExceptionHandler(LPEXCEPTION_POINTERS ExceptionInfo)
 {
-  /* we're not running in VMware, just terminate the process */
+  /* This is rude, but i don't know how to continue execution properly, that's why
+     we just exit here when we're not running inside of VMware */
   ExitProcess(ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION);
   return EXCEPTION_CONTINUE_EXECUTION;
 }
@@ -1195,28 +1196,23 @@ WinMain(HINSTANCE hInstance,
 	int nCmdShow)
 {
 
-  PVOID ExceptionHandler;
+  LPTOP_LEVEL_EXCEPTION_FILTER OldHandler;
   int Version;
   WCHAR *lc;
 
   hAppInstance = hInstance;
 
-  /* Setup a vectored exception handler to protect the detection. Don't use SEH
-     here so we notice the next time someone removes support for vectored
-     exception handling from ros... */
-  if (!(ExceptionHandler = AddVectoredExceptionHandler(0,
-                                                       VectoredExceptionHandler)))
-  {
-    return 1;
-  }
+  /* Setup our exception "handler" ;-) */
+  OldHandler = SetUnhandledExceptionFilter(ExceptionHandler);
 
   if(!DetectVMware(&Version))
   {
+    ExitProcess(1);
     return 1;
   }
 
-  /* unregister the handler */
-  RemoveVectoredExceptionHandler(ExceptionHandler);
+  /* restore the exception handler */
+  SetUnhandledExceptionFilter(OldHandler);
 
   lc = DestinationPath;
   lc += GetSystemDirectory(DestinationPath, MAX_PATH) - 1;

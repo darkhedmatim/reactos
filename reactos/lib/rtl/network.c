@@ -40,7 +40,7 @@ typedef struct
 * @implemented
 */
 LPSTR
-NTAPI
+STDCALL
 RtlIpv4AddressToStringA(
 	PULONG IP,
 	LPSTR Buffer
@@ -58,7 +58,7 @@ RtlIpv4AddressToStringA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4AddressToStringExA(
 	PULONG IP,
 	PULONG Port,
@@ -74,7 +74,7 @@ RtlIpv4AddressToStringExA(
 * @implemented
 */
 LPWSTR
-NTAPI
+STDCALL
 RtlIpv4AddressToStringW(
 	PULONG IP,
 	LPWSTR Buffer
@@ -92,7 +92,7 @@ RtlIpv4AddressToStringW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4AddressToStringExW(
 	PULONG IP,
 	PULONG Port,
@@ -108,7 +108,7 @@ RtlIpv4AddressToStringExW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4StringToAddressA(
 	IN LPSTR IpString,
 	IN ULONG Base,
@@ -124,7 +124,7 @@ RtlIpv4StringToAddressA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4StringToAddressExA(
 	IN LPSTR IpString,
 	IN ULONG Base,
@@ -140,12 +140,12 @@ RtlIpv4StringToAddressExA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4StringToAddressW(
 	IN LPWSTR IpString,
 	IN ULONG Base,
-    OUT PULONG PtrToIpAddr,
-    OUT PULONG IpAddr
+	OUT PVOID PtrToIpAddr,
+	OUT ULONG IpAddr
 	)
 {
 	UNIMPLEMENTED;
@@ -156,7 +156,7 @@ RtlIpv4StringToAddressW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv4StringToAddressExW(
 	IN LPWSTR IpString,
 	IN ULONG Base,
@@ -172,7 +172,7 @@ RtlIpv4StringToAddressExW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6AddressToStringA(
 	PULONG IP,
 	LPSTR Buffer
@@ -186,7 +186,7 @@ RtlIpv6AddressToStringA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6AddressToStringExA(
 	PULONG IP,
 	PULONG Port,
@@ -202,7 +202,7 @@ RtlIpv6AddressToStringExA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6AddressToStringW(
 	PULONG IP,
 	LPWSTR Buffer
@@ -216,7 +216,7 @@ RtlIpv6AddressToStringW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6AddressToStringExW(
 	PULONG IP,
 	PULONG Port,
@@ -232,7 +232,7 @@ RtlIpv6AddressToStringExW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6StringToAddressA(
 	IN LPSTR IpString,
 	IN ULONG Base,
@@ -248,7 +248,7 @@ RtlIpv6StringToAddressA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6StringToAddressExA(
 	IN LPSTR IpString,
 	IN ULONG Base,
@@ -264,7 +264,7 @@ RtlIpv6StringToAddressExA(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6StringToAddressW(
 	IN LPWSTR IpString,
 	IN ULONG Base,
@@ -280,7 +280,7 @@ RtlIpv6StringToAddressW(
 * @unimplemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlIpv6StringToAddressExW(
 	IN LPWSTR IpString,
 	IN ULONG Base,

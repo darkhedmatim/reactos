@@ -17,7 +17,7 @@
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlFindMessage(PVOID BaseAddress,
 	       ULONG Type,
 	       ULONG Language,
@@ -134,7 +134,7 @@ RtlFindMessage(PVOID BaseAddress,
  *
  * @unimplemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlFormatMessage(PWSTR Message,
 		 UCHAR MaxWidth,
 		 BOOLEAN IgnoreInserts,

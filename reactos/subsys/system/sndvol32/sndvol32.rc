@@ -18,5 +18,4 @@ IDI_MAINAPP ICON DISCARDABLE resources/sndvol32.ico
 #include "Fr.rc"
 #include "Cz.rc"
 #include "De.rc"
-#include "Ja.rc"
 #include "Sv.rc"

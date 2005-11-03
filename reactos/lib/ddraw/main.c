@@ -13,7 +13,8 @@
 #include "rosdraw.h"
 
 
-HRESULT WINAPI Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface, REFIID id, BOOL ex)
+HRESULT WINAPI Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface,
+										IUnknown* pUnkOuter, BOOL ex)
 {   
     IDirectDrawImpl* This = (IDirectDrawImpl*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IDirectDrawImpl));
 
@@ -22,16 +23,9 @@ HRESULT WINAPI Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface, REFIID id,
 
 	ZeroMemory(This,sizeof(IDirectDrawImpl));
 
-	This->lpVtbl = &DirectDraw7_Vtable;
-	This->lpVtbl_v1 = &DDRAW_IDirectDraw_VTable;
-	This->lpVtbl_v2 = &DDRAW_IDirectDraw2_VTable;
-	This->lpVtbl_v4 = &DDRAW_IDirectDraw4_VTable;
-
+	This->lpVtbl = &DirectDraw_VTable;
 	This->DirectDrawGlobal.dwRefCnt = 1;
 	*pIface = (LPDIRECTDRAW)This;
-
-	if(This->lpVtbl->QueryInterface ((LPDIRECTDRAW7)This, id, (void**)&pIface) != S_OK)
-		return DDERR_INVALIDPARAMS;
 
 	return This->lpVtbl->Initialize ((LPDIRECTDRAW7)This, pGUID);
 }
@@ -45,10 +39,10 @@ HRESULT WINAPI DirectDrawCreate (LPGUID lpGUID, LPDIRECTDRAW* lplpDD, LPUNKNOWN 
 		return DDERR_INVALIDPARAMS; 
 	}
 	
-	return Create_DirectDraw (lpGUID, lplpDD, &IID_IDirectDraw, FALSE);
+	return Create_DirectDraw (lpGUID, lplpDD, pUnkOuter, FALSE);
 }
  
-HRESULT WINAPI DirectDrawCreateEx(LPGUID lpGUID, LPVOID* lplpDD, REFIID id, LPUNKNOWN pUnkOuter)
+HRESULT WINAPI DirectDrawCreateEx(LPGUID lpGUID, LPVOID* lplpDD, REFIID iid, LPUNKNOWN pUnkOuter)
 {    	
 	/* check see if pUnkOuter is null or not */
 	if (pUnkOuter)
@@ -58,12 +52,12 @@ HRESULT WINAPI DirectDrawCreateEx(LPGUID lpGUID, LPVOID* lplpDD, REFIID id, LPUN
 	}
 	
 	/* Is it a DirectDraw 7 Request or not */
-	if (!IsEqualGUID(id, &IID_IDirectDraw7)) 
+	if (!IsEqualGUID(iid, &IID_IDirectDraw7)) 
 	{
 	  return DDERR_INVALIDPARAMS;
 	}
 
-    return Create_DirectDraw (lpGUID, (LPDIRECTDRAW*)lplpDD, id, TRUE);
+    return Create_DirectDraw (lpGUID, (LPDIRECTDRAW*)lplpDD, pUnkOuter, TRUE);
 }
 
 HRESULT WINAPI DirectDrawEnumerateA(
@@ -71,7 +65,7 @@ HRESULT WINAPI DirectDrawEnumerateA(
   LPVOID lpContext
 )
 {
-    DX_STUB;
+    return DD_OK;
 }
 
 
@@ -80,7 +74,7 @@ HRESULT WINAPI DirectDrawEnumerateW(
   LPVOID lpContext
 )
 {
-    DX_STUB;
+    return DD_OK;
 }
 
 HRESULT WINAPI DirectDrawEnumerateExA(
@@ -89,7 +83,7 @@ HRESULT WINAPI DirectDrawEnumerateExA(
   DWORD dwFlags
 )
 {
-    DX_STUB;
+    return DD_OK;
 }
 
 HRESULT WINAPI DirectDrawEnumerateExW(
@@ -98,6 +92,15 @@ HRESULT WINAPI DirectDrawEnumerateExW(
   DWORD dwFlags
 )
 {
-     DX_STUB;
+    return DD_OK;
 }
  
+HRESULT WINAPI DirectDrawCreateClipper(
+  DWORD dwFlags, 
+  LPDIRECTDRAWCLIPPER* lplpDDClipper, 
+  LPUNKNOWN pUnkOuter
+)
+{
+    return DD_OK;
+}
+

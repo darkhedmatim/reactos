@@ -8,10 +8,12 @@
  *              12/15/03 -- Created
  */
 
-#include "precomp.h"
-
-#define NDEBUG
-#include <debug.h>
+#include <windows.h>
+#include <winerror.h>
+#include <windns.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
+#include <internal/windns.h>
 
 /* DnsAcquireContextHandle *************
  * Create a context handle that will allow us to open and retrieve queries.

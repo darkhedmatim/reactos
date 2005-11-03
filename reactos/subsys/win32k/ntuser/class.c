@@ -48,6 +48,7 @@ CleanupClassImpl(VOID)
 }
 
 
+/* return TRUE if class became destroyed */
 inline VOID FASTCALL 
 ClassDerefObject(PWNDCLASS_OBJECT Class)
 {
@@ -66,10 +67,22 @@ ClassRefObject(PWNDCLASS_OBJECT Class)
 
 VOID FASTCALL DestroyClass(PWNDCLASS_OBJECT Class)
 {
-   ASSERT(Class->refs == 0);
+   PWINSTATION_OBJECT WinSta;
    
+   ASSERT(Class->refs == 0);
    RemoveEntryList(&Class->ListEntry);
-   RtlDeleteAtomFromAtomTable(gAtomTable, Class->Atom);
+
+   /* FIXME See bug 899 */
+   if (NULL != PsGetWin32Thread())
+   {
+      WinSta = PsGetWin32Thread()->Desktop->WindowStation;
+      //FIXME: release ATOM
+      RtlDeleteAtomFromAtomTable(WinSta->AtomTable, Class->Atom);
+   }
+   else
+   {
+      DPRINT1("Can't locate window station, see bug 899\n");
+   }
    ExFreePool(Class);
 }
 
@@ -109,14 +122,17 @@ ClassGetClassByAtom(RTL_ATOM Atom, HINSTANCE hInstance)
 PWNDCLASS_OBJECT FASTCALL
 ClassGetClassByName(LPCWSTR ClassName, HINSTANCE hInstance)
 {
+   PWINSTATION_OBJECT WinSta;
    NTSTATUS Status;
    RTL_ATOM Atom;
 
    if (!ClassName || !PsGetWin32Thread()->Desktop)
       return FALSE;
 
+   WinSta = PsGetWin32Thread()->Desktop->WindowStation;
+
    Status = RtlLookupAtomInAtomTable(
-               gAtomTable,
+               WinSta->AtomTable,
                (LPWSTR)ClassName,
                &Atom);
 
@@ -429,6 +445,7 @@ NtUserRegisterClassExWOW(
  */
 {
    WNDCLASSEXW SafeClass;
+   PWINSTATION_OBJECT WinSta;
    NTSTATUS Status;
    RTL_ATOM Atom;
    DECLARE_RETURN(RTL_ATOM);
@@ -468,12 +485,14 @@ NtUserRegisterClassExWOW(
       RETURN( (RTL_ATOM)0);
    }
 
+   WinSta = PsGetWin32Thread()->Desktop->WindowStation;
+
    //FIXME: make ClassName ptr the atom, not buffer
    if (ClassName->Length > 0)
    {
       DPRINT("NtUserRegisterClassExWOW(%S)\n", ClassName->Buffer);
       /* FIXME - Safely copy/verify the buffer first!!! */
-      Status = RtlAddAtomToAtomTable(gAtomTable,
+      Status = RtlAddAtomToAtomTable(WinSta->AtomTable,
                                      ClassName->Buffer,
                                      &Atom);
       if (!NT_SUCCESS(Status))
@@ -499,7 +518,7 @@ NtUserRegisterClassExWOW(
    {
       if (ClassName->Length)
       {
-         RtlDeleteAtomFromAtomTable(gAtomTable, Atom);
+         RtlDeleteAtomFromAtomTable(WinSta->AtomTable, Atom);
       }
       DPRINT("Failed creating window class object\n");
       RETURN((RTL_ATOM)0);
@@ -699,6 +718,7 @@ NtUserGetClassName (
 {
    PWINDOW_OBJECT Window;
    DECLARE_RETURN(DWORD);
+   PWINSTATION_OBJECT WinSta;
    NTSTATUS Status;
 
    UserEnterShared();
@@ -709,10 +729,12 @@ NtUserGetClassName (
       RETURN(0);
    }
 
+   WinSta = PsGetWin32Thread()->Desktop->WindowStation;
+   
    nMaxCount *= sizeof(WCHAR);
    
    //FIXME: wrap in SEH to protect lpClassName access
-   Status = RtlQueryAtomInAtomTable(gAtomTable,
+   Status = RtlQueryAtomInAtomTable(WinSta->AtomTable,
                                     Window->Class->Atom, NULL, NULL,
                                     lpClassName, &nMaxCount);
    if (!NT_SUCCESS(Status))

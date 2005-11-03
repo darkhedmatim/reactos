@@ -98,7 +98,6 @@ STDCALL
 RtlDeleteHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    KEBUGCHECK(0);
     return STATUS_SUCCESS;
 }
 
@@ -107,7 +106,7 @@ STDCALL
 RtlEnterHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    KEBUGCHECK(0);
+    ExAcquireFastMutex((PFAST_MUTEX) CriticalSection);
     return STATUS_SUCCESS;
 }
 
@@ -116,7 +115,7 @@ STDCALL
 RtlInitializeHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-   KEBUGCHECK(0);
+   ExInitializeFastMutex((PFAST_MUTEX)CriticalSection );
    return STATUS_SUCCESS;
 }
 
@@ -125,7 +124,7 @@ STDCALL
 RtlLeaveHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    KEBUGCHECK(0);
+    ExReleaseFastMutex((PFAST_MUTEX) CriticalSection );
     return STATUS_SUCCESS;
 }
 

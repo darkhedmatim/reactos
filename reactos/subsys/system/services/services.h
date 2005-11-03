@@ -3,53 +3,40 @@
  */
 
 #include <stdio.h>
-#define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
-#include <services/services.h>
 
 typedef struct _SERVICE
 {
-    LIST_ENTRY ServiceListEntry;
-    LPWSTR lpServiceName;
-    LPWSTR lpDisplayName;
-    UNICODE_STRING ServiceGroup;
-    BOOL bDeleted;
+  LIST_ENTRY ServiceListEntry;
+  UNICODE_STRING ServiceName;
+  UNICODE_STRING RegistryPath;
+  UNICODE_STRING ServiceGroup;
 
-    SERVICE_STATUS Status;
-    DWORD dwStartType;
-    DWORD dwErrorControl;
-    DWORD dwTag;
+  ULONG Start;
+  ULONG Type;
+  ULONG ErrorControl;
+  ULONG Tag;
 
-    ULONG Flags;
+  ULONG CurrentState;
+  ULONG ControlsAccepted;
+  ULONG Win32ExitCode;
+  ULONG ServiceSpecificExitCode;
+  ULONG CheckPoint;
+  ULONG WaitHint;
 
-    BOOLEAN ServiceVisited;
+  BOOLEAN ServiceVisited;
 
-    HANDLE ControlPipeHandle;
-    ULONG ProcessId;
-    ULONG ThreadId;
-
-    WCHAR szServiceName[1];
+  HANDLE ControlPipeHandle;
+  ULONG ProcessId;
+  ULONG ThreadId;
 } SERVICE, *PSERVICE;
 
 
-/* VARIABLES ***************************************************************/
+/* services.c */
 
-extern BOOL ScmShutdown;
-
-
-/* FUNCTIONS ***************************************************************/
-
-/* config.c */
-
-DWORD ScmOpenServiceKey(LPWSTR lpServiceName,
-                        REGSAM samDesired,
-                        PHKEY phKey);
-
-DWORD ScmWriteDependencies(HKEY hServiceKey,
-                           LPWSTR lpDependencies,
-                           DWORD dwDependenciesLength);
+VOID PrintString(LPCSTR fmt, ...);
 
 
 /* database.c */
@@ -58,22 +45,13 @@ NTSTATUS ScmCreateServiceDataBase(VOID);
 VOID ScmGetBootAndSystemDriverState(VOID);
 VOID ScmAutoStartServices(VOID);
 
-PSERVICE ScmGetServiceEntryByName(LPWSTR lpServiceName);
-PSERVICE ScmGetServiceEntryByDisplayName(LPWSTR lpDisplayName);
-DWORD ScmCreateNewServiceRecord(LPWSTR lpServiceName,
-                                PSERVICE *lpServiceRecord);
+PSERVICE ScmGetServiceEntryByName(PUNICODE_STRING ServiceName);
 DWORD ScmMarkServiceForDelete(PSERVICE pService);
 
 
 /* rpcserver.c */
 
 VOID ScmStartRpcServer(VOID);
-
-
-/* services.c */
-
-VOID PrintString(LPCSTR fmt, ...);
-
 
 
 /* EOF */

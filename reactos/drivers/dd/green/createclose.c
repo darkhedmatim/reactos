@@ -1,18 +1,17 @@
-/*
+/* $Id:
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS VT100 emulator
  * FILE:            drivers/dd/green/createclose.c
  * PURPOSE:         IRP_MJ_CREATE, IRP_MJ_CLOSE and IRP_MJ_CLEANUP operations
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 //#define NDEBUG
-#include <debug.h>
-
 #include "green.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 GreenCreate(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -25,7 +24,7 @@ GreenCreate(
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 GreenClose(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

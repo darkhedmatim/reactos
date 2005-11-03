@@ -12,9 +12,6 @@
 /* DEPENDENCIES **************************************************************/
 #define _WMIKM_
 #include <evntrace.h>
-#include "lpctypes.h"
-#include "dbgktypes.h"
-#include "kdtypes.h"
 
 /* FUNCTION TYPES ************************************************************/
 

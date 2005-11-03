@@ -20,7 +20,7 @@ AddReg = PortsClass.NT.AddReg
 [PortsClass.NT.AddReg]
 HKR, , ,               0, %PortsClassName%
 HKR, , Icon,           0, "-23"
-;HKR, , Installer32,    0, "msports.dll,PortsClassInstaller"
+HKR, , Installer32,    0, "msports.dll,PortsClassInstaller"
 
 [Manufacturer]
 %StdMfg% = StdMfg
@@ -28,15 +28,6 @@ HKR, , Icon,           0, "-23"
 [StdMfg]
 %*PNP0500.DeviceDesc% = ComPort_Inst,*PNP0500,*PNP0501
 %*PNP0501.DeviceDesc% = ComPort_Inst,*PNP0501
-%*PNP0400.DeviceDesc% = LptPort_Inst, *PNP0400,*PNP0401
-%*PNP0401.DeviceDesc% = LptPort_Inst, *PNP0401
-
-;---------------------------- LPT PORT DRIVER ---------------------------
-
-[LptPort_Inst.NT]
-
-[LptPort_Inst.NT.Services]
-AddService = , 0x00000002
 
 ;---------------------------- COM PORT DRIVER ---------------------------
 
@@ -80,5 +71,3 @@ PortsClassName = "Serial and parallel ports"
 StdMfg = "(Standard ports)"
 *PNP0500.DeviceDesc = "Serial communication port"
 *PNP0501.DeviceDesc = "Serial communication port"
-*PNP0400.DeviceDesc = "Standard LPT printer port"
-*PNP0401.DeviceDesc = "ECP printer port"

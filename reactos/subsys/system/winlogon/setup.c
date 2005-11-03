@@ -26,7 +26,14 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "winlogon.h"
+#include <windows.h>
+#include <stdio.h>
+#include <wchar.h>
+
+#include "setup.h"
+
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
 
 #define NDEBUG
 #include <debug.h>

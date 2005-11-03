@@ -524,9 +524,6 @@ PspExitProcess(PEPROCESS Process)
     ObKillProcess(Process);
 
     KeSetProcess(&Process->Pcb, IO_NO_INCREMENT);
-    
-    /* release the keep-alive reference of the process object */
-    ObDereferenceObject(Process);
 
     return(STATUS_SUCCESS);
 }

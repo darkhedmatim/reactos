@@ -338,7 +338,6 @@ LRESULT WINAPI MainProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 void InitLuts(void);
 void InitMenus(HINSTANCE hInst);
-void DestroyMenus();
 
 void InitCalc (CALC *calc);
 void DestroyCalc (CALC *calc);

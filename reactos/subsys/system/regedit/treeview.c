@@ -101,9 +101,7 @@ LPCTSTR GetItemPath(HWND hwndTV, HTREEITEM hItem, HKEY* phRootKey)
     if (maxLen == -1) return NULL;
     if (!hItem) hItem = TreeView_GetSelection(hwndTV);
     if (!hItem) return NULL;
-    if (!get_item_path(hwndTV, hItem, phRootKey, &pathBuffer, &pathLen, &maxLen)) {
-		return NULL;
-	}
+    if (!get_item_path(hwndTV, hItem, phRootKey, &pathBuffer, &pathLen, &maxLen)) return NULL;
     return pathBuffer;
 }
 
@@ -126,7 +124,7 @@ static HTREEITEM AddEntryToTree(HWND hwndTV, HTREEITEM hParent, LPTSTR label, HK
     tvi.iSelectedImage = Image_Open;
     tvi.cChildren = dwChildren;
     tvi.lParam = (LPARAM)hKey;
-    tvins.DUMMYUNIONNAME.item = tvi;
+    tvins.u.item = tvi;
     tvins.hInsertAfter = (HTREEITEM)(hKey ? TVI_LAST : TVI_FIRST);
     tvins.hParent = hParent;
     return TreeView_InsertItem(hwndTV, &tvins);
@@ -179,9 +177,9 @@ static BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
         goto done;
     }
     tvItem.cchTextMax = dwMaxSubKeyLen;
-    /*if (!(tvItem.pszText = HeapAlloc(GetProcessHeap(), 0, dwMaxSubKeyLen * sizeof(TCHAR)))) {
+    if (!(tvItem.pszText = HeapAlloc(GetProcessHeap(), 0, dwMaxSubKeyLen * sizeof(TCHAR)))) {
         goto done;
-    }*/
+    }
 
     /* Get all of the tree node siblings in one contiguous block of memory */
     {
@@ -364,7 +362,7 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
     tvi.cChildren = 5;
     /* Save the heading level in the item's application-defined data area.  */
     tvi.lParam = (LPARAM)NULL;
-    tvins.DUMMYUNIONNAME.item = tvi;
+    tvins.u.item = tvi;
     tvins.hInsertAfter = (HTREEITEM)TVI_FIRST;
     tvins.hParent = TVI_ROOT;
     /* Add the item to the tree view control.  */
@@ -561,11 +559,6 @@ HWND CreateTreeView(HWND hwndParent, LPTSTR pHostName, int id)
         return NULL;
     }
     return hwndTV;
-}
-
-void DestroyTreeView() {
-	if (pathBuffer)
-		HeapFree(GetProcessHeap(), 0, pathBuffer);
 }
 
 BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath)

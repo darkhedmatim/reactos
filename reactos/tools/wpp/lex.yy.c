@@ -28,8 +28,7 @@
 #define YY_FLEX_MINOR_VERSION 5
 
 #include <stdio.h>
-#include <unistd.h>
-
+#include <errno.h>
 
 /* cfront 1.2 defines "c_plusplus" instead of "__cplusplus" */
 #ifdef c_plusplus
@@ -42,6 +41,9 @@
 #ifdef __cplusplus
 
 #include <stdlib.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 /* Use prototypes in function declarations. */
 #define YY_USE_PROTOS
@@ -80,6 +82,7 @@
 #else
 #define YY_PROTO(proto) ()
 #endif
+
 
 /* Returned upon end-of-file. */
 #define YY_NULL 0
@@ -14028,7 +14031,7 @@ includelogicentry_t *pp_includelogiclist = NULL;
  * The scanner starts here
  **************************************************************************
  */
-#line 14032 "lex.yy.c"
+#line 14035 "lex.yy.c"
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -14128,9 +14131,20 @@ YY_MALLOC_DECL
 			YY_FATAL_ERROR( "input in flex scanner failed" ); \
 		result = n; \
 		} \
-	else if ( ((result = fread( buf, 1, max_size, yyin )) == 0) \
-		  && ferror( yyin ) ) \
-		YY_FATAL_ERROR( "input in flex scanner failed" );
+	else \
+		{ \
+		errno=0; \
+		while ( (result = fread(buf, 1, max_size, yyin))==0 && ferror(yyin)) \
+			{ \
+			if( errno != EINTR) \
+				{ \
+				YY_FATAL_ERROR( "input in flex scanner failed" ); \
+				break; \
+				} \
+			errno=0; \
+			clearerr(yyin); \
+			} \
+		}
 #endif
 
 /* No semi-colon after return; correct usage is to write "yyterminate();" -
@@ -14179,7 +14193,7 @@ YY_MALLOC_DECL
 YY_DECL
 	{
 	register yy_state_type yy_current_state;
-	register char *yy_cp = NULL, *yy_bp = NULL;
+	register char *yy_cp, *yy_bp;
 	register int yy_act;
 
 #line 299 "ppl.l"
@@ -14196,7 +14210,7 @@ YY_DECL
 	/*
 	 * Detect the leading # of a preprocessor directive.
 	 */
-#line 14200 "lex.yy.c"
+#line 14214 "lex.yy.c"
 
 	if ( yy_init )
 		{
@@ -15272,7 +15286,7 @@ YY_RULE_SETUP
 #line 724 "ppl.l"
 ECHO;
 	YY_BREAK
-#line 15276 "lex.yy.c"
+#line 15290 "lex.yy.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -15648,7 +15662,6 @@ register char *yy_bp;
 #endif	/* ifndef YY_NO_UNPUT */
 
 
-#ifndef YY_NO_INPUT
 #ifdef __cplusplus
 static int yyinput()
 #else
@@ -15721,7 +15734,7 @@ static int input()
 
 	return c;
 	}
-#endif /* YY_NO_INPUT */
+
 
 #ifdef YY_USE_PROTOS
 void yyrestart( FILE *input_file )
@@ -15832,6 +15845,15 @@ YY_BUFFER_STATE b;
 	}
 
 
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#ifndef YY_ALWAYS_INTERACTIVE
+#ifndef YY_NEVER_INTERACTIVE
+extern int isatty YY_PROTO(( int ));
+#endif
+#endif
+#endif
 
 #ifdef YY_USE_PROTOS
 void yy_init_buffer( YY_BUFFER_STATE b, FILE *file )
@@ -16877,7 +16899,7 @@ void pp_do_include(char *fname, int type)
 	/* Undo the effect of the quotation */
 	fname[n-1] = '\0';
 
-	if((ppin = pp_open_include(fname+1, type ? pp_status.input : NULL, &newpath, type)) == NULL)
+	if((ppin = pp_open_include(fname+1, type, &newpath)) == NULL)
 		pperror("Unable to open include file %s", fname+1);
 
 	fname[n-1] = *fname;	/* Redo the quotes */

@@ -15,13 +15,13 @@
 
 <!-- rbuild project DTD -->
 
-<!ELEMENT bootstrap EMPTY>
+<!ELEMENT bootstrap ANY>
 <!ATTLIST bootstrap
 	base      %Text; #IMPLIED
 	nameoncd  %Text; #IMPLIED
 >
 
-<!ELEMENT cdfile (#PCDATA)>
+<!ELEMENT cdfile ANY>
 <!ATTLIST cdfile
 	base      %Text; #IMPLIED
 	nameoncd  %Text; #IMPLIED
@@ -45,7 +45,7 @@
 	first (true|false) "false"
 >
 
-<!ELEMENT group (cdfile*|directory*|file*|property*)+>
+<!ELEMENT group (cdfile+|directory+|file+|property+)+>
 
 <!ELEMENT if (compilerflag*|define*|directory*|file*|if*|group*|property*)+>
 <!ATTLIST if
@@ -63,16 +63,11 @@
 	definition %Text; #REQUIRED
 >
 
-<!ELEMENT library (#PCDATA)>
+<!ELEMENT library ANY>
 
-<!ELEMENT linkerflag (#PCDATA)>
+<!ELEMENT linkerflag ANY>
 
-<!ELEMENT linkerscript (#PCDATA)>
-<!ATTLIST linkerscript
-	base %Text; #IMPLIED
->
-
-<!ELEMENT module (bootstrap*|importlibrary*|define*|include*|library*|directory*|file*|linkerflag*|linkerscript?)*>
+<!ELEMENT module (bootstrap*|importlibrary*|define*|include*|library*|directory*|file*|linkerflag*)*>
 <!ATTLIST module
 	if	%Text; #IMPLIED
 	ifnot	%Text; #IMPLIED

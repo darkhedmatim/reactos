@@ -27,7 +27,15 @@
 
 /* INCLUDES *****************************************************************/
 
+#define UNICODE
+
+#include <stdio.h>
+#include <windows.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
 #include "rpcss.h"
+
+//#include "services.h"
 
 #define NDEBUG
 #include <debug.h>

@@ -26,7 +26,6 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "comctl32.h"
-#include "uxtheme.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(theming);
@@ -92,7 +91,7 @@ MAKE_SUBCLASS_PROC(2)
 MAKE_SUBCLASS_PROC(3)
 MAKE_SUBCLASS_PROC(4)
 
-static const WNDPROC subclassProcs[NUM_SUBCLASSES] = {
+const static WNDPROC subclassProcs[NUM_SUBCLASSES] = {
     subclass_proc0,
     subclass_proc1,
     subclass_proc2,
@@ -113,8 +112,6 @@ void THEMING_Initialize (void)
         { 'C','C','3','2','T','h','e','m','i','n','g','S','u','b','C','l',0 };
     static const WCHAR refDataPropName[] = 
         { 'C','C','3','2','T','h','e','m','i','n','g','D','a','t','a',0 };
-
-    if (!IsThemeActive()) return;
 
     atSubclassProp = GlobalAddAtomW (subclassPropName);
     atRefDataProp = GlobalAddAtomW (refDataPropName);
@@ -157,9 +154,6 @@ void THEMING_Initialize (void)
 void THEMING_Uninitialize (void)
 {
     int i;
-
-    if (!atSubclassProp) return;  /* not initialized */
-
     for (i = 0; i < NUM_SUBCLASSES; i++)
     {
         UnregisterClassW (subclasses[i].className, NULL);

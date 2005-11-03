@@ -1282,7 +1282,6 @@ ProcessInput (BOOL bFlag)
 	LPCTSTR tmp;
 	BOOL bEchoThisLine;
 	BOOL bModeSetA;
-        BOOL bIsBatch;
 
 	do
 	{
@@ -1295,12 +1294,7 @@ ProcessInput (BOOL bFlag)
 			ReadCommand (readline, CMDLINE_LENGTH);
 			ip = readline;
 			bEchoThisLine = FALSE;
-                        bIsBatch = FALSE;
 		}
-                else
-                {
-                        bIsBatch = TRUE;
-                }
 
 		/* skip leading blanks */
 		while ( _istspace(*ip) )
@@ -1409,7 +1403,7 @@ ProcessInput (BOOL bFlag)
 		if (*commandline)
 		{
 			ParseCommandLine (commandline);
-			if (bEcho && !bIgnoreEcho && (!bIsBatch || bEchoThisLine))
+			if (bEcho && !bIgnoreEcho)
 				ConOutChar ('\n');
 			bIgnoreEcho = FALSE;
 		}
@@ -1654,6 +1648,24 @@ Initialize (int argc, TCHAR* argv[])
 	{
 		ParseCommandLine (_T("\\cmdstart.bat"));
 	}
+#ifndef __REACTOS__
+	else
+	{
+		/* try to run cmdstart.bat from install dir */
+		LPTSTR p;
+
+		_tcscpy (commandline, argv[0]);
+		p = _tcsrchr (commandline, _T('\\')) + 1;
+		_tcscpy (p, _T("cmdstart.bat"));
+
+		if (IsExistingFile (_T("commandline")))
+		{
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR4, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, commandline);
+			ParseCommandLine (commandline);
+		}
+	}
+#endif
 
 #ifdef FEATURE_DIR_STACK
 	/* initialize directory stack */
@@ -1680,6 +1692,10 @@ Initialize (int argc, TCHAR* argv[])
 
 static VOID Cleanup (int argc, TCHAR *argv[])
 {
+#ifndef __REACTOS__
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+#endif
+
 	/* run cmdexit.bat */
 	if (IsExistingFile (_T("cmdexit.bat")))
 	{
@@ -1692,6 +1708,25 @@ static VOID Cleanup (int argc, TCHAR *argv[])
 		ConErrResPuts (STRING_CMD_ERROR5);
 		ParseCommandLine (_T("\\cmdexit.bat"));
 	}
+#ifndef __REACTOS__
+	else
+	{
+		/* try to run cmdexit.bat from install dir */
+		TCHAR commandline[CMDLINE_LENGTH];
+		LPTSTR p;
+
+		_tcscpy (commandline, argv[0]);
+		p = _tcsrchr (commandline, _T('\\')) + 1;
+		_tcscpy (p, _T("cmdexit.bat"));
+
+		if (IsExistingFile (_T("commandline")))
+		{
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR4, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, commandline);
+			ParseCommandLine (commandline);
+		}
+	}
+#endif
 
 #ifdef FEATURE_ALIASES
 	DestroyAlias ();
@@ -1722,6 +1757,53 @@ static VOID Cleanup (int argc, TCHAR *argv[])
 	}
 }
 
+#ifdef __REACTOS__
+#ifdef _UNICODE
+PWCHAR * _CommandLineToArgvW(PWCHAR lpCmdLine, int *pNumArgs)
+{
+	PWCHAR * argvw = NULL;
+	PWCHAR ptr = lpCmdLine;
+	PWCHAR str;
+	int len;
+	int NumArgs;
+
+	NumArgs = 0;
+
+	while(lpCmdLine && *lpCmdLine)
+	{
+		while (iswspace(*lpCmdLine)) lpCmdLine++;
+		if (*lpCmdLine)
+		{
+			if ((NumArgs % 10)==0)
+			{
+				PWCHAR * old_argvw = argvw;
+				argvw = malloc((NumArgs + 10) * sizeof(PWCHAR));
+				memcpy(argvw, old_argvw, NumArgs * sizeof(PWCHAR));
+				free(old_argvw);
+			}
+			ptr = wcschr(lpCmdLine, L' ');
+			if (ptr)
+			{
+				len = ptr - lpCmdLine;
+			}
+			else
+			{
+				len = wcslen(lpCmdLine);
+			}
+			str = malloc((len + 1) * sizeof(WCHAR));
+			memcpy(str, lpCmdLine, len * sizeof(WCHAR));
+			str[len] = 0;
+			argvw[NumArgs]=str;
+			NumArgs++;
+			lpCmdLine = ptr;
+		}
+	}
+	*pNumArgs = NumArgs;
+	return argvw;
+}
+#endif
+#endif
+
 /*
  * main function
  */
@@ -1737,7 +1819,11 @@ int _main (int argc, char *argv[])
 #ifdef _UNICODE
 	PWCHAR * argv;
 	int argc=0;
+#ifdef __REACTOS__
+	argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
+#else
 	argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+#endif
 #endif
 
 	GetCurrentDirectory(MAX_PATH,startPath);

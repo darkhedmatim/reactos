@@ -17,7 +17,7 @@
 
 
 static VOID
-RtlpQuerySecurityDescriptorPointers(IN PISECURITY_DESCRIPTOR SecurityDescriptor,
+RtlpQuerySecurityDescriptorPointers(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                     OUT PSID *Owner  OPTIONAL,
                                     OUT PSID *Group  OPTIONAL,
                                     OUT PACL *Sacl  OPTIONAL,
@@ -107,8 +107,8 @@ RtlpQuerySecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlCreateSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlCreateSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                             ULONG Revision)
 {
    PAGED_CODE_RTL();
@@ -130,7 +130,7 @@ RtlCreateSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 RtlCreateSecurityDescriptorRelative (PISECURITY_DESCRIPTOR_RELATIVE SecurityDescriptor,
 			             ULONG Revision)
 {
@@ -156,7 +156,7 @@ RtlCreateSecurityDescriptorRelative (PISECURITY_DESCRIPTOR_RELATIVE SecurityDesc
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlLengthSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor)
 {
    PSID Owner, Group;
@@ -198,8 +198,8 @@ RtlLengthSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor)
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlGetDaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlGetDaclSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                              PBOOLEAN DaclPresent,
                              PACL* Dacl,
                              PBOOLEAN DaclDefaulted)
@@ -233,8 +233,8 @@ RtlGetDaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetDaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetDaclSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                              BOOLEAN DaclPresent,
                              PACL Dacl,
                              BOOLEAN DaclDefaulted)
@@ -273,8 +273,8 @@ RtlSetDaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
-RtlValidSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor)
+BOOLEAN STDCALL
+RtlValidSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor)
 {
    PSID Owner, Group;
    PACL Sacl, Dacl;
@@ -307,8 +307,8 @@ RtlValidSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor)
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetOwnerSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetOwnerSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                               PSID Owner,
                               BOOLEAN OwnerDefaulted)
 {
@@ -339,8 +339,8 @@ RtlSetOwnerSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlGetOwnerSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlGetOwnerSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                               PSID* Owner,
                               PBOOLEAN OwnerDefaulted)
 {
@@ -366,8 +366,8 @@ RtlGetOwnerSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetGroupSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetGroupSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                               PSID Group,
                               BOOLEAN GroupDefaulted)
 {
@@ -397,8 +397,8 @@ RtlSetGroupSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlGetGroupSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlGetGroupSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                               PSID* Group,
                               PBOOLEAN GroupDefaulted)
 {
@@ -424,8 +424,8 @@ RtlGetGroupSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlMakeSelfRelativeSD(PISECURITY_DESCRIPTOR AbsSD,
+NTSTATUS STDCALL
+RtlMakeSelfRelativeSD(PSECURITY_DESCRIPTOR AbsSD,
 		      PISECURITY_DESCRIPTOR_RELATIVE RelSD,
 		      PULONG BufferLength)
 {
@@ -455,7 +455,6 @@ RtlMakeSelfRelativeSD(PISECURITY_DESCRIPTOR AbsSD,
    TotalLength = sizeof(SECURITY_DESCRIPTOR_RELATIVE) + OwnerLength + GroupLength + SaclLength + DaclLength;
    if (*BufferLength < TotalLength)
    {
-      *BufferLength = TotalLength;
       return STATUS_BUFFER_TOO_SMALL;
    }
 
@@ -510,9 +509,9 @@ RtlMakeSelfRelativeSD(PISECURITY_DESCRIPTOR AbsSD,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlAbsoluteToSelfRelativeSD(PISECURITY_DESCRIPTOR AbsSD,
-                            PISECURITY_DESCRIPTOR RelSD,
+NTSTATUS STDCALL
+RtlAbsoluteToSelfRelativeSD(PSECURITY_DESCRIPTOR AbsSD,
+                            PSECURITY_DESCRIPTOR RelSD,
                             PULONG BufferLength)
 {
    PAGED_CODE_RTL();
@@ -529,8 +528,8 @@ RtlAbsoluteToSelfRelativeSD(PISECURITY_DESCRIPTOR AbsSD,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlGetControlSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlGetControlSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                                 PSECURITY_DESCRIPTOR_CONTROL Control,
                                 PULONG Revision)
 {
@@ -552,8 +551,8 @@ RtlGetControlSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetControlSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetControlSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                 IN SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
                                 IN SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet)
 {
@@ -577,8 +576,8 @@ RtlSetControlSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlGetSaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlGetSaclSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                              PBOOLEAN SaclPresent,
                              PACL *Sacl,
                              PBOOLEAN SaclDefaulted)
@@ -612,8 +611,8 @@ RtlGetSaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetSaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetSaclSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
                              BOOLEAN SaclPresent,
                              PACL Sacl,
                              BOOLEAN SaclDefaulted)
@@ -652,9 +651,9 @@ RtlSetSaclSecurityDescriptor(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSelfRelativeToAbsoluteSD(PISECURITY_DESCRIPTOR RelSD,
-                            PISECURITY_DESCRIPTOR AbsSD,
+NTSTATUS STDCALL
+RtlSelfRelativeToAbsoluteSD(PSECURITY_DESCRIPTOR RelSD,
+                            PSECURITY_DESCRIPTOR AbsSD,
                             PDWORD AbsSDSize,
                             PACL Dacl,
                             PDWORD DaclSize,
@@ -727,183 +726,22 @@ RtlSelfRelativeToAbsoluteSD(PISECURITY_DESCRIPTOR RelSD,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-NTSTATUS NTAPI
-RtlSelfRelativeToAbsoluteSD2(PISECURITY_DESCRIPTOR SelfRelativeSecurityDescriptor,
+NTSTATUS STDCALL
+RtlSelfRelativeToAbsoluteSD2(PISECURITY_DESCRIPTOR_RELATIVE SelfRelativeSecurityDescriptor,
                              PULONG BufferSize)
 {
-    PISECURITY_DESCRIPTOR AbsSD = SelfRelativeSecurityDescriptor;
-    PISECURITY_DESCRIPTOR_RELATIVE RelSD = (PISECURITY_DESCRIPTOR_RELATIVE)SelfRelativeSecurityDescriptor;
-#ifdef _WIN64
-    PVOID DataStart, DataEnd;
-    ULONG DataSize;
-    LONG MoveDelta;
-    ULONG OwnerLength;
-    ULONG GroupLength;
-    ULONG DaclLength;
-    ULONG SaclLength;
-#endif
-    PSID pOwner;
-    PSID pGroup;
-    PACL pDacl;
-    PACL pSacl;
-
-    PAGED_CODE_RTL();
-
-    if (SelfRelativeSecurityDescriptor == NULL)
-    {
-        return STATUS_INVALID_PARAMETER_1;
-    }
-    if (BufferSize == NULL)
-    {
-        return STATUS_INVALID_PARAMETER_2;
-    }
-
-    if (RelSD->Revision != SECURITY_DESCRIPTOR_REVISION1)
-    {
-        return STATUS_UNKNOWN_REVISION;
-    }
-    if (!(RelSD->Control & SE_SELF_RELATIVE))
-    {
-        return STATUS_BAD_DESCRIPTOR_FORMAT;
-    }
-
-    ASSERT(FIELD_OFFSET(SECURITY_DESCRIPTOR, Owner) ==
-           FIELD_OFFSET(SECURITY_DESCRIPTOR_RELATIVE, Owner));
-
-#ifdef _WIN64
-
-    RtlpQuerySecurityDescriptor(SelfRelativeSecurityDescriptor,
-                                &pOwner,
-                                &OwnerLength,
-                                &pGroup,
-                                &GroupLength,
-                                &pDacl,
-                                &DaclLength,
-                                &pSacl,
-                                &SaclLength);
-
-    ASSERT(sizeof(SECURITY_DESCRIPTOR) > sizeof(SECURITY_DESCRIPTOR_RELATIVE));
-
-    /* calculate the start and end of the data area, we simply just move the
-       data by the difference between the size of the relative and absolute
-       security descriptor structure */
-    DataStart = pOwner;
-    DataEnd = (PVOID)((ULONG_PTR)pOwner + OwnerLength);
-    if (pGroup != NULL)
-    {
-        if (((ULONG_PTR)pGroup < (ULONG_PTR)DataStart) || DataStart == NULL)
-            DataStart = pGroup;
-        if (((ULONG_PTR)pGroup + GroupLength > (ULONG_PTR)DataEnd) || DataEnd == NULL)
-            DataEnd = (PVOID)((ULONG_PTR)pGroup + GroupLength);
-    }
-    if (pDacl != NULL)
-    {
-        if (((ULONG_PTR)pDacl < (ULONG_PTR)DataStart) || DataStart == NULL)
-            DataStart = pDacl;
-        if (((ULONG_PTR)pDacl + DaclLength > (ULONG_PTR)DataEnd) || DataEnd == NULL)
-            DataEnd = (PVOID)((ULONG_PTR)pDacl + DaclLength);
-    }
-    if (pSacl != NULL)
-    {
-        if (((ULONG_PTR)pSacl < (ULONG_PTR)DataStart) || DataStart == NULL)
-            DataStart = pSacl;
-        if (((ULONG_PTR)pSacl + DaclLength > (ULONG_PTR)DataEnd) || DataEnd == NULL)
-            DataEnd = (PVOID)((ULONG_PTR)pSacl + SaclLength);
-    }
-
-    ASSERT((ULONG_PTR)DataEnd >= (ULONG_PTR)DataStart);
-
-    DataSize = (ULONG)((ULONG_PTR)DataEnd >= (ULONG_PTR)DataStart);
-
-    if (*BufferSize < sizeof(SECURITY_DESCRIPTOR) + DataSize)
-    {
-        *BufferSize = sizeof(SECURITY_DESCRIPTOR) + DataSize;
-        return STATUS_BUFFER_TOO_SMALL;
-    }
-
-    if (DataSize != 0)
-    {
-        /* if DataSize != 0 ther must be at least one SID or ACL in the security
-           descriptor! Also the data area must be located somewhere after the
-           end of the SECURITY_DESCRIPTOR_RELATIVE structure */
-        ASSERT(DataStart != NULL);
-        ASSERT((ULONG_PTR)DataStart >= (ULONG_PTR)(RelSD + 1));
-
-        /* it's time to move the data */
-        RtlMoveMemory((PVOID)(AbsSD + 1),
-                      DataStart,
-                      DataSize);
-
-        MoveDelta = (LONG)((LONG_PTR)(AbsSD + 1) - (LONG_PTR)DataStart);
-
-        /* adjust the pointers if neccessary */
-        if (pOwner != NULL)
-            AbsSD->Owner = (PSID)((LONG_PTR)pOwner + MoveDelta);
-        else
-            AbsSD->Owner = NULL;
-
-        if (pGroup != NULL)
-            AbsSD->Group = (PSID)((LONG_PTR)pGroup + MoveDelta);
-        else
-            AbsSD->Group = NULL;
-
-        if (pSacl != NULL)
-            AbsSD->Sacl = (PACL)((LONG_PTR)pSacl + MoveDelta);
-        else
-            AbsSD->Sacl = NULL;
-
-        if (pDacl != NULL)
-            AbsSD->Dacl = (PACL)((LONG_PTR)pDacl + MoveDelta);
-        else
-            AbsSD->Dacl = NULL;
-    }
-    else
-    {
-        /* all pointers must be NULL! */
-        ASSERT(pOwner == NULL);
-        ASSERT(pGroup == NULL);
-        ASSERT(pSacl == NULL);
-        ASSERT(pDacl == NULL);
-
-        AbsSD->Owner = NULL;
-        AbsSD->Group = NULL;
-        AbsSD->Sacl = NULL;
-        AbsSD->Dacl = NULL;
-    }
-
-    /* clear the self-relative flag */
-    AbsSD->Control &= ~SE_SELF_RELATIVE;
-
-#else
-
-    RtlpQuerySecurityDescriptorPointers(SelfRelativeSecurityDescriptor,
-                                        &pOwner,
-                                        &pGroup,
-                                        &pSacl,
-                                        &pDacl);
-
-    ASSERT(sizeof(SECURITY_DESCRIPTOR) == sizeof(SECURITY_DESCRIPTOR_RELATIVE));
-
-    /* clear the self-relative flag and simply convert the offsets to pointers */
-    AbsSD->Control &= ~SE_SELF_RELATIVE;
-    AbsSD->Owner = pOwner;
-    AbsSD->Group = pGroup;
-    AbsSD->Sacl = pSacl;
-    AbsSD->Dacl = pDacl;
-
-#endif
-
-    return STATUS_SUCCESS;
+   UNIMPLEMENTED;
+   return STATUS_NOT_IMPLEMENTED;
 }
 
 
 /*
  * @implemented
  */
-BOOLEAN NTAPI
-RtlValidRelativeSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptorInput,
+BOOLEAN STDCALL
+RtlValidRelativeSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptorInput,
                                    IN ULONG SecurityDescriptorLength,
                                    IN SECURITY_INFORMATION RequiredInformation)
 {
@@ -975,8 +813,8 @@ RtlValidRelativeSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptorIn
 /*
  * @implemented
  */
-BOOLEAN NTAPI
-RtlGetSecurityDescriptorRMControl(PISECURITY_DESCRIPTOR SecurityDescriptor,
+BOOLEAN STDCALL
+RtlGetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
                                   PUCHAR RMControl)
 {
   PAGED_CODE_RTL();
@@ -996,8 +834,8 @@ RtlGetSecurityDescriptorRMControl(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-VOID NTAPI
-RtlSetSecurityDescriptorRMControl(PISECURITY_DESCRIPTOR SecurityDescriptor,
+VOID STDCALL
+RtlSetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
                                   PUCHAR RMControl)
 {
   PAGED_CODE_RTL();
@@ -1018,8 +856,8 @@ RtlSetSecurityDescriptorRMControl(PISECURITY_DESCRIPTOR SecurityDescriptor,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
-RtlSetAttributesSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptor,
+NTSTATUS STDCALL
+RtlSetAttributesSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                    IN SECURITY_DESCRIPTOR_CONTROL Control,
                                    OUT PULONG Revision)
 {

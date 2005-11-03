@@ -3676,9 +3676,8 @@ static LPWSTR load_ttfname_from(LPCWSTR filename)
         TT_TABLE_DIRECTORY tblDir;
         BOOL bFound = FALSE;
         TT_OFFSET_TABLE ttOffsetTable;
-        DWORD dwRead;
 
-        ReadFile(handle,&ttOffsetTable, sizeof(TT_OFFSET_TABLE),&dwRead,NULL);
+        ReadFile(handle,&ttOffsetTable, sizeof(TT_OFFSET_TABLE),NULL,NULL);
         ttOffsetTable.uNumOfTables = SWAPWORD(ttOffsetTable.uNumOfTables);
         ttOffsetTable.uMajorVersion = SWAPWORD(ttOffsetTable.uMajorVersion);
         ttOffsetTable.uMinorVersion = SWAPWORD(ttOffsetTable.uMinorVersion);
@@ -3689,7 +3688,7 @@ static LPWSTR load_ttfname_from(LPCWSTR filename)
 
         for (i=0; i< ttOffsetTable.uNumOfTables; i++)
         {
-            ReadFile(handle,&tblDir, sizeof(TT_TABLE_DIRECTORY),&dwRead,NULL);
+            ReadFile(handle,&tblDir, sizeof(TT_TABLE_DIRECTORY),NULL,NULL);
             if (strncmp(tblDir.szTag,"name",4)==0)
             {
                 bFound = TRUE;
@@ -3706,14 +3705,14 @@ static LPWSTR load_ttfname_from(LPCWSTR filename)
 
             SetFilePointer(handle, tblDir.uOffset, NULL, FILE_BEGIN);
             ReadFile(handle,&ttNTHeader, sizeof(TT_NAME_TABLE_HEADER),
-                            &dwRead,NULL);
+                            NULL,NULL);
 
             ttNTHeader.uNRCount = SWAPWORD(ttNTHeader.uNRCount);
             ttNTHeader.uStorageOffset = SWAPWORD(ttNTHeader.uStorageOffset);
             bFound = FALSE;
             for(i=0; i<ttNTHeader.uNRCount; i++)
             {
-                ReadFile(handle,&ttRecord, sizeof(TT_NAME_RECORD),&dwRead,NULL);
+                ReadFile(handle,&ttRecord, sizeof(TT_NAME_RECORD),NULL,NULL);
                 ttRecord.uNameID = SWAPWORD(ttRecord.uNameID);
                 /* 4 is the Full Font Name */
                 if(ttRecord.uNameID == 4)
@@ -3731,7 +3730,7 @@ static LPWSTR load_ttfname_from(LPCWSTR filename)
                                     NULL, FILE_BEGIN);
                     buf = msi_alloc( ttRecord.uStringLength + 1 + strlen(tt) );
                     memset(buf, 0, ttRecord.uStringLength + 1 + strlen(tt));
-                    ReadFile(handle, buf, ttRecord.uStringLength, &dwRead, NULL);
+                    ReadFile(handle, buf, ttRecord.uStringLength, NULL, NULL);
                     if (strlen(buf) > 0)
                     {
                         strcat(buf,tt);

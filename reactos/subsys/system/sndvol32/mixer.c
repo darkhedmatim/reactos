@@ -369,7 +369,7 @@ SndMixerGetProductName(PSND_MIXER Mixer,
 {
     if (Mixer->hmx)
     {
-        UINT lnsz = (UINT) lstrlen(Mixer->Caps.szPname);
+        int lnsz = lstrlen(Mixer->Caps.szPname);
         if(lnsz + 1 > uSize)
         {
             return lnsz + 1;
@@ -409,7 +409,7 @@ SndMixerGetLineName(PSND_MIXER Mixer,
 
         if (lpl != NULL)
         {
-            lnsz = (UINT) lstrlen(LongName ? lpl->szName : lpl->szShortName);
+            lnsz = lstrlen(LongName ? lpl->szName : lpl->szShortName);
             if(lnsz + 1 > uSize)
             {
                 return lnsz + 1;

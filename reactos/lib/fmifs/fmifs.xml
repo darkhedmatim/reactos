@@ -15,5 +15,4 @@
 	<file>label.c</file>
 	<file>media.c</file>
 	<file>fmifs.rc</file>
-	<pch>precomp.h</pch>
 </module>

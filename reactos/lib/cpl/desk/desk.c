@@ -8,6 +8,11 @@
  * PROGRAMMERS:     Trevor McCort (lycan359@gmail.com)
  */
 
+#include <windows.h>
+#include <commctrl.h>
+#include <cpl.h>
+
+#include "resource.h"
 #include "desk.h"
 
 #define NUM_APPLETS	(1)

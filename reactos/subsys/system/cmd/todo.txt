@@ -12,6 +12,9 @@ It works, but it needs to be cleaned up, the code is long and overly complex for
 *If rewrite
 It works decent but looks _awful_.  Very hard to maintain and/or understand what the hell is going on.
 
+*Decrease Size
+MS cmd is 380 kb, and ROS DBG=0 cmd is 404kb!  We need to cut down.  I think the best way to do this is push a lot of repeated code into misc.c.  This is mostly my fault for copying code to all different commands.  And i will try to fix this when i get time.  
+
 *Remove Hardcoded buffers
 This is mostly done thanks to Greatlord(cmd.c is the hardest spot that is left).  ANytime when you are handling a string that is taken from the commandline there should be no limit to the size.
 
@@ -28,6 +31,9 @@ A lot of commands on failure just spit out GetLastError instead of looking for t
 
 *Reg Testing
 We need more batch files like the one Royce made for "set /a".  What out for if bugs when doing this... could lead to in the wrong direction when looking for a regression.
+
+*Remove dependance on __REACTOS__
+__REACTOS__ = 0 doesnt compile and is useless.  __REACTOS__ = 1 has been the default and works just fine on windows.
 
 *Add Breaker
 THere is partly code in place for this already.  However it is broken and not finished.  PocketCMD which is open source and based off ros cmd does do this correctly though.  So there is something to look at and see how it can be done.  though it is hard to find where they are doing it even though they are based on eachother they look pretty different now a days.

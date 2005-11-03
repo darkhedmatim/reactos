@@ -89,7 +89,6 @@ extern LRESULT CALLBACK ChildWndProc(HWND, UINT, WPARAM, LPARAM);
 extern LRESULT CALLBACK FrameWndProc(HWND, UINT, WPARAM, LPARAM);
 extern void SetupStatusBar(HWND hWnd, BOOL bResize);
 extern void UpdateStatusBar(void);
-extern BOOL CopyKeyName(HWND hWnd, HKEY hRootKey, LPCTSTR keyName);
 
 /* listview.c */
 extern HWND CreateListView(HWND hwndParent, int id);
@@ -107,9 +106,6 @@ extern HTREEITEM InsertNode(HWND hwndTV, HTREEITEM hItem, LPTSTR name);
 extern HWND StartKeyRename(HWND hwndTV);
 extern BOOL CreateNewKey(HWND hwndTV, HTREEITEM hItem);
 extern BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath);
-extern void DestroyTreeView( void );
-extern void DestroyListView( HWND hwndLV );
-extern void DestroyMainMenu( void );
 
 /* edit.c */
 extern BOOL ModifyValue(HWND hwnd, HKEY hKey, LPCTSTR valueName, BOOL EditBin);

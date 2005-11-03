@@ -295,7 +295,7 @@ RegKeyEditPermissions(HWND hWndOwner,
                       LPCTSTR lpMachine,
                       LPCTSTR lpKeyName)
 {
-  BOOL Result = FALSE;
+  BOOL Result;
   LPWSTR Machine, KeyName;
   HKEY hInfoKey;
   LPREGKEYSECURITY RegKeySecurity;

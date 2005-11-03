@@ -31,10 +31,6 @@
 using std::string;
 using std::vector;
 
-#ifdef OUT
-#undef OUT
-#endif//OUT
-
 void
 MSVCBackend::_generate_dsp ( const Module& module )
 {
@@ -54,7 +50,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 
 	string module_type = GetExtension(module.GetTargetName());
 	bool lib = (module_type == ".lib") || (module_type == ".a");
-	bool dll = (module_type == ".dll") || (module_type == ".cpl");
+	bool dll = (module_type == ".dll");
 	bool exe = (module_type == ".exe");
 	// TODO FIXME - need more checks here for 'sys' and possibly 'drv'?
 
@@ -109,13 +105,8 @@ MSVCBackend::_generate_dsp ( const Module& module )
 		const vector<Include*>& incs = data.includes;
 		for ( i = 0; i < incs.size(); i++ )
 		{
-
 			// explicitly omit win32api directories
 			if ( !strncmp(incs[i]->directory.c_str(), "w32api", 6 ) )
-				continue;
-
-			// explicitly omit include/wine directories
-			if ( !strncmp(incs[i]->directory.c_str(), "include\\wine", 12 ) )
 				continue;
 
 			string path = Path::RelativeFromDirectory (
@@ -490,11 +481,6 @@ MSVCBackend::_generate_dsp ( const Module& module )
 					fprintf ( OUT, " /i \"%s\"", includes[i].c_str() );
 				}
 			}
-
-			for ( i = 0; i < defines.size(); i++ )
-			{
-				fprintf ( OUT, " /D \"%s\"", defines[i].c_str() );
-			}
 			fprintf ( OUT, " /d \"_DEBUG\"\r\n" );
 		}
 		else
@@ -512,13 +498,6 @@ MSVCBackend::_generate_dsp ( const Module& module )
 				for ( i = 0; i < includes.size(); i++ )
 					fprintf ( OUT, " /i \"%s\"", includes[i].c_str() );
 			}
-
-			for ( i = 0; i < defines.size(); i++ )
-			{
-				fprintf ( OUT, " /D \"%s\"", defines[i].c_str() );
-			}
-
-
 			fprintf ( OUT, "/d \"NDEBUG\"\r\n" );
 		}
 		fprintf ( OUT, "BSC32=bscmake.exe\r\n" );
@@ -559,7 +538,6 @@ MSVCBackend::_generate_dsp ( const Module& module )
 			// TODO FIXME - do we need their kludge?
 			//if ( module.name == "ntdll" ) fprintf ( OUT, " /nodefaultlib" ); // FIXME: Kludge
 			if ( dll ) fprintf ( OUT, " /def:\"%s.def\"", module.name.c_str() );
-			if (( dll ) && ( module_type == ".cpl")) fprintf ( OUT, " /out:\"Win32\\%s%s\"", module.name.c_str(), module_type.c_str() );
 			if ( debug ) fprintf ( OUT, " /pdbtype:sept" );
 			fprintf ( OUT, "\r\n" );
 		}

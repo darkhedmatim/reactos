@@ -94,9 +94,9 @@ ExReInitializeRundownProtection (
 
     /* Reset the count */
 #ifdef _WIN64
-    InterlockedExchange64((LONGLONG*)&RunRef->Count, 0LL);
+    InterlockedExchangeAdd64((LONGLONG*)&RunRef->Count, 0LL);
 #else
-    InterlockedExchange((LONG*)&RunRef->Count, 0);
+    InterlockedExchangeAdd((LONG*)&RunRef->Count, 0);
 #endif
 }
 

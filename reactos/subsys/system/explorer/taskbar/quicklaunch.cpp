@@ -282,7 +282,7 @@ int QuickLaunchBar::Notify(int id, NMHDR* pnmh)
 		NMTTDISPINFO* ttdi = (NMTTDISPINFO*) pnmh;
 
 		int id = ttdi->hdr.idFrom;
-		ttdi->lpszText = _entries[id]._title.str();
+		ttdi->lpszText = (LPTSTR)_entries[id]._title.c_str();
 #ifdef TTF_DI_SETITEM
 		ttdi->uFlags |= TTF_DI_SETITEM;
 #endif

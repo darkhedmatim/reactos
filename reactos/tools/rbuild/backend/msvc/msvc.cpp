@@ -31,6 +31,8 @@
 
 using namespace std;
 
+void gen_guid();
+
 static class MSVCFactory : public Backend::Factory
 {
 	public:
@@ -53,39 +55,35 @@ MSVCBackend::MSVCBackend(Project &project,
 
 void MSVCBackend::Process()
 {
-	string filename_sln ( ProjectNode.name );
-	string filename_rules = "gccasm.rules";
+	string filename_dsw = ProjectNode.name + ".dsw";
+	string filename_sln = ProjectNode.name + ".sln";
 	
-	if ( configuration.VSProjectVersion == "6.00" )
-		filename_sln += ".dsw";
-	else {
-		filename_sln += ".sln";
-
-		m_rulesFile = fopen ( filename_rules.c_str(), "wb" );
-		if ( m_rulesFile )
-		{
-			_generate_rules_file ( m_rulesFile );
-		}
-		fclose ( m_rulesFile );
-	}
-
+	printf ( "Creating MSVC workspace: %s\n", filename_dsw.c_str() );
 	printf ( "Creating MSVC workspace: %s\n", filename_sln.c_str() );
-	
+
 	ProcessModules();
+
+	m_dswFile = fopen ( filename_dsw.c_str(), "wb" );
 	m_slnFile = fopen ( filename_sln.c_str(), "wb" );
+
+	if ( !m_dswFile )
+	{
+		printf ( "Could not create file '%s'.\n", filename_dsw.c_str() );
+		return;
+	}
+	_generate_wine_dsw ( m_dswFile );
+
 
 	if ( !m_slnFile )
 	{
 		printf ( "Could not create file '%s'.\n", filename_sln.c_str() );
 		return;
 	}
+	_generate_sln ( m_slnFile );
 
-	if ( configuration.VSProjectVersion == "6.00" )
-		_generate_wine_dsw ( m_slnFile );
-	else
-		_generate_sln ( m_slnFile );
-
+	fclose ( m_dswFile );
 	fclose ( m_slnFile );
+
 	printf ( "Done.\n" );
 }
 
@@ -95,13 +93,9 @@ void MSVCBackend::ProcessModules()
 	{
 		Module &module = *ProjectNode.modules[i];
 
-		module.guid = _gen_guid();
-
-		if (configuration.VSProjectVersion == "6.00")
-			this->_generate_dsp ( module );
-		else
-			this->_generate_vcproj ( module );
-
+		this->_generate_dsp ( module );
+		this->_generate_vcproj ( module );
+//		gen_guid();
 
 		/*for(size_t k = 0; k < module.non_if_data.files.size(); k++)
 		{

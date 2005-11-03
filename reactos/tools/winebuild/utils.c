@@ -515,6 +515,9 @@ const char *func_declaration( const char *func )
     case PLATFORM_WINDOWS:
         sprintf( buffer, ".def _%s; .scl 2; .type 32; .endef", func );
         break;
+    case PLATFORM_SVR4:
+        sprintf( buffer, ".type %s,2", func );
+        break;
     default:
         sprintf( buffer, ".type %s,@function", func );
         break;
@@ -571,6 +574,7 @@ const char *get_asm_string_keyword(void)
     switch (target_platform)
     {
     case PLATFORM_APPLE:
+    case PLATFORM_SVR4:
         return ".asciz";
     default:
         return ".string";
@@ -581,6 +585,7 @@ const char *get_asm_short_keyword(void)
 {
     switch (target_platform)
     {
+    case PLATFORM_SVR4: return ".half";
     default:            return ".short";
     }
 }

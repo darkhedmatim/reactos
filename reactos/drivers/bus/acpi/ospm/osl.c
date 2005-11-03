@@ -354,28 +354,11 @@ acpi_os_read_pci_cfg_byte(
 	u32 addr,
 	u8 * val)
 {
-  NTSTATUS ret;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_read_pci_cfg_byte is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-  
-  DPRINT("acpi_os_read_pci_cfg_byte, slot=0x%X, func=0x%X\n", slot.u.AsULONG, func);
-  ret = HalGetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           val,
-           addr,
-           sizeof(UCHAR));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-    return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS
@@ -385,28 +368,11 @@ acpi_os_read_pci_cfg_word(
 	u32 addr,
 	u16 * val)
 {
-  NTSTATUS ret;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_read_pci_cfg_word is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-
-  DPRINT("acpi_os_read_pci_cfg_word, slot=0x%x\n", slot.u.AsULONG);
-  ret = HalGetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           val,
-           addr,
-           sizeof(USHORT));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-	return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS
@@ -416,28 +382,11 @@ acpi_os_read_pci_cfg_dword(
 	u32 addr,
 	u32 * val)
 {
-  NTSTATUS ret;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_read_pci_cfg_dword is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-
-  DPRINT("acpi_os_read_pci_cfg_dword, slot=0x%x\n", slot.u.AsULONG);
-  ret = HalGetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           val,
-           addr,
-           sizeof(ULONG));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-	return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS
@@ -447,29 +396,11 @@ acpi_os_write_pci_cfg_byte(
 	u32 addr,
 	u8 val)
 {
-  NTSTATUS ret;
-  UCHAR buf = val;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_write_pci_cfg_byte is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-
-  DPRINT("acpi_os_write_pci_cfg_byte, slot=0x%x\n", slot.u.AsULONG);
-  ret = HalSetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           &buf,
-           addr,
-           sizeof(UCHAR));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-	return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS
@@ -479,29 +410,11 @@ acpi_os_write_pci_cfg_word(
 	u32 addr,
 	u16 val)
 {
-  NTSTATUS ret;
-  USHORT buf = val;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_write_pci_cfg_word is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-
-  DPRINT("acpi_os_write_pci_cfg_byte, slot=0x%x\n", slot.u.AsULONG);
-  ret = HalSetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           &buf,
-           addr,
-           sizeof(USHORT));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-	return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS
@@ -511,29 +424,11 @@ acpi_os_write_pci_cfg_dword(
 	u32 addr,
 	u32 val)
 {
-  NTSTATUS ret;
-  ULONG buf = val;
-  PCI_SLOT_NUMBER slot;
+  /* FIXME: What do we do here? */
 
-  if (func == 0)
-    return AE_ERROR;
+  DPRINT("acpi_os_write_pci_cfg_dword is not implemented");
 
-  slot.u.AsULONG = 0;  
-  slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
-  slot.u.bits.FunctionNumber = func & 0xFFFF;
-
-  DPRINT("acpi_os_write_pci_cfg_byte, slot=0x%x\n", slot.u.AsULONG);
-  ret = HalSetBusDataByOffset(PCIConfiguration,
-           bus,
-           slot.u.AsULONG,
-           &buf,
-           addr,
-           sizeof(ULONG));
-
-  if (NT_SUCCESS(ret))
-    return AE_OK;
-  else
-	return AE_ERROR;
+  return AE_ERROR;
 }
 
 ACPI_STATUS

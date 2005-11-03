@@ -8,7 +8,16 @@
  * PROGRAMMERS:     Trevor McCort (lycan359@gmail.com)
  */
 
+#include <windows.h>
+#include <commctrl.h>
+#include <commdlg.h>
+#include <cpl.h>
+#include <tchar.h>
+
+#include "resource.h"
+
 #include "desk.h"
+#include "dibitmap.h"
 
 #define MAX_BACKGROUNDS     100
 
@@ -43,13 +52,12 @@ HWND g_hColorButton             = NULL;
 
 HIMAGELIST g_hShellImageList    = NULL;
 
-/* Add the images in the C:\ReactOS directory and the current wallpaper if any */
+/* Add the bitmaps in the C:\ReactOS directory and the current wallpaper if any */
 void AddListViewItems()
 {
     WIN32_FIND_DATA fd;
     HANDLE hFind;
     TCHAR szSearchPath[MAX_PATH];
-	TCHAR szFileTypes[MAX_PATH];
     LV_ITEM listItem;
     LV_COLUMN dummy;
     RECT clientRect;
@@ -62,8 +70,6 @@ void AddListViewItems()
     LONG result;
     UINT i = 0;
     BackgroundItem *backgroundItem = NULL;
-	TCHAR separators[] = TEXT(";");
-	TCHAR *token;
 
     GetClientRect(g_hBackgroundList, &clientRect);
     
@@ -145,94 +151,77 @@ void AddListViewItems()
     
     RegCloseKey(regKey);
 
-    /* Add all the images in the C:\ReactOS directory. */
+    /* Add all the bitmaps in the C:\ReactOS directory. */
 
-	LoadString(hApplet, IDS_SUPPORTED_EXT, szFileTypes, sizeof(szFileTypes) / sizeof(TCHAR));
-	
+    GetWindowsDirectory(szSearchPath, MAX_PATH);
+    _tcscat(szSearchPath, TEXT("\\*.bmp"));
+    
+    hFind = FindFirstFile(szSearchPath, &fd);
+    while(hFind != INVALID_HANDLE_VALUE)
+    {
+        /* Don't add any hidden bitmaps */
+        if((fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) == 0)
+        {
+            TCHAR filename[MAX_PATH];
+            
+            GetWindowsDirectory(filename, MAX_PATH);
 
-	token = _tcstok ( szFileTypes, separators );
-	while ( token != NULL )
-	{
-		GetWindowsDirectory(szSearchPath, MAX_PATH);
-		_tcscat(szSearchPath, TEXT("\\"));
-		_tcscat(szSearchPath, token);
-	    
-		hFind = FindFirstFile(szSearchPath, &fd);
-		while(hFind != INVALID_HANDLE_VALUE)
-		{
-			/* Don't add any hidden bitmaps */
-			if((fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) == 0)
-			{
-				TCHAR filename[MAX_PATH];
-	            
-				GetWindowsDirectory(filename, MAX_PATH);
+            _tcscat(filename, TEXT("\\"));
+            _tcscat(filename, fd.cFileName);
+            
+            himl = (HIMAGELIST)SHGetFileInfo(filename,
+                                             0,
+                                             &sfi,
+                                             sizeof(sfi),
+                                             SHGFI_SYSICONINDEX | SHGFI_SMALLICON |
+                                             SHGFI_DISPLAYNAME);
 
-				_tcscat(filename, TEXT("\\"));
-				_tcscat(filename, fd.cFileName);
-	            
-				himl = (HIMAGELIST)SHGetFileInfo(filename,
-												0,
-												&sfi,
-												sizeof(sfi),
-												SHGFI_SYSICONINDEX | SHGFI_SMALLICON |
-												SHGFI_DISPLAYNAME);
+            if(himl == NULL)
+            {
+                break;
+            }
+            
+            if(i++ == 0)
+            {
+                g_hShellImageList = himl;
+                ListView_SetImageList(g_hBackgroundList, himl, LVSIL_SMALL);
+            }
 
-				if(himl == NULL)
-				{
-					break;
-				}
-	            
-				if(i++ == 0)
-				{
-					g_hShellImageList = himl;
-					ListView_SetImageList(g_hBackgroundList, himl, LVSIL_SMALL);
-				}
+            backgroundItem = &g_backgroundItems[g_listViewItemCount];
 
-				backgroundItem = &g_backgroundItems[g_listViewItemCount];
+            backgroundItem->bWallpaper = TRUE;
+            
+            _tcscpy(backgroundItem->szDisplayName, sfi.szDisplayName);
+            _tcscpy(backgroundItem->szFilename, filename);
 
-				backgroundItem->bWallpaper = TRUE;
-	            
-				_tcscpy(backgroundItem->szDisplayName, sfi.szDisplayName);
-				_tcscpy(backgroundItem->szFilename, filename);
-
-				ZeroMemory(&listItem, sizeof(LV_ITEM));
-				listItem.mask       = LVIF_TEXT | LVIF_PARAM | LVIF_STATE | LVIF_IMAGE;
-				listItem.pszText    = backgroundItem->szDisplayName;
-				listItem.state      = 0;
-				listItem.iImage     = sfi.iIcon;
-				listItem.iItem      = g_listViewItemCount;
-				listItem.lParam     = g_listViewItemCount;
-	            
-				ListView_InsertItem(g_hBackgroundList, &listItem);
-	            
-				g_listViewItemCount++;
-			}
-	        
-			if(!FindNextFile(hFind, &fd))
-				hFind = INVALID_HANDLE_VALUE;
-		}
-
-		token = _tcstok ( NULL, separators );
-	}
-
-
+            ZeroMemory(&listItem, sizeof(LV_ITEM));
+            listItem.mask       = LVIF_TEXT | LVIF_PARAM | LVIF_STATE | LVIF_IMAGE;
+            listItem.pszText    = backgroundItem->szDisplayName;
+            listItem.state      = 0;
+            listItem.iImage     = sfi.iIcon;
+            listItem.iItem      = g_listViewItemCount;
+            listItem.lParam     = g_listViewItemCount;
+            
+            ListView_InsertItem(g_hBackgroundList, &listItem);
+            
+            g_listViewItemCount++;
+        }
+        
+        if(!FindNextFile(hFind, &fd))
+            hFind = INVALID_HANDLE_VALUE;
+    }
 }
 
 void InitBackgroundDialog()
 {
-    TCHAR szString[256];
-    HKEY regKey;
-    TCHAR szBuffer[2];
-    DWORD bufferSize = sizeof(szBuffer);
-    DWORD varType = REG_SZ;
-    LONG result;
-    
-	g_hBackgroundList       = GetDlgItem(g_hBackgroundPage, IDC_BACKGROUND_LIST);
+    g_hBackgroundList       = GetDlgItem(g_hBackgroundPage, IDC_BACKGROUND_LIST);
     g_hBackgroundPreview    = GetDlgItem(g_hBackgroundPage, IDC_BACKGROUND_PREVIEW);
     g_hPlacementCombo       = GetDlgItem(g_hBackgroundPage, IDC_PLACEMENT_COMBO);
     g_hColorButton          = GetDlgItem(g_hBackgroundPage, IDC_COLOR_BUTTON);
 
     AddListViewItems();
+    
+    TCHAR szString[256];
     
     LoadString(hApplet, IDS_CENTER, szString, sizeof(szString) / sizeof(TCHAR));
     SendMessage(g_hPlacementCombo, CB_INSERTSTRING, PLACEMENT_CENTER, (LPARAM)szString);
@@ -244,6 +233,13 @@ void InitBackgroundDialog()
     SendMessage(g_hPlacementCombo, CB_INSERTSTRING, PLACEMENT_TILE, (LPARAM)szString);
 
     /* Load the default settings from the registry */
+    HKEY regKey;
+    
+    TCHAR szBuffer[2];
+    DWORD bufferSize = sizeof(szBuffer);
+    DWORD varType = REG_SZ;
+    LONG result;
+    
     RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), 0, KEY_ALL_ACCESS, &regKey);
     
     result = RegQueryValueEx(regKey, TEXT("WallpaperStyle"), 0, &varType, (LPBYTE)szBuffer, &bufferSize);
@@ -297,24 +293,19 @@ void OnBrowseButton()
     OPENFILENAME ofn;
     TCHAR filename[MAX_PATH];
     TCHAR fileTitle[256];
-    TCHAR filter[MAX_PATH];
     BackgroundItem *backgroundItem = NULL;
-	SHFILEINFO sfi;
-	LV_ITEM listItem;
         
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
 
     ofn.lStructSize = sizeof(OPENFILENAME);
     ofn.hwndOwner = g_hBackgroundPage;
     ofn.lpstrFile = filename;
-
-    LoadString(hApplet, IDS_BACKGROUND_COMDLG_FILTER, filter, sizeof(filter) / sizeof(TCHAR));
         
     /* Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
      * use the contents of szFile to initialize itself */
     ofn.lpstrFile[0] = TEXT('\0');
     ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrFilter = filter;
+    ofn.lpstrFilter = TEXT("Bitmap Files (*.bmp)\0*.bmp\0");
     ofn.nFilterIndex = 0;
     ofn.lpstrFileTitle = fileTitle;
     ofn.nMaxFileTitle = 256;
@@ -326,6 +317,9 @@ void OnBrowseButton()
         /* Check if there is already a entry that holds this filename */
         if(CheckListBoxFilename(g_hBackgroundList, filename) == TRUE)
             return;
+        
+        SHFILEINFO sfi;
+        LV_ITEM listItem;
         
         if(g_listViewItemCount > (MAX_BACKGROUNDS - 1))
             return;
@@ -390,13 +384,6 @@ void ListViewItemChanged(int itemIndex)
 
 void DrawBackgroundPreview(LPDRAWITEMSTRUCT draw)
 {
-	float scaleX;
-	float scaleY;
-	int scaledWidth;
-	int scaledHeight;
-	int posX;
-	int posY;
-
     if(g_backgroundItems[g_backgroundSelection].bWallpaper == FALSE)
     {
         FillRect(draw->hDC, &draw->rcItem, GetSysColorBrush(COLOR_BACKGROUND));
@@ -406,14 +393,14 @@ void DrawBackgroundPreview(LPDRAWITEMSTRUCT draw)
     if(g_pWallpaperBitmap == NULL)
         return;
 
-    scaleX = ((float)GetSystemMetrics(SM_CXSCREEN) - 1) / (float)draw->rcItem.right;
-    scaleY = ((float)GetSystemMetrics(SM_CYSCREEN) - 1) / (float)draw->rcItem.bottom;
+    float scaleX = ((float)GetSystemMetrics(SM_CXSCREEN) - 1) / (float)draw->rcItem.right;
+    float scaleY = ((float)GetSystemMetrics(SM_CYSCREEN) - 1) / (float)draw->rcItem.bottom;
 
-    scaledWidth = g_pWallpaperBitmap->width / scaleX;
-    scaledHeight = g_pWallpaperBitmap->height / scaleY;
+    int scaledWidth = g_pWallpaperBitmap->width / scaleX;
+    int scaledHeight = g_pWallpaperBitmap->height / scaleY;
     
-    posX = (draw->rcItem.right / 2) - (scaledWidth / 2);
-    posY = (draw->rcItem.bottom / 2) - (scaledHeight / 2);
+    int posX = (draw->rcItem.right / 2) - (scaledWidth / 2);
+    int posY = (draw->rcItem.bottom / 2) - (scaledHeight / 2);
     
     FillRect(draw->hDC, &draw->rcItem, GetSysColorBrush(COLOR_BACKGROUND));
     

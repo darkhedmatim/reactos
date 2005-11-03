@@ -35,13 +35,6 @@ static string BuildSystem;
 static string RootXmlFile = "ReactOS.xml";
 static Configuration configuration;
 
-string ExePrefix;
-string ExePostfix;
-string sSep;
-string sBadSep;
-char cSep;
-char cBadSep;
-
 bool
 ParseAutomaticDependencySwitch ( char switchChar2,
 	                             char* switchStart )
@@ -59,41 +52,6 @@ ParseAutomaticDependencySwitch ( char switchChar2,
 			}
 			configuration.CheckDependenciesForModuleOnly = true;
 			configuration.CheckDependenciesForModuleOnlyModule = string(&switchStart[3]);
-			break;
-		default:
-			printf ( "Unknown switch -d%c\n",
-			         switchChar2 );
-			return false;
-	}
-	return true;
-}
-
-
-bool
-ParseVCProjectSwitch ( char switchChar2,
-	               char* switchStart )
-{
-	switch ( switchChar2 )
-	{
-		case 's':
-			if ( strlen ( switchStart ) <= 3 )
-			{
-				printf ( "Switch -dm requires a module name\n" );
-				return false;
-			}
-			configuration.VSProjectVersion = string(&switchStart[3]);
-
-			if (configuration.VSProjectVersion.at(0) == '{') {
-				printf ( "Error: invalid char {\n" );
-				return false;
-			}
-
-			if (configuration.VSProjectVersion.length() == 1) //7,8
-				configuration.VSProjectVersion.append(".00");
-
-			if (configuration.VSProjectVersion.length() == 3) //7.1
-				configuration.VSProjectVersion.append("0");
-
 			break;
 		default:
 			printf ( "Unknown switch -d%c\n",
@@ -143,11 +101,7 @@ ParseSwitch ( int argc, char** argv, int index )
 	switch ( switchChar )
 	{
 		case 'v':
-			if (switchChar2 == 's')
-				return ParseVCProjectSwitch ( switchChar2,
-			                                      argv[index] );
-			else
-				configuration.Verbose = true;
+			configuration.Verbose = true;
 			break;
 		case 'c':
 			configuration.CleanAsYouGo = true;
@@ -193,47 +147,10 @@ ParseArguments ( int argc, char** argv )
 int
 main ( int argc, char** argv )
 {
-        char *SepValue, *ExePostfixValue, *ExePrefixValue;;
-
-        SepValue = getenv("SEP");
-        if (SepValue && (0 == strcmp(SepValue, DEF_SSEP) || 0 == strcmp(SepValue, DEF_SBAD_SEP)))
-        {
-            cSep = SepValue[0];
-            sSep = SepValue;
-        }
-        else
-        {
-            cSep = DEF_CSEP;
-            sSep = DEF_SSEP;
-        }
-        if (cSep == DEF_CSEP)
-        {
-            cBadSep = DEF_CBAD_SEP;
-            sBadSep = DEF_SBAD_SEP;
-        }
-        else
-        {
-            cBadSep = DEF_CSEP;
-            sBadSep = DEF_SSEP;
-        }
-        ExePostfixValue = getenv("EXEPOSTFIX");
-        ExePrefixValue = getenv("EXEPREFIX");
-        if ((ExePostfixValue == NULL || 0 == strlen(ExePostfixValue)) &&
-            (ExePrefixValue == NULL || 0 == strlen(ExePrefixValue)))
-        {
-            ExePostfix = DEF_EXEPOSTFIX;
-            ExePrefix = DEF_EXEPREFIX;
-        }
-        else
-        {
-            ExePostfix = ExePostfixValue ? ExePostfixValue : "";
-            ExePrefix = ExePrefixValue ? ExePrefixValue : "";
-        }
-
 	if ( !ParseArguments ( argc, argv ) )
 	{
 		printf ( "Generates project files for buildsystems\n\n" );
-		printf ( "  rbuild [switches] buildsystem\n\n" );
+		printf ( "  rbuild [switches] buildsystem\n" );
 		printf ( "Switches:\n" );
 		printf ( "  -v            Be verbose.\n" );
 		printf ( "  -c            Clean as you go. Delete generated files as soon as they are not\n" );
@@ -245,12 +162,10 @@ main ( int argc, char** argv )
 		printf ( "                not generate the directories.\n" );
 		printf ( "  -ps           Generate proxy makefiles in source tree instead of the output.\n" );
 		printf ( "                tree.\n" );
-		printf ( "  -vs{version}  Version of MS VS project files. Default is %s.\n", MS_VS_DEF_VERSION );
 		printf ( "\n" );
-		printf ( "  buildsystem   Target build system. Can be one of:\n" );
+		printf ( "  buildsystem  Target build system. Can be one of:\n" );
 		printf ( "                 mingw   MinGW\n" );
 		printf ( "                 devcpp  DevC++\n" );
-		printf ( "                 msvc    MS Visual Studio\n" );
 		return 1;
 	}
 	try

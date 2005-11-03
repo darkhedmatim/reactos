@@ -281,8 +281,8 @@
 @ stdcall SetupDiClassNameFromGuidExA(ptr str long ptr wstr ptr)
 @ stdcall SetupDiClassNameFromGuidExW(ptr wstr long ptr wstr ptr)
 @ stdcall SetupDiClassNameFromGuidW(ptr wstr long ptr)
-@ stdcall SetupDiCreateDevRegKeyA(ptr ptr long long long ptr str)
-@ stdcall SetupDiCreateDevRegKeyW(ptr ptr long long long ptr wstr)
+@ stub SetupDiCreateDevRegKeyA
+@ stub SetupDiCreateDevRegKeyW
 @ stdcall SetupDiCreateDeviceInfoA(ptr str ptr str ptr long ptr)
 @ stdcall SetupDiCreateDeviceInfoW(ptr wstr ptr wstr ptr long ptr)
 @ stdcall SetupDiCreateDeviceInfoList(ptr ptr)
@@ -327,8 +327,8 @@
 @ stub SetupDiGetDeviceInstanceIdW
 @ stdcall SetupDiGetDeviceRegistryPropertyA(long ptr long ptr ptr long ptr)
 @ stdcall SetupDiGetDeviceRegistryPropertyW(long ptr long ptr ptr long ptr)
-@ stdcall SetupDiGetDriverInfoDetailA(ptr ptr ptr ptr long ptr)
-@ stdcall SetupDiGetDriverInfoDetailW(ptr ptr ptr ptr long ptr)
+@ stub SetupDiGetDriverInfoDetailA
+@ stub SetupDiGetDriverInfoDetailW
 @ stub SetupDiGetDriverInstallParamsA
 @ stub SetupDiGetDriverInstallParamsW
 @ stub SetupDiGetDeviceInterfaceAlias
@@ -341,10 +341,10 @@
 @ stub SetupDiGetHwProfileList
 @ stub SetupDiGetHwProfileListExA
 @ stub SetupDiGetHwProfileListExW
-@ stdcall SetupDiGetINFClassA(str ptr ptr long ptr)
+@ stub SetupDiGetINFClassA
 @ stdcall SetupDiGetINFClassW(wstr ptr ptr long ptr)
 @ stub SetupDiGetSelectedDevice
-@ stdcall SetupDiGetSelectedDriverA(ptr ptr ptr)
+@ stub SetupDiGetSelectedDriverA
 @ stdcall SetupDiGetSelectedDriverW(ptr ptr ptr)
 @ stub SetupDiGetWizardPage
 @ stdcall SetupDiInstallClassA(long str long ptr)
@@ -375,13 +375,13 @@
 @ stdcall SetupDiSetClassInstallParamsA(ptr ptr ptr long)
 @ stub SetupDiSetClassInstallParamsW
 @ stub SetupDiSetDeviceInstallParamsA
-@ stdcall SetupDiSetDeviceInstallParamsW(ptr ptr ptr)
-@ stdcall SetupDiSetDeviceRegistryPropertyA(ptr ptr long ptr long)
-@ stdcall SetupDiSetDeviceRegistryPropertyW(ptr ptr long ptr long)
+@ stub SetupDiSetDeviceInstallParamsW
+@ stub SetupDiSetDeviceRegistryPropertyA
+@ stub SetupDiSetDeviceRegistryPropertyW
 @ stub SetupDiSetDriverInstallParamsA
 @ stub SetupDiSetDriverInstallParamsW
 @ stub SetupDiSetSelectedDevice
-@ stdcall SetupDiSetSelectedDriverA(ptr ptr ptr)
+@ stub SetupDiSetSelectedDriverA
 @ stdcall SetupDiSetSelectedDriverW(ptr ptr ptr)
 @ stub SetupDiUnremoveDevice
 @ stub SetupDuplicateDiskSpaceListA
@@ -401,7 +401,7 @@
 @ stub SetupGetFileCompressionInfoW
 @ stdcall SetupGetFileQueueCount(long long ptr)
 @ stdcall SetupGetFileQueueFlags(long ptr)
-@ stdcall SetupGetInfFileListA(str long str long ptr)
+@ stub SetupGetInfFileListA
 @ stdcall SetupGetInfFileListW(wstr long wstr long ptr)
 @ stdcall SetupGetInfInformationA(ptr long ptr long ptr)
 @ stdcall SetupGetInfInformationW(ptr long ptr long ptr)

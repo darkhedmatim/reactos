@@ -68,51 +68,6 @@ TCHAR cgetchar (VOID)
 #endif /* _UNICODE */
 }
 
-/*
- * Takes a path in and returns it with the correct case of the letters
- */
-VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
-{
-	INT i = 0;
-	TCHAR TempPath[MAX_PATH];  
-	WIN32_FIND_DATA FindFileData;
-	HANDLE hFind;
-	_tcscpy(TempPath, _T(""));
-	_tcscpy(OutPath, _T(""));
-
-	
-	for(i = 0; i < _tcslen(Path); i++)
-	{
-		if(Path[i] != _T('\\'))
-		{
-			_tcsncat(TempPath, &Path[i], 1);
-			if(i != _tcslen(Path) - 1)
-				continue;
-		}
-		/* Handle the base part of the path different.
-		   Because if you put it into findfirstfile, it will
-		   return your current folder */
-		if(_tcslen(TempPath) == 2 && TempPath[1] == _T(':'))
-		{
-			_tcscat(OutPath, TempPath);
-			_tcscat(OutPath, _T("\\"));
-			_tcscat(TempPath, _T("\\"));
-		}
-		else
-		{
-			hFind = FindFirstFile(TempPath,&FindFileData);
-			if(hFind == INVALID_HANDLE_VALUE)
-			{
-				_tcscpy(OutPath, Path);
-				return;
-			}
-			_tcscat(TempPath, _T("\\"));
-			_tcscat(OutPath, FindFileData.cFileName);
-			_tcscat(OutPath, _T("\\"));
-			CloseHandle(hFind);
-		}
-	}
-}
 
 /*
  * Check if Ctrl-Break was pressed during the last calls
@@ -162,7 +117,7 @@ BOOL CheckCtrlBreak (INT mode)
 }
 
 /* add new entry for new argument */
-BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry)
+static BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry)
 {
 	LPTSTR q;
 	LPTSTR *oldarg;
@@ -206,7 +161,7 @@ static BOOL expand (LPINT ac, LPTSTR **arg, LPCTSTR pattern)
 			return FALSE;
 		}
 		memcpy(dirpart, pattern, pathend - pattern + 1);
-		dirpart[pathend - pattern + 1] = _T('\0');
+		dirpart[pathend - pattern + 1] = '\0';
 	}
 	else
 	{
@@ -427,7 +382,7 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 		   ReadFile(hFile, &ch, 1, &dwRead, NULL) && dwRead)
 	{
         lpString[len++] = ch;
-        if ((ch == _T('\n')) || (ch == _T('\r')))
+        if ((ch == '\n') || (ch == '\r'))
 		{
 			/* break at new line*/
 			break;
@@ -437,13 +392,47 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	if (!dwRead && !len)
 		return FALSE;
 
-	lpString[len++] = _T('\0');
+	lpString[len++] = '\0';
 #ifdef _UNICODE
 	MultiByteToWideChar(CP_ACP, 0, lpString, len, lpBuffer, len);
 	free(lpString);
 #endif
 	return TRUE;
 }
+
+#ifndef __REACTOS__
+/*
+ * GetConsoleWindow - returns the handle to the current console window
+ */
+HWND GetConsoleWindow (VOID)
+{
+	TCHAR original[256];
+	TCHAR temp[256];
+	HWND h=0;
+
+	if(h)
+		return h;
+
+	GetConsoleTitle (original, sizeof(original) / sizeof(TCHAR));
+
+	_tcscpy (temp, original);
+	_tcscat (temp, _T("-xxx   "));
+
+	if (FindWindow (0, temp) == NULL )
+	{
+		SetConsoleTitle (temp);
+		Sleep (0);
+
+		while(!(h = FindWindow (0, temp)))
+			;
+
+		SetConsoleTitle (original);
+	}
+
+	return h;
+}
+#endif
+
 
 INT PagePrompt (VOID)
 {
@@ -466,7 +455,7 @@ INT PagePrompt (VOID)
 	ConInEnable ();
 
 	if ((ir.Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE) ||
-	    ((ir.Event.KeyEvent.wVirtualKeyCode == _T('C')) &&
+	    ((ir.Event.KeyEvent.wVirtualKeyCode == 'C') &&
 	     (ir.Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))))
 		return PROMPT_BREAK;
 
@@ -606,7 +595,7 @@ INT FilePromptYNA (LPTSTR szFormat, ...)
 	ConInEnable ();
 
 	if ((ir.Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE) ||
-	    ((ir.Event.KeyEvent.wVirtualKeyCode == _T('C')) &&
+	    ((ir.Event.KeyEvent.wVirtualKeyCode == 'C') &&
 	     (ir.Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))))
 		return PROMPT_BREAK;
 

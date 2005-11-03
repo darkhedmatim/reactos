@@ -53,7 +53,6 @@ END
 #include "Bg.rc"
 #include "Dk.rc"
 #include "Es.rc"
-#include "Ja.rc"
 #include "Sv.rc"
 
 /* EOF */

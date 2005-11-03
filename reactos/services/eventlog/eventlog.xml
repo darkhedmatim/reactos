@@ -14,5 +14,4 @@
 	<file>eventlog.rc</file>
 	<file>rpc.c</file>
 	<file>file.c</file>
-	<pch>eventlog.h</pch>
 </module>

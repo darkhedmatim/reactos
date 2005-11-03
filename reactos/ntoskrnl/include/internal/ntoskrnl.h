@@ -83,7 +83,76 @@ RtlpLogException(IN PEXCEPTION_RECORD ExceptionRecord,
 
 #define ExRaiseStatus RtlRaiseStatus
 
-static const UNICODE_STRING __emptyUnicodeString = {0};
+/*
+ * Inlined Probing Macros
+ */
+static __inline
+NTSTATUS
+NTAPI
+ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
+                             KPROCESSOR_MODE CurrentMode,
+                             IN PUNICODE_STRING UnsafeSrc)
+{
+    NTSTATUS Status = STATUS_SUCCESS;
+    PVOID Buffer;
+    ASSERT(Dest != NULL);
+
+    /* Probe the structure and buffer*/
+    if(CurrentMode != KernelMode)
+    {
+        _SEH_TRY
+        {
+            ProbeForRead(UnsafeSrc,
+                         sizeof(UNICODE_STRING),
+                         sizeof(ULONG));
+            *Dest = *UnsafeSrc;
+            if(Dest->Length > 0)
+            {
+                ProbeForRead(Dest->Buffer,
+                             Dest->Length,
+                             sizeof(WCHAR));
+            }
+        }
+        _SEH_HANDLE
+        {
+            Status = _SEH_GetExceptionCode();
+        }
+        _SEH_END;
+
+        if (!NT_SUCCESS(Status)) return Status;
+    }
+    else
+    {
+        /* Just copy it directly */
+        *Dest = *UnsafeSrc;
+    }
+
+    /* Allocate space for the buffer */
+    Buffer = ExAllocatePool(PagedPool, Dest->MaximumLength);
+
+    if (Buffer != NULL)
+    {
+        /* Copy it */
+        RtlCopyMemory(Buffer, Dest->Buffer, Dest->MaximumLength);
+
+        /* Set it as the buffer */
+        Dest->Buffer = Buffer;
+    }
+    else
+        Status = STATUS_INSUFFICIENT_RESOURCES;
+
+    /* Return */
+    return Status;
+}
+
+static __inline
+VOID
+NTAPI
+ReleaseCapturedUnicodeString(IN PUNICODE_STRING CapturedString,
+                             KPROCESSOR_MODE CurrentMode)
+{
+    if(CurrentMode != KernelMode) ExFreePool(CapturedString->Buffer);
+}
 
 /*
  * NOTE: Alignment of the pointers is not verified!
@@ -114,13 +183,12 @@ static const UNICODE_STRING __emptyUnicodeString = {0};
 #define ProbeForWriteLangid(Ptr) ProbeForWriteGenericType(Ptr, LANGID)
 #define ProbeForWriteLargeInteger(Ptr) ProbeForWriteGenericType(&(Ptr)->QuadPart, LONGLONG)
 #define ProbeForWriteUlargeInteger(Ptr) ProbeForWriteGenericType(&(Ptr)->QuadPart, ULONGLONG)
-#define ProbeForWriteUnicodeString(Ptr) ProbeForWriteGenericType(Ptr, UNICODE_STRING)
 
 #define ProbeForReadGenericType(Ptr, Type, Default)                            \
     (((ULONG_PTR)(Ptr) + sizeof(Type) - 1 < (ULONG_PTR)(Ptr) ||                \
 	 (ULONG_PTR)(Ptr) + sizeof(Type) - 1 >= (ULONG_PTR)MmUserProbeAddress) ?   \
 	     ExRaiseStatus (STATUS_ACCESS_VIOLATION), Default :                    \
-	     *(volatile Type *)(Ptr))
+	     *(Type *)(Ptr))
 
 #define ProbeForReadBoolean(Ptr) ProbeForReadGenericType(Ptr, BOOLEAN, FALSE)
 #define ProbeForReadUchar(Ptr) ProbeForReadGenericType(Ptr, UCHAR, 0)
@@ -138,95 +206,6 @@ static const UNICODE_STRING __emptyUnicodeString = {0};
 #define ProbeForReadLangid(Ptr) ProbeForReadGenericType(Ptr, LANGID, 0)
 #define ProbeForReadLargeInteger(Ptr) ((LARGE_INTEGER)ProbeForReadGenericType(&(Ptr)->QuadPart, LONGLONG, 0))
 #define ProbeForReadUlargeInteger(Ptr) ((ULARGE_INTEGER)ProbeForReadGenericType(&(Ptr)->QuadPart, ULONGLONG, 0))
-#define ProbeForReadUnicodeString(Ptr) ProbeForReadGenericType(Ptr, UNICODE_STRING, __emptyUnicodeString)
-
-/*
- * Inlined Probing Macros
- */
-static __inline
-NTSTATUS
-NTAPI
-ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
-                             IN KPROCESSOR_MODE CurrentMode,
-                             IN PUNICODE_STRING UnsafeSrc)
-{
-    NTSTATUS Status = STATUS_SUCCESS;
-    WCHAR *Buffer;
-    ASSERT(Dest != NULL);
-
-    /* Probe the structure and buffer*/
-    if(CurrentMode != KernelMode)
-    {
-        _SEH_TRY
-        {
-            *Dest = ProbeForReadUnicodeString(UnsafeSrc);
-            if(Dest->Buffer != NULL)
-            {
-                if (Dest->Length != 0)
-                {
-                    ProbeForRead(Dest->Buffer,
-                                 Dest->Length,
-                                 sizeof(WCHAR));
-
-                    /* Allocate space for the buffer */
-                    Buffer = ExAllocatePoolWithTag(PagedPool,
-                                                   Dest->Length + sizeof(WCHAR),
-                                                   TAG('U', 'S', 'T', 'R'));
-                    if (Buffer == NULL)
-                    {
-                        Status = STATUS_INSUFFICIENT_RESOURCES;
-                        _SEH_LEAVE;
-                    }
-
-                    /* Copy it */
-                    RtlCopyMemory(Buffer, Dest->Buffer, Dest->Length);
-                    Buffer[Dest->Length / sizeof(WCHAR)] = UNICODE_NULL;
-
-                    /* Set it as the buffer */
-                    Dest->Buffer = Buffer;
-                }
-                else
-                {
-                    /* sanitize structure */
-                    Dest->MaximumLength = 0;
-                    Dest->Buffer = NULL;
-                }
-            }
-            else
-            {
-                /* sanitize structure */
-                Dest->Length = 0;
-                Dest->MaximumLength = 0;
-            }
-        }
-        _SEH_HANDLE
-        {
-            Status = _SEH_GetExceptionCode();
-        }
-        _SEH_END;
-    }
-    else
-    {
-        /* Just copy the UNICODE_STRING structure, don't allocate new memory!
-           We trust the caller to supply valid pointers and data. */
-        *Dest = *UnsafeSrc;
-    }
-
-    /* Return */
-    return Status;
-}
-
-static __inline
-VOID
-NTAPI
-ReleaseCapturedUnicodeString(IN PUNICODE_STRING CapturedString,
-                             IN KPROCESSOR_MODE CurrentMode)
-{
-    if(CurrentMode != KernelMode && CapturedString->Buffer != NULL)
-    {
-        ExFreePool(CapturedString->Buffer);
-    }
-}
 
 /*
  * generic information class probing code

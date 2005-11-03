@@ -19,7 +19,7 @@
 * @unimplemented
 */
 PRTL_SPLAY_LINKS
-NTAPI
+STDCALL
 RtlDelete (
 	PRTL_SPLAY_LINKS Links
 	)
@@ -32,7 +32,7 @@ RtlDelete (
 * @unimplemented
 */
 VOID
-NTAPI
+STDCALL
 RtlDeleteNoSplay (
 	PRTL_SPLAY_LINKS Links,
 	PRTL_SPLAY_LINKS *Root
@@ -46,7 +46,7 @@ RtlDeleteNoSplay (
 * @unimplemented
 */
 PRTL_SPLAY_LINKS
-NTAPI
+STDCALL
 RtlRealPredecessor (
 	PRTL_SPLAY_LINKS Links
 	)
@@ -59,7 +59,7 @@ RtlRealPredecessor (
 * @unimplemented
 */
 PRTL_SPLAY_LINKS
-NTAPI
+STDCALL
 RtlRealSuccessor (
 	PRTL_SPLAY_LINKS Links
 	)
@@ -72,7 +72,7 @@ RtlRealSuccessor (
 * @unimplemented
 */
 PRTL_SPLAY_LINKS
-NTAPI
+STDCALL
 RtlSplay (
 	PRTL_SPLAY_LINKS Links
 	)
@@ -85,7 +85,7 @@ RtlSplay (
 /*
 * @implemented
 */
-PRTL_SPLAY_LINKS NTAPI
+PRTL_SPLAY_LINKS STDCALL
 RtlSubtreePredecessor (IN PRTL_SPLAY_LINKS Links)
 {
    PRTL_SPLAY_LINKS Child;
@@ -107,7 +107,7 @@ RtlSubtreePredecessor (IN PRTL_SPLAY_LINKS Links)
 /*
 * @implemented
 */
-PRTL_SPLAY_LINKS NTAPI
+PRTL_SPLAY_LINKS STDCALL
 RtlSubtreeSuccessor (IN PRTL_SPLAY_LINKS Links)
 {
    PRTL_SPLAY_LINKS Child;

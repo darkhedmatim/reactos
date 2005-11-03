@@ -518,13 +518,7 @@ static void write_typeformatstring(type_t *iface)
                         if (type != NULL)
                             type_type = type->type;
 
-                        if (ref_attr)
-                            print_client("0x11, 0x00,    /* FC_RP */\n");
-                        else if (unique_attr)
-                            print_client("0x12, 0x00,    /* FC_UP */\n");
-                        else if (ptr_attr)
-                            print_client("0x14, 0x00,    /* FC_FP */\n");
-
+                        print_client("0x11, 0x00,    /* FC_RP */\n");
                         print_client("NdrFcShort(0x02),\n");
 
                         if (string_attr)
@@ -879,6 +873,10 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
                         if ((var->type->type == RPC_FC_CHAR ||
                              var->type->type == RPC_FC_WCHAR))
                         {
+                            if (ptr_attr)
+                            {
+                                /* FIXME: not supported yet */
+                            }
                             if (ref_attr)
                             {
                                 print_client("NdrConformantStringBufferSize(\n");
@@ -901,10 +899,6 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
                                 nothing_printed = 1;
                                 indent--;
                             }
-                            else if (ptr_attr)
-                            {
-                                /* FIXME: not supported yet */
-                            }
                         }
                     }
                     else
@@ -916,32 +910,14 @@ static void print_message_buffer_size(func_t *func, unsigned int *type_offset)
                                          ((var_t *)sizeis_attr)->name);
                             fprintf(client, "\n");
 
-                            if (ref_attr)
-                            {
-                                print_client("NdrConformantArrayBufferSize(\n");
-                                indent++;
-                                print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
-                                print_client("(unsigned char __RPC_FAR *)%s,\n", var->name);
-                                print_client("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
-                                             local_type_offset + 4);
-                                indent--;
-                                nothing_printed = 1;
-                            }
-                            else if (unique_attr)
-                            {
-                                print_client("NdrPointerBufferSize(\n");
-                                indent++;
-                                print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
-                                print_client("(unsigned char __RPC_FAR *)%s,\n", var->name);
-                                print_client("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
-                                             local_type_offset);
-                                nothing_printed = 1;
-                                indent--;
-                            }
-                            else if (ptr_attr)
-                            {
-                                /* FIXME: not supported yet */
-                            }
+                            print_client("NdrConformantArrayBufferSize(\n");
+                            indent++;
+                            print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
+                            print_client("(unsigned char __RPC_FAR *)%s,\n", var->name);
+                            print_client("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
+                                         local_type_offset + 4);
+                            indent--;
+                            nothing_printed = 1;
                         }
                     }
                 }
@@ -969,7 +945,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
     int ptr_attr, ref_attr, unique_attr;
     void *sizeis_attr;
     var_t *var;
-    int default_align = 0;
 
     if (!func->args)
         return;
@@ -1005,25 +980,25 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
                 string_attr = is_attr(var->attrs, ATTR_STRING);
                 sizeis_attr = get_attrp(var->attrs, ATTR_SIZEIS);
 
-                if (ref_attr)
+                if (sizeis_attr)
                 {
-                    if (sizeis_attr)
-                    {
-                        print_client("_StubMsg.MaxCount = %s;\n",
-                                     ((var_t *)sizeis_attr)->name);
-                        fprintf(client, "\n");
+                    print_client("_StubMsg.MaxCount = %s;\n",
+                                 ((var_t *)sizeis_attr)->name);
+                    fprintf(client, "\n");
 
-                        print_client("NdrConformantArrayMarshall(\n");
-                        indent++;
-                        print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
-                        print_client("(unsigned char __RPC_FAR *)%s,\n", var->name);
-                        print_client("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
-                                     local_type_offset + 4);
-                        indent--;
-                        fprintf(client, "\n");
-                        default_align = 1;
-                    }
-                    else
+                    print_client("NdrConformantArrayMarshall(\n");
+                    indent++;
+                    print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
+                    print_client("(unsigned char __RPC_FAR *)%s,\n", var->name);
+                    print_client("(PFORMAT_STRING)&__MIDL_TypeFormatString.Format[%u]);\n",
+                                 local_type_offset + 4);
+                    indent--;
+                    fprintf(client, "\n");
+                    print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                    fprintf(client, "\n");
+                }
+                else if (ref_attr)
+                {
                     if (string_attr &&
                         (var->type->type == RPC_FC_CHAR || var->type->type == RPC_FC_WCHAR))
                     {
@@ -1035,7 +1010,8 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
                                      local_type_offset + 2);
                         indent--;
                         fprintf(client, "\n");
-                        default_align = 1;
+                        print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                        fprintf(client, "\n");
                     }
                     else
                     {
@@ -1084,13 +1060,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
 
                         if (size != 0)
                         {
-                            if (default_align)
-                            {
-                                print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                                fprintf(client, "\n");
-                                default_align = 0;
-                            }
-                            else
                             if (alignment != 0)
                                 print_client("_StubMsg.Buffer += %u;\n", alignment);
 
@@ -1112,13 +1081,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
                 }
                 else if (unique_attr)
                 {
-                    if (sizeis_attr)
-                    {
-                        print_client("_StubMsg.MaxCount = %s;\n",
-                                     ((var_t *)sizeis_attr)->name);
-                        fprintf(client, "\n");
-                    }
-
                     print_client("NdrPointerMarshall(\n");
                     indent++;
                     print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
@@ -1127,7 +1089,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
                                  local_type_offset);
                     indent--;
                     fprintf(client, "\n");
-                    default_align = 1;
                 }
             }
             else
@@ -1179,14 +1140,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
 
                     if (size != 0)
                     {
-                        if (default_align)
-                        {
-                            fprintf(client, "\n");
-                            print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                            fprintf(client, "\n");
-                            default_align = 0;
-                        }
-                        else
                         if (alignment != 0)
                             print_client("_StubMsg.Buffer += %u;\n", alignment);
 
@@ -1217,7 +1170,6 @@ static void marshall_in_arguments(func_t *func, unsigned int *type_offset)
                                      local_type_offset + 4);
                         indent--;
                         fprintf(client, "\n");
-                        default_align = 1;
                     }
                 }
             }
@@ -1241,7 +1193,6 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
     var_t *var;
     var_t *def;
     unsigned int local_type_offset = *type_offset;
-    int default_align = 0;
 
     def = func->def;
 
@@ -1285,7 +1236,8 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
                         print_client("(unsigned char)0);\n");
                         indent--;
                         fprintf(client, "\n");
-                        default_align = 1;
+                        print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                        fprintf(client, "\n");
                     }
                     else
                     {
@@ -1299,7 +1251,8 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
                         print_client("(unsigned char)0);\n");
                         indent--;
                         fprintf(client, "\n");
-                        default_align = 1;
+                        print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
+                        fprintf(client, "\n");
                     }
                 }
                 else if (is_base_type(var->type))
@@ -1351,9 +1304,12 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
                     {
                         if (var->ptr_level == 1)
                         {
+                            fprintf(client, "\n");
+                            if (alignment != 0)
+                                print_client("_StubMsg.Buffer += %u;\n", alignment);
+
                             if (unique_attr)
                             {
-                                fprintf(client, "\n");
                                 print_client("NdrPointerUnmarshall(\n");
                                 indent++;
                                 print_client("(PMIDL_STUB_MESSAGE)&_StubMsg,\n");
@@ -1363,22 +1319,9 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
                                 print_client("(unsigned char)0);\n");
                                 indent--;
                                 fprintf(client, "\n");
-                                default_align = 1;
                             }
                             else
                             {
-                                fprintf(client, "\n");
-                                if (default_align)
-                                {
-                                    print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-                                    fprintf(client, "\n");
-                                    default_align = 0;
-                                }
-                                else
-                                if (alignment != 0)
-                                    print_client("_StubMsg.Buffer += %u;\n", alignment);
-
-
                                 print_client("*");
                                 write_name(client, var);
                                 fprintf(client, " = *((");
@@ -1408,7 +1351,6 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
                         print_client("(unsigned char)0);\n");
                         indent--;
                         fprintf(client, "\n");
-                        default_align = 1;
                     }
                 }
                 else
@@ -1458,13 +1400,6 @@ static void unmarshall_out_arguments(func_t *func, unsigned int *type_offset)
         }
 
        fprintf(client, "\n");
-       if (default_align)
-       {
-           print_client("_StubMsg.Buffer = (unsigned char __RPC_FAR *)(((long)_StubMsg.Buffer + 3) & ~0x3);\n");
-           fprintf(client, "\n");
-           default_align = 0;
-       }
-       else
        if (alignment != 0)
            print_client("_StubMsg.Buffer += %u;\n", alignment);
        print_client("_RetVal = *((");

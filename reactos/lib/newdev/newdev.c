@@ -7,34 +7,28 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#define NDEBUG
-#include <debug.h>
-
 #include "newdev.h"
 
 BOOL WINAPI
 DevInstallW(
-	IN HWND hWndParent,
-	IN HINSTANCE hInstance,
+	IN HWND Hwnd,
+	IN HINSTANCE Handle,
 	IN LPCWSTR InstanceId,
 	IN INT Show)
 {
 	HDEVINFO hDevInfo;
 	SP_DEVINFO_DATA devInfoData;
-	DWORD requiredSize;
-	DWORD regDataType;
-	PBYTE buffer = NULL;
-	SP_DRVINFO_DATA drvInfoData;
+	SP_DRVINFO_DATA_W drvInfoData;
+	DWORD index;
 	BOOL ret;
 
-	devInfoData.cbSize = 0; /* Tell if the devInfoData is valid */
+	DPRINT1("Installing device %S\n", InstanceId);
 
 	hDevInfo = SetupDiCreateDeviceInfoListExW(NULL, NULL, NULL, NULL);
 	if (hDevInfo == INVALID_HANDLE_VALUE)
 	{
-		DPRINT("SetupDiCreateDeviceInfoListExW() failed with error 0x%lx\n", GetLastError());
-		ret = FALSE;
-		goto cleanup;
+		DPRINT1("SetupDiCreateDeviceInfoListExW() failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -46,66 +40,42 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiOpenDeviceInfoW() failed with error 0x%lx\n", GetLastError());
-		devInfoData.cbSize = 0;
-		goto cleanup;
+		DPRINT1("SetupDiOpenDeviceInfoW() failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
-
-	SetLastError(ERROR_GEN_FAILURE);
-	ret = SetupDiGetDeviceRegistryProperty(
-		hDevInfo,
-		&devInfoData,
-		SPDRP_DEVICEDESC,
-		&regDataType,
-		NULL, 0,
-		&requiredSize);
-	if (!ret && GetLastError() == ERROR_INSUFFICIENT_BUFFER && regDataType == REG_SZ)
-	{
-		buffer = HeapAlloc(GetProcessHeap(), 0, requiredSize);
-		if (!buffer)
-		{
-			DPRINT("HeapAlloc() failed\n");
-			SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-		}
-		else
-		{
-			ret = SetupDiGetDeviceRegistryProperty(
-				hDevInfo,
-				&devInfoData,
-				SPDRP_DEVICEDESC,
-				&regDataType,
-				buffer, requiredSize,
-				&requiredSize);
-		}
-	}
-	if (!ret)
-	{
-		DPRINT("SetupDiGetDeviceRegistryProperty() failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
-	}
-
-	DPRINT("Installing %s (%S)\n", buffer, InstanceId);
 
 	ret = SetupDiBuildDriverInfoList(hDevInfo, &devInfoData, SPDIT_COMPATDRIVER);
 	if (!ret)
 	{
-		DPRINT("SetupDiBuildDriverInfoList() failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiBuildDriverInfoList() failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
-	drvInfoData.cbSize = sizeof(SP_DRVINFO_DATA);
-	ret = SetupDiEnumDriverInfo(
-		hDevInfo,
-		&devInfoData,
-		SPDIT_COMPATDRIVER,
-		0,
-		&drvInfoData);
-	if (!ret)
+#ifndef NDEBUG
+	ret = TRUE;
+	index = 0;
+	drvInfoData.cbSize = sizeof(SP_DRVINFO_DATA_W);
+	while (ret)
 	{
-		DPRINT("SetupDiEnumDriverInfo() failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		ret = SetupDiEnumDriverInfoW(
+			hDevInfo,
+			&devInfoData,
+			SPDIT_COMPATDRIVER,
+			index,
+			&drvInfoData);
+		if (!ret)
+		{
+			if (GetLastError() != ERROR_NO_MORE_ITEMS)
+			{
+				DPRINT1("SetupDiEnumDriverInfoW() failed with error 0x%lx\n", GetLastError());
+				return FALSE;
+			}
+			break;
+		}
+		index++;
+		DPRINT1("- %S: %S\n", drvInfoData.MfgName, drvInfoData.Description);
 	}
-	DPRINT("Installing driver %s: %s\n", drvInfoData.MfgName, drvInfoData.Description);
+#endif
 
 	ret = SetupDiCallClassInstaller(
 		DIF_SELECTBESTCOMPATDRV,
@@ -113,8 +83,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -123,8 +93,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_ALLOW_INSTALL) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_ALLOW_INSTALL) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -133,8 +103,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_PREANALYZE) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_PREANALYZE) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -143,8 +113,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_POSTANALYZE) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_POSTANALYZE) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -153,8 +123,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_INSTALLDEVICEFILES) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_INSTALLDEVICEFILES) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -163,8 +133,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_REGISTER_COINSTALLERS) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_REGISTER_COINSTALLERS) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -173,8 +143,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_INSTALLINTERFACES) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_INSTALLINTERFACES) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -183,8 +153,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_INSTALLDEVICE) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_INSTALLDEVICE) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -193,8 +163,8 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_FINISHINSTALL) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_NEWDEVICEWIZARD_FINISHINSTALL) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
 	ret = SetupDiCallClassInstaller(
@@ -203,25 +173,23 @@ DevInstallW(
 		&devInfoData);
 	if (!ret)
 	{
-		DPRINT("SetupDiCallClassInstaller(DIF_DESTROYPRIVATEDATA) failed with error 0x%lx\n", GetLastError());
-		goto cleanup;
+		DPRINT1("SetupDiCallClassInstaller(DIF_DESTROYPRIVATEDATA) failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
-cleanup:
-	if (devInfoData.cbSize != 0)
+	ret = SetupDiDestroyDriverInfoList(hDevInfo, &devInfoData, SPDIT_COMPATDRIVER);
+	if (!ret)
 	{
-		if (!SetupDiDestroyDriverInfoList(hDevInfo, &devInfoData, SPDIT_COMPATDRIVER))
-			DPRINT("SetupDiDestroyDriverInfoList() failed with error 0x%lx\n", GetLastError());
+		DPRINT1("SetupDiDestroyDriverInfoList() failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
-	if (hDevInfo != INVALID_HANDLE_VALUE)
+	ret = SetupDiDestroyDeviceInfoList(hDevInfo);
+	if (!ret)
 	{
-		if (!SetupDiDestroyDeviceInfoList(hDevInfo))
-			DPRINT("SetupDiDestroyDeviceInfoList() failed with error 0x%lx\n", GetLastError());
+		DPRINT1("SetupDiDestroyDeviceInfoList() failed with error 0x%lx\n", GetLastError());
+		return FALSE;
 	}
 
-	if (buffer)
-		HeapFree(GetProcessHeap(), 0, buffer);
-
-	return ret;
+	return TRUE;
 }

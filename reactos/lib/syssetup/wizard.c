@@ -38,7 +38,6 @@
 #include "globals.h"
 #include "resource.h"
 
-#define VMWINST
 
 /* GLOBALS ******************************************************************/
 
@@ -46,47 +45,6 @@ static SETUPDATA SetupData;
 
 
 /* FUNCTIONS ****************************************************************/
-
-#ifdef VMWINST
-static BOOL
-RunVMWInstall(HWND hWnd)
-{
-  PROCESS_INFORMATION ProcInfo;
-  MSG msg;
-  DWORD ret;
-  STARTUPINFO si = {0};
-  WCHAR InstallName[] = L"vmwinst.exe";
-
-  si.cb = sizeof(STARTUPINFO);
-
-  if(CreateProcess(NULL, InstallName, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS,
-                   NULL, NULL, &si, &ProcInfo))
-  {
-    EnableWindow(hWnd, FALSE);
-    for (;;)
-    {
-      while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-      {
-        if (msg.message == WM_QUIT)
-          goto done;
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-      }
-
-      ret = MsgWaitForMultipleObjects(1, &ProcInfo.hProcess, FALSE, INFINITE, QS_ALLEVENTS | QS_ALLINPUT);
-      if (ret == WAIT_OBJECT_0)
-        break;
-    }
-done:
-    EnableWindow(hWnd, TRUE);
-
-    CloseHandle(ProcInfo.hThread);
-    CloseHandle(ProcInfo.hProcess);
-    return TRUE;
-  }
-  return FALSE;
-}
-#endif
 
 static VOID
 CenterWindow(HWND hWnd)
@@ -138,7 +96,7 @@ CreateTitleFont(VOID)
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 GplDlgProc(HWND hwndDlg,
            UINT uMsg,
            WPARAM wParam,
@@ -207,7 +165,7 @@ GplDlgProc(HWND hwndDlg,
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 WelcomeDlgProc(HWND hwndDlg,
                UINT uMsg,
                WPARAM wParam,
@@ -273,7 +231,7 @@ WelcomeDlgProc(HWND hwndDlg,
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 AckPageDlgProc(HWND hwndDlg,
                  UINT uMsg,
                  WPARAM wParam,
@@ -365,7 +323,7 @@ AckPageDlgProc(HWND hwndDlg,
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 OwnerPageDlgProc(HWND hwndDlg,
                  UINT uMsg,
                  WPARAM wParam,
@@ -455,7 +413,7 @@ OwnerPageDlgProc(HWND hwndDlg,
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 ComputerPageDlgProc(HWND hwndDlg,
                     UINT uMsg,
                     WPARAM wParam,
@@ -618,8 +576,8 @@ SetKeyboardLayoutName(HWND hwnd)
 static VOID
 RunInputLocalePage(HWND hwnd)
 {
-  PROPSHEETPAGE psp = {0};
-  PROPSHEETHEADER psh = {0};
+  PROPSHEETPAGE psp;
+  PROPSHEETHEADER psh;
   HMODULE hDll;
 //  TCHAR Caption[256];
 
@@ -627,6 +585,7 @@ RunInputLocalePage(HWND hwnd)
   if (hDll == NULL)
     return;
 
+  ZeroMemory(&psp, sizeof(PROPSHEETPAGE));
   psp.dwSize = sizeof(PROPSHEETPAGE);
   psp.dwFlags = PSP_DEFAULT;
   psp.hInstance = hDll;
@@ -635,6 +594,7 @@ RunInputLocalePage(HWND hwnd)
 
 //  LoadString(hDll, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
 
+  ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
   psh.dwSize = sizeof(PROPSHEETHEADER);
   psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE;
 //  psh.hwndParent = hwnd;
@@ -651,7 +611,7 @@ RunInputLocalePage(HWND hwnd)
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 LocalePageDlgProc(HWND hwndDlg,
                   UINT uMsg,
                   WPARAM wParam,
@@ -1218,7 +1178,7 @@ SetSystemLocalTime(HWND hwnd, PSETUPDATA SetupData)
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 DateTimePageDlgProc(HWND hwndDlg,
                     UINT uMsg,
                     WPARAM wParam,
@@ -1292,7 +1252,7 @@ DateTimePageDlgProc(HWND hwndDlg,
 }
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 ProcessPageDlgProc(HWND hwndDlg,
                    UINT uMsg,
                    WPARAM wParam,
@@ -1320,24 +1280,12 @@ ProcessPageDlgProc(HWND hwndDlg,
 
            hWndProgress = GetDlgItem(hwndDlg, IDC_PROCESSPROGRESS);
            Position = SendMessage(hWndProgress, PBM_GETPOS, 0, 0);
-           if (Position == 2)
+           if (Position == 300)
            {
-             KillTimer(hwndDlg, 1);
-
-             /* Enable the Back and Next buttons */
-             PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_NEXT);
              PropSheet_PressButton(GetParent(hwndDlg), PSBTN_NEXT);
            }
            else
            {
-#ifdef VMWINST
-             if (Position == 1)
-             {
-                KillTimer(hwndDlg, 1);
-                RunVMWInstall(GetParent(hwndDlg));
-                SetTimer(hwndDlg, 1, 50, NULL);
-             }
-#endif
              SendMessage(hWndProgress, PBM_SETPOS, Position + 1, 0);
            }
          }
@@ -1354,11 +1302,14 @@ ProcessPageDlgProc(HWND hwndDlg,
                 PropSheet_SetWizButtons(GetParent(hwndDlg), 0);
 
                 SendDlgItemMessage(hwndDlg, IDC_PROCESSPROGRESS, PBM_SETRANGE, 0,
-                                   MAKELPARAM(0, 2));
+                                   MAKELPARAM(0, 300));
                 SetTimer(hwndDlg, 1, 50, NULL);
                 break;
 
               case PSN_WIZNEXT:
+
+                /* Enable the Back and Next buttons */
+                PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
                 break;
 
               default:
@@ -1376,7 +1327,7 @@ ProcessPageDlgProc(HWND hwndDlg,
 
 
 
-static INT_PTR CALLBACK
+INT_PTR CALLBACK
 FinishDlgProc(HWND hwndDlg,
               UINT uMsg,
               WPARAM wParam,
@@ -1401,25 +1352,6 @@ FinishDlgProc(HWND hwndDlg,
         }
         break;
 
-      case WM_TIMER:
-         {
-           INT Position;
-           HWND hWndProgress;
-
-           hWndProgress = GetDlgItem(hwndDlg, IDC_RESTART_PROGRESS);
-           Position = SendMessage(hWndProgress, PBM_GETPOS, 0, 0);
-           if (Position == 300)
-           {
-             KillTimer(hwndDlg, 1);
-             PropSheet_PressButton(GetParent(hwndDlg), PSBTN_FINISH);
-           }
-           else
-           {
-             SendMessage(hWndProgress, PBM_SETPOS, Position + 1, 0);
-           }
-         }
-         return TRUE;
-
       case WM_NOTIFY:
         {
           LPNMHDR lpnm = (LPNMHDR)lParam;
@@ -1429,21 +1361,11 @@ FinishDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the correct buttons on for the active page */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_FINISH);
-                
-                SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETRANGE, 0,
-                                   MAKELPARAM(0, 300));
-                SendDlgItemMessage(hwndDlg, IDC_RESTART_PROGRESS, PBM_SETPOS, 0, 0);
-                SetTimer(hwndDlg, 1, 50, NULL);
                 break;
 
               case PSN_WIZBACK:
                 /* Handle a Back button click, if necessary */
-                KillTimer(hwndDlg, 1);
-
-                /* Skip the progress page */
-                PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_DATETIMEPAGE);
-                SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
-                return TRUE;
+                break;
 
               case PSN_WIZFINISH:
                 /* Handle a Finish button click, if necessary */
@@ -1468,20 +1390,20 @@ InstallWizard(VOID)
 {
   PROPSHEETHEADER psh;
   HPROPSHEETPAGE ahpsp[8];
-  PROPSHEETPAGE psp = {0};
-  UINT nPages = 0;
+  PROPSHEETPAGE psp;
 
   /* Clear setup data */
   ZeroMemory(&SetupData, sizeof(SETUPDATA));
 
   /* Create the Welcome page */
+  ZeroMemory (&psp, sizeof(PROPSHEETPAGE));
   psp.dwSize = sizeof(PROPSHEETPAGE);
   psp.dwFlags = PSP_DEFAULT | PSP_HIDEHEADER;
   psp.hInstance = hDllInstance;
   psp.lParam = (LPARAM)&SetupData;
   psp.pfnDlgProc = WelcomeDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_WELCOMEPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[0] = CreatePropertySheetPage(&psp);
 
   /* Create the Acknowledgements page */
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
@@ -1489,7 +1411,7 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_ACKSUBTITLE);
   psp.pszTemplate = MAKEINTRESOURCE(IDD_ACKPAGE);
   psp.pfnDlgProc = AckPageDlgProc;
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[1] = CreatePropertySheetPage(&psp);
 
   /* Create the Owner page */
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
@@ -1497,7 +1419,7 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_OWNERSUBTITLE);
   psp.pszTemplate = MAKEINTRESOURCE(IDD_OWNERPAGE);
   psp.pfnDlgProc = OwnerPageDlgProc;
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[2] = CreatePropertySheetPage(&psp);
 
   /* Create the Computer page */
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
@@ -1505,7 +1427,7 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_COMPUTERSUBTITLE);
   psp.pfnDlgProc = ComputerPageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_COMPUTERPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[3] = CreatePropertySheetPage(&psp);
 
 
   /* Create the Locale page */
@@ -1514,7 +1436,7 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_LOCALESUBTITLE);
   psp.pfnDlgProc = LocalePageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_LOCALEPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[4] = CreatePropertySheetPage(&psp);
 
 
   /* Create the DateTime page */
@@ -1523,30 +1445,32 @@ InstallWizard(VOID)
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_DATETIMESUBTITLE);
   psp.pfnDlgProc = DateTimePageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_DATETIMEPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[5] = CreatePropertySheetPage(&psp);
 
 
   /* Create the Process page */
+#if 0
   psp.dwFlags = PSP_DEFAULT | PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
   psp.pszHeaderTitle = MAKEINTRESOURCE(IDS_PROCESSTITLE);
   psp.pszHeaderSubTitle = MAKEINTRESOURCE(IDS_PROCESSSUBTITLE);
   psp.pfnDlgProc = ProcessPageDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_PROCESSPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[6] = CreatePropertySheetPage(&psp);
+#endif
 
 
   /* Create the Finish page */
   psp.dwFlags = PSP_DEFAULT | PSP_HIDEHEADER;
   psp.pfnDlgProc = FinishDlgProc;
   psp.pszTemplate = MAKEINTRESOURCE(IDD_FINISHPAGE);
-  ahpsp[nPages++] = CreatePropertySheetPage(&psp);
+  ahpsp[6] = CreatePropertySheetPage(&psp);
 
   /* Create the property sheet */
   psh.dwSize = sizeof(PROPSHEETHEADER);
   psh.dwFlags = PSH_WIZARD97 | PSH_WATERMARK | PSH_HEADER;
   psh.hInstance = hDllInstance;
   psh.hwndParent = NULL;
-  psh.nPages = nPages;
+  psh.nPages = 7;
   psh.nStartPage = 0;
   psh.phpage = ahpsp;
   psh.pszbmWatermark = MAKEINTRESOURCE(IDB_WATERMARK);

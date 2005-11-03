@@ -208,19 +208,12 @@ DWORD STDCALL NtGdiDdCreateSurface(
 )
 {
 	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
+	
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puCreateSurfaceData->lpDD;
-
-	/* use our cache version instead */
-	puCreateSurfaceData->lpDD = &pDirectDraw->Global;
-	
-	/* make the call */
 	if (!(pDirectDraw->DD.dwFlags & DDHAL_CB32_CANCREATESURFACE))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
@@ -228,9 +221,6 @@ DWORD STDCALL NtGdiDdCreateSurface(
 	   ddRVal = pDirectDraw->DD.CreateSurface(puCreateSurfaceData);	 
 	}
 
-	/* But back the orignal PDev */
-	puCreateSurfaceData->lpDD = lgpl;
-    
 	GDIOBJ_UnlockObjByPtr(pDirectDraw);	
 	return ddRVal;
 }
@@ -241,26 +231,14 @@ DWORD STDCALL NtGdiDdWaitForVerticalBlank(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
-
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puWaitForVerticalBlankData->lpDD;
-
-	/* use our cache version instead */
-	puWaitForVerticalBlankData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->DD.dwFlags & DDHAL_CB32_WAITFORVERTICALBLANK))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else	
   	    ddRVal = pDirectDraw->DD.WaitForVerticalBlank(puWaitForVerticalBlankData);
-
-	/* But back the orignal PDev */
-	puWaitForVerticalBlankData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
 	return ddRVal;
@@ -272,26 +250,15 @@ DWORD STDCALL NtGdiDdCanCreateSurface(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puCanCreateSurfaceData->lpDD;
-
-	/* use our cache version instead */
-	puCanCreateSurfaceData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->DD.dwFlags & DDHAL_CB32_CANCREATESURFACE))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else	
 	    ddRVal = pDirectDraw->DD.CanCreateSurface(puCanCreateSurfaceData);
-
-	/* But back the orignal PDev */
-	puCanCreateSurfaceData->lpDD = lgpl;
 
 	GDIOBJ_UnlockObjByPtr(pDirectDraw);
 	return ddRVal;
@@ -303,26 +270,15 @@ DWORD STDCALL NtGdiDdGetScanLine(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puGetScanLineData->lpDD;
-
-	/* use our cache version instead */
-	puGetScanLineData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->DD.dwFlags & DDHAL_CB32_GETSCANLINE))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else	
 	    ddRVal = pDirectDraw->DD.GetScanLine(puGetScanLineData);
-
-	/* But back the orignal PDev */
-	puGetScanLineData->lpDD = lgpl;
 
 	GDIOBJ_UnlockObjByPtr(pDirectDraw);
 	return ddRVal;
@@ -365,7 +321,6 @@ DWORD STDCALL NtGdiDdDestroySurface(
         ddRVal = pDirectDraw->Surf.DestroySurface(&DestroySurf); 
 	}
 
-	
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;			
 }
@@ -379,26 +334,15 @@ DWORD STDCALL NtGdiDdFlip(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurfaceTarget, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puFlipData->lpDD;
-
-	/* use our cache version instead */
-	puFlipData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_FLIP))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.Flip(puFlipData);
-
-	/* But back the orignal PDev */
-	puFlipData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;		
@@ -411,26 +355,15 @@ DWORD STDCALL NtGdiDdLock(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurface, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puLockData->lpDD;
-
-	/* use our cache version instead */
-	puLockData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_LOCK))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.Lock(puLockData);
-
-	/* But back the orignal PDev */
-	puLockData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;		
@@ -442,26 +375,15 @@ DWORD STDCALL NtGdiDdUnlock(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurface, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puUnlockData->lpDD;
-
-	/* use our cache version instead */
-	puUnlockData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_UNLOCK))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.Unlock(puUnlockData);
-
-	/* But back the orignal PDev */
-	puUnlockData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);    
 	return ddRVal;
@@ -474,26 +396,15 @@ DWORD STDCALL NtGdiDdBlt(
 )
 {
     DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
     PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurfaceDest, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puBltData->lpDD;
-
-	/* use our cache version instead */
-	puBltData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_BLT))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.Blt(puBltData);
-
-	/* But back the orignal PDev */
-	puBltData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;
@@ -505,26 +416,15 @@ DWORD STDCALL NtGdiDdSetColorKey(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurface, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puSetColorKeyData->lpDD;
-
-	/* use our cache version instead */
-	puSetColorKeyData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_SETCOLORKEY))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.SetColorKey(puSetColorKeyData);
-
-	/* But back the orignal PDev */
-	puSetColorKeyData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;	
@@ -538,26 +438,15 @@ DWORD STDCALL NtGdiDdAddAttachedSurface(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurfaceAttached, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puAddAttachedSurfaceData->lpDD;
-
-	/* use our cache version instead */
-	puAddAttachedSurfaceData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_ADDATTACHEDSURFACE))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.AddAttachedSurface(puAddAttachedSurfaceData);
-
-	/* But back the orignal PDev */
-	puAddAttachedSurfaceData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;	
@@ -569,26 +458,15 @@ DWORD STDCALL NtGdiDdGetBltStatus(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurface, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puGetBltStatusData->lpDD;
-
-	/* use our cache version instead */
-	puGetBltStatusData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_GETBLTSTATUS))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.GetBltStatus(puGetBltStatusData);
-
-	/* But back the orignal PDev */
-	puGetBltStatusData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;		
@@ -600,26 +478,15 @@ DWORD STDCALL NtGdiDdGetFlipStatus(
 )
 {
     DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurface, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puGetFlipStatusData->lpDD;
-
-	/* use our cache version instead */
-	puGetFlipStatusData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_GETFLIPSTATUS))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.GetFlipStatus(puGetFlipStatusData);
-
-	/* But back the orignal PDev */
-	puGetFlipStatusData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;		
@@ -632,26 +499,15 @@ DWORD STDCALL NtGdiDdUpdateOverlay(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
     PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurfaceDestination, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puUpdateOverlayData->lpDD;
-
-	/* use our cache version instead */
-	puUpdateOverlayData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_UPDATEOVERLAY))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.UpdateOverlay(puUpdateOverlayData);
-
-	/* But back the orignal PDev */
-	puUpdateOverlayData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;
@@ -664,26 +520,15 @@ DWORD STDCALL NtGdiDdSetOverlayPosition(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
     PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hSurfaceDestination, GDI_OBJECT_TYPE_DIRECTDRAW);
 	if (pDirectDraw == NULL) 
 		return DDHAL_DRIVER_NOTHANDLED;
 
-	/* backup the orignal PDev and info */
-	lgpl = puSetOverlayPositionData->lpDD;
-
-	/* use our cache version instead */
-	puSetOverlayPositionData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
 	if (!(pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_SETOVERLAYPOSITION))
 		ddRVal = DDHAL_DRIVER_NOTHANDLED;
 	else
         ddRVal = pDirectDraw->Surf.SetOverlayPosition(puSetOverlayPositionData);
-
-	/* But back the orignal PDev */
-	puSetOverlayPositionData->lpDD = lgpl;
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
     return ddRVal;
@@ -786,24 +631,12 @@ DWORD STDCALL NtGdiDdGetAvailDriverMemory(
 )
 {
 	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 
-	/* backup the orignal PDev and info */
-	lgpl = puGetAvailDriverMemoryData->lpDD;
-
-	/* use our cache version instead */
-	puGetAvailDriverMemoryData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
    // ddRVal = pDirectDraw->DdGetAvailDriverMemory(puGetAvailDriverMemoryData); 
  
 	GDIOBJ_UnlockObjByPtr(pDirectDraw);
-
-
-	/* But back the orignal PDev */
-	puGetAvailDriverMemoryData->lpDD = lgpl;
 
 	return ddRVal;
 }
@@ -817,23 +650,12 @@ DWORD STDCALL NtGdiDdSetExclusiveMode(
 )
 {
 	DWORD  ddRVal;
-	PDD_DIRECTDRAW_GLOBAL lgpl;
 
 	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(hDirectDraw, GDI_OBJECT_TYPE_DIRECTDRAW);
 
-	/* backup the orignal PDev and info */
-	lgpl = puSetExclusiveModeData->lpDD;
-
-	/* use our cache version instead */
-	puSetExclusiveModeData->lpDD = &pDirectDraw->Global;
-
-	/* make the call */
     ddRVal = pDirectDraw->DdSetExclusiveMode(puSetExclusiveModeData);
 
     GDIOBJ_UnlockObjByPtr(pDirectDraw);
-
-	/* But back the orignal PDev */
-	puSetExclusiveModeData->lpDD = lgpl;
     
 	return ddRVal;	
 }

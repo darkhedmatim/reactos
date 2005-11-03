@@ -203,14 +203,6 @@ MmCreatePeb(PEPROCESS Process)
 
     DPRINT("MmCreatePeb\n");
 
-    /* Allocate the PEB */
-    Peb = MiCreatePebOrTeb(Process, (PVOID)PEB_BASE);
-    if (Peb != (PVOID)PEB_BASE)
-    {
-        DPRINT1("MiCreatePebOrTeb() returned %x\n", Peb);
-        return STATUS_UNSUCCESSFUL;
-    }
-
     /* Map NLS Tables */
     DPRINT("Mapping NLS\n");
     Status = MmMapViewOfSection(NlsSectionObject,
@@ -232,6 +224,9 @@ MmCreatePeb(PEPROCESS Process)
 
     /* Attach to Process */
     KeAttachProcess(&Process->Pcb);
+
+    /* Allocate the PEB */
+    Peb = MiCreatePebOrTeb(Process, (PVOID)PEB_BASE);
 
     /* Initialize the PEB */
     DPRINT("Allocated: %x\n", Peb);
@@ -478,8 +473,10 @@ MmCreateProcessAddressSpace(IN PEPROCESS Process,
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("Failed to map process Image\n");
+            ObDereferenceObject(Section);
             goto exit;
         }
+        ObDereferenceObject(Section);
 
         /* Save the pointer */
         Process->SectionBaseAddress = ImageBase;

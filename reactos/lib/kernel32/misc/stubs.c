@@ -592,6 +592,17 @@ GetDevicePowerState(
     return 0;
 }
 
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+GetNativeSystemInfo(
+    LPSYSTEM_INFO lpSystemInfo
+    )
+{
+    STUB;
+}
 
 /*
  * @unimplemented
@@ -709,8 +720,7 @@ IsWow64Process(
     )
 {
     STUB;
-    *Wow64Process = FALSE;
-    return TRUE;
+    return 0;
 }
 
 /*
@@ -1148,6 +1158,20 @@ GetModuleHandleExW(
 /*
  * @unimplemented
  */
+UINT
+STDCALL
+GetSystemWow64DirectoryW(
+    LPWSTR lpBuffer,
+    UINT uSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
 BOOL
 STDCALL
 GetVolumeNameForVolumeMountPointW(
@@ -1370,6 +1394,20 @@ GetModuleHandleExA(
     DWORD        dwFlags,
     LPCSTR     lpModuleName,
     HMODULE*    phModule
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetSystemWow64DirectoryA(
+    LPSTR lpBuffer,
+    UINT uSize
     )
 {
     STUB;

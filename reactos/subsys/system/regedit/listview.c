@@ -223,7 +223,7 @@ static void AddEntryToList(HWND hwndLV, LPTSTR Name, DWORD dwValType, void* ValB
                 LPTSTR strBinary;
                 if(dwCount > 0)
                 {
-                    strBinary = HeapAlloc(GetProcessHeap(), 0, (dwCount * sizeof(TCHAR) * 3) + sizeof(TCHAR));
+                    strBinary = HeapAlloc(GetProcessHeap(), 0, (dwCount * sizeof(TCHAR) * 3) + 1);
                     for (i = 0; i < dwCount; i++)
                     {
                         wsprintf( strBinary + i*3, _T("%02X "), pData[i] );
@@ -492,24 +492,6 @@ HWND CreateListView(HWND hwndParent, int id)
 fail:
     DestroyWindow(hwndLV);
     return NULL;
-}
-
-void DestroyListView(HWND hwndLV) {
-    INT count, i;
-	LVITEM item;
-
-    if (g_valueName)
-        HeapFree(GetProcessHeap(), 0, g_valueName);
-
-    count = ListView_GetItemCount(hwndLV);
-    for (i = 0; i < count; i++) {
-        item.mask = LVIF_PARAM;
-        item.iItem = i;
-        ListView_GetItem(hwndLV, &item);
-        free(((LINE_INFO*)item.lParam)->name);
-        HeapFree(GetProcessHeap(), 0, (void*)item.lParam);
-    }
- 
 }
 
 BOOL RefreshListView(HWND hwndLV, HKEY hKey, LPCTSTR keyPath)

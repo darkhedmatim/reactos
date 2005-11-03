@@ -19,7 +19,7 @@
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PropertyLengthAsVariant (
 	DWORD	Unknown0,
 	DWORD	Unknown1,
@@ -34,7 +34,7 @@ PropertyLengthAsVariant (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlCompareVariants (
 	DWORD	Unknown0,
 	DWORD	Unknown1,
@@ -48,7 +48,7 @@ RtlCompareVariants (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlConvertPropertyToVariant (
 	DWORD	Unknown0,
 	DWORD	Unknown1,
@@ -63,7 +63,7 @@ RtlConvertPropertyToVariant (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 RtlConvertVariantToProperty (
 	DWORD	Unknown0,
 	DWORD	Unknown1,

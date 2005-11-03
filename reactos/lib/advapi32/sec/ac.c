@@ -247,10 +247,7 @@ STDCALL
 AddAccessDeniedObjectAce(
 	PACL	pAcl,
 	DWORD	dwAceRevision,
-	DWORD	AceFlags,
 	DWORD	AccessMask,
-	GUID*   ObjectTypeGuid,
-	GUID*   InheritedObjectTypeGuid,
 	PSID	pSid)
 {
 	DPRINT1("%s() not implemented!\n", __FUNCTION__);
@@ -695,62 +692,5 @@ GetExplicitEntriesFromAclW(
     return ErrorCode;
 }
 
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetEffectiveRightsFromAclW(IN PACL pacl,
-                           IN PTRUSTEE_W pTrustee,
-                           OUT PACCESS_MASK pAccessRights)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetEffectiveRightsFromAclA(IN PACL pacl,
-                           IN PTRUSTEE_A pTrustee,
-                           OUT PACCESS_MASK pAccessRights)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetAuditedPermissionsFromAclW(IN PACL pacl,
-                              IN PTRUSTEE_W pTrustee,
-                              OUT PACCESS_MASK pSuccessfulAuditedRights,
-                              OUT PACCESS_MASK pFailedAuditRights)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-GetAuditedPermissionsFromAclA(IN PACL pacl,
-                              IN PTRUSTEE_A pTrustee,
-                              OUT PACCESS_MASK pSuccessfulAuditedRights,
-                              OUT PACCESS_MASK pFailedAuditRights)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
 
 /* EOF */

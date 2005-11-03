@@ -27,14 +27,12 @@
 
 /* INCLUDES *****************************************************************/
 
-#define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
 #include <commctrl.h>
 #include <stdio.h>
-#include <io.h>
 #include <tchar.h>
 #include <stdlib.h>
 
@@ -49,6 +47,8 @@
 
 #include "globals.h"
 #include "resource.h"
+
+#define VMWINST
 
 
 /* GLOBALS ******************************************************************/
@@ -76,6 +76,30 @@ DebugPrint(char* fmt,...)
 	      "ReactOS Setup",
 	      MB_OK);
 }
+
+
+#ifdef VMWINST
+static BOOL
+RunVMWInstall(VOID)
+{
+  PROCESS_INFORMATION ProcInfo;
+  STARTUPINFO si;
+  WCHAR InstallName[] = L"vmwinst.exe";
+
+  ZeroMemory(&si, sizeof(STARTUPINFO));
+  si.cb = sizeof(STARTUPINFO);
+
+  if(CreateProcess(NULL, InstallName, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS,
+                   NULL, NULL, &si, &ProcInfo))
+  {
+    WaitForSingleObject(ProcInfo.hProcess, INFINITE);
+    CloseHandle(ProcInfo.hThread);
+    CloseHandle(ProcInfo.hProcess);
+    return TRUE;
+  }
+  return FALSE;
+}
+#endif
 
 
 HRESULT CreateShellLink(LPCTSTR linkPath, LPCTSTR cmd, LPCTSTR arg, LPCTSTR dir, LPCTSTR iconPath, int icon_nr, LPCTSTR comment)
@@ -134,48 +158,17 @@ HRESULT CreateShellLink(LPCTSTR linkPath, LPCTSTR cmd, LPCTSTR arg, LPCTSTR dir,
 }
 
 
-static BOOL
-CreateShortcut(int csidl, LPCTSTR folder, LPCTSTR linkName, LPCTSTR command, UINT nIdTitle)
-{
-  TCHAR path[MAX_PATH];
-  TCHAR title[256];
-  LPTSTR p = path;
-
-  if (!SHGetSpecialFolderPath(0, path, csidl, TRUE))
-    return FALSE;
-
-  if (folder)
-    {
-      p = PathAddBackslash(p);
-      _tcscpy(p, folder);
-    }
-
-  p = PathAddBackslash(p);
-  _tcscpy(p, linkName);
-
-  if (!LoadString(hDllInstance, nIdTitle, title, 256))
-    return FALSE;
-
-  return SUCCEEDED(CreateShellLink(path, command, _T(""), NULL, NULL, 0, title));
-}
-
-
-static BOOL
-CreateShortcutFolder(int csidl, UINT nID, LPTSTR name, int nameLen)
+static VOID
+CreateShortcut(int csidl, LPCTSTR linkName, LPCTSTR command, LPCTSTR title)
 {
   TCHAR path[MAX_PATH];
   LPTSTR p;
 
-  if (!SHGetSpecialFolderPath(0, path, csidl, TRUE))
-    return FALSE;
-
-  if (!LoadString(hDllInstance, nID, name, nameLen))
-    return FALSE;
-
+  SHGetSpecialFolderPath(0, path, csidl, TRUE);
   p = PathAddBackslash(path);
-  _tcscpy(p, name);
+  _tcscpy(p, linkName);
 
-  return CreateDirectory(path, NULL) || GetLastError()==ERROR_ALREADY_EXISTS;
+  CreateShellLink(path, command, _T(""), NULL, NULL, 0, title);
 }
 
 
@@ -372,12 +365,6 @@ ProcessSysSetupInf(VOID)
 DWORD STDCALL
 InstallReactOS (HINSTANCE hInstance)
 {
-  TCHAR sAccessories[256];
-  TCHAR sGames[256];
-  TCHAR Sys[MAX_PATH];
-  TCHAR GamePath[MAX_PATH];
-    
-
 # if 0
   OutputDebugStringA ("InstallReactOS() called\n");
 
@@ -410,36 +397,15 @@ InstallReactOS (HINSTANCE hInstance)
 
   CoInitialize(NULL);
 
-  /* create desktop shortcuts */
-  CreateShortcut(CSIDL_DESKTOP, NULL, _T("Command Prompt.lnk"), _T("cmd.exe"), IDS_CMT_CMD);
+  /* desktop shortcuts */
+  CreateShortcut(CSIDL_DESKTOP, _T("Command Prompt.lnk"), _T("cmd.exe"), _T("Open command prompt"));
 
-  /* create program startmenu shortcuts */  
-  CreateShortcut(CSIDL_PROGRAMS, NULL, _T("winefile.lnk"), _T("winefile.exe"), IDS_CMT_WINEFILE);
-
-  /* create and fill Accessories subfolder */
-  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_ACCESSORIES, sAccessories, 256)) {
-	CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Calculator.lnk"), _T("calc.exe"), IDS_CMT_CALC);
-	CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Command Prompt.lnk"), _T("cmd.exe"), IDS_CMT_CMD);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Notepad.lnk"), _T("notepad.exe"), IDS_CMT_NOTEPAD);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("ReactOS Explorer.lnk"), _T("explorer.exe"), IDS_CMT_EXPLORER);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Regedit.lnk"), _T("regedit.exe"), IDS_CMT_REGEDIT);
-  }
-
-
-  /* create Games subfolder and fill if the exe is available */
-  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_GAMES, sGames, 256)) {
-	if(GetSystemDirectory(Sys, MAX_PATH)) {
-	  /* copy system dir */	
-	  _tcscpy(GamePath, Sys);
-	  /* concatonate full file path and check for existance */
-   	  if((_taccess(_tcscat(GamePath, _T("\\sol.exe")), 0 )) != -1)
-        CreateShortcut(CSIDL_PROGRAMS, sGames, _T("Solitaire.lnk"), _T("sol.exe"), IDS_CMT_SOLITAIRE);
-      
-	  _tcscpy(GamePath, Sys);
-      if((_taccess(_tcscat(GamePath, _T("\\winemine.exe")), 0 )) != -1)
-        CreateShortcut(CSIDL_PROGRAMS, sGames, _T("WineMine.lnk"), _T("winemine.exe"), IDS_CMT_WINEMINE);
-	}
-  }
+  /* program startmenu shortcuts */
+  CreateShortcut(CSIDL_PROGRAMS, _T("Command Prompt.lnk"), _T("cmd.exe"), _T("Open command prompt"));
+  CreateShortcut(CSIDL_PROGRAMS, _T("explorer.lnk"), _T("explorer.exe"), _T("Launch Explorer"));
+  CreateShortcut(CSIDL_PROGRAMS, _T("winefile.lnk"), _T("winefile.exe"), _T("Launch Winefile"));
+  CreateShortcut(CSIDL_PROGRAMS, _T("notepad.lnk"), _T("notepad.exe"), _T("Launch Text Editor"));
+  CreateShortcut(CSIDL_PROGRAMS, _T("regedit.lnk"), _T("regedit.exe"), _T("Launch Registry Editor"));
 
   CoUninitialize();
 
@@ -534,6 +500,15 @@ InstallReactOS (HINSTANCE hInstance)
   InstallWizard();
 
   SetupCloseInfFile(hSysSetupInf);
+
+#ifdef VMWINST
+  RunVMWInstall();
+#endif
+
+  DialogBox(hDllInstance,
+	    MAKEINTRESOURCE(IDD_RESTART),
+	    NULL,
+	    RestartDlgProc);
 
   return 0;
 }

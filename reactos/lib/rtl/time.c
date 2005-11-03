@@ -65,7 +65,7 @@ static __inline void NormalizeTimeFields(CSHORT *FieldToNormalize,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 RtlCutoverTimeToSystemTime(IN PTIME_FIELDS CutoverTimeFields,
                            OUT PLARGE_INTEGER SystemTime,
                            IN PLARGE_INTEGER CurrentTime,
@@ -165,7 +165,7 @@ RtlCutoverTimeToSystemTime(IN PTIME_FIELDS CutoverTimeFields,
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlTimeFieldsToTime(
    IN PTIME_FIELDS TimeFields,
    OUT PLARGE_INTEGER Time)
@@ -236,7 +236,7 @@ RtlTimeFieldsToTime(
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 RtlTimeToElapsedTimeFields(IN PLARGE_INTEGER Time,
                            OUT PTIME_FIELDS TimeFields)
 {
@@ -274,7 +274,7 @@ RtlTimeToElapsedTimeFields(IN PLARGE_INTEGER Time,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 RtlTimeToTimeFields(
    IN PLARGE_INTEGER Time,
    OUT PTIME_FIELDS TimeFields)
@@ -348,7 +348,7 @@ RtlTimeToTimeFields(
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlTimeToSecondsSince1970(
    IN PLARGE_INTEGER Time,
    OUT PULONG SecondsSince1970)
@@ -371,7 +371,7 @@ RtlTimeToSecondsSince1970(
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlTimeToSecondsSince1980(
    IN PLARGE_INTEGER Time,
    OUT PULONG SecondsSince1980)
@@ -394,7 +394,7 @@ RtlTimeToSecondsSince1980(
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 RtlLocalTimeToSystemTime(IN PLARGE_INTEGER LocalTime,
                          OUT PLARGE_INTEGER SystemTime)
 {
@@ -419,7 +419,7 @@ RtlLocalTimeToSystemTime(IN PLARGE_INTEGER LocalTime,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 RtlSystemTimeToLocalTime(IN PLARGE_INTEGER SystemTime,
                          OUT PLARGE_INTEGER LocalTime)
 {
@@ -443,7 +443,7 @@ RtlSystemTimeToLocalTime(IN PLARGE_INTEGER SystemTime,
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlSecondsSince1970ToTime(
    IN ULONG SecondsSince1970,
    OUT PLARGE_INTEGER Time)
@@ -455,7 +455,7 @@ RtlSecondsSince1970ToTime(
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlSecondsSince1980ToTime(
    IN ULONG SecondsSince1980,
    OUT PLARGE_INTEGER Time)

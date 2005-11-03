@@ -5,8 +5,11 @@
  * FILE:       reactos/lib/smlib/connect.c
  * PURPOSE:    Connect to the API LPC port exposed by the SM
  */
+#include <windows.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
 
-#include "precomp.h"
+#include <sm/helper.h>
 
 #define NDEBUG
 #include <debug.h>

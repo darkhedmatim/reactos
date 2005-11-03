@@ -15,7 +15,7 @@
 /* GLOBALS ******************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlGetVersion(
     OUT PRTL_OSVERSIONINFOW lpVersionInformation
     );
@@ -26,7 +26,7 @@ RtlGetVersion(
 * @implemented
 */
 NTSTATUS
-NTAPI
+STDCALL
 RtlVerifyVersionInfo(
 	IN PRTL_OSVERSIONINFOEXW VersionInfo,
 	IN ULONG TypeMask,

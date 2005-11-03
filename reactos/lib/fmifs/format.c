@@ -9,7 +9,14 @@
  * 	1999-02-16 (Emanuele Aliberti)
  * 		Entry points added.
  */
-#include "precomp.h"
+#define UNICODE
+#define _UNICODE
+#include <windows.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
+#include <fmifs/fmifs.h>
+#include <fslib/vfatlib.h>
+#include <string.h>
 
 #define NDEBUG
 #include <debug.h>

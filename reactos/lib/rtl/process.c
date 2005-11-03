@@ -17,7 +17,7 @@
 /* INTERNAL FUNCTIONS *******************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlpMapFile(PUNICODE_STRING ImageFileName,
             ULONG Attributes,
             PHANDLE Section)
@@ -65,7 +65,7 @@ RtlpMapFile(PUNICODE_STRING ImageFileName,
 /* FUNCTIONS ****************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlpInitEnvironment(HANDLE ProcessHandle,
                     PPEB Peb,
                     PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
@@ -184,7 +184,7 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
  * -Gunnar
  */
 NTSTATUS
-NTAPI
+STDCALL
 RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
                      IN ULONG Attributes,
                      IN OUT PRTL_USER_PROCESS_PARAMETERS ProcessParameters,
@@ -319,7 +319,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
  * @implemented
  */
 PVOID
-NTAPI
+STDCALL
 RtlEncodePointer(IN PVOID Pointer)
 {
   ULONG Cookie;

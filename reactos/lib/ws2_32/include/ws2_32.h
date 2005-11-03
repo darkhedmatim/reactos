@@ -7,7 +7,6 @@
 #ifndef __WS2_32_H
 #define __WS2_32_H
 
-#define WIN32_NO_STATUS
 #include <roscfg.h>
 #include <winsock2.h>
 #include <ws2spi.h>

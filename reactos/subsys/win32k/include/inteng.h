@@ -162,14 +162,5 @@ IntEngMovePointer(IN SURFOBJ *pso,
                   IN LONG y,
                   IN RECTL *prcl);
 
-BOOL STDCALL
-IntEngAlphaBlend(IN SURFOBJ *Dest,
-                 IN SURFOBJ *Source,
-                 IN CLIPOBJ *Clip,
-                 IN XLATEOBJ *ColorTranslation,
-                 IN PRECTL DestRect,
-                 IN PRECTL SourceRect,
-                 IN BLENDOBJ *BlendObj);
-
 
 #endif /* _WIN32K_INTENG_H */

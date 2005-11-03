@@ -21,7 +21,6 @@
 #include "editor.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
-WINE_DECLARE_DEBUG_CHANNEL(richedit_style);
 
 static int all_refs = 0;
 
@@ -198,7 +197,7 @@ void ME_DumpStyle(ME_Style *s)
 {
   char buf[2048];
   ME_DumpStyleToBuf(&s->fmt, buf);
-  TRACE_(richedit_style)("%s\n", buf);
+  TRACE("%s\n", buf);
 }
 
 void ME_DumpStyleToBuf(CHARFORMAT2W *pFmt, char buf[2048])
@@ -322,7 +321,7 @@ HFONT ME_SelectStyleFont(ME_TextEditor *editor, HDC hDC, ME_Style *s)
   if (i < HFONT_CACHE_SIZE) /* found */
   {
     item = &editor->pFontCache[i];
-    TRACE_(richedit_style)("font reused %d\n", i);
+    TRACE("font reused %d\n", i);
 
     s->hFont = item->hFont;
     item->nRefs++;
@@ -333,13 +332,13 @@ HFONT ME_SelectStyleFont(ME_TextEditor *editor, HDC hDC, ME_Style *s)
 
     assert(nEmpty != -1); /* otherwise we leak cache entries or get too many fonts at once*/
     if (item->hFont) {
-      TRACE_(richedit_style)("font deleted %d\n", nEmpty);
+      TRACE("font deleted %d\n", nEmpty);
       DeleteObject(item->hFont);
       item->hFont = NULL;
     }
     s->hFont = CreateFontIndirectW(&lf);
     assert(s->hFont);
-    TRACE_(richedit_style)("font created %d\n", nEmpty);
+    TRACE("font created %d\n", nEmpty);
     item->hFont = s->hFont;
     item->nRefs = 1;
     memcpy(&item->lfSpecs, &lf, sizeof(LOGFONTW));
@@ -392,9 +391,9 @@ void ME_ReleaseStyle(ME_Style *s)
   s->nRefs--;
   all_refs--;
   if (s->nRefs==0)
-    TRACE_(richedit_style)("destroy style %p, total refs=%d\n", s, all_refs);
+    TRACE("destroy style %p, total refs=%d\n", s, all_refs);
   else
-    TRACE_(richedit_style)("release style %p, new refs=%d, total refs=%d\n", s, s->nRefs, all_refs);
+    TRACE("release style %p, new refs=%d, total refs=%d\n", s, s->nRefs, all_refs);
   if (!all_refs) TRACE("all style references freed (good!)\n");
   assert(s->nRefs>=0);
   if (!s->nRefs)

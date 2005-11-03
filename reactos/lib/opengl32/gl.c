@@ -21,7 +21,6 @@
  */
 
 #define WIN32_LEANER_AND_MEANER
-#define WIN32_NO_STATUS
 #include <windows.h>
 #include "teb.h"
 

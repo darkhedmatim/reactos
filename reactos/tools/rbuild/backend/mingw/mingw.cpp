@@ -119,17 +119,17 @@ Directory::CreateDirectory ( string path )
 {
 	size_t index = 0;
 	size_t nextIndex;
-	if ( isalpha ( path[0] ) && path[1] == ':' && path[2] == cSep )
+	if ( isalpha ( path[0] ) && path[1] == ':' && path[2] == CSEP )
 	{
-		nextIndex = path.find ( cSep, 3);
+		nextIndex = path.find ( CSEP, 3);
 	}
 	else
-		nextIndex = path.find ( cSep );
+		nextIndex = path.find ( CSEP );
 
 	bool directoryWasCreated = false;
 	while ( nextIndex != string::npos )
 	{
-		nextIndex = path.find ( cSep, index + 1 );
+		nextIndex = path.find ( CSEP, index + 1 );
 		directoryWasCreated = mkdir_p ( path.substr ( 0, nextIndex ).c_str () );
 		index = nextIndex;
 	}
@@ -168,7 +168,7 @@ Directory::GenerateTree ( const string& parent,
 	{
 		char buf[256];
 		
-		path = parent + sSep + name;
+		path = parent + SSEP + name;
 		ResolveVariablesInPath ( buf, path );
 		if ( CreateDirectory ( buf ) && verbose )
 			printf ( "Created %s\n", buf );
@@ -212,7 +212,7 @@ Directory::CreateRule ( FILE* f,
 		fprintf ( f,
 			"%s%c%s: | %s\n",
 			escapedParent.c_str (),
-			cSep,
+			CSEP,
 			EscapeSpaces ( name ).c_str (),
 			escapedParent.c_str () );
 
@@ -222,7 +222,7 @@ Directory::CreateRule ( FILE* f,
 		fprintf ( f,
 			"\t${mkdir} $@\n" );
 
-		path = parent + sSep + name;
+		path = parent + SSEP + name;
 	}
 	else
 		path = name;
@@ -687,7 +687,7 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 string
 MingwBackend::GetBin2ResExecutable ()
 {
-	return NormalizeFilename ( Environment::GetOutputPath () + sSep + "tools/bin2res/bin2res" + ExePostfix );
+	return NormalizeFilename ( Environment::GetOutputPath () + SSEP + "tools/bin2res/bin2res" + EXEPOSTFIX );
 }
 
 void
@@ -743,7 +743,7 @@ MingwBackend::CheckAutomaticDependencies ()
 bool
 MingwBackend::IncludeDirectoryTarget ( const string& directory ) const
 {
-	if ( directory == "$(INTERMEDIATE)" + sSep + "tools")
+	if ( directory == "$(INTERMEDIATE)" SSEP "tools")
 		return false;
 	else
 		return true;
@@ -765,7 +765,7 @@ MingwBackend::TryToDetectThisCompiler ( const string& compiler )
 {
 	string command = ssprintf (
 		"%s -v 1>%s 2>%s",
-		FixSeparatorForSystemCommand(compiler).c_str (),
+		compiler.c_str (),
 		NUL,
 		NUL );
 	int exitcode = system ( command.c_str () );
@@ -810,7 +810,7 @@ MingwBackend::TryToDetectThisNetwideAssembler ( const string& assembler )
 {
 	string command = ssprintf (
 		"%s -h 1>%s 2>%s",
-		FixSeparatorForSystemCommand(assembler).c_str (),
+		assembler.c_str (),
 		NUL,
 		NUL );
 	int exitcode = system ( command.c_str () );
@@ -822,7 +822,7 @@ MingwBackend::TryToDetectThisBinutils ( const string& binutils )
 {
 	string command = ssprintf (
 		"%s -v 1>%s",
-		FixSeparatorForSystemCommand(binutils).c_str (),
+		binutils.c_str (),
 		NUL,
 		NUL );
 	int exitcode = system ( command.c_str () );
@@ -955,12 +955,12 @@ MingwBackend::DetectPipeSupport ()
 {
 	printf ( "Detecting compiler -pipe support..." );
 
-	string pipe_detection = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pipe_detection.c";
+	string pipe_detection = "tools" SSEP "rbuild" SSEP "backend" SSEP "mingw" SSEP "pipe_detection.c";
 	string pipe_detectionObjectFilename = ReplaceExtension ( pipe_detection,
 	                                                         ".o" );
 	string command = ssprintf (
 		"%s -pipe -c %s -o %s 1>%s 2>%s",
-		FixSeparatorForSystemCommand(compilerCommand).c_str (),
+		compilerCommand.c_str (),
 		pipe_detection.c_str (),
 		pipe_detectionObjectFilename.c_str (),
 		NUL,
@@ -987,10 +987,10 @@ MingwBackend::DetectPCHSupport ()
 {
 	printf ( "Detecting compiler pre-compiled header support..." );
 
-	string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
+	string path = "tools" SSEP "rbuild" SSEP "backend" SSEP "mingw" SSEP "pch_detection.h";
 	string cmd = ssprintf (
 		"%s -c %s 1>%s 2>%s",
-		FixSeparatorForSystemCommand(compilerCommand).c_str (),
+		compilerCommand.c_str (),
 		path.c_str (),
 		NUL,
 		NUL );
@@ -1020,7 +1020,7 @@ MingwBackend::GetNonModuleInstallTargetFiles (
 	for ( size_t i = 0; i < ProjectNode.installfiles.size (); i++ )
 	{
 		const InstallFile& installfile = *ProjectNode.installfiles[i];
-		string targetFilenameNoFixup = installfile.base + sSep + installfile.newname;
+		string targetFilenameNoFixup = installfile.base + SSEP + installfile.newname;
 		string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
 			NormalizeFilename ( targetFilenameNoFixup ),
 			installDirectory );
@@ -1041,7 +1041,7 @@ MingwBackend::GetModuleInstallTargetFiles (
 		{
 			string targetFilenameNoFixup;
 			if ( module.installBase.length () > 0 )
-				targetFilenameNoFixup = module.installBase + sSep + module.installName;
+				targetFilenameNoFixup = module.installBase + SSEP + module.installName;
 			else
 				targetFilenameNoFixup = module.installName;
 			string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
@@ -1067,7 +1067,7 @@ MingwBackend::OutputInstallTarget ( const string& sourceFilename,
 {
 	string fullTargetFilename;
 	if ( targetDirectory.length () > 0)
-		fullTargetFilename = targetDirectory + sSep + targetFilename;
+		fullTargetFilename = targetDirectory + SSEP + targetFilename;
 	else
 		fullTargetFilename = targetFilename;
 	string normalizedTargetFilename = MingwModuleHandler::PassThruCacheDirectory (
@@ -1138,11 +1138,11 @@ MingwBackend::OutputModuleInstallTargets ()
 string
 MingwBackend::GetRegistrySourceFiles ()
 {
-	return "bootdata" + sSep + "hivecls.inf "
-		"bootdata" + sSep + "hivedef.inf "
-		"bootdata" + sSep + "hiveinst.inf "
-		"bootdata" + sSep + "hivesft.inf "
-		"bootdata" + sSep + "hivesys.inf";
+	return "bootdata" SSEP "hivecls.inf "
+		"bootdata" SSEP "hivedef.inf "
+		"bootdata" SSEP "hiveinst.inf "
+		"bootdata" SSEP "hivesft.inf "
+		"bootdata" SSEP "hivesys.inf";
 }
 
 string
@@ -1150,13 +1150,13 @@ MingwBackend::GetRegistryTargetFiles ()
 {
 	string system32ConfigDirectory = NormalizeFilename (
 		MingwModuleHandler::PassThruCacheDirectory (
-		"system32" + sSep + "config" + sSep,
+		"system32" SSEP "config" SSEP,
 		installDirectory ) );
-	return system32ConfigDirectory + sSep + "default " +
-		system32ConfigDirectory + sSep + "sam " +
-                system32ConfigDirectory + sSep + "security " +
-		system32ConfigDirectory + sSep + "software " +
-		system32ConfigDirectory + sSep + "system";
+	return system32ConfigDirectory + SSEP "default " +
+		system32ConfigDirectory + SSEP "sam " +
+		system32ConfigDirectory + SSEP "security " +
+		system32ConfigDirectory + SSEP "software " +
+		system32ConfigDirectory + SSEP "system";
 }
 
 void
@@ -1164,7 +1164,7 @@ MingwBackend::OutputRegistryInstallTarget ()
 {
 	string system32ConfigDirectory = NormalizeFilename (
 		MingwModuleHandler::PassThruCacheDirectory (
-		"system32" + sSep + "config" + sSep,
+		"system32" SSEP "config" SSEP,
 		installDirectory ) );
 
 	string registrySourceFiles = GetRegistrySourceFiles ();
@@ -1180,9 +1180,8 @@ MingwBackend::OutputRegistryInstallTarget ()
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(MKHIVE_TARGET) bootdata %s bootdata%chiveinst.inf\n",
-	          system32ConfigDirectory.c_str (),
-                  cSep );
+	          "\t$(MKHIVE_TARGET) bootdata %s bootdata" SSEP "hiveinst.inf\n",
+	          system32ConfigDirectory.c_str () );
 	fprintf ( fMakefile,
 	          "\n" );
 }

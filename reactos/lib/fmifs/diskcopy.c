@@ -9,7 +9,9 @@
  * 	1999-02-16 (Emanuele Aliberti)
  * 		Entry points added.
  */
-#include "precomp.h"
+#define UNICODE
+#define _UNICODE
+#include <windows.h>
 
 /* FMIFS.3 */
 VOID STDCALL

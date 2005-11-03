@@ -5,5 +5,4 @@
 #include <reactos/version.rc>
 
 #include "En.rc"
-#include "Ja.rc"
 

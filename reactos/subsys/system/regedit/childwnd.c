@@ -143,11 +143,6 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 TreeView_DeleteItem(pChildWnd->hTreeWnd, hSelection);
         }
         break;
-    case ID_EDIT_COPYKEYNAME:
-        hSelection = TreeView_GetSelection(pChildWnd->hTreeWnd);
-        keyPath = GetItemPath(pChildWnd->hTreeWnd, hSelection, &hRootKey);
-        CopyKeyName(hWnd, hRootKey, keyPath);
-        break;
     case ID_EDIT_NEW_KEY:
         CreateNewKey(pChildWnd->hTreeWnd, TreeView_GetSelection(pChildWnd->hTreeWnd));
         break;
@@ -183,8 +178,6 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
  *  Key suggestion
  */
 
-#define MIN(a,b)	((a < b) ? (a) : (b))
-
 static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions,
 	size_t iSuggestionsLength)
 {
@@ -208,9 +201,7 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 			if (RegQueryStringValue(hRootKey, pszKeyPath, NULL,
 				szBuffer, sizeof(szBuffer) / sizeof(szBuffer[0])) == ERROR_SUCCESS)
 			{
-				/* Sanity check this key; it cannot be empty, nor can it be a
-				 * loop back */
-				if ((szBuffer[0] != '\0') && _tcsicmp(szBuffer, pszKeyPath))
+				if (szBuffer[0] != '\0')
 				{
 					if (RegOpenKey(hRootKey, szBuffer, &hOtherKey) == ERROR_SUCCESS)
 					{
@@ -220,7 +211,7 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 	    				iSuggestionsLength -= i;
 
 						lstrcpyn(pszSuggestions, szBuffer, iSuggestionsLength);
-						i = MIN(_tcslen(pszSuggestions) + 1, iSuggestionsLength);
+						i = _tcslen(pszSuggestions) + 1;
 						pszSuggestions += i;
 						iSuggestionsLength -= i;
 						RegCloseKey(hOtherKey);
@@ -232,7 +223,7 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 				}
 			}
 		}
-		while(bFound && (iSuggestionsLength > 0));
+		while(bFound);
 
 		/* Check CLSID key */
 		if (RegOpenKey(hRootKey, pszKeyPath, &hSubKey) == ERROR_SUCCESS)
@@ -246,7 +237,7 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 				iSuggestionsLength -= i;
 
 				lstrcpyn(pszSuggestions, szBuffer, iSuggestionsLength);
-				i = MIN(_tcslen(pszSuggestions) + 1, iSuggestionsLength);
+				i = _tcslen(pszSuggestions) + 1;
 				pszSuggestions += i;
 				iSuggestionsLength -= i;
 			}
@@ -279,8 +270,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         /* load "My Computer" string */
         LoadString(hInst, IDS_MY_COMPUTER, buffer, sizeof(buffer)/sizeof(TCHAR));
 
-	    g_pChildWnd = pChildWnd = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ChildWnd));
-		
+	g_pChildWnd = pChildWnd = HeapAlloc(GetProcessHeap(), 0, sizeof(ChildWnd));
         if (!pChildWnd) return 0;
         _tcsncpy(pChildWnd->szPath, buffer, MAX_PATH);
         pChildWnd->nSplitPos = 250;
@@ -310,9 +300,6 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         }
         goto def;
     case WM_DESTROY:
-		DestroyTreeView();
-		DestroyListView(pChildWnd->hListWnd);
-		DestroyMainMenu();
         HeapFree(GetProcessHeap(), 0, pChildWnd);
         pChildWnd = NULL;
         PostQuitMessage(0);

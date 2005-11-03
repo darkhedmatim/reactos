@@ -20,12 +20,6 @@
  *
  */
 
-#include "../../pch.h"
-#include "msvc.h"
-#include <string>
-
-using std::string;
-
 #ifdef _WIN32
 #include <objbase.h>
 #include <stdio.h>
@@ -38,15 +32,12 @@ static CoInitializeFunc *pCoInitialize = NULL;
 static CoUninitializeFunc *pCoUninitialize = NULL;
 static CoCreateGuidFunc *pCoCreateGuid = NULL;
 
-
-std::string
-MSVCBackend::_gen_guid()
+void gen_guid()
 {
 	GUID m_guid;
 	HRESULT result;
 	bool good_guid = false;
-	static char guid[38];
-	
+
 	// Load ole32. We will need it later on
 	HMODULE olelib = LoadLibrary ( "ole32.dll" );
 	if ( olelib != NULL )
@@ -76,21 +67,16 @@ MSVCBackend::_gen_guid()
 	{
 		// TODO FIXME - fall-back to random #'s
 	}
-	const char* strfmt = "%08lX-%04X-%04x-%02X%02X-%02X%02X%02X%02X%02X%02X";
-	sprintf(guid, strfmt,m_guid.Data1,m_guid.Data2,m_guid.Data3,m_guid.Data4[0],
+	const char* strfmt = "%08lX-%04X-%04x-%02X%02X-%02X%02X%02X%02X%02X%02X\r\n";
+	printf(strfmt,m_guid.Data1,m_guid.Data2,m_guid.Data3,m_guid.Data4[0],
 		m_guid.Data4[1],m_guid.Data4[2],m_guid.Data4[3],m_guid.Data4[4],m_guid.Data4[5],
 		m_guid.Data4[6],m_guid.Data4[7],m_guid.Data1,m_guid.Data2,m_guid.Data3,m_guid.Data4[0],
 		m_guid.Data4[1],m_guid.Data4[2],m_guid.Data4[3],m_guid.Data4[4],m_guid.Data4[5],
 		m_guid.Data4[6],m_guid.Data4[7]);
-	
-	return guid;
 }
 
 #else /* Linux, etc */
-
-std::string
-MSVCBackend::_gen_guid()
+void gen_guid()
 {
-	return std::string();
 }
 #endif /* WIN32/Linux */

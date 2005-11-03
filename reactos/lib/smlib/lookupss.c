@@ -4,7 +4,11 @@
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/smlib/lookupss.c
  */
-#include "precomp.h"
+#include <windows.h>
+#define NTOS_MODE_USER
+#include <ndk/ntndk.h>
+
+#include <sm/helper.h>
 
 #define NDEBUG
 #include <debug.h>

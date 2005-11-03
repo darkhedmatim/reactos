@@ -23,8 +23,6 @@
 #define UNICODE
 #define _UNICODE
 
-#define _CRT_SECURE_NO_DEPRECATE
-
 #include <assert.h>
 #include <stdio.h>
 #include <windows.h>
@@ -136,17 +134,6 @@ BOOL FileExists(LPCWSTR szFilename)
    FindClose(hFile);
 
    return (hFile != INVALID_HANDLE_VALUE);
-}
-
-
-BOOL HasFileExtension(LPCWSTR szFilename)
-{
-    LPCWSTR s;
-
-    s = wcsrchr(szFilename, '\\');
-    if (s)
-        szFilename = s;
-    return wcsrchr(szFilename, '.') != NULL;
 }
 
 

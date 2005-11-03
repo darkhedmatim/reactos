@@ -23,7 +23,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include <windows.h>
 #include <winnt.h>
 #include <winreg.h>
@@ -1619,31 +1618,18 @@ LONG RegMoveKey(HKEY hDestKey, LPCTSTR lpDestSubKey, HKEY hSrcKey, LPCTSTR lpSrc
 LONG RegRenameKey(HKEY hKey, LPCTSTR lpSubKey, LPCTSTR lpNewName)
 {
     LPCTSTR s;
-    LPTSTR lpNewSubKey = NULL;
-	LONG Ret = 0;
+    LPTSTR lpNewSubKey;
 
-    s = _tcsrchr(lpSubKey, _T('\\'));
+    s = _tcsrchr(lpSubKey, '\\');
     if (s)
     {
         s++;
-        lpNewSubKey = (LPTSTR) HeapAlloc(GetProcessHeap(), 0, (s - lpSubKey + _tcslen(lpNewName) + 1) * sizeof(TCHAR));
-        if (lpNewSubKey != NULL)
-        {
-            memcpy(lpNewSubKey, lpSubKey, (s - lpSubKey) * sizeof(TCHAR));
-            _tcscpy(lpNewSubKey + (s - lpSubKey), lpNewName);
-            lpNewName = lpNewSubKey;
-        }
-        else
-            return ERROR_NOT_ENOUGH_MEMORY;
+        lpNewSubKey = (LPTSTR) alloca((s - lpSubKey + _tcslen(lpNewName) + 1) * sizeof(TCHAR));
+        memcpy(lpNewSubKey, lpSubKey, (s - lpSubKey) * sizeof(TCHAR));
+        _tcscpy(lpNewSubKey + (s - lpSubKey), lpNewName);
+        lpNewName = lpNewSubKey;
     }
-    
-    Ret = RegMoveKey(hKey, lpNewName, hKey, lpSubKey);
-
-    if (lpNewSubKey)
-    {
-        HeapFree(GetProcessHeap(), 0, lpNewSubKey);
-    }
-    return Ret;
+    return RegMoveKey(hKey, lpNewName, hKey, lpSubKey);
 }
 
 LONG RegRenameValue(HKEY hKey, LPCTSTR lpSubKey, LPCTSTR lpDestValue, LPCTSTR lpSrcValue)

@@ -354,11 +354,10 @@ void wpp_add_include_path(const char *path)
 	free(cpy);
 }
 
-char *wpp_find_include(const char *name, const char *parent_name, int type)
+char *wpp_find_include(const char *name, int type)
 {
     char *cpy;
     char *cptr;
-    char *path;
     const char *ccptr;
     int i, fd;
 
@@ -380,24 +379,15 @@ char *wpp_find_include(const char *name, const char *parent_name, int type)
     }
     *cptr = '\0';
 
-    if(type == LOCAL_INCLUDE && parent_name)
+    if(type == LOCAL_INCLUDE)
     {
-        /* Search directory of parent include and then -I path */
-        const char *p;
-
-        if ((p = strrchr( parent_name, '/' ))) p++;
-        else p = parent_name;
-        path = pp_xmalloc( (p - parent_name) + strlen(cpy) + 1 );
-        memcpy( path, parent_name, p - parent_name );
-        strcpy( path + (p - parent_name), cpy );
-        fd = open( path, O_RDONLY );
+        /* Search current dir and then -I path */
+        fd = open( cpy, O_RDONLY );
         if (fd != -1)
         {
             close( fd );
-            free( cpy );
-            return path;
+            return cpy;
         }
-        free( path );
     }
 
     /* Skip all directories till the current include file for #include_next. */
@@ -426,6 +416,7 @@ char *wpp_find_include(const char *name, const char *parent_name, int type)
     /* Search -I path */
     for(; i < nincludepath; i++)
     {
+        char *path;
         path = pp_xmalloc(strlen(includepath[i]) + strlen(cpy) + 2);
         strcpy(path, includepath[i]);
         strcat(path, "/");
@@ -443,12 +434,12 @@ char *wpp_find_include(const char *name, const char *parent_name, int type)
     return NULL;
 }
 
-FILE *pp_open_include(const char *name, const char *parent_name, char **newpath, int type)
+FILE *pp_open_include(const char *name, int type, char **newpath)
 {
     char *path;
     FILE *fp;
 
-    if (!(path = wpp_find_include( name, parent_name, type ))) return NULL;
+    if (!(path = wpp_find_include( name, type ))) return NULL;
     fp = fopen(path, "rt");
 
     if (fp)

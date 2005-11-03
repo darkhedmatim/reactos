@@ -74,8 +74,8 @@ static void testCursor(HANDLE hCon, COORD sbSize)
 
     c.X = c.Y = 0;
     ok(SetConsoleCursorPosition(0, c) == 0, "No handle\n");
-    ok(GetLastError() == ERROR_INVALID_HANDLE, "GetLastError: expecting %lu got %lu\n",
-       (DWORD) ERROR_INVALID_HANDLE, (DWORD) GetLastError());
+    ok(GetLastError() == ERROR_INVALID_HANDLE, "GetLastError: expecting %u got %lu\n",
+       ERROR_INVALID_HANDLE, GetLastError());
 
     c.X = c.Y = 0;
     ok(SetConsoleCursorPosition(hCon, c) != 0, "Cursor in upper-left\n");
@@ -89,26 +89,26 @@ static void testCursor(HANDLE hCon, COORD sbSize)
     c.X = sbSize.X;
     c.Y = sbSize.Y - 1;
     ok(SetConsoleCursorPosition(hCon, c) == 0, "Cursor is outside\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %lu got %lu\n",
-       (DWORD) ERROR_INVALID_PARAMETER, (DWORD) GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %u got %lu\n",
+       ERROR_INVALID_PARAMETER, GetLastError());
 
     c.X = sbSize.X - 1;
     c.Y = sbSize.Y;
     ok(SetConsoleCursorPosition(hCon, c) == 0, "Cursor is outside\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %lu got %lu\n",
-       (DWORD) ERROR_INVALID_PARAMETER, (DWORD) GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %u got %lu\n",
+       ERROR_INVALID_PARAMETER, GetLastError());
 
     c.X = -1;
     c.Y = 0;
     ok(SetConsoleCursorPosition(hCon, c) == 0, "Cursor is outside\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %lu got %lu\n",
-       (DWORD) ERROR_INVALID_PARAMETER, (DWORD) GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %u got %lu\n",
+       ERROR_INVALID_PARAMETER, GetLastError());
 
     c.X = 0;
     c.Y = -1;
     ok(SetConsoleCursorPosition(hCon, c) == 0, "Cursor is outside\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %lu got %lu\n",
-       (DWORD) ERROR_INVALID_PARAMETER, (DWORD) GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "GetLastError: expecting %u got %lu\n",
+       ERROR_INVALID_PARAMETER, GetLastError());
 }
 
 static void testWriteSimple(HANDLE hCon, COORD sbSize)

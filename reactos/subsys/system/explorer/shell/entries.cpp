@@ -514,7 +514,7 @@ bool Entry::get_path_base ( PTSTR path, size_t path_count, ENTRY_TYPE etype ) co
 	LPCTSTR name = NULL;
 	TCHAR buffer[MAX_PATH];
 
-	if (!path || path_count==0)
+	if ( !path || 0 == path_count )
 		return false;
 
 	const Entry* entry;

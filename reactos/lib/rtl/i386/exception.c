@@ -17,16 +17,16 @@
 /* PRIVATE FUNCTIONS *********************************************************/
 
 VOID
-NTAPI
+STDCALL
 RtlpGetStackLimits(PULONG_PTR StackBase,
                    PULONG_PTR StackLimit);
 
 PEXCEPTION_REGISTRATION_RECORD
-NTAPI
+STDCALL
 RtlpGetExceptionList(VOID);
 
 VOID
-NTAPI
+STDCALL
 RtlpSetExceptionList(PEXCEPTION_REGISTRATION_RECORD NewExceptionList);
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -35,7 +35,7 @@ RtlpSetExceptionList(PEXCEPTION_REGISTRATION_RECORD NewExceptionList);
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 RtlGetCallersAddress(OUT PVOID *CallersAddress,
                      OUT PVOID *CallersCaller)
 {
@@ -46,7 +46,7 @@ RtlGetCallersAddress(OUT PVOID *CallersAddress,
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 RtlDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                      IN PCONTEXT Context)
 {
@@ -174,7 +174,7 @@ RtlDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 RtlUnwind(PVOID RegistrationFrame OPTIONAL,
           PVOID ReturnAddress OPTIONAL,
           PEXCEPTION_RECORD ExceptionRecord OPTIONAL,

@@ -25,8 +25,6 @@
 #define UNICODE
 #define _UNICODE
 
-#define _CRT_SECURE_NO_DEPRECATE
-
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
@@ -94,7 +92,7 @@ static int NOTEPAD_MenuCommand(WPARAM wParam)
     case CMD_ABOUT_WINE:       DIALOG_HelpAboutWine(); break;
 
     default:
-    break;
+	break;
     }
    return 0;
 }
@@ -108,7 +106,7 @@ static BOOL NOTEPAD_FindTextAt(FINDREPLACE *pFindReplace, LPCTSTR pszText, int i
 {
     BOOL bMatches;
     int iTargetLength;
-
+	
     iTargetLength = _tcslen(pFindReplace->lpstrFindWhat);
 
     /* Make proper comparison */
@@ -145,8 +143,8 @@ static BOOL NOTEPAD_FindNext(FINDREPLACE *pFindReplace, BOOL bReplace, BOOL bSho
 
     iTargetLength = _tcslen(pFindReplace->lpstrFindWhat);
 
-    /* Retrieve the window text */
     iTextLength = GetWindowTextLength(Globals.hEdit);
+
     if (iTextLength > 0)
     {
         pszText = (LPTSTR) HeapAlloc(GetProcessHeap(), 0, (iTextLength + 1) * sizeof(TCHAR));
@@ -158,37 +156,25 @@ static BOOL NOTEPAD_FindNext(FINDREPLACE *pFindReplace, BOOL bReplace, BOOL bSho
 
     SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM) &dwBegin, (LPARAM) &dwEnd);
     if (bReplace && ((dwEnd - dwBegin) == iTargetLength))
-    {
+	{
         if (NOTEPAD_FindTextAt(pFindReplace, pszText, iTextLength, dwBegin))
-        {
+		{
             SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM) pFindReplace->lpstrReplaceWith);
             iAdjustment = _tcslen(pFindReplace->lpstrReplaceWith) - (dwEnd - dwBegin);
-        }
-    }
+		}
+	}
 
-    if (pFindReplace->Flags & FR_DOWN)
+    dwPosition = dwEnd;
+    while(dwPosition < iTextLength)
     {
-        /* Find Down */
-        dwPosition = dwEnd;
-        while(dwPosition < iTextLength)
-        {
-            bMatches = NOTEPAD_FindTextAt(pFindReplace, pszText, iTextLength, dwPosition);
-            if (bMatches)
-                break;
+        bMatches = NOTEPAD_FindTextAt(pFindReplace, pszText, iTextLength, dwPosition);
+        if (bMatches)
+            break;
+
+        if (pFindReplace->Flags & FR_DOWN) 
             dwPosition++;
-        }
-    }
-    else
-    {
-        /* Find Up */
-        dwPosition = dwBegin;
-        while(dwPosition > 0)
-        {
+        else
             dwPosition--;
-            bMatches = NOTEPAD_FindTextAt(pFindReplace, pszText, iTextLength, dwPosition);
-            if (bMatches)
-                break;
-        }
     }
 
     if (bMatches)
@@ -200,18 +186,18 @@ static BOOL NOTEPAD_FindNext(FINDREPLACE *pFindReplace, BOOL bReplace, BOOL bSho
         SendMessage(Globals.hEdit, EM_SCROLLCARET, 0, 0);
         bSuccess = TRUE;
     }
-    else
-    {
+	else
+	{
         /* Can't find target */
         if (bShowAlert)
-        {
+		{
             LoadString(Globals.hInstance, STRING_CANNOTFIND, szResource, SIZEOF(szResource));
             _sntprintf(szText, SIZEOF(szText), szResource, pFindReplace->lpstrFindWhat);
             LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, SIZEOF(szResource));
             MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
-        }
+		}
         bSuccess = FALSE;
-    }
+	}
 
     if (pszText)
         HeapFree(GetProcessHeap(), 0, pszText);
@@ -232,7 +218,7 @@ static VOID NOTEPAD_ReplaceAll(FINDREPLACE *pFindReplace)
     while (NOTEPAD_FindNext(pFindReplace, TRUE, bShowAlert))
     {
         bShowAlert = FALSE;
-    }
+	}
 }
 
 /***********************************************************************
@@ -440,8 +426,8 @@ static void HandleCommandLine(LPWSTR cmdline)
     if (*cmdline)
     {
         /* file name is passed in the command line */
-        LPCWSTR file_name = NULL;
-        BOOL file_exists = FALSE;
+        LPCWSTR file_name;
+        BOOL file_exists;
         WCHAR buf[MAX_PATH];
 
         if (cmdline[0] == '"')
@@ -450,12 +436,12 @@ static void HandleCommandLine(LPWSTR cmdline)
             cmdline[lstrlen(cmdline) - 1] = 0;
         }
 
-        file_name = cmdline;
-        if (FileExists(file_name))
+        if (FileExists(cmdline))
         {
             file_exists = TRUE;
+            file_name = cmdline;
         }
-        else if (!HasFileExtension(cmdline))
+        else
         {
             static const WCHAR txtW[] = { '.','t','x','t',0 };
 
@@ -463,13 +449,14 @@ static void HandleCommandLine(LPWSTR cmdline)
             if (!lstrcmp(txtW, cmdline + lstrlen(cmdline) - lstrlen(txtW)))
             {
                 file_exists = FALSE;
+                file_name = cmdline;
             }
             else
             {
                 lstrcpyn(buf, cmdline, MAX_PATH - lstrlen(txtW) - 1);
                 lstrcat(buf, txtW);
                 file_name = buf;
-                file_exists = FileExists(file_name);
+                file_exists = FileExists(buf);
             }
         }
 

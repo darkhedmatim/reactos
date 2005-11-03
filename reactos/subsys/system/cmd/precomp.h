@@ -1,10 +1,9 @@
 #ifdef _MSC_VER
 #pragma warning ( disable : 4103 ) /* use #pragma pack to change alignment */
-#define _CRT_SECURE_NO_DEPRECATE
 #endif//_MSC_VER
 
 #include <stdlib.h>
-#define WIN32_NO_STATUS
+
 #include <windows.h>
 #include <winnt.h>
 #include <shellapi.h>

@@ -146,9 +146,23 @@ BEGIN
     LTEXT "Fertigstellung des ReactOS Setup Assistenten",IDC_FINISHTITLE,115,9,195,37
     LTEXT "Das ReactOS Setup wurde erfolgreich fertiggestellt.\n\n" \
           "Wenn Sie auf Fertig klicken, wird der Computer neu gestartet.", IDC_STATIC, 115, 58, 195, 100
-    CONTROL "", IDC_RESTART_PROGRESS, "msctls_progress32", PBS_SMOOTH | WS_CHILD | WS_VISIBLE | WS_BORDER, 115, 138, 188, 12
     LTEXT "Entfernen Sie die CD, wenn vorhanden. Danach klicken Sie "\
           "auf Fertig, um den Computer neu zu starten.", IDC_STATIC, 115, 160, 195, 31
+END
+
+
+IDD_RESTART DIALOG 6, 18, 245, 116
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION
+CAPTION "ReactOS Installation"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT "Die Installation von ReactOS wurde erfolgreich fertiggestellt.", IDC_STATIC, 13, 12, 212, 16
+    LTEXT "Um fortzufahren muss Ihr Computer neu gestartet werden. "\
+          "Der Computer wird in 15 Minuten automatisch neu gestartet oder wenn Sie auf "\
+          "Neustart klicken.", IDC_STATIC, 13, 33, 212, 32
+/*    GROUPBOX "", -1, 7, 3, 231, 106 */
+    CONTROL "", IDC_RESTART_PROGRESS, "msctls_progress32", PBS_SMOOTH | WS_CHILD | WS_VISIBLE | WS_BORDER, 13, 70, 212, 8 
+    PUSHBUTTON "&Neustart", IDOK, 98, 87, 50, 14
 END
 
 
@@ -174,27 +188,9 @@ BEGIN
     IDS_LOCALETITLE      "Regionale Einstellungen"
     IDS_LOCALESUBTITLE   "Sie können ReactOS auf unterschiedliche Regionen und Sprachen einstellen."
     IDS_DATETIMETITLE    "Datum und Uhrzeit"
-    IDS_DATETIMESUBTITLE "Setzen Sie das korrekte Datum und Uhrzeit für ihren Computer."
+    IDS_DATETIMESUBTITLE "SSetzen Sie das korrekte Datum und Uhrzeit für ihren Computer."
     IDS_PROCESSTITLE     "Process page title"
     IDS_PROCESSSUBTITLE  "Process page subtitle"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_ACCESSORIES     "Zubehör"
-    IDS_CMT_CALC        "Launch Calculator"
-    IDS_CMT_CMD         "Öffne Kommandozeilenfenster"
-    IDS_CMT_EXPLORER    "Starte Explorer"
-    IDS_CMT_WINEFILE    "Starte Winefile"
-    IDS_CMT_NOTEPAD     "Starte Texteditor"
-    IDS_CMT_REGEDIT     "Starte Registry Editor"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_GAMES		"Spiele"
-    IDS_CMT_SOLITAIRE	"Solitaire"
-    IDS_CMT_WINEMINE	"WineMine"
 END
 
 /* EOF */

@@ -12,11 +12,7 @@
 #define NDEBUG
 #include <debug.h>
 
-typedef NTSTATUS (NTAPI *USER_CALL)(PVOID Argument, ULONG ArgumentLength);
-
-EXCEPTION_DISPOSITION NTAPI
-RtlpExecuteVectoredExceptionHandlers(IN PEXCEPTION_RECORD  ExceptionRecord,
-                                     IN PCONTEXT  Context);
+typedef NTSTATUS (STDCALL *USER_CALL)(PVOID Argument, ULONG ArgumentLength);
 
 /* FUNCTIONS ****************************************************************/
 
@@ -24,33 +20,23 @@ RtlpExecuteVectoredExceptionHandlers(IN PEXCEPTION_RECORD  ExceptionRecord,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KiUserExceptionDispatcher(PEXCEPTION_RECORD ExceptionRecord,
                           PCONTEXT Context)
 {
     EXCEPTION_RECORD NestedExceptionRecord;
     NTSTATUS Status;
 
-    /* call the vectored exception handlers */
-    if(RtlpExecuteVectoredExceptionHandlers(ExceptionRecord,
-                                            Context) != ExceptionContinueExecution)
+    /* Dispatch the exception and check the result */
+    if(RtlDispatchException(ExceptionRecord, Context))
     {
-        goto ContinueExecution;
+        /* Continue executing */
+        Status = NtContinue(Context, FALSE);
     }
     else
     {
-        /* Dispatch the exception and check the result */
-        if(RtlDispatchException(ExceptionRecord, Context))
-        {
-ContinueExecution:
-            /* Continue executing */
-            Status = NtContinue(Context, FALSE);
-        }
-        else
-        {
-            /* Raise an exception */
-            Status = NtRaiseException(ExceptionRecord, Context, FALSE);
-        }
+        /* Raise an exception */
+        Status = NtRaiseException(ExceptionRecord, Context, FALSE);
     }
 
     /* Setup the Exception record */
@@ -67,7 +53,7 @@ ContinueExecution:
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KiRaiseUserExceptionDispatcher(VOID)
 {
     EXCEPTION_RECORD ExceptionRecord;
@@ -86,7 +72,7 @@ KiRaiseUserExceptionDispatcher(VOID)
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KiUserCallbackDispatcher(ULONG Index,
                          PVOID Argument,
                          ULONG ArgumentLength)

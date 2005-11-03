@@ -258,6 +258,7 @@ DuplicateTokenEx (IN HANDLE ExistingTokenHandle,
                   OUT PHANDLE DuplicateTokenHandle)
 {
   OBJECT_ATTRIBUTES ObjectAttributes;
+  HANDLE NewToken;
   NTSTATUS Status;
   SECURITY_QUALITY_OF_SERVICE Sqos;
 
@@ -290,7 +291,7 @@ DuplicateTokenEx (IN HANDLE ExistingTokenHandle,
 			     &ObjectAttributes,
 			     FALSE,
 			     TokenType,
-			     DuplicateTokenHandle);
+			     &NewToken);
   if (!NT_SUCCESS(Status))
     {
       SetLastError(RtlNtStatusToDosError(Status));
@@ -343,7 +344,7 @@ CheckTokenMembership(IN HANDLE ExistingTokenHandle,
     };
     PACL Dacl;
     ULONG SidLen;
-    HANDLE hToken = NULL;
+    HANDLE hToken;
     NTSTATUS Status, AccessStatus;
 
     /* doesn't return gracefully if IsMember is NULL! */
@@ -483,7 +484,7 @@ CheckTokenMembership(IN HANDLE ExistingTokenHandle,
     }
 
 Cleanup:
-    if (hToken != NULL && hToken != ExistingTokenHandle)
+    if (hToken != ExistingTokenHandle)
     {
         NtClose(hToken);
     }

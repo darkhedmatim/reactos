@@ -31,10 +31,22 @@ extern unsigned int _bss_end__;
 static BOOLEAN IsThisAnNtAsSystem = FALSE;
 static MM_SYSTEM_SIZE MmSystemSize = MmSmallSystem;
 
+static MEMORY_AREA* kernel_text_desc = NULL;
+static MEMORY_AREA* kernel_init_desc = NULL;
+static MEMORY_AREA* kernel_kpcr_desc = NULL;
+static MEMORY_AREA* kernel_data_desc = NULL;
+static MEMORY_AREA* kernel_param_desc = NULL;
+static MEMORY_AREA* kernel_pool_desc = NULL;
+static MEMORY_AREA* kernel_shared_data_desc = NULL;
+static MEMORY_AREA* kernel_mapped_vga_framebuffer_desc = NULL;
+static MEMORY_AREA* MiKernelMapDescriptor = NULL;
+static MEMORY_AREA* MiPagedPoolDescriptor = NULL;
+
 PHYSICAL_ADDRESS MmSharedDataPagePhysicalAddress;
 
 PVOID MiNonPagedPoolStart;
 ULONG MiNonPagedPoolLength;
+//PVOID MiKernelMapStart;
 
 extern ULONG init_stack;
 extern ULONG init_stack_top;
@@ -80,7 +92,6 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
    NTSTATUS Status;
    PHYSICAL_ADDRESS BoundaryAddressMultiple;
    PFN_TYPE Pfn;
-   PMEMORY_AREA MArea;
 
    DPRINT("MmInitVirtualMemory(%x, %x)\n",LastKernelAddress, KernelLength);
 
@@ -89,15 +100,11 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
 
    MmInitMemoryAreas();
 
-   /* Start the paged and nonpaged pool at a 4MB boundary. */ 
-   MiNonPagedPoolStart = (PVOID)ROUND_UP((ULONG_PTR)LastKernelAddress + PAGE_SIZE, 0x400000);
+   MiNonPagedPoolStart = (char*)LastKernelAddress + PAGE_SIZE;
    MiNonPagedPoolLength = MM_NONPAGED_POOL_SIZE;
 
-   MmPagedPoolBase = (PVOID)ROUND_UP((ULONG_PTR)MiNonPagedPoolStart + MiNonPagedPoolLength + PAGE_SIZE, 0x400000);
+   MmPagedPoolBase = (char*)MiNonPagedPoolStart + MiNonPagedPoolLength + PAGE_SIZE;
    MmPagedPoolSize = MM_PAGED_POOL_SIZE;
-
-   DPRINT("NonPagedPool %x - %x, PagedPool %x - %x\n", MiNonPagedPoolStart, (ULONG_PTR)MiNonPagedPoolStart + MiNonPagedPoolLength - 1, 
-           MmPagedPoolBase, (ULONG_PTR)MmPagedPoolBase + MmPagedPoolSize - 1);
 
    MiInitializeNonPagedPool();
 
@@ -113,33 +120,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       PAGE_SIZE * MAXIMUM_PROCESSORS,
                       0,
-                      &MArea,
-                      TRUE,
-                      FALSE,
-                      BoundaryAddressMultiple);
-
-   /* Local APIC base */
-   BaseAddress = (PVOID)0xFEE00000;
-   MmCreateMemoryArea(NULL,
-                      MmGetKernelAddressSpace(),
-                      MEMORY_AREA_SYSTEM,
-                      &BaseAddress,
-                      PAGE_SIZE,
-                      0,
-                      &MArea,
-                      TRUE,
-                      FALSE,
-                      BoundaryAddressMultiple);
-
-   /* i/o APIC base */
-   BaseAddress = (PVOID)0xFEC00000;
-   MmCreateMemoryArea(NULL,
-                      MmGetKernelAddressSpace(),
-                      MEMORY_AREA_SYSTEM,
-                      &BaseAddress,
-                      PAGE_SIZE,
-                      0,
-                      &MArea,
+                      &kernel_kpcr_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -151,7 +132,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       0x20000,
                       0,
-                      &MArea,
+                      &kernel_mapped_vga_framebuffer_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -170,7 +151,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       Length,
                       0,
-                      &MArea,
+                      &kernel_text_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -187,7 +168,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       Length,
                       0,
-                      &MArea,
+                      &kernel_init_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -209,7 +190,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       Length,
                       0,
-                      &MArea,
+                      &kernel_data_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -222,7 +203,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       Length,
                       0,
-                      &MArea,
+                      &kernel_param_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
@@ -234,10 +215,22 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       MiNonPagedPoolLength,
                       0,
-                      &MArea,
+                      &kernel_pool_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);
+
+   BaseAddress = (PVOID)MM_KERNEL_MAP_BASE;
+   Status = MmCreateMemoryArea(NULL,
+                               MmGetKernelAddressSpace(),
+                               MEMORY_AREA_SYSTEM,
+                               &BaseAddress,
+                               MM_KERNEL_MAP_SIZE,
+                               0,
+                               &MiKernelMapDescriptor,
+                               TRUE,
+                               FALSE,
+                               BoundaryAddressMultiple);
 
    BaseAddress = MmPagedPoolBase;
    Status = MmCreateMemoryArea(NULL,
@@ -246,7 +239,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                                &BaseAddress,
                                MmPagedPoolSize,
                                0,
-                               &MArea,
+                               &MiPagedPoolDescriptor,
                                TRUE,
                                FALSE,
                                BoundaryAddressMultiple);
@@ -264,7 +257,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       &BaseAddress,
                       Length,
                       0,
-                      &MArea,
+                      &kernel_shared_data_desc,
                       TRUE,
                       FALSE,
                       BoundaryAddressMultiple);

@@ -84,7 +84,7 @@ static const ULONG CrcTable[256] =
  *
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 RtlComputeCrc32 (IN ULONG Initial,
 		 IN PUCHAR Data,
 		 IN ULONG Length)

@@ -769,12 +769,10 @@ static LRESULT notify_hdr(LISTVIEW_INFO *infoPtr, INT code, LPNMHDR pnmh)
     return result;
 }
 
-static inline BOOL notify(LISTVIEW_INFO *infoPtr, INT code)
+static inline LRESULT notify(LISTVIEW_INFO *infoPtr, INT code)
 {
     NMHDR nmh;
-    HWND hwnd = infoPtr->hwndSelf;
-    notify_hdr(infoPtr, code, &nmh);
-    return IsWindow(hwnd);
+    return notify_hdr(infoPtr, code, &nmh);
 }
 
 static inline void notify_itemactivate(LISTVIEW_INFO *infoPtr, LVHITTESTINFO *htInfo)
@@ -815,12 +813,11 @@ static inline LRESULT notify_listview(LISTVIEW_INFO *infoPtr, INT code, LPNMLIST
     return notify_hdr(infoPtr, code, (LPNMHDR)plvnm);
 }
 
-static BOOL notify_click(LISTVIEW_INFO *infoPtr,  INT code, LVHITTESTINFO *lvht)
+static LRESULT notify_click(LISTVIEW_INFO *infoPtr,  INT code, LVHITTESTINFO *lvht)
 {
     NMLISTVIEW nmlv;
     LVITEMW item;
-    HWND hwnd = infoPtr->hwndSelf;
-
+   
     TRACE("code=%d, lvht=%s\n", code, debuglvhittestinfo(lvht)); 
     ZeroMemory(&nmlv, sizeof(nmlv));
     nmlv.iItem = lvht->iItem;
@@ -830,16 +827,14 @@ static BOOL notify_click(LISTVIEW_INFO *infoPtr,  INT code, LVHITTESTINFO *lvht)
     item.iItem = lvht->iItem;
     item.iSubItem = 0;
     if (LISTVIEW_GetItemT(infoPtr, &item, TRUE)) nmlv.lParam = item.lParam;
-    notify_listview(infoPtr, code, &nmlv);
-    return IsWindow(hwnd);
+    return notify_listview(infoPtr, code, &nmlv);
 }
 
-static BOOL notify_deleteitem(LISTVIEW_INFO *infoPtr, INT nItem)
+static void notify_deleteitem(LISTVIEW_INFO *infoPtr, INT nItem)
 {
     NMLISTVIEW nmlv;
     LVITEMW item;
-    HWND hwnd = infoPtr->hwndSelf;
-
+   
     ZeroMemory(&nmlv, sizeof (NMLISTVIEW));
     nmlv.iItem = nItem;
     item.mask = LVIF_PARAM;
@@ -847,7 +842,6 @@ static BOOL notify_deleteitem(LISTVIEW_INFO *infoPtr, INT nItem)
     item.iSubItem = 0;
     if (LISTVIEW_GetItemT(infoPtr, &item, TRUE)) nmlv.lParam = item.lParam;
     notify_listview(infoPtr, LVN_DELETEITEM, &nmlv);
-    return IsWindow(hwnd);
 }
 
 static int get_ansi_notification(INT unicodeNotificationCode)
@@ -3020,13 +3014,12 @@ static void LISTVIEW_ShiftIndices(LISTVIEW_INFO *infoPtr, INT nItem, INT directi
  * [I] nItem : item index
  *
  * RETURN:
- * Whether the window is still valid.
+ * None
  */
-static BOOL LISTVIEW_AddGroupSelection(LISTVIEW_INFO *infoPtr, INT nItem)
+static void LISTVIEW_AddGroupSelection(LISTVIEW_INFO *infoPtr, INT nItem)
 {
     INT nFirst = min(infoPtr->nSelectionMark, nItem);
     INT nLast = max(infoPtr->nSelectionMark, nItem);
-    HWND hwndSelf = infoPtr->hwndSelf;
     NMLVODSTATECHANGE nmlv;
     LVITEMW item;
     BOOL bOldChange;
@@ -3055,10 +3048,7 @@ static BOOL LISTVIEW_AddGroupSelection(LISTVIEW_INFO *infoPtr, INT nItem)
     nmlv.uOldState = item.state;
 
     notify_hdr(infoPtr, LVN_ODSTATECHANGED, (LPNMHDR)&nmlv);
-    if (!IsWindow(hwndSelf))
-        return FALSE;
     infoPtr->bDoChangeNotify = bOldChange;
-    return TRUE;
 }
 
 
@@ -3289,9 +3279,7 @@ static LRESULT LISTVIEW_MouseMove(LISTVIEW_INFO *infoPtr, WORD fwKeys, INT x, IN
         notify_listview(infoPtr, LVN_BEGINDRAG, &nmlv);
 
         return 0;
-    }
-    else
-        infoPtr->bLButtonDown = FALSE;
+    } 
 
   /* see if we are supposed to be tracking mouse hovering */
   if(infoPtr->dwLvExStyle & LVS_EX_TRACKSELECT) {
@@ -3412,15 +3400,9 @@ static BOOL set_main_item(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem, BOOL 
     /* send LVN_ITEMCHANGING notification, if the item is not being inserted */
     /* and we are _NOT_ virtual (LVS_OWERNDATA), and change notifications */
     /* are enabled */
-    if(lpItem && !isNew && infoPtr->bDoChangeNotify)
-    {
-      HWND hwndSelf = infoPtr->hwndSelf;
-
-      if (notify_listview(infoPtr, LVN_ITEMCHANGING, &nmlv))
+    if(lpItem && !isNew && infoPtr->bDoChangeNotify &&
+       notify_listview(infoPtr, LVN_ITEMCHANGING, &nmlv))
 	return FALSE;
-      if (!IsWindow(hwndSelf))
-	return FALSE;
-    }
 
     /* copy information */
     if (lpLVItem->mask & LVIF_TEXT)
@@ -3564,7 +3546,6 @@ static BOOL set_sub_item(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem, BOOL i
 static BOOL LISTVIEW_SetItemT(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem, BOOL isW)
 {
     UINT uView = infoPtr->dwStyle & LVS_TYPEMASK;
-    HWND hwndSelf = infoPtr->hwndSelf;
     LPWSTR pszText = NULL;
     BOOL bResult, bChanged = FALSE;
     
@@ -3587,8 +3568,6 @@ static BOOL LISTVIEW_SetItemT(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem, B
 	bResult = set_sub_item(infoPtr, lpLVItem, TRUE, &bChanged);
     else
 	bResult = set_main_item(infoPtr, lpLVItem, FALSE, TRUE, &bChanged);
-    if (!IsWindow(hwndSelf))
-	return FALSE;
 
     /* redraw item, if necessary */
     if (bChanged && !infoPtr->bIsDrawing)
@@ -4537,7 +4516,7 @@ static BOOL LISTVIEW_DeleteItem(LISTVIEW_INFO *infoPtr, INT nItem)
     LISTVIEW_SetItemState(infoPtr, nItem, &item);
 	    
     /* send LVN_DELETEITEM notification. */
-    if (!notify_deleteitem(infoPtr, nItem)) return FALSE;
+    notify_deleteitem(infoPtr, nItem);
 
     /* we need to do this here, because we'll be deleting stuff */  
     if (uView == LVS_SMALLICON || uView == LVS_ICON)
@@ -4589,7 +4568,6 @@ static BOOL LISTVIEW_DeleteItem(LISTVIEW_INFO *infoPtr, INT nItem)
  */
 static BOOL LISTVIEW_EndEditLabelT(LISTVIEW_INFO *infoPtr, LPWSTR pszText, BOOL isW)
 {
-    HWND hwndSelf = infoPtr->hwndSelf;
     NMLVDISPINFOW dispInfo;
 
     TRACE("(pszText=%s, isW=%d)\n", debugtext_t(pszText, isW), isW);
@@ -4607,8 +4585,6 @@ static BOOL LISTVIEW_EndEditLabelT(LISTVIEW_INFO *infoPtr, LPWSTR pszText, BOOL 
 
     /* Do we need to update the Item Text */
     if (!notify_dispinfoT(infoPtr, LVN_ENDLABELEDITW, &dispInfo, isW)) return FALSE;
-    if (!IsWindow(hwndSelf))
-	return FALSE;
     if (!pszText) return TRUE;
 
     if (!(infoPtr->dwStyle & LVS_OWNERDATA))
@@ -4649,7 +4625,6 @@ static HWND LISTVIEW_EditLabelT(LISTVIEW_INFO *infoPtr, INT nItem, BOOL isW)
     WCHAR szDispText[DISP_TEXT_SIZE] = { 0 };
     NMLVDISPINFOW dispInfo;
     RECT rect;
-    HWND hwndSelf = infoPtr->hwndSelf;
 
     TRACE("(nItem=%d, isW=%d)\n", nItem, isW);
 
@@ -4687,8 +4662,6 @@ static HWND LISTVIEW_EditLabelT(LISTVIEW_INFO *infoPtr, INT nItem, BOOL isW)
     
     if (notify_dispinfoT(infoPtr, LVN_BEGINLABELEDITW, &dispInfo, isW))
     {
-	if (!IsWindow(hwndSelf))
-	    return 0;
 	SendMessageW(infoPtr->hwndEdit, WM_CLOSE, 0, 0);
 	infoPtr->hwndEdit = 0;
 	return 0;
@@ -6218,7 +6191,6 @@ static INT LISTVIEW_InsertItemT(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem,
     ITEM_INFO *lpItem;
     BOOL is_sorted, has_changed;
     LVITEMW item;
-    HWND hwndSelf = infoPtr->hwndSelf;
 
     TRACE("(lpLVItem=%s, isW=%d)\n", debuglvitem_t(lpLVItem, isW), isW);
 
@@ -6292,8 +6264,6 @@ static INT LISTVIEW_InsertItemT(LISTVIEW_INFO *infoPtr, const LVITEMW *lpLVItem,
     nmlv.iItem = nItem;
     nmlv.lParam = lpItem->lParam;
     notify_listview(infoPtr, LVN_INSERTITEM, &nmlv);
-    if (!IsWindow(hwndSelf))
-	return -1;
 
     /* align items (set position of each item) */
     if ((uView == LVS_SMALLICON || uView == LVS_ICON))
@@ -7999,7 +7969,6 @@ static LRESULT LISTVIEW_MouseWheel(LISTVIEW_INFO *infoPtr, INT wheelDelta)
 static LRESULT LISTVIEW_KeyDown(LISTVIEW_INFO *infoPtr, INT nVirtualKey, LONG lKeyData)
 {
   UINT uView =  infoPtr->dwStyle & LVS_TYPEMASK;
-  HWND hwndSelf = infoPtr->hwndSelf;
   INT nItem = -1;
   NMLVKEYDOWN nmKeyDown;
 
@@ -8009,16 +7978,14 @@ static LRESULT LISTVIEW_KeyDown(LISTVIEW_INFO *infoPtr, INT nVirtualKey, LONG lK
   nmKeyDown.wVKey = nVirtualKey;
   nmKeyDown.flags = 0;
   notify_hdr(infoPtr, LVN_KEYDOWN, &nmKeyDown.hdr);
-  if (!IsWindow(hwndSelf))
-    return 0;
 
   switch (nVirtualKey)
   {
   case VK_RETURN:
     if ((infoPtr->nItemCount > 0) && (infoPtr->nFocusedItem != -1))
     {
-        if (!notify(infoPtr, NM_RETURN)) return 0;
-        if (!notify(infoPtr, LVN_ITEMACTIVATE)) return 0;
+      notify(infoPtr, NM_RETURN);
+      notify(infoPtr, LVN_ITEMACTIVATE);
     }
     break;
 
@@ -8050,13 +8017,7 @@ static LRESULT LISTVIEW_KeyDown(LISTVIEW_INFO *infoPtr, INT nVirtualKey, LONG lK
 
   case VK_PRIOR:
     if (uView == LVS_REPORT)
-    {
-      INT topidx = LISTVIEW_GetTopIndex(infoPtr);
-      if (infoPtr->nFocusedItem == topidx)
-        nItem = topidx - LISTVIEW_GetCountPerColumn(infoPtr) + 1;
-      else
-        nItem = topidx;
-    }
+      nItem = infoPtr->nFocusedItem - LISTVIEW_GetCountPerColumn(infoPtr);
     else
       nItem = infoPtr->nFocusedItem - LISTVIEW_GetCountPerColumn(infoPtr)
                                     * LISTVIEW_GetCountPerRow(infoPtr);
@@ -8065,14 +8026,7 @@ static LRESULT LISTVIEW_KeyDown(LISTVIEW_INFO *infoPtr, INT nVirtualKey, LONG lK
 
   case VK_NEXT:
     if (uView == LVS_REPORT)
-    {
-      INT topidx = LISTVIEW_GetTopIndex(infoPtr);
-      INT cnt = LISTVIEW_GetCountPerColumn(infoPtr);
-      if (infoPtr->nFocusedItem == topidx + cnt - 1)
-        nItem = infoPtr->nFocusedItem + cnt - 1;
-      else
-        nItem = topidx + cnt - 1;
-    }
+      nItem = infoPtr->nFocusedItem + LISTVIEW_GetCountPerColumn(infoPtr);
     else
       nItem = infoPtr->nFocusedItem + LISTVIEW_GetCountPerColumn(infoPtr)
                                     * LISTVIEW_GetCountPerRow(infoPtr);
@@ -8104,7 +8058,7 @@ static LRESULT LISTVIEW_KillFocus(LISTVIEW_INFO *infoPtr)
     if (!infoPtr->bFocus) return 0;
    
     /* send NM_KILLFOCUS notification */
-    if (!notify(infoPtr, NM_KILLFOCUS)) return 0;
+    notify(infoPtr, NM_KILLFOCUS);
 
     /* if we have a focus rectagle, get rid of it */
     LISTVIEW_ShowFocusRect(infoPtr, FALSE);
@@ -8137,14 +8091,14 @@ static LRESULT LISTVIEW_LButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, 
     TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, x, y);
 
     /* send NM_RELEASEDCAPTURE notification */
-    if (!notify(infoPtr, NM_RELEASEDCAPTURE)) return 0;
+    notify(infoPtr, NM_RELEASEDCAPTURE);
 
     htInfo.pt.x = x;
     htInfo.pt.y = y;
 
     /* send NM_DBLCLK notification */
     LISTVIEW_HitTest(infoPtr, &htInfo, TRUE, FALSE);
-    if (!notify_click(infoPtr, NM_DBLCLK, &htInfo)) return 0;
+    notify_click(infoPtr, NM_DBLCLK, &htInfo);
 
     /* To send the LVN_ITEMACTIVATE, it must be on an Item */
     if(htInfo.iItem != -1) notify_itemactivate(infoPtr,&htInfo);
@@ -8174,7 +8128,7 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
   TRACE("(key=%hu, X=%hu, Y=%hu)\n", wKey, x, y);
 
   /* send NM_RELEASEDCAPTURE notification */
-  if (!notify(infoPtr, NM_RELEASEDCAPTURE)) return 0;
+  notify(infoPtr, NM_RELEASEDCAPTURE);
 
   if (!infoPtr->bFocus) SetFocus(infoPtr->hwndSelf);
 
@@ -8217,7 +8171,7 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
       {
         if (bGroupSelect)
 	{
-          if (!LISTVIEW_AddGroupSelection(infoPtr, nItem)) return 0;
+          LISTVIEW_AddGroupSelection(infoPtr, nItem);
     	  LISTVIEW_SetItemFocus(infoPtr, nItem);
           infoPtr->nSelectionMark = nItem;
 	}
@@ -8292,7 +8246,7 @@ static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT 
 
     /* send NM_CLICK notification */
     LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, FALSE);
-    if (!notify_click(infoPtr, NM_CLICK, &lvHitTestInfo)) return 0;
+    notify_click(infoPtr, NM_CLICK, &lvHitTestInfo);
 
     /* set left button flag */
     infoPtr->bLButtonDown = FALSE;
@@ -8367,7 +8321,6 @@ static LRESULT LISTVIEW_NCDestroy(LISTVIEW_INFO *infoPtr)
 static LRESULT LISTVIEW_HeaderNotification(LISTVIEW_INFO *infoPtr, const NMHEADERW *lpnmh)
 {
     UINT uView =  infoPtr->dwStyle & LVS_TYPEMASK;
-    HWND hwndSelf = infoPtr->hwndSelf;
     
     TRACE("(lpnmh=%p)\n", lpnmh);
 
@@ -8381,8 +8334,6 @@ static LRESULT LISTVIEW_HeaderNotification(LISTVIEW_INFO *infoPtr, const NMHEADE
 	case HDN_ITEMCHANGEDW:
 	case HDN_ITEMCHANGEDA:
             notify_forward_header(infoPtr, lpnmh);
-	    if (!IsWindow(hwndSelf))
-		break;
             /* Fall through */
 	case HDN_TRACKW:
 	case HDN_TRACKA:
@@ -8613,7 +8564,7 @@ static LRESULT LISTVIEW_RButtonDblClk(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, 
     TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, x, y);
 
     /* send NM_RELEASEDCAPTURE notification */
-    if (!notify(infoPtr, NM_RELEASEDCAPTURE)) return 0;
+    notify(infoPtr, NM_RELEASEDCAPTURE);
 
     /* send NM_RDBLCLK notification */
     lvHitTestInfo.pt.x = x;
@@ -8644,7 +8595,7 @@ static LRESULT LISTVIEW_RButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
     TRACE("(key=%hu,X=%hu,Y=%hu)\n", wKey, x, y);
 
     /* send NM_RELEASEDCAPTURE notification */
-    if (!notify(infoPtr, NM_RELEASEDCAPTURE)) return 0;
+    notify(infoPtr, NM_RELEASEDCAPTURE);
 
     /* make sure the listview control window has the focus */
     if (!infoPtr->bFocus) SetFocus(infoPtr->hwndSelf);
@@ -8700,7 +8651,7 @@ static LRESULT LISTVIEW_RButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT 
     lvHitTestInfo.pt.x = x;
     lvHitTestInfo.pt.y = y;
     LISTVIEW_HitTest(infoPtr, &lvHitTestInfo, TRUE, FALSE);
-    if (!notify_click(infoPtr, NM_RCLICK, &lvHitTestInfo)) return 0;
+    notify_click(infoPtr, NM_RCLICK, &lvHitTestInfo);
 
     /* Change to screen coordinate for WM_CONTEXTMENU */
     pt = lvHitTestInfo.pt;
@@ -8763,7 +8714,7 @@ static LRESULT LISTVIEW_SetFocus(LISTVIEW_INFO *infoPtr, HWND hwndLoseFocus)
     if (infoPtr->bFocus) return 0;
    
     /* send NM_SETFOCUS notification */
-    if (!notify(infoPtr, NM_SETFOCUS)) return 0;
+    notify(infoPtr, NM_SETFOCUS);
 
     /* set window focus flag */
     infoPtr->bFocus = TRUE;
