@@ -882,37 +882,23 @@ static HRESULT EnumOLEVERB_Construct(HKEY hkeyVerb, ULONG index, IEnumOLEVERB **
 HRESULT WINAPI OleRegEnumVerbs (REFCLSID clsid, LPENUMOLEVERB* ppenum)
 {
     LONG res;
-    HKEY hkeyClass;
     HKEY hkeyVerb;
     DWORD dwSubKeys;
     static const WCHAR wszVerb[] = {'V','e','r','b',0};
 
     TRACE("(%s, %p)\n", debugstr_guid(clsid), ppenum);
 
-    res = COM_OpenKeyForCLSID(clsid, KEY_READ, &hkeyClass);
-    if (res == ERROR_FILE_NOT_FOUND)
+    res = COM_OpenKeyForCLSID(clsid, wszVerb, KEY_READ, &hkeyVerb);
+    if (FAILED(res))
     {
-        ERR("CLSID %s not registered\n", debugstr_guid(clsid));
-        return REGDB_E_CLASSNOTREG;
-    }
-    else if (res != ERROR_SUCCESS)
-    {
-        ERR("failed to open key for CLSID %s with error %ld\n",
-            debugstr_guid(clsid), res);
-        return REGDB_E_READREGDB;
-    }
-    res = RegOpenKeyExW(hkeyClass, wszVerb, 0, KEY_READ, &hkeyVerb);
-    RegCloseKey(hkeyClass);
-    if (res == ERROR_FILE_NOT_FOUND)
-    {
-        ERR("no Verbs key for class %s\n", debugstr_guid(clsid));
-        return REGDB_E_KEYMISSING;
-    }
-    else if (res != ERROR_SUCCESS)
-    {
-        ERR("failed to open Verbs key for CLSID %s with error %ld\n",
-            debugstr_guid(clsid), res);
-        return REGDB_E_READREGDB;
+        if (res == REGDB_E_CLASSNOTREG)
+            ERR("CLSID %s not registered\n", debugstr_guid(clsid));
+        else if (res == REGDB_E_KEYMISSING)
+            ERR("no Verbs key for class %s\n", debugstr_guid(clsid));
+        else
+            ERR("failed to open Verbs key for CLSID %s with error %ld\n",
+                debugstr_guid(clsid), res);
+        return res;
     }
 
     res = RegQueryInfoKeyW(hkeyVerb, NULL, NULL, NULL, &dwSubKeys, NULL,
@@ -1567,21 +1553,23 @@ HRESULT WINAPI OleDestroyMenuDescriptor(
 
 /***********************************************************************
  * OleSetMenuDescriptor [OLE32.@]
- * Installs or removes OLE dispatching code for the containers frame window
- * FIXME: The lpFrame and lpActiveObject parameters are currently ignored
- * OLE should install context sensitive help F1 filtering for the app when
- * these are non null.
+ * Installs or removes OLE dispatching code for the containers frame window.
  *
- * PARAMS:
+ * PARAMS
  *     hOleMenu         Handle to composite menu descriptor
  *     hwndFrame        Handle to containers frame window
  *     hwndActiveObject Handle to objects in-place activation window
  *     lpFrame          Pointer to IOleInPlaceFrame on containers window
  *     lpActiveObject   Pointer to IOleInPlaceActiveObject on active in-place object
  *
- * RETURNS:
+ * RETURNS
  *      S_OK                               - menu installed correctly
  *      E_FAIL, E_INVALIDARG, E_UNEXPECTED - failure
+ *
+ * FIXME
+ *      The lpFrame and lpActiveObject parameters are currently ignored
+ *      OLE should install context sensitive help F1 filtering for the app when
+ *      these are non null.
  */
 HRESULT WINAPI OleSetMenuDescriptor(
   HOLEMENU               hOleMenu,
@@ -2545,7 +2533,7 @@ HRESULT WINAPI OleCreate(
 
     *ppvObj = pUnk;
 
-    TRACE("-- %p \n", pUnk);
+    TRACE("-- %p\n", pUnk);
     return hres;
 }
 
@@ -2561,11 +2549,9 @@ HRESULT WINAPI OleSetAutoConvert(REFCLSID clsidOld, REFCLSID clsidNew)
 
     TRACE("(%s,%s)\n", debugstr_guid(clsidOld), debugstr_guid(clsidNew));
     
-    if (COM_OpenKeyForCLSID(clsidOld, KEY_READ | KEY_WRITE, &hkey))
-    {
-        res = REGDB_E_CLASSNOTREG;
-	goto done;
-    }
+    res = COM_OpenKeyForCLSID(clsidOld, NULL, KEY_READ | KEY_WRITE, &hkey);
+    if (FAILED(res))
+        goto done;
     StringFromGUID2(clsidNew, szClsidNew, CHARS_IN_GUID);
     if (RegSetValueW(hkey, wszAutoConvertTo, REG_SZ, szClsidNew, (strlenW(szClsidNew)+1) * sizeof(WCHAR)))
     {

@@ -18,6 +18,110 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/*
+ * As you know, windows and unix do have a different philosophy with regard to
+ * the question of how a filesystem should be laid out. While we unix geeks
+ * learned to love the 'one-tree-rooted-at-/' approach, windows has in fact
+ * a whole forest of filesystem trees, each of which is typically identified by
+ * a drive letter.
+ *
+ * We would like wine to integrate as smoothly as possible (that is without
+ * sacrificing win32 compatibility) into the unix environment. For the
+ * filesystem question, this means we really would like those windows
+ * applications to work with unix path- and file-names. Unfortunately, this
+ * seems to be impossible in general. Therefore we have those symbolic links
+ * in wine's 'dosdevices' directory, which are used to simulate drives
+ * to keep windows applications happy. And as a consequence, we have those
+ * drive letters show up now and then in GUI applications running under wine,
+ * which gets the unix hardcore fans all angry, shouting at us @#!&$%* wine
+ * hackers that we are seducing the big companies not to port their applications
+ * to unix.
+ *
+ * DOS paths do appear at various places in GUI applications. Sometimes, they
+ * show up in the title bar of an application's window. They tend to accumulate
+ * in the most-recently-used section of the file-menu. And I've even seen some
+ * in a configuration dialog's edit control. In those examples, wine can't do a
+ * lot about this, since path-names can't be told appart from ordinary strings
+ * here. That's different in the file dialogs, though.
+ *
+ * With the introduction of the 'shell' in win32, Microsoft established an 
+ * abstraction layer on top of the filesystem, called the shell namespace (I was
+ * told that Gnome's virtual filesystem is conceptually similar). In the shell
+ * namespace, one doesn't use ascii- or unicode-strings to uniquely identify
+ * objects. Instead Microsoft introduced item-identifier-lists (The c type is 
+ * called ITEMIDLIST) as an abstraction of path-names. As you probably would
+ * have guessed, an item-identifier-list is a list of item-identifiers (whose
+ * c type's funny name is SHITEMID), which are opaque binary objects. This means
+ * that no application (apart from Microsoft Office) should make any assumptions
+ * on the internal structure of these SHITEMIDs. 
+ *
+ * Since the user prefers to be presented the good-old DOS file-names instead of 
+ * binary ITEMIDLISTs, a translation method between string-based file-names and
+ * ITEMIDLISTs was established. At the core of this are the COM-Interface
+ * IShellFolder and especially it's methods ParseDisplayName and 
+ * GetDisplayNameOf. Basically, you give a DOS-path (let's say C:\windows) to
+ * ParseDisplayName and get a SHITEMID similar to <Desktop|My Computer|C:|windows|>.
+ * Since it's opaque, you can't see the 'C', the 'windows' and the other stuff.
+ * You can only figure out that the ITEMIDLIST is composed of four SHITEMIDS.
+ * The file dialog applies IShellFolder's BindToObject method to bind to each of
+ * those four objects (Desktop, My Computer, C: and windows. All of them have to 
+ * implement the IShellFolder interface.) and asks them how they would like to be 
+ * displayed (basically their icon and the string displayed). If the file dialog 
+ * asks <Desktop|My Computer|C:|windows> which sub-objects it contains (via 
+ * EnumObjects) it gets a list of opaque SHITEMIDs, which can be concatenated to 
+ * <Desktop|...|windows> to build a new ITEMIDLIST and browse, for instance, 
+ * into <system32>. This means the file dialog browses the shell namespace by 
+ * identifying objects via ITEMIDLISTs. Once the user has selected a location to 
+ * save his valuable file, the file dialog calls IShellFolder's GetDisplayNameOf
+ * method to translate the ITEMIDLIST back to a DOS filename.
+ * 
+ * It seems that one intention of the shell namespace concept was to make it 
+ * possible to have objects in the namespace, which don't have any counterpart 
+ * in the filesystem. The 'My Computer' shell folder object is one instance
+ * which comes to mind (Go try to save a file into 'My Computer' on windows.)
+ * So, to make matters a little more complex, before the file dialog asks a
+ * shell namespace object for it's DOS path, it asks if it actually has one.
+ * This is done via the IShellFolder::GetAttributesOf method, which sets the
+ * SFGAO_FILESYSTEM if - and only if - it has.
+ *
+ * The two things, described in the previous two paragraphs, are what unixfs is
+ * based on. So basically, if UnixDosFolder's ParseDisplayName method is called 
+ * with a 'c:\windows' path-name, it doesn't return an 
+ * <Desktop|My Computer|C:|windows|> ITEMIDLIST. Instead, it uses 
+ * shell32's wine_get_unix_path_name and the _posix_ (which means not the win32) 
+ * fileio api's to figure out that c: is mapped to - let's say - 
+ * /home/mjung/.wine/drive_c and then constructs a 
+ * <Desktop|/|home|mjung|.wine|drive_c> ITEMIDLIST. Which is what the file 
+ * dialog uses to display the folder and file objects, which is why you see a 
+ * unix path. When the user has found a nice place for his file and hits the
+ * save button, the ITEMIDLIST of the selected folder object is passed to 
+ * GetDisplayNameOf, which returns a _DOS_ path name 
+ * (like H:\home_of_my_new_file out of <|Desktop|/|home|mjung|home_of_my_new_file|>).
+ * Unixfs basically mounts your dos devices together in order to construct
+ * a copy of your unix filesystem structure.
+ *
+ * But what if none of the symbolic links in 'dosdevices' points to '/', you 
+ * might ask ("And I don't want wine have access to my complete hard drive, you 
+ * *%&1#!"). No problem, as I stated above, unixfs uses the _posix_ apis to 
+ * construct the ITEMIDLISTs. Folders, which aren't accessible via a drive letter,
+ * don't have the SFGAO_FILESYSTEM flag set. So the file dialogs should'nt allow
+ * the user to select such a folder for file storage (And if it does anyhow, it 
+ * will not be able to return a valid path, since there is none). Think of those 
+ * folders as a hierarchy of 'My Computer'-like folders, which happen to be a 
+ * shadow of your unix filesystem tree. And since all of this stuff doesn't 
+ * change anything at all in wine's fileio api's, windows applications will have 
+ * no more access rights as they had before. 
+ *
+ * To sum it all up, you can still savely run wine with you root account (Just
+ * kidding, don't do it.)
+ *
+ * If you are now standing in front of your computer, shouting hotly 
+ * "I am not convinced, Mr. Rumsfeld^H^H^H^H^H^H^H^H^H^H^H^H", fire up regedit
+ * and delete HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\
+ * Explorer\Desktop\Namespace\{9D20AAE8-0625-44B0-9CA7-71889C2254D9} and you 
+ * will be back in the pre-unixfs days.
+ */
+
 #include "config.h"
 #include "wine/port.h"
 
@@ -86,8 +190,8 @@ typedef struct _UnixFolder {
     const IPersistPropertyBagVtbl *lpIPersistPropertyBagVtbl;
     const ISFHelperVtbl *lpISFHelperVtbl;
     LONG m_cRef;
-    CHAR *m_pszPath;
-    LPITEMIDLIST m_pidlLocation;
+    CHAR *m_pszPath;             /* Target path of the shell folder */
+    LPITEMIDLIST m_pidlLocation; /* Location in the shell namespace */
     DWORD m_dwPathMode;
     DWORD m_dwAttributes;
     const CLSID *m_pCLSID;
@@ -478,6 +582,71 @@ static BOOL UNIXFS_path_to_pidl(UnixFolder *pUnixFolder, const WCHAR *path, LPIT
 }
 
 /******************************************************************************
+ * UNIXFS_initialize_target_folder [Internal]
+ *
+ *  Initialize the m_pszPath member of an UnixFolder, given an absolute unix
+ *  base path and a relative ITEMIDLIST. Leave the m_pidlLocation member, which
+ *  specifies the location in the shell namespace alone. 
+ * 
+ * PARAMS
+ *  This          [IO] The UnixFolder, whose target path is to be initialized
+ *  szBasePath    [I]  The absolute base path
+ *  pidlSubFolder [I]  Relative part of the path, given as an ITEMIDLIST
+ *  dwAttributes  [I]  Attributes to add to the Folders m_dwAttributes member 
+ *                     (Used to pass the SFGAO_FILESYSTEM flag down the path)
+ * RETURNS
+ *  Success: S_OK,
+ *  Failure: E_FAIL
+ */
+static HRESULT UNIXFS_initialize_target_folder(UnixFolder *This, const char *szBasePath,
+    LPCITEMIDLIST pidlSubFolder, DWORD dwAttributes)
+{
+    LPCITEMIDLIST current = pidlSubFolder;
+    DWORD dwPathLen = strlen(szBasePath)+1;
+    struct stat statPrefix;
+    char *pNextDir;
+        
+    /* Determine the path's length bytes */
+    while (current && current->mkid.cb) {
+        dwPathLen += NAME_LEN_FROM_LPSHITEMID(current) + 1; /* For the '/' */
+        current = ILGetNext(current);
+    };
+
+    /* Build the path and compute the attributes*/
+    This->m_dwAttributes = 
+            dwAttributes|SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME;
+    This->m_pszPath = pNextDir = SHAlloc(dwPathLen);
+    if (!This->m_pszPath) {
+        WARN("SHAlloc failed!\n");
+        return E_FAIL;
+    }
+    current = pidlSubFolder;
+    strcpy(pNextDir, szBasePath);
+    pNextDir += strlen(szBasePath);
+    if (This->m_dwPathMode == PATHMODE_UNIX || IsEqualCLSID(&CLSID_MyDocuments, This->m_pCLSID))
+        This->m_dwAttributes |= SFGAO_FILESYSTEM;
+    if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+        *pNextDir = '\0';
+        if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
+            This->m_dwAttributes |= SFGAO_FILESYSTEM;
+    }
+    while (current && current->mkid.cb) {
+        memcpy(pNextDir, _ILGetTextPointer(current), NAME_LEN_FROM_LPSHITEMID(current));
+        pNextDir += NAME_LEN_FROM_LPSHITEMID(current);
+        if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+            *pNextDir = '\0';
+            if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
+                This->m_dwAttributes |= SFGAO_FILESYSTEM;
+        }
+        *pNextDir++ = '/';
+        current = ILGetNext(current);
+    }
+    *pNextDir='\0';
+ 
+    return S_OK;
+}
+
+/******************************************************************************
  * UnixFolder
  *
  * Class whose heap based instances represent unix filesystem directories.
@@ -583,6 +752,11 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_EnumObjects(IShellFolder2* iface,
     TRACE("(iface=%p, hwndOwner=%p, grfFlags=%08lx, ppEnumIDList=%p)\n", 
             iface, hwndOwner, grfFlags, ppEnumIDList);
 
+    if (!This->m_pszPath) {
+        WARN("EnumObjects called on uninitialized UnixFolder-object!\n");
+        return E_UNEXPECTED;
+    }
+
     newIterator = UnixSubFolderIterator_Constructor(This, grfFlags);
     hr = IUnknown_QueryInterface(newIterator, &IID_IEnumIDList, (void**)ppEnumIDList);
     IUnknown_Release(newIterator);
@@ -598,23 +772,33 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_BindToObject(IShellFolder2* iface
     UnixFolder *This = ADJUST_THIS(UnixFolder, IShellFolder2, iface);
     IPersistFolder3 *persistFolder;
     HRESULT hr;
+    const CLSID *clsidChild;
         
     TRACE("(iface=%p, pidl=%p, pbcReserver=%p, riid=%p, ppvOut=%p)\n", 
             iface, pidl, pbcReserved, riid, ppvOut);
 
     if (!pidl || !pidl->mkid.cb)
         return E_INVALIDARG;
-       
-    hr = CreateUnixFolder(NULL, &IID_IPersistFolder3, (void**)&persistFolder, This->m_pCLSID);
+   
+    if (IsEqualCLSID(This->m_pCLSID, &CLSID_FolderShortcut)) {
+        /* Children of FolderShortcuts are ShellFSFolders on Windows. 
+         * Unixfs' counterpart is UnixDosFolder. */
+        clsidChild = &CLSID_UnixDosFolder;    
+    } else {
+        clsidChild = This->m_pCLSID;
+    }
+    
+    hr = CreateUnixFolder(NULL, &IID_IPersistFolder3, (void**)&persistFolder, clsidChild);
     if (!SUCCEEDED(hr)) return hr;
     hr = IPersistFolder_QueryInterface(persistFolder, riid, (void**)ppvOut);
    
     if (SUCCEEDED(hr)) {
-        LPITEMIDLIST pidlSubFolder = ILCombine(This->m_pidlLocation, pidl);
-        hr = IPersistFolder3_Initialize(persistFolder, pidlSubFolder);
-        ILFree(pidlSubFolder);
-    }
-    
+        UnixFolder *subfolder = ADJUST_THIS(UnixFolder, IPersistFolder3, persistFolder);
+        subfolder->m_pidlLocation = ILCombine(This->m_pidlLocation, pidl);
+        hr = UNIXFS_initialize_target_folder(subfolder, This->m_pszPath, pidl,
+                                             This->m_dwAttributes & SFGAO_FILESYSTEM);
+    } 
+
     IPersistFolder3_Release(persistFolder);
     
     return hr;
@@ -719,12 +903,12 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetAttributesOf(IShellFolder2* if
         char szAbsolutePath[FILENAME_MAX], *pszRelativePath;
         UINT i;
 
-        *rgfInOut &= SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME|
-                     SFGAO_FILESYSTEM;
+        *rgfInOut = SFGAO_CANCOPY|SFGAO_CANMOVE|SFGAO_CANLINK|SFGAO_CANRENAME|SFGAO_CANDELETE|
+                    SFGAO_HASPROPSHEET|SFGAO_DROPTARGET|SFGAO_FILESYSTEM;
         lstrcpyA(szAbsolutePath, This->m_pszPath);
         pszRelativePath = szAbsolutePath + lstrlenA(szAbsolutePath);
         for (i=0; i<cidl; i++) {
-            if ((*rgfInOut & SFGAO_FILESYSTEM) && !(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
+            if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
                 struct stat fileStat;
                 char *pszName = _ILGetTextPointer(apidl[i]);
                 if (!pszName) return E_INVALIDARG;
@@ -732,8 +916,8 @@ static HRESULT WINAPI UnixFolder_IShellFolder2_GetAttributesOf(IShellFolder2* if
                 if (stat(szAbsolutePath, &fileStat) || !UNIXFS_is_dos_device(&fileStat))
                     *rgfInOut &= ~SFGAO_FILESYSTEM;
             }
-            if (!_ILIsFolder(apidl[i])) 
-                *rgfInOut &= ~(SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR);
+            if (_ILIsFolder(apidl[i])) 
+                *rgfInOut |= SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR;
         }
     }
     
@@ -1112,10 +1296,8 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_GetClassID(IPersistFolder3* ifa
 static HRESULT WINAPI UnixFolder_IPersistFolder3_Initialize(IPersistFolder3* iface, LPCITEMIDLIST pidl)
 {
     UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistFolder3, iface);
-    struct stat statPrefix;
-    LPCITEMIDLIST current = pidl, root;
-    DWORD dwPathLen;
-    char *pNextDir, szBasePath[FILENAME_MAX] = "/";
+    LPCITEMIDLIST current = pidl;
+    char szBasePath[FILENAME_MAX] = "/";
     
     TRACE("(iface=%p, pidl=%p)\n", iface, pidl);
 
@@ -1134,11 +1316,8 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_Initialize(IPersistFolder3* ifa
             PathAddBackslashW(wszMyDocumentsPath);
             if (!UNIXFS_get_unix_path(wszMyDocumentsPath, szBasePath))
                 return E_FAIL;
-            dwPathLen = strlen(szBasePath) + 1;
-        } else {
-            dwPathLen = 2; /* For the '/' prefix and the terminating '\0' */
-        }
-        root = current = ILGetNext(current);
+        } 
+        current = ILGetNext(current);
     } else if (_ILIsDesktop(pidl) || _ILIsValue(pidl) || _ILIsFolder(pidl)) {
         /* Path rooted at Desktop */
         WCHAR wszDesktopPath[MAX_PATH];
@@ -1147,52 +1326,21 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_Initialize(IPersistFolder3* ifa
         PathAddBackslashW(wszDesktopPath);
         if (!UNIXFS_get_unix_path(wszDesktopPath, szBasePath))
             return E_FAIL;
-        dwPathLen = strlen(szBasePath) + 1;
-        root = current = pidl;
+        current = pidl;
+    } else if (IsEqualCLSID(This->m_pCLSID, &CLSID_FolderShortcut)) {
+        /* FolderShortcuts' Initialize method only sets the ITEMIDLIST, which
+         * specifies the location in the shell namespace, but leaves the
+         * target folder (m_pszPath) alone. See unit tests in tests/shlfolder.c */
+        This->m_pidlLocation = ILClone(pidl);
+        return S_OK;
     } else {
         ERR("Unknown pidl type!\n");
         pdump(pidl);
         return E_INVALIDARG;
     }
-    
-    /* Determine the path's length bytes */
-    while (current && current->mkid.cb) {
-        dwPathLen += NAME_LEN_FROM_LPSHITEMID(current) + 1; /* For the '/' */
-        current = ILGetNext(current);
-    };
-
-    /* Build the path */
-    This->m_dwAttributes = SFGAO_FOLDER|SFGAO_HASSUBFOLDER|SFGAO_FILESYSANCESTOR|SFGAO_CANRENAME;
+  
     This->m_pidlLocation = ILClone(pidl);
-    This->m_pszPath = pNextDir = SHAlloc(dwPathLen);
-    if (!This->m_pszPath || !This->m_pidlLocation) {
-        WARN("SHAlloc failed!\n");
-        return E_FAIL;
-    }
-    current = root;
-    strcpy(pNextDir, szBasePath);
-    pNextDir += strlen(szBasePath);
-    if (This->m_dwPathMode == PATHMODE_UNIX || IsEqualCLSID(&CLSID_MyDocuments, This->m_pCLSID))
-        This->m_dwAttributes |= SFGAO_FILESYSTEM;
-    if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
-        *pNextDir = '\0';
-        if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
-            This->m_dwAttributes |= SFGAO_FILESYSTEM;
-    }
-    while (current && current->mkid.cb) {
-        memcpy(pNextDir, _ILGetTextPointer(current), NAME_LEN_FROM_LPSHITEMID(current));
-        pNextDir += NAME_LEN_FROM_LPSHITEMID(current);
-        if (!(This->m_dwAttributes & SFGAO_FILESYSTEM)) {
-            *pNextDir = '\0';
-            if (!stat(This->m_pszPath, &statPrefix) && UNIXFS_is_dos_device(&statPrefix))
-                This->m_dwAttributes |= SFGAO_FILESYSTEM;
-        }
-        *pNextDir++ = '/';
-        current = ILGetNext(current);
-    }
-    *pNextDir='\0';
- 
-    return S_OK;
+    return UNIXFS_initialize_target_folder(This, szBasePath, current, 0); 
 }
 
 static HRESULT WINAPI UnixFolder_IPersistFolder3_GetCurFolder(IPersistFolder3* iface, LPITEMIDLIST* ppidl)
@@ -1227,7 +1375,9 @@ static HRESULT WINAPI UnixFolder_IPersistFolder3_InitializeEx(IPersistFolder3 *i
             return E_FAIL;
         }
     } else if (*ppfti->szTargetParsingName) {
-        if (!UNIXFS_get_unix_path(ppfti->szTargetParsingName, szTargetPath)) {
+        lstrcpyW(wszTargetDosPath, ppfti->szTargetParsingName);
+        PathAddBackslashW(wszTargetDosPath);
+        if (!UNIXFS_get_unix_path(wszTargetDosPath, szTargetPath)) {
             return E_FAIL;
         }
     } else if (ppfti->pidlTargetFolder) {
@@ -1307,8 +1457,32 @@ static HRESULT WINAPI UnixFolder_IPersistPropertyBag_InitNew(IPersistPropertyBag
 static HRESULT WINAPI UnixFolder_IPersistPropertyBag_Load(IPersistPropertyBag *iface, 
     IPropertyBag *pPropertyBag, IErrorLog *pErrorLog)
 {
-    FIXME("() stub\n");
-    return E_NOTIMPL;
+     UnixFolder *This = ADJUST_THIS(UnixFolder, IPersistPropertyBag, iface);
+     static const WCHAR wszTarget[] = { 'T','a','r','g','e','t', 0 }, wszNull[] = { 0 };
+     PERSIST_FOLDER_TARGET_INFO pftiTarget;
+     VARIANT var;
+     HRESULT hr;
+     
+     TRACE("(iface=%p, pPropertyBag=%p, pErrorLog=%p)\n", iface, pPropertyBag, pErrorLog);
+ 
+     if (!pPropertyBag)
+         return E_POINTER;
+ 
+     /* Get 'Target' property from the property bag. */
+     V_VT(&var) = VT_BSTR;
+     hr = IPropertyBag_Read(pPropertyBag, wszTarget, &var, NULL);
+     if (FAILED(hr)) 
+         return E_FAIL;
+     lstrcpyW(pftiTarget.szTargetParsingName, V_BSTR(&var));
+     SysFreeString(V_BSTR(&var));
+ 
+     pftiTarget.pidlTargetFolder = NULL;
+     lstrcpyW(pftiTarget.szNetworkProvider, wszNull);
+     pftiTarget.dwAttributes = -1;
+     pftiTarget.csidl = -1;
+ 
+     return UnixFolder_IPersistFolder3_InitializeEx(
+                 STATIC_CAST(IPersistFolder3, This), NULL, NULL, &pftiTarget);
 }
 
 static HRESULT WINAPI UnixFolder_IPersistPropertyBag_Save(IPersistPropertyBag *iface,

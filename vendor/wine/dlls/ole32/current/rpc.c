@@ -621,30 +621,20 @@ static HRESULT create_server(REFCLSID rclsid)
 {
     static const WCHAR  wszLocalServer32[] = { 'L','o','c','a','l','S','e','r','v','e','r','3','2',0 };
     static const WCHAR  embedding[] = { ' ', '-','E','m','b','e','d','d','i','n','g',0 };
-    HKEY                hkeyclsid;
     HKEY                key;
-    HRESULT             hres = E_UNEXPECTED;
-    WCHAR               exe[MAX_PATH+1];
-    DWORD               exelen = sizeof(exe);
+    HRESULT             hres;
     WCHAR               command[MAX_PATH+sizeof(embedding)/sizeof(WCHAR)];
+    DWORD               size = MAX_PATH+1 * sizeof(WCHAR);
     STARTUPINFOW        sinfo;
     PROCESS_INFORMATION pinfo;
 
-    hres = HRESULT_FROM_WIN32(COM_OpenKeyForCLSID(rclsid, KEY_READ, &hkeyclsid));
-    if (hres != S_OK) {
+    hres = COM_OpenKeyForCLSID(rclsid, wszLocalServer32, KEY_READ, &key);
+    if (FAILED(hres)) {
         ERR("class %s not registered\n", debugstr_guid(rclsid));
-        return REGDB_E_READREGDB;
+        return hres;
     }
 
-    hres = RegOpenKeyExW(hkeyclsid, wszLocalServer32, 0, KEY_READ, &key);
-
-    if (hres != ERROR_SUCCESS) {
-        WARN("class %s not registered as LocalServer32\n", debugstr_guid(rclsid));
-        return REGDB_E_READREGDB; /* Probably */
-    }
-
-    memset(exe,0,sizeof(exe));
-    hres= RegQueryValueExW(key, NULL, NULL, NULL, (LPBYTE)exe, &exelen);
+    hres = RegQueryValueExW(key, NULL, NULL, NULL, (LPBYTE)command, &size);
     RegCloseKey(key);
     if (hres) {
         WARN("No default value for LocalServer32 key\n");
@@ -654,17 +644,16 @@ static HRESULT create_server(REFCLSID rclsid)
     memset(&sinfo,0,sizeof(sinfo));
     sinfo.cb = sizeof(sinfo);
 
-    /* EXE servers are started with the -Embedding switch. MSDN also claims /Embedding is used,
-     * 9x does -Embedding, perhaps an 9x/NT difference?
-     */
+    /* EXE servers are started with the -Embedding switch. */
 
-    strcpyW(command, exe);
     strcatW(command, embedding);
 
     TRACE("activating local server %s for %s\n", debugstr_w(command), debugstr_guid(rclsid));
 
-    if (!CreateProcessW(exe, command, NULL, NULL, FALSE, 0, NULL, NULL, &sinfo, &pinfo)) {
-        WARN("failed to run local server %s\n", debugstr_w(exe));
+    /* FIXME: Win2003 supports a ServerExecutable value that is passed into
+     * CreateProcess */
+    if (!CreateProcessW(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sinfo, &pinfo)) {
+        WARN("failed to run local server %s\n", debugstr_w(command));
         return HRESULT_FROM_WIN32(GetLastError());
     }
     CloseHandle(pinfo.hProcess);
@@ -715,7 +704,7 @@ static DWORD start_local_service(LPCWSTR name, DWORD num, LPWSTR *params)
  */
 static HRESULT create_local_service(REFCLSID rclsid)
 {
-    HRESULT hres = REGDB_E_READREGDB;
+    HRESULT hres;
     WCHAR buf[CHARS_IN_GUID], keyname[50];
     static const WCHAR szAppId[] = { 'A','p','p','I','d',0 };
     static const WCHAR szAppIdKey[] = { 'A','p','p','I','d','\\',0 };
@@ -728,11 +717,11 @@ static HRESULT create_local_service(REFCLSID rclsid)
     TRACE("Attempting to start Local service for %s\n", debugstr_guid(rclsid));
 
     /* read the AppID value under the class's key */
-    r = COM_OpenKeyForCLSID(rclsid, KEY_READ, &hkey);
-    if (r!=ERROR_SUCCESS)
+    hres = COM_OpenKeyForCLSID(rclsid, szAppId, KEY_READ, &hkey);
+    if (FAILED(hres))
         return hres;
     sz = sizeof buf;
-    r = RegQueryValueExW(hkey, szAppId, NULL, &type, (LPBYTE)buf, &sz);
+    r = RegQueryValueExW(hkey, NULL, NULL, &type, (LPBYTE)buf, &sz);
     RegCloseKey(hkey);
     if (r!=ERROR_SUCCESS || type!=REG_SZ)
         return hres;
