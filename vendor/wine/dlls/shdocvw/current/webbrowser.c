@@ -125,6 +125,7 @@ static ULONG WINAPI WebBrowser_Release(IWebBrowser2 *iface)
             IUnknown_Release(This->document);
 
         WebBrowser_OleObject_Destroy(This);
+        WebBrowser_Events_Destroy(This);
 
         HeapFree(GetProcessHeap(), 0, This);
         SHDOCVW_UnlockModule();
@@ -782,6 +783,7 @@ HRESULT WebBrowser_Create(IUnknown *pOuter, REFIID riid, void **ppv)
     WebBrowser_Misc_Init(ret);
     WebBrowser_Events_Init(ret);
     WebBrowser_ClientSite_Init(ret);
+    WebBrowser_DocHost_Init(ret);
 
     hres = IWebBrowser_QueryInterface(WEBBROWSER(ret), riid, ppv);
     if(SUCCEEDED(hres)) {
