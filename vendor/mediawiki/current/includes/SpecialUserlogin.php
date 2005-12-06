@@ -6,17 +6,12 @@
  */
 
 /**
- *
- */
-require_once('UserMailer.php');
-
-/**
- * consutrctor
+ * constructor
  */
 function wfSpecialUserlogin() {
 	global $wgCommandLineMode;
 	global $wgRequest;
-	if( !$wgCommandLineMode && !isset( $_COOKIE[ini_get('session.name')] )  ) {
+	if( !$wgCommandLineMode && !isset( $_COOKIE[session_name()] )  ) {
 		User::SetupSession();
 	}
 	
@@ -32,14 +27,20 @@ function wfSpecialUserlogin() {
 class LoginForm {
 	var $mName, $mPassword, $mRetype, $mReturnto, $mCookieCheck, $mPosted;
 	var $mAction, $mCreateaccount, $mCreateaccountMail, $mMailmypassword;
-	var $mLoginattempt, $mRemember, $mEmail;
+	var $mLoginattempt, $mRemember, $mEmail, $mDomain;
 	
+	/**
+	 * Constructor
+	 * @param webrequest $request A webrequest object passed by reference
+	 */
 	function LoginForm( &$request ) {
 		global $wgLang, $wgAllowRealName, $wgEnableEmail;
+		global $wgAuth;
 
 		$this->mName = $request->getText( 'wpName' );
 		$this->mPassword = $request->getText( 'wpPassword' );
 		$this->mRetype = $request->getText( 'wpRetype' );
+		$this->mDomain = $request->getText( 'wpDomain' );
 		$this->mReturnto = $request->getVal( 'returnto' );
 		$this->mCookieCheck = $request->getVal( 'wpCookieCheck' );
 		$this->mPosted = $request->wasPosted();
@@ -62,7 +63,12 @@ class LoginForm {
 		} else {
 		    $this->mRealName = '';
 		}
-	    
+		
+		if( !$wgAuth->validDomain( $this->mDomain ) ) {
+			$this->mDomain = 'invaliddomain';
+		}
+		$wgAuth->setDomain( $this->mDomain );
+ 
 		# When switching accounts, it sucks to get automatically logged out
 		if( $this->mReturnto == $wgLang->specialPage( 'Userlogout' ) ) {
 			$this->mReturnto = '';
@@ -105,19 +111,18 @@ class LoginForm {
 		}
 
 		$u->saveSettings();
-		$error = $this->mailPasswordInternal($u);
-
+		$result = $this->mailPasswordInternal($u);
+		
 		$wgOut->setPageTitle( wfMsg( 'accmailtitle' ) );
 		$wgOut->setRobotpolicy( 'noindex,nofollow' );
 		$wgOut->setArticleRelated( false );
 	
-		if ( $error === '' ) {
+		if( WikiError::isError( $result ) ) {
+			$this->mainLoginForm( wfMsg( 'mailerror', $result->getMessage() ) );
+		} else {
 			$wgOut->addWikiText( wfMsg( 'accmailtext', $u->getName(), $u->getEmail() ) );
 			$wgOut->returnToMain( false );
-		} else {
-			$this->mainLoginForm( wfMsg( 'mailerror', $error ) );
 		}
-
 		$u = 0;
 	}
 
@@ -126,7 +131,7 @@ class LoginForm {
 	 * @access private
 	 */
 	function addNewAccount() {
-		global $wgUser, $wgOut;
+		global $wgUser, $wgOut, $wgEmailAuthentication;
 
 		$u = $this->addNewAccountInternal();
 
@@ -138,6 +143,11 @@ class LoginForm {
 		$wgUser->setCookies();
 
 		$wgUser->saveSettings();
+		if( $wgEmailAuthentication && $wgUser->isValidEmailAddr( $wgUser->getEmail() ) ) {
+			$wgUser->sendConfirmationMail();
+		}
+
+		wfRunHooks( 'AddNewAccount' );
 
 		if( $this->hasSessionCookie() ) {
 			return $this->successfulLogin( wfMsg( 'welcomecreation', $wgUser->getName() ) );
@@ -151,48 +161,67 @@ class LoginForm {
 	 */
 	function addNewAccountInternal() {
 		global $wgUser, $wgOut;
-		global $wgMaxNameChars, $wgUseLatin1, $wgEnableSorbs, $wgProxyWhitelist;
+		global $wgUseLatin1, $wgEnableSorbs, $wgProxyWhitelist;
 		global $wgMemc, $wgAccountCreationThrottle, $wgDBname, $wgIP;
+		global $wgAuth;
+
+		// If the user passes an invalid domain, something is fishy
+		if( !$wgAuth->validDomain( $this->mDomain ) ) {
+			$this->mainLoginForm( wfMsg( 'wrongpassword' ) );
+			return false;
+		}
+
+		// If we are not allowing users to login locally, we should
+		// be checking to see if the user is actually able to
+		// authenticate to the authentication server before they
+		// create an account (otherwise, they can create a local account
+		// and login as any domain user). We only need to check this for
+		// domains that aren't local.
+		if( 'local' != $this->mDomain && '' != $this->mDomain ) {
+			if( !$wgAuth->canCreateAccounts() && ( !$wgAuth->userExists( $this->mName ) || !$wgAuth->authenticate( $this->mName, $this->mPassword ) ) ) {
+				$this->mainLoginForm( wfMsg( 'wrongpassword' ) );
+				return false;
+			}
+		}
 
 		if (!$wgUser->isAllowedToCreateAccount()) {
 			$this->userNotPrivilegedMessage();
-			return;
+			return false;
 		}
 
 		if ( $wgEnableSorbs && !in_array( $wgIP, $wgProxyWhitelist ) && 
 		  $wgUser->inSorbsBlacklist( $wgIP ) ) 
 		{
-			$this->mainLoginForm( wfMsg( 'sorbs_create_account_reason' ) );
+			$this->mainLoginForm( wfMsg( 'sorbs_create_account_reason' ) . ' (' . htmlspecialchars( $wgIP ) . ')' );
 			return;
 		}
 
 
 		if ( 0 != strcmp( $this->mPassword, $this->mRetype ) ) {
 			$this->mainLoginForm( wfMsg( 'badretype' ) );
-			return;
+			return false;
 		}
 		
 		$name = trim( $this->mName );
 		$u = User::newFromName( $name );
-		if ( is_null( $u ) ||
-		  ( '' == $name ) ||
-		  preg_match( "/\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/", $name ) ||
-		  (strpos( $name, "/" ) !== false) ||
-		  (strlen( $name ) > $wgMaxNameChars) ||
-                  ($wgUseLatin1 && preg_match( "/[\x80-\xA0]/", $name )) ||
-		  ucFirst($name) != $u->getName() ) 
-		{
+		if ( is_null( $u ) ) {
 			$this->mainLoginForm( wfMsg( 'noname' ) );
-			return;
+			return false;
 		}
+		
 		if ( wfReadOnly() ) {
 			$wgOut->readOnlyPage();
-			return;
+			return false;
 		}
 		
 		if ( 0 != $u->idForName() ) {
 			$this->mainLoginForm( wfMsg( 'userexists' ) );
-			return;
+			return false;
+		}
+
+		if ( !$wgUser->isValidPassword( $this->mPassword ) ) {
+			$this->mainLoginForm( wfMsg( 'passwordtooshort', $wgMinimalPasswordLength ) );
+			return false;
 		}
 
 		if ( $wgAccountCreationThrottle ) {
@@ -203,8 +232,13 @@ class LoginForm {
 			}
 			if ( $value > $wgAccountCreationThrottle ) {
 				$this->throttleHit( $wgAccountCreationThrottle );
-				return;
+				return false;
 			}
+		}
+
+		if( !$wgAuth->addUser( $u, $this->mPassword ) ) {
+			$this->mainLoginForm( wfMsg( 'externaldberror' ) );
+			return false;
 		}
 
 		# Update user count
@@ -244,6 +278,7 @@ class LoginForm {
 	 */
 	function processLogin() {
 		global $wgUser;
+		global $wgAuth;
 
 		if ( '' == $this->mName ) {
 			$this->mainLoginForm( wfMsg( 'noname' ) );
@@ -275,6 +310,7 @@ class LoginForm {
 		} else {
 			$u->loadFromDatabase();
 		}
+
 		if (!$u->checkPassword( $this->mPassword )) {
 			$this->mainLoginForm( wfMsg( 'wrongpassword' ) );
 			return;
@@ -288,6 +324,8 @@ class LoginForm {
 			$r = 0;
 		}
 		$u->setOption( 'rememberpassword', $r );
+
+		$wgAuth->updateUser( $u );
 
 		$wgUser = $u;
 		$wgUser->setCookies();
@@ -324,31 +362,32 @@ class LoginForm {
 
 		$u->loadFromDatabase();
 
-		$error = $this->mailPasswordInternal( $u );
-		if ($error === '') {
-			$this->mainLoginForm( wfMsg( 'passwordsent', $u->getName() ) );
+		$result = $this->mailPasswordInternal( $u );
+		if( WikiError::isError( $result ) ) {
+			$this->mainLoginForm( wfMsg( 'mailerror', $result->getMessage() ) );
 		} else {
-			$this->mainLoginForm( wfMsg( 'mailerror', $error ) );
+			$this->mainLoginForm( wfMsg( 'passwordsent', $u->getName() ) );
 		}
-
 	}
 
 
 	/**
+	 * @return mixed true on success, WikiError on failure
 	 * @access private
 	 */
 	function mailPasswordInternal( $u ) {
-		global $wgDeferredUpdateList, $wgOutputEncoding;
 		global $wgPasswordSender, $wgDBname, $wgIP;
 		global $wgCookiePath, $wgCookieDomain;
 
 		if ( '' == $u->getEmail() ) {
 			return wfMsg( 'noemail', $u->getName() );
 		}
-		$np = User::randomPassword();
+
+		$np = $u->randomPassword();
 		$u->setNewpassword( $np );
 
 		setcookie( "{$wgDBname}Token", '', time() - 3600, $wgCookiePath, $wgCookieDomain );
+
 		$u->saveSettings();
 
 		$ip = $wgIP;
@@ -356,18 +395,17 @@ class LoginForm {
 
 		$m = wfMsg( 'passwordremindertext', $ip, $u->getName(), $np );
 
-		$error = userMailer( $u->getEmail(), $wgPasswordSender, wfMsg( 'passwordremindertitle' ), $m );
-		
-		return htmlspecialchars( $error );
+		$result = $u->sendMail( wfMsg( 'passwordremindertitle' ), $m );
+		return $result;
 	}
 
 
 	/**
+	 * @param string $msg Message that will be shown on success.
 	 * @access private
 	 */
 	function successfulLogin( $msg ) {
 		global $wgUser;
-		global $wgDeferredUpdateList;
 		global $wgOut;
 
 		# Run any hooks; ignore results
@@ -381,8 +419,9 @@ class LoginForm {
 		$wgOut->returnToMain();
 	}
 
+	/** */
 	function userNotPrivilegedMessage() {
-		global $wgOut, $wgUser, $wgLang;
+		global $wgOut;
 		
 		$wgOut->setPageTitle( wfMsg( 'whitelistacctitle' ) );
 		$wgOut->setRobotpolicy( 'noindex,nofollow' );
@@ -399,9 +438,10 @@ class LoginForm {
 	function mainLoginForm( $err ) {
 		global $wgUser, $wgOut, $wgLang;
 		global $wgDBname, $wgAllowRealName, $wgEnableEmail;
+		global $wgAuth;
 
 		if ( '' == $this->mName ) {
-			if ( 0 != $wgUser->getID() ) {
+			if ( $wgUser->isLoggedIn() ) {
 				$this->mName = $wgUser->getName();
 			} else {
 				$this->mName = @$_COOKIE[$wgDBname.'UserName'];
@@ -414,7 +454,6 @@ class LoginForm {
 		}
 		$titleObj = Title::makeTitle( NS_SPECIAL, 'Userlogin' );
 
-
 		require_once( 'templates/Userlogin.php' );
 		$template =& new UserloginTemplate();
 		
@@ -423,14 +462,16 @@ class LoginForm {
 		$template->set( 'retype', $this->mRetype );
 		$template->set( 'email', $this->mEmail );
 		$template->set( 'realname', $this->mRealName );
+		$template->set( 'domain', $this->mDomain );
 
 		$template->set( 'action', $titleObj->getLocalUrl( $q ) );
 		$template->set( 'error', $err );
 		$template->set( 'create', $wgUser->isAllowedToCreateAccount() );
-		$template->set( 'createemail', $wgEnableEmail && $wgUser->getID() != 0 );
+		$template->set( 'createemail', $wgEnableEmail && $wgUser->isLoggedIn() );
 		$template->set( 'userealname', $wgAllowRealName );
 		$template->set( 'useemail', $wgEnableEmail );
-		$template->set( 'remember', $wgUser->getOption( 'rememberpassword' ) );
+		$template->set( 'remember', $wgUser->getOption( 'rememberpassword' ) or $this->mRemember  );
+		$wgAuth->modifyUITemplate( $template );
 		
 		$wgOut->setPageTitle( wfMsg( 'userlogin' ) );
 		$wgOut->setRobotpolicy( 'noindex,nofollow' );
@@ -443,7 +484,7 @@ class LoginForm {
 	 */
 	function hasSessionCookie() {
 		global $wgDisableCookieCheck;
-		return ( $wgDisableCookieCheck ) ? true : ( '' != $_COOKIE[session_name()] );
+		return ( $wgDisableCookieCheck ) ? true : ( isset( $_COOKIE[session_name()] ) );
 	}
 	  
 	/**
