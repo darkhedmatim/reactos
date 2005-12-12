@@ -140,8 +140,12 @@ void WINAPI NdrProxyFreeBuffer(void *This,
  */
 HRESULT WINAPI NdrProxyErrorHandler(DWORD dwExceptionCode)
 {
-  FIXME("(0x%08lx): semi-stub\n", dwExceptionCode);
-  return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_RPC, RPC_S_CALL_FAILED);
+  WARN("(0x%08lx): a proxy call failed\n", dwExceptionCode);
+
+  if (FAILED(dwExceptionCode))
+    return dwExceptionCode;
+  else
+    return HRESULT_FROM_WIN32(dwExceptionCode);
 }
 
 /***********************************************************************
@@ -281,6 +285,11 @@ unsigned char *WINAPI NdrSendReceive( MIDL_STUB_MESSAGE *stubmsg, unsigned char 
     WARN("I_RpcSendReceive did not return success.\n");
     /* FIXME: raise exception? */
   }
+
+  stubmsg->BufferLength = stubmsg->RpcMsg->BufferLength;
+  stubmsg->BufferStart = stubmsg->RpcMsg->Buffer;
+  stubmsg->BufferEnd = stubmsg->BufferStart + stubmsg->BufferLength;
+  stubmsg->Buffer = stubmsg->BufferStart;
 
   /* FIXME: is this the right return value? */
   return NULL;
