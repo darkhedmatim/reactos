@@ -41,6 +41,4 @@ HRESULT WINAPI CStdStubBuffer_Construct(REFIID riid,
 					LPPSFACTORYBUFFER pPSFactory,
 					LPRPCSTUBBUFFER *ppStub);
 
-const MIDL_SERVER_INFO *CStdStubBuffer_GetServerInfo(IRpcStubBuffer *iface);
-
 #endif  /* __WINE_CPSF_H */

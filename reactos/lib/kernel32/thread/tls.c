@@ -17,7 +17,6 @@
 #define NDEBUG
 #include "../include/debug.h"
 
-#define TLS_EXPANSION_SLOTS (8 * sizeof(((PPEB)NULL)->TlsExpansionBitmapBits))
 
 /* FUNCTIONS *****************************************************************/
 
@@ -30,49 +29,18 @@ TlsAlloc(VOID)
    ULONG Index;
 
    RtlAcquirePebLock();
-
-   /* Try to get regular TEB slot. */
-   Index = RtlFindClearBitsAndSet(NtCurrentPeb()->TlsBitmap, 1, 0);
-   if (Index == ~0)
-   {
-      /* If it fails, try to find expansion TEB slot. */
-      Index = RtlFindClearBitsAndSet(NtCurrentPeb()->TlsExpansionBitmap, 1, 0);
-      if (Index != ~0)
-      {
-         if (NtCurrentTeb()->TlsExpansionSlots == NULL)
-         {
-            NtCurrentTeb()->TlsExpansionSlots = HeapAlloc(
-               GetProcessHeap(), HEAP_ZERO_MEMORY,
-               TLS_EXPANSION_SLOTS * sizeof(PVOID));
-         }
-
-         if (NtCurrentTeb()->TlsExpansionSlots == NULL)
-         {
-            RtlClearBits(NtCurrentPeb()->TlsExpansionBitmap, Index, 1);
-            Index = ~0;
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-         }
-         else
-         {
-            /* Clear the value. */
-            NtCurrentTeb()->TlsExpansionSlots[Index] = 0;
-            Index += TLS_MINIMUM_AVAILABLE;
-         }
-      }
-      else
-      {
-         SetLastError(ERROR_NO_MORE_ITEMS);
-      }
-   }
+   Index = RtlFindClearBitsAndSet (NtCurrentPeb()->TlsBitmap, 1, 0);
+   if (Index == (ULONG)-1)
+     {
+       SetLastErrorByStatus(STATUS_NO_MEMORY);
+     }
    else
-   {
-      /* Clear the value. */
-      NtCurrentTeb()->TlsSlots[Index] = 0;
-   }
-
+     {
+       NtCurrentTeb()->TlsSlots[Index] = 0;
+     }
    RtlReleasePebLock();
 
-   return Index;
+   return(Index);
 }
 
 
@@ -80,47 +48,32 @@ TlsAlloc(VOID)
  * @implemented
  */
 BOOL STDCALL
-TlsFree(DWORD Index)
+TlsFree(DWORD dwTlsIndex)
 {
-   BOOL BitSet;
-   
-   if (Index >= TLS_EXPANSION_SLOTS + TLS_MINIMUM_AVAILABLE)
-   {
-      SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-      return FALSE;
-   }
+   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
+     {
+	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+	return(FALSE);
+     }
 
    RtlAcquirePebLock();
-
-   if (Index >= TLS_MINIMUM_AVAILABLE)
-   {
-      BitSet = RtlAreBitsSet(NtCurrentPeb()->TlsExpansionBitmap,
-                             Index - TLS_MINIMUM_AVAILABLE, 1);
-      if (BitSet)
-         RtlClearBits(NtCurrentPeb()->TlsExpansionBitmap,
-                      Index - TLS_MINIMUM_AVAILABLE, 1);
-   }
-   else
-   {
-      BitSet = RtlAreBitsSet(NtCurrentPeb()->TlsBitmap, Index, 1);
-      if (BitSet)
-         RtlClearBits(NtCurrentPeb()->TlsBitmap, Index, 1);
-   }
-
-   if (BitSet)
-   {
-      /* Clear the TLS cells (slots) in all threads of the current process. */
-      NtSetInformationThread(NtCurrentThread(), ThreadZeroTlsCell,
-                             &Index, sizeof(DWORD));
-   }
-   else
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-   }
-
+   if (RtlAreBitsSet(NtCurrentPeb()->TlsBitmap, dwTlsIndex, 1))
+     {
+	/*
+	 * clear the tls cells (slots) in all threads
+	 * of the current process
+	 */
+	NtSetInformationThread(NtCurrentThread(),
+			       ThreadZeroTlsCell,
+			       &dwTlsIndex,
+			       sizeof(DWORD));
+	RtlClearBits(NtCurrentPeb()->TlsBitmap,
+		     dwTlsIndex,
+		     1);
+     }
    RtlReleasePebLock();
 
-   return BitSet;
+   return(TRUE);
 }
 
 
@@ -128,27 +81,22 @@ TlsFree(DWORD Index)
  * @implemented
  */
 LPVOID STDCALL
-TlsGetValue(DWORD Index)
+TlsGetValue(DWORD dwTlsIndex)
 {
-   if (Index >= TLS_EXPANSION_SLOTS + TLS_MINIMUM_AVAILABLE)
-   {
-      SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-      return NULL;
-   }
+   LPVOID Value;
 
-   SetLastError(NO_ERROR);
+   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
+     {
+	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+	return(NULL);
+     }
 
-   if (Index >= TLS_MINIMUM_AVAILABLE)
+   Value = NtCurrentTeb()->TlsSlots[dwTlsIndex];
+   if (Value == 0)
    {
-      /* The expansion slots are allocated on demand, so check for it. */
-      if (NtCurrentTeb()->TlsExpansionSlots == NULL)
-         return NULL;
-      return NtCurrentTeb()->TlsExpansionSlots[Index - TLS_MINIMUM_AVAILABLE];
+      SetLastError(NO_ERROR);
    }
-   else
-   {
-      return NtCurrentTeb()->TlsSlots[Index];
-   }
+   return Value;
 }
 
 
@@ -156,37 +104,15 @@ TlsGetValue(DWORD Index)
  * @implemented
  */
 BOOL STDCALL
-TlsSetValue(DWORD Index, LPVOID Value)
+TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue)
 {
-   if (Index >= TLS_EXPANSION_SLOTS + TLS_MINIMUM_AVAILABLE)
-   {
-      SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-      return FALSE;
-   }
-
-   if (Index >= TLS_MINIMUM_AVAILABLE)
-   {
-      if (NtCurrentTeb()->TlsExpansionSlots == NULL)
-      {
-         NtCurrentTeb()->TlsExpansionSlots = HeapAlloc(
-            GetProcessHeap(), HEAP_ZERO_MEMORY,
-            TLS_EXPANSION_SLOTS * sizeof(PVOID));
-
-         if (NtCurrentTeb()->TlsExpansionSlots == NULL)
-         {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-         }
-      }
-
-      NtCurrentTeb()->TlsExpansionSlots[Index - TLS_MINIMUM_AVAILABLE] = Value;
-   }
-   else
-   {
-      NtCurrentTeb()->TlsSlots[Index] = Value;
-   }
-
-   return TRUE;
+   if (dwTlsIndex >= TLS_MINIMUM_AVAILABLE)
+     {
+	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+	return(FALSE);
+     }
+   NtCurrentTeb()->TlsSlots[dwTlsIndex] = lpTlsValue;
+   return(TRUE);
 }
 
 /* EOF */

@@ -939,7 +939,6 @@ static BOOL msi_mask_editable( WCHAR type )
     case '&':
     case '`':
     case '?':
-    case '^':
         return TRUE;
     }
     return FALSE;
@@ -1157,7 +1156,6 @@ msi_maskedit_create_children( struct msi_maskedit_info *info, LPCWSTR font )
 /*
  * office 2003 uses "73931<````=````=````=````=`````>@@@@@"
  * delphi 7 uses "<????-??????-??????-????>" and "<???-???>"
- * filemaker pro 7 uses "<^^^^=^^^^=^^^^=^^^^=^^^^=^^^^=^^^^^>"
  */
 static UINT msi_dialog_maskedit_control( msi_dialog *dialog, MSIRECORD *rec )
 {

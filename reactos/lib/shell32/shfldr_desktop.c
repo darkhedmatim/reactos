@@ -428,7 +428,7 @@ static HRESULT WINAPI ISF_Desktop_fnGetAttributesOf (IShellFolder2 * iface,
     static const DWORD dwDesktopAttributes = 
         SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR |
         SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_FILESYSTEM | SFGAO_HASSUBFOLDER;
-    static const DWORD dwMyComputerAttributes = 
+    static const DWORD dwMyComputerAttributes =
         SFGAO_CANRENAME | SFGAO_CANDELETE | SFGAO_HASPROPSHEET |
         SFGAO_DROPTARGET | SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_HASSUBFOLDER;
 

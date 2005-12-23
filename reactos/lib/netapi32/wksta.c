@@ -23,7 +23,6 @@
 
 #include <stdarg.h>
 #include <stdlib.h>
-#include "ntstatus.h"
 #define WIN32_NO_STATUS
 #include "windef.h"
 #include "winbase.h"
@@ -35,6 +34,8 @@
 #include "lmwksta.h"
 #include "iphlpapi.h"
 #include "winerror.h"
+#undef WIN32_NO_STATUS
+#include "ntstatus.h"
 #include "winreg.h"
 #include "ntsecapi.h"
 #include "netbios.h"

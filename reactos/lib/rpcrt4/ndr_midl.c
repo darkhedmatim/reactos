@@ -140,12 +140,8 @@ void WINAPI NdrProxyFreeBuffer(void *This,
  */
 HRESULT WINAPI NdrProxyErrorHandler(DWORD dwExceptionCode)
 {
-  WARN("(0x%08lx): a proxy call failed\n", dwExceptionCode);
-
-  if (FAILED(dwExceptionCode))
-    return dwExceptionCode;
-  else
-    return HRESULT_FROM_WIN32(dwExceptionCode);
+  FIXME("(0x%08lx): semi-stub\n", dwExceptionCode);
+  return MAKE_HRESULT(SEVERITY_ERROR, FACILITY_RPC, RPC_S_CALL_FAILED);
 }
 
 /***********************************************************************
@@ -238,12 +234,12 @@ unsigned char* WINAPI NdrServerInitializeNew( PRPC_MESSAGE pRpcMsg, PMIDL_STUB_M
 unsigned char *WINAPI NdrGetBuffer(MIDL_STUB_MESSAGE *stubmsg, unsigned long buflen, RPC_BINDING_HANDLE handle)
 {
   TRACE("(stubmsg == ^%p, buflen == %lu, handle == %p): wild guess.\n", stubmsg, buflen, handle);
-  
+
   assert( stubmsg && stubmsg->RpcMsg );
 
   /* I guess this is our chance to put the binding handle into the RPC_MESSAGE */
   stubmsg->RpcMsg->Handle = handle;
-  
+
   stubmsg->RpcMsg->BufferLength = buflen;
   if (I_RpcGetBuffer(stubmsg->RpcMsg) != S_OK)
     return NULL;
@@ -253,6 +249,7 @@ unsigned char *WINAPI NdrGetBuffer(MIDL_STUB_MESSAGE *stubmsg, unsigned long buf
   stubmsg->BufferEnd = stubmsg->Buffer + stubmsg->BufferLength;
   return (stubmsg->Buffer = (unsigned char *)stubmsg->RpcMsg->Buffer);
 }
+
 /***********************************************************************
  *           NdrFreeBuffer [RPCRT4.@]
  */
@@ -267,29 +264,30 @@ void WINAPI NdrFreeBuffer(MIDL_STUB_MESSAGE *pStubMsg)
 /************************************************************************
  *           NdrSendReceive [RPCRT4.@]
  */
-unsigned char *WINAPI NdrSendReceive( MIDL_STUB_MESSAGE *stubmsg, unsigned char *buffer  )
+unsigned char *WINAPI NdrSendReceive( MIDL_STUB_MESSAGE *pStubMsg, unsigned char *buffer  )
 {
-  TRACE("(stubmsg == ^%p, buffer == ^%p)\n", stubmsg, buffer);
+  TRACE("(pStubMsg == ^%p, buffer == ^%p)\n", pStubMsg, buffer);
 
   /* FIXME: how to handle errors? (raise exception?) */
-  if (!stubmsg) {
+  if (!pStubMsg) {
     ERR("NULL stub message.  No action taken.\n");
     return NULL;
   }
-  if (!stubmsg->RpcMsg) {
+  if (!pStubMsg->RpcMsg) {
     ERR("RPC Message not present in stub message.  No action taken.\n");
     return NULL;
   }
 
-  if (I_RpcSendReceive(stubmsg->RpcMsg) != RPC_S_OK) {
+  if (I_RpcSendReceive(pStubMsg->RpcMsg) != RPC_S_OK) {
     WARN("I_RpcSendReceive did not return success.\n");
     /* FIXME: raise exception? */
+    return NULL;
   }
 
-  stubmsg->BufferLength = stubmsg->RpcMsg->BufferLength;
-  stubmsg->BufferStart = stubmsg->RpcMsg->Buffer;
-  stubmsg->BufferEnd = stubmsg->BufferStart + stubmsg->BufferLength;
-  stubmsg->Buffer = stubmsg->BufferStart;
+  pStubMsg->BufferLength = pStubMsg->RpcMsg->BufferLength;
+  pStubMsg->BufferStart = pStubMsg->RpcMsg->Buffer;
+  pStubMsg->BufferEnd = pStubMsg->BufferStart + pStubMsg->BufferLength;
+  pStubMsg->Buffer = pStubMsg->BufferStart;
 
   /* FIXME: is this the right return value? */
   return NULL;

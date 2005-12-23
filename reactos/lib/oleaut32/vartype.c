@@ -6599,21 +6599,23 @@ HRESULT WINAPI VarBstrCat(BSTR pbstrLeft, BSTR pbstrRight, BSTR *pbstrOut)
  * RETURNS
  *  VARCMP_LT, VARCMP_EQ or VARCMP_GT indicating that pbstrLeft is less
  *  than, equal to or greater than pbstrRight respectively.
- *
- * NOTES
- *  VARCMP_NULL is NOT returned if either string is NULL unlike MSDN
- *  states. A NULL BSTR pointer is equivalent to an empty string.
+ *  VARCMP_NULL is returned if either string is NULL, unless both are NULL
+ *  in which case VARCMP_EQ is returned.
  */
 HRESULT WINAPI VarBstrCmp(BSTR pbstrLeft, BSTR pbstrRight, LCID lcid, DWORD dwFlags)
 {
-    if (!pbstrLeft || !*pbstrLeft)
+    if (!pbstrLeft)
     {
       if (!pbstrRight || !*pbstrRight)
         return VARCMP_EQ;
-      return VARCMP_LT;
+      return VARCMP_NULL;
     }
-    else if (!pbstrRight || !*pbstrRight)
-        return VARCMP_GT;
+    else if (!pbstrRight)
+    {
+      if (!*pbstrLeft)
+        return VARCMP_EQ;
+      return VARCMP_NULL;
+    }
 
     return CompareStringW(lcid, dwFlags, pbstrLeft, -1, pbstrRight, -1) - 1;
 }

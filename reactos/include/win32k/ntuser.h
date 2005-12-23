@@ -752,10 +752,10 @@ NtUserGetKeyboardLayoutList(
   DWORD Unknown0,
   DWORD Unknown1);
 
-BOOL
+DWORD
 STDCALL
 NtUserGetKeyboardLayoutName(
-  LPWSTR lpszName);
+  DWORD Unknown0);
 
 DWORD
 STDCALL

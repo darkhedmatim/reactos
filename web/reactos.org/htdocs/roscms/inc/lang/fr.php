@@ -24,8 +24,7 @@
 //
 
 // Language settings
-$roscms_langres['charset'] = 'utf-8';
-//$roscms_langres['charset'] = 'iso-8859-1';
+$roscms_langres['charset'] = 'iso-8859-1';
 $roscms_langres['lang_code'] = 'FR';
 
 		   
@@ -69,9 +68,5 @@ $roscms_langres['Account_Information_description'] = 'A sum up of the account da
 // Right side bar:
 $roscms_langres['Latest_Release'] = 'Latest Release';
 $roscms_langres['myReactOS_Developer_Quotes'] = 'Developer Quotes';
-
-// Error 404
-$roscms_langres['Page_not_found'] = 'Page not found';
-
 
 ?>

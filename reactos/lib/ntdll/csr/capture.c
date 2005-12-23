@@ -95,7 +95,6 @@ CsrAllocateCaptureBuffer(ULONG ArgumentCount,
 
     /* Allocate memory from the port heap */
     CaptureBuffer = RtlAllocateHeap(CsrPortHeap, 0, BufferSize);
-    if (CaptureBuffer == NULL) return NULL;
 
     /* Initialize the header */
     CaptureBuffer->Size = BufferSize;

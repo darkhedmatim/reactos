@@ -412,7 +412,7 @@ BasepMapFile(IN LPCWSTR lpApplicationName,
     RelativeName.Handle = NULL;
 
     /* Find the application name */
-    RtlDosPathNameToNtPathName_U(lpApplicationName,
+    RtlDosPathNameToNtPathName_U((LPWSTR)lpApplicationName,
                                  ApplicationName,
                                  NULL,
                                  &RelativeName);

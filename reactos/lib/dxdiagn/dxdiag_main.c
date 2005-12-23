@@ -25,8 +25,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(dxdiag);
 
-LONG DXDIAGN_refCount = 0;
-
 /* At process attach */
 BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -41,50 +39,45 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpvReserved)
  * DXDiag ClassFactory
  */
 typedef struct {
-  const IClassFactoryVtbl *lpVtbl;
+  /* IUnknown fields */
+  IClassFactoryVtbl *lpVtbl;
+  DWORD      ref; 
   REFCLSID   rclsid;
   HRESULT   (*pfnCreateInstanceFactory)(LPCLASSFACTORY iface, LPUNKNOWN punkOuter, REFIID riid, LPVOID *ppobj);
 } IClassFactoryImpl;
 
 static HRESULT WINAPI DXDiagCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid,LPVOID *ppobj) {
-  FIXME("- no interface\n\tIID:\t%s\n", debugstr_guid(riid));
-
-  if (ppobj == NULL) return E_POINTER;
+  IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
   
+  FIXME("(%p)->(%s,%p),stub!\n",This,debugstr_guid(riid),ppobj);
   return E_NOINTERFACE;
 }
 
 static ULONG WINAPI DXDiagCF_AddRef(LPCLASSFACTORY iface) {
-  DXDIAGN_LockModule();
-
-  return 2; /* non-heap based object */
+  IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+  return InterlockedIncrement(&This->ref);
 }
 
 static ULONG WINAPI DXDiagCF_Release(LPCLASSFACTORY iface) {
-  DXDIAGN_UnlockModule();
-
-  return 1; /* non-heap based object */
+  IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+  /* static class, won't be  freed */
+  return InterlockedDecrement(&This->ref);
 }
 
 static HRESULT WINAPI DXDiagCF_CreateInstance(LPCLASSFACTORY iface,LPUNKNOWN pOuter,REFIID riid,LPVOID *ppobj) {
   IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-  TRACE("(%p)->(%p,%s,%p)\n",This,pOuter,debugstr_guid(riid),ppobj);
   
+  TRACE("(%p)->(%p,%s,%p)\n",This,pOuter,debugstr_guid(riid),ppobj);
   return This->pfnCreateInstanceFactory(iface, pOuter, riid, ppobj);
 }
 
 static HRESULT WINAPI DXDiagCF_LockServer(LPCLASSFACTORY iface,BOOL dolock) {
-  TRACE("(%d)\n", dolock);
-
-  if (dolock)
-    DXDIAGN_LockModule();
-  else
-    DXDIAGN_UnlockModule();
-  
+  IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
+  FIXME("(%p)->(%d),stub!\n",This,dolock);
   return S_OK;
 }
 
-static const IClassFactoryVtbl DXDiagCF_Vtbl = {
+static IClassFactoryVtbl DXDiagCF_Vtbl = {
   DXDiagCF_QueryInterface,
   DXDiagCF_AddRef,
   DXDiagCF_Release,
@@ -93,8 +86,8 @@ static const IClassFactoryVtbl DXDiagCF_Vtbl = {
 };
 
 static IClassFactoryImpl DXDiag_CFS[] = {
-  { &DXDiagCF_Vtbl, &CLSID_DxDiagProvider, DXDiag_CreateDXDiagProvider },
-  { NULL, NULL, NULL }
+  { &DXDiagCF_Vtbl, 1, &CLSID_DxDiagProvider, DXDiag_CreateDXDiagProvider },
+  { NULL, 0, NULL, NULL }
 };
 
 /***********************************************************************
@@ -102,7 +95,7 @@ static IClassFactoryImpl DXDiag_CFS[] = {
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
-  return DXDIAGN_refCount != 0 ? S_FALSE : S_OK;
+    return S_FALSE;
 }
 
 /***********************************************************************

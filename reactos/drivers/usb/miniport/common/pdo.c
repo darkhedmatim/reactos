@@ -170,8 +170,8 @@ UsbMpPdoQueryId(
 		case BusQueryInstanceID:
 		{
 			DPRINT("USBMP: IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryInstanceID\n");
-			*Information = 0;
-			return Status;
+			RtlInitUnicodeString(&SourceString, L"");
+			break;
 		}
 		default:
 			DPRINT1("USBMP: IRP_MJ_PNP / IRP_MN_QUERY_ID / unknown query id type 0x%lx\n", IdType);

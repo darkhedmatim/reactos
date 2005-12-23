@@ -307,83 +307,7 @@ StringTableAddStringEx(HSTRING_TABLE hStringTable,
                        LPVOID lpExtraData,
                        DWORD dwExtraDataSize)
 {
-    PSTRING_TABLE pStringTable;
-    DWORD i;
-
-    TRACE("%p %s %lx\n", (PVOID)hStringTable, debugstr_w(lpString), dwFlags);
-
-    pStringTable = (PSTRING_TABLE)hStringTable;
-    if (pStringTable == NULL)
-    {
-        ERR("Invalid hStringTable!\n");
-        return (DWORD)-1;
-    }
-
-    /* Search for existing string in the string table */
-    for (i = 0; i < pStringTable->dwMaxSlots; i++)
-    {
-        if (pStringTable->pSlots[i].pString != NULL)
-        {
-            if (dwFlags & 1)
-            {
-                if (!lstrcmpW(pStringTable->pSlots[i].pString, lpString))
-                {
-                    return i + 1;
-                }
-            }
-            else
-            {
-                if (!lstrcmpiW(pStringTable->pSlots[i].pString, lpString))
-                {
-                    return i + 1;
-                }
-            }
-        }
-    }
-
-    /* Check for filled slot table */
-    if (pStringTable->dwUsedSlots == pStringTable->dwMaxSlots)
-    {
-        FIXME("Resize the string table!\n");
-        return (DWORD)-1;
-    }
-
-    /* Search for an empty slot */
-    for (i = 0; i < pStringTable->dwMaxSlots; i++)
-    {
-        if (pStringTable->pSlots[i].pString == NULL)
-        {
-            pStringTable->pSlots[i].pString = MyMalloc((lstrlenW(lpString) + 1) * sizeof(WCHAR));
-            if (pStringTable->pSlots[i].pString == NULL)
-            {
-                TRACE("Couldn't allocate memory for a new string!\n");
-                return (DWORD)-1;
-            }
-
-            lstrcpyW(pStringTable->pSlots[i].pString, lpString);
-
-            pStringTable->pSlots[i].pData = MyMalloc(dwExtraDataSize);
-            if (pStringTable->pSlots[i].pData == NULL)
-            {
-                TRACE("Couldn't allocate memory for a new extra data!\n");
-                MyFree(pStringTable->pSlots[i].pString);
-                pStringTable->pSlots[i].pString = NULL;
-                return (DWORD)-1;
-            }
-
-            memcpy(pStringTable->pSlots[i].pData,
-                   lpExtraData,
-                   dwExtraDataSize);
-            pStringTable->pSlots[i].dwSize = dwExtraDataSize;
-
-            pStringTable->dwUsedSlots++;
-
-            return i + 1;
-        }
-    }
-
-    TRACE("Couldn't find an empty slot!\n");
-
+    FIXME("\n");
     return (DWORD)-1;
 }
 
@@ -603,48 +527,7 @@ StringTableLookUpStringEx(HSTRING_TABLE hStringTable,
                           LPVOID lpExtraData,
                           LPDWORD lpReserved)
 {
-    PSTRING_TABLE pStringTable;
-    DWORD i;
-
-    TRACE("%p %s %lx\n", (PVOID)hStringTable, debugstr_w(lpString), dwFlags);
-
-    pStringTable = (PSTRING_TABLE)hStringTable;
-    if (pStringTable == NULL)
-    {
-        ERR("Invalid hStringTable!\n");
-        return (DWORD)-1;
-    }
-
-    /* Search for existing string in the string table */
-    for (i = 0; i < pStringTable->dwMaxSlots; i++)
-    {
-        if (pStringTable->pSlots[i].pString != NULL)
-        {
-            if (dwFlags & 1)
-            {
-                if (!lstrcmpW(pStringTable->pSlots[i].pString, lpString))
-                {
-                    memcpy(lpExtraData,
-                           pStringTable->pSlots[i].pData,
-                           pStringTable->pSlots[i].dwSize);
-                    *lpReserved = 0;
-                    return i + 1;
-                }
-            }
-            else
-            {
-                if (!lstrcmpiW(pStringTable->pSlots[i].pString, lpString))
-                {
-                    memcpy(lpExtraData,
-                           pStringTable->pSlots[i].pData,
-                           pStringTable->pSlots[i].dwSize);
-                    *lpReserved = 0;
-                    return i + 1;
-                }
-            }
-        }
-    }
-
+    FIXME("\n");
     return (DWORD)-1;
 }
 

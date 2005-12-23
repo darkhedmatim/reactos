@@ -194,13 +194,7 @@ GetSystemPowerStatus (
     )
 {
     STUB;
-    PowerStatus->ACLineStatus = 1;
-    PowerStatus->BatteryFlag = 128;
-    PowerStatus->BatteryLifePercent = 255;
-    PowerStatus->Reserved1 = 0;
-    PowerStatus->BatteryLifeTime = -1;
-    PowerStatus->BatteryFullLifeTime = -1;
-    return TRUE;
+    return 0;
 }
 
 
@@ -341,6 +335,39 @@ VDMOperationStarted (
     STUB;
     return 0;
 }
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+VerLanguageNameA (
+    DWORD   wLang,
+    LPSTR   szLang,
+    DWORD   nSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+VerLanguageNameW (
+    DWORD   wLang,
+    LPWSTR  szLang,
+    DWORD   nSize
+    )
+{
+    STUB;
+    return 0;
+}
+
 
 /*
  * @unimplemented
@@ -1098,6 +1125,21 @@ GetModuleHandleExW(
     DWORD        dwFlags,
     LPCWSTR     lpModuleName,
     HMODULE*    phModule
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetVolumeNameForVolumeMountPointW(
+    LPCWSTR lpszVolumeMountPoint,
+    LPWSTR lpszVolumeName,
+    DWORD cchBufferLength
     )
 {
     STUB;

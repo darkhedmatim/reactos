@@ -11,6 +11,7 @@
  *
  *  - the last entry of a subhandle list should be reserved for auditing
  *
+ *  ExSweepHandleTable (???)
  *  ExReferenceHandleDebugInfo
  *  ExSnapShotHandleTables
  *  ExpMoveFreeHandles (???)
@@ -162,12 +163,63 @@ ExCreateHandleTable(IN PEPROCESS QuotaProcess  OPTIONAL)
   return HandleTable;
 }
 
+static BOOLEAN
+ExLockHandleTableEntryNoDestructionCheck(IN PHANDLE_TABLE HandleTable,
+                                         IN PHANDLE_TABLE_ENTRY Entry)
+{
+  ULONG_PTR Current, New;
+
+  PAGED_CODE();
+
+  DPRINT("Entering handle table entry 0x%p lock...\n", Entry);
+
+  ASSERT(HandleTable);
+  ASSERT(Entry);
+
+  for(;;)
+  {
+    Current = (volatile ULONG_PTR)Entry->u1.Object;
+
+    if(!Current)
+    {
+      DPRINT("Attempted to lock empty handle table entry 0x%p or handle table shut down\n", Entry);
+      break;
+    }
+
+    if(!(Current & EX_HANDLE_ENTRY_LOCKED))
+    {
+      New = Current | EX_HANDLE_ENTRY_LOCKED;
+      if(InterlockedCompareExchangePointer(&Entry->u1.Object,
+                                           (PVOID)New,
+                                           (PVOID)Current) == (PVOID)Current)
+      {
+        DPRINT("SUCCESS handle table 0x%p entry 0x%p lock\n", HandleTable, Entry);
+        /* we acquired the lock */
+        return TRUE;
+      }
+    }
+
+    /* wait about 5ms at maximum so we don't wait forever in unfortunate
+       co-incidences where releasing the lock in another thread happens right
+       before we're waiting on the contention event to get pulsed, which might
+       never happen again... */
+    KeWaitForSingleObject(&HandleTable->HandleContentionEvent,
+                          Executive,
+                          KernelMode,
+                          FALSE,
+                          &ExpHandleShortWait);
+  }
+
+  return FALSE;
+}
+
 VOID
-ExSweepHandleTable(IN PHANDLE_TABLE HandleTable,
-                   IN PEX_SWEEP_HANDLE_CALLBACK SweepHandleCallback  OPTIONAL,
-                   IN PVOID Context  OPTIONAL)
+ExDestroyHandleTable(IN PHANDLE_TABLE HandleTable,
+                     IN PEX_DESTROY_HANDLE_CALLBACK DestroyHandleCallback  OPTIONAL,
+                     IN PVOID Context  OPTIONAL)
 {
   PHANDLE_TABLE_ENTRY **tlp, **lasttlp, *mlp, *lastmlp;
+  PEPROCESS QuotaProcess;
 
   PAGED_CODE();
 
@@ -186,64 +238,44 @@ ExSweepHandleTable(IN PHANDLE_TABLE HandleTable,
                EVENT_INCREMENT,
                FALSE);
 
+  /* remove the handle table from the global handle table list */
+  ExAcquireHandleTableListLock();
+  RemoveEntryList(&HandleTable->HandleTableList);
+  ExReleaseHandleTableListLock();
+
   /* call the callback function to cleanup the objects associated with the
      handle table */
-  for(tlp = HandleTable->Table, lasttlp = HandleTable->Table + N_TOPLEVEL_POINTERS;
-      tlp != lasttlp;
-      tlp++)
+  if(DestroyHandleCallback != NULL)
   {
-    if((*tlp) != NULL)
+    for(tlp = HandleTable->Table, lasttlp = HandleTable->Table + N_TOPLEVEL_POINTERS;
+        tlp != lasttlp;
+        tlp++)
     {
-      for(mlp = *tlp, lastmlp = (*tlp) + N_MIDDLELEVEL_POINTERS;
-          mlp != lastmlp;
-          mlp++)
+      if((*tlp) != NULL)
       {
-        if((*mlp) != NULL)
+        for(mlp = *tlp, lastmlp = (*tlp) + N_MIDDLELEVEL_POINTERS;
+            mlp != lastmlp;
+            mlp++)
         {
-          PHANDLE_TABLE_ENTRY curee, laste;
-
-          for(curee = *mlp, laste = *mlp + N_SUBHANDLE_ENTRIES;
-              curee != laste;
-              curee++)
+          if((*mlp) != NULL)
           {
-            if(curee->u1.Object != NULL && SweepHandleCallback != NULL)
+            PHANDLE_TABLE_ENTRY curee, laste;
+
+            for(curee = *mlp, laste = *mlp + N_SUBHANDLE_ENTRIES;
+                curee != laste;
+                curee++)
             {
-              curee->u1.ObAttributes |= EX_HANDLE_ENTRY_LOCKED;
-              SweepHandleCallback(HandleTable, curee->u1.Object, curee->u2.GrantedAccess, Context);
+              if(curee->u1.Object != NULL && ExLockHandleTableEntryNoDestructionCheck(HandleTable, curee))
+              {
+                DestroyHandleCallback(HandleTable, curee->u1.Object, curee->u2.GrantedAccess, Context);
+                ExUnlockHandleTableEntry(HandleTable, curee);
+              }
             }
           }
         }
       }
     }
   }
-
-  ExReleaseHandleTableLock(HandleTable);
-
-  KeLeaveCriticalRegion();
-}
-
-VOID
-ExDestroyHandleTable(IN PHANDLE_TABLE HandleTable)
-{
-  PHANDLE_TABLE_ENTRY **tlp, **lasttlp, *mlp, *lastmlp;
-  PEPROCESS QuotaProcess;
-
-  PAGED_CODE();
-
-  ASSERT(HandleTable);
-  ASSERT(HandleTable->Flags & EX_HANDLE_TABLE_CLOSING);
-
-  KeEnterCriticalRegion();
-
-  /* at this point the table should not be queried or altered anymore,
-     no locks should be necessary */
-
-  ASSERT(HandleTable->Flags & EX_HANDLE_TABLE_CLOSING);
-
-  /* remove the handle table from the global handle table list */
-  ExAcquireHandleTableListLock();
-  RemoveEntryList(&HandleTable->HandleTableList);
-  ExReleaseHandleTableListLock();
 
   QuotaProcess = HandleTable->QuotaProcess;
 
@@ -277,6 +309,8 @@ ExDestroyHandleTable(IN PHANDLE_TABLE HandleTable)
       }
     }
   }
+
+  ExReleaseHandleTableLock(HandleTable);
 
   KeLeaveCriticalRegion();
 
@@ -374,7 +408,9 @@ freehandletable:
 
           ExReleaseHandleTableLock(SourceHandleTable);
 
-          ExDestroyHandleTable(HandleTable);
+          ExDestroyHandleTable(HandleTable,
+                               NULL,
+                               NULL);
           /* allocate an empty handle table */
           return ExCreateHandleTable(QuotaProcess);
         }

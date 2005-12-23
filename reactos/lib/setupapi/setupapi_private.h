@@ -29,7 +29,6 @@
 #include <windows.h>
 #include <cfgmgr32.h>
 #include <fdi.h>
-#include <regstr.h>
 #include <setupapi.h>
 #include <shlobj.h>
 #include <wine/debug.h>
@@ -42,7 +41,6 @@
 #include "resource.h"
 
 #define SETUP_DEV_INFO_SET_MAGIC 0xd00ff057
-#define SETUP_CLASS_IMAGE_LIST_MAGIC 0xd00ff058
 
 struct DeviceInterface /* Element of DeviceInfoElement.InterfaceListHead */
 {
@@ -58,7 +56,7 @@ struct DeviceInterface /* Element of DeviceInfoElement.InterfaceListHead */
      */
     DWORD Flags;
 
-    WCHAR SymbolicLink[ANYSIZE_ARRAY]; /* \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
+    WCHAR SymbolicLink[0]; /* \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
 };
 
 /* We don't want to open the .inf file to read only one information in it, so keep a handle to it once it
@@ -69,7 +67,7 @@ struct InfFileDetails
     LONG References;
 
     /* May contain no directory if the file is already in %SYSTEMROOT%\Inf */
-    WCHAR FullInfFileName[ANYSIZE_ARRAY];
+    WCHAR FullInfFileName[0];
 };
 
 struct DriverInfoElement /* Element of DeviceInfoSet.DriverListHead and DeviceInfoElement.DriverListHead */
@@ -77,17 +75,11 @@ struct DriverInfoElement /* Element of DeviceInfoSet.DriverListHead and DeviceIn
     LIST_ENTRY ListEntry;
 
     DWORD DriverRank;
-    ULARGE_INTEGER DriverDate;
     SP_DRVINFO_DATA_V2_W Info;
     SP_DRVINFO_DETAIL_DATA_W Details;
     GUID ClassGuid;
     LPWSTR MatchingId;
     struct InfFileDetails *InfFileDetails;
-};
-
-struct ClassInstallParams
-{
-    PSP_PROPCHANGE_PARAMS PropChange;
 };
 
 struct DeviceInfoElement /* Element of DeviceInfoSet.ListHead */
@@ -136,10 +128,7 @@ struct DeviceInfoElement /* Element of DeviceInfoSet.ListHead */
     /* List of interfaces implemented by this device */
     LIST_ENTRY InterfaceListHead; /* List of struct DeviceInterface */
 
-    /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
-    struct ClassInstallParams ClassInstallParams;
-
-    WCHAR Data[ANYSIZE_ARRAY];
+    WCHAR Data[0];
 };
 
 struct DeviceInfoSet /* HDEVINFO */
@@ -156,27 +145,12 @@ struct DeviceInfoSet /* HDEVINFO */
     LIST_ENTRY DriverListHead; /* List of struct DriverInfoElement */
 
     LIST_ENTRY ListHead; /* List of struct DeviceInfoElement */
-    struct DeviceInfoElement *SelectedDevice;
-
-    /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
-    struct ClassInstallParams ClassInstallParams;
 
     /* Contains the name of the remote computer ('\\COMPUTERNAME' for example),
      * or NULL if related to local machine. Points into szData field at the
      * end of the structure */
     PCWSTR MachineName;
-    WCHAR szData[ANYSIZE_ARRAY];
-};
-
-struct ClassImageList
-{
-    DWORD magic; /* SETUP_CLASS_IMAGE_LIST_MAGIC */
-
-    /* Contains the name of the remote computer ('\\COMPUTERNAME' for example),
-     * or NULL if related to local machine. Points into szData field at the
-     * end of the structure */
-    PCWSTR MachineName;
-    WCHAR szData[ANYSIZE_ARRAY];
+    WCHAR szData[0];
 };
 
 extern HINSTANCE hInstance;
@@ -215,7 +189,5 @@ extern HINSTANCE hInstance;
 extern OSVERSIONINFOW OsVersionInfo;
 
 DWORD WINAPI CaptureAndConvertAnsiArg(LPCSTR pSrc, LPWSTR *pDst);
-
-BOOL GetStringField( PINFCONTEXT context, DWORD index, PWSTR *value);
 
 #endif /* __SETUPAPI_PRIVATE_H */

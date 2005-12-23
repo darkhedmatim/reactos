@@ -254,17 +254,13 @@ unsigned char * WINAPI NdrInterfacePointerMarshall(PMIDL_STUB_MESSAGE pStubMsg,
   TRACE("(%p,%p,%p)\n", pStubMsg, pMemory, pFormat);
   pStubMsg->MaxCount = 0;
   if (!LoadCOM()) return NULL;
-  if (pStubMsg->Buffer + sizeof(DWORD) < (unsigned char *)pStubMsg->RpcMsg->Buffer + pStubMsg->BufferLength) {
+  if (pStubMsg->Buffer + sizeof(DWORD) < pStubMsg->BufferEnd) {
     stream = RpcStream_Create(pStubMsg, TRUE);
     if (stream) {
       hr = COM_MarshalInterface(stream, riid, (LPUNKNOWN)pMemory,
                                 pStubMsg->dwDestContext, pStubMsg->pvDestContext,
                                 MSHLFLAGS_NORMAL);
       IStream_Release(stream);
-      if (FAILED(hr)) {
-        IUnknown_Release((LPUNKNOWN)pMemory);
-        RpcRaiseException(hr);
-      }
     }
   }
   return NULL;
@@ -284,13 +280,11 @@ unsigned char * WINAPI NdrInterfacePointerUnmarshall(PMIDL_STUB_MESSAGE pStubMsg
   TRACE("(%p,%p,%p,%d)\n", pStubMsg, ppMemory, pFormat, fMustAlloc);
   if (!LoadCOM()) return NULL;
   *(LPVOID*)ppMemory = NULL;
-  if (pStubMsg->Buffer + sizeof(DWORD) < (unsigned char *)pStubMsg->RpcMsg->Buffer + pStubMsg->BufferLength) {
+  if (pStubMsg->Buffer + sizeof(DWORD) < pStubMsg->BufferEnd) {
     stream = RpcStream_Create(pStubMsg, FALSE);
     if (stream) {
       hr = COM_UnmarshalInterface(stream, &IID_NULL, (LPVOID*)ppMemory);
       IStream_Release(stream);
-      if (FAILED(hr))
-        RpcRaiseException(hr);
     }
   }
   return NULL;
@@ -313,7 +307,7 @@ void WINAPI NdrInterfacePointerBufferSize(PMIDL_STUB_MESSAGE pStubMsg,
                             pStubMsg->dwDestContext, pStubMsg->pvDestContext,
                             MSHLFLAGS_NORMAL);
   TRACE("size=%ld\n", size);
-  pStubMsg->BufferLength += sizeof(DWORD) + size;
+  if (size) pStubMsg->BufferLength += sizeof(DWORD) + size;
 }
 
 /***********************************************************************

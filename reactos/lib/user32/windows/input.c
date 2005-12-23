@@ -260,12 +260,13 @@ GetKeyboardLayoutNameA(LPSTR pwszKLID)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 {
-  return NtUserGetKeyboardLayoutName( pwszKLID );
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 

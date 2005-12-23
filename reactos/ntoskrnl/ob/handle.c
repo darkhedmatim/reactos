@@ -89,57 +89,42 @@ NTAPI
 ObpQueryHandleAttributes(HANDLE Handle,
 			 POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo)
 {
+  PHANDLE_TABLE HandleTable;
   PHANDLE_TABLE_ENTRY HandleTableEntry;
-  PEPROCESS Process, CurrentProcess;
-  KAPC_STATE ApcState;
-  BOOLEAN AttachedToProcess = FALSE;
-  NTSTATUS Status = STATUS_SUCCESS;
 
   PAGED_CODE();
 
-  DPRINT("ObpQueryHandleAttributes(Handle %p)\n", Handle);
-  CurrentProcess = PsGetCurrentProcess();
-
-  KeEnterCriticalRegion();
+  DPRINT("ObpQueryHandleAttributes(Handle %x)\n", Handle);
 
   if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
   {
-    Process = PsInitialSystemProcess;
+    HandleTable = ObpKernelHandleTable;
     Handle = ObKernelHandleToHandle(Handle);
-
-    if (Process != CurrentProcess)
-    {
-      KeStackAttachProcess(&Process->Pcb,
-                           &ApcState);
-      AttachedToProcess = TRUE;
-    }
   }
   else
   {
-    Process = CurrentProcess;
+    HandleTable = PsGetCurrentProcess()->ObjectTable;
   }
 
-  HandleTableEntry = ExMapHandleToPointer(Process->ObjectTable,
+  KeEnterCriticalRegion();
+
+  HandleTableEntry = ExMapHandleToPointer(HandleTable,
                                           Handle);
-  if (HandleTableEntry != NULL)
-  {
-    HandleInfo->Inherit = (HandleTableEntry->u1.ObAttributes & EX_HANDLE_ENTRY_INHERITABLE) != 0;
-    HandleInfo->ProtectFromClose = (HandleTableEntry->u1.ObAttributes & EX_HANDLE_ENTRY_PROTECTFROMCLOSE) != 0;
+  if (HandleTableEntry == NULL)
+    {
+      KeLeaveCriticalRegion();
+      return STATUS_INVALID_HANDLE;
+    }
 
-    ExUnlockHandleTableEntry(Process->ObjectTable,
-                             HandleTableEntry);
-  }
-  else
-    Status = STATUS_INVALID_HANDLE;
+  HandleInfo->Inherit = (HandleTableEntry->u1.ObAttributes & EX_HANDLE_ENTRY_INHERITABLE) != 0;
+  HandleInfo->ProtectFromClose = (HandleTableEntry->u1.ObAttributes & EX_HANDLE_ENTRY_PROTECTFROMCLOSE) != 0;
 
-  if (AttachedToProcess)
-  {
-    KeUnstackDetachProcess(&ApcState);
-  }
+  ExUnlockHandleTableEntry(HandleTable,
+                           HandleTableEntry);
 
   KeLeaveCriticalRegion();
 
-  return Status;
+  return STATUS_SUCCESS;
 }
 
 
@@ -148,92 +133,75 @@ NTAPI
 ObpSetHandleAttributes(HANDLE Handle,
 		       POBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo)
 {
+  PHANDLE_TABLE HandleTable;
   PHANDLE_TABLE_ENTRY HandleTableEntry;
-  PEPROCESS Process, CurrentProcess;
-  KAPC_STATE ApcState;
-  BOOLEAN AttachedToProcess = FALSE;
-  NTSTATUS Status = STATUS_SUCCESS;
 
   PAGED_CODE();
 
-  DPRINT("ObpSetHandleAttributes(Handle %p)\n", Handle);
-  CurrentProcess = PsGetCurrentProcess();
-
-  KeEnterCriticalRegion();
+  DPRINT("ObpSetHandleAttributes(Handle %x)\n", Handle);
 
   if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
   {
-    Process = PsInitialSystemProcess;
+    HandleTable = ObpKernelHandleTable;
     Handle = ObKernelHandleToHandle(Handle);
-
-    if (Process != CurrentProcess)
-    {
-      KeStackAttachProcess(&Process->Pcb,
-                           &ApcState);
-      AttachedToProcess = TRUE;
-    }
   }
   else
   {
-    Process = CurrentProcess;
+    HandleTable = PsGetCurrentProcess()->ObjectTable;
   }
 
-  HandleTableEntry = ExMapHandleToPointer(Process->ObjectTable,
+  KeEnterCriticalRegion();
+
+  HandleTableEntry = ExMapHandleToPointer(HandleTable,
                                           Handle);
-  if (HandleTableEntry != NULL)
-  {
-    if (HandleInfo->Inherit)
-      HandleTableEntry->u1.ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
-    else
-      HandleTableEntry->u1.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
+  if (HandleTableEntry == NULL)
+    {
+      KeLeaveCriticalRegion();
+      return STATUS_INVALID_HANDLE;
+    }
 
-    if (HandleInfo->ProtectFromClose)
-      HandleTableEntry->u1.ObAttributes |= EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
-    else
-      HandleTableEntry->u1.ObAttributes &= ~EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
-
-    /* FIXME: Do we need to set anything in the object header??? */
-
-    ExUnlockHandleTableEntry(Process->ObjectTable,
-                             HandleTableEntry);
-  }
+  if (HandleInfo->Inherit)
+    HandleTableEntry->u1.ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
   else
-    Status = STATUS_INVALID_HANDLE;
+    HandleTableEntry->u1.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
 
-  if (AttachedToProcess)
-  {
-    KeUnstackDetachProcess(&ApcState);
-  }
+  if (HandleInfo->ProtectFromClose)
+    HandleTableEntry->u1.ObAttributes |= EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
+  else
+    HandleTableEntry->u1.ObAttributes &= ~EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
+
+  /* FIXME: Do we need to set anything in the object header??? */
+
+  ExUnlockHandleTableEntry(HandleTable,
+                           HandleTableEntry);
 
   KeLeaveCriticalRegion();
 
-  return Status;
+  return STATUS_SUCCESS;
 }
 
 
 static NTSTATUS
-ObpDeleteHandle(HANDLE Handle)
+ObpDeleteHandle(PHANDLE_TABLE HandleTable,
+	        HANDLE Handle)
 {
    PHANDLE_TABLE_ENTRY HandleEntry;
    PVOID Body;
    POBJECT_HEADER ObjectHeader;
-   PHANDLE_TABLE ObjectTable;
 
    PAGED_CODE();
 
-   DPRINT("ObpDeleteHandle(Handle %p)\n",Handle);
-
-   ObjectTable = PsGetCurrentProcess()->ObjectTable;
+   DPRINT("ObpDeleteHandle(Handle %x)\n",Handle);
 
    KeEnterCriticalRegion();
 
-   HandleEntry = ExMapHandleToPointer(ObjectTable,
+   HandleEntry = ExMapHandleToPointer(HandleTable,
                                       Handle);
    if(HandleEntry != NULL)
    {
      if(HandleEntry->u1.ObAttributes & EX_HANDLE_ENTRY_PROTECTFROMCLOSE)
      {
-       ExUnlockHandleTableEntry(ObjectTable,
+       ExUnlockHandleTableEntry(HandleTable,
                                 HandleEntry);
 
        KeLeaveCriticalRegion();
@@ -244,12 +212,12 @@ ObpDeleteHandle(HANDLE Handle)
      ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
      Body = &ObjectHeader->Body;
 
-    /* destroy and unlock the handle entry */
-     ExDestroyHandleByEntry(ObjectTable,
+     ObpDecrementHandleCount(Body);
+
+     /* destroy and unlock the handle entry */
+     ExDestroyHandleByEntry(HandleTable,
                             HandleEntry,
                             Handle);
-
-     ObpDecrementHandleCount(Body);
 
      KeLeaveCriticalRegion();
 
@@ -267,48 +235,35 @@ ObDuplicateObject(PEPROCESS SourceProcess,
 		  HANDLE SourceHandle,
 		  PHANDLE TargetHandle,
 		  ACCESS_MASK DesiredAccess,
-		  ULONG HandleAttributes,
+		  BOOLEAN InheritHandle,
 		  ULONG Options)
 {
+  PHANDLE_TABLE SourceHandleTable;
   PHANDLE_TABLE_ENTRY SourceHandleEntry;
   HANDLE_TABLE_ENTRY NewHandleEntry;
-  BOOLEAN AttachedToProcess = FALSE;
   PVOID ObjectBody;
   POBJECT_HEADER ObjectHeader;
   ULONG NewHandleCount;
   HANDLE NewTargetHandle;
-  PEPROCESS CurrentProcess;
-  KAPC_STATE ApcState;
-  NTSTATUS Status = STATUS_SUCCESS;
 
   PAGED_CODE();
 
-  if(SourceProcess == NULL ||
-     ObIsKernelHandle(SourceHandle, ExGetPreviousMode()))
+  if(ObIsKernelHandle(SourceHandle, ExGetPreviousMode()))
   {
-    SourceProcess = PsInitialSystemProcess;
+    SourceHandleTable = ObpKernelHandleTable;
     SourceHandle = ObKernelHandleToHandle(SourceHandle);
   }
-
-  CurrentProcess = PsGetCurrentProcess();
+  else
+  {
+    SourceHandleTable = SourceProcess->ObjectTable;
+  }
 
   KeEnterCriticalRegion();
 
-  if (SourceProcess != CurrentProcess)
-  {
-    KeStackAttachProcess(&SourceProcess->Pcb,
-                         &ApcState);
-    AttachedToProcess = TRUE;
-  }
-  SourceHandleEntry = ExMapHandleToPointer(SourceProcess->ObjectTable,
+  SourceHandleEntry = ExMapHandleToPointer(SourceHandleTable,
                                            SourceHandle);
   if (SourceHandleEntry == NULL)
     {
-      if (AttachedToProcess)
-      {
-        KeUnstackDetachProcess(&ApcState);
-      }
-
       KeLeaveCriticalRegion();
       return STATUS_INVALID_HANDLE;
     }
@@ -317,7 +272,7 @@ ObDuplicateObject(PEPROCESS SourceProcess,
   ObjectBody = &ObjectHeader->Body;
 
   NewHandleEntry.u1.Object = SourceHandleEntry->u1.Object;
-  if(HandleAttributes & OBJ_INHERIT)
+  if(InheritHandle)
     NewHandleEntry.u1.ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
   else
     NewHandleEntry.u1.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
@@ -350,54 +305,27 @@ ObDuplicateObject(PEPROCESS SourceProcess,
   NewHandleCount = InterlockedIncrement(&ObjectHeader->HandleCount);
   ASSERT(NewHandleCount >= 2);
 
-  ExUnlockHandleTableEntry(SourceProcess->ObjectTable,
+  ExUnlockHandleTableEntry(SourceHandleTable,
                            SourceHandleEntry);
 
-  if (AttachedToProcess)
-  {
-    KeUnstackDetachProcess(&ApcState);
-    AttachedToProcess = FALSE;
-  }
-
-  if (TargetProcess != CurrentProcess)
-  {
-    KeStackAttachProcess(&TargetProcess->Pcb,
-                         &ApcState);
-    AttachedToProcess = TRUE;
-  }
+  KeLeaveCriticalRegion();
 
   /* attempt to create the new handle */
   NewTargetHandle = ExCreateHandle(TargetProcess->ObjectTable,
                                    &NewHandleEntry);
-  if (AttachedToProcess)
-  {
-    KeUnstackDetachProcess(&ApcState);
-    AttachedToProcess = FALSE;
-  }
-
   if (NewTargetHandle != NULL)
   {
     if (Options & DUPLICATE_CLOSE_SOURCE)
     {
-      if (SourceProcess != CurrentProcess)
-      {
-        KeStackAttachProcess(&SourceProcess->Pcb,
-                             &ApcState);
-        AttachedToProcess = TRUE;
-      }
-
-      /* delete the source handle */
-      ObpDeleteHandle(SourceHandle);
-
-      if (AttachedToProcess)
-      {
-        KeUnstackDetachProcess(&ApcState);
-      }
+      ObpDeleteHandle(SourceHandleTable,
+                      SourceHandle);
     }
 
     ObDereferenceObject(ObjectBody);
 
     *TargetHandle = NewTargetHandle;
+
+    return STATUS_SUCCESS;
   }
   else
   {
@@ -409,12 +337,8 @@ ObDuplicateObject(PEPROCESS SourceProcess,
     }
 
     ObDereferenceObject(ObjectBody);
-    Status = STATUS_UNSUCCESSFUL;
+    return STATUS_UNSUCCESSFUL;
   }
-
-  KeLeaveCriticalRegion();
-
-  return Status;
 }
 
 /*
@@ -426,7 +350,7 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
 		   IN	HANDLE		TargetProcessHandle,
 		   OUT	PHANDLE		TargetHandle  OPTIONAL,
 		   IN	ACCESS_MASK	DesiredAccess,
-		   IN	ULONG		HandleAttributes,
+		   IN	ULONG		InheritHandle,
 		   IN   ULONG		Options)
 /*
  * FUNCTION: Copies a handle from one process space to another
@@ -440,7 +364,8 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
  *	   TargetHandle (OUT) = Caller should supply storage for the
  *                              duplicated handle.
  *	   DesiredAccess = The desired access to the handle.
- *	   HandleAttributes = The desired handle attributes.
+ *	   InheritHandle = Indicates wheter the new handle will be inheritable
+ *                         or not.
  *	   Options = Specifies special actions upon duplicating the handle.
  *                   Can be one of the values DUPLICATE_CLOSE_SOURCE |
  *                   DUPLICATE_SAME_ACCESS. DUPLICATE_CLOSE_SOURCE specifies
@@ -454,11 +379,8 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
 {
    PEPROCESS SourceProcess;
    PEPROCESS TargetProcess;
-   PEPROCESS CurrentProcess;
    HANDLE hTarget;
-   BOOLEAN AttachedToProcess = FALSE;
    KPROCESSOR_MODE PreviousMode;
-   KAPC_STATE ApcState;
    NTSTATUS Status = STATUS_SUCCESS;
 
    PAGED_CODE();
@@ -506,8 +428,6 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
        return(Status);
      }
 
-   CurrentProcess = PsGetCurrentProcess();
-
    /* Check for magic handle first */
    if (SourceHandle == NtCurrentThread() ||
        SourceHandle == NtCurrentProcess())
@@ -538,42 +458,18 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
                                &ObjectType->TypeInfo.GenericMapping);
            }
          }
-
-         if (TargetProcess != CurrentProcess)
-         {
-           KeStackAttachProcess(&TargetProcess->Pcb,
-                                &ApcState);
-           AttachedToProcess = TRUE;
-         }
-
-         Status = ObpCreateHandle(ObjectBody,
+         Status = ObpCreateHandle(TargetProcess,
+                                  ObjectBody,
                                   DesiredAccess,
-                                  HandleAttributes,
+                                  InheritHandle,
                                   &hTarget);
-
-         if (AttachedToProcess)
-         {
-           KeUnstackDetachProcess(&ApcState);
-           AttachedToProcess = FALSE;
-         }
 
          ObDereferenceObject(ObjectBody);
 
          if (Options & DUPLICATE_CLOSE_SOURCE)
          {
-           if (SourceProcess != CurrentProcess)
-           {
-             KeStackAttachProcess(&SourceProcess->Pcb,
-                                  &ApcState);
-             AttachedToProcess = TRUE;
-           }
-
-           ObpDeleteHandle(SourceHandle);
-
-           if (AttachedToProcess)
-           {
-             KeUnstackDetachProcess(&ApcState);
-           }
+           ObpDeleteHandle(SourceProcess->ObjectTable,
+                           SourceHandle);
          }
        }
      }
@@ -584,7 +480,7 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
                                   SourceHandle,
                                   &hTarget,
                                   DesiredAccess,
-                                  HandleAttributes,
+                                  InheritHandle,
                                   Options);
      }
 
@@ -608,10 +504,10 @@ NtDuplicateObject (IN	HANDLE		SourceProcessHandle,
 }
 
 static VOID STDCALL
-SweepHandleCallback(PHANDLE_TABLE HandleTable,
-                    PVOID Object,
-                    ULONG GrantedAccess,
-                    PVOID Context)
+DeleteHandleCallback(PHANDLE_TABLE HandleTable,
+                     PVOID Object,
+                     ULONG GrantedAccess,
+                     PVOID Context)
 {
   POBJECT_HEADER ObjectHeader;
   PVOID ObjectBody;
@@ -684,21 +580,19 @@ ObKillProcess(PEPROCESS Process)
 {
    PAGED_CODE();
 
-   /* FIXME - Temporary hack: sweep and destroy here, needs to be fixed!!! */
-   ExSweepHandleTable(Process->ObjectTable,
-                      SweepHandleCallback,
-                      Process);
-   ExDestroyHandleTable(Process->ObjectTable);
-   Process->ObjectTable = NULL;
+   ExDestroyHandleTable(Process->ObjectTable,
+                        DeleteHandleCallback,
+                        Process);
 }
 
 
 NTSTATUS
 NTAPI
-ObpCreateHandle(PVOID ObjectBody,
-	        ACCESS_MASK GrantedAccess,
-	        ULONG HandleAttributes,
-	        PHANDLE HandleReturn)
+ObpCreateHandle(PEPROCESS Process,
+	       PVOID ObjectBody,
+	       ACCESS_MASK GrantedAccess,
+	       BOOLEAN Inherit,
+	       PHANDLE HandleReturn)
 /*
  * FUNCTION: Add a handle referencing an object
  * ARGUMENTS:
@@ -708,23 +602,18 @@ ObpCreateHandle(PVOID ObjectBody,
  */
 {
    HANDLE_TABLE_ENTRY NewEntry;
-   PEPROCESS Process, CurrentProcess;
    POBJECT_HEADER ObjectHeader;
    HANDLE Handle;
-   KAPC_STATE ApcState;
-   BOOLEAN AttachedToProcess = FALSE;
 
    PAGED_CODE();
 
-   DPRINT("ObpCreateHandle(obj %p)\n",ObjectBody);
+   DPRINT("ObpCreateHandle(Process %x, obj %x)\n",Process,ObjectBody);
 
+   ASSERT(Process);
    ASSERT(ObjectBody);
-
-   CurrentProcess = PsGetCurrentProcess();
 
    ObjectHeader = BODY_TO_HEADER(ObjectBody);
 
-   /* check that this is a valid kernel pointer */
    ASSERT((ULONG_PTR)ObjectHeader & EX_HANDLE_ENTRY_LOCKED);
 
    if (GrantedAccess & MAXIMUM_ALLOWED)
@@ -740,49 +629,23 @@ ObpCreateHandle(PVOID ObjectBody,
      }
 
    NewEntry.u1.Object = ObjectHeader;
-   if(HandleAttributes & OBJ_INHERIT)
+   if(Inherit)
      NewEntry.u1.ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
    else
      NewEntry.u1.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
    NewEntry.u2.GrantedAccess = GrantedAccess;
 
-   if ((HandleAttributes & OBJ_KERNEL_HANDLE) &&
-       ExGetPreviousMode == KernelMode)
-   {
-       Process = PsInitialSystemProcess;
-       if (Process != CurrentProcess)
-       {
-           KeStackAttachProcess(&Process->Pcb,
-                                &ApcState);
-           AttachedToProcess = TRUE;
-       }
-   }
-   else
-   {
-       Process = CurrentProcess;
-       /* mask out the OBJ_KERNEL_HANDLE attribute */
-       HandleAttributes &= ~OBJ_KERNEL_HANDLE;
-   }
-
    Handle = ExCreateHandle(Process->ObjectTable,
                            &NewEntry);
-
-   if (AttachedToProcess)
-   {
-       KeUnstackDetachProcess(&ApcState);
-   }
-
+   DPRINT("ObCreateHandle(0x%x)==0x%x [HT:0x%x]\n", ObjectHeader, Handle, Process->ObjectTable);
    if(Handle != NULL)
    {
-     if (HandleAttributes & OBJ_KERNEL_HANDLE)
-     {
-       /* mark the handle value */
-       Handle = ObMarkHandleAsKernelHandle(Handle);
-     }
-
      if(InterlockedIncrement(&ObjectHeader->HandleCount) == 1)
      {
-       ObReferenceObject(ObjectBody);
+      ObReferenceObjectByPointer(ObjectBody,
+			         0,
+			         NULL,
+			         UserMode);
      }
 
      *HandleReturn = Handle;
@@ -802,33 +665,15 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
 			      OUT PBOOLEAN GenerateOnClose)
 {
   PHANDLE_TABLE_ENTRY HandleEntry;
-  PEPROCESS Process, CurrentProcess;
-  KAPC_STATE ApcState;
-  BOOLEAN AttachedToProcess = FALSE;
-  NTSTATUS Status = STATUS_SUCCESS;
+  PEPROCESS Process;
 
   PAGED_CODE();
 
-  DPRINT("ObQueryObjectAuditingByHandle(Handle %p)\n", Handle);
+  DPRINT("ObQueryObjectAuditingByHandle(Handle %x)\n", Handle);
 
-  CurrentProcess = PsGetCurrentProcess();
+  Process = PsGetCurrentProcess();
 
   KeEnterCriticalRegion();
-
-  if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
-  {
-    Process = PsInitialSystemProcess;
-    Handle = ObKernelHandleToHandle(Handle);
-
-    if (Process != CurrentProcess)
-    {
-      KeStackAttachProcess(&Process->Pcb,
-                           &ApcState);
-      AttachedToProcess = TRUE;
-    }
-  }
-  else
-     Process = CurrentProcess;
 
   HandleEntry = ExMapHandleToPointer(Process->ObjectTable,
                                      Handle);
@@ -838,18 +683,15 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
 
     ExUnlockHandleTableEntry(Process->ObjectTable,
                              HandleEntry);
-  }
-  else
-    Status = STATUS_INVALID_HANDLE;
 
-  if (AttachedToProcess)
-  {
-    KeUnstackDetachProcess(&ApcState);
+    KeLeaveCriticalRegion();
+
+    return STATUS_SUCCESS;
   }
 
   KeLeaveCriticalRegion();
 
-  return Status;
+  return STATUS_INVALID_HANDLE;
 }
 
 
@@ -878,32 +720,29 @@ ObReferenceObjectByHandle(HANDLE Handle,
 {
    PHANDLE_TABLE_ENTRY HandleEntry;
    POBJECT_HEADER ObjectHeader;
+   PHANDLE_TABLE HandleTable;
    PVOID ObjectBody;
    ACCESS_MASK GrantedAccess;
    ULONG Attributes;
-   PEPROCESS CurrentProcess, Process;
-   BOOLEAN AttachedToProcess = FALSE;
-   KAPC_STATE ApcState;
 
    PAGED_CODE();
 
-   DPRINT("ObReferenceObjectByHandle(Handle %p, DesiredAccess %x, "
-	   "ObjectType %p, AccessMode %d, Object %p)\n",Handle,DesiredAccess,
+   DPRINT("ObReferenceObjectByHandle(Handle %x, DesiredAccess %x, "
+	   "ObjectType %x, AccessMode %d, Object %x)\n",Handle,DesiredAccess,
 	   ObjectType,AccessMode,Object);
 
    if (Handle == NULL)
      {
        return STATUS_INVALID_HANDLE;
      }
-
-   CurrentProcess = PsGetCurrentProcess();
-
    /*
     * Handle special handle names
     */
    if (Handle == NtCurrentProcess() &&
        (ObjectType == PsProcessType || ObjectType == NULL))
      {
+        PEPROCESS CurrentProcess = PsGetCurrentProcess();
+
         ObReferenceObject(CurrentProcess);
 
 	if (HandleInformation != NULL)
@@ -913,7 +752,7 @@ ObReferenceObjectByHandle(HANDLE Handle,
 	  }
 
 	*Object = CurrentProcess;
-	DPRINT("Referencing current process %p\n", CurrentProcess);
+	DPRINT("Referencing current process %x\n", CurrentProcess);
 	return STATUS_SUCCESS;
      }
    else if (Handle == NtCurrentProcess())
@@ -954,52 +793,36 @@ ObReferenceObjectByHandle(HANDLE Handle,
 
    if(ObIsKernelHandle(Handle, AccessMode))
    {
-      Process = PsInitialSystemProcess;
+      HandleTable = ObpKernelHandleTable;
       Handle = ObKernelHandleToHandle(Handle);
    }
    else
    {
-      Process = CurrentProcess;
+      HandleTable = PsGetCurrentProcess()->ObjectTable;
    }
 
    KeEnterCriticalRegion();
 
-   if (Process != CurrentProcess)
-   {
-     KeStackAttachProcess(&Process->Pcb,
-                          &ApcState);
-     AttachedToProcess = TRUE;
-   }
-
-   HandleEntry = ExMapHandleToPointer(Process->ObjectTable,
+   HandleEntry = ExMapHandleToPointer(HandleTable,
 				      Handle);
    if (HandleEntry == NULL)
      {
-        if (AttachedToProcess)
-        {
-            KeUnstackDetachProcess(&ApcState);
-        }
         KeLeaveCriticalRegion();
-        DPRINT("ExMapHandleToPointer() failed for handle 0x%p\n", Handle);
+        DPRINT("ExMapHandleToPointer() failed for handle 0x%x\n", Handle);
         return(STATUS_INVALID_HANDLE);
      }
 
    ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
    ObjectBody = &ObjectHeader->Body;
 
-   DPRINT("locked1: ObjectHeader: 0x%p [HT:0x%p]\n", ObjectHeader, Process->ObjectTable);
+   DPRINT("locked1: ObjectHeader: 0x%x [HT:0x%x]\n", ObjectHeader, HandleTable);
 
    if (ObjectType != NULL && ObjectType != ObjectHeader->Type)
      {
-        DPRINT("ObjectType mismatch: %wZ vs %wZ (handle 0x%p)\n", &ObjectType->Name, ObjectHeader->Type ? &ObjectHeader->Type->Name : NULL, Handle);
+        DPRINT("ObjectType mismatch: %wZ vs %wZ (handle 0x%x)\n", &ObjectType->Name, ObjectHeader->Type ? &ObjectHeader->Type->Name : NULL, Handle);
 
-        ExUnlockHandleTableEntry(Process->ObjectTable,
+        ExUnlockHandleTableEntry(HandleTable,
                                  HandleEntry);
-
-        if (AttachedToProcess)
-        {
-            KeUnstackDetachProcess(&ApcState);
-        }
 
         KeLeaveCriticalRegion();
 
@@ -1019,13 +842,8 @@ ObReferenceObjectByHandle(HANDLE Handle,
       rights than the handle can grant */
    if(AccessMode != KernelMode && (~GrantedAccess & DesiredAccess))
      {
-        ExUnlockHandleTableEntry(Process->ObjectTable,
+        ExUnlockHandleTableEntry(HandleTable,
                                  HandleEntry);
-
-        if (AttachedToProcess)
-        {
-            KeUnstackDetachProcess(&ApcState);
-        }
 
         KeLeaveCriticalRegion();
 
@@ -1040,13 +858,8 @@ ObReferenceObjectByHandle(HANDLE Handle,
                                                 EX_HANDLE_ENTRY_INHERITABLE |
                                                 EX_HANDLE_ENTRY_AUDITONCLOSE);
 
-   ExUnlockHandleTableEntry(Process->ObjectTable,
+   ExUnlockHandleTableEntry(HandleTable,
                             HandleEntry);
-
-   if (AttachedToProcess)
-   {
-       KeUnstackDetachProcess(&ApcState);
-   }
 
    KeLeaveCriticalRegion();
 
@@ -1081,43 +894,27 @@ ObReferenceObjectByHandle(HANDLE Handle,
 NTSTATUS STDCALL
 NtClose(IN HANDLE Handle)
 {
-   PEPROCESS Process, CurrentProcess;
-   BOOLEAN AttachedToProcess = FALSE;
-   KAPC_STATE ApcState;
+   PHANDLE_TABLE HandleTable;
    NTSTATUS Status;
-   KPROCESSOR_MODE PreviousMode;
 
    PAGED_CODE();
 
-   PreviousMode = ExGetPreviousMode();
-   CurrentProcess = PsGetCurrentProcess();
-
-   if(ObIsKernelHandle(Handle, PreviousMode))
+   if(ObIsKernelHandle(Handle, ExGetPreviousMode()))
    {
-      Process = PsInitialSystemProcess;
+      HandleTable = ObpKernelHandleTable;
       Handle = ObKernelHandleToHandle(Handle);
-
-      if (Process != CurrentProcess)
-      {
-        KeStackAttachProcess(&Process->Pcb,
-                             &ApcState);
-        AttachedToProcess = TRUE;
-      }
    }
    else
-      Process = CurrentProcess;
-
-   Status = ObpDeleteHandle(Handle);
-
-   if (AttachedToProcess)
    {
-     KeUnstackDetachProcess(&ApcState);
+      HandleTable = PsGetCurrentProcess()->ObjectTable;
    }
 
+   Status = ObpDeleteHandle(HandleTable,
+			    Handle);
    if (!NT_SUCCESS(Status))
      {
-        if((PreviousMode != KernelMode) &&
-           (CurrentProcess->ExceptionPort))
+        if((ExGetPreviousMode() != KernelMode) &&
+           (PsGetCurrentProcess()->ExceptionPort))
         {
            KeRaiseUserException(Status);
         }
@@ -1328,9 +1125,10 @@ ObInsertObject(IN PVOID Object,
     DPRINT("Creating handle\n");
     if (Handle != NULL)
     {
-        Status = ObpCreateHandle(&Header->Body,
+        Status = ObpCreateHandle(PsGetCurrentProcess(),
+                                 &Header->Body,
                                  DesiredAccess,
-                                 ObjectCreateInfo->Attributes,
+                                 ObjectCreateInfo->Attributes & OBJ_INHERIT,
                                  Handle);
         DPRINT("handle Created: %d. refcount. handlecount %d %d\n",
                  *Handle, Header->PointerCount, Header->HandleCount);

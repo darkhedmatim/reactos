@@ -94,9 +94,6 @@ static HRESULT WINAPI WebBrowser_QueryInterface(IWebBrowser2 *iface, REFIID riid
     }else if(IsEqualGUID(&IID_IViewObject2, riid)) {
         TRACE("(%p)->(IID_IViewObject2 %p)\n", This, ppv);
         *ppv = VIEWOBJ2(This);
-    }else if(IsEqualGUID(&IID_IOleInPlaceActiveObject, riid)) {
-        TRACE("(%p)->(IID_IOleInPlaceActiveObject %p)\n", This, ppv);
-        *ppv = ACTIVEOBJ(This);
     }
 
     if(*ppv) {
@@ -129,9 +126,7 @@ static ULONG WINAPI WebBrowser_Release(IWebBrowser2 *iface)
 
         WebBrowser_OleObject_Destroy(This);
         WebBrowser_Events_Destroy(This);
-        WebBrowser_ClientSite_Destroy(This);
 
-        SysFreeString(This->url);
         HeapFree(GetProcessHeap(), 0, This);
         SHDOCVW_UnlockModule();
     }
@@ -260,14 +255,8 @@ static HRESULT WINAPI WebBrowser_get_Container(IWebBrowser2 *iface, IDispatch **
 static HRESULT WINAPI WebBrowser_get_Document(IWebBrowser2 *iface, IDispatch **ppDisp)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, ppDisp);
-
-    *ppDisp = NULL;
-    if(This->document)
-        IUnknown_QueryInterface(This->document, &IID_IDispatch, (void**)ppDisp);
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, ppDisp);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WebBrowser_get_TopLevelContainer(IWebBrowser2 *iface, VARIANT_BOOL *pBool)
@@ -515,19 +504,12 @@ static HRESULT WINAPI WebBrowser_Navigate2(IWebBrowser2 *iface, VARIANT *URL, VA
     if(!This->client)
         return E_FAIL;
 
-    if((Flags && V_VT(Flags) != VT_EMPTY) 
-       || (TargetFrameName && V_VT(TargetFrameName) != VT_EMPTY)
-       || (PostData && V_VT(PostData) != VT_EMPTY) 
-       || (Headers && V_VT(Headers) != VT_EMPTY))
+    if(V_VT(Flags) != VT_EMPTY || V_VT(TargetFrameName) != VT_EMPTY
+       || V_VT(PostData) != VT_EMPTY || V_VT(Headers) != VT_EMPTY)
         FIXME("Unsupported arguments\n");
 
-    if(!URL)
-        return S_OK;
     if(V_VT(URL) != VT_BSTR)
-        return E_INVALIDARG;
-
-    if(!This->doc_view_hwnd)
-        create_doc_view_hwnd(This);
+        FIXME("V_VT(URL) != VT_BSTR\n");
 
     /*
      * FIXME:
@@ -561,16 +543,12 @@ static HRESULT WINAPI WebBrowser_Navigate2(IWebBrowser2 *iface, VARIANT *URL, VA
         return hres;
     }
 
-    This->url = SysAllocString(V_BSTR(URL));
-
     hres = IUnknown_QueryInterface(This->document, &IID_IOleObject, (void**)&oleobj);
     if(FAILED(hres))
         return hres;
 
     hres = IOleObject_SetClientSite(oleobj, CLIENTSITE(This));
     IOleObject_Release(oleobj);
-
-    PostMessageW(This->doc_view_hwnd, WB_WM_NAVIGATE2, 0, 0);
 
     return hres;
 }
@@ -797,7 +775,6 @@ HRESULT WebBrowser_Create(IUnknown *pOuter, REFIID riid, void **ppv)
     ret->ref = 0;
 
     ret->document = NULL;
-    ret->url = NULL;
 
     WebBrowser_OleObject_Init(ret);
     WebBrowser_ViewObject_Init(ret);
@@ -807,7 +784,6 @@ HRESULT WebBrowser_Create(IUnknown *pOuter, REFIID riid, void **ppv)
     WebBrowser_Events_Init(ret);
     WebBrowser_ClientSite_Init(ret);
     WebBrowser_DocHost_Init(ret);
-    WebBrowser_Frame_Init(ret);
 
     hres = IWebBrowser_QueryInterface(WEBBROWSER(ret), riid, ppv);
     if(SUCCEEDED(hres)) {

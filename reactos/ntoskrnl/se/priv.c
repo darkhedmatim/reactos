@@ -250,17 +250,14 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
   ULONG PrivilegeCount;
   ULONG PrivilegeControl;
   ULONG Length;
-  KPROCESSOR_MODE PreviousMode;
   NTSTATUS Status;
 
   PAGED_CODE();
 
-  PreviousMode = KeGetPreviousMode();
-
   Status = ObReferenceObjectByHandle (ClientToken,
-				      TOKEN_QUERY,
+				      0,
 				      SepTokenObjectType,
-				      PreviousMode,
+				      UserMode,
 				      (PVOID*)&Token,
 				      NULL);
   if (!NT_SUCCESS(Status))

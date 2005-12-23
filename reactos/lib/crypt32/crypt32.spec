@@ -52,8 +52,6 @@
 @ stub CertGetEnhancedKeyUsage
 @ stub CertGetIntendedKeyUsage
 @ stub CertGetIssuerCertificateFromStore
-@ stub CertGetNameStringA
-@ stub CertGetNameStringW
 @ stub CertGetPublicKeyLength
 @ stub CertGetSubjectCertificateFromStore
 @ stub CertIsRDNAttrsInCertificateName
@@ -77,7 +75,6 @@
 @ stub CertSetEnhancedKeyUsage
 @ stub CertStrToNameA
 @ stub CertStrToNameW
-@ stub CertVerifyCertificateChainPolicy
 @ stub CertVerifyCRLRevocation
 @ stub CertVerifyCRLTimeValidity
 @ stub CertVerifyCTLUsage
@@ -105,13 +102,13 @@
 @ stdcall CryptExportPublicKeyInfoEx(long long long str long ptr ptr ptr)
 @ stub CryptFindOIDInfo
 @ stub CryptFormatObject
-@ stdcall CryptFreeOIDFunctionAddress(long long)
+@ stub CryptFreeOIDFunctionAddress
 @ stub CryptGetAsyncParam
-@ stdcall CryptGetDefaultOIDDllList(long long ptr ptr)
-@ stdcall CryptGetDefaultOIDFunctionAddress(long long wstr long ptr ptr)
+@ stub CryptGetDefaultOIDDllList
+@ stub CryptGetDefaultOIDFunctionAddress
 @ stub CryptGetMessageCertificates
 @ stub CryptGetMessageSignerCount
-@ stdcall CryptGetOIDFunctionAddress(long long str long ptr ptr)
+@ stub CryptGetOIDFunctionAddress
 @ stdcall CryptGetOIDFunctionValue(long str str wstr ptr ptr ptr)
 @ stdcall CryptHashCertificate(long long long ptr long ptr ptr)
 @ stub CryptHashMessage
@@ -121,7 +118,7 @@
 @ stdcall CryptImportPublicKeyInfo(long long ptr ptr)
 @ stdcall CryptImportPublicKeyInfoEx(long long ptr long long ptr ptr)
 @ stdcall CryptInitOIDFunctionSet(str long)
-@ stdcall CryptInstallOIDFunctionAddress(ptr long str long ptr long)
+@ stub CryptInstallOIDFunctionAddress
 @ stub CryptLoadSip
 @ stdcall CryptMemAlloc(long)
 @ stdcall CryptMemFree(ptr)
@@ -165,16 +162,16 @@
 @ stub CryptVerifyDetachedMessageHash
 @ stub CryptVerifyDetachedMessageSignature
 @ stub CryptVerifyMessageHash
-@ stdcall CryptVerifyMessageSignature(ptr long ptr long ptr ptr ptr)
+@ stub CryptVerifyMessageSignature
 @ stub CryptVerifyMessageSignatureWithKey
 @ stub CryptVerifySignatureU
 @ stdcall I_CryptAllocTls()
-@ stdcall I_CryptCreateLruCache(ptr ptr)
+@ stdcall I_CryptCreateLruCache(long long)
 @ stub I_CryptCreateLruEntry
 @ stdcall I_CryptDetachTls(long)
-@ stdcall I_CryptFindLruEntryData(long long long)
-@ stdcall I_CryptFlushLruCache(ptr long long)
-@ stdcall I_CryptFreeLruCache(ptr long long)
+@ stdcall I_CryptFindLruEntryData(long)
+@ stdcall I_CryptFlushLruCache(long)
+@ stdcall I_CryptFreeLruCache(long)
 @ stdcall I_CryptFreeTls(long long)
 @ stub I_CryptGetDefaultCryptProv
 @ stub I_CryptGetDefaultCryptProvForEncrypt

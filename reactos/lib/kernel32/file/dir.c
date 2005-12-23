@@ -100,7 +100,7 @@ CreateDirectoryW (
         DPRINT ("lpPathName %S lpSecurityAttributes %p\n",
                 lpPathName, lpSecurityAttributes);
 
-        if (!RtlDosPathNameToNtPathName_U (lpPathName,
+        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpPathName,
                                            &NtPathU,
                                            NULL,
                                            NULL))
@@ -182,7 +182,7 @@ CreateDirectoryExW (
          * Translate the template directory path
          */
 
-        if (!RtlDosPathNameToNtPathName_U (lpTemplateDirectory,
+        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpTemplateDirectory,
                                            &NtTemplatePathU,
                                            NULL,
                                            NULL))
@@ -239,7 +239,7 @@ OpenTemplateDir:
          * Translate the new directory path and check if they're the same
          */
         
-        if (!RtlDosPathNameToNtPathName_U (lpNewDirectory,
+        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpNewDirectory,
                                            &NtPathU,
                                            NULL,
                                            NULL))
@@ -526,7 +526,7 @@ RemoveDirectoryW (
 
         DPRINT("lpPathName %S\n", lpPathName);
 
-        if (!RtlDosPathNameToNtPathName_U (lpPathName,
+        if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpPathName,
                                            &NtPathU,
                                            NULL,
                                            NULL))
@@ -828,17 +828,16 @@ SearchPathA (
         LPSTR   *lpFilePart
         )
 {
-        UNICODE_STRING PathU = {0};
-        UNICODE_STRING FileNameU = {0};
-        UNICODE_STRING ExtensionU = {0};
-        UNICODE_STRING BufferU = {0};
+        UNICODE_STRING PathU;
+        UNICODE_STRING FileNameU;
+        UNICODE_STRING ExtensionU;
+        UNICODE_STRING BufferU;
         ANSI_STRING Path;
         ANSI_STRING FileName;
         ANSI_STRING Extension;
         ANSI_STRING Buffer;
         PWCHAR FilePartW;
-        DWORD RetValue = 0;
-        NTSTATUS Status = STATUS_SUCCESS;
+        DWORD RetValue;
 
         RtlInitAnsiString (&Path,
                            (LPSTR)lpPath);
@@ -850,54 +849,36 @@ SearchPathA (
         /* convert ansi (or oem) strings to unicode */
         if (bIsFileApiAnsi)
         {
-                Status = RtlAnsiStringToUnicodeString (&PathU,
-                                                       &Path,
-                                                       TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
-
-                Status = RtlAnsiStringToUnicodeString (&FileNameU,
-                                                       &FileName,
-                                                       TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
-
-                Status = RtlAnsiStringToUnicodeString (&ExtensionU,
-                                                       &Extension,
-                                                       TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
+                RtlAnsiStringToUnicodeString (&PathU,
+                                              &Path,
+                                              TRUE);
+                RtlAnsiStringToUnicodeString (&FileNameU,
+                                              &FileName,
+                                              TRUE);
+                RtlAnsiStringToUnicodeString (&ExtensionU,
+                                              &Extension,
+                                              TRUE);
         }
         else
         {
-                Status = RtlOemStringToUnicodeString (&PathU,
-                                                      &Path,
-                                                      TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
-                Status = RtlOemStringToUnicodeString (&FileNameU,
-                                                      &FileName,
-                                                      TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
-
-                Status = RtlOemStringToUnicodeString (&ExtensionU,
-                                                      &Extension,
-                                                      TRUE);
-                if (!NT_SUCCESS(Status))
-                    goto Cleanup;
+                RtlOemStringToUnicodeString (&PathU,
+                                             &Path,
+                                             TRUE);
+                RtlOemStringToUnicodeString (&FileNameU,
+                                             &FileName,
+                                             TRUE);
+                RtlOemStringToUnicodeString (&ExtensionU,
+                                             &Extension,
+                                             TRUE);
         }
 
+        BufferU.Length = 0;
         BufferU.MaximumLength = nBufferLength * sizeof(WCHAR);
         BufferU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
                                           0,
                                           BufferU.MaximumLength);
-        if (BufferU.Buffer == NULL)
-        {
-            Status = STATUS_NO_MEMORY;
-            goto Cleanup;
-        }
 
+        Buffer.Length = 0;
         Buffer.MaximumLength = nBufferLength;
         Buffer.Buffer = lpBuffer;
 
@@ -907,6 +888,16 @@ SearchPathA (
                                 nBufferLength,
                                 BufferU.Buffer,
                                 &FilePartW);
+
+        RtlFreeHeap (RtlGetProcessHeap (),
+                     0,
+                     PathU.Buffer);
+        RtlFreeHeap (RtlGetProcessHeap (),
+                     0,
+                     FileNameU.Buffer);
+        RtlFreeHeap (RtlGetProcessHeap (),
+                     0,
+                     ExtensionU.Buffer);
 
         if (0 != RetValue)
         {
@@ -922,31 +913,15 @@ SearchPathA (
                                                      FALSE);
                 /* nul-terminate ascii string */
                 Buffer.Buffer[BufferU.Length / sizeof(WCHAR)] = '\0';
-
-                if (NULL != lpFilePart && BufferU.Length != 0)
-                {
-                        *lpFilePart = strrchr (lpBuffer, '\\') + 1;
-                }
         }
 
-Cleanup:
-        RtlFreeHeap (RtlGetProcessHeap (),
-                     0,
-                     PathU.Buffer);
-        RtlFreeHeap (RtlGetProcessHeap (),
-                     0,
-                     FileNameU.Buffer);
-        RtlFreeHeap (RtlGetProcessHeap (),
-                     0,
-                     ExtensionU.Buffer);
         RtlFreeHeap (RtlGetProcessHeap (),
                      0,
                      BufferU.Buffer);
 
-        if (!NT_SUCCESS(Status))
+        if (NULL != lpFilePart)
         {
-            SetLastErrorByStatus(Status);
-            return 0;
+                *lpFilePart = strrchr (lpBuffer, '\\') + 1;
         }
 
         return RetValue;
@@ -1057,14 +1032,9 @@ SearchPathW (
                 if (lpPath == NULL)
                 {
 
-                        AppPathW = (PWCHAR) RtlAllocateHeap(RtlGetProcessHeap(),
+                        AppPathW = (PWCHAR) RtlAllocateHeap(GetProcessHeap(),
                                                         HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,
                                                         MAX_PATH * sizeof(WCHAR));
-                        if (AppPathW == NULL)
-                        {
-                            SetLastError(ERROR_OUTOFMEMORY);
-                            return 0;
-                        }
 
 
                         wcscat (AppPathW, NtCurrentPeb()->ProcessParameters->ImagePathName.Buffer);
@@ -1082,12 +1052,11 @@ SearchPathW (
                         len += 1 + GetWindowsDirectoryW(&Buffer, 0);
                         len += 1 + wcslen(AppPathW) * sizeof(WCHAR);
 
-                        EnvironmentBufferW = (PWCHAR) RtlAllocateHeap(RtlGetProcessHeap(),
+                        EnvironmentBufferW = (PWCHAR) RtlAllocateHeap(GetProcessHeap(),
                                                         HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,
                                                         len * sizeof(WCHAR));
                         if (EnvironmentBufferW == NULL)
                         {
-                                RtlFreeHeap(RtlGetProcessHeap(), 0, AppPathW);
                                 SetLastError(ERROR_OUTOFMEMORY);
                                 return 0;
                         }

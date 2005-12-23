@@ -51,7 +51,6 @@ LIST_ENTRY GroupListHead;
 LIST_ENTRY ServiceListHead;
 
 static RTL_RESOURCE DatabaseLock;
-static DWORD dwResumeCount = 1;
 
 
 /* FUNCTIONS *****************************************************************/
@@ -100,35 +99,6 @@ ScmGetServiceEntryByDisplayName(LPWSTR lpDisplayName)
                                            SERVICE,
                                            ServiceListEntry);
         if (_wcsicmp(CurrentService->lpDisplayName, lpDisplayName) == 0)
-        {
-            DPRINT("Found service: '%S'\n", CurrentService->lpDisplayName);
-            return CurrentService;
-        }
-
-        ServiceEntry = ServiceEntry->Flink;
-    }
-
-    DPRINT("Couldn't find a matching service\n");
-
-    return NULL;
-}
-
-
-PSERVICE
-ScmGetServiceEntryByResumeCount(DWORD dwResumeCount)
-{
-    PLIST_ENTRY ServiceEntry;
-    PSERVICE CurrentService;
-
-    DPRINT("ScmGetServiceEntryByResumeCount() called\n");
-
-    ServiceEntry = ServiceListHead.Flink;
-    while (ServiceEntry != &ServiceListHead)
-    {
-        CurrentService = CONTAINING_RECORD(ServiceEntry,
-                                           SERVICE,
-                                           ServiceListEntry);
-        if (CurrentService->dwResumeCount > dwResumeCount)
         {
             DPRINT("Found service: '%S'\n", CurrentService->lpDisplayName);
             return CurrentService;
@@ -262,9 +232,6 @@ ScmCreateNewServiceRecord(LPWSTR lpServiceName,
     wcscpy(lpService->szServiceName, lpServiceName);
     lpService->lpServiceName = lpService->szServiceName;
     lpService->lpDisplayName = lpService->lpServiceName;
-
-    /* Set the resume count */
-    lpService->dwResumeCount = dwResumeCount++;
 
     /* Append service entry */
     InsertTailList(&ServiceListHead,

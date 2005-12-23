@@ -3285,12 +3285,15 @@ BOOL WINAPI CryptVerifyCertificateSignatureEx(HCRYPTPROV hCryptProv,
     return ret;
 }
 
-BOOL WINAPI CryptVerifyMessageSignature(/*PCRYPT_VERIFY_MESSAGE_PARA*/ void* pVerifyPara,
-          DWORD dwSignerIndex, const BYTE* pbSignedBlob, DWORD cbSignedBlob,
-          BYTE* pbDecoded, DWORD* pcbDecoded, PCCERT_CONTEXT* ppSignerCert)
+HCRYPTOIDFUNCSET WINAPI CryptInitOIDFunctionSet(LPCSTR pszFuncName, DWORD dwFlags)
 {
-    FIXME("stub: %p, %ld, %p, %ld, %p, %p, %p\n",
-        pVerifyPara, dwSignerIndex, pbSignedBlob, cbSignedBlob,
-        pbDecoded, pcbDecoded, ppSignerCert);
+    FIXME("stub: %s %lx\n", debugstr_a(pszFuncName), dwFlags);
+    return NULL;
+}
+
+BOOL WINAPI CryptUnregisterDefaultOIDFunction(DWORD dwEncodingType,
+                                              LPCSTR pszFuncName, LPCWSTR pwszDll)
+{
+    FIXME("stub: %lx %s %s\n", dwEncodingType, debugstr_a(pszFuncName), debugstr_w(pwszDll));
     return FALSE;
 }

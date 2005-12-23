@@ -23,7 +23,5 @@
 	$roscms_intern_color0="#5984C3"; // table head line
 	$roscms_intern_color1="#E2E2E2"; // table color1
 	$roscms_intern_color2="#EEEEEE"; // table color2
-	$roscms_intern_color_new="#339900"; // new content
-	$roscms_intern_color_old="#FF3300"; // new content
 
 ?>

@@ -290,11 +290,6 @@ GetEnvironmentStringsA (
 	EnvPtr = RtlAllocateHeap (RtlGetProcessHeap (),
 	                          0,
 	                          Length + 1);
-        if (EnvPtr == NULL)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return NULL;
-        }
 	DPRINT("EnvPtr %p\n", EnvPtr);
 
 	/* convert unicode environment to ansi */
@@ -397,14 +392,9 @@ ExpandEnvironmentStringsA (
 
 	RtlInitAnsiString (&Source,
 	                   (LPSTR)lpSrc);
-	Status = RtlAnsiStringToUnicodeString (&SourceU,
-	                                       &Source,
-	                                       TRUE);
-        if (!NT_SUCCESS(Status))
-        {
-            SetLastErrorByStatus (Status);
-            return 0;
-        }
+	RtlAnsiStringToUnicodeString (&SourceU,
+	                              &Source,
+	                              TRUE);
 
 	Destination.Length = 0;
 	Destination.MaximumLength = nSize;
@@ -415,12 +405,6 @@ ExpandEnvironmentStringsA (
 	DestinationU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
 	                                       0,
 	                                       DestinationU.MaximumLength);
-        if (DestinationU.Buffer == NULL)
-        {
-            RtlFreeUnicodeString(&SourceU);
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return 0;
-        }
 
 	Status = RtlExpandEnvironmentStrings_U (NULL,
 	                                        &SourceU,

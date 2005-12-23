@@ -105,6 +105,10 @@
 	else {
 		echo '<a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt=all&amp;langid='.$rpm_lang_id.'">all users</a>';
 	}
+	if ($rpm_filt == "history") {	
+		echo ' | <b>history</b>';
+		$ros_cms_intern_users_filt = "WHERE user_name = '".$rpm_opt."'";
+	}
 	echo '</p>';
 
 	if ($rpm_sort == "") {
@@ -164,266 +168,9 @@
 	else {
 		echo '<a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort=language&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'">language</a>';
 	}
-	echo ' | ';
-	if ($rpm_sort == "occupation") {	
-		echo '<b>occupation</b>';
-		$ros_cms_intern_users_sortby="user_occupation";
-		$ros_cms_intern_users_sort="ASC";
-	}
-	else {
-		echo '<a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort=occupation&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'">occupation</a>';
-	}
-	echo ' | ';
-	if ($rpm_sort == "counter") {	
-		echo '<b>counter</b>';
-		$ros_cms_intern_users_sortby="user_login_counter";
-		$ros_cms_intern_users_sort="DESC";
-	}
-	else {
-		echo '<a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort=counter&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'">counter</a>';
-	}
 	echo '</p>';
 
 ?>
-
-<?php
-
-// Setting:
-$roscms_intern_items_per_page = 50;
-
-$roscms_SET_curpos = "";
-$roscms_SET_letter = "";
-if (array_key_exists("curpos", $_GET)) $roscms_SET_curpos=htmlspecialchars($_GET["curpos"]);
-if (array_key_exists("letter", $_GET)) $roscms_SET_letter=htmlspecialchars($_GET["letter"]);
-
-
-
-	echo '<p align="center">';
-	
-	if ($roscms_SET_letter == "all" || $roscms_SET_letter == "") {
-		echo '  <b>All</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=all" class="letterbarlink">All</a> ';
-	}
-
-	if ($roscms_SET_letter == "a") {
-		echo '  <b>A</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=a" class="letterbarlink">A</a> ';
-	}
-
-	if ($roscms_SET_letter == "b") {
-		echo '  <b>B</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=b" class="letterbarlink">B</a> ';
-	}
-
-	if ($roscms_SET_letter == "c") {
-		echo '  <b>C</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=c" class="letterbarlink">C</a> ';
-	}
-
-	if ($roscms_SET_letter == "d") {
-		echo '  <b>D</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=d" class="letterbarlink">D</a> ';
-	}
-
-	if ($roscms_SET_letter == "e") {
-		echo '  <b>E</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=e" class="letterbarlink">E</a> ';
-	}
-
-	if ($roscms_SET_letter == "f") {
-		echo '  <b>F</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=f" class="letterbarlink">F</a> ';
-	}
-
-	if ($roscms_SET_letter == "g") {
-		echo '  <b>G</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=g" class="letterbarlink">G</a> ';
-	}
-
-	if ($roscms_SET_letter == "h") {
-		echo '  <b>H</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=h" class="letterbarlink">H</a> ';
-	}
-
-	if ($roscms_SET_letter == "i") {
-		echo '  <b>I</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=i" class="letterbarlink">I</a> ';
-	}
-
-	if ($roscms_SET_letter == "j") {
-		echo '  <b>J</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=j" class="letterbarlink">J</a> ';
-	}
-
-	if ($roscms_SET_letter == "k") {
-		echo '  <b>K</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=k" class="letterbarlink">K</a> ';
-	}
-
-	if ($roscms_SET_letter == "l") {
-		echo '  <b>L</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=l" class="letterbarlink">L</a> ';
-	}
-
-	if ($roscms_SET_letter == "m") {
-		echo '  <b>M</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=m" class="letterbarlink">M</a> ';
-	}
-	
-	if ($roscms_SET_letter == "n") {
-		echo '  <b>N</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=n" class="letterbarlink">N</a> ';
-	}
-	
-	if ($roscms_SET_letter == "o") {
-		echo '  <b>O</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=o" class="letterbarlink">O</a> ';
-	}
-
-	if ($roscms_SET_letter == "p") {
-		echo '  <b>P</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=p" class="letterbarlink">P</a> ';
-	}
-
-	if ($roscms_SET_letter == "q") {
-		echo '  <b>Q</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=q" class="letterbarlink">Q</a> ';
-	}
-
-	if ($roscms_SET_letter == "r") {
-		echo '  <b>R</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=r" class="letterbarlink">R</a> ';
-	}
-
-	if ($roscms_SET_letter == "s") {
-		echo '  <b>S</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=s" class="letterbarlink">S</a> ';
-	}
-
-	if ($roscms_SET_letter == "t") {
-		echo '  <b>T</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=t" class="letterbarlink">T</a> ';
-	}
-
-	if ($roscms_SET_letter == "u") {
-		echo '  <b>U</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=u" class="letterbarlink">U</a> ';
-	}
-
-	if ($roscms_SET_letter == "v") {
-		echo '  <b>V</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=v" class="letterbarlink">V</a> ';
-	}
-
-	if ($roscms_SET_letter == "w") {
-		echo '  <b>W</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=w" class="letterbarlink">W</a> ';
-	}
-
-	if ($roscms_SET_letter == "x") {
-		echo '  <b>X</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=x" class="letterbarlink">X</a> ';
-	}
-
-	if ($roscms_SET_letter == "y") {
-		echo '  <b>Y</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=y" class="letterbarlink">Y</a> ';
-	}
-
-	if ($roscms_SET_letter == "z") {
-		echo '  <b>Z</b> ';
-	}
-	else {
-		echo '  <a href="?page=admin&amp;sec=users&amp;sec2=view&amp;sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;opt='.$rpm_opt.'&amp;langid='.$rpm_lang_id.'&amp;letter=z" class="letterbarlink">Z</a> ';
-	}
-
-	echo "</p>";
-
-
-
-if (!$roscms_SET_curpos) {
-	$roscms_SET_curpos = 0;
-}
-
-if ($roscms_SET_letter == "all") {
-	$roscms_SET_letter = "%";
-}
-
-$query_count_cat=mysql_query("SELECT COUNT('user_id') 
-								FROM `users` 
-								WHERE `user_account_enabled` = 'yes'
-								AND `user_account_hidden` = 'no'
-								AND `user_name` LIKE  '" . $roscms_SET_letter . "%'
-								ORDER BY `user_name` ASC ;");	
-$result_count_cat = mysql_fetch_row($query_count_cat);
-
-	echo "<p align='center'>";
-	$j=0;
-	for ($i=0; $i < $result_count_cat[0]; $i += $roscms_intern_items_per_page) {
-		$j++;
-		if ($roscms_SET_curpos == $i) {
-			echo "<b>".$j."</b> ";
-		}
-		else {
-			echo "<a href='?page=admin&amp;sec=users&amp;sec2=view&amp;sort=".$rpm_sort."&amp;filt=".$rpm_filt."&amp;opt=".$rpm_opt."&amp;langid=".$rpm_lang_id."&amp;letter=".$roscms_SET_letter."&amp;curpos=".$i."'>".$j."</a> ";
-		}
-	}
-	$j=0;
-	echo "</p>";
-
-?> 
   <table width="100%" border="0" cellpadding="1" cellspacing="1">
     <tr bgcolor="#5984C3"> 
       <td width="9%"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Action</strong></font></div></td>
@@ -440,46 +187,41 @@ $result_count_cat = mysql_fetch_row($query_count_cat);
       <td width="10%"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Lang</strong></font></div></td>
     </tr>
     <?php
-		
-		$query_page = mysql_query("SELECT * 
-				FROM users
-				$ros_cms_intern_users_filt $ros_cms_intern_users_lang  AND `user_name` LIKE  '" . $roscms_SET_letter . "%' 
-				ORDER BY '$ros_cms_intern_users_sortby' $ros_cms_intern_users_sort LIMIT ". $roscms_SET_curpos ." , ". $roscms_intern_items_per_page ." ;") ;
 
-/*	if($roscms_intern_account_level==100) {
+	if($roscms_intern_account_level==100) {
 		$query_page = mysql_query("SELECT * 
 				FROM users
 				$ros_cms_intern_users_filt $ros_cms_intern_users_lang
-				ORDER BY '$ros_cms_intern_users_sortby' $ros_cms_intern_users_sort LIMIT ". $roscms_SET_curpos ." , ". $roscms_intern_items_per_page ." ;") ;
+				ORDER BY '$ros_cms_intern_users_sortby' $ros_cms_intern_users_sort") ;
 	}
 	else {
 		$query_page = mysql_query("SELECT * 
 				FROM users
 				$ros_cms_intern_users_filt AND user_account_hidden != 0 $ros_cms_intern_users_lang
-				ORDER BY '$ros_cms_intern_users_sortby' $ros_cms_intern_users_sort LIMIT ". $roscms_SET_curpos ." , ". $roscms_intern_items_per_page ." ;") ;
-	}*/
+				ORDER BY '$ros_cms_intern_users_sortby' $ros_cms_intern_users_sort") ;
+	}
 
-	$color1=$roscms_intern_color1;
-	$color2=$roscms_intern_color2;
-	$colorcounter="0";
+	$farbe1=$roscms_intern_color1;
+	$farbe2=$roscms_intern_color2;
+	$zaehler="0";
 	//$farbe="#CCCCC";
 	
 	while($result_page = mysql_fetch_array($query_page)) { // users
 ?>
     <tr> 
       <td width="9%" valign="middle" bgcolor="<?php
-								$colorcounter++;
-								if ($colorcounter == "1") {
-									echo $color1;
-									$farbe = $color1;
+								$zaehler++;
+								if ($zaehler == "1") {
+									echo $farbe1;
+									$farbe = $farbe1;
 								}
-								elseif ($colorcounter == "2") {
-									$colorcounter="0";
-									echo $color2;
-									$farbe = $color2;
+								elseif ($zaehler == "2") {
+									$zaehler="0";
+									echo $farbe2;
+									$farbe = $farbe2;
 								}
-							 ?>"> 
-        <div align="center"><a href="<?php echo "?page=user&amp;sec=profil&amp;sec2=".$result_page['user_id']; ?>"><img src="images/view.gif" alt="Profil" width="19" height="18" border="0"></a>&nbsp; 
+							 ?>" title="RosCMS action buttons:&#10;&#10;* View account&#10;* Delete account&#10;* Email&#10;* Website"> 
+        <div align="center"><img src="images/view.gif" alt="View" width="19" height="18" border="0">&nbsp; 
           <?php
 		if ($result_page['user_email'] != "") {
 		?>
@@ -547,20 +289,6 @@ $result_count_cat = mysql_fetch_row($query_count_cat);
 	}	// end while
 ?>
   </table>
-<p align="center"><b><?php
-
-	echo ($roscms_SET_curpos+1)." to ";
-
-	if (($roscms_SET_curpos + $roscms_intern_items_per_page) > $result_count_cat[0]) {
-		echo $result_count_cat[0];
-	}
-	else {
-		echo ($roscms_SET_curpos + $roscms_intern_items_per_page);
-	}
-		
-	echo " of ".$result_count_cat[0]; 
-	
-?></b></p>
   <?php
   	$roscms_infotable = "user";
 	include("inc/inc_description_table.php");

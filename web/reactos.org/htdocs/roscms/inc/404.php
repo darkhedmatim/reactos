@@ -27,20 +27,20 @@ if ( !defined('ROSCMS_SYSTEM') )
 	}
 	$seclog_section="roscms_interface";
 	$seclog_level="50";
-	$seclog_reason="Hacking attempt: 404.php";
+	$seclog_reason="Hacking attempt: noaccess.php";
 	define ("ROSCMS_SYSTEM", "Hacking attempt");
 	include('securitylog.php'); // open security log
 	die("Hacking attempt");
 }
 ?>
-<h1>404 - <?php echo $roscms_langres['Page_not_found'];?></h1>
-<h2><?php echo $roscms_langres['Page_not_found'];?></h2>
+<h1>404 - Page not found</h1>
+<h2>Page not found</h2>
 <p>Our Web server cannot find the page or file you asked for.</p>
 <p>The link you followed may be broken or expired. </p>
 <p>Please use one of the following links to find the information you are looking 
   for:</p>
 <ul>
-  <li><a href="http://www.reactos.org/">www.reactos.org Website</a> </li>
+  <li><a href="http://www.reactos.org/">www.reactos.org Homepage</a> </li>
   <li><a href="http://www.reactos.org/?page=sitemap">www.reactos.org Sitemap</a> 
   </li>
 </ul>

@@ -32,12 +32,12 @@
 @ stub CM_Delete_Range
 @ stub CM_Detect_Resource_Conflict
 @ stub CM_Detect_Resource_Conflict_Ex
-@ stdcall CM_Disable_DevNode(long long)
-@ stdcall CM_Disable_DevNode_Ex(long long ptr)
+@ stub CM_Disable_DevNode
+@ stub CM_Disable_DevNode_Ex
 @ stdcall CM_Disconnect_Machine(long)
 @ stub CM_Dup_Range_List
-@ stdcall CM_Enable_DevNode(long long)
-@ stdcall CM_Enable_DevNode_Ex(long long ptr)
+@ stub CM_Enable_DevNode
+@ stub CM_Enable_DevNode_Ex
 @ stdcall CM_Enumerate_Classes(long ptr long)
 @ stdcall CM_Enumerate_Classes_Ex(long ptr long ptr)
 @ stdcall CM_Enumerate_EnumeratorsA(long str ptr long)
@@ -151,8 +151,8 @@
 @ stub CM_Query_Arbitrator_Free_Size_Ex
 @ stub CM_Query_Remove_SubTree
 @ stub CM_Query_Remove_SubTree_Ex
-@ stdcall CM_Reenumerate_DevNode(long long)
-@ stdcall CM_Reenumerate_DevNode_Ex(long long long)
+@ stub CM_Reenumerate_DevNode
+@ stub CM_Reenumerate_DevNode_Ex
 @ stub CM_Register_Device_Driver
 @ stub CM_Register_Device_Driver_Ex
 @ stub CM_Register_Device_InterfaceA
@@ -165,12 +165,12 @@
 @ stub CM_Remove_Unmarked_Children_Ex
 @ stub CM_Request_Device_EjectA
 @ stub CM_Request_Device_EjectW
-@ stdcall CM_Request_Eject_PC()
-@ stdcall CM_Request_Eject_PC_Ex(long)
+@ stub CM_Request_Eject_PC
+@ stub CM_Request_Eject_PC_Ex
 @ stub CM_Reset_Children_Marks
 @ stub CM_Reset_Children_Marks_Ex
-@ stdcall CM_Run_Detection(long)
-@ stdcall CM_Run_Detection_Ex(long long)
+@ stub CM_Run_Detection
+@ stub CM_Run_Detection_Ex
 @ stdcall CM_Set_DevNode_Problem(long long long)
 @ stdcall CM_Set_DevNode_Problem_Ex(long long long long)
 @ stdcall CM_Set_DevNode_Registry_PropertyA(long long ptr long long)
@@ -272,7 +272,7 @@
 @ stdcall SetupDiBuildDriverInfoList(long ptr long)
 @ stdcall SetupDiCallClassInstaller(long ptr ptr)
 @ stub SetupDiCancelDriverInfoSearch
-@ stdcall SetupDiChangeState(ptr ptr)
+@ stub SetupDiChangeState
 @ stdcall SetupDiClassGuidsFromNameA(str ptr long ptr)
 @ stdcall SetupDiClassGuidsFromNameExA(str ptr long ptr str ptr)
 @ stdcall SetupDiClassGuidsFromNameExW(wstr ptr long ptr wstr ptr)
@@ -300,8 +300,6 @@
 @ stdcall SetupDiEnumDriverInfoA(long ptr long long ptr)
 @ stdcall SetupDiEnumDriverInfoW(long ptr long long ptr)
 @ stdcall SetupDiGetActualSectionToInstallA(long str str long ptr ptr)
-@ stdcall SetupDiGetActualSectionToInstallExA(long str ptr str long ptr ptr ptr)
-@ stdcall SetupDiGetActualSectionToInstallExW(long wstr ptr wstr long ptr ptr ptr)
 @ stdcall SetupDiGetActualSectionToInstallW(long wstr wstr long ptr ptr)
 @ stub SetupDiGetClassBitmapIndex
 @ stdcall SetupDiGetClassDescriptionA(ptr str long ptr)
@@ -320,7 +318,7 @@
 @ stdcall SetupDiGetClassImageListExW(ptr wstr ptr)
 @ stub SetupDiGetClassInstallParamsA
 @ stub SetupDiGetClassInstallParamsW
-@ stdcall SetupDiGetDeviceInfoListClass(ptr ptr)
+@ stub SetupDiGetDeviceInfoListClass
 @ stdcall SetupDiGetDeviceInfoListDetailA(ptr ptr)
 @ stdcall SetupDiGetDeviceInfoListDetailW(ptr ptr)
 @ stdcall SetupDiGetDeviceInstallParamsA(ptr ptr ptr)
@@ -345,13 +343,13 @@
 @ stub SetupDiGetHwProfileListExW
 @ stdcall SetupDiGetINFClassA(str ptr ptr long ptr)
 @ stdcall SetupDiGetINFClassW(wstr ptr ptr long ptr)
-@ stdcall SetupDiGetSelectedDevice(ptr ptr)
+@ stub SetupDiGetSelectedDevice
 @ stdcall SetupDiGetSelectedDriverA(ptr ptr ptr)
 @ stdcall SetupDiGetSelectedDriverW(ptr ptr ptr)
 @ stub SetupDiGetWizardPage
 @ stdcall SetupDiInstallClassA(long str long ptr)
-@ stdcall SetupDiInstallClassExA(long str long ptr ptr ptr ptr)
-@ stdcall SetupDiInstallClassExW(long wstr long ptr ptr ptr ptr)
+@ stub SetupDiInstallClassExA
+@ stub SetupDiInstallClassExW
 @ stdcall SetupDiInstallClassW(long wstr long ptr)
 @ stdcall SetupDiInstallDevice(ptr ptr)
 @ stdcall SetupDiInstallDeviceInterfaces(ptr ptr)
@@ -382,7 +380,7 @@
 @ stdcall SetupDiSetDeviceRegistryPropertyW(ptr ptr long ptr long)
 @ stub SetupDiSetDriverInstallParamsA
 @ stub SetupDiSetDriverInstallParamsW
-@ stdcall SetupDiSetSelectedDevice(ptr ptr)
+@ stub SetupDiSetSelectedDevice
 @ stdcall SetupDiSetSelectedDriverA(ptr ptr ptr)
 @ stdcall SetupDiSetSelectedDriverW(ptr ptr ptr)
 @ stub SetupDiUnremoveDevice

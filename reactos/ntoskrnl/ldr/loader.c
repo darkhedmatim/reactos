@@ -394,9 +394,6 @@ LdrpQueryModuleInformation (
     ANSI_STRING AnsiName;
     PCHAR p;
     KIRQL Irql;
-    PUNICODE_STRING UnicodeName;
-    ULONG tmpBufferSize = 0;
-    PWCHAR tmpNameBuffer;
 
     KeAcquireSpinLock(&ModuleListLock,&Irql);
 
@@ -405,8 +402,6 @@ LdrpQueryModuleInformation (
     while (current_entry != (&ModuleListHead))
     {
         ModuleCount++;
-        current = CONTAINING_RECORD(current_entry,LDR_DATA_TABLE_ENTRY,InLoadOrderModuleList);
-        tmpBufferSize += current->FullDllName.Length + sizeof(WCHAR) + sizeof(UNICODE_STRING);
         current_entry = current_entry->Flink;
     }
 
@@ -418,15 +413,6 @@ LdrpQueryModuleInformation (
         KeReleaseSpinLock(&ModuleListLock, Irql);
         return(STATUS_INFO_LENGTH_MISMATCH);
     }
-
-    /* allocate a temp buffer to store the module names */
-    UnicodeName = ExAllocatePool(NonPagedPool, tmpBufferSize);
-    if (UnicodeName == NULL)
-    {
-        KeReleaseSpinLock(&ModuleListLock, Irql);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-    tmpNameBuffer = (PWCHAR)((ULONG_PTR)UnicodeName + ModuleCount * sizeof(UNICODE_STRING));
 
     /* fill the buffer */
     memset(Buffer, '=', Size);
@@ -448,25 +434,13 @@ LdrpQueryModuleInformation (
         Smi->Module[ModuleCount].Index = (USHORT)ModuleCount;
         Smi->Module[ModuleCount].NameLength = 0;
         Smi->Module[ModuleCount].LoadCount = 0; /* FIXME */
-        UnicodeName[ModuleCount].Buffer = tmpNameBuffer;
-        UnicodeName[ModuleCount].MaximumLength = current->FullDllName.Length + sizeof(WCHAR);
-        tmpNameBuffer += UnicodeName[ModuleCount].MaximumLength / sizeof(WCHAR);
-        RtlCopyUnicodeString(&UnicodeName[ModuleCount], &current->FullDllName);
 
-        ModuleCount++;
-        current_entry = current_entry->Flink;
-    }
-
-    KeReleaseSpinLock(&ModuleListLock, Irql);
-
-    for (ModuleCount = 0; ModuleCount < Smi->Count; ModuleCount++)
-    {
         AnsiName.Length = 0;
-        AnsiName.MaximumLength = 255;
+        AnsiName.MaximumLength = 256;
         AnsiName.Buffer = Smi->Module[ModuleCount].ImageName;
-        RtlUnicodeStringToAnsiString(&AnsiName, &UnicodeName[ModuleCount], FALSE);
-        AnsiName.Buffer[AnsiName.Length] = 0;
-        Smi->Module[ModuleCount].NameLength = AnsiName.Length;
+        RtlUnicodeStringToAnsiString(&AnsiName,
+            &current->FullDllName,
+            FALSE);
 
         p = strrchr(AnsiName.Buffer, '\\');
         if (p == NULL)
@@ -478,9 +452,12 @@ LdrpQueryModuleInformation (
             p++;
             Smi->Module[ModuleCount].PathLength = p - AnsiName.Buffer;
         }
+
+        ModuleCount++;
+        current_entry = current_entry->Flink;
     }
 
-    ExFreePool(UnicodeName);
+    KeReleaseSpinLock(&ModuleListLock, Irql);
 
     return(STATUS_SUCCESS);
 }

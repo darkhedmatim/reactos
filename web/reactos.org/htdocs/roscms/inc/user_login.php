@@ -290,8 +290,8 @@ else { // login process
 		exit;
 	}
 
-	$rem_adr = $_SERVER['REMOTE_ADDR'];
-	$useragent = $_SERVER['HTTP_USER_AGENT'];
+	$rem_adr = $HTTP_SERVER_VARS['REMOTE_ADDR'];
+	$useragent = $HTTP_SERVER_VARS['HTTP_USER_AGENT'];
 	
 	// Query DB table 'users' and read the login_counter and settings of
 	// the specific user
@@ -338,8 +338,7 @@ else { // login process
 
 		if ($roscms_currentuser_login_user_lastsession_counter > 0) {
 			create_login_page("Your account settings only allow you to login once.<br>\n" .
-			                  "You are already logged in so you cannot login again. <br>\n".
-			                  "For more informations please have a look at the <a href=\"http://www.reactos.org/xhtml/de/about_userfaq.html#multilogin\">FAQ</a>");
+			                  "You are already logged in so you cannot login again");
 			exit;
 		}
 	}

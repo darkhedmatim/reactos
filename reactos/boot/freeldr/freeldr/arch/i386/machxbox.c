@@ -22,9 +22,6 @@
 VOID
 XboxMachInit(const char *CmdLine)
 {
-  /* Set LEDs to red before anything is initialized */
-  XboxSetLED("rrrr");
-
   /* Initialize our stuff */
   XboxMemInit();
   XboxVideoInit();
@@ -58,7 +55,4 @@ XboxMachInit(const char *CmdLine)
   MachVtbl.DiskGetCacheableBlockCount = XboxDiskGetCacheableBlockCount;
   MachVtbl.RTCGetCurrentDateTime = XboxRTCGetCurrentDateTime;
   MachVtbl.HwDetect = XboxHwDetect;
-
-  /* Set LEDs to orange after init */
-  XboxSetLED("oooo");
 }

@@ -50,11 +50,6 @@ CdfsSwapString(PWCHAR Out,
       if (t[i+1] == 0 && t[i] == ';')
 	break;
     }
-  if ((i>2)&&(t[i-2] == '.'))
-  {
-    t[i-2] = 0;
-    t[i-1] = 0;
-  }
   t[i] = 0;
   t[i+1] = 0;
 }

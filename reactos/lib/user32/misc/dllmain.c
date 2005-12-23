@@ -2,121 +2,106 @@
 #define NDEBUG
 #include <debug.h>
 
+/* FIXME: Belongs to some header. */
+BOOL STDCALL GdiDllInitialize(HANDLE, DWORD, LPVOID);
+void InitStockObjects(void);
+VOID DeleteFrameBrushes(VOID);
+
+extern CRITICAL_SECTION gcsMPH;
 static ULONG User32TlsIndex;
 HINSTANCE User32Instance;
+HWINSTA ProcessWindowStation;
 
 PUSER32_THREAD_DATA
 User32GetThreadData()
 {
-   return ((PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex));
+  return((PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex));
 }
 
-BOOL
+VOID
 InitThread(VOID)
 {
-   PUSER32_THREAD_DATA ThreadData;
+  PUSER32_THREAD_DATA ThreadData;
 
-   ThreadData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-                          sizeof(USER32_THREAD_DATA));
-   if (ThreadData == NULL)
-      return FALSE;
-   if (!TlsSetValue(User32TlsIndex, ThreadData))
-      return FALSE;
-   return TRUE;
+  ThreadData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+			 sizeof(USER32_THREAD_DATA));
+  TlsSetValue(User32TlsIndex, ThreadData);
 }
 
 VOID
 CleanupThread(VOID)
 {
-   PUSER32_THREAD_DATA ThreadData;
+  PUSER32_THREAD_DATA ThreadData;
 
-   ThreadData = (PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex);
-   HeapFree(GetProcessHeap(), HEAP_ZERO_MEMORY, ThreadData);
-   TlsSetValue(User32TlsIndex, 0);
+  ThreadData = (PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex);
+  HeapFree(GetProcessHeap(), HEAP_ZERO_MEMORY, ThreadData);
+  TlsSetValue(User32TlsIndex, 0);
 }
 
-BOOL
+VOID
 Init(VOID)
 {
-   /* Set up the kernel callbacks. */
-   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
-      (PVOID)User32CallWindowProcFromKernel;
-   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
-      (PVOID)User32CallSendAsyncProcForKernel;
-   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
-      (PVOID)User32LoadSysMenuTemplateForKernel;
-   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
-      (PVOID)User32SetupDefaultCursors;
-   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
-      (PVOID)User32CallHookProcFromKernel;
+  /* Set up the kernel callbacks. */
+  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
+    (PVOID)User32CallWindowProcFromKernel;
+  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
+    (PVOID)User32CallSendAsyncProcForKernel;
+  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
+    (PVOID)User32LoadSysMenuTemplateForKernel;
+  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
+    (PVOID)User32SetupDefaultCursors;
+  NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
+    (PVOID)User32CallHookProcFromKernel;
 
-   /* Allocate an index for user32 thread local data. */
-   User32TlsIndex = TlsAlloc();
-   if (User32TlsIndex != TLS_OUT_OF_INDEXES)
-   {
-      if (MessageInit())
-      {
-         if (MenuInit())
-         {
-            InitializeCriticalSection(&U32AccelCacheLock);
-            GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
-            InitStockObjects();
+  /* Allocate an index for user32 thread local data. */
+  User32TlsIndex = TlsAlloc();
 
-            return TRUE;
-         }
-         MessageCleanup();
-      }
-      TlsFree(User32TlsIndex);
-   }
+  MenuInit();
+  MessageInit();
 
-   return FALSE;
+  InitializeCriticalSection(&U32AccelCacheLock);
+  InitializeCriticalSection(&gcsMPH);
+
+  GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
+  InitStockObjects();
 }
 
 VOID
 Cleanup(VOID)
 {
-   DeleteCriticalSection(&U32AccelCacheLock);
-   MenuCleanup();
-   MessageCleanup();
-   DeleteFrameBrushes();
-   GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
-   TlsFree(User32TlsIndex);
+  GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
+
+  TlsFree(User32TlsIndex);
 }
+
+
 
 INT STDCALL
 DllMain(
-   IN PVOID hInstanceDll,
-   IN ULONG dwReason,
-   IN PVOID reserved)
+	PVOID  hinstDll,
+	ULONG  dwReason,
+	PVOID  reserved
+	)
 {
-   switch (dwReason)
-   {
-      case DLL_PROCESS_ATTACH:
-         User32Instance = hInstanceDll;
-         hProcessHeap = RtlGetProcessHeap();
-         if (!Init())
-            return FALSE;
-         if (!InitThread())
-         {
-            Cleanup();
-            return FALSE;
-         }
-         break;
-
-      case DLL_THREAD_ATTACH:
-         if (!InitThread())
-            return FALSE;
-         break;
-
-      case DLL_THREAD_DETACH:
-         CleanupThread();
-         break;
-
-      case DLL_PROCESS_DETACH:
-         CleanupThread();
-         Cleanup();
-         break;
-   }
-
-   return TRUE;
+  switch (dwReason)
+    {
+    case DLL_PROCESS_ATTACH:
+      User32Instance = hinstDll;
+      hProcessHeap = RtlGetProcessHeap();
+      Init();
+      InitThread();
+      break;
+    case DLL_THREAD_ATTACH:
+      InitThread();
+      break;
+    case DLL_THREAD_DETACH:
+      CleanupThread();
+      break;
+    case DLL_PROCESS_DETACH:
+      DeleteFrameBrushes();
+      CleanupThread();
+      Cleanup();
+      break;
+    }
+  return(1);
 }

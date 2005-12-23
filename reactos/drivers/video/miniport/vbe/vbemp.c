@@ -238,13 +238,19 @@ VBEInitialize(PVOID HwDeviceExtension)
          &VBEDeviceExtension->VbeInfo,
          sizeof(VBEDeviceExtension->VbeInfo));
 
-      /* Verify the VBE signature. */
-      if (VideoPortCompareMemory(VBEDeviceExtension->VbeInfo.Signature, "VESA", 4) != 4)
-      {
+	  /* Verify VBE is found and not anýthing else */
+	  if (VideoPortCompareMemory(VBEDeviceExtension->VbeInfo.Signature, "VESA", 4) != 4)
+	  {
          VideoPortDebugPrint(Warn, "No VBE BIOS present\n");
          return FALSE;
-      }
+	  }
       
+	  /* Dectect Bad VBE BIOS some Graphice card report 0x200 when they are VBE 1.2 */
+	  if (VBEDeviceExtension->VbeInfo.OemVendorNamePtr == 0 && VBEDeviceExtension->VbeInfo.Version == 0x200)
+	  {
+         VBEDeviceExtension->VbeInfo.Version = 0x102;
+	  }
+	        
       VideoPortDebugPrint(Trace, "VBE BIOS Present (%d.%d, %8ld Kb)\n",
          VBEDeviceExtension->VbeInfo.Version / 0x100,
          VBEDeviceExtension->VbeInfo.Version & 0xFF,
@@ -344,8 +350,7 @@ VBEInitialize(PVOID HwDeviceExtension)
           VbeModeInfo->XResolution >= 640 &&
           VbeModeInfo->YResolution >= 480 &&
           (VbeModeInfo->MemoryModel == VBE_MEMORYMODEL_PACKEDPIXEL ||
-           VbeModeInfo->MemoryModel == VBE_MEMORYMODEL_DIRECTCOLOR) &&
-          VbeModeInfo->PhysBasePtr != 0)
+           VbeModeInfo->MemoryModel == VBE_MEMORYMODEL_DIRECTCOLOR))
       {
          if (VbeModeInfo->ModeAttributes & VBE_MODEATTR_LINEAR)
          {

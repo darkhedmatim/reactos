@@ -60,9 +60,6 @@ VOID XboxRTCGetCurrentDateTime(PULONG Year, PULONG Month, PULONG Day, PULONG Hou
 
 VOID XboxHwDetect(VOID);
 
-VOID XboxSetLED(PCSTR Pattern);
-
-
 #endif /* __I386_HWXBOX_H_ */
 
 /* EOF */

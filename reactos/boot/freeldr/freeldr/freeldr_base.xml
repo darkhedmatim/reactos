@@ -36,7 +36,6 @@
 				<file>xboxdisk.c</file>
 				<file>xboxfont.c</file>
 				<file>xboxhw.c</file>
-				<file>xboxi2c.c</file>
 				<file>xboxmem.c</file>
 				<file>xboxrtc.c</file>
 				<file>xboxvideo.c</file>

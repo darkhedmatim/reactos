@@ -137,7 +137,6 @@ lib\ntdll\ntdll.dll                     1
 lib\ntmarta\ntmarta.dll                 1
 lib\objsel\objsel.dll                   1
 lib\ole32\ole32.dll                     1
-lib\oleacc\oleacc.dll                   1
 lib\oleaut32\oleaut32.dll               1
 lib\oledlg\oledlg.dll                   1
 lib\olepro32\olepro32.dll               1
@@ -188,7 +187,6 @@ subsys\system\explorer\explorer-cfg-template.xml 4
 subsys\system\explorer\notifyhook\notifyhook.dll 1
 subsys\system\format\format.exe         1
 subsys\system\ibrowser\ibrowser.exe     1
-subsys\system\msconfig\msconfig.exe     1
 subsys\system\msiexec\msiexec.exe       1
 subsys\system\notepad\notepad.exe       1
 subsys\system\gettype\gettype.exe       1
@@ -228,7 +226,6 @@ apps\utils\net\whois\whois.exe          1
 apps\utils\ps\ps.exe                    1
 apps\utils\rosperf\rosperf.exe          1
 apps\utils\shutdown\shutdown.exe        1
-apps\utils\getfirefox\getfirefox.exe    1
 media\fonts\c0419bt_.ttf                3
 media\fonts\c0582bt_.ttf                3
 media\fonts\c0583bt_.ttf                3
@@ -314,7 +311,7 @@ media\inf\display.inf                   6
 media\inf\hdc.inf                       6
 media\inf\layout.inf                    6
 media\inf\machine.inf                   6
-media\inf\msmouse.inf                   6
+media\inf\mouse.inf                     6
 media\inf\keyboard.inf                  6
 media\inf\NET_NIC.inf                   6
 media\inf\netamd.inf                    6

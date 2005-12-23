@@ -27,10 +27,6 @@ CanDisableDevice(IN DEVINST DevInst,
                  IN HMACHINE hMachine,
                  OUT BOOL *CanDisable)
 {
-#if 0
-    /* hpoussin, Dec 2005. I've disabled this code because
-     * ntoskrnl never sets the DN_DISABLEABLE flag.
-     */
     CONFIGRET cr;
     ULONG Status, ProblemNumber;
     BOOL Ret = FALSE;
@@ -47,15 +43,11 @@ CanDisableDevice(IN DEVINST DevInst,
     }
 
     return Ret;
-#else
-    *CanDisable = TRUE;
-    return TRUE;
-#endif
 }
 
 
 BOOL
-IsDeviceStarted(IN DEVINST DevInst,
+IsDeviceEnabled(IN DEVINST DevInst,
                 IN HMACHINE hMachine,
                 OUT BOOL *IsEnabled)
 {
@@ -79,11 +71,11 @@ IsDeviceStarted(IN DEVINST DevInst,
 
 
 BOOL
-StartDevice(IN HDEVINFO DeviceInfoSet,
-            IN PSP_DEVINFO_DATA DevInfoData  OPTIONAL,
-            IN BOOL bEnable,
-            IN DWORD HardwareProfile  OPTIONAL,
-            OUT BOOL *bNeedReboot  OPTIONAL)
+EnableDevice(IN HDEVINFO DeviceInfoSet,
+             IN PSP_DEVINFO_DATA DevInfoData  OPTIONAL,
+             IN BOOL bEnable,
+             IN DWORD HardwareProfile  OPTIONAL,
+             OUT BOOL *bNeedReboot  OPTIONAL)
 {
     SP_PROPCHANGE_PARAMS pcp;
     SP_DEVINSTALL_PARAMS dp;
@@ -554,7 +546,7 @@ FindDriverProc(
             DevInstData->hDevInfo,
             &DevInstData->devInfoData,
             SPDRP_CONFIGFLAGS,
-            (BYTE *)&config_flags, sizeof(config_flags) );
+            NULL, 0 );
     }
 
     PostMessage(DevInstData->hDialog, WM_SEARCH_FINISHED, 0, 0);
@@ -699,24 +691,24 @@ InstFailDlgProc(
             case PSN_WIZFINISH:
             {
                 BOOL DisableableDevice = FALSE;
-                BOOL IsStarted = FALSE;
+                BOOL IsEnabled = FALSE;
 
                 if (CanDisableDevice(DevInstData->devInfoData.DevInst,
                                      NULL,
                                      &DisableableDevice) &&
                     DisableableDevice &&
-                    IsDeviceStarted(DevInstData->devInfoData.DevInst,
+                    IsDeviceEnabled(DevInstData->devInfoData.DevInst,
                                     NULL,
-                                    &IsStarted) &&
-                    !IsStarted &&
+                                    &IsEnabled) &&
+                    IsEnabled &&
                     SendDlgItemMessage(hwndDlg, IDC_DONOTSHOWDLG, BM_GETCHECK, (WPARAM) 0, (LPARAM) 0) == BST_CHECKED)
                 {
                     /* disable the device */
-                    StartDevice(DevInstData->hDevInfo,
-                                &DevInstData->devInfoData,
-                                FALSE,
-                                0,
-                                NULL);
+                    EnableDevice(DevInstData->hDevInfo,
+                                 &DevInstData->devInfoData,
+                                 FALSE,
+                                 0,
+                                 NULL);
                 }
                 break;
             }
@@ -1018,12 +1010,16 @@ DevInstallW(
     PROPSHEETPAGE psp;
     BOOL ret;
     DWORD config_flags;
+    /*TCHAR buf[128];*/
 
-    if (!IsUserAdmin())
-    {
-        /* XP kills the process... */
-        ExitProcess(ERROR_ACCESS_DENIED);
-    }
+    /* FIXME: Nov 2005. umpnpmgr.exe is directly calling DevInstallW in
+     * SYSTEM context, which is not member of the Administrators group.
+     * So, just ignore the test at the moment... */
+    //if (!IsUserAdmin())
+    //{
+    //    /* XP kills the process... */
+    //    ExitProcess(ERROR_ACCESS_DENIED);
+    //}
 
     /* Clear devinst data */
     ZeroMemory(&DevInstData, sizeof(DEVINSTDATA));
@@ -1115,6 +1111,10 @@ DevInstallW(
     if ((!FindDriver(&DevInstData)) && (Show != SW_HIDE))
     {
 
+#if 1 /* Yes, I know I'm creating dead code here, problem is that you'll get
+         warnings about unused variables/code if you just #ifdef the code */
+      if (0) {
+#endif
         /* Create the Welcome page */
         ZeroMemory (&psp, sizeof(PROPSHEETPAGE));
         psp.dwSize = sizeof(PROPSHEETPAGE);
@@ -1167,6 +1167,14 @@ DevInstallW(
         PropertySheet(&psh);
 
         DeleteObject(DevInstData.hTitleFont);
+#if 1
+      }
+      else
+      {
+        DPRINT1("No driver found for %S (%S), skipping installation screens\n",
+                DevInstData.buffer, InstanceId);
+      }
+#endif
 
     }
     else

@@ -231,8 +231,6 @@ ScmReadString(HKEY hServiceKey,
     DWORD dwError;
     DWORD dwSize;
     DWORD dwType;
-    DWORD dwSizeNeeded;
-    LPWSTR expanded = NULL;
     LPBYTE ptr = NULL;
 
     *lpValue = NULL;
@@ -262,22 +260,9 @@ ScmReadString(HKEY hServiceKey,
 
     if (dwType == REG_EXPAND_SZ)
     {
-        /* Expand the value... */
-        dwSizeNeeded = ExpandEnvironmentStringsW((LPCWSTR)ptr, NULL, 0);
-        if (dwSizeNeeded == 0)
-        {
-            dwError = GetLastError();
-            goto done;
-        }
-        expanded = HeapAlloc(GetProcessHeap(), 0, dwSizeNeeded);
-        if (dwSizeNeeded < ExpandEnvironmentStringsW((LPCWSTR)ptr, expanded, dwSizeNeeded))
-        {
-            dwError = GetLastError();
-            goto done;
-        }
-        *lpValue = expanded;
-        HeapFree(GetProcessHeap(), 0, ptr);
-        dwError = ERROR_SUCCESS;
+        /* FIXME: ... */
+        DPRINT1("Expand me!\n");
+        *lpValue = (LPWSTR)ptr;
     }
     else
     {
@@ -286,10 +271,7 @@ ScmReadString(HKEY hServiceKey,
 
 done:;
     if (dwError != ERROR_SUCCESS)
-    {
         HeapFree(GetProcessHeap(), 0, ptr);
-        HeapFree(GetProcessHeap(), 0, expanded);
-    }
 
     return dwError;
 }

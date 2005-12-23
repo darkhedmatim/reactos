@@ -30,7 +30,7 @@
 HINSTANCE hDllInstance = NULL;
 
 
-INT
+static INT
 LengthOfStrResource(IN HINSTANCE hInst,
                     IN UINT uID)
 {
@@ -401,6 +401,61 @@ GetDeviceLocationString(IN DEVINST dnDevInst  OPTIONAL,
 }
 
 
+static const UINT ProblemStringId[NUM_CM_PROB] =
+{
+    IDS_DEV_NO_PROBLEM,
+    IDS_DEV_NOT_CONFIGURED,
+    IDS_DEV_OUT_OF_MEMORY,
+    IDS_DEV_ENTRY_IS_WRONG_TYPE,
+    IDS_DEV_LACKED_ARBITRATOR,
+    IDS_DEV_BOOT_CONFIG_CONFLICT,
+    IDS_DEV_FAILED_FILTER,
+    IDS_DEV_DEVLOADER_NOT_FOUND,
+    IDS_DEV_INVALID_DATA,
+    IDS_DEV_FAILED_START,
+    IDS_DEV_LIAR,
+    IDS_DEV_NORMAL_CONFLICT,
+    IDS_DEV_NOT_VERIFIED,
+    IDS_DEV_NEED_RESTART,
+    IDS_DEV_REENUMERATION,
+    IDS_DEV_PARTIAL_LOG_CONF,
+    IDS_DEV_UNKNOWN_RESOURCE,
+    IDS_DEV_REINSTALL,
+    IDS_DEV_REGISTRY,
+    IDS_UNKNOWN, /* CM_PROB_VXDLDR, not used on NT */
+    IDS_DEV_WILL_BE_REMOVED,
+    IDS_DEV_DISABLED,
+    IDS_DEV_DEVLOADER_NOT_READY,
+    IDS_DEV_DEVICE_NOT_THERE,
+    IDS_DEV_MOVED,
+    IDS_DEV_TOO_EARLY,
+    IDS_DEV_NO_VALID_LOG_CONF,
+    IDS_DEV_FAILED_INSTALL,
+    IDS_DEV_HARDWARE_DISABLED,
+    IDS_DEV_CANT_SHARE_IRQ,
+    IDS_DEV_FAILED_ADD,
+    IDS_DEV_DISABLED_SERVICE,
+    IDS_DEV_TRANSLATION_FAILED,
+    IDS_DEV_NO_SOFTCONFIG,
+    IDS_DEV_BIOS_TABLE,
+    IDS_DEV_IRQ_TRANSLATION_FAILED,
+    IDS_DEV_FAILED_DRIVER_ENTRY,
+    IDS_DEV_DRIVER_FAILED_PRIOR_UNLOAD,
+    IDS_DEV_DRIVER_FAILED_LOAD,
+    IDS_DEV_DRIVER_SERVICE_KEY_INVALID,
+    IDS_DEV_LEGACY_SERVICE_NO_DEVICES,
+    IDS_DEV_DUPLICATE_DEVICE,
+    IDS_DEV_FAILED_POST_START,
+    IDS_DEV_HALTED,
+    IDS_DEV_PHANTOM,
+    IDS_DEV_SYSTEM_SHUTDOWN,
+    IDS_DEV_HELD_FOR_EJECT,
+    IDS_DEV_DRIVER_BLOCKED,
+    IDS_DEV_REGISTRY_TOO_LARGE,
+    IDS_DEV_SETPROPERTIES_FAILED,
+};
+
+
 BOOL
 GetDeviceStatusString(IN DEVINST DevInst,
                       IN HMACHINE hMachine,
@@ -422,15 +477,38 @@ GetDeviceStatusString(IN DEVINST DevInst,
     {
         if (Status & DN_HAS_PROBLEM)
         {
-            UINT uRet;
+            if (ProblemNumber < sizeof(ProblemStringId) / sizeof(ProblemStringId[0]))
+                MessageId = ProblemStringId[ProblemNumber];
 
-            uRet = DeviceProblemText(hMachine,
-                                     DevInst,
-                                     ProblemNumber,
-                                     szBuffer,
-                                     (BufferSize != 0 ? BufferSize : BufferSize - 1));
+            if (ProblemNumber == 0)
+            {
+                goto GeneralMessage;
+            }
+            else
+            {
+                LPWSTR szProblem;
+                UINT StringIDs[] =
+                {
+                    MessageId,
+                    IDS_DEVCODE,
+                };
 
-            Ret = (uRet != 0 && uRet < BufferSize);
+                if (LoadAndFormatStringsCat(hDllInstance,
+                                            StringIDs,
+                                            sizeof(StringIDs) / sizeof(StringIDs[0]),
+                                            &szProblem,
+                                            ProblemNumber))
+                {
+                    wcsncpy(szBuffer,
+                            szProblem,
+                            BufferSize - 1);
+                    szBuffer[BufferSize - 1] = L'\0';
+
+                    LocalFree((HLOCAL)szProblem);
+
+                    Ret = TRUE;
+                }
+            }
         }
         else
         {
@@ -449,10 +527,13 @@ GetDeviceStatusString(IN DEVINST DevInst,
     else
     {
 GeneralMessage:
-        Ret = LoadString(hDllInstance,
-                         MessageId,
-                         szBuffer,
-                         (int)BufferSize);
+        if (LoadString(hDllInstance,
+                       MessageId,
+                       szBuffer,
+                       BufferSize))
+        {
+            Ret = TRUE;
+        }
     }
 
     return Ret;
@@ -508,9 +589,9 @@ CanDisableDevice(IN DEVINST DevInst,
 
 
 BOOL
-IsDeviceStarted(IN DEVINST DevInst,
+IsDeviceEnabled(IN DEVINST DevInst,
                 IN HMACHINE hMachine,
-                OUT BOOL *IsStarted)
+                OUT BOOL *IsEnabled)
 {
     CONFIGRET cr;
     ULONG Status, ProblemNumber;
@@ -523,7 +604,7 @@ IsDeviceStarted(IN DEVINST DevInst,
                                   hMachine);
     if (cr == CR_SUCCESS)
     {
-        *IsStarted = ((Status & DN_STARTED) != 0);
+        *IsEnabled = ((Status & DN_STARTED) != 0);
         Ret = TRUE;
     }
 
@@ -549,7 +630,7 @@ EnableDevice(IN HDEVINFO DeviceInfoSet,
 
     if (bEnable)
     {
-        /* try to enable the device on the global profile */
+        /* try to enable/disable the device on the global profile */
         pcp.StateChange = DICS_ENABLE;
         pcp.Scope = DICS_FLAG_GLOBAL;
 

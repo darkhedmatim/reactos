@@ -119,7 +119,7 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
       /* Notify the hal we will acquire the display. */
       HalAcquireDisplayOwnership(InbvResetDisplayParameters);
 
-      Status = ZwDeviceIoControlFile(BootVidDevice,
+      Status = NtDeviceIoControlFile(BootVidDevice,
 				     NULL,
 				     NULL,
 				     NULL,
@@ -138,7 +138,7 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
     }
   else
     {
-      Status = ZwDeviceIoControlFile(BootVidDevice,
+      Status = NtDeviceIoControlFile(BootVidDevice,
 				     NULL,
 				     NULL,
 				     NULL,
@@ -155,10 +155,10 @@ InbvEnableBootDriver(IN BOOLEAN Enable)
       BootVidDriverInstalled = FALSE;
       /* Notify the hal we have released the display. */
       HalReleaseDisplayOwnership();
-    }
 
-  ZwClose(BootVidDevice);
-  BootVidDevice = NULL;
+      NtClose(BootVidDevice);
+      BootVidDevice = NULL;
+    }
 }
 
 

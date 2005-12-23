@@ -1130,41 +1130,36 @@ PrintSummary(LPTSTR szPath,
 		return 1;
 	}
 
-
 	/* In bare format we don't print results */
 	if (lpFlags->bBareFormat)
 		return 0;
 
 	/* Print recursive specific results */
-	
-    /* Take this code offline to fix /S does not print duoble info */
-   if (lpFlags->bRecursive)
-   {
-      ConvertULargeInteger(u64Bytes, szBuffer, sizeof(szBuffer), lpFlags->bTSeperator);
-      LoadString(CMD_ModuleHandle, STRING_DIR_HELP5, szMsg, RC_STRING_MAX_SIZE);
-      if(lpFlags->bPause)
-         ConOutPrintfPaging(FALSE,szMsg,ulFiles, szBuffer);
-      else
-         ConOutPrintf(szMsg,ulFiles, szBuffer);
-   }
-   else
-   {
+	if (lpFlags->bRecursive)
+	{
+		ConvertULargeInteger(u64Bytes, szBuffer, sizeof(szBuffer), lpFlags->bTSeperator);
 
-      /* Print File Summary */
-      /* Condition to print summary is:
-      If we are not in bare format and if we have results! */
-      if (ulFiles > 0)
-      {
-         ConvertULargeInteger(u64Bytes, szBuffer, 20, lpFlags->bTSeperator);
-         LoadString(CMD_ModuleHandle, STRING_DIR_HELP8, szMsg, RC_STRING_MAX_SIZE);
-         if(lpFlags->bPause)
-            ConOutPrintfPaging(FALSE,szMsg,ulFiles, szBuffer);
-         else
-            ConOutPrintf(szMsg,ulFiles, szBuffer);
+		LoadString(CMD_ModuleHandle, STRING_DIR_HELP5, szMsg, RC_STRING_MAX_SIZE);
+		if(lpFlags->bPause)
+		   ConOutPrintfPaging(FALSE,szMsg,ulFiles, szBuffer);
+		else
+		   ConOutPrintf(szMsg,ulFiles, szBuffer);
+	}
 
-      }
+	/* Print File Summary */
+	/* Condition to print summary is:
+	   If we are not in bare format and if we have results! */
+	if (ulFiles > 0)
+	{
+		ConvertULargeInteger(u64Bytes, szBuffer, 20, lpFlags->bTSeperator);
+		LoadString(CMD_ModuleHandle, STRING_DIR_HELP8, szMsg, RC_STRING_MAX_SIZE);
+		if(lpFlags->bPause)
+		   ConOutPrintfPaging(FALSE,szMsg,ulFiles, szBuffer);
+		else
+		   ConOutPrintf(szMsg,ulFiles, szBuffer);
 
-   }
+	}
+
 	/* Print total directories and freespace */
 	szRoot[0] = szPath[0];
 	GetUserDiskFreeSpace(szRoot, &uliFree);
@@ -1270,16 +1265,13 @@ DirPrintNewList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN]Files' Info */
 
     /* Print the line */
     if(lpFlags->bPause)
-	{
-		if (ConOutPrintfPaging(FALSE,_T("%10s  %-8s    %*s%s %s\n"),
+		ConOutPrintfPaging(FALSE,_T("%10s  %-8s    %*s%s %s\n"),
 							szDate,
 							szTime,
 							iSizeFormat,
 							szSize,
 							szShortName,
-							ptrFiles[i]->cFileName) == 1)
-			return ;
-	}
+							ptrFiles[i]->cFileName);
 	else
 		ConOutPrintf(_T("%10s  %-8s    %*s%s %s\n"),
 							szDate,
@@ -1466,18 +1458,13 @@ ULARGE_INTEGER u64FileSize;		/* The file size */
 
 		/* Print the line */
 		if(lpFlags->bPause)
-		{
-		   if (ConOutPrintfPaging(FALSE,_T("%-8s %-3s  %*s %s  %s\n"),
+		   ConOutPrintfPaging(FALSE,_T("%-8s %-3s  %*s %s  %s\n"),
 								szName,			/* The file's 8.3 name */
 								szExt,			/* The file's 8.3 extension */
 								iSizeFormat,	/* print format for size column */
 								szSize,			/* The size of file or "<DIR>" for dirs */
 								szDate,			/* The date of file/dir */
-								szTime) == 1)		/* The time of file/dir */
-			{
-				return ;
-			}
-		}
+								szTime);		/* The time of file/dir */
 		else
 		   ConOutPrintf(_T("%-8s %-3s  %*s %s  %s\n"),
 								szName,			/* The file's 8.3 name */
@@ -1517,12 +1504,7 @@ DirPrintBareList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
 			_tcscpy(szFullName, lpCurPath);
 			_tcscat(szFullName, ptrFiles[i]->cFileName);
 			if(lpFlags->bPause)
-			{
-			   if (ConOutPrintfPaging(FALSE,_T("%s\n"), szFullName) == 1)
-				{
-					return ;
-				}
-			}
+			   ConOutPrintfPaging(FALSE,_T("%s\n"), szFullName);
 			else
 			   ConOutPrintf(_T("%s\n"), szFullName);
 		}
@@ -1530,12 +1512,7 @@ DirPrintBareList(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
 		{
 			/* if we are not in recursive mode we print the file names */
 			if(lpFlags->bPause)
-			{
-			   if (ConOutPrintfPaging(FALSE,_T("%s\n"),ptrFiles[i]->cFileName) == 1)
-				{
-					return ;
-				}
-			}
+			   ConOutPrintfPaging(FALSE,_T("%s\n"),ptrFiles[i]->cFileName);
 			else
 			   ConOutPrintf(_T("%s\n"),ptrFiles[i]->cFileName);
 		}
@@ -1570,12 +1547,7 @@ DirPrintFiles(LPWIN32_FIND_DATA ptrFiles[],	/* [IN] Files' Info */
 	{
 		LoadString(CMD_ModuleHandle, STRING_DIR_HELP7, szMsg, RC_STRING_MAX_SIZE);
 		if(lpFlags->bPause)
-		{
-		   if (ConOutPrintfPaging(FALSE,szMsg, szTemp) == 1)
-			{
-				return ;
-			}
-		}
+		   ConOutPrintfPaging(FALSE,szMsg, szTemp);
 		else
 		   ConOutPrintf(szMsg, szTemp);
 	}
@@ -1919,9 +1891,6 @@ ULARGE_INTEGER u64Temp;					/* A temporary counter */
 
 	/* Free array */
 	free(ptrFileArray);
-	if (CheckCtrlBreak(BREAK_INPUT))
-		return 1;
-
 
 	/* Add statistics to recursive statistics*/
 	recurse_dir_cnt += dwCountDirs;
@@ -1950,10 +1919,7 @@ ULARGE_INTEGER u64Temp;					/* A temporary counter */
 					_tcscpy(szFullFileSpec, szFullPath);
 					_tcscat(szFullFileSpec, wfdFileInfo.cFileName);
 					/* We do the same for tha folder */
-					if (DirList(szFullFileSpec, szFilespec, pLine,lpFlags) != 0)
-					{
-						return 1;
-					}
+					DirList(szFullFileSpec, szFilespec, pLine,lpFlags);
 				}
 			}
 		}while(FindNextFile(hRecSearch,&wfdFileInfo));

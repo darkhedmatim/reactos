@@ -19,7 +19,6 @@
 #include "config.h"
 
 #include "wine/debug.h"
-#include "lm.h"
 #include "netbios.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(netbios);

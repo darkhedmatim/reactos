@@ -351,7 +351,6 @@ typedef struct DataAdviseConnection {
   IAdviseSink *sink;
   FORMATETC fmat;
   DWORD advf;
-  DWORD remote_connection;
 } DataAdviseConnection;
 
 typedef struct DataAdviseHolder
@@ -362,9 +361,6 @@ typedef struct DataAdviseHolder
   DWORD                 maxCons;
   DataAdviseConnection* Connections;
 } DataAdviseHolder;
-
-/* this connection has also has been advised to the delegate data object */
-#define WINE_ADVF_REMOTE 0x80000000
 
 /******************************************************************************
  * DataAdviseHolder_Destructor
@@ -524,7 +520,7 @@ static HRESULT WINAPI DataAdviseHolder_Advise(
    */
   This->Connections[index].sink = pAdvise;
   memcpy(&(This->Connections[index].fmat), pFetc, sizeof(FORMATETC));
-  This->Connections[index].advf = advf & ~WINE_ADVF_REMOTE;
+  This->Connections[index].advf = advf;
 
   if (This->Connections[index].sink != NULL) {
     IAdviseSink_AddRef(This->Connections[index].sink);
@@ -639,33 +635,6 @@ static const IDataAdviseHolderVtbl DataAdviseHolderImpl_VTable =
   DataAdviseHolder_EnumAdvise,
   DataAdviseHolder_SendOnDataChange
 };
-
-HRESULT DataAdviseHolder_OnConnect(IDataAdviseHolder *iface, IDataObject *pDelegate)
-{
-  DataAdviseHolder *This = (DataAdviseHolder *)iface;
-  DWORD index;
-  HRESULT hr = S_OK;
-
-  for(index = 0; index < This->maxCons; index++)
-  {
-    if(This->Connections[index].sink != NULL)
-    {
-      hr = IDataObject_DAdvise(pDelegate, &This->Connections[index].fmat,
-                               This->Connections[index].advf,
-                               This->Connections[index].sink,
-                               &This->Connections[index].remote_connection);
-      if (FAILED(hr)) break;
-      This->Connections[index].advf |= WINE_ADVF_REMOTE;
-    }
-  }
-  /* FIXME: store pDelegate somewhere */
-  return hr;
-}
-
-void DataAdviseHolder_OnDisconnect(IDataAdviseHolder *iface)
-{
-    /* FIXME: Unadvise all remote interfaces */
-}
 
 /******************************************************************************
  * DataAdviseHolder_Constructor

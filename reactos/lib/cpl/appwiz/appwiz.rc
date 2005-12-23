@@ -32,5 +32,4 @@ IDI_CPLSYSTEM ICON "resources/applet.ico"
 #include "Ru.rc"
 #include "Pl.rc"
 #include "Es.rc"
-#include "Fr.rc"
 

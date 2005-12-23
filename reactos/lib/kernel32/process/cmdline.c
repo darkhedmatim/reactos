@@ -32,8 +32,6 @@ InitCommandLines (VOID)
 {
 	PRTL_USER_PROCESS_PARAMETERS Params;
 
-        /* FIXME - not thread-safe! */
-
 	// get command line
 	Params = NtCurrentPeb()->ProcessParameters;
 	RtlNormalizeProcessParams (Params);
@@ -44,10 +42,6 @@ InitCommandLines (VOID)
 	CommandLineStringW.Buffer = RtlAllocateHeap(GetProcessHeap(),
 						    HEAP_GENERATE_EXCEPTIONS|HEAP_ZERO_MEMORY,
 						    CommandLineStringW.MaximumLength);
-        if (CommandLineStringW.Buffer == NULL)
-        {
-            return;
-        }
 
 	RtlInitAnsiString(&CommandLineStringA, NULL);
 

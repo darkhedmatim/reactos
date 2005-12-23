@@ -238,11 +238,6 @@ GlobalGetAtomNameA(ATOM nAtom,
    Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
 			    HEAP_ZERO_MEMORY,
 			    BufferSize);
-   if (Buffer == NULL)
-   {
-       SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-       return 0;
-   }
 
    Status = NtQueryInformationAtom(nAtom,
 				   AtomBasicInformation,
@@ -254,7 +249,6 @@ GlobalGetAtomNameA(ATOM nAtom,
 	RtlFreeHeap(RtlGetProcessHeap(),
 		    0,
 		    Buffer);
-        SetLastErrorByStatus(Status);
 	return 0;
      }
 
@@ -293,11 +287,6 @@ GlobalGetAtomNameW(ATOM nAtom,
    Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
 			    HEAP_ZERO_MEMORY,
 			    BufferSize);
-   if (Buffer == NULL)
-   {
-       SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-       return 0;
-   }
 
    Status = NtQueryInformationAtom(nAtom,
 				   AtomBasicInformation,
@@ -309,7 +298,6 @@ GlobalGetAtomNameW(ATOM nAtom,
 	RtlFreeHeap(RtlGetProcessHeap(),
 		    0,
 		    Buffer);
-        SetLastErrorByStatus(Status);
 	return 0;
      }
 
@@ -564,11 +552,6 @@ GetAtomNameA(ATOM nAtom,
    Buffer = RtlAllocateHeap(RtlGetProcessHeap(),
 			    HEAP_ZERO_MEMORY,
 			    NameLength);
-   if (Buffer == NULL)
-   {
-       SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-       return 0;
-   }
 
    Status = RtlQueryAtomInAtomTable(AtomTable,
 				    nAtom,
@@ -581,7 +564,6 @@ GetAtomNameA(ATOM nAtom,
 	RtlFreeHeap(RtlGetProcessHeap(),
 		    0,
 		    Buffer);
-        SetLastErrorByStatus(Status);
 	return 0;
      }
 

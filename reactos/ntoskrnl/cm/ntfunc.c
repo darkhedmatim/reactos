@@ -246,8 +246,8 @@ NtCreateKey(OUT PHANDLE KeyHandle,
                                       &ObjectName);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("ObpCaptureObjectAttributes() failed (Status %lx)\n", Status);
-      return Status;
+      DPRINT("ObpCaptureObjectAttributes() failed (Status %lx)\n", Status);
+      goto Cleanup;
     }
 
   PostCreateKeyInfo.CompleteName = &ObjectName;
@@ -255,6 +255,7 @@ NtCreateKey(OUT PHANDLE KeyHandle,
   Status = CmiCallRegisteredCallbacks(RegNtPreCreateKey, &PreCreateKeyInfo);
   if (!NT_SUCCESS(Status))
     {
+      ObpReleaseCapturedAttributes(&ObjectCreateInfo);
       goto Cleanup;
     }
     
@@ -263,13 +264,14 @@ NtCreateKey(OUT PHANDLE KeyHandle,
                         (PVOID*)&Object,
                         &RemainingPath,
                         CmiKeyType);
+  ObpReleaseCapturedAttributes(&ObjectCreateInfo);
   if (!NT_SUCCESS(Status))
     {
       PostCreateKeyInfo.Object = NULL;
       PostCreateKeyInfo.Status = Status;
       CmiCallRegisteredCallbacks(RegNtPostCreateKey, &PostCreateKeyInfo);
 
-      DPRINT1("CmpFindObject failed, Status: 0x%x\n", Status);
+      DPRINT("CmpFindObject failed, Status: 0x%x\n", Status);
       goto Cleanup;
     }
 
@@ -284,18 +286,18 @@ NtCreateKey(OUT PHANDLE KeyHandle,
           PostCreateKeyInfo.Status = STATUS_UNSUCCESSFUL;
           CmiCallRegisteredCallbacks(RegNtPostCreateKey, &PostCreateKeyInfo);
 
-	  DPRINT1("Object marked for delete!\n");
+	  DPRINT("Object marked for delete!\n");
 	  Status = STATUS_UNSUCCESSFUL;
 	  goto Cleanup;
 	}
 
-      Status = ObpCreateHandle(Object,
-			       DesiredAccess,
-			       ObjectCreateInfo.Attributes,
-			       &hKey);
+      Status = ObpCreateHandle(PsGetCurrentProcess(),
+			      Object,
+			      DesiredAccess,
+			      TRUE,
+			      &hKey);
 
-      if (!NT_SUCCESS(Status))
-        DPRINT1("ObpCreateHandle failed Status 0x%x\n", Status);
+      DPRINT("ObpCreateHandle failed Status 0x%x\n", Status);
 
       PostCreateKeyInfo.Object = NULL;
       PostCreateKeyInfo.Status = Status;
@@ -393,7 +395,7 @@ NtCreateKey(OUT PHANDLE KeyHandle,
 			CreateOptions);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT1("CmiAddSubKey() failed (Status %lx)\n", Status);
+      DPRINT("CmiAddSubKey() failed (Status %lx)\n", Status);
       /* Release hive lock */
       ExReleaseResourceLite(&CmiRegistryLock);
       KeLeaveCriticalRegion();
@@ -463,7 +465,6 @@ SuccessReturn:
   _SEH_END;
 
 Cleanup:
-  ObpReleaseCapturedAttributes(&ObjectCreateInfo);
   if (Class != NULL)
   {
     ReleaseCapturedUnicodeString(&CapturedClass,
@@ -1256,7 +1257,7 @@ NtOpenKey(OUT PHANDLE KeyHandle,
   UNICODE_STRING RemainingPath;
   KPROCESSOR_MODE PreviousMode;
   PVOID Object = NULL;
-  HANDLE hKey = NULL;
+  HANDLE hKey;
   NTSTATUS Status = STATUS_SUCCESS;
   UNICODE_STRING ObjectName;
   OBJECT_CREATE_INFORMATION ObjectCreateInfo;
@@ -1330,10 +1331,12 @@ NtOpenKey(OUT PHANDLE KeyHandle,
 	                (PVOID*)&Object,
                         &RemainingPath,
                         CmiKeyType);
+  ObpReleaseCapturedAttributes(&ObjectCreateInfo);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("CmpFindObject() returned 0x%08lx\n", Status);
-      Status = STATUS_INVALID_HANDLE; /* Because ObFindObject returns STATUS_UNSUCCESSFUL */
+      Status = STATUS_INVALID_HANDLE; /* Because CmpFindObject returns STATUS_UNSUCCESSFUL */
+      hKey = *KeyHandle; /* Preserve hkResult value */
       goto openkey_cleanup;
     }
 
@@ -1345,6 +1348,7 @@ NtOpenKey(OUT PHANDLE KeyHandle,
     {
       RtlFreeUnicodeString(&RemainingPath);
       Status = STATUS_OBJECT_NAME_NOT_FOUND;
+      hKey = NULL;
       goto openkey_cleanup;
     }
 
@@ -1354,17 +1358,21 @@ NtOpenKey(OUT PHANDLE KeyHandle,
   if (((PKEY_OBJECT)Object)->Flags & KO_MARKED_FOR_DELETE)
     {
       Status = STATUS_UNSUCCESSFUL;
+      hKey = NULL;
       goto openkey_cleanup;
     }
 
-  Status = ObpCreateHandle(Object,
-			   DesiredAccess,
-			   ObjectCreateInfo.Attributes,
-			   &hKey);
+  Status = ObpCreateHandle(PsGetCurrentProcess(),
+			  Object,
+			  DesiredAccess,
+			  TRUE,
+			  &hKey);
+
+  if (!NT_SUCCESS(Status))
+     hKey = NULL;
 
 openkey_cleanup:
 
-  ObpReleaseCapturedAttributes(&ObjectCreateInfo);
   PostOpenKeyInfo.Object = NT_SUCCESS(Status) ? (PVOID)Object : NULL;
   PostOpenKeyInfo.Status = Status;
   CmiCallRegisteredCallbacks (RegNtPostOpenKey, &PostOpenKeyInfo);
@@ -1375,18 +1383,15 @@ openkey_cleanup:
       ObDereferenceObject(Object);
     }
 
-  if (NT_SUCCESS(Status))
+  _SEH_TRY
   {
-    _SEH_TRY
-    {
-      *KeyHandle = hKey;
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
+    *KeyHandle = hKey;
   }
+  _SEH_HANDLE
+  {
+    Status = _SEH_GetExceptionCode();
+  }
+  _SEH_END;
 
   return Status;
 }

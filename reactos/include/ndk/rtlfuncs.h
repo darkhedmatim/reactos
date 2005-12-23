@@ -591,16 +591,16 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlCreateSecurityDescriptor(
-    OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN ULONG Revision
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    ULONG Revision
 );
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlCreateSecurityDescriptorRelative(
-    OUT PISECURITY_DESCRIPTOR_RELATIVE SecurityDescriptor,
-    IN ULONG Revision
+    PISECURITY_DESCRIPTOR_RELATIVE SecurityDescriptor,
+    ULONG Revision
 );
 
 NTSYSAPI
@@ -653,9 +653,9 @@ RtlGetAce(
 NTSTATUS
 NTAPI
 RtlGetControlSecurityDescriptor(
-    IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-    OUT PSECURITY_DESCRIPTOR_CONTROL Control,
-    OUT PULONG Revision
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    PSECURITY_DESCRIPTOR_CONTROL Control,
+    PULONG Revision
 );
 
 NTSYSAPI
@@ -672,10 +672,10 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlGetSaclSecurityDescriptor(
-    IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-    OUT PBOOLEAN SaclPresent,
-    OUT PACL* Sacl,
-    OUT PBOOLEAN SaclDefaulted
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    PBOOLEAN SaclPresent,
+    PACL* Sacl,
+    PBOOLEAN SaclDefaulted
 );
 
 NTSYSAPI
@@ -700,8 +700,8 @@ NTSYSAPI
 BOOLEAN
 NTAPI
 RtlGetSecurityDescriptorRMControl(
-    IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-    OUT PUCHAR RMControl
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    PUCHAR RMControl
 );
 
 NTSYSAPI
@@ -732,14 +732,6 @@ NTSYSAPI
 ULONG
 NTAPI
 RtlLengthSid(IN PSID Sid);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlMakeSelfRelativeSD(
-    IN PSECURITY_DESCRIPTOR AbsoluteSD,
-    OUT PSECURITY_DESCRIPTOR SelfRelativeSD,
-    IN OUT PULONG BufferLength);
 
 NTSYSAPI
 VOID
@@ -787,15 +779,6 @@ RtlSelfRelativeToAbsoluteSD2(
 NTSYSAPI
 NTSTATUS
 NTAPI
-RtlSetAttributesSecurityDescriptor(
-    IN OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN SECURITY_DESCRIPTOR_CONTROL Control,
-    OUT PULONG Revision
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
 RtlSetControlSecurityDescriptor(
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     IN SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
@@ -806,10 +789,10 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlSetDaclSecurityDescriptor (
-    IN OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN BOOLEAN DaclPresent,
-    IN PACL Dacl,
-    IN BOOLEAN DaclDefaulted
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    BOOLEAN DaclPresent,
+    PACL Dacl,
+    BOOLEAN DaclDefaulted
 );
 
 NTSYSAPI
@@ -854,8 +837,8 @@ NTSYSAPI
 VOID
 NTAPI
 RtlSetSecurityDescriptorRMControl(
-    IN OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN PUCHAR RMControl
+    PSECURITY_DESCRIPTOR SecurityDescriptor,
+    PUCHAR RMControl
 );
 
 NTSYSAPI
@@ -1488,7 +1471,7 @@ NTAPI
 RtlPinAtomInAtomTable(
     IN PRTL_ATOM_TABLE AtomTable,
     IN RTL_ATOM Atom
-);
+);  	
 
 NTSYSAPI
 NTSTATUS
@@ -1656,10 +1639,10 @@ NTSYSAPI
 BOOLEAN
 NTAPI
 RtlDosPathNameToNtPathName_U(
-    IN PCWSTR DosPathName,
-    OUT PUNICODE_STRING NtPathName,
-    OUT PCWSTR *NtFileNamePart,
-    OUT CURDIR *DirectoryInfo
+    PWSTR DosName,
+    PUNICODE_STRING NtName,
+    PWSTR *ShortName,
+    PCURDIR CurrentDirectory
 );
 
 NTSYSAPI
@@ -2109,7 +2092,7 @@ RtlImageDirectoryEntryToData(
 );
 
 NTSYSAPI
-PVOID
+ULONG
 NTAPI
 RtlImageRvaToVa(
     PIMAGE_NT_HEADERS NtHeader,

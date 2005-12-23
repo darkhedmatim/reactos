@@ -55,7 +55,7 @@ DeleteFileW (
 
 	DPRINT("DeleteFileW (lpFileName %S)\n",lpFileName);
 
-	if (!RtlDosPathNameToNtPathName_U (lpFileName,
+	if (!RtlDosPathNameToNtPathName_U ((LPWSTR)lpFileName,
 	                                   &NtPathU,
 	                                   NULL,
 	                                   NULL))

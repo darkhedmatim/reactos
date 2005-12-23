@@ -108,13 +108,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 			if(bPaging)
 			{
 				if(bRet)
-				{
-					if (ConOutPrintfPaging(bFirstTime, buff) == 1)
-					{
-						bCtrlBreak = FALSE;
-						return 0;
-					}
-				}
+					ConOutPrintfPaging(bFirstTime, buff);
 			}
 			else
 			{				

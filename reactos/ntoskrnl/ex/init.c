@@ -429,9 +429,10 @@ ExpLoadInitialProcess(PHANDLE ProcessHandle,
     RTL_USER_PROCESS_INFORMATION Info;
 
     /* Create a handle to the process */
-    Status = ObpCreateHandle(PsInitialSystemProcess,
+    Status = ObpCreateHandle(PsGetCurrentProcess(),
+                             PsInitialSystemProcess,
                              PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                             OBJ_KERNEL_HANDLE,
+                             FALSE,
                              &SystemProcessHandle);
     if(!NT_SUCCESS(Status))
     {

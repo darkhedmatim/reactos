@@ -56,7 +56,7 @@ typedef struct _DEVADVPROP_INFO
 
     BOOL FreeDevPropSheets : 1;
     BOOL CanDisable : 1;
-    BOOL DeviceStarted : 1;
+    BOOL DeviceEnabled : 1;
     BOOL DeviceUsageChanged : 1;
     BOOL CloseDevInst : 1;
     BOOL IsAdmin : 1;
@@ -106,7 +106,7 @@ InitDevUsageActions(IN HWND hwndDlg,
                 switch (Actions[i])
                 {
                     case IDS_ENABLEDEVICE:
-                        if (dap->DeviceStarted)
+                        if (dap->DeviceEnabled)
                         {
                             SendMessage(hComboBox,
                                         CB_SETCURSEL,
@@ -116,7 +116,7 @@ InitDevUsageActions(IN HWND hwndDlg,
                         break;
 
                     case IDS_DISABLEDEVICE:
-                        if (!dap->DeviceStarted)
+                        if (!dap->DeviceEnabled)
                         {
                             SendMessage(hComboBox,
                                         CB_SETCURSEL,
@@ -166,7 +166,7 @@ ApplyGeneralSettings(IN HWND hwndDlg,
 {
     BOOL Ret = FALSE;
 
-    if (dap->DeviceUsageChanged && dap->IsAdmin && dap->CanDisable)
+    if (dap->DeviceUsageChanged && dap->IsAdmin)
     {
         UINT SelectedUsageAction;
         BOOL NeedReboot = FALSE;
@@ -176,7 +176,7 @@ ApplyGeneralSettings(IN HWND hwndDlg,
         switch (SelectedUsageAction)
         {
             case IDS_ENABLEDEVICE:
-                if (!dap->DeviceStarted)
+                if (!dap->DeviceEnabled)
                 {
                     Ret = EnableDevice(dap->DeviceInfoSet,
                                        &dap->DeviceInfoData,
@@ -187,7 +187,7 @@ ApplyGeneralSettings(IN HWND hwndDlg,
                 break;
 
             case IDS_DISABLEDEVICE:
-                if (dap->DeviceStarted)
+                if (dap->DeviceEnabled)
                 {
                     Ret = EnableDevice(dap->DeviceInfoSet,
                                        &dap->DeviceInfoData,
@@ -237,7 +237,7 @@ UpdateDevInfo(IN HWND hwndDlg,
     CONFIGRET cr;
     ULONG Status, ProblemNumber;
     UINT TroubleShootStrId = IDS_TROUBLESHOOTDEV;
-    BOOL bFlag, bDevActionAvailable = TRUE;
+    BOOL bFlag;
     DWORD i;
     HDEVINFO DeviceInfoSet = NULL;
     PSP_DEVINFO_DATA DeviceInfoData = NULL;
@@ -478,6 +478,8 @@ GetParentNode:
     /* set the device troubleshoot button text and disable it if necessary */
     hDevProbBtn = GetDlgItem(hwndDlg,
                              IDC_DEVPROBLEM);
+    EnableWindow(hDevProbBtn,
+                 dap->IsAdmin);
     cr = CM_Get_DevNode_Status_Ex(&Status,
                                   &ProblemNumber,
                                   DeviceInfoData->DevInst,
@@ -487,105 +489,12 @@ GetParentNode:
     {
         switch (ProblemNumber)
         {
-            case CM_PROB_DEVLOADER_FAILED:
-            {
-                /* FIXME - only if it's not a root bus devloader,
-                           disable the button otherwise */
-                TroubleShootStrId = IDS_UPDATEDRV;
-                break;
-            }
-
-            case CM_PROB_OUT_OF_MEMORY:
-            case CM_PROB_ENTRY_IS_WRONG_TYPE:
-            case CM_PROB_LACKED_ARBITRATOR:
-            case CM_PROB_FAILED_START:
-            case CM_PROB_LIAR:
-            case CM_PROB_UNKNOWN_RESOURCE:
-            {
-                TroubleShootStrId = IDS_UPDATEDRV;
-                break;
-            }
-
-            case CM_PROB_BOOT_CONFIG_CONFLICT:
-            case CM_PROB_NORMAL_CONFLICT:
-            case CM_PROB_REENUMERATION:
-            {
-                /* FIXME - Troubleshoot conflict */
-                break;
-            }
-
-            case CM_PROB_FAILED_FILTER:
-            case CM_PROB_REINSTALL:
-            case CM_PROB_FAILED_INSTALL:
-            {
-                TroubleShootStrId = IDS_REINSTALLDRV;
-                break;
-            }
-
-            case CM_PROB_DEVLOADER_NOT_FOUND:
-            {
-                /* FIXME - 4 cases:
-                   1) if it's a missing system devloader:
-                      - disable the button (Reinstall Driver)
-                   2) if it's not a system devloader but still missing:
-                      - Reinstall Driver
-                   3) if it's not a system devloader but the file can be found:
-                      - Update Driver
-                   4) if it's a missing or empty software key
-                      - Update Driver
-                 */
-                break;
-            }
-
-            case CM_PROB_INVALID_DATA:
-            case CM_PROB_PARTIAL_LOG_CONF:
-            case CM_PROB_NO_VALID_LOG_CONF:
-            case CM_PROB_HARDWARE_DISABLED:
-            case CM_PROB_CANT_SHARE_IRQ:
-            case CM_PROB_TRANSLATION_FAILED:
-            case CM_PROB_SYSTEM_SHUTDOWN:
-            case CM_PROB_PHANTOM:
-                bDevActionAvailable = FALSE;
-                break;
-
-            case CM_PROB_NOT_VERIFIED:
-            case CM_PROB_DEVICE_NOT_THERE:
-                /* FIXME - search hardware */
-                break;
-
-            case CM_PROB_NEED_RESTART:
-            case CM_PROB_WILL_BE_REMOVED:
-            case CM_PROB_MOVED:
-            case CM_PROB_TOO_EARLY:
-            case CM_PROB_DISABLED_SERVICE:
-                TroubleShootStrId = IDS_REBOOT;
-                break;
-
-            case CM_PROB_REGISTRY:
-                /* FIXME - check registry? */
-                break;
-
             case CM_PROB_DISABLED:
-                /* if device was disabled by the user: */
                 TroubleShootStrId = IDS_ENABLEDEV;
-                /* FIXME - otherwise disable button because the device was
-                           disabled by the system*/
                 break;
 
-            case CM_PROB_DEVLOADER_NOT_READY:
-                /* FIXME - if it's a graphics adapter:
-                           - if it's a a secondary adapter and the main adapter
-                             couldn't be found
-                             - disable  button
-                           - else
-                             - Properties
-                         - else
-                           - Update driver
-                 */
-                break;
-
-            case CM_PROB_FAILED_ADD:
-                TroubleShootStrId = IDS_PROPERTIES;
+            case CM_PROB_FAILED_INSTALL:
+                TroubleShootStrId = IDS_REINSTALLDRV;
                 break;
         }
     }
@@ -598,15 +507,13 @@ GetParentNode:
         SetWindowText(hDevProbBtn,
                       dap->szTemp);
     }
-    EnableWindow(hDevProbBtn,
-                 dap->IsAdmin && bDevActionAvailable);
 
     /* check if the device can be enabled/disabled */
     hDevUsage = GetDlgItem(hwndDlg,
                            IDC_DEVUSAGE);
 
     dap->CanDisable = FALSE;
-    dap->DeviceStarted = FALSE;
+    dap->DeviceEnabled = FALSE;
 
     if (CanDisableDevice(DeviceInfoData->DevInst,
                          dap->hMachine,
@@ -615,11 +522,11 @@ GetParentNode:
         dap->CanDisable = bFlag;
     }
 
-    if (IsDeviceStarted(DeviceInfoData->DevInst,
+    if (IsDeviceEnabled(DeviceInfoData->DevInst,
                         dap->hMachine,
                         &bFlag))
     {
-        dap->DeviceStarted = bFlag;
+        dap->DeviceEnabled = bFlag;
     }
 
     /* enable/disable the device usage controls */

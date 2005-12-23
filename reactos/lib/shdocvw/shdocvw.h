@@ -58,9 +58,6 @@ extern HRESULT SHDOCVW_GetShellInstanceObjectClassObject(REFCLSID rclsid,
 /**********************************************************************
  * WebBrowser declaration for SHDOCVW.DLL
  */
-
-typedef struct ConnectionPoint ConnectionPoint;
-
 typedef struct {
     /* Interfaces available via WebBrowser object */
 
@@ -74,18 +71,12 @@ typedef struct {
     const IQuickActivateVtbl            *lpQuickActivateVtbl;
     const IConnectionPointContainerVtbl *lpConnectionPointContainerVtbl;
     const IViewObject2Vtbl              *lpViewObjectVtbl;
-    const IOleInPlaceActiveObjectVtbl   *lpOleInPlaceActiveObjectVtbl;
 
     /* Interfaces available for embeded document */
 
     const IOleClientSiteVtbl            *lpOleClientSiteVtbl;
     const IOleInPlaceSiteVtbl           *lpOleInPlaceSiteVtbl;
     const IDocHostUIHandler2Vtbl        *lpDocHostUIHandlerVtbl;
-    const IOleDocumentSiteVtbl          *lpOleDocumentSiteVtbl;
-
-    /* Interfaces of InPlaceFrame object */
-
-    const IOleInPlaceFrameVtbl          *lpOleInPlaceFrameVtbl;
 
     LONG ref;
 
@@ -93,9 +84,6 @@ typedef struct {
 
     IOleClientSite *client;
     IOleContainer *container;
-    IOleDocumentView *view;
-
-    LPOLESTR url;
 
     /* window context */
 
@@ -112,9 +100,9 @@ typedef struct {
 
     /* Connection points */
 
-    ConnectionPoint *cp_wbe2;
-    ConnectionPoint *cp_wbe;
-    ConnectionPoint *cp_pns;
+    IConnectionPoint *cp_wbe2;
+    IConnectionPoint *cp_wbe;
+    IConnectionPoint *cp_pns;
 } WebBrowser;
 
 #define WEBBROWSER(x)   ((IWebBrowser*)                 &(x)->lpWebBrowser2Vtbl)
@@ -129,15 +117,11 @@ typedef struct {
 #define CONPTCONT(x)    ((IConnectionPointContainer*)   &(x)->lpConnectionPointContainerVtbl)
 #define VIEWOBJ(x)      ((IViewObject*)                 &(x)->lpViewObjectVtbl);
 #define VIEWOBJ2(x)     ((IViewObject2*)                &(x)->lpViewObjectVtbl);
-#define ACTIVEOBJ(x)    ((IOleInPlaceActiveObject*)     &(x)->lpOleInPlaceActiveObjectVtbl)
 
 #define CLIENTSITE(x)   ((IOleClientSite*)              &(x)->lpOleClientSiteVtbl)
 #define INPLACESITE(x)  ((IOleInPlaceSite*)             &(x)->lpOleInPlaceSiteVtbl)
 #define DOCHOSTUI(x)    ((IDocHostUIHandler*)           &(x)->lpDocHostUIHandlerVtbl)
 #define DOCHOSTUI2(x)   ((IDocHostUIHandler2*)          &(x)->lpDocHostUIHandlerVtbl)
-#define DOCSITE(x)      ((IOleDocumentSite*)            &(x)->lpOleDocumentSiteVtbl)
-
-#define INPLACEFRAME(x) ((IOleInPlaceFrame*)            &(x)->lpOleInPlaceFrameVtbl)
 
 void WebBrowser_OleObject_Init(WebBrowser*);
 void WebBrowser_ViewObject_Init(WebBrowser*);
@@ -149,18 +133,10 @@ void WebBrowser_Events_Init(WebBrowser*);
 void WebBrowser_ClientSite_Init(WebBrowser*);
 void WebBrowser_DocHost_Init(WebBrowser*);
 
-void WebBrowser_Frame_Init(WebBrowser*);
-
 void WebBrowser_OleObject_Destroy(WebBrowser*);
 void WebBrowser_Events_Destroy(WebBrowser*);
-void WebBrowser_ClientSite_Destroy(WebBrowser*);
 
 HRESULT WebBrowser_Create(IUnknown*,REFIID,void**);
-
-void create_doc_view_hwnd(WebBrowser *This);
-void call_sink(ConnectionPoint*,DISPID,DISPPARAMS*);
-
-#define WB_WM_NAVIGATE2 (WM_USER+100)
 
 #define DEFINE_THIS(cls,ifc,iface) ((cls*)((BYTE*)(iface)-offsetof(cls,lp ## ifc ## Vtbl)))
 

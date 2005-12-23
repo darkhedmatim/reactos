@@ -70,6 +70,14 @@
 #define ITEM_PREV		-1
 #define ITEM_NEXT		 1
 
+#ifndef MF_END
+#define MF_END             (0x0080)
+#endif
+
+#ifndef MIIM_STRING
+#define MIIM_STRING      (0x00000040)
+#endif
+
 #define MAKEINTATOMA(atom)  ((LPCSTR)((ULONG_PTR)((WORD)(atom))))
 #define MAKEINTATOMW(atom)  ((LPCWSTR)((ULONG_PTR)((WORD)(atom))))
 #define POPUPMENU_CLASS_ATOMA   MAKEINTATOMA(32768)  /* PopupMenu */
@@ -1035,7 +1043,9 @@ NTSTATUS STDCALL
 User32LoadSysMenuTemplateForKernel(PVOID Arguments, ULONG ArgumentLength)
 {
   LRESULT Result;
-  Result = (LRESULT)LoadMenuW(User32Instance, L"SYSMENU");
+  HMODULE hUser32;
+  hUser32 = GetModuleHandleW(L"USER32");
+  Result = (LRESULT)LoadMenuW(hUser32, L"SYSMENU");
   return(ZwCallbackReturn(&Result, sizeof(LRESULT), STATUS_SUCCESS));
 }
 
@@ -1067,32 +1077,12 @@ MenuInit(VOID)
     if(hMenuFontBold == NULL)
     {
       DbgPrint("MenuInit(): CreateFontIndirectW(hMenuFontBold) failed!\n");
-      DeleteObject(hMenuFont);
-      hMenuFont = NULL;
       return FALSE;
     }
   }
 
   return TRUE;
 }
-
-
-VOID
-MenuCleanup(VOID)
-{
-  if (hMenuFont)
-  {
-    DeleteObject(hMenuFont);
-    hMenuFont = NULL;
-  }
-
-  if (hMenuFontBold)
-  {
-    DeleteObject(hMenuFontBold);
-    hMenuFontBold = NULL;
-  }
-}
-
 
 
 /***********************************************************************
@@ -4040,7 +4030,7 @@ InsertMenuA(
     mii.fMask |= MIIM_ID;
     mii.wID = (UINT)uIDNewItem;
   }
-  return InsertMenuItemA(hMenu, uPosition, (BOOL)((MF_BYPOSITION & uFlags) > 0), &mii);
+  return InsertMenuItemA(hMenu, uPosition, (BOOL)!(MF_BYPOSITION & uFlags), &mii);
 }
 
 
@@ -4199,7 +4189,7 @@ InsertMenuW(
     mii.fMask |= MIIM_ID;
     mii.wID = (UINT)uIDNewItem;
   }
-  return InsertMenuItemW(hMenu, uPosition, (BOOL)((MF_BYPOSITION & uFlags) > 0), &mii);
+  return InsertMenuItemW(hMenu, uPosition, (BOOL)!(MF_BYPOSITION & uFlags), &mii);
 }
 
 
@@ -4334,6 +4324,8 @@ ModifyMenuA(
   mii.fType = 0;
   mii.fState = MFS_ENABLED;
 
+  UNIMPLEMENTED;
+
   if(!GetMenuItemInfoA( hMnu,
                         uPosition,
                        (BOOL)(MF_BYPOSITION & uFlags),
@@ -4428,6 +4420,8 @@ ModifyMenuW(
   mii.cbSize = sizeof(MENUITEMINFOW);
   mii.fMask = MIIM_FTYPE | MIIM_STRING | MIIM_STATE;
   mii.fState = MFS_ENABLED;
+
+  UNIMPLEMENTED;
 
   if(!NtUserMenuItemInfo( hMnu,
                           uPosition,

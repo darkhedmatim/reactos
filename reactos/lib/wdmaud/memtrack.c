@@ -58,12 +58,7 @@ VOID FreeMem(LPVOID pointer)
     }
 
     if ( ! HeapFree(heap, 0, pointer) )
-    {
-        DPRINT("Unable to free memory (error %d)\n", (int)GetLastError());
-        return;
-    }
-
-    alloc_count --;
+        alloc_count --;
 
     ReportMem();
 }

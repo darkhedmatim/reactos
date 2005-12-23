@@ -21,11 +21,11 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
 
     DPRINT("WaveCompletionThread started\n");
 
-    EnterCriticalSection(device->state->device_queue_guard);
+    EnterCriticalSection(device->state->queue_critical_section);
 
     while ( ! quit_loop )
     {
-    result = ValidateDeviceData(device, TRUE);
+    result = ValidateDeviceInfoAndState(device);
 
     if ( result != MMSYSERR_NOERROR )
     {
@@ -33,8 +33,7 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
         break;
     }
 
-    /* TODO: REIMPLEMENT */
-    /* result = ValidateDeviceStateEvents(device->state); */
+    result = ValidateDeviceStateEvents(device->state);
 
     if ( result != MMSYSERR_NOERROR )
     {
@@ -42,13 +41,13 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
         break;
     }
 
-    if ( device->state->current_wave_header )
+    if ( device->state->open_descriptor )
     {
-        DPRINT("No current header - running? %d\n", (int) device->state->is_running);
+        DPRINT("No open descriptor found - running? %d\n", (int) device->state->is_running);
 
         if ( ! device->state->is_running )
         {
-            LeaveCriticalSection(device->state->device_queue_guard);
+            LeaveCriticalSection(device->state->queue_critical_section);
 
             DPRINT("Waiting for queue_event\n");
             WaitForSingleObject(device->state->queue_event, INFINITE);
@@ -77,7 +76,7 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
     }
     else
     {
-        PWAVEHDR wave_header = device->state->current_wave_header;
+        PWAVEHDR wave_header = device->state->wave_header;
 
         DPRINT("An open descriptor or wave header was found\n");
 
@@ -99,7 +98,7 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
             DPRINT("Activating the next header\n");
 
             /* Activate the next header */
-            device->state->current_wave_header = wave_header->lpNext;
+            device->state->wave_header = wave_header->lpNext;
 
             /* Reset this just in case */
             prep_data = NULL;
@@ -118,7 +117,7 @@ DWORD WINAPI WaveCompletionThreadStart(LPVOID data)
     }
 
     /* We do this here in case there's an error - deadlock = bad! */
-    LeaveCriticalSection(device->state->device_queue_guard);
+    LeaveCriticalSection(device->state->queue_critical_section);
 
     if ( result != MMSYSERR_NOERROR)
         goto cleanup;
@@ -166,7 +165,7 @@ BOOL CreateCompletionThread(PWDMAUD_DEVICE_INFO device)
     else
     {
         DPRINT("Thread is null\n");
-
+        
         if ( ( (DWORD) device->state->queue_event != 0 ) &&
              ( (DWORD) device->state->queue_event != MAGIC_42) &&
              ( (DWORD) device->state->queue_event != MAGIC_43) )
@@ -230,7 +229,7 @@ BOOL CreateCompletionThread(PWDMAUD_DEVICE_INFO device)
         DPRINT("Thread created! - %d\n", (int) device->state->thread);
 
         /* TODO: Set priority */
-    }
+}
 
     return TRUE; /* TODO / FIXME */
 }

@@ -11,7 +11,6 @@
 	<library>rtl</library>
 	<library>intrlck</library>
 	<library>string</library>
-	<library>pseh</library>
 	<linkerflag>-lgcc</linkerflag>
 	<linkerflag>-nostdlib</linkerflag>
 	<linkerflag>-nostartfiles</linkerflag>
@@ -24,6 +23,7 @@
 		<file>dbgui.c</file>
 	</directory>
 	<directory name="ldr">
+		<file>res.c</file>
 		<file>startup.c</file>
 		<file>utils.c</file>
 	</directory>

@@ -41,12 +41,23 @@ typedef struct IDxDiagContainerImpl IDxDiagContainerImpl;
 /* ---------------- */
 
 /*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern IDxDiagProviderVtbl DxDiagProvider_Vtbl;
+
+/*****************************************************************************
  * IDxDiagProvider implementation structure
  */
+typedef struct Contain_Property
+{
+    WCHAR *pwszPropName;
+    VARIANT pvarProp;    
+} Contain_Property;
+
 struct IDxDiagProviderImpl {
   /* IUnknown fields */
-  const IDxDiagProviderVtbl *lpVtbl;
-  LONG        ref;
+  IDxDiagProviderVtbl *lpVtbl;
+  DWORD       ref;
   /* IDxDiagProvider fields */
   BOOL        init;
   DXDIAG_INIT_PARAMS params;
@@ -72,34 +83,37 @@ typedef struct IDxDiagContainerImpl_SubContainer {
   struct IDxDiagContainerImpl_SubContainer* next;
 } IDxDiagContainerImpl_SubContainer;
 
-typedef struct IDxDiagContainerImpl_Property {
-  LPWSTR vName;
-  VARIANT v;
-  struct IDxDiagContainerImpl_Property* next;
-} IDxDiagContainerImpl_Property;
-
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern IDxDiagContainerVtbl DxDiagContainer_Vtbl;
 
 /*****************************************************************************
  * IDxDiagContainer implementation structure
  */
 struct IDxDiagContainerImpl {
   /* IUnknown fields */
-  const IDxDiagContainerVtbl *lpVtbl;
-  LONG        ref;
+  IDxDiagContainerVtbl *lpVtbl;
+  DWORD       ref;
   /* IDxDiagContainer fields */
-  IDxDiagContainerImpl_Property* properties;  
   IDxDiagContainerImpl_SubContainer* subContainers;
-  DWORD nProperties;
   DWORD nSubContainers;
+  Contain_Property* pProperty;
+  DWORD nSubpProperty;
 };
 
 /* IUnknown: */
 extern HRESULT WINAPI IDxDiagContainerImpl_QueryInterface(PDXDIAGCONTAINER iface, REFIID riid, LPVOID *ppobj);
 extern ULONG WINAPI IDxDiagContainerImpl_AddRef(PDXDIAGCONTAINER iface);
+extern ULONG WINAPI IDxDiagContainerImpl_Release(PDXDIAGCONTAINER iface);
 
-/** Internal */
-extern HRESULT WINAPI IDxDiagContainerImpl_AddProp(PDXDIAGCONTAINER iface, LPCWSTR pwszPropName, VARIANT* pVarProp);
-extern HRESULT WINAPI IDxDiagContainerImpl_AddChildContainer(PDXDIAGCONTAINER iface, LPCWSTR pszContName, PDXDIAGCONTAINER pSubCont);
+/* IDxDiagContainer: */
+extern HRESULT WINAPI IDxDiagContainerImpl_GetNumberOfChildContainers(PDXDIAGCONTAINER iface,  DWORD* pdwCount);
+extern HRESULT WINAPI IDxDiagContainerImpl_EnumChildContainerNames(PDXDIAGCONTAINER iface, DWORD dwIndex, LPWSTR pwszContainer, DWORD cchContainer);
+extern HRESULT WINAPI IDxDiagContainerImpl_GetChildContainer(PDXDIAGCONTAINER iface, LPCWSTR pwszContainer, IDxDiagContainer** ppInstance);
+extern HRESULT WINAPI IDxDiagContainerImpl_GetNumberOfProps(PDXDIAGCONTAINER iface, DWORD* pdwCount);
+extern HRESULT WINAPI IDxDiagContainerImpl_EnumPropNames(PDXDIAGCONTAINER iface, DWORD dwIndex, LPWSTR pwszPropName, DWORD cchPropName);
+extern HRESULT WINAPI IDxDiagContainerImpl_GetProp(PDXDIAGCONTAINER iface, LPCWSTR pwszPropName, VARIANT* pvarProp);
 
 /**
  * factories
@@ -108,13 +122,7 @@ extern HRESULT DXDiag_CreateDXDiagProvider(LPCLASSFACTORY iface, LPUNKNOWN punkO
 
 /** internal factory */
 extern HRESULT DXDiag_CreateDXDiagContainer(REFIID riid, LPVOID *ppobj);
-extern HRESULT DXDiag_InitRootDXDiagContainer(IDxDiagContainer* pRootCont);
 
-/**********************************************************************
- * Dll lifetime tracking declaration for dxdiagn.dll
- */
-extern LONG DXDIAGN_refCount;
-static inline void DXDIAGN_LockModule(void) { InterlockedIncrement( &DXDIAGN_refCount ); }
-static inline void DXDIAGN_UnlockModule(void) { InterlockedDecrement( &DXDIAGN_refCount ); }
+
 
 #endif

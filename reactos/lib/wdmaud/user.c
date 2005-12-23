@@ -23,7 +23,7 @@
 #include "wdmaud.h"
 
 
-APIENTRY LRESULT DriverProc(
+APIENTRY LONG DriverProc(
     DWORD DriverID,
     HDRVR DriverHandle,
     UINT Message,
@@ -102,11 +102,9 @@ APIENTRY LRESULT DriverProc(
 
         case DRV_INSTALL :
             DPRINT("DRV_INSTALL\n");
-            return TRUE;   /* ok? */
+            return FALSE;	/* ok? */
 
-		case DRV_REMOVE :
-            DPRINT("DRV_REMOVE\n");
-            return TRUE;
+		/* DRV_REMOVE */
 
         default :
             DPRINT("?\n");
@@ -125,7 +123,7 @@ void NotifyClient(
 
     DriverCallback(device->client_callback,
                    HIWORD(device->flags),
-                   (HDRVR) device->handle,
+                   (HDRVR) device->wave_handle,
                    message,
                    device->client_instance,
                    0,
@@ -201,8 +199,8 @@ APIENTRY DWORD wodMessage(
 		
         /*
          *  WODM_GETDEVCAPS
-         *    Parameter 1 : Pointer to a MDEVICECAPS struct
-         *    Parameter 2 : Device path
+         *    Parameter 1 : Pointer to a WAVEOUTCAPS struct
+         *    Parameter 2 : "Wave" device path? FIXME (NEW!)
          */
         case WODM_GETDEVCAPS :
 			DPRINT("WODM_GETDEVCAPS\n");
@@ -216,14 +214,11 @@ APIENTRY DWORD wodMessage(
          */
 		case WODM_OPEN :
 			DPRINT("WODM_OPEN\n");
-            return OpenWaveOutDevice(id,
-                                     (LPWAVEOPENDESC) p1,
-                                     p2,
-                                     (PWDMAUD_DEVICE_INFO*) user);
+            return OpenWaveOut(id, (LPWAVEOPENDESC) p1, p2, user);
 		
         case WODM_CLOSE :
 			DPRINT("WODM_CLOSE\n");
-			return CloseWaveDevice((PWDMAUD_DEVICE_INFO) user);
+			return CloseDevice((PWDMAUD_DEVICE_INFO) user);  /* ugh! */
 
         case WODM_PREPARE :
             DPRINT("WODM_PREPARE\n");
@@ -304,46 +299,7 @@ APIENTRY DWORD modMessage(
         case MODM_GETDEVCAPS :
             DPRINT("MODM_GETDEVCAPS\n");
             return GetMidiOutCapabilities(id, (WCHAR*) p2, (LPMDEVICECAPSEX) p1);
-
-        case MODM_OPEN :
-            DPRINT("MODM_OPEN\n");
-            return OpenMidiOutDevice(id,
-                                     (LPMIDIOPENDESC) p1,
-                                     p2,
-                                     (PWDMAUD_DEVICE_INFO*) user);
-
-        case MODM_CLOSE :
-            DPRINT("MODM_CLOSE\n");
-            return CloseMidiDevice((PWDMAUD_DEVICE_INFO) user);
-
-        case MODM_DATA :
-            DPRINT("MODM_DATA\n");
-            return WriteMidiShort((PWDMAUD_DEVICE_INFO) user, p1);
-
-        case MODM_LONGDATA :
-            DPRINT("MODM_LONGDATA\n");
-            return MMSYSERR_NOTSUPPORTED;
-
-        case MODM_RESET :
-            DPRINT("MODM_RESET\n");
-            return ResetMidiDevice((PWDMAUD_DEVICE_INFO) user);
-
-        case MODM_SETVOLUME :
-            DPRINT("MODM_SETVOLUME\n");
-            return MMSYSERR_NOTSUPPORTED;
-
-        case MODM_GETVOLUME :
-            DPRINT("MODM_GETVOLUME\n");
-            return MMSYSERR_NOTSUPPORTED;
-
-/* TODO: WINE's mmddk.h needs MODM_PREFERRED to be defined (value is ??) */
-/*
-        case MODM_PREFERRED :
-            DPRINT("MODM_PREFERRED\n");
-            return MMSYSERR_NOTSUPPORTED;
-*/
-
-    };
+	};
 
     DPRINT("* NOT IMPLEMENTED *\n");
     return MMSYSERR_NOTSUPPORTED;

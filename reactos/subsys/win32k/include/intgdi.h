@@ -9,6 +9,7 @@ IntGdiCreateBrushXlate(PDC Dc, GDIBRUSHOBJ *BrushObj, BOOLEAN *Failed);
 VOID FASTCALL
 IntGdiInitBrushInstance(GDIBRUSHINST *BrushInst, PGDIBRUSHOBJ BrushObj, XLATEOBJ *XlateObj);
 
+
 HBRUSH STDCALL
 IntGdiCreateDIBBrush(
    CONST BITMAPINFO *BitmapInfo,
@@ -196,8 +197,6 @@ IntGetSysColors(COLORREF *Colors, UINT nColors);
 
 INT FASTCALL
 IntGdiGetDeviceCaps(PDC dc, INT Index);
-
-int STDCALL IntGdiExtSelectClipRgn (PDC dc, HRGN hrgn, int fnMode);
 
 INT
 FASTCALL

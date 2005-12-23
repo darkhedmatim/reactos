@@ -31,23 +31,16 @@ if ( !defined('ROSCMS_SYSTEM') )
 	include('securitylog.php'); // open security log
 	die("Hacking attempt");
 }
-
-include("inc/tools.php");
-
 ?>
 <h1><a href="http://www.reactos.org/?page=dev">ReactOS Development</a> &gt; Website  Status</h1>
 <h2>Website Status</h2>
-<ul>
-  <li><a href="#sec1">Website Content Updates</a></li>
-  <li><a href="#sec2">Website Translation Status</a></li>
-</ul>
-<a name="sec1"></a>
 <h3>Website Content Updates</h3>
 <table cellpadding="1" cellspacing="1">
   <tr bgcolor="#5984C3">
     <td width="200">
     <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Title</strong></font></div></td>
-    <td width="200"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Name</strong></font></div></td>
+    <td width="250"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Description</strong></font></div></td>
+    <td width="150"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Filename</strong></font></div></td>
     <td width="150">
     <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Language</strong></font></div></td>
     <td width="150"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Date &amp; Time </strong></font></div></td>
@@ -60,7 +53,7 @@ include("inc/tools.php");
 									AND `content_visible` = 1
 									AND `content_type` = 'default'
 									ORDER BY `content_id` DESC 
-									LIMIT 0 , 20 ;") ;
+									LIMIT 0 , 10 ;") ;
 	$color="";
 	$color1=$roscms_intern_color1;
 	$color2=$roscms_intern_color2;
@@ -81,7 +74,7 @@ include("inc/tools.php");
 									echo $color2;
 									$color = $color2;
 								}
-							 ?>"><font face="Arial, Helvetica, sans-serif" size="2">
+							 ?>"><font face="Arial, Helvetica, sans-serif" size="2"><b>
       <?php 
 							 
 			$query_count_title=mysql_query("SELECT COUNT('page_id')
@@ -98,7 +91,7 @@ include("inc/tools.php");
 			
 			
 			if ($result_count_title[0] == "0" || $result_count_title[0] == "") {
-				//echo $result_updates['content_name'];
+				echo $result_updates['content_name'];
 			}
 			else { 
 				$query_lang_page_name_update = mysql_query("SELECT * 
@@ -109,8 +102,21 @@ include("inc/tools.php");
 															AND `page_visible` = 1 ;") ;
 				$result_lang_page_name_update = mysql_fetch_array($query_lang_page_name_update);
 		
-				echo "<b>".$result_lang_page_name_update['page_title']."</b>";
+				echo $result_lang_page_name_update['page_title'];
 			
+			}
+		?>
+    </b></font></td>
+    <td valign="middle" bgcolor="<?php echo $color; ?>"><font face="Arial, Helvetica, sans-serif" size="2">
+      <?php 
+							 
+			if ($result_count_title[0] == "0" || $result_count_title[0] == "") {
+				// temp
+			}
+			else { 
+
+		
+				echo $result_lang_page_name_update['page_description'];
 			}
 		?>
     </font></td>
@@ -135,15 +141,9 @@ include("inc/tools.php");
 		echo $result_lang_name_update['lang_name'];
 	?>
     </font></div></td>
-    <td valign="middle" bgcolor="<?php echo $color; ?>" title="<?php
-
-		$accountinfo_query = @mysql_query("SELECT user_name, user_id FROM users WHERE user_id = '".$result_updates['content_usrname_id']."'") or die('DB error (website status page)!');
-		$accountinfo_result = @mysql_fetch_array($accountinfo_query);
-		echo $accountinfo_result['user_name']." (".$result_updates['content_usrname_id'].")"; 
-	 
-	 ?>"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2"><?php 
-		echo "<b>".$result_updates['content_date'].' '.$result_updates['content_time']."</b>";
-
+    <td valign="middle" bgcolor="<?php echo $color; ?>"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2">
+        <?php 
+		echo $result_updates['content_date'].' '.$result_updates['content_time'];
 	?>
     </font></div></td>
   </tr>
@@ -151,13 +151,12 @@ include("inc/tools.php");
 	}	// end while
 ?>
 </table>
-<a name="sec2"></a>
 <h3>Website Translation Status</h3>
 <p>This page show the current website translation status.</p>
 <table cellpadding="1" cellspacing="1">
   <tr bgcolor="#5984C3">
     <td width="200"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Title </strong></font></div></td>
-    <td width="200">      <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Name</strong></font></div></td>
+    <td width="200">      <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Filename</strong></font></div></td>
     <td width="100">      <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>English</strong></font></div></td>
 	<?php
 		$query_lang_names = mysql_query("SELECT * 
@@ -216,7 +215,7 @@ include("inc/tools.php");
 				$query_lang_page_name_trans = mysql_query("SELECT * 
 															FROM `pages` 
 															WHERE `page_name` = '". $result_page['content_name'] ."'
-															AND (`page_language` = 'all' OR `page_language` = 'en' OR `page_language` = '". $result_page['content_lang'] ."') 
+															AND (`page_language` = 'all' OR `page_language` = 'en') 
 															AND `page_active` = 1
 															AND `page_visible` = 1 ;") ;
 				$result_lang_page_name_trans = mysql_fetch_array($query_lang_page_name_trans);
@@ -238,35 +237,14 @@ include("inc/tools.php");
 				$link_current_line = true;
 			}
 		?></font></td>
-    <td valign="middle" bgcolor="<?php 
-	
-		echo $color;
-		
-	 ?>"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2"><?php 
-	 
+    <td valign="middle" bgcolor="<?php echo $color; ?>"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2"><?php 
 		if ($link_current_line == "true") {
-			echo '<a href="../?page='.$result_page['content_name'].'&amp;lang=en">'. $result_page['content_date'] .'</a>';
+			echo '<a href="../?page='.$result_page['content_name'].'&amp;lang=en">done</a>';
 		}
 		else {
-			echo $result_page['content_date'];
+			echo "done";
 		}
-
-		if (compareDate((date('Y')."-".date('m')."-".date('d')),$result_page['content_date']) == 0) {
-			echo '<table width="100%"  border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="'.$roscms_intern_color_new.'"><div align="center"><strong><font color="#FFFFFF" size="2">';
-			echo 'today';
-			echo '</font></strong></div></td></tr></table>';
-		}
-		elseif (compareDate((date('Y')."-".date('m')."-".date('d')),$result_page['content_date']) <= 7) {
-			//echo '<br /><font color="'.$roscms_intern_color_new.'"><b>'.compareDate((date('Y')."-".date('m')."-".date('d')),$result_page['content_date']).' days</font>';
-			echo '<table width="100%"  border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="'.$roscms_intern_color_new.'"><div align="center"><strong><font color="#FFFFFF" size="2">';
-			echo compareDate((date('Y')."-".date('m')."-".date('d')),$result_page['content_date']).' days';
-			echo '</font></strong></div></td></tr></table>';
-		}
-		else { 
-			echo "<br />".compareDate((date('Y')."-".date('m')."-".date('d')),$result_page['content_date'])." days";
-		}
-	?>
-	</font></div></td>
+	?></font></div></td>
 	<?php
 		$query_lang_name = mysql_query("SELECT * 
 									FROM `languages` 
@@ -278,42 +256,21 @@ include("inc/tools.php");
 
 			$query_count_lang_item=mysql_query("SELECT COUNT('content_id')
 												FROM `content` 
-												WHERE `content_name` LIKE '".$result_page['content_name']."'
+												WHERE `content_name` = '".$result_page['content_name']."'
 												AND `content_lang` = '". $result_lang_name["lang_id"] ."'
 												AND `content_active` = 1
 												AND `content_visible` = 1
 												AND `content_type` = 'default' ;");	
 			$result_count_lang_item = mysql_fetch_row($query_count_lang_item);
-
 			if ($result_count_lang_item[0] != "0" && $result_count_lang_item[0] != "") {
-				$query_lang_item2=mysql_query("SELECT * 
-													FROM `content` 
-													WHERE `content_name` LIKE '".$result_page['content_name']."'
-													AND `content_lang` = '". $result_lang_name["lang_id"] ."'
-													AND `content_active` = 1
-													AND `content_visible` = 1 ;");	
-				$result_lang_item2 = mysql_fetch_array($query_lang_item2);
-				
 				if ($link_current_line == "true") {
-					echo '<a href="../?page='.$result_page['content_name'].'&amp;lang='.$result_lang_name['lang_id'].'">'. $result_lang_item2['content_date'] .'</a>';
+					echo '<a href="../?page='.$result_page['content_name'].'&amp;lang='.$result_lang_name['lang_id'].'">done</a>';
 				}
 				else {
-					echo $result_lang_item2['content_date'];
-				}
-				
-				if (compareDate($result_page['content_date'],$result_lang_item2['content_date']) <= 0) {
-					echo '<br /><font color="'.$roscms_intern_color_new.'">+ '.compareDate($result_lang_item2['content_date'],$result_page['content_date']).' days</font>';
-					/*echo '<table width="100%"  border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="'.$roscms_intern_color_new.'"><div align="center"><strong><font color="#FFFFFF" size="2">';
-					echo compareDate($result_lang_item2['content_date'],$result_page['content_date']).' days';
-					echo '</font></strong></div></td></tr></table>';*/
-				}
-				else { 
-					echo '<br /><font color="'.$roscms_intern_color_old.'">- '.compareDate($result_page['content_date'],$result_lang_item2['content_date']).' days</font>';
-					/*echo '<table width="100%"  border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="'.$roscms_intern_color_old.'"><div align="center"><strong><font color="#FFFFFF" size="2">';
-					echo compareDate($result_page['content_date'],$result_lang_item2['content_date']).' days';
-					echo '</font></strong></div></td></tr></table>';*/
+					echo "done";
 				}
 			}
+	
 	?></font></div></td>
 	<?php	
 		}
@@ -324,4 +281,4 @@ include("inc/tools.php");
 	}	// end while
 ?>
 </table>
-<p>&nbsp;</p>
+<p>All entries that are marked with &quot;done&quot; are NOT by all means completely translated!</p>

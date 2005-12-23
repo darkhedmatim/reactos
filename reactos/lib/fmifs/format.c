@@ -35,28 +35,8 @@ FormatEx (PWCHAR DriveRoot,
   UNICODE_STRING usDriveRoot;
   UNICODE_STRING usLabel;
   BOOLEAN Argument = FALSE;
-  WCHAR VolumeName[MAX_PATH];
-  CURDIR CurDir;
 
-  if (_wcsnicmp(Format, L"FAT", 3) != 0)
-    {
-      /* Unknown file system */
-      Callback (DONE,        /* Command */
-		0,           /* DWORD Modifier */
-		&Argument);  /* Argument */
-    }
-
-  if (!GetVolumeNameForVolumeMountPointW(DriveRoot, VolumeName, MAX_PATH) ||
-      !RtlDosPathNameToNtPathName_U(VolumeName, &usDriveRoot, NULL, &CurDir))
-    {
-      /* Report an error. */
-      Callback (DONE,        /* Command */
-		0,           /* DWORD Modifier */
-		&Argument);  /* Argument */
-
-      return;
-    }
-
+  RtlInitUnicodeString(&usDriveRoot, DriveRoot);
   RtlInitUnicodeString(&usLabel, Label);
 
   if (_wcsnicmp(Format, L"FAT", 3) == 0)
@@ -71,7 +51,13 @@ FormatEx (PWCHAR DriveRoot,
 		  ClusterSize,
 		  Callback);
       VfatCleanup ();
-      RtlFreeUnicodeString(&usDriveRoot);
+    }
+  else
+    {
+      /* Unknown file system */
+      Callback (DONE,        /* Command */
+		0,           /* DWORD Modifier */
+		&Argument);  /* Argument */
     }
 }
 

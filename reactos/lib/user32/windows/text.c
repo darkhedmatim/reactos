@@ -53,7 +53,6 @@ WINAPI
 CharLowerA(LPSTR x)
 {
     if (!HIWORD(x)) return (LPSTR)tolower((char)(int)x);
-    CharLowerBuffA(x, strlen(x));
 /*
     __TRY
     {

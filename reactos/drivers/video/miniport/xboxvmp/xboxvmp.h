@@ -28,7 +28,11 @@
 #include <ntddk.h>
 #include <miniport.h>
 #include <video.h>
-#include <ndk/exfuncs.h>
+#include <ntddvdeo.h>
+#include <ndk/ntndk.h>
+
+#define NDEBUG
+#include <debug.h>
 
 typedef struct
 {

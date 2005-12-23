@@ -57,19 +57,19 @@ DevicePropertiesW(HWND hWndParent,
 
 UINT
 WINAPI
-DeviceProblemTextA(IN HMACHINE hMachine  OPTIONAL,
-                   IN DEVINST dnDevInst,
-                   IN ULONG uProblemId,
-                   OUT LPSTR lpString,
-                   IN UINT uMaxString);
+DeviceProblemTextA(PVOID Unknown1,
+                   PVOID Unknown2,
+                   UINT uProblemId,
+                   LPSTR lpString,
+                   UINT uMaxString);
 
 UINT
 WINAPI
-DeviceProblemTextW(IN HMACHINE hMachine  OPTIONAL,
-                   IN DEVINST dnDevInst,
-                   IN ULONG uProblemId,
-                   OUT LPWSTR lpString,
-                   IN UINT uMaxString);
+DeviceProblemTextW(PVOID Unknown1,
+                   PVOID Unknown2,
+                   UINT uProblemId,
+                   LPWSTR lpString,
+                   UINT uMaxString);
 
 BOOL
 WINAPI
@@ -210,11 +210,6 @@ ShowDeviceProblemWizard(IN HWND hWndParent  OPTIONAL,
 
 /* MISC.C */
 
-
-INT
-LengthOfStrResource(IN HINSTANCE hInst,
-                    IN UINT uID);
-
 DWORD
 LoadAndFormatString(IN HINSTANCE hInstance,
                     IN UINT uID,
@@ -267,9 +262,9 @@ CanDisableDevice(IN DEVINST DevInst,
                  OUT BOOL *CanDisable);
 
 BOOL
-IsDeviceStarted(IN DEVINST DevInst,
+IsDeviceEnabled(IN DEVINST DevInst,
                 IN HMACHINE hMachine,
-                OUT BOOL *IsStarted);
+                OUT BOOL *IsEnabled);
 
 BOOL
 EnableDevice(IN HDEVINFO DeviceInfoSet,

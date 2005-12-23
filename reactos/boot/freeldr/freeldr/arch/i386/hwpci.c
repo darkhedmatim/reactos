@@ -237,7 +237,6 @@ DetectPciBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 #if 0
   FRLDRHKEY BusKey;
   ULONG i;
-  WCHAR szPci[] = L"PCI";
 #endif
 
   /* Report the PCI BIOS */
@@ -346,8 +345,8 @@ DetectPciBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 	  Error = RegSetValue(BusKey,
 			      L"Identifier",
 			      REG_SZ,
-			      (PCSTR)szPci,
-			      sizeof(szPci));
+			      (PUCHAR)"PCI",
+			      4 * sizeof(WCHAR));
 	  if (Error != ERROR_SUCCESS)
 	    {
 	      DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));

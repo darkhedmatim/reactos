@@ -23,6 +23,4 @@
 #include <reactos/helper.h>
 #include "rtlp.h"
 
-#include <pseh/pseh.h>
-
 /* EOF */

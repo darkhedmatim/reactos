@@ -160,11 +160,7 @@ BasepCreateFirstThread(HANDLE ProcessHandle,
                             &Context,
                             &InitialTeb,
                             TRUE);
-    if (!NT_SUCCESS(Status))
-    {
-        return NULL;
-    }
-
+   
     /* Success */
     return hThread;
 }
@@ -607,7 +603,7 @@ BasepInitializeEnvironment(HANDLE ProcessHandle,
                                   NULL);
                                   
     /* Cleanup */
-    RtlFreeHeap(RtlGetProcessHeap(), 0, DllPath.Buffer);
+    RtlFreeHeap(GetProcessHeap(), 0, DllPath.Buffer);
     RtlDestroyProcessParameters(ProcessParameters);
 
     DPRINT("Completed\n");
@@ -639,10 +635,10 @@ CreateProcessInternalW(HANDLE hToken,
     BOOLEAN FoundQuotes = FALSE;
     BOOLEAN QuotesNeeded = FALSE;
     BOOLEAN CmdLineIsAppName = FALSE;
-    UNICODE_STRING ApplicationName = {0};
+    UNICODE_STRING ApplicationName;
     OBJECT_ATTRIBUTES LocalObjectAttributes;
     POBJECT_ATTRIBUTES ObjectAttributes;
-    HANDLE hSection = NULL, hProcess = NULL, hThread = NULL;
+    HANDLE hSection, hProcess, hThread;
     SECTION_IMAGE_INFORMATION SectionImageInfo;
     LPWSTR CurrentDirectory = NULL;
     LPWSTR CurrentDirectoryPart;
@@ -666,13 +662,7 @@ CreateProcessInternalW(HANDLE hToken,
     PPEB OurPeb = NtCurrentPeb();
     PPEB RemotePeb;
     SIZE_T EnvSize = 0;
-    BOOL Ret = FALSE;
     
-    /* FIXME should process
-     * HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options
-     * key (see http://blogs.msdn.com/oldnewthing/archive/2005/12/19/505449.aspx)
-     */
-
     DPRINT("CreateProcessW: lpApplicationName: %S lpCommandLine: %S"
            " lpEnvironment: %p lpCurrentDirectory: %S dwCreationFlags: %lx\n",
            lpApplicationName, lpCommandLine, lpEnvironment, lpCurrentDirectory,
@@ -777,14 +767,9 @@ GetAppName:
     if (!lpApplicationName)
     {
         /* The fun begins */
-        NameBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 
+        NameBuffer = RtlAllocateHeap(GetProcessHeap(), 
                                      0,
                                      MAX_PATH * sizeof(WCHAR));
-        if (NameBuffer == NULL)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto Cleanup;
-        }
         
         /* This is all we have to work with :( */
         lpApplicationName = lpCommandLine;
@@ -944,7 +929,7 @@ GetAppName:
             }
                 
             /* We totally failed */
-            goto Cleanup;
+            return FALSE;
         }
                 
         /* Put back the command line */
@@ -978,8 +963,8 @@ GetAppName:
             if ((BasepCheckDosApp(&ApplicationName))) 
             {
                 DPRINT1("Launching VDM...\n");
-                RtlFreeHeap(RtlGetProcessHeap(), 0, NameBuffer);
-                RtlFreeHeap(RtlGetProcessHeap(), 0, ApplicationName.Buffer);
+                RtlFreeHeap(GetProcessHeap(), 0, NameBuffer);
+                RtlFreeHeap(GetProcessHeap(), 0, ApplicationName.Buffer);
                 return CreateProcessW(L"ntvdm.exe",
                                       (LPWSTR)lpApplicationName,
                                       lpProcessAttributes,
@@ -1011,14 +996,9 @@ GetAppName:
             CmdLineLength *= sizeof(WCHAR);
             
             /* Allocate space for the new command line */
-            BatchCommandLine = RtlAllocateHeap(RtlGetProcessHeap(),
+            BatchCommandLine = RtlAllocateHeap(GetProcessHeap(),
                                                0,
                                                CmdLineLength);
-            if (BatchCommandLine == NULL)
-            {
-                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                goto Cleanup;
-            }
                                               
             /* Build it */
             wcscpy(BatchCommandLine, CMD_STRING);
@@ -1040,7 +1020,7 @@ GetAppName:
             lpApplicationName = NULL;
             
             /* Free memory */
-            RtlFreeHeap(RtlGetProcessHeap(), 0, ApplicationName.Buffer);
+            RtlFreeHeap(GetProcessHeap(), 0, ApplicationName.Buffer);
             ApplicationName.Buffer = NULL;
             goto GetAppName;
             break;
@@ -1049,8 +1029,8 @@ GetAppName:
             
                 /* It's a Win16 Image, use VDM */
                 DPRINT1("Launching VDM...\n");
-                RtlFreeHeap(RtlGetProcessHeap(), 0, NameBuffer);
-                RtlFreeHeap(RtlGetProcessHeap(), 0, ApplicationName.Buffer);
+                RtlFreeHeap(GetProcessHeap(), 0, NameBuffer);
+                RtlFreeHeap(GetProcessHeap(), 0, ApplicationName.Buffer);
                 return CreateProcessW(L"ntvdm.exe",
                                       (LPWSTR)lpApplicationName,
                                       lpProcessAttributes,
@@ -1065,7 +1045,7 @@ GetAppName:
             default:
                 /* Invalid Image Type */
                 SetLastError(ERROR_BAD_EXE_FORMAT);
-                goto Cleanup;
+                return FALSE;
         }
     }
     
@@ -1087,17 +1067,19 @@ GetAppName:
                             NULL);
     if(!NT_SUCCESS(Status))
     {
+        NtClose(hSection);
         DPRINT1("Unable to get SectionImageInformation, status 0x%x\n", Status);
         SetLastErrorByStatus(Status);
-        goto Cleanup;
+        return FALSE;
     }
 
     /* Don't execute DLLs */
     if (SectionImageInfo.ImageCharacteristics & IMAGE_FILE_DLL)
     {
+        NtClose(hSection);
         DPRINT1("Can't execute a DLL\n");
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        goto Cleanup;
+        return FALSE;
     }
     
     /* FIXME: Check for Debugger */
@@ -1108,16 +1090,10 @@ GetAppName:
     if (IMAGE_SUBSYSTEM_WINDOWS_GUI != SectionImageInfo.SubsystemType && 
         IMAGE_SUBSYSTEM_WINDOWS_CUI != SectionImageInfo.SubsystemType)
     {
+        NtClose(hSection);
         DPRINT1("Invalid subsystem %d\n", SectionImageInfo.SubsystemType);
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        goto Cleanup;
-    }
-    
-    if (IMAGE_SUBSYSTEM_WINDOWS_GUI == SectionImageInfo.SubsystemType)
-    {
-        /* Do not create a console for GUI applications */
-        dwCreationFlags &= ~CREATE_NEW_CONSOLE;
-        dwCreationFlags |= DETACHED_PROCESS;
+        return FALSE;
     }
 
     /* Initialize the process object attributes */
@@ -1136,9 +1112,10 @@ GetAppName:
                              NULL);
     if(!NT_SUCCESS(Status))
     {
+        NtClose(hSection);
         DPRINT1("Unable to create process, status 0x%x\n", Status);
         SetLastErrorByStatus(Status);
-        goto Cleanup;
+        return FALSE;
     }
     
     /* Set new class */
@@ -1148,9 +1125,11 @@ GetAppName:
                                      sizeof(PROCESS_PRIORITY_CLASS));
     if(!NT_SUCCESS(Status))
     {
+        NtClose(hProcess);
+        NtClose(hSection);
         DPRINT1("Unable to set new process priority, status 0x%x\n", Status);
         SetLastErrorByStatus(Status);
-        goto Cleanup;
+        return FALSE;
     }
     
     /* Set Error Mode */
@@ -1167,15 +1146,9 @@ GetAppName:
     if (lpCurrentDirectory)
     {
         /* Allocate a buffer */
-        CurrentDirectory = RtlAllocateHeap(RtlGetProcessHeap(),
+        CurrentDirectory = RtlAllocateHeap(GetProcessHeap(),
                                            0,
-                                           (MAX_PATH + 1) * sizeof(WCHAR));
-        if (CurrentDirectory == NULL)
-        {
-            DPRINT1("Cannot allocate memory for directory name\n");
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto Cleanup;
-        }
+                                           MAX_PATH * sizeof(WCHAR) + 2);
                                            
         /* Get the length */
         if (GetFullPathNameW(lpCurrentDirectory,
@@ -1185,7 +1158,7 @@ GetAppName:
         {
             DPRINT1("Directory name too long\n");
             SetLastError(ERROR_DIRECTORY);
-            goto Cleanup;
+            return FALSE;
         }
     }
     
@@ -1193,16 +1166,10 @@ GetAppName:
     if (QuotesNeeded || CmdLineIsAppName)
     {
         /* Allocate a buffer */
-        QuotedCmdLine = RtlAllocateHeap(RtlGetProcessHeap(), 
+        QuotedCmdLine = RtlAllocateHeap(GetProcessHeap(), 
                                         0,
                                         (wcslen(lpCommandLine) + 2 + 1) * 
                                         sizeof(WCHAR));
-        if (QuotedCmdLine == NULL)
-        {
-            DPRINT1("Cannot allocate memory for quoted command line\n");
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto Cleanup;
-        }
                                         
         /* Copy the first quote */
         wcscpy(QuotedCmdLine, L"\"");
@@ -1232,14 +1199,9 @@ GetAppName:
     {
         if (QuotedCmdLine == NULL)
         {
-            QuotedCmdLine = RtlAllocateHeap(RtlGetProcessHeap(), 
+            QuotedCmdLine = RtlAllocateHeap(GetProcessHeap(), 
                                             0,
                                             (wcslen(lpCommandLine) + 1) * sizeof(WCHAR));
-            if (QuotedCmdLine == NULL)
-            {
-                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                goto Cleanup;
-            }
             wcscpy(QuotedCmdLine, lpCommandLine);
         }
 
@@ -1265,7 +1227,7 @@ GetAppName:
     if(lpEnvironment && !(dwCreationFlags & CREATE_UNICODE_ENVIRONMENT))
     {
         lpEnvironment = BasepConvertUnicodeEnvironment(&EnvSize, lpEnvironment);
-        if (!lpEnvironment) goto Cleanup;
+        if (!lpEnvironment) return FALSE;
     }
 
     /* Create Process Environment */
@@ -1292,7 +1254,7 @@ GetAppName:
     {
         DPRINT1("Could not initialize Process Environment\n");
         SetLastErrorByStatus(Status);
-        goto Cleanup;
+        return FALSE;
     }
     
     /* Close the section */
@@ -1314,7 +1276,7 @@ GetAppName:
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("Failed to read memory\n");
-            goto Cleanup;
+            return FALSE;
         }
         
         /* Duplicate and write the handles */
@@ -1330,7 +1292,7 @@ GetAppName:
     }
         
     /* Create the first thread */
-    DPRINT("Creating thread for process (EntryPoint = 0x%p)\n",
+    DPRINT("Creating thread for process (EntryPoint = 0x%.08x)\n",
             SectionImageInfo.TransferAddress);
     hThread = BasepCreateFirstThread(hProcess,
                                      lpThreadAttributes,
@@ -1340,10 +1302,10 @@ GetAppName:
     if (hThread == NULL)
     {
         DPRINT1("Could not create Initial Thread\n");
-        /* FIXME - set last error code */
-        goto Cleanup;
+        return FALSE;
     }
 
+    
     /* Notify CSRSS */
     Status = BasepNotifyCsrOfCreation(dwCreationFlags,
                                       (HANDLE)ProcessBasicInfo.UniqueProcessId,
@@ -1353,7 +1315,7 @@ GetAppName:
     {
         DPRINT1("CSR Notification Failed");
         SetLastErrorByStatus(Status);
-        goto Cleanup;
+        return FALSE;
     }
     
     if (!(dwCreationFlags & CREATE_SUSPENDED))
@@ -1366,18 +1328,16 @@ GetAppName:
     lpProcessInformation->dwThreadId = (DWORD)ClientId.UniqueThread;
     lpProcessInformation->hProcess = hProcess;
     lpProcessInformation->hThread = hThread;
-    DPRINT("hThread[%p]: %p inside hProcess[%p]: %p\n", hThread,
+    DPRINT("hThread[%lx]: %lx inside hProcess[%lx]: %lx\n", hThread,
             ClientId.UniqueThread, ClientId.UniqueProcess, hProcess);
     hProcess = hThread = NULL;
-    Ret = TRUE;
-
-Cleanup:
+            
     /* De-allocate heap strings */
-    if (NameBuffer) RtlFreeHeap(RtlGetProcessHeap(), 0, NameBuffer);
+    if (NameBuffer) RtlFreeHeap(GetProcessHeap(), 0, NameBuffer);
     if (ApplicationName.Buffer)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, ApplicationName.Buffer);
-    if (CurrentDirectory) RtlFreeHeap(RtlGetProcessHeap(), 0, CurrentDirectory);
-    if (QuotedCmdLine) RtlFreeHeap(RtlGetProcessHeap(), 0, QuotedCmdLine);
+        RtlFreeHeap(GetProcessHeap(), 0, ApplicationName.Buffer);
+    if (CurrentDirectory) RtlFreeHeap(GetProcessHeap(), 0, CurrentDirectory);
+    if (QuotedCmdLine) RtlFreeHeap(GetProcessHeap(), 0, QuotedCmdLine);
 
     /* Kill any handles still alive */
     if (hSection) NtClose(hSection);
@@ -1390,7 +1350,7 @@ Cleanup:
     if (hProcess) NtClose(hProcess);
 
     /* Return Success */
-    return Ret;
+    return TRUE;
 }
 
 /*
@@ -1538,9 +1498,9 @@ CreateProcessInternalA(HANDLE hToken,
     RtlFreeUnicodeString(&ApplicationName);
     RtlFreeUnicodeString(&LiveCommandLine);
     RtlFreeUnicodeString(&CurrentDirectory);
-    RtlFreeHeap(RtlGetProcessHeap(), 0, StartupInfo.lpDesktop);
-    RtlFreeHeap(RtlGetProcessHeap(), 0, StartupInfo.lpReserved);
-    RtlFreeHeap(RtlGetProcessHeap(), 0, StartupInfo.lpTitle);
+    RtlFreeHeap(GetProcessHeap(), 0, StartupInfo.lpDesktop);
+    RtlFreeHeap(GetProcessHeap(), 0, StartupInfo.lpReserved);
+    RtlFreeHeap(GetProcessHeap(), 0, StartupInfo.lpTitle);
 
     /* Return what Unicode did */
     return bRetVal;
