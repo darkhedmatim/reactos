@@ -15,16 +15,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 Define::Define ( const Project& project,
-                 const XMLElement& defineNode )
+				 const XMLNode& defineNode )
 	: project(project),
 	  module(NULL),
 	  node(defineNode)
@@ -33,8 +36,8 @@ Define::Define ( const Project& project,
 }
 
 Define::Define ( const Project& project,
-	             const Module* module,
-                 const XMLElement& defineNode )
+				 const Module* module,
+				 const XMLNode& defineNode )
 	: project(project),
 	  module(module),
 	  node(defineNode)
@@ -49,12 +52,12 @@ Define::~Define ()
 void
 Define::Initialize()
 {
-	const XMLAttribute* att = node.GetAttribute ( "name", true );
-	const XMLAttribute* empty = node.GetAttribute ( "empty", false );
-	assert(att);
-	name = att->value;
-	value = node.value;
-	if( empty ) value = " ";
+	name = node.get("name");
+
+	if (!node.get("empty").empty())
+		value = " ";
+	else
+		value = node.get_content();
 }
 
 void

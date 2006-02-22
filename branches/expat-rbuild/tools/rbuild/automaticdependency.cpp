@@ -15,7 +15,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
@@ -28,10 +30,10 @@ using std::vector;
 using std::map;
 
 SourceFile::SourceFile ( AutomaticDependency* automaticDependency,
-                         const Module& module,
-                         const string& filename,
-                         SourceFile* parent,
-                         bool isNonAutomaticDependency )
+						 const Module& module,
+						 const string& filename,
+						 SourceFile* parent,
+						 bool isNonAutomaticDependency )
 	: automaticDependency ( automaticDependency ),
 	  module ( module ),
 	  filename ( filename ),
@@ -62,7 +64,7 @@ SourceFile::GetDirectoryAndFilenameParts ()
 void
 SourceFile::Close ()
 {
-	buf.resize ( 0 );
+	buf.erase();
 	p = end = NULL;
 }
 
@@ -76,7 +78,7 @@ SourceFile::Open ()
 	if ( !f )
 		throw FileNotFoundException ( filename );
 
-	if ( fstat ( fileno ( f ), &statbuf ) != 0 )
+	if ( fstat ( _fileno ( f ), &statbuf ) != 0 )
 	{
 		fclose ( f );
 		throw AccessDeniedException ( filename );
@@ -102,8 +104,8 @@ SourceFile::SkipWhitespace ()
 
 bool
 SourceFile::ReadInclude ( string& filename,
-                          bool& searchCurrentDirectory,
-                          bool& includeNext)
+						  bool& searchCurrentDirectory,
+						  bool& includeNext)
 {
 	while ( p < end )
 	{
@@ -120,14 +122,14 @@ SourceFile::ReadInclude ( string& filename,
 					includeNext = false;
 					include = true;
 				}
-			        if ( strncmp ( p, "include_next ", 13 ) == 0 )
-			        {
+					if ( strncmp ( p, "include_next ", 13 ) == 0 )
+					{
 					p += 13;
 					includeNext = true;
-		        		include = true;
-			        }
-	
-	       			if ( include )
+						include = true;
+					}
+
+					if ( include )
 				{
 					SkipWhitespace ();
 					if ( p < end )
@@ -164,7 +166,7 @@ SourceFile::ReadInclude ( string& filename,
 
 bool
 SourceFile::IsParentOf ( const SourceFile* parent,
-                         const SourceFile* child )
+						 const SourceFile* child )
 {
 	size_t i;
 	for ( i = 0; i < child->parents.size (); i++ )
@@ -180,7 +182,7 @@ SourceFile::IsParentOf ( const SourceFile* parent,
 		if ( child->parents[i] != NULL )
 		{
 			if ( IsParentOf ( parent,
-			                  child->parents[i] ) )
+							  child->parents[i] ) )
 				return true;
 		}
 	}
@@ -192,13 +194,13 @@ SourceFile::IsIncludedFrom ( const string& normalizedFilename )
 {
 	if ( normalizedFilename == filename )
 		return true;
-	
+
 	SourceFile* sourceFile = automaticDependency->RetrieveFromCache ( normalizedFilename );
 	if ( sourceFile == NULL )
 		return false;
 
 	return IsParentOf ( sourceFile,
-	                    this );
+						this );
 }
 
 SourceFile*
@@ -233,10 +235,10 @@ SourceFile::ParseFile ( const string& normalizedFilename )
 	{
 		if ( IsIncludedFrom ( normalizedFilename ) )
 			return NULL;
-		
+
 		SourceFile* sourceFile = automaticDependency->RetrieveFromCacheOrParse ( module,
-		                                                                         normalizedFilename,
-		                                                                         GetParentSourceFile () );
+																				 normalizedFilename,
+																				 GetParentSourceFile () );
 		return sourceFile;
 	}
 	return NULL;
@@ -249,20 +251,20 @@ SourceFile::Parse ()
 	while ( p < end )
 	{
 		string includedFilename ( "" );
-		
+
 		bool searchCurrentDirectory;
 		bool includeNext;
 		while ( ReadInclude ( includedFilename,
-		                      searchCurrentDirectory,
-		                      includeNext ) )
+							  searchCurrentDirectory,
+							  includeNext ) )
 		{
 			string resolvedFilename ( "" );
 			bool locatedFile = automaticDependency->LocateIncludedFile ( this,
-			                                                             module,
-			                                                             includedFilename,
-			                                                             searchCurrentDirectory,
-			                                                             includeNext,
-			                                                             resolvedFilename );
+																		 module,
+																		 includedFilename,
+																		 searchCurrentDirectory,
+																		 includeNext,
+																		 resolvedFilename );
 			if ( locatedFile )
 			{
 				SourceFile* sourceFile = ParseFile ( resolvedFilename );
@@ -286,8 +288,8 @@ SourceFile::Location () const
 		end_of_line = strchr ( end_of_line + 1, '\n' );
 	}
 	return ssprintf ( "%s(%i)",
-	                  filename.c_str (),
-	                  line );
+					  filename.c_str (),
+					  line );
 }
 
 
@@ -312,7 +314,7 @@ AutomaticDependency::ParseFiles ()
 
 void
 AutomaticDependency::GetModuleFiles ( const Module& module,
-                                      vector<File*>& files ) const
+									  vector<File*>& files ) const
 {
 	for ( size_t i = 0; i < module.non_if_data.files.size (); i++ )
 		files.push_back ( module.non_if_data.files[i] );
@@ -334,18 +336,18 @@ AutomaticDependency::ParseFiles ( const Module& module )
 
 void
 AutomaticDependency::ParseFile ( const Module& module,
-                                 const File& file )
+								 const File& file )
 {
 	string normalizedFilename = NormalizeFilename ( file.name );
 	RetrieveFromCacheOrParse ( module,
-	                           normalizedFilename,
-	                           NULL );
+							   normalizedFilename,
+							   NULL );
 }
 
 bool
 AutomaticDependency::LocateIncludedFile ( const string& directory,
-                                          const string& includedFilename,
-                                          string& resolvedFilename )
+										  const string& includedFilename,
+										  string& resolvedFilename )
 {
 	string normalizedFilename = NormalizeFilename ( directory + sSep + includedFilename );
 	FILE* f = fopen ( normalizedFilename.c_str (), "rb" );
@@ -367,14 +369,14 @@ AutomaticDependency::GetFilename ( const string& filename )
 		return filename;
 	else
 		return filename.substr ( index + 1,
-		                         filename.length () - index - 1);
+								 filename.length () - index - 1);
 }
 
 void
 AutomaticDependency::GetIncludeDirectories ( vector<Include*>& includes,
-                                             const Module& module,
-                                             Include& currentDirectory,
-                                             bool searchCurrentDirectory )
+											 const Module& module,
+											 Include& currentDirectory,
+											 bool searchCurrentDirectory )
 {
 	size_t i;
 	if ( searchCurrentDirectory )
@@ -387,11 +389,11 @@ AutomaticDependency::GetIncludeDirectories ( vector<Include*>& includes,
 
 bool
 AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
-                                          const Module& module,
-                                          const string& includedFilename,
-                                          bool searchCurrentDirectory,
-                                          bool includeNext,
-                                          string& resolvedFilename )
+										  const Module& module,
+										  const string& includedFilename,
+										  bool searchCurrentDirectory,
+										  bool includeNext,
+										  string& resolvedFilename )
 {
 	vector<Include*> includes;
 	Include currentDirectory ( module.project, ".", sourceFile->directoryPart );
@@ -400,11 +402,11 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
 	{
 		Include& include = *includes[j];
 		if ( LocateIncludedFile ( include.directory,
-		                          includedFilename,
-		                          resolvedFilename ) )
+								  includedFilename,
+								  resolvedFilename ) )
 		{
-			if ( includeNext && stricmp ( resolvedFilename.c_str (),
-			                              sourceFile->filename.c_str () ) == 0 )
+			if ( includeNext && _stricmp ( resolvedFilename.c_str (),
+										  sourceFile->filename.c_str () ) == 0 )
 				continue;
 			return true;
 		}
@@ -415,17 +417,17 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
 
 SourceFile*
 AutomaticDependency::RetrieveFromCacheOrParse ( const Module& module,
-                                                const string& filename,
-                                                SourceFile* parentSourceFile )
+												const string& filename,
+												SourceFile* parentSourceFile )
 {
 	SourceFile* sourceFile = sourcefile_map[filename];
 	if ( sourceFile == NULL )
 	{
 		sourceFile = new SourceFile ( this,
-		                              module,
-		                              filename,
-		                              parentSourceFile,
-		                              false );
+									  module,
+									  filename,
+									  parentSourceFile,
+									  false );
 		sourcefile_map[filename] = sourceFile;
 		sourceFile->Parse ();
 	}
@@ -468,7 +470,7 @@ AutomaticDependency::GetModulesToCheck ( Module& module, vector<const Module*>& 
 
 void
 AutomaticDependency::CheckAutomaticDependenciesForModule ( Module& module,
-                                                           bool verbose )
+														   bool verbose )
 {
 	size_t mi;
 	vector<const Module*> modules;
@@ -481,7 +483,7 @@ AutomaticDependency::CheckAutomaticDependenciesForModule ( Module& module,
 
 void
 AutomaticDependency::CheckAutomaticDependencies ( const Module& module,
-                                                  bool verbose )
+												  bool verbose )
 {
 	struct utimbuf timebuf;
 	vector<File*> files;
@@ -501,13 +503,13 @@ AutomaticDependency::CheckAutomaticDependencies ( const Module& module,
 				if ( verbose )
 				{
 					printf ( "Marking %s for rebuild due to younger file %s\n",
-					         sourceFile->filename.c_str (),
-					         sourceFile->youngestFile->filename.c_str () );
+							 sourceFile->filename.c_str (),
+							 sourceFile->youngestFile->filename.c_str () );
 				}
 				timebuf.actime = sourceFile->youngestLastWriteTime;
 				timebuf.modtime = sourceFile->youngestLastWriteTime;
 				utime ( sourceFile->filename.c_str (),
-				        &timebuf );
+						&timebuf );
 			}
 		}
 	}
@@ -529,10 +531,10 @@ AutomaticDependency::CheckAutomaticDependenciesForFile ( SourceFile* sourceFile 
 	for ( size_t i = 0; i < sourceFile->files.size (); i++ )
 	{
 		SourceFile* childSourceFile = sourceFile->files[i];
-		
+
 		CheckAutomaticDependenciesForFile ( childSourceFile );
 		if ( ( childSourceFile->youngestLastWriteTime > sourceFile->youngestLastWriteTime ) ||
-		     ( childSourceFile->lastWriteTime > sourceFile->youngestLastWriteTime ) )
+			 ( childSourceFile->lastWriteTime > sourceFile->youngestLastWriteTime ) )
 		{
 			if ( childSourceFile->youngestLastWriteTime > childSourceFile->lastWriteTime )
 			{

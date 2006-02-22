@@ -15,6 +15,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
+#include "pch.h"
+
 #include "rbuild.h"
 
 using std::string;
@@ -31,40 +34,40 @@ char cBadSep;
 void
 InitializeEnvironment ()
 {
-        char *SepValue, *ExePostfixValue, *ExePrefixValue;;
+		char *SepValue, *ExePostfixValue, *ExePrefixValue;;
 
-        SepValue = getenv ( "SEP" );
-        if ( SepValue && ( 0 == strcmp ( SepValue, DEF_SSEP ) || 0 == strcmp ( SepValue, DEF_SBAD_SEP ) ) )
-        {
-            cSep = SepValue[0];
-            sSep = SepValue;
-        }
-        else
-        {
-            cSep = DEF_CSEP;
-            sSep = DEF_SSEP;
-        }
-        if ( cSep == DEF_CSEP )
-        {
-            cBadSep = DEF_CBAD_SEP;
-            sBadSep = DEF_SBAD_SEP;
-        }
-        else
-        {
-            cBadSep = DEF_CSEP;
-            sBadSep = DEF_SSEP;
-        }
-        ExePostfixValue = getenv ( "EXEPOSTFIX" );
-        ExePrefixValue = getenv ( "EXEPREFIX" );
-        if ( ( ExePostfixValue == NULL || 0 == strlen ( ExePostfixValue ) ) &&
-             ( ExePrefixValue == NULL || 0 == strlen ( ExePrefixValue ) ) )
-        {
-            ExePostfix = DEF_EXEPOSTFIX;
-            ExePrefix = DEF_EXEPREFIX;
-        }
-        else
-        {
-            ExePostfix = ExePostfixValue ? ExePostfixValue : "";
-            ExePrefix = ExePrefixValue ? ExePrefixValue : "";
-        }
+		SepValue = getenv ( "SEP" );
+		if ( SepValue && ( 0 == strcmp ( SepValue, DEF_SSEP ) || 0 == strcmp ( SepValue, DEF_SBAD_SEP ) ) )
+		{
+			cSep = SepValue[0];
+			sSep = SepValue;
+		}
+		else
+		{
+			cSep = DEF_CSEP;
+			sSep = DEF_SSEP;
+		}
+		if ( cSep == DEF_CSEP )
+		{
+			cBadSep = DEF_CBAD_SEP;
+			sBadSep = DEF_SBAD_SEP;
+		}
+		else
+		{
+			cBadSep = DEF_CSEP;
+			sBadSep = DEF_SSEP;
+		}
+		ExePostfixValue = getenv ( "EXEPOSTFIX" );
+		ExePrefixValue = getenv ( "EXEPREFIX" );
+		if ( ( ExePostfixValue == NULL || 0 == strlen ( ExePostfixValue ) ) &&
+			 ( ExePrefixValue == NULL || 0 == strlen ( ExePrefixValue ) ) )
+		{
+			ExePostfix = DEF_EXEPOSTFIX;
+			ExePrefix = DEF_EXEPREFIX;
+		}
+		else
+		{
+			ExePostfix = ExePostfixValue ? ExePostfixValue : "";
+			ExePrefix = ExePrefixValue ? ExePrefixValue : "";
+		}
 }

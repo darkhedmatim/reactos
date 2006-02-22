@@ -24,7 +24,7 @@ using std::string;
 using std::vector;
 
 WineResource::WineResource ( const Project& project,
-                             string bin2res )
+							 string bin2res )
 	: project ( project ),
 	  bin2res ( bin2res )
 {
@@ -84,14 +84,14 @@ WineResource::UnpackResources ( bool verbose )
 		if ( IsWineModule ( *project.modules[i] ) )
 		{
 			UnpackResourcesInModule ( *project.modules[i],
-			                          verbose );
+									  verbose );
 		}
 	}
 }
 
 void
 WineResource::UnpackResourcesInModule ( Module& module,
-                                        bool verbose )
+										bool verbose )
 {
 	string resourceFilename = GetResourceFilename ( module );
 	if ( resourceFilename.length () == 0 )
@@ -100,18 +100,18 @@ WineResource::UnpackResourcesInModule ( Module& module,
 	if ( verbose )
 	{
 		printf ( "\nUnpacking resources for %s",
-		         module.name.c_str () );
+				 module.name.c_str () );
 	}
 
 	string outputDirectory = module.GetBasePath ();
-	    string parameters = ssprintf ( "-b %s -f -x %s",
-	                               NormalizeFilename ( outputDirectory ).c_str (),
-	                               NormalizeFilename ( resourceFilename ).c_str () );
+		string parameters = ssprintf ( "-b %s -f -x %s",
+								   NormalizeFilename ( outputDirectory ).c_str (),
+								   NormalizeFilename ( resourceFilename ).c_str () );
 	string command = FixSeparatorForSystemCommand(bin2res) + " " + parameters;
 	int exitcode = system ( command.c_str () );
 	if ( exitcode != 0 )
 	{
 		throw InvocationFailedException ( command,
-		                                  exitcode );
+										  exitcode );
 	}
 }

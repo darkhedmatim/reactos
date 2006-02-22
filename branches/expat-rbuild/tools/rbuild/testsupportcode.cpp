@@ -46,19 +46,19 @@ TestSupportCode::GenerateTestSupportCode ( bool verbose )
 		if ( IsTestModule ( *project.modules[i] ) )
 		{
 			GenerateTestSupportCodeForModule ( *project.modules[i],
-			                                   verbose );
+											   verbose );
 		}
 	}
 }
 
 void
 TestSupportCode::GenerateTestSupportCodeForModule ( Module& module,
-                                                    bool verbose )
+													bool verbose )
 {
 	if ( verbose )
 	{
 		printf ( "\nGenerating test support code for %s",
-		         module.name.c_str () );
+				 module.name.c_str () );
 	}
 
 	WriteHooksFile ( module );
@@ -74,24 +74,24 @@ TestSupportCode::GetHooksFilename ( Module& module )
 
 char*
 TestSupportCode::WriteStubbedSymbolToHooksFile ( char* buffer,
-                                                 const StubbedComponent& component,
-	                                         const StubbedSymbol& symbol )
+												 const StubbedComponent& component,
+											 const StubbedSymbol& symbol )
 {
 	buffer = buffer + sprintf ( buffer,
-	                            "  {\"%s\", \"%s\", NULL, NULL, NULL},\n",
-	                            component.name.c_str (),
-	                            symbol.newname.c_str () );
+								"  {\"%s\", \"%s\", NULL, NULL, NULL},\n",
+								component.name.c_str (),
+								symbol.newname.c_str () );
 	return buffer;
 }
 
 char*
 TestSupportCode::WriteStubbedComponentToHooksFile ( char* buffer,
-                                                    const StubbedComponent& component )
+													const StubbedComponent& component )
 {
 	for ( size_t i = 0; i < component.symbols.size () ; i++ )
 		buffer = WriteStubbedSymbolToHooksFile ( buffer,
-		                                         component,
-		                                         *component.symbols[i] );
+												 component,
+												 *component.symbols[i] );
 	return buffer;
 }
 
@@ -117,7 +117,7 @@ TestSupportCode::WriteHooksFile ( Module& module )
 	for ( size_t i = 0; i < module.stubbedComponents.size () ; i++ )
 	{
 		s = WriteStubbedComponentToHooksFile ( s,
-		                                       *module.stubbedComponents[i] );
+											   *module.stubbedComponents[i] );
 		symbolCount += module.stubbedComponents[i]->symbols.size ();
 	}
 	
@@ -164,50 +164,50 @@ GetIndirectCallTargetSymbol ( const StubbedSymbol& symbol )
 
 char*
 TestSupportCode::WriteStubbedSymbolToStubsFile ( char* buffer,
-                                                 const StubbedComponent& component,
-                                                 const StubbedSymbol& symbol,
-                                                 int stubIndex )
+												 const StubbedComponent& component,
+												 const StubbedSymbol& symbol,
+												 int stubIndex )
 {
 	string linkerSymbol = GetLinkerSymbol ( symbol );
 	string linkerImportSymbol = GetLinkerImportSymbol ( symbol );
 	string indirectCallTargetSymbol = GetIndirectCallTargetSymbol ( symbol );
 	buffer = buffer + sprintf ( buffer,
-	                            ".globl %s\n",
-	                            linkerSymbol.c_str () );
+								".globl %s\n",
+								linkerSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            ".globl %s\n",
-	                            linkerImportSymbol.c_str () );
+								".globl %s\n",
+								linkerImportSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            "%s:\n",
-	                            linkerSymbol.c_str () );
+								"%s:\n",
+								linkerSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            "%s:\n",
-	                            linkerImportSymbol.c_str () );
+								"%s:\n",
+								linkerImportSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            "  .long %s\n",
-	                            indirectCallTargetSymbol.c_str () );
+								"  .long %s\n",
+								indirectCallTargetSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            "%s:\n",
-	                            indirectCallTargetSymbol.c_str () );
+								"%s:\n",
+								indirectCallTargetSymbol.c_str () );
 	buffer = buffer + sprintf ( buffer,
-	                            "  pushl $%d\n",
-	                            stubIndex );
+								"  pushl $%d\n",
+								stubIndex );
 	buffer = buffer + sprintf ( buffer,
-	                            "  jmp passthrough\n" );
+								"  jmp passthrough\n" );
 	buffer = buffer + sprintf ( buffer, "\n" );
 	return buffer;
 }
 
 char*
 TestSupportCode::WriteStubbedComponentToStubsFile ( char* buffer,
-                                                    const StubbedComponent& component,
-                                                    int* stubIndex )
+													const StubbedComponent& component,
+													int* stubIndex )
 {
 	for ( size_t i = 0; i < component.symbols.size () ; i++ )
 		buffer = WriteStubbedSymbolToStubsFile ( buffer,
-		                                         component,
-		                                         *component.symbols[i],
-		                                         (*stubIndex)++ );
+												 component,
+												 *component.symbols[i],
+												 (*stubIndex)++ );
 	return buffer;
 }
 
@@ -237,8 +237,8 @@ TestSupportCode::WriteStubsFile ( Module& module )
 	for ( size_t i = 0; i < module.stubbedComponents.size () ; i++ )
 	{
 		s = WriteStubbedComponentToStubsFile ( s,
-		                                       *module.stubbedComponents[i],
-		                                       &stubIndex );
+											   *module.stubbedComponents[i],
+											   &stubIndex );
 	}
 	
 	FileSupportCode::WriteIfChanged ( buf, GetStubsFilename ( module ) );
@@ -283,14 +283,14 @@ TestSupportCode::GetTestDispatcherName ( string filename )
 bool
 TestSupportCode::IsTestFile ( string& filename ) const
 {
-	if ( stricmp ( GetFilename ( filename ).c_str (), "setup.c" ) == 0 )
+	if ( _stricmp ( GetFilename ( filename ).c_str (), "setup.c" ) == 0 )
 		return false;
 	return true;
 }
 
 void
 TestSupportCode::GetSourceFilenames ( string_list& list,
-                                      Module& module ) const
+									  Module& module ) const
 {
 	size_t i;
 
@@ -327,16 +327,16 @@ TestSupportCode::GetSourceFilenames ( string_list& list,
 
 char*
 TestSupportCode::WriteTestDispatcherPrototypesToStartupFile ( char* buffer,
-                                                              Module& module )
+															  Module& module )
 {
 	string_list files;
 	GetSourceFilenames ( files,
-	                     module );
+						 module );
 	for ( size_t i = 0; i < files.size (); i++ )
 	{
 		buffer = buffer + sprintf ( buffer,
-	                                    "extern void %s(int Command, char *Buffer);\n",
-		                            GetTestDispatcherName ( files[i] ).c_str () );
+										"extern void %s(int Command, char *Buffer);\n",
+									GetTestDispatcherName ( files[i] ).c_str () );
 	}
 	buffer = buffer + sprintf ( buffer, "\n" );
 	return buffer;
@@ -344,31 +344,31 @@ TestSupportCode::WriteTestDispatcherPrototypesToStartupFile ( char* buffer,
 
 char*
 TestSupportCode::WriteRegisterTestsFunctionToStartupFile ( char* buffer,
-                                                           Module& module )
+														   Module& module )
 {
 	buffer = buffer + sprintf ( buffer,
-	                            "extern void AddTest(TestRoutine Routine);\n" );
+								"extern void AddTest(TestRoutine Routine);\n" );
 	buffer = buffer + sprintf ( buffer,
-	                            "\n" );
+								"\n" );
 
 	buffer = buffer + sprintf ( buffer,
-	                            "void\n" );
+								"void\n" );
 	buffer = buffer + sprintf ( buffer,
-	                            "RegisterTests()\n" );
+								"RegisterTests()\n" );
 	buffer = buffer + sprintf ( buffer,
-	                            "{\n" );
+								"{\n" );
 
 	string_list files;
 	GetSourceFilenames ( files,
-	                     module );
+						 module );
 	for ( size_t i = 0; i < files.size (); i++ )
 	{
 		buffer = buffer + sprintf ( buffer,
-		                            "AddTest((TestRoutine)%s);\n",
-		                            GetTestDispatcherName ( files[i]).c_str () );
+									"AddTest((TestRoutine)%s);\n",
+									GetTestDispatcherName ( files[i]).c_str () );
 	}
 	buffer = buffer + sprintf ( buffer,
-	                            "}\n" );
+								"}\n" );
 	buffer = buffer + sprintf ( buffer, "\n" );
 	return buffer;
 }
@@ -390,9 +390,9 @@ TestSupportCode::WriteStartupFile ( Module& module )
 	s = s + sprintf ( s, "#include \"regtests.h\"\n" );
 	s = s + sprintf ( s, "\n" );
 	s = WriteTestDispatcherPrototypesToStartupFile ( s,
-	                                                 module );
+													 module );
 	s = WriteRegisterTestsFunctionToStartupFile ( s,
-	                                              module );
+												  module );
 	s = s + sprintf ( s, "\n" );
 	s = s + sprintf ( s, "void\n" );
 	s = s + sprintf ( s, "ConsoleWrite(char *Buffer)\n" );
@@ -409,7 +409,7 @@ TestSupportCode::WriteStartupFile ( Module& module )
 	s = s + sprintf ( s, "{\n" );
 	s = s + sprintf ( s, "  _SetPriorityClass(_GetCurrentProcess(), HIGH_PRIORITY_CLASS);\n" );
 	s = s + sprintf ( s, "  _SetThreadPriority(_GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);\n" );
-    	s = s + sprintf ( s, "  InitializeTests();\n" );
+		s = s + sprintf ( s, "  InitializeTests();\n" );
 	s = s + sprintf ( s, "  RegisterTests();\n" );
 	s = s + sprintf ( s, "  SetupOnce();\n" );
 	s = s + sprintf ( s, "  PerformTests(ConsoleWrite, NULL);\n" );

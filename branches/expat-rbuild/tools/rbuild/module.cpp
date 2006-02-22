@@ -15,13 +15,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using namespace XMLStorage;
 
 string
 Right ( const string& s, size_t n )
@@ -53,8 +56,8 @@ Replace ( const string& s, const string& find, const string& with )
 
 string
 ChangeSeparator ( const string& s,
-                  const char fromSeparator,
-                  const char toSeparator )
+				  const char fromSeparator,
+				  const char toSeparator )
 {
 	string s2(s);
 	char* p = strchr ( &s2[0], fromSeparator );
@@ -118,7 +121,7 @@ ReplaceExtension (
 
 string
 GetSubPath (
-	const string& location,
+	const XMLLocation& location,
 	const string& path,
 	const string& att_value )
 {
@@ -142,7 +145,7 @@ GetExtension ( const string& filename )
 	if (index == string::npos) index = 0;
 	string tmp = filename.substr( index, filename.size() - index );
 	size_t ext_index = tmp.find_last_of( '.' );
-	if (ext_index != string::npos) 
+	if (ext_index != string::npos)
 		return filename.substr ( index + ext_index, filename.size() );
 	return "";
 }
@@ -243,8 +246,8 @@ void IfableData::ProcessXML ()
 }
 
 Module::Module ( const Project& project,
-                 const XMLElement& moduleNode,
-                 const string& modulePath )
+				 const XMLNode& moduleNode,
+				 const string& modulePath )
 	: project (project),
 	  node (moduleNode),
 	  importLibrary (NULL),
@@ -255,154 +258,63 @@ Module::Module ( const Project& project,
 	  cplusplus (false),
 	  host (HostDefault)
 {
-	if ( node.name != "module" )
+	if ( node != "module" )
 		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "Module created with non-<module> node" );
+										  __LINE__,
+										  "Module created with non-<module> node" );
 
-	xmlbuildFile = Path::RelativeFromWorkingDirectory ( moduleNode.xmlFile->filename () );
+	xmlbuildFile = Path::RelativeFromWorkingDirectory ( modulePath/*@@ moduleNode.xmlFile->filename ()*/ );
 
 	path = FixSeparator ( modulePath );
 
-	enabled = true;
+	enabled = XMLBool(&moduleNode, "if", true);
+	enabled = !XMLBool(&moduleNode, "ifnot", !enabled);
 
-	const XMLAttribute* att = moduleNode.GetAttribute ( "if", false );
-	if ( att != NULL )
-		enabled = GetBooleanValue ( project.ResolveProperties ( att->value ) );
+	name = moduleNode.get("name");
 
-	att = moduleNode.GetAttribute ( "ifnot", false );
-	if ( att != NULL )
-		enabled = !GetBooleanValue ( project.ResolveProperties ( att->value ) );
+	type = GetModuleType(node.get_location(), "type", moduleNode.get("type"));
 
-	att = moduleNode.GetAttribute ( "name", true );
-	assert(att);
-	name = att->value;
-
-	att = moduleNode.GetAttribute ( "type", true );
-	assert(att);
-	type = GetModuleType ( node.location, *att );
-
-	att = moduleNode.GetAttribute ( "extension", false );
-	if ( att != NULL )
-		extension = att->value;
-	else
+	extension = moduleNode.get("extension");
+	if (extension.empty())
 		extension = GetDefaultModuleExtension ();
 
-	att = moduleNode.GetAttribute ( "unicode", false );
-	if ( att != NULL )
+	isUnicode = XMLBool(&moduleNode, "unicode", false);
+
+	entrypoint = moduleNode.get("entrypoint");
+	if (entrypoint.empty())
+		entrypoint = GetDefaultModuleEntrypoint();
+
+	baseaddress = moduleNode.get("baseaddress");
+	if (baseaddress.empty())
+		baseaddress = GetDefaultModuleBaseaddress();
+
+	mangledSymbols = XMLBool(&moduleNode, "mangledsymbols", false);
+
+	const string& host_str = moduleNode.get("host");
+	if (!host_str.empty())
+		host = XMLBool(host_str.c_str())? HostTrue: HostFalse;
+
+	prefix = moduleNode.get("prefix");
+
+	installBase = moduleNode.get("installbase");
+
+	installName = moduleNode.get("installname");
+
+	useWRC = XMLBool(&moduleNode, "usewrc", true);	// default: usewrc="true"
+
+	const string& warnings = moduleNode.get("warnings");
+	if (!warnings.empty())
 	{
-		const char* p = att->value.c_str();
-		if ( !stricmp ( p, "true" ) || !stricmp ( p, "yes" ) )
-			isUnicode = true;
-		else if ( !stricmp ( p, "false" ) || !stricmp ( p, "no" ) )
-			isUnicode = false;
-		else
-		{
-			throw InvalidAttributeValueException (
-				moduleNode.location,
-				"unicode",
-				att->value );
-		}
-	}
-	else
-		isUnicode = false;
-
-	att = moduleNode.GetAttribute ( "entrypoint", false );
-	if ( att != NULL )
-		entrypoint = att->value;
-	else
-		entrypoint = GetDefaultModuleEntrypoint ();
-
-	att = moduleNode.GetAttribute ( "baseaddress", false );
-	if ( att != NULL )
-		baseaddress = att->value;
-	else
-		baseaddress = GetDefaultModuleBaseaddress ();
-
-	att = moduleNode.GetAttribute ( "mangledsymbols", false );
-	if ( att != NULL )
-	{
-		const char* p = att->value.c_str();
-		if ( !stricmp ( p, "true" ) || !stricmp ( p, "yes" ) )
-			mangledSymbols = true;
-		else if ( !stricmp ( p, "false" ) || !stricmp ( p, "no" ) )
-			mangledSymbols = false;
-		else
-		{
-			throw InvalidAttributeValueException (
-				moduleNode.location,
-				"mangledsymbols",
-				att->value );
-		}
-	}
-	else
-		mangledSymbols = false;
-
-	att = moduleNode.GetAttribute ( "host", false );
-	if ( att != NULL )
-	{
-		const char* p = att->value.c_str();
-		if ( !stricmp ( p, "true" ) || !stricmp ( p, "yes" ) )
-			host = HostTrue;
-		else if ( !stricmp ( p, "false" ) || !stricmp ( p, "no" ) )
-			host = HostFalse;
-		else
-		{
-			throw InvalidAttributeValueException (
-				moduleNode.location,
-				"host",
-				att->value );
-		}
+		printf ( "%s: WARNING: 'warnings' attribute of <module> is deprecated, use 'allowwarnings' instead\n",
+			moduleNode.get_location().str().c_str() );
 	}
 
-	att = moduleNode.GetAttribute ( "prefix", false );
-	if ( att != NULL )
-		prefix = att->value;
+	allowWarnings = XMLBool(&moduleNode, "allowwarnings");
 
-	att = moduleNode.GetAttribute ( "installbase", false );
-	if ( att != NULL )
-		installBase = att->value;
-	else
-		installBase = "";
-
-	att = moduleNode.GetAttribute ( "installname", false );
-	if ( att != NULL )
-		installName = att->value;
-	else
-		installName = "";
-	
-	att = moduleNode.GetAttribute ( "usewrc", false );
-	if ( att != NULL )
-		useWRC = att->value == "true";
-	else
-		useWRC = true;
-
-	att = moduleNode.GetAttribute ( "allowwarnings", false );
-	if ( att == NULL )
-	{
-		att = moduleNode.GetAttribute ( "warnings", false );
-		if ( att != NULL )
-		{
-			printf ( "%s: WARNING: 'warnings' attribute of <module> is deprecated, use 'allowwarnings' instead\n",
-				moduleNode.location.c_str() );
-		}
-	}
-	if ( att != NULL )
-		allowWarnings = att->value == "true";
-	else
-		allowWarnings = false;
-
-	att = moduleNode.GetAttribute ( "aliasof", false );
-	if ( type == Alias && att != NULL )
-		aliasedModuleName = att->value;
-	else
-		aliasedModuleName = "";
+	aliasedModuleName = moduleNode.get("aliasof");
 
 	if ( type == BootProgram )
-	{
-		att = moduleNode.GetAttribute ( "payload", true );
-		payload = att->value;
-	}
+		payload = get_required_attribute(&moduleNode, "payload");
 }
 
 Module::~Module ()
@@ -425,14 +337,16 @@ Module::~Module ()
 }
 
 void
-Module::ProcessXML()
+Module::ProcessXML(const std::string& xml_path)
 {
+	size_t i;
+
 	if ( type == Alias )
 	{
 		if ( aliasedModuleName == name )
 		{
 			throw XMLInvalidBuildFileException (
-				node.location,
+				node.get_location(),
 				"module '%s' cannot link against itself",
 				name.c_str() );
 		}
@@ -440,20 +354,20 @@ Module::ProcessXML()
 		if ( !m )
 		{
 			throw XMLInvalidBuildFileException (
-				node.location,
+				node.get_location(),
 				"module '%s' trying to alias non-existant module '%s'",
 				name.c_str(),
 				aliasedModuleName.c_str() );
 		}
 	}
 
-	size_t i;
-	for ( i = 0; i < node.subElements.size(); i++ )
+	const XMLNode::Children& children = node.get_children();
+	for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
 	{
 		ParseContext parseContext;
-		ProcessXMLSubElement ( *node.subElements[i], path, parseContext );
+		ProcessXMLSubElement (**it, path, parseContext, xml_path);
 	}
-	for ( i = 0; i < invocations.size(); i++ )
+	for (i = 0; i < invocations.size(); i++ )
 		invocations[i]->ProcessXML ();
 	for ( i = 0; i < dependencies.size(); i++ )
 		dependencies[i]->ProcessXML ();
@@ -473,48 +387,34 @@ Module::ProcessXML()
 }
 
 void
-Module::ProcessXMLSubElement ( const XMLElement& e,
-                               const string& path,
-                               ParseContext& parseContext )
+Module::ProcessXMLSubElement ( const XMLNode& e,
+							   const string& path,
+							   ParseContext& parseContext,
+							   const std::string& xml_path )
 {
 	If* pOldIf = parseContext.ifData;
 	CompilationUnit* pOldCompilationUnit = parseContext.compilationUnit;
-	bool subs_invalid = false;
 	string subpath ( path );
-	if ( e.name == "file" && e.value.size () > 0 )
+	if ( e == "file" && !e.get_content().empty() )
 	{
-		bool first = false;
-		const XMLAttribute* att = e.GetAttribute ( "first", false );
-		if ( att != NULL )
-		{
-			if ( !stricmp ( att->value.c_str(), "true" ) )
-				first = true;
-			else if ( stricmp ( att->value.c_str(), "false" ) )
-			{
-				throw XMLInvalidBuildFileException (
-					e.location,
-					"attribute 'first' of <file> element can only be 'true' or 'false'" );
-			}
-		}
-		string switches = "";
-		att = e.GetAttribute ( "switches", false );
-		if ( att != NULL )
-			switches = att->value;
+		bool first = XMLBool(&e, "first");
+		string switches = e.get("switches");
+
 		if ( !cplusplus )
 		{
 			// check for c++ file
-			string ext = GetExtension ( e.value );
-			if ( !stricmp ( ext.c_str(), ".cpp" ) )
+			string ext = GetExtension ( e.get_content() );
+			if ( !_stricmp ( ext.c_str(), ".cpp" ) )
 				cplusplus = true;
-			else if ( !stricmp ( ext.c_str(), ".cc" ) )
+			else if ( !_stricmp ( ext.c_str(), ".cc" ) )
 				cplusplus = true;
-			else if ( !stricmp ( ext.c_str(), ".cxx" ) )
+			else if ( !_stricmp ( ext.c_str(), ".cxx" ) )
 				cplusplus = true;
 		}
-		File* pFile = new File ( FixSeparator ( path + cSep + e.value ),
-		                         first,
-		                         switches,
-		                         false );
+		File* pFile = new File ( FixSeparator ( path + cSep + e.get_content() ),
+								 first,
+								 switches,
+								 false );
 		if ( parseContext.compilationUnit )
 			parseContext.compilationUnit->files.push_back ( pFile );
 		else
@@ -529,158 +429,167 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 			parseContext.ifData->data.files.push_back ( pFile );
 		else
 			non_if_data.files.push_back ( pFile );
-		subs_invalid = true;
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "library" && e.value.size () )
+	else if ( e == "library" && !e.get_content().empty() )
 	{
-		Library* pLibrary = new Library ( e, *this, e.value );
+		Library* pLibrary = new Library ( e, *this, e.get_content() );
 		if ( parseContext.ifData )
 			parseContext.ifData->data.libraries.push_back ( pLibrary );
 		else
 			non_if_data.libraries.push_back ( pLibrary );
-		subs_invalid = true;
+		ensure_empty_content(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "directory" )
+	else if ( e == "directory" )
 	{
-		const XMLAttribute* att = e.GetAttribute ( "name", true );
-		assert(att);
-		subpath = GetSubPath ( e.location, path, att->value );
+		subpath = GetSubPath(e.get_location(), path, e.get("name"));
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "include" )
+	else if ( e == "include" )
 	{
 		Include* include = new Include ( project, this, &e );
 		if ( parseContext.ifData )
 			parseContext.ifData->data.includes.push_back ( include );
 		else
 			non_if_data.includes.push_back ( include );
-		subs_invalid = true;
+		ensure_no_children(e);
 	}
-	else if ( e.name == "define" )
+	else if ( e == "define" )
 	{
 		Define* pDefine = new Define ( project, this, e );
 		if ( parseContext.ifData )
 			parseContext.ifData->data.defines.push_back ( pDefine );
 		else
 			non_if_data.defines.push_back ( pDefine );
-		subs_invalid = true;
+		ensure_no_children(e);
 	}
-	else if ( e.name == "invoke" )
+	else if ( e == "invoke" )
 	{
 		if ( parseContext.ifData )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"<invoke> is not a valid sub-element of <if>" );
 		}
 		invocations.push_back ( new Invoke ( e, *this ) );
-		subs_invalid = false;
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "dependency" )
+	else if ( e == "dependency" )
 	{
 		if ( parseContext.ifData )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"<dependency> is not a valid sub-element of <if>" );
 		}
 		dependencies.push_back ( new Dependency ( e, *this ) );
-		subs_invalid = true;
+		ensure_no_children(e);
+		ensure_empty_attributes(e);
 	}
-	else if ( e.name == "importlibrary" )
+	else if ( e == "importlibrary" )
 	{
 		if ( parseContext.ifData )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"<importlibrary> is not a valid sub-element of <if>" );
 		}
 		if ( importLibrary )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"Only one <importlibrary> is valid per module" );
 		}
 		importLibrary = new ImportLibrary ( e, *this );
-		subs_invalid = true;
+		ensure_empty_content(e);
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "if" )
+	else if ( e == "if" )
 	{
 		parseContext.ifData = new If ( e, project, this );
 		if ( pOldIf )
 			pOldIf->data.ifs.push_back ( parseContext.ifData );
 		else
 			non_if_data.ifs.push_back ( parseContext.ifData );
-		subs_invalid = false;
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "ifnot" )
+	else if ( e == "ifnot" )
 	{
 		parseContext.ifData = new If ( e, project, this, true );
 		if ( pOldIf )
 			pOldIf->data.ifs.push_back ( parseContext.ifData );
 		else
 			non_if_data.ifs.push_back ( parseContext.ifData );
-		subs_invalid = false;
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "compilerflag" )
+	else if ( e == "compilerflag" )
 	{
 		CompilerFlag* pCompilerFlag = new CompilerFlag ( project, this, e );
 		if ( parseContext.ifData )
 			parseContext.ifData->data.compilerFlags.push_back ( pCompilerFlag );
 		else
 			non_if_data.compilerFlags.push_back ( pCompilerFlag );
-		subs_invalid = true;
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "linkerflag" )
+	else if ( e == "linkerflag" )
 	{
 		linkerFlags.push_back ( new LinkerFlag ( project, this, e ) );
-		subs_invalid = true;
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "linkerscript" )
+	else if ( e == "linkerscript" )
 	{
 		if ( linkerScript )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"Only one <linkerscript> is valid per module" );
 		}
 		linkerScript = new LinkerScript ( project, this, e );
-		subs_invalid = true;
+		ensure_empty_content(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "component" )
+	else if ( e == "component" )
 	{
 		stubbedComponents.push_back ( new StubbedComponent ( this, e ) );
-		subs_invalid = false;
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "property" )
+	else if ( e == "property" )
 	{
 		throw XMLInvalidBuildFileException (
-			e.location,
+			e.get_location(),
 			"<property> is not a valid sub-element of <module>" );
 	}
-	else if ( e.name == "bootstrap" )
+	else if ( e == "bootstrap" )
 	{
 		bootstrap = new Bootstrap ( project, this, e );
-		subs_invalid = true;
+		ensure_empty_content(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "pch" )
+	else if ( e == "pch" )
 	{
 		if ( parseContext.ifData )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"<pch> is not a valid sub-element of <if>" );
 		}
 		if ( pch )
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"Only one <pch> is valid per module" );
 		}
 		pch = new PchFile (
-			e, *this, File ( FixSeparator ( path + cSep + e.value ), false, "", true ) );
-		subs_invalid = true;
+			e, *this, File ( FixSeparator ( path + cSep + e.get_content() ), false, "", true ) );
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	else if ( e.name == "compilationunit" )
+	else if ( e == "compilationunit" )
 	{
 		if ( project.configuration.CompilationUnitsEnabled )
 		{
@@ -691,79 +600,84 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 				non_if_data.compilationUnits.push_back ( pCompilationUnit );
 			parseContext.compilationUnit = pCompilationUnit;
 		}
-		subs_invalid = false;
+		ensure_empty_content(e);
 	}
-	else if ( e.name == "autoregister" )
+	else if ( e == "autoregister" )
 	{
 		if ( autoRegister != NULL)
 		{
 			throw XMLInvalidBuildFileException (
-				e.location,
+				e.get_location(),
 				"there can be only one <%s> element for a module",
-				e.name.c_str() );
+				e.c_str() );
 		}
 		autoRegister = new AutoRegister ( project, this, e );
-		subs_invalid = true;
+		ensure_empty_content(e);
+		ensure_empty_attributes(e);
+		ensure_no_children(e);
 	}
-	if ( subs_invalid && e.subElements.size() > 0 )
+	else
 	{
 		throw XMLInvalidBuildFileException (
-			e.location,
-			"<%s> cannot have sub-elements",
-			e.name.c_str() );
+			e.get_location(),
+			"<%s> unexpected XML node",
+			e.c_str() );
 	}
-	for ( size_t i = 0; i < e.subElements.size (); i++ )
-		ProcessXMLSubElement ( *e.subElements[i], subpath, parseContext );
+
+	const XMLNode::Children& children = e.get_children();
+	for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+		ProcessXMLSubElement ( **it, subpath, parseContext, xml_path );
+
 	parseContext.ifData = pOldIf;
 	parseContext.compilationUnit = pOldCompilationUnit;
 }
 
 ModuleType
-Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
+Module::GetModuleType ( const XMLLocation& location, const std::string& attrib_name, const std::string& attrib_value )
 {
-	if ( attribute.value == "buildtool" )
+	if ( attrib_value == "buildtool" )
 		return BuildTool;
-	if ( attribute.value == "staticlibrary" )
+	if ( attrib_value == "staticlibrary" )
 		return StaticLibrary;
-	if ( attribute.value == "objectlibrary" )
+	if ( attrib_value == "objectlibrary" )
 		return ObjectLibrary;
-	if ( attribute.value == "kernel" )
+	if ( attrib_value == "kernel" )
 		return Kernel;
-	if ( attribute.value == "kernelmodedll" )
+	if ( attrib_value == "kernelmodedll" )
 		return KernelModeDLL;
-	if ( attribute.value == "kernelmodedriver" )
+	if ( attrib_value == "kernelmodedriver" )
 		return KernelModeDriver;
-	if ( attribute.value == "nativedll" )
+	if ( attrib_value == "nativedll" )
 		return NativeDLL;
-	if ( attribute.value == "nativecui" )
+	if ( attrib_value == "nativecui" )
 		return NativeCUI;
-	if ( attribute.value == "win32dll" )
+	if ( attrib_value == "win32dll" )
 		return Win32DLL;
-	if ( attribute.value == "win32cui" )
+	if ( attrib_value == "win32cui" )
 		return Win32CUI;
-	if ( attribute.value == "win32gui" )
+	if ( attrib_value == "win32gui" )
 		return Win32GUI;
-	if ( attribute.value == "bootloader" )
+	if ( attrib_value == "bootloader" )
 		return BootLoader;
-	if ( attribute.value == "bootsector" )
+	if ( attrib_value == "bootsector" )
 		return BootSector;
-	if ( attribute.value == "bootprogram" )
+	if ( attrib_value == "bootprogram" )
 		return BootProgram;
-	if ( attribute.value == "iso" )
+	if ( attrib_value == "iso" )
 		return Iso;
-	if ( attribute.value == "liveiso" )
+	if ( attrib_value == "liveiso" )
 		return LiveIso;
-	if ( attribute.value == "test" )
+	if ( attrib_value == "test" )
 		return Test;
-	if ( attribute.value == "rpcserver" )
+	if ( attrib_value == "rpcserver" )
 		return RpcServer;
-	if ( attribute.value == "rpcclient" )
+	if ( attrib_value == "rpcclient" )
 		return RpcClient;
-	if ( attribute.value == "alias" )
+	if ( attrib_value == "alias" )
 		return Alias;
 	throw InvalidAttributeValueException ( location,
-	                                       attribute.name,
-	                                       attribute.value );
+										   attrib_name,
+										   attrib_value );
 }
 
 string
@@ -806,7 +720,7 @@ Module::GetDefaultModuleExtension () const
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 string
@@ -851,7 +765,7 @@ Module::GetDefaultModuleEntrypoint () const
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 string
@@ -887,7 +801,7 @@ Module::GetDefaultModuleBaseaddress () const
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 bool
@@ -925,7 +839,7 @@ Module::IsDLL () const
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 bool
@@ -957,7 +871,7 @@ Module::GenerateInOutputTree () const
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 string
@@ -1013,8 +927,8 @@ string
 Module::GetInvocationTarget ( const int index ) const
 {
 	return ssprintf ( "%s_invoke_%d",
-	                  name.c_str (),
-	                  index );
+					  name.c_str (),
+					  index );
 }
 
 bool
@@ -1048,14 +962,14 @@ Module::InvokeModule () const
 		int exitcode = system ( command.c_str () );
 		if ( exitcode != 0 )
 			throw InvocationFailedException ( command,
-			                                  exitcode );
+											  exitcode );
 	}
 }
 
 
 File::File ( const string& _name, bool _first,
-             std::string _switches,
-             bool _isPreCompiledHeader )
+			 std::string _switches,
+			 bool _isPreCompiledHeader )
 	: name(_name),
 	  first(_first),
 	  switches(_switches),
@@ -1069,9 +983,9 @@ File::ProcessXML()
 }
 
 
-Library::Library ( const XMLElement& _node,
-                   const Module& _module,
-                   const string& _name )
+Library::Library ( const XMLNode& _node,
+				   const Module& _module,
+				   const string& _name )
 	: node(_node),
 	  module(_module),
 	  name(_name),
@@ -1080,14 +994,14 @@ Library::Library ( const XMLElement& _node,
 	if ( module.name == name )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"module '%s' cannot link against itself",
 			name.c_str() );
 	}
 	if ( !importedModule )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"module '%s' trying to import non-existant module '%s'",
 			module.name.c_str(),
 			name.c_str() );
@@ -1100,7 +1014,7 @@ Library::ProcessXML()
 	if ( !module.project.LocateModule ( name ) )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"module '%s' is trying to link against non-existant module '%s'",
 			module.name.c_str(),
 			name.c_str() );
@@ -1108,8 +1022,8 @@ Library::ProcessXML()
 }
 
 
-Invoke::Invoke ( const XMLElement& _node,
-                 const Module& _module )
+Invoke::Invoke ( const XMLNode& _node,
+				 const Module& _module )
 	: node (_node),
 	  module (_module)
 {
@@ -1118,84 +1032,63 @@ Invoke::Invoke ( const XMLElement& _node,
 void
 Invoke::ProcessXML()
 {
-	const XMLAttribute* att = node.GetAttribute ( "module", false );
-	if (att == NULL)
+	const string module_str = node.get("module");
+	if (module_str.empty())
 		invokeModule = &module;
 	else
 	{
-		invokeModule = module.project.LocateModule ( att->value );
+		invokeModule = module.project.LocateModule(module_str);
 		if ( invokeModule == NULL )
 		{
 			throw XMLInvalidBuildFileException (
-				node.location,
+				node.get_location(),
 				"module '%s' is trying to invoke non-existant module '%s'",
 				module.name.c_str(),
-				att->value.c_str() );
+				module_str.c_str() );
 		}
 	}
 
-	for ( size_t i = 0; i < node.subElements.size (); i++ )
-		ProcessXMLSubElement ( *node.subElements[i] );
+	const XMLNode::Children& children = node.get_children();
+	for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+		ProcessXMLSubElement(**it);
 }
 
 void
-Invoke::ProcessXMLSubElement ( const XMLElement& e )
+Invoke::ProcessXMLSubElement ( const XMLNode& e )
 {
-	bool subs_invalid = false;
-	if ( e.name == "input" )
+	if ( e == "input" )
 	{
-		for ( size_t i = 0; i < e.subElements.size (); i++ )
-			ProcessXMLSubElementInput ( *e.subElements[i] );
+		const XMLNode::Children& children = e.get_children();
+		for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+			ProcessXMLSubElementInput(**it);
 	}
-	else if ( e.name == "output" )
+	else if ( e == "output" )
 	{
-		for ( size_t i = 0; i < e.subElements.size (); i++ )
-			ProcessXMLSubElementOutput ( *e.subElements[i] );
-	}
-	if ( subs_invalid && e.subElements.size() > 0 )
-	{
-		throw XMLInvalidBuildFileException (
-			e.location,
-			"<%s> cannot have sub-elements",
-			e.name.c_str() );
+		const XMLNode::Children& children = node.get_children();
+		for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+			ProcessXMLSubElementOutput(**it);
 	}
 }
 
 void
-Invoke::ProcessXMLSubElementInput ( const XMLElement& e )
+Invoke::ProcessXMLSubElementInput ( const XMLNode& e )
 {
-	bool subs_invalid = false;
-	if ( e.name == "inputfile" && e.value.size () > 0 )
+	if ( e == "inputfile" && !e.get_content().empty() )
 	{
 		input.push_back ( new InvokeFile (
-			e, FixSeparator ( module.path + cSep + e.value ) ) );
-		subs_invalid = true;
-	}
-	if ( subs_invalid && e.subElements.size() > 0 )
-	{
-		throw XMLInvalidBuildFileException (
-			e.location,
-			"<%s> cannot have sub-elements",
-			e.name.c_str() );
+			e, FixSeparator ( module.path + cSep + e.get_content() ) ) );
+		ensure_no_children(e);
 	}
 }
 
 void
-Invoke::ProcessXMLSubElementOutput ( const XMLElement& e )
+Invoke::ProcessXMLSubElementOutput ( const XMLNode& e )
 {
-	bool subs_invalid = false;
-	if ( e.name == "outputfile" && e.value.size () > 0 )
+	if ( e == "outputfile" && !e.get_content().empty() )
 	{
 		output.push_back ( new InvokeFile (
-			e, FixSeparator ( module.path + cSep + e.value ) ) );
-		subs_invalid = true;
-	}
-	if ( subs_invalid && e.subElements.size() > 0 )
-	{
-		throw XMLInvalidBuildFileException (
-			e.location,
-			"<%s> cannot have sub-elements",
-			e.name.c_str() );
+			e, FixSeparator ( module.path + cSep + e.get_content() ) ) );
+		ensure_no_children(e);
 	}
 }
 
@@ -1243,16 +1136,12 @@ Invoke::GetParameters () const
 }
 
 
-InvokeFile::InvokeFile ( const XMLElement& _node,
-                         const string& _name )
+InvokeFile::InvokeFile ( const XMLNode& _node,
+						 const string& _name )
 	: node (_node),
-      name (_name)
+	  name (_name)
 {
-	const XMLAttribute* att = _node.GetAttribute ( "switches", false );
-	if (att != NULL)
-		switches = att->value;
-	else
-		switches = "";
+	switches = _node.get("switches");
 }
 
 void
@@ -1261,8 +1150,8 @@ InvokeFile::ProcessXML()
 }
 
 
-Dependency::Dependency ( const XMLElement& _node,
-                         const Module& _module )
+Dependency::Dependency ( const XMLNode& _node,
+						 const Module& _module )
 	: node (_node),
 	  module (_module),
 	  dependencyModule (NULL)
@@ -1272,50 +1161,37 @@ Dependency::Dependency ( const XMLElement& _node,
 void
 Dependency::ProcessXML()
 {
-	dependencyModule = module.project.LocateModule ( node.value );
+	dependencyModule = module.project.LocateModule (node.get_content());
 	if ( dependencyModule == NULL )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"module '%s' depend on non-existant module '%s'",
 			module.name.c_str(),
-			node.value.c_str() );
+			node.get_content().c_str() );
 	}
 }
 
 
-ImportLibrary::ImportLibrary ( const XMLElement& _node,
-                               const Module& _module )
+ImportLibrary::ImportLibrary ( const XMLNode& _node,
+							   const Module& _module )
 	: node (_node),
 	  module (_module)
 {
-	const XMLAttribute* att = _node.GetAttribute ( "basename", false );
-	if (att != NULL)
-		basename = att->value;
-	else
-		basename = module.name;
+	basename = get_attribute(&_node, "basename", module.name);
 
-	att = _node.GetAttribute ( "definition", true );
-	assert (att);
-	definition = FixSeparator(att->value);
+	definition = FixSeparator(_node.get("definition"));
 }
 
 
-If::If ( const XMLElement& node_,
-         const Project& project_,
-         const Module* module_,
-         const bool negated_ )
+If::If ( const XMLNode& node_,
+		 const Project& project_,
+		 const Module* module_,
+		 const bool negated_ )
 	: node(node_), project(project_), module(module_), negated(negated_)
 {
-	const XMLAttribute* att;
-
-	att = node.GetAttribute ( "property", true );
-	assert(att);
-	property = att->value;
-
-	att = node.GetAttribute ( "value", true );
-	assert(att);
-	value = att->value;
+	property = get_required_attribute(&node, "property");
+	value = get_required_attribute(&node, "value");
 }
 
 If::~If ()
@@ -1325,24 +1201,17 @@ If::~If ()
 void
 If::ProcessXML()
 {
-	
+
 }
 
 
-Property::Property ( const XMLElement& node_,
-                     const Project& project_,
-                     const Module* module_ )
+Property::Property ( const XMLNode& node_,
+					 const Project& project_,
+					 const Module* module_ )
 	: node(node_), project(project_), module(module_)
 {
-	const XMLAttribute* att;
-
-	att = node.GetAttribute ( "name", true );
-	assert(att);
-	name = att->value;
-
-	att = node.GetAttribute ( "value", true );
-	assert(att);
-	value = att->value;
+	name = get_required_attribute(&node, "name");
+	value = get_required_attribute(&node, "value");
 }
 
 void
@@ -1352,7 +1221,7 @@ Property::ProcessXML()
 
 
 PchFile::PchFile (
-	const XMLElement& node_,
+	const XMLNode& node_,
 	const Module& module_,
 	const File file_ )
 	: node(node_), module(module_), file(file_)
@@ -1366,8 +1235,8 @@ PchFile::ProcessXML()
 
 
 AutoRegister::AutoRegister ( const Project& project_,
-                             const Module* module_,
-                             const XMLElement& node_ )
+							 const Module* module_,
+							 const XMLNode& node_ )
 	: project(project_),
 	  module(module_),
 	  node(node_)
@@ -1408,7 +1277,7 @@ AutoRegister::IsSupportedModuleType ( ModuleType type )
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 AutoRegisterType
@@ -1421,7 +1290,7 @@ AutoRegister::GetAutoRegisterType( string type )
 	if ( type == "Both" )
 		return Both;
 	throw XMLInvalidBuildFileException (
-		node.location,
+		node.get_location(),
 		"<autoregister> type attribute must be DllRegisterServer, DllInstall or Both." );
 }
 
@@ -1431,15 +1300,14 @@ AutoRegister::Initialize ()
 	if ( !IsSupportedModuleType ( module->type ) )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"<autoregister> is not applicable for this module type." );
 	}
 
-	const XMLAttribute* att = node.GetAttribute ( "infsection", true );
-	infSection = att->value;
+	infSection = get_required_attribute(&node, "infsection");
 
-	att = node.GetAttribute ( "type", true );
-	type = GetAutoRegisterType ( att->value );
+	const string& type_str = get_required_attribute(&node, "type");
+	type = GetAutoRegisterType(type_str);
 }
 
 void

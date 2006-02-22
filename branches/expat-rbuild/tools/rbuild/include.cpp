@@ -22,9 +22,10 @@
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 Include::Include ( const Project& project,
-                   const XMLElement* includeNode )
+				   const XMLNode* includeNode )
 	: project ( project ),
 	  module ( NULL ),
 	  node ( includeNode ),
@@ -33,8 +34,8 @@ Include::Include ( const Project& project,
 }
 
 Include::Include ( const Project& project,
-                   const Module* module,
-                   const XMLElement* includeNode )
+				   const Module* module,
+				   const XMLNode* includeNode )
 	: project ( project ),
 	  module ( module ),
 	  node ( includeNode ),
@@ -43,8 +44,8 @@ Include::Include ( const Project& project,
 }
 
 Include::Include ( const Project& project,
-                   string directory,
-                   string basePath )
+				   string directory,
+				   string basePath )
 	: project ( project ),
 	  module ( NULL ),
 	  node ( NULL ),
@@ -61,23 +62,23 @@ Include::~Include ()
 void
 Include::ProcessXML()
 {
-	const XMLAttribute* att;
-	att = node->GetAttribute ( "base", false );
-	if ( att )
+	const string& base_value = node->get("base");
+
+	if (!base_value.empty())
 	{
 		if ( !module )
 			throw XMLInvalidBuildFileException (
-				node->location,
+				node->get_location(),
 				"'base' attribute illegal from global <include>" );
 		bool referenceResolved = false;
-		if ( att->value == project.name )
+		if ( base_value == project.name )
 		{
 			basePath = ".";
 			referenceResolved = true;
 		}
 		else
 		{
-			const Module* base = project.LocateModule ( att->value );
+			const Module* base = project.LocateModule ( base_value );
 			if ( base != NULL )
 			{
 				baseModule = base;
@@ -87,11 +88,11 @@ Include::ProcessXML()
 		}
 		if ( !referenceResolved )
 			throw XMLInvalidBuildFileException (
-				node->location,
+				node->get_location(),
 				"<include> attribute 'base' references non-existant project or module '%s'",
-				att->value.c_str() );
-		directory = NormalizeFilename ( basePath + sSep + node->value );
+				base_value.c_str() );
+		directory = NormalizeFilename ( basePath + sSep + node->get_content() );
 	}
 	else
-		directory = NormalizeFilename ( node->value );
+		directory = NormalizeFilename ( node->get_content() );
 }

@@ -53,24 +53,24 @@ typedef unsigned long long ULONGLONG;
 #endif
 
 typedef struct {
-    unsigned int mantissa:23;
-    unsigned int exponent:8;
-    unsigned int sign:1;
+	unsigned int mantissa:23;
+	unsigned int exponent:8;
+	unsigned int sign:1;
 } ieee_float_t;
 
 typedef struct {
-    unsigned int mantissal:32;
-    unsigned int mantissah:20;
-    unsigned int exponent:11;
-    unsigned int sign:1;
+	unsigned int mantissal:32;
+	unsigned int mantissah:20;
+	unsigned int exponent:11;
+	unsigned int sign:1;
 } ieee_double_t;
 
 typedef struct {
-    unsigned int mantissal:32;
-    unsigned int mantissah:32;
-    unsigned int exponent:15;
-    unsigned int sign:1;
-    unsigned int empty:16;
+	unsigned int mantissal:32;
+	unsigned int mantissah:32;
+	unsigned int exponent:15;
+	unsigned int sign:1;
+	unsigned int empty:16;
 } ieee_long_double_t;
 
 std::string
@@ -93,14 +93,14 @@ sswprintf ( const wchar_t* fmt, ... )
 	return f;
 }
 
-#define ZEROPAD		1	/* pad with zero */
+#define ZEROPAD 	1	/* pad with zero */
 #define SIGN		2	/* unsigned/signed long */
 #define PLUS		4	/* show plus */
 #define SPACE		8	/* space if plus */
 #define LEFT		16	/* left justified */
-#define SPECIAL		32	/* 0x */
+#define SPECIAL 	32	/* 0x */
 #define LARGE		64	/* use 'ABCDEF' instead of 'abcdef' */
-#define ZEROTRUNC	128	/* truncate zero 's */
+#define ZEROTRUNC	128 /* truncate zero 's */
 
 
 static int
@@ -289,7 +289,7 @@ wnumber(std::wstring& f, LONGLONG num, int base, int size, int precision ,int ty
 
 
 static bool
-numberf(std::string& f, double __n, char exp_sign,  int size, int precision, int type)
+numberf(std::string& f, double __n, char exp_sign,	int size, int precision, int type)
 {
 	double exponent = 0.0;
 	double e;
@@ -307,7 +307,7 @@ numberf(std::string& f, double __n, char exp_sign,  int size, int precision, int
 	union
 	{
 		double*  __n;
-		ieee_double_t*  n;
+		ieee_double_t*	n;
 	} n;
 
 	n.__n = &__n;
@@ -332,7 +332,7 @@ numberf(std::string& f, double __n, char exp_sign,  int size, int precision, int
 		frac = modf(exponent,&e);
 		if ( frac > 0.5 )
 			e++;
-		else if (  frac < -0.5  )
+		else if (  frac < -0.5	)
 			e--;
 
 		result = numberf(f,__n/pow(10.0L,(long double)e),'f',size-4, precision, type);
@@ -385,7 +385,7 @@ numberf(std::string& f, double __n, char exp_sign,  int size, int precision, int
 		if ( precision > 0 )
 		{
 			i = precision-1;
-			while ( i >= 0  )
+			while ( i >= 0	)
 			{
 				frac*=10.0L;
 				frac = modf(frac, &p);
@@ -508,7 +508,7 @@ wnumberf(std::wstring& f, double __n, wchar_t exp_sign,  int size, int precision
 	union
 	{
 		double*  __n;
-		ieee_double_t*  n;
+		ieee_double_t*	n;
 	} n;
 
 	n.__n = &__n;
@@ -533,7 +533,7 @@ wnumberf(std::wstring& f, double __n, wchar_t exp_sign,  int size, int precision
 		frac = modf(exponent,&e);
 		if ( frac > 0.5 )
 			e++;
-		else if (  frac < -0.5  )
+		else if (  frac < -0.5	)
 			e--;
 
 		result = wnumberf(f,__n/pow(10.0L,(long double) e),L'f',size-4, precision, type);
@@ -734,7 +734,7 @@ numberfl(std::string& f, long double __n, char exp_sign,  int size, int precisio
 		frac = modfl(exponent,&e);
 		if ( frac > 0.5 )
 			e++;
-		else if (  frac < -0.5  )
+		else if (  frac < -0.5	)
 			e--;
 
 		result = numberf(f,__n/powl(10.0L,e),'f',size-4, precision, type);
@@ -787,7 +787,7 @@ numberfl(std::string& f, long double __n, char exp_sign,  int size, int precisio
 		if ( precision > 0 )
 		{
 			i = precision-1;
-			while ( i >= 0  )
+			while ( i >= 0	)
 			{
 				frac*=10.0L;
 				frac = modfl((long double)frac, &p);
@@ -935,7 +935,7 @@ wnumberfl(std::wstring& f, long double __n, wchar_t exp_sign,  int size, int pre
 		frac = modfl(exponent,&e);
 		if ( frac > 0.5 )
 			e++;
-		else if (  frac < -0.5  )
+		else if (  frac < -0.5	)
 			e--;
 
 		result = wnumberf(f,__n/powl(10.0L,e),L'f',size-4, precision, type);
@@ -988,7 +988,7 @@ wnumberfl(std::wstring& f, long double __n, wchar_t exp_sign,  int size, int pre
 		if ( precision > 0 )
 		{
 			i = precision-1;
-			while ( i >= 0  )
+			while ( i >= 0	)
 			{
 				frac*=10.0L;
 				frac = modfl((long double)frac, &p);
@@ -1548,7 +1548,7 @@ ssvprintf ( const char *fmt, va_list args )
 				flags |= ZEROPAD;
 			}
 			result = number(f,
-				        (unsigned long) va_arg(args, void *), 16,
+						(unsigned long) va_arg(args, void *), 16,
 					field_width, precision, flags);
 			if (result < 0)
 			{
@@ -1872,7 +1872,7 @@ sswvprintf ( const wchar_t* fmt, va_list args )
 				flags |= ZEROPAD;
 			}
 			result = wnumber(f,
-				        (unsigned long) va_arg(args, void *), 16,
+						(unsigned long) va_arg(args, void *), 16,
 					field_width, precision, flags);
 			if (result < 0)
 			{

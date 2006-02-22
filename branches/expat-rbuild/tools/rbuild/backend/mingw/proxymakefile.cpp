@@ -15,7 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include "../../pch.h"
+
+#include "pch.h"
 
 #include "mingw.h"
 #include <assert.h>
@@ -40,7 +41,7 @@ ProxyMakefile::GenerateProxyMakefile ( Module& module )
 
 void
 ProxyMakefile::GenerateProxyMakefiles ( bool verbose,
-                                        string outputTree )
+										string outputTree )
 {
 	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
@@ -50,8 +51,8 @@ ProxyMakefile::GenerateProxyMakefiles ( bool verbose,
 		if ( !GenerateProxyMakefile ( module ) )
 			continue;
 		GenerateProxyMakefileForModule ( module,
-		                                 verbose,
-		                                 outputTree );
+										 verbose,
+										 outputTree );
 	}
 }
 
@@ -83,8 +84,8 @@ ProxyMakefile::GetPathToTopDirectory ( Module& module )
 
 void
 ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
-                                                bool verbose,
-                                                string outputTree )
+												bool verbose,
+												string outputTree )
 {
 	char* buf;
 	char* s;
@@ -92,7 +93,7 @@ ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
 	if ( verbose )
 	{
 		printf ( "\nGenerating proxy makefile for %s",
-		         module.name.c_str () );
+				 module.name.c_str () );
 	}
 
 	string base;

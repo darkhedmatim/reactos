@@ -15,16 +15,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 CompilerFlag::CompilerFlag ( const Project& project_,
-                             const XMLElement& compilerFlagNode )
+							 const XMLNode& compilerFlagNode )
 	: project(project_),
 	  module(NULL),
 	  node(compilerFlagNode)
@@ -33,8 +36,8 @@ CompilerFlag::CompilerFlag ( const Project& project_,
 }
 
 CompilerFlag::CompilerFlag ( const Project& project_,
-	                         const Module* module_,
-	                         const XMLElement& compilerFlagNode )
+							 const Module* module_,
+							 const XMLNode& compilerFlagNode )
 	: project(project_),
 	  module(module_),
 	  node(compilerFlagNode)
@@ -49,13 +52,13 @@ CompilerFlag::~CompilerFlag ()
 void
 CompilerFlag::Initialize ()
 {
-	if (node.value.size () == 0)
+	if (node.get_content().empty())
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"<compilerflag> is empty." );
 	}
-	flag = node.value;
+	flag = node.get_content();
 }
 
 void

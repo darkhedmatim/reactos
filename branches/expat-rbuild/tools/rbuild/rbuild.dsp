@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /I "." /I ".." /I "../../lib/inflib" /I "../../include/reactos" /D "NDEBUG" /D "_ROS_" /D "WIN32" /D "INFLIB_HOST" /D "HAVE_EXPAT_CONFIG_H" /D XMLCALL="" /D XMLIMPORT="" /D "_NO_COMMENT" /D "XMLNODE_LOCATION" /Yu"pch.h" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -64,7 +64,7 @@ LINK32=link.exe
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /I ".." /I "../../lib/inflib" /I "../../include/reactos" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "INFLIB_HOST" /YX /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /I ".." /I "../../lib/inflib" /I "../../include/reactos" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "WIN32" /D "_ROS_" /D "INFLIB_HOST" /D "HAVE_EXPAT_CONFIG_H" /D XMLCALL="" /D XMLIMPORT="" /D "_NO_COMMENT" /D "XMLNODE_LOCATION" /FR /Yu"pch.h" /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -242,6 +242,7 @@ SOURCE=.\project.cpp
 # Begin Source File
 
 SOURCE=.\rbuild.cpp
+# ADD CPP /Yc"pch.h"
 # End Source File
 # Begin Source File
 
@@ -294,10 +295,12 @@ SOURCE=..\..\lib\inflib\infcommon.h
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infcore.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infget.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
@@ -306,18 +309,22 @@ SOURCE=..\..\lib\inflib\infhost.h
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infhostgen.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infhostget.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infhostglue.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infhostput.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
@@ -330,6 +337,7 @@ SOURCE=..\..\lib\inflib\infpriv.h
 # Begin Source File
 
 SOURCE=..\..\lib\inflib\infput.c
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # End Group
 # Begin Group "tools"
@@ -338,6 +346,7 @@ SOURCE=..\..\lib\inflib\infput.c
 # Begin Source File
 
 SOURCE=..\ssprintf.cpp
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
@@ -346,10 +355,101 @@ SOURCE=..\ssprintf.h
 # Begin Source File
 
 SOURCE=..\xml.cpp
+# SUBTRACT CPP /YX /Yc /Yu
 # End Source File
 # Begin Source File
 
 SOURCE=..\xml.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\xmlstorage.cpp
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\xmlstorage.h
+# End Source File
+# End Group
+# Begin Group "Expat"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\expat\ascii.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\asciitab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\expat.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\expat_config.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\expat_external.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\iasciitab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\internal.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\latin1tab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\nametab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\utf8tab.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmlparse.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmlrole.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmlrole.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmltok.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmltok.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmltok_impl.c
+# PROP Exclude_From_Build 1
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmltok_impl.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\expat\xmltok_ns.c
+# PROP Exclude_From_Build 1
 # End Source File
 # End Group
 # End Target

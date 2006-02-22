@@ -24,7 +24,7 @@
 #define SSEP DEF_SSEP
 
 #define RBUILD_BASE "tools" SSEP "rbuild" SSEP
-	
+
 class BaseTest
 {
 public:
@@ -34,31 +34,31 @@ public:
 	virtual void Run () = 0;
 protected:
 	void Assert ( const char *message,
-	              ... );
+				  ... );
 	void IsNull ( void* reference,
-	              const char* file,
-	              int line );
+				  const char* file,
+				  int line );
 	void IsNotNull ( void* reference,
-	                 const char* file,
-	                 int line );
+					 const char* file,
+					 int line );
 	void IsTrue ( bool condition,
-	              const char* file,
-	              int line );
+				  const char* file,
+				  int line );
 	void IsFalse ( bool condition,
-	               const char* file,
-	               int line );
+				   const char* file,
+				   int line );
 	void AreEqual ( int expected,
-	                int actual,
-	                const char* file,
-	                int line );
+					int actual,
+					const char* file,
+					int line );
 	void AreEqual ( const std::string& expected,
-	                const std::string& actual,
-	                const char* file,
-	                int line );
+					const std::string& actual,
+					const char* file,
+					int line );
 	void AreNotEqual ( int expected,
-	                   int actual,
-	                   const char* file,
-	                   int line );
+					   int actual,
+					   const char* file,
+					   int line );
 private:
 	void Fail ();
 };
@@ -137,7 +137,7 @@ public:
 	void FullParseTest ();
 private:
 	bool IsParentOf ( const SourceFile* parent,
-	                  const SourceFile* child );
+					  const SourceFile* child );
 
 };
 

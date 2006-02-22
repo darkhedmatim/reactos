@@ -33,7 +33,11 @@ using std::string;
 using std::vector;
 
 static string BuildSystem;
-static string RootXmlFile = "ReactOS.rbuild";
+#ifdef _ROS_
+string RootXmlFile = "ReactOS.rbuild";
+#else
+string RootXmlFile = "Root.rbuild";
+#endif
 static Configuration configuration;
 
 bool
@@ -57,7 +61,7 @@ ParseAutomaticDependencySwitch (
 			break;
 		default:
 			printf ( "Unknown switch -d%c\n",
-			         switchChar2 );
+					 switchChar2 );
 			return false;
 	}
 	return true;
@@ -75,7 +79,7 @@ ParseCompilationUnitSwitch (
 			break;
 		default:
 			printf ( "Unknown switch -u%c\n",
-			         switchChar2 );
+					 switchChar2 );
 			return false;
 	}
 	return true;
@@ -114,7 +118,7 @@ ParseVCProjectSwitch (
 			break;
 		default:
 			printf ( "Unknown switch -d%c\n",
-			         switchChar2 );
+					 switchChar2 );
 			return false;
 	}
 	return true;
@@ -130,7 +134,7 @@ ParseMakeSwitch ( char switchChar2 )
 			break;
 		default:
 			printf ( "Unknown switch -m%c\n",
-			         switchChar2 );
+					 switchChar2 );
 			return false;
 	}
 	return true;
@@ -146,7 +150,7 @@ ParseProxyMakefileSwitch ( char switchChar2 )
 			break;
 		default:
 			printf ( "Unknown switch -p%c\n",
-			         switchChar2 );
+					 switchChar2 );
 			return false;
 	}
 	return true;
@@ -229,7 +233,7 @@ main ( int argc, char** argv )
 		printf ( "  -v            Be verbose.\n" );
 		printf ( "  -c            Clean as you go. Delete generated files as soon as they are not\n" );
 		printf ( "                needed anymore.\n" );
-		printf ( "  -r{file.rbuild}  Name of the root rbuild file. Default is ReactOS.rbuild.\n" );
+		printf ( "  -r{file.rbuild}  Name of the root rbuild file. Default is %s.\n", RootXmlFile.c_str() );
 		printf ( "  -dd           Disable automatic dependencies.\n" );
 		printf ( "  -dm{module}   Check only automatic dependencies for this module.\n" );
 		printf ( "  -ud           Disable multiple source files per compilation unit.\n" );
@@ -240,15 +244,16 @@ main ( int argc, char** argv )
 		printf ( "  -vs{version}  Version of MS VS project files. Default is %s.\n", MS_VS_DEF_VERSION );
 		printf ( "\n" );
 		printf ( "  buildsystem   Target build system. Can be one of:\n" );
- 
- 		std::map<std::string,Backend::Factory*>::iterator iter;
- 		for (iter = Backend::Factory::map_begin(); iter != Backend::Factory::map_end(); iter++)
- 		{
- 			Backend::Factory *factory = iter->second;
- 			printf ( "                %-10s %s\n", factory->Name(), factory->Description());
- 		}
+
+		std::map<std::string,Backend::Factory*>::iterator iter;
+		for (iter = Backend::Factory::map_begin(); iter != Backend::Factory::map_end(); iter++)
+		{
+			Backend::Factory *factory = iter->second;
+			printf ( "                %-10s %s\n", factory->Name(), factory->Description());
+		}
 		return 1;
 	}
+
 	try
 	{
 		string projectFilename ( RootXmlFile );
@@ -270,12 +275,17 @@ main ( int argc, char** argv )
 	}
 	catch ( Exception& ex )
 	{
-		printf ( "%s\n", (*ex).c_str () );
+		fprintf(stderr, "\n%s\n", (*ex).c_str ());
 		return 1;
 	}
 	catch ( XMLException& ex )
 	{
-		printf ( "%s\n", (*ex).c_str () );
+		fprintf(stderr, "\n%s\n", (*ex).c_str ());
+		return 1;
+	}
+	catch ( std::exception& ex )
+	{
+		fprintf(stderr, "\n%s\n", ex.what());
 		return 1;
 	}
 }

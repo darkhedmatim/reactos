@@ -15,16 +15,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 LinkerFlag::LinkerFlag ( const Project& project_,
-                         const XMLElement& linkerFlagNode )
+						 const XMLNode& linkerFlagNode )
 	: project(project_),
 	  module(NULL),
 	  node(linkerFlagNode)
@@ -33,8 +36,8 @@ LinkerFlag::LinkerFlag ( const Project& project_,
 }
 
 LinkerFlag::LinkerFlag ( const Project& project_,
-	                     const Module* module_,
-	                     const XMLElement& linkerFlagNode )
+						 const Module* module_,
+						 const XMLNode& linkerFlagNode )
 	: project(project_),
 	  module(module_),
 	  node(linkerFlagNode)
@@ -54,11 +57,12 @@ LinkerFlag::Initialize ()
 void
 LinkerFlag::ProcessXML ()
 {
-	if ( node.value.size () == 0 )
+	if (node.get_content().empty())
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"<linkerflag> is empty." );
 	}
-	flag = node.value;
+
+	flag = node.get_content();
 }

@@ -1,8 +1,8 @@
 /*
- *  Based on the genguid utility for WINE and ReactOS
+ *	Based on the genguid utility for WINE and ReactOS
  *
- *  Copyright 2003 Jonathan Wilson
- *  Copyright 2005 Steven Edwards
+ *	Copyright 2003 Jonathan Wilson
+ *	Copyright 2005 Steven Edwards
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,7 +20,8 @@
  *
  */
 
-#include "../../pch.h"
+#include "pch.h"
+
 #include "msvc.h"
 #include <string>
 

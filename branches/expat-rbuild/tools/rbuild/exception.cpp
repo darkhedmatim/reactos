@@ -15,10 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include "rbuild.h"
 
 using std::string;
+using namespace XMLStorage;
 
 Exception::Exception ()
 {
@@ -85,7 +88,7 @@ InvalidOperationException::InvalidOperationException (
 
 FileNotFoundException::FileNotFoundException ( const string& filename )
 	: Exception ( "File '%s' not found.",
-	              filename.c_str() )
+				  filename.c_str() )
 {
 	Filename = filename;
 }
@@ -93,26 +96,14 @@ FileNotFoundException::FileNotFoundException ( const string& filename )
 
 AccessDeniedException::AccessDeniedException ( const string& filename)
 	: Exception ( "Access denied to file or directory '%s'.",
-	             filename.c_str() )
+				 filename.c_str() )
 {
 	Filename = filename;
 }
 
 
-RequiredAttributeNotFoundException::RequiredAttributeNotFoundException (
-	const string& location,
-	const string& attributeName,
-	const string& elementName )
-	: XMLInvalidBuildFileException (
-		location,
-		"Required attribute '%s' not found on '%s'.",
-		attributeName.c_str (),
-		elementName.c_str ())
-{
-}
-
 InvalidAttributeValueException::InvalidAttributeValueException (
-	const string& location,
+	const XMLLocation& location,
 	const string& name,
 	const string& value )
 	: XMLInvalidBuildFileException (
@@ -126,20 +117,20 @@ InvalidAttributeValueException::InvalidAttributeValueException (
 
 BackendNameConflictException::BackendNameConflictException ( const string& name )
 	: Exception ( "Backend name conflict: '%s'",
-	             name.c_str() )
+				 name.c_str() )
 {
 }
 
 
 UnknownBackendException::UnknownBackendException ( const string& name )
 	: Exception ( "Unknown Backend requested: '%s'",
-	              name.c_str() )
+				  name.c_str() )
 {
 }
 
 
-UnknownModuleTypeException::UnknownModuleTypeException ( const string& location,
-                                                         int moduletype )
+UnknownModuleTypeException::UnknownModuleTypeException ( const XMLLocation& location,
+														 int moduletype )
 	: XMLInvalidBuildFileException (
 		location,
 		"module type requested: %i",
@@ -149,10 +140,10 @@ UnknownModuleTypeException::UnknownModuleTypeException ( const string& location,
 
 
 InvocationFailedException::InvocationFailedException ( const std::string& command,
-                                                       int exitcode )
+													   int exitcode )
 	: Exception ( "Failed to execute '%s' (exit code %d)",
-	              command.c_str (),
-	              exitcode )
+				  command.c_str (),
+				  exitcode )
 {
 	Command = command;
 	ExitCode = exitcode;
@@ -160,10 +151,10 @@ InvocationFailedException::InvocationFailedException ( const std::string& comman
 
 
 UnsupportedBuildToolException::UnsupportedBuildToolException ( const std::string& buildTool,
-                                                               const std::string& version )
+															   const std::string& version )
 	: Exception ( "Build tool '%s' with version '%s' is unsupported. Please upgrade your build tool.",
-	              buildTool.c_str (),
-	              version.c_str () )
+				  buildTool.c_str (),
+				  version.c_str () )
 {
 	BuildTool = buildTool;
 	Version  = version;

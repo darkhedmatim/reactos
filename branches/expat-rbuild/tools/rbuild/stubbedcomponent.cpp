@@ -15,22 +15,23 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 StubbedComponent::StubbedComponent ( const Module* module_,
-                                     const XMLElement& stubbedComponentNode )
+									 const XMLNode& stubbedComponentNode )
 	: module(module_),
 	  node(stubbedComponentNode)
 {
-	const XMLAttribute* att = node.GetAttribute ( "name", true );
-	assert ( att );
-	name = att->value;
+	name = node.get("name");
 }
 
 StubbedComponent::~StubbedComponent ()
@@ -42,36 +43,42 @@ StubbedComponent::~StubbedComponent ()
 void
 StubbedComponent::ProcessXML ()
 {
-	size_t i;
-	for ( i = 0; i < node.subElements.size (); i++ )
-		ProcessXMLSubElement ( *node.subElements[i] );
-	for ( i = 0; i < symbols.size (); i++ )
+	const XMLNode::Children& children = node.get_children();
+
+	for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+		ProcessXMLSubElement(**it);
+
+	for (size_t i = 0; i < symbols.size (); i++ )
 		symbols[i]->ProcessXML ();
 }
 
 void
-StubbedComponent::ProcessXMLSubElement ( const XMLElement& e )
+StubbedComponent::ProcessXMLSubElement ( const XMLNode& e )
 {
 	bool subs_invalid = false;
-	if ( e.name == "symbol" )
+	if ( e == "symbol" )
 	{
 		symbols.push_back ( new StubbedSymbol ( e ) );
 		subs_invalid = false;
 	}
-	if ( subs_invalid && e.subElements.size () > 0 )
+
+	if (subs_invalid && !e.get_children().empty())
 	{
 		throw XMLInvalidBuildFileException (
-			e.location,
+			e.get_location(),
 			"<%s> cannot have sub-elements",
-			e.name.c_str() );
+			e.c_str() );
 	}
-	for ( size_t i = 0; i < e.subElements.size (); i++ )
-		ProcessXMLSubElement ( *e.subElements[i] );
+
+	const XMLNode::Children& children = e.get_children();
+
+	for(XMLNode::Children::const_iterator it=children.begin(); it!=children.end(); ++it)
+		ProcessXMLSubElement ( **it );
 }
 
 
 
-StubbedSymbol::StubbedSymbol ( const XMLElement& stubbedSymbolNode )
+StubbedSymbol::StubbedSymbol ( const XMLNode& stubbedSymbolNode )
 	: node(stubbedSymbolNode)
 {
 }
@@ -83,21 +90,17 @@ StubbedSymbol::~StubbedSymbol ()
 void
 StubbedSymbol::ProcessXML ()
 {
-	if ( node.value.size () == 0 )
+	if (node.get_content().empty())
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"<symbol> is empty." );
 	}
-	symbol = node.value;
+	symbol = node.get_content();
 
 	strippedName = StripSymbol ( symbol );
 
-	const XMLAttribute* att = node.GetAttribute ( "newname", false );
-	if ( att != NULL )
-		newname = att->value;
-	else
-		newname = strippedName;
+	newname = get_attribute(&node, "newname", strippedName);
 }
 
 string

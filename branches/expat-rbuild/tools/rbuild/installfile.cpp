@@ -15,31 +15,25 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
+using XMLStorage::XMLNode;
 
 InstallFile::InstallFile ( const Project& project_,
-	                       const XMLElement& installfileNode,
-	                       const string& path )
+						   const XMLNode& installfileNode,
+						   const string& path )
 	: project ( project_ ),
 	  node ( installfileNode )
 {
-	const XMLAttribute* att = node.GetAttribute ( "base", false );
-	if ( att != NULL )
-		base = att->value;
-	else
-		base = "";
-
-	att = node.GetAttribute ( "newname", false );
-	if ( att != NULL )
-		newname = att->value;
-	else
-		newname = node.value;
-	name = node.value;
+	base = node.get("base");
+	newname = node.get("newname");
+	name = node.get_content();
 	this->path = path;
 }
 

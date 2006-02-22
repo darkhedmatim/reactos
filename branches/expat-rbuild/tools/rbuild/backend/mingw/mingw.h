@@ -37,11 +37,11 @@ class MingwBackend : public Backend
 {
 public:
 	MingwBackend ( Project& project,
-	               Configuration& configuration );
+				   Configuration& configuration );
 	~MingwBackend ();
 	virtual void Process ();
 	std::string AddDirectoryTarget ( const std::string& directory,
-	                                 Directory* directoryTree );
+									 Directory* directoryTree );
 	const Module& GetAliasedModuleOrModule ( const Module& module ) const;
 	std::string compilerPrefix;
 	std::string compilerCommand;
@@ -58,13 +58,13 @@ private:
 	void GenerateHeader () const;
 	std::string GenerateIncludesAndDefines ( IfableData& data ) const;
 	void GenerateProjectCFlagsMacro ( const char* assignmentOperation,
-	                                  IfableData& data ) const;
+									  IfableData& data ) const;
 	void GenerateGlobalCFlagsAndProperties ( const char* op,
-	                                         IfableData& data ) const;
+											 IfableData& data ) const;
 	void GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
-                                              IfableData& data ) const;
+											  IfableData& data ) const;
 	void GenerateProjectGccOptions ( const char* assignmentOperation,
-	                                 IfableData& data ) const;
+									 IfableData& data ) const;
 	std::string GenerateProjectLFLAGS () const;
 	void GenerateDirectories ();
 	void GenerateGlobalVariables () const;
@@ -105,13 +105,15 @@ private:
 	void GetModuleInstallTargetFiles ( std::vector<std::string>& out ) const;
 	void GetInstallTargetFiles ( std::vector<std::string>& out ) const;
 	void OutputInstallTarget ( const std::string& sourceFilename,
-	                           const std::string& targetFilename,
-	                           const std::string& targetDirectory );
+							   const std::string& targetFilename,
+							   const std::string& targetDirectory );
 	void OutputNonModuleInstallTargets ();
 	void OutputModuleInstallTargets ();
 	std::string GetRegistrySourceFiles ();
 	std::string GetRegistryTargetFiles ();
+#ifdef _ROS_
 	void OutputRegistryInstallTarget ();
+#endif
 	void GenerateInstallTarget ();
 	void GetModuleTestTargets ( std::vector<std::string>& out ) const;
 	void GenerateTestTarget ();
@@ -127,14 +129,14 @@ public:
 	ProxyMakefile ( const Project& project );
 	~ProxyMakefile ();
 	void GenerateProxyMakefiles ( bool verbose,
-                                      std::string outputTree );
+									  std::string outputTree );
 private:
 	std::string GeneratePathToParentDirectory ( int numberOfParentDirectories );
 	std::string GetPathToTopDirectory ( Module& module );
 	bool GenerateProxyMakefile ( Module& module );
 	void GenerateProxyMakefileForModule ( Module& module,
-                                              bool verbose,
-                                              std::string outputTree );
+											  bool verbose,
+											  std::string outputTree );
 	const Project& project;
 };
 

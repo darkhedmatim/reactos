@@ -18,9 +18,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifdef _MSC_VER
-#pragma warning ( disable : 4786 )
-#endif//_MSC_VER
+
+#include "pch.h"
 
 #include <iostream>
 #include <fstream>
@@ -40,7 +39,7 @@ static class MSVCFactory : public Backend::Factory
 
 		MSVCFactory() : Factory("MSVC", "Microsoft Visual C") {}
 		Backend *operator() (Project &project,
-		                     Configuration& configuration)
+							 Configuration& configuration)
 		{
 			return new MSVCBackend(project, configuration);
 		}
@@ -49,7 +48,7 @@ static class MSVCFactory : public Backend::Factory
 
 
 MSVCBackend::MSVCBackend(Project &project,
-                             Configuration& configuration) : Backend(project, configuration)
+							 Configuration& configuration) : Backend(project, configuration)
 {
 	m_unitCount = 0;
 }
@@ -61,7 +60,7 @@ void MSVCBackend::Process()
 		return;
 	}
 	if ( configuration.InstallFiles ) {
-		_install_files( _get_vc_dir(),  configuration.VSConfigurationType );
+		_install_files( _get_vc_dir(),	configuration.VSConfigurationType );
 		return;
 	}
 	string filename_sln ( ProjectNode.name );
@@ -286,7 +285,7 @@ std::string MSVCBackend::_get_vc_dir ( void ) const
 
 }
 
-void 
+void
 MSVCBackend::_get_object_files ( const Module& module, vector<string>& out) const
 {
 	string basepath = module.GetBasePath ();
@@ -319,7 +318,7 @@ MSVCBackend::_get_object_files ( const Module& module, vector<string>& out) cons
 			string::size_type pos = file.find_last_of ("\\");
 			if ( pos != string::npos )
 				file.erase ( 0, pos+1 );
-			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
+			if ( !_stricmp ( Right(file,3).c_str(), ".rc" ) )
 				file = ReplaceExtension ( file, ".res" );
 			else
 				file = ReplaceExtension ( file, ".obj" );
@@ -344,7 +343,7 @@ MSVCBackend::_get_object_files ( const Module& module, vector<string>& out) cons
 		out.push_back ( cfgs[i] + "\\" + module.name + ".lib" );
 		out.push_back ( cfgs[i] + "\\" + module.name + ".exp" );
 		out.push_back ( cfgs[i] + "\\" + module.name + ".ilk" );
-		out.push_back ( cfgs[i] + "\\" + "(InputName).obj" ); //MSVC2003 build bug 
+		out.push_back ( cfgs[i] + "\\" + "(InputName).obj" ); //MSVC2003 build bug
 	}
 }
 

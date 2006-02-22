@@ -15,16 +15,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
+using XMLStorage::XMLNode;
 
 Bootstrap::Bootstrap ( const Project& project_,
-                       const Module* module_,
-                       const XMLElement& bootstrapNode )
+					   const Module* module_,
+					   const XMLNode& bootstrapNode )
 	: project(project_),
 	  module(module_),
 	  node(bootstrapNode)
@@ -65,7 +68,7 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 void
@@ -74,21 +77,12 @@ Bootstrap::Initialize ()
 	if ( !IsSupportedModuleType ( module->type ) )
 	{
 		throw XMLInvalidBuildFileException (
-			node.location,
+			node.get_location(),
 			"<bootstrap> is not applicable for this module type." );
 	}
 
-	const XMLAttribute* att = node.GetAttribute ( "base", false );
-	if ( att != NULL )
-		base = att->value;
-	else
-		base = "";
-
-	att = node.GetAttribute ( "nameoncd", false );
-	if ( att != NULL )
-		nameoncd = att->value;
-	else
-		nameoncd = module->GetTargetName ();
+	base = node.get("base");
+	nameoncd = node.get("nameoncd");
 }
 
 void

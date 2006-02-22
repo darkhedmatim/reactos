@@ -16,9 +16,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifdef _MSC_VER
-#pragma warning ( disable : 4786 )
-#endif//_MSC_VER
+
+#include "pch.h"
 
 #include <iostream>
 #include <fstream>
@@ -34,7 +33,7 @@ static class DevCppFactory : public Backend::Factory
 
 		DevCppFactory() : Factory("devcpp", "Dev C++") {}
 		Backend *operator() (Project &project,
-		                     Configuration& configuration)
+							 Configuration& configuration)
 		{
 			return new DevCppBackend(project, configuration);
 		}
@@ -43,7 +42,7 @@ static class DevCppFactory : public Backend::Factory
 
 
 DevCppBackend::DevCppBackend(Project &project,
-                             Configuration& configuration) : Backend(project, configuration)
+							 Configuration& configuration) : Backend(project, configuration)
 {
 	m_unitCount = 0;
 }
@@ -67,9 +66,9 @@ void DevCppBackend::Process()
 	m_devFile << "[Project]" << endl;
 	
 	m_devFile	<< "FileName="				<< filename 		<< endl
-				<< "Name="					<< ProjectNode.name	<< endl
-				<< "UnitCount="				<< m_unitCount		<< endl
-				<< "Type=1"					<< endl
+				<< "Name="					<< ProjectNode.name << endl
+				<< "UnitCount=" 			<< m_unitCount		<< endl
+				<< "Type=1" 				<< endl
 				<< "Ver=1"					<< endl
 				<< "ObjFiles="				<< endl
 				<< "Includes="				<< endl
@@ -82,7 +81,7 @@ void DevCppBackend::Process()
 				<< "Linker="				<< endl
 				<< "IsCpp=1"				<< endl
 				<< "Icon="					<< endl
-				<< "ExeOutput="				<< endl
+				<< "ExeOutput=" 			<< endl
 				<< "ObjectOutput="			<< endl
 				<< "OverrideOutput=0"		<< endl
 				<< "OverrideOutputName="	<< endl
@@ -109,8 +108,8 @@ void DevCppBackend::Process()
 	cout << "Creating Makefile: " << ProjectNode.makefile << endl;
 	
 	Backend *backend = Backend::Factory::Create("mingw",
-	                                            ProjectNode,
-	                                            configuration );
+												ProjectNode,
+												configuration );
 	backend->Process();
 	delete backend;
 
@@ -152,7 +151,7 @@ bool FileExists(string &filename)
 void DevCppBackend::ProcessFile(string &filepath)
 {
 	// Remove the .\ at the start of the filenames
-    if ((filepath[0] == '.') && (filepath[1] == '\\')) filepath.erase(0, 2);
+	if ((filepath[0] == '.') && (filepath[1] == '\\')) filepath.erase(0, 2);
 
 	if(!FileExists(filepath))
 		return;
@@ -239,9 +238,9 @@ void DevCppBackend::OutputFileUnits()
 
 		m_devFile << "FileName="			<< m_fileUnits[i].filename << endl;
 		m_devFile << "CompileCpp=1" 		<< endl;
-		m_devFile << "Folder=" 				<< m_fileUnits[i].folder << endl;
+		m_devFile << "Folder="				<< m_fileUnits[i].folder << endl;
 		m_devFile << "Compile=1"			<< endl;
-		m_devFile << "Link=1" 				<< endl;
+		m_devFile << "Link=1"				<< endl;
 		m_devFile << "Priority=1000"		<< endl;
 		m_devFile << "OverrideBuildCmd=0"	<< endl;
 		m_devFile << "BuildCmd="			<< endl << endl;;

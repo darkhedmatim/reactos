@@ -15,17 +15,20 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 LinkerScript::LinkerScript ( const Project& project,
-                             const Module* module,
-                             const XMLElement& node )
+							 const Module* module,
+							 const XMLNode& node )
 	: project ( project ),
 	  module ( module ),
 	  node ( node ),
@@ -40,20 +43,19 @@ LinkerScript::~LinkerScript ()
 void
 LinkerScript::ProcessXML()
 {
-	const XMLAttribute* att;
-	att = node.GetAttribute ( "base",
-	                          false );
-	if ( att )
+	const string& base_value = node.get("base");
+
+	if (!base_value.empty())
 	{
 		bool referenceResolved = false;
-		if ( att->value == project.name )
+		if ( base_value == project.name )
 		{
 			basePath = ".";
 			referenceResolved = true;
 		}
 		else
 		{
-			const Module* base = project.LocateModule ( att->value );
+			const Module* base = project.LocateModule ( base_value );
 			if ( base != NULL )
 			{
 				baseModule = base;
@@ -64,12 +66,11 @@ LinkerScript::ProcessXML()
 		if ( !referenceResolved )
 		{
 			throw XMLInvalidBuildFileException (
-				node.location,
-				"<linkerscript> attribute 'base' references non-existant project or module '%s'",
-				att->value.c_str() );
+				node.get_location(),
+				"<linkerscript> attribute 'base' references non-existant project or module '%s'", base_value.c_str() );
 		}
-		directory = NormalizeFilename ( basePath + sSep + node.value );
+		directory = NormalizeFilename ( basePath + sSep + node.get_content() );
 	}
 	else
-		directory = NormalizeFilename ( node.value );
+		directory = NormalizeFilename ( node.get_content() );
 }

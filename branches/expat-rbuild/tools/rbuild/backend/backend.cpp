@@ -15,7 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#include "../pch.h"
+
+#include "pch.h"
 
 #include "../rbuild.h"
 #include "backend.h"
@@ -32,7 +33,7 @@ Backend::Factory::ref = 0;
 Backend::Factory::Factory ( const std::string& name_, const std::string& description_ )
 {
 	string name(name_);
-	strlwr ( &name[0] );
+	_strlwr ( &name[0] );
 	if ( !ref++ )
 		factories = new map<string,Factory*>;
 	(*factories)[name] = this;
@@ -51,15 +52,15 @@ Backend::Factory::~Factory ()
 
 /*static*/ Backend*
 Backend::Factory::Create ( const string& name,
-                           Project& project,
-                           Configuration& configuration )
+						   Project& project,
+						   Configuration& configuration )
 {
 	string sname ( name );
-	strlwr ( &sname[0] );
+	_strlwr ( &sname[0] );
 	if ( !factories || !factories->size () )
 		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "No registered factories" );
+										  __LINE__,
+										  "No registered factories" );
 	Backend::Factory* f = (*factories)[sname];
 	if ( !f )
 	{
@@ -70,7 +71,7 @@ Backend::Factory::Create ( const string& name,
 }
 
 Backend::Backend ( Project& project,
-                   Configuration& configuration )
+				   Configuration& configuration )
 	: ProjectNode ( project ),
 	  configuration ( configuration )
 {

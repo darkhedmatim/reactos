@@ -18,58 +18,33 @@
 #ifndef XML_H
 #define XML_H
 
-#include <string>
-#include <vector>
-#include <stdarg.h>
-
-class XMLElement;
-
-extern std::string working_directory;
-
-void
-InitWorkingDirectory();
-
-#ifdef _MSC_VER
-unsigned __int64
-#else
-unsigned long long
+#ifndef XMLNODE_LOCATION
+#define XMLNODE_LOCATION
 #endif
-filelen ( FILE* f );
+#include "xmlstorage.h"
+#include <vector>
 
 class XMLException
 {
 public:
-	XMLException ( const std::string& location, const char* format, ... );
+	XMLException ( const XMLStorage::XMLLocation& location, const char* format, ... );
 	const std::string& operator *() { return _e; }
 
 protected:
 	XMLException() {}
-	void SetExceptionV ( const std::string& location, const char* format, va_list args );
-	void SetException ( const std::string& location, const char* format, ... );
+	void SetExceptionV ( const XMLStorage::XMLLocation& location, const char* format, va_list args );
+	void SetException ( const XMLStorage::XMLLocation& location, const char* format, ... );
 
 private:
 	std::string _e;
 };
 
-class XMLSyntaxErrorException : public XMLException
-{
-public:
-	XMLSyntaxErrorException (
-		const std::string& location,
-		const char* format, ... )
-	{
-		va_list args;
-		va_start ( args, format );
-		SetExceptionV ( location, format, args );
-		va_end ( args );
-	}
-};
 
 class XMLRequiredAttributeNotFoundException : public XMLException
 {
 public:
 	XMLRequiredAttributeNotFoundException (
-		const std::string& location,
+		const XMLStorage::XMLLocation& location,
 		const std::string& attributeName,
 		const std::string& elementName )
 	{
@@ -83,7 +58,7 @@ class XMLInvalidBuildFileException : public XMLException
 {
 public:
 	XMLInvalidBuildFileException (
-		const std::string& location,
+		const XMLStorage::XMLLocation& location,
 		const char* format,
 		... )
 	{
@@ -94,20 +69,30 @@ public:
 	}
 };
 
+class InvalidAttributeValueException : public XMLInvalidBuildFileException
+{
+public:
+	InvalidAttributeValueException ( const XMLStorage::XMLLocation& location,
+									 const std::string& name,
+									 const std::string& value );
+};
+
 class XMLFileNotFoundException : public XMLException
 {
 public:
 	XMLFileNotFoundException (
-		const std::string& location,
+		const XMLStorage::XMLLocation& location,
 		const std::string& filename )
 	{
 		SetException ( location, "Can't open file '%s'", filename.c_str() );
 	}
 };
 
+
 class Path
 {
 	std::vector<std::string> path;
+
 public:
 	Path(); // initializes path to getcwd();
 	Path ( const Path& cwd, const std::string& filename );
@@ -123,117 +108,74 @@ public:
 		bool include_last );
 };
 
+
 class XMLInclude
 {
 public:
-	XMLElement *e;
+	XMLStorage::XMLNode *e;
+	XMLStorage::XMLNode *parentNode;
 	Path path;
 	std::string topIncludeFilename;
 	bool fileExists;
 
 	XMLInclude (
-		XMLElement* e_,
+		XMLStorage::XMLNode* e_,
+		XMLStorage::XMLNode* parentNode_,
 		const Path& path_,
 		const std::string topIncludeFilename_ )
 		: e ( e_ ),
+		parentNode (parentNode_),
 		path ( path_ ),
 		topIncludeFilename ( topIncludeFilename_ )
 	{
 	}
 };
 
-class XMLIncludes : public std::vector<XMLInclude*>
+class XMLIncludes : public std::stack<XMLInclude>
 {
-public:
-	~XMLIncludes();
-};
-
-class XMLFile
-{
-	friend class XMLElement;
-public:
-	XMLFile();
-	void close();
-	bool open(const std::string& filename);
-	void next_token();
-	bool next_is_text();
-	bool more_tokens();
-	bool get_token ( std::string& token );
-	bool get_token ( std::string& token, std::string& location );
-	const std::string& filename() { return _filename; }
-	std::string Location() const;
-
-private:
-	std::string _buf, _filename;
-
-	const char *_p, *_end;
 };
 
 
-class XMLAttribute
+ // customized XML reader to look for <xi:include> nodes
+struct RBuildReader : public XMLStorage::XMLReader
 {
-public:
-	std::string name;
-	std::string value;
+	typedef XMLStorage::XMLReader super;
 
-	XMLAttribute();
-	XMLAttribute ( const std::string& name_, const std::string& value_ );
-	XMLAttribute ( const XMLAttribute& );
-	XMLAttribute& operator = ( const XMLAttribute& );
+	RBuildReader(XMLStorage::XMLNode* node, std::istream& in, XMLIncludes& includes_, const Path& path_)
+	 :	super(node, in),
+		includes(includes_),
+		path(path_),
+		include_depth(0)
+	{
+	}
+
+	void	StartElementHandler(const XMLStorage::XS_String& name, const XMLStorage::XMLNode::AttributeMap& attributes);
+	void	EndElementHandler();
+
+protected:
+	XMLIncludes& includes;
+	const Path& path;
+	int 	include_depth;
 };
 
-
-class XMLElement
+struct RbuildDoc : public XMLStorage::XMLDoc
 {
-public:
-	XMLFile* xmlFile;
-	std::string location;
-	std::string name;
-	std::vector<XMLAttribute*> attributes;
-	XMLElement* parentElement;
-	std::vector<XMLElement*> subElements;
-	std::string value;
+	typedef XMLStorage::XMLDoc super;
 
-	XMLElement (
-		XMLFile* xmlFile,
-		const std::string& location );
+	bool read(const std::string& xml_path, XMLIncludes& includes, const Path& path_)
+	{
+		XMLStorage::tifstream in(xml_path.c_str());
+		RBuildReader reader(this, in, includes, path_);
 
-	~XMLElement();
-
-	bool Parse (
-		const std::string& token,
-		bool& end_tag);
-
-	void AddSubElement ( XMLElement* e );
-
-	XMLAttribute* GetAttribute (
-		const std::string& attribute,
-		bool required);
-
-	const XMLAttribute* GetAttribute (
-		const std::string& attribute,
-		bool required ) const;
-
-	int FindElement (
-		const std::string& type,
-		int prev = -1 ) const;
-
-	int GetElements (
-		const std::string& type,
-		std::vector<XMLElement*>& v );
-
-	int GetElements (
-		const std::string& type,
-		std::vector<const XMLElement*>& v ) const;
+		return super::read(reader, XS_String(xml_path));
+	}
 };
 
-XMLElement*
-XMLLoadFile (
-	const std::string& filename,
-	const Path& path,
-	XMLIncludes& includes );
+extern std::string get_attribute(const XMLStorage::XMLNode* node, const std::string& attr_name, const std::string& default_value);
+extern std::string get_required_attribute(const XMLStorage::XMLNode* node, const std::string& attr_name);
+extern void ensure_empty_content(const XMLStorage::XMLNode& node);
+extern void ensure_empty_attributes(const XMLStorage::XMLNode& node);
+extern void ensure_no_children(const XMLStorage::XMLNode& node);
 
-XMLElement*
-XMLLoadFile ( const std::string& filename );
 
 #endif // XML_H

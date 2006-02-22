@@ -15,13 +15,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
 using std::vector;
+using XMLStorage::XMLNode;
 
 CompilationUnit::CompilationUnit ( File* file )
 	: project(NULL),
@@ -33,15 +36,15 @@ CompilationUnit::CompilationUnit ( File* file )
 }
 
 CompilationUnit::CompilationUnit ( const Project* project,
-	                           const Module* module,
-	                           const XMLElement* node )
+							   const Module* module,
+							   const XMLNode* node )
 	: project(project),
 	  module(module),
 	  node(node)
 {
-	const XMLAttribute* att = node->GetAttribute ( "name", true );
-	assert(att);
-	name = module->GetBasePath () + cSep + att->value;
+	const string& node_name = get_required_attribute(node, "name");
+
+	name = module->GetBasePath () + cSep + node_name;
 }
 
 CompilationUnit::~CompilationUnit ()
@@ -77,7 +80,7 @@ CompilationUnit::HasFileWithExtension ( const std::string& extension ) const
 	{
 		File& file = *files[i];
 		string fileExtension = GetExtension ( file.name );
-		if ( !stricmp ( fileExtension.c_str (), extension.c_str () ) )
+		if ( !_stricmp ( fileExtension.c_str (), extension.c_str () ) )
 			return true;
 	}
 	return false;

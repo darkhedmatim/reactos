@@ -37,7 +37,7 @@ class DevCppBackend : public Backend
 	public:
 
 		DevCppBackend(Project &project,
-		              Configuration& configuration);
+					  Configuration& configuration);
 		virtual ~DevCppBackend() {}
 
 		virtual void Process();

@@ -17,9 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifdef _MSC_VER
-#pragma warning ( disable : 4786 )
-#endif//_MSC_VER
+#include "pch.h"
 
 #include <string>
 #include <vector>
@@ -122,9 +120,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			// TODO FIXME - do we want the full path of the file here?
 			string file = string(".") + &files[i]->name[vcproj_path.size()];
 
-			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
+			if ( !_stricmp ( Right(file,3).c_str(), ".rc" ) )
 				resource_files.push_back ( file );
-            else
+			else
 				source_files.push_back ( file );
 		}
 		const vector<Include*>& incs = data.includes;
@@ -151,7 +149,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			// --- is appended to each library path which is later
 			// replaced by the configuration
 			// i.e. ../output-i386/lib/rtl/vcXX/---/rtl.lib becomes
-			//      ../output-i386/lib/rtl/vcXX/Debug/rtl.lib 
+			//		../output-i386/lib/rtl/vcXX/Debug/rtl.lib
 			// etc
 			string libpath = outdir + "\\" + libs[i]->importedModule->GetBasePath() + "\\" + _get_vc_dir() + "\\---\\" + libs[i]->name + ".lib";
 			libraries.push_back ( libpath );
@@ -184,7 +182,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 	cfgs.push_back ( "Debug" );
 	cfgs.push_back ( "Release" );
-    cfgs.push_back ( "Speed" );
+	cfgs.push_back ( "Speed" );
 
 	if (!no_cpp)
 	{
@@ -194,7 +192,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			_cfgs.push_back ( cfgs[i] + " C" );
 			_cfgs.push_back ( cfgs[i] + " C++" );
 		}
-		cfgs.resize(0);
+		cfgs.clear();
 		cfgs = _cfgs;
 	}
 
@@ -206,7 +204,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			_cfgs.push_back ( cfgs[i] + " MSVC Headers" );
 			_cfgs.push_back ( cfgs[i] + " Wine Headers" );
 		}
-		cfgs.resize(0);
+		cfgs.clear();
 		cfgs = _cfgs;
 	}
 
@@ -222,7 +220,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 	fprintf ( OUT, "\tVersion=\"%s\"\r\n", configuration.VSProjectVersion.c_str() );
 	fprintf ( OUT, "\tName=\"%s\"\r\n", module.name.c_str() );
-	fprintf ( OUT, "\tProjectGUID=\"%s\"\r\n", module.guid.c_str() ); 
+	fprintf ( OUT, "\tProjectGUID=\"%s\"\r\n", module.guid.c_str() );
 	fprintf ( OUT, "\tKeyword=\"Win32Proj\">\r\n" );
 
 	fprintf ( OUT, "\t<Platforms>\r\n" );
@@ -320,9 +318,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		fprintf ( OUT, "\"\r\n" );
 
 		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "FALSE" : "TRUE" );
-        fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"%s\"\r\n", sys ? 0 : (debug ? "3" : "0") );
+		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"%s\"\r\n", sys ? 0 : (debug ? "3" : "0") );
 		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug? 1: 5 );	// 1=/MTd 5=/MT
-        fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"%s\"\r\n", sys ? "FALSE" : (debug ? "TRUE" : "FALSE" ));
+		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"%s\"\r\n", sys ? "FALSE" : (debug ? "TRUE" : "FALSE" ));
 		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"%s\"\r\n", debug ? "TRUE" : "FALSE" );
 		
 		if ( module.pch != NULL )
@@ -333,7 +331,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				module.GetBasePath() );
 			string::size_type pos = pch_path.find_last_of ("/");
 			if ( pos != string::npos )
-				pch_path.erase(0, pos+1);         
+				pch_path.erase(0, pos+1);
 			fprintf ( OUT, "\t\t\t\tPrecompiledHeaderThrough=\"%s\"\r\n", pch_path.c_str() );
 		}
 		else
@@ -353,7 +351,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		fprintf ( OUT, "\t\t\t\tDetect64BitPortabilityProblems=\"%s\"\r\n", speed ? "FALSE" : "TRUE");
 		if ( !module.cplusplus )
 			fprintf ( OUT, "\t\t\t\tCompileAs=\"1\"\r\n" );
-        fprintf ( OUT, "\t\t\t\tCallingConvention=\"%d\"\r\n", (sys || (exe && module.type == Kernel)) ? 2: 0);	// 2=__stdcall 0=__cdecl
+		fprintf ( OUT, "\t\t\t\tCallingConvention=\"%d\"\r\n", (sys || (exe && module.type == Kernel)) ? 2: 0); // 2=__stdcall 0=__cdecl
 		fprintf ( OUT, "\t\t\t\tDebugInformationFormat=\"%s\"/>\r\n", speed ? "0" : release ? "3": "4");	// 3=/Zi 4=ZI
 
 		fprintf ( OUT, "\t\t\t<Tool\r\n" );
@@ -375,12 +373,12 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			{
 				if ( i > 0 )
 					fprintf ( OUT, " " );
-#if 0 
-				// this code is deactivated untill 
+#if 0
+				// this code is deactivated untill
 				// msvc can build the whole tree
 				string libpath = libraries[i].c_str();
 				libpath.replace (libpath.find("---"), //See HACK
-					             3,
+								 3,
 								 cfg);
 				fprintf ( OUT, "%s", libpath.c_str() );
 #else
@@ -392,7 +390,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s%s\"\r\n", module.name.c_str(), module_type.c_str() );
 			fprintf ( OUT, "\t\t\t\tLinkIncremental=\"%d\"\r\n", debug ? 2 : 1 );
 			fprintf ( OUT, "\t\t\t\tGenerateDebugInformation=\"%s\"\r\n", speed ? "FALSE" : "TRUE" );
-			fprintf ( OUT, "\t\t\t\tLinkTimeCodeGeneration=\"%d\"\r\n", release? 1: 0);	// whole program optimization
+			fprintf ( OUT, "\t\t\t\tLinkTimeCodeGeneration=\"%d\"\r\n", release? 1: 0); // whole program optimization
 
 			if ( debug )
 				fprintf ( OUT, "\t\t\t\tProgramDatabaseFile=\"$(OutDir)/%s.pdb\"\r\n", module.name.c_str() );
@@ -569,32 +567,32 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 std::string
 MSVCBackend::_replace_str(std::string string1, const std::string &find_str, const std::string &replace_str)
 {
-        std::string::size_type pos = string1.find(find_str, 0);
-        int intLen = find_str.length();
+		std::string::size_type pos = string1.find(find_str, 0);
+		int intLen = find_str.length();
 
-        while(std::string::npos != pos)
-        {
-                string1.replace(pos, intLen, replace_str);
-                pos = string1.find(find_str, intLen + pos);
-        }
+		while(std::string::npos != pos)
+		{
+				string1.replace(pos, intLen, replace_str);
+				pos = string1.find(find_str, intLen + pos);
+		}
 
-        return string1;
-} 
+		return string1;
+}
 
 std::string
 MSVCBackend::_get_solution_verion ( void ) {
-    string version;
+	string version;
 
-    if (configuration.VSProjectVersion.empty())
-        configuration.VSProjectVersion = MS_VS_DEF_VERSION;
+	if (configuration.VSProjectVersion.empty())
+		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
 
-    if (configuration.VSProjectVersion == "7.00")
+	if (configuration.VSProjectVersion == "7.00")
 		version = "7.00";
 
-    if (configuration.VSProjectVersion == "7.10")
+	if (configuration.VSProjectVersion == "7.10")
 		version = "8.00";
 
-    if (configuration.VSProjectVersion == "8.00")
+	if (configuration.VSProjectVersion == "8.00")
 		version = "9.00";
 
 	return version;
@@ -628,9 +626,9 @@ MSVCBackend::_get_solution_verion ( void ) {
 void
 MSVCBackend::_generate_sln_header ( FILE* OUT )
 {
-    fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_verion().c_str() );
-    fprintf ( OUT, "# Visual Studio 2005\r\n" );
-    fprintf ( OUT, "\r\n" );
+	fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_verion().c_str() );
+	fprintf ( OUT, "# Visual Studio 2005\r\n" );
+	fprintf ( OUT, "\r\n" );
 }
 
 
@@ -677,7 +675,7 @@ MSVCBackend::_generate_sln_footer ( FILE* OUT )
 		Module& module = *ProjectNode.modules[i];
 		std::string guid = module.guid;
 		_generate_sln_configurations ( OUT, guid.c_str() );
-	} 
+	}
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ExtensibilityGlobals) = postSolution\r\n" );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
@@ -692,7 +690,7 @@ MSVCBackend::_generate_sln_footer ( FILE* OUT )
 
 	if (configuration.VSProjectVersion == "8.00") {
 		fprintf ( OUT, "\tGlobalSection(SolutionProperties) = preSolution\r\n" );
-        	fprintf ( OUT, "\t\tHideSolutionNode = FALSE\r\n" );
+			fprintf ( OUT, "\t\tHideSolutionNode = FALSE\r\n" );
 		fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	}
 

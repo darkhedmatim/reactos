@@ -35,6 +35,7 @@ SysSetupGenerator::~SysSetupGenerator ()
 void
 SysSetupGenerator::Generate ()
 {
+#ifdef _ROS_
 	HINF inf;
 	unsigned long errorLine;
 
@@ -58,6 +59,7 @@ SysSetupGenerator::Generate ()
 	}
 
 	InfHostCloseFile ( inf );
+#endif
 }
 
 #define DIRECTORYID_SYSTEM32	"11"
@@ -68,12 +70,12 @@ SysSetupGenerator::GetDirectoryId ( const Module& module )
 	if ( ToLower ( module.installBase ) == "system32" )
 		return DIRECTORYID_SYSTEM32;
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 #define FLG_REGSVR_DLLREGISTER "1"
 #define FLG_REGSVR_DLLINSTALL  "2"
-#define FLG_REGSVR_BOTH        "3"
+#define FLG_REGSVR_BOTH 	   "3"
 
 string
 SysSetupGenerator::GetFlags ( const Module& module )
@@ -85,12 +87,12 @@ SysSetupGenerator::GetFlags ( const Module& module )
 	if ( module.autoRegister->type == Both )
 		return FLG_REGSVR_BOTH;
 	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__ );
+									  __LINE__ );
 }
 
 void
 SysSetupGenerator::Generate ( HINF inf,
-                              const Module& module )
+							  const Module& module )
 {
 	PINFCONTEXT context;
 
@@ -101,16 +103,16 @@ SysSetupGenerator::Generate ( HINF inf,
 		InfHostCloseFile ( inf );
 	}
 
-      if ( 0 != InfHostAddLine ( context, NULL ) ||
-           0 != InfHostAddField ( context, GetDirectoryId ( module ).c_str () ) ||
-           0 != InfHostAddField ( context, "" ) ||
-           0 != InfHostAddField ( context, module.installName.c_str () ) ||
-           0 != InfHostAddField ( context, GetFlags ( module ).c_str () ) )
-        {
+	  if ( 0 != InfHostAddLine ( context, NULL ) ||
+		   0 != InfHostAddField ( context, GetDirectoryId ( module ).c_str () ) ||
+		   0 != InfHostAddField ( context, "" ) ||
+		   0 != InfHostAddField ( context, module.installName.c_str () ) ||
+		   0 != InfHostAddField ( context, GetFlags ( module ).c_str () ) )
+		{
 		InfHostFreeContext ( context );
 		InfHostCloseFile ( inf );
 		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__ );
+										  __LINE__ );
 	}
 
 	InfHostFreeContext ( context );

@@ -26,7 +26,7 @@
 #endif//_MSC_VER
 
 #ifdef WIN32
-#define MKDIR(s) mkdir(s)
+#define MKDIR(s) _mkdir(s)
 #else
 #define MKDIR(s) mkdir(s, 0755)
 #endif
@@ -47,9 +47,9 @@ Directory::Add ( const char* subdir )
 	if ( ( i = s1.find ( '$' ) ) != string::npos )
 	{
 		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "No environment variables can be used here. Path was %s",
-		                                  subdir );
+										  __LINE__,
+										  "No environment variables can be used here. Path was %s",
+										  subdir );
 	}
 
 	const char* p = strpbrk ( subdir, "/\\" );
@@ -110,8 +110,8 @@ Directory::CreateDirectory ( string path )
 
 string
 Directory::ReplaceVariable ( string name,
-                             string value,
-                             string path )
+							 string value,
+							 string path )
 {
 	size_t i = path.find ( name );
 	if ( i != string::npos )
@@ -122,7 +122,7 @@ Directory::ReplaceVariable ( string name,
 
 void
 Directory::ResolveVariablesInPath ( char* buf,
-                                    string path )
+									string path )
 {
 	string s = ReplaceVariable ( "$(INTERMEDIATE)", Environment::GetIntermediatePath (), path );
 	s = ReplaceVariable ( "$(OUTPUT)", Environment::GetOutputPath (), s );
@@ -132,14 +132,14 @@ Directory::ResolveVariablesInPath ( char* buf,
 
 void
 Directory::GenerateTree ( const string& parent,
-                          bool verbose )
+						  bool verbose )
 {
 	string path;
 
 	if ( parent.size () > 0 )
 	{
 		char buf[256];
-		
+
 		path = parent + sSep + name;
 		ResolveVariablesInPath ( buf, path );
 		if ( CreateDirectory ( buf ) && verbose )
@@ -174,7 +174,7 @@ Directory::EscapeSpaces ( string path )
 
 void
 Directory::CreateRule ( FILE* f,
-                        const string& parent )
+						const string& parent )
 {
 	string path;
 

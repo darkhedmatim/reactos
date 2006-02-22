@@ -28,7 +28,10 @@
 #include <time.h>
 #include <string.h>
 #include "version.h"
+
 #include "xml.h"
+using namespace XMLStorage;
+using namespace std;
 
 #define FALSE 0
 #define TRUE  1
@@ -52,7 +55,7 @@ tm_dump (const char *tag, struct tm * t)
 }
 #endif
 
-void
+static int
 write_h (int build, char *buildstr)
 {
   FILE	*h = NULL;
@@ -60,6 +63,9 @@ write_h (int build, char *buildstr)
   char* s1;
   unsigned int length;
   int dllversion = KERNEL_VERSION_MAJOR + 42;
+
+  if (!filename || !*filename)
+	return 1;
 
   s1 = s = (char *) malloc(256 * 1024);
   
@@ -151,7 +157,7 @@ write_h (int build, char *buildstr)
 	  if (memcmp(s1, orig, length) == 0)
 	    {
 	      fclose(h);
-	      return;
+	      return 0;
 	    }
 	}
       fclose(h);
@@ -164,79 +170,50 @@ write_h (int build, char *buildstr)
 	       "%s: can not create file \"%s\"!\n",
 	       argv0,
 	       filename);
-      return;
+      return -1;
     }
   fwrite(s1, 1, strlen(s1), h);
   fclose (h);
+
+  return 0;
 }
 
-char *
+static string
 GetRev(void)
 {
-  static char Unknown[] = "UNKNOWN";
-  static char Revision[10]; /* 999999999 revisions should be enough for everyone... */
+  try {
+	XMLDoc doc;
 
-  try
-    {
-      XMLElement *head;
+	if (!doc.read(".svn/entries"))
+		doc.read("_svn/entries");
 
-      try
-        {
-          head = XMLLoadFile(".svn/entries");
-        }
-      catch(XMLFileNotFoundException)
-        {
-          head = XMLLoadFile("_svn/entries");
-        }
-      XMLElement *entries = head->subElements[0];
-      for (size_t i = 0; i < entries->subElements.size(); i++)
-      {
-          XMLElement *entry = entries->subElements[i];
-          if ("entry" == entry->name)
-            {
-              bool GotName = false;
-              bool GotKind = false;
-              bool GotRevision = false;
-              for (size_t j = 0; j < entry->attributes.size(); j++)
-                {
-                  XMLAttribute *Attribute = entry->attributes[j];
-                  if ("name" == Attribute->name && "" == Attribute->value)
-                    {
-                      GotName = true;
-                    }
-                  if ("kind" == Attribute->name && "dir" == Attribute->value)
-                    {
-                      GotKind = true;
-                    }
-                  if ("revision" == Attribute->name)
-                    {
-                      if (sizeof(Revision) <= Attribute->value.length() + 1)
-                        {
-                          strcpy(Revision, "revtoobig");
-                        }
-                      else
-                        {
-                          strcpy(Revision, Attribute->value.c_str());
-                        }
-                      GotRevision = true;
-                    }
-                  if (GotName && GotKind && GotRevision)
-                    {
-                      delete head;
-                      return Revision;
-                    }
-                }
-            }
-        }
+	XMLPos pos(&doc);
 
-      delete head;
-    }
-  catch(...)
-    {
-      ;
-    }
+	 // enter the "wc-entries" root element
+	if (pos.go_down("wc-entries")) {
+		 // enumerate all "entry" children elements
+		const_XMLChildrenFilter entries(pos, "entry");
 
-  return Unknown;
+		for(const_XMLChildrenFilter::const_iterator it=entries.begin(); it!=entries.end(); ++it) {
+			const XMLNode& entry = **it;
+
+			string kind = entry.get("kind");
+			string name = entry.get("name");
+			string revision = entry.get("revision");
+
+			if (kind=="dir" && name=="" && !revision.empty())
+				return revision;
+		}
+
+		pos.back();
+	}
+  }
+  catch(exception& e)
+	{
+	  fprintf(stderr, "Exception: %s\n", e.what());
+	}
+
+  return "UNKNOWN";
 }
 
 
@@ -336,7 +313,7 @@ main (int argc, char * argv [])
 	 */
 	build =	t1_tm->tm_year * 10000 + (t1_tm->tm_mon + 1) * 100 + t1_tm->tm_mday;
 
-	sprintf(buildstr, "%d-r%s", build, GetRev());
+	sprintf(buildstr, "%d-r%s", build, GetRev().c_str());
 
 	if (! quiet)
 	{
@@ -357,7 +334,10 @@ main (int argc, char * argv [])
 	 */
 	if (! print_only)
 	{
-		write_h (build, buildstr);
+		if (0 != write_h (build, buildstr))
+		{
+			exit(EXIT_FAILURE);
+		}
 	}
 	else
 	{

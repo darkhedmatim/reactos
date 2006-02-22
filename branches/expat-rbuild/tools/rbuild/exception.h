@@ -26,7 +26,7 @@ class Exception
 public:
 	Exception ( const std::string& message );
 	Exception ( const char* format,
-	            ...);
+				...);
 	const std::string& operator *() { return _e; }
 
 protected:
@@ -43,11 +43,11 @@ class InvalidOperationException : public Exception
 {
 public:
 	InvalidOperationException ( const char* filename,
-	                            const int linenumber);
+								const int linenumber);
 	InvalidOperationException ( const char* filename,
-	                            const int linenumber,
-	                            const char* message,
-	                            ... );
+								const int linenumber,
+								const char* message,
+								... );
 };
 
 
@@ -74,24 +74,6 @@ public:
 };
 
 
-class RequiredAttributeNotFoundException : public XMLInvalidBuildFileException
-{
-public:
-	RequiredAttributeNotFoundException ( const std::string& location,
-	                                     const std::string& attributeName,
-	                                     const std::string& elementName );
-};
-
-
-class InvalidAttributeValueException : public XMLInvalidBuildFileException
-{
-public:
-	InvalidAttributeValueException ( const std::string& location,
-	                                 const std::string& name,
-	                                 const std::string& value );
-};
-
-
 class BackendNameConflictException : public Exception
 {
 public:
@@ -108,16 +90,15 @@ public:
 class UnknownModuleTypeException : public XMLInvalidBuildFileException
 {
 public:
-	UnknownModuleTypeException ( const std::string& location,
-	                             int moduletype );
+	UnknownModuleTypeException ( const XMLStorage::XMLLocation& location,
+								 int moduletype );
 };
-
 
 class InvocationFailedException : public Exception
 {
 public:
 	InvocationFailedException ( const std::string& command,
-	                            int exitcode );
+								int exitcode );
 	std::string Command;
 	int ExitCode;
 };
@@ -127,7 +108,7 @@ class UnsupportedBuildToolException : public Exception
 {
 public:
 	UnsupportedBuildToolException ( const std::string& buildtool,
-	                                const std::string& version );
+									const std::string& version );
 	std::string BuildTool;
 	std::string Version;
 };

@@ -15,31 +15,25 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
 #include "pch.h"
+
 #include <assert.h>
 
 #include "rbuild.h"
 
 using std::string;
+using XMLStorage::XMLNode;
 
 CDFile::CDFile ( const Project& project_,
-	             const XMLElement& cdfileNode,
-	             const string& path )
+				 const XMLNode& cdfileNode,
+				 const string& path )
 	: project ( project_ ),
 	  node ( cdfileNode )
 {
-	const XMLAttribute* att = node.GetAttribute ( "base", false );
-	if ( att != NULL )
-		base = att->value;
-	else
-		base = "";
-
-	att = node.GetAttribute ( "nameoncd", false );
-	if ( att != NULL )
-		nameoncd = att->value;
-	else
-		nameoncd = node.value;
-	name = node.value;
+	base = node.get("base");
+	nameoncd = node.get("nameoncd");
+	name = node.get_content();
 	this->path = path;
 }
 

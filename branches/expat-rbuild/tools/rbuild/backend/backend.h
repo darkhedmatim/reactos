@@ -23,7 +23,7 @@
 class Backend;
 
 typedef Backend* BackendFactory ( Project& project,
-                                  Configuration& configuration );
+								  Configuration& configuration );
 
 class Backend
 {
@@ -41,12 +41,12 @@ public:
 		virtual ~Factory();
 
 		virtual Backend* operator() ( Project&,
-		                              Configuration& configuration ) = 0;
+									  Configuration& configuration ) = 0;
 
 	public:
 		static Backend* Create ( const std::string& name,
-		                         Project& project,
-		                         Configuration& configuration );
+								 Project& project,
+								 Configuration& configuration );
 
 		static std::map<std::string,Factory*>::iterator map_begin(void)
 		{
@@ -64,7 +64,7 @@ public:
 
 protected:
 	Backend ( Project& project,
-	          Configuration& configuration );
+			  Configuration& configuration );
 
 public:
 	virtual ~Backend();

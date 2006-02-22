@@ -45,31 +45,33 @@
 
 inline char * strlwr(char *x)
 {
-        char  *y=x;
+		char  *y=x;
 
-        while (*y) {
-                *y=tolower(*y);
-                y++;
-        }
-        return x;
+		while (*y) {
+				*y=tolower(*y);
+				y++;
+		}
+		return x;
 }
-              
+
 inline char *strupr(char *x)
 {
-        char  *y=x;
+		char  *y=x;
 
-        while (*y) {
-                *y=toupper(*y);
-                y++;
-        }
-        return x;
+		while (*y) {
+				*y=toupper(*y);
+				y++;
+		}
+		return x;
 }
 
 #define _finite __finite
 #define _isnan __isnan
 #define stricmp strcasecmp
-#define MAX_PATH PATH_MAX 
+#define MAX_PATH PATH_MAX
 #define _MAX_PATH PATH_MAX
 #endif
+
+#include "xmlstorage.h"
 
 #endif//PCH_H

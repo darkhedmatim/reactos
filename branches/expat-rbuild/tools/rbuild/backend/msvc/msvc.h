@@ -37,7 +37,7 @@ class MSVCBackend : public Backend
 	public:
 
 		MSVCBackend(Project &project,
-		              Configuration& configuration);
+					  Configuration& configuration);
 		virtual ~MSVCBackend() {}
 
 		virtual void Process();

@@ -64,13 +64,13 @@ public:
 
 	std::string GetModuleTargets ( const Module& module );
 	void GetObjectsVector ( const IfableData& data,
-	                        std::vector<std::string>& objectFiles ) const;
+							std::vector<std::string>& objectFiles ) const;
 	void GenerateObjectMacro();
 	void GenerateTargetMacro();
 	void GenerateOtherMacros();
 
 	static MingwModuleHandler* InstanciateHandler ( const Module& module_,
-	                                                MingwBackend* backend_ );
+													MingwBackend* backend_ );
 	virtual HostType DefaultHost() = 0;
 	void GeneratePreconditionDependencies ();
 	virtual void Process () = 0;
@@ -93,14 +93,14 @@ protected:
 	bool IsGeneratedFile ( const File& file ) const;
 	std::string GetImportLibraryDependency ( const Module& importedModule );
 	void GetTargets ( const Module& dependencyModule,
-	                  string_list& targets );
+					  string_list& targets );
 	void GetModuleDependencies ( string_list& dependencies );
 	std::string GetAllDependencies () const;
 	void GetSourceFilenames ( string_list& list,
-                                  bool includeGeneratedFiles ) const;
+								  bool includeGeneratedFiles ) const;
 	void GetSourceFilenamesWithoutGeneratedFiles ( string_list& list ) const;
 	std::string GetObjectFilename ( const FileLocation* sourceFileLocation,
-	                                string_list* pclean_files ) const;
+									string_list* pclean_files ) const;
 
 	std::string GetObjectFilenames ();
 	
@@ -113,11 +113,11 @@ protected:
 	void GenerateCleanObjectsAsYouGoCode () const;
 	void GenerateRunRsymCode () const;
 	void GenerateLinkerCommand ( const std::string& dependencies,
-	                             const std::string& linker,
-	                             const std::string& linkerParameters,
-	                             const std::string& objectsMacro,
-	                             const std::string& libsMacro,
-	                             const std::string& pefixupParameters );
+								 const std::string& linker,
+								 const std::string& linkerParameters,
+								 const std::string& objectsMacro,
+								 const std::string& libsMacro,
+								 const std::string& pefixupParameters );
 	void GeneratePhonyTarget() const;
 	void GenerateBuildMapCode ( const char *mapTarget = NULL );
 	void GenerateRules ();
@@ -129,36 +129,36 @@ protected:
 	bool use_pch;
 private:
 	std::string ConcatenatePaths ( const std::string& path1,
-	                               const std::string& path2 ) const;
+								   const std::string& path2 ) const;
 	std::string GenerateGccDefineParameters () const;
 	std::string GenerateCompilerParametersFromVector ( const std::vector<CompilerFlag*>& compilerFlags ) const;
 	std::string GenerateLinkerParametersFromVector ( const std::vector<LinkerFlag*>& linkerFlags ) const;
 	std::string GenerateImportLibraryDependenciesFromVector ( const std::vector<Library*>& libraries );
 	std::string GenerateLinkerParameters () const;
 	void GenerateMacro ( const char* assignmentOperation,
-	                     const std::string& macro,
-	                     const IfableData& data );
+						 const std::string& macro,
+						 const IfableData& data );
 	void GenerateMacros ( const char* op,
-	                      const IfableData& data,
-	                      const std::vector<LinkerFlag*>* linkerFlags );
+						  const IfableData& data,
+						  const std::vector<LinkerFlag*>* linkerFlags );
 	void GenerateObjectMacros ( const char* assignmentOperation,
-	                            const IfableData& data,
-	                            const std::vector<LinkerFlag*>* linkerFlags );
+								const IfableData& data,
+								const std::vector<LinkerFlag*>* linkerFlags );
 	std::string GenerateGccIncludeParameters () const;
 	std::string GenerateGccParameters () const;
 	std::string GenerateNasmParameters () const;
 	std::string GetPrecompiledHeaderFilename () const;
 	void GenerateGccCommand ( const FileLocation* sourceFileLocation,
-	                          const std::string& extraDependencies,
-	                          const std::string& cc,
-	                          const std::string& cflagsMacro );
+							  const std::string& extraDependencies,
+							  const std::string& cc,
+							  const std::string& cflagsMacro );
 	void GenerateGccAssemblerCommand ( const FileLocation* sourceFileLocation,
-	                                   const std::string& cc,
-	                                   const std::string& cflagsMacro );
+									   const std::string& cc,
+									   const std::string& cflagsMacro );
 	void GenerateNasmCommand ( const FileLocation* sourceFileLocation,
-	                           const std::string& nasmflagsMacro );
+							   const std::string& nasmflagsMacro );
 	void GenerateWindresCommand ( const FileLocation* sourceFileLocation,
-	                              const std::string& windresflagsMacro );
+								  const std::string& windresflagsMacro );
 	void GenerateWinebuildCommands ( const FileLocation* sourceFileLocation );
 	std::string GetWidlFlags ( const CompilationUnit& compilationUnit );
 	void GenerateWidlCommandsServer (
@@ -168,33 +168,33 @@ private:
 		const CompilationUnit& compilationUnit,
 		const std::string& widlflagsMacro );
 	void GenerateWidlCommands ( const CompilationUnit& compilationUnit,
-	                            const std::string& widlflagsMacro );
+								const std::string& widlflagsMacro );
 	void GenerateCommands ( const CompilationUnit& compilationUnit,
-	                        const std::string& cc,
-	                        const std::string& cppc,
-	                        const std::string& cflagsMacro,
-	                        const std::string& nasmflagsMacro,
-	                        const std::string& windresflagsMacro,
-	                        const std::string& widlflagsMacro );
+							const std::string& cc,
+							const std::string& cppc,
+							const std::string& cflagsMacro,
+							const std::string& nasmflagsMacro,
+							const std::string& windresflagsMacro,
+							const std::string& widlflagsMacro );
 	void GenerateObjectFileTargets ( const IfableData& data,
-	                                 const std::string& cc,
-	                                 const std::string& cppc,
-	                                 const std::string& cflagsMacro,
-	                                 const std::string& nasmflagsMacro,
-	                                 const std::string& windresflagsMacro,
-	                                 const std::string& widlflagsMacro );
+									 const std::string& cc,
+									 const std::string& cppc,
+									 const std::string& cflagsMacro,
+									 const std::string& nasmflagsMacro,
+									 const std::string& windresflagsMacro,
+									 const std::string& widlflagsMacro );
 	void GenerateObjectFileTargets ( const std::string& cc,
-	                                 const std::string& cppc,
-	                                 const std::string& cflagsMacro,
-	                                 const std::string& nasmflagsMacro,
-	                                 const std::string& windresflagsMacro,
-	                                 const std::string& widlflagsMacro );
+									 const std::string& cppc,
+									 const std::string& cflagsMacro,
+									 const std::string& nasmflagsMacro,
+									 const std::string& windresflagsMacro,
+									 const std::string& widlflagsMacro );
 	std::string GenerateArchiveTarget ( const std::string& ar,
-	                                    const std::string& objs_macro ) const;
+										const std::string& objs_macro ) const;
 	void GetSpecObjectDependencies ( string_list& dependencies,
-	                                 const std::string& filename ) const;
+									 const std::string& filename ) const;
 	void GetWidlObjectDependencies ( string_list& dependencies,
-	                                 const std::string& filename ) const;
+									 const std::string& filename ) const;
 	void GetDefaultDependencies ( string_list& dependencies ) const;
 	void GetInvocationDependencies ( const Module& module, string_list& dependencies );
 	bool IsWineModule () const;
@@ -417,12 +417,12 @@ private:
 	void GenerateLiveIsoModuleTarget ();
 	void CreateDirectory ( const std::string& directory );
 	void OutputCopyCommand ( const std::string& sourceFilename,
-	                         const std::string& targetFilename,
-	                         const std::string& targetDirectory );
+							 const std::string& targetFilename,
+							 const std::string& targetDirectory );
 	void OutputModuleCopyCommands ( std::string& livecdDirectory,
-	                                std::string& livecdReactos );
+									std::string& livecdReactos );
 	void OutputNonModuleCopyCommands ( std::string& livecdDirectory,
-	                                   std::string& livecdReactos );
+									   std::string& livecdReactos );
 	void OutputProfilesDirectoryCommands ( std::string& livecdDirectory );
 	void OutputLoaderCommands ( std::string& livecdDirectory );
 	void OutputRegistryCommands ( std::string& livecdDirectory );
