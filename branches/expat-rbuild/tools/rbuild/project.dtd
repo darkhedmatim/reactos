@@ -94,7 +94,7 @@
 <!ELEMENT project (compilerflag*|define*|group*|if*|include*|directory*|xi:include*)+>
 <!ATTLIST project
 	name      %Text;  #FIXED "ReactOS"
-	makefile  %Text;  #FIXED "makefile.auto"
+	makefile  %Text;  #FIXED "Makefile.auto"
 	xmlns:xi  %Text;  #FIXED "http://www.w3.org/2001/XInclude"
 >
 
