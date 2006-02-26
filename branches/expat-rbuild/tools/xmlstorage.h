@@ -379,7 +379,7 @@ struct tifstream : public std::istream, FileHolder
 
 	tifstream(LPCTSTR path)
 	 :	super(&_buf),
-		FileHolder(path, TEXT("r")),
+		FileHolder(path, TEXT("rb")),	// binary mode is important for XMLReader::read_buffer() with MinGW libraries
 #ifdef __GNUC__
 		_buf(_pfile, std::ios::in)
 #else

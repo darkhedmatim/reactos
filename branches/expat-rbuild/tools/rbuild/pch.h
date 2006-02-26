@@ -72,6 +72,6 @@ inline char *strupr(char *x)
 #define _MAX_PATH PATH_MAX
 #endif
 
-#include "xmlstorage.h"
+#include <xmlstorage.h>
 
 #endif//PCH_H

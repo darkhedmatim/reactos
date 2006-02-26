@@ -445,7 +445,7 @@ XML_Status XMLReaderBase::read()
 {
 	XML_Status status = XML_STATUS_OK;
 
-	while(status == XML_STATUS_OK) {
+	do {
 		char* buffer = (char*) XML_GetBuffer(_parser, BUFFER_LEN);
 
 		size_t l = read_buffer(buffer, BUFFER_LEN);
@@ -453,7 +453,7 @@ XML_Status XMLReaderBase::read()
 			break;
 
 		status = XML_ParseBuffer(_parser, l, false);
-	}
+	} while(status == XML_STATUS_OK);
 
 	if (status != XML_STATUS_ERROR)
 		status = XML_ParseBuffer(_parser, 0, true);
