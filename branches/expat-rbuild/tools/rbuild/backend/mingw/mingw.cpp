@@ -556,7 +556,11 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 string
 MingwBackend::GetBin2ResExecutable ()
 {
+#ifdef _ROS_
 	return NormalizeFilename ( Environment::GetOutputPath () + sSep + "tools/bin2res/bin2res" + ExePostfix );
+#else
+	return NormalizeFilename ( Environment::GetOutputPath () + sSep + "bin2res" + ExePostfix );
+#endif
 }
 
 void

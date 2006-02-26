@@ -127,7 +127,7 @@ skip_wtoi(const wchar_t **s)
 static int
 do_div(LONGLONG *n,int base)
 {
-	int __res = ((ULONGLONG) *n) % (unsigned) base;
+	int __res = int(((ULONGLONG) *n) % (unsigned) base);
 	*n = ((ULONGLONG) *n) / (unsigned) base;
 	return __res;
 }

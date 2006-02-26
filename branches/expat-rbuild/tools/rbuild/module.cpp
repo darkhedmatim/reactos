@@ -429,7 +429,6 @@ Module::ProcessXMLSubElement ( const XMLNode& e,
 			parseContext.ifData->data.files.push_back ( pFile );
 		else
 			non_if_data.files.push_back ( pFile );
-		ensure_empty_attributes(e);
 		ensure_no_children(e);
 	}
 	else if ( e == "library" && !e.get_content().empty() )
@@ -439,7 +438,7 @@ Module::ProcessXMLSubElement ( const XMLNode& e,
 			parseContext.ifData->data.libraries.push_back ( pLibrary );
 		else
 			non_if_data.libraries.push_back ( pLibrary );
-		ensure_empty_content(e);
+		ensure_empty_attributes(e);
 		ensure_no_children(e);
 	}
 	else if ( e == "directory" )
@@ -504,7 +503,6 @@ Module::ProcessXMLSubElement ( const XMLNode& e,
 		}
 		importLibrary = new ImportLibrary ( e, *this );
 		ensure_empty_content(e);
-		ensure_empty_attributes(e);
 		ensure_no_children(e);
 	}
 	else if ( e == "if" )
@@ -613,8 +611,23 @@ Module::ProcessXMLSubElement ( const XMLNode& e,
 		}
 		autoRegister = new AutoRegister ( project, this, e );
 		ensure_empty_content(e);
-		ensure_empty_attributes(e);
 		ensure_no_children(e);
+	}
+	else if (e == "library")
+	{
+		ensure_empty_content(e);
+	}
+	else if (e == "symbol")
+	{
+	}
+	else if (e == "xi:include")
+	{
+		const string& href = get_required_attribute(&e, "href");
+		ensure_empty_content(e);
+	}
+	else if (e == "rbuild")
+	{
+		ensure_empty_content(e);
 	}
 	else
 	{

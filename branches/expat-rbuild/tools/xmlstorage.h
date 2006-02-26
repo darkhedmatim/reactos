@@ -115,13 +115,17 @@ enum XML_Error {
 #endif // _MSC_VER
 
 
-#include <windows.h>	// for LPCTSTR
-
 #ifdef UNICODE
 #ifndef _UNICODE
 #define _UNICODE
 #endif
+#else
+#ifdef _UNICODE
+#define UNICODE
 #endif
+#endif
+
+#include <windows.h>	// for LPCTSTR
 
 #include <tchar.h>
 #include <malloc.h>

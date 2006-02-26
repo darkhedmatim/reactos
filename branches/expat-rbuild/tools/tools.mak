@@ -5,12 +5,12 @@ TOOLS_INT_ = $(TOOLS_INT)$(SEP)
 TOOLS_OUT = $(OUTPUT_)$(TOOLS_BASE)
 TOOLS_OUT_ = $(TOOLS_OUT)$(SEP)
 
-TOOLS_CFLAGS = $(CFLAGS) -Os -Wall -Wpointer-arith -Wno-strict-aliasing \
-  -DXMLNODE_LOCATION -DHAVE_EXPAT_CONFIG_H -DXMLCALL="" -DXMLIMPORT=""
-
 EXPAT_BASE_ = $(TOOLS_BASE_)expat$(SEP)
 EXPAT_INT = $(TOOLS_INT_)expat
 EXPAT_INT_ = $(EXPAT_INT)$(SEP)
+
+TOOLS_CFLAGS = $(CFLAGS) -Os -Wall -Wpointer-arith -Wno-strict-aliasing \
+  -DXMLNODE_LOCATION -DHAVE_EXPAT_CONFIG_H -DXMLCALL="" -DXMLIMPORT=""
 
 TOOLS_CXXFLAGS = $(TOOLS_CFLAGS) $(CPPFLAGS) \
   -ftracer -momit-leaf-frame-pointer -mpreferred-stack-boundary=2 \

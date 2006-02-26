@@ -62,6 +62,7 @@ LINK32=link.exe
 # PROP Use_Debug_Libraries 1
 # PROP Output_Dir "Debug"
 # PROP Intermediate_Dir "Debug"
+# PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
 # ADD CPP /nologo /W3 /Gm /GX /ZI /Od /I ".." /I "../../lib/inflib" /I "../../include/reactos" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "WIN32" /D "_ROS_" /D "INFLIB_HOST" /D "HAVE_EXPAT_CONFIG_H" /D XMLCALL="" /D XMLIMPORT="" /D "_NO_COMMENT" /D "XMLNODE_LOCATION" /FR /Yu"pch.h" /FD /GZ /c

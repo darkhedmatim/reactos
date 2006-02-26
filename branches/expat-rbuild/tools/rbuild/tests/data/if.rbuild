@@ -1,4 +1,5 @@
 <?xml version="1.0" ?>
+<rbuild xmlns:xi="http://www.w3.org/2001/XInclude">
 <project name="Project" makefile="Makefile">
 	<if property="VAR1" value="value1">
 		<compilerflag>compilerflag1</compilerflag>
@@ -11,3 +12,4 @@
 		<file>file2.c</file>
 	</module>
 </project>
+</rbuild>

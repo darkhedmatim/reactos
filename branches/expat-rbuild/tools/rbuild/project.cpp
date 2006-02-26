@@ -491,7 +491,7 @@ Project::ReadXml ()
 
 //	pDoc->write(std::cout);
 
-	if (pos.go_down("project")) {
+	if (pos.go("rbuild/project")) {
 		ProcessXML(pos, "");
 	} else
 		throw XMLInvalidBuildFileException (
@@ -589,7 +589,7 @@ XMLLoadInclude (
 		if (pDoc->_last_error != XML_ERROR_NO_ELEMENTS)
 			throw Exception(pDoc->_last_error_msg.c_str());
 
-		// The include file doesn't exist of it is empty.
+		// The include file doesn't exist or it is empty.
 		include.fileExists = false;
 
 		// look for xi:fallback element
@@ -633,7 +633,7 @@ RbuildDoc* Project::XMLLoadFile(const string& filename, const Path& path)
 		XMLNode* e = include.e;
 
 		XMLNode* e2 = XMLLoadInclude(include, new_includes, docs, path);
-		if (!e2)
+		if (!e2)	// could not load neither the include file nor its fallback include
 			throw XMLFileNotFoundException(e->get_location(), include.topIncludeFilename);
 
 		if (!include.parentNode)
