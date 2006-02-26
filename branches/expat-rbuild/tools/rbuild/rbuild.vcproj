@@ -70,7 +70,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="odbc32.lib odbccp32.lib"
 				OutputFile=".\Release/rbuild.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -162,7 +161,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="odbc32.lib odbccp32.lib"
 				OutputFile=".\Debug/rbuild.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
