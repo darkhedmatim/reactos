@@ -40,13 +40,13 @@ ME_String *ME_MakeString(LPCWSTR szText)
 ME_String *ME_MakeStringN(LPCWSTR szText, int nMaxChars)
 {
   ME_String *s = ALLOC_OBJ(ME_String);
-  int i;
-  for (i=0; i<nMaxChars && szText[i]; i++)
-    ;
-  s->nLen = i;
+  
+  s->nLen = nMaxChars;
   s->nBuffer = ME_GetOptimalBuffer(s->nLen+1);
   s->szData = ALLOC_N_OBJ(WCHAR, s->nBuffer);
-  lstrcpynW(s->szData, szText, s->nLen+1);
+  /* Native allows NUL chars */
+  memmove(s->szData, szText, s->nLen * sizeof(WCHAR));
+  s->szData[s->nLen] = 0;
   return s;
 }
 
@@ -155,29 +155,22 @@ int ME_StrVLen(ME_String *s) {
   return s->nLen;
 }
 
-/* FIXME we use widechars, not multibytes, inside, no need for complex logic anymore */
 int ME_StrRelPos(ME_String *s, int nVChar, int *pRelChars)
 {
+  int nRelChars = *pRelChars;
+  
   TRACE("%s,%d,&%d\n", debugstr_w(s->szData), nVChar, *pRelChars);
 
   assert(*pRelChars);
-  if (!*pRelChars) return nVChar;
-  
-  if (*pRelChars>0)
-  {
-    while(nVChar<s->nLen && *pRelChars>0)
-    {
-      nVChar++;
-      (*pRelChars)--;
-    }
+  if (!nRelChars)
     return nVChar;
-  }
-
-  while(nVChar>0 && *pRelChars<0)
-  {
-    nVChar--;
-    (*pRelChars)++;
-  }
+  
+  if (nRelChars>0)
+    nRelChars = min(*pRelChars, s->nLen - nVChar);
+  else
+    nRelChars = max(*pRelChars, -nVChar);
+  nVChar += nRelChars;
+  *pRelChars -= nRelChars;
   return nVChar;
 }
 
@@ -276,6 +269,54 @@ int ME_ReverseFindWhitespaceV(ME_String *s, int nVChar) {
     ;
     
   return i;
+}
+
+
+static int
+ME_WordBreakProc(LPWSTR s, INT start, INT len, INT code)
+{
+  /* FIXME: Native also knows about punctuation */
+  TRACE("s==%s, start==%d, len==%d, code==%d\n",
+        debugstr_wn(s, len), start, len, code);
+  switch (code)
+  {
+    case WB_ISDELIMITER:
+      return ME_IsWSpace(s[start]);
+    case WB_LEFT:
+    case WB_MOVEWORDLEFT:
+      while (start && ME_IsWSpace(s[start - 1]))
+        start--;
+      while (start && !ME_IsWSpace(s[start - 1]))
+        start--;
+      return start;
+    case WB_RIGHT:
+    case WB_MOVEWORDRIGHT:
+      if (start && ME_IsWSpace(s[start - 1]))
+      {
+        while (start < len && ME_IsWSpace(s[start]))
+          start++;
+      }
+      else
+      {
+        while (start < len && !ME_IsWSpace(s[start]))
+          start++;
+        while (start < len && ME_IsWSpace(s[start]))
+          start++;
+      }
+      return start;
+  }
+  return 0;
+}
+
+
+int
+ME_CallWordBreakProc(ME_TextEditor *editor, ME_String *str, INT start, INT code)
+{
+  /* FIXME: ANSIfy the string when bEmulateVersion10 is TRUE */
+  if (!editor->pfnWordBreak)
+    return ME_WordBreakProc(str->szData, start, str->nLen, code);
+  else
+    return editor->pfnWordBreak(str->szData, start, str->nLen, code);
 }
 
 LPWSTR ME_ToUnicode(HWND hWnd, LPVOID psz)

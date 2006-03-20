@@ -342,13 +342,16 @@ HRESULT WINAPI StorageBaseImpl_OpenStream(
   }
 
   /*
-   * Check that we're compatible with the parent's storage mode
+   * Check that we're compatible with the parent's storage mode, but
+   * only if we are not in transacted mode
    */
   parent_grfMode = STGM_ACCESS_MODE( This->ancestorStorage->base.openFlags );
-  if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
-  {
-    res = STG_E_ACCESSDENIED;
-    goto end;
+  if(!(This->ancestorStorage->base.openFlags & STGM_TRANSACTED)) {
+    if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
+    {
+      res = STG_E_ACCESSDENIED;
+      goto end;
+    }
   }
 
   /*
@@ -389,6 +392,12 @@ HRESULT WINAPI StorageBaseImpl_OpenStream(
        * nail down the reference.
        */
       IStream_AddRef(*ppstm);
+
+      /*
+       * add us to the storage's list of active streams
+       */
+
+      StorageBaseImpl_AddStream(This,newStream);
 
       res = S_OK;
       goto end;
@@ -472,13 +481,16 @@ HRESULT WINAPI StorageBaseImpl_OpenStorage(
   }
 
   /*
-   * Check that we're compatible with the parent's storage mode
+   * Check that we're compatible with the parent's storage mode,
+   * but only if we are not transacted
    */
   parent_grfMode = STGM_ACCESS_MODE( This->ancestorStorage->base.openFlags );
-  if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
-  {
-    res = STG_E_ACCESSDENIED;
-    goto end;
+  if(!(This->ancestorStorage->base.openFlags & STGM_TRANSACTED)) {
+    if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
+    {
+      res = STG_E_ACCESSDENIED;
+      goto end;
+    }
   }
 
   /*
@@ -869,10 +881,13 @@ HRESULT WINAPI StorageBaseImpl_CreateStream(
 
   /*
    * Check that we're compatible with the parent's storage mode
+   * if not in transacted mode
    */
   parent_grfMode = STGM_ACCESS_MODE( This->ancestorStorage->base.openFlags );
-  if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
-    return STG_E_ACCESSDENIED;
+  if(!(parent_grfMode & STGM_TRANSACTED)) {
+    if ( STGM_ACCESS_MODE( grfMode ) > STGM_ACCESS_MODE( parent_grfMode ) )
+      return STG_E_ACCESSDENIED;
+  }
 
   /*
    * Initialize the out parameter
@@ -970,6 +985,11 @@ HRESULT WINAPI StorageBaseImpl_CreateStream(
      * the reference.
      */
     IStream_AddRef(*ppstm);
+
+    /* add us to the storage's list of active streams
+     */
+    StorageBaseImpl_AddStream(This,newStream);
+
   }
   else
   {
@@ -1788,6 +1808,34 @@ HRESULT WINAPI StorageImpl_Stat( IStorage* iface,
   return result;
 }
 
+/******************************************************************************
+ * Internal stream list handlers                   
+ */
+
+void StorageBaseImpl_AddStream(StorageBaseImpl * stg, StgStreamImpl * strm)
+{
+  TRACE("Stream added (stg=%p strm=%p)\n", stg, strm);
+  list_add_tail(&stg->strmHead,&strm->StrmListEntry);
+}
+
+void StorageBaseImpl_RemoveStream(StorageBaseImpl * stg, StgStreamImpl * strm)
+{
+  TRACE("Stream removed (stg=%p strm=%p)\n", stg,strm);
+  list_remove(&(strm->StrmListEntry));
+}
+
+void StorageBaseImpl_DeleteAll(StorageBaseImpl * stg)
+{
+  struct list *cur, *cur2;
+  StgStreamImpl *strm=NULL;
+
+  LIST_FOR_EACH_SAFE(cur, cur2, &stg->strmHead) {
+    strm = LIST_ENTRY(cur,StgStreamImpl,StrmListEntry);
+    TRACE("Streams deleted (stg=%p strm=%p next=%p prev=%p)\n", stg,strm,cur->next,cur->prev);
+    strm->parentStorage = NULL;   
+    list_remove(cur);
+  }
+}
 
 
 /*********************************************************************
@@ -2247,6 +2295,12 @@ HRESULT StorageImpl_Construct(
   memset(This, 0, sizeof(StorageImpl));
 
   /*
+   * Initialize stream list
+   */
+
+  list_init(&This->base.strmHead);
+
+  /*
    * Initialize the virtual function table.
    */
   This->base.lpVtbl = &Storage32Impl_Vtbl;
@@ -2370,7 +2424,7 @@ HRESULT StorageImpl_Construct(
     return STG_E_READFAULT;
 
   /*
-   * Write the root property
+   * Write the root property (memory only)
    */
   if (fileCreate)
   {
@@ -2438,6 +2492,8 @@ void StorageImpl_Destroy(StorageBaseImpl* iface)
 {
   StorageImpl *This = (StorageImpl*) iface;
   TRACE("(%p)\n", This);
+
+  StorageBaseImpl_DeleteAll(&This->base);
 
   HeapFree(GetProcessHeap(), 0, This->pwcsName);
 
@@ -2944,6 +3000,7 @@ HRESULT StorageImpl_LoadFileHeader(
   void*   headerBigBlock = NULL;
   int     index;
 
+  TRACE("\n");
   /*
    * Get a pointer to the big block of data containing the header.
    */
@@ -3453,18 +3510,26 @@ BlockChainStream* Storage32Impl_SmallBlocksToBigBlocks(
                                                DEF_SMALL_BLOCK_SIZE,
                                                buffer,
                                                &cbRead);
-    cbTotalRead += cbRead;
+    if (FAILED(successRead))
+        break;
 
-    successWrite = BlockChainStream_WriteAt(bbTempChain,
+    if (cbRead > 0)
+    {
+        cbTotalRead += cbRead;
+
+        successWrite = BlockChainStream_WriteAt(bbTempChain,
                                             offset,
                                             cbRead,
                                             buffer,
                                             &cbWritten);
-    cbTotalWritten += cbWritten;
 
-    offset.u.LowPart += This->smallBlockSize;
+        if (!successWrite)
+            break;
 
-  } while (SUCCEEDED(successRead) && successWrite);
+        cbTotalWritten += cbWritten;
+        offset.u.LowPart += This->smallBlockSize;
+    }
+  } while (cbRead > 0);
   HeapFree(GetProcessHeap(),0,buffer);
 
   assert(cbTotalRead == cbTotalWritten);
@@ -4094,6 +4159,12 @@ StorageInternalImpl* StorageInternalImpl_Construct(
   if (newStorage!=0)
   {
     memset(newStorage, 0, sizeof(StorageInternalImpl));
+
+    /*
+     * Initialize the stream list
+     */
+
+    list_init(&newStorage->base.strmHead);
 
     /*
      * Initialize the virtual function table.
@@ -5519,6 +5590,22 @@ ULARGE_INTEGER SmallBlockChainStream_GetSize(SmallBlockChainStream* This)
 
 /******************************************************************************
  *    StgCreateDocfile  [OLE32.@]
+ * Creates a new compound file storage object
+ *
+ * PARAMS
+ *  pwcsName  [ I] Unicode string with filename (can be relative or NULL)
+ *  grfMode   [ I] Access mode for opening the new storage object (see STGM_ constants)
+ *  reserved  [ ?] unused?, usually 0
+ *  ppstgOpen [IO] A pointer to IStorage pointer to the new onject
+ *
+ * RETURNS
+ *  S_OK if the file was succesfully created
+ *  some STG_E_ value if error
+ * NOTES
+ *  if pwcsName is NULL, create file with new unique name
+ *  the function can returns
+ *  STG_S_CONVERTED if the specified file was successfully converted to storage format
+ *  (unrealized now)
  */
 HRESULT WINAPI StgCreateDocfile(
   LPCOLESTR pwcsName,
@@ -5729,7 +5816,7 @@ HRESULT WINAPI StgCreatePropSetStg(IStorage *pstg, DWORD reserved,
 {
     HRESULT hr;
 
-    TRACE("(%p, 0x%lx, %p): stub\n", pstg, reserved, ppPropSetStg);
+    TRACE("(%p, 0x%lx, %p)\n", pstg, reserved, ppPropSetStg);
     if (reserved)
         hr = STG_E_INVALIDPARAMETER;
     else
@@ -7666,6 +7753,14 @@ HRESULT WINAPI GetConvertStg(IStorage *stg) {
 
 /******************************************************************************
  * StgIsStorageFile [OLE32.@]
+ * Verify if the file contains a storage object
+ *
+ * PARAMS
+ *  fn      [ I] Filename
+ *
+ * RETURNS
+ *  S_OK    if file has magic bytes as a storage object
+ *  S_FALSE if file is not storage
  */
 HRESULT WINAPI
 StgIsStorageFile(LPCOLESTR fn)

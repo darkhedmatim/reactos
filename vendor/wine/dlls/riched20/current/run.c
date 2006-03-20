@@ -4,6 +4,7 @@
  * Character/pixel conversions.
  *
  * Copyright 2004 by Krzysztof Foltman
+ * Copyright 2006 by Phil Krylov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -256,7 +257,7 @@ ME_DisplayItem *ME_SplitRunSimple(ME_TextEditor *editor, ME_DisplayItem *item, i
   int i;
   assert(nVChar > 0 && nVChar < ME_StrVLen(run->strText));
   assert(item->type == diRun);
-  assert(!(item->member.run.nFlags & (MERF_GRAPHICS | MERF_TAB)));
+  assert(!(item->member.run.nFlags & MERF_NONTEXT));
   assert(item->member.run.nCharOfs != -1);
 
   item2 = ME_MakeRun(run->style,
@@ -293,37 +294,60 @@ ME_DisplayItem *ME_MakeRun(ME_Style *s, ME_String *strData, int nFlags)
   return item;
 }
 
+
 ME_DisplayItem *ME_InsertRun(ME_TextEditor *editor, int nCharOfs, ME_DisplayItem *pItem)
 {
   ME_Cursor tmp;
   ME_DisplayItem *pDI;
-  ME_UndoItem *pUI;
 
   assert(pItem->type == diRun || pItem->type == diUndoInsertRun);
 
+  ME_CursorFromCharOfs(editor, nCharOfs, &tmp);
+  pDI = ME_InsertRunAtCursor(editor, &tmp, pItem->member.run.style,
+                             pItem->member.run.strText->szData,
+                             pItem->member.run.strText->nLen,
+                             pItem->member.run.nFlags);
+  
+  return pDI;
+}
+
+ME_DisplayItem *
+ME_InsertRunAtCursor(ME_TextEditor *editor, ME_Cursor *cursor, ME_Style *style,
+                     const WCHAR *str, int len, int flags)
+{
+  ME_DisplayItem *pDI;
+  ME_UndoItem *pUI;
+  
+  if (cursor->nOffset) {
+    cursor->pRun = ME_SplitRunSimple(editor, cursor->pRun, cursor->nOffset);
+    cursor->nOffset = 0;
+  }
+  
   pUI = ME_AddUndoItem(editor, diUndoDeleteRun, NULL);
   if (pUI) {
-    pUI->nStart = nCharOfs;
-    pUI->nLen = pItem->member.run.strText->nLen;
+    pUI->nStart = (ME_GetParagraph(cursor->pRun)->member.para.nCharOfs
+                   + cursor->pRun->member.run.nCharOfs);
+    pUI->nLen = len;
   }
-  ME_CursorFromCharOfs(editor, nCharOfs, &tmp);
-  if (tmp.nOffset) {
-    tmp.pRun = ME_SplitRunSimple(editor, tmp.pRun, tmp.nOffset);
-    tmp.nOffset = 0;
-  }
-  pDI = ME_MakeRun(pItem->member.run.style, ME_StrDup(pItem->member.run.strText), pItem->member.run.nFlags);
-  pDI->member.run.nCharOfs = tmp.pRun->member.run.nCharOfs;
-  ME_InsertBefore(tmp.pRun, pDI);
-  TRACE("Shift length:%d\n", pDI->member.run.strText->nLen);
-  ME_PropagateCharOffset(tmp.pRun, pDI->member.run.strText->nLen);
-  ME_GetParagraph(tmp.pRun)->member.para.nFlags |= MEPF_REWRAP;
-
+  
+  pDI = ME_MakeRun(style, ME_MakeStringN(str, len), flags);
+  pDI->member.run.nCharOfs = cursor->pRun->member.run.nCharOfs;
+  ME_InsertBefore(cursor->pRun, pDI);
+  TRACE("Shift length:%d\n", len);
+  ME_PropagateCharOffset(cursor->pRun, len);
+  ME_GetParagraph(cursor->pRun)->member.para.nFlags |= MEPF_REWRAP;
   return pDI;
 }
 
 void ME_UpdateRunFlags(ME_TextEditor *editor, ME_Run *run)
 {
   assert(run->nCharOfs != -1);
+
+  if (RUN_IS_HIDDEN(run))
+    run->nFlags |= MERF_HIDDEN;
+  else
+    run->nFlags &= ~MERF_HIDDEN;
+
   if (ME_IsSplitable(run->strText))
     run->nFlags |= MERF_SPLITTABLE;
   else
@@ -358,7 +382,7 @@ void ME_GetGraphicsSize(ME_TextEditor *editor, ME_Run *run, SIZE *pSize)
   pSize->cy = 64;
 }
 
-int ME_CharFromPoint(ME_TextEditor *editor, int cx, ME_Paragraph *para, ME_Run *run)
+int ME_CharFromPoint(ME_TextEditor *editor, int cx, ME_Run *run)
 {
   int fit = 0;
   HGDIOBJ hOldFont;
@@ -367,7 +391,7 @@ int ME_CharFromPoint(ME_TextEditor *editor, int cx, ME_Paragraph *para, ME_Run *
   if (!run->strText->nLen)
     return 0;
 
-  if (run->nFlags & MERF_TAB)
+  if (run->nFlags & (MERF_TAB | MERF_CELL))
   {
     if (cx < run->nWidth/2)
       return 0;
@@ -399,7 +423,7 @@ int ME_CharFromPointCursor(ME_TextEditor *editor, int cx, ME_Run *run)
   if (!run->strText->nLen)
     return 0;
 
-  if (run->nFlags & MERF_TAB)
+  if (run->nFlags & (MERF_TAB | MERF_CELL))
   {
     if (cx < run->nWidth/2)
       return 0;
@@ -471,7 +495,7 @@ SIZE ME_GetRunSizeCommon(ME_Context *c, ME_Paragraph *para, ME_Run *run, int nLe
     nLen = nMaxLen;
 
   /* FIXME the following call also ensures that TEXTMETRIC structure is filled
-   * this is wasteful for graphics and TAB runs, but that shouldn't matter
+   * this is wasteful for MERF_NONTEXT runs, but that shouldn't matter
    * in practice
    */
   ME_GetTextExtent(c, run->strText->szData, nLen, run->style, &size);
@@ -511,7 +535,13 @@ SIZE ME_GetRunSizeCommon(ME_Context *c, ME_Paragraph *para, ME_Run *run, int nLe
     /* descent is unchanged */
     return size;
   }
+  if (run->nFlags & MERF_CELL)
+  {
+    int lpsx = GetDeviceCaps(c->hDC, LOGPIXELSX);
 
+    size.cx = run->pCell->nRightBoundary * lpsx / 1440 - run->pt.x;
+    return size;
+  }
   return size;
 }
 
@@ -523,11 +553,16 @@ SIZE ME_GetRunSize(ME_Context *c, ME_Paragraph *para, ME_Run *run, int nLen)
 
 void ME_CalcRunExtent(ME_Context *c, ME_Paragraph *para, ME_Run *run)
 {
-  int nEnd = ME_StrVLen(run->strText);
-  SIZE size = ME_GetRunSizeCommon(c, para, run, nEnd, &run->nAscent, &run->nDescent);
-  run->nWidth = size.cx;
-  if (!size.cx)
-    WARN("size.cx == 0\n");
+  if (run->nFlags & MERF_HIDDEN)
+    run->nWidth = 0;
+  else
+  {
+    int nEnd = ME_StrVLen(run->strText);
+    SIZE size = ME_GetRunSizeCommon(c, para, run, nEnd, &run->nAscent, &run->nDescent);
+    run->nWidth = size.cx;
+    if (!size.cx)
+      WARN("size.cx == 0\n");
+  }
 }
 
 void ME_MustBeWrapped(ME_Context *c, ME_DisplayItem *para)

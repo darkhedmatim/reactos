@@ -88,7 +88,7 @@ extern LPITEMIDLIST     GetParentPidl(LPITEMIDLIST pidl);
 extern LPITEMIDLIST     GetPidlFromName(IShellFolder *psf,LPCSTR lpcstrFileName);
 
 extern int     FILEDLG95_LOOKIN_SelectItem(HWND hwnd,LPITEMIDLIST pidl);
-extern void    SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode);
+extern LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode);
 
 
 /*
@@ -471,6 +471,9 @@ static HRESULT WINAPI IShellBrowserImpl_BrowseObject(IShellBrowser *iface,
          &rectView, &hwndView))) goto error;
 
     fodInfos->ShellInfos.hwndView = hwndView;
+
+    /* Set view window control id to 5002 */
+    SetWindowLongPtrW(hwndView, GWLP_ID, lst2);
 
     /* Select the new folder in the Look In combo box of the Open file dialog */
     FILEDLG95_LOOKIN_SelectItem(fodInfos->DlgInfos.hwndLookInCB,fodInfos->ShellInfos.pidlAbsCurrent);

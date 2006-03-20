@@ -124,25 +124,41 @@ static ULONG WINAPI OleObject_Release(IOleObject *iface)
 static HRESULT WINAPI OleObject_SetClientSite(IOleObject *iface, LPOLECLIENTSITE pClientSite)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
+    HRESULT hres;
 
     TRACE("(%p)->(%p)\n", This, pClientSite);
 
     if(This->client == pClientSite)
         return S_OK;
 
-    if(This->doc_view_hwnd)
+    if(This->doc_view_hwnd) {
         DestroyWindow(This->doc_view_hwnd);
-    if(This->shell_embedding_hwnd)
+        This->doc_view_hwnd = NULL;
+    }
+    if(This->shell_embedding_hwnd) {
         DestroyWindow(This->shell_embedding_hwnd);
+        This->shell_embedding_hwnd = NULL;
+    }
 
+    if(This->hostui)
+        IDocHostUIHandler_Release(This->hostui);
     if(This->client)
         IOleClientSite_Release(This->client);
 
-    This->client = pClientSite;
-    if(!pClientSite)
+    if(!pClientSite) {
+        if(This->document)
+            deactivate_document(This);
+        This->client = NULL;
         return S_OK;
+    }
 
+    This->client = pClientSite;
     IOleClientSite_AddRef(pClientSite);
+
+    hres = IOleClientSite_QueryInterface(This->client, &IID_IDocHostUIHandler,
+                                         (void**)&This->hostui);
+    if(FAILED(hres))
+        This->hostui = NULL;
 
     create_shell_embedding_hwnd(This);
 
@@ -451,22 +467,9 @@ static HRESULT WINAPI OleInPlaceObject_GetWindow(IOleInPlaceObject *iface, HWND*
 {
     WebBrowser *This = INPLACEOBJ_THIS(iface);
 
-    FIXME("(%p)->(%p)\n", This, phwnd);
+    TRACE("(%p)->(%p)\n", This, phwnd);
 
-#if 0
-    /* Create a fake window to fool MFC into believing that we actually
-     * have an implemented browser control.  Avoids the assertion.
-     */
-    HWND hwnd;
-    hwnd = CreateWindowA("BUTTON", "Web Control",
-                        WS_HSCROLL | WS_VSCROLL | WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT, 600,
-                        400, NULL, NULL, NULL, NULL);
-
-    *phwnd = hwnd;
-    TRACE ("Returning hwnd = %d\n", hwnd);
-#endif
-
+    *phwnd = This->shell_embedding_hwnd;
     return S_OK;
 }
 
@@ -688,12 +691,63 @@ static const IOleInPlaceActiveObjectVtbl OleInPlaceActiveObjectVtbl = {
     InPlaceActiveObject_EnableModeless
 };
 
+#define OLECMD_THIS(iface) DEFINE_THIS(WebBrowser, WBOleCommandTarget, iface)
+
+static HRESULT WINAPI WBOleCommandTarget_QueryInterface(IOleCommandTarget *iface,
+        REFIID riid, void **ppv)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IWebBrowser2_QueryInterface(WEBBROWSER(This), riid, ppv);
+}
+
+static ULONG WINAPI WBOleCommandTarget_AddRef(IOleCommandTarget *iface)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IWebBrowser2_AddRef(WEBBROWSER(This));
+}
+
+static ULONG WINAPI WBOleCommandTarget_Release(IOleCommandTarget *iface)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IWebBrowser2_Release(WEBBROWSER(This));
+}
+
+static HRESULT WINAPI WBOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
+        const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    FIXME("(%p)->(%s %lu %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
+          pCmdText);
+    return E_NOTIMPL;
+}
+
+static HRESULT WINAPI WBOleCommandTarget_Exec(IOleCommandTarget *iface,
+        const GUID *pguidCmdGroup, DWORD nCmdID, DWORD nCmdexecopt, VARIANT *pvaIn,
+        VARIANT *pvaOut)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    FIXME("(%p)->(%s %ld %ld %p %p)\n", This, debugstr_guid(pguidCmdGroup), nCmdID,
+          nCmdexecopt, pvaIn, pvaOut);
+    return E_NOTIMPL;
+}
+
+#undef OLECMD_THIS
+
+static const IOleCommandTargetVtbl OleCommandTargetVtbl = {
+    WBOleCommandTarget_QueryInterface,
+    WBOleCommandTarget_AddRef,
+    WBOleCommandTarget_Release,
+    WBOleCommandTarget_QueryStatus,
+    WBOleCommandTarget_Exec
+};
+
 void WebBrowser_OleObject_Init(WebBrowser *This)
 {
     This->lpOleObjectVtbl              = &OleObjectVtbl;
     This->lpOleInPlaceObjectVtbl       = &OleInPlaceObjectVtbl;
     This->lpOleControlVtbl             = &OleControlVtbl;
     This->lpOleInPlaceActiveObjectVtbl = &OleInPlaceActiveObjectVtbl;
+    This->lpWBOleCommandTargetVtbl     = &OleCommandTargetVtbl;
 
     This->client = NULL;
     This->container = NULL;

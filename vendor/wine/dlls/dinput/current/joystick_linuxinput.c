@@ -67,6 +67,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(dinput);
 
 /* Wine joystick driver object instances */
 #define WINE_JOYSTICK_AXIS_BASE   0
+#define WINE_JOYSTICK_POV_BASE    6
 #define WINE_JOYSTICK_BUTTON_BASE 8
 
 typedef struct EffectListItem EffectListItem;
@@ -120,7 +121,9 @@ struct JoystickImpl
 	int				ff_state;
 
 	/* data returned by the EVIOCGABS() ioctl */
-	int				axes[ABS_MAX+1][5];
+	int				axes[ABS_MAX][5];
+	/* LUT for KEY_ to offset in rgbButtons */
+	BYTE				buttons[KEY_MAX];
 
 #define AXE_ABS		0
 #define AXE_ABSMIN	1
@@ -146,8 +149,9 @@ static GUID DInput_Wine_Joystick_GUID = { /* 9e573eda-7734-11d2-8d4a-23903fb6bdf
 
 static void fake_current_js_state(JoystickImpl *ji);
 static int find_property_offset(JoystickImpl *This, LPCDIPROPHEADER ph);
+static DWORD map_pov(int event_value, int is_x);
 
-#define test_bit(arr,bit) (((BYTE*)arr)[bit>>3]&(1<<(bit&7)))
+#define test_bit(arr,bit) (((BYTE*)(arr))[(bit)>>3]&(1<<((bit)&7)))
 
 static int joydev_have(BOOL require_ff)
 {
@@ -457,14 +461,17 @@ static HRESULT WINAPI JoystickAImpl_SetDataFormat(
   */
 static HRESULT WINAPI JoystickAImpl_Acquire(LPDIRECTINPUTDEVICE8A iface)
 {
-    int		i;
+    int		i,buttons;
     JoystickImpl *This = (JoystickImpl *)iface;
     char	buf[200];
     BOOL	readonly = TRUE;
 
     TRACE("(this=%p)\n",This);
     if (This->joyfd!=-1)
-    	return 0;
+    	return S_FALSE;
+    if (This->df==NULL) {
+      return DIERR_INVALIDPARAM;
+    }
     for (i=0;i<64;i++) {
       sprintf(buf,EVDEVPREFIX"%d",i);
       if (-1==(This->joyfd=open(buf,O_RDWR))) { 
@@ -529,7 +536,7 @@ static HRESULT WINAPI JoystickAImpl_Acquire(LPDIRECTINPUTDEVICE8A iface)
 	if (test_bit(This->absbits,i)) {
 	  if (-1==ioctl(This->joyfd,EVIOCGABS(i),&(This->axes[i])))
 	    continue;
-	  FIXME("axe %d: cur=%d, min=%d, max=%d, fuzz=%d, flat=%d\n",
+	  TRACE("axe %d: cur=%d, min=%d, max=%d, fuzz=%d, flat=%d\n",
 	      i,
 	      This->axes[i][AXE_ABS],
 	      This->axes[i][AXE_ABSMIN],
@@ -541,7 +548,14 @@ static HRESULT WINAPI JoystickAImpl_Acquire(LPDIRECTINPUTDEVICE8A iface)
 	  This->havemax[i] = This->axes[i][AXE_ABSMAX];
 	}
     }
-    MESSAGE("\n");
+    buttons = 0;
+    for (i=0;i<KEY_MAX;i++) {
+	    if (test_bit(This->keybits,i)) {
+		    TRACE("button %d: %d\n", i, buttons);
+		    This->buttons[i] = 0x80 | buttons;
+		    buttons++;
+	    }
+    }
 
 	fake_current_js_state(This);
 
@@ -606,6 +620,8 @@ map_axis(JoystickImpl* This, int axis, int val) {
  */
 static void fake_current_js_state(JoystickImpl *ji)
 {
+	int i;
+	/* center the axes */
 	ji->js.lX  = map_axis(ji, ABS_X,  ji->axes[ABS_X ][AXE_ABS]);
 	ji->js.lY  = map_axis(ji, ABS_Y,  ji->axes[ABS_Y ][AXE_ABS]);
 	ji->js.lZ  = map_axis(ji, ABS_Z,  ji->axes[ABS_Z ][AXE_ABS]);
@@ -614,44 +630,55 @@ static void fake_current_js_state(JoystickImpl *ji)
 	ji->js.lRz = map_axis(ji, ABS_RZ, ji->axes[ABS_RZ][AXE_ABS]);
 	ji->js.rglSlider[0] = map_axis(ji, ABS_THROTTLE, ji->axes[ABS_THROTTLE][AXE_ABS]);
 	ji->js.rglSlider[1] = map_axis(ji, ABS_RUDDER,   ji->axes[ABS_RUDDER  ][AXE_ABS]);
+	/* POV center is -1 */
+	for (i=0; i<4; i++) {
+		ji->js.rgdwPOV[i] = -1;
+	}
+}
+
+/*
+ * Maps an event value to a DX "clock" position:
+ *           0
+ * 27000    -1 9000
+ *       18000
+ */
+static DWORD map_pov(int event_value, int is_x) 
+{
+	DWORD ret = -1;
+	if (is_x) {
+		if (event_value<0) {
+			ret = 27000;
+		} else if (event_value>0) {
+			ret = 9000;
+		}
+	} else {
+		if (event_value<0) {
+			ret = 0;
+		} else if (event_value>0) {
+			ret = 18000;
+		}
+	}
+	return ret;
 }
 
 static int find_property_offset(JoystickImpl *This, LPCDIPROPHEADER ph)
 {
-  int i,c;
   switch (ph->dwHow) {
-    case DIPH_BYOFFSET:
-      for (i=0; i<This->df->dwNumObjs; i++) {
-        if (This->df->rgodf[i].dwOfs == ph->dwObj) {
-          return i;
-        }
-      }
-      break;
-    case DIPH_BYID:
-      /* XXX: this is a hack - see below */
-      c = DIDFT_GETINSTANCE(ph->dwObj)>>WINE_JOYSTICK_AXIS_BASE;
-      for (i=0; (c&1)==0 && i<0x0F; i++) {
-        c >>= 1;
-      }
-      if (i<0x0F) {
-        return i;
-      }
-
-      /* XXX - the following part won't work with LiveForSpeed
-       * - the game sets the dwTypes to something else then
-       * the ddoi.dwType set in EnumObjects
-       */
-#if 0
-      for (i=0; i<This->df->dwNumObjs; i++) {
-        TRACE("dwType='%08x'\n", This->df->rgodf[i].dwType);
-        if ((This->df->rgodf[i].dwType & 0x00ffffff) == (ph->dwObj & 0x00ffffff)) {
-          return i;
-        }
-      }
-#endif
-      break;
+    case DIPH_BYOFFSET: {
+                          int i;
+                          for (i=0; i<This->df->dwNumObjs; i++) {
+                            if (This->df->rgodf[i].dwOfs == ph->dwObj) {
+                              return i;
+                            }
+                          }
+                        }
+                        break;
+    case DIPH_BYID: {
+                      return DIDFT_GETINSTANCE(ph->dwObj)>>WINE_JOYSTICK_AXIS_BASE;
+                    }
+                    break;
     default:
-      FIXME("Unhandled ph->dwHow=='%04X'\n", (unsigned int)ph->dwHow);
+                    FIXME("Unhandled ph->dwHow=='%04X'\n", (unsigned int)ph->dwHow);
   }
 
   return -1;
@@ -661,6 +688,7 @@ static void joy_polldev(JoystickImpl *This) {
     struct timeval tv;
     fd_set	readfds;
     struct	input_event ie;
+    int         btn;
 
     if (This->joyfd==-1)
 	return;
@@ -680,76 +708,14 @@ static void joy_polldev(JoystickImpl *This) {
 	TRACE("input_event: type %d, code %d, value %d\n",ie.type,ie.code,ie.value);
 	switch (ie.type) {
 	case EV_KEY:	/* button */
-	    switch (ie.code) {
-	    case BTN_TRIGGER:	/* normal flight stick */
-	    case BTN_A:		/* gamepad */
-	    case BTN_1:		/* generic */
-		This->js.rgbButtons[0] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(0),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
+		btn = This->buttons[ie.code];
+		TRACE("(%p) %d -> %d\n", This, ie.code, btn);
+		if (btn&0x80) {
+			btn &= 0x7F;
+			This->js.rgbButtons[btn] = ie.value?0x80:0x00;
+			GEN_EVENT(DIJOFS_BUTTON(btn),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
+		}
 		break;
-	    case BTN_THUMB:
-	    case BTN_B:
-	    case BTN_2:
-		This->js.rgbButtons[1] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(1),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_THUMB2:
-	    case BTN_C:
-	    case BTN_3:
-		This->js.rgbButtons[2] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(2),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_TOP:
-	    case BTN_X:
-	    case BTN_4:
-		This->js.rgbButtons[3] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(3),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_TOP2:
-	    case BTN_Y:
-	    case BTN_5:
-		This->js.rgbButtons[4] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(4),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_PINKIE:
-	    case BTN_Z:
-	    case BTN_6:
-		This->js.rgbButtons[5] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(5),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_BASE:
-	    case BTN_TL:
-	    case BTN_7:
-		This->js.rgbButtons[6] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(6),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_BASE2:
-	    case BTN_TR:
-	    case BTN_8:
-		This->js.rgbButtons[7] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(7),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_BASE3:
-	    case BTN_TL2:
-	    case BTN_9:
-		This->js.rgbButtons[8] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(8),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_BASE4:
-	    case BTN_TR2:
-		This->js.rgbButtons[9] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(9),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    case BTN_BASE5:
-	    case BTN_SELECT:
-		This->js.rgbButtons[10] = ie.value?0x80:0x00;
-		GEN_EVENT(DIJOFS_BUTTON(10),ie.value?0x80:0x0,ie.time.tv_usec,(This->dinput->evsequence)++);
-		break;
-	    default:
-		FIXME("unhandled joystick button %x, value %d\n",ie.code,ie.value);
-		break;
-	    }
-	    break;
 	case EV_ABS:
 	    switch (ie.code) {
 	    case ABS_X:
@@ -784,6 +750,26 @@ static void joy_polldev(JoystickImpl *This) {
                 This->js.rglSlider[1] = map_axis(This,ABS_RUDDER,ie.value);
                 GEN_EVENT(DIJOFS_SLIDER(1),This->js.rglSlider[1],ie.time.tv_usec,(This->dinput->evsequence)++);
                 break;
+	    case ABS_HAT0X:
+	    case ABS_HAT0Y:
+                This->js.rgdwPOV[0] = map_pov(ie.value,ie.code==ABS_HAT0X);
+                GEN_EVENT(DIJOFS_POV(0),This->js.rgdwPOV[0],ie.time.tv_usec,(This->dinput->evsequence)++);
+                break;
+	    case ABS_HAT1X:
+	    case ABS_HAT1Y:
+                This->js.rgdwPOV[1] = map_pov(ie.value,ie.code==ABS_HAT1X);
+                GEN_EVENT(DIJOFS_POV(1),This->js.rgdwPOV[1],ie.time.tv_usec,(This->dinput->evsequence)++);
+                break;
+	    case ABS_HAT2X:
+	    case ABS_HAT2Y:
+                This->js.rgdwPOV[2] = map_pov(ie.value,ie.code==ABS_HAT2X);
+                GEN_EVENT(DIJOFS_POV(2),This->js.rgdwPOV[2],ie.time.tv_usec,(This->dinput->evsequence)++);
+                break;
+	    case ABS_HAT3X:
+	    case ABS_HAT3Y:
+                This->js.rgdwPOV[3] = map_pov(ie.value,ie.code==ABS_HAT3X);
+                GEN_EVENT(DIJOFS_POV(3),This->js.rgdwPOV[3],ie.time.tv_usec,(This->dinput->evsequence)++);
+                break;
 	    default:
 		FIXME("unhandled joystick axe event (code %d, value %d)\n",ie.code,ie.value);
 		break;
@@ -792,6 +778,11 @@ static void joy_polldev(JoystickImpl *This) {
 #ifdef HAVE_STRUCT_FF_EFFECT_DIRECTION
 	case EV_FF_STATUS:
 	    This->ff_state = ie.value;
+	    break;
+#endif
+#ifdef EV_SYN
+	case EV_SYN:
+	    /* there is nothing to do */
 	    break;
 #endif
 	default:
@@ -1122,7 +1113,7 @@ static HRESULT WINAPI JoystickAImpl_EnumObjects(
       default:
 	FIXME("unhandled abs axis %d, ignoring!\n",i);
       }
-      ddoi.dwType = DIDFT_MAKEINSTANCE((1<<i) << WINE_JOYSTICK_AXIS_BASE) | DIDFT_ABSAXIS;
+      ddoi.dwType = DIDFT_MAKEINSTANCE(i << WINE_JOYSTICK_AXIS_BASE) | DIDFT_ABSAXIS;
       /* Linux event force feedback supports only (and always) x and y axes */
       if (i == ABS_X || i == ABS_Y) {
 	if (This->has_ff)
@@ -1140,8 +1131,28 @@ static HRESULT WINAPI JoystickAImpl_EnumObjects(
   }
 
   if ((dwFlags == DIDFT_ALL) ||
-      (dwFlags & DIDFT_BUTTON)) {
+      (dwFlags & DIDFT_POV)) {
     int i;
+    ddoi.guidType = GUID_POV;
+    for (i=0; i<4; i++) {
+      if (test_bit(This->absbits,ABS_HAT0X+(i<<1)) && test_bit(This->absbits,ABS_HAT0Y+(i<<1))) {
+        ddoi.dwOfs = DIJOFS_POV(i);
+        ddoi.dwType = DIDFT_MAKEINSTANCE(i << WINE_JOYSTICK_POV_BASE) | DIDFT_POV;
+        sprintf(ddoi.tszName, "%d-POV", i);
+        _dump_OBJECTINSTANCEA(&ddoi);
+        if (lpCallback(&ddoi, lpvRef) != DIENUM_CONTINUE) {
+          /* return to unaquired state if that's where we were */
+          if (xfd == -1)
+            IDirectInputDevice8_Unacquire(iface);
+          return DI_OK;
+        }
+      }
+    }
+  }
+
+  if ((dwFlags == DIDFT_ALL) ||
+      (dwFlags & DIDFT_BUTTON)) {
+    int i, btncount=0;
 
     /*The DInput SDK says that GUID_Button is only for mouse buttons but well*/
 
@@ -1149,74 +1160,10 @@ static HRESULT WINAPI JoystickAImpl_EnumObjects(
 
     for (i = 0; i < KEY_MAX; i++) {
       if (!test_bit(This->keybits,i)) continue;
-
-      switch (i) {
-      case BTN_TRIGGER:
-      case BTN_A:
-      case BTN_1:
-	  ddoi.dwOfs = DIJOFS_BUTTON(0);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 0) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_THUMB:
-	case BTN_B:
-	case BTN_2:
-	  ddoi.dwOfs = DIJOFS_BUTTON(1);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 1) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_THUMB2:
-	case BTN_C:
-	case BTN_3:
-	  ddoi.dwOfs = DIJOFS_BUTTON(2);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 2) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_TOP:
-	case BTN_X:
-	case BTN_4:
-	  ddoi.dwOfs = DIJOFS_BUTTON(3);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 3) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_TOP2:
-	case BTN_Y:
-	case BTN_5:
-	  ddoi.dwOfs = DIJOFS_BUTTON(4);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 4) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_PINKIE:
-	case BTN_Z:
-	case BTN_6:
-	  ddoi.dwOfs = DIJOFS_BUTTON(5);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 5) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_BASE:
-	case BTN_TL:
-	case BTN_7:
-	  ddoi.dwOfs = DIJOFS_BUTTON(6);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 6) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_BASE2:
-	case BTN_TR:
-	case BTN_8:
-	  ddoi.dwOfs = DIJOFS_BUTTON(7);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 7) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_BASE3:
-	case BTN_TL2:
-	case BTN_9:
-	  ddoi.dwOfs = DIJOFS_BUTTON(8);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 8) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_BASE4:
-	case BTN_TR2:
-	  ddoi.dwOfs = DIJOFS_BUTTON(9);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 9) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-	case BTN_BASE5:
-	case BTN_SELECT:
-	  ddoi.dwOfs = DIJOFS_BUTTON(10);
-	  ddoi.dwType = DIDFT_MAKEINSTANCE((0x0001 << 10) << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
-	  break;
-      }
-      sprintf(ddoi.tszName, "%d-Button", i);
+      ddoi.dwOfs = DIJOFS_BUTTON(btncount);
+      ddoi.dwType = DIDFT_MAKEINSTANCE(btncount << WINE_JOYSTICK_BUTTON_BASE) | DIDFT_PSHBUTTON;
+      sprintf(ddoi.tszName, "%d-Button", btncount);
+      btncount++;
       _dump_OBJECTINSTANCEA(&ddoi);
       if (lpCallback(&ddoi, lpvRef) != DIENUM_CONTINUE) {
 	/* return to unaquired state if that's where we were */

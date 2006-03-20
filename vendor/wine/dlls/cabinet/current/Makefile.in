@@ -7,12 +7,13 @@ IMPORTLIB = libcabinet.$(IMPLIBEXT)
 IMPORTS   = kernel32
 
 C_SRCS = \
-	cabextract.c \
 	cabinet_main.c \
 	fci.c \
 	fdi.c
 
 RC_SRCS = cabinet.rc
+
+SUBDIRS = tests
 
 @MAKE_DLL_RULES@
 

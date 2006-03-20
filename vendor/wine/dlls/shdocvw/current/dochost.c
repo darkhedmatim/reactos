@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 Jacek Caban for CodeWeavers
+ * Copyright 2005-2006 Jacek Caban for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -154,6 +154,108 @@ void create_doc_view_hwnd(WebBrowser *This)
          NULL, shdocvw_hinstance, This);
 }
 
+void deactivate_document(WebBrowser *This)
+{
+    IOleInPlaceObjectWindowless *winobj;
+    IOleObject *oleobj = NULL;
+    IHlinkTarget *hlink = NULL;
+    HRESULT hres;
+
+    if(This->view)
+        IOleDocumentView_UIActivate(This->view, FALSE);
+
+    hres = IUnknown_QueryInterface(This->client, &IID_IOleInPlaceObjectWindowless,
+                                   (void**)&winobj);
+    if(SUCCEEDED(hres)) {
+        IOleInPlaceObjectWindowless_InPlaceDeactivate(winobj);
+        IOleInPlaceObjectWindowless_Release(winobj);
+    }
+
+    if(This->view) {
+        IOleDocumentView_Show(This->view, FALSE);
+        IOleDocumentView_CloseView(This->view, 0);
+        IOleDocumentView_SetInPlaceSite(This->view, NULL);
+        IOleDocumentView_Release(This->view);
+        This->view = NULL;
+    }
+
+    hres = IUnknown_QueryInterface(This->document, &IID_IOleObject, (void**)&oleobj);
+    if(SUCCEEDED(hres))
+        IOleObject_Close(oleobj, OLECLOSE_NOSAVE);
+
+    hres = IUnknown_QueryInterface(This->document, &IID_IHlinkTarget, (void**)&hlink);
+    if(SUCCEEDED(hres)) {
+        IHlinkTarget_SetBrowseContext(hlink, NULL);
+        IHlinkTarget_Release(hlink);
+    }
+
+    if(oleobj) {
+        IOleClientSite *client_site = NULL;
+
+        IOleObject_GetClientSite(oleobj, &client_site);
+        if(client_site) {
+            if(client_site == CLIENTSITE(This))
+                IOleObject_SetClientSite(oleobj, NULL);
+            IOleClientSite_Release(client_site);
+        }
+
+        IOleObject_Release(oleobj);
+    }
+
+    IUnknown_Release(This->document);
+    This->document = NULL;
+}
+
+#define OLECMD_THIS(iface) DEFINE_THIS(WebBrowser, ClOleCommandTarget, iface)
+
+static HRESULT WINAPI ClOleCommandTarget_QueryInterface(IOleCommandTarget *iface,
+        REFIID riid, void **ppv)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IOleClientSite_QueryInterface(CLIENTSITE(This), riid, ppv);
+}
+
+static ULONG WINAPI ClOleCommandTarget_AddRef(IOleCommandTarget *iface)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IWebBrowser2_AddRef(WEBBROWSER(This));
+}
+
+static ULONG WINAPI ClOleCommandTarget_Release(IOleCommandTarget *iface)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    return IWebBrowser2_Release(WEBBROWSER(This));
+}
+
+static HRESULT WINAPI ClOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
+        const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    FIXME("(%p)->(%s %lu %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
+          pCmdText);
+    return E_NOTIMPL;
+}
+
+static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
+        const GUID *pguidCmdGroup, DWORD nCmdID, DWORD nCmdexecopt, VARIANT *pvaIn,
+        VARIANT *pvaOut)
+{
+    WebBrowser *This = OLECMD_THIS(iface);
+    FIXME("(%p)->(%s %ld %ld %p %p)\n", This, debugstr_guid(pguidCmdGroup), nCmdID,
+          nCmdexecopt, pvaIn, pvaOut);
+    return E_NOTIMPL;
+}
+
+#undef OLECMD_THIS
+
+static const IOleCommandTargetVtbl OleCommandTargetVtbl = {
+    ClOleCommandTarget_QueryInterface,
+    ClOleCommandTarget_AddRef,
+    ClOleCommandTarget_Release,
+    ClOleCommandTarget_QueryStatus,
+    ClOleCommandTarget_Exec
+};
+
 #define DOCHOSTUI_THIS(iface) DEFINE_THIS(WebBrowser, DocHostUIHandler, iface)
 
 static HRESULT WINAPI DocHostUIHandler_QueryInterface(IDocHostUIHandler2 *iface,
@@ -179,7 +281,18 @@ static HRESULT WINAPI DocHostUIHandler_ShowContextMenu(IDocHostUIHandler2 *iface
          DWORD dwID, POINT *ppt, IUnknown *pcmdtReserved, IDispatch *pdispReserved)
 {
     WebBrowser *This = DOCHOSTUI_THIS(iface);
-    FIXME("(%p)->(%ld %p %p %p)\n", This, dwID, ppt, pcmdtReserved, pdispReserved);
+    HRESULT hres;
+
+    TRACE("(%p)->(%ld %p %p %p)\n", This, dwID, ppt, pcmdtReserved, pdispReserved);
+
+    if(This->hostui) {
+        hres = IDocHostUIHandler_ShowContextMenu(This->hostui, dwID, ppt, pcmdtReserved,
+                                                 pdispReserved);
+        if(hres == S_OK)
+            return S_OK;
+    }
+
+    FIXME("default action not implemented\n");
     return E_NOTIMPL;
 }
 
@@ -187,19 +300,14 @@ static HRESULT WINAPI DocHostUIHandler_GetHostInfo(IDocHostUIHandler2 *iface,
         DOCHOSTUIINFO *pInfo)
 {
     WebBrowser *This = DOCHOSTUI_THIS(iface);
-    IDocHostUIHandler *handler;
     HRESULT hres;
 
     TRACE("(%p)->(%p)\n", This, pInfo);
 
-    if(This->client) {
-        hres = IOleClientSite_QueryInterface(This->client, &IID_IDocHostUIHandler, (void**)&handler);
-        if(SUCCEEDED(hres)) {
-            hres = IDocHostUIHandler_GetHostInfo(handler, pInfo);
-            IDocHostUIHandler_Release(handler);
-            if(SUCCEEDED(hres))
-                return hres;
-        }
+    if(This->hostui) {
+        hres = IDocHostUIHandler_GetHostInfo(This->hostui, pInfo);
+        if(SUCCEEDED(hres))
+            return hres;
     }
 
     pInfo->dwFlags = DOCHOSTUIFLAG_DISABLE_HELP_MENU | DOCHOSTUIFLAG_OPENNEWWIN
@@ -276,21 +384,11 @@ static HRESULT WINAPI DocHostUIHandler_GetOptionKeyPath(IDocHostUIHandler2 *ifac
         LPOLESTR *pchKey, DWORD dw)
 {
     WebBrowser *This = DOCHOSTUI_THIS(iface);
-    IDocHostUIHandler *handler;
-    HRESULT hres;
 
     TRACE("(%p)->(%p %ld)\n", This, pchKey, dw);
 
-    if(!This->client)
-        return S_OK;
-
-    hres = IOleClientSite_QueryInterface(This->client, &IID_IDocHostUIHandler,
-                                         (void**)&handler);
-    if(SUCCEEDED(hres)) {
-        hres = IDocHostUIHandler_GetOptionKeyPath(handler, pchKey, dw);
-        IDocHostUIHandler_Release(handler);
-        return hres;
-    }
+    if(This->hostui)
+        return IDocHostUIHandler_GetOptionKeyPath(This->hostui, pchKey, dw);
 
     return S_OK;
 }
@@ -315,8 +413,14 @@ static HRESULT WINAPI DocHostUIHandler_TranslateUrl(IDocHostUIHandler2 *iface,
         DWORD dwTranslate, OLECHAR *pchURLIn, OLECHAR **ppchURLOut)
 {
     WebBrowser *This = DOCHOSTUI_THIS(iface);
-    FIXME("(%p)->(%ld %s %p)\n", This, dwTranslate, debugstr_w(pchURLIn), ppchURLOut);
-    return E_NOTIMPL;
+
+    TRACE("(%p)->(%ld %s %p)\n", This, dwTranslate, debugstr_w(pchURLIn), ppchURLOut);
+
+    if(This->hostui)
+        return IDocHostUIHandler_TranslateUrl(This->hostui, dwTranslate,
+                                              pchURLIn, ppchURLOut);
+
+    return S_FALSE;
 }
 
 static HRESULT WINAPI DocHostUIHandler_FilterDataObject(IDocHostUIHandler2 *iface,
@@ -376,7 +480,10 @@ static const IDocHostUIHandler2Vtbl DocHostUIHandler2Vtbl = {
 
 void WebBrowser_DocHost_Init(WebBrowser *This)
 {
-    This->lpDocHostUIHandlerVtbl = &DocHostUIHandler2Vtbl;
+    This->lpDocHostUIHandlerVtbl   = &DocHostUIHandler2Vtbl;
+    This->lpClOleCommandTargetVtbl = &OleCommandTargetVtbl;
+
+    This->hostui = NULL;
 
     This->doc_view_hwnd = NULL;
 }

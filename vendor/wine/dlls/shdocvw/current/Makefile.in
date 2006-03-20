@@ -5,7 +5,7 @@ SRCDIR    = @srcdir@
 VPATH     = @srcdir@
 MODULE    = shdocvw.dll
 IMPORTLIB = libshdocvw.$(IMPLIBEXT)
-IMPORTS   = user32 advapi32 kernel32
+IMPORTS   = shlwapi user32 advapi32 kernel32
 DELAYIMPORTS = urlmon ole32 oleaut32
 EXTRALIBS = -luuid
 
@@ -16,7 +16,7 @@ C_SRCS = \
 	events.c \
 	factory.c \
 	frame.c \
-	misc.c \
+	navigate.c \
 	oleobject.c \
 	persist.c \
 	regsvr.c \

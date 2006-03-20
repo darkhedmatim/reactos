@@ -2,6 +2,7 @@
  * RichEdit - painting functions
  *
  * Copyright 2004 by Krzysztof Foltman
+ * Copyright 2005 by Phil Krylov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -93,74 +94,17 @@ void ME_PaintContent(ME_TextEditor *editor, HDC hDC, BOOL bOnlyNew, RECT *rcUpda
   ME_DestroyContext(&c);
 }
 
-static void ME_MarkParagraphRange(ME_TextEditor *editor, ME_DisplayItem *p1,
-                           ME_DisplayItem *p2, int nFlags)
-{
-  ME_DisplayItem *p3;  
-  if (p1 == p2)
-  {
-    p1->member.para.nFlags |= nFlags;
-    return;
-  }
-  if (p1->member.para.nCharOfs > p2->member.para.nCharOfs)
-    p3 = p1, p1 = p2, p2 = p3;
-    
-  p1->member.para.nFlags |= nFlags;
-  do {
-    p1 = p1->member.para.next_para;
-    p1->member.para.nFlags |= nFlags;
-  } while (p1 != p2);
-}
-
-static void ME_MarkOffsetRange(ME_TextEditor *editor, int from, int to, int nFlags)
-{
-  ME_Cursor c1, c2;
-  ME_CursorFromCharOfs(editor, from, &c1);
-  ME_CursorFromCharOfs(editor, to, &c2);
-  
-  ME_MarkParagraphRange(editor, ME_GetParagraph(c1.pRun), ME_GetParagraph(c2.pRun), nFlags);
-}
-
-static void ME_MarkSelectionForRepaint(ME_TextEditor *editor)
-{
-  int from, to, from2, to2, end;
-  
-  end = ME_GetTextLength(editor);
-  ME_GetSelection(editor, &from, &to);
-  from2 = editor->nLastSelStart;
-  to2 = editor->nLastSelEnd;
-  if (from<from2) ME_MarkOffsetRange(editor, from, from2, MEPF_REPAINT);
-  if (from>from2) ME_MarkOffsetRange(editor, from2, from, MEPF_REPAINT);
-  if (to<to2) ME_MarkOffsetRange(editor, to, to2, MEPF_REPAINT);
-  if (to>to2) ME_MarkOffsetRange(editor, to2, to, MEPF_REPAINT);
-
-  editor->nLastSelStart = from;
-  editor->nLastSelEnd = to;
-}
-
 void ME_Repaint(ME_TextEditor *editor)
 {
   ME_Cursor *pCursor = &editor->pCursors[0];
-  ME_DisplayItem *pRun = NULL;
-  int nOffset = -1;
-  HDC hDC;
-  int nCharOfs = ME_CharOfsFromRunOfs(editor, pCursor->pRun, pCursor->nOffset);
-  
-  ME_RunOfsFromCharOfs(editor, nCharOfs, &pRun, &nOffset);
-  assert(pRun == pCursor->pRun);
-  assert(nOffset == pCursor->nOffset);
-  ME_MarkSelectionForRepaint(editor);
+
   if (ME_WrapMarkedParagraphs(editor)) {
     ME_UpdateScrollBar(editor);
   }
   if (editor->bRedraw)
   {
-    hDC = GetDC(editor->hWnd);
-    ME_HideCaret(editor);
-    ME_PaintContent(editor, hDC, TRUE, NULL);
-    ReleaseDC(editor->hWnd, hDC);
-    ME_ShowCaret(editor);
     ME_EnsureVisible(editor, pCursor->pRun);
+    UpdateWindow(editor->hWnd);
   }
 }
 
@@ -231,7 +175,10 @@ static void ME_DrawTextWithStyle(ME_Context *c, int x, int y, LPCWSTR szText, in
     GetTextExtentPoint32W(hDC, szText, nSelFrom, &sz);
     x += sz.cx;
     GetTextExtentPoint32W(hDC, szText+nSelFrom, nSelTo-nSelFrom, &sz);
-    PatBlt(hDC, x, ymin, sz.cx, cy, DSTINVERT);
+    
+    /* Invert selection if not hidden by EM_HIDESELECTION */
+    if (c->editor->bHideSelection == FALSE)
+	PatBlt(hDC, x, ymin, sz.cx, cy, DSTINVERT);
   }
   SetTextColor(hDC, rgbOld);
   ME_UnselectStyleFont(c->editor, hDC, s, hOldFont);
@@ -277,25 +224,32 @@ void ME_DrawGraphics(ME_Context *c, int x, int y, ME_Run *run,
 
 static void ME_DrawRun(ME_Context *c, int x, int y, ME_DisplayItem *rundi, ME_Paragraph *para) {
   ME_Run *run = &rundi->member.run;
+  ME_DisplayItem *start = ME_FindItemBack(rundi, diStartRow);
   int runofs = run->nCharOfs+para->nCharOfs;
+  int nSelFrom, nSelTo;
+  const WCHAR wszSpace[] = {' ', 0};
   
-  /* you can always comment it out if you need visible paragraph marks */
-  if (run->nFlags & (MERF_ENDPARA|MERF_TAB)) 
+  if (run->nFlags & MERF_HIDDEN)
     return;
-  if (run->nFlags & MERF_GRAPHICS) {
-    int blfrom, blto;
-    ME_GetSelection(c->editor, &blfrom, &blto);
-    ME_DrawGraphics(c, x, y, run, para, (runofs >= blfrom) && (runofs < blto));
-  } else
-  {
-    int blfrom, blto;
-    ME_DisplayItem *start = ME_FindItemBack(rundi, diStartRow);
-    ME_GetSelection(c->editor, &blfrom, &blto);
-    
+
+  ME_GetSelection(c->editor, &nSelFrom, &nSelTo);
+
+  /* Draw selected end-of-paragraph mark */
+  if (run->nFlags & MERF_ENDPARA && runofs >= nSelFrom && runofs < nSelTo)
+    ME_DrawTextWithStyle(c, x, y, wszSpace, 1, run->style, NULL, 0, 1,
+                         c->pt.y + start->member.row.nYPos,
+                         start->member.row.nHeight);
+          
+  /* you can always comment it out if you need visible paragraph marks */
+  if (run->nFlags & (MERF_ENDPARA | MERF_TAB | MERF_CELL)) 
+    return;
+
+  if (run->nFlags & MERF_GRAPHICS)
+    ME_DrawGraphics(c, x, y, run, para, (runofs >= nSelFrom) && (runofs < nSelTo));
+  else
     ME_DrawTextWithStyle(c, x, y, 
       run->strText->szData, ME_StrVLen(run->strText), run->style, NULL, 
-        blfrom-runofs, blto-runofs, c->pt.y+start->member.row.nYPos, start->member.row.nHeight);
-  }
+        nSelFrom-runofs,nSelTo-runofs, c->pt.y+start->member.row.nYPos, start->member.row.nHeight);
 }
 
 COLORREF ME_GetBackColor(ME_TextEditor *editor)
@@ -516,7 +470,64 @@ void ME_EnsureVisible(ME_TextEditor *editor, ME_DisplayItem *pRun)
     }
   }
 }
-        
+
+
+void
+ME_InvalidateFromOfs(ME_TextEditor *editor, int nCharOfs)
+{
+  RECT rc;
+  int x, y, height;
+  ME_Cursor tmp;
+
+  ME_RunOfsFromCharOfs(editor, nCharOfs, &tmp.pRun, &tmp.nOffset);
+  ME_GetCursorCoordinates(editor, &tmp, &x, &y, &height);
+
+  rc.left = 0;
+  rc.top = y;
+  rc.bottom = y + height;
+  rc.right = editor->rcFormat.right;
+  InvalidateRect(editor->hWnd, &rc, FALSE);
+}
+
+
+void
+ME_InvalidateSelection(ME_TextEditor *editor)
+{
+  if (ME_IsSelection(editor) || editor->nLastSelStart != editor->nLastSelEnd)
+  {
+    int x, y, height;
+    int x2, y2, height2;
+    int last_x, last_y, last_height;
+    int last_x2, last_y2, last_height2;
+    RECT rc;
+    ME_Cursor tmp;
+  
+    ME_GetCursorCoordinates(editor, &editor->pCursors[1], &x, &y, &height);
+    ME_GetCursorCoordinates(editor, &editor->pCursors[0], &x2, &y2, &height2);
+    ME_RunOfsFromCharOfs(editor, editor->nLastSelStart, &tmp.pRun, &tmp.nOffset);
+    ME_GetCursorCoordinates(editor, &tmp, &last_x, &last_y, &last_height);
+    ME_RunOfsFromCharOfs(editor, editor->nLastSelEnd, &tmp.pRun, &tmp.nOffset);
+    ME_GetCursorCoordinates(editor, &tmp, &last_x2, &last_y2, &last_height2);
+    {
+      rc.left = 0;
+
+      rc.top = min(min(y, last_y), min(y2, last_y2));
+      rc.right = editor->rcFormat.right;
+      rc.bottom = max(max(y + height, last_y + last_height),
+                      max(y2 + height2, last_y2 + last_height2));
+      InvalidateRect(editor->hWnd, &rc, FALSE);
+    }
+  }
+  ME_GetSelection(editor, &editor->nLastSelStart, &editor->nLastSelEnd);
+}
+
+
+void
+ME_QueueInvalidateFromCursor(ME_TextEditor *editor, int nCursor)
+{
+  editor->nInvalidOfs = ME_GetCursorOfs(editor, nCursor);
+}
+
 
 BOOL
 ME_SetZoom(ME_TextEditor *editor, int numerator, int denominator)

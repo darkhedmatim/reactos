@@ -50,6 +50,15 @@ static HRESULT WINAPI ClientSite_QueryInterface(IOleClientSite *iface, REFIID ri
     }else if(IsEqualGUID(&IID_IOleDocumentSite, riid)) {
         TRACE("(%p)->(IID_IOleDocumentSite %p)\n", This, ppv);
         *ppv = DOCSITE(This);
+    }else if(IsEqualGUID(&IID_IOleClientSite, riid)) {
+        TRACE("(%p)->(IID_IOleClientSite %p)\n", This, ppv);
+        *ppv = CLOLECMD(This);
+    }else if(IsEqualGUID(&IID_IDispatch, riid)) {
+        TRACE("(%p)->(IID_IDispatch %p)\n", This, ppv);
+        *ppv = CLDISP(This);
+    }else if(IsEqualGUID(&IID_IServiceProvider, riid)) {
+        TRACE("(%p)->(IID_IServiceProvider %p)\n", This, ppv);
+        *ppv = CLSERVPROV(This);
     }
 
     if(*ppv) {
@@ -204,6 +213,7 @@ static HRESULT WINAPI InPlaceSite_GetWindowContext(IOleInPlaceSite *iface,
     TRACE("(%p)->(%p %p %p %p %p)\n", This, ppFrame, ppDoc, lprcPosRect,
           lprcClipRect, lpFrameInfo);
 
+    IOleInPlaceFrame_AddRef(INPLACEFRAME(This));
     *ppFrame = INPLACEFRAME(This);
     *ppDoc = NULL;
 
@@ -337,11 +347,130 @@ static const IOleDocumentSiteVtbl OleDocumentSiteVtbl = {
     OleDocumentSite_ActivateMe
 };
 
+#define DISP_THIS(iface) DEFINE_THIS(WebBrowser, Dispatch, iface)
+
+static HRESULT WINAPI ClDispatch_QueryInterface(IDispatch *iface, REFIID riid, void **ppv)
+{
+    WebBrowser *This = DISP_THIS(iface);
+    return IOleClientSite_QueryInterface(CLIENTSITE(This), riid, ppv);
+}
+
+static ULONG WINAPI ClDispatch_AddRef(IDispatch *iface)
+{
+    WebBrowser *This = DISP_THIS(iface);
+    return IWebBrowser2_AddRef(WEBBROWSER(This));
+}
+
+static ULONG WINAPI ClDispatch_Release(IDispatch *iface)
+{
+    WebBrowser *This = DISP_THIS(iface);
+    return IWebBrowser2_Release(WEBBROWSER(This));
+}
+
+static HRESULT WINAPI ClDispatch_GetTypeInfoCount(IDispatch *iface, UINT *pctinfo)
+{
+    WebBrowser *This = DISP_THIS(iface);
+
+    TRACE("(%p)->(%p)\n", This, pctinfo);
+
+    return E_NOTIMPL;
+}
+
+static HRESULT WINAPI ClDispatch_GetTypeInfo(IDispatch *iface, UINT iTInfo, LCID lcid,
+                                             ITypeInfo **ppTInfo)
+{
+    WebBrowser *This = DISP_THIS(iface);
+
+    TRACE("(%p)->(%u %ld %p)\n", This, iTInfo, lcid, ppTInfo);
+
+    return E_NOTIMPL;
+}
+
+static HRESULT WINAPI ClDispatch_GetIDsOfNames(IDispatch *iface, REFIID riid, LPOLESTR *rgszNames,
+                                               UINT cNames, LCID lcid, DISPID *rgDispId)
+{
+    WebBrowser *This = DISP_THIS(iface);
+
+    TRACE("(%p)->(%s %p %u %ld %p)\n", This, debugstr_guid(riid), rgszNames, cNames,
+          lcid, rgDispId);
+
+    return E_NOTIMPL;
+}
+
+static HRESULT WINAPI ClDispatch_Invoke(IDispatch *iface, DISPID dispIdMember, REFIID riid,
+                                        LCID lcid, WORD wFlags, DISPPARAMS *pDispParams,
+                                        VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
+{
+    WebBrowser *This = DISP_THIS(iface);
+    FIXME("(%p)->(%ld %s %ld %04x %p %p %p %p)\n", This, dispIdMember, debugstr_guid(riid),
+          lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+    return E_NOTIMPL;
+}
+
+#undef DISP_THIS
+
+static const IDispatchVtbl DispatchVtbl = {
+    ClDispatch_QueryInterface,
+    ClDispatch_AddRef,
+    ClDispatch_Release,
+    ClDispatch_GetTypeInfoCount,
+    ClDispatch_GetTypeInfo,
+    ClDispatch_GetIDsOfNames,
+    ClDispatch_Invoke
+};
+
+#define SERVPROV_THIS(iface) DEFINE_THIS(WebBrowser, ClServiceProvider, iface)
+
+static HRESULT WINAPI ClServiceProvider_QueryInterface(IServiceProvider *iface, REFIID riid,
+                                                       void **ppv)
+{
+    WebBrowser *This = SERVPROV_THIS(iface);
+    return IOleClientSite_QueryInterface(CLIENTSITE(This), riid, ppv);
+}
+
+static ULONG WINAPI ClServiceProvider_AddRef(IServiceProvider *iface)
+{
+    WebBrowser *This = SERVPROV_THIS(iface);
+    return IWebBrowser2_AddRef(WEBBROWSER2(This));
+}
+
+static ULONG WINAPI ClServiceProvider_Release(IServiceProvider *iface)
+{
+    WebBrowser *This = SERVPROV_THIS(iface);
+    return IWebBrowser2_Release(WEBBROWSER2(This));
+}
+
+static HRESULT WINAPI ClServiceProvider_QueryService(IServiceProvider *iface, REFGUID guidService,
+                                                     REFIID riid, void **ppv)
+{
+    WebBrowser *This = SERVPROV_THIS(iface);
+
+    if(IsEqualGUID(&IID_IHlinkFrame, guidService)) {
+        TRACE("(%p)->(IID_IHlinkFrame %s %p)\n", This, debugstr_guid(riid), ppv);
+        return IWebBrowser2_QueryInterface(WEBBROWSER(This), riid, ppv);
+    }
+
+    FIXME("(%p)->(%s %s %p)\n", This, debugstr_guid(guidService), debugstr_guid(riid), ppv);
+
+    return E_NOINTERFACE;
+}
+
+#undef SERVPROV_THIS
+
+static const IServiceProviderVtbl ServiceProviderVtbl = {
+    ClServiceProvider_QueryInterface,
+    ClServiceProvider_AddRef,
+    ClServiceProvider_Release,
+    ClServiceProvider_QueryService
+};
+
 void WebBrowser_ClientSite_Init(WebBrowser *This)
 {
-    This->lpOleClientSiteVtbl   = &OleClientSiteVtbl;
-    This->lpOleInPlaceSiteVtbl  = &OleInPlaceSiteVtbl;
-    This->lpOleDocumentSiteVtbl = &OleDocumentSiteVtbl;
+    This->lpOleClientSiteVtbl     = &OleClientSiteVtbl;
+    This->lpOleInPlaceSiteVtbl    = &OleInPlaceSiteVtbl;
+    This->lpOleDocumentSiteVtbl   = &OleDocumentSiteVtbl;
+    This->lpDispatchVtbl          = &DispatchVtbl;
+    This->lpClServiceProviderVtbl = &ServiceProviderVtbl;
 
     This->view = NULL;
 }

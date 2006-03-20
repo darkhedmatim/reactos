@@ -2,6 +2,7 @@
  * Header includes for shdocvw.dll
  *
  * Copyright 2001 John R. Sheets (for CodeWeavers)
+ * Copyright 2005-2006 Jacek Caban for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,6 +37,7 @@
 #include "shlobj.h"
 #include "exdisp.h"
 #include "mshtmhst.h"
+#include "hlink.h"
 
 /**********************************************************************
  * IClassFactory declaration for SHDOCVW.DLL
@@ -71,10 +73,11 @@ typedef struct {
     const IPersistStorageVtbl           *lpPersistStorageVtbl;
     const IPersistStreamInitVtbl        *lpPersistStreamInitVtbl;
     const IProvideClassInfo2Vtbl        *lpProvideClassInfoVtbl;
-    const IQuickActivateVtbl            *lpQuickActivateVtbl;
     const IConnectionPointContainerVtbl *lpConnectionPointContainerVtbl;
     const IViewObject2Vtbl              *lpViewObjectVtbl;
     const IOleInPlaceActiveObjectVtbl   *lpOleInPlaceActiveObjectVtbl;
+    const IOleCommandTargetVtbl         *lpWBOleCommandTargetVtbl;
+    const IHlinkFrameVtbl               *lpHlinkFrameVtbl;
 
     /* Interfaces available for embeded document */
 
@@ -82,6 +85,9 @@ typedef struct {
     const IOleInPlaceSiteVtbl           *lpOleInPlaceSiteVtbl;
     const IDocHostUIHandler2Vtbl        *lpDocHostUIHandlerVtbl;
     const IOleDocumentSiteVtbl          *lpOleDocumentSiteVtbl;
+    const IOleCommandTargetVtbl         *lpClOleCommandTargetVtbl;
+    const IDispatchVtbl                 *lpDispatchVtbl;
+    const IServiceProviderVtbl          *lpClServiceProviderVtbl;
 
     /* Interfaces of InPlaceFrame object */
 
@@ -94,6 +100,7 @@ typedef struct {
     IOleClientSite *client;
     IOleContainer *container;
     IOleDocumentView *view;
+    IDocHostUIHandler *hostui;
 
     LPOLESTR url;
 
@@ -125,17 +132,21 @@ typedef struct {
 #define PERSTORAGE(x)   ((IPersistStorage*)             &(x)->lpPersistStorageVtbl)
 #define PERSTRINIT(x)   ((IPersistStreamInit*)          &(x)->lpPersistStreamInitVtbl)
 #define CLASSINFO(x)    ((IProvideClassInfo2*)          &(x)->lpProvideClassInfoVtbl)
-#define QUICKACT(x)     ((IQuickActivate*)              &(x)->lpQuickActivateVtbl)
 #define CONPTCONT(x)    ((IConnectionPointContainer*)   &(x)->lpConnectionPointContainerVtbl)
 #define VIEWOBJ(x)      ((IViewObject*)                 &(x)->lpViewObjectVtbl);
 #define VIEWOBJ2(x)     ((IViewObject2*)                &(x)->lpViewObjectVtbl);
 #define ACTIVEOBJ(x)    ((IOleInPlaceActiveObject*)     &(x)->lpOleInPlaceActiveObjectVtbl)
+#define WBOLECMD(x)     ((IOleCommandTarget*)           &(x)->lpWBOleCommandTargetVtbl)
+#define HLINKFRAME(x)   ((IHlinkFrame*)                 &(x)->lpHlinkFrameVtbl)
 
 #define CLIENTSITE(x)   ((IOleClientSite*)              &(x)->lpOleClientSiteVtbl)
 #define INPLACESITE(x)  ((IOleInPlaceSite*)             &(x)->lpOleInPlaceSiteVtbl)
 #define DOCHOSTUI(x)    ((IDocHostUIHandler*)           &(x)->lpDocHostUIHandlerVtbl)
 #define DOCHOSTUI2(x)   ((IDocHostUIHandler2*)          &(x)->lpDocHostUIHandlerVtbl)
 #define DOCSITE(x)      ((IOleDocumentSite*)            &(x)->lpOleDocumentSiteVtbl)
+#define CLOLECMD(x)     ((IOleCommandTarget*)           &(x)->lpClOleCommandTargetVtbl)
+#define CLDISP(x)       ((IDispatch*)                   &(x)->lpDispatchVtbl)
+#define CLSERVPROV(x)   ((IServiceProvider*)            &(x)->lpClServiceProviderVtbl)
 
 #define INPLACEFRAME(x) ((IOleInPlaceFrame*)            &(x)->lpOleInPlaceFrameVtbl)
 
@@ -143,8 +154,8 @@ void WebBrowser_OleObject_Init(WebBrowser*);
 void WebBrowser_ViewObject_Init(WebBrowser*);
 void WebBrowser_Persist_Init(WebBrowser*);
 void WebBrowser_ClassInfo_Init(WebBrowser*);
-void WebBrowser_Misc_Init(WebBrowser*);
 void WebBrowser_Events_Init(WebBrowser*);
+void WebBrowser_HlinkFrame_Init(WebBrowser*);
 
 void WebBrowser_ClientSite_Init(WebBrowser*);
 void WebBrowser_DocHost_Init(WebBrowser*);
@@ -158,7 +169,9 @@ void WebBrowser_ClientSite_Destroy(WebBrowser*);
 HRESULT WebBrowser_Create(IUnknown*,REFIID,void**);
 
 void create_doc_view_hwnd(WebBrowser *This);
+void deactivate_document(WebBrowser*);
 void call_sink(ConnectionPoint*,DISPID,DISPPARAMS*);
+HRESULT navigate_url(WebBrowser*,LPCWSTR,PBYTE,ULONG,LPWSTR);
 
 #define WB_WM_NAVIGATE2 (WM_USER+100)
 

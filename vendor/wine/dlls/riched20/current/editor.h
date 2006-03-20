@@ -19,10 +19,23 @@
  */
 
 #include "editstr.h"
+#include "wine/unicode.h"
 
 #define ALLOC_OBJ(type) HeapAlloc(me_heap, 0, sizeof(type))
 #define ALLOC_N_OBJ(type, count) HeapAlloc(me_heap, 0, (count)*sizeof(type))
 #define FREE_OBJ(ptr) HeapFree(me_heap, 0, ptr)
+
+#define RUN_IS_HIDDEN(run) ((run)->style->fmt.dwMask & CFM_HIDDEN \
+                             && (run)->style->fmt.dwEffects & CFE_HIDDEN)
+
+#define InitFormatEtc(fe, cf, med) \
+        {\
+        (fe).cfFormat=cf;\
+        (fe).dwAspect=DVASPECT_CONTENT;\
+        (fe).ptd=NULL;\
+        (fe).tymed=med;\
+        (fe).lindex=-1;\
+        };
 
 /* style.c */
 ME_Style *ME_MakeStyle(CHARFORMAT2W *style);
@@ -53,6 +66,7 @@ ME_DisplayItem *ME_FindItemFwdOrHere(ME_DisplayItem *di, ME_DIType nTypeOrClass)
 BOOL ME_DITypesEqual(ME_DIType type, ME_DIType nTypeOrClass);
 ME_DisplayItem *ME_MakeDI(ME_DIType type);
 void ME_DestroyDisplayItem(ME_DisplayItem *item);
+void ME_DestroyTableCellList(ME_DisplayItem *item);
 void ME_DumpDocument(ME_TextBuffer *buffer);
 const char *ME_GetDITypeName(ME_DIType type);
 
@@ -72,6 +86,7 @@ int ME_StrLen(ME_String *s);
 int ME_StrVLen(ME_String *s);
 int ME_FindNonWhitespaceV(ME_String *s, int nVChar);
 int ME_FindWhitespaceV(ME_String *s, int nVChar);
+int ME_CallWordBreakProc(ME_TextEditor *editor, ME_String *str, INT start, INT code);
 int ME_GetCharFwd(ME_String *s, int nPos); /* get char starting from start */
 int ME_GetCharBack(ME_String *s, int nPos); /* get char starting from \0  */
 int ME_StrRelPos(ME_String *s, int nVChar, int *pRelChars);
@@ -88,6 +103,11 @@ void ME_EndToAnsi(HWND hWnd, LPVOID psz);
 static inline int ME_IsWSpace(WCHAR ch)
 {
   return ch > '\0' && ch <= ' ';
+}
+
+static inline int ME_CharCompare(WCHAR a, WCHAR b, int caseSensitive)
+{
+  return caseSensitive ? (a == b) : (toupperW(a) == toupperW(b));
 }
 
 /* note: those two really return the first matching offset (starting from EOS)+1 
@@ -107,10 +127,12 @@ int ME_RowNumberFromCharOfs(ME_TextEditor *editor, int nOfs);
 ME_DisplayItem *ME_MakeRun(ME_Style *s, ME_String *strData, int nFlags);
 /* note: ME_InsertRun inserts a copy of the specified run - so you need to destroy the original */
 ME_DisplayItem *ME_InsertRun(ME_TextEditor *editor, int nCharOfs, ME_DisplayItem *pItem);
+ME_DisplayItem *ME_InsertRunAtCursor(ME_TextEditor *editor, ME_Cursor *cursor,
+                                     ME_Style *style, const WCHAR *str, int len, int flags);
 void ME_CheckCharOffsets(ME_TextEditor *editor);
 void ME_PropagateCharOffset(ME_DisplayItem *p, int shift);
 void ME_GetGraphicsSize(ME_TextEditor *editor, ME_Run *run, SIZE *pSize);
-int ME_CharFromPoint(ME_TextEditor *editor, int cx, ME_Paragraph *para, ME_Run *run);
+int ME_CharFromPoint(ME_TextEditor *editor, int cx, ME_Run *run);
 /* this one accounts for 1/2 char tolerance */
 int ME_CharFromPointCursor(ME_TextEditor *editor, int cx, ME_Run *run);
 int ME_PointFromChar(ME_TextEditor *editor, ME_Run *pRun, int nOffset);
@@ -137,6 +159,7 @@ void ME_SetDefaultCharFormat(ME_TextEditor *editor, CHARFORMAT2W *mod);
 
 /* caret.c */
 void ME_SetSelection(ME_TextEditor *editor, int from, int to);
+void ME_SelectWord(ME_TextEditor *editor);
 void ME_HideCaret(ME_TextEditor *ed);
 void ME_ShowCaret(ME_TextEditor *ed);
 void ME_MoveCaret(ME_TextEditor *ed);
@@ -148,12 +171,14 @@ void ME_DeleteTextAtCursor(ME_TextEditor *editor, int nCursor, int nChars);
 void ME_InsertTextFromCursor(ME_TextEditor *editor, int nCursor, 
                              const WCHAR *str, int len, ME_Style *style);
 void ME_SetCharFormat(ME_TextEditor *editor, int nOfs, int nChars, CHARFORMAT2W *pFmt);
-BOOL ME_ArrowKey(ME_TextEditor *ed, int nVKey, int nCtrl);
+BOOL ME_ArrowKey(ME_TextEditor *ed, int nVKey, BOOL extend, BOOL ctrl);
 
 void ME_InitContext(ME_Context *c, ME_TextEditor *editor, HDC hDC);
 void ME_DestroyContext(ME_Context *c);
 ME_Style *GetInsertStyle(ME_TextEditor *editor, int nCursor);
 void ME_MustBeWrapped(ME_Context *c, ME_DisplayItem *para);
+void ME_GetCursorCoordinates(ME_TextEditor *editor, ME_Cursor *pCursor,
+                             int *x, int *y, int *height);
 int ME_GetCursorOfs(ME_TextEditor *editor, int nCursor);
 void ME_GetSelection(ME_TextEditor *editor, int *from, int *to);
 int ME_CountParagraphsBetween(ME_TextEditor *editor, int from, int to);
@@ -161,6 +186,7 @@ BOOL ME_IsSelection(ME_TextEditor *editor);
 void ME_DeleteSelection(ME_TextEditor *editor);
 void ME_SendSelChange(ME_TextEditor *editor);
 void ME_InsertGraphicsFromCursor(ME_TextEditor *editor, int nCursor);
+void ME_InsertTableCellFromCursor(ME_TextEditor *editor, int nCursor);
 void ME_InternalDeleteText(ME_TextEditor *editor, int nOfs, int nChars);
 int ME_GetTextLength(ME_TextEditor *editor);
 int ME_GetTextLengthEx(ME_TextEditor *editor, GETTEXTLENGTHEX *how);
@@ -201,10 +227,13 @@ int ME_GetYScrollPos(ME_TextEditor *editor);
 void ME_EnsureVisible(ME_TextEditor *editor, ME_DisplayItem *pRun);
 COLORREF ME_GetBackColor(ME_TextEditor *editor);
 void ME_Scroll(ME_TextEditor *editor, int cx, int cy);
+void ME_InvalidateFromOfs(ME_TextEditor *editor, int nCharOfs);
+void ME_InvalidateSelection(ME_TextEditor *editor);
+void ME_QueueInvalidateFromCursor(ME_TextEditor *editor, int nCursor);
 BOOL ME_SetZoom(ME_TextEditor *editor, int numerator, int denominator);
 
 /* richole.c */
-extern LRESULT CreateIRichEditOle(LPVOID *);
+extern LRESULT CreateIRichEditOle(ME_TextEditor *editor, LPVOID *);
 
 /* wintest.c */
 
@@ -221,10 +250,14 @@ void ME_EmptyUndoStack(ME_TextEditor *editor);
 int ME_GetTextW(ME_TextEditor *editor, WCHAR *buffer, int nStart, int nChars, BOOL bCRLF);
 ME_DisplayItem *ME_FindItemAtOffset(ME_TextEditor *editor, ME_DIType nItemType, int nOffset, int *nItemOffset);
 void ME_StreamInFill(ME_InStream *stream);
-
+int ME_AutoURLDetect(ME_TextEditor *editor, WCHAR curChar);
 extern int me_debug;
 extern HANDLE me_heap;
 extern void DoWrap(ME_TextEditor *editor);
 
 /* writer.c */
+LRESULT ME_StreamOutRange(ME_TextEditor *editor, DWORD dwFormat, int nStart, int nTo, EDITSTREAM *stream);
 LRESULT ME_StreamOut(ME_TextEditor *editor, DWORD dwFormat, EDITSTREAM *stream);
+
+/* clipboard.c */
+HRESULT ME_GetDataObject(ME_TextEditor *editor, CHARRANGE *lpchrg, LPDATAOBJECT *lplpdataobj);

@@ -331,7 +331,7 @@ HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
  * virtual folders with the registry key WantsFORPARSING set.
  */
 HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
-				       LPCITEMIDLIST pidl, DWORD dwFlags, LPSTR szOut, DWORD dwOutLen)
+				       LPCITEMIDLIST pidl, DWORD dwFlags, LPWSTR szOut, DWORD dwOutLen)
 {
     LPITEMIDLIST pidlFirst;
     HRESULT hr = E_INVALIDARG;
@@ -350,7 +350,8 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
 
 	    hr = IShellFolder_GetDisplayNameOf (psfChild, pidlNext, dwFlags, &strTemp);
 	    if (SUCCEEDED (hr)) {
-		hr = StrRetToStrNA (szOut, dwOutLen, &strTemp, pidlNext);
+		if(!StrRetToStrNW (szOut, dwOutLen, &strTemp, pidlNext))
+                    hr = E_FAIL;
 	    }
 	    IShellFolder_Release (psfChild);
 	}
@@ -358,7 +359,7 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
     } else
 	hr = E_OUTOFMEMORY;
 
-    TRACE ("-- ret=0x%08lx %s\n", hr, szOut);
+    TRACE ("-- ret=0x%08lx %s\n", hr, debugstr_w(szOut));
 
     return hr;
 }
@@ -379,11 +380,13 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
  *  file:      0x40400177      FILESYSTEM | CANMONIKER
  *  drive      0xF0400154      FILESYSTEM | HASSUBFOLDER | FOLDER | FILESYSANCESTOR | CANMONIKER | CANRENAME (LABEL)
  *
- * This function does not set flags!! It only resets flags when necessary.
+ * According to the MSDN documentation this function should not set flags. It claimes only to reset flags when necessary.
+ * However it turns out the native shell32.dll _sets_ flags in several cases - so do we.
  */
 HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWORD pdwAttributes)
 {
     DWORD dwAttributes;
+    BOOL has_guid;
     static const DWORD dwSupportedAttr=
                           SFGAO_CANCOPY |           /*0x00000001 */
                           SFGAO_CANMOVE |           /*0x00000002 */
@@ -408,15 +411,34 @@ HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWO
         *pdwAttributes &= dwSupportedAttr;
     }
 
+    has_guid = _ILGetGUIDPointer(pidl) != NULL;
+
     dwAttributes = *pdwAttributes;
 
     if (_ILIsDrive (pidl)) {
         *pdwAttributes &= SFGAO_HASSUBFOLDER|SFGAO_FILESYSTEM|SFGAO_FOLDER|SFGAO_FILESYSANCESTOR|
 	    SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANLINK;
-    } else if (_ILGetGUIDPointer (pidl) && HCR_GetFolderAttributes(pidl, &dwAttributes)) {
+    } else if (has_guid && HCR_GetFolderAttributes(pidl, &dwAttributes)) {
 	*pdwAttributes = dwAttributes;
     } else if (_ILGetDataPointer (pidl)) {
 	dwAttributes = _ILGetFileAttributes (pidl, NULL, 0);
+
+        if (!dwAttributes && has_guid) {
+	    WCHAR path[MAX_PATH];
+	    STRRET strret;
+
+	    /* File attributes are not present in the internal PIDL structure, so get them from the file system. */
+
+	    HRESULT hr = IShellFolder_GetDisplayNameOf(psf, pidl, SHGDN_FORPARSING, &strret);
+
+	    if (SUCCEEDED(hr)) {
+		hr = StrRetToBufW(&strret, pidl, path, MAX_PATH);
+
+		/* call GetFileAttributes() only for file system paths, not for parsing names like "::{...}" */
+		if (SUCCEEDED(hr) && path[0]!=':')
+		    dwAttributes = GetFileAttributesW(path);
+	    }
+	}
 
         /* Set common attributes */
         *pdwAttributes |= SFGAO_FILESYSTEM | SFGAO_DROPTARGET | SFGAO_HASPROPSHEET | SFGAO_CANDELETE | 

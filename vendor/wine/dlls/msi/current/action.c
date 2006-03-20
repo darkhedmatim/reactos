@@ -247,55 +247,20 @@ static struct _actions StandardActions[];
  * helper functions
  ********************************************************/
 
-static void ce_actiontext(MSIPACKAGE* package, LPCWSTR action)
-{
-    static const WCHAR szActionText[] = 
-        {'A','c','t','i','o','n','T','e','x','t',0};
-    MSIRECORD *row;
-
-    row = MSI_CreateRecord(1);
-    MSI_RecordSetStringW(row,1,action);
-    ControlEvent_FireSubscribedEvent(package,szActionText, row);
-    msiobj_release(&row->hdr);
-}
-
 static void ui_actionstart(MSIPACKAGE *package, LPCWSTR action)
 {
-    static const WCHAR template_s[]=
-        {'A','c','t','i','o','n',' ','%','s',':',' ','%','s','.',' ', '%','s',
-         '.',0};
-    static const WCHAR format[] = 
-        {'H','H','\'',':','\'','m','m','\'',':','\'','s','s',0};
     static const WCHAR Query_t[] = 
         {'S','E','L','E','C','T',' ','*',' ','F','R','O','M',' ',
          '`','A','c','t','i','o', 'n','T','e','x','t','`',' ',
          'W','H','E','R','E', ' ','`','A','c','t','i','o','n','`',' ','=', 
          ' ','\'','%','s','\'',0};
-    WCHAR message[1024];
-    WCHAR timet[0x100];
-    MSIRECORD * row = 0;
-    LPCWSTR ActionText;
-    LPWSTR deformated;
-
-    GetTimeFormatW(LOCALE_USER_DEFAULT, 0, NULL, format, timet, 0x100);
+    MSIRECORD * row;
 
     row = MSI_QueryGetRecord( package->db, Query_t, action );
     if (!row)
         return;
-
-    ActionText = MSI_RecordGetString(row,2);
-    deformat_string(package, ActionText, &deformated);
-
-    sprintfW(message,template_s,timet,action,deformated);
-    ce_actiontext(package, deformated);
-    msiobj_release(&row->hdr);
-
-    row = MSI_CreateRecord(1);
-    MSI_RecordSetStringW(row,1,message);
- 
     MSI_ProcessMessage(package, INSTALLMESSAGE_ACTIONSTART, row);
     msiobj_release(&row->hdr);
-    msi_free(deformated);
 }
 
 static void ui_actioninfo(MSIPACKAGE *package, LPCWSTR action, BOOL start, 
@@ -1416,6 +1381,12 @@ static UINT execute_script(MSIPACKAGE *package, UINT script )
     UINT rc = ERROR_SUCCESS;
 
     TRACE("Executing Script %i\n",script);
+
+    if (!package->script)
+    {
+        ERR("no script!\n");
+        return ERROR_FUNCTION_FAILED;
+    }
 
     for (i = 0; i < package->script->ActionCount[script]; i++)
     {
@@ -2586,92 +2557,91 @@ static UINT ACTION_ProcessComponents(MSIPACKAGE *package)
 
     rc = MSIREG_OpenComponents(&hkey);
     if (rc != ERROR_SUCCESS)
-        goto end;
-      
+        return rc;
+
     squash_guid(package->ProductCode,squished_pc);
     ui_progress(package,1,COMPONENT_PROGRESS_VALUE,1,0);
 
     LIST_FOR_EACH_ENTRY( comp, &package->components, MSICOMPONENT, entry )
     {
+        MSIRECORD * uirow;
+
         ui_progress(package,2,0,0,0);
-        if (comp->ComponentId)
-        {
-            MSIRECORD * uirow;
+        if (!comp->ComponentId)
+            continue;
 
-            squash_guid(comp->ComponentId,squished_cc);
+        squash_guid(comp->ComponentId,squished_cc);
            
-            msi_free(comp->FullKeypath);
-            comp->FullKeypath = resolve_keypath( package, comp );
+        msi_free(comp->FullKeypath);
+        comp->FullKeypath = resolve_keypath( package, comp );
 
-            /* do the refcounting */
-            ACTION_RefCountComponent( package, comp );
+        /* do the refcounting */
+        ACTION_RefCountComponent( package, comp );
 
-            TRACE("Component %s (%s), Keypath=%s, RefCount=%i\n", 
+        TRACE("Component %s (%s), Keypath=%s, RefCount=%i\n",
                             debugstr_w(comp->Component),
                             debugstr_w(squished_cc),
-                            debugstr_w(comp->FullKeypath), 
+                            debugstr_w(comp->FullKeypath),
                             comp->RefCount);
-            /*
-            * Write the keypath out if the component is to be registered
-            * and delete the key if the component is to be deregistered
-            */
-            if (ACTION_VerifyComponentForAction( comp, INSTALLSTATE_LOCAL))
+        /*
+         * Write the keypath out if the component is to be registered
+         * and delete the key if the component is to be deregistered
+         */
+        if (ACTION_VerifyComponentForAction( comp, INSTALLSTATE_LOCAL))
+        {
+            rc = RegCreateKeyW(hkey,squished_cc,&hkey2);
+            if (rc != ERROR_SUCCESS)
+                continue;
+
+            if (!comp->FullKeypath)
+                continue;
+
+            msi_reg_set_val_str( hkey2, squished_pc, comp->FullKeypath );
+
+            if (comp->Attributes & msidbComponentAttributesPermanent)
             {
-                rc = RegCreateKeyW(hkey,squished_cc,&hkey2);
-                if (rc != ERROR_SUCCESS)
-                    continue;
+                static const WCHAR szPermKey[] =
+                    { '0','0','0','0','0','0','0','0','0','0','0','0',
+                      '0','0','0','0','0','0','0','0','0','0','0','0',
+                      '0','0','0','0','0','0','0','0',0 };
 
-                if (comp->FullKeypath)
-                {
-                    msi_reg_set_val_str( hkey2, squished_pc, comp->FullKeypath );
-
-                    if (comp->Attributes & msidbComponentAttributesPermanent)
-                    {
-                        static const WCHAR szPermKey[] =
-                            { '0','0','0','0','0','0','0','0','0','0','0','0',
-                              '0','0','0','0','0','0','0','0','0','0','0','0',
-                              '0','0','0','0','0','0','0','0',0};
-
-                        msi_reg_set_val_str( hkey2, szPermKey, comp->FullKeypath );
-                    }
-                    
-                    RegCloseKey(hkey2);
-        
-                    /* UI stuff */
-                    uirow = MSI_CreateRecord(3);
-                    MSI_RecordSetStringW(uirow,1,package->ProductCode);
-                    MSI_RecordSetStringW(uirow,2,comp->ComponentId);
-                    MSI_RecordSetStringW(uirow,3,comp->FullKeypath);
-                    ui_actiondata(package,szProcessComponents,uirow);
-                    msiobj_release( &uirow->hdr );
-               }
+                msi_reg_set_val_str( hkey2, szPermKey, comp->FullKeypath );
             }
-            else if (ACTION_VerifyComponentForAction( comp, INSTALLSTATE_ABSENT))
-            {
-                DWORD res;
 
-                rc = RegOpenKeyW(hkey,squished_cc,&hkey2);
-                if (rc != ERROR_SUCCESS)
-                    continue;
+            RegCloseKey(hkey2);
 
-                RegDeleteValueW(hkey2,squished_pc);
+            /* UI stuff */
+            uirow = MSI_CreateRecord(3);
+            MSI_RecordSetStringW(uirow,1,package->ProductCode);
+            MSI_RecordSetStringW(uirow,2,comp->ComponentId);
+            MSI_RecordSetStringW(uirow,3,comp->FullKeypath);
+            ui_actiondata(package,szProcessComponents,uirow);
+            msiobj_release( &uirow->hdr );
+        }
+        else if (ACTION_VerifyComponentForAction( comp, INSTALLSTATE_ABSENT))
+        {
+            DWORD res;
 
-                /* if the key is empty delete it */
-                res = RegEnumKeyExW(hkey2,0,NULL,0,0,NULL,0,NULL);
-                RegCloseKey(hkey2);
-                if (res == ERROR_NO_MORE_ITEMS)
-                    RegDeleteKeyW(hkey,squished_cc);
-        
-                /* UI stuff */
-                uirow = MSI_CreateRecord(2);
-                MSI_RecordSetStringW(uirow,1,package->ProductCode);
-                MSI_RecordSetStringW(uirow,2,comp->ComponentId);
-                ui_actiondata(package,szProcessComponents,uirow);
-                msiobj_release( &uirow->hdr );
-            }
+            rc = RegOpenKeyW(hkey,squished_cc,&hkey2);
+            if (rc != ERROR_SUCCESS)
+                continue;
+
+            RegDeleteValueW(hkey2,squished_pc);
+
+            /* if the key is empty delete it */
+            res = RegEnumKeyExW(hkey2,0,NULL,0,0,NULL,0,NULL);
+            RegCloseKey(hkey2);
+            if (res == ERROR_NO_MORE_ITEMS)
+                RegDeleteKeyW(hkey,squished_cc);
+
+            /* UI stuff */
+            uirow = MSI_CreateRecord(2);
+            MSI_RecordSetStringW(uirow,1,package->ProductCode);
+            MSI_RecordSetStringW(uirow,2,comp->ComponentId);
+            ui_actiondata(package,szProcessComponents,uirow);
+            msiobj_release( &uirow->hdr );
         }
     } 
-end:
     RegCloseKey(hkey);
     return rc;
 }
@@ -2843,10 +2813,8 @@ static UINT ACTION_RegisterTypeLibraries(MSIPACKAGE *package)
 static UINT ITERATE_CreateShortcuts(MSIRECORD *row, LPVOID param)
 {
     MSIPACKAGE *package = (MSIPACKAGE*)param;
-    LPWSTR target_file, target_folder;
-    LPCWSTR buffer;
-    WCHAR filename[0x100];
-    DWORD sz;
+    LPWSTR target_file, target_folder, filename;
+    LPCWSTR buffer, extension;
     MSICOMPONENT *comp;
     static const WCHAR szlnk[]={'.','l','n','k',0};
     IShellLinkW *sl;
@@ -2893,13 +2861,19 @@ static UINT ITERATE_CreateShortcuts(MSIRECORD *row, LPVOID param)
     /* may be needed because of a bug somehwere else */
     create_full_pathW(target_folder);
 
-    sz = 0x100;
-    MSI_RecordGetStringW(row,3,filename,&sz);
+    filename = msi_dup_record_field( row, 3 );
     reduce_to_longfilename(filename);
-    if (!strchrW(filename,'.') || strcmpiW(strchrW(filename,'.'),szlnk))
-        strcatW(filename,szlnk);
+
+    extension = strchrW(filename,'.');
+    if (!extension || strcmpiW(extension,szlnk))
+    {
+        int len = strlenW(filename);
+        filename = msi_realloc(filename, len * sizeof(WCHAR) + sizeof(szlnk));
+        memcpy(filename + len, szlnk, sizeof(szlnk));
+    }
     target_file = build_directory_name(2, target_folder, filename);
     msi_free(target_folder);
+    msi_free(filename);
 
     buffer = MSI_RecordGetString(row,5);
     if (strchrW(buffer,'['))
@@ -3007,6 +2981,7 @@ static UINT ITERATE_PublishProduct(MSIRECORD *row, LPVOID param)
     CHAR buffer[1024];
     DWORD sz;
     UINT rc;
+    MSIRECORD *uirow;
 
     FileName = MSI_RecordGetString(row,1);
     if (!FileName)
@@ -3047,6 +3022,12 @@ static UINT ITERATE_PublishProduct(MSIRECORD *row, LPVOID param)
     msi_free(FilePath);
 
     CloseHandle(the_file);
+
+    uirow = MSI_CreateRecord(1);
+    MSI_RecordSetStringW(uirow,1,FileName);
+    ui_actiondata(package,szPublishProduct,uirow);
+    msiobj_release( &uirow->hdr );
+
     return ERROR_SUCCESS;
 }
 
@@ -3293,6 +3274,8 @@ static UINT ITERATE_SelfRegModules(MSIRECORD *row, LPVOID param)
     STARTUPINFOW si;
     PROCESS_INFORMATION info;
     BOOL brc;
+    MSIRECORD *uirow;
+    LPWSTR uipath, p;
 
     memset(&si,0,sizeof(STARTUPINFOW));
 
@@ -3320,6 +3303,20 @@ static UINT ITERATE_SelfRegModules(MSIRECORD *row, LPVOID param)
         msi_dialog_check_messages(info.hProcess);
 
     msi_free(FullName);
+
+    /* the UI chunk */
+    uirow = MSI_CreateRecord( 2 );
+    uipath = strdupW( file->TargetPath );
+    p = strrchrW(uipath,'\\');
+    if (p)
+        p[1]=0;
+    MSI_RecordSetStringW( uirow, 1, &p[2] );
+    MSI_RecordSetStringW( uirow, 2, uipath);
+    ui_actiondata( package, szSelfRegModules, uirow);
+    msiobj_release( &uirow->hdr );
+    msi_free( uipath );
+    /* FIXME: call ui_progress? */
+
     return ERROR_SUCCESS;
 }
 
@@ -3367,6 +3364,7 @@ static UINT ACTION_PublishFeatures(MSIPACKAGE *package)
         GUID clsid;
         INT size;
         BOOL absent = FALSE;
+        MSIRECORD *uirow;
 
         if (!ACTION_VerifyFeatureForAction( feature, INSTALLSTATE_LOCAL ) &&
             !ACTION_VerifyFeatureForAction( feature, INSTALLSTATE_SOURCE ) &&
@@ -3429,6 +3427,13 @@ static UINT ACTION_PublishFeatures(MSIPACKAGE *package)
                        (LPBYTE)data,size);
             msi_free(data);
         }
+
+        /* the UI chunk */
+        uirow = MSI_CreateRecord( 1 );
+        MSI_RecordSetStringW( uirow, 1, feature->Feature );
+        ui_actiondata( package, szPublishFeatures, uirow);
+        msiobj_release( &uirow->hdr );
+        /* FIXME: call ui_progress? */
     }
 
 end:
@@ -3620,6 +3625,8 @@ static UINT ACTION_RegisterProduct(MSIPACKAGE *package)
     
     RegCloseKey(hkey);
 
+    /* FIXME: call ui_actiondata */
+
     return ERROR_SUCCESS;
 }
 
@@ -3788,6 +3795,8 @@ end:
     msi_free(productid);
     RegCloseKey(hkey);
 
+    /* FIXME: call ui_actiondata */
+
     return ERROR_SUCCESS;
 }
 
@@ -3954,6 +3963,8 @@ static UINT ITERATE_RegisterFonts(MSIRECORD *row, LPVOID param)
          'F','o','n','t','s',0};
     HKEY hkey1;
     HKEY hkey2;
+    MSIRECORD *uirow;
+    LPWSTR uipath, p;
 
     filename = MSI_RecordGetString( row, 1 );
     file = get_loaded_file( package, filename );
@@ -3987,6 +3998,19 @@ static UINT ITERATE_RegisterFonts(MSIRECORD *row, LPVOID param)
     msi_free(name);
     RegCloseKey(hkey1);
     RegCloseKey(hkey2);
+
+    /* the UI chunk */
+    uirow = MSI_CreateRecord( 1 );
+    uipath = strdupW( file->TargetPath );
+    p = strrchrW(uipath,'\\');
+    if (p) p++;
+    else p = uipath;
+    MSI_RecordSetStringW( uirow, 1, p );
+    ui_actiondata( package, szRegisterFonts, uirow);
+    msiobj_release( &uirow->hdr );
+    msi_free( uipath );
+    /* FIXME: call ui_progress? */
+
     return ERROR_SUCCESS;
 }
 
@@ -4025,6 +4049,7 @@ static UINT ITERATE_PublishComponent(MSIRECORD *rec, LPVOID param)
     UINT rc = ERROR_SUCCESS;
     MSICOMPONENT *comp;
     DWORD sz = 0;
+    MSIRECORD *uirow;
 
     component = MSI_RecordGetString(rec,3);
     comp = get_loaded_component(package,component);
@@ -4040,13 +4065,13 @@ static UINT ITERATE_PublishComponent(MSIRECORD *rec, LPVOID param)
     }
 
     compgroupid = MSI_RecordGetString(rec,1);
+    qualifier = MSI_RecordGetString(rec,2);
 
     rc = MSIREG_OpenUserComponentsKey(compgroupid, &hkey, TRUE);
     if (rc != ERROR_SUCCESS)
         goto end;
     
     text = MSI_RecordGetString(rec,4);
-    qualifier = MSI_RecordGetString(rec,2);
     feature = MSI_RecordGetString(rec,5);
   
     advertise = create_component_advertise_string(package, comp, feature);
@@ -4072,7 +4097,15 @@ static UINT ITERATE_PublishComponent(MSIRECORD *rec, LPVOID param)
 end:
     RegCloseKey(hkey);
     msi_free(output);
-    
+
+    /* the UI chunk */
+    uirow = MSI_CreateRecord( 2 );
+    MSI_RecordSetStringW( uirow, 1, compgroupid );
+    MSI_RecordSetStringW( uirow, 2, qualifier);
+    ui_actiondata( package, szPublishComponents, uirow);
+    msiobj_release( &uirow->hdr );
+    /* FIXME: call ui_progress? */
+
     return rc;
 }
 

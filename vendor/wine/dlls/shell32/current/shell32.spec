@@ -44,7 +44,7 @@
   48 stdcall -noname PathSetDlgItemPath(long long ptr) PathSetDlgItemPathAW
   49 stdcall -noname PathQualify(ptr) PathQualifyAW
   50 stdcall -noname PathStripToRoot(ptr) PathStripToRootAW
-  51 stdcall -noname PathResolve(str long long) PathResolveAW
+  51 stdcall PathResolve(str long long) PathResolveAW
   52 stdcall -noname PathGetArgs(str) PathGetArgsAW
   53 stdcall DoEnvironmentSubst(long long) DoEnvironmentSubstAW
   55 stdcall -noname PathQuoteSpaces(ptr) PathQuoteSpacesAW
@@ -117,6 +117,7 @@
  125 stdcall -noname FileMenu_AddFilesForPidl(long long long ptr long long ptr)
  126 stdcall -noname SHOutOfMemoryMessageBox(long long long)
  127 stdcall -noname SHWinHelp(long long long long)
+ 128 stdcall -noname SHDllGetClassObject(ptr ptr ptr) DllGetClassObject
  129 stdcall -noname DAD_AutoScroll(long ptr ptr)
  130 stdcall -noname DAD_DragEnter(long)
  131 stdcall -noname DAD_DragEnterEx(long double)

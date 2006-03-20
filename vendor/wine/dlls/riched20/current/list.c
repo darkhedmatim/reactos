@@ -112,6 +112,7 @@ void ME_DestroyDisplayItem(ME_DisplayItem *item) {
 /*  TRACE("type=%s\n", ME_GetDITypeName(item->type)); */
   if (item->type==diParagraph || item->type == diUndoSetParagraphFormat) {
     FREE_OBJ(item->member.para.pFmt);
+    ME_DestroyTableCellList(item);
   }
   if (item->type==diRun || item->type == diUndoInsertRun) {
     ME_ReleaseStyle(item->member.run.style);
@@ -121,6 +122,23 @@ void ME_DestroyDisplayItem(ME_DisplayItem *item) {
     ME_ReleaseStyle(item->member.ustyle);
   }
   FREE_OBJ(item);
+}
+
+void
+ME_DestroyTableCellList(ME_DisplayItem *item)
+{
+  if (item->member.para.pCells)
+  {
+    ME_TableCell *pCell = item->member.para.pCells;
+    ME_TableCell *pNext;
+
+    while (pCell) {
+      pNext = pCell->next;
+      FREE_OBJ(pCell);
+      pCell = pNext;
+    }
+    item->member.para.pCells = NULL;
+  }
 }
 
 ME_DisplayItem *ME_MakeDI(ME_DIType type) {
@@ -168,20 +186,20 @@ void ME_DumpDocument(ME_TextBuffer *buffer)
     switch(pItem->type)
     {
       case diTextStart:
-        TRACE("Start");
+        TRACE("Start\n");
         break;
       case diParagraph:
-        TRACE("\nParagraph(ofs=%d)", pItem->member.para.nCharOfs);
+        TRACE("Paragraph(ofs=%d)\n", pItem->member.para.nCharOfs);
         break;
       case diStartRow:
-        TRACE(" - StartRow");
+        TRACE(" - StartRow\n");
         break;
       case diRun:
-        TRACE(" - Run(\"%s\", %d)", debugstr_w(pItem->member.run.strText->szData), 
+        TRACE(" - Run(\"%s\", %d)\n", debugstr_w(pItem->member.run.strText->szData), 
           pItem->member.run.nCharOfs);
         break;
       case diTextEnd:
-        TRACE("\nEnd(ofs=%d)\n", pItem->member.para.nCharOfs);
+        TRACE("End(ofs=%d)\n", pItem->member.para.nCharOfs);
         break;
       default:
         break;

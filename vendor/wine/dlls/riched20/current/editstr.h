@@ -30,6 +30,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
 #include <windef.h>
 #include <winbase.h>
 #include <winnls.h>
@@ -38,6 +42,8 @@
 #include <winuser.h>
 #include <richedit.h>
 #include <commctrl.h>
+#include <ole2.h>
+#include <richole.h>
 
 #include "wine/debug.h"
 
@@ -88,6 +94,10 @@ typedef enum {
 #define MERF_GRAPHICS 1
 /* run is a tab (or, in future, any kind of content whose size is dependent on run position) */
 #define MERF_TAB 2
+/* run is a cell boundary */
+#define MERF_CELL 4
+
+#define MERF_NONTEXT (MERF_GRAPHICS | MERF_TAB | MERF_CELL)
 
 /* run is splittable (contains white spaces in the middle or end) */
 #define MERF_SPLITTABLE 0x001000
@@ -103,6 +113,8 @@ typedef enum {
 #define MERF_CALCBYWRAP 0x0F0000
 /* the "end of paragraph" run, contains 1 character */
 #define MERF_ENDPARA    0x100000
+/* run is hidden */
+#define MERF_HIDDEN     0x200000
 
 /* runs with any of these flags set cannot be joined */
 #define MERF_NOJOIN (MERF_GRAPHICS|MERF_TAB|MERF_ENDPARA)
@@ -131,6 +143,7 @@ typedef struct tagME_Run
   int nFlags;
   int nAscent, nDescent; /* pixels above/below baseline */
   POINT pt; /* relative to para's position */
+  struct tagME_TableCell *pCell; /* for MERF_CELL: points to respective cell in ME_Paragraph */
 } ME_Run;
 
 typedef struct tagME_Document {
@@ -139,9 +152,20 @@ typedef struct tagME_Document {
   int last_wrapped_line;
 } ME_Document;
 
+typedef struct tagME_TableCell
+{
+  int nRightBoundary;
+  struct tagME_TableCell *next;
+} ME_TableCell;
+
 typedef struct tagME_Paragraph
 {
   PARAFORMAT2 *pFmt;
+  
+  BOOL bTable;                       /* this paragraph is a table row */
+  struct tagME_TableCell *pCells;    /* list of cells and their properties */
+  struct tagME_TableCell *pLastCell; /* points to the last cell in the list */
+
   int nLeftMargin, nRightMargin, nFirstMargin;
   int nCharOfs;
   int nFlags;
@@ -279,12 +303,21 @@ typedef struct tagME_TextEditor
   int nParagraphs;
   int nLastSelStart, nLastSelEnd;
   ME_FontCacheItem pFontCache[HFONT_CACHE_SIZE];
-  ME_OutStream *pStream;
   BOOL bScrollX, bScrollY;
   int nScrollPosY;
   int nZoomNumerator, nZoomDenominator;
   RECT rcFormat;
   BOOL bRedraw;
+  int nInvalidOfs;
+  EDITWORDBREAKPROCW pfnWordBreak;
+  LPRICHEDITOLECALLBACK lpOleCallback;
+  /*TEXTMODE variable; contains only one of each of the following options:
+   *TM_RICHTEXT or TM_PLAINTEXT
+   *TM_SINGLELEVELUNDO or TM_MULTILEVELUNDO
+   *TM_SINGLECODEPAGE or TM_MULTICODEPAGE*/
+  int mode;
+  BOOL bHideSelection;
+  BOOL AutoURLDetect_bEnable;
 } ME_TextEditor;
 
 typedef struct tagME_Context

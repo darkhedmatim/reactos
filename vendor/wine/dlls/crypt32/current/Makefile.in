@@ -11,8 +11,14 @@ C_SRCS = \
 	cert.c \
 	encode.c \
 	oid.c \
+	proplist.c \
 	protectdata.c \
+	serialize.c \
+	store.c \
+	str.c \
 	main.c
+
+RC_SRCS = crypt32.rc
 
 SUBDIRS = tests
 

@@ -133,7 +133,8 @@ BOOL WINAPI ILGetDisplayNameExW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPWSTR pa
             ret = IShellFolder_GetDisplayNameOf(lsf, pidl, flag, &strret);
             if (SUCCEEDED(ret))
             {
-                ret = StrRetToStrNW(path, MAX_PATH, &strret, pidl);
+                if(!StrRetToStrNW(path, MAX_PATH, &strret, pidl))
+                    ret = E_FAIL;
             }
         }
         else
@@ -144,7 +145,8 @@ BOOL WINAPI ILGetDisplayNameExW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPWSTR pa
                 ret = IShellFolder_GetDisplayNameOf(psfParent, pidllast, flag, &strret);
                 if (SUCCEEDED(ret))
                 {
-                    ret = StrRetToStrNW(path, MAX_PATH, &strret, pidllast);
+                    if(!StrRetToStrNW(path, MAX_PATH, &strret, pidllast))
+                        ret = E_FAIL;
                 }
                 IShellFolder_Release(psfParent);
             }
@@ -1257,7 +1259,7 @@ BOOL WINAPI SHGetPathFromIDListW(LPCITEMIDLIST pidl, LPWSTR pszPath)
     DWORD dwAttributes;
     STRRET strret;
 
-    TRACE_(shell)("(pidl=%p,%p)\n", pidl, debugstr_w(pszPath));
+    TRACE_(shell)("(pidl=%p,%p)\n", pidl, pszPath);
     pdump(pidl);
 
     if (!pidl)
@@ -1376,6 +1378,12 @@ LPITEMIDLIST _ILCreateMyComputer()
 {
     TRACE("()\n");
     return _ILCreateGuid(PT_GUID, &CLSID_MyComputer);
+}
+
+LPITEMIDLIST _ILCreateMyDocuments()
+{
+    TRACE("()\n");
+    return _ILCreateGuid(PT_GUID, &CLSID_MyDocuments);
 }
 
 LPITEMIDLIST _ILCreateIExplore()

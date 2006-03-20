@@ -102,7 +102,7 @@ static HRESULT WINAPI ConnectionPointContainer_FindConnectionPoint(IConnectionPo
     }
 
     WARN("Unsupported IID %s\n", debugstr_guid(riid));
-    return E_NOINTERFACE;
+    return CONNECT_E_NOCONNECTION;
 }
 
 #undef CONPTCONT_THIS
@@ -177,6 +177,7 @@ static HRESULT WINAPI ConnectionPoint_GetConnectionPointContainer(IConnectionPoi
     TRACE("(%p)->(%p)\n", This, ppCPC);
 
     *ppCPC = CONPTCONT(This->webbrowser);
+    IConnectionPointContainer_AddRef(CONPTCONT(This->webbrowser));
     return S_OK;
 }
 

@@ -526,6 +526,8 @@ HRESULT WINAPI DoDragDrop (
      */
     SetCapture(hwndTrackWindow);
 
+    msg.message = 0;
+
     /*
      * Pump messages. All mouse input should go the the capture window.
      */
@@ -564,6 +566,9 @@ HRESULT WINAPI DoDragDrop (
       }
     }
 
+    /* re-post the quit message to outer message loop */
+    if (msg.message == WM_QUIT)
+        PostQuitMessage(msg.wParam);
     /*
      * Destroy the temporary window.
      */
@@ -796,7 +801,7 @@ static HRESULT WINAPI EnumOLEVERB_Next(
         rgelt->grfAttribs = atolW(pwszAttribs);
 
         if (pceltFetched)
-            *pceltFetched++;
+            (*pceltFetched)++;
         This->index++;
     }
     return hr;
@@ -929,7 +934,7 @@ HRESULT WINAPI OleSetContainedObject(
   IRunnableObject* runnable = NULL;
   HRESULT          hres;
 
-  TRACE("(%p,%x), stub!\n", pUnknown, fContained);
+  TRACE("(%p,%x)\n", pUnknown, fContained);
 
   hres = IUnknown_QueryInterface(pUnknown,
 				 &IID_IRunnableObject,

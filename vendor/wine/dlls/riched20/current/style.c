@@ -237,6 +237,7 @@ void ME_DumpStyleToBuf(CHARFORMAT2W *pFmt, char buf[2048])
   ME_DumpStyleEffect(&p, "Font italic:", pFmt, CFM_ITALIC);
   ME_DumpStyleEffect(&p, "Font underline:", pFmt, CFM_UNDERLINE);
   ME_DumpStyleEffect(&p, "Font strikeout:", pFmt, CFM_STRIKEOUT);
+  ME_DumpStyleEffect(&p, "Hidden text:", pFmt, CFM_HIDDEN);
   p += sprintf(p, "Text color:           ");
   if (pFmt->dwMask & CFM_COLOR)
   {
@@ -316,7 +317,7 @@ HFONT ME_SelectStyleFont(ME_TextEditor *editor, HDC hDC, ME_Style *s)
       if (item->nAge > nAge)
         nEmpty = i, nAge = item->nAge;
     }
-    if (ME_IsFontEqual(&item->lfSpecs, &lf))
+    if (item->hFont && ME_IsFontEqual(&item->lfSpecs, &lf))
       break;
   }
   if (i < HFONT_CACHE_SIZE) /* found */
@@ -371,7 +372,7 @@ void ME_UnselectStyleFont(ME_TextEditor *editor, HDC hDC, ME_Style *s, HFONT hOl
   assert(0 == "UnselectStyleFont without SelectStyleFont");
 }
 
-void ME_DestroyStyle(ME_Style *s) {
+static void ME_DestroyStyle(ME_Style *s) {
   if (s->hFont)
   {
     DeleteObject(s->hFont);

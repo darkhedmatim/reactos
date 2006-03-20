@@ -21,6 +21,7 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -98,6 +99,9 @@ typedef struct
     RpcChannelBuffer       super; /* superclass */
 
     RPC_BINDING_HANDLE     bind; /* handle to the remote server */
+    OXID                   oxid; /* apartment in which the channel is valid */
+    DWORD                  dest_context; /* returned from GetDestCtx */
+    LPVOID                 dest_context_data; /* returned from GetDestCtx */
 } ClientRpcChannelBuffer;
 
 struct dispatch_params
@@ -206,6 +210,12 @@ static HRESULT WINAPI ClientRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
     return HRESULT_FROM_WIN32(status);
 }
 
+static HRESULT WINAPI ServerRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER iface, RPCOLEMESSAGE *olemsg, ULONG *pstatus)
+{
+    FIXME("stub\n");
+    return E_NOTIMPL;
+}
+
 /* this thread runs an outgoing RPC */
 static DWORD WINAPI rpc_sendreceive_thread(LPVOID param)
 {
@@ -219,23 +229,43 @@ static DWORD WINAPI rpc_sendreceive_thread(LPVOID param)
     return 0;
 }
 
-static HRESULT WINAPI RpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER iface, RPCOLEMESSAGE *olemsg, ULONG *pstatus)
+static inline HRESULT ClientRpcChannelBuffer_IsCorrectApartment(ClientRpcChannelBuffer *This, APARTMENT *apt)
 {
-    HRESULT hr = S_OK;
+    OXID oxid;
+    if (!apt)
+        return S_FALSE;
+    if (apartment_getoxid(apt, &oxid) != S_OK)
+        return S_FALSE;
+    if (This->oxid != oxid)
+        return S_FALSE;
+    return S_OK;
+}
+
+static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER iface, RPCOLEMESSAGE *olemsg, ULONG *pstatus)
+{
+    ClientRpcChannelBuffer *This = (ClientRpcChannelBuffer *)iface;
+    HRESULT hr;
     RPC_MESSAGE *msg = (RPC_MESSAGE *)olemsg;
     RPC_STATUS status;
     DWORD index;
     struct dispatch_params *params;
     DWORD tid;
-    IRpcStubBuffer *stub;
-    APARTMENT *apt;
+    APARTMENT *apt = NULL;
     IPID ipid;
 
     TRACE("(%p) iMethod=%ld\n", olemsg, olemsg->iMethod);
 
+    hr = ClientRpcChannelBuffer_IsCorrectApartment(This, COM_CurrentApt());
+    if (hr != S_OK)
+    {
+        ERR("called from wrong apartment, should have been 0x%s\n",
+            wine_dbgstr_longlong(This->oxid));
+        return RPC_E_WRONG_THREAD;
+    }
+
     params = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*params));
     if (!params) return E_OUTOFMEMORY;
-    
+
     params->msg = olemsg;
     params->status = RPC_S_OK;
     params->hr = S_OK;
@@ -248,20 +278,30 @@ static HRESULT WINAPI RpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER iface, RPC
      * from DllMain */
 
     RpcBindingInqObject(msg->Handle, &ipid);
-    stub = ipid_to_apt_and_stubbuffer(&ipid, &apt);
-    if (apt && (apt->model & COINIT_APARTMENTTHREADED))
+    hr = ipid_get_dispatch_params(&ipid, &apt, &params->stub, &params->chan);
+    if ((hr == S_OK) && !apt->multi_threaded)
     {
-        params->stub = stub;
-        params->chan = NULL; /* FIXME: pass server channel */
         params->handle = CreateEventW(NULL, FALSE, FALSE, NULL);
 
         TRACE("Calling apartment thread 0x%08lx...\n", apt->tid);
 
-        PostMessageW(apt->win, DM_EXECUTERPC, 0, (LPARAM)params);
+        if (!PostMessageW(apartment_getwindow(apt), DM_EXECUTERPC, 0, (LPARAM)params))
+        {
+            ERR("PostMessage failed with error %ld\n", GetLastError());
+            hr = HRESULT_FROM_WIN32(GetLastError());
+        }
     }
     else
     {
-        if (stub) IRpcStubBuffer_Release(stub);
+        if (hr == S_OK)
+        {
+            /* otherwise, we go via RPC runtime so the stub and channel aren't
+             * needed here */
+            IRpcStubBuffer_Release(params->stub);
+            params->stub = NULL;
+            IRpcChannelBuffer_Release(params->chan);
+            params->chan = NULL;
+        }
 
         /* we use a separate thread here because we need to be able to
          * pump the message loop in the application thread: if we do not,
@@ -275,11 +315,16 @@ static HRESULT WINAPI RpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER iface, RPC
             ERR("Could not create RpcSendReceive thread, error %lx\n", GetLastError());
             hr = E_UNEXPECTED;
         }
+        else
+            hr = S_OK;
     }
     if (apt) apartment_release(apt);
 
     if (hr == S_OK)
-        hr = CoWaitForMultipleHandles(0, INFINITE, 1, &params->handle, &index);
+    {
+        if (WaitForSingleObject(params->handle, 0))
+            hr = CoWaitForMultipleHandles(0, INFINITE, 1, &params->handle, &index);
+    }
     CloseHandle(params->handle);
 
     if (hr == S_OK) hr = params->hr;
@@ -336,7 +381,19 @@ static HRESULT WINAPI ClientRpcChannelBuffer_FreeBuffer(LPRPCCHANNELBUFFER iface
     return HRESULT_FROM_WIN32(status);
 }
 
-static HRESULT WINAPI RpcChannelBuffer_GetDestCtx(LPRPCCHANNELBUFFER iface, DWORD* pdwDestContext, void** ppvDestContext)
+static HRESULT WINAPI ClientRpcChannelBuffer_GetDestCtx(LPRPCCHANNELBUFFER iface, DWORD* pdwDestContext, void** ppvDestContext)
+{
+    ClientRpcChannelBuffer *This = (ClientRpcChannelBuffer *)iface;
+
+    TRACE("(%p,%p)\n", pdwDestContext, ppvDestContext);
+
+    *pdwDestContext = This->dest_context;
+    *ppvDestContext = This->dest_context_data;
+
+    return S_OK;
+}
+
+static HRESULT WINAPI ServerRpcChannelBuffer_GetDestCtx(LPRPCCHANNELBUFFER iface, DWORD* pdwDestContext, void** ppvDestContext)
 {
     FIXME("(%p,%p), stub!\n", pdwDestContext, ppvDestContext);
     return E_FAIL;
@@ -355,9 +412,9 @@ static const IRpcChannelBufferVtbl ClientRpcChannelBufferVtbl =
     RpcChannelBuffer_AddRef,
     ClientRpcChannelBuffer_Release,
     ClientRpcChannelBuffer_GetBuffer,
-    RpcChannelBuffer_SendReceive,
+    ClientRpcChannelBuffer_SendReceive,
     ClientRpcChannelBuffer_FreeBuffer,
-    RpcChannelBuffer_GetDestCtx,
+    ClientRpcChannelBuffer_GetDestCtx,
     RpcChannelBuffer_IsConnected
 };
 
@@ -367,14 +424,16 @@ static const IRpcChannelBufferVtbl ServerRpcChannelBufferVtbl =
     RpcChannelBuffer_AddRef,
     ServerRpcChannelBuffer_Release,
     ServerRpcChannelBuffer_GetBuffer,
-    RpcChannelBuffer_SendReceive,
+    ServerRpcChannelBuffer_SendReceive,
     ServerRpcChannelBuffer_FreeBuffer,
-    RpcChannelBuffer_GetDestCtx,
+    ServerRpcChannelBuffer_GetDestCtx,
     RpcChannelBuffer_IsConnected
 };
 
 /* returns a channel buffer for proxies */
-HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid, IRpcChannelBuffer **chan)
+HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid,
+                                DWORD dest_context, void *dest_context_data,
+                                IRpcChannelBuffer **chan)
 {
     ClientRpcChannelBuffer *This;
     WCHAR                   endpoint[200];
@@ -426,6 +485,9 @@ HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid, IRpcChannelB
     This->super.lpVtbl = &ClientRpcChannelBufferVtbl;
     This->super.refs = 1;
     This->bind = bind;
+    apartment_getoxid(COM_CurrentApt(), &This->oxid);
+    This->dest_context = dest_context;
+    This->dest_context_data = dest_context_data;
 
     *chan = (IRpcChannelBuffer*)This;
 
@@ -459,51 +521,70 @@ void RPC_ExecuteCall(struct dispatch_params *params)
     }
     __ENDTRY
     IRpcStubBuffer_Release(params->stub);
+    IRpcChannelBuffer_Release(params->chan);
     if (params->handle) SetEvent(params->handle);
 }
 
 static void __RPC_STUB dispatch_rpc(RPC_MESSAGE *msg)
 {
     struct dispatch_params *params;
-    IRpcStubBuffer     *stub;
-    APARTMENT          *apt;
-    IPID                ipid;
+    APARTMENT *apt;
+    IPID ipid;
+    HRESULT hr;
 
     RpcBindingInqObject(msg->Handle, &ipid);
 
     TRACE("ipid = %s, iMethod = %d\n", debugstr_guid(&ipid), msg->ProcNum);
 
-    params = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*params));
+    params = HeapAlloc(GetProcessHeap(), 0, sizeof(*params));
     if (!params) return RpcRaiseException(E_OUTOFMEMORY);
 
-    stub = ipid_to_apt_and_stubbuffer(&ipid, &apt);
-    if (!apt || !stub)
+    hr = ipid_get_dispatch_params(&ipid, &apt, &params->stub, &params->chan);
+    if (hr != S_OK)
     {
-        if (apt) apartment_release(apt);
         ERR("no apartment found for ipid %s\n", debugstr_guid(&ipid));
-        return RpcRaiseException(RPC_E_DISCONNECTED);
+        return RpcRaiseException(hr);
     }
 
     params->msg = (RPCOLEMESSAGE *)msg;
-    params->stub = stub;
-    params->chan = NULL; /* FIXME: pass server channel */
     params->status = RPC_S_OK;
+    params->hr = S_OK;
+    params->handle = NULL;
 
     /* Note: this is the important difference between STAs and MTAs - we
      * always execute RPCs to STAs in the thread that originally created the
      * apartment (i.e. the one that pumps messages to the window) */
-    if (apt->model & COINIT_APARTMENTTHREADED)
+    if (!apt->multi_threaded)
     {
         params->handle = CreateEventW(NULL, FALSE, FALSE, NULL);
 
         TRACE("Calling apartment thread 0x%08lx...\n", apt->tid);
 
-        PostMessageW(apt->win, DM_EXECUTERPC, 0, (LPARAM)params);
-        WaitForSingleObject(params->handle, INFINITE);
+        if (PostMessageW(apartment_getwindow(apt), DM_EXECUTERPC, 0, (LPARAM)params))
+            WaitForSingleObject(params->handle, INFINITE);
+        else
+        {
+            ERR("PostMessage failed with error %ld\n", GetLastError());
+            IRpcChannelBuffer_Release(params->chan);
+            IRpcStubBuffer_Release(params->stub);
+        }
         CloseHandle(params->handle);
     }
     else
+    {
+        BOOL joined = FALSE;
+        if (!COM_CurrentInfo()->apt)
+        {
+            apartment_joinmta();
+            joined = TRUE;
+        }
         RPC_ExecuteCall(params);
+        if (joined)
+        {
+            apartment_release(COM_CurrentInfo()->apt);
+            COM_CurrentInfo()->apt = NULL;
+        }
+    }
 
     HeapFree(GetProcessHeap(), 0, params);
 
@@ -664,20 +745,20 @@ static HRESULT create_server(REFCLSID rclsid)
 /*
  * start_local_service()  - start a service given its name and parameters
  */
-static DWORD start_local_service(LPCWSTR name, DWORD num, LPWSTR *params)
+static DWORD start_local_service(LPCWSTR name, DWORD num, LPCWSTR *params)
 {
     SC_HANDLE handle, hsvc;
     DWORD     r = ERROR_FUNCTION_FAILED;
 
     TRACE("Starting service %s %ld params\n", debugstr_w(name), num);
 
-    handle = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    handle = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
     if (!handle)
         return r;
-    hsvc = OpenServiceW(handle, name, SC_MANAGER_ALL_ACCESS);
+    hsvc = OpenServiceW(handle, name, SERVICE_START);
     if (hsvc)
     {
-        if(StartServiceW(hsvc, num, (LPCWSTR*)params))
+        if(StartServiceW(hsvc, num, params))
             r = ERROR_SUCCESS;
         else
             r = GetLastError();
@@ -685,9 +766,11 @@ static DWORD start_local_service(LPCWSTR name, DWORD num, LPWSTR *params)
             r = ERROR_SUCCESS;
         CloseServiceHandle(hsvc);
     }
+    else
+        r = GetLastError();
     CloseServiceHandle(handle);
 
-    TRACE("StartService returned error %ld (%s)\n", r, r?"ok":"failed");
+    TRACE("StartService returned error %ld (%s)\n", r, (r == ERROR_SUCCESS) ? "ok":"failed");
 
     return r;
 }
@@ -753,7 +836,7 @@ static HRESULT create_local_service(REFCLSID rclsid)
             num_args++;
             RegQueryValueExW(hkey, szServiceParams, NULL, &type, (LPBYTE)args[0], &sz);
         }
-        r = start_local_service(buf, num_args, args);
+        r = start_local_service(buf, num_args, (LPCWSTR *)args);
         if (r==ERROR_SUCCESS)
             hres = S_OK;
         HeapFree(GetProcessHeap(),0,args[0]);
@@ -797,8 +880,8 @@ HRESULT RPC_GetLocalClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
         hPipe = CreateFileW(pipefn, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0);
         if (hPipe == INVALID_HANDLE_VALUE) {
             if (tries == 1) {
-                if ( (hres = create_server(rclsid)) &&
-                     (hres = create_local_service(rclsid)) )
+                if ( (hres = create_local_service(rclsid)) &&
+                     (hres = create_server(rclsid)) )
                     return hres;
                 Sleep(1000);
             } else {

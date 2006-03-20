@@ -45,7 +45,7 @@
 49 stdcall MsiGetActiveDatabase(long)
 50 stdcall MsiGetComponentStateA(long str ptr ptr)
 51 stdcall MsiGetComponentStateW(long wstr ptr ptr)
-52 stub MsiGetDatabaseState
+52 stdcall MsiGetDatabaseState(long)
 53 stub MsiGetFeatureCostA
 54 stub MsiGetFeatureCostW
 55 stub MsiGetFeatureInfoA
@@ -203,8 +203,8 @@
 207 stub MsiSetFeatureAttributesW
 208 stub MsiSourceListClearAllA
 209 stub MsiSourceListClearAllW
-210 stub MsiSourceListAddSourceA
-211 stub MsiSourceListAddSourceW
+210 stdcall MsiSourceListAddSourceA(str str long str)
+211 stdcall MsiSourceListAddSourceW(wstr wstr long wstr)
 212 stub MsiSourceListForceResolutionA
 213 stub MsiSourceListForceResolutionW
 214 stub MsiIsProductElevatedA

@@ -2,6 +2,7 @@
  * RichEdit - functions working on paragraphs of text (diParagraph).
  * 
  * Copyright 2004 by Krzysztof Foltman
+ * Copyright 2006 by Phil Krylov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,7 +23,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
-static WCHAR wszParagraphSign[] = {0xB6, 0};
+static const WCHAR wszParagraphSign[] = {0xB6, 0};
 
 void ME_MakeFirstParagraph(HDC hDC, ME_TextBuffer *text)
 {
@@ -133,6 +134,17 @@ ME_DisplayItem *ME_SplitParagraph(ME_TextEditor *editor, ME_DisplayItem *run, ME
   new_para->member.para.nLeftMargin = run_para->member.para.nLeftMargin;
   new_para->member.para.nRightMargin = run_para->member.para.nRightMargin;
   new_para->member.para.nFirstMargin = run_para->member.para.nFirstMargin;
+
+  new_para->member.para.bTable = run_para->member.para.bTable;
+  new_para->member.para.pCells = NULL;
+
+  /* fix paragraph properties. FIXME only needed when called from RTF reader */
+  if (run_para->member.para.pCells && !run_para->member.para.bTable)
+  {
+    /* Paragraph does not have an \intbl keyword, so any table definition
+     * stored is invalid */
+    ME_DestroyTableCellList(run_para);
+  }
   
   /* insert paragraph into paragraph double linked list */
   new_para->member.para.prev_para = run_para;
@@ -303,21 +315,37 @@ void ME_SetParaFormat(ME_TextEditor *editor, ME_DisplayItem *para, PARAFORMAT2 *
     para->member.para.nFlags |= MEPF_REWRAP;
 }
 
+
+void
+ME_GetSelectionParas(ME_TextEditor *editor, ME_DisplayItem **para, ME_DisplayItem **para_end)
+{
+  ME_Cursor *pEndCursor = &editor->pCursors[1];
+  
+  *para = ME_GetParagraph(editor->pCursors[0].pRun);
+  *para_end = ME_GetParagraph(editor->pCursors[1].pRun);
+  if ((*para_end)->member.para.nCharOfs < (*para)->member.para.nCharOfs) {
+    ME_DisplayItem *tmp = *para;
+
+    *para = *para_end;
+    *para_end = tmp;
+    pEndCursor = &editor->pCursors[0];
+  }
+  
+  /* selection consists of chars from nFrom up to nTo-1 */
+  if ((*para_end)->member.para.nCharOfs > (*para)->member.para.nCharOfs) {
+    if (!pEndCursor->nOffset) {
+      *para_end = ME_GetParagraph(ME_FindItemBack(pEndCursor->pRun, diRun));
+    }
+  }
+}
+
+
 void ME_SetSelectionParaFormat(ME_TextEditor *editor, PARAFORMAT2 *pFmt)
 {
-  int nFrom, nTo;
-  ME_DisplayItem *para, *para_end, *run;
-  int nOffset;
+  ME_DisplayItem *para, *para_end;
   
-  ME_GetSelection(editor, &nFrom, &nTo);
-  if (nTo>nFrom) /* selection consists of chars from nFrom up to nTo-1 */
-    nTo--;
-  
-  ME_RunOfsFromCharOfs(editor, nFrom, &run, &nOffset);
-  para = ME_GetParagraph(run);
-  ME_RunOfsFromCharOfs(editor, nTo, &run, &nOffset);
-  para_end = ME_GetParagraph(run);
-  
+  ME_GetSelectionParas(editor, &para, &para_end);
+ 
   do {
     ME_SetParaFormat(editor, para, pFmt);
     if (para == para_end)
@@ -338,19 +366,10 @@ void ME_GetParaFormat(ME_TextEditor *editor, ME_DisplayItem *para, PARAFORMAT2 *
 
 void ME_GetSelectionParaFormat(ME_TextEditor *editor, PARAFORMAT2 *pFmt)
 {
-  int nFrom, nTo;
-  ME_DisplayItem *para, *para_end, *run;
-  int nOffset;
+  ME_DisplayItem *para, *para_end;
   PARAFORMAT2 tmp;
   
-  ME_GetSelection(editor, &nFrom, &nTo);
-  if (nTo>nFrom) /* selection consists of chars from nFrom up to nTo-1 */
-    nTo--;
-  
-  ME_RunOfsFromCharOfs(editor, nFrom, &run, &nOffset);
-  para = ME_GetParagraph(run);
-  ME_RunOfsFromCharOfs(editor, nTo, &run, &nOffset);
-  para_end = ME_GetParagraph(run);
+  ME_GetSelectionParas(editor, &para, &para_end);
   
   ME_GetParaFormat(editor, para, pFmt);
   if (para == para_end) return;

@@ -31,6 +31,7 @@
 #include "winuser.h"
 #include "ole2.h"
 #include "richole.h"
+#include "editor.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
@@ -38,6 +39,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 typedef struct IRichEditOleImpl {
     const IRichEditOleVtbl *lpVtbl;
     LONG ref;
+
+    ME_TextEditor *editor;
 } IRichEditOleImpl;
 
 /* there is no way to be consistent across different sets of headers - mingw, Wine, Win32 SDK*/
@@ -135,8 +138,16 @@ IRichEditOle_fnGetClipboardData(IRichEditOle *me, CHARRANGE *lpchrg,
                DWORD reco, LPDATAOBJECT *lplpdataobj)
 {
     IRichEditOleImpl *This = (IRichEditOleImpl *)me;
-    FIXME("stub %p\n",This);
-    return E_NOTIMPL;
+    CHARRANGE tmpchrg;
+
+    TRACE("(%p,%p,%ld)\n",This, lpchrg, reco);
+    if(!lplpdataobj)
+        return E_INVALIDARG;
+    if(!lpchrg) {
+        ME_GetSelection(This->editor, (int*)&tmpchrg.cpMin, (int*)&tmpchrg.cpMax);
+        lpchrg = &tmpchrg;
+    }
+    return ME_GetDataObject(This->editor, lpchrg, lplpdataobj);
 }
 
 static LONG WINAPI IRichEditOle_fnGetLinkCount(IRichEditOle *me)
@@ -250,7 +261,7 @@ static const IRichEditOleVtbl revt = {
     IRichEditOle_fnImportDataObject
 };
 
-LRESULT CreateIRichEditOle(LPVOID *ppObj)
+LRESULT CreateIRichEditOle(ME_TextEditor *editor, LPVOID *ppObj)
 {
     IRichEditOleImpl *reo;
 
@@ -260,6 +271,7 @@ LRESULT CreateIRichEditOle(LPVOID *ppObj)
 
     reo->lpVtbl = &revt;
     reo->ref = 1;
+    reo->editor = editor;
     TRACE("Created %p\n",reo);
     *ppObj = (LPVOID) reo;
 

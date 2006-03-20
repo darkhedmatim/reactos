@@ -39,7 +39,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut);
 HRESULT SHELL32_ParseNextElement (IShellFolder2 * psf, HWND hwndOwner, LPBC pbc, LPITEMIDLIST * pidlInOut,
 				  LPOLESTR szNext, DWORD * pEaten, DWORD * pdwAttributes);
 HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWORD pdwAttributes);
-HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf, LPCITEMIDLIST pidl, DWORD dwFlags, LPSTR szOut,
+HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf, LPCITEMIDLIST pidl, DWORD dwFlags, LPWSTR szOut,
 				       DWORD dwOutLen);
 
 HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
@@ -69,5 +69,5 @@ static inline int SHELL32_GUIDToStringW (REFGUID guid, LPWSTR str)
             guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
 }
 
-void SHELL_FS_ProcessDisplayFilename(LPSTR szPath, DWORD dwFlags);
+void SHELL_FS_ProcessDisplayFilename(LPWSTR szPath, DWORD dwFlags);
 BOOL SHELL_FS_HideExtension(LPWSTR pwszPath);

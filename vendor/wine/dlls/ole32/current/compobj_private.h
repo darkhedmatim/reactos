@@ -72,6 +72,7 @@ struct ifstub
     IPID              ipid;       /* RO */
     IUnknown         *iface;      /* RO */
     MSHLFLAGS         flags;      /* so we can enforce process-local marshalling rules (RO) */
+    IRpcChannelBuffer*chan;       /* channel passed to IRpcStubBuffer::Invoke (RO) */
 };
 
 
@@ -126,19 +127,21 @@ struct proxy_manager
   ULONG sorflags;           /* STDOBJREF flags (RO) */
   IRemUnknown *remunk;      /* proxy to IRemUnknown used for lifecycle management (CS cs) */
   HANDLE remoting_mutex;    /* mutex used for synchronizing access to IRemUnknown */
+  MSHCTX dest_context;      /* context used for activating optimisations (LOCK) */
+  void *dest_context_data;  /* reserved context value (LOCK) */
 };
 
 /* this needs to become a COM object that implements IRemUnknown */
 struct apartment
 {
-  struct list entry;       
+  struct list entry;
 
   LONG  refs;              /* refcount of the apartment (LOCK) */
-  DWORD model;             /* threading model (RO) */
+  BOOL multi_threaded;     /* multi-threaded or single-threaded apartment? (RO) */
   DWORD tid;               /* thread id (RO) */
   OXID oxid;               /* object exporter ID (RO) */
   LONG ipidc;              /* interface pointer ID counter, starts at 1 (LOCK) */
-  HWND win;                /* message window (RO) */
+  HWND win;                /* message window (LOCK) */
   CRITICAL_SECTION cs;     /* thread safety */
   LPMESSAGEFILTER filter;  /* message filter (CS cs) */
   struct list proxies;     /* imported objects (CS cs) */
@@ -169,7 +172,6 @@ extern void* StdGlobalInterfaceTableInstance;
 
 /* FIXME: these shouldn't be needed, except for 16-bit functions */
 extern HRESULT WINE_StringFromCLSID(const CLSID *id,LPSTR idstr);
-HRESULT WINAPI __CLSIDFromStringA(LPCSTR idstr, CLSID *id);
 
 HRESULT COM_OpenKeyForCLSID(REFCLSID clsid, LPCWSTR keyname, REGSAM access, HKEY *key);
 HRESULT MARSHAL_GetStandardMarshalCF(LPVOID *ppv);
@@ -189,7 +191,7 @@ BOOL stub_manager_notify_unmarshal(struct stub_manager *m, const IPID *ipid);
 BOOL stub_manager_is_table_marshaled(struct stub_manager *m, const IPID *ipid);
 void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const IPID *ipid);
 HRESULT ipid_to_stub_manager(const IPID *ipid, APARTMENT **stub_apt, struct stub_manager **stubmgr_ret);
-IRpcStubBuffer *ipid_to_apt_and_stubbuffer(const IPID *ipid, APARTMENT **stub_apt);
+HRESULT ipid_get_dispatch_params(const IPID *ipid, APARTMENT **stub_apt, IRpcStubBuffer **stub, IRpcChannelBuffer **chan);
 HRESULT start_apartment_remote_unknown(void);
 
 HRESULT marshal_object(APARTMENT *apt, STDOBJREF *stdobjref, REFIID riid, IUnknown *obj, MSHLFLAGS mshlflags);
@@ -199,7 +201,10 @@ HRESULT marshal_object(APARTMENT *apt, STDOBJREF *stdobjref, REFIID riid, IUnkno
 struct dispatch_params;
 
 void    RPC_StartRemoting(struct apartment *apt);
-HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid, IRpcChannelBuffer **pipebuf);
+HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid,
+                                DWORD dest_context, void *dest_context_data,
+                                IRpcChannelBuffer **chan);
+HRESULT RPC_CreateServerChannel(IRpcChannelBuffer **chan);
 void    RPC_ExecuteCall(struct dispatch_params *params);
 HRESULT RPC_RegisterInterface(REFIID riid);
 void    RPC_UnregisterInterface(REFIID riid);
@@ -229,6 +234,9 @@ static inline HRESULT apartment_getoxid(struct apartment *apt, OXID *oxid)
     *oxid = apt->oxid;
     return S_OK;
 }
+HRESULT apartment_createwindowifneeded(struct apartment *apt);
+HWND apartment_getwindow(struct apartment *apt);
+void apartment_joinmta(void);
 
 
 /* DCOM messages used by the apartment window (not compatible with native) */
