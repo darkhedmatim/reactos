@@ -1,0 +1,20 @@
+TOPSRCDIR = @top_srcdir@
+TOPOBJDIR = ../..
+SRCDIR    = @srcdir@
+VPATH     = @srcdir@
+MODULE    = cabinet.dll
+IMPORTLIB = libcabinet.$(IMPLIBEXT)
+IMPORTS   = kernel32
+
+C_SRCS = \
+	cabinet_main.c \
+	fci.c \
+	fdi.c
+
+RC_SRCS = cabinet.rc
+
+SUBDIRS = tests
+
+@MAKE_DLL_RULES@
+
+### Dependencies:
