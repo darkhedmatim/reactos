@@ -1,4 +1,4 @@
-Matrrix2 screensaver for ReactOS
+Matrix2 screensaver for ReactOS
 
 /*****************************************
 
@@ -14,4 +14,4 @@ under Public Domain. Do what thou will but please give
 credit where credit is due.
 
 
--Magnus Olsen (aka GreatLord) / Aleasky (aka Fireball)
+-Magnus Olsen (aka GreatLord) / Aleksey Bragin (aka Fireball)
