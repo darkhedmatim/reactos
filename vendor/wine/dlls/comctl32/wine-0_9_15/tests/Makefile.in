@@ -1,0 +1,28 @@
+TOPSRCDIR = @top_srcdir@
+TOPOBJDIR = ../../..
+SRCDIR    = @srcdir@
+VPATH     = @srcdir@
+TESTDLL   = comctl32.dll
+IMPORTS   = comctl32 ole32 shlwapi user32 gdi32 advapi32 kernel32
+
+CTESTS = \
+	comboex.c \
+	dpa.c \
+	header.c \
+	imagelist.c \
+	monthcal.c \
+	mru.c \
+	progress.c \
+	propsheet.c \
+	subclass.c \
+	tab.c \
+	toolbar.c \
+	tooltips.c \
+	treeview.c \
+	updown.c
+
+RC_SRCS = propsheet.rc
+
+@MAKE_TEST_RULES@
+
+### Dependencies:
