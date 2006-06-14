@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 /* 
@@ -117,7 +117,7 @@
   + EM_SETTEXTEX 3.0 (unicode only, no rich text insertion handling, proper style?)
   - EM_SETTEXTMODE 2.0
   - EM_SETTYPOGRAPHYOPTIONS 3.0
-  - EM_SETUNDOLIMIT 2.0
+  + EM_SETUNDOLIMIT 2.0
   + EM_SETWORDBREAKPROC (used only for word movement at the moment)
   - EM_SETWORDBREAKPROCEX
   - EM_SETWORDWRAPMODE 1.0asian
@@ -229,6 +229,9 @@
 #include "imm.h"
 #include "textserv.h"
 #include "rtf.h"
+
+#define STACK_SIZE_DEFAULT  100
+#define STACK_SIZE_MAX     1000
  
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
@@ -487,6 +490,9 @@ static void ME_RTFTblAttrHook(RTF_Info *info)
     case rtfRowDef:
       RTFFlushOutputBuffer(info);
       para = ME_GetParagraph(info->editor->pCursors[0].pRun);
+      
+      /* Release possibly inherited cell definitions */
+      ME_DestroyTableCellList(para);
       
       para->member.para.pCells = ALLOC_OBJ(ME_TableCell);
       para->member.para.pCells->nRightBoundary = 0;
@@ -764,34 +770,38 @@ ME_FindItemAtOffset(ME_TextEditor *editor, ME_DIType nItemType, int nOffset, int
 static int
 ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CHARRANGE *chrgText)
 {
+  const int nLen = lstrlenW(text);
+  const int nTextLen = ME_GetTextLength(editor);
   int nStart, nEnd;
-  int nLen = lstrlenW(text);
   int nMin, nMax;
   ME_DisplayItem *item;
   ME_DisplayItem *para;
+  WCHAR wLastChar = ' ';
 
   TRACE("flags==0x%08lx, chrg->cpMin==%ld, chrg->cpMax==%ld text==%s\n",
         flags, chrg->cpMin, chrg->cpMax, debugstr_w(text));
   
-  if (flags & ~(FR_DOWN | FR_MATCHCASE))
-    FIXME("Flags 0x%08lx not implemented\n", flags & ~(FR_DOWN | FR_MATCHCASE));
+  if (flags & ~(FR_DOWN | FR_MATCHCASE | FR_WHOLEWORD))
+    FIXME("Flags 0x%08lx not implemented\n",
+        flags & ~(FR_DOWN | FR_MATCHCASE | FR_WHOLEWORD));
 
   nMin = chrg->cpMin;
   if (chrg->cpMax == -1)
-    nMax = ME_GetTextLength(editor);
+    nMax = nTextLen;
   else
-    nMax = chrg->cpMax;
+    nMax = chrg->cpMax > nTextLen ? nTextLen : chrg->cpMax;
   
   /* when searching up, if cpMin < cpMax, then instead of searching
    * on [cpMin,cpMax], we search on [0,cpMin], otherwise, search on
-   * [cpMax, cpMin]
+   * [cpMax, cpMin]. The exception is when cpMax is -1, in which
+   * case, it is always bigger than cpMin.
    */
   if (!(flags & FR_DOWN))
   {
     int nSwap = nMax;
 
-    nMax = nMin;
-    if (nMin < nSwap)
+    nMax = nMin > nTextLen ? nTextLen : nMin;
+    if (nMin < nSwap || chrg->cpMax == -1)
       nMin = 0;
     else
       nMin = nSwap;
@@ -806,6 +816,20 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
  
   if (flags & FR_DOWN) /* Forward search */
   {
+    /* If possible, find the character before where the search starts */
+    if ((flags & FR_WHOLEWORD) && nMin)
+    {
+      nStart = nMin - 1;
+      item = ME_FindItemAtOffset(editor, diRun, nStart, &nStart);
+      if (!item)
+      {
+        if (chrgText)
+          chrgText->cpMin = chrgText->cpMax = -1;
+        return -1;
+      }
+      wLastChar = item->member.run.strText->szData[nStart];
+    }
+
     nStart = nMin;
     item = ME_FindItemAtOffset(editor, diRun, nStart, &nStart);
     if (!item)
@@ -825,10 +849,35 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
     
       while (pCurItem && ME_CharCompare(pCurItem->member.run.strText->szData[nCurStart + nMatched], text[nMatched], (flags & FR_MATCHCASE)))
       {
+        if ((flags & FR_WHOLEWORD) && isalnumW(wLastChar))
+          break;
+
         nMatched++;
         if (nMatched == nLen)
         {
-          nStart += para->member.para.nCharOfs + item->member.run.nCharOfs;
+          ME_DisplayItem *pNextItem = pCurItem;
+          int nNextStart = nCurStart;
+          WCHAR wNextChar;
+
+          /* Check to see if next character is a whitespace */
+          if (flags & FR_WHOLEWORD)
+          {
+            if (nCurStart + nMatched == ME_StrLen(pCurItem->member.run.strText))
+            {
+              pNextItem = ME_FindItemFwd(pCurItem, diRun);
+              nNextStart = -nMatched;
+            }
+
+            if (pNextItem)
+              wNextChar = pNextItem->member.run.strText->szData[nNextStart + nMatched];
+            else
+              wNextChar = ' ';
+
+            if (isalnumW(wNextChar))
+              break;
+          }
+
+          nStart += para->member.para.nCharOfs + pCurItem->member.run.nCharOfs;
           if (chrgText)
           {
             chrgText->cpMin = nStart;
@@ -844,6 +893,11 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
           nCurStart = -nMatched;
         }
       }
+      if (pCurItem)
+        wLastChar = pCurItem->member.run.strText->szData[nCurStart + nMatched];
+      else
+        wLastChar = ' ';
+
       nStart++;
       if (nStart == ME_StrLen(item->member.run.strText))
       {
@@ -855,9 +909,24 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
   }
   else /* Backward search */
   {
+    /* If possible, find the character after where the search ends */
+    if ((flags & FR_WHOLEWORD) && nMax < nTextLen - 1)
+    {
+      nEnd = nMax + 1;
+      item = ME_FindItemAtOffset(editor, diRun, nEnd, &nEnd);
+      if (!item)
+      {
+        if (chrgText)
+          chrgText->cpMin = chrgText->cpMax = -1;
+        return -1;
+      }
+      wLastChar = item->member.run.strText->szData[nEnd];
+    }
+
     nEnd = nMax;
     item = ME_FindItemAtOffset(editor, diRun, nEnd, &nEnd);
-    if (!item) {
+    if (!item)
+    {
       if (chrgText)
         chrgText->cpMin = chrgText->cpMax = -1;
       return -1;
@@ -872,12 +941,45 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
       int nCurEnd = nEnd;
       int nMatched = 0;
       
-      while (ME_CharCompare(pCurItem->member.run.strText->szData[nCurEnd - nMatched - 1], text[nLen - nMatched - 1], (flags & FR_MATCHCASE)))
+      if (nCurEnd - nMatched == 0)
       {
+        pCurItem = ME_FindItemBack(pCurItem, diRun);
+        para = ME_GetParagraph(pCurItem);
+        nCurEnd = ME_StrLen(pCurItem->member.run.strText) + nMatched;
+      }
+      
+      while (pCurItem && ME_CharCompare(pCurItem->member.run.strText->szData[nCurEnd - nMatched - 1], text[nLen - nMatched - 1], (flags & FR_MATCHCASE)))
+      {
+        if ((flags & FR_WHOLEWORD) && isalnumW(wLastChar))
+          break;
+
         nMatched++;
         if (nMatched == nLen)
         {
-          nStart = para->member.para.nCharOfs + item->member.run.nCharOfs + nCurEnd - nMatched;
+          ME_DisplayItem *pPrevItem = pCurItem;
+          int nPrevEnd = nCurEnd;
+          WCHAR wPrevChar;
+
+          /* Check to see if previous character is a whitespace */
+          if (flags & FR_WHOLEWORD)
+          {
+            if (nPrevEnd - nMatched == 0)
+            {
+              pPrevItem = ME_FindItemBack(pCurItem, diRun);
+              if (pPrevItem)
+                nPrevEnd = ME_StrLen(pPrevItem->member.run.strText) + nMatched;
+            }
+
+            if (pPrevItem)
+              wPrevChar = pPrevItem->member.run.strText->szData[nPrevEnd - nMatched - 1];
+            else
+              wPrevChar = ' ';
+
+            if (isalnumW(wPrevChar))
+              break;
+          }
+
+          nStart = para->member.para.nCharOfs + pCurItem->member.run.nCharOfs + nCurEnd - nMatched;
           if (chrgText)
           {
             chrgText->cpMin = nStart;
@@ -895,6 +997,11 @@ ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, WCHAR *text, CH
           nCurEnd = ME_StrLen(pCurItem->member.run.strText) + nMatched;
         }
       }
+      if (pCurItem)
+        wLastChar = pCurItem->member.run.strText->szData[nCurEnd - nMatched - 1];
+      else
+        wLastChar = ' ';
+
       nEnd--;
       if (nEnd < 0)
       {
@@ -1015,7 +1122,9 @@ ME_TextEditor *ME_MakeEditor(HWND hWnd) {
   ed->bCaretAtEnd = FALSE;
   ed->nEventMask = 0;
   ed->nModifyStep = 0;
-  ed->pUndoStack = ed->pRedoStack = NULL;
+  ed->pUndoStack = ed->pRedoStack = ed->pUndoStackBottom = NULL;
+  ed->nUndoStackSize = 0;
+  ed->nUndoLimit = STACK_SIZE_DEFAULT;
   ed->nUndoMode = umAddToUndo;
   ed->nParagraphs = 1;
   ed->nLastSelStart = ed->nLastSelEnd = 0;
@@ -1322,7 +1431,6 @@ LRESULT WINAPI RichEditANSIWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
   UNSUPPORTED_MSG(EM_SETTABSTOPS)
   UNSUPPORTED_MSG(EM_SETTARGETDEVICE)
   UNSUPPORTED_MSG(EM_SETTYPOGRAPHYOPTIONS)
-  UNSUPPORTED_MSG(EM_SETUNDOLIMIT)
   UNSUPPORTED_MSG(EM_SETWORDBREAKPROCEX)
   UNSUPPORTED_MSG(EM_SHOWSCROLLBAR)
   UNSUPPORTED_MSG(WM_SETFONT)
@@ -1372,6 +1480,17 @@ LRESULT WINAPI RichEditANSIWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
     ME_GetSelection(editor, (int *)&pRange->cpMin, (int *)&pRange->cpMax);
     TRACE("EM_EXGETSEL = (%ld,%ld)\n", pRange->cpMin, pRange->cpMax);
     return 0;
+  }
+  case EM_SETUNDOLIMIT:
+  {
+    if ((int)wParam < 0)
+      editor->nUndoLimit = STACK_SIZE_DEFAULT;
+    else
+      editor->nUndoLimit = min(wParam, STACK_SIZE_MAX);
+    /* Setting a max stack size keeps wine from getting killed 
+      for hogging memory. Windows allocates all this memory at once, so
+      no program would realisticly set a value above our maxiumum. */  
+    return editor->nUndoLimit;
   }
   case EM_CANUNDO:
     return editor->pUndoStack != NULL;
@@ -1852,7 +1971,7 @@ LRESULT WINAPI RichEditANSIWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
       DWORD flags = 0;
 
       buflen = ME_GetTextW(editor, buffer, nStart, nCount, ex->flags & GT_USECRLF);
-      rc = WideCharToMultiByte(ex->codepage, flags, buffer, buflen, (LPSTR)lParam, ex->cb, ex->lpDefaultChar, ex->lpUsedDefaultChar);
+      rc = WideCharToMultiByte(ex->codepage, flags, buffer, -1, (LPSTR)lParam, ex->cb, ex->lpDefaultChar, ex->lpUsedDefaultChar);
 
       HeapFree(GetProcessHeap(),0,buffer);
       return rc;
@@ -2395,21 +2514,26 @@ int ME_GetTextW(ME_TextEditor *editor, WCHAR *buffer, int nStart, int nChars, in
     int nLen = ME_StrLen(item->member.run.strText);
     if (nLen > nChars)
       nLen = nChars;
-      
+
     if (item->member.run.nFlags & MERF_ENDPARA)
     {
-      *buffer = '\r';
-      if (bCRLF)
-      {
-        *(++buffer) = '\n';
-        nWritten++;
+      if (!ME_FindItemFwd(item, diRun))
+        /* No '\r' is appended to the last paragraph. */
+        nLen = 0;
+      else {
+        *buffer = '\r';
+        if (bCRLF)
+        {
+          *(++buffer) = '\n';
+          nWritten++;
+        }
+        assert(nLen == 1);
+        /* our end paragraph consists of 2 characters now */
+        if (editor->bEmulateVersion10)
+          nChars--;
       }
-      assert(nLen == 1);
-      /* our end paragraph consists of 2 characters now */
-      if (editor->bEmulateVersion10)
-        nChars--;
     }
-    else      
+    else
       CopyMemory(buffer, item->member.run.strText->szData, sizeof(WCHAR)*nLen);
     nChars -= nLen;
     nWritten += nLen;
