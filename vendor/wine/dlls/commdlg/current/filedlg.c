@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * FIXME: The whole concept of handling unicode is badly broken.
  *	many hook-messages expect a pointer to a
@@ -2367,16 +2367,20 @@ static HRESULT FILEDLG95_FILETYPE_Init(HWND hwnd)
       lpstrDisplay = lpstrPos;
       lpstrPos += strlenW(lpstrPos) + 1;
 
+      CBAddStringW(fodInfos->DlgInfos.hwndFileTypeCB, lpstrDisplay);
+
+      nFilters++;
+
       /* Copy the extensions */
-      if (! *lpstrPos) return E_FAIL;	/* malformed filter */
       if (!(lpstrExt = MemAlloc((strlenW(lpstrPos)+1)*sizeof(WCHAR)))) return E_FAIL;
       strcpyW(lpstrExt,lpstrPos);
       lpstrPos += strlenW(lpstrPos) + 1;
 
       /* Add the item at the end of the combo */
-      CBAddStringW(fodInfos->DlgInfos.hwndFileTypeCB, lpstrDisplay);
-      CBSetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB, nFilters, lpstrExt);
-      nFilters++;
+      CBSetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB, nFilters-1, lpstrExt);
+
+      /* malformed filters are added anyway... */
+      if (!*lpstrExt) break;
     }
   }
 

@@ -18,7 +18,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 #include <ctype.h>
 #include <stdlib.h>
@@ -325,8 +325,9 @@ static BOOL PRINTDLG_UpdatePrintDlgA(HWND hDlg,
 	    lppd->Flags &= ~PD_PAGENUMS;
 
 	if (IsDlgButtonChecked(hDlg, chx1) == BST_CHECKED) {/* Print to file */
+	    static char file[] = "FILE:";
 	    lppd->Flags |= PD_PRINTTOFILE;
-	    pi->pPortName = "FILE:";
+	    pi->pPortName = file;
 	}
 
 	if (IsDlgButtonChecked(hDlg, chx2) == BST_CHECKED) { /* Collate */
