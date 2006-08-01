@@ -1,7 +1,7 @@
 /*
- * English resources for MSI
+ * Russian resources for MSI
  *
- * Copyright 2005 Mike McCormack
+ * Copyright 2006 Vitaly Lipatov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,16 +18,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
+LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
 STRINGTABLE DISCARDABLE
 {
-	5 "path %s not found"
-	9 "insert disk %s"
-	10 "bad parameters"
-	11 "enter which folder contains %s"
-	12 "install source for feature missing"
-	13 "network drive for feature missing"
-	14 "feature from:"
-	15 "choose which folder contains %s"
+	5 "путь %s не найден"
+	9 "вставьте диск %s"
+	10 "неверные параметры"
+	11 "укажите каталог, содержащий %s"
+	12 "источник установки данной возможности не указан"
+	13 "сетевой диск для данной возможности не указан"
+	14 "возможность из:"
+	15 "выберите каталог, содержащий %s"
 }

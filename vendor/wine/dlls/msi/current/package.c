@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 #define NONAMELESSUNION
@@ -35,6 +35,8 @@
 #include "objidl.h"
 #include "wincrypt.h"
 #include "winuser.h"
+#include "wininet.h"
+#include "urlmon.h"
 #include "shlobj.h"
 #include "wine/unicode.h"
 #include "objbase.h"
@@ -444,11 +446,43 @@ static LPCWSTR copy_package_to_temp( LPCWSTR szPackage, LPWSTR filename )
 
     if( !CopyFileW( szPackage, filename, FALSE ) )
     {
-        ERR("failed to copy package to temp path %s\n", debugstr_w(filename) );
+        ERR("failed to copy package %s\n", debugstr_w(szPackage) );
         return szPackage;
     }
 
     TRACE("Opening relocated package %s\n", debugstr_w( filename ));
+    return filename;
+}
+
+static LPCWSTR msi_download_package( LPCWSTR szUrl, LPWSTR filename )
+{
+    LPINTERNET_CACHE_ENTRY_INFOW cache_entry;
+    DWORD size = 0;
+    HRESULT hr;
+
+    /* call will always fail, becase size is 0,
+     * but will return ERROR_FILE_NOT_FOUND first
+     * if the file doesn't exist
+     */
+    GetUrlCacheEntryInfoW( szUrl, NULL, &size );
+    if ( GetLastError() != ERROR_FILE_NOT_FOUND )
+    {
+        cache_entry = HeapAlloc( GetProcessHeap(), 0, size );
+        if ( !GetUrlCacheEntryInfoW( szUrl, cache_entry, &size ) )
+        {
+            HeapFree( GetProcessHeap(), 0, cache_entry );
+            return szUrl;
+        }
+
+        lstrcpyW( filename, cache_entry->lpszLocalFileName );
+        HeapFree( GetProcessHeap(), 0, cache_entry );
+        return filename;
+    }
+
+    hr = URLDownloadToCacheFileW( NULL, szUrl, filename, MAX_PATH, 0, NULL );
+    if ( FAILED(hr) )
+        return szUrl;
+
     return filename;
 }
 
@@ -471,7 +505,12 @@ UINT MSI_OpenPackageW(LPCWSTR szPackage, MSIPACKAGE **pPackage)
     else
     {
         WCHAR temppath[MAX_PATH];
-        LPCWSTR file = copy_package_to_temp( szPackage, temppath );
+        LPCWSTR file;
+
+        if ( UrlIsW( szPackage, URLIS_URL ) )
+            file = msi_download_package( szPackage, temppath );
+        else
+            file = copy_package_to_temp( szPackage, temppath );
 
         r = MSI_OpenDatabaseW( file, MSIDBOPEN_READONLY, &db );
 
@@ -513,6 +552,9 @@ UINT WINAPI MsiOpenPackageExW(LPCWSTR szPackage, DWORD dwOptions, MSIHANDLE *phP
     UINT ret;
 
     TRACE("%s %08lx %p\n", debugstr_w(szPackage), dwOptions, phPackage );
+
+    if( szPackage == NULL )
+        return ERROR_INVALID_PARAMETER;
 
     if( dwOptions )
         FIXME("dwOptions %08lx not supported\n", dwOptions);
@@ -615,26 +657,27 @@ INT MSI_ProcessMessage( MSIPACKAGE *package, INSTALLMESSAGE eMessageType,
     if ((eMessageType & 0xff000000) == INSTALLMESSAGE_ACTIONSTART)
     {
         static const WCHAR template_s[]=
-            {'A','c','t','i','o','n',' ','%','s',':',' ','%','s','.',' ', '%','s',
-            '.',0};
+            {'A','c','t','i','o','n',' ','%','s',':',' ','%','s','.',' ',0};
         static const WCHAR format[] = 
             {'H','H','\'',':','\'','m','m','\'',':','\'','s','s',0};
         WCHAR timet[0x100];
-        LPCWSTR action_text;
-        LPCWSTR action;
-        LPWSTR deformated;
+        LPCWSTR action_text, action;
+        LPWSTR deformatted = NULL;
 
         GetTimeFormatW(LOCALE_USER_DEFAULT, 0, NULL, format, timet, 0x100);
 
         action = MSI_RecordGetString(record, 1);
         action_text = MSI_RecordGetString(record, 2);
-        deformat_string(package, action_text, &deformated);
+        deformat_string(package, action_text, &deformatted);
 
-        len = strlenW(timet) + strlenW(action) + strlenW(deformated) + 
-              strlenW(template_s) - 6 /* 6 characters of format specifier */;
-        message = msi_alloc((len + 1)*sizeof(WCHAR));
-        sprintfW(message,template_s,timet,action,deformated);
-        msi_free(deformated);
+        len = strlenW(timet) + strlenW(action) + strlenW(template_s);
+        if (deformatted)
+            len += strlenW(deformatted);
+        message = msi_alloc(len*sizeof(WCHAR));
+        sprintfW(message, template_s, timet, action);
+        if (deformatted)
+            strcatW(message, deformatted);
+        msi_free(deformatted);
     }
     else
     {

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 #include <stdarg.h>
@@ -499,6 +499,8 @@ UINT WINAPI MsiSourceListAddSourceExW( LPCWSTR szProduct, LPCWSTR szUserSid,
         rc = OpenNetworkSubkey(sourcekey, &typekey, TRUE);
     else if (dwOptions & MSISOURCETYPE_URL)
         rc = OpenURLSubkey(sourcekey, &typekey, TRUE);
+    else if (dwOptions & MSISOURCETYPE_MEDIA)
+        rc = OpenMediaSubkey(sourcekey, &typekey, TRUE);
     else
     {
         ERR("unknown media type: %08lx\n", dwOptions);
@@ -613,5 +615,23 @@ UINT WINAPI MsiSourceListAddMediaDiskW(LPCWSTR szProduct, LPCWSTR szUserSid,
     RegCloseKey(sourcekey);
     RegCloseKey(mediakey);
 
+    return ERROR_SUCCESS;
+}
+
+/******************************************************************
+ *  MsiSourceListAddSourceExA (MSI.@)
+ */
+UINT WINAPI MsiSourceListClearAllA( LPCSTR szProduct, LPCSTR szUserName, DWORD dwReserved )
+{
+    FIXME("(%s %s %ld) stub\n", debugstr_a(szProduct), debugstr_a(szUserName), dwReserved);
+    return ERROR_SUCCESS;
+}
+
+/******************************************************************
+ *  MsiSourceListAddSourceExW (MSI.@)
+ */
+UINT WINAPI MsiSourceListClearAllW( LPCWSTR szProduct, LPCWSTR szUserName, DWORD dwReserved )
+{
+    FIXME("(%s %s %ld) stub\n", debugstr_w(szProduct), debugstr_w(szUserName), dwReserved);
     return ERROR_SUCCESS;
 }

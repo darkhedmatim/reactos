@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 
@@ -126,7 +126,7 @@ static struct expr * EXPR_wildcard( void *info );
 %type <string> table id
 %type <column_list> selcollist column column_and_type column_def table_def
 %type <column_list> column_assignment update_assign_list constlist
-%type <query> query from fromtable selectfrom unorderedsel
+%type <query> query multifrom from fromtable selectfrom unorderedsel
 %type <query> oneupdate onedelete oneselect onequery onecreate oneinsert
 %type <expr> expr val column_val const_val
 %type <column_type> column_type data_type data_type_l data_count
@@ -369,7 +369,7 @@ unorderedsel:
     ;
 
 selectfrom:
-    selcollist from 
+    selcollist multifrom 
         {
             SQL_input* sql = (SQL_input*) info;
             UINT r;
@@ -398,6 +398,20 @@ selcollist:
   | TK_STAR
         {
             $$ = NULL;
+        }
+    ;
+
+multifrom:
+    from
+  | TK_FROM table TK_COMMA table TK_WHERE expr
+        {
+            SQL_input* sql = (SQL_input*) info;
+            UINT r;
+
+            /* only support inner joins on two tables */
+            r = JOIN_CreateView( sql->db, &$$, $2, $4, $6 );
+            if( r != ERROR_SUCCESS )
+                YYABORT;
         }
     ;
 

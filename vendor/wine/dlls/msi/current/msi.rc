@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 #include "windef.h"
@@ -30,14 +30,17 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 #include "msi_Bg.rc"
 #include "msi_De.rc"
 #include "msi_En.rc"
+#include "msi_Eo.rc"
 #include "msi_Es.rc"
 #include "msi_Fi.rc"
 #include "msi_Fr.rc"
 #include "msi_Hu.rc"
+#include "msi_It.rc"
 #include "msi_Ko.rc"
 #include "msi_Nl.rc"
 #include "msi_No.rc"
 #include "msi_Pt.rc"
+#include "msi_Ru.rc"
 #include "msi_Tr.rc"
 
 /* BINRES instadvert.bmp */
