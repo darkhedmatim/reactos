@@ -29,18 +29,19 @@ use File::Temp;
 use Bugzilla;
 use Bugzilla::Config qw(:DEFAULT $webdotdir);
 use Bugzilla::Util;
-use Bugzilla::Bug;
+use Bugzilla::BugMail;
 
-require "globals.pl";
+require "CGI.pl";
 
 Bugzilla->login();
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
+
 # Connect to the shadow database if this installation is using one to improve
 # performance.
-my $dbh = Bugzilla->switch_to_shadow_db();
+Bugzilla->switch_to_shadow_db();
+
+use vars qw($template $vars $userid);
 
 my %seen;
 my %edgesdone;
@@ -119,11 +120,10 @@ node [URL="${urlbase}show_bug.cgi?id=\\N", style=filled, color=lightgrey]
 my %baselist;
 
 if ($cgi->param('doall')) {
-    my $dependencies = $dbh->selectall_arrayref(
-                           "SELECT blocked, dependson FROM dependencies");
+    SendSQL("SELECT blocked, dependson FROM dependencies");
 
-    foreach my $dependency (@$dependencies) {
-        my ($blocked, $dependson) = @$dependency;
+    while (MoreSQLData()) {
+        my ($blocked, $dependson) = FetchSQLData();
         AddLink($blocked, $dependson, $fh);
     }
 } else {
@@ -134,14 +134,12 @@ if ($cgi->param('doall')) {
     }
 
     my @stack = keys(%baselist);
-    my $sth = $dbh->prepare(
-                  q{SELECT blocked, dependson
-                      FROM dependencies
-                     WHERE blocked = ? or dependson = ?});
     foreach my $id (@stack) {
-        my $dependencies = $dbh->selectall_arrayref($sth, undef, ($id, $id));
-        foreach my $dependency (@$dependencies) {
-            my ($blocked, $dependson) = @$dependency;
+        SendSQL("SELECT blocked, dependson 
+                 FROM   dependencies 
+                 WHERE  blocked = $id or dependson = $id");
+        while (MoreSQLData()) {
+            my ($blocked, $dependson) = FetchSQLData();
             if ($blocked != $id && !exists $seen{$blocked}) {
                 push @stack, $blocked;
             }
@@ -159,13 +157,16 @@ if ($cgi->param('doall')) {
     }
 }
 
-my $sth = $dbh->prepare(
-              q{SELECT bug_status, resolution, short_desc
-                  FROM bugs
-                 WHERE bugs.bug_id = ?});
 foreach my $k (keys(%seen)) {
+    my $summary = "";
+    my $stat;
+    my $resolution;
+
     # Retrieve bug information from the database
-    my ($stat, $resolution, $summary) = $dbh->selectrow_array($sth, undef, $k);
+ 
+    SendSQL("SELECT bug_status, resolution, short_desc FROM bugs " .
+            "WHERE bugs.bug_id = $k");
+    ($stat, $resolution, $summary) = FetchSQLData();
     $stat ||= 'NEW';
     $resolution ||= '';
     $summary ||= '';
@@ -175,7 +176,6 @@ foreach my $k (keys(%seen)) {
         $resolution = $summary = '';
     }
 
-    $vars->{'short_desc'} = $summary if ($k eq $cgi->param('id'));
 
     my @params;
 
@@ -220,7 +220,7 @@ my $webdotbase = Param('webdotbase');
 
 if ($webdotbase =~ /^https?:/) {
      # Remote dot server
-     my $url = perform_substs($webdotbase) . $filename;
+     my $url = PerformSubsts($webdotbase) . $filename;
      $vars->{'image_url'} = $url . ".gif";
      $vars->{'map_url'} = $url . ".map";
 } else {

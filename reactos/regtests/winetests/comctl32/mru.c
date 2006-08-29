@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <stdarg.h>
 
@@ -100,7 +100,7 @@ static void check_reg_entries(const char *mrulist, const char**items)
     char buff[128];
     HKEY hKey = NULL;
     DWORD type, size, ret;
-    unsigned int i;
+    size_t i;
 
     ok(!RegOpenKeyA(HKEY_CURRENT_USER, REG_TEST_FULLKEY, &hKey),
        "Couldn't open test key \"%s\"\n", REG_TEST_FULLKEY);

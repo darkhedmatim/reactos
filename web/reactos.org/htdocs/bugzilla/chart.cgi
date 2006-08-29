@@ -19,7 +19,6 @@
 # Rights Reserved.
 #
 # Contributor(s): Gervase Markham <gerv@gerv.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 # Glossary:
 # series:   An individual, defined set of data plotted over time.
@@ -45,16 +44,13 @@
 use strict;
 use lib qw(.);
 
-require "globals.pl";
-use Bugzilla;
+require "CGI.pl";
 use Bugzilla::Constants;
 use Bugzilla::Chart;
 use Bugzilla::Series;
 use Bugzilla::User;
 
-my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
+use vars qw($cgi $template $vars);
 
 # Go back to query.cgi if we are adding a boolean chart parameter.
 if (grep(/^cmd-/, $cgi->param())) {
@@ -64,6 +60,7 @@ if (grep(/^cmd-/, $cgi->param())) {
     exit;
 }
 
+my $template = Bugzilla->template;
 my $action = $cgi->param('action');
 my $series_id = $cgi->param('series_id');
 
@@ -86,7 +83,7 @@ if ($action eq "search") {
     exit;
 }
 
-my $user = Bugzilla->login(LOGIN_REQUIRED);
+Bugzilla->login(LOGIN_REQUIRED);
 
 UserInGroup(Param("chartgroup"))
   || ThrowUserError("auth_failure", {group  => Param("chartgroup"),
@@ -103,7 +100,7 @@ if ($action =~ /^(assemble|add|remove|sum|subscribe|unsubscribe)$/) {
     if ($action =~ /^subscribe|unsubscribe$/) {
         detaint_natural($series_id) || ThrowCodeError("invalid_series_id");
         my $series = new Bugzilla::Series($series_id);
-        $series->$action($user->id);
+        $series->$action($::userid);
     }
 
     my $chart = new Bugzilla::Chart($cgi);
@@ -203,15 +200,13 @@ sub getSelectedLines {
 # Check if the user is the owner of series_id or is an admin. 
 sub assertCanEdit {
     my ($series_id) = @_;
-    my $user = Bugzilla->user;
-
-    return if $user->in_group('admin');
+    
+    return if UserInGroup("admin");
 
     my $dbh = Bugzilla->dbh;
-    my $iscreator = $dbh->selectrow_array("SELECT CASE WHEN creator = ? " .
-                                          "THEN 1 ELSE 0 END FROM series " .
+    my $iscreator = $dbh->selectrow_array("SELECT creator = ? FROM series " .
                                           "WHERE series_id = ?", undef,
-                                          $user->id, $series_id);
+                                          $::userid, $series_id);
     $iscreator || ThrowUserError("illegal_series_edit");
 }
 
@@ -267,7 +262,9 @@ sub plot {
     validateWidthAndHeight();
     $vars->{'chart'} = new Bugzilla::Chart($cgi);
 
-    my $format = $template->get_format("reports/chart", "", scalar($cgi->param('ctype')));
+    my $format = &::GetFormat("reports/chart",
+                              "",
+                              $cgi->param('ctype'));
 
     # Debugging PNGs is a pain; we need to be able to see the error messages
     if ($cgi->param('debug')) {

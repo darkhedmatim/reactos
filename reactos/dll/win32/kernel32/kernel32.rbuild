@@ -5,16 +5,13 @@
 	<define name="_DISABLE_TIDENTS" />
 	<define name="_SEH_NO_NATIVE_NLG" />
 	<define name="__USE_W32API" />
-	<define name="_WIN32_WINNT">0x0502</define>
+	<define name="_WIN32_WINNT">0x0600</define>
 	<define name="__NO_CTYPE_INLINES" />
-	<define name="WINVER">0x502</define>
-<!--
-	!!!  DO NOT ENABLE PCH! SOME FILES ARE NOT PCH-SAFE AS THEY DEFINE  !!!
-	!!!  _WIN32_WINNT DIFFERENTLY BEFORE INCLUDING k32.h                !!!
-
+	<define name="WINVER">0x0600</define>
 	<pch>k32.h</pch>
--->
+	<compilationunit name="unit.c">
 	<directory name="debug">
+		<file>break.c</file>
 		<file>debugger.c</file>
 		<file>output.c</file>
 	</directory>
@@ -107,6 +104,7 @@
 		<file>thread.c</file>
 		<file>tls.c</file>
 	</directory>
+	</compilationunit>
 	<directory name="misc">
 		<file>lcformat.c</file>
 		<file>profile.c</file>

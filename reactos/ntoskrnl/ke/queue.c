@@ -1,160 +1,38 @@
 /*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/queue.c
  * PURPOSE:         Implements kernel queues
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ *
+ * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
  *                  Gunnar Dalsnes
  *                  Eric Kohl (ekohl@rz-online.de)
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
-/* PRIVATE FUNCTIONS *********************************************************/
+/* FUNCTIONS *****************************************************************/
 
-/*
- * Called when a thread which has a queue entry is entering a wait state
- */
-VOID
-FASTCALL
-KiWakeQueue(IN PKQUEUE Queue)
-{
-    PLIST_ENTRY QueueEntry;
-    PLIST_ENTRY WaitEntry;
-    PKWAIT_BLOCK WaitBlock;
-    PKTHREAD Thread;
-    ASSERT_QUEUE(Queue);
-
-    /* Decrement the number of active threads */
-    Queue->CurrentCount--;
-
-    /* Make sure the counts are OK */
-    if (Queue->CurrentCount < Queue->MaximumCount)
-    {
-        /* Get the Queue Entry */
-        QueueEntry = Queue->EntryListHead.Flink;
-
-        /* Get the Wait Entry */
-        WaitEntry = Queue->Header.WaitListHead.Blink;
-
-        /* Make sure that the Queue entries are not part of empty lists */
-        if ((WaitEntry != &Queue->Header.WaitListHead) &&
-            (QueueEntry != &Queue->EntryListHead))
-        {
-            /* Remove this entry */
-            RemoveEntryList(QueueEntry);
-            QueueEntry->Flink = NULL;
-
-            /* Decrease the Signal State */
-            Queue->Header.SignalState--;
-
-            /* Unwait the Thread */
-            WaitBlock = CONTAINING_RECORD(WaitEntry,
-                                          KWAIT_BLOCK,
-                                          WaitListEntry);
-            Thread = WaitBlock->Thread;
-            KiAbortWaitThread(Thread, (NTSTATUS)QueueEntry, IO_NO_INCREMENT);
-        }
-    }
-}
-
-/*
- * Returns the previous number of entries in the queue
- */
-LONG
-NTAPI
-KiInsertQueue(IN PKQUEUE Queue,
-              IN PLIST_ENTRY Entry,
-              BOOLEAN Head)
-{
-    ULONG InitialState;
-    PKTHREAD Thread = KeGetCurrentThread();
-    PKWAIT_BLOCK WaitBlock;
-    PLIST_ENTRY WaitEntry;
-    ASSERT_QUEUE(Queue);
-
-    /* Save the old state */
-    InitialState = Queue->Header.SignalState;
-
-    /* Get the Entry */
-    WaitEntry = Queue->Header.WaitListHead.Blink;
-
-    /*
-     * Why the KeGetCurrentThread()->Queue != Queue?
-     * KiInsertQueue might be called from an APC for the current thread.
-     * -Gunnar
-     */
-    if ((Queue->CurrentCount < Queue->MaximumCount) &&
-        (WaitEntry != &Queue->Header.WaitListHead) &&
-        ((Thread->Queue != Queue) ||
-         (Thread->WaitReason != WrQueue)))
-    {
-        /* Remove the wait entry */
-        RemoveEntryList(WaitEntry);
-
-        /* Get the Wait Block and Thread */
-        WaitBlock = CONTAINING_RECORD(WaitEntry, KWAIT_BLOCK, WaitListEntry);
-        Thread = WaitBlock->Thread;
-
-        /* Remove the queue from the thread's wait list */
-        Thread->WaitStatus = (NTSTATUS)Entry;
-        if (Thread->WaitListEntry.Flink) RemoveEntryList(&Thread->WaitListEntry);
-        Thread->WaitReason = 0;
-
-        /* Increase the active threads and set the status*/
-        Queue->CurrentCount++;
-
-        /* Check if there's a Thread Timer */
-        if (Thread->Timer.Header.Inserted)
-        {
-            /* Cancel the Thread Timer with the no-lock fastpath */
-            Thread->Timer.Header.Inserted = FALSE;
-            RemoveEntryList(&Thread->Timer.TimerListEntry);
-        }
-
-        /* Reschedule the Thread */
-        KiReadyThread(Thread);
-    }
-    else
-    {
-        /* Increase the Entries */
-        Queue->Header.SignalState++;
-
-        /* Check which mode we're using */
-        if (Head)
-        {
-            /* Insert in the head */
-            InsertHeadList(&Queue->EntryListHead, Entry);
-        }
-        else
-        {
-            /* Insert at the end */
-            InsertTailList(&Queue->EntryListHead, Entry);
-        }
-    }
-
-    /* Return the previous state */
-    return InitialState;
-}
-
-/* PUBLIC FUNCTIONS **********************************************************/
+LONG STDCALL KiInsertQueue(IN PKQUEUE Queue, IN PLIST_ENTRY Entry, BOOLEAN Head);
 
 /*
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeInitializeQueue(IN PKQUEUE Queue,
                   IN ULONG Count OPTIONAL)
 {
+    DPRINT("KeInitializeQueue %x\n", Queue);
+
     /* Initialize the Header */
     KeInitializeDispatcherHeader(&Queue->Header,
                                  QueueObject,
-                                 sizeof(KQUEUE) / sizeof(ULONG),
+                                 sizeof(KQUEUE)/sizeof(ULONG),
                                  0);
 
     /* Initialize the Lists */
@@ -170,14 +48,14 @@ KeInitializeQueue(IN PKQUEUE Queue,
  * @implemented
  */
 LONG
-NTAPI
+STDCALL
 KeInsertHeadQueue(IN PKQUEUE Queue,
                   IN PLIST_ENTRY Entry)
 {
     LONG PreviousState;
     KIRQL OldIrql;
-    ASSERT_QUEUE(Queue);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+
+    DPRINT("KeInsertHeadQueue %x\n", Queue);
 
     /* Lock the Dispatcher Database */
     OldIrql = KeAcquireDispatcherDatabaseLock();
@@ -195,15 +73,14 @@ KeInsertHeadQueue(IN PKQUEUE Queue,
 /*
  * @implemented
  */
-LONG
-NTAPI
+LONG STDCALL
 KeInsertQueue(IN PKQUEUE Queue,
               IN PLIST_ENTRY Entry)
 {
     LONG PreviousState;
     KIRQL OldIrql;
-    ASSERT_QUEUE(Queue);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+
+    DPRINT("KeInsertQueue %x\n", Queue);
 
     /* Lock the Dispatcher Database */
     OldIrql = KeAcquireDispatcherDatabaseLock();
@@ -224,19 +101,18 @@ KeInsertQueue(IN PKQUEUE Queue,
  * Returns number of entries in the queue
  */
 LONG
-NTAPI
+STDCALL
 KeReadStateQueue(IN PKQUEUE Queue)
 {
     /* Returns the Signal State */
-    ASSERT_QUEUE(Queue);
-    return Queue->Header.SignalState;
+    return(Queue->Header.SignalState);
 }
 
 /*
  * @implemented
  */
 PLIST_ENTRY
-NTAPI
+STDCALL
 KeRemoveQueue(IN PKQUEUE Queue,
               IN KPROCESSOR_MODE WaitMode,
               IN PLARGE_INTEGER Timeout OPTIONAL)
@@ -248,52 +124,50 @@ KeRemoveQueue(IN PKQUEUE Queue,
     PKQUEUE PreviousQueue;
     PKWAIT_BLOCK WaitBlock;
     PKTIMER Timer;
-    BOOLEAN Swappable;
-    PLARGE_INTEGER OriginalDueTime = Timeout;
-    LARGE_INTEGER DueTime, NewDueTime;
-    ASSERT_QUEUE(Queue);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+    DPRINT("KeRemoveQueue %x\n", Queue);
 
     /* Check if the Lock is already held */
     if (Thread->WaitNext)
     {
-        /* It is, so next time don't do expect this */
+        DPRINT("Lock is already held\n");
         Thread->WaitNext = FALSE;
     }
     else
     {
         /* Lock the Dispatcher Database */
+        DPRINT("Lock not held, acquiring\n");
         OldIrql = KeAcquireDispatcherDatabaseLock();
         Thread->WaitIrql = OldIrql;
     }
 
-    /*
-     * This is needed so that we can set the new queue right here,
-     * before additional processing
-     */
+    /* This is needed so that we can set the new queue right here, before additional processing */
     PreviousQueue = Thread->Queue;
     Thread->Queue = Queue;
 
     /* Check if this is a different queue */
     if (Queue != PreviousQueue)
     {
-        /* Get the current entry */
+        DPRINT("Different Queue\n");
         QueueEntry = &Thread->QueueListEntry;
         if (PreviousQueue)
         {
             /* Remove from this list */
+            DPRINT("Removing Old Queue\n");
             RemoveEntryList(QueueEntry);
 
             /* Wake the queue */
+            DPRINT("Activating new thread\n");
             KiWakeQueue(PreviousQueue);
         }
 
         /* Insert in this new Queue */
+        DPRINT("Inserting new Queue!\n");
         InsertTailList(&Queue->ThreadListHead, QueueEntry);
     }
     else
     {
         /* Same queue, decrement waiting threads */
+        DPRINT("Same Queue!\n");
         Queue->CurrentCount--;
     }
 
@@ -305,6 +179,10 @@ KeRemoveQueue(IN PKQUEUE Queue,
         if ((Queue->CurrentCount < Queue->MaximumCount) &&
             (QueueEntry != &Queue->EntryListHead))
         {
+            /* Remove the Entry and Save it */
+            DPRINT("Removing Queue Entry. CurrentCount: %d, Maximum Count: %d\n",
+                    Queue->CurrentCount, Queue->MaximumCount);
+
             /* Decrease the number of entries */
             Queue->Header.SignalState--;
 
@@ -326,129 +204,119 @@ KeRemoveQueue(IN PKQUEUE Queue,
         }
         else
         {
+            /* Do the wait */
+            DPRINT("Waiting on Queue Entry. CurrentCount: %d, Maximum Count: %d\n",
+                    Queue->CurrentCount, Queue->MaximumCount);
+
             /* Use the Thread's Wait Block, it's big enough */
             Thread->WaitBlockList = &Thread->WaitBlock[0];
 
-            /* Check if a kernel APC is pending and we're below APC_LEVEL */
+            /* Check if a kernel APC is pending and we were below APC_LEVEL */
             if ((Thread->ApcState.KernelApcPending) &&
-                !(Thread->SpecialApcDisable) && (Thread->WaitIrql < APC_LEVEL))
+                (Thread->WaitIrql < APC_LEVEL))
             {
                 /* Increment the count and unlock the dispatcher */
                 Queue->CurrentCount++;
                 KeReleaseDispatcherDatabaseLock(Thread->WaitIrql);
+                goto SkipWait;
             }
-            else
+
+            /* Fail if there's a User APC Pending */
+            if ((WaitMode != KernelMode) && (Thread->ApcState.UserApcPending))
             {
-                /* Fail if there's a User APC Pending */
-                if ((WaitMode != KernelMode) &&
-                    (Thread->ApcState.UserApcPending))
+                /* Return the status and increase the pending threads */
+                QueueEntry = (PLIST_ENTRY)STATUS_USER_APC;
+                Queue->CurrentCount++;
+
+                /* Nothing to wait on */
+                break;
+            }
+
+            /* Build the Wait Block */
+            WaitBlock = &Thread->WaitBlock[0];
+            WaitBlock->Object = (PVOID)Queue;
+            WaitBlock->WaitKey = STATUS_SUCCESS;
+            WaitBlock->WaitType = WaitAny;
+            WaitBlock->Thread = Thread;
+            Thread->WaitStatus = STATUS_WAIT_0;
+
+            /* We need to wait for the object... check if we have a timeout */
+            if (Timeout)
+            {
+                /* If it's zero, then don't do any waiting */
+                if (!Timeout->QuadPart)
                 {
-                    /* Return the status and increase the pending threads */
-                    QueueEntry = (PLIST_ENTRY)STATUS_USER_APC;
+                    /* Instant Timeout, return the status and increase the pending threads */
+                    DPRINT("Queue Wait has timed out\n");
+                    QueueEntry = (PLIST_ENTRY)STATUS_TIMEOUT;
                     Queue->CurrentCount++;
+
+                    /* Nothing to wait on */
                     break;
                 }
 
-                /* Build the Wait Block */
-                WaitBlock = &Thread->WaitBlock[0];
-                WaitBlock->Object = (PVOID)Queue;
-                WaitBlock->WaitKey = STATUS_SUCCESS;
-                WaitBlock->WaitType = WaitAny;
+                /*
+                 * Set up the Timer. We'll use the internal function so that we can
+                 * hold on to the dispatcher lock.
+                 */
+                Timer = &Thread->Timer;
+                WaitBlock->NextWaitBlock = &Thread->WaitBlock[1];
+                WaitBlock = &Thread->WaitBlock[1];
+
+                /* Set up the Timer Wait Block */
+                WaitBlock->Object = (PVOID)Timer;
                 WaitBlock->Thread = Thread;
-                Thread->WaitStatus = STATUS_WAIT_0;
+                WaitBlock->WaitKey = STATUS_TIMEOUT;
+                WaitBlock->WaitType = WaitAny;
 
-                /* Check if we can swap the thread's stack */
-                Thread->WaitListEntry.Flink = NULL;
-                KiCheckThreadStackSwap(WaitMode, Thread, Swappable);
+                /* Link the timer to this Wait Block */
+                Timer->Header.WaitListHead.Flink = &WaitBlock->WaitListEntry;
+                Timer->Header.WaitListHead.Blink = &WaitBlock->WaitListEntry;
 
-                /* We need to wait for the object... check for a timeout */
-                if (Timeout)
-                {
-                    /* Check if it's zero */
-                    if (!Timeout->QuadPart)
-                    {
-                        /* Don't wait. Return and increase pending threads */
-                        QueueEntry = (PLIST_ENTRY)STATUS_TIMEOUT;
-                        Queue->CurrentCount++;
-                        break;
-                    }
-
-                    /*
-                     * Set up the Timer. We'll use the internal function so
-                     * that we can hold on to the dispatcher lock.
-                     */
-                    Timer = &Thread->Timer;
-                    WaitBlock->NextWaitBlock = &Thread->WaitBlock[1];
-                    WaitBlock = &Thread->WaitBlock[1];
-
-                    /* Set up the Timer Wait Block */
-                    WaitBlock->Object = (PVOID)Timer;
-                    WaitBlock->Thread = Thread;
-                    WaitBlock->WaitKey = STATUS_TIMEOUT;
-                    WaitBlock->WaitType = WaitAny;
-
-                    /* Link the timer to this Wait Block */
-                    Timer->Header.WaitListHead.Flink =
-                        &WaitBlock->WaitListEntry;
-                    Timer->Header.WaitListHead.Blink =
-                        &WaitBlock->WaitListEntry;
-                    WaitBlock->WaitListEntry.Flink =
-                        &Timer->Header.WaitListHead;
-                    WaitBlock->WaitListEntry.Blink =
-                        &Timer->Header.WaitListHead;
-
-                    /* Create Timer */
-                    if (!KiInsertTimer(Timer, *Timeout))
-                    {
-                        /* FIXME */
-                        DPRINT1("If you see thie message contact Alex ASAP\n");
-                        KEBUGCHECK(0);
-                    }
-
-                    /* Set timer due time */
-                    DueTime.QuadPart = Timer->DueTime.QuadPart;
-                }
-
-                /* Close the loop */
-                WaitBlock->NextWaitBlock = &Thread->WaitBlock[0];
-
-                /* Insert the wait block into the Queues's wait list */
-                WaitBlock = &Thread->WaitBlock[0];
-                InsertTailList(&Queue->Header.WaitListHead,
-                               &WaitBlock->WaitListEntry);
-
-                /* Setup the wait information */
-                Thread->WaitMode = WaitMode;
-                Thread->WaitReason = WrQueue;
-                Thread->Alertable = FALSE;
-                Thread->WaitTime = ((PLARGE_INTEGER)&KeTickCount)->LowPart;
-                Thread->State = Waiting;
-
-                /* Find a new thread to run */
-                KiAddThreadToWaitList(Thread, Swappable);
-                Status = KiSwapThread();
-
-                /* Reset the wait reason */
-                Thread->WaitReason = 0;
-
-                /* Check if we were executing an APC */
-                if (Status != STATUS_KERNEL_APC)
-                {
-                    /* Done Waiting  */
-                    return (PLIST_ENTRY)Status;
-                }
-
-                /* Check if we had a timeout */
-                if (Timeout)
-                {
-                    /* Recalculate due times */
-                    Timeout = KiRecalculateDueTime(OriginalDueTime,
-                                                   &DueTime,
-                                                   &NewDueTime);
-                }
+                /* Create Timer */
+                DPRINT("Creating Timer with timeout %I64d\n", *Timeout);
+                KiInsertTimer(Timer, *Timeout);
             }
 
-            /* Reacquire the lock */
+            /* Close the loop */
+            WaitBlock->NextWaitBlock = &Thread->WaitBlock[0];
+
+            /* Insert the wait block into the Queues's wait list */
+            WaitBlock = &Thread->WaitBlock[0];
+            InsertTailList(&Queue->Header.WaitListHead,
+                           &WaitBlock->WaitListEntry);
+
+            /* Setup the wait information */
+            Thread->WaitMode = WaitMode;
+            Thread->WaitReason = WrQueue;
+            Thread->Alertable = FALSE;
+            Thread->WaitTime = ((PLARGE_INTEGER)&KeTickCount)->LowPart;
+            Thread->State = Waiting;
+
+            /* Find a new thread to run */
+            DPRINT("Swapping threads\n");
+            Status = KiSwapThread();
+
+            /* Reset the wait reason */
+            Thread->WaitReason = 0;
+
+            /* Check if we were executing an APC */
+            if (Status != STATUS_KERNEL_APC)
+            {
+                /* Done Waiting  */
+                DPRINT("Done waking queue. Thread: %x %x!\n", KeGetCurrentThread(), Thread);
+                return (PLIST_ENTRY)Status;
+            }
+
+            /* Check if we had a timeout */
+            if (Timeout)
+            {
+                /* FIXME: Fixup interval */
+            }
+
+            /* Acquire again the lock */
+SkipWait:
+            DPRINT("Looping again\n");
             OldIrql = KeAcquireDispatcherDatabaseLock();
 
             /* Save the new IRQL and decrease number of waiting threads */
@@ -459,6 +327,8 @@ KeRemoveQueue(IN PKQUEUE Queue,
 
     /* Unlock Database and return */
     KeReleaseDispatcherDatabaseLock(Thread->WaitIrql);
+    DPRINT("Returning. CurrentCount: %d, Maximum Count: %d\n",
+            Queue->CurrentCount, Queue->MaximumCount);
     return QueueEntry;
 }
 
@@ -466,16 +336,15 @@ KeRemoveQueue(IN PKQUEUE Queue,
  * @implemented
  */
 PLIST_ENTRY
-NTAPI
+STDCALL
 KeRundownQueue(IN PKQUEUE Queue)
 {
     PLIST_ENTRY EnumEntry;
     PLIST_ENTRY FirstEntry = NULL;
     PKTHREAD Thread;
     KIRQL OldIrql;
-    ASSERT_QUEUE(Queue);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
-    ASSERT(IsListEmpty(&Queue->Header.WaitListHead));
+
+    DPRINT("KeRundownQueue(Queue %x)\n", Queue);
 
     /* Get the Dispatcher Lock */
     OldIrql = KeAcquireDispatcherDatabaseLock();
@@ -503,6 +372,139 @@ KeRundownQueue(IN PKQUEUE Queue)
     /* Release the lock and return */
     KeReleaseDispatcherDatabaseLock(OldIrql);
     return FirstEntry;
+}
+
+/*
+ * Called when a thread which has a queue entry is entering a wait state
+ */
+VOID
+FASTCALL
+KiWakeQueue(IN PKQUEUE Queue)
+{
+    PLIST_ENTRY QueueEntry;
+    PLIST_ENTRY WaitEntry;
+    PKWAIT_BLOCK WaitBlock;
+    PKTHREAD Thread;
+
+    /* Decrement the number of active threads */
+    DPRINT("KiWakeQueue: %x. Thread: %x\n", Queue, KeGetCurrentThread());
+    Queue->CurrentCount--;
+
+    /* Make sure the counts are OK */
+    if (Queue->CurrentCount < Queue->MaximumCount)
+    {
+        /* Get the Queue Entry */
+        QueueEntry = Queue->EntryListHead.Flink;
+
+        /* Get the Wait Entry */
+        WaitEntry = Queue->Header.WaitListHead.Blink;
+        DPRINT("Queue Count is ok; entries: %p, %p\n", QueueEntry, WaitEntry);
+
+        /* Make sure that the Queue entries are not part of empty lists */
+        if ((WaitEntry != &Queue->Header.WaitListHead) &&
+            (QueueEntry != &Queue->EntryListHead))
+        {
+            /* Remove this entry */
+            DPRINT("Queue in List, removing it\n");
+            RemoveEntryList(QueueEntry);
+            QueueEntry->Flink = NULL;
+
+            /* Decrease the Signal State */
+            Queue->Header.SignalState--;
+
+            /* Unwait the Thread */
+            WaitBlock = CONTAINING_RECORD(WaitEntry,
+                                          KWAIT_BLOCK,
+                                          WaitListEntry);
+            Thread = WaitBlock->Thread;
+            DPRINT1("Unwaiting Thread: %d\n", Thread->State);
+            KiAbortWaitThread(Thread, (NTSTATUS)QueueEntry, IO_NO_INCREMENT);
+        }
+    }
+}
+
+/*
+ * Returns the previous number of entries in the queue
+ */
+LONG
+STDCALL
+KiInsertQueue(IN PKQUEUE Queue,
+              IN PLIST_ENTRY Entry,
+              BOOLEAN Head)
+{
+    ULONG InitialState;
+    PKTHREAD Thread = KeGetCurrentThread();
+    PKWAIT_BLOCK WaitBlock;
+    PLIST_ENTRY WaitEntry;
+    DPRINT("KiInsertQueue(Queue %x, Entry %x)\n", Queue, Entry);
+
+    /* Save the old state */
+    InitialState = Queue->Header.SignalState;
+
+    /* Get the Entry */
+    WaitEntry = Queue->Header.WaitListHead.Blink;
+    DPRINT("Initial State, WaitEntry: %d, %x\n", InitialState, WaitEntry);
+
+    /*
+     * Why the KeGetCurrentThread()->Queue != Queue?
+     * KiInsertQueue might be called from an APC for the current thread.
+     * -Gunnar
+     */
+    if ((Queue->CurrentCount < Queue->MaximumCount) &&
+        (WaitEntry != &Queue->Header.WaitListHead) &&
+        ((Thread->Queue != Queue) || (Thread->WaitReason != WrQueue)))
+    {
+        /* Remove the wait entry */
+        DPRINT("Removing Entry\n");
+        RemoveEntryList(WaitEntry);
+
+        /* Get the Wait Block and Thread */
+        WaitBlock = CONTAINING_RECORD(WaitEntry, KWAIT_BLOCK, WaitListEntry);
+        DPRINT("Got wait block: %x\n", WaitBlock);
+        Thread = WaitBlock->Thread;
+
+        /* Reset the wait reason */
+        Thread->WaitReason = 0;
+
+        /* Increase the active threads and set the status*/
+        Queue->CurrentCount++;
+        Thread->WaitStatus = (NTSTATUS)Entry;
+
+        /* Check if there's a Thread Timer */
+        if (Thread->Timer.Header.Inserted)
+        {
+            /* Cancel the Thread Timer with the no-lock fastpath */
+            DPRINT("Removing the Thread's Timer\n");
+            Thread->Timer.Header.Inserted = FALSE;
+            RemoveEntryList(&Thread->Timer.TimerListEntry);
+        }
+
+        /* Reschedule the Thread */
+        DPRINT("Unblocking the Thread\n");
+        KiUnblockThread(Thread, (PNTSTATUS)&Entry, 0);
+    }
+    else
+    {
+        /* Increase the Entries */
+        DPRINT("Adding new Queue Entry: %d %d\n", Head, Queue->Header.SignalState);
+        Queue->Header.SignalState++;
+
+        /* Check which mode we're using */
+        if (Head)
+        {
+            /* Insert in the head */
+            InsertHeadList(&Queue->EntryListHead, Entry);
+        }
+        else
+        {
+            /* Insert at the end */
+            InsertTailList(&Queue->EntryListHead, Entry);
+        }
+    }
+
+    /* Return the previous state */
+    DPRINT("Returning\n");
+    return InitialState;
 }
 
 /* EOF */

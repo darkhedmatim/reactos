@@ -7,7 +7,11 @@
  *
  */
 
-#include "precomp.h"
+#include "servman.h"
+
+extern HINSTANCE hInstance;
+//extern HWND hMainWnd;
+
 
 BOOL CALLBACK ProgressDialogProc(HWND hDlg, UINT Message, WPARAM wParam, LPARAM lParam)
 {

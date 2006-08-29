@@ -1,9 +1,9 @@
 
-The Bugzilla Guide - 2.22 Release
+The Bugzilla Guide - 2.20.1 Release
 
 The Bugzilla Team
 
-   2006-04-22
+   2006-02-20
 
    This is the documentation for Bugzilla, a bug-tracking system from
    mozilla.org. Bugzilla is an enterprise-class piece of software that tracks
@@ -34,16 +34,15 @@ The Bugzilla Team
 
         3.1. Bugzilla Configuration
         3.2. User Administration
-        3.3. Classifications
-        3.4. Products
-        3.5. Components
-        3.6. Versions
-        3.7. Milestones
-        3.8. Flags
-        3.9. Voting
-        3.10. Quips
-        3.11. Groups and Group Security
-        3.12. Upgrading to New Releases
+        3.3. Products
+        3.4. Components
+        3.5. Versions
+        3.6. Milestones
+        3.7. Flags
+        3.8. Voting
+        3.9. Quips
+        3.10. Groups and Group Security
+        3.11. Upgrading to New Releases
 
    4. Bugzilla Security
 
@@ -130,6 +129,7 @@ The Bugzilla Team
    4-1. Assigning the MySQL "root" User a Password
    4-2. Disabling the MySQL "anonymous" User
    4-3. Disabling Networking in MySQL
+   4-4. Forcing Bugzilla to output a charset
    B-1. Examples of urlbase/cookiepath pairs for sharing login cookies
    B-2. Examples of urlbase/cookiepath pairs to restrict the login cookie
      _________________________________________________________________
@@ -175,8 +175,8 @@ Chapter 1. About This Guide
 
 1.3. New Versions
 
-   This is the 2.22 version of The Bugzilla Guide. It is so named to match the
-   current version of Bugzilla.
+   This is the 2.20.1 version of The Bugzilla Guide. It is so named to match
+   the current version of Bugzilla.
 
    The latest version of this guide can always be found at
    http://www.bugzilla.org, or checked out via CVS by following the Mozilla CVS
@@ -185,13 +185,12 @@ Chapter 1. About This Guide
    you are using.
 
    The Bugzilla Guide, or a section of it, is also available in the following
-   languages: French, German, Japanese. Note that these may be outdated or not
-   up to date.
+   languages: German.
 
    In addition, there are Bugzilla template localisation projects in the
    following languages. They may have translated documentation available:
-   Arabic, Belarusian, Bulgarian, Brazilian Portuguese, Chinese, French,
-   German, Italian, Japanese, Korean, Russian and Spanish.
+   Belarusian, Brazilian Portuguese, Chinese, French, German, Korean, Russian
+   and Spanish.
 
    If you would like to volunteer to translate the Guide into additional
    languages, please contact Dave Miller.
@@ -205,7 +204,7 @@ Chapter 1. About This Guide
    Bugzilla community:
 
    Matthew P. Barnson <mbarnson@sisna.com>
-          for the Herculean task of pulling together the Bugzilla Guide and
+          for the Herculaean task of pulling together the Bugzilla Guide and
           shepherding it to 2.14.
 
    Terry Weissman <terry@mozilla.org>
@@ -335,7 +334,7 @@ Chapter 2. Installing Bugzilla
    Installed Version Test: mysql -V
 
    If you don't have it and your OS doesn't provide official packages, visit
-   http://www.mysql.com. You need MySQL version 4.0.14 or higher.
+   http://www.mysql.com. You need MySQL version 3.23.41 or higher.
 
    Note Many of the binary versions of MySQL store their data files in /var. On
    some Unix systems, this is part of a smaller root partition, and may not
@@ -455,10 +454,8 @@ Chapter 2. Installing Bugzilla
     9. File::Temp (any)
    10. Template (2.08)
    11. Text::Wrap (2001.0131)
-   12. Mail::Mailer (1.67)
-   13. MIME::Base64 (3.01)
-   14. MIME::Parser (5.406)
-   15. Storable (any)
+   12. Mail::Mailer (1.65)
+   13. Storable (any)
 
    Optional Perl modules:
 
@@ -468,7 +465,7 @@ Chapter 2. Installing Bugzilla
     4. GD::Text::Align (any) for bug charting
     5. XML::Parser (any) for the XML interface
     6. PatchReader (0.9.4) for pretty HTML view of patches
-    7. Image::Magick (any) for converting BMP image attachments to PNG
+    7. MIME::Parser (any) for the optional email interface
      _________________________________________________________________
 
 2.1.5.1. DBD::mysql
@@ -534,7 +531,13 @@ Chapter 2. Installing Bugzilla
    on your machine.
      _________________________________________________________________
 
-2.1.5.8. PatchReader (0.9.4)
+2.1.5.8. MIME::Parser (any)
+
+   The MIME::Parser module is only required if you want to use the email
+   interface located in the contrib directory.
+     _________________________________________________________________
+
+2.1.5.9. PatchReader (0.9.4)
 
    The PatchReader module is only required if you want to use Patch Viewer, a
    Bugzilla feature to show code patches in your web browser in a more readable
@@ -550,7 +553,7 @@ Chapter 2. Installing Bugzilla
    sending, or to have Bugzilla store email messages in a file instead of
    sending them. However, this is mainly intended for testing, as disabling or
    diverting email on a production machine would mean that users could miss
-   important events (such as bug changes or the creation of new accounts).
+   important events (such as bug changes or the creation of new accouts).
 
       For more information, see the "maildeliverymethod" parameter in Section 3.1.
 
@@ -670,7 +673,7 @@ Chapter 2. Installing Bugzilla
    Rebuilding the indexes can be done based on documentation found at
    http://www.mysql.com/doc/en/Fulltext_Fine-tuning.html.
 
-   Note The ft_min_word_len parameter is only supported in MySQL v4 or higher.
+   Note The ft_min_word_len parameter is only suported in MySQL v4 or higher.
      _________________________________________________________________
 
 2.2.2.1.3. Permit attachments table to grow beyond 4GB
@@ -725,8 +728,8 @@ Chapter 2. Installing Bugzilla
 
 2.2.2.2. PostgreSQL
 
-   Note If you are using PostgreSQL 8.0.1 or higher, then you will require to
-      use a version of DBD::Pg which is equal to or greater than version 1.41
+   Note Note if you are using PostgreSQL 8.0.1 or higher, then you will require
+      to use a version of DBD::Pg which is equal to or greater than version 1.41
      _________________________________________________________________
 
 2.2.2.2.1. Add a User to PostgreSQL
@@ -1118,11 +1121,11 @@ AddType application/rdf+xml .rdf
 
 2.4. OS-Specific Installation Notes
 
-   Many aspects of the Bugzilla installation can be affected by the operating
-   system you choose to install it on. Sometimes it can be made easier and
-   others more difficult. This section will attempt to help you understand both
-   the difficulties of running on specific operating systems and the utilities
-   available to make it easier.
+   Many aspects of the Bugzilla installation can be affected by the the
+   operating system you choose to install it on. Sometimes it can be made
+   easier and others more difficult. This section will attempt to help you
+   understand both the difficulties of running on specific operating systems
+   and the utilities available to make it easier.
 
    If you have anything to add or notes for an operating system not covered,
    please file a bug in Bugzilla Documentation.
@@ -1151,8 +1154,8 @@ AddType application/rdf+xml .rdf
 C:\perl> ppm install <module name>
 
    The best source for the Windows PPM modules needed for Bugzilla is probably
-   the Bugzilla Test Server (aka 'Landfill'), so you should add the Landfill
-   package repository as follows:
+   the the Bugzilla Test Server (aka 'Landfill'), so you should add the
+   Landfill package repository as follows:
 ppm repository add landfill http://www.landfill.bugzilla.org/ppm/
 
    Note The PPM repository stores modules in 'packages' that may have a
@@ -1161,7 +1164,7 @@ ppm repository add landfill http://www.landfill.bugzilla.org/ppm/
       run checksetup.pl as it will tell you what package you'll need to install.
 
    Tip If you are behind a corporate firewall, you will need to let the
-   ActiveState PPM utility know how to get through it to access the
+   ActiveState PPM utility know how to get through it to acccess the
    repositories by setting the HTTP_proxy system environmental variable. For
    more information on setting that variable, see the ActiveState
       documentation.
@@ -1193,24 +1196,6 @@ ppm repository add landfill http://www.landfill.bugzilla.org/ppm/
      _________________________________________________________________
 
 2.4.2. Mac OS X
-
-   Making Bugzilla work on Mac OS X requires the following adjustments.
-     _________________________________________________________________
-
-2.4.2.1. Sendmail
-
-   In Mac OS X 10.3 and later, Postfix is used as the built-in email server.
-   Postfix provides an executable that mimics sendmail enough to fool Bugzilla,
-   as long as Bugzilla can find it.
-
-   As of version 2.20, Bugzilla will be able to find the fake sendmail
-   executable without any assistance. However, you will have to turn on the
-   sendmailnow parameter before you do anything that would result in email
-   being sent. For more information, see the description of the sendmailnow
-   parameter in Section 3.1.
-     _________________________________________________________________
-
-2.4.2.2. Libraries & Perl Modules on Mac OS X
 
    Apple did not include the GD library with Mac OS X. Bugzilla needs this for
    bug graphs.
@@ -1290,9 +1275,8 @@ bash# urpmi apache-modules
    Warning You may have problems trying to set up GRANT permissions to the
    database. If you're using a web host, chances are that you have a separate
    database which is already locked down (or one big database with limited/no
-   access to the other areas), but you may want to ask your system
-   administrator what the security settings are set to, and/or run the GRANT
-   command for you.
+   access to the other areas), but you may want to ask your system adminstrator
+   what the security settings are set to, and/or run the GRANT command for you.
 
    Also, you will probably not be able to change the MySQL root user password
       (for obvious reasons), so skip that step.
@@ -1681,14 +1665,6 @@ Chapter 3. Administering Bugzilla
           have unresolved dependencies. Only the FIXED resolution is affected.
           Users will be still able to resolve bugs to resolutions other than
           FIXED if they have unresolved dependent bugs.
-
-   sendmailnow
-          When Bugzilla is using Sendmail older than 8.12, turning this option
-          off will improve performance by not waiting for Sendmail to actually
-          send mail. If Sendmail 8.12 or later is being used, there is nothing
-          to gain by turning this off. If another MTA is being used, such as
-          Postfix, then this option *must* be turned on (even if you are using
-          the fake sendmail executable that Postfix provides).
      _________________________________________________________________
 
 3.2. User Administration
@@ -1799,56 +1775,13 @@ Chapter 3. Administering Bugzilla
        privilege to edit bugs in these products.
      _________________________________________________________________
 
-3.2.2.3. Impersonating Users
+3.3. Products
 
-   There may be times when an administrator would like to do something as
-   another user. The sudo feature may be used to do this.
-
-   Note To use the sudo feature, you must be in the bz_sudoers group. By
-      default, all administrators are in this group.
-
-   If you have access to this feature, you may start a session by going to the
-   Edit Users page, Searching for a user and clicking on their login. You
-   should see a link below their login name titled "Impersonate this user".
-   Click on the link. This will take you to a page where you will see a
-   description of the feature and instructions for using it. After reading the
-   text, simply enter the login of the user you would like to impersonate,
-   provide a short message explaining why you are doing this, and press the
-   button.
-
-   As long as you are using this feature, everything you do will be done as if
-   you were logged in as the user you are impersonating.
-
-   Warning The user you are impersonating will not be told about what you are
-   doing. If you do anything that results in mail being sent, that mail will
-   appear to be from the user you are impersonating. You should be extremely
-      careful while using this feature.
-     _________________________________________________________________
-
-3.3. Classifications
-
-   Classifications tend to be used in order to group several related products
-   into one distinct entity.
-
-   The classifications layer is disabled by default; it can be turned on or off
-   using the useclassification parameter, in the Bug Fields section of the edit
-   parameters screen.
-
-   Access to the administration of classifications is controlled using the
-   editclassifications system group, which defines a privilege for creating,
-   destroying, and editing classifications.
-
-   When activated, classifications will introduce an additional step when
-   filling bugs (dedicated to classification selection), and they will also
-   appear in the advanced search form.
-     _________________________________________________________________
-
-3.4. Products
-
-   Products tend to represent real-world shipping products. E.g. if your
-   company makes computer games, you should have one product per game, perhaps
-   a "Common" product for units of technology used in multiple games, and maybe
-   a few special products (Website, Administration...)
+   Products are the broadest category in Bugzilla, and tend to represent
+   real-world shipping products. E.g. if your company makes computer games, you
+   should have one product per game, perhaps a "Common" product for units of
+   technology used in multiple games, and maybe a few special products
+   (Website, Administration...)
 
    Many of Bugzilla's settings are configurable on a per-product basis. The
    number of "votes" available to users is set per-product, as is the number of
@@ -1864,11 +1797,11 @@ Chapter 3. Administering Bugzilla
 
    Don't worry about the "Closed for bug entry", "Maximum Votes per person",
    "Maximum votes a person can put on a single bug", "Number of votes a bug in
-   this Product needs to automatically get out of the UNCONFIRMED state", and
+   this Product needs to automatically get out of the UNCOMFIRMED state", and
    "Version" options yet. We'll cover those in a few moments.
      _________________________________________________________________
 
-3.5. Components
+3.4. Components
 
    Components are subsections of a Product. E.g. the computer game you are
    designing may have a "UI" component, an "API" component, a "Sound System"
@@ -1895,7 +1828,7 @@ Chapter 3. Administering Bugzilla
        be a login name already existing in the database.
      _________________________________________________________________
 
-3.6. Versions
+3.5. Versions
 
    Versions are the revisions of the product, such as "Flinders 3.1", "Flinders
    95", and "Flinders 2000". Version is not a multi-select field; the usual
@@ -1910,7 +1843,7 @@ Chapter 3. Administering Bugzilla
        the "Add" button.
      _________________________________________________________________
 
-3.7. Milestones
+3.6. Milestones
 
    Milestones are "targets" that you plan to get a bug fixed by. For example,
    you have a bug that you plan to fix for your 3.0 release, it would be
@@ -1933,7 +1866,7 @@ Chapter 3. Administering Bugzilla
        gives information about your milestones and what they mean.
      _________________________________________________________________
 
-3.8. Flags
+3.7. Flags
 
    Flags are a way to attach a specific status to a bug or attachment, either
    "+" or "-". The meaning of these symbols depends on the text the flag
@@ -1943,7 +1876,7 @@ Chapter 3. Administering Bugzilla
    they look at the bug/attachment, and set the flag to its correct status.
      _________________________________________________________________
 
-3.8.1. A Simple Example
+3.7.1. A Simple Example
 
    A developer might want to ask their manager, "Should we fix this bug before
    we release version 2.0?" They might want to do this for a lot of bugs, so it
@@ -1965,9 +1898,9 @@ Chapter 3. Administering Bugzilla
        bug needs to be fixed before release of version 2.0.
      _________________________________________________________________
 
-3.8.2. About Flags
+3.7.2. About Flags
 
-3.8.2.1. Values
+3.7.2.1. Values
 
    Flags can have three values:
 
@@ -1988,7 +1921,7 @@ Chapter 3. Administering Bugzilla
    (or asked someone else to express an opinion) about this bug or attachment.
      _________________________________________________________________
 
-3.8.3. Using flag requests
+3.7.3. Using flag requests
 
    If a flag has been defined as 'requestable', users are allowed to set the
    flag's status to "?". This status indicates that someone (aka "the
@@ -2006,12 +1939,12 @@ Chapter 3. Administering Bugzilla
    the wind" on any flag simply by leaving the text-box blank.
      _________________________________________________________________
 
-3.8.4. Two Types of Flags
+3.7.4. Two Types of Flags
 
    Flags can go in two places: on an attachment, or on a bug.
      _________________________________________________________________
 
-3.8.4.1. Attachment Flags
+3.7.4.1. Attachment Flags
 
    Attachment flags are used to ask a question about a specific attachment on a
    bug.
@@ -2033,7 +1966,7 @@ Chapter 3. Administering Bugzilla
        where you set flags to ?, -, +, or unset them.
      _________________________________________________________________
 
-3.8.4.2. Bug Flags
+3.7.4.2. Bug Flags
 
    Bug flags are used to set a status on the bug itself. You can see Bug Flags
    in the "Show Bug" screen (editbug.cgi).
@@ -2042,7 +1975,7 @@ Chapter 3. Administering Bugzilla
    includes the assignee, reporter, and any user with the editbugs permission.
      _________________________________________________________________
 
-3.8.5. Administering Flags
+3.7.5. Administering Flags
 
    If you have the "editcomponents" permission, you will have "Edit: ... |
    Flags | ..." in your page footer. Clicking on that link will bring you to
@@ -2053,20 +1986,20 @@ Chapter 3. Administering Bugzilla
    it once.
      _________________________________________________________________
 
-3.8.5.1. Creating a Flag
+3.7.5.1. Creating a Flag
 
    When you click on the "Create a Flag Type for..." link, you will be
    presented with a form. Here is what the fields in the form mean:
      _________________________________________________________________
 
-3.8.5.1.1. Name
+3.7.5.1.1. Name
 
    This is the name of the flag. This will be displayed to Bugzilla users who
    are looking at or setting the flag. The name may consist of any valid
    Unicode character.
      _________________________________________________________________
 
-3.8.5.1.2. Description
+3.7.5.1.2. Description
 
    This describes the flag in more detail. At present, this doesn't show up
    anywhere helpful; ideally, it would be nice to have it show up as a tooltip.
@@ -2074,7 +2007,7 @@ Chapter 3. Administering Bugzilla
    want.
      _________________________________________________________________
 
-3.8.5.1.3. Category
+3.7.5.1.3. Category
 
    Default behaviour for a newly-created flag is to appear on products and all
    components, which is why "__Any__:__Any__" is already entered in the
@@ -2115,7 +2048,7 @@ Chapter 3. Administering Bugzilla
    Plane:Pilot".
      _________________________________________________________________
 
-3.8.5.1.4. Sort Key
+3.7.5.1.4. Sort Key
 
    Flags normally show up in alphabetical order. If you want them to show up in
    a different order, you can use this key set the order on each flag. Flags
@@ -2129,7 +2062,7 @@ Chapter 3. Administering Bugzilla
    CFlag, AFlag.
      _________________________________________________________________
 
-3.8.5.1.5. Active
+3.7.5.1.5. Active
 
    Sometimes, you might want to keep old flag information in the Bugzilla
    database, but stop users from setting any new flags of this type. To do
@@ -2139,21 +2072,21 @@ Chapter 3. Administering Bugzilla
    completely disappear from a bug/attachment, and cannot be set again.
      _________________________________________________________________
 
-3.8.5.1.6. Requestable
+3.7.5.1.6. Requestable
 
    New flags are, by default, "requestable", meaning that they offer users the
    "?" option, as well as "+" and "-". To remove the ? option, uncheck
    "requestable".
      _________________________________________________________________
 
-3.8.5.1.7. CC List
+3.7.5.1.7. CC List
 
    If you want certain users to be notified every time this flag is set to ?,
    -, +, or unset, add them here. This is a comma-separated list of email
    addresses that need not be restricted to Bugzilla usernames..
      _________________________________________________________________
 
-3.8.5.1.8. Specifically Requestable
+3.7.5.1.8. Specifically Requestable
 
    By default this box is checked for new flags, meaning that users may make
    flag requests of specific individuals. Unchecking this box will remove the
@@ -2163,7 +2096,7 @@ Chapter 3. Administering Bugzilla
    it will no longer appear to the user).
      _________________________________________________________________
 
-3.8.5.1.9. Multiplicable
+3.7.5.1.9. Multiplicable
 
    Any flag with "Multiplicable" set (default for new flags is 'on') may be set
    more than once. After being set once, an unset flag of the same type will
@@ -2172,7 +2105,7 @@ Chapter 3. Administering Bugzilla
    same bug/attachment.
      _________________________________________________________________
 
-3.8.5.2. Deleting a Flag
+3.7.5.2. Deleting a Flag
 
    When you are at the "Administer Flag Types" screen, you will be presented
    with a list of Bug flags and a list of Attachment Flags.
@@ -2186,14 +2119,14 @@ Chapter 3. Administering Bugzilla
       "active" in the flag Edit form.
      _________________________________________________________________
 
-3.8.5.3. Editing a Flag
+3.7.5.3. Editing a Flag
 
    To edit a flag's properties, just click on the "Edit" link next to the
    flag's description. That will take you to the same form described in the
    "Creating a Flag" section.
      _________________________________________________________________
 
-3.9. Voting
+3.8. Voting
 
    Voting allows users to be given a pot of votes which they can allocate to
    bugs, to indicate that they'd like them fixed. This allows developers to
@@ -2216,7 +2149,7 @@ Chapter 3. Administering Bugzilla
     5. Once you have adjusted the values to your preference, click "Update".
      _________________________________________________________________
 
-3.10. Quips
+3.9. Quips
 
    Quips are small text messages that can be configured to appear next to
    search results. A Bugzilla installation can have its own specific quips.
@@ -2247,7 +2180,7 @@ Chapter 3. Administering Bugzilla
    to permanently delete a quip.
      _________________________________________________________________
 
-3.11. Groups and Group Security
+3.10. Groups and Group Security
 
    Groups allow the administrator to isolate bugs or products that should only
    be seen by certain people. The association between products and groups is
@@ -2271,7 +2204,7 @@ Chapter 3. Administering Bugzilla
       box next to either 'Reporter' or 'CC List' (or both).
      _________________________________________________________________
 
-3.11.1. Creating Groups
+3.10.1. Creating Groups
 
    To create Groups:
 
@@ -2305,7 +2238,7 @@ Chapter 3. Administering Bugzilla
        groups should be permitted to add and delete users from this group.
      _________________________________________________________________
 
-3.11.2. Assigning Users to Groups
+3.10.2. Assigning Users to Groups
 
    Users can become a member of a group in several ways.
 
@@ -2316,7 +2249,7 @@ Chapter 3. Administering Bugzilla
        specifies to automatically grant membership to the group.
      _________________________________________________________________
 
-3.11.3. Assigning Group Controls to Products
+3.10.3. Assigning Group Controls to Products
 
    On the product edit page, there is a page to edit the "Group Controls" for a
    product. This allows you to configure how a group relates to the product.
@@ -2350,9 +2283,9 @@ Chapter 3. Administering Bugzilla
 foo: ENTRY, MANDATORY/MANDATORY, CANEDIT
      _________________________________________________________________
 
-3.11.4. Common Applications of Group Controls
+3.10.4. Common Applications of Group Controls
 
-3.11.4.1. General User Access With Security Group
+3.10.4.1. General User Access With Security Group
 
    To permit any user to file bugs in each product (A, B, C...) and to permit
    any user to submit those bugs into a security group....
@@ -2365,7 +2298,7 @@ Product C...
 security: SHOWN/SHOWN
      _________________________________________________________________
 
-3.11.4.2. General User Access With A Security Product
+3.10.4.2. General User Access With A Security Product
 
    To permit any user to file bugs in a Security product while keeping those
    bugs from becoming visible to anyone outside the securityworkers group
@@ -2375,7 +2308,7 @@ Product Security...
 securityworkers: DEFAULT/MANDATORY
      _________________________________________________________________
 
-3.11.4.3. Product Isolation With Common Group
+3.10.4.3. Product Isolation With Common Group
 
    To permit users of product A to access the bugs for product A, users of
    product B to access product B, and support staff to access both, 3 groups
@@ -2405,7 +2338,7 @@ Product Common...
 Support: ENTRY, DEFAULT/MANDATORY, CANEDIT
      _________________________________________________________________
 
-3.12. Upgrading to New Releases
+3.11. Upgrading to New Releases
 
    Upgrading Bugzilla is something we all want to do from time to time, be it
    to get new features or pick up the latest security fix. How easy it is to
@@ -2415,7 +2348,7 @@ Support: ENTRY, DEFAULT/MANDATORY, CANEDIT
      * How many local changes (if any) have been made
      _________________________________________________________________
 
-3.12.1. Version Definitions
+3.11.1. Version Definitions
 
    Bugzilla displays the version you are using at the top of most pages you
    load. It will look something like '2.16.7' or '2.18rc3' or '2.19.1+'. The
@@ -2452,13 +2385,13 @@ Support: ENTRY, DEFAULT/MANDATORY, CANEDIT
       software.
      _________________________________________________________________
 
-3.12.2. Upgrading - Methods and Procedure
+3.11.2. Upgrading - Methods and Procedure
 
    There are three different ways to upgrade your installation.
 
-    1. Using CVS (Section 3.12.2.1)
-    2. Downloading a new tarball (Section 3.12.2.2)
-    3. Applying the relevant patches (Section 3.12.2.3)
+    1. Using CVS (Section 3.11.2.1)
+    2. Downloading a new tarball (Section 3.11.2.2)
+    3. Applying the relevant patches (Section 3.11.2.3)
 
    Each of these options has its own pros and cons; the one that's right for
    you depends on how long it has been since you last installed, the degree to
@@ -2490,7 +2423,7 @@ Support: ENTRY, DEFAULT/MANDATORY, CANEDIT
    appropriate.
      _________________________________________________________________
 
-3.12.2.1. Upgrading using CVS
+3.11.2.1. Upgrading using CVS
 
    Every release of Bugzilla, whether it is a point release or a bugfix, is
    tagged in CVS. Also, every tarball that has been distributed since version
@@ -2523,7 +2456,7 @@ P template/en/default/list/quips.html.tmpl
       the portion using that file) will be usable.
      _________________________________________________________________
 
-3.12.2.2. Upgrading using the tarball
+3.11.2.2. Upgrading using the tarball
 
    If you are unable (or unwilling) to use CVS, another option that's always
    available is to obtain the latest tarball from the Download Page and create
@@ -2564,7 +2497,7 @@ bash$ mv bugzilla-2.18.1 bugzilla
    method, your code will already be set up for it.
      _________________________________________________________________
 
-3.12.2.3. Upgrading using patches
+3.11.2.3. Upgrading using patches
 
    If you are doing a bugfix upgrade -- that is, one where only the last number
    of the revision changes, such as from 2.16.6 to 2.16.7 -- then you have the
@@ -2591,10 +2524,10 @@ patching file globals.pl
 
    Warning Be aware that upgrading from a patch file does not change the
    entries in your CVS directory. This could make it more difficult to upgrade
-      using CVS (Section 3.12.2.1) in the future.
+      using CVS (Section 3.11.2.1) in the future.
      _________________________________________________________________
 
-3.12.3. Completing Your Upgrade
+3.11.3. Completing Your Upgrade
 
    Regardless of which upgrade method you choose, you will need to run
    ./checksetup.pl before your Bugzilla upgrade will be complete.
@@ -2647,7 +2580,7 @@ Chapter 4. Bugzilla Security
    services run as "SYSTEM". While running as "root" or "SYSTEM" introduces
    obvious security concerns, the problems introduced by running everything as
    "nobody" may not be so obvious. Basically, if you run every daemon as
-   "nobody" and one of them gets compromised it can compromise every other
+   "nobody" and one of them gets comprimised it can comprimise every other
    daemon running as "nobody" on your machine. For this reason, it is
    recommended that you create a user account for each daemon.
 
@@ -2670,7 +2603,7 @@ Chapter 4. Bugzilla Security
 4.2.1. The MySQL System Account
 
    As mentioned in Section 4.1.2, the MySQL daemon should run as a
-   non-privileged, unique user. Be sure to consult the MySQL documentation or
+   non-privleged, unique user. Be sure to consult the MySQL documentation or
    the documentation that came with your system for instructions.
      _________________________________________________________________
 
@@ -2701,7 +2634,7 @@ mysql> FLUSH PRIVILEGES;
    If MySQL and your webserver both run on the same machine and you have no
    other reason to access MySQL remotely, then you should disable the network
    access. This, along with the suggestion in Section 4.1.1, will help protect
-   your system from any remote vulnerabilities in MySQL.
+   your system from any remote vulnerabilites in MySQL.
 
    Example 4-3. Disabling Networking in MySQL
 
@@ -2729,6 +2662,7 @@ skip-networking
 
      * In the main Bugzilla directory, you should:
           + Block: *.pl, *localconfig*
+          + But allow: localconfig.js, localconfig.rdf
      * In data:
           + Block everything
           + But allow: duplicates.rdf
@@ -2747,7 +2681,7 @@ skip-networking
           + Block everything
 
    Be sure to test that data that should not be accessed remotely is properly
-   blocked. Of particular interest is the localconfig file which contains your
+   blocked. Of particular intrest is the localconfig file which contains your
    database password. Also, be aware that many editors create temporary and
    backup files in the working directory and that those should also not be
    accessable. For more information, see bug 186383 or Bugtraq ID 6501. To
@@ -2780,17 +2714,20 @@ skip-networking
 
 4.4.1. Prevent users injecting malicious Javascript
 
-   If you installed Bugzilla version 2.22 or later from scratch, then the utf8
-   parameter is switched on by default. This makes Bugzilla explicitly set the
-   character encoding, following a CERT advisory recommending exactly this. The
-   following therefore does not apply to you; just keep utf8 turned on.
+   It is possible for a Bugzilla user to take advantage of character set
+   encoding ambiguities to inject HTML into Bugzilla comments. This could
+   include malicious scripts. Due to internationalization concerns, we are
+   unable to incorporate by default the code changes suggested by the CERT
+   advisory on this issue. Making the change in Example 4-4 will prevent this
+   problem.
 
-   If you've upgraded from an older version, then it may be possible for a
-   Bugzilla user to take advantage of character set encoding ambiguities to
-   inject HTML into Bugzilla comments. This could include malicious scripts.
-   This is because due to internationalization concerns, we are unable to turn
-   the utf8 parameter on by default for upgraded installations. Turning it on
-   manually will prevent this problem.
+   Example 4-4. Forcing Bugzilla to output a charset
+
+   Locate the following line in Bugzilla/CGI.pm:
+   $self->charset('');
+
+   and change it to:
+$self->charset('UTF-8');
      _________________________________________________________________
 
 Chapter 5. Customising Bugzilla
@@ -2916,7 +2853,7 @@ Chapter 5. Customising Bugzilla
    (such as simple or complex) in the URL.
 
    To see if a CGI supports multiple output formats and types, grep the CGI for
-   "get_format". If it's not present, adding multiple format/type support isn't
+   "GetFormat". If it's not present, adding multiple format/type support isn't
    too hard - see how it's done in other CGIs, e.g. config.cgi.
 
    To make a new format template for a CGI which supports this, open a current
@@ -3047,7 +2984,7 @@ BuildID: 20020303
    BUGZILLA_ROOT/template directory, you must update the languages parameter to
    contain any localizations you'd like to permit. You may also wish to set the
    defaultlanguage parameter to something other than "en" if you don't want
-   English to be the default language.
+   Engish to be the default language.
      _________________________________________________________________
 
 5.2. Template Hooks
@@ -3368,7 +3305,7 @@ s %]
    you'll be able to see the names of all the "spreadsheets" (tables) in your
    database.
 
-   From the command issued above, you should have some output that looks like
+   From the command issued above, ou should have some output that looks like
    this:
 +-------------------+
 | Tables in bugs    |
@@ -3391,7 +3328,6 @@ s %]
 | profiles          |
 | profiles_activity |
 | tokens            |
-| user_group_map    |
 | versions          |
 | votes             |
 | watch             |
@@ -3480,9 +3416,6 @@ s %]
    profiles_activity:  Need to know who did what when to who's profile?  This'l
    l
    tell you, it's a pretty complete history.
-   user_group_map:  This table stores which user belongs to which group,
-   whether the user can bless others, and how the users obtained the
-   membership of the group.
    versions:  Version information for every product
    votes:  Who voted for what when
    watch:  Who (according to userid) is watching who's bugs (according to their
@@ -3630,7 +3563,7 @@ Chapter 6. Using Bugzilla
    If you want to use Bugzilla, first you need to create an account. Consult
    with the administrator responsible for your installation of Bugzilla for the
    URL you should use to access it. If you're test-driving Bugzilla, use this
-   URL: http://landfill.bugzilla.org/bugzilla-2.22-branch/.
+   URL: http://landfill.bugzilla.org/bugzilla-tip/.
 
     1. Click the "Open a new Bugzilla account" link, enter your email address
        and, optionally, your name in the spaces provided, then click "Create
@@ -3706,30 +3639,16 @@ Chapter 6. Using Bugzilla
        numbers, thought - you can use any text strings, such as dates.
    13. Reporter: The person who filed the bug.
    14. CC list: A list of people who get mail when the bug changes.
-   15. *Time Tracking: This form can be used for time tracking. To use this
-       feature, you have to be blessed group membership specified by the
-       "timetrackinggroup" parameter.
-
-       Orig. Est.: This field shows the original estimated time.
-   Current Est.: This field shows the current estimated time. This number is
-   calculated from "Hours Worked" and "Hours Left".
-       Hours Worked: This field shows the number of hours worked.
-   Hours Left: This field shows the "Current Est." - "Hours Worked". This value
-   + "Hours Worked" will become the new Current Est.
-       %Complete: This field shows what percentage of the task is complete.
-   Gain: This field shows the number of hours that the bug is ahead of the
-   "Orig. Est.".
-       Deadline: This field shows the deadline for this bug.
-   16. Attachments: You can attach files (e.g. testcases or patches) to bugs.
+   15. Attachments: You can attach files (e.g. testcases or patches) to bugs.
        If there are any attachments, they are listed in this section.
        Attachments are normally stored in the Bugzilla database, unless they
        are marked as Big Files, which are stored directly on disk and (unlike
        attachments kept in the database) may be deleted at some future time.
-   17. *Dependencies: If this bug cannot be fixed unless other bugs are fixed
+   16. *Dependencies: If this bug cannot be fixed unless other bugs are fixed
        (depends on), or this bug stops other bugs being fixed (blocks), their
        numbers are recorded here.
-   18. *Votes: Whether this bug has any votes.
-   19. Additional Comments: You can add your two cents to the bug discussion
+   17. *Votes: Whether this bug has any votes.
+   18. Additional Comments: You can add your two cents to the bug discussion
        here, if you have something worthwhile to say.
      _________________________________________________________________
 
@@ -3749,7 +3668,7 @@ Chapter 6. Using Bugzilla
 
    The Bugzilla Search page is the interface where you can find any bug report,
    comment, or patch currently in the Bugzilla system. You can play with it
-   here: http://landfill.bugzilla.org/bugzilla-2.22-branch/query.cgi.
+   here: http://landfill.bugzilla.org/bugzilla-tip/query.cgi.
 
    The Search page has controls for selecting different possible values for all
    of the fields in a bug, as described above. For some fields, multiple values
@@ -3767,12 +3686,12 @@ Chapter 6. Using Bugzilla
 
    The boolean charts further restrict the set of results returned by a query.
    It is possible to search for bugs based on elaborate combinations of
-   criteria.
+   critera.
 
    The simplest boolean searches have only one term. These searches permit the
    selected left field to be compared using a selectable operator to a
    specified value. Using the "And," "Or," and "Add Another Boolean Chart"
-   buttons, additional terms can be included in the query, further altering the
+   buttons, additonal terms can be included in the query, further altering the
    list of bugs returned by the query.
 
    There are three fields in each row of a boolean search.
@@ -4042,10 +3961,9 @@ Chapter 6. Using Bugzilla
    indicate what is to be searched. For example, typing "foo|bar" into
    Quicksearch would search for "foo" or "bar" in the summary and status
    whiteboard of a bug; adding ":BazProduct" would search only in that product.
-   You can use it to find a bug by its number or its alias, too.
 
-   You'll find the Quicksearch box in Bugzilla's footer area. On Bugzilla's
-   front page, there is an additional Help link which details how to use it.
+   You'll find the Quicksearch box on Bugzilla's front page, along with a Help
+   link which details how to use it.
      _________________________________________________________________
 
 6.9.3. Comments
@@ -4091,18 +4009,6 @@ Chapter 6. Using Bugzilla
    File is normally larger than the maximum size of a regular attachment.
      _________________________________________________________________
 
-6.9.5. Dependency Tree
-
-   On the "Dependency tree" page linked from each bug page, you can see the
-   dependency relationship from the bug as a tree structure.
-
-   You can change how much depth to show, and you can hide resolved bugs from
-   this page. You can also collaps/expand dependencies for each bug on the tree
-   view, using the [-]/[+] buttons that appear before its summary. This option
-   is not available for terminal bugs in the tree (that don't have further
-   dependencies).
-     _________________________________________________________________
-
 6.10. User Preferences
 
    Once you have logged in, you can customise various aspects of Bugzilla via
@@ -4110,7 +4016,7 @@ Chapter 6. Using Bugzilla
    three tabs:
      _________________________________________________________________
 
-6.10.1. Account Preferences
+6.10.1. Account Settings
 
    On this tab, you can change your basic account information, including your
    password, email address and real name. For security reasons, in order to
@@ -4121,28 +4027,7 @@ Chapter 6. Using Bugzilla
    hijacking.
      _________________________________________________________________
 
-6.10.2. General Preferences
-
-   This tab allows you to change several Bugzilla behavior.
-
-     * Field separator character for CSV files - This controls separator
-       character used in CSV formatted Bug List.
-     * After changing bugs - This controls which bugs or no bugs are shown in
-       the page after you changed bugs. You can select the bug you've changed
-       this time, or the next bug of the list.
-     * Add individual bugs to saved searches - this controls whether you can
-       add individual bugs to saved searches or you can't.
-     * When viewing a bug, show comments in this order - This controls the
-       order of comments, you can select below:
-
-       Initial description, comment 1, comment 2, ...
-       Initial description, last comment, ..., comment 2, comment 1.
-       Initial last comment, ..., comment 2, comment 1, description.
-     * Show a quip at the top of each bug list - This controls whether a quip
-       will be shown on the Bug list page or not.
-     _________________________________________________________________
-
-6.10.3. Email Preferences
+6.10.2. Email Settings
 
    This tab controls the amount of email Bugzilla sends you.
 
@@ -4156,10 +4041,6 @@ Chapter 6. Using Bugzilla
    installations. If you don't see this feature, and feel that you need it,
       speak to your administrator.
 
-   Each user listed in the "Users watching you" field has you listed in their
-   "Users to watch" list and can get bugmail according to your relationship to
-   the bug and their "Field/recipient specific options" setting.
-
    In general, users have almost complete control over how much (or how little)
    email Bugzilla sends them. If you want to receive the maximum amount of
    email possible, click the "Enable All Mail" button. If you don't want to
@@ -4167,8 +4048,8 @@ Chapter 6. Using Bugzilla
 
    Note Your Bugzilla administrator can stop a user from receiving bugmail by
    adding the user's name to the data/nomail file. This is a drastic step best
-   taken only for disabled accounts, as it overrides the user's individual mail
-      preferences.
+   taken only for disabled accounts, as it overrides the the user's individual
+      mail preferences.
 
    If you'd like to set your bugmail to something besides 'Completely ON' and
    'Completely OFF', the "Field/recipient specific options" table allows you to
@@ -4220,7 +4101,7 @@ Chapter 6. Using Bugzilla
    box marked "Only email me reports of changes made by other people".
      _________________________________________________________________
 
-6.10.4. Permissions
+6.10.3. Permissions
 
    This is a purely informative page which outlines your current permissions on
    this installation of Bugzilla - what product groups you are in, and whether
@@ -4722,7 +4603,7 @@ Appendix A. The Bugzilla FAQ
    The best way to make an enhancement request is to file a bug at
    bugzilla.mozilla.org and set the Severity to 'enhancement'. Your 'request
    for enhancement' (RFE) will start out in the UNCONFIRMED state, and will
-   stay there until someone with the ability to CONFIRM the bug reviews it. If
+   stay there until someone with the ability to COMFIRM the bug reviews it. If
    that person feels it to be a good request that fits in with Bugzilla's
    overall direction, the status will be changed to NEW; if not, they will
    probably explain why and set the bug to RESOLVED/WONTFIX. If someone else
@@ -4772,7 +4653,7 @@ Appendix A. The Bugzilla FAQ
    for mozilla.org he needed a version of Perl and other tools that were
    completely under his control. This location was abandoned for the 2.18
    release in favor of the more sensible /usr/bin/perl. If you installed an
-   older version of Bugzilla and created the symlink we suggested, you can
+   older verion of Bugzilla and created the symlink we suggested, you can
    remove it now (provided that you don't have anything else, such as Bonsai,
    using it and you don't intend to reinstall an older version of Bugzilla).
 
@@ -5004,7 +4885,7 @@ perl runtests.pl 2 --verbose
    the database backups. You can't "downgrade" the system cleanly under most
       circumstances.
 
-   See also the instructions in Section 3.12.2.1.
+   See also the instructions in Section 3.11.2.1.
 
    A.3.4. How do I make it so that bugs can have an UNCONFIRMED status?
 
@@ -5393,8 +5274,8 @@ password=mypassword
 
    Try this link to view current bugs or requests for enhancement for Bugzilla.
 
-   You can view bugs marked for 2.22.1 release here. This list includes bugs
-   for the 2.22.1 release that have already been fixed and checked into CVS.
+   You can view bugs marked for 2.20.2 release here. This list includes bugs
+   for the 2.20.2 release that have already been fixed and checked into CVS.
    Please consult the Bugzilla Project Page for details on how to check current
    sources out of CVS so you can have these bug fixes early!
 
@@ -5726,7 +5607,7 @@ C.2. Command-line 'Send Unsent Bug-mail' tool
    but for one reason or another has not.
 
    To accomplish this task, sendunsentbugmail.pl uses the same mechanism as the
-   sanitycheck.cgi script; it scans through the entire database looking for
+   sanitycheck.cgi script; it it scans through the entire database looking for
    bugs with changes that were made more than 30 minutes ago, but where there
    is no record of anyone related to that bug having been sent mail. Having
    compiled a list, it then uses the standard rules to determine who gets mail,
@@ -5847,21 +5728,6 @@ D.2. Download Locations
            CPAN Download Page: http://search.cpan.org/dist/GD/
            PPM Download Link: http://landfill.bugzilla.org/ppm/GD.ppd
            Documentation: http://stein.cshl.org/WWW/software/GD/
-
-   MIME::Base64:
-
-           CPAN Download Page: http://search.cpan.org/dist/MIME-Base64/
-           PPM Download Link: http://ppm.activestate.com/PPMPackages/zips/8xx-b
-   uilds-only/Windows/MIME-Base64-2.20.zip
-           Documentation: http://search.cpan.org/dist/MIME-Base64/Base64.pm
-
-   MIME::Parser (part of MIME-tools):
-
-           CPAN Download Page: http://search.cpan.org/dist/MIME-tools/
-           PPM Download Link: http://ppm.activestate.com/PPMPackages/zips/8xx-b
-   uilds-only/Windows/MIME-tools-5.411a.zip
-           Documentation: http://search.cpan.org/dist/MIME-tools/lib/MIME/Parse
-   r.pm
      _________________________________________________________________
 
 D.3. Optional Modules
@@ -5885,6 +5751,14 @@ D.3. Optional Modules
            PPM Download Page: http://landfill.bugzilla.org/ppm/GDTextUtil.ppd
            Documentation: http://search.cpan.org/dist/GDTextUtil/Text/Align.pm
 
+   MIME::Parser (part of MIME-tools):
+
+           CPAN Download Page: http://search.cpan.org/dist/MIME-tools/
+           PPM Download Link: http://ppm.activestate.com/PPMPackages/zips/8xx-b
+   uilds-only/Windows/MIME-tools-5.411a.zip
+           Documentation: http://search.cpan.org/dist/MIME-tools/lib/MIME/Parse
+   r.pm
+
    XML::Parser:
 
            CPAN Download Page: http://search.cpan.org/dist/XML-Parser/
@@ -5897,12 +5771,6 @@ D.3. Optional Modules
    r/
            PPM Download Link: http://landfill.bugzilla.org/ppm/PatchReader.ppd
            Documentation: http://www.johnkeiser.com/mozilla/Patch_Viewer.html
-
-   Image::Magick:
-
-           CPAN Download Page: http://search.cpan.org/dist/PerlMagick/
-           PPM Download Link: Included in Windows binary package.
-           Documentation: http://www.imagemagick.org/script/resources.php
      _________________________________________________________________
 
 Appendix E. GNU Free Documentation License
@@ -6329,10 +6197,10 @@ C
           contributed to Bugzilla but are not a part of the official
           distribution. These scripts are written by third parties and may be
           in languages other than perl. For those that are in perl, there may
-          be additional modules or other requirements than those of the
-          official distribution.
+          be additional modules or other requirements than those of the offical
+          distribution.
 
-      Note Scripts in the contrib directory are not officially supported by the
+       Note Scripts in the contrib directory are not offically supported by the
       Bugzilla team and may break in between versions.
 
 D
@@ -6345,7 +6213,7 @@ D
 
    DOS Attack
           A DOS, or Denial of Service attack, is when a user attempts to deny
-          access to a web server by repeatedly accessing a page or sending
+          access to a web server by repeatadly accessing a page or sending
           malformed requests to a webserver. This can be effectively prevented
           by using mod_throttle as described in Section 4.3.2. A D-DOS, or
           Distributed Denial of Service attack, is when these requests come
@@ -6418,7 +6286,7 @@ Q
 
 R
 
-   Relational DataBase Management System (RDBMS)
+   Relational DataBase Managment System (RDBMS)
           A relational database management system is a database system that
           stores information in tables that are related to each other.
 
@@ -6431,7 +6299,7 @@ S
    Service
           In Windows NT environment, a boot-time background application is
           refered to as a service. These are generally managed through the
-          control panel while logged in as an account with "Administrator"
+          control pannel while logged in as an account with "Administrator"
           level capabilities. For more information, consult your Windows manual
           or the MSKB.
 

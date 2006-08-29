@@ -285,12 +285,18 @@ RtlMultiByteToUnicodeSize(PULONG UnicodeSize,
         {
             if (NlsLeadByteInfo[*(PUCHAR)MbString++])
             {
-            	if (MbSize)
-            	{
-                    /* Move on */
-                    MbSize--;
-                    MbString++;
+                if (!MbSize)
+                {
+                    /* partial char, ignore it */
+                    Length++;
+                    break;
                 }
+            }
+            else
+            {
+                /* Move on */
+                MbSize--;
+                MbString++;
             }
 
             /* Increase returned size */
@@ -558,19 +564,19 @@ RtlUpcaseUnicodeChar(IN WCHAR Source)
 {
    USHORT Offset;
 
-   if (Source < 'a')
+   if (Source < L'a')
       return Source;
 
-   if (Source <= 'z')
-      return (Source - ('a' - 'A'));
+   if (Source <= L'z')
+      return (Source - (L'a' - L'A'));
 
-   Offset = ((USHORT)Source >> 8) & 0xFF;
+   Offset = ((USHORT)Source >> 8);
    Offset = NlsUnicodeUpcaseTable[Offset];
 
-   Offset += ((USHORT)Source >> 4) & 0xF;
+   Offset += (((USHORT)Source & 0x00F0) >> 4);
    Offset = NlsUnicodeUpcaseTable[Offset];
 
-   Offset += ((USHORT)Source & 0xF);
+   Offset += ((USHORT)Source & 0x000F);
    Offset = NlsUnicodeUpcaseTable[Offset];
 
    return Source + (SHORT)Offset;
@@ -721,42 +727,24 @@ RtlUpperChar (IN CHAR Source)
    WCHAR Unicode;
    CHAR Destination;
 
-   /* Check for simple ANSI case */
-   if (Source <= 'z')
+   if (NlsMbCodePageTag == FALSE)
    {
-       /* Check for simple downcase a-z case */
-       if (Source >= 'a')
-       {
-           /* Just XOR with the difference */
-           return Source ^ ('a' - 'A');
-       }
-       else
-       {
-           /* Otherwise return the same char, it's already upcase */
-           return Source;
-       }
+      /* single-byte code page */
+
+      /* ansi->unicode */
+      Unicode = NlsAnsiToUnicodeTable[(UCHAR)Source];
+
+      /* upcase conversion */
+      Unicode = RtlUpcaseUnicodeChar (Unicode);
+
+      /* unicode -> ansi */
+      Destination = NlsUnicodeToAnsiTable[(USHORT)Unicode];
    }
    else
    {
-        if (NlsMbCodePageTag == FALSE)
-        {
-            /* single-byte code page */
-
-            /* ansi->unicode */
-            Unicode = NlsAnsiToUnicodeTable[(UCHAR)Source];
-
-            /* upcase conversion */
-            Unicode = RtlUpcaseUnicodeChar (Unicode);
-
-            /* unicode -> ansi */
-            Destination = NlsUnicodeToAnsiTable[(USHORT)Unicode];
-        }
-        else
-        {
-            /* multi-byte code page */
-            /* FIXME */
-            Destination = Source;
-        }
+      /* multi-byte code page */
+      /* FIXME */
+      Destination = Source;
    }
 
    return Destination;

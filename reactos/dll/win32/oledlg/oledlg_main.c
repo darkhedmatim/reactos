@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #define COM_NO_WINDOWS_H
@@ -245,7 +245,7 @@ BOOL WINAPI OleUIUpdateLinksW(
 /***********************************************************************
  *           OleUIPromptUserA (OLEDLG.10)
  */
-INT WINAPIV OleUIPromptUserA(
+INT __cdecl OleUIPromptUserA(
   INT nTemplate, HWND hwndParent, ...)
 {
   FIXME("(%d, %p, ...): stub\n", nTemplate, hwndParent);
@@ -256,7 +256,7 @@ INT WINAPIV OleUIPromptUserA(
 /***********************************************************************
  *           OleUIPromptUserW (OLEDLG.13)
  */
-INT WINAPIV OleUIPromptUserW(
+INT __cdecl OleUIPromptUserW(
   INT nTemplate, HWND hwndParent, ...)
 {
   FIXME("(%d, %p, ...): stub\n", nTemplate, hwndParent);

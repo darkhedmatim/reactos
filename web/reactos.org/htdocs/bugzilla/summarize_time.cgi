@@ -27,12 +27,12 @@ use Bugzilla::Bug;       # EmitDependList
 use Bugzilla::Util;      # trim
 use Bugzilla::Constants; # LOGIN_*
 use Bugzilla::User;      # UserInGroup
-require "globals.pl";
-
-my $template = Bugzilla->template;
-my $vars = {};
+require "CGI.pl";
 
 GetVersionTable();
+
+# Use global template variables.
+use vars qw($template $vars);
 
 #
 # Date handling
@@ -206,7 +206,7 @@ sub include_tt_details {
 
 sub sqlize_dates {
     my ($start_date, $end_date) = @_;
-    my $date_bits = "";
+    my $date_bits;
     my @date_values;
     if ($start_date) {
         # we've checked, trick_taint is fine
@@ -524,9 +524,10 @@ $vars->{'check_time'} = \&check_time;
 $vars->{'sort_bug_keys'} = \&sort_bug_keys;
 $vars->{'GetBugLink'} = \&GetBugLink;
 
-my $format = $template->get_format("bug/summarize-time", undef, $ctype);
+$ctype = "html" if !$ctype;
+my $format = GetFormat("bug/summarize-time", undef, $ctype);
 
 # Get the proper content-type
-print $cgi->header(-type=> $format->{'ctype'});
+print $cgi->header(-type=> Bugzilla::Constants::contenttypes->{$ctype});
 $template->process("$format->{'template'}", $vars)
   || ThrowTemplateError($template->error());

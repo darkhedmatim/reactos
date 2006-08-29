@@ -140,13 +140,13 @@ __p__fileinfo=stub
 __p__fmode
 __p__iob
 __p__mbcasemap=stub
-__p__mbctype=_mbctype
+__p__mbctype=stub
 __p__osver
 __p__pctype
 __p__pgmptr
 __p__pwctype
 __p__timezone
-__p__tzname=_tzname
+__p__tzname=stub
 __p__wcmdln
 __p__wenviron
 __p__winmajor
@@ -579,7 +579,7 @@ _wcstoui64=stub
 _wctime64=stub
 _wcsupr
 _wctime
-_wenviron
+_wenviron=stub
 _wexecl
 _wexecle
 _wexeclp

@@ -101,7 +101,7 @@ typedef struct _HARDWARE_PTE_X64 {
 } HARDWARE_PTE_X64, *PHARDWARE_PTE_X64;
 
 typedef struct _PAGE_DIRECTORY_X86 {
-    HARDWARE_PTE Pde[1024];
+    HARDWARE_PTE_X86 Pde[1024];
 } PAGE_DIRECTORY_X86, *PPAGE_DIRECTORY_X86;
 
 typedef struct _PAGE_DIRECTORY_X64 {
@@ -150,7 +150,7 @@ extern PAGE_DIRECTORY_X64 kpcr_pagetable_pae;
  *
  *--*/
 VOID
-NTAPI
+STDCALL
 FrLdrStartup(ULONG Magic)
 {
     /* Disable Interrupts */
@@ -543,8 +543,8 @@ FrLdrSetupPageDirectory(VOID)
  *     None.
  *
  *--*/
-BOOLEAN
-NTAPI
+BOOL
+STDCALL
 FrLdrMapKernel(FILE *KernelImage)
 {
     PIMAGE_DOS_HEADER ImageHeader;
@@ -701,7 +701,7 @@ FrLdrMapKernel(FILE *KernelImage)
 }
 
 ULONG_PTR
-NTAPI
+STDCALL
 FrLdrLoadModule(FILE *ModuleImage,
                 LPCSTR ModuleName,
                 PULONG ModuleSize)
@@ -753,7 +753,7 @@ FrLdrLoadModule(FILE *ModuleImage,
 }
 
 ULONG_PTR
-NTAPI
+STDCALL
 FrLdrCreateModule(LPCSTR ModuleName)
 {
     PLOADER_MODULE ModuleData;
@@ -778,8 +778,8 @@ FrLdrCreateModule(LPCSTR ModuleName)
     return(ModuleData->ModStart);
 }
 
-BOOLEAN
-NTAPI
+BOOL
+STDCALL
 FrLdrCloseModule(ULONG_PTR ModuleBase,
                  ULONG ModuleSize)
 {

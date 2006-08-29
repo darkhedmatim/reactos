@@ -1,8 +1,6 @@
 #ifndef _KERNEL32_INCLUDE_KERNEL32_H
 #define _KERNEL32_INCLUDE_KERNEL32_H
 
-#include "baseheap.h"
-
 #define BINARY_UNKNOWN	(0)
 #define BINARY_PE_EXE32	(1)
 #define BINARY_PE_DLL32	(2)
@@ -62,9 +60,6 @@ extern LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter;
 BOOL STDCALL VerifyConsoleIoHandle(HANDLE Handle);
 
 BOOL STDCALL CloseConsoleHandle(HANDLE Handle);
-
-HANDLE STDCALL
-GetConsoleInputWaitHandle (VOID);
 
 HANDLE STDCALL OpenConsoleW (LPWSTR wsName,
 			     DWORD  dwDesiredAccess,

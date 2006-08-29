@@ -38,7 +38,7 @@ GetRootHubPointer(
 	
 	KeInitializeEvent (&Event, NotificationEvent, FALSE);
 	
-	Irp = IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_USB_GET_PARENT_HUB_INFO,
+	Irp = IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_USB_GET_ROOT_USB_DEVICE,
 		Pdo,
 		NULL, sizeof(NULL),
 		RootHubPointer, sizeof(*RootHubPointer),
@@ -50,11 +50,6 @@ GetRootHubPointer(
 		DPRINT("Usbhub: IoBuildDeviceIoControlRequest() failed\n");
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
-	
-	/* Initialize the status block before sending the IRP */
-	IoGetNextIrpStackLocation(Irp)->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
-	IoStatus.Status = STATUS_NOT_SUPPORTED;
-	IoStatus.Information = 0;
 	
 	Status = IoCallDriver(Pdo, Irp);
 	
@@ -95,7 +90,7 @@ UsbhubAddDevice(
 	RtlZeroMemory(DeviceExtension, sizeof(HUB_DEVICE_EXTENSION));
 	
 	/* Get a pointer to the linux structure created by the USB controller,
-	 * by sending IOCTL_INTERNAL_USB_GET_PARENT_HUB_INFO to lower device.
+	 * by sending IOCTL_INTERNAL_USB_GET_ROOT_USB_DEVICE to lower device.
 	 */
 	Status = GetRootHubPointer(Pdo, (PVOID*)&DeviceExtension->dev);
 	if (!NT_SUCCESS(Status))
@@ -160,16 +155,7 @@ DispatchDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	if (((PHUB_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsFDO)
 		return UsbhubDeviceControlFdo(DeviceObject, Irp);
 	else
-		return IrpStub(DeviceObject, Irp);
-}
-
-static NTSTATUS STDCALL
-DispatchInternalDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
-	if (((PHUB_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsFDO)
-		return IrpStub(DeviceObject, Irp);
-	else
-		return UsbhubInternalDeviceControlPdo(DeviceObject, Irp);
+		return UsbhubDeviceControlPdo(DeviceObject, Irp);
 }
 
 static NTSTATUS STDCALL
@@ -200,7 +186,6 @@ DriverEntry(
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] = UsbhubClose;
 	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = UsbhubCleanup;
 	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DispatchDeviceControl;
-	DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = DispatchInternalDeviceControl;
 	DriverObject->MajorFunction[IRP_MJ_PNP] = DispatchPnp;
 	
 	return STATUS_SUCCESS;

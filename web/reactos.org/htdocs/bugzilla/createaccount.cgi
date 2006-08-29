@@ -28,13 +28,14 @@ use strict;
 
 use lib qw(.);
 
-require "globals.pl";
+require "CGI.pl";
 
 use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::User;
-use Bugzilla::BugMail;
-use Bugzilla::Util;
+
+# Shut up misguided -w warnings about "used only once":
+use vars qw($template $vars);
 
 # Just in case someone already has an account, let them get the correct footer
 # on an error message. The user is logged out just after the account is
@@ -43,9 +44,6 @@ Bugzilla->login(LOGIN_OPTIONAL);
 
 my $dbh = Bugzilla->dbh;
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
-
 print $cgi->header();
 
 # If we're using LDAP for login, then we can't create a new account here.
@@ -63,15 +61,10 @@ my $login = $cgi->param('login');
 if (defined($login)) {
     # We've been asked to create an account.
     my $realname = trim($cgi->param('realname'));
-
-    validate_email_syntax($login)
-      || ThrowUserError('illegal_email_address', {addr => $login});
-
+    CheckEmailSyntax($login);
     $vars->{'login'} = $login;
 
-    $dbh->bz_lock_tables('profiles WRITE', 'groups READ',
-                         'user_group_map WRITE', 'email_setting WRITE',
-                         'tokens READ');
+    $dbh->bz_lock_tables('profiles WRITE', 'email_setting WRITE', 'tokens READ');
 
     if (!is_available_username($login)) {
         # Account already exists
@@ -93,7 +86,7 @@ if (defined($login)) {
     # Clear out the login cookies in case the user is currently logged in.
     Bugzilla->logout();
 
-    Bugzilla::BugMail::MailPassword($login, $password);
+    MailPassword($login, $password);
     
     $template->process("account/created.html.tmpl", $vars)
       || ThrowTemplateError($template->error());

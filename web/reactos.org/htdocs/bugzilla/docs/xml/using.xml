@@ -233,50 +233,6 @@
 
       <listitem>
         <para>
-        <emphasis>*Time Tracking:</emphasis>
-        This form can be used for time tracking.
-        To use this feature, you have to be blessed group membership
-        specified by the <quote>timetrackinggroup</quote> parameter.
-        <simplelist>
-        <member>
-        <emphasis>Orig. Est.:</emphasis>
-        This field shows the original estimated time.</member>
-
-        <member>
-        <emphasis>Current Est.:</emphasis>
-        This field shows the current estimated time.
-        This number is calculated from <quote>Hours Worked</quote>
-        and <quote>Hours Left</quote>.</member>
-
-        <member>
-        <emphasis>Hours Worked:</emphasis>
-        This field shows the number of hours worked.</member>
-
-        <member>
-        <emphasis>Hours Left:</emphasis>
-        This field shows the <quote>Current Est.</quote> -
-        <quote>Hours Worked</quote>.
-        This value + <quote>Hours Worked</quote> will become the
-        new Current Est.</member>
-
-        <member>
-        <emphasis>%Complete:</emphasis>
-        This field shows what percentage of the task is complete.</member>
-
-        <member>
-        <emphasis>Gain:</emphasis>
-        This field shows the number of hours that the bug is ahead of the
-        <quote>Orig. Est.</quote>.</member>
-
-        <member>
-        <emphasis>Deadline:</emphasis>
-        This field shows the deadline for this bug.</member>
-        </simplelist>
-        </para>
-      </listitem>
-
-      <listitem>
-        <para>
         <emphasis>Attachments:</emphasis>
           You can attach files (e.g. testcases or patches) to bugs. If there
           are any attachments, they are listed in this section.  Attachments are
@@ -356,7 +312,7 @@
       <para>
         The boolean charts further restrict the set of results
         returned by a query. It is possible to search for bugs
-        based on elaborate combinations of criteria.
+        based on elaborate combinations of critera.
       </para>
       <para>
         The simplest boolean searches have only one term. These searches
@@ -365,7 +321,7 @@
         selectable <emphasis>operator</emphasis> to a
         specified <emphasis>value.</emphasis>
         Using the "And," "Or," and "Add Another Boolean Chart" buttons, 
-        additional terms can be included in the query, further
+        additonal terms can be included in the query, further
         altering the list of bugs returned by the query.
       </para>
       <para>
@@ -769,12 +725,11 @@
       summary and status whiteboard of a bug; adding 
       "<filename>:BazProduct</filename>" would
       search only in that product.
-      You can use it to find a bug by its number or its alias, too.
       </para>
 
-      <para>You'll find the Quicksearch box in Bugzilla's footer area.
-      On Bugzilla's front page, there is an additional
-      <ulink url="../../page.cgi?id=quicksearch.html">Help</ulink>
+      <para>You'll find the Quicksearch box on Bugzilla's
+      front page, along with a 
+      <ulink url="../../quicksearch.html">Help</ulink> 
       link which details how to use it.</para>
     </section>
     
@@ -835,99 +790,32 @@
         maximum size of a regular attachment.
       </para>
     </section>
-
-    <section id="dependencytree">
-      <title>Dependency Tree</title>
-
-      <para>
-        On the <quote>Dependency tree</quote> page linked from each bug
-        page, you can see the dependency relationship from the bug as a
-        tree structure.
-      </para>
-
-      <para>
-        You can change how much depth to show, and you can hide resolved bugs
-        from this page. You can also collaps/expand dependencies for
-        each bug on the tree view, using the [-]/[+] buttons that appear
-        before its summary. This option is not available for terminal
-        bugs in the tree (that don't have further dependencies).
-      </para>
-    </section>
   </section>
-
+  
   <section id="userpreferences">
     <title>User Preferences</title>
 
-    <para>Once you have logged in, you can customise various aspects of
+    <para>Once you have logged in, you can customise various aspects of 
     Bugzilla via the "Edit prefs" link in the page footer.
     The preferences are split into three tabs:</para>
 
-    <section id="accountpreferences" xreflabel="Account Preferences">
-      <title>Account Preferences</title>
+    <section id="accountsettings" xreflabel="Account Settings">
+      <title>Account Settings</title>
 
       <para>On this tab, you can change your basic account information,
       including your password, email address and real name. For security
-      reasons, in order to change anything on this page you must type your
+      reasons, in order to change anything on this page you must type your 
       <emphasis>current</emphasis>
-      password into the
+      password into the 
       <quote>Password</quote>
-      field at the top of the page.
+      field at the top of the page. 
       If you attempt to change your email address, a confirmation
       email is sent to both the old and new addresses, with a link to use to
       confirm the change. This helps to prevent account hijacking.</para>
     </section>
 
-    <section id="generalpreferences" xreflabel="General Preferences">
-      <title>General Preferences</title>
-
-      <para>
-        This tab allows you to change several Bugzilla behavior.
-      </para>
-
-      <itemizedlist spacing="compact">
-        <listitem>
-          <para>
-            Field separator character for CSV files -
-            This controls separator character used in CSV formatted Bug List.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            After changing bugs - This controls which bugs or no bugs
-            are shown in the page after you changed bugs.
-            You can select the bug you've changed this time, or the next
-            bug of the list.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            Add individual bugs to saved searches - this controls
-            whether you can add individual bugs to saved searches
-            or you can't.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            When viewing a bug, show comments in this order -
-            This controls the order of comments, you can select below:
-            <simplelist>
-              <member>Initial description, comment 1, comment 2, ...</member>
-              <member>Initial description, last comment, ..., comment 2, comment 1.</member>
-              <member>Initial last comment, ..., comment 2, comment 1, description.</member>
-            </simplelist>
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            Show a quip at the top of each bug list - This controls
-            whether a quip will be shown on the Bug list page or not.
-          </para>
-        </listitem>
-      </itemizedlist>
-    </section>
-
-    <section id="emailpreferences">
-      <title>Email Preferences</title>
+    <section id="emailsettings">
+      <title>Email Settings</title>
 
       <para>
         This tab controls the amount of email Bugzilla sends you.
@@ -951,13 +839,6 @@
       </note>
 
       <para>
-        Each user listed in the <quote>Users watching you</quote> field
-        has you listed in their <quote>Users to watch</quote> list
-        and can get bugmail according to your relationship to the bug and
-        their <quote>Field/recipient specific options</quote> setting.
-      </para>
-
-      <para>
         In general, users have almost complete control over how much (or
         how little) email Bugzilla sends them. If you want to receive the
         maximum amount of email possible, click the <quote>Enable All 
@@ -970,7 +851,7 @@
           Your Bugzilla administrator can stop a user from receiving
           bugmail by adding the user's name to the 
           <filename>data/nomail</filename> file. This is a drastic step
-          best taken only for disabled accounts, as it overrides 
+          best taken only for disabled accounts, as it overrides the 
           the user's individual mail preferences.
         </para>
       </note>

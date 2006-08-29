@@ -28,7 +28,7 @@ NTSTATUS NTAPI
 PsaEnumerateSystemModules(IN PSYSMOD_ENUM_ROUTINE Callback,
                           IN OUT PVOID CallbackContext)
 {
-  PRTL_PROCESS_MODULES psmModules;
+  PSYSTEM_MODULE_INFORMATION psmModules;
   NTSTATUS Status = STATUS_SUCCESS;
 
 #if 0
@@ -65,10 +65,10 @@ PsaEnumerateSystemModules(IN PSYSMOD_ENUM_ROUTINE Callback,
 }
 
 NTSTATUS NTAPI
-PsaCaptureSystemModules(OUT PRTL_PROCESS_MODULES *SystemModules)
+PsaCaptureSystemModules(OUT PSYSTEM_MODULE_INFORMATION *SystemModules)
 {
   SIZE_T nSize = 0;
-  PRTL_PROCESS_MODULES psmModules = NULL;
+  PSYSTEM_MODULE_INFORMATION psmModules = NULL;
   NTSTATUS Status;
 
 #if 0
@@ -94,8 +94,8 @@ PsaCaptureSystemModules(OUT PRTL_PROCESS_MODULES *SystemModules)
      minimize memory operations that could be expensive, or fragment the
      pool/heap, we try to determine the buffer size in advance, knowing that
      the number of elements is unlikely to change */
-  nSize = sizeof(RTL_PROCESS_MODULES) +
-          (nSize * sizeof(RTL_PROCESS_MODULES));
+  nSize = sizeof(SYSTEM_MODULE_INFORMATION) +
+          (nSize * sizeof(SYSTEM_MODULE_INFORMATION));
 
   psmModules = NULL;
 
@@ -157,7 +157,7 @@ PsaCaptureSystemModules(OUT PRTL_PROCESS_MODULES *SystemModules)
 }
 
 NTSTATUS NTAPI
-PsaWalkSystemModules(IN PRTL_PROCESS_MODULES SystemModules,
+PsaWalkSystemModules(IN PSYSTEM_MODULE_INFORMATION SystemModules,
                      IN PSYSMOD_ENUM_ROUTINE Callback,
                      IN OUT PVOID CallbackContext)
 {
@@ -165,10 +165,10 @@ PsaWalkSystemModules(IN PRTL_PROCESS_MODULES SystemModules,
   NTSTATUS Status;
 
   /* repeat until all modules have been returned */
-  for(i = 0; i < SystemModules->NumberOfModules; i++)
+  for(i = 0; i < SystemModules->Count; i++)
   {
     /* return current module to the callback */
-    Status = Callback(&(SystemModules->Modules[i]), CallbackContext);
+    Status = Callback(&(SystemModules->Module[i]), CallbackContext);
   
     if(!NT_SUCCESS(Status))
     {
@@ -179,18 +179,18 @@ PsaWalkSystemModules(IN PRTL_PROCESS_MODULES SystemModules,
   return STATUS_SUCCESS;
 }
 
-PRTL_PROCESS_MODULE_INFORMATION FASTCALL
-PsaWalkFirstSystemModule(IN PRTL_PROCESS_MODULES SystemModules)
+PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
+PsaWalkFirstSystemModule(IN PSYSTEM_MODULE_INFORMATION SystemModules)
 { 
-  return &(SystemModules->Modules[0]);
+  return &(SystemModules->Module[0]);
 }
 
-PRTL_PROCESS_MODULE_INFORMATION FASTCALL
-PsaWalkNextSystemModule(IN PRTL_PROCESS_MODULES CurrentSystemModule)
+PSYSTEM_MODULE_INFORMATION_ENTRY FASTCALL
+PsaWalkNextSystemModule(IN PSYSTEM_MODULE_INFORMATION CurrentSystemModule)
 {
-  return (PRTL_PROCESS_MODULE_INFORMATION)((ULONG_PTR)CurrentSystemModule +
-                                            (FIELD_OFFSET(RTL_PROCESS_MODULES, Modules[1]) -
-                                             FIELD_OFFSET(RTL_PROCESS_MODULES, Modules[0])));
+  return (PSYSTEM_MODULE_INFORMATION_ENTRY)((ULONG_PTR)CurrentSystemModule +
+                                            (FIELD_OFFSET(SYSTEM_MODULE_INFORMATION, Module[1]) -
+                                             FIELD_OFFSET(SYSTEM_MODULE_INFORMATION, Module[0])));
 }
 
 /* EOF */

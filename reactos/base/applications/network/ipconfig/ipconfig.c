@@ -1,9 +1,15 @@
 /*
- * PROJECT:     ReactOS ipconfig utility
- * LICENSE:     GPL - See COPYING in the top level directory
+ * ReactOS Win32 Applications
+ * Copyright (C) 2005 ReactOS Team
+ *
+ * COPYRIGHT:   See COPYING in the top level directory
+ * PROJECT:     ReactOS arp utility
  * FILE:        apps/utils/net/ipconfig/ipconfig.c
- * PURPOSE:     Display IP info for net adapters
- * PROGRAMMERS: Copyright 2005 - 2006 Ged Murphy (gedmurphy@gmail.com)
+ * PURPOSE:
+ * PROGRAMMERS: Ged Murphy (gedmurphy@gmail.com)
+ * REVISIONS:
+ *   GM 14/09/05 Created
+ *
  */
 /*
  * TODO:
@@ -11,107 +17,46 @@
  * implement flushdns, registerdns, displaydns, showclassid, setclassid
  * allow globbing on adapter names
  */
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
-#include <tchar.h>
+#include <stdlib.h>
 #include <time.h>
+#include <tchar.h>
+#include <string.h>
+#include <ctype.h>
+#include <winsock2.h>
 #include <iphlpapi.h>
-#include "resource.h"
 
-#define GUID_LEN 40
-
-HINSTANCE hInstance;
-HANDLE ProcessHeap;
+#define UNICODE
+#define _UNICODE
 
 
-LPTSTR GetNodeTypeName(UINT NodeType)
+
+LPCTSTR GetNodeTypeName(UINT NodeType)
 {
-    static TCHAR szNode[14];
-
-    switch (NodeType)
-    {
-        case 1:
-            if (!LoadString(hInstance, IDS_BCAST, szNode, sizeof(szNode)))
-                return NULL;
-            break;
-
-        case 2:
-            if (!LoadString(hInstance, IDS_P2P, szNode, sizeof(szNode)))
-                return NULL;
-            break;
-
-        case 4:
-            if (!LoadString(hInstance, IDS_MIXED, szNode,  sizeof(szNode)))
-                return NULL;
-            break;
-
-        case 8:
-            if (!LoadString(hInstance, IDS_HYBRID, szNode,  sizeof(szNode)))
-                return NULL;
-            break;
-
-        default :
-            if (!LoadString(hInstance, IDS_UNKNOWN, szNode,  sizeof(szNode)))
-                return NULL;
-            break;
+    switch (NodeType) {
+        case 1: return _T("Broadcast");
+        case 2: return _T("Peer To Peer");
+        case 4: return _T("Mixed");
+        case 8: return _T("Hybrid");
+        default : return _T("unknown");
     }
-
-    return szNode;
 }
 
-
-LPTSTR GetInterfaceTypeName(UINT InterfaceType)
+LPCTSTR GetInterfaceTypeName(UINT InterfaceType)
 {
-    static TCHAR szIntType[25];
-
-    switch (InterfaceType)
-    {
-        case MIB_IF_TYPE_OTHER:
-            if (!LoadString(hInstance, IDS_OTHER, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_ETHERNET:
-            if (!LoadString(hInstance, IDS_ETH, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_TOKENRING:
-            if (!LoadString(hInstance, IDS_TOKEN, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_FDDI:
-            if (!LoadString(hInstance, IDS_FDDI, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_PPP:
-            if (!LoadString(hInstance, IDS_PPP, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_LOOPBACK:
-            if (!LoadString(hInstance, IDS_LOOP, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        case MIB_IF_TYPE_SLIP:
-            if (!LoadString(hInstance, IDS_SLIP, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
-
-        default:
-            if (!LoadString(hInstance, IDS_UNKNOWN, szIntType, sizeof(szIntType)))
-                return NULL;
-            break;
+    switch (InterfaceType) {
+        case MIB_IF_TYPE_OTHER:     return _T("Other Type Of Adapter");
+        case MIB_IF_TYPE_ETHERNET:  return _T("Ethernet Adapter");
+        case MIB_IF_TYPE_TOKENRING: return _T("Token Ring Adapter");
+        case MIB_IF_TYPE_FDDI:      return _T("FDDI Adapter");
+        case MIB_IF_TYPE_PPP:       return _T("PPP Adapter");
+        case MIB_IF_TYPE_LOOPBACK:  return _T("Loopback Adapter");
+        case MIB_IF_TYPE_SLIP:      return _T("SLIP Adapter");
+        default: return _T("unknown");
     }
-
-    return szIntType;
 }
-
 
 /* print MAC address */
 PTCHAR PrintMacAddr(PBYTE Mac)
@@ -124,286 +69,84 @@ PTCHAR PrintMacAddr(PBYTE Mac)
     return MacAddr;
 }
 
-
-VOID DoFormatMessage(LONG ErrorCode)
+DWORD DoFormatMessage(DWORD ErrorCode)
 {
     LPVOID lpMsgBuf;
-    //DWORD ErrorCode;
+    DWORD RetVal;
 
-    if (ErrorCode == 0)
-        ErrorCode = GetLastError();
-
-    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                        FORMAT_MESSAGE_FROM_SYSTEM |
-                        FORMAT_MESSAGE_IGNORE_INSERTS,
-                      NULL,
-                      ErrorCode,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
-                      (LPTSTR) &lpMsgBuf,
-                      0,
-                      NULL))
-    {
+    if ((RetVal = FormatMessage(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER |
+            FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            ErrorCode,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+            (LPTSTR) &lpMsgBuf,
+            0,
+            NULL ))) {
         _tprintf(_T("%s"), (LPTSTR)lpMsgBuf);
+
         LocalFree(lpMsgBuf);
+        /* return number of TCHAR's stored in output buffer
+         * excluding '\0' - as FormatMessage does*/
+        return RetVal;
     }
+    else
+        return 0;
 }
 
-
-LPTSTR GetConnectionType(LPTSTR lpClass)
-{
-    HKEY hKey = NULL;
-    LPTSTR ConType = NULL;
-    TCHAR Path[256];
-    LPTSTR PrePath  = _T("SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\");
-    LPTSTR PostPath = _T("\\Connection");
-    DWORD PathSize;
-    DWORD dwType;
-    DWORD dwDataSize;
-
-    /* don't overflow the buffer */
-    PathSize = lstrlen(PrePath) + lstrlen(lpClass) + lstrlen(PostPath) + 1;
-    if (PathSize >= 255)
-        return NULL;
-
-    wsprintf(Path, _T("%s%s%s"), PrePath, lpClass, PostPath);
-
-    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                     Path,
-                     0,
-                     KEY_READ,
-                     &hKey) == ERROR_SUCCESS)
-    {
-        if(RegQueryValueEx(hKey,
-                           _T("Name"),
-                           NULL,
-                           &dwType,
-                           NULL,
-                           &dwDataSize) == ERROR_SUCCESS)
-        {
-            ConType = (LPTSTR)HeapAlloc(ProcessHeap,
-                                        0,
-                                        dwDataSize);
-            if (ConType == NULL)
-                return NULL;
-
-            if(RegQueryValueEx(hKey,
-                               _T("Name"),
-                               NULL,
-                               &dwType,
-                               (PBYTE)ConType,
-                               &dwDataSize) != ERROR_SUCCESS)
-            {
-                ConType = NULL;
-            }
-        }
-    }
-
-    if (hKey != NULL)
-        RegCloseKey(hKey);
-
-    return ConType;
-}
-
-
-LPTSTR GetConnectionDescription(LPTSTR lpClass)
-{
-    HKEY hBaseKey = NULL;
-    HKEY hClassKey = NULL;
-    LPTSTR lpKeyClass = NULL;
-    LPTSTR lpConDesc = NULL;
-    LPTSTR lpPath = NULL;
-    TCHAR szPrePath[] = _T("SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002bE10318}\\");
-    DWORD dwType;
-    DWORD dwDataSize;
-    INT i;
-
-    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                     szPrePath,
-                     0,
-                     KEY_READ,
-                     &hBaseKey) != ERROR_SUCCESS)
-    {
-        return NULL;
-    }
-
-    for (i=0; ; i++)
-    {
-        DWORD PathSize;
-        LONG Status;
-        TCHAR szName[10];
-        DWORD NameLen = 9;
-
-        if ((Status = RegEnumKeyEx(hBaseKey,
-                                   i,
-                                   szName,
-                                   &NameLen,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   NULL)) != ERROR_SUCCESS)
-        {
-            if (Status == ERROR_NO_MORE_ITEMS)
-            {
-                DoFormatMessage(Status);
-                lpConDesc = NULL;
-                goto CLEANUP;
-            }
-            else
-                continue;
-        }
-
-        PathSize = lstrlen(szPrePath) + lstrlen(szName) + 1;
-        lpPath = (LPTSTR)HeapAlloc(ProcessHeap,
-                                   0,
-                                   PathSize * sizeof(TCHAR));
-        if (lpPath == NULL)
-            goto CLEANUP;
-
-        wsprintf(lpPath, _T("%s%s"), szPrePath, szName);
-
-        //MessageBox(NULL, lpPath, NULL, 0);
-
-        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                         lpPath,
-                         0,
-                         KEY_READ,
-                         &hClassKey) != ERROR_SUCCESS)
-        {
-            goto CLEANUP;
-        }
-
-        HeapFree(ProcessHeap, 0, lpPath);
-        lpPath = NULL;
-
-        if(RegQueryValueEx(hClassKey,
-                           _T("NetCfgInstanceId"),
-                           NULL,
-                           &dwType,
-                           NULL,
-                           &dwDataSize) == ERROR_SUCCESS)
-        {
-            lpKeyClass = (LPTSTR)HeapAlloc(ProcessHeap,
-                                           0,
-                                           dwDataSize);
-            if (lpKeyClass == NULL)
-                goto CLEANUP;
-
-            if(RegQueryValueEx(hClassKey,
-                               _T("NetCfgInstanceId"),
-                               NULL,
-                               &dwType,
-                               (PBYTE)lpKeyClass,
-                               &dwDataSize) != ERROR_SUCCESS)
-            {
-                lpKeyClass = NULL;
-                HeapFree(ProcessHeap, 0, lpKeyClass);
-                continue;
-            }
-        }
-        else
-            continue;
-
-        if (!lstrcmp(lpClass, lpKeyClass))
-        {
-            HeapFree(ProcessHeap, 0, lpKeyClass);
-            lpKeyClass = NULL;
-
-            if(RegQueryValueEx(hClassKey,
-                               _T("DriverDesc"),
-                               NULL,
-                               &dwType,
-                               NULL,
-                               &dwDataSize) == ERROR_SUCCESS)
-            {
-                lpConDesc = (LPTSTR)HeapAlloc(ProcessHeap,
-                                              0,
-                                              dwDataSize);
-                if (lpConDesc == NULL)
-                    goto CLEANUP;
-
-                if(RegQueryValueEx(hClassKey,
-                                   _T("DriverDesc"),
-                                   NULL,
-                                   &dwType,
-                                   (PBYTE)lpConDesc,
-                                   &dwDataSize) != ERROR_SUCCESS)
-                {
-                    lpConDesc = NULL;
-                    goto CLEANUP;
-                }
-            }
-            else
-                lpConDesc = NULL;
-
-            break;
-        }
-    }
-
-CLEANUP:
-    if (hBaseKey != NULL)
-        RegCloseKey(hBaseKey);
-    if (hClassKey != NULL)
-        RegCloseKey(hClassKey);
-    if (lpConDesc != NULL)
-        HeapFree(ProcessHeap, 0, lpPath);
-    if (lpConDesc != NULL)
-        HeapFree(ProcessHeap, 0, lpKeyClass);
-
-    return lpConDesc;
-}
-
-
-VOID ShowInfo(BOOL bAll)
+INT ShowInfo(BOOL bAll)
 {
     PIP_ADAPTER_INFO pAdapterInfo = NULL;
     PIP_ADAPTER_INFO pAdapter = NULL;
-    ULONG adaptOutBufLen = 0;
-    PFIXED_INFO pFixedInfo = NULL;
-    ULONG netOutBufLen = 0;
+    ULONG    adaptOutBufLen;
 
-    /* call GetAdaptersInfo to obtain the adapter info */
-    if (GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen) == ERROR_BUFFER_OVERFLOW)
-    {
-        pAdapterInfo = (IP_ADAPTER_INFO *)HeapAlloc(ProcessHeap, 0, adaptOutBufLen);
-        if (pAdapterInfo == NULL)
-            return;
+    PFIXED_INFO pFixedInfo;
+    ULONG    netOutBufLen;
+    PIP_ADDR_STRING pIPAddr = NULL;
 
-        if (GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen) != NO_ERROR)
-        {
-            DoFormatMessage(0);
-            HeapFree(ProcessHeap, 0, pAdapterInfo);
-            return;
-        }
-    }
-    else
-    {
-        DoFormatMessage(0);
-        return;
-    }
+	DWORD ErrRet = 0;
 
-    /* call GetNetworkParams to obtain the network info */
-    if(GetNetworkParams(pFixedInfo, &netOutBufLen) == ERROR_BUFFER_OVERFLOW)
-    {
-        pFixedInfo = (FIXED_INFO *)HeapAlloc(ProcessHeap, 0, netOutBufLen);
-        if (pFixedInfo == NULL)
-            return;
+    /* assign memory for call to GetNetworkParams */
+    pFixedInfo = (FIXED_INFO *) GlobalAlloc( GPTR, sizeof( FIXED_INFO ) );
+    netOutBufLen = sizeof(FIXED_INFO);
 
-        if (GetNetworkParams(pFixedInfo, &netOutBufLen) != NO_ERROR)
-        {
-            DoFormatMessage(0);
-            HeapFree(ProcessHeap, 0, pFixedInfo);
-            return;
-        }
-    }
-    else
-    {
-        DoFormatMessage(0);
-        return;
+    /* assign memory for call to GetAdapterInfo */
+    pAdapterInfo = (IP_ADAPTER_INFO *) malloc( sizeof(IP_ADAPTER_INFO) );
+    adaptOutBufLen = sizeof(IP_ADAPTER_INFO);
+
+    /* set required buffer size */
+    if(GetNetworkParams(pFixedInfo, &netOutBufLen) == ERROR_BUFFER_OVERFLOW) 
+	{
+        GlobalFree(pFixedInfo);
+        pFixedInfo = (FIXED_INFO *) GlobalAlloc(GPTR, netOutBufLen);
     }
 
+    /* set required buffer size */
+    if (GetAdaptersInfo( pAdapterInfo, &adaptOutBufLen) == ERROR_BUFFER_OVERFLOW) 
+	{
+       free(pAdapterInfo);
+       pAdapterInfo = (IP_ADAPTER_INFO *) malloc (adaptOutBufLen);
+    }
+
+    if ((ErrRet = GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen)) != NO_ERROR)
+	{
+		_tprintf(_T("GetAdaptersInfo failed : "));
+		DoFormatMessage(ErrRet);
+		return EXIT_FAILURE;
+	}
+
+    if ((ErrRet = GetNetworkParams(pFixedInfo, &netOutBufLen)) != NO_ERROR)
+	{
+		_tprintf(_T("GetNetworkParams failed : "));
+		DoFormatMessage(ErrRet);
+		return EXIT_FAILURE;
+	}
+    
     pAdapter = pAdapterInfo;
 
     _tprintf(_T("\nReactOS IP Configuration\n\n"));
+
     if (bAll)
     {
         _tprintf(_T("\tHost Name . . . . . . . . . . . . : %s\n"), pFixedInfo->HostName);
@@ -420,17 +163,11 @@ VOID ShowInfo(BOOL bAll)
         _tprintf(_T("\tDNS Suffix Search List. . . . . . : %s\n"), pFixedInfo->DomainName);
     }
 
-    while (pAdapter)
-    {
-        LPTSTR IntType, myConType;
+	while (pAdapter)
+	{
 
-        IntType = GetInterfaceTypeName(pAdapter->Type);
-        myConType = GetConnectionType(pAdapter->AdapterName);
-
-        _tprintf(_T("\n%s %s: \n\n"), IntType , myConType);
-
-        if (myConType != NULL) HeapFree(ProcessHeap, 0, myConType);
-
+        _tprintf(_T("\n%s ...... : \n\n"), GetInterfaceTypeName(pAdapter->Type));
+        
         /* check if the adapter is connected to the media */
         if (_tcscmp(pAdapter->IpAddressList.IpAddress.String, "0.0.0.0") == 0)
         {
@@ -438,12 +175,12 @@ VOID ShowInfo(BOOL bAll)
             pAdapter = pAdapter->Next;
             continue;
         }
-
+        
         _tprintf(_T("\tConnection-specific DNS Suffix. . : %s\n"), pFixedInfo->DomainName);
 
         if (bAll)
         {
-            _tprintf(_T("\tDescription . . . . . . . . . . . : %s\n"), GetConnectionDescription(pAdapter->AdapterName));
+            _tprintf(_T("\tDescription . . . . . . . . . . . : %s\n"), pAdapter->Description);
             _tprintf(_T("\tPhysical Address. . . . . . . . . : %s\n"), PrintMacAddr(pAdapter->Address));
             if (pAdapter->DhcpEnabled)
                 _tprintf(_T("\tDHCP Enabled. . . . . . . . . . . : Yes\n"));
@@ -458,26 +195,22 @@ VOID ShowInfo(BOOL bAll)
 
         if (bAll)
         {
-            PIP_ADDR_STRING pIPAddr;
-
             if (pAdapter->DhcpEnabled)
                _tprintf(_T("\tDHCP Server . . . . . . . . . . . : %s\n"), pAdapter->DhcpServer.IpAddress.String);
 
             _tprintf(_T("\tDNS Servers . . . . . . . . . . . : "));
             _tprintf(_T("%s\n"), pFixedInfo->DnsServerList.IpAddress.String);
-            pIPAddr = pFixedInfo->DnsServerList.Next;
+            pIPAddr = pFixedInfo -> DnsServerList.Next;
             while (pIPAddr)
             {
                 _tprintf(_T("\t\t\t\t\t    %s\n"), pIPAddr ->IpAddress.String );
-                pIPAddr = pIPAddr->Next;
+                pIPAddr = pIPAddr ->Next;
             }
-
             if (pAdapter->HaveWins)
             {
                 _tprintf(_T("\tPrimary WINS Server . . . . . . . : %s\n"), pAdapter->PrimaryWinsServer.IpAddress.String);
                 _tprintf(_T("\tSecondard WINS Server . . . . . . : %s\n"), pAdapter->SecondaryWinsServer.IpAddress.String);
             }
-
             if (pAdapter->DhcpEnabled)
             {
                 _tprintf(_T("\tLease Obtained. . . . . . . . . . : %s"), _tasctime(localtime(&pAdapter->LeaseObtained)));
@@ -485,56 +218,51 @@ VOID ShowInfo(BOOL bAll)
             }
         }
         _tprintf(_T("\n"));
-
-        pAdapter = pAdapter->Next;
+        
+		pAdapter = pAdapter->Next;
 
     }
-
-    HeapFree(ProcessHeap, 0, pFixedInfo);
-    HeapFree(ProcessHeap, 0, pAdapterInfo);
+ 
+    return 0;
 }
 
-VOID Release(LPTSTR Index)
+INT Release(TCHAR Index)
 {
     IP_ADAPTER_INDEX_MAP AdapterInfo;
-    DWORD ret;
+    DWORD dwRetVal = 0;
 
     /* if interface is not given, query GetInterfaceInfo */
-    if (Index == NULL)
+    if (Index == (TCHAR)NULL)
     {
-        PIP_INTERFACE_INFO pInfo = NULL;
-        ULONG ulOutBufLen = 0;
+        PIP_INTERFACE_INFO pInfo;
+        ULONG ulOutBufLen;
+        pInfo = (IP_INTERFACE_INFO *) malloc(sizeof(IP_INTERFACE_INFO));
+        ulOutBufLen = 0;
 
-        if (GetInterfaceInfo(pInfo, &ulOutBufLen) == ERROR_INSUFFICIENT_BUFFER)
+        /* Make an initial call to GetInterfaceInfo to get
+         * the necessary size into the ulOutBufLen variable */
+        if ( GetInterfaceInfo(pInfo, &ulOutBufLen) == ERROR_INSUFFICIENT_BUFFER)
         {
-            pInfo = (IP_INTERFACE_INFO *)HeapAlloc(ProcessHeap, 0, ulOutBufLen);
-            if (pInfo == NULL)
-                return;
+            GlobalFree(pInfo);
+            pInfo = (IP_INTERFACE_INFO *) malloc (ulOutBufLen);
+        }
 
-            if (GetInterfaceInfo(pInfo, &ulOutBufLen) == NO_ERROR )
-            {
-                CopyMemory(&AdapterInfo, &pInfo->Adapter[0], sizeof(IP_ADAPTER_INDEX_MAP));
-                _tprintf(_T("name - %S\n"), pInfo->Adapter[0].Name);
-                HeapFree(ProcessHeap, 0, pInfo);
-            }
-            else
-            {
-                DoFormatMessage(0);
-                HeapFree(ProcessHeap, 0, pInfo);
-                return;
-            }
+        /* Make a second call to GetInterfaceInfo to get the actual data we want */
+        if ((dwRetVal = GetInterfaceInfo(pInfo, &ulOutBufLen)) == NO_ERROR )
+        {
+            AdapterInfo = pInfo->Adapter[0];
+            _tprintf(_T("name - %S\n"), pInfo->Adapter[0].Name);
         }
         else
         {
-            DoFormatMessage(0);
-            return;
+            _tprintf(_T("\nGetInterfaceInfo failed : "));
+            DoFormatMessage(dwRetVal);
         }
     }
     else
     {
         ;
-        /* FIXME:
-         * we need to be able to release connections by name with support for globbing
+        /* we need to be able to release connections by name with support for globbing
          * i.e. ipconfig /release Eth* will release all cards starting with Eth...
          *      ipconfig /release *con* will release all cards with 'con' in their name
          */
@@ -542,66 +270,52 @@ VOID Release(LPTSTR Index)
 
 
     /* Call IpReleaseAddress to release the IP address on the specified adapter. */
-    if (ret = IpReleaseAddress(&AdapterInfo) != NO_ERROR)
+    if ((dwRetVal = IpReleaseAddress(&AdapterInfo)) != NO_ERROR)
     {
-        _tprintf(_T("\nAn error occured while releasing interface %S : \n"), AdapterInfo.Name);
-        DoFormatMessage(ret);
+        _tprintf(_T("\nAn error occured while releasing interface %s : "), _T("*name*"));
+        DoFormatMessage(dwRetVal);
     }
-
+    return 0;
 }
 
 
 
 
-VOID Renew(LPTSTR Index)
+INT Renew(TCHAR Index)
 {
     IP_ADAPTER_INDEX_MAP AdapterInfo;
+    DWORD dwRetVal = 0;
 
     /* if interface is not given, query GetInterfaceInfo */
-    if (Index == NULL)
+    if (Index == (TCHAR)NULL)
     {
         PIP_INTERFACE_INFO pInfo;
-        ULONG ulOutBufLen = 0;
-
-        pInfo = (IP_INTERFACE_INFO *)HeapAlloc(ProcessHeap, 0, sizeof(IP_INTERFACE_INFO));
-        if (pInfo == NULL)
-        {
-            _tprintf(_T("memory allocation error"));
-            return;
-        }
+        ULONG ulOutBufLen;
+        pInfo = (IP_INTERFACE_INFO *) malloc(sizeof(IP_INTERFACE_INFO));
+        ulOutBufLen = 0;
 
         /* Make an initial call to GetInterfaceInfo to get
          * the necessary size into the ulOutBufLen variable */
         if ( GetInterfaceInfo(pInfo, &ulOutBufLen) == ERROR_INSUFFICIENT_BUFFER)
         {
-            HeapFree(ProcessHeap, 0, pInfo);
-            pInfo = (IP_INTERFACE_INFO *)HeapAlloc(ProcessHeap, 0, ulOutBufLen);
-            if (pInfo == NULL)
-            {
-                _tprintf(_T("memory allocation error"));
-                return;
-            }
+            GlobalFree(pInfo);
+            pInfo = (IP_INTERFACE_INFO *) malloc (ulOutBufLen);
         }
 
         /* Make a second call to GetInterfaceInfo to get the actual data we want */
-        if (GetInterfaceInfo(pInfo, &ulOutBufLen) == NO_ERROR )
+        if ((dwRetVal = GetInterfaceInfo(pInfo, &ulOutBufLen)) == NO_ERROR )
         {
-            CopyMemory(&AdapterInfo, &pInfo->Adapter[0], sizeof(IP_ADAPTER_INDEX_MAP));
+            AdapterInfo = pInfo->Adapter[0];
             _tprintf(_T("name - %S\n"), pInfo->Adapter[0].Name);
-        }
-        else
-        {
+        } else {
             _tprintf(_T("\nGetInterfaceInfo failed : "));
-            DoFormatMessage(0);
+            DoFormatMessage(dwRetVal);
         }
-
-        HeapFree(ProcessHeap, 0, pInfo);
     }
     else
     {
         ;
-        /* FIXME:
-         * we need to be able to renew connections by name with support for globbing
+        /* we need to be able to renew connections by name with support for globbing
          * i.e. ipconfig /renew Eth* will renew all cards starting with Eth...
          *      ipconfig /renew *con* will renew all cards with 'con' in their name
          */
@@ -609,48 +323,95 @@ VOID Renew(LPTSTR Index)
 
 
     /* Call IpRenewAddress to renew the IP address on the specified adapter. */
-    if (IpRenewAddress(&AdapterInfo) != NO_ERROR)
+    if ((dwRetVal = IpRenewAddress(&AdapterInfo)) != NO_ERROR)
     {
         _tprintf(_T("\nAn error occured while renew interface %s : "), _T("*name*"));
-        DoFormatMessage(0);
+        DoFormatMessage(dwRetVal);
+    }
+    return 0;
+}
+
+/* temp func for testing purposes */
+VOID Info()
+{
+     // Declare and initialize variables
+    PIP_INTERFACE_INFO pInfo;
+    ULONG ulOutBufLen;
+    DWORD dwRetVal;
+
+    pInfo = (IP_INTERFACE_INFO *) malloc( sizeof(IP_INTERFACE_INFO) );
+    ulOutBufLen = sizeof(IP_INTERFACE_INFO);
+    dwRetVal = 0;
+
+
+    // Make an initial call to GetInterfaceInfo to get
+    // the necessary size in the ulOutBufLen variable
+    if ( GetInterfaceInfo(pInfo, &ulOutBufLen) == ERROR_INSUFFICIENT_BUFFER)
+    {
+        free(pInfo);
+        pInfo = (IP_INTERFACE_INFO *) malloc (ulOutBufLen);
+    }
+
+    // Make a second call to GetInterfaceInfo to get
+    // the actual data we need
+    if ((dwRetVal = GetInterfaceInfo(pInfo, &ulOutBufLen)) == NO_ERROR )
+    {
+        int i;
+        for (i=0; i<pInfo->NumAdapters; i++)
+        {
+            printf("\tAdapter Name: %S\n", pInfo->Adapter[i].Name);
+            printf("\tAdapter Index: %ld\n", pInfo->Adapter[i].Index);
+            printf("\tNum Adapters: %ld\n", pInfo->NumAdapters);
+        }
+    }
+    else
+    {
+        printf("GetInterfaceInfo failed.\n");
+        DoFormatMessage(dwRetVal);
     }
 }
 
 
-
 VOID Usage(VOID)
 {
-    HRSRC hRes;
-    LPTSTR lpUsage;
-    DWORD Size;
-
-    LPTSTR lpName = (LPTSTR)MAKEINTRESOURCE((IDS_USAGE >> 4) + 1);
-
-    hRes = FindResource(hInstance,
-                        lpName,
-                        RT_STRING);
-    if (hRes != NULL)
-    {
-        if ((Size = SizeofResource(hInstance,
-                                   hRes)))
-        {
-            lpUsage = (LPTSTR)HeapAlloc(ProcessHeap,
-                                        0,
-                                        Size);
-            if (lpUsage == NULL)
-                return;
-
-            if (LoadString(hInstance,
-                           IDS_USAGE,
-                           lpUsage,
-                           Size))
-            {
-                _tprintf(_T("%s"), lpUsage);
-            }
-        }
-    }
-
-
+    _tprintf(_T("\nUSAGE:\n"
+    "    ipconfig [/? | /all | /renew [adapter] | /release [adapter] |\n"
+    "              /flushdns | /displaydns | /registerdns |\n"
+    "              /showclassid adapter |\n"
+    "              /setclassid adapter [classid] ]\n"
+    "\n"
+    "where\n"
+    "    adapter         Connection name\n"
+    "                   (wildcard characters * and ? allowed, see examples)\n"
+    "\n"
+    "    Options:\n"
+    "       /?           Display this help message\n"
+    "       /all         Display full configuration information.\n"
+    "       /release     Release the IP address for the specified adapter.\n"
+    "       /renew       Renew the IP address for the specified adapter.\n"
+    "       /flushdns    Purges the DNS Resolver cache.\n"
+    "       /registerdns Refreshes all DHCP leases and re-registers DNS names.\n"
+    "       /displaydns  Display the contents of the DNS Resolver Cache.\n"
+    "       /showclassid Displays all the dhcp class IDs allowed for adapter.\n"
+    "       /setclassid  Modifies the dhcp class id.\n"
+    "\n"
+    "The default is to display only the IP address, subnet mask and\n"
+    "default gateway for each adapter bound to TCP/IP.\n"
+    "\n"
+    "For Release and Renew, if no adapter name is specified, then the IP address\n"
+    "leases for all adapters bound to TCP/IP will be released or renewed.\n"
+    "\n"
+    "For Setclassid, if no ClassId is specified, then the ClassId is removed.\n"
+    "\n"
+    "Examples:\n"
+    "    > ipconfig                   ... Show information.\n"
+    "    > ipconfig /all              ... Show detailed information\n"
+    "    > ipconfig /renew            ... renew all adapters\n"
+    "    > ipconfig /renew EL*        ... renew any connection that has its\n"
+    "                                     name starting with EL\n"
+    "    > ipconfig /release *Con*    ... release all matching connections,\n"
+    "                                     eg. \"Local Area Connection 1\" or\n"
+    "                                         \"Local Area Connection 2\"\n"));
 }
 
 int main(int argc, char *argv[])
@@ -664,9 +425,6 @@ int main(int argc, char *argv[])
     BOOL DoDisplaydns=FALSE;
     BOOL DoShowclassid=FALSE;
     BOOL DoSetclassid=FALSE;
-
-    hInstance = GetModuleHandle(NULL);
-    ProcessHeap = GetProcessHeap();
 
     /* Parse command line for options we have been given. */
     if ( (argc > 1)&&(argv[1][0]=='/') )
@@ -714,15 +472,15 @@ int main(int argc, char *argv[])
         case 1:  /* Default behaviour if no options are given*/
             ShowInfo(FALSE);
             break;
-        case 2:  /* Process all the options that take no parameters */
+        case 2:  /* Process all the options that take no paramiters */
             if (DoUsage)
                 Usage();
             else if (DoAll)
                 ShowInfo(TRUE);
             else if (DoRelease)
-                Release(NULL);
+                Release((TCHAR)NULL);
             else if (DoRenew)
-                Renew(NULL);
+                Renew((TCHAR)NULL);
             else if (DoFlushdns)
                 _tprintf(_T("\nSorry /flushdns is not implemented yet\n"));
             else if (DoRegisterdns)
@@ -732,7 +490,7 @@ int main(int argc, char *argv[])
             else
                 Usage();
             break;
-        case 3: /* Process all the options that can have 1 parameter */
+        case 3: /* Process all the options that can have 1 paramiters */
             if (DoRelease)
                 _tprintf(_T("\nSorry /release [adapter] is not implemented yet\n"));
                 //Release(argv[2]);
@@ -745,7 +503,7 @@ int main(int argc, char *argv[])
             else
                 Usage();
             break;
-        case 4:  /* Process all the options that can have 2 parameters */
+        case 4:  /* Process all the options that can have 2 paramiters */
             if (DoSetclassid)
                 _tprintf(_T("\nSorry /setclassid adapter [classid]is not implemented yet\n"));
             else
@@ -757,4 +515,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-

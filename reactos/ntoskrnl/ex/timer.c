@@ -249,7 +249,7 @@ ExpInitializeTimerImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.ValidAccessMask = TIMER_ALL_ACCESS;
     ObjectTypeInitializer.DeleteProcedure = ExpDeleteTimer;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExTimerType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExTimerType);
 
     /* Initialize the Wait List and Lock */
     KeInitializeSpinLock(&ExpWakeListLock);
@@ -508,8 +508,8 @@ NtOpenTimer(OUT PHANDLE TimerHandle,
     /* Open the Timer */
     Status = ObOpenObjectByName(ObjectAttributes,
                                 ExTimerType,
-                                PreviousMode,
                                 NULL,
+                                PreviousMode,
                                 DesiredAccess,
                                 NULL,
                                 &hTimer);

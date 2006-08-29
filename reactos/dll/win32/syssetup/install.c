@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           System setup
@@ -190,7 +191,7 @@ CreateRandomSid (PSID *Sid)
 
   RtlAllocateAndInitializeSid (&SystemAuthority,
 			       4,
-			       SECURITY_NT_NON_UNIQUE,
+			       SECURITY_NT_NON_UNIQUE_RID,
 			       RtlUniform (Seed),
 			       RtlUniform (Seed),
 			       RtlUniform (Seed),
@@ -368,127 +369,13 @@ cleanup:
 
 
 DWORD STDCALL
-InstallLiveCD (HINSTANCE hInstance)
-{
-  LONG rc;
-  HKEY hKey = NULL;
-  DWORD dwType;
-  DWORD requiredSize;
-  LPTSTR Shell = NULL;
-  TCHAR CommandLine[MAX_PATH];
-  STARTUPINFO StartupInfo;
-  PROCESS_INFORMATION ProcessInformation;
-  BOOL res;
-
-  hSysSetupInf = SetupOpenInfFileW(
-    L"syssetup.inf",
-    NULL,
-    INF_STYLE_WIN4,
-    NULL);
-  if (hSysSetupInf == INVALID_HANDLE_VALUE)
-  {
-    DebugPrint("SetupOpenInfFileW() failed to open 'syssetup.inf' (Error: %lu)\n", GetLastError());
-    return 0;
-  }
-
-  if (!ProcessSysSetupInf())
-  {
-    DebugPrint("ProcessSysSetupInf() failed!\n");
-    return 0;
-  }
-
-  SetupCloseInfFile(hSysSetupInf);
-
-  if (!EnableUserModePnpManager())
-  {
-    DebugPrint("EnableUserModePnpManager() failed!\n");
-    return 0;
-  }
-
-  /* Load the default shell */
-  rc = RegOpenKeyEx(
-    HKEY_LOCAL_MACHINE,
-    TEXT("SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\Winlogon"), /* FIXME: should be REGSTR_PATH_WINLOGON */
-    0,
-    KEY_QUERY_VALUE,
-    &hKey);
-  if (rc != ERROR_SUCCESS)
-    goto cleanup;
-  rc = RegQueryValueEx(
-    hKey,
-    TEXT("Shell"),
-    NULL,
-    &dwType,
-    NULL,
-    &requiredSize);
-  if (rc != ERROR_SUCCESS)
-    goto cleanup;
-  else if (dwType != REG_SZ && dwType != REG_EXPAND_SZ)
-    goto cleanup;
-  else if (requiredSize > (MAX_PATH - 1) * sizeof(TCHAR))
-    goto cleanup;
-  Shell = HeapAlloc(GetProcessHeap(), 0, requiredSize + sizeof(TCHAR));
-  if (!Shell)
-    goto cleanup;
-  Shell[requiredSize / sizeof(WCHAR)] = '\0';
-  rc = RegQueryValueEx(
-    hKey,
-    TEXT("Shell"),
-    NULL,
-    NULL,
-    (LPBYTE)Shell,
-    &requiredSize);
-  if (rc != ERROR_SUCCESS)
-    goto cleanup;
-  if (dwType == REG_EXPAND_SZ)
-    ExpandEnvironmentStrings(Shell, CommandLine, MAX_PATH);
-  else if (dwType == REG_SZ)
-    _tcscpy(CommandLine, Shell);
-
-  /* Run the shell */
-  StartupInfo.cb = sizeof(StartupInfo);
-  StartupInfo.lpReserved = NULL;
-  StartupInfo.lpDesktop = NULL;
-  StartupInfo.lpTitle = NULL;
-  StartupInfo.dwFlags = 0;
-  StartupInfo.cbReserved2 = 0;
-  StartupInfo.lpReserved2 = 0;
-  res = CreateProcess(
-    CommandLine,
-    NULL,
-    NULL,
-    NULL,
-    FALSE,
-    0,
-    NULL,
-    NULL,
-    &StartupInfo,
-    &ProcessInformation);
-  if (!res)
-    goto cleanup;
-
-  /* Wait for process termination */
-  WaitForSingleObject(ProcessInformation.hProcess, INFINITE);
-
-cleanup:
-  if (hKey != NULL)
-    RegCloseKey(hKey);
-  HeapFree(GetProcessHeap(), 0, Shell);
-  MessageBoxA(
-    NULL,
-    "You can shutdown your computer, or press ENTER to reboot",
-    "ReactOS LiveCD",
-    MB_OK);
-  return 0;
-}
-
-
-DWORD STDCALL
 InstallReactOS (HINSTANCE hInstance)
 {
   TCHAR sAccessories[256];
   TCHAR sGames[256];
-  TCHAR szBuffer[MAX_PATH];  
+  TCHAR Sys[MAX_PATH];
+  TCHAR GamePath[MAX_PATH];
+    
 
 # if 0
   OutputDebugStringA ("InstallReactOS() called\n");
@@ -534,23 +421,29 @@ InstallReactOS (HINSTANCE hInstance)
   CreateShortcut(CSIDL_ADMINTOOLS, NULL, _T("Services.lnk"), _T("servman.exe"), IDS_CMT_SERVMAN);
 
   /* create and fill Accessories subfolder */
-  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_ACCESSORIES, sAccessories, 256)) 
-  {
+  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_ACCESSORIES, sAccessories, 256)) {
 	CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Calculator.lnk"), _T("calc.exe"), IDS_CMT_CALC);
 	CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Command Prompt.lnk"), _T("cmd.exe"), IDS_CMT_CMD);
     CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Notepad.lnk"), _T("notepad.exe"), IDS_CMT_NOTEPAD);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("ReactOS Explorer.lnk"), _T("explorer.exe"), IDS_CMT_EXPLORER);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Regedit.lnk"), _T("regedit.exe"), IDS_CMT_REGEDIT);
+    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("ReactOS Explorer.lnk"), _T("..\\explorer.exe"), IDS_CMT_EXPLORER);
+    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("Regedit.lnk"), _T("..\\regedit.exe"), IDS_CMT_REGEDIT);
     CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("WordPad.lnk"), _T("wordpad.exe"), IDS_CMT_WORDPAD);
-    CreateShortcut(CSIDL_PROGRAMS, sAccessories, _T("SnapShot.lnk"), _T("screenshot.exe"), IDS_CMT_SCREENSHOT);
   }
 
 
   /* create Games subfolder and fill if the exe is available */
-  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_GAMES, sGames, 256)) 
-  {
-    CreateShortcut(CSIDL_PROGRAMS, sGames, _T("Solitaire.lnk"), _T("sol.exe"), IDS_CMT_SOLITAIRE);
-    CreateShortcut(CSIDL_PROGRAMS, sGames, _T("WineMine.lnk"), _T("winemine.exe"), IDS_CMT_WINEMINE);
+  if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_GAMES, sGames, 256)) {
+	if(GetSystemDirectory(Sys, MAX_PATH)) {
+	  /* copy system dir */	
+	  _tcscpy(GamePath, Sys);
+	  /* concatonate full file path and check for existance */
+   	  if((_taccess(_tcscat(GamePath, _T("\\sol.exe")), 0 )) != -1)
+        CreateShortcut(CSIDL_PROGRAMS, sGames, _T("Solitaire.lnk"), _T("sol.exe"), IDS_CMT_SOLITAIRE);
+      
+	  _tcscpy(GamePath, Sys);
+      if((_taccess(_tcscat(GamePath, _T("\\winemine.exe")), 0 )) != -1)
+        CreateShortcut(CSIDL_PROGRAMS, sGames, _T("WineMine.lnk"), _T("winemine.exe"), IDS_CMT_WINEMINE);
+	}
   }
 
   CoUninitialize();
@@ -626,13 +519,6 @@ InstallReactOS (HINSTANCE hInstance)
 
   CreateTempDir(L"TEMP");
   CreateTempDir(L"TMP");
-
-  if (GetWindowsDirectory(szBuffer, sizeof(szBuffer) / sizeof(TCHAR)))
-  {
-    PathAddBackslash(szBuffer);
-    _tcscat(szBuffer, _T("system"));
-    CreateDirectory(szBuffer, NULL);
-  }
 
   hSysSetupInf = SetupOpenInfFileW(L"syssetup.inf",
 				   NULL,

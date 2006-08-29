@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -34,35 +34,89 @@ UCHAR
 NTAPI
 KdPollBreakIn(VOID);
 
-NTSTATUS
+BOOLEAN
 NTAPI
-KdRestore(IN BOOLEAN DisableDbgPorts);
+KdPortInitialize(
+    PKD_PORT_INFORMATION PortInformation,
+    ULONG Unknown1,
+    ULONG Unknown2
+);
 
-NTSTATUS
+BOOLEAN
 NTAPI
-KdSave(IN ULONG Unknown);
+KdPortInitializeEx(
+    PKD_PORT_INFORMATION PortInformation,
+    ULONG Unknown1,
+    ULONG Unknown2
+);
 
-#ifdef _ARC_
-NTSTATUS
+BOOLEAN
+NTAPI
+KdPortGetByte(
+    PUCHAR ByteRecieved
+);
+
+BOOLEAN
+NTAPI
+KdPortGetByteEx(
+    PKD_PORT_INFORMATION PortInformation,
+    PUCHAR ByteRecieved
+);
+
+BOOLEAN
+NTAPI
+KdPortPollByte(
+    PUCHAR ByteRecieved
+);
+
+BOOLEAN
+NTAPI
+KdPortPollByteEx(
+    PKD_PORT_INFORMATION PortInformation,
+    PUCHAR ByteRecieved
+);
+
+VOID
+NTAPI
+KdPortPutByte(
+    UCHAR ByteToSend
+);
+
+VOID
+NTAPI
+KdPortPutByteEx(
+    PKD_PORT_INFORMATION PortInformation,
+    UCHAR ByteToSend
+);
+
+VOID
+NTAPI
+KdPortRestore(VOID);
+
+VOID
+NTAPI
+KdPortSave (VOID);
+
+VOID
+NTAPI
+KdRestore(VOID);
+
+VOID
+NTAPI
+KdSave (VOID);
+
+BOOLEAN
+NTAPI
+KdPortDisableInterrupts(VOID);
+
+BOOLEAN
+NTAPI
+KdPortEnableInterrupts(VOID);
+
+BOOLEAN
 NTAPI
 KdDebuggerInitialize0(
-    IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock
-);
-#endif
-
-//
-// Debugger API
-//
-NTSTATUS
-NTAPI
-KdSystemDebugControl(
-    SYSDBG_COMMAND Command,
-    PVOID InputBuffer,
-    ULONG InputBufferLength,
-    PVOID OutputBuffer,
-    ULONG OutputBufferLength,
-    PULONG ReturnLength,
-    KPROCESSOR_MODE PreviousMode
+    IN PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
 #endif
@@ -91,7 +145,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtSystemDebugControl(
-    SYSDBG_COMMAND ControlCode,
+    DEBUG_CONTROL_CODE ControlCode,
     PVOID InputBuffer,
     ULONG InputBufferLength,
     PVOID OutputBuffer,
@@ -120,7 +174,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwSystemDebugControl(
-    SYSDBG_COMMAND ControlCode,
+    DEBUG_CONTROL_CODE ControlCode,
     PVOID InputBuffer,
     ULONG InputBufferLength,
     PVOID OutputBuffer,

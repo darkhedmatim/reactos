@@ -7,9 +7,6 @@
 <directory name="calc">
 	<xi:include href="calc/calc.rbuild" />
 </directory>
-<directory name="cmdutils">
-	<xi:include href="cmdutils/cmdutils.rbuild" />
-</directory>
 <directory name="devmgr">
 	<xi:include href="devmgr/devmgr.rbuild" />
 </directory>
@@ -46,9 +43,6 @@
 <directory name="sc">
 	<xi:include href="sc/sc.rbuild" />
 </directory>
-<directory name="sm">
-	<xi:include href="sm/sm.rbuild" />
-</directory>
 <directory name="screensavers">
 	<xi:include href="screensavers/screensavers.rbuild" />
 </directory>
@@ -67,9 +61,6 @@
 <directory name="taskmgr">
 	<xi:include href="taskmgr/taskmgr.rbuild" />
 </directory>
-<directory name="testsets">
-	<xi:include href="testsets/testsets.rbuild" />
-</directory>
 <directory name="winefile">
 	<xi:include href="winefile/winefile.rbuild" />
 </directory>
@@ -82,8 +73,4 @@
 <directory name="utils">
 	<xi:include href="utils/utils.rbuild" />
 </directory>
-<directory name="winver">
-	<xi:include href="winver/winver.rbuild" />
-</directory>
-
 </group>

@@ -45,14 +45,14 @@ ExpDeleteProfile(PVOID ObjectBody)
     Profile = (PEPROFILE)ObjectBody;
 
     /* Check if there if the Profile was started */
-    if (Profile->LockedBufferAddress)
+    if (Profile->LockedBuffer)
     {
         /* Stop the Profile */
-        State = KeStopProfile(Profile->ProfileObject);
+        State = KeStopProfile(Profile->KeProfile);
         ASSERT(State != FALSE);
 
         /* Unmap the Locked Buffer */
-        MmUnmapLockedPages(Profile->LockedBufferAddress, Profile->Mdl);
+        MmUnmapLockedPages(Profile->LockedBuffer, Profile->Mdl);
         MmUnlockPages(Profile->Mdl);
         ExFreePool(Profile->Mdl);
     }
@@ -82,15 +82,15 @@ ExpInitializeProfileImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.DeleteProcedure = ExpDeleteProfile;
     ObjectTypeInitializer.ValidAccessMask = PROFILE_ALL_ACCESS;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExProfileObjectType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExProfileObjectType);
 }
 
 NTSTATUS
 NTAPI
 NtCreateProfile(OUT PHANDLE ProfileHandle,
                 IN HANDLE Process OPTIONAL,
-                IN PVOID RangeBase,
-                IN ULONG RangeSize,
+                IN PVOID ImageBase,
+                IN ULONG ImageSize,
                 IN ULONG BucketSize,
                 IN PVOID Buffer,
                 IN ULONG BufferSize,
@@ -110,17 +110,17 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     if(!BufferSize) return STATUS_INVALID_PARAMETER_7;
 
     /* Check if this is a low-memory profile */
-    if ((!BucketSize) && (RangeBase < (PVOID)(0x10000)))
+    if ((!BucketSize) && (ImageBase < (PVOID)(0x10000)))
     {
         /* Validate size */
         if (BufferSize < sizeof(ULONG)) return STATUS_INVALID_PARAMETER_7;
 
         /* This will become a segmented profile object */
-        Segment = (ULONG)RangeBase;
-        RangeBase = 0;
+        Segment = (ULONG)ImageBase;
+        ImageBase = 0;
 
         /* Recalculate the bucket size */
-        BucketSize = RangeSize / (BufferSize / sizeof(ULONG));
+        BucketSize = ImageSize / (BufferSize / sizeof(ULONG));
 
         /* Convert it to log2 */
         BucketSize--;
@@ -136,14 +136,14 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     }
 
     /* Make sure that the buckets can map the range */
-    if ((RangeSize >> (BucketSize - 2)) > BufferSize)
+    if ((ImageSize >> (BucketSize - 2)) > BufferSize)
     {
         DPRINT1("Bucket size too small\n");
         return STATUS_BUFFER_TOO_SMALL;
     }
 
     /* Make sure that the range isn't too gigantic */
-    if (((ULONG_PTR)RangeBase + RangeSize) < RangeSize)
+    if (((ULONG_PTR)ImageBase + ImageSize) < ImageSize)
     {
         DPRINT1("Range too big\n");
         return STATUS_BUFFER_OVERFLOW;
@@ -219,12 +219,12 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     if (!NT_SUCCESS(Status)) return(Status);
 
     /* Initialize it */
-    Profile->RangeBase = RangeBase;
-    Profile->RangeSize = RangeSize;
+    Profile->ImageBase = ImageBase;
+    Profile->ImageSize = ImageSize;
     Profile->Buffer = Buffer;
     Profile->BufferSize = BufferSize;
     Profile->BucketSize = BucketSize;
-    Profile->LockedBufferAddress = NULL;
+    Profile->LockedBuffer = NULL;
     Profile->Segment = Segment;
     Profile->ProfileSource = ProfileSource;
     Profile->Affinity = Affinity;
@@ -319,9 +319,9 @@ NTAPI
 NtStartProfile(IN HANDLE ProfileHandle)
 {
     PEPROFILE Profile;
-    PKPROFILE ProfileObject;
+    PKPROFILE KeProfile;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    PVOID TempLockedBufferAddress;
+    PVOID TempLockedBuffer;
     NTSTATUS Status;
     PAGED_CODE();
 
@@ -342,7 +342,7 @@ NtStartProfile(IN HANDLE ProfileHandle)
                           NULL);
 
     /* The Profile can still be enabled though, so handle that */
-    if (Profile->LockedBufferAddress)
+    if (Profile->LockedBuffer)
     {
         /* Release our lock, dereference and return */
         KeReleaseMutex(&ExpProfileMutex, FALSE);
@@ -351,7 +351,7 @@ NtStartProfile(IN HANDLE ProfileHandle)
     }
 
     /* Allocate a Kernel Profile Object. */
-    ProfileObject = ExAllocatePoolWithTag(NonPagedPool,
+    KeProfile = ExAllocatePoolWithTag(NonPagedPool,
                                       sizeof(EPROFILE),
                                       TAG_PROFILE);
 
@@ -362,23 +362,23 @@ NtStartProfile(IN HANDLE ProfileHandle)
     MmProbeAndLockPages(Profile->Mdl, PreviousMode, IoWriteAccess);
 
     /* Map the pages */
-    TempLockedBufferAddress = MmMapLockedPages(Profile->Mdl, KernelMode);
+    TempLockedBuffer = MmMapLockedPages(Profile->Mdl, KernelMode);
 
     /* Initialize the Kernel Profile Object */
-    Profile->ProfileObject = ProfileObject;
-    KeInitializeProfile(ProfileObject,
+    Profile->KeProfile = KeProfile;
+    KeInitializeProfile(KeProfile,
                         (PKPROCESS)Profile->Process,
-                        Profile->RangeBase,
-                        Profile->RangeSize,
+                        Profile->ImageBase,
+                        Profile->ImageSize,
                         Profile->BucketSize,
                         Profile->ProfileSource,
                         Profile->Affinity);
 
     /* Start the Profiling */
-    KeStartProfile(ProfileObject, TempLockedBufferAddress);
+    KeStartProfile(KeProfile, TempLockedBuffer);
 
     /* Now it's safe to save this */
-    Profile->LockedBufferAddress = TempLockedBufferAddress;
+    Profile->LockedBuffer = TempLockedBuffer;
 
     /* Release mutex, dereference and return */
     KeReleaseMutex(&ExpProfileMutex, FALSE);
@@ -412,22 +412,22 @@ NtStopProfile(IN HANDLE ProfileHandle)
                           NULL);
 
     /* Make sure the Profile Object is really Started */
-    if (!Profile->LockedBufferAddress)
+    if (!Profile->LockedBuffer)
     {
         Status = STATUS_PROFILING_NOT_STARTED;
         goto Exit;
     }
 
     /* Stop the Profile */
-    KeStopProfile(Profile->ProfileObject);
+    KeStopProfile(Profile->KeProfile);
 
     /* Unlock the Buffer */
-    MmUnmapLockedPages(Profile->LockedBufferAddress, Profile->Mdl);
+    MmUnmapLockedPages(Profile->LockedBuffer, Profile->Mdl);
     MmUnlockPages(Profile->Mdl);
-    ExFreePool(Profile->ProfileObject);
+    ExFreePool(Profile->KeProfile);
 
     /* Clear the Locked Buffer pointer, meaning the Object is Stopped */
-    Profile->LockedBufferAddress = NULL;
+    Profile->LockedBuffer = NULL;
 
 Exit:
     /* Release Mutex, Dereference and Return */

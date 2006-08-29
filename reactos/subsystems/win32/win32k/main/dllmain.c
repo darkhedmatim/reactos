@@ -164,7 +164,7 @@ CLEANUP:
 NTSTATUS 
 STDCALL
 Win32kThreadCallback(struct _ETHREAD *Thread,
-                     PSW32THREADCALLOUTTYPE Type)
+                     BOOLEAN Create)
 {
     struct _EPROCESS *Process;
     PW32THREAD Win32Thread;
@@ -193,7 +193,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
         PsSetThreadWin32Thread(Thread, Win32Thread);
         /* FIXME - unlock the process */
     }
-  if (Type == PsW32ThreadCalloutInitialize)
+  if (Create)
     {
       HWINSTA hWinSta = NULL;
       HDESK hDesk = NULL;
@@ -342,7 +342,7 @@ Win32kInitWin32Thread(PETHREAD Thread)
 
       RtlZeroMemory(Thread->Tcb.Win32Thread, sizeof(W32THREAD));
 
-      Win32kThreadCallback(Thread, PsW32ThreadCalloutInitialize);
+      Win32kThreadCallback(Thread, TRUE);
     }
 
   return(STATUS_SUCCESS);
@@ -359,7 +359,7 @@ DriverEntry (
 {
   NTSTATUS Status;
   BOOLEAN Result;
-  WIN32_CALLOUTS_FPNS CalloutData = {0};
+  W32_CALLOUT_DATA CalloutData;
   PVOID GlobalUserHeapBase = NULL;
 
   /*
@@ -380,16 +380,19 @@ DriverEntry (
     /*
      * Register Object Manager Callbacks
      */
-    CalloutData.WindowStationParseProcedure = IntWinStaObjectParse;
-    CalloutData.WindowStationDeleteProcedure = IntWinStaObjectDelete;
-    CalloutData.DesktopDeleteProcedure = IntDesktopObjectDelete;
-    CalloutData.ProcessCallout = Win32kProcessCallback;
-    CalloutData.ThreadCallout = Win32kThreadCallback;
+    CalloutData.WinStaCreate = IntWinStaObjectOpen;
+    CalloutData.WinStaParse = IntWinStaObjectParse;
+    CalloutData.WinStaDelete = IntWinStaObjectDelete;
+    CalloutData.WinStaFind = IntWinStaObjectFind;
+    CalloutData.DesktopCreate = IntDesktopObjectCreate;
+    CalloutData.DesktopDelete = IntDesktopObjectDelete;
+    CalloutData.W32ProcessCallout = Win32kProcessCallback;
+    CalloutData.W32ThreadCallout = Win32kThreadCallback;
     
     /*
      * Register our per-process and per-thread structures.
      */
-    PsEstablishWin32Callouts((PWIN32_CALLOUTS_FPNS)&CalloutData);
+    PsEstablishWin32Callouts(&CalloutData);
 
     GlobalUserHeap = UserCreateHeap(&GlobalUserHeapSection,
                                     &GlobalUserHeapBase,

@@ -57,7 +57,7 @@ MachConsPutChar(int Ch)
   MachVtbl.ConsPutChar(Ch);
 }
 
-BOOLEAN
+BOOL
 MachConsKbHit()
 {
   return MachVtbl.ConsKbHit();
@@ -76,7 +76,7 @@ MachVideoClearScreen(UCHAR Attr)
 }
 
 VIDEODISPLAYMODE
-MachVideoSetDisplayMode(char *DisplayMode, BOOLEAN Init)
+MachVideoSetDisplayMode(char *DisplayMode, BOOL Init)
 {
   return MachVtbl.VideoSetDisplayMode(DisplayMode, Init);
 }
@@ -100,7 +100,7 @@ MachVideoSetTextCursorPosition(ULONG X, ULONG Y)
 }
 
 VOID
-MachVideoHideShowTextCursor(BOOLEAN Show)
+MachVideoHideShowTextCursor(BOOL Show)
 {
   MachVtbl.VideoHideShowTextCursor(Show);
 }
@@ -117,7 +117,7 @@ MachVideoCopyOffScreenBufferToVRAM(PVOID Buffer)
   MachVtbl.VideoCopyOffScreenBufferToVRAM(Buffer);
 }
 
-BOOLEAN
+BOOL
 MachVideoIsPaletteFixed(VOID)
 {
   return MachVtbl.VideoIsPaletteFixed();
@@ -153,13 +153,13 @@ MachGetMemoryMap(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MaxMemoryMapSize)
   return MachVtbl.GetMemoryMap(BiosMemoryMap, MaxMemoryMapSize);
 }
 
-BOOLEAN
+BOOL
 MachDiskGetBootVolume(PULONG DriveNumber, PULONGLONG StartSector, PULONGLONG SectorCount, int *FsType)
 {
   return MachVtbl.DiskGetBootVolume(DriveNumber, StartSector, SectorCount, FsType);
 }
 
-BOOLEAN
+BOOL
 MachDiskGetSystemVolume(char *SystemPath,
                         char *RemainingPath,
                         PULONG Device,
@@ -173,7 +173,7 @@ MachDiskGetSystemVolume(char *SystemPath,
                                       FsType);
 }
 
-BOOLEAN
+BOOL
 MachDiskGetBootPath(char *BootPath, unsigned Size)
 {
   return MachVtbl.DiskGetBootPath(BootPath, Size);
@@ -185,31 +185,31 @@ MachDiskGetBootDevice(PULONG BootDevice)
   MachVtbl.DiskGetBootDevice(BootDevice);
 }
 
-BOOLEAN
+BOOL
 MachDiskBootingFromFloppy()
 {
   return MachVtbl.DiskBootingFromFloppy();
 }
 
-BOOLEAN
+BOOL
 MachDiskNormalizeSystemPath(char *SystemPath, unsigned Size)
 {
   return MachVtbl.DiskNormalizeSystemPath(SystemPath, Size);
 }
 
-BOOLEAN
+BOOL
 MachDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG SectorCount, PVOID Buffer)
 {
   return MachVtbl.DiskReadLogicalSectors(DriveNumber, SectorNumber, SectorCount, Buffer);
 }
 
-BOOLEAN
+BOOL
 MachDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTITION_TABLE_ENTRY PartitionTableEntry)
 {
   return MachVtbl.DiskGetPartitionEntry(DriveNumber, PartitionNumber, PartitionTableEntry);
 }
 
-BOOLEAN
+BOOL
 MachDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry)
 {
   return MachVtbl.DiskGetDriveGeometry(DriveNumber, DriveGeometry);

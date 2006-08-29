@@ -30,7 +30,7 @@ use strict;
 
 # Include the Bugzilla CGI and general utility library.
 use lib qw(.);
-require "globals.pl";
+require "CGI.pl";
 use Bugzilla;
 use Bugzilla::Constants;
 
@@ -51,12 +51,13 @@ use vars
 
 # Use the global template variables defined in globals.pl 
 # to generate the output.
+use vars qw($template $vars);
 
-my $user = Bugzilla->login(LOGIN_OPTIONAL);
+Bugzilla->login(LOGIN_OPTIONAL);
 
 # If the 'requirelogin' parameter is on and the user is not
 # authenticated, return empty fields.
-if (Param('requirelogin') && !$user->id) {
+if (Param('requirelogin') && !Bugzilla->user->id) {
     display_data();
 }
 
@@ -64,7 +65,6 @@ if (Param('requirelogin') && !$user->id) {
 GetVersionTable();
 
 # Pass a bunch of Bugzilla configuration to the templates.
-my $vars = {};
 $vars->{'priority'}  = \@::legal_priority;
 $vars->{'severity'}  = \@::legal_severity;
 $vars->{'platform'}   = \@::legal_platform;
@@ -73,8 +73,11 @@ $vars->{'keyword'}    = \@::legal_keywords;
 $vars->{'resolution'} = \@::legal_resolution;
 $vars->{'status'}    = \@::legal_bug_status;
 
-# Include a list of product objects.
-$vars->{'products'} = $user->get_selectable_products;
+# Include lists of products, components, versions, and target milestones.
+my $selectables = GetSelectableProductHash();
+foreach my $selectable (keys %$selectables) {
+    $vars->{$selectable} = $selectables->{$selectable};
+}
 
 # Create separate lists of open versus resolved statuses.  This should really
 # be made part of the configuration.
@@ -97,12 +100,10 @@ sub display_data {
     my $vars = shift;
 
     my $cgi = Bugzilla->cgi;
-    my $template = Bugzilla->template;
-
     # Determine how the user would like to receive the output; 
     # default is JavaScript.
-    my $format = $template->get_format("config", scalar($cgi->param('format')),
-                                       scalar($cgi->param('ctype')) || "js");
+    my $format = GetFormat("config", scalar($cgi->param('format')),
+                           scalar($cgi->param('ctype')) || "js");
 
     # Return HTTP headers.
     print "Content-Type: $format->{'ctype'}\n\n";

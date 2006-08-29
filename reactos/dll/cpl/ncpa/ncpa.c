@@ -58,16 +58,9 @@
 #include "resource.h"
 #include "ncpa.h"
 
-#define NCF_VIRTUAL                     0x1
-#define NCF_SOFTWARE_ENUMERATED         0x2
-#define NCF_PHYSICAL                    0x4
-#define NCF_HIDDEN                      0x8
-#define NCF_NO_SERVICE                  0x10
-#define NCF_NOT_USER_REMOVABLE          0x20
-#define NCF_MULTIPORT_INSTANCED_ADAPTER 0x40
-#define NCF_HAS_UI                      0x80
-#define NCF_FILTER                      0x400
-#define NCF_NDIS_PROTOCOL               0x4000
+
+#define NCF_HIDDEN 0x08
+#define NCF_HAS_UI 0x80
 
 typedef void (ENUMREGKEYCALLBACK)(void *pCookie,HKEY hBaseKey,TCHAR *pszSubKey);
 
@@ -82,6 +75,7 @@ static APPLET Applets[] =
 {
 	{IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, DisplayApplet}
 };
+
 
 
 /* useful utilities */
@@ -100,7 +94,7 @@ EnumRegKeys(ENUMREGKEYCALLBACK *pCallback,PVOID pCookie,HKEY hBaseKey,TCHAR *tps
 		return;
 	}
 
-	for(i=1;;i++)
+	for(i=0;;i++)
 	{
 		TCHAR pszNewPath[MAX_PATH];
 		ret = RegEnumKeyEx(hKey,i,tpszName,&dwNameLen,NULL,NULL,NULL,NULL);
@@ -175,9 +169,6 @@ NICPropertyProtocolCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	TCHAR tpszNotifyObjectCLSID[MAX_PATH];
 	TCHAR *tpszSubKeyCopy;
 	int nIndex;
-
-	UNREFERENCED_PARAMETER(hBaseKey);
-
 //	CLSID CLSID_NotifObj;
 //	IUnknown *pUnk = NULL;
 //	INetCfgComponentControl *pNetCfg;
@@ -233,7 +224,7 @@ NICPropertyProtocolCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	}
 
 	RegCloseKey(hKey);
-	nIndex = (int) SendDlgItemMessage(hwndDlg,IDC_COMPONENTSLIST,LB_ADDSTRING,0,(LPARAM)tpszDescription);
+	nIndex = SendDlgItemMessage(hwndDlg,IDC_COMPONENTSLIST,LB_ADDSTRING,0,(LPARAM)tpszDescription);
 	tpszSubKeyCopy = _tcsdup(tpszSubKey);
 	SendDlgItemMessage(hwndDlg,IDC_COMPONENTSLIST,LB_SETITEMDATA,nIndex,(LPARAM)tpszSubKeyCopy);
 }
@@ -318,7 +309,7 @@ NICPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				HKEY hNDIKey;
 				DWORD dwType,dwSize;
 				HWND hListBox = GetDlgItem(hwndDlg,IDC_COMPONENTSLIST);
-				int iListBoxIndex = (int) SendMessage(hListBox,LB_GETCURSEL,0,0);
+				int iListBoxIndex = SendMessage(hListBox,LB_GETCURSEL,0,0);
 				if(iListBoxIndex != LB_ERR) 
 					tpszSubKey = (TCHAR*)SendMessage(hListBox,LB_GETITEMDATA,iListBoxIndex,0);
 				if(!tpszSubKey)
@@ -344,10 +335,10 @@ NICPropertyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					tpszCfgInstanceID = (TCHAR*)pPage->lParam;
 					while(pAdapter)
 					{
-						TCHAR tpszAdapterName[MAX_PATH];
-						swprintf(tpszAdapterName,L"%S",pAdapter->AdapterName);
-						DPRINT("IPHLPAPI returned: %S\n", tpszAdapterName);
-						if(_tcscmp(tpszAdapterName,tpszCfgInstanceID)==0)
+						TCHAR tpszAdatperName[MAX_PATH];
+						swprintf(tpszAdatperName,L"%S",pAdapter->AdapterName);
+						DPRINT("IPHLPAPI returned: %S\n", tpszAdatperName);
+						if(_tcscmp(tpszAdatperName,tpszCfgInstanceID)==0)
 						{
 							DisplayTCPIPProperties(hwndDlg,pAdapter);
 							break;
@@ -416,6 +407,8 @@ DisplayNICProperties(HWND hParent,TCHAR *tpszCfgInstanceID)
 	return;
 }
 
+
+
 static INT_PTR CALLBACK
 NICStatusPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -444,79 +437,10 @@ NICStatusPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
-static INT_PTR CALLBACK
-NICSupportPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	
-	switch(uMsg)
-	{
-	case WM_INITDIALOG:
-		{
-			TCHAR Buffer[64];
-
-			PIP_ADAPTER_INFO pAdapterInfo = NULL;			
-			ULONG    adaptOutBufLen;
-			
-			DWORD ErrRet = 0;
-		
-    		pAdapterInfo = (IP_ADAPTER_INFO *) malloc( sizeof(IP_ADAPTER_INFO) );
-    		adaptOutBufLen = sizeof(IP_ADAPTER_INFO);		
-    		
-		    if (GetAdaptersInfo( pAdapterInfo, &adaptOutBufLen) == ERROR_BUFFER_OVERFLOW) 
-			{
-		       free(pAdapterInfo);
-		       pAdapterInfo = (IP_ADAPTER_INFO *) malloc (adaptOutBufLen);
-		    }
-		
-		    if ((ErrRet = GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen)) != NO_ERROR)
-			{
-				MessageBox(hwndDlg, _T("error adapterinfo") ,_T("ncpa.cpl"),MB_ICONSTOP);
-
-				if (pAdapterInfo) free(pAdapterInfo);
-				return FALSE;
-			}    		
-			
-			if (pAdapterInfo)
-			{
-				/*FIXME: select the correct adapter info!!*/
-				_stprintf(Buffer, _T("%S"), pAdapterInfo->IpAddressList.IpAddress.String);
-				SendDlgItemMessage(hwndDlg, IDC_DETAILSIP, WM_SETTEXT, 0, (LPARAM)Buffer);
-				_stprintf(Buffer, _T("%S"), pAdapterInfo->IpAddressList.IpMask.String);
-				SendDlgItemMessage(hwndDlg, IDC_DETAILSSUBNET, WM_SETTEXT, 0, (LPARAM)Buffer);
-				_stprintf(Buffer, _T("%S"), pAdapterInfo->GatewayList.IpAddress.String);
-				SendDlgItemMessage(hwndDlg, IDC_DETAILSGATEWAY, WM_SETTEXT, 0, (LPARAM)Buffer);
-				
-				free(pAdapterInfo);
-			}
-			
-
-			
-		}
-		break;
-	case WM_COMMAND:
-		switch(LOWORD(wParam))
-		{
-		case IDC_PROPERTIES:
-			{
-			}
-			break;
-		case IDC_DETAILS:
-			{
-				MessageBox(hwndDlg,_T("not implemented: show detail window"),_T("ncpa.cpl"),MB_ICONSTOP);
-			}
-			break;
-			
-		}
-		break;
-	}
-	return FALSE;
-}
-
-
 static VOID
 DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
 {
-	PROPSHEETPAGE psp[2];
+	PROPSHEETPAGE psp[1];
 	PROPSHEETHEADER psh;
 	TCHAR tpszSubKey[MAX_PATH];
 	HKEY hKey;
@@ -549,9 +473,8 @@ DisplayNICStatus(HWND hParent,TCHAR *tpszCfgInstanceID)
 	psh.ppsp = psp;
 	psh.pfnCallback = NULL;
 	
-	InitPropSheetPage(&psp[0], IDD_CARDPROPERTIES, NICStatusPageProc, (LPARAM)tpszCfgInstanceID);
-	InitPropSheetPage(&psp[1], IDD_CARDSUPPORT, NICSupportPageProc, (LPARAM)tpszCfgInstanceID);
-	 
+
+	InitPropSheetPage(&psp[0], IDD_CARDPROPERTIES, NICStatusPageProc,(LPARAM)tpszCfgInstanceID);
 	PropertySheet(&psh);
 	return;
 }
@@ -603,7 +526,6 @@ NetAdapterCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	DWORD dwCharacteristics;
 
 	DPRINT("NetAdapterCallback: %S\n", tpszSubKey);
-
 	if(RegOpenKeyEx(hBaseKey,tpszSubKey,0,KEY_QUERY_VALUE,&hKey)!=ERROR_SUCCESS)
 		return;
 
@@ -613,12 +535,12 @@ NetAdapterCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	if(RegQueryValueEx(hKey,_T("Characteristics"),NULL,&dwType,(BYTE*)&dwCharacteristics,&dwSize)!=ERROR_SUCCESS)
 		dwCharacteristics = 0;
 
+
 	if (dwCharacteristics & NCF_HIDDEN)
 		return;
-		
-	if (!(dwCharacteristics & NCF_VIRTUAL) && !(dwCharacteristics & NCF_PHYSICAL))
-		return;
-		
+//	if (!(dwCharacteristics & NCF_HAS_UI))
+//		return;
+
 	DPRINT("NetAdapterCallback: Reading DriverDesc\n");
 	dwType = REG_SZ;
 	dwSize = sizeof(tpszDisplayName);
@@ -650,7 +572,7 @@ NetAdapterCallback(void *pCookie,HKEY hBaseKey,TCHAR *tpszSubKey)
 	// How is this done properly ?
 	
 
-	nIndex = (int) SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_ADDSTRING,0,(LPARAM)tpszDisplayName);
+	nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_ADDSTRING,0,(LPARAM)tpszDisplayName);
 	SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_SETITEMDATA,nIndex,(LPARAM)ptpszCfgInstanceID);
 	RegCloseKey(hKey);
 }
@@ -707,14 +629,14 @@ NetworkPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 		case IDC_NETCARDLIST:
 			if(HIWORD(wParam)==LBN_DBLCLK) {
-				nIndex = (int) SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCURSEL,0,0);
+				nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCURSEL,0,0);
 				if(nIndex!=-1)
 					DisplayNICStatus(hwndDlg,(TCHAR*)SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETITEMDATA,nIndex,0));
 			}
 			break;
 
 		case IDC_PROPERTIES:
-			nIndex = (int) SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCURSEL,0,0);
+			nIndex = SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETCURSEL,0,0);
 			if(nIndex!=-1)
 				DisplayNICStatus(hwndDlg,(TCHAR*)SendDlgItemMessage(hwndDlg,IDC_NETCARDLIST,LB_GETITEMDATA,nIndex,0));
 			break;
@@ -757,7 +679,6 @@ DisplayApplet(VOID)
 LONG CALLBACK
 CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 {
-	UNREFERENCED_PARAMETER(hwndCPl);
 	switch (uMsg)
 	{
 	case CPL_INIT:
@@ -793,8 +714,6 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpvReserved)
 {
-	UNREFERENCED_PARAMETER(lpvReserved);
-
 	switch(dwReason)
 	{
 	case DLL_PROCESS_ATTACH:

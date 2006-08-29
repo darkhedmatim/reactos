@@ -147,7 +147,7 @@ ConWriteConsole(PCHAR Buffer,
  *	ReadConsoleA
  */
 BOOL
-NTAPI
+STDCALL
 ReadConsoleA(HANDLE hConsoleInput,
 			     LPVOID lpBuffer,
 			     DWORD nNumberOfCharsToRead,

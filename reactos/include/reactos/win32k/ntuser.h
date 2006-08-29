@@ -8,8 +8,6 @@ typedef struct _DESKTOP
 {
     HANDLE hKernelHeap;
     WCHAR szDesktopName[1];
-    HWND hTaskManWindow;
-    HWND hProgmanWindow;
 } DESKTOP, *PDESKTOP;
 
 typedef struct _CALLPROC
@@ -487,8 +485,6 @@ NtUserCallOneParam(
 #define TWOPARAM_ROUTINE_GETSYSCOLORS       0x65
 #define TWOPARAM_ROUTINE_SETSYSCOLORS       0x66
 #define TWOPARAM_ROUTINE_ROS_SHOWWINDOW     0x1000
-#define TWOPARAM_ROUTINE_ROS_ISACTIVEICON   0x1001
-#define TWOPARAM_ROUTINE_ROS_NCDESTROY      0x1002
 DWORD
 NTAPI
 NtUserCallTwoParam(
@@ -689,11 +685,12 @@ NtUserDragDetect(
 DWORD
 NTAPI
 NtUserDragObject(
-   HWND    hwnd1,
-   HWND    hwnd2,
-   UINT    u1,
-   DWORD   dw1,
-   HCURSOR hc1);
+	   HWND    hwnd1,
+	   HWND    hwnd2,
+	   UINT    u1,
+	   DWORD   dw1,
+	   HCURSOR hc1
+	   );
 
 DWORD
 NTAPI
@@ -703,24 +700,24 @@ NtUserDrawAnimatedRects(
   DWORD Unknown2,
   DWORD Unknown3);
 
-BOOL
+DWORD
 NTAPI
 NtUserDrawCaption(
-   HWND hWnd,
-   HDC hDc,
-   LPCRECT lpRc,
-   UINT uFlags);
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3);
 
 DWORD
-STDCALL
+NTAPI
 NtUserDrawCaptionTemp(
-   DWORD Unknown0,
-   DWORD Unknown1,
-   DWORD Unknown2,
-   DWORD Unknown3,
-   DWORD Unknown4,
-   DWORD Unknown5,
-   DWORD Unknown6);
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3,
+  DWORD Unknown4,
+  DWORD Unknown5,
+  DWORD Unknown6);
 
 BOOL
 NTAPI
@@ -1118,8 +1115,6 @@ NtUserGetThreadDesktop(
 #define THREADSTATE_GETTHREADINFO   (0)
 #define THREADSTATE_FOCUSWINDOW (1)
 #define THREADSTATE_INSENDMESSAGE       (2)
-#define THREADSTATE_PROGMANWINDOW (3)
-#define THREADSTATE_TASKMANWINDOW (4)
 DWORD
 NTAPI
 NtUserGetThreadState(

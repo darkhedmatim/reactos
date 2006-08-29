@@ -2,6 +2,7 @@
 #include "windows.h"
 
 #include <commctrl.h>
+#include "resource.h"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
@@ -25,4 +26,3 @@ IDI_DEVMGR ICON "resources/devmgr.ico"
 #include "Ja.rc"
 #include "hu.rc"
 #include "ru.rc"
-#include "uk.rc"

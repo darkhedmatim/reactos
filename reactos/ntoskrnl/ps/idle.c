@@ -18,6 +18,10 @@
 #pragma alloc_text(INIT, PsInitIdleThread)
 #endif
 
+/* GLOBALS *******************************************************************/
+
+extern PEPROCESS PsIdleProcess;
+
 /* FUNCTIONS *****************************************************************/
 
 /** System idle thread procedure
@@ -106,7 +110,7 @@ PsInitIdleThread(VOID)
                                   FALSE);
 
     oldIrql = KeAcquireDispatcherDatabaseLock ();
-    KiReadyThread(&IdleThread->Tcb);
+    KiUnblockThread(&IdleThread->Tcb, NULL, 0);
     KeReleaseDispatcherDatabaseLock(oldIrql);
 
     KeGetCurrentPrcb()->IdleThread = &IdleThread->Tcb;

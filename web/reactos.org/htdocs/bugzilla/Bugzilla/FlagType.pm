@@ -35,7 +35,8 @@ See below for more information.
 =item *
 
 Prior to calling routines in this module, it's assumed that you have
-already done a C<require globals.pl>.
+already done a C<require CGI.pl>.  This will eventually change in a
+future version when CGI.pl is removed.
 
 =item *
 
@@ -355,7 +356,6 @@ sub validate {
 
     foreach my $id (@ids) {
         my $status = $cgi->param("flag_type-$id");
-        my @requestees = $cgi->param("requestee_type-$id");
         
         # Don't bother validating types the user didn't touch.
         next if $status eq "X";
@@ -378,53 +378,48 @@ sub validate {
         
         # Make sure the user didn't specify a requestee unless the flag
         # is specifically requestable.
+        my $new_requestee = trim($cgi->param("requestee_type-$id") || '');
+
         if ($status eq '?'
             && !$flag_type->{is_requesteeble}
-            && scalar(@requestees) > 0)
+            && $new_requestee)
         {
-            ThrowCodeError("flag_requestee_disabled", { type => $flag_type });
+            ThrowCodeError("flag_requestee_disabled",
+                           { name => $flag_type->{name} });
         }
 
-        # Make sure the user didn't enter multiple requestees for a flag
-        # that can't be requested from more than one person at a time.
-        if ($status eq '?'
-            && !$flag_type->{is_multiplicable}
-            && scalar(@requestees) > 1)
-        {
-            ThrowUserError("flag_not_multiplicable", { type => $flag_type });
-        }
-
-        # Make sure the requestees are authorized to access the bug
+        # Make sure the requestee is authorized to access the bug
         # (and attachment, if this installation is using the "insider group"
         # feature and the attachment is marked private).
-        if ($status eq '?' && $flag_type->{is_requesteeble}) {
-            foreach my $login (@requestees) {
-                # We know the requestee exists because we ran
-                # Bugzilla::User::match_field before getting here.
-                my $requestee = Bugzilla::User->new_from_login($login);
-    
-                # Throw an error if the user can't see the bug.
-                if (!$requestee->can_see_bug($bug_id)) {
-                    ThrowUserError("flag_requestee_unauthorized",
-                                   { flag_type => $flag_type,
-                                     requestee => $requestee,
-                                     bug_id    => $bug_id,
-                                     attach_id => $attach_id });
-                }
-                
-                # Throw an error if the target is a private attachment and
-                # the requestee isn't in the group of insiders who can see it.
-                if ($attach_id
-                    && Param("insidergroup")
-                    && $cgi->param('isprivate')
-                    && !$requestee->in_group(Param("insidergroup")))
-                {
-                    ThrowUserError("flag_requestee_unauthorized_attachment",
-                                   { flag_type => $flag_type,
-                                     requestee => $requestee,
-                                     bug_id    => $bug_id,
-                                     attach_id => $attach_id });
-                }
+        if ($status eq '?'
+            && $flag_type->{is_requesteeble}
+            && $new_requestee)
+        {
+            # We know the requestee exists because we ran
+            # Bugzilla::User::match_field before getting here.
+            my $requestee = Bugzilla::User->new_from_login($new_requestee);
+
+            # Throw an error if the user can't see the bug.
+            if (!$requestee->can_see_bug($bug_id)) {
+                ThrowUserError("flag_requestee_unauthorized",
+                               { flag_type => $flag_type,
+                                 requestee => $requestee,
+                                 bug_id    => $bug_id,
+                                 attach_id => $attach_id });
+            }
+            
+            # Throw an error if the target is a private attachment and
+            # the requestee isn't in the group of insiders who can see it.
+            if ($attach_id
+                && Param("insidergroup")
+                && $cgi->param('isprivate')
+                && !$requestee->in_group(Param("insidergroup")))
+            {
+                ThrowUserError("flag_requestee_unauthorized_attachment",
+                               { flag_type => $flag_type,
+                                 requestee => $requestee,
+                                 bug_id    => $bug_id,
+                                 attach_id => $attach_id });
             }
         }
 

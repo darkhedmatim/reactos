@@ -7,6 +7,5 @@
 	<library>setupldr_main</library>
 	<library>rossym</library>
 	<library>string</library>
-	<library>cmlib</library>
 	<library>rtl</library>
 </module>

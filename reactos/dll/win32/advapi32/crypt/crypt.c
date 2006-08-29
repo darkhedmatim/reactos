@@ -1981,42 +1981,25 @@ DWORD WINAPI RemoveUsersFromEncryptedFile (
  * @unimplemented
  */
 BOOL WINAPI FileEncryptionStatusW (
-	LPCWSTR lpFileName,
-	LPDWORD lpStatus
+	LPCWSTR lpcwstr,
+	LPDWORD lpdword
 	)
 {
-	DPRINT1("%s(%S) not implemented!\n", __FUNCTION__, lpFileName);
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
+	DPRINT1("%s() not implemented!\n", __FUNCTION__);
+	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI FileEncryptionStatusA (
-	LPCSTR lpFileName,
-	LPDWORD lpStatus
+	LPCSTR lpcstr,
+	LPDWORD lpdword
 	)
 {
-	UNICODE_STRING FileName;
-	NTSTATUS Status;
-	BOOL ret = FALSE;
-
-	FileName.Buffer = NULL;
-
-	Status = RtlCreateUnicodeStringFromAsciiz(&FileName, lpFileName);
-	if (!NT_SUCCESS(Status))
-	{
-		SetLastError(RtlNtStatusToDosError(Status));
-		goto cleanup;
-	}
-	ret = FileEncryptionStatusW(FileName.Buffer, lpStatus);
-
-cleanup:
-	if (FileName.Buffer != NULL)
-		RtlFreeUnicodeString(&FileName);
-	return ret;
+	DPRINT1("%s() not implemented!\n", __FUNCTION__);
+	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /*
@@ -2065,8 +2048,7 @@ BOOL WINAPI EncryptionDisable(
     )
 {
 	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return FALSE;
+	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 

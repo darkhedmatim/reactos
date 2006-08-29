@@ -298,11 +298,11 @@ QueryDosDeviceW(
 	break;
       }
 
-      if (!wcscmp (DirInfo->TypeName.Buffer, L"SymbolicLink"))
+      if (!wcscmp (DirInfo->ObjectTypeName.Buffer, L"SymbolicLink"))
       {
-	DPRINT ("Name: '%wZ'\n", &DirInfo->Name);
+	DPRINT ("Name: '%wZ'\n", &DirInfo->ObjectName);
 
-	NameLength = DirInfo->Name.Length / sizeof(WCHAR);
+	NameLength = DirInfo->ObjectName.Length / sizeof(WCHAR);
 	if (Length + NameLength + 1 >= ucchMax)
 	{
 	  Length = 0;
@@ -311,8 +311,8 @@ QueryDosDeviceW(
 	}
 
 	memcpy (Ptr,
-		DirInfo->Name.Buffer,
-		DirInfo->Name.Length);
+		DirInfo->ObjectName.Buffer,
+		DirInfo->ObjectName.Length);
 	Ptr += NameLength;
 	Length += NameLength;
 	*Ptr = UNICODE_NULL;

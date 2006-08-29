@@ -175,7 +175,7 @@ int PpcFindDevice( int depth, int parent, char *devname, int *nth ) {
     return 0;
 }
 
-BOOLEAN PpcConsKbHit() {
+BOOL PpcConsKbHit() {
     return TRUE;
 }
 
@@ -189,7 +189,7 @@ void PpcVideoClearScreen( UCHAR Attr ) {
     ofw_print_string("ClearScreen\n");
 }
 
-VIDEODISPLAYMODE PpcVideoSetDisplayMode( char *DisplayMode, BOOLEAN Init ) {
+VIDEODISPLAYMODE PpcVideoSetDisplayMode( char *DisplayMode, BOOL Init ) {
     printf( "DisplayMode: %s %s\n", DisplayMode, Init ? "true" : "false" );
     return VideoGraphicsMode;
 }
@@ -213,7 +213,7 @@ VOID PpcVideoSetTextCursorPosition( ULONG X, ULONG Y ) {
     printf("SetTextCursorPosition(%d,%d)\n", X,Y);
 }
 
-VOID PpcVideoHideShowTextCursor( BOOLEAN Show ) {
+VOID PpcVideoHideShowTextCursor( BOOL Show ) {
     printf("HideShowTextCursor(%s)\n", Show ? "true" : "false");
 }
 
@@ -225,7 +225,7 @@ VOID PpcVideoCopyOffScreenBufferToVRAM( PVOID Buffer ) {
     printf( "CopyOffScreenBufferToVRAM(%x)\n", Buffer );
 }
 
-BOOLEAN PpcVideoIsPaletteFixed() {
+BOOL PpcVideoIsPaletteFixed() {
     return FALSE;
 }
 
@@ -273,7 +273,7 @@ ULONG PpcGetMemoryMap( PBIOS_MEMORY_MAP BiosMemoryMap,
  * away with grabbing a partition image by tftp in this scenario.
  */
 
-BOOLEAN PpcDiskGetBootVolume( PULONG DriveNumber, PULONGLONG StartSector, PULONGLONG SectorCount, int *FsType ) {
+BOOL PpcDiskGetBootVolume( PULONG DriveNumber, PULONGLONG StartSector, PULONGLONG SectorCount, int *FsType ) {
     *DriveNumber = 0;
     *StartSector = 0;
     *SectorCount = 0;
@@ -281,7 +281,7 @@ BOOLEAN PpcDiskGetBootVolume( PULONG DriveNumber, PULONGLONG StartSector, PULONG
     return TRUE;
 }
 
-BOOLEAN PpcDiskGetSystemVolume( char *SystemPath,
+BOOL PpcDiskGetSystemVolume( char *SystemPath,
                              char *RemainingPath,
                              PULONG Device,
                              PULONG DriveNumber, 
@@ -291,7 +291,7 @@ BOOLEAN PpcDiskGetSystemVolume( char *SystemPath,
     return FALSE;
 }
 
-BOOLEAN PpcDiskGetBootPath( char *OutBootPath, unsigned Size ) {
+BOOL PpcDiskGetBootPath( char *OutBootPath, unsigned Size ) {
     strncpy( OutBootPath, BootPath, Size );
     return TRUE;
 }
@@ -300,11 +300,11 @@ VOID PpcDiskGetBootDevice( PULONG BootDevice ) {
     BootDevice[0] = BootDevice[1] = 0;
 }
 
-BOOLEAN PpcDiskBootingFromFloppy(VOID) {
+BOOL PpcDiskBootingFromFloppy(VOID) {
     return FALSE;
 }
 
-BOOLEAN PpcDiskReadLogicalSectors( ULONG DriveNumber, ULONGLONG SectorNumber,
+BOOL PpcDiskReadLogicalSectors( ULONG DriveNumber, ULONGLONG SectorNumber,
                                 ULONG SectorCount, PVOID Buffer ) {
     int rlen = 0;
 
@@ -330,13 +330,13 @@ BOOLEAN PpcDiskReadLogicalSectors( ULONG DriveNumber, ULONGLONG SectorNumber,
     return rlen > 0;
 }
 
-BOOLEAN PpcDiskGetPartitionEntry( ULONG DriveNumber, ULONG PartitionNumber,
+BOOL PpcDiskGetPartitionEntry( ULONG DriveNumber, ULONG PartitionNumber,
                                PPARTITION_TABLE_ENTRY PartitionTableEntry ) {
     printf("GetPartitionEntry(%d,%d)\n", DriveNumber, PartitionNumber);
     return FALSE;
 }
 
-BOOLEAN PpcDiskGetDriveGeometry( ULONG DriveNumber, PGEOMETRY DriveGeometry ) {
+BOOL PpcDiskGetDriveGeometry( ULONG DriveNumber, PGEOMETRY DriveGeometry ) {
     printf("GetGeometry(%d)\n", DriveNumber);
     DriveGeometry->BytesPerSector = 512;
     DriveGeometry->Heads = 16;
@@ -463,7 +463,7 @@ void MachInit(const char *CmdLine) {
 void beep() {
 }
 
-UCHAR NTAPI READ_PORT_UCHAR(PUCHAR Address) {
+UCHAR STDCALL READ_PORT_UCHAR(PUCHAR Address) {
     return 0xff;
 }
 

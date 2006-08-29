@@ -9,7 +9,6 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include "i386/ketypes.h"
 
 #define NDEBUG
 #include "../include/debug.h"

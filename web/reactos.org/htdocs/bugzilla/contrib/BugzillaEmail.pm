@@ -16,7 +16,6 @@
 #                 Gregor Fischer <fischer@suse.de>
 #                 Klaas Freitag  <freitag@suse.de>
 #                 Seth Landsman  <seth@dworkin.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 # The purpose of this module is to abstract out a bunch of the code
 #  that is central to email interfaces to bugzilla and its database
@@ -55,8 +54,8 @@ sub findUser($) {
     return $found_address;
   } elsif ($email_transform eq $EMAIL_TRANSFORM_BASE_DOMAIN) {
     my ($username) = ($address =~ /(.+)@/);
-    my $stmt = "SELECT login_name FROM profiles WHERE " . $dbh->sql_regexp(
-               $dbh->sql_istring('login_name'), $dbh->sql_istring($dbh->quote($username)));
+    my $stmt = "SELECT login_name FROM profiles WHERE " . $dbh->sql_istrcmp(
+               'login_name', $dbh->quote($username), $dbh->sql_regexp());
     SendSQL($stmt);
 
     my $domain;
@@ -73,8 +72,8 @@ sub findUser($) {
     return $new_address;
   } elsif ($email_transform eq $EMAIL_TRANSFORM_NAME_ONLY) {
     my ($username) = ($address =~ /(.+)@/);
-    my $stmt = "SELECT login_name FROM profiles WHERE " .$dbh->sql_regexp(
-                $dbh->sql_istring('login_name'), $dbh->sql_istring($dbh->quote($username)));
+    my $stmt = "SELECT login_name FROM profiles WHERE " .$dbh->sql_istrcmp(
+                'login_name', $dbh->quote($username), $dbh->sql_regexp());
     SendSQL($stmt);
     my $found_address = FetchOneColumn();
     return $found_address;

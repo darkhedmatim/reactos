@@ -1,6 +1,6 @@
 /*
  * Copyright 2001 Andreas Mohr
- * Copyright 2005-2006 Hervé Poussineau
+ * Copyright 2005 Hervé Poussineau
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -54,7 +54,6 @@ struct DeviceInterface /* Element of DeviceInfoElement.InterfaceListHead */
 {
     LIST_ENTRY ListEntry;
 
-    /* Link to is parent device */
     struct DeviceInfoElement* DeviceInfo;
     GUID InterfaceClassGuid;
 
@@ -65,19 +64,14 @@ struct DeviceInterface /* Element of DeviceInfoElement.InterfaceListHead */
      */
     DWORD Flags;
 
-	/* Contains the symbolic link of this interface, for example
-	 * \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
-    WCHAR SymbolicLink[ANYSIZE_ARRAY];
+    WCHAR SymbolicLink[ANYSIZE_ARRAY]; /* \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
 };
 
 /* We don't want to open the .inf file to read only one information in it, so keep a handle to it once it
  * has been already loaded once. Keep also a reference counter */
 struct InfFileDetails
 {
-    /* Handle to the .inf file */
     HINF hInf;
-    /* Reference count to this object. Once it raises 0, the .inf file is
-     * automatically closed and this memory structure is deleted */
     LONG References;
 
     /* Contains the directory name of the .inf file.
@@ -87,7 +81,6 @@ struct InfFileDetails
      * Points into szData at then end of the structure */
     PCWSTR FileName;
 
-	/* Variable size array (contains data for DirectoryName and FileName) */
     WCHAR szData[ANYSIZE_ARRAY];
 };
 
@@ -112,11 +105,9 @@ struct ClassInstallParams
 struct DeviceInfoElement /* Element of DeviceInfoSet.ListHead */
 {
     LIST_ENTRY ListEntry;
-    /* Used when dealing with CM_* functions */
-    DEVINST dnDevInst;
+    DEVINST dnDevInst; /* Used in CM_* functions */
 
-    /* Reserved Field of SP_DEVINSTALL_PARAMS_W structure
-     * points to a struct DriverInfoElement */
+    /* Reserved Field points to a struct DriverInfoElement */
     SP_DEVINSTALL_PARAMS_W InstallParams;
 
     /* Information about devnode:
@@ -160,29 +151,23 @@ struct DeviceInfoElement /* Element of DeviceInfoSet.ListHead */
     /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
     struct ClassInstallParams ClassInstallParams;
 
-	/* Variable size array (contains data for DeviceName, UniqueId, DeviceDescription) */
     WCHAR Data[ANYSIZE_ARRAY];
 };
 
 struct DeviceInfoSet /* HDEVINFO */
 {
     DWORD magic; /* SETUP_DEV_INFO_SET_MAGIC */
-    /* If != GUID_NULL, only devices of this class can be in the device info set */
-    GUID ClassGuid;
-    /* Local or distant HKEY_LOCAL_MACHINE registry key */
-    HKEY HKLM;
-    /* Used when dealing with CM_* functions */
-    HMACHINE hMachine;
+    GUID ClassGuid; /* If != GUID_NULL, only devices of this class can be in the device info set */
+    HKEY HKLM; /* Local or distant HKEY_LOCAL_MACHINE registry key */
+    HMACHINE hMachine; /* Used in CM_* functions */
 
     /* Reserved Field points to a struct DriverInfoElement */
     SP_DEVINSTALL_PARAMS_W InstallParams;
 
-    /* List of struct DriverInfoElement (if no driver has been
-     * searched/detected, this list is empty) */
-    LIST_ENTRY DriverListHead;
+    /* If the driver is not searched/detected, this list is empty */
+    LIST_ENTRY DriverListHead; /* List of struct DriverInfoElement */
 
-	/* List of struct DeviceInfoElement */
-    LIST_ENTRY ListHead;
+    LIST_ENTRY ListHead; /* List of struct DeviceInfoElement */
     struct DeviceInfoElement *SelectedDevice;
 
     /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
@@ -192,8 +177,6 @@ struct DeviceInfoSet /* HDEVINFO */
      * or NULL if related to local machine. Points into szData field at the
      * end of the structure */
     PCWSTR MachineName;
-
-    /* Variable size array (contains data for MachineName) */
     WCHAR szData[ANYSIZE_ARRAY];
 };
 
@@ -205,8 +188,6 @@ struct ClassImageList
      * or NULL if related to local machine. Points into szData field at the
      * end of the structure */
     PCWSTR MachineName;
-
-    /* Variable size array (contains data for MachineName) */
     WCHAR szData[ANYSIZE_ARRAY];
 };
 

@@ -17,9 +17,9 @@ DeviceIoControl(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN ULONG CtlCode,
 	IN PVOID InputBuffer OPTIONAL,
-	IN ULONG_PTR InputBufferSize,
+	IN ULONG InputBufferSize,
 	IN OUT PVOID OutputBuffer OPTIONAL,
-	IN OUT PULONG_PTR OutputBufferSize)
+	IN OUT PULONG OutputBufferSize)
 {
 	KEVENT Event;
 	PIRP Irp;
@@ -61,11 +61,49 @@ DeviceIoControl(
 }
 
 static NTSTATUS
+SendIrp(
+	IN PDEVICE_OBJECT DeviceObject,
+	IN ULONG MajorFunction)
+{
+	KEVENT Event;
+	PIRP Irp;
+	IO_STATUS_BLOCK IoStatus;
+	NTSTATUS Status;
+
+	KeInitializeEvent(&Event, NotificationEvent, FALSE);
+
+	Irp = IoBuildSynchronousFsdRequest(
+		MajorFunction,
+		DeviceObject,
+		NULL,
+		0,
+		NULL,
+		&Event,
+		&IoStatus);
+	if (Irp == NULL)
+	{
+		DPRINT("IoBuildSynchronousFsdRequest() failed\n");
+		return STATUS_INSUFFICIENT_RESOURCES;
+	}
+
+	Status = IoCallDriver(DeviceObject, Irp);
+
+	if (Status == STATUS_PENDING)
+	{
+		DPRINT("Operation pending\n");
+		KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
+		Status = IoStatus.Status;
+	}
+
+	return Status;
+}
+
+static NTSTATUS
 ReadBytes(
 	IN PDEVICE_OBJECT LowerDevice,
 	OUT PUCHAR Buffer,
 	IN ULONG BufferSize,
-	OUT PULONG_PTR FilledBytes)
+	OUT PULONG FilledBytes)
 {
 	PIRP Irp;
 	IO_STATUS_BLOCK ioStatus;
@@ -218,11 +256,10 @@ SerenumDetectPnpDevice(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PDEVICE_OBJECT LowerDevice)
 {
-	HANDLE Handle = NULL;
 	UCHAR Buffer[256];
 	ULONG BaudRate;
-	ULONG_PTR TotalBytesReceived = 0;
-	ULONG_PTR Size;
+	ULONG TotalBytesReceived = 0;
+	ULONG Size;
 	ULONG Msr, Purge;
 	ULONG i;
 	BOOLEAN BufferContainsBeginId = FALSE;
@@ -233,14 +270,7 @@ SerenumDetectPnpDevice(
 	NTSTATUS Status;
 
 	/* Open port */
-	Status = ObOpenObjectByPointer(
-		LowerDevice,
-		OBJ_KERNEL_HANDLE,
-		NULL,
-		0,
-		NULL,
-		KernelMode,
-		&Handle);
+	Status = SendIrp(LowerDevice, IRP_MJ_CREATE);
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
 	/* 1. COM port initialization, check for device enumerate */
@@ -308,7 +338,7 @@ SerenumDetectPnpDevice(
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 	Purge = SERIAL_PURGE_RXABORT | SERIAL_PURGE_RXCLEAR;
 	Status = DeviceIoControl(LowerDevice, IOCTL_SERIAL_PURGE,
-		&Purge, sizeof(ULONG), NULL, NULL);
+		&Purge, 0, NULL, NULL);
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 	Wait(200);
 
@@ -429,8 +459,8 @@ DisconnectIdle:
 
 ByeBye:
 	/* Close port */
-	if (Handle)
-		ZwClose(Handle);
+	SendIrp(LowerDevice, IRP_MJ_CLOSE);
+	SendIrp(LowerDevice, IRP_MJ_CLEANUP);
 	return Status;
 }
 
@@ -439,7 +469,6 @@ SerenumDetectLegacyDevice(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PDEVICE_OBJECT LowerDevice)
 {
-	HANDLE Handle = NULL;
 	ULONG Fcr, Mcr;
 	ULONG BaudRate;
 	ULONG Command;
@@ -461,14 +490,7 @@ SerenumDetectLegacyDevice(
 	RtlZeroMemory(Buffer, sizeof(Buffer));
 
 	/* Open port */
-	Status = ObOpenObjectByPointer(
-		LowerDevice,
-		OBJ_EXCLUSIVE | OBJ_KERNEL_HANDLE,
-		NULL,
-		0,
-		NULL,
-		KernelMode,
-		&Handle);
+	Status = SendIrp(LowerDevice, IRP_MJ_CREATE);
 	if (!NT_SUCCESS(Status)) return Status;
 
 	/* Reset UART */
@@ -588,7 +610,7 @@ SerenumDetectLegacyDevice(
 
 ByeBye:
 	/* Close port */
-	if (Handle)
-		ZwClose(Handle);
+	SendIrp(LowerDevice, IRP_MJ_CLOSE);
+	SendIrp(LowerDevice, IRP_MJ_CLEANUP);
 	return Status;
 }

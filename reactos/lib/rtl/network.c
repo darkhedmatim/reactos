@@ -1,8 +1,8 @@
 /*
  * COPYRIGHT:         See COPYING in the top level directory
- * PROJECT:           ReactOS Runtime Library
+ * PROJECT:           ReactOS system libraries
  * PURPOSE:           Network Address Translation implementation
- * PROGRAMMER:        Alex Ionescu (alexi@tinykrnl.org)
+ * PROGRAMMER:        
  */
 
 /* INCLUDES *****************************************************************/
@@ -14,71 +14,228 @@
 
 /* FUNCTIONS ***************************************************************/
 
+/* Borrow this from some headers... */
+typedef struct
+{
+  union
+  {
+    struct { UCHAR s_b1,s_b2,s_b3,s_b4; } S_un_b;
+    struct { USHORT s_w1,s_w2; } S_un_w;
+    ULONG S_addr;
+  } S_un;
+} in_addr;
+
+typedef struct
+{
+  union
+  {
+    UCHAR _S6_u8[16];
+    USHORT _S6_u16[8];
+    ULONG _S6_u32[4];
+  } S6_un;
+} in6_addr;
+
+
 /*
- * @implemented
- */
+* @implemented
+*/
 LPSTR
 NTAPI
-RtlIpv4AddressToStringA(IN struct in_addr *Addr,
-                        OUT PCHAR S)
+RtlIpv4AddressToStringA(
+	PULONG IP,
+	LPSTR Buffer
+	)
 {
-    return S + sprintf(S, "%u.%u.%u.%u", Addr->S_un.S_un_b.s_b1,
-                                         Addr->S_un.S_un_b.s_b2,
-                                         Addr->S_un.S_un_b.s_b3,
-                                         Addr->S_un.S_un_b.s_b4);
+  in_addr addr;
+  addr.S_un.S_addr = *IP;
+  return Buffer + sprintf(Buffer, "%u.%u.%u.%u", addr.S_un.S_un_b.s_b1,
+                                                 addr.S_un.S_un_b.s_b2,
+                                                 addr.S_un.S_un_b.s_b3,
+                                                 addr.S_un.S_un_b.s_b4);
 }
 
 /*
- * @unimplemented
- */
+* @unimplemented
+*/
 NTSTATUS
 NTAPI
-RtlIpv4AddressToStringExA(IN struct in_addr *Address,
-                          IN USHORT Port,
-                          OUT PCHAR AddressString,
-                          IN OUT PULONG AddressStringLength)
+RtlIpv4AddressToStringExA(
+	PULONG IP,
+	PULONG Port,
+	LPSTR Buffer,
+	PULONG MaxSize
+	)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
- * @implemented
- */
+* @implemented
+*/
 LPWSTR
 NTAPI
-RtlIpv4AddressToStringW(IN struct in_addr *Addr,
-                        OUT PWCHAR S)
+RtlIpv4AddressToStringW(
+	PULONG IP,
+	LPWSTR Buffer
+	)
 {
-    return S + swprintf(S, L"%u.%u.%u.%u", Addr->S_un.S_un_b.s_b1,
-                                           Addr->S_un.S_un_b.s_b2,
-                                           Addr->S_un.S_un_b.s_b3,
-                                           Addr->S_un.S_un_b.s_b4);
+  in_addr addr;
+  addr.S_un.S_addr = *IP;
+  return Buffer + swprintf(Buffer, L"%u.%u.%u.%u", addr.S_un.S_un_b.s_b1,
+                                                   addr.S_un.S_un_b.s_b2,
+                                                   addr.S_un.S_un_b.s_b3,
+                                                   addr.S_un.S_un_b.s_b4);
 }
 
 /*
- * @unimplemented
- */
+* @unimplemented
+*/
 NTSTATUS
 NTAPI
-RtlIpv4AddressToStringExW(IN struct in_addr *Address,
-                          IN USHORT Port,
-                          OUT PWCHAR AddressString,
-                          IN OUT PULONG AddressStringLength)
+RtlIpv4AddressToStringExW(
+	PULONG IP,
+	PULONG Port,
+	LPWSTR Buffer,
+	PULONG MaxSize
+	)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
- * @unimplemented
- */
+* @unimplemented
+*/
 NTSTATUS
 NTAPI
-RtlIpv4StringToAddressA(IN PCHAR String,
-                        IN BOOLEAN Strict,
-                        OUT PCHAR *Terminator,
-                        OUT struct in_addr *Addr)
+RtlIpv4StringToAddressA(
+	IN LPSTR IpString,
+	IN ULONG Base,
+	OUT PVOID PtrToIpAddr,
+	OUT ULONG IpAddr
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv4StringToAddressExA(
+	IN LPSTR IpString,
+	IN ULONG Base,
+	OUT PULONG IpAddr,
+	OUT PULONG Port
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv4StringToAddressW(
+	IN LPWSTR IpString,
+	IN ULONG Base,
+    OUT PULONG PtrToIpAddr,
+    OUT PULONG IpAddr
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv4StringToAddressExW(
+	IN LPWSTR IpString,
+	IN ULONG Base,
+	OUT PULONG IpAddr,
+	OUT PULONG Port
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv6AddressToStringA(
+	PULONG IP,
+	LPSTR Buffer
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv6AddressToStringExA(
+	PULONG IP,
+	PULONG Port,
+	LPSTR Buffer,
+	PULONG MaxSize
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv6AddressToStringW(
+	PULONG IP,
+	LPWSTR Buffer
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv6AddressToStringExW(
+	PULONG IP,
+	PULONG Port,
+	LPWSTR Buffer,
+	PULONG MaxSize
+	)
+{
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
+}
+
+/*
+* @unimplemented
+*/
+NTSTATUS
+NTAPI
+RtlIpv6StringToAddressA(IN LPSTR Name,
+                        OUT PULONG Unknown,
+                        OUT PVOID IpAddr)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -89,9 +246,9 @@ RtlIpv4StringToAddressA(IN PCHAR String,
 */
 NTSTATUS
 NTAPI
-RtlIpv4StringToAddressExA(IN PCHAR AddressString,
-                          IN BOOLEAN Strict,
-                          OUT struct in_addr *Address,
+RtlIpv6StringToAddressExA(IN LPSTR AddressName,
+                          IN PVOID Address,
+                          IN PULONG ScopeId,
                           IN PUSHORT Port)
 {
     UNIMPLEMENTED;
@@ -103,10 +260,9 @@ RtlIpv4StringToAddressExA(IN PCHAR AddressString,
 */
 NTSTATUS
 NTAPI
-RtlIpv4StringToAddressW(IN PWCHAR String,
-                        IN UCHAR Strict,
-                        OUT PWCHAR Terminator,
-                        OUT struct in_addr *Addr)
+RtlIpv6StringToAddressW(IN LPWSTR Name,
+                        OUT PULONG Unknown,
+                        OUT PVOID IpAddr)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -117,118 +273,10 @@ RtlIpv4StringToAddressW(IN PWCHAR String,
 */
 NTSTATUS
 NTAPI
-RtlIpv4StringToAddressExW(IN PWCHAR AddressString,
-                          IN BOOLEAN Strict,
-                          OUT struct in_addr *Address,
-                          OUT PUSHORT Port)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6AddressToStringA(IN struct in6_addr *Addr,
-                        OUT PCHAR S)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6AddressToStringExA(IN struct in6_addr *Address,
-                          IN ULONG ScopeId,
-                          IN ULONG Port,
-                          OUT PCHAR AddressString,
-                          IN OUT PULONG AddressStringLength)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6AddressToStringW(IN struct in6_addr *Addr,
-                        OUT PWCHAR S)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6AddressToStringExW(IN struct in6_addr *Address,
-                          IN ULONG ScopeId,
-                          IN USHORT Port,
-                          IN OUT PWCHAR AddressString,
-                          IN OUT PULONG AddressStringLength)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6StringToAddressA(IN PCHAR Name,
-                        OUT PCHAR *Terminator,
-                        OUT struct in6_addr *Addr)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6StringToAddressExA(IN PCHAR AddressString,
-                          OUT struct in6_addr *Address,
-                          OUT PULONG ScopeId,
-                          OUT PUSHORT Port)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6StringToAddressW(IN PWCHAR Name,
-                        OUT PCHAR *Terminator,
-                        OUT struct in6_addr *Addr)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
-* @unimplemented
-*/
-NTSTATUS
-NTAPI
-RtlIpv6StringToAddressExW(IN PWCHAR AddressName,
-                          OUT struct in6_addr *Address,
-                          OUT PULONG ScopeId,
-                          OUT PUSHORT Port)
+RtlIpv6StringToAddressExW(IN LPWSTR AddressName,
+                          IN PVOID Address,
+                          IN PULONG ScopeId,
+                          IN PUSHORT Port)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;

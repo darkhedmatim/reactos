@@ -30,7 +30,6 @@
 
 #include "ntddk.h"
 
-#define _NTIFS_INCLUDED_
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1267,6 +1266,11 @@ typedef struct _GET_RETRIEVAL_DESCRIPTOR {
     MAPPING_PAIR    Pair[1];
 } GET_RETRIEVAL_DESCRIPTOR, *PGET_RETRIEVAL_DESCRIPTOR;
 
+typedef struct _IO_CLIENT_EXTENSION {
+    struct _IO_CLIENT_EXTENSION *NextExtension;
+    PVOID                       ClientIdentificationAddress;
+} IO_CLIENT_EXTENSION, *PIO_CLIENT_EXTENSION;
+
 typedef struct _IO_COMPLETION_BASIC_INFORMATION {
     LONG Depth;
 } IO_COMPLETION_BASIC_INFORMATION, *PIO_COMPLETION_BASIC_INFORMATION;
@@ -1278,8 +1282,6 @@ typedef struct _KQUEUE {
     ULONG               MaximumCount;
     LIST_ENTRY          ThreadListHead;
 } KQUEUE, *PKQUEUE, *RESTRICTED_POINTER PRKQUEUE;
-
-#define ASSERT_QUEUE(Q) ASSERT(((Q)->Header.Type & KOBJECT_TYPE_MASK) == QueueObject);
 
 typedef struct _MBCB {
     CSHORT          NodeTypeCode;
@@ -2944,6 +2946,13 @@ VOID
 NTAPI
 HalDisplayString (
     IN PCHAR String
+);
+
+NTHALAPI
+VOID
+NTAPI
+HalQueryRealTimeClock (
+    IN OUT PTIME_FIELDS TimeFields
 );
 
 NTHALAPI

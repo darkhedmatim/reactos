@@ -1538,9 +1538,6 @@ DefWindowProcA(HWND hWnd,
 	       WPARAM wParam,
 	       LPARAM lParam)
 {
-    LRESULT Result = 0;
-
-    SPY_EnterMessage(SPY_DEFWNDPROC, hWnd, Msg, wParam, lParam);
     switch (Msg)
     {
         case WM_NCCREATE:
@@ -1561,14 +1558,12 @@ DefWindowProcA(HWND hWnd,
             else
               NtUserDefSetText(hWnd, NULL);
 
-            Result = 1;
-            break;
+            return (1);
         }
 
         case WM_GETTEXTLENGTH:
         {
-            Result = (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
-            break;
+            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
         }
 
         case WM_GETTEXT:
@@ -1579,10 +1574,7 @@ DefWindowProcA(HWND hWnd,
 
             Buffer = HeapAlloc(GetProcessHeap(), 0, wParam * sizeof(WCHAR));
             if (!Buffer)
-            {
-                Result = 0;
-                break;
-            }
+                return FALSE;
             Length = NtUserInternalGetWindowText(hWnd, Buffer, wParam);
             if (Length > 0 && wParam > 0 &&
                 !WideCharToMultiByte(CP_ACP, 0, Buffer, -1,
@@ -1593,8 +1585,7 @@ DefWindowProcA(HWND hWnd,
 
             HeapFree(GetProcessHeap(), 0, Buffer);
 
-            Result = (LRESULT)Length;
-            break;
+            return (LRESULT)Length;
         }
 
         case WM_SETTEXT:
@@ -1616,12 +1607,11 @@ DefWindowProcA(HWND hWnd,
             {
                 DefWndNCPaint(hWnd, (HRGN)1, -1);
             }
-
-            Result = 1;
-            break;
+            return TRUE;
         }
 
-/*      FIXME: Implement these. */
+/*
+        FIXME: Implement these.
         case WM_IME_CHAR:
         case WM_IME_KEYDOWN:
         case WM_IME_KEYUP:
@@ -1630,14 +1620,10 @@ DefWindowProcA(HWND hWnd,
         case WM_IME_ENDCOMPOSITION:
         case WM_IME_SELECT:
         case WM_IME_SETCONTEXT:
-            DPRINT1("FIXME: WM_IME_* conversion isn't implemented yet!");
-        /* fall through */
-        default:
-            Result = User32DefWindowProc(hWnd, Msg, wParam, lParam, FALSE);
+*/
     }
 
-    SPY_ExitMessage(SPY_RESULT_DEFWND, hWnd, Msg, Result, wParam, lParam);
-    return Result;
+    return User32DefWindowProc(hWnd, Msg, wParam, lParam, FALSE);
 }
 
 
@@ -1647,9 +1633,6 @@ DefWindowProcW(HWND hWnd,
 	       WPARAM wParam,
 	       LPARAM lParam)
 {
-    LRESULT Result = 0;
-
-    SPY_EnterMessage(SPY_DEFWNDPROC, hWnd, Msg, wParam, lParam);
     switch (Msg)
     {
         case WM_NCCREATE:
@@ -1663,20 +1646,17 @@ DefWindowProcW(HWND hWnd,
               RtlInitUnicodeString(&UnicodeString, (LPWSTR)cs->lpszName);
 
             NtUserDefSetText( hWnd, (cs->lpszName ? &UnicodeString : NULL));
-            Result = 1;
-            break;
+            return (1);
         }
 
         case WM_GETTEXTLENGTH:
         {
-            Result = (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
-            break;
+            return (LRESULT)NtUserInternalGetWindowText(hWnd, NULL, 0);
         }
 
         case WM_GETTEXT:
         {
-            Result = (LRESULT)NtUserInternalGetWindowText(hWnd, (PWSTR)lParam, wParam);
-            break;
+            return (LRESULT)NtUserInternalGetWindowText(hWnd, (PWSTR)lParam, wParam);
         }
 
         case WM_SETTEXT:
@@ -1692,30 +1672,22 @@ DefWindowProcW(HWND hWnd,
             {
                 DefWndNCPaint(hWnd, (HRGN)1, -1);
             }
-            Result = 1;
-            break;
+            return (1);
         }
 
         case WM_IME_CHAR:
         {
             SendMessageW(hWnd, WM_CHAR, wParam, lParam);
-            Result = 0;
-            break;
+            return (0);
         }
 
         case WM_IME_SETCONTEXT:
         {
             /* FIXME */
-            DPRINT1("FIXME: WM_IME_SETCONTEXT is not implemented!");
-            Result = 0;
-            break;
+            return (0);
         }
-
-        default:
-            Result = User32DefWindowProc(hWnd, Msg, wParam, lParam, TRUE);
     }
-    SPY_ExitMessage(SPY_RESULT_DEFWND, hWnd, Msg, Result, wParam, lParam);
 
-    return Result;
+    return User32DefWindowProc(hWnd, Msg, wParam, lParam, TRUE);
 }
 

@@ -16,10 +16,6 @@
 
 /* GLOBALS *******************************************************************/
 
-KNODE KiNode0;
-PKNODE KeNodeBlock[1];
-UCHAR KeNumberNodes = 1;
-UCHAR KeProcessNodeSeed;
 ULONG KiPcrInitDone = 0;
 static ULONG PcrsAllocated = 0;
 static ULONG Ke386CpuidFlags2, Ke386CpuidExFlags, Ke386CpuidExMisc;
@@ -31,7 +27,6 @@ BOOLEAN Ke386Pae = FALSE;
 BOOLEAN Ke386GlobalPagesEnabled = FALSE;
 ULONG KiFastSystemCallDisable = 1;
 ULONG KeI386NpxPresent = 0;
-ULONG MxcsrFeatureMask = 0;
 ULONG KeI386XMMIPresent = 0;
 ULONG KeI386FxsrPresent = 0;
 extern PVOID Ki386InitialStackArray[MAXIMUM_PROCESSORS];
@@ -48,46 +43,7 @@ static VOID INIT_FUNCTION Ki386GetCpuId(VOID);
 #pragma alloc_text(INIT, Ki386SetProcessorFeatures)
 #endif
 
-BOOLEAN
-NTAPI
-KiIsNpxPresent(
-    VOID
-);
-
 /* FUNCTIONS *****************************************************************/
-
-VOID
-INIT_FUNCTION
-NTAPI
-KiCheckFPU(VOID)
-{
-    PKPRCB Prcb = KeGetCurrentPrcb();
-
-    /* Check for a math co-processor (NPX) */
-    KeI386NpxPresent = KiIsNpxPresent();
-
-    /* Check for and enable MMX/SSE support if possible */
-    KeI386FxsrPresent = Prcb->FeatureBits & X86_FEATURE_FXSR ? TRUE : FALSE;
-
-    /* Check for SSE (2 and 3 should have this set too) */
-    KeI386XMMIPresent = Prcb->FeatureBits & X86_FEATURE_SSE ? TRUE : FALSE;
-
-    /* Check if Fxsr was found */
-    if (KeI386FxsrPresent)
-    {
-        /* Enable it. FIXME: Send an IPI */
-        Ke386SetCr4(Ke386GetCr4() | X86_CR4_OSFXSR);
-
-        /* Check if XMM was found too */
-        if (KeI386XMMIPresent)
-        {
-            /* Enable it: FIXME: Send an IPI. */
-            Ke386SetCr4(Ke386GetCr4() | X86_CR4_OSXMMEXCPT);
-
-            /* FIXME: Implement and enable XMM Page Zeroing for Mm */
-        }
-    }
-}
 
 static VOID INIT_FUNCTION
 Ki386GetCpuId(VOID)
@@ -183,7 +139,7 @@ Ki386GetCpuId(VOID)
    if (MaxCpuidLevel >= 0x80000006)
    {
       Ki386Cpuid(0x80000006, &Dummy, &Dummy, &Ecx, &Dummy);
-      Pcr->SecondLevelCacheSize = Ecx >> 16;
+      Pcr->L2CacheSize = Ecx >> 16;
    }
 }
 
@@ -296,7 +252,6 @@ KeApplicationProcessorInit(VOID)
   KiCheckFPU();
 
   KeInitDpc(Pcr->Prcb);
-  InitializeListHead(&Pcr->PrcbData.WaitListHead);
 
   if (Pcr->PrcbData.FeatureBits & X86_FEATURE_SYSCALL)
   {
@@ -377,17 +332,12 @@ KeInit1(PCHAR CommandLine, PULONG LastKernelAddress)
    KPCR->NtTib.ExceptionList = (PVOID)-1;
 
    KeInitDpc(KPCR->Prcb);
-   InitializeListHead(&KPCR->PrcbData.WaitListHead);
 
    KeInitExceptions ();
    KeInitInterrupts ();
 
    KeActiveProcessors |= 1 << 0;
 
-    /* Set Node Data */
-    KeNodeBlock[0] = &KiNode0;
-    KPCR->PrcbData.ParentNode = KeNodeBlock[0];
-    KeNodeBlock[0]->ProcessorMask = KPCR->PrcbData.SetMember;
 
    if (KPCR->PrcbData.FeatureBits & X86_FEATURE_PGE)
    {
@@ -489,7 +439,6 @@ INIT_FUNCTION
 NTAPI
 KeInit2(VOID)
 {
-   ULONG Protect;
    PKIPCR Pcr = (PKIPCR)KeGetCurrentKPCR();
 
    KiInitializeBugCheck();
@@ -545,14 +494,10 @@ KeInit2(VOID)
 
       DPRINT("Ke386L1CacheSize: %dkB\n", Ke386L1CacheSize);
    }
-   if (Pcr->SecondLevelCacheSize)
+   if (Pcr->L2CacheSize)
    {
-      DPRINT("Ke386L2CacheSize: %dkB\n", Pcr->SecondLevelCacheSize);
+      DPRINT("Ke386L2CacheSize: %dkB\n", Pcr->L2CacheSize);
    }
-
-   /* Set IDT to writable */
-   Protect = MmGetPageProtect(NULL, (PVOID)KiIdt);
-   MmSetPageProtect(NULL, (PVOID)KiIdt, Protect | PAGE_IS_WRITABLE);
 }
 
 VOID INIT_FUNCTION

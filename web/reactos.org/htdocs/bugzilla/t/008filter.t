@@ -163,9 +163,6 @@ sub directive_ok {
     # Empty directives are ok; they are usually line break helpers
     return 1 if $directive eq '';
 
-    # Make sure we're not looking for ./ in the $safe hash
-    $file =~ s#^\./##;
-
     # Exclude those on the nofilter list
     if (defined($safe{$file}{$directive})) {
         $safe{$file}{$directive}++;
@@ -175,8 +172,7 @@ sub directive_ok {
     # Directives
     return 1 if $directive =~ /^(IF|END|UNLESS|FOREACH|PROCESS|INCLUDE|
                                  BLOCK|USE|ELSE|NEXT|LAST|DEFAULT|FLUSH|
-                                 ELSIF|SET|SWITCH|CASE|WHILE|RETURN|STOP|
-                                 TRY|CATCH|FINAL|THROW|CLEAR)/x;
+                                 ELSIF|SET|SWITCH|CASE|WHILE)/x;
 
     # ? :
     if ($directive =~ /.+\?(.+):(.+)/) {
@@ -222,7 +218,7 @@ sub directive_ok {
     # Things which are already filtered
     # Note: If a single directive prints two things, and only one is 
     # filtered, we may not catch that case.
-    return 1 if $directive =~ /FILTER\ (html|csv|js|base64|url_quote|css_class_quote|
+    return 1 if $directive =~ /FILTER\ (html|csv|js|url_quote|css_class_quote|
                                         ics|quoteUrls|time|uri|xml|lower|
                                         obsolete|inactive|closed|unitconvert|
                                         none)\b/x;

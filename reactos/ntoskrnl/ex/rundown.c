@@ -148,7 +148,7 @@ ExfReInitializeRundownProtection(IN PEX_RUNDOWN_REF RunRef)
     ASSERT((RunRef->Count & EX_RUNDOWN_ACTIVE) != 0);
 
     /* Reset the count */
-    ExpSetRundown(&RunRef->Count, 0);
+    InterlockedExchange((PLONG)&RunRef->Count, 0);
 }
 
 /*++
@@ -176,7 +176,7 @@ ExfRundownCompleted(IN PEX_RUNDOWN_REF RunRef)
     ASSERT((RunRef->Count & EX_RUNDOWN_ACTIVE) != 0);
 
     /* Mark the counter as active */
-    ExpSetRundown(&RunRef->Count, EX_RUNDOWN_ACTIVE);
+    InterlockedExchange((PLONG)&RunRef->Count, EX_RUNDOWN_ACTIVE);
 }
 
 /*++
@@ -227,10 +227,10 @@ ExfReleaseRundownProtection(IN PEX_RUNDOWN_REF RunRef)
     ASSERT((WaitBlock->Count > 0) || (KeNumberProcessors > 1));
 
     /* Remove the one count */
-    if (!InterlockedDecrementSizeT(&WaitBlock->Count))
+    if (InterlockedExchangeAddSizeT(&WaitBlock->Count, -1))
     {
         /* We're down to 0 now, so signal the event */
-        KeSetEvent(&WaitBlock->WakeEvent, IO_NO_INCREMENT, FALSE);
+        KeSetEvent(&WaitBlock->RundownEvent, IO_NO_INCREMENT, FALSE);
     }
 }
 
@@ -286,11 +286,11 @@ ExfReleaseRundownProtectionEx(IN PEX_RUNDOWN_REF RunRef,
     ASSERT((WaitBlock->Count >= Count) || (KeNumberProcessors > 1));
 
     /* Remove the count */
-    if (InterlockedExchangeAddSizeT(&WaitBlock->Count, -(LONG)Count) ==
+    if (InterlockedExchangeAddSizeT(WaitBlock->Count, -(LONG)Count) ==
         (LONG)Count)
     {
         /* We're down to 0 now, so signal the event */
-        KeSetEvent(&WaitBlock->WakeEvent, IO_NO_INCREMENT, FALSE);
+        KeSetEvent(&WaitBlock->RundownEvent, IO_NO_INCREMENT, FALSE);
     }
 }
 
@@ -339,12 +339,12 @@ ExfWaitForRundownProtectionRelease(IN PEX_RUNDOWN_REF RunRef)
         if (Count || !Event)
         {
             /* Initialize the event */
-            KeInitializeEvent(&WaitBlock.WakeEvent,
+            KeInitializeEvent(&WaitBlock.RundownEvent,
                               NotificationEvent,
                               FALSE);
 
             /* Set the pointer */
-            Event = &WaitBlock.WakeEvent;
+            Event = &WaitBlock.RundownEvent;
         }
 
         /* Set the count */

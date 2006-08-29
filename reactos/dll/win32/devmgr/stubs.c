@@ -45,7 +45,7 @@
  *
  * @unimplemented
  */
-BOOL
+WINBOOL
 WINAPI
 DeviceManager_ExecuteA(HWND hWndParent,
                        HINSTANCE hInst,
@@ -82,7 +82,7 @@ DeviceManager_ExecuteA(HWND hWndParent,
  *
  * @unimplemented
  */
-BOOL
+WINBOOL
 WINAPI
 DeviceManager_ExecuteW(HWND hWndParent,
                        HINSTANCE hInst,
@@ -349,7 +349,7 @@ DeviceProblemWizard_RunDLLW(HWND hWndParent,
  *
  * @unimplemented
  */
-BOOL
+WINBOOL
 WINAPI
 DeviceManagerPrintA(LPCSTR lpMachineName,
                     LPCSTR lpPrinter,
@@ -393,7 +393,7 @@ DeviceManagerPrintA(LPCSTR lpMachineName,
  *
  * @unimplemented
  */
-BOOL
+WINBOOL
 WINAPI
 DeviceManagerPrintW(LPCWSTR lpMachineName,
                     LPCWSTR lpPrinter,

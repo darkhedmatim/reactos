@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -42,8 +42,6 @@ Author:
 #define PNP_SET_DEVICE_STATUS           1
 #define PNP_CLEAR_DEVICE_STATUS         2
 
-#ifdef NTOS_MODE_USER
-
 //
 // Resource Type
 //
@@ -61,6 +59,7 @@ Author:
 #define CmResourceTypePcCardConfig              130
 #define CmResourceTypeMfCardConfig              131
 
+#ifdef NTOS_MODE_USER
 
 //
 // Resource Descriptor Share Dispositions
@@ -343,8 +342,7 @@ typedef struct _PLUGPLAY_CONTROL_RELATED_DEVICE_DATA
 {
     UNICODE_STRING TargetDeviceInstance;
     ULONG Relation;
-    PWCHAR RelatedDeviceInstance;
-    ULONG RelatedDeviceInstanceLength;
+    UNICODE_STRING RelatedDeviceInstance;
 } PLUGPLAY_CONTROL_RELATED_DEVICE_DATA, *PPLUGPLAY_CONTROL_RELATED_DEVICE_DATA;
 
 // Class 0x0E
@@ -474,15 +472,6 @@ typedef struct _CM_RESOURCE_LIST
     ULONG Count;
     CM_FULL_RESOURCE_DESCRIPTOR List[1];
 } CM_RESOURCE_LIST, *PCM_RESOURCE_LIST;
-
-//
-// ROM Block Structure
-//
-typedef struct _CM_ROM_BLOCK
-{
-    ULONG Address;
-    ULONG Size;
-} CM_ROM_BLOCK, *PCM_ROM_BLOCK;
 
 //
 // Disk/INT13 Structures

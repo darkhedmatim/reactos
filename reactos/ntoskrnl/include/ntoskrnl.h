@@ -16,7 +16,6 @@
 #include <ntddk.h>
 #include <ntifs.h>
 #include <wdmguid.h>
-#include <arc/arc.h>
 #include <ndk/ntndk.h>
 #undef TEXT
 #define TEXT(s) L##s
@@ -24,7 +23,6 @@
 
 /* FIXME: Temporary until CC Ros is gone */
 #include <ccros.h>
-#include <rosldr.h>
 
 /* Disk Dump Driver Header */
 #include <diskdump/diskdump.h>

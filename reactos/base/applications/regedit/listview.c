@@ -50,8 +50,7 @@ static int column_alignment[MAX_LIST_COLUMNS] = { LVCFMT_LEFT, LVCFMT_LEFT, LVCF
 
 LPCTSTR GetValueName(HWND hwndLV, int iStartAt)
 {
-    int item;
-	size_t len, maxLen;
+    int item, len, maxLen;
     LPTSTR newStr;
     LVITEM LVItem;
     PLINE_INFO lineinfo;
@@ -129,7 +128,7 @@ static void AddEntryToList(HWND hwndLV, LPTSTR Name, DWORD dwValType, void* ValB
     item.state = 0;
     item.stateMask = 0;
     item.pszText = Name;
-    item.cchTextMax = (int) _tcslen(item.pszText);
+    item.cchTextMax = _tcslen(item.pszText);
     if (item.cchTextMax == 0)
         item.pszText = LPSTR_TEXTCALLBACK;
     item.iImage = 0;
@@ -357,8 +356,6 @@ static void OnGetDispInfo(NMLVDISPINFO* plvdi)
 static int CALLBACK CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 {
     LINE_INFO*l, *r;
-    UNREFERENCED_PARAMETER(lParamSort);
-
     l = (LINE_INFO*)lParam1;
     r = (LINE_INFO*)lParam2;
 
@@ -376,7 +373,6 @@ static int CALLBACK CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSor
 BOOL ListWndNotifyProc(HWND hWnd, WPARAM wParam, LPARAM lParam, BOOL *Result)
 {
     NMLVDISPINFO* Info;
-    UNREFERENCED_PARAMETER(wParam);
     *Result = TRUE;
     switch (((LPNMHDR)lParam)->code) {
         case LVN_GETDISPINFO:

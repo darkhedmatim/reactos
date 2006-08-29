@@ -4,7 +4,5 @@
 <directory name="matrix">
 	<xi:include href="matrix/matrix.rbuild" />
 </directory>
-<directory name="cylfrac">
-	<xi:include href="cylfrac/cylfrac.rbuild" />
-</directory>
+
 </group>

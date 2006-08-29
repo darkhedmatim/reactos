@@ -8,18 +8,9 @@
 #define HAL_APC_REQUEST	    0
 #define HAL_DPC_REQUEST	    1
 
-//
-// Kernel Debugger Port Definition
-//
-typedef struct _KD_PORT_INFORMATION
-{
-    ULONG ComPort;
-    ULONG BaudRate;
-    ULONG BaseAddress;
-} KD_PORT_INFORMATION, *PKD_PORT_INFORMATION;
-
 /* display.c */
-VOID FASTCALL HalInitializeDisplay (struct _ROS_LOADER_PARAMETER_BLOCK *LoaderBlock);
+struct _LOADER_PARAMETER_BLOCK;
+VOID FASTCALL HalInitializeDisplay (struct _LOADER_PARAMETER_BLOCK *LoaderBlock);
 VOID FASTCALL HalClearDisplay (UCHAR CharAttribute);
 
 /* adapter.c */
@@ -29,7 +20,7 @@ PADAPTER_OBJECT STDCALL HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN
 VOID HalpInitBusHandlers (VOID);
 
 /* irql.c */
-VOID NTAPI HalpInitPICs(VOID);
+VOID HalpInitPICs(VOID);
 
 /* udelay.c */
 VOID HalpCalibrateStallExecution(VOID);
@@ -47,9 +38,7 @@ VOID HalpInitDma (VOID);
 PVOID HalpMapPhysMemory(ULONG PhysAddr, ULONG Size);
 
 /* Non-generic initialization */
-VOID HalpInitPhase0 (PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
-VOID HalpInitPhase1(VOID);
-VOID NTAPI HalpClockInterrupt(VOID);
+VOID HalpInitPhase0 (PLOADER_PARAMETER_BLOCK LoaderBlock);
 
 /* sysinfo.c */
 NTSTATUS STDCALL

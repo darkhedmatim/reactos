@@ -1,271 +1,227 @@
-/*
- * PROJECT:         ReactOS Win32 Base API
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            dll/win32/kernel32/synch/mutex.c
- * PURPOSE:         Wrappers for the NT Mutant Implementation
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS system libraries
+ * FILE:            lib/kernel32/synch/mutex.c
+ * PURPOSE:         Mutex functions
+ * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
+ * UPDATE HISTORY:
+ *                  Created 01/20/2001
  */
 
 /* INCLUDES *****************************************************************/
 
-/* File contains Vista Semantics */
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
-
 #include <k32.h>
 
 #define NDEBUG
-#include "debug.h"
+#include "../include/debug.h"
+
 
 /* FUNCTIONS *****************************************************************/
 
 /*
  * @implemented
  */
-HANDLE
-WINAPI
-CreateMutexExA(IN LPSECURITY_ATTRIBUTES lpMutexAttributes  OPTIONAL,
-               IN LPCSTR lpName  OPTIONAL,
-               IN DWORD dwFlags,
-               IN DWORD dwDesiredAccess)
+HANDLE STDCALL
+CreateMutexA(LPSECURITY_ATTRIBUTES lpMutexAttributes,
+	     BOOL bInitialOwner,
+	     LPCSTR lpName)
 {
-    NTSTATUS Status;
-    ANSI_STRING AnsiName;
-    PUNICODE_STRING UnicodeCache;
-    LPCWSTR UnicodeName = NULL;
+   UNICODE_STRING NameU;
+   ANSI_STRING Name;
+   HANDLE Handle;
 
-    /* Check for a name */
-    if (lpName)
-    {
-        /* Use TEB Cache */
-        UnicodeCache = &NtCurrentTeb()->StaticUnicodeString;
+   if (lpName != NULL)
+     {
+        RtlInitAnsiString(&Name,
+                          (LPSTR)lpName);
 
-        /* Convert to unicode */
-        RtlInitAnsiString(&AnsiName, lpName);
-        Status = RtlAnsiStringToUnicodeString(UnicodeCache, &AnsiName, FALSE);
-        if (!NT_SUCCESS(Status))
-        {
-            /* Conversion failed */
-            SetLastErrorByStatus(Status);
-            return NULL;
-        }
+        RtlAnsiStringToUnicodeString(&NameU,
+                                     &Name,
+                                     TRUE);
+     }
 
-        /* Otherwise, save the buffer */
-        UnicodeName = (LPCWSTR)UnicodeCache->Buffer;
-    }
+   Handle = CreateMutexW(lpMutexAttributes,
+			 bInitialOwner,
+			 (lpName ? NameU.Buffer : NULL));
 
-    /* Call the Unicode API */
-    return CreateMutexExW(lpMutexAttributes,
-                          UnicodeName,
-                          dwFlags,
-                          dwDesiredAccess);
+   if (lpName != NULL)
+     {
+        RtlFreeUnicodeString(&NameU);
+     }
+
+   return Handle;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-WINAPI
-CreateMutexExW(IN LPSECURITY_ATTRIBUTES lpMutexAttributes  OPTIONAL,
-               IN LPCWSTR lpName  OPTIONAL,
-               IN DWORD dwFlags,
-               IN DWORD dwDesiredAccess)
+HANDLE STDCALL
+CreateMutexW(LPSECURITY_ATTRIBUTES lpMutexAttributes,
+	     BOOL bInitialOwner,
+	     LPCWSTR lpName)
 {
-    NTSTATUS Status;
-    OBJECT_ATTRIBUTES LocalAttributes;
-    POBJECT_ATTRIBUTES ObjectAttributes;
-    HANDLE Handle;
-    UNICODE_STRING ObjectName;
-    BOOLEAN InitialOwner;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   NTSTATUS Status;
+   UNICODE_STRING UnicodeName;
+   HANDLE MutantHandle;
 
-    /* Now check if we got a name */
-    if (lpName) RtlInitUnicodeString(&ObjectName, lpName);
+   if (lpName != NULL)
+     {
+       RtlInitUnicodeString(&UnicodeName,
+			    (LPWSTR)lpName);
+     }
 
-    if (dwFlags & ~(CREATE_MUTEX_INITIAL_OWNER))
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return NULL;
-    }
+   InitializeObjectAttributes(&ObjectAttributes,
+			      (lpName ? &UnicodeName : NULL),
+			      0,
+			      (lpName ? hBaseDir : NULL),
+			      NULL);
 
-    InitialOwner = (dwFlags & CREATE_MUTEX_INITIAL_OWNER) != 0;
+   if (lpMutexAttributes != NULL)
+     {
+	ObjectAttributes.SecurityDescriptor = lpMutexAttributes->lpSecurityDescriptor;
+	if (lpMutexAttributes->bInheritHandle)
+	  {
+	     ObjectAttributes.Attributes |= OBJ_INHERIT;
+	  }
+     }
 
-    /* Now convert the object attributes */
-    ObjectAttributes = BasepConvertObjectAttributes(&LocalAttributes,
-                                                    lpMutexAttributes,
-                                                    lpName ? &ObjectName : NULL);
+   Status = NtCreateMutant(&MutantHandle,
+			   MUTEX_ALL_ACCESS,
+			   &ObjectAttributes,
+			   (BOOLEAN)bInitialOwner);
+   if (Status == STATUS_OBJECT_NAME_COLLISION)
+     {
+       Status = NtOpenMutant(&MutantHandle,
+			     MUTEX_ALL_ACCESS,
+			     &ObjectAttributes);
+       if (NT_SUCCESS(Status))
+         {
+           SetLastError(ERROR_ALREADY_EXISTS);
+	 }
+     }
+   else if (NT_SUCCESS(Status))
+     {
+       SetLastError(ERROR_SUCCESS);
+     }             
+   if (!NT_SUCCESS(Status))
+     {
+       SetLastErrorByStatus(Status);
+       return NULL;
+     }
 
-    /* Create the mutant */
-    Status = NtCreateMutant(&Handle,
-                            (ACCESS_MASK)dwDesiredAccess,
-                            ObjectAttributes,
-                            InitialOwner);
-    if (NT_SUCCESS(Status))
-    {
-        /* Check if the object already existed */
-        if (Status == STATUS_OBJECT_NAME_EXISTS)
-        {
-            /* Set distinguished Win32 error code */
-            SetLastError(ERROR_ALREADY_EXISTS);
-        }
-        else
-        {
-            /* Otherwise, set success */
-            SetLastError(ERROR_SUCCESS);
-        }
-
-        /* Return the handle */
-        return Handle;
-    }
-    else
-    {
-        /* Convert the NT Status and fail */
-        SetLastErrorByStatus(Status);
-        return NULL;
-    }
-
+   return MutantHandle;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-WINAPI
-CreateMutexA(IN LPSECURITY_ATTRIBUTES lpMutexAttributes  OPTIONAL,
-             IN BOOL bInitialOwner,
-             IN LPCSTR lpName  OPTIONAL)
+HANDLE STDCALL
+OpenMutexA(DWORD dwDesiredAccess,
+	   BOOL bInheritHandle,
+	   LPCSTR lpName)
 {
-    DWORD dwFlags = 0;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING NameU;
+   ANSI_STRING Name;
+   HANDLE Handle;
+   NTSTATUS Status;
 
-    if (bInitialOwner)
-        dwFlags |= CREATE_MUTEX_INITIAL_OWNER;
+   if (lpName == NULL)
+     {
+	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+	return NULL;
+     }
 
-    return CreateMutexExA(lpMutexAttributes,
-                          lpName,
-                          dwFlags,
-                          MUTANT_ALL_ACCESS);
+   RtlInitAnsiString(&Name,
+		     (LPSTR)lpName);
+   RtlAnsiStringToUnicodeString(&NameU,
+				&Name,
+				TRUE);
+
+   InitializeObjectAttributes(&ObjectAttributes,
+			      &NameU,
+			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      hBaseDir,
+			      NULL);
+
+   Status = NtOpenMutant(&Handle,
+			 (ACCESS_MASK)dwDesiredAccess,
+			 &ObjectAttributes);
+
+   RtlFreeUnicodeString(&NameU);
+
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
+
+   return Handle;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-WINAPI
-CreateMutexW(IN LPSECURITY_ATTRIBUTES lpMutexAttributes  OPTIONAL,
-             IN BOOL bInitialOwner,
-             IN LPCWSTR lpName  OPTIONAL)
+HANDLE STDCALL
+OpenMutexW(DWORD dwDesiredAccess,
+	   BOOL bInheritHandle,
+	   LPCWSTR lpName)
 {
-    DWORD dwFlags = 0;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING Name;
+   HANDLE Handle;
+   NTSTATUS Status;
 
-    if (bInitialOwner)
-        dwFlags |= CREATE_MUTEX_INITIAL_OWNER;
+   if (lpName == NULL)
+     {
+	SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
+	return NULL;
+     }
 
-    return CreateMutexExW(lpMutexAttributes,
-                          lpName,
-                          dwFlags,
-                          MUTANT_ALL_ACCESS);
+   RtlInitUnicodeString(&Name,
+			(LPWSTR)lpName);
+
+   InitializeObjectAttributes(&ObjectAttributes,
+			      &Name,
+			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      hBaseDir,
+			      NULL);
+
+   Status = NtOpenMutant(&Handle,
+			 (ACCESS_MASK)dwDesiredAccess,
+			 &ObjectAttributes);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
+
+   return Handle;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-WINAPI
-OpenMutexA(IN DWORD dwDesiredAccess,
-           IN BOOL bInheritHandle,
-           IN LPCSTR lpName)
+BOOL STDCALL
+ReleaseMutex(HANDLE hMutex)
 {
-    NTSTATUS Status;
-    ANSI_STRING AnsiName;
-    PUNICODE_STRING UnicodeCache;
+   NTSTATUS Status;
 
-    /* Check for a name */
-    if (lpName)
-    {
-        /* Use TEB Cache */
-        UnicodeCache = &NtCurrentTeb()->StaticUnicodeString;
+   Status = NtReleaseMutant(hMutex,
+			    NULL);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return FALSE;
+     }
 
-        /* Convert to unicode */
-        RtlInitAnsiString(&AnsiName, lpName);
-        Status = RtlAnsiStringToUnicodeString(UnicodeCache, &AnsiName, FALSE);
-        if (!NT_SUCCESS(Status))
-        {
-            /* Conversion failed */
-            SetLastErrorByStatus(Status);
-            return NULL;
-        }
-    }
-    else
-    {
-        /* We need a name */
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return NULL;
-    }
-
-    /* Call the Unicode API */
-    return OpenMutexW(dwDesiredAccess,
-                      bInheritHandle,
-                      (LPCWSTR)UnicodeCache->Buffer);
-}
-
-/*
- * @implemented
- */
-HANDLE
-WINAPI
-OpenMutexW(IN DWORD dwDesiredAccess,
-           IN BOOL bInheritHandle,
-           IN LPCWSTR lpName)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING ObjectName;
-    NTSTATUS Status;
-    HANDLE Handle;
-
-    /* Make sure we got a name */
-    if (!lpName)
-    {
-        /* Fail without one */
-        SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-        return NULL;
-    }
-
-    /* Initialize the object name and attributes */
-    RtlInitUnicodeString(&ObjectName, lpName);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &ObjectName,
-                               bInheritHandle ? OBJ_INHERIT : 0,
-                               hBaseDir,
-                               NULL);
-
-    /* Open the mutant */
-    Status = NtOpenMutant(&Handle, dwDesiredAccess, &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Convert the status and fail */
-        SetLastErrorByStatus(Status);
-        return NULL;
-    }
-
-    /* Return the handle */
-    return Handle;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-ReleaseMutex(IN HANDLE hMutex)
-{
-    NTSTATUS Status;
-
-    /* Release the mutant */
-    Status = NtReleaseMutant(hMutex, NULL);
-    if (NT_SUCCESS(Status)) return TRUE;
-
-    /* If we got here, then we failed */
-    SetLastErrorByStatus(Status);
-    return FALSE;
+   return TRUE;
 }
 
 

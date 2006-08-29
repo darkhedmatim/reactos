@@ -30,16 +30,6 @@ typedef struct GUI_CONSOLE_DATA_TAG
   RECT Selection;
   POINT SelectionStart;
   BOOL MouseDown;
-  HMODULE ConsoleLibrary;
-  HANDLE hGuiInitEvent;
-  WCHAR FontName[LF_FACESIZE];
-  DWORD FontSize;
-  DWORD FontWeight;
-  DWORD CursorSize;
-  DWORD HistoryNoDup;
-  DWORD FullScreen;
-  DWORD QuickEdit;
-  DWORD InsertMode;
 } GUI_CONSOLE_DATA, *PGUI_CONSOLE_DATA;
 
 #ifndef WM_APP
@@ -63,315 +53,33 @@ GuiConsoleGetDataPointers(HWND hWnd, PCSRSS_CONSOLE *Console, PGUI_CONSOLE_DATA 
 }
 
 static BOOL FASTCALL
-GuiConsoleOpenUserRegistryPathPerProcessId(DWORD ProcessId, PHANDLE hProcHandle, PHKEY hResult, REGSAM samDesired)
-{
-  HANDLE hProcessToken = NULL;
-  HANDLE hProcess;
-  
-  BYTE Buffer[256];
-  DWORD Length = 0;
-  UNICODE_STRING SidName;
-  LONG res;
-  PTOKEN_USER TokUser;
-  
-  hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | READ_CONTROL, FALSE, ProcessId);
-  if (!hProcess)
-    {
-      DPRINT("Error: OpenProcess failed(0x%x)\n", GetLastError());
-      return FALSE;
-    }
-
-  if (!OpenProcessToken(hProcess, TOKEN_QUERY, &hProcessToken))
-    {
-      DPRINT("Error: OpenProcessToken failed(0x%x)\n", GetLastError());
-      CloseHandle(hProcess);
-      return FALSE;
-    }
-
-  if (!GetTokenInformation(hProcessToken, TokenUser, (PVOID)Buffer, sizeof(Buffer), &Length))
-    {
-      DPRINT("Error: GetTokenInformation failed(0x%x)\n",GetLastError());
-      CloseHandle(hProcess);
-      CloseHandle(hProcessToken);
-      return FALSE;
-    }
-  
-  TokUser = ((PTOKEN_USER)Buffer)->User.Sid;
-  if (!NT_SUCCESS(RtlConvertSidToUnicodeString(&SidName, TokUser, TRUE)))
-    {
-      DPRINT("Error: RtlConvertSidToUnicodeString failed(0x%x)\n", GetLastError());
-      return FALSE;
-    }
-  
-  res = RegOpenKeyExW(HKEY_USERS, SidName.Buffer, 0, samDesired, hResult);
-  RtlFreeUnicodeString(&SidName);
-
-  CloseHandle(hProcessToken);
-  if (hProcHandle)
-    *hProcHandle = hProcess;
-  else
-    CloseHandle(hProcess);
-
-  if (res != ERROR_SUCCESS)
-    return FALSE;
-  else
-    return TRUE;
-}
-
-static BOOL FASTCALL
-GuiConsoleOpenUserSettings(HWND hWnd, DWORD ProcessId, PHKEY hSubKey, REGSAM samDesired)
-{
-  WCHAR szProcessName[MAX_PATH];
-  WCHAR szBuffer[MAX_PATH];
-  UINT fLength, wLength;
-  DWORD dwBitmask, dwLength;
-  WCHAR CurDrive[] = { 'A',':', 0 };
-  HANDLE hProcess;
-  HKEY hKey;
-  WCHAR * ptr, *res;
-  static const WCHAR szSystemRoot[] = { '%','S','y','s','t','e','m','R','o','o','t','%', 0 };
-  
-
-  /*
-   * console properties are stored under
-   * HKCU\Console\*
-   * 
-   * There are 3 ways to store console properties
-   * 
-   *  1. use console title as subkey name
-   *    i.e. cmd.exe
-   *
-   *  2. use application name as subkey name
-   *
-   *  3. use unexpanded path to console application.
-   *     i.e. %SystemRoot%_system32_cmd.exe
-   */
-  
-  if (!GuiConsoleOpenUserRegistryPathPerProcessId(ProcessId, &hProcess, &hKey, samDesired))
-    return FALSE;
-
-  fLength = GetProcessImageFileNameW(hProcess, szProcessName, MAX_PATH);
-  CloseHandle(hProcess);
-
-  if (!fLength)
-    {
-	  DPRINT1("GetProcessImageFileNameW failed(0x%x)ProcessId %d\n", GetLastError(),hProcess);
-	  return FALSE;
-    }
-
-    
-  ptr = wcsrchr(szProcessName, L'\\');
-  swprintf(szBuffer, L"Console%s",ptr);
-
-  if (RegOpenKeyExW(hKey, szBuffer, 0, samDesired, hSubKey) == ERROR_SUCCESS)
-    {
-      RegCloseKey(hKey);
-      return TRUE;
-    }
-
-  dwBitmask = GetLogicalDrives();
-  while(dwBitmask)
-    {
-      if (dwBitmask & 0x1)
-        {
-          dwLength = QueryDosDeviceW(CurDrive, szBuffer, MAX_PATH);
-          if (dwLength)
-            {
-              if (!memcmp(szBuffer, szProcessName, (dwLength-2)*sizeof(WCHAR)))
-                {
-                  wcscpy(szBuffer, CurDrive);
-                  wcscat(&szBuffer[(sizeof(CurDrive)/sizeof(WCHAR))-1], &szProcessName[dwLength-2]);
-                  break;
-                }
-            }
-        }
-      dwBitmask = (dwBitmask >> 1);
-      CurDrive[0]++;
-  }
-  
-  wLength = GetWindowsDirectoryW(szProcessName, MAX_PATH);
-
-  if (!wcsncmp(szProcessName, szBuffer, wLength))
-    {
-      wcscpy(szProcessName, szSystemRoot);
-      wcscpy(&szProcessName[(sizeof(szSystemRoot) / sizeof(WCHAR))-1], &szBuffer[wLength]);
-      ptr = res = szProcessName;
-    }
-  else
-    {
-      ptr = res = szBuffer;
-    }
-
-  while((ptr = wcschr(szProcessName, L'\\')))
-    ptr[0] = L'_';
-
-  if (RegOpenKeyExW(hKey, res, 0, samDesired, hSubKey) == ERROR_SUCCESS)
-    {
-      RegCloseKey(hKey);
-      return TRUE;
-    }
-  RegCloseKey(hKey);
-  return FALSE;
-}
-static void FASTCALL
-GuiConsoleReadUserSettings(HKEY hKey, PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PCSRSS_SCREEN_BUFFER Buffer)
-{
-  DWORD dwNumSubKeys = 0;
-  DWORD dwIndex;
-  DWORD dwValueName;
-  DWORD dwValue;
-  DWORD dwType;
-  WCHAR szValueName[MAX_PATH];
-  WCHAR szValue[MAX_PATH];
-  DWORD Value;
-
-  RegQueryInfoKey(hKey, NULL, NULL, NULL, &dwNumSubKeys, NULL, NULL, NULL, NULL, NULL, NULL, NULL );
-
-  for (dwIndex = 0; dwIndex < dwNumSubKeys; dwIndex++)
-    {
-      dwValue = sizeof(Value);
-      dwValueName = MAX_PATH;
-
-      if (RegEnumValueW(hKey, dwIndex, szValueName, &dwValueName, NULL, &dwType, (BYTE*)&Value, &dwValue) != ERROR_SUCCESS)
-        {
-          if (dwType == REG_SZ)
-            {
-              /*
-               * retry in case of string value
-               */
-              dwValue = sizeof(szValue);
-              dwValueName = MAX_PATH;
-              if (RegEnumValueW(hKey, dwIndex, szValueName, &dwValueName, NULL, NULL, (BYTE*)szValue, &dwValue) != ERROR_SUCCESS)
-                break;
-            }
-          else
-            break;
-        }
-
-      if (!wcscmp(szValueName, L"CursorSize"))
-        {
-          if (Value == 0x32)
-            GuiData->CursorSize = Value;
-          else if (Value == 0x64)
-              GuiData->CursorSize = Value;
-        }
-      else if (!wcscmp(szValueName, L"FaceName"))
-        {
-          wcscpy(GuiData->FontName, szValue);
-        }
-      else if (!wcscmp(szValueName, L"FontSize"))
-        {
-          GuiData->FontSize = Value;
-        }
-      else if (!wcscmp(szValueName, L"FontWeight"))
-        {
-          GuiData->FontWeight = Value;
-        }
-      else if (!wcscmp(szValueName, L"HistoryNoDup"))
-        {
-          GuiData->HistoryNoDup = Value;
-        }
-      else if (!wcscmp(szValueName, L"WindowSize"))
-        {
-          Console->Size.X = LOWORD(Value);
-		  Console->Size.Y = HIWORD(Value);
-        }
-      else if (!wcscmp(szValueName, L"ScreenBufferSize"))
-        {
-			if( Buffer)
-			{
-			Buffer->MaxX = LOWORD(Value);
-			Buffer->MaxY = HIWORD(Value);
-			}
-        }
-      else if (!wcscmp(szValueName, L"FullScreen"))
-        {
-          GuiData->FullScreen = Value;
-        }
-      else if (!wcscmp(szValueName, L"QuickEdit"))
-        {
-          GuiData->QuickEdit = Value;
-        }
-      else if (!wcscmp(szValueName, L"InsertMode"))
-        {
-          GuiData->InsertMode = Value;
-        }
-   }
-}
-static VOID FASTCALL
-GuiConsoleUseDefaults(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PCSRSS_SCREEN_BUFFER Buffer)
-{
-  /*
-   * init guidata with default properties
-   */
-
-  wcscpy(GuiData->FontName, L"Bitstream Vera Sans Mono");
-  GuiData->FontSize = 0x0008000C; // font is 8x12
-  GuiData->FontWeight = FW_NORMAL;
-  GuiData->CursorSize = 0;
-  GuiData->HistoryNoDup = FALSE;
-  GuiData->FullScreen = FALSE;
-  GuiData->QuickEdit = FALSE;
-  GuiData->InsertMode = TRUE;
-
-  Console->Size.X = 80;
-  Console->Size.Y = 25;
-
-  if (Buffer)
-  {
-    Buffer->MaxX = 80;
-    Buffer->MaxY = 25;
-  }
-}
-
-
-
-static BOOL FASTCALL
 GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
 {
   RECT Rect;
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) Create->lpCreateParams;
-  PGUI_CONSOLE_DATA GuiData = (PGUI_CONSOLE_DATA)Console->PrivateData;
+  PGUI_CONSOLE_DATA GuiData;
   HDC Dc;
   HFONT OldFont;
   TEXTMETRICW Metrics;
-  PCSRSS_PROCESS_DATA ProcessData;
-  HKEY hKey;
 
+  GuiData = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY,
+                      sizeof(GUI_CONSOLE_DATA) +
+                      (Console->Size.X + 1) * sizeof(WCHAR));
   if (NULL == GuiData)
     {
       DPRINT1("GuiConsoleNcCreate: HeapAlloc failed\n");
       return FALSE;
     }
 
-  GuiConsoleUseDefaults(Console, GuiData, Console->ActiveBuffer);
-  if (Console->ProcessList.Flink != &Console->ProcessList)
-    {
-      ProcessData = CONTAINING_RECORD(Console->ProcessList.Flink, CSRSS_PROCESS_DATA, ProcessEntry);
-      if (GuiConsoleOpenUserSettings(hWnd, PtrToUlong(ProcessData->ProcessId), &hKey, KEY_READ))
-        {
-          GuiConsoleReadUserSettings(hKey, Console, GuiData, Console->ActiveBuffer);
-          RegCloseKey(hKey);
-        }
-    }
-
   InitializeCriticalSection(&GuiData->Lock);
 
-  GuiData->LineBuffer = (PWCHAR)HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY, 
-                                          Console->Size.X * sizeof(WCHAR));
+  GuiData->LineBuffer = (PWCHAR)(GuiData + 1);
 
-  GuiData->Font = CreateFontW(LOWORD(GuiData->FontSize), 
-                              0, //HIWORD(GuiData->FontSize), 
-                              0, 
-                              TA_BASELINE, 
-                              GuiData->FontWeight,
-                              FALSE,
-                              FALSE, 
-                              FALSE,
-                              OEM_CHARSET,
+  GuiData->Font = CreateFontW(12, 0, 0, TA_BASELINE, FW_NORMAL,
+                              FALSE, FALSE, FALSE, OEM_CHARSET,
                               OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               NONANTIALIASED_QUALITY, FIXED_PITCH | FF_DONTCARE,
-                              GuiData->FontName);
+                              L"Bitstream Vera Sans Mono");
   if (NULL == GuiData->Font)
     {
       DPRINT1("GuiConsoleNcCreate: CreateFont failed\n");
@@ -417,7 +125,7 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
   GuiData->ForceCursorOff = FALSE;
 
   GuiData->Selection.left = -1;
-  DPRINT("Console %p GuiData %p\n", Console, GuiData);
+
   Console->PrivateData = GuiData;
   SetWindowLongPtrW(hWnd, GWL_USERDATA, (DWORD_PTR) Console);
 
@@ -430,7 +138,6 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
              Rect.bottom - Rect.top, FALSE);
 
   SetTimer(hWnd, 1, CURSOR_BLINK_TIME, NULL);
-  SetEvent(GuiData->hGuiInitEvent);
 
   return (BOOL) DefWindowProcW(hWnd, WM_NCCREATE, 0, (LPARAM) Create);
 }
@@ -669,40 +376,37 @@ GuiConsoleHandlePaint(HWND hWnd, HDC hDCPaint)
         if (Console != NULL && GuiData != NULL &&
             Console->ActiveBuffer != NULL)
         {
-            if (Console->ActiveBuffer->Buffer != NULL)
+            EnterCriticalSection(&GuiData->Lock);
+
+            GuiConsolePaint(Console,
+                            GuiData,
+                            hDC,
+                            &ps.rcPaint);
+
+            if (GuiData->Selection.left != -1)
             {
-                EnterCriticalSection(&GuiData->Lock);
+                RECT rc = GuiData->Selection;
 
-                GuiConsolePaint(Console,
-                                GuiData,
-                                hDC,
-                                &ps.rcPaint);
+                rc.left *= GuiData->CharWidth;
+                rc.top *= GuiData->CharHeight;
+                rc.right *= GuiData->CharWidth;
+                rc.bottom *= GuiData->CharHeight;
 
-                if (GuiData->Selection.left != -1)
+                /* invert the selection */
+                if (IntersectRect(&rc,
+                                  &ps.rcPaint,
+                                  &rc))
                 {
-                    RECT rc = GuiData->Selection;
-
-                    rc.left *= GuiData->CharWidth;
-                    rc.top *= GuiData->CharHeight;
-                    rc.right *= GuiData->CharWidth;
-                    rc.bottom *= GuiData->CharHeight;
-
-                    /* invert the selection */
-                    if (IntersectRect(&rc,
-                                      &ps.rcPaint,
-                                      &rc))
-                    {
-                        PatBlt(hDC,
-                               rc.left,
-                               rc.top,
-                               rc.right - rc.left,
-                               rc.bottom - rc.top,
-                               DSTINVERT);
-                    }
+                    PatBlt(hDC,
+                           rc.left,
+                           rc.top,
+                           rc.right - rc.left,
+                           rc.bottom - rc.top,
+                           DSTINVERT);
                 }
-
-                LeaveCriticalSection(&GuiData->Lock);
             }
+
+            LeaveCriticalSection(&GuiData->Lock);
         }
 
         EndPaint(hWnd, &ps);
@@ -930,10 +634,6 @@ GuiConsoleHandleNcDestroy(HWND hWnd)
   KillTimer(hWnd, 1);
   Console->PrivateData = NULL;
   DeleteCriticalSection(&GuiData->Lock);
-  GetSystemMenu(hWnd, TRUE);
-  if (GuiData->ConsoleLibrary)
-    FreeLibrary(GuiData->ConsoleLibrary);
-
   HeapFree(Win32CsrApiHeap, 0, GuiData);
 }
 
@@ -1076,160 +776,6 @@ GuiConsoleRightMouseDown(HWND hWnd)
 
 }
 
-static VOID
-GuiConsoleShowConsoleProperties(HWND hWnd, BOOL Defaults)
-{
-  PCSRSS_CONSOLE Console;
-  PGUI_CONSOLE_DATA GuiData;
-  APPLET_PROC CPLFunc;
-  TCHAR szBuffer[MAX_PATH];
-
-  GuiConsoleGetDataPointers(hWnd, &Console, &GuiData);
-
-  if (GuiData == NULL)
-  {
-    DPRINT1("GuiConsoleGetDataPointers failed\n");
-    return;
-  }
-  if (GuiData->ConsoleLibrary == NULL)
-    {
-		GetWindowsDirectory(szBuffer,MAX_PATH);
-		_tcscat(szBuffer, _T("\\system32\\console.dll"));
-      GuiData->ConsoleLibrary = LoadLibrary(szBuffer);
-
-      if (GuiData->ConsoleLibrary == NULL)
-        {
-          DPRINT1("failed to load console.dll");	
-          return;
-        }
-    }
-
-  CPLFunc = (APPLET_PROC) GetProcAddress(GuiData->ConsoleLibrary, _T("CPlApplet"));
-  if (!CPLFunc)
-  {
-    DPRINT("Error: Console.dll misses CPlApplet export\n");
-    return;
-  }
-
-  if (!CPLFunc(hWnd, CPL_INIT, 0, 0))
-  {
-    DPRINT("Error: failed to initialize console.dll\n");
-    return;
-  }
-
-  if (CPLFunc(hWnd, CPL_GETCOUNT, 0, 0) != 1)
-  {
-    DPRINT("Error: console.dll returned unexpected CPL count\n");
-    return;
-  }
-
-  CPLFunc(hWnd, CPL_DBLCLK, 0, Defaults);
-
-  // TODO
-  //
-  // read back the changes from console.dll
-  //
-  // if the changes are system-wide then 
-  // console.dll should have written it to
-  // registry
-  //
-  // if the changes only apply to this session
-  // then exchange this info with console.dll in
-  // some private way
-}
-static LRESULT FASTCALL
-GuiConsoleHandleSysMenuCommand(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
-{
-  DPRINT1("GuiConsoleHandleSysMenuCommand entered %d\n", wParam);
-
-  switch(wParam)
-    {
-      case IDS_MARK:
-      case IDS_COPY:
-      case IDS_PASTE:
-      case IDS_SELECTALL:
-      case IDS_SCROLL:
-      case IDS_FIND:
-        break;
-
-      case IDS_DEFAULTS:
-        GuiConsoleShowConsoleProperties(hWnd, TRUE);
-        break;
-      case IDS_PROPERTIES:
-        GuiConsoleShowConsoleProperties(hWnd, FALSE);
-        break;
-      default:
-        return DefWindowProcW(hWnd, Msg, wParam, lParam);
-   }
-
-  return 0;
-}
-static BOOLEAN FASTCALL
-InsertItem(HMENU hMenu, INT fType, INT fMask, INT fState, HMENU hSubMenu, INT ResourceId)
-{
-  MENUITEMINFO MenuItemInfo;
-  TCHAR szBuffer[MAX_PATH];
-
-  memset(&MenuItemInfo, 0x0, sizeof(MENUITEMINFO));
-  MenuItemInfo.cbSize = sizeof (MENUITEMINFO);
-  MenuItemInfo.fMask = fMask;
-  MenuItemInfo.fType = fType;
-  MenuItemInfo.fState = fState;
-  MenuItemInfo.hSubMenu = hSubMenu;
-  MenuItemInfo.wID = ResourceId;
-
-  if (fType != MFT_SEPARATOR)
-    {
-      MenuItemInfo.cch = LoadString(Win32CsrDllHandle, ResourceId, szBuffer, MAX_PATH);
-      if (!MenuItemInfo.cch)
-        {
-          DPRINT("LoadString failed ResourceId %d Error %x\n", ResourceId, GetLastError());
-          return FALSE;
-        }
-        MenuItemInfo.dwTypeData = szBuffer;
-    }
-
-  if (InsertMenuItem(hMenu, ResourceId, FALSE, &MenuItemInfo))
-    return TRUE;
-
-  DPRINT("InsertMenuItem failed Last error %x\n", GetLastError());
-  return FALSE;
-}
-
-
-
-static VOID FASTCALL
-GuiConsoleCreateSysMenu(HWND hWnd)
-{
-  HMENU hMenu;
-  HMENU hSubMenu;
-
-
-  hMenu = GetSystemMenu(hWnd, FALSE);
-  if (hMenu == NULL)
-    {
-      DPRINT("GetSysMenu failed\n");
-      return;
-    }
-  /* insert seperator */
-  InsertItem(hMenu, MFT_SEPARATOR, MIIM_FTYPE, 0, NULL, -1);
-
-    /* create submenu */
-  hSubMenu = CreatePopupMenu();
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_MARK);
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING | MIIM_STATE, MFS_GRAYED, NULL, IDS_COPY);
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_PASTE);
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SELECTALL);
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SCROLL);
-  InsertItem(hSubMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_FIND);
-  InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING | MIIM_SUBMENU, 0, hSubMenu, IDS_EDIT);
-
-  /* create default/properties item */
-  InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_DEFAULTS);
-  InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_PROPERTIES);
-  DrawMenuBar(hWnd);
-}
-
 static LRESULT CALLBACK
 GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -1271,8 +817,6 @@ GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       case WM_MOUSEMOVE:
           GuiConsoleMouseMove(hWnd, wParam, lParam);
         break;
-	  case WM_SYSCOMMAND:
-          return GuiConsoleHandleSysMenuCommand(hWnd, msg, wParam, lParam);		
       default:
         Result = DefWindowProcW(hWnd, msg, wParam, lParam);
         break;
@@ -1289,8 +833,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   MSG Msg;
   PWCHAR Buffer, Title;
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) lParam;
-
-
 
   switch(msg)
     {
@@ -1312,7 +854,7 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         NewWindow = CreateWindowW(L"ConsoleWindowClass",
                                   Title,
-                                  WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, // | WS_HSCROLL | WS_VSCROLL,
+                                  WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
@@ -1328,9 +870,6 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         Console->hWindow = NewWindow;
         if (NULL != NewWindow)
           {
-            GuiConsoleCreateSysMenu(NewWindow);
-            //ShowScrollBar(NewWindow, SB_VERT, FALSE);
-            //ShowScrollBar(NewWindow, SB_HORZ, FALSE);
             SetWindowLongW(hWnd, GWL_USERDATA, GetWindowLongW(hWnd, GWL_USERDATA) + 1);
             ShowWindow(NewWindow, SW_SHOW);
           }
@@ -1512,7 +1051,6 @@ GuiInitConsole(PCSRSS_CONSOLE Console)
 {
   HANDLE GraphicsStartupEvent;
   HANDLE ThreadHandle;
-  PGUI_CONSOLE_DATA GuiData;
 
   if (! ConsInitialized)
     {
@@ -1525,6 +1063,8 @@ GuiInitConsole(PCSRSS_CONSOLE Console)
     }
 
   Console->Vtbl = &GuiVtbl;
+  Console->Size.X = 80;
+  Console->Size.Y = 25;
   if (NULL == NotifyWnd)
     {
       GraphicsStartupEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
@@ -1557,31 +1097,8 @@ GuiInitConsole(PCSRSS_CONSOLE Console)
           return STATUS_UNSUCCESSFUL;
         }
     }
-    GuiData = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY,
-                        sizeof(GUI_CONSOLE_DATA));
-    if (!GuiData)
-	  {
-        DPRINT1("Win32Csr: Failed to create GUI_CONSOLE_DATA\n");
-        return STATUS_UNSUCCESSFUL;
-      }
 
-    Console->PrivateData = (PVOID) GuiData;
-    /*
-	 * we need to wait untill the GUI has been fully initialized
-	 * to retrieve custom settings i.e. WindowSize etc..
-	 * Ideally we could use SendNotifyMessage for this but its not
-	 * yet implemented.
-	 *
-	 */
-    GuiData->hGuiInitEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    /* create console */
-    PostMessageW(NotifyWnd, PM_CREATE_CONSOLE, 0, (LPARAM) Console);
-
-    /* wait untill initialization has finished */
-    WaitForSingleObject(GuiData->hGuiInitEvent, INFINITE);
-	DPRINT1("received event Console %p GuiData %p X %d Y %d\n", Console, Console->PrivateData, Console->Size.X, Console->Size.Y);
-    CloseHandle(GuiData->hGuiInitEvent);
-    GuiData->hGuiInitEvent = NULL;
+  PostMessageW(NotifyWnd, PM_CREATE_CONSOLE, 0, (LPARAM) Console);
 
   return STATUS_SUCCESS;
 }

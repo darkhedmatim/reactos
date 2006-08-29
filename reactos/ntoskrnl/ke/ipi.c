@@ -43,9 +43,9 @@ KiIpiSendRequest(KAFFINITY TargetSet, ULONG IpiRequest)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 KiIpiServiceRoutine(IN PKTRAP_FRAME TrapFrame,
-                    IN PVOID ExceptionFrame)
+                    IN PKEXCEPTION_FRAME ExceptionFrame)
 {
 #ifdef DBG
    LARGE_INTEGER StartTime, CurrentTime, Frequency;

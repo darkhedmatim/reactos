@@ -27,37 +27,25 @@
 # Make it harder for us to do dangerous things in Perl.
 use strict;
 
+# Include the Bugzilla CGI and general utility library.
 use lib qw(.);
-require "globals.pl";
-use Bugzilla;
+require "CGI.pl";
+
+# Use Bugzilla's Request module which contains utilities for handling requests.
 use Bugzilla::Flag;
 use Bugzilla::FlagType;
+
+# use Bugzilla's User module which contains utilities for handling users.
 use Bugzilla::User;
 
+use vars qw($template $vars @legal_product @legal_components %components);
+
 # Make sure the user is logged in.
-my $user = Bugzilla->login();
-my $userid = $user->id;
-
-my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
-
+Bugzilla->login();
 
 ################################################################################
 # Main Body Execution
 ################################################################################
-
-my $fields;
-$fields->{'requester'}->{'type'} = 'single';
-# If the user doesn't restrict his search to requests from the wind
-# (requestee ne '-'), include the requestee for completion.
-unless (defined $cgi->param('requestee')
-        && $cgi->param('requestee') eq '-')
-{
-    $fields->{'requestee'}->{'type'} = 'single';
-}
-
-Bugzilla::User::match_field($cgi, $fields);
 
 queue();
 exit;
@@ -69,10 +57,10 @@ exit;
 sub queue {
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
-
-    my $status = validateStatus($cgi->param('status'));
-    my $form_group = validateGroup($cgi->param('group'));
-
+    
+    validateStatus($cgi->param('status'));
+    validateGroup($cgi->param('group'));
+    
     my $attach_join_clause = "flags.attach_id = attachments.attach_id";
     if (Param("insidergroup") && !UserInGroup(Param("insidergroup"))) {
         $attach_join_clause .= " AND attachments.isprivate < 1";
@@ -114,25 +102,25 @@ sub queue {
            LEFT JOIN bug_group_map AS bgmap
                   ON bgmap.bug_id = bugs.bug_id
                  AND bgmap.group_id NOT IN (" .
-                     join(', ', (-1, values(%{$user->groups}))) . ")
+                     join(', ', (-1, values(%{Bugzilla->user->groups}))) . ")
            LEFT JOIN cc AS ccmap
-                  ON ccmap.who = $userid
+                  ON ccmap.who = $::userid
                  AND ccmap.bug_id = bugs.bug_id
     " .
 
     # Weed out bug the user does not have access to
     " WHERE     ((bgmap.group_id IS NULL) OR
                  (ccmap.who IS NOT NULL AND cclist_accessible = 1) OR
-                 (bugs.reporter = $userid AND bugs.reporter_accessible = 1) OR
-                 (bugs.assigned_to = $userid) " .
+                 (bugs.reporter = $::userid AND bugs.reporter_accessible = 1) OR
+                 (bugs.assigned_to = $::userid) " .
                  (Param('useqacontact') ? "OR
-                 (bugs.qa_contact = $userid))" : ")");
+                 (bugs.qa_contact = $::userid))" : ")");
     
     # Non-deleted flags only
     $query .= " AND flags.is_active = 1 ";
     
     # Limit query to pending requests.
-    $query .= " AND flags.status = '?' " unless $status;
+    $query .= " AND flags.status = '?' " unless $cgi->param('status');
 
     # The set of criteria by which we filter records to display in the queue.
     my @criteria = ();
@@ -146,30 +134,27 @@ sub queue {
     
     # Filter requests by status: "pending", "granted", "denied", "all" 
     # (which means any), or "fulfilled" (which means "granted" or "denied").
-    if ($status) {
-        if ($status eq "+-") {
+    if ($cgi->param('status')) {
+        if ($cgi->param('status') eq "+-") {
             push(@criteria, "flags.status IN ('+', '-')");
             push(@excluded_columns, 'status') unless $cgi->param('do_union');
         }
-        elsif ($status ne "all") {
-            push(@criteria, "flags.status = '$status'");
+        elsif ($cgi->param('status') ne "all") {
+            push(@criteria, "flags.status = '" . $cgi->param('status') . "'");
             push(@excluded_columns, 'status') unless $cgi->param('do_union');
         }
     }
     
     # Filter results by exact email address of requester or requestee.
     if (defined $cgi->param('requester') && $cgi->param('requester') ne "") {
-        my $requester = $dbh->quote($cgi->param('requester'));
-        trick_taint($requester); # Quoted above
-        push(@criteria, $dbh->sql_istrcmp('requesters.login_name', $requester));
+        push(@criteria, $dbh->sql_istrcmp('requesters.login_name',
+                                          SqlQuote($cgi->param('requester'))));
         push(@excluded_columns, 'requester') unless $cgi->param('do_union');
     }
     if (defined $cgi->param('requestee') && $cgi->param('requestee') ne "") {
         if ($cgi->param('requestee') ne "-") {
-            my $requestee = $dbh->quote($cgi->param('requestee'));
-            trick_taint($requestee); # Quoted above
             push(@criteria, $dbh->sql_istrcmp('requestees.login_name',
-                            $requestee));
+                            SqlQuote($cgi->param('requestee'))));
         }
         else { push(@criteria, "flags.requestee_id IS NULL") }
         push(@excluded_columns, 'requestee') unless $cgi->param('do_union');
@@ -208,10 +193,8 @@ sub queue {
             }
         }
         if (!$has_attachment_type) { push(@excluded_columns, 'attachment') }
-
-        my $quoted_form_type = $dbh->quote($form_type);
-        trick_taint($quoted_form_type); # Already SQL quoted
-        push(@criteria, "flagtypes.name = " . $quoted_form_type);
+        
+        push(@criteria, "flagtypes.name = " . SqlQuote($form_type));
         push(@excluded_columns, 'type') unless $cgi->param('do_union');
     }
     
@@ -237,6 +220,7 @@ sub queue {
     # so the loop in the display template can break them up into separate
     # tables every time the value in the group column changes.
 
+    my $form_group = $cgi->param('group');
     $form_group ||= "requestee";
     if ($form_group eq "requester") {
         $query .= " ORDER BY requesters.realname, requesters.login_name";
@@ -258,10 +242,10 @@ sub queue {
     $vars->{'query'} = $query;
     $vars->{'debug'} = $cgi->param('debug') ? 1 : 0;
     
-    my $results = $dbh->selectall_arrayref($query);
+    SendSQL($query);
     my @requests = ();
-    foreach my $result (@$results) {
-        my @data = @$result;
+    while (MoreSQLData()) {
+        my @data = FetchSQLData();
         my $request = {
           'id'              => $data[0] , 
           'type'            => $data[1] , 
@@ -280,11 +264,18 @@ sub queue {
 
     # Get a list of request type names to use in the filter form.
     my @types = ("all");
-    my $flagtypes = $dbh->selectcol_arrayref(
-                         "SELECT DISTINCT(name) FROM flagtypes ORDER BY name");
-    push(@types, @$flagtypes);
+    SendSQL("SELECT DISTINCT(name) FROM flagtypes ORDER BY name");
+    push(@types, FetchOneColumn()) while MoreSQLData();
     
-    $vars->{'products'} = $user->get_selectable_products;
+    # products and components and the function used to modify the components
+    # menu when the products menu changes; used by the template to populate
+    # the menus and keep the components menu consistent with the products menu
+    GetVersionTable();
+    my $selectable = GetSelectableProductHash();
+    $vars->{'products'} = $selectable->{legal_products};
+    $vars->{'components'} = $selectable->{legal_components};
+    $vars->{'components_by_product'} = $selectable->{components_by_product};
+    
     $vars->{'excluded_columns'} = \@excluded_columns;
     $vars->{'group_field'} = $form_group;
     $vars->{'requests'} = \@requests;
@@ -303,24 +294,20 @@ sub queue {
 ################################################################################
 
 sub validateStatus {
-    my $status = shift;
+    my $status = $_[0];
     return if !defined $status;
-
+    
     grep($status eq $_, qw(? +- + - all))
       || ThrowCodeError("flag_status_invalid",
                         { status => $status });
-    trick_taint($status);
-    return $status;
 }
 
 sub validateGroup {
-    my $group = shift;
+    my $group = $_[0];
     return if !defined $group;
-
+    
     grep($group eq $_, qw(requester requestee category type))
       || ThrowCodeError("request_queue_group_invalid", 
                         { group => $group });
-    trick_taint($group);
-    return $group;
 }
 

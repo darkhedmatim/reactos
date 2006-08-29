@@ -1,23 +1,17 @@
 <?php
 
-/**
- * PHP script to stream out an image thumbnail.
- * If the file exists, we make do with abridged MediaWiki initialisation.
+/** 
+ * PHP script to stream out an image thumbnail. 
+ * If the file exists, we make do with abridged MediaWiki initialisation. 
  */
 
 define( 'MEDIAWIKI', true );
 unset( $IP );
-if ( isset( $_REQUEST['GLOBALS'] ) ) {
-	echo '<a href="http://www.hardened-php.net/index.76.html">$GLOBALS overwrite vulnerability</a>';
-	die( -1 );
-}
-
-define( 'MW_NO_OUTPUT_BUFFER', true );
+$wgNoOutputBuffer = true;
 
 require_once( './includes/Defines.php' );
 require_once( './LocalSettings.php' );
 require_once( 'GlobalFunctions.php' );
-require_once( 'ImageFunctions.php' );
 
 $wgTrivialMimeDetection = true; //don't use fancy mime detection, just check the file extension for jpg/gif/png.
 
@@ -50,7 +44,7 @@ if ( $pre_render ) {
 }
 $thumbPath = wfImageThumbDir( $fileName ) . '/' . $thumbName;
 
-if ( is_file( $thumbPath ) && filemtime( $thumbPath ) >= filemtime( $imagePath ) ) {
+if ( file_exists( $thumbPath ) && filemtime( $thumbPath ) >= filemtime( $imagePath ) ) {
 	wfStreamFile( $thumbPath );
 	exit;
 }

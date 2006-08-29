@@ -117,7 +117,7 @@ DetectCPU(FRLDRHKEY CpuKey,
   ULONG edx = 0;
   ULONG *Ptr;
   LONG Error;
-  BOOLEAN SupportTSC = FALSE;
+  BOOL SupportTSC = FALSE;
   ULONG CpuSpeed;
 
 
@@ -495,7 +495,7 @@ GetMpConfigurationTable(PMP_FLOATING_POINT_TABLE FpTable)
 }
 
 
-static BOOLEAN
+static BOOL
 DetectMps(FRLDRHKEY CpuKey,
 	  FRLDRHKEY FpuKey)
 {

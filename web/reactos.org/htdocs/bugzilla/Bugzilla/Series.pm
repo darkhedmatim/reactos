@@ -18,7 +18,6 @@
 # Rights Reserved.
 #
 # Contributor(s): Gervase Markham <gerv@gerv.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 use strict;
 use lib ".";
@@ -32,6 +31,7 @@ use lib ".";
 
 package Bugzilla::Series;
 
+use Bugzilla;
 use Bugzilla::Util;
 use Bugzilla::User;
 
@@ -91,7 +91,7 @@ sub initFromDatabase {
     my $dbh = Bugzilla->dbh;
     my @series = $dbh->selectrow_array("SELECT series.series_id, cc1.name, " .
         "cc2.name, series.name, series.creator, series.frequency, " .
-        "series.query, series.is_public " .
+        "series.query, series.public " .
         "FROM series " .
         "LEFT JOIN series_categories AS cc1 " .
         "    ON series.category = cc1.id " .
@@ -104,11 +104,11 @@ sub initFromDatabase {
         "    AND ugm.user_id = " . Bugzilla->user->id .
         "    AND isbless = 0 " .
         "WHERE series.series_id = $series_id AND " .
-        "(is_public = 1 OR creator = " . Bugzilla->user->id . " OR " .
+        "(public = 1 OR creator = " . Bugzilla->user->id . " OR " .
         "(ugm.group_id IS NOT NULL)) " . 
         $dbh->sql_group_by('series.series_id', 'cc1.name, cc2.name, ' .
                            'series.name, series.creator, series.frequency, ' .
-                           'series.query, series.is_public'));
+                           'series.query, series.public'));
     
     if (@series) {
         $self->initFromParameters(@series);
@@ -190,7 +190,7 @@ sub writeToDatabase {
         my $dbh = Bugzilla->dbh;
         $dbh->do("UPDATE series SET " .
                  "category = ?, subcategory = ?," .
-                 "name = ?, frequency = ?, is_public = ?  " .
+                 "name = ?, frequency = ?, public = ?  " .
                  "WHERE series_id = ?", undef,
                  $category_id, $subcategory_id, $self->{'name'},
                  $self->{'frequency'}, $self->{'public'}, 
@@ -199,7 +199,7 @@ sub writeToDatabase {
     else {
         # Insert the new series into the series table
         $dbh->do("INSERT INTO series (creator, category, subcategory, " .
-                 "name, frequency, query, is_public) VALUES " . 
+                 "name, frequency, query, public) VALUES " . 
                  "($self->{'creator'}, " . 
                  "$category_id, $subcategory_id, " .
                  $dbh->quote($self->{'name'}) . ", $self->{'frequency'}," .

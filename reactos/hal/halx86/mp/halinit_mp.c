@@ -22,7 +22,7 @@ ULONG_PTR KernelBase;
 
 /***************************************************************************/
 VOID
-HalpInitPhase0(PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
+HalpInitPhase0(PLOADER_PARAMETER_BLOCK LoaderBlock)
 
 {
    static BOOLEAN MPSInitialized = FALSE;
@@ -50,11 +50,6 @@ HalpInitPhase0(PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
    /* store the kernel base for later use */
    KernelBase = ((PLOADER_MODULE)LoaderBlock->ModsAddr)[0].ModStart;
 
-}
-
-VOID
-HalpInitPhase1(VOID)
-{
 }
 
 /* EOF */

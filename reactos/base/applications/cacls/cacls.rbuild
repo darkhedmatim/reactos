@@ -1,4 +1,4 @@
-<module name="cacls" type="win32cui" installbase="system32" installname="cacls.exe">
+<module name="cacls" type="win32cui" installbase="system32" installname="cacls.exe" usewrc="false">
 	<include base="cacls">.</include>
 	<define name="__USE_W32API" />
 	<define name="UNICODE" />
@@ -10,6 +10,6 @@
 	<library>advapi32</library>
 	<library>ntdll</library>
 	<file>cacls.c</file>
-	<file>lang/cacls.rc</file>
+	<file>cacls.rc</file>
 	<pch>precomp.h</pch>
 </module>

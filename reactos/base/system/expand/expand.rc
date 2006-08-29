@@ -11,6 +11,3 @@
 #include "Ru.rc"
 #include "Sv.rc"
 #include "Hu.rc"
-#include "Gr.rc"
-#include "No.rc"
-

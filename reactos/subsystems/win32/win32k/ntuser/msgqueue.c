@@ -71,7 +71,7 @@ IntMsqSetWakeMask(DWORD WakeMask)
    PUSER_MESSAGE_QUEUE MessageQueue;
    HANDLE MessageEventHandle;
 
-   Win32Thread = PsGetCurrentThreadWin32Thread();
+   Win32Thread = PsGetWin32Thread();
    if (Win32Thread == NULL || Win32Thread->MessageQueue == NULL)
       return 0;
 
@@ -88,7 +88,7 @@ IntMsqClearWakeMask(VOID)
    PW32THREAD Win32Thread;
    PUSER_MESSAGE_QUEUE MessageQueue;
 
-   Win32Thread = PsGetCurrentThreadWin32Thread();
+   Win32Thread = PsGetWin32Thread();
    if (Win32Thread == NULL || Win32Thread->MessageQueue == NULL)
       return FALSE;
 
@@ -206,12 +206,12 @@ MsqIsDblClk(LPMSG Msg, BOOL Remove)
    LONG dX, dY;
    BOOL Res;
 
-   if (PsGetCurrentThreadWin32Thread()->Desktop == NULL)
+   if (PsGetWin32Thread()->Desktop == NULL)
    {
       return FALSE;
    }
 
-   WinStaObject = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+   WinStaObject = PsGetWin32Thread()->Desktop->WindowStation;
 
    CurInfo = IntGetSysCursorInfo(WinStaObject);
    Res = (Msg->hwnd == (HWND)CurInfo->LastClkWnd) &&
@@ -480,7 +480,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
    USER_REFERENCE_ENTRY Ref;
    
    if( !IntGetScreenDC() ||
-         PsGetCurrentThreadWin32Thread()->MessageQueue == W32kGetPrimitiveMessageQueue() )
+         PsGetWin32Thread()->MessageQueue == W32kGetPrimitiveMessageQueue() )
    {
       RETURN(FALSE);
    }
@@ -1051,7 +1051,7 @@ co_MsqSendMessage(PUSER_MESSAGE_QUEUE MessageQueue,
 
    KeInitializeEvent(&CompletionEvent, NotificationEvent, FALSE);
 
-   ThreadQueue = PsGetCurrentThreadWin32Thread()->MessageQueue;
+   ThreadQueue = PsGetWin32Thread()->MessageQueue;
    ASSERT(ThreadQueue != MessageQueue);
 
    Timeout.QuadPart = (LONGLONG) uTimeout * (LONGLONG) -10000;
@@ -1540,7 +1540,7 @@ MsqSetMessageExtraInfo(LPARAM lParam)
    LPARAM Ret;
    PUSER_MESSAGE_QUEUE MessageQueue;
 
-   MessageQueue = PsGetCurrentThreadWin32Thread()->MessageQueue;
+   MessageQueue = PsGetWin32Thread()->MessageQueue;
    if(!MessageQueue)
    {
       return 0;
@@ -1557,7 +1557,7 @@ MsqGetMessageExtraInfo(VOID)
 {
    PUSER_MESSAGE_QUEUE MessageQueue;
 
-   MessageQueue = PsGetCurrentThreadWin32Thread()->MessageQueue;
+   MessageQueue = PsGetWin32Thread()->MessageQueue;
    if(!MessageQueue)
    {
       return 0;
@@ -1808,7 +1808,7 @@ MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
    Msg->lParam = (LPARAM) Timer->TimerFunc;
    KeQueryTickCount(&LargeTickCount);
    Msg->time = LargeTickCount.u.LowPart;
-   IntGetCursorLocation(PsGetCurrentThreadWin32Thread()->Desktop->WindowStation,
+   IntGetCursorLocation(PsGetWin32Thread()->Desktop->WindowStation,
                         &Msg->pt);
 
    if (Restart)

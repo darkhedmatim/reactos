@@ -26,22 +26,20 @@ use lib qw(.);
 
 use Bugzilla;
 use Bugzilla::Constants;
-require "globals.pl";
+require "CGI.pl";
 
-use vars qw(@legal_product);
+use vars qw($vars @legal_product);
 
-my $user = Bugzilla->login();
+Bugzilla->login();
 
 GetVersionTable();
 
 my $cgi = Bugzilla->cgi;
-my $dbh = Bugzilla->dbh;
 my $template = Bugzilla->template;
-my $vars = {};
 my $product = trim($cgi->param('product') || '');
 my $product_id = get_product_id($product);
 
-if (!$product_id || !$user->can_enter_product($product)) {
+if (!$product_id || !CanEnterProduct($product)) {
     # Reference to a subset of %::proddesc, which the user is allowed to see
     my %products;
 
@@ -49,7 +47,7 @@ if (!$product_id || !$user->can_enter_product($product)) {
         # OK, now only add products the user can see
         Bugzilla->login(LOGIN_REQUIRED);
         foreach my $p (@::legal_product) {
-            if ($user->can_enter_product($p)) {
+            if (CanEnterProduct($p)) {
                 $products{$p} = $::proddesc{$p};
             }
         }
@@ -88,13 +86,12 @@ if (!$product_id || !$user->can_enter_product($product)) {
 ######################################################################
 
 my @components;
-my $comps = $dbh->selectall_arrayref(
-                  q{SELECT name, initialowner, initialqacontact, description
-                      FROM components
-                     WHERE product_id = ?
-                  ORDER BY name}, undef, $product_id);
-foreach my $comp (@$comps) {
-    my ($name, $initialowner, $initialqacontact, $description) = @$comp;
+SendSQL("SELECT name, initialowner, initialqacontact, description FROM " .
+        "components WHERE product_id = $product_id ORDER BY name");
+while (MoreSQLData()) {
+    my ($name, $initialowner, $initialqacontact, $description) =
+      FetchSQLData();
+
     my %component;
 
     $component{'name'} = $name;

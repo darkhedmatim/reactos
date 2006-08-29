@@ -43,7 +43,6 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 	{
 		case Kernel:
 		case KernelModeDLL:
-        case ExportDriver:
 		case NativeDLL:
 		case NativeCUI:
 		case Win32DLL:
@@ -60,13 +59,10 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
-		case IdlHeader:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,

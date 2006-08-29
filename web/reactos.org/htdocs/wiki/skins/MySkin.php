@@ -8,7 +8,7 @@
  */
 
 if( !defined( 'MEDIAWIKI' ) )
-	die( -1 );
+	die();
 
 /** */
 require_once('MonoBook.php');

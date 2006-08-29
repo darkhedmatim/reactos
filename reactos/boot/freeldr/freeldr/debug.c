@@ -62,7 +62,7 @@ ULONG		ComPort = COM1;
 //ULONG		BaudRate = 19200;
 ULONG		BaudRate = 115200;
 
-BOOLEAN	DebugStartOfLine = TRUE;
+BOOL	DebugStartOfLine = TRUE;
 
 VOID DebugInit(VOID)
 {

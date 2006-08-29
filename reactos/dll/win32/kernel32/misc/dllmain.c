@@ -56,8 +56,6 @@ DuplicateConsoleHandle(HANDLE hConsole,
 #define WIN_OBJ_DIR L"\\Windows"
 #define SESSION_DIR L"\\Sessions"
 
-SYSTEM_BASIC_INFORMATION BaseCachedSysInfo;
-
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS
@@ -66,10 +64,7 @@ OpenBaseDirectory(PHANDLE DirHandle)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING Name = RTL_CONSTANT_STRING(L"\\BaseNamedObjects");
-    UNICODE_STRING SymName = RTL_CONSTANT_STRING(L"Local");
-    UNICODE_STRING SymName2 = RTL_CONSTANT_STRING(L"Global");
     NTSTATUS Status;
-    HANDLE SymHandle;
 
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,
@@ -90,36 +85,6 @@ OpenBaseDirectory(PHANDLE DirHandle)
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("NtCreateDirectoryObject() failed\n");
-        }
-
-        /* Create the "local" Symbolic Link. FIXME: CSR should do this */
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &SymName,
-                                   OBJ_CASE_INSENSITIVE,
-                                   *DirHandle,
-                                   NULL);
-        Status = NtCreateSymbolicLinkObject(&SymHandle,
-                                            SYMBOLIC_LINK_ALL_ACCESS,
-                                            &ObjectAttributes,
-                                            &Name);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("NtCreateSymbolicLinkObject() failed\n");
-        }
-
-        /* Create the "global" Symbolic Link. FIXME: CSR should do this */
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &SymName2,
-                                   OBJ_CASE_INSENSITIVE,
-                                   *DirHandle,
-                                   NULL);
-        Status = NtCreateSymbolicLinkObject(&SymHandle,
-                                            SYMBOLIC_LINK_ALL_ACCESS,
-                                            &ObjectAttributes,
-                                            &Name);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("NtCreateSymbolicLinkObject() failed\n");
         }
     }
 
@@ -372,9 +337,6 @@ DllMain(HANDLE hDll,
         }
 
         hProcessHeap = RtlGetProcessHeap();
-        RtlInitializeHandleTable(0xFFFF,
-                                 sizeof(BASE_HEAP_HANDLE_ENTRY),
-                                 &BaseHeapHandleTable);
         hCurrentModule = hDll;
         DPRINT("Heap: %p\n", hProcessHeap);
 
@@ -417,17 +379,6 @@ DllMain(HANDLE hDll,
         if (!BasepInitConsole())
         {
             DPRINT1("Failure to set up console\n");
-            return FALSE;
-        }
-
-        /* Cache static system information */
-        Status = ZwQuerySystemInformation(SystemBasicInformation,
-                                          &BaseCachedSysInfo,
-                                          sizeof(BaseCachedSysInfo),
-                                          NULL);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("Failure to get system information\n");
             return FALSE;
         }
 

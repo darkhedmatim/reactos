@@ -9,6 +9,14 @@
  *                  Skywing (skywing@valhallalegends.com)
  */
 
+/*
+ * FIXMES:
+ *  - Clean up file (remove all stack functions and use RtlWalkFrameChain/RtlCaptureStackBacktrace)
+ *  - Sanitize some context fields.
+ *  - Add PSEH handler when an exception occurs in an exception (KiCopyExceptionRecord).
+ *  - Forward exceptions to user-mode debugger.
+ */
+
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
@@ -20,18 +28,10 @@
 #pragma alloc_text(INIT, KeInitExceptions)
 #endif
 
-#define SIZE_OF_FX_REGISTERS 32
-
 VOID
 NTAPI
 Ki386AdjustEsp0(
     IN PKTRAP_FRAME TrapFrame
-);
-
-VOID
-NTAPI
-KiFlushNPXState(
-    IN FLOATING_SAVE_AREA *SaveArea
 );
 
 extern KIDTENTRY KiIdt[];
@@ -118,7 +118,7 @@ KiRosPrintAddress(PVOID address)
      while (current_entry != &ModuleListHead)
        {
           current =
-            CONTAINING_RECORD(current_entry, LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
+            CONTAINING_RECORD(current_entry, LDR_DATA_TABLE_ENTRY, InLoadOrderModuleList);
 
           if (address >= (PVOID)current->DllBase &&
               address < (PVOID)((ULONG_PTR)current->DllBase + current->SizeOfImage))
@@ -134,6 +134,252 @@ KiRosPrintAddress(PVOID address)
    } while(++i <= 1);
 
    return(FALSE);
+}
+
+ULONG
+KiKernelTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr, PVOID Cr2)
+{
+  EXCEPTION_RECORD Er;
+
+  Er.ExceptionFlags = 0;
+  Er.ExceptionRecord = NULL;
+  Er.ExceptionAddress = (PVOID)Tf->Eip;
+
+  if (ExceptionNr == 14)
+    {
+      Er.ExceptionCode = STATUS_ACCESS_VIOLATION;
+      Er.NumberParameters = 2;
+      Er.ExceptionInformation[0] = Tf->ErrCode & 0x1;
+      Er.ExceptionInformation[1] = (ULONG)Cr2;
+    }
+  else
+    {
+      if (ExceptionNr < ARRAY_SIZE(ExceptionToNtStatus))
+	{
+	  Er.ExceptionCode = ExceptionToNtStatus[ExceptionNr];
+	}
+      else
+	{
+	  Er.ExceptionCode = STATUS_ACCESS_VIOLATION;
+	}
+      Er.NumberParameters = 0;
+    }
+
+  /* FIXME: Which exceptions are noncontinuable? */
+  Er.ExceptionFlags = 0;
+
+  KiDispatchException(&Er, NULL, Tf, KernelMode, TRUE);
+
+  return(0);
+}
+
+VOID
+KiDoubleFaultHandler(VOID)
+{
+#if 0
+  unsigned int cr2;
+  ULONG StackLimit;
+  ULONG StackBase;
+  ULONG Esp0;
+  ULONG ExceptionNr = 8;
+  KTSS* OldTss;
+  PULONG Frame;
+  ULONG OldCr3;
+#if 0
+  ULONG i, j;
+  static PVOID StackTrace[MM_STACK_SIZE / sizeof(PVOID)];
+  static ULONG StackRepeatCount[MM_STACK_SIZE / sizeof(PVOID)];
+  static ULONG StackRepeatLength[MM_STACK_SIZE / sizeof(PVOID)];
+  ULONG TraceLength;
+  BOOLEAN FoundRepeat;
+#endif
+
+  OldTss = KeGetCurrentKPCR()->TSS;
+  Esp0 = OldTss->Esp0;
+
+  /* Get CR2 */
+  cr2 = Ke386GetCr2();
+  if (PsGetCurrentThread() != NULL &&
+      PsGetCurrentThread()->ThreadsProcess != NULL)
+    {
+      OldCr3 = (ULONG)
+	PsGetCurrentThread()->ThreadsProcess->Pcb.DirectoryTableBase.QuadPart;
+    }
+  else
+    {
+      OldCr3 = 0xBEADF0AL;
+    }
+
+   /*
+    * Check for stack underflow
+    */
+   if (PsGetCurrentThread() != NULL &&
+       Esp0 < (ULONG)PsGetCurrentThread()->Tcb.StackLimit)
+     {
+	DbgPrint("Stack underflow (tf->esp %x Limit %x)\n",
+		 Esp0, (ULONG)PsGetCurrentThread()->Tcb.StackLimit);
+	ExceptionNr = 12;
+     }
+
+   /*
+    * Print out the CPU registers
+    */
+   if (ExceptionNr < ARRAY_SIZE(ExceptionTypeStrings))
+     {
+       DbgPrint("%s Exception: %d(%x)\n", ExceptionTypeStrings[ExceptionNr],
+		ExceptionNr, 0);
+     }
+   else
+     {
+       DbgPrint("Exception: %d(%x)\n", ExceptionNr, 0);
+     }
+   DbgPrint("CS:EIP %x:%x ", OldTss->Cs, OldTss->Eip);
+   KeRosPrintAddress((PVOID)OldTss->Eip);
+   DbgPrint("\n");
+   DbgPrint("cr2 %x cr3 %x ", cr2, OldCr3);
+   DbgPrint("Proc: %x ",PsGetCurrentProcess());
+   if (PsGetCurrentProcess() != NULL)
+     {
+	DbgPrint("Pid: %x <", PsGetCurrentProcess()->UniqueProcessId);
+	DbgPrint("%.16s> ", PsGetCurrentProcess()->ImageFileName);
+     }
+   if (PsGetCurrentThread() != NULL)
+     {
+	DbgPrint("Thrd: %x Tid: %x",
+		 PsGetCurrentThread(),
+		 PsGetCurrentThread()->Cid.UniqueThread);
+     }
+   DbgPrint("\n");
+   DbgPrint("DS %x ES %x FS %x GS %x\n", OldTss->Ds, OldTss->Es,
+	    OldTss->Fs, OldTss->Gs);
+   DbgPrint("EAX: %.8x   EBX: %.8x   ECX: %.8x\n", OldTss->Eax, OldTss->Ebx,
+	    OldTss->Ecx);
+   DbgPrint("EDX: %.8x   EBP: %.8x   ESI: %.8x\nESP: %.8x ", OldTss->Edx,
+	    OldTss->Ebp, OldTss->Esi, Esp0);
+   DbgPrint("EDI: %.8x   EFLAGS: %.8x ", OldTss->Edi, OldTss->Eflags);
+   if (OldTss->Cs == KGDT_R0_CODE)
+     {
+	DbgPrint("kESP %.8x ", Esp0);
+	if (PsGetCurrentThread() != NULL)
+	  {
+	     DbgPrint("kernel stack base %x\n",
+		      PsGetCurrentThread()->Tcb.StackLimit);
+
+	  }
+     }
+   else
+     {
+	DbgPrint("User ESP %.8x\n", OldTss->Esp);
+     }
+  if ((OldTss->Cs & 0xffff) == KGDT_R0_CODE)
+    {
+      if (PsGetCurrentThread() != NULL)
+	{
+	  StackLimit = (ULONG)PsGetCurrentThread()->Tcb.StackBase;
+	  StackBase = (ULONG)PsGetCurrentThread()->Tcb.StackLimit;
+	}
+      else
+	{
+	  StackLimit = (ULONG)init_stack_top;
+	  StackBase = (ULONG)init_stack;
+	}
+
+      /*
+	 Change to an #if 0 to reduce the amount of information printed on
+	 a recursive stack trace.
+      */
+#if 1
+      DbgPrint("Frames: ");
+      Frame = (PULONG)OldTss->Ebp;
+      while (Frame != NULL && (ULONG)Frame >= StackBase)
+	{
+	  KeRosPrintAddress((PVOID)Frame[1]);
+	  Frame = (PULONG)Frame[0];
+          DbgPrint("\n");
+	}
+#else
+      DbgPrint("Frames: ");
+      i = 0;
+      Frame = (PULONG)OldTss->Ebp;
+      while (Frame != NULL && (ULONG)Frame >= StackBase)
+	{
+	  StackTrace[i] = (PVOID)Frame[1];
+	  Frame = (PULONG)Frame[0];
+	  i++;
+	}
+      TraceLength = i;
+
+      i = 0;
+      while (i < TraceLength)
+	{
+	  StackRepeatCount[i] = 0;
+	  j = i + 1;
+	  FoundRepeat = FALSE;
+	  while ((j - i) <= (TraceLength - j) && FoundRepeat == FALSE)
+	    {
+	      if (memcmp(&StackTrace[i], &StackTrace[j],
+			 (j - i) * sizeof(PVOID)) == 0)
+		{
+		  StackRepeatCount[i] = 2;
+		  StackRepeatLength[i] = j - i;
+		  FoundRepeat = TRUE;
+		}
+	      else
+		{
+		  j++;
+		}
+	    }
+	  if (FoundRepeat == FALSE)
+	    {
+	      i++;
+	      continue;
+	    }
+	  j = j + StackRepeatLength[i];
+	  while ((TraceLength - j) >= StackRepeatLength[i] &&
+		 FoundRepeat == TRUE)
+	    {
+	      if (memcmp(&StackTrace[i], &StackTrace[j],
+			 StackRepeatLength[i] * sizeof(PVOID)) == 0)
+		{
+		  StackRepeatCount[i]++;
+		  j = j + StackRepeatLength[i];
+		}
+	      else
+		{
+		  FoundRepeat = FALSE;
+		}
+	    }
+	  i = j;
+	}
+
+      i = 0;
+      while (i < TraceLength)
+	{
+	  if (StackRepeatCount[i] == 0)
+	    {
+	      KeRosPrintAddress(StackTrace[i]);
+	      i++;
+	    }
+	  else
+	    {
+	      DbgPrint("{");
+	      if (StackRepeatLength[i] == 0)
+		{
+   for(;;);
+}
+	      for (j = 0; j < StackRepeatLength[i]; j++)
+		{
+		  KeRosPrintAddress(StackTrace[i + j]);
+		}
+	      DbgPrint("}*%d", StackRepeatCount[i]);
+	      i = i + StackRepeatLength[i] * StackRepeatCount[i];
+	    }
+	}
+#endif
+    }
+#endif
+   DbgPrint("\n");
+   for(;;);
 }
 
 VOID
@@ -212,12 +458,104 @@ KiDumpTrapFrame(PKTRAP_FRAME Tf, ULONG Parameter1, ULONG Parameter2)
 }
 
 ULONG
+KiTrapHandler(PKTRAP_FRAME Tf, ULONG ExceptionNr)
+/*
+ * FUNCTION: Called by the lowlevel execption handlers to print an amusing
+ * message and halt the computer
+ * ARGUMENTS:
+ *        Complete CPU context
+ */
+{
+   ULONG_PTR cr2;
+   NTSTATUS Status;
+   ULONG Esp0;
+
+   ASSERT(ExceptionNr != 14);
+
+   /* Use the address of the trap frame as approximation to the ring0 esp */
+   Esp0 = (ULONG)&Tf->Eip;
+
+   /* Get CR2 */
+   cr2 = Ke386GetCr2();
+   Tf->DbgArgPointer = cr2;
+
+   /*
+    * If this was a V86 mode exception then handle it specially
+    */
+   if (Tf->EFlags & (1 << 17))
+     {
+       DPRINT("Tf->Eflags, %x, Tf->Eip %x, ExceptionNr: %d\n", Tf->EFlags, Tf->Eip, ExceptionNr);
+       return(KeV86Exception(ExceptionNr, Tf, cr2));
+     }
+
+   /*
+    * Check for stack underflow, this may be obsolete
+    */
+   if (PsGetCurrentThread() != NULL &&
+       Esp0 < (ULONG)PsGetCurrentThread()->Tcb.StackLimit)
+     {
+	DPRINT1("Stack underflow (tf->esp %x Limit %x Eip %x)\n",
+		Esp0, (ULONG)PsGetCurrentThread()->Tcb.StackLimit, Tf->Eip);
+	ExceptionNr = 12;
+     }
+
+   if (ExceptionNr == 15)
+     {
+       /*
+        * FIXME:
+        *   This exception should never occur. The P6 has a bug, which does sometimes deliver
+        *   the apic spurious interrupt as exception 15. On an athlon64, I get one exception
+        *   in the early boot phase in apic mode (using the smp build). I've looked to the linux
+        *   sources. Linux does ignore this exception.
+        *
+        */
+       DPRINT1("Ignoring P6 Local APIC Spurious Interrupt Bug...\n");
+       return(0);
+     }
+
+   /*
+    * Check for a breakpoint that was only for the attention of the debugger.
+    */
+   if (ExceptionNr == 3 && Tf->Eip == ((ULONG)DbgBreakPointNoBugCheck) + 1)
+     {
+       /*
+	  EIP is already adjusted by the processor to point to the instruction
+	  after the breakpoint.
+       */
+       return(0);
+     }
+
+   /*
+    * Try to handle device-not-present, math-fault and xmm-fault exceptions.
+    */
+   if (ExceptionNr == 7 || ExceptionNr == 16 || ExceptionNr == 19)
+     {
+       Status = KiHandleFpuFault(Tf, ExceptionNr);
+       if (NT_SUCCESS(Status))
+         {
+           return(0);
+         }
+     }
+
+   /*
+    * Handle user exceptions differently
+    */
+   if ((Tf->SegCs & 0xFFFF) == (KGDT_R3_CODE | RPL_MASK))
+     {
+       return(KiUserTrapHandler(Tf, ExceptionNr, (PVOID)cr2));
+     }
+   else
+    {
+      return(KiKernelTrapHandler(Tf, ExceptionNr, (PVOID)cr2));
+    }
+}
+
+ULONG
 NTAPI
 KiEspFromTrapFrame(IN PKTRAP_FRAME TrapFrame)
 {
     /* Check if this is user-mode or V86 */
-    if ((TrapFrame->SegCs & MODE_MASK) ||
-        (TrapFrame->EFlags & EFLAGS_V86_MASK))
+    if ((TrapFrame->SegCs & MODE_MASK) || (TrapFrame->EFlags & X86_EFLAGS_VM))
     {
         /* Return it directly */
         return TrapFrame->HardwareEsp;
@@ -246,7 +584,7 @@ KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
     ULONG Previous = KiEspFromTrapFrame(TrapFrame);
 
     /* Check if this is user-mode or V86 */
-    if ((TrapFrame->SegCs & MODE_MASK) || (TrapFrame->EFlags & EFLAGS_V86_MASK))
+    if ((TrapFrame->SegCs & MODE_MASK) || (TrapFrame->EFlags & X86_EFLAGS_VM))
     {
         /* Write it directly */
         TrapFrame->HardwareEsp = Esp;
@@ -254,7 +592,10 @@ KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
     else
     {
         /* Don't allow ESP to be lowered, this is illegal */
-        if (Esp < Previous) KeBugCheck(SET_OF_INVALID_CONTEXT);
+        if (Esp < Previous)
+        {
+            KeBugCheck(SET_OF_INVALID_CONTEXT);
+        }
 
         /* Create an edit frame, check if it was alrady */
         if (!(TrapFrame->SegCs & FRAME_EDITED))
@@ -283,7 +624,7 @@ NTAPI
 KiSsFromTrapFrame(IN PKTRAP_FRAME TrapFrame)
 {
     /* If this was V86 Mode */
-    if (TrapFrame->EFlags & EFLAGS_V86_MASK)
+    if (TrapFrame->EFlags & X86_EFLAGS_VM)
     {
         /* Just return it */
         return TrapFrame->HardwareSegSs;
@@ -309,7 +650,7 @@ KiSsToTrapFrame(IN PKTRAP_FRAME TrapFrame,
     Ss &= 0xFFFF;
 
     /* If this was V86 Mode */
-    if (TrapFrame->EFlags & EFLAGS_V86_MASK)
+    if (TrapFrame->EFlags & X86_EFLAGS_VM)
     {
         /* Just write it */
         TrapFrame->HardwareSegSs = Ss;
@@ -321,23 +662,6 @@ KiSsToTrapFrame(IN PKTRAP_FRAME TrapFrame,
     }
 }
 
-USHORT
-NTAPI
-KiTagWordFnsaveToFxsave(USHORT TagWord)
-{
-    INT FxTagWord = ~TagWord; 
-
-    /* 
-     * Empty is now 00, any 2 bits containing 1 mean valid
-     * Now convert the rest (11->0 and the rest to 1)
-     */
-    FxTagWord = (FxTagWord | (FxTagWord >> 1)) & 0x5555; /* 0V0V0V0V0V0V0V0V */
-    FxTagWord = (FxTagWord | (FxTagWord >> 1)) & 0x3333; /* 00VV00VV00VV00VV */
-    FxTagWord = (FxTagWord | (FxTagWord >> 2)) & 0x0f0f; /* 0000VVVV0000VVVV */
-    FxTagWord = (FxTagWord | (FxTagWord >> 4)) & 0x00ff; /* 00000000VVVVVVVV */
-    return FxTagWord;
-}
-
 VOID
 NTAPI
 KeContextToTrapFrame(IN PCONTEXT Context,
@@ -347,19 +671,15 @@ KeContextToTrapFrame(IN PCONTEXT Context,
                      IN KPROCESSOR_MODE PreviousMode)
 {
     PFX_SAVE_AREA FxSaveArea;
-    ULONG i;
+    //ULONG i; Future Use
     BOOLEAN V86Switch = FALSE;
-    KIRQL OldIrql = APC_LEVEL;
-
-    /* Do this at APC_LEVEL */
-    if (KeGetCurrentIrql() < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
 
     /* Start with the basic Registers */
     if ((ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
     {
         /* Check if we went through a V86 switch */
-        if ((Context->EFlags & EFLAGS_V86_MASK) !=
-            (TrapFrame->EFlags & EFLAGS_V86_MASK))
+        if ((Context->EFlags & X86_EFLAGS_VM) !=
+            (TrapFrame->EFlags & X86_EFLAGS_VM))
         {
             /* We did, remember this for later */
             V86Switch = TRUE;
@@ -373,7 +693,7 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         TrapFrame->Eip = Context->Eip;
 
         /* Check if we were in V86 Mode */
-        if (TrapFrame->EFlags & EFLAGS_V86_MASK)
+        if (TrapFrame->EFlags & X86_EFLAGS_VM)
         {
             /* Simply copy the CS value */
             TrapFrame->SegCs = Context->SegCs;
@@ -404,7 +724,6 @@ KeContextToTrapFrame(IN PCONTEXT Context,
     /* Process the Integer Registers */
     if ((ContextFlags & CONTEXT_INTEGER) == CONTEXT_INTEGER)
     {
-        /* Copy them manually */
         TrapFrame->Eax = Context->Eax;
         TrapFrame->Ebx = Context->Ebx;
         TrapFrame->Ecx = Context->Ecx;
@@ -417,7 +736,7 @@ KeContextToTrapFrame(IN PCONTEXT Context,
     if ((ContextFlags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS)
     {
         /* Check if we were in V86 Mode */
-        if (TrapFrame->EFlags & EFLAGS_V86_MASK)
+        if (TrapFrame->EFlags & X86_EFLAGS_VM)
         {
             /* Copy the V86 Segments directlry */
             TrapFrame->V86Ds = Context->SegDs;
@@ -456,7 +775,8 @@ KeContextToTrapFrame(IN PCONTEXT Context,
 
     /* Handle the extended registers */
     if (((ContextFlags & CONTEXT_EXTENDED_REGISTERS) ==
-        CONTEXT_EXTENDED_REGISTERS) && (TrapFrame->SegCs & MODE_MASK))
+        CONTEXT_EXTENDED_REGISTERS) &&
+        ((TrapFrame->SegCs & MODE_MASK) == UserMode))
     {
         /* Get the FX Area */
         FxSaveArea = (PFX_SAVE_AREA)(TrapFrame + 1);
@@ -464,27 +784,14 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         /* Check if NPX is present */
         if (KeI386NpxPresent)
         {
-            /* Flush the NPX State */
-            KiFlushNPXState(NULL);
-
-            /* Copy the FX State */
-            RtlCopyMemory(&FxSaveArea->U.FxArea,
-                          &Context->ExtendedRegisters[0],
-                          MAXIMUM_SUPPORTED_EXTENSION);
-
-            /* Remove reserved bits from MXCSR */
-            FxSaveArea->U.FxArea.MXCsr &= ~0xFFBF;
-
-            /* Mask out any invalid flags */
-            FxSaveArea->Cr0NpxState &= ~(CR0_EM | CR0_MP | CR0_TS);
-
-            /* FIXME: Check if this is a VDM app */
+            /* Future use */
         }
     }
 
     /* Handle the floating point state */
     if (((ContextFlags & CONTEXT_FLOATING_POINT) ==
-        CONTEXT_FLOATING_POINT) && (TrapFrame->SegCs & MODE_MASK))
+        CONTEXT_FLOATING_POINT) &&
+        ((TrapFrame->SegCs & MODE_MASK) == UserMode))
     {
         /* Get the FX Area */
         FxSaveArea = (PFX_SAVE_AREA)(TrapFrame + 1);
@@ -492,60 +799,11 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         /* Check if NPX is present */
         if (KeI386NpxPresent)
         {
-            /* Flush the NPX State */
-            KiFlushNPXState(NULL);
-
-            /* Check if we have Fxsr support */
-            if (KeI386FxsrPresent)
-            {
-                /* Convert the Fn Floating Point state to Fx */
-                FxSaveArea->U.FxArea.ControlWord =
-                    (USHORT)Context->FloatSave.ControlWord;
-                FxSaveArea->U.FxArea.StatusWord =
-                    (USHORT)Context->FloatSave.StatusWord;
-                FxSaveArea->U.FxArea.TagWord =
-                    KiTagWordFnsaveToFxsave((USHORT)Context->FloatSave.TagWord);
-                FxSaveArea->U.FxArea.ErrorOpcode =
-                    (USHORT)((Context->FloatSave.ErrorSelector >> 16) & 0xFFFF);
-                FxSaveArea->U.FxArea.ErrorOffset =
-                    Context->FloatSave.ErrorOffset;
-                FxSaveArea->U.FxArea.ErrorSelector =
-                    Context->FloatSave.ErrorSelector & 0xFFFF;
-                FxSaveArea->U.FxArea.DataOffset =
-                    Context->FloatSave.DataOffset;
-                FxSaveArea->U.FxArea.DataSelector =
-                    Context->FloatSave.DataSelector;
-
-                /* Clear out the Register Area */
-                RtlZeroMemory(&FxSaveArea->U.FxArea.RegisterArea[0],
-                              SIZE_OF_FX_REGISTERS);
-
-                /* Loop the 8 floating point registers */
-                for (i = 0; i < 8; i++)
-                {
-                    /* Copy from Fn to Fx */
-                    RtlCopyMemory(FxSaveArea->U.FxArea.RegisterArea + (i * 16),
-                                  Context->FloatSave.RegisterArea + (i * 10),
-                                  10);
-                }
-            }
-            else
-            {
-                /* Just dump the Fn state in */
-                RtlCopyMemory(&FxSaveArea->U.FnArea,
-                              &Context->FloatSave,
-                              sizeof(FNSAVE_FORMAT));
-            }
-
-            /* Mask out any invalid flags */
-            FxSaveArea->Cr0NpxState &= ~(CR0_EM | CR0_MP | CR0_TS);
-
-            /* FIXME: Check if this is a VDM app */
+            /* Future use */
         }
         else
         {
-            /* FIXME: Handle FPU Emulation */
-            ASSERT(FALSE);
+            /* Future use */
         }
     }
 
@@ -569,8 +827,8 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         }
     }
 
-    /* Restore IRQL */
-    if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
+    /* Handle FPU and Extended Registers */
+    KiContextToFxSaveArea((PFX_SAVE_AREA)(TrapFrame + 1), Context);
 }
 
 VOID
@@ -579,17 +837,7 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
                      IN PKEXCEPTION_FRAME ExceptionFrame,
                      IN OUT PCONTEXT Context)
 {
-    PFX_SAVE_AREA FxSaveArea;
-    struct _AlignHack
-    {
-        UCHAR Hack[15];
-        FLOATING_SAVE_AREA UnalignedArea;
-    } FloatSaveBuffer;
-    FLOATING_SAVE_AREA *FloatSaveArea;
-    KIRQL OldIrql = APC_LEVEL;
-
-    /* Do this at APC_LEVEL */
-    if (KeGetCurrentIrql() < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
+    PFX_SAVE_AREA FxSaveArea = NULL;
 
     /* Start with the Control flags */
     if ((Context->ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
@@ -601,7 +849,7 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
 
         /* Return the correct CS */
         if (!(TrapFrame->SegCs & FRAME_EDITED) &&
-            !(TrapFrame->EFlags & EFLAGS_V86_MASK))
+            !(TrapFrame->EFlags & X86_EFLAGS_VM))
         {
             /* Get it from the Temp location */
             Context->SegCs = TrapFrame->TempSegCs & 0xFFFF;
@@ -621,7 +869,7 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
     if ((Context->ContextFlags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS)
     {
         /* Do V86 Mode first */
-        if (TrapFrame->EFlags & EFLAGS_V86_MASK)
+        if (TrapFrame->EFlags & X86_EFLAGS_VM)
         {
             /* Return from the V86 location */
             Context->SegGs = TrapFrame->V86Gs & 0xFFFF;
@@ -663,7 +911,8 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
 
     /* Handle extended registers */
     if (((Context->ContextFlags & CONTEXT_EXTENDED_REGISTERS) ==
-        CONTEXT_EXTENDED_REGISTERS) && (TrapFrame->SegCs & MODE_MASK))
+        CONTEXT_EXTENDED_REGISTERS) &&
+        ((TrapFrame->SegCs & MODE_MASK) == UserMode))
     {
         /* Get the FX Save Area */
         FxSaveArea = (PFX_SAVE_AREA)(TrapFrame + 1);
@@ -671,53 +920,50 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
         /* Make sure NPX is present */
         if (KeI386NpxPresent)
         {
-            /* Flush the NPX State */
-            KiFlushNPXState(NULL);
+            /* Future use */
+        }
 
-            /* Copy the registers */
-            RtlCopyMemory(&Context->ExtendedRegisters[0],
-                          &FxSaveArea->U.FxArea,
-                          MAXIMUM_SUPPORTED_EXTENSION);
+        /* Old code */
+        FxSaveArea = KiGetFpuState(KeGetCurrentThread());
+        if (FxSaveArea != NULL)
+        {
+            memcpy(Context->ExtendedRegisters, &FxSaveArea->U.FxArea,
+                   min(sizeof (Context->ExtendedRegisters), sizeof (FxSaveArea->U.FxArea)) );
+        }
+        else
+        {
+            Context->ContextFlags &= (~CONTEXT_EXTENDED_REGISTERS) | CONTEXT_i386;
         }
     }
 
     /* Handle Floating Point */
     if (((Context->ContextFlags & CONTEXT_FLOATING_POINT) ==
-        CONTEXT_FLOATING_POINT) && (TrapFrame->SegCs & MODE_MASK))
+        CONTEXT_FLOATING_POINT) &&
+        ((TrapFrame->SegCs & MODE_MASK) == UserMode))
     {
         /* Get the FX Save Area */
         FxSaveArea = (PFX_SAVE_AREA)(TrapFrame + 1);
 
         /* Make sure we have an NPX */
         if (KeI386NpxPresent)
-         {
-            /* Check if we have Fxsr support */
-            if (KeI386FxsrPresent)
-            {
-                /* Align the floating area to 16-bytes */
-                FloatSaveArea = (FLOATING_SAVE_AREA*)
-                                ((ULONG_PTR)&FloatSaveBuffer.UnalignedArea &~ 0xF);
+        {
+            /* Future use */
+        }
+        else
+        {
+            /* Future Use */
+        }
 
-                /* Get the State */
-                KiFlushNPXState(FloatSaveArea);
-            }
-            else
-            {
-                /* We don't, use the FN area and flush the NPX State */
-                FloatSaveArea = (FLOATING_SAVE_AREA*)&FxSaveArea->U.FnArea;
-                KiFlushNPXState(NULL);
-            }
-
-            /* Copy into the Context */
-            RtlCopyMemory(&Context->FloatSave,
-                          FloatSaveArea,
-                          sizeof(FNSAVE_FORMAT));
-         }
-         else
-         {
-            /* FIXME: Handle Emulation */
-            ASSERT(FALSE);
-         }
+        /* Old code */
+        FxSaveArea = KiGetFpuState(KeGetCurrentThread());
+        if (FxSaveArea != NULL)
+        {
+            KiFxSaveAreaToFloatingSaveArea(&Context->FloatSave, FxSaveArea);
+        }
+        else
+        {
+            Context->ContextFlags &= (~CONTEXT_FLOATING_POINT) | CONTEXT_i386;
+        }
     }
 
     /* Handle debug registers */
@@ -745,9 +991,6 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
             Context->Dr7 = 0;
         }
     }
-
-    /* Restore IRQL */
-    if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
 }
 
 VOID
@@ -934,6 +1177,7 @@ KiDispatchException(PEXCEPTION_RECORD ExceptionRecord,
     ULONG_PTR Stack, NewStack;
     ULONG Size;
     BOOLEAN UserDispatch = FALSE;
+    DPRINT("KiDispatchException() called\n");
 
     /* Increase number of Exception Dispatches */
     KeGetCurrentPrcb()->KeExceptionDispatchCount++;

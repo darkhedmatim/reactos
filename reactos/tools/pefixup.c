@@ -32,7 +32,7 @@
 /* The following definitions are ripped from MinGW W32API headers. We don't
    use these headers directly in order to allow compilation on Linux hosts. */
 
-typedef unsigned char BYTE, *PBYTE;
+typedef unsigned char BYTE;
 typedef unsigned short WORD;
 typedef unsigned int DWORD;
 typedef int LONG;
@@ -163,50 +163,21 @@ unsigned char *buffer;
 PIMAGE_DOS_HEADER dos_header;
 PIMAGE_NT_HEADERS nt_header;
 
-static inline WORD dtohs(WORD in)
-{
-    PBYTE in_ptr = (PBYTE)&in;
-    return in_ptr[0] | (in_ptr[1] << 8);
-}
-
-static inline WORD htods(WORD in)
-{
-    WORD out;
-    PBYTE out_ptr = (PBYTE)&out;
-    out_ptr[0] = in; out_ptr[1] = in >> 8;
-    return out;
-}
-
-static inline DWORD dtohl(DWORD in)
-{
-    PBYTE in_ptr = (PBYTE)&in;
-    return in_ptr[0] | (in_ptr[1] << 8) | (in_ptr[2] << 16) | (in_ptr[3] << 24);
-}
-
-static inline DWORD htodl(DWORD in)
-{
-    DWORD out;
-    PBYTE out_ptr = (PBYTE)&out;
-    out_ptr[0] = in      ; out_ptr[1] = in >> 8;
-    out_ptr[2] = in >> 16; out_ptr[3] = in >> 24;
-    return out;
-}
-
 void *rva_to_ptr(DWORD rva)
 {
    PIMAGE_SECTION_HEADER section_header;
    unsigned int i;
 
    for (i = 0, section_header = IMAGE_FIRST_SECTION(nt_header);
-        i < dtohl(nt_header->OptionalHeader.NumberOfRvaAndSizes);
+        i < nt_header->OptionalHeader.NumberOfRvaAndSizes;
         i++, section_header++)
    {
-      if (rva >= dtohl(section_header->VirtualAddress) &&
-          rva < dtohl(section_header->VirtualAddress) +
-                dtohl(section_header->Misc.VirtualSize))
+      if (rva >= section_header->VirtualAddress &&
+          rva < section_header->VirtualAddress +
+                section_header->Misc.VirtualSize)
       {
-         return buffer + rva - dtohl(section_header->VirtualAddress) +
-                dtohl(section_header->PointerToRawData);
+         return buffer + rva - section_header->VirtualAddress +
+                section_header->PointerToRawData;
       }
    }
 
@@ -278,13 +249,11 @@ int main(int argc, char **argv)
    if (len < sizeof(IMAGE_DOS_HEADER))
    {
       close(fd_in);
-      printf("'%s' isn't a PE image (too short)\n", argv[1]);
+      printf("'%s' isn't a PE image.\n", argv[1]);
       return 1;
    }
 
-   /* Lower down we overwrite the byte at len, so here, we need at least
-    * one more byte than len.  We'll be guaranteed one or two now. */
-   buffer = malloc((len + 2) & ~1);
+   buffer = malloc((len + 1) & ~1);
    if (buffer == NULL)
    {
       close(fd_in);
@@ -295,7 +264,6 @@ int main(int argc, char **argv)
    /* Read the whole input file into a buffer */
    lseek(fd_in, 0, SEEK_SET);
    read(fd_in, buffer, len);
-   /* Here is where the block end overwrite was */
    if (len & 1)
       buffer[len] = 0;
 
@@ -306,12 +274,12 @@ int main(int argc, char **argv)
     */
 
    dos_header = (PIMAGE_DOS_HEADER)buffer;
-   nt_header = (PIMAGE_NT_HEADERS)(buffer + dtohl(dos_header->e_lfanew));
+   nt_header = (PIMAGE_NT_HEADERS)(buffer + dos_header->e_lfanew);
    
-   if (dtohs(dos_header->e_magic) != IMAGE_DOS_SIGNATURE ||
-       dtohl(nt_header->Signature) != IMAGE_NT_SIGNATURE)
+   if (dos_header->e_magic != IMAGE_DOS_SIGNATURE ||
+       nt_header->Signature != IMAGE_NT_SIGNATURE)
    {
-      printf("'%s' isn't a PE image (bad headers)\n", argv[1]);
+      printf("'%s' isn't a PE image.\n", argv[1]);
       free(buffer);
       return 1;
    }
@@ -320,17 +288,17 @@ int main(int argc, char **argv)
    {
       /* Sort export directory */
       data_dir = &nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
-      if (dtohl(data_dir->Size) != 0)
+      if (data_dir->Size != 0)
       {
          PIMAGE_EXPORT_DIRECTORY export_directory;
          DWORD *name_ptr;
          WORD *ordinal_ptr;
          export_t *exports;
 
-         export_directory = (PIMAGE_EXPORT_DIRECTORY)rva_to_ptr(dtohl(data_dir->VirtualAddress));
+         export_directory = (PIMAGE_EXPORT_DIRECTORY)rva_to_ptr(data_dir->VirtualAddress);
          if (export_directory != NULL)
          {
-            exports = malloc(sizeof(export_t) * dtohl(export_directory->NumberOfNames));
+            exports = malloc(sizeof(export_t) * export_directory->NumberOfNames);
             if (exports == NULL)
             {
                printf("Not enough memory.\n");
@@ -338,22 +306,22 @@ int main(int argc, char **argv)
                return 1;
             }
 
-            name_ptr = (DWORD *)rva_to_ptr(dtohl(export_directory->AddressOfNames));
-            ordinal_ptr = (WORD *)rva_to_ptr(dtohl(export_directory->AddressOfNameOrdinals));
+            name_ptr = (DWORD *)rva_to_ptr(export_directory->AddressOfNames);
+            ordinal_ptr = (WORD *)rva_to_ptr(export_directory->AddressOfNameOrdinals);
 
-            for (i = 0; i < dtohl(export_directory->NumberOfNames); i++)
+            for (i = 0; i < export_directory->NumberOfNames; i++)
             {
-               exports[i].name = dtohl(name_ptr[i]);
-               exports[i].ordinal = dtohl(ordinal_ptr[i]);
+               exports[i].name = name_ptr[i];
+               exports[i].ordinal = ordinal_ptr[i];
             }
 
-            qsort(exports, dtohl(export_directory->NumberOfNames), sizeof(export_t),
+            qsort(exports, export_directory->NumberOfNames, sizeof(export_t),
                   export_compare_func);
 
-            for (i = 0; i < dtohl(export_directory->NumberOfNames); i++)
+            for (i = 0; i < export_directory->NumberOfNames; i++)
             {
-               name_ptr[i] = htodl(exports[i].name);
-               ordinal_ptr[i] = htodl(exports[i].ordinal);
+               name_ptr[i] = exports[i].name;
+               ordinal_ptr[i] = exports[i].ordinal;
             }
 
             free(exports);
@@ -365,7 +333,7 @@ int main(int argc, char **argv)
    {
       /* Update section flags */
       for (i = 0, section_header = IMAGE_FIRST_SECTION(nt_header);
-           i < dtohl(nt_header->OptionalHeader.NumberOfRvaAndSizes);
+           i < nt_header->OptionalHeader.NumberOfRvaAndSizes;
            i++, section_header++)
       {
          if (!strcmp((char*)section_header->Name, ".text") ||
@@ -373,16 +341,16 @@ int main(int argc, char **argv)
              !strcmp((char*)section_header->Name, ".idata") ||
              !strcmp((char*)section_header->Name, ".bss"))
          {
-            section_header->Characteristics |= htodl(IMAGE_SCN_MEM_NOT_PAGED);
-            section_header->Characteristics &= htodl(~IMAGE_SCN_MEM_DISCARDABLE);
+            section_header->Characteristics |= IMAGE_SCN_MEM_NOT_PAGED;
+            section_header->Characteristics &= ~IMAGE_SCN_MEM_DISCARDABLE;
          }
          else if (!strcmp((char*)section_header->Name, "INIT"))
          {
-            section_header->Characteristics |= htodl(IMAGE_SCN_MEM_DISCARDABLE);
+            section_header->Characteristics |= IMAGE_SCN_MEM_DISCARDABLE;
          }
          else if (!strcmp((char*)section_header->Name, "PAGE"))
          {
-            section_header->Characteristics |= htodl(IMAGE_SCN_MEM_NOT_PAGED);
+            section_header->Characteristics |= IMAGE_SCN_MEM_NOT_PAGED;
          }
       }
    }
@@ -396,7 +364,7 @@ int main(int argc, char **argv)
       checksum = (checksum + (checksum >> 16)) & 0xffff;
    }
    checksum += len;
-   nt_header->OptionalHeader.CheckSum = htods(checksum);
+   nt_header->OptionalHeader.CheckSum = checksum;
 
    /* Write the output file */
    fd_out = open(argv[1], O_WRONLY | O_BINARY);

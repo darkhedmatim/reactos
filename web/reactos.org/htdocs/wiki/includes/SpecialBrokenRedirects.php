@@ -7,6 +7,11 @@
 
 /**
  *
+ */
+require_once('QueryPage.php');
+
+/**
+ *
  * @package MediaWiki
  * @subpackage SpecialPage
  */
@@ -16,13 +21,12 @@ class BrokenRedirectsPage extends PageQueryPage {
 	function getName() {
 		return 'BrokenRedirects';
 	}
-
+	
 	function isExpensive( ) { return true; }
 	function isSyndicated() { return false; }
 
 	function getPageHeader( ) {
-		global $wgOut;
-		return $wgOut->parse( wfMsg( 'brokenredirectstext' ) );
+		return '<p>'.wfMsg('brokenredirectstext')."</p><br />\n";
 	}
 
 	function getSQL() {
@@ -34,10 +38,12 @@ class BrokenRedirectsPage extends PageQueryPage {
 		                p1.page_title     AS title,
 		                pl_namespace,
 		                pl_title
-		           FROM $pagelinks AS pl
-                   JOIN $page p1 ON (p1.page_is_redirect=1 AND pl.pl_from=p1.page_id)
-		      LEFT JOIN $page AS p2 ON (pl_namespace=p2.page_namespace AND pl_title=p2.page_title )
-    		                WHERE p2.page_namespace IS NULL";
+		           FROM ($pagelinks, $page AS p1)
+		      LEFT JOIN $page AS p2
+		             ON pl_namespace=p2.page_namespace AND pl_title=p2.page_title
+		          WHERE p1.page_is_redirect=1
+		            AND pl_from=p1.page_id
+		            AND p2.page_namespace IS NULL";
 		return $sql;
 	}
 
@@ -46,8 +52,6 @@ class BrokenRedirectsPage extends PageQueryPage {
 	}
 
 	function formatResult( $skin, $result ) {
-		global $wgContLang;
-		
 		$fromObj = Title::makeTitle( $result->namespace, $result->title );
 		if ( isset( $result->pl_title ) ) {
 			$toObj = Title::makeTitle( $result->pl_namespace, $result->pl_title );
@@ -68,9 +72,8 @@ class BrokenRedirectsPage extends PageQueryPage {
 		$from = $skin->makeKnownLinkObj( $fromObj ,'', 'redirect=no' );
 		$edit = $skin->makeBrokenLinkObj( $fromObj , "(".wfMsg("qbedit").")" , 'redirect=no');
 		$to   = $skin->makeBrokenLinkObj( $toObj );
-		$arr = $wgContLang->isRTL() ? '&larr;' : '&rarr;';
-
-		return "$from $edit $arr $to";
+				
+		return "$from $edit &rarr; $to";
 	}
 }
 
@@ -79,9 +82,9 @@ class BrokenRedirectsPage extends PageQueryPage {
  */
 function wfSpecialBrokenRedirects() {
 	list( $limit, $offset ) = wfCheckLimits();
-
+	
 	$sbr = new BrokenRedirectsPage();
-
+	
 	return $sbr->doQuery( $offset, $limit );
 
 }

@@ -10,7 +10,6 @@
     <define name="_WIN32_WINNT">0x501</define>
     <library>kernel32</library>
     <library>user32</library>
-    <library>gdi32</library>
     <library>advapi32</library>
     <library>version</library>
     <library>comctl32</library>
@@ -22,16 +21,14 @@
       <file>create.c</file>
       <file>delete.c</file>
       <file>export.c</file>
-      <file>mainwnd.c</file>
-      <file>misc.c</file>
+      <file>geterror.c</file>
       <file>progress.c</file>
       <file>propsheet.c</file>
       <file>query.c</file>
       <file>servman.c</file>
-      <file>start.c</file>	
-      <file>stop.c</file>	
+      <file>start.c</file>		
     </compilationunit>
     <file>servman.rc</file>
-    <pch>precomp.h</pch>
+    <pch>servman.h</pch>
   </module>
 </rbuild>

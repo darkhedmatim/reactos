@@ -4,7 +4,7 @@
  * FILE:            drivers/bus/serial/legacy.c
  * PURPOSE:         Legacy serial port enumeration
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  *                  Mark Junker (mjscod@gmx.de)
  */
 

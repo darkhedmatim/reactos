@@ -261,6 +261,7 @@ GetDeletedFileDetailsA(
 {
 	PDELETED_FILE_DETAILS_W FileDetailsW = NULL;
 	DWORD BufferSizeW = 0;
+	DWORD RequiredSizeW;
 	BOOL ret = FALSE;
 
 	if (BufferSize >= FIELD_OFFSET(DELETED_FILE_DETAILS_A, FileName))
@@ -278,7 +279,7 @@ GetDeletedFileDetailsA(
 		}
 	}
 
-	ret = GetDeletedFileDetailsW(hDeletedFile, BufferSizeW, FileDetailsW, RequiredSize);
+	ret = GetDeletedFileDetailsW(hDeletedFile, BufferSizeW, FileDetailsW, &RequiredSizeW);
 	if (!ret)
 		goto cleanup;
 

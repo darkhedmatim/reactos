@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -63,8 +63,7 @@ ULONG WINAPI MAPISendMail( LHANDLE session, ULONG_PTR uiparam,
     unsigned int i, to_count = 0, cc_count = 0, bcc_count = 0;
     unsigned int to_size = 0, cc_size = 0, bcc_size = 0, subj_size, body_size;
 
-    char *to = NULL, *cc = NULL, *bcc = NULL;
-    const char *address, *subject, *body;
+    char *address = "", *to = NULL, *cc = NULL, *bcc = NULL, *subject, *body;
     static const char format[] =
         "mailto:\"%s\"?subject=\"%s\"&cc=\"%s\"&bcc=\"%s\"&body=\"%s\"";
     char *mailto = NULL, *escape = NULL;

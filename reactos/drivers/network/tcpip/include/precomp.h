@@ -1,7 +1,6 @@
 #include <roscfg.h>
 #include <limits.h>
 #include <ntddk.h>
-#include <ntifs.h>
 #include <tdi.h>
 #include <tdistat.h>
 #include <../recmutex/recmutex.h>
@@ -38,4 +37,5 @@
 #include <interface.h>
 #include <ports.h>
 #include <ipifcons.h>
+#include <ndk/ntndk.h>
 #include <chew/chew.h>

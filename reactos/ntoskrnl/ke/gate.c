@@ -1,14 +1,14 @@
 /*
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            ntoskrnl/ke/gate.c
  * PURPOSE:         Implements the Gate Dispatcher Object
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ *
+ * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
  */
 
 /* INCLUDES *****************************************************************/
 
-#define NTDDI_VERSION NTDDI_WS03
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
@@ -17,8 +17,10 @@
 
 VOID
 FASTCALL
-KeInitializeGate(IN PKGATE Gate)
+KeInitializeGate(PKGATE Gate)
 {
+    DPRINT("KeInitializeGate(Gate %x)\n", Gate);
+
     /* Initialize the Dispatcher Header */
     KeInitializeDispatcherHeader(&Gate->Header,
                                  GateObject,
@@ -28,81 +30,80 @@ KeInitializeGate(IN PKGATE Gate)
 
 VOID
 FASTCALL
-KeWaitForGate(IN PKGATE Gate,
-              IN KWAIT_REASON WaitReason,
-              IN KPROCESSOR_MODE WaitMode)
+KeWaitForGate(PKGATE Gate,
+              KWAIT_REASON WaitReason,
+              KPROCESSOR_MODE WaitMode)
 {
     KIRQL OldIrql;
     PKTHREAD CurrentThread = KeGetCurrentThread();
     PKWAIT_BLOCK GateWaitBlock;
     NTSTATUS Status;
-    ASSERT_GATE(Gate);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
-    /* Start wait loop */
+    DPRINT("KeWaitForGate(Gate %x)\n", Gate);
+
     do
     {
-        /* Lock the dispatcher */
+        /* Lock the APC Queue */
         OldIrql = KeAcquireDispatcherDatabaseLock();
-
-        /* Check if a kernel APC is pending and we're below APC_LEVEL */
-        if ((CurrentThread->ApcState.KernelApcPending) &&
-            !(CurrentThread->SpecialApcDisable) && (OldIrql < APC_LEVEL))
+        
+        /* Check if it's already signaled */
+        if (Gate->Header.SignalState)
         {
-            /* Unlock the dispatcher, this will fire the APC */
+            /* Unsignal it */
+            Gate->Header.SignalState = 0;
+
+            /* Unlock the Queue and return */
             KeReleaseDispatcherDatabaseLock(OldIrql);
+            return;
         }
-        else
+
+        /* Setup a Wait Block */
+        GateWaitBlock = &CurrentThread->WaitBlock[0];
+        GateWaitBlock->Object = (PVOID)Gate;
+        GateWaitBlock->Thread = CurrentThread;
+
+        /* Set the Thread Wait Data */
+        CurrentThread->WaitIrql = OldIrql;
+        CurrentThread->GateObject = Gate;
+
+        /* Insert into the Wait List */
+        InsertTailList(&Gate->Header.WaitListHead,
+                       &GateWaitBlock->WaitListEntry);
+
+        /* Handle Kernel Queues */
+        if (CurrentThread->Queue)
         {
-            /* Check if it's already signaled */
-            if (Gate->Header.SignalState)
-            {
-                /* Unsignal it */
-                Gate->Header.SignalState = 0;
-
-                /* Unlock the Queue and return */
-                KeReleaseDispatcherDatabaseLock(OldIrql);
-                return;
-            }
-
-            /* Setup a Wait Block */
-            GateWaitBlock = &CurrentThread->WaitBlock[0];
-            GateWaitBlock->Object = (PVOID)Gate;
-            GateWaitBlock->Thread = CurrentThread;
-
-            /* Set the Thread Wait Data */
-            CurrentThread->WaitMode = WaitMode;
-            CurrentThread->WaitReason = WaitReason;
-            CurrentThread->WaitIrql = OldIrql;
-            CurrentThread->State = GateWait;
-            CurrentThread->GateObject = Gate;
-
-            /* Insert into the Wait List */
-            InsertTailList(&Gate->Header.WaitListHead,
-                           &GateWaitBlock->WaitListEntry);
-
-            /* Handle Kernel Queues */
-            if (CurrentThread->Queue) KiWakeQueue(CurrentThread->Queue);
-
-            /* Find a new thread to run */
-            Status = KiSwapThread();
-
-            /* Check if we were executing an APC */
-            if (Status != STATUS_KERNEL_APC) return;
+            DPRINT("Waking Queue\n");
+            KiWakeQueue(CurrentThread->Queue);
         }
+
+        /* Setup the wait information */
+        CurrentThread->WaitMode = WaitMode;
+        CurrentThread->WaitReason = WaitReason;
+        CurrentThread->WaitTime = ((PLARGE_INTEGER)&KeTickCount)->LowPart;
+        CurrentThread->State = Waiting;
+
+        /* Find a new thread to run */
+        DPRINT("Swapping threads\n");
+        Status = KiSwapThread();
+
+        /* Check if we were executing an APC */
+        if (Status != STATUS_KERNEL_APC) return;
+
+        DPRINT("Looping Again\n");
     } while (TRUE);
 }
 
 VOID
 FASTCALL
-KeSignalGateBoostPriority(IN PKGATE Gate)
+KeSignalGateBoostPriority(PKGATE Gate)
 {
     PKTHREAD WaitThread;
     PKWAIT_BLOCK WaitBlock;
     KIRQL OldIrql;
     NTSTATUS WaitStatus = STATUS_SUCCESS;
-    ASSERT_GATE(Gate);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+
+    DPRINT("KeSignalGateBoostPriority(EveGate %x)\n", Gate);
 
     /* Acquire Dispatcher Database Lock */
     OldIrql = KeAcquireDispatcherDatabaseLock();
@@ -110,31 +111,33 @@ KeSignalGateBoostPriority(IN PKGATE Gate)
     /* Make sure we're not already signaled or that the list is empty */
     if (Gate->Header.SignalState) goto quit;
 
-    /* Check if our wait list is empty */
+    /* If our wait list is empty, then signal the event and return */
     if (IsListEmpty(&Gate->Header.WaitListHead))
     {
-        /* It is, so signal the event */
         Gate->Header.SignalState = 1;
+        goto quit;
     }
-    else
+
+    /* Get WaitBlock */
+    WaitBlock = CONTAINING_RECORD(Gate->Header.WaitListHead.Flink,
+                                  KWAIT_BLOCK,
+                                  WaitListEntry);
+    /* Remove it */
+    RemoveEntryList(&WaitBlock->WaitListEntry);
+
+    /* Get the Associated thread */
+    WaitThread = WaitBlock->Thread;
+
+    /* Increment the Queue's active threads */
+    if (WaitThread->Queue)
     {
-        /* Get WaitBlock */
-        WaitBlock = CONTAINING_RECORD(Gate->Header.WaitListHead.Flink,
-                                      KWAIT_BLOCK,
-                                      WaitListEntry);
-
-        /* Remove it */
-        RemoveEntryList(&WaitBlock->WaitListEntry);
-
-        /* Get the Associated thread */
-        WaitThread = WaitBlock->Thread;
-
-        /* Increment the Queue's active threads */
-        if (WaitThread->Queue) WaitThread->Queue->CurrentCount++;
-
-        /* FIXME: This isn't really correct!!! */
-        KiAbortWaitThread(WaitThread, WaitStatus, EVENT_INCREMENT);
+        DPRINT("Incrementing Queue's active threads\n");
+        WaitThread->Queue->CurrentCount++;
     }
+
+    /* Reschedule the Thread */
+    DPRINT("Unblocking the Thread\n");
+    KiUnblockThread(WaitThread, &WaitStatus, EVENT_INCREMENT);
 
 quit:
     /* Release the Dispatcher Database Lock */

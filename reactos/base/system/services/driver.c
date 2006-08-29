@@ -140,12 +140,12 @@ ScmGetDriverStatus(PSERVICE lpService,
         if (!NT_SUCCESS(Status))
             break;
 
-        DPRINT("Comparing: '%S'  '%wZ'\n", lpService->lpServiceName, &DirInfo->Name);
+        DPRINT("Comparing: '%S'  '%wZ'\n", lpService->lpServiceName, &DirInfo->ObjectName);
 
-        if (_wcsicmp(lpService->lpServiceName, DirInfo->Name.Buffer) == 0)
+        if (_wcsicmp(lpService->lpServiceName, DirInfo->ObjectName.Buffer) == 0)
         {
             DPRINT1("Found: '%S'  '%wZ'\n",
-                    lpService->lpServiceName, &DirInfo->Name);
+                    lpService->lpServiceName, &DirInfo->ObjectName);
             bFound = TRUE;
 
             break;

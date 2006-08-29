@@ -27,26 +27,35 @@ use lib ".";
 use Bugzilla;
 use Bugzilla::User;
 
-require "globals.pl";
+require "CGI.pl";
+
+# Use the global template variables. 
+use vars qw($vars $template);
 
 Bugzilla->login();
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
 
-my $keywords = $dbh->selectall_arrayref(
-                   q{SELECT keyworddefs.name, keyworddefs.description,
-                            COUNT(keywords.bug_id) AS bugcount
-                       FROM keyworddefs
-                  LEFT JOIN keywords
-                         ON keyworddefs.id = keywords.keywordid } .
+SendSQL("SELECT keyworddefs.name, keyworddefs.description, 
+                COUNT(keywords.bug_id)
+         FROM keyworddefs LEFT JOIN keywords
+         ON keyworddefs.id = keywords.keywordid " .
          $dbh->sql_group_by('keyworddefs.id',
-                            'keyworddefs.name, keyworddefs.description') .
-                 " ORDER BY keyworddefs.name", {'Slice' => {}});
+                            'keyworddefs.name, keyworddefs.description') . "
+         ORDER BY keyworddefs.name");
 
-$vars->{'keywords'} = $keywords;
+my @keywords;
+
+while (MoreSQLData()) {
+    my ($name, $description, $bugs) = FetchSQLData();
+   
+    push (@keywords, { name => $name, 
+                       description => $description,
+                       bugcount => $bugs });
+}
+   
+$vars->{'keywords'} = \@keywords;
 $vars->{'caneditkeywords'} = UserInGroup("editkeywords");
 
 print Bugzilla->cgi->header();

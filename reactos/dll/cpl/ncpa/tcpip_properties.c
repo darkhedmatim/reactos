@@ -61,36 +61,7 @@ DWORD APIENTRY DhcpNotifyConfigChange(LPWSTR ServerName, LPWSTR AdapterName,
 
 
 static void
-ManualDNS(HWND Dlg, BOOL Enabled, UINT uCmd) {
-    PTCPIP_PROPERTIES_DATA DlgData = 
-        (PTCPIP_PROPERTIES_DATA) GetWindowLongPtrW(Dlg, GWL_USERDATA);
-
-    if (! DlgData->OldDhcpEnabled && 
-        (uCmd == IDC_USEDHCP || uCmd == IDC_NODHCP)) {
-        if (INADDR_NONE != DlgData->OldIpAddress) {
-            SendDlgItemMessage(Dlg, IDC_IPADDR, IPM_SETADDRESS, 0,
-                               ntohl(DlgData->OldIpAddress));
-        }
-        if (INADDR_NONE != DlgData->OldSubnetMask) {
-            SendDlgItemMessage(Dlg, IDC_SUBNETMASK, IPM_SETADDRESS, 0,
-                               ntohl(DlgData->OldSubnetMask));
-        }
-        if (INADDR_NONE != DlgData->OldGateway) {
-            SendDlgItemMessage(Dlg, IDC_DEFGATEWAY, IPM_SETADDRESS, 0,
-                               ntohl(DlgData->OldGateway));
-        }
-    }
-
-    if (INADDR_NONE != DlgData->OldDns1 && 
-        (uCmd == IDC_FIXEDDNS || uCmd == IDC_AUTODNS || IDC_NODHCP)) {
-        SendDlgItemMessage(Dlg, IDC_DNS1, IPM_SETADDRESS, 0,
-                           ntohl(DlgData->OldDns1));
-        if (INADDR_NONE != DlgData->OldDns2) {
-            SendDlgItemMessage(Dlg, IDC_DNS2, IPM_SETADDRESS, 0,
-                               ntohl(DlgData->OldDns2));
-        }
-    }
-
+ManualDNS(HWND Dlg, BOOL Enabled) {
     CheckDlgButton(Dlg, IDC_FIXEDDNS,
                    Enabled ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(Dlg, IDC_AUTODNS,
@@ -105,7 +76,7 @@ ManualDNS(HWND Dlg, BOOL Enabled, UINT uCmd) {
 }
 
 static void
-EnableDHCP(HWND Dlg, BOOL Enabled, UINT uCmd) {
+EnableDHCP(HWND Dlg, BOOL Enabled) {
     CheckDlgButton(Dlg, IDC_USEDHCP, Enabled ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(Dlg, IDC_NODHCP, Enabled ? BST_UNCHECKED : BST_CHECKED);
     EnableWindow(GetDlgItem(Dlg, IDC_IPADDR), ! Enabled);
@@ -117,7 +88,7 @@ EnableDHCP(HWND Dlg, BOOL Enabled, UINT uCmd) {
         SendDlgItemMessage(Dlg, IDC_SUBNETMASK, IPM_CLEARADDRESS, 0, 0);
         SendDlgItemMessage(Dlg, IDC_DEFGATEWAY, IPM_CLEARADDRESS, 0, 0);
     } else {
-        ManualDNS(Dlg, TRUE, uCmd);
+        ManualDNS(Dlg, TRUE);
     }
 }
 
@@ -364,7 +335,7 @@ TCPIPPropertyPageProc(HWND Dlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         EnableWindow(GetDlgItem(Dlg, IDC_ADVANCED), FALSE);
 
-        EnableDHCP(Dlg, DlgData->OldDhcpEnabled, 0);
+        EnableDHCP(Dlg, DlgData->OldDhcpEnabled);
 
         if (! DlgData->OldDhcpEnabled)
         {
@@ -390,25 +361,25 @@ TCPIPPropertyPageProc(HWND Dlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                    ntohl(DlgData->OldDns2));
             }
         }
-        ManualDNS(Dlg, INADDR_NONE != DlgData->OldDns1, 0);
+        ManualDNS(Dlg, INADDR_NONE != DlgData->OldDns1);
         break;
 
     case WM_COMMAND:
         switch(LOWORD(wParam)) {
         case IDC_FIXEDDNS:
-            ManualDNS(Dlg, TRUE, LOWORD(wParam));
+            ManualDNS(Dlg, TRUE);
             return TRUE;
 
         case IDC_AUTODNS:
-            ManualDNS(Dlg, FALSE, LOWORD(wParam));
+            ManualDNS(Dlg, FALSE);
             return TRUE;
 
         case IDC_USEDHCP:
-            EnableDHCP(Dlg, TRUE, LOWORD(wParam));
+            EnableDHCP(Dlg, TRUE);
             return TRUE;
 
         case IDC_NODHCP:
-            EnableDHCP(Dlg, FALSE, LOWORD(wParam));
+            EnableDHCP(Dlg, FALSE);
             return TRUE;
         }
         break;
@@ -495,26 +466,7 @@ DisplayTCPIPProperties(HWND hParent, IP_ADAPTER_INFO *pInfo)
     PROPSHEETHEADERW psh;
     INITCOMMONCONTROLSEX cce;
     TCPIP_PROPERTIES_DATA DlgData;
-    LPTSTR tpszCaption = NULL;
-    INT StrLen;
 
-    HWND hListBox = GetDlgItem(hParent, IDC_COMPONENTSLIST);
-    int iListBoxIndex = (int) SendMessage(hListBox, LB_GETCURSEL, 0, 0);
-
-    if(iListBoxIndex != LB_ERR)
-    {
-        StrLen = SendMessage(hListBox, LB_GETTEXTLEN, iListBoxIndex, 0);
-
-        if (StrLen != LB_ERR)
-        {
-            TCHAR suffix[] = _T(" Properties");
-            INT HeapSize = ((StrLen + 1) + (_tcslen(suffix) + 1)) * sizeof(TCHAR);
-            tpszCaption = (LPTSTR)HeapAlloc(GetProcessHeap(), 0, HeapSize);
-            SendMessage(hListBox, LB_GETTEXT, iListBoxIndex, (LPARAM)tpszCaption);
-            _tcscat(tpszCaption, suffix);
-        }
-    }
-    
     if (! LoadDataFromInfo(&DlgData, pInfo))
     {
         ShowError(hParent, IDS_CANNOT_LOAD_CONFIG);
@@ -531,7 +483,7 @@ DisplayTCPIPProperties(HWND hParent, IP_ADAPTER_INFO *pInfo)
     psh.hwndParent = hParent;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
-    psh.pszCaption = tpszCaption;
+    psh.pszCaption = NULL;//Caption;
     psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
     psh.nStartPage = 0;
     psh.ppsp = psp;
@@ -544,9 +496,6 @@ DisplayTCPIPProperties(HWND hParent, IP_ADAPTER_INFO *pInfo)
     {
         ShowError(hParent, IDS_CANNOT_CREATE_PROPSHEET);
     }
-
-    if (tpszCaption != NULL)
-        HeapFree(GetProcessHeap(), 0, tpszCaption);
 
     return;
 }

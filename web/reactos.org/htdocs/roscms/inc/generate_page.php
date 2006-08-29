@@ -28,17 +28,18 @@
 
 
 	// To prevent hacking activity:
-	if ( !defined('ROSCMS_SYSTEM') && $rpm_page != "generate_fast")
+	if ( !defined('ROSCMS_SYSTEM') )
 	{
-		die(" ");
+		if ( !defined('ROSCMS_SYSTEM_LOG') ) {
+			define ("ROSCMS_SYSTEM_LOG", "Hacking attempt");
+		}
+		$seclog_section="roscms_interface";
+		$seclog_level="50";
+		$seclog_reason="Hacking attempt: generate_page.php";
+		define ("ROSCMS_SYSTEM", "Hacking attempt");
+		include('securitylog.php'); // open security log
+		die("Hacking attempt");
 	}
-	
-	if ($rpm_page == "generate_fast") {
-		$rpm_sec="generator";
-		$rpm_sec2="output";
-		$roscms_intern_account_id = "1";
-	}
-	
 
 	function eval_template($code, $dyncontid) // function code from: http://www.zend.com/zend/art/buffering.php
 	{ 
@@ -64,14 +65,6 @@
 	set_time_limit(0);
 
 	
-	$rpm_gen_lang="";
-	if (array_key_exists("gen_lang", $_GET)) $rpm_gen_lang=htmlspecialchars($_GET["gen_lang"]);
-	if ($rpm_gen_lang != "") {
-		$rpm_temp_gen_lang = " AND lang_id = '".mysql_escape_string($rpm_gen_lang)."'";
-	}
-	else {
-		$rpm_temp_gen_lang = "";
-	}
 	
 	//include("db/connect_db.inc.php"); // database connection script
 
@@ -109,20 +102,12 @@
 			}
 		}
 		else {
-			if ($roscms_standard_output_format == "xhtml") {
-				$counter=2;
-			}
-			
 			switch ($counter) {
 				case 1:
 					$fileformat=$roscms_intern_fileformat_html;
 					$w3cformat=$roscms_intern_w3cformat_html;
 					echo "<b>HTML</b><br>";
 					$roscms_path_formatfile="../".$roscms_intern_path_html; // output path
-					
-					if ($roscms_standard_output_format == "html") {
-						$counter=3;
-					}
 					break;
 				case 2:
 					$fileformat=$roscms_intern_fileformat_xhtml;
@@ -137,20 +122,20 @@
 			if ($rpm_site != "" && $rpm_sec2=="view") {
 				$sql_lang="SELECT * 
 							FROM languages
-							WHERE lang_level != '0' AND lang_id = '".mysql_escape_string($rpm_lang)."'
+							WHERE lang_level != '0' AND lang_id = '$rpm_lang'
 							ORDER BY 'lang_level' DESC";
-				//echo "<br>!!".$rpm_lang;
+//				echo "<br>".$rpm_lang;
 			}
 			else if ($rpm_site != "" && $rpm_sec2=="genpage") {
 				$sql_lang="SELECT * 
 							FROM languages
-							WHERE lang_level != '0' ".$rpm_temp_gen_lang."
+							WHERE lang_level != '0'
 							ORDER BY 'lang_level' DESC";
 			}
 			else {
 				$sql_lang="SELECT * 
 							FROM languages
-							WHERE lang_level != '0' ".$rpm_temp_gen_lang."
+							WHERE lang_level != '0'
 							ORDER BY 'lang_level' DESC";
 			}
 		$sql_query_lang=mysql_query($sql_lang);
@@ -408,7 +393,7 @@
 					// redirect all bad links to the frontpage:
 					$data_page = str_replace("[#link_",$roscms_intern_path_server."?page=index&amp;temp=",$data_page); // correct link
 					// Replace high chars by their html-escaped version
-					$data_page = roscms_unicode_escape($data_page);
+//					$data_page = roscms_unicode_escape($data_page);
 
 					// Output & View:
 					switch ($rpm_sec2) {

@@ -805,7 +805,7 @@ static BOOL iterate_section_fields( HINF hinf, PCWSTR section, PCWSTR key,
     }
     ret = TRUE;
  done:
-    if (buffer != static_buffer) HeapFree( GetProcessHeap(), 0, buffer );
+    if (buffer && buffer != static_buffer) HeapFree( GetProcessHeap(), 0, buffer );
     return ret;
 }
 
@@ -1094,15 +1094,11 @@ void WINAPI InstallHinfSectionW( HWND hwnd, HINSTANCE handle, LPCWSTR cmdline, I
     hinf = SetupOpenInfFileW( path, NULL, INF_STYLE_WIN4, NULL );
     if (hinf == INVALID_HANDLE_VALUE) return;
 
-    if (SetupDiGetActualSectionToInstallW(
-        hinf, section, section, sizeof(section)/sizeof(section[0]), NULL, NULL ))
-    {
-        callback_context = SetupInitDefaultQueueCallback( hwnd );
-        SetupInstallFromInfSectionW( hwnd, hinf, section, SPINST_ALL, NULL, NULL, SP_COPY_NEWER,
-                                     SetupDefaultQueueCallbackW, callback_context,
-                                     NULL, NULL );
-        SetupTermDefaultQueueCallback( callback_context );
-    }
+    callback_context = SetupInitDefaultQueueCallback( hwnd );
+    SetupInstallFromInfSectionW( hwnd, hinf, section, SPINST_ALL, NULL, NULL, SP_COPY_NEWER,
+                                 SetupDefaultQueueCallbackW, callback_context,
+                                 NULL, NULL );
+    SetupTermDefaultQueueCallback( callback_context );
     SetupCloseInfFile( hinf );
 
     /* FIXME: should check the mode and maybe reboot */

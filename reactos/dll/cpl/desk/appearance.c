@@ -15,10 +15,6 @@ INT_PTR CALLBACK AppearancePageProc(HWND hwndDlg,
                                     WPARAM wParam,
                                     LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
-    UNREFERENCED_PARAMETER(wParam);
-    UNREFERENCED_PARAMETER(hwndDlg);
-
     switch(uMsg)
     {
         case WM_INITDIALOG:

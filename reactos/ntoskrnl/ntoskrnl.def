@@ -503,7 +503,6 @@ IoWriteTransferCount DATA
 @IofCallDriver@8
 @IofCompleteRequest@8
 IoIsWdmVersionAvailable@8
-KdComPortInUse DATA
 KdDebuggerEnabled DATA
 KdDebuggerNotPresent DATA
 KdDisableDebugger@0
@@ -647,8 +646,8 @@ KeSynchronizeExecution@12
 KeTerminateThread@4
 KeTickCount DATA
 @KeTryToAcquireGuardedMutex@4
-KeUpdateRunTime@4
-KeUpdateSystemTime@0
+KeUpdateRunTime@8
+KeUpdateSystemTime@8
 KeUnstackDetachProcess@4
 KeUserModeCallback@20
 KeWaitForMultipleObjects@32
@@ -656,18 +655,18 @@ KeWaitForMutexObject@20=KeWaitForSingleObject@20
 KeWaitForSingleObject@20
 @KefAcquireSpinLockAtDpcLevel@4
 @KefReleaseSpinLockFromDpcLevel@4
-Kei386EoiHelper@0
+;Kei386EoiHelper
 @KiAcquireSpinLock@4
 ;KiBugCheckData DATA
 KiCoprocessorError@0
 KiCheckForKernelApcDelivery@0
 KiDeliverApc@12
 KiDispatchInterrupt@0
-KiInterruptDispatch2@8
 KiEnableTimerWatchdog
+KiInterruptDispatch2@8
 KiIpiServiceRoutine@8
 @KiReleaseSpinLock@4
-KiUnexpectedInterrupt
+KiUnexpectedInterrupt@0
 ;Kii386SpinOnSpinLock
 KiRawTicks DATA
 LdrAccessResource@16
@@ -831,42 +830,29 @@ NtVdmControl@8
 NtW32Call@20
 NtWaitForSingleObject@12
 NtWriteFile@36
-
-;
-; Object Manager
 ObAssignSecurity@16
 ;ObCheckCreateObjectAccess@28
 ;ObCheckObjectAccess@20
-ObCloseHandle@8
 ObCreateObject@36
-ObCreateObjectType@16
-ObDereferenceObject@4
-ObDereferenceObjectDeferDelete@4
 ObDereferenceSecurityDescriptor@8
-@ObfDereferenceObject@4
 ObFindHandleForObject@20
-@ObfReferenceObject@4
+ObGetObjectPointerCount@4
 ObGetObjectSecurity@12
 ObInsertObject@24
-ObIsKernelHandle@4
 ObLogSecurityDescriptor@12
 ObMakeTemporaryObject@4
 ObOpenObjectByName@28
 ObOpenObjectByPointer@28
 ObQueryNameString@16
 ObQueryObjectAuditingByHandle@8
+@ObfDereferenceObject@4
+@ObfReferenceObject@4
 ObReferenceObjectByHandle@24
 ObReferenceObjectByName@32
 ObReferenceObjectByPointer@16
-;ObReferenceSecurityDescriptor@8
 ObReleaseObjectSecurity@8
-;ObSetHandleAttributes@12
+ObDereferenceObject@4
 ;ObSetSecurityDescriptorInfo@24
-;ObSetSecurityObjectByPointer@12
-
-;
-;
-;
 ;PfxFindPrefix
 ;PfxInitialize
 ;PfxInsertPrefix
@@ -894,15 +880,12 @@ PsDereferenceImpersonationToken@4=PsDereferencePrimaryToken@4
 PsDereferencePrimaryToken@4
 PsDisableImpersonation@8
 PsEstablishWin32Callouts@4
-PsGetContextThread@12
 PsGetCurrentProcess@0=KeGetCurrentProcess@0
 PsGetCurrentProcessId@0
-PsGetCurrentProcessWin32Process@0
 PsGetCurrentProcessSessionId@0
 PsGetCurrentThread@0=KeGetCurrentThread@0
 PsGetCurrentThreadId@0
 PsGetCurrentThreadPreviousMode@0
-PsGetCurrentThreadWin32Thread@0
 PsGetCurrentThreadStackBase@0
 PsGetCurrentThreadStackLimit@0
 PsGetJobLock@4
@@ -933,6 +916,8 @@ PsGetThreadSessionId@4
 PsGetThreadTeb@4
 PsGetThreadWin32Thread@4
 PsGetVersion@16
+PsGetWin32Thread@0
+PsGetWin32Process@0
 PsImpersonateClient@20
 PsInitialSystemProcess DATA
 PsIsProcessBeingDebugged@4
@@ -954,7 +939,6 @@ PsReturnProcessNonPagedPoolQuota@8
 PsReturnProcessPagedPoolQuota@8
 PsRevertToSelf@0
 PsRevertThreadToSelf@4
-PsSetContextThread@12
 PsSetCreateProcessNotifyRoutine@8
 PsSetCreateThreadNotifyRoutine@4
 PsSetJobUIRestrictionsClass@8
@@ -1132,8 +1116,8 @@ RtlIpv4StringToAddressExA@16
 RtlIpv4StringToAddressExW@16
 RtlIpv4StringToAddressW@16
 RtlIpv6AddressToStringA@8
-RtlIpv6AddressToStringExA@20
-RtlIpv6AddressToStringExW@20
+RtlIpv6AddressToStringExA@16
+RtlIpv6AddressToStringExW@16
 RtlIpv6AddressToStringW@8
 RtlIpv6StringToAddressA@12
 RtlIpv6StringToAddressExA@16

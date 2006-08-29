@@ -156,84 +156,96 @@ SetupDiCreateDeviceInfoListExW(
     IN PCWSTR MachineName OPTIONAL,
     IN PVOID Reserved)
 {
-    struct DeviceInfoSet *list;
-    LPWSTR UNCServerName = NULL;
-    DWORD size;
-    DWORD rc;
-    CONFIGRET cr;
-    HDEVINFO ret = (HDEVINFO)INVALID_HANDLE_VALUE;;
+  struct DeviceInfoSet *list;
+  LPWSTR UNCServerName = NULL;
+  DWORD size;
+  DWORD rc;
+  //CONFIGRET cr;
+  HDEVINFO ret = (HDEVINFO)INVALID_HANDLE_VALUE;;
 
-    TRACE("%s %p %s %p\n", debugstr_guid(ClassGuid), hwndParent,
-        debugstr_w(MachineName), Reserved);
+  TRACE("%s %p %s %p\n", debugstr_guid(ClassGuid), hwndParent,
+      debugstr_w(MachineName), Reserved);
 
-    size = FIELD_OFFSET(struct DeviceInfoSet, szData);
-    if (MachineName)
-        size += (strlenW(MachineName) + 3) * sizeof(WCHAR);
-    list = MyMalloc(size);
-    if (!list)
+  size = FIELD_OFFSET(struct DeviceInfoSet, szData);
+  if (MachineName)
+    size += (strlenW(MachineName) + 3) * sizeof(WCHAR);
+  list = HeapAlloc(GetProcessHeap(), 0, size);
+  if (!list)
+  {
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    goto cleanup;
+  }
+  memset(list, 0, sizeof(struct DeviceInfoSet));
+
+  list->magic = SETUP_DEV_INFO_SET_MAGIC;
+  memcpy(
+    &list->ClassGuid,
+    ClassGuid ? ClassGuid : &GUID_NULL,
+    sizeof(list->ClassGuid));
+  list->InstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS_W);
+  list->InstallParams.Flags |= DI_CLASSINSTALLPARAMS;
+  list->InstallParams.hwndParent = hwndParent;
+  if (MachineName)
+  {
+    rc = RegConnectRegistryW(MachineName, HKEY_LOCAL_MACHINE, &list->HKLM);
+    if (rc != ERROR_SUCCESS)
     {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        goto cleanup;
+      SetLastError(rc);
+      goto cleanup;
     }
-    memset(list, 0, sizeof(struct DeviceInfoSet));
-
-    list->magic = SETUP_DEV_INFO_SET_MAGIC;
-    memcpy(
-        &list->ClassGuid,
-        ClassGuid ? ClassGuid : &GUID_NULL,
-        sizeof(list->ClassGuid));
-    list->InstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS_W);
-    list->InstallParams.Flags |= DI_CLASSINSTALLPARAMS;
-    list->InstallParams.hwndParent = hwndParent;
-    if (MachineName)
+    UNCServerName = HeapAlloc(GetProcessHeap(), 0, (strlenW(MachineName) + 3) * sizeof(WCHAR));
+    if (!UNCServerName)
     {
-        rc = RegConnectRegistryW(MachineName, HKEY_LOCAL_MACHINE, &list->HKLM);
-        if (rc != ERROR_SUCCESS)
-        {
-            SetLastError(rc);
-            goto cleanup;
-        }
-        UNCServerName = MyMalloc((strlenW(MachineName) + 3) * sizeof(WCHAR));
-        if (!UNCServerName)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto cleanup;
-        }
+      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+      goto cleanup;
+    }
 
-        UNCServerName[0] = UNCServerName[1] = '\\';
-        strcpyW(UNCServerName + 2, MachineName);
-        list->szData[0] = list->szData[1] = '\\';
-        strcpyW(list->szData + 2, MachineName);
-        list->MachineName = list->szData;
-    }
-    else
+    strcpyW(UNCServerName + 2, MachineName);
+    list->szData[0] = list->szData[1] = '\\';
+    strcpyW(list->szData + 2, MachineName);
+    list->MachineName = list->szData;
+  }
+  else
+  {
+    DWORD Size = MAX_PATH;
+    list->HKLM = HKEY_LOCAL_MACHINE;
+    UNCServerName = HeapAlloc(GetProcessHeap(), 0, (MAX_PATH + 2) * sizeof(WCHAR));
+    if (!UNCServerName)
     {
-        list->HKLM = HKEY_LOCAL_MACHINE;
-        list->MachineName = NULL;
+      SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+      goto cleanup;
     }
-    cr = CM_Connect_MachineW(UNCServerName, &list->hMachine);
-    if (cr != CR_SUCCESS)
-    {
-        SetLastError(GetErrorCodeFromCrCode(cr));
-        goto cleanup;
-    }
-    InitializeListHead(&list->DriverListHead);
-    InitializeListHead(&list->ListHead);
+    if (!GetComputerNameW(UNCServerName + 2, &Size))
+      goto cleanup;
+    list->MachineName = NULL;
+  }
+#if 0
+  UNCServerName[0] = UNCServerName[1] = '\\';
+  cr = CM_Connect_MachineW(UNCServerName, &list->hMachine);
+  if (cr != CR_SUCCESS)
+  {
+    SetLastError(GetErrorCodeFromCrCode(cr));
+    goto cleanup;
+  }
+#endif
+  InitializeListHead(&list->DriverListHead);
+  InitializeListHead(&list->ListHead);
 
-    ret = (HDEVINFO)list;
+  ret = (HDEVINFO)list;
 
 cleanup:
-    if (ret == INVALID_HANDLE_VALUE)
+  if (ret == INVALID_HANDLE_VALUE)
+  {
+    if (list)
     {
-        if (list)
-        {
-            if (list->HKLM != NULL && list->HKLM != HKEY_LOCAL_MACHINE)
-                RegCloseKey(list->HKLM);
-            MyFree(list);
-        }
+      if (list->HKLM != NULL && list->HKLM != HKEY_LOCAL_MACHINE)
+        RegCloseKey(list->HKLM);
     }
-    MyFree(UNCServerName);
-    return ret;
+    HeapFree(GetProcessHeap(), 0, list);
+  }
+  if (UNCServerName)
+    HeapFree(GetProcessHeap(), 0, UNCServerName);
+  return ret;
 }
 
 /***********************************************************************
@@ -397,20 +409,20 @@ CheckSectionValid(
     DWORD i;
     BOOL ret = FALSE;
 
+    TRACE("%s %p 0x%x 0x%x\n",
+        debugstr_w(SectionName), PlatformInfo, ProductType, SuiteMask);
+
     static const WCHAR ExtensionPlatformNone[]  = {'.',0};
     static const WCHAR ExtensionPlatformNT[]  = {'.','N','T',0};
     static const WCHAR ExtensionPlatformWindows[]  = {'.','W','i','n',0};
 
     static const WCHAR ExtensionArchitectureNone[]  = {0};
     static const WCHAR ExtensionArchitecturealpha[]  = {'a','l','p','h','a',0};
-    static const WCHAR ExtensionArchitectureamd64[]  = {'A','M','D','6','4',0};
-    static const WCHAR ExtensionArchitectureia64[]  = {'I','A','6','4',0};
+    static const WCHAR ExtensionArchitectureamd64[]  = {'a','m','d','6','4',0};
+    static const WCHAR ExtensionArchitectureia64[]  = {'i','a','6','4',0};
     static const WCHAR ExtensionArchitecturemips[]  = {'m','i','p','s',0};
     static const WCHAR ExtensionArchitectureppc[]  = {'p','p','c',0};
     static const WCHAR ExtensionArchitecturex86[]  = {'x','8','6',0};
-
-    TRACE("%s %p 0x%x 0x%x\n",
-        debugstr_w(SectionName), PlatformInfo, ProductType, SuiteMask);
 
     *ScorePlatform = *ScoreMajorVersion = *ScoreMinorVersion = *ScoreProductType = *ScoreSuiteMask = 0;
 
@@ -3186,20 +3198,12 @@ InfIsFromOEMLocation(
     }
     else
     {
-        LPWSTR Windir;
+        WCHAR Windir[MAX_PATH + 1 + strlenW(InfDirectory)];
         UINT ret;
-
-        Windir = MyMalloc((MAX_PATH + 1 + strlenW(InfDirectory)) * sizeof(WCHAR));
-        if (!Windir)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
 
         ret = GetSystemWindowsDirectoryW(Windir, MAX_PATH);
         if (ret == 0 || ret > MAX_PATH)
         {
-            MyFree(Windir);
             SetLastError(ERROR_GEN_FAILURE);
             return FALSE;
         }
@@ -3217,7 +3221,6 @@ InfIsFromOEMLocation(
             /* The file is in another place */
             *IsOEMLocation = TRUE;
         }
-        MyFree(Windir);
     }
     return TRUE;
 }

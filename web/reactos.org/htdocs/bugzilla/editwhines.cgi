@@ -28,13 +28,16 @@
 use strict;
 
 use lib ".";
+require "CGI.pl";
 require "globals.pl";
+
+use vars qw( $vars );
 
 use Bugzilla::Constants;
 use Bugzilla::User;
 use Bugzilla::Group;
 # require the user to have logged in
-my $user = Bugzilla->login(LOGIN_REQUIRED);
+Bugzilla->login(LOGIN_REQUIRED);
 
 ###############################################################################
 # Main Body Execution
@@ -42,9 +45,9 @@ my $user = Bugzilla->login(LOGIN_REQUIRED);
 
 my $cgi      = Bugzilla->cgi;
 my $template = Bugzilla->template;
-my $vars     = {};
 my $dbh      = Bugzilla->dbh;
 
+my $user     = Bugzilla->user;
 my $userid   = $user->id;
 
 my $sth; # database statement handle
@@ -71,7 +74,7 @@ my $sth; # database statement handle
 my $events = get_events($userid);
 
 # First see if this user may use whines
-$user->in_group('bz_canusewhines')
+UserInGroup("bz_canusewhines")
   || ThrowUserError("auth_failure", {group  => "bz_canusewhines",
                                      action => "schedule",
                                      object => "reports"});

@@ -17,19 +17,19 @@
 
 NTSTATUS STDCALL
 IrpStub(IN PDEVICE_OBJECT DeviceObject,
-        IN PIRP Irp)
+	IN PIRP Irp)
 {
-    NTSTATUS Status = STATUS_NOT_SUPPORTED;
-    Irp->IoStatus.Status = Status;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return Status;
+	NTSTATUS Status = STATUS_NOT_SUPPORTED;
+	Irp->IoStatus.Status = Status;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return Status;
 }
 
 NTSTATUS STDCALL
 AddDevice(IN PDRIVER_OBJECT DriverObject,
           IN PDEVICE_OBJECT pdo)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 VOID STDCALL
@@ -39,64 +39,64 @@ DriverUnload(PDRIVER_OBJECT DriverObject)
 
 VOID STDCALL
 StartIo(PUSBSTOR_DEVICE_EXTENSION DeviceExtension,
-        PIRP Irp)
+           PIRP Irp)
 {
 }
-
+                
 static NTSTATUS STDCALL
 DispatchClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    Irp->IoStatus.Information = 0;
-    Irp->IoStatus.Status = STATUS_SUCCESS;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_SUCCESS;
+	Irp->IoStatus.Information = 0;
+	Irp->IoStatus.Status = STATUS_SUCCESS;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return STATUS_SUCCESS;
 }
 
 static NTSTATUS STDCALL
 DispatchCleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 static NTSTATUS STDCALL
 DispatchDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 
 static NTSTATUS STDCALL
 DispatchScsi(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 static NTSTATUS STDCALL
 DispatchReadWrite(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 static NTSTATUS STDCALL
 DispatchSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
 static NTSTATUS STDCALL
 DispatchPnp(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
-    return STATUS_SUCCESS;
+return STATUS_SUCCESS;
 }
 
-static NTSTATUS STDCALL
+static NTSTATUS STDCALL 
 DispatchPower(PDEVICE_OBJECT fido, PIRP Irp)
 {
-    DPRINT1("USBSTOR: IRP_MJ_POWER unimplemented\n");
-    Irp->IoStatus.Information = 0;
-    Irp->IoStatus.Status = STATUS_SUCCESS;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_SUCCESS;
+	DPRINT1("USBSTOR: IRP_MJ_POWER unimplemented\n");
+	Irp->IoStatus.Information = 0;
+	Irp->IoStatus.Status = STATUS_SUCCESS;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return STATUS_SUCCESS;
 }
 
 
@@ -107,32 +107,31 @@ DispatchPower(PDEVICE_OBJECT fido, PIRP Irp)
 NTSTATUS STDCALL
 DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegPath)
 {
-    ULONG i;
+	ULONG i;
+	DPRINT("********* USB Storage *********\n");
 
-    DPRINT("********* USB Storage *********\n");
+	DriverObject->DriverUnload = DriverUnload;
+	DriverObject->DriverExtension->AddDevice = AddDevice;
 
-    DriverObject->DriverUnload = DriverUnload;
-    DriverObject->DriverExtension->AddDevice = AddDevice;
+	for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
+		DriverObject->MajorFunction[i] = IrpStub;
 
-    for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
-        DriverObject->MajorFunction[i] = IrpStub;
+        DriverObject->DriverStartIo = (PVOID)StartIo;
 
-    DriverObject->DriverStartIo = (PVOID)StartIo;
+	DriverObject->MajorFunction[IRP_MJ_CREATE] = DispatchClose;
+	DriverObject->MajorFunction[IRP_MJ_CLOSE] = DispatchClose;
+	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = DispatchCleanup;
+	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DispatchDeviceControl;
+	DriverObject->MajorFunction[IRP_MJ_READ] = DispatchReadWrite;
+	DriverObject->MajorFunction[IRP_MJ_WRITE] = DispatchReadWrite;
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = DispatchClose;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = DispatchClose;
-    DriverObject->MajorFunction[IRP_MJ_CLEANUP] = DispatchCleanup;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DispatchDeviceControl;
-    DriverObject->MajorFunction[IRP_MJ_READ] = DispatchReadWrite;
-    DriverObject->MajorFunction[IRP_MJ_WRITE] = DispatchReadWrite;
+/* Scsi Miniport support */
+	DriverObject->MajorFunction[IRP_MJ_SCSI] = DispatchScsi;
+	DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = DispatchSystemControl;
 
-    /* Scsi Miniport support */
-    DriverObject->MajorFunction[IRP_MJ_SCSI] = DispatchScsi;
-    DriverObject->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = DispatchSystemControl;
+	DriverObject->MajorFunction[IRP_MJ_PNP] = DispatchPnp;
+	DriverObject->MajorFunction[IRP_MJ_POWER] = DispatchPower;
 
-    DriverObject->MajorFunction[IRP_MJ_PNP] = DispatchPnp;
-    DriverObject->MajorFunction[IRP_MJ_POWER] = DispatchPower;
-
-    return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 

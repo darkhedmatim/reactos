@@ -29,7 +29,7 @@ extern unsigned int _bss_end__;
 
 
 static BOOLEAN IsThisAnNtAsSystem = FALSE;
-MM_SYSTEM_SIZE MmSystemSize = MmSmallSystem;
+static MM_SYSTEM_SIZE MmSystemSize = MmSmallSystem;
 
 PHYSICAL_ADDRESS MmSharedDataPagePhysicalAddress;
 
@@ -384,6 +384,7 @@ MmInit1(ULONG_PTR FirstKrnlPhysAddr,
    MmInitGlobalKernelPageDirectory();
 
    DbgPrint("Used memory %dKb\n", (MmStats.NrTotalPages * PAGE_SIZE) / 1024);
+   DPRINT1("Kernel Stack Limits. InitTop = 0x%x, Init = 0x%x\n", init_stack_top, init_stack);
 
    LastKernelAddress = (ULONG_PTR)MmInitializePageList(
                        FirstKrnlPhysAddr,

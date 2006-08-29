@@ -132,6 +132,8 @@ NtCreatePort (PHANDLE		      PortHandle,
   Port->MaxDataLength = LPC_MAX_MESSAGE_LENGTH;
   Port->MaxPoolUsage = MaxPoolUsage;
 
+  ObDereferenceObject (Port);
+
   return (Status);
 }
 

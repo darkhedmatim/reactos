@@ -21,12 +21,13 @@ use lib qw(.);
 
 use Bugzilla;
 use Bugzilla::Constants;
+use Bugzilla::User;
 use Bugzilla::User::Setting;
 
-require "globals.pl";
+require "CGI.pl";
 
-my $template = Bugzilla->template;
-my $vars = {};
+# Use global template variables.
+use vars qw($template $vars);
 
 ###############################
 ###  Subroutine Definitions ###
@@ -68,12 +69,12 @@ sub SaveSettings{
 ###  Live code  ###
 ###################
 
-my $user = Bugzilla->login(LOGIN_REQUIRED);
+Bugzilla->login(LOGIN_REQUIRED);
 
 my $cgi = Bugzilla->cgi;
 print $cgi->header;
 
-$user->in_group('tweakparams')
+UserInGroup("tweakparams")
   || ThrowUserError("auth_failure", {group  => "tweakparams",
                                      action => "modify",
                                      object => "settings"});

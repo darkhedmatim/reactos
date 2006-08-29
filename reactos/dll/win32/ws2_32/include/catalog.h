@@ -7,8 +7,7 @@
 #ifndef __CATALOG_H
 #define __CATALOG_H
 
-typedef struct _CATALOG_ENTRY
-{
+typedef struct _CATALOG_ENTRY {
     LIST_ENTRY ListEntry;
     ULONG ReferenceCount;
     CRITICAL_SECTION Lock;

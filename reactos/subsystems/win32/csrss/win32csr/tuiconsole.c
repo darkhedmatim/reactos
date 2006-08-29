@@ -242,8 +242,6 @@ TuiInitConsole(PCSRSS_CONSOLE Console)
   Console->Vtbl = &TuiVtbl;
   Console->hWindow = (HWND) NULL;
   Console->Size = PhysicalConsoleSize;
-  Console->ActiveBuffer->MaxX = PhysicalConsoleSize.X;
-  Console->ActiveBuffer->MaxY = PhysicalConsoleSize.Y;
 
   EnterCriticalSection(&ActiveConsoleLock);
   if (NULL != ActiveConsole)

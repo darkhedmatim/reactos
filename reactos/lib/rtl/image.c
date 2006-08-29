@@ -45,10 +45,12 @@ RtlImageNtHeader (IN PVOID BaseAddress)
  */
 PVOID
 NTAPI
-RtlImageDirectoryEntryToData(PVOID BaseAddress,
-                             BOOLEAN MappedAsImage,
-                             USHORT Directory,
-                             PULONG Size)
+RtlImageDirectoryEntryToData (
+	PVOID	BaseAddress,
+	BOOLEAN	bMappedAsImage,
+	ULONG	Directory,
+	PULONG	Size
+	)
 {
 	PIMAGE_NT_HEADERS NtHeader;
 	ULONG Va;
@@ -57,7 +59,7 @@ RtlImageDirectoryEntryToData(PVOID BaseAddress,
 	if ((ULONG_PTR)BaseAddress & 1)
 	{
 		BaseAddress = (PVOID)((ULONG_PTR)BaseAddress & ~1);
-		MappedAsImage = FALSE;
+		bMappedAsImage = FALSE;
         }
 
 
@@ -74,7 +76,7 @@ RtlImageDirectoryEntryToData(PVOID BaseAddress,
 
 	*Size = NtHeader->OptionalHeader.DataDirectory[Directory].Size;
 
-	if (MappedAsImage || Va < NtHeader->OptionalHeader.SizeOfHeaders)
+	if (bMappedAsImage || Va < NtHeader->OptionalHeader.SizeOfHeaders)
 		return (PVOID)((ULONG_PTR)BaseAddress + Va);
 
 	/* image mapped as ordinary file, we must find raw pointer */

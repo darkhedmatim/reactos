@@ -1,20 +1,20 @@
 <?php
 # Copyright (C) 2004 Brion Vibber <brion@pobox.com>
 # http://www.mediawiki.org/
-#
+# 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 2 of the License, or 
 # (at your option) any later version.
-#
+# 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-#
+# 
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 # http://www.gnu.org/copyleft/gpl.html
 
 /**
@@ -23,14 +23,18 @@
  * @subpackage SpecialPage
  */
 
+/** */
+require_once( 'SearchEngine.php' );
+require_once( 'Revision.php' );
+
 /**
  * Entry point
  *
- * @param $par String: (default '')
+ * @param string $par (default '')
  */
 function wfSpecialSearch( $par = '' ) {
 	global $wgRequest, $wgUser;
-
+	
 	$search = $wgRequest->getText( 'search', $par );
 	$searchPage = new SpecialSearch( $wgRequest, $wgUser );
 	if( $wgRequest->getVal( 'fulltext' ) ||
@@ -55,29 +59,29 @@ class SpecialSearch {
 	 *
 	 * @param WebRequest $request
 	 * @param User $user
-	 * @public
+	 * @access public
 	 */
 	function SpecialSearch( &$request, &$user ) {
 		list( $this->limit, $this->offset ) = $request->getLimitOffset( 20, 'searchlimit' );
-
+		
 		if( $request->getCheck( 'searchx' ) ) {
 			$this->namespaces = $this->powerSearch( $request );
 		} else {
 			$this->namespaces = $this->userNamespaces( $user );
 		}
-
+		
 		$this->searchRedirects = $request->getcheck( 'redirs' ) ? true : false;
 	}
-
+	
 	/**
 	 * If an exact title match can be found, jump straight ahead to
 	 * @param string $term
-	 * @public
+	 * @access public
 	 */
 	function goResult( $term ) {
 		global $wgOut;
 		global $wgGoToEdit;
-
+		
 		$this->setupPage( $term );
 
 		# Try to go to page as entered.
@@ -85,7 +89,7 @@ class SpecialSearch {
 		$t = Title::newFromText( $term );
 
 		# If the string cannot be used to create a title
-		if( is_null( $t ) ){
+		if( is_null( $t ) ){ 
 			return $this->showResults( $term );
 		}
 
@@ -95,13 +99,12 @@ class SpecialSearch {
 			$wgOut->redirect( $t->getFullURL() );
 			return;
 		}
-
+		
 		# No match, generate an edit URL
 		$t = Title::newFromText( $term );
 		if( is_null( $t ) ) {
 			$editurl = ''; # hrm...
 		} else {
-			wfRunHooks( 'SpecialSearchNogomatch', array( &$t ) );
 			# If the feature is enabled, go straight to the edit page
 			if ( $wgGoToEdit ) {
 				$wgOut->redirect( $t->getFullURL( 'action=edit' ) );
@@ -110,25 +113,25 @@ class SpecialSearch {
 				$editurl = $t->escapeLocalURL( 'action=edit' );
 			}
 		}
-		$wgOut->addWikiText( wfMsg( 'noexactmatch', $term ) );
+		$wgOut->addWikiText( wfMsg('nogomatch', ":$term" ) );
 
 		return $this->showResults( $term );
 	}
-
+	
 	/**
 	 * @param string $term
-	 * @public
+	 * @access public
 	 */
 	function showResults( $term ) {
 		$fname = 'SpecialSearch::showResults';
 		wfProfileIn( $fname );
-
+		
 		$this->setupPage( $term );
-
+		
 		global $wgUser, $wgOut;
 		$sk = $wgUser->getSkin();
 		$wgOut->addWikiText( wfMsg( 'searchresulttext' ) );
-
+		
 		#if ( !$this->parseQuery() ) {
 		if( '' === trim( $term ) ) {
 			$wgOut->setSubtitle( '' );
@@ -136,7 +139,7 @@ class SpecialSearch {
 			wfProfileOut( $fname );
 			return;
 		}
-
+		
 		global $wgDisableTextSearch;
 		if ( $wgDisableTextSearch ) {
 			global $wgForwardSearchUrl;
@@ -164,7 +167,7 @@ class SpecialSearch {
 		$search->showRedirects = $this->searchRedirects;
 		$titleMatches = $search->searchTitle( $term );
 		$textMatches = $search->searchText( $term );
-
+		
 		$num = ( $titleMatches ? $titleMatches->numRows() : 0 )
 			+ ( $textMatches ? $textMatches->numRows() : 0);
 		if ( $num >= $this->limit ) {
@@ -191,7 +194,7 @@ class SpecialSearch {
 				$wgOut->addWikiText( '==' . wfMsg( 'notitlematches' ) . "==\n" );
 			}
 		}
-
+		
 		if( $textMatches ) {
 			if( $textMatches->numRows() ) {
 				$wgOut->addWikiText( '==' . wfMsg( 'textmatches' ) . "==\n" );
@@ -201,7 +204,7 @@ class SpecialSearch {
 				$wgOut->addWikiText( '==' . wfMsg( 'notextmatches' ) . "==\n" );
 			}
 		}
-
+		
 		if ( $num == 0 ) {
 			$wgOut->addWikiText( wfMsg( 'nonefound' ) );
 		}
@@ -211,29 +214,28 @@ class SpecialSearch {
 		$wgOut->addHTML( $this->powerSearchBox( $term ) );
 		wfProfileOut( $fname );
 	}
-
+	
 	#------------------------------------------------------------------
 	# Private methods below this line
-
+	
 	/**
-	 *
+	 * 
 	 */
 	function setupPage( $term ) {
 		global $wgOut;
 		$wgOut->setPageTitle( wfMsg( 'searchresults' ) );
-		$subtitlemsg = ( Title::newFromText($term) ? 'searchsubtitle' : 'searchsubtitleinvalid' );
-		$wgOut->setSubtitle( $wgOut->parse( wfMsg( $subtitlemsg, wfEscapeWikiText($term) ) ) );
+		$wgOut->setSubtitle( htmlspecialchars( wfMsg( 'searchquery', $term ) ) );
 		$wgOut->setArticleRelated( false );
 		$wgOut->setRobotpolicy( 'noindex,nofollow' );
 	}
-
+	
 	/**
 	 * Extract default namespaces to search from the given user's
 	 * settings, returning a list of index numbers.
 	 *
 	 * @param User $user
 	 * @return array
-	 * @private
+	 * @access private
 	 */
 	function userNamespaces( &$user ) {
 		$arr = array();
@@ -244,14 +246,14 @@ class SpecialSearch {
 		}
 		return $arr;
 	}
-
+	
 	/**
 	 * Extract "power search" namespace settings from the request object,
 	 * returning a list of index numbers to search.
 	 *
 	 * @param WebRequest $request
 	 * @return array
-	 * @private
+	 * @access private
 	 */
 	function powerSearch( &$request ) {
 		$arr = array();
@@ -262,11 +264,11 @@ class SpecialSearch {
 		}
 		return $arr;
 	}
-
+	
 	/**
 	 * Reconstruct the 'power search' options for links
 	 * @return array
-	 * @private
+	 * @access private
 	 */
 	function powerSearchOptions() {
 		$opt = array();
@@ -277,7 +279,7 @@ class SpecialSearch {
 		$opt['searchx'] = 1;
 		return $opt;
 	}
-
+	
 	/**
 	 * @param SearchResultSet $matches
 	 * @param string $terms partial regexp for highlighting terms
@@ -285,11 +287,12 @@ class SpecialSearch {
 	function showMatches( &$matches ) {
 		$fname = 'SpecialSearch::showMatches';
 		wfProfileIn( $fname );
-
+		
 		global $wgContLang;
 		$tm = $wgContLang->convertForSearchResult( $matches->termMatches() );
 		$terms = implode( '|', $tm );
-
+		
+		global $wgOut;
 		$off = $this->offset + 1;
 		$out = "<ol start='{$off}'>\n";
 
@@ -304,7 +307,7 @@ class SpecialSearch {
 		wfProfileOut( $fname );
 		return $out;
 	}
-
+	
 	/**
 	 * Format a single hit result
 	 * @param SearchResult $result
@@ -313,7 +316,7 @@ class SpecialSearch {
 	function showHit( $result, $terms ) {
 		$fname = 'SpecialSearch::showHit';
 		wfProfileIn( $fname );
-		global $wgUser, $wgContLang, $wgLang;
+		global $wgUser, $wgContLang;
 
 		$t = $result->getTitle();
 		if( is_null( $t ) ) {
@@ -330,16 +333,15 @@ class SpecialSearch {
 		$link = $sk->makeKnownLinkObj( $t );
 		$revision = Revision::newFromTitle( $t );
 		$text = $revision->getText();
-		$size = wfMsgExt( 'nbytes', array( 'parsemag', 'escape'),
-			$wgLang->formatNum( strlen( $text ) ) );
+		$size = wfMsg( 'nbytes', strlen( $text ) );
 
 		$lines = explode( "\n", $text );
 
-		$max = intval( $contextchars ) + 1;
+		$max = IntVal( $contextchars ) + 1;
 		$pat1 = "/(.*)($terms)(.{0,$max})/i";
 
 		$lineno = 0;
-
+		
 		$extract = '';
 		wfProfileIn( "$fname-extract" );
 		foreach ( $lines as $line ) {
@@ -372,7 +374,7 @@ class SpecialSearch {
 		wfProfileOut( $fname );
 		return "<li>{$link} ({$size}){$extract}</li>\n";
 	}
-
+	
 	function powerSearchBox( $term ) {
 		$namespaces = '';
 		foreach( SearchEngine::searchableNamespaces() as $ns => $name ) {
@@ -386,23 +388,23 @@ class SpecialSearch {
 			$namespaces .= " <label><input type='checkbox' value=\"1\" name=\"" .
 			  "ns{$ns}\"{$checked} />{$name}</label>\n";
 		}
-
+		
 		$checked = $this->searchRedirects
 			? ' checked="checked"'
 			: '';
 		$redirect = "<input type='checkbox' value='1' name=\"redirs\"{$checked} />\n";
-
-		$searchField = '<input type="text" name="search" value="' .
-			htmlspecialchars( $term ) ."\" size=\"16\" />\n";
-
+		
+		$searchField = "<input type='text' name=\"search\" value=\"" .
+			htmlspecialchars( $term ) ."\" width=\"80\" />\n";
+		
 		$searchButton = '<input type="submit" name="searchx" value="' .
 		  htmlspecialchars( wfMsg('powersearch') ) . "\" />\n";
-
+		
 		$ret = wfMsg( 'powersearchtext',
 			$namespaces, $redirect, $searchField,
 			'', '', '', '', '', # Dummy placeholders
 			$searchButton );
-
+		
 		$title = Title::makeTitle( NS_SPECIAL, 'Search' );
 		$action = $title->escapeLocalURL();
 		return "<br /><br />\n<form id=\"powersearch\" method=\"get\" " .

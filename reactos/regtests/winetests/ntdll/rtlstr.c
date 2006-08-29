@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * NOTES
  * We use function pointers here as there is no import library for NTDLL on
@@ -199,8 +199,8 @@ static void test_RtlInitUnicodeStringEx(void)
     uni.Buffer = (void *) 0xdeadbeef;
     result = pRtlInitUnicodeStringEx(&uni, teststring);
     ok(result == STATUS_SUCCESS,
-       "pRtlInitUnicodeStringEx(&uni, 0) returns %lx, expected 0\n",
-       result);
+       "pRtlInitUnicodeStringEx(&uni, 0) returns %lx, expected %lx\n",
+       result, (DWORD) STATUS_SUCCESS);
     ok(uni.Length == 32,
        "pRtlInitUnicodeStringEx(&uni, 0) sets Length to %u, expected %u\n",
        uni.Length, 32);
@@ -231,7 +231,7 @@ static void test_RtlInitUnicodeStringEx(void)
     result = pRtlInitUnicodeStringEx(&uni, teststring2);
     ok(result == STATUS_NAME_TOO_LONG,
        "pRtlInitUnicodeStringEx(&uni, 0) returns %lx, expected %lx\n",
-       result, STATUS_NAME_TOO_LONG);
+       result, (DWORD) STATUS_NAME_TOO_LONG);
     ok(uni.Length == 12345,
        "pRtlInitUnicodeStringEx(&uni, 0) sets Length to %u, expected %u\n",
        uni.Length, 12345);
@@ -263,8 +263,8 @@ static void test_RtlInitUnicodeStringEx(void)
     uni.Buffer = (void *) 0xdeadbeef;
     result = pRtlInitUnicodeStringEx(&uni, 0);
     ok(result == STATUS_SUCCESS,
-       "pRtlInitUnicodeStringEx(&uni, 0) returns %lx, expected 0\n",
-       result);
+       "pRtlInitUnicodeStringEx(&uni, 0) returns %lx, expected %lx\n",
+       result, (DWORD) STATUS_SUCCESS);
     ok(uni.Length == 0,
        "pRtlInitUnicodeStringEx(&uni, 0) sets Length to %u, expected %u\n",
        uni.Length, 0);
@@ -1651,30 +1651,27 @@ static void test_RtlIntegerToChar(void)
     result = pRtlIntegerToChar(int2str[0].value, 20, int2str[0].MaximumLength, NULL);
     ok(result == STATUS_INVALID_PARAMETER,
        "(test a): RtlIntegerToChar(%lu, %d, %d, NULL) has result %lx, expected: %lx\n",
-       int2str[0].value, 20, int2str[0].MaximumLength, result, STATUS_INVALID_PARAMETER);
+       int2str[0].value, 20, int2str[0].MaximumLength, result, (DWORD) STATUS_INVALID_PARAMETER);
 
     result = pRtlIntegerToChar(int2str[0].value, 20, 0, NULL);
     ok(result == STATUS_INVALID_PARAMETER,
        "(test b): RtlIntegerToChar(%lu, %d, %d, NULL) has result %lx, expected: %lx\n",
-       int2str[0].value, 20, 0, result, STATUS_INVALID_PARAMETER);
+       int2str[0].value, 20, 0, result, (DWORD) STATUS_INVALID_PARAMETER);
 
     result = pRtlIntegerToChar(int2str[0].value, int2str[0].base, 0, NULL);
     ok(result == STATUS_BUFFER_OVERFLOW,
        "(test c): RtlIntegerToChar(%lu, %d, %d, NULL) has result %lx, expected: %lx\n",
-       int2str[0].value, int2str[0].base, 0, result, STATUS_BUFFER_OVERFLOW);
+       int2str[0].value, int2str[0].base, 0, result, (DWORD) STATUS_BUFFER_OVERFLOW);
 
     result = pRtlIntegerToChar(int2str[0].value, int2str[0].base, int2str[0].MaximumLength, NULL);
     ok(result == STATUS_ACCESS_VIOLATION,
        "(test d): RtlIntegerToChar(%lu, %d, %d, NULL) has result %lx, expected: %lx\n",
-       int2str[0].value, int2str[0].base, int2str[0].MaximumLength, result, STATUS_ACCESS_VIOLATION);
+       int2str[0].value, int2str[0].base, int2str[0].MaximumLength, result, (DWORD) STATUS_ACCESS_VIOLATION);
 }
 
 static const WCHAR szGuid[] = { '{','0','1','0','2','0','3','0','4','-',
   '0','5','0','6','-'  ,'0','7','0','8','-','0','9','0','A','-',
   '0','B','0','C','0','D','0','E','0','F','0','A','}','\0' };
-static const WCHAR szGuid2[] = { '{','0','1','0','2','0','3','0','4','-',
-  '0','5','0','6','-'  ,'0','7','0','8','-','0','9','0','A','-',
-  '0','B','0','C','0','D','0','E','0','F','0','A',']','\0' };
 DEFINE_GUID(IID_Endianess, 0x01020304, 0x0506, 0x0708, 0x09, 0x0A, 0x0B,
             0x0C, 0x0D, 0x0E, 0x0F, 0x0A);
 
@@ -1690,12 +1687,6 @@ static void test_RtlGUIDFromString(void)
   ret = pRtlGUIDFromString(&str, &guid);
   ok(ret == 0, "expected ret=0, got 0x%0lx\n", ret);
   ok(memcmp(&guid, &IID_Endianess, sizeof(guid)) == 0, "Endianess broken\n");
-
-  str.Length = str.MaximumLength = (sizeof(szGuid2) - 1) / sizeof(WCHAR);
-  str.Buffer = (LPWSTR)szGuid2;
-
-  ret = pRtlGUIDFromString(&str, &guid);
-  ok(ret, "expected ret!=0\n");
 }
 
 static void test_RtlStringFromGUID(void)

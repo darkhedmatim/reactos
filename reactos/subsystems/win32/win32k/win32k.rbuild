@@ -12,7 +12,6 @@
 	<define name="_SEH_NO_NATIVE_NLG" />
 	<define name="_WIN32K_" />
 	<pch>w32k.h</pch>
-
 	<directory name="dib">
 		<file>dib1bpp.c</file>
 		<file>dib4bpp.c</file>
@@ -24,25 +23,7 @@
 		<file>dib32bpp.c</file>
 		<file>dib32gen.c</file>
 		<file>dib.c</file>
-
-            <if property="ARCH" value="i386">
-                      <directory name="i386">
-                            <file>dib24bpp_hline.s</file>
-                            <file>dib32bpp_hline.s</file>
-                            <file>dib32bpp_colorfill.s</file>
-                      </directory>
-            </if>
-
-            <ifnot property="ARCH" value="i386">                      
-                      <file>dib24bppc.c</file>
-                      <file>dib32bppc.c</file>
-            </ifnot> 
-
 	</directory>
-
-      
-
-
 	<directory name="eng">
 		<compilationunit name="eng.c">
 			<file>bitblt.c</file>
@@ -85,21 +66,17 @@
 			<file>copy.c</file>
 			<file>usrheap.c</file>
 		</compilationunit>
-            <if property="ARCH" value="i386">
-		        <directory name="i386">
-			        <file>cos_asm.s</file>
-			        <file>sin_asm.s</file>
-			        <file>atan2_asm.s</file>
-			        <file>floor_asm.s</file>
-			        <file>ceil_asm.s</file>
-		       </directory>
-            </if>            
+		<directory name="i386">
+			<file>cos_asm.s</file>
+			<file>sin_asm.s</file>
+			<file>atan2_asm.s</file>
+			<file>floor_asm.s</file>
+			<file>ceil_asm.s</file>
+	        </directory>
 	</directory>
 	<directory name="ntddraw">
 		<compilationunit name="ntddraw.c">
 			<file>ddraw.c</file>
-			<file>dd.c</file>
-			<file>ddsurf.c</file>
 			<file>stubs.c</file>
 		</compilationunit>
 	</directory>
@@ -177,7 +154,7 @@
 		</compilationunit>
 	</directory>
 </module>
-<module name="win32k" type="exportdriver" installbase="system32" installname="win32k.sys" allowwarnings="true">
+<module name="win32k" type="kernelmodedriver" installbase="system32" installname="win32k.sys" allowwarnings="true">
 	<importlibrary definition="win32k.def" />
 	<library>win32k_base</library>
 	<library>pseh</library>

@@ -3,7 +3,6 @@
     <define name="__USE_W32API" />
     <library>ntdll</library>
     <file>cpp.c</file>
-    <file>dir.c</file>
     <file>environ.c</file>
     <file>file.c</file>
     <file>heap.c</file>

@@ -5,8 +5,6 @@
  * User functions
  *
  * ReactOS Operating System
- *
- * PROGRAMMER: Eric Kohl
  */
 
 /* INCLUDES ******************************************************************/

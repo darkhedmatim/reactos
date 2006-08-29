@@ -527,34 +527,17 @@ BuildSecurityDescriptorA(IN PTRUSTEE_A pOwner  OPTIONAL,
  */
 BOOL WINAPI DecryptFileW(LPCWSTR lpFileName, DWORD dwReserved)
 {
-    DPRINT1("%s(%S) not implemented!\n", __FUNCTION__, lpFileName);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI DecryptFileA(LPCSTR lpFileName, DWORD dwReserved)
 {
-    UNICODE_STRING FileName;
-    NTSTATUS Status;
-    BOOL ret = FALSE;
-
-    FileName.Buffer = NULL;
-
-    Status = RtlCreateUnicodeStringFromAsciiz(&FileName, lpFileName);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        goto cleanup;
-    }
-    ret = DecryptFileW(FileName.Buffer, dwReserved);
-
-cleanup:
-    if (FileName.Buffer != NULL)
-        RtlFreeUnicodeString(&FileName);
-    return ret;
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /*
@@ -563,8 +546,7 @@ cleanup:
 BOOL WINAPI EncryptFileW(LPCWSTR lpFileName)
 {
     DPRINT1("%s() not implemented!\n", __FUNCTION__);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /*
@@ -573,8 +555,7 @@ BOOL WINAPI EncryptFileW(LPCWSTR lpFileName)
 BOOL WINAPI EncryptFileA(LPCSTR lpFileName)
 {
     DPRINT1("%s() not implemented!\n", __FUNCTION__);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(
@@ -585,8 +566,7 @@ BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(
     PULONG pulong)
 {
     DPRINT1("%s() not implemented!\n", __FUNCTION__);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(
@@ -597,8 +577,7 @@ BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(
     PULONG pulong)
 {
     DPRINT1("%s() not implemented!\n", __FUNCTION__);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /* EOF */

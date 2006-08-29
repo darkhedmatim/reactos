@@ -125,9 +125,9 @@ VOID
 STDCALL
 KeStallExecutionProcessor(ULONG Microseconds)
 {
-   PKIPCR Pcr = (PKIPCR)KeGetPcr();
+   PKIPCR Pcr = (PKIPCR)KeGetCurrentKPCR();
 
-   if (Pcr->PrcbData.FeatureBits & KF_RDTSC)
+   if (Pcr->PrcbData.FeatureBits & X86_FEATURE_TSC)
    {
       LARGE_INTEGER EndCount, CurrentCount;
       Ki386RdTSC(EndCount);
@@ -201,14 +201,14 @@ VOID HalpCalibrateStallExecution(VOID)
     }
 
   UdelayCalibrated = TRUE;
-  Pcr = (PKIPCR)KeGetPcr();
+  Pcr = (PKIPCR)KeGetCurrentKPCR();
 
   /* Initialise timer interrupt with MILLISEC ms interval        */
   WRITE_PORT_UCHAR((PUCHAR) TMR_CTRL, TMR_SC0 | TMR_BOTH | TMR_MD2);  /* binary, mode 2, LSB/MSB, ch 0 */
   WRITE_PORT_UCHAR((PUCHAR) TMR_CNT0, LATCH & 0xff); /* LSB */
   WRITE_PORT_UCHAR((PUCHAR) TMR_CNT0, LATCH >> 8); /* MSB */
 
-  if (Pcr->PrcbData.FeatureBits & KF_RDTSC)
+  if (Pcr->PrcbData.FeatureBits & X86_FEATURE_TSC)
   {
       
      WaitFor8254Wraparound();
@@ -223,7 +223,7 @@ VOID HalpCalibrateStallExecution(VOID)
 
   }
 
-  DPRINT("Calibrating delay loop... [");
+  DbgPrint("Calibrating delay loop... [");
 
   /* Stage 1:  Coarse calibration					    */
 
@@ -246,7 +246,7 @@ VOID HalpCalibrateStallExecution(VOID)
   Pcr->StallScaleFactor >>= 1;		    /* Get bottom value for delay   */
 
   /* Stage 2:  Fine calibration						    */
-  DPRINT("delay_count: %d", Pcr->StallScaleFactor);
+  DbgPrint("delay_count: %d", Pcr->StallScaleFactor);
 
   calib_bit = Pcr->StallScaleFactor;	/* Which bit are we going to test   */
 
@@ -275,9 +275,9 @@ VOID HalpCalibrateStallExecution(VOID)
 
   Pcr->StallScaleFactor /= (MILLISEC / 2);  /* Calculate delay_count for 1ms */
 
-  DPRINT("]\n");
-  DPRINT("delay_count: %d\n", Pcr->StallScaleFactor);
-  DPRINT("CPU speed: %d\n", Pcr->StallScaleFactor / 250);
+  DbgPrint("]\n");
+  DbgPrint("delay_count: %d\n", Pcr->StallScaleFactor);
+  DbgPrint("CPU speed: %d\n", Pcr->StallScaleFactor / 250);
 #if 0
   DbgPrint("About to start delay loop test\n");
   DbgPrint("Waiting for five minutes...");
@@ -325,9 +325,9 @@ KeQueryPerformanceCounter(PLARGE_INTEGER PerformanceFreq)
   Ki386SaveFlags(Flags);
   Ki386DisableInterrupts();
 
-  Pcr = (PKIPCR)KeGetPcr();
+  Pcr = (PKIPCR)KeGetCurrentKPCR();
 
-  if (Pcr->PrcbData.FeatureBits & KF_RDTSC)
+  if (Pcr->PrcbData.FeatureBits & X86_FEATURE_TSC)
   {
      Ki386RestoreFlags(Flags);
      if (NULL != PerformanceFreq)

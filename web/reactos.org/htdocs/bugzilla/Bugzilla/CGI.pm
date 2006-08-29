@@ -25,18 +25,9 @@ use strict;
 
 package Bugzilla::CGI;
 
-BEGIN {
-    if ($^O =~ /MSWin32/i) {
-        # Help CGI find the correct temp directory as the default list
-        # isn't Windows friendly (Bug 248988)
-        $ENV{'TMPDIR'} = $ENV{'TEMP'} || $ENV{'TMP'} || "$ENV{'WINDIR'}\\TEMP";
-    }
-}
-
 use CGI qw(-no_xhtml -oldstyle_urls :private_tempfiles :unique_headers SERVER_PUSH);
 
 use base qw(CGI);
-use CGI::Carp qw(fatalsToBrowser);
 
 use Bugzilla::Error;
 use Bugzilla::Util;
@@ -60,8 +51,8 @@ sub new {
     # Make sure our outgoing cookie list is empty on each invocation
     $self->{Bugzilla_cookie_list} = [];
 
-    # Send appropriate charset
-    $self->charset(Param('utf8') ? 'UTF-8' : '');
+    # Make sure that we don't send any charset headers
+    $self->charset('');
 
     # Redirect to SSL if required
     if (Param('sslbase') ne '' and Param('ssl') eq 'always' and i_am_cgi()) {
@@ -116,7 +107,7 @@ sub canonicalise_query {
         my $esc_key = url_quote($key);
 
         foreach my $value ($self->param($key)) {
-            if (defined($value)) {
+            if ($value) {
                 my $esc_value = url_quote($value);
 
                 push(@parameters, "$esc_key=$esc_value");
@@ -183,7 +174,7 @@ sub multipart_start {
 }
 
 # The various parts of Bugzilla which create cookies don't want to have to
-# pass them around to all of the callers. Instead, store them locally here,
+# pass them arround to all of the callers. Instead, store them locally here,
 # and then output as required from |header|.
 sub send_cookie {
     my $self = shift;

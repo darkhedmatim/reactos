@@ -17,10 +17,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
     */
-	
-	if ($rpm_page != "admin" && $rpm_page != "dev" && $rpm_page != "team" && $rpm_page != "trans") {
-		die("");
-	}
 ?>
 <div class="contentSmall"> <span class="contentSmallTitle"><?php
 	if ($rpm_page == "admin") {
@@ -41,25 +37,9 @@
   ?></span> 
   <?php if(!isset($_POST['content_rad_opt']) || $_POST['content_rad_opt'] == "preview") { ?>
   <ul>
-    <li><strong><a href="?page=<?php echo $rpm_page; ?>&sec=content&sec2=view&amp;<?php echo 'sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;langid='.$rpm_lang_id."#".$rpm_db_id ; ?>"><?php
-	if ($rpm_page == "admin") {
-		echo "Admin Interface - Content";
-	}
-	elseif ($rpm_page == "dev") {
-		echo $roscms_langres['ContTrans_Interface_Content'];
-	}
-	elseif ($rpm_page == "trans") {
-		echo "Translator Interface - Content";
-	}
-	elseif ($rpm_page == "team") {
-		echo "Team Interface - Content";
-	}
-	else {
-		echo $rpm_page." Interface - Content";
-	}
-  ?></a></strong> 
+    <li><strong><a href="?page=<?php echo $rpm_page; ?>&sec=content&sec2=view&amp;<?php echo 'sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;langid='.$rpm_lang_id."#".$rpm_db_id ; ?>">Content</a></strong> 
       <ul>
-        <li><?php echo $roscms_langres['ContTrans_ViewEditContent']; ?></li>
+        <li>View content</li>
       </ul>
     </li>
   </ul>
@@ -80,20 +60,21 @@
 		echo '?page='.$rpm_page.'&amp;sec=content&amp;sec2=save&amp;db_id='.$rpm_db_id;
 	 ?>">
     <table width="600" border="0" cellpadding="1" cellspacing="1">
-      <tr bgcolor="<?php echo $roscms_intern_color0; ?>"> 
-        <td width="15%" bgcolor="<?php echo $roscms_intern_color0; ?>"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_ContentID']; ?></strong></font></div></td>
+      <tr bgcolor="#5984C3"> 
+        <td width="15%" bgcolor="#5984C3"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Content 
+            ID </strong></font></div></td>
         <td width="85%" bgcolor="#E2E2E2"> <div align="left"><font face="Arial, Helvetica, sans-serif"> 
-            <font size="1">[#cont_</font><?php
+            [#cont_<?php
 			if ($rpm_page == "trans") {
 				echo '<input name="txt_contentid" type="hidden" id="txt_contentid" value="'.$result_content['content_name'].'"><b>'.$result_content['content_name'].'</b>';
 			}
 			else {
 				echo '<input name="txt_contentid" type="text" id="txt_contentid" value="'.$result_content['content_name'].'" size="50" maxlength="50">';
 			}
-            ?><font size="1">]</font> &nbsp; (<?php echo $roscms_langres['ContTrans_egAbout']; ?>)</font></div></td>
+            ?>] &nbsp; (e.g. &quot;about&quot;)</font></div></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Language']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"> <div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Language</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><div align="left"> 
             <select id="txt_langa" size="1" name="txt_langa" class="selectbox">
               <?php 
@@ -109,40 +90,20 @@
               <optgroup label="languages"> 
 <?php 
 			if ($rpm_page != "trans") {
-				echo '<option value="all"';
-				if ($cmsros_intern_temp_lang_short == "all") {
-					echo ' selected="selected"';
-				}
-				echo ">".$roscms_langres['ContTrans_All']; 
-				echo "</option>";
+?>
+              <option value="all"<?php if ($cmsros_intern_temp_lang_short == "all") { echo ' selected="selected"'; } ?>>All</option>
+<?php
 			}
 
-
-		$sql_lang_usr="SELECT * 
-					FROM users
-					WHERE user_id = '".mysql_escape_string($roscms_intern_account_id)."'
-					LIMIT 1 ;";
-		$sql_query_lang_usr=mysql_query($sql_lang_usr);
-		$myrow_lang_usr=mysql_fetch_array($sql_query_lang_usr);
-
+			  
 		// Languages
-		if ($rpm_page == "trans") {
-			$sql_langa="SELECT * 
-						FROM languages
-						WHERE lang_level != '0'
-						AND lang_id = '".mysql_escape_string($myrow_lang_usr['user_language'])."'
-						ORDER BY 'lang_level' DESC";
-			$sql_query_langa=mysql_query($sql_langa);
-		}
-		else {
-			$sql_langa="SELECT * 
-						FROM languages
-						WHERE lang_level != '0'
-						ORDER BY 'lang_level' DESC";
-			$sql_query_langa=mysql_query($sql_langa);
-		}
+		$sql_langa="SELECT * 
+					FROM languages
+					WHERE lang_level != '0'
+					ORDER BY 'lang_level' DESC";
+		$sql_query_langa=mysql_query($sql_langa);
 		while($myrow_langa=mysql_fetch_row($sql_query_langa)) {
-			if ($rpm_page == "trans" && $myrow_langa[0] == "en" && $myrow_lang_usr['user_language'] != "en") {
+			if ($rpm_page == "trans" && $myrow_langa[0] == "en") {
 				// temp
 			}
 			else {
@@ -172,7 +133,7 @@
 	if ($result_content['content_editor'] != "richtext" && $result_content['content_editor'] != "bbcode") {
 ?>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Content']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Content</strong></font></div></td>
         <td valign="top" bgcolor="#E2E2E2"><textarea name="textarea_content" cols="60" rows="20" id="textarea_content"><?php
 				//echo htmlentities(ereg_replace("&amp;(#[0-9]{4};)", "&\\1", $roscms_intern_editor_content), ENT_QUOTES, 'UTF-8'); 
 				echo ereg_replace("&amp;(#[0-9]{4};)", "&\\1", htmlentities($roscms_intern_editor_content, ENT_QUOTES, 'UTF-8'));
@@ -187,7 +148,7 @@
 	}
 ?>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Rev']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Revision</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><font face="Arial, Helvetica, sans-serif"> 
           <?php 
 			echo $result_content['content_version'];
@@ -195,18 +156,18 @@
           </font></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Visible']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Visible</strong></font></div></td>
         <td valign="top" bgcolor="#E2E2E2"><font face="Arial, Helvetica, sans-serif"> 
           <?php 
 			if ($rpm_page == "trans") {
-				echo '<input name="content_visible" type="hidden" id="content_visible" value="yes"> '.$roscms_langres['ContTrans_yes'];
+				echo '<input name="content_visible" type="hidden" id="content_visible" value="yes">yes';
 			}
 			else {
 				if ($result_content['content_visible'] == 1) {
-					echo ' <input name="content_visible" type="radio" value="yes" checked> yes &nbsp; <input type="radio" name="content_visible" value="no"> '.$roscms_langres['ContTrans_no'];
+					echo ' <input name="content_visible" type="radio" value="yes" checked> yes &nbsp; <input type="radio" name="content_visible" value="no"> no';
 				}
 				else {
-					echo ' <input name="content_visible" type="radio" value="yes"> yes &nbsp; <input type="radio" name="content_visible" value="no" checked> '.$roscms_langres['ContTrans_no'];
+					echo ' <input name="content_visible" type="radio" value="yes"> yes &nbsp; <input type="radio" name="content_visible" value="no" checked> no';
 				}	
 			}
 		?>
@@ -214,25 +175,25 @@
 </font></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Active']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Active</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><font face="Arial, Helvetica, sans-serif"> 
           <?php 
 			if ($rpm_page == "trans") {
-				echo '<input name="content_active" type="hidden" id="content_active" value="yes"> '.$roscms_langres['ContTrans_yes'];
+				echo '<input name="content_active" type="hidden" id="content_active" value="yes">yes';
 			}
 			else {
 				if ($result_content['content_active'] == 1) {
-					echo ' <input name="content_active" type="radio" value="yes" checked> yes &nbsp; <input type="radio" name="content_active" value="no"> '.$roscms_langres['ContTrans_no'];
+					echo ' <input name="content_active" type="radio" value="yes" checked> yes &nbsp; <input type="radio" name="content_active" value="no"> no';
 				}
 				else {
-					echo ' <input name="content_active" type="radio" value="yes"> yes &nbsp; <input type="radio" name="content_active" value="no" checked> '.$roscms_langres['ContTrans_no'];
+					echo ' <input name="content_active" type="radio" value="yes"> yes &nbsp; <input type="radio" name="content_active" value="no" checked> no';
 				}	
 			}
 		?>
           </font></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Editor']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Editor</strong></font></div></td>
         <td valign="top" bgcolor="#E2E2E2"> <select id="txt_extra" size="1" name="txt_extra" class="selectbox">
             <optgroup label="current"> 
             <?php   
@@ -256,7 +217,7 @@
           </select> </td>
       </tr>
       <tr>
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Type']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Type</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><font face="Arial, Helvetica, sans-serif">
 <?php
 
@@ -269,7 +230,7 @@
 ?></font></td>
       </tr>
       <tr>
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Description']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Description</strong></font></div></td>
         <td valign="top" bgcolor="#E2E2E2"><font face="Arial, Helvetica, sans-serif">
 <?php
 			if ($rpm_page == "trans") {
@@ -281,7 +242,7 @@
         ?></font></td>
       </tr>
       <tr>
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_User']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Username</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><font face="Arial, Helvetica, sans-serif"><?php 
 		
 				if ($result_content['content_usrname_id']) {
@@ -295,7 +256,7 @@
 		?></font></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Date']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Date</strong></font></div></td>
         <td valign="top" bgcolor="#E2E2E2"><font face="Arial, Helvetica, sans-serif"> 
           <?php 
 			echo $result_content['content_date'];
@@ -303,7 +264,7 @@
           </font></td>
       </tr>
       <tr> 
-        <td valign="top" bgcolor="<?php echo $roscms_intern_color0; ?>"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong><?php echo $roscms_langres['ContTrans_Time']; ?></strong></font></div></td>
+        <td valign="top" bgcolor="#5984C3"><div align="center"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif"><strong>Time</strong></font></div></td>
         <td valign="top" bgcolor="#EEEEEE"><font face="Arial, Helvetica, sans-serif"> 
           <?php 
 			echo $result_content['content_time'];
@@ -350,19 +311,20 @@
       <?php if ($rpm_opt == "translate") { ?>
 	  
       <input name="content_rad_opt" type="radio" value="translate" checked>
-      <?php echo $roscms_langres['ContTrans_Translate']; ?> 
-    <p><b><blink><?php echo $roscms_langres['ContTrans_checklang']; ?></blink></b></p>
+      Translate 
+    <p><b><blink>Please check, if you have selected the right language, before you 
+      click "submit"!</blink></b></p>
     <input type="submit" name="Submit" value="Submit">
     <p>&nbsp;</p>
     <?php
 	  } else { ?>
     <input name="content_rad_opt" type="radio" value="insert" <?php if($roscms_intern_account_id != $result_content['content_usrname_id'] || date("Y-m-d") != $result_content['content_date']) { echo "checked"; } ?>>
-    <?php echo $roscms_langres['ContTrans_SAVE']; ?> &nbsp; 
+    Save (new version) &nbsp; 
     <?php 
 		if(($roscms_intern_usrgrp_admin == true || ($roscms_intern_account_id == $result_content['content_usrname_id'] && date("Y-m-d") == $result_content['content_date'])) AND $roscms_intern_content_name != "" ) {
 	?>
     <input name="content_rad_opt" type="radio" value="update" <?php if($roscms_intern_account_id == $result_content['content_usrname_id'] && date("Y-m-d") == $result_content['content_date']) { echo "checked"; } ?>>
-    <?php echo $roscms_langres['ContTrans_UPDATE']; ?> 
+    Update 
     <?php } ?>
     <?php 
 				if($result_content['content_editor'] == "bbcode") {
@@ -391,9 +353,9 @@
       <br>
       <strong>Hints:</strong></p>
     <ul>
-      <li>use &amp;amp; instead of &quot;&amp;&quot; in links, e.g. http://www.xyz.org/?page=support&amp;amp;lang=en</li>
+      <li>use &amp;amp; instead of &quot;&amp;&quot; in links, e.g. http://www.reactos.org/?page=support&amp;amp;lang=en</li>
       <li> &quot;&lt;placeholder&gt;&quot; =&gt; &amp;lt;placeholder&amp;gt; </li>
-      <li> Homepage URL: [#roscms_path_homepage]</li>
+      <li>ReactOS Homepage URL: [#roscms_path_homepage]</li>
     </ul>
   </form>
   <?php
@@ -403,7 +365,7 @@
   <ul>
     <li><strong><a href="?page=<?php echo $rpm_page; ?>&sec=content&sec2=view&amp;<?php echo 'sort='.$rpm_sort.'&amp;filt='.$rpm_filt.'&amp;langid='.$rpm_lang_id."#".$rpm_db_id ; ?>">Content</a></strong> 
       <ul>
-        <li><?php echo $roscms_langres['ContTrans_SaveContent']; ?></li>
+        <li>Save content</li>
       </ul>
     </li>
   </ul>
@@ -553,10 +515,10 @@
 														LIMIT 1;");
 			$result_content_new_revision_preview = mysql_fetch_array($query_content_new_revision_preview);
 			$roscms_TEMP_cont_name = $result_content_new_revision_preview['content_name'];
-			echo "<p>".$roscms_langres['ContTrans_Save1']." '".$result_content_new_revision_preview['content_name']."' (old id='".$rpm_db_id."', new id='". $result_content_new_revision_preview["content_id"] ."') ".$roscms_langres['ContTrans_Save2']."</p>";		
-			echo "<p><b><a href='?page=". $rpm_page ."&amp;sec=content&amp;sec2=edit&amp;sort=". $rpm_sort ."&amp;filt=". $rpm_filt ."&amp;langid=". $rpm_lang_id ."&amp;db_id=". $result_content_new_revision_preview['content_id'] ."'>".$roscms_langres['ContTrans_Save3']."</b> (revision ". $result_content_new_revision_preview["content_id"] .")</a></p>";
-			echo "<p><a href='".$_SERVER['HTTP_REFERER']."'>".$roscms_langres['ContTrans_Save4']." (revision ". $result_content['content_id'] .")</a></p>";
-			echo "<p>&nbsp;</p><p><fieldset><legend>".$roscms_langres['ContTrans_Preview']."</legend><br>".$result_content_new_revision_preview['content_text']."</fieldset></p>";
+			echo "<p>A new version of content '".$result_content_new_revision_preview['content_name']."' (old id='".$rpm_db_id."', new id='". $result_content_new_revision_preview["content_id"] ."') has been saved!</p>";		
+			echo "<p><a href='?page=". $rpm_page ."&amp;sec=content&amp;sec2=edit&amp;sort=". $rpm_sort ."&amp;filt=". $rpm_filt ."&amp;langid=". $rpm_lang_id ."&amp;db_id=". $result_content_new_revision_preview['content_id'] ."'>Go to the 'content edit' page (revision ". $result_content_new_revision_preview["content_id"] .")</a></p>";
+			echo "<p><a href='".$_SERVER['HTTP_REFERER']."'>Back to the 'content edit' page (revision ". $result_content['content_id'] .")</a></p>";
+			echo "<p>&nbsp;</p><p><fieldset><legend>Preview</legend><br>".$result_content_new_revision_preview['content_text']."</fieldset></p>";
 		}
 		
 	

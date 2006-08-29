@@ -7,6 +7,10 @@
 
 require_once( "LanguageUtf8.php" );
 
+if ( $wgMetaNamespace == "Wikipedia" ) {
+	$wgMetaNamespace = "wIqIpe'DIya";
+}
+
 /* private */ $wgNamespaceNamesTlh = array(
 	NS_MEDIA            => "Doch",
 	NS_SPECIAL          => "le'",

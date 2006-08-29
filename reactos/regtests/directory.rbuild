@@ -1,10 +1,4 @@
 <group>
-<directory name="kmtloader">
-	<xi:include href="kmtloader/kmtloader.rbuild" />
-</directory>
-<directory name="queuetest">
-	<xi:include href="queuetest/queuetest.rbuild" />
-</directory>
 <directory name="regtests">
 	<xi:include href="regtests/regtests.rbuild" />
 </directory>

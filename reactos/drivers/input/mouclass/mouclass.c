@@ -123,7 +123,7 @@ ClassDeviceControl(
 			PLIST_ENTRY Head = &((PCLASS_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->ListHead;
 			if (Head->Flink != Head)
 			{
-				/* We have at least one device */
+				/* We have at least one mouse */
 				PPORT_DEVICE_EXTENSION DevExt = CONTAINING_RECORD(Head->Flink, PORT_DEVICE_EXTENSION, ListEntry);
 				IoGetCurrentIrpStackLocation(Irp)->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
 				IoSkipCurrentIrpStackLocation(Irp);
@@ -347,12 +347,6 @@ cleanup:
 	DeviceExtension->ReadIsPending = FALSE;
 	DeviceExtension->InputCount = 0;
 	DeviceExtension->PortData = ExAllocatePool(NonPagedPool, DeviceExtension->DriverExtension->DataQueueSize * sizeof(MOUSE_INPUT_DATA));
-	if (!DeviceExtension->PortData)
-	{
-		ExFreePool(DeviceNameU.Buffer);
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
-	DeviceExtension->DeviceName = DeviceNameU.Buffer;
 	Fdo->Flags |= DO_POWER_PAGABLE;
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 
@@ -360,10 +354,12 @@ cleanup:
 	RtlWriteRegistryValue(
 		RTL_REGISTRY_DEVICEMAP,
 		DriverExtension->DeviceBaseName.Buffer,
-		DeviceExtension->DeviceName,
+		DeviceNameU.Buffer,
 		REG_SZ,
 		DriverExtension->RegistryPath.Buffer,
 		DriverExtension->RegistryPath.MaximumLength);
+
+	ExFreePool(DeviceNameU.Buffer);
 
 	if (ClassDO)
 		*ClassDO = Fdo;
@@ -372,11 +368,10 @@ cleanup:
 }
 
 static NTSTATUS
-FillEntries(
+FillOneEntry(
 	IN PDEVICE_OBJECT ClassDeviceObject,
 	IN PIRP Irp,
-	IN PMOUSE_INPUT_DATA DataStart,
-	IN SIZE_T NumberOfEntries)
+	IN PMOUSE_INPUT_DATA DataStart)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 
@@ -385,7 +380,7 @@ FillEntries(
 		RtlCopyMemory(
 			Irp->AssociatedIrp.SystemBuffer,
 			DataStart,
-			NumberOfEntries * sizeof(MOUSE_INPUT_DATA));
+			sizeof(MOUSE_INPUT_DATA));
 	}
 	else if (ClassDeviceObject->Flags & DO_DIRECT_IO)
 	{
@@ -395,7 +390,7 @@ FillEntries(
 			RtlCopyMemory(
 				DestAddress,
 				DataStart,
-				NumberOfEntries * sizeof(MOUSE_INPUT_DATA));
+				sizeof(MOUSE_INPUT_DATA));
 		}
 		else
 			Status = STATUS_UNSUCCESSFUL;
@@ -407,7 +402,7 @@ FillEntries(
 			RtlCopyMemory(
 				Irp->UserBuffer,
 				DataStart,
-				NumberOfEntries * sizeof(MOUSE_INPUT_DATA));
+				sizeof(MOUSE_INPUT_DATA));
 		}
 		_SEH_HANDLE
 		{
@@ -429,6 +424,7 @@ ClassCallback(
 	PCLASS_DEVICE_EXTENSION ClassDeviceExtension = ClassDeviceObject->DeviceExtension;
 	PIRP Irp = NULL;
 	KIRQL OldIrql;
+	PIO_STACK_LOCATION Stack;
 	ULONG InputCount = DataEnd - DataStart;
 	ULONG ReadSize;
 
@@ -443,35 +439,31 @@ ClassCallback(
 	 */
 	if (ClassDeviceExtension->ReadIsPending == TRUE && InputCount)
 	{
-		/* A read request is waiting for input, so go straight to it */
 		NTSTATUS Status;
-		SIZE_T NumberOfEntries;
 
 		Irp = ClassDeviceObject->CurrentIrp;
 		ClassDeviceObject->CurrentIrp = NULL;
+		Stack = IoGetCurrentIrpStackLocation(Irp);
 
-		NumberOfEntries = MIN(
-			InputCount,
-			IoGetCurrentIrpStackLocation(Irp)->Parameters.Read.Length / sizeof(MOUSE_INPUT_DATA));
-
-		Status = FillEntries(
+		/* A read request is waiting for input, so go straight to it */
+		Status = FillOneEntry(
 			ClassDeviceObject,
 			Irp,
-			DataStart,
-			NumberOfEntries);
+			DataStart);
 
 		if (NT_SUCCESS(Status))
 		{
 			/* Go to next packet and complete this request with STATUS_SUCCESS */
 			Irp->IoStatus.Status = STATUS_SUCCESS;
-			Irp->IoStatus.Information = NumberOfEntries * sizeof(MOUSE_INPUT_DATA);
+			Irp->IoStatus.Information = sizeof(MOUSE_INPUT_DATA);
+			Stack->Parameters.Read.Length = sizeof(MOUSE_INPUT_DATA);
 
 			ClassDeviceExtension->ReadIsPending = FALSE;
 
 			/* Skip the packet we just sent away */
-			DataStart += NumberOfEntries;
-			(*ConsumedCount) += NumberOfEntries;
-			InputCount -= NumberOfEntries;
+			DataStart++;
+			(*ConsumedCount)++;
+			InputCount--;
 		}
 	}
 
@@ -493,19 +485,20 @@ ClassCallback(
 		 * Move the input data from the port data queue to our class data
 		 * queue.
 		 */
-		RtlCopyMemory(
-			&ClassDeviceExtension->PortData[ClassDeviceExtension->InputCount],
+		RtlMoveMemory(
+			ClassDeviceExtension->PortData,
 			(PCHAR)DataStart,
 			sizeof(MOUSE_INPUT_DATA) * ReadSize);
 
-		/* Move the counter up */
+		/* Move the pointer and counter up */
+		ClassDeviceExtension->PortData += ReadSize;
 		ClassDeviceExtension->InputCount += ReadSize;
 
 		(*ConsumedCount) += ReadSize;
 	}
 	else
 	{
-		DPRINT("ClassCallback(): no more data to process\n");
+		DPRINT("ClassCallBack() entered, InputCount = %lu - DOING NOTHING\n", InputCount);
 	}
 
 	KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
@@ -532,22 +525,16 @@ ConnectPortDriver(
 	CONNECT_DATA ConnectData;
 	NTSTATUS Status;
 
-	DPRINT("Connecting PortDO %p [%wZ] to ClassDO %p\n",
-		PortDO, &PortDO->DriverObject->DriverName, ClassDO);
-
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 
 	ConnectData.ClassDeviceObject = ClassDO;
 	ConnectData.ClassService      = ClassCallback;
 
-	Irp = IoBuildDeviceIoControlRequest(
-		IOCTL_INTERNAL_MOUSE_CONNECT,
+	Irp = IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_MOUSE_CONNECT,
 		PortDO,
 		&ConnectData, sizeof(CONNECT_DATA),
 		NULL, 0,
 		TRUE, &Event, &IoStatus);
-	if (!Irp)
-		return STATUS_INSUFFICIENT_RESOURCES;
 
 	Status = IoCallDriver(PortDO, Irp);
 
@@ -573,67 +560,6 @@ ConnectPortDriver(
 	}
 
 	return IoStatus.Status;
-}
-
-/* Send IOCTL_INTERNAL_*_DISCONNECT to port + destroy the Port DO */
-static VOID
-DestroyPortDriver(
-	IN PDEVICE_OBJECT PortDO)
-{
-	PPORT_DEVICE_EXTENSION DeviceExtension;
-	PCLASS_DEVICE_EXTENSION ClassDeviceExtension;
-	PCLASS_DRIVER_EXTENSION DriverExtension;
-	KEVENT Event;
-	PIRP Irp;
-	IO_STATUS_BLOCK IoStatus;
-	KIRQL OldIrql;
-	NTSTATUS Status;
-
-	DPRINT("Destroying PortDO %p [%wZ]\n",
-		PortDO, &PortDO->DriverObject->DriverName);
-
-	DeviceExtension = (PPORT_DEVICE_EXTENSION)PortDO->DeviceExtension;
-	ClassDeviceExtension = DeviceExtension->ClassDO->DeviceExtension;
-	DriverExtension = IoGetDriverObjectExtension(PortDO->DriverObject, PortDO->DriverObject);
-
-	/* Send IOCTL_INTERNAL_*_DISCONNECT */
-	KeInitializeEvent(&Event, NotificationEvent, FALSE);
-	Irp = IoBuildDeviceIoControlRequest(
-		IOCTL_INTERNAL_MOUSE_DISCONNECT,
-		PortDO,
-		NULL, 0,
-		NULL, 0,
-		TRUE, &Event, &IoStatus);
-	if (Irp)
-	{
-		Status = IoCallDriver(PortDO, Irp);
-		if (Status == STATUS_PENDING)
-			KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
-	}
-
-	/* Remove from ClassDeviceExtension->ListHead list */
-	KeAcquireSpinLock(&ClassDeviceExtension->ListSpinLock, &OldIrql);
-	RemoveHeadList(DeviceExtension->ListEntry.Blink);
-	KeReleaseSpinLock(&ClassDeviceExtension->ListSpinLock, OldIrql);
-
-	/* Remove entry from HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\[DeviceBaseName] */
-	RtlDeleteRegistryValue(
-		RTL_REGISTRY_DEVICEMAP,
-		DriverExtension->DeviceBaseName.Buffer,
-		ClassDeviceExtension->DeviceName);
-
-	if (DeviceExtension->LowerDevice)
-		IoDetachDevice(DeviceExtension->LowerDevice);
-	ObDereferenceObject(PortDO);
-
-	if (!DriverExtension->ConnectMultiplePorts && DeviceExtension->ClassDO)
-	{
-		ExFreePool(ClassDeviceExtension->PortData);
-		ExFreePool((PVOID)ClassDeviceExtension->DeviceName);
-		IoDeleteDevice(DeviceExtension->ClassDO);
-	}
-
-	IoDeleteDevice(PortDO);
 }
 
 static NTSTATUS NTAPI
@@ -710,21 +636,40 @@ ClassAddDevice(
 	}
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 
-	/* Register interface ; ignore the error (if any) as having
-	 * a registred interface is not so important... */
-	IoRegisterDeviceInterface(
+	/* Register interface */
+	Status = IoRegisterDeviceInterface(
 		Pdo,
 		&GUID_DEVINTERFACE_MOUSE,
 		NULL,
 		&DeviceExtension->InterfaceName);
-	if (!NT_SUCCESS(Status))
-		DeviceExtension->InterfaceName.Length = 0;
+	if (Status == STATUS_INVALID_PARAMETER_1)
+	{
+		/* The Pdo was a strange one ; maybe it is a legacy device.
+		 * Ignore the error. */
+		return STATUS_SUCCESS;
+	}
+	else if (!NT_SUCCESS(Status))
+	{
+		DPRINT("IoRegisterDeviceInterface() failed with status 0x%08lx\n", Status);
+		goto cleanup;
+	}
 
 	return STATUS_SUCCESS;
 
 cleanup:
+	if (DeviceExtension)
+	{
+		if (DeviceExtension->LowerDevice)
+			IoDetachDevice(DeviceExtension->LowerDevice);
+		if (DriverExtension->ConnectMultiplePorts && DeviceExtension->ClassDO)
+		{
+			PCLASS_DEVICE_EXTENSION ClassDeviceExtension;
+			ClassDeviceExtension = (PCLASS_DEVICE_EXTENSION)DeviceExtension->ClassDO->DeviceExtension;
+			ExFreePool(ClassDeviceExtension->PortData);
+		}
+	}
 	if (Fdo)
-		DestroyPortDriver(Fdo);
+		IoDeleteDevice(Fdo);
 	return Status;
 }
 
@@ -734,6 +679,7 @@ ClassStartIo(
 	IN PIRP Irp)
 {
 	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
+	PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
 
 	ASSERT(DeviceExtension->Common.IsClassDO);
 
@@ -741,34 +687,30 @@ ClassStartIo(
 	{
 		KIRQL oldIrql;
 		NTSTATUS Status;
-		SIZE_T NumberOfEntries;
-
-		NumberOfEntries = MIN(
-			DeviceExtension->InputCount,
-			IoGetCurrentIrpStackLocation(Irp)->Parameters.Read.Length / sizeof(MOUSE_INPUT_DATA));
 
 		KeAcquireSpinLock(&DeviceExtension->SpinLock, &oldIrql);
 
-		Status = FillEntries(
+		Status = FillOneEntry(
 			DeviceObject,
 			Irp,
-			DeviceExtension->PortData,
-			NumberOfEntries);
+			DeviceExtension->PortData - DeviceExtension->InputCount);
 
 		if (NT_SUCCESS(Status))
 		{
-			if (DeviceExtension->InputCount > NumberOfEntries)
+			if (DeviceExtension->InputCount > 1)
 			{
 				RtlMoveMemory(
-					&DeviceExtension->PortData[0],
-					&DeviceExtension->PortData[NumberOfEntries],
-					(DeviceExtension->InputCount - NumberOfEntries) * sizeof(MOUSE_INPUT_DATA));
+					DeviceExtension->PortData - DeviceExtension->InputCount,
+					DeviceExtension->PortData - DeviceExtension->InputCount + 1,
+					(DeviceExtension->InputCount - 1) * sizeof(MOUSE_INPUT_DATA));
 			}
 
-			DeviceExtension->InputCount -= NumberOfEntries;
+			DeviceExtension->PortData--;
+			DeviceExtension->InputCount--;
 			DeviceExtension->ReadIsPending = FALSE;
 
-			Irp->IoStatus.Information = NumberOfEntries * sizeof(MOUSE_INPUT_DATA);
+			Irp->IoStatus.Information = sizeof(MOUSE_INPUT_DATA);
+			Stack->Parameters.Read.Length = sizeof(MOUSE_INPUT_DATA);
 		}
 
 		/* Go to next packet and complete this request */

@@ -1,12 +1,21 @@
 /*
- * PROJECT:     ReactOS Timedate Control Panel
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        lib/cpl/timedate/monthcal.c
- * PURPOSE:     Calander implementation
- * COPYRIGHT:   Copyright 2006 Thomas Weidenmueller <w3seek@reactos.com>
+ * ReactOS Calendar Control
+ * Copyright (C) 2006 Thomas Weidenmueller <w3seek@reactos.com>
  *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
 #include <timedate.h>
 
 static const TCHAR szMonthCalWndClass[] = TEXT("MonthCalWnd");
@@ -71,7 +80,7 @@ MonthCalNotifyControlParent(IN PMONTHCALWND infoPtr,
                           (WPARAM)pnmh->idFrom,
                           (LPARAM)pnmh);
     }
-
+    
     return Ret;
 }
 
@@ -154,7 +163,7 @@ MonthCalUpdate(IN PMONTHCALWND infoPtr)
     NewCellSize.cy = infoPtr->ClientSize.cy / 7;
 
     if (infoPtr->CellSize.cx != NewCellSize.cx ||
-        infoPtr->CellSize.cy != NewCellSize.cy)
+        infoPtr->CellSize.cy != NewCellSize.cy);
     {
         infoPtr->CellSize = NewCellSize;
         RepaintHeader = TRUE;
@@ -237,11 +246,11 @@ MonthCalReload(IN PMONTHCALWND infoPtr)
     TCHAR szBuf[64];
     UINT i;
 
-    infoPtr->UIState = (DWORD)SendMessage(GetAncestor(infoPtr->hSelf,
-                                                      GA_PARENT),
-                                           WM_QUERYUISTATE,
-                                           0,
-                                           0);
+    infoPtr->UIState = SendMessage(GetAncestor(infoPtr->hSelf,
+                                               GA_PARENT),
+                                   WM_QUERYUISTATE,
+                                   0,
+                                   0);
 
     /* cache the configuration */
     infoPtr->FirstDayOfWeek = MonthCalFirstDayOfWeek();
@@ -439,7 +448,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
               IN HDC hDC,
               IN LPRECT prcUpdate)
 {
-    LONG x, y;
+    UINT x, y;
     RECT rcCell;
     COLORREF crOldText, crOldCtrlText = CLR_INVALID;
     HFONT hOldFont;
@@ -631,8 +640,8 @@ MonthCalChangeFont(IN PMONTHCALWND infoPtr,
 
 static WORD
 MonthCalPtToDay(IN PMONTHCALWND infoPtr,
-                IN INT x,
-                IN INT y)
+                IN SHORT x,
+                IN SHORT y)
 {
     WORD Ret = 0;
 
@@ -659,15 +668,15 @@ MonthCalWndProc(IN HWND hwnd,
 {
     PMONTHCALWND infoPtr;
     LRESULT Ret = 0;
-
+    
     infoPtr = (PMONTHCALWND)GetWindowLongPtr(hwnd,
                                              0);
-
+    
     if (infoPtr == NULL && uMsg != WM_CREATE)
     {
         goto HandleDefaultMessage;
     }
-
+    
     switch (uMsg)
     {
 #if MONTHCAL_CTRLBG != MONTHCAL_DISABLED_CTRLBG
@@ -806,7 +815,7 @@ MonthCalWndProc(IN HWND hwnd,
         case WM_GETDLGCODE:
         {
             INT virtKey;
-
+            
             virtKey = (lParam != 0 ? (INT)((LPMSG)lParam)->wParam : 0);
             switch (virtKey)
             {
@@ -993,7 +1002,7 @@ MonthCalWndProc(IN HWND hwnd,
         {
             if (wParam == GWL_STYLE)
             {
-                unsigned int OldEnabled = infoPtr->Enabled;
+                BOOL OldEnabled = infoPtr->Enabled;
                 infoPtr->Enabled = !(((LPSTYLESTRUCT)lParam)->styleNew & WS_DISABLED);
 
                 if (OldEnabled != infoPtr->Enabled)
@@ -1017,7 +1026,7 @@ MonthCalWndProc(IN HWND hwnd,
 
             SetWindowLongPtr(hwnd,
                              0,
-                             (LONG_PTR)infoPtr);
+                             (DWORD_PTR)infoPtr);
 
             ZeroMemory(infoPtr,
                        sizeof(MONTHCALWND));

@@ -4,7 +4,7 @@
  * FILE:            drivers/usb/cromwell/hub/pdo.c
  * PURPOSE:         IRP_MJ_PNP operations for PDOs
  *
- * PROGRAMMERS:     Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #define NDEBUG
@@ -14,7 +14,7 @@
 #define IO_METHOD_FROM_CTL_CODE(ctlCode) (ctlCode&0x00000003)
 
 NTSTATUS
-UsbhubInternalDeviceControlPdo(
+UsbhubDeviceControlPdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
@@ -22,35 +22,13 @@ UsbhubInternalDeviceControlPdo(
 	ULONG_PTR Information = 0;
 	NTSTATUS Status;
 	
-	DPRINT("Usbhub: UsbhubInternalDeviceControlPdo() called\n");
+	DPRINT("Usbhub: UsbhubDeviceControlPdo() called\n");
 	
 	Stack = IoGetCurrentIrpStackLocation(Irp);
 	Status = Irp->IoStatus.Status;
 	
 	switch (Stack->Parameters.DeviceIoControl.IoControlCode)
 	{
-		case IOCTL_INTERNAL_USB_GET_PARENT_HUB_INFO:
-		{
-			PHUB_DEVICE_EXTENSION DeviceExtension;
-			
-			DPRINT("Usbhub: IOCTL_INTERNAL_USB_GET_PARENT_HUB_INFO\n");
-			if (Irp->AssociatedIrp.SystemBuffer == NULL
-				|| Stack->Parameters.DeviceIoControl.OutputBufferLength != sizeof(PVOID))
-			{
-				Status = STATUS_INVALID_PARAMETER;
-			}
-			else
-			{
-				PVOID* pHubPointer;
-				DeviceExtension = (PHUB_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-				
-				pHubPointer = (PVOID*)Irp->AssociatedIrp.SystemBuffer;
-				*pHubPointer = DeviceExtension->dev;
-				Information = sizeof(PVOID);
-				Status = STATUS_SUCCESS;
-			}
-			break;
-		}
 		default:
 		{
 			DPRINT1("Usbhub: Unknown IOCTL code 0x%lx\n", Stack->Parameters.DeviceIoControl.IoControlCode);
@@ -74,6 +52,7 @@ UsbhubPdoStartDevice(
 	NTSTATUS Status;
 	
 	DeviceExtension = (PHUB_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
+	DbgBreakPoint();
 	
 	/* Register and activate device interface */
 	Status = IoRegisterDeviceInterface(

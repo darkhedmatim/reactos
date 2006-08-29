@@ -40,7 +40,6 @@ AdvancedPageProc(
   WPARAM wParam,
   LPARAM lParam)
 {
-  UNREFERENCED_PARAMETER(lParam);
   switch (uMsg)
   {
     case WM_INITDIALOG:
@@ -53,14 +52,14 @@ AdvancedPageProc(
           DialogBox(hApplet,
                     MAKEINTRESOURCE(IDD_VIRTMEM),
                     hwndDlg,
-                    (DLGPROC) VirtMemDlgProc);
+                    VirtMemDlgProc);
           break;
 
         case IDC_ENVVAR:
           DialogBox(hApplet,
                     MAKEINTRESOURCE(IDD_ENVIRONMENT_VARIABLES),
                     hwndDlg,
-                    (DLGPROC) EnvironmentDlgProc);
+                    EnvironmentDlgProc);
           break;
       }
       break;

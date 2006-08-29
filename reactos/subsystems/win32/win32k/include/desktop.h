@@ -10,6 +10,7 @@ typedef struct _DESKTOP_OBJECT
     CSHORT Size;
     LIST_ENTRY ListEntry;
 
+    UNICODE_STRING Name;
     /* Pointer to the associated window station. */
     struct _WINSTATION_OBJECT *WindowStation;
     /* Pointer to the active queue. */
@@ -47,21 +48,14 @@ InitDesktopImpl(VOID);
 NTSTATUS FASTCALL
 CleanupDesktopImpl(VOID);
                        
-NTSTATUS
-STDCALL
-IntDesktopObjectParse(IN PVOID ParseObject,
-                      IN PVOID ObjectType,
-                      IN OUT PACCESS_STATE AccessState,
-                      IN KPROCESSOR_MODE AccessMode,
-                      IN ULONG Attributes,
-                      IN OUT PUNICODE_STRING CompleteName,
-                      IN OUT PUNICODE_STRING RemainingName,
-                      IN OUT PVOID Context OPTIONAL,
-                      IN PSECURITY_QUALITY_OF_SERVICE SecurityQos OPTIONAL,
-                      OUT PVOID *Object);
+NTSTATUS STDCALL
+IntDesktopObjectCreate(PVOID ObjectBody,
+		       PVOID Parent,
+		       PWSTR RemainingPath,
+		       struct _OBJECT_ATTRIBUTES* ObjectAttributes);
 
 VOID STDCALL
-IntDesktopObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters);
+IntDesktopObjectDelete(PVOID DeletedObject);
 
 VOID FASTCALL
 IntGetDesktopWorkArea(PDESKTOP_OBJECT Desktop, PRECT Rect);
@@ -125,12 +119,6 @@ VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam);
 
 #define IntIsActiveDesktop(Desktop) \
   ((Desktop)->WindowStation->ActiveDesktop == (Desktop))
-
-#define GET_DESKTOP_NAME(d)                                             \
-    OBJECT_HEADER_TO_NAME_INFO(OBJECT_TO_OBJECT_HEADER(d)) ?            \
-    &(OBJECT_HEADER_TO_NAME_INFO(OBJECT_TO_OBJECT_HEADER(d))->Name) :   \
-    NULL
-
 
 static __inline PVOID
 DesktopHeapAlloc(IN PDESKTOP Desktop,
@@ -200,10 +188,10 @@ DesktopHeapGetUserDelta(VOID)
     HANDLE hDesktopHeap;
     ULONG_PTR Delta = 0;
 
-    ASSERT(PsGetCurrentThreadWin32Thread()->Desktop != NULL);
-    hDesktopHeap = PsGetCurrentThreadWin32Thread()->Desktop->hDesktopHeap;
+    ASSERT(PsGetWin32Thread()->Desktop != NULL);
+    hDesktopHeap = PsGetWin32Thread()->Desktop->hDesktopHeap;
 
-    Mapping = PsGetCurrentProcessWin32Process()->HeapMappings.Next;
+    Mapping = PsGetWin32Process()->HeapMappings.Next;
     while (Mapping != NULL)
     {
         if (Mapping->UserMapping == (PVOID)hDesktopHeap)
@@ -224,7 +212,7 @@ DesktopHeapAddressToUser(IN PDESKTOP Desktop,
 {
     PW32HEAP_USER_MAPPING Mapping;
 
-    Mapping = PsGetCurrentProcessWin32Process()->HeapMappings.Next;
+    Mapping = PsGetWin32Process()->HeapMappings.Next;
     while (Mapping != NULL)
     {
         if (Mapping->KernelMapping == (PVOID)Desktop->hKernelHeap)

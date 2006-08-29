@@ -344,11 +344,6 @@ NtUserCreateAcceleratorTable(
           Entries, EntriesCount);
    UserEnterExclusive();
 
-   if (!Entries || !EntriesCount)
-   {
-      RETURN( (HACCEL) 0 );
-   }
-
    Accel = ObmCreateObject(gHandleTable, (PHANDLE)&hAccel, otAccel, sizeof(ACCELERATOR_TABLE));
 
    if (Accel == NULL)

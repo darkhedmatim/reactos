@@ -1,157 +1,215 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Winlogon
+ * PROJECT:         ReactOS kernel
  * FILE:            services/winlogon/winlogon.c
  * PURPOSE:         Logon
- * PROGRAMMERS:     Thomas Weidenmueller (w3seek@users.sourceforge.net)
- *                  Filip Navara
- *                  Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMER:      David Welch (welch@cwcom.net)
+ * UPDATE HISTORY:
+ *                  Created 22/05/98
  */
 
 /* INCLUDES *****************************************************************/
 #include "winlogon.h"
 
-//#define YDEBUG
-#include <wine/debug.h>
+#define NDEBUG
+#include <debug.h>
+
+#define SUPPORT_CONSOLESTART 1
+#define START_LSASS          1
 
 /* GLOBALS ******************************************************************/
+
+BOOL
+LoadGina(PMSGINAFUNCTIONS Functions, DWORD *DllVersion);
+PWLSESSION
+MsGinaInit(void);
+void
+SessionLoop(PWLSESSION Session);
+BOOL
+InitServices(void);
+BOOL
+WlxCreateWindowStationAndDesktops(PWLSESSION Session);
 
 HINSTANCE hAppInstance;
 PWLSESSION WLSession = NULL;
 
+#if SUPPORT_CONSOLESTART
+BOOL StartConsole = TRUE;
+#endif
+
 /* FUNCTIONS *****************************************************************/
 
-static BOOL
-StartServicesManager(VOID)
+static void
+PrintString (WCHAR* fmt,...)
 {
-	HANDLE ServicesInitEvent;
-	STARTUPINFOW StartupInfo;
-	PROCESS_INFORMATION ProcessInformation;
-	DWORD Count;
-	LPCWSTR ServiceString = L"services.exe";
-	BOOL res;
+   WCHAR buffer[512];
+   va_list ap;
 
-	/* Start the service control manager (services.exe) */
-	StartupInfo.cb = sizeof(StartupInfo);
-	StartupInfo.lpReserved = NULL;
-	StartupInfo.lpDesktop = NULL;
-	StartupInfo.lpTitle = NULL;
-	StartupInfo.dwFlags = 0;
-	StartupInfo.cbReserved2 = 0;
-	StartupInfo.lpReserved2 = 0;
+   va_start(ap, fmt);
+   wsprintf(buffer, fmt, ap);
+   va_end(ap);
 
-	TRACE("WL: Creating new process - %S\n", ServiceString);
-
-	res = CreateProcessW(
-		ServiceString,
-		NULL,
-		NULL,
-		NULL,
-		FALSE,
-		DETACHED_PROCESS,
-		NULL,
-		NULL,
-		&StartupInfo,
-		&ProcessInformation);
-	if (!res)
-	{
-		ERR("WL: Failed to execute services (error %lu)\n", GetLastError());
-		return FALSE;
-	}
-
-	/* Wait for event creation (by SCM) for max. 20 seconds */
-	for (Count = 0; Count < 20; Count++)
-	{
-		Sleep(1000);
-
-		TRACE("WL: Attempting to open event \"SvcctrlStartEvent_A3725DX\"\n");
-		ServicesInitEvent = OpenEventW(
-			SYNCHRONIZE,
-			FALSE,
-			L"SvcctrlStartEvent_A3725DX");
-		if (ServicesInitEvent)
-			break;
-	}
-
-	if (!ServicesInitEvent)
-	{
-		ERR("WL: Failed to open event \"SvcctrlStartEvent_A3725DX\"\n");
-		return FALSE;
-	}
-
-	/* Wait for event signalization */
-	WaitForSingleObject(ServicesInitEvent, INFINITE);
-	CloseHandle(ServicesInitEvent);
-	TRACE("WL: StartServicesManager() done.\n");
-
-	return TRUE;
+   OutputDebugString(buffer);
 }
 
-static BOOL
-StartCustomService(
-	IN LPCWSTR ServiceName)
+
+INT_PTR CALLBACK
+ShutdownComputerProc (HWND hwndDlg,
+		      UINT uMsg,
+		      WPARAM wParam,
+		      LPARAM lParam)
 {
-	SC_HANDLE hSCManager = NULL;
-	SC_HANDLE hService = NULL;
-	BOOL ret = FALSE;
+  switch(uMsg)
+  {
+    case WM_COMMAND:
+    {
+      switch(LOWORD(wParam))
+      {
+        case IDC_BTNSHTDOWNCOMPUTER:
+          EndDialog(hwndDlg, IDC_BTNSHTDOWNCOMPUTER);
+          break;
+      }
+      break;
+    }
+    case WM_INITDIALOG:
+    {
+      RemoveMenu(GetSystemMenu(hwndDlg, FALSE), SC_CLOSE, MF_BYCOMMAND);
+      SetFocus(GetDlgItem(hwndDlg, IDC_BTNSHTDOWNCOMPUTER));
+      break;
+    }
+  }
+  return FALSE;
+}
 
-	hSCManager = OpenSCManager(NULL, NULL, 0);
-	if (!hSCManager)
-		goto cleanup;
+static BOOLEAN
+StartServices (VOID)
+{
+   HANDLE ServicesInitEvent;
+   BOOLEAN Result;
+   STARTUPINFO StartupInfo;
+   PROCESS_INFORMATION ProcessInformation;
+   DWORD Count;
+   WCHAR ServiceString[] = L"services.exe";
 
-	hService = OpenServiceW(hSCManager, ServiceName, SERVICE_START);
-	if (!hService)
-		goto cleanup;
+   /* Start the service control manager (services.exe) */
+
+   StartupInfo.cb = sizeof(StartupInfo);
+   StartupInfo.lpReserved = NULL;
+   StartupInfo.lpDesktop = NULL;
+   StartupInfo.lpTitle = NULL;
+   StartupInfo.dwFlags = 0;
+   StartupInfo.cbReserved2 = 0;
+   StartupInfo.lpReserved2 = 0;
+
 #if 0
-	if (!StartServiceW(hService, 0, NULL))
-		goto cleanup;
+   PrintString(L"WL: Creating new process - \"services.exe\".\n");
 #endif
 
-	ret = TRUE;
+   Result = CreateProcess(NULL,
+                          ServiceString,
+                          NULL,
+                          NULL,
+                          FALSE,
+                          DETACHED_PROCESS,
+                          NULL,
+                          NULL,
+                          &StartupInfo,
+                          &ProcessInformation);
+   if (!Result)
+     {
+        PrintString(L"WL: Failed to execute services\n");
+        return FALSE;
+     }
 
-cleanup:
-	if (hService)
-		CloseServiceHandle(hService);
-	if (hSCManager)
-		CloseServiceHandle(hSCManager);
-	return ret;
+   /* wait for event creation (by SCM) for max. 20 seconds */
+   for (Count = 0; Count < 20; Count++)
+     {
+        Sleep(1000);
+
+        DPRINT("WL: Attempting to open event \"SvcctrlStartEvent_A3725DX\"\n");
+        ServicesInitEvent = OpenEvent(EVENT_ALL_ACCESS, //SYNCHRONIZE,
+                                      FALSE,
+                                      L"SvcctrlStartEvent_A3725DX");
+        if (ServicesInitEvent != NULL)
+          {
+             break;
+          }
+     }
+
+   if (ServicesInitEvent == NULL)
+     {
+        DPRINT1("WL: Failed to open event \"SvcctrlStartEvent_A3725DX\"\n");
+        return FALSE;
+     }
+
+   /* wait for event signalization */
+   DPRINT("WL: Waiting forever on event handle: %x\n", ServicesInitEvent);
+   WaitForSingleObject(ServicesInitEvent, INFINITE);
+   DPRINT("WL: Closing event object \"SvcctrlStartEvent_A3725DX\"\n");
+   CloseHandle(ServicesInitEvent);
+   DPRINT("WL: StartServices() Done.\n");
+
+   return TRUE;
 }
 
-static BOOL
-StartLsass(VOID)
+#if START_LSASS
+static BOOLEAN
+StartLsass (VOID)
 {
-	HANDLE LsassInitEvent;
+   HANDLE LsassInitEvent;
+   BOOLEAN Result;
+   STARTUPINFO StartupInfo;
+   PROCESS_INFORMATION ProcessInformation;
+   WCHAR ServiceString[] = L"lsass.exe";
 
-	LsassInitEvent = CreateEventW(
-		NULL,
-		TRUE,
-		FALSE,
-		L"Global\\SECURITY_SERVICES_STARTED");
-	if (!LsassInitEvent)
-	{
-		ERR("WL: Failed to create lsass notification event (error %lu)\n", GetLastError());
-		return FALSE;
-	}
+   LsassInitEvent = CreateEvent(NULL,
+                                TRUE,
+                                FALSE,
+                                L"\\SECURITY_SERVICES_STARTED");
 
-	/* Start the local security authority subsystem (Netlogon service) */
-	if (!StartCustomService(L"Netlogon"))
-	{
-		ERR("WL: Failed to start NetLogon service (error %lu)\n", GetLastError());
-		return FALSE;
-	}
+   if (LsassInitEvent == NULL)
+     {
+        DPRINT1("WL: Failed to create lsass notification event\n");
+        return(FALSE);
+     }
 
-#if 0
-	WaitForSingleObject(LsassInitEvent, INFINITE);
-#endif
-	CloseHandle(LsassInitEvent);
+   /* Start the local security authority subsystem (lsass.exe) */
 
-	return TRUE;
+   StartupInfo.cb = sizeof(StartupInfo);
+   StartupInfo.lpReserved = NULL;
+   StartupInfo.lpDesktop = NULL;
+   StartupInfo.lpTitle = NULL;
+   StartupInfo.dwFlags = 0;
+   StartupInfo.cbReserved2 = 0;
+   StartupInfo.lpReserved2 = 0;
+
+   Result = CreateProcess(NULL,
+                          ServiceString,
+                          NULL,
+                          NULL,
+                          FALSE,
+                          DETACHED_PROCESS,
+                          NULL,
+                          NULL,
+                          &StartupInfo,
+                          &ProcessInformation);
+   if (!Result)
+     {
+        DPRINT1("WL: Failed to execute lsass\n");
+        return(FALSE);
+     }
+
+   WaitForSingleObject(LsassInitEvent, INFINITE);
+   CloseHandle(LsassInitEvent);
+
+   return(TRUE);
 }
+#endif
 
-#if 0
-static BOOL
-OpenRegistryKey(
-	OUT HKEY *WinLogonKey)
+
+static BOOLEAN
+OpenRegistryKey (HKEY *WinLogonKey)
 {
    return ERROR_SUCCESS == RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                                         L"SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\WinLogon",
@@ -159,12 +217,9 @@ OpenRegistryKey(
                                         KEY_QUERY_VALUE,
                                         WinLogonKey);
 }
-#endif
 
-#if 0
-static BOOL
-StartProcess(
-	IN PWCHAR ValueName)
+
+static BOOLEAN StartProcess(PWCHAR ValueName)
 {
    BOOL StartIt;
    HKEY WinLogonKey;
@@ -193,11 +248,9 @@ StartProcess(
 
    return StartIt;
 }
-#endif
 
 /*
-static BOOL RestartShell(
-	IN OUT PWLSESSION Session)
+static BOOL RestartShell(void)
 {
   HKEY WinLogonKey;
   DWORD Type, Size, Value;
@@ -224,11 +277,84 @@ static BOOL RestartShell(
 }
 */
 
-#if 0
+VOID STDCALL
+RegisterHotKeys(VOID)
+{
+  RegisterHotKey(NULL, 0, MOD_ALT | MOD_CONTROL, VK_DELETE);
+}
+
+VOID STDCALL
+UnregisterHotKeys(VOID)
+{
+  UnregisterHotKey(NULL, 0);
+}
+
+VOID STDCALL
+HandleHotKey(MSG *Msg)
+{
+  DPRINT1("HOTKEY: Got hot key (%d)\n", Msg->wParam);
+
+  /* CTRL-ALT-DEL */
+  if (Msg->wParam == 0)
+  {
+    STARTUPINFO StartupInfo;
+    PROCESS_INFORMATION ProcessInformation;
+
+    StartupInfo.cb = sizeof(StartupInfo);
+    StartupInfo.lpReserved = NULL;
+    StartupInfo.lpDesktop = NULL;
+    StartupInfo.lpTitle = NULL;
+    StartupInfo.dwFlags = 0;
+    StartupInfo.cbReserved2 = 0;
+    StartupInfo.lpReserved2 = 0;
+
+    CreateProcessW(
+      L"taskmgr.exe",
+      NULL,
+      NULL,
+      NULL,
+      FALSE,
+      CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS,
+      NULL,
+      NULL,
+      &StartupInfo,
+      &ProcessInformation);
+
+    CloseHandle (ProcessInformation.hProcess);
+    CloseHandle (ProcessInformation.hThread);
+  }
+}
+
+#if SUPPORT_CONSOLESTART
+static BOOL StartIntoGUI(VOID)
+{
+  HKEY WinLogonKey;
+  DWORD Type, Size, Value;
+
+  if(OpenRegistryKey(&WinLogonKey))
+  {
+    Size = sizeof(DWORD);
+    if(ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                        L"StartGUI",
+                                        NULL,
+                                        &Type,
+                                        (LPBYTE)&Value,
+                                        &Size))
+    {
+      if(Type == REG_DWORD)
+      {
+        RegCloseKey(WinLogonKey);
+        return (Value != 0);
+      }
+    }
+    RegCloseKey(WinLogonKey);
+  }
+  return FALSE;
+}
+
+
 static PWCHAR
-GetUserInit(
-	OUT WCHAR *CommandLine,
-	IN DWORD BufferLength)
+GetUserInit (WCHAR *CommandLine)
 {
    HKEY WinLogonKey;
    BOOL GotCommandLine;
@@ -270,227 +396,602 @@ GetUserInit(
    return CommandLine;
 }
 
+
+static BOOL
+DoLogonUser (PWCHAR Name,
+	     PWCHAR Password)
+{
+  PROCESS_INFORMATION ProcessInformation;
+  STARTUPINFO StartupInfo;
+  WCHAR CommandLine[MAX_PATH];
+  WCHAR CurrentDirectory[MAX_PATH];
+  PROFILEINFOW ProfileInfo;
+  BOOL Result;
+  LPVOID lpEnvironment = NULL;
+  MSG Msg;
+
+  Result = LogonUserW (Name,
+		       NULL,
+		       Password,
+		       LOGON32_LOGON_INTERACTIVE,
+		       LOGON32_PROVIDER_DEFAULT,
+		       &WLSession->UserToken);
+  if (!Result)
+    {
+      DPRINT1 ("WL: LogonUserW() failed\n");
+      RtlDestroyEnvironment (lpEnvironment);
+      return FALSE;
+    }
+
+  /* Load the user profile */
+  ProfileInfo.dwSize = sizeof(PROFILEINFOW);
+  ProfileInfo.dwFlags = 0;
+  ProfileInfo.lpUserName = Name;
+  ProfileInfo.lpProfilePath = NULL;
+  ProfileInfo.lpDefaultPath = NULL;
+  ProfileInfo.lpServerName = NULL;
+  ProfileInfo.lpPolicyPath = NULL;
+  ProfileInfo.hProfile = NULL;
+
+  if (!LoadUserProfileW (WLSession->UserToken,
+			 &ProfileInfo))
+    {
+      DPRINT1 ("WL: LoadUserProfileW() failed\n");
+      CloseHandle (WLSession->UserToken);
+      RtlDestroyEnvironment (lpEnvironment);
+      return FALSE;
+    }
+
+  if (!CreateEnvironmentBlock (&lpEnvironment,
+			       WLSession->UserToken,
+			       TRUE))
+    {
+      DPRINT1("WL: CreateEnvironmentBlock() failed\n");
+      return FALSE;
+    }
+
+  if (ImpersonateLoggedOnUser(WLSession->UserToken))
+    {
+      UpdatePerUserSystemParameters(0, TRUE);
+      RevertToSelf();
+    }
+
+  GetWindowsDirectoryW (CurrentDirectory, MAX_PATH);
+
+  StartupInfo.cb = sizeof(StartupInfo);
+  StartupInfo.lpReserved = NULL;
+  StartupInfo.lpDesktop = NULL;
+  StartupInfo.lpTitle = NULL;
+  StartupInfo.dwFlags = 0;
+  StartupInfo.cbReserved2 = 0;
+  StartupInfo.lpReserved2 = 0;
+
+  Result = CreateProcessAsUserW (WLSession->UserToken,
+				 NULL,
+				 GetUserInit (CommandLine),
+				 NULL,
+				 NULL,
+				 FALSE,
+				 CREATE_UNICODE_ENVIRONMENT,
+				 lpEnvironment,
+				 CurrentDirectory,
+				 &StartupInfo,
+				 &ProcessInformation);
+  if (!Result)
+    {
+      DPRINT1("WL: Failed to execute user shell %s\n", CommandLine);
+      if (ImpersonateLoggedOnUser(WLSession->UserToken))
+        {
+          UpdatePerUserSystemParameters(0, FALSE);
+          RevertToSelf();
+        }
+      UnloadUserProfile (WLSession->UserToken,
+			 ProfileInfo.hProfile);
+      CloseHandle (WLSession->UserToken);
+      DestroyEnvironmentBlock (lpEnvironment);
+      return FALSE;
+    }
+
+  RegisterHotKeys();
+
+  while (WaitForSingleObject (ProcessInformation.hProcess, 100) != WAIT_OBJECT_0)
+  {
+    if (PeekMessage(&Msg, 0, 0, 0, PM_REMOVE))
+    {
+      if (Msg.message == WM_HOTKEY)
+        HandleHotKey(&Msg);
+      TranslateMessage(&Msg);
+      DispatchMessage(&Msg);
+    }
+  }
+
+  UnregisterHotKeys();
+
+  CloseHandle (ProcessInformation.hProcess);
+  CloseHandle (ProcessInformation.hThread);
+
+  if (ImpersonateLoggedOnUser(WLSession->UserToken))
+    {
+      UpdatePerUserSystemParameters(0, FALSE);
+      RevertToSelf();
+    }
+
+  /* Unload user profile */
+  UnloadUserProfile (WLSession->UserToken,
+		     ProfileInfo.hProfile);
+
+  CloseHandle (WLSession->UserToken);
+
+  RtlDestroyEnvironment (lpEnvironment);
+
+  return TRUE;
+}
 #endif
+
+int STDCALL
+WinMain(HINSTANCE hInstance,
+        HINSTANCE hPrevInstance,
+        LPSTR lpCmdLine,
+        int nShowCmd)
+{
+#if SUPPORT_CONSOLESTART
+//  WCHAR LoginName[255];
+//  WCHAR Password[255];
+#endif
+#if 0
+  LSA_STRING ProcessName, PackageName;
+  HANDLE LsaHandle;
+  LSA_OPERATIONAL_MODE Mode;
+  ULONG AuthenticationPackage;
+#endif
+
+  hAppInstance = hInstance;
+
+  if(!RegisterLogonProcess(GetCurrentProcessId(), TRUE))
+  {
+    DPRINT1("WL: Could not register logon process\n");
+    NtShutdownSystem(ShutdownNoReboot);
+    ExitProcess(0);
+    return 0;
+  }
+
+#if START_LSASS
+  if (StartProcess(L"StartLsass"))
+  {
+    if (!StartLsass())
+	{
+	  DPRINT1("WL: Failed to start LSASS (0x%X)\n", GetLastError());
+	}
+  }
+  else
+  {
+	  DPRINT1("WL: StartProcess() failed!\n");
+  }
+#endif
+
+  if(!(WLSession = MsGinaInit()))
+  {
+    DPRINT1("WL: Failed to initialize msgina.dll\n");
+    NtShutdownSystem(ShutdownNoReboot);
+    ExitProcess(0);
+    return 0;
+  }
+
+  WLSession->LogonStatus = LOGON_INITIALIZING;
+
+  if(!WlxCreateWindowStationAndDesktops(WLSession))
+  {
+    NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, 0, 0);
+    ExitProcess(1);
+    return 1;
+  }
+
+  /*
+   * Switch to winlogon desktop
+   */
+  /* FIXME: Do start up in the application desktop for now. */
+  SetThreadDesktop(WLSession->ApplicationDesktop);
+  if(!SwitchDesktop(WLSession->ApplicationDesktop))
+  {
+    DPRINT1("WL: Cannot switch to Winlogon desktop (0x%X)\n", GetLastError());
+  }
+
+  InitServices();
+  
+  /* Check for pending setup */
+  if (GetSetupType () != 0)
+  {
+    DPRINT("Winlogon: CheckForSetup() in setup mode\n");
+
+    /* Run setup and reboot when done */
+    RunSetup();
+
+    NtShutdownSystem(ShutdownReboot);
+    ExitProcess(0);
+    return 0;
+  }
+
+#if SUPPORT_CONSOLESTART
+  StartConsole = !StartIntoGUI();
+#endif
+  if(!InitializeSAS(WLSession))
+  {
+    DPRINT1("WL: Failed to initialize SAS\n");
+    ExitProcess(2);
+    return 2;
+  }
+
+#if 0
+   /* real winlogon uses "Winlogon" */
+   RtlInitUnicodeString((PUNICODE_STRING)&ProcessName, L"Winlogon");
+   Status = LsaRegisterLogonProcess(&ProcessName, &LsaHandle, &Mode);
+   if (!NT_SUCCESS(Status))
+   {
+     switch(Status)
+     {
+       case STATUS_PORT_CONNECTION_REFUSED:
+         /* FIXME - we don't have the 'SeTcbPrivilege' pivilege, so set it or call
+                    LsaAddAccountRights() and try again */
+         DPRINT1("WL: LsaRegisterLogonProcess() returned STATUS_PORT_CONNECTION_REFUSED\n");
+         break;
+       case STATUS_NAME_TOO_LONG:
+         DPRINT1("WL: LsaRegisterLogonProcess() returned STATUS_NAME_TOO_LONG\n");
+         break;
+       default:
+         DPRINT1("WL: Failed to connect to LSASS\n");
+         break;
+     }
+     return(1);
+   }
+
+   RtlInitUnicodeString((PUNICODE_STRING)&PackageName, L"Kerberos");
+   Status = LsaLookupAuthenticationPackage(LsaHandle, &PackageName, &AuthenticationPackage);
+   if (!NT_SUCCESS(Status))
+   {
+     LsaDeregisterLogonProcess(LsaHandle);
+     DPRINT1("WL: Failed to lookup authentication package\n");
+     return(1);
+   }
+#endif
+
+   /* FIXME: Create a window class and associate a Winlogon
+    *        window procedure with it.
+    *        Register SAS with the window.
+    *        Register for logoff notification
+    */
+
+   /* Main loop */
+#if 0
+   /* Display login prompt */
+   WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE),
+                LoginPrompt,
+                strlen(LoginPrompt),  // wcslen(LoginPrompt),
+                &Result,
+                NULL);
+   i = 0;
+   do
+     {
+       ReadConsole(GetStdHandle(STD_INPUT_HANDLE),
+                   &LoginName[i],
+                   1,
+                   &Result,
+                   NULL);
+       i++;
+     } while (LoginName[i - 1] != '\n');
+   LoginName[i - 1] = 0;
+
+   /* Display password prompt */
+   WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE),
+                PasswordPrompt,
+                strlen(PasswordPrompt),  // wcslen(PasswordPrompt),
+                &Result,
+                NULL);
+   i = 0;
+   do
+     {
+       ReadConsole(GetStdHandle(STD_INPUT_HANDLE),
+                   &Password[i],
+                   1,
+                   &Result,
+                   NULL);
+       i++;
+     } while (Password[i - 1] != '\n');
+   Password[i - 1] =0;
+#endif
+
+#if SUPPORT_CONSOLESTART
+ if(StartConsole)
+ {
+//   if (! DoLogonUser(LoginName, Password))
+   if (! DoLogonUser(L"Administrator", L"Secret"))
+     {
+     }
+
+   NtShutdownSystem(ShutdownNoReboot);
+   ExitProcess(0);
+ }
+ else
+ {
+#endif
+
+   RegisterHotKeys();
+
+   SessionLoop(WLSession);
+
+   UnregisterHotKeys();
+
+   /* FIXME - Flush disks and registry, ... */
+
+   if(WLSession->LogonStatus == LOGON_SHUTDOWN)
+   {
+     /* FIXME - only show this dialog if it's a shutdown and the computer doesn't support APM */
+     switch(DialogBox(hInstance, MAKEINTRESOURCE(IDD_SHUTDOWNCOMPUTER), 0, ShutdownComputerProc))
+     {
+       case IDC_BTNSHTDOWNCOMPUTER:
+         NtShutdownSystem(ShutdownReboot);
+         break;
+       default:
+         NtShutdownSystem(ShutdownNoReboot);
+         break;
+     }
+     ExitProcess(0);
+   }
+   else
+   {
+     DPRINT1("WL: LogonStatus != LOGON_SHUTDOWN!!!\n");
+     ExitProcess(0);
+   }
+#if SUPPORT_CONSOLESTART
+ }
+#endif
+
+   return 0;
+}
 
 BOOL
-DisplayStatusMessage(
-	IN PWLSESSION Session,
-	IN HDESK hDesktop,
-	IN UINT ResourceId)
+DisplayStatusMessage(PWLSESSION Session, HDESK hDesktop, DWORD dwOptions, PWSTR pTitle, PWSTR pMessage)
 {
-	WCHAR StatusMsg[MAX_PATH];
+  if(Session->SuppressStatus)
+  {
+    return TRUE;
+  }
 
-	if (Session->Gina.Version < WLX_VERSION_1_3)
-		return TRUE;
+  #if SUPPORT_CONSOLESTART
+  if(StartConsole)
+  {
+    if(pMessage)
+    {
+      DPRINT1("WL-Status: %ws\n", pMessage);
+    }
+    return TRUE;
+  }
+  #endif
 
-	if (Session->SuppressStatus)
-		return TRUE;
-
-	if (LoadStringW(hAppInstance, ResourceId, StatusMsg, MAX_PATH) == 0)
-		return FALSE;
-
-	return Session->Gina.Functions.WlxDisplayStatusMessage(Session->Gina.Context, hDesktop, 0, NULL, StatusMsg);
+  return Session->MsGina.Functions.WlxDisplayStatusMessage(Session->MsGina.Context, hDesktop, dwOptions, pTitle, pMessage);
 }
 
 BOOL
-RemoveStatusMessage(
-	IN PWLSESSION Session)
+InitServices(void)
 {
-	if (Session->Gina.Version < WLX_VERSION_1_3)
-		return TRUE;
+  WCHAR StatusMsg[256];
 
-	return Session->Gina.Functions.WlxRemoveStatusMessage(Session->Gina.Context);
+  LoadString(hAppInstance, IDS_REACTOSISSTARTINGUP, StatusMsg, 256 * sizeof(WCHAR));
+  DisplayStatusMessage(WLSession, WLSession->ApplicationDesktop, 0, NULL, StatusMsg);
+
+  /* start system processes (services.exe & lsass.exe) */
+  if(StartProcess(L"StartServices"))
+  {
+	if(!StartServices())
+    {
+      DPRINT1("WL: Failed to start Services (0x%X)\n", GetLastError());
+    }
+  }
+  else
+  {
+	  DPRINT1("WL: StartProcess() failed!\n");
+  }
+
+  return TRUE;
 }
 
-static INT_PTR CALLBACK
-GinaLoadFailedWindowProc(
-	IN HWND hwndDlg,
-	IN UINT uMsg,
-	IN WPARAM wParam,
-	IN LPARAM lParam)
+DWORD
+DoLogin(PWLSESSION Session)
 {
-	switch (uMsg)
-	{
-		case WM_COMMAND:
-		{
-			switch (LOWORD(wParam))
-			{
-				case IDOK:
-					EndDialog(hwndDlg, IDOK);
-					return TRUE;
-			}
-			break;
-		}
-		case WM_INITDIALOG:
-		{
-			int len;
-			WCHAR templateText[MAX_PATH], text[MAX_PATH];
+  DWORD WlxAction, Options;
+  WLX_MPR_NOTIFY_INFO MprNotifyInfo;
+  PWLX_PROFILE_V2_0 Profile;
+  PSID LogonSid = NULL;
+  HANDLE Token;
 
-			len = GetDlgItemTextW(hwndDlg, IDC_GINALOADFAILED, templateText, MAX_PATH);
-			if (len)
-			{
-				wsprintfW(text, templateText, (LPWSTR)lParam);
-				SetDlgItemTextW(hwndDlg, IDC_GINALOADFAILED, text);
-			}
-			SetFocus(GetDlgItem(hwndDlg, IDOK));
-			return TRUE;
-		}
-		case WM_CLOSE:
-		{
-			EndDialog(hwndDlg, IDCANCEL);
-			return TRUE;
-		}
-	}
+  /* FIXME - Create a Logon Sid
+  if(!(LogonSid = CreateUserLogonSid(NULL)))
+  {
+    return WLX_SAS_ACTION_NONE;
+  }
+  */
 
-	return FALSE;
+  Options = 0;
+  WlxAction = Session->MsGina.Functions.WlxLoggedOutSAS(Session->MsGina.Context,
+                                                        Session->SASAction,
+                                                        &Session->LogonId,
+                                                        LogonSid,
+                                                        &Options,
+                                                        &Token,
+                                                        &MprNotifyInfo,
+                                                        (PVOID*)&Profile);
+
+  return WlxAction;
 }
 
-int WINAPI
-WinMain(
-	IN HINSTANCE hInstance,
-	IN HINSTANCE hPrevInstance,
-	IN LPSTR lpCmdLine,
-	IN int nShowCmd)
+void
+SessionLoop(PWLSESSION Session)
 {
-#if 0
-	LSA_STRING ProcessName, PackageName;
-	HANDLE LsaHandle;
-	LSA_OPERATIONAL_MODE Mode;
-	BOOLEAN Old;
-	ULONG AuthenticationPackage;
-	NTSTATUS Status;
-#endif
-	MSG Msg;
+  //WCHAR StatusMsg[256];
+ // HANDLE hShutdownEvent;
+  DWORD WlxAction;
+  MSG Msg;
 
-	hAppInstance = hInstance;
+  WlxAction = WLX_SAS_ACTION_NONE;
+  Session->LogonStatus = LOGON_NONE;
+  while(WlxAction == WLX_SAS_ACTION_NONE)
+  {
+    RemoveStatusMessage(Session);
+    if(Session->LogonStatus == LOGON_NONE)
+    {
+      Session->LogonStatus = LOGON_SHOWINGLOGON;
+      /* we're ready to display a logon window,
+         don't timeout dialogboxes here */
+      WlxSetTimeout(Session->MsGina.Context, 0);
+      Session->SuppressStatus = TRUE;
+      /* tell msgina to show a window telling the user one can logon */
+      #if SUPPORT_CONSOLESTART
+      if(!StartConsole)
+      #endif
+      DisplaySASNotice(Session);
+      Session->SuppressStatus = FALSE;
 
-	if (!RegisterLogonProcess(GetCurrentProcessId(), TRUE))
-	{
-		ERR("WL: Could not register logon process\n");
-		HandleShutdown(NULL, WLX_SAS_ACTION_SHUTDOWN_POWER_OFF);
-		NtShutdownSystem(ShutdownNoReboot);
-		ExitProcess(0);
-		return 0;
-	}
+      if(Session->SASAction == WLX_SAS_ACTION_LOGOFF)
+      {
+        /* the system wants to log off here */
+        Session->LogonStatus = LOGON_SHUTDOWN;
+        break;
+      }
+    }
 
-	WLSession = (PWLSESSION)HeapAlloc(GetProcessHeap(), 0, sizeof(WLSESSION));
-	ZeroMemory(WLSession, sizeof(WLSESSION));
-	if (!WLSession)
-	{
-		ERR("WL: Could not allocate memory for winlogon instance\n");
-		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, 0, 0);
-		ExitProcess(1);
-		return 1;
-	}
-	WLSession->DialogTimeout = 120; /* 2 minutes */
+    WlxAction = DoLogin(Session);
+    if(WlxAction == WLX_SAS_ACTION_LOGOFF)
+    {
+      /* the user doesn't want to login, instead pressed cancel
+         we should display the window again so one can logon again */
+      /* FIXME - disconnect any connections in case we did a remote logon */
+      DPRINT1("WL: DoLogin failed\n");
+      WlxAction = WLX_SAS_ACTION_NONE;
+    }
+    if(WlxAction == WLX_SAS_ACTION_NONE)
+    {
+      if(Session->SASAction == WLX_SAS_ACTION_LOGOFF)
+      {
+        /* system is about to shut down, leave the main loop */
+        Session->LogonStatus = LOGON_SHUTDOWN;
+        break;
+      }
+      Session->LogonStatus = LOGON_NONE;
+      continue;
+    }
 
-	if (!CreateWindowStationAndDesktops(WLSession))
-	{
-		ERR("WL: Could not create window station and desktops\n");
-		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, 0, 0);
-		ExitProcess(1);
-		return 1;
-	}
-	LockWorkstation(WLSession);
+    /* FIXME - don't leave the loop when suspending the computer */
+    if(WLX_SUSPENDING(WlxAction))
+    {
+      Session->LogonStatus = LOGON_NONE;
+      WlxAction = WLX_SAS_ACTION_NONE;
+      /* don't leave the loop */
+      continue;
+    }
 
-	if (!StartServicesManager())
-	{
-		ERR("WL: Could not start services.exe\n");
-		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, 0, 0);
-		ExitProcess(1);
-		return 1;
-	}
+    if(WLX_SHUTTINGDOWN(WlxAction))
+    {
+      Session->LogonStatus = LOGON_SHUTDOWN;
+      /* leave the loop here */
+      break;
+    }
 
-	/* Check for pending setup */
-	if (GetSetupType() != 0)
-	{
-		TRACE("WL: Setup mode detected\n");
+    /* Message loop for the SAS window */
+    while(GetMessage(&Msg, 0, 0, 0))
+    {
+      if (Msg.message == WM_HOTKEY)
+        HandleHotKey(&Msg);
+      TranslateMessage(&Msg);
+      DispatchMessage(&Msg);
+    }
+  }
+   /*
+   LoadString(hAppInstance, IDS_PREPARENETWORKCONNECTIONS, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
 
-		/* Run setup and reboot when done */
-		SwitchDesktop(WLSession->ApplicationDesktop);
-		RunSetup();
 
-		HandleShutdown(WLSession, WLX_SAS_ACTION_SHUTDOWN_REBOOT);
-		ExitProcess(0);
-		return 0;
-	}
+   Sleep(150);
 
-	if (!StartLsass())
-	{
-		DPRINT1("WL: Failed to start lsass.exe service (error %lu)\n", GetLastError());
-		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, 0, 0);
-		ExitProcess(1);
-		return 1;
-	}
+   LoadString(hAppInstance, IDS_APPLYINGCOMPUTERSETTINGS, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
 
-	/* Load and initialize gina */
-	if (!GinaInit(WLSession))
-	{
-		ERR("WL: Failed to initialize Gina\n");
-		DialogBoxParam(hAppInstance, MAKEINTRESOURCE(IDD_GINALOADFAILED), 0, GinaLoadFailedWindowProc, (LPARAM)L"");
-		HandleShutdown(WLSession, WLX_SAS_ACTION_SHUTDOWN_REBOOT);
-		ExitProcess(1);
-		return 1;
-	}
 
-	DisplayStatusMessage(WLSession, WLSession->WinlogonDesktop, IDS_REACTOSISSTARTINGUP);
+   Sleep(150);
 
-#if 0
-	/* Connect to NetLogon service (lsass.exe) */
-	/* Real winlogon uses "Winlogon" */
-	RtlInitUnicodeString((PUNICODE_STRING)&ProcessName, L"Winlogon");
-	Status = LsaRegisterLogonProcess(&ProcessName, &LsaHandle, &Mode);
-	if (Status == STATUS_PORT_CONNECTION_REFUSED)
-	{
-		/* Add the 'SeTcbPrivilege' privilege and try again */
-		Status = RtlAdjustPrivilege(SE_TCB_PRIVILEGE, TRUE, TRUE, &Old);
-		if (!NT_SUCCESS(Status))
-		{
-			ERR("RtlAdjustPrivilege() failed with error %lu\n", LsaNtStatusToWinError(Status));
-			return 1;
-		}
-		Status = LsaRegisterLogonProcess(&ProcessName, &LsaHandle, &Mode);
-	}
-	if (!NT_SUCCESS(Status))
-	{
-		ERR("LsaRegisterLogonProcess() failed with error %lu\n", LsaNtStatusToWinError(Status));
-		return 1;
-	}
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
 
-	RtlInitUnicodeString((PUNICODE_STRING)&PackageName, MICROSOFT_KERBEROS_NAME_W);
-	Status = LsaLookupAuthenticationPackage(LsaHandle, &PackageName, &AuthenticationPackage);
-	if (!NT_SUCCESS(Status))
-	{
-		ERR("LsaLookupAuthenticationPackage() failed with error %lu\n", LsaNtStatusToWinError(Status));
-		LsaDeregisterLogonProcess(LsaHandle);
-		return 1;
-	}
-#endif
 
-	/* Create a hidden window to get SAS notifications */
-	if (!InitializeSAS(WLSession))
-	{
-		ERR("WL: Failed to initialize SAS\n");
-		ExitProcess(2);
-		return 2;
-	}
+    Sleep(250);
 
-	//DisplayStatusMessage(Session, Session->WinlogonDesktop, IDS_PREPARENETWORKCONNECTIONS);
-	//DisplayStatusMessage(Session, Session->WinlogonDesktop, IDS_APPLYINGCOMPUTERSETTINGS);
+   LoadString(hAppInstance, IDS_LOADINGYOURPERSONALSETTINGS, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
 
-	/* Display logged out screen */
-	WLSession->LogonStatus = WKSTA_IS_LOGGED_OFF;
-	RemoveStatusMessage(WLSession);
-	PostMessageW(WLSession->SASWindow, WLX_WM_SAS, WLX_SAS_TYPE_TIMEOUT, 0);
+   Sleep(150);
 
-	/* Message loop for the SAS window */
-	while (GetMessageW(&Msg, WLSession->SASWindow, 0, 0))
-	{
-		TranslateMessage(&Msg);
-		DispatchMessageW(&Msg);
-	}
+   LoadString(hAppInstance, IDS_APPLYINGYOURPERSONALSETTINGS, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
 
-	/* We never go there */
 
-	return 0;
+   Sleep(150);
+
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+
+   if(!MsGinaInst->Functions->WlxActivateUserShell(MsGinaInst->Context,
+                                                   L"WinSta0\\Default",
+                                                   NULL,
+                                                   NULL))
+   {
+     LoadString(hAppInstance, IDS_FAILEDACTIVATEUSERSHELL, StatusMsg, 256 * sizeof(WCHAR));
+     MessageBox(0, StatusMsg, NULL, MB_ICONERROR);
+     SetEvent(hShutdownEvent);
+   }
+
+
+   WaitForSingleObject(hShutdownEvent, INFINITE);
+   CloseHandle(hShutdownEvent);
+
+   LoadString(hAppInstance, IDS_SAVEYOURSETTINGS, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
+
+
+   Sleep(150);
+
+   MsGinaInst->Functions->WlxShutdown(MsGinaInst->Context, WLX_SAS_ACTION_SHUTDOWN);
+
+   LoadString(hAppInstance, IDS_REACTOSISSHUTTINGDOWN, StatusMsg, 256 * sizeof(WCHAR));
+   MsGinaInst->Functions->WlxDisplayStatusMessage(MsGinaInst->Context,
+                                                  ApplicationDesktop,
+                                                  0,
+                                                  NULL,
+                                                  StatusMsg);
+
+
+   Sleep(250);
+
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+   MsGinaInst->Functions->WlxRemoveStatusMessage(MsGinaInst->Context);
+   */
 }
+

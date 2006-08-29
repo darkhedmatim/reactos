@@ -1341,7 +1341,8 @@ NtGdiAlphaBlend(
 	LONG  YOriginSrc,
 	LONG  WidthSrc,
 	LONG  HeightSrc,
-	BLENDFUNCTION  BlendFunc)
+	BLENDFUNCTION  BlendFunc,
+	IN HANDLE hcmXform)
 {
 	PDC DCDest = NULL;
 	PDC DCSrc  = NULL;
@@ -1351,7 +1352,7 @@ NtGdiAlphaBlend(
 	XLATEOBJ *XlateObj;
 	BLENDOBJ BlendObj;
 	HPALETTE SourcePalette = 0, DestPalette = 0;
-	BlendObj.BlendFunction = BlendFunc;
+    BlendObj.BlendFunction = BlendFunc;
 
 	DCDest = DC_LockDc(hDCDest);
 	if (NULL == DCDest)

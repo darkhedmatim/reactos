@@ -116,7 +116,7 @@ SepInitSDs(VOID)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 SeSetWorldSecurityDescriptor(SECURITY_INFORMATION SecurityInformation,
                              PISECURITY_DESCRIPTOR SecurityDescriptor,
                              PULONG BufferLength)

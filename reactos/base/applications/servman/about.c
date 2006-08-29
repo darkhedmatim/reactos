@@ -3,12 +3,19 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        base/system/servman/about.c
  * PURPOSE:     About dialog box message handler
- * COPYRIGHT:   Copyright 2005 - 2006 Ged Murphy <gedmurphy@gmail.com>
+ * COPYRIGHT:   Copyright 2005 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
-#include "precomp.h"
+//ShellAbout(hwnd, _T("test"), _T("test2"), MAKEINTRESOURCE(IDI_SM_ICON));
 
+#include "servman.h"
+
+extern HINSTANCE hInstance;
+
+#ifdef _MSC_VER
+#pragma warning(disable : 4100)
+#endif
 BOOL CALLBACK
 AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -20,28 +27,15 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
 
-        hIcon = LoadImage(hInstance,
-                          MAKEINTRESOURCE(IDI_SM_ICON),
-                          IMAGE_ICON,
-                          16,
-                          16,
-                          0);
+        hIcon = LoadImage(hInstance, MAKEINTRESOURCE(IDI_SM_ICON), IMAGE_ICON, 16, 16, 0);
+        SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
-        SendMessage(hDlg,
-                    WM_SETICON,
-                    ICON_SMALL,
-                    (LPARAM)hIcon);
+        hLicenseEditWnd = GetDlgItem(hDlg, IDC_LICENSE_EDIT);
 
-        hLicenseEditWnd = GetDlgItem(hDlg,
-                                     IDC_LICENSE_EDIT);
+        LoadString(hInstance, IDS_LICENSE, strLicense,
+            sizeof(strLicense) / sizeof(TCHAR));
 
-        LoadString(hInstance,
-                   IDS_LICENSE,
-                   strLicense,
-                   sizeof(strLicense) / sizeof(TCHAR));
-
-        SetWindowText(hLicenseEditWnd,
-                      strLicense);
+        SetWindowText(hLicenseEditWnd, strLicense);
 
         return TRUE;
 
@@ -50,8 +44,7 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
         {
             DestroyIcon(hIcon);
-            EndDialog(hDlg,
-                      LOWORD(wParam));
+            EndDialog(hDlg, LOWORD(wParam));
             return TRUE;
         }
 

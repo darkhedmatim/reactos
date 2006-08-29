@@ -30,6 +30,7 @@ use AnyDBM_File;
 use lib qw(.);
 
 require "globals.pl";
+require "CGI.pl";
 
 use Bugzilla;
 use Bugzilla::Search;
@@ -50,8 +51,8 @@ if (defined $cgi->param('ctype') && $cgi->param('ctype') eq "xul") {
     exit;
 }
 
-my $template = Bugzilla->template;
-my $vars = {};
+# Use global templatisation variables.
+use vars qw($template $vars);
 
 GetVersionTable();
 
@@ -65,9 +66,9 @@ else {
     Bugzilla->login();
 }
 
-my $dbh = Bugzilla->switch_to_shadow_db();
+Bugzilla->switch_to_shadow_db();
 
-use vars qw (@legal_product);
+use vars qw ($userid @legal_product);
 
 my %dbmcount;
 my %count;
@@ -231,13 +232,13 @@ if (scalar(%count)) {
                                      'params' => $params,
                                     );
 
-    my $results = $dbh->selectall_arrayref($query->getSQL());
+    SendSQL($query->getSQL());
 
-    foreach my $result (@$results) {
+    while (MoreSQLData()) {
         # Note: maximum row count is dealt with in the template.
 
         my ($id, $component, $bug_severity, $op_sys, $target_milestone, 
-            $short_desc, $bug_status, $resolution) = @$result;
+            $short_desc, $bug_status, $resolution) = FetchSQLData();
 
         push (@bugs, { id => $id,
                        count => $count{$id},
@@ -265,12 +266,12 @@ $vars->{'openonly'} = $openonly;
 $vars->{'reverse'} = $reverse;
 $vars->{'format'} = $cgi->param('format');
 $vars->{'query_products'} = \@query_products;
-$vars->{'products'} = Bugzilla->user->get_selectable_products;
+my @selectable_products = GetSelectableProducts();
+$vars->{'products'} = \@selectable_products;
 
 
-my $format = $template->get_format("reports/duplicates",
-                                   scalar($cgi->param('format')),
-                                   scalar($cgi->param('ctype')));
+my $format = GetFormat("reports/duplicates", scalar($cgi->param('format')),
+                       scalar($cgi->param('ctype')));
 
 print $cgi->header($format->{'ctype'});
 

@@ -29,27 +29,18 @@ WinMain(HINSTANCE hThisInstance,
     if (!AllocAndLoadString(&lpAppName, hInstance, IDS_APPNAME) ||
         !AllocAndLoadString(&lpVersion, hInstance, IDS_VERSION) )
     {
-        return Ret;
+        return 1;
     }
 
     len = (int)_tcslen(lpAppName) + (int)_tcslen(lpVersion);
     lpTitle = HeapAlloc(ProcessHeap,
                         0,
                         (len + 2) * sizeof(TCHAR));
-    if (lpTitle == NULL)
-    {
-        LocalFree((HLOCAL)lpAppName);
-        LocalFree((HLOCAL)lpVersion);
-        return Ret;
-    }
 
     wsprintf(lpTitle,
              _T("%s %s"),
              lpAppName,
              lpVersion);
-
-    LocalFree((HLOCAL)lpAppName);
-    LocalFree((HLOCAL)lpVersion);
 
     if (TbdInitImpl())
     {
@@ -71,6 +62,7 @@ WinMain(HINSTANCE hThisInstance,
                         {
                             if (bRet != (BOOL)-1)
                             {
+                                //if (Msg.message == WM_SIZE) MessageBox(NULL, _T("Got it"), NULL, 0);
                                 if (!MainWndTranslateMDISysAccel(hMainWnd,
                                                                  &Msg))
                                 {
@@ -95,9 +87,7 @@ WinMain(HINSTANCE hThisInstance,
         TbdUninitImpl();
     }
 
-    HeapFree(GetProcessHeap(), 
-             0, 
-             lpTitle);
+    LocalFree((HLOCAL)lpAppName);
 
     return Ret;
 }

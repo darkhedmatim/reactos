@@ -292,8 +292,8 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
    HANDLE Handle;
    USHORT HandleIndex;
    
-   ExEntry.Object = Entry;
-   ExEntry.GrantedAccess = 0x1; /* FIXME - valid handle */
+   ExEntry.u1.Object = Entry;
+   ExEntry.u2.GrantedAccess = 0x1; /* FIXME - valid handle */
    
    Handle = ExCreateHandle(AtomTable->ExHandleTable,
                                 &ExEntry);
@@ -330,7 +330,7 @@ RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
                                   (HANDLE)((ULONG_PTR)Index << 2));
    if (ExEntry != NULL)
    {
-      Entry = ExEntry->Object;
+      Entry = ExEntry->u1.Object;
       
       ExUnlockHandleTableEntry(AtomTable->ExHandleTable,
                                ExEntry);

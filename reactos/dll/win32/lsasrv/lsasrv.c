@@ -14,13 +14,13 @@ LsapInitLsa(VOID)
 {
     HANDLE hEvent;
 
-    DPRINT("LsapInitLsa() called\n");
+    DPRINT1("LsapInitLsa() called\n");
 
     LsarStartRpcServer();
 
     hEvent = OpenEventW(EVENT_MODIFY_STATE,
                         FALSE,
-                        L"Global\\SECURITY_SERVICES_STARTED");
+                        L"\\SECURITY_SERVICES_STARTED");
     if (hEvent != NULL)
     {
         SetEvent(hEvent);

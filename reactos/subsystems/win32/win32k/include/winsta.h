@@ -32,11 +32,6 @@ typedef struct _WINSTATION_OBJECT
     UINT CaretBlinkRate;
     HANDLE ShellWindow;
     HANDLE ShellListView;
-     
-	BOOL FlatMenu;
-	 /* ScreenSaver */
-	BOOL ScreenSaverRunning;
-	UINT  ScreenSaverTimeOut;
 
     /* Wallpaper */
     HANDLE hbmWallpaper;
@@ -59,14 +54,27 @@ CleanupWindowStationImpl(VOID);
 
 NTSTATUS
 STDCALL
-IntWinStaObjectOpen(PWIN32_OPENMETHOD_PARAMETERS Parameters);
+IntWinStaObjectOpen(OB_OPEN_REASON Reason,
+                    PVOID ObjectBody,
+                    PEPROCESS Process,
+                    ULONG HandleCount,
+                    ACCESS_MASK GrantedAccess);
 
 VOID STDCALL
-IntWinStaObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters);
+IntWinStaObjectDelete(PVOID DeletedObject);
+
+PVOID STDCALL
+IntWinStaObjectFind(PVOID Object,
+                    PWSTR Name,
+                    ULONG Attributes);
 
 NTSTATUS
 STDCALL
-IntWinStaObjectParse(PWIN32_PARSEMETHOD_PARAMETERS Parameters);
+IntWinStaObjectParse(PVOID Object,
+                     PVOID *NextObject,
+                     PUNICODE_STRING FullPath,
+                     PWSTR *Path,
+                     ULONG Attributes);
 
 NTSTATUS FASTCALL
 IntValidateWindowStationHandle(

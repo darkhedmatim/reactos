@@ -68,7 +68,7 @@ ExpInitializeMutantImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.DeleteProcedure = ExpDeleteMutant;
     ObjectTypeInitializer.ValidAccessMask = MUTANT_ALL_ACCESS;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExMutantObjectType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExMutantObjectType);
 }
 
 /*
@@ -133,6 +133,7 @@ NtCreateMutant(OUT PHANDLE MutantHandle,
                                 0,
                                 NULL,
                                 &hMutant);
+        ObDereferenceObject(Mutant);
 
         /* Check for success */
         if(NT_SUCCESS(Status))
@@ -193,8 +194,8 @@ NtOpenMutant(OUT PHANDLE MutantHandle,
     /* Open the Object */
     Status = ObOpenObjectByName(ObjectAttributes,
                                 ExMutantObjectType,
-                                PreviousMode,
                                 NULL,
+                                PreviousMode,
                                 DesiredAccess,
                                 NULL,
                                 &hMutant);

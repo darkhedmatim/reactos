@@ -14,7 +14,7 @@ class WatchedItem {
 	/**
 	 * Create a WatchedItem object with the given user and title
 	 * @todo document
-	 * @access private
+	 * @private
 	 */
 	function &fromUserTitle( &$user, &$title ) {
 		$wl = new WatchedItem;
@@ -38,7 +38,7 @@ class WatchedItem {
 		global $wgDBname;
 		return "$wgDBname:watchlist:user:$this->id:page:$this->ns:$this->ti";
 	}
-
+	
 	/**
 	 * Is mTitle being watched by mUser?
 	 */
@@ -51,9 +51,9 @@ class WatchedItem {
 		$key = $this->watchKey();
 		$iswatched = $wgMemc->get( $key );
 		if( is_integer( $iswatched ) ) return $iswatched;
-
+		
 		$dbr =& wfGetDB( DB_SLAVE );
-		$res = $dbr->select( 'watchlist', 1, array( 'wl_user' => $this->id, 'wl_namespace' => $this->ns,
+		$res = $dbr->select( 'watchlist', 1, array( 'wl_user' => $this->id, 'wl_namespace' => $this->ns, 
 			'wl_title' => $this->ti ), $fname );
 		$iswatched = ($dbr->numRows( $res ) > 0) ? 1 : 0;
 		$wgMemc->set( $key, $iswatched );
@@ -66,27 +66,27 @@ class WatchedItem {
 	function addWatch() {
 		$fname = 'WatchedItem::addWatch';
 		wfProfileIn( $fname );
-
-		// Use INSERT IGNORE to avoid overwriting the notification timestamp
-		// if there's already an entry for this page
+		# REPLACE instead of INSERT because occasionally someone
+		# accidentally reloads a watch-add operation.
 		$dbw =& wfGetDB( DB_MASTER );
-		$dbw->insert( 'watchlist',
-		  array(
+		$dbw->replace( 'watchlist', array(array('wl_user', 'wl_namespace', 'wl_title', 'wl_notificationtimestamp')),
+		  array( 
 		    'wl_user' => $this->id,
 			'wl_namespace' => ($this->ns & ~1),
 			'wl_title' => $this->ti,
-			'wl_notificationtimestamp' => NULL
-		  ), $fname, 'IGNORE' );
+			'wl_notificationtimestamp' => '0'
+		  ), $fname );
 
-		// Every single watched page needs now to be listed in watchlist;
-		// namespace:page and namespace_talk:page need separate entries:
-		$dbw->insert( 'watchlist',
+		# the following code compensates the new behaviour, introduced by the enotif patch,
+		# that every single watched page needs now to be listed in watchlist
+		# namespace:page and namespace_talk:page need separate entries: create them
+		$dbw->replace( 'watchlist', array(array('wl_user', 'wl_namespace', 'wl_title', 'wl_notificationtimestamp')),
 		  array(
 			'wl_user' => $this->id,
 			'wl_namespace' => ($this->ns | 1 ),
 			'wl_title' => $this->ti,
-			'wl_notificationtimestamp' => NULL
-		  ), $fname, 'IGNORE' );
+			'wl_notificationtimestamp' => '0'
+		  ), $fname );
 
 		global $wgMemc;
 		$wgMemc->set( $this->watchkey(), 1 );
@@ -100,9 +100,9 @@ class WatchedItem {
 
 		$success = false;
 		$dbw =& wfGetDB( DB_MASTER );
-		$dbw->delete( 'watchlist',
-			array(
-				'wl_user' => $this->id,
+		$dbw->delete( 'watchlist', 
+			array( 
+				'wl_user' => $this->id, 
 				'wl_namespace' => ($this->ns & ~1),
 				'wl_title' => $this->ti
 			), $fname
@@ -122,7 +122,7 @@ class WatchedItem {
 				'wl_title' => $this->ti
 			), $fname
 		);
-
+		
 		if ( $dbw->affectedRows() ) {
 			$success = true;
 		}
@@ -144,20 +144,23 @@ class WatchedItem {
 		WatchedItem::doDuplicateEntries( $ot->getSubjectPage(), $nt->getSubjectPage() );
 		WatchedItem::doDuplicateEntries( $ot->getTalkPage(), $nt->getTalkPage() );
 	}
-
+	
 	/**
 	 * @static
 	 * @access private
 	 */
 	function doDuplicateEntries( $ot, $nt ) {
 		$fname = "WatchedItem::duplicateEntries";
+		global $wgMemc, $wgDBname;
 		$oldnamespace = $ot->getNamespace();
 		$newnamespace = $nt->getNamespace();
 		$oldtitle = $ot->getDBkey();
 		$newtitle = $nt->getDBkey();
 
 		$dbw =& wfGetDB( DB_MASTER );
-		$res = $dbw->select( 'watchlist', 'wl_user',
+		$watchlist = $dbw->tableName( 'watchlist' );
+		
+		$res = $dbw->select( 'watchlist', 'wl_user', 
 			array( 'wl_namespace' => $oldnamespace, 'wl_title' => $oldtitle ),
 			$fname, 'FOR UPDATE'
 		);
@@ -171,7 +174,7 @@ class WatchedItem {
 			);
 		}
 		$dbw->freeResult( $res );
-
+		
 		if( empty( $values ) ) {
 			// Nothing to do
 			return true;

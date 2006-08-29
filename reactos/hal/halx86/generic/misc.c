@@ -26,7 +26,7 @@ HalAllocateCrashDumpRegisters(IN PADAPTER_OBJECT AdapterObject,
 
 
 VOID STDCALL
-HalHandleNMI(PVOID NmiInfo)
+HalHandleNMI(ULONG Unused)
 {
   UCHAR ucStatus;
 

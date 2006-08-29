@@ -37,7 +37,7 @@ static LPTSTR pathBuffer;
 static BOOL get_item_path(HWND hwndTV, HTREEITEM hItem, HKEY* phKey, LPTSTR* pKeyPath, int* pPathLen, int* pMaxLen)
 {
     TVITEM item;
-    size_t maxLen, len;
+    int maxLen, len;
     LPTSTR newStr;
 
     item.mask = TVIF_PARAM;
@@ -60,12 +60,11 @@ static BOOL get_item_path(HWND hwndTV, HTREEITEM hItem, HKEY* phKey, LPTSTR* pKe
         item.mask = TVIF_TEXT;
         item.hItem = hItem;
         item.pszText = *pKeyPath + *pPathLen;
-        maxLen = *pMaxLen - *pPathLen;
-        item.cchTextMax = (int) maxLen;
+        item.cchTextMax = maxLen = *pMaxLen - *pPathLen;
         if (!TreeView_GetItem(hwndTV, &item)) return FALSE;
         len = _tcslen(item.pszText);
 	if (len < maxLen - 1) {
-            *pPathLen += (int) len;
+            *pPathLen += len;
             break;
 	}
 	newStr = HeapReAlloc(GetProcessHeap(), 0, *pKeyPath, *pMaxLen * 2);
@@ -85,7 +84,7 @@ LPCTSTR GetItemPath(HWND hwndTV, HTREEITEM hItem, HKEY* phRootKey)
     if (!pathBuffer) pathBuffer = HeapAlloc(GetProcessHeap(), 0, 1024);
     if (!pathBuffer) return NULL;
     *pathBuffer = 0;
-    maxLen = (int) HeapSize(GetProcessHeap(), 0, pathBuffer);
+    maxLen = HeapSize(GetProcessHeap(), 0, pathBuffer);
     if (maxLen == -1) return NULL;
     if (!hItem) hItem = TreeView_GetSelection(hwndTV);
     if (!hItem) return NULL;
@@ -211,7 +210,7 @@ BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
             if (!TreeView_GetItem(hwndTV, &tvItem))
                 goto done;
 
-            dwActualSize += (DWORD) _tcslen(&pszNodes[dwActualSize]) + 1;
+            dwActualSize += _tcslen(&pszNodes[dwActualSize]) + 1;
         }
 
         if (pszNodes)

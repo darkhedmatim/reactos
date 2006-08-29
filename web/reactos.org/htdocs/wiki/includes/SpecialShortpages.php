@@ -6,6 +6,11 @@
  */
 
 /**
+ *
+ */
+require_once("QueryPage.php");
+
+/**
  * SpecialShortpages extends QueryPage. It is used to return the shortest
  * pages in the database.
  * @package MediaWiki
@@ -21,9 +26,9 @@ class ShortPagesPage extends QueryPage {
 	 * This query is indexed as of 1.5
 	 */
 	function isExpensive() {
-		return true;
+		return false;
 	}
-
+	
 	function isSyndicated() {
 		return false;
 	}
@@ -32,48 +37,26 @@ class ShortPagesPage extends QueryPage {
 		$dbr =& wfGetDB( DB_SLAVE );
 		$page = $dbr->tableName( 'page' );
 		$name = $dbr->addQuotes( $this->getName() );
-
-		$forceindex = $dbr->useIndexClause("page_len");
+		
 		return
 			"SELECT $name as type,
-				page_namespace as namespace,
+					page_namespace as namespace,
 			        page_title as title,
 			        page_len AS value
-			FROM $page $forceindex
+			FROM $page
 			WHERE page_namespace=".NS_MAIN." AND page_is_redirect=0";
 	}
-
-	function preprocessResults( &$dbo, $res ) {
-		# There's no point doing a batch check if we aren't caching results;
-		# the page must exist for it to have been pulled out of the table
-		if( $this->isCached() ) {
-			$batch = new LinkBatch();
-			while( $row = $dbo->fetchObject( $res ) )
-				$batch->addObj( Title::makeTitleSafe( $row->namespace, $row->title ) );
-			$batch->execute();
-			if( $dbo->numRows( $res ) > 0 )
-				$dbo->dataSeek( $res, 0 );
-		}
-	}
-
+	
 	function sortDescending() {
 		return false;
 	}
 
 	function formatResult( $skin, $result ) {
 		global $wgLang, $wgContLang;
-		$dm = $wgContLang->getDirMark();
-		
-		$title = Title::makeTitleSafe( $result->namespace, $result->title );
-		$hlink = $skin->makeKnownLinkObj( $title, wfMsgHtml( 'hist' ), 'action=history' );
-		$plink = $this->isCached()
-					? $skin->makeLinkObj( $title )
-					: $skin->makeKnownLinkObj( $title );
-		$size = wfMsgHtml( 'nbytes', $wgLang->formatNum( htmlspecialchars( $result->value ) ) );
-		
-		return $title->exists()
-				? "({$hlink}) {$dm}{$plink} {$dm}[{$size}]"
-				: "<s>({$hlink}) {$dm}{$plink} {$dm}[{$size}]</s>";
+		$nb = htmlspecialchars( wfMsg( "nbytes", $wgLang->formatNum( $result->value ) ) );
+		$title = Title::makeTitle( $result->namespace, $result->title );
+		$link = $skin->makeKnownLinkObj( $title, $wgContLang->convert( $title->getPrefixedText() ) );
+		return "{$link} ({$nb})";
 	}
 }
 

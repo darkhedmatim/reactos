@@ -268,15 +268,6 @@ WelcomeDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Next button */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_NEXT);
-                if (SetupData.UnattendSetup)
-                  {
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_ACKPAGE);
-                    return TRUE;
-                  }
-                break;
-
-              case PSN_WIZBACK:
-                SetupData.UnattendSetup = FALSE;
                 break;
 
               default:
@@ -369,15 +360,6 @@ AckPageDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Back and Next buttons */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
-                if (SetupData.UnattendSetup)
-                  {
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_OWNERPAGE);
-                    return TRUE;
-                  }
-                break;
-
-              case PSN_WIZBACK:
-                SetupData.UnattendSetup = FALSE;
                 break;
 
               default:
@@ -393,50 +375,6 @@ AckPageDlgProc(HWND hwndDlg,
   return FALSE;
 }
 
-static
-BOOL
-WriteOwnerSettings(TCHAR * OwnerName,
-                   TCHAR * OwnerOrganization)
-{
-  HKEY hKey;
-  LONG res;
-
-
-
-  res = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                     _T("Software\\Microsoft\\Windows NT\\CurrentVersion"),
-                     0,
-                     KEY_ALL_ACCESS,
-                     &hKey);
-
-  if (res != ERROR_SUCCESS)
-    {
-      return FALSE;
-    }
-
-  res = RegSetValueEx(hKey,
-                      _T("RegisteredOwner"),
-                      0,
-                      REG_SZ,
-                      (LPBYTE)OwnerName,
-                      (_tcslen(OwnerName) + 1) * sizeof(TCHAR));
-
-  if (res != ERROR_SUCCESS)
-    {
-      RegCloseKey(hKey);
-      return FALSE;
-    }
- 
-  res = RegSetValueEx(hKey,
-                      _T("RegisteredOrganization"),
-                      0,
-                      REG_SZ,
-                      (LPBYTE)OwnerOrganization,
-                      (_tcslen(OwnerOrganization) + 1) * sizeof(TCHAR));
-
-  RegCloseKey(hKey);
-  return (res == ERROR_SUCCESS);
-}
 
 static INT_PTR CALLBACK
 OwnerPageDlgProc(HWND hwndDlg,
@@ -446,6 +384,7 @@ OwnerPageDlgProc(HWND hwndDlg,
 {
   TCHAR OwnerName[51];
   TCHAR OwnerOrganization[51];
+  HKEY hKey;
   LPNMHDR lpnm;
 
   switch (uMsg)
@@ -470,16 +409,6 @@ OwnerPageDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Back and Next buttons */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
-                if (SetupData.UnattendSetup)
-                  {
-                    SendMessage(GetDlgItem(hwndDlg, IDC_OWNERNAME), WM_SETTEXT, 0, (LPARAM)SetupData.OwnerName);
-                    SendMessage(GetDlgItem(hwndDlg, IDC_OWNERORGANIZATION), WM_SETTEXT, 0, (LPARAM)SetupData.OwnerOrganization);
-                    if (WriteOwnerSettings(SetupData.OwnerName, SetupData.OwnerOrganization))
-                      {
-                        SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_COMPUTERPAGE);
-                        return TRUE;
-                      }
-                  }
                 break;
 
               case PSN_WIZNEXT:
@@ -500,15 +429,30 @@ OwnerPageDlgProc(HWND hwndDlg,
                 OwnerOrganization[0] = 0;
                 GetDlgItemTextW(hwndDlg, IDC_OWNERORGANIZATION, OwnerOrganization, 50);
 
-                if (!WriteOwnerSettings(OwnerName, OwnerOrganization))
-                  {
-                    SetFocus(GetDlgItem(hwndDlg, IDC_OWNERNAME));
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
-                    return TRUE;
-                  }
+                RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                             _T("Software\\Microsoft\\Windows NT\\CurrentVersion"),
+                             0,
+                             KEY_ALL_ACCESS,
+                             &hKey);
+                /* FIXME: check error code */
 
-              case PSN_WIZBACK:
-                SetupData.UnattendSetup = FALSE;
+                RegSetValueEx(hKey,
+                              _T("RegisteredOwner"),
+                              0,
+                              REG_SZ,
+                              (LPBYTE)OwnerName,
+                              (_tcslen(OwnerName) + 1) * sizeof(TCHAR));
+                /* FIXME: check error code */
+
+                RegSetValueEx(hKey,
+                              _T("RegisteredOrganization"),
+                              0,
+                              REG_SZ,
+                              (LPBYTE)OwnerOrganization,
+                              (_tcslen(OwnerOrganization) + 1) * sizeof(TCHAR));
+                /* FIXME: check error code */
+
+                RegCloseKey(hKey);
                 break;
 
               default:
@@ -523,25 +467,7 @@ OwnerPageDlgProc(HWND hwndDlg,
 
   return FALSE;
 }
-static
-BOOL
-WriteComputerSettings(TCHAR * ComputerName, HWND hwndDlg)
-{
-  if (!SetComputerName(ComputerName))
-    {
-      MessageBox(hwndDlg,
-                 _T("Setup failed to set the computer name."),
-                 _T("ReactOS Setup"),
-                 MB_ICONERROR | MB_OK);
 
-      return FALSE;
-    }
-
-   /* Try to also set DNS hostname */
-  SetComputerNameEx(ComputerNamePhysicalDnsHostname, ComputerName);
-
-  return TRUE;
-}
 
 static INT_PTR CALLBACK
 ComputerPageDlgProc(HWND hwndDlg,
@@ -573,13 +499,6 @@ ComputerPageDlgProc(HWND hwndDlg,
 
           /* Set focus to computer name */
           SetFocus(GetDlgItem(hwndDlg, IDC_COMPUTERNAME));
-          if (SetupData.UnattendSetup)
-            {
-              SendMessage(GetDlgItem(hwndDlg, IDC_COMPUTERNAME), WM_SETTEXT, 0, (LPARAM)SetupData.ComputerName);
-              SendMessage(GetDlgItem(hwndDlg, IDC_ADMINPASSWORD1), WM_SETTEXT, 0, (LPARAM)SetupData.AdminPassword);
-              SendMessage(GetDlgItem(hwndDlg, IDC_ADMINPASSWORD2), WM_SETTEXT, 0, (LPARAM)SetupData.AdminPassword);
-            }
-
         }
         break;
 
@@ -593,11 +512,6 @@ ComputerPageDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Back and Next buttons */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
-                if (SetupData.UnattendSetup && WriteComputerSettings(SetupData.ComputerName, hwndDlg))
-                  {
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_LOCALEPAGE);
-                    return TRUE;
-                  }
                 break;
 
               case PSN_WIZNEXT:
@@ -607,19 +521,23 @@ ComputerPageDlgProc(HWND hwndDlg,
                              _T("Setup cannot continue until you enter the name of your computer."),
                              _T("ReactOS Setup"),
                              MB_ICONERROR | MB_OK);
-                  SetFocus(GetDlgItem(hwndDlg, IDC_COMPUTERNAME));
                   SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
                   return TRUE;
                 }
 
                 /* FIXME: check computer name for invalid characters */
 
-                if (!WriteComputerSettings(ComputerName, hwndDlg))
-                  {
-                    SetFocus(GetDlgItem(hwndDlg, IDC_COMPUTERNAME));
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
-                    return TRUE;
-                  }
+                if (!SetComputerName(ComputerName))
+                {
+                  MessageBox(hwndDlg,
+                             _T("Setup failed to set the computer name."),
+                             _T("ReactOS Setup"),
+                             MB_ICONERROR | MB_OK);
+                  SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
+                  return TRUE;
+                }
+                /* Try to also set DNS hostname */
+                SetComputerNameEx(ComputerNamePhysicalDnsHostname, ComputerName);
 
                 /* Check admin passwords */
                 GetDlgItemText(hwndDlg, IDC_ADMINPASSWORD1, Password1, 15);
@@ -638,10 +556,6 @@ ComputerPageDlgProc(HWND hwndDlg,
                 /* FIXME: check password for invalid characters */
 
                 /* FIXME: Set admin password */
-                break;
-
-              case PSN_WIZBACK:
-                SetupData.UnattendSetup = FALSE;
                 break;
 
               default:
@@ -715,35 +629,41 @@ SetKeyboardLayoutName(HWND hwnd)
 }
 
 
-static BOOL
-RunControlPanelApplet(HWND hwnd, TCHAR *lpCommandLine)
+static VOID
+RunInputLocalePage(HWND hwnd)
 {
-  STARTUPINFO StartupInfo;
-  PROCESS_INFORMATION ProcessInformation;
+  PROPSHEETPAGE psp = {0};
+  PROPSHEETHEADER psh = {0};
+  HMODULE hDll;
+//  TCHAR Caption[256];
 
-  ZeroMemory(&StartupInfo, sizeof(STARTUPINFO));
-  StartupInfo.cb = sizeof(STARTUPINFO);
+  hDll = LoadLibrary(_T("intl.cpl"));
+  if (hDll == NULL)
+    return;
 
-  if (!CreateProcess(NULL,
-                       lpCommandLine,
-                       NULL,
-                       NULL,
-                       FALSE,
-                       0,
-                       NULL,
-                       NULL,
-                       &StartupInfo,
-                       &ProcessInformation))
-    {
-      MessageBox(hwnd, _T("Error: failed to launch rundll32"), _T("Error"), MB_ICONERROR);
-      return FALSE;
-    }
+  psp.dwSize = sizeof(PROPSHEETPAGE);
+  psp.dwFlags = PSP_DEFAULT;
+  psp.hInstance = hDll;
+  psp.pszTemplate = MAKEINTRESOURCE(105); /* IDD_LOCALEPAGE from intl.cpl */
+  psp.pfnDlgProc = GetProcAddress(hDll, "LocalePageProc");
 
-  WaitForSingleObject(ProcessInformation.hProcess, INFINITE);
-  CloseHandle(ProcessInformation.hThread);
-  CloseHandle(ProcessInformation.hProcess);
-  return TRUE;
+//  LoadString(hDll, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
+
+  psh.dwSize = sizeof(PROPSHEETHEADER);
+  psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE;
+//  psh.hwndParent = hwnd;
+//  psh.hInstance = hDll;
+//  psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON));
+  psh.pszCaption = _T("Title"); //Caption;
+  psh.nPages = 1;
+  psh.nStartPage = 0;
+  psh.ppsp = &psp;
+
+  PropertySheet(&psh);
+
+  FreeLibrary(hDll);
 }
+
 
 static INT_PTR CALLBACK
 LocalePageDlgProc(HWND hwndDlg,
@@ -752,7 +672,6 @@ LocalePageDlgProc(HWND hwndDlg,
                   LPARAM lParam)
 {
   PSETUPDATA SetupData;
-  TCHAR szBuffer[MAX_PATH];
 
   /* Retrieve pointer to the global setup data */
   SetupData = (PSETUPDATA)GetWindowLongPtr (hwndDlg, GWL_USERDATA);
@@ -772,26 +691,24 @@ LocalePageDlgProc(HWND hwndDlg,
         break;
 
       case WM_COMMAND:
-    if (HIWORD(wParam) == BN_CLICKED)
-      {
-        switch (LOWORD(wParam))
-          {
-        case IDC_CUSTOMLOCALE:
-          {
-            _tcscpy(szBuffer, _T("rundll32.exe shell32.dll,Control_RunDLL intl.cpl,,5"));
-            RunControlPanelApplet(hwndDlg, szBuffer);
-            /* FIXME: Update input locale name */
-          }
-          break;
+	if (HIWORD(wParam) == BN_CLICKED)
+	  {
+	    switch (LOWORD(wParam))
+	      {
+		case IDC_CUSTOMLOCALE:
+		  {
+		    RunInputLocalePage(hwndDlg);
+		    /* FIXME: Update input locale name */
+		  }
+		  break;
 
-        case IDC_CUSTOMLAYOUT:
-          {
-            _tcscpy(szBuffer, _T("rundll32.exe shell32.dll,Control_RunDLL main.cpl,@1"));
-            RunControlPanelApplet(hwndDlg, szBuffer);
-          }
-          break;
-          }
-      }
+		case IDC_CUSTOMLAYOUT:
+		  {
+//		    RunKeyboardLayoutControlPanel(hwndDlg);
+		  }
+		  break;
+	      }
+	  }
 	break;
 
       case WM_NOTIFY:
@@ -803,20 +720,9 @@ LocalePageDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Back and Next buttons */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
-                if (SetupData->UnattendSetup)
-                  {
-                    _tcscpy(szBuffer, _T("rundll32.exe shell32.dll,Control_RunDLL intl.cpl,,/f:\"unattend.inf\""));
-                    RunControlPanelApplet(hwndDlg, szBuffer);
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_DATETIMEPAGE);
-                    return TRUE;
-                  }
                 break;
 
               case PSN_WIZNEXT:
-                break;
-
-              case PSN_WIZBACK:
-                SetupData->UnattendSetup = FALSE;
                 break;
 
               default:
@@ -1136,15 +1042,17 @@ GetTimeZoneListIndex(LPDWORD lpIndex)
 
 
 static VOID
-ShowTimeZoneList(HWND hwnd, PSETUPDATA SetupData, DWORD dwEntryIndex)
+ShowTimeZoneList(HWND hwnd, PSETUPDATA SetupData)
 {
   PTIMEZONE_ENTRY Entry;
   DWORD dwIndex = 0;
+  DWORD dwEntryIndex = 0;
   DWORD dwCount;
 
 #if 0
   GetTimeZoneListIndex(&dwEntryIndex);
 #endif
+  dwEntryIndex = 85; /* GMT time zone */
 
   Entry = SetupData->TimeZoneListHead;
   while (Entry != NULL)
@@ -1218,12 +1126,12 @@ GetLocalSystemTime(HWND hwnd, PSETUPDATA SetupData)
   SYSTEMTIME Date;
   SYSTEMTIME Time;
 
-  if (DateTime_GetSystemtime(GetDlgItem(hwnd, IDC_DATEPICKER), &Date) != GDT_VALID)
+  if (DateTime_GetSystemTime(GetDlgItem(hwnd, IDC_DATEPICKER), &Date) != GDT_VALID)
     {
       return FALSE;
     }
 
-  if (DateTime_GetSystemtime(GetDlgItem(hwnd, IDC_TIMEPICKER), &Time) != GDT_VALID)
+  if (DateTime_GetSystemTime(GetDlgItem(hwnd, IDC_TIMEPICKER), &Time) != GDT_VALID)
     {
       return FALSE;
     }
@@ -1325,25 +1233,6 @@ SetSystemLocalTime(HWND hwnd, PSETUPDATA SetupData)
   return Ret;
 }
 
-static BOOL
-WriteDateTimeSettings(HWND hwndDlg, PSETUPDATA SetupData)
-{
-  GetLocalSystemTime(hwndDlg, SetupData);
-  SetLocalTimeZone(GetDlgItem(hwndDlg, IDC_TIMEZONELIST),
-                   SetupData);
-
-  SetAutoDaylightInfo(GetDlgItem(hwndDlg, IDC_AUTODAYLIGHT));
-  if(!SetSystemLocalTime(hwndDlg, SetupData))
-    {
-      MessageBox(hwndDlg,
-                 _T("Setup was unable to set the local time."),
-                 _T("ReactOS Setup"),
-                 MB_ICONWARNING | MB_OK);
-      return FALSE;
-    }
-
-  return TRUE;
-}
 
 static INT_PTR CALLBACK
 DateTimePageDlgProc(HWND hwndDlg,
@@ -1365,25 +1254,11 @@ DateTimePageDlgProc(HWND hwndDlg,
           SetWindowLongPtr(hwndDlg, GWL_USERDATA, (DWORD_PTR)SetupData);
 
           CreateTimeZoneList(SetupData);
-          
-          if (SetupData->UnattendSetup)
-            {
-              ShowTimeZoneList(GetDlgItem(hwndDlg, IDC_TIMEZONELIST),
-                               SetupData, SetupData->TimeZoneIndex);
 
-              if (!SetupData->DisableAutoDaylightTimeSet)
-                {
-                  SendDlgItemMessage(hwndDlg, IDC_AUTODAYLIGHT, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
-                }
-            }
-          else
-            {
-              ShowTimeZoneList(GetDlgItem(hwndDlg, IDC_TIMEZONELIST),
-                               SetupData, 85 /* GMT time zone */);
+          ShowTimeZoneList(GetDlgItem(hwndDlg, IDC_TIMEZONELIST),
+                           SetupData);
 
-              SendDlgItemMessage(hwndDlg, IDC_AUTODAYLIGHT, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
-            }
-
+          SendDlgItemMessage(hwndDlg, IDC_AUTODAYLIGHT, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
         }
         break;
 
@@ -1397,11 +1272,6 @@ DateTimePageDlgProc(HWND hwndDlg,
               case PSN_SETACTIVE:
                 /* Enable the Back and Next buttons */
                 PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK | PSWIZB_NEXT);
-                if (SetupData->UnattendSetup && WriteDateTimeSettings(hwndDlg, SetupData))
-                  {
-                    SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_PROCESSPAGE);
-                    return TRUE;
-                  }
                 break;
 
               case PSN_WIZNEXT:
@@ -1418,10 +1288,6 @@ DateTimePageDlgProc(HWND hwndDlg,
                                MB_ICONWARNING | MB_OK);
                   }
                 }
-                break;
-
-              case PSN_WIZBACK:
-                SetupData->UnattendSetup = FALSE;
                 break;
 
               default:
@@ -1742,10 +1608,6 @@ ProcessPageDlgProc(HWND hwndDlg,
               case PSN_WIZNEXT:
                 break;
 
-              case PSN_WIZBACK:
-                SetupData->UnattendSetup = FALSE;
-                break;
-
               default:
                 break;
             }
@@ -1881,8 +1743,8 @@ FinishDlgProc(HWND hwndDlg,
                 KillTimer(hwndDlg, 1);
 
                 /* Skip the progress page */
-                SetWindowLong(hwndDlg, DWL_MSGRESULT, IDD_DATETIMEPAGE);
-                SetupData.UnattendSetup = FALSE;
+                PropSheet_SetCurSelByID(GetParent(hwndDlg), IDD_DATETIMEPAGE);
+                SetWindowLong(hwndDlg, DWL_MSGRESULT, -1);
                 return TRUE;
 
               case PSN_WIZFINISH:
@@ -1901,86 +1763,6 @@ FinishDlgProc(HWND hwndDlg,
 
   return FALSE;
 }
-BOOL
-ProcessUnattendInf(HINF hUnattendedInf)
-{
-  INFCONTEXT InfContext;
-  TCHAR szName[256];
-  TCHAR szValue[256];
-  DWORD LineLength;
-
-  if (!SetupFindFirstLine(hUnattendedInf,
-              _T("Unattend"),
-              NULL,
-              &InfContext))
-    {
-      DPRINT1("Error: SetupFindFirstLine failed %d\n", GetLastError());
-      return FALSE;
-    }
-
-  do
-  {	
-    if (!SetupGetStringField(&InfContext,
-                 0,
-                 szName,
-                 sizeof(szName) / sizeof(TCHAR),
-                 &LineLength))
-      {
-        DPRINT1("Error: SetupGetStringField failed with %d\n", GetLastError());
-        return FALSE;
-      }
-
-    if (!SetupGetStringField(&InfContext,
-                 1,
-                 szValue,
-                 sizeof(szValue) / sizeof(TCHAR),
-                 &LineLength))
-      {
-        DPRINT1("Error: SetupGetStringField failed with %d\n", GetLastError());
-        return FALSE;
-      }
-    DPRINT1("Name %S Value %S\n",szName, szValue);
-    if (!_tcscmp(szName, _T("FullName")))
-      {
-        if ((sizeof(SetupData.OwnerName) / sizeof(TCHAR)) > LineLength)
-          {
-            _tcscpy(SetupData.OwnerName, szValue);
-          }
-      }
-    else if (!_tcscmp(szName, _T("OrgName")))
-      {
-        if ((sizeof(SetupData.OwnerOrganization) / sizeof(TCHAR)) > LineLength)
-          {
-            _tcscpy(SetupData.OwnerOrganization, szValue);
-          }
-      }
-    else if (!_tcscmp(szName, _T("ComputerName")))
-      {
-        if ((sizeof(SetupData.ComputerName) / sizeof(TCHAR)) > LineLength)
-        {
-          _tcscpy(SetupData.ComputerName, szValue);
-        }
-    }
-    else if (!_tcscmp(szName, _T("AdminPassword")))
-      {
-        if ((sizeof(SetupData.AdminPassword) / sizeof(TCHAR)) > LineLength)
-          {
-            _tcscpy(SetupData.AdminPassword, szValue);
-          }
-      }
-    else if (!_tcscmp(szName, _T("TimeZoneIndex")))
-      {
-        SetupData.TimeZoneIndex = _ttoi(szValue);
-      }
-    else if (_tcscmp(szName, _T("DisableAutoDaylightTimeSet")))
-      {
-        SetupData.DisableAutoDaylightTimeSet = _ttoi(szValue);
-      }
-  }
-  while (SetupFindNextLine(&InfContext, &InfContext));
-
-  return TRUE;
-}
 
 
 VOID
@@ -1990,21 +1772,9 @@ InstallWizard(VOID)
   HPROPSHEETPAGE ahpsp[8];
   PROPSHEETPAGE psp = {0};
   UINT nPages = 0;
-  HINF hUnattendedInf;
 
   /* Clear setup data */
   ZeroMemory(&SetupData, sizeof(SETUPDATA));
-
-  hUnattendedInf = SetupOpenInfFileW(L"unattend.inf",
-                           NULL,
-                           INF_STYLE_OLDNT,
-                           NULL);
-  
-  if (hUnattendedInf != INVALID_HANDLE_VALUE)
-  {
-    SetupData.UnattendSetup = ProcessUnattendInf(hUnattendedInf);
-    SetupCloseInfFile(hUnattendedInf);
-  }
 
   /* Create the Welcome page */
   psp.dwSize = sizeof(PROPSHEETPAGE);

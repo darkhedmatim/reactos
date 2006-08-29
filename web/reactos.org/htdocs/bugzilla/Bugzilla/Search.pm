@@ -25,10 +25,12 @@
 #                 Myk Melez <myk@mozilla.org>
 #                 Michael Schindler <michael@compressconsult.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Joel Peshkin <bugreport@peshkin.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 use strict;
+
+# The caller MUST require CGI.pl and globals.pl before using this
+
+use vars qw($userid);
 
 package Bugzilla::Search;
 use base qw(Exporter);
@@ -40,7 +42,6 @@ use Bugzilla::Util;
 use Bugzilla::Constants;
 use Bugzilla::Group;
 use Bugzilla::User;
-use Bugzilla::Field;
 
 use Date::Format;
 use Date::Parse;
@@ -98,8 +99,6 @@ sub init {
     my @orderby;
 
     my $debug = 0;
-    my @debugdata;
-    if ($params->param('debug')) { $debug = 1; }
 
     my @fields;
     my @supptables;
@@ -311,7 +310,7 @@ sub init {
                     push(@l, "bugs.creation_ts <= $sql_chto") if($sql_chto);
                     $bug_creation_clause = "(" . join(' AND ', @l) . ")";
                 } else {
-                    push(@list, "\nactcheck.fieldid = " . get_field_id($f));
+                    push(@list, "\nactcheck.fieldid = " . &::GetFieldID($f));
                 }
             }
 
@@ -350,18 +349,14 @@ sub init {
             
       if ($params->param('deadlinefrom')){
         $deadlinefrom = $params->param('deadlinefrom');
-        validate_date($deadlinefrom)
-          || ThrowUserError('illegal_date', {date => $deadlinefrom,
-                                             format => 'YYYY-MM-DD'});
+        Bugzilla::Util::ValidateDate($deadlinefrom, 'deadlinefrom');
         $sql_deadlinefrom = &::SqlQuote($deadlinefrom);
         push(@wherepart, "bugs.deadline >= $sql_deadlinefrom");
       }
       
       if ($params->param('deadlineto')){
         $deadlineto = $params->param('deadlineto');
-        validate_date($deadlineto)
-          || ThrowUserError('illegal_date', {date => $deadlineto,
-                                             format => 'YYYY-MM-DD'});
+        Bugzilla::Util::ValidateDate($deadlineto, 'deadlineto');
         $sql_deadlineto = &::SqlQuote($deadlineto);
         push(@wherepart, "bugs.deadline <= $sql_deadlineto");
       }
@@ -432,14 +427,9 @@ sub init {
              $term = "bugs.$f <> " . pronoun($1, $user);
           },
          "^(assigned_to|reporter),(?!changed)" => sub {
-             my $list = $self->ListIDsForEmail($t, $v);
-             if ($list) {
-                 $term = "bugs.$f IN ($list)"; 
-             } else {
-                 push(@supptables, "INNER JOIN profiles AS map_$f " .
-                                   "ON bugs.$f = map_$f.userid");
-                 $f = "map_$f.login_name";
-             }
+             push(@supptables, "INNER JOIN profiles AS map_$f " .
+                               "ON bugs.$f = map_$f.userid");
+             $f = "map_$f.login_name";
          },
          "^qa_contact,(?!changed)" => sub {
              push(@supptables, "LEFT JOIN profiles AS map_qa_contact " .
@@ -499,7 +489,7 @@ sub init {
                                "AND cc_$chartseq.who = $match");
              $term = "cc_$chartseq.who IS NULL";
          },
-         "^cc,(anyexact|substring|regexp)" => sub {
+         "^cc,(anyexact|substring)" => sub {
              my $list;
              $list = $self->ListIDsForEmail($t, $v);
              my $chartseq = $chartid;
@@ -586,8 +576,10 @@ sub init {
              # $term1 searches comments.
              # $term2 searches summaries, which contributes to the relevance
              # ranking in SELECT but doesn't limit which bugs get retrieved.
-             my $term1 = $dbh->sql_fulltext_search("${table}.thetext", $v);
-             my $term2 = $dbh->sql_fulltext_search("bugs.short_desc", $v);
+             my $term1 = $dbh->sql_fulltext_search("${table}.thetext",
+                                                   ::SqlQuote($v));
+             my $term2 = $dbh->sql_fulltext_search("bugs.short_desc",
+                                                   ::SqlQuote($v));
 
              # The term to use in the WHERE clause.
              $term = "$term1 > 0";
@@ -724,23 +716,14 @@ sub init {
              } elsif ($t eq "notequal") {
                  $oper = "<>";
              } elsif ($t eq "regexp") {
-                 # This is just a dummy to help catch bugs- $oper won't be used
-                 # since "regexp" is treated as a special case below.  But
-                 # leaving $oper uninitialized seems risky...
-                 $oper = "sql_regexp";
+                 $oper = $dbh->sql_regexp();
              } elsif ($t eq "notregexp") {
-                 # This is just a dummy to help catch bugs- $oper won't be used
-                 # since "notregexp" is treated as a special case below.  But
-                 # leaving $oper uninitialized seems risky...
-                 $oper = "sql_not_regexp";
+                 $oper = $dbh->sql_not_regexp();
              } else {
                  $oper = "noop";
              }
              if ($oper ne "noop") {
                  my $table = "longdescs_$chartid";
-                 if(lsearch(\@fields, "bugs.remaining_time") == -1) {
-                     push(@fields, "bugs.remaining_time");                  
-                 }
                  push(@supptables, "INNER JOIN longdescs AS $table " .
                                    "ON $table.bug_id = bugs.bug_id");
                  my $expression = "(100 * ((SUM($table.work_time) *
@@ -750,13 +733,7 @@ sub init {
                                               COUNT(DISTINCT $table.bug_when) /
                                               COUNT(bugs.bug_id)) +
                                              bugs.remaining_time)))";
-                 if ($t eq "regexp") {
-                     push(@having, $dbh->sql_regexp($expression, &::SqlQuote($v)));
-                 } elsif ($t eq "notregexp") {
-                     push(@having, $dbh->sql_not_regexp($expression, &::SqlQuote($v)));
-                 } else {
-                     push(@having, "$expression $oper " . &::SqlQuote($v));
-                 }
+                 push(@having, "$expression $oper " . &::SqlQuote($v));
                  push(@groupby, "bugs.remaining_time");
              }
              $term = "0=0";
@@ -765,32 +742,11 @@ sub init {
             push(@supptables,
                     "LEFT JOIN bug_group_map AS bug_group_map_$chartid " .
                     "ON bugs.bug_id = bug_group_map_$chartid.bug_id");
-            $ff = $f = "groups_$chartid.name";
-            my $ref = $funcsbykey{",$t"};
-            &$ref;
+
             push(@supptables,
                     "LEFT JOIN groups AS groups_$chartid " .
-                    "ON groups_$chartid.id = bug_group_map_$chartid.group_id " .
-                    "AND $term");
-            $term = "$ff IS NOT NULL";
-         },
-         "^attach_data\.thedata,changed" => sub {
-            # Searches for attachment data's change must search
-            # the creation timestamp of the attachment instead.
-            $f = "attachments.whocares";
-         },
-         "^attach_data\.thedata," => sub {
-             my $atable = "attachments_$chartid";
-             my $dtable = "attachdata_$chartid";
-             my $extra = "";
-             if (Param("insidergroup") && !UserInGroup(Param("insidergroup"))) {
-                 $extra = "AND $atable.isprivate = 0";
-             }
-             push(@supptables, "INNER JOIN attachments AS $atable " .
-                               "ON bugs.bug_id = $atable.bug_id $extra");
-             push(@supptables, "INNER JOIN attach_data AS $dtable " .
-                               "ON $dtable.id = $atable.attach_id");
-             $f = "$dtable.thedata";
+                    "ON groups_$chartid.id = bug_group_map_$chartid.group_id");
+            $f = "groups_$chartid.name";
          },
          "^attachments\..*," => sub {
              my $table = "attachments_$chartid";
@@ -1005,7 +961,7 @@ sub init {
                 }
                 my $cutoff = "NOW() - " .
                              $dbh->sql_interval($quantity, $unitinterval);
-                my $assigned_fieldid = get_field_id('assigned_to');
+                my $assigned_fieldid = &::GetFieldID('assigned_to');
                 push(@supptables, "LEFT JOIN longdescs AS comment_$table " .
                                   "ON comment_$table.who = bugs.assigned_to " .
                                   "AND comment_$table.bug_id = bugs.bug_id " .
@@ -1044,10 +1000,10 @@ sub init {
              $term = $dbh->sql_position(lc($q), "LOWER($ff)") . " = 0";
          },
          ",regexp" => sub {
-             $term = $dbh->sql_regexp($ff, $q);
+             $term = "$ff " . $dbh->sql_regexp() . " $q";
          },
          ",notregexp" => sub {
-             $term = $dbh->sql_not_regexp($ff, $q);
+             $term = "$ff " . $dbh->sql_not_regexp() . " $q";
          },
          ",lessthan" => sub {
              $term = "$ff < $q";
@@ -1166,9 +1122,7 @@ sub init {
             $params->param("type$chart-$row-$col", shift(@$ref));
             $params->param("value$chart-$row-$col", shift(@$ref));
             if ($debug) {
-                push(@debugdata, "$row-$col = " .
-                               $params->param("field$chart-$row-$col") . ' | ' .                               $params->param("type$chart-$row-$col") . ' | ' .
-                               $params->param("value$chart-$row-$col") . ' *');
+                print qq{<p>$params->param("field$chart-$row-$col") | $params->param("type$chart-$row-$col") | $params->param("value$chart-$row-$col")*</p>\n};
             }
             $col++;
 
@@ -1306,7 +1260,7 @@ sub init {
                     if ("$f,$t,$rhs" =~ m/$key/) {
                         my $ref = $funcsbykey{$key};
                         if ($debug) {
-                            push(@debugdata, "$key ($f / $t / $rhs) =>");
+                            print "<p>$key ($f , $t , $rhs ) => ";
                         }
                         $ff = $f;
                         if ($f !~ /\./) {
@@ -1314,8 +1268,7 @@ sub init {
                         }
                         &$ref;
                         if ($debug) {
-                            push(@debugdata, "$f / $t / $v / " .
-                                             ($term || "undef") . " *");
+                            print "$f , $t , $v , $term</p>";
                         }
                         if ($term) {
                             last;
@@ -1445,8 +1398,12 @@ sub init {
         $query .= " ORDER BY " . join(',', @orderby);
     }
 
+    if ($debug) {
+        print "<p><code>" . value_quote($query) . "</code></p>\n";
+        exit;
+    }
+    
     $self->{'sql'} = $query;
-    $self->{'debugdata'} = \@debugdata;
 }
 
 ###############################################################################
@@ -1461,7 +1418,7 @@ sub SqlifyDate {
     }
 
 
-    if ($str =~ /^(-|\+)?(\d+)([hHdDwWmMyY])$/) {   # relative date
+    if ($str =~ /^(-|\+)?(\d+)([dDwWmMyY])$/) {   # relative date
         my ($sign, $amount, $unit, $date) = ($1, $2, lc $3, time);
         my ($sec, $min, $hour, $mday, $month, $year, $wday)  = localtime($date);
         if ($sign && $sign eq '+') { $amount = -$amount; }
@@ -1481,15 +1438,6 @@ sub SqlifyDate {
             while ($month<0) { $year--; $month += 12; }
             return sprintf("%4d-%02d-01 00:00:00", $year+1900, $month+1);
         }
-        elsif ($unit eq 'h') {
-            # Special case 0h for 'beginning of this hour'
-            if ($amount == 0) {
-                $date -= $sec + 60*$min;
-            } else {
-                $date -= 3600*$amount;
-            }
-            return time2str("%Y-%m-%d %H:%M:%S", $date);
-        }
         return undef;                      # should not happen due to regexp at top
     }
     my $date = str2time($str);
@@ -1502,8 +1450,8 @@ sub SqlifyDate {
 # ListIDsForEmail returns a string with a comma-joined list
 # of userids matching email addresses
 # according to the type specified.
-# Currently, this only supports regexp, exact, anyexact, and substring matches.
-# Matches will return up to 50 matching userids
+# Currently, this only supports exact, anyexact, and substring matches.
+# Substring matches will return up to 50 matching userids
 # If a match type is unsupported or returns too many matches,
 # ListIDsForEmail returns an undef.
 sub ListIDsForEmail {
@@ -1532,18 +1480,7 @@ sub ListIDsForEmail {
             my ($id) = &::FetchSQLData();
             push(@list, $id);
         }
-        if (scalar(@list) < 50) {
-            $list = join(',', @list);
-        }
-    } elsif ($type eq 'regexp') {
-        &::SendSQL("SELECT userid FROM profiles WHERE " .
-            $dbh->sql_regexp("login_name", ::SqlQuote($email)) .
-            " " . $dbh->sql_limit(51));
-        while (&::MoreSQLData()) {
-            my ($id) = &::FetchSQLData();
-            push(@list, $id);
-        }
-        if (scalar(@list) < 50) {
+        if (@list < 50) {
             $list = join(',', @list);
         }
     }
@@ -1578,7 +1515,7 @@ sub GetByWordList {
             $word =~ s/^'//;
             $word =~ s/'$//;
             $word = '(^|[^a-z0-9])' . $word . '($|[^a-z0-9])';
-            push(@list, $dbh->sql_regexp($field, "'$word'"));
+            push(@list, "$field " . $dbh->sql_regexp() . " '$word'");
         }
     }
 
@@ -1604,11 +1541,6 @@ sub GetByWordListSubstr {
 sub getSQL {
     my $self = shift;
     return $self->{'sql'};
-}
-
-sub getDebugData {
-    my $self = shift;
-    return $self->{'debugdata'};
 }
 
 sub pronoun {

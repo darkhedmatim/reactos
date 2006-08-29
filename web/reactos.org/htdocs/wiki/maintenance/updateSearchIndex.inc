@@ -16,25 +16,21 @@ function updateSearchIndex( $start, $end, $maxLockTime, $quiet ) {
 
 	$dbw =& wfGetDB( DB_MASTER );
 	$recentchanges = $dbw->tableName( 'recentchanges' );
-
+	
 	output( "Updating searchindex between $start and $end\n" );
 
 	# Select entries from recentchanges which are on top and between the specified times
 	$start = $dbw->strencode( $start );
 	$end = $dbw->strencode( $end );
 
-	$page = $dbw->tableName( 'page' );
 	$sql = "SELECT rc_cur_id,rc_type,rc_moved_to_ns,rc_moved_to_title FROM $recentchanges
-	  JOIN $page ON rc_cur_id=page_id AND rc_this_oldid=page_latest
-	  WHERE rc_timestamp BETWEEN '$start' AND '$end'
-	  ";
+	  WHERE rc_this_oldid=0 AND rc_timestamp BETWEEN '$start' AND '$end'";
 	$res = $dbw->query( $sql, $fname );
-	
 
 	# Lock searchindex
 	if ( $maxLockTime ) {
 		output( "   --- Waiting for lock ---" );
-		lockSearchindex( $dbw );
+		lockSearchindex();
 		$lockTime = time();
 		output( "\n" );
 	}
@@ -44,7 +40,7 @@ function updateSearchIndex( $start, $end, $maxLockTime, $quiet ) {
 		# Allow reads to be processed
 		if ( $maxLockTime && time() > $lockTime + $maxLockTime ) {
 			output( "    --- Relocking ---" );
-			relockSearchindex( $dbw );
+			relockSearchindex();
 			$lockTime = time();
 			output( "\n" );
 		}
@@ -58,51 +54,44 @@ function updateSearchIndex( $start, $end, $maxLockTime, $quiet ) {
 			$u = new SearchUpdate( $row->rc_cur_id, $title, false );
 			output( "\n" );
 		} else {
-			// Get current revision
-			$rev = Revision::loadFromPageId( $dbw, $row->rc_cur_id );
-			if( $rev ) {
-				$titleObj = $rev->getTitle();
+			# Get cur row
+			$curRow = $dbw->selectRow( 'cur', array( 'cur_namespace', 'cur_title', 'cur_text' ), 
+				array( 'cur_id' => $row->rc_cur_id ), $fname, 'FOR UPDATE' );
+			if ( $curRow ) {
+				$titleObj = Title::makeTitle( $curRow->cur_namespace, $curRow->cur_title );
 				$title = $titleObj->getPrefixedDBkey();
 				output( $title );
 				# Update searchindex
-				$u = new SearchUpdate( $row->rc_cur_id, $titleObj->getText(), $rev->getText() );
+				$u = new SearchUpdate( $row->rc_cur_id, $curRow->cur_title, $curRow->cur_text );
 				$u->doUpdate();
 				output( "\n" );
 			}
 		}
 	}
-
+	
 	# Unlock searchindex
 	if ( $maxLockTime ) {
-		unlockSearchindex( $dbw );
+		unlockSearchindex();
 	}
 	output( "Done\n" );
 }
 
 function lockSearchindex( &$db ) {
-	$write = array( 'searchindex' );
-	$read = array( 'page', 'revision', 'text', 'interwiki' );
-	$items = array();
-	
-	foreach( $write as $table ) {
-		$items[] = $db->tableName( $table ) . ' LOW_PRIORITY WRITE';
-	}
-	foreach( $read as $table ) {
-		$items[] = $db->tableName( $table ) . ' READ';
-	}
-	$sql = "LOCK TABLES " . implode( ',', $items );
-	$db->query( $sql );
+	$dbw =& wfGetDB( DB_MASTER );
+	extract( $dbw->tableNames( 'searchindex', 'cur', 'interwiki' ) );
+	$dbw->query( "LOCK TABLES $searchindex LOW_PRIORITY WRITE, $cur READ, $interwiki READ" );
 }
 
-function unlockSearchindex( &$db ) {
-	$db->query( "UNLOCK TABLES" );
+function unlockSearchindex() {
+	$dbw =& wfGetDB( DB_MASTER );
+	$dbw->query( "UNLOCK TABLES" );
 }
 
 # Unlock and lock again
 # Since the lock is low-priority, queued reads will be able to complete
-function relockSearchindex( &$db ) {
-	unlockSearchindex( $db );
-	lockSearchindex( $db );
+function relockSearchindex() {
+	unlockSearchindex();
+	lockSearchindex();
 }
 
 function output( $text ) {

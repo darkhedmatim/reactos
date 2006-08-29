@@ -182,7 +182,7 @@ VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 	           1,
 	           &dwWritten,
 	           NULL);
-#ifdef _UNICODE
+#ifdef UNICODE
 	free(pBuf);
 #endif
 }
@@ -230,7 +230,7 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 	           NULL);
  
  
-#ifdef _UNICODE
+#ifdef UNICODE
 	free(pBuf);
 #endif
 }
@@ -330,7 +330,7 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
  
 	}
  
-#ifdef _UNICODE
+#ifdef UNICODE
 	free(pBuf);
 #endif
 	return 0;

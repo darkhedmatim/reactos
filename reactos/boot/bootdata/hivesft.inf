@@ -37,15 +37,15 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList",,0x00000012
 
 ; Font substitutes
 ; SysFontSubstitutes are also returned by EnumFontFamilies, FontSubstitutes aren't
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Arial",0x00000000,"DejaVu Vera Sans"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Courier New",0x00000000,"DejaVu Vera Sans Mono"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Arial",0x00000000,"Bitstream Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Courier New",0x00000000,"Bitstream Vera Sans Mono"
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Marlett",0x00000000,"TGMarlett"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Times New Roman",0x00000000,"DejaVu Vera Serif"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Tahoma",0x00000000,"DejaVu Vera Sans"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Sans Serif",0x00000000,"DejaVu Vera Sans"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Shell Dlg",0x00000000,"DejaVu Vera Sans"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Shell Dlg 2",0x00000000,"DejaVu Vera Sans"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Helv",0x00000000,"DejaVu Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Times New Roman",0x00000000,"Bitstream Vera Serif"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Tahoma",0x00000000,"Bitstream Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Sans Serif",0x00000000,"Bitstream Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Shell Dlg",0x00000000,"Bitstream Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","MS Shell Dlg 2",0x00000000,"Bitstream Vera Sans"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SysFontSubstitutes","Helv",0x00000000,"Bitstream Vera Sans"
 
 ; Time zone settings
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones",,0x00000012
@@ -374,7 +374,7 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central Europe Sta
 0x00,0x00,0x0a,0x00,0x00,0x00,0x05,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00,\
 0x00,0x00,0x03,0x00,0x00,0x00,0x05,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central European Standard Time","Display",0x00000000,"(GMT+01:00) Sarajevo, Skopje, Sofija, Warsaw, Zagreb"
+HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central European Standard Time","Display",0x00000000,"(GMT+01:00) Sarajevo, Skopje, Sofija, Warschau, Zagreb"
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central European Standard Time","Dlt",0x00000000,"Central European Daylight Time"
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central European Standard Time","Std",0x00000000,"Central European Standard Time"
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Central European Standard Time","Index",0x00010001,100
@@ -734,14 +734,12 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\Tonga Standard Tim
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,\
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 
-HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","ConsoleShell",0x00020000,"%SystemRoot%\system32\cmd.exe"
+;HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","Shell",0x00020000,"%SystemRoot%\system32\cmd.exe"
 HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","Shell",0x00020000,"%SystemRoot%\explorer.exe"
 HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","StartServices",0x00010001,0x00000001
-HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","StartLsass",0x00010001,0x00000001
+HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","StartLsass",0x00010001,0x00000000
+HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","StartGUI",0x00010001,0x00000000
 HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","Userinit",0x00020000,"%SystemRoot%\system32\userinit.exe"
-HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","AutoAdminLogon",0x00000000,"1"
-HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","DefaultUserName",0x00000000,"Administrator"
-HKLM,"SOFTWARE\ReactOS\Windows NT\CurrentVersion\Winlogon","DefaultPassword",0x00000000,"Secret"
 
 ;Time Zone Servers
 HKLM,"SOFTWARE\Microsoft\Windows\CurrentVersion\DateTime\Servers","1",0x00000000,"pool.ntp.org"

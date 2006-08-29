@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -228,7 +228,7 @@ typedef struct _LPCP_CONNECTION_MESSAGE
 #endif
 
 //
-// Client Died LPC Message
+// Client Died LPC Message (FIXME: should go in pstypes.h?)
 //
 typedef struct _CLIENT_DIED_MSG
 {

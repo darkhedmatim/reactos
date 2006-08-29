@@ -28,7 +28,7 @@ CFG=IBROWSER - WIN32 DEBUG
 # PROP AllowPerConfigDependencies 0
 # PROP Scc_ProjName ""
 # PROP Scc_LocalPath ""
-CPP=cl.cmd
+CPP=cl.exe
 RSC=rc.exe
 
 !IF  "$(CFG)" == "ibrowser - Win32 Release"
@@ -199,10 +199,6 @@ SOURCE=.\utility\xmlstorage.cpp
 
 SOURCE=.\utility\xmlstorage.h
 # End Source File
-# Begin Source File
-
-SOURCE=".\utility\xs-native.cpp"
-# End Source File
 # End Group
 # Begin Group "resources"
 
@@ -264,6 +260,10 @@ SOURCE=.\ibrowser_intres.h
 # Begin Source File
 
 SOURCE=.\ibrowser_intres.rc
+# End Source File
+# Begin Source File
+
+SOURCE=.\res\iexplore.ico
 # End Source File
 # Begin Source File
 

@@ -66,8 +66,6 @@ BEGIN
     "#include ""Sv.rc""\r\n"
     "#include ""Hu.rc""\r\n"
     "#include ""Ro.rc""\r\n"
-    "#include ""Nl.rc""\r\n"  
-    "#include ""No.rc""\r\n"    
     "#include ""Ja.rc""\0"
 END
 
@@ -103,9 +101,7 @@ IDI_IBROWSER            ICON    DISCARDABLE     "res/ibrowser.ico"
 #include "Sv.rc"
 #include "Hu.rc"
 #include "Ro.rc"
-#include "Nl.rc"
 #include "Ja.rc"
-#include "No.rc"
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
 

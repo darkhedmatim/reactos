@@ -347,8 +347,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
     pScrSht = HeapAlloc(GetProcessHeap(),
                         0,
                         sizeof(SCREENSHOT));
-    if (pScrSht == NULL)
-        return -1;
 
     if (bFullScreen)
     {
@@ -360,13 +358,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
     }
 
     if (pScrSht->hSelf == NULL)
-    {
-        HeapFree(GetProcessHeap(),
-                 0,
-                 pScrSht);
-
         return -1;
-    }
 
     if (CaptureScreen(pScrSht))
     {

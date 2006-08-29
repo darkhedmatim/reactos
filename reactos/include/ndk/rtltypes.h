@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -42,9 +42,6 @@ Author:
 #define RTL_USER_PROCESS_PARAMETERS_DISABLE_HEAP_CHECKS      0x100
 #define RTL_USER_PROCESS_PARAMETERS_PROCESS_OR_1             0x200
 #define RTL_USER_PROCESS_PARAMETERS_PROCESS_OR_2             0x400
-#define RTL_USER_PROCESS_PARAMETERS_PRIVATE_DLL_PATH         0x1000
-#define RTL_USER_PROCESS_PARAMETERS_LOCAL_DLL_PATH           0x2000
-#define RTL_USER_PROCESS_PARAMETERS_NX                       0x20000
 
 //
 // Exception Flags
@@ -53,7 +50,6 @@ Author:
 #define EXCEPTION_UNWINDING                                  0x02
 #define EXCEPTION_EXIT_UNWIND                                0x04
 #define EXCEPTION_STACK_INVALID                              0x08
-#define EXCEPTION_UNWIND                                     (EXCEPTION_UNWINDING + EXCEPTION_EXIT_UNWIND)
 #define EXCEPTION_NESTED_CALL                                0x10
 #define EXCEPTION_TARGET_UNWIND                              0x20
 #define EXCEPTION_COLLIDED_UNWIND                            0x20
@@ -66,81 +62,6 @@ Author:
 
 #define RTL_RANGE_SHARED                                     0x01
 #define RTL_RANGE_CONFLICT                                   0x02
-
-//
-// Activation Context Frame Flags
-//
-#define RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_FORMAT_WHISTLER \
-                                                            0x1
-
-//
-// Public Heap Flags
-//
-#if !defined(NTOS_MODE_USER) && !defined(_NTIFS_)
-#define HEAP_NO_SERIALIZE                                   0x00000001
-#define HEAP_GROWABLE                                       0x00000002
-#define HEAP_GENERATE_EXCEPTIONS                            0x00000004
-#define HEAP_ZERO_MEMORY                                    0x00000008
-#define HEAP_REALLOC_IN_PLACE_ONLY                          0x00000010
-#define HEAP_TAIL_CHECKING_ENABLED                          0x00000020
-#define HEAP_FREE_CHECKING_ENABLED                          0x00000040
-#define HEAP_DISABLE_COALESCE_ON_FREE                       0x00000080
-#define HEAP_CREATE_ALIGN_16                                0x00010000
-#define HEAP_CREATE_ENABLE_TRACING                          0x00020000
-#define HEAP_CREATE_ENABLE_EXECUTE                          0x00040000
-#endif
-
-//
-// User-Defined Heap Flags and Classes
-//
-#define HEAP_SETTABLE_USER_VALUE                            0x00000100
-#define HEAP_SETTABLE_USER_FLAG1                            0x00000200
-#define HEAP_SETTABLE_USER_FLAG2                            0x00000400
-#define HEAP_SETTABLE_USER_FLAG3                            0x00000800
-#define HEAP_SETTABLE_USER_FLAGS                            0x00000E00
-#define HEAP_CLASS_0                                        0x00000000
-#define HEAP_CLASS_1                                        0x00001000
-#define HEAP_CLASS_2                                        0x00002000
-#define HEAP_CLASS_3                                        0x00003000
-#define HEAP_CLASS_4                                        0x00004000
-#define HEAP_CLASS_5                                        0x00005000
-#define HEAP_CLASS_6                                        0x00006000
-#define HEAP_CLASS_7                                        0x00007000
-#define HEAP_CLASS_8                                        0x00008000
-#define HEAP_CLASS_MASK                                     0x0000F000
-
-//
-// Internal HEAP Structure Flags
-//
-#define HEAP_FLAG_PAGE_ALLOCS                               0x01000000
-#define HEAP_PROTECTION_ENABLED                             0x02000000
-#define HEAP_BREAK_WHEN_OUT_OF_VM                           0x04000000
-#define HEAP_NO_ALIGNMENT                                   0x08000000
-#define HEAP_CAPTURE_STACK_BACKTRACES                       0x08000000
-#define HEAP_SKIP_VALIDATION_CHECKS                         0x10000000
-#define HEAP_VALIDATE_ALL_ENABLED                           0x20000000
-#define HEAP_VALIDATE_PARAMETERS_ENABLED                    0x40000000
-#define HEAP_LOCK_USER_ALLOCATED                            0x80000000
-
-//
-// Heap Validation Flags
-//
-#define HEAP_CREATE_VALID_MASK                              \
-    (HEAP_NO_SERIALIZE              |                       \
-     HEAP_GROWABLE                  |                       \
-     HEAP_GENERATE_EXCEPTIONS       |                       \
-     HEAP_ZERO_MEMORY               |                       \
-     HEAP_REALLOC_IN_PLACE_ONLY     |                       \
-     HEAP_TAIL_CHECKING_ENABLED     |                       \
-     HEAP_FREE_CHECKING_ENABLED     |                       \
-     HEAP_DISABLE_COALESCE_ON_FREE  |                       \
-     HEAP_CLASS_MASK                |                       \
-     HEAP_CREATE_ALIGN_16           |                       \
-     HEAP_CREATE_ENABLE_TRACING     |                       \
-     HEAP_CREATE_ENABLE_EXECUTE)
-#ifndef __GNUC__
-C_ASSERT(HEAP_CREATE_VALID_MASK == 0x0007F0FF);
-#endif
 
 //
 // Registry Keys
@@ -199,12 +120,6 @@ C_ASSERT(HEAP_CREATE_VALID_MASK == 0x0007F0FF);
 #define RTL_CRITSECT_TYPE                                   0
 #define RTL_RESOURCE_TYPE                                   1
 
-//
-// RtlAcquirePrivileges Flags
-//
-#define RTL_ACQUIRE_PRIVILEGE_IMPERSONATE                   1
-#define RTL_ACQUIRE_PRIVILEGE_PROCESS                       2
-
 #ifdef NTOS_MODE_USER
 
 //
@@ -226,48 +141,6 @@ C_ASSERT(HEAP_CREATE_VALID_MASK == 0x0007F0FF);
 #define NLS_MB_CODE_PAGE_TAG                                NlsMbCodePageTag
 #define NLS_MB_OEM_CODE_PAGE_TAG                            NlsMbOemCodePageTag
 #define NLS_OEM_LEAD_BYTE_INFO                              NlsOemLeadByteInfo
-
-//
-// C++ CONST casting
-//
-#if defined(__cplusplus)
-#define RTL_CONST_CAST(type)                    const_cast<type>
-#else
-#define RTL_CONST_CAST(type)                    (type)
-#endif
-
-//
-// Constant String Macro
-//
-#define RTL_CONSTANT_STRING(__SOURCE_STRING__)                  \
-{                                                               \
-    sizeof(__SOURCE_STRING__) - sizeof((__SOURCE_STRING__)[0]), \
-    sizeof(__SOURCE_STRING__),                                  \
-    (__SOURCE_STRING__)                                         \
-}
-
-//
-// Constant Object Attributes Macro
-//
-#define RTL_CONSTANT_OBJECT_ATTRIBUTES(n, a)                    \
-{                                                               \
-    sizeof(OBJECT_ATTRIBUTES),                                  \
-    NULL,                                                       \
-    RTL_CONST_CAST(PUNICODE_STRING)(n),                         \
-    a,                                                          \
-    NULL,                                                       \
-    NULL                                                        \
-}
-
-#define RTL_INIT_OBJECT_ATTRIBUTES(n, a)                        \
-    RTL_CONSTANT_OBJECT_ATTRIBUTES(n, a)
-
-#else
-//
-// Message Resource Flag
-//
-#define MESSAGE_RESOURCE_UNICODE                            0x0001
-
 #endif
 #define MAXIMUM_LEADBYTES                                   12
 
@@ -290,14 +163,6 @@ C_ASSERT(HEAP_CREATE_VALID_MASK == 0x0007F0FF);
 // RTL Atom Flags
 //
 #define RTL_ATOM_IS_PINNED                                  0x1
-
-//
-// Critical section lock bits
-//
-#define CS_LOCK_BIT                                         0x1
-#define CS_LOCK_BIT_V                                       0x0
-#define CS_LOCK_WAITER_WOKEN                                0x2
-#define CS_LOCK_WAITER_INC                                  0x4
 
 //
 // Codepage Tags
@@ -356,14 +221,14 @@ typedef enum _ACL_INFORMATION_CLASS
 //
 typedef enum _RTL_PATH_TYPE
 {
-    RtlPathTypeUnknown,
-    RtlPathTypeUncAbsolute,
-    RtlPathTypeDriveAbsolute,
-    RtlPathTypeDriveRelative,
-    RtlPathTypeRooted,
-    RtlPathTypeRelative,
-    RtlPathTypeLocalDevice,
-    RtlPathTypeRootLocalDevice,
+    INVALID_PATH = 0,
+    UNC_PATH,              // "//foo"
+    ABSOLUTE_DRIVE_PATH,   // "c:/foo"
+    RELATIVE_DRIVE_PATH,   // "c:foo"
+    ABSOLUTE_PATH,         // "/foo"
+    RELATIVE_PATH,         // "foo"
+    DEVICE_PATH,           // "//./foo"
+    UNC_DOT_PATH           // "//."
 } RTL_PATH_TYPE;
 
 #ifndef NTOS_MODE_USER
@@ -385,14 +250,6 @@ typedef LONG
     PEXCEPTION_POINTERS ExceptionPointers
 );
 
-//
-// Worker Thread Callback for Rtl
-//
-typedef VOID
-(NTAPI *WORKERCALLBACKFUNC)(
-    IN PVOID Context
-);
-
 #else
 
 //
@@ -405,30 +262,6 @@ typedef EXCEPTION_DISPOSITION
     IN OUT struct _CONTEXT *ContextRecord,
     IN OUT PVOID DispatcherContext
 );
-
-//
-// RTL Library Allocation/Free Routines
-//
-typedef PVOID
-(NTAPI *PRTL_ALLOCATE_STRING_ROUTINE)(
-    SIZE_T NumberOfBytes
-);
-
-typedef PVOID
-(NTAPI *PRTL_REALLOCATE_STRING_ROUTINE)(
-    SIZE_T NumberOfBytes,
-    PVOID Buffer
-);
-
-typedef
-VOID
-(NTAPI *PRTL_FREE_STRING_ROUTINE)(
-    PVOID Buffer
-);
-
-extern const PRTL_ALLOCATE_STRING_ROUTINE RtlAllocateStringRoutine;
-extern const PRTL_FREE_STRING_ROUTINE RtlFreeStringRoutine;
-extern const PRTL_REALLOCATE_STRING_ROUTINE RtlReallocateStringRoutine;
 
 #endif
 
@@ -525,17 +358,6 @@ typedef NTSTATUS
 );
 
 //
-// RTL Secure Memory callbacks
-//
-#ifdef NTOS_MODE_USER
-typedef NTSTATUS
-(NTAPI *PRTL_SECURE_MEMORY_CACHE_CALLBACK)(
-    IN PVOID Address,
-    IN SIZE_T Length
-);
-#endif
-
-//
 // RTL Range List callbacks
 //
 #ifdef NTOS_MODE_USER
@@ -571,7 +393,6 @@ typedef ACL_SIZE_INFORMATION *PACL_SIZE_INFORMATION;
 
 //
 // Parameters for RtlCreateHeap
-// FIXME: Determine whether Length is SIZE_T or ULONG
 //
 typedef struct _RTL_HEAP_PARAMETERS
 {
@@ -717,39 +538,7 @@ typedef struct _TIME_FIELDS
     CSHORT Weekday;
 } TIME_FIELDS, *PTIME_FIELDS;
 
-//
-// Activation Context
-//
-typedef PVOID PACTIVATION_CONTEXT;
-
-//
-// Activation Context Frame
-//
-typedef struct _RTL_ACTIVATION_CONTEXT_STACK_FRAME
-{
-    struct __RTL_ACTIVATION_CONTEXT_STACK_FRAME *Previous;
-    PACTIVATION_CONTEXT ActivationContext;
-    ULONG Flags;
-} RTL_ACTIVATION_CONTEXT_STACK_FRAME,
-  *PRTL_ACTIVATION_CONTEXT_STACK_FRAME;
-
-typedef struct _RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED
-{
-    ULONG Size;
-    ULONG Format;
-    RTL_ACTIVATION_CONTEXT_STACK_FRAME Frame;
-    PVOID Extra1;
-    PVOID Extra2;
-    PVOID Extra3;
-    PVOID Extra4;
-} RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED,
-  *PRTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED;
-
 #endif
-
-//
-// ACE Structure
-//
 typedef struct _ACE
 {
     ACE_HEADER Header;
@@ -761,79 +550,42 @@ typedef struct _ACE
 //
 typedef struct _RTL_PROCESS_MODULE_INFORMATION
 {
-    ULONG Section;
-    PVOID MappedBase;
-    PVOID ImageBase;
-    ULONG ImageSize;
+    ULONG Reserved[2];
+    PVOID Base;
+    ULONG Size;
     ULONG Flags;
-    USHORT LoadOrderIndex;
-    USHORT InitOrderIndex;
+    USHORT Index;
+    USHORT Unknown;
     USHORT LoadCount;
-    USHORT OffsetToFileName;
-    CHAR FullPathName[256];
+    USHORT ModuleNameOffset;
+    CHAR ImageName[256];
 } RTL_PROCESS_MODULE_INFORMATION, *PRTL_PROCESS_MODULE_INFORMATION;
 
 typedef struct _RTL_PROCESS_MODULES
 {
-    ULONG NumberOfModules;
-    RTL_PROCESS_MODULE_INFORMATION Modules[1];
+    ULONG ModuleCount;
+    RTL_PROCESS_MODULE_INFORMATION ModuleEntry[1];
 } RTL_PROCESS_MODULES, *PRTL_PROCESS_MODULES;
 
-typedef struct _RTL_PROCESS_MODULE_INFORMATION_EX
+typedef struct _RTL_PROCESS_HEAP_INFORMATION
 {
-    ULONG NextOffset;
-    RTL_PROCESS_MODULE_INFORMATION BaseInfo;
-    ULONG ImageCheckSum;
-    ULONG TimeDateStamp;
-    PVOID DefaultBase;
-} RTL_PROCESS_MODULE_INFORMATION_EX, *PRTL_PROCESS_MODULE_INFORMATION_EX;
-
-typedef struct _RTL_HEAP_TAG_INFO
-{
-   ULONG NumberOfAllocations;
-   ULONG NumberOfFrees;
-   ULONG BytesAllocated;
-} RTL_HEAP_TAG_INFO, *PRTL_HEAP_TAG_INFO;
-
-typedef struct _RTL_HEAP_USAGE_ENTRY
-{
-    struct _RTL_HEAP_USAGE_ENTRY *Next;
-} RTL_HEAP_USAGE_ENTRY, *PRTL_HEAP_USAGE_ENTRY;
-
-typedef struct _RTL_HEAP_USAGE
-{
-    ULONG Length;
-    ULONG BytesAllocated;
-    ULONG BytesCommitted;
-    ULONG BytesReserved;
-    ULONG BytesReservedMaximum;
-    PRTL_HEAP_USAGE_ENTRY Entries;
-    PRTL_HEAP_USAGE_ENTRY AddedEntries;
-    PRTL_HEAP_USAGE_ENTRY RemovedEntries;
-    UCHAR Reserved[32];
-} RTL_HEAP_USAGE, *PRTL_HEAP_USAGE;
-
-typedef struct _RTL_HEAP_INFORMATION
-{
-    PVOID BaseAddress;
+    PVOID Base;
     ULONG Flags;
-    USHORT EntryOverhead;
-    USHORT CreatorBackTraceIndex;
-    ULONG BytesAllocated;
-    ULONG BytesCommitted;
-    ULONG NumberOfTags;
-    ULONG NumberOfEntries;
-    ULONG NumberOfPseudoTags;
-    ULONG PseudoTagGranularity;
-    ULONG Reserved[4];
+    USHORT Granularity;
+    USHORT Unknown;
+    ULONG Allocated;
+    ULONG Committed;
+    ULONG TagCount;
+    ULONG BlockCount;
+    ULONG Reserved[7];
     PVOID Tags;
-    PVOID Entries;
-} RTL_HEAP_INFORMATION, *PRTL_HEAP_INFORMATION;
+    PVOID Blocks;
+} RTL_PROCESS_HEAP_INFORMATION, *PRTL_PROCESS_HEAP_INFORMATION;
 
 typedef struct _RTL_PROCESS_HEAPS
 {
-    ULONG NumberOfHeaps;
-    RTL_HEAP_INFORMATION Heaps[1];
+    ULONG HeapCount;
+    RTL_PROCESS_HEAP_INFORMATION HeapEntry[1];
 } RTL_PROCESS_HEAPS, *PRTL_PROCESS_HEAPS;
 
 typedef struct _RTL_PROCESS_LOCK_INFORMATION
@@ -852,8 +604,8 @@ typedef struct _RTL_PROCESS_LOCK_INFORMATION
 
 typedef struct _RTL_PROCESS_LOCKS
 {
-    ULONG NumberOfLocks;
-    RTL_PROCESS_LOCK_INFORMATION Locks[1];
+    ULONG LockCount;
+    RTL_PROCESS_LOCK_INFORMATION LockEntry[1];
 } RTL_PROCESS_LOCKS, *PRTL_PROCESS_LOCKS;
 
 typedef struct _RTL_PROCESS_BACKTRACE_INFORMATION
@@ -874,59 +626,25 @@ typedef struct _RTL_PROCESS_BACKTRACES
     RTL_PROCESS_BACKTRACE_INFORMATION BackTraces[1];
 } RTL_PROCESS_BACKTRACES, *PRTL_PROCESS_BACKTRACES;
 
-typedef struct _RTL_PROCESS_VERIFIER_OPTIONS
+typedef struct _RTL_DEBUG_BUFFER
 {
-    ULONG SizeStruct;
-    ULONG Option;
-    UCHAR OptionData[1];
-    //
-    // Option array continues below
-    //
-} RTL_PROCESS_VERIFIER_OPTIONS, *PRTL_PROCESS_VERIFIER_OPTIONS;
-
-typedef struct _RTL_DEBUG_INFORMATION
-{
-    HANDLE SectionHandleClient;
-    PVOID ViewBaseClient;
-    PVOID ViewBaseTarget;
-    ULONG ViewBaseDelta;
-    HANDLE EventPairClient;
-    PVOID EventPairTarget;
-    HANDLE TargetProcessId;
-    HANDLE TargetThreadHandle;
-    ULONG Flags;
-    ULONG OffsetFree;
-    ULONG CommitSize;
-    ULONG ViewSize;
-    union
-    {
-        PRTL_PROCESS_MODULES Modules;
-        PRTL_PROCESS_MODULE_INFORMATION_EX ModulesEx;
-    };
-    PRTL_PROCESS_BACKTRACES BackTraces;
-    PRTL_PROCESS_HEAPS Heaps;
-    PRTL_PROCESS_LOCKS Locks;
-    HANDLE SpecificHeap;
-    HANDLE TargetProcessHandle;
-    RTL_PROCESS_VERIFIER_OPTIONS VerifierOptions;
-    HANDLE ProcessHeap;
-    HANDLE CriticalSectionHandle;
-    HANDLE CriticalSectionOwnerThread;
-    PVOID Reserved[4];
-} RTL_DEBUG_INFORMATION, *PRTL_DEBUG_INFORMATION;
-
-//
-// Unload Event Trace Structure for RtlGetUnloadEventTrace
-//
-typedef struct _RTL_UNLOAD_EVENT_TRACE
-{
-    PVOID BaseAddress;
-    ULONG SizeOfImage;
-    ULONG Sequence;
-    ULONG TimeDateStamp;
-    ULONG CheckSum;
-    WCHAR ImageName[32];
-} RTL_UNLOAD_EVENT_TRACE, *PRTL_UNLOAD_EVENT_TRACE;
+    HANDLE SectionHandle;
+    PVOID SectionBase;
+    PVOID RemoteSectionBase;
+    ULONG SectionBaseDelta;
+    HANDLE EventPairHandle;
+    ULONG Unknown[2];
+    HANDLE RemoteThreadHandle;
+    ULONG InfoClassMask;
+    ULONG SizeOfInfo;
+    ULONG AllocatedSize;
+    ULONG SectionSize;
+    PRTL_PROCESS_MODULES ModuleInformation;
+    PRTL_PROCESS_BACKTRACES BackTraceInformation;
+    PRTL_PROCESS_HEAPS HeapInformation;
+    PRTL_PROCESS_LOCKS LockInformation;
+    PVOID Reserved[8];
+} RTL_DEBUG_BUFFER, *PRTL_DEBUG_BUFFER;
 
 //
 // RTL Handle Structures
@@ -974,19 +692,6 @@ typedef struct RTL_DRIVE_LETTER_CURDIR
     UNICODE_STRING DosPath;
 } RTL_DRIVE_LETTER_CURDIR, *PRTL_DRIVE_LETTER_CURDIR;
 
-//
-// Private State structure for RtlAcquirePrivilege/RtlReleasePrivilege
-//
-typedef struct _RTL_ACQUIRE_STATE
-{
-    HANDLE Token;
-    HANDLE OldImpersonationToken;
-    PTOKEN_PRIVILEGES OldPrivileges;
-    PTOKEN_PRIVILEGES NewPrivileges;
-    ULONG Flags;
-    UCHAR OldPrivBuffer[1024];
-} RTL_ACQUIRE_STATE, *PRTL_ACQUIRE_STATE;
-
 #ifndef NTOS_MODE_USER
 
 //
@@ -1013,7 +718,7 @@ typedef struct _RTL_CRITICAL_SECTION
     ULONG_PTR SpinCount;
 } RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION;
 
-#endif
+#else
 
 //
 // RTL Range List Structures
@@ -1043,6 +748,8 @@ typedef struct _RANGE_LIST_ITERATOR
     PVOID Current;
     ULONG Stamp;
 } RTL_RANGE_LIST_ITERATOR, *PRTL_RANGE_LIST_ITERATOR;
+
+#endif
 
 //
 // RTL Resource
@@ -1164,7 +871,8 @@ typedef struct _RTL_ATOM_TABLE
     PRTL_ATOM_TABLE_ENTRY Buckets[1];
 } RTL_ATOM_TABLE, *PRTL_ATOM_TABLE;
 
-#ifndef _WINBASE_
+#ifndef NTOS_MODE_USER
+
 //
 // System Time and Timezone Structures
 //
@@ -1190,30 +898,8 @@ typedef struct _TIME_ZONE_INFORMATION
     SYSTEMTIME DaylightDate;
     LONG DaylightBias;
 } TIME_ZONE_INFORMATION, *PTIME_ZONE_INFORMATION, *LPTIME_ZONE_INFORMATION;
+
 #endif
-
-//
-// Native version of Timezone Structure
-//
-typedef LPTIME_ZONE_INFORMATION PRTL_TIME_ZONE_INFORMATION;
-
-//
-// Hotpatch Header
-//
-typedef struct _RTL_PATCH_HEADER
-{
-    LIST_ENTRY PatchList;
-    PVOID PatchImageBase;
-    struct _RTL_PATCH_HEADER *NextPath;
-    ULONG PatchFlags;
-    LONG PatchRefCount;
-    struct _HOTPATCH_HEADER *HotpatchHeader;
-    UNICODE_STRING TargetDllName;
-    PVOID TargetDllBase;
-    PLDR_DATA_TABLE_ENTRY TargetLdrDataTableEntry;
-    PLDR_DATA_TABLE_ENTRY PatchLdrDataTableEntry;
-    struct _SYSTEM_HOTPATCH_CODE_INFORMATION *CodeInfo;
-} RTL_PATCH_HEADER, *PRTL_PATCH_HEADER;
 
 //
 // Header for NLS Files
@@ -1231,47 +917,4 @@ typedef struct _NLS_FILE_HEADER
     UCHAR LeadByte[MAXIMUM_LEADBYTES];
 } NLS_FILE_HEADER, *PNLS_FILE_HEADER;
 
-//
-// Stack Traces
-//
-typedef struct _RTL_STACK_TRACE_ENTRY
-{
-    struct _RTL_STACK_TRACE_ENTRY *HashChain;
-    ULONG TraceCount;
-    USHORT Index;
-    USHORT Depth;
-    PVOID BackTrace[32];
-} RTL_STACK_TRACE_ENTRY, *PRTL_STACK_TRACE_ENTRY;
-
-typedef struct _STACK_TRACE_DATABASE
-{
-    RTL_CRITICAL_SECTION CriticalSection;
-} STACK_TRACE_DATABASE, *PSTACK_TRACE_DATABASE;
-
-#ifndef NTOS_MODE_USER
-
-//
-// Message Resource Entry, Block and Data
-//
-typedef struct _MESSAGE_RESOURCE_ENTRY
-{
-    USHORT Length;
-    USHORT Flags;
-    UCHAR Text[ANYSIZE_ARRAY];
-} MESSAGE_RESOURCE_ENTRY, *PMESSAGE_RESOURCE_ENTRY;
-
-typedef struct _MESSAGE_RESOURCE_BLOCK
-{
-    ULONG LowId;
-    ULONG HighId;
-    ULONG OffsetToEntries;
-} MESSAGE_RESOURCE_BLOCK, *PMESSAGE_RESOURCE_BLOCK;
-
-typedef struct _MESSAGE_RESOURCE_DATA
-{
-    ULONG NumberOfBlocks;
-    MESSAGE_RESOURCE_BLOCK Blocks[ANYSIZE_ARRAY];
-} MESSAGE_RESOURCE_DATA, *PMESSAGE_RESOURCE_DATA;
-
-#endif
 #endif

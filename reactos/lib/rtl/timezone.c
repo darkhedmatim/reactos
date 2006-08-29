@@ -19,7 +19,7 @@
  * @implemented
  */
 NTSTATUS NTAPI
-RtlQueryTimeZoneInformation(PRTL_TIME_ZONE_INFORMATION TimeZoneInformation)
+RtlQueryTimeZoneInformation(LPTIME_ZONE_INFORMATION TimeZoneInformation)
 {
    RTL_QUERY_REGISTRY_TABLE QueryTable[8];
    UNICODE_STRING StandardName;
@@ -83,7 +83,7 @@ RtlQueryTimeZoneInformation(PRTL_TIME_ZONE_INFORMATION TimeZoneInformation)
  * @implemented
  */
 NTSTATUS NTAPI
-RtlSetTimeZoneInformation(PRTL_TIME_ZONE_INFORMATION TimeZoneInformation)
+RtlSetTimeZoneInformation(LPTIME_ZONE_INFORMATION TimeZoneInformation)
 {
    ULONG Length;
    NTSTATUS Status;

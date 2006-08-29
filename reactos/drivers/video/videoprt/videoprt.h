@@ -39,15 +39,7 @@
 
 #define TAG_VIDEO_PORT  TAG('V', 'I', 'D', 'P')
 
-#define DPFLTR_IHVVIDEO_ID 80 /* FIXME */
-
-/* ROS Internal. Please deprecate */
-NTHALAPI
-VOID
-NTAPI
-HalReleaseDisplayOwnership(
-    VOID
-);
+#define DPFLTR_IHVVIDEO_ID 0 /* FIXME */
 
 typedef struct _VIDEO_PORT_ADDRESS_MAPPING
 {

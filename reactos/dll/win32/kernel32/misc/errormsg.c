@@ -1,7 +1,6 @@
 /* $Id$
  *
  * reactos/lib/kernel32/misc/errormsg.c
- * Wine calls this file now as kernel/format_msg.c
  *
  */
 /*

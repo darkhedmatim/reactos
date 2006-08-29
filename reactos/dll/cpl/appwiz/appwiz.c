@@ -64,7 +64,7 @@ CallUninstall(HWND hwndDlg)
   TCHAR pszUninstallString[MAX_PATH];
   DWORD dwSize;
 
-  nIndex = (int) SendDlgItemMessage(hwndDlg, IDC_SOFTWARELIST, LB_GETCURSEL, 0, 0);
+  nIndex = SendDlgItemMessage(hwndDlg, IDC_SOFTWARELIST, LB_GETCURSEL, 0, 0);
   if (nIndex == -1)
   {
     MessageBox(hwndDlg,
@@ -173,12 +173,12 @@ static void FillSoftwareList(HWND hwndDlg)
       {
         if ((!bIsUpdate) && (!bIsSystemComponent))
         {
-          index = (ULONG) SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_ADDSTRING,0,(LPARAM)pszDisplayName);
+          index = SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_ADDSTRING,0,(LPARAM)pszDisplayName);
           SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_SETITEMDATA,index,(LPARAM)hSubKey);
         }
         else if (bIsUpdate && bShowUpdates)
         {
-          index = (ULONG) SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_ADDSTRING,0,(LPARAM)pszDisplayName);
+          index = SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_ADDSTRING,0,(LPARAM)pszDisplayName);
           SendDlgItemMessage(hwndDlg,IDC_SOFTWARELIST,LB_SETITEMDATA,index,(LPARAM)hSubKey);
         }
       }
@@ -195,7 +195,6 @@ static void FillSoftwareList(HWND hwndDlg)
 static INT_PTR CALLBACK
 InstallPageProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
-  UNREFERENCED_PARAMETER(lParam);
   switch (uMsg)
   {
     case WM_INITDIALOG:
@@ -235,9 +234,6 @@ InstallPageProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 static INT_PTR CALLBACK
 RosPageProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
-  UNREFERENCED_PARAMETER(lParam);
-  UNREFERENCED_PARAMETER(wParam);
-  UNREFERENCED_PARAMETER(hwndDlg);
   switch(uMsg)
   {
     case WM_INITDIALOG:
@@ -283,8 +279,8 @@ SystemApplet(VOID)
   psh.ppsp = psp;
   psh.pfnCallback = NULL;
 
-  InitPropSheetPage(&psp[0], IDD_PROPPAGEINSTALL, (DLGPROC) InstallPageProc);
-  InitPropSheetPage(&psp[1], IDD_PROPPAGEROSSETUP, (DLGPROC) RosPageProc);
+  InitPropSheetPage(&psp[0], IDD_PROPPAGEINSTALL, InstallPageProc);
+  InitPropSheetPage(&psp[1], IDD_PROPPAGEROSSETUP, RosPageProc);
 
   return (LONG)(PropertySheet(&psh) != -1);
 }
@@ -296,8 +292,6 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 {
   CPLINFO *CPlInfo;
   DWORD i;
-
-  UNREFERENCED_PARAMETER(hwndCPl);
 
   i = (DWORD)lParam1;
   switch(uMsg)
@@ -328,7 +322,6 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 BOOL WINAPI
 DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpvReserved)
 {
-  UNREFERENCED_PARAMETER(lpvReserved);
   switch(dwReason)
   {
     case DLL_PROCESS_ATTACH:

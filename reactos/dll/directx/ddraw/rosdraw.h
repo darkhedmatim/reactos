@@ -10,37 +10,26 @@
 #include <d3dhal.h>
 #include <ddrawgdi.h>
 
-/* DirectDraw startup code only internal use  */
-HRESULT WINAPI StartDirectDraw(LPDIRECTDRAW* iface);
-HRESULT WINAPI StartDirectDrawHal(LPDIRECTDRAW* iface);
-HRESULT WINAPI StartDirectDrawHel(LPDIRECTDRAW* iface);
-HRESULT WINAPI Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface, REFIID id, BOOL ex);
 
-/* DirectDraw Cleanup code only internal use */
-VOID Cleanup(LPDIRECTDRAW7 iface);
+/* this sturct are not longer in DDK 
+   I did recrate it by looking diffent betwin DD_xx struct and _DDHAL strucrt 
+   only diffent I found was the global pointer have been change from LPDDRAWI_DDRAWSURFACE_GBL
+   to DD_DIRECTDRAW_GLOBAL
+*/
+
+typedef struct _DDHAL_MAPMEMORYDATA 
+{
+  LPDDRAWI_DDRAWSURFACE_GBL  lpDD;
+  BOOL  bMap;
+  HANDLE  hProcess;
+  FLATPTR  fpProcess;
+  HRESULT  ddRVal;
+} DDHAL_MAPMEMORYDATA;
 
 /* own macro to alloc memmory */
 #define DxHeapMemAlloc(m)  HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, m) 
 #define DxHeapMemFree(p)   HeapFree(GetProcessHeap(), 0, p);
 /******** Main Object ********/
-
-/* Public interface */
-HRESULT WINAPI  Main_DirectDraw_QueryInterface (LPDIRECTDRAW7 iface, REFIID id, LPVOID *obj);
-ULONG   WINAPI  Main_DirectDraw_AddRef        (LPDIRECTDRAW7 iface);
-ULONG   WINAPI  Main_DirectDraw_Release       (LPDIRECTDRAW7 iface);
-HRESULT WINAPI  Main_DirectDraw_Compact       (LPDIRECTDRAW7 iface); 
-
-HRESULT WINAPI  Main_DirectDraw_CreateClipper (LPDIRECTDRAW7 iface, 
-											   DWORD dwFlags, 
-											   LPDIRECTDRAWCLIPPER *ppClipper, 
-											   IUnknown *pUnkOuter);
-
-HRESULT WINAPI  Main_DirectDraw_CreatePalette (LPDIRECTDRAW7 iface, 
-											   DWORD dwFlags,
-                                               LPPALETTEENTRY palent, 
-											   LPDIRECTDRAWPALETTE* ppPalette, 
-											   LPUNKNOWN pUnkOuter);
-
 
 typedef struct 
 {
@@ -49,8 +38,6 @@ typedef struct
 	IDirectDraw4Vtbl* lpVtbl_v4;
 	IDirectDraw2Vtbl* lpVtbl_v2;
 	IDirectDrawVtbl*  lpVtbl_v1;
-
-	ULONG Ref;
 
 	/* The main struct that contain all info from the HAL and HEL */	
 	HDC hdc;
@@ -88,56 +75,31 @@ typedef struct
 	/* HEL stuff */
 	DWORD HELMemoryAvilable;
 
-    /* DD Callbacks info */   	
-	DDHAL_DESTROYDRIVERDATA mDdDestroyDriver;
+    /* internal counter */
+    ULONG ref;
+    
+    /*    Callbacks info */
     DDHAL_CREATESURFACEDATA      mDdCreateSurface;
-	DDHAL_SETCOLORKEYDATA mDdSetColorKey;
-    DDHAL_SETMODEDATA mDdSetMode;
-    DDHAL_WAITFORVERTICALBLANKDATA mDdWaitForVerticalBlank;
-    DDHAL_CANCREATESURFACEDATA mDdCanCreateSurface;
-    DDHAL_CREATEPALETTEDATA mDdCreatePalette;
-    DDHAL_GETSCANLINEDATA mDdGetScanLine;
-    DDHAL_SETEXCLUSIVEMODEDATA mDdSetExclusiveMode;
-    DDHAL_FLIPTOGDISURFACEDATA mDdFlipToGDISurface;
-	
+    DDHAL_CANCREATESURFACEDATA   mDdCanCreateSurface;
+
+    /* Primarey surface we must reach it from every where */
     DDRAWI_DDRAWSURFACE_GBL mPrimaryGlobal;
-
-	/* adding a switch */
-	DWORD devicetype;
-
-} IDirectDrawImpl; 
-
-/******** Surface Object ********/
-typedef struct 
-{    
-	 /* Primarey surface we must reach it from every where */
-   
     DDRAWI_DDRAWSURFACE_MORE mPrimaryMore;
     DDRAWI_DDRAWSURFACE_LCL mPrimaryLocal;
     DDRAWI_DDRAWSURFACE_LCL *mpPrimaryLocals[1];
     DDRAWI_DDRAWCLIPPER_LCL mPrimaryClipperLocal;
     DDRAWI_DDRAWCLIPPER_GBL mPrimaryClipperGlobal;
 
-    DDSURFACEDESC2 mddsdPrimary;
+    DDSURFACEDESC mddsdPrimary;
+
+} IDirectDrawImpl; 
+
+/******** Surface Object ********/
+typedef struct 
+{    
 
     DDRAWI_DDRAWSURFACE_LCL *mpInUseSurfaceLocals[1];
     
-	/* 
-	   AttachList We need getting surface pointer 
-	   of already create surface that have some private
-	   data msdn ATTACHLIST can not provide all info 
-	   we need with our desgin therfor we are using 
-	   wine desgin for it 
-	   type IDirectDrawSurfaceImpl;
-	*/
-    DWORD* next_attached;
-    DWORD* first_attached;
-    DWORD* next_complex;
-    DWORD* first_complex;
-	DWORD* next;
-    DWORD* prev;
-
-	/* Need be delete later */
     DDRAWI_DDRAWSURFACE_GBL mSurfGlobal;
     DDRAWI_DDRAWSURFACE_MORE mSurfMore;
     DDRAWI_DDRAWSURFACE_LCL mSurfLocal;
@@ -191,9 +153,10 @@ typedef struct
 typedef struct 
 {
 	IDirectDrawPaletteVtbl* lpVtbl;
-    
+    LONG ref;
+
     IDirectDrawImpl* owner;
-	DDRAWI_DDRAWPALETTE_GBL DDPalette;    
+
 } IDirectDrawPaletteImpl;
 
 /******** Gamma Object ********/
@@ -265,7 +228,8 @@ extern IDirectDrawSurfaceKernelVtbl DirectDrawSurfaceKernel_Vtable;
 
 HRESULT WINAPI Main_DirectDraw_GetAvailableVidMem(LPDIRECTDRAW7 iface, LPDDSCAPS2 ddscaps, LPDWORD total, LPDWORD free); 
 
-
+HRESULT Hal_DirectDraw_Initialize (LPDIRECTDRAW7 );
+HRESULT Hal_DirectDraw_SetCooperativeLevel (LPDIRECTDRAW7 );
 VOID Hal_DirectDraw_Release (LPDIRECTDRAW7 );
 HRESULT Hal_DirectDraw_GetAvailableVidMem(LPDIRECTDRAW7, LPDDSCAPS2, LPDWORD, LPDWORD );	
 HRESULT Hal_DirectDraw_WaitForVerticalBlank(LPDIRECTDRAW7, DWORD, HANDLE ); 

@@ -30,11 +30,12 @@ use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::Bug;
 
-require "globals.pl";
+require "CGI.pl";
+
+# Use global template variables
+use vars qw($template $vars);
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
 
 # If the action is show_bug, you need a bug_id.
 # If the action is show_user, you can supply a userid to show the votes for
@@ -88,19 +89,27 @@ exit;
 # Display the names of all the people voting for this one bug.
 sub show_bug {
     my $cgi = Bugzilla->cgi;
-    my $dbh = Bugzilla->dbh;
 
     ThrowCodeError("missing_bug_id") unless defined $bug_id;
 
+    my $total = 0;
+    my @users;
+    
+    SendSQL("SELECT profiles.login_name, votes.who, votes.vote_count 
+               FROM votes INNER JOIN profiles 
+                 ON profiles.userid = votes.who
+              WHERE votes.bug_id = $bug_id");
+                   
+    while (MoreSQLData()) {
+        my ($name, $userid, $count) = (FetchSQLData());
+        push (@users, { name => $name, id => $userid, count => $count });
+        $total += $count;
+    }
+    
     $vars->{'bug_id'} = $bug_id;
-    $vars->{'users'} =
-        $dbh->selectall_arrayref('SELECT profiles.login_name, votes.vote_count 
-                                    FROM votes
-                              INNER JOIN profiles 
-                                      ON profiles.userid = votes.who
-                                   WHERE votes.bug_id = ?',
-                                  {'Slice' => {}}, $bug_id);
-
+    $vars->{'users'} = \@users;
+    $vars->{'total'} = $total;
+    
     print $cgi->header();
     $template->process("bug/votes/list-for-bug.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
@@ -113,31 +122,28 @@ sub show_user {
 
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
-    my $user = Bugzilla->user;
 
     # If a bug_id is given, and we're editing, we'll add it to the votes list.
     $bug_id ||= "";
     
-    my $name = $cgi->param('user') || $user->login;
+    my $name = $cgi->param('user') || Bugzilla->user->login;
     my $who = DBNameToIdAndCheck($name);
-    my $userid = $user->id;
+    my $userid = Bugzilla->user->id;
     
     my $canedit = (Param('usevotes') && $userid == $who) ? 1 : 0;
 
     $dbh->bz_lock_tables('bugs READ', 'products READ', 'votes WRITE',
              'cc READ', 'bug_group_map READ', 'user_group_map READ',
-             'group_group_map READ',
              'cc AS selectVisible_cc READ', 'groups READ');
 
     if ($canedit && $bug_id) {
         # Make sure there is an entry for this bug
         # in the vote table, just so that things display right.
-        my $has_votes = $dbh->selectrow_array('SELECT vote_count FROM votes 
-                                               WHERE bug_id = ? AND who = ?',
-                                               undef, ($bug_id, $who));
-        if (!$has_votes) {
-            $dbh->do('INSERT INTO votes (who, bug_id, vote_count) 
-                      VALUES (?, ?, 0)', undef, ($who, $bug_id));
+        SendSQL("SELECT votes.vote_count FROM votes 
+                 WHERE votes.bug_id = $bug_id AND votes.who = $who");
+        if (!FetchOneColumn()) {
+            SendSQL("INSERT INTO votes (who, bug_id, vote_count) 
+                     VALUES ($who, $bug_id, 0)");
         }
     }
     
@@ -145,10 +151,10 @@ sub show_user {
     # we can do it all in one query.
     my %maxvotesperbug;
     if($canedit) {
-        my $products = $dbh->selectall_arrayref('SELECT name, maxvotesperbug 
-                                                 FROM products');
-        foreach (@$products) {
-            my ($prod, $max) = @$_;
+        SendSQL("SELECT products.name, products.maxvotesperbug 
+                 FROM products");
+        while (MoreSQLData()) {
+            my ($prod, $max) = FetchSQLData();
             $maxvotesperbug{$prod} = $max;
         }
     }
@@ -162,27 +168,27 @@ sub show_user {
         my @bugs;
         my $total = 0;
         my $onevoteonly = 0;
-
-        my $vote_list =
-            $dbh->selectall_arrayref('SELECT votes.bug_id, votes.vote_count,
-                                             bugs.short_desc, bugs.bug_status 
-                                        FROM  votes
-                                  INNER JOIN bugs ON votes.bug_id = bugs.bug_id
-                                  INNER JOIN products ON bugs.product_id = products.id 
-                                       WHERE votes.who = ? AND products.name = ?
-                                    ORDER BY votes.bug_id',
-                                      undef, ($who, $product));
-
-        foreach (@$vote_list) {
-            my ($id, $count, $summary, $status) = @$_;
+        
+        SendSQL("SELECT votes.bug_id, votes.vote_count, bugs.short_desc,
+                        bugs.bug_status 
+                  FROM  votes
+                  INNER JOIN bugs ON votes.bug_id = bugs.bug_id
+                  INNER JOIN products ON bugs.product_id = products.id 
+                  WHERE votes.who = $who 
+                    AND products.name = " . SqlQuote($product) . 
+                 "ORDER BY votes.bug_id");        
+        
+        while (MoreSQLData()) {
+            my ($id, $count, $summary, $status) = FetchSQLData();
+            next if !defined($status);
             $total += $count;
-
+             
             # Next if user can't see this bug. So, the totals will be correct
             # and they can see there are votes 'missing', but not on what bug
             # they are. This seems a reasonable compromise; the alternative is
             # to lie in the totals.
-            next if !$user->can_see_bug($id);            
-
+            next if !Bugzilla->user->can_see_bug($id);            
+            
             push (@bugs, { id => $id, 
                            summary => $summary,
                            count => $count,
@@ -207,7 +213,7 @@ sub show_user {
         }
     }
 
-    $dbh->do('DELETE FROM votes WHERE vote_count <= 0');
+    SendSQL("DELETE FROM votes WHERE vote_count <= 0");
     $dbh->bz_unlock_tables();
 
     $vars->{'canedit'} = $canedit;
@@ -274,18 +280,16 @@ sub record_votes {
     # If the user is voting for bugs, make sure they aren't overstuffing
     # the ballot box.
     if (scalar(@buglist)) {
-        my $product_vote_settings =
-            $dbh->selectall_arrayref('SELECT bugs.bug_id, products.name,
-                                             products.maxvotesperbug
-                                        FROM bugs
-                                  INNER JOIN products
-                                          ON products.id = bugs.product_id
-                                       WHERE bugs.bug_id IN
-                                             (' . join(', ', @buglist) . ')');
+        SendSQL("SELECT bugs.bug_id, products.name, products.maxvotesperbug
+                   FROM bugs
+             INNER JOIN products
+                     ON products.id = bugs.product_id
+                  WHERE bugs.bug_id IN (" . join(", ", @buglist) . ")");
 
         my %prodcount;
-        foreach (@$product_vote_settings) {
-            my ($id, $prod, $max) = @$_;
+
+        while (MoreSQLData()) {
+            my ($id, $prod, $max) = FetchSQLData();
             $prodcount{$prod} ||= 0;
             $prodcount{$prod} += $votes{$id};
             
@@ -319,24 +323,23 @@ sub record_votes {
                          'products READ', 'fielddefs READ');
     
     # Take note of, and delete the user's old votes from the database.
-    my $bug_list = $dbh->selectcol_arrayref('SELECT bug_id FROM votes
-                                             WHERE who = ?', undef, $who);
-
-    foreach my $id (@$bug_list) {
+    SendSQL("SELECT bug_id FROM votes WHERE who = $who");
+    while (MoreSQLData()) {
+        my $id = FetchOneColumn();
         $affected{$id} = 1;
     }
-    $dbh->do('DELETE FROM votes WHERE who = ?', undef, $who);
-
-    my $sth_insertVotes = $dbh->prepare('INSERT INTO votes (who, bug_id, vote_count)
-                                         VALUES (?, ?, ?)');
+    
+    SendSQL("DELETE FROM votes WHERE who = $who");
+    
     # Insert the new values in their place
     foreach my $id (@buglist) {
         if ($votes{$id} > 0) {
-            $sth_insertVotes->execute($who, $id, $votes{$id});
+            SendSQL("INSERT INTO votes (who, bug_id, vote_count) 
+                     VALUES ($who, $id, ".$votes{$id}.")");
         }
         $affected{$id} = 1;
     }
-
+    
     # Update the cached values in the bugs table
     print $cgi->header();
     my @updated_bugs = ();

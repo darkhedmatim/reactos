@@ -28,9 +28,6 @@
 <directory name="cfgmgr32">
 	<xi:include href="cfgmgr32/cfgmgr32.rbuild" />
 </directory>
-<directory name="console">
-	<xi:include href="console/console.rbuild" />
-</directory>
 <directory name="comctl32">
 	<xi:include href="comctl32/comctl32.rbuild" />
 </directory>
@@ -42,9 +39,6 @@
 </directory>
 <directory name="crypt32">
 	<xi:include href="crypt32/crypt32.rbuild" />
-</directory>
-<directory name="cryptdll">
-	<xi:include href="cryptdll/cryptdll.rbuild" />
 </directory>
 <directory name="dbghelp">
 	<xi:include href="dbghelp/dbghelp.rbuild" />
@@ -91,8 +85,8 @@
 <directory name="lsasrv">
 	<xi:include href="lsasrv/lsasrv.rbuild" />
 </directory>
-<directory name="lz32">
-	<xi:include href="lz32/lz32.rbuild" />
+<directory name="lzexpand">
+	<xi:include href="lzexpand/lz32.rbuild" />
 </directory>
 <directory name="mapi32">
 	<xi:include href="mapi32/mapi32.rbuild" />
@@ -163,17 +157,14 @@
 <directory name="opengl32">
 	<xi:include href="opengl32/opengl32.rbuild" />
 </directory>
-<directory name="powrprof">
-	<xi:include href="powrprof/powrprof.rbuild" />
-</directory>
 <directory name="psapi">
 	<xi:include href="psapi/psapi.rbuild" />
 </directory>
 <directory name="riched20">
 	<xi:include href="riched20/riched20.rbuild" />
 </directory>
-<directory name="riched32">
-	<xi:include href="riched32/riched32.rbuild" />
+<directory name="richedit">
+	<xi:include href="richedit/riched32.rbuild" />
 </directory>
 <directory name="rpcrt4">
 	<xi:include href="rpcrt4/rpcrt4.rbuild" />
@@ -220,8 +211,8 @@
 <directory name="syssetup">
 	<xi:include href="syssetup/syssetup.rbuild" />
 </directory>
-<directory name="twain_32">
-	<xi:include href="twain_32/twain_32.rbuild" />
+<directory name="twain">
+	<xi:include href="twain/twain32.rbuild" />
 </directory>
 <directory name="urlmon">
 	<xi:include href="urlmon/urlmon.rbuild" />

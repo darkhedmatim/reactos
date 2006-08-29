@@ -128,7 +128,7 @@ HEXEDIT_Update(PHEXEDIT_DATA hed)
   GetClientRect(hed->hWndSelf, &rcClient);
   hed->style = GetWindowLong(hed->hWndSelf, GWL_STYLE);
 
-  bufsize = (hed->hBuffer ? (INT) LocalSize(hed->hBuffer) : 0);
+  bufsize = (hed->hBuffer ? LocalSize(hed->hBuffer) : 0);
   hed->nLines = max(bufsize / hed->ColumnsPerLine, 1);
   if(bufsize > hed->ColumnsPerLine && (bufsize % hed->ColumnsPerLine) > 0)
   {
@@ -182,7 +182,7 @@ HEXEDIT_PaintLines(PHEXEDIT_DATA hed, HDC hDC, DWORD ScrollPos, DWORD First, DWO
   DWORD dx, dy, linestart;
   INT x;
   PBYTE buf, current, end, line;
-  size_t bufsize;
+  UINT bufsize;
   TCHAR hex[3], addr[17];
   RECT rct;
 
@@ -340,7 +340,7 @@ HEXEDIT_PositionFromPoint(PHEXEDIT_DATA hed, POINTS pt, DWORD Hit, POINT *EditPo
     case HEHT_ADDRESS:
     case HEHT_ADDRESSSPACING:
     case HEHT_HEXDUMP:
-      pt.x -= (SHORT) hed->LeftMargin + ((4 + hed->AddressSpacing) * hed->CharWidth);
+      pt.x -= hed->LeftMargin + ((4 + hed->AddressSpacing) * hed->CharWidth);
       *EditField = TRUE;
       break;
 
@@ -356,7 +356,7 @@ HEXEDIT_PositionFromPoint(PHEXEDIT_DATA hed, POINTS pt, DWORD Hit, POINT *EditPo
     EditPos->x = min(hed->ColumnsPerLine, pt.x / BlockWidth);
   }
 
-  bufsize = (hed->hBuffer ? (DWORD) LocalSize(hed->hBuffer) : 0);
+  bufsize = (hed->hBuffer ? LocalSize(hed->hBuffer) : 0);
   Pos = (EditPos->y * hed->ColumnsPerLine) + EditPos->x;
   if(Pos > bufsize)
   {
@@ -433,7 +433,7 @@ HEXEDIT_HEM_LOADBUFFER(PHEXEDIT_DATA hed, PVOID Buffer, DWORD Size)
 static LRESULT
 HEXEDIT_HEM_COPYBUFFER(PHEXEDIT_DATA hed, PVOID Buffer, DWORD Size)
 {
-  size_t nCpy;
+  DWORD nCpy;
 
   if(!hed->hBuffer)
   {
@@ -526,7 +526,6 @@ HEXEDIT_WM_NCDESTROY(PHEXEDIT_DATA hed)
 static LRESULT
 HEXEDIT_WM_CREATE(PHEXEDIT_DATA hed)
 {
-  UNREFERENCED_PARAMETER(hed);
   return 1;
 }
 
@@ -542,7 +541,6 @@ HEXEDIT_WM_SETFOCUS(PHEXEDIT_DATA hed)
 static LRESULT
 HEXEDIT_WM_KILLFOCUS(PHEXEDIT_DATA hed)
 {
-  UNREFERENCED_PARAMETER(hed);
   DestroyCaret();
   return 0;
 }
@@ -552,8 +550,6 @@ HEXEDIT_WM_VSCROLL(PHEXEDIT_DATA hed, WORD ThumbPosition, WORD SbCmd)
 {
   int ScrollY;
   SCROLLINFO si;
-
-  UNREFERENCED_PARAMETER(ThumbPosition);
 
   ZeroMemory(&si, sizeof(SCROLLINFO));
   si.cbSize = sizeof(SCROLLINFO);
@@ -712,9 +708,6 @@ HEXEDIT_WM_MOUSEWHEEL(PHEXEDIT_DATA hed, int cyMoveLines, WORD ButtonsDown, LPPO
   SCROLLINFO si;
   int ScrollY;
 
-  UNREFERENCED_PARAMETER(ButtonsDown);
-  UNREFERENCED_PARAMETER(MousePos);
-
   SetFocus(hed->hWndSelf);
 
   si.cbSize = sizeof(SCROLLINFO);
@@ -740,7 +733,6 @@ HEXEDIT_WM_MOUSEWHEEL(PHEXEDIT_DATA hed, int cyMoveLines, WORD ButtonsDown, LPPO
 static LRESULT
 HEXEDIT_WM_GETDLGCODE(LPMSG Msg)
 {
-  UNREFERENCED_PARAMETER(Msg);
   return DLGC_WANTARROWS | DLGC_WANTCHARS;
 }
 
@@ -751,7 +743,6 @@ HEXEDIT_WM_LBUTTONDOWN(PHEXEDIT_DATA hed, INT Buttons, POINTS Pt)
   POINT EditPos;
   DWORD Hit = HEXEDIT_HitRegionTest(hed, Pt);
 
-  UNREFERENCED_PARAMETER(Buttons);
   SetFocus(hed->hWndSelf);
 
   hed->Position = HEXEDIT_PositionFromPoint(hed, Pt, Hit, &EditPos, &NewField);
@@ -767,7 +758,7 @@ HEXEDIT_WM_LBUTTONDOWN(PHEXEDIT_DATA hed, INT Buttons, POINTS Pt)
 static BOOL
 HEXEDIT_WM_KEYDOWN(PHEXEDIT_DATA hed, INT VkCode)
 {
-  size_t bufsize;
+  DWORD bufsize;
   BOOL shift, control;
 
   if(GetKeyState(VK_MENU) & 0x8000)
@@ -836,15 +827,15 @@ HEXEDIT_WM_KEYDOWN(PHEXEDIT_DATA hed, INT VkCode)
 	  hed->CaretLine++;
 	  if(hed->Position > (INT)bufsize)
 	  {
-	    hed->Position = (INT) bufsize;
+	    hed->Position = bufsize;
 	    hed->CaretLine = (hed->nLines > 0 ? hed->nLines - 1 : 0);
-	    hed->CaretCol = (INT) bufsize % hed->ColumnsPerLine;
+	    hed->CaretCol = bufsize % hed->ColumnsPerLine;
 	  }
 	}
 	else
 	{
-	  INT tmp = (INT) bufsize % hed->ColumnsPerLine;
-	  hed->Position = (INT) bufsize;
+	  INT tmp = bufsize % hed->ColumnsPerLine;
+	  hed->Position = bufsize;
 	  hed->CaretCol = (tmp == 0 ? hed->ColumnsPerLine : tmp);
 	}
       }
@@ -858,9 +849,6 @@ HEXEDIT_WM_KEYDOWN(PHEXEDIT_DATA hed, INT VkCode)
 static LRESULT
 HEXEDIT_WM_SIZE(PHEXEDIT_DATA hed, DWORD sType, WORD NewWidth, WORD NewHeight)
 {
-  UNREFERENCED_PARAMETER(sType);
-  UNREFERENCED_PARAMETER(NewHeight);
-  UNREFERENCED_PARAMETER(NewWidth);
   HEXEDIT_Update(hed);
   return 0;
 }

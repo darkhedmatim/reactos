@@ -4,9 +4,16 @@
 -- from local settings.
 --
 
-GRANT DELETE,INSERT,SELECT,UPDATE,CREATE TEMPORARY TABLES ON `{$wgDBname}`.*
+GRANT ALL ON `{$wgDBname}`.*
+ TO '{$wgDBadminuser}'@'%' IDENTIFIED BY '{$wgDBadminpassword}';
+GRANT ALL ON `{$wgDBname}`.*
+ TO '{$wgDBadminuser}'@localhost IDENTIFIED BY '{$wgDBadminpassword}';
+GRANT ALL ON `{$wgDBname}`.*
+ TO '{$wgDBadminuser}'@localhost.localdomain IDENTIFIED BY '{$wgDBadminpassword}';
+
+GRANT DELETE,INSERT,SELECT,UPDATE ON `{$wgDBname}`.*
  TO '{$wgDBuser}'@'%' IDENTIFIED BY '{$wgDBpassword}';
-GRANT DELETE,INSERT,SELECT,UPDATE,CREATE TEMPORARY TABLES ON `{$wgDBname}`.*
+GRANT DELETE,INSERT,SELECT,UPDATE ON `{$wgDBname}`.*
  TO '{$wgDBuser}'@localhost IDENTIFIED BY '{$wgDBpassword}';
-GRANT DELETE,INSERT,SELECT,UPDATE,CREATE TEMPORARY TABLES ON `{$wgDBname}`.*
+GRANT DELETE,INSERT,SELECT,UPDATE ON `{$wgDBname}`.*
  TO '{$wgDBuser}'@localhost.localdomain IDENTIFIED BY '{$wgDBpassword}';

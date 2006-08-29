@@ -257,11 +257,11 @@ ListDirectory (
 		CHAR TypeNameA [MAX_PATH];
 		CHAR TargetNameA [MAX_PATH];
 
-		if (0 == wcscmp (L"SymbolicLink", pDirectoryEntry->TypeName.Buffer))
+		if (0 == wcscmp (L"SymbolicLink", pDirectoryEntry->ObjectTypeName.Buffer))
 		{
 			if (TRUE == ExpandSymbolicLink (
 					DirectoryNameW,
-					& pDirectoryEntry->Name,
+					& pDirectoryEntry->ObjectName,
 					& TargetObjectName
 					)
 				)
@@ -269,8 +269,8 @@ ListDirectory (
 
 				printf (
 					"%-16s %s -> %s\n",
-					RawUszAsz (pDirectoryEntry->TypeName.Buffer, TypeNameA),
-					RawUszAsz (pDirectoryEntry->Name.Buffer, ObjectNameA),
+					RawUszAsz (pDirectoryEntry->ObjectTypeName.Buffer, TypeNameA),
+					RawUszAsz (pDirectoryEntry->ObjectName.Buffer, ObjectNameA),
 					RawUszAsz (TargetObjectName.Buffer, TargetNameA)
 					);
 			}
@@ -278,8 +278,8 @@ ListDirectory (
 			{
 				printf (
 					"%-16s %s -> (error!)\n",
-					RawUszAsz (pDirectoryEntry->TypeName.Buffer, TypeNameA),
-					RawUszAsz (pDirectoryEntry->Name.Buffer, ObjectNameA)
+					RawUszAsz (pDirectoryEntry->ObjectTypeName.Buffer, TypeNameA),
+					RawUszAsz (pDirectoryEntry->ObjectName.Buffer, ObjectNameA)
 					);
 			}
 		}
@@ -287,8 +287,8 @@ ListDirectory (
 		{
 			printf (
 				"%-16s %s\n",
-				RawUszAsz (pDirectoryEntry->TypeName.Buffer, TypeNameA),
-				RawUszAsz (pDirectoryEntry->Name.Buffer, ObjectNameA)
+				RawUszAsz (pDirectoryEntry->ObjectTypeName.Buffer, TypeNameA),
+				RawUszAsz (pDirectoryEntry->ObjectName.Buffer, ObjectNameA)
 				);
 		}
 		++ pDirectoryEntry;
@@ -306,9 +306,9 @@ ListDirectory (
 	if (FALSE != Recurse)
 	{
 		pDirectoryEntry = (POBJECT_DIRECTORY_INFORMATION) DirectoryEntry;
-		while (0 != pDirectoryEntry->TypeName.Length)
+		while (0 != pDirectoryEntry->ObjectTypeName.Length)
 		{
-			if (0 == wcscmp (L"Directory", pDirectoryEntry->TypeName.Buffer))
+			if (0 == wcscmp (L"Directory", pDirectoryEntry->ObjectTypeName.Buffer))
 			{
 				WCHAR		CurrentName [MAX_PATH];
 				UNICODE_STRING	CurrentDirectory;
@@ -319,7 +319,7 @@ ListDirectory (
 				{
 					wcscat (CurrentName, L"\\");
 				}
-				wcscat (CurrentName, pDirectoryEntry->Name.Buffer);
+				wcscat (CurrentName, pDirectoryEntry->ObjectName.Buffer);
 				RtlInitUnicodeString (& CurrentDirectory, CurrentName);
 				ListDirectory (& CurrentDirectory, Recurse);
 			}

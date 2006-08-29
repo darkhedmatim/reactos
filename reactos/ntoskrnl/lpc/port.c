@@ -56,8 +56,8 @@ LpcpInitSystem (VOID)
     ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObjectTypeInitializer.CloseProcedure = LpcpClosePort;
     ObjectTypeInitializer.DeleteProcedure = LpcpDeletePort;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &LpcPortObjectType);
-
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &LpcPortObjectType);
+    
     LpcpNextMessageId = 0;
     ExInitializeFastMutex (& LpcpLock);
 

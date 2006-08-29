@@ -26,7 +26,7 @@ ULONG NtBuildNumber = KERNEL_VERSION_BUILD;
 ULONG NtGlobalFlag = 0;
 CHAR  KeNumberProcessors;
 KAFFINITY KeActiveProcessors = 1;
-ROS_LOADER_PARAMETER_BLOCK KeLoaderBlock;
+LOADER_PARAMETER_BLOCK KeLoaderBlock;
 ULONG KeDcacheFlushCount = 0;
 ULONG KeIcacheFlushCount = 0;
 ULONG KiDmaIoCoherency = 0; /* RISC Architectures only */
@@ -66,7 +66,7 @@ PLOADER_MODULE CachedModules[MaximumCachedModuleType];
 extern unsigned int _image_base__;
 ULONG_PTR KERNEL_BASE = (ULONG_PTR)&_image_base__;
 
-VOID INIT_FUNCTION _main(ULONG MultiBootMagic, PROS_LOADER_PARAMETER_BLOCK _LoaderBlock);
+VOID INIT_FUNCTION _main(ULONG MultiBootMagic, PLOADER_PARAMETER_BLOCK _LoaderBlock);
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, _main)
@@ -103,11 +103,6 @@ KiSystemStartup(BOOLEAN BootProcessor)
 
         /* Initialize the Kernel Executive */
         ExpInitializeExecutive();
-
-        /* Create the IOPM Save Area */
-        Ki386IopmSaveArea = ExAllocatePoolWithTag(NonPagedPool,
-                                                  PAGE_SIZE * 2,
-                                                  TAG('K', 'e', ' ', ' '));
 
         /* Free Initial Memory */
         MiFreeInitMemory();
@@ -151,7 +146,7 @@ KiSystemStartup(BOOLEAN BootProcessor)
 VOID
 INIT_FUNCTION
 _main(ULONG MultiBootMagic,
-      PROS_LOADER_PARAMETER_BLOCK _LoaderBlock)
+      PLOADER_PARAMETER_BLOCK _LoaderBlock)
 {
     ULONG i;
     ULONG size;
@@ -163,7 +158,7 @@ _main(ULONG MultiBootMagic,
     CHAR* s;
 
     /* Copy the Loader Block Data locally since Low-Memory will be wiped */
-    memcpy(&KeLoaderBlock, _LoaderBlock, sizeof(ROS_LOADER_PARAMETER_BLOCK));
+    memcpy(&KeLoaderBlock, _LoaderBlock, sizeof(LOADER_PARAMETER_BLOCK));
     memcpy(&KeLoaderModules[1],
            (PVOID)KeLoaderBlock.ModsAddr,
            sizeof(LOADER_MODULE) * KeLoaderBlock.ModsCount);
@@ -287,10 +282,14 @@ _main(ULONG MultiBootMagic,
     }
 
     /* Initialize the Debugger */
-    KdInitSystem (0, &KeLoaderBlock);
+    KdInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
     /* Initialize HAL */
     HalInitSystem (0, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+
+    /* Display separator + ReactOS version at start of the debug log */
+    DPRINT1("---------------------------------------------------------------\n");
+    DPRINT1("ReactOS "KERNEL_VERSION_STR" (Build "KERNEL_VERSION_BUILD_STR")\n");
 
     /* Do general System Startup */
     KiSystemStartup(1);

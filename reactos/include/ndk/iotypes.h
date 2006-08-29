@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -23,9 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#if !defined(_NTIFS_)
-typedef PVOID PFS_FILTER_CALLBACKS;
-#endif
 
 #ifndef NTOS_MODE_USER
 
@@ -128,15 +125,6 @@ extern POBJECT_TYPE NTSYSAPI IoDriverObjectType;
 #define DOE_START_PENDING                       0x10
 
 //
-// Device Object StartIo Flags
-//
-#define DOE_SIO_NO_KEY                          0x20
-#define DOE_SIO_WITH_KEY                        0x40
-#define DOE_SIO_CANCELABLE                      0x80
-#define DOE_SIO_DEFERRED                        0x100
-#define DOE_SIO_NO_CANCEL                       0x200
-
-//
 // Device Node Flags
 //
 #define DNF_PROCESSED                           0x00000001
@@ -179,14 +167,6 @@ extern POBJECT_TYPE NTSYSAPI IoDriverObjectType;
 #define DNUF_NOT_DISABLEABLE                    0x0008
 
 //
-// Undocumented WMI Registration Flags
-//
-#define WMIREG_FLAG_TRACE_PROVIDER          0x00010000
-#define WMIREG_FLAG_TRACE_NOTIFY_MASK       0x00F00000
-#define WMIREG_NOTIFY_DISK_IO               0x00100000
-#define WMIREG_NOTIFY_TDI_IO                0x00200000
-
-//
 // I/O Completion Information Class for NtQueryIoCompletionInformation
 //
 typedef enum _IO_COMPLETION_INFORMATION_CLASS
@@ -220,24 +200,6 @@ typedef enum _INTERFACE_TYPE
     PNPBus,
     MaximumInterfaceType
 }INTERFACE_TYPE, *PINTERFACE_TYPE;
-
-typedef enum _BUS_DATA_TYPE
-{
-    ConfigurationSpaceUndefined = -1,
-    Cmos,
-    EisaConfiguration,
-    Pos,
-    CbusConfiguration,
-    PCIConfiguration,
-    VMEConfiguration,
-    NuBusConfiguration,
-    PCMCIAConfiguration,
-    MPIConfiguration,
-    MPSAConfiguration,
-    PNPISAConfiguration,
-    SgiInternalConfiguration,
-    MaximumBusDataType
-} BUS_DATA_TYPE, *PBUS_DATA_TYPE;
 
 //
 // File Information Classes for NtQueryInformationFile
@@ -529,21 +491,6 @@ typedef struct _FILE_VALID_DATA_LENGTH_INFORMATION
     LARGE_INTEGER ValidDataLength;
 } FILE_VALID_DATA_LENGTH_INFORMATION, *PFILE_VALID_DATA_LENGTH_INFORMATION;
 
-typedef struct _FILE_DIRECTORY_INFORMATION
-{
-    ULONG NextEntryOffset;
-    ULONG FileIndex;
-    LARGE_INTEGER CreationTime;
-    LARGE_INTEGER LastAccessTime;
-    LARGE_INTEGER LastWriteTime;
-    LARGE_INTEGER ChangeTime;
-    LARGE_INTEGER EndOfFile;
-    LARGE_INTEGER AllocationSize;
-    ULONG FileAttributes;
-    ULONG FileNameLength;
-    WCHAR FileName[1];
-} FILE_DIRECTORY_INFORMATION, *PFILE_DIRECTORY_INFORMATION;
-
 //
 // File System Information structures for NtQueryInformationFile
 //
@@ -688,15 +635,6 @@ typedef struct _IO_TIMER
 } IO_TIMER, *PIO_TIMER;
 
 //
-// Driver Extension
-//
-typedef struct _IO_CLIENT_EXTENSION
-{
-    struct _IO_CLIENT_EXTENSION *NextExtension;
-    PVOID ClientIdentificationAddress;
-} IO_CLIENT_EXTENSION, *PIO_CLIENT_EXTENSION;
-
-//
 // Device Node
 //
 typedef struct _DEVICE_NODE
@@ -799,17 +737,14 @@ typedef struct _EXTENDED_DEVOBJ_EXTENSION
 } EXTENDED_DEVOBJ_EXTENSION, *PEXTENDED_DEVOBJ_EXTENSION;
 
 //
-// Extended Driver Object Extension Structure
+// Private Driver Extension Descriptor
 //
-typedef struct _EXTENDED_DRIVER_EXTENSION
+typedef struct _PRIVATE_DRIVER_EXTENSIONS
 {
-    struct _DRIVER_OBJECT *DriverObject;
-    PDRIVER_ADD_DEVICE AddDevice;
-    ULONG Count;
-    UNICODE_STRING ServiceKeyName;
-    PIO_CLIENT_EXTENSION ClientDriverExtension;
-    PFS_FILTER_CALLBACKS FsFilterCallbacks;
-} EXTENDED_DRIVER_EXTENSION, *PEXTENDED_DRIVER_EXTENSION;
+    struct _PRIVATE_DRIVER_EXTENSIONS *Link;
+    PVOID ClientIdentificationAddress;
+    CHAR Extension[1];
+} PRIVATE_DRIVER_EXTENSIONS, *PPRIVATE_DRIVER_EXTENSIONS;
 
 //
 // Extended I/O Stack Location Structure
@@ -1060,30 +995,6 @@ typedef struct _EXTENDED_IO_STACK_LOCATION
 #include <poppack.h>
 #endif
 #endif
-
-//
-// Firmware Boot File Path
-//
-typedef struct _FILE_PATH
-{
-    ULONG Version;
-    ULONG Length;
-    ULONG Type;
-    CHAR FilePath[1];
-} FILE_PATH, *PFILE_PATH;
-
-//
-// Firmware Boot Options
-//
-typedef struct _BOOT_OPTIONS
-{
-    ULONG Version;
-    ULONG Length;
-    ULONG Timeout;
-    ULONG CurrentBootEntryId;
-    ULONG NextBootEntryId;
-    WCHAR HeadlessRedirection[1];
-} BOOT_OPTIONS, *PBOOT_OPTIONS;
 
 //
 // APC Callback for NtCreateFile

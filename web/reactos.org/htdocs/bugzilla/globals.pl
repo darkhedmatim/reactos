@@ -25,7 +25,6 @@
 #                 Joel Peshkin <bugreport@peshkin.net>
 #                 Dave Lawrence <dkl@redhat.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 # Contains some global variables and routines used throughout bugzilla.
 
@@ -36,14 +35,15 @@ use Bugzilla::Constants;
 use Bugzilla::Util;
 # Bring ChmodDataFile in until this is all moved to the module
 use Bugzilla::Config qw(:DEFAULT ChmodDataFile $localconfig $datadir);
+use Bugzilla::BugMail;
 use Bugzilla::User;
-use Bugzilla::Error;
 
 # Shut up misguided -w warnings about "used only once".  For some reason,
 # "use vars" chokes on me when I try it here.
 
 sub globals_pl_sillyness {
     my $zz;
+    $zz = @main::default_column_list;
     $zz = @main::enterable_products;
     $zz = %main::keywordsbyname;
     $zz = @main::legal_bug_status;
@@ -58,7 +58,11 @@ sub globals_pl_sillyness {
     $zz = @main::legal_versions;
     $zz = @main::milestoneurl;
     $zz = %main::proddesc;
+    $zz = %main::classdesc;
     $zz = @main::prodmaxvotes;
+    $zz = $main::template;
+    $zz = $main::userid;
+    $zz = $main::vars;
 }
 
 #
@@ -103,6 +107,14 @@ $::SIG{PIPE} = 'IGNORE';
 #    confess($err_msg);
 #}
 #$::SIG{__DIE__} = \&die_with_dignity;
+
+sub GetFieldID {
+    my ($f) = (@_);
+    SendSQL("SELECT fieldid FROM fielddefs WHERE name = " . SqlQuote($f));
+    my $fieldid = FetchOneColumn();
+    die "Unknown field id: $f" if !$fieldid;
+    return $fieldid;
+}
 
 # XXXX - this needs to go away
 sub GenerateVersionTable {
@@ -157,6 +169,12 @@ sub GenerateVersionTable {
                                 # about them anyway.
 
     my $mpart = $dotargetmilestone ? ", milestoneurl" : "";
+
+    SendSQL("SELECT name, description FROM classifications ORDER BY name");
+    while (@line = FetchSQLData()) {
+        my ($n, $d) = (@line);
+        $::classdesc{$n} = $d;
+    }
 
     SendSQL("SELECT name, description, votesperuser, disallownew$mpart " .
             "FROM products ORDER BY name");
@@ -242,10 +260,10 @@ sub GenerateVersionTable {
                                    '*::legal_bug_status', '*::legal_resolution']));
 
     print $fh (Data::Dumper->Dump([\@::settable_resolution, \%::proddesc,
-                                   \%::classifications,
+                                   \%::classifications, \%::classdesc,
                                    \@::enterable_products, \%::prodmaxvotes],
                                   ['*::settable_resolution', '*::proddesc',
-                                   '*::classifications',
+                                   '*::classifications', '*::classdesc',
                                    '*::enterable_products', '*::prodmaxvotes']));
 
     if ($dotargetmilestone) {
@@ -307,20 +325,30 @@ sub GetKeywordIdFromName {
 $::VersionTableLoaded = 0;
 sub GetVersionTable {
     return if $::VersionTableLoaded;
-    my $file_generated = 0;
-    if (!-r "$datadir/versioncache") {
+    my $mtime = file_mod_time("$datadir/versioncache");
+    if (!defined $mtime || $mtime eq "" || !-r "$datadir/versioncache") {
+        $mtime = 0;
+    }
+    if (time() - $mtime > 3600) {
+        use Bugzilla::Token;
+        Bugzilla::Token::CleanTokenTable() if Bugzilla->dbwritesallowed;
         GenerateVersionTable();
-        $file_generated = 1;
     }
     require "$datadir/versioncache";
-    if (!defined %::versions && !$file_generated) {
+    if (!defined %::versions) {
         GenerateVersionTable();
         do "$datadir/versioncache";
-    }
-    if (!defined %::versions) {
-        die "Can't generate file $datadir/versioncache";
+
+        if (!defined %::versions) {
+            die "Can't generate file $datadir/versioncache";
+        }
     }
     $::VersionTableLoaded = 1;
+}
+
+sub GenerateRandomPassword {
+    my $size = (shift or 10); # default to 10 chars if nothing specified
+    return join("", map{ ('0'..'9','a'..'z','A'..'Z')[rand 62] } (1..$size));
 }
 
 #
@@ -369,6 +397,27 @@ sub AnyDefaultGroups {
     return $::CachedAnyDefaultGroups;
 }
 
+#
+# This function checks if, given a product id, the user can edit
+# bugs in this product at all.
+sub CanEditProductId {
+    my ($productid) = @_;
+    my $dbh = Bugzilla->dbh;
+    my $query = "SELECT group_id FROM group_control_map " .
+                "WHERE product_id = $productid " .
+                "AND canedit != 0 "; 
+    if (%{Bugzilla->user->groups}) {
+        $query .= "AND group_id NOT IN(" . 
+                   join(',', values(%{Bugzilla->user->groups})) . ") ";
+    }
+    $query .= $dbh->sql_limit(1);
+    PushGlobalSQLState();
+    SendSQL($query);
+    my ($result) = FetchSQLData();
+    PopGlobalSQLState();
+    return (!defined($result));
+}
+
 sub IsInClassification {
     my ($classification,$productname) = @_;
 
@@ -386,6 +435,205 @@ sub IsInClassification {
         return ($ret eq $classification);
     }
 }
+
+# This function determines whether or not a user can enter
+# bugs into the named product.
+sub CanEnterProduct {
+    my ($productname, $verbose) = @_;
+    my $dbh = Bugzilla->dbh;
+
+    return unless defined($productname);
+    trick_taint($productname);
+
+    # First check whether or not the user has access to that product.
+    my $query = "SELECT group_id IS NULL " .
+                "FROM products " .
+                "LEFT JOIN group_control_map " .
+                "ON group_control_map.product_id = products.id " .
+                "AND group_control_map.entry != 0 ";
+    if (%{Bugzilla->user->groups}) {
+        $query .= "AND group_id NOT IN(" . 
+                   join(',', values(%{Bugzilla->user->groups})) . ") ";
+    }
+    $query .= "WHERE products.name = ? " .
+              $dbh->sql_limit(1);
+
+    my $has_access = $dbh->selectrow_array($query, undef, $productname);
+    if (!$has_access) {
+        # Do we require the exact reason why we cannot enter
+        # bugs into that product? Returning -1 explicitely
+        # means the user has no access to the product or the
+        # product does not exist.
+        return (defined($verbose)) ? -1 : 0;
+    }
+
+    # Check if the product is open for new bugs and has
+    # at least one component and has at least one version.
+    my ($allow_new_bugs, $has_version) = 
+        $dbh->selectrow_array('SELECT CASE WHEN disallownew = 0 THEN 1 ELSE 0 END, ' .
+                              'versions.value IS NOT NULL ' .
+                              'FROM products INNER JOIN components ' .
+                              'ON components.product_id = products.id ' .
+                              'LEFT JOIN versions ' .
+                              'ON versions.product_id = products.id ' .
+                              'WHERE products.name = ? ' .
+                              $dbh->sql_limit(1), undef, $productname);
+
+
+    if (defined $verbose) {
+        # Return (undef, undef) if the product has no components,
+        # Return (?,     0)     if the product has no versions,
+        # Return (0,     ?)     if the product is closed for new bug entry,
+        # Return (1,     1)     if the user can enter bugs into the product,
+        return ($allow_new_bugs, $has_version);
+    } else {
+        # Return undef if the product has no components
+        # Return 0 if the product has no versions, or is closed for bug entry
+        # Return 1 if the user can enter bugs into the product
+        return ($allow_new_bugs && $has_version);
+    }
+}
+
+# Call CanEnterProduct() and display an error message
+# if the user cannot enter bugs into that product.
+sub CanEnterProductOrWarn {
+    my ($product) = @_;
+
+    if (!defined($product)) {
+        ThrowUserError("no_products");
+    }
+    my ($allow_new_bugs, $has_version) = CanEnterProduct($product, 1);
+    trick_taint($product);
+
+    if (!defined $allow_new_bugs) {
+        ThrowUserError("missing_component", { product => $product });
+    } elsif (!$allow_new_bugs) {
+        ThrowUserError("product_disabled", { product => $product});
+    } elsif ($allow_new_bugs < 0) {
+        ThrowUserError("entry_access_denied", { product => $product});
+    } elsif (!$has_version) {
+        ThrowUserError("missing_version", { product => $product });
+    }
+    return 1;
+}
+
+sub GetEnterableProducts {
+    my @products;
+    # XXX rewrite into pure SQL instead of relying on legal_products?
+    foreach my $p (@::legal_product) {
+        if (CanEnterProduct($p)) {
+            push @products, $p;
+        }
+    }
+    return (@products);
+}
+
+
+#
+# This function returns an alphabetical list of product names to which
+# the user can enter bugs.  If the $by_id parameter is true, also retrieves IDs
+# and pushes them onto the list as id, name [, id, name...] for easy slurping
+# into a hash by the calling code.
+sub GetSelectableProducts {
+    my ($by_id,$by_classification) = @_;
+
+    my $extra_sql = $by_id ? "id, " : "";
+
+    my $extra_from_sql = $by_classification ? " INNER JOIN classifications"
+        . " ON classifications.id = products.classification_id" : "";
+
+    my $query = "SELECT $extra_sql products.name " .
+                "FROM products $extra_from_sql " .
+                "LEFT JOIN group_control_map " .
+                "ON group_control_map.product_id = products.id ";
+    if (Param('useentrygroupdefault')) {
+        $query .= "AND group_control_map.entry != 0 ";
+    } else {
+        $query .= "AND group_control_map.membercontrol = " .
+                  CONTROLMAPMANDATORY . " ";
+    }
+    if (%{Bugzilla->user->groups}) {
+        $query .= "AND group_id NOT IN(" . 
+                   join(',', values(%{Bugzilla->user->groups})) . ") ";
+    }
+    $query .= "WHERE group_id IS NULL ";
+    if ($by_classification) {
+        $query .= "AND classifications.name = ";
+        $query .= SqlQuote($by_classification) . " ";
+    }
+    $query .= "ORDER BY name";
+    PushGlobalSQLState();
+    SendSQL($query);
+    my @products = ();
+    push(@products, FetchSQLData()) while MoreSQLData();
+    PopGlobalSQLState();
+    return (@products);
+}
+
+# GetSelectableProductHash
+# returns a hash containing 
+# legal_products => an enterable product list
+# legal_(components|versions|milestones) =>
+#   the list of components, versions, and milestones of enterable products
+# (components|versions|milestones)_by_product
+#    => a hash of component lists for each enterable product
+# Milestones only get returned if the usetargetmilestones parameter is set.
+sub GetSelectableProductHash {
+    # The hash of selectable products and their attributes that gets returned
+    # at the end of this function.
+    my $selectables = {};
+
+    my %products = GetSelectableProducts(1);
+
+    $selectables->{legal_products} = [sort values %products];
+
+    # Run queries that retrieve the list of components, versions,
+    # and target milestones (if used) for the selectable products.
+    my @tables = qw(components versions);
+    push(@tables, 'milestones') if Param('usetargetmilestone');
+
+    PushGlobalSQLState();
+    foreach my $table (@tables) {
+        my %values;
+        my %values_by_product;
+
+        if (scalar(keys %products)) {
+            # Why oh why can't we standardize on these names?!?
+            my $fld = ($table eq "components" ? "name" : "value");
+
+            my $query = "SELECT $fld, product_id FROM $table WHERE product_id " .
+                        "IN (" . join(",", keys %products) . ") ORDER BY $fld";
+            SendSQL($query);
+
+            while (MoreSQLData()) {
+                my ($name, $product_id) = FetchSQLData();
+                next unless $name;
+                $values{$name} = 1;
+                push @{$values_by_product{$products{$product_id}}}, $name;
+            }
+        }
+
+        $selectables->{"legal_$table"} = [sort keys %values];
+        $selectables->{"${table}_by_product"} = \%values_by_product;
+    }
+    PopGlobalSQLState();
+
+    return $selectables;
+}
+
+#
+# This function returns an alphabetical list of classifications that has products the user can enter bugs.
+sub GetSelectableClassifications {
+    my @selectable_classes = ();
+
+    foreach my $c (sort keys %::classdesc) {
+        if ( scalar(GetSelectableProducts(0,$c)) > 0) {
+           push(@selectable_classes,$c);
+        }
+    }
+    return (@selectable_classes);
+}
+
 
 sub ValidatePassword {
     # Determines whether or not a password is valid (i.e. meets Bugzilla's
@@ -434,6 +682,28 @@ sub DBNameToIdAndCheck {
 
     ThrowUserError("invalid_username", { name => $name });
 }
+
+sub get_classification_id {
+    my ($classification) = @_;
+    PushGlobalSQLState();
+    SendSQL("SELECT id FROM classifications WHERE name = " . SqlQuote($classification));
+    my ($classification_id) = FetchSQLData();
+    PopGlobalSQLState();
+    return $classification_id;
+}
+
+sub get_classification_name {
+    my ($classification_id) = @_;
+    die "non-numeric classification_id '$classification_id' passed to get_classification_name"
+      unless ($classification_id =~ /^\d+$/);
+    PushGlobalSQLState();
+    SendSQL("SELECT name FROM classifications WHERE id = $classification_id");
+    my ($classification) = FetchSQLData();
+    PopGlobalSQLState();
+    return $classification;
+}
+
+
 
 sub get_product_id {
     my ($prod) = @_;
@@ -563,7 +833,7 @@ sub quoteUrls {
                               "<a href=\"$current_bugurl#c$4\">$1</a>")
               ~egox;
 
-    # Old duplicate markers
+    # Duplicate markers
     $text =~ s~(?<=^\*\*\*\ This\ bug\ has\ been\ marked\ as\ a\ duplicate\ of\ )
                (\d+)
                (?=\ \*\*\*\Z)
@@ -710,6 +980,51 @@ sub GetBugLink {
     }
 }
 
+sub GetLongDescriptionAsText {
+    my ($id, $start, $end) = (@_);
+    my $result = "";
+    my $count = 0;
+    my $anyprivate = 0;
+    my $dbh = Bugzilla->dbh;
+    my ($query) = ("SELECT profiles.login_name, " .
+                   $dbh->sql_date_format('longdescs.bug_when', '%Y.%m.%d %H:%i') . ", " .
+                   "       longdescs.thetext, longdescs.isprivate, " .
+                   "       longdescs.already_wrapped " .
+                   "FROM   longdescs, profiles " .
+                   "WHERE  profiles.userid = longdescs.who " .
+                   "AND    longdescs.bug_id = $id ");
+
+    # $start will be undef for New bugs, and defined for pre-existing bugs.
+    if ($start) {
+        # If $start is not NULL, obtain the count-index
+        # of this comment for the leading "Comment #xxx" line.)
+        SendSQL("SELECT count(*) FROM longdescs " .
+                " WHERE bug_id = $id AND bug_when <= '$start'");
+        ($count) = (FetchSQLData());
+         
+        $query .= " AND longdescs.bug_when > '$start'"
+                . " AND longdescs.bug_when <= '$end' ";
+    }
+
+    $query .= "ORDER BY longdescs.bug_when";
+    SendSQL($query);
+    while (MoreSQLData()) {
+        my ($who, $when, $text, $isprivate, $work_time, $already_wrapped) = 
+            (FetchSQLData());
+        if ($count) {
+            $result .= "\n\n------- Comment #$count from $who".Param('emailsuffix')."  ".
+                Bugzilla::Util::format_time($when) . " -------\n";
+        }
+        if (($isprivate > 0) && Param("insidergroup")) {
+            $anyprivate = 1;
+        }
+        $result .= ($already_wrapped ? $text : wrap_comment($text));
+        $count++;
+    }
+
+    return ($result, $anyprivate);
+}
+
 # Returns a list of all the legal values for a field that has a
 # list of legal values, like rep_platform or resolution.
 sub get_legal_field_values {
@@ -725,8 +1040,7 @@ sub get_legal_field_values {
 sub BugInGroupId {
     my ($bugid, $groupid) = (@_);
     PushGlobalSQLState();
-    SendSQL("SELECT CASE WHEN bug_id != 0 THEN 1 ELSE 0 END
-            FROM bug_group_map
+    SendSQL("SELECT bug_id != 0 FROM bug_group_map
             WHERE bug_id = $bugid
             AND group_id = $groupid");
     my $bugingroup = FetchOneColumn();
@@ -794,8 +1108,60 @@ sub OpenStates {
     return ('NEW', 'REOPENED', 'ASSIGNED', 'UNCONFIRMED');
 }
 
+
+###############################################################################
+
+# Constructs a format object from URL parameters. You most commonly call it 
+# like this:
+# my $format = GetFormat("foo/bar", scalar($cgi->param('format')),
+#                        scalar($cgi->param('ctype')));
+
+sub GetFormat {
+    my ($template, $format, $ctype) = @_;
+
+    $ctype ||= "html";
+    $format ||= "";
+
+    # Security - allow letters and a hyphen only
+    $ctype =~ s/[^a-zA-Z\-]//g;
+    $format =~ s/[^a-zA-Z\-]//g;
+    trick_taint($ctype);
+    trick_taint($format);
+
+    $template .= ($format ? "-$format" : "");
+    $template .= ".$ctype.tmpl";
+
+    # Now check that the template actually exists. We only want to check
+    # if the template exists; any other errors (eg parse errors) will
+    # end up being detected later.
+    eval {
+        Bugzilla->template->context->template($template);
+    };
+    # This parsing may seem fragile, but its OK:
+    # http://lists.template-toolkit.org/pipermail/templates/2003-March/004370.html
+    # Even if it is wrong, any sort of error is going to cause a failure
+    # eventually, so the only issue would be an incorrect error message
+    if ($@ && $@->info =~ /: not found$/) {
+        ThrowUserError("format_not_found", { 'format' => $format,
+                                             'ctype' => $ctype,
+                                           });
+    }
+
+    # Else, just return the info
+    return
+    {
+        'template'    => $template ,
+        'extension'   => $ctype ,
+        'ctype'       => Bugzilla::Constants::contenttypes->{$ctype} ,
+    };
+}
+
 ############# Live code below here (that is, not subroutine defs) #############
 
 use Bugzilla;
+
+$::template = Bugzilla->template();
+
+$::vars = {};
 
 1;

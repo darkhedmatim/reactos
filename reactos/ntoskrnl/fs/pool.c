@@ -1,171 +1,159 @@
 /* $Id$
  *
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/fs/pool.c
  * PURPOSE:         No purpose listed.
  *
  * PROGRAMMERS:     No programmer listed.
  */
 
-/* INCLUDES *****************************************************************/
-
 #include <ntoskrnl.h>
 
-#define NDEBUG
-#include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
-
-/*++
- * @name FsRtlAllocatePool
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlAllocatePool@8
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
+ * NOTE
+ * 	IFS_POOL_TAG is "FSrt" in mem view.
+ *
  * @implemented
- *
- * FILLME
- *
- * @param PoolType
- *        FILLME
- *
- * @param NumberOfBytes
- *        FILLME
- *
- * @return None
- *
- * @remarks IFS_POOL_TAG is "FSrt" in mem view.
- *
- *--*/
+ */
 PVOID
-NTAPI
-FsRtlAllocatePool(IN POOL_TYPE PoolType,
-                  IN ULONG     NumberOfBytes)
+STDCALL
+FsRtlAllocatePool (
+	IN	POOL_TYPE	PoolType,
+	IN	ULONG		NumberOfBytes
+	)
 {
-    PVOID   Address;
+	PVOID	Address;
 
-    Address = ExAllocatePoolWithTag(PoolType,
-                                    NumberOfBytes,
-                                    IFS_POOL_TAG);
-
-    if (NULL == Address)
-    {
-        ExRaiseStatus(STATUS_INSUFFICIENT_RESOURCES);
-    }
-
-    return Address;
+	Address = ExAllocatePoolWithTag (
+			PoolType,
+			NumberOfBytes,
+			IFS_POOL_TAG
+			);
+	if (NULL == Address)
+	{
+		ExRaiseStatus (STATUS_INSUFFICIENT_RESOURCES);
+	}
+	return Address;
 }
 
-/*++
- * @name FsRtlAllocatePoolWithQuota
- * @implemented
- *
- * FILLME
- *
- * @param PoolType
- *        FILLME
- *
- * @param NumberOfBytes
- *        FILLME
- *
- * @return None
- *
- * @remarks IFS_POOL_TAG is "FSrt" in mem view.
- *
- *--*/
-PVOID
-NTAPI
-FsRtlAllocatePoolWithQuota(IN POOL_TYPE PoolType,
-                           IN ULONG     NumberOfBytes)
-{
-    PVOID	Address;
 
-    Address = ExAllocatePoolWithQuotaTag(PoolType,
-                                         NumberOfBytes,
-                                         IFS_POOL_TAG);
-    if (NULL == Address)
-    {
-        ExRaiseStatus(STATUS_INSUFFICIENT_RESOURCES);
-    }
-    return Address;
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlAllocatePoolWithQuota@8
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
+ * NOTE
+ * 	IFS_POOL_TAG is "FSrt" in mem view.
+ *
+ * @implemented
+ */
+PVOID
+STDCALL
+FsRtlAllocatePoolWithQuota (
+	IN	POOL_TYPE	PoolType,
+	IN	ULONG		NumberOfBytes
+	)
+{
+	PVOID	Address;
+
+	Address = ExAllocatePoolWithQuotaTag (
+			PoolType,
+			NumberOfBytes,
+			IFS_POOL_TAG
+			);
+	if (NULL == Address)
+	{
+		ExRaiseStatus (STATUS_INSUFFICIENT_RESOURCES);
+	}
+	return Address;
 }
 
-/*++
- * @name FsRtlAllocatePoolWithQuotaTag
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlAllocatePoolWithQuotaTag@12
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @implemented
- *
- * FILLME
- *
- * @param PoolType
- *        FILLME
- *
- * @param NumberOfBytes
- *        FILLME
- *
- * @param Tag
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
+ */
 PVOID
-NTAPI
-FsRtlAllocatePoolWithQuotaTag (IN POOL_TYPE PoolType,
-                               IN ULONG     NumberOfBytes,
-                               IN ULONG     Tag)
+STDCALL
+FsRtlAllocatePoolWithQuotaTag (
+	IN	POOL_TYPE	PoolType,
+	IN	ULONG		NumberOfBytes,
+	IN	ULONG		Tag
+	)
 {
-    PVOID   Address;
+	PVOID	Address;
 
-    Address = ExAllocatePoolWithQuotaTag(PoolType,
-                                         NumberOfBytes,
-                                         Tag);
-
-    if (NULL == Address)
-    {
-        ExRaiseStatus(STATUS_INSUFFICIENT_RESOURCES);
-    }
-
-    return Address;
+	Address = ExAllocatePoolWithQuotaTag (
+			PoolType,
+			NumberOfBytes,
+			Tag
+			);
+	if (NULL == Address)
+	{
+		ExRaiseStatus (STATUS_INSUFFICIENT_RESOURCES);
+	}
+	return Address;
 }
 
-/*++
- * @name FsRtlAllocatePoolWithTag
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlAllocatePoolWithTag@12
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @implemented
- *
- * FILLME
- *
- * @param PoolType
- *        FILLME
- *
- * @param NumberOfBytes
- *        FILLME
- *
- * @param Tag
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
+ */
 PVOID
-NTAPI
-FsRtlAllocatePoolWithTag(IN POOL_TYPE   PoolType,
-                         IN ULONG       NumberOfBytes,
-                         IN ULONG       Tag)
+STDCALL
+FsRtlAllocatePoolWithTag (
+	IN	POOL_TYPE	PoolType,
+	IN	ULONG		NumberOfBytes,
+	IN	ULONG		Tag
+	)
 {
-    PVOID   Address;
+	PVOID	Address;
 
-    Address = ExAllocatePoolWithTag(PoolType,
-                                    NumberOfBytes,
-                                    Tag);
-
-    if (NULL == Address)
-    {
-        ExRaiseStatus(STATUS_INSUFFICIENT_RESOURCES);
-    }
-
-    return Address;
+	Address = ExAllocatePoolWithTag (
+			PoolType,
+			NumberOfBytes,
+			Tag
+			);
+	if (NULL == Address)
+	{
+		ExRaiseStatus (STATUS_INSUFFICIENT_RESOURCES);
+	}
+	return Address;
 }
+
 
 
 /* EOF */

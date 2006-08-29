@@ -94,6 +94,12 @@ my $sth_schedules_by_event = $dbh->prepare(
 # After that, it looks over each user to see if they have schedules that need
 # running, then runs those and generates the email messages.
 
+# exit quietly if the system is shut down
+if (Param('shutdownhtml')) {
+    exit;
+}
+
+
 # Send whines from the address in the 'maintainer' Parameter so that all
 # Bugzilla-originated mail appears to come from a single address.
 my $fromaddress = Param('maintainer');
@@ -175,8 +181,8 @@ while (my ($schedule_id, $day, $time) = $sched_h->fetchrow_array) {
         else { # set it for the next applicable day
             $day = &get_next_date($day);
             $sth = $dbh->prepare("UPDATE whine_schedules " .
-                                 "SET run_next = (CURRENT_DATE + " .
-                                 $dbh->sql_interval('?', 'DAY') . ") + " .
+                                 "SET run_next = CURRENT_DATE + " .
+                                 $dbh->sql_interval('?', 'DAY') . " + " .
                                  $dbh->sql_interval('?', 'HOUR') .
                                  " WHERE id = ?");
             $sth->execute($day, $time, $schedule_id);
@@ -192,8 +198,8 @@ while (my ($schedule_id, $day, $time) = $sched_h->fetchrow_array) {
         my $target_time = ($time =~ /^\d+$/) ? $time : 0;
 
         $sth = $dbh->prepare("UPDATE whine_schedules " .
-                             "SET run_next = (CURRENT_DATE + " .
-                             $dbh->sql_interval('?', 'DAY') . ") + " .
+                             "SET run_next = CURRENT_DATE + " .
+                             $dbh->sql_interval('?', 'DAY') . " + " .
                              $dbh->sql_interval('?', 'HOUR') .
                              " WHERE id = ?");
         $sth->execute($target_date, $target_time, $schedule_id);
@@ -225,10 +231,10 @@ sub get_next_event {
 
         $dbh->bz_lock_tables('whine_schedules WRITE',
                              'whine_events READ',
-                             'profiles READ',
+                             'profiles WRITE',
                              'groups READ',
                              'group_group_map READ',
-                             'user_group_map READ');
+                             'user_group_map WRITE');
 
         # Get the event ID for the first pending schedule
         $sth_next_scheduled_event->execute;
@@ -237,7 +243,8 @@ sub get_next_event {
         return undef unless $fetched;
         my ($eventid, $owner_id, $subject, $body) = @{$fetched};
 
-        my $owner = Bugzilla::User->new($owner_id);
+        my $owner = Bugzilla::User->new($owner_id,
+                                        DERIVE_GROUPS_TABLES_ALREADY_LOCKED);
 
         my $whineatothers = $owner->in_group('bz_canusewhineatothers');
 
@@ -259,7 +266,7 @@ sub get_next_event {
                             $user_objects{$mailto} = $owner;
                         }
                         elsif ($whineatothers) {
-                            $user_objects{$mailto} = Bugzilla::User->new($mailto);
+                            $user_objects{$mailto} = Bugzilla::User->new($mailto,DERIVE_GROUPS_TABLES_ALREADY_LOCKED);
                         }
                     }
                 }
@@ -271,17 +278,14 @@ sub get_next_event {
                     my $group_id = Bugzilla::Group::ValidateGroupName(
                         $groupname, $owner);
                     if ($group_id) {
-                        my $glist = join(',',
-                            @{Bugzilla::User->flatten_group_membership(
-                            $group_id)});
                         $sth = $dbh->prepare("SELECT user_id FROM " .
                                              "user_group_map " .
-                                             "WHERE group_id IN ($glist)");
-                        $sth->execute();
+                                             "WHERE group_id=?");
+                        $sth->execute($group_id);
                         for my $row (@{$sth->fetchall_arrayref}) {
                             if (not defined $user_objects{$row->[0]}) {
                                 $user_objects{$row->[0]} =
-                                    Bugzilla::User->new($row->[0]);
+                                    Bugzilla::User->new($row->[0],DERIVE_GROUPS_TABLES_ALREADY_LOCKED);
                             }
                         }
                     }
@@ -404,7 +408,7 @@ sub mail {
 
     # now produce a ready-to-mail mime-encoded message
 
-    $args->{'boundary'} = "----------" . $$ . "--" . time() . "-----";
+    $args->{'boundary'} = "-----=====-----" . $$ . "--" . time() . "-----";
 
     $template->process("whine/multipart-mime.txt.tmpl", $args, \$msg)
         or die($template->error());
@@ -601,8 +605,8 @@ sub reset_timer {
         my $nextdate = &get_next_date($run_day);
 
         $sth = $dbh->prepare("UPDATE whine_schedules " .
-                             "SET run_next = (CURRENT_DATE + " .
-                             $dbh->sql_interval('?', 'DAY') . ") + " .
+                             "SET run_next = CURRENT_DATE + " .
+                             $dbh->sql_interval('?', 'DAY') . " + " .
                              $dbh->sql_interval('?', 'HOUR') .
                              " WHERE id = ?");
         $sth->execute($nextdate, $target_time, $schedule_id);

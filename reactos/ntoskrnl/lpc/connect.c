@@ -552,8 +552,8 @@ NtConnectPort (PHANDLE				UnsafeConnectedPortHandle,
   Status = ObInsertObject(ConnectedPort,
 			  NULL,
 			  PORT_ALL_ACCESS,
-			  1,
-			  (PVOID*)&ConnectedPort,
+			  0,
+			  NULL,
 			  &ConnectedPortHandle);
   if (!NT_SUCCESS(Status))
     {
@@ -878,7 +878,7 @@ NtAcceptConnectPort (PHANDLE			ServerPortHandle,
   ExFreePool(ConnectionRequest);
   ExFreePool(CReply);
 
-  //ObDereferenceObject(OurPort);
+  ObDereferenceObject(OurPort);
   ObDereferenceObject(NamedPort);
 
   return (STATUS_SUCCESS);

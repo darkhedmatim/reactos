@@ -258,10 +258,10 @@ typedef struct _IDE_DRIVE_IDENTIFY
  *    PVOID Buffer        Buffer for output data
  *
  *  RETURNS:
- *    BOOLEAN: TRUE success, FALSE error
+ *    BOOL: TRUE success, FALSE error
  */
 
-static BOOLEAN
+static BOOL
 XboxDiskPolledRead(ULONG CommandPort,
                    ULONG ControlPort,
                    UCHAR PreComp,
@@ -275,7 +275,7 @@ XboxDiskPolledRead(ULONG CommandPort,
 {
   ULONG SectorCount = 0;
   ULONG RetryCount;
-  BOOLEAN Junk = FALSE;
+  BOOL Junk = FALSE;
   UCHAR Status;
 
   /* Wait for BUSY to clear */
@@ -434,7 +434,7 @@ XboxDiskPolledRead(ULONG CommandPort,
     }
 }
 
-BOOLEAN
+BOOL
 XboxDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG SectorCount, PVOID Buffer)
 {
   ULONG StartSector;
@@ -477,7 +477,7 @@ XboxDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG Sect
   return TRUE;
 }
 
-BOOLEAN
+BOOL
 XboxDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTITION_TABLE_ENTRY PartitionTableEntry)
 {
   UCHAR SectorData[IDE_SECTOR_BUF_SZ];
@@ -502,12 +502,12 @@ XboxDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTITION_T
   return DiskGetPartitionEntry(DriveNumber, PartitionNumber, PartitionTableEntry);
 }
 
-BOOLEAN
+BOOL
 XboxDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY Geometry)
 {
   IDE_DRIVE_IDENTIFY DrvParms;
   ULONG i;
-  BOOLEAN Atapi;
+  BOOL Atapi;
 
   Atapi = FALSE; /* FIXME */
   /*  Get the Drive Identify block from drive or die  */

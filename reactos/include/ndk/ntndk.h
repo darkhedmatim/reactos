@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,36 +12,16 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
 #ifndef _NTNDK_
 #define _NTNDK_
 
-//
-// Disable some warnings that we'd get on /W4.
-// Only active for compilers which support this feature.
-//
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4001)
-#pragma warning(disable:4201)
-#pragma warning(disable:4115)
-#pragma warning(disable:4214)
-#endif
-
-//
-// Headers needed for NDK
-//
-#include <stdio.h>          // C Standard Header
-#include <excpt.h>          // C Standard Header
 #include <stdarg.h>         // C Standard Header
 #include <umtypes.h>        // General Definitions
 
-//
-// Type Headers
-//
 #include <cctypes.h>        // Cache Manager Types
 #include <cmtypes.h>        // Configuration Manager Types
 #include <dbgktypes.h>      // User-Mode Kernel Debugging Types
@@ -60,9 +40,6 @@ Author:
 #include <rtltypes.h>       // Runtime Library Types
 #include <setypes.h>        // Security Subsystem Types
 
-//
-// Function Headers
-//
 #include <cmfuncs.h>        // Configuration Manager Functions
 #include <dbgkfuncs.h>      // User-Mode Kernel Debugging Functions
 #include <kdfuncs.h>        // Kernel Debugger Functions
@@ -83,7 +60,4 @@ Author:
 
 #include <asm.h>            // Assembly Offsets
 
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 #endif // _NTNDK_

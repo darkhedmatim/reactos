@@ -20,7 +20,7 @@
 
 #include <freeldr.h>
 
-ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
+LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 LOADER_MODULE			reactos_modules[64];		// Array to hold boot module info loaded for the kernel
 char					reactos_module_strings[64][256];	// Array to hold module names
@@ -45,7 +45,7 @@ FreeldrSeekFile(PVOID FileContext, ULONG_PTR Position)
     return TRUE;
 }
 
-static BOOLEAN
+static BOOL
 LoadKernel(PCSTR szSourcePath, PCSTR szFileName)
 {
   CHAR szFullName[256];
@@ -110,7 +110,7 @@ LoadKernel(PCSTR szSourcePath, PCSTR szFileName)
   return(TRUE);
 }
 
-static BOOLEAN
+static BOOL
 LoadKernelSymbols(PCSTR szSourcePath, PCSTR szFileName)
 {
   static ROSSYM_CALLBACKS FreeldrCallbacks =
@@ -165,7 +165,7 @@ LoadKernelSymbols(PCSTR szSourcePath, PCSTR szFileName)
   return FALSE;
 }
 
-static BOOLEAN
+static BOOL
 LoadDriver(PCSTR szSourcePath, PCSTR szFileName)
 {
   CHAR szFullName[256];
@@ -230,7 +230,7 @@ LoadDriver(PCSTR szSourcePath, PCSTR szFileName)
 }
 
 
-static BOOLEAN
+static BOOL
 LoadNlsFile(PCSTR szSourcePath, PCSTR szFileName, PCSTR szModuleName)
 {
   CHAR szFullName[256];

@@ -53,8 +53,9 @@
                    ((type) == KdbAccessReadWrite ? "rdwr" : "exec")))
 
 #define NPX_STATE_TO_STRING(state)                                        \
-                   ((state) == NPX_STATE_LOADED ? "Loaded" :              \
-                   ((state) == NPX_STATE_NOT_LOADED ? "Not loaded" : "Unknown"))
+                   ((state) == NPX_STATE_INVALID ? "Invalid" :            \
+                   ((state) == NPX_STATE_VALID ? "Valid" :                \
+                   ((state) == NPX_STATE_DIRTY ? "Dirty" : "Unknown")))
 
 /* PROTOTYPES ****************************************************************/
 
@@ -1452,7 +1453,7 @@ KdbpCmdPcr(ULONG Argc, PCHAR Argv[])
              Pcr->IDR, Pcr->KdVersionBlock, Pcr->IDT, Pcr->GDT, Pcr->TSS,
              Pcr->MajorVersion, Pcr->MinorVersion, Pcr->SetMember, Pcr->StallScaleFactor,
              Pcr->Number, Pcr->L2CacheAssociativity,
-             Pcr->VdmAlert, Pcr->SecondLevelCacheSize, Pcr->InterruptMode);
+             Pcr->VdmAlert, Pcr->L2CacheSize, Pcr->InterruptMode);
 
    return TRUE;
 }

@@ -17,6 +17,8 @@
 #define NDEBUG
 #include "../include/debug.h"
 
+#define TLS_EXPANSION_SLOTS (8 * sizeof(((PPEB)NULL)->TlsExpansionBitmapBits))
+
 /* FUNCTIONS *****************************************************************/
 
 /*

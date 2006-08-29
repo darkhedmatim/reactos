@@ -19,7 +19,7 @@
 /* FUNCTIONS ***************************************************************/
 
 VOID
-HalpInitPhase0(PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
+HalpInitPhase0(PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
   HalpHooks.InitPciBus = HalpXboxInitPciBus;
 
@@ -29,17 +29,6 @@ HalpInitPhase0(PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
   HalpCalibrateStallExecution();
 
   HalpXboxInitPartIo();
-}
-
-VOID
-HalpInitPhase1(VOID)
-{
-    /* Enable the clock interrupt */
-    ((PKIPCR)KeGetPcr())->IDT[0x30].ExtendedOffset =
-        (USHORT)(((ULONG_PTR)HalpClockInterrupt >> 16) & 0xFFFF);
-    ((PKIPCR)KeGetPcr())->IDT[0x30].Offset =
-        (USHORT)HalpClockInterrupt;
-    HalEnableSystemInterrupt(0x30, CLOCK2_LEVEL, Latched);
 }
 
 /* EOF */

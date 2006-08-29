@@ -32,31 +32,6 @@ class FileUnit
 		std::string folder;
 };
 
-enum OptimizationType
-{
-	Debug,
-	Release,
-	Speed
-};
-
-enum HeadersType
-{
-	MSVCHeaders,
-	WineHeaders
-};
-
-class MSVCConfiguration
-{
-	public:
-		MSVCConfiguration(const OptimizationType optimization,
-		                  const HeadersType headers = MSVCHeaders,
-		                  const std::string &name = "");
-		virtual ~MSVCConfiguration() {}
-		std::string name;
-		OptimizationType optimization;
-		HeadersType headers;
-};
-
 class MSVCBackend : public Backend
 {
 	public:
@@ -86,7 +61,7 @@ class MSVCBackend : public Backend
 		std::string SuoFileName ( const Module& module ) const;
 		std::string NcbFileName ( const Module& module ) const;
 
-		std::vector<MSVCConfiguration*> m_configurations;
+
 
 		std::vector<FileUnit> m_fileUnits;
 		std::vector<std::string> m_folders;
@@ -133,7 +108,7 @@ class MSVCBackend : public Backend
 			std::string vcproj_file,
 			std::string sln_guid,
 			std::string vcproj_guid,
-			const std::vector<Library*>& libraries );
+			const std::vector<Dependency*>& dependencies );
 		void _generate_sln_configurations (
 			FILE* OUT,
 			std::string vcproj_guid );
@@ -141,7 +116,6 @@ class MSVCBackend : public Backend
 		void _get_object_files ( const Module& module, std::vector<std::string>& out ) const;
 		void _install_files ( const std::string& vcdir, const std::string& config );
 		bool _copy_file ( const std::string& inputname, const std::string& targetname ) const;
-		const Property* _lookup_property ( const Module& module, const std::string& name ) const;
 };
 
 #endif // __MSVC_H__

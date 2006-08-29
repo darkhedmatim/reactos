@@ -1,11 +1,12 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Display Control Panel
  * FILE:            lib/cpl/desk/settings.c
  * PURPOSE:         Settings property page
- *
+ * 
  * PROGRAMMERS:     Trevor McCort (lycan359@gmail.com)
- *                  Hervé Poussineau (hpoussin@reactos.org)
+ *                  Hervé Poussineau (poussine@freesurf.fr)
  */
 
 #include "desk.h"
@@ -44,22 +45,20 @@ typedef struct _DISPLAY_DEVICE_ENTRY
 static PDISPLAY_DEVICE_ENTRY DisplayDeviceList = NULL;
 static PDISPLAY_DEVICE_ENTRY CurrentDisplayDevice = NULL;
 
-HBITMAP hBitmap = NULL;
-int cxSource, cySource;
-
 static VOID
 UpdateDisplay(IN HWND hwndDlg)
 {
 	TCHAR Buffer[64];
 	TCHAR Pixel[64];
 	DWORD index;
-
+	
 	LoadString(hApplet, IDS_PIXEL, Pixel, sizeof(Pixel) / sizeof(TCHAR));
 	_stprintf(Buffer, Pixel, CurrentDisplayDevice->CurrentSettings->dmPelsWidth, CurrentDisplayDevice->CurrentSettings->dmPelsHeight, Pixel);
 	SendDlgItemMessage(hwndDlg, IDC_SETTINGS_RESOLUTION_TEXT, WM_SETTEXT, 0, (LPARAM)Buffer);
+		
 
 	for (index = 0; index < CurrentDisplayDevice->ResolutionsCount; index++)
-	{
+	{		
 
 		if (CurrentDisplayDevice->Resolutions[index].dmPelsWidth == CurrentDisplayDevice->CurrentSettings->dmPelsWidth &&
 		    CurrentDisplayDevice->Resolutions[index].dmPelsHeight == CurrentDisplayDevice->CurrentSettings->dmPelsHeight)
@@ -68,8 +67,8 @@ UpdateDisplay(IN HWND hwndDlg)
 			break;
 		}
 	}
-	if (LoadString(hApplet, (2900 + CurrentDisplayDevice->CurrentSettings->dmBitsPerPel), Buffer, sizeof(Buffer) / sizeof(TCHAR)))
-		SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_SELECTSTRING, (WPARAM)-1, (LPARAM)Buffer);
+	if (LoadString(hApplet, (2900 + CurrentDisplayDevice->CurrentSettings->dmBitsPerPel), Buffer, sizeof(Buffer) / sizeof(TCHAR))) 
+		SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_SELECTSTRING, -1, (LPARAM)Buffer);
 }
 
 static PSETTINGS_ENTRY
@@ -83,7 +82,7 @@ GetPossibleSettings(IN LPTSTR DeviceName, OUT DWORD* pSettingsCount, OUT PSETTIN
 	HDC hDC;
 	PSETTINGS_ENTRY Current;
 	DWORD bpp, xres, yres, checkbpp;
-
+	
 	/* Get current settings */
 	*CurrentSettings = NULL;
 	hDC = CreateIC(NULL, DeviceName, NULL, NULL);
@@ -92,22 +91,23 @@ GetPossibleSettings(IN LPTSTR DeviceName, OUT DWORD* pSettingsCount, OUT PSETTIN
 	xres = GetDeviceCaps(hDC, HORZRES);
 	yres = GetDeviceCaps(hDC, VERTRES);
 	DeleteDC(hDC);
-
+	
 	/* List all settings */
 	devmode.dmSize = (WORD)sizeof(DEVMODE);
 	devmode.dmDriverExtra = 0;
 	while (EnumDisplaySettingsEx(DeviceName, iMode, &devmode, dwFlags))
 	{
+	
 		if (devmode.dmBitsPerPel==8 || devmode.dmBitsPerPel==16 || devmode.dmBitsPerPel==24 || devmode.dmBitsPerPel==32) checkbpp=1;
 		else checkbpp=0;
 
 		if (devmode.dmPelsWidth < 640 ||
 			devmode.dmPelsHeight < 480 || checkbpp == 0)
 		{
-			iMode++;
-			continue;
+ 			iMode++;
+ 			continue;
 		}
-
+		
 		Current = HeapAlloc(GetProcessHeap(), 0, sizeof(SETTINGS_ENTRY));
 		if (Current != NULL)
 		{
@@ -120,7 +120,7 @@ GetPossibleSettings(IN LPTSTR DeviceName, OUT DWORD* pSettingsCount, OUT PSETTIN
 			while (Next != NULL && (
 			       Next->dmPelsHeight < Current->dmPelsHeight ||
 			       (Next->dmPelsHeight == Current->dmPelsHeight && Next->dmBitsPerPel < Current->dmBitsPerPel) ||
-			       (Next->dmPelsHeight == Current->dmPelsHeight &&
+			       (Next->dmPelsHeight == Current->dmPelsHeight && 
 			        Next->dmBitsPerPel == Current->dmBitsPerPel &&
 			        Next->dmPelsWidth < Current->dmPelsWidth)))
 			{
@@ -143,12 +143,12 @@ GetPossibleSettings(IN LPTSTR DeviceName, OUT DWORD* pSettingsCount, OUT PSETTIN
 		}
 		iMode++;
 	}
-
+	
 	*pSettingsCount = NbSettings;
 	return Settings;
 }
 
-static BOOL
+static VOID
 AddDisplayDevice(IN LPTSTR Description, IN LPTSTR DeviceName)
 {
 	PDISPLAY_DEVICE_ENTRY newEntry = NULL;
@@ -159,18 +159,17 @@ AddDisplayDevice(IN LPTSTR Description, IN LPTSTR DeviceName)
 	PSETTINGS_ENTRY Current;
 	DWORD ResolutionsCount = 1;
 	DWORD i;
-
+	
 	newEntry = HeapAlloc(GetProcessHeap(), 0, sizeof(DISPLAY_DEVICE_ENTRY));
-	memset(newEntry, 0, sizeof(DISPLAY_DEVICE_ENTRY));
 	if (!newEntry) goto ByeBye;
-
+	
 	newEntry->Settings = GetPossibleSettings(DeviceName, &newEntry->SettingsCount, &newEntry->CurrentSettings);
 	if (!newEntry->Settings) goto ByeBye;
-
+	
 	newEntry->InitialSettings.dmPelsWidth = newEntry->CurrentSettings->dmPelsWidth;
 	newEntry->InitialSettings.dmPelsHeight = newEntry->CurrentSettings->dmPelsHeight;
 	newEntry->InitialSettings.dmBitsPerPel = newEntry->CurrentSettings->dmBitsPerPel;
-
+	
 	/* Count different resolutions */
 	for (Current = newEntry->Settings; Current != NULL; Current = Current->Flink)
 		if (Current->Flink != NULL &&
@@ -188,23 +187,23 @@ AddDisplayDevice(IN LPTSTR Description, IN LPTSTR DeviceName)
 			newEntry->Resolutions[i].dmPelsHeight = Current->dmPelsHeight;
 			i++;
 		}
-
+	
 	descriptionSize = (_tcslen(Description) + 1) * sizeof(TCHAR);
 	description = HeapAlloc(GetProcessHeap(), 0, descriptionSize);
 	if (!description) goto ByeBye;
-
+	
 	nameSize = (_tcslen(DeviceName) + 1) * sizeof(TCHAR);
 	name = HeapAlloc(GetProcessHeap(), 0, nameSize);
 	if (!name) goto ByeBye;
-
+	
 	memcpy(description, Description, descriptionSize);
 	memcpy(name, DeviceName, nameSize);
 	newEntry->DeviceDescription = description;
 	newEntry->DeviceName = name;
 	newEntry->Flink = DisplayDeviceList;
 	DisplayDeviceList = newEntry;
-	return TRUE;
-
+	return;
+	
 ByeBye:
 	if (newEntry != NULL)
 	{
@@ -226,7 +225,6 @@ ByeBye:
 		HeapFree(GetProcessHeap(), 0, description);
 	if (name != NULL)
 		HeapFree(GetProcessHeap(), 0, name);
-	return FALSE;
 }
 
 static VOID
@@ -234,9 +232,9 @@ OnDisplayDeviceChanged(IN HWND hwndDlg, IN PDISPLAY_DEVICE_ENTRY pDeviceEntry)
 {
 	PSETTINGS_ENTRY Current;
 	DWORD index;
-
+	
 	CurrentDisplayDevice = pDeviceEntry; /* Update global variable */
-
+	
 	/* Fill color depths combo box */
 	SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_RESETCONTENT, 0, 0);
 	for (Current = pDeviceEntry->Settings; Current != NULL; Current = Current->Flink)
@@ -244,19 +242,19 @@ OnDisplayDeviceChanged(IN HWND hwndDlg, IN PDISPLAY_DEVICE_ENTRY pDeviceEntry)
 		TCHAR Buffer[64];
 		if (LoadString(hApplet, (2900 + Current->dmBitsPerPel), Buffer, sizeof(Buffer) / sizeof(TCHAR)))
 		{
-			index = (DWORD) SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)Buffer);
+			index = SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)Buffer);
 			if (index == (DWORD)CB_ERR)
 			{
-				index = (DWORD) SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_ADDSTRING, 0, (LPARAM)Buffer);
+				index = SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_ADDSTRING, 0, (LPARAM)Buffer);
 				SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_SETITEMDATA, index, Current->dmBitsPerPel);
 			}
 		}
 	}
-
+	
 	/* Fill resolutions slider */
 	SendDlgItemMessage(hwndDlg, IDC_SETTINGS_RESOLUTION, TBM_CLEARTICS, TRUE, 0);
 	SendDlgItemMessage(hwndDlg, IDC_SETTINGS_RESOLUTION, TBM_SETRANGE, TRUE, MAKELONG(0, pDeviceEntry->ResolutionsCount - 1));
-
+	
 	UpdateDisplay(hwndDlg);
 }
 
@@ -266,16 +264,15 @@ OnInitDialog(IN HWND hwndDlg)
 	DWORD Result = 0;
 	DWORD iDevNum = 0;
 	DISPLAY_DEVICE displayDevice;
-	BITMAP bitmap;
-
+	
 	/* Get video cards list */
 	displayDevice.cb = (DWORD)sizeof(DISPLAY_DEVICE);
 	while (EnumDisplayDevices(NULL, iDevNum, &displayDevice, 0))
 	{
 		if ((displayDevice.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0)
 		{
-			if (AddDisplayDevice(displayDevice.DeviceString, displayDevice.DeviceName))
-				Result++;
+			AddDisplayDevice(displayDevice.DeviceString, displayDevice.DeviceName);
+			Result++;
 		}
 		iDevNum++;
 	}
@@ -298,15 +295,6 @@ OnInitDialog(IN HWND hwndDlg)
 		/* FIXME: multi video adapter */
 		/* FIXME: choose selected adapter being the primary one */
 	}
-
-	hBitmap = LoadImage(hApplet, MAKEINTRESOURCE(IDC_MONITOR), IMAGE_BITMAP, 0, 0, LR_LOADTRANSPARENT);
-	if (hBitmap != NULL)
-	{
-		GetObject(hBitmap, sizeof(BITMAP), &bitmap);
-
-		cxSource = bitmap.bmWidth;
-		cySource = bitmap.bmHeight;
-	}
 }
 
 static VOID
@@ -320,11 +308,11 @@ OnBPPChanged(IN HWND hwndDlg)
 	DWORD dmNewBitsPerPel;
 	DWORD index;
 	TCHAR Buffer[64];
-
+	
 	SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, WM_GETTEXT, (WPARAM)(sizeof(Buffer) / sizeof(TCHAR)), (LPARAM)Buffer);
-	index = (DWORD) SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)Buffer);
-	dmNewBitsPerPel = (DWORD) SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_GETITEMDATA, index, 0);
-
+	index = SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)Buffer);
+	dmNewBitsPerPel = SendDlgItemMessage(hwndDlg, IDC_SETTINGS_BPP, CB_GETITEMDATA, index, 0);
+	
 	/* find if new parameters are valid */
 	Current = CurrentDisplayDevice->CurrentSettings;
 	if (dmNewBitsPerPel == Current->dmBitsPerPel)
@@ -332,9 +320,9 @@ OnBPPChanged(IN HWND hwndDlg)
 		/* no change */
 		return;
 	}
-
+	
 	PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-
+	
 	if (dmNewBitsPerPel < Current->dmBitsPerPel)
 	{
 		Current = Current->Blink;
@@ -367,7 +355,7 @@ OnBPPChanged(IN HWND hwndDlg)
 			Current = Current->Flink;
 		}
 	}
-
+	
 	/* search smaller resolution compatible with current color depth */
 	Current = CurrentDisplayDevice->CurrentSettings->Blink;
 	while (Current != NULL)
@@ -380,7 +368,7 @@ OnBPPChanged(IN HWND hwndDlg)
 		}
 		Current = Current->Blink;
 	}
-
+	
 	/* search bigger resolution compatible with current color depth */
 	Current = CurrentDisplayDevice->CurrentSettings->Flink;
 	while (Current != NULL)
@@ -393,7 +381,7 @@ OnBPPChanged(IN HWND hwndDlg)
 		}
 		Current = Current->Flink;
 	}
-
+	
 	/* we shouldn't go there */
 }
 
@@ -407,7 +395,7 @@ OnResolutionChanged(IN HWND hwndDlg, IN DWORD NewPosition)
 	PSETTINGS_ENTRY Current;
 	DWORD dmNewPelsHeight = CurrentDisplayDevice->Resolutions[NewPosition].dmPelsHeight;
 	DWORD dmNewPelsWidth = CurrentDisplayDevice->Resolutions[NewPosition].dmPelsWidth;
-
+	
 	/* find if new parameters are valid */
 	Current = CurrentDisplayDevice->CurrentSettings;
 	if (dmNewPelsHeight == Current->dmPelsHeight && dmNewPelsWidth == Current->dmPelsWidth)
@@ -415,9 +403,9 @@ OnResolutionChanged(IN HWND hwndDlg, IN DWORD NewPosition)
 		/* no change */
 		return;
 	}
-
+	
 	PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-
+	
 	if (dmNewPelsHeight < Current->dmPelsHeight)
 	{
 		Current = Current->Blink;
@@ -450,7 +438,7 @@ OnResolutionChanged(IN HWND hwndDlg, IN DWORD NewPosition)
 			Current = Current->Flink;
 		}
 	}
-
+	
 	/* search bigger color depth compatible with current resolution */
 	Current = CurrentDisplayDevice->CurrentSettings->Flink;
 	while (Current != NULL)
@@ -463,7 +451,7 @@ OnResolutionChanged(IN HWND hwndDlg, IN DWORD NewPosition)
 		}
 		Current = Current->Flink;
 	}
-
+	
 	/* search smaller color depth compatible with current resolution */
 	Current = CurrentDisplayDevice->CurrentSettings->Blink;
 	while (Current != NULL)
@@ -476,7 +464,7 @@ OnResolutionChanged(IN HWND hwndDlg, IN DWORD NewPosition)
 		}
 		Current = Current->Blink;
 	}
-
+	
 	/* we shouldn't go there */
 }
 
@@ -499,7 +487,7 @@ SettingsPageProc(IN HWND hwndDlg, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lPar
 		{
 			DWORD controlId = LOWORD(wParam);
 			DWORD command   = HIWORD(wParam);
-
+		
 			if (controlId == IDC_SETTINGS_ADVANCED && command == BN_CLICKED)
 				OnAdvancedButton();
 			else if (controlId == IDC_SETTINGS_BPP && command == CBN_SELCHANGE)
@@ -518,7 +506,7 @@ SettingsPageProc(IN HWND hwndDlg, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lPar
 				case TB_BOTTOM:
 				case TB_ENDTRACK:
 				{
-					DWORD newPosition = (DWORD) SendDlgItemMessage(hwndDlg, IDC_SETTINGS_RESOLUTION, TBM_GETPOS, 0, 0);
+					DWORD newPosition = SendDlgItemMessage(hwndDlg, IDC_SETTINGS_RESOLUTION, TBM_GETPOS, 0, 0);
 					OnResolutionChanged(hwndDlg, newPosition);
 				}
 			}
@@ -570,25 +558,6 @@ SettingsPageProc(IN HWND hwndDlg, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lPar
 			}
 			break;
 		}
-
-		case WM_PAINT:
-		{
-			PAINTSTRUCT ps;
-			HDC hdc, hdcMem;
-
-			hdc = BeginPaint(hwndDlg, &ps);
-
-			hdcMem = CreateCompatibleDC(hdc);
-			SelectObject(hdcMem, hBitmap);
-
-			TransparentBlt(hdc, 98, 0, cxSource, cySource, hdcMem, 0, 0, cxSource, cySource, 0xFF80FF);
-
-			DeleteDC(hdcMem);
-			EndPaint(hwndDlg, &ps);
-
-			break;
-		}
-
 		case WM_DESTROY:
 		{
 			PDISPLAY_DEVICE_ENTRY Current = DisplayDeviceList;
@@ -605,8 +574,6 @@ SettingsPageProc(IN HWND hwndDlg, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lPar
 				HeapFree(GetProcessHeap(), 0, Current);
 				Current = Next;
 			}
-
-			DeleteObject(hBitmap);
 		}
 	}
 	return FALSE;

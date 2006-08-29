@@ -25,9 +25,10 @@
 use strict;
 
 use lib qw(.);
-use Bugzilla;
 
-my $cgi = Bugzilla->cgi;
+require "CGI.pl";
+
+our $cgi;
 
 # Convert comma/space separated elements into separate params
 my @ids = ();

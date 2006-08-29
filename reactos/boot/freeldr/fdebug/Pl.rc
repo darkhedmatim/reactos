@@ -9,6 +9,15 @@ LANGUAGE LANG_POLISH, SUBLANG_NEUTRAL
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_FDEBUG              ICON    DISCARDABLE     "fdebug.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // Menu
 //
 

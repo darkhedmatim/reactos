@@ -1522,7 +1522,7 @@ ScmrOpenSCManagerW(handle_t BindingHandle,
 
 
 /* Function 16 */
-unsigned long
+unsigned int
 ScmrOpenServiceW(handle_t BindingHandle,
                  unsigned int hSCManager,
                  wchar_t *lpServiceName,
@@ -1605,7 +1605,7 @@ ScmrQueryServiceConfigW(handle_t BindingHandle,
     LPQUERY_SERVICE_CONFIGW lpConfig;
     LPWSTR lpStr;
 
-    DPRINT("ScmrQueryServiceConfigW() called\n");
+    DPRINT1("ScmrQueryServiceConfigW() called\n");
 
     if (ScmShutdown)
         return ERROR_SHUTDOWN_IN_PROGRESS;
@@ -1725,7 +1725,7 @@ Done:;
 
     /* FIXME: Unlock the service database */
 
-    DPRINT("ScmrQueryServiceConfigW() done\n");
+    DPRINT1("ScmrQueryServiceConfigW() done\n");
 
     return dwError;
 }
@@ -1755,7 +1755,6 @@ ScmrStartServiceW(handle_t BindingHandle,
     DWORD dwError = ERROR_SUCCESS;
     PSERVICE_HANDLE hSvc;
     PSERVICE lpService = NULL;
-    NTSTATUS Status;
 
     DPRINT1("ScmrStartServiceW() called\n");
 
@@ -1789,13 +1788,7 @@ ScmrStartServiceW(handle_t BindingHandle,
     if (lpService->bDeleted)
         return ERROR_SERVICE_MARKED_FOR_DELETE;
 
-    /* Start the service */
-    Status = ScmStartService(lpService);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT("ScmStartService failed!\n");
-        return RtlNtStatusToDosError(Status);
-    }
+    /* FIXME: Start the service */
 
     return dwError;
 }
@@ -2096,51 +2089,9 @@ ScmrStartServiceA(handle_t BindingHandle,
                   unsigned char *lpServiceArgBuffer,
                   unsigned long cbBufSize)
 {
-    DWORD dwError = ERROR_SUCCESS;
-    PSERVICE_HANDLE hSvc;
-    PSERVICE lpService = NULL;
-    NTSTATUS Status;
-
     DPRINT1("ScmrStartServiceA() called\n");
-
-    if (ScmShutdown)
-        return ERROR_SHUTDOWN_IN_PROGRESS;
-
-    hSvc = (PSERVICE_HANDLE)hService;
-    if (hSvc->Handle.Tag != SERVICE_TAG)
-    {
-        DPRINT1("Invalid handle tag!\n");
-        return ERROR_INVALID_HANDLE;
-    }
-
-    if (!RtlAreAllAccessesGranted(hSvc->Handle.DesiredAccess,
-                                  SERVICE_START))
-    {
-        DPRINT1("Insufficient access rights! 0x%lx\n", hSvc->Handle.DesiredAccess);
-        return ERROR_ACCESS_DENIED;
-    }
-
-    lpService = hSvc->ServiceEntry;
-    if (lpService == NULL)
-    {
-        DPRINT1("lpService == NULL!\n");
-        return ERROR_INVALID_HANDLE;
-    }
-
-    if (lpService->dwStartType == SERVICE_DISABLED)
-        return ERROR_SERVICE_DISABLED;
-
-    if (lpService->bDeleted)
-        return ERROR_SERVICE_MARKED_FOR_DELETE;
-
-    /* FIXME: Convert argument vector to Unicode */
-
-    /* Start the service */
-    Status = ScmStartService(lpService);
-    if (!NT_SUCCESS(Status))
-        return RtlNtStatusToDosError(Status);
-
-    return dwError;
+    return ERROR_SUCCESS;
+//    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 

@@ -53,7 +53,7 @@ ExpInitializeEventImplementation(VOID)
     ObjectTypeInitializer.GenericMapping = ExpEventMapping;
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.ValidAccessMask = EVENT_ALL_ACCESS;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExEventObjectType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExEventObjectType);
 }
 
 /*
@@ -151,6 +151,7 @@ NtCreateEvent(OUT PHANDLE EventHandle,
                                  0,
                                  NULL,
                                  &hEvent);
+        ObDereferenceObject(Event);
 
         /* Check for success */
         if(NT_SUCCESS(Status))
@@ -211,8 +212,8 @@ NtOpenEvent(OUT PHANDLE EventHandle,
     /* Open the Object */
     Status = ObOpenObjectByName(ObjectAttributes,
                                 ExEventObjectType,
-                                PreviousMode,
                                 NULL,
+                                PreviousMode,
                                 DesiredAccess,
                                 NULL,
                                 &hEvent);

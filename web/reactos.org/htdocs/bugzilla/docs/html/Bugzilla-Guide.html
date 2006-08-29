@@ -2,7 +2,7 @@
 <HTML
 ><HEAD
 ><TITLE
->The Bugzilla Guide - 2.22 
+>The Bugzilla Guide - 2.20.1 
     Release</TITLE
 ><META
 NAME="GENERATOR"
@@ -43,7 +43,7 @@ CLASS="TITLEPAGE"
 CLASS="title"
 ><A
 NAME="AEN2"
->The Bugzilla Guide - 2.22 
+>The Bugzilla Guide - 2.20.1 
     Release</A
 ></H1
 ><H3
@@ -51,7 +51,7 @@ CLASS="corpauthor"
 >The Bugzilla Team</H3
 ><P
 CLASS="pubdate"
->2006-04-22<BR></P
+>2006-02-20<BR></P
 ><DIV
 ><DIV
 CLASS="abstract"
@@ -175,51 +175,46 @@ HREF="#useradmin"
 ></DT
 ><DT
 >3.3. <A
-HREF="#classifications"
->Classifications</A
-></DT
-><DT
->3.4. <A
 HREF="#products"
 >Products</A
 ></DT
 ><DT
->3.5. <A
+>3.4. <A
 HREF="#components"
 >Components</A
 ></DT
 ><DT
->3.6. <A
+>3.5. <A
 HREF="#versions"
 >Versions</A
 ></DT
 ><DT
->3.7. <A
+>3.6. <A
 HREF="#milestones"
 >Milestones</A
 ></DT
 ><DT
->3.8. <A
+>3.7. <A
 HREF="#flags-overview"
 >Flags</A
 ></DT
 ><DT
->3.9. <A
+>3.8. <A
 HREF="#voting"
 >Voting</A
 ></DT
 ><DT
->3.10. <A
+>3.9. <A
 HREF="#quips"
 >Quips</A
 ></DT
 ><DT
->3.11. <A
+>3.10. <A
 HREF="#groups"
 >Groups and Group Security</A
 ></DT
 ><DT
->3.12. <A
+>3.11. <A
 HREF="#upgrading"
 >Upgrading to New Releases</A
 ></DT
@@ -425,7 +420,7 @@ HREF="#trbl-relogin-everyone"
 ></DT
 ><DT
 >B.9. <A
-HREF="#AEN3269"
+HREF="#AEN3190"
 >Some users are constantly being forced to relogin</A
 ></DT
 ><DT
@@ -608,6 +603,11 @@ HREF="#security-mysql-network-ex"
 >Disabling Networking in MySQL</A
 ></DT
 ><DT
+>4-4. <A
+HREF="#security-bugzilla-charset-ex"
+>Forcing Bugzilla to output a charset</A
+></DT
+><DT
 >B-1. <A
 HREF="#trbl-relogin-everyone-share"
 >Examples of urlbase/cookiepath pairs for sharing login cookies</A
@@ -704,7 +704,7 @@ NAME="newversions"
 >1.3. New Versions</A
 ></H2
 ><P
->&#13;      This is the 2.22 version of The Bugzilla Guide. It is so named 
+>&#13;      This is the 2.20.1 version of The Bugzilla Guide. It is so named 
       to match the current version of Bugzilla. 
     </P
 ><P
@@ -730,21 +730,10 @@ CLASS="filename"
 >&#13;      The Bugzilla Guide, or a section of it, is also available in
       the following languages:
       <A
-HREF="http://www.traduc.org/docs/guides/lecture/bugzilla/"
-TARGET="_top"
->French</A
->,
-      <A
 HREF="http://bugzilla-de.sourceforge.net/docs/html/"
 TARGET="_top"
 >German</A
->,
-      <A
-HREF="http://www.bugzilla.jp/docs/2.18/"
-TARGET="_top"
->Japanese</A
 >.
-      Note that these may be outdated or not up to date.
     </P
 ><P
 >  
@@ -752,19 +741,9 @@ TARGET="_top"
       the following languages. They may have translated documentation 
       available: 
       <A
-HREF="http://sourceforge.net/projects/bugzilla-ar/"
-TARGET="_top"
->Arabic</A
->,
-      <A
 HREF="http://sourceforge.net/projects/bugzilla-be/"
 TARGET="_top"
 >Belarusian</A
->,
-      <A
-HREF="http://openfmi.net/projects/mozilla-bg/"
-TARGET="_top"
->Bulgarian</A
 >,
       <A
 HREF="http://sourceforge.net/projects/bugzilla-br/"
@@ -782,19 +761,9 @@ TARGET="_top"
 >French</A
 >,
       <A
-HREF="http://germzilla.wurblzap.net/"
+HREF="http://sourceforge.net/projects/bugzilla-de/"
 TARGET="_top"
 >German</A
->,
-      <A
-HREF="http://sourceforge.net/projects/bugzilla-it/"
-TARGET="_top"
->Italian</A
->,
-      <A
-HREF="http://www.bugzilla.jp/about/jp.html"
-TARGET="_top"
->Japanese</A
 >,
       <A
 HREF="http://sourceforge.net/projects/bugzilla-kr/"
@@ -817,7 +786,7 @@ TARGET="_top"
       If you would like to volunteer to translate the Guide into additional
       languages, please contact
       <A
-HREF="mailto:justdave@bugzilla.org"
+HREF="mailto:justdave@syndicomm.com"
 TARGET="_top"
 >Dave Miller</A
 >.
@@ -852,7 +821,7 @@ HREF="mailto:mbarnson@sisna.com"
 ></DT
 ><DD
 ><P
->for the Herculean task of pulling together the Bugzilla Guide
+>for the Herculaean task of pulling together the Bugzilla Guide
           and shepherding it to 2.14.
           </P
 ></DD
@@ -973,7 +942,7 @@ CLASS="informaltable"
 ><P
 ></P
 ><A
-NAME="AEN121"
+NAME="AEN115"
 ></A
 ><TABLE
 BORDER="0"
@@ -1468,7 +1437,7 @@ HREF="http://www.mysql.com"
 TARGET="_top"
 >http://www.mysql.com</A
 >. You need MySQL version
-          4.0.14 or higher.
+          3.23.41 or higher.
           </P
 ><DIV
 CLASS="note"
@@ -1911,17 +1880,7 @@ HREF="#install-modules-template"
 ></LI
 ><LI
 ><P
->&#13;            Mail::Mailer (1.67)
-          </P
-></LI
-><LI
-><P
->&#13;            MIME::Base64 (3.01)
-          </P
-></LI
-><LI
-><P
->&#13;            MIME::Parser (5.406)
+>&#13;            Mail::Mailer (1.65)
           </P
 ></LI
 ><LI
@@ -1993,7 +1952,11 @@ HREF="#install-modules-patchreader"
 ></LI
 ><LI
 ><P
->&#13;            Image::Magick (any) for converting BMP image attachments to PNG
+>&#13;            <A
+HREF="#install-modules-mime-parser"
+>MIME::Parser</A
+>
+            (any) for the optional email interface
           </P
 ></LI
 ></OL
@@ -2191,14 +2154,31 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="install-modules-patchreader"
->2.1.5.8. PatchReader (0.9.4)</A
+NAME="install-modules-mime-parser"
+>2.1.5.8. MIME::Parser (any)</A
 ></H4
 ><P
->The PatchReader module is only required if you want to use
+>The MIME::Parser module is only required if you want to use the 
+        email interface
+        located in the <TT
+CLASS="filename"
+>contrib</TT
+> directory.
+        </P
+></DIV
+><DIV
+CLASS="section"
+><HR><H4
+CLASS="section"
+><A
+NAME="install-modules-patchreader"
+>2.1.5.9. PatchReader (0.9.4)</A
+></H4
+><P
+>The PatchReader module is only required if you want to use 
         Patch Viewer, a
         Bugzilla feature to show code patches in your web browser in a more
-        readable form.
+        readable form. 
         </P
 ></DIV
 ></DIV
@@ -2240,7 +2220,7 @@ VALIGN="TOP"
           file instead of sending them.  However, this is mainly intended 
           for testing, as disabling or diverting email on a production 
           machine would mean that users could miss important events (such 
-          as bug changes or the creation of new accounts).
+          as bug changes or the creation of new accouts).
         </P
 ><P
 >&#13;          For more information, see the "maildeliverymethod" parameter in 
@@ -2575,7 +2555,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN444"
+NAME="AEN439"
 >2.2.2.1.2. Allow small words in full-text indexes</A
 ></H5
 ><P
@@ -2637,7 +2617,7 @@ ALT="Note"></TD
 ALIGN="LEFT"
 VALIGN="TOP"
 ><P
->&#13;              The ft_min_word_len parameter is only supported in MySQL v4 or higher.
+>&#13;              The ft_min_word_len parameter is only suported in MySQL v4 or higher.
             </P
 ></TD
 ></TR
@@ -2649,7 +2629,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN454"
+NAME="AEN449"
 >2.2.2.1.3. Permit attachments table to grow beyond 4GB</A
 ></H5
 ><P
@@ -2883,7 +2863,7 @@ ALT="Note"></TD
 ALIGN="LEFT"
 VALIGN="TOP"
 ><P
->If you are using PostgreSQL 8.0.1 or higher, then you
+>Note if you are using PostgreSQL 8.0.1 or higher, then you
           will require to use a version of DBD::Pg which is equal to or
           greater than version 1.41
           </P
@@ -2896,7 +2876,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN495"
+NAME="AEN490"
 >2.2.2.2.1. Add a User to PostgreSQL</A
 ></H5
 ><P
@@ -2977,7 +2957,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN511"
+NAME="AEN506"
 >2.2.2.2.2. Configure PostgreSQL</A
 ></H5
 ><P
@@ -2991,7 +2971,7 @@ CLASS="filename"
 >. In this file,
           you will need to add a new line to it as follows:</P
 ><P
->&#13;	    <SAMP
+>&#13;            <SAMP
 CLASS="computeroutput"
 >host   all    bugs   127.0.0.1    255.255.255.255  md5</SAMP
 >
@@ -3014,7 +2994,7 @@ CLASS="filename"
 > folder.
           You will need to make a single line change, changing</P
 ><P
->&#13;            <SAMP
+>&#13;	    <SAMP
 CLASS="computeroutput"
 ># tcpip_socket = false</SAMP
 >
@@ -3022,11 +3002,11 @@ CLASS="computeroutput"
 ><P
 >to</P
 ><P
->&#13;            <SAMP
+>&#13;	    <SAMP
 CLASS="computeroutput"
 >tcpip_socket = true</SAMP
 >
-	  </P
+          </P
 ><P
 >Now, you will need to restart PostgreSQL, but you will need to fully
           stop and start the server rather than just restarting due to the possibility
@@ -3058,7 +3038,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN534"
+NAME="AEN529"
 >2.2.3. checksetup.pl</A
 ></H3
 ><P
@@ -3603,7 +3583,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN633"
+NAME="AEN628"
 >2.3.1. Bug Graphs</A
 ></H3
 ><P
@@ -3661,7 +3641,7 @@ CLASS="programlisting"
       </P
 ><P
 >&#13;        When upgrading Bugzilla, this format may change.
-        To create new status data, (re)move old data and run the following 
+        To create new status data, (re)move old data and run the following
         commands:
       </P
 ><TABLE
@@ -3735,7 +3715,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN652"
+NAME="AEN647"
 >2.3.2. Dependency Charts</A
 ></H3
 ><P
@@ -4321,7 +4301,7 @@ NAME="os-specific"
 ></H2
 ><P
 >Many aspects of the Bugzilla installation can be affected by the
-    operating system you choose to install it on. Sometimes it can be made
+    the operating system you choose to install it on. Sometimes it can be made
     easier and others more difficult. This section will attempt to help you
     understand both the difficulties of running on specific operating systems
     and the utilities available to make it easier.
@@ -4417,7 +4397,7 @@ CLASS="command"
 ></TABLE
 ><P
 >&#13;          The best source for the Windows PPM modules needed for Bugzilla
-          is probably the Bugzilla Test Server (aka 'Landfill'), so 
+          is probably the the Bugzilla Test Server (aka 'Landfill'), so 
           you should add the Landfill package repository as follows:
         </P
 ><TABLE
@@ -4495,7 +4475,7 @@ ALIGN="LEFT"
 VALIGN="TOP"
 ><P
 >&#13;            If you are behind a corporate firewall, you will need to let the
-            ActiveState PPM utility know how to get through it to access
+            ActiveState PPM utility know how to get through it to acccess
             the repositories by setting the HTTP_proxy system environmental
             variable. For more information on setting that variable, see
             the ActiveState documentation.
@@ -4605,75 +4585,36 @@ CLASS="productname"
 ></A
 ></H3
 ><P
->Making Bugzilla work on Mac OS X requires the following 
-      adjustments.</P
-><DIV
-CLASS="section"
-><HR><H4
-CLASS="section"
-><A
-NAME="macosx-sendmail"
->2.4.2.1. Sendmail</A
-></H4
-><P
->In Mac OS X 10.3 and later, 
-        <A
-HREF="http://www.postfix.org/"
-TARGET="_top"
->Postfix</A
-> 
-        is used as the built-in email server.  Postfix provides an executable
-        that mimics sendmail enough to fool Bugzilla, as long as Bugzilla can 
-        find it.</P
-><P
->As of version 2.20, Bugzilla will be able to find the fake 
-        sendmail executable without any assistance.  However, you will have 
-        to turn on the sendmailnow parameter before you do anything that would 
-        result in email being sent.  For more information, see the description 
-        of the sendmailnow parameter in <A
-HREF="#parameters"
->Section 3.1</A
->.</P
-></DIV
-><DIV
-CLASS="section"
-><HR><H4
-CLASS="section"
-><A
-NAME="macosx-libraries"
->2.4.2.2. Libraries &#38; Perl Modules on Mac OS X</A
-></H4
-><P
 >Apple did not include the GD library with Mac OS X. Bugzilla
-        needs this for bug graphs.</P
+      needs this for bug graphs.</P
 ><P
 >You can install it using a program called
-        Fink, which is similar in nature to the CPAN installer, but installs
-        common GNU utilities. Fink is available from
-        <A
+      Fink, which is similar in nature to the CPAN installer, but installs
+      common GNU utilities. Fink is available from
+      <A
 HREF="http://sourceforge.net/projects/fink/"
 TARGET="_top"
 >http://sourceforge.net/projects/fink/</A
 >.</P
 ><P
 >Follow the instructions for setting up Fink. Once it's installed,
-        you'll want to use it to install the <TT
+      you'll want to use it to install the <TT
 CLASS="filename"
 >gd2</TT
 > package.
-        </P
+      </P
 ><P
 >It will prompt you for a number of dependencies, type 'y' and hit
-        enter to install all of the dependencies and then watch it work. You will
-        then be able to use <A
+      enter to install all of the dependencies and then watch it work. You will
+      then be able to use <A
 HREF="#gloss-cpan"
 ><I
 CLASS="glossterm"
 >CPAN</I
 ></A
 > to
-        install the GD Perl module.
-        </P
+      install the GD Perl module.
+      </P
 ><DIV
 CLASS="note"
 ><P
@@ -4696,38 +4637,38 @@ ALIGN="LEFT"
 VALIGN="TOP"
 ><P
 >To prevent creating conflicts with the software that Apple
-          installs by default, Fink creates its own directory tree at 
-          <TT
+        installs by default, Fink creates its own directory tree at 
+        <TT
 CLASS="filename"
 >/sw</TT
 > where it installs most of
-          the software that it installs. This means your libraries and headers
-          will be at <TT
+        the software that it installs. This means your libraries and headers
+        will be at <TT
 CLASS="filename"
 >/sw/lib</TT
 > and
-          <TT
+        <TT
 CLASS="filename"
 >/sw/include</TT
 > instead of
-          <TT
+        <TT
 CLASS="filename"
 >/usr/lib</TT
 > and
-          <TT
+        <TT
 CLASS="filename"
 >/usr/include</TT
 >. When the
-          Perl module config script asks where your <TT
+        Perl module config script asks where your <TT
 CLASS="filename"
 >libgd</TT
 >
-          is, be sure to tell it
-          <TT
+        is, be sure to tell it
+        <TT
 CLASS="filename"
 >/sw/lib</TT
 >.
-          </P
+        </P
 ></TD
 ></TR
 ></TABLE
@@ -4737,12 +4678,12 @@ CLASS="filename"
 CLASS="filename"
 >expat</TT
 >. After using
-        fink to install the expat package you will be able to install
-        XML::Parser using CPAN. There is one caveat. Unlike recent versions of
-        the GD module, XML::Parser doesn't prompt for the location of the
-        required libraries. When using CPAN, you will need to use the following
-        command sequence:
-        </P
+      fink to install the expat package you will be able to install
+      XML::Parser using CPAN. There is one caveat. Unlike recent versions of
+      the GD module, XML::Parser doesn't prompt for the location of the
+      required libraries. When using CPAN, you will need to use the following
+      command sequence:
+      </P
 ><TABLE
 BORDER="0"
 BGCOLOR="#E0E0E0"
@@ -4781,7 +4722,7 @@ VSPACE="0"
 BORDER="0"
 ALT="(3)"></A
 >
-        </PRE
+      </PRE
 ></FONT
 ></TD
 ></TR
@@ -4810,9 +4751,9 @@ ALT="(3)"></A
 ></DT
 ><DD
 >The look command will download the module and spawn a
-            new shell with the extracted files as the current working directory.
-            The exit command will return you to your original shell.
-            </DD
+          new shell with the extracted files as the current working directory.
+          The exit command will return you to your original shell.
+          </DD
 ><DT
 ><A
 HREF="#macosx-make"
@@ -4825,14 +4766,13 @@ ALT="(2)"></A
 ></DT
 ><DD
 >You should watch the output from these make commands,
-            especially <SPAN
+          especially <SPAN
 CLASS="QUOTE"
 >"make test"</SPAN
-> as errors may prevent 
-            XML::Parser from functioning correctly with Bugzilla.
-            </DD
+> as errors may prevent XML::Parser
+          from functioning correctly with Bugzilla.
+          </DD
 ></DL
-></DIV
 ></DIV
 ></DIV
 ><DIV
@@ -4948,7 +4888,7 @@ CLASS="section"
 ><H3
 CLASS="section"
 ><A
-NAME="AEN871"
+NAME="AEN857"
 >2.5.1. Introduction</A
 ></H3
 ><P
@@ -4968,7 +4908,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN875"
+NAME="AEN861"
 >2.5.2. MySQL</A
 ></H3
 ><P
@@ -5005,7 +4945,7 @@ CLASS="command"
         If you're using a web host, chances are that you have a
         separate database which is already locked down (or one big
         database with limited/no access to the other areas), but you
-        may want to ask your system administrator what the security
+        may want to ask your system adminstrator what the security
         settings are set to, and/or run the <B
 CLASS="command"
 >GRANT</B
@@ -5024,7 +4964,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN883"
+NAME="AEN869"
 >2.5.2.1. Running MySQL as Non-Root</A
 ></H4
 ><DIV
@@ -5032,7 +4972,7 @@ CLASS="section"
 ><H5
 CLASS="section"
 ><A
-NAME="AEN885"
+NAME="AEN871"
 >2.5.2.1.1. The Custom Configuration Method</A
 ></H5
 ><P
@@ -5076,7 +5016,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN889"
+NAME="AEN875"
 >2.5.2.1.2. The Custom Built Method</A
 ></H5
 ><P
@@ -5099,7 +5039,7 @@ CLASS="section"
 ><HR><H5
 CLASS="section"
 ><A
-NAME="AEN894"
+NAME="AEN880"
 >2.5.2.1.3. Starting the Server</A
 ></H5
 ><P
@@ -5227,7 +5167,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN910"
+NAME="AEN896"
 >2.5.3. Perl</A
 ></H3
 ><P
@@ -5320,7 +5260,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN929"
+NAME="AEN915"
 >2.5.4.1. The Independant Method</A
 ></H4
 ><P
@@ -5392,7 +5332,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN942"
+NAME="AEN928"
 >2.5.4.2. The Mixed Method</A
 ></H4
 ><P
@@ -5597,7 +5537,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN975"
+NAME="AEN961"
 >2.5.5. HTTP Server</A
 ></H3
 ><P
@@ -5611,7 +5551,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN978"
+NAME="AEN964"
 >2.5.5.1. Running Apache as Non-Root</A
 ></H4
 ><P
@@ -5693,7 +5633,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN987"
+NAME="AEN973"
 >2.5.6. Bugzilla</A
 ></H3
 ><P
@@ -6114,18 +6054,6 @@ CLASS="QUOTE"
             bugs.
           </P
 ></DD
-><DT
->sendmailnow</DT
-><DD
-><P
->&#13;            When Bugzilla is using Sendmail older than 8.12, turning this option
-            off will improve performance by not waiting for Sendmail to actually
-            send mail.  If Sendmail 8.12 or later is being used, there is 
-            nothing to gain by turning this off.  If another MTA is being used, 
-            such as Postfix, then this option *must* be turned on (even if you 
-            are using the fake sendmail executable that Postfix provides).
-          </P
-></DD
 ></DL
 ></DIV
 ></DIV
@@ -6501,124 +6429,7 @@ CLASS="filename"
 ></LI
 ></UL
 ></DIV
-><DIV
-CLASS="section"
-><HR><H4
-CLASS="section"
-><A
-NAME="impersonatingusers"
->3.2.2.3. Impersonating Users</A
-></H4
-><P
->&#13;        There may be times when an administrator would like to do something as
-        another user.  The <B
-CLASS="command"
->sudo</B
-> feature may be used to do 
-        this.
-        </P
-><DIV
-CLASS="note"
-><P
-></P
-><TABLE
-CLASS="note"
-WIDTH="100%"
-BORDER="0"
-><TR
-><TD
-WIDTH="25"
-ALIGN="CENTER"
-VALIGN="TOP"
-><IMG
-SRC="../images/note.gif"
-HSPACE="5"
-ALT="Note"></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->&#13;          To use the sudo feature, you must be in the
-          <EM
->bz_sudoers</EM
-> group.  By default, all
-          administrators are in this group.</P
-></TD
-></TR
-></TABLE
 ></DIV
-><P
->&#13;        If you have access to this feature, you may start a session by
-        going to the Edit Users page, Searching for a user and clicking on 
-        their login.  You should see a link below their login name titled 
-        "Impersonate this user".  Click on the link.  This will take you 
-        to a page where you will see a description of the feature and 
-        instructions for using it.  After reading the text, simply 
-        enter the login of the user you would like to impersonate, provide 
-        a short message explaining why you are doing this, and press the 
-        button.</P
-><P
->&#13;        As long as you are using this feature, everything you do will be done 
-        as if you were logged in as the user you are impersonating.</P
-><DIV
-CLASS="warning"
-><P
-></P
-><TABLE
-CLASS="warning"
-WIDTH="100%"
-BORDER="0"
-><TR
-><TD
-WIDTH="25"
-ALIGN="CENTER"
-VALIGN="TOP"
-><IMG
-SRC="../images/warning.gif"
-HSPACE="5"
-ALT="Warning"></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->&#13;          The user you are impersonating will not be told about what you are 
-          doing.  If you do anything that results in mail being sent, that 
-          mail will appear to be from the user you are impersonating.  You 
-          should be extremely careful while using this feature.</P
-></TD
-></TR
-></TABLE
-></DIV
-></DIV
-></DIV
-></DIV
-><DIV
-CLASS="section"
-><HR><H2
-CLASS="section"
-><A
-NAME="classifications"
->3.3. Classifications</A
-></H2
-><P
->Classifications tend to be used in order to group several related
-    products into one distinct entity.</P
-><P
->The classifications layer is disabled by default; it can be turned
-    on or off using the useclassification parameter,
-    in the <EM
->Bug Fields</EM
-> section of the edit parameters screen.</P
-><P
->Access to the administration of classifications is controlled using
-    the <EM
->editclassifications</EM
-> system group, which defines
-    a privilege for creating, destroying, and editing classifications.</P
-><P
->When activated, classifications will introduce an additional
-    step when filling bugs (dedicated to classification selection), and they
-    will also appear in the advanced search form.</P
 ></DIV
 ><DIV
 CLASS="section"
@@ -6626,7 +6437,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="products"
->3.4. Products</A
+>3.3. Products</A
 ></H2
 ><P
 >&#13;    <A
@@ -6637,7 +6448,7 @@ CLASS="glossterm"
 ></A
 >
 
-    tend to represent real-world
+    are the broadest category in Bugzilla, and tend to represent real-world
     shipping products. E.g. if your company makes computer games, 
     you should have one product per game, perhaps a "Common" product for 
     units of technology used in multiple games, and maybe a few special
@@ -6672,7 +6483,7 @@ TYPE="1"
 >Don't worry about the "Closed for bug entry", "Maximum Votes
     per person", "Maximum votes a person can put on a single bug",
     "Number of votes a bug in this Product needs to automatically get out
-    of the UNCONFIRMED state", and "Version" options yet. We'll cover
+    of the UNCOMFIRMED state", and "Version" options yet. We'll cover
     those in a few moments.
     </P
 ></DIV
@@ -6682,7 +6493,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="components"
->3.5. Components</A
+>3.4. Components</A
 ></H2
 ><P
 >Components are subsections of a Product. E.g. the computer game 
@@ -6737,7 +6548,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="versions"
->3.6. Versions</A
+>3.5. Versions</A
 ></H2
 ><P
 >Versions are the revisions of the product, such as "Flinders
@@ -6773,7 +6584,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="milestones"
->3.7. Milestones</A
+>3.6. Milestones</A
 ></H2
 ><P
 >Milestones are "targets" that you plan to get a bug fixed by. For
@@ -6846,7 +6657,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-overview"
->3.8. Flags</A
+>3.7. Flags</A
 ></H2
 ><P
 >&#13;     Flags are a way to attach a specific status to a bug or attachment, 
@@ -6872,7 +6683,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-simpleexample"
->3.8.1. A Simple Example</A
+>3.7.1. A Simple Example</A
 ></H3
 ><P
 >&#13;       A developer might want to ask their manager, 
@@ -6970,7 +6781,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-about"
->3.8.2. About Flags</A
+>3.7.2. About Flags</A
 ></H3
 ><DIV
 CLASS="section"
@@ -6978,7 +6789,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flag-values"
->3.8.2.1. Values</A
+>3.7.2.1. Values</A
 ></H4
 ><P
 >&#13;         Flags can have three values:
@@ -7045,7 +6856,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flag-askto"
->3.8.3. Using flag requests</A
+>3.7.3. Using flag requests</A
 ></H3
 ><P
 >&#13;       If a flag has been defined as 'requestable', 
@@ -7096,7 +6907,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flag-types"
->3.8.4. Two Types of Flags</A
+>3.7.4. Two Types of Flags</A
 ></H3
 ><P
 >&#13;       Flags can go in two places: on an attachment, or on a bug.
@@ -7107,7 +6918,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flag-type-attachment"
->3.8.4.1. Attachment Flags</A
+>3.7.4.1. Attachment Flags</A
 ></H4
 ><P
 >&#13;         Attachment flags are used to ask a question about a specific 
@@ -7175,7 +6986,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flag-type-bug"
->3.8.4.2. Bug Flags</A
+>3.7.4.2. Bug Flags</A
 ></H4
 ><P
 >&#13;         Bug flags are used to set a status on the bug itself. You can 
@@ -7205,7 +7016,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-admin"
->3.8.5. Administering Flags</A
+>3.7.5. Administering Flags</A
 ></H3
 ><P
 >&#13;       If you have the <SPAN
@@ -7233,7 +7044,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create"
->3.8.5.1. Creating a Flag</A
+>3.7.5.1. Creating a Flag</A
 ></H4
 ><P
 >&#13;          When you click on the <SPAN
@@ -7249,7 +7060,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-name"
->3.8.5.1.1. Name</A
+>3.7.5.1.1. Name</A
 ></H5
 ><P
 >&#13;            This is the name of the flag. This will be displayed 
@@ -7263,7 +7074,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-description"
->3.8.5.1.2. Description</A
+>3.7.5.1.2. Description</A
 ></H5
 ><P
 >&#13;            This describes the flag in more detail. At present, this doesn't
@@ -7278,7 +7089,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-category"
->3.8.5.1.3. Category</A
+>3.7.5.1.3. Category</A
 ></H5
 ><P
 >&#13;            Default behaviour for a newly-created flag is to appear on
@@ -7408,7 +7219,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-sortkey"
->3.8.5.1.4. Sort Key</A
+>3.7.5.1.4. Sort Key</A
 ></H5
 ><P
 >&#13;            Flags normally show up in alphabetical order. If you want them to 
@@ -7432,7 +7243,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-active"
->3.8.5.1.5. Active</A
+>3.7.5.1.5. Active</A
 ></H5
 ><P
 >&#13;            Sometimes, you might want to keep old flag information in the 
@@ -7453,7 +7264,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-requestable"
->3.8.5.1.6. Requestable</A
+>3.7.5.1.6. Requestable</A
 ></H5
 ><P
 >&#13;            New flags are, by default, <SPAN
@@ -7483,7 +7294,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-cclist"
->3.8.5.1.7. CC List</A
+>3.7.5.1.7. CC List</A
 ></H5
 ><P
 >&#13;            If you want certain users to be notified every time this flag is 
@@ -7497,7 +7308,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-specific"
->3.8.5.1.8. Specifically Requestable</A
+>3.7.5.1.8. Specifically Requestable</A
 ></H5
 ><P
 >&#13;            By default this box is checked for new flags, meaning that users may make
@@ -7517,7 +7328,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-multiplicable"
->3.8.5.1.9. Multiplicable</A
+>3.7.5.1.9. Multiplicable</A
 ></H5
 ><P
 >&#13;            Any flag with <SPAN
@@ -7543,7 +7354,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-delete"
->3.8.5.2. Deleting a Flag</A
+>3.7.5.2. Deleting a Flag</A
 ></H4
 ><P
 >&#13;          When you are at the <SPAN
@@ -7604,7 +7415,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-edit"
->3.8.5.3. Editing a Flag</A
+>3.7.5.3. Editing a Flag</A
 ></H4
 ><P
 >&#13;          To edit a flag's properties, just click on the <SPAN
@@ -7626,7 +7437,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="voting"
->3.9. Voting</A
+>3.8. Voting</A
 ></H2
 ><P
 >Voting allows users to be given a pot of votes which they can allocate
@@ -7688,7 +7499,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="quips"
->3.10. Quips</A
+>3.9. Quips</A
 ></H2
 ><P
 >&#13;      Quips are small text messages that can be configured to appear
@@ -7735,7 +7546,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="groups"
->3.11. Groups and Group Security</A
+>3.10. Groups and Group Security</A
 ></H2
 ><P
 >Groups allow the administrator
@@ -7809,8 +7620,8 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN1475"
->3.11.1. Creating Groups</A
+NAME="AEN1438"
+>3.10.1. Creating Groups</A
 ></H3
 ><P
 >To create Groups:</P
@@ -7947,8 +7758,8 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN1502"
->3.11.2. Assigning Users to Groups</A
+NAME="AEN1465"
+>3.10.2. Assigning Users to Groups</A
 ></H3
 ><P
 >Users can become a member of a group in several ways.</P
@@ -7979,8 +7790,8 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN1512"
->3.11.3. Assigning Group Controls to Products</A
+NAME="AEN1475"
+>3.10.3. Assigning Group Controls to Products</A
 ></H3
 ><P
 >&#13;      On the product edit page, there is a page to edit the 
@@ -8071,16 +7882,16 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN1530"
->3.11.4. Common Applications of Group Controls</A
+NAME="AEN1493"
+>3.10.4. Common Applications of Group Controls</A
 ></H3
 ><DIV
 CLASS="section"
 ><H4
 CLASS="section"
 ><A
-NAME="AEN1532"
->3.11.4.1. General User Access With Security Group</A
+NAME="AEN1495"
+>3.10.4.1. General User Access With Security Group</A
 ></H4
 ><P
 >To permit any user to file bugs in each product (A, B, C...) 
@@ -8114,8 +7925,8 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN1536"
->3.11.4.2. General User Access With A Security Product</A
+NAME="AEN1499"
+>3.10.4.2. General User Access With A Security Product</A
 ></H4
 ><P
 >To permit any user to file bugs in a Security product
@@ -8146,8 +7957,8 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN1540"
->3.11.4.3. Product Isolation With Common Group</A
+NAME="AEN1503"
+>3.10.4.3. Product Isolation With Common Group</A
 ></H4
 ><P
 >To permit users of product A to access the bugs for
@@ -8230,7 +8041,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrading"
->3.12. Upgrading to New Releases</A
+>3.11. Upgrading to New Releases</A
 ></H2
 ><P
 >&#13;      Upgrading Bugzilla is something we all want to do from time to time,
@@ -8257,7 +8068,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrading-version-defns"
->3.12.1. Version Definitions</A
+>3.11.1. Version Definitions</A
 ></H3
 ><P
 >&#13;        Bugzilla displays the version you are using at the top of most
@@ -8334,7 +8145,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrading-methods"
->3.12.2. Upgrading - Methods and Procedure</A
+>3.11.2. Upgrading - Methods and Procedure</A
 ></H3
 ><P
 >&#13;        There are three different ways to upgrade your installation.
@@ -8347,7 +8158,7 @@ TYPE="1"
 ><P
 >&#13;            Using CVS (<A
 HREF="#upgrade-cvs"
->Section 3.12.2.1</A
+>Section 3.11.2.1</A
 >)
           </P
 ></LI
@@ -8355,7 +8166,7 @@ HREF="#upgrade-cvs"
 ><P
 >&#13;            Downloading a new tarball (<A
 HREF="#upgrade-tarball"
->Section 3.12.2.2</A
+>Section 3.11.2.2</A
 >)
           </P
 ></LI
@@ -8363,7 +8174,7 @@ HREF="#upgrade-tarball"
 ><P
 >&#13;            Applying the relevant patches (<A
 HREF="#upgrade-patches"
->Section 3.12.2.3</A
+>Section 3.11.2.3</A
 >)
           </P
 ></LI
@@ -8439,7 +8250,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrade-cvs"
->3.12.2.1. Upgrading using CVS</A
+>3.11.2.1. Upgrading using CVS</A
 ></H4
 ><P
 >&#13;          Every release of Bugzilla, whether it is a point release or a bugfix,
@@ -8565,7 +8376,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrade-tarball"
->3.12.2.2. Upgrading using the tarball</A
+>3.11.2.2. Upgrading using the tarball</A
 ></H4
 ><P
 >&#13;          If you are unable (or unwilling) to use CVS, another option that's
@@ -8697,7 +8508,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrade-patches"
->3.12.2.3. Upgrading using patches</A
+>3.11.2.3. Upgrading using patches</A
 ></H4
 ><P
 >&#13;          If you are doing a bugfix upgrade -- that is, one where only the 
@@ -8794,7 +8605,7 @@ CLASS="filename"
             This could make it more difficult to upgrade using CVS
             (<A
 HREF="#upgrade-cvs"
->Section 3.12.2.1</A
+>Section 3.11.2.1</A
 >) in the future.
           </P
 ></TD
@@ -8809,7 +8620,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="upgrading-completion"
->3.12.3. Completing Your Upgrade</A
+>3.11.3. Completing Your Upgrade</A
 ></H3
 ><P
 >&#13;        Regardless of which upgrade method you choose, you will need to
@@ -8997,8 +8808,8 @@ CLASS="QUOTE"
       <SPAN
 CLASS="QUOTE"
 >"nobody"</SPAN
-> and one of them gets compromised it can
-      compromise every other daemon running as <SPAN
+> and one of them gets comprimised it can
+      comprimise every other daemon running as <SPAN
 CLASS="QUOTE"
 >"nobody"</SPAN
 > on your
@@ -9090,7 +8901,7 @@ NAME="security-mysql-account"
 HREF="#security-os-accounts"
 >Section 4.1.2</A
 >, the MySQL
-      daemon should run as a non-privileged, unique user. Be sure to consult
+      daemon should run as a non-privleged, unique user. Be sure to consult
       the MySQL documentation or the documentation that came with your system
       for instructions.
       </P
@@ -9262,7 +9073,7 @@ NAME="security-mysql-network"
 HREF="#security-os-ports"
 >Section 4.1.1</A
 >, will help protect your system from
-      any remote vulnerabilities in MySQL.
+      any remote vulnerabilites in MySQL.
       </P
 ><DIV
 CLASS="example"
@@ -9394,6 +9205,18 @@ CLASS="filename"
 >, <TT
 CLASS="filename"
 >*localconfig*</TT
+>
+              </P
+></LI
+><LI
+><P
+>But allow:
+              <TT
+CLASS="filename"
+>localconfig.js</TT
+>, <TT
+CLASS="filename"
+>localconfig.rdf</TT
 >
               </P
 ></LI
@@ -9537,7 +9360,7 @@ COMPACT="COMPACT"
 ></UL
 ><P
 >Be sure to test that data that should not be accessed remotely is
-      properly blocked. Of particular interest is the localconfig file which
+      properly blocked. Of particular intrest is the localconfig file which
       contains your database password. Also, be aware that many editors
       create temporary and backup files in the working directory and that
       those should also not be accessable. For more information, see 
@@ -9697,34 +9520,73 @@ NAME="security-bugzilla-charset"
 >4.4.1. Prevent users injecting malicious Javascript</A
 ></H3
 ><P
->If you installed Bugzilla version 2.22 or later from scratch,
-      then the <EM
->utf8</EM
-> parameter is switched on by default.
-      This makes Bugzilla explicitly set the character encoding, following
+>It is possible for a Bugzilla user to take advantage of character
+      set encoding ambiguities to inject HTML into Bugzilla comments. This
+      could include malicious scripts. 
+      Due to internationalization concerns, we are unable to
+      incorporate by default the code changes suggested by 
       <A
 HREF="http://www.cert.org/tech_tips/malicious_code_mitigation.html#3"
 TARGET="_top"
->a
+>the
       CERT advisory</A
-> recommending exactly this.
-      The following therefore does not apply to you; just keep
-      <EM
->utf8</EM
-> turned on.
+> on this issue.
+      Making the change in <A
+HREF="#security-bugzilla-charset-ex"
+>Example 4-4</A
+> will
+      prevent this problem. 
       </P
+><DIV
+CLASS="example"
+><A
+NAME="security-bugzilla-charset-ex"
+></A
 ><P
->If you've upgraded from an older version, then it may be possible
-      for a Bugzilla user to take advantage of character set encoding
-      ambiguities to inject HTML into Bugzilla comments.
-      This could include malicious scripts. 
-      This is because due to internationalization concerns, we are unable to
-      turn the <EM
->utf8</EM
-> parameter on by default for upgraded
-      installations.
-      Turning it on manually will prevent this problem.
-      </P
+><B
+>Example 4-4. Forcing Bugzilla to output a charset</B
+></P
+><P
+>Locate the following line in
+        <TT
+CLASS="filename"
+>Bugzilla/CGI.pm</TT
+>:
+        <TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="programlisting"
+>$self-&#62;charset('');</PRE
+></FONT
+></TD
+></TR
+></TABLE
+>
+        and change it to:
+        <TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="programlisting"
+>$self-&#62;charset('UTF-8');</PRE
+></FONT
+></TD
+></TR
+></TABLE
+>
+        </P
+></DIV
 ></DIV
 ></DIV
 ></DIV
@@ -10149,7 +10011,7 @@ CLASS="filename"
 >&#13;        To see if a CGI supports multiple output formats and types, grep the
         CGI for <SPAN
 CLASS="QUOTE"
->"get_format"</SPAN
+>"GetFormat"</SPAN
 >. If it's not present, adding
         multiple format/type support isn't too hard - see how it's done in
         other CGIs, e.g. config.cgi.
@@ -10530,7 +10392,7 @@ CLASS="option"
       <SPAN
 CLASS="QUOTE"
 >"en"</SPAN
-> if you don't want English to be the default language.
+> if you don't want Engish to be the default language.
       </P
 ></DIV
 ></DIV
@@ -11214,7 +11076,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN2089"
+NAME="AEN2062"
 >5.5.1. Bugzilla Database Basics</A
 ></H3
 ><P
@@ -11326,7 +11188,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN2116"
+NAME="AEN2089"
 >5.5.1.1. Bugzilla Database Tables</A
 ></H4
 ><P
@@ -11350,7 +11212,7 @@ CLASS="QUOTE"
 >
         (tables) in your database.</P
 ><P
->From the command issued above, you should have some
+>From the command issued above, ou should have some
 	  output that looks like this:
 <TABLE
 BORDER="0"
@@ -11383,7 +11245,6 @@ CLASS="programlisting"
 | profiles          |
 | profiles_activity |
 | tokens            |
-| user_group_map    |
 | versions          |
 | votes             |
 | watch             |
@@ -11479,10 +11340,6 @@ sshh...&nbsp;don't&nbsp;tell&nbsp;your&nbsp;users!)<br>
 <br>
 profiles_activity:&nbsp;&nbsp;Need&nbsp;to&nbsp;know&nbsp;who&nbsp;did&nbsp;what&nbsp;when&nbsp;to&nbsp;who's&nbsp;profile?&nbsp;&nbsp;This'll<br>
 tell&nbsp;you,&nbsp;it's&nbsp;a&nbsp;pretty&nbsp;complete&nbsp;history.<br>
-<br>
-user_group_map:&nbsp;&nbsp;This&nbsp;table&nbsp;stores&nbsp;which&nbsp;user&nbsp;belongs&nbsp;to&nbsp;which&nbsp;group,<br>
-whether&nbsp;the&nbsp;user&nbsp;can&nbsp;bless&nbsp;others,&nbsp;and&nbsp;how&nbsp;the&nbsp;users&nbsp;obtained&nbsp;the<br>
-membership&nbsp;of&nbsp;the&nbsp;group.<br>
 <br>
 versions:&nbsp;&nbsp;Version&nbsp;information&nbsp;for&nbsp;every&nbsp;product<br>
 <br>
@@ -11769,9 +11626,9 @@ NAME="myaccount"
     Bugzilla for the URL you should use to access it. If you're
     test-driving Bugzilla, use this URL: 
     <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/"
 TARGET="_top"
->http://landfill.bugzilla.org/bugzilla-2.22-branch/</A
+>http://landfill.bugzilla.org/bugzilla-tip/</A
 >.
     </P
 ><P
@@ -11837,7 +11694,7 @@ NAME="bug_page"
 >The core of Bugzilla is the screen which displays a particular
     bug. It's a good place to explain some Bugzilla concepts. 
     <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/show_bug.cgi?id=1"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/show_bug.cgi?id=1"
 TARGET="_top"
 >&#13;    Bug 1 on Landfill</A
 >
@@ -12061,102 +11918,6 @@ BORDER="0"
 ><LI
 ><P
 >&#13;        <EM
->*Time Tracking:</EM
->
-        This form can be used for time tracking.
-        To use this feature, you have to be blessed group membership
-        specified by the <SPAN
-CLASS="QUOTE"
->"timetrackinggroup"</SPAN
-> parameter.
-        <P
-></P
-><TABLE
-BORDER="0"
-><TBODY
-><TR
-><TD
->&#13;        <EM
->Orig. Est.:</EM
->
-        This field shows the original estimated time.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->Current Est.:</EM
->
-        This field shows the current estimated time.
-        This number is calculated from <SPAN
-CLASS="QUOTE"
->"Hours Worked"</SPAN
->
-        and <SPAN
-CLASS="QUOTE"
->"Hours Left"</SPAN
->.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->Hours Worked:</EM
->
-        This field shows the number of hours worked.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->Hours Left:</EM
->
-        This field shows the <SPAN
-CLASS="QUOTE"
->"Current Est."</SPAN
-> -
-        <SPAN
-CLASS="QUOTE"
->"Hours Worked"</SPAN
->.
-        This value + <SPAN
-CLASS="QUOTE"
->"Hours Worked"</SPAN
-> will become the
-        new Current Est.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->%Complete:</EM
->
-        This field shows what percentage of the task is complete.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->Gain:</EM
->
-        This field shows the number of hours that the bug is ahead of the
-        <SPAN
-CLASS="QUOTE"
->"Orig. Est."</SPAN
->.</TD
-></TR
-><TR
-><TD
->&#13;        <EM
->Deadline:</EM
->
-        This field shows the deadline for this bug.</TD
-></TR
-></TBODY
-></TABLE
-><P
-></P
->
-        </P
-></LI
-><LI
-><P
->&#13;        <EM
 >Attachments:</EM
 >
           You can attach files (e.g. testcases or patches) to bugs. If there
@@ -12249,9 +12010,9 @@ NAME="query"
     any bug report, comment, or patch currently in the Bugzilla system. You
     can play with it here: 
     <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/query.cgi"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/query.cgi"
 TARGET="_top"
->http://landfill.bugzilla.org/bugzilla-2.22-branch/query.cgi</A
+>http://landfill.bugzilla.org/bugzilla-tip/query.cgi</A
 >.</P
 ><P
 >The Search page has controls for selecting different possible
@@ -12276,7 +12037,7 @@ NAME="boolean"
 ><P
 >&#13;        The boolean charts further restrict the set of results
         returned by a query. It is possible to search for bugs
-        based on elaborate combinations of criteria.
+        based on elaborate combinations of critera.
       </P
 ><P
 >&#13;        The simplest boolean searches have only one term. These searches
@@ -12291,7 +12052,7 @@ NAME="boolean"
 >value.</EM
 >
         Using the "And," "Or," and "Add Another Boolean Chart" buttons, 
-        additional terms can be included in the query, further
+        additonal terms can be included in the query, further
         altering the list of bugs returned by the query.
       </P
 ><P
@@ -12358,7 +12119,7 @@ NAME="negation"
 >&#13;          At first glance, negation seems redundant. Rather than
           searching for
           <A
-NAME="AEN2329"
+NAME="AEN2277"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12369,7 +12130,7 @@ CLASS="BLOCKQUOTE"
 >
           one could search for 
           <A
-NAME="AEN2331"
+NAME="AEN2279"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12380,7 +12141,7 @@ CLASS="BLOCKQUOTE"
 >
           However, the search 
           <A
-NAME="AEN2333"
+NAME="AEN2281"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12392,7 +12153,7 @@ CLASS="BLOCKQUOTE"
           would find every bug where anyone on the CC list did not contain 
           "@mozilla.org" while
           <A
-NAME="AEN2335"
+NAME="AEN2283"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12406,7 +12167,7 @@ CLASS="BLOCKQUOTE"
           complex expressions to be built using terms OR'd together and then
           negated. Negation permits queries such as
           <A
-NAME="AEN2337"
+NAME="AEN2285"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12419,7 +12180,7 @@ CLASS="BLOCKQUOTE"
           to find bugs that are neither 
           in the update product or in the documentation component or
           <A
-NAME="AEN2339"
+NAME="AEN2287"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12447,7 +12208,7 @@ NAME="multiplecharts"
           a bug that has two different people cc'd on it, then you need 
           to use two boolean charts. A search for
           <A
-NAME="AEN2344"
+NAME="AEN2292"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12462,7 +12223,7 @@ CLASS="BLOCKQUOTE"
           containing "foo@" and someone else containing "@mozilla.org",
           then you would need two boolean charts.
           <A
-NAME="AEN2346"
+NAME="AEN2294"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -12613,7 +12374,7 @@ NAME="bugreports"
 >Years of bug writing experience has been distilled for your
     reading pleasure into the 
     <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/page.cgi?id=bug-writing.html"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/page.cgi?id=bug-writing.html"
 TARGET="_top"
 >&#13;    Bug Writing Guidelines</A
 >. 
@@ -12633,13 +12394,13 @@ TYPE="1"
 ><P
 >Go to 
         <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/"
 TARGET="_top"
 >&#13;        Landfill</A
 >
         in your browser and click 
         <A
-HREF="http://landfill.bugzilla.org/bugzilla-2.22-branch/enter_bug.cgi"
+HREF="http://landfill.bugzilla.org/bugzilla-tip/enter_bug.cgi"
 TARGET="_top"
 >&#13;        Enter a new bug report</A
 >.
@@ -12859,7 +12620,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN2429"
+NAME="AEN2377"
 >6.9.1. Autolinkification</A
 ></H3
 ><P
@@ -12945,16 +12706,15 @@ CLASS="filename"
 >:BazProduct</TT
 >" would
       search only in that product.
-      You can use it to find a bug by its number or its alias, too.
       </P
 ><P
->You'll find the Quicksearch box in Bugzilla's footer area.
-      On Bugzilla's front page, there is an additional
+>You'll find the Quicksearch box on Bugzilla's
+      front page, along with a 
       <A
-HREF="../../page.cgi?id=quicksearch.html"
+HREF="../../quicksearch.html"
 TARGET="_top"
 >Help</A
->
+> 
       link which details how to use it.</P
 ></DIV
 ><DIV
@@ -13026,30 +12786,6 @@ CLASS="filename"
         maximum size of a regular attachment.
       </P
 ></DIV
-><DIV
-CLASS="section"
-><HR><H3
-CLASS="section"
-><A
-NAME="dependencytree"
->6.9.5. Dependency Tree</A
-></H3
-><P
->&#13;        On the <SPAN
-CLASS="QUOTE"
->"Dependency tree"</SPAN
-> page linked from each bug
-        page, you can see the dependency relationship from the bug as a
-        tree structure.
-      </P
-><P
->&#13;        You can change how much depth to show, and you can hide resolved bugs
-        from this page. You can also collaps/expand dependencies for
-        each bug on the tree view, using the [-]/[+] buttons that appear
-        before its summary. This option is not available for terminal
-        bugs in the tree (that don't have further dependencies).
-      </P
-></DIV
 ></DIV
 ><DIV
 CLASS="section"
@@ -13060,7 +12796,7 @@ NAME="userpreferences"
 >6.10. User Preferences</A
 ></H2
 ><P
->Once you have logged in, you can customise various aspects of
+>Once you have logged in, you can customise various aspects of 
     Bugzilla via the "Edit prefs" link in the page footer.
     The preferences are split into three tabs:</P
 ><DIV
@@ -13068,22 +12804,22 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="accountpreferences"
->6.10.1. Account Preferences</A
+NAME="accountsettings"
+>6.10.1. Account Settings</A
 ></H3
 ><P
 >On this tab, you can change your basic account information,
       including your password, email address and real name. For security
-      reasons, in order to change anything on this page you must type your
+      reasons, in order to change anything on this page you must type your 
       <EM
 >current</EM
 >
-      password into the
+      password into the 
       <SPAN
 CLASS="QUOTE"
 >"Password"</SPAN
 >
-      field at the top of the page.
+      field at the top of the page. 
       If you attempt to change your email address, a confirmation
       email is sent to both the old and new addresses, with a link to use to
       confirm the change. This helps to prevent account hijacking.</P
@@ -13093,80 +12829,8 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="generalpreferences"
->6.10.2. General Preferences</A
-></H3
-><P
->&#13;        This tab allows you to change several Bugzilla behavior.
-      </P
-><P
-></P
-><UL
-COMPACT="COMPACT"
-><LI
-><P
->&#13;            Field separator character for CSV files -
-            This controls separator character used in CSV formatted Bug List.
-          </P
-></LI
-><LI
-><P
->&#13;            After changing bugs - This controls which bugs or no bugs
-            are shown in the page after you changed bugs.
-            You can select the bug you've changed this time, or the next
-            bug of the list.
-          </P
-></LI
-><LI
-><P
->&#13;            Add individual bugs to saved searches - this controls
-            whether you can add individual bugs to saved searches
-            or you can't.
-          </P
-></LI
-><LI
-><P
->&#13;            When viewing a bug, show comments in this order -
-            This controls the order of comments, you can select below:
-            <P
-></P
-><TABLE
-BORDER="0"
-><TBODY
-><TR
-><TD
->Initial description, comment 1, comment 2, ...</TD
-></TR
-><TR
-><TD
->Initial description, last comment, ..., comment 2, comment 1.</TD
-></TR
-><TR
-><TD
->Initial last comment, ..., comment 2, comment 1, description.</TD
-></TR
-></TBODY
-></TABLE
-><P
-></P
->
-          </P
-></LI
-><LI
-><P
->&#13;            Show a quip at the top of each bug list - This controls
-            whether a quip will be shown on the Bug list page or not.
-          </P
-></LI
-></UL
-></DIV
-><DIV
-CLASS="section"
-><HR><H3
-CLASS="section"
-><A
-NAME="emailpreferences"
->6.10.3. Email Preferences</A
+NAME="emailsettings"
+>6.10.2. Email Settings</A
 ></H3
 ><P
 >&#13;        This tab controls the amount of email Bugzilla sends you.
@@ -13212,21 +12876,6 @@ VALIGN="TOP"
 ></TABLE
 ></DIV
 ><P
->&#13;        Each user listed in the <SPAN
-CLASS="QUOTE"
->"Users watching you"</SPAN
-> field
-        has you listed in their <SPAN
-CLASS="QUOTE"
->"Users to watch"</SPAN
-> list
-        and can get bugmail according to your relationship to the bug and
-        their <SPAN
-CLASS="QUOTE"
->"Field/recipient specific options"</SPAN
-> setting.
-      </P
-><P
 >&#13;        In general, users have almost complete control over how much (or
         how little) email Bugzilla sends them. If you want to receive the
         maximum amount of email possible, click the <SPAN
@@ -13266,7 +12915,7 @@ VALIGN="TOP"
 CLASS="filename"
 >data/nomail</TT
 > file. This is a drastic step
-          best taken only for disabled accounts, as it overrides 
+          best taken only for disabled accounts, as it overrides the 
           the user's individual mail preferences.
         </P
 ></TD
@@ -13457,7 +13106,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="permissionsettings"
->6.10.4. Permissions</A
+>6.10.3. Permissions</A
 ></H3
 ><P
 >This is a purely informative page which outlines your current
@@ -13589,7 +13238,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN2563"
+NAME="AEN2484"
 >6.11.2.1. Creating Charts</A
 ></H4
 ><P
@@ -13629,7 +13278,7 @@ CLASS="section"
 ><HR><H4
 CLASS="section"
 ><A
-NAME="AEN2570"
+NAME="AEN2491"
 >6.11.2.2. Creating New Data Sets</A
 ></H4
 ><P
@@ -14056,7 +13705,7 @@ CLASS="section"
 ><HR><H3
 CLASS="section"
 ><A
-NAME="AEN2623"
+NAME="AEN2544"
 >6.13.4. Saving Your Changes</A
 ></H3
 ><P
@@ -14830,7 +14479,7 @@ TARGET="_top"
 > and set the Severity
             to 'enhancement'. Your 'request for enhancement' (RFE) will
             start out in the UNCONFIRMED state, and will stay there until
-            someone with the ability to CONFIRM the bug reviews it.
+            someone with the ability to COMFIRM the bug reviews it.
             If that person feels it to be a good request that fits in with
             Bugzilla's overall direction, the status will be changed to
             NEW; if not, they will probably explain why and set the bug
@@ -14968,7 +14617,7 @@ CLASS="filename"
 CLASS="filename"
 >/usr/bin/perl</TT
 >. If you
-            installed an older version of Bugzilla and created the symlink we
+            installed an older verion of Bugzilla and created the symlink we
             suggested, you can remove it now (provided that you don't have
             anything else, such as Bonsai, using it and you don't intend to
             reinstall an older version of Bugzilla).
@@ -15886,7 +15535,7 @@ CLASS="QUOTE"
 ><P
 >&#13;            See also the instructions in <A
 HREF="#upgrade-cvs"
->Section 3.12.2.1</A
+>Section 3.11.2.1</A
 >.
           </P
 ></DIV
@@ -16952,7 +16601,7 @@ CLASS="answer"
 ><P
 >&#13;            Microsoft has some advice on this matter, as well:
             <A
-NAME="AEN3048"
+NAME="AEN2969"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -17454,13 +17103,13 @@ TARGET="_top"
             enhancement for Bugzilla.
           </P
 ><P
->&#13;            You can view bugs marked for 2.22.1 release
+>&#13;            You can view bugs marked for 2.20.2 release
             <A
 HREF="http://bugzilla.mozilla.org/buglist.cgi?product=Bugzilla&#38;target_milestone=Bugzilla+&#38;bz-nextver;"
 TARGET="_top"
 >here</A
 >.
-            This list includes bugs for the 2.22.1 release that have already
+            This list includes bugs for the 2.20.2 release that have already
             been fixed and checked into CVS. Please consult the
             <A
 HREF="http://www.bugzilla.org/"
@@ -18070,7 +17719,7 @@ NAME="trbl-relogin-everyone-share"
 >Example B-1. Examples of urlbase/cookiepath pairs for sharing login cookies</B
 ></P
 ><A
-NAME="AEN3255"
+NAME="AEN3176"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -18111,7 +17760,7 @@ NAME="trbl-relogin-everyone-restrict"
 >Example B-2. Examples of urlbase/cookiepath pairs to restrict the login cookie</B
 ></P
 ><A
-NAME="AEN3262"
+NAME="AEN3183"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -18153,7 +17802,7 @@ CLASS="section"
 ><HR><H2
 CLASS="section"
 ><A
-NAME="AEN3269"
+NAME="AEN3190"
 >B.9. Some users are constantly being forced to relogin</A
 ></H2
 ><P
@@ -18442,7 +18091,7 @@ CLASS="filename"
       the same mechanism as the <TT
 CLASS="filename"
 >sanitycheck.cgi</TT
-> script;
+> script; it
       it scans through the entire database looking for bugs with changes that
       were made more than 30 minutes ago, but where there is no record of
       anyone related to that bug having been sent mail. Having compiled a list,
@@ -18861,52 +18510,6 @@ TARGET="_top"
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
 >
     </P
-><P
->&#13;      MIME::Base64:
-      <P
-CLASS="literallayout"
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPAN&nbsp;Download&nbsp;Page:&nbsp;<A
-HREF="http://search.cpan.org/dist/MIME-Base64/"
-TARGET="_top"
->http://search.cpan.org/dist/MIME-Base64/</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PPM&nbsp;Download&nbsp;Link:&nbsp;<A
-HREF="http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-Base64-2.20.zip"
-TARGET="_top"
->http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-Base64-2.20.zip</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Documentation:&nbsp;<A
-HREF="http://search.cpan.org/dist/MIME-Base64/Base64.pm"
-TARGET="_top"
->http://search.cpan.org/dist/MIME-Base64/Base64.pm</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
->
-    </P
-><P
->&#13;      MIME::Parser (part of MIME-tools):
-      <P
-CLASS="literallayout"
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPAN&nbsp;Download&nbsp;Page:&nbsp;<A
-HREF="http://search.cpan.org/dist/MIME-tools/"
-TARGET="_top"
->http://search.cpan.org/dist/MIME-tools/</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PPM&nbsp;Download&nbsp;Link:&nbsp;<A
-HREF="http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-tools-5.411a.zip"
-TARGET="_top"
->http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-tools-5.411a.zip</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Documentation:&nbsp;<A
-HREF="http://search.cpan.org/dist/MIME-tools/lib/MIME/Parser.pm"
-TARGET="_top"
->http://search.cpan.org/dist/MIME-tools/lib/MIME/Parser.pm</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
->
-    </P
 ></DIV
 ><DIV
 CLASS="section"
@@ -18986,6 +18589,29 @@ TARGET="_top"
 >
     </P
 ><P
+>&#13;      MIME::Parser (part of MIME-tools):
+      <P
+CLASS="literallayout"
+><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPAN&nbsp;Download&nbsp;Page:&nbsp;<A
+HREF="http://search.cpan.org/dist/MIME-tools/"
+TARGET="_top"
+>http://search.cpan.org/dist/MIME-tools/</A
+><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PPM&nbsp;Download&nbsp;Link:&nbsp;<A
+HREF="http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-tools-5.411a.zip"
+TARGET="_top"
+>http://ppm.activestate.com/PPMPackages/zips/8xx-builds-only/Windows/MIME-tools-5.411a.zip</A
+><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Documentation:&nbsp;<A
+HREF="http://search.cpan.org/dist/MIME-tools/lib/MIME/Parser.pm"
+TARGET="_top"
+>http://search.cpan.org/dist/MIME-tools/lib/MIME/Parser.pm</A
+><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
+>
+    </P
+><P
 >&#13;      XML::Parser:
       <P
 CLASS="literallayout"
@@ -19027,25 +18653,6 @@ TARGET="_top"
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
 >
     </P
-><P
->&#13;      Image::Magick:
-      <P
-CLASS="literallayout"
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPAN&nbsp;Download&nbsp;Page:&nbsp;<A
-HREF="http://search.cpan.org/dist/PerlMagick/"
-TARGET="_top"
->http://search.cpan.org/dist/PerlMagick/</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PPM&nbsp;Download&nbsp;Link:&nbsp;Included&nbsp;in&nbsp;Windows&nbsp;binary&nbsp;package.<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Documentation:&nbsp;<A
-HREF="http://www.imagemagick.org/script/resources.php"
-TARGET="_top"
->http://www.imagemagick.org/script/resources.php</A
-><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P
->
-    </P
 ></DIV
 ></DIV
 ><DIV
@@ -19058,7 +18665,7 @@ NAME="gfdl"
 ><P
 >Version 1.1, March 2000</P
 ><A
-NAME="AEN3454"
+NAME="AEN3366"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -19521,7 +19128,7 @@ NAME="gfdl-howto"
     of the License in the document and put the following copyright and
     license notices just after the title page:</P
 ><A
-NAME="AEN3544"
+NAME="AEN3456"
 ></A
 ><BLOCKQUOTE
 CLASS="BLOCKQUOTE"
@@ -19558,7 +19165,7 @@ CLASS="glossdiv"
 ><H1
 CLASS="glossdiv"
 ><A
-NAME="AEN3549"
+NAME="AEN3461"
 >0-9, high ascii</A
 ></H1
 ><DL
@@ -19886,7 +19493,7 @@ CLASS="filename"
         are not a part of the official distribution. These scripts are written
         by third parties and may be in languages other than perl. For those
         that are in perl, there may be additional modules or other requirements
-        than those of the official distribution.
+        than those of the offical distribution.
         <DIV
 CLASS="note"
 ><P
@@ -19912,7 +19519,7 @@ VALIGN="TOP"
 CLASS="filename"
 >contrib</TT
 >
-          directory are not officially supported by the Bugzilla team and may
+          directory are not offically supported by the Bugzilla team and may
           break in between versions.
           </P
 ></TD
@@ -19966,7 +19573,7 @@ NAME="gloss-dos"
 ><DD
 ><P
 >A DOS, or Denial of Service attack, is when a user attempts to
-        deny access to a web server by repeatedly accessing a page or sending
+        deny access to a web server by repeatadly accessing a page or sending
         malformed requests to a webserver. This can be effectively prevented
         by using <TT
 CLASS="filename"
@@ -20280,7 +19887,7 @@ NAME="gloss-r"
 NAME="gloss-rdbms"
 ></A
 ><B
->Relational DataBase Management System</B
+>Relational DataBase Managment System</B
 ></DT
 > (RDBMS)<DD
 ><P
@@ -20327,7 +19934,7 @@ NAME="gloss-service"
 ><P
 >In Windows NT environment, a boot-time background application
         is refered to as a service. These are generally managed through the
-        control panel while logged in as an account with
+        control pannel while logged in as an account with
         <SPAN
 CLASS="QUOTE"
 >"Administrator"</SPAN
@@ -20476,7 +20083,7 @@ NAME="gloss-zarro"
         Terry had the following to say:
         </P
 ><A
-NAME="AEN3796"
+NAME="AEN3708"
 ></A
 ><TABLE
 BORDER="0"

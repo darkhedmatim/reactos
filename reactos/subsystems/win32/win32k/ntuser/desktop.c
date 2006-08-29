@@ -31,14 +31,8 @@
 
 #include <w32k.h>
 
-//#define YDEBUG
-#include <wine/debug.h>
-
-static
-VOID
-IntFreeDesktopHeap(
-    IN OUT PDESKTOP_OBJECT Desktop
-);
+#define NDEBUG
+#include <debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -46,161 +40,94 @@ IntFreeDesktopHeap(
 PDESKTOP_OBJECT InputDesktop = NULL;
 HDESK InputDesktopHandle = NULL;
 HDC ScreenDeviceContext = NULL;
+
 BOOL g_PaintDesktopVersion = FALSE;
 
-GENERIC_MAPPING IntDesktopMapping =
-{
-      STANDARD_RIGHTS_READ     | DESKTOP_ENUMERATE       |
-                                 DESKTOP_READOBJECTS,
-      STANDARD_RIGHTS_WRITE    | DESKTOP_CREATEMENU      |
-                                 DESKTOP_CREATEWINDOW    |
-                                 DESKTOP_HOOKCONTROL     |
-                                 DESKTOP_JOURNALPLAYBACK |
-                                 DESKTOP_JOURNALRECORD   |
-                                 DESKTOP_WRITEOBJECTS,
+static VOID IntFreeDesktopHeap(IN OUT PDESKTOP_OBJECT Desktop);
+
+/* INITALIZATION FUNCTIONS ****************************************************/
+
+static GENERIC_MAPPING IntDesktopMapping =
+   {
+      STANDARD_RIGHTS_READ     | DESKTOP_ENUMERATE       | DESKTOP_READOBJECTS,
+      STANDARD_RIGHTS_WRITE    | DESKTOP_CREATEMENU      | DESKTOP_CREATEWINDOW    | DESKTOP_HOOKCONTROL   |
+      DESKTOP_JOURNALPLAYBACK | DESKTOP_JOURNALRECORD   | DESKTOP_WRITEOBJECTS,
       STANDARD_RIGHTS_EXECUTE  | DESKTOP_SWITCHDESKTOP,
-      STANDARD_RIGHTS_REQUIRED | DESKTOP_CREATEMENU      |
-                                 DESKTOP_CREATEWINDOW    |
-                                 DESKTOP_ENUMERATE       |
-                                 DESKTOP_HOOKCONTROL     |
-                                 DESKTOP_JOURNALPLAYBACK |
-                                 DESKTOP_JOURNALRECORD   |
-                                 DESKTOP_READOBJECTS     |
-                                 DESKTOP_SWITCHDESKTOP   |
-                                 DESKTOP_WRITEOBJECTS
-};
+      STANDARD_RIGHTS_REQUIRED | DESKTOP_CREATEMENU      | DESKTOP_CREATEWINDOW    | DESKTOP_ENUMERATE     |
+      DESKTOP_HOOKCONTROL     | DESKTOP_JOURNALPLAYBACK | DESKTOP_JOURNALRECORD |
+      DESKTOP_READOBJECTS     | DESKTOP_SWITCHDESKTOP   | DESKTOP_WRITEOBJECTS
+   };
+
+NTSTATUS FASTCALL
+InitDesktopImpl(VOID)
+{
+   /* Set Desktop Object Attributes */
+   ExDesktopObjectType->TypeInfo.DefaultNonPagedPoolCharge = sizeof(DESKTOP_OBJECT);
+   ExDesktopObjectType->TypeInfo.GenericMapping = IntDesktopMapping;
+
+   return STATUS_SUCCESS;
+}
+
+NTSTATUS FASTCALL
+CleanupDesktopImpl(VOID)
+{
+   return STATUS_SUCCESS;
+}
 
 /* OBJECT CALLBACKS **********************************************************/
 
-NTSTATUS
-NTAPI
-IntDesktopObjectParse(IN PVOID ParseObject,
-                      IN PVOID ObjectType,
-                      IN OUT PACCESS_STATE AccessState,
-                      IN KPROCESSOR_MODE AccessMode,
-                      IN ULONG Attributes,
-                      IN OUT PUNICODE_STRING CompleteName,
-                      IN OUT PUNICODE_STRING RemainingName,
-                      IN OUT PVOID Context OPTIONAL,
-                      IN PSECURITY_QUALITY_OF_SERVICE SecurityQos OPTIONAL,
-                      OUT PVOID *Object)
+NTSTATUS STDCALL
+IntDesktopObjectCreate(PVOID ObjectBody,
+                       PVOID Parent,
+                       PWSTR RemainingPath,
+                       struct _OBJECT_ATTRIBUTES* ObjectAttributes)
 {
-    NTSTATUS Status;
-    PDESKTOP_OBJECT Desktop;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    PLIST_ENTRY NextEntry, ListHead;
-    PWINSTATION_OBJECT WinStaObject = (PWINSTATION_OBJECT)ParseObject;
-    PUNICODE_STRING DesktopName;
+   PDESKTOP_OBJECT Desktop = (PDESKTOP_OBJECT)ObjectBody;
+   UNICODE_STRING UnicodeString;
 
-    /* Set the list pointers and loop the window station */
-    ListHead = &WinStaObject->DesktopListHead;
-    NextEntry = ListHead->Flink;
-    while (NextEntry != ListHead)
-    {
-        /* Get the current desktop */
-        Desktop = CONTAINING_RECORD(NextEntry, DESKTOP_OBJECT, ListEntry);
+   DPRINT("Creating desktop (0x%X)  Name (%S)\n", Desktop, RemainingPath);
+   if (RemainingPath == NULL)
+   {
+      return STATUS_SUCCESS;
+   }
 
-        /* Get its name */
-        DesktopName = GET_DESKTOP_NAME(Desktop);
-        if (DesktopName)
-        {
-            /* Compare the name */
-            if (RtlEqualUnicodeString(RemainingName,
-                                      DesktopName,
-                                      (Attributes & OBJ_CASE_INSENSITIVE)))
-            {
-                /* We found a match. Did this come from a create? */
-                if (Context)
-                {
-                    /* Unless OPEN_IF was given, fail with an error */
-                    if (!(Attributes & OBJ_OPENIF))
-                    {
-                        /* Name collision */
-                        return STATUS_OBJECT_NAME_COLLISION;
-                    }
-                    else
-                    {
-                        /* Otherwise, return with a warning only */
-                        Status = STATUS_OBJECT_NAME_EXISTS;
-                    }
-                }
-                else
-                {
-                    /* This was a real open, so this is OK */
-                    Status = STATUS_SUCCESS;
-                }
+   if (wcschr((RemainingPath + 1), '\\') != NULL)
+   {
+      return STATUS_UNSUCCESSFUL;
+   }
 
-                /* Reference the desktop and return it */
-                ObReferenceObject(Desktop);
-                *Object = Desktop;
-                return Status;
-            }
-        }
+   RtlInitUnicodeString(&UnicodeString, (RemainingPath + 1));
 
-        /* Go to the next desktop */
-        NextEntry = NextEntry->Flink;
-    }
+   InitializeListHead(&Desktop->ShellHookWindows);
 
-    /* If we got here but this isn't a create, then fail */
-    if (!Context) return STATUS_OBJECT_NAME_NOT_FOUND;
+   Desktop->WindowStation = (PWINSTATION_OBJECT)Parent;
 
-    /* Create the desktop object */
-    InitializeObjectAttributes(&ObjectAttributes, RemainingName, 0, NULL, NULL);
-    Status = ObCreateObject(KernelMode,
-                            ExDesktopObjectType,
-                            &ObjectAttributes,
-                            KernelMode,
-                            NULL,
-                            sizeof(DESKTOP_OBJECT),
-                            0,
-                            0,
-                            (PVOID)&Desktop);
-    if (!NT_SUCCESS(Status)) return Status;
+   /* Put the desktop on the window station's list of associcated desktops */
+//   ExInterlocked
+   InsertTailList(
+      &Desktop->WindowStation->DesktopListHead,
+      &Desktop->ListEntry);//,
+//      &Desktop->WindowStation->Lock);
 
-    /* Initialize shell hook window list and set the parent */
-    InitializeListHead(&Desktop->ShellHookWindows);
-    Desktop->WindowStation = (PWINSTATION_OBJECT)ParseObject;
-
-    /* Put the desktop on the window station's list of associated desktops */
-    InsertTailList(&Desktop->WindowStation->DesktopListHead,
-                   &Desktop->ListEntry);
-
-    /* Set the desktop object and return success */
-    *Object = Desktop;
-    return STATUS_SUCCESS;
+   return RtlCreateUnicodeString(&Desktop->Name, UnicodeString.Buffer);
 }
 
 VOID STDCALL
-IntDesktopObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters)
+IntDesktopObjectDelete(PVOID DeletedObject)
 {
-   PDESKTOP_OBJECT Desktop = (PDESKTOP_OBJECT)Parameters->Object;
+   PDESKTOP_OBJECT Desktop = (PDESKTOP_OBJECT)DeletedObject;
 
    DPRINT("Deleting desktop (0x%X)\n", Desktop);
 
    /* Remove the desktop from the window station's list of associcated desktops */
    RemoveEntryList(&Desktop->ListEntry);
 
+   RtlFreeUnicodeString(&Desktop->Name);
+
    IntFreeDesktopHeap(Desktop);
 }
 
 /* PRIVATE FUNCTIONS **********************************************************/
-
-NTSTATUS
-FASTCALL
-InitDesktopImpl(VOID)
-{
-    /* Set Desktop Object Attributes */
-    ExDesktopObjectType->TypeInfo.DefaultNonPagedPoolCharge = sizeof(DESKTOP_OBJECT);
-    ExDesktopObjectType->TypeInfo.GenericMapping = IntDesktopMapping;
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-FASTCALL
-CleanupDesktopImpl(VOID)
-{
-    return STATUS_SUCCESS;
-}
 
 static int GetSystemVersionString(LPWSTR buffer)
 {
@@ -343,8 +270,8 @@ IntParseDesktopPath(PEPROCESS Process,
 
       Status = ObOpenObjectByName(&ObjectAttributes,
                                   ExWindowStationObjectType,
-                                  KernelMode,
                                   NULL,
+                                  KernelMode,
                                   0,
                                   NULL,
                                   (HANDLE*)hWinSta);
@@ -377,8 +304,8 @@ IntParseDesktopPath(PEPROCESS Process,
 
       Status = ObOpenObjectByName(&ObjectAttributes,
                                   ExDesktopObjectType,
-                                  KernelMode,
                                   NULL,
+                                  KernelMode,
                                   0,
                                   NULL,
                                   (HANDLE*)hDesktop);
@@ -572,7 +499,7 @@ PWINDOW_OBJECT FASTCALL UserGetDesktopWindow(VOID)
 
 HWND FASTCALL IntGetCurrentThreadDesktopWindow(VOID)
 {
-   PDESKTOP_OBJECT pdo = PsGetCurrentThreadWin32Thread()->Desktop;
+   PDESKTOP_OBJECT pdo = PsGetWin32Thread()->Desktop;
    if (NULL == pdo)
    {
       DPRINT1("Thread doesn't have a desktop\n");
@@ -720,7 +647,7 @@ VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam)
 
    if (!Desktop)
    {
-      DPRINT("IntShellHookNotify: No desktop!\n");
+      DPRINT1("IntShellHookNotify: No desktop!\n");
       return;
    }
 
@@ -753,7 +680,7 @@ VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam)
  */
 BOOL IntRegisterShellHookWindow(HWND hWnd)
 {
-   PDESKTOP_OBJECT Desktop = PsGetCurrentThreadWin32Thread()->Desktop;
+   PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
    PSHELL_HOOK_WINDOW Entry;
 
    DPRINT("IntRegisterShellHookWindow\n");
@@ -784,7 +711,7 @@ BOOL IntRegisterShellHookWindow(HWND hWnd)
  */
 BOOL IntDeRegisterShellHookWindow(HWND hWnd)
 {
-   PDESKTOP_OBJECT Desktop = PsGetCurrentThreadWin32Thread()->Desktop;
+   PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
    PSHELL_HOOK_WINDOW Current;
 
    LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
@@ -809,6 +736,8 @@ IntFreeDesktopHeap(IN OUT PDESKTOP_OBJECT Desktop)
         Desktop->DesktopHeapSection = NULL;
     }
 }
+
+
 /* SYSCALLS *******************************************************************/
 
 
@@ -862,7 +791,6 @@ NtUserCreateDesktop(
    PVOID DesktopHeapSystemBase = NULL;
    SIZE_T DesktopInfoSize;
    UNICODE_STRING SafeDesktopName;
-   ULONG DummyContext;
    DECLARE_RETURN(HDESK);
   
 
@@ -911,7 +839,7 @@ NtUserCreateDesktop(
     * Try to open already existing desktop
     */
 
-   DPRINT("Trying to open desktop (%wZ)\n", &DesktopName);
+   DPRINT1("Trying to open desktop (%wZ)\n", &DesktopName);
 
    /* Initialize ObjectAttributes for the desktop object */
    InitializeObjectAttributes(
@@ -924,26 +852,41 @@ NtUserCreateDesktop(
    Status = ObOpenObjectByName(
                &ObjectAttributes,
                ExDesktopObjectType,
-               KernelMode,
                NULL,
+               KernelMode,
                dwDesiredAccess,
-               (PVOID)&DummyContext,
+               NULL,
                (HANDLE*)&Desktop);
-   if (!NT_SUCCESS(Status)) RETURN(NULL);
-   if (Status == STATUS_OBJECT_NAME_EXISTS)
+
+   if (NT_SUCCESS(Status))
    {
+      DPRINT("Successfully opened desktop (%wZ)\n", &DesktopName);
       ExFreePool(DesktopName.Buffer);
       RETURN( Desktop);
    }
 
-   /* Reference the desktop */
-   Status = ObReferenceObjectByHandle(Desktop,
-                                      0,
-                                      ExDesktopObjectType,
-                                      KernelMode,
-                                      (PVOID)&DesktopObject,
-                                      NULL);
-   if (!NT_SUCCESS(Status)) RETURN(NULL);
+   /*
+    * No existing desktop found, try to create new one
+    */
+
+   Status = ObCreateObject(
+               KernelMode,
+               ExDesktopObjectType,
+               &ObjectAttributes,
+               ExGetPreviousMode(),
+               NULL,
+               sizeof(DESKTOP_OBJECT),
+               0,
+               0,
+               (PVOID*)&DesktopObject);
+
+   if (! NT_SUCCESS(Status))
+   {
+      DPRINT1("Failed creating desktop (%wZ)\n", &DesktopName);
+      ExFreePool(DesktopName.Buffer);
+      SetLastNtError(STATUS_UNSUCCESSFUL);
+      RETURN( NULL);
+   }
 
    DesktopObject->DesktopHeapSection = NULL;
    DesktopObject->hDesktopHeap = UserCreateHeap(&DesktopObject->DesktopHeapSection,
@@ -987,6 +930,16 @@ NtUserCreateDesktop(
 
    /* Initialize some local (to win32k) desktop state. */
    DesktopObject->ActiveMessageQueue = NULL;
+
+   Status = ObInsertObject(
+               (PVOID)DesktopObject,
+               NULL,
+               STANDARD_RIGHTS_REQUIRED,
+               0,
+               NULL,
+               (HANDLE*)&Desktop);
+
+   ObDereferenceObject(DesktopObject);
    ExFreePool(DesktopName.Buffer);
 
    if (! NT_SUCCESS(Status))
@@ -1127,8 +1080,8 @@ NtUserOpenDesktop(
    Status = ObOpenObjectByName(
                &ObjectAttributes,
                ExDesktopObjectType,
-               KernelMode,
                NULL,
+               KernelMode,
                dwDesiredAccess,
                NULL,
                (HANDLE*)&Desktop);
@@ -1326,7 +1279,7 @@ NtUserPaintDesktop(HDC hDC)
    COLORREF color_old;
    UINT align_old;
    int mode_old;
-   PWINSTATION_OBJECT WinSta = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+   PWINSTATION_OBJECT WinSta = PsGetWin32Thread()->Desktop->WindowStation;
    DECLARE_RETURN(BOOL);
 
    UserEnterExclusive();
@@ -1557,7 +1510,7 @@ NtUserSwitchDesktop(HDESK hDesktop)
     * is the logon application itself
     */
    if((DesktopObject->WindowStation->Flags & WSS_LOCKED) &&
-         LogonProcess != NULL && LogonProcess != PsGetCurrentProcessWin32Process())
+         LogonProcess != NULL && LogonProcess != PsGetWin32Process())
    {
       ObDereferenceObject(DesktopObject);
       DPRINT1("Switching desktop 0x%x denied because the work station is locked!\n", hDesktop);
@@ -1691,10 +1644,8 @@ static NTSTATUS
 IntUnmapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
 {
     PW32THREADINFO ti;
-    PW32HEAP_USER_MAPPING HeapMapping, *PrevLink = &PsGetCurrentProcessWin32Process()->HeapMappings.Next;
+    PW32HEAP_USER_MAPPING HeapMapping, *PrevLink = &PsGetWin32Process()->HeapMappings.Next;
     NTSTATUS Status = STATUS_SUCCESS;
-
-    TRACE("DO %p\n");
 
     /* unmap if we're the last thread using the desktop */
     HeapMapping = *PrevLink;
@@ -1737,7 +1688,7 @@ static NTSTATUS
 IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
 {
     PW32THREADINFO ti;
-    PW32HEAP_USER_MAPPING HeapMapping, *PrevLink = &PsGetCurrentProcessWin32Process()->HeapMappings.Next;
+    PW32HEAP_USER_MAPPING HeapMapping, *PrevLink = &PsGetWin32Process()->HeapMappings.Next;
     PVOID UserBase = NULL;
     ULONG ViewSize = 0;
     LARGE_INTEGER Offset;
@@ -1758,7 +1709,6 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
     }
 
     /* we're the first, map the heap */
-    DPRINT("Noone mapped the desktop heap %p yet, so - map it!\n", DesktopObject->hDesktopHeap);
     Offset.QuadPart = 0;
     Status = MmMapViewOfSection(DesktopObject->DesktopHeapSection,
                                 PsGetCurrentProcess(),
@@ -1772,7 +1722,7 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
                                 PAGE_EXECUTE_READ); /* would prefer PAGE_READONLY, but thanks to RTL heaps... */
     if (!NT_SUCCESS(Status))
     {
-        DPRINT1("Failed to map desktop\n");
+        DbgPrint("Failed to map desktop\n");
         return Status;
     }
 
@@ -1782,7 +1732,6 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
     {
         MmUnmapViewOfSection(PsGetCurrentProcess(),
                              UserBase);
-        DPRINT1("UserHeapAlloc() failed!\n");
         return STATUS_NO_MEMORY;
     }
 
@@ -1790,7 +1739,6 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
     HeapMapping->KernelMapping = (PVOID)DesktopObject->hDesktopHeap;
     HeapMapping->UserMapping = UserBase;
     HeapMapping->Count = 1;
-    *PrevLink = HeapMapping;
 
     ObReferenceObject(DesktopObject);
 
@@ -1817,9 +1765,8 @@ IntSetThreadDesktop(IN PDESKTOP_OBJECT DesktopObject,
     NTSTATUS Status;
     BOOL MapHeap;
 
-    DPRINT("IntSetThreadDesktop() DO=%p, FOF=%d\n", DesktopObject, FreeOnFailure);
     MapHeap = (PsGetCurrentProcess() != PsInitialSystemProcess);
-    W32Thread = PsGetCurrentThreadWin32Thread();
+    W32Thread = PsGetWin32Thread();
 
     if (W32Thread->Desktop != DesktopObject)
     {

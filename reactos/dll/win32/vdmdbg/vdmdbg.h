@@ -3,7 +3,7 @@
 #define MAX_PATH16 255
 #define MAX_MODULE_NAME 9
 
-ULONG DbgPrint(PCCH Format,...);
+ULONG DbgPrint(PCH Format,...);
 
 typedef struct _CONTEXT VDMCONTEXT;
 typedef VDMCONTEXT *LPVDMCONTEXT;

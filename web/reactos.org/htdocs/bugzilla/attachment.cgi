@@ -24,8 +24,6 @@
 #                 Dave Miller <justdave@syndicomm.com>
 #                 Alexander J. Vincent <ajvincent@juno.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Greg Hendricks <ghendricks@novell.com>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 ################################################################################
 # Script Initialization
@@ -36,26 +34,26 @@ use strict;
 
 use lib qw(.);
 
-# Include the Bugzilla CGI and general utility library.
-require "globals.pl";
+use vars qw(
+  $template
+  $vars
+);
 
-use Bugzilla;
+# Include the Bugzilla CGI and general utility library.
+require "CGI.pl";
 use Bugzilla::Config qw(:locations);
+
+# Use these modules to handle flags.
 use Bugzilla::Constants;
 use Bugzilla::Flag; 
 use Bugzilla::FlagType; 
 use Bugzilla::User;
 use Bugzilla::Util;
 use Bugzilla::Bug;
-use Bugzilla::Field;
-use Bugzilla::Attachment;
 
 Bugzilla->login();
 
 my $cgi = Bugzilla->cgi;
-my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
 
 ################################################################################
 # Main Body Execution
@@ -136,7 +134,7 @@ sub validateID
     # Happens when calling plain attachment.cgi from the urlbar directly
     if ($param eq 'id' && !$cgi->param('id')) {
 
-        print $cgi->header();
+        print Bugzilla->cgi->header();
         $template->process("attachment/choose.html.tmpl", $vars) ||
             ThrowTemplateError($template->error());
         exit;
@@ -221,7 +219,7 @@ sub validateCanChangeAttachment
              ON bugs.bug_id = attachments.bug_id
              WHERE attach_id = $attachid");
     my $productid = FetchOneColumn();
-    Bugzilla->user->can_edit_product($productid)
+    CanEditProductId($productid)
       || ThrowUserError("illegal_attachment_edit",
                         { attach_id => $attachid });
 }
@@ -233,7 +231,7 @@ sub validateCanChangeBug
              FROM bugs 
              WHERE bug_id = $bugid");
     my $productid = FetchOneColumn();
-    Bugzilla->user->can_edit_product($productid)
+    CanEditProductId($productid)
       || ThrowUserError("illegal_attachment_edit_bug",
                         { bug_id => $bugid });
 }
@@ -337,22 +335,7 @@ sub validateData
   $data
     || ($cgi->param('bigfile'))
     || ThrowUserError("zero_length_file");
-    
-    # Windows screenshots are usually uncompressed BMP files which
-    # makes for a quick way to eat up disk space. Let's compress them. 
-    # We do this before we check the size since the uncompressed version
-    # could easily be greater than maxattachmentsize.
-    if (Param('convert_uncompressed_images') && $cgi->param('contenttype') eq 'image/bmp'){
-      require Image::Magick; 
-      my $img = Image::Magick->new(magick=>'bmp');
-      $img->BlobToImage($data);
-      $img->set(magick=>'png');
-      my $imgdata = $img->ImageToBlob();
-      $data = $imgdata;
-      $cgi->param('contenttype', 'image/png');
-      $vars->{'convertedbmp'} = 1;
-    }
-    
+
   # Make sure the attachment does not exceed the maximum permitted size
   my $len = $data ? length($data) : 0;
   if ($maxsize && $len > $maxsize) {
@@ -476,7 +459,6 @@ sub view
 
     # Retrieve the attachment content and its content type from the database.
     SendSQL("SELECT mimetype, filename, thedata FROM attachments " .
-            "INNER JOIN attach_data ON id = attach_id " .
             "WHERE attach_id = $attach_id");
     my ($contenttype, $filename, $thedata) = FetchSQLData();
    
@@ -514,9 +496,9 @@ sub view
     $filename =~ s/\\/\\\\/g; # escape backslashes
     $filename =~ s/"/\\"/g; # escape quotes
 
-    print $cgi->header(-type=>"$contenttype; name=\"$filename\"",
-                       -content_disposition=> "inline; filename=\"$filename\"",
-                       -content_length => $filesize);
+    print Bugzilla->cgi->header(-type=>"$contenttype; name=\"$filename\"",
+                                -content_disposition=> "inline; filename=\"$filename\"",
+                                -content_length => $filesize);
 
     if ($thedata) {
         print $thedata;
@@ -600,15 +582,11 @@ sub get_unified_diff
   require File::Temp;
 
   # Get the patch
-  SendSQL("SELECT bug_id, description, ispatch, thedata " . 
-          "FROM attachments " .
-          "INNER JOIN attach_data " .
-          "ON id = attach_id " .
-          "WHERE attach_id = $id");
+  SendSQL("SELECT bug_id, description, ispatch, thedata FROM attachments WHERE attach_id = $id");
   my ($bugid, $description, $ispatch, $thedata) = FetchSQLData();
   if (!$ispatch) {
     $vars->{'attach_id'} = $id;
-    ThrowCodeError("must_be_patch");
+    ThrowUserError("must_be_patch");
   }
 
   # Reads in the patch, converting to unified diff in a temp file
@@ -735,7 +713,6 @@ sub diff
 
   # Get patch data
   SendSQL("SELECT bug_id, description, ispatch, thedata FROM attachments " .
-          "INNER JOIN attach_data ON id = attach_id " .
           "WHERE attach_id = $attach_id");
   my ($bugid, $description, $ispatch, $thedata) = FetchSQLData();
 
@@ -753,6 +730,7 @@ sub diff
     require PatchReader::DiffPrinter::raw;
     $last_reader->sends_data_to(new PatchReader::DiffPrinter::raw());
     # Actually print out the patch
+    use vars qw($cgi);
     print $cgi->header(-type => 'text/plain',
                        -expires => '+3M');
     $reader->iterate_string("Attachment $attach_id", $thedata);
@@ -807,10 +785,7 @@ sub viewall
             $dbh->sql_date_format('creation_ts', '%Y.%m.%d %H:%i') . ",
             mimetype, description, ispatch, isobsolete, isprivate, 
             LENGTH(thedata)
-            FROM attachments 
-            INNER JOIN attach_data
-            ON attach_id = id
-            WHERE bug_id = $bugid $privacy 
+            FROM attachments WHERE bug_id = $bugid $privacy 
             ORDER BY attach_id");
   my @attachments; # the attachments array
   while (MoreSQLData())
@@ -839,7 +814,7 @@ sub viewall
   $vars->{'bugsummary'} = $bugsummary;
   $vars->{'GetBugLink'} = \&GetBugLink;
 
-  print $cgi->header();
+  print Bugzilla->cgi->header();
 
   # Generate and return the UI (HTML page) from the appropriate template.
   $template->process("attachment/show-multiple.html.tmpl", $vars)
@@ -896,7 +871,7 @@ sub enter
   $vars->{'any_flags_requesteeble'} = grep($_->{'is_requesteeble'},
                                            @$flag_types);
 
-  print $cgi->header();
+  print Bugzilla->cgi->header();
 
   # Generate and return the UI (HTML page) from the appropriate template.
   $template->process("attachment/create.html.tmpl", $vars)
@@ -914,31 +889,11 @@ sub insert
     ValidateBugID($bugid);
     validateCanChangeBug($bugid);
     ValidateComment(scalar $cgi->param('comment'));
-    my $attachurl = $cgi->param('attachurl') || '';
-    my $data;
-    my $filename;
-    my $contenttype;
-    my $isurl;
+    my $filename = validateFilename();
     validateIsPatch();
+    my $data = validateData();
     validateDescription();
-  
-    if (($attachurl =~ /^(http|https|ftp):\/\/\S+/) 
-         && !(defined $cgi->upload('data'))) {
-        $filename = '';
-        $data = $attachurl;
-        $isurl = 1;
-        $contenttype = SqlQuote('text/plain');
-        $cgi->param('ispatch', 0);
-        $cgi->delete('bigfile');
-    } else {
-        $filename = validateFilename();
-        # need to validate content type before data as
-        # we now check the content type for image/bmp in validateData()
-        validateContentType() unless $cgi->param('ispatch');
-        $data = validateData();
-        $contenttype = SqlQuote($cgi->param('contenttype'));
-        $isurl = 0;
-    }
+    validateContentType() unless $cgi->param('ispatch');
 
     my @obsolete_ids = ();
     @obsolete_ids = validateObsolete() if $cgi->param('obsolete');
@@ -947,7 +902,7 @@ sub insert
     # and FlagType::validate assume User::match_field has ensured that the
     # values in the requestee fields are legitimate user email addresses.
     my $match_status = Bugzilla::User::match_field($cgi, {
-        '^requestee(_type)?-(\d+)$' => { 'type' => 'multi' },
+        '^requestee(_type)?-(\d+)$' => { 'type' => 'single' },
     }, MATCH_SKIP_CONFIRM);
 
     $vars->{'match_field'} = 'requestee';
@@ -967,6 +922,7 @@ sub insert
     # Escape characters in strings that will be used in SQL statements.
     my $sql_filename = SqlQuote($filename);
     my $description = SqlQuote($cgi->param('description'));
+    my $contenttype = SqlQuote($cgi->param('contenttype'));
     my $isprivate = $cgi->param('isprivate') ? 1 : 0;
 
   # Figure out when the changes were made.
@@ -975,23 +931,19 @@ sub insert
 
   # Insert the attachment into the database.
   my $sth = $dbh->prepare("INSERT INTO attachments
-      (bug_id, creation_ts, filename, description,
-       mimetype, ispatch, isurl, isprivate, submitter_id) 
-      VALUES ($bugid, $sql_timestamp, $sql_filename,
+      (thedata, bug_id, creation_ts, filename, description,
+       mimetype, ispatch, isprivate, submitter_id) 
+      VALUES (?, $bugid, $sql_timestamp, $sql_filename,
               $description, $contenttype, " . $cgi->param('ispatch') . ",
-              $isurl, $isprivate, $userid)");
-  $sth->execute();
-  # Retrieve the ID of the newly created attachment record.
-  my $attachid = $dbh->bz_last_key('attachments', 'attach_id');
-
+              $isprivate, $userid)");
   # We only use $data here in this INSERT with a placeholder,
   # so it's safe.
-  $sth = $dbh->prepare("INSERT INTO attach_data
-                           (id, thedata) VALUES ($attachid, ?)");
   trick_taint($data);
   $sth->bind_param(1, $data, $dbh->BLOB_TYPE);
   $sth->execute();
 
+  # Retrieve the ID of the newly created attachment record.
+  my $attachid = $dbh->bz_last_key('attachments', 'attach_id');
 
   # If the file is to be stored locally, stream the file from the webserver
   # to the local file without reading it into a local variable.
@@ -1029,7 +981,7 @@ sub insert
   AppendComment($bugid, $userid, $comment, $isprivate, $timestamp);
 
   # Make existing attachments obsolete.
-  my $fieldid = get_field_id('attachments.isobsolete');
+  my $fieldid = GetFieldID('attachments.isobsolete');
   foreach my $obsolete_id (@obsolete_ids) {
       # If the obsolete attachment has request flags, cancel them.
       # This call must be done before updating the 'attachments' table.
@@ -1071,11 +1023,7 @@ sub insert
       SendSQL("UPDATE bugs SET delta_ts = $sql_timestamp, " . 
               join(", ", map("$fields[$_] = $newvalues[$_]", (0..3))) . 
               " WHERE bug_id = $bugid");
-
-      # If the bug was a dupe, we have to remove its entry from the
-      # 'duplicates' table.
-      $dbh->do('DELETE FROM duplicates WHERE dupe = ?', undef, $bugid);
-
+      
       # We store email addresses in the bugs_activity table rather than IDs.
       $oldvalues[0] = $oldvalues[4];
       $newvalues[0] = $newvalues[4];
@@ -1083,7 +1031,7 @@ sub insert
       # Add the changes to the bugs_activity table
       for (my $i = 0; $i < 4; $i++) {
           if ($oldvalues[$i] ne $newvalues[$i]) {
-              my $fieldid = get_field_id($fields[$i]);
+              my $fieldid = GetFieldID($fields[$i]);
               SendSQL("INSERT INTO bugs_activity " .
                       "(bug_id, who, bug_when, fieldid, removed, added) " .
                       "VALUES ($bugid, $userid, $sql_timestamp, " .
@@ -1093,7 +1041,8 @@ sub insert
   }   
   
   # Create flags.
-  Bugzilla::Flag::process($bugid, $attachid, $timestamp, $cgi);
+  my $target = Bugzilla::Flag::GetTarget(undef, $attachid);
+  Bugzilla::Flag::process($target, $timestamp, $cgi);
    
   # Define the variables and functions that will be passed to the UI template.
   $vars->{'mailrecipients'} =  { 'changer' => Bugzilla->user->login,
@@ -1104,7 +1053,7 @@ sub insert
   $vars->{'contenttypemethod'} = $cgi->param('contenttypemethod');
   $vars->{'contenttype'} = $cgi->param('contenttype');
 
-  print $cgi->header();
+  print Bugzilla->cgi->header();
 
   # Generate and return the UI (HTML page) from the appropriate template.
   $template->process("attachment/created.html.tmpl", $vars)
@@ -1115,40 +1064,53 @@ sub insert
 # Any user is allowed to access this page, unless the attachment
 # is private and the user does not belong to the insider group.
 # Validations are done later when the user submits changes.
-sub edit {
+sub edit
+{
+  # Retrieve and validate parameters
   my ($attach_id) = validateID();
-  my $dbh = Bugzilla->dbh;
 
-  my $attachment = Bugzilla::Attachment->get($attach_id);
-  my $isviewable = !$attachment->isurl && isViewable($attachment->contenttype);
+  # Retrieve the attachment from the database.
+  SendSQL("SELECT description, mimetype, filename, bug_id, ispatch, isobsolete, isprivate, LENGTH(thedata)
+           FROM attachments WHERE attach_id = $attach_id");
+  my ($description, $contenttype, $filename, $bugid, $ispatch, $isobsolete, $isprivate, $datasize) = FetchSQLData();
+
+  my $isviewable = isViewable($contenttype);
 
   # Retrieve a list of attachments for this bug as well as a summary of the bug
   # to use in a navigation bar across the top of the screen.
-  my $bugattachments =
-      $dbh->selectcol_arrayref('SELECT attach_id FROM attachments
-                                WHERE bug_id = ? ORDER BY attach_id',
-                                undef, $attachment->bug_id);
-
-  my ($bugsummary, $product_id, $component_id) =
-      $dbh->selectrow_array('SELECT short_desc, product_id, component_id
-                               FROM bugs
-                              WHERE bug_id = ?', undef, $attachment->bug_id);
-
+  SendSQL("SELECT attach_id FROM attachments WHERE bug_id = $bugid ORDER BY attach_id");
+  my @bugattachments;
+  push(@bugattachments, FetchSQLData()) while (MoreSQLData());
+  SendSQL("SELECT short_desc FROM bugs WHERE bug_id = $bugid");
+  my ($bugsummary) = FetchSQLData();
+  
   # Get a list of flag types that can be set for this attachment.
+  SendSQL("SELECT product_id, component_id FROM bugs WHERE bug_id = $bugid");
+  my ($product_id, $component_id) = FetchSQLData();
   my $flag_types = Bugzilla::FlagType::match({ 'target_type'  => 'attachment' ,
                                                'product_id'   => $product_id ,
                                                'component_id' => $component_id });
   foreach my $flag_type (@$flag_types) {
     $flag_type->{'flags'} = Bugzilla::Flag::match({ 'type_id'   => $flag_type->{'id'},
-                                                    'attach_id' => $attachment->id,
+                                                    'attach_id' => $attach_id,
                                                     'is_active' => 1 });
   }
   $vars->{'flag_types'} = $flag_types;
   $vars->{'any_flags_requesteeble'} = grep($_->{'is_requesteeble'}, @$flag_types);
-  $vars->{'attachment'} = $attachment;
+  
+  # Define the variables and functions that will be passed to the UI template.
+  $vars->{'attachid'} = $attach_id; 
+  $vars->{'description'} = $description; 
+  $vars->{'contenttype'} = $contenttype; 
+  $vars->{'filename'} = $filename;
+  $vars->{'bugid'} = $bugid; 
   $vars->{'bugsummary'} = $bugsummary; 
+  $vars->{'ispatch'} = $ispatch; 
+  $vars->{'isobsolete'} = $isobsolete; 
+  $vars->{'isprivate'} = $isprivate; 
+  $vars->{'datasize'} = $datasize;
   $vars->{'isviewable'} = $isviewable; 
-  $vars->{'attachments'} = $bugattachments; 
+  $vars->{'attachments'} = \@bugattachments; 
   $vars->{'GetBugLink'} = \&GetBugLink;
 
   # Determine if PatchReader is installed
@@ -1156,7 +1118,7 @@ sub edit {
     require PatchReader;
     $vars->{'patchviewerinstalled'} = 1;
   };
-  print $cgi->header();
+  print Bugzilla->cgi->header();
 
   # Generate and return the UI (HTML page) from the appropriate template.
   $template->process("attachment/edit.html.tmpl", $vars)
@@ -1188,7 +1150,7 @@ sub update
     # and FlagType::validate assume User::match_field has ensured that the
     # values in the requestee fields are legitimate user email addresses.
     Bugzilla::User::match_field($cgi, {
-        '^requestee(_type)?-(\d+)$' => { 'type' => 'multi' }
+        '^requestee(_type)?-(\d+)$' => { 'type' => 'single' }
     });
     Bugzilla::Flag::validate($cgi, $bugid, $attach_id);
     Bugzilla::FlagType::validate($cgi, $bugid, $attach_id);
@@ -1200,10 +1162,12 @@ sub update
           # cc, bug_group_map, user_group_map, and groups are in here so we
           # can check the permissions of flag requestees and email addresses
           # on the flag type cc: lists via the CanSeeBug
-          # function call in Flag::notify. group_group_map is in here si
-          # Bugzilla::User can flatten groups.
-          'bugs WRITE', 'profiles READ', 'email_setting READ',
-          'cc READ', 'bug_group_map READ', 'user_group_map READ',
+          # function call in Flag::notify. group_group_map is in here in case
+          # Bugzilla::User needs to rederive groups. profiles and 
+          # user_group_map would be READ locks instead of WRITE locks if it
+          # weren't for derive_groups, which needs to write to those tables.
+          'bugs WRITE', 'profiles WRITE', 'email_setting READ',
+          'cc READ', 'bug_group_map READ', 'user_group_map WRITE',
           'group_group_map READ', 'groups READ');
 
   # Get a copy of the attachment record before we make changes
@@ -1226,7 +1190,8 @@ sub update
   # to attachments so that we can delete pending requests if the user
   # is obsoleting this attachment without deleting any requests
   # the user submits at the same time.
-  Bugzilla::Flag::process($bugid, $attach_id, $timestamp, $cgi);
+  my $target = Bugzilla::Flag::GetTarget(undef, $attach_id);
+  Bugzilla::Flag::process($target, $timestamp, $cgi);
 
   # Update the attachment record in the database.
   SendSQL("UPDATE  attachments 
@@ -1243,7 +1208,7 @@ sub update
   my $sql_timestamp = SqlQuote($timestamp);
   if ($olddescription ne $cgi->param('description')) {
     my $quotedolddescription = SqlQuote($olddescription);
-    my $fieldid = get_field_id('attachments.description');
+    my $fieldid = GetFieldID('attachments.description');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
@@ -1251,7 +1216,7 @@ sub update
   }
   if ($oldcontenttype ne $cgi->param('contenttype')) {
     my $quotedoldcontenttype = SqlQuote($oldcontenttype);
-    my $fieldid = get_field_id('attachments.mimetype');
+    my $fieldid = GetFieldID('attachments.mimetype');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
@@ -1259,28 +1224,28 @@ sub update
   }
   if ($oldfilename ne $cgi->param('filename')) {
     my $quotedoldfilename = SqlQuote($oldfilename);
-    my $fieldid = get_field_id('attachments.filename');
+    my $fieldid = GetFieldID('attachments.filename');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
                      $quotedoldfilename, $quotedfilename)");
   }
   if ($oldispatch ne $cgi->param('ispatch')) {
-    my $fieldid = get_field_id('attachments.ispatch');
+    my $fieldid = GetFieldID('attachments.ispatch');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
                      $oldispatch, " . $cgi->param('ispatch') . ")");
   }
   if ($oldisobsolete ne $cgi->param('isobsolete')) {
-    my $fieldid = get_field_id('attachments.isobsolete');
+    my $fieldid = GetFieldID('attachments.isobsolete');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
                      $oldisobsolete, " . $cgi->param('isobsolete') . ")");
   }
   if ($oldisprivate ne $cgi->param('isprivate')) {
-    my $fieldid = get_field_id('attachments.isprivate');
+    my $fieldid = GetFieldID('attachments.isprivate');
     SendSQL("INSERT INTO bugs_activity (bug_id, attach_id, who, bug_when,
                                         fieldid, removed, added)
              VALUES ($bugid, $attach_id, $userid, $sql_timestamp, $fieldid,
@@ -1308,7 +1273,7 @@ sub update
   $vars->{'attachid'} = $attach_id; 
   $vars->{'bugid'} = $bugid; 
 
-  print $cgi->header();
+  print Bugzilla->cgi->header();
 
   # Generate and return the UI (HTML page) from the appropriate template.
   $template->process("attachment/updated.html.tmpl", $vars)

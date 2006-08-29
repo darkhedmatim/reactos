@@ -91,8 +91,6 @@ DrvEnableSurface(
          return FALSE;
    }
 
-   ppdev->iDitherFormat = BitmapType;
-
    ScreenSize.cx = ppdev->ScreenWidth;
    ScreenSize.cy = ppdev->ScreenHeight;
 
@@ -183,9 +181,8 @@ DrvAssertMode(
                                   &ulTemp);
       if (ppdev->BitsPerPixel == 8)
       {
-	     IntSetPalette(dhpdev, ppdev->PaletteEntries, 0, 256);
+	 IntSetPalette(dhpdev, ppdev->PaletteEntries, 0, 256);
       }
-
       return Result;
 
    }

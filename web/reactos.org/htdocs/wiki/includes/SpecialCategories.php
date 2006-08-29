@@ -7,6 +7,11 @@
 
 /**
  *
+ */
+require_once("QueryPage.php");
+
+/**
+ *
  * @package MediaWiki
  * @subpackage SpecialPage
  */
@@ -23,23 +28,19 @@ class CategoriesPage extends QueryPage {
 	function isSyndicated() { return false; }
 
 	function getPageHeader() {
-		return wfMsgWikiHtml( 'categoriespagetext' );
+		return '<p>'.wfMsg('categoriespagetext')."</p><br />\n";
 	}
-	
 	function getSQL() {
 		$NScat = NS_CATEGORY;
 		$dbr =& wfGetDB( DB_SLAVE );
 		$categorylinks = $dbr->tableName( 'categorylinks' );
-		$s= "SELECT 'Categories' as type,
+		return "SELECT DISTINCT 'Categories' as type, 
 				{$NScat} as namespace,
 				cl_to as title,
-				1 as value,
-				COUNT(*) as count
-			   FROM $categorylinks
-			   GROUP BY cl_to";
-		return $s;
+				1 as value
+			   FROM $categorylinks";
 	}
-
+	
 	function sortDescending() {
 		return false;
 	}
@@ -47,10 +48,7 @@ class CategoriesPage extends QueryPage {
 	function formatResult( $skin, $result ) {
 		global $wgLang;
 		$title = Title::makeTitle( NS_CATEGORY, $result->title );
-		$plink = $skin->makeLinkObj( $title, $title->getText() );
-		$nlinks = wfMsgExt( 'nmembers', array( 'parsemag', 'escape'),
-			$wgLang->formatNum( $result->count ) );
-		return wfSpecialList($plink, $nlinks);
+		return $skin->makeLinkObj( $title, $title->getText() );
 	}
 }
 

@@ -26,25 +26,23 @@
 #                 Bradley Baetz <bbaetz@student.usyd.edu.au>
 #                 J. Paul Reed <preed@sigkill.com>
 #                 Gervase Markham <gerv@gerv.net>
-#                 Byron Jones <bugzilla@glob.com.au>
 
 use strict;
 
 package Bugzilla::BugMail;
 
-use Bugzilla::User;
+use base qw(Exporter);
+@Bugzilla::BugMail::EXPORT = qw(
+    PerformSubsts
+);
+
 use Bugzilla::Constants;
 use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::Util;
+use Bugzilla::User;
 
-use Date::Parse;
-use Date::Format;
 use Mail::Mailer;
 use Mail::Header;
-use MIME::Base64;
-use MIME::QuotedPrint;
-use MIME::Parser;
-use Mail::Address;
 
 # We need these strings for the X-Bugzilla-Reasons header
 # Note: this hash uses "," rather than "=>" to avoid auto-quoting of the LHS.
@@ -64,6 +62,20 @@ $sitespec =~ s/:\/\//\./; # Make the protocol look like part of the domain
 $sitespec =~ s/^([^:\/]+):(\d+)/$1/; # Remove a port number, to relocate
 if ($2) {
     $sitespec = "-$2$sitespec"; # Put the port number back in, before the '@'
+}
+
+# I got sick of adding &:: to everything.
+# However, 'Yuck!'
+# I can't require, cause that pulls it in only once, so it won't then be
+# in the global package, and these aren't modules, so I can't use globals.pl
+# Remove this evilness once our stuff uses real packages.
+sub AUTOLOAD {
+    no strict 'refs';
+    use vars qw($AUTOLOAD);
+    my $subName = $AUTOLOAD;
+    $subName =~ s/.*::/::/; # remove package name
+    *$AUTOLOAD = \&$subName;
+    goto &$AUTOLOAD;
 }
 
 # This is run when we load the package
@@ -105,47 +117,46 @@ END
 # All the names are email addresses, not userids
 # values are scalars, except for cc, which is a list
 # This hash usually comes from the "mailrecipients" var in a template call.
-sub Send {
+sub Send($;$) {
     my ($id, $forced) = (@_);
 
     # This only works in a sub. Probably something to do with the
     # require abuse we do.
-    &::GetVersionTable();
+    GetVersionTable();
 
     return ProcessOneBug($id, $forced);
 }
 
-sub ProcessOneBug {
+sub ProcessOneBug($$) {
     my ($id, $forced) = (@_);
 
     my @headerlist;
+    my %values;
     my %defmailhead;
     my %fielddescription;
 
     my $msg = "";
 
     my $dbh = Bugzilla->dbh;
-    
-    my $fields = $dbh->selectall_arrayref('SELECT name, description, mailhead 
-                                           FROM fielddefs ORDER BY sortkey');
-
-    foreach my $fielddef (@$fields) {
-        my ($field, $description, $mailhead) = @$fielddef;
+     
+    SendSQL("SELECT name, description, mailhead FROM fielddefs " .
+            "ORDER BY sortkey");
+    while (MoreSQLData()) {
+        my ($field, $description, $mailhead) = (FetchSQLData());
         push(@headerlist, $field);
         $defmailhead{$field} = $mailhead;
         $fielddescription{$field} = $description;
     }
+    SendSQL("SELECT " . join(',', @::log_columns) . ", lastdiffed, now() " .
+            "FROM bugs WHERE bug_id = $id");
+    my @row = FetchSQLData();
+    foreach my $i (@::log_columns) {
+        $values{$i} = shift(@row);
+    }
+    $values{product} = get_product_name($values{product_id});
+    $values{component} = get_component_name($values{component_id});
 
-    my %values = %{$dbh->selectrow_hashref(
-        'SELECT ' . join(',', @::log_columns) . ',
-                lastdiffed AS start, LOCALTIMESTAMP(0) AS end
-           FROM bugs WHERE bug_id = ?',
-        undef, $id)};
-    
-    $values{product} = &::get_product_name($values{product_id});
-    $values{component} = &::get_component_name($values{component_id});
-
-    my ($start, $end) = ($values{start}, $values{end});
+    my ($start, $end) = (@row);
 
     # User IDs of people in various roles. More than one person can 'have' a 
     # role, if the person in that role has changed, or people are watching.
@@ -173,24 +184,24 @@ sub ProcessOneBug {
     # At this point, we don't care if there are duplicates in these arrays.
     my $changer = $forced->{'changer'};
     if ($forced->{'owner'}) {
-        push (@assignees, &::DBNameToIdAndCheck($forced->{'owner'}));
+        push (@assignees, DBNameToIdAndCheck($forced->{'owner'}));
     }
     
     if ($forced->{'qacontact'}) {
-        push (@qa_contacts, &::DBNameToIdAndCheck($forced->{'qacontact'}));
+        push (@qa_contacts, DBNameToIdAndCheck($forced->{'qacontact'}));
     }
     
     if ($forced->{'cc'}) {
         foreach my $cc (@{$forced->{'cc'}}) {
-            push(@ccs, &::DBNameToIdAndCheck($cc));
+            push(@ccs, DBNameToIdAndCheck($cc));
         }
     }
     
     # Convert to names, for later display
-    $values{'assigned_to'} = &::DBID_to_name($values{'assigned_to'});
-    $values{'reporter'} = &::DBID_to_name($values{'reporter'});
+    $values{'assigned_to'} = DBID_to_name($values{'assigned_to'});
+    $values{'reporter'} = DBID_to_name($values{'reporter'});
     if ($values{'qa_contact'}) {
-        $values{'qa_contact'} = &::DBID_to_name($values{'qa_contact'});
+        $values{'qa_contact'} = DBID_to_name($values{'qa_contact'});
     }
     $values{'cc'} = join(', ', @cc_login_names);
     $values{'estimated_time'} = format_time_decimal($values{'estimated_time'});
@@ -199,47 +210,47 @@ sub ProcessOneBug {
         $values{'deadline'} = time2str("%Y-%m-%d", str2time($values{'deadline'}));
     }
 
-    my $dependslist = $dbh->selectcol_arrayref(
-        'SELECT dependson FROM dependencies
-         WHERE blocked = ? ORDER BY dependson',
-        undef, ($id));
+    my @dependslist;
+    SendSQL("SELECT dependson FROM dependencies WHERE 
+             blocked = $id ORDER BY dependson");
+    while (MoreSQLData()) {
+        push(@dependslist, FetchOneColumn());
+    }
+    $values{'dependson'} = join(",", @dependslist);
 
-    $values{'dependson'} = join(",", @$dependslist);
+    my @blockedlist;
+    SendSQL("SELECT blocked FROM dependencies WHERE 
+             dependson = $id ORDER BY blocked");
+    while (MoreSQLData()) {
+        push(@blockedlist, FetchOneColumn());
+    }
+    $values{'blocked'} = join(",", @blockedlist);
 
-    my $blockedlist = $dbh->selectcol_arrayref(
-        'SELECT blocked FROM dependencies
-         WHERE dependson = ? ORDER BY blocked',
-        undef, ($id));
-
-    $values{'blocked'} = join(",", @$blockedlist);
-
-    my @args = ($id);
+    my @diffs;
 
     # If lastdiffed is NULL, then we don't limit the search on time.
-    my $when_restriction = '';
-    if ($start) {
-        $when_restriction = ' AND bug_when > ? AND bug_when <= ?';
-        push @args, ($start, $end);
+    my $when_restriction = $start ? 
+        " AND bug_when > '$start' AND bug_when <= '$end'" : '';
+    SendSQL("SELECT profiles.login_name, fielddefs.description, " .
+            "       bug_when, removed, added, attach_id, fielddefs.name " .
+            "FROM bugs_activity, fielddefs, profiles " .
+            "WHERE bug_id = $id " .
+            "  AND fielddefs.fieldid = bugs_activity.fieldid " .
+            "  AND profiles.userid = who " .
+            $when_restriction .
+            "ORDER BY bug_when"
+            );
+
+    while (MoreSQLData()) {
+        my @row = FetchSQLData();
+        push(@diffs, \@row);
     }
-    
-    my $diffs = $dbh->selectall_arrayref(
-           "SELECT profiles.login_name, fielddefs.description, 
-                   bugs_activity.bug_when, bugs_activity.removed, 
-                   bugs_activity.added, bugs_activity.attach_id, fielddefs.name
-              FROM bugs_activity
-        INNER JOIN fielddefs
-                ON fielddefs.fieldid = bugs_activity.fieldid
-        INNER JOIN profiles
-                ON profiles.userid = bugs_activity.who
-             WHERE bugs_activity.bug_id = ?
-                   $when_restriction
-          ORDER BY bugs_activity.bug_when", undef, @args);
 
     my $difftext = "";
     my $diffheader = "";
     my @diffparts;
     my $lastwho = "";
-    foreach my $ref (@$diffs) {
+    foreach my $ref (@diffs) {
         my ($who, $what, $when, $old, $new, $attachid, $fieldname) = (@$ref);
         my $diffpart = {};
         if ($who ne $lastwho) {
@@ -255,9 +266,9 @@ sub ProcessOneBug {
             $new = format_time_decimal($new);
         }
         if ($attachid) {
-            ($diffpart->{'isprivate'}) = $dbh->selectrow_array(
-                'SELECT isprivate FROM attachments WHERE attach_id = ?',
-                undef, ($attachid));
+            SendSQL("SELECT isprivate FROM attachments 
+                     WHERE attach_id = $attachid");
+            $diffpart->{'isprivate'} = FetchOneColumn();
         }
         $difftext = FormatTriple($what, $old, $new);
         $diffpart->{'header'} = $diffheader;
@@ -268,29 +279,26 @@ sub ProcessOneBug {
 
     my $deptext = "";
 
-    my $dependency_diffs = $dbh->selectall_arrayref(
-           "SELECT bugs_activity.bug_id, bugs.short_desc, fielddefs.name, 
-                   bugs_activity.removed, bugs_activity.added
-              FROM bugs_activity
-        INNER JOIN bugs
-                ON bugs.bug_id = bugs_activity.bug_id
-        INNER JOIN dependencies
-                ON bugs_activity.bug_id = dependencies.dependson
-        INNER JOIN fielddefs
-                ON fielddefs.fieldid = bugs_activity.fieldid
-             WHERE dependencies.blocked = ?
-               AND (fielddefs.name = 'bug_status'
-                    OR fielddefs.name = 'resolution')
-                   $when_restriction
-          ORDER BY bugs_activity.bug_when, bugs.bug_id", undef, @args);
-
+    SendSQL("SELECT bugs_activity.bug_id, bugs.short_desc, fielddefs.name, " .
+            "       removed, added " .
+            "FROM bugs_activity, bugs, dependencies, fielddefs ".
+            "WHERE bugs_activity.bug_id = dependencies.dependson " .
+            "  AND bugs.bug_id = bugs_activity.bug_id ".
+            "  AND dependencies.blocked = $id " .
+            "  AND fielddefs.fieldid = bugs_activity.fieldid" .
+            "  AND (fielddefs.name = 'bug_status' " .
+            "    OR fielddefs.name = 'resolution') " .
+            $when_restriction .
+            "ORDER BY bug_when, bug_id");
+    
     my $thisdiff = "";
     my $lastbug = "";
     my $interestingchange = 0;
+    my $depbug = 0;
     my @depbugs;
-    foreach my $dependency_diff (@$dependency_diffs) {
-        my ($depbug, $summary, $what, $old, $new) = @$dependency_diff;
-
+    while (MoreSQLData()) {
+        my ($summary, $what, $old, $new);
+        ($depbug, $summary, $what, $old, $new) = (FetchSQLData());
         if ($depbug ne $lastbug) {
             if ($interestingchange) {
                 $deptext .= $thisdiff;
@@ -306,7 +314,7 @@ sub ProcessOneBug {
             $interestingchange = 0;
         }
         $thisdiff .= FormatTriple($fielddescription{$what}, $old, $new);
-        if ($what eq 'bug_status' && &::IsOpenedState($old) ne &::IsOpenedState($new)) {
+        if ($what eq 'bug_status' && IsOpenedState($old) ne IsOpenedState($new)) {
             $interestingchange = 1;
         }
         
@@ -326,7 +334,7 @@ sub ProcessOneBug {
     }
 
 
-    my ($newcomments, $anyprivate) = get_comments_by_bug($id, $start, $end);
+    my ($newcomments, $anyprivate) = GetLongDescriptionAsText($id, $start, $end);
 
     ###########################################################################
     # Start of email filtering code
@@ -340,8 +348,8 @@ sub ProcessOneBug {
     # array of role constants.
     
     # Voters
-    my $voters = $dbh->selectcol_arrayref(
-        "SELECT who FROM votes WHERE bug_id = ?", undef, ($id));
+    my $voters = 
+          $dbh->selectcol_arrayref("SELECT who FROM votes WHERE bug_id = $id");
         
     push(@{$recipients{$_}}, REL_VOTER) foreach (@$voters);
 
@@ -364,7 +372,7 @@ sub ProcessOneBug {
 
     # The last relevant set of people are those who are being removed from 
     # their roles in this change. We get their names out of the diffs.
-    foreach my $ref (@$diffs) {
+    foreach my $ref (@diffs) {
         my ($who, $what, $when, $old, $new) = (@$ref);
         if ($old) {
             # You can't stop being the reporter, and mail isn't sent if you
@@ -424,7 +432,7 @@ sub ProcessOneBug {
             foreach my $relationship (@{$recipients{$user_id}}) {
                 if ($user->wants_bug_mail($id,
                                           $relationship, 
-                                          $diffs, 
+                                          \@diffs, 
                                           $newcomments, 
                                           $changer))
                 {
@@ -485,13 +493,12 @@ sub ProcessOneBug {
         } 
     }
     
-    $dbh->do('UPDATE bugs SET lastdiffed = ? WHERE bug_id = ?',
-             undef, ($end, $id));
+    $dbh->do("UPDATE bugs SET lastdiffed = '$end' WHERE bug_id = $id");
 
     return {'sent' => \@sent, 'excluded' => \@excluded};
 }
 
-sub sendMail {
+sub sendMail($$$$$$$$$$$$) {
     my ($user, $hlRef, $relRef, $valueRef, $dmhRef, $fdRef,  
         $diffRef, $newcomments, $anyprivate, $start, 
         $id) = @_;
@@ -604,8 +611,6 @@ sub sendMail {
     }
     $substs{"product"} = $values{'product'};
     $substs{"component"} = $values{'component'};
-    $substs{"keywords"} = $values{'keywords'};
-    $substs{"severity"} = $values{'bug_severity'};
     $substs{"summary"} = $values{'short_desc'};
     $substs{"reasonsheader"} = join(" ", map { $rel_names{$_} } @$relRef);
     $substs{"reasonsbody"} = $reasonsbody;
@@ -620,41 +625,21 @@ sub sendMail {
     
     my $template = Param("newchangedmail");
     
-    my $msg = perform_substs($template, \%substs);
+    my $msg = PerformSubsts($template, \%substs);
 
     MessageToMTA($msg);
 
     return 1;
 }
 
-sub MessageToMTA {
+sub MessageToMTA ($) {
     my ($msg) = (@_);
     return if (Param('mail_delivery_method') eq "none");
 
-    my ($header, $body) = $msg =~ /(.*?\n)\n(.*)/s ? ($1, $2) : ('', $msg);
-    my $headers;
-
-    if (Param('utf8') and (!is_7bit_clean($header) or !is_7bit_clean($body))) {
-        ($headers, $body) = encode_message($msg);
-    } else {
-        my @header_lines = split(/\n/, $header);
-        $headers = new Mail::Header \@header_lines, Modify => 0;
-    }
-
-    my $from = $headers->get('from');
-
     if (Param("mail_delivery_method") eq "sendmail" && $^O =~ /MSWin32/i) {
-        my $cmd = '|' . SENDMAIL_EXE . ' -t -i';
-        if ($from) {
-            # We're on Windows, thus no danger of command injection
-            # via $from. In other words, it is safe to embed $from.
-            $cmd .= qq# -f"$from"#;
-        }
-        open(SENDMAIL, $cmd) ||
+        open(SENDMAIL, '|' . SENDMAIL_EXE . ' -t -i') ||
             die "Failed to execute " . SENDMAIL_EXE . ": $!\n";
-        print SENDMAIL $headers->as_string;
-        print SENDMAIL "\n";
-        print SENDMAIL $body;
+        print SENDMAIL $msg;
         close SENDMAIL;
         return;
     }
@@ -662,191 +647,47 @@ sub MessageToMTA {
     my @args;
     if (Param("mail_delivery_method") eq "sendmail") {
         push @args, "-i";
-        if ($from) {
-            push(@args, "-f$from");
-        }
     }
     if (Param("mail_delivery_method") eq "sendmail" && !Param("sendmailnow")) {
         push @args, "-ODeliveryMode=deferred";
     }
     if (Param("mail_delivery_method") eq "smtp") {
         push @args, Server => Param("smtpserver");
-        if ($from) {
-            $ENV{'MAILADDRESS'} = $from;
-        }
     }
     my $mailer = new Mail::Mailer Param("mail_delivery_method"), @args;
     if (Param("mail_delivery_method") eq "testfile") {
         $Mail::Mailer::testfile::config{outfile} = "$datadir/mailer.testfile";
     }
     
+    $msg =~ /(.*?)\n\n(.*)/ms;
+    my @header_lines = split(/\n/, $1);
+    my $body = $2;
+
+    my $headers = new Mail::Header \@header_lines, Modify => 0;
     $mailer->open($headers->header_hashref);
     print $mailer $body;
     $mailer->close;
 }
 
-sub encode_qp_words {
-    my ($line) = (@_);
-    my @encoded;
-    foreach my $word (split / /, $line) {
-        if (!is_7bit_clean($word)) {
-            push @encoded, '=?UTF-8?Q?_' . encode_qp($word, '') . '?=';
-        } else {
-            push @encoded, $word;
-        }
-    }
-    return join(' ', @encoded);
-}
-
-sub encode_message {
-    my ($msg) = @_;
-
-    my $parser = MIME::Parser->new;
-    $parser->output_to_core(1);
-    $parser->tmp_to_core(1);
-    my $entity = $parser->parse_data($msg);
-    $entity = encode_message_entity($entity);
-
-    my @header_lines = split(/\n/, $entity->header_as_string);
-    my $head = new Mail::Header \@header_lines, Modify => 0;
-
-    my $body = $entity->body_as_string;
-
-    return ($head, $body);
-}
-
-sub encode_message_entity {
-    my ($entity) = @_;
-
-    my $head = $entity->head;
-
-    # encode the subject
-
-    my $subject = $head->get('subject');
-    if (defined $subject && !is_7bit_clean($subject)) {
-        $subject =~ s/[\r\n]+$//;
-        $head->replace('subject', encode_qp_words($subject));
-    }
-
-    # encode addresses
-
-    foreach my $field (qw(from to cc reply-to sender errors-to)) {
-        my $high = $head->count($field) - 1;
-        foreach my $index (0..$high) {
-            my $value = $head->get($field, $index);
-            my @addresses;
-            my $changed = 0;
-            foreach my $addr (Mail::Address->parse($value)) {
-                my $phrase = $addr->phrase;
-                if (is_7bit_clean($phrase)) {
-                    push @addresses, $addr->format;
-                } else {
-                    push @addresses, encode_qp_phrase($phrase) . 
-                        ' <' . $addr->address . '>';
-                    $changed = 1;
-                }
-            }
-            $changed && $head->replace($field, join(', ', @addresses), $index);
-        }
-    }
-
-    # process the body
-
-    if (scalar($entity->parts)) {
-        my $newparts = [];
-        foreach my $part ($entity->parts) {
-            my $newpart = encode_message_entity($part);
-            push @$newparts, $newpart;
-        }
-        $entity->parts($newparts);
-    }
-    else {
-        # Extract the body from the entity, for examination
-        # At this point, we can rely on MIME::Tools to do our encoding for us!
-        my $bodyhandle = $entity->bodyhandle;
-        my $body = $bodyhandle->as_string;
-        if (!is_7bit_clean($body)) {
-            # count number of 7-bit chars, and use quoted-printable if more
-            # than half the message is 7-bit clean
-            my $count = ($body =~ tr/\x20-\x7E\x0A\x0D//);
-            if ($count > length($body) / 2) {
-                $head->mime_attr('Content-Transfer-Encoding' => 'quoted-printable');
-            } else {
-                $head->mime_attr('Content-Transfer-Encoding' => 'base64');
-            }
-        }
-
-        # Set the content/type and charset of the part, if not set
-        $head->mime_attr('Content-Type' => 'text/plain')
-            unless defined $head->mime_attr('content-type');
-        $head->mime_attr('Content-Type.charset' => 'UTF-8');
-    }
-
-    $head->fold(75);
-    return $entity;
-}
-
-# Send the login name and password of the newly created account to the user.
-sub MailPassword {
-    my ($login, $password) = (@_);
-    my $template = Param("passwordmail");
-    my $msg = perform_substs($template,
-                            {"mailaddress" => $login . Param('emailsuffix'),
-                             "login" => $login,
-                             "password" => $password});
-    MessageToMTA($msg);
-}
-
-# Get bug comments for the given period and format them to be used in emails.
-sub get_comments_by_bug {
-    my ($id, $start, $end) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    my $result = "";
-    my $count = 0;
-    my $anyprivate = 0;
-
-    my $query = 'SELECT profiles.login_name, ' .
-                        $dbh->sql_date_format('longdescs.bug_when', '%Y.%m.%d %H:%i') . ',
-                        longdescs.thetext, longdescs.isprivate,
-                        longdescs.already_wrapped
-                   FROM longdescs
-             INNER JOIN profiles
-                     ON profiles.userid = longdescs.who
-                  WHERE longdescs.bug_id = ? ';
-
-    my @args = ($id);
-
-    # $start will be undef for new bugs, and defined for pre-existing bugs.
-    if ($start) {
-        # If $start is not NULL, obtain the count-index
-        # of this comment for the leading "Comment #xxx" line.
-        $count = $dbh->selectrow_array('SELECT COUNT(*) FROM longdescs
-                                        WHERE bug_id = ? AND bug_when <= ?',
-                                        undef, ($id, $start));
-
-        $query .= ' AND longdescs.bug_when > ?
-                    AND longdescs.bug_when <= ? ';
-        push @args, ($start, $end);
-    }
-
-    $query .= ' ORDER BY longdescs.bug_when';
-    my $comments = $dbh->selectall_arrayref($query, undef, @args);
-
-    foreach (@$comments) {
-        my ($who, $when, $text, $isprivate, $already_wrapped) = @$_;
-        if ($count) {
-            $result .= "\n\n------- Comment #$count from $who" .
-                       Param('emailsuffix'). "  " . format_time($when) .
-                       " -------\n";
-        }
-        if ($isprivate > 0 && Param('insidergroup')) {
-            $anyprivate = 1;
-        }
-        $result .= ($already_wrapped ? $text : wrap_comment($text));
-        $count++;
-    }
-    return ($result, $anyprivate);
+# Performs substitutions for sending out email with variables in it,
+# or for inserting a parameter into some other string.
+#
+# Takes a string and a reference to a hash containing substitution 
+# variables and their values.
+#
+# If the hash is not specified, or if we need to substitute something
+# that's not in the hash, then we will use parameters to do the 
+# substitution instead.
+#
+# Substitutions are always enclosed with '%' symbols. So they look like:
+# %some_variable_name%. If "some_variable_name" is a key in the hash, then
+# its value will be placed into the string. If it's not a key in the hash,
+# then the value of the parameter called "some_variable_name" will be placed
+# into the string.
+sub PerformSubsts ($;$) {
+    my ($str, $substs) = (@_);
+    $str =~ s/%([a-z]*)%/(defined $substs->{$1} ? $substs->{$1} : Param($1))/eg;
+    return $str;
 }
 
 1;

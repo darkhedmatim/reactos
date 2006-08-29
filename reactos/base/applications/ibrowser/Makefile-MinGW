@@ -50,14 +50,13 @@ OBJECTS = \
 	webchild.o \
 	mainframe.o \
 	favorites.o \
-	xs-native.o \
 	xmlstorage.o
 
 LIBS = gdi32 comctl32 shell32 ole32 uuid oleaut32
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(PROGRAM)$(RES_SUFFIX)
+$(TARGET): $(OBJECTS) $(PROGRAM)$(RES_SUFFIX) libexpat.dll
 	$(LINK) $(LFLAGS) -o $@ $^ $(addprefix -l,$(LIBS)) $(addprefix -l,$(DELAYIMPORTS))
 
 ibrowser$(RES_SUFFIX): $(PROGRAM)_intres.rc res/*.bmp res/*.ico

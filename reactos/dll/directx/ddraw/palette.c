@@ -20,7 +20,7 @@ DirectDrawPalette_Release( LPDIRECTDRAWPALETTE iface)
 
 	if (iface!=NULL)
 	{	  	
-		ref = InterlockedDecrement( (PLONG) &This->DDPalette.dwRefCnt);
+		ref = InterlockedDecrement( (PLONG) &This->ref);
             
 		if (ref == 0)
 		{		
@@ -30,7 +30,7 @@ DirectDrawPalette_Release( LPDIRECTDRAWPALETTE iface)
 		      			
             if (This!=NULL)
             {              
-			    DxHeapMemFree(This);
+			    HeapFree(GetProcessHeap(), 0, This);
             }
 		}
     }
@@ -48,7 +48,7 @@ DirectDrawPalette_AddRef( LPDIRECTDRAWPALETTE iface)
     
    if (iface!=NULL)
    {
-       ref = InterlockedIncrement( (PLONG) &This->DDPalette.dwRefCnt);       
+       ref = InterlockedIncrement( (PLONG) &This->ref);       
    }    
    return ref;    
 }

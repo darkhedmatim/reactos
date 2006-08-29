@@ -27,20 +27,21 @@ use lib qw(.);
 
 use vars qw(
   @legal_keywords
+  $buffer
+  $template
+  $vars
 );
 
 use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::User;
-require "globals.pl";
+require "CGI.pl";
 
 Bugzilla->login();
 
 GetVersionTable();
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
 
 # The master list not only says what fields are possible, but what order
 # they get displayed in.
@@ -149,7 +150,7 @@ if (defined $cgi->cookie('COLUMNLIST')) {
 $vars->{'collist'} = \@collist;
 $vars->{'splitheader'} = $cgi->cookie('SPLITHEADER') ? 1 : 0;
 
-$vars->{'buffer'} = $cgi->query_string();
+$vars->{'buffer'} = $::buffer;
 
 # Generate and return the UI (HTML page) from the appropriate template.
 print $cgi->header();

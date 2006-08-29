@@ -714,7 +714,7 @@ IntGetSystemMenu(PWINDOW_OBJECT Window, BOOL bRevert, BOOL RetMenu)
 
    if(bRevert)
    {
-      W32Thread = PsGetCurrentThreadWin32Thread();
+      W32Thread = PsGetWin32Thread();
 
       if(!W32Thread->Desktop)
          return NULL;
@@ -1426,7 +1426,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
    BOOL HasOwner;
    USER_REFERENCE_ENTRY ParentRef, Ref;
 
-   ParentWindowHandle = PsGetCurrentThreadWin32Thread()->Desktop->DesktopWindow;
+   ParentWindowHandle = PsGetWin32Thread()->Desktop->DesktopWindow;
    OwnerWindowHandle = NULL;
 
    if (hWndParent == HWND_MESSAGE)
@@ -1439,7 +1439,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
    }
    else if (hWndParent)
    {
-      if ((dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD)
+      if ((dwStyle & (WS_CHILD | WS_POPUP)) != WS_CHILD) 
       {  //temp hack
          PWINDOW_OBJECT Par = UserGetWindowObject(hWndParent), Root;
          if (Par && (Root = UserGetAncestor(Par, GA_ROOT)))
@@ -1450,7 +1450,6 @@ co_IntCreateWindowEx(DWORD dwExStyle,
    }
    else if ((dwStyle & (WS_CHILD | WS_POPUP)) == WS_CHILD)
    {
-      SetLastWin32Error(ERROR_TLW_WITH_WSCHILD);
       RETURN( (HWND)0);  /* WS_CHILD needs a parent, but WS_POPUP doesn't */
    }
 
@@ -1469,7 +1468,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
 
    /* Check the window station. */
    ti = GetW32ThreadInfo();
-   if (ti == NULL || PsGetCurrentThreadWin32Thread()->Desktop == NULL)
+   if (ti == NULL || PsGetWin32Thread()->Desktop == NULL)
    {
       DPRINT1("Thread is not attached to a desktop! Cannot create window!\n");
       RETURN( (HWND)0);
@@ -1507,7 +1506,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
        RETURN(NULL);
    }
 
-   WinSta = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+   WinSta = PsGetWin32Thread()->Desktop->WindowStation;
 
    //FIXME: Reference thread/desktop instead
    ObReferenceObjectByPointer(WinSta, KernelMode, ExWindowStationObjectType, 0);
@@ -1530,10 +1529,10 @@ co_IntCreateWindowEx(DWORD dwExStyle,
 
    ObDereferenceObject(WinSta);
 
-   if (NULL == PsGetCurrentThreadWin32Thread()->Desktop->DesktopWindow)
+   if (NULL == PsGetWin32Thread()->Desktop->DesktopWindow)
    {
       /* If there is no desktop window yet, we must be creating it */
-      PsGetCurrentThreadWin32Thread()->Desktop->DesktopWindow = hWnd;
+      PsGetWin32Thread()->Desktop->DesktopWindow = hWnd;
    }
 
    /*
@@ -1561,7 +1560,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
       IntSetMenu(Window, hMenu, &MenuChanged);
    }
 
-   Window->MessageQueue = PsGetCurrentThreadWin32Thread()->MessageQueue;
+   Window->MessageQueue = PsGetWin32Thread()->MessageQueue;
    IntReferenceMessageQueue(Window->MessageQueue);
    Window->Parent = ParentWindow;
    
@@ -1663,7 +1662,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
    }
 
    /* Insert the window into the thread's window list. */
-   InsertTailList (&PsGetCurrentThreadWin32Thread()->WindowListHead, &Window->ThreadListEntry);
+   InsertTailList (&PsGetWin32Thread()->WindowListHead, &Window->ThreadListEntry);
 
    /* Allocate a DCE for this window. */
    if (dwStyle & CS_OWNDC)
@@ -2244,7 +2243,7 @@ BOOLEAN FASTCALL co_UserDestroyWindow(PWINDOW_OBJECT Window)
                   continue;
                }
 
-               if (IntWndBelongsToThread(Child, PsGetCurrentThreadWin32Thread()))
+               if (IntWndBelongsToThread(Child, PsGetWin32Thread()))
                {
                   USER_REFERENCE_ENTRY ChildRef;
                   UserRefObjectCo(Child, &ChildRef);//temp hack?
@@ -2276,7 +2275,7 @@ BOOLEAN FASTCALL co_UserDestroyWindow(PWINDOW_OBJECT Window)
    }
 
    /* Destroy the window storage */
-   co_UserFreeWindow(Window, PsGetCurrentProcessWin32Process(), PsGetCurrentThreadWin32Thread(), TRUE);
+   co_UserFreeWindow(Window, PsGetWin32Process(), PsGetWin32Thread(), TRUE);
 
    return TRUE;
 }
@@ -4455,7 +4454,7 @@ NtUserWindowFromPoint(LONG X, LONG Y)
       //its possible this referencing is useless, thou it shouldnt hurt...
       UserRefObjectCo(DesktopWindow, &Ref);
       
-      Hit = co_WinPosWindowFromPoint(DesktopWindow, PsGetCurrentThreadWin32Thread()->MessageQueue, &pt, &Window);
+      Hit = co_WinPosWindowFromPoint(DesktopWindow, PsGetWin32Thread()->MessageQueue, &pt, &Window);
       
       if(Window)
       {

@@ -10,9 +10,7 @@
 #ifndef __EVENTLOG_H__
 #define __EVENTLOG_H__
 
-#define NDEBUG
 #define WIN32_NO_STATUS
-
 #include <windows.h>
 #include <lpctypes.h>
 #include <lpcfuncs.h>
@@ -140,7 +138,7 @@ BOOL LogfAddOffsetInformation(PLOGFILE LogFile,
 							  ULONG ulNumber,
 							  ULONG ulOffset);
 
-PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
+DWORD LogfBuildNewRecord(PBYTE Buffer, 
 						 DWORD dwRecordNumber,
 						 WORD wType,
 						 WORD wCategory,
@@ -153,8 +151,6 @@ PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
 						 WCHAR *lpStrings,
 						 DWORD dwDataSize,
 						 LPVOID lpRawData);
-
-inline void LogfFreeRecord(LPVOID Rec);
 
 /* eventlog.c */
 VOID PRINT_HEADER(PFILE_HEADER header);

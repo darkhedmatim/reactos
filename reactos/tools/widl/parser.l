@@ -1,4 +1,4 @@
-/* -*-C-*-
+/*
  * IDL Compiler
  *
  * Copyright 2002 Ove Kaaven
@@ -15,12 +15,11 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 %option stack
-%option nounput noyy_top_state
-%option 8bit never-interactive
+%option never-interactive
 
 nl	\r?\n
 ws	[ \f\t\r]
@@ -51,7 +50,11 @@ uuid	{hexd}{8}-{hexd}{4}-{hexd}{4}-{hexd}{4}-{hexd}{12}
 #include "parser.h"
 #include "wine/wpp.h"
 
-#include "parser.tab.h"
+#include "y.tab.h"
+
+#define YY_USE_PROTOS
+#define YY_NO_UNPUT
+#define YY_NO_TOP_STATE
 
 extern char *temp_name;
 
@@ -145,7 +148,6 @@ static UUID* parse_uuid(const char*u)
 				yylval.num = strtoul(yytext, NULL, 0);
 				return aNUM;
 			}
-SAFEARRAY{ws}*/\(	return tSAFEARRAY;
 {cident}		return kw_token(yytext);
 \n			line_number++;
 {ws}
@@ -173,8 +175,6 @@ static struct keyword {
 	int token;
 	int val;
 } keywords[] = {
-	{"FALSE",			tFALSE},
-	{"TRUE",			tTRUE},
 	{"__cdecl",			tCDECL},
 	{"__int64",			tINT64},
 	{"__stdcall",			tSTDCALL},
@@ -182,6 +182,7 @@ static struct keyword {
 	{"aggregatable",		tAGGREGATABLE},
 	{"allocate",			tALLOCATE},
 	{"appobject",			tAPPOBJECT},
+	{"arrays",			tARRAYS},
 	{"async",			tASYNC},
 	{"async_uuid",			tASYNCUUID},
 	{"auto_handle",			tAUTOHANDLE},
@@ -205,45 +206,50 @@ static struct keyword {
 	{"cpp_quote",			tCPPQUOTE},
 /* ... */
 	{"default",			tDEFAULT},
-	{"defaultcollelem",		tDEFAULTCOLLELEM},
 	{"defaultvalue",		tDEFAULTVALUE},
-	{"defaultvtable",		tDEFAULTVTABLE},
+/* ... */
 	{"dispinterface",		tDISPINTERFACE},
-	{"displaybind",			tDISPLAYBIND},
+/* ... */
 	{"dllname",			tDLLNAME},
 	{"double",			tDOUBLE},
 	{"dual",			tDUAL},
+/* ... */
 	{"endpoint",			tENDPOINT},
 	{"entry",			tENTRY},
 	{"enum",			tENUM},
 	{"error_status_t",		tERRORSTATUST},
 	{"explicit_handle",		tEXPLICITHANDLE},
 	{"extern",			tEXTERN},
+/* ... */
 	{"float",			tFLOAT},
+/* ... */
 	{"handle",			tHANDLE},
 	{"handle_t",			tHANDLET},
+/* ... */
 	{"helpcontext",			tHELPCONTEXT},
 	{"helpfile",			tHELPFILE},
 	{"helpstring",			tHELPSTRING},
 	{"helpstringcontext",		tHELPSTRINGCONTEXT},
 	{"helpstringdll",		tHELPSTRINGDLL},
-	{"hidden",                      tHIDDEN},
+/* ... */
+	{"hidden",			tHIDDEN},
 	{"hyper",			tHYPER},
 	{"id",				tID},
 	{"idempotent",			tIDEMPOTENT},
 /* ... */
 	{"iid_is",			tIIDIS},
-	{"immediatebind",		tIMMEDIATEBIND},
+/* ... */
 	{"implicit_handle",		tIMPLICITHANDLE},
 	{"import",			tIMPORT},
 	{"importlib",			tIMPORTLIB},
 	{"in",				tIN},
+	{"include",			tINCLUDE},
 	{"in_line",			tINLINE},
 	{"input_sync",			tINPUTSYNC},
 	{"int",				tINT},
 /* ... */
 	{"interface",			tINTERFACE},
-	{"lcid",			tLCID},
+/* ... */
 	{"length_is",			tLENGTHIS},
 	{"library",			tLIBRARY},
 /* ... */
@@ -254,9 +260,7 @@ static struct keyword {
 /* ... */
 	{"module",			tMODULE},
 /* ... */
-	{"nonbrowsable",		tNONBROWSABLE},
 	{"noncreatable",		tNONCREATABLE},
-	{"nonextensible",		tNONEXTENSIBLE},
 	{"object",			tOBJECT},
 	{"odl",				tODL},
 	{"oleautomation",		tOLEAUTOMATION},
@@ -270,15 +274,14 @@ static struct keyword {
 	{"propget",			tPROPGET},
 	{"propput",			tPROPPUT},
 	{"propputref",			tPROPPUTREF},
-        {"ptr",				tPTR},
 /* ... */
+	{"ptr",				tPTR},
 	{"public",			tPUBLIC},
-        {"range",			tRANGE},
 /* ... */
 	{"readonly",			tREADONLY},
 	{"ref",				tREF},
-	{"requestedit",			tREQUESTEDIT},
-	{"restricted",                  tRESTRICTED},
+/* ... */
+	{"restricted",			tRESTRICTED},
 	{"retval",			tRETVAL},
 /* ... */
 	{"short",			tSHORT},
@@ -286,8 +289,8 @@ static struct keyword {
 	{"single",			tSINGLE},
 	{"size_is",			tSIZEIS},
 	{"sizeof",			tSIZEOF},
-        {"small",			tSMALL},
 /* ... */
+	{"small",			tSMALL},
 	{"source",			tSOURCE},
 /* ... */	
 	{"string",			tSTRING},
@@ -298,8 +301,8 @@ static struct keyword {
 /* ... */
 	{"transmit_as",			tTRANSMITAS},
 	{"typedef",			tTYPEDEF},
-	{"union",			tUNION},
 /* ... */
+	{"union",			tUNION},
 	{"unique",			tUNIQUE},
 	{"unsigned",			tUNSIGNED},
 /* ... */
@@ -310,7 +313,7 @@ static struct keyword {
 	{"version",			tVERSION},
 	{"void",			tVOID},
 	{"wchar_t",			tWCHAR},
-	{"wire_marshal",		tWIREMARSHAL},
+	{"wire_marshal",		tWIREMARSHAL}
 };
 #define NKEYWORDS (sizeof(keywords)/sizeof(keywords[0]))
 #define KWP(p) ((const struct keyword *)(p))

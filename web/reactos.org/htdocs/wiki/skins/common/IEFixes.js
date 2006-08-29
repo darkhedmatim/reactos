@@ -20,6 +20,7 @@ function fixalpha() {
     // bg
     if (isMSIE55 && !doneIEAlphaFix)
     {
+        doneIEAlphaFix = true;
         var plogo = document.getElementById('p-logo');
         if (!plogo) return;
 
@@ -28,8 +29,6 @@ function fixalpha() {
 
         var bg = logoa.currentStyle.backgroundImage;
         var imageUrl = bg.substring(5, bg.length-2);
-
-        doneIEAlphaFix = true;
 
         if (imageUrl.substr(imageUrl.length-4).toLowerCase() == '.png') {
             var logospan = logoa.appendChild(document.createElement('span'));

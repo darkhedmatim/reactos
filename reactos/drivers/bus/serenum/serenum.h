@@ -15,6 +15,8 @@
 #if defined(__GNUC__)
   #include <debug.h>
 #elif defined(_MSC_VER)
+  #define STDCALL
+
   #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
   #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
   #define DPRINT DPRINT1
@@ -86,7 +88,7 @@ SerenumDetectLegacyDevice(
 
 /************************************ fdo.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SerenumAddDevice(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PDEVICE_OBJECT Pdo);
@@ -108,17 +110,17 @@ ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpToLowerDeviceAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpToAttachedFdoAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
@@ -132,7 +134,7 @@ SerenumPdoPnp(
 
 /************************************ serenum.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PUNICODE_STRING RegPath);

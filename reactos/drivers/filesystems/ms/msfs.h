@@ -10,7 +10,7 @@
 #define __DRIVERS_FS_MS_MSFS_H
 
 #include <ntifs.h>
-#include <iotypes.h>
+#include <ndk/ntndk.h>
 
 /*
  * FIXME: GCC doesn't have a working option for defaulting to a calling
@@ -37,7 +37,6 @@ typedef struct _MSFS_DEVICE_EXTENSION
 
 typedef struct _MSFS_FCB
 {
-    FSRTL_COMMON_FCB_HEADER RFCB;
     UNICODE_STRING Name;
     LIST_ENTRY FcbListEntry;
     KSPIN_LOCK CcbListLock;

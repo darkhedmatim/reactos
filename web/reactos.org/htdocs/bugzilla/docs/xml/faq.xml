@@ -130,7 +130,7 @@
             a bug at bugzilla.mozilla.org</ulink> and set the Severity
             to 'enhancement'. Your 'request for enhancement' (RFE) will
             start out in the UNCONFIRMED state, and will stay there until
-            someone with the ability to CONFIRM the bug reviews it.
+            someone with the ability to COMFIRM the bug reviews it.
             If that person feels it to be a good request that fits in with
             Bugzilla's overall direction, the status will be changed to
             NEW; if not, they will probably explain why and set the bug
@@ -216,7 +216,7 @@
             version of Perl and other tools that were completely under his
             control. This location was abandoned for the 2.18 release in favor
             of the more sensible <filename>/usr/bin/perl</filename>. If you
-            installed an older version of Bugzilla and created the symlink we
+            installed an older verion of Bugzilla and created the symlink we
             suggested, you can remove it now (provided that you don't have
             anything else, such as Bonsai, using it and you don't intend to
             reinstall an older version of Bugzilla).

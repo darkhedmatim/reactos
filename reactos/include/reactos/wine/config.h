@@ -574,9 +574,7 @@
 #define HAVE_STDLIB_H 1
 
 /* Define to 1 if you have the `strcasecmp' function. */
-#if !defined(_WIN32) && !defined(_WIN64)
-#define HAVE_STRCASECMP 1
-#endif
+//#define HAVE_STRCASECMP 1
 
 /* Define to 1 if you have the `strerror' function. */
 #define HAVE_STRERROR 1
@@ -588,9 +586,7 @@
 #define HAVE_STRING_H 1
 
 /* Define to 1 if you have the `strncasecmp' function. */
-#if !defined(_WIN32) && !defined(_WIN64)
-#define HAVE_STRNCASECMP 1
-#endif
+//#define HAVE_STRNCASECMP 1
 
 /* Define to 1 if `direction' is member of `struct ff_effect'. */
 /* #undef HAVE_STRUCT_FF_EFFECT_DIRECTION */
@@ -857,14 +853,10 @@
 #define HAVE__SPAWNVP 1
 
 /* Define to 1 if you have the `_stricmp' function. */
-#if defined(_WIN32) || defined(_WIN64)
-#define HAVE__STRICMP 1
-#endif
+//#define HAVE__STRICMP 1
 
 /* Define to 1 if you have the `_strnicmp' function. */
-#if defined(_WIN32) || defined(_WIN64)
 #define HAVE__STRNICMP 1
-#endif
 
 /* Define to 1 if you have the `_vsnprintf' function. */
 #define HAVE__VSNPRINTF 1

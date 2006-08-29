@@ -97,12 +97,6 @@
 #        output files) or no (to not build non-symbol-stripped versions of
 #        executable output files). The variable defaults to no.
 #
-#    ROS_LEAN_AND_MEAN
-#        This variable controls if all binaries should be stripped out of useless
-#        data added by GCC/LD as well as of RSYM symbol data. Output binary size
-#        will go from 80 to 40MB, memory usage from 58 to 38MB and the install CD
-#        from 18 to 13MB. The variable defaults to no.
-#
 #    ROS_RBUILDFLAGS
 #        Pass parameters to rbuild.
 #            -v           Be verbose.
@@ -209,7 +203,6 @@ ifeq ($(HALFVERBOSEECHO),yes)
   ECHO_REGTESTS=@echo $(QUOTE)[REGTESTS] $@$(QUOTE)
   ECHO_TEST    =@echo $(QUOTE)[TEST]     $@$(QUOTE)
   ECHO_GENDIB  =@echo $(QUOTE)[GENDIB]   $@$(QUOTE)
-  ECHO_STRIP   =@echo $(QUOTE)[STRIP]    $@$(QUOTE)
 else
   ECHO_CP      =
   ECHO_MKDIR   =
@@ -238,7 +231,6 @@ else
   ECHO_REGTESTS=
   ECHO_TEST    =
   ECHO_GENDIB  =
-  ECHO_STRIP   =
 endif
 
 
@@ -264,7 +256,6 @@ endif
 	ar = $(Q)$(PREFIX)-ar
 	objcopy = $(Q)$(PREFIX)-objcopy
 	dlltool = $(Q)$(PREFIX)-dlltool
-	strip = $(Q)$(PREFIX)-strip
 	windres = $(Q)$(PREFIX)-windres
 	rm = $(Q)rm -f
 	cp = $(Q)cp
@@ -284,7 +275,6 @@ else # mingw32-windows
 	ar = $(Q)ar
 	objcopy = $(Q)objcopy
 	dlltool = $(Q)dlltool
-	strip = $(Q)strip
 	windres = $(Q)windres
 	rm = $(Q)rm -f
 	cp = $(Q)cp
@@ -303,7 +293,6 @@ else # mingw32-windows
 	ar = $(Q)ar
 	objcopy = $(Q)objcopy
 	dlltool = $(Q)dlltool
-	strip = $(Q)strip
 	windres = $(Q)windres
 	rm = $(Q)del /f /q
 	cp = $(Q)copy /y
@@ -414,42 +403,42 @@ $(ERRCODES_H) $(ERRCODES_RC): $(WMC_TARGET) $(KERNEL32_MC)
 .PHONY: msvc6
 msvc6: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs6.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs6.00 msvc
 
 .PHONY: msvc7
 msvc7: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 msvc
 
 .PHONY: msvc71
 msvc71: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 msvc
 
 .PHONY: msvc8
 msvc8: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 msvc
 
 .PHONY: msvc6_clean
 msvc6_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 msvc
 
 .PHONY: msvc7_clean
 msvc7_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 msvc
 
 .PHONY: msvc71_clean
 msvc71_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 msvc
 
 .PHONY: msvc8_clean
 msvc8_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.00 msvc
 
 .PHONY: msvc_clean
 msvc_clean: $(RBUILD_TARGET)
@@ -459,56 +448,56 @@ msvc_clean: $(RBUILD_TARGET)
 .PHONY: msvc_clean_all
 msvc_clean_all: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.10 msvc
 
 .PHONY: msvc7_install_debug
 msvc7_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcdebug msvc
 
 .PHONY: msvc7_install_release
 msvc7_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcrelease msvc
 
 .PHONY: msvc7_install_speed
 msvc7_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcspeed msvc
 
 .PHONY: msvc71_install_debug
 msvc71_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcdebug msvc
 
 .PHONY: msvc71_install_release
 msvc71_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcrelease msvc
 
 
 .PHONY: msvc71_install_speed
 msvc71_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcspeed msvc
 
 .PHONY: msvc8_install_debug
 msvc8_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcdebug msvc
 
 .PHONY: msvc8_install_release
 msvc8_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcrelease msvc
 
 .PHONY: msvc8_install_speed
 msvc8_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcspeed msvc
 
 .PHONY: makefile_auto_clean
 makefile_auto_clean:

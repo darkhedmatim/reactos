@@ -94,14 +94,14 @@ CsrPopulateDosDevicesDirectory(IN HANDLE hDosDevicesDirectory,
         if (NT_SUCCESS(Status))
         {
             /* Make sure it has a name */
-            if (!QueryBuffer->Name.Buffer[0]) continue;
+            if (!QueryBuffer->ObjectName.Buffer[0]) continue;
 
             /* Check if it's actually a symbolic link */
-            if (wcscmp(QueryBuffer->TypeName.Buffer, SYMLINK_NAME))
+            if (wcscmp(QueryBuffer->ObjectTypeName.Buffer, SYMLINK_NAME))
             {
                 /* It is, open it */
                 InitializeObjectAttributes(&ObjectAttributes,
-                                           &QueryBuffer->Name,
+                                           &QueryBuffer->ObjectName,
                                            OBJ_CASE_INSENSITIVE,
                                            NULL,
                                            hDirectory);

@@ -120,7 +120,7 @@ HalpSetECMOS(USHORT Reg,
 }
 
 
-BOOLEAN STDCALL
+VOID STDCALL
 HalQueryRealTimeClock(PTIME_FIELDS Time)
 {
     KIRQL oldIrql;
@@ -162,7 +162,6 @@ HalQueryRealTimeClock(PTIME_FIELDS Time)
 #endif
 
     Time->Milliseconds = 0;
-    return TRUE;
 }
 
 
@@ -189,13 +188,14 @@ HalSetRealTimeClock(PTIME_FIELDS Time)
     HalpSetCMOS (RTC_REGISTER_CENTURY, INT_BCD(Time->Year / 100));
 #endif
     KeReleaseSpinLock(&CmosLock, oldIrql);
+
 }
 
 
 BOOLEAN STDCALL
 HalGetEnvironmentVariable(PCH Name,
-			  USHORT ValueLength,
-              PCH Value)
+			  PCH Value,
+			  USHORT ValueLength)
 {
    KIRQL oldIrql;
 

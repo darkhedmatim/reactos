@@ -3,10 +3,6 @@
     <define name="__USE_W32API" />
     <library>ntdll</library>
     <library>setupapi</library>
-    <file>devclass.c</file>
-    <file>install.c</file>
-    <file>parser.c</file>
-    <file>query.c</file>
-    <file>stringtable.c</file>
     <file>testlist.c</file>
+    <file>stringtable.c</file>
 </module>

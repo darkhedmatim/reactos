@@ -30,7 +30,7 @@
 #include <debug.h>
 
 #define CHECK_LOCK                                                      \
-        if (ClipboardThread && ClipboardThread != PsGetCurrentThreadWin32Thread())   \
+        if (ClipboardThread && ClipboardThread != PsGetWin32Thread())   \
         {                                                               \
         SetLastWin32Error(ERROR_LOCKED);                                \
         return FALSE;                                                   \
@@ -68,7 +68,7 @@ NtUserOpenClipboard(HWND hWnd, DWORD Unknown1)
    CHECK_LOCK
 
    tempClipboardWindow = hWnd;
-   ClipboardThread = PsGetCurrentThreadWin32Thread();
+   ClipboardThread = PsGetWin32Thread();
    return TRUE;
 }
 

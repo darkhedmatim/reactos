@@ -18,13 +18,12 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
     */
 ?>
-<div class="navTitle"><?php echo $roscms_langres['Dev_Interface']; ?></div>
+<div class="navTitle">Dev Interface</div>
 	<ol>
-		<li><a href="?page=dev"><?php echo $roscms_langres['Dev_Overview']; ?></a></li>
-		<li><a href="?page=dev&amp;sec=generate"><?php echo $roscms_langres['Dev_PageGenerator']; ?></a></li>
-		<li><a href="?page=dev&amp;sec=pages&amp;sec2=view"><?php echo $roscms_langres['Dev_Pages']; ?></a></li>
-		<li><a href="?page=dev&amp;sec=content&amp;sec2=view"><?php echo $roscms_langres['Dev_Contents']; ?></a></li>
-		<li><a href="?page=dev&amp;sec=help"><?php echo $roscms_langres['Dev_Help']; ?></a></li>
+		<li><a href="?page=dev">Overview</a></li>
+		<li><a href="?page=dev&amp;sec=content&amp;sec2=view">Static Page Content</a></li>
+		<li><a href="?page=dev&amp;sec=devpage">My own Page</a></li>
+		<li><a href="?page=dev&amp;sec=help">Documentation</a></li>
 	</ol>
 </div>
 <p></p>

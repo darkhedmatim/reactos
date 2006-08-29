@@ -1,9 +1,10 @@
-/*
- * PROJECT:         ReactOS Win32 Base API
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            dll/win32/kernel32/mem/section.c
- * PURPOSE:         Handles virtual memory APIs
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+/* $Id$
+ *
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PROJECT:              ReactOS kernel
+ * FILE:                 lib/kernel32/mem/section.c
+ * PURPOSE:              Implementing file mapping
+ * PROGRAMMER:           David Welch (welch@mcmail.com)
  */
 
 /* INCLUDES ******************************************************************/
@@ -11,367 +12,371 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "debug.h"
+#include "../include/debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
+#define MASK_PAGE_FLAGS (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY)
+#define MASK_SEC_FLAGS  (SEC_COMMIT | SEC_IMAGE | SEC_NOCACHE | SEC_RESERVE)
+
 /*
  * @implemented
  */
-HANDLE
-NTAPI
-CreateFileMappingA(IN HANDLE hFile,
-                   IN LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
-                   IN DWORD flProtect,
-                   IN DWORD dwMaximumSizeHigh,
-                   IN DWORD dwMaximumSizeLow,
-                   IN LPCSTR lpName)
+HANDLE STDCALL
+CreateFileMappingA(HANDLE hFile,
+		   LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+		   DWORD flProtect,
+		   DWORD dwMaximumSizeHigh,
+		   DWORD dwMaximumSizeLow,
+		   LPCSTR lpName)
 {
-    NTSTATUS Status;
-    ANSI_STRING AnsiName;
-    PUNICODE_STRING UnicodeCache;
-    LPCWSTR UnicodeName = NULL;
+   NTSTATUS Status;
+   HANDLE SectionHandle;
+   LARGE_INTEGER MaximumSize;
+   PLARGE_INTEGER MaximumSizePointer;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   ANSI_STRING AnsiName;
+   UNICODE_STRING UnicodeName;
+   PSECURITY_DESCRIPTOR SecurityDescriptor;
 
-    /* Check for a name */
-    if (lpName)
-    {
-        /* Use TEB Cache */
-        UnicodeCache = &NtCurrentTeb()->StaticUnicodeString;
+   if ((flProtect & (MASK_PAGE_FLAGS | MASK_SEC_FLAGS)) != flProtect)
+     {
+        DPRINT1("Invalid flProtect 0x%08x\n", flProtect);
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return NULL;
+     }
+   if (lpFileMappingAttributes)
+     {
+        SecurityDescriptor = lpFileMappingAttributes->lpSecurityDescriptor;
+     }
+   else
+     {
+        SecurityDescriptor = NULL;
+     }
 
-        /* Convert to unicode */
-        RtlInitAnsiString(&AnsiName, lpName);
-        Status = RtlAnsiStringToUnicodeString(UnicodeCache, &AnsiName, FALSE);
-        if (!NT_SUCCESS(Status))
-        {
-            /* Conversion failed */
-            SetLastErrorByStatus(Status);
-            return NULL;
-        }
+   if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0)
+     {
+        MaximumSizePointer = NULL;
+     }
+   else
+     {
+        MaximumSize.u.LowPart = dwMaximumSizeLow;
+        MaximumSize.u.HighPart = dwMaximumSizeHigh;
+        MaximumSizePointer = &MaximumSize;
+     }
 
-        /* Otherwise, save the buffer */
-        UnicodeName = (LPCWSTR)UnicodeCache->Buffer;
-    }
+   if (lpName != NULL)
+     {
+        RtlInitAnsiString(&AnsiName,
+                          (LPSTR)lpName);
+        RtlAnsiStringToUnicodeString(&UnicodeName,
+                                     &AnsiName,
+                                     TRUE);
+     }
 
-    /* Call the Unicode version */
-    return CreateFileMappingW(hFile,
-                              lpFileMappingAttributes,
-                              flProtect,
-                              dwMaximumSizeHigh,
-                              dwMaximumSizeLow,
-                              UnicodeName);
+   InitializeObjectAttributes(&ObjectAttributes,
+			      (lpName ? &UnicodeName : NULL),
+			      0,
+			      (lpName ? hBaseDir : NULL),
+			      SecurityDescriptor);
+
+   Status = NtCreateSection(&SectionHandle,
+			    SECTION_ALL_ACCESS,
+			    &ObjectAttributes,
+			    MaximumSizePointer,
+			    flProtect & MASK_PAGE_FLAGS,
+			    flProtect & MASK_SEC_FLAGS,
+			    ((hFile != INVALID_HANDLE_VALUE) ? hFile : NULL));
+   if (lpName != NULL)
+     {
+        RtlFreeUnicodeString(&UnicodeName);
+     }
+
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
+   return SectionHandle;
 }
 
+
 /*
  * @implemented
  */
-HANDLE
-NTAPI
+HANDLE STDCALL
 CreateFileMappingW(HANDLE hFile,
-                   LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
-                   DWORD flProtect,
-                   DWORD dwMaximumSizeHigh,
-                   DWORD dwMaximumSizeLow,
-                   LPCWSTR lpName)
+		   LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+		   DWORD flProtect,
+		   DWORD dwMaximumSizeHigh,
+		   DWORD dwMaximumSizeLow,
+		   LPCWSTR lpName)
 {
-    NTSTATUS Status;
-    HANDLE SectionHandle;
-    OBJECT_ATTRIBUTES LocalAttributes;
-    POBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING SectionName;
-    ACCESS_MASK DesiredAccess;
-    LARGE_INTEGER LocalSize;
-    PLARGE_INTEGER SectionSize = NULL;
-    ULONG Attributes;
+   NTSTATUS Status;
+   HANDLE SectionHandle;
+   LARGE_INTEGER MaximumSize;
+   PLARGE_INTEGER MaximumSizePointer;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING UnicodeName;
+   PSECURITY_DESCRIPTOR SecurityDescriptor;
 
-    /* Set default access */
-    DesiredAccess = STANDARD_RIGHTS_REQUIRED | SECTION_QUERY | SECTION_MAP_READ;
-
-    /* Get the attributes for the actual allocation and cleanup flProtect */
-    Attributes = flProtect & (SEC_FILE | SEC_IMAGE | SEC_RESERVE | SEC_NOCACHE | SEC_COMMIT);
-    flProtect ^= Attributes;
-
-    /* If the caller didn't say anything, assume SEC_COMMIT */
-    if (!Attributes) Attributes = SEC_COMMIT;
-
-    /* Now check if the caller wanted write access */
-    if (flProtect == PAGE_READWRITE)
-    {
-        /* Give it */
-        DesiredAccess |= (SECTION_MAP_WRITE | SECTION_MAP_READ);
-    }
-
-    /* Now check if we got a name */
-    if (lpName) RtlInitUnicodeString(&SectionName, lpName);
-
-    /* Now convert the object attributes */
-    ObjectAttributes = BasepConvertObjectAttributes(&LocalAttributes,
-                                                    lpFileMappingAttributes,
-                                                    lpName ? &SectionName : NULL);
-
-    /* Check if we got a size */
-    if (dwMaximumSizeLow || dwMaximumSizeHigh)
-    {
-        /* Use a LARGE_INTEGER and convert */
-        SectionSize = &LocalSize;
-        SectionSize->LowPart = dwMaximumSizeLow;
-        SectionSize->HighPart = dwMaximumSizeHigh;
-    }
-
-    /* Make sure the handle is valid */
-    if (hFile == INVALID_HANDLE_VALUE)
-    {
-        /* It's not, we'll only go on if we have a size */
-        hFile = NULL;
-        if (!SectionSize)
-        {
-            /* No size, so this isn't a valid non-mapped section */
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return NULL;
-        }
-    }
-
-    /* Now create the actual section */
-    Status = NtCreateSection(&SectionHandle,
-                             DesiredAccess,
-                             ObjectAttributes,
-                             SectionSize,
-                             flProtect,
-                             Attributes,
-                             hFile);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
+   if ((flProtect & (MASK_PAGE_FLAGS | MASK_SEC_FLAGS)) != flProtect)
+     {
+        DPRINT1("Invalid flProtect 0x%08x\n", flProtect);
+        SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
-    }
+     }
+   if (lpFileMappingAttributes)
+     {
+        SecurityDescriptor = lpFileMappingAttributes->lpSecurityDescriptor;
+     }
+   else
+     {
+        SecurityDescriptor = NULL;
+     }
 
-    /* Return the section */
-    return SectionHandle;
+   if (dwMaximumSizeLow == 0 && dwMaximumSizeHigh == 0)
+     {
+        MaximumSizePointer = NULL;
+     }
+   else
+     {
+        MaximumSize.u.LowPart = dwMaximumSizeLow;
+        MaximumSize.u.HighPart = dwMaximumSizeHigh;
+        MaximumSizePointer = &MaximumSize;
+     }
+
+   if (lpName != NULL)
+     {
+        RtlInitUnicodeString(&UnicodeName,
+                             lpName);
+     }
+
+   InitializeObjectAttributes(&ObjectAttributes,
+			      (lpName ? &UnicodeName : NULL),
+			      0,
+			      (lpName ? hBaseDir : NULL),
+			      SecurityDescriptor);
+
+   Status = NtCreateSection(&SectionHandle,
+			    SECTION_ALL_ACCESS,
+			    &ObjectAttributes,
+			    MaximumSizePointer,
+			    flProtect & MASK_PAGE_FLAGS,
+			    flProtect & MASK_SEC_FLAGS,
+			    ((hFile != INVALID_HANDLE_VALUE) ? hFile : NULL));
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
+   return SectionHandle;
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-NTAPI
+LPVOID STDCALL
 MapViewOfFileEx(HANDLE hFileMappingObject,
-                DWORD dwDesiredAccess,
-                DWORD dwFileOffsetHigh,
-                DWORD dwFileOffsetLow,
-                DWORD dwNumberOfBytesToMap,
-                LPVOID lpBaseAddress)
+		DWORD dwDesiredAccess,
+		DWORD dwFileOffsetHigh,
+		DWORD dwFileOffsetLow,
+		DWORD dwNumberOfBytesToMap,
+		LPVOID lpBaseAddress)
 {
-    NTSTATUS Status;
-    LARGE_INTEGER SectionOffset;
-    ULONG ViewSize;
-    ULONG Protect;
-    LPVOID ViewBase;
+   NTSTATUS Status;
+   LARGE_INTEGER SectionOffset;
+   ULONG ViewSize;
+   ULONG Protect;
+   LPVOID BaseAddress;
 
-    /* Convert the offset */
-    SectionOffset.LowPart = dwFileOffsetLow;
-    SectionOffset.HighPart = dwFileOffsetHigh;
+   SectionOffset.u.LowPart = dwFileOffsetLow;
+   SectionOffset.u.HighPart = dwFileOffsetHigh;
 
-    /* Save the size and base */
-    ViewBase = lpBaseAddress;
-    ViewSize = dwNumberOfBytesToMap;
+   if ( ( dwDesiredAccess & FILE_MAP_WRITE) == FILE_MAP_WRITE)
+	Protect  = PAGE_READWRITE;
+   else if ((dwDesiredAccess & FILE_MAP_READ) == FILE_MAP_READ)
+	Protect = PAGE_READONLY;
+   else if ((dwDesiredAccess & FILE_MAP_ALL_ACCESS) == FILE_MAP_ALL_ACCESS)
+	Protect  = PAGE_READWRITE;
+   else if ((dwDesiredAccess & FILE_MAP_COPY) == FILE_MAP_COPY)
+	Protect = PAGE_WRITECOPY;
+   else
+	Protect = PAGE_READWRITE;
 
-    /* Convert flags to NT Protection Attributes */
-    if (dwDesiredAccess & FILE_MAP_WRITE)
-    {
-        Protect  = PAGE_READWRITE;
-    }
-    else if (dwDesiredAccess & FILE_MAP_READ)
-    {
-        Protect = PAGE_READONLY;
-    }
-    else if (dwDesiredAccess & FILE_MAP_COPY)
-    {
-        Protect = PAGE_WRITECOPY;
-    }
-    else
-    {
-        Protect = PAGE_NOACCESS;
-    }
+   if (lpBaseAddress == NULL)
+     {
+	BaseAddress = NULL;
+     }
+   else
+     {
+	BaseAddress = lpBaseAddress;
+     }
 
-    /* Map the section */
-    Status = ZwMapViewOfSection(hFileMappingObject,
-                                NtCurrentProcess(),
-                                &ViewBase,
-                                0,
-                                0,
-                                &SectionOffset,
-                                &ViewSize,
-                                ViewShare,
-                                0,
-                                Protect);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
-        return NULL;
-    }
+   ViewSize = (ULONG) dwNumberOfBytesToMap;
 
-    /* Return the base */
-    return ViewBase;
+   Status = ZwMapViewOfSection(hFileMappingObject,
+			       NtCurrentProcess(),
+			       &BaseAddress,
+			       0,
+			       dwNumberOfBytesToMap,
+			       &SectionOffset,
+			       &ViewSize,
+			       ViewShare,
+			       0,
+			       Protect);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
+   return BaseAddress;
 }
+
 
 /*
  * @implemented
  */
-LPVOID
-NTAPI
+LPVOID STDCALL
 MapViewOfFile(HANDLE hFileMappingObject,
-              DWORD dwDesiredAccess,
-              DWORD dwFileOffsetHigh,
-              DWORD dwFileOffsetLow,
-              DWORD dwNumberOfBytesToMap)
+	      DWORD dwDesiredAccess,
+	      DWORD dwFileOffsetHigh,
+	      DWORD dwFileOffsetLow,
+	      DWORD dwNumberOfBytesToMap)
 {
-    /* Call the extended API */
-    return MapViewOfFileEx(hFileMappingObject,
-                           dwDesiredAccess,
-                           dwFileOffsetHigh,
-                           dwFileOffsetLow,
-                           dwNumberOfBytesToMap,
-                           NULL);
+   return MapViewOfFileEx(hFileMappingObject,
+			  dwDesiredAccess,
+			  dwFileOffsetHigh,
+			  dwFileOffsetLow,
+			  dwNumberOfBytesToMap,
+			  NULL);
 }
+
 
 /*
  * @implemented
  */
-BOOL
-NTAPI
+BOOL STDCALL
 UnmapViewOfFile(LPVOID lpBaseAddress)
 {
-    NTSTATUS Status;
+   NTSTATUS Status;
 
-    /* Unmap the section */
-    Status = NtUnmapViewOfSection(NtCurrentProcess(), lpBaseAddress);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    /* Otherwise, return sucess */
-    return TRUE;
+   Status = NtUnmapViewOfSection(NtCurrentProcess(),
+				 lpBaseAddress);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return FALSE;
+     }
+   return TRUE;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-NTAPI
+HANDLE STDCALL
 OpenFileMappingA(DWORD dwDesiredAccess,
-                 BOOL bInheritHandle,
-                 LPCSTR lpName)
+		 BOOL bInheritHandle,
+		 LPCSTR lpName)
 {
-    NTSTATUS Status;
-    ANSI_STRING AnsiName;
-    PUNICODE_STRING UnicodeCache;
+   NTSTATUS Status;
+   HANDLE SectionHandle;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   ANSI_STRING AnsiName;
+   UNICODE_STRING UnicodeName;
 
-    /* Check for a name */
-    if (lpName)
-    {
-        /* Use TEB Cache */
-        UnicodeCache = &NtCurrentTeb()->StaticUnicodeString;
-
-        /* Convert to unicode */
-        RtlInitAnsiString(&AnsiName, lpName);
-        Status = RtlAnsiStringToUnicodeString(UnicodeCache, &AnsiName, FALSE);
-        if (!NT_SUCCESS(Status))
-        {
-            /* Conversion failed */
-            SetLastErrorByStatus(Status);
-            return NULL;
-        }
-    }
-    else
-    {
-        /* We need a name */
+   if (lpName == NULL)
+     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
-    }
+     }
 
-    /* Call the Unicode version */
-    return OpenFileMappingW(dwDesiredAccess,
-                            bInheritHandle,
-                            (LPCWSTR)UnicodeCache->Buffer);
+   RtlInitAnsiString(&AnsiName,
+		     (LPSTR)lpName);
+   RtlAnsiStringToUnicodeString(&UnicodeName,
+				&AnsiName,
+				TRUE);
+
+   InitializeObjectAttributes(&ObjectAttributes,
+			      &UnicodeName,
+			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      hBaseDir,
+			      NULL);
+   Status = NtOpenSection(&SectionHandle,
+			    SECTION_ALL_ACCESS,
+			    &ObjectAttributes);
+   RtlFreeUnicodeString (&UnicodeName);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus (Status);
+	return NULL;
+     }
+
+   return SectionHandle;
 }
+
 
 /*
  * @implemented
  */
-HANDLE
-NTAPI
+HANDLE STDCALL
 OpenFileMappingW(DWORD dwDesiredAccess,
-                 BOOL bInheritHandle,
-                 LPCWSTR lpName)
+		 BOOL bInheritHandle,
+		 LPCWSTR lpName)
 {
-    NTSTATUS Status;
-    HANDLE SectionHandle;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING UnicodeName;
+   NTSTATUS Status;
+   HANDLE SectionHandle;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   UNICODE_STRING UnicodeName;
 
-    /* We need a name */
-    if (!lpName)
-    {
-        /* Otherwise, fail */
+   if (lpName == NULL)
+     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
-    }
+     }
 
-    /* Convert attributes */
-    RtlInitUnicodeString(&UnicodeName, lpName);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &UnicodeName,
-                               (bInheritHandle ? OBJ_INHERIT : 0),
-                               hBaseDir,
-                               NULL);
+   RtlInitUnicodeString(&UnicodeName,
+			lpName);
+   InitializeObjectAttributes(&ObjectAttributes,
+			      &UnicodeName,
+			      (bInheritHandle ? OBJ_INHERIT : 0),
+			      hBaseDir,
+			      NULL);
+   Status = ZwOpenSection(&SectionHandle,
+			    SECTION_ALL_ACCESS,
+			    &ObjectAttributes);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return NULL;
+     }
 
-    /* Convert COPY to READ */
-    if (dwDesiredAccess == FILE_MAP_COPY) dwDesiredAccess = FILE_MAP_READ;
-
-    /* Open the section */
-    Status = ZwOpenSection(&SectionHandle,
-                           dwDesiredAccess,
-                           &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
-        return NULL;
-    }
-
-    /* Otherwise, return the handle */
-    return SectionHandle;
+   return SectionHandle;
 }
+
 
 /*
  * @implemented
  */
-BOOL
-NTAPI
+BOOL STDCALL
 FlushViewOfFile(LPCVOID lpBaseAddress,
-                DWORD dwNumberOfBytesToFlush)
+		DWORD dwNumberOfBytesToFlush)
 {
-    NTSTATUS Status;
-    ULONG NumberOfBytesFlushed;
+   NTSTATUS Status;
+   ULONG NumberOfBytesFlushed;
 
-    /* Flush the view */
-    Status = NtFlushVirtualMemory(NtCurrentProcess(),
-                                  (LPVOID)lpBaseAddress,
-                                  dwNumberOfBytesToFlush,
-                                  &NumberOfBytesFlushed);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    /* Return success */
-    return TRUE;
+   Status = NtFlushVirtualMemory(NtCurrentProcess(),
+				 (LPVOID)lpBaseAddress,
+				 dwNumberOfBytesToFlush,
+				 &NumberOfBytesFlushed);
+   if (!NT_SUCCESS(Status))
+     {
+	SetLastErrorByStatus(Status);
+	return FALSE;
+     }
+   return TRUE;
 }
 
 /* EOF */

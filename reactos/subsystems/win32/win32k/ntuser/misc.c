@@ -23,7 +23,7 @@ VOID W32kRegisterPrimitiveMessageQueue(VOID)
    if( !pmPrimitiveMessageQueue )
    {
       PW32THREAD pThread;
-      pThread = PsGetCurrentThreadWin32Thread();
+      pThread = PsGetWin32Thread();
       if( pThread && pThread->MessageQueue )
       {
          pmPrimitiveMessageQueue = pThread->MessageQueue;
@@ -182,7 +182,7 @@ NtUserCallOneParam(
 
    if (Routine == ONEPARAM_ROUTINE_SHOWCURSOR)
    {
-      PWINSTATION_OBJECT WinSta = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+      PWINSTATION_OBJECT WinSta = PsGetWin32Thread()->Desktop->WindowStation;
       PSYSTEM_CURSORINFO CurInfo;
                  
       HDC Screen;
@@ -416,7 +416,7 @@ NtUserCallOneParam(
       case ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING:
          {
             BOOL Enable;
-            PW32PROCESS Process = PsGetCurrentProcessWin32Process();
+            PW32PROCESS Process = PsGetWin32Process();
 
             if(Process != NULL)
             {
@@ -856,11 +856,19 @@ NtUserCallHwndOpt(
    switch (Routine)
    {
       case HWNDOPT_ROUTINE_SETPROGMANWINDOW:
-         GetW32ThreadInfo()->Desktop->hProgmanWindow = Param;
+         /*
+          * FIXME 
+          * Nothing too hard...validate the hWnd and save it in the Desktop Info
+          */
+         DPRINT1("HWNDOPT_ROUTINE_SETPROGMANWINDOW UNIMPLEMENTED\n");
          break;
 
       case HWNDOPT_ROUTINE_SETTASKMANWINDOW:
-         GetW32ThreadInfo()->Desktop->hTaskManWindow = Param;
+         /*
+          * FIXME 
+          * Nothing too hard...validate the hWnd and save it in the Desktop Info
+          */
+         DPRINT1("HWNDOPT_ROUTINE_SETTASKMANWINDOW UNIMPLEMENTED\n");
          break;
    }
 
@@ -894,10 +902,6 @@ NtUserGetThreadState(
 
       case THREADSTATE_FOCUSWINDOW:
          RETURN( (DWORD)IntGetThreadFocusWindow());
-      case THREADSTATE_PROGMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hProgmanWindow);
-      case THREADSTATE_TASKMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hTaskManWindow);
    }
    RETURN( 0);
 
@@ -916,7 +920,7 @@ IntGetFontMetricSetting(LPWSTR lpValueName, PLOGFONTW font)
    static LOGFONTW DefaultFont = {
                                     -11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
                                     0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS,
-                                    L"MS Sans Serif"
+                                    L"Bitstream Vera Sans"
                                  };
 
    RtlZeroMemory(&QueryTable, sizeof(QueryTable));
@@ -988,14 +992,6 @@ IntSystemParametersInfo(
       case SPI_SETDOUBLECLICKTIME:
       case SPI_SETDESKWALLPAPER:
       case SPI_GETDESKWALLPAPER:
-	  case SPI_GETWHEELSCROLLLINES:
-	  case SPI_GETWHEELSCROLLCHARS:
-	  case SPI_SETSCREENSAVERRUNNING: 
-	  case SPI_GETSCREENSAVERRUNNING:
-	  case SPI_GETSCREENSAVETIMEOUT:
-	  case SPI_SETSCREENSAVETIMEOUT:
-	  case SPI_GETFLATMENU:
-      case SPI_SETFLATMENU:
          {
             PSYSTEM_CURSORINFO CurInfo;
 
@@ -1011,40 +1007,6 @@ IntSystemParametersInfo(
 
             switch(uiAction)
             {
-			   case SPI_GETFLATMENU:
-				   if (pvParam != NULL) *((UINT*)pvParam) = WinStaObject->FlatMenu;    
-                  return TRUE;
-			      break;
-               case SPI_SETFLATMENU:				   
-				   WinStaObject->FlatMenu = uiParam;                               
-			      break;
-			   case	SPI_GETSCREENSAVETIMEOUT:
-				   if (pvParam != NULL) *((UINT*)pvParam) = WinStaObject->ScreenSaverTimeOut;                   
-				   return TRUE;
-				   break;
-			   case	SPI_SETSCREENSAVETIMEOUT:				  
-                   WinStaObject->ScreenSaverTimeOut = uiParam;                  
-				  break;
-			   case SPI_GETSCREENSAVERRUNNING:
-                     if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
-                  return TRUE;
-				  break;
-			   case SPI_SETSCREENSAVERRUNNING:				  
-				   if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
-                   WinStaObject->ScreenSaverRunning = uiParam;				                     
-				  break;
-			   case SPI_GETWHEELSCROLLLINES:
-				    CurInfo = IntGetSysCursorInfo(WinStaObject);
-					if (pvParam != NULL) *((UINT*)pvParam) = CurInfo->WheelScroLines;
-					/* FIXME add this value to scroll list as scroll value ?? */
-                  return TRUE;
-                  break;
-               case SPI_GETWHEELSCROLLCHARS:
-				    CurInfo = IntGetSysCursorInfo(WinStaObject);
-					if (pvParam != NULL) *((UINT*)pvParam) = CurInfo->WheelScroChars;
-					// FIXME add this value to scroll list as scroll value ?? 
-                  return TRUE;
-                  break;
                case SPI_SETDOUBLECLKWIDTH:
                   CurInfo = IntGetSysCursorInfo(WinStaObject);
                   /* FIXME limit the maximum value? */
@@ -1240,7 +1202,7 @@ IntSystemParametersInfo(
       case SPI_SETWORKAREA:
          {
             RECT *rc;
-            PDESKTOP_OBJECT Desktop = PsGetCurrentThreadWin32Thread()->Desktop;
+            PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
 
             if(!Desktop)
             {
@@ -1256,7 +1218,7 @@ IntSystemParametersInfo(
          }
       case SPI_GETWORKAREA:
          {
-            PDESKTOP_OBJECT Desktop = PsGetCurrentThreadWin32Thread()->Desktop;
+            PDESKTOP_OBJECT Desktop = PsGetWin32Thread()->Desktop;
 
             if(!Desktop)
             {
@@ -1403,14 +1365,6 @@ UserSystemParametersInfo(
       case SPI_GETGRADIENTCAPTIONS:
       case SPI_GETFOCUSBORDERHEIGHT:
       case SPI_GETFOCUSBORDERWIDTH:
-	  case SPI_GETWHEELSCROLLLINES:
-      case SPI_GETWHEELSCROLLCHARS:
-	  case SPI_GETSCREENSAVERRUNNING:
-	  case SPI_SETSCREENSAVERRUNNING:
-	  case SPI_GETSCREENSAVETIMEOUT:
-	  case SPI_SETSCREENSAVETIMEOUT:
-	  case SPI_GETFLATMENU:
-      case SPI_SETFLATMENU:
          {
             BOOL Ret;
 
@@ -1504,11 +1458,6 @@ UserSystemParametersInfo(
             }
             return( TRUE);
          }
-      default :
-		  {
-			  DPRINT1("UserSystemParametersInfo : uiAction = %x \n",uiAction );
-			  break;
-		  }
    }
    return( FALSE);
 }
@@ -1894,7 +1843,7 @@ PW32PROCESSINFO
 GetW32ProcessInfo(VOID)
 {
     PW32PROCESSINFO pi;
-    PW32PROCESS W32Process = PsGetCurrentProcessWin32Process();
+    PW32PROCESS W32Process = PsGetWin32Process();
 
     if (W32Process == NULL)
     {
@@ -1934,7 +1883,7 @@ GetW32ThreadInfo(VOID)
 {
     PTEB Teb;
     PW32THREADINFO ti;
-    PW32THREAD W32Thread = PsGetCurrentThreadWin32Thread();
+    PW32THREAD W32Thread = PsGetWin32Thread();
 
     if (W32Thread == NULL)
     {

@@ -66,7 +66,6 @@ IntGdiPolygon(PDC    dc,
   ASSERT(BitmapObj);
 
       /* Convert to screen coordinates */
-      IntLPtoDP(dc, UnsafePoints, Count);
       for (CurrentPoint = 0; CurrentPoint < Count; CurrentPoint++)
 	{
 	  UnsafePoints[CurrentPoint].x += dc->w.DCOrgX;
@@ -95,7 +94,7 @@ IntGdiPolygon(PDC    dc,
 	if (FillBrushObj && !(FillBrushObj->flAttrs & GDIBRUSH_IS_NULL))
 	{
           IntGdiInitBrushInstance(&FillBrushInst, FillBrushObj, dc->XlateBrush);
-          ret = FillPolygon ( dc, BitmapObj, &FillBrushInst.BrushObject, ROP2_TO_MIX(dc->w.ROPmode), UnsafePoints, Count, DestRect );  
+	  ret = FillPolygon ( dc, BitmapObj, &FillBrushInst.BrushObject, ROP2_TO_MIX(dc->w.ROPmode), UnsafePoints, Count, DestRect );
 	}
 	BRUSHOBJ_UnlockBrush(FillBrushObj);
 
@@ -105,29 +104,35 @@ IntGdiPolygon(PDC    dc,
 	if (PenBrushObj && !(PenBrushObj->flAttrs & GDIBRUSH_IS_NULL))
 	{
 	  IntGdiInitBrushInstance(&PenBrushInst, PenBrushObj, dc->XlatePen);
+	  for ( CurrentPoint = 0; CurrentPoint < Count; ++CurrentPoint )
+	  {
+	    POINT To, From; //, Next;
 
-        while(Count-- >1)
-          {
+	    /* Let CurrentPoint be i
+	     * if i+1 > Count, Draw a line from Points[i] to Points[0]
+	     * Draw a line from Points[i] to Points[i+1]
+	     */
+	    From = UnsafePoints[CurrentPoint];
+	    if (Count <= CurrentPoint + 1)
+	      To = UnsafePoints[0];
+	    else
+	      To = UnsafePoints[CurrentPoint + 1];
 
-// DPRINT1("Polygon Making line from (%d,%d) to (%d,%d)\n",
-//                                 UnsafePoints[0].x, UnsafePoints[0].y,
-//                                 UnsafePoints[1].x, UnsafePoints[1].y );
-                                 
-  	    ret = IntEngLineTo(&BitmapObj->SurfObj,
+	    //DPRINT("Polygon Making line from (%d,%d) to (%d,%d)\n", From.x, From.y, To.x, To.y );
+	    ret = IntEngLineTo(&BitmapObj->SurfObj,
 			       dc->CombinedClip,
 			       &PenBrushInst.BrushObject,
-			       UnsafePoints[0].x,          /* From */
-			       UnsafePoints[0].y,
-			       UnsafePoints[1].x,          /* To */
-			       UnsafePoints[1].y,
+			       From.x,
+			       From.y,
+			       To.x,
+			       To.y,
 			       &DestRect,
 			       ROP2_TO_MIX(dc->w.ROPmode)); /* MIX */
-             if(!ret) break;
-             UnsafePoints++;
 	  }
 	}
 	PENOBJ_UnlockPen(PenBrushObj);
       }
+
       BITMAPOBJ_UnlockBitmap(BitmapObj);
 
   return ret;
@@ -139,12 +144,25 @@ IntGdiPolyPolygon(DC      *dc,
                   LPINT   PolyCounts,
                   int     Count)
 {
-  while(--Count >=0)
+  int i;
+  LPPOINT pt;
+  LPINT pc;
+  BOOL ret = FALSE; // default to failure
+
+  pt = Points;
+  pc = PolyCounts;
+
+  for (i=0;i<Count;i++)
   {
-    if(!IntGdiPolygon ( dc, Points, *PolyCounts )) return FALSE;
-    Points+=*PolyCounts++;
+    ret = IntGdiPolygon ( dc, pt, *pc );
+    if (ret == FALSE)
+    {
+      return ret;
+    }
+    pt+=*pc++;
   }
-  return TRUE;
+
+  return ret;
 }
 
 /******************************************************************************/
@@ -259,22 +277,20 @@ NtGdiEllipse(
    IntGdiInitBrushInstance(&FillBrushInst, FillBrush, dc->XlateBrush);
    IntGdiInitBrushInstance(&PenBrushInst, PenBrush, dc->XlatePen);
 
+   nLeftRect += dc->w.DCOrgX;
+   nRightRect += dc->w.DCOrgX - 1;
+   nTopRect += dc->w.DCOrgY;
+   nBottomRect += dc->w.DCOrgY - 1;
+
+   RadiusX = max((nRightRect - nLeftRect) >> 1, 1);
+   RadiusY = max((nBottomRect - nTopRect) >> 1, 1);
+   CenterX = nLeftRect + RadiusX;
+   CenterY = nTopRect + RadiusY;
+
    RectBounds.left = nLeftRect;
    RectBounds.right = nRightRect;
    RectBounds.top = nTopRect;
    RectBounds.bottom = nBottomRect;
-
-   IntLPtoDP(dc, (LPPOINT)&RectBounds, 2);
-
-   RectBounds.left += dc->w.DCOrgX;
-   RectBounds.right += dc->w.DCOrgX;
-   RectBounds.top += dc->w.DCOrgY;
-   RectBounds.bottom += dc->w.DCOrgY;
-
-   RadiusX = max((RectBounds.right - RectBounds.left) >> 1, 1);
-   RadiusY = max((RectBounds.bottom - RectBounds.top) >> 1, 1);
-   CenterX = RectBounds.left + RadiusX;
-   CenterY = RectBounds.top + RadiusY;
 
    if (RadiusX > RadiusY)
    {

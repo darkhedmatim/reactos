@@ -17,14 +17,6 @@
 
 typedef VOID (CALLBACK *WAITORTIMERCALLBACKFUNC) (PVOID, BOOLEAN );
 
-HANDLE TimerThreadHandle = NULL;
-
-NTSTATUS
-RtlpInitializeTimerThread(VOID)
-{
-    return STATUS_NOT_IMPLEMENTED;
-}
-
 /*
  * @unimplemented
  */

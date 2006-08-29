@@ -106,9 +106,6 @@ MouseHardwareProc(IN HWND hwndDlg,
     GUID Guids[1];
     Guids[0] = GUID_DEVCLASS_MOUSE;
 
-    UNREFERENCED_PARAMETER(lParam);
-    UNREFERENCED_PARAMETER(wParam);
-
     switch(uMsg)
     {
         case WM_INITDIALOG:
@@ -169,8 +166,6 @@ ClickLockProc(IN HWND hwndDlg,
 {
     HWND hDlgCtrl;
     int pos;
-    UNREFERENCED_PARAMETER(lParam);
-
     switch(uMsg)
     {
         case WM_INITDIALOG:
@@ -186,7 +181,7 @@ ClickLockProc(IN HWND hwndDlg,
             if (LOWORD(wParam) == IDOK)
             {
                 hDlgCtrl = GetDlgItem(hwndDlg, IDC_SLIDER_CLICK_LOCK);
-                g_ClickLockTime = (DWORD) (SendMessage(hDlgCtrl, TBM_GETPOS, 0, 0) * 200) + 200;
+                g_ClickLockTime = (SendMessage(hDlgCtrl, TBM_GETPOS, 0, 0) * 200) + 200;
                 EndDialog(hwndDlg, TRUE);
             }
             else if (LOWORD(wParam) == IDCANCEL)
@@ -615,7 +610,6 @@ SaveSchemeProc(IN HWND hwndDlg,
 	          IN LPARAM lParam)
 {
     HWND hDlgCtrl;
-    UNREFERENCED_PARAMETER(lParam);
 
     switch(uMsg)
     {
@@ -981,7 +975,7 @@ OptionProc(IN HWND hwndDlg,
                     {
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
                         EnableWindow(hDlgCtrl, TRUE);
-                        g_MouseTrails = (ULONG) SendMessage(hDlgCtrl, TBM_GETPOS, 0, 0) + 2;
+                        g_MouseTrails = SendMessage(hDlgCtrl, TBM_GETPOS, 0, 0) + 2;
                     }
                     break;					
                 }
@@ -1034,7 +1028,7 @@ OptionProc(IN HWND hwndDlg,
                 else 
                     lResult = 0;
 
-                SystemParametersInfo(SPI_SETMOUSETRAILS, (UINT) lResult, 0, SPIF_SENDCHANGE);
+                SystemParametersInfo(SPI_SETMOUSETRAILS, lResult, 0, SPIF_SENDCHANGE);
 
                 //FIXME
                 //pointer precision
@@ -1115,7 +1109,6 @@ WheelProc(IN HWND hwndDlg,
         case WM_INITDIALOG:
         {
             ShowDialogWheelControls(hwndDlg);
-			SendMessage(GetDlgItem(hwndDlg, IDC_UPDOWN_WHEEL_SCROLL_LINES), UDM_SETRANGE, 0, MAKELONG ((short) 100, (short) 0));
             if (g_WheelScrollLines != UINT_MAX)
             {
                 hDlgCtrl = GetDlgItem(hwndDlg, IDC_EDIT_WHEEL_SCROLL_LINES);
@@ -1138,7 +1131,7 @@ WheelProc(IN HWND hwndDlg,
                 }
                 case IDC_RADIO_WHEEL_SCROLL_PAGE:
                 {
-                    g_WheelScrollLines = UINT_MAX;
+                    g_WheelScrollLines = -1;
                     ShowDialogWheelControls(hwndDlg);
                     break;
                 }
@@ -1173,11 +1166,6 @@ MouseApplet(HWND hwnd, UINT uMsg, LONG lParam1, LONG lParam2)
     PROPSHEETPAGE psp[5];
     PROPSHEETHEADER psh;
     TCHAR Caption[256];
-
-    UNREFERENCED_PARAMETER(lParam1);
-    UNREFERENCED_PARAMETER(lParam2);
-    UNREFERENCED_PARAMETER(uMsg);
-    UNREFERENCED_PARAMETER(hwnd);
 
     LoadString(hApplet, IDS_CPLNAME_1, Caption, sizeof(Caption) / sizeof(TCHAR));
 

@@ -38,7 +38,7 @@
 #
 # You need to work with bug_email.pl the MIME::Parser installed.
 # 
-# $Id: bug_email.pl,v 1.31.2.1 2006/02/21 14:52:37 jocuri%softhome.net Exp $
+# $Id: bug_email.pl,v 1.28 2005/07/08 02:31:43 mkanat%kerio.com Exp $
 ###############################################################
 
 # 02/12/2000 (SML)
@@ -164,15 +164,13 @@ sub storeAttachments( $$ )
 
 
         # Make SQL-String
-        my $sql = "insert into attachments (bug_id, creation_ts, description, mimetype, ispatch, filename, submitter_id) values (";
+        my $sql = "insert into attachments (bug_id, creation_ts, description, mimetype, ispatch, filename, thedata, submitter_id) values (";
         $sql .= "$bugid, now(), " . SqlQuote( $description ) . ", ";
         $sql .= SqlQuote( $mime ) . ", ";
         $sql .= "0, ";
         $sql .= SqlQuote( $decoded_file ) . ", ";
+        $sql .= SqlQuote( $data ) . ", ";
         $sql .= "$submitter_id );";
-        SendSQL( $sql ) unless( $test );
-        $sql = "insert into attach_data (id, thedata) values (LAST_INSERT_ID(), ";
-        $sql .= SqlQuote( $data ) . ")";
         SendSQL( $sql ) unless( $test );
     }
     
@@ -193,7 +191,7 @@ sub horLine( )
 # Check if $Name is in $GroupName
 
 # This is no more CreateBugs group, so I'm using this routine to just determine if the user is
-# in the database.  Eventually, here should be a separate routine or renamed, or something (SML)
+# in the database.  Eventually, here should be a seperate routine or renamed, or something (SML)
 sub CheckPermissions {
     my ($GroupName, $Name) = @_;
     
@@ -292,11 +290,16 @@ sub Reply( $$$$ ) {
 # prios 
 sub getEnumList( $ )
 {
-    my $dbh = Bugzilla->dbh;
     my ($fieldname) = @_;
-    my $result = $dbh->selectcol_arrayref(qq{SELECT value FROM $fieldname});
+    SendSQL( "describe bugs $fieldname" );
+    my ($f, $type) = FetchSQLData();
 
-    return($result);
+    # delete unneeded stuff
+    $type =~ s/enum\(|\)//g;
+    $type =~ s/\',//g;
+
+    my @all_prios = split( /\'/, $type );
+    return( @all_prios );
 }
 
 ###############################################################
@@ -307,12 +310,12 @@ sub getEnumList( $ )
 sub CheckPriority
 {
     my $prio = $Control{'priority'};
-    my $all_prios = getEnumList( "priority" );
+    my @all_prios = getEnumList( "priority" );
 
-    if( $prio eq "" || (lsearch( $all_prios, $prio ) == -1)  ) {
+    if( $prio eq "" || (lsearch( \@all_prios, $prio ) == -1)  ) {
         # OK, Prio was not defined - create Answer
         my $Text = "You sent wrong priority-setting, valid values are:" .
-            join( "\n\t", @$all_prios ) . "\n\n";
+            join( "\n\t", @all_prios ) . "\n\n";
         $Text .= "*  The priority is set to the default value ". 
             SqlQuote( Param('defaultpriority')) . "\n";
 
@@ -331,12 +334,12 @@ sub CheckPriority
 sub CheckSeverity
 {
     my $sever = ($Control{'bug_severity'} ||= "" );
-    my $all_sever = getEnumList( "bug_severity" );
+    my @all_sever = getEnumList( "bug_severity" );
 
-    if( (lsearch($all_sever, $sever) == -1) || $sever eq "" ) {
+    if( (lsearch( \@all_sever, $sever ) == -1) || $sever eq "" ) {
         # OK, Prio was not defined - create Answer
         my $Text = "You sent wrong bug_severity-setting, valid values are:" .
-            join( "\n\t", @$all_sever ) . "\n\n";
+            join( "\n\t", @all_sever ) . "\n\n";
         $Text .= "*  The bug_severity is set to the default value ". 
             SqlQuote( "normal" ) . "\n";
 
@@ -353,12 +356,12 @@ sub CheckSeverity
 sub CheckArea
 {
     my $area = ($Control{'area'} ||= "" );
-    my $all = getEnumList( "area" );
+    my @all= getEnumList( "area" );
 
-    if( (lsearch($all, $area) == -1) || $area eq "" ) {
+    if( (lsearch( \@all, $area ) == -1) || $area eq "" ) {
         # OK, Area was not defined - create Answer
         my $Text = "You sent wrong area-setting, valid values are:" .
-            join( "\n\t", @$all ) . "\n\n";
+            join( "\n\t", @all ) . "\n\n";
         $Text .= "*  The area is set to the default value ". 
             SqlQuote( "BUILD" ) . "\n";
 
@@ -375,12 +378,12 @@ sub CheckArea
 sub CheckPlatform
 {
     my $platform = ($Control{'rep_platform'} ||= "" );
-    my $all = getEnumList( "rep_platform" );
+    my @all = getEnumList( "rep_platform" );
 
-    if( (lsearch($all, $platform) == -1) ||  $platform eq "" ) {
+    if( (lsearch( \@all, $platform ) == -1) ||  $platform eq "" ) {
         # OK, Prio was not defined - create Answer
         my $Text = "You sent wrong platform-setting, valid values are:" .
-            join( "\n\t", @$all ) . "\n\n";
+            join( "\n\t", @all ) . "\n\n";
         $Text .= "*  The rep_platform is set to the default value ". 
             SqlQuote( "All" ) . "\n";
 
@@ -397,12 +400,12 @@ sub CheckPlatform
 sub CheckSystem
 {
     my $sys = ($Control{'op_sys'} ||= "" );
-    my $all = getEnumList( "op_sys" );
+    my @all = getEnumList( "op_sys" );
 
-    if(  (lsearch( $all, $sys ) == -1) || $sys eq "" ) {
+    if(  (lsearch( \@all, $sys ) == -1) || $sys eq "" ) {
         # OK, Prio was not defined - create Answer
         my $Text = "You sent wrong OS-setting, valid values are:" .
-            join( "\n\t", @$all ) . "\n\n";
+            join( "\n\t", @all ) . "\n\n";
         $Text .= "*  The op_sys is set to the default value ". 
             SqlQuote( "Linux" ) . "\n";
 
@@ -443,16 +446,16 @@ sub FetchAllSQLData( )
 # BugMailError takes two arguments: The first one is a flag, how heavy
 # the error is:
 # 
-# 0 - It's an error, but Bugzilla can process the bug. The user should
+# 0 - Its an error, but bugzilla can process the bug. The user should
 #     handle that as a warning.
 # 
-# 1 - It's a real bug. Bugzilla can't store the bug. The mail has to be
+# 1 - Its a real bug. Bugzilla cant store the bug. The mail has to be
 #     resent.
 # 
 # 2 - Permission error: The user does not have the permission to send
 #     a bug.
 # 
-# The second argument is a Text which describes the bug.
+# The second argument is a Text which describs the bug.
 # 
 # 
 # #
@@ -460,7 +463,7 @@ sub BugMailError($ $ )
 {
     my ( $errflag, $text ) = @_;
 
-    # On permission error, don't sent all other Errors back -> just quit !
+    # On permission error, dont sent all other Errors back -> just quit !
     if( $errflag == 2 ) {            # Permission-Error
         Reply( $SenderShort, $Message_ID, "Bugzilla Error", "Permission denied.\n\n" .
                "You do not have the permissions to create a new bug. Sorry.\n" );
@@ -672,7 +675,7 @@ sub extractControls( $ )
         }
     }
 
-    # that's it.
+    # thats it.
     return( $backbody );
 }
 
@@ -742,7 +745,7 @@ my $Sender = $entity->get( 'From' );
 $Sender ||=  $entity->get( 'Reply-To' );
 $Message_ID = $entity->get( 'Message-Id' );
 
-die (" *** Can't find Sender-address in sent mail ! ***\n" ) unless defined( $Sender );
+die (" *** Cant find Sender-adress in sent mail ! ***\n" ) unless defined( $Sender );
 chomp( $Sender );
 chomp( $Message_ID );
 
@@ -847,7 +850,7 @@ my $Product = $DEFAULT_PRODUCT;
 $Product = CheckProduct( $Control{'product'} ) if( defined( $Control{ 'product'} ));
 
 if ( $Product eq "" ) {
-    my $Text = "You didn't send a value for the required key \@product !\n\n";
+    my $Text = "You didnt send a value for the required key \@product !\n\n";
 
     $Text = "You sent the invalid product \"$Control{'product'}\"!\n\n"
         if( defined( $Control{ 'product'} ));

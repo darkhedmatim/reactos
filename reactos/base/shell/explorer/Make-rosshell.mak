@@ -17,14 +17,15 @@ TARGET_INSTALLDIR := .
 TARGET_CFLAGS := \
 	-D__USE_W32API -DWIN32 -D_ROS_ \
 	-D_WIN32_IE=0x0600 -D_WIN32_WINNT=0x0501 -DWINVER=0x0500 \
-	-DUNICODE -fexceptions -Wall -g
+	-DUNICODE -fexceptions -Wall -g \
+	-I../../../include/expat
 
 TARGET_CPPFLAGS := $(TARGET_CFLAGS)
 
 TARGET_RCFLAGS := -D__USE_W32API -DWIN32 -D_ROS_ -D__WINDRES__
 
 TARGET_SDKLIBS := \
-	gdi32.a user32.a comctl32.a ole32.a oleaut32.a shell32.a \
+	gdi32.a user32.a comctl32.a ole32.a oleaut32.a shell32.a expat.a \
 	notifyhook.a ws2_32.a msimg32.a
 
 TARGET_GCCLIBS := stdc++ uuid
@@ -52,8 +53,7 @@ TARGET_OBJECTS := \
 	utility/window.o \
 	utility/dragdropimpl.o \
 	utility/shellbrowserimpl.o \
-	utility/xmlstorage.o \
-	utility/xs-native.o
+	utility/xmlstorage.o
 
 TARGET_CPPAPP := yes
 

@@ -22,7 +22,7 @@
 #define NDEBUG
 #include <debug.h>
 
-BOOLEAN IniOpenSection(PCSTR SectionName, ULONG* SectionId)
+BOOL IniOpenSection(PCSTR SectionName, ULONG* SectionId)
 {
 	PINI_SECTION	Section;
 
@@ -79,7 +79,7 @@ ULONG IniGetSectionSettingValueSize(ULONG SectionId, ULONG SettingIndex)
 	return (strlen(Section->SectionItemList[SettingIndex].ItemValue) + 1);
 }
 
-BOOLEAN IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize)
+BOOL IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize)
 {
 	PINI_SECTION		Section = (PINI_SECTION)SectionId;
 	PINI_SECTION_ITEM	SectionItem;
@@ -129,7 +129,7 @@ BOOLEAN IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR Setti
 	return FALSE;
 }
 
-BOOLEAN IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize)
+BOOL IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize)
 {
 	PINI_SECTION		Section = (PINI_SECTION)SectionId;
 	PINI_SECTION_ITEM	SectionItem;
@@ -161,7 +161,7 @@ BOOLEAN IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, U
 	return FALSE;
 }
 
-BOOLEAN IniAddSection(PCSTR SectionName, ULONG* SectionId)
+BOOL IniAddSection(PCSTR SectionName, ULONG* SectionId)
 {
 	PINI_SECTION	Section;
 
@@ -201,7 +201,7 @@ BOOLEAN IniAddSection(PCSTR SectionName, ULONG* SectionId)
 	return TRUE;
 }
 
-BOOLEAN IniAddSettingValueToSection(ULONG SectionId, PCSTR SettingName, PCSTR SettingValue)
+BOOL IniAddSettingValueToSection(ULONG SectionId, PCSTR SettingName, PCSTR SettingValue)
 {
 	PINI_SECTION		Section = (PINI_SECTION)SectionId;
 	PINI_SECTION_ITEM	SectionItem;

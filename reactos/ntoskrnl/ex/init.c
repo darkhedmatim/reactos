@@ -260,10 +260,6 @@ ExecuteRuntimeAsserts(VOID)
     ASSERT(FIELD_OFFSET(KV86M_TRAP_FRAME, orig_ebp) == TF_ORIG_EBP);
     ASSERT(FIELD_OFFSET(KPCR, Tib.ExceptionList) == KPCR_EXCEPTION_LIST);
     ASSERT(FIELD_OFFSET(KPCR, Self) == KPCR_SELF);
-    ASSERT(FIELD_OFFSET(KPCR, IRR) == KPCR_IRR);
-    ASSERT(KeGetPcr()->IRR == 0);
-    ASSERT(FIELD_OFFSET(KPCR, IDR) == KPCR_IDR);
-    ASSERT(FIELD_OFFSET(KPCR, Irql) == KPCR_IRQL);
     ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, CurrentThread) == KPCR_CURRENT_THREAD);
     ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, NpxThread) == KPCR_NPX_THREAD);
     ASSERT(FIELD_OFFSET(KTSS, Esp0) == KTSS_ESP0);
@@ -429,9 +425,21 @@ ExpLoadInitialProcess(PHANDLE ProcessHandle,
 {
     UNICODE_STRING CurrentDirectory;
     UNICODE_STRING ImagePath = RTL_CONSTANT_STRING(L"\\SystemRoot\\system32\\smss.exe");
+    HANDLE SystemProcessHandle;
     NTSTATUS Status;
     PRTL_USER_PROCESS_PARAMETERS Params=NULL;
     RTL_USER_PROCESS_INFORMATION Info;
+
+    /* Create a handle to the process */
+    Status = ObpCreateHandle(PsInitialSystemProcess,
+                             PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
+                             OBJ_KERNEL_HANDLE,
+                             &SystemProcessHandle);
+    if(!NT_SUCCESS(Status))
+    {
+        DPRINT1("Failed to create a handle for the system process!\n");
+        return Status;
+    }
 
     RtlInitUnicodeString(&CurrentDirectory,
                          SharedUserData->NtSystemRoot);
@@ -450,6 +458,7 @@ ExpLoadInitialProcess(PHANDLE ProcessHandle,
     if(!NT_SUCCESS(Status))
     {
         DPRINT1("Failed to create ppb!\n");
+        ZwClose(SystemProcessHandle);
         return Status;
     }
 
@@ -459,13 +468,14 @@ ExpLoadInitialProcess(PHANDLE ProcessHandle,
                                   Params,
                                   NULL,
                                   NULL,
-                                  NULL,
+                                  SystemProcessHandle,
                                   FALSE,
                                   NULL,
                                   NULL,
                                   &Info);
     
     /* Close the handle and free the params */
+    ZwClose(SystemProcessHandle);
     RtlDestroyProcessParameters(Params);
 
     if (!NT_SUCCESS(Status))
@@ -502,9 +512,6 @@ ExpInitializeExecutive(VOID)
 
     /* Check if the structures match the ASM offset constants */
     ExecuteRuntimeAsserts();
-
-    /* Set 1 CPU for now, we'll increment this later */
-    KeNumberProcessors = 1;
 
     /* Sets up the Text Sections of the Kernel and HAL for debugging */
     LdrInit1();
@@ -546,11 +553,11 @@ ExpInitializeExecutive(VOID)
     /* Load basic Security for other Managers */
     if (!SeInit1()) KEBUGCHECK(SECURITY_INITIALIZATION_FAILED);
 
-    /* Initialize Lookaside Lists */
-    ExpInitLookasideLists();
-
     /* Create the Basic Object Manager Types to allow new Object Types */
     ObInit();
+
+    /* Initialize Lookaside Lists */
+    ExpInitLookasideLists();
 
     /* Set up Region Maps, Sections and the Paging File */
     MmInit2();
@@ -558,9 +565,12 @@ ExpInitializeExecutive(VOID)
     /* Initialize Tokens now that the Object Manager is ready */
     if (!SeInit2()) KEBUGCHECK(SECURITY1_INITIALIZATION_FAILED);
 
+    /* Set 1 CPU for now, we'll increment this later */
+    KeNumberProcessors = 1;
+    
     /* Initalize the Process Manager */
     PiInitProcessManager();
-
+    
     /* Break into the Debugger if requested */
     if (KdPollBreakIn()) DbgBreakPointWithStatus (DBG_STATUS_CONTROL_C);
 
@@ -600,13 +610,13 @@ ExpInitializeExecutive(VOID)
     ExpInitializeCallbacks();
 
     /* Call KD Providers at Phase 1 */
-    KdInitSystem(1, (PROS_LOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+    KdInitSystem(1, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
     /* Initialize I/O Objects, Filesystems, Error Logging and Shutdown */
     IoInit();
 
     /* TBD */
-    PoInit((PROS_LOADER_PARAMETER_BLOCK)&KeLoaderBlock, ForceAcpiDisable);
+    PoInit((PLOADER_PARAMETER_BLOCK)&KeLoaderBlock, ForceAcpiDisable);
 
     /* Initialize the Registry (Hives are NOT yet loaded!) */
     CmInitializeRegistry();
@@ -630,16 +640,13 @@ ExpInitializeExecutive(VOID)
     if (NoGuiBoot) ExpDisplayNotice();
 
     /* Call KD Providers at Phase 2 */
-    KdInitSystem(2, (PROS_LOADER_PARAMETER_BLOCK)&KeLoaderBlock);
+    KdInitSystem(2, (PLOADER_PARAMETER_BLOCK)&KeLoaderBlock);
 
     /* Import and create NLS Data and Sections */
     RtlpInitNls();
 
     /* Import and Load Registry Hives */
     CmInitHives(SetupMode);
-
-    /* Initialize VDM support */
-    KeI386VdmInitialize();
 
     /* Initialize the time zone information from the registry */
     ExpInitTimeZoneInfo();
@@ -659,6 +666,9 @@ ExpInitializeExecutive(VOID)
 
     /* Load the System DLL and its Entrypoints */
     PsLocateSystemDll();
+
+    /* Initialize the Default Locale */
+    PiInitDefaultLocale();
 
     /* Initialize shared user page. Set dos system path, dos device map, etc. */
     InitSystemSharedUserPage ((PCHAR)KeLoaderBlock.CommandLine);

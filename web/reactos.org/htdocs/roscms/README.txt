@@ -1,6 +1,6 @@
 =================================
 ReactOS Content Management System
-Updated May 29th, 2006
+Updated November 15th, 2005
 =================================
 
 1. What is RosCMS?
@@ -17,12 +17,22 @@ stability are needed.
 More information is available at: http://www.reactos.org
 
 
-2. Who is responsible?
+2. Building ReactOS
+
+See the INSTALL file for more details.
+
+
+3. More information
+
+See the ReactOS Wiki at: http://www.reactos.org/wiki/
+
+
+4. Who is responsible?
 
 See the CREDITS.txt file
 
 
-3. What is the license?
+5. What is the license?
 
 See the COPYING.txt file
 

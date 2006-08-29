@@ -480,7 +480,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   NULL
 };
 
-PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor() {
   return &keyboard_layout_table;
 }
 

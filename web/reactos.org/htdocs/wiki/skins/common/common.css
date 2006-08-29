@@ -316,36 +316,33 @@ li span.deleted {
 
 
 /* Classes for EXIF data display */
-table.mw_metadata {
+table.exif {
 	margin-left: 0.5em;
 }
 
-table.mw_metadata caption { font-weight: bold; }
-table.mw_metadata th { font-weight: normal; }
-table.mw_metadata td { padding: 0.1em; }
+table.exif caption { font-weight: bold; }
+table.exif th { font-weight: normal; }
+table.exif td { padding: 0.1em; }
 
-table.mw_metadata {
+table.exif {
 	border: none;
 	border-collapse: collapse;
 }
-table.mw_metadata td, table.mw_metadata th {
+table.exif td, table.exif th {
 	border: 1px solid #aaaaaa;
 	padding-left: 4px;
 	padding-right: 4px;
 }
-table.mw_metadata th {
+table.exif th {
 	background-color: #f9f9f9;
 }
-table.mw_metadata td {
+table.exif td {
 	background-color: #fcfcfc;
 }
-table.mw_metadata td.spacer {
+table.exif td.spacer {
 	background: inherit;
 	border-top: none;
 	border-bottom: none;
-}
-table.collapsed tr.collapsable {
-	display: none;
 }
 
 .visualClear {
@@ -376,11 +373,3 @@ table.collapsed tr.collapsable {
 	background-color: #f0f0ff;
 }
 
-#jump-to-nav {
-  display: none;
-}
-
-table.gallery td.galleryheader {
-	text-align: center;
-	font-weight: bold;
-}

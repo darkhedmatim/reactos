@@ -25,13 +25,13 @@
 #undef  UNIMPLEMENTED
 #define UNIMPLEMENTED   BugCheck((DPRINT_WARNING, "Unimplemented\n"));
 
-static BOOLEAN bReportError = TRUE;
+static BOOL bReportError = TRUE;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // FUNCTIONS
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-VOID DiskReportError (BOOLEAN bError)
+VOID DiskReportError (BOOL bError)
 {
 	bReportError = bError;
 }
@@ -86,9 +86,9 @@ PCSTR DiskGetErrorCodeString(ULONG ErrorCode)
 }
 
 // This function is in arch/i386/i386disk.c
-//BOOLEAN DiskReadLogicalSectors(ULONG DriveNumber, U64 SectorNumber, ULONG SectorCount, PVOID Buffer)
+//BOOL DiskReadLogicalSectors(ULONG DriveNumber, U64 SectorNumber, ULONG SectorCount, PVOID Buffer)
 
-BOOLEAN DiskIsDriveRemovable(ULONG DriveNumber)
+BOOL DiskIsDriveRemovable(ULONG DriveNumber)
 {
 	// Hard disks use drive numbers >= 0x80
 	// So if the drive number indicates a hard disk

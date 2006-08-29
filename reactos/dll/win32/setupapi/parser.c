@@ -910,7 +910,7 @@ static void append_inf_file( struct inf_file *parent, struct inf_file *child )
  *
  * parse an INF file.
  */
-static struct inf_file *parse_file( HANDLE handle, UINT *error_line, DWORD style )
+static struct inf_file *parse_file( HANDLE handle, UINT *error_line )
 {
     void *buffer;
     DWORD err = 0;
@@ -962,8 +962,6 @@ static struct inf_file *parse_file( HANDLE handle, UINT *error_line, DWORD style
     if (!err)  /* now check signature */
     {
         int version_index = find_section( file, Version );
-        if (version_index == -1 && (style & INF_STYLE_OLDNT))
-            goto done;
         if (version_index != -1)
         {
             struct line *line = find_line( file, version_index, Signature );
@@ -1150,12 +1148,6 @@ HINF WINAPI SetupOpenInfFileW( PCWSTR name, PCWSTR class, DWORD style, UINT *err
 
     TRACE("%s %s %lx %p\n", debugstr_w(name), debugstr_w(class), style, error);
 
-    if (style & ~(INF_STYLE_OLDNT | INF_STYLE_WIN4))
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return (HINF)INVALID_HANDLE_VALUE;
-    }
-
     if (strchrW( name, '\\' ) || strchrW( name, '/' ))
     {
         if (!(len = GetFullPathNameW( name, 0, NULL, NULL ))) return (HINF)INVALID_HANDLE_VALUE;
@@ -1193,7 +1185,7 @@ HINF WINAPI SetupOpenInfFileW( PCWSTR name, PCWSTR class, DWORD style, UINT *err
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        file = parse_file( handle, error, style );
+        file = parse_file( handle, error );
         CloseHandle( handle );
     }
     if (!file)

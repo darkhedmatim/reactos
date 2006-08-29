@@ -55,7 +55,7 @@ enum
 /* FMIFS callback definition */
 typedef
 BOOLEAN
-(NTAPI * PFMIFSCALLBACK) (
+(STDCALL * PFMIFSCALLBACK) (
 	CALLBACKCOMMAND	Command,
 	ULONG		SubAction,
 	PVOID		ActionInfo
@@ -63,7 +63,7 @@ BOOLEAN
 
 /* Chkdsk command in FMIFS */
 VOID
-NTAPI
+STDCALL
 Chkdsk(
 	PWCHAR		DriveRoot,
 	PWCHAR		Format,
@@ -78,7 +78,7 @@ Chkdsk(
 
 /* ChkdskEx command in FMIFS (not in the original) */
 VOID
-NTAPI
+STDCALL
 ChkDskEx(
 	PWCHAR		DriveRoot,
 	PWCHAR		Format,
@@ -94,12 +94,12 @@ ChkDskEx(
 /* DiskCopy command in FMIFS */
 
 VOID
-NTAPI
+STDCALL
 DiskCopy(VOID);
 
 /* Enable/Disable volume compression */
 BOOL
-NTAPI
+STDCALL
 EnableVolumeCompression(
 	PWCHAR	DriveRoot,
 	USHORT Compression
@@ -112,7 +112,7 @@ EnableVolumeCompression(
 #define FMIFS_FLOPPY   0x8
 
 VOID
-NTAPI
+STDCALL
 FormatEx(
 	PWCHAR		DriveRoot,
 	ULONG		MediaFlag,

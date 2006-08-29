@@ -17,8 +17,7 @@
 	<file>ddraw.rc</file>
 	<file>main.c</file>
 	<file>regsvr.c</file>
-	<file>startup.c</file>
-	<file>cleanup.c</file>
+      <file>helinterface.c</file>
 
       <file>clipper.c</file>
 	<file>color.c</file>
@@ -27,7 +26,8 @@
 	<file>videoport.c</file>
 	<file>kernel.c</file>
 
-	<directory name="hal">		
+	<directory name="hal">
+		<file>ddraw_hal.c</file>
 		<file>surface_hal.c</file>
 	</directory>
 
@@ -36,7 +36,8 @@
 		<file>surface_main.c</file>				
 	</directory>
 
-	<directory name="soft">		
+	<directory name="soft">
+		<file>ddraw_hel.c</file>
 		<file>surface_hel.c</file>
             <file>surface_callbacks_hel.c</file>
 	</directory>

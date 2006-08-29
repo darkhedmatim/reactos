@@ -30,8 +30,8 @@ HINSTANCE hDllInstance;
 static BOOL
 SearchDriver(
 	IN PDEVINSTDATA DevInstData,
-	IN LPCWSTR Directory OPTIONAL,
-	IN LPCWSTR InfFile OPTIONAL);
+	IN LPCTSTR Directory OPTIONAL,
+	IN LPCTSTR InfFile OPTIONAL);
 
 /*
 * @implemented
@@ -250,14 +250,14 @@ UpdateDriverForPlugAndPlayDevicesA(
 static BOOL
 SearchDriver(
 	IN PDEVINSTDATA DevInstData,
-	IN LPCWSTR Directory OPTIONAL,
-	IN LPCWSTR InfFile OPTIONAL)
+	IN LPCTSTR Directory OPTIONAL,
+	IN LPCTSTR InfFile OPTIONAL)
 {
-	SP_DEVINSTALL_PARAMS_W DevInstallParams = {0,};
+	SP_DEVINSTALL_PARAMS DevInstallParams = {0,};
 	BOOL ret;
 
-	DevInstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS_W);
-	if (!SetupDiGetDeviceInstallParamsW(DevInstData->hDevInfo, &DevInstData->devInfoData, &DevInstallParams))
+	DevInstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
+	if (!SetupDiGetDeviceInstallParams(DevInstData->hDevInfo, &DevInstData->devInfoData, &DevInstallParams))
 	{
 		TRACE("SetupDiGetDeviceInstallParams() failed with error 0x%lx\n", GetLastError());
 		return FALSE;
@@ -267,20 +267,20 @@ SearchDriver(
 	if (InfFile)
 	{
 		DevInstallParams.Flags |= DI_ENUMSINGLEINF;
-		wcsncpy(DevInstallParams.DriverPath, InfFile, MAX_PATH);
+		_tcsncpy(DevInstallParams.DriverPath, InfFile, MAX_PATH);
 	}
 	else if (Directory)
 	{
 		DevInstallParams.Flags &= ~DI_ENUMSINGLEINF;
-		wcsncpy(DevInstallParams.DriverPath, Directory, MAX_PATH);
+		_tcsncpy(DevInstallParams.DriverPath, Directory, MAX_PATH);
 	}
 	else
 	{
 		DevInstallParams.Flags &= ~DI_ENUMSINGLEINF;
-		*DevInstallParams.DriverPath = '\0';
+		*DevInstallParams.DriverPath = _T('\0');
 	}
 
-	ret = SetupDiSetDeviceInstallParamsW(
+	ret = SetupDiSetDeviceInstallParams(
 		DevInstData->hDevInfo,
 		&DevInstData->devInfoData,
 		&DevInstallParams);
@@ -319,20 +319,20 @@ SearchDriver(
 }
 
 static BOOL
-IsDots(IN LPCWSTR str)
+IsDots(IN LPCTSTR str)
 {
-	if(wcscmp(str, L".") && wcscmp(str, L"..")) return FALSE;
+	if(_tcscmp(str, _T(".")) && _tcscmp(str, _T(".."))) return FALSE;
 	return TRUE;
 }
 
-static LPCWSTR
-GetFileExt(IN LPWSTR FileName)
+static LPCTSTR
+GetFileExt(IN LPTSTR FileName)
 {
-	LPCWSTR Dot;
+	LPCTSTR Dot;
 
-	Dot = wcsrchr(FileName, '.');
+	Dot = _tcsrchr(FileName, _T('.'));
 	if (!Dot)
-		return L"";
+		return _T("");
 
 	return Dot;
 }
@@ -340,40 +340,40 @@ GetFileExt(IN LPWSTR FileName)
 static BOOL
 SearchDriverRecursive(
 	IN PDEVINSTDATA DevInstData,
-	IN LPCWSTR Path)
+	IN LPCTSTR Path)
 {
-	WIN32_FIND_DATAW wfd;
-	WCHAR DirPath[MAX_PATH];
-	WCHAR FileName[MAX_PATH];
-	WCHAR FullPath[MAX_PATH];
-	WCHAR LastDirPath[MAX_PATH] = L"";
-	WCHAR PathWithPattern[MAX_PATH];
+	WIN32_FIND_DATA wfd;
+	TCHAR DirPath[MAX_PATH];
+	TCHAR FileName[MAX_PATH];
+	TCHAR FullPath[MAX_PATH];
+	TCHAR LastDirPath[MAX_PATH] = _T("");
+	TCHAR PathWithPattern[MAX_PATH];
 	BOOL ok = TRUE;
 	BOOL retval = FALSE;
 	HANDLE hFindFile = INVALID_HANDLE_VALUE;
 
-	wcscpy(DirPath, Path);
+	_tcscpy(DirPath, Path);
 
-	if (DirPath[wcslen(DirPath) - 1] != '\\')
-		wcscat(DirPath, L"\\");
+	if (DirPath[_tcsclen(DirPath) - 1] != '\\')
+		_tcscat(DirPath, _T("\\"));
 
-	wcscpy(PathWithPattern, DirPath);
-	wcscat(PathWithPattern, L"\\*");
+	_tcscpy(PathWithPattern, DirPath);
+	_tcscat(PathWithPattern, _T("\\*"));
 
-	for (hFindFile = FindFirstFileW(PathWithPattern, &wfd);
+	for (hFindFile = FindFirstFile(PathWithPattern, &wfd);
 		ok && hFindFile != INVALID_HANDLE_VALUE;
-		ok = FindNextFileW(hFindFile, &wfd))
+		ok = FindNextFile(hFindFile, &wfd))
 	{
 
-		wcscpy(FileName, wfd.cFileName);
+		_tcscpy(FileName, wfd.cFileName);
 		if (IsDots(FileName))
 			continue;
 
 		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
 			/* Recursive search */
-			wcscpy(FullPath, DirPath);
-			wcscat(FullPath, FileName);
+			_tcscpy(FullPath, DirPath);
+			_tcscat(FullPath, FileName);
 			if (SearchDriverRecursive(DevInstData, FullPath))
 			{
 				retval = TRUE;
@@ -382,13 +382,13 @@ SearchDriverRecursive(
 		}
 		else
 		{
-			LPCWSTR pszExtension = GetFileExt(FileName);
+			LPCTSTR pszExtension = GetFileExt(FileName);
 
-			if ((wcsicmp(pszExtension, L".inf") == 0) && (wcscmp(LastDirPath, DirPath) != 0))
+			if ((_tcsicmp(pszExtension, _T(".inf")) == 0) && (_tcscmp(LastDirPath, DirPath) != 0))
 			{
-				wcscpy(LastDirPath, DirPath);
+				_tcscpy(LastDirPath, DirPath);
 
-				if (wcslen(DirPath) > MAX_PATH)
+				if (_tcsclen(DirPath) > MAX_PATH)
 					/* Path is too long to be searched */
 					continue;
 
@@ -422,11 +422,11 @@ ScanFoldersForDriver(
 		/* We need to check all specified directories to be
 		 * sure to find the best driver for the device.
 		 */
-		LPCWSTR Path;
-		for (Path = DevInstData->CustomSearchPath; *Path != '\0'; Path += wcslen(Path) + 1)
+		LPCTSTR Path;
+		for (Path = DevInstData->CustomSearchPath; *Path != '\0'; Path += _tcslen(Path) + 1)
 		{
 			TRACE("Search driver in %S\n", Path);
-			if (wcslen(Path) == 2 && Path[1] == ':')
+			if (_tcslen(Path) == 2 && Path[1] == ':')
 			{
 				if (SearchDriverRecursive(DevInstData, Path))
 					result = TRUE;
@@ -449,13 +449,13 @@ PrepareFoldersToScan(
 	IN BOOL IncludeCustomPath,
 	IN HWND hwndCombo OPTIONAL)
 {
-	WCHAR drive[] = {'?',':',0};
+	TCHAR drive[] = {'?',':',0};
 	DWORD dwDrives = 0;
 	DWORD i;
 	UINT nType;
 	DWORD CustomTextLength = 0;
 	DWORD LengthNeeded = 0;
-	LPWSTR Buffer;
+	LPTSTR Buffer;
 
 	/* Calculate length needed to store the search paths */
 	if (IncludeRemovableDevices)
@@ -465,7 +465,7 @@ PrepareFoldersToScan(
 		{
 			if (dwDrives & i)
 			{
-				nType = GetDriveTypeW(drive);
+				nType = GetDriveType(drive);
 				if (nType == DRIVE_REMOVABLE || nType == DRIVE_CDROM)
 				{
 					LengthNeeded += 3;
@@ -484,7 +484,7 @@ PrepareFoldersToScan(
 	DevInstData->CustomSearchPath = Buffer = HeapAlloc(
 		GetProcessHeap(),
 		0,
-		(LengthNeeded + 1) * sizeof(WCHAR));
+		(LengthNeeded + 1) * sizeof(TCHAR));
 	if (!Buffer)
 	{
 		TRACE("HeapAlloc() failed\n");
@@ -499,19 +499,19 @@ PrepareFoldersToScan(
 		{
 			if (dwDrives & i)
 			{
-				nType = GetDriveTypeW(drive);
+				nType = GetDriveType(drive);
 				if (nType == DRIVE_REMOVABLE || nType == DRIVE_CDROM)
 				{
-					Buffer += 1 + swprintf(Buffer, drive);
+					Buffer += 1 + _stprintf(Buffer, drive);
 				}
 			}
 		}
 	}
 	if (IncludeCustomPath)
 	{
-		Buffer += 1 + GetWindowTextW(hwndCombo, Buffer, CustomTextLength);
+		Buffer += 1 + ComboBox_GetText(hwndCombo, Buffer, CustomTextLength);
 	}
-	*Buffer = '\0';
+	*Buffer = _T('\0');
 
 	return TRUE;
 }
@@ -522,7 +522,7 @@ InstallCurrentDriver(
 {
 	BOOL ret;
 
-	TRACE("Installing driver %s: %s\n", DevInstData->drvInfoData.MfgName, DevInstData->drvInfoData.Description);
+	TRACE("Installing driver %S: %S\n", DevInstData->drvInfoData.MfgName, DevInstData->drvInfoData.Description);
 
 	ret = SetupDiCallClassInstaller(
 		DIF_SELECTBESTCOMPATDRV,
@@ -733,7 +733,7 @@ DevInstallW(
 		}
 	}
 
-	TRACE("Installing %s (%S)\n", DevInstData->buffer, InstanceId);
+	TRACE("Installing %S (%S)\n", DevInstData->buffer, InstanceId);
 
 	/* Search driver in default location and removable devices */
 	if (!PrepareFoldersToScan(DevInstData, FALSE, FALSE, NULL))

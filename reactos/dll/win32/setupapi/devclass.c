@@ -45,7 +45,7 @@ typedef BOOL
     IN DWORD ClassInstallParamsSize);
 
 static BOOL
-SETUP_PropertyChangeHandler(
+PropertyChangeHandler(
     IN HDEVINFO DeviceInfoSet,
     IN PSP_DEVINFO_DATA DeviceInfoData OPTIONAL,
     IN PSP_CLASSINSTALL_HEADER ClassInstallParams OPTIONAL,
@@ -69,7 +69,7 @@ static const UPDATE_CLASS_PARAM_HANDLER UpdateClassInstallParamHandlers[] = {
     NULL, /* DIF_DETECT */
     NULL, /* DIF_INSTALLWIZARD */
     NULL, /* DIF_DESTROYWIZARDDATA */
-    SETUP_PropertyChangeHandler, /* DIF_PROPERTYCHANGE */
+    PropertyChangeHandler, /* DIF_PROPERTYCHANGE */
     NULL, /* DIF_ENABLECLASS */
     NULL, /* DIF_DETECTVERIFY */
     NULL, /* DIF_INSTALLDEVICEFILES */
@@ -99,19 +99,6 @@ static const UPDATE_CLASS_PARAM_HANDLER UpdateClassInstallParamHandlers[] = {
 
 /***********************************************************************
  *              SetupDiBuildClassInfoList  (SETUPAPI.@)
- *
- * Returns a list of setup class GUIDs that identify the classes
- * that are installed on a local machine.
- *
- * PARAMS
- *   Flags [I] control exclusion of classes from the list.
- *   ClassGuidList [O] pointer to a GUID-typed array that receives a list of setup class GUIDs.
- *   ClassGuidListSize [I] The number of GUIDs in the array (ClassGuidList).
- *   RequiredSize [O] pointer, which receives the number of GUIDs that are returned.
- *
- * RETURNS
- *   Success: TRUE.
- *   Failure: FALSE.
  */
 BOOL WINAPI
 SetupDiBuildClassInfoList(
@@ -128,18 +115,6 @@ SetupDiBuildClassInfoList(
 
 /***********************************************************************
  *              SetupDiBuildClassInfoListExA  (SETUPAPI.@)
- *
- * PARAMS
- *   Flags [I] control exclusion of classes from the list.
- *   ClassGuidList [O] pointer to a GUID-typed array that receives a list of setup class GUIDs.
- *   ClassGuidListSize [I] The number of GUIDs in the array (ClassGuidList).
- *   RequiredSize [O] pointer, which receives the number of GUIDs that are returned.
- *   MachineName [I] name of a remote machine.
- *   Reserved [I] must be NULL.
- *
- * RETURNS
- *   Success: TRUE.
- *   Failure: FALSE.
  */
 BOOL WINAPI
 SetupDiBuildClassInfoListExA(
@@ -153,8 +128,7 @@ SetupDiBuildClassInfoListExA(
     LPWSTR MachineNameW = NULL;
     BOOL bResult;
 
-    TRACE("0x%lx %p %lu %p %s %p\n", Flags, ClassGuidList,
-        ClassGuidListSize, RequiredSize, debugstr_a(MachineName), Reserved);
+    TRACE("\n");
 
     if (MachineName)
     {
@@ -166,28 +140,14 @@ SetupDiBuildClassInfoListExA(
                                            ClassGuidListSize, RequiredSize,
                                            MachineNameW, Reserved);
 
-    MyFree(MachineNameW);
+    if (MachineNameW)
+        MyFree(MachineNameW);
 
     return bResult;
 }
 
 /***********************************************************************
- *              SetupDiBuildClassInfoListExW  (SETUPAPI.@)
- *
- * Returns a list of setup class GUIDs that identify the classes
- * that are installed on a local or remote macine.
- *
- * PARAMS
- *   Flags [I] control exclusion of classes from the list.
- *   ClassGuidList [O] pointer to a GUID-typed array that receives a list of setup class GUIDs.
- *   ClassGuidListSize [I] The number of GUIDs in the array (ClassGuidList).
- *   RequiredSize [O] pointer, which receives the number of GUIDs that are returned.
- *   MachineName [I] name of a remote machine.
- *   Reserved [I] must be NULL.
- *
- * RETURNS
- *   Success: TRUE.
- *   Failure: FALSE.
+ *		SetupDiBuildClassInfoListExW  (SETUPAPI.@)
  */
 BOOL WINAPI
 SetupDiBuildClassInfoListExW(
@@ -210,16 +170,8 @@ SetupDiBuildClassInfoListExW(
     TRACE("0x%lx %p %lu %p %s %p\n", Flags, ClassGuidList,
         ClassGuidListSize, RequiredSize, debugstr_w(MachineName), Reserved);
 
-    if (!RequiredSize)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
-    else if (!ClassGuidList && ClassGuidListSize > 0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
+    if (RequiredSize != NULL)
+        *RequiredSize = 0;
 
     hClassesKey = SetupDiOpenClassRegKeyExW(NULL,
                                             KEY_ENUMERATE_SUB_KEYS,
@@ -240,6 +192,7 @@ SetupDiBuildClassInfoListExW(
                                NULL,
                                NULL,
                                NULL);
+        TRACE("RegEnumKeyExW() returns %ld\n", lError);
         if (lError == ERROR_SUCCESS || lError == ERROR_MORE_DATA)
         {
             TRACE("Key name: %s\n", debugstr_w(szKeyName));
@@ -295,6 +248,7 @@ SetupDiBuildClassInfoListExW(
             {
                 if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
                     szKeyName[37] = 0;
+                TRACE("Guid: %s\n", debugstr_w(&szKeyName[1]));
 
                 UuidFromStringW(&szKeyName[1],
                     &ClassGuidList[dwGuidListIndex]);
@@ -302,11 +256,9 @@ SetupDiBuildClassInfoListExW(
 
             dwGuidListIndex++;
         }
-        else
-            TRACE("RegEnumKeyExW() returns 0x%lx\n", lError);
 
         if (lError != ERROR_SUCCESS)
-            break;
+        break;
     }
 
     if (RequiredSize != NULL)
@@ -368,34 +320,31 @@ SetupDiClassGuidsFromNameExA(
 {
     LPWSTR ClassNameW = NULL;
     LPWSTR MachineNameW = NULL;
-    BOOL bResult = FALSE;
+    BOOL bResult;
 
-    TRACE("%s %p %lu %p %s %p\n", debugstr_a(ClassName), ClassGuidList,
-        ClassGuidListSize, RequiredSize, debugstr_a(MachineName), Reserved);
-
-    if (!ClassName)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
+    TRACE("\n");
 
     ClassNameW = MultiByteToUnicode(ClassName, CP_ACP);
     if (ClassNameW == NULL)
-        goto cleanup;
+        return FALSE;
 
-    if (MachineName)
+    if (MachineNameW)
     {
         MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
         if (MachineNameW == NULL)
-            goto cleanup;
+        {
+            MyFree(ClassNameW);
+            return FALSE;
+        }
     }
 
     bResult = SetupDiClassGuidsFromNameExW(ClassNameW, ClassGuidList,
                                            ClassGuidListSize, RequiredSize,
                                            MachineNameW, Reserved);
 
-cleanup:
-    MyFree(MachineNameW);
+    if (MachineNameW)
+        MyFree(MachineNameW);
+
     MyFree(ClassNameW);
 
     return bResult;
@@ -414,7 +363,7 @@ SetupDiClassGuidsFromNameExW(
     IN PVOID Reserved)
 {
     WCHAR szKeyName[MAX_GUID_STRING_LEN + 1];
-    WCHAR szClassName[MAX_CLASS_NAME_LEN];
+    WCHAR szClassName[256];
     HKEY hClassesKey = INVALID_HANDLE_VALUE;
     HKEY hClassKey = NULL;
     DWORD dwLength;
@@ -426,17 +375,8 @@ SetupDiClassGuidsFromNameExW(
     TRACE("%s %p %lu %p %s %p\n", debugstr_w(ClassName), ClassGuidList,
         ClassGuidListSize, RequiredSize, debugstr_w(MachineName), Reserved);
 
-    if (!ClassName || !RequiredSize)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
-    else if (!ClassGuidList && ClassGuidListSize > 0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
-    *RequiredSize = 0;
+    if (RequiredSize != NULL)
+        *RequiredSize = 0;
 
     hClassesKey = SetupDiOpenClassRegKeyExW(NULL,
                                             KEY_ENUMERATE_SUB_KEYS,
@@ -457,6 +397,7 @@ SetupDiClassGuidsFromNameExW(
                                NULL,
                                NULL,
                                NULL);
+        TRACE("RegEnumKeyExW() returns %ld\n", lError);
         if (lError == ERROR_SUCCESS || lError == ERROR_MORE_DATA)
         {
             TRACE("Key name: %s\n", debugstr_w(szKeyName));
@@ -472,7 +413,7 @@ SetupDiClassGuidsFromNameExW(
                 goto cleanup;
             }
 
-            dwLength = MAX_CLASS_NAME_LEN * sizeof(WCHAR);
+            dwLength = 256 * sizeof(WCHAR);
             if (RegQueryValueExW(hClassKey,
                                  Class,
                                  NULL,
@@ -491,6 +432,7 @@ SetupDiClassGuidsFromNameExW(
                     {
                         if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
                             szKeyName[37] = 0;
+                        TRACE("Guid: %s\n", debugstr_w(&szKeyName[1]));
 
                         UuidFromStringW(&szKeyName[1],
                             &ClassGuidList[dwGuidListIndex]);
@@ -500,8 +442,6 @@ SetupDiClassGuidsFromNameExW(
                 }
             }
         }
-        else
-            TRACE("RegEnumKeyExW() returns 0x%lx\n", lError);
 
         if (lError != ERROR_SUCCESS)
             break;
@@ -572,16 +512,14 @@ SetupDiClassNameFromGuidExA(
     if (MachineName)
         MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
     ret = SetupDiClassNameFromGuidExW(ClassGuid, ClassNameW, MAX_CLASS_NAME_LEN,
-        RequiredSize, MachineNameW, Reserved);
+        NULL, MachineNameW, Reserved);
     if (ret)
     {
         int len = WideCharToMultiByte(CP_ACP, 0, ClassNameW, -1, ClassName,
-            ClassNameSize, NULL, NULL);
-        if (len > ClassNameSize)
-        {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            ret = FALSE;
-        }
+         ClassNameSize, NULL, NULL);
+
+        if (!ClassNameSize && RequiredSize)
+            *RequiredSize = len;
     }
     MyFree(MachineNameW);
     return ret;
@@ -599,24 +537,13 @@ SetupDiClassNameFromGuidExW(
     IN PCWSTR MachineName OPTIONAL,
     IN PVOID Reserved)
 {
-    HKEY hKey = INVALID_HANDLE_VALUE;
-    DWORD dwLength, dwRegType;
+    HKEY hKey;
+    DWORD dwLength;
     LONG rc;
     BOOL ret = FALSE;
 
     TRACE("%s %p %lu %p %s %p\n", debugstr_guid(ClassGuid), ClassName,
         ClassNameSize, RequiredSize, debugstr_w(MachineName), Reserved);
-
-    if (!ClassGuid)
-    {
-        SetLastError(ERROR_INVALID_CLASS);
-        goto cleanup;
-    }
-    else if (!ClassName && ClassNameSize > 0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
 
     hKey = SetupDiOpenClassRegKeyExW(ClassGuid,
                                      KEY_QUERY_VALUE,
@@ -626,39 +553,38 @@ SetupDiClassNameFromGuidExW(
     if (hKey == INVALID_HANDLE_VALUE)
         goto cleanup;
 
-    if (ClassNameSize < sizeof(UNICODE_NULL) || !ClassName)
+    if (RequiredSize != NULL)
+    {
         dwLength = 0;
-    else
-        dwLength = ClassNameSize * sizeof(WCHAR) - sizeof(UNICODE_NULL);
+        rc = RegQueryValueExW(hKey,
+                              Class,
+                              NULL,
+                              NULL,
+                              NULL,
+                              &dwLength);
+        if (rc != ERROR_SUCCESS)
+        {
+            SetLastError(rc);
+            goto cleanup;
+        }
 
+        *RequiredSize = dwLength / sizeof(WCHAR);
+    }
+
+    dwLength = ClassNameSize * sizeof(WCHAR);
     rc = RegQueryValueExW(hKey,
                           Class,
                           NULL,
-                          &dwRegType,
+                          NULL,
                           (LPBYTE)ClassName,
                           &dwLength);
-    if (rc != ERROR_MORE_DATA && rc != ERROR_SUCCESS)
+    if (rc != ERROR_SUCCESS)
     {
         SetLastError(rc);
         goto cleanup;
     }
-    else if (dwRegType != REG_SZ)
-    {
-        SetLastError(ERROR_GEN_FAILURE);
-        goto cleanup;
-    }
 
-    if (RequiredSize)
-        *RequiredSize = dwLength / sizeof(WCHAR) + 1;
-
-    if (ClassNameSize * sizeof(WCHAR) >= dwLength + sizeof(UNICODE_STRING))
-    {
-        if (ClassNameSize > sizeof(UNICODE_NULL))
-            ClassName[ClassNameSize / sizeof(WCHAR)] = UNICODE_NULL;
-        ret = TRUE;
-    }
-    else
-        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    ret = TRUE;
 
 cleanup:
     if (hKey != INVALID_HANDLE_VALUE)
@@ -708,22 +634,23 @@ SetupDiGetClassDescriptionExA(
     IN PCSTR MachineName OPTIONAL,
     IN PVOID Reserved)
 {
-    PWCHAR ClassDescriptionW = NULL;
+    PWCHAR ClassDescriptionW;
     LPWSTR MachineNameW = NULL;
-    BOOL ret = FALSE;
+    BOOL ret;
 
-    TRACE("%s %p %lu %p %s %p\n", debugstr_guid(ClassGuid), ClassDescription,
-        ClassDescriptionSize, RequiredSize, debugstr_a(MachineName), Reserved);
-
+    TRACE("\n");
     if (ClassDescriptionSize > 0)
     {
-        ClassDescriptionW = MyMalloc(ClassDescriptionSize * sizeof(WCHAR));
+        ClassDescriptionW = HeapAlloc(GetProcessHeap(), 0, ClassDescriptionSize * sizeof(WCHAR));
         if (!ClassDescriptionW)
         {
             SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto cleanup;
+            ret = FALSE;
+            goto end;
         }
     }
+    else
+        ClassDescriptionW = NULL;
 
     if (MachineName)
     {
@@ -731,25 +658,24 @@ SetupDiGetClassDescriptionExA(
         if (!MachineNameW)
         {
             SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto cleanup;
+            ret = FALSE;
+            goto end;
         }
     }
 
-    ret = SetupDiGetClassDescriptionExW(ClassGuid, ClassDescriptionW,
-        ClassDescriptionSize * sizeof(WCHAR), RequiredSize, MachineNameW, Reserved);
+    ret = SetupDiGetClassDescriptionExW(ClassGuid, ClassDescriptionW, ClassDescriptionSize * sizeof(WCHAR),
+     NULL, MachineNameW, Reserved);
     if (ret)
     {
         int len = WideCharToMultiByte(CP_ACP, 0, ClassDescriptionW, -1, ClassDescription,
-            ClassDescriptionSize, NULL, NULL);
-        if (len > ClassDescriptionSize)
-        {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            ret = FALSE;
-        }
+         ClassDescriptionSize, NULL, NULL);
+
+        if (!ClassDescriptionSize && RequiredSize)
+            *RequiredSize = len;
     }
 
-cleanup:
-    MyFree(ClassDescriptionW);
+end:
+    HeapFree(GetProcessHeap(), 0, ClassDescriptionW);
     MyFree(MachineNameW);
     return ret;
 }
@@ -767,23 +693,11 @@ SetupDiGetClassDescriptionExW(
     IN PVOID Reserved)
 {
     HKEY hKey = INVALID_HANDLE_VALUE;
-    DWORD dwLength, dwRegType;
-    LONG rc;
+    DWORD dwLength;
     BOOL ret = FALSE;
 
     TRACE("%s %p %lu %p %s %p\n", debugstr_guid(ClassGuid), ClassDescription,
         ClassDescriptionSize, RequiredSize, debugstr_w(MachineName), Reserved);
-
-    if (!ClassGuid)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
-    else if (!ClassDescription && ClassDescriptionSize > 0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
-    }
 
     hKey = SetupDiOpenClassRegKeyExW(ClassGuid,
                                      KEY_QUERY_VALUE,
@@ -796,43 +710,39 @@ SetupDiGetClassDescriptionExW(
         goto cleanup;
     }
 
-    if (ClassDescriptionSize < sizeof(UNICODE_NULL) || !ClassDescription)
+    if (RequiredSize != NULL)
+    {
         dwLength = 0;
-    else
-        dwLength = ClassDescriptionSize * sizeof(WCHAR) - sizeof(UNICODE_NULL);
+        if (RegQueryValueExW(hKey,
+                             NULL,
+                             NULL,
+                             NULL,
+                             NULL,
+                             &dwLength) != ERROR_SUCCESS)
+        {
+            goto cleanup;
+        }
 
-    rc = RegQueryValueExW(hKey,
-                          NULL,
-                          NULL,
-                          &dwRegType,
-                          (LPBYTE)ClassDescription,
-                          &dwLength);
-    if (rc != ERROR_MORE_DATA && rc != ERROR_SUCCESS)
+        *RequiredSize = dwLength / sizeof(WCHAR);
+    }
+
+    dwLength = ClassDescriptionSize * sizeof(WCHAR);
+    if (RegQueryValueExW(hKey,
+                         NULL,
+                         NULL,
+                         NULL,
+                         (LPBYTE)ClassDescription,
+                         &dwLength) != ERROR_SUCCESS)
     {
-        SetLastError(rc);
         goto cleanup;
     }
-    else if (dwRegType != REG_SZ)
-    {
-        SetLastError(ERROR_GEN_FAILURE);
-        goto cleanup;
-    }
 
-    if (RequiredSize)
-        *RequiredSize = dwLength / sizeof(WCHAR) + 1;
-
-    if (ClassDescriptionSize * sizeof(WCHAR) >= dwLength + sizeof(UNICODE_STRING))
-    {
-        if (ClassDescriptionSize > sizeof(UNICODE_NULL))
-            ClassDescription[ClassDescriptionSize / sizeof(WCHAR)] = UNICODE_NULL;
-        ret = TRUE;
-    }
-    else
-        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    ret = TRUE;
 
 cleanup:
     if (hKey != INVALID_HANDLE_VALUE)
         RegCloseKey(hKey);
+
     return ret;
 }
 
@@ -877,50 +787,49 @@ SetupDiGetClassDevsExA(
     IN PCSTR MachineName OPTIONAL,
     IN PVOID Reserved)
 {
-    LPWSTR EnumeratorW = NULL;
-    LPWSTR MachineNameW = NULL;
-    HDEVINFO ret = (HDEVINFO)INVALID_HANDLE_VALUE;
+    HDEVINFO ret;
+    LPWSTR enumstrW = NULL;
+    LPWSTR machineW = NULL;
 
     if (Enumerator)
     {
-        EnumeratorW = MultiByteToUnicode(Enumerator, CP_ACP);
-        if (!EnumeratorW)
-            goto cleanup;
+        int len = MultiByteToWideChar(CP_ACP, 0, Enumerator, -1, NULL, 0);
+        enumstrW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+        if (!enumstrW)
+        {
+            ret = (HDEVINFO)INVALID_HANDLE_VALUE;
+            goto end;
+        }
+        MultiByteToWideChar(CP_ACP, 0, Enumerator, -1, enumstrW, len);
     }
     if (MachineName)
     {
-        MachineNameW = MultiByteToUnicode(MachineName, CP_ACP);
-        if (!MachineNameW)
-            goto cleanup;
+        int len = MultiByteToWideChar(CP_ACP, 0, MachineName, -1, NULL, 0);
+        machineW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+        if (!machineW)
+        {
+            ret = (HDEVINFO)INVALID_HANDLE_VALUE;
+            goto end;
+        }
+        MultiByteToWideChar(CP_ACP, 0, MachineName, -1, machineW, len);
     }
-    ret = SetupDiGetClassDevsExW(ClassGuid, EnumeratorW, hwndParent,
-        Flags, DeviceInfoSet, MachineNameW, Reserved);
+    ret = SetupDiGetClassDevsExW(ClassGuid, enumstrW, hwndParent, Flags, DeviceInfoSet, machineW, Reserved);
 
-cleanup:
-    MyFree(EnumeratorW);
-    MyFree(MachineNameW);
+end:
+    HeapFree(GetProcessHeap(), 0, enumstrW);
+    HeapFree(GetProcessHeap(), 0, machineW);
     return ret;
 }
 
 /***********************************************************************
- *		SETUP_CreateDevicesListFromEnumerator
- *
- * PARAMS
- *   list [I] Device info set to fill with discovered devices.
- *   pClassGuid [I] If specified, only devices which belong to this class will be added.
- *   Enumerator [I] Location to search devices to add.
- *   hEnumeratorKey [O] Registry key corresponding to Enumerator key. Must have KEY_ENUMERATE_SUB_KEYS right.
- *
- * RETURNS
- *   Success: ERROR_SUCCESS.
- *   Failure: an error code.
+ *		Helper functions for SetupDiGetClassDevsExW
  */
 static LONG
-SETUP_CreateDevicesListFromEnumerator(
-    IN OUT struct DeviceInfoSet *list,
-    IN CONST GUID *pClassGuid OPTIONAL,
-    IN LPCWSTR Enumerator,
-    IN HKEY hEnumeratorKey) /* handle to Enumerator registry key */
+SETUP_CreateDevListFromEnumerator(
+    struct DeviceInfoSet *list,
+    CONST GUID *pClassGuid OPTIONAL,
+    LPCWSTR Enumerator,
+    HKEY hEnumeratorKey) /* handle to Enumerator registry key */
 {
     HKEY hDeviceIdKey = NULL, hInstanceIdKey;
     WCHAR KeyBuffer[MAX_PATH];
@@ -991,14 +900,14 @@ SETUP_CreateDevicesListFromEnumerator(
             {
                 goto cleanup;
             }
-            else if (dwRegType != REG_SZ || dwLength < MAX_GUID_STRING_LEN * sizeof(WCHAR))
+            else if (dwRegType != REG_SZ)
             {
                 rc = ERROR_GEN_FAILURE;
                 goto cleanup;
             }
             else
             {
-                KeyBuffer[MAX_GUID_STRING_LEN - 2] = '\0'; /* Replace the } by a NULL character */
+                KeyBuffer[37] = '\0'; /* Replace the } by a NULL character */
                 if (UuidFromStringW(&KeyBuffer[1], &KeyGuid) != RPC_S_OK)
                     /* Bad GUID, skip the entry */
                     continue;
@@ -1030,11 +939,11 @@ cleanup:
 }
 
 static LONG
-SETUP_CreateDevicesList(
-    IN OUT struct DeviceInfoSet *list,
-    IN PCWSTR MachineName OPTIONAL,
-    IN CONST GUID *Class OPTIONAL,
-    IN PCWSTR Enumerator OPTIONAL)
+SETUP_CreateDevList(
+    struct DeviceInfoSet *list,
+    PCWSTR MachineName OPTIONAL,
+    CONST GUID *class OPTIONAL,
+    PCWSTR Enumerator OPTIONAL)
 {
     HKEY HKLM = HKEY_LOCAL_MACHINE;
     HKEY hEnumKey = NULL;
@@ -1044,8 +953,8 @@ SETUP_CreateDevicesList(
     DWORD dwLength;
     DWORD rc;
 
-    if (Class && IsEqualIID(Class, &GUID_NULL))
-        Class = NULL;
+    if (class && IsEqualIID(class, &GUID_NULL))
+        class = NULL;
 
     /* Open Enum key (if applicable) */
     if (MachineName != NULL)
@@ -1064,8 +973,8 @@ SETUP_CreateDevicesList(
     if (rc != ERROR_SUCCESS)
         goto cleanup;
 
-    /* If enumerator is provided, call directly SETUP_CreateDevicesListFromEnumerator.
-     * Else, enumerate all enumerators and call SETUP_CreateDevicesListFromEnumerator
+    /* If enumerator is provided, call directly SETUP_CreateDevListFromEnumerator.
+     * Else, enumerate all enumerators and call SETUP_CreateDevListFromEnumerator
      * for each one.
      */
     if (Enumerator)
@@ -1077,12 +986,8 @@ SETUP_CreateDevicesList(
             KEY_ENUMERATE_SUB_KEYS,
             &hEnumeratorKey);
         if (rc != ERROR_SUCCESS)
-        {
-            if (rc == ERROR_FILE_NOT_FOUND)
-                rc = ERROR_INVALID_DATA;
             goto cleanup;
-        }
-        rc = SETUP_CreateDevicesListFromEnumerator(list, Class, Enumerator, hEnumeratorKey);
+        rc = SETUP_CreateDevListFromEnumerator(list, class, Enumerator, hEnumeratorKey);
     }
     else
     {
@@ -1105,8 +1010,8 @@ SETUP_CreateDevicesList(
             if (rc != ERROR_SUCCESS)
                 goto cleanup;
 
-            /* Call SETUP_CreateDevicesListFromEnumerator */
-            rc = SETUP_CreateDevicesListFromEnumerator(list, Class, KeyBuffer, hEnumeratorKey);
+            /* Call SETUP_CreateDevListFromEnumerator */
+            rc = SETUP_CreateDevListFromEnumerator(list, class, KeyBuffer, hEnumeratorKey);
             if (rc != ERROR_SUCCESS)
                 goto cleanup;
         }
@@ -1159,29 +1064,39 @@ SetupDiGetClassDevsExW(
     else
     {
          hDeviceInfo = SetupDiCreateDeviceInfoListExW(
-             Flags & (DIGCF_DEVICEINTERFACE | DIGCF_ALLCLASSES) ? NULL : ClassGuid,
+             Flags & DIGCF_DEVICEINTERFACE ? NULL : ClassGuid,
              NULL, MachineName, NULL);
          if (hDeviceInfo == INVALID_HANDLE_VALUE)
              goto cleanup;
          list = (struct DeviceInfoSet *)hDeviceInfo;
     }
 
+    if (IsEqualIID(&list->ClassGuid, &GUID_NULL))
+        pClassGuid = NULL;
+    else
+        pClassGuid = &list->ClassGuid;
+
     if (Flags & DIGCF_PROFILE)
         FIXME(": flag DIGCF_PROFILE ignored\n");
 
-    /* FIXME: list->ClassGuid is never used! */
     if (Flags & DIGCF_ALLCLASSES)
-        pClassGuid = NULL;
-    else if (ClassGuid)
-        pClassGuid = ClassGuid;
-    else
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
+        rc = SETUP_CreateDevList(list, MachineName, pClassGuid, Enumerator);
+        if (rc != ERROR_SUCCESS)
+        {
+            SetLastError(rc);
+            goto cleanup;
+        }
+        ret = hDeviceInfo;
     }
-
-    if (Flags & DIGCF_DEVICEINTERFACE)
+    else if (Flags & DIGCF_DEVICEINTERFACE)
     {
+        if (ClassGuid == NULL)
+        {
+            SetLastError(ERROR_INVALID_PARAMETER);
+            goto cleanup;
+        }
+
         rc = SETUP_CreateInterfaceList(list, MachineName, ClassGuid, Enumerator, Flags & DIGCF_PRESENT);
         if (rc != ERROR_SUCCESS)
         {
@@ -1192,15 +1107,7 @@ SetupDiGetClassDevsExW(
     }
     else
     {
-        if (Flags & DIGCF_ALLCLASSES)
-            rc = SETUP_CreateDevicesList(list, MachineName, NULL, Enumerator);
-        else if (ClassGuid)
-            rc = SETUP_CreateDevicesList(list, MachineName, pClassGuid, Enumerator);
-        else
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            goto cleanup;
-        }
+        rc = SETUP_CreateDevList(list, MachineName, ClassGuid, Enumerator);
         if (rc != ERROR_SUCCESS)
         {
             SetLastError(rc);
@@ -1219,7 +1126,7 @@ cleanup:
  *		SetupDiGetClassImageIndex (SETUPAPI.@)
  */
 static BOOL
-SETUP_GetIconIndex(
+GetIconIndex(
     IN HKEY hClassKey,
     OUT PINT ImageIndex)
 {
@@ -1293,7 +1200,7 @@ SetupDiGetClassImageIndex(
         hKey = SetupDiOpenClassRegKeyExW(ClassGuid, KEY_QUERY_VALUE, DIOCR_INTERFACE, list->MachineName, NULL);
         if (hKey == INVALID_HANDLE_VALUE)
             goto cleanup;
-        if (!SETUP_GetIconIndex(hKey, &iconIndex))
+        if (!GetIconIndex(hKey, &iconIndex))
             goto cleanup;
 
         if (iconIndex >= 0)
@@ -1345,7 +1252,8 @@ SetupDiGetClassImageListExA(
 
     ret = SetupDiGetClassImageListExW(ClassImageListData, MachineNameW, Reserved);
 
-    MyFree(MachineNameW);
+    if (MachineNameW)
+        MyFree(MachineNameW);
 
     return ret;
 }
@@ -1431,7 +1339,7 @@ SetupDiLoadClassIcon(
         if (hKey == INVALID_HANDLE_VALUE)
             goto cleanup;
 
-        if (!SETUP_GetIconIndex(hKey, &iconIndex))
+        if (!GetIconIndex(hKey, &iconIndex))
             goto cleanup;
 
         if (iconIndex > 0)
@@ -1586,7 +1494,7 @@ SetupDiInstallClassExA(
  *		Helper function for SetupDiInstallClassExW
  */
 static HKEY
-SETUP_CreateClassKey(HINF hInf)
+CreateClassKey(HINF hInf)
 {
     WCHAR FullBuffer[MAX_PATH];
     WCHAR Buffer[MAX_PATH];
@@ -1699,8 +1607,6 @@ SetupDiInstallClassExW(
         PVOID callback_context = NULL;
 
         hDeviceInfo = SetupDiCreateDeviceInfoList(NULL, NULL);
-        if (hDeviceInfo == INVALID_HANDLE_VALUE)
-            goto cleanup;
 
         InstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
         if (!SetupDiGetDeviceInstallParamsW(hDeviceInfo, NULL, &InstallParams))
@@ -1752,7 +1658,7 @@ SetupDiInstallClassExW(
         else
         {
             /* Create or open the class registry key 'HKLM\CurrentControlSet\Class\{GUID}' */
-            hRootKey = SETUP_CreateClassKey(hInf);
+            hRootKey = CreateClassKey(hInf);
             if (hRootKey == INVALID_HANDLE_VALUE)
                 goto cleanup;
 
@@ -1842,8 +1748,7 @@ SetupDiOpenClassRegKeyExA(
     PWSTR MachineNameW = NULL;
     HKEY hKey;
 
-    TRACE("%s 0x%lx 0x%lx %s %p\n", debugstr_guid(ClassGuid), samDesired,
-        Flags, debugstr_a(MachineName), Reserved);
+    TRACE("\n");
 
     if (MachineName)
     {
@@ -1855,7 +1760,8 @@ SetupDiOpenClassRegKeyExA(
     hKey = SetupDiOpenClassRegKeyExW(ClassGuid, samDesired,
                                      Flags, MachineNameW, Reserved);
 
-    MyFree(MachineNameW);
+    if (MachineNameW)
+        MyFree(MachineNameW);
 
     return hKey;
 }
@@ -1890,7 +1796,7 @@ SetupDiOpenClassRegKeyExW(
         lpKeyName = REGSTR_PATH_DEVICE_CLASSES;
     else
     {
-        TRACE("Unknown flags: 0x%lx\n", Flags);
+        ERR("Invalid Flags parameter!\n");
         SetLastError(ERROR_INVALID_FLAGS);
         goto cleanup;
     }
@@ -1910,10 +1816,9 @@ SetupDiOpenClassRegKeyExW(
     rc = RegOpenKeyExW(HKLM,
                       lpKeyName,
                       0,
-                      ClassGuid ? KEY_ENUMERATE_SUB_KEYS : samDesired,
+                      ClassGuid ? 0 : samDesired,
                       &hClassesKey);
-    if (MachineName != NULL)
-        RegCloseKey(HKLM);
+    if (MachineName != NULL) RegCloseKey(HKLM);
     if (rc != ERROR_SUCCESS)
     {
         SetLastError(rc);
@@ -1988,7 +1893,7 @@ SetupDiSetClassInstallParamsA(
  *		Helper functions for SetupDiSetClassInstallParamsW
  */
 static BOOL
-SETUP_PropertyChangeHandler(
+PropertyChangeHandler(
     IN HDEVINFO DeviceInfoSet,
     IN PSP_DEVINFO_DATA DeviceInfoData,
     IN PSP_CLASSINSTALL_HEADER ClassInstallParams OPTIONAL,
@@ -2163,7 +2068,7 @@ struct ClassDevPropertySheetsData
 };
 
 static BOOL WINAPI
-SETUP_GetClassDevPropertySheetsCallback(
+GetClassDevPropertySheetsCallback(
     IN HPROPSHEETPAGE hPropSheetPage,
     IN OUT LPARAM lParam)
 {
@@ -2285,7 +2190,7 @@ SetupDiGetClassDevPropertySheetsW(
         PropPageData.PropertySheetPages = &PropertySheetHeader->phpage[PropertySheetHeader->nPages];
         PropPageData.MaximumNumberOfPages = PropertySheetHeaderPageListSize - PropertySheetHeader->nPages;
         PropPageData.NumberOfPages = 0;
-        ret = pPropPageProvider(&Request, SETUP_GetClassDevPropertySheetsCallback, (LPARAM)&PropPageData);
+        ret = pPropPageProvider(&Request, GetClassDevPropertySheetsCallback, (LPARAM)&PropPageData);
         if (!ret)
             goto cleanup;
 

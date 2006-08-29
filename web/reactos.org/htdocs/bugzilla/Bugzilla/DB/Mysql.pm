@@ -23,7 +23,6 @@
 #                 Dave Lawrence <dkl@redhat.com>
 #                 Tomas Kopal <Tomas.Kopal@altap.cz>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 =head1 NAME
 
@@ -43,13 +42,12 @@ package Bugzilla::DB::Mysql;
 
 use strict;
 
-use Bugzilla::Util;
 use Bugzilla::Error;
 
 # This module extends the DB interface via inheritance
 use base qw(Bugzilla::DB);
 
-use constant REQUIRED_VERSION => '4.0.14';
+use constant REQUIRED_VERSION => '3.23.41';
 use constant PROGRAM_NAME => 'MySQL';
 use constant MODULE_NAME  => 'Mysql';
 use constant DBD_VERSION  => '2.9003';
@@ -84,15 +82,11 @@ sub bz_last_key {
 }
 
 sub sql_regexp {
-    my ($self, $expr, $pattern) = @_;
-
-    return "$expr REGEXP $pattern";
+    return "REGEXP";
 }
 
 sub sql_not_regexp {
-    my ($self, $expr, $pattern) = @_;
-
-    return "$expr NOT REGEXP $pattern";
+    return "NOT REGEXP";
 }
 
 sub sql_limit {
@@ -114,17 +108,7 @@ sub sql_string_concat {
 sub sql_fulltext_search {
     my ($self, $column, $text) = @_;
 
-    # Add the boolean mode modifier if the search string contains
-    # boolean operators.
-    my $mode = ($text =~ /[+-<>()~*"]/ ? "IN BOOLEAN MODE" : "");
-
-    # quote the text for use in the MATCH AGAINST expression
-    $text = $self->quote($text);
-
-    # untaint the text, since it's safe to use now that we've quoted it
-    trick_taint($text);
-
-    return "MATCH($column) AGAINST($text $mode)";
+    return "MATCH($column) AGAINST($text)";
 }
 
 sub sql_istring {
@@ -268,17 +252,6 @@ sub bz_setup_database {
         print "\nISAM->MyISAM table conversion done.\n\n";
     }
 
-    # There is a bug in MySQL 4.1.0 - 4.1.15 that makes certain SELECT
-    # statements fail after a SHOW TABLE STATUS: 
-    # http://bugs.mysql.com/bug.php?id=13535
-    # This is a workaround, a dummy SELECT to reset the LAST_INSERT_ID.
-    my @tables = $self->bz_table_list_real();
-    if (lsearch(\@tables, 'bugs') != -1
-        && $self->bz_column_info_real("bugs", "bug_id"))
-    {
-        $self->do('SELECT 1 FROM bugs WHERE bug_id IS NULL');
-    }
-
     # Versions of Bugzilla before the existence of Bugzilla::DB::Schema did 
     # not provide explicit names for the table indexes. This means
     # that our upgrades will not be reliable, because we look for the name
@@ -294,6 +267,7 @@ sub bz_setup_database {
     # has existed at least since Bugzilla 2.8, and probably earlier.
     # For fixing the inconsistent naming of Schema indexes,
     # we also check for one of those inconsistently-named indexes.
+    my @tables = $self->bz_table_list_real();
     if ( scalar(@tables) && 
          ($self->bz_index_info_real('bugs', 'assigned_to') ||
           $self->bz_index_info_real('flags', 'flags_bidattid_idx')) )
@@ -525,16 +499,6 @@ sub bz_setup_database {
     if ($bugs_deltats && $bugs_deltats->{TYPE} =~ /^TIMESTAMP/i) {
         $self->bz_alter_column('bugs', 'delta_ts', 
                                {TYPE => 'DATETIME', NOTNULL => 1});
-    }
-
-    # 2005-09-24 - bugreport@peshkin.net, bug 307602
-    # Make sure that default 4G table limit is overridden
-    my $row = $self->selectrow_hashref("SHOW TABLE STATUS LIKE 'attach_data'");
-    if ($$row{'Create_options'} !~ /MAX_ROWS/i) {
-        print "Converting attach_data maximum size to 100G...\n";
-        $self->do("ALTER TABLE attach_data
-                   AVG_ROW_LENGTH=1000000,
-                   MAX_ROWS=100000");
     }
 
 }

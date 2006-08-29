@@ -70,8 +70,6 @@ FillDeviceComboBox(PSND_MIXER Mixer,
     LRESULT lres;
     PPREFERENCES_FILL_DEVICES FillContext = (PPREFERENCES_FILL_DEVICES)Context;
 
-    UNREFERENCED_PARAMETER(Mixer);
-
     lres = SendMessage(FillContext->hComboBox,
                        CB_ADDSTRING,
                        0,
@@ -103,10 +101,7 @@ PrefDlgAddLine(PSND_MIXER Mixer,
                PVOID Context)
 {
     PPREFERENCES_CONTEXT PrefContext = (PPREFERENCES_CONTEXT)Context;
-
-    UNREFERENCED_PARAMETER(Mixer);
-	UNREFERENCED_PARAMETER(DisplayControls);
-
+    
     switch (Line->dwComponentType)
     {
         case MIXERLINE_COMPONENTTYPE_DST_SPEAKERS:
@@ -183,9 +178,6 @@ PrefDlgAddConnection(PSND_MIXER Mixer,
     HWND hwndControls;
     LVITEM lvi;
     UINT i;
-
-    UNREFERENCED_PARAMETER(Mixer);
-	UNREFERENCED_PARAMETER(LineID);
     
     if (Line->cControls != 0)
     {
@@ -340,8 +332,8 @@ UpdatePrefDlgControls(PPREFERENCES_CONTEXT Context,
     {
         Context->SelectedLine = LineID;
         
-        (void)ListView_DeleteAllItems(GetDlgItem(Context->hwndDlg,
-                                      IDC_CONTROLS));
+        ListView_DeleteAllItems(GetDlgItem(Context->hwndDlg,
+                                  IDC_CONTROLS));
         
         Context->tmp = 0;
         SndMixerEnumConnections(Context->Mixer,
@@ -505,8 +497,8 @@ DlgPreferencesProc(HWND hwndDlg,
             /* initialize the list view control */
             hwndControls = GetDlgItem(hwndDlg,
                                       IDC_CONTROLS);
-            (void)ListView_SetExtendedListViewStyle(hwndControls,
-                                                    LVS_EX_CHECKBOXES);
+            ListView_SetExtendedListViewStyle(hwndControls,
+                                              LVS_EX_CHECKBOXES);
 
             GetClientRect(hwndControls,
                           &rcClient);
@@ -551,7 +543,6 @@ DlgPreferencesProc(HWND hwndDlg,
 static VOID
 DeleteMixerWindowControls(PMIXER_WINDOW MixerWindow)
 {
-    UNREFERENCED_PARAMETER(MixerWindow);
 }
 
 static BOOL
@@ -805,10 +796,6 @@ WinMain(HINSTANCE hInstance,
 {
     MSG Msg;
     int Ret = 1;
-
-    UNREFERENCED_PARAMETER(hPrevInstance);
-	UNREFERENCED_PARAMETER(lpszCmdLine);
-	UNREFERENCED_PARAMETER(nCmdShow);
 
     hAppInstance = hInstance;
     hAppHeap = GetProcessHeap();

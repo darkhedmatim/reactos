@@ -249,105 +249,105 @@ HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Language","InstallLanguage",0x0000000
 ; If you add/uncomment an entry here, please also add the appropriate Language
 ; in the previous section.
 HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale",,0x00000012
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000402",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000403",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000404",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000405",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000406",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000407",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000807",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c07",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001407",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000408",0x00000000,"4"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000409",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000809",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c09",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001009",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001409",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001809",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001c09",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00002009",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003009",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003409",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000080a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c0a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000100a",0x00000000,"1"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000140a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000180a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001c0a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000200a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000240a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000280a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00002c0a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000300a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000340a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000380a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003c0a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000400a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000440a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000480a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00004c0a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000500a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040b",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000080c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c0c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000100c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000140c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000180c",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040d",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040e",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040f",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000410",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000810",0x00000000,"1"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000411",0x00000000,""
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000412",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000413",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000813",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000414",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000814",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000415",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000416",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000816",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000418",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000419",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041a",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000081a",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c1a",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041b",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041c",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041d",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000081d",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041e",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041f",0x00000000,"6"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000420",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000421",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000422",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000423",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000424",0x00000000,"2"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000425",0x00000000,"3"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000426",0x00000000,"3"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000427",0x00000000,"3"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000429",0x00000000,""
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042a",0x00000000,""
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042b",0x00000000,""
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042c",0x00000000,"6"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000082c",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042d",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042f",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000436",0x00000000,"1"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000437",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000438",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000439",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000043e",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000083e",0x00000000,"1"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000043f",0x00000000,"5"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000440",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000441",0x00000000,"1"
-;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000443",0x00000000,"6"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000843",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000456",0x00000000,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000402",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000403",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000404",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000405",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000406",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000407",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000807",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c07",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001407",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000408",0x00010001,"4"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000409",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000809",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c09",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001009",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001409",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001809",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001c09",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00002009",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003009",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003409",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000080a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c0a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000100a",0x00010001,"1"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000140a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000180a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00001c0a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000200a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000240a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000280a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00002c0a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000300a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000340a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000380a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00003c0a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000400a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000440a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000480a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00004c0a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000500a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040b",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000080c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c0c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000100c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000140c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000180c",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040d",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040e",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000040f",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000410",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000810",0x00010001,"1"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000411",0x00010001,""
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000412",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000413",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000813",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000414",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000814",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000415",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000416",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000816",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000418",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000419",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041a",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000081a",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000c1a",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041b",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041c",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041d",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000081d",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041e",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000041f",0x00010001,"6"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000420",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000421",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000422",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000423",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000424",0x00010001,"2"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000425",0x00010001,"3"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000426",0x00010001,"3"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000427",0x00010001,"3"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000429",0x00010001,""
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042a",0x00010001,""
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042b",0x00010001,""
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042c",0x00010001,"6"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000082c",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042d",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000042f",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000436",0x00010001,"1"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000437",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000438",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000439",0x00010001,""
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000043e",0x00010001,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000083e",0x00010001,"1"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","0000043f",0x00010001,"5"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000440",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000441",0x00010001,"1"
+;HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000443",0x00010001,"6"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000843",0x00010001,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Locale","00000456",0x00010001,"1"
 
 ; Some installers check for SP6
 HKLM,"SYSTEM\CurrentControlSet\Control\Windows","CSDVersion",0x00010001,0x00000600
@@ -441,9 +441,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Required",0x
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Vms",0x00020000,"%SystemRoot%\system32\csr.exe ObjectDirectory=\VMS SharedSection=128 Windows=Off SubSystemType=Text ServerDll=vmssrv,1 ProfileControl=Off RequestThreads=2 MaxRequestThreads=2 Sessions=Off"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Subsystems","Windows",0x00020000,"%SystemRoot%\system32\csrss.exe"
 
-; WOW Support
-HKLM,"SYSTEM\CurrentControlSet\Control\Wow","",0x00000000,""
-
 ; PNP Root device
 HKLM,"SYSTEM\CurrentControlSet\Enum\HTREE\ROOT\0","",0x00000000,""
 
@@ -535,20 +532,12 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Disk","Start",0x00010001,0x00000000
 HKLM,"SYSTEM\CurrentControlSet\Services\Disk","Type",0x00010001,0x00000001
 
 ; Event logging service
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog",,0x00000010
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","Description",0x00000000,"Enables event log messages issued by Windows-based programs and components to be viewed in Event Viewer. This service cannot be stopped"
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","ErrorControl",0x00010001,0x00000000
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","Group",0x00000000,"Event log"
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","ImagePath",0x00020000,"%SystemRoot%\system32\eventlog.exe"
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","Start",0x00010001,0x00000002
 HKLM,"SYSTEM\CurrentControlSet\Services\EventLog","Type",0x00010001,0x00000010
-
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\Application",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\Application","File",0x00020000,"%SystemRoot%\system32\config\AppEvent.Evt"
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\Security",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\Security","File",0x00020000,"%SystemRoot%\system32\config\SecEvent.Evt"
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\System",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Services\EventLog\System","File",0x00020000,"%SystemRoot%\system32\config\SysEvent.Evt"
 
 ; DHCP client service
 HKLM,"SYSTEM\CurrentControlSet\Services\DHCP","Description",0x00000000,"Manages network configuration by registering and updating IP addresses and DNS names"
@@ -578,13 +567,6 @@ HKLM,"SYSTEM\CurrentControlSet\Services\i8042prt","Group",0x00000000,"Keyboard P
 HKLM,"SYSTEM\CurrentControlSet\Services\i8042prt","Start",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\i8042prt","Type",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\i8042prt\Parameters","BreakOnSysRq",0x00010001,0x00000001
-
-; Kernel-Mode Tests
-;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","ErrorControl",0x00010001,0x00000000
-;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Group",0x00000000,"Base"
-;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","ImagePath",0x00020000,"system32\drivers\kmtest.sys"
-;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Start",0x00010001,0x00000001
-;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Type",0x00010001,0x00000001
 
 ; Keyboard class driver
 HKLM,"SYSTEM\CurrentControlSet\Services\kbdclass","ErrorControl",0x00010001,0x00000000
@@ -648,16 +630,23 @@ HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0A03\0000\LogConf","BasicConfigVect
 01,00,00,00,01,00,01,00,01,00,00,00, \
 00,06,00,00,00,00,00,00,01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00
 
+; We need the PCI bus to be installed at 3rd boot to enumerate display cards and to
+; not have the "CsrServerInitialization: failed to initialize video (Status=c0000001)"
+; error when a custom driver (as the VMware one) is installed. At the moment,
+; StartServiceW is not implemented, so PlugPlay service  can't start during
+; second stage setup. => We have to code PCI bus parameters it in registry...
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0A03\0000","Service",0x00000000,"pci"
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","ErrorControl",0x00010001,0x00000003
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","Group",0x00000000,"Boot Bus Extender"
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","ImagePath",0x00020000,"system32\drivers\pci.sys"
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","Start",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","Type",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\PCI","Tag",0x00010001,0x00000002
+
 ; ACPI bus
 HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0C08\0000","HardwareID",0x00010000,"*PNP0C08"
 HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0C08\0000","DeviceDesc",0x00000000,"ACPI bus"
 HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0C08\0000","Service",0x00000000,"acpi"
-
-; NetLogon
-HKLM,"SYSTEM\CurrentControlSet\Services\NetLogon","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\Netlogon","ImagePath",0x00020000,"%SystemRoot%\system32\lsass.exe"
-HKLM,"SYSTEM\CurrentControlSet\Services\NetLogon","Start",0x00010001,0x00000003
-HKLM,"SYSTEM\CurrentControlSet\Services\Netlogon","Type",0x00010001,0x00000020
 
 ; Named Pipe filesystem driver
 HKLM,"SYSTEM\CurrentControlSet\Services\Npfs","ErrorControl",0x00010001,0x00000000
@@ -698,7 +687,6 @@ HKLM,"SYSTEM\CurrentControlSet\Services\PlugPlay","Type",0x00010001,0x00000010
 ; RPC service
 HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","Description",0x00000000,"Enables a computer to recognize and adapt to hardware changes with little or no user input"
 HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","Group",0x00000000," RPC Service"
 HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","ImagePath",0x00020000,"%SystemRoot%\system32\rpcss.exe"
 HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","Start",0x00010001,0x00000004
 HKLM,"SYSTEM\CurrentControlSet\Services\Rpcss","Type",0x00010001,0x00000010
@@ -732,8 +720,8 @@ HKLM,"SYSTEM\CurrentControlSet\Services\VBE","Group",0x00000000,"Video Save SVGA
 HKLM,"SYSTEM\CurrentControlSet\Services\VBE","ImagePath",0x00020000,"system32\drivers\vbemp.sys"
 HKLM,"SYSTEM\CurrentControlSet\Services\VBE","Start",0x00010001,0x00000004
 HKLM,"SYSTEM\CurrentControlSet\Services\VBE","Type",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\VBE\Device0","InstalledDisplayDrivers",0x00010000,"framebuf"
 
-HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\VBE\Device0","InstalledDisplayDrivers",0x00010000,"framebuf"
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\VBE\Device0","DefaultSettings.VRefresh",0x00010001,1
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\VBE\Device0","DefaultSettings.BitsPerPel",0x00010001,8
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\VBE\Device0","DefaultSettings.XResolution",0x00010001,640
@@ -745,8 +733,8 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Vga","Group",0x00000000,"Video Save"
 HKLM,"SYSTEM\CurrentControlSet\Services\Vga","ImagePath",0x00020000,"system32\drivers\vgamp.sys"
 HKLM,"SYSTEM\CurrentControlSet\Services\Vga","Start",0x00010001,0x00000004
 HKLM,"SYSTEM\CurrentControlSet\Services\Vga","Type",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\Vga\Device0","InstalledDisplayDrivers",0x00010000,"vgaddi"
 
-HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\Vga\Device0","InstalledDisplayDrivers",0x00010000,"vgaddi"
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\Vga\Device0","DefaultSettings.VRefresh",0x00010001,1
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\Vga\Device0","DefaultSettings.BitsPerPel",0x00010001,8
 HKLM,"SYSTEM\CurrentControlSet\Hardware Profiles\Current\System\CurrentControlSet\Services\Vga\Device0","DefaultSettings.XResolution",0x00010001,640
@@ -772,4 +760,194 @@ HKLM,"SYSTEM\Setup","OsLoaderPath",0x00000000,"\"
 HKLM,"SYSTEM\Setup","SetupType",0x00010001,0x00000001
 HKLM,"SYSTEM\Setup","SystemPartition",0x00000000,"\Device\Harddisk0\Partition1"
 HKLM,"SYSTEM\Setup","SystemSetupInProgress",0x00010001,0x00000001
+
+; Devices which should be installed by plug-and-play, but
+; which are currently not detected on non-ACPI systems
+
+; Serial port COM1
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\1","HardwareID",0x00010000,"*PNP0501"
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\1","DeviceDesc",0x00000000,"Communication port"
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\1\LogConf","BasicConfigVector",0x000A0001, \
+58,00,00,00,01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00, \
+01,00,00,00,01,00,01,00,02,00,00,00, \
+00,01,01,00,11,00,00,00,08,00,00,00,00,00,00,00,f8,03,00,00,00,00,00,00,ff,03,00,00,00,00,00,00, \
+00,02,01,00,11,00,00,00,04,00,00,00,04,00,00,00
+ 
+; Serial port COM2
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\2","HardwareID",0x00010000,"*PNP0501"
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\2","DeviceDesc",0x00000000,"Communication port"
+HKLM,"SYSTEM\CurrentControlSet\Enum\Root\*PNP0501\2\LogConf","BasicConfigVector",0x000A0001, \
+58,00,00,00,01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00, \
+01,00,00,00,01,00,01,00,02,00,00,00, \
+00,01,01,00,11,00,00,00,08,00,00,00,00,00,00,00,f8,02,00,00,00,00,00,00,ff,02,00,00,00,00,00,00, \
+00,02,01,00,11,00,00,00,03,00,00,00,03,00,00,00
+
+; Static entries to get networking on the LiveCD working
+; PCnet (VMware)
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","NetCfgInstanceId",0x00000000,"{bf3401a0-6e70-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","BUS_TO_SCAN",0x00000000,"ALL"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","BUSTIMER",0x00000000,"0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","BUSTYPE",0x00000000,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","EXTPHY",0x00000000,"0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","FDUP",0x00000000,"0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","LED0",0x00000000,"10000"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","LED1",0x00000000,"10000"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","LED2",0x00000000,"10000"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","LED3",0x00000000,"10000"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","MPMODE",0x00000000,"0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","TP",0x00000000,"1"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","DriverDate",0x00000000,"10-8-2005"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","DriverDateData",0x00000001,00,80,cc,39,9b,cb,c5,01
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","DriverDesc",0x00000000,"AMD 79c970 [PCnet32 LANCE]"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","DriverVersion",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","InfPath",0x00000000,"netamd.inf"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","InfSection",0x00000000,"PCNet_Inst"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","InfSectionExt",0x00000000,".NT"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","MatchingDeviceId",0x00000000,"PCI\VEN_1022&DEV_2000"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000","ProviderName",0x00000000,"ReactOS Team"
+
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000\Linkage","Export",0x00000000,"\Device\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000\Linkage","RootDevice",0x00000000,"{bf3401a0-6e70-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0000\Linkage","UpperBind",0x00000000,"Tcpip"
+
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Connection","Name",0x00000000,"Network connection"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Connection","PnpInstanceId",0x00000000,"PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Connection","ShowIcon",0x00010001,0x00000001
+
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","Capabilities",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","HardwareID",0x00010000,\
+ "PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10",\
+ "PCI\VEN_1022&DEV_2000&SUBSYS_20001022",\
+ "PCI\VEN_1022&DEV_2000&CC_020000",\
+ "PCI\VEN_1022&DEV_2000&CC_0200"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","CompatibleIDs",0x00010000,\
+ "PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10",\
+ "PCI\VEN_1022&DEV_2000&SUBSYS_20001022",\
+ "PCI\VEN_1022&DEV_2000&CC_020000",\
+ "PCI\VEN_1022&DEV_2000&CC_0200",\
+ "PCI\VEN_1022",\
+ "PCI\CC_020000",\
+ "PCI\CC_0200"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","DeviceDesc",0x00000000,"AMD 79c970 [PCnet32 LANCE]"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","LocationInformation",0x00000000,"PCI-Bus 0, Device 17, Function 0"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","Driver",0x00000000,"{4d36e972-e325-11ce-bfc1-08002be10318}\0000"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","Class",0x00000000,"Net"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","ClassGUID",0x00000000,"{4d36e972-e325-11ce-bfc1-08002be10318}"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","Mfg",0x00000000,"Advanced Micro Devices (AMD)"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_1022&DEV_2000&SUBSYS_20001022&REV_10\1&f103bba4&11","Service",0x00000000,"PCNet"
+
+HKLM,"SYSTEM\CurrentControlSet\Services\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","DefaultGateway",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Services\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","IPAddress",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Services\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","SubnetMask",0x00000000,"0.0.0.0"
+
+HKLM,"SYSTEM\CurrentControlSet\Services\PCNet","Type",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\PCNet","Start",0x00010001,0x00000003
+HKLM,"SYSTEM\CurrentControlSet\Services\PCNet","ErrorControl",0x00010001,00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\PCNet","ImagePath",0x00000000,"System32\drivers\pcnet.sys"
+HKLM,"SYSTEM\CurrentControlSet\Services\PCNet","Group",0x00000000,"NDIS"
+
+; NE1000 (QEmu)
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","NetCfgInstanceId",0x00000000,"{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","BusType",0x00000000,"5"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","DriverDate",0x00000000,"11-14-2005"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","DriverDateData",0x00000001,00,40,15,5b,ae,e8,c5,01,00,00,00,00,00,00,00,00
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","DriverDesc",0x00000000,"RTL-8029(AS)"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","DriverVersion",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","InfPath",0x00000000,"netrtpnt.inf"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","InfSection",0x00000000,"NE2000_Inst"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","InfSectionExt",0x00000000,".NT"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","Irq",0x00000000,"B"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","MatchingDeviceId",0x00000000,"PCI\VEN_10EC&DEV_8029"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","NetworkAddress",0x00000000,"001122334455"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","Port",0x00000000,"c100"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001","ProviderName",0x00000000,"ReactOS Team"
+
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001\Linkage","Export",0x00000000,"\Device\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001\Linkage","RootDevice",0x00000000,"{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\0001\Linkage","UpperBind",0x00000000,"Tcpip"
+
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Connection","Name",0x00000000,"Network connection"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Connection","PnpInstanceId",0x00000000,"PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Connection","ShowIcon",0x00010001,0x00000001
+
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","Capabilities",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","HardwareID",0x00010000,\
+ "PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00",\
+ "PCI\VEN_10EC&DEV_8029&SUBSYS_00000000",\
+ "PCI\VEN_10EC&DEV_8029&CC_020000",\
+ "PCI\VEN_10EC&DEV_8029&CC_0200"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","CompatibleIDs",0x00010000,\
+ "PCI\VEN_10EC&DEV_8029&REV_00",\
+ "PCI\VEN_10EC&DEV_8029&",\
+ "PCI\VEN_10EC&CC_020000",\
+ "PCI\VEN_10EC&CC_0200",\
+ "PCI\VEN_10EC",\
+ "PCI\CC_020000",\
+ "PCI\CC_0200"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","DeviceDesc",0x00000000,"RTL-8029(AS)"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","LocationInformation",0x00000000,"PCI-Bus 0, Device 3, Function 0"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","Driver",0x00000000,"{4d36e972-e325-11ce-bfc1-08002be10318}\0001"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","Class",0x00000000,"Net"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","ClassGUID",0x00000000,"{4d36e972-e325-11ce-bfc1-08002be10318}"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","Mfg",0x00000000,"Realtek Semiconductor"
+HKLM,"SYSTEM\CurrentControlSet\Enum\PCI\VEN_10EC&DEV_8029&SUBSYS_00000000&REV_00\1&f103bba4&03","Service",0x00000000,"ne2000"
+
+HKLM,"SYSTEM\CurrentControlSet\Services\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","DefaultGateway",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Services\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","IPAddress",0x00000000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Services\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}\Parameters\Tcpip","SubnetMask",0x00000000,"0.0.0.0"
+
+HKLM,"SYSTEM\CurrentControlSet\Services\ne2000","Type",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\ne2000","Start",0x00010001,0x00000003
+HKLM,"SYSTEM\CurrentControlSet\Services\ne2000","ErrorControl",0x00010001,00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\ne2000","ImagePath",0x00000000,"System32\drivers\ne2000.sys"
+HKLM,"SYSTEM\CurrentControlSet\Services\ne2000","Group",0x00000000,"NDIS"
+
+; Common info
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Linkage","Bind",0x00010000,\
+ "\Device\{bf3401a0-6e70-11da-2d80-4fc4ac68929a}",\
+ "\Device\{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Linkage","Export",0x00010000,\
+ "\Device\Tcpip_{bf3401a0-6e70-11da-2d80-4fc4ac68929a}",\
+ "\Device\Tcpip_{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Linkage","Route",0x00010000,\
+ "{bf3401a0-6e70-11da-2d80-4fc4ac68929a}",\
+ "{7f14fc20-6e7d-11da-2d80-4fc4ac68929a}"
+
+; The following entries should be generated from .inf files during installation
+; TCPIP Protocol
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}","Characteristics",0x00010001,0x00000080
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}","ComponentId",0x00000000,"ms_tcpip"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}","Description",0x00000000,"Internet Protocol (TCP/IP)"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}","InfPath",0x00000000,"BUGBUG_Create from Inffile.inf"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}","InfSection",0x00000000,"BUGBUG_Create from Inffile.inf"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}\Ndi","ClsId",0x00000000,"{A907657F-6FDF-11D0-8EFB-00C04FD912B2}"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}\Ndi","HelpText",0x00000000,"Transmission Control Protocol/Internet Protocol"
+HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E975-E325-11CE-BFC1-08002BE10318}\{RandomProtocolGUID_TCPIP}\Ndi","Service",0x00000000,"Tcpip"
+
+; TCP/IP driver
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip","ErrorControl",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip","Group",0x00000000,"PNP_TDI"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip","ImagePath",0x00020000,"system32\drivers\tcpip.sys"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip","Start",0x00010001,0x00000001
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip","Type",0x00010001,0x00000001
+; NOTE: These settings should be added by the network setup
+; These bindings are of the windows 2000 type, and will probably need to be
+; twiddled to get 3rd-party network-related software to work.
+; NT4 puts additional stuff in the Bind, Export, and Route values.
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","DataBasePath",0x00010000,"DataBasePath"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","Domain",0x00010000,""
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","Hostname",0x00010000,"ROSHost"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","NameServer",0x00010000,"0.0.0.0"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","ForwardBroadcasts",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","IPEnableRouter",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","SearchList",0x00010000,""
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters","EnableSecurityFilters",0x00010001,0x00000000
+;HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\PersistentRoutes",,0x00000010
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","UseDelayedAcceptance",0x00010001,0x00000000
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","MaxSockAddrLength",0x00010001,0x00000010
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","MinSockAddrLength",0x00010001,0x00000010
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","HelperDllName",0x00000000,"%SystemRoot%\System32\wshtcpip.dll"
+HKLM,"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\WinSock","Mapping",0x00000001,0c,00,00,00,03,00,00,00,02,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,01,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,00,00,00,00,06,00,00,00,00,00,00,00,01,00,00,00,06,00,00,00,02,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,02,00,00,00,00,00,00,00,02,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,00,00,00,00,11,00,00,00,00,00,00,00,02,00,00,00,11,00,00,00,02,00,00,00,03,00,00,00,00,00,00,00,02,00,00,00,03,00,00,00,01,00,00
+HKLM,"SYSTEM\CurrentControlSet\Services\Winsock\Parameters","Transports",0x00010000,"Tcpip"
+
 ; EOF

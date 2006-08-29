@@ -28,13 +28,13 @@ use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::User;
 
-require "globals.pl";
+require "CGI.pl";
+
+use vars qw($template $vars $userid);
 
 use Bugzilla::Bug;
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
 
 if ($cgi->param('GoAheadAndLogIn')) {
     Bugzilla->login(LOGIN_REQUIRED);
@@ -54,8 +54,8 @@ if (!$cgi->param('id') && $single) {
     exit;
 }
 
-my $format = $template->get_format("bug/show", scalar $cgi->param('format'), 
-                                   scalar $cgi->param('ctype'));
+my $format = GetFormat("bug/show", scalar $cgi->param('format'), 
+                       scalar $cgi->param('ctype'));
 
 GetVersionTable();
 
@@ -67,7 +67,7 @@ if ($single) {
     # Its a bit silly to do the validation twice - that functionality should
     # probably move into Bug.pm at some point
     ValidateBugID($id);
-    push @bugs, new Bugzilla::Bug($id, Bugzilla->user->id);
+    push @bugs, new Bugzilla::Bug($id, $userid);
     if (defined $cgi->param('mark')) {
         foreach my $range (split ',', $cgi->param('mark')) {
             if ($range =~ /^(\d+)-(\d+)$/) {
@@ -81,7 +81,7 @@ if ($single) {
     }
 } else {
     foreach my $id ($cgi->param('id')) {
-        my $bug = new Bugzilla::Bug($id, Bugzilla->user->id);
+        my $bug = new Bugzilla::Bug($id, $userid);
         push @bugs, $bug;
     }
 }
@@ -108,8 +108,7 @@ $vars->{'bug_list'} = \@bug_list;
 # If no explicit list is defined, we show all fields. We then exclude any
 # on the exclusion list. This is so you can say e.g. "Everything except 
 # attachments" without listing almost all the fields.
-my @fieldlist = (Bugzilla::Bug::fields(), 'group', 'long_desc', 
-                 'attachment', 'attachmentdata');
+my @fieldlist = (Bugzilla::Bug::fields(), 'group', 'long_desc', 'attachment');
 my %displayfields;
 
 if ($cgi->param("field")) {

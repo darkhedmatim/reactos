@@ -6,6 +6,10 @@
 #
 # Tatarish localisation for MediaWiki
 #
+# This file is encoded in UTF-8, no byte order mark.
+# For compatibility with Latin-1 installations, please
+# don't add literal characters above U+00ff.
+#
 
 require_once( "LanguageUtf8.php" );
 
@@ -16,8 +20,8 @@ require_once( "LanguageUtf8.php" );
 	NS_TALK             => 'Bäxäs',
 	NS_USER             => 'Äğzä',
 	NS_USER_TALK        => "Äğzä_bäxäse",
-	NS_PROJECT          => $wgMetaNamespace,
-	NS_PROJECT_TALK     => $wgMetaNamespace . '_bäxäse',
+	NS_PROJECT          => "Wikipedia",
+	NS_PROJECT_TALK     => "Wikipedia_bäxäse",
 	NS_IMAGE            => "Räsem",
 	NS_IMAGE_TALK       => "Räsem_bäxäse",
 	NS_MEDIAWIKI        => "MediaWiki",
@@ -74,9 +78,42 @@ require_once( "LanguageUtf8.php" );
 	MAG_SERVER               => array( 0,    'SERVER'                 )
 ) + $wgMagicWordsEn;
 
-if (!$wgCachedMessageArrays) {
-	require_once('MessagesTt.php');
-}
+/* private */ $wgAllMessagesTt = array(
+
+# week days, months
+'sunday' => "Yäkşämbe",
+'monday' => "Düşämbe",
+'tuesday' => "Sişämbe",
+'wednesday' => "Çärşämbe",
+'thursday' => "Pänceşämbe",
+'friday' => "Comğa",
+'saturday' => "Şimbä",
+'january' => "Ğínwar",
+'february' => "Febräl",
+'march' => "Mart",
+'april' => "Äpril",
+'may_long' => "May",
+'june' => "Yün",
+'july' => "Yül",
+'august' => "August",
+'september' => "Sentäber",
+'october' => "Öktäber",
+'november' => "Nöyäber",
+'december' => "Dekäber",
+'jan' => "Ğín",
+'feb' => "Feb",
+'mar' => "Mar",
+'apr' => "Äpr",
+'may' => "May",
+'jun' => "Yün",
+'jul' => "Yül",
+'aug' => "Aug",
+'sep' => "Sen",
+'oct' => "Ökt",
+'nov' => "Nöy",
+'dec' => "Dek",
+
+);
 
 class LanguageTt extends LanguageUtf8 {
 

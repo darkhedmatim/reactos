@@ -9,15 +9,14 @@
 /**
  * Constructor
  */
-function wfSpecialBlockip( $par ) {
+function wfSpecialBlockip() {
 	global $wgUser, $wgOut, $wgRequest;
 
-	if( !$wgUser->isAllowed( 'block' ) ) {
-		$wgOut->permissionRequired( 'block' );
+	if ( ! $wgUser->isAllowed('block') ) {
+		$wgOut->sysopRequired();
 		return;
 	}
-
-	$ipb = new IPBlockForm( $par );
+	$ipb = new IPBlockForm();
 
 	$action = $wgRequest->getVal( 'action' );
 	if ( 'success' == $action ) {
@@ -39,31 +38,31 @@ function wfSpecialBlockip( $par ) {
 class IPBlockForm {
 	var $BlockAddress, $BlockExpiry, $BlockReason;
 
-	function IPBlockForm( $par ) {
+	function IPBlockForm() {
 		global $wgRequest;
-
-		$this->BlockAddress = $wgRequest->getVal( 'wpBlockAddress', $wgRequest->getVal( 'ip', $par ) );
+		$this->BlockAddress = $wgRequest->getVal( 'wpBlockAddress', $wgRequest->getVal( 'ip' ) );
 		$this->BlockReason = $wgRequest->getText( 'wpBlockReason' );
 		$this->BlockExpiry = $wgRequest->getVal( 'wpBlockExpiry', wfMsg('ipbotheroption') );
 		$this->BlockOther = $wgRequest->getVal( 'wpBlockOther', '' );
 	}
-
+	
 	function showForm( $err ) {
-		global $wgOut, $wgUser, $wgSysopUserBans;
+		global $wgOut, $wgUser, $wgLang;
+		global $wgRequest, $wgSysopUserBans;
 
-		$wgOut->setPagetitle( wfMsg( 'blockip' ) );
+		$wgOut->setPagetitle( htmlspecialchars( wfMsg( 'blockip' ) ) );
 		$wgOut->addWikiText( wfMsg( 'blockiptext' ) );
 
 		if($wgSysopUserBans) {
-			$mIpaddress = wfMsgHtml( 'ipadressorusername' );
+			$mIpaddress = htmlspecialchars( wfMsg( 'ipadressorusername' ) );
 		} else {
-			$mIpaddress = wfMsgHtml( 'ipaddress' );
+			$mIpaddress = htmlspecialchars( wfMsg( 'ipaddress' ) );
 		}
-		$mIpbexpiry = wfMsgHtml( 'ipbexpiry' );
-		$mIpbother = wfMsgHtml( 'ipbother' );
-		$mIpbothertime = wfMsgHtml( 'ipbotheroption' );
-		$mIpbreason = wfMsgHtml( 'ipbreason' );
-		$mIpbsubmit = wfMsgHtml( 'ipbsubmit' );
+		$mIpbexpiry = htmlspecialchars( wfMsg( 'ipbexpiry' ) );
+		$mIpbother = htmlspecialchars( wfMsg( 'ipbother' ) );
+		$mIpbothertime = htmlspecialchars( wfMsg( 'ipbotheroption' ) );
+		$mIpbreason = htmlspecialchars( wfMsg( 'ipbreason' ) );
+		$mIpbsubmit = htmlspecialchars( wfMsg( 'ipbsubmit' ) );
 		$titleObj = Title::makeTitle( NS_SPECIAL, 'Blockip' );
 		$action = $titleObj->escapeLocalURL( "action=submit" );
 
@@ -95,7 +94,7 @@ class IPBlockForm {
 		}
 
 		$token = htmlspecialchars( $wgUser->editToken() );
-
+		
 		$wgOut->addHTML( "
 <form id=\"blockip\" method=\"post\" action=\"{$action}\">
 	<table border='0'>
@@ -143,8 +142,9 @@ class IPBlockForm {
 	}
 
 	function doSubmit() {
-		global $wgOut, $wgUser, $wgSysopUserBans, $wgSysopRangeBans;
-
+		global $wgOut, $wgUser, $wgLang;
+		global $wgSysopUserBans, $wgSysopRangeBans;
+		
 		$userId = 0;
 		$this->BlockAddress = trim( $this->BlockAddress );
 		$rxIP = '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}';
@@ -165,7 +165,7 @@ class IPBlockForm {
 				}
 			} else {
 				# Username block
-				if ( $wgSysopUserBans ) {
+				if ( $wgSysopUserBans ) {	
 					$userId = User::idFromName( $this->BlockAddress );
 					if ( $userId == 0 ) {
 						$this->showForm( wfMsg( 'nosuchusershort', htmlspecialchars( $this->BlockAddress ) ) );
@@ -190,33 +190,33 @@ class IPBlockForm {
 		if ( $expirestr == 'infinite' || $expirestr == 'indefinite' ) {
 			$expiry = '';
 		} else {
-			# Convert GNU-style date, on error returns -1 for PHP <5.1 and false for PHP >=5.1
+			# Convert GNU-style date, returns -1 on error
 			$expiry = strtotime( $expirestr );
 
-			if ( $expiry < 0 || $expiry === false ) {
+			if ( $expiry < 0 ) {
 				$this->showForm( wfMsg( 'ipb_expiry_invalid' ) );
 				return;
 			}
-
+			
 			$expiry = wfTimestamp( TS_MW, $expiry );
 
 		}
-
+		
 		# Create block
 		# Note: for a user block, ipb_address is only for display purposes
 
-		$ban = new Block( $this->BlockAddress, $userId, $wgUser->getID(),
+		$ban = new Block( $this->BlockAddress, $userId, $wgUser->getID(), 
 			$this->BlockReason, wfTimestampNow(), 0, $expiry );
-
+		
 		if (wfRunHooks('BlockIp', array(&$ban, &$wgUser))) {
-
+			
 			$ban->insert();
-
+			
 			wfRunHooks('BlockIpComplete', array($ban, $wgUser));
-
+			
 			# Make log entry
 			$log = new LogPage( 'block' );
-			$log->addEntry( 'block', Title::makeTitle( NS_USER, $this->BlockAddress ),
+			$log->addEntry( 'block', Title::makeTitle( NS_USER, $this->BlockAddress ), 
 			  $this->BlockReason, $expirestr );
 
 			# Report to the user
@@ -227,7 +227,7 @@ class IPBlockForm {
 	}
 
 	function showSuccess() {
-		global $wgOut;
+		global $wgOut, $wgUser;
 
 		$wgOut->setPagetitle( wfMsg( 'blockip' ) );
 		$wgOut->setSubtitle( wfMsg( 'blockipsuccesssub' ) );

@@ -32,7 +32,7 @@ static COLORREF SysColors[] =
 {
   RGB(212, 208, 200), /* COLOR_SCROLLBAR  */
   RGB(58, 110, 165),  /* COLOR_BACKGROUND  */
-  RGB(10, 36, 106),   /* COLOR_ACTIVECAPTION  */
+  RGB(56, 112, 168),  /* COLOR_ACTIVECAPTION  */
   RGB(128, 128, 128), /* COLOR_INACTIVECAPTION  */
   RGB(212, 208, 200), /* COLOR_MENU  */
   RGB(255, 255, 255), /* COLOR_WINDOW  */
@@ -57,7 +57,7 @@ static COLORREF SysColors[] =
   RGB(255, 255, 225), /* COLOR_INFOBK  */
   RGB(181, 181, 181), /* COLOR_UNKNOWN  */
   RGB(0, 0, 128),     /* COLOR_HOTLIGHT  */
-  RGB(166, 202, 240), /* COLOR_GRADIENTACTIVECAPTION  */
+  RGB(133, 162, 192), /* COLOR_GRADIENTACTIVECAPTION  */
   RGB(192, 192, 192), /* COLOR_GRADIENTINACTIVECAPTION  */
   RGB(49, 106, 197),  /* COLOR_MENUHILIGHT  */
   RGB(236, 233, 216)  /* COLOR_MENUBAR  */
@@ -80,11 +80,11 @@ static LOGPEN NullPen =
 
 static LOGFONTW OEMFixedFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, OEM_CHARSET,
-  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Courier New" }; //Bitstream Vera Sans Mono
+  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Bitstream Vera Sans Mono" };
 
 static LOGFONTW AnsiFixedFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Courier New" }; //Bitstream Vera Sans Mono
+  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Bitstream Vera Sans Mono" };
 
 /*static LOGFONTW AnsiVarFont =
  *{ 10, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
@@ -92,20 +92,20 @@ static LOGFONTW AnsiFixedFont =
 
 static LOGFONTW SystemFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Courier New" }; //Bitstream Vera Sans
+  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Bitstream Vera Sans" };
 
 static LOGFONTW DeviceDefaultFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"MS Sans Serif" }; //Bitstream Vera Sans
+  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Bitstream Vera Sans" };
 
 static LOGFONTW SystemFixedFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Courier New" }; //Bitstream Vera Sans Mono
- 
+  0, 0, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, L"Bitstream Vera Sans Mono" };
+
 /* FIXME: Is this correct? */
 static LOGFONTW DefaultGuiFont =
 { 11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"MS Sans Serif" }; //Bitstream Vera Sans
+  0, 0, DEFAULT_QUALITY, VARIABLE_PITCH | FF_SWISS, L"Bitstream Vera Sans" };
 
 #define NB_STOCK_OBJECTS (DEFAULT_GUI_FONT + 1)
 
@@ -210,12 +210,6 @@ IntGetSysColorBrushes(HBRUSH *Brushes, UINT nBrushes)
   return nBrushes > 0;
 }
 
-HGDIOBJ FASTCALL
-IntGetSysColorBrush(INT Object)
-{
-  return ((Object < 0) || (NUM_SYSCOLORS <= Object)) ? NULL : SysColorBrushes[Object];
-}
-
 BOOL FASTCALL
 IntGetSysColorPens(HPEN *Pens, UINT nPens)
 {
@@ -258,12 +252,6 @@ IntGetSysColors(COLORREF *Colors, UINT nColors)
   }
 
   return nColors > 0;
-}
-
-DWORD FASTCALL
-IntGetSysColor(INT nIndex)
-{
-  return ((nIndex < 0) || (NUM_SYSCOLORS <= nIndex)) ? 0 : SysColors[nIndex];
 }
 
 VOID FASTCALL

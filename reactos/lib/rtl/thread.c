@@ -12,7 +12,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <rtl.h>
-#include "i386/ketypes.h"
 
 #define NDEBUG
 #include <debug.h>

@@ -11,7 +11,6 @@
 	<library>user32</library>
 	<library>comctl32</library>
 	<library>advapi32</library>
-	<library>setupapi</library>
 	<file>currency.c</file>
 	<file>date.c</file>
 	<file>general.c</file>

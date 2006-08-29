@@ -130,26 +130,4 @@ KeReleaseInStackQueuedSpinLock(
    UNIMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
-KIRQL
-FASTCALL
-KeAcquireQueuedSpinLock(IN PKLOCK_QUEUE_HANDLE LockHandle)
-{
-   UNIMPLEMENTED;
-   return 0;
-}
-
-/*
- * @unimplemented
- */
-VOID
-FASTCALL
-KeReleaseQueuedSpinLock(IN PKLOCK_QUEUE_HANDLE LockHandle,
-                        IN KIRQL OldIrql)
-{
-   UNIMPLEMENTED;
-}
-
 /* EOF */

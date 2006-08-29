@@ -25,20 +25,15 @@
 #                 Tobias Burnus <burnus@net-b.de>
 #                 Myk Melez <myk@mozilla.org>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Frédéric Buclin <LpSolit@gmail.com>
-#                 Greg Hendricks <ghendricks@novell.com>
 
 
 package Bugzilla::Template;
 
 use strict;
 
-use Bugzilla::Constants;
-use Bugzilla::Config qw(:DEFAULT $templatedir $datadir $project);
+use Bugzilla::Config qw(:DEFAULT $templatedir $datadir);
 use Bugzilla::Util;
 use Bugzilla::User;
-use Bugzilla::Error;
-use MIME::Base64;
 
 # for time2str - replace by TT Date plugin??
 use Date::Format ();
@@ -100,7 +95,7 @@ sub sortAcceptLanguage {
 # Returns the path to the templates based on the Accept-Language
 # settings of the user and of the available languages
 # If no Accept-Language is present it uses the defined default
-sub getTemplateIncludePath {
+sub getTemplateIncludePath () {
     # Return cached value if available
 
     # XXXX - mod_perl!
@@ -109,21 +104,10 @@ sub getTemplateIncludePath {
     }
     my $languages = trim(Param('languages'));
     if (not ($languages =~ /,/)) {
-       if ($project) {
-           $template_include_path = [
-               "$templatedir/$languages/$project",
-               "$templatedir/$languages/custom",
-               "$templatedir/$languages/extension",
-               "$templatedir/$languages/default"
-           ];
-       } else {
-           $template_include_path = [
-               "$templatedir/$languages/custom",
-               "$templatedir/$languages/extension",
-               "$templatedir/$languages/default"
-           ];
-       }
-        return $template_include_path;
+        return $template_include_path =
+               ["$templatedir/$languages/custom",
+                "$templatedir/$languages/extension",
+                "$templatedir/$languages/default"];
     }
     my @languages       = sortAcceptLanguage($languages);
     my @accept_language = sortAcceptLanguage($ENV{'HTTP_ACCEPT_LANGUAGE'} || "" );
@@ -139,84 +123,13 @@ sub getTemplateIncludePath {
         }
     }
     push(@usedlanguages, Param('defaultlanguage'));
-    if ($project) {
-        $template_include_path = [
-           map((
-               "$templatedir/$_/$project",
-               "$templatedir/$_/custom",
-               "$templatedir/$_/extension",
-               "$templatedir/$_/default"
-               ), @usedlanguages
-            )
-        ];
-    } else {
-        $template_include_path = [
-           map((
-               "$templatedir/$_/custom",
-               "$templatedir/$_/extension",
-               "$templatedir/$_/default"
-               ), @usedlanguages
-            )
-        ];
-    }
-    return $template_include_path;
+    return $template_include_path =
+        [map(("$templatedir/$_/custom",
+              "$templatedir/$_/extension",
+              "$templatedir/$_/default"),
+             @usedlanguages)];
 }
 
-sub put_header {
-    my $self = shift;
-    my $vars = {};
-    ($vars->{'title'}, $vars->{'h1'}, $vars->{'h2'}) = (@_);
-     
-    $self->process("global/header.html.tmpl", $vars)
-      || ThrowTemplateError($self->error());
-    $vars->{'header_done'} = 1;
-}
-
-sub put_footer {
-    my $self = shift;
-    $self->process("global/footer.html.tmpl")
-      || ThrowTemplateError($self->error());
-}
-
-sub get_format {
-    my $self = shift;
-    my ($template, $format, $ctype) = @_;
-
-    $ctype ||= 'html';
-    $format ||= '';
-
-    # Security - allow letters and a hyphen only
-    $ctype =~ s/[^a-zA-Z\-]//g;
-    $format =~ s/[^a-zA-Z\-]//g;
-    trick_taint($ctype);
-    trick_taint($format);
-
-    $template .= ($format ? "-$format" : "");
-    $template .= ".$ctype.tmpl";
-
-    # Now check that the template actually exists. We only want to check
-    # if the template exists; any other errors (eg parse errors) will
-    # end up being detected later.
-    eval {
-        $self->context->template($template);
-    };
-    # This parsing may seem fragile, but its OK:
-    # http://lists.template-toolkit.org/pipermail/templates/2003-March/004370.html
-    # Even if it is wrong, any sort of error is going to cause a failure
-    # eventually, so the only issue would be an incorrect error message
-    if ($@ && $@->info =~ /: not found$/) {
-        ThrowUserError('format_not_found', {'format' => $format,
-                                            'ctype'  => $ctype});
-    }
-
-    # Else, just return the info
-    return
-    {
-        'template'    => $template,
-        'extension'   => $ctype,
-        'ctype'       => Bugzilla::Constants::contenttypes->{$ctype}
-    };
-}
 
 ###############################################################################
 # Templatization Code
@@ -362,13 +275,7 @@ sub create {
                 $var =~ s/\@/\\x40/g; # anti-spam for email addresses
                 return $var;
             },
-            
-            # Converts data to base64
-            base64 => sub {
-                my ($data) = @_;
-                return encode_base64($data);
-            },
-            
+
             # HTML collapses newlines in element attributes to a single space,
             # so form elements which may have whitespace (ie comments) need
             # to be encoded using &#013;
@@ -461,41 +368,11 @@ sub create {
             # Format a time for display (more info in Bugzilla::Util)
             time => \&Bugzilla::Util::format_time,
 
-            # Bug 120030: Override html filter to obscure the '@' in user
-            #             visible strings.
-            # Bug 319331: Handle BiDi disruptions.
+            # Override html filter to obscure the '@' in user visible strings
+            # See bug 120030 for details
             html => sub {
                 my ($var) = Template::Filters::html_filter(@_);
-                # Obscure '@'.
                 $var =~ s/\@/\&#64;/g;
-                if (Param('utf8')) {
-                    # Remove the following characters because they're
-                    # influencing BiDi:
-                    # --------------------------------------------------------
-                    # |Code  |Name                      |UTF-8 representation|
-                    # |------|--------------------------|--------------------|
-                    # |U+202a|Left-To-Right Embedding   |0xe2 0x80 0xaa      |
-                    # |U+202b|Right-To-Left Embedding   |0xe2 0x80 0xab      |
-                    # |U+202c|Pop Directional Formatting|0xe2 0x80 0xac      |
-                    # |U+202d|Left-To-Right Override    |0xe2 0x80 0xad      |
-                    # |U+202e|Right-To-Left Override    |0xe2 0x80 0xae      |
-                    # --------------------------------------------------------
-                    #
-                    # The following are characters influencing BiDi, too, but
-                    # they can be spared from filtering because they don't
-                    # influence more than one character right or left:
-                    # --------------------------------------------------------
-                    # |Code  |Name                      |UTF-8 representation|
-                    # |------|--------------------------|--------------------|
-                    # |U+200e|Left-To-Right Mark        |0xe2 0x80 0x8e      |
-                    # |U+200f|Right-To-Left Mark        |0xe2 0x80 0x8f      |
-                    # --------------------------------------------------------
-                    #
-                    # Do the replacing in a loop so that we don't get tricked
-                    # by stuff like 0xe2 0xe2 0x80 0xae 0x80 0xae.
-                    while ($var =~ s/\xe2\x80(\xaa|\xab|\xac|\xad|\xae)//g) {
-                    }
-                }
                 return $var;
             },
             
@@ -549,12 +426,7 @@ sub create {
             'lsearch' => \&Bugzilla::Util::lsearch,
 
             # Currently logged in user, if any
-            # If an sudo session is in progress, this is the user we're faking
             'user' => sub { return Bugzilla->user; },
-
-            # If an sudo session is in progress, this is the user who
-            # started the session.
-            'sudoer' => sub { return Bugzilla->sudoer; },
 
             # UserInGroup. Deprecated - use the user.* functions instead
             'UserInGroup' => \&Bugzilla::User::UserInGroup,
@@ -580,18 +452,11 @@ __END__
 
 =head1 NAME
 
-Bugzilla::Template - Wrapper around the Template Toolkit C<Template> object
+Bugzilla::Template - Wrapper arround the Template Toolkit C<Template> object
 
-=head1 SYNOPSIS
+=head1 SYNOPSYS
 
   my $template = Bugzilla::Template->create;
-
-  $template->put_header($title, $h1, $h2);
-  $template->put_footer();
-
-  my $format = $template->get_format("foo/bar",
-                                     scalar($cgi->param('format')),
-                                     scalar($cgi->param('ctype')));
 
 =head1 DESCRIPTION
 
@@ -600,41 +465,6 @@ the C<Template> constructor.
 
 It should not be used directly by scripts or modules - instead, use
 C<Bugzilla-E<gt>instance-E<gt>template> to get an already created module.
-
-=head1 METHODS
-
-=over
-
-=item C<put_header($title, $h1, $h2)>
-
- Description: Display the header of the page for non yet templatized .cgi files.
-
- Params:      $title - Page title.
-              $h1    - Main page header.
-              $h2    - Page subheader.
-
- Returns:     nothing
-
-=item C<put_footer()>
-
- Description: Display the footer of the page for non yet templatized .cgi files.
-
- Params:      none
-
- Returns:     nothing
-
-=item C<get_format($file, $format, $ctype)>
-
- Description: Construct a format object from URL parameters.
-
- Params:      $file   - Name of the template to display.
-              $format - When the template exists under several formats
-                        (e.g. table or graph), specify the one to choose.
-              $ctype  - Content type, see Bugzilla::Constants::contenttypes.
-
- Returns:     A format object.
-
-=back
 
 =head1 SEE ALSO
 

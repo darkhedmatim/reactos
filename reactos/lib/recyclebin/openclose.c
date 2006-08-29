@@ -170,7 +170,7 @@ IntReferenceRecycleBin(
 	}
 
 	/* Search if the recycle bin has already been opened */
-	driveLetter = (WCHAR)toupper(driveLetter);
+	driveLetter = toupper(driveLetter);
 	ListEntry = ListHead.Flink;
 	while (ListEntry != &ListHead)
 	{

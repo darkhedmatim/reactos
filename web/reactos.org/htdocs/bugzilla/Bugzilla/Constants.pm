@@ -53,6 +53,7 @@ use base qw(Exporter);
     LOGOUT_KEEP_CURRENT
 
     GRANT_DIRECT
+    GRANT_DERIVED
     GRANT_REGEXP
 
     GROUP_MEMBERSHIP
@@ -65,10 +66,9 @@ use base qw(Exporter);
     DEFAULT_COLUMN_LIST
     DEFAULT_QUERY_NAME
 
-    QUERY_LIST
-    LIST_OF_BUGS
-
     COMMENT_COLS
+
+    DERIVE_GROUPS_TABLES_ALREADY_LOCKED
 
     UNLOCK_ABORT
     
@@ -78,7 +78,7 @@ use base qw(Exporter);
     
     POS_EVENTS
     EVT_OTHER EVT_ADDED_REMOVED EVT_COMMENT EVT_ATTACHMENT EVT_ATTACHMENT_DATA
-    EVT_PROJ_MANAGEMENT EVT_OPENED_CLOSED EVT_KEYWORD EVT_CC EVT_DEPEND_BLOCK
+    EVT_PROJ_MANAGEMENT EVT_OPENED_CLOSED EVT_KEYWORD EVT_CC 
     
     NEG_EVENTS
     EVT_UNCONFIRMED EVT_CHANGED_BY_ME 
@@ -87,8 +87,6 @@ use base qw(Exporter);
     EVT_FLAG_REQUESTED EVT_REQUESTED_FLAG
 
     FULLTEXT_BUGLIST_LIMIT
-
-    ADMIN_GROUP_NAME
 
     SENDMAIL_EXE
 );
@@ -157,6 +155,7 @@ use constant contenttypes =>
   };
 
 use constant GRANT_DIRECT => 0;
+use constant GRANT_DERIVED => 1;
 use constant GRANT_REGEXP => 2;
 
 use constant GROUP_MEMBERSHIP => 0;
@@ -168,7 +167,7 @@ use constant MAILTO_GROUP => 1;
 
 # The default list of columns for buglist.cgi
 use constant DEFAULT_COLUMN_LIST => (
-    "bug_severity", "priority", "rep_platform","assigned_to",
+    "bug_severity", "priority", "rep_platform",
     "bug_status", "resolution", "short_short_desc"
 );
 
@@ -176,12 +175,12 @@ use constant DEFAULT_COLUMN_LIST => (
 # for the default settings.
 use constant DEFAULT_QUERY_NAME => '(Default query)';
 
-# The possible types for saved searches.
-use constant QUERY_LIST => 0;
-use constant LIST_OF_BUGS => 1;
-
 # The column length for displayed (and wrapped) bug comments.
 use constant COMMENT_COLS => 80;
+
+# Used to indicate to User::new and User::new_from_login calls
+# that the derive_groups tables are already locked
+use constant DERIVE_GROUPS_TABLES_ALREADY_LOCKED => 1;
 
 # used by Bugzilla::DB to indicate that tables are being unlocked
 # because of error
@@ -214,12 +213,11 @@ use constant EVT_PROJ_MANAGEMENT    => 5;
 use constant EVT_OPENED_CLOSED      => 6;
 use constant EVT_KEYWORD            => 7;
 use constant EVT_CC                 => 8;
-use constant EVT_DEPEND_BLOCK       => 9;
 
 use constant POS_EVENTS => EVT_OTHER, EVT_ADDED_REMOVED, EVT_COMMENT, 
                            EVT_ATTACHMENT, EVT_ATTACHMENT_DATA, 
                            EVT_PROJ_MANAGEMENT, EVT_OPENED_CLOSED, EVT_KEYWORD,
-                           EVT_CC, EVT_DEPEND_BLOCK;
+                           EVT_CC;
 
 use constant EVT_UNCONFIRMED        => 50;
 use constant EVT_CHANGED_BY_ME      => 51;
@@ -236,9 +234,6 @@ use constant GLOBAL_EVENTS => EVT_FLAG_REQUESTED, EVT_REQUESTED_FLAG;
 #  Number of bugs to return in a buglist when performing
 #  a fulltext search.
 use constant FULLTEXT_BUGLIST_LIMIT => 200;
-
-# Default administration group name.
-use constant ADMIN_GROUP_NAME => 'admin';
 
 # Path to sendmail.exe (Windows only)
 use constant SENDMAIL_EXE => '/usr/lib/sendmail.exe';

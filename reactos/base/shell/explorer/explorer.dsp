@@ -310,10 +310,6 @@ SOURCE=.\utility\xmlstorage.cpp
 
 SOURCE=.\utility\xmlstorage.h
 # End Source File
-# Begin Source File
-
-SOURCE=".\utility\xs-native.cpp"
-# End Source File
 # End Group
 # Begin Group "resources"
 

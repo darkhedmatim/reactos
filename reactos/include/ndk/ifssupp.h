@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 #ifndef _NTIFS_
@@ -28,7 +28,6 @@ typedef enum _TOKEN_TYPE
 } TOKEN_TYPE, *PTOKEN_TYPE;
 
 typedef PVOID PRTL_HEAP_PARAMETERS;
-typedef PVOID PFS_FILTER_CALLBACKS;
 typedef USHORT SECURITY_DESCRIPTOR_CONTROL, *PSECURITY_DESCRIPTOR_CONTROL;
 
 typedef struct _RTL_SPLAY_LINKS

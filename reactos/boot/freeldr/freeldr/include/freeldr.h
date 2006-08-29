@@ -26,10 +26,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <ntddk.h>
-#include <arc/arc.h>
-#include <ketypes.h>
-#include <mmtypes.h>
-#include <rosldr.h>
+#include <ndk/ntndk.h>
 #include <arch.h>
 #include <rtl.h>
 #include <disk.h>
@@ -82,7 +79,7 @@
 
 #define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
 
-extern BOOLEAN UserInterfaceUp;	/* Tells us if the user interface is displayed */
+extern BOOL UserInterfaceUp;	/* Tells us if the user interface is displayed */
 
 VOID BootMain(LPSTR CmdLine);
 VOID RunLoader(VOID);

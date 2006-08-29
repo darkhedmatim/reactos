@@ -91,10 +91,8 @@ static void test_CreateNamedPipe(int pipemode)
         /* lpSecurityAttrib */ NULL);
     ok(hnp != INVALID_HANDLE_VALUE, "CreateNamedPipe failed\n");
 
-    ok(WaitNamedPipeA(PIPENAME, 2000), "WaitNamedPipe failed (%08lx)\n", GetLastError());
-
     hFile = CreateFileA(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0);
-    ok(hFile != INVALID_HANDLE_VALUE, "CreateFile failed (%08lx)\n", GetLastError());
+    ok(hFile != INVALID_HANDLE_VALUE, "CreateFile failed\n");
 
     /* don't try to do i/o if one side couldn't be opened, as it hangs */
     if (hFile != INVALID_HANDLE_VALUE) {
@@ -759,7 +757,7 @@ static void test_CreatePipe(void)
     ok(ReadFile(piperead,readbuf,sizeof(readbuf),&read, NULL), "Read from broken pipe withe with pending data failed\n");
     ok(read == sizeof(PIPENAME), "Read from  anonymous pipe got %ld bytes instead of %d\n", read, sizeof(PIPENAME));
     /* But now we need to get informed that the pipe is closed */
-    ok(ReadFile(piperead,readbuf,sizeof(readbuf),&read, NULL) == 0, "Broken pipe not detected\n");
+    todo_wine ok(ReadFile(piperead,readbuf,sizeof(readbuf),&read, NULL) == 0, "Broken pipe not detected\n");
 }
 
 START_TEST(pipe)

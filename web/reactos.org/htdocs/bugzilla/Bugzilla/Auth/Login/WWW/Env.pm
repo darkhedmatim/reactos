@@ -26,7 +26,6 @@ use strict;
 use Bugzilla::Config;
 use Bugzilla::Error;
 use Bugzilla::Util;
-use Bugzilla::User;
 
 sub login {
     my ($class, $type) = @_;
@@ -39,7 +38,6 @@ sub login {
     my $matched_userid    = '';
     my $matched_extern_id = '';
     my $disabledtext      = '';
-    my $new_login_name = 0;
 
     my $dbh = Bugzilla->dbh;
     my $sth;
@@ -118,10 +116,12 @@ sub login {
                 # Need to create a new user with that email address.  Note
                 # that cryptpassword has been filled in with '*', since the
                 # user has no DB password.
-                insert_new_user($env_email, $env_realname, '*');
-                my $new_user = Bugzilla::User->new_from_login($env_email);
-                $matched_userid = $new_user->id;
-                $new_login_name = $matched_userid;
+                $sth = $dbh->prepare("INSERT INTO profiles ( " .
+                                     "login_name, cryptpassword, " .
+                                     "realname, disabledtext " .
+                                     ") VALUES ( ?, ?, ?, '' )");
+                $sth->execute($env_email, '*', $env_realname);
+                $matched_userid = $dbh->bz_last_key('profiles', 'userid');
             }
         }
     }
@@ -147,14 +147,7 @@ sub login {
                           ($env_realname || $this_realname),
                           $matched_userid);
             $sth->execute;
-            $new_login_name = $matched_userid;
         }
-    }
-
-    # If the login name may be new, make sure the regexp groups are current
-    if ($new_login_name) {
-        my $userprofile = new Bugzilla::User($matched_userid);
-        $userprofile->derive_regexp_groups;
     }
 
     # Now we throw an error if the user has been disabled

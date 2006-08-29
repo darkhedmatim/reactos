@@ -470,12 +470,12 @@ ScmCheckDriver(PSERVICE Service)
         if (!NT_SUCCESS(Status))
             break;
 
-        DPRINT("Comparing: '%S'  '%wZ'\n", Service->lpServiceName, &DirInfo->Name);
+        DPRINT("Comparing: '%S'  '%wZ'\n", Service->lpServiceName, &DirInfo->ObjectName);
 
-        if (_wcsicmp(Service->lpServiceName, DirInfo->Name.Buffer) == 0)
+        if (_wcsicmp(Service->lpServiceName, DirInfo->ObjectName.Buffer) == 0)
         {
             DPRINT("Found: '%S'  '%wZ'\n",
-                   Service->lpServiceName, &DirInfo->Name);
+                   Service->lpServiceName, &DirInfo->ObjectName);
 
             /* Mark service as 'running' */
             Service->Status.dwCurrentState = SERVICE_RUNNING;
@@ -714,8 +714,9 @@ ScmStartUserModeService(PSERVICE Service)
         {
             DPRINT("Received process id %lu\n", dwProcessId);
 
-            /* Send start command */
-            Status = ScmSendStartCommand(Service, NULL);
+            /* FIXME: Send start command */
+
+            Status = STATUS_SUCCESS;
         }
     }
     else
@@ -730,6 +731,8 @@ ScmStartUserModeService(PSERVICE Service)
         Status = STATUS_UNSUCCESSFUL;
     }
 
+    ScmSendStartCommand(Service, NULL);
+
     /* Close process and thread handle */
     CloseHandle(ProcessInformation.hThread);
     CloseHandle(ProcessInformation.hProcess);
@@ -738,10 +741,10 @@ ScmStartUserModeService(PSERVICE Service)
 }
 
 
-NTSTATUS
-ScmStartService(PSERVICE Service)
+static NTSTATUS
+ScmStartService(PSERVICE Service,
+                PSERVICE_GROUP Group)
 {
-    PSERVICE_GROUP Group = Service->lpGroup;
     NTSTATUS Status;
 
     DPRINT("ScmStartService() called\n");
@@ -846,7 +849,8 @@ ScmAutoStartServices(VOID)
                     (CurrentService->dwTag == CurrentGroup->TagArray[i]))
                 {
                     CurrentService->ServiceVisited = TRUE;
-                    ScmStartService(CurrentService);
+                    ScmStartService(CurrentService,
+                                    CurrentGroup);
                 }
 
                 ServiceEntry = ServiceEntry->Flink;
@@ -864,7 +868,8 @@ ScmAutoStartServices(VOID)
                 (CurrentService->ServiceVisited == FALSE))
             {
                 CurrentService->ServiceVisited = TRUE;
-                ScmStartService(CurrentService);
+                ScmStartService(CurrentService,
+                                CurrentGroup);
             }
 
             ServiceEntry = ServiceEntry->Flink;
@@ -884,7 +889,8 @@ ScmAutoStartServices(VOID)
             (CurrentService->ServiceVisited == FALSE))
         {
             CurrentService->ServiceVisited = TRUE;
-            ScmStartService(CurrentService);
+            ScmStartService(CurrentService,
+                            NULL);
         }
 
         ServiceEntry = ServiceEntry->Flink;
@@ -901,7 +907,8 @@ ScmAutoStartServices(VOID)
             (CurrentService->ServiceVisited == FALSE))
         {
             CurrentService->ServiceVisited = TRUE;
-            ScmStartService(CurrentService);
+            ScmStartService(CurrentService,
+                            NULL);
         }
 
         ServiceEntry = ServiceEntry->Flink;

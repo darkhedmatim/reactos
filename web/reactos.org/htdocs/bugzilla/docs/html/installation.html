@@ -7,7 +7,7 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 2.22 
+TITLE="The Bugzilla Guide - 2.20.1 
     Release"
 HREF="index.html"><LINK
 REL="UP"
@@ -38,7 +38,7 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 2.22 
+>The Bugzilla Guide - 2.20.1 
     Release</TH
 ></TR
 ><TR
@@ -293,7 +293,7 @@ HREF="http://www.mysql.com"
 TARGET="_top"
 >http://www.mysql.com</A
 >. You need MySQL version
-          4.0.14 or higher.
+          3.23.41 or higher.
           </P
 ><DIV
 CLASS="note"
@@ -736,17 +736,7 @@ HREF="installation.html#install-modules-template"
 ></LI
 ><LI
 ><P
->&#13;            Mail::Mailer (1.67)
-          </P
-></LI
-><LI
-><P
->&#13;            MIME::Base64 (3.01)
-          </P
-></LI
-><LI
-><P
->&#13;            MIME::Parser (5.406)
+>&#13;            Mail::Mailer (1.65)
           </P
 ></LI
 ><LI
@@ -818,7 +808,11 @@ HREF="installation.html#install-modules-patchreader"
 ></LI
 ><LI
 ><P
->&#13;            Image::Magick (any) for converting BMP image attachments to PNG
+>&#13;            <A
+HREF="installation.html#install-modules-mime-parser"
+>MIME::Parser</A
+>
+            (any) for the optional email interface
           </P
 ></LI
 ></OL
@@ -1016,14 +1010,31 @@ CLASS="section"
 ><H3
 CLASS="section"
 ><A
-NAME="install-modules-patchreader"
->2.1.5.8. PatchReader (0.9.4)</A
+NAME="install-modules-mime-parser"
+>2.1.5.8. MIME::Parser (any)</A
 ></H3
 ><P
->The PatchReader module is only required if you want to use
+>The MIME::Parser module is only required if you want to use the 
+        email interface
+        located in the <TT
+CLASS="filename"
+>contrib</TT
+> directory.
+        </P
+></DIV
+><DIV
+CLASS="section"
+><H3
+CLASS="section"
+><A
+NAME="install-modules-patchreader"
+>2.1.5.9. PatchReader (0.9.4)</A
+></H3
+><P
+>The PatchReader module is only required if you want to use 
         Patch Viewer, a
         Bugzilla feature to show code patches in your web browser in a more
-        readable form.
+        readable form. 
         </P
 ></DIV
 ></DIV
@@ -1065,7 +1076,7 @@ VALIGN="TOP"
           file instead of sending them.  However, this is mainly intended 
           for testing, as disabling or diverting email on a production 
           machine would mean that users could miss important events (such 
-          as bug changes or the creation of new accounts).
+          as bug changes or the creation of new accouts).
         </P
 ><P
 >&#13;          For more information, see the "maildeliverymethod" parameter in 

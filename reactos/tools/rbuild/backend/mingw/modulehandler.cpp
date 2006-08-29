@@ -223,7 +223,6 @@ MingwModuleHandler::InstanciateHandler (
 			handler = new MingwWin32DLLModuleHandler ( module );
 			break;
 		case KernelModeDriver:
-        case ExportDriver: // maybe change this later
 			handler = new MingwKernelModeDriverModuleHandler ( module );
 			break;
 		case BootLoader:
@@ -241,12 +240,6 @@ MingwModuleHandler::InstanciateHandler (
 		case LiveIso:
 			handler = new MingwLiveIsoModuleHandler ( module );
 			break;
-		case IsoRegTest:
-			handler = new MingwIsoModuleHandler ( module );
-			break;
-		case LiveIsoRegTest:
-			handler = new MingwLiveIsoModuleHandler ( module );
-			break;
 		case Test:
 			handler = new MingwTestModuleHandler ( module );
 			break;
@@ -258,9 +251,6 @@ MingwModuleHandler::InstanciateHandler (
 			break;
 		case Alias:
 			handler = new MingwAliasModuleHandler ( module );
-			break;
-		case IdlHeader:
-			handler = new MingwIdlHeaderModuleHandler ( module );
 			break;
 		default:
 			throw UnknownModuleTypeException (
@@ -305,10 +295,8 @@ MingwModuleHandler::GetActualSourceFilename (
 		string newname;
 		if ( module.type == RpcServer )
 			newname = basename + "_s.c";
-		else if ( module.type == RpcClient )
+		else
 			newname = basename + "_c.c";
-		else //if ( module.type == IdlHeader )
-			newname = basename + ".h";
 		PassThruCacheDirectory ( NormalizeFilename ( newname ),
 		                         backend->intermediateDirectory );
 		return new FileLocation ( backend->intermediateDirectory, NormalizeFilename ( newname ) );
@@ -325,10 +313,7 @@ MingwModuleHandler::GetExtraDependencies (
 	if ( extension == ".idl" || extension == ".IDL" )
 	{
 		string basename = GetBasename ( filename );
-		if ( module.type == IdlHeader )
-            return GetIdlHeaderFilename ( basename );
-		else
-			return GetRpcServerHeaderFilename ( basename ) + " " + GetRpcClientHeaderFilename ( basename );
+		return GetRpcServerHeaderFilename ( basename ) + " " + GetRpcClientHeaderFilename ( basename );
 	}
 	else
 		return "";
@@ -376,8 +361,6 @@ MingwModuleHandler::ReferenceObjects (
 	if ( module.type == RpcServer )
 		return true;
 	if ( module.type == RpcClient )
-		return true;
-	if ( module.type == IdlHeader )
 		return true;
 	return false;
 }
@@ -494,15 +477,10 @@ MingwModuleHandler::GetObjectFilename (
 		newExtension = ".stubs.o";
 	else if ( extension == ".idl" || extension == ".IDL" )
 	{
-		if ( module.type == IdlHeader )
-			newExtension = ".h";
+		if ( module.type == RpcServer )
+			newExtension = "_s.o";
 		else
-		{
-			if ( module.type == RpcServer )
-				newExtension = "_s.o";
-			else
-				newExtension = "_c.o";
-		}
+			newExtension = "_c.o";
 	}
 	else
 		newExtension = ".o";
@@ -780,8 +758,7 @@ MingwModuleHandler::GenerateMacro (
 		string includeDirectory;
 		if ( include.baseModule != NULL &&
 		     ( include.baseModule->type == RpcServer ||
-		       include.baseModule->type == RpcClient ||
-		       include.baseModule->type == IdlHeader) )
+		       include.baseModule->type == RpcClient ) )
 			includeDirectory = PassThruCacheDirectory ( NormalizeFilename ( include.directory ),
 	                                                            backend->intermediateDirectory );
 		else
@@ -1217,13 +1194,6 @@ MingwModuleHandler::GetRpcClientHeaderFilename ( string basename ) const
 	                                backend->intermediateDirectory );
 }
 
-string
-MingwModuleHandler::GetIdlHeaderFilename ( string basename ) const
-{
-	return PassThruCacheDirectory ( basename + ".h",
-	                                backend->intermediateDirectory );
-}
-
 void
 MingwModuleHandler::GenerateWidlCommandsClient (
 	const CompilationUnit& compilationUnit,
@@ -1262,36 +1232,6 @@ MingwModuleHandler::GenerateWidlCommandsClient (
 }
 
 void
-MingwModuleHandler::GenerateWidlCommandsIdlHeader (
-	const CompilationUnit& compilationUnit,
-	const string& widlflagsMacro )
-{
-	FileLocation* sourceFileLocation = compilationUnit.GetFilename ( backend->intermediateDirectory );
-	string filename = sourceFileLocation->filename;
-	string dependencies = filename;
-	dependencies += " " + NormalizeFilename ( module.xmlbuildFile );
-
-	string basename = GetBasename ( filename );
-
-	string generatedHeaderFilename = GetIdlHeaderFilename ( basename );
-	CLEAN_FILE(generatedHeaderFilename);
-
-	fprintf ( fMakefile,
-	          "%s: %s $(WIDL_TARGET) | %s\n",
-	          generatedHeaderFilename.c_str (),
-	          dependencies.c_str (),
-	          GetDirectory ( generatedHeaderFilename ).c_str () );
-	fprintf ( fMakefile, "\t$(ECHO_WIDL)\n" );
-	fprintf ( fMakefile,
-	          "\t%s %s %s -h -H %s %s\n",
-	          "$(Q)$(WIDL_TARGET)",
-	          GetWidlFlags ( compilationUnit ).c_str (),
-	          widlflagsMacro.c_str (),
-	          generatedHeaderFilename.c_str (),
-	          filename.c_str () );
-}
-
-void
 MingwModuleHandler::GenerateWidlCommands (
 	const CompilationUnit& compilationUnit,
 	const string& widlflagsMacro )
@@ -1299,12 +1239,9 @@ MingwModuleHandler::GenerateWidlCommands (
 	if ( module.type == RpcServer )
 		GenerateWidlCommandsServer ( compilationUnit,
 		                             widlflagsMacro );
-	else if ( module.type == RpcClient )
+	else
 		GenerateWidlCommandsClient ( compilationUnit,
 		                             widlflagsMacro );
-	else if ( module.type == IdlHeader )
-		GenerateWidlCommandsIdlHeader ( compilationUnit,
-		                                widlflagsMacro );
 }
 
 void
@@ -1370,13 +1307,10 @@ MingwModuleHandler::GenerateCommands (
 	{
 		GenerateWidlCommands ( compilationUnit,
 		                       widlflagsMacro );
-		if ( module.type != IdlHeader )
-		{
-			GenerateGccCommand ( GetActualSourceFilename ( sourceFileLocation ),
-			                     GetExtraDependencies ( filename ),
-		    	                 cc,
-		        	             cflagsMacro );
-		}
+		GenerateGccCommand ( GetActualSourceFilename ( sourceFileLocation ),
+		                     GetExtraDependencies ( filename ),
+		                     cc,
+		                     cflagsMacro );
 		return;
 	}
 
@@ -1516,19 +1450,6 @@ MingwModuleHandler::GenerateRunRsymCode () const
 }
 
 void
-MingwModuleHandler::GenerateRunStripCode () const
-{
-    fprintf ( fMakefile,
-        "ifeq ($(ROS_LEAN_AND_MEAN),yes)\n" );
-	fprintf ( fMakefile,
-	          "\t$(ECHO_STRIP)\n" );
-	fprintf ( fMakefile,
-	          "\t${strip} -s -x -X $@\n\n" );
-    fprintf ( fMakefile,
-        "endif\n" );
-}
-
-void
 MingwModuleHandler::GenerateLinkerCommand (
 	const string& dependencies,
 	const string& linker,
@@ -1600,18 +1521,19 @@ MingwModuleHandler::GenerateLinkerCommand (
 		          objectsMacro.c_str (),
 		          libsMacro.c_str (),
 		          GetLinkerMacro ().c_str () );
-		          
-#if 0 // causes crashes sometimes
-		fprintf ( fMakefile,
-		          "\t${objcopy} -R .edata %s\n",
-		          target.c_str () );
-#endif
+
+		if ( pefixupParameters.length() != 0 )
+		{
+			fprintf ( fMakefile,
+			          "\t$(Q)$(PEFIXUP_TARGET) %s -exports %s\n",
+			          target.c_str (),
+		        	  pefixupParameters.c_str() );
+		}
 	}
 
 	GenerateBuildMapCode ();
 	GenerateBuildNonSymbolStrippedCode ();
 	GenerateRunRsymCode ();
-	GenerateRunStripCode ();
 	GenerateCleanObjectsAsYouGoCode ();
 }
 
@@ -1821,8 +1743,7 @@ MingwModuleHandler::GetRpcHeaderDependencies (
 	{
 		Library& library = *module.non_if_data.libraries[i];
 		if ( library.importedModule->type == RpcServer ||
-		     library.importedModule->type == RpcClient ||
-		     library.importedModule->type == IdlHeader )
+		     library.importedModule->type == RpcClient )
 		{
 			for ( size_t j = 0; j < library.importedModule->non_if_data.compilationUnits.size (); j++ )
 			{
@@ -1836,8 +1757,6 @@ MingwModuleHandler::GetRpcHeaderDependencies (
 						dependencies.push_back ( GetRpcServerHeaderFilename ( basename ) );
 					if ( library.importedModule->type == RpcClient )
 						dependencies.push_back ( GetRpcClientHeaderFilename ( basename ) );
-					if ( library.importedModule->type == IdlHeader )
-						dependencies.push_back ( GetIdlHeaderFilename ( basename ) );
 				}
 			}
 		}
@@ -2312,7 +2231,7 @@ MingwKernelModuleHandler::GenerateKernelModuleTarget ()
 		string linkerParameters = ssprintf ( "-Wl,-T,%s%cntoskrnl.lnk -Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -shared",
 		                                     module.GetBasePath ().c_str (),
                                                      cSep,
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        "${gcc}",
@@ -2399,7 +2318,7 @@ MingwKernelModeDLLModuleHandler::GenerateKernelModeDLLModuleTarget ()
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -shared",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        "${gcc}",
@@ -2447,7 +2366,7 @@ MingwKernelModeDriverModuleHandler::GenerateKernelModeDriverModuleTarget ()
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -shared",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        "${gcc}",
@@ -2494,7 +2413,7 @@ MingwNativeDLLModuleHandler::GenerateNativeDLLModuleTarget ()
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -nostdlib -shared",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        "${gcc}",
@@ -2541,7 +2460,7 @@ MingwNativeCUIModuleHandler::GenerateNativeCUIModuleTarget ()
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -nostdlib",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        "${gcc}",
@@ -2594,7 +2513,7 @@ MingwWin32DLLModuleHandler::GenerateWin32DLLModuleTarget ()
 			linker = "${gcc}";
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -shared",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        linker,
@@ -2647,7 +2566,7 @@ MingwWin32CUIModuleHandler::GenerateWin32CUIModuleTarget ()
 			linker = "${gcc}";
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        linker,
@@ -2700,7 +2619,7 @@ MingwWin32GUIModuleHandler::GenerateWin32GUIModuleTarget ()
 			linker = "${gcc}";
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,windows -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        linker,
@@ -3012,25 +2931,9 @@ MingwIsoModuleHandler::GenerateIsoModuleTarget ()
 	string bootcd = PassThruCacheDirectory (
 		NormalizeFilename ( bootcdDirectory + sSep ),
 		backend->outputDirectory );
-
-	string bootloader;
-	string IsoName;
-
-	if (module.name == "bootcdregtest")
-	{
-		bootloader = "isobtrt.o";
-		IsoName = "ReactOS-RegTest.iso";
-	}
-	else
-	{
-		bootloader = "isoboot.o";
-		IsoName = "ReactOS.iso";
-	}
-
 	string isoboot = PassThruCacheDirectory (
-		NormalizeFilename ( "boot" + sSep + "freeldr" + sSep + "bootsect" + sSep + bootloader.c_str() ),
+		NormalizeFilename ( "boot" + sSep + "freeldr" + sSep + "bootsect" + sSep + "isoboot.o" ),
 		backend->outputDirectory );
-
 	string bootcdReactosNoFixup = bootcdDirectory + sSep + "reactos";
 	string bootcdReactos = PassThruCacheDirectory (
 		NormalizeFilename ( bootcdReactosNoFixup + sSep ),
@@ -3071,10 +2974,9 @@ MingwIsoModuleHandler::GenerateIsoModuleTarget ()
 	OutputCdfileCopyCommands ( bootcdDirectory );
 	fprintf ( fMakefile, "\t$(ECHO_CDMAKE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(Q)$(CDMAKE_TARGET) -v -m -b %s %s REACTOS %s\n",
+	          "\t$(Q)$(CDMAKE_TARGET) -v -m -b %s %s REACTOS ReactOS.iso\n",
 	          isoboot.c_str (),
-	          bootcd.c_str (),
-			  IsoName.c_str() );
+	          bootcd.c_str () );
 	fprintf ( fMakefile,
 	          "\n" );
 }
@@ -3198,29 +3100,13 @@ MingwLiveIsoModuleHandler::OutputRegistryCommands ( string& livecdDirectory )
 void
 MingwLiveIsoModuleHandler::GenerateLiveIsoModuleTarget ()
 {
-	string livecdDirectory = module.name;
+	string livecdDirectory = "livecd";
 	string livecd = PassThruCacheDirectory (
 		NormalizeFilename ( livecdDirectory + sSep ),
 		backend->outputDirectory );
-
-	string bootloader;
-	string IsoName;
-
-	if (module.name == "livecdregtest")
-	{
-		bootloader = "isobtrt.o";
-		IsoName = "ReactOS-LiveCD-RegTest.iso";
-	}
-	else
-	{
-		bootloader = "isoboot.o";
-		IsoName = "ReactOS-LiveCD.iso";
-	}
-
 	string isoboot = PassThruCacheDirectory (
-		NormalizeFilename ( "boot" + sSep + "freeldr" + sSep + "bootsect" + sSep + bootloader.c_str() ),
+		NormalizeFilename ( "boot" + sSep + "freeldr" + sSep + "bootsect" + sSep + "isoboot.o" ),
 		backend->outputDirectory );
-
 	string reactosDirectory = "reactos";
 	string livecdReactosNoFixup = livecdDirectory + sSep + reactosDirectory;
 	string livecdReactos = NormalizeFilename ( PassThruCacheDirectory (
@@ -3244,10 +3130,9 @@ MingwLiveIsoModuleHandler::GenerateLiveIsoModuleTarget ()
 	OutputRegistryCommands ( livecdDirectory );
 	fprintf ( fMakefile, "\t$(ECHO_CDMAKE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(Q)$(CDMAKE_TARGET) -v -m -j -b %s %s REACTOS %s\n",
+	          "\t$(Q)$(CDMAKE_TARGET) -v -m -j -b %s %s REACTOS ReactOS-LiveCD.iso\n",
 	          isoboot.c_str (),
-	          livecd.c_str (),
-			  IsoName.c_str() );
+	          livecd.c_str () );
 	fprintf ( fMakefile,
 	          "\n" );
 }
@@ -3299,7 +3184,7 @@ MingwTestModuleHandler::GenerateTestModuleTarget ()
 			linker = "${gcc}";
 
 		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
-		                                     module.GetEntryPoint(true).c_str (),
+		                                     module.entrypoint.c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
 		                        linker,
@@ -3353,17 +3238,4 @@ MingwAliasModuleHandler::MingwAliasModuleHandler (
 void
 MingwAliasModuleHandler::Process ()
 {
-}
-
-MingwIdlHeaderModuleHandler::MingwIdlHeaderModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwIdlHeaderModuleHandler::Process ()
-{
-	GenerateRules ();
 }

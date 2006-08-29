@@ -24,7 +24,7 @@
 
 #define I2C_IO_BASE 0xc000
 
-static BOOLEAN
+static BOOL
 WriteToSMBus(UCHAR Address, UCHAR bRegister, UCHAR Size, ULONG Data_to_smbus)
 {
   int nRetriesToLive=50;
@@ -95,7 +95,7 @@ WriteToSMBus(UCHAR Address, UCHAR bRegister, UCHAR Size, ULONG Data_to_smbus)
 }
 
 
-static BOOLEAN
+static BOOL
 ReadfromSMBus(UCHAR Address, UCHAR bRegister, UCHAR Size, ULONG *Data_to_smbus)
 {
   int nRetriesToLive=50;
@@ -172,14 +172,14 @@ ReadfromSMBus(UCHAR Address, UCHAR bRegister, UCHAR Size, ULONG *Data_to_smbus)
   return FALSE;
 }
 
-BOOLEAN
+BOOL
 I2CTransmitByteGetReturn(UCHAR bPicAddressI2cFormat, UCHAR bDataToWrite, ULONG *Return)
 {
   return ReadfromSMBus(bPicAddressI2cFormat, bDataToWrite, 1, Return);
 }
 
 // transmit a word, no returned data from I2C device
-static BOOLEAN
+static BOOL
 I2CTransmitWord(UCHAR bPicAddressI2cFormat, USHORT wDataToWrite)
 {
   return WriteToSMBus(bPicAddressI2cFormat,(wDataToWrite>>8)&0xff,1,(wDataToWrite&0xff));

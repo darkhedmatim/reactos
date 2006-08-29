@@ -15,9 +15,8 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
 
 
 /* INCLUDES ******************************************************************/
@@ -26,31 +25,32 @@
 
 //#define NDEBUG
 #include <debug.h>
-#define _WINNT_H
-#include "wine/debug.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(imagehlp);
+/* DATA **********************************************************************/
 
-/**********************************************************************/
 HANDLE IMAGEHLP_hHeap = NULL;
 
-/***********************************************************************
- *           DllMain (IMAGEHLP.init)
- */
-BOOL IMAGEAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+/* FUNCTIONS *****************************************************************/
+
+BOOL
+IMAGEAPI
+DllMain(HINSTANCE hinstDLL,
+        DWORD fdwReason,
+        LPVOID lpvReserved)
 {
-  switch(fdwReason)
+    switch(fdwReason)
     {
-    case DLL_PROCESS_ATTACH:
-      DisableThreadLibraryCalls(hinstDLL);
-      IMAGEHLP_hHeap = HeapCreate(0, 0x10000, 0);
-      break;
-    case DLL_PROCESS_DETACH:
-      HeapDestroy(IMAGEHLP_hHeap);
-      IMAGEHLP_hHeap = NULL;
-      break;
-    default:
-      break;
+        case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(hinstDLL);
+            IMAGEHLP_hHeap = HeapCreate(0, 0x10000, 0);
+            break;
+        case DLL_PROCESS_DETACH:
+            HeapDestroy(IMAGEHLP_hHeap);
+            IMAGEHLP_hHeap = NULL;
+            break;
+        default:
+            break;
     }
-  return TRUE;
+    
+    return TRUE;
 }

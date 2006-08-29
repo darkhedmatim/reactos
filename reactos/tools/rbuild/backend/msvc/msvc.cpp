@@ -49,34 +49,13 @@ static class MSVCFactory : public Backend::Factory
 
 
 MSVCBackend::MSVCBackend(Project &project,
-	Configuration& configuration) : Backend(project, configuration)
+                             Configuration& configuration) : Backend(project, configuration)
 {
 	m_unitCount = 0;
 }
 
 void MSVCBackend::Process()
 {
-	// TODO FIXME wine hack?
-	bool only_msvc_headers = false;
-
-	while ( m_configurations.size () > 0 )
-	{
-		const MSVCConfiguration* cfg = m_configurations.back();
-		m_configurations.pop_back();
-		delete cfg;
-	}
-
-	m_configurations.push_back ( new MSVCConfiguration( Debug ));
-	m_configurations.push_back ( new MSVCConfiguration( Release ));
-	m_configurations.push_back ( new MSVCConfiguration( Speed ));
-
-	if (!only_msvc_headers)
-	{
-		m_configurations.push_back ( new MSVCConfiguration( Debug, WineHeaders ));
-		m_configurations.push_back ( new MSVCConfiguration( Release, WineHeaders ));
-		m_configurations.push_back ( new MSVCConfiguration( Speed, WineHeaders ));
-	}
-
 	if ( configuration.CleanAsYouGo ) {
 		_clean_project_files();
 		return;
@@ -86,11 +65,20 @@ void MSVCBackend::Process()
 		return;
 	}
 	string filename_sln ( ProjectNode.name );
+	//string filename_rules = "gccasm.rules";
 	
 	if ( configuration.VSProjectVersion == "6.00" )
 		filename_sln += "_auto.dsw";
-	else
+	else {
 		filename_sln += "_auto.sln";
+
+		//m_rulesFile = fopen ( filename_rules.c_str(), "wb" );
+		//if ( m_rulesFile )
+		//{
+		//	_generate_rules_file ( m_rulesFile );
+		//}
+		//fclose ( m_rulesFile );
+	}
 
 	printf ( "Creating MSVC workspace: %s\n", filename_sln.c_str() );
 	
@@ -124,6 +112,14 @@ void MSVCBackend::ProcessModules()
 			_generate_dsp ( module );
 		else
 			_generate_vcproj ( module );
+
+
+		/*for(size_t k = 0; k < module.non_if_data.files.size(); k++)
+		{
+			File &file = *module.non_if_data.files[k];
+			
+			ProcessFile(file.name);
+		}*/
 	}
 }
 
@@ -296,33 +292,18 @@ MSVCBackend::_get_object_files ( const Module& module, vector<string>& out) cons
 	string basepath = module.GetBasePath ();
 	string vcdir = _get_vc_dir ();
 	size_t i;
-	string intenv = Environment::GetIntermediatePath () + "\\" + basepath + "\\";
-	string outenv = Environment::GetOutputPath () + "\\" + basepath + "\\";
-	
-	if ( configuration.UseVSVersionInPath )
-	{
-		intenv += vcdir + "\\";
-		outenv += vcdir + "\\";
-	}
-
+	string intenv = Environment::GetIntermediatePath () + "\\" + basepath + "\\" + vcdir + "\\";
+	string outenv = Environment::GetOutputPath () + "\\" + basepath + "\\" + vcdir + "\\";
 	string dbg = vcdir.substr ( 0, 3 );
 
 	vector<string> cfgs;
+	cfgs.push_back ( intenv + "Debug" );
+	cfgs.push_back ( intenv + "Release" );
+	cfgs.push_back ( intenv + "Speed" );
+	cfgs.push_back ( outenv + "Debug" );
+	cfgs.push_back ( outenv + "Release" );
+	cfgs.push_back ( outenv + "Speed" );
 
-	if ( configuration.UseVSConfigurationInPath )
-	{
-		cfgs.push_back ( intenv + "Debug" );
-		cfgs.push_back ( intenv + "Release" );
-		cfgs.push_back ( intenv + "Speed" );
-		cfgs.push_back ( outenv + "Debug" );
-		cfgs.push_back ( outenv + "Release" );
-		cfgs.push_back ( outenv + "Speed" );
-	}
-	else
-	{
-		cfgs.push_back ( intenv );
-		cfgs.push_back ( outenv );
-	}
 
 	vector<const IfableData*> ifs_list;
 	ifs_list.push_back ( &module.project.non_if_data );
@@ -386,12 +367,8 @@ MSVCBackend::_clean_project_files ( void )
 
 		_get_object_files ( module, out );
 		for ( size_t j = 0; j < out.size (); j++)
-		{
-			//printf("Cleaning file %s\n", out[j].c_str () );
 			remove ( out[j].c_str () );
-		}
 	}
-
 	string filename_sln = ProjectNode.name + ".sln";
 	string filename_dsw = ProjectNode.name + ".dsw";
 
@@ -402,25 +379,25 @@ MSVCBackend::_clean_project_files ( void )
 bool
 MSVCBackend::_copy_file ( const std::string& inputname, const std::string& targetname ) const
 {
-	FILE * input = fopen ( inputname.c_str (), "rb" );
+  FILE * input = fopen ( inputname.c_str (), "rb" );
 	if ( !input )
 		return false;
 
-	FILE * output = fopen ( targetname.c_str (), "wb+" );
-	if ( !output )
-	{
-		fclose ( input );
-		return false;
-	}
+  FILE * output = fopen ( targetname.c_str (), "wb+" );
+  if ( !output )
+  {
+	fclose ( input );
+	return false;
+  }
 
-	char buffer[256];
-	int num_read;
-	while ( (num_read = fread( buffer, sizeof(char), 256, input) ) || !feof( input ) )
+  char buffer[256];
+  int num_read;
+  while ( (num_read = fread( buffer, sizeof(char), 256, input) ) || !feof( input ) )
 		fwrite( buffer, sizeof(char), num_read, output );
 
-	fclose ( input );
-	fclose ( output );
-	return true;
+  fclose ( input );
+  fclose ( output );
+  return true;
 }
 
 void

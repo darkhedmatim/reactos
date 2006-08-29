@@ -307,7 +307,7 @@ GetVersionInformationFromInfFile(
         &RequiredSize);
     if (Result)
     {
-        /* We know the needed buffer size */
+        /* We know know the needed buffer size */
         ProviderName = HeapAlloc(GetProcessHeap(), 0, RequiredSize * sizeof(WCHAR));
         if (!ProviderName)
         {
@@ -405,10 +405,7 @@ GetVersionInformationFromInfFile(
 
 cleanup:
     if (!ret)
-    {
         HeapFree(GetProcessHeap(), 0, ProviderName);
-        *pProviderName = NULL;
-    }
     HeapFree(GetProcessHeap(), 0, DriverVer);
 
     return ret;

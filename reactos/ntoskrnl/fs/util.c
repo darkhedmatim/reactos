@@ -1,18 +1,15 @@
 /*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/fs/util.c
  * PURPOSE:         Misc Utility Functions for File System Drivers
  *
  * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
-                    Emanuele Aliberti
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-
-#define NDEBUG
 #include <internal/debug.h>
 
 #define FSRTL_MAX_RESOURCES 16
@@ -24,7 +21,7 @@
 /* GLOBALS *******************************************************************/
 
 BOOLEAN STDCALL MmIsFileAPagingFile(PFILE_OBJECT FileObject);
-VOID NTAPI INIT_FUNCTION RtlpInitializeResources(VOID);
+VOID STDCALL INIT_FUNCTION RtlpInitializeResources(VOID);
 static ULONG FsRtlpAllocatedResources = 0;
 static PERESOURCE FsRtlpResources;
 
@@ -35,7 +32,7 @@ static PERESOURCE FsRtlpResources;
 /* PRIVATE FUNCTIONS**********************************************************/
 
 VOID
-NTAPI
+STDCALL
 INIT_FUNCTION
 RtlpInitializeResources(VOID)
 {
@@ -70,7 +67,7 @@ RtlpInitializeResources(VOID)
  *
  *--*/
 BOOLEAN
-NTAPI
+STDCALL
 FsRtlIsTotalDeviceFailure(IN NTSTATUS NtStatus)
 {
     return((NT_SUCCESS(NtStatus)) ||
@@ -94,7 +91,7 @@ FsRtlIsTotalDeviceFailure(IN NTSTATUS NtStatus)
  *
  *--*/
 BOOLEAN
-NTAPI
+STDCALL
 FsRtlIsNtstatusExpected(IN NTSTATUS NtStatus)
 {
     return((STATUS_DATATYPE_MISALIGNMENT == NtStatus) ||
@@ -118,7 +115,7 @@ FsRtlIsNtstatusExpected(IN NTSTATUS NtStatus)
  *
  *--*/
 BOOLEAN
-NTAPI
+STDCALL
 FsRtlIsPagingFile(IN PFILE_OBJECT FileObject)
 {
     return MmIsFileAPagingFile(FileObject);
@@ -144,7 +141,7 @@ FsRtlIsPagingFile(IN PFILE_OBJECT FileObject)
  *
  *--*/
 NTSTATUS
-NTAPI
+STDCALL
 FsRtlNormalizeNtstatus(IN NTSTATUS NtStatusToNormalize,
                        IN NTSTATUS NormalizedNtStatus)
 {
@@ -165,7 +162,7 @@ FsRtlNormalizeNtstatus(IN NTSTATUS NtStatusToNormalize,
  *
  *--*/
 PERESOURCE
-NTAPI
+STDCALL
 FsRtlAllocateResource(VOID)
 {
     /* Return a pre-allocated ERESOURCE */
@@ -188,7 +185,7 @@ FsRtlAllocateResource(VOID)
  *
  *--*/
 NTSTATUS
-NTAPI
+STDCALL
 FsRtlBalanceReads(PDEVICE_OBJECT TargetDevice)
 {
     PIRP Irp;
@@ -246,7 +243,7 @@ FsRtlBalanceReads(PDEVICE_OBJECT TargetDevice)
  *
  *--*/
 VOID
-NTAPI
+STDCALL
 FsRtlPostPagingFileStackOverflow(IN PVOID Context,
                                  IN PKEVENT Event,
                                  IN PFSRTL_STACK_OVERFLOW_ROUTINE StackOverflowRoutine)
@@ -272,7 +269,7 @@ FsRtlPostPagingFileStackOverflow(IN PVOID Context,
  *
  *--*/
 VOID
-NTAPI
+STDCALL
 FsRtlPostStackOverflow(IN PVOID Context,
                        IN PKEVENT Event,
                        IN PFSRTL_STACK_OVERFLOW_ROUTINE StackOverflowRoutine)
@@ -292,7 +289,7 @@ FsRtlPostStackOverflow(IN PVOID Context,
  *
  *--*/
 NTSTATUS
-NTAPI
+STDCALL
 FsRtlSyncVolumes(DWORD Unknown0,
                  DWORD Unknown1,
                  DWORD Unknown2)

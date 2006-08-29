@@ -607,15 +607,13 @@ InternalTrusteeAToW(IN PTRUSTEE_A pTrusteeA,
     PSTR lpStr;
     DWORD ErrorCode = ERROR_SUCCESS;
 
-    //ASSERT(sizeof(TRUSTEE_W) == sizeof(TRUSTEE_A));
+    ASSERT(sizeof(TRUSTEE_W) == sizeof(TRUSTEE_A));
 
     TrusteeForm = GetTrusteeForm(pTrusteeA);
     switch (TrusteeForm)
     {
         case TRUSTEE_IS_NAME:
         {
-            /* directly copy the array, this works as the size of the EXPLICIT_ACCESS_A
-               structure matches the size of the EXPLICIT_ACCESS_W version */
             lpStr = GetTrusteeName(pTrusteeA);
             if (lpStr != NULL)
                 BufferSize = strlen(lpStr) + 1;
@@ -792,7 +790,7 @@ InternalExplicitAccessAToW(IN ULONG cCountOfExplicitEntries,
     LPSTR lpStr;
 
     /* NOTE: This code assumes that the size of the TRUSTEE_A and TRUSTEE_W structure matches! */
-    //ASSERT(sizeof(TRUSTEE_A) == sizeof(TRUSTEE_W));
+    ASSERT(sizeof(TRUSTEE_A) == sizeof(TRUSTEE_W));
 
     if (cCountOfExplicitEntries != 0)
     {

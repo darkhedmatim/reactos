@@ -741,7 +741,6 @@ static NTSTATUS STDCALL I8042AddDevice(PDRIVER_OBJECT DriverObject,
 	KeInitializeTimer(&DevExt->TimerMouseTimeout);
 
 	Status = I8042Initialize(DevExt);
-    Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 	if (!NT_SUCCESS(STATUS_SUCCESS)) {
 		DPRINT1("Initialization failure: %x\n", Status);
 		return Status;
@@ -791,7 +790,6 @@ static NTSTATUS STDCALL I8042AddDevice(PDRIVER_OBJECT DriverObject,
 			}
 
 			InsertTailList(&DevExt->BusDevices, &FdoDevExt->BusDevices);
-            Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 		}
 		else
 			DevExt->KeyboardExists = FALSE;
@@ -840,7 +838,6 @@ static NTSTATUS STDCALL I8042AddDevice(PDRIVER_OBJECT DriverObject,
 			}
 
 			InsertTailList(&DevExt->BusDevices, &FdoDevExt->BusDevices);
-            Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 		}
 		else
 			DevExt->MouseExists = FALSE;

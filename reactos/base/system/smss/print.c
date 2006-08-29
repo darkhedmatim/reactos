@@ -25,8 +25,6 @@
  */
 #include "smss.h"
 
-#define NDEBUG
-#include <debug.h>
 
 VOID STDCALL DisplayString(LPCWSTR lpwString)
 {

@@ -20,9 +20,9 @@ DeviceIoControl(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN ULONG CtlCode,
 	IN PVOID InputBuffer OPTIONAL,
-	IN ULONG_PTR InputBufferSize,
+	IN ULONG InputBufferSize,
 	IN OUT PVOID OutputBuffer OPTIONAL,
-	IN OUT PULONG_PTR OutputBufferSize)
+	IN OUT PULONG OutputBufferSize)
 {
 	KEVENT Event;
 	PIRP Irp;
@@ -64,11 +64,49 @@ DeviceIoControl(
 }
 
 static NTSTATUS
+SendIrp(
+	IN PDEVICE_OBJECT DeviceObject,
+	IN ULONG MajorFunction)
+{
+	KEVENT Event;
+	PIRP Irp;
+	IO_STATUS_BLOCK IoStatus;
+	NTSTATUS Status;
+
+	KeInitializeEvent(&Event, NotificationEvent, FALSE);
+
+	Irp = IoBuildSynchronousFsdRequest(
+		MajorFunction,
+		DeviceObject,
+		NULL,
+		0,
+		NULL,
+		&Event,
+		&IoStatus);
+	if (Irp == NULL)
+	{
+		DPRINT("IoBuildSynchronousFsdRequest() failed\n");
+		return STATUS_INSUFFICIENT_RESOURCES;
+	}
+
+	Status = IoCallDriver(DeviceObject, Irp);
+
+	if (Status == STATUS_PENDING)
+	{
+		DPRINT("Operation pending\n");
+		KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
+		Status = IoStatus.Status;
+	}
+
+	return Status;
+}
+
+static NTSTATUS
 ReadBytes(
 	IN PDEVICE_OBJECT LowerDevice,
 	OUT PUCHAR Buffer,
 	IN ULONG BufferSize,
-	OUT PULONG_PTR FilledBytes)
+	OUT PULONG FilledBytes)
 {
 	PIRP Irp;
 	IO_STATUS_BLOCK ioStatus;
@@ -117,13 +155,12 @@ SERMOUSE_MOUSE_TYPE
 SermouseDetectLegacyDevice(
 	IN PDEVICE_OBJECT LowerDevice)
 {
-	HANDLE Handle;
 	ULONG Fcr, Mcr;
 	ULONG BaudRate;
 	ULONG Command;
 	SERIAL_TIMEOUTS Timeouts;
 	SERIAL_LINE_CONTROL LCR;
-	ULONG_PTR i, Count = 0;
+	ULONG i, Count = 0;
 	UCHAR Buffer[16];
 	SERMOUSE_MOUSE_TYPE MouseType = mtNone;
 	NTSTATUS Status;
@@ -133,14 +170,7 @@ SermouseDetectLegacyDevice(
 	RtlZeroMemory(Buffer, sizeof(Buffer));
 
 	/* Open port */
-	Status = ObOpenObjectByPointer(
-		LowerDevice,
-		OBJ_EXCLUSIVE | OBJ_KERNEL_HANDLE,
-		NULL,
-		0,
-		NULL,
-		KernelMode,
-		&Handle);
+	Status = SendIrp(LowerDevice, IRP_MJ_CREATE);
 	if (!NT_SUCCESS(Status)) return mtNone;
 
 	/* Reset UART */
@@ -238,7 +268,7 @@ SermouseDetectLegacyDevice(
 
 ByeBye:
 	/* Close port */
-	if (Handle)
-		ZwClose(Handle);
+	SendIrp(LowerDevice, IRP_MJ_CLOSE);
+	SendIrp(LowerDevice, IRP_MJ_CLEANUP);
 	return MouseType;
 }

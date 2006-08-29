@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -89,12 +89,6 @@ CsrFreeCaptureBuffer(
     struct _CSR_CAPTURE_BUFFER *CaptureBuffer
 );
 
-HANDLE
-NTAPI
-CsrGetProcessId(
-    VOID
-);
-
 NTSTATUS
 NTAPI
 CsrNewThread(VOID);
@@ -147,18 +141,6 @@ DbgUiContinue(
 
 NTSTATUS
 NTAPI
-DbgUiDebugActiveProcess(
-    IN HANDLE Process
-);
-
-NTSTATUS
-NTAPI
-DbgUiStopDebugging(
-    IN HANDLE Process
-);
-
-NTSTATUS
-NTAPI
 DbgUiWaitStateChange(
     IN PDBGUI_WAIT_STATE_CHANGE DbgUiWaitStateCange,
     IN PLARGE_INTEGER TimeOut
@@ -174,12 +156,6 @@ NTSTATUS
 NTAPI
 DbgUiIssueRemoteBreakin(
     IN HANDLE Process
-);
-
-HANDLE
-NTAPI
-DbgUiGetThreadDebugObject(
-    VOID
 );
 
 //
@@ -237,7 +213,7 @@ NTSTATUS
 NTAPI
 LdrLoadDll(
     IN PWSTR SearchPath OPTIONAL,
-    IN PULONG LoadFlags OPTIONAL,
+    IN ULONG LoadFlags,
     IN PUNICODE_STRING Name,
     OUT PVOID *BaseAddress OPTIONAL
 );
@@ -252,10 +228,10 @@ RtlPcToFileHeader(
 PIMAGE_BASE_RELOCATION
 NTAPI
 LdrProcessRelocationBlock(
-    IN ULONG_PTR Address,
-    IN ULONG Count,
+    IN PVOID Address,
+    IN USHORT Count,
     IN PUSHORT TypeOffset,
-    IN LONG_PTR Delta
+    IN ULONG_PTR Delta
 );
 
 NTSTATUS

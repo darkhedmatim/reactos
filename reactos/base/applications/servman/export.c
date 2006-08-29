@@ -7,13 +7,12 @@
  *
  */
 
-#include "precomp.h"
+#include "servman.h"
 
-static DWORD
-GetTextFromListView(PMAIN_WND_INFO Info,
-                    TCHAR Text[500],
-                    INT row,
-                    INT col)
+extern HWND hListView;
+
+
+DWORD GetTextFromListView(TCHAR Text[500], INT row, INT col)
 {
     LVITEM item;
     DWORD NumChars;
@@ -23,30 +22,19 @@ GetTextFromListView(PMAIN_WND_INFO Info,
     item.iSubItem = col;
     item.pszText = Text;
     item.cchTextMax = 500;
-    NumChars = (INT)SendMessage(Info->hListView,
-                                LVM_GETITEMTEXT,
-                                row,
-                                (LPARAM)&item);
+    NumChars = (INT)SendMessage(hListView, LVM_GETITEMTEXT, row, (LPARAM)&item);
 
     return NumChars;
 }
 
 
-static BOOL
-SaveServicesToFile(PMAIN_WND_INFO Info,
-                   LPCTSTR pszFileName)
+BOOL SaveServicesToFile(LPCTSTR pszFileName)
 {
 	HANDLE hFile;
 	BOOL bSuccess = FALSE;
 
-	hFile = CreateFile(pszFileName,
-                       GENERIC_WRITE,
-                       0,
-                       NULL,
-                       CREATE_ALWAYS,
-                       FILE_ATTRIBUTE_NORMAL,
-                       NULL);
-
+	hFile = CreateFile(pszFileName, GENERIC_WRITE, 0, NULL,
+                       CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if(hFile != INVALID_HANDLE_VALUE)
 	{
         TCHAR LVText[500];
@@ -56,47 +44,29 @@ SaveServicesToFile(PMAIN_WND_INFO Info,
 		INT NumListedServ = 0;
 		INT i, k;
 
-		NumListedServ = ListView_GetItemCount(Info->hListView);
+		NumListedServ = ListView_GetItemCount(hListView);
 
 		for (i=0; i < NumListedServ; i++)
 		{
 		    for (k=0; k<5; k++)
 		    {
-                dwTextLength = GetTextFromListView(Info,
-                                                   LVText,
-                                                   i,
-                                                   k);
+                dwTextLength = GetTextFromListView(LVText, i, k);
                 if (LVText != NULL)
                 {
-                    WriteFile(hFile,
-                              LVText,
-                              sizeof(TCHAR) * dwTextLength,
-                              &dwWritten,
-                              NULL);
-
-                    WriteFile(hFile,
-                              &tab,
-                              sizeof(TCHAR),
-                              &dwWritten,
-                              NULL);
+                    WriteFile(hFile, LVText, sizeof(TCHAR) * dwTextLength, &dwWritten, NULL);
+                    WriteFile(hFile, &tab, sizeof(TCHAR), &dwWritten, NULL);
                 }
 		    }
-		    WriteFile(hFile,
-                      &newl,
-                      sizeof(TCHAR),
-                      &dwWritten,
-                      NULL);
+		    WriteFile(hFile, &newl, sizeof(TCHAR), &dwWritten, NULL);
 		}
-
 		CloseHandle(hFile);
 		bSuccess = TRUE;
 	}
-
 	return bSuccess;
 }
 
 
-VOID ExportFile(PMAIN_WND_INFO Info)
+VOID ExportFile(HWND hwnd)
 {
 	OPENFILENAME ofn;
 	TCHAR szFileName[MAX_PATH] = _T("");
@@ -104,7 +74,7 @@ VOID ExportFile(PMAIN_WND_INFO Info)
 	ZeroMemory(&ofn, sizeof(ofn));
 
 	ofn.lStructSize = sizeof(OPENFILENAME);
-	ofn.hwndOwner = Info->hMainWnd;
+	ofn.hwndOwner = hwnd;
 	ofn.lpstrFilter = _T("Text (Tab Delimited)(*.txt)\0*.txt\0Text (Comma Delimited)(*.csv)\0*.csv\0");
 	ofn.lpstrFile = szFileName;
 	ofn.nMaxFile = MAX_PATH;
@@ -113,13 +83,10 @@ VOID ExportFile(PMAIN_WND_INFO Info)
 
 	if(GetSaveFileName(&ofn))
 	{
-		if (SaveServicesToFile(Info, szFileName))
+		if (SaveServicesToFile(szFileName))
             return;
 	}
 
 	if (CommDlgExtendedError() != CDERR_GENERALCODES)
         MessageBox(NULL, _T("Export to file failed"), NULL, 0);
 }
-
-
-

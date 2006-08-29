@@ -36,7 +36,7 @@ function wfSpecialUnlockdb() {
 class DBUnlockForm {
 	function showForm( $err )
 	{
-		global $wgOut, $wgUser;
+		global $wgOut, $wgUser, $wgLang;
 
 		$wgOut->setPagetitle( wfMsg( "unlockdb" ) );
 		$wgOut->addWikiText( wfMsg( "unlockdbtext" ) );
@@ -76,7 +76,8 @@ END
 	}
 
 	function doSubmit() {
-		global $wgOut, $wgRequest, $wgReadOnlyFile;
+		global $wgOut, $wgUser, $wgLang;
+		global $wgRequest, $wgReadOnlyFile;
 
 		$wpLockConfirm = $wgRequest->getCheck( 'wpLockConfirm' );
 		if ( ! $wpLockConfirm ) {
@@ -84,7 +85,7 @@ END
 			return;
 		}
 		if ( @! unlink( $wgReadOnlyFile ) ) {
-			$wgOut->showFileDeleteError( $wgReadOnlyFile );
+			$wgOut->fileDeleteError( $wgReadOnlyFile );
 			return;
 		}
 		$titleObj = Title::makeTitle( NS_SPECIAL, "Unlockdb" );
@@ -93,7 +94,7 @@ END
 	}
 
 	function showSuccess() {
-		global $wgOut;
+		global $wgOut, $wgUser;
 		global $ip;
 
 		$wgOut->setPagetitle( wfMsg( "unlockdb" ) );

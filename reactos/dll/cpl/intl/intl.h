@@ -55,9 +55,6 @@ TimePageProc(HWND hwndDlg,
 	     WPARAM wParam,
 	     LPARAM lParam);
 
-
-void SetNewLocale(LCID lcid);
-
 #endif /* __CPL_INTL_H */
 
 /* EOF */

@@ -4,13 +4,13 @@
  * FILE:            drivers/dd/serial/serial.c
  * PURPOSE:         Serial driver loading/unloading
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 //#define NDEBUG
 #include "serial.h"
 
-static VOID NTAPI
+static VOID STDCALL
 DriverUnload(IN PDRIVER_OBJECT DriverObject)
 {
 	// nothing to do here yet
@@ -19,7 +19,7 @@ DriverUnload(IN PDRIVER_OBJECT DriverObject)
 /*
  * Standard DriverEntry method.
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PUNICODE_STRING RegPath)

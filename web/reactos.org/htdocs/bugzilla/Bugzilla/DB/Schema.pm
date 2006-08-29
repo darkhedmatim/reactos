@@ -20,7 +20,6 @@
 # Contributor(s): Andrew Dunstan <andrew@dunslane.net>,
 #                 Edward J. Sabol <edwardjsabol@iname.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Lance Larsh <lance.larsh@oracle.com>
 #                 Dennis Melentyev <dennis.melentyev@infopulse.com.ua>
 
 package Bugzilla::DB::Schema;
@@ -308,25 +307,17 @@ use constant ABSTRACT_SCHEMA => {
             mimetype     => {TYPE => 'MEDIUMTEXT', NOTNULL => 1},
             ispatch      => {TYPE => 'BOOLEAN'},
             filename     => {TYPE => 'varchar(100)', NOTNULL => 1},
+            thedata      => {TYPE => 'LONGBLOB', NOTNULL => 1},
             submitter_id => {TYPE => 'INT3', NOTNULL => 1},
             isobsolete   => {TYPE => 'BOOLEAN', NOTNULL => 1,
                              DEFAULT => 'FALSE'},
             isprivate    => {TYPE => 'BOOLEAN', NOTNULL => 1,
-                             DEFAULT => 'FALSE'},
-            isurl        => {TYPE => 'BOOLEAN', NOTNULL => 1,
                              DEFAULT => 'FALSE'},
         ],
         INDEXES => [
             attachments_bug_id_idx => ['bug_id'],
             attachments_creation_ts_idx => ['creation_ts'],
             attachments_submitter_id_idx => ['submitter_id', 'bug_id'],
-        ],
-    },
-    attach_data => {
-        FIELDS => [
-            id      => {TYPE => 'INT3', NOTNULL => 1,
-                        PRIMARYKEY => 1},
-            thedata => {TYPE => 'LONGBLOB', NOTNULL => 1},
         ],
     },
 
@@ -665,7 +656,6 @@ use constant ABSTRACT_SCHEMA => {
             name         => {TYPE => 'varchar(64)', NOTNULL => 1},
             linkinfooter => {TYPE => 'BOOLEAN', NOTNULL => 1},
             query        => {TYPE => 'MEDIUMTEXT', NOTNULL => 1},
-            query_type   => {TYPE => 'BOOLEAN', NOTNULL => 1},
         ],
         INDEXES => [
             namedqueries_userid_idx => {FIELDS => [qw(userid name)],
@@ -678,7 +668,7 @@ use constant ABSTRACT_SCHEMA => {
 
     logincookies => {
         FIELDS => [
-            cookie   => {TYPE => 'varchar(16)', NOTNULL => 1,
+            cookie   => {TYPE => 'MEDIUMSERIAL', NOTNULL => 1,
                          PRIMARYKEY => 1},
             userid   => {TYPE => 'INT3', NOTNULL => 1},
             ipaddr   => {TYPE => 'varchar(40)', NOTNULL => 1},
@@ -717,8 +707,7 @@ use constant ABSTRACT_SCHEMA => {
             description  => {TYPE => 'TEXT', NOTNULL => 1},
             isbuggroup   => {TYPE => 'BOOLEAN', NOTNULL => 1},
             last_changed => {TYPE => 'DATETIME', NOTNULL => 1},
-            userregexp   => {TYPE => 'TINYTEXT', NOTNULL => 1,
-                             DEFAULT => "''"},
+            userregexp   => {TYPE => 'TINYTEXT', NOTNULL => 1},
             isactive     => {TYPE => 'BOOLEAN', NOTNULL => 1,
                              DEFAULT => 'TRUE'},
         ],
@@ -883,7 +872,7 @@ use constant ABSTRACT_SCHEMA => {
             frequency   => {TYPE => 'INT2', NOTNULL => 1},
             last_viewed => {TYPE => 'DATETIME'},
             query       => {TYPE => 'MEDIUMTEXT', NOTNULL => 1},
-            is_public   => {TYPE => 'BOOLEAN', NOTNULL => 1,
+            public      => {TYPE => 'BOOLEAN', NOTNULL => 1,
                             DEFAULT => 'FALSE'},
         ],
         INDEXES => [
@@ -1209,10 +1198,8 @@ sub get_type_ddl {
 
     my $fkref = $self->{enable_references} ? $finfo->{REFERENCES} : undef;
     my $type_ddl = $self->{db_specific}{$type} || $type;
-    # DEFAULT attribute must appear before any column constraints
-    # (e.g., NOT NULL), for Oracle
-    $type_ddl .= " DEFAULT $default" if (defined($default));
     $type_ddl .= " NOT NULL" if ($finfo->{NOTNULL});
+    $type_ddl .= " DEFAULT $default" if (defined($default));
     $type_ddl .= " PRIMARY KEY" if ($finfo->{PRIMARYKEY});
     $type_ddl .= "\n\t\t\t\tREFERENCES $fkref" if $fkref;
 

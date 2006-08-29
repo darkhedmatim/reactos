@@ -31,20 +31,19 @@ use lib ".";
 
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Group;
 use Bugzilla::User;
-require "globals.pl";
+require "CGI.pl";
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
 
-my $user = Bugzilla->login(LOGIN_REQUIRED);
+use vars qw($template $vars);
 
-print $cgi->header();
+Bugzilla->login(LOGIN_REQUIRED);
 
-$user->in_group('creategroups')
+print Bugzilla->cgi->header();
+
+UserInGroup("creategroups")
   || ThrowUserError("auth_failure", {group  => "creategroups",
                                      action => "edit",
                                      object => "groups"});
@@ -52,26 +51,25 @@ $user->in_group('creategroups')
 my $action = trim($cgi->param('action') || '');
 
 # RederiveRegexp: update user_group_map with regexp-based grants
-sub RederiveRegexp
+sub RederiveRegexp ($$)
 {
     my $regexp = shift;
     my $gid = shift;
     my $dbh = Bugzilla->dbh;
-    my $sth = $dbh->prepare("SELECT userid, login_name, group_id
-                               FROM profiles
-                          LEFT JOIN user_group_map
-                                 ON user_group_map.user_id = profiles.userid
-                                AND group_id = ?
-                                AND grant_type = ?
-                                AND isbless = 0");
+    my $sth = $dbh->prepare("SELECT userid, login_name FROM profiles");
+    my $sthqry = $dbh->prepare("SELECT 1 FROM user_group_map
+                                 WHERE user_id = ? AND group_id = ?
+                                 AND grant_type = ? and isbless = 0");
     my $sthadd = $dbh->prepare("INSERT INTO user_group_map
                                  (user_id, group_id, grant_type, isbless)
                                  VALUES (?, ?, ?, 0)");
     my $sthdel = $dbh->prepare("DELETE FROM user_group_map
                                  WHERE user_id = ? AND group_id = ?
                                  AND grant_type = ? and isbless = 0");
-    $sth->execute($gid, GRANT_REGEXP);
-    while (my ($uid, $login, $present) = $sth->fetchrow_array()) {
+    $sth->execute();
+    while (my ($uid, $login) = $sth->fetchrow_array()) {
+        my $present = $dbh->selectrow_array($sthqry, undef,
+                                            $uid, $gid, GRANT_REGEXP);
         if (($regexp =~ /\S+/) && ($login =~ m/$regexp/i))
         {
             $sthadd->execute($uid, $gid, GRANT_REGEXP) unless $present;
@@ -175,12 +173,32 @@ sub CheckGroupRegexp {
 # If no action is specified, get a list of all groups available.
 
 unless ($action) {
-    my @groups = Bugzilla::Group::get_all_groups();
+    my @groups;
+
+    SendSQL("SELECT id,name,description,userregexp,isactive,isbuggroup " .
+            "FROM groups " .
+            "ORDER BY isbuggroup, name");
+
+    while (MoreSQLData()) {
+        my ($id, $name, $description, $regexp, $isactive, $isbuggroup)
+            = FetchSQLData();
+        my $group = {};
+        $group->{'id'}          = $id;
+        $group->{'name'}        = $name;
+        $group->{'description'} = $description;
+        $group->{'regexp'}      = $regexp;
+        $group->{'isactive'}    = $isactive;
+        $group->{'isbuggroup'}  = $isbuggroup;
+
+        push(@groups, $group);
+    }
+
     $vars->{'groups'} = \@groups;
     
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/list.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
+
     exit;
 }
 
@@ -204,34 +222,29 @@ if ($action eq 'changeform') {
     # this one
 
     my @groups;
-    my $group_list =
-      $dbh->selectall_arrayref('SELECT groups.id, groups.name, groups.description,
-                                       CASE WHEN group_group_map.member_id IS NOT NULL
-                                            THEN 1 ELSE 0 END,
-                                       CASE WHEN B.member_id IS NOT NULL
-                                            THEN 1 ELSE 0 END,
-                                       CASE WHEN C.member_id IS NOT NULL
-                                            THEN 1 ELSE 0 END
-                                  FROM groups
-                                  LEFT JOIN group_group_map
-                                    ON group_group_map.member_id = groups.id
-                                   AND group_group_map.grantor_id = ?
-                                   AND group_group_map.grant_type = ?
-                                  LEFT JOIN group_group_map as B
-                                    ON B.member_id = groups.id
-                                   AND B.grantor_id = ?
-                                   AND B.grant_type = ?
-                                  LEFT JOIN group_group_map as C
-                                    ON C.member_id = groups.id
-                                   AND C.grantor_id = ?
-                                   AND C.grant_type = ?
-                                 ORDER by name',
-                                undef, ($group_id, GROUP_MEMBERSHIP,
-                                        $group_id, GROUP_BLESS,
-                                        $group_id, GROUP_VISIBLE));
+    SendSQL("SELECT groups.id, groups.name, groups.description," .
+             " CASE WHEN group_group_map.member_id IS NOT NULL THEN 1 ELSE 0 END," .
+             " CASE WHEN B.member_id IS NOT NULL THEN 1 ELSE 0 END," .
+             " CASE WHEN C.member_id IS NOT NULL THEN 1 ELSE 0 END" .
+             " FROM groups" .
+             " LEFT JOIN group_group_map" .
+             " ON group_group_map.member_id = groups.id" .
+             " AND group_group_map.grantor_id = $group_id" .
+             " AND group_group_map.grant_type = " . GROUP_MEMBERSHIP .
+             " LEFT JOIN group_group_map as B" .
+             " ON B.member_id = groups.id" .
+             " AND B.grantor_id = $group_id" .
+             " AND B.grant_type = " . GROUP_BLESS .
+             " LEFT JOIN group_group_map as C" .
+             " ON C.member_id = groups.id" .
+             " AND C.grantor_id = $group_id" .
+             " AND C.grant_type = " . GROUP_VISIBLE .
+             " ORDER by name");
 
-    foreach (@$group_list) {
-        my ($grpid, $grpnam, $grpdesc, $grpmember, $blessmember, $membercansee) = @$_;
+    while (MoreSQLData()) {
+        my ($grpid, $grpnam, $grpdesc, $grpmember, $blessmember, $membercansee) 
+            = FetchSQLData();
+
         my $group = {};
         $group->{'grpid'}       = $grpid;
         $group->{'grpnam'}      = $grpnam;
@@ -250,7 +263,7 @@ if ($action eq 'changeform') {
     $vars->{'isbuggroup'}  = $isbuggroup;
     $vars->{'groups'}      = \@groups;
 
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/edit.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
 
@@ -264,7 +277,7 @@ if ($action eq 'changeform') {
 #
 
 if ($action eq 'add') {
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/create.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     
@@ -287,35 +300,37 @@ if ($action eq 'new') {
     my $isactive = $cgi->param('isactive') ? 1 : 0;
 
     # Add the new group
-    $dbh->do('INSERT INTO groups
-              (name, description, isbuggroup,
-               userregexp, isactive, last_changed)
-              VALUES (?, ?, 1, ?, ?, NOW())',
-              undef, ($name, $desc, $regexp, $isactive));
-
+    SendSQL("INSERT INTO groups ( " .
+            "name, description, isbuggroup, userregexp, isactive, last_changed " .
+            " ) VALUES ( " .
+            SqlQuote($name) . ", " .
+            SqlQuote($desc) . ", " .
+            "1," .
+            SqlQuote($regexp) . ", " . 
+            $isactive . ", NOW())" );
     my $gid = $dbh->bz_last_key('groups', 'id');
     my $admin = GroupNameToId('admin');
     # Since we created a new group, give the "admin" group all privileges
     # initially.
-    my $sth = $dbh->prepare('INSERT INTO group_group_map
-                             (member_id, grantor_id, grant_type)
-                             VALUES (?, ?, ?)');
-
-    $sth->execute($admin, $gid, GROUP_MEMBERSHIP);
-    $sth->execute($admin, $gid, GROUP_BLESS);
-    $sth->execute($admin, $gid, GROUP_VISIBLE);
-
+    SendSQL("INSERT INTO group_group_map (member_id, grantor_id, grant_type)
+             VALUES ($admin, $gid, " . GROUP_MEMBERSHIP . ")");
+    SendSQL("INSERT INTO group_group_map (member_id, grantor_id, grant_type)
+             VALUES ($admin, $gid, " . GROUP_BLESS . ")");
+    SendSQL("INSERT INTO group_group_map (member_id, grantor_id, grant_type)
+             VALUES ($admin, $gid, " . GROUP_VISIBLE . ")");
     # Permit all existing products to use the new group if makeproductgroups.
     if ($cgi->param('insertnew')) {
-        $dbh->do('INSERT INTO group_control_map
-                  (group_id, product_id, entry, membercontrol,
-                   othercontrol, canedit)
-                  SELECT ?, products.id, 0, ?, ?, 0 FROM products',
-                  undef, ($gid, CONTROLMAPSHOWN, CONTROLMAPNA));
+        SendSQL("INSERT INTO group_control_map " .
+                "(group_id, product_id, entry, membercontrol, " .
+                "othercontrol, canedit) " .
+                "SELECT $gid, products.id, 0, " .
+                CONTROLMAPSHOWN . ", " .
+                CONTROLMAPNA . ", 0 " .
+                "FROM products");
     }
     RederiveRegexp($regexp, $gid);
 
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/created.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     exit;
@@ -339,26 +354,38 @@ if ($action eq 'del') {
         ThrowUserError("system_group_not_deletable", { name => $name });
     }
 
-    # Group inheritance no longer appears in user_group_map.
-    my $grouplist = join(',', @{Bugzilla::User->flatten_group_membership($gid)});
-    my $hasusers =
-        $dbh->selectrow_array("SELECT 1 FROM user_group_map
-                               WHERE group_id IN ($grouplist) AND isbless = 0 " .
-                               $dbh->sql_limit(1)) || 0;
+    my $hasusers = 0;
+    SendSQL("SELECT user_id FROM user_group_map 
+             WHERE group_id = $gid AND isbless = 0");
+    if (FetchOneColumn()) {
+        $hasusers = 1;
+    }
 
-    my $bug_ids = $dbh->selectcol_arrayref('SELECT bug_id FROM bug_group_map
-                                            WHERE group_id = ?', undef, $gid);
+    my $hasbugs = 0;
+    my $buglist = "0";
+    SendSQL("SELECT bug_id FROM bug_group_map WHERE group_id = $gid");
 
-    my $hasbugs = scalar(@$bug_ids) ? 1 : 0;
-    my $buglist = join(',', @$bug_ids);
+    if (MoreSQLData()) {
+        $hasbugs = 1;
 
-    my $hasproduct = get_product_id($name) ? 1 : 0;
+        while (MoreSQLData()) {
+            my ($bug) = FetchSQLData();
+            $buglist .= "," . $bug;
+        }
+    }
 
-    my $hasflags = $dbh->selectrow_array('SELECT 1 FROM flagtypes 
-                                           WHERE grant_group_id = ?
-                                              OR request_group_id = ? ' .
-                                          $dbh->sql_limit(1),
-                                          undef, ($gid, $gid)) || 0;
+    my $hasproduct = 0;
+    SendSQL("SELECT name FROM products WHERE name=" . SqlQuote($name));
+    if (MoreSQLData()) {
+        $hasproduct = 1;
+    }
+
+    my $hasflags = 0;
+    SendSQL("SELECT id FROM flagtypes 
+             WHERE grant_group_id = $gid OR request_group_id = $gid");
+    if (FetchOneColumn()) {
+        $hasflags = 1;
+    }
 
     $vars->{'gid'}         = $gid;
     $vars->{'name'}        = $name;
@@ -369,7 +396,7 @@ if ($action eq 'del') {
     $vars->{'hasflags'}    = $hasflags;
     $vars->{'buglist'}     = $buglist;
 
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/delete.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     
@@ -394,66 +421,54 @@ if ($action eq 'delete') {
 
     my $cantdelete = 0;
 
-    # Group inheritance no longer appears in user_group_map.
-    my $grouplist = join(',', @{Bugzilla::User->flatten_group_membership($gid)});
-    my $hasusers =
-        $dbh->selectrow_array("SELECT 1 FROM user_group_map
-                               WHERE group_id IN ($grouplist) AND isbless = 0 " .
-                               $dbh->sql_limit(1)) || 0;
-
-    if ($hasusers && !defined $cgi->param('removeusers')) {
-        $cantdelete = 1;
+    SendSQL("SELECT user_id FROM user_group_map 
+             WHERE group_id = $gid AND isbless = 0");
+    if (FetchOneColumn()) {
+        if (!defined $cgi->param('removeusers')) {
+            $cantdelete = 1;
+        }
     }
-
-    my $hasbugs = $dbh->selectrow_array('SELECT 1 FROM bug_group_map
-                                         WHERE group_id = ? ' .
-                                         $dbh->sql_limit(1),
-                                         undef, $gid) || 0;
-    if ($hasbugs && !defined $cgi->param('removebugs')) {
-        $cantdelete = 1;
+    SendSQL("SELECT bug_id FROM bug_group_map WHERE group_id = $gid");
+    if (FetchOneColumn()) {
+        if (!defined $cgi->param('removebugs')) {
+            $cantdelete = 1;
+        }
     }
-
-    if (get_product_id($name) && !defined $cgi->param('unbind')) {
-        $cantdelete = 1;
+    SendSQL("SELECT name FROM products WHERE name=" . SqlQuote($name));
+    if (FetchOneColumn()) {
+        if (!defined $cgi->param('unbind')) {
+            $cantdelete = 1;
+        }
     }
-
-    my $hasflags = $dbh->selectrow_array('SELECT 1 FROM flagtypes 
-                                           WHERE grant_group_id = ?
-                                              OR request_group_id = ? ' .
-                                          $dbh->sql_limit(1),
-                                          undef, ($gid, $gid)) || 0;
-    if ($hasflags && !defined $cgi->param('removeflags')) {
-        $cantdelete = 1;
+    SendSQL("SELECT id FROM flagtypes 
+             WHERE grant_group_id = $gid OR request_group_id = $gid");
+    if (FetchOneColumn()) {
+        if (!defined $cgi->param('removeflags')) {
+            $cantdelete = 1;
+        }
     }
 
     if (!$cantdelete) {
-        $dbh->do('UPDATE flagtypes SET grant_group_id = ?
-                   WHERE grant_group_id = ?',
-                  undef, (undef, $gid));
-        $dbh->do('UPDATE flagtypes SET request_group_id = ?
-                   WHERE request_group_id = ?',
-                  undef, (undef, $gid));
-        $dbh->do('DELETE FROM user_group_map WHERE group_id = ?',
-                  undef, $gid);
-        $dbh->do('DELETE FROM group_group_map 
-                   WHERE grantor_id = ? OR member_id = ?',
-                  undef, ($gid, $gid));
-        $dbh->do('DELETE FROM bug_group_map WHERE group_id = ?',
-                  undef, $gid);
-        $dbh->do('DELETE FROM group_control_map WHERE group_id = ?',
-                  undef, $gid);
-        $dbh->do('DELETE FROM whine_schedules
-                   WHERE mailto_type = ? AND mailto = ?',
-                  undef, (MAILTO_GROUP, $gid));
-        $dbh->do('DELETE FROM groups WHERE id = ?',
-                  undef, $gid);
+        SendSQL("UPDATE flagtypes SET grant_group_id = NULL 
+                 WHERE grant_group_id = $gid");
+        SendSQL("UPDATE flagtypes SET request_group_id = NULL 
+                 WHERE request_group_id = $gid");
+        SendSQL("DELETE FROM user_group_map WHERE group_id = $gid");
+        SendSQL("DELETE FROM group_group_map
+                 WHERE grantor_id = $gid OR member_id = $gid");
+        SendSQL("DELETE FROM bug_group_map WHERE group_id = $gid");
+        SendSQL("DELETE FROM group_control_map WHERE group_id = $gid");
+        SendSQL("DELETE FROM whine_schedules WHERE " .
+                "mailto_type = " . MAILTO_GROUP . " " .
+                "AND mailto = $gid");
+        SendSQL("DELETE FROM groups WHERE id = $gid");
     }
 
     $vars->{'gid'}        = $gid;
     $vars->{'name'}       = $name;
     $vars->{'cantdelete'} = $cantdelete;
 
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/deleted.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
 
@@ -487,7 +502,7 @@ if ($action eq 'postchanges') {
         $vars->{'regexp'} = $regexp;
     }
     
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/change.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     exit;
@@ -500,20 +515,19 @@ if (($action eq 'remove_all_regexp') || ($action eq 'remove_all')) {
 
     my $gid = CheckGroupID($cgi->param('group'));
 
-    my ($name, $regexp) =
-      $dbh->selectrow_array('SELECT name, userregexp FROM groups
-                             WHERE id = ?', undef, $gid);
-
+    my $sth = $dbh->prepare("SELECT name, userregexp FROM groups
+                             WHERE id = ?");
+    $sth->execute($gid);
+    my ($name, $regexp) = $sth->fetchrow_array();
     $dbh->bz_lock_tables('groups WRITE', 'profiles READ',
                          'user_group_map WRITE');
-
-    my $sth = $dbh->prepare("SELECT user_group_map.user_id, profiles.login_name
-                               FROM user_group_map
-                         INNER JOIN profiles
-                                 ON user_group_map.user_id = profiles.userid
-                              WHERE user_group_map.group_id = ?
-                                AND grant_type = ?
-                                AND isbless = 0");
+    $sth = $dbh->prepare("SELECT user_group_map.user_id, profiles.login_name
+                            FROM user_group_map
+                      INNER JOIN profiles
+                              ON user_group_map.user_id = profiles.userid
+                           WHERE user_group_map.group_id = ?
+                             AND grant_type = ?
+                             AND isbless = 0");
     $sth->execute($gid, GRANT_DIRECT);
 
     my @users;
@@ -521,12 +535,11 @@ if (($action eq 'remove_all_regexp') || ($action eq 'remove_all')) {
                               WHERE user_id = ?
                               AND isbless = 0
                               AND group_id = ?");
-
     while ( my ($userid, $userlogin) = $sth->fetchrow_array() ) {
         if ((($regexp =~ /\S/) && ($userlogin =~ m/$regexp/i))
             || ($action eq 'remove_all'))
         {
-            $sth2->execute($userid, $gid);
+            $sth2->execute($userid,$gid);
 
             my $user = {};
             $user->{'login'} = $userlogin;
@@ -534,8 +547,10 @@ if (($action eq 'remove_all_regexp') || ($action eq 'remove_all')) {
         }
     }
 
-    $dbh->do('UPDATE groups SET last_changed = NOW()
-              WHERE id = ?', undef, $gid);
+    $sth = $dbh->prepare("UPDATE groups
+             SET last_changed = NOW()
+             WHERE id = ?");
+    $sth->execute($gid);
     $dbh->bz_unlock_tables();
 
     $vars->{'users'}      = \@users;
@@ -544,7 +559,7 @@ if (($action eq 'remove_all_regexp') || ($action eq 'remove_all')) {
     $vars->{'remove_all'} = ($action eq 'remove_all');
     $vars->{'gid'}        = $gid;
     
-    print $cgi->header();
+    print Bugzilla->cgi->header();
     $template->process("admin/groups/remove.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
 
@@ -563,6 +578,7 @@ ThrowCodeError("action_unrecognized", $vars);
 sub doGroupChanges {
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
+    my $sth;
 
     $dbh->bz_lock_tables('groups WRITE', 'group_group_map WRITE',
                          'bug_group_map WRITE', 'user_group_map WRITE',
@@ -576,8 +592,8 @@ sub doGroupChanges {
 
     # The name and the description of system groups cannot be edited.
     # We then need to know if the group being edited is a system group.
-    my $isbuggroup = $dbh->selectrow_array('SELECT isbuggroup FROM groups
-                                            WHERE id = ?', undef, $gid);
+    SendSQL("SELECT isbuggroup FROM groups WHERE id = $gid");
+    my ($isbuggroup) = FetchSQLData();
     my $name;
     my $desc;
     my $isactive;
@@ -596,18 +612,18 @@ sub doGroupChanges {
 
         if ($name ne $cgi->param('oldname')) {
             $chgs = 1;
-            $dbh->do('UPDATE groups SET name = ? WHERE id = ?',
-                      undef, ($name, $gid));
+            $sth = $dbh->do("UPDATE groups SET name = ? WHERE id = ?",
+                            undef, $name, $gid);
         }
         if ($desc ne $cgi->param('olddesc')) {
             $chgs = 1;
-            $dbh->do('UPDATE groups SET description = ? WHERE id = ?',
-                      undef, ($desc, $gid));
+            $sth = $dbh->do("UPDATE groups SET description = ? WHERE id = ?",
+                            undef, $desc, $gid);
         }
         if ($isactive ne $cgi->param('oldisactive')) {
             $chgs = 1;
-            $dbh->do('UPDATE groups SET isactive = ? WHERE id = ?',
-                      undef, ($isactive, $gid));
+            $sth = $dbh->do("UPDATE groups SET isactive = ? WHERE id = ?",
+                            undef, $isactive, $gid);
             # If the group was mandatory for some products before
             # we deactivated it and we now activate this group again,
             # we have to add all bugs created while this group was
@@ -617,19 +633,10 @@ sub doGroupChanges {
     }
     if ($regexp ne $cgi->param('oldregexp')) {
         $chgs = 1;
-        $dbh->do('UPDATE groups SET userregexp = ? WHERE id = ?',
-                  undef, ($regexp, $gid));
+        $sth = $dbh->do("UPDATE groups SET userregexp = ? WHERE id = ?",
+                        undef, $regexp, $gid);
         RederiveRegexp($regexp, $gid);
     }
-
-    my $sthInsert = $dbh->prepare('INSERT INTO group_group_map
-                                   (member_id, grantor_id, grant_type)
-                                   VALUES (?, ?, ?)');
-
-    my $sthDelete = $dbh->prepare('DELETE FROM group_group_map
-                                    WHERE member_id = ?
-                                      AND grantor_id = ?
-                                      AND grant_type = ?');
 
     foreach my $b (grep {/^oldgrp-\d*$/} $cgi->param()) {
         if (defined($cgi->param($b))) {
@@ -639,9 +646,13 @@ sub doGroupChanges {
             if (($v != $gid) && ($cgi->param("oldgrp-$v") != $grp)) {
                 $chgs = 1;
                 if ($grp != 0) {
-                    $sthInsert->execute($v, $gid, GROUP_MEMBERSHIP);
+                    SendSQL("INSERT INTO group_group_map 
+                             (member_id, grantor_id, grant_type)
+                             VALUES ($v, $gid," . GROUP_MEMBERSHIP . ")");
                 } else {
-                    $sthDelete->execute($v, $gid, GROUP_MEMBERSHIP);
+                    SendSQL("DELETE FROM group_group_map
+                             WHERE member_id = $v AND grantor_id = $gid
+                             AND grant_type = " . GROUP_MEMBERSHIP);
                 }
             }
 
@@ -650,9 +661,13 @@ sub doGroupChanges {
             if ((defined $oldbless) and ($oldbless != $bless)) {
                 $chgs = 1;
                 if ($bless != 0) {
-                    $sthInsert->execute($v, $gid, GROUP_BLESS);
+                    SendSQL("INSERT INTO group_group_map 
+                             (member_id, grantor_id, grant_type)
+                             VALUES ($v, $gid," . GROUP_BLESS . ")");
                 } else {
-                    $sthDelete->execute($v, $gid, GROUP_BLESS);
+                    SendSQL("DELETE FROM group_group_map
+                             WHERE member_id = $v AND grantor_id = $gid
+                             AND grant_type = " . GROUP_BLESS);
                 }
             }
 
@@ -661,19 +676,22 @@ sub doGroupChanges {
                && ($cgi->param("oldcansee-$v") != $cansee)) {
                 $chgs = 1;
                 if ($cansee != 0) {
-                    $sthInsert->execute($v, $gid, GROUP_VISIBLE);
+                    SendSQL("INSERT INTO group_group_map 
+                             (member_id, grantor_id, grant_type)
+                             VALUES ($v, $gid," . GROUP_VISIBLE . ")");
                 } else {
-                    $sthDelete->execute($v, $gid, GROUP_VISIBLE);
+                    SendSQL("DELETE FROM group_group_map
+                             WHERE member_id = $v AND grantor_id = $gid
+                             AND grant_type = " . GROUP_VISIBLE);
                 }
             }
 
         }
     }
-
+    
     if ($chgs) {
         # mark the changes
-        $dbh->do('UPDATE groups SET last_changed = NOW()
-                  WHERE id = ?', undef, $gid);
+        SendSQL("UPDATE groups SET last_changed = NOW() WHERE id = $gid");
     }
     $dbh->bz_unlock_tables();
     return $gid, $chgs, $name, $regexp;

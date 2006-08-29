@@ -1,4 +1,4 @@
-LIBRARY sysdm.cpl
+LIBRARY cplsample.cpl
 
 EXPORTS
 CPlApplet@16

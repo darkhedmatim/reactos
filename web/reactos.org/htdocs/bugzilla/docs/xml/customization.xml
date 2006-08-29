@@ -202,7 +202,7 @@
       
       <para>
         To see if a CGI supports multiple output formats and types, grep the
-        CGI for <quote>get_format</quote>. If it's not present, adding
+        CGI for <quote>GetFormat</quote>. If it's not present, adding
         multiple format/type support isn't too hard - see how it's done in
         other CGIs, e.g. config.cgi.
       </para>
@@ -404,7 +404,7 @@
       you must update the <option>languages</option> parameter to contain any
       localizations you'd like to permit. You may also wish to set the
       <option>defaultlanguage</option> parameter to something other than
-      <quote>en</quote> if you don't want English to be the default language.
+      <quote>en</quote> if you don't want Engish to be the default language.
       </para>
     </section>
       
@@ -899,7 +899,7 @@
         <quote>spreadsheets</quote>
         (tables) in your database.</para>
 
- 	<para>From the command issued above, you should have some
+ 	<para>From the command issued above, ou should have some
 	  output that looks like this:
 <programlisting>
 +-------------------+
@@ -923,7 +923,6 @@
 | profiles          |
 | profiles_activity |
 | tokens            |
-| user_group_map    |
 | versions          |
 | votes             |
 | watch             |
@@ -1013,10 +1012,6 @@ sshh... don't tell your users!)
 
 profiles_activity:  Need to know who did what when to who's profile?  This'll
 tell you, it's a pretty complete history.
-
-user_group_map:  This table stores which user belongs to which group,
-whether the user can bless others, and how the users obtained the
-membership of the group.
 
 versions:  Version information for every product
 

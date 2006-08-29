@@ -6,7 +6,7 @@
  */
 
 /** */
-$optionsWithArgs = array( 'm', 'e' );
+$optionsWithArgs = array( 'm' );
 require_once( "commandLine.inc" );
 require_once( "refreshLinks.inc" );
 
@@ -19,14 +19,8 @@ if ( !$options['dfn-only'] ) {
 		$start = 1;
 	}
 
-	refreshLinks( $start, $options['new-only'], $options['m'], $options['e'] );
+	refreshLinks( $start, $options['new-only'], $options['m'] );
 }
-// this bit's bad for replication: disabling temporarily
-// --brion 2005-07-16
-//deleteLinksFromNonexistent();
-
-if ( $options['globals'] ) {
-	print_r( $GLOBALS );
-}
+deleteLinksFromNonexistent();
 
 ?>

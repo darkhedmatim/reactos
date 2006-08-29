@@ -41,13 +41,13 @@ VOID FileSystemError(PCSTR ErrorString)
 
 /*
  *
- * BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type);
+ * BOOL FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type);
  *
  * This function is called to open a disk volume for file access.
  * It must be called before any of the file functions will work.
  *
  */
-static BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type)
+static BOOL FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type)
 {
 	CHAR ErrorText[80];
 
@@ -73,12 +73,12 @@ static BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG 
 }
 /*
  *
- * BOOLEAN FsOpenBootVolume()
+ * BOOL FsOpenBootVolume()
  *
  * This function is called to open the boot disk volume for file access.
  * It must be called before any of the file functions will work.
  */
-BOOLEAN FsOpenBootVolume()
+BOOL FsOpenBootVolume()
 {
 	ULONG DriveNumber;
 	ULONGLONG StartSector;
@@ -94,7 +94,7 @@ BOOLEAN FsOpenBootVolume()
 	return FsOpenVolume(DriveNumber, StartSector, SectorCount, Type);
 }
 
-BOOLEAN FsOpenSystemVolume(char *SystemPath, char *RemainingPath, PULONG Device)
+BOOL FsOpenSystemVolume(char *SystemPath, char *RemainingPath, PULONG Device)
 {
 	ULONG DriveNumber;
 	ULONGLONG StartSector;
@@ -171,29 +171,16 @@ PFILE FsOpenFile(PCSTR FileName)
 
 VOID FsCloseFile(PFILE FileHandle)
 {
-	switch (FsType)
-	{
-	case FS_FAT:
-	case FS_ISO9660:
-	case FS_EXT2:
-		break;
-	case FS_NTFS:
-		NtfsCloseFile(FileHandle);
-		break;
-	default:
-		FileSystemError("Error: Unknown filesystem.");
-		break;
-	}
 }
 
 /*
  * ReadFile()
  * returns number of bytes read or EOF
  */
-BOOLEAN FsReadFile(PFILE FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer)
+BOOL FsReadFile(PFILE FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer)
 {
 	ULONGLONG		BytesReadBig;
-	BOOLEAN	Success;
+	BOOL	Success;
 
 	//
 	// Set the number of bytes read equal to zero
@@ -323,7 +310,7 @@ ULONG FsGetFilePointer(PFILE FileHandle)
 	return 0;
 }
 
-BOOLEAN FsIsEndOfFile(PFILE FileHandle)
+BOOL FsIsEndOfFile(PFILE FileHandle)
 {
 	if (FsGetFilePointer(FileHandle) >= FsGetFileSize(FileHandle))
 	{

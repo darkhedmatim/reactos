@@ -14,9 +14,10 @@
  */
 ULONG
 EXPORT
-htonl(IN ULONG hostlong)
+htonl(
+  IN  ULONG hostlong)
 {
-    return DH2N(hostlong);
+  return DH2N(hostlong);
 }
 
 
@@ -25,9 +26,10 @@ htonl(IN ULONG hostlong)
  */
 USHORT
 EXPORT
-htons(IN USHORT hostshort)
+htons(
+  IN  USHORT hostshort)
 {
-    return WH2N(hostshort);
+  return WH2N(hostshort);
 }
 
 
@@ -36,9 +38,10 @@ htons(IN USHORT hostshort)
  */
 ULONG
 EXPORT
-ntohl(IN ULONG netlong)
+ntohl(
+  IN  ULONG netlong)
 {
-    return DN2H(netlong);
+  return DN2H(netlong);
 }
 
 
@@ -47,9 +50,10 @@ ntohl(IN ULONG netlong)
  */
 USHORT
 EXPORT
-ntohs(IN USHORT netshort)
+ntohs(
+  IN  USHORT netshort)
 {
-    return WN2H(netshort);
+  return WN2H(netshort);
 }
 
 /* EOF */

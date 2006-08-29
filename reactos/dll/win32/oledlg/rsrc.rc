@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "windef.h"
@@ -36,11 +36,11 @@
 #include "oledlg_En.rc"
 #include "oledlg_Es.rc"
 #include "oledlg_Fr.rc"
-#include "oledlg_Hu.rc"
 #include "oledlg_It.rc"
 #include "oledlg_Ja.rc"
 #include "oledlg_Ko.rc"
 #include "oledlg_Nl.rc"
 #include "oledlg_No.rc"
 #include "oledlg_Pt.rc"
-#include "oledlg_Tr.rc"
+#include "oledlg_Ru.rc"
+#include "oledlg_Hu.rc"

@@ -33,14 +33,14 @@ static LARGE_INTEGER ExpHandleShortWait;
 #define ExReleaseHandleTableListLock()                                         \
   ExReleaseFastMutexUnsafe(&ExpHandleTableListLock)
 
-#define ExAcquireHandleLockExclusive(HandleTable)                         \
-  ExAcquireResourceExclusiveLite(&(HandleTable)->HandleLock, TRUE)
+#define ExAcquireHandleTableLockExclusive(HandleTable)                         \
+  ExAcquireResourceExclusiveLite(&(HandleTable)->HandleTableLock, TRUE)
 
-#define ExAcquireHandleLockShared(HandleTable)                            \
-  ExAcquireResourceSharedLite(&(HandleTable)->HandleLock, TRUE)
+#define ExAcquireHandleTableLockShared(HandleTable)                            \
+  ExAcquireResourceSharedLite(&(HandleTable)->HandleTableLock, TRUE)
 
-#define ExReleaseHandleLock(HandleTable)                                  \
-  ExReleaseResourceLite(&(HandleTable)->HandleLock)
+#define ExReleaseHandleTableLock(HandleTable)                                  \
+  ExReleaseResourceLite(&(HandleTable)->HandleTableLock)
 
 /*
    5 bits: reserved
@@ -123,11 +123,11 @@ ExCreateHandleTable(IN PEPROCESS QuotaProcess  OPTIONAL)
     HandleTable->HandleCount = 0;
     HandleTable->Table = (PHANDLE_TABLE_ENTRY**)(HandleTable + 1);
     HandleTable->QuotaProcess = QuotaProcess;
-    HandleTable->FirstFree = -1; /* no entries freed so far */
-    HandleTable->NextHandleNeedingPool = 0; /* no entries freed so far, so we have to allocate already for the first handle */
+    HandleTable->FirstFreeTableEntry = -1; /* no entries freed so far */
+    HandleTable->NextIndexNeedingPool = 0; /* no entries freed so far, so we have to allocate already for the first handle */
     HandleTable->UniqueProcessId = (QuotaProcess ? QuotaProcess->UniqueProcessId : NULL);
 
-    ExInitializeResource(&HandleTable->HandleLock);
+    ExInitializeResource(&HandleTable->HandleTableLock);
 
     KeInitializeEvent(&HandleTable->HandleContentionEvent,
                       NotificationEvent,
@@ -168,7 +168,6 @@ ExSweepHandleTable(IN PHANDLE_TABLE HandleTable,
                    IN PVOID Context  OPTIONAL)
 {
   PHANDLE_TABLE_ENTRY **tlp, **lasttlp, *mlp, *lastmlp;
-  LONG ExHandle = 0;
 
   PAGED_CODE();
 
@@ -177,7 +176,7 @@ ExSweepHandleTable(IN PHANDLE_TABLE HandleTable,
   KeEnterCriticalRegion();
 
   /* ensure there's no other operations going by acquiring an exclusive lock */
-  ExAcquireHandleLockExclusive(HandleTable);
+  ExAcquireHandleTableLockExclusive(HandleTable);
 
   ASSERT(!(HandleTable->Flags & EX_HANDLE_TABLE_CLOSING));
 
@@ -207,24 +206,18 @@ ExSweepHandleTable(IN PHANDLE_TABLE HandleTable,
               curee != laste;
               curee++)
           {
-            if(curee->Object != NULL && SweepHandleCallback != NULL)
+            if(curee->u1.Object != NULL && SweepHandleCallback != NULL)
             {
-              curee->ObAttributes |= EX_HANDLE_ENTRY_LOCKED;
-              SweepHandleCallback(curee, EX_HANDLE_TO_HANDLE(ExHandle), Context);
+              curee->u1.ObAttributes |= EX_HANDLE_ENTRY_LOCKED;
+              SweepHandleCallback(HandleTable, curee->u1.Object, curee->u2.GrantedAccess, Context);
             }
-
-            ExHandle++;
           }
         }
-        else
-          break;
       }
     }
-    else
-      break;
   }
 
-  ExReleaseHandleLock(HandleTable);
+  ExReleaseHandleTableLock(HandleTable);
 
   KeLeaveCriticalRegion();
 }
@@ -288,7 +281,7 @@ ExDestroyHandleTable(IN PHANDLE_TABLE HandleTable)
   KeLeaveCriticalRegion();
 
   /* free the handle table */
-  ExDeleteResource(&HandleTable->HandleLock);
+  ExDeleteResource(&HandleTable->HandleTableLock);
   ExFreePool(HandleTable);
 
   if(QuotaProcess != NULL)
@@ -318,7 +311,7 @@ ExDupHandleTable(IN PEPROCESS QuotaProcess  OPTIONAL,
     tli = mli = eli = 0;
 
     /* make sure the other handle table isn't being changed during the duplication */
-    ExAcquireHandleLockShared(SourceHandleTable);
+    ExAcquireHandleTableLockShared(SourceHandleTable);
 
     /* allocate enough tables */
     etlp = SourceHandleTable->Table + N_TOPLEVEL_POINTERS;
@@ -379,7 +372,7 @@ ExDupHandleTable(IN PEPROCESS QuotaProcess  OPTIONAL,
 freehandletable:
           DPRINT1("Failed to duplicate handle table 0x%p\n", SourceHandleTable);
 
-          ExReleaseHandleLock(SourceHandleTable);
+          ExReleaseHandleTableLock(SourceHandleTable);
 
           ExDestroyHandleTable(HandleTable);
           /* allocate an empty handle table */
@@ -390,8 +383,8 @@ freehandletable:
 
     /* duplicate the handles */
     HandleTable->HandleCount = SourceHandleTable->HandleCount;
-    HandleTable->FirstFree = SourceHandleTable->FirstFree;
-    HandleTable->NextHandleNeedingPool = SourceHandleTable->NextHandleNeedingPool;
+    HandleTable->FirstFreeTableEntry = SourceHandleTable->FirstFreeTableEntry;
+    HandleTable->NextIndexNeedingPool = SourceHandleTable->NextIndexNeedingPool;
 
     /* make sure all tables are zeroed */
     KeMemoryBarrier();
@@ -421,7 +414,7 @@ freehandletable:
                 srcstbl++, stbl++, eli++)
             {
               /* try to duplicate the source handle */
-              if(srcstbl->Object != NULL &&
+              if(srcstbl->u1.Object != NULL &&
                  ExLockHandleTableEntry(SourceHandleTable,
                                         srcstbl))
               {
@@ -433,15 +426,15 @@ freehandletable:
                 {
                   /* free the entry and chain it into the free list */
                   HandleTable->HandleCount--;
-                  stbl->Object = NULL;
-                  stbl->NextFreeTableEntry = HandleTable->FirstFree;
-                  HandleTable->FirstFree = BUILD_HANDLE(tli, mli, eli);
+                  stbl->u1.Object = NULL;
+                  stbl->u2.NextFreeTableEntry = HandleTable->FirstFreeTableEntry;
+                  HandleTable->FirstFreeTableEntry = BUILD_HANDLE(tli, mli, eli);
                 }
                 else
                 {
                   /* duplicate the handle and unlock it */
-                  stbl->GrantedAccess = srcstbl->GrantedAccess;
-                  stbl->ObAttributes = srcstbl->ObAttributes & ~EX_HANDLE_ENTRY_LOCKED;
+                  stbl->u2.GrantedAccess = srcstbl->u2.GrantedAccess;
+                  stbl->u1.ObAttributes = srcstbl->u1.ObAttributes & ~EX_HANDLE_ENTRY_LOCKED;
                 }
                 ExUnlockHandleTableEntry(SourceHandleTable,
                                          srcstbl);
@@ -459,7 +452,7 @@ freehandletable:
     }
 
     /* release the source handle table */
-    ExReleaseHandleLock(SourceHandleTable);
+    ExReleaseHandleTableLock(SourceHandleTable);
   }
 
   return HandleTable;
@@ -483,12 +476,12 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
   {
     ULONG tli, mli, eli;
 
-    if(HandleTable->FirstFree != -1)
+    if(HandleTable->FirstFreeTableEntry != -1)
     {
       /* there's a free handle entry we can just grab and use */
-      tli = TLI_FROM_HANDLE(HandleTable->FirstFree);
-      mli = MLI_FROM_HANDLE(HandleTable->FirstFree);
-      eli = ELI_FROM_HANDLE(HandleTable->FirstFree);
+      tli = TLI_FROM_HANDLE(HandleTable->FirstFreeTableEntry);
+      mli = MLI_FROM_HANDLE(HandleTable->FirstFreeTableEntry);
+      eli = ELI_FROM_HANDLE(HandleTable->FirstFreeTableEntry);
 
       /* the pointer should be valid in any way!!! */
       ASSERT(HandleTable->Table[tli]);
@@ -496,12 +489,12 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 
       Entry = &HandleTable->Table[tli][mli][eli];
 
-      *Handle = EX_HANDLE_TO_HANDLE(HandleTable->FirstFree);
+      *Handle = EX_HANDLE_TO_HANDLE(HandleTable->FirstFreeTableEntry);
 
       /* save the index to the next free handle (if available) */
-      HandleTable->FirstFree = Entry->NextFreeTableEntry;
-      Entry->NextFreeTableEntry = 0;
-      Entry->Object = NULL;
+      HandleTable->FirstFreeTableEntry = Entry->u2.NextFreeTableEntry;
+      Entry->u2.NextFreeTableEntry = 0;
+      Entry->u1.Object = NULL;
 
       HandleTable->HandleCount++;
     }
@@ -512,18 +505,18 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
       ULONG i;
       BOOLEAN AllocatedMtbl;
 
-      ASSERT(HandleTable->NextHandleNeedingPool <= N_MAX_HANDLE);
+      ASSERT(HandleTable->NextIndexNeedingPool <= N_MAX_HANDLE);
 
       /* the index of the next table to be allocated was saved in
-         NextHandleNeedingPool the last time a handle entry was allocated and
+         NextIndexNeedingPool the last time a handle entry was allocated and
          the subhandle entry list was full. the subhandle entry index of
-         NextHandleNeedingPool should be 0 here! */
-      tli = TLI_FROM_HANDLE(HandleTable->NextHandleNeedingPool);
-      mli = MLI_FROM_HANDLE(HandleTable->NextHandleNeedingPool);
-      DPRINT("HandleTable->NextHandleNeedingPool: 0x%x\n", HandleTable->NextHandleNeedingPool);
-      DPRINT("tli: 0x%x mli: 0x%x eli: 0x%x\n", tli, mli, ELI_FROM_HANDLE(HandleTable->NextHandleNeedingPool));
+         NextIndexNeedingPool should be 0 here! */
+      tli = TLI_FROM_HANDLE(HandleTable->NextIndexNeedingPool);
+      mli = MLI_FROM_HANDLE(HandleTable->NextIndexNeedingPool);
+      DPRINT("HandleTable->NextIndexNeedingPool: 0x%x\n", HandleTable->NextIndexNeedingPool);
+      DPRINT("tli: 0x%x mli: 0x%x eli: 0x%x\n", tli, mli, ELI_FROM_HANDLE(HandleTable->NextIndexNeedingPool));
 
-      ASSERT(ELI_FROM_HANDLE(HandleTable->NextHandleNeedingPool) == 0);
+      ASSERT(ELI_FROM_HANDLE(HandleTable->NextIndexNeedingPool) == 0);
 
       DPRINT("HandleTable->Table[%d] == 0x%p\n", tli, HandleTable->Table[tli]);
 
@@ -602,25 +595,25 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 
       /* let's just use the very first entry */
       Entry = ntbl;
-      Entry->ObAttributes = EX_HANDLE_ENTRY_LOCKED;
-      Entry->NextFreeTableEntry = 0;
+      Entry->u1.ObAttributes = EX_HANDLE_ENTRY_LOCKED;
+      Entry->u2.NextFreeTableEntry = 0;
 
-      *Handle = EX_HANDLE_TO_HANDLE(HandleTable->NextHandleNeedingPool);
+      *Handle = EX_HANDLE_TO_HANDLE(HandleTable->NextIndexNeedingPool);
 
       HandleTable->HandleCount++;
 
-      /* set the FirstFree member to the second entry and chain the
+      /* set the FirstFreeTableEntry member to the second entry and chain the
          free entries */
-      HandleTable->FirstFree = HandleTable->NextHandleNeedingPool + 1;
-      for(cure = Entry + 1, laste = Entry + N_SUBHANDLE_ENTRIES, i = HandleTable->FirstFree + 1;
+      HandleTable->FirstFreeTableEntry = HandleTable->NextIndexNeedingPool + 1;
+      for(cure = Entry + 1, laste = Entry + N_SUBHANDLE_ENTRIES, i = HandleTable->FirstFreeTableEntry + 1;
           cure != laste;
           cure++, i++)
       {
-        cure->Object = NULL;
-        cure->NextFreeTableEntry = i;
+        cure->u1.Object = NULL;
+        cure->u2.NextFreeTableEntry = i;
       }
       /* truncate the free entry list */
-      (cure - 1)->NextFreeTableEntry = -1;
+      (cure - 1)->u2.NextFreeTableEntry = -1;
 
       /* save the pointers to the allocated list(s) */
       (void)InterlockedExchangePointer(&nmtbl[mli], ntbl);
@@ -629,9 +622,9 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
         (void)InterlockedExchangePointer(&HandleTable->Table[tli], nmtbl);
       }
 
-      /* increment the NextHandleNeedingPool to the next index where we need to
+      /* increment the NextIndexNeedingPool to the next index where we need to
          allocate new memory */
-      HandleTable->NextHandleNeedingPool += N_SUBHANDLE_ENTRIES;
+      HandleTable->NextIndexNeedingPool += N_SUBHANDLE_ENTRIES;
     }
   }
   else
@@ -658,9 +651,9 @@ ExpFreeHandleTableEntry(IN PHANDLE_TABLE HandleTable,
   /* automatically unlock the entry if currently locked. We however don't notify
      anyone who waited on the handle because we're holding an exclusive lock after
      all and these locks will fail then */
-  (void)InterlockedExchangePointer(&Entry->Object, NULL);
-  Entry->NextFreeTableEntry = HandleTable->FirstFree;
-  HandleTable->FirstFree = Handle;
+  (void)InterlockedExchangePointer(&Entry->u1.Object, NULL);
+  Entry->u2.NextFreeTableEntry = HandleTable->FirstFreeTableEntry;
+  HandleTable->FirstFreeTableEntry = Handle;
 
   HandleTable->HandleCount--;
 }
@@ -685,11 +678,11 @@ ExpLookupHandleTableEntry(IN PHANDLE_TABLE HandleTable,
     eli = ELI_FROM_HANDLE(Handle);
 
     mlp = HandleTable->Table[tli];
-    if(Handle < HandleTable->NextHandleNeedingPool &&
-       mlp != NULL && mlp[mli] != NULL && mlp[mli][eli].Object != NULL)
+    if(Handle < HandleTable->NextIndexNeedingPool &&
+       mlp != NULL && mlp[mli] != NULL && mlp[mli][eli].u1.Object != NULL)
     {
       Entry = &mlp[mli][eli];
-      DPRINT("handle lookup 0x%x -> entry 0x%p [HT:0x%p] ptr: 0x%p\n", Handle, Entry, HandleTable, mlp[mli][eli].Object);
+      DPRINT("handle lookup 0x%x -> entry 0x%p [HT:0x%p] ptr: 0x%p\n", Handle, Entry, HandleTable, mlp[mli][eli].u1.Object);
     }
   }
   else
@@ -715,7 +708,7 @@ ExLockHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 
   for(;;)
   {
-    Current = (volatile ULONG_PTR)Entry->Object;
+    Current = (volatile ULONG_PTR)Entry->u1.Object;
 
     if(!Current || (HandleTable->Flags & EX_HANDLE_TABLE_CLOSING))
     {
@@ -726,7 +719,7 @@ ExLockHandleTableEntry(IN PHANDLE_TABLE HandleTable,
     if(!(Current & EX_HANDLE_ENTRY_LOCKED))
     {
       New = Current | EX_HANDLE_ENTRY_LOCKED;
-      if(InterlockedCompareExchangePointer(&Entry->Object,
+      if(InterlockedCompareExchangePointer(&Entry->u1.Object,
                                            (PVOID)New,
                                            (PVOID)Current) == (PVOID)Current)
       {
@@ -763,13 +756,13 @@ ExUnlockHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 
   DPRINT("ExUnlockHandleTableEntry HT:0x%p Entry:0x%p\n", HandleTable, Entry);
 
-  Current = (volatile ULONG_PTR)Entry->Object;
+  Current = (volatile ULONG_PTR)Entry->u1.Object;
 
   ASSERT(Current & EX_HANDLE_ENTRY_LOCKED);
 
   New = Current & ~EX_HANDLE_ENTRY_LOCKED;
 
-  (void)InterlockedExchangePointer(&Entry->Object,
+  (void)InterlockedExchangePointer(&Entry->u1.Object,
                                    (PVOID)New);
 
   /* we unlocked the entry, pulse the contention event so threads who're waiting
@@ -791,13 +784,13 @@ ExCreateHandle(IN PHANDLE_TABLE HandleTable,
   ASSERT(HandleTable);
   ASSERT(Entry);
 
-  /* The highest bit in Entry->Object has to be 1 so we make sure it's a
+  /* The highest bit in Entry->u1.Object has to be 1 so we make sure it's a
      pointer to kmode memory. It will cleared though because it also indicates
      the lock */
-  ASSERT((ULONG_PTR)Entry->Object & EX_HANDLE_ENTRY_LOCKED);
+  ASSERT((ULONG_PTR)Entry->u1.Object & EX_HANDLE_ENTRY_LOCKED);
 
   KeEnterCriticalRegion();
-  ExAcquireHandleLockExclusive(HandleTable);
+  ExAcquireHandleTableLockExclusive(HandleTable);
 
   NewHandleTableEntry = ExpAllocateHandleTableEntry(HandleTable,
                                                     &Handle);
@@ -809,7 +802,7 @@ ExCreateHandle(IN PHANDLE_TABLE HandleTable,
                              NewHandleTableEntry);
   }
 
-  ExReleaseHandleLock(HandleTable);
+  ExReleaseHandleTableLock(HandleTable);
   KeLeaveCriticalRegion();
 
   return Handle;
@@ -830,7 +823,7 @@ ExDestroyHandle(IN PHANDLE_TABLE HandleTable,
   ExHandle = HANDLE_TO_EX_HANDLE(Handle);
 
   KeEnterCriticalRegion();
-  ExAcquireHandleLockExclusive(HandleTable);
+  ExAcquireHandleTableLockExclusive(HandleTable);
 
   HandleTableEntry = ExpLookupHandleTableEntry(HandleTable,
                                                ExHandle);
@@ -845,7 +838,7 @@ ExDestroyHandle(IN PHANDLE_TABLE HandleTable,
     Ret = TRUE;
   }
 
-  ExReleaseHandleLock(HandleTable);
+  ExReleaseHandleTableLock(HandleTable);
   KeLeaveCriticalRegion();
 
   return Ret;
@@ -862,24 +855,21 @@ ExDestroyHandleByEntry(IN PHANDLE_TABLE HandleTable,
   ASSERT(Entry);
 
   /* This routine requires the entry to be locked */
-  ASSERT((ULONG_PTR)Entry->Object & EX_HANDLE_ENTRY_LOCKED);
+  ASSERT((ULONG_PTR)Entry->u1.Object & EX_HANDLE_ENTRY_LOCKED);
 
   DPRINT("DestroyHandleByEntry HT:0x%p Entry:0x%p\n", HandleTable, Entry);
 
-  if (!(HandleTable->Flags & EX_HANDLE_TABLE_CLOSING))
-  {
-    KeEnterCriticalRegion();
-    ExAcquireHandleLockExclusive(HandleTable);
+  KeEnterCriticalRegion();
+  ExAcquireHandleTableLockExclusive(HandleTable);
 
-    /* free and automatically unlock the handle. However we don't need to pulse
-       the contention event since other locks on this entry will fail */
-    ExpFreeHandleTableEntry(HandleTable,
-                            Entry,
-                            HANDLE_TO_EX_HANDLE(Handle));
+  /* free and automatically unlock the handle. However we don't need to pulse
+     the contention event since other locks on this entry will fail */
+  ExpFreeHandleTableEntry(HandleTable,
+                          Entry,
+                          HANDLE_TO_EX_HANDLE(Handle));
 
-    ExReleaseHandleLock(HandleTable);
-    KeLeaveCriticalRegion();
-  }
+  ExReleaseHandleTableLock(HandleTable);
+  KeLeaveCriticalRegion();
 }
 
 PHANDLE_TABLE_ENTRY
@@ -926,7 +916,7 @@ ExChangeHandle(IN PHANDLE_TABLE HandleTable,
   {
     Ret = ChangeHandleCallback(HandleTable,
                                HandleTableEntry,
-                               Context);
+                               NULL);
 
     ExUnlockHandleTableEntry(HandleTable,
                              HandleTableEntry);

@@ -45,7 +45,7 @@ ULONG		TotalPagesInLookupTable = 0;
 ULONG		FreePagesInLookupTable = 0;
 ULONG		LastFreePageHint = 0;
 
-BOOLEAN MmInitializeMemoryManager(VOID)
+BOOL MmInitializeMemoryManager(VOID)
 {
 	BIOS_MEMORY_MAP	BiosMemoryMap[32];
 	ULONG		BiosMemoryMapEntryCount;
@@ -416,7 +416,7 @@ VOID MmUpdateLastFreePageHint(PVOID PageLookupTable, ULONG TotalPageCount)
 	}
 }
 
-BOOLEAN MmAreMemoryPagesAvailable(PVOID PageLookupTable, ULONG TotalPageCount, PVOID PageAddress, ULONG PageCount)
+BOOL MmAreMemoryPagesAvailable(PVOID PageLookupTable, ULONG TotalPageCount, PVOID PageAddress, ULONG PageCount)
 {
 	PPAGE_LOOKUP_TABLE_ITEM		RealPageLookupTable = (PPAGE_LOOKUP_TABLE_ITEM)PageLookupTable;
 	ULONG							StartPage;

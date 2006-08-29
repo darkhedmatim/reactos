@@ -56,7 +56,7 @@ WlxIsLockOk(
 	PVOID pWlxContext)
 {
   UNIMPLEMENTED;
-  return TRUE;
+  return FALSE;
 }
 
 
@@ -68,7 +68,7 @@ WlxIsLogoffOk(
 	PVOID pWlxContext)
 {
   UNIMPLEMENTED;
-  return TRUE;
+  return FALSE;
 }
 
 
@@ -100,14 +100,26 @@ WlxShutdown(
 /*
  * @unimplemented
  */
+int WINAPI
+WlxWkstaLockedSAS(
+	PVOID pWlxContext,
+	DWORD dwSasType)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL WINAPI
 WlxScreenSaverNotify(
 	PVOID pWlxContext,
 	BOOL  *pSecure)
 {
-  //HKLM\Software\Policies\Microsoft\Windows\Control Panel\Desktop : ScreenSaverIsSecure
   UNIMPLEMENTED;
-  return TRUE;
+  return FALSE;
 }
 
 

@@ -23,7 +23,6 @@
 #                 Bradley Baetz <bbaetz@student.usyd.edu.au>
 #                 Christopher Aillon <christopher@aillon.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 package Bugzilla::Util;
 
@@ -38,15 +37,13 @@ use base qw(Exporter);
                              lsearch max min
                              diff_arrays diff_strings
                              trim wrap_comment find_wrap_point
-                             perform_substs
-                             format_time format_time_decimal validate_date
-                             file_mod_time is_7bit_clean
-                             bz_crypt generate_random_password
-                             validate_email_syntax clean_text);
+                             format_time format_time_decimal
+                             file_mod_time
+                             bz_crypt clean_text);
 
 use Bugzilla::Config;
+use Bugzilla::Error;
 use Bugzilla::Constants;
-
 use Date::Parse;
 use Date::Format;
 use Text::Wrap;
@@ -94,7 +91,7 @@ sub html_quote {
     return $var;
 }
 
-# This originally came from CGI.pm, by Lincoln D. Stein
+# This orignally came from CGI.pm, by Lincoln D. Stein
 sub url_quote {
     my ($toencode) = (@_);
     $toencode =~ s/([^a-zA-Z0-9_\-.])/uc sprintf("%%%02x",ord($1))/eg;
@@ -132,13 +129,6 @@ sub xml_quote {
     $var =~ s/\"/\&quot;/g;
     $var =~ s/\'/\&apos;/g;
     return $var;
-}
-
-sub url_decode {
-    my ($todecode) = (@_);
-    $todecode =~ tr/+/ /;       # pluses become spaces
-    $todecode =~ s/%([0-9a-fA-F]{2})/pack("c",hex($1))/ge;
-    return $todecode;
 }
 
 sub i_am_cgi {
@@ -224,7 +214,7 @@ sub diff_strings {
     return ($removed, $added);
 }
 
-sub wrap_comment {
+sub wrap_comment ($) {
     my ($comment) = @_;
     my $wrappedcomment = "";
 
@@ -248,7 +238,7 @@ sub wrap_comment {
     return $wrappedcomment;
 }
 
-sub find_wrap_point {
+sub find_wrap_point ($$) {
     my ($string, $maxpos) = @_;
     if (!$string) { return 0 }
     if (length($string) < $maxpos) { return length($string) }
@@ -267,13 +257,7 @@ sub find_wrap_point {
     return $wrappoint;
 }
 
-sub perform_substs {
-    my ($str, $substs) = (@_);
-    $str =~ s/%([a-z]*)%/(defined $substs->{$1} ? $substs->{$1} : Param($1))/eg;
-    return $str;
-}
-
-sub format_time {
+sub format_time ($;$) {
     my ($date, $format) = @_;
 
     # If $format is undefined, try to guess the correct date format.    
@@ -325,7 +309,7 @@ sub format_time_decimal {
     return $newtime;
 }
 
-sub file_mod_time {
+sub file_mod_time ($) {
     my ($filename) = (@_);
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
         $atime,$mtime,$ctime,$blksize,$blocks)
@@ -333,7 +317,7 @@ sub file_mod_time {
     return $mtime;
 }
 
-sub bz_crypt {
+sub bz_crypt ($) {
     my ($password) = @_;
 
     # The list of characters that can appear in a salt.  Salts and hashes
@@ -358,20 +342,8 @@ sub bz_crypt {
     return $cryptedpassword;
 }
 
-sub generate_random_password {
-    my $size = shift || 10; # default to 10 chars if nothing specified
-    return join("", map{ ('0'..'9','a'..'z','A'..'Z')[rand 62] } (1..$size));
-}
-
-sub validate_email_syntax {
-    my ($addr) = @_;
-    my $match = Param('emailregexp');
-    my $ret = ($addr =~ /$match/ && $addr !~ /[\\\(\)<>&,;:"\[\] \t\r\n]/);
-    return $ret ? 1 : 0;
-}
-
-sub validate_date {
-    my ($date) = @_;
+sub ValidateDate {
+    my ($date, $format) = @_;
     my $date2;
 
     # $ts is undefined if the parser fails.
@@ -382,17 +354,14 @@ sub validate_date {
         $date =~ s/(\d+)-0*(\d+?)-0*(\d+?)/$1-$2-$3/; 
         $date2 =~ s/(\d+)-0*(\d+?)-0*(\d+?)/$1-$2-$3/;
     }
-    my $ret = ($ts && $date eq $date2);
-    return $ret ? 1 : 0;
-}
-
-sub is_7bit_clean {
-    return $_[0] !~ /[^\x20-\x7E\x0A\x0D]/;
+    if (!$ts || $date ne $date2) {
+        ThrowUserError('illegal_date', {date => $date, format => $format});
+    } 
 }
 
 sub clean_text {
     my ($dtext) = shift;
-    $dtext =~  s/[\x00-\x1F\x7F]+/ /g;   # change control characters into a space
+    $dtext =~ s/[\x00-\x1F\x7F]+/ /g;   # change control characters to a space
     return trim($dtext);
 }
 
@@ -420,12 +389,6 @@ Bugzilla::Util - Generic utility functions for bugzilla
   value_quote($var);
   xml_quote($var);
 
-  # Functions for decoding
-  $rv = url_decode($var);
-
-  # Functions that tell you about your environment
-  my $is_cgi = i_am_cgi();
-
   # Functions for searching
   $loc = lsearch(\@arr, $val);
   $val = max($a, $b, $c);
@@ -438,7 +401,6 @@ Bugzilla::Util - Generic utility functions for bugzilla
   $val = trim(" abc ");
   ($removed, $added) = diff_strings($old, $new);
   $wrapped = wrap_comment($comment);
-  $msg = perform_substs($str, $substs);
 
   # Functions for formatting time
   format_time($time);
@@ -448,11 +410,6 @@ Bugzilla::Util - Generic utility functions for bugzilla
 
   # Cryptographic Functions
   $crypted_password = bz_crypt($password);
-  $new_password = generate_random_password($password_length);
-
-  # Validation Functions
-  validate_email_syntax($email);
-  validate_date($date);
 
 =head1 DESCRIPTION
 
@@ -536,16 +493,6 @@ This is similar to C<html_quote>, except that ' is escaped to &apos;. This
 is kept separate from html_quote partly for compatibility with previous code
 (for &apos;) and partly for future handling of non-ASCII characters.
 
-=item C<url_decode($val)>
-
-Converts the %xx encoding from the given URL back to its original form.
-
-=item C<i_am_cgi()>
-
-Tells you whether or not you are being run as a CGI script in a web
-server. For example, it would return false if the caller is running
-in a command-line script.
-
 =back
 
 =head2 Searching
@@ -622,33 +569,6 @@ Search for a comma, a whitespace or a hyphen to split $string, within the first
 $maxpos characters. If none of them is found, just split $string at $maxpos.
 The search starts at $maxpos and goes back to the beginning of the string.
 
-=item C<perform_substs($str, $substs)>
-
-Performs substitutions for sending out email with variables in it,
-or for inserting a parameter into some other string.
-
-Takes a string and a reference to a hash containing substitution 
-variables and their values.
-
-If the hash is not specified, or if we need to substitute something
-that's not in the hash, then we will use parameters to do the 
-substitution instead.
-
-Substitutions are always enclosed with '%' symbols. So they look like:
-%some_variable_name%. If "some_variable_name" is a key in the hash, then
-its value will be placed into the string. If it's not a key in the hash,
-then the value of the parameter called "some_variable_name" will be placed
-into the string.
-
-=item C<is_7bit_clean($str)>
-
-Returns true is the string contains only 7-bit characters (ASCII 32 through 126,
-ASCII 10 (LineFeed) and ASCII 13 (Carrage Return).
-
-=item C<clean_text($str)>
-Returns the parameter "cleaned" by exchanging non-printable characters with spaces.
-Specifically characters (ASCII 0 through 31) and (ASCII 127) will become ASCII 32 (Space).
-
 =back
 
 =head2 Formatting Time
@@ -697,6 +617,10 @@ Takes a string and returns a C<crypt>ed value for it, using a random salt.
 Please always use this function instead of the built-in perl "crypt"
 when initially encrypting a password.
 
+=item C<clean_text($str)>
+Returns the parameter "cleaned" by exchanging non-printable characters with a space.
+Specifically characters (ASCII 0 through 31) and (ASCII 127) will become ASCII 32 (Space).
+
 =begin undocumented
 
 Random salts are generated because the alternative is usually
@@ -706,27 +630,5 @@ password string this has the effect of revealing the first two
 characters of the password to anyone who views the encrypted version.
 
 =end undocumented
-
-=item C<generate_random_password($password_length)>
-
-Returns an alphanumeric string with the specified length
-(10 characters by default). Use this function to generate passwords
-and tokens.
-
-=back
-
-=head2 Validation
-
-=over 4
-
-=item C<validate_email_syntax($email)>
-
-Do a syntax checking for a legal email address and returns 1 if
-the check is successful, else returns 0.
-
-=item C<validate_date($date)>
-
-Make sure the date has the correct format and returns 1 if
-the check is successful, else returns 0.
 
 =back

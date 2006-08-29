@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * FIXME: The whole concept of handling unicode is badly broken.
  *	many hook-messages expect a pointer to a
@@ -228,7 +228,7 @@ static void *MemAlloc(UINT size);
 static void MemFree(void *mem);
 
 INT_PTR CALLBACK FileOpenDlgProc95(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode);
+void SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode);
 static INT_PTR FILEDLG95_HandleCustomDialogMessages(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static BOOL FILEDLG95_OnOpenMultipleFiles(HWND hwnd, LPWSTR lpstrFileList, UINT nFileCount, UINT sizeUsed);
 static BOOL BrowseSelectedFolder(HWND hwnd);
@@ -739,7 +739,7 @@ static HWND CreateTemplateDialog(FileOpenDlgInfos *fodInfos, HWND hwnd)
       HINSTANCE hinst;
       if (fodInfos->ofnInfos->Flags  & OFN_ENABLETEMPLATEHANDLE)
       {
-        hinst = COMDLG32_hInstance;
+        hinst = 0;
         if( !(template = LockResource( fodInfos->ofnInfos->hInstance)))
         {
           COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
@@ -771,7 +771,7 @@ static HWND CreateTemplateDialog(FileOpenDlgInfos *fodInfos, HWND hwnd)
           return NULL;
     	}
       }
-      hChildDlg = CreateDialogIndirectParamA(hinst, template, hwnd,
+      hChildDlg = CreateDialogIndirectParamA(COMDLG32_hInstance, template, hwnd,
                                              IsHooked(fodInfos) ? (DLGPROC)fodInfos->ofnInfos->lpfnHook : FileOpenDlgProcUserTemplate,
                                              (LPARAM)fodInfos->ofnInfos);
       if(hChildDlg)
@@ -811,15 +811,13 @@ static HWND CreateTemplateDialog(FileOpenDlgInfos *fodInfos, HWND hwnd)
 * Send CustomDialogNotification (CDN_FIRST -- CDN_LAST) message to the custom template dialog
 */
 
-LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode)
+void SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode)
 {
-    LRESULT hook_result = 0;
-
     FileOpenDlgInfos *fodInfos = (FileOpenDlgInfos *) GetPropA(hwndParentDlg,FileOpenDlgInfosStr);
 
     TRACE("%p 0x%04x\n",hwndParentDlg, uCode);
 
-    if(!fodInfos) return 0;
+    if(!fodInfos) return;
 
     if(fodInfos->DlgInfos.hwndCustomDlg)
     {
@@ -832,7 +830,7 @@ LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode)
             ofnNotify.hdr.code = uCode;
             ofnNotify.lpOFN = fodInfos->ofnInfos;
             ofnNotify.pszFile = NULL;
-            hook_result = SendMessageW(fodInfos->DlgInfos.hwndCustomDlg,WM_NOTIFY,0,(LPARAM)&ofnNotify);
+            SendMessageW(fodInfos->DlgInfos.hwndCustomDlg,WM_NOTIFY,0,(LPARAM)&ofnNotify);
         }
         else
         {
@@ -842,12 +840,10 @@ LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode)
             ofnNotify.hdr.code = uCode;
             ofnNotify.lpOFN = (LPOPENFILENAMEA)fodInfos->ofnInfos;
             ofnNotify.pszFile = NULL;
-            hook_result = SendMessageA(fodInfos->DlgInfos.hwndCustomDlg,WM_NOTIFY,0,(LPARAM)&ofnNotify);
+            SendMessageA(fodInfos->DlgInfos.hwndCustomDlg,WM_NOTIFY,0,(LPARAM)&ofnNotify);
         }
 	TRACE("RET NOTIFY\n");
     }
-    TRACE("Retval: 0x%08lx\n", hook_result);
-    return hook_result;
 }
 
 static INT_PTR FILEDLG95_Handle_GetFilePath(HWND hwnd, DWORD size, LPVOID buffer)
@@ -989,19 +985,12 @@ static INT_PTR FILEDLG95_HandleCustomDialogMessages(HWND hwnd, UINT uMsg, WPARAM
             break;
 
         case CDM_HIDECONTROL:
-            /* MSDN states that it should fail for not OFN_EXPLORER case */
-            if (fodInfos->ofnInfos->Flags & OFN_EXPLORER)
-            {
-                HWND control = GetDlgItem( hwnd, wParam );
-                if (control) ShowWindow( control, SW_HIDE );
-                retval = TRUE;
-            }
-            else retval = FALSE;
+        case CDM_SETDEFEXT:
+            FIXME("CDM_HIDECONTROL,CDM_SETCONTROLTEXT,CDM_SETDEFEXT not implemented\n");
+            retval =  -1;
             break;
 
         default:
-            if (uMsg >= CDM_FIRST && uMsg <= CDM_LAST)
-                FIXME("message CDM_FIRST+%04x not implemented\n", uMsg - CDM_FIRST);
             return FALSE;
     }
     SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, retval);
@@ -1604,24 +1593,22 @@ static BOOL FILEDLG95_SendFileOK( HWND hwnd, FileOpenDlgInfos *fodInfos )
     /* ask the hook if we can close */
     if(IsHooked(fodInfos))
     {
-        LRESULT retval;
-
         TRACE("---\n");
         /* First send CDN_FILEOK as MSDN doc says */
-        retval = SendCustomDlgNotificationMessage(hwnd,CDN_FILEOK);
+        SendCustomDlgNotificationMessage(hwnd,CDN_FILEOK);
         if (GetWindowLongPtrW(fodInfos->DlgInfos.hwndCustomDlg, DWLP_MSGRESULT))
         {
             TRACE("canceled\n");
-            return (retval == 0);
+            return FALSE;
         }
 
         /* fodInfos->ofnInfos points to an ASCII or UNICODE structure as appropriate */
-        retval = SendMessageW(fodInfos->DlgInfos.hwndCustomDlg,
-                              fodInfos->HookMsg.fileokstring, 0, (LPARAM)fodInfos->ofnInfos);
+        SendMessageW(fodInfos->DlgInfos.hwndCustomDlg,
+                     fodInfos->HookMsg.fileokstring, 0, (LPARAM)fodInfos->ofnInfos);
         if (GetWindowLongPtrW(fodInfos->DlgInfos.hwndCustomDlg, DWLP_MSGRESULT))
         {
             TRACE("canceled\n");
-            return (retval == 0);
+            return FALSE;
         }
     }
     return TRUE;
@@ -2367,20 +2354,16 @@ static HRESULT FILEDLG95_FILETYPE_Init(HWND hwnd)
       lpstrDisplay = lpstrPos;
       lpstrPos += strlenW(lpstrPos) + 1;
 
-      CBAddStringW(fodInfos->DlgInfos.hwndFileTypeCB, lpstrDisplay);
-
-      nFilters++;
-
       /* Copy the extensions */
+      if (! *lpstrPos) return E_FAIL;	/* malformed filter */
       if (!(lpstrExt = MemAlloc((strlenW(lpstrPos)+1)*sizeof(WCHAR)))) return E_FAIL;
       strcpyW(lpstrExt,lpstrPos);
       lpstrPos += strlenW(lpstrPos) + 1;
 
       /* Add the item at the end of the combo */
-      CBSetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB, nFilters-1, lpstrExt);
-
-      /* malformed filters are added anyway... */
-      if (!*lpstrExt) break;
+      CBAddStringW(fodInfos->DlgInfos.hwndFileTypeCB, lpstrDisplay);
+      CBSetItemDataPtr(fodInfos->DlgInfos.hwndFileTypeCB, nFilters, lpstrExt);
+      nFilters++;
     }
   }
 

@@ -5,20 +5,11 @@ Signature="$ReactOS$
 
 HKCU,"Control Panel",,0x00000012
 HKCU,"Control Panel\Appearance",,0x00000012
-HKCU,"Control Panel\Mouse","MouseTrails",0x00010001,0x00000000
-HKCU,"Control Panel\Mouse","SnapToDefaultButton",0x00010001,0x00000000
-HKCU,"Control Panel\Mouse","MouseSpeed",0x00010001,0x00000001
-HKCU,"Control Panel\Mouse","MouseThreshold1",0x00010001,0x00000006
-HKCU,"Control Panel\Mouse","MouseThreshold2",0x00010001,0x0000000A
-HKCU,"Control Panel\Mouse","DoubleClickSpeed",0x00010001,0x000001E0
-HKCU,"Control Panel\Mouse","SwapMouseButtons",0x00010001,0x00000000
-
 HKCU,"Control Panel\Desktop","AutoEndTasks",0x00000002,"0"
 HKCU,"Control Panel\Desktop","CursorBlinkRate",0x00000002,"530"
 HKCU,"Control Panel\Desktop","DragFullWindows",0x00000002,"0"
 HKCU,"Control Panel\Desktop","PaintDesktopVersion",0x00010001,"0"
 HKCU,"Control Panel\Desktop","HungAppTimeout",0x00000002,"5000"
-HKCU,"Control Panel\Desktop","SCRNSAVE.EXE",0x00000000,""
 HKCU,"Control Panel\Desktop","WaitToKillAppTimeout",0x00000002,"20000"
 HKCU,"Control Panel\Desktop","Wallpaper",0x00000000,""
 HKCU,"Control Panel\International",,0x00000012
@@ -83,11 +74,6 @@ HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\WINXP",
 HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\WINXP","PlatformId",0x00010001,0x00000002
 HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\WINXP","SPMajorVersion",0x00010001,0x00000001
 HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers\WINXP","SPMinorVersion",0x00010001,0x00000000
-
-; DEBUG: Windows Messages SPY configuration
-HKCU,"SOFTWARE\ReactOS\Debug","SpyInclude",0x00020000,"INCLUDEALL"
-;HKCU,"SOFTWARE\ReactOS\Debug","SpyExclude",0x00020000,""
-;HKCU,"SOFTWARE\ReactOS\Debug","SpyExcludeDWP",0x00020000,""
 
 ; GUI Setup
 

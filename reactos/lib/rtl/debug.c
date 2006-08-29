@@ -206,7 +206,7 @@ vDbgPrintEx(IN ULONG ComponentId,
  */
 ULONG
 __cdecl
-DbgPrint(PCCH Format,
+DbgPrint(PCH Format,
          ...)
 {
     va_list ap;
@@ -229,7 +229,7 @@ ULONG
 __cdecl
 DbgPrintEx(IN ULONG ComponentId,
            IN ULONG Level,
-           IN PCCH Format,
+           IN PCH Format,
            ...)
 {
     va_list ap;
@@ -272,7 +272,7 @@ ULONG
 NTAPI
 DbgPrompt(PCH OutputString,
           PCH InputString,
-          ULONG InputSize)
+          USHORT InputSize)
 {
     ANSI_STRING Output;
     ANSI_STRING Input;

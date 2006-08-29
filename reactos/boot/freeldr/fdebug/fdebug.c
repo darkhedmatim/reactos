@@ -51,9 +51,6 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	MSG msg;
 	HACCEL hAccelTable;
 
-    UNREFERENCED_PARAMETER(lpCmdLine);
-    UNREFERENCED_PARAMETER(hPrevInstance);
-
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
 	LoadString(hInstance, IDC_FDEBUG, szWindowClass, MAX_LOADSTRING);
@@ -77,7 +74,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		}
 	}
 
-	return (int)msg.wParam;
+	return msg.wParam;
 }
 
 
@@ -106,17 +103,12 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	wcex.cbClsExtra		= 0;
 	wcex.cbWndExtra		= 0;
 	wcex.hInstance		= hInstance;
-	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_FDEBUG));
+	wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_FDEBUG);
 	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
 	wcex.hbrBackground	= NULL;//(HBRUSH)(COLOR_WINDOW+1);
-	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_FDEBUG);
+	wcex.lpszMenuName	= (LPCSTR)IDC_FDEBUG;
 	wcex.lpszClassName	= szWindowClass;
-	wcex.hIconSm		= (HICON)LoadImage(hInstance,
-                                           MAKEINTRESOURCE(IDI_FDEBUG),
-                                           IMAGE_ICON,
-                                           16,
-                                           16,
-                                           LR_SHARED);
+	wcex.hIconSm		= LoadIcon(wcex.hInstance, (LPCTSTR)IDI_SMALL);
 
 	return RegisterClassEx(&wcex);
 }
@@ -168,8 +160,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE:
 
-		hEditWnd = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_AUTOHSCROLL|ES_LEFT|ES_MULTILINE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
-		hDisplayWnd = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""), WS_CHILD|WS_VISIBLE|WS_HSCROLL|WS_VSCROLL|ES_MULTILINE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
+		hEditWnd = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), "", WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_AUTOHSCROLL|ES_LEFT|ES_MULTILINE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
+		hDisplayWnd = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), "", WS_CHILD|WS_VISIBLE|WS_HSCROLL|WS_VSCROLL|ES_MULTILINE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
 
 		memset(&ncm, 0, sizeof(NONCLIENTMETRICS));
 		ncm.cbSize = sizeof(NONCLIENTMETRICS);
@@ -307,8 +299,6 @@ LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	HWND	hLicenseEditWnd;
 	TCHAR	strLicense[0x1000];
 
-    UNREFERENCED_PARAMETER(lParam);
-
 	switch (message)
 	{
 	case WM_INITDIALOG:
@@ -334,8 +324,6 @@ LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK ConnectionDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
-
 	switch (message)
 	{
 	case WM_INITDIALOG:
@@ -365,8 +353,6 @@ LRESULT CALLBACK ConnectionDialogProc(HWND hDlg, UINT message, WPARAM wParam, LP
 LRESULT CALLBACK CaptureDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	OPENFILENAME	ofn;
-
-    UNREFERENCED_PARAMETER(lParam);
 
 	switch (message)
 	{
@@ -512,8 +498,6 @@ VOID Rs232Thread(VOID* Parameter)
 	TCHAR	String[MAX_PATH];
 	MSG		msg;
 	DWORD	dwNumberOfBytesWritten;
-
-    UNREFERENCED_PARAMETER(Parameter);
 
 	dwThreadId = GetCurrentThreadId();
 

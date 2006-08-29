@@ -9,16 +9,9 @@
 /** */
 require_once('commandLine.inc');
 
-$dbr =& wfGetDB( DB_SLAVE );
-$res = $dbr->select( 'interwiki', array( 'iw_prefix' ), false );
-$prefixes = array();
-while ( $row = $dbr->fetchObject( $res ) ) {
-	$prefixes[] = $row->iw_prefix;
-}
-
 foreach ( $wgLocalDatabases as $db ) {
 	print "$db ";
-	foreach ( $prefixes as $prefix ) {
+	foreach ( $wgLanguageNamesEn as $prefix => $name ) {
 		$wgMemc->delete("$db:interwiki:$prefix");
 	}
 }

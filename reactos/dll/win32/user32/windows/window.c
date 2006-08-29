@@ -1582,27 +1582,29 @@ HWND
 STDCALL
 SetProgmanWindow(HWND hWnd)
 {
-    return NtUserCallHwndOpt(hWnd, HWNDOPT_ROUTINE_SETPROGMANWINDOW);
+    return NtUserCallHwndOpt(hWnd, HWNDOPT_ROUTINE_SETTASKMANWINDOW);
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 HWND
 STDCALL
 GetProgmanWindow(VOID)
 {
-  return (HWND)NtUserGetThreadState(THREADSTATE_PROGMANWINDOW);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 HWND
 STDCALL
 GetTaskmanWindow(VOID)
 {
-  return (HWND)NtUserGetThreadState(THREADSTATE_TASKMANWINDOW);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /*

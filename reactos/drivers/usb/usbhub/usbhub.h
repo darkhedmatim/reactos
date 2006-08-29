@@ -80,6 +80,6 @@ UsbhubPnpPdo(
 	IN PIRP Irp);
 
 NTSTATUS
-UsbhubInternalDeviceControlPdo(
+UsbhubDeviceControlPdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);

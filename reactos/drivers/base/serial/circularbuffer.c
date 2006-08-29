@@ -4,7 +4,7 @@
  * FILE:            drivers/dd/serial/circularbuffer.c
  * PURPOSE:         Operations on a circular buffer
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #define NDEBUG
@@ -15,7 +15,7 @@ InitializeCircularBuffer(
 	IN PCIRCULAR_BUFFER pBuffer,
 	IN ULONG BufferSize)
 {
-	DPRINT("InitializeCircularBuffer(pBuffer %p, BufferSize %lu)\n", pBuffer, BufferSize);
+	DPRINT("Serial: InitializeCircularBuffer(pBuffer %p, BufferSize %lu)\n", pBuffer, BufferSize);
 	ASSERT(pBuffer);
 	pBuffer->Buffer = (PUCHAR)ExAllocatePoolWithTag(NonPagedPool, BufferSize * sizeof(UCHAR), SERIAL_TAG);
 	if (!pBuffer->Buffer)
@@ -29,7 +29,7 @@ NTSTATUS
 FreeCircularBuffer(
 	IN PCIRCULAR_BUFFER pBuffer)
 {
-	DPRINT("FreeCircularBuffer(pBuffer %p)\n", pBuffer);
+	DPRINT("Serial: FreeCircularBuffer(pBuffer %p)\n", pBuffer);
 	ASSERT(pBuffer);
 	if (pBuffer->Buffer != NULL)
 		ExFreePoolWithTag(pBuffer->Buffer, SERIAL_TAG);
@@ -40,18 +40,9 @@ BOOLEAN
 IsCircularBufferEmpty(
 	IN PCIRCULAR_BUFFER pBuffer)
 {
-	DPRINT("IsCircularBufferEmpty(pBuffer %p)\n", pBuffer);
+	DPRINT("Serial: IsCircularBufferEmpty(pBuffer %p)\n", pBuffer);
 	ASSERT(pBuffer);
 	return (pBuffer->ReadPosition == pBuffer->WritePosition);
-}
-
-ULONG
-GetNumberOfElementsInCircularBuffer(
-	IN PCIRCULAR_BUFFER pBuffer)
-{
-	DPRINT("GetNumberOfElementsInCircularBuffer(pBuffer %p)\n", pBuffer);
-	ASSERT(pBuffer);
-	return (pBuffer->WritePosition + pBuffer->Length - pBuffer->ReadPosition) % pBuffer->Length;
 }
 
 NTSTATUS
@@ -60,7 +51,7 @@ PushCircularBufferEntry(
 	IN UCHAR Entry)
 {
 	ULONG NextPosition;
-	DPRINT("PushCircularBufferEntry(pBuffer %p, Entry 0x%x)\n", pBuffer, Entry);
+	DPRINT("Serial: PushCircularBufferEntry(pBuffer %p, Entry 0x%x)\n", pBuffer, Entry);
 	ASSERT(pBuffer);
 	ASSERT(pBuffer->Length);
 	NextPosition = (pBuffer->WritePosition + 1) % pBuffer->Length;
@@ -76,7 +67,7 @@ PopCircularBufferEntry(
 	IN PCIRCULAR_BUFFER pBuffer,
 	OUT PUCHAR Entry)
 {
-	DPRINT("PopCircularBufferEntry(pBuffer %p)\n", pBuffer);
+	DPRINT("Serial: PopCircularBufferEntry(pBuffer %p)\n", pBuffer);
 	ASSERT(pBuffer);
 	ASSERT(pBuffer->Length);
 	if (IsCircularBufferEmpty(pBuffer))
@@ -93,7 +84,7 @@ IncreaseCircularBufferSize(
 {
 	PUCHAR NewBuffer;
 
-	DPRINT("IncreaseCircularBufferSize(pBuffer %p, NewBufferSize %lu)\n", pBuffer, NewBufferSize);
+	DPRINT("Serial: IncreaseCircularBufferSize(pBuffer %p, NewBufferSize %lu)\n", pBuffer, NewBufferSize);
 	ASSERT(pBuffer);
 	ASSERT(pBuffer->Length);
 	if (pBuffer->Length > NewBufferSize)

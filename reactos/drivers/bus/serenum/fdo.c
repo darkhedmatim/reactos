@@ -10,7 +10,7 @@
 #define NDEBUG
 #include "serenum.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SerenumAddDevice(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PDEVICE_OBJECT Pdo)
@@ -68,7 +68,7 @@ SerenumAddDevice(
 	return STATUS_SUCCESS;
 }
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SerenumFdoStartDevice(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

@@ -19,7 +19,9 @@
  */
 
 #include "wine/test.h"
-#include "windows.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "winuser.h"
 
 static BOOL is_win9x = FALSE;
 

@@ -2,7 +2,7 @@
 #define __DISKDUMP_H
 
 #include <ntddscsi.h>
-#include <ketypes.h>
+#include <ndk/ntndk.h>
 
 #define MM_CORE_DUMP_HEADER_MAGIC         (0xdeafbead)
 #define MM_CORE_DUMP_HEADER_VERSION       (0x1)

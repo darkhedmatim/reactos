@@ -1639,7 +1639,7 @@ getpagesize (void)
 }
 
 #ifdef __i386__
-extern int VirtualProtect (char *, int, int, int *) __attribute__((NTAPI));
+extern int VirtualProtect (char *, int, int, int *) __attribute__((stdcall));
 #endif
 
 int

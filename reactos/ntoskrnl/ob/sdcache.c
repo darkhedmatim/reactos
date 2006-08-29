@@ -306,31 +306,27 @@ ObpRemoveSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor)
   return STATUS_SUCCESS;
 }
 
-PSECURITY_DESCRIPTOR
+
+VOID
 NTAPI
 ObpReferenceCachedSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor)
 {
-    PSD_CACHE_ENTRY CacheEntry;
+  PSD_CACHE_ENTRY CacheEntry;
 
-    /* Lock the cache */
-    ObpSdCacheLock();
+  DPRINT("ObpReferenceCachedSecurityDescriptor() called\n");
 
-    /* Make sure we got a descriptor */
-    if (SecurityDescriptor)
-    {
-        /* Get the entry */
-        CacheEntry = (PSD_CACHE_ENTRY)((ULONG_PTR)SecurityDescriptor -
-                                       sizeof(SD_CACHE_ENTRY));
+  ObpSdCacheLock();
 
-        /* Reference it */
-        CacheEntry->RefCount++;
-        DPRINT("RefCount %lu\n", CacheEntry->RefCount);
-    }
+  CacheEntry = (PSD_CACHE_ENTRY)((ULONG_PTR)SecurityDescriptor - sizeof(SD_CACHE_ENTRY));
 
-    /* Unlock the cache and return the descriptor */
-    ObpSdCacheUnlock();
-    return SecurityDescriptor;
+  CacheEntry->RefCount++;
+  DPRINT("RefCount %lu\n", CacheEntry->RefCount);
+
+  ObpSdCacheUnlock();
+
+  DPRINT("ObpReferenceCachedSecurityDescriptor() done\n");
 }
+
 
 VOID
 NTAPI

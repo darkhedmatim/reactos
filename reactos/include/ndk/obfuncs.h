@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -32,14 +32,6 @@ Author:
 NTKERNELAPI
 NTSTATUS
 NTAPI
-ObCloseHandle(
-    IN HANDLE Handle,
-    IN KPROCESSOR_MODE AccessMode
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
 ObCreateObject(
     IN KPROCESSOR_MODE ObjectAttributesAccessMode OPTIONAL,
     IN POBJECT_TYPE ObjectType,
@@ -50,15 +42,6 @@ ObCreateObject(
     IN ULONG PagedPoolCharge OPTIONAL,
     IN ULONG NonPagedPoolCharge OPTIONAL,
     OUT PVOID *Object
-);
-
-NTSTATUS
-NTAPI
-ObCreateObjectType(
-    IN PUNICODE_STRING TypeName,
-    IN POBJECT_TYPE_INITIALIZER ObjectTypeInitializer,
-    IN PVOID Reserved,
-    OUT POBJECT_TYPE *ObjectType
 );
 
 NTKERNELAPI

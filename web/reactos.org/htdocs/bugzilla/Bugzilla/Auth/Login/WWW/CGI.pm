@@ -35,7 +35,6 @@ use Bugzilla::Config;
 use Bugzilla::Constants;
 use Bugzilla::Error;
 use Bugzilla::Util;
-use Bugzilla::Token;
 
 sub login {
     my ($class, $type) = @_;
@@ -71,12 +70,11 @@ sub login {
         # subsequent login
         trick_taint($ipaddr);
 
-        my $logincookie = Bugzilla::Token::GenerateUniqueToken('logincookies', 'cookie');
-
-        $dbh->do("INSERT INTO logincookies (cookie, userid, ipaddr, lastused)
-                 VALUES (?, ?, ?, NOW())",
+        $dbh->do("INSERT INTO logincookies (userid, ipaddr, lastused)
+                 VALUES (?, ?, NOW())",
                  undef,
-                 $logincookie, $userid, $ipaddr);
+                 $userid, $ipaddr);
+        my $logincookie = $dbh->bz_last_key('logincookies', 'cookie');
 
         # Remember cookie only if admin has told so
         # or admin didn't forbid it and user told to remember.
@@ -218,7 +216,7 @@ sub logout {
         }
     }
     $cookie ||= $cgi->cookie("Bugzilla_logincookie");
-    trick_taint($cookie);
+    detaint_natural($cookie);
 
     # These queries use both the cookie ID and the user ID as keys. Even
     # though we know the userid must match, we still check it in the SQL

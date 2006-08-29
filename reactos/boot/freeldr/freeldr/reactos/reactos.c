@@ -24,7 +24,7 @@
 #define NDEBUG
 #include <debug.h>
 
-ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
+LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 LOADER_MODULE			reactos_modules[64];		// Array to hold boot module info loaded for the kernel
 char					reactos_module_strings[64][256];	// Array to hold module names
@@ -33,8 +33,8 @@ memory_map_t			reactos_memory_map[32];		// Memory map
 
 static CHAR szLoadingMsg[] = "Loading ReactOS...";
 
-static BOOLEAN
-NTAPI
+static BOOL
+STDCALL
 FrLdrLoadKernel(PCHAR szFileName,
                 INT nPos)
 {
@@ -109,7 +109,7 @@ FreeldrSeekFile(PVOID FileContext, ULONG_PTR Position)
     return TRUE;
 }
 
-static BOOLEAN
+static BOOL
 LoadKernelSymbols(PCHAR szKernelName, int nPos)
 {
   static ROSSYM_CALLBACKS FreeldrCallbacks =
@@ -143,7 +143,7 @@ LoadKernelSymbols(PCHAR szKernelName, int nPos)
   return TRUE;
 }
 
-static BOOLEAN
+static BOOL
 FrLdrLoadNlsFile(PCSTR szFileName,
                  PCSTR szModuleName)
 {
@@ -182,7 +182,7 @@ FrLdrLoadNlsFile(PCSTR szFileName,
     return(TRUE);
 }
 
-static BOOLEAN
+static BOOL
 FrLdrLoadNlsFiles(PCHAR szSystemRoot,
                   PCHAR szErrorOut)
 {
@@ -294,7 +294,7 @@ FrLdrLoadNlsFiles(PCHAR szSystemRoot,
     return(TRUE);
 }
 
-static BOOLEAN
+static BOOL
 FrLdrLoadDriver(PCHAR szFileName,
                 INT nPos)
 {
@@ -870,7 +870,7 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 
 #undef DbgPrint
 ULONG
-DbgPrint(const char *Fmt, ...)
+DbgPrint(char *Fmt, ...)
 {
   UiMessageBox(Fmt);
   return 0;

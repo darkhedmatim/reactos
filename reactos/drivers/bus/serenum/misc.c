@@ -86,7 +86,7 @@ SerenumInitMultiSzString(
 	return Status;
 }
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ForwardIrpAndWaitCompletion(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp,
@@ -128,7 +128,7 @@ ForwardIrpAndWait(
 	return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpToLowerDeviceAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -147,7 +147,7 @@ ForwardIrpToLowerDeviceAndForget(
 	return IoCallDriver(LowerDevice, Irp);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpToAttachedFdoAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -166,7 +166,7 @@ ForwardIrpToAttachedFdoAndForget(
 	return IoCallDriver(Fdo, Irp);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -32,13 +32,13 @@ Author:
 //
 struct _W32THREAD*
 NTAPI
-PsGetCurrentThreadWin32Thread(
+PsGetWin32Thread(
     VOID
 );
 
 struct _W32PROCESS*
 NTAPI
-PsGetCurrentProcessWin32Process(
+PsGetWin32Process(
     VOID
 );
 
@@ -68,23 +68,10 @@ PsGetThreadWin32Thread(
     PETHREAD Thread
 );
 
-BOOLEAN
-NTAPI
-PsGetThreadHardErrorsAreDisabled(
-    PETHREAD Thread
-);
-
-VOID 
-NTAPI
-PsSetThreadHardErrorsAreDisabled(
-    PETHREAD Thread,
-    IN BOOLEAN Disabled
-);
-
 VOID 
 NTAPI
 PsEstablishWin32Callouts(
-    PWIN32_CALLOUTS_FPNS CalloutData
+    PW32_CALLOUT_DATA CalloutData
 );
 
 VOID
@@ -327,7 +314,6 @@ NtSuspendProcess(
     IN HANDLE ProcessHandle
 );
 
-NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtSuspendThread(

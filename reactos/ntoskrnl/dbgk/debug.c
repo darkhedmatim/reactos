@@ -14,19 +14,10 @@
 #include <internal/debug.h>
 
 POBJECT_TYPE DbgkDebugObjectType;
-
 /* FUNCTIONS *****************************************************************/
 
-VOID
-NTAPI
-DbgkCopyProcessDebugPort(IN PEPROCESS Process,
-                         IN PEPROCESS Parent)
-{
-    /* FIXME: Implement */
-}
-
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateDebugObject(OUT PHANDLE DebugHandle,
                     IN ACCESS_MASK DesiredAccess,
                     IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -112,7 +103,7 @@ NtCreateDebugObject(OUT PHANDLE DebugHandle,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtWaitForDebugEvent(IN HANDLE DebugObject, // Debug object handle must grant DEBUG_OBJECT_WAIT_STATE_CHANGE access.
                     IN BOOLEAN Alertable,
                     IN PLARGE_INTEGER Timeout OPTIONAL,
@@ -125,7 +116,7 @@ NtWaitForDebugEvent(IN HANDLE DebugObject, // Debug object handle must grant DEB
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDebugContinue(IN HANDLE DebugObject,    // Debug object handle must grant DEBUG_OBJECT_WAIT_STATE_CHANGE access.
                 IN PCLIENT_ID AppClientId,
                 IN NTSTATUS ContinueStatus)
@@ -137,7 +128,7 @@ NtDebugContinue(IN HANDLE DebugObject,    // Debug object handle must grant DEBU
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtDebugActiveProcess(IN HANDLE Process,     // Process handle must grant PROCESS_SUSPEND_RESUME access.
                      IN HANDLE DebugObject)  // Debug object handle must grant DEBUG_OBJECT_ADD_REMOVE_PROCESS access.
 {
@@ -148,7 +139,7 @@ NtDebugActiveProcess(IN HANDLE Process,     // Process handle must grant PROCESS
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtRemoveProcessDebug(IN HANDLE Process,     // Process handle must grant PROCESS_SUSPEND_RESUME access.
                      IN HANDLE DebugObject)  // Debug object handle must grant DEBUG_OBJECT_ADD_REMOVE_PROCESS access.
 {
@@ -159,7 +150,7 @@ NtRemoveProcessDebug(IN HANDLE Process,     // Process handle must grant PROCESS
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationDebugObject(IN HANDLE DebugObject, // Debug object handle need not grant any particular access right.
                             IN DEBUGOBJECTINFOCLASS DebugObjectInformationClass,
                             IN PVOID DebugInformation,

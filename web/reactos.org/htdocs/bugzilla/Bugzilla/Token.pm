@@ -37,8 +37,8 @@ use Bugzilla::Util;
 use Date::Format;
 use Date::Parse;
 
-# This module requires that its caller have said "require globals.pl" to import
-# relevant functions from that script.
+# This module requires that its caller have said "require CGI.pl" to import
+# relevant functions from that script and its companion globals.pl.
 
 ################################################################################
 # Constants
@@ -60,8 +60,8 @@ sub IssueEmailChangeToken {
 
     # Mail the user the token along with instructions for using it.
 
-    my $template = Bugzilla->template;
-    my $vars = {};
+    my $template = $::template;
+    my $vars = $::vars;
 
     $vars->{'oldemailaddress'} = $old_email . Param('emailsuffix');
     $vars->{'newemailaddress'} = $new_email . Param('emailsuffix');
@@ -115,8 +115,8 @@ sub IssuePasswordToken {
 
     # Mail the user the token along with instructions for using it.
     
-    my $template = Bugzilla->template;
-    my $vars = {};
+    my $template = $::template;
+    my $vars = $::vars;
 
     $vars->{'token'} = $token;
     $vars->{'emailaddress'} = $loginname . Param('emailsuffix');
@@ -150,28 +150,24 @@ sub CleanTokenTable {
 }
 
 sub GenerateUniqueToken {
-    # Generates a unique random token.  Uses generate_random_password 
+    # Generates a unique random token.  Uses &GenerateRandomPassword 
     # for the tokens themselves and checks uniqueness by searching for
     # the token in the "tokens" table.  Gives up if it can't come up
     # with a token after about one hundred tries.
 
-    my ($table, $column) = @_;
-    
     my $token;
     my $duplicate = 1;
     my $tries = 0;
-    $table ||= "tokens";
-    $column ||= "token";
 
     my $dbh = Bugzilla->dbh;
-    my $sth = $dbh->prepare("SELECT userid FROM $table WHERE $column = ?");
+    my $sth = $dbh->prepare("SELECT userid FROM tokens WHERE token = ?");
 
     while ($duplicate) {
         ++$tries;
         if ($tries > 100) {
             ThrowCodeError("token_generation_error");
         }
-        $token = generate_random_password();
+        $token = &::GenerateRandomPassword();
         $sth->execute($token);
         $duplicate = $sth->fetchrow_array;
     }
@@ -184,10 +180,9 @@ sub Cancel {
     # This should only happen when the user accidentally makes a token request
     # or when a malicious hacker makes a token request on behalf of a user.
     
-    my ($token, $cancelaction, $vars) = @_;
+    my ($token, $cancelaction) = @_;
 
     my $dbh = Bugzilla->dbh;
-    $vars ||= {};
 
     # Quote the token for inclusion in SQL statements.
     my $quotedtoken = &::SqlQuote($token);
@@ -203,7 +198,8 @@ sub Cancel {
     # Get the email address of the Bugzilla maintainer.
     my $maintainer = Param('maintainer');
 
-    my $template = Bugzilla->template;
+    my $template = $::template;
+    my $vars = $::vars;
 
     $vars->{'emailaddress'} = $loginname . Param('emailsuffix');
     $vars->{'maintainer'} = $maintainer;
@@ -253,7 +249,7 @@ sub HasEmailChangeToken {
     return $token;
 }
 
-sub GetTokenData {
+sub GetTokenData($) {
     # Returns the userid, issuedate and eventdata for the specified token
 
     my ($token) = @_;
@@ -267,7 +263,7 @@ sub GetTokenData {
          WHERE  token = ?", undef, $token);
 }
 
-sub DeleteToken {
+sub DeleteToken($) {
     # Deletes specified token
 
     my ($token) = @_;
@@ -284,7 +280,7 @@ sub DeleteToken {
 # Internal Functions
 ################################################################################
 
-sub _create_token {
+sub _create_token($$$) {
     # Generates a unique token and inserts it into the database
     # Returns the token and the token timestamp
     my ($userid, $tokentype, $eventdata) = @_;

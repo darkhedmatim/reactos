@@ -34,17 +34,18 @@ use strict;
 
 use lib qw(.);
 
+use vars qw($template $vars);
+
 use Bugzilla;
 use Bugzilla::Search;
-use Bugzilla::Search::Quicksearch;
 use Bugzilla::Constants;
 use Bugzilla::User;
-use Bugzilla::Bug;
 
 # Include the Bugzilla CGI and general utility library.
-require "globals.pl";
+require "CGI.pl";
 
-use vars qw(@components
+use vars qw($db_name
+            @components
             @legal_keywords
             @legal_platform
             @legal_priority
@@ -52,31 +53,19 @@ use vars qw(@components
             @legal_severity
             @settable_resolution
             @target_milestone
+            $userid
             @versions);
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
-my $buffer = $cgi->query_string();
 
-# We have to check the login here to get the correct footer if an error is
-# thrown and to prevent a logged out user to use QuickSearch if 'requirelogin'
-# is turned 'on'.
+# We have to check the login here to get the correct footer
+# if an error is thrown.
 Bugzilla->login();
 
-if (length($buffer) == 0) {
+if (length($::buffer) == 0) {
     print $cgi->header(-refresh=> '10; URL=query.cgi');
     ThrowUserError("buglist_parameters_required");
-}
-
-# Determine whether this is a quicksearch query.
-my $searchstring = $cgi->param('quicksearch');
-if (defined($searchstring)) {
-    $buffer = quicksearch($searchstring);
-    # Quicksearch may do a redirect, in which case it does not return.
-    # If it does return, it has modified $cgi->params so we can use them here
-    # as if this had been a normal query from the beginning.
 }
 
 ################################################################################
@@ -121,8 +110,8 @@ if ((defined $cgi->param('ctype')) && ($cgi->param('ctype') eq "js")) {
 # Determine the format in which the user would like to receive the output.
 # Uses the default format if the user did not specify an output format;
 # otherwise validates the user's choice against the list of available formats.
-my $format = $template->get_format("list/list", scalar $cgi->param('format'),
-                                   scalar $cgi->param('ctype'));
+my $format = GetFormat("list/list", scalar $cgi->param('format'),
+                       scalar $cgi->param('ctype'));
 
 # Use server push to display a "Please wait..." message for the user while
 # executing their query if their browser supports it and they are viewing
@@ -163,8 +152,8 @@ if (defined $cgi->param('regetlastlist')) {
                                 });
 }
 
-if ($buffer =~ /&cmd-/) {
-    my $url = "query.cgi?$buffer#chart";
+if ($::buffer =~ /&cmd-/) {
+    my $url = "query.cgi?$::buffer#chart";
     print $cgi->redirect(-location => $url);
     # Generate and return the UI (HTML page) from the appropriate template.
     $vars->{'message'} = "buglist_adding_field";
@@ -209,15 +198,14 @@ sub DiffDate {
 
 sub LookupNamedQuery {
     my ($name) = @_;
-    my $user = Bugzilla->login(LOGIN_REQUIRED);
+    Bugzilla->login(LOGIN_REQUIRED);
     my $dbh = Bugzilla->dbh;
     # $name is safe -- we only use it below in a SELECT placeholder and then 
     # in error messages (which are always HTML-filtered).
-    $name || ThrowUserError("query_name_missing");
     trick_taint($name);
     my $result = $dbh->selectrow_array("SELECT query FROM namedqueries" 
                           . " WHERE userid = ? AND name = ?"
-                          , undef, ($user->id, $name));
+                          , undef, (Bugzilla->user->id, $name));
     
     defined($result) || ThrowUserError("missing_query", {'queryname' => $name});
     $result
@@ -239,17 +227,14 @@ sub LookupNamedQuery {
 #         empty, or we will throw a UserError.
 # link_in_footer (optional) - 1 if the Named Query should be 
 # displayed in the user's footer, 0 otherwise.
-# query_type (optional) - 1 if the Named Query contains a list of
-# bug IDs only, 0 otherwise (default).
 #
 # All parameters are validated before passing them into the database.
 #
 # Returns: A boolean true value if the query existed in the database 
 # before, and we updated it. A boolean false value otherwise.
-sub InsertNamedQuery {
-    my ($userid, $query_name, $query, $link_in_footer, $query_type) = @_;
+sub InsertNamedQuery ($$$;$) {
+    my ($userid, $query_name, $query, $link_in_footer) = @_;
     $link_in_footer ||= 0;
-    $query_type ||= QUERY_LIST;
     $query_name = trim($query_name);
     Bugzilla->login(LOGIN_REQUIRED);
     my $dbh = Bugzilla->dbh;
@@ -278,15 +263,15 @@ sub InsertNamedQuery {
     if ($result) {
         $query_existed_before = 1;
         $dbh->do("UPDATE namedqueries"
-            . " SET query = ?, linkinfooter = ?, query_type = ?"
+            . " SET query = ?, linkinfooter = ?"
             . " WHERE userid = ? AND name = ?"
-            , undef, ($query, $link_in_footer, $query_type, $userid, $query_name));
+            , undef, ($query, $link_in_footer, $userid, $query_name));
     } else {
         $query_existed_before = 0;
         $dbh->do("INSERT INTO namedqueries"
-            . " (userid, name, query, linkinfooter, query_type)"
-            . " VALUES (?, ?, ?, ?, ?)"
-            , undef, ($userid, $query_name, $query, $link_in_footer, $query_type));
+            . " (userid, name, query, linkinfooter)"
+            . " VALUES (?, ?, ?, ?)"
+            , undef, ($userid, $query_name, $query, $link_in_footer));
     }
 
     $dbh->bz_unlock_tables();
@@ -319,21 +304,25 @@ sub GetQuip {
     return $quip;
 }
 
-sub GetGroups {
+sub GetGroupsByUserId {
+    my ($userid) = @_;
     my $dbh = Bugzilla->dbh;
-    my $user = Bugzilla->user;
+
+    return if !$userid;
 
     # Create an array where each item is a hash. The hash contains 
     # as keys the name of the columns, which point to the value of 
     # the columns for that row.
-    my $grouplist = $user->groups_as_string;
     my $groups = $dbh->selectall_arrayref(
-                "SELECT  id, name, description, isactive
+       "SELECT DISTINCT  groups.id, name, description, isactive
                    FROM  groups
-                  WHERE  id IN ($grouplist)
+             INNER JOIN  user_group_map
+                     ON  user_group_map.group_id = groups.id
+                  WHERE  user_id = ?
+                    AND  isbless = 0
                     AND  isbuggroup = 1
                ORDER BY  description "
-               , {Slice => {}});
+               , {Slice => {}}, ($userid));
 
     return $groups;
 }
@@ -378,22 +367,22 @@ if ($cgi->param('cmdtype') eq "dorem" && $cgi->param('remaction') =~ /^run/) {
 # Take appropriate action based on user's request.
 if ($cgi->param('cmdtype') eq "dorem") {  
     if ($cgi->param('remaction') eq "run") {
-        $buffer = LookupNamedQuery(scalar $cgi->param("namedcmd"));
+        $::buffer = LookupNamedQuery(scalar $cgi->param("namedcmd"));
         $vars->{'searchname'} = $cgi->param('namedcmd');
         $vars->{'searchtype'} = "saved";
-        $params = new Bugzilla::CGI($buffer);
+        $params = new Bugzilla::CGI($::buffer);
         $order = $params->param('order') || $order;
 
     }
     elsif ($cgi->param('remaction') eq "runseries") {
-        $buffer = LookupSeries(scalar $cgi->param("series_id"));
+        $::buffer = LookupSeries(scalar $cgi->param("series_id"));
         $vars->{'searchname'} = $cgi->param('namedcmd');
         $vars->{'searchtype'} = "series";
-        $params = new Bugzilla::CGI($buffer);
+        $params = new Bugzilla::CGI($::buffer);
         $order = $params->param('order') || $order;
     }
     elsif ($cgi->param('remaction') eq "forget") {
-        my $user = Bugzilla->login(LOGIN_REQUIRED);
+        Bugzilla->login(LOGIN_REQUIRED);
         # Copy the name into a variable, so that we can trick_taint it for
         # the DB. We know it's safe, because we're using placeholders in 
         # the SQL, and the SQL is only a DELETE.
@@ -411,7 +400,7 @@ if ($cgi->param('cmdtype') eq "dorem") {
                                                       = ?
                                                   AND whine_queries.query_name
                                                       = ?
-                                      ', undef, $user->id, $qname);
+                                      ', undef, Bugzilla->user->id, $qname);
         if (scalar(@$whines_in_use)) {
             ThrowUserError('saved_search_used_by_whines', 
                            { subjects    => join(',', @$whines_in_use),
@@ -422,10 +411,10 @@ if ($cgi->param('cmdtype') eq "dorem") {
         # If we are here, then we can safely remove the saved search
         $dbh->do("DELETE FROM namedqueries"
             . " WHERE userid = ? AND name = ?"
-            , undef, ($user->id, $qname));
+            , undef, ($userid, $qname));
 
         # Now reset the cached queries
-        $user->flush_queries_cache();
+        Bugzilla->user->flush_queries_cache();
 
         print $cgi->header();
         # Generate and return the UI (HTML page) from the appropriate template.
@@ -439,42 +428,19 @@ if ($cgi->param('cmdtype') eq "dorem") {
 }
 elsif (($cgi->param('cmdtype') eq "doit") && defined $cgi->param('remtype')) {
     if ($cgi->param('remtype') eq "asdefault") {
-        my $user = Bugzilla->login(LOGIN_REQUIRED);
-        InsertNamedQuery($user->id, DEFAULT_QUERY_NAME, $buffer);
+        Bugzilla->login(LOGIN_REQUIRED);
+        InsertNamedQuery(Bugzilla->user->id, DEFAULT_QUERY_NAME, $::buffer);
         $vars->{'message'} = "buglist_new_default_query";
     }
     elsif ($cgi->param('remtype') eq "asnamed") {
-        my $user = Bugzilla->login(LOGIN_REQUIRED);
+        Bugzilla->login(LOGIN_REQUIRED);
+        my $userid = Bugzilla->user->id;
         my $query_name = $cgi->param('newqueryname');
-        my $new_query = $cgi->param('newquery');
-        my $query_type = QUERY_LIST;
-        # If add_bugids is true, we are adding individual bugs to a saved
-        # search. We get the existing list of bug IDs (if any) and append
-        # the new ones.
-        if ($cgi->param('add_bugids')) {
-            my %bug_ids;
-            foreach my $bug_id (split(/[\s,]+/, $cgi->param('bug_ids'))) {
-                next unless $bug_id;
-                ValidateBugID($bug_id);
-                $bug_ids{$bug_id} = 1;
-            }
-            ThrowUserError("no_bug_ids") unless scalar(keys %bug_ids);
 
-            if (!trim($query_name)) {
-                # No new query name has been given. We append new bug IDs
-                # to the existing list.
-                $query_name = $cgi->param('oldqueryname');
-                my $old_query = LookupNamedQuery($query_name);
-                foreach my $bug_id (split(/[\s,=]+/, $old_query)) {
-                    $bug_ids{$bug_id} = 1 if detaint_natural($bug_id);
-                }
-            }
-            $new_query = "bug_id=" . join(',', sort {$a <=> $b} keys %bug_ids);
-            $query_type = LIST_OF_BUGS;
-        }
         my $tofooter = 1;
-        my $existed_before = InsertNamedQuery($user->id, $query_name, $new_query,
-                                              $tofooter, $query_type);
+        my $existed_before = InsertNamedQuery($userid, $query_name, 
+                                              scalar $cgi->param('newquery'),
+                                              $tofooter);
         if ($existed_before) {
             $vars->{'message'} = "buglist_updated_named_query";
         }
@@ -484,7 +450,7 @@ elsif (($cgi->param('cmdtype') eq "doit") && defined $cgi->param('remtype')) {
 
         # Make sure to invalidate any cached query data, so that the footer is
         # correctly displayed
-        $user->flush_queries_cache();
+        Bugzilla->user->flush_queries_cache();
 
         $vars->{'queryname'} = $query_name;
         
@@ -500,7 +466,7 @@ elsif (($cgi->param('cmdtype') eq "doit") && defined $cgi->param('remtype')) {
 # form - see bug 252295
 if (!$params->param('query_format')) {
     $params->param('query_format', 'advanced');
-    $buffer = $params->query_string;
+    $::buffer = $params->query_string;
 }
 
 ################################################################################
@@ -689,9 +655,6 @@ if ($format->{'extension'} eq 'ics') {
 }
 
 if ($format->{'extension'} eq 'atom') {
-    # The title of the Atom feed will be the same one as for the bug list.
-    $vars->{'title'} = $cgi->param('title');
-
     # This is the list of fields that are needed by the Atom filter.
     my @required_atom_columns = (
       'short_desc',
@@ -871,7 +834,6 @@ elsif ($fulltext) {
 if ($cgi->param('debug')) {
     $vars->{'debug'} = 1;
     $vars->{'query'} = $query;
-    $vars->{'debugdata'} = $search->getDebugData();
 }
 
 # Time to use server push to display an interim message to the user until
@@ -1014,11 +976,12 @@ $vars->{'closedstates'} = ['CLOSED', 'VERIFIED', 'RESOLVED'];
 # The list of query fields in URL query string format, used when creating
 # URLs to the same query results page with different parameters (such as
 # a different sort order or when taking some action on the set of query
-# results).  To get this string, we call the Bugzilla::CGI::canoncalise_query
-# function with a list of elements to be removed from the URL.
-$vars->{'urlquerypart'} = $params->canonicalise_query('order',
-                                                      'cmdtype',
-                                                      'query_based_on');
+# results).  To get this string, we start with the raw URL query string
+# buffer that was created when we initially parsed the URL on script startup,
+# then we remove all non-query fields from it, f.e. the sort order (order)
+# and command type (cmdtype) fields.
+$vars->{'urlquerypart'} = $::buffer;
+$vars->{'urlquerypart'} =~ s/(order|cmdtype)=[^&]*&?//g;
 $vars->{'order'} = $order;
 $vars->{'caneditbugs'} = UserInGroup('editbugs');
 
@@ -1042,9 +1005,9 @@ if ($dotweak) {
     $vars->{'dotweak'} = 1;
     $vars->{'use_keywords'} = 1 if @::legal_keywords;
 
-    $vars->{'products'} = Bugzilla->user->get_enterable_products;
+    my @enterable_products = GetEnterableProducts();
+    $vars->{'products'} = \@enterable_products;
     $vars->{'platforms'} = \@::legal_platform;
-    $vars->{'op_sys'} = \@::legal_opsys;
     $vars->{'priorities'} = \@::legal_priority;
     $vars->{'severities'} = \@::legal_severity;
     $vars->{'resolutions'} = \@::settable_resolution;
@@ -1054,7 +1017,7 @@ if ($dotweak) {
     $vars->{'bugstatuses'} = [ keys %$bugstatuses ];
 
     # The groups to which the user belongs.
-    $vars->{'groups'} = GetGroups();
+    $vars->{'groups'} = GetGroupsByUserId($::userid);
 
     # If all bugs being changed are in the same product, the user can change
     # their version and component, so generate a list of products, a list of
@@ -1119,11 +1082,7 @@ if ($format->{'extension'} eq "csv") {
 if ($serverpush) {
     # close the "please wait" page, then open the buglist page
     print $cgi->multipart_end();
-    my @extra;
-    push @extra, (-charset => "utf8") if Param("utf8");
-    print $cgi->multipart_start(-type => $contenttype, 
-                                -content_disposition => $disposition, 
-                                @extra);
+    print $cgi->multipart_start(-type => $contenttype, -content_disposition => $disposition);
 } else {
     # Suggest a name for the bug list if the user wants to save it as a file.
     # If we are doing server push, then we did this already in the HTTP headers

@@ -3,7 +3,6 @@
 #include <commctrl.h>
 #include <winuser.h>
 #include <tchar.h>
-#include <stdio.h>
 
 #include "resource.h"
 #include "msconfig.h"

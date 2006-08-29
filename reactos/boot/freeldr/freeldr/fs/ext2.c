@@ -37,7 +37,7 @@ ULONG					Ext2GroupCount = 0;				// Number of groups in this file system
 ULONG					Ext2InodesPerBlock = 0;			// Number of inodes in one block
 ULONG					Ext2GroupDescPerBlock = 0;		// Number of group descriptors in one block
 
-BOOLEAN Ext2OpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector)
+BOOL Ext2OpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector)
 {
 
 	DbgPrint((DPRINT_FILESYSTEM, "Ext2OpenVolume() DriveNumber = 0x%x VolumeStartSector = %d\n", DriveNumber, VolumeStartSector));
@@ -182,7 +182,7 @@ FILE* Ext2OpenFile(PCSTR FileName)
  * with info describing the file, etc. returns true
  * if the file exists or false otherwise
  */
-BOOLEAN Ext2LookupFile(PCSTR FileName, PEXT2_FILE_INFO Ext2FileInfoPointer)
+BOOL Ext2LookupFile(PCSTR FileName, PEXT2_FILE_INFO Ext2FileInfoPointer)
 {
 	UINT				i;
 	ULONG				NumberOfPathParts;
@@ -281,7 +281,7 @@ BOOLEAN Ext2LookupFile(PCSTR FileName, PEXT2_FILE_INFO Ext2FileInfoPointer)
 	return TRUE;
 }
 
-BOOLEAN Ext2SearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PEXT2_DIR_ENTRY DirectoryEntry)
+BOOL Ext2SearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PEXT2_DIR_ENTRY DirectoryEntry)
 {
 	ULONG				CurrentOffset;
 	PEXT2_DIR_ENTRY	CurrentDirectoryEntry;
@@ -337,7 +337,7 @@ BOOLEAN Ext2SearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectoryS
  * Reads BytesToRead from open file and
  * returns the number of bytes read in BytesRead
  */
-BOOLEAN Ext2ReadFile(FILE *FileHandle, ULONGLONG BytesToRead, ULONGLONG* BytesRead, PVOID Buffer)
+BOOL Ext2ReadFile(FILE *FileHandle, ULONGLONG BytesToRead, ULONGLONG* BytesRead, PVOID Buffer)
 {
 	PEXT2_FILE_INFO	Ext2FileInfo = (PEXT2_FILE_INFO)FileHandle;
 	ULONG				BlockNumber;
@@ -548,10 +548,10 @@ ULONGLONG Ext2GetFilePointer(FILE *FileHandle)
 	return Ext2FileHandle->FilePointer;
 }
 
-BOOLEAN Ext2ReadVolumeSectors(UCHAR DriveNumber, ULONGLONG SectorNumber, ULONGLONG SectorCount, PVOID Buffer)
+BOOL Ext2ReadVolumeSectors(UCHAR DriveNumber, ULONGLONG SectorNumber, ULONGLONG SectorCount, PVOID Buffer)
 {
 	//GEOMETRY	DiskGeometry;
-	//BOOLEAN		ReturnValue;
+	//BOOL		ReturnValue;
 	//if (!DiskGetDriveGeometry(DriveNumber, &DiskGeometry))
 	//{
 	//	return FALSE;
@@ -563,7 +563,7 @@ BOOLEAN Ext2ReadVolumeSectors(UCHAR DriveNumber, ULONGLONG SectorNumber, ULONGLO
 	return CacheReadDiskSectors(DriveNumber, SectorNumber + Ext2VolumeStartSector, SectorCount, Buffer);
 }
 
-BOOLEAN Ext2ReadSuperBlock(VOID)
+BOOL Ext2ReadSuperBlock(VOID)
 {
 
 	DbgPrint((DPRINT_FILESYSTEM, "Ext2ReadSuperBlock()\n"));
@@ -724,7 +724,7 @@ BOOLEAN Ext2ReadSuperBlock(VOID)
 	return TRUE;
 }
 
-BOOLEAN Ext2ReadGroupDescriptors(VOID)
+BOOL Ext2ReadGroupDescriptors(VOID)
 {
 	ULONG		GroupDescBlockCount;
 	ULONG		CurrentGroupDescBlock;
@@ -770,7 +770,7 @@ BOOLEAN Ext2ReadGroupDescriptors(VOID)
 	return TRUE;
 }
 
-BOOLEAN Ext2ReadDirectory(ULONG Inode, PVOID* DirectoryBuffer, PEXT2_INODE InodePointer)
+BOOL Ext2ReadDirectory(ULONG Inode, PVOID* DirectoryBuffer, PEXT2_INODE InodePointer)
 {
 	EXT2_FILE_INFO	DirectoryFileInfo;
 
@@ -829,7 +829,7 @@ BOOLEAN Ext2ReadDirectory(ULONG Inode, PVOID* DirectoryBuffer, PEXT2_INODE Inode
 	return TRUE;
 }
 
-BOOLEAN Ext2ReadBlock(ULONG BlockNumber, PVOID Buffer)
+BOOL Ext2ReadBlock(ULONG BlockNumber, PVOID Buffer)
 {
 	CHAR			ErrorString[80];
 
@@ -860,7 +860,7 @@ BOOLEAN Ext2ReadBlock(ULONG BlockNumber, PVOID Buffer)
  * Ext2ReadPartialBlock()
  * Reads part of a block into memory
  */
-BOOLEAN Ext2ReadPartialBlock(ULONG BlockNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer)
+BOOL Ext2ReadPartialBlock(ULONG BlockNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer)
 {
 
 	DbgPrint((DPRINT_FILESYSTEM, "Ext2ReadPartialBlock() BlockNumber = %d StartingOffset = %d Length = %d Buffer = 0x%x\n", BlockNumber, StartingOffset, Length, Buffer));
@@ -900,7 +900,7 @@ ULONG Ext2GetInodeOffsetInBlock(ULONG Inode)
 	return (((Inode - 1) % Ext2SuperBlock->s_inodes_per_group) % Ext2InodesPerBlock);
 }
 
-BOOLEAN Ext2ReadInode(ULONG Inode, PEXT2_INODE InodeBuffer)
+BOOL Ext2ReadInode(ULONG Inode, PEXT2_INODE InodeBuffer)
 {
 	ULONG				InodeGroupNumber;
 	ULONG				InodeBlockNumber;
@@ -970,7 +970,7 @@ BOOLEAN Ext2ReadInode(ULONG Inode, PEXT2_INODE InodeBuffer)
 	return TRUE;
 }
 
-BOOLEAN Ext2ReadGroupDescriptor(ULONG Group, PEXT2_GROUP_DESC GroupBuffer)
+BOOL Ext2ReadGroupDescriptor(ULONG Group, PEXT2_GROUP_DESC GroupBuffer)
 {
 	DbgPrint((DPRINT_FILESYSTEM, "Ext2ReadGroupDescriptor()\n"));
 
@@ -1076,7 +1076,7 @@ ULONGLONG Ext2GetInodeFileSize(PEXT2_INODE Inode)
 	}
 }
 
-BOOLEAN Ext2CopyIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG IndirectBlock)
+BOOL Ext2CopyIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG IndirectBlock)
 {
 	ULONG*	BlockBuffer = (ULONG*)FILESYSBUFFER;
 	ULONG		CurrentBlock;
@@ -1100,7 +1100,7 @@ BOOLEAN Ext2CopyIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInLis
 	return TRUE;
 }
 
-BOOLEAN Ext2CopyDoubleIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG DoubleIndirectBlock)
+BOOL Ext2CopyDoubleIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG DoubleIndirectBlock)
 {
 	ULONG*	BlockBuffer;
 	ULONG		CurrentBlock;
@@ -1135,7 +1135,7 @@ BOOLEAN Ext2CopyDoubleIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBloc
 	return TRUE;
 }
 
-BOOLEAN Ext2CopyTripleIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG TripleIndirectBlock)
+BOOL Ext2CopyTripleIndirectBlockPointers(ULONG* BlockList, ULONG* CurrentBlockInList, ULONG BlockCount, ULONG TripleIndirectBlock)
 {
 	ULONG*	BlockBuffer;
 	ULONG		CurrentBlock;

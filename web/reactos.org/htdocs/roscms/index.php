@@ -32,15 +32,8 @@ if (get_magic_quotes_gpc()) {
 	//include("./inc/db/connect_db.inc.php");
 	include("connect.db.php");
 
-
-	// stop MySQL bug (http://dev.mysql.com/doc/refman/4.1/en/news-4-1-20.html):
-	$SQLinjectionprevention ="SET GLOBAL sql_mode='NO_BACKSLASH_ESCAPES';";
-	$SQLinjectionprevention_query=mysql_query($SQLinjectionprevention);
-
-
-
 /*
- *	ReactOS CMS System - Version 2006-05-22
+ *	ReactOS CMS System - Version 0.1
  *	
  *	(c) by Klemens Friedl <frik85>
  *	
@@ -67,7 +60,6 @@ if (get_magic_quotes_gpc()) {
 	$rpm_logo="";
 	$rpm_db_id="";
 	$rpm_newcontent="";
-	$rpm_export="";
 	
 	$varlang="";
 	$varw3cformat="";
@@ -107,7 +99,6 @@ if (get_magic_quotes_gpc()) {
 	if (array_key_exists("logo", $_GET)) $rpm_logo=htmlspecialchars($_GET["logo"]);
 	if (array_key_exists("db_id", $_GET)) $rpm_db_id=htmlspecialchars($_GET["db_id"]);
 	if (array_key_exists("newcontent", $_GET)) $rpm_newcontent=htmlspecialchars($_GET["newcontent"]);
-	if (array_key_exists("export", $_GET)) $rpm_export=htmlspecialchars($_GET["export"]);
 	
 	
 	if (array_key_exists('HTTP_REFERER', $_SERVER)) $roscms_referrer=htmlspecialchars($_SERVER['HTTP_REFERER']);
@@ -135,6 +126,8 @@ function check_lang($lang)
 		case 'fr':
 		case 'ru':
 		case 'es':
+		case 'sv':
+		case 'it':
 			break;
 		default:
 			$checked_lang = '';
@@ -235,6 +228,24 @@ if (isset($_COOKIE['roscms_usrset_lang']) || isset($_REQUEST['lang'])) {
 				$var = strchr($roscms_referrer, "/ru/");				
 				if ($var != "" AND $rpm_lang == "") {
 					$rpm_lang_session="ru/";
+					$rpm_lang="ru";
+				}
+				$var = "";
+				$var = strchr($roscms_referrer, "/es/");				
+				if ($var != "" AND $rpm_lang == "") {
+					$rpm_lang_session="es/";
+					$rpm_lang="ru";
+				}
+				$var = "";
+				$var = strchr($roscms_referrer, "/sv/");				
+				if ($var != "" AND $rpm_lang == "") {
+					$rpm_lang_session="sv/";
+					$rpm_lang="ru";
+				}
+				$var = "";
+				$var = strchr($roscms_referrer, "/it/");				
+				if ($var != "" AND $rpm_lang == "") {
+					$rpm_lang_session="it/";
 					$rpm_lang="ru";
 				}
 				if ($rpm_lang == "") {
@@ -399,8 +410,8 @@ if (isset($_COOKIE['roscms_usrset_lang']) || isset($_REQUEST['lang'])) {
 			include("inc/body.php");
 			break;
 
-		case "generate_fast_secret": // Generate the static HTML pages (for direct link, e.g. http://www.reactos.org/roscms/?page=generate"); TODO check why this link doesn't work -> errors, etc.?
-			//require("inc/login.php");
+		case "generate": // Generate the static HTML pages (for direct link, e.g. http://www.reactos.org/roscms/?page=generate"); TODO check why this link doesn't work -> errors, etc.?
+			require("inc/login.php");
 			include("inc/generate_page.php"); // static page generator
 			break;
 			
@@ -422,12 +433,6 @@ if (isset($_COOKIE['roscms_usrset_lang']) || isset($_REQUEST['lang'])) {
 			create_structure($rpm_page);
 			include("inc/404.php"); 
 			include("inc/body.php");
-			break;
-			
-		case "export":
-			if ($rpm_export == "diff_content") {
-				include("inc/export/diff_content.php"); 
-			}
 			break;
 	}
 ?>

@@ -88,25 +88,18 @@ LpcSendTerminationPort(
     LARGE_INTEGER CreationTime
 );
 
-/* Code in ntoskrnl/lpc/close.c */
+/* Code in ntoskrnl/lpc/close.h */
 
 VOID 
 STDCALL
 LpcpClosePort(
-    IN PEPROCESS Process OPTIONAL,
-    IN PVOID Object,
-    IN ACCESS_MASK GrantedAccess,
-    IN ULONG ProcessHandleCount,
-    IN ULONG SystemHandleCount
+    PVOID ObjectBody,
+    ULONG HandleCount
 );
 
 VOID
 STDCALL
 LpcpDeletePort(IN PVOID ObjectBody);
-
-VOID
-NTAPI
-LpcExitThread(IN PETHREAD Thread);
 
 /* Code in ntoskrnl/lpc/queue.c */
 

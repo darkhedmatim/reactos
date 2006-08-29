@@ -176,14 +176,13 @@ body
         margin-top: 5px;
         width: 100%;
         font-family: sans-serif;
-        background: #edf2f2;
-        border-top: 1px solid #ddd;
-        border-bottom: 1px solid #ddd;
     }
 
     #footer form
     {
-        display: inline;
+        background: #edf2f2;
+        border-top: 1px solid #ddd;
+        border-bottom: 1px solid #ddd;
     }
 
     #footer span
@@ -210,15 +209,14 @@ body
 
     #footer #links-actions,
     #footer #links-edit,
-    #footer #links-saved,
-    #footer #links-special
+    #footer #links-saved
     {
         display: table-row;
     }
 
     #footer .label
     {
-        width: 8.2em;
+        width: 7.2em;
         display: block;
         float: left;
 
@@ -244,7 +242,7 @@ body
 
     #footer .links
     {
-        display: table-cell;
+        display: block;
 
         padding: 0.1em 0.2em;
     }
@@ -252,6 +250,8 @@ body
     /* hide from MSIE and NN4 */
     [id]#footer .links
     {
+        display: table-cell;
+
         padding-top: 0;
         
         vertical-align: baseline;
@@ -316,24 +316,21 @@ body
     padding: 1em 0;
 }
 
-td.tab
+.selected_tab
 {
-    background: #eee;
-    text-align: center;
-    border-style: solid;
-    border-color: black;
-    border-width: 0px 0px 2px 0px;
-}
-    
-td.tab.selected
-{
-    background: white;
-    border-width: 2px 2px 0px 2px;
+    background: #fff;
+    border: 1px solid black;
 }
 
-td.tab.spacer
+.unselected_tab
 {
-    background: white;
+    background: #eee;
+    border: 1px solid black;
+}
+
+.spacer
+{
+    border: 1px solid black;
 }
 
 table#flags th, table#flags td { vertical-align: baseline; text-align: left; }

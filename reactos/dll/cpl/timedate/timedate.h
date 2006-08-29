@@ -5,57 +5,35 @@
 #include <windowsx.h>
 #include <tchar.h>
 #include <stdio.h>
+#include <winsock2.h>
 #include <math.h>
 #include <commctrl.h>
 #include <cpl.h>
 
 #include "resource.h"
 
-#define MAX_KEY_LENGTH 255
-#define MAX_VALUE_NAME 16383
 #define SERVERLISTSIZE 6
 #define BUFSIZE 1024
-#define NTPPORT 123
+#define MYPORT 6
+#define NTPPORT 6
 #define ID_TIMER 1
 
 typedef struct
 {
-  UINT idIcon;
-  UINT idName;
-  UINT idDescription;
+  int idIcon;
+  int idName;
+  int idDescription;
   APPLET_PROC AppletProc;
 } APPLET, *PAPPLET;
 
 extern HINSTANCE hApplet;
 
+BOOL InitClockWindowClass();
 
-/* dateandtime.c */
-INT_PTR CALLBACK DateTimePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-
-/* timezone.c */
-INT_PTR CALLBACK TimeZonePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-
-/* internettime.c */
-INT_PTR CALLBACK InetTimePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-
-/* timedate.c */
-VOID GetError(VOID);
-
-
-/* clock.c */
-BOOL RegisterClockControl(VOID);
-VOID UnregisterClockControl(VOID);
-
-
-/* ntpclient.c */
-BOOL InitialiseConnection(CHAR *szIpAddr);
+BOOL InitialiseConnection(VOID);
 VOID DestroyConnection(VOID);
 BOOL SendData(VOID);
-ULONG RecieveData(VOID);
-
+BOOL RecieveData(CHAR *);
 
 /* monthcal.c */
 #define MCCM_SETDATE    (WM_USER + 1)

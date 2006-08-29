@@ -96,13 +96,13 @@ BEGIN
     LTEXT "The system locale should match the language of the applications "\
           "you want to use. The user locale controls how numbers, "\
           "currencies, and dates appear.", IDC_STATIC, 53, 7, 253, 20
-    LTEXT "", IDC_LOCALETEXT, 53, 29, 250, 16
+    LTEXT "<locale text>", IDC_LOCALETEXT, 53, 29, 250, 16
     LTEXT "To change system or user locale settings, click Customize.",
           IDC_STATIC, 53, 60, 184, 8
     PUSHBUTTON "&Customize...", IDC_CUSTOMLOCALE, 245, 57, 50, 14
     LTEXT "The keyboard layout controls the characters that appear when you type.",
           IDC_STATIC, 53, 86, 253, 8
-    LTEXT "", IDC_LAYOUTTEXT, 53, 100, 250, 16
+    LTEXT "<layout text>", IDC_LAYOUTTEXT, 53, 100, 250, 16
     LTEXT "To change the keyboard layout, click Customize.",
           IDC_STATIC, 53, 126, 184, 8
     PUSHBUTTON "C&ustomize...", IDC_CUSTOMLAYOUT, 245, 122, 50, 14
@@ -196,7 +196,6 @@ BEGIN
     IDS_CMT_NOTEPAD     "Launch Text Editor"
     IDS_CMT_REGEDIT     "Launch Registry Editor"
     IDS_CMT_WORDPAD     "Launch Document Editor"
-    IDS_CMT_SCREENSHOT  "Take screenshot"
 END
 
 STRINGTABLE
@@ -208,14 +207,14 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_REACTOS_SETUP		    "ReactOS Setup"
+    IDS_REACTOS_SETUP		"ReactOS Setup"
     IDS_UNKNOWN_ERROR           "Unknown error"
-    IDS_REGISTERING_COMPONENTS  "Registering components..."
-    IDS_LOADLIBRARY_FAILED	    "LoadLibrary failed: "
-    IDS_GETPROCADDR_FAILED	    "GetProcAddr failed: "
+    IDS_REGISTERING_COMPONENTS	"Registering components..."
+    IDS_LOADLIBRARY_FAILED	"LoadLibrary failed: "
+    IDS_GETPROCADDR_FAILED	"GetProcAddr failed: "
     IDS_REGSVR_FAILED           "DllRegisterServer failed: "
-    IDS_DLLINSTALL_FAILED	    "DllInstall failed: "
-    IDS_TIMEOUT			        "Timeout during registration"
+    IDS_DLLINSTALL_FAILED	"DllInstall failed: "
+    IDS_TIMEOUT			"Timeout during registration"
     IDS_REASON_UNKNOWN          ""
 END
 

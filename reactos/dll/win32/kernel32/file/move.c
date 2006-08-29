@@ -6,11 +6,8 @@
  * PURPOSE:         Directory functions
  * PROGRAMMER:      Ariadne ( ariadne@xs4all.nl)
  *                  Gerhard W. Gruber (sparhawk_at_gmx.at)
- *                  Dmitry Philippov (shedon@mail.ru)
  * UPDATE HISTORY:
  *                  Created 01/11/98
- *                  DP (29/07/2006)
- *                      Fix some bugs in the add_boot_rename_entry function
  */
 
 /* INCLUDES *****************************************************************/
@@ -86,16 +83,12 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
     BOOL rc = FALSE;
     HANDLE Reboot = NULL;
     DWORD len1, len2;
-    DWORD DestLen = 0;
     DWORD DataSize = 0;
     BYTE *Buffer = NULL;
     WCHAR *p;
     NTSTATUS Status;
 
-    DPRINT("add_boot_rename_entry( %S, %S, %d ) \n", source, dest, flags);
-
-    if(dest)
-        DestLen = wcslen(dest);
+    DPRINT("Add support to smss for keys created by MOVEFILE_DELAY_UNTIL_REBOOT\n");
 
     if (!RtlDosPathNameToNtPathName_U( source, &source_name, NULL, NULL ))
     {
@@ -103,7 +96,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
         return FALSE;
     }
     dest_name.Buffer = NULL;
-    if (DestLen && !RtlDosPathNameToNtPathName_U( dest, &dest_name, NULL, NULL ))
+    if (dest && !RtlDosPathNameToNtPathName_U( dest, &dest_name, NULL, NULL ))
     {
         RtlFreeHeap( RtlGetProcessHeap(), 0, source_name.Buffer );
         SetLastError( ERROR_PATH_NOT_FOUND );
@@ -112,7 +105,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
 
     InitializeObjectAttributes(&ObjectAttributes,
                                &KeyName,
-                               OBJ_OPENIF | OBJ_CASE_INSENSITIVE,
+                               OBJ_CASE_INSENSITIVE,
                                NULL,
                                NULL);
 
@@ -124,59 +117,33 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
                           REG_OPTION_NON_VOLATILE,
                           NULL);
 
-     if (Status == STATUS_ACCESS_DENIED)
-     {
-         Status = NtCreateKey(
-             &Reboot, 
-             KEY_QUERY_VALUE | KEY_SET_VALUE,
-             &ObjectAttributes,
-             0,
-             NULL,
-             REG_OPTION_BACKUP_RESTORE,
-             NULL);
-     }
-
     if (!NT_SUCCESS(Status))
     {
-        DPRINT("NtCreateKey() failed (Status 0x%lx)\n", Status);
-        if (source_name.Buffer)
-            RtlFreeHeap(RtlGetProcessHeap(), 0, source_name.Buffer);
-        if (dest_name.Buffer)
-            RtlFreeHeap(RtlGetProcessHeap(), 0, dest_name.Buffer);
+        DPRINT1("NtCreateKey() failed (Status 0x%lx)\n", Status);
+        RtlFreeHeap( RtlGetProcessHeap(), 0, source_name.Buffer );
+        RtlFreeHeap( RtlGetProcessHeap(), 0, dest_name.Buffer );
         return FALSE;
     }
 
     len1 = source_name.Length + sizeof(WCHAR);
-    if (DestLen)
+    if (dest)
     {
         len2 = dest_name.Length + sizeof(WCHAR);
         if (flags & MOVEFILE_REPLACE_EXISTING)
             len2 += sizeof(WCHAR); /* Plus 1 because of the leading '!' */
     }
-    else
-    {
-        len2 = sizeof(WCHAR); /* minimum is the 0 characters for the empty second string */
-    }
+    else len2 = sizeof(WCHAR); /* minimum is the 0 characters for the empty second string */
 
     RtlInitUnicodeString( &nameW, ValueName );
 
     /* First we check if the key exists and if so how many bytes it already contains. */
-    Status = NtQueryValueKey(
-        Reboot,
-        &nameW,
-        KeyValuePartialInformation,
-        NULL,
-        0, 
-        &DataSize );
-    if ((Status == STATUS_BUFFER_OVERFLOW) ||
-        (Status == STATUS_BUFFER_TOO_SMALL))
+    if (NtQueryValueKey( Reboot, &nameW, KeyValuePartialInformation,
+                         NULL, 0, &DataSize ) == STATUS_BUFFER_OVERFLOW)
     {
-        if (!(Buffer = HeapAlloc(GetProcessHeap(), 0, DataSize + len1 + len2 + sizeof(WCHAR))))
+        if (!(Buffer = HeapAlloc( GetProcessHeap(), 0, DataSize + len1 + len2 + sizeof(WCHAR) )))
             goto Quit;
-        Status = NtQueryValueKey(Reboot, &nameW, KeyValuePartialInformation,
-            Buffer, DataSize, &DataSize);
-        if(!NT_SUCCESS(Status))
-            goto Quit;
+        if (NtQueryValueKey( Reboot, &nameW, KeyValuePartialInformation,
+                             Buffer, DataSize, &DataSize )) goto Quit;
         info = (KEY_VALUE_PARTIAL_INFORMATION *)Buffer;
         if (info->Type != REG_MULTI_SZ) goto Quit;
         if (DataSize > sizeof(info)) DataSize -= sizeof(WCHAR);  /* remove terminating null (will be added back later) */
@@ -191,7 +158,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
     memcpy( Buffer + DataSize, source_name.Buffer, len1 );
     DataSize += len1;
     p = (WCHAR *)(Buffer + DataSize);
-    if (DestLen)
+    if (dest)
     {
         if (flags & MOVEFILE_REPLACE_EXISTING)
             *p++ = '!';
@@ -212,12 +179,10 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
     rc = NT_SUCCESS(NtSetValueKey(Reboot, &nameW, 0, REG_MULTI_SZ, Buffer + info_size, DataSize - info_size));
 
  Quit:
-    RtlFreeHeap(RtlGetProcessHeap(), 0, source_name.Buffer);
-    if (dest_name.Buffer)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, dest_name.Buffer);
-    NtClose(Reboot);
-    if(Buffer)
-        HeapFree(GetProcessHeap(), 0, Buffer);
+    RtlFreeHeap( RtlGetProcessHeap(), 0, source_name.Buffer );
+    RtlFreeHeap( RtlGetProcessHeap(), 0, dest_name.Buffer );
+    if (Reboot) NtClose(Reboot);
+    HeapFree( GetProcessHeap(), 0, Buffer );
     return(rc);
 }
 
@@ -274,36 +239,27 @@ MoveFileWithProgressW (
            return FALSE;
         }
 
-	FileRename = RtlAllocateHeap(
-		RtlGetProcessHeap(),
-		HEAP_ZERO_MEMORY,
-		sizeof(FILE_RENAME_INFORMATION) + DstPathU.Length);
-	if( !FileRename ) {
-		CloseHandle(hFile);
-		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-		return FALSE;
-	}
-	if( dwFlags & MOVEFILE_REPLACE_EXISTING ) {
+	FileRename = alloca(sizeof(FILE_RENAME_INFORMATION) + DstPathU.Length);
+	if ((dwFlags & MOVEFILE_REPLACE_EXISTING) == MOVEFILE_REPLACE_EXISTING)
 		FileRename->ReplaceIfExists = TRUE;
-	}
-	else {
+	else
 		FileRename->ReplaceIfExists = FALSE;
-	}
-
 
 	memcpy(FileRename->FileName, DstPathU.Buffer, DstPathU.Length);
         RtlFreeHeap (RtlGetProcessHeap (),
 		     0,
 		     DstPathU.Buffer);
-
-	FileRename->FileNameLength = DstPathU.Length;
+	/*
+	 * FIXME:
+	 *   Is the length the count of characters or the length of the buffer?
+	 */
+	FileRename->FileNameLength = DstPathU.Length / sizeof(WCHAR);
 	errCode = NtSetInformationFile (hFile,
 	                                &IoStatusBlock,
 	                                FileRename,
 	                                sizeof(FILE_RENAME_INFORMATION) + DstPathU.Length,
 	                                FileRenameInformation);
 	CloseHandle(hFile);
-	RtlFreeHeap(RtlGetProcessHeap(), 0, FileRename);
 
 	if (GetFileAttributesW(lpExistingFileName) & FILE_ATTRIBUTE_DIRECTORY)
 	{
@@ -331,12 +287,12 @@ MoveFileWithProgressW (
 		                      lpProgressRoutine,
 		                      lpData,
 		                      NULL,
-		                      (dwFlags & MOVEFILE_REPLACE_EXISTING) ? 0 : COPY_FILE_FAIL_IF_EXISTS);
+		                      FileRename->ReplaceIfExists ? 0 : COPY_FILE_FAIL_IF_EXISTS);
  		    if (Result)
 		    {
 			/* Cleanup the source file */			
 	                Result = DeleteFileW (lpExistingFileName);
-		    }
+		    } 
                   }
 		 else
 		 {

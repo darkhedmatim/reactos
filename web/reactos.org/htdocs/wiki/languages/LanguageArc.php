@@ -1,5 +1,5 @@
 <?php
-/** Aramaic ( ܕܥܒܪܸܝܛ )
+/** Aramaic language file ( ܕܥܒܪܸܝܛ )
   *
   * @package MediaWiki
   * @subpackage Language
@@ -8,15 +8,11 @@
 require_once( 'LanguageUtf8.php' );
 
 class LanguageArc extends LanguageUtf8 {
-
-	function getAllMessages() {
-		return null;
-	}
+	#FIXME: inherit almost everything for now
 
 	function isRTL() {
 		return true;
 	}
-
 }
 
 ?>

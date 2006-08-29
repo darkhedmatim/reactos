@@ -4,9 +4,6 @@
 <directory name="3rdparty">
 	<xi:include href="3rdparty/3rdparty.rbuild" />
 </directory>
-<directory name="cmlib">
-	<xi:include href="cmlib/cmlib.rbuild" />
-</directory>
 <directory name="crt">
 	<xi:include href="crt/crt.rbuild" />
 </directory>

@@ -56,7 +56,7 @@ function compressPage( $row, $extdb ) {
 	}
 
 	# Update text row
-	$dbw->update( 'text',
+	$dbw->update( 'text', 
 		array( /* SET */
 			'old_flags' => $flags,
 			'old_text' => $compress
@@ -71,25 +71,16 @@ define( 'LS_INDIVIDUAL', 0 );
 define( 'LS_CHUNKED', 1 );
 
 /** @todo document */
-function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorThreshold, $beginDate,
-	$endDate, $extdb="", $maxPageId = false )
+function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorThreshold, $beginDate, $endDate )
 {
 	$fname = 'compressWithConcat';
 	$loadStyle = LS_CHUNKED;
-
+	
 	$dbr =& wfGetDB( DB_SLAVE );
 	$dbw =& wfGetDB( DB_MASTER );
 
-	# Set up external storage
-	if ( $extdb != '' ) {
-		$storeObj = new ExternalStoreDB;
-	}
-
 	# Get all articles by page_id
-	if ( !$maxPageId ) {
-		$maxPageId = $dbr->selectField( 'page', 'max(page_id)', '', $fname );
-	}
-	print "Starting from $startId of $maxPageId\n";
+	$maxPageId = $dbr->selectField( 'page', 'max(page_id)', '', $fname );
 	$pageConds = array();
 
 	/*
@@ -103,17 +94,14 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 	 */
 
 	# For each article, get a list of revisions which fit the criteria
-	
 	# No recompression, use a condition on old_flags
-	# Don't compress object type entities, because that might produce data loss when
-	# overwriting bulk storage concat rows. Don't compress external references, because
-	# the script doesn't yet delete rows from external storage.
 	$conds = array(
-		"old_flags NOT LIKE '%object%' AND old_flags NOT LIKE '%external%'");
-
+		"old_flags NOT LIKE '%object%' " .
+		" AND (old_flags NOT LIKE '%external%' OR old_text NOT LIKE 'DB://%/%/%')");
+	
 	if ( $beginDate ) {
 		$conds[] = "rev_timestamp>'" . $beginDate . "'";
-	}
+	} 
 	if ( $endDate )  {
 		$conds[] = "rev_timestamp<'" . $endDate . "'";
 	}
@@ -128,23 +116,11 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 		$revLoadOptions = array();
 	}
 
-	# Don't work with current revisions
-	# Don't lock the page table for update either -- TS 2006-04-04
-	#$tables[] = 'page';
-	#$conds[] = 'page_id=rev_page AND rev_id != page_latest';
-
 	$oldReadsSinceLastSlaveWait = 0;	#check slave lag periodically
 	$totalMatchingRevisions = 0;
 	$masterPos = false;
 	for ( $pageId = $startId; $pageId <= $maxPageId; $pageId++ ) {
-		wfWaitForSlaves( 5 );
-
-		# Wake up
-		$dbr->ping();		
-
-		# Get the page row
-		$pageRes = $dbr->select( 'page', 
-			array('page_id', 'page_namespace', 'page_title','page_latest'),
+		$pageRes = $dbr->select( 'page', array('page_id', 'page_namespace', 'page_title'), 
 			$pageConds + array('page_id' => $pageId), $fname );
 		if ( $dbr->numRows( $pageRes ) == 0 ) {
 			continue;
@@ -157,13 +133,7 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 
 		# Load revisions
 		$revRes = $dbw->select( $tables, $fields,
-			array( 
-				'rev_page' => $pageRow->page_id, 
-				# Don't operate on the current revision
-				# Use < instead of <> in case the current revision has changed 
-				# since the page select, which wasn't locking
-				'rev_id < ' . $pageRow->page_latest
-			) + $conds,
+			array( 'rev_page' => $pageRow->page_id ) + $conds, 
 			$fname,
 			$revLoadOptions
 		);
@@ -171,7 +141,7 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 		while ( $revRow = $dbw->fetchObject( $revRes ) ) {
 			$revs[] = $revRow;
 		}
-
+		
 		if ( count( $revs ) < 2) {
 			# No revisions matching, no further processing
 			print "\n";
@@ -192,14 +162,14 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 			$dbw->begin();
 			$usedChunk = false;
 			$primaryOldid = $revs[$i]->rev_text_id;
-
+			
 			# Get the text of each revision and add it to the object
 			for ( $j = 0; $j < $thisChunkSize && $chunk->isHappy( $maxChunkFactor, $factorThreshold ); $j++ ) {
 				$oldid = $revs[$i + $j]->rev_text_id;
-
+				
 				# Get text
 				if ( $loadStyle == LS_INDIVIDUAL ) {
-					$textRow = $dbw->selectRow( 'text',
+					$textRow = $dbw->selectRow( 'text', 
 						array( 'old_flags', 'old_text' ),
 						array( 'old_id' => $oldid ),
 						$fname,
@@ -215,7 +185,7 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 					#$dbw->delete( 'old', array( 'old_id' => $oldid ) );
 				}
 
-				if ( $extdb == "" && $j == 0 ) {
+				if ( $j == 0 ) {
 					$chunk->setText( $text );
 					print '.';
 				} else {
@@ -227,7 +197,8 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 					} else {
 						$stub = $chunk->addItem( $text );
 						$stub->setLocation( $primaryOldid );
-						$stub->setReferrer( $oldid );
+						$hash = $stub->getHash();
+						$stub = serialize( $stub );
 						print '.';
 						$usedChunk = true;
 					}
@@ -235,55 +206,31 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 				}
 			}
 			$thisChunkSize = $j;
-
+			
 			# If we couldn't actually use any stubs because the pages were too small, do nothing
 			if ( $usedChunk ) {
-				if ( $extdb != "" ) {
-					# Move blob objects to External Storage
-					$stored = $storeObj->store( $extdb, serialize( $chunk ));
-					if ($stored === false) {
-						print "Unable to store object\n";
-						return false;
-					}
-					# Store External Storage URLs instead of Stub placeholders
-					foreach ($stubs as $stub) {
-						if ($stub===false)
-							continue;
-						# $stored should provide base path to a BLOB
-						$url = $stored."/".$stub->getHash();
+				# Store the main object
+				$dbw->update( 'text',
+					array( /* SET */
+						'old_text' => serialize( $chunk ),
+						'old_flags' => 'object,utf-8',
+					), array( /* WHERE */
+						'old_id' => $primaryOldid
+					)
+				);
+
+				# Store the stub objects
+				for ( $j = 1; $j < $thisChunkSize; $j++ ) {
+					# Skip if not compressing
+					if ( $stubs[$j] !== false ) {
 						$dbw->update( 'text',
 							array( /* SET */
-								'old_text' => $url,
-								'old_flags' => 'external,utf-8',
-							), array ( /* WHERE */
-								'old_id' => $stub->getReferrer(),
+								'old_text' => $stubs[$j],
+								'old_flags' => 'object,utf-8',
+							), array( /* WHERE */
+								'old_id' => $revs[$i + $j]->rev_text_id
 							)
 						);
-					}
-				} else {
-					# Store the main object locally
-					$dbw->update( 'text',
-						array( /* SET */
-							'old_text' => serialize( $chunk ),
-							'old_flags' => 'object,utf-8',
-						), array( /* WHERE */
-							'old_id' => $primaryOldid
-						)
-					);
-
-					# Store the stub objects
-					for ( $j = 1; $j < $thisChunkSize; $j++ ) {
-						# Skip if not compressing
-						if ( $stubs[$j] !== false ) {
-							$dbw->update( 'text',
-								array( /* SET */
-									'old_text' => serialize($stubs[$j]),
-									'old_flags' => 'object,utf-8',
-								), array( /* WHERE */
-									'old_id' => $revs[$i + $j]->rev_text_id
-								)
-							);
-						}
 					}
 				}
 			}
@@ -291,7 +238,6 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 			print "/";
 			$dbw->commit();
 			$i += $thisChunkSize;
-			wfWaitForSlaves( 5 );
 		}
 		print "\n";
 	}

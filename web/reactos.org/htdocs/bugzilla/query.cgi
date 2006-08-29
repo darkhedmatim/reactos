@@ -28,14 +28,14 @@
 use strict;
 use lib ".";
 
-require "globals.pl";
+require "CGI.pl";
 
 use Bugzilla::Constants;
 use Bugzilla::Search;
 use Bugzilla::User;
-use Bugzilla::Util;
 
 use vars qw(
+    @CheckOptionValues
     @legal_resolution
     @legal_bug_status
     @legal_components
@@ -50,13 +50,12 @@ use vars qw(
     @log_columns
     %versions
     %components
+    $template
+    $vars
 );
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
-my $buffer = $cgi->query_string();
 
 if ($cgi->param("GoAheadAndLogIn")) {
     # We got here from a login page, probably from relogin.cgi.  We better
@@ -66,8 +65,7 @@ if ($cgi->param("GoAheadAndLogIn")) {
     Bugzilla->login();
 }
 
-my $user = Bugzilla->user;
-my $userid = $user->id;
+my $userid = Bugzilla->user->id;
 
 # Backwards compatibility hack -- if there are any of the old QUERY_*
 # cookies around, and we are logged in, then move them into the database
@@ -113,7 +111,7 @@ if ($cgi->param('nukedefaultquery')) {
                  " WHERE userid = ? AND name = ?", 
                  undef, ($userid, DEFAULT_QUERY_NAME));
     }
-    $buffer = "";
+    $::buffer = "";
 }
 
 my $userdefaultquery;
@@ -167,7 +165,7 @@ sub PrefillForm {
         my $name = $el[0];
         my $value;
         if ($#el > 0) {
-            $value = Bugzilla::Util::url_decode($el[1]);
+            $value = url_decode($el[1]);
         } else {
             $value = "";
         }
@@ -201,7 +199,7 @@ sub PrefillForm {
 }
 
 
-if (!PrefillForm($buffer)) {
+if (!PrefillForm($::buffer)) {
     # Ah-hah, there was no form stuff specified.  Do it again with the
     # default query.
     if ($userdefaultquery) {
@@ -220,26 +218,23 @@ GetVersionTable();
 # if using groups for entry, then we don't want people to see products they 
 # don't have access to. Remove them from the list.
 
-my @selectable_product_objects = @{$user->get_selectable_products};
-
+my @products = ();
 my %component_set;
 my %version_set;
 my %milestone_set;
-# extract product names
-my @products = map { $_->name } @selectable_product_objects;
-
-foreach my $prod_name (@products) {
+foreach my $p (GetSelectableProducts()) {
     # We build up boolean hashes in the "-set" hashes for each of these things 
     # before making a list because there may be duplicates names across products.
-    if ($::components{$prod_name}) {
-        foreach my $c (@{$::components{$prod_name}}) {
+    push @products, $p;
+    if ($::components{$p}) {
+        foreach my $c (@{$::components{$p}}) {
             $component_set{$c} = 1;
         }
     }
-    foreach my $v (@{$::versions{$prod_name}}) {
+    foreach my $v (@{$::versions{$p}}) {
         $version_set{$v} = 1;
     }
-    foreach my $m (@{$::target_milestone{$prod_name}}) {
+    foreach my $m (@{$::target_milestone{$p}}) {
         $milestone_set{$m} = 1;
     }
 }
@@ -298,7 +293,18 @@ $vars->{'product'} = \@products;
 
 # Create data structures representing each classification
 if (Param('useclassification')) {
-    $vars->{'classification'} = $user->get_selectable_classifications;
+    my @classifications = ();
+
+    foreach my $c (GetSelectableClassifications()) {
+        # Create hash to hold attributes for each classification.
+        my %classification = (
+            'name'       => $c,
+            'products'   => [ GetSelectableProducts(0,$c) ]
+        );
+        # Assign hash back to classification array.
+        push @classifications, \%classification;
+    }
+    $vars->{'classification'} = \@classifications;
 }
 
 # We use 'component_' because 'component' is a Template Toolkit reserved word.
@@ -376,13 +382,9 @@ for (my $chart = 0; $cgi->param("field$chart-0-0"); $chart++) {
     for (my $row = 0; $cgi->param("field$chart-$row-0"); $row++) {
         my @cols;
         for (my $col = 0; $cgi->param("field$chart-$row-$col"); $col++) {
-            my $value = $cgi->param("value$chart-$row-$col");
-            if (!defined($value)) {
-                $value = '';
-            }
             push(@cols, { field => $cgi->param("field$chart-$row-$col"),
                           type => $cgi->param("type$chart-$row-$col") || 'noop',
-                          value => $value });
+                          value => $cgi->param("value$chart-$row-$col") || '' });
         }
         push(@rows, \@cols);
     }
@@ -395,7 +397,7 @@ $default{'charts'} = \@charts;
 if ($userid) {
      $vars->{'namedqueries'} = $dbh->selectcol_arrayref(
            "SELECT name FROM namedqueries " .
-            "WHERE userid = ? AND name != ? " .
+            "WHERE userid = ? AND name != ?" .
          "ORDER BY name",
          undef, ($userid, DEFAULT_QUERY_NAME));
 }
@@ -430,7 +432,7 @@ $vars->{'default'} = \%default;
 $vars->{'format'} = $cgi->param('format');
 $vars->{'query_format'} = $cgi->param('query_format');
 
-# Set default page to "specific" if none provided
+# Set default page to "specific" if none proviced
 if (!($cgi->param('query_format') || $cgi->param('format'))) {
     if (defined $cgi->cookie('DEFAULTFORMAT')) {
         $vars->{'format'} = $cgi->cookie('DEFAULTFORMAT');
@@ -451,9 +453,9 @@ if (defined($vars->{'format'}) && IsValidQueryType($vars->{'format'})) {
 # If we submit back to ourselves (for e.g. boolean charts), we need to
 # preserve format information; hence query_format taking priority over
 # format.
-my $format = $template->get_format("search/search", 
-                                   $vars->{'query_format'} || $vars->{'format'}, 
-                                   scalar $cgi->param('ctype'));
+my $format = GetFormat("search/search", 
+                       $vars->{'query_format'} || $vars->{'format'}, 
+                       scalar $cgi->param('ctype'));
 
 print $cgi->header($format->{'ctype'});
 

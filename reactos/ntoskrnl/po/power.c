@@ -183,13 +183,6 @@ PoSetDeviceBusy(
 {
 }
 
-VOID
-NTAPI
-PopCleanupPowerState(IN PPOWER_STATE PowerState)
-{
-    /* FIXME */
-}
-
 /*
  * @unimplemented
  */
@@ -305,7 +298,7 @@ PopSetSystemPowerState(
 VOID
 INIT_FUNCTION
 NTAPI
-PoInit(PROS_LOADER_PARAMETER_BLOCK LoaderBlock,
+PoInit(PLOADER_PARAMETER_BLOCK LoaderBlock,
        BOOLEAN ForceAcpiDisable)
 {
   if (ForceAcpiDisable)
@@ -380,6 +373,7 @@ NtPowerInformation(
       Status = STATUS_NOT_IMPLEMENTED;
       DPRINT1("PowerInformationLevel 0x%x is UNIMPLEMENTED! Have a nice day.\n",
               PowerInformationLevel);
+      for (;;);
       break;
    }
 

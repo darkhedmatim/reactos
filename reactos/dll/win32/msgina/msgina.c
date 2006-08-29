@@ -1,6 +1,6 @@
 /*
- *  ReactOS GINA
- *  Copyright (C) 2003-2004, 2006 ReactOS Team
+ *  ReactOS kernel
+ *  Copyright (C) 1998, 1999, 2000, 2001 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,121 +16,88 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * PROJECT:         ReactOS msgina.dll
- * FILE:            dll/win32/msgina/msgina.c
+ * FILE:            lib/msgina/msgina.c
  * PURPOSE:         ReactOS Logon GINA DLL
  * PROGRAMMER:      Thomas Weidenmueller (w3seek@users.sourceforge.net)
- *                  Hervé Poussineau (hpoussin@reactos.org)
+ * UPDATE HISTORY:
+ *      24-11-2003  Created
  */
-
+#include <windows.h>
+#include <winwlx.h>
 #include "msgina.h"
+#include "resource.h"
 
-//#define YDEBUG
 #include <wine/debug.h>
 
 extern HINSTANCE hDllInstance;
 
-extern GINA_UI GinaGraphicalUI;
-extern GINA_UI GinaTextUI;
-static PGINA_UI pGinaUI;
+typedef struct _DISPLAYSTATUSMSG
+{
+  PGINA_CONTEXT Context;
+  HDESK hDesktop;
+  DWORD dwOptions;
+  PWSTR pTitle;
+  PWSTR pMessage;
+  HANDLE StartupEvent;
+} DISPLAYSTATUSMSG, *PDISPLAYSTATUSMSG;
+
+INT_PTR CALLBACK
+LoggedOnDlgProc(
+  HWND hwndDlg,
+  UINT uMsg,
+  WPARAM wParam,
+  LPARAM lParam
+)
+{
+  switch(uMsg)
+  {
+    case WM_COMMAND:
+    {
+      switch(LOWORD(wParam))
+      {
+        case IDYES:
+        case IDNO:
+        {
+          EndDialog(hwndDlg, LOWORD(wParam));
+          break;
+        }
+      }
+      return FALSE;
+    }
+    case WM_INITDIALOG:
+    {
+      SetFocus(GetDlgItem(hwndDlg, IDNO));
+      break;
+    }
+    case WM_CLOSE:
+    {
+      EndDialog(hwndDlg, IDNO);
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 
 /*
  * @implemented
  */
 BOOL WINAPI
 WlxNegotiate(
-	IN DWORD dwWinlogonVersion,
-	OUT PDWORD pdwDllVersion)
+	DWORD  dwWinlogonVersion,
+	PDWORD pdwDllVersion)
 {
-	TRACE("WlxNegotiate(%lx, %p)\n", dwWinlogonVersion, pdwDllVersion);
-
-	if(!pdwDllVersion || (dwWinlogonVersion < WLX_VERSION_1_3))
-		return FALSE;
-
-	*pdwDllVersion = WLX_VERSION_1_3;
-
-	return TRUE;
+  if(!pdwDllVersion || (dwWinlogonVersion < GINA_VERSION))
+    return FALSE;
+  
+  *pdwDllVersion = GINA_VERSION;
+  
+  return TRUE;
 }
 
-static LONG
-ReadRegSzKey(
-	IN HKEY hKey,
-	IN LPCWSTR pszKey,
-	OUT LPWSTR* pValue)
-{
-	LONG rc;
-	DWORD dwType;
-	DWORD cbData = 0;
-	LPWSTR Value;
-
-	rc = RegQueryValueExW(hKey, pszKey, NULL, &dwType, NULL, &cbData);
-	if (rc != ERROR_SUCCESS)
-		return rc;
-	if (dwType != REG_SZ)
-		return ERROR_FILE_NOT_FOUND;
-	Value = HeapAlloc(GetProcessHeap(), 0, cbData + sizeof(WCHAR));
-	if (!Value)
-		return ERROR_NOT_ENOUGH_MEMORY;
-	rc = RegQueryValueExW(hKey, pszKey, NULL, NULL, (LPBYTE)Value, &cbData);
-	if (rc != ERROR_SUCCESS)
-	{
-		HeapFree(GetProcessHeap(), 0, Value);
-		return rc;
-	}
-	/* NULL-terminate the string */
-	Value[cbData / sizeof(WCHAR)] = '\0';
-
-	*pValue = Value;
-	return ERROR_SUCCESS;
-}
-
-static VOID
-ChooseGinaUI(VOID)
-{
-	HKEY ControlKey = NULL;
-	LPWSTR SystemStartOptions = NULL;
-	LPWSTR CurrentOption, NextOption; /* Pointers into SystemStartOptions */
-	BOOL ConsoleBoot = FALSE;
-	LONG rc;
-
-	rc = RegOpenKeyExW(
-		HKEY_LOCAL_MACHINE,
-		L"SYSTEM\\CurrentControlSet\\Control",
-		0,
-		KEY_QUERY_VALUE,
-		&ControlKey);
-
-	rc = ReadRegSzKey(ControlKey, L"SystemStartOptions", &SystemStartOptions);
-	if (rc != ERROR_SUCCESS)
-		goto cleanup;
-
-	/* Check for CMDCONS in SystemStartOptions */
-	CurrentOption = SystemStartOptions;
-	while (CurrentOption)
-	{
-		NextOption = wcschr(CurrentOption, L' ');
-		if (NextOption)
-			*NextOption = L'\0';
-		if (wcsicmp(CurrentOption, L"CMDCONS") == 0)
-		{
-			TRACE("Found %S. Switching to console boot\n", CurrentOption);
-			ConsoleBoot = TRUE;
-			goto cleanup;
-		}
-		CurrentOption = NextOption ? NextOption + 1 : NULL;
-	}
-
-cleanup:
-	if (ConsoleBoot)
-		pGinaUI = &GinaTextUI;
-	else
-		pGinaUI = &GinaGraphicalUI;
-
-	if (ControlKey != NULL)
-		RegCloseKey(ControlKey);
-	HeapFree(GetProcessHeap(), 0, SystemStartOptions);
-}
 
 /*
  * @implemented
@@ -155,7 +122,7 @@ WlxInitialize(
   pgContext->hDllInstance = hDllInstance;
   
   /* save pointer to dispatch table */
-  pgContext->pWlxFuncs = (PWLX_DISPATCH_VERSION_1_3)pWinlogonFunctions;
+  pgContext->pWlxFuncs = (PWLX_DISPATCH_VERSION)pWinlogonFunctions;
   
   /* save the winlogon handle used to call the dispatch functions */
   pgContext->hWlx = hWlx;
@@ -169,14 +136,9 @@ WlxInitialize(
   /* notify winlogon that we will use the default SAS */
   pgContext->pWlxFuncs->WlxUseCtrlAltDel(hWlx);
   
-  /* Locates the authentification package */
-  //LsaRegisterLogonProcess(...);
-
-  pgContext->AutoLogonState = AUTOLOGON_CHECK_REGISTRY;
-
-  ChooseGinaUI();
-  return pGinaUI->Initialize(pgContext);
+  return TRUE;
 }
+
 
 /*
  * @implemented
@@ -189,35 +151,33 @@ WlxStartApplication(
 	PWSTR pszCmdLine)
 {
   PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-  STARTUPINFOW StartupInfo;
-  PROCESS_INFORMATION ProcessInformation;
-  WCHAR CurrentDirectory[MAX_PATH];
+  STARTUPINFO si;
+  PROCESS_INFORMATION pi;
   BOOL Ret;
   
-  StartupInfo.cb = sizeof(STARTUPINFOW);
-  StartupInfo.lpReserved = NULL;
-  StartupInfo.lpTitle = pszCmdLine;
-  StartupInfo.dwX = StartupInfo.dwY = StartupInfo.dwXSize = StartupInfo.dwYSize = 0L;
-  StartupInfo.dwFlags = 0;
-  StartupInfo.wShowWindow = SW_SHOW;  
-  StartupInfo.lpReserved2 = NULL;
-  StartupInfo.cbReserved2 = 0;
-  StartupInfo.lpDesktop = pszDesktopName;
+  si.cb = sizeof(STARTUPINFO);
+  si.lpReserved = NULL;
+  si.lpTitle = pszCmdLine;
+  si.dwX = si.dwY = si.dwXSize = si.dwYSize = 0L;
+  si.dwFlags = 0;
+  si.wShowWindow = SW_SHOW;  
+  si.lpReserved2 = NULL;
+  si.cbReserved2 = 0;
+  si.lpDesktop = pszDesktopName;
   
-  GetWindowsDirectoryW (CurrentDirectory, MAX_PATH);
-  Ret = CreateProcessAsUserW(pgContext->UserToken,
-                            pszCmdLine,
+  Ret = CreateProcessAsUser(pgContext->UserToken,
                             NULL,
+                            pszCmdLine,
                             NULL,
                             NULL,
                             FALSE,
                             CREATE_UNICODE_ENVIRONMENT,
                             pEnvironment,
-                            CurrentDirectory,
-                            &StartupInfo,
-                            &ProcessInformation);
+                            NULL,
+                            &si,
+                            &pi);
   
-  //VirtualFree(pEnvironment, 0, MEM_RELEASE);
+  VirtualFree(pEnvironment, 0, MEM_RELEASE);
   return Ret;
 }
 
@@ -232,11 +192,15 @@ WlxActivateUserShell(
 	PWSTR pszMprLogonScript,
 	PVOID pEnvironment)
 {
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  STARTUPINFO si;
+  PROCESS_INFORMATION pi;
   HKEY hKey;
   DWORD BufSize, ValueType;
   WCHAR pszUserInitApp[MAX_PATH];
   WCHAR pszExpUserInitApp[MAX_PATH];
-  TRACE("WlxActivateUserShell()\n");
+  BOOL Ret;
+  
   /* get the path of userinit */
   if(RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
                   L"SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\Winlogon", 
@@ -246,7 +210,7 @@ WlxActivateUserShell(
     return FALSE;
   }
   BufSize = MAX_PATH * sizeof(WCHAR);
-  if((RegQueryValueExW(hKey, L"Userinit", NULL, &ValueType, (LPBYTE)pszUserInitApp, 
+  if((RegQueryValueEx(hKey, L"Userinit", NULL, &ValueType, (LPBYTE)pszUserInitApp, 
                      &BufSize) != ERROR_SUCCESS) || 
                      !((ValueType == REG_SZ) || (ValueType == REG_EXPAND_SZ)))
   {ERR("GINA: Failed: 2\n");
@@ -255,12 +219,35 @@ WlxActivateUserShell(
     return FALSE;
   }
   RegCloseKey(hKey);
-  ExpandEnvironmentStringsW(pszUserInitApp, pszExpUserInitApp, MAX_PATH);
   
-  /* Start userinit */
+  /* start userinit */
   /* FIXME - allow to start more applications that are comma-separated */
-  /* FIXME: Call VirtualFree(pEnvironment, 0, MEM_RELEASE); ? */
-  return WlxStartApplication(pWlxContext, pszDesktopName, pEnvironment, pszExpUserInitApp);
+  si.cb = sizeof(STARTUPINFO);
+  si.lpReserved = NULL;
+  si.lpTitle = L"userinit";
+  si.dwX = si.dwY = si.dwXSize = si.dwYSize = 0;
+  si.dwFlags = 0;
+  si.wShowWindow = SW_SHOW;  
+  si.lpReserved2 = NULL;
+  si.cbReserved2 = 0;
+  si.lpDesktop = pszDesktopName;
+  
+  ExpandEnvironmentStrings(pszUserInitApp, pszExpUserInitApp, MAX_PATH);
+  
+  Ret = CreateProcessAsUser(pgContext->UserToken,
+                            pszExpUserInitApp,
+                            NULL,
+                            NULL,
+                            NULL,
+                            FALSE,
+                            CREATE_UNICODE_ENVIRONMENT,
+                            pEnvironment,
+                            NULL,
+                            &si,
+                            &pi);
+  if(!Ret) ERR("GINA: Failed: 3\n");
+  VirtualFree(pEnvironment, 0, MEM_RELEASE);
+  return Ret;
 }
 
 
@@ -273,316 +260,303 @@ WlxLoggedOnSAS(
 	DWORD dwSasType,
 	PVOID pReserved)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-	INT SasAction = WLX_SAS_ACTION_NONE;
-
-	TRACE("WlxLoggedOnSAS(0x%lx)\n", dwSasType);
-
-	switch (dwSasType)
-	{
-		case WLX_SAS_TYPE_CTRL_ALT_DEL:
-		case WLX_SAS_TYPE_TIMEOUT:
-		{
-			SasAction = pGinaUI->LoggedOnSAS(pgContext, dwSasType);
-			break;
-		}
-		case WLX_SAS_TYPE_SC_INSERT:
-		{
-			FIXME("WlxLoggedOnSAS: SasType WLX_SAS_TYPE_SC_INSERT not supported!\n");
-			break;
-		}
-		case WLX_SAS_TYPE_SC_REMOVE:
-		{
-			FIXME("WlxLoggedOnSAS: SasType WLX_SAS_TYPE_SC_REMOVE not supported!\n");
-			break;
-		}
-		default:
-		{
-			WARN("WlxLoggedOnSAS: Unknown SasType: 0x%x\n", dwSasType);
-			break;
-		}
-	}
-
-	return SasAction;
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  int SasAction = WLX_SAS_ACTION_NONE;
+  
+  switch(dwSasType)
+  {
+    case WLX_SAS_TYPE_CTRL_ALT_DEL:
+    {
+      int Result;
+      /* display "Are you sure you want to log off?" dialog */
+      Result = pgContext->pWlxFuncs->WlxDialogBoxParam(pgContext->hWlx,
+                                                       pgContext->hDllInstance,
+                                                       (LPTSTR)IDD_LOGOFF_DLG,
+                                                       NULL,
+                                                       LoggedOnDlgProc,
+                                                       (LPARAM)pgContext);
+      if(Result == IDOK)
+      {
+        SasAction = WLX_SAS_ACTION_LOCK_WKSTA;
+      }
+      break;
+    }
+    case WLX_SAS_TYPE_SC_INSERT:
+    {
+      FIXME("WlxLoggedOnSAS: SasType WLX_SAS_TYPE_SC_INSERT not supported!\n");
+      break;
+    }
+    case WLX_SAS_TYPE_SC_REMOVE:
+    {
+      FIXME("WlxLoggedOnSAS: SasType WLX_SAS_TYPE_SC_REMOVE not supported!\n");
+      break;
+    }
+    case WLX_SAS_TYPE_TIMEOUT:
+    {
+      FIXME("WlxLoggedOnSAS: SasType WLX_SAS_TYPE_TIMEOUT not supported!\n");
+      break;
+    }
+    default:
+    {
+      WARN("WlxLoggedOnSAS: Unknown SasType: 0x%x\n", dwSasType);
+      break;
+    }
+  }
+  
+  return SasAction;
 }
+
+
+BOOL 
+CALLBACK 
+StatusMessageWindowProc(
+  HWND hwndDlg,
+  UINT uMsg,
+  WPARAM wParam,
+  LPARAM lParam
+)
+{
+  switch(uMsg)
+  {
+    case WM_INITDIALOG:
+    {
+      PDISPLAYSTATUSMSG msg = (PDISPLAYSTATUSMSG)lParam;
+      if(!msg)
+        return FALSE;
+      
+      msg->Context->hStatusWindow = hwndDlg;
+      
+      if(msg->pTitle)
+        SetWindowText(hwndDlg, msg->pTitle);
+      SetDlgItemText(hwndDlg, IDC_STATUSLABEL, msg->pMessage);
+      if(!msg->Context->SignaledStatusWindowCreated)
+      {
+        msg->Context->SignaledStatusWindowCreated = TRUE;
+        SetEvent(msg->StartupEvent);
+      }
+      break;
+    }
+  }
+  return FALSE;
+}
+
+
+DWORD WINAPI
+StartupWindowThread(LPVOID lpParam)
+{
+  HDESK OldDesk;
+  PDISPLAYSTATUSMSG msg = (PDISPLAYSTATUSMSG)lpParam;
+  
+  OldDesk = GetThreadDesktop(GetCurrentThreadId());
+  
+  if(!SetThreadDesktop(msg->hDesktop))
+  {
+    HeapFree(GetProcessHeap(), 0, lpParam);
+    return FALSE;
+  }
+  DialogBoxParam(hDllInstance, 
+                 MAKEINTRESOURCE(IDD_STATUSWINDOW),
+                 0,
+                 StatusMessageWindowProc,
+                 (LPARAM)lpParam);
+  SetThreadDesktop(OldDesk);
+  
+  msg->Context->hStatusWindow = 0;
+  msg->Context->SignaledStatusWindowCreated = FALSE;
+  
+  HeapFree(GetProcessHeap(), 0, lpParam);
+  return TRUE;
+}
+
 
 /*
  * @implemented
  */
 BOOL WINAPI
 WlxDisplayStatusMessage(
-	IN PVOID pWlxContext,
-	IN HDESK hDesktop,
-	IN DWORD dwOptions,
-	IN PWSTR pTitle,
-	IN PWSTR pMessage)
+	PVOID pWlxContext,
+	HDESK hDesktop,
+	DWORD dwOptions,
+	PWSTR pTitle,
+	PWSTR pMessage)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-
-	TRACE("WlxDisplayStatusMessage(\"%S\")\n", pMessage);
-
-	return pGinaUI->DisplayStatusMessage(pgContext, hDesktop, dwOptions, pTitle, pMessage);
+  PDISPLAYSTATUSMSG msg;
+  HANDLE Thread;
+  DWORD ThreadId;
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  
+  if(!pgContext->hStatusWindow)
+  {
+    msg = (PDISPLAYSTATUSMSG)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(DISPLAYSTATUSMSG));
+    if(!msg)
+      return FALSE;
+    
+    msg->Context = pgContext;
+    msg->dwOptions = dwOptions;
+    msg->pTitle = pTitle;
+    msg->pMessage = pMessage;
+    msg->hDesktop = hDesktop;
+    
+    msg->StartupEvent = CreateEvent(NULL,
+                                    TRUE,
+                                    FALSE,
+                                    NULL);
+    
+    if(!msg->StartupEvent)
+      return FALSE;
+    
+    Thread = CreateThread(NULL,
+                          0,
+                          StartupWindowThread,
+                          (PVOID)msg,
+                          0,
+                          &ThreadId);
+    if(Thread)
+    {
+      CloseHandle(Thread);
+      WaitForSingleObject(msg->StartupEvent, INFINITE);
+      CloseHandle(msg->StartupEvent);
+      return TRUE;
+    }
+    
+    return FALSE;
+  }
+  
+  if(pTitle)
+    SetWindowText(pgContext->hStatusWindow, pTitle);
+  
+  SetDlgItemText(pgContext->hStatusWindow, IDC_STATUSLABEL, pMessage);
+  
+  return TRUE;
 }
+
 
 /*
  * @implemented
  */
 BOOL WINAPI
 WlxRemoveStatusMessage(
-	IN PVOID pWlxContext)
+	PVOID pWlxContext)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-
-	TRACE("WlxRemoveStatusMessage()\n");
-
-	return pGinaUI->RemoveStatusMessage(pgContext);
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  if(pgContext->hStatusWindow)
+  {
+    EndDialog(pgContext->hStatusWindow, 0);
+    pgContext->hStatusWindow = 0;
+  }
+  
+  return TRUE;
 }
 
-static PWSTR
-DuplicationString(PWSTR Str)
-{
-	DWORD cb;
-	PWSTR NewStr;
-
-	if (Str == NULL) return NULL;
-
-	cb = (wcslen(Str) + 1) * sizeof(WCHAR);
-	if ((NewStr = LocalAlloc(LMEM_FIXED, cb)))
-		memcpy(NewStr, Str, cb);
-	return NewStr;
-}
-
-BOOL
-DoLoginTasks(
-	IN OUT PGINA_CONTEXT pgContext,
-	IN PWSTR UserName,
-	IN PWSTR Domain,
-	IN PWSTR Password)
-{
-	TOKEN_STATISTICS Stats;
-	DWORD cbStats;
-
-	if (!LogonUserW(UserName, Domain, Password,
-		LOGON32_LOGON_INTERACTIVE, /* FIXME - use LOGON32_LOGON_UNLOCK instead! */
-		LOGON32_PROVIDER_DEFAULT,
-		&pgContext->UserToken))
-	{
-		WARN("LogonUserW() failed\n");
-		return FALSE;
-	}
-
-	if (!pgContext->UserToken)
-	{
-		WARN("UserToken == NULL!\n");
-		return FALSE;
-	}
-
-	*pgContext->pdwOptions = 0;
-	*pgContext->pProfile = NULL;
-
-	if (!GetTokenInformation(pgContext->UserToken,
-		TokenStatistics,
-		(PVOID)&Stats,
-		sizeof(TOKEN_STATISTICS),
-		&cbStats))
-	{
-		WARN("Couldn't get Authentication id from user token!\n");
-		return FALSE;
-	}
-	*pgContext->pAuthenticationId = Stats.AuthenticationId; 
-	pgContext->pNprNotifyInfo->pszUserName = DuplicationString(UserName);
-	pgContext->pNprNotifyInfo->pszDomain = DuplicationString(Domain);
-	pgContext->pNprNotifyInfo->pszPassword = DuplicationString(Password);
-	pgContext->pNprNotifyInfo->pszOldPassword = NULL;
-	return TRUE;
-}
-
-static BOOL
-DoAutoLogon(
-	IN PGINA_CONTEXT pgContext)
-{
-	HKEY WinLogonKey = NULL;
-	LPWSTR AutoLogon = NULL;
-	LPWSTR AutoCount = NULL;
-	LPWSTR IgnoreShiftOverride = NULL;
-	LPWSTR UserName = NULL;
-	LPWSTR DomainName = NULL;
-	LPWSTR Password = NULL;
-	BOOL result = FALSE;
-	LONG rc;
-
-	TRACE("DoAutoLogon(): AutoLogonState = %lu\n",
-		pgContext->AutoLogonState);
-
-	if (pgContext->AutoLogonState == AUTOLOGON_DISABLED)
-		return FALSE;
-
-	rc = RegOpenKeyExW(
-		HKEY_LOCAL_MACHINE,
-		L"SOFTWARE\\ReactOS\\Windows NT\\CurrentVersion\\WinLogon",
-		0,
-		KEY_QUERY_VALUE,
-		&WinLogonKey);
-	if (rc != ERROR_SUCCESS)
-		goto cleanup;
-
-	if (pgContext->AutoLogonState == AUTOLOGON_CHECK_REGISTRY)
-	{
-		/* Set it by default to disabled, we might reenable it again later */
-		pgContext->AutoLogonState = AUTOLOGON_DISABLED;
-
-		rc = ReadRegSzKey(WinLogonKey, L"AutoAdminLogon", &AutoLogon);
-		if (rc != ERROR_SUCCESS)
-			goto cleanup;
-		if (wcscmp(AutoLogon, L"1") != 0)
-			goto cleanup;
-
-		rc = ReadRegSzKey(WinLogonKey, L"AutoLogonCount", &AutoCount);
-		if (rc == ERROR_SUCCESS && wcscmp(AutoCount, L"0") == 0)
-			goto cleanup;
-		else if (rc != ERROR_FILE_NOT_FOUND)
-			goto cleanup;
-
-		rc = ReadRegSzKey(WinLogonKey, L"IgnoreShiftOverride", &UserName);
-		if (rc == ERROR_SUCCESS)
-		{
-			if (wcscmp(AutoLogon, L"1") != 0 && GetKeyState(VK_SHIFT) < 0)
-				goto cleanup;
-		}
-		else if (GetKeyState(VK_SHIFT) < 0)
-		{
-			/* User pressed SHIFT */
-			goto cleanup;
-		}
-
-		pgContext->AutoLogonState = AUTOLOGON_ONCE;
-		result = TRUE;
-	}
-	else /* pgContext->AutoLogonState == AUTOLOGON_ONCE */
-	{
-		pgContext->AutoLogonState = AUTOLOGON_DISABLED;
-
-		rc = ReadRegSzKey(WinLogonKey, L"DefaultUserName", &UserName);
-		if (rc != ERROR_SUCCESS)
-			goto cleanup;
-		rc = ReadRegSzKey(WinLogonKey, L"DefaultDomainName", &DomainName);
-		if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND)
-			goto cleanup;
-		rc = ReadRegSzKey(WinLogonKey, L"DefaultPassword", &Password);
-		if (rc != ERROR_SUCCESS)
-			goto cleanup;
-
-		result = DoLoginTasks(pgContext, UserName, DomainName, Password);
-	}
-
-cleanup:
-	if (WinLogonKey != NULL)
-		RegCloseKey(WinLogonKey);
-	HeapFree(GetProcessHeap(), 0, AutoLogon);
-	HeapFree(GetProcessHeap(), 0, AutoCount);
-	HeapFree(GetProcessHeap(), 0, IgnoreShiftOverride);
-	HeapFree(GetProcessHeap(), 0, UserName);
-	HeapFree(GetProcessHeap(), 0, DomainName);
-	HeapFree(GetProcessHeap(), 0, Password);
-	TRACE("DoAutoLogon(): AutoLogonState = %lu, returning %d\n",
-		pgContext->AutoLogonState, result);
-	return result;
-}
 
 /*
  * @implemented
  */
 VOID WINAPI
 WlxDisplaySASNotice(
-	IN PVOID pWlxContext)
+	PVOID pWlxContext)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-
-	TRACE("WlxDisplaySASNotice(%p)\n", pWlxContext);
-
-	if (GetSystemMetrics(SM_REMOTESESSION))
-	{
-		/* User is remotely logged on. Don't display a notice */
-		pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
-		return;
-	}
-
-	if (DoAutoLogon(pgContext))
-	{
-		/* Don't display the window, we want to do an automatic logon */
-		pgContext->AutoLogonState = AUTOLOGON_ONCE;
-		pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
-		return;
-	}
-	else
-		pgContext->AutoLogonState = AUTOLOGON_DISABLED;
-
-	pGinaUI->DisplaySASNotice(pgContext);
-
-	TRACE("WlxDisplaySASNotice() done\n");
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
 }
 
-/*
- * @implemented
- */
-INT WINAPI
-WlxLoggedOutSAS(
-	IN PVOID pWlxContext,
-	IN DWORD dwSasType,
-	OUT PLUID pAuthenticationId,
-	IN OUT PSID pLogonSid,
-	OUT PDWORD pdwOptions,
-	OUT PHANDLE phToken,
-	OUT PWLX_MPR_NOTIFY_INFO pNprNotifyInfo,
-	OUT PVOID *pProfile)
+
+static PWSTR
+DuplicationString(PWSTR Str)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-	INT res;
+  DWORD cb;
+  PWSTR NewStr;
 
-	TRACE("WlxLoggedOutSAS()\n");
-
-	pgContext->pAuthenticationId = pAuthenticationId;
-	pgContext->pdwOptions = pdwOptions;
-	pgContext->pNprNotifyInfo = pNprNotifyInfo;
-	pgContext->pProfile = pProfile;
-
-	if (!GetSystemMetrics(SM_REMOTESESSION) &&
-	    DoAutoLogon(pgContext))
-	{
-		/* User is local and registry contains information
-		 * to log on him automatically */
-		*phToken = pgContext->UserToken;
-		return WLX_SAS_ACTION_LOGON;
-	}
-
-	res = pGinaUI->LoggedOutSAS(pgContext);
-	*phToken = pgContext->UserToken;
-	return res;
+  cb = (wcslen(Str) + 1) * sizeof(WCHAR);
+  if((NewStr = LocalAlloc(LMEM_FIXED, cb)))
+  {
+    memcpy(NewStr, Str, cb);
+  }
+  return NewStr;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 int WINAPI
-WlxWkstaLockedSAS(
-	PVOID pWlxContext,
-	DWORD dwSasType)
+WlxLoggedOutSAS(
+	PVOID                pWlxContext,
+	DWORD                dwSasType,
+	PLUID                pAuthenticationId,
+	PSID                 pLogonSid,
+	PDWORD               pdwOptions,
+	PHANDLE              phToken,
+	PWLX_MPR_NOTIFY_INFO pNprNotifyInfo,
+	PVOID                *pProfile)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  TOKEN_STATISTICS Stats;
+  DWORD cbStats;
 
-	TRACE("WlxWkstaLockedSAS()\n");
+  if(!phToken)
+  {
+    WARN("msgina: phToken == NULL!\n");
+    return WLX_SAS_ACTION_NONE;
+  }
 
-	return pGinaUI->LockedSAS(pgContext);
+  if(!LogonUser(L"Administrator", NULL, L"Secrect",
+                LOGON32_LOGON_INTERACTIVE, /* FIXME - use LOGON32_LOGON_UNLOCK instead! */
+                LOGON32_PROVIDER_DEFAULT,
+                phToken))
+  {
+    WARN("msgina: Logonuser() failed\n");
+    return WLX_SAS_ACTION_NONE;
+  }
+  
+  if(!(*phToken))
+  {
+    WARN("msgina: *phToken == NULL!\n");
+    return WLX_SAS_ACTION_NONE;
+  }
+
+  pgContext->UserToken =*phToken;
+  
+  *pdwOptions = 0;
+  *pProfile =NULL; 
+  
+  if(!GetTokenInformation(*phToken,
+                          TokenStatistics,
+                          (PVOID)&Stats,
+                          sizeof(TOKEN_STATISTICS),
+                          &cbStats))
+  {
+    WARN("msgina: Couldn't get Autentication id from user token!\n");
+    return WLX_SAS_ACTION_NONE;
+  }
+  *pAuthenticationId = Stats.AuthenticationId; 
+  pNprNotifyInfo->pszUserName = DuplicationString(L"Administrator");
+  pNprNotifyInfo->pszDomain = NULL;
+  pNprNotifyInfo->pszPassword = DuplicationString(L"Secret");
+  pNprNotifyInfo->pszOldPassword = NULL;
+
+  return WLX_SAS_ACTION_LOGON;
 }
 
-BOOL WINAPI
+
+BOOL STDCALL
 DllMain(
-	IN HINSTANCE hinstDLL,
-	IN DWORD dwReason,
-	IN LPVOID lpvReserved)
+	HINSTANCE hinstDLL,
+	DWORD     dwReason,
+	LPVOID    lpvReserved)
 {
-	if (dwReason == DLL_PROCESS_ATTACH)
-		hDllInstance = hinstDLL;
-
-	return TRUE;
+  switch (dwReason)
+  {
+    case DLL_PROCESS_ATTACH:
+      /* fall through */
+    case DLL_THREAD_ATTACH:
+      hDllInstance = hinstDLL;
+      break;
+    case DLL_THREAD_DETACH:
+      break;
+    case DLL_PROCESS_DETACH:
+      break;
+  }
+  return TRUE;
 }
+

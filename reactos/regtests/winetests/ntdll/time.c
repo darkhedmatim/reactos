@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "ntdll_test.h"
@@ -43,7 +43,7 @@ static inline int IsLeapYear(int Year)
 /* start time of the tests */
 TIME_FIELDS tftest = {1889,12,31,23,59,59,0,0};
 
-static void test_pRtlTimeToTimeFields(void)
+static void test_pRtlTimeToTimeFields()
 {
     LARGE_INTEGER litime , liresult;
     TIME_FIELDS tfresult;

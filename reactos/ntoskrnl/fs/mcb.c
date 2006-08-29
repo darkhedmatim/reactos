@@ -1,21 +1,15 @@
 /* $Id$
  *
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/fs/mcb.c
  * PURPOSE:         No purpose listed.
  *
  * PROGRAMMERS:     No programmer listed.
  */
 
-/* INCLUDES ****************************************************************/
-
 #include <ntoskrnl.h>
-
-#define NDEBUG
 #include <internal/debug.h>
-
-/* FUNCTIONS *****************************************************************/
 
 /**********************************************************************
  * NAME							EXPORTED
@@ -30,15 +24,14 @@
  *
  * @unimplemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
-                      IN LONGLONG Vbn,
-                      IN LONGLONG Lbn,
-                      IN LONGLONG SectorCount)
+		      IN LONGLONG Vbn,
+		      IN LONGLONG Lbn,
+		      IN LONGLONG SectorCount)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 /*
@@ -46,234 +39,232 @@ FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
  *
  * @implemented
  */
-BOOLEAN
-NTAPI
-FsRtlAddMcbEntry(IN PMCB     Mcb,
-                 IN VBN      Vbn,
-                 IN LBN      Lbn,
-                 IN ULONG    SectorCount)
+BOOLEAN STDCALL
+FsRtlAddMcbEntry (IN PMCB     Mcb,
+		  IN VBN      Vbn,
+		  IN LBN      Lbn,
+		  IN ULONG    SectorCount)
 {
-    return FsRtlAddLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
-                                 (LONGLONG)Vbn,
-                                 (LONGLONG)Lbn,
-                                 (LONGLONG)SectorCount);
+  return FsRtlAddLargeMcbEntry(& Mcb->DummyFieldThatSizesThisStructureCorrectly,
+			       (LONGLONG) Vbn,
+			       (LONGLONG) Lbn,
+			       (LONGLONG) SectorCount);
 }
 
 /*
  * @unimplemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
-                          IN ULONG RunIndex,
-                          OUT PLONGLONG Vbn,
-                          OUT PLONGLONG Lbn,
-                          OUT PLONGLONG SectorCount)
+			  IN ULONG RunIndex,
+			  OUT PLONGLONG Vbn,
+			  OUT PLONGLONG Lbn,
+			  OUT PLONGLONG SectorCount)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
-FsRtlGetNextMcbEntry(IN PMCB     Mcb,
-                     IN ULONG    RunIndex,
-                     OUT PVBN    Vbn,
-                     OUT PLBN    Lbn,
-                     OUT PULONG  SectorCount)
+BOOLEAN STDCALL
+FsRtlGetNextMcbEntry (IN PMCB     Mcb,
+		      IN ULONG    RunIndex,
+		      OUT PVBN    Vbn,
+		      OUT PLBN    Lbn,
+		      OUT PULONG  SectorCount)
 {
-    BOOLEAN Return = FALSE;
-    LONGLONG llVbn;
-    LONGLONG llLbn;
-    LONGLONG llSectorCount;
+  BOOLEAN Return = FALSE;
+  LONGLONG llVbn;
+  LONGLONG llLbn;
+  LONGLONG llSectorCount;
 
-    /* Call the Large version */
-    Return = FsRtlGetNextLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
-                                       RunIndex,
-                                       &llVbn,
-                                       &llLbn,
-                                       &llSectorCount);
+  /* Call the Large version */
+  Return = FsRtlGetNextLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
+                                     RunIndex,
+                                     &llVbn,
+                                     &llLbn,
+                                     &llSectorCount);
 
-    /* Return everything typecasted */
-    *Vbn = (ULONG)llVbn;
-    *Lbn = (ULONG)llLbn;
-    *SectorCount = (ULONG)llSectorCount;
+  /* Return everything typecasted */
+  *Vbn = (ULONG)llVbn;
+  *Lbn = (ULONG)llLbn;
+  *SectorCount = (ULONG)llSectorCount;
 
-    /* And return the original value */
-    return(Return);
+  /* And return the original value */
+  return(Return);
 }
 
 
 /*
  * @unimplemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlInitializeLargeMcb(IN PLARGE_MCB Mcb,
-                        IN POOL_TYPE PoolType)
+			IN POOL_TYPE PoolType)
 {
-    UNIMPLEMENTED;
-    Mcb->PoolType = PoolType;
+  UNIMPLEMENTED;
+  Mcb->PoolType = PoolType;
 }
 
 /*
  * FsRtlInitializeMcb: Obsolete
  * @implemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlInitializeMcb (IN PMCB         Mcb,
-                    IN POOL_TYPE    PoolType)
+		    IN POOL_TYPE    PoolType)
 {
-    FsRtlInitializeLargeMcb(& Mcb->DummyFieldThatSizesThisStructureCorrectly, PoolType);
+  FsRtlInitializeLargeMcb(& Mcb->DummyFieldThatSizesThisStructureCorrectly, PoolType);
 }
+
 
 /*
  * @unimplemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
-                         IN LONGLONG Vbn,
-                         OUT PLONGLONG Lbn OPTIONAL,
-                         OUT PLONGLONG SectorCountFromLbn OPTIONAL,
-                         OUT PLONGLONG StartingLbn OPTIONAL,
-                         OUT PLONGLONG SectorCountFromStartingLbn OPTIONAL,
-                         OUT PULONG Index OPTIONAL)
+			 IN LONGLONG Vbn,
+			 OUT PLONGLONG Lbn OPTIONAL,
+			 OUT PLONGLONG SectorCountFromLbn OPTIONAL,
+			 OUT PLONGLONG StartingLbn OPTIONAL,
+			 OUT PLONGLONG SectorCountFromStartingLbn OPTIONAL,
+			 OUT PULONG Index OPTIONAL)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 BOOLEAN
-NTAPI
-FsRtlLookupLastLargeMcbEntryAndIndex(IN PLARGE_MCB OpaqueMcb,
-                                     OUT PLONGLONG LargeVbn,
-                                     OUT PLONGLONG LargeLbn,
-                                     OUT PULONG Index)
+STDCALL
+FsRtlLookupLastLargeMcbEntryAndIndex (
+    IN PLARGE_MCB OpaqueMcb,
+    OUT PLONGLONG LargeVbn,
+    OUT PLONGLONG LargeLbn,
+    OUT PULONG Index
+    )
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 PFSRTL_PER_STREAM_CONTEXT
-NTAPI
-FsRtlLookupPerStreamContextInternal(IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
-                                    IN PVOID OwnerId OPTIONAL,
-                                    IN PVOID InstanceId OPTIONAL)
+STDCALL
+FsRtlLookupPerStreamContextInternal (
+    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
+    IN PVOID OwnerId OPTIONAL,
+    IN PVOID InstanceId OPTIONAL
+    )
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-NTAPI
-FsRtlLookupPerFileObjectContext(IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
+STDCALL
+FsRtlLookupPerFileObjectContext (
+    IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
     IN PVOID OwnerId OPTIONAL,
-    IN PVOID InstanceId OPTIONAL)
+    IN PVOID InstanceId OPTIONAL
+    )
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlLookupLastLargeMcbEntry(IN PLARGE_MCB Mcb,
-                             OUT PLONGLONG Vbn,
-                             OUT PLONGLONG Lbn)
+			     OUT PLONGLONG Vbn,
+			     OUT PLONGLONG Lbn)
 {
-    UNIMPLEMENTED;
-    return(FALSE);
+  UNIMPLEMENTED;
+  return(FALSE);
 }
+
 
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlLookupLastMcbEntry(IN PMCB Mcb,
                         OUT PVBN Vbn,
                         OUT PLBN Lbn)
 {
-    BOOLEAN Return = FALSE;
-    LONGLONG llVbn;
-    LONGLONG llLbn;
+  BOOLEAN Return = FALSE;
+  LONGLONG llVbn;
+  LONGLONG llLbn;
 
-    /* Call the Large version */
-    Return = FsRtlLookupLastLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
-        &llVbn,
-        &llLbn);
+  /* Call the Large version */
+  Return = FsRtlLookupLastLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
+                                        &llVbn,
+                                        &llLbn);
 
-    /* Return everything typecasted */
-    *Vbn = (ULONG)llVbn;
-    *Lbn = (ULONG)llLbn;
+  /* Return everything typecasted */
+  *Vbn = (ULONG)llVbn;
+  *Lbn = (ULONG)llLbn;
 
-    /* And return the original value */
-    return(Return);
+  /* And return the original value */
+  return(Return);
 }
+
 
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlLookupMcbEntry(IN PMCB Mcb,
                     IN VBN Vbn,
                     OUT PLBN Lbn,
                     OUT PULONG SectorCount OPTIONAL,
                     OUT PULONG Index)
 {
-    BOOLEAN Return = FALSE;
-    LONGLONG llLbn;
-    LONGLONG llSectorCount;
+  BOOLEAN Return = FALSE;
+  LONGLONG llLbn;
+  LONGLONG llSectorCount;
 
-    /* Call the Large version */
-    Return = FsRtlLookupLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
-                                      (LONGLONG)Vbn,
-                                      &llLbn,
-                                      &llSectorCount,
-                                      NULL,
-                                      NULL,
-                                      Index);
+  /* Call the Large version */
+  Return = FsRtlLookupLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
+                                    (LONGLONG)Vbn,
+                                    &llLbn,
+                                    &llSectorCount,
+                                    NULL,
+                                    NULL,
+                                    Index);
 
-    /* Return everything typecasted */
-    *Lbn = (ULONG)llLbn;
-    if (SectorCount) *SectorCount = (ULONG)llSectorCount;
+  /* Return everything typecasted */
+  *Lbn = (ULONG)llLbn;
+  if (SectorCount) *SectorCount = (ULONG)llSectorCount;
 
-    /* And return the original value */
-    return(Return);
+  /* And return the original value */
+  return(Return);
 }
+
 
 /*
  * @implemented
  */
-ULONG
-NTAPI
+ULONG STDCALL
 FsRtlNumberOfRunsInLargeMcb(IN PLARGE_MCB Mcb)
 {
-    ULONG NumberOfRuns;
-
-    ExAcquireFastMutex(Mcb->FastMutex);
-    NumberOfRuns = Mcb->PairCount;
-    ExReleaseFastMutex(Mcb->FastMutex);
-
-    return NumberOfRuns;
+  ULONG NumberOfRuns;
+  ExAcquireFastMutex (Mcb->FastMutex);
+  NumberOfRuns = Mcb->PairCount;
+  ExReleaseFastMutex (Mcb->FastMutex);
+  return(NumberOfRuns);
 }
 
 
@@ -282,34 +273,32 @@ FsRtlNumberOfRunsInLargeMcb(IN PLARGE_MCB Mcb)
  *
  * @implemented
  */
-ULONG
-NTAPI
+ULONG STDCALL
 FsRtlNumberOfRunsInMcb (IN PMCB Mcb)
 {
-    return FsRtlNumberOfRunsInLargeMcb(&Mcb->DummyFieldThatSizesThisStructureCorrectly);
+  return FsRtlNumberOfRunsInLargeMcb(& Mcb->DummyFieldThatSizesThisStructureCorrectly);
 }
 
 
 /*
  * @unimplemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlRemoveLargeMcbEntry(IN PLARGE_MCB Mcb,
-                         IN LONGLONG Vbn,
-                         IN LONGLONG SectorCount)
+			 IN LONGLONG Vbn,
+			 IN LONGLONG SectorCount)
 {
-    UNIMPLEMENTED;
+  UNIMPLEMENTED;
 }
+
 
 /*
  * @implemented
  */
-VOID
-NTAPI
-FsRtlRemoveMcbEntry(IN PMCB     Mcb,
-                    IN VBN      Vbn,
-                    IN ULONG    SectorCount)
+VOID STDCALL
+FsRtlRemoveMcbEntry (IN PMCB     Mcb,
+		     IN VBN      Vbn,
+		     IN ULONG    SectorCount)
 {
     /* Call the large function */
       return FsRtlRemoveLargeMcbEntry(&Mcb->DummyFieldThatSizesThisStructureCorrectly,
@@ -322,58 +311,59 @@ FsRtlRemoveMcbEntry(IN PMCB     Mcb,
  * @unimplemented
  */
 VOID
-NTAPI
-FsRtlResetLargeMcb(IN PLARGE_MCB Mcb,
-                   IN BOOLEAN SelfSynchronized)
+STDCALL
+FsRtlResetLargeMcb (
+    IN PLARGE_MCB Mcb,
+    IN BOOLEAN SelfSynchronized
+    )
 {
-    UNIMPLEMENTED;
+  UNIMPLEMENTED;
 }
 
 /*
  * @unimplemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN STDCALL
 FsRtlSplitLargeMcb(IN PLARGE_MCB Mcb,
-                   IN LONGLONG Vbn,
-                   IN LONGLONG Amount)
+		   IN LONGLONG Vbn,
+		   IN LONGLONG Amount)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  UNIMPLEMENTED;
+  return(FALSE);
 }
+
 
 /*
  * @unimplemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlTruncateLargeMcb(IN PLARGE_MCB Mcb,
-                      IN LONGLONG Vbn)
+		      IN LONGLONG Vbn)
 {
-    UNIMPLEMENTED;
+  UNIMPLEMENTED;
 }
+
 
 /*
  * FsRtlTruncateMcb: Obsolete
  *
  * @implemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlTruncateMcb (IN PMCB Mcb,
-                  IN VBN  Vbn)
+		  IN VBN  Vbn)
 {
-    FsRtlTruncateLargeMcb(&Mcb->DummyFieldThatSizesThisStructureCorrectly, (LONGLONG)Vbn);
+  FsRtlTruncateLargeMcb (& Mcb->DummyFieldThatSizesThisStructureCorrectly, (LONGLONG) Vbn);
 }
+
 
 /*
  * @unimplemented
  */
-VOID
-NTAPI
+VOID STDCALL
 FsRtlUninitializeLargeMcb(IN PLARGE_MCB Mcb)
 {
-    UNIMPLEMENTED;
+  UNIMPLEMENTED;
 }
 
 /*
@@ -381,11 +371,12 @@ FsRtlUninitializeLargeMcb(IN PLARGE_MCB Mcb)
  *
  * @implemented
  */
-VOID
-NTAPI
-FsRtlUninitializeMcb(IN PMCB Mcb)
+VOID STDCALL
+FsRtlUninitializeMcb (IN PMCB Mcb)
 {
-    FsRtlUninitializeLargeMcb(& Mcb->DummyFieldThatSizesThisStructureCorrectly);
+  FsRtlUninitializeLargeMcb(& Mcb->DummyFieldThatSizesThisStructureCorrectly);
 }
 
+
 /* EOF */
+

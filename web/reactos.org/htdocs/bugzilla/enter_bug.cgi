@@ -41,19 +41,22 @@ use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::Bug;
 use Bugzilla::User;
-use Bugzilla::Product;
-require "globals.pl";
+require "CGI.pl";
 
 use vars qw(
+  $template
+  $vars
   @enterable_products
   @legal_opsys
   @legal_platform
   @legal_priority
   @legal_severity
   @legal_keywords
+  $userid
   %versions
   %target_milestone
   $proddesc
+  $classdesc
 );
 
 # If we're using bug groups to restrict bug entry, we need to know who the 
@@ -64,8 +67,6 @@ my $cloned_bug;
 my $cloned_bug_id;
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
 
 my $product = $cgi->param('product');
 
@@ -73,50 +74,53 @@ if (!defined $product || $product eq "") {
     GetVersionTable();
     Bugzilla->login();
 
-    if ( ! Param('useclassification') ) {
-        # Just use a fake value for the Classification.
-        $cgi->param(-name => 'classification', 
-                    -value => '__all');
-    }
+   if ( ! Param('useclassification') ) {
+      # just pick the default one
+      $cgi->param(-name => 'classification', -value => (keys %::classdesc)[0]);
+   }
 
-    if (!$cgi->param('classification')) {
-        my $classifications = Bugzilla->user->get_selectable_classifications();
-        foreach my $classification (@$classifications) {
-            my $found = 0;
-            foreach my $p (@enterable_products) {
-               if (Bugzilla->user->can_enter_product($p)
-                   && IsInClassification($classification->{name},$p)) {
-                       $found = 1; 
-               }
-            }
-            if ($found == 0) {
-                @$classifications = grep($_->{name} ne $classification->{name},
-                                         @$classifications);
-            }
-        }
+   if (!$cgi->param('classification')) {
+       my %classdesc;
+       my %classifications;
+    
+       foreach my $c (GetSelectableClassifications()) {
+           my $found = 0;
+           foreach my $p (@enterable_products) {
+              if (CanEnterProduct($p)
+                  && IsInClassification($c,$p)) {
+                      $found = 1;
+              }
+           }
+           if ($found) {
+               $classdesc{$c} = $::classdesc{$c};
+               $classifications{$c} = $::classifications{$c};
+           }
+       }
 
-        if (scalar(@$classifications) == 0) {
-            ThrowUserError("no_products");
-        } 
-        elsif (scalar(@$classifications) > 1) {
-            $vars->{'classifications'} = $classifications;
+       my $classification_size = scalar(keys %classdesc);
+       if ($classification_size == 0) {
+           ThrowUserError("no_products");
+       } 
+       elsif ($classification_size > 1) {
+           $vars->{'classdesc'} = \%classdesc;
+           $vars->{'classifications'} = \%classifications;
 
-            $vars->{'target'} = "enter_bug.cgi";
-            $vars->{'format'} = $cgi->param('format');
+           $vars->{'target'} = "enter_bug.cgi";
+           $vars->{'format'} = $cgi->param('format');
            
-            $vars->{'cloned_bug_id'} = $cgi->param('cloned_bug_id');
+           $vars->{'cloned_bug_id'} = $cgi->param('cloned_bug_id');
 
-            print $cgi->header();
-            $template->process("global/choose-classification.html.tmpl", $vars)
-               || ThrowTemplateError($template->error());
-            exit;        
-        }
-        $cgi->param(-name => 'classification', -value => @$classifications[0]->name);
-    }
+           print $cgi->header();
+           $template->process("global/choose-classification.html.tmpl", $vars)
+             || ThrowTemplateError($template->error());
+           exit;        
+       }
+       $cgi->param(-name => 'classification', -value => (keys %classdesc)[0]);
+   }
 
     my %products;
     foreach my $p (@enterable_products) {
-        if (Bugzilla->user->can_enter_product($p)) {
+        if (CanEnterProduct($p)) {
             if (IsInClassification(scalar $cgi->param('classification'),$p) ||
                 $cgi->param('classification') eq "__all") {
                 $products{$p} = $::proddesc{$p};
@@ -141,6 +145,7 @@ if (!defined $product || $product eq "") {
         }
         $vars->{'proddesc'} = \%products;
         $vars->{'classifications'} = \%classifications;
+        $vars->{'classdesc'} = \%::classdesc;
 
         $vars->{'target'} = "enter_bug.cgi";
         $vars->{'format'} = $cgi->param('format');
@@ -323,15 +328,12 @@ $cloned_bug_id = $cgi->param('cloned_bug_id');
 
 if ($cloned_bug_id) {
     ValidateBugID($cloned_bug_id);
-    $cloned_bug = new Bugzilla::Bug($cloned_bug_id, Bugzilla->user->id);
+    $cloned_bug = new Bugzilla::Bug($cloned_bug_id, $userid);
 }
 
 # We need to check and make sure
 # that the user has permission to enter a bug against this product.
-my $prod_obj = new Bugzilla::Product({name => $product});
-# Update the product name to get the correct case.
-$product = $prod_obj->name if defined $prod_obj;
-Bugzilla->user->can_enter_product($product, 1);
+CanEnterProductOrWarn($product);
 
 GetVersionTable();
 
@@ -479,18 +481,15 @@ if ( ($cloned_bug_id) &&
     $default{'version'} = $vars->{'version'}->[$#{$vars->{'version'}}];
 }
 
-# Only used with placeholders below
-trick_taint($product);
-
 # Get list of milestones.
 if ( Param('usetargetmilestone') ) {
     $vars->{'target_milestone'} = $::target_milestone{$product};
     if (formvalue('target_milestone')) {
        $default{'target_milestone'} = formvalue('target_milestone');
     } else {
-       $default{'target_milestone'} =
-                $dbh->selectrow_array('SELECT defaultmilestone FROM products
-                                       WHERE name = ?', undef, $product);
+       SendSQL("SELECT defaultmilestone FROM products WHERE " .
+               "name = " . SqlQuote($product));
+       $default{'target_milestone'} = FetchOneColumn();
     }
 }
 
@@ -505,9 +504,9 @@ my @status;
 #  confirmation, user cannot confirm    UNCONFIRMED
 #  confirmation, user can confirm       NEW, UNCONFIRMED.
 
-my $votestoconfirm = $dbh->selectrow_array('SELECT votestoconfirm FROM products
-                                            WHERE name = ?', undef, $product);
-if ($votestoconfirm) {
+SendSQL("SELECT votestoconfirm FROM products WHERE name = " .
+        SqlQuote($product));
+if (FetchOneColumn()) {
     if (UserInGroup("editbugs") || UserInGroup("canconfirm")) {
         push(@status, "NEW");
     }
@@ -527,19 +526,17 @@ if (formvalue('bug_status') && (lsearch(\@status, formvalue('bug_status')) >= 0)
     $default{'bug_status'} = $status[0];
 }
  
-my $grouplist = $dbh->selectall_arrayref(
-                  q{SELECT DISTINCT groups.id, groups.name, groups.description,
-                                    membercontrol, othercontrol
-                      FROM groups
-                 LEFT JOIN group_control_map
-                        ON group_id = id AND product_id = ?
-                     WHERE isbuggroup != 0 AND isactive != 0
-                  ORDER BY description}, undef, $product_id);
+SendSQL("SELECT DISTINCT groups.id, groups.name, groups.description, " .
+        "membercontrol, othercontrol " .
+        "FROM groups LEFT JOIN group_control_map " .
+        "ON group_id = id AND product_id = $product_id " .
+        "WHERE isbuggroup != 0 AND isactive != 0 ORDER BY description");
 
 my @groups;
 
-foreach my $row (@$grouplist) {
-    my ($id, $groupname, $description, $membercontrol, $othercontrol) = @$row;
+while (MoreSQLData()) {
+    my ($id, $groupname, $description, $membercontrol, $othercontrol) 
+        = FetchSQLData();
     # Only include groups if the entering user will have an option.
     next if ((!$membercontrol) 
                || ($membercontrol == CONTROLMAPNA) 
@@ -590,9 +587,9 @@ $vars->{'group'} = \@groups;
 
 $vars->{'default'} = \%default;
 
-my $format = $template->get_format("bug/create/create",
-                                   scalar $cgi->param('format'), 
-                                   scalar $cgi->param('ctype'));
+my $format = 
+  GetFormat("bug/create/create", scalar $cgi->param('format'), 
+            scalar $cgi->param('ctype'));
 
 print $cgi->header($format->{'ctype'});
 $template->process($format->{'template'}, $vars)

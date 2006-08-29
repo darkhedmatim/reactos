@@ -488,7 +488,7 @@ GetSelectedUsageAction(IN HWND hComboBox)
                              0);
     if (Index != CB_ERR)
     {
-        INT iRet = (INT) SendMessage(hComboBox,
+        INT iRet = SendMessage(hComboBox,
                                CB_GETITEMDATA,
                                (WPARAM)Index,
                                0);
@@ -605,7 +605,7 @@ UpdateDevInfo(IN HWND hwndDlg,
                 if (dap->DevPropSheets[iPage] != NULL)
                 {
                     PropSheet_RemovePage(hPropSheetDlg,
-                                         (WPARAM) -1,
+                                         -1,
                                          dap->DevPropSheets[iPage]);
                 }
             }

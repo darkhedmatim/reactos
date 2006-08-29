@@ -200,12 +200,8 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define NtCurrentProcess() ( (HANDLE)(LONG_PTR) -1 )  
 #define ZwCurrentProcess() NtCurrentProcess()         
 #define NtCurrentThread() ( (HANDLE)(LONG_PTR) -2 )   
-#define ZwCurrentThread() NtCurrentThread()     
-#ifdef _REACTOS_ 
-#define KIP0PCRADDRESS                      0xff000000
-#else
+#define ZwCurrentThread() NtCurrentThread()      
 #define KIP0PCRADDRESS                      0xffdff000
-#endif
 
 #define KERNEL_STACK_SIZE                   12288
 #define KERNEL_LARGE_STACK_SIZE             61440
@@ -234,8 +230,6 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define LOW_REALTIME_PRIORITY             16
 #define HIGH_PRIORITY                     31
 #define MAXIMUM_PRIORITY                  32
-
-#define MAXIMUM_SUSPEND_COUNT             MAXCHAR
 
 #define FILE_SUPERSEDED                   0x00000000
 #define FILE_OPENED                       0x00000001
@@ -355,8 +349,6 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
    SYNCHRONIZE)
 /* end winnt.h */
 
-#define OBJ_NAME_PATH_SEPARATOR     ((WCHAR)L'\\')
-
 #define OBJECT_TYPE_CREATE (0x0001)
 #define OBJECT_TYPE_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0x1)
 
@@ -382,30 +374,21 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define FM_LOCK_WAITER_INC      (0x4)
 
 /* Exported object types */
-extern POBJECT_TYPE NTSYSAPI ExDesktopObjectType;
-extern POBJECT_TYPE NTSYSAPI ExEventObjectType;
-extern POBJECT_TYPE NTSYSAPI ExSemaphoreObjectType;
-extern POBJECT_TYPE NTSYSAPI ExWindowStationObjectType;
-extern ULONG NTSYSAPI IoDeviceHandlerObjectSize;
-extern POBJECT_TYPE NTSYSAPI IoDeviceHandlerObjectType;
-extern POBJECT_TYPE NTSYSAPI IoDeviceObjectType;
-extern POBJECT_TYPE NTSYSAPI IoDriverObjectType;
-extern POBJECT_TYPE NTSYSAPI IoFileObjectType;
-extern POBJECT_TYPE NTSYSAPI PsThreadType;
-extern POBJECT_TYPE NTSYSAPI LpcPortObjectType;
-extern POBJECT_TYPE NTSYSAPI MmSectionObjectType;
-extern POBJECT_TYPE NTSYSAPI SeTokenObjectType;
+extern NTOSAPI POBJECT_TYPE ExDesktopObjectType;
+extern NTOSAPI POBJECT_TYPE ExEventObjectType;
+extern NTOSAPI POBJECT_TYPE ExSemaphoreObjectType;
+extern NTOSAPI POBJECT_TYPE ExWindowStationObjectType;
+extern NTOSAPI ULONG IoDeviceHandlerObjectSize;
+extern NTOSAPI POBJECT_TYPE IoDeviceHandlerObjectType;
+extern NTOSAPI POBJECT_TYPE IoDeviceObjectType;
+extern NTOSAPI POBJECT_TYPE IoDriverObjectType;
+extern NTOSAPI POBJECT_TYPE IoFileObjectType;
+extern NTOSAPI POBJECT_TYPE PsThreadType;
+extern NTOSAPI POBJECT_TYPE LpcPortObjectType;
+extern NTOSAPI POBJECT_TYPE MmSectionObjectType;
+extern NTOSAPI POBJECT_TYPE SeTokenObjectType;
 
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-extern volatile CCHAR NTSYSAPI KeNumberProcessors;
-#else
-#if (NTDDI_VERSION >= NTDDI_WINXP)
-extern CCHAR NTSYSAPI KeNumberProcessors;
-#else
-//extern PCCHAR KeNumberProcessors;
-extern NTSYSAPI CCHAR KeNumberProcessors; //FIXME: Note to Alex: I won't fix this atm, since I prefer to discuss this with you first.
-#endif
-#endif
+extern NTOSAPI CCHAR KeNumberProcessors;
 
 #define PROCESSOR_FEATURE_MAX 64
 #define MAX_WOW64_SHARED_ENTRIES 16
@@ -423,8 +406,6 @@ typedef struct _KSYSTEM_TIME
     LONG High1Time;
     LONG High2Time;
 } KSYSTEM_TIME, *PKSYSTEM_TIME;
-
-extern volatile KSYSTEM_TIME KeTickCount;
 
 typedef struct _KUSER_SHARED_DATA 
 {
@@ -1043,8 +1024,6 @@ typedef struct _KDEVICE_QUEUE_ENTRY {
 
 #define LOCK_QUEUE_WAIT                   1
 #define LOCK_QUEUE_OWNER                  2
-#define LOCK_QUEUE_TIMER_LOCK_SHIFT       4
-#define LOCK_QUEUE_TIMER_TABLE_LOCKS (1 << (8 - LOCK_QUEUE_TIMER_LOCK_SHIFT))
 
 typedef enum _KSPIN_LOCK_QUEUE_NUMBER {
   LockQueueDispatcherLock,
@@ -1062,10 +1041,7 @@ typedef enum _KSPIN_LOCK_QUEUE_NUMBER {
   LockQueueNtfsStructLock,
   LockQueueAfdWorkQueueLock,
   LockQueueBcbLock,
-  LockQueueMmNonPagedPoolLock,
-  LockQueueUnusedSpare16,
-  LockQueueTimerTableLock,
-  LockQueueMaximumLock = LockQueueTimerTableLock + LOCK_QUEUE_TIMER_TABLE_LOCKS
+  LockQueueMaximumLock
 } KSPIN_LOCK_QUEUE_NUMBER, *PKSPIN_LOCK_QUEUE_NUMBER;
 
 typedef struct _KSPIN_LOCK_QUEUE {
@@ -1167,39 +1143,25 @@ typedef struct _EX_RUNDOWN_REF
     };
 } EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
-#define ASSERT_GATE(object) \
-    ASSERT((((object)->Header.Type & KOBJECT_TYPE_MASK) == GateObject) || \
-          (((object)->Header.Type & KOBJECT_TYPE_MASK) == EventSynchronizationObject))
-
 typedef struct _KGATE
 {
     DISPATCHER_HEADER Header;
 } KGATE, *PKGATE, *RESTRICTED_POINTER PRKGATE;
 
-#define GM_LOCK_BIT          0x1
-#define GM_LOCK_BIT_V        0x0
-#define GM_LOCK_WAITER_WOKEN 0x2
-#define GM_LOCK_WAITER_INC   0x4
-
 typedef struct _KGUARDED_MUTEX
 {
-    volatile LONG Count;
-    PKTHREAD Owner;
+    LONG Count;
+    struct _KTHREAD* Owner;
     ULONG Contention;
     KGATE Gate;
-    union
-    {
-        struct
-        {
+    union {
+        struct {
             SHORT KernelApcDisable;
             SHORT SpecialApcDisable;
         };
         ULONG CombinedApcDisable;
     };
-} KGUARDED_MUTEX, *PKGUARDED_MUTEX;
-
-#define TIMER_TABLE_SIZE 512
-#define TIMER_TABLE_SHIFT 9
+} KGUARDED_MUTEX, *PKGUARDED_MUTEX, *RESTRICTED_POINTER PRKGUARDED_MUTEX;
 
 typedef struct _KTIMER {
   DISPATCHER_HEADER  Header;
@@ -1208,10 +1170,6 @@ typedef struct _KTIMER {
   struct _KDPC  *Dpc;
   LONG  Period;
 } KTIMER, *PKTIMER, *RESTRICTED_POINTER PRKTIMER;
-
-#define ASSERT_TIMER(E) \
-    ASSERT(((E)->Header.Type == TimerNotificationObject) || \
-           ((E)->Header.Type == TimerSynchronizationObject))
 
 typedef struct _KMUTANT {
   DISPATCHER_HEADER  Header;
@@ -1876,14 +1834,6 @@ typedef struct _IO_ERROR_LOG_MESSAGE {
 #define IO_ERROR_LOG_MESSAGE_HEADER_LENGTH (sizeof(IO_ERROR_LOG_MESSAGE) - \
                                             sizeof(IO_ERROR_LOG_PACKET) + \
                                             (sizeof(WCHAR) * 40))
-#define ERROR_LOG_MESSAGE_LIMIT_SIZE                                          \
-    (ERROR_LOG_LIMIT_SIZE + IO_ERROR_LOG_MESSAGE_HEADER_LENGTH)
-#define IO_ERROR_LOG_MESSAGE_LENGTH                                           \
-    ((PORT_MAXIMUM_MESSAGE_LENGTH > ERROR_LOG_MESSAGE_LIMIT_SIZE) ?           \
-        ERROR_LOG_MESSAGE_LIMIT_SIZE :                                        \
-        PORT_MAXIMUM_MESSAGE_LENGTH)
-#define ERROR_LOG_MAXIMUM_SIZE (IO_ERROR_LOG_MESSAGE_LENGTH -                 \
-                                IO_ERROR_LOG_MESSAGE_HEADER_LENGTH)
 
 typedef struct _CONTROLLER_OBJECT {
   CSHORT  Type;
@@ -5218,19 +5168,19 @@ NTOSAPI
 LONG
 DDKFASTAPI
 InterlockedIncrement(
-  IN OUT LONG volatile *Addend);
+  IN PLONG  VOLATILE  Addend);
 
 NTOSAPI
 LONG
 DDKFASTAPI
 InterlockedDecrement(
-  IN OUT LONG volatile *Addend);
+  IN PLONG  VOLATILE  Addend);
 
 NTOSAPI
 LONG
 DDKFASTAPI
 InterlockedCompareExchange(
-  IN OUT LONG volatile *Destination,
+  IN OUT PLONG  VOLATILE  Destination,
   IN LONG  Exchange,
   IN LONG  Comparand);
 
@@ -5238,14 +5188,14 @@ NTOSAPI
 LONG
 DDKFASTAPI
 InterlockedExchange(
-  IN OUT LONG volatile *Destination,
+  IN OUT PLONG  VOLATILE  Target,
   IN LONG Value);
 
 NTOSAPI
 LONG
 DDKFASTAPI
 InterlockedExchangeAdd(
-  IN OUT LONG volatile *Addend,
+  IN OUT PLONG VOLATILE  Addend,
   IN LONG  Value);
 
 /*
@@ -5266,10 +5216,6 @@ InterlockedExchangeAdd(
  */
 #define InterlockedCompareExchangePointer(Destination, Exchange, Comparand) \
   ((PVOID) InterlockedCompareExchange((PLONG) Destination, (LONG) Exchange, (LONG) Comparand))
-
-#define InterlockedExchangeAddSizeT(a, b) InterlockedExchangeAdd((LONG *)a, b)
-#define InterlockedIncrementSizeT(a) InterlockedIncrement((LONG *)a)
-#define InterlockedDecrementSizeT(a) InterlockedDecrement((LONG *)a)
 
 #endif /* !__INTERLOCKED_DECLARED */
 
@@ -6207,17 +6153,6 @@ RtlUlonglongByteSwap(
     ((STRING)->Length + sizeof(UNICODE_NULL)) / sizeof(WCHAR) \
 )
 
-FORCEINLINE
-VOID
-RtlInitEmptyUnicodeString(OUT PUNICODE_STRING UnicodeString,
-                          IN PWSTR Buffer,
-                          IN USHORT BufferSize)
-{
-    UnicodeString->Length = 0;
-    UnicodeString->MaximumLength = BufferSize;
-    UnicodeString->Buffer = Buffer;
-}
-
 NTOSAPI
 NTSTATUS
 DDKAPI
@@ -6338,52 +6273,48 @@ RtlxUnicodeStringToAnsiSize(
 
 /* Guarded Mutex routines */
 
-VOID
+VOID 
 FASTCALL
 KeAcquireGuardedMutex(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
 VOID
 FASTCALL
 KeAcquireGuardedMutexUnsafe(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
-VOID
-NTAPI
-KeEnterGuardedRegion(
-    VOID
-);
+VOID 
+STDCALL
+KeEnterGuardedRegion(VOID);
 
 VOID
-NTAPI
-KeLeaveGuardedRegion(
-    VOID
-);
+STDCALL
+KeLeaveGuardedRegion(VOID);
 
-VOID
+VOID 
 FASTCALL
 KeInitializeGuardedMutex(
-    OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
-VOID
+VOID 
 FASTCALL
 KeReleaseGuardedMutexUnsafe(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
-VOID
+VOID 
 FASTCALL
 KeReleaseGuardedMutex(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
-BOOLEAN
+BOOL 
 FASTCALL
 KeTryToAcquireGuardedMutex(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
+    PKGUARDED_MUTEX GuardedMutex
 );
 
 /* Fast Mutex */
@@ -9589,10 +9520,10 @@ DDKAPI
 ObOpenObjectByName(
   IN POBJECT_ATTRIBUTES  ObjectAttributes,
   IN POBJECT_TYPE  ObjectType,
-  IN KPROCESSOR_MODE  AccessMode,
-  IN PACCESS_STATE  PassedAccessState,
-  IN ACCESS_MASK  DesiredAccess,
   IN OUT PVOID  ParseContext  OPTIONAL,
+  IN KPROCESSOR_MODE  AccessMode,
+  IN ACCESS_MASK  DesiredAccess,
+  IN PACCESS_STATE  PassedAccessState,
   OUT PHANDLE  Handle);
 
 NTOSAPI
@@ -10451,7 +10382,7 @@ DbgBreakPointWithStatus(
 ULONG
 __cdecl
 DbgPrint(
-  IN PCCH  Format,
+  IN PCH  Format,
   IN ...);
 
 ULONG
@@ -10459,7 +10390,7 @@ __cdecl
 DbgPrintEx(
   IN ULONG  ComponentId,
   IN ULONG  Level,
-  IN PCCH  Format,
+  IN PCH  Format,
   IN ...);
 
 NTOSAPI
@@ -10516,29 +10447,11 @@ extern BOOLEAN KdDebuggerEnabled;
 
 #endif
 
-#ifdef __GNUC__
-
 /* Available as intrinsics on MSVC */
-static __inline void _disable(void) {__asm__ __volatile__("cli\n");}
-static __inline void _enable(void)  {__asm__ __volatile__("sti\n");}
-
-static __inline ULONG64 __readcr3(void)
-{
-    ULONG_PTR Ret;
-    __asm__ __volatile__("movl %%cr3, %0;\n"
-        :"=r"(Ret));
-    return (ULONG64)Ret;
-}
-
-static __inline ULONG64 __readcr4(void)
-{
-    ULONG_PTR Ret;
-    __asm__ __volatile__("movl %%cr4, %0; \n"
-        :"=r"(Ret));
-    return (ULONG64)Ret;
-}
-
-#endif
+static __inline void _disable(void) {__asm__("cli\n\t");}
+static __inline void _enable(void)  {__asm__("sti\n\t");}
+static __inline __int64 __readcr3(void) {__asm__("mov %cr3, %eax\n\t");}
+static __inline __int64 __readcr4(void) {__asm__("mov %cr4, %eax\n\t");}
 
 #ifdef __cplusplus
 }

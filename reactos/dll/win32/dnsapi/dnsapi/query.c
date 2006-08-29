@@ -49,7 +49,7 @@ DNS_STATUS WINAPI DnsQuery_A
   PDNS_RECORD *QueryResultSet,
   PVOID *Reserved ) {
   adns_state astate;
-  int quflags = 0, i;
+  int quflags = 0;
   int adns_error;
   adns_answer *answer;
   LPSTR CurrentName;
@@ -62,18 +62,10 @@ DNS_STATUS WINAPI DnsQuery_A
     adns_error = adns_init( &astate,
 			    adns_if_noenv |
 			    adns_if_noerrprint |
-			    adns_if_noserverwarn |
-			    (Servers ? adns_if_noserver : 0),
+			    adns_if_noserverwarn,
 			    0 );
-    
     if( adns_error != adns_s_ok ) {
       return DnsIntTranslateAdnsToDNS_STATUS( adns_error );
-    }
-
-    if (Servers) {
-      for( i = 0; i < Servers->AddrCount; i++ ) {
-	adns_addserver( astate, *((struct in_addr *)&Servers->AddrArray[i]) );
-      }
     }
 
     /*

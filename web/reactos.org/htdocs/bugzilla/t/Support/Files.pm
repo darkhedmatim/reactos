@@ -30,7 +30,7 @@ use File::Find;
 #
 @additional_files = ();
 %exclude_deps = (
-    'XML::Twig' => ['importxml.pl'],
+    'XML::Parser' => ['importxml.pl'],
     'Net::LDAP' => ['Bugzilla/Auth/Verify/LDAP.pm'],
 );
 

@@ -10,16 +10,16 @@
 
 extern HINSTANCE hDllInstance;
 
-ULONG DbgPrint(PCCH Format,...);
+ULONG DbgPrint(PCH Format,...);
 
-BOOL
+WINBOOL
 WINAPI
 DeviceManager_ExecuteA(HWND hWndParent,
                        HINSTANCE hInst,
                        LPCSTR lpMachineName,
                        int nCmdShow);
 
-BOOL
+WINBOOL
 WINAPI
 DeviceManager_ExecuteW(HWND hWndParent,
                        HINSTANCE hInst,
@@ -103,7 +103,7 @@ DeviceProblemWizard_RunDLLW(HWND hWndParent,
 #define DEV_PRINT_SELECTED	(1)
 #define DEV_PRINT_ALL	(2)
 
-BOOL
+WINBOOL
 WINAPI
 DeviceManagerPrintA(LPCSTR lpMachineName,
                     LPCSTR lpPrinter,
@@ -111,7 +111,7 @@ DeviceManagerPrintA(LPCSTR lpMachineName,
                     UINT uNumberOfGuids,
                     LPGUID lpGuids);
 
-BOOL
+WINBOOL
 WINAPI
 DeviceManagerPrintW(LPCWSTR lpMachineName,
                     LPCWSTR lpPrinter,

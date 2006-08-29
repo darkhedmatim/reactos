@@ -583,7 +583,7 @@ DetectBiosDisks(FRLDRHKEY SystemKey,
   ULONG Size;
   ULONG i;
   LONG Error;
-  BOOLEAN Changed;
+  BOOL Changed;
 
   /* Count the number of visible drives */
   DiskReportError(FALSE);

@@ -14,8 +14,6 @@
 #include <ntddk.h>
 #include <ndk/halfuncs.h>
 #include <ndk/kdfuncs.h>
-#include <rosldr.h>
-#include <internal/kd.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -159,8 +157,8 @@ HalAssignSlotResources(
 
 BOOLEAN 
 NTAPI 
-HalBeginSystemInterrupt (KIRQL Irql,
-			 ULONG Vector,
+HalBeginSystemInterrupt (ULONG Vector,
+			 KIRQL Irql,
 			 PKIRQL OldIrql)
 {
   UNIMPLEMENTED;
@@ -297,8 +295,8 @@ BOOLEAN
 NTAPI
 HalGetEnvironmentVariable(
   PCH Name,
-  USHORT ValueLength,
-  PCH Value)
+  PCH Value,
+  USHORT ValueLength)
 {
   UNIMPLEMENTED;
 
@@ -325,7 +323,7 @@ HalGetInterruptVector(
 VOID
 NTAPI
 HalHandleNMI(
-  PVOID NmiData)
+  ULONG Unused)
 {
   UNIMPLEMENTED;
 }
@@ -335,7 +333,7 @@ BOOLEAN
 NTAPI
 HalInitSystem(
   ULONG BootPhase,
-  PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
+  PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
   UNIMPLEMENTED;
 
@@ -346,7 +344,7 @@ HalInitSystem(
 VOID
 NTAPI
 HalInitializeProcessor(ULONG ProcessorNumber,
-                       PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
+                       PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
   UNIMPLEMENTED;
 }
@@ -393,13 +391,12 @@ HalQueryDisplayParameters(
 }
 
 
-BOOLEAN
+VOID
 NTAPI
 HalQueryRealTimeClock(
   PTIME_FIELDS Time)
 {
   UNIMPLEMENTED;
-  return FALSE;
 }
 
 
@@ -561,7 +558,7 @@ HalTranslateBusAddress(
 VOID
 NTAPI
 IoAssignDriveLetters(
-  PROS_LOADER_PARAMETER_BLOCK LoaderBlock,
+  PLOADER_PARAMETER_BLOCK LoaderBlock,
   PSTRING NtDeviceName,
   PUCHAR NtSystemPath,
   PSTRING NtSystemPathString)
@@ -1048,22 +1045,6 @@ NTAPI
 WRITE_PORT_USHORT(
   PUSHORT Port,
   USHORT Value)
-{
-  UNIMPLEMENTED;
-}
-
-KIRQL
-FASTCALL
-KeAcquireQueuedSpinLock(IN PKLOCK_QUEUE_HANDLE LockHandle)
-{
-  UNIMPLEMENTED;
-  return (KIRQL)0;
-}
-
-VOID
-FASTCALL
-KeReleaseQueuedSpinLock(IN PKLOCK_QUEUE_HANDLE LockHandle,
-                        IN KIRQL OldIrql)
 {
   UNIMPLEMENTED;
 }

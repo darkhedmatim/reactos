@@ -1,8 +1,5 @@
 /* Automatically generated file; DO NOT EDIT!! */
 
-#define STANDALONE
-#include "wine/test.h"
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +19,6 @@ extern void func_environ(void);
 extern void func_file(void);
 extern void func_format_msg(void);
 extern void func_heap(void);
-extern void func_interlck(void);
 extern void func_locale(void);
 extern void func_module(void);
 extern void func_mailslot(void);
@@ -35,6 +31,12 @@ extern void func_thread(void);
 extern void func_time(void);
 extern void func_timer(void);
 extern void func_virtual(void);
+
+struct test
+{
+    const char *name;
+    void (*func)(void);
+};
 
 const struct test winetest_testlist[] =
 {
@@ -50,7 +52,6 @@ const struct test winetest_testlist[] =
     { "file", func_file },
     { "format_msg", func_format_msg },
     { "heap", func_heap },
-    { "interlck", func_interlck },
     { "locale", func_locale },
     { "module", func_module },
     { "mailslot", func_mailslot },
@@ -65,4 +66,7 @@ const struct test winetest_testlist[] =
     { "virtual", func_virtual },
     { 0, 0 }
 };
+
+#define WINETEST_WANT_MAIN
+#include "wine/test.h"
 

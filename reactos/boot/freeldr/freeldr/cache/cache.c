@@ -28,13 +28,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////////////
 CACHE_DRIVE		CacheManagerDrive;
-BOOLEAN			CacheManagerInitialized = FALSE;
-BOOLEAN			CacheManagerDataInvalid = FALSE;
+BOOL			CacheManagerInitialized = FALSE;
+BOOL			CacheManagerDataInvalid = FALSE;
 ULONG			CacheBlockCount = 0;
 ULONG			CacheSizeLimit = 0;
 ULONG			CacheSizeCurrent = 0;
 
-BOOLEAN CacheInitializeDrive(ULONG DriveNumber)
+BOOL CacheInitializeDrive(ULONG DriveNumber)
 {
 	PCACHE_BLOCK	NextCacheBlock;
 	GEOMETRY	DriveGeometry;
@@ -112,7 +112,7 @@ VOID CacheInvalidateCacheData(VOID)
 	CacheManagerDataInvalid = TRUE;
 }
 
-BOOLEAN CacheReadDiskSectors(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount, PVOID Buffer)
+BOOL CacheReadDiskSectors(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount, PVOID Buffer)
 {
 	PCACHE_BLOCK	CacheBlock;
 	ULONG				StartBlock;
@@ -244,7 +244,7 @@ BOOLEAN CacheReadDiskSectors(ULONG DiskNumber, ULONG StartSector, ULONG SectorCo
 	return TRUE;
 }
 
-BOOLEAN CacheForceDiskSectorsIntoCache(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount)
+BOOL CacheForceDiskSectorsIntoCache(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount)
 {
 	PCACHE_BLOCK	CacheBlock;
 	ULONG				StartBlock;
@@ -290,7 +290,7 @@ BOOLEAN CacheForceDiskSectorsIntoCache(ULONG DiskNumber, ULONG StartSector, ULON
 	return TRUE;
 }
 
-BOOLEAN CacheReleaseMemory(ULONG MinimumAmountToRelease)
+BOOL CacheReleaseMemory(ULONG MinimumAmountToRelease)
 {
 	ULONG				AmountReleased;
 

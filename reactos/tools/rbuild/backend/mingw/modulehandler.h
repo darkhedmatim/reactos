@@ -112,7 +112,6 @@ protected:
 	std::string GetLinkerMacro () const;
 	void GenerateCleanObjectsAsYouGoCode () const;
 	void GenerateRunRsymCode () const;
-	void GenerateRunStripCode () const;
 	void GenerateLinkerCommand ( const std::string& dependencies,
 	                             const std::string& linker,
 	                             const std::string& linkerParameters,
@@ -168,9 +167,6 @@ private:
 	void GenerateWidlCommandsClient (
 		const CompilationUnit& compilationUnit,
 		const std::string& widlflagsMacro );
-	void GenerateWidlCommandsIdlHeader (
-		const CompilationUnit& compilationUnit,
-		const std::string& widlflagsMacro );
 	void GenerateWidlCommands ( const CompilationUnit& compilationUnit,
 	                            const std::string& widlflagsMacro );
 	void GenerateCommands ( const CompilationUnit& compilationUnit,
@@ -209,7 +205,6 @@ private:
 	void GetRpcHeaderDependencies ( std::vector<std::string>& dependencies ) const;
 	std::string GetRpcServerHeaderFilename ( std::string basename ) const;
 	std::string GetRpcClientHeaderFilename ( std::string basename ) const;
-    std::string GetIdlHeaderFilename ( std::string basename ) const;
 	std::string GetModuleCleanTarget ( const Module& module ) const;
 	void GetReferencedObjectLibraryModuleCleanTargets ( std::vector<std::string>& moduleNames ) const;
 public:
@@ -468,14 +463,6 @@ class MingwAliasModuleHandler : public MingwModuleHandler
 {
 public:
 	MingwAliasModuleHandler ( const Module& module );
-	virtual HostType DefaultHost() { return HostFalse; }
-	virtual void Process ();
-};
-
-class MingwIdlHeaderModuleHandler : public MingwModuleHandler
-{
-public:
-	MingwIdlHeaderModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
 };

@@ -14,9 +14,12 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * FIXME:
+ * - As you can see in the stubs below, support for CRLs and CTLs is missing.
+ *   Mostly this should be copy-paste work, and some code (e.g. extended
+ *   properties) could be shared between them.
  * - The concept of physical stores and locations isn't implemented.  (This
  *   doesn't mean registry stores et al aren't implemented.  See the PSDK for
  *   registering and enumerating physical stores and locations.)
@@ -41,76 +44,94 @@ WINE_DEFAULT_DEBUG_CHANNEL(crypt);
 
 #define WINE_CRYPTCERTSTORE_MAGIC 0x74726563
 
+/* Some typedefs that make it easier to abstract which type of context we're
+ * working with.
+ */
+typedef const void *(WINAPI *CreateContextFunc)(DWORD dwCertEncodingType,
+ const BYTE *pbCertEncoded, DWORD cbCertEncoded);
+typedef BOOL (WINAPI *AddContextToStoreFunc)(HCERTSTORE hCertStore,
+ const void *context, DWORD dwAddDisposition, const void **ppStoreContext);
+typedef BOOL (WINAPI *AddEncodedContextToStoreFunc)(HCERTSTORE hCertStore,
+ DWORD dwCertEncodingType, const BYTE *pbEncoded, DWORD cbEncoded,
+ DWORD dwAddDisposition, const void **ppContext);
+typedef const void *(WINAPI *EnumContextsInStoreFunc)(HCERTSTORE hCertStore,
+ const void *pPrevContext);
+typedef BOOL (WINAPI *GetContextPropertyFunc)(const void *context,
+ DWORD dwPropID, void *pvData, DWORD *pcbData);
+typedef BOOL (WINAPI *SetContextPropertyFunc)(const void *context,
+ DWORD dwPropID, DWORD dwFlags, const void *pvData);
+typedef BOOL (WINAPI *SerializeElementFunc)(const void *context, DWORD dwFlags,
+ BYTE *pbElement, DWORD *pcbElement);
+typedef BOOL (WINAPI *FreeContextFunc)(const void *context);
+typedef BOOL (WINAPI *DeleteContextFunc)(const void *context);
+
+/* An abstract context (certificate, CRL, or CTL) interface */
+typedef struct _WINE_CONTEXT_INTERFACE
+{
+    CreateContextFunc            create;
+    AddContextToStoreFunc        addContextToStore;
+    AddEncodedContextToStoreFunc addEncodedToStore;
+    EnumContextsInStoreFunc      enumContextsInStore;
+    GetContextPropertyFunc       getProp;
+    SetContextPropertyFunc       setProp;
+    SerializeElementFunc         serialize;
+    FreeContextFunc              free;
+    DeleteContextFunc            deleteFromStore;
+} WINE_CONTEXT_INTERFACE, *PWINE_CONTEXT_INTERFACE;
+
 static const WINE_CONTEXT_INTERFACE gCertInterface = {
     (CreateContextFunc)CertCreateCertificateContext,
     (AddContextToStoreFunc)CertAddCertificateContextToStore,
     (AddEncodedContextToStoreFunc)CertAddEncodedCertificateToStore,
-    (DuplicateContextFunc)CertDuplicateCertificateContext,
     (EnumContextsInStoreFunc)CertEnumCertificatesInStore,
-    (EnumPropertiesFunc)CertEnumCertificateContextProperties,
     (GetContextPropertyFunc)CertGetCertificateContextProperty,
     (SetContextPropertyFunc)CertSetCertificateContextProperty,
     (SerializeElementFunc)CertSerializeCertificateStoreElement,
     (FreeContextFunc)CertFreeCertificateContext,
     (DeleteContextFunc)CertDeleteCertificateFromStore,
 };
-PCWINE_CONTEXT_INTERFACE pCertInterface = &gCertInterface;
 
 static const WINE_CONTEXT_INTERFACE gCRLInterface = {
     (CreateContextFunc)CertCreateCRLContext,
     (AddContextToStoreFunc)CertAddCRLContextToStore,
     (AddEncodedContextToStoreFunc)CertAddEncodedCRLToStore,
-    (DuplicateContextFunc)CertDuplicateCRLContext,
     (EnumContextsInStoreFunc)CertEnumCRLsInStore,
-    (EnumPropertiesFunc)CertEnumCRLContextProperties,
     (GetContextPropertyFunc)CertGetCRLContextProperty,
     (SetContextPropertyFunc)CertSetCRLContextProperty,
     (SerializeElementFunc)CertSerializeCRLStoreElement,
     (FreeContextFunc)CertFreeCRLContext,
     (DeleteContextFunc)CertDeleteCRLFromStore,
 };
-PCWINE_CONTEXT_INTERFACE pCRLInterface = &gCRLInterface;
 
 static const WINE_CONTEXT_INTERFACE gCTLInterface = {
     (CreateContextFunc)CertCreateCTLContext,
     (AddContextToStoreFunc)CertAddCTLContextToStore,
     (AddEncodedContextToStoreFunc)CertAddEncodedCTLToStore,
-    (DuplicateContextFunc)CertDuplicateCTLContext,
     (EnumContextsInStoreFunc)CertEnumCTLsInStore,
-    (EnumPropertiesFunc)CertEnumCTLContextProperties,
     (GetContextPropertyFunc)CertGetCTLContextProperty,
     (SetContextPropertyFunc)CertSetCTLContextProperty,
     (SerializeElementFunc)CertSerializeCTLStoreElement,
     (FreeContextFunc)CertFreeCTLContext,
     (DeleteContextFunc)CertDeleteCTLFromStore,
 };
-PCWINE_CONTEXT_INTERFACE pCTLInterface = &gCTLInterface;
 
 struct WINE_CRYPTCERTSTORE;
 
 typedef struct WINE_CRYPTCERTSTORE * (*StoreOpenFunc)(HCRYPTPROV hCryptProv,
  DWORD dwFlags, const void *pvPara);
 
-/* Called to enumerate the next context in a store. */
-typedef void * (*EnumFunc)(struct WINE_CRYPTCERTSTORE *store, void *pPrev);
+struct _WINE_CERT_CONTEXT;
 
-/* Called to add a context to a store.  If toReplace is not NULL,
- * context replaces toReplace in the store, and access checks should not be
- * performed.  Otherwise context is a new context, and it should only be
- * added if the store allows it.  If ppStoreContext is not NULL, the added
- * context should be returned in *ppStoreContext.
+/* Called to enumerate the next certificate in a store. */
+typedef struct _WINE_CERT_CONTEXT * (*EnumCertFunc)
+ (struct WINE_CRYPTCERTSTORE *store, struct _WINE_CERT_CONTEXT *pPrev);
+
+/* Called to add a new certificate context to a store.  If ppStoreContext is
+ * not NULL, the added context should be returned in *ppStoreContext.
  */
-typedef BOOL (*AddFunc)(struct WINE_CRYPTCERTSTORE *store, void *context,
- void *toReplace, const void **ppStoreContext);
-
-typedef BOOL (*DeleteFunc)(struct WINE_CRYPTCERTSTORE *store, void *context);
-
-typedef struct _CONTEXT_STORE
-{
-    AddFunc    addContext;
-    EnumFunc   enumContext;
-    DeleteFunc deleteContext;
-} CONTEXT_STORE, *PCONTEXT_STORE;
+typedef BOOL (*AddCertFunc)(struct WINE_CRYPTCERTSTORE *store,
+ struct _WINE_CERT_CONTEXT *context, DWORD dwAddDisposition,
+ PCCERT_CONTEXT *ppStoreContext);
 
 typedef enum _CertStoreType {
     StoreTypeMem,
@@ -127,22 +148,66 @@ typedef enum _CertStoreType {
  */
 typedef struct WINE_CRYPTCERTSTORE
 {
-    DWORD                       dwMagic;
-    LONG                        ref;
-    DWORD                       dwOpenFlags;
-    HCRYPTPROV                  cryptProv;
-    CertStoreType               type;
-    PFN_CERT_STORE_PROV_CLOSE   closeStore;
-    CONTEXT_STORE               certs;
-    CONTEXT_STORE               crls;
-    PFN_CERT_STORE_PROV_CONTROL control; /* optional */
+    DWORD                           dwMagic;
+    LONG                            ref;
+    DWORD                           dwOpenFlags;
+    HCRYPTPROV                      cryptProv;
+    CertStoreType                   type;
+    PFN_CERT_STORE_PROV_CLOSE       closeStore;
+    AddCertFunc                     addCert;
+    EnumCertFunc                    enumCert;
+    PFN_CERT_STORE_PROV_DELETE_CERT deleteCert;
+    PFN_CERT_STORE_PROV_CONTROL     control;    /* optional */
 } WINECRYPT_CERTSTORE, *PWINECRYPT_CERTSTORE;
+
+typedef enum _ContextType {
+    ContextTypeData,
+    ContextTypeLink,
+} ContextType;
+
+/* A certificate context.  This is the base type, and the two real types
+ * (data and link) derive from it.  Each one can be cast to a PCCERT_CONTEXT.
+ */
+typedef struct _WINE_CERT_CONTEXT
+{
+    CERT_CONTEXT cert;
+    LONG         ref;
+    ContextType  type;
+} WINE_CERT_CONTEXT, *PWINE_CERT_CONTEXT;
+typedef const struct _WINE_CERT_CONTEXT PCWINE_CERT_CONTEXT;
+
+typedef struct _WINE_CERT_CONTEXT_DATA
+{
+    CERT_CONTEXT           cert;
+    LONG                   ref;
+    ContextType            type; /* always ContextTypeData */
+    PCONTEXT_PROPERTY_LIST properties;
+} WINE_CERT_CONTEXT_DATA, *PWINE_CERT_CONTEXT_DATA;
+typedef const struct _WINE_CERT_CONTEXT_DATA PCWINE_CERT_CONTEXT_DATA;
+
+typedef struct _WINE_CERT_CONTEXT_LINK
+{
+    CERT_CONTEXT       cert;
+    LONG               ref;
+    ContextType        type; /* always ContextTypeLink */
+    PWINE_CERT_CONTEXT linked;
+} WINE_CERT_CONTEXT_LINK, *PWINE_CERT_CONTEXT_LINK;
+typedef const struct _WINE_CERT_CONTEXT_LINK PCWINE_CERT_CONTEXT_LINK;
+
+/* A mem store has a list of these.  They're also returned by the mem store
+ * during enumeration.
+ */
+typedef struct _WINE_CERT_LIST_ENTRY
+{
+    WINE_CERT_CONTEXT_LINK cert;
+    struct list entry;
+} WINE_CERT_LIST_ENTRY, *PWINE_CERT_LIST_ENTRY;
 
 typedef struct _WINE_MEMSTORE
 {
     WINECRYPT_CERTSTORE hdr;
-    struct ContextList *certs;
-    struct ContextList *crls;
+    CRITICAL_SECTION    cs;
+    struct list         certs;
 } WINE_MEMSTORE, *PWINE_MEMSTORE;
 
 typedef struct _WINE_HASH_TO_DELETE
@@ -160,7 +225,6 @@ typedef struct _WINE_REGSTOREINFO
     BOOL                 dirty;
     CRITICAL_SECTION     cs;
     struct list          certsToDelete;
-    struct list          crlsToDelete;
 } WINE_REGSTOREINFO, *PWINE_REGSTOREINFO;
 
 typedef struct _WINE_STORE_LIST_ENTRY
@@ -170,6 +234,19 @@ typedef struct _WINE_STORE_LIST_ENTRY
     DWORD                dwPriority;
     struct list          entry;
 } WINE_STORE_LIST_ENTRY, *PWINE_STORE_LIST_ENTRY;
+
+/* Returned by a collection store during enumeration.
+ * Note: relies on the list entry being valid after use, which a number of
+ * conditions might make untrue (reentrancy, closing a collection store before
+ * continuing an enumeration on it, ...).  The tests seem to indicate this
+ * sort of unsafety is okay, since Windows isn't well-behaved in these
+ * scenarios either.
+ */
+typedef struct _WINE_COLLECTION_CERT_CONTEXT
+{
+    WINE_CERT_CONTEXT_LINK  cert;
+    PWINE_STORE_LIST_ENTRY storeEntry;
+} WINE_COLLECTION_CERT_CONTEXT, *PWINE_COLLECTION_CERT_CONTEXT;
 
 typedef struct _WINE_COLLECTIONSTORE
 {
@@ -187,10 +264,26 @@ typedef struct _WINE_PROVIDERSTORE
     PFN_CERT_STORE_PROV_CLOSE       provCloseStore;
     PFN_CERT_STORE_PROV_WRITE_CERT  provWriteCert;
     PFN_CERT_STORE_PROV_DELETE_CERT provDeleteCert;
-    PFN_CERT_STORE_PROV_WRITE_CRL   provWriteCrl;
-    PFN_CERT_STORE_PROV_DELETE_CRL  provDeleteCrl;
     PFN_CERT_STORE_PROV_CONTROL     provControl;
 } WINE_PROVIDERSTORE, *PWINE_PROVIDERSTORE;
+
+/* Internal version of CertGetCertificateContextProperty that gets properties
+ * directly from the context (or the context it's linked to, depending on its
+ * type.) Doesn't handle special-case properties, since they are handled by
+ * CertGetCertificateContextProperty, and are particular to the store in which
+ * the property exists (which is separate from the context.)
+ */
+static BOOL WINAPI CRYPT_GetCertificateContextProperty(
+ PWINE_CERT_CONTEXT context, DWORD dwPropId, void *pvData, DWORD *pcbData);
+
+/* Internal version of CertSetCertificateContextProperty that sets properties
+ * directly on the context (or the context it's linked to, depending on its
+ * type.) Doesn't handle special cases, since they're handled by
+ * CertSetCertificateContextProperty anyway.
+ */
+static BOOL WINAPI CRYPT_SetCertificateContextProperty(
+ PWINE_CERT_CONTEXT context, DWORD dwPropId, DWORD dwFlags,
+ const void *pvData);
 
 static void CRYPT_InitStore(WINECRYPT_CERTSTORE *store, HCRYPTPROV hCryptProv,
  DWORD dwFlags, CertStoreType type)
@@ -207,92 +300,166 @@ static void CRYPT_InitStore(WINECRYPT_CERTSTORE *store, HCRYPTPROV hCryptProv,
     store->dwOpenFlags = dwFlags;
 }
 
-static BOOL CRYPT_MemAddCert(PWINECRYPT_CERTSTORE store, void *cert,
- void *toReplace, const void **ppStoreContext)
+/* Initializes the reference ref to point to context, and increments context's
+ * reference count.  Also sets the hCertStore member of the reference to store.
+ */
+static void CRYPT_InitCertRef(PWINE_CERT_CONTEXT_LINK ref,
+ PWINE_CERT_CONTEXT context, HCERTSTORE store)
 {
-    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    PCERT_CONTEXT context;
-
-    TRACE("(%p, %p, %p, %p)\n", store, cert, toReplace, ppStoreContext);
-
-    context = (PCERT_CONTEXT)ContextList_Add(ms->certs, cert, toReplace);
-    if (context)
-    {
-        context->hCertStore = store;
-        if (ppStoreContext)
-            *ppStoreContext = CertDuplicateCertificateContext(context);
-    }
-    return context ? TRUE : FALSE;
+    TRACE("(%p, %p)\n", ref, context);
+    memcpy(&ref->cert, context, sizeof(ref->cert));
+    ref->ref = 1;
+    ref->type = ContextTypeLink;
+    ref->linked = context;
+    InterlockedIncrement(&context->ref);
+    TRACE("%p's ref count is %ld\n", context, context->ref);
+    ref->cert.hCertStore = store;
 }
 
-static void *CRYPT_MemEnumCert(PWINECRYPT_CERTSTORE store, void *pPrev)
+static BOOL CRYPT_MemAddCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT cert, DWORD dwAddDisposition,
+ PCCERT_CONTEXT *ppStoreContext)
 {
     WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    void *ret;
+    BOOL add = FALSE, ret;
+    PCCERT_CONTEXT existing = NULL;
+
+    TRACE("(%p, %p, %ld, %p)\n", store, cert, dwAddDisposition, ppStoreContext);
+
+    if (dwAddDisposition != CERT_STORE_ADD_ALWAYS)
+    {
+        BYTE hashToAdd[20];
+        DWORD size = sizeof(hashToAdd);
+
+        ret = CRYPT_GetCertificateContextProperty((PWINE_CERT_CONTEXT)cert,
+         CERT_HASH_PROP_ID, hashToAdd, &size);
+        if (ret)
+        {
+            CRYPT_HASH_BLOB blob = { sizeof(hashToAdd), hashToAdd };
+
+            existing = CertFindCertificateInStore(store,
+             cert->cert.dwCertEncodingType, 0, CERT_FIND_SHA1_HASH, &blob,
+             NULL);
+        }
+    }
+    switch (dwAddDisposition)
+    {
+    case CERT_STORE_ADD_ALWAYS:
+        add = TRUE;
+        break;
+    case CERT_STORE_ADD_NEW:
+    {
+        if (existing)
+        {
+            TRACE("found matching certificate, not adding\n");
+            SetLastError(CRYPT_E_EXISTS);
+            add = FALSE;
+        }
+        else
+            add = TRUE;
+        break;
+    }
+    case CERT_STORE_ADD_REPLACE_EXISTING:
+    {
+        add = TRUE;
+        if (existing)
+        {
+            TRACE("found matching certificate, replacing\n");
+            CertDeleteCertificateFromStore(existing);
+        }
+        break;
+    }
+    default:
+        FIXME("Unimplemented add disposition %ld\n", dwAddDisposition);
+        add = FALSE;
+    }
+    if (existing)
+        CertFreeCertificateContext(existing);
+    if (add)
+    {
+        PWINE_CERT_LIST_ENTRY entry = CryptMemAlloc(
+         sizeof(WINE_CERT_LIST_ENTRY));
+
+        if (entry)
+        {
+            TRACE("adding %p\n", entry);
+            CRYPT_InitCertRef(&entry->cert, (PWINE_CERT_CONTEXT)cert, store);
+            EnterCriticalSection(&ms->cs);
+            list_add_tail(&ms->certs, &entry->entry);
+            LeaveCriticalSection(&ms->cs);
+            if (ppStoreContext)
+                *ppStoreContext =
+                 CertDuplicateCertificateContext((PCCERT_CONTEXT)entry);
+            ret = TRUE;
+        }
+        else
+            ret = FALSE;
+    }
+    else
+        ret = FALSE;
+    TRACE("returning %d\n", ret);
+    return ret;
+}
+
+static PWINE_CERT_CONTEXT CRYPT_MemEnumCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT pPrev)
+{
+    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
+    PWINE_CERT_LIST_ENTRY prevEntry = (PWINE_CERT_LIST_ENTRY)pPrev;
+    PWINE_CERT_CONTEXT ret;
+    struct list *listNext;
 
     TRACE("(%p, %p)\n", store, pPrev);
-
-    ret = ContextList_Enum(ms->certs, pPrev);
-    if (!ret)
+    EnterCriticalSection(&ms->cs);
+    if (prevEntry)
+    {
+        listNext = list_next(&ms->certs, &prevEntry->entry);
+        CertFreeCertificateContext((PCCERT_CONTEXT)pPrev);
+    }
+    else
+        listNext = list_next(&ms->certs, &ms->certs);
+    if (listNext)
+        ret = (PWINE_CERT_CONTEXT)CertDuplicateCertificateContext(
+         (PCCERT_CONTEXT)LIST_ENTRY(listNext, WINE_CERT_LIST_ENTRY, entry));
+    else
+    {
         SetLastError(CRYPT_E_NOT_FOUND);
+        ret = NULL;
+    }
+    LeaveCriticalSection(&ms->cs);
 
     TRACE("returning %p\n", ret);
     return ret;
 }
 
-static BOOL CRYPT_MemDeleteCert(PWINECRYPT_CERTSTORE store, void *pCertContext)
+static BOOL WINAPI CRYPT_MemDeleteCert(HCERTSTORE hCertStore,
+ PCCERT_CONTEXT pCertContext, DWORD dwFlags)
 {
-    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
+    WINE_MEMSTORE *store = (WINE_MEMSTORE *)hCertStore;
+    PWINE_CERT_LIST_ENTRY cert = (PWINE_CERT_LIST_ENTRY)pCertContext;
+    BOOL ret;
 
-    ContextList_Delete(ms->certs, pCertContext);
-    return TRUE;
-}
-
-static BOOL CRYPT_MemAddCrl(PWINECRYPT_CERTSTORE store, void *crl,
- void *toReplace, const void **ppStoreContext)
-{
-    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    PCRL_CONTEXT context;
-
-    TRACE("(%p, %p, %p, %p)\n", store, crl, toReplace, ppStoreContext);
-
-    context = (PCRL_CONTEXT)ContextList_Add(ms->crls, crl, toReplace);
-    if (context)
-    {
-        context->hCertStore = store;
-        if (ppStoreContext)
-            *ppStoreContext = CertDuplicateCRLContext(context);
-    }
-    return context ? TRUE : FALSE;
-}
-
-static void *CRYPT_MemEnumCrl(PWINECRYPT_CERTSTORE store, void *pPrev)
-{
-    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    void *ret;
-
-    TRACE("(%p, %p)\n", store, pPrev);
-
-    ret = ContextList_Enum(ms->crls, pPrev);
-    if (!ret)
-        SetLastError(CRYPT_E_NOT_FOUND);
-
-    TRACE("returning %p\n", ret);
+    /* The passed-in context is itself a list entry, so just remove it. */
+    EnterCriticalSection(&store->cs);
+    list_remove(&cert->entry);
+    ret = CertFreeCertificateContext(pCertContext);
+    LeaveCriticalSection(&store->cs);
     return ret;
-}
-
-static BOOL CRYPT_MemDeleteCrl(PWINECRYPT_CERTSTORE store, void *pCrlContext)
-{
-    WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-
-    ContextList_Delete(ms->crls, pCrlContext);
-    return TRUE;
 }
 
 static void CRYPT_MemEmptyStore(PWINE_MEMSTORE store)
 {
-    ContextList_Empty(store->certs);
-    ContextList_Empty(store->crls);
+    PWINE_CERT_LIST_ENTRY cert, next;
+
+    EnterCriticalSection(&store->cs);
+    LIST_FOR_EACH_ENTRY_SAFE(cert, next, &store->certs, WINE_CERT_LIST_ENTRY,
+     entry)
+    {
+        TRACE("removing %p\n", cert);
+        list_remove(&cert->entry);
+        CertFreeCertificateContext((PCCERT_CONTEXT)cert);
+    }
+    LeaveCriticalSection(&store->cs);
 }
 
 static void WINAPI CRYPT_MemCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
@@ -303,8 +470,8 @@ static void WINAPI CRYPT_MemCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
     if (dwFlags)
         FIXME("Unimplemented flags: %08lx\n", dwFlags);
 
-    ContextList_Free(store->certs);
-    ContextList_Free(store->crls);
+    CRYPT_MemEmptyStore(store);
+    DeleteCriticalSection(&store->cs);
     CryptMemFree(store);
 }
 
@@ -327,21 +494,43 @@ static WINECRYPT_CERTSTORE *CRYPT_MemOpenStore(HCRYPTPROV hCryptProv,
         {
             memset(store, 0, sizeof(WINE_MEMSTORE));
             CRYPT_InitStore(&store->hdr, hCryptProv, dwFlags, StoreTypeMem);
-            store->hdr.closeStore          = CRYPT_MemCloseStore;
-            store->hdr.certs.addContext    = CRYPT_MemAddCert;
-            store->hdr.certs.enumContext   = CRYPT_MemEnumCert;
-            store->hdr.certs.deleteContext = CRYPT_MemDeleteCert;
-            store->hdr.crls.addContext     = CRYPT_MemAddCrl;
-            store->hdr.crls.enumContext    = CRYPT_MemEnumCrl;
-            store->hdr.crls.deleteContext  = CRYPT_MemDeleteCrl;
-            store->hdr.control             = NULL;
-            store->certs = ContextList_Create(pCertInterface,
-             sizeof(CERT_CONTEXT));
-            store->crls = ContextList_Create(pCRLInterface,
-             sizeof(CRL_CONTEXT));
+            store->hdr.closeStore    = CRYPT_MemCloseStore;
+            store->hdr.addCert       = CRYPT_MemAddCert;
+            store->hdr.enumCert      = CRYPT_MemEnumCert;
+            store->hdr.deleteCert    = CRYPT_MemDeleteCert;
+            store->hdr.control       = NULL;
+            InitializeCriticalSection(&store->cs);
+            list_init(&store->certs);
         }
     }
     return (PWINECRYPT_CERTSTORE)store;
+}
+
+static BOOL CRYPT_CollectionAddCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT cert, DWORD dwAddDisposition,
+ PCCERT_CONTEXT *ppStoreContext)
+{
+    PWINE_COLLECTIONSTORE cs = (PWINE_COLLECTIONSTORE)store;
+    PWINE_STORE_LIST_ENTRY entry, next;
+    BOOL ret;
+
+    TRACE("(%p, %p, %ld, %p)\n", store, cert, dwAddDisposition, ppStoreContext);
+
+    ret = FALSE;
+    EnterCriticalSection(&cs->cs);
+    LIST_FOR_EACH_ENTRY_SAFE(entry, next, &cs->stores, WINE_STORE_LIST_ENTRY,
+     entry)
+    {
+        if (entry->dwUpdateFlags & CERT_PHYSICAL_STORE_ADD_ENABLE_FLAG)
+        {
+            ret = entry->store->addCert(entry->store, cert, dwAddDisposition,
+             ppStoreContext);
+            break;
+        }
+    }
+    LeaveCriticalSection(&cs->cs);
+    SetLastError(ret ? ERROR_SUCCESS : HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED));
+    return ret;
 }
 
 static void WINAPI CRYPT_CollectionCloseStore(HCERTSTORE store, DWORD dwFlags)
@@ -362,113 +551,65 @@ static void WINAPI CRYPT_CollectionCloseStore(HCERTSTORE store, DWORD dwFlags)
     CryptMemFree(cs);
 }
 
-static void *CRYPT_CollectionCreateContextFromChild(PWINE_COLLECTIONSTORE store,
- PWINE_STORE_LIST_ENTRY storeEntry, void *child, size_t contextSize,
- BOOL addRef)
-{
-    void *ret = Context_CreateLinkContext(contextSize, child,
-     sizeof(PWINE_STORE_LIST_ENTRY), addRef);
-
-    if (ret)
-        *(PWINE_STORE_LIST_ENTRY *)Context_GetExtra(ret, contextSize)
-         = storeEntry;
-
-    return ret;
-}
-
-static BOOL CRYPT_CollectionAddContext(PWINE_COLLECTIONSTORE store,
- unsigned int contextStoreOffset, void *context, void *toReplace, unsigned int contextSize,
- void **pChildContext)
-{
-    BOOL ret;
-    void *childContext = NULL;
-    PWINE_STORE_LIST_ENTRY storeEntry = NULL;
-
-    TRACE("(%p, %d, %p, %p, %d)\n", store, contextStoreOffset, context,
-     toReplace, contextSize);
-
-    ret = FALSE;
-    if (toReplace)
-    {
-        void *existingLinked = Context_GetLinkedContext(toReplace, contextSize);
-        PCONTEXT_STORE contextStore;
-
-        storeEntry = *(PWINE_STORE_LIST_ENTRY *)Context_GetExtra(toReplace,
-         contextSize);
-        contextStore = (PCONTEXT_STORE)((LPBYTE)storeEntry->store +
-         contextStoreOffset);
-        ret = contextStore->addContext(storeEntry->store, context,
-         existingLinked, (const void **)&childContext);
-    }
-    else
-    {
-        PWINE_STORE_LIST_ENTRY entry, next;
-
-        EnterCriticalSection(&store->cs);
-        LIST_FOR_EACH_ENTRY_SAFE(entry, next, &store->stores,
-         WINE_STORE_LIST_ENTRY, entry)
-        {
-            if (entry->dwUpdateFlags & CERT_PHYSICAL_STORE_ADD_ENABLE_FLAG)
-            {
-                PCONTEXT_STORE contextStore = (PCONTEXT_STORE)(
-                 (LPBYTE)entry->store + contextStoreOffset);
-
-                storeEntry = entry;
-                ret = contextStore->addContext(entry->store, context, NULL,
-                 (const void **)&childContext);
-                break;
-            }
-        }
-        LeaveCriticalSection(&store->cs);
-        if (!storeEntry)
-            SetLastError(E_ACCESSDENIED);
-    }
-    *pChildContext = childContext;
-    return ret;
-}
-
-/* Advances a collection enumeration by one context, if possible, where
- * advancing means:
+/* Advances a collection enumeration by one cert, if possible, where advancing
+ * means:
  * - calling the current store's enumeration function once, and returning
- *   the enumerated context if one is returned
+ *   the enumerated cert if one is returned
  * - moving to the next store if the current store has no more items, and
  *   recursively calling itself to get the next item.
  * Returns NULL if the collection contains no more items or on error.
  * Assumes the collection store's lock is held.
  */
-static void *CRYPT_CollectionAdvanceEnum(PWINE_COLLECTIONSTORE store,
- PWINE_STORE_LIST_ENTRY storeEntry, size_t contextStoreOffset,
- PCWINE_CONTEXT_INTERFACE contextInterface, void *pPrev, size_t contextSize)
+static PWINE_COLLECTION_CERT_CONTEXT CRYPT_CollectionAdvanceEnum(
+ PWINE_COLLECTIONSTORE store, PWINE_STORE_LIST_ENTRY storeEntry,
+ PWINE_COLLECTION_CERT_CONTEXT pPrev)
 {
-    void *ret, *child;
+    PWINE_COLLECTION_CERT_CONTEXT ret;
+    PWINE_CERT_CONTEXT child;
     struct list *storeNext = list_next(&store->stores, &storeEntry->entry);
-    PCONTEXT_STORE contextStore = (PCONTEXT_STORE)((LPBYTE)storeEntry->store +
-     contextStoreOffset);
 
     TRACE("(%p, %p, %p)\n", store, storeEntry, pPrev);
 
     if (pPrev)
     {
         /* Ref-counting funny business: "duplicate" (addref) the child, because
-         * the free(pPrev) below can cause the ref count to become negative.
+         * the CertFreeCertificateContext(pPrev) below can cause the ref count
+         * to become negative.  See comment below as well.
          */
-        child = Context_GetLinkedContext(pPrev, contextSize);
-        contextInterface->duplicate(child);
-        child = contextStore->enumContext(storeEntry->store, child);
-        contextInterface->free(pPrev);
+        child = ((PWINE_COLLECTION_CERT_CONTEXT)pPrev)->cert.linked;
+        CertDuplicateCertificateContext((PCCERT_CONTEXT)child);
+        child = storeEntry->store->enumCert((HCERTSTORE)storeEntry->store,
+         child);
+        CertFreeCertificateContext((PCCERT_CONTEXT)pPrev);
         pPrev = NULL;
     }
     else
-        child = storeEntry->store->certs.enumContext(storeEntry->store, NULL);
+        child = storeEntry->store->enumCert((HCERTSTORE)storeEntry->store,
+         NULL);
     if (child)
-        ret = CRYPT_CollectionCreateContextFromChild(store, storeEntry, child,
-         contextSize, FALSE);
+    {
+        ret = CryptMemAlloc(sizeof(WINE_COLLECTION_CERT_CONTEXT));
+        if (ret)
+        {
+            CRYPT_InitCertRef((PWINE_CERT_CONTEXT_LINK)ret, child, store);
+            /* enumCert already addref'd once, and CRYPT_InitCertRef does again,
+             * so free child once to get the ref count right.  (Not doing so
+             * will leak memory if the caller calls CertFreeCertificateContext
+             * rather than CertEnumCertificatesInStore.)
+             */
+            CertFreeCertificateContext((PCCERT_CONTEXT)child);
+            ret->storeEntry = storeEntry;
+        }
+        else
+            CertFreeCertificateContext((PCCERT_CONTEXT)child);
+    }
     else
     {
         if (storeNext)
-            ret = CRYPT_CollectionAdvanceEnum(store, LIST_ENTRY(storeNext,
-             WINE_STORE_LIST_ENTRY, entry), contextStoreOffset,
-             contextInterface, NULL, contextSize);
+        {
+            storeEntry = LIST_ENTRY(storeNext, WINE_STORE_LIST_ENTRY, entry);
+            ret = CRYPT_CollectionAdvanceEnum(store, storeEntry, NULL);
+        }
         else
         {
             SetLastError(CRYPT_E_NOT_FOUND);
@@ -479,161 +620,53 @@ static void *CRYPT_CollectionAdvanceEnum(PWINE_COLLECTIONSTORE store,
     return ret;
 }
 
-static BOOL CRYPT_CollectionAddCert(PWINECRYPT_CERTSTORE store, void *cert,
- void *toReplace, const void **ppStoreContext)
-{
-    BOOL ret;
-    void *childContext = NULL;
-    PWINE_COLLECTIONSTORE cs = (PWINE_COLLECTIONSTORE)store;
-
-    ret = CRYPT_CollectionAddContext(cs, offsetof(WINECRYPT_CERTSTORE, certs),
-     cert, toReplace, sizeof(CERT_CONTEXT), &childContext);
-    if (ppStoreContext && childContext)
-    {
-        PWINE_STORE_LIST_ENTRY storeEntry = *(PWINE_STORE_LIST_ENTRY *)
-         Context_GetExtra(childContext, sizeof(CERT_CONTEXT));
-        PCERT_CONTEXT context =
-         CRYPT_CollectionCreateContextFromChild(cs, storeEntry, childContext,
-         sizeof(CERT_CONTEXT), TRUE);
-
-        if (context)
-            context->hCertStore = store;
-        *ppStoreContext = context;
-    }
-    CertFreeCertificateContext((PCCERT_CONTEXT)childContext);
-    return ret;
-}
-
-static void *CRYPT_CollectionEnumCert(PWINECRYPT_CERTSTORE store, void *pPrev)
+static PWINE_CERT_CONTEXT CRYPT_CollectionEnumCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT pPrev)
 {
     PWINE_COLLECTIONSTORE cs = (PWINE_COLLECTIONSTORE)store;
-    void *ret;
+    PWINE_COLLECTION_CERT_CONTEXT prevEntry =
+     (PWINE_COLLECTION_CERT_CONTEXT)pPrev, ret;
 
     TRACE("(%p, %p)\n", store, pPrev);
 
-    EnterCriticalSection(&cs->cs);
-    if (pPrev)
+    if (prevEntry)
     {
-        PWINE_STORE_LIST_ENTRY storeEntry =
-         *(PWINE_STORE_LIST_ENTRY *)Context_GetExtra(pPrev,
-         sizeof(CERT_CONTEXT));
-
-        ret = CRYPT_CollectionAdvanceEnum(cs, storeEntry,
-         offsetof(WINECRYPT_CERTSTORE, certs), pCertInterface, pPrev,
-         sizeof(CERT_CONTEXT));
+        EnterCriticalSection(&cs->cs);
+        ret = CRYPT_CollectionAdvanceEnum(cs, prevEntry->storeEntry, prevEntry);
+        LeaveCriticalSection(&cs->cs);
     }
     else
     {
+        EnterCriticalSection(&cs->cs);
         if (!list_empty(&cs->stores))
         {
-            PWINE_STORE_LIST_ENTRY storeEntry = LIST_ENTRY(cs->stores.next,
-             WINE_STORE_LIST_ENTRY, entry);
+            PWINE_STORE_LIST_ENTRY storeEntry;
 
-            ret = CRYPT_CollectionAdvanceEnum(cs, storeEntry,
-             offsetof(WINECRYPT_CERTSTORE, certs), pCertInterface, NULL,
-             sizeof(CERT_CONTEXT));
+            storeEntry = LIST_ENTRY(cs->stores.next, WINE_STORE_LIST_ENTRY,
+             entry);
+            ret = CRYPT_CollectionAdvanceEnum(cs, storeEntry, NULL);
         }
         else
         {
             SetLastError(CRYPT_E_NOT_FOUND);
             ret = NULL;
         }
+        LeaveCriticalSection(&cs->cs);
     }
-    LeaveCriticalSection(&cs->cs);
-    if (ret)
-        ((PCERT_CONTEXT)ret)->hCertStore = store;
     TRACE("returning %p\n", ret);
-    return ret;
+    return (PWINE_CERT_CONTEXT)ret;
 }
 
-static BOOL CRYPT_CollectionDeleteCert(PWINECRYPT_CERTSTORE store,
- void *pCertContext)
+static BOOL WINAPI CRYPT_CollectionDeleteCert(HCERTSTORE hCertStore,
+ PCCERT_CONTEXT pCertContext, DWORD dwFlags)
 {
+    PWINE_COLLECTION_CERT_CONTEXT context =
+     (PWINE_COLLECTION_CERT_CONTEXT)pCertContext;
     BOOL ret;
 
-    TRACE("(%p, %p)\n", store, pCertContext);
+    TRACE("(%p, %p, %08lx)\n", hCertStore, pCertContext, dwFlags);
 
-    ret = CertDeleteCertificateFromStore((PCCERT_CONTEXT)
-     Context_GetLinkedContext(pCertContext, sizeof(CERT_CONTEXT)));
-    return ret;
-}
-
-static BOOL CRYPT_CollectionAddCRL(PWINECRYPT_CERTSTORE store, void *crl,
- void *toReplace, const void **ppStoreContext)
-{
-    BOOL ret;
-    void *childContext = NULL;
-    PWINE_COLLECTIONSTORE cs = (PWINE_COLLECTIONSTORE)store;
-
-    ret = CRYPT_CollectionAddContext(cs, offsetof(WINECRYPT_CERTSTORE, crls),
-     crl, toReplace, sizeof(CRL_CONTEXT), &childContext);
-    if (ppStoreContext && childContext)
-    {
-        PWINE_STORE_LIST_ENTRY storeEntry = *(PWINE_STORE_LIST_ENTRY *)
-         Context_GetExtra(childContext, sizeof(CRL_CONTEXT));
-        PCRL_CONTEXT context =
-         CRYPT_CollectionCreateContextFromChild(cs, storeEntry, childContext,
-         sizeof(CRL_CONTEXT), TRUE);
-
-        if (context)
-            context->hCertStore = store;
-        *ppStoreContext = context;
-    }
-    CertFreeCRLContext((PCCRL_CONTEXT)childContext);
-    return ret;
-}
-
-static void *CRYPT_CollectionEnumCRL(PWINECRYPT_CERTSTORE store, void *pPrev)
-{
-    PWINE_COLLECTIONSTORE cs = (PWINE_COLLECTIONSTORE)store;
-    void *ret;
-
-    TRACE("(%p, %p)\n", store, pPrev);
-
-    EnterCriticalSection(&cs->cs);
-    if (pPrev)
-    {
-        PWINE_STORE_LIST_ENTRY storeEntry =
-         *(PWINE_STORE_LIST_ENTRY *)Context_GetExtra(pPrev,
-         sizeof(CRL_CONTEXT));
-
-        ret = CRYPT_CollectionAdvanceEnum(cs, storeEntry,
-         offsetof(WINECRYPT_CERTSTORE, crls), pCRLInterface, pPrev,
-         sizeof(CRL_CONTEXT));
-    }
-    else
-    {
-        if (!list_empty(&cs->stores))
-        {
-            PWINE_STORE_LIST_ENTRY storeEntry = LIST_ENTRY(cs->stores.next,
-             WINE_STORE_LIST_ENTRY, entry);
-
-            ret = CRYPT_CollectionAdvanceEnum(cs, storeEntry,
-             offsetof(WINECRYPT_CERTSTORE, crls), pCRLInterface, NULL,
-             sizeof(CRL_CONTEXT));
-        }
-        else
-        {
-            SetLastError(CRYPT_E_NOT_FOUND);
-            ret = NULL;
-        }
-    }
-    LeaveCriticalSection(&cs->cs);
-    if (ret)
-        ((PCRL_CONTEXT)ret)->hCertStore = store;
-    TRACE("returning %p\n", ret);
-    return ret;
-}
-
-static BOOL CRYPT_CollectionDeleteCRL(PWINECRYPT_CERTSTORE store,
- void *pCrlContext)
-{
-    BOOL ret;
-
-    TRACE("(%p, %p)\n", store, pCrlContext);
-
-    ret = CertDeleteCRLFromStore((PCCRL_CONTEXT)
-     Context_GetLinkedContext(pCrlContext, sizeof(CRL_CONTEXT)));
+    ret = CertDeleteCertificateFromStore((PCCERT_CONTEXT)context->cert.linked);
     return ret;
 }
 
@@ -655,13 +688,10 @@ static WINECRYPT_CERTSTORE *CRYPT_CollectionOpenStore(HCRYPTPROV hCryptProv,
             memset(store, 0, sizeof(WINE_COLLECTIONSTORE));
             CRYPT_InitStore(&store->hdr, hCryptProv, dwFlags,
              StoreTypeCollection);
-            store->hdr.closeStore          = CRYPT_CollectionCloseStore;
-            store->hdr.certs.addContext    = CRYPT_CollectionAddCert;
-            store->hdr.certs.enumContext   = CRYPT_CollectionEnumCert;
-            store->hdr.certs.deleteContext = CRYPT_CollectionDeleteCert;
-            store->hdr.crls.addContext     = CRYPT_CollectionAddCRL;
-            store->hdr.crls.enumContext    = CRYPT_CollectionEnumCRL;
-            store->hdr.crls.deleteContext  = CRYPT_CollectionDeleteCRL;
+            store->hdr.closeStore    = CRYPT_CollectionCloseStore;
+            store->hdr.addCert       = CRYPT_CollectionAddCert;
+            store->hdr.enumCert      = CRYPT_CollectionEnumCert;
+            store->hdr.deleteCert    = CRYPT_CollectionDeleteCert;
             InitializeCriticalSection(&store->cs);
             list_init(&store->stores);
         }
@@ -682,137 +712,69 @@ static void WINAPI CRYPT_ProvCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
     CryptMemFree(store);
 }
 
-static BOOL CRYPT_ProvAddCert(PWINECRYPT_CERTSTORE store, void *cert,
- void *toReplace, const void **ppStoreContext)
+static BOOL CRYPT_ProvAddCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT cert, DWORD dwAddDisposition,
+ PCCERT_CONTEXT *ppStoreContext)
 {
     PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
     BOOL ret;
 
-    TRACE("(%p, %p, %p, %p)\n", store, cert, toReplace, ppStoreContext);
+    TRACE("(%p, %p, %ld, %p)\n", store, cert, dwAddDisposition, ppStoreContext);
 
-    if (toReplace)
-        ret = ps->memStore->certs.addContext(ps->memStore, cert, toReplace,
-         (const void **)ppStoreContext);
+    if (ps->hdr.dwOpenFlags & CERT_STORE_READONLY_FLAG)
+    {
+        SetLastError(ERROR_ACCESS_DENIED);
+        ret = FALSE;
+    }
     else
     {
-        if (ps->hdr.dwOpenFlags & CERT_STORE_READONLY_FLAG)
+        ret = TRUE;
+        if (ps->provWriteCert)
+            ret = ps->provWriteCert(ps->hStoreProv, (PCCERT_CONTEXT)cert,
+             CERT_STORE_PROV_WRITE_ADD_FLAG);
+        if (ret)
         {
-            SetLastError(ERROR_ACCESS_DENIED);
-            ret = FALSE;
-        }
-        else
-        {
-            ret = TRUE;
-            if (ps->provWriteCert)
-                ret = ps->provWriteCert(ps->hStoreProv, (PCCERT_CONTEXT)cert,
-                 CERT_STORE_PROV_WRITE_ADD_FLAG);
-            if (ret)
-                ret = ps->memStore->certs.addContext(ps->memStore, cert, NULL,
-                 (const void **)ppStoreContext);
+            ret = ps->memStore->addCert(ps->memStore, cert,
+             dwAddDisposition, ppStoreContext);
+            /* dirty trick: replace the returned context's hCertStore with
+             * store.
+             */
+            if (ppStoreContext)
+                (*(PCERT_CONTEXT *)ppStoreContext)->hCertStore = store;
         }
     }
-    /* dirty trick: replace the returned context's hCertStore with
-     * store.
-     */
-    if (ppStoreContext)
-        (*(PCERT_CONTEXT *)ppStoreContext)->hCertStore = store;
     return ret;
 }
 
-static void *CRYPT_ProvEnumCert(PWINECRYPT_CERTSTORE store, void *pPrev)
+static PWINE_CERT_CONTEXT CRYPT_ProvEnumCert(PWINECRYPT_CERTSTORE store,
+ PWINE_CERT_CONTEXT pPrev)
 {
     PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
-    void *ret;
+    PWINE_CERT_CONTEXT ret;
 
-    ret = ps->memStore->certs.enumContext(ps->memStore, pPrev);
+    ret = ps->memStore->enumCert(ps->memStore, pPrev);
     if (ret)
     {
         /* same dirty trick: replace the returned context's hCertStore with
          * store.
          */
-        ((PCERT_CONTEXT)ret)->hCertStore = store;
+        ret->cert.hCertStore = store;
     }
     return ret;
 }
 
-static BOOL CRYPT_ProvDeleteCert(PWINECRYPT_CERTSTORE store, void *cert)
+static BOOL WINAPI CRYPT_ProvDeleteCert(HCERTSTORE hCertStore,
+ PCCERT_CONTEXT cert, DWORD dwFlags)
 {
-    PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
+    PWINE_PROVIDERSTORE store = (PWINE_PROVIDERSTORE)hCertStore;
     BOOL ret = TRUE;
 
-    TRACE("(%p, %p)\n", store, cert);
+    TRACE("(%p, %p, %08lx)\n", hCertStore, cert, dwFlags);
 
-    if (ps->provDeleteCert)
-        ret = ps->provDeleteCert(ps->hStoreProv, cert, 0);
+    if (store->provDeleteCert)
+        ret = store->provDeleteCert(store->hStoreProv, cert, dwFlags);
     if (ret)
-        ret = ps->memStore->certs.deleteContext(ps->memStore, cert);
-    return ret;
-}
-
-static BOOL CRYPT_ProvAddCRL(PWINECRYPT_CERTSTORE store, void *crl,
- void *toReplace, const void **ppStoreContext)
-{
-    PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
-    BOOL ret;
-
-    TRACE("(%p, %p, %p, %p)\n", store, crl, toReplace, ppStoreContext);
-
-    if (toReplace)
-        ret = ps->memStore->crls.addContext(ps->memStore, crl, toReplace,
-         (const void **)ppStoreContext);
-    else
-    {
-        if (ps->hdr.dwOpenFlags & CERT_STORE_READONLY_FLAG)
-        {
-            SetLastError(ERROR_ACCESS_DENIED);
-            ret = FALSE;
-        }
-        else
-        {
-            ret = TRUE;
-            if (ps->provWriteCrl)
-                ret = ps->provWriteCrl(ps->hStoreProv, (PCCRL_CONTEXT)crl,
-                 CERT_STORE_PROV_WRITE_ADD_FLAG);
-            if (ret)
-                ret = ps->memStore->crls.addContext(ps->memStore, crl, NULL,
-                 (const void **)ppStoreContext);
-        }
-    }
-    /* dirty trick: replace the returned context's hCertStore with
-     * store.
-     */
-    if (ppStoreContext)
-        (*(PCRL_CONTEXT *)ppStoreContext)->hCertStore = store;
-    return ret;
-}
-
-static void *CRYPT_ProvEnumCRL(PWINECRYPT_CERTSTORE store, void *pPrev)
-{
-    PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
-    void *ret;
-
-    ret = ps->memStore->crls.enumContext(ps->memStore, pPrev);
-    if (ret)
-    {
-        /* same dirty trick: replace the returned context's hCertStore with
-         * store.
-         */
-        ((PCERT_CONTEXT)ret)->hCertStore = store;
-    }
-    return ret;
-}
-
-static BOOL CRYPT_ProvDeleteCRL(PWINECRYPT_CERTSTORE store, void *crl)
-{
-    PWINE_PROVIDERSTORE ps = (PWINE_PROVIDERSTORE)store;
-    BOOL ret = TRUE;
-
-    TRACE("(%p, %p)\n", store, crl);
-
-    if (ps->provDeleteCrl)
-        ret = ps->provDeleteCrl(ps->hStoreProv, crl, 0);
-    if (ret)
-        ret = ps->memStore->crls.deleteContext(ps->memStore, crl);
+        ret = store->memStore->deleteCert(store->memStore, cert, dwFlags);
     return ret;
 }
 
@@ -851,12 +813,9 @@ static PWINECRYPT_CERTSTORE CRYPT_ProvCreateStore(HCRYPTPROV hCryptProv,
             ret->memStore = memStore;
         ret->hStoreProv = pProvInfo->hStoreProv;
         ret->hdr.closeStore = CRYPT_ProvCloseStore;
-        ret->hdr.certs.addContext = CRYPT_ProvAddCert;
-        ret->hdr.certs.enumContext = CRYPT_ProvEnumCert;
-        ret->hdr.certs.deleteContext = CRYPT_ProvDeleteCert;
-        ret->hdr.crls.addContext = CRYPT_ProvAddCRL;
-        ret->hdr.crls.enumContext = CRYPT_ProvEnumCRL;
-        ret->hdr.crls.deleteContext = CRYPT_ProvDeleteCRL;
+        ret->hdr.addCert = CRYPT_ProvAddCert;
+        ret->hdr.enumCert = CRYPT_ProvEnumCert;
+        ret->hdr.deleteCert = CRYPT_ProvDeleteCert;
         ret->hdr.control = CRYPT_ProvControl;
         if (pProvInfo->cStoreProvFunc > CERT_STORE_PROV_CLOSE_FUNC)
             ret->provCloseStore =
@@ -873,18 +832,6 @@ static PWINECRYPT_CERTSTORE CRYPT_ProvCreateStore(HCRYPTPROV hCryptProv,
          CERT_STORE_PROV_DELETE_CERT_FUNC)
             ret->provDeleteCert = pProvInfo->rgpvStoreProvFunc[
              CERT_STORE_PROV_DELETE_CERT_FUNC];
-        else
-            ret->provDeleteCert = NULL;
-        if (pProvInfo->cStoreProvFunc >
-         CERT_STORE_PROV_WRITE_CRL_FUNC)
-            ret->provWriteCrl = pProvInfo->rgpvStoreProvFunc[
-             CERT_STORE_PROV_WRITE_CRL_FUNC];
-        else
-            ret->provWriteCert = NULL;
-        if (pProvInfo->cStoreProvFunc >
-         CERT_STORE_PROV_DELETE_CRL_FUNC)
-            ret->provDeleteCrl = pProvInfo->rgpvStoreProvFunc[
-             CERT_STORE_PROV_DELETE_CRL_FUNC];
         else
             ret->provDeleteCert = NULL;
         if (pProvInfo->cStoreProvFunc >
@@ -919,10 +866,9 @@ static PWINECRYPT_CERTSTORE CRYPT_ProvOpenStore(LPCSTR lpszStoreProvider,
              dwFlags, pvPara, NULL, &provInfo);
         else
         {
-            HCERTSTORE memStore;
+            PWINECRYPT_CERTSTORE memStore;
 
-            memStore = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0,
-             CERT_STORE_CREATE_NEW_FLAG, NULL);
+            memStore = CRYPT_MemOpenStore(hCryptProv, dwFlags, NULL);
             if (memStore)
             {
                 if (provOpenFunc(lpszStoreProvider, dwEncodingType, hCryptProv,
@@ -1145,8 +1091,7 @@ static BOOL CRYPT_RegWriteToReg(PWINE_REGSTOREINFO store)
     static const WCHAR *subKeys[] = { CertsW, CRLsW, CTLsW };
     static const WINE_CONTEXT_INTERFACE *interfaces[] = { &gCertInterface,
      &gCRLInterface, &gCTLInterface };
-    struct list *listToDelete[] = { &store->certsToDelete, &store->crlsToDelete,
-     NULL };
+    struct list *listToDelete[] = { &store->certsToDelete, NULL, NULL };
     BOOL ret = TRUE;
     DWORD i;
 
@@ -1225,10 +1170,13 @@ static void WINAPI CRYPT_RegCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
     CryptMemFree(store);
 }
 
-static BOOL WINAPI CRYPT_RegWriteContext(PWINE_REGSTOREINFO store,
- const void *context, DWORD dwFlags)
+static BOOL WINAPI CRYPT_RegWriteCert(HCERTSTORE hCertStore,
+ PCCERT_CONTEXT cert, DWORD dwFlags)
 {
+    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
     BOOL ret;
+
+    TRACE("(%p, %p, %ld)\n", hCertStore, cert, dwFlags);
 
     if (dwFlags & CERT_STORE_PROV_WRITE_ADD_FLAG)
     {
@@ -1240,11 +1188,13 @@ static BOOL WINAPI CRYPT_RegWriteContext(PWINE_REGSTOREINFO store,
     return ret;
 }
 
-static BOOL CRYPT_RegDeleteContext(PWINE_REGSTOREINFO store,
- struct list *deleteList, const void *context,
- PCWINE_CONTEXT_INTERFACE contextInterface)
+static BOOL WINAPI CRYPT_RegDeleteCert(HCERTSTORE hCertStore,
+ PCCERT_CONTEXT pCertContext, DWORD dwFlags)
 {
+    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
     BOOL ret;
+
+    TRACE("(%p, %p, %08lx)\n", store, pCertContext, dwFlags);
 
     if (store->dwOpenFlags & CERT_STORE_READONLY_FLAG)
     {
@@ -1260,12 +1210,12 @@ static BOOL CRYPT_RegDeleteContext(PWINE_REGSTOREINFO store,
         {
             DWORD size = sizeof(toDelete->hash);
 
-            ret = contextInterface->getProp(context, CERT_HASH_PROP_ID,
-             toDelete->hash, &size);
+            ret = CertGetCertificateContextProperty(pCertContext,
+             CERT_HASH_PROP_ID, toDelete->hash, &size);
             if (ret)
             {
                 EnterCriticalSection(&store->cs);
-                list_add_tail(deleteList, &toDelete->entry);
+                list_add_tail(&store->certsToDelete, &toDelete->entry);
                 LeaveCriticalSection(&store->cs);
             }
             else
@@ -1280,48 +1230,6 @@ static BOOL CRYPT_RegDeleteContext(PWINE_REGSTOREINFO store,
             store->dirty = TRUE;
     }
     return ret;
-}
-
-static BOOL WINAPI CRYPT_RegWriteCert(HCERTSTORE hCertStore,
- PCCERT_CONTEXT cert, DWORD dwFlags)
-{
-    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
-
-    TRACE("(%p, %p, %ld)\n", hCertStore, cert, dwFlags);
-
-    return CRYPT_RegWriteContext(store, cert, dwFlags);
-}
-
-static BOOL WINAPI CRYPT_RegDeleteCert(HCERTSTORE hCertStore,
- PCCERT_CONTEXT pCertContext, DWORD dwFlags)
-{
-    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
-
-    TRACE("(%p, %p, %08lx)\n", store, pCertContext, dwFlags);
-
-    return CRYPT_RegDeleteContext(store, &store->certsToDelete, pCertContext,
-     pCertInterface);
-}
-
-static BOOL WINAPI CRYPT_RegWriteCRL(HCERTSTORE hCertStore,
- PCCRL_CONTEXT crl, DWORD dwFlags)
-{
-    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
-
-    TRACE("(%p, %p, %ld)\n", hCertStore, crl, dwFlags);
-
-    return CRYPT_RegWriteContext(store, crl, dwFlags);
-}
-
-static BOOL WINAPI CRYPT_RegDeleteCRL(HCERTSTORE hCertStore,
- PCCRL_CONTEXT pCrlContext, DWORD dwFlags)
-{
-    PWINE_REGSTOREINFO store = (PWINE_REGSTOREINFO)hCertStore;
-
-    TRACE("(%p, %p, %08lx)\n", store, pCrlContext, dwFlags);
-
-    return CRYPT_RegDeleteContext(store, &store->crlsToDelete, pCrlContext,
-     pCRLInterface);
 }
 
 static BOOL WINAPI CRYPT_RegControl(HCERTSTORE hCertStore, DWORD dwFlags,
@@ -1412,8 +1320,8 @@ static void *regProvFuncs[] = {
     CRYPT_RegDeleteCert,
     NULL, /* CERT_STORE_PROV_SET_CERT_PROPERTY_FUNC */
     NULL, /* CERT_STORE_PROV_READ_CRL_FUNC */
-    CRYPT_RegWriteCRL,
-    CRYPT_RegDeleteCRL,
+    NULL, /* CERT_STORE_PROV_WRITE_CRL_FUNC */
+    NULL, /* CERT_STORE_PROV_DELETE_CRL_FUNC */
     NULL, /* CERT_STORE_PROV_SET_CRL_PROPERTY_FUNC */
     NULL, /* CERT_STORE_PROV_READ_CTL_FUNC */
     NULL, /* CERT_STORE_PROV_WRITE_CTL_FUNC */
@@ -1468,7 +1376,6 @@ static WINECRYPT_CERTSTORE *CRYPT_RegOpenStore(HCRYPTPROV hCryptProv,
                     regInfo->key = key;
                     InitializeCriticalSection(&regInfo->cs);
                     list_init(&regInfo->certsToDelete);
-                    list_init(&regInfo->crlsToDelete);
                     CRYPT_RegReadFromReg(regInfo);
                     regInfo->dirty = FALSE;
                     provInfo.cbSize = sizeof(provInfo);
@@ -1507,7 +1414,7 @@ static PWINECRYPT_CERTSTORE CRYPT_SysRegOpenStoreW(HCRYPTPROV hCryptProv,
 
     if (!pvPara)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return NULL;
     }
 
@@ -1555,7 +1462,7 @@ static PWINECRYPT_CERTSTORE CRYPT_SysRegOpenStoreW(HCRYPTPROV hCryptProv,
          debugstr_w(storeName));
         return NULL;
     default:
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return NULL;
     }
 
@@ -1723,54 +1630,6 @@ static PWINECRYPT_CERTSTORE CRYPT_SysOpenStoreA(HCRYPTPROV hCryptProv,
     return ret;
 }
 
-static PWINECRYPT_CERTSTORE CRYPT_FileNameOpenStoreW(HCRYPTPROV hCryptProv,
- DWORD dwFlags, const void *pvPara)
-{
-    FIXME("(%ld, %08lx, %s): stub\n", hCryptProv, dwFlags,
-     debugstr_w((LPCWSTR)pvPara));
-    return NULL;
-}
-
-static PWINECRYPT_CERTSTORE CRYPT_FileNameOpenStoreA(HCRYPTPROV hCryptProv,
- DWORD dwFlags, const void *pvPara)
-{
-    int len;
-    PWINECRYPT_CERTSTORE ret = NULL;
-
-    TRACE("(%ld, %08lx, %s)\n", hCryptProv, dwFlags,
-     debugstr_a((LPCSTR)pvPara));
-
-    if (!pvPara)
-    {
-        SetLastError(ERROR_FILE_NOT_FOUND);
-        return NULL;
-    }
-    len = MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pvPara, -1, NULL, 0);
-    if (len)
-    {
-        LPWSTR storeName = CryptMemAlloc(len * sizeof(WCHAR));
-
-        if (storeName)
-        {
-            MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pvPara, -1, storeName, len);
-            ret = CRYPT_FileNameOpenStoreW(hCryptProv, dwFlags, storeName);
-            CryptMemFree(storeName);
-        }
-    }
-    return ret;
-}
-
-static PWINECRYPT_CERTSTORE CRYPT_PhysOpenStoreW(HCRYPTPROV hCryptProv,
- DWORD dwFlags, const void *pvPara)
-{
-    if (dwFlags & CERT_SYSTEM_STORE_RELOCATE_FLAG)
-        FIXME("(%ld, %08lx, %p): stub\n", hCryptProv, dwFlags, pvPara);
-    else
-        FIXME("(%ld, %08lx, %s): stub\n", hCryptProv, dwFlags,
-         debugstr_w((LPCWSTR)pvPara));
-    return NULL;
-}
-
 HCERTSTORE WINAPI CertOpenStore(LPCSTR lpszStoreProvider,
  DWORD dwMsgAndCertEncodingType, HCRYPTPROV hCryptProv, DWORD dwFlags,
  const void* pvPara)
@@ -1791,12 +1650,6 @@ HCERTSTORE WINAPI CertOpenStore(LPCSTR lpszStoreProvider,
         case (int)CERT_STORE_PROV_REG:
             openFunc = CRYPT_RegOpenStore;
             break;
-        case (int)CERT_STORE_PROV_FILENAME_A:
-            openFunc = CRYPT_FileNameOpenStoreA;
-            break;
-        case (int)CERT_STORE_PROV_FILENAME_W:
-            openFunc = CRYPT_FileNameOpenStoreW;
-            break;
         case (int)CERT_STORE_PROV_COLLECTION:
             openFunc = CRYPT_CollectionOpenStore;
             break;
@@ -1811,9 +1664,6 @@ HCERTSTORE WINAPI CertOpenStore(LPCSTR lpszStoreProvider,
             break;
         case (int)CERT_STORE_PROV_SYSTEM_REGISTRY_W:
             openFunc = CRYPT_SysRegOpenStoreW;
-            break;
-        case (int)CERT_STORE_PROV_PHYSICAL_W:
-            openFunc = CRYPT_PhysOpenStoreW;
             break;
         default:
             if (LOWORD(lpszStoreProvider))
@@ -1847,7 +1697,7 @@ HCERTSTORE WINAPI CertOpenSystemStoreA(HCRYPTPROV hProv,
 {
     if (!szSubSystemProtocol)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return 0;
     }
     return CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, hProv,
@@ -1859,7 +1709,7 @@ HCERTSTORE WINAPI CertOpenSystemStoreW(HCRYPTPROV hProv,
 {
     if (!szSubSystemProtocol)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return 0;
     }
     return CertOpenStore(CERT_STORE_PROV_SYSTEM_W, 0, hProv,
@@ -1874,102 +1724,442 @@ BOOL WINAPI CertSaveStore(HCERTSTORE hCertStore, DWORD dwMsgAndCertEncodingType,
     return TRUE;
 }
 
-DWORD CertStore_GetAccessState(HCERTSTORE hCertStore)
+PCCRL_CONTEXT WINAPI CertCreateCRLContext( DWORD dwCertEncodingType,
+  const BYTE* pbCrlEncoded, DWORD cbCrlEncoded)
 {
-    DWORD state = 0;
+    PCRL_CONTEXT pcrl;
+    BYTE* data;
 
-    if (hCertStore)
+    TRACE("%08lx %p %08lx\n", dwCertEncodingType, pbCrlEncoded, cbCrlEncoded);
+
+    /* FIXME: semi-stub, need to use CryptDecodeObjectEx to decode the CRL. */
+    pcrl = CryptMemAlloc( sizeof (CRL_CONTEXT) );
+    if( !pcrl )
+        return NULL;
+
+    data = CryptMemAlloc( cbCrlEncoded );
+    if( !data )
     {
-        PWINECRYPT_CERTSTORE store = (PWINECRYPT_CERTSTORE)hCertStore;
-
-        if (store->type != StoreTypeMem &&
-         !(store->dwOpenFlags & CERT_STORE_READONLY_FLAG))
-            state |= CERT_ACCESS_STATE_WRITE_PERSIST_FLAG;
+        CryptMemFree( pcrl );
+        return NULL;
     }
-    return state;
+
+    pcrl->dwCertEncodingType = dwCertEncodingType;
+    pcrl->pbCrlEncoded       = data;
+    pcrl->cbCrlEncoded       = cbCrlEncoded;
+    pcrl->pCrlInfo           = NULL;
+    pcrl->hCertStore         = 0;
+
+    return pcrl;
 }
 
-#define CertContext_CopyProperties(to, from) \
- Context_CopyProperties((to), (from), sizeof(CERT_CONTEXT))
+/* Decodes the encoded certificate and creates the certificate context for it.
+ */
+static PWINE_CERT_CONTEXT CRYPT_CreateCertificateContext(
+ DWORD dwCertEncodingType, const BYTE *pbCertEncoded, DWORD cbCertEncoded)
+{
+    PWINE_CERT_CONTEXT_DATA cert = NULL;
+    BOOL ret;
+    PCERT_SIGNED_CONTENT_INFO signedCert = NULL;
+    PCERT_INFO certInfo = NULL;
+    DWORD size = 0;
+
+    TRACE("(%08lx, %p, %ld)\n", dwCertEncodingType, pbCertEncoded,
+     cbCertEncoded);
+
+    /* First try to decode it as a signed cert. */
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING, X509_CERT, pbCertEncoded,
+     cbCertEncoded, CRYPT_DECODE_ALLOC_FLAG, NULL, (BYTE *)&signedCert, &size);
+    if (ret)
+    {
+        size = 0;
+        ret = CryptDecodeObjectEx(X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED,
+         signedCert->ToBeSigned.pbData, signedCert->ToBeSigned.cbData,
+         CRYPT_DECODE_ALLOC_FLAG, NULL, (BYTE *)&certInfo, &size);
+        LocalFree(signedCert);
+    }
+    /* Failing that, try it as an unsigned cert */
+    if (!ret)
+    {
+        size = 0;
+        ret = CryptDecodeObjectEx(X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED,
+         pbCertEncoded, cbCertEncoded,
+         CRYPT_DECODE_ALLOC_FLAG | CRYPT_DECODE_NOCOPY_FLAG, NULL,
+         (BYTE *)&certInfo, &size);
+    }
+    if (ret)
+    {
+        BYTE *data = NULL;
+
+        cert = CryptMemAlloc(sizeof(WINE_CERT_CONTEXT_DATA));
+        if (!cert)
+            goto end;
+        data = CryptMemAlloc(cbCertEncoded);
+        if (!data)
+        {
+            CryptMemFree(cert);
+            cert = NULL;
+            goto end;
+        }
+        memcpy(data, pbCertEncoded, cbCertEncoded);
+        cert->cert.dwCertEncodingType = dwCertEncodingType;
+        cert->cert.pbCertEncoded      = data;
+        cert->cert.cbCertEncoded      = cbCertEncoded;
+        cert->cert.pCertInfo          = certInfo;
+        cert->cert.hCertStore         = 0;
+        cert->ref = 1;
+        cert->type = ContextTypeData;
+        cert->properties = ContextPropertyList_Create();
+    }
+
+end:
+    return (PWINE_CERT_CONTEXT)cert;
+}
+
+PCCERT_CONTEXT WINAPI CertCreateCertificateContext(DWORD dwCertEncodingType,
+ const BYTE *pbCertEncoded, DWORD cbCertEncoded)
+{
+    PWINE_CERT_CONTEXT cert;
+
+    TRACE("(%08lx, %p, %ld)\n", dwCertEncodingType, pbCertEncoded,
+     cbCertEncoded);
+
+    cert = CRYPT_CreateCertificateContext(dwCertEncodingType, pbCertEncoded,
+     cbCertEncoded);
+    return (PCCERT_CONTEXT)cert;
+}
+
+/* If context is a link, follows it to its linked context (recursively, if
+ * necessary) and returns the data context associated with the link.
+ * Otherwise just returns context.
+ */
+static inline PWINE_CERT_CONTEXT_DATA CertContext_GetDataContext(
+ PWINE_CERT_CONTEXT context)
+{
+    PWINE_CERT_CONTEXT ptr = context;
+
+    while (ptr && ptr->type == ContextTypeLink)
+        ptr = ((PWINE_CERT_CONTEXT_LINK)ptr)->linked;
+    return (ptr && ptr->type == ContextTypeData) ?
+     (PWINE_CERT_CONTEXT_DATA)ptr : NULL;
+}
+
+DWORD WINAPI CertEnumCertificateContextProperties(PCCERT_CONTEXT pCertContext,
+ DWORD dwPropId)
+{
+    PWINE_CERT_CONTEXT_DATA linked = CertContext_GetDataContext(
+     (PWINE_CERT_CONTEXT)pCertContext);
+    DWORD ret;
+
+    TRACE("(%p, %ld)\n", pCertContext, dwPropId);
+
+    if (linked)
+        ret = ContextPropertyList_EnumPropIDs(linked->properties, dwPropId);
+    else
+        ret = 0;
+    return ret;
+}
+
+static BOOL CRYPT_GetCertHashProp(PWINE_CERT_CONTEXT context, DWORD dwPropId,
+ ALG_ID algID, const BYTE *toHash, DWORD toHashLen, void *pvData,
+ DWORD *pcbData)
+{
+    BOOL ret = CryptHashCertificate(0, algID, 0, toHash, toHashLen, pvData,
+     pcbData);
+    if (ret)
+    {
+        CRYPT_DATA_BLOB blob = { *pcbData, pvData };
+
+        ret = CRYPT_SetCertificateContextProperty(context, dwPropId,
+         0, &blob);
+    }
+    return ret;
+}
+
+static BOOL WINAPI CRYPT_GetCertificateContextProperty(
+ PWINE_CERT_CONTEXT context, DWORD dwPropId, void *pvData, DWORD *pcbData)
+{
+    PWINE_CERT_CONTEXT_DATA linked = CertContext_GetDataContext(context);
+    BOOL ret;
+    CRYPT_DATA_BLOB blob;
+
+    TRACE("(%p, %ld, %p, %p)\n", context, dwPropId, pvData, pcbData);
+
+    if (linked)
+        ret = ContextPropertyList_FindProperty(linked->properties, dwPropId,
+         &blob);
+    else
+        ret = FALSE;
+    if (ret)
+    {
+        if (!pvData)
+        {
+            *pcbData = blob.cbData;
+            ret = TRUE;
+        }
+        else if (*pcbData < blob.cbData)
+        {
+            SetLastError(ERROR_MORE_DATA);
+            *pcbData = blob.cbData;
+        }
+        else
+        {
+            memcpy(pvData, blob.pbData, blob.cbData);
+            *pcbData = blob.cbData;
+            ret = TRUE;
+        }
+    }
+    else
+    {
+        /* Implicit properties */
+        switch (dwPropId)
+        {
+        case CERT_SHA1_HASH_PROP_ID:
+            ret = CRYPT_GetCertHashProp(context, dwPropId, CALG_SHA1,
+             context->cert.pbCertEncoded, context->cert.cbCertEncoded, pvData,
+             pcbData);
+            break;
+        case CERT_MD5_HASH_PROP_ID:
+            ret = CRYPT_GetCertHashProp(context, dwPropId, CALG_MD5,
+             context->cert.pbCertEncoded, context->cert.cbCertEncoded, pvData,
+             pcbData);
+            break;
+        case CERT_SUBJECT_NAME_MD5_HASH_PROP_ID:
+            ret = CRYPT_GetCertHashProp(context, dwPropId, CALG_MD5,
+             context->cert.pCertInfo->Subject.pbData,
+             context->cert.pCertInfo->Subject.cbData,
+             pvData, pcbData);
+            break;
+        case CERT_SUBJECT_PUBLIC_KEY_MD5_HASH_PROP_ID:
+            ret = CRYPT_GetCertHashProp(context, dwPropId, CALG_MD5,
+             context->cert.pCertInfo->SubjectPublicKeyInfo.PublicKey.pbData,
+             context->cert.pCertInfo->SubjectPublicKeyInfo.PublicKey.cbData,
+             pvData, pcbData);
+            break;
+        case CERT_SIGNATURE_HASH_PROP_ID:
+        case CERT_ISSUER_SERIAL_NUMBER_MD5_HASH_PROP_ID:
+            FIXME("implicit property %ld\n", dwPropId);
+            SetLastError(CRYPT_E_NOT_FOUND);
+            break;
+        default:
+            SetLastError(CRYPT_E_NOT_FOUND);
+        }
+    }
+    TRACE("returning %d\n", ret);
+    return ret;
+}
+
+BOOL WINAPI CertGetCertificateContextProperty(PCCERT_CONTEXT pCertContext,
+ DWORD dwPropId, void *pvData, DWORD *pcbData)
+{
+    BOOL ret;
+
+    TRACE("(%p, %ld, %p, %p)\n", pCertContext, dwPropId, pvData, pcbData);
+
+    /* Special cases for invalid/special prop IDs.
+     */
+    switch (dwPropId)
+    {
+    case 0:
+    case CERT_CERT_PROP_ID:
+    case CERT_CRL_PROP_ID:
+    case CERT_CTL_PROP_ID:
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
+        return FALSE;
+    case CERT_ACCESS_STATE_PROP_ID:
+        if (!pvData)
+        {
+            *pcbData = sizeof(DWORD);
+            return TRUE;
+        }
+        else if (*pcbData < sizeof(DWORD))
+        {
+            SetLastError(ERROR_MORE_DATA);
+            *pcbData = sizeof(DWORD);
+            return FALSE;
+        }
+        else
+        {
+            DWORD state = 0;
+
+            if (pCertContext->hCertStore)
+            {
+                PWINECRYPT_CERTSTORE store =
+                 (PWINECRYPT_CERTSTORE)pCertContext->hCertStore;
+
+                if (!(store->dwOpenFlags & CERT_STORE_READONLY_FLAG))
+                    state |= CERT_ACCESS_STATE_WRITE_PERSIST_FLAG;
+            }
+            *(DWORD *)pvData = state;
+            return TRUE;
+        }
+    }
+
+    ret = CRYPT_GetCertificateContextProperty((PWINE_CERT_CONTEXT)pCertContext,
+     dwPropId, pvData, pcbData);
+    TRACE("returning %d\n", ret);
+    return ret;
+}
+
+static BOOL WINAPI CRYPT_SetCertificateContextProperty(
+ PWINE_CERT_CONTEXT context, DWORD dwPropId, DWORD dwFlags, const void *pvData)
+{
+    PWINE_CERT_CONTEXT_DATA linked = CertContext_GetDataContext(context);
+    BOOL ret;
+
+    TRACE("(%p, %ld, %08lx, %p)\n", context, dwPropId, dwFlags, pvData);
+
+    if (!linked)
+        ret = FALSE;
+    else if (!pvData)
+    {
+        ContextPropertyList_RemoveProperty(linked->properties, dwPropId);
+        ret = TRUE;
+    }
+    else
+    {
+        switch (dwPropId)
+        {
+        case CERT_AUTO_ENROLL_PROP_ID:
+        case CERT_CTL_USAGE_PROP_ID: /* same as CERT_ENHKEY_USAGE_PROP_ID */
+        case CERT_DESCRIPTION_PROP_ID:
+        case CERT_FRIENDLY_NAME_PROP_ID:
+        case CERT_HASH_PROP_ID:
+        case CERT_KEY_IDENTIFIER_PROP_ID:
+        case CERT_MD5_HASH_PROP_ID:
+        case CERT_NEXT_UPDATE_LOCATION_PROP_ID:
+        case CERT_PUBKEY_ALG_PARA_PROP_ID:
+        case CERT_PVK_FILE_PROP_ID:
+        case CERT_SIGNATURE_HASH_PROP_ID:
+        case CERT_ISSUER_PUBLIC_KEY_MD5_HASH_PROP_ID:
+        case CERT_SUBJECT_NAME_MD5_HASH_PROP_ID:
+        case CERT_SUBJECT_PUBLIC_KEY_MD5_HASH_PROP_ID:
+        case CERT_ENROLLMENT_PROP_ID:
+        case CERT_CROSS_CERT_DIST_POINTS_PROP_ID:
+        case CERT_RENEWAL_PROP_ID:
+        {
+            PCRYPT_DATA_BLOB blob = (PCRYPT_DATA_BLOB)pvData;
+
+            ret = ContextPropertyList_SetProperty(linked->properties, dwPropId,
+             blob->pbData, blob->cbData);
+            break;
+        }
+        case CERT_DATE_STAMP_PROP_ID:
+            ret = ContextPropertyList_SetProperty(linked->properties, dwPropId,
+             pvData, sizeof(FILETIME));
+            break;
+        default:
+            FIXME("%ld: stub\n", dwPropId);
+            ret = FALSE;
+        }
+    }
+    TRACE("returning %d\n", ret);
+    return ret;
+}
+
+BOOL WINAPI CertSetCertificateContextProperty(PCCERT_CONTEXT pCertContext,
+ DWORD dwPropId, DWORD dwFlags, const void *pvData)
+{
+    BOOL ret;
+
+    TRACE("(%p, %ld, %08lx, %p)\n", pCertContext, dwPropId, dwFlags, pvData);
+
+    /* Handle special cases for "read-only"/invalid prop IDs.  Windows just
+     * crashes on most of these, I'll be safer.
+     */
+    switch (dwPropId)
+    {
+    case 0:
+    case CERT_ACCESS_STATE_PROP_ID:
+    case CERT_CERT_PROP_ID:
+    case CERT_CRL_PROP_ID:
+    case CERT_CTL_PROP_ID:
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
+        return FALSE;
+    }
+    ret = CRYPT_SetCertificateContextProperty((PWINE_CERT_CONTEXT)pCertContext,
+     dwPropId, dwFlags, pvData);
+    TRACE("returning %d\n", ret);
+    return ret;
+}
+
+PCCERT_CONTEXT WINAPI CertDuplicateCertificateContext(
+ PCCERT_CONTEXT pCertContext)
+{
+    PWINE_CERT_CONTEXT context = (PWINE_CERT_CONTEXT)pCertContext;
+
+    TRACE("(%p)\n", pCertContext);
+    InterlockedIncrement(&context->ref);
+    return pCertContext;
+}
 
 BOOL WINAPI CertAddCertificateContextToStore(HCERTSTORE hCertStore,
  PCCERT_CONTEXT pCertContext, DWORD dwAddDisposition,
  PCCERT_CONTEXT *ppStoreContext)
 {
     PWINECRYPT_CERTSTORE store = (PWINECRYPT_CERTSTORE)hCertStore;
-    BOOL ret = TRUE;
-    PCCERT_CONTEXT toAdd = NULL, existing = NULL;
+    PWINE_CERT_CONTEXT_DATA linked = CertContext_GetDataContext(
+     (PWINE_CERT_CONTEXT)pCertContext);
+    PWINE_CERT_CONTEXT cert;
+    BOOL ret;
 
     TRACE("(%p, %p, %08lx, %p)\n", hCertStore, pCertContext,
      dwAddDisposition, ppStoreContext);
 
-    /* Weird case to pass a test */
-    if (dwAddDisposition == 0)
+    /* FIXME: some tests needed to verify return codes */
+    if (!store)
     {
-        SetLastError(STATUS_ACCESS_VIOLATION);
+        SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
-    if (dwAddDisposition != CERT_STORE_ADD_ALWAYS)
+    if (store->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
     {
-        BYTE hashToAdd[20];
-        DWORD size = sizeof(hashToAdd);
-
-        ret = CertGetCertificateContextProperty(pCertContext, CERT_HASH_PROP_ID,
-         hashToAdd, &size);
-        if (ret)
-        {
-            CRYPT_HASH_BLOB blob = { sizeof(hashToAdd), hashToAdd };
-
-            existing = CertFindCertificateInStore(hCertStore,
-             pCertContext->dwCertEncodingType, 0, CERT_FIND_SHA1_HASH, &blob,
-             NULL);
-        }
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
     }
 
-    switch (dwAddDisposition)
+    cert = CRYPT_CreateCertificateContext(pCertContext->dwCertEncodingType,
+     pCertContext->pbCertEncoded, pCertContext->cbCertEncoded);
+    if (cert)
     {
-    case CERT_STORE_ADD_ALWAYS:
-        toAdd = CertDuplicateCertificateContext(pCertContext);
-        break;
-    case CERT_STORE_ADD_NEW:
-        if (existing)
+        PWINE_CERT_CONTEXT_DATA certData = CertContext_GetDataContext(cert);
+
+        ContextPropertyList_Copy(certData->properties, linked->properties);
+        ret = store->addCert(store, cert, dwAddDisposition, ppStoreContext);
+        CertFreeCertificateContext((PCCERT_CONTEXT)cert);
+    }
+    else
+        ret = FALSE;
+    return ret;
+}
+
+BOOL WINAPI CertAddEncodedCertificateToStore(HCERTSTORE hCertStore,
+ DWORD dwCertEncodingType, const BYTE *pbCertEncoded, DWORD cbCertEncoded,
+ DWORD dwAddDisposition, PCCERT_CONTEXT *ppCertContext)
+{
+    WINECRYPT_CERTSTORE *hcs = (WINECRYPT_CERTSTORE *)hCertStore;
+    BOOL ret;
+
+    TRACE("(%p, %08lx, %p, %ld, %08lx, %p)\n", hCertStore, dwCertEncodingType,
+     pbCertEncoded, cbCertEncoded, dwAddDisposition, ppCertContext);
+
+    if (!hcs)
+        ret = FALSE;
+    else if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
+        ret = FALSE;
+    else
+    {
+        PWINE_CERT_CONTEXT cert = CRYPT_CreateCertificateContext(
+         dwCertEncodingType, pbCertEncoded, cbCertEncoded);
+
+        if (cert)
         {
-            TRACE("found matching certificate, not adding\n");
-            SetLastError(CRYPT_E_EXISTS);
-            ret = FALSE;
+            ret = hcs->addCert(hcs, cert, dwAddDisposition, ppCertContext);
+            CertFreeCertificateContext((PCCERT_CONTEXT)cert);
         }
         else
-            toAdd = CertDuplicateCertificateContext(pCertContext);
-        break;
-    case CERT_STORE_ADD_REPLACE_EXISTING:
-        toAdd = CertDuplicateCertificateContext(pCertContext);
-        break;
-    case CERT_STORE_ADD_REPLACE_EXISTING_INHERIT_PROPERTIES:
-        toAdd = CertDuplicateCertificateContext(pCertContext);
-        if (existing)
-            CertContext_CopyProperties(toAdd, existing);
-        break;
-    case CERT_STORE_ADD_USE_EXISTING:
-        if (existing)
-            CertContext_CopyProperties(existing, pCertContext);
-        break;
-    default:
-        FIXME("Unimplemented add disposition %ld\n", dwAddDisposition);
-        ret = FALSE;
+            ret = FALSE;
     }
-
-    if (toAdd)
-    {
-        if (store)
-            ret = store->certs.addContext(store, (void *)toAdd,
-             (void *)existing, (const void **)ppStoreContext);
-        else if (ppStoreContext)
-            *ppStoreContext = CertDuplicateCertificateContext(toAdd);
-        CertFreeCertificateContext(toAdd);
-    }
-    CertFreeCertificateContext(existing);
-
-    TRACE("returning %d\n", ret);
     return ret;
 }
 
@@ -1985,7 +2175,7 @@ PCCERT_CONTEXT WINAPI CertEnumCertificatesInStore(HCERTSTORE hCertStore,
     else if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
         ret = NULL;
     else
-        ret = (PCCERT_CONTEXT)hcs->certs.enumContext(hcs, (void *)pPrev);
+        ret = (PCCERT_CONTEXT)hcs->enumCert(hcs, (PWINE_CERT_CONTEXT)pPrev);
     return ret;
 }
 
@@ -2010,144 +2200,49 @@ BOOL WINAPI CertDeleteCertificateFromStore(PCCERT_CONTEXT pCertContext)
         if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
             ret = FALSE;
         else
-            ret = hcs->certs.deleteContext(hcs, (void *)pCertContext);
+            ret = hcs->deleteCert(hcs, pCertContext, 0);
         CertFreeCertificateContext(pCertContext);
     }
     return ret;
 }
 
-#define CrlContext_CopyProperties(to, from) \
- Context_CopyProperties((to), (from), sizeof(CRL_CONTEXT))
-
-BOOL WINAPI CertAddCRLContextToStore(HCERTSTORE hCertStore,
- PCCRL_CONTEXT pCrlContext, DWORD dwAddDisposition,
- PCCRL_CONTEXT* ppStoreContext)
+BOOL WINAPI CertAddEncodedCRLToStore(HCERTSTORE hCertStore,
+ DWORD dwCertEncodingType, const BYTE *pbCrlEncoded, DWORD cbCrlEncoded,
+ DWORD dwAddDisposition, PCCRL_CONTEXT *ppCrlContext)
 {
-    PWINECRYPT_CERTSTORE store = (PWINECRYPT_CERTSTORE)hCertStore;
-    BOOL ret = TRUE;
-    PCCRL_CONTEXT toAdd = NULL, existing = NULL;
+    FIXME("(%p, %08lx, %p, %ld, %08lx, %p): stub\n", hCertStore,
+     dwCertEncodingType, pbCrlEncoded, cbCrlEncoded, dwAddDisposition,
+     ppCrlContext);
+    return FALSE;
+}
 
-    TRACE("(%p, %p, %08lx, %p)\n", hCertStore, pCrlContext,
-     dwAddDisposition, ppStoreContext);
+BOOL WINAPI CertAddCRLContextToStore( HCERTSTORE hCertStore,
+             PCCRL_CONTEXT pCrlContext, DWORD dwAddDisposition,
+             PCCRL_CONTEXT* ppStoreContext )
+{
+    FIXME("%p %p %08lx %p\n", hCertStore, pCrlContext,
+          dwAddDisposition, ppStoreContext);
+    return TRUE;
+}
 
-    /* Weird case to pass a test */
-    if (dwAddDisposition == 0)
-    {
-        SetLastError(STATUS_ACCESS_VIOLATION);
-        return FALSE;
-    }
-    if (dwAddDisposition != CERT_STORE_ADD_ALWAYS)
-    {
-        existing = CertFindCRLInStore(hCertStore, 0, 0, CRL_FIND_EXISTING,
-         pCrlContext, NULL);
-    }
+BOOL WINAPI CertFreeCRLContext( PCCRL_CONTEXT pCrlContext)
+{
+    FIXME("%p\n", pCrlContext );
 
-    switch (dwAddDisposition)
-    {
-    case CERT_STORE_ADD_ALWAYS:
-        toAdd = CertDuplicateCRLContext(pCrlContext);
-        break;
-    case CERT_STORE_ADD_NEW:
-        if (existing)
-        {
-            TRACE("found matching CRL, not adding\n");
-            SetLastError(CRYPT_E_EXISTS);
-            ret = FALSE;
-        }
-        else
-            toAdd = CertDuplicateCRLContext(pCrlContext);
-        break;
-    case CERT_STORE_ADD_NEWER:
-        if (existing)
-        {
-            LONG newer = CompareFileTime(&existing->pCrlInfo->ThisUpdate,
-             &pCrlContext->pCrlInfo->ThisUpdate);
-
-            if (newer < 0)
-                toAdd = CertDuplicateCRLContext(pCrlContext);
-            else
-            {
-                TRACE("existing CRL is newer, not adding\n");
-                SetLastError(CRYPT_E_EXISTS);
-                ret = FALSE;
-            }
-        }
-        else
-            toAdd = CertDuplicateCRLContext(pCrlContext);
-        break;
-    case CERT_STORE_ADD_REPLACE_EXISTING:
-        toAdd = CertDuplicateCRLContext(pCrlContext);
-        break;
-    case CERT_STORE_ADD_REPLACE_EXISTING_INHERIT_PROPERTIES:
-        toAdd = CertDuplicateCRLContext(pCrlContext);
-        if (existing)
-            CrlContext_CopyProperties(toAdd, existing);
-        break;
-    case CERT_STORE_ADD_USE_EXISTING:
-        if (existing)
-            CrlContext_CopyProperties(existing, pCrlContext);
-        break;
-    default:
-        FIXME("Unimplemented add disposition %ld\n", dwAddDisposition);
-        ret = FALSE;
-    }
-
-    if (toAdd)
-    {
-        if (store)
-            ret = store->crls.addContext(store, (void *)toAdd,
-             (void *)existing, (const void **)ppStoreContext);
-        else if (ppStoreContext)
-            *ppStoreContext = CertDuplicateCRLContext(toAdd);
-        CertFreeCRLContext(toAdd);
-    }
-    CertFreeCRLContext(existing);
-
-    TRACE("returning %d\n", ret);
-    return ret;
+    return TRUE;
 }
 
 BOOL WINAPI CertDeleteCRLFromStore(PCCRL_CONTEXT pCrlContext)
 {
-    BOOL ret;
-
-    TRACE("(%p)\n", pCrlContext);
-
-    if (!pCrlContext)
-        ret = TRUE;
-    else if (!pCrlContext->hCertStore)
-    {
-        ret = TRUE;
-        CertFreeCRLContext(pCrlContext);
-    }
-    else
-    {
-        PWINECRYPT_CERTSTORE hcs =
-         (PWINECRYPT_CERTSTORE)pCrlContext->hCertStore;
-
-        if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
-            ret = FALSE;
-        else
-            ret = hcs->crls.deleteContext(hcs, (void *)pCrlContext);
-        CertFreeCRLContext(pCrlContext);
-    }
-    return ret;
+    FIXME("(%p): stub\n", pCrlContext);
+    return TRUE;
 }
 
 PCCRL_CONTEXT WINAPI CertEnumCRLsInStore(HCERTSTORE hCertStore,
  PCCRL_CONTEXT pPrev)
 {
-    WINECRYPT_CERTSTORE *hcs = (WINECRYPT_CERTSTORE *)hCertStore;
-    PCCRL_CONTEXT ret;
-
-    TRACE("(%p, %p)\n", hCertStore, pPrev);
-    if (!hCertStore)
-        ret = NULL;
-    else if (hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
-        ret = NULL;
-    else
-        ret = (PCCRL_CONTEXT)hcs->crls.enumContext(hcs, (void *)pPrev);
-    return ret;
+    FIXME("(%p, %p): stub\n", hCertStore, pPrev);
+    return NULL;
 }
 
 PCCTL_CONTEXT WINAPI CertCreateCTLContext(DWORD dwCertEncodingType,
@@ -2175,12 +2270,6 @@ BOOL WINAPI CertAddCTLContextToStore(HCERTSTORE hCertStore,
     FIXME("(%p, %p, %08lx, %p): stub\n", hCertStore, pCtlContext,
      dwAddDisposition, ppStoreContext);
     return TRUE;
-}
-
-PCCTL_CONTEXT WINAPI CertDuplicateCTLContext(PCCTL_CONTEXT pCtlContext)
-{
-    FIXME("(%p): stub\n", pCtlContext );
-    return pCtlContext;
 }
 
 BOOL WINAPI CertFreeCTLContext(PCCTL_CONTEXT pCtlContext)
@@ -2261,11 +2350,19 @@ BOOL WINAPI CertControlStore(HCERTSTORE hCertStore, DWORD dwFlags,
     return ret;
 }
 
-DWORD WINAPI CertEnumCTLContextProperties(PCCTL_CONTEXT pCTLContext,
- DWORD dwPropId)
+BOOL WINAPI CertGetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
+ DWORD dwPropId, void *pvData, DWORD *pcbData)
 {
-    FIXME("(%p, %ld): stub\n", pCTLContext, dwPropId);
-    return 0;
+    FIXME("(%p, %ld, %p, %p): stub\n", pCRLContext, dwPropId, pvData, pcbData);
+    return FALSE;
+}
+
+BOOL WINAPI CertSetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
+ DWORD dwPropId, DWORD dwFlags, const void *pvData)
+{
+    FIXME("(%p, %ld, %08lx, %p): stub\n", pCRLContext, dwPropId, dwFlags,
+     pvData);
+    return FALSE;
 }
 
 BOOL WINAPI CertGetCTLContextProperty(PCCTL_CONTEXT pCTLContext,
@@ -2283,6 +2380,185 @@ BOOL WINAPI CertSetCTLContextProperty(PCCTL_CONTEXT pCTLContext,
     return FALSE;
 }
 
+static void CertDataContext_Free(PWINE_CERT_CONTEXT_DATA context)
+{
+    CryptMemFree(context->cert.pbCertEncoded);
+    LocalFree(context->cert.pCertInfo);
+    ContextPropertyList_Free(context->properties);
+    CryptMemFree(context);
+}
+
+static void CertLinkContext_Free(PWINE_CERT_CONTEXT_LINK context)
+{
+    CertFreeCertificateContext((PCCERT_CONTEXT)context->linked);
+    CryptMemFree(context);
+}
+
+static void CertContext_Release(PWINE_CERT_CONTEXT context)
+{
+    if (InterlockedDecrement(&context->ref) == 0)
+    {
+        TRACE("freeing %p\n", context);
+        switch (context->type)
+        {
+        case ContextTypeData:
+            CertDataContext_Free((PWINE_CERT_CONTEXT_DATA)context);
+            break;
+        case ContextTypeLink:
+            CertLinkContext_Free((PWINE_CERT_CONTEXT_LINK)context);
+            break;
+        default:
+            assert(0);
+        }
+    }
+    else
+        TRACE("%p's ref count is %ld\n", context, context->ref);
+}
+
+BOOL WINAPI CertFreeCertificateContext(PCCERT_CONTEXT pCertContext)
+{
+    TRACE("(%p)\n", pCertContext);
+
+    if (pCertContext)
+        CertContext_Release((PWINE_CERT_CONTEXT)pCertContext);
+    return TRUE;
+}
+
+typedef BOOL (*CertCompareFunc)(PCCERT_CONTEXT pCertContext, DWORD dwType,
+ DWORD dwFlags, const void *pvPara);
+
+static BOOL compare_cert_any(PCCERT_CONTEXT pCertContext, DWORD dwType,
+ DWORD dwFlags, const void *pvPara)
+{
+    return TRUE;
+}
+
+static BOOL compare_cert_by_md5_hash(PCCERT_CONTEXT pCertContext, DWORD dwType,
+ DWORD dwFlags, const void *pvPara)
+{
+    BOOL ret;
+    BYTE hash[16];
+    DWORD size = sizeof(hash);
+
+    ret = CertGetCertificateContextProperty(pCertContext,
+     CERT_MD5_HASH_PROP_ID, hash, &size);
+    if (ret)
+    {
+        const CRYPT_HASH_BLOB *pHash = (const CRYPT_HASH_BLOB *)pvPara;
+
+        if (size == pHash->cbData)
+            ret = !memcmp(pHash->pbData, hash, size);
+        else
+            ret = FALSE;
+    }
+    return ret;
+}
+
+static BOOL compare_cert_by_sha1_hash(PCCERT_CONTEXT pCertContext, DWORD dwType,
+ DWORD dwFlags, const void *pvPara)
+{
+    BOOL ret;
+    BYTE hash[20];
+    DWORD size = sizeof(hash);
+
+    ret = CertGetCertificateContextProperty(pCertContext,
+     CERT_SHA1_HASH_PROP_ID, hash, &size);
+    if (ret)
+    {
+        const CRYPT_HASH_BLOB *pHash = (const CRYPT_HASH_BLOB *)pvPara;
+
+        if (size == pHash->cbData)
+            ret = !memcmp(pHash->pbData, hash, size);
+        else
+            ret = FALSE;
+    }
+    return ret;
+}
+
+static BOOL compare_cert_by_name(PCCERT_CONTEXT pCertContext, DWORD dwType,
+ DWORD dwFlags, const void *pvPara)
+{
+    const CERT_NAME_BLOB *blob = (const CERT_NAME_BLOB *)pvPara, *toCompare;
+    BOOL ret;
+
+    if (dwType & CERT_INFO_SUBJECT_FLAG)
+        toCompare = &pCertContext->pCertInfo->Subject;
+    else
+        toCompare = &pCertContext->pCertInfo->Issuer;
+    if (toCompare->cbData == blob->cbData)
+        ret = !memcmp(toCompare->pbData, blob->pbData, blob->cbData);
+    else
+        ret = FALSE;
+    return ret;
+}
+
+static BOOL compare_cert_by_subject_cert(PCCERT_CONTEXT pCertContext,
+ DWORD dwType, DWORD dwFlags, const void *pvPara)
+{
+    const CERT_INFO *pCertInfo = (const CERT_INFO *)pvPara;
+    BOOL ret;
+
+    if (pCertInfo->Issuer.cbData == pCertContext->pCertInfo->Subject.cbData)
+        ret = !memcmp(pCertInfo->Issuer.pbData,
+         pCertContext->pCertInfo->Subject.pbData, pCertInfo->Issuer.cbData);
+    else
+        ret = FALSE;
+    return ret;
+}
+
+PCCERT_CONTEXT WINAPI CertFindCertificateInStore(HCERTSTORE hCertStore,
+		DWORD dwCertEncodingType, DWORD dwFlags, DWORD dwType,
+		const void *pvPara, PCCERT_CONTEXT pPrevCertContext)
+{
+    PCCERT_CONTEXT ret;
+    CertCompareFunc compare;
+
+    TRACE("(%p, %ld, %ld, %ld, %p, %p)\n", hCertStore, dwCertEncodingType,
+	 dwFlags, dwType, pvPara, pPrevCertContext);
+
+    switch (dwType >> CERT_COMPARE_SHIFT)
+    {
+    case CERT_COMPARE_ANY:
+        compare = compare_cert_any;
+        break;
+    case CERT_COMPARE_MD5_HASH:
+        compare = compare_cert_by_md5_hash;
+        break;
+    case CERT_COMPARE_SHA1_HASH:
+        compare = compare_cert_by_sha1_hash;
+        break;
+    case CERT_COMPARE_NAME:
+        compare = compare_cert_by_name;
+        break;
+    case CERT_COMPARE_SUBJECT_CERT:
+        compare = compare_cert_by_subject_cert;
+        break;
+    default:
+        FIXME("find type %08lx unimplemented\n", dwType);
+        compare = NULL;
+    }
+
+    if (compare)
+    {
+        BOOL matches = FALSE;
+
+        ret = pPrevCertContext;
+        do {
+            ret = CertEnumCertificatesInStore(hCertStore, ret);
+            if (ret)
+                matches = compare(ret, dwType, dwFlags, pvPara);
+        } while (ret != NULL && !matches);
+        if (!ret)
+            SetLastError(CRYPT_E_NOT_FOUND);
+    }
+    else
+    {
+        SetLastError(CRYPT_E_NOT_FOUND);
+        ret = NULL;
+    }
+    return ret;
+}
+
 BOOL WINAPI CertAddStoreToCollection(HCERTSTORE hCollectionStore,
  HCERTSTORE hSiblingStore, DWORD dwUpdateFlags, DWORD dwPriority)
 {
@@ -2298,17 +2574,17 @@ BOOL WINAPI CertAddStoreToCollection(HCERTSTORE hCollectionStore,
         return TRUE;
     if (collection->hdr.dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return FALSE;
     }
     if (collection->hdr.type != StoreTypeCollection)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return FALSE;
     }
     if (sibling->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return FALSE;
     }
 
@@ -2364,14 +2640,14 @@ void WINAPI CertRemoveStoreFromCollection(HCERTSTORE hCollectionStore,
         return;
     if (collection->hdr.dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return;
     }
     if (collection->hdr.type != StoreTypeCollection)
         return;
     if (sibling->dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
     {
-        SetLastError(E_INVALIDARG);
+        SetLastError(HRESULT_FROM_WIN32(ERROR_INVALID_PARAMETER));
         return;
     }
     EnterCriticalSection(&collection->cs);

@@ -80,7 +80,7 @@ STATIC KDB_ENTER_CONDITION KdbEnterConditions[][2] =
 };
 
 /* Exception descriptions */
-STATIC CONST CHAR *ExceptionNrToString[] =
+STATIC CONST PCHAR ExceptionNrToString[] =
 {
    "Divide Error",
    "Debug Trap",
@@ -121,14 +121,6 @@ VOID
 NTAPI
 KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
                  IN ULONG Esp);
-
-/* ROS Internal. Please deprecate */
-NTHALAPI
-VOID
-NTAPI
-HalReleaseDisplayOwnership(
-    VOID
-);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -651,13 +643,13 @@ KdbpDeleteBreakPoint(
  */
 STATIC LONG
 KdbpIsBreakPointOurs(
-   IN NTSTATUS ExceptionCode,
+   IN ULONG ExpNr,
    IN PKTRAP_FRAME TrapFrame)
 {
    UINT i;
-   ASSERT(ExceptionCode == STATUS_SINGLE_STEP || ExceptionCode == STATUS_BREAKPOINT);
+   ASSERT(ExpNr == 1 || ExpNr == 3);
 
-   if (ExceptionCode == STATUS_BREAKPOINT) /* Software interrupt */
+   if (ExpNr == 3) /* Software interrupt */
    {
       ULONG_PTR BpEip = (ULONG_PTR)TrapFrame->Eip - 1; /* Get EIP of INT3 instruction */
       for (i = 0; i < KdbSwBreakPointCount; i++)
@@ -671,7 +663,7 @@ KdbpIsBreakPointOurs(
          }
       }
    }
-   else if (ExceptionCode == STATUS_SINGLE_STEP) /* Hardware interrupt */
+   else if (ExpNr == 1) /* Hardware interrupt */
    {
       UCHAR DebugReg;
       for (i = 0; i < KdbHwBreakPointCount; i++)
@@ -1164,55 +1156,6 @@ KdbpInternalEnter()
    KbdEnableMouse();
 }
 
-STATIC ULONG
-KdbpGetExceptionNumberFromStatus(IN NTSTATUS ExceptionCode)
-{
-    ULONG Ret;
-
-    switch (ExceptionCode)
-    {
-        case STATUS_INTEGER_DIVIDE_BY_ZERO:
-            Ret = 0;
-            break;
-        case STATUS_SINGLE_STEP:
-            Ret = 1;
-            break;
-        case STATUS_BREAKPOINT:
-            Ret = 3;
-            break;
-        case STATUS_INTEGER_OVERFLOW:
-            Ret = 4;
-            break;
-        case STATUS_ARRAY_BOUNDS_EXCEEDED:
-            Ret = 5;
-            break;
-        case STATUS_ILLEGAL_INSTRUCTION:
-            Ret = 6;
-            break;
-        case STATUS_FLOAT_INVALID_OPERATION:
-            Ret = 7;
-            break;
-        case STATUS_STACK_OVERFLOW:
-            Ret = 12;
-            break;
-        case STATUS_ACCESS_VIOLATION:
-            Ret = 14;
-            break;
-        case STATUS_DATATYPE_MISALIGNMENT:
-            Ret = 17;
-            break;
-        case STATUS_FLOAT_MULTIPLE_TRAPS:
-            Ret = 18;
-            break;
-
-        default:
-            Ret = RTL_NUMBER_OF(KdbEnterConditions) - 1;
-            break;
-    }
-
-    return Ret;
-}
-
 /*!\brief KDB Exception filter
  *
  * Called by the exception dispatcher.
@@ -1234,28 +1177,25 @@ KdbEnterDebuggerException(
    IN OUT PKTRAP_FRAME TrapFrame,
    IN BOOLEAN FirstChance)
 {
+   ULONG ExpNr = (ULONG)TrapFrame->DbgArgMark;
    KDB_ENTER_CONDITION EnterCondition;
    KD_CONTINUE_TYPE ContinueType = kdHandleException;
    PKDB_BREAKPOINT BreakPoint;
-   ULONG ExpNr;
+   ULONG ul;
    ULONGLONG ull;
    BOOLEAN Resume = FALSE;
    BOOLEAN EnterConditionMet = TRUE;
    ULONG OldEflags;
-   NTSTATUS ExceptionCode;
-
-   ExceptionCode = (ExceptionRecord != NULL ? ExceptionRecord->ExceptionCode : STATUS_BREAKPOINT);
 
    KdbCurrentProcess = PsGetCurrentProcess();
 
    /* Set continue type to kdContinue for single steps and breakpoints */
-   if (ExceptionCode == STATUS_SINGLE_STEP || ExceptionCode == STATUS_BREAKPOINT)
+   if (ExpNr == 1 || ExpNr == 3)
       ContinueType = kdContinue;
 
    /* Check if we should handle the exception. */
-   /* FIXME - won't get all exceptions here :( */
-   ExpNr = KdbpGetExceptionNumberFromStatus(ExceptionCode);
-   EnterCondition = KdbEnterConditions[ExpNr][FirstChance ? 0 : 1];
+   ul = min(ExpNr, RTL_NUMBER_OF(KdbEnterConditions) - 1);
+   EnterCondition = KdbEnterConditions[ul][FirstChance ? 0 : 1];
    if (EnterCondition == KdbDoNotEnter ||
        (EnterCondition == KdbEnterFromUmode && PreviousMode == KernelMode) ||
        (EnterCondition == KdbEnterFromKmode && PreviousMode != KernelMode))
@@ -1267,12 +1207,12 @@ KdbEnterDebuggerException(
    KdbLastBreakPointNr = -1;
    KdbEnteredOnSingleStep = FALSE;
 
-   if (FirstChance && (ExceptionCode == STATUS_SINGLE_STEP || ExceptionCode == STATUS_BREAKPOINT) &&
-       (KdbLastBreakPointNr = KdbpIsBreakPointOurs(ExceptionCode, TrapFrame)) >= 0)
+   if (FirstChance && (ExpNr == 1 || ExpNr == 3) &&
+       (KdbLastBreakPointNr = KdbpIsBreakPointOurs(ExpNr, TrapFrame)) >= 0)
    {
       BreakPoint = KdbBreakPoints + KdbLastBreakPointNr;
 
-      if (ExceptionCode == STATUS_BREAKPOINT)
+      if (ExpNr == 3)
       {
          /*
           * The breakpoint will point to the next instruction by default so
@@ -1332,7 +1272,7 @@ KdbEnterDebuggerException(
       else if (BreakPoint->Type == KdbBreakPointSoftware ||
                BreakPoint->Type == KdbBreakPointTemporary)
       {
-         ASSERT(ExceptionCode == STATUS_BREAKPOINT);
+         ASSERT(ExpNr == 3);
          TrapFrame->EFlags |= X86_EFLAGS_TF;
          KdbBreakPointToReenable = BreakPoint;
       }
@@ -1382,7 +1322,7 @@ KdbEnterDebuggerException(
 
       }
    }
-   else if (ExceptionCode == STATUS_SINGLE_STEP)
+   else if (ExpNr == 1)
    {
       /* Silently ignore a debugger initiated single step. */
       if ((TrapFrame->Dr6 & 0xf) == 0 && KdbBreakPointToReenable != NULL)
@@ -1440,7 +1380,7 @@ KdbEnterDebuggerException(
          DbgPrint("Entered debugger on unexpected debug trap!\n");
       }
    }
-   else if (ExceptionCode == STATUS_BREAKPOINT)
+   else if (ExpNr == 3)
    {
       if (KdbInitFileBuffer != NULL)
       {
@@ -1457,7 +1397,7 @@ KdbEnterDebuggerException(
    }
    else
    {
-      CONST CHAR *ExceptionString = (ExpNr < RTL_NUMBER_OF(ExceptionNrToString)) ?
+      CONST PCHAR ExceptionString = (ExpNr < RTL_NUMBER_OF(ExceptionNrToString)) ?
                                     (ExceptionNrToString[ExpNr]) :
                                     ("Unknown/User defined exception");
 
@@ -1466,10 +1406,9 @@ KdbEnterDebuggerException(
          return ContinueType;
       }
 
-      DbgPrint("Entered debugger on %s-chance exception (Exception Code: 0x%x) (%s)\n",
-               FirstChance ? "first" : "last", ExceptionCode, ExceptionString);
-      if (ExceptionCode == STATUS_ACCESS_VIOLATION &&
-          ExceptionRecord != NULL && ExceptionRecord->NumberParameters != 0)
+      DbgPrint("Entered debugger on %s-chance exception number %d (%s)\n",
+               FirstChance ? "first" : "last", ExpNr, ExceptionString);
+      if (ExpNr == 14)
       {
          /* FIXME: Add noexec memory stuff */
          ULONG_PTR Cr2;
@@ -1552,7 +1491,7 @@ KdbEnterDebuggerException(
 
 continue_execution:
    /* Clear debug status */
-   if (ExceptionCode == STATUS_SINGLE_STEP || ExceptionCode == STATUS_BREAKPOINT) /* FIXME: Why clear DR6 on INT3? */
+   if (ExpNr == 1 || ExpNr == 3) /* FIXME: Why clear DR6 on INT3? */
    {
       /* Set the RF flag so we don't trigger the same breakpoint again. */
       if (Resume)

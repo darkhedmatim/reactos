@@ -55,7 +55,7 @@ ExpInitializeSemaphoreImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.InvalidAttributes = OBJ_OPENLINK;
     ObjectTypeInitializer.ValidAccessMask = SEMAPHORE_ALL_ACCESS;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExSemaphoreObjectType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExSemaphoreObjectType);
 }
 
 /*
@@ -129,6 +129,7 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
                                 0,
                                 NULL,
                                 &hSemaphore);
+        ObDereferenceObject(Semaphore);
 
         /* Check for success */
         if(NT_SUCCESS(Status))
@@ -187,8 +188,8 @@ NtOpenSemaphore(OUT PHANDLE SemaphoreHandle,
     /* Open the Object */
     Status = ObOpenObjectByName(ObjectAttributes,
                                 ExSemaphoreObjectType,
-                                PreviousMode,
                                 NULL,
+                                PreviousMode,
                                 DesiredAccess,
                                 NULL,
                                 &hSemaphore);

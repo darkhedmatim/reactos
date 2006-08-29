@@ -15,6 +15,7 @@
 
 HANDLE ConnectPortHandle = NULL;
 HANDLE MessagePortHandle = NULL;
+extern PLOGFILE SystemLog;
 extern HANDLE MyHeap;
 extern BOOL onLiveCD;
 
@@ -120,15 +121,14 @@ NTSTATUS ProcessPortMessage(VOID)
     IO_ERROR_LPC Request;
     PIO_ERROR_LOG_MESSAGE Message;
 	PEVENTLOGRECORD pRec;
-    ULONG ulRecNum;
-    DWORD dwRecSize;
+    ULONG ulRecNum, ulRecSize ;
     NTSTATUS Status;
 	PLOGFILE SystemLog = NULL;
     
-    DPRINT("ProcessPortMessage() called\n");
+    DPRINT1("ProcessPortMessage() called\n");
 
-	SystemLog = LogfListItemByName(L"System");
-	
+    Status = STATUS_SUCCESS;
+
     while(TRUE)
     {
         Status = NtReplyWaitReceivePort(
@@ -161,7 +161,7 @@ NTSTATUS ProcessPortMessage(VOID)
             Message = (PIO_ERROR_LOG_MESSAGE)&Request.Message;
 			ulRecNum = SystemLog ? SystemLog->Header.NextRecord : 0;
 
-			pRec = (PEVENTLOGRECORD)LogfAllocAndBuildNewRecord(&dwRecSize,
+			ulRecSize = LogfBuildNewRecord(NULL,
 				ulRecNum,
 				Message->Type,
 				Message->EntryData.EventCategory,
@@ -176,13 +176,30 @@ NTSTATUS ProcessPortMessage(VOID)
 				(LPVOID)(((PBYTE)Message)
 					+sizeof(IO_ERROR_LOG_PACKET)-sizeof(ULONG)));
 
+			DPRINT("ulRecSize = %d\n", ulRecSize);
+
+			pRec = HeapAlloc(MyHeap, 0, ulRecSize);
+
 			if(pRec == NULL)
 			{
-				DPRINT("LogfAllocAndBuildNewRecord failed!\n");
+				DPRINT("Can't allocate heap!\n");
 				return STATUS_NO_MEMORY;
 			}
-			
-			DPRINT("dwRecSize = %d\n", dwRecSize);
+
+			LogfBuildNewRecord((PBYTE)pRec,
+				ulRecNum,
+				Message->Type,
+				Message->EntryData.EventCategory,
+				Message->EntryData.ErrorCode,
+				(WCHAR*)(((PBYTE)Message)+Message->DriverNameOffset),
+				L"MyComputer", /* FIXME */
+				0,
+				NULL,
+				Message->EntryData.NumberOfStrings,
+				(WCHAR*)(((PBYTE)Message)+Message->EntryData.StringOffset),
+				Message->EntryData.DumpDataSize,
+				(LPVOID)(((PBYTE)Message)
+					+sizeof(IO_ERROR_LOG_PACKET)-sizeof(ULONG)));
 			
 			DPRINT("\n --- EVENTLOG RECORD ---\n");
 			PRINT_RECORD(pRec);
@@ -190,13 +207,14 @@ NTSTATUS ProcessPortMessage(VOID)
 			
 			if(!onLiveCD && SystemLog)
 			{
-				if(!LogfWriteData(SystemLog, dwRecSize, (PBYTE)pRec))
+				if(!LogfWriteData(SystemLog, ulRecSize, (PBYTE)pRec))
 					DPRINT("LogfWriteData failed!\n");
 				else DPRINT("Data written to Log!\n");
 			}
 
-			LogfFreeRecord(pRec);
+			HeapFree(MyHeap, 0, pRec);
         }
     }
     return Status;
 }
+

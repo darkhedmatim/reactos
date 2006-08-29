@@ -9,16 +9,6 @@
 
 require_once( 'LanguageIs.php' );
 
-class LanguageNon extends LanguageIs {
-
-	function getFallbackLanguage() {
-		return 'is';
-	}
-
-	function getAllMessages() {
-		return null;
-	}
-
-}
+class LanguageNon extends LanguageIs {}
 
 ?>

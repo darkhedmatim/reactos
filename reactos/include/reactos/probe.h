@@ -31,7 +31,7 @@ VOID NTAPI W32kRaiseStatus(NTSTATUS Status);
 
 #define ProbeForWriteBoolean(Ptr) ProbeForWriteGenericType(Ptr, BOOLEAN)
 #define ProbeForWriteUchar(Ptr) ProbeForWriteGenericType(Ptr, UCHAR)
-#define ProbeForWriteChar(Ptr) ProbeForWriteGenericType(Ptr, CHAR)
+#define ProbeForWriteChar(Ptr) ProbeForWriteGenericType(Ptr, Char)
 #define ProbeForWriteUshort(Ptr) ProbeForWriteGenericType(Ptr, USHORT)
 #define ProbeForWriteShort(Ptr) ProbeForWriteGenericType(Ptr, SHORT)
 #define ProbeForWriteUlong(Ptr) ProbeForWriteGenericType(Ptr, ULONG)
@@ -94,7 +94,7 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
                              IN PUNICODE_STRING UnsafeSrc)
 {
     NTSTATUS Status = STATUS_SUCCESS;
-    WCHAR *Buffer = NULL;
+    WCHAR *Buffer;
     ASSERT(Dest != NULL);
 
     /* Probe the structure and buffer*/
@@ -145,16 +145,6 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
         }
         _SEH_HANDLE
         {
-            /* Free allocated resources and zero the destination string */
-            if (Buffer != NULL)
-            {
-                ExFreePool(Buffer);
-            }
-            Dest->Length = 0;
-            Dest->MaximumLength = 0;
-            Dest->Buffer = NULL;
-
-            /* Return the error code */
             Status = _SEH_GetExceptionCode();
         }
         _SEH_END;

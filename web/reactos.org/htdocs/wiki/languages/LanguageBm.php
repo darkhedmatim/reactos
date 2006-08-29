@@ -10,15 +10,7 @@
 require_once( 'LanguageFr.php' );
 
 class LanguageBm extends LanguageFr {
-
-	function getFallbackLanguage() {
-		return 'fr';
-	}
-
-	function getAllMessages() {
-		return null;
-	}
-
+	// Inherit all for now
 }
 
 ?>

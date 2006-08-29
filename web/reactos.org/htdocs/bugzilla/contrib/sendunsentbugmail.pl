@@ -25,7 +25,7 @@ use strict;
 
 use lib qw(.);
 
-require "globals.pl";
+require "CGI.pl";
 use Bugzilla::Constants;
 use Bugzilla::BugMail;
 

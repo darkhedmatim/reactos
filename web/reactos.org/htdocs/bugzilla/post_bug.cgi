@@ -26,18 +26,19 @@
 use strict;
 use lib qw(.);
 
-require "globals.pl";
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Util;
+require "CGI.pl";
+
 use Bugzilla::Bug;
+
 use Bugzilla::User;
-use Bugzilla::Field;
 
 # Shut up misguided -w warnings about "used only once". For some reason,
 # "use vars" chokes on me when I try it here.
 sub sillyness {
     my $zz;
+    $zz = $::buffer;
     $zz = %::components;
     $zz = %::versions;
     $zz = @::legal_opsys;
@@ -48,12 +49,14 @@ sub sillyness {
     $zz = %::target_milestone;
 }
 
+# Use global template variables.
+use vars qw($vars $template);
+
 my $user = Bugzilla->login(LOGIN_REQUIRED);
 
 my $cgi = Bugzilla->cgi;
+
 my $dbh = Bugzilla->dbh;
-my $template = Bugzilla->template;
-my $vars = {};
 
 # do a match on the fields if applicable
 
@@ -67,8 +70,8 @@ my $vars = {};
 # enter_bug template and then referencing them in the comment template.
 my $comment;
 
-my $format = $template->get_format("bug/create/comment",
-                                   scalar($cgi->param('format')), "txt");
+my $format = GetFormat("bug/create/comment",
+                       scalar($cgi->param('format')), "txt");
 
 $template->process($format->{'template'}, $vars, \$comment)
   || ThrowTemplateError($template->error());
@@ -78,7 +81,7 @@ ValidateComment($comment);
 # Check that the product exists and that the user
 # is allowed to enter bugs into this product.
 my $product = $cgi->param('product');
-$user->can_enter_product($product, 1);
+CanEnterProductOrWarn($product);
 
 my $product_id = get_product_id($product);
 
@@ -92,8 +95,7 @@ if (defined $cgi->param('product')) {
 }
 
 if (defined $cgi->param('maketemplate')) {
-    $vars->{'url'} = $cgi->query_string();
-    $vars->{'short_desc'} = $cgi->param('short_desc');
+    $vars->{'url'} = $::buffer;
     
     print $cgi->header();
     $template->process("bug/create/make-template.html.tmpl", $vars)
@@ -197,18 +199,18 @@ if (!Param('letsubmitterchoosepriority')) {
 GetVersionTable();
 
 # Some more sanity checking
-check_form_field($cgi, 'product',      \@::legal_product);
-check_form_field($cgi, 'rep_platform', \@::legal_platform);
-check_form_field($cgi, 'bug_severity', \@::legal_severity);
-check_form_field($cgi, 'priority',     \@::legal_priority);
-check_form_field($cgi, 'op_sys',       \@::legal_opsys);
-check_form_field($cgi, 'bug_status',   ['UNCONFIRMED', 'NEW']);
-check_form_field($cgi, 'version',          $::versions{$product});
-check_form_field($cgi, 'component',        $::components{$product});
-check_form_field($cgi, 'target_milestone', $::target_milestone{$product});
-check_form_field_defined($cgi, 'assigned_to');
-check_form_field_defined($cgi, 'bug_file_loc');
-check_form_field_defined($cgi, 'comment');
+CheckFormField($cgi, 'product',      \@::legal_product);
+CheckFormField($cgi, 'rep_platform', \@::legal_platform);
+CheckFormField($cgi, 'bug_severity', \@::legal_severity);
+CheckFormField($cgi, 'priority',     \@::legal_priority);
+CheckFormField($cgi, 'op_sys',       \@::legal_opsys);
+CheckFormField($cgi, 'bug_status',   ['UNCONFIRMED', 'NEW']);
+CheckFormField($cgi, 'version',          $::versions{$product});
+CheckFormField($cgi, 'component',        $::components{$product});
+CheckFormField($cgi, 'target_milestone', $::target_milestone{$product});
+CheckFormFieldDefined($cgi, 'assigned_to');
+CheckFormFieldDefined($cgi, 'bug_file_loc');
+CheckFormFieldDefined($cgi, 'comment');
 
 my $everconfirmed = ($cgi->param('bug_status') eq 'UNCONFIRMED') ? 0 : 1;
 $cgi->param(-name => 'everconfirmed', -value => $everconfirmed);
@@ -260,28 +262,6 @@ if ($cgi->param('keywords') && UserInGroup("editbugs")) {
     }
 }
 
-if (Param("strict_isolation")) {
-    my @blocked_users = ();
-    my %related_users = %ccids;
-    $related_users{$cgi->param('assigned_to')} = 1;
-    if (Param('useqacontact') && $cgi->param('qa_contact')) {
-        $related_users{$cgi->param('qa_contact')} = 1;
-    }
-    foreach my $pid (keys %related_users) {
-        my $related_user = Bugzilla::User->new($pid);
-        if (!$related_user->can_edit_product($product_id)) {
-            push (@blocked_users, $related_user->login);
-        }
-    }
-    if (scalar(@blocked_users)) {
-        ThrowUserError("invalid_user_group", 
-            {'users' => \@blocked_users,
-             'new' => 1,
-             'product' => $product
-            });
-    }
-}
-
 # Check for valid dependency info. 
 foreach my $field ("dependson", "blocked") {
     if (UserInGroup("editbugs") && $cgi->param($field)) {
@@ -299,8 +279,9 @@ foreach my $field ("dependson", "blocked") {
 # Gather the dependency list, and make sure there are no circular refs
 my %deps;
 if (UserInGroup("editbugs")) {
-    %deps = Bugzilla::Bug::ValidateDependencies(scalar($cgi->param('dependson')),
-                                                scalar($cgi->param('blocked')));
+    %deps = Bugzilla::Bug::ValidateDependencies($cgi->param('dependson'),
+                                                $cgi->param('blocked'),
+                                                undef);
 }
 
 # get current time
@@ -325,7 +306,7 @@ $comment = trim($comment);
 # OK except for the fact that it causes e-mail to be suppressed.
 $comment = $comment ? $comment : " ";
 
-$sql .= $user->id . ", $sql_timestamp, ";
+$sql .= "$::userid, $sql_timestamp, ";
 
 # Time Tracking
 if (UserInGroup(Param("timetrackinggroup")) &&
@@ -339,9 +320,7 @@ if (UserInGroup(Param("timetrackinggroup")) &&
 }
 
 if ((UserInGroup(Param("timetrackinggroup"))) && ($cgi->param('deadline'))) {
-    validate_date($cgi->param('deadline'))
-      || ThrowUserError('illegal_date', {date => $cgi->param('deadline'),
-                                         format => 'YYYY-MM-DD'});
+    Bugzilla::Util::ValidateDate($cgi->param('deadline'), 'YYYY-MM-DD');
     $sql .= SqlQuote($cgi->param('deadline'));  
 } else {
     $sql .= "NULL";
@@ -364,7 +343,11 @@ foreach my $b (grep(/^bit-\d*$/, $cgi->param())) {
             $vars->{'bit'} = $v;
             ThrowCodeError("inactive_group");
         }
-        my ($permit) = $user->in_group_id($v);
+        SendSQL("SELECT user_id FROM user_group_map 
+                 WHERE user_id = $::userid
+                 AND group_id = $v
+                 AND isbless = 0");
+        my ($permit) = FetchSQLData();
         if (!$permit) {
             SendSQL("SELECT othercontrol FROM group_control_map
                      WHERE group_id = $v AND product_id = $product_id");
@@ -399,8 +382,7 @@ while (MoreSQLData()) {
 # Add the bug report to the DB.
 $dbh->bz_lock_tables('bugs WRITE', 'bug_group_map WRITE', 'longdescs WRITE',
                      'cc WRITE', 'keywords WRITE', 'dependencies WRITE',
-                     'bugs_activity WRITE', 'groups READ',
-                     'user_group_map READ', 'group_group_map READ',
+                     'bugs_activity WRITE', 'groups READ', 'user_group_map READ',
                      'keyworddefs READ', 'fielddefs READ');
 
 SendSQL($sql);
@@ -470,10 +452,10 @@ $dbh->do("UPDATE bugs SET creation_ts = ? WHERE bug_id = ?",
 $dbh->bz_unlock_tables();
 
 # Email everyone the details of the new bug 
-$vars->{'mailrecipients'} = {'changer' => $user->login};
+$vars->{'mailrecipients'} = {'changer' => Bugzilla->user->login};
 
 $vars->{'id'} = $id;
-my $bug = new Bugzilla::Bug($id, $user->id);
+my $bug = new Bugzilla::Bug($id, $::userid);
 $vars->{'bug'} = $bug;
 
 ThrowCodeError("bug_error", { bug => $bug }) if $bug->error;

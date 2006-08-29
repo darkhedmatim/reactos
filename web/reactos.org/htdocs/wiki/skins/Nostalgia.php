@@ -8,7 +8,7 @@
  */
 
 if( !defined( 'MEDIAWIKI' ) )
-	die( -1 );
+	die();
 
 /**
  * @todo document
@@ -17,14 +17,19 @@ if( !defined( 'MEDIAWIKI' ) )
  */
 class SkinNostalgia extends Skin {
 
+	function initPage() {
+		# ...
+	}
+
 	function getStylesheet() {
-		return 'common/nostalgia.css?1';
+		return 'common/nostalgia.css';
 	}
 	function getSkinName() {
 		return "nostalgia";
 	}
 
 	function doBeforeContent() {
+		global $wgUser, $wgOut, $wgTitle;
 
 		$s = "\n<div id='content'>\n<div id='topbar'>";
 		$s .= $this->logoText( "right" );
@@ -42,7 +47,7 @@ class SkinNostalgia extends Skin {
 
 		$ol = $this->otherLanguages();
 		if($ol) $s .= "<br />" . $ol;
-
+		
 		$cat = $this->getCategoryLinks();
 		if($cat) $s .= "<br />" . $cat;
 

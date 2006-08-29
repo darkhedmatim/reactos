@@ -76,26 +76,7 @@ GreenDispatch(
 	{
 		DPRINT1("Unknown combination: MajorFunction 0x%lx, DeviceType %d\n",
 			MajorFunction, DeviceType);
-		switch (DeviceType)
-		{
-			case KeyboardFDO:
-			case ScreenFDO:
-			{
-				IoSkipCurrentIrpStackLocation(Irp);
-				return IoCallDriver(((PCOMMON_FDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->LowerDevice, Irp);
-			}
-			case GreenFDO:
-			{
-				PDRIVER_OBJECT DriverObject;
-				PGREEN_DRIVER_EXTENSION DriverExtension;
-				DriverObject = DeviceObject->DriverObject;
-				DriverExtension = IoGetDriverObjectExtension(DriverObject, DriverObject);
-				IoSkipCurrentIrpStackLocation(Irp);
-				return IoCallDriver(DriverExtension->LowerDevice, Irp);
-			}
-			default:
-				ASSERT(FALSE);
-		}
+		ASSERT(FALSE);
 	}
 
 	Irp->IoStatus.Information = Information;

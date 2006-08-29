@@ -49,7 +49,7 @@ ExpInitializeEventPairImplementation(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.ValidAccessMask = EVENT_PAIR_ALL_ACCESS;
     ObjectTypeInitializer.UseDefaultObject = TRUE;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExEventPairObjectType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &ExEventPairObjectType);
 }
 
 NTSTATUS
@@ -110,6 +110,7 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
                                  0,
                                  NULL,
                                  &hEventPair);
+        ObDereferenceObject(EventPair);
 
         /* Check for success and return handle */
         if(NT_SUCCESS(Status))
@@ -163,8 +164,8 @@ NtOpenEventPair(OUT PHANDLE EventPairHandle,
     /* Open the Object */
     Status = ObOpenObjectByName(ObjectAttributes,
                                 ExEventPairObjectType,
-                                PreviousMode,
                                 NULL,
+                                PreviousMode,
                                 DesiredAccess,
                                 NULL,
                                 &hEventPair);

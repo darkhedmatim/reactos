@@ -15,18 +15,17 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_TEST_H
 #define __WINE_TEST_H
 
 #include <stdarg.h>
-#include <stdlib.h>
-#include <windows.h>
+#include "windows.h"
 
 /* prototype for dbgprint */
-ULONG CDECL DbgPrint(IN PCCH  Format,IN ...);
+ULONG CDECL DbgPrint(IN PCH  Format,IN ...);
 
 /* debug level */
 extern int winetest_debug;
@@ -43,14 +42,7 @@ extern int winetest_loop_todo(void);
 extern void winetest_end_todo( const char* platform );
 extern int winetest_get_mainargs( char*** pargv );
 
-#ifdef STANDALONE
-#define START_TEST(name) \
-  static void func_##name(void); \
-  const struct test winetest_testlist[] = { { #name, func_##name }, { 0, 0 } }; \
-  static void func_##name(void)
-#else
 #define START_TEST(name) void func_##name(void)
-#endif
 
 #ifdef __GNUC__
 
@@ -76,45 +68,6 @@ extern void winetest_trace( const char *msg, ... );
 #define todo_wine      todo("wine")
 
 
-#ifdef NONAMELESSUNION
-# define U(x)  (x).u
-# define U1(x) (x).u1
-# define U2(x) (x).u2
-# define U3(x) (x).u3
-# define U4(x) (x).u4
-# define U5(x) (x).u5
-# define U6(x) (x).u6
-# define U7(x) (x).u7
-# define U8(x) (x).u8
-#else
-# define U(x)  (x)
-# define U1(x) (x)
-# define U2(x) (x)
-# define U3(x) (x)
-# define U4(x) (x)
-# define U5(x) (x)
-# define U6(x) (x)
-# define U7(x) (x)
-# define U8(x) (x)
-#endif
-
-#ifdef NONAMELESSSTRUCT
-# define S(x)  (x).s
-# define S1(x) (x).s1
-# define S2(x) (x).s2
-# define S3(x) (x).s3
-# define S4(x) (x).s4
-# define S5(x) (x).s5
-#else
-# define S(x)  (x)
-# define S1(x) (x)
-# define S2(x) (x)
-# define S3(x) (x)
-# define S4(x) (x)
-# define S5(x) (x)
-#endif
-
-
 /************************************************************************/
 /* Below is the implementation of the various functions, to be included
  * directly into the generated testlist.c file.
@@ -122,17 +75,7 @@ extern void winetest_trace( const char *msg, ... );
  * different includes or flags if needed.
  */
 
-#ifdef STANDALONE
-
-#include <stdio.h>
-
-struct test
-{
-    const char *name;
-    void (*func)(void);
-};
-
-extern const struct test winetest_testlist[];
+#ifdef WINETEST_WANT_MAIN
 
 /* debug level */
 int winetest_debug = 1;
@@ -224,13 +167,14 @@ int winetest_ok( int condition, const char *msg, ... )
         {
             fprintf( stdout, "%s:%d: Test succeeded inside todo block",
                      data->current_file, data->current_line );
-            if (msg[0])
+            if (msg && msg[0])
             {
                 va_start(valist, msg);
                 fprintf(stdout,": ");
                 vfprintf(stdout, msg, valist);
                 va_end(valist);
             }
+            fputc( '\n', stdout );
             InterlockedIncrement(&todo_failures);
             return 0;
         }
@@ -242,7 +186,7 @@ int winetest_ok( int condition, const char *msg, ... )
         {
             fprintf( stdout, "%s:%d: Test failed",
                      data->current_file, data->current_line );
-            if (msg[0])
+            if (msg && msg[0])
             {
                 char string[1024];
                 va_start(valist, msg);
@@ -284,6 +228,7 @@ void winetest_trace( const char *msg, ... )
         fprintf( stdout, "%s:%d:", data->current_file, data->current_line );
         va_start(valist, msg);
         vfprintf(stdout, msg, valist);
+        vsprintf(string, msg, valist);
         DbgPrint( "%s:%d: %s", data->current_file, data->current_line, string);
         va_end(valist);
     }
@@ -340,16 +285,6 @@ static const struct test *find_test( const char *name )
 }
 
 
-/* Display list of valid tests */
-static void list_tests(void)
-{
-    const struct test *test;
-
-    fprintf( stdout, "Valid test names:\n" );
-    for (test = winetest_testlist; test->name; test++) fprintf( stdout, "    %s\n", test->name );
-}
-
-
 /* Run a named test, and return exit status */
 static int run_test( const char *name )
 {
@@ -381,8 +316,11 @@ static int run_test( const char *name )
 /* Display usage and exit */
 static void usage( const char *argv0 )
 {
-    fprintf( stdout, "Usage: %s test_name\n\n", argv0 );
-    list_tests();
+    const struct test *test;
+
+    fprintf( stdout, "Usage: %s test_name\n", argv0 );
+    fprintf( stdout, "\nValid test names:\n" );
+    for (test = winetest_testlist; test->name; test++) fprintf( stdout, "    %s\n", test->name );
     exit_process(1);
 }
 
@@ -392,29 +330,18 @@ int main( int argc, char **argv )
 {
     char *p;
 
-    setvbuf (stdout, NULL, _IONBF, 0);
-
     winetest_argc = argc;
     winetest_argv = argv;
 
-    if ((p = getenv( "WINETEST_PLATFORM" ))) winetest_platform = strdup(p);
+    if ((p = getenv( "WINETEST_PLATFORM" ))) winetest_platform = p;
     if ((p = getenv( "WINETEST_DEBUG" ))) winetest_debug = atoi(p);
     if ((p = getenv( "WINETEST_INTERACTIVE" ))) winetest_interactive = atoi(p);
     if ((p = getenv( "WINETEST_REPORT_SUCCESS"))) report_success = atoi(p);
-    if (!argv[1])
-    {
-        if (winetest_testlist[0].name && !winetest_testlist[1].name)  /* only one test */
-            return run_test( winetest_testlist[0].name );
-        usage( argv[0] );
-    }
-    if (!strcmp( argv[1], "--list" ))
-    {
-        list_tests();
-        return 0;
-    }
+    if (!argv[1]) usage( argv[0] );
+
     return run_test(argv[1]);
 }
 
-#endif  /* STANDALONE */
+#endif  /* WINETEST_WANT_MAIN */
 
 #endif  /* __WINE_TEST_H */

@@ -14,10 +14,8 @@
 #include "ke.h"
 #include "i386/mm.h"
 #include "i386/fpu.h"
-#include "i386/v86m.h"
 #include "ob.h"
 #include "mm.h"
-#include "ex.h"
 #include "ps.h"
 #include "cc.h"
 #include "io.h"
@@ -25,6 +23,7 @@
 #include "se.h"
 #include "ldr.h"
 #include "kd.h"
+#include "ex.h"
 #include "fsrtl.h"
 #include "lpc.h"
 #include "rtl.h"
@@ -35,7 +34,6 @@
 #include "tag.h"
 #include "test.h"
 #include "inbv.h"
-#include "vdm.h"
 
 #include <pshpack1.h>
 /*
@@ -53,7 +51,7 @@ typedef struct __DESCRIPTOR
 /*
  * Initalization functions (called once by main())
  */
-VOID MmInitSystem(ULONG Phase, PROS_LOADER_PARAMETER_BLOCK LoaderBlock, ULONG LastKernelAddress);
+VOID MmInitSystem(ULONG Phase, PLOADER_PARAMETER_BLOCK LoaderBlock, ULONG LastKernelAddress);
 VOID IoInit(VOID);
 VOID IoInit2(BOOLEAN BootLog);
 VOID STDCALL IoInit3(VOID);
@@ -65,7 +63,7 @@ VOID CmInit2(PCHAR CommandLine);
 VOID CmShutdownRegistry(VOID);
 BOOLEAN CmImportSystemHive(PCHAR ChunkBase, ULONG ChunkSize);
 BOOLEAN CmImportHardwareHive(PCHAR ChunkBase, ULONG ChunkSize);
-VOID KdInitSystem(ULONG Reserved, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
+VOID KdInitSystem(ULONG Reserved, PLOADER_PARAMETER_BLOCK LoaderBlock);
 
 /* FIXME - RtlpCreateUnicodeString is obsolete and should be removed ASAP! */
 BOOLEAN FASTCALL
@@ -102,26 +100,6 @@ InterlockedAnd(IN OUT LONG volatile *Target,
     return j;
 }
 
-FORCEINLINE
-LONG
-InterlockedOr(IN OUT LONG volatile *Target,
-              IN LONG Set)
-{
-    LONG i;
-    LONG j;
-
-    j = *Target;
-    do {
-        i = j;
-        j = InterlockedCompareExchange((PLONG)Target,
-                                       i | Set,
-                                       i);
-
-    } while (i != j);
-
-    return j;
-}
-
 /*
  * generic information class probing code
  */
@@ -141,20 +119,11 @@ typedef struct _INFORMATION_CLASS_INFO
   ULONG Flags;
 } INFORMATION_CLASS_INFO, *PINFORMATION_CLASS_INFO;
 
-#define ICI_SQ_SAME(Type, Alignment, Flags)                                    \
-  { Type, Type, Alignment, Alignment, Flags }
+#define ICI_SQ_SAME(Size, Alignment, Flags)                                    \
+  { Size, Size, Alignment, Alignment, Flags }
 
-#define ICI_SQ(TypeQuery, TypeSet, AlignmentQuery, AlignmentSet, Flags)        \
-  { TypeQuery, TypeSet, AlignmentQuery, AlignmentSet, Flags }
-
-//
-// TEMPORARY
-//
-#define IQS_SAME(Type, Alignment, Flags)                                    \
-  { sizeof(Type), sizeof(Type), sizeof(Alignment), sizeof(Alignment), Flags }
-
-#define IQS(TypeQuery, TypeSet, AlignmentQuery, AlignmentSet, Flags)        \
-  { sizeof(TypeQuery), sizeof(TypeSet), sizeof(AlignmentQuery), sizeof(AlignmentSet), Flags }
+#define ICI_SQ(SizeQuery, SizeSet, AlignmentQuery, AlignmentSet, Flags)        \
+  { SizeQuery, SizeSet, AlignmentQuery, AlignmentSet, Flags }
 
 static __inline NTSTATUS
 DefaultSetInfoBufferCheck(UINT Class,

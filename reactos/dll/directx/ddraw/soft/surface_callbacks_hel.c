@@ -36,33 +36,8 @@ DWORD CALLBACK  HelDdSetColorKey(LPDDHAL_SETCOLORKEYDATA lpSetColorKey)
 */
 
 DWORD CALLBACK  HelDdSetMode(LPDDHAL_SETMODEDATA SetMode)
-{   			
-	DEVMODE DevMode;
-
-	DX_STUB_str("in hel");
-
-	DevMode.dmSize = (WORD)sizeof(DEVMODE);
-	DevMode.dmDriverExtra = 0;
-
-    SetMode->ddRVal = DDERR_UNSUPPORTEDMODE;	
-
-    if (EnumDisplaySettingsEx(NULL, SetMode->dwModeIndex, &DevMode, 0 ) != 0)
-	{
-		DX_WINDBG_trace_res((int)DevMode.dmPelsWidth, (int)DevMode.dmPelsHeight, (int)DevMode.dmBitsPerPel );
-
-       if (ChangeDisplaySettings(&DevMode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
-	   {
-		   DX_STUB_str("FAIL");
-		   SetMode->ddRVal = DDERR_UNSUPPORTEDMODE;		
-	   }
-	   else
-	   {
-		   DX_STUB_str("OK");
-		   SetMode->ddRVal = DD_OK;
-	   }
-	}
-								
-	return DDHAL_DRIVER_HANDLED;
+{
+   	DX_STUB;
 }
 
 DWORD CALLBACK  HelDdWaitForVerticalBlank(LPDDHAL_WAITFORVERTICALBLANKDATA lpWaitForVerticalBlank)

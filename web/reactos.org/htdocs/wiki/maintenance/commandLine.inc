@@ -5,8 +5,6 @@
  * @subpackage Maintenance
  */
 
-$wgRequestTime = microtime(true);
-
 /** */
 # Abort if called from a web server
 if ( isset( $_SERVER ) && array_key_exists( 'REQUEST_METHOD', $_SERVER ) ) {
@@ -14,7 +12,7 @@ if ( isset( $_SERVER ) && array_key_exists( 'REQUEST_METHOD', $_SERVER ) ) {
 	exit();
 }
 
-define('MEDIAWIKI',true);
+define("MEDIAWIKI",true);
 
 # Process command line arguments
 # $options becomes an array with keys set to the option names
@@ -25,36 +23,23 @@ define('MEDIAWIKI',true);
 if ( !isset( $optionsWithArgs ) ) {
 	$optionsWithArgs = array();
 }
-$optionsWithArgs[] = 'conf'; # For specifying the location of LocalSettings.php
 
 $self = array_shift( $argv );
 $self = __FILE__;
-$IP = realpath( dirname( $self ) . '/..' );
-#chdir( $IP );
+$IP = realpath( dirname( $self ) . "/.." );
+chdir( $IP );
 
 $options = array();
 $args = array();
 
-
-# Parse arguments
-
 for( $arg = reset( $argv ); $arg !== false; $arg = next( $argv ) ) {
-	if ( $arg == '--' ) {
-		# End of options, remainder should be considered arguments
-		$arg = next( $argv );
-		while( $arg !== false ) {
-			$args[] = $arg;
-			$arg = next( $argv );
-		}
-		break;
-	} elseif ( substr( $arg, 0, 2 ) == '--' ) {
+	if ( substr( $arg, 0, 2 ) == '--' ) {
 		# Long options
 		$option = substr( $arg, 2 );
 		if ( in_array( $option, $optionsWithArgs ) ) {
 			$param = next( $argv );
 			if ( $param === false ) {
-				echo "$arg needs an value after it\n";
-				die( -1 );
+				die( "$arg needs an value after it\n" );
 			}
 			$options[$option] = $param;
 		} else {
@@ -67,15 +52,14 @@ for( $arg = reset( $argv ); $arg !== false; $arg = next( $argv ) ) {
 			}
 			$options[$option] = $param;
 		}
-	} elseif ( substr( $arg, 0, 1 ) == '-' ) {
+	} elseif ( $arg{0} == '-' ) {
 		# Short options
 		for ( $p=1; $p<strlen( $arg ); $p++ ) {
 			$option = $arg{$p};
 			if ( in_array( $option, $optionsWithArgs ) ) {
 				$param = next( $argv );
 				if ( $param === false ) {
-					echo "$arg needs an value after it\n";
-					die( -1 );
+					die( "$arg needs an value after it\n" );
 				}
 				$options[$option] = $param;
 			} else {
@@ -87,13 +71,12 @@ for( $arg = reset( $argv ); $arg !== false; $arg = next( $argv ) ) {
 	}
 }
 
-
 # General initialisation
 
 $wgCommandLineMode = true;
 # Turn off output buffering if it's on
 @ob_end_flush();
-$sep = PATH_SEPARATOR;
+$sep = strchr( $include_path = ini_get( "include_path" ), ";" ) ? ";" : ":";
 
 if (!isset( $wgUseNormalUser ) ) {
 	$wgUseNormalUser = false;
@@ -101,11 +84,10 @@ if (!isset( $wgUseNormalUser ) ) {
 
 if ( file_exists( '/home/wikipedia/common/langlist' ) ) {
 	$wgWikiFarm = true;
-	$cluster = trim( file_get_contents( '/etc/cluster' ) );
 	require_once( "$IP/includes/SiteConfiguration.php" );
 
-	# Get $wgConf
-	require( "$IP/wgConf.php" );
+	# Get $conf
+	require( "$IP/InitialiseSettings.php" );
 
 	if ( empty( $wgNoDBParam ) ) {
 		# Check if we were passed a db name
@@ -114,67 +96,57 @@ if ( file_exists( '/home/wikipedia/common/langlist' ) ) {
 
 		# If not, work out the language and site the old way
 		if ( is_null( $site ) || is_null( $lang ) ) {
-			if ( !$db ) {
-				$lang = 'aa';
+			if ( !$db ) {	
+				$lang = "aa";
 			} else {
 				$lang = $db;
 			}
 			if ( isset( $args[0] ) ) {
 				$site = array_shift( $args );
 			} else {
-				$site = 'wikipedia';
+				$site = "wikipedia";
 			}
 		}
 	} else {
-		$lang = 'aa';
-		$site = 'wikipedia';
+		$lang = "aa";
+		$site = "wikipedia";
 	}
 
 	# This is for the IRC scripts, which now run as the apache user
 	# The apache user doesn't have access to the wikiadmin_pass command
-	if ( $_ENV['USER'] == 'apache' ) {
+	if ( $_ENV['USER'] == "apache" ) {
 		$wgUseNormalUser = true;
 	}
 
-	putenv( 'wikilang='.$lang);
+	putenv( "wikilang=$lang");
 
 	$DP = $IP;
-	ini_set( 'include_path', ".:$IP:$IP/includes:$IP/languages:$IP/maintenance" );
+	ini_set( "include_path", ".:$IP:$IP/includes:$IP/languages:$IP/maintenance" );
 
-	require_once( $IP.'/includes/ProfilerStub.php' );
-	require_once( $IP.'/includes/Defines.php' );
-	require_once( $IP.'/CommonSettings.php' );
+	require_once( "$IP/includes/Defines.php" );
+	require_once( "$IP/CommonSettings.php" );
 
-	$bin = '/home/wikipedia/bin';
-	if ( $wgUseRootUser ) {
-		$wgDBuser = $wgDBadminuser = 'root';
-		$wgDBpassword = $wgDBadminpassword = trim(`$bin/mysql_root_pass`);
-	} elseif ( !$wgUseNormalUser ) {
-		$wgDBuser = $wgDBadminuser = 'wikiadmin';
-		$wgDBpassword = $wgDBadminpassword = trim(`$bin/wikiadmin_pass`);
+	if ( !$wgUseNormalUser ) {
+		$wgDBuser = $wgDBadminuser = "wikiadmin";
+		$wgDBpassword = $wgDBadminpassword = trim(`wikiadmin_pass`);
 	}
 } else {
 	$wgWikiFarm = false;
-	if ( isset( $options['conf'] ) ) {
-		$settingsFile = $options['conf'];
-	} else {
-		$settingsFile = "$IP/LocalSettings.php";
-	}
+	$settingsFile = "$IP/LocalSettings.php";
 
 	if ( ! is_readable( $settingsFile ) ) {
 		print "A copy of your installation's LocalSettings.php\n" .
 		  "must exist in the source directory.\n";
-		exit( 1 );
+		exit();
 	}
 	$wgCommandLineMode = true;
 	$DP = $IP;
-	require_once( $IP.'/includes/ProfilerStub.php' );
-	require_once( $IP.'/includes/Defines.php' );
+	require_once( "$IP/includes/Defines.php" );
 	require_once( $settingsFile );
-	ini_set( 'include_path', ".$sep$IP$sep$IP/includes$sep$IP/languages$sep$IP/maintenance" );
-
-	if ( is_readable( $IP.'/AdminSettings.php' ) ) {
-		require_once( $IP.'/AdminSettings.php' );
+	ini_set( "include_path", ".$sep$IP$sep$IP/includes$sep$IP/languages$sep$IP/maintenance" );
+	
+	if ( is_readable( "$IP/AdminSettings.php" ) ) {
+		require_once( "$IP/AdminSettings.php" );
 	}
 }
 
@@ -183,28 +155,21 @@ if ( file_exists( '/home/wikipedia/common/langlist' ) ) {
 # Same with these
 $wgCommandLineMode = true;
 
-if ( empty( $wgUseNormalUser ) && isset( $wgDBadminuser ) ) {
+if ( empty( $wgUseNormalUser ) && isset( $wgDBadminuser ) && $wgDBservers ) {
 	$wgDBuser = $wgDBadminuser;
 	$wgDBpassword = $wgDBadminpassword;
 
-	if( $wgDBservers ) {
-		foreach ( $wgDBservers as $i => $server ) {
-			$wgDBservers[$i]['user'] = $wgDBuser;
-			$wgDBservers[$i]['password'] = $wgDBpassword;
-		}
+	foreach ( $wgDBservers as $i => $server ) {
+		$wgDBservers[$i]['user'] = $wgDBuser;
+		$wgDBservers[$i]['password'] = $wgDBpassword;
 	}
-}
-
-if ( defined( 'MW_CMDLINE_CALLBACK' ) ) {
-	$fn = MW_CMDLINE_CALLBACK;
-	$fn();
 }
 
 ini_set( 'memory_limit', -1 );
 
-require_once( 'Setup.php' );
-require_once( 'install-utils.inc' );
-$wgTitle = Title::newFromText( 'Command line script' );
+require_once( "Setup.php" );
+require_once( "install-utils.inc" );
+$wgTitle = Title::newFromText( "Command line script" );
 set_time_limit(0);
 
 // --------------------------------------------------------------------

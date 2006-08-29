@@ -23,9 +23,6 @@ SermouseAddDevice(
 
 	DPRINT("SermouseAddDevice called. Pdo = 0x%p\n", Pdo);
 
-	if (Pdo == NULL)
-		return STATUS_SUCCESS;
-
 	/* Create new device object */
 	DriverExtension = IoGetDriverObjectExtension(DriverObject, DriverObject);
 	Status = IoCreateDevice(
@@ -142,7 +139,7 @@ SermousePnp(
 {
 	ULONG MinorFunction;
 	PIO_STACK_LOCATION Stack;
-	ULONG_PTR Information = 0;
+	ULONG Information = 0;
 	NTSTATUS Status;
 
 	Stack = IoGetCurrentIrpStackLocation(Irp);

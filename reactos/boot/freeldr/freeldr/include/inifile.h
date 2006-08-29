@@ -55,30 +55,30 @@ extern	ULONG					IniFileSettingCount;
 
 PFILE	IniOpenIniFile();
 
-BOOLEAN	IniParseFile(PCHAR IniFileData, ULONG IniFileSize);
+BOOL	IniParseFile(PCHAR IniFileData, ULONG IniFileSize);
 ULONG		IniGetNextLineSize(PCHAR IniFileData, ULONG IniFileSize, ULONG CurrentOffset);
 ULONG		IniGetNextLine(PCHAR IniFileData, ULONG IniFileSize, PCHAR Buffer, ULONG BufferSize, ULONG CurrentOffset);
-BOOLEAN	IniIsLineEmpty(PCHAR LineOfText, ULONG TextLength);
-BOOLEAN	IniIsCommentLine(PCHAR LineOfText, ULONG TextLength);
-BOOLEAN	IniIsSectionName(PCHAR LineOfText, ULONG TextLength);
+BOOL	IniIsLineEmpty(PCHAR LineOfText, ULONG TextLength);
+BOOL	IniIsCommentLine(PCHAR LineOfText, ULONG TextLength);
+BOOL	IniIsSectionName(PCHAR LineOfText, ULONG TextLength);
 ULONG		IniGetSectionNameSize(PCHAR SectionNameLine, ULONG LineLength);
 VOID	IniExtractSectionName(PCHAR SectionName, PCHAR SectionNameLine, ULONG LineLength);
-BOOLEAN	IniIsSetting(PCHAR LineOfText, ULONG TextLength);
+BOOL	IniIsSetting(PCHAR LineOfText, ULONG TextLength);
 ULONG		IniGetSettingNameSize(PCHAR SettingNameLine, ULONG LineLength);
 ULONG		IniGetSettingValueSize(PCHAR SettingValueLine, ULONG LineLength);
 VOID	IniExtractSettingName(PCHAR SettingName, PCHAR SettingNameLine, ULONG LineLength);
 VOID	IniExtractSettingValue(PCHAR SettingValue, PCHAR SettingValueLine, ULONG LineLength);
 
-BOOLEAN	IniFileInitialize(VOID);
+BOOL	IniFileInitialize(VOID);
 
-BOOLEAN	IniOpenSection(PCSTR SectionName, ULONG* SectionId);
+BOOL	IniOpenSection(PCSTR SectionName, ULONG* SectionId);
 ULONG		IniGetNumSectionItems(ULONG SectionId);
 ULONG		IniGetSectionSettingNameSize(ULONG SectionId, ULONG SettingIndex);
 ULONG		IniGetSectionSettingValueSize(ULONG SectionId, ULONG SettingIndex);
-BOOLEAN	IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize);
-BOOLEAN	IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize);
-BOOLEAN	IniAddSection(PCSTR SectionName, ULONG* SectionId);
-BOOLEAN	IniAddSettingValueToSection(ULONG SectionId, PCSTR SettingName, PCSTR SettingValue);
+BOOL	IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize);
+BOOL	IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize);
+BOOL	IniAddSection(PCSTR SectionName, ULONG* SectionId);
+BOOL	IniAddSettingValueToSection(ULONG SectionId, PCSTR SettingName, PCSTR SettingValue);
 
 
 #endif // defined __PARSEINI_H

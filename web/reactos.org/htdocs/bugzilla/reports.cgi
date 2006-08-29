@@ -39,6 +39,8 @@ use lib qw(.);
 
 use Bugzilla::Config qw(:DEFAULT $datadir);
 
+require "CGI.pl";
+
 require "globals.pl";
 use vars qw(@legal_product); # globals from er, globals.pl
 
@@ -54,26 +56,23 @@ use Bugzilla;
 
 # If we're using bug groups for products, we should apply those restrictions
 # to viewing reports, as well.  Time to check the login in that case.
-my $user = Bugzilla->login();
+Bugzilla->login();
 
 GetVersionTable();
 
 Bugzilla->switch_to_shadow_db();
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
 
 # We only want those products that the user has permissions for.
 my @myproducts;
 push( @myproducts, "-All-");
-# Extract product names from objects and add them to the list.
-push( @myproducts, map { $_->name } @{$user->get_selectable_products} );
+push( @myproducts, GetSelectableProducts());
 
 if (! defined $cgi->param('product')) {
 
     choose_product(@myproducts);
-    $template->put_footer();
+    PutFooter();
 
 } else {
     my $product = $cgi->param('product');
@@ -90,12 +89,11 @@ if (! defined $cgi->param('product')) {
 
     print $cgi->header(-Content_Disposition=>'inline; filename=bugzilla_report.html');
 
-    $template->put_header("Bug Charts");
-    $vars->{'header_done'} = 1;
+    PutHeader("Bug Charts");
 
     show_chart($product);
 
-    $template->put_footer();
+    PutFooter();
 }
 
 
@@ -117,8 +115,7 @@ sub choose_product {
       || ThrowCodeError("chart_file_open_fail", {filename => "$dir/$datafile"});
  
     print $cgi->header();
-    $template->put_header("Bug Charts");
-    $vars->{'header_done'} = 1;
+    PutHeader("Bug Charts");
 
     print <<FIN;
 <center>
@@ -188,7 +185,7 @@ sub show_chart {
     my ($product) = @_;
 
     if (! defined $cgi->param('datasets')) {
-        ThrowUserError("missing_datasets", $vars);
+        ThrowUserError("missing_datasets");
     }
     my $datasets = join('', $cgi->param('datasets'));
 
@@ -257,12 +254,7 @@ sub generate_chart {
     my ($data_file, $image_file, $type, $product, $datasets) = @_;
     
     if (! open FILE, $data_file) {
-        if ($product eq '-All-') {
-            $product = '';
-        }
-
-        $vars->{'product'} = $product;
-        ThrowCodeError("chart_data_not_generated", $vars);
+        ThrowCodeError("chart_data_not_generated");
     }
 
     my @fields;
@@ -276,19 +268,15 @@ sub generate_chart {
         if (/^#/) {
             if (/^# fields?: (.*)\s*$/) {
                 @fields = split /\||\r/, $1;
-                unless ($fields[0] =~ /date/i) {
-                    $vars->{'file'} = $data_file;
-                    ThrowCodeError("chart_datafile_corrupt", $vars);
-                }
+                ThrowCodeError("chart_datafile_corrupt", {file => $data_file})
+                  unless $fields[0] =~ /date/i;
                 push @labels, grep($datasets{$_}, @fields);
             }
             next;
         }
 
-        unless (@fields) {
-            $vars->{'file'} = $data_file;
-            ThrowCodeError("chart_datafile_corrupt", $vars);
-        }
+        ThrowCodeError("chart_datafile_corrupt", {file => $data_file})
+          unless @fields;
         
         my @line = split /\|/;
         my $date = $line[0];
@@ -314,7 +302,7 @@ sub generate_chart {
     close FILE;
 
     if (! @{$data{DATE}}) {
-        ThrowUserError("insufficient_data_points", $vars);
+        ThrowUserError("insufficient_data_points");
     }
     
     my $img = Chart::Lines->new (800, 600);

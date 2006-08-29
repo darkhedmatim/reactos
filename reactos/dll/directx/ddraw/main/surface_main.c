@@ -113,48 +113,19 @@ HRESULT WINAPI
 Main_DDrawSurface_AddAttachedSurface(LPDIRECTDRAWSURFACE7 iface,
 					  LPDIRECTDRAWSURFACE7 pAttach)
 {
-   DWORD ret;
    DX_WINDBG_trace();
 
-   IDirectDrawSurfaceImpl* This = (IDirectDrawSurfaceImpl*)iface;           
-   IDirectDrawSurfaceImpl* That = (IDirectDrawSurfaceImpl*)pAttach;
-
+   IDirectDrawSurfaceImpl* This = (IDirectDrawSurfaceImpl*)iface;        
+   
+   IDirectDrawSurfaceImpl* That = NULL;
    if (pAttach==NULL)
    {
-      return DDERR_CANNOTATTACHSURFACE;     
+     return DDERR_INVALIDOBJECT;     
    }
-
-   ret = DdAttachSurface( That->Surf->mpPrimaryLocals[0],This->Surf->mpPrimaryLocals[0]);
-
-   if (ret == DD_OK)
-   {
-	   /* 
-	      Here we put in wine code 	   
-
-	      Wine Code from wine cvs 27/7-2006 
-		  with small changes to fith into our ddraw desgin
-
-	   */
-	  if (This->Surf->mddsdPrimary.ddsCaps.dwCaps & That->Surf->mddsdPrimary.ddsCaps.dwCaps & DDSCAPS_MIPMAP)
-      {
-          That->Surf->mddsdPrimary.ddsCaps.dwCaps2 |= DDSCAPS2_MIPMAPSUBLEVEL;        
-      }
-
-	  if( (That->Surf->next_attached != NULL) || (That->Surf->first_attached != (DWORD*)That) )
-      { 
-	      DX_STUB_str("Wine Code fails");
-          return DDERR_CANNOTATTACHSURFACE;
-      }
-
-	  That->Surf->next_attached = This->Surf->next_attached;
-      That->Surf->first_attached = This->Surf->first_attached;
-      This->Surf->next_attached = (DWORD*)That;
-
-      Main_DDrawSurface_AddRef((LPDIRECTDRAWSURFACE7)pAttach);
-	  return DD_OK;
-   }
+   That = (IDirectDrawSurfaceImpl*)pAttach;
    
-   return ret;
+   //FIXME Have I put This and That in right order ?? DdAttachSurface(from, to) 
+   return DdAttachSurface( That->Owner->mpPrimaryLocals[0],This->Owner->mpPrimaryLocals[0]);
 }
 
 /* MSDN: "not currently implemented." */
@@ -219,45 +190,9 @@ Main_DDrawSurface_EnumAttachedSurfaces(LPDIRECTDRAWSURFACE7 iface,
 					    LPVOID context,
 					    LPDDENUMSURFACESCALLBACK7 cb)
 {
-	IDirectDrawSurfaceImpl* This = (IDirectDrawSurfaceImpl*)iface;
-    IDirectDrawSurfaceImpl *surf;
-    DDSURFACEDESC2 desc;
-
     DX_WINDBG_trace();
 
-    /* 
-	    Wine Code from wine cvs 27/7-2006 
-		with small changes to fith into our ddraw desgin
-	*/
-
-	if(cb == NULL)
-	{
-        return DDERR_INVALIDPARAMS;
-	}
-	
-	for (surf = (IDirectDrawSurfaceImpl*)This->Surf->next_complex; surf != NULL; surf = (IDirectDrawSurfaceImpl*)surf->Surf->next_complex)
-    {
-        Main_DDrawSurface_AddRef((LPDIRECTDRAWSURFACE7)surf);
-        desc = surf->Surf->mddsdPrimary;
-        /* check: != DDENUMRET_OK or == DDENUMRET_CANCEL? */
-        if (cb((LPDIRECTDRAWSURFACE7)surf, &desc, context) == DDENUMRET_CANCEL)
-		{
-            return DD_OK;
-		}
-    }
-
-	for (surf = (IDirectDrawSurfaceImpl*)This->Surf->next_attached; surf != NULL; surf = (IDirectDrawSurfaceImpl*)surf->Surf->next_attached)	
-    {
-            Main_DDrawSurface_AddRef((LPDIRECTDRAWSURFACE7)surf);
-          desc = surf->Surf->mddsdPrimary;
-        /* check: != DDENUMRET_OK or == DDENUMRET_CANCEL? */
-        if (cb((LPDIRECTDRAWSURFACE7)surf, &desc, context) == DDENUMRET_CANCEL)
-		{
-            return DD_OK;
-		}
-    }
-
-    return DD_OK;
+    DX_STUB;
 }
 
 HRESULT WINAPI
@@ -299,65 +234,9 @@ Main_DDrawSurface_GetAttachedSurface(LPDIRECTDRAWSURFACE7 iface,
 					  LPDDSCAPS2 pCaps,
 					  LPDIRECTDRAWSURFACE7* ppSurface)
 {
-	IDirectDrawSurfaceImpl* This = (IDirectDrawSurfaceImpl*)iface;
-	IDirectDrawSurfaceImpl *surf;	
-    DDSCAPS2 our_caps;
-	    
     DX_WINDBG_trace();
 
-	/* 
-	    Wine Code from wine cvs 27/7-2006 
-		with small changes to fith into our ddraw desgin
-	*/
-	 
-	our_caps = *pCaps;
-    	
-    /* 
-	   FIXME adding version check 
-	   Earlier dx apps put garbage into these members, clear them 
-	*/
-    our_caps.dwCaps2 = 0;
-    our_caps.dwCaps3 = 0;
-    our_caps.dwCaps4 = 0;
-
-	//surf = (IDirectDrawSurfaceImpl*)This->Surf->next_complex;
-	if (This->Surf->next_complex != NULL)
-	{		
-		surf = (IDirectDrawSurfaceImpl*)This->Surf->next_complex;	
-		while( surf != NULL )
-		{
-			if (((surf->Surf->mddsdPrimary.ddsCaps.dwCaps & our_caps.dwCaps) == our_caps.dwCaps) &&
-				((surf->Surf->mddsdPrimary.ddsCaps.dwCaps2 & our_caps.dwCaps2) == our_caps.dwCaps2)) 
-			{         
-				*ppSurface = (LPDIRECTDRAWSURFACE7)surf;
-				Main_DDrawSurface_AddRef(*ppSurface);
-				DX_STUB_str("surf->Surf->next_complex ok");
-				return DD_OK;
-			}
-			surf = (IDirectDrawSurfaceImpl*)This->Surf->next_complex;		    
-		}
-	}
-
-	if (This->Surf->next_attached != NULL)
-	{
-		surf = (IDirectDrawSurfaceImpl*)This->Surf->next_attached;	
-
-		while(surf != NULL)
-		{      
-			if (((surf->Surf->mddsdPrimary.ddsCaps.dwCaps & our_caps.dwCaps) == our_caps.dwCaps) &&
-				((surf->Surf->mddsdPrimary.ddsCaps.dwCaps2 & our_caps.dwCaps2) == our_caps.dwCaps2)) 
-			{        
-				*ppSurface = (LPDIRECTDRAWSURFACE7)surf;
-				Main_DDrawSurface_AddRef(*ppSurface);
-				DX_STUB_str("surf->Surf->next_attached ok");
-				return DD_OK;
-			}
-			surf = (IDirectDrawSurfaceImpl*)This->Surf->next_attached;	
-		}
-	}
-
-   DX_STUB_str("Fail");
-   return DDERR_NOTFOUND;
+    DX_STUB;
 }
 
 HRESULT WINAPI
@@ -395,7 +274,7 @@ Main_DDrawSurface_GetCaps(LPDIRECTDRAWSURFACE7 iface, LPDDSCAPS2 pCaps)
     This = (IDirectDrawSurfaceImpl*)iface;        
      
     RtlZeroMemory(pCaps,sizeof(DDSCAPS2));
-    pCaps->dwCaps = This->Surf->mddsdPrimary.ddsCaps.dwCaps;
+    pCaps->dwCaps = This->Owner->mddsdPrimary.ddsCaps.dwCaps;
     
     return DD_OK;
 }
@@ -442,14 +321,14 @@ Main_DDrawSurface_GetDC(LPDIRECTDRAWSURFACE7 iface, HDC *phDC)
       for now we aussme the surface exits and create the hDC for it
     */
      
-    if ((HDC)This->Surf->mPrimaryLocal.hDC == NULL)
+    if ((HDC)This->Owner->mPrimaryLocal.hDC == NULL)
     {
-         This->Surf->mPrimaryLocal.hDC = (ULONG_PTR)GetDC((HWND)This->Owner->mDDrawGlobal.lpExclusiveOwner->hWnd);
-        *phDC = (HDC)This->Surf->mPrimaryLocal.hDC;
+         This->Owner->mPrimaryLocal.hDC = (ULONG_PTR)GetDC((HWND)This->Owner->mDDrawGlobal.lpExclusiveOwner->hWnd);
+        *phDC = (HDC)This->Owner->mPrimaryLocal.hDC;
     }
     else
     {
-       *phDC =  (HDC)This->Surf->mpPrimaryLocals[0]->hDC;
+       *phDC =  (HDC)This->Owner->mpPrimaryLocals[0]->hDC;
     }
 
     return DD_OK;
@@ -541,7 +420,7 @@ Main_DDrawSurface_GetSurfaceDesc(LPDIRECTDRAWSURFACE7 iface,
     }
     
     RtlZeroMemory(pDDSD,dwSize);
-    memcpy(pDDSD, &This->Surf->mddsdPrimary, sizeof(DDSURFACEDESC));
+    memcpy(pDDSD, &This->Owner->mddsdPrimary, sizeof(DDSURFACEDESC));
     pDDSD->dwSize = dwSize;
    
     return DD_OK;
@@ -603,7 +482,7 @@ Main_DDrawSurface_ReleaseDC(LPDIRECTDRAWSURFACE7 iface, HDC hDC)
    
     /* FIXME check if surface exits or not */
 
-    if ((HDC)This->Surf->mPrimaryLocal.hDC == NULL)
+    if ((HDC)This->Owner->mPrimaryLocal.hDC == NULL)
     {
         return DDERR_GENERIC;         
     }

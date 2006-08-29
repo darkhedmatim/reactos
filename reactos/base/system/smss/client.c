@@ -170,7 +170,6 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 	PSM_CONNECT_DATA  ConnectData = SmpGetConnectData (Request);
 	ULONG             SbApiPortNameSize = SM_CONNECT_DATA_SIZE(*Request);
 	INT               ClientIndex = SM_INVALID_CLIENT_INDEX;
-    HANDLE Process;
 
 
 	DPRINT("SM: %s(%08lx,%08lx) called\n", __FUNCTION__,
@@ -183,21 +182,14 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 	if (NULL != SmpClientDirectory.CandidateClient)
 	{
 		PROCESS_BASIC_INFORMATION pbi;
-        OBJECT_ATTRIBUTES ObjectAttributes;
 		
 		RtlZeroMemory (& pbi, sizeof pbi);
-        InitializeObjectAttributes(&ObjectAttributes, NULL, 0, NULL, NULL);
-        Status = NtOpenProcess(&Process,
-                               PROCESS_ALL_ACCESS,
-                               &ObjectAttributes,
-                               &Request->Header.ClientId);
-        ASSERT(NT_SUCCESS(Status));
-		Status = NtQueryInformationProcess (Process,
+		Status = NtQueryInformationProcess (Request->Header.ClientId.UniqueProcess,
 					    	    ProcessBasicInformation,
 						    & pbi,
 						    sizeof pbi,
 						    NULL);
-		ASSERT(NT_SUCCESS(Status));
+		if (NT_SUCCESS(Status))
 		{
 			SmpClientDirectory.CandidateClient->ServerProcessId =
 				(ULONG) pbi.UniqueProcessId;

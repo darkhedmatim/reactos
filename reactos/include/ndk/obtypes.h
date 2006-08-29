@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -23,13 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-
-//
-// If the IFS wasn't included, define this here
-//
-#ifndef EX_PUSH_LOCK
-#define EX_PUSH_LOCK    ULONG_PTR
-#endif
 
 #ifdef NTOS_MODE_USER
 
@@ -54,11 +47,6 @@ Author:
     (p)->SecurityDescriptor = (s);              \
     (p)->SecurityQualityOfService = NULL;       \
 }
-
-//
-// Number of custom-defined bits that can be attached to a handle
-//
-#define OBJ_HANDLE_TAGBITS                      0x3
 
 //
 // Directory Object Access Rights
@@ -86,26 +74,6 @@ Author:
 #define OB_FLAG_PERMANENT                       0x10
 #define OB_FLAG_SECURITY                        0x20
 #define OB_FLAG_SINGLE_PROCESS                  0x40
-
-#define OBJECT_TO_OBJECT_HEADER(o)                          \
-    CONTAINING_RECORD((o), OBJECT_HEADER, Body)
-
-#define OBJECT_HEADER_TO_NAME_INFO(h)                       \
-    ((POBJECT_HEADER_NAME_INFO)(!(h)->NameInfoOffset ?      \
-        NULL: ((PCHAR)(h) - (h)->NameInfoOffset)))
-
-#define OBJECT_HEADER_TO_HANDLE_INFO(h)                     \
-    ((POBJECT_HEADER_HANDLE_INFO)(!(h)->HandleInfoOffset ?  \
-        NULL: ((PCHAR)(h) - (h)->HandleInfoOffset)))
-
-#define OBJECT_HEADER_TO_QUOTA_INFO(h)                      \
-    ((POBJECT_HEADER_QUOTA_INFO)(!(h)->QuotaInfoOffset ?    \
-        NULL: ((PCHAR)(h) - (h)->QuotaInfoOffset)))
-
-#define OBJECT_HEADER_TO_CREATOR_INFO(h)                    \
-    ((POBJECT_HEADER_CREATOR_INFO)(!((h)->Flags &           \
-        OB_FLAG_CREATOR_INFO) ? NULL: ((PCHAR)(h) -         \
-        sizeof(OBJECT_HEADER_CREATOR_INFO))))
 
 //
 // Reasons for Open Callback
@@ -164,6 +132,7 @@ typedef struct _OB_DUMP_CONTROL
 } OB_DUMP_CONTROL, *POB_DUMP_CONTROL;
 
 #ifndef NTOS_MODE_USER
+#ifndef _REACTOS_
 
 //
 // Object Type Callbacks
@@ -215,7 +184,7 @@ typedef NTSTATUS
 (NTAPI *OB_SECURITY_METHOD)(
     IN PVOID Object,
     IN SECURITY_OPERATION_CODE OperationType,
-    IN SECURITY_INFORMATION SecurityInformation, // FIXME: <= should be a pointer
+    IN SECURITY_INFORMATION SecurityInformation,
     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     IN OUT PULONG CapturedLength,
     IN OUT PSECURITY_DESCRIPTOR *ObjectSecurityDescriptor,
@@ -229,17 +198,94 @@ typedef NTSTATUS
     IN BOOLEAN HasObjectName,
     OUT POBJECT_NAME_INFORMATION ObjectNameInfo,
     IN ULONG Length,
-    OUT PULONG ReturnLength,
-    IN KPROCESSOR_MODE AccessMode
+    OUT PULONG ReturnLength
 );
 
 typedef NTSTATUS
 (NTAPI *OB_OKAYTOCLOSE_METHOD)(
-    IN PEPROCESS Process OPTIONAL,
-    IN PVOID Object,
-    IN HANDLE Handle,
-    IN KPROCESSOR_MODE AccessMode
+    VOID
 );
+
+#else
+
+//
+// FIXME: ReactOS ONLY Object Callbacks
+//
+typedef NTSTATUS
+(NTAPI *OB_OPEN_METHOD)(
+    OB_OPEN_REASON Reason,
+    PVOID ObjectBody,
+    PEPROCESS Process,
+    ULONG HandleCount,
+    ACCESS_MASK GrantedAccess
+);
+
+typedef NTSTATUS
+(NTAPI *OB_PARSE_METHOD)(
+    PVOID Object,
+    PVOID *NextObject,
+    PUNICODE_STRING FullPath,
+    PWSTR *Path,
+    ULONG Attributes
+);
+
+typedef VOID
+(NTAPI *OB_DELETE_METHOD)(
+    PVOID DeletedObject
+);
+
+typedef VOID
+(NTAPI *OB_CLOSE_METHOD)(
+    PVOID ClosedObject,
+    ULONG HandleCount
+);
+
+typedef VOID
+(NTAPI *OB_DUMP_METHOD)(
+    VOID
+);
+
+typedef NTSTATUS
+(NTAPI *OB_OKAYTOCLOSE_METHOD)(
+    VOID
+);
+
+typedef NTSTATUS
+(NTAPI *OB_QUERYNAME_METHOD)(
+    PVOID ObjectBody,
+    POBJECT_NAME_INFORMATION ObjectNameInfo,
+    ULONG Length,
+    PULONG ReturnLength
+);
+
+typedef PVOID
+(NTAPI *OB_FIND_METHOD)(
+    PVOID  WinStaObject,
+    PWSTR  Name,
+    ULONG  Attributes
+);
+
+typedef NTSTATUS
+(NTAPI *OB_SECURITY_METHOD)(
+    PVOID Object,
+    SECURITY_OPERATION_CODE OperationType,
+    SECURITY_INFORMATION SecurityInformation,
+    PSECURITY_DESCRIPTOR NewSecurityDescriptor,
+    PULONG ReturnLength,
+    PSECURITY_DESCRIPTOR *OldSecurityDescriptor,
+    POOL_TYPE PoolType,
+    PGENERIC_MAPPING GenericMapping
+);
+
+typedef NTSTATUS
+(NTAPI *OB_CREATE_METHOD)(
+    PVOID ObjectBody,
+    PVOID Parent,
+    PWSTR RemainingPath,
+    struct _OBJECT_ATTRIBUTES* ObjectAttributes
+);
+
+#endif
 
 #else
 
@@ -261,8 +307,8 @@ typedef struct _OBJECT_HANDLE_ATTRIBUTE_INFORMATION
 
 typedef struct _OBJECT_DIRECTORY_INFORMATION
 {
-    UNICODE_STRING Name;
-    UNICODE_STRING TypeName;
+    UNICODE_STRING ObjectName;
+    UNICODE_STRING ObjectTypeName;
 } OBJECT_DIRECTORY_INFORMATION, *POBJECT_DIRECTORY_INFORMATION;
 
 #ifndef NTOS_MODE_USER
@@ -343,43 +389,11 @@ typedef struct _OBJECT_TYPE
 } OBJECT_TYPE;
 
 //
-// Object Directory Structures
-//
-typedef struct _OBJECT_DIRECTORY_ENTRY
-{
-    struct _OBJECT_DIRECTORY_ENTRY *ChainLink;
-    PVOID Object;
-#if (NTDDI_VERSION >= NTDDI_WS03)
-    ULONG HashValue;
-#endif
-} OBJECT_DIRECTORY_ENTRY, *POBJECT_DIRECTORY_ENTRY;
-
-typedef struct _OBJECT_DIRECTORY
-{
-    struct _OBJECT_DIRECTORY_ENTRY *HashBuckets[NUMBER_HASH_BUCKETS];
-#if (NTDDI_VERSION < NTDDI_WINXP)
-    ERESOURCE Lock;
-#elif (NTDDI_VERSION >= NTDDI_WINXP)
-    ERESOURCE Lock; // FIXME: HACKHACK, SHOULD BE EX_PUSH_LOCK
-#endif
-#if (NTDDI_VERSION < NTDDI_WINXP)
-    BOOLEAN CurrentEntryValid;
-#else
-    struct _DEVICE_MAP *DeviceMap;
-#endif
-    ULONG SessionId;
-#if (NTDDI_VERSION == NTDDI_WINXP)
-    USHORT Reserved;
-    USHORT SymbolicLinkUsageCount;
-#endif
-} OBJECT_DIRECTORY, *POBJECT_DIRECTORY;
-
-//
 // Object Header Addon Information
 //
 typedef struct _OBJECT_HEADER_NAME_INFO
 {
-    POBJECT_DIRECTORY Directory;
+    struct _DIRECTORY_OBJECT *Directory;
     UNICODE_STRING Name;
     ULONG QueryReferences;
     ULONG Reserved2;
@@ -415,24 +429,19 @@ typedef struct _OBJECT_HEADER_CREATOR_INFO
     USHORT Reserved;
 } OBJECT_HEADER_CREATOR_INFO, *POBJECT_HEADER_CREATOR_INFO;
 
-typedef struct _OBJECT_HEADER_QUOTA_INFO
-{
-    ULONG PagedPoolCharge;
-    ULONG NonPagedPoolCharge;
-    ULONG SecurityDescriptorCharge;
-    PEPROCESS ExclusiveProcess;
-} OBJECT_HEADER_QUOTA_INFO, *POBJECT_HEADER_QUOTA_INFO;
-
 //
 // Object Header
 //
 typedef struct _OBJECT_HEADER
 {
+#ifdef _REACTOS_
+    LIST_ENTRY Entry; // FIXME: REACTOS ONLY
+#endif
     LONG PointerCount;
     union
     {
         LONG HandleCount;
-        volatile PVOID NextToFree;
+        PVOID NextToFree;
     };
     POBJECT_TYPE Type;
     UCHAR NameInfoOffset;
@@ -449,41 +458,34 @@ typedef struct _OBJECT_HEADER
 } OBJECT_HEADER, *POBJECT_HEADER;
 
 //
-// Object Lookup Context
+// Object Directory Structures
 //
-typedef struct _OBP_LOOKUP_CONTEXT
+typedef struct _OBJECT_DIRECTORY_ENTRY
 {
-    POBJECT_DIRECTORY Directory;
+    struct _OBJECT_DIRECTORY_ENTRY *ChainLink;
     PVOID Object;
     ULONG HashValue;
-    USHORT HashIndex;
-    BOOLEAN DirectoryLocked;
-    ULONG LockStateSignature;
-} OBP_LOOKUP_CONTEXT, *POBP_LOOKUP_CONTEXT;
+} OBJECT_DIRECTORY_ENTRY, *POBJECT_DIRECTORY_ENTRY;
+
+typedef struct _OBJECT_DIRECTORY
+{
+    struct _OBJECT_DIRECTORY_ENTRY *HashBuckets[NUMBER_HASH_BUCKETS];
+    struct _EX_PUSH_LOCK *Lock;
+    struct _DEVICE_MAP *DeviceMap;
+    ULONG SessionId;
+} OBJECT_DIRECTORY, *POBJECT_DIRECTORY;
 
 //
 // Device Map
 //
 typedef struct _DEVICE_MAP
 {
-    POBJECT_DIRECTORY DosDevicesDirectory;
-    POBJECT_DIRECTORY GlobalDosDevicesDirectory;
-    ULONG ReferenceCount;
-    ULONG DriveMap;
-    UCHAR DriveType[32];
+    POBJECT_DIRECTORY   DosDevicesDirectory;
+    POBJECT_DIRECTORY   GlobalDosDevicesDirectory;
+    ULONG               ReferenceCount;
+    ULONG               DriveMap;
+    UCHAR               DriveType[32];
 } DEVICE_MAP, *PDEVICE_MAP;
-
-//
-// Symbolic Link Object
-//
-typedef struct _OBJECT_SYMBOLIC_LINK
-{
-    LARGE_INTEGER CreationTime;
-    UNICODE_STRING LinkTarget;
-    UNICODE_STRING LinkTargetRemaining;
-    PVOID LinkTargetObject;
-    ULONG DosDeviceDriveIndex;
-} OBJECT_SYMBOLIC_LINK, *POBJECT_SYMBOLIC_LINK;
 
 //
 // Kernel Exports

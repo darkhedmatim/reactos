@@ -14,7 +14,7 @@
 #ifndef NDEBUG
 DWORD DebugTraceLevel = DEBUG_ULTRA & ~(DEBUG_LOCK | DEBUG_PBUFFER);
 #else
-DWORD DebugTraceLevel = 0;
+DWORD DebugTraceLevel = DEBUG_DATALINK;
 #endif /* NDEBUG */
 
 PDEVICE_OBJECT TCPDeviceObject   = NULL;
@@ -385,7 +385,11 @@ TiDispatchOpenClose(
 
   RIRP(Irp);
 
-//  DbgPrint("Called. DeviceObject is at (0x%X), IRP is at (0x%X).\n", DeviceObject, Irp);
+  TI_DbgPrint(DEBUG_IRP, ("Called. DeviceObject is at (0x%X), IRP is at (0x%X).\n", DeviceObject, Irp));
+
+  IoMarkIrpPending(Irp);
+  Irp->IoStatus.Status      = STATUS_PENDING;
+  Irp->IoStatus.Information = 0;
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
@@ -413,7 +417,7 @@ TiDispatchOpenClose(
     Status = STATUS_INVALID_DEVICE_REQUEST;
   }
 
-  //DbgPrint("Leaving. Status is (0x%X)\n", Status);
+  TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
   return IRPFinish( Irp, Status );
 }

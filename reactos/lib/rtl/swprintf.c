@@ -26,7 +26,7 @@
 #define LEFT	16		/* left justified */
 #define SPECIAL	32		/* 0x */
 #define LARGE	64		/* use 'ABCDEF' instead of 'abcdef' */
-#define REMOVEHEX	256		/* use 256 as remve 0x frim BASE 16  */
+
 typedef struct {
     unsigned int mantissal:32;
     unsigned int mantissah:20;
@@ -115,13 +115,14 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			size--;
 		}
 	}
-	
-	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
+	if (type & SPECIAL) {
 		if (base == 16)
 			size -= 2;
-	} 
+		else if (base == 8)
+			size--;
+	}
 	i = 0;
-	if ((num == 0) && (precision !=0))
+	if (num == 0)
 		tmp[i++] = L'0';
 	else while (num != 0)
 		tmp[i++] = digits[do_div(&num,base)];
@@ -140,9 +141,12 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			*buf = sign;
 		++buf;
 	}
-	
-	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
-	    if (base==16) {
+	if (type & SPECIAL) {
+		if (base==8) {
+			if (buf <= end)
+				*buf = L'0';
+			++buf;
+		} else if (base==16) {
 			if (buf <= end)
 				*buf = L'0';
 			++buf;
@@ -173,8 +177,6 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			*buf = L' ';
 		++buf;
 	}
-	
-
 	return buf;
 }
 
@@ -286,10 +288,6 @@ static wchar_t*
 string(wchar_t* buf, wchar_t* end, const char* s, int len, int field_width, int precision, int flags)
 {
 	int i;
-    wchar_t c;
-    
-    c = (flags & ZEROPAD) ? L'0' : L' ';
-
 	if (s == NULL)
 	{
 		s = "<NULL>";
@@ -313,7 +311,7 @@ string(wchar_t* buf, wchar_t* end, const char* s, int len, int field_width, int 
 		while (len < field_width--)
 		{
 			if (buf <= end)
-				*buf = c;
+				*buf = L' ';
 			++buf;
 		}
 	for (i = 0; i < len; ++i)
@@ -335,10 +333,6 @@ static wchar_t*
 stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width, int precision, int flags)
 {
 	int i;
-	wchar_t c;
-    
-    c = (flags & ZEROPAD) ? L'0' : L' ';
-    
 	if (sw == NULL)
 	{
 		sw = L"<NULL>";
@@ -362,7 +356,7 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 		while (len < field_width--)
 		{
 			if (buf <= end)
-				*buf = c;
+				*buf = L' ';
 			buf++;
 		}
 	for (i = 0; i < len; ++i)
@@ -465,33 +459,33 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 		} else if (*fmt == L'I' && *(fmt+1) == L'6' && *(fmt+2) == L'4') {
 			qualifier = *fmt;
 			fmt += 3;
-		} else if (*fmt == L'I' && *(fmt+1) == L'3' && *(fmt+2) == L'2') {
-			qualifier = L'l'; 
-			fmt += 3;
-		} else if (*fmt == L'F' && *(fmt+1) == L'p') {
-			fmt += 1;
-            flags |= REMOVEHEX;
-        }
+		}
 
 		/* default base */
 		base = 10;
 
 		switch (*fmt) {
 		case L'c':
-              if (qualifier == 'h' || qualifier == 'w') {    
-	              wchar_t sw1[2];
-				/* print unicode string */
-                sw1[0] = (wchar_t) va_arg(args, int);
-                sw1[1] = 0;
-				str = stringw(str, end, (wchar_t *)&sw1, -1, field_width, precision, flags);
+			if (!(flags & LEFT))
+				while (--field_width > 0) {
+					if (str <= end)
+						*str = L' ';
+					++str;
+				}
+			if (qualifier == 'h') {
+				if (str <= end)
+					*str = (wchar_t) va_arg(args, int);
+				++str;
 			} else {
-                char s1[2];
-				/* print ascii string */
-                s1[0] = ( unsigned char) va_arg(args, int);
-                s1[1] = 0;
-				str = string(str, end, (char *)&s1, -1,  field_width, precision, flags);
+				if (str <= end)
+					*str = (wchar_t) va_arg(args, int);
+				++str;
 			}
-		
+			while (--field_width > 0) {
+				if (str <= end)
+					*str = L' ';
+				++str;
+			}
 			continue;
 
 		case L'C':
@@ -568,8 +562,6 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 			continue;
 
 		case L'p':
-             if ((flags & LARGE) == 0)
-                flags |= LARGE;  
 			if (field_width == -1) {
 				field_width = 2*sizeof(void *);
 				flags |= ZEROPAD;
@@ -655,7 +647,12 @@ int _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list args)
 		case L'u':
 			break;
 
-		default:			
+		default:
+			if (*fmt != L'%') {
+				if (str <= end)
+					*str = L'%';
+				++str;
+			}
 			if (*fmt) {
 				if (str <= end)
 					*str = *fmt;

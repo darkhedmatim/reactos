@@ -731,8 +731,6 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return Kernel;
 	if ( attribute.value == "kernelmodedll" )
 		return KernelModeDLL;
-    if ( attribute.value == "exportdriver" )
-        return ExportDriver;
 	if ( attribute.value == "kernelmodedriver" )
 		return KernelModeDriver;
 	if ( attribute.value == "nativedll" )
@@ -746,7 +744,7 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 	if ( attribute.value == "win32gui" )
 		return Win32GUI;
 	if ( attribute.value == "win32scr" )
-		return Win32SCR;
+		return Win32SCR;    
 	if ( attribute.value == "bootloader" )
 		return BootLoader;
 	if ( attribute.value == "bootsector" )
@@ -757,10 +755,6 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return Iso;
 	if ( attribute.value == "liveiso" )
 		return LiveIso;
-	if ( attribute.value == "isoregtest" )
-		return IsoRegTest;
-	if ( attribute.value == "liveisoregtest" )
-		return LiveIsoRegTest;
 	if ( attribute.value == "test" )
 		return Test;
 	if ( attribute.value == "rpcserver" )
@@ -769,8 +763,6 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return RpcClient;
 	if ( attribute.value == "alias" )
 		return Alias;
-	if ( attribute.value == "idlheader" )
-		return IdlHeader;
 	throw InvalidAttributeValueException ( location,
 	                                       attribute.name,
 	                                       attribute.value );
@@ -801,14 +793,11 @@ Module::GetDefaultModuleExtension () const
 			return ".dll";
 		case KernelModeDriver:
 		case BootLoader:
-        case ExportDriver:
 			return ".sys";
 		case BootSector:
 			return ".o";
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 			return ".iso";
 		case Test:
 			return ".exe";
@@ -817,8 +806,8 @@ Module::GetDefaultModuleExtension () const
 		case RpcClient:
 			return ".o";
 		case Alias:
+			return "";
 		case BootProgram:
-		case IdlHeader:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -831,29 +820,29 @@ Module::GetDefaultModuleEntrypoint () const
 	switch ( type )
 	{
 		case Kernel:
-			return "NtProcessStartup";
+			return "_NtProcessStartup";
 		case KernelModeDLL:
-        case KernelModeDriver:
-        case ExportDriver:
-			return "DriverEntry@8";
+			return "_DriverEntry@8";
 		case NativeDLL:
-			return "DllMainCRTStartup@12";
+			return "_DllMainCRTStartup@12";
 		case NativeCUI:
-			return "NtProcessStartup@4";
+			return "_NtProcessStartup@4";
 		case Win32DLL:
-			return "DllMain@12";
+			return "_DllMain@12";
 		case Win32CUI:
 		case Test:
 			if ( isUnicode )
-				return "wmainCRTStartup";
+				return "_wmainCRTStartup";
 			else
-				return "mainCRTStartup";
+				return "_mainCRTStartup";
 		case Win32SCR:
 		case Win32GUI:
 			if ( isUnicode )
-				return "wWinMainCRTStartup";
+				return "_wWinMainCRTStartup";
 			else
-				return "WinMainCRTStartup";
+				return "_WinMainCRTStartup";
+		case KernelModeDriver:
+			return "_DriverEntry@8";
 		case BuildTool:
 		case StaticLibrary:
 		case ObjectLibrary:
@@ -861,13 +850,10 @@ Module::GetDefaultModuleEntrypoint () const
 		case BootSector:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
 		case BootProgram:
-		case IdlHeader:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -893,7 +879,6 @@ Module::GetDefaultModuleBaseaddress () const
 			return "0x00400000";
 		case KernelModeDLL:
 		case KernelModeDriver:
-        case ExportDriver:
 			return "0x00010000";
 		case BuildTool:
 		case StaticLibrary:
@@ -902,13 +887,10 @@ Module::GetDefaultModuleBaseaddress () const
 		case BootSector:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
 		case BootProgram:
-		case IdlHeader:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -928,11 +910,10 @@ Module::IsDLL () const
 	{
 		case Kernel:
 		case KernelModeDLL:
-        case ExportDriver:
 		case NativeDLL:
 		case Win32DLL:
-            return true;
 		case KernelModeDriver:
+			return true;
 		case NativeCUI:
 		case Win32CUI:
 		case Test:
@@ -946,12 +927,9 @@ Module::IsDLL () const
 		case BootProgram:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
-		case IdlHeader:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -965,7 +943,6 @@ Module::GenerateInOutputTree () const
 	{
 		case Kernel:
 		case KernelModeDLL:
-        case ExportDriver:
 		case NativeDLL:
 		case Win32DLL:
 		case KernelModeDriver:
@@ -980,15 +957,12 @@ Module::GenerateInOutputTree () const
 		case BootProgram:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 			return true;
 		case StaticLibrary:
 		case ObjectLibrary:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
-		case IdlHeader:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -1050,17 +1024,6 @@ Module::GetInvocationTarget ( const int index ) const
 	return ssprintf ( "%s_invoke_%d",
 	                  name.c_str (),
 	                  index );
-}
-
-string
-Module::GetEntryPoint(bool leadingUnderscore) const
-{
-	string result = "";
-	if (leadingUnderscore)
-		result = "_";
-
-	result += entrypoint;
-	return result;
 }
 
 bool
@@ -1434,7 +1397,6 @@ AutoRegister::IsSupportedModuleType ( ModuleType type )
 			return true;
 		case Kernel:
 		case KernelModeDLL:
-        case ExportDriver:
 		case NativeDLL:
 		case NativeCUI:
 		case Win32CUI:
@@ -1449,13 +1411,10 @@ AutoRegister::IsSupportedModuleType ( ModuleType type )
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:
 		case Alias:
-		case IdlHeader:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,

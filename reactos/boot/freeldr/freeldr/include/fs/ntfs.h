@@ -203,25 +203,24 @@ typedef struct {
 
 typedef struct
 {
+	PNTFS_ATTR_RECORD	Record;
 	PUCHAR			CacheRun;
 	ULONGLONG			CacheRunOffset;
 	LONGLONG			CacheRunStartLCN;
 	ULONGLONG			CacheRunLength;
 	LONGLONG			CacheRunLastLCN;
 	ULONGLONG			CacheRunCurrentOffset;
-	NTFS_ATTR_RECORD	Record;
 } NTFS_ATTR_CONTEXT, *PNTFS_ATTR_CONTEXT;
 
 typedef struct
 {
-	PNTFS_ATTR_CONTEXT	DataContext;
+	NTFS_ATTR_CONTEXT	DataContext;
 	ULONGLONG			Offset;
 } PACKED NTFS_FILE_HANDLE, *PNTFS_FILE_HANDLE;
 
-BOOLEAN	NtfsOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector);
+BOOL	NtfsOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector);
 FILE*	NtfsOpenFile(PCSTR FileName);
-VOID	NtfsCloseFile(FILE *FileHandle);
-BOOLEAN	NtfsReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+BOOL	NtfsReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
 ULONG	NtfsGetFileSize(FILE *FileHandle);
 VOID	NtfsSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
 ULONG	NtfsGetFilePointer(FILE *FileHandle);

@@ -8,25 +8,18 @@ require_once( 'commandLine.inc' );
 require_once( 'SpecialPage.php' );
 require_once( 'QueryPage.php' );
 
-if(@$options['help']) {
+if($options['help']) {
 	print "usage:updateSpecialPages.php [--help] [--only=page]\n";
 	print "  --help      : this help message\n";
-	print "  --list      : list special pages names\n";
 	print "  --only=page : only update 'page'. Ex: --only=BrokenRedirects\n";
-	wfDie();
+	die();
 }
 
 $wgOut->disable();
 $dbw =& wfGetDB( DB_MASTER );
 
 foreach ( $wgQueryPages as $page ) {
-	@list( $class, $special, $limit ) = $page;
-
-	# --list : just show the name of pages
-	if( @$options['list'] ) {
-		print "$special\n";
-		continue;
-	}
+	list( $class, $special ) = $page;
 
 	$specialObj = SpecialPage::getPage( $special );
 	if ( !$specialObj ) {
@@ -45,7 +38,7 @@ foreach ( $wgQueryPages as $page ) {
 	if ( $queryPage->isExpensive() ) {
 		$t1 = explode( ' ', microtime() );
 		# Do the query
-		$num = $queryPage->recache( $limit === null ? 1000 : $limit );
+		$num = $queryPage->recache();
 		$t2 = explode( ' ', microtime() );
 
 		if ( $num === false ) {

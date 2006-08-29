@@ -14,10 +14,6 @@
 #define NDEBUG
 #include <internal/debug.h>
 
-#define LockEvent Spare0[0]
-#define LockCount Spare0[1]
-#define LockOwner Spare0[2]
-
 extern LARGE_INTEGER ShortPsLockDelay, PsLockTimeout;
 extern LIST_ENTRY PriorityListHead[MAXIMUM_PRIORITY];
 
@@ -63,6 +59,15 @@ NTSTATUS STDCALL INIT_FUNCTION PspLookupKernelUserEntryPoints(VOID);
 #endif
 
 /* FUNCTIONS ***************************************************************/
+
+VOID
+NTAPI
+PiShutdownProcessManager(VOID)
+{
+   DPRINT("PiShutdownProcessManager()\n");
+
+   PspKillMostProcesses();
+}
 
 VOID
 INIT_FUNCTION
@@ -113,7 +118,7 @@ PsInitThreadManagment(VOID)
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.ValidAccessMask = THREAD_ALL_ACCESS;
     ObjectTypeInitializer.DeleteProcedure = PspDeleteThread;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &PsThreadType);
+    ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &PsThreadType);
 
    PsInitializeIdleOrFirstThread(PsInitialSystemProcess, &FirstThread, NULL, KernelMode, TRUE);
    FirstThread->Tcb.State = Running;
@@ -138,7 +143,7 @@ PsInitProcessManagment(VOID)
    OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
 
    ShortPsLockDelay.QuadPart = -100LL;
-
+   PsLockTimeout.QuadPart = -10000000LL; /* one second */
    /*
     * Register the process object type
     */
@@ -154,13 +159,10 @@ PsInitProcessManagment(VOID)
    ObjectTypeInitializer.PoolType = NonPagedPool;
    ObjectTypeInitializer.ValidAccessMask = PROCESS_ALL_ACCESS;
    ObjectTypeInitializer.DeleteProcedure = PspDeleteProcess;
-   ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &PsProcessType);
+   ObpCreateTypeObject(&ObjectTypeInitializer, &Name, &PsProcessType);
 
    InitializeListHead(&PsActiveProcessHead);
-   KeInitializeGuardedMutex(&PspActiveProcessMutex);
-
-   /* Setup the quantum table */
-   PsChangeQuantumTable(FALSE, PsRawPrioritySeparation);
+   ExInitializeFastMutex(&PspActiveProcessMutex);
 
    /*
     * Initialize the default quota block.
@@ -199,7 +201,6 @@ PsInitProcessManagment(VOID)
    InitializeListHead(&PsIdleProcess->Pcb.ThreadListHead);
    InitializeListHead(&PsIdleProcess->ThreadListHead);
    InitializeListHead(&PsIdleProcess->ActiveProcessLinks);
-   ObInitializeFastReference(&PsIdleProcess->Token, NULL);
    KeInitializeDispatcherHeader(&PsIdleProcess->Pcb.Header,
 				ProcessObject,
 				sizeof(EPROCESS) / sizeof(LONG),
@@ -250,11 +251,9 @@ PsInitProcessManagment(VOID)
    PspInheritQuota(PsInitialSystemProcess, NULL);
 
    MmInitializeAddressSpace(PsInitialSystemProcess,
-			    (PMADDRESS_SPACE)&(PsInitialSystemProcess)->VadRoot);
+			    &PsInitialSystemProcess->AddressSpace);
 
-   (PsInitialSystemProcess)->LockEvent = 
-       ExAllocatePoolWithTag(PagedPool, sizeof(KEVENT), TAG('P', 's', 'L', 'k'));
-   KeInitializeEvent((PsInitialSystemProcess)->LockEvent, SynchronizationEvent, FALSE);
+   KeInitializeEvent(&PsInitialSystemProcess->LockEvent, SynchronizationEvent, FALSE);
 
 #if defined(__GNUC__)
    KProcess->DirectoryTableBase =
@@ -282,7 +281,8 @@ PsInitProcessManagment(VOID)
     /* No parent, this is the Initial System Process. Assign Boot Token */
     BootToken = SepCreateSystemProcessToken();
     BootToken->TokenInUse = TRUE;
-    ObInitializeFastReference(&PsInitialSystemProcess->Token, BootToken);
+    PsInitialSystemProcess->Token.Object = BootToken; /* FIXME */
+    ObReferenceObject(BootToken);
 	}
 #endif
 }
@@ -297,11 +297,11 @@ PspPostInitSystemProcess(VOID)
      process a PID */
   PsInitClientIDManagment();
 
-  ObpCreateHandleTable(NULL, PsInitialSystemProcess);
+  ObCreateHandleTable(NULL, FALSE, PsInitialSystemProcess);
   ObpKernelHandleTable = PsInitialSystemProcess->ObjectTable;
 
-  CidEntry.Object = PsInitialSystemProcess;
-  CidEntry.GrantedAccess = 0;
+  CidEntry.u1.Object = PsInitialSystemProcess;
+  CidEntry.u2.GrantedAccess = 0;
   PsInitialSystemProcess->UniqueProcessId = ExCreateHandle(PspCidTable, &CidEntry);
 
   if(!PsInitialSystemProcess->UniqueProcessId)

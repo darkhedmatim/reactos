@@ -37,7 +37,7 @@ ULONG			DataSectorStart;		/* Starting sector of the data area */
 ULONG			FatType = 0;			/* FAT12, FAT16, FAT32, FATX16 or FATX32 */
 ULONG			FatDriveNumber = 0;
 
-BOOLEAN FatOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector, ULONG PartitionSectorCount)
+BOOL FatOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector, ULONG PartitionSectorCount)
 {
 	char ErrMsg[80];
 	ULONG FatSize;
@@ -336,7 +336,7 @@ ULONG FatDetermineFatType(PFAT_BOOTSECTOR FatBootSector, ULONG PartitionSectorCo
 	}
 }
 
-PVOID FatBufferDirectory(ULONG DirectoryStartCluster, ULONG *DirectorySize, BOOLEAN RootDirectory)
+PVOID FatBufferDirectory(ULONG DirectoryStartCluster, ULONG *DirectorySize, BOOL RootDirectory)
 {
 	PVOID	DirectoryBuffer;
 
@@ -398,7 +398,7 @@ PVOID FatBufferDirectory(ULONG DirectoryStartCluster, ULONG *DirectorySize, BOOL
 	return DirectoryBuffer;
 }
 
-BOOLEAN FatSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer)
+BOOL FatSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer)
 {
 	ULONG		EntryCount;
 	ULONG		CurrentEntry;
@@ -609,7 +609,7 @@ BOOLEAN FatSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySi
 	return FALSE;
 }
 
-static BOOLEAN FatXSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer)
+static BOOL FatXSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG DirectorySize, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer)
 {
 	ULONG		EntryCount;
 	ULONG		CurrentEntry;
@@ -680,7 +680,7 @@ static BOOLEAN FatXSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG Dir
  * with info describing the file, etc. returns true
  * if the file exists or false otherwise
  */
-BOOLEAN FatLookupFile(PCSTR FileName, PFAT_FILE_INFO FatFileInfoPointer)
+BOOL FatLookupFile(PCSTR FileName, PFAT_FILE_INFO FatFileInfoPointer)
 {
 	UINT		i;
 	ULONG		NumberOfPathParts;
@@ -817,7 +817,7 @@ void FatParseShortFileName(PCHAR Buffer, PDIRENTRY DirEntry)
  * FatGetFatEntry()
  * returns the Fat entry for a given cluster number
  */
-BOOLEAN FatGetFatEntry(ULONG Cluster, ULONG* ClusterPointer)
+BOOL FatGetFatEntry(ULONG Cluster, ULONG* ClusterPointer)
 {
 	ULONG		fat = 0;
 	UINT		FatOffset;
@@ -1029,7 +1029,7 @@ ULONG* FatGetClusterChainArray(ULONG StartCluster)
  * FatReadCluster()
  * Reads the specified cluster into memory
  */
-BOOLEAN FatReadCluster(ULONG ClusterNumber, PVOID Buffer)
+BOOL FatReadCluster(ULONG ClusterNumber, PVOID Buffer)
 {
 	ULONG		ClusterStartSector;
 
@@ -1051,7 +1051,7 @@ BOOLEAN FatReadCluster(ULONG ClusterNumber, PVOID Buffer)
  * FatReadClusterChain()
  * Reads the specified clusters into memory
  */
-BOOLEAN FatReadClusterChain(ULONG StartClusterNumber, ULONG NumberOfClusters, PVOID Buffer)
+BOOL FatReadClusterChain(ULONG StartClusterNumber, ULONG NumberOfClusters, PVOID Buffer)
 {
 	ULONG		ClusterStartSector;
 
@@ -1112,7 +1112,7 @@ BOOLEAN FatReadClusterChain(ULONG StartClusterNumber, ULONG NumberOfClusters, PV
  * FatReadPartialCluster()
  * Reads part of a cluster into memory
  */
-BOOLEAN FatReadPartialCluster(ULONG ClusterNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer)
+BOOL FatReadPartialCluster(ULONG ClusterNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer)
 {
 	ULONG		ClusterStartSector;
 
@@ -1135,7 +1135,7 @@ BOOLEAN FatReadPartialCluster(ULONG ClusterNumber, ULONG StartingOffset, ULONG L
  * Reads BytesToRead from open file and
  * returns the number of bytes read in BytesRead
  */
-BOOLEAN FatReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer)
+BOOL FatReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer)
 {
 	PFAT_FILE_INFO	FatFileInfo = (PFAT_FILE_INFO)FileHandle;
 	ULONG			ClusterNumber;
@@ -1316,7 +1316,7 @@ ULONG FatGetFilePointer(FILE *FileHandle)
 	return FatFileHandle->FilePointer;
 }
 
-BOOLEAN FatReadVolumeSectors(ULONG DriveNumber, ULONG SectorNumber, ULONG SectorCount, PVOID Buffer)
+BOOL FatReadVolumeSectors(ULONG DriveNumber, ULONG SectorNumber, ULONG SectorCount, PVOID Buffer)
 {
 	return CacheReadDiskSectors(DriveNumber, SectorNumber + FatVolumeStartSector, SectorCount, Buffer);
 }

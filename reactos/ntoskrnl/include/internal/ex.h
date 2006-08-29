@@ -8,12 +8,10 @@ extern LARGE_INTEGER ExpTimeZoneBias;
 extern ULONG ExpTimeZoneId;
 extern POBJECT_TYPE ExEventPairObjectType;
 
-#define MAX_FAST_REFS           7
-
 #define EX_OBJ_TO_HDR(eob) ((POBJECT_HEADER)((ULONG_PTR)(eob) &                \
   ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
   EX_HANDLE_ENTRY_AUDITONCLOSE)))
-#define EX_HTE_TO_HDR(hte) ((POBJECT_HEADER)((ULONG_PTR)((hte)->Object) &   \
+#define EX_HTE_TO_HDR(hte) ((POBJECT_HEADER)((ULONG_PTR)((hte)->u1.Object) &   \
   ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
   EX_HANDLE_ENTRY_AUDITONCLOSE)))
 
@@ -162,8 +160,9 @@ ExfWaitForRundownProtectionRelease(
                                    EX_HANDLE_ENTRY_AUDITONCLOSE)
 
 typedef VOID (STDCALL PEX_SWEEP_HANDLE_CALLBACK)(
-    PHANDLE_TABLE_ENTRY HandleTableEntry,
-    HANDLE Handle,  
+    PHANDLE_TABLE HandleTable, 
+    PVOID Object, 
+    ULONG GrantedAccess, 
     PVOID Context
 );
 
@@ -267,7 +266,7 @@ static __inline _SEH_FILTER(_SEH_ExSystemExceptionFilter)
 #define ExpChangeRundown(x, y, z) InterlockedCompareExchange64((PLONGLONG)x, y, z)
 #define ExpSetRundown(x, y) InterlockedExchange64((PLONGLONG)x, y)
 #else
-#define ExpChangeRundown(x, y, z) InterlockedCompareExchange((PLONG)x, PtrToLong(y), PtrToLong(z))
+#define ExpChangeRundown(x, y, z) InterlockedCompareExchange((PLONG)x, y, z)
 #define ExpSetRundown(x, y) InterlockedExchange((PLONG)x, y)
 #endif
 
@@ -466,7 +465,6 @@ ExAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
     if (InterlockedBitTestAndSet((PLONG)PushLock, EX_PUSH_LOCK_LOCK_V))
     {
         /* Someone changed it, use the slow path */
-        DbgPrint("%s - Contention!\n", __FUNCTION__);
         ExfAcquirePushLockExclusive(PushLock);
     }
 
@@ -501,10 +499,9 @@ ExAcquirePushLockShared(PEX_PUSH_LOCK PushLock)
 
     /* Try acquiring the lock */
     NewValue.Value = EX_PUSH_LOCK_LOCK | EX_PUSH_LOCK_SHARE_INC;
-    if (InterlockedCompareExchangePointer(PushLock, NewValue.Ptr, 0))
+    if (!InterlockedCompareExchangePointer(PushLock, NewValue.Ptr, 0))
     {
         /* Someone changed it, use the slow path */
-        DbgPrint("%s - Contention!\n", __FUNCTION__);
         ExfAcquirePushLockShared(PushLock);
     }
 
@@ -577,7 +574,6 @@ ExReleasePushLockShared(PEX_PUSH_LOCK PushLock)
         OldValue.Ptr)
     {
         /* There are still other people waiting on it */
-        DbgPrint("%s - Contention!\n", __FUNCTION__);
         ExfReleasePushLockShared(PushLock);
     }
 }
@@ -624,7 +620,6 @@ ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
     if ((OldValue.Waiting) && !(OldValue.Waking))
     {
         /* Wake it up */
-        DbgPrint("%s - Contention!\n", __FUNCTION__);
         ExfTryToWakePushLock(PushLock);
     }
 }
@@ -676,7 +671,6 @@ ExReleasePushLock(PEX_PUSH_LOCK PushLock)
          OldValue.Ptr))
     {
         /* We have waiters, use the long path */
-        DbgPrint("%s - Contention!\n", __FUNCTION__);
         ExfReleasePushLock(PushLock);
     }
 }

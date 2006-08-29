@@ -31,9 +31,6 @@
 #                 Erik Stambaugh <erik@dasbistro.com>
 #                 Dave Lawrence <dkl@redhat.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Joel Peshkin <bugreport@peshkin.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
-#                 A. Karl Kornel <karl@kornel.name>
 #                 Marc Schumann <wurblzap@gmail.com>
 #
 #
@@ -321,16 +318,7 @@ my $modules = [
     }, 
     { 
         name => 'Mail::Mailer', 
-        version => '1.67'
-    },
-    {
-        name => 'MIME::Base64',
-        version => '3.01'
-    },
-    {
-        # MIME::Parser is packaged as MIME::Tools on ActiveState Perl
-        name => $^O =~ /MSWin32/i ? 'MIME::Tools' : 'MIME::Parser',
-        version => '5.406'
+        version => '1.65'
     },
     {
         name => 'Storable',
@@ -352,8 +340,6 @@ my %ppm_modules = (
     'GD::Graph'         => 'GDGraph',
     'GD::Text::Align'   => 'GDTextUtil',
     'Mail::Mailer'      => 'MailTools',
-    'Mail::Base64'      => 'MIME-Base64',
-    'MIME::Tools'       => 'MIME-Tools',
 );
 
 sub install_command {
@@ -379,11 +365,10 @@ foreach my $module (@{$modules}) {
 print "\nThe following Perl modules are optional:\n" unless $silent;
 my $gd          = have_vers("GD","1.20");
 my $chartbase   = have_vers("Chart::Base","1.0");
-my $xmlparser   = have_vers("XML::Twig",0);
+my $xmlparser   = have_vers("XML::Parser",0);
 my $gdgraph     = have_vers("GD::Graph",0);
 my $gdtextalign = have_vers("GD::Text::Align",0);
 my $patchreader = have_vers("PatchReader","0.9.4");
-my $imagemagick = have_vers("Image::Magick",0);
 
 print "\n" unless $silent;
 
@@ -405,16 +390,8 @@ if ((!$gd || !$chartbase) && !$silent) {
 if (!$xmlparser && !$silent) {
     print "If you want to use the bug import/export feature to move bugs to\n",
           "or from other bugzilla installations, you will need to install\n ",
-          "the XML::Twig module by running (as $::root):\n\n",
-    "   " . install_command("XML::Twig") . "\n\n";
-}
-if (!$imagemagick && !$silent) {
-    print "If you want to convert BMP image attachments to PNG to conserve\n",
-          "disk space, you will need to install the ImageMagick application\n",
-          "Available from http://www.imagemagick.org, and the Image::Magick\n",
-          "Perl module by running (as $::root):\n\n",
-    "   " . install_command("Image::Magick") . "\n\n";
-
+          "the XML::Parser module by running (as $::root):\n\n",
+    "   " . install_command("XML::Parser") . "\n\n";
 }
 if ((!$gd || !$gdgraph || !$gdtextalign) && !$silent) {
     print "If you you want to see graphical bug reports (bar, pie and line ";
@@ -524,14 +501,14 @@ EOT
     die "Syntax error in localconfig";
 }
 
-sub LocalVarExists
+sub LocalVarExists ($)
 {
     my ($name) = @_;
     return $main::{$name}; # if localconfig declared it, we're done.
 }
 
 my $newstuff = "";
-sub LocalVar
+sub LocalVar ($$)
 {
     my ($name, $definition) = @_;
     return if LocalVarExists($name); # if localconfig declared it, we're done.
@@ -1003,6 +980,9 @@ if ($my_create_htaccess) {
 <FilesMatch ^(.*\.pm|.*\.pl|.*localconfig.*)$>
   deny from all
 </FilesMatch>
+<FilesMatch ^(localconfig.js|localconfig.rdf)$>
+  allow from all
+</FilesMatch>
 END
     close HTACCESS;
     chmod $fileperm, ".htaccess";
@@ -1026,6 +1006,11 @@ END
       print "Repairing .htaccess...\n";
       open HTACCESS, '>', '.htaccess';
       print HTACCESS $oldaccess;
+      print HTACCESS <<'END';
+<FilesMatch ^(localconfig.js|localconfig.rdf)$>
+  allow from all
+</FilesMatch>
+END
       close HTACCESS;
     }
 
@@ -1141,10 +1126,6 @@ END
 # Just to be sure ...
 unlink "$datadir/versioncache";
 
-# Check for a new install
-
-my $newinstall = !-e "$datadir/params";
-
 # Remove parameters from the params file that no longer exist in Bugzilla,
 # and set the defaults for new ones
 
@@ -1189,11 +1170,6 @@ if ($^O =~ /MSWin32/i
     }
     SetParam('mail_delivery_method', 'smtp');
     SetParam('smtpserver', $smtp);
-}
-
-# Enable UTF-8 on new installs
-if ($newinstall) {
-    SetParam('utf8', 1);
 }
 
 # WriteParams will only write out still-valid entries
@@ -1438,7 +1414,7 @@ require Bugzilla::User::Setting;
 import Bugzilla::User::Setting qw(add_setting);
 
 require Bugzilla::Util;
-import Bugzilla::Util qw(bz_crypt trim html_quote is_7bit_clean);
+import Bugzilla::Util qw(bz_crypt trim html_quote);
 
 require Bugzilla::User;
 import Bugzilla::User qw(insert_new_user);
@@ -1511,6 +1487,12 @@ if ($my_db_check) {
         die "\nYour $sql_server v$sql_vers is too old.\n" . 
             "   Bugzilla requires version $sql_want or later of $sql_server.\n" . 
             "   Please download and install a newer version.\n";
+    }
+    # This message is specific to MySQL.
+    if ($dbh->isa('Bugzilla::DB::Mysql') && ($sql_vers =~ /^4\.0\.(\d+)/) && ($1 < 2)) {
+        die "\nYour MySQL server is incompatible with Bugzilla.\n" .
+            "   Bugzilla does not support versions 4.x.x below 4.0.2.\n" .
+            "   Please visit http://www.mysql.com/ and download a newer version.\n";
     }
 
     # See if we can connect to the database.
@@ -1604,7 +1586,7 @@ $dbh->bz_setup_database();
 # Populate groups table
 ###########################################################################
 
-sub GroupDoesExist
+sub GroupDoesExist ($)
 {
     my ($name) = @_;
     my $sth = $dbh->prepare("SELECT name FROM groups WHERE name='$name'");
@@ -1645,7 +1627,7 @@ sub AddGroup {
 
 my $headernum = 1;
 
-sub AddFDef {
+sub AddFDef ($$$) {
     my ($name, $description, $mailhead) = (@_);
 
     my $sth = $dbh->prepare("SELECT fieldid FROM fielddefs " .
@@ -1668,7 +1650,7 @@ sub AddFDef {
 }
 
 
-# Note that all of these entries are unconditional, from when get_field_id
+# Note that all of these entries are unconditional, from when GetFieldID
 # used to create an entry if it wasn't found. New fielddef columns should
 # be created with their associated schema change.
 AddFDef("bug_id", "Bug \#", 1);
@@ -1694,6 +1676,7 @@ AddFDef("cc", "CC", 1);
 AddFDef("dependson", "BugsThisDependsOn", 1);
 AddFDef("blocked", "OtherBugsDependingOnThis", 1);
 AddFDef("attachments.description", "Attachment description", 0);
+AddFDef("attachments.thedata", "Attachment data", 0);
 AddFDef("attachments.filename", "Attachment filename", 0);
 AddFDef("attachments.mimetype", "Attachment mime type", 0);
 AddFDef("attachments.ispatch", "Attachment is patch", 0);
@@ -1701,7 +1684,6 @@ AddFDef("attachments.isobsolete", "Attachment is obsolete", 0);
 AddFDef("attachments.isprivate", "Attachment is private", 0);
 
 AddFDef("target_milestone", "Target Milestone", 0);
-AddFDef("creation_ts", "Creation date", 0);
 AddFDef("delta_ts", "Last changed date", 0);
 AddFDef("longdesc", "Comment", 0);
 AddFDef("alias", "Alias", 0);
@@ -1727,10 +1709,6 @@ AddFDef("work_time", "Hours Worked", 0);
 AddFDef("percentage_complete", "Percentage Complete", 0);
 
 AddFDef("content", "Content", 0);
-
-$dbh->do("DELETE FROM fielddefs WHERE name='attachments.thedata'");
-AddFDef("attach_data.thedata", "Attachment data", 0);
-AddFDef("attachments.isurl", "Attachment is a URL", 0);
 
 # 2005-11-13 LpSolit@gmail.com - Bug 302599
 # One of the field names was a fragment of SQL code, which is DB dependent.
@@ -1801,7 +1779,7 @@ AddFDef($new_field_name, $field_description, 0);
 # entries, fill it with the entries in the list @values, in the same
 # order as that list.
 
-sub PopulateEnumTable {
+sub PopulateEnumTable ($@) {
     my ($table, @valuelist) = @_;
 
     # If we encounter any of the keys in this hash, they are 
@@ -2496,9 +2474,9 @@ if (!($sth->fetchrow_arrayref()->[0])) {
     $sth = $dbh->prepare(
         "SELECT longdescs.bug_id, thetext " .
           "FROM longdescs " .
-     "LEFT JOIN bugs ON longdescs.bug_id = bugs.bug_id " .
-         "WHERE (" . $dbh->sql_regexp("thetext",
-                 "'[.*.]{3} This bug has been marked as a duplicate of [[:digit:]]+ [.*.]{3}'") . ") " .
+     "LEFT JOIN bugs using(bug_id) " .
+         "WHERE (thetext " . $dbh->sql_regexp .
+                 " '[.*.]{3} This bug has been marked as a duplicate of [[:digit:]]+ [.*.]{3}') " .
            "AND (resolution = 'DUPLICATE') " .
       "ORDER BY longdescs.bug_when");
     $sth->execute();
@@ -3475,6 +3453,10 @@ if (!$series_exists) {
     my $all_name = "-All-";
     my $open_name = "All Open";
         
+    # We can't give the Series we create a meaningful owner; that's not a big 
+    # problem. But we do need to set this global, otherwise Series.pm objects.
+    $::userid = 0;
+    
     my $products = $dbh->selectall_arrayref("SELECT name FROM products");
      
     foreach my $product ((map { $_->[0] } @$products), "-All-") {
@@ -3492,10 +3474,9 @@ if (!$series_exists) {
         $queries{$_} = ($query_prod . "resolution=$_") foreach (@resolutions);
         
         foreach my $field (@fields) {            
-            # Create a Series for each field in this product.
-            # user ID = 0 is used.
+            # Create a Series for each field in this product
             my $series = new Bugzilla::Series(undef, $product, $all_name,
-                                              $field, 0, 1,
+                                              $field, $::userid, 1,
                                               $queries{$field}, 1);
             $series->writeToDatabase();
             $seriesids{$field} = $series->{'series_id'};
@@ -3506,7 +3487,7 @@ if (!$series_exists) {
         my @openedstatuses = ("UNCONFIRMED", "NEW", "ASSIGNED", "REOPENED");
         my $query = join("&", map { "bug_status=$_" } @openedstatuses);
         my $series = new Bugzilla::Series(undef, $product, $all_name,
-                                          $open_name, 0, 1, 
+                                          $open_name, $::userid, 1, 
                                           $query_prod . $query, 1);
         $series->writeToDatabase();
         $seriesids{$open_name} = $series->{'series_id'};
@@ -3599,14 +3580,32 @@ AddFDef("owner_idle_time", "Time Since Assignee Touched", 0);
 if ($dbh->bz_column_info("user_group_map", "isderived")) {
     $dbh->bz_add_column('user_group_map', 'grant_type', 
         {TYPE => 'INT1', NOTNULL => 1, DEFAULT => '0'});
-    $dbh->do("DELETE FROM user_group_map WHERE isderived != 0");
-    $dbh->do("UPDATE user_group_map SET grant_type = " . GRANT_DIRECT);
+    $dbh->do("UPDATE user_group_map SET grant_type = " .
+                             "IF(isderived, " . GRANT_DERIVED . ", " .
+                             GRANT_DIRECT . ")");
+    $dbh->do("DELETE FROM user_group_map 
+              WHERE isbless = 0 AND grant_type != " . GRANT_DIRECT);
     $dbh->bz_drop_column("user_group_map", "isderived");
 
     $dbh->bz_drop_index('user_group_map', 'user_group_map_user_id_idx');
     $dbh->bz_add_index('user_group_map', 'user_group_map_user_id_idx',
         {TYPE => 'UNIQUE', 
          FIELDS => [qw(user_id group_id grant_type isbless)]});
+
+    # Evaluate regexp-based group memberships
+    my $sth = $dbh->prepare("SELECT profiles.userid, profiles.login_name,
+                             groups.id, groups.userregexp 
+                             FROM profiles, groups
+                             WHERE userregexp != ''");
+    $sth->execute();
+    my $sth2 = $dbh->prepare("INSERT IGNORE INTO user_group_map 
+                           (user_id, group_id, isbless, grant_type) 
+                           VALUES(?, ?, 0, " . GRANT_REGEXP . ")");
+    while (my ($uid, $login, $gid, $rexp) = $sth->fetchrow_array()) {
+        if ($login =~ m/$rexp/i) {
+            $sth2->execute($uid, $gid);
+        }
+    }
 
     # Make sure groups get rederived
     $dbh->do("UPDATE groups SET last_changed = NOW() WHERE name = 'admin'");
@@ -3938,26 +3937,6 @@ if ($dbh->bz_column_info("profiles", "emailflags")) {
     $dbh->bz_drop_column("profiles", "emailflags");    
 }
 
-# Check for any "new" email settings that wouldn't have been ported over
-# during the block above.  Since these settings would have otherwise
-# fallen under EVT_OTHER, we'll just clone those settings.  That way if
-# folks have already disabled all of that mail, there won't be any change.
-{
-    my %events = ("Dependency Tree Changes" => EVT_DEPEND_BLOCK); 
-
-    foreach my $desc (keys %events) {
-        my $event = $events{$desc};
-        $sth = $dbh->prepare("SELECT count(*) FROM email_setting WHERE event = $event");
-        $sth->execute();
-        if (!($sth->fetchrow_arrayref()->[0])) {
-            # No settings in the table yet, so we assume that this is the
-            # first time it's being set.
-            print "Initializing \"$desc\" email_setting ...\n" unless $silent;
-            CloneEmailEvent(EVT_OTHER, $event);
-        }
-    }
-}
-
 sub CloneEmailEvent {
     my ($source, $target) = @_;
 
@@ -3984,12 +3963,8 @@ if ( $dbh->isa('Bugzilla::DB::Mysql') ) {
     if ( $approved_col->{TYPE_NAME} eq 'TINYINT'
          and $approved_col->{COLUMN_SIZE} == 1 )
     {
-        # series.public could have been renamed to series.is_public,
-        # and so wouldn't need to be fixed manually.
-        if ($dbh->bz_column_info('series', 'public')) {
-            $dbh->bz_alter_column_raw('series', 'public',
-                {TYPE => 'BOOLEAN', NOTNULL => 1, DEFAULT => '0'});
-        }
+        $dbh->bz_alter_column_raw('series', 'public',
+            {TYPE => 'BOOLEAN', NOTNULL => 1, DEFAULT => '0'});
         $dbh->bz_alter_column_raw('bug_status', 'isactive',
             {TYPE => 'BOOLEAN', NOTNULL => 1, DEFAULT => '1'});
         $dbh->bz_alter_column_raw('rep_platform', 'isactive',
@@ -4071,27 +4046,7 @@ if (!exists $dbh->bz_column_info('whine_queries', 'title')->{DEFAULT}) {
                           NOTNULL => 1, DEFAULT => "''"});
 }
 
-# 2005-06-29 bugreport@peshkin.net, bug 299156
-if ($dbh->bz_index_info('attachments', 'attachments_submitter_id_idx')
-   && (scalar(@{$dbh->bz_index_info('attachments',
-                                    'attachments_submitter_id_idx'
-                                   )->{FIELDS}}) < 2)
-      ) {
-    $dbh->bz_drop_index('attachments', 'attachments_submitter_id_idx');
-}
-$dbh->bz_add_index('attachments', 'attachments_submitter_id_idx',
-                   [qw(submitter_id bug_id)]);
-
-# 2005-08-25 - bugreport@peshkin.net - Bug 305333
-if ($dbh->bz_column_info("attachments", "thedata")) {
-    print "Migrating attachment data to its own table...\n";
-    print "(This may take a very long time)\n";
-    $dbh->do("INSERT INTO attach_data (id, thedata) 
-                   SELECT attach_id, thedata FROM attachments");
-    $dbh->bz_drop_column("attachments", "thedata");    
-}
-
-# 2005-11-26 - wurblzap@gmail.com - Bug 300473
+# 2005-12-30 - wurblzap@gmail.com - Bug 300473
 # Repair broken automatically generated series queries for non-open bugs.
 my $broken_series_indicator =
     'field0-0-0=resolution&type0-0-0=notequals&value0-0-0=---';
@@ -4213,38 +4168,13 @@ if (@$broken_nonopen_series) {
     print " done.\n";
 }
 
-# 2005-09-15 lance.larsh@oracle.com Bug 308717
-if ($dbh->bz_column_info("series", "public")) {
-    # PUBLIC is a reserved word in Oracle, so renaming the column
-    # PUBLIC in table SERIES avoids having to quote the column name
-    # in every query against that table
-    $dbh->bz_rename_column('series', 'public', 'is_public');
-}
-
-# 2005-09-28 bugreport@peshkin.net Bug 149504
-$dbh->bz_add_column('attachments', 'isurl',
-                    {TYPE => 'BOOLEAN', NOTNULL => 1, DEFAULT => 0});
-
-# 2005-10-21 LpSolit@gmail.com - Bug 313020
-$dbh->bz_add_column('namedqueries', 'query_type',
-                    {TYPE => 'BOOLEAN', NOTNULL => 1, DEFAULT => 0});
-
-# 2005-11-04 LpSolit@gmail.com - Bug 305927
-$dbh->bz_alter_column('groups', 'userregexp', 
-                      {TYPE => 'TINYTEXT', NOTNULL => 1, DEFAULT => "''"});
-
-# 2005-09-26 - olav@bkor.dhs.org - Bug 119524
-# Convert logincookies into a varchar
-# this allows to store a random token instead of a guessable auto_increment
-$dbh->bz_alter_column('logincookies', 'cookie',
-                      {TYPE => 'varchar(16)', PRIMARYKEY => 1, NOTNULL => 1});
-
 # Fixup for Bug 101380
 # "Newlines, nulls, leading/trailing spaces are getting into summaries"
 
 my $controlchar_bugs =
     $dbh->selectall_arrayref("SELECT short_desc, bug_id FROM bugs WHERE " .
-                             $dbh->sql_regexp('short_desc', "'[[:cntrl:]]'"));
+                             "'short_desc' " . $dbh->sql_regexp . 
+                             " '[[:cntrl:]]'");
 if (scalar(@$controlchar_bugs))
 {
     my $msg = 'Cleaning control characters from bug summaries...';
@@ -4284,6 +4214,17 @@ AddGroup('editclassifications', 'Can create, destroy, and edit classifications.'
 AddGroup('editcomponents', 'Can create, destroy, and edit components.');
 AddGroup('editkeywords', 'Can create, destroy, and edit keywords.');
 AddGroup('admin', 'Administrators');
+
+# 2005-06-29 bugreport@peshkin.net, bug 299156
+if ($dbh->bz_index_info('attachments', 'attachments_submitter_id_idx') 
+   && (scalar(@{$dbh->bz_index_info('attachments', 
+                                    'attachments_submitter_id_idx'
+                                   )->{FIELDS}}) < 2)
+      ) {
+    $dbh->bz_drop_index('attachments', 'attachments_submitter_id_idx');
+}
+$dbh->bz_add_index('attachments', 'attachments_submitter_id_idx',
+                   [qw(submitter_id bug_id)]);
 
 if (!GroupDoesExist("editbugs")) {
     my $id = AddGroup('editbugs', 'Can edit all bug fields.', ".*");
@@ -4325,63 +4266,6 @@ if (!GroupDoesExist('bz_canusewhines')) {
              GROUP_MEMBERSHIP . ")") unless $group_exists;
 }
 
-# 2005-08-14 bugreport@peshkin.net -- Bug 304583
-use constant GRANT_DERIVED => 1;
-# Get rid of leftover DERIVED group permissions
-$dbh->do("DELETE FROM user_group_map WHERE grant_type = " . GRANT_DERIVED);
-# Evaluate regexp-based group memberships
-$sth = $dbh->prepare("SELECT profiles.userid, profiles.login_name,
-                         groups.id, groups.userregexp,
-                         user_group_map.group_id
-                         FROM (profiles
-                         CROSS JOIN groups)
-                         LEFT JOIN user_group_map
-                         ON user_group_map.user_id = profiles.userid
-                         AND user_group_map.group_id = groups.id
-                         AND user_group_map.grant_type = ?
-                         WHERE (userregexp != ''
-                         OR user_group_map.group_id IS NOT NULL)");
-
-my $sth_add = $dbh->prepare("INSERT INTO user_group_map 
-                       (user_id, group_id, isbless, grant_type) 
-                       VALUES(?, ?, 0, " . GRANT_REGEXP . ")");
-
-my $sth_del = $dbh->prepare("DELETE FROM user_group_map 
-                       WHERE user_id  = ? 
-                       AND group_id = ? 
-                       AND isbless = 0
-                       AND grant_type = " . GRANT_REGEXP);
-
-$sth->execute(GRANT_REGEXP);
-while (my ($uid, $login, $gid, $rexp, $present) = $sth->fetchrow_array()) {
-    if ($login =~ m/$rexp/i) {
-        $sth_add->execute($uid, $gid) unless $present;
-    } else {
-        $sth_del->execute($uid, $gid) if $present;
-    }
-}
-
-# 2005-10-10 karl@kornel.name -- Bug 204498
-if (!GroupDoesExist('bz_sudoers')) {
-    my $sudoers_group = AddGroup('bz_sudoers',
-                                 'Can perform actions as other users');
-    my $sudo_protect_group = AddGroup('bz_sudo_protect',
-                                      'Can not be impersonated by other users');
-    my ($admin_group) = $dbh->selectrow_array('SELECT id FROM groups
-                                               WHERE name = ?', undef, 'admin');
-    
-    # Admins should be given sudo access
-    # Everyone in sudo should be in sudo_protect
-    # Admins can grant membership in both groups
-    my $sth = $dbh->prepare('INSERT INTO group_group_map 
-                             (member_id, grantor_id, grant_type) 
-                             VALUES (?, ?, ?)');
-    $sth->execute($admin_group, $sudoers_group, GROUP_MEMBERSHIP);
-    $sth->execute($sudoers_group, $sudo_protect_group, GROUP_MEMBERSHIP);
-    $sth->execute($admin_group, $sudoers_group, GROUP_BLESS);
-    $sth->execute($admin_group, $sudo_protect_group, GROUP_BLESS);
-}
-
 ###########################################################################
 # Create --SETTINGS-- users can adjust
 ###########################################################################
@@ -4395,22 +4279,13 @@ add_setting ("comment_sort_order", {"oldest_to_newest" => 1,
                                     "newest_to_oldest_desc_first" => 3}, 
              "oldest_to_newest" );
 
-# 2005-05-12 bugzilla@glob.com.au -- Bug 63536
-add_setting ("post_bug_submit_action", {"next_bug" => 1,
-                                        "same_bug" => 2,
-                                        "nothing" => 3,
-                                       },
-             "next_bug" );
-
 # 2005-06-29 wurblzap@gmail.com -- Bug 257767
 add_setting ('csv_colsepchar', {',' => 1, ';' => 2 }, ',' );
-
-# 2005-10-21 LpSolit@gmail.com -- Bug 313020
-add_setting('per_bug_queries', {'on' => 1, 'off' => 2}, 'on');
 
 ###########################################################################
 # Create Administrator  --ADMIN--
 ###########################################################################
+
 
 sub bailout {   # this is just in case we get interrupted while getting passwd
     if ($^O !~ /MSWin32/i) {
@@ -4437,11 +4312,6 @@ if (@admins) {
             (user_id, group_id, isbless, grant_type) 
             VALUES ($userid, $adminid, 1, " . GRANT_DIRECT . ")");
     }
-
-    $dbh->bz_lock_tables('groups READ',
-                         'group_group_map WRITE');
-    $dbh->do('DELETE FROM group_group_map WHERE member_id = ?',
-             undef, $adminid);
     $sth = $dbh->prepare("SELECT id FROM groups");
     $sth->execute();
     while ( my ($id) = $sth->fetchrow_array() ) {
@@ -4459,7 +4329,6 @@ if (@admins) {
             (member_id, grantor_id, grant_type) 
             VALUES ($adminid, $id," . GROUP_MEMBERSHIP . ")");
     }
-    $dbh->bz_unlock_tables();
 }
 
 
@@ -4558,6 +4427,7 @@ if ($sth->rows == 0) {
     }
 
     if ($admin_create) {
+
         while( $realname eq "" ) {
             print "Enter the real name of the administrator: ";
             $realname = $answer{'ADMIN_REALNAME'} 
@@ -4566,13 +4436,6 @@ if ($sth->rows == 0) {
             chomp $realname;
             if(! $realname ) {
                 print "\nReally.  We need a full name.\n";
-            }
-            if(! is_7bit_clean($realname)) {
-                print "\nSorry, but at this stage the real name can only " . 
-                      "contain standard English\ncharacters.  Once Bugzilla " .
-                      "has been installed, you can use the 'Prefs' page\nto " .
-                      "update the real name.\n";
-                $realname = '';
             }
         }
 
@@ -4681,21 +4544,4 @@ $dbh->do("UPDATE components " .
 
 unlink "$datadir/versioncache";
 
-# Check if the default parameter for urlbase is still set, and if so, give
-# notification that they should go and visit editparams.cgi 
-
-my @params = Bugzilla::Config::Core::get_param_list();
-my $urlbase_default = '';
-foreach my $item (@params) {
-    next unless $item->{'name'} eq 'urlbase';
-    $urlbase_default = $item->{'default'};
-    last;
-}
-
-if (Param('urlbase') eq $urlbase_default) {
-    print "Now that you have installed Bugzilla, you should visit the \n" .
-          "'Parameters' page (linked in the footer of the Administrator \n" .
-          "account) to ensure it is set up as you wish - this includes \n" .
-          "setting the 'urlbase' option to the correct url.\n" unless $silent;
-}
 ################################################################################

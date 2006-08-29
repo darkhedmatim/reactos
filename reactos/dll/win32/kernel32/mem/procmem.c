@@ -1,9 +1,10 @@
-/*
- * PROJECT:         ReactOS Win32 Base API
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            dll/win32/kernel32/mem/procmem.c
- * PURPOSE:         Handles virtual memory APIs
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+/* $Id$
+ *
+ * COPYRIGHT:            See COPYING in the top level directory
+ * PROJECT:              ReactOS kernel
+ * FILE:                 lib/kernel32/mem/procmem.c
+ * PURPOSE:
+ * PROGRAMMER:           Boudewijn Dekker
  */
 
 /* INCLUDES ******************************************************************/
@@ -11,7 +12,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include "debug.h"
+#include "../include/debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -19,138 +20,138 @@
  * @implemented
  */
 BOOL
-NTAPI
-ReadProcessMemory(IN HANDLE hProcess,
-                  IN LPCVOID lpBaseAddress,
-                  IN LPVOID lpBuffer,
-                  IN DWORD nSize,
-                  OUT LPDWORD lpNumberOfBytesRead)
+STDCALL
+ReadProcessMemory (
+        HANDLE        hProcess,
+        LPCVOID        lpBaseAddress,
+        LPVOID        lpBuffer,
+        DWORD        nSize,
+        LPDWORD        lpNumberOfBytesRead
+        )
 {
-    NTSTATUS Status;
 
-    /* Do the read */
-    Status = NtReadVirtualMemory(hProcess,
-                                 (PVOID)lpBaseAddress,
-                                 lpBuffer,
-                                 nSize,
-                                 lpNumberOfBytesRead);
-    if (!NT_SUCCESS(Status))
-    {
-        /* We failed */
-        SetLastErrorByStatus (Status);
-        return FALSE;
-    }
+        NTSTATUS Status;
 
-    /* Return success */
-    return TRUE;
+        Status = NtReadVirtualMemory( hProcess, (PVOID)lpBaseAddress,lpBuffer, nSize,
+                (PULONG)lpNumberOfBytesRead
+                );
+
+        if (!NT_SUCCESS(Status))
+             {
+                SetLastErrorByStatus (Status);
+                return FALSE;
+             }
+        return TRUE;
 }
+
 
 /*
  * @implemented
  */
 BOOL
-NTAPI
-WriteProcessMemory(IN HANDLE hProcess,
-                   IN LPVOID lpBaseAddress,
-                   IN LPCVOID lpBuffer,
-                   IN SIZE_T nSize,
-                   OUT SIZE_T *lpNumberOfBytesWritten)
+STDCALL
+WriteProcessMemory (
+        HANDLE hProcess,
+        LPVOID lpBaseAddress,
+        LPCVOID lpBuffer,
+        SIZE_T nSize,
+        SIZE_T *lpNumberOfBytesWritten
+        )
 {
-    NTSTATUS Status;
-    ULONG OldValue;
-    SIZE_T RegionSize;
-    PVOID Base;
-    BOOLEAN UnProtect;
+        NTSTATUS Status, ProtectStatus = STATUS_SUCCESS;
+        MEMORY_BASIC_INFORMATION MemInfo;
+        ULONG Length;
+        BOOLEAN UnProtect;
 
-    /* Set parameters for protect call */
-    RegionSize = nSize;
-    Base = lpBaseAddress;
-
-    /* Check the current status */
-    Status = NtProtectVirtualMemory(hProcess,
-                                    &Base,
-                                    &RegionSize,
-                                    PAGE_EXECUTE_READWRITE,
-                                    &OldValue);
-    if (NT_SUCCESS(Status))
-    {
-        /* Check if we are unprotecting */
-        UnProtect = OldValue & (PAGE_READWRITE |
-                                PAGE_WRITECOPY |
-                                PAGE_EXECUTE_READWRITE |
-                                PAGE_EXECUTE_WRITECOPY) ? FALSE : TRUE;
-        if (UnProtect)
+        if (lpNumberOfBytesWritten)
         {
-            /* Set the new protection */
-            Status = NtProtectVirtualMemory(hProcess,
-                                            &Base,
-                                            &RegionSize,
-                                            OldValue,
-                                            &OldValue);
+            *lpNumberOfBytesWritten = 0;
+        }
 
-            /* Write the memory */
-            Status = NtWriteVirtualMemory(hProcess,
+        while (nSize)
+        {
+            Status = NtQueryVirtualMemory(hProcess,
                                           lpBaseAddress,
-                                          (LPVOID)lpBuffer,
-                                          nSize,
-                                          lpNumberOfBytesWritten);
+                                          MemoryBasicInformation,
+                                          &MemInfo,
+                                          sizeof(MEMORY_BASIC_INFORMATION),
+                                          NULL);
+
             if (!NT_SUCCESS(Status))
             {
-                /* We failed */
                 SetLastErrorByStatus(Status);
                 return FALSE;
             }
-
-            /* Flush the ITLB */
-            NtFlushInstructionCache(hProcess, lpBaseAddress, nSize);
-            return TRUE;
-        }
-        else
-        {
-            /* Check if we were read only */
-            if ((OldValue & PAGE_NOACCESS) || (OldValue & PAGE_READONLY))
+            Length = MemInfo.RegionSize - ((ULONG_PTR)lpBaseAddress - (ULONG_PTR)MemInfo.BaseAddress);
+            if (Length > nSize)
             {
-                /* Restore protection and fail */
-                NtProtectVirtualMemory(hProcess,
-                                       &Base,
-                                       &RegionSize,
-                                       OldValue,
-                                       &OldValue);
-                SetLastErrorByStatus(STATUS_ACCESS_VIOLATION);
-                return FALSE;
+                Length = nSize;
+            }
+            UnProtect = MemInfo.Protect & (PAGE_READWRITE|PAGE_WRITECOPY|PAGE_EXECUTE_READWRITE|PAGE_EXECUTE_WRITECOPY) ? FALSE : TRUE;
+            if (UnProtect)
+            {
+                MemInfo.BaseAddress = lpBaseAddress;
+                MemInfo.RegionSize = Length;
+                if (MemInfo.Protect & (PAGE_EXECUTE|PAGE_EXECUTE_READ))
+                {
+                    MemInfo.Protect &= ~(PAGE_EXECUTE|PAGE_EXECUTE_READ);
+                    MemInfo.Protect |= PAGE_EXECUTE_READWRITE;
+                }
+                else
+                {
+                    MemInfo.Protect &= ~(PAGE_READONLY|PAGE_NOACCESS);
+                    MemInfo.Protect |= PAGE_READWRITE;
+                }
+
+                ProtectStatus = NtProtectVirtualMemory(hProcess,
+                                                       &MemInfo.BaseAddress,
+                                                       &MemInfo.RegionSize,
+                                                       MemInfo.Protect,
+                                                       &MemInfo.Protect);
+                if (!NT_SUCCESS(ProtectStatus))
+                {
+                    SetLastErrorByStatus(ProtectStatus);
+                    return FALSE;
+                }
+                Length = MemInfo.RegionSize - ((ULONG_PTR)lpBaseAddress - (ULONG_PTR)MemInfo.BaseAddress);
+                if (Length > nSize)
+                {
+                    Length = nSize;
+                }
             }
 
-            /* Otherwise, do the write */
             Status = NtWriteVirtualMemory(hProcess,
                                           lpBaseAddress,
                                           (LPVOID)lpBuffer,
-                                          nSize,
-                                          lpNumberOfBytesWritten);
-
-            /* And restore the protection */
-            NtProtectVirtualMemory(hProcess,
-                                   &Base,
-                                   &RegionSize,
-                                   OldValue,
-                                   &OldValue);
-            if (!NT_SUCCESS(Status))
+                                          Length,
+                                          &Length);
+            if (UnProtect)
             {
-                /* We failed */
-                SetLastErrorByStatus(STATUS_ACCESS_VIOLATION);
+                ProtectStatus = NtProtectVirtualMemory(hProcess,
+                                                       &MemInfo.BaseAddress,
+                                                       &MemInfo.RegionSize,
+                                                       MemInfo.Protect,
+                                                       &MemInfo.Protect);
+            }
+            if (!NT_SUCCESS(Status))
+                 {
+                SetLastErrorByStatus (Status);
+                return FALSE;
+                 }
+            if (UnProtect && !NT_SUCCESS(ProtectStatus))
+            {
+                SetLastErrorByStatus (ProtectStatus);
                 return FALSE;
             }
-
-            /* Flush the ITLB */
-            NtFlushInstructionCache(hProcess, lpBaseAddress, nSize);
-            return TRUE;
+            lpBaseAddress = (LPVOID)((ULONG_PTR)lpBaseAddress + Length);
+            lpBuffer = (LPCVOID)((ULONG_PTR)lpBuffer + Length);
+            nSize -= Length;
+            if (lpNumberOfBytesWritten)
+            {
+                *lpNumberOfBytesWritten += Length;
+            }
         }
-    }
-    else
-    {
-        /* We failed */
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
+        return TRUE;
 }
 
 /* EOF */

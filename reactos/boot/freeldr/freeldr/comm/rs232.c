@@ -69,7 +69,7 @@ static BOOLEAN PortInitialized = FALSE;
 
 /* STATIC FUNCTIONS *********************************************************/
 
-static BOOLEAN Rs232DoesComPortExist(PUCHAR BaseAddress)
+static BOOL Rs232DoesComPortExist(PUCHAR BaseAddress)
 {
         BOOLEAN found;
         UCHAR mcr;
@@ -117,7 +117,7 @@ static BOOLEAN Rs232DoesComPortExist(PUCHAR BaseAddress)
 
 /* FUNCTIONS *********************************************************/
 
-BOOLEAN Rs232PortInitialize(ULONG ComPort, ULONG BaudRate)
+BOOL Rs232PortInitialize(ULONG ComPort, ULONG BaudRate)
 {
         ULONG BaseArray[5] = {0, 0x3F8, 0x2F8, 0x3E8, 0x2E8};
         //char buffer[80];
@@ -237,7 +237,7 @@ BOOLEAN Rs232PortInitialize(ULONG ComPort, ULONG BaudRate)
         return TRUE;
 }
 
-BOOLEAN Rs232PortGetByte(PUCHAR ByteRecieved)
+BOOL Rs232PortGetByte(PUCHAR ByteRecieved)
 {
 	if (PortInitialized == FALSE)
 		return FALSE;
@@ -251,7 +251,7 @@ BOOLEAN Rs232PortGetByte(PUCHAR ByteRecieved)
 	return FALSE;
 }
 
-BOOLEAN Rs232PortPollByte(PUCHAR ByteRecieved)
+BOOL Rs232PortPollByte(PUCHAR ByteRecieved)
 {
 	if (PortInitialized == FALSE)
 		return FALSE;
@@ -277,7 +277,7 @@ VOID Rs232PortPutByte(UCHAR ByteToSend)
 
 #endif
 
-BOOLEAN Rs232PortInUse(ULONG Base)
+BOOL Rs232PortInUse(ULONG Base)
 {
 #ifdef DEBUG
     return PortInitialized && Rs232PortBase == (PUCHAR)Base ? TRUE : FALSE;

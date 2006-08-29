@@ -1,6 +1,6 @@
 <?php
 /**
- * Script to easily generate the mediawiki documentation using doxygen.
+ * Script to easily generate the mediawiki documentation.
  *
  * By default it will generate the whole documentation but you will be able to
  * generate just some parts.
@@ -9,13 +9,6 @@
  *   php mwdocgen.php
  *
  * Then make a selection from the menu
- *
- * KNOWN BUGS:
- *
- * - pass_thru seems to always use buffering (even with ob_implicit_flush()),
- * that make output slow when doxygen parses language files.
- * - the menu doesnt work, got disabled at revision 13740. Need to code it.
- *
  *
  * @todo document
  * @package MediaWiki
@@ -30,37 +23,47 @@
 #
 
 if( php_sapi_name() != 'cli' ) {
-	echo 'Run me from the command line.';
-	die( -1 );
+	die( "Run me from the command line." );
 }
 
-/** Figure out the base directory for MediaWiki location */
-$mwPath = dirname( dirname( __FILE__ ) ) . DIRECTORY_SEPARATOR;
+/** Phpdoc script with full path */
+#$pdExec	= '/usr/bin/phpdoc';
+$pdExec = 'phpdoc';
 
-/** Global variable: temporary directory */
-$tmpPath = '/tmp/';
-
-/** doxygen binary script */
-$doxygenBin = 'doxygen';
-
-/** doxygen configuration template for mediawiki */
-$doxygenTemplate = $mwPath . 'maintenance/Doxyfile';
+/** Figure out the base directory. */
+$here = dirname( dirname( __FILE__ ) ) . DIRECTORY_SEPARATOR;
 
 /** where Phpdoc should output documentation */
-#$doxyOutput = '/var/www/mwdoc/';
-$doxyOutput = $mwPath . 'docs' . DIRECTORY_SEPARATOR ;
+#$pdOutput = '/var/www/mwdoc/';
+$pdOutput = "{$here}docs" . DIRECTORY_SEPARATOR . 'html';
+
+/** Some more Phpdoc settings */
+# This will be used as the default for all files that don't have a package,
+# it's useful to set it to something like 'untagged' to hunt down and fix files
+# that don't have a package name declared.
+$pdOthers = " -dn MediaWiki"; 
+$pdOthers .= ' --title "MediaWiki generated documentation"'; 
+$pdOthers .= ' --output "HTML:Smarty:HandS"'; #,HTML:Smarty:HandS"'; ###### HTML:frames:DOM/earthli
+$pdOthers .= ' --ignore AdminSettings.php,LocalSettings.php,tests/LocalTestSettings.php';
+$pdOthers .= ' --parseprivate on';
+$pdOthers .= ' --sourcecode on';
+
+/** MediaWiki location */
+#$mwPath = '/var/www/mediawiki/';
+$mwPath = "{$here}";
 
 /** MediaWiki subpaths */
 $mwPathI = $mwPath.'includes/';
 $mwPathL = $mwPath.'languages/';
 $mwPathM = $mwPath.'maintenance/';
 $mwPathS = $mwPath.'skins/';
+$mwBaseFiles = $mwPath.'*php ';
+
 
 /** Variable to get user input */
 $input = '';
-
 /** shell command that will be run */
-$command = $doxygenBin;
+$command = '';
 
 #
 # Functions
@@ -73,38 +76,6 @@ function readaline( $prompt = '') {
 	fclose( $fp );
 	return $resp;
 	}
-
-/**
- * Generate a configuration file given user parameters and return the temporary filename.
- * @param $doxygenTemplate String: full path for the template.
- * @param $outputDirectory String: directory where the stuff will be output.
- * @param $stripFromPath String: path that should be stripped out (usually mediawiki base path).
- * @param $input String: Path to analyze.
- */
-function generateConfigFile($doxygenTemplate, $outputDirectory, $stripFromPath, $input) {
-	global $tmpPath ;
-
-	$template = file_get_contents($doxygenTemplate);
-
-	// Replace template placeholders by correct values.	
-	$tmpCfg = str_replace(
-			array(
-				'{{OUTPUT_DIRECTORY}}',
-				'{{STRIP_FROM_PATH}}',
-				'{{INPUT}}',
-			),
-			array(
-				$outputDirectory,
-				$stripFromPath,
-				$input,
-			),
-			$template
-		);
-	$tmpFileName = $tmpPath . 'mwdocgen'. rand() .'.tmp';
-	file_put_contents( $tmpFileName , $tmpCfg ) or die("Could not write doxygen configuration to file $tmpFileName\n");
-
-	return $tmpFileName;
-}
 
 #
 # Main !
@@ -130,7 +101,7 @@ if( is_array( $argv ) && isset( $argv[1] ) ) {
 
 if( $input === '' ) {
 ?>Several documentation possibilities:
- 0 : whole documentation (1 + 2 + 3 + 4)
+ 0 : whole documentation (1 + 2 + 3)
  1 : only includes
  2 : only languages
  3 : only maintenance
@@ -144,7 +115,8 @@ if( $input === '' ) {
 		}
 	}
 }
-/*
+
+$command = 'phpdoc ';
 switch ($input) {
 case 0:
 	$command .= " -f $mwBaseFiles -d $mwPathI,$mwPathL,$mwPathM,$mwPathS";
@@ -152,7 +124,7 @@ case 0:
 case 1:
 	$command .= "-d $mwPathI";
 	break;
-case 2:
+case 2: 
 	$command .= "-d $mwPathL";
 	break;
 case 3:
@@ -170,14 +142,6 @@ case 5:
 
 $command .= " -t $pdOutput ".$pdOthers;
 
-*/
-
-// TODO : generate a list of paths ))
-$input = $mwPath;
-
-$generatedConf = generateConfigFile($doxygenTemplate, $doxyOutput, $mwPath, $input );
-$command = $doxygenBin . ' ' . $generatedConf ;
-
 ?>
 ---------------------------------------------------
 Launching the command:
@@ -191,11 +155,8 @@ passthru($command);
 
 ?>
 ---------------------------------------------------
-Doxygen execution finished.
+Phpdoc execution finished.
 Check above for possible errors.
-
-You might want to deleted the temporary file <?php echo $generatedConf; ?>
-
 <?php
 
 # phpdoc -d ./mediawiki/includes/ ./mediawiki/maintenance/ -f ./mediawiki/*php -t ./mwdoc/ -dn 'MediaWiki' --title 'MediaWiki generated documentation' -o 'HTML:frames:DOM/earthli'

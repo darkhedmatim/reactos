@@ -883,7 +883,7 @@ GetAppName:
             PathType = RtlDetermineDosPathNameType_U(lpApplicationName);
                     
             /* If it's not relative, try to get the error */
-            if (PathType != RtlPathTypeRelative)
+            if (PathType != RELATIVE_PATH)
             {
                 /* This should fail, and give us a detailed LastError */
                 hFile = CreateFileW(lpApplicationName,
@@ -988,7 +988,7 @@ GetAppName:
                                       dwCreationFlags,
                                       lpEnvironment,
                                       lpCurrentDirectory,
-                                      &StartupInfo,
+                                      lpStartupInfo,
                                       lpProcessInformation);    
             } 
 #endif            
@@ -1059,7 +1059,7 @@ GetAppName:
                                       dwCreationFlags,
                                       lpEnvironment,
                                       lpCurrentDirectory,
-                                      &StartupInfo,
+                                      lpStartupInfo,
                                       lpProcessInformation);    
 
             default:
@@ -1278,7 +1278,7 @@ GetAppName:
                                         QuotedCmdLine : lpCommandLine,
                                         lpEnvironment,
                                         EnvSize,
-                                        &StartupInfo,
+                                        lpStartupInfo,
                                         dwCreationFlags,
                                         bInheritHandles);
 

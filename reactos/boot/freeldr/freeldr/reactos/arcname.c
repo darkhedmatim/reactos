@@ -21,7 +21,7 @@
 
 #include <freeldr.h>
 
-BOOLEAN DissectArcPath(CHAR *ArcPath, CHAR *BootPath, ULONG* BootDrive, ULONG* BootPartition)
+BOOL DissectArcPath(CHAR *ArcPath, CHAR *BootPath, ULONG* BootDrive, ULONG* BootPartition)
 {
 	char *p;
 

@@ -4,15 +4,21 @@
 
 //#include <windef.h>
 //#include <winsvc.h>
-#include "include/reactos/idl/wtypes.idl"
 
+#define BYTE unsigned char
+#define DWORD unsigned long
+#define BOOL unsigned long
 #define SC_HANDLE unsigned int
 #define SC_LOCK unsigned int
 #define SERVICE_STATUS_HANDLE unsigned long
 #define SC_STATUS_TYPE unsigned long
 #define SC_ENUM_TYPE unsigned long
-
-#define R(fn) Scmr ## fn
+#define LPSTR char*
+#define LPCSTR char*
+#define LPWSTR wchar_t*
+#define LPCWSTR wchar_t*
+#define LPBYTE unsigned char*
+#define LPDWORD unsigned long*
 
 [
   uuid(367abb81-9844-35f1-ad32-98f038001003),
@@ -36,27 +42,26 @@ cpp_quote("#if 0")
 cpp_quote("#endif")
 
   /* Function 0 */
-  DWORD R(CloseServiceHandle) ([in] handle_t BindingHandle,
+  DWORD ScmrCloseServiceHandle([in] handle_t BindingHandle,
                                [in] SC_HANDLE hSCObject);
 
   /* Function 1 */
-  DWORD R(ControlService) ([in] handle_t BindingHandle,
-                           [in] SC_HANDLE hService,
-                           [in] DWORD dwControl,
-                           [out] SERVICE_STATUS *lpServiceStatus);
-/*                           [out] LPSERVICE_STATUS lpServiceStatus); */
+  BOOL ScmrControlService([in] handle_t BindingHandle,
+                          [in] SC_HANDLE hService,
+                          [in] DWORD dwControl,
+                          [out] LPSERVICE_STATUS lpServiceStatus);
 
   /* Function 2 */
-  DWORD R(DeleteService) ([in] handle_t BindingHandle,
+  DWORD ScmrDeleteService([in] handle_t BindingHandle,
                           [in] SC_HANDLE hService);
 
   /* Function 3 */
-  DWORD R(LockServiceDatabase) ([in] handle_t BindingHandle,
+  DWORD ScmrLockServiceDatabase([in] handle_t BindingHandle,
                                 [in] SC_HANDLE hSCManager,
                                 [out] SC_LOCK *hLock);
 
   /* Function 4 */
-  DWORD R(QueryServiceObjectSecurity) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceObjectSecurity([in] handle_t BindingHandle,
                                        [in] SC_HANDLE hService,
                                        [in] DWORD dwSecurityInformation,
                                        [out, size_is(dwSecuityDescriptorSize)] unsigned char *lpSecurityDescriptor,
@@ -64,32 +69,31 @@ cpp_quote("#endif")
                                        [out] LPDWORD pcbBytesNeeded);
 
   /* Function 5 */
-  DWORD R(SetServiceObjectSecurity) ([in] handle_t BindingHandle,
+  DWORD ScmrSetServiceObjectSecurity([in] handle_t BindingHandle,
                                      [in] SC_HANDLE hService,
                                      [in] DWORD dwSecurityInformation,
                                      [in, size_is(dwSecuityDescriptorSize)] unsigned char *lpSecurityDescriptor,
                                      [in] DWORD dwSecuityDescriptorSize);
 
   /* Function 6 */
-  DWORD R(QueryServiceStatus) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceStatus([in] handle_t BindingHandle,
                                [in] SC_HANDLE hSCManager,
-                               [out] SERVICE_STATUS *lpServiceStatus);
-/*                               [out] LPSERVICE_STATUS lpServiceStatus); */
+                               [out] LPSERVICE_STATUS lpServiceStatus);
 
   /* Function 7 */
-  DWORD R(SetServiceStatus) ([in] handle_t BindingHandle,
+  DWORD ScmrSetServiceStatus([in] handle_t BindingHandle,
                              [in] SERVICE_STATUS_HANDLE hServiceStatus); /* FIXME */
 
   /* Function 8 */
-  DWORD R(UnlockServiceDatabase) ([in] handle_t BindingHandle,
+  DWORD ScmrUnlockServiceDatabase([in] handle_t BindingHandle,
                                   [in] SC_LOCK hLock);
 
   /* Function 9 */
-  DWORD R(NotifyBootConfigStatus) ([in] handle_t BindingHandle,
+  DWORD ScmrNotifyBootConfigStatus([in] handle_t BindingHandle,
                                    [in] BOOL BootAcceptable);
 
   /* Function 10 */
-  DWORD R(SetServiceBitsW) ([in] handle_t BindingHandle,
+  DWORD ScmrSetServiceBitsW([in] handle_t BindingHandle,
                             [in] SERVICE_STATUS_HANDLE hServiceStatus,
                             [in] DWORD dwServiceBits,
                             [in] BOOL bSetBitsOn,
@@ -97,7 +101,7 @@ cpp_quote("#endif")
                             [in, string, unique] LPWSTR lpString);
 
   /* Function 11 */
-  DWORD R(ChangeServiceConfigW) ([in] handle_t BindingHandle,
+  DWORD ScmrChangeServiceConfigW([in] handle_t BindingHandle,
                                  [in] SC_HANDLE hSCManager,
                                  [in] DWORD dwServiceType,
                                  [in] DWORD dwStartType,
@@ -113,7 +117,7 @@ cpp_quote("#endif")
                                  [in, string, unique] LPCWSTR lpDisplayName);
 
   /* Function 12 */
-  DWORD R(CreateServiceW) ([in] handle_t BindingHandle,
+  DWORD ScmrCreateServiceW([in] handle_t BindingHandle,
                            [in] SC_HANDLE hSCManager,
                            [in, string, ref] LPCWSTR lpServiceName,
                            [in, string, unique] LPCWSTR lpDisplayName,
@@ -132,7 +136,7 @@ cpp_quote("#endif")
                            [out] SC_HANDLE *hService);
 
   /* Function 13 */
-  DWORD R(EnumDependentServicesW) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumDependentServicesW([in] handle_t BindingHandle,
                                    [in] SC_HANDLE hService,
                                    [in] DWORD dwServiceState,
                                    [out, unique, size_is(cbBufSize)] LPBYTE lpServices,
@@ -141,7 +145,7 @@ cpp_quote("#endif")
                                    [out] LPDWORD lpServicesReturned);
 
   /* Function 14 */
-  DWORD R(EnumServicesStatusW) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumServicesStatusW([in] handle_t BindingHandle,
                                 [in] SC_HANDLE hSCManager,
                                 [in] DWORD dwServiceType,
                                 [in] DWORD dwServiceState,
@@ -152,62 +156,62 @@ cpp_quote("#endif")
                                 [in, out, unique] LPDWORD lpResumeHandle);
 
   /* Function 15 */
-  DWORD R(OpenSCManagerW) ([in] handle_t BindingHandle,
+  DWORD ScmrOpenSCManagerW([in] handle_t BindingHandle,
                            [in, string, unique] LPCWSTR lpMachineName,
                            [in, string, unique] LPCWSTR lpDatabaseName,
                            [in] DWORD dwDesiredAccess,
                            [out] SC_HANDLE *hScm);
 
   /* Function 16 */
-  DWORD R(OpenServiceW) ([in] handle_t BindingHandle,
-                         [in] SC_HANDLE hSCManager,
-                         [in, string] LPCWSTR lpServiceName,
-                         [in] DWORD dwDesiredAccess,
-                         [out] SC_HANDLE *hScm);
+  SC_HANDLE ScmrOpenServiceW([in] handle_t BindingHandle,
+                             [in] SC_HANDLE hSCManager,
+                             [in, string] LPCWSTR lpServiceName,
+                             [in] DWORD dwDesiredAccess,
+                             [out] SC_HANDLE *hScm);
 
   /* Function 17 */
-  DWORD R(QueryServiceConfigW) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceConfigW([in] handle_t BindingHandle,
                                 [in] SC_HANDLE hService,
                                 [out, unique, size_is(cbBufSize)] LPBYTE lpServiceConfig,
                                 [in] DWORD cbBufSize,
                                 [out] LPDWORD pcbBytesNeeded);
 
   /* Function 18 */
-  DWORD R(QueryServiceLockStatusW) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceLockStatusW([in] handle_t BindingHandle,
                                     [in] SC_HANDLE hSCManager,
                                     [out, unique, size_is(cbBufSize)] LPBYTE lpLockStatus,
                                     [in] DWORD cbBufSize,
                                     [out] LPDWORD pcbBytesNeeded);
 
   /* Function 19 */
-  DWORD R(StartServiceW) ([in] handle_t BindingHandle,
+  DWORD ScmrStartServiceW([in] handle_t BindingHandle,
                           [in] SC_HANDLE hService,
                           [in] DWORD dwNumServiceArgs,
                           [in, size_is(cbBufSize)] LPBYTE lpServiceArgBuffer,
                           [in] DWORD cbBufSize);
 
   /* FIXME: This is the correct interface but WIDL doesn't support it yet! */
-//  DWORD R(StartServiceW) ([in] handle_t BindingHandle,
+//  DWORD ScmrStartServiceW([in] handle_t BindingHandle,
 //                          [in] SC_HANDLE hService,
 //                          [in] DWORD dwNumServiceArgs,
 //                          [in, string, size_is(dwNumServiceArgs, ), unique] LPWSTR *lpServiceArgVectors);
 
   /* Function 20 */
-  DWORD R(GetServiceDisplayNameW) ([in] handle_t BindingHandle,
+  DWORD ScmrGetServiceDisplayNameW([in] handle_t BindingHandle,
                                    [in] SC_HANDLE hSCManager,
                                    [in, string, ref] LPCWSTR lpServiceName,
                                    [out, size_is(*lpcchBuffer), unique] LPWSTR lpDisplayName,
                                    [in, out, ref] LPDWORD lpcchBuffer);
 
   /* Function 21 */
-  DWORD R(GetServiceKeyNameW) ([in] handle_t BindingHandle,
+  DWORD ScmrGetServiceKeyNameW([in] handle_t BindingHandle,
                                [in] SC_HANDLE hSCManager,
                                [in, string, ref] LPCWSTR lpDisplayName,
                                [out, size_is(*lpcchBuffer), unique] LPWSTR lpServiceName,
                                [in, out, ref] LPDWORD lpcchBuffer);
 
   /* Function 22 */
-  DWORD R(SetServiceBitsA) ([in] handle_t BindingHandle,
+  DWORD ScmrSetServiceBitsA([in] handle_t BindingHandle,
                             [in] SERVICE_STATUS_HANDLE hServiceStatus,
                             [in] DWORD dwServiceBits,
                             [in] BOOL bSetBitsOn,
@@ -215,7 +219,7 @@ cpp_quote("#endif")
                             [in, string, unique] LPSTR lpString);
 
   /* Function 23 */
-  DWORD R(ChangeServiceConfigA) ([in] handle_t BindingHandle,
+  DWORD ScmrChangeServiceConfigA([in] handle_t BindingHandle,
                                  [in] SC_HANDLE hSCManager,
                                  [in] DWORD dwServiceType,
                                  [in] DWORD dwStartType,
@@ -231,7 +235,7 @@ cpp_quote("#endif")
                                  [in, string, unique] LPCSTR lpDisplayName);
 
   /* Function 24 */
-  DWORD R(CreateServiceA) ([in] handle_t BindingHandle,
+  DWORD ScmrCreateServiceA([in] handle_t BindingHandle,
                            [in] SC_HANDLE hSCManager,
                            [in, string, ref] LPCSTR lpServiceName,
                            [in, string, unique] LPCSTR lpDisplayName,
@@ -250,7 +254,7 @@ cpp_quote("#endif")
                            [out] SC_HANDLE *hService);
 
   /* Function 25 */
-  DWORD R(EnumDependentServicesA) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumDependentServicesA([in] handle_t BindingHandle,
                                    [in] SC_HANDLE hService,
                                    [in] DWORD dwServiceState,
                                    [out, unique, size_is(cbBufSize)] LPBYTE lpServices,
@@ -259,7 +263,7 @@ cpp_quote("#endif")
                                    [out] LPDWORD lpServicesReturned);
 
   /* Function 26 */
-  DWORD R(EnumServicesStatusA) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumServicesStatusA([in] handle_t BindingHandle,
                                 [in] SC_HANDLE hSCManager,
                                 [in] DWORD dwServiceType,
                                 [in] DWORD dwServiceState,
@@ -270,82 +274,82 @@ cpp_quote("#endif")
                                 [in, out, unique] LPDWORD lpResumeHandle);
 
   /* Function 27 */
-  DWORD R(OpenSCManagerA) ([in] handle_t BindingHandle,
+  DWORD ScmrOpenSCManagerA([in] handle_t BindingHandle,
                            [in, string, unique] LPCSTR lpMachineName,
                            [in, string, unique] LPCSTR lpDatabaseName,
                            [in] DWORD dwDesiredAccess,
                            [out] SC_HANDLE *hScm);
 
   /* Function 28 */
-  SC_HANDLE R(OpenServiceA) ([in] handle_t BindingHandle,
+  SC_HANDLE ScmrOpenServiceA([in] handle_t BindingHandle,
                              [in] SC_HANDLE hSCManager,
                              [in, string] LPCSTR lpServiceName,
                              [in] DWORD dwDesiredAccess,
                              [out] SC_HANDLE *hScm);
 
   /* Function 29 */
-  DWORD R(QueryServiceConfigA) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceConfigA([in] handle_t BindingHandle,
                                 [in] SC_HANDLE hService,
                                 [out, unique, size_is(cbBufSize)] LPBYTE lpServiceConfig,
                                 [in] DWORD cbBufSize,
                                 [out] LPDWORD pcbBytesNeeded);
 
   /* Function 30 */
-  DWORD R(QueryServiceLockStatusA) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceLockStatusA([in] handle_t BindingHandle,
                                     [in] SC_HANDLE hSCManager,
                                     [out, unique, size_is(cbBufSize)] LPBYTE lpLockStatus,
                                     [in] DWORD cbBufSize,
                                     [out] LPDWORD pcbBytesNeeded);
 
   /* Function 31 */
-  DWORD R(StartServiceA) ([in] handle_t BindingHandle,
+  DWORD ScmrStartServiceA([in] handle_t BindingHandle,
                           [in] SC_HANDLE hService,
                           [in] DWORD dwNumServiceArgs,
                           [in, size_is(cbBufSize)] LPBYTE lpServiceArgBuffer,
                           [in] DWORD cbBufSize);
 
   /* FIXME: This is the correct interface but WIDL doesn't support it yet! */
-//  DWORD R(StartServiceA) ([in] handle_t BindingHandle,
+//  DWORD ScmrStartServiceA([in] handle_t BindingHandle,
 //                          [in] SC_HANDLE hService,
 //                          [in] DWORD dwNumServiceArgs,
 //                          [in, unique, string, size_is(dwNumServiceArgs, )] LPSTR *lpServiceArgVectors);
 
   /* Function 32 */
-  DWORD R(GetServiceDisplayNameA) ([in] handle_t BindingHandle,
+  DWORD ScmrGetServiceDisplayNameA([in] handle_t BindingHandle,
                                    [in] SC_HANDLE hSCManager,
                                    [in, string, ref] LPCSTR lpServiceName,
                                    [out, unique, size_is(*lpcchBuffer)] LPSTR lpDisplayName,
                                    [in, out, ref] LPDWORD lpcchBuffer);
 
   /* Function 33 */
-  DWORD R(GetServiceKeyNameA) ([in] handle_t BindingHandle,
+  DWORD ScmrGetServiceKeyNameA([in] handle_t BindingHandle,
                                [in] SC_HANDLE hSCManager,
                                [in, string, ref] LPCSTR lpDisplayName,
                                [out, unique, size_is(*lpcchBuffer)] LPSTR lpServiceName,
                                [in, out, ref] LPDWORD lpcchBuffer);
 
   /* Function 34 */
-  DWORD R(GetCurrentGroupStateW) ([in] handle_t BindingHandle); /* FIXME */
+  DWORD ScmrGetCurrentGroupStateW([in] handle_t BindingHandle); /* FIXME */
 
   /* Function 35 */
-  DWORD R(EnumServiceGroupW) ([in] handle_t BindingHandle); /* FIXME */
+  DWORD ScmrEnumServiceGroupW([in] handle_t BindingHandle); /* FIXME */
 
   /* Function 36 */
-  DWORD R(ChangeServiceConfig2A) ([in] handle_t BindingHandle,
+  DWORD ScmrChangeServiceConfig2A([in] handle_t BindingHandle,
                                   [in] SC_HANDLE hService,
                                   [in] DWORD dwInfoLevel,
                                   [in, size_is(dwInfoSize)] LPBYTE lpInfo,
                                   [in] DWORD dwInfoSize);
 
   /* Function 37 */
-  DWORD R(ChangeServiceConfig2W) ([in] handle_t BindingHandle,
+  DWORD ScmrChangeServiceConfig2W([in] handle_t BindingHandle,
                                   [in] SC_HANDLE hService,
                                   [in] DWORD dwInfoLevel,
                                   [in, size_is(dwInfoSize)] LPBYTE lpInfo,
                                   [in] DWORD dwInfoSize);
 
   /* Function 38 */
-  DWORD R(QueryServiceConfig2A) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceConfig2A([in] handle_t BindingHandle,
                                  [in] SC_HANDLE hService,
                                  [in] DWORD dwInfoLevel,
                                  [out, unique, size_is(cbBufSize)] LPBYTE lpBuffer,
@@ -353,7 +357,7 @@ cpp_quote("#endif")
                                  [out] LPDWORD pcbBytesNeeded);
 
   /* Function 39 */
-  DWORD R(QueryServiceConfig2W) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceConfig2W([in] handle_t BindingHandle,
                                  [in] SC_HANDLE hService,
                                  [in] DWORD dwInfoLevel,
                                  [out, unique, size_is(cbBufSize)] LPBYTE lpBuffer,
@@ -361,7 +365,7 @@ cpp_quote("#endif")
                                  [out] LPDWORD pcbBytesNeeded);
 
   /* Function 40 */
-  DWORD R(QueryServiceStatusEx) ([in] handle_t BindingHandle,
+  DWORD ScmrQueryServiceStatusEx([in] handle_t BindingHandle,
                                  [in] SC_HANDLE hService,
                                  [in] SC_STATUS_TYPE InfoLevel,
                                  [out, unique, size_is(cbBufSize)] LPBYTE lpBuffer,
@@ -369,7 +373,7 @@ cpp_quote("#endif")
                                  [out] LPDWORD pcbBytesNeeded);
 
   /* Function 41 */
-  DWORD R(EnumServicesStatusExA) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumServicesStatusExA([in] handle_t BindingHandle,
                                   [in] SC_HANDLE hService,
                                   [in] SC_ENUM_TYPE InfoLevel,
                                   [in] DWORD dwServiceType,
@@ -382,7 +386,7 @@ cpp_quote("#endif")
                                   [in, string, unique] LPCSTR pszGroupName);
 
   /* Function 42 */
-  DWORD R(EnumServicesStatusExW) ([in] handle_t BindingHandle,
+  DWORD ScmrEnumServicesStatusExW([in] handle_t BindingHandle,
                                   [in] SC_HANDLE hService,
                                   [in] SC_ENUM_TYPE InfoLevel,
                                   [in] DWORD dwServiceType,
@@ -395,5 +399,5 @@ cpp_quote("#endif")
                                   [in, string, unique] LPCWSTR pszGroupName);
 
   /* Function 43 */
-  /* R(SendTSMessage) */
+  /* ScmrSendTSMessage */
 }

@@ -15,8 +15,10 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+#define _WIN32_WINNT 0x0501
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,6 +27,8 @@
 #define WIN32_NO_STATUS
 
 #include "wine/test.h"
+
+#include "windows.h"
 
 #include "windef.h"
 #include "winbase.h"

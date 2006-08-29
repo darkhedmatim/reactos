@@ -30,7 +30,7 @@ class LanguageConverter {
 	 * @param array $flags array defining the custom strings that maps to the flags
      * @access public
      */
-	function __construct($langobj, $maincode,
+	function LanguageConverter($langobj, $maincode,
 								$variants=array(),
 								$variantfallbacks=array(),
 								$markup=array(),
@@ -64,7 +64,7 @@ class LanguageConverter {
 	 *
 	 * @param string $v the language code of the variant
 	 * @return string the code of the fallback language or false if there is no fallback
-     * @private
+     * @access private
 	*/
 	function getVariantFallback($v) {
 		return $this->mVariantFallbacks[$v];
@@ -120,7 +120,7 @@ class LanguageConverter {
      * @param string $text the text to be converted
      * @param string $toVariant the target language code
      * @return string the converted text
-     * @private
+     * @access private
      */
 	function autoConvert($text, $toVariant=false) {
 		$fname="LanguageConverter::autoConvert";
@@ -135,22 +135,8 @@ class LanguageConverter {
 		if(!in_array($toVariant, $this->mVariants))
 			return $text;
 
-		/* we convert everything except:
-		   1. html markups (anything between < and >)
-		   2. html entities
-		   3. place holders created by the parser
-		*/
-		global $wgParser;
-		if (isset($wgParser))
-			$marker = '|' . $wgParser->UniqPrefix() . '[\-a-zA-Z0-9]+';
-		else
-			$marker = "";
 
-		// this one is needed when the text is inside an html markup
-		$htmlfix = '|<[^>]+=\"[^(>=)]*$|^[^(<>=\")]*\"[^>]*>';
-
-		$reg = '/<[^>]+>|&[a-z#][a-z0-9]+;' . $marker . $htmlfix . '/';
-	
+		$reg = '/<[^>]+>|&[a-z#][a-z0-9]+;|'.UNIQ_PREFIX.'-[a-zA-Z0-9]+/';
 		$matches = preg_split($reg, $text, -1, PREG_SPLIT_OFFSET_CAPTURE);
 
 
@@ -171,7 +157,7 @@ class LanguageConverter {
      *
      * @param string $text the text to be converted
      * @return array of string
-     * @private
+     * @access private
      */
 	function autoConvertToAllVariants($text) {
 		$fname="LanguageConverter::autoConvertToAllVariants";
@@ -185,26 +171,6 @@ class LanguageConverter {
 		}
 		wfProfileOut( $fname );
 		return $ret;
-	}
-
-	/**
-	 * Convert text using a parser object for context
-	 */
-	function parserConvert( $text, &$parser ) {
-		global $wgDisableLangConversion;
-		/* don't do anything if this is the conversion table */
-		if ( $parser->mTitle->getNamespace() == NS_MEDIAWIKI &&
-			strpos($parser->mTitle->getText, "Conversiontable") !== false ) 
-		{
-			return $text;
-		}
-
-		if($wgDisableLangConversion)
-			return $text;
-
-		$text = $this->convert( $text );
-		$parser->mOutput->setTitleText( $this->mTitleDisplay );
-		return $text;
 	}
 
 	/**
@@ -223,6 +189,17 @@ class LanguageConverter {
      * @access public
      */
 	function convert( $text , $isTitle=false) {
+		global $wgDisableLangConversion;
+		global $wgTitle;
+
+		/* don't do anything if this is the conversion table */
+		if($wgTitle->getNamespace() == NS_MEDIAWIKI &&
+		   strpos($wgTitle->getText(), "Conversiontable")!==false)
+			return $text;
+
+		if($wgDisableLangConversion)
+			return $text;
+
 		$mw =& MagicWord::get( MAG_NOTITLECONVERT );
 		if( $mw->matchAndRemove( $text ) )
 			$this->mDoTitleConvert = false;
@@ -261,18 +238,13 @@ class LanguageConverter {
 			return $text;
 
 		$plang = $this->getPreferredVariant();
-		if( isset( $this->mVariantFallbacks[$plang] ) ) {
-			$fallback = $this->mVariantFallbacks[$plang];
-		} else {
-			// This sounds... bad?
-			$fallback = '';
-		}
+		$fallback = $this->mVariantFallbacks[$plang];
 
 		$tarray = explode($this->mMarkup['begin'], $text);
 		$tfirst = array_shift($tarray);
 		$text = $this->autoConvert($tfirst);
 		foreach($tarray as $txt) {
-			$marked = explode($this->mMarkup['end'], $txt, 2);
+			$marked = explode($this->mMarkup['end'], $txt);
 			$flags = array();
 			$tt = explode($this->mMarkup['flagsep'], $marked[0], 2);
 
@@ -347,7 +319,7 @@ class LanguageConverter {
 	 * parse the manually marked conversion rule
 	 * @param string $rule the text of the rule
 	 * @return array of the translation in each variant
-	 * @private
+	 * @access private
 	 */
 	function parseManualRule($rules, $flags=array()) {
 
@@ -398,7 +370,7 @@ class LanguageConverter {
 			if(isset($cache[$v]))
 				continue;
 			$cache[$v] = 1;
-			$varnt = Title::newFromText( $v, $ns );
+			$varnt = Title::newFromText( $v );
 			if( $varnt && $varnt->getArticleID() > 0 ) {
 				$nt = $varnt;
 				if( !$wgDisableLangConversion )
@@ -430,7 +402,7 @@ class LanguageConverter {
 	/**
      * a write lock to the cache
      *
-     * @private
+     * @access private
      */
 	function lockCache() {
 		global $wgMemc;
@@ -446,7 +418,7 @@ class LanguageConverter {
 	/**
      * unlock cache
      *
-     * @private
+     * @access private
      */
 	function unlockCache() {
 		global $wgMemc;
@@ -458,16 +430,16 @@ class LanguageConverter {
      * Load default conversion tables
      * This method must be implemented in derived class
      *
-     * @private
+     * @access private
      */
 	function loadDefaultTables() {
 		$name = get_class($this);
-		wfDie("Must implement loadDefaultTables() method in class $name");
+		die("Must implement loadDefaultTables() method in class $name");
 	}
 
 	/**
      * load conversion tables either from the cache or the disk
-     * @private
+     * @access private
      */
 	function loadTables($fromcache=true) {
 		global $wgMemc;
@@ -506,7 +478,7 @@ class LanguageConverter {
     /**
      * Reload the conversion tables
      *
-     * @private
+     * @access private
      */
 	function reloadTables() {
 		if($this->mTables)
@@ -530,7 +502,7 @@ class LanguageConverter {
      *	to make the tables more manageable, subpages are allowed
      *	and will be parsed recursively if $recursive=true
      *
-     * @private
+     * @access private
 	 */
 	function parseCachedTable($code, $subpage='', $recursive=true) {
 		global $wgMessageCache;
@@ -634,7 +606,7 @@ class LanguageConverter {
 	/**
      * hook to refresh the cache of conversion tables when
      * MediaWiki:conversiontable* is updated
-     * @private
+     * @access private
 	*/
 	function OnArticleSaveComplete($article, $user, $text, $summary, $isminor, $iswatch, $section) {
 		$titleobj = $article->getTitle();

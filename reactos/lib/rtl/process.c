@@ -44,8 +44,8 @@ RtlpMapFile(PUNICODE_STRING ImageFileName,
         DPRINT1("Failed to read image file from disk\n");
         return(Status);
     }
-
-    /* Now create a section for this image */
+    
+    /* Now create a section for this image */    
     Status = ZwCreateSection(Section,
                              SECTION_ALL_ACCESS,
                              NULL,
@@ -75,9 +75,10 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
     ULONG EnviroSize;
     ULONG Size;
     PWCHAR Environment = 0;
+    
     DPRINT("RtlpInitEnvironment (hProcess: %p, Peb: %p Params: %p)\n",
             ProcessHandle, Peb, ProcessParameters);
-
+            
     /* Give the caller 1MB if he requested it */
     if (ProcessParameters->Flags & RTL_USER_PROCESS_PARAMETERS_RESERVE_1MB)
     {
@@ -96,7 +97,7 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
             return(Status);
         }
     }
-
+    
     /* Find the end of the Enviroment Block */
     if ((Environment = (PWCHAR)ProcessParameters->Environment))
     {
@@ -105,6 +106,7 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
         /* Calculate the size of the block */
         EnviroSize = (ULONG)((ULONG_PTR)Environment -
                              (ULONG_PTR)ProcessParameters->Environment);
+        DPRINT("EnvironmentSize %ld\n", EnviroSize);
 
         /* Allocate and Initialize new Environment Block */
         Size = EnviroSize;
@@ -119,21 +121,24 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
             DPRINT1("Failed to allocate Environment Block\n");
             return(Status);
         }
-
+        
         /* Write the Environment Block */
         ZwWriteVirtualMemory(ProcessHandle,
                              BaseAddress,
                              ProcessParameters->Environment,
                              EnviroSize,
                              NULL);
-
+                             
         /* Save pointer */
         ProcessParameters->Environment = BaseAddress;
     }
+    
+    DPRINT("EnvironmentPointer %p\n", BaseAddress);
+    DPRINT("Ppb->MaximumLength 0x%lx\n", ProcessParameters->MaximumLength);
 
     /* Now allocate space for the Parameter Block */
     BaseAddress = NULL;
-    Size = ProcessParameters->MaximumLength;
+    Size = ProcessParameters->MaximumLength;    
     Status = ZwAllocateVirtualMemory(ProcessHandle,
                                      &BaseAddress,
                                      0,
@@ -145,14 +150,14 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
         DPRINT1("Failed to allocate Parameter Block\n");
         return(Status);
     }
-
+    
     /* Write the Parameter Block */
     ZwWriteVirtualMemory(ProcessHandle,
                          BaseAddress,
                          ProcessParameters,
                          ProcessParameters->Length,
                          NULL);
-
+  
     /* Write pointer to Parameter Block */
     ZwWriteVirtualMemory(ProcessHandle,
                          &Peb->ProcessParameters,
@@ -195,6 +200,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
     HANDLE hSection;
     PROCESS_BASIC_INFORMATION ProcessBasicInfo;
     OBJECT_ATTRIBUTES ObjectAttributes;
+
     DPRINT("RtlCreateUserProcess: %wZ\n", ImageFileName);
 
     /* Map and Load the File */
@@ -206,10 +212,10 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
         DPRINT1("Could not map process image\n");
         return Status;
     }
-
+    
     /* Clean out the CurDir Handle if we won't use it */
     if (!InheritHandles) ProcessParameters->CurrentDirectory.Handle = NULL;
-
+    
     /* Use us as parent if none other specified */
     if (!ParentProcess) ParentProcess = NtCurrentProcess();
     
@@ -234,7 +240,8 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
                                    NULL,
                                    ProcessSecurityDescriptor);
     }
-
+    
+                               
     /* Create Kernel Process Object */
     Status = ZwCreateProcess(&ProcessInfo->ProcessHandle,
                              PROCESS_ALL_ACCESS,
@@ -250,7 +257,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
         ZwClose(hSection);
         return(Status);
     }
-
+    
     /* Get some information on the image */
     Status = ZwQuerySection(hSection,
                             SectionImageInformation,
@@ -277,7 +284,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
         ZwClose(ProcessInfo->ProcessHandle);
         ZwClose(hSection);
         return(Status);
-    }
+    }  
 
     /* Create Process Environment */
     RtlpInitEnvironment(ProcessInfo->ProcessHandle,
@@ -302,7 +309,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
         ZwClose(hSection); /* Don't try to optimize this on top! */
         return Status;
     }
-
+    
     /* Close the Section Handle and return */
     ZwClose(hSection);
     return STATUS_SUCCESS;

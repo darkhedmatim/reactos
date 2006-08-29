@@ -1,6 +1,6 @@
 /*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/fs/context.c
  * PURPOSE:         File and Stream Context Functions
  *
@@ -10,8 +10,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-
-#define NDEBUG
 #include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -24,7 +22,7 @@
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 FsRtlInsertPerStreamContext(IN PFSRTL_ADVANCED_FCB_HEADER PerStreamContext,
                             IN PFSRTL_PER_STREAM_CONTEXT Ptr)
 {
@@ -36,7 +34,7 @@ FsRtlInsertPerStreamContext(IN PFSRTL_ADVANCED_FCB_HEADER PerStreamContext,
  * @unimplemented
  */
 PFSRTL_PER_STREAM_CONTEXT
-NTAPI
+STDCALL
 FsRtlRemovePerStreamContext(IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
                             IN PVOID OwnerId OPTIONAL,
                             IN PVOID InstanceId OPTIONAL)
@@ -49,7 +47,7 @@ FsRtlRemovePerStreamContext(IN PFSRTL_ADVANCED_FCB_HEADER StreamContext,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 FsRtlInsertPerFileObjectContext(IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
                                 IN PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/ Ptr)
 {
@@ -61,7 +59,7 @@ FsRtlInsertPerFileObjectContext(IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectConte
  * @unimplemented
  */
 PVOID /* PFSRTL_PER_FILE_OBJECT_CONTEXT*/
-NTAPI
+STDCALL
 FsRtlRemovePerFileObjectContext(IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectContext,
                                 IN PVOID OwnerId OPTIONAL,
                                 IN PVOID InstanceId OPTIONAL)
@@ -74,7 +72,7 @@ FsRtlRemovePerFileObjectContext(IN PFSRTL_ADVANCED_FCB_HEADER PerFileObjectConte
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 FsRtlTeardownPerStreamContexts(IN PFSRTL_ADVANCED_FCB_HEADER AdvancedHeader)
 {
     UNIMPLEMENTED;

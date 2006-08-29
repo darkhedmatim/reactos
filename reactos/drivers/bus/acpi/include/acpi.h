@@ -60,7 +60,6 @@
 #include "actables.h"
 #include "acdispat.h"
 #include <ntddk.h>
-#include <ndk/haltypes.h>
 #include <bm.h>
 #include <bn.h>
 #include <bmpower.h>

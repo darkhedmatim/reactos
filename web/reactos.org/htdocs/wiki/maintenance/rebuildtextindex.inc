@@ -1,5 +1,4 @@
 <?php
-require_once 'counter.php';
 /**
  * Rebuild the fulltext search indexes. This may take a while
  * depending on the database size and server configuration.
@@ -28,7 +27,7 @@ function dropTextIndex( &$database )
 function createTextIndex( &$database )
 {
 	$searchindex = $database->tableName( 'searchindex' );
-	echo "\nRebuild the index...\n";
+	echo "Rebuild the index...\n";
 	$sql = "ALTER TABLE $searchindex ADD FULLTEXT si_title (si_title), " .
 	  "ADD FULLTEXT si_text (si_text)";
 	$database->query($sql, "createTextIndex" );
@@ -46,7 +45,7 @@ function rebuildTextIndex( &$database )
 	$n = 0;
 
 	while ( $n < $count ) {
-		print_c( $n - 1, $n);
+		print "$n\n";
 		$end = $n + RTI_CHUNK_SIZE - 1;
 		$sql = "SELECT page_id, page_namespace, page_title, old_flags, old_text
 		          FROM $page, $revision, $text

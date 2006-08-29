@@ -20,7 +20,9 @@
 #include <stdarg.h>
 
 #include "wine/test.h"
-#include "windows.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
 
 static void wsprintfATest(void)
 {

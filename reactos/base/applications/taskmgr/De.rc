@@ -164,7 +164,7 @@ END
 IDD_ABOUTBOX DIALOG DISCARDABLE  22, 17, 259, 210
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 CAPTION "Info über Task-Manager"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL         "Task Manager v1.0\nCopyright (C) 1999 - 2001\nvon Brian Palmer (brianp@reactos.org)",
                     IDC_STATIC,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,53,28,
@@ -181,7 +181,7 @@ STYLE DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
     WS_THICKFRAME
 CAPTION "Task-Manager"
 MENU IDR_TASKMANAGER
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL
 "Tab1",IDC_TAB,"SysTabControl32",WS_TABSTOP,3,3,257,228
@@ -189,7 +189,7 @@ END
 
 IDD_APPLICATION_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL         "List2",IDC_APPLIST,"SysListView32",LVS_REPORT |
                     LVS_SHOWSELALWAYS | WS_BORDER |
@@ -201,7 +201,7 @@ END
 
 IDD_PROCESS_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL         "List2",IDC_PROCESSLIST,"SysListView32",LVS_REPORT
 |
@@ -215,7 +215,7 @@ END
 //IDD_PERFORMANCE_PAGE DIALOGEX 0, 0, 247, 210
 IDD_PERFORMANCE_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     GROUPBOX        "CPU-Auslastung",IDC_CPU_USAGE_FRAME,5,5,60,54,WS_TABSTOP, WS_EX_TRANSPARENT
     GROUPBOX        "Auslagerungsdatei",IDC_MEM_USAGE_FRAME,0,63,60,54,BS_LEFTTEXT, WS_EX_TRANSPARENT //5,63,60,54
@@ -275,7 +275,7 @@ END
 IDD_DEBUG_CHANNELS_DIALOG DIALOG DISCARDABLE  0, 0, 247, 210
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Debug-Kanäle"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL         "List2",IDC_DEBUG_CHANNELS_LIST,"SysListView32",LVS_REPORT |
                     LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER |
@@ -287,7 +287,7 @@ END
 IDD_AFFINITY_DIALOG DIALOG DISCARDABLE  0, 0, 231, 154
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Prozessorzugehörigkeit"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,120,133,50,14
     PUSHBUTTON      "Abbrechen",IDCANCEL,174,133,50,14
@@ -362,7 +362,7 @@ END
 IDD_COLUMNS_DIALOG DIALOG DISCARDABLE  0, 0, 240, 199 //0, 0, 195, 199
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Spalten auswählen"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,124,178,50,14 //84
     PUSHBUTTON      "Abbrechen",IDCANCEL,178,178,50,14 //138
@@ -628,12 +628,12 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    ID_ENDTASK              "Schließt den markierten Task."
-    ID_GOTOPROCESS          "Wechselt den Fokus zu dem markierten Task."
+    ID_ENDTASK              "Schließt den makierten Task."
+    ID_GOTOPROCESS          "Wechselt den Fokus zu dem makierten Task."
     ID_RESTORE              "Wiederherstellen des Task-Managers."
-    ID_PROCESS_PAGE_ENDPROCESS "Beendet den Prozess."
+    ID_PROCESS_PAGE_ENDPROCESS "Löscht den Prozess vom System."
     ID_PROCESS_PAGE_ENDPROCESSTREE
-                            "Beendet den Prozess und seine Abhängigkeiten."
+                            "Löscht den Prozess und seine Abhängigkeiten vom System."
     ID_PROCESS_PAGE_DEBUG   "Hängt den Debugger in diesen Prozess ein."
     ID_PROCESS_PAGE_SETAFFINITY
                             "Steuert die Prozessorzugehörigkeit, auf welchen CPUs der Prozess ausgeführt werden darf."
@@ -694,7 +694,7 @@ BEGIN
     IDS_MENU_SHOWKERNELTIMES      "&Kernel-Zeiten anzeigen"
     IDS_CREATENEWTASK             "Neuen Task erstellen"
     IDS_CREATENEWTASK_DESC        "Geben Sie Programme, Ordner, Dokumente oder Internetressourcen an, die geöffnet werden sollen."
-    IDS_MSG_ACCESSPROCESSAFF      "Zugriff auf die / Änderung der Prozess Affinität nicht möglich"
+    IDS_MSG_ACCESSPROCESSAFF      "Unable to Access or Set Process Affinity"
     IDS_MSG_PROCESSONEPRO         "Der Prozess muss eine Zugehörigkeit zu mindestens einem Prozessor aufweisen."
     IDS_MSG_INVALIDOPTION         "Ungültige Auswahl"
     IDS_MSG_UNABLEDEBUGPROCESS    "Kann Prozess nicht debuggen"

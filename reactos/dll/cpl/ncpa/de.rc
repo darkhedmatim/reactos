@@ -1,4 +1,4 @@
-LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
 
 IDD_PROPPAGENETWORK DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -46,7 +46,7 @@ BEGIN
  ICON IDI_NETSTAT, -1, 110, 85, 18, 20
  ICON IDI_HORIZONTAL, -1, 130, 85, 18, 20
  LTEXT "Empfangen", -1, 149, 90, 37, 8
- LTEXT "Pakete:", -1, 17, 115, 32, 8
+ LTEXT "Paketes:", -1, 17, 115, 32, 8
  RTEXT "000.000.000", IDC_SEND, 63, 115, 44, 8
  ICON IDI_VERTICAL, -1, 110, 108, 18, 20
  RTEXT "000.000.000", IDC_RECEIVED, 139, 115, 44, 8
@@ -54,34 +54,15 @@ BEGIN
  PUSHBUTTON "&Deaktivieren", IDC_ENDISABLE, 66, 150, 50, 14
 END
 
-IDD_CARDSUPPORT DIALOG DISCARDABLE  0, 0, 200,180
-STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Support"
-FONT 8, "MS Shell Dlg"
-BEGIN
- GROUPBOX "Connection Status", -1, 9, 8, 200, 88, BS_GROUPBOX
- LTEXT "Address type:", -1, 22, 20, 80, 8
- LTEXT "IP address:", -1, 22, 34, 80, 8
- LTEXT "SubNet mask:", -1, 22, 48, 80, 8
- LTEXT "Default gateway:", -1, 22, 62, 80, 8
- 
- RTEXT "N/A", IDC_DETAILSTYPE, 122, 20, 80, 8
- RTEXT "000.000.000.000", IDC_DETAILSIP, 122, 34, 80, 8
- RTEXT "000.000.000.000", IDC_DETAILSSUBNET, 122, 48, 80, 8
- RTEXT "000.000.000.000", IDC_DETAILSGATEWAY, 122, 62, 80, 8
- 
- PUSHBUTTON "&Details...", IDC_DETAILS, 22, 76, 62, 14
-END
-
 IDD_TCPIPPROPERTIES DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "General"
 FONT 8, "MS Shell Dlg"
 BEGIN
- LTEXT "IP-Einstellungen können automatisch zugewiesen werden, wenn das Netzwerk diese Funktion unterstützt. Wenden Sie sich andernfalls an den Netzwerkadministrator, um die geeigneten IP-Einstellungen zu beziehen.", -1, 9, 9, 228, 32
+ LTEXT "IP-Einstellungen können automatisch zugewiesen werden, wenn das Netzwerk diese Funktion unterstützt. Wenden Sie sich andernfalls an den Netzwerkadministrator, um die geeigneten IP-Einstellungen zu beziehen.", -1, 9, 9, 228, 27
  CONTROL "I&P-Adresse automatisch beziehen", IDC_USEDHCP, "BUTTON", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 43, 210, 12
  GROUPBOX "", -1, 9, 61, 228, 70, BS_GROUPBOX
- CONTROL "Folgende IP-&Adresse verwenden:", IDC_NODHCP, "BUTTON", BS_AUTORADIOBUTTON, 14, 59, 120, 12
+ CONTROL "Folgende IP-&Adresse verwenden:", IDC_NODHCP, "BUTTON", BS_AUTORADIOBUTTON, 14, 59, 105, 12
  LTEXT "&IP-Addresse:", -1, 14, 75, 135, 8
  CONTROL "",IDC_IPADDR,"SysIPAddress32",WS_TABSTOP,0,150,75-2,80,12
  LTEXT "S&ubnetzmaske:", -1, 14, 90, 135, 8
@@ -107,11 +88,11 @@ END
 
 STRINGTABLE 
 BEGIN
-  IDS_ERROR "Fehler"
-  IDS_ENTER_VALID_IPADDRESS "Sie müssen eine gültige IP-Adresse angeben"
-  IDS_ENTER_VALID_SUBNET "Sie müssen eine gültige Subnetzmaske angeben"
-  IDS_CANNOT_LOAD_CONFIG "Einstellungen können nicht geladen werden"
-  IDS_CANNOT_CREATE_PROPSHEET "Property sheet kann nicht erstellt werden"
-  IDS_OUT_OF_MEMORY "Nicht genug Arbeitsspeicher"
-  IDS_CANNOT_SAVE_CHANGES "Änderungen können nicht gespeichert werden"
+  IDS_ERROR "Error"
+  IDS_ENTER_VALID_IPADDRESS "You must enter a valid IP address"
+  IDS_ENTER_VALID_SUBNET "You must enter a valid subnet mask"
+  IDS_CANNOT_LOAD_CONFIG "Unable to load current config data"
+  IDS_CANNOT_CREATE_PROPSHEET "Unable to create property sheet"
+  IDS_OUT_OF_MEMORY "Out of memory"
+  IDS_CANNOT_SAVE_CHANGES "Unable to save the changes you made"
 END

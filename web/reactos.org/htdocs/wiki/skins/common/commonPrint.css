@@ -94,7 +94,6 @@ body {
 }
 
 .noprint,
-div#jump-to-nav,
 div.top,
 div#column-one,
 #colophon,
@@ -105,8 +104,7 @@ div#f-poweredbyico,
 div#f-copyrightico,
 li#f-viewcount,
 li#f-about,
-li#f-disclaimer,
-li#f-privacy {
+li#f-disclaimer {
     /* Hides all the elements irrelevant for printing */
     display: none;
 }
@@ -123,8 +121,6 @@ ul {
     margin: 0 ! important;
 }
 #footer {
-	background : white;
-	color : black;
     border-top: 1px solid black;
 }
 
@@ -148,8 +144,6 @@ pre {
     font-size: 8pt;
     overflow: auto;
     padding: 1em 0;
-	background : white;
-	color : black;
 }
 
 table.listing,
@@ -177,11 +171,6 @@ a:link, a:visited {
 #globalWrapper {
     width: 100% !important;
     min-width: 0 !important;
-}
-
-#content {
-	background : white;
-	color : black;
 }
 
 #column-content {

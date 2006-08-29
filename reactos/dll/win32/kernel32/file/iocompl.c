@@ -146,7 +146,7 @@ STDCALL
 PostQueuedCompletionStatus(
    HANDLE CompletionHandle,
    DWORD dwNumberOfBytesTransferred,
-   ULONG_PTR dwCompletionKey,
+   DWORD dwCompletionKey,
    LPOVERLAPPED lpOverlapped
    )
 {

@@ -24,7 +24,6 @@
 #                 Christopher Aillon <christopher@aillon.com>
 #                 Tomas Kopal <Tomas.Kopal@altap.cz>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 package Bugzilla::DB;
 
@@ -51,6 +50,7 @@ use Bugzilla::Config qw(:DEFAULT :db);
 use Bugzilla::Util;
 use Bugzilla::Error;
 use Bugzilla::DB::Schema;
+use Bugzilla::User;
 
 #####################################################################
 # Constants
@@ -128,12 +128,12 @@ sub FetchOneColumn {
     return $row[0];
 }
 
-sub PushGlobalSQLState {
+sub PushGlobalSQLState() {
     push @SQLStateStack, $_current_sth;
     push @SQLStateStack, $_fetchahead;
 }
 
-sub PopGlobalSQLState {
+sub PopGlobalSQLState() {
     die ("PopGlobalSQLState: stack underflow") if ( scalar(@SQLStateStack) < 1 );
     $_fetchahead = pop @SQLStateStack;
     $_current_sth = pop @SQLStateStack;
@@ -153,7 +153,7 @@ sub connect_shadow {
                     Param("shadowdbsock"), $db_user, $db_pass);
 }
 
-sub connect_main {
+sub connect_main (;$) {
     my ($no_db_name) = @_;
     my $connect_to_db = $db_name;
     $connect_to_db = "" if $no_db_name;
@@ -260,26 +260,22 @@ sub sql_fulltext_search {
 
     # This is as close as we can get to doing full text search using
     # standard ANSI SQL, without real full text search support. DB specific
-    # modules should override this, as this will be always much slower.
+    # modules shoud override this, as this will be always much slower.
+
+    # the text is already sql-quoted, so we need to remove the quotes first
+    my $quote = substr($self->quote(''), 0, 1);
+    $text = $1 if ($text =~ /^$quote(.*)$quote$/);
 
     # make the string lowercase to do case insensitive search
     my $lower_text = lc($text);
 
-    # split the text we search for into separate words
+    # split the text we search for to separate words
     my @words = split(/\s+/, $lower_text);
 
-    # surround the words with wildcards and SQL quotes so we can use them
-    # in LIKE search clauses
-    @words = map($self->quote("%$_%"), @words);
-
-    # untaint words, since they are safe to use now that we've quoted them
-    map(trick_taint($_), @words);
-
-    # turn the words into a set of LIKE search clauses
-    @words = map("LOWER($column) LIKE $_", @words);
-
-    # search for occurrences of all specified words in the column
-    return "CASE WHEN (" . join(" AND ", @words) . ") THEN 1 ELSE 0 END";
+    # search for occurence of all specified words in the column
+    return "CASE WHEN (LOWER($column) LIKE ${quote}%" .
+           join("%${quote} AND LOWER($column) LIKE ${quote}%", @words) .
+           "%${quote}) THEN 1 ELSE 0 END";
 }
 
 #####################################################################
@@ -302,7 +298,7 @@ sub bz_get_field_defs {
     my ($self) = @_;
 
     my $extra = "";
-    if (!Bugzilla->user->in_group(Param('timetrackinggroup'))) {
+    if (!UserInGroup(Param('timetrackinggroup'))) {
         $extra = "AND name NOT IN ('estimated_time', 'remaining_time', " .
                  "'work_time', 'percentage_complete', 'deadline')";
     }
@@ -665,7 +661,7 @@ sub bz_table_info {
 
 sub bz_table_columns {
     my ($self, $table) = @_;
-    return $self->_bz_real_schema->get_table_columns($table);
+    return $self->_bz_schema->get_table_columns($table);
 }
 
 #####################################################################
@@ -1105,8 +1101,7 @@ formatted SQL command have prefix C<sql_>. All other methods have prefix C<bz_>.
               searches (case insensitive) in format suitable for a given
               database.
               Abstract method, should be overriden by database specific code.
- Params:      $expr = SQL expression for the text to be searched (scalar)
-              $pattern = the regular expression to search for (scalar)
+ Params:      none
  Returns:     formatted SQL for regular expression search (e.g. REGEXP)
               (scalar)
 
@@ -1116,8 +1111,7 @@ formatted SQL command have prefix C<sql_>. All other methods have prefix C<bz_>.
               regex searches (case insensitive) in format suitable for a given
               database.
               Abstract method, should be overriden by database specific code.
- Params:      $expr = SQL expression for the text to be searched (scalar)
-              $pattern = the regular expression to search for (scalar)
+ Params:      none
  Returns:     formatted SQL for negative regular expression search
               (e.g. NOT REGEXP) (scalar)
 
@@ -1202,12 +1196,12 @@ formatted SQL command have prefix C<sql_>. All other methods have prefix C<bz_>.
               specified text on a given column.
               There is a ANSI SQL version of this method implemented using
               LIKE operator, but it's not a real full text search. DB specific
-              modules should override this, as this generic implementation will
+              modules shoud override this, as this generic implementation will
               be always much slower. This generic implementation returns
               'relevance' as 0 for no match, or 1 for a match.
  Params:      $column = name of column to search (scalar)
               $text = text to search for (scalar)
- Returns:     formatted SQL for full text search
+ Returns:     formatted SQL for for full text search
 
 =item C<sql_istrcmp>
 

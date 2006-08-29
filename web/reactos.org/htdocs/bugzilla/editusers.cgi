@@ -14,29 +14,27 @@
 # The Original Code is the Bugzilla Bug Tracking System.
 #
 # Contributor(s): Marc Schumann <wurblzap@gmail.com>
-#                 Lance Larsh <lance.larsh@oracle.com>
 #                 Frédéric Buclin <LpSolit@gmail.com>
 
 use strict;
 use lib ".";
 
+require "CGI.pl";
 require "globals.pl";
+
+use vars qw( $vars );
 
 use Bugzilla;
 use Bugzilla::User;
-use Bugzilla::Bug;
 use Bugzilla::Flag;
 use Bugzilla::Config;
 use Bugzilla::Constants;
 use Bugzilla::Util;
-use Bugzilla::Field;
-use Bugzilla::Group;
 
 my $user = Bugzilla->login(LOGIN_REQUIRED);
 
 my $cgi       = Bugzilla->cgi;
 my $template  = Bugzilla->template;
-my $vars      = {};
 my $dbh       = Bugzilla->dbh;
 my $userid    = $user->id;
 my $editusers = $user->in_group('editusers');
@@ -72,6 +70,7 @@ if ($action eq 'search') {
     my $matchstr      = $cgi->param('matchstr');
     my $matchtype     = $cgi->param('matchtype');
     my $grouprestrict = $cgi->param('grouprestrict') || '0';
+    my $groupid       = $cgi->param('groupid');
     my $query = 'SELECT DISTINCT userid, login_name, realname, disabledtext ' .
                 'FROM profiles';
     my @bindValues;
@@ -79,15 +78,14 @@ if ($action eq 'search') {
     my $visibleGroups;
 
     # If a group ID is given, make sure it is a valid one.
-    my $group;
     if ($grouprestrict) {
-        $group = new Bugzilla::Group(scalar $cgi->param('groupid'));
-        $group || ThrowUserError('invalid_group_ID');
+        (detaint_natural($groupid) && GroupIdToName($groupid))
+          || ThrowUserError('invalid_group_ID');
     }
 
     if (!$editusers && Param('usevisibilitygroups')) {
         # Show only users in visible groups.
-        $visibleGroups = $user->visible_groups_as_string();
+        $visibleGroups = visibleGroupsAsString();
 
         if ($visibleGroups) {
             $query .= qq{, user_group_map AS ugm
@@ -100,15 +98,9 @@ if ($action eq 'search') {
     } else {
         $visibleGroups = 1;
         if ($grouprestrict eq '1') {
-            $query .= qq{, user_group_map AS ugm
-                         WHERE ugm.user_id = profiles.userid
-                           AND ugm.isbless = 0
-                        };
-            $nextCondition = 'AND';
+            $query .= ', user_group_map AS ugm';
         }
-        else {
-            $nextCondition = 'WHERE';
-        }
+        $nextCondition = 'WHERE';
     }
 
     if (!$visibleGroups) {
@@ -117,19 +109,15 @@ if ($action eq 'search') {
     else {
         # Handle selection by user name.
         if (defined($matchtype)) {
-            $query .= " $nextCondition ";
-            my $expr = "profiles.login_name";
+            $query .= " $nextCondition profiles.login_name ";
             if ($matchtype eq 'regexp') {
-                $query .= $dbh->sql_regexp($expr, '?');
+                $query .= $dbh->sql_regexp . ' ?';
                 $matchstr = '.' unless $matchstr;
             } elsif ($matchtype eq 'notregexp') {
-                $query .= $dbh->sql_not_regexp($expr, '?');
-                $matchstr = '.' unless $matchstr;
-            } elsif ($matchtype eq 'exact') {
-                $query .= $expr . ' = ?';
+                $query .= $dbh->sql_not_regexp . ' ?';
                 $matchstr = '.' unless $matchstr;
             } else { # substr or unknown
-                $query .= $dbh->sql_istrcmp($expr, '?', 'LIKE');
+                $query .= 'like ?';
                 $matchstr = "%$matchstr%";
             }
             $nextCondition = 'AND';
@@ -141,26 +129,21 @@ if ($action eq 'search') {
 
         # Handle selection by group.
         if ($grouprestrict eq '1') {
-            my $grouplist = join(',',
-                @{Bugzilla::User->flatten_group_membership($group->id)});
-            $query .= " $nextCondition ugm.group_id IN($grouplist) ";
+            $query .= " $nextCondition profiles.userid = ugm.user_id " .
+                      'AND ugm.group_id = ?';
+            # We can trick_taint because we use the value in a SELECT only,
+            # using a placeholder.
+            push(@bindValues, $groupid);
         }
         $query .= ' ORDER BY profiles.login_name';
 
         $vars->{'users'} = $dbh->selectall_arrayref($query,
                                                     {'Slice' => {}},
                                                     @bindValues);
-
     }
 
-    if ($matchtype eq 'exact' && scalar(@{$vars->{'users'}}) == 1) {
-        my $match_user_id = $vars->{'users'}[0]->{'userid'};
-        my $match_user = check_user($match_user_id);
-        edit_processing($match_user);
-    } else {
-        $template->process('admin/users/list.html.tmpl', $vars)
-            || ThrowTemplateError($template->error());
-    }
+    $template->process('admin/users/list.html.tmpl', $vars)
+       || ThrowTemplateError($template->error());
 
 ###########################################################################
 } elsif ($action eq 'add') {
@@ -181,12 +164,10 @@ if ($action eq 'search') {
     my $password     = $cgi->param('password');
     my $realname     = trim($cgi->param('name')         || '');
     my $disabledtext = trim($cgi->param('disabledtext') || '');
-
+    
     # Lock tables during the check+creation session.
     $dbh->bz_lock_tables('profiles WRITE',
                          'profiles_activity WRITE',
-                         'groups READ',
-                         'user_group_map WRITE',
                          'email_setting WRITE',
                          'namedqueries READ',
                          'whine_queries READ',
@@ -194,10 +175,9 @@ if ($action eq 'search') {
 
     # Validity checks
     $login || ThrowUserError('user_login_required');
-    validate_email_syntax($login)
-      || ThrowUserError('illegal_email_address', {addr => $login});
-    is_available_username($login)
-      || ThrowUserError('account_exists', {email => $login});
+    CheckEmailSyntax($login);
+    is_available_username($login) || ThrowUserError('account_exists',
+                                                    {'email' => $login});
     ValidatePassword($password);
 
     # Login and password are validated now, and realname and disabledtext
@@ -208,9 +188,9 @@ if ($action eq 'search') {
     trick_taint($disabledtext);
 
     insert_new_user($login, $realname, $password, $disabledtext);
-    my $new_user_id = $dbh->bz_last_key('profiles', 'userid');
+    my $userid = $dbh->bz_last_key('profiles', 'userid');
     $dbh->bz_unlock_tables();
-    userDataToVars($new_user_id);
+    userDataToVars($userid);
 
     $vars->{'message'} = 'account_created';
     $template->process('admin/users/edit.html.tmpl', $vars)
@@ -219,7 +199,17 @@ if ($action eq 'search') {
 ###########################################################################
 } elsif ($action eq 'edit') {
     my $otherUser = check_user($otherUserID, $otherUserLogin);
-    edit_processing($otherUser);
+    $otherUserID = $otherUser->id;
+
+    $editusers || canSeeUser($otherUserID)
+        || ThrowUserError('auth_failure', {reason => "not_visible",
+                                           action => "modify",
+                                           object => "user"});
+
+    userDataToVars($otherUserID);
+
+    $template->process('admin/users/edit.html.tmpl', $vars)
+       || ThrowTemplateError($template->error());
 
 ###########################################################################
 } elsif ($action eq 'update') {
@@ -243,7 +233,7 @@ if ($action eq 'search') {
                          'group_group_map READ',
                          'group_group_map AS ggm READ');
  
-    $editusers || $user->can_see_user($otherUser)
+    $editusers || canSeeUser($otherUserID)
         || ThrowUserError('auth_failure', {reason => "not_visible",
                                            action => "modify",
                                            object => "user"});
@@ -266,11 +256,9 @@ if ($action eq 'search') {
         if ($login ne $loginold) {
             # Validate, then trick_taint.
             $login || ThrowUserError('user_login_required');
-            validate_email_syntax($login)
-              || ThrowUserError('illegal_email_address', {addr => $login});
-            is_available_username($login)
-              || ThrowUserError('account_exists', {email => $login});
-
+            CheckEmailSyntax($login);
+            is_available_username($login) || ThrowUserError('account_exists',
+                                                            {'email' => $login});
             trick_taint($login);
             push(@changedFields, 'login_name');
             push(@values, $login);
@@ -310,12 +298,6 @@ if ($action eq 'search') {
                      'WHERE userid = ?',
                      undef, @values);
             # XXX: should create profiles_activity entries.
-            #
-            # We create a new user object here because it needs to
-            # read information that may have changed since this
-            # script started.
-            my $newprofile = new Bugzilla::User($otherUserID);
-            $newprofile->derive_regexp_groups();
         }
     }
 
@@ -392,7 +374,7 @@ if ($action eq 'search') {
                    },
                  undef,
                  ($otherUserID, $userid,
-                  get_field_id('bug_group'),
+                  GetFieldID('bug_group'),
                   join(', ', @groupsRemovedFrom), join(', ', @groupsAddedTo)));
         $dbh->do('UPDATE profiles SET refreshed_when=? WHERE userid = ?',
                  undef, ('1900-01-01 00:00:00', $otherUserID));
@@ -758,6 +740,36 @@ sub mirrorListSelectionValues {
     }
 }
 
+# Give a list of IDs of groups the user can see.
+sub visibleGroupsAsString {
+    return join(', ', @{$user->visible_groups_direct()});
+}
+
+# Determine whether the user can see a user. (Checks for existence, too.)
+sub canSeeUser {
+    my $otherUserID = shift;
+    my $query;
+
+    if (Param('usevisibilitygroups')) {
+        # If the user can see no groups, then no users are visible either.
+        my $visibleGroups = visibleGroupsAsString() || return 0;
+
+        $query = qq{SELECT COUNT(DISTINCT userid)
+                    FROM profiles, user_group_map
+                    WHERE userid = ?
+                    AND user_id = userid
+                    AND isbless = 0
+                    AND group_id IN ($visibleGroups)
+                   };
+    } else {
+        $query = qq{SELECT COUNT(userid)
+                    FROM profiles
+                    WHERE userid = ?
+                   };
+    }
+    return $dbh->selectrow_array($query, undef, $otherUserID);
+}
+
 # Retrieve user data for the user editing form. User creation and user
 # editing code rely on this to call derive_groups().
 sub userDataToVars {
@@ -766,7 +778,7 @@ sub userDataToVars {
     my $query;
     my $dbh = Bugzilla->dbh;
 
-    my $grouplist = $otheruser->groups_as_string;
+    $otheruser->derive_groups();
 
     $vars->{'otheruser'} = $otheruser;
     $vars->{'groups'} = $user->bless_groups();
@@ -775,11 +787,7 @@ sub userDataToVars {
         qq{SELECT id,
                   COUNT(directmember.group_id) AS directmember,
                   COUNT(regexpmember.group_id) AS regexpmember,
-                  (CASE WHEN (groups.id IN ($grouplist)
-                              AND COUNT(directmember.group_id) = 0
-                              AND COUNT(regexpmember.group_id) = 0
-                             ) THEN 1 ELSE 0 END) 
-                      AS derivedmember,
+                  COUNT(derivedmember.group_id) AS derivedmember,
                   COUNT(directbless.group_id) AS directbless
            FROM groups
            LEFT JOIN user_group_map AS directmember
@@ -792,6 +800,11 @@ sub userDataToVars {
                  AND regexpmember.user_id = ?
                  AND regexpmember.isbless = 0
                  AND regexpmember.grant_type = ?
+           LEFT JOIN user_group_map AS derivedmember
+                  ON derivedmember.group_id = id
+                 AND derivedmember.user_id = ?
+                 AND derivedmember.isbless = 0
+                 AND derivedmember.grant_type = ?
            LEFT JOIN user_group_map AS directbless
                   ON directbless.group_id = id
                  AND directbless.user_id = ?
@@ -801,32 +814,21 @@ sub userDataToVars {
         'id', undef,
         ($otheruserid, GRANT_DIRECT,
          $otheruserid, GRANT_REGEXP,
+         $otheruserid, GRANT_DERIVED,
          $otheruserid, GRANT_DIRECT));
 
     # Find indirect bless permission.
     $query = qq{SELECT groups.id
-                FROM groups, group_group_map AS ggm
-                WHERE groups.id = ggm.grantor_id
-                  AND ggm.member_id IN ($grouplist)
+                FROM groups, user_group_map AS ugm, group_group_map AS ggm
+                WHERE ugm.user_id = ?
+                  AND groups.id = ggm.grantor_id
+                  AND ggm.member_id = ugm.group_id
+                  AND ugm.isbless = 0
                   AND ggm.grant_type = ?
                } . $dbh->sql_group_by('id');
     foreach (@{$dbh->selectall_arrayref($query, undef,
-                                        (GROUP_BLESS))}) {
+                                        ($otheruserid, GROUP_BLESS))}) {
         # Merge indirect bless permissions into permission variable.
         $vars->{'permissions'}{${$_}[0]}{'indirectbless'} = 1;
     }
-}
-
-sub edit_processing {
-    my $otherUser = shift;
-
-    $editusers || $user->can_see_user($otherUser)
-        || ThrowUserError('auth_failure', {reason => "not_visible",
-                                           action => "modify",
-                                           object => "user"});
-
-    userDataToVars($otherUser->id);
-
-    $template->process('admin/users/edit.html.tmpl', $vars)
-       || ThrowTemplateError($template->error());
 }

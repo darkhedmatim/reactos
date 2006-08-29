@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -31,21 +31,6 @@ Author:
 //
 NTSTATUS
 NTAPI
-MmMapViewOfSection(
-    IN PVOID SectionObject,
-    IN PEPROCESS Process,
-    IN OUT PVOID *BaseAddress,
-    IN ULONG ZeroBits,
-    IN ULONG CommitSize,
-    IN OUT PLARGE_INTEGER SectionOffset OPTIONAL,
-    IN OUT PULONG ViewSize,
-    IN SECTION_INHERIT InheritDisposition,
-    IN ULONG AllocationType,
-    IN ULONG Protect
-);
-
-NTSTATUS
-NTAPI
 MmUnmapViewOfSection(
     struct _EPROCESS* Process,
     PVOID BaseAddress
@@ -56,14 +41,6 @@ MmUnmapViewOfSection(
 //
 // Native calls
 //
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtAreMappedFilesTheSame(
-    IN PVOID File1MappedAsAnImage,
-    IN PVOID File2MappedAsFile
-);
-
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -180,8 +157,8 @@ NtQuerySection(
     IN HANDLE SectionHandle,
     IN SECTION_INFORMATION_CLASS SectionInformationClass,
     OUT PVOID SectionInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSCALLAPI
@@ -192,8 +169,8 @@ NtQueryVirtualMemory(
     IN PVOID Address,
     IN MEMORY_INFORMATION_CLASS VirtualMemoryInformationClass,
     OUT PVOID VirtualMemoryInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSCALLAPI
@@ -232,16 +209,8 @@ NtWriteVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  BaseAddress,
     IN PVOID Buffer,
-    IN SIZE_T NumberOfBytesToWrite,
-    OUT PSIZE_T NumberOfBytesWritten
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwAreMappedFilesTheSame(
-    IN PVOID File1MappedAsAnImage,
-    IN PVOID File2MappedAsFile
+    IN ULONG NumberOfBytesToWrite,
+    OUT PULONG NumberOfBytesWritten
 );
 
 NTSYSAPI
@@ -350,8 +319,8 @@ ZwQuerySection(
     IN HANDLE SectionHandle,
     IN SECTION_INFORMATION_CLASS SectionInformationClass,
     OUT PVOID SectionInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSAPI
@@ -362,8 +331,8 @@ ZwQueryVirtualMemory(
     IN PVOID Address,
     IN MEMORY_INFORMATION_CLASS VirtualMemoryInformationClass,
     OUT PVOID VirtualMemoryInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSAPI

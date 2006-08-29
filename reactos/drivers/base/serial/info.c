@@ -4,13 +4,13 @@
  * FILE:            drivers/dd/serial/info.c
  * PURPOSE:         Serial IRP_MJ_QUERY_INFORMATION operations
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #define NDEBUG
 #include "serial.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SerialQueryInformation(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -33,7 +33,7 @@ SerialQueryInformation(
 		{
 			PFILE_STANDARD_INFORMATION StandardInfo = (PFILE_STANDARD_INFORMATION)SystemBuffer;
 
-			DPRINT("IRP_MJ_QUERY_INFORMATION / FileStandardInformation\n");
+			DPRINT("Serial: IRP_MJ_QUERY_INFORMATION / FileStandardInformation\n");
 			if (BufferLength < sizeof(FILE_STANDARD_INFORMATION))
 				Status = STATUS_BUFFER_OVERFLOW;
 			else if (!StandardInfo)
@@ -55,7 +55,7 @@ SerialQueryInformation(
 
 			ASSERT(PositionInfo);
 
-			DPRINT("IRP_MJ_QUERY_INFORMATION / FilePositionInformation\n");
+			DPRINT("Serial: IRP_MJ_QUERY_INFORMATION / FilePositionInformation\n");
 			if (BufferLength < sizeof(PFILE_POSITION_INFORMATION))
 				Status = STATUS_BUFFER_OVERFLOW;
 			else if (!PositionInfo)
@@ -69,7 +69,7 @@ SerialQueryInformation(
 		}
 		default:
 		{
-			DPRINT("IRP_MJ_QUERY_INFORMATION: Unexpected file information class 0x%02x\n", Stack->Parameters.QueryFile.FileInformationClass);
+			DPRINT("Serial: IRP_MJ_QUERY_INFORMATION: Unexpected file information class 0x%02x\n", Stack->Parameters.QueryFile.FileInformationClass);
 			return ForwardIrpAndForget(DeviceObject, Irp);
 		}
 	}

@@ -23,7 +23,6 @@
 #                 Dave Lawrence <dkl@redhat.com>
 #                 Tomas Kopal <Tomas.Kopal@altap.cz>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
-#                 Lance Larsh <lance.larsh@oracle.com>
 
 =head1 NAME
 
@@ -90,15 +89,11 @@ sub bz_last_key {
 }
 
 sub sql_regexp {
-    my ($self, $expr, $pattern) = @_;
-
-    return "$expr ~* $pattern";
+    return "~*";
 }
 
 sub sql_not_regexp {
-    my ($self, $expr, $pattern) = @_;
-
-    return "$expr !~* $pattern" 
+    return "!~*" 
 }
 
 sub sql_limit {
@@ -120,7 +115,7 @@ sub sql_from_days {
 sub sql_to_days {
     my ($self, $date) = @_;
 
-    return "TO_CHAR(${date}::date, 'J')::int";
+    return "TO_CHAR($date, 'J')::int";
 }
 
 sub sql_date_format {

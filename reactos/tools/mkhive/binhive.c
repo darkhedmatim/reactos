@@ -107,7 +107,7 @@ typedef struct _HIVE_HEADER
   ULONG  Unused7;
 
   /* Name of hive file */
-  WCHAR  FileName[32];
+  WCHAR  FileName[48];
 
   ULONG  Reserved[99];
 
@@ -1248,11 +1248,7 @@ CmiCalcHiveChecksum (PREGISTRY_HIVE Hive)
   Buffer = (PULONG)Hive->HiveHeader;
   Sum = 0;
   for (i = 0; i < 127; i++)
-    Sum ^= Buffer[i];
-  if (Sum == (ULONG)-1)
-    Sum = (ULONG)-2;
-  if (Sum == 0)
-    Sum = 1;
+    Sum += Buffer[i];
 
   Hive->HiveHeader->Checksum = Sum;
 }

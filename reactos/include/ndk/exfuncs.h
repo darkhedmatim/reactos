@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -208,15 +208,6 @@ NtOpenEvent(
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
-NtOpenKeyedEvent(
-    OUT PHANDLE EventHandle,
-    IN ACCESS_MASK DesiredAccess,
-    IN POBJECT_ATTRIBUTES ObjectAttributes
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
 NtOpenEventPair(
     OUT PHANDLE EventPairHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -340,8 +331,8 @@ NTAPI
 NtQuerySystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     OUT PVOID SystemInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSCALLAPI
@@ -373,16 +364,6 @@ NTAPI
 NtReleaseMutant(
     IN HANDLE MutantHandle,
     IN PLONG ReleaseCount OPTIONAL
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtReleaseKeyedEvent(
-    IN HANDLE EventHandle,
-    IN PVOID Key,
-    IN BOOLEAN Alertable,
-    IN PLARGE_INTEGER Timeout OPTIONAL
 );
 
 NTSYSCALLAPI
@@ -435,13 +416,6 @@ NtSetEvent(
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
-NtSetEventBoostPriority(
-    IN HANDLE EventHandle
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
 NtSetHighEventPair(
     IN HANDLE EventPairHandle
 );
@@ -481,7 +455,7 @@ NTAPI
 NtSetSystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     IN PVOID SystemInformation,
-    IN SIZE_T SystemInformationLength
+    IN ULONG SystemInformationLength
 );
 
 NTSYSCALLAPI
@@ -509,16 +483,6 @@ NTSTATUS
 NTAPI
 NtShutdownSystem(
     IN SHUTDOWN_ACTION Action
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtWaitForKeyedEvent(
-    IN HANDLE EventHandle,
-    IN PVOID Key,
-    IN BOOLEAN Alertable,
-    IN PLARGE_INTEGER Timeout OPTIONAL
 );
 
 NTSYSCALLAPI
@@ -571,6 +535,7 @@ ZwClearEvent(
     IN HANDLE EventHandle
 );
 
+NTSYSAPI
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -784,8 +749,8 @@ NTAPI
 ZwQuerySystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     OUT PVOID SystemInformation,
-    IN SIZE_T Length,
-    OUT PSIZE_T ResultLength
+    IN ULONG Length,
+    OUT PULONG ResultLength
 );
 
 NTSYSAPI
@@ -908,7 +873,7 @@ NTAPI
 ZwSetSystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     IN PVOID SystemInformation,
-    IN SIZE_T SystemInformationLength
+    IN ULONG SystemInformationLength
 );
 
 #ifdef NTOS_MODE_USER

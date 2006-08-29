@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -30,19 +30,48 @@ Author:
 //
 // The DDK steals these away from you.
 //
+VOID
+_enable(
+    VOID
+);
+VOID
+_disable(
+    VOID
+);
 #ifdef _MSC_VER
-//#pragma intrinsic(_enable)
-//#pragma intrinsic(_disable)
+#pragma intrinsic(_enable)
+#pragma intrinsic(_disable)
 #endif
 
 //
 // Display Functions
 //
 NTHALAPI
+BOOLEAN
+NTAPI
+HalQueryDisplayOwnership(
+    VOID
+);
+
+NTHALAPI
 VOID
 NTAPI
 HalDisplayString(
     IN PCHAR String
+);
+
+NTHALAPI
+BOOLEAN
+NTAPI
+HalQueryDisplayOwnership(
+    VOID
+);
+
+NTHALAPI
+VOID
+NTAPI
+HalReleaseDisplayOwnership(
+    VOID
 );
 
 //
@@ -55,13 +84,12 @@ HalAllProcessorsStarted(
     VOID
 );
 
-#ifdef _ARC_
 NTHALAPI
 VOID
 NTAPI
 HalInitializeProcessor(
     ULONG ProcessorNumber,
-    struct _LOADER_PARAMETER_BLOCK *LoaderBlock
+    PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
 NTHALAPI
@@ -69,9 +97,8 @@ BOOLEAN
 NTAPI
 HalInitSystem(
     ULONG BootPhase,
-    struct _LOADER_PARAMETER_BLOCK *LoaderBlock
+    PLOADER_PARAMETER_BLOCK LoaderBlock
 );
-#endif
 
 NTHALAPI
 VOID
@@ -95,8 +122,8 @@ NTHALAPI
 BOOLEAN
 NTAPI
 HalBeginSystemInterrupt(
-    KIRQL Irql,
     ULONG Vector,
+    KIRQL Irql,
     PKIRQL OldIrql
 );
 
@@ -129,9 +156,9 @@ NTHALAPI
 BOOLEAN
 NTAPI
 HalGetEnvironmentVariable(
-    PCH Variable,
-    USHORT Length,
-    PCH Buffer
+    PCH Name,
+    PCH Value,
+    USHORT ValueLength
 );
 
 NTHALAPI
@@ -152,20 +179,19 @@ NTHALAPI
 VOID
 NTAPI
 HalRequestIpi(
-    KAFFINITY TargetSet
+    ULONG Unknown
 );
 
 NTHALAPI
 VOID
 NTAPI
 HalHandleNMI(
-    PVOID NmiInfo
+    ULONG Unknown
 );
 
 //
 // I/O Functions
 //
-#ifdef _ARC_
 NTHALAPI
 VOID
 NTAPI
@@ -175,7 +201,6 @@ IoAssignDriveLetters(
     PUCHAR NtSystemPath,
     PSTRING NtSystemPathString
 );
-#endif
 
 //
 // Environment Functions
@@ -186,16 +211,6 @@ NTAPI
 HalSetEnvironmentVariable(
     IN PCH Name,
     IN PCH Value
-);
-
-//
-// Time Functions
-//
-NTHALAPI
-BOOLEAN
-NTAPI
-HalQueryRealTimeClock(
-    IN PTIME_FIELDS RtcTime
 );
 
 #endif

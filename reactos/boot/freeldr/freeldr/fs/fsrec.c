@@ -28,10 +28,10 @@
 
 /*
  *
- * BOOLEAN FsRecognizeVolume(ULONG DriveNumber, ULONG VolumeStartSector, UCHAR* VolumeType);
+ * BOOL FsRecognizeVolume(ULONG DriveNumber, ULONG VolumeStartSector, UCHAR* VolumeType);
  *
  */
-BOOLEAN FsRecognizeVolume(ULONG DriveNumber, ULONG VolumeStartSector, UCHAR* VolumeType)
+BOOL FsRecognizeVolume(ULONG DriveNumber, ULONG VolumeStartSector, UCHAR* VolumeType)
 {
 
 	DbgPrint((DPRINT_FILESYSTEM, "FsRecognizeVolume() DriveNumber: 0x%x VolumeStartSector: %d\n", DriveNumber, VolumeStartSector));
@@ -55,7 +55,7 @@ BOOLEAN FsRecognizeVolume(ULONG DriveNumber, ULONG VolumeStartSector, UCHAR* Vol
 	return FALSE;
 }
 
-BOOLEAN FsRecIsIso9660(ULONG DriveNumber)
+BOOL FsRecIsIso9660(ULONG DriveNumber)
 {
 	PUCHAR Sector = (PUCHAR)DISKREADBUFFER;
 
@@ -73,7 +73,7 @@ BOOLEAN FsRecIsIso9660(ULONG DriveNumber)
 		Sector[5] == '1');
 }
 
-BOOLEAN FsRecIsExt2(ULONG DriveNumber, ULONG VolumeStartSector)
+BOOL FsRecIsExt2(ULONG DriveNumber, ULONG VolumeStartSector)
 {
 	PEXT2_SUPER_BLOCK	SuperBlock = (PEXT2_SUPER_BLOCK)DISKREADBUFFER;
 
@@ -91,7 +91,7 @@ BOOLEAN FsRecIsExt2(ULONG DriveNumber, ULONG VolumeStartSector)
 	return FALSE;
 }
 
-BOOLEAN FsRecIsFat(ULONG DriveNumber, ULONG VolumeStartSector)
+BOOL FsRecIsFat(ULONG DriveNumber, ULONG VolumeStartSector)
 {
 	PFAT_BOOTSECTOR	BootSector = (PFAT_BOOTSECTOR)DISKREADBUFFER;
 	PFAT32_BOOTSECTOR BootSector32 = (PFAT32_BOOTSECTOR)DISKREADBUFFER;
@@ -113,7 +113,7 @@ BOOLEAN FsRecIsFat(ULONG DriveNumber, ULONG VolumeStartSector)
 	return FALSE;
 }
 
-BOOLEAN FsRecIsNtfs(ULONG DriveNumber, ULONG VolumeStartSector)
+BOOL FsRecIsNtfs(ULONG DriveNumber, ULONG VolumeStartSector)
 {
 	PNTFS_BOOTSECTOR BootSector = (PNTFS_BOOTSECTOR)DISKREADBUFFER;
 	if (!MachDiskReadLogicalSectors(DriveNumber, VolumeStartSector, 1, BootSector))

@@ -25,7 +25,6 @@
 #                 Shane H. W. Travis <travis@sedsystems.ca>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
 #                 Gervase Markham <gerv@gerv.net>
-#                 Lance Larsh <lance.larsh@oracle.com>
 #                 Justin C. De Vries <judevries@novell.com>
 
 ################################################################################
@@ -43,8 +42,6 @@ use Bugzilla::Error;
 use Bugzilla::Util;
 use Bugzilla::Constants;
 use Bugzilla::User::Setting;
-use Bugzilla::Product;
-use Bugzilla::Classification;
 
 use base qw(Exporter);
 @Bugzilla::User::EXPORT = qw(insert_new_user is_available_username
@@ -70,7 +67,7 @@ use constant MATCH_SKIP_CONFIRM  => 1;
 
 sub new {
     my $invocant = shift;
-    my $user_id = shift;
+    my ($user_id, $tables_locked) = @_;
 
     if ($user_id) {
         my $uid = $user_id;
@@ -79,7 +76,7 @@ sub new {
                             {argument => 'userID',
                              value    => $uid,
                              function => 'Bugzilla::User::new'});
-        return $invocant->_create("userid=?", $user_id);
+        return $invocant->_create('userid = ?', $user_id, $tables_locked);
     }
     else {
         return $invocant->_create;
@@ -96,10 +93,11 @@ sub new {
 # in the id its already had to validate (or the User.pm object, of course)
 sub new_from_login {
     my $invocant = shift;
-    my $login = shift;
+    my ($login, $tables_locked) = @_;
 
     my $dbh = Bugzilla->dbh;
-    return $invocant->_create($dbh->sql_istrcmp('login_name', '?'), $login);
+    return $invocant->_create($dbh->sql_istrcmp('login_name', '?'),
+                              $login, $tables_locked);
 }
 
 # Internal helper for the above |new| methods
@@ -127,6 +125,8 @@ sub _create {
     # We're checking for validity here, so any value is OK
     trick_taint($val);
 
+    my $tables_locked_for_derive_groups = shift;
+
     my $dbh = Bugzilla->dbh;
 
     my ($id,
@@ -150,6 +150,26 @@ sub _create {
     $self->{'login'}          = $login;
     $self->{'disabledtext'}   = $disabledtext;
     $self->{'showmybugslink'} = $mybugslink;
+
+    # Now update any old group information if needed
+    my $result = $dbh->selectrow_array(q{SELECT 1
+                                           FROM profiles, groups
+                                          WHERE userid=?
+                                            AND profiles.refreshed_when <=
+                                                  groups.last_changed},
+                                       undef,
+                                       $id);
+
+    if ($result) {
+        my $is_main_db;
+        unless ($is_main_db = Bugzilla->dbwritesallowed()) {
+            $dbh = Bugzilla->switch_to_main_db();
+        }
+        $self->derive_groups($tables_locked_for_derive_groups);
+        unless ($is_main_db) {
+            $dbh = Bugzilla->switch_to_shadow_db();
+        }
+    }
 
     return $self;
 }
@@ -216,9 +236,9 @@ sub queries {
                 INNER JOIN whine_queries wq
                         ON we.id = wq.eventid
                      WHERE we.owner_userid = ?}, undef, $self->{id});
-
+    
     my $queries_ref = $dbh->selectall_arrayref(q{
-                    SELECT name, query, linkinfooter, query_type
+                    SELECT name, query, linkinfooter
                       FROM namedqueries 
                      WHERE userid = ?
                   ORDER BY UPPER(name)},{'Slice'=>{}}, $self->{id});
@@ -277,34 +297,9 @@ sub groups {
     # The above gives us an arrayref [name, id, name, id, ...]
     # Convert that into a hashref
     my %groups = @$groups;
-    my $sth;
-    my @groupidstocheck = values(%groups);
-    my %groupidschecked = ();
-    $sth = $dbh->prepare("SELECT groups.name, groups.id
-                            FROM group_group_map
-                      INNER JOIN groups
-                              ON groups.id = grantor_id
-                           WHERE member_id = ? 
-                             AND grant_type = " . GROUP_MEMBERSHIP);
-    while (my $node = shift @groupidstocheck) {
-        $sth->execute($node);
-        my ($member_name, $member_id);
-        while (($member_name, $member_id) = $sth->fetchrow_array) {
-            if (!$groupidschecked{$member_id}) {
-                $groupidschecked{$member_id} = 1;
-                push @groupidstocheck, $member_id;
-                $groups{$member_name} = $member_id;
-            }
-        }
-    }
     $self->{groups} = \%groups;
 
     return $self->{groups};
-}
-
-sub groups_as_string {
-    my $self = shift;
-    return (join(',',values(%{$self->groups})) || '-1');
 }
 
 sub bless_groups {
@@ -327,6 +322,8 @@ sub bless_groups {
         # Get all groups for the user where:
         #    + They have direct bless privileges
         #    + They are a member of a group that inherits bless privs.
+        # Because of the second requirement, derive_groups must be up-to-date
+        # for this to function properly in all circumstances.
         $query = q{
             SELECT DISTINCT groups.id, groups.name, groups.description
                        FROM groups, user_group_map, group_group_map AS ggm
@@ -335,9 +332,8 @@ sub bless_groups {
                               AND groups.id=user_group_map.group_id)
                              OR (groups.id = ggm.grantor_id
                                  AND ggm.grant_type = ?
-                                 AND ggm.member_id IN(} .
-                                 $self->groups_as_string . 
-                               q{)))};
+                                 AND user_group_map.group_id = ggm.member_id
+                                 AND user_group_map.isbless = 0))};
         $connector = 'AND';
         @bindValues = ($self->id, GROUP_BLESS);
     }
@@ -358,56 +354,26 @@ sub bless_groups {
 
 sub in_group {
     my ($self, $group) = @_;
-    return exists $self->groups->{$group} ? 1 : 0;
-}
 
-sub in_group_id {
-    my ($self, $id) = @_;
-    my %j = reverse(%{$self->groups});
-    return exists $j{$id} ? 1 : 0;
-}
+    # If we already have the info, just return it.
+    return defined($self->{groups}->{$group}) if defined $self->{groups};
+    return 0 unless $self->id;
 
-sub can_see_user {
-    my ($self, $otherUser) = @_;
-    my $query;
+    # Otherwise, go check for it
 
-    if (Param('usevisibilitygroups')) {
-        # If the user can see no groups, then no users are visible either.
-        my $visibleGroups = $self->visible_groups_as_string() || return 0;
-        $query = qq{SELECT COUNT(DISTINCT userid)
-                    FROM profiles, user_group_map
-                    WHERE userid = ?
-                    AND user_id = userid
-                    AND isbless = 0
-                    AND group_id IN ($visibleGroups)
-                   };
-    } else {
-        $query = qq{SELECT COUNT(userid)
-                    FROM profiles
-                    WHERE userid = ?
-                   };
-    }
-    return Bugzilla->dbh->selectrow_array($query, undef, $otherUser->id);
-}
-
-sub can_edit_product {
-    my ($self, $prod_id) = @_;
     my $dbh = Bugzilla->dbh;
-    my $sth = $self->{sthCanEditProductId};
-    my $userid = $self->{id};
-    my $query = q{SELECT group_id FROM group_control_map 
-                   WHERE product_id =? 
-                     AND canedit != 0 };
-    if (%{$self->groups}) {
-        my $groups = join(',', values(%{$self->groups}));
-        $query .= qq{AND group_id NOT IN($groups)};
-    }
-    unless ($sth) { $sth = $dbh->prepare($query); }
-    $sth->execute($prod_id);
-    $self->{sthCanEditProductId} = $sth;
-    my $result = $sth->fetchrow_array();
-    
-    return (!defined($result));
+
+    my ($res) = $dbh->selectrow_array(q{SELECT 1
+                                  FROM groups, user_group_map
+                                 WHERE groups.id=user_group_map.group_id
+                                   AND user_group_map.user_id=?
+                                   AND isbless=0
+                                   AND groups.name=?},
+                              undef,
+                              $self->id,
+                              $group);
+
+    return defined($res);
 }
 
 sub can_see_bug {
@@ -430,7 +396,7 @@ sub can_see_bug {
                              LEFT JOIN bug_group_map 
                                ON bugs.bug_id = bug_group_map.bug_id
                                AND bug_group_map.group_ID NOT IN(" .
-                               $self->groups_as_string .
+                               join(',',(-1, values(%{$self->groups}))) .
                                ") WHERE bugs.bug_id = ? 
                                AND creation_ts IS NOT NULL " .
                              $dbh->sql_group_by('bugs.bug_id', 'reporter, ' .
@@ -450,24 +416,16 @@ sub can_see_bug {
                 || (!$missinggroup)));
 }
 
-sub can_see_product {
-    my ($self, $product_name) = @_;
-
-    return scalar(grep {$_->name eq $product_name} @{$self->get_selectable_products});
-}
-
 sub get_selectable_products {
-    my $self = shift;
-    my $classification_id = shift;
+    my ($self, $by_id) = @_;
 
-    if (defined $self->{selectable_products}) {
-        return $self->{selectable_products};
+    if (defined $self->{SelectableProducts}) {
+        my %list = @{$self->{SelectableProducts}};
+        return \%list if $by_id;
+        return values(%list);
     }
 
-    my $dbh = Bugzilla->dbh;
-    my @params = ();
-
-    my $query = "SELECT id " .
+    my $query = "SELECT id, name " .
                 "FROM products " .
                 "LEFT JOIN group_control_map " .
                 "ON group_control_map.product_id = products.id ";
@@ -478,121 +436,19 @@ sub get_selectable_products {
                   CONTROLMAPMANDATORY . " ";
     }
     $query .= "AND group_id NOT IN(" . 
-               $self->groups_as_string . ") " .
-              "WHERE group_id IS NULL ";
-
-    if (Param('useclassification') && $classification_id) {
-        $query .= "AND classification_id = ? ";
-        detaint_natural($classification_id);
-        push(@params, $classification_id);
-    }
-
-    $query .= "ORDER BY name";
-
-    my $prod_ids = $dbh->selectcol_arrayref($query, undef, @params);
-    my @products;
-    foreach my $prod_id (@$prod_ids) {
-        push(@products, new Bugzilla::Product($prod_id));
-    }
-    $self->{selectable_products} = \@products;
-    return $self->{selectable_products};
-}
-
-sub get_selectable_classifications {
-    my ($self) = @_;
-
-    if (defined $self->{selectable_classifications}) {
-        return $self->{selectable_classifications};
-    }
-
-    my $products = $self->get_selectable_products;
-
-    my $class;
-    foreach my $product (@$products) {
-        $class->{$product->classification_id} ||= 
-            new Bugzilla::Classification($product->classification_id);
-    }
-    my @sorted_class = sort {lc($a->name) cmp lc($b->name)} (values %$class);
-    $self->{selectable_classifications} = \@sorted_class;
-    return $self->{selectable_classifications};
-}
-
-sub can_enter_product {
-    my ($self, $product_name, $warn) = @_;
+               join(',', (-1,values(%{Bugzilla->user->groups}))) . ") " .
+              "WHERE group_id IS NULL ORDER BY name";
     my $dbh = Bugzilla->dbh;
-
-    if (!defined($product_name)) {
-        return unless $warn;
-        ThrowUserError('no_products');
+    my $sth = $dbh->prepare($query);
+    $sth->execute();
+    my @products = ();
+    while (my @row = $sth->fetchrow_array) {
+        push(@products, @row);
     }
-    trick_taint($product_name);
-
-    # Checks whether the user has access to the product.
-    my $has_access = $dbh->selectrow_array('SELECT CASE WHEN group_id IS NULL
-                                                        THEN 1 ELSE 0 END
-                                              FROM products
-                                         LEFT JOIN group_control_map
-                                                ON group_control_map.product_id = products.id
-                                               AND group_control_map.entry != 0
-                                               AND group_id NOT IN (' . $self->groups_as_string . ')
-                                             WHERE products.name = ? ' .
-                                             $dbh->sql_limit(1),
-                                            undef, $product_name);
-
-    if (!$has_access) {
-        return unless $warn;
-        ThrowUserError('entry_access_denied', { product => $product_name });
-    }
-
-    # Checks whether the product is open for new bugs and
-    # has at least one component and one version.
-    my ($is_open, $has_version) = 
-        $dbh->selectrow_array('SELECT CASE WHEN disallownew = 0
-                                           THEN 1 ELSE 0 END,
-                                      CASE WHEN versions.value IS NOT NULL
-                                           THEN 1 ELSE 0 END
-                                 FROM products
-                           INNER JOIN components
-                                   ON components.product_id = products.id
-                            LEFT JOIN versions
-                                   ON versions.product_id = products.id
-                                WHERE products.name = ? ' .
-                               $dbh->sql_limit(1), undef, $product_name);
-
-    # Returns undef if the product has no components
-    # Returns 0 if the product has no versions, or is closed for bug entry
-    # Returns 1 if the user can enter bugs into the product
-    return ($is_open && $has_version) unless $warn;
-
-    # (undef, undef): the product has no components,
-    # (0,     ?)    : the product is closed for new bug entry,
-    # (?,     0)    : the product has no versions,
-    # (1,     1)    : the user can enter bugs into the product,
-    if (!defined $is_open) {
-        ThrowUserError('missing_component', { product => $product_name });
-    } elsif (!$is_open) {
-        ThrowUserError('product_disabled', { product => $product_name });
-    } elsif (!$has_version) {
-        ThrowUserError('missing_version', { product => $product_name });
-    }
-    return 1;
-}
-
-sub get_enterable_products {
-    my $self = shift;
-
-    if (defined $self->{enterable_products}) {
-        return $self->{enterable_products};
-    }
-
-    my @products;
-    foreach my $product (Bugzilla::Product::get_all_products()) {
-        if ($self->can_enter_product($product->name)) {
-            push(@products, $product);
-        }
-    }
-    $self->{enterable_products} = \@products;
-    return $self->{enterable_products};
+    $self->{SelectableProducts} = \@products;
+    my %list = @products;
+    return \%list if $by_id;
+    return values(%list);
 }
 
 # visible_groups_inherited returns a reference to a list of all the groups
@@ -631,13 +487,8 @@ sub visible_groups_direct {
     return $self->{visible_groups_direct};
 }
 
-sub visible_groups_as_string {
-    my $self = shift;
-    return join(', ', @{$self->visible_groups_inherited()});
-}
-
-sub derive_regexp_groups {
-    my ($self) = @_;
+sub derive_groups {
+    my ($self, $already_locked) = @_;
 
     my $id = $self->id;
     return unless $id;
@@ -646,32 +497,71 @@ sub derive_regexp_groups {
 
     my $sth;
 
+    $dbh->bz_lock_tables('profiles WRITE', 'user_group_map WRITE',
+                         'group_group_map READ',
+                         'groups READ') unless $already_locked;
+
     # avoid races, we are only up to date as of the BEGINNING of this process
     my $time = $dbh->selectrow_array("SELECT NOW()");
 
+    # first remove any old derived stuff for this user
+    $dbh->do(q{DELETE FROM user_group_map
+                      WHERE user_id = ?
+                        AND grant_type != ?},
+             undef,
+             $id,
+             GRANT_DIRECT);
+
+    my %groupidsadded = ();
     # add derived records for any matching regexps
 
-    $sth = $dbh->prepare("SELECT id, userregexp, user_group_map.group_id
-                            FROM groups
-                       LEFT JOIN user_group_map
-                              ON groups.id = user_group_map.group_id
-                             AND user_group_map.user_id = ?
-                             AND user_group_map.grant_type = ?");
-    $sth->execute($id, GRANT_REGEXP);
+    $sth = $dbh->prepare("SELECT id, userregexp FROM groups WHERE userregexp != ''");
+    $sth->execute;
 
-    my $group_insert = $dbh->prepare(q{INSERT INTO user_group_map
-                                       (user_id, group_id, isbless, grant_type)
-                                       VALUES (?, ?, 0, ?)});
-    my $group_delete = $dbh->prepare(q{DELETE FROM user_group_map
-                                       WHERE user_id = ?
-                                         AND group_id = ?
-                                         AND isbless = 0
-                                         AND grant_type = ?});
-    while (my ($group, $regexp, $present) = $sth->fetchrow_array()) {
-        if (($regexp ne '') && ($self->{login} =~ m/$regexp/i)) {
-            $group_insert->execute($id, $group, GRANT_REGEXP) unless $present;
-        } else {
-            $group_delete->execute($id, $group, GRANT_REGEXP) if $present;
+    my $group_insert;
+    while (my $row = $sth->fetch) {
+        if ($self->{login} =~ m/$row->[1]/i) {
+            $group_insert ||= $dbh->prepare(q{INSERT INTO user_group_map
+                                              (user_id, group_id, isbless, grant_type)
+                                              VALUES (?, ?, 0, ?)});
+            $groupidsadded{$row->[0]} = 1;
+            $group_insert->execute($id, $row->[0], GRANT_REGEXP);
+        }
+    }
+
+    # Get a list of the groups of which the user is a member.
+    my %groupidschecked = ();
+
+    my @groupidstocheck = @{$dbh->selectcol_arrayref(q{SELECT group_id
+                                                         FROM user_group_map
+                                                        WHERE user_id=?},
+                                                     undef,
+                                                     $id)};
+
+    # Each group needs to be checked for inherited memberships once.
+    my $group_sth;
+    while (@groupidstocheck) {
+        my $group = shift @groupidstocheck;
+        if (!defined($groupidschecked{"$group"})) {
+            $groupidschecked{"$group"} = 1;
+            $group_sth ||= $dbh->prepare(q{SELECT grantor_id
+                                             FROM group_group_map
+                                            WHERE member_id=?
+                                              AND grant_type = } .
+                                                  GROUP_MEMBERSHIP);
+            $group_sth->execute($group);
+            while (my ($groupid) = $group_sth->fetchrow_array) {
+                if (!defined($groupidschecked{"$groupid"})) {
+                    push(@groupidstocheck,$groupid);
+                }
+                if (!$groupidsadded{$groupid}) {
+                    $groupidsadded{$groupid} = 1;
+                    $group_insert ||= $dbh->prepare(q{INSERT INTO user_group_map
+                                                      (user_id, group_id, isbless, grant_type)
+                                                      VALUES (?, ?, 0, ?)});
+                    $group_insert->execute($id, $groupid, GRANT_DERIVED);
+                }
+            }
         }
     }
 
@@ -681,6 +571,7 @@ sub derive_regexp_groups {
              undef,
              $time,
              $id);
+    $dbh->bz_unlock_tables() unless $already_locked;
 }
 
 sub product_responsibilities {
@@ -785,8 +676,8 @@ sub match {
             $query .= "AND user_group_map.user_id = userid " .
                       "AND isbless = 0 " .
                       "AND group_id IN(" .
-                      join(', ', (-1, @{$user->visible_groups_inherited})) . 
-                      ")";
+                      join(', ', (-1, @{$user->visible_groups_inherited})) . ") " .
+                      "AND grant_type <> " . GRANT_DERIVED;
         }
         $query    .= " AND disabledtext = '' " if $exclude_disabled;
         $query    .= "ORDER BY namelength ";
@@ -838,7 +729,8 @@ sub match {
             $query .= " AND user_group_map.user_id = userid" .
                       " AND isbless = 0" .
                       " AND group_id IN(" .
-                join(', ', (-1, @{$user->visible_groups_inherited})) . ")";
+                join(', ', (-1, @{$user->visible_groups_inherited})) . ")" .
+                      " AND grant_type <> " . GRANT_DERIVED;
         }
         $query     .= " AND disabledtext = ''" if $exclude_disabled;
         $query     .= " ORDER BY namelength";
@@ -909,6 +801,8 @@ sub match_field {
     my $match_multiple = 0;     # whether we ever matched more than one user
 
     # prepare default form values
+
+    my $vars = $::vars;
 
     # What does a "--do_not_change--" field look like (if any)?
     my $dontchange = $cgi->param('dontchange');
@@ -1088,18 +982,15 @@ sub match_field {
     # Skip confirmation if we were told to, or if we don't need to confirm.
     return $retval if ($behavior == MATCH_SKIP_CONFIRM || !$need_confirm);
 
-    my $template = Bugzilla->template;
-    my $vars = {};
-
-    $vars->{'script'}        = Bugzilla->cgi->url(-relative => 1); # for self-referencing URLs
+    $vars->{'script'}        = $ENV{'SCRIPT_NAME'}; # for self-referencing URLs
     $vars->{'fields'}        = $fields; # fields being matched
     $vars->{'matches'}       = $matches; # matches that were made
     $vars->{'matchsuccess'}  = $matchsuccess; # continue or fail
 
     print Bugzilla->cgi->header();
 
-    $template->process("global/confirm-user-match.html.tmpl", $vars)
-      || ThrowTemplateError($template->error());
+    $::template->process("global/confirm-user-match.html.tmpl", $vars)
+      || ThrowTemplateError($::template->error());
 
     exit;
 
@@ -1118,9 +1009,7 @@ our %names_to_events = (
     'Target Milestone'       => EVT_PROJ_MANAGEMENT,
     'Attachment description' => EVT_ATTACHMENT_DATA,
     'Attachment mime type'   => EVT_ATTACHMENT_DATA,
-    'Attachment is patch'    => EVT_ATTACHMENT_DATA,
-    'BugsThisDependsOn'      => EVT_DEPEND_BLOCK,
-    'OtherBugsDependingOnThis' => EVT_DEPEND_BLOCK);
+    'Attachment is patch'    => EVT_ATTACHMENT_DATA);
 
 # Returns true if the user wants mail for a given bug change.
 # Note: the "+" signs before the constants suppress bareword quoting.
@@ -1275,7 +1164,8 @@ sub get_userlist {
         $query .= "LEFT JOIN user_group_map " .
                   "ON user_group_map.user_id = userid AND isbless = 0 " .
                   "AND group_id IN(" .
-                  join(', ', (-1, @{$self->visible_groups_inherited})) . ")";
+                  join(', ', (-1, @{$self->visible_groups_inherited})) . ") " .
+                  "AND grant_type <> " . GRANT_DERIVED;
     }
     $query    .= " WHERE disabledtext = '' ";
     $query    .= $dbh->sql_group_by('userid', 'login_name, realname');
@@ -1297,19 +1187,17 @@ sub get_userlist {
     return $self->{'userlist'};
 }
 
-sub insert_new_user {
+sub insert_new_user ($$;$$) {
     my ($username, $realname, $password, $disabledtext) = (@_);
     my $dbh = Bugzilla->dbh;
 
     $disabledtext ||= '';
 
     # If not specified, generate a new random password for the user.
-    # If the password is '*', do not encrypt it; we are creating a user
-    # based on the ENV auth method.
-    $password ||= generate_random_password();
-    my $cryptpassword = ($password ne '*') ? bz_crypt($password) : $password;
+    $password ||= &::GenerateRandomPassword();
+    my $cryptpassword = bz_crypt($password);
 
-    # XXX - These should be moved into is_available_username or validate_email_syntax
+    # XXX - These should be moved into ValidateNewUser or CheckEmailSyntax
     #       At the least, they shouldn't be here. They're safe for now, though.
     trick_taint($username);
     trick_taint($realname);
@@ -1345,17 +1233,13 @@ sub insert_new_user {
                  "(user_id, relationship, event) " . 
                  "VALUES ($userid, " . REL_ANY . ", $event)");
     }
-
-    my $user = new Bugzilla::User($userid);
-    $user->derive_regexp_groups();
-
     
     # Return the password to the calling code so it can be included
     # in an email sent to the user.
     return $password;
 }
 
-sub is_available_username {
+sub is_available_username ($;$) {
     my ($username, $old_username) = @_;
 
     if(login_to_id($username) != 0) {
@@ -1391,7 +1275,7 @@ sub is_available_username {
     return 1;
 }
 
-sub login_to_id {
+sub login_to_id ($) {
     my ($login) = (@_);
     my $dbh = Bugzilla->dbh;
     # $login will only be used by the following SELECT statement, so it's safe.
@@ -1406,8 +1290,8 @@ sub login_to_id {
     }
 }
 
-sub UserInGroup {
-    return exists Bugzilla->user->groups->{$_[0]} ? 1 : 0;
+sub UserInGroup ($) {
+    return defined Bugzilla->user->groups->{$_[0]} ? 1 : 0;
 }
 
 1;
@@ -1423,9 +1307,6 @@ Bugzilla::User - Object for a Bugzilla user
   use Bugzilla::User;
 
   my $user = new Bugzilla::User($id);
-
-  my @get_selectable_classifications = 
-      $user->get_selectable_classifications;
 
   # Class Functions
   $password = insert_new_user($username, $realname, $password, $disabledtext);
@@ -1470,7 +1351,7 @@ confirmation screen.
 
 =item C<new($userid)>
 
-Creates a new C<Bugzilla::User> object for the given user id.  If no user
+Creates a new C{Bugzilla::User> object for the given user id.  If no user
 id was given, a blank object is created with no user attributes.
 
 If an id was given but there was no matching user found, undef is returned.
@@ -1484,6 +1365,10 @@ C<undef> if no matching user is found.
 
 This routine should not be required in general; most scripts should be using
 userids instead.
+
+This routine and C<new> both take an extra optional argument, which is
+passed as the argument to C<derive_groups> to avoid locking. See that
+routine's documentation for details.
 
 =end undocumented
 
@@ -1511,7 +1396,7 @@ the page footer, and C<0> otherwise.
 
 =item C<identity>
 
-Returns a string for the identity of the user. This will be of the form
+Retruns a string for the identity of the user. This will be of the form
 C<name E<lt>emailE<gt>> if the user has specified a name, and C<email>
 otherwise.
 
@@ -1574,19 +1459,12 @@ are the names of the groups, whilst the values are the respective group ids.
 (This is so that a set of all groupids for groups the user is in can be
 obtained by C<values(%{$user-E<gt>groups})>.)
 
-=item C<groups_as_string>
-
-Returns a string containing a comma-seperated list of numeric group ids.  If
-the user is not a member of any groups, returns "-1". This is most often used
-within an SQL IN() function.
-
 =item C<in_group>
 
-Determines whether or not a user is in the given group by name. 
-
-=item C<in_group_id>
-
-Determines whether or not a user is in the given group by id. 
+Determines whether or not a user is in the given group. This method is mainly
+intended for cases where we are not looking at the currently logged in user,
+and only need to make a quick check for the group, where calling C<groups>
+and getting all of the groups would be overkill.
 
 =item C<bless_groups>
 
@@ -1597,26 +1475,11 @@ The arrayref consists of the groups the user can bless, taking into account
 that having editusers permissions means that you can bless all groups, and
 that you need to be aware of a group in order to bless a group.
 
-=item C<can_see_user(user)>
-
-Returns 1 if the specified user account exists and is visible to the user,
-0 otherwise.
-
-=item C<can_edit_product(prod_id)>
-
-Determines if, given a product id, the user can edit bugs in this product
-at all.
-
 =item C<can_see_bug(bug_id)>
 
 Determines if the user can see the specified bug.
 
-=item C<can_see_product(product_name)>
-
-Returns 1 if the user can access the specified product, and 0 if the user
-should not be aware of the existence of the product.
-
-=item C<derive_regexp_groups>
+=item C<derive_groups>
 
 Bugzilla allows for group inheritance. When data about the user (or any of the
 groups) changes, the database must be updated. Handling updated groups is taken
@@ -1624,52 +1487,12 @@ care of by the constructor. However, when updating the email address, the
 user may be placed into different groups, based on a new email regexp. This
 method should be called in such a case to force reresolution of these groups.
 
-=item C<get_selectable_products>
+=item C<get_selectable_products(by_id)>
 
- Description: Returns all products the user is allowed to access. This list
-              is restricted to some given classification if $classification_id
-              is given.
-
- Params:      $classification_id - (optional) The ID of the classification
-                                   the products belong to.
-
- Returns:     An array of product objects, sorted by the product name.
-
-=item C<get_selectable_classifications>
-
- Description: Returns all classifications containing at least one product
-              the user is allowed to view.
-
- Params:      none
-
- Returns:     An array of Bugzilla::Classification objects, sorted by
-              the classification name.
-
-=item C<can_enter_product($product_name, $warn)>
-
- Description: Returns 1 if the user can enter bugs into the specified product.
-              If the user cannot enter bugs into the product, the behavior of
-              this method depends on the value of $warn:
-              - if $warn is false (or not given), a 'false' value is returned;
-              - if $warn is true, an error is thrown.
-
- Params:      $product_name - a product name.
-              $warn         - optional parameter, indicating whether an error
-                              must be thrown if the user cannot enter bugs
-                              into the specified product.
-
- Returns:     1 if the user can enter bugs into the product,
-              0 if the user cannot enter bugs into the product and if $warn
-              is false (an error is thrown if $warn is true).
-
-=item C<get_enterable_products>
-
- Description: Returns an array of product objects into which the user is
-              allowed to enter bugs.
-
- Params:      none
-
- Returns:     an array of product objects.
+Returns an alphabetical list of product names from which
+the user can select bugs.  If the $by_id parameter is true, it returns
+a hash where the keys are the product ids and the values are the
+product names.
 
 =item C<get_userlist>
 
@@ -1695,10 +1518,22 @@ be have derived groups up-to-date to select the users meeting this criteria.
 
 Returns a list of groups that the user is aware of.
 
-=item C<visible_groups_as_string>
+=begin undocumented
 
-Returns the result of C<visible_groups_direct> as a string (a comma-separated
-list).
+This routine takes an optional argument. If true, then this routine will not
+lock the tables, but will rely on the caller to have done so itsself.
+
+This is required because mysql will only execute a query if all of the tables
+are locked, or if none of them are, not a mixture. If the caller has already
+done some locking, then this routine would fail. Thus the caller needs to lock
+all the tables required by this method, and then C<derive_groups> won't do
+any locking.
+
+This is a really ugly solution, and when Bugzilla supports transactions
+instead of using the explicit table locking we were forced to do when thats
+all MySQL supported, this will go away.
+
+=end undocumented
 
 =item C<product_responsibilities>
 

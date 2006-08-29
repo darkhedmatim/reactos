@@ -47,12 +47,12 @@ function randomTitle() {
 }
 
 if( !$wgUseSquid ) {
-	wfDie( "Squid purge benchmark doesn't do much without squid support on.\n" );
+	die( "Squid purge benchmark doesn't do much without squid support on.\n" );
 } else {
 	printf( "There are %d defined squid servers:\n", count( $wgSquidServers ) );
 	#echo implode( "\n", $wgSquidServers ) . "\n";
 	if( isset( $options['count'] ) ) {
-		$lengths = array( intval( $options['count'] ) );
+		$lengths = array( IntVal( $options['count'] ) );
 	} else {
 		$lengths = array( 1, 10, 100 );
 	}

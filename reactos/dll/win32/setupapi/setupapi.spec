@@ -9,8 +9,8 @@
 @ stub CMP_UnregisterNotification
 @ stub CMP_WaitNoPendingInstallEvents
 @ stub CMP_WaitServicesAvailable
-@ stdcall CM_Add_Empty_Log_Conf(ptr ptr long long)
-@ stdcall CM_Add_Empty_Log_Conf_Ex(ptr ptr long long ptr)
+@ stub CM_Add_Empty_Log_Conf
+@ stub CM_Add_Empty_Log_Conf_Ex
 @ stdcall CM_Add_IDA(ptr str long)
 @ stdcall CM_Add_IDW(ptr wstr long)
 @ stdcall CM_Add_ID_ExA(ptr str long ptr)
@@ -27,8 +27,8 @@
 @ stub CM_Create_Range_List
 @ stdcall CM_Delete_Class_Key(ptr long)
 @ stdcall CM_Delete_Class_Key_Ex(ptr long long)
-@ stdcall CM_Delete_DevNode_Key(long long long)
-@ stdcall CM_Delete_DevNode_Key_Ex(long long long ptr)
+@ stub CM_Delete_DevNode_Key
+@ stub CM_Delete_DevNode_Key_Ex
 @ stub CM_Delete_Range
 @ stub CM_Detect_Resource_Conflict
 @ stub CM_Detect_Resource_Conflict_Ex
@@ -46,9 +46,9 @@
 @ stdcall CM_Enumerate_Enumerators_ExW(long wstr ptr long long)
 @ stub CM_Find_Range
 @ stub CM_First_Range
-@ stdcall CM_Free_Log_Conf(ptr long)
-@ stdcall CM_Free_Log_Conf_Ex(ptr long ptr)
-@ stdcall CM_Free_Log_Conf_Handle(ptr)
+@ stub CM_Free_Log_Conf
+@ stub CM_Free_Log_Conf_Ex
+@ stub CM_Free_Log_Conf_Handle
 @ stub CM_Free_Range_List
 @ stub CM_Free_Res_Des
 @ stub CM_Free_Res_Des_Ex
@@ -97,22 +97,22 @@
 @ stub CM_Get_Device_Interface_List_SizeW
 @ stub CM_Get_Device_Interface_List_Size_ExA
 @ stub CM_Get_Device_Interface_List_Size_ExW
-@ stdcall CM_Get_First_Log_Conf(ptr long long)
-@ stdcall CM_Get_First_Log_Conf_Ex(ptr long long long)
+@ stub CM_Get_First_Log_Conf
+@ stub CM_Get_First_Log_Conf_Ex
 @ stdcall CM_Get_Global_State(ptr long)
 @ stdcall CM_Get_Global_State_Ex(ptr long long)
-@ stdcall CM_Get_HW_Prof_FlagsA(str long ptr long)
-@ stdcall CM_Get_HW_Prof_FlagsW(wstr long ptr long)
-@ stdcall CM_Get_HW_Prof_Flags_ExA(str long ptr long long)
-@ stdcall CM_Get_HW_Prof_Flags_ExW(wstr long ptr long long)
+@ stub CM_Get_HW_Prof_FlagsA
+@ stub CM_Get_HW_Prof_FlagsW
+@ stub CM_Get_HW_Prof_Flags_ExA
+@ stub CM_Get_HW_Prof_Flags_ExW
 @ stub CM_Get_Hardware_Profile_InfoA
 @ stub CM_Get_Hardware_Profile_InfoW
 @ stub CM_Get_Hardware_Profile_Info_ExA
 @ stub CM_Get_Hardware_Profile_Info_ExW
-@ stdcall CM_Get_Log_Conf_Priority(ptr ptr long)
-@ stdcall CM_Get_Log_Conf_Priority_Ex(ptr ptr long long)
-@ stdcall CM_Get_Next_Log_Conf(ptr ptr long)
-@ stdcall CM_Get_Next_Log_Conf_Ex(ptr ptr long long)
+@ stub CM_Get_Log_Conf_Priority
+@ stub CM_Get_Log_Conf_Priority_Ex
+@ stub CM_Get_Next_Log_Conf
+@ stub CM_Get_Next_Log_Conf_Ex
 @ stub CM_Get_Next_Res_Des
 @ stub CM_Get_Next_Res_Des_Ex
 @ stdcall CM_Get_Parent(ptr long long)
@@ -143,8 +143,8 @@
 @ stdcall CM_Open_Class_KeyW(ptr wstr long long ptr long)
 @ stdcall CM_Open_Class_Key_ExA(ptr str long long ptr long long)
 @ stdcall CM_Open_Class_Key_ExW(ptr wstr long long ptr long long)
-@ stdcall CM_Open_DevNode_Key(ptr long long long ptr long)
-@ stdcall CM_Open_DevNode_Key_Ex(ptr long long long ptr long long)
+@ stub CM_Open_DevNode_Key
+@ stub CM_Open_DevNode_Key_Ex
 @ stub CM_Query_Arbitrator_Free_Data
 @ stub CM_Query_Arbitrator_Free_Data_Ex
 @ stub CM_Query_Arbitrator_Free_Size
@@ -179,10 +179,10 @@
 @ stdcall CM_Set_DevNode_Registry_Property_ExW(long long ptr long long long)
 @ stub CM_Set_HW_Prof
 @ stub CM_Set_HW_Prof_Ex
-@ stdcall CM_Set_HW_Prof_FlagsA(str long long long)
-@ stdcall CM_Set_HW_Prof_FlagsW(wstr long long long)
-@ stdcall CM_Set_HW_Prof_Flags_ExA(str long long long long)
-@ stdcall CM_Set_HW_Prof_Flags_ExW(wstr long long long long)
+@ stub CM_Set_HW_Prof_FlagsA
+@ stub CM_Set_HW_Prof_FlagsW
+@ stub CM_Set_HW_Prof_Flags_ExA
+@ stub CM_Set_HW_Prof_Flags_ExW
 @ stdcall CM_Setup_DevNode(long long)
 @ stdcall CM_Setup_DevNode_Ex(long long long)
 @ stub CM_Test_Range_Available

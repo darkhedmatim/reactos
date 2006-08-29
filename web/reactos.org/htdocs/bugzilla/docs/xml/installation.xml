@@ -1,5 +1,5 @@
 <!-- <!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"> -->
-<!-- $Id: installation.xml,v 1.107.2.7 2006/03/03 22:23:18 jocuri%softhome.net Exp $ -->
+<!-- $Id: installation.xml,v 1.98.2.9 2005/12/30 15:29:01 mozilla%colinogilvie.co.uk Exp $ -->
 <chapter id="installing-bugzilla">
   <title>Installing Bugzilla</title>
 
@@ -352,25 +352,13 @@
             Text::Wrap (&min-text-wrap-ver;)
           </para>
         </listitem>
-
+        
         <listitem>
           <para>
             Mail::Mailer (&min-mail-mailer-ver;)
           </para>
         </listitem>
-
-        <listitem>
-          <para>
-            MIME::Base64 (&min-mime-base64-ver;)
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            MIME::Parser (&min-mime-parser-ver;)
-          </para>
-        </listitem>
-
+        
         <listitem>
           <para>
             Storable (&min-storable-ver;)
@@ -421,10 +409,11 @@
             (&min-patchreader-ver;) for pretty HTML view of patches
           </para>
         </listitem>
-
+        
         <listitem>
           <para>
-            Image::Magick (&min-image-magick-ver;) for converting BMP image attachments to PNG
+            <link linkend="install-modules-mime-parser">MIME::Parser</link>
+            (&min-mime-parser-ver;) for the optional email interface
           </para>
         </listitem>
       </orderedlist>          
@@ -520,16 +509,25 @@
         </para>
       </section>
 
+      <section id="install-modules-mime-parser">
+        <title>MIME::Parser (&min-mime-parser-ver;)</title>
+
+        <para>The MIME::Parser module is only required if you want to use the 
+        email interface
+        located in the <filename class="directory">contrib</filename> directory.
+        </para>
+      </section>
+
       <section id="install-modules-patchreader">
         <title>PatchReader (&min-patchreader-ver;)</title>
 
-        <para>The PatchReader module is only required if you want to use
+        <para>The PatchReader module is only required if you want to use 
         Patch Viewer, a
         Bugzilla feature to show code patches in your web browser in a more
-        readable form.
+        readable form. 
         </para>
       </section>
-    </section>
+    </section>    
     <section id="install-MTA">
       <title>Mail Transfer Agent (MTA)</title>
     
@@ -545,7 +543,7 @@
           file instead of sending them.  However, this is mainly intended 
           for testing, as disabling or diverting email on a production 
           machine would mean that users could miss important events (such 
-          as bug changes or the creation of new accounts).
+          as bug changes or the creation of new accouts).
         </para>
 
         <para>
@@ -732,7 +730,7 @@
 
           <note>
             <para>
-              The ft_min_word_len parameter is only supported in MySQL v4 or higher.
+              The ft_min_word_len parameter is only suported in MySQL v4 or higher.
             </para>
           </note>
         </section>
@@ -828,7 +826,7 @@
       <section id="postgresql">
         <title>PostgreSQL</title>
         <note>
-          <para>If you are using PostgreSQL 8.0.1 or higher, then you
+          <para>Note if you are using PostgreSQL 8.0.1 or higher, then you
           will require to use a version of DBD::Pg which is equal to or
           greater than version 1.41
           </para>
@@ -868,9 +866,9 @@
           you will need to add a new line to it as follows:</para>
 
           <para>
-	    <computeroutput>host   all    bugs   127.0.0.1    255.255.255.255  md5</computeroutput>
+            <computeroutput>host   all    bugs   127.0.0.1    255.255.255.255  md5</computeroutput>
           </para>
-	  
+
           <para>This means that for TCP/IP (host) connections, allow connections from
           '127.0.0.1' to 'all' databases on this server from the 'bugs' user, and use
           password authentication (md5) for that user.</para>
@@ -881,15 +879,15 @@
           You will need to make a single line change, changing</para>
 
           <para>
-            <computeroutput># tcpip_socket = false</computeroutput>
+	    <computeroutput># tcpip_socket = false</computeroutput>
           </para>
-  
+
           <para>to</para>
             
 	  <para>
-            <computeroutput>tcpip_socket = true</computeroutput>
-	  </para>
-  
+	    <computeroutput>tcpip_socket = true</computeroutput>
+          </para>
+	  
           <para>Now, you will need to restart PostgreSQL, but you will need to fully
           stop and start the server rather than just restarting due to the possibility
           of a change to <filename>postgresql.conf</filename>. After the server has
@@ -1202,7 +1200,7 @@ c:\perl\bin\perl.exe -xc:\bugzilla -wT "%s" %s
 
       <para>
         When upgrading Bugzilla, this format may change.
-        To create new status data, (re)move old data and run the following 
+        To create new status data, (re)move old data and run the following
         commands:
       </para>
 
@@ -1512,7 +1510,7 @@ AddType application/rdf+xml .rdf</screen>
     <title>OS-Specific Installation Notes</title>
 
     <para>Many aspects of the Bugzilla installation can be affected by the
-    operating system you choose to install it on. Sometimes it can be made
+    the operating system you choose to install it on. Sometimes it can be made
     easier and others more difficult. This section will attempt to help you
     understand both the difficulties of running on specific operating systems
     and the utilities available to make it easier.
@@ -1560,7 +1558,7 @@ C:\perl&gt; <command>ppm install &lt;module name&gt;</command>
 
         <para>
           The best source for the Windows PPM modules needed for Bugzilla
-          is probably the Bugzilla Test Server (aka 'Landfill'), so 
+          is probably the the Bugzilla Test Server (aka 'Landfill'), so 
           you should add the Landfill package repository as follows:
         </para>
 
@@ -1581,7 +1579,7 @@ C:\perl&gt; <command>ppm install &lt;module name&gt;</command>
         <tip>
           <para>
             If you are behind a corporate firewall, you will need to let the
-            ActiveState PPM utility know how to get through it to access
+            ActiveState PPM utility know how to get through it to acccess
             the repositories by setting the HTTP_proxy system environmental
             variable. For more information on setting that variable, see
             the ActiveState documentation.
@@ -1638,91 +1636,67 @@ C:\perl&gt; <command>ppm install &lt;module name&gt;</command>
     <section id="os-macosx">
       <title><productname>Mac OS X</productname></title>
 
-      <para>Making Bugzilla work on Mac OS X requires the following 
-      adjustments.</para>
+      <para>Apple did not include the GD library with Mac OS X. Bugzilla
+      needs this for bug graphs.</para>
 
-      <section id="macosx-sendmail">
-        <title>Sendmail</title>
+      <para>You can install it using a program called
+      Fink, which is similar in nature to the CPAN installer, but installs
+      common GNU utilities. Fink is available from
+      <ulink url="http://sourceforge.net/projects/fink/"/>.</para>
 
-        <para>In Mac OS X 10.3 and later, 
-        <ulink url="http://www.postfix.org/">Postfix</ulink> 
-        is used as the built-in email server.  Postfix provides an executable
-        that mimics sendmail enough to fool Bugzilla, as long as Bugzilla can 
-        find it.</para>
+      <para>Follow the instructions for setting up Fink. Once it's installed,
+      you'll want to use it to install the <filename>gd2</filename> package.
+      </para>
 
-        <para>As of version 2.20, Bugzilla will be able to find the fake 
-        sendmail executable without any assistance.  However, you will have 
-        to turn on the sendmailnow parameter before you do anything that would 
-        result in email being sent.  For more information, see the description 
-        of the sendmailnow parameter in <xref linkend="parameters"/>.</para>
+      <para>It will prompt you for a number of dependencies, type 'y' and hit
+      enter to install all of the dependencies and then watch it work. You will
+      then be able to use <glossterm linkend="gloss-cpan">CPAN</glossterm> to
+      install the GD Perl module.
+      </para>
 
-      </section>
-
-      <section id="macosx-libraries">
-        <title>Libraries &amp; Perl Modules on Mac OS X</title>
-
-        <para>Apple did not include the GD library with Mac OS X. Bugzilla
-        needs this for bug graphs.</para>
-
-        <para>You can install it using a program called
-        Fink, which is similar in nature to the CPAN installer, but installs
-        common GNU utilities. Fink is available from
-        <ulink url="http://sourceforge.net/projects/fink/"/>.</para>
-
-        <para>Follow the instructions for setting up Fink. Once it's installed,
-        you'll want to use it to install the <filename>gd2</filename> package.
+      <note>
+        <para>To prevent creating conflicts with the software that Apple
+        installs by default, Fink creates its own directory tree at 
+        <filename class="directory">/sw</filename> where it installs most of
+        the software that it installs. This means your libraries and headers
+        will be at <filename class="directory">/sw/lib</filename> and
+        <filename class="directory">/sw/include</filename> instead of
+        <filename class="directory">/usr/lib</filename> and
+        <filename class="directory">/usr/include</filename>. When the
+        Perl module config script asks where your <filename>libgd</filename>
+        is, be sure to tell it
+        <filename class="directory">/sw/lib</filename>.
         </para>
+      </note>
 
-        <para>It will prompt you for a number of dependencies, type 'y' and hit
-        enter to install all of the dependencies and then watch it work. You will
-        then be able to use <glossterm linkend="gloss-cpan">CPAN</glossterm> to
-        install the GD Perl module.
-        </para>
+      <para>Also available via Fink is <filename>expat</filename>. After using
+      fink to install the expat package you will be able to install
+      XML::Parser using CPAN. There is one caveat. Unlike recent versions of
+      the GD module, XML::Parser doesn't prompt for the location of the
+      required libraries. When using CPAN, you will need to use the following
+      command sequence:
+      </para>
 
-        <note>
-          <para>To prevent creating conflicts with the software that Apple
-          installs by default, Fink creates its own directory tree at 
-          <filename class="directory">/sw</filename> where it installs most of
-          the software that it installs. This means your libraries and headers
-          will be at <filename class="directory">/sw/lib</filename> and
-          <filename class="directory">/sw/include</filename> instead of
-          <filename class="directory">/usr/lib</filename> and
-          <filename class="directory">/usr/include</filename>. When the
-          Perl module config script asks where your <filename>libgd</filename>
-          is, be sure to tell it
-          <filename class="directory">/sw/lib</filename>.
-          </para>
-        </note>
-
-        <para>Also available via Fink is <filename>expat</filename>. After using
-        fink to install the expat package you will be able to install
-        XML::Parser using CPAN. There is one caveat. Unlike recent versions of
-        the GD module, XML::Parser doesn't prompt for the location of the
-        required libraries. When using CPAN, you will need to use the following
-        command sequence:
-        </para>
-
-        <screen>
+      <screen>
 # perl -MCPAN -e'look XML::Parser'        <co id="macosx-look"/>
 # perl Makefile.PL EXPATLIBPATH=/sw/lib EXPATINCPATH=/sw/include
 # make; make test; make install           <co id="macosx-make"/>
 # exit                                    <co id="macosx-exit"/>
-        </screen>
-        <calloutlist>
-          <callout arearefs="macosx-look macosx-exit">
-            <para>The look command will download the module and spawn a
-            new shell with the extracted files as the current working directory.
-            The exit command will return you to your original shell.
-            </para>
-          </callout>
-          <callout arearefs="macosx-make">
-            <para>You should watch the output from these make commands,
-            especially <quote>make test</quote> as errors may prevent 
-            XML::Parser from functioning correctly with Bugzilla.
-            </para>
-          </callout>
-        </calloutlist>
-      </section>
+      </screen>
+      <calloutlist>
+        <callout arearefs="macosx-look macosx-exit">
+          <para>The look command will download the module and spawn a
+          new shell with the extracted files as the current working directory.
+          The exit command will return you to your original shell.
+          </para>
+        </callout>
+        <callout arearefs="macosx-make">
+          <para>You should watch the output from these make commands,
+          especially <quote>make test</quote> as errors may prevent XML::Parser
+          from functioning correctly with Bugzilla.
+          </para>
+        </callout>
+      </calloutlist>
     </section>
 
     <section id="os-mandrake">
@@ -1784,7 +1758,7 @@ C:\perl&gt; <command>ppm install &lt;module name&gt;</command>
         If you're using a web host, chances are that you have a
         separate database which is already locked down (or one big
         database with limited/no access to the other areas), but you
-        may want to ask your system administrator what the security
+        may want to ask your system adminstrator what the security
         settings are set to, and/or run the <command>GRANT</command>
         command for you.</para>
 

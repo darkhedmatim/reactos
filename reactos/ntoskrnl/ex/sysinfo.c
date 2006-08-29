@@ -24,16 +24,6 @@ VOID MmPrintMemoryStatistic(VOID);
 /* FUNCTIONS *****************************************************************/
 
 /*
- * @implemented
- */
-KPROCESSOR_MODE
-NTAPI
-ExGetPreviousMode (VOID)
-{
-    return (KPROCESSOR_MODE)PsGetCurrentThread()->Tcb.PreviousMode;
-}
-
-/*
  * @unimplemented
  */
 VOID
@@ -206,7 +196,7 @@ NtQuerySystemEnvironmentValue (IN	PUNICODE_STRING	VariableName,
     /*
      * Get the environment variable
      */
-    Result = HalGetEnvironmentVariable(AName.Buffer, ValueBufferLength, Value);
+    Result = HalGetEnvironmentVariable(AName.Buffer, Value, ValueBufferLength);
     if(!Result)
     {
       RtlFreeAnsiString(&AName);
@@ -591,12 +581,11 @@ QSI_DEF(SystemProcessInformation)
 		do
 		{
 			PSYSTEM_PROCESS_INFORMATION SpiCur;
-			int curSize;
+			int curSize, i = 0;
 			ANSI_STRING	imgName;
 			int inLen=32; // image name len in bytes
 			PLIST_ENTRY current_entry;
 			PETHREAD current;
-            PSYSTEM_THREAD_INFORMATION ThreadInfo;
 
 			SpiCur = (PSYSTEM_PROCESS_INFORMATION)pCur;
 
@@ -609,7 +598,7 @@ QSI_DEF(SystemProcessInformation)
 			}
 
 			// size of the structure for every process
-			curSize = sizeof(SYSTEM_PROCESS_INFORMATION)+sizeof(SYSTEM_THREAD_INFORMATION)*nThreads;
+			curSize = sizeof(SYSTEM_PROCESS_INFORMATION)-sizeof(SYSTEM_THREAD_INFORMATION)+sizeof(SYSTEM_THREAD_INFORMATION)*nThreads;
 			ovlSize += curSize+inLen;
 
 			if (ovlSize > Size)
@@ -656,8 +645,7 @@ QSI_DEF(SystemProcessInformation)
 			SpiCur->QuotaNonPagedPoolUsage = pr->QuotaUsage[1];
 			SpiCur->PagefileUsage = pr->QuotaUsage[3];
 			SpiCur->PeakPagefileUsage = pr->QuotaPeak[3];
-			SpiCur->PrivatePageCount = pr->CommitCharge;
-            ThreadInfo = (PSYSTEM_THREAD_INFORMATION)(SpiCur + 1);
+			SpiCur->PrivateUsage = pr->CommitCharge;
 
 		        current_entry = pr->ThreadListHead.Flink;
         		while (current_entry != &pr->ThreadListHead)
@@ -665,19 +653,18 @@ QSI_DEF(SystemProcessInformation)
 				current = CONTAINING_RECORD(current_entry, ETHREAD,
 				                            ThreadListEntry);
 
-                
-				ThreadInfo->KernelTime.QuadPart = current->Tcb.KernelTime * 100000LL;
-				ThreadInfo->UserTime.QuadPart = current->Tcb.UserTime * 100000LL;
+				SpiCur->TH[i].KernelTime.QuadPart = current->Tcb.KernelTime * 100000LL;
+				SpiCur->TH[i].UserTime.QuadPart = current->Tcb.UserTime * 100000LL;
 //				SpiCur->TH[i].CreateTime = current->CreateTime;
-				ThreadInfo->WaitTime = current->Tcb.WaitTime;
-				ThreadInfo->StartAddress = (PVOID) current->StartAddress;
-				ThreadInfo->ClientId = current->Cid;
-				ThreadInfo->Priority = current->Tcb.Priority;
-				ThreadInfo->BasePriority = current->Tcb.BasePriority;
-				ThreadInfo->ContextSwitches = current->Tcb.ContextSwitches;
-				ThreadInfo->ThreadState = current->Tcb.State;
-				ThreadInfo->WaitReason = current->Tcb.WaitReason;
-				ThreadInfo++;
+				SpiCur->TH[i].WaitTime = current->Tcb.WaitTime;
+				SpiCur->TH[i].StartAddress = (PVOID) current->StartAddress;
+				SpiCur->TH[i].ClientId = current->Cid;
+				SpiCur->TH[i].Priority = current->Tcb.Priority;
+				SpiCur->TH[i].BasePriority = current->Tcb.BasePriority;
+				SpiCur->TH[i].ContextSwitches = current->Tcb.ContextSwitches;
+				SpiCur->TH[i].ThreadState = current->Tcb.State;
+				SpiCur->TH[i].WaitReason = current->Tcb.WaitReason;
+				i++;
 				current_entry = current_entry->Flink;
 			}
 
@@ -849,6 +836,11 @@ QSI_DEF(SystemNonPagedPoolInformation)
 }
 
 
+VOID
+ObpGetNextHandleByProcessCount(PSYSTEM_HANDLE_TABLE_ENTRY_INFO pshi,
+                               PEPROCESS Process,
+                               int Count);
+
 /* Class 16 - Handle Information */
 QSI_DEF(SystemHandleInformation)
 {
@@ -915,7 +907,7 @@ QSI_DEF(SystemHandleInformation)
 
             for (Count = 0; HandleCount > 0 ; HandleCount--)
                {
-                 Shi->Handles[i].UniqueProcessId = (ULONG)pr->UniqueProcessId;
+                 ObpGetNextHandleByProcessCount( &Shi->Handles[i], pr, Count);
                  Count++;
                  i++;
                }
@@ -994,15 +986,15 @@ QSI_DEF(SystemVdmBopInformation)
 /* Class 21 - File Cache Information */
 QSI_DEF(SystemFileCacheInformation)
 {
-	SYSTEM_FILECACHE_INFORMATION *Sci = (SYSTEM_FILECACHE_INFORMATION *) Buffer;
+	SYSTEM_CACHE_INFORMATION *Sci = (SYSTEM_CACHE_INFORMATION *) Buffer;
 
-	if (Size < sizeof (SYSTEM_FILECACHE_INFORMATION))
+	if (Size < sizeof (SYSTEM_CACHE_INFORMATION))
 	{
-		* ReqSize = sizeof (SYSTEM_FILECACHE_INFORMATION);
+		* ReqSize = sizeof (SYSTEM_CACHE_INFORMATION);
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
 
-	RtlZeroMemory(Sci, sizeof(SYSTEM_FILECACHE_INFORMATION));
+	RtlZeroMemory(Sci, sizeof(SYSTEM_CACHE_INFORMATION));
 
 	/* Return the Byte size not the page size. */
 	Sci->CurrentSize =
@@ -1019,7 +1011,7 @@ QSI_DEF(SystemFileCacheInformation)
 
 SSI_DEF(SystemFileCacheInformation)
 {
-	if (Size < sizeof (SYSTEM_FILECACHE_INFORMATION))
+	if (Size < sizeof (SYSTEM_CACHE_INFORMATION))
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
@@ -1054,7 +1046,7 @@ QSI_DEF(SystemInterruptInformation)
   Prcb = ((PKPCR)KPCR_BASE)->Prcb;
   for (i = 0; i < KeNumberProcessors; i++)
   {
-    //sii->ContextSwitches = Prcb->KeContextSwitches;
+    sii->ContextSwitches = Prcb->KeContextSwitches;
     sii->DpcCount = 0; /* FIXME */
     sii->DpcRate = 0; /* FIXME */
     sii->TimeIncrement = ti;
@@ -1553,7 +1545,7 @@ NtQuerySystemInformation (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
       /*
        * Check the request is valid.
        */
-      if (SystemInformationClass >= MaxSystemInfoClass)
+      if (SystemInformationClass >= SystemInformationClassMax)
         {
           return (STATUS_INVALID_INFO_CLASS);
         }
@@ -1629,7 +1621,7 @@ NtSetSystemInformation (
 	 * Check the request is valid.
 	 */
 	if (	(SystemInformationClass >= SystemBasicInformation)
-		&& (SystemInformationClass < MaxSystemInfoClass)
+		&& (SystemInformationClass < SystemInformationClassMax)
 		)
 	{
 		if (NULL != CallQS [SystemInformationClass].Set)

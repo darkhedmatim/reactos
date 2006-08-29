@@ -298,8 +298,9 @@ PNP_GetRelatedDeviceInstance(handle_t BindingHandle,
 
     PlugPlayData.Relation = Relationship;
 
-    PlugPlayData.RelatedDeviceInstanceLength = Length;
-    PlugPlayData.RelatedDeviceInstance = RelatedDeviceId;
+    PlugPlayData.RelatedDeviceInstance.Length = 0;
+    PlugPlayData.RelatedDeviceInstance.MaximumLength = Length;
+    PlugPlayData.RelatedDeviceInstance.Buffer = RelatedDeviceId;
 
     Status = NtPlugPlayControl(PlugPlayControlGetRelatedDevice,
                                (PVOID)&PlugPlayData,
@@ -832,9 +833,7 @@ PNP_GetClassName(handle_t BindingHandle,
 
     lstrcpyW(szKeyName, L"System\\CurrentControlSet\\Control\\Class");
     lstrcatW(szKeyName, L"\\");
-    if(lstrlenW(ClassGuid) < sizeof(szKeyName)/sizeof(WCHAR)-lstrlenW(szKeyName))
-    	lstrcatW(szKeyName, ClassGuid);
-    else return CR_INVALID_DATA;
+    lstrcatW(szKeyName, ClassGuid);
 
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
                       szKeyName,
@@ -1041,122 +1040,6 @@ PNP_UninstallDevInst(handle_t BindingHandle,
 }
 
 
-static BOOL
-CheckForDeviceId(LPWSTR lpDeviceIdList,
-                 LPWSTR lpDeviceId)
-{
-    LPWSTR lpPtr;
-    DWORD dwLength;
-
-    lpPtr = lpDeviceIdList;
-    while (*lpPtr != 0)
-    {
-        dwLength = wcslen(lpPtr);
-        if (!_wcsicmp(lpPtr, lpDeviceId))
-            return TRUE;
-
-        lpPtr += (dwLength + 1);
-    }
-
-    return FALSE;
-}
-
-
-static VOID
-AppendDeviceId(LPWSTR lpDeviceIdList,
-               LPDWORD lpDeviceIdListSize,
-               LPWSTR lpDeviceId)
-{
-    DWORD dwLen;
-    DWORD dwPos;
-
-    dwLen = wcslen(lpDeviceId);
-    dwPos = (*lpDeviceIdListSize / sizeof(WCHAR)) - 1;
-
-    wcscpy(&lpDeviceIdList[dwPos], lpDeviceId);
-
-    dwPos += (dwLen + 1);
-
-    lpDeviceIdList[dwPos] = 0;
-
-    *lpDeviceIdListSize = dwPos * sizeof(WCHAR);
-}
-
-
-/* Function 34 */
-CONFIGRET
-PNP_AddID(handle_t BindingHandle,
-          wchar_t *DeviceInstance,
-          wchar_t *DeviceId,
-          DWORD Flags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-    HKEY hDeviceKey;
-    LPWSTR pszSubKey;
-    DWORD dwDeviceIdListSize;
-    WCHAR szDeviceIdList[512];
-
-    DPRINT("PNP_AddID() called\n");
-    DPRINT("  DeviceInstance: %S\n", DeviceInstance);
-    DPRINT("  DeviceId: %S\n", DeviceId);
-    DPRINT("  Flags: %lx\n", Flags);
-
-    if (RegOpenKeyExW(hEnumKey,
-                      DeviceInstance,
-                      0,
-                      KEY_QUERY_VALUE | KEY_SET_VALUE,
-                      &hDeviceKey) != ERROR_SUCCESS)
-    {
-        DPRINT("Failed to open the device key!\n");
-        return CR_INVALID_DEVNODE;
-    }
-
-    pszSubKey = (Flags & CM_ADD_ID_COMPATIBLE) ? L"CompatibleIDs" : L"HardwareID";
-
-    dwDeviceIdListSize = 512 * sizeof(WCHAR);
-    if (RegQueryValueExW(hDeviceKey,
-                         pszSubKey,
-                         NULL,
-                         NULL,
-                         (LPBYTE)szDeviceIdList,
-                         &dwDeviceIdListSize) != ERROR_SUCCESS)
-    {
-        DPRINT("Failed to query the desired ID string!\n");
-        ret = CR_REGISTRY_ERROR;
-        goto Done;
-    }
-
-    /* Check whether the device ID is already in use */
-    if (CheckForDeviceId(szDeviceIdList, DeviceId))
-    {
-        DPRINT("Device ID was found in the ID string!\n");
-        ret = CR_SUCCESS;
-        goto Done;
-    }
-
-    /* Append the Device ID */
-    AppendDeviceId(szDeviceIdList, &dwDeviceIdListSize, DeviceId);
-
-    if (RegSetValueExW(hDeviceKey,
-                       pszSubKey,
-                       0,
-                       REG_MULTI_SZ,
-                       (LPBYTE)szDeviceIdList,
-                       dwDeviceIdListSize) != ERROR_SUCCESS)
-    {
-        DPRINT("Failed to set the desired ID string!\n");
-        ret = CR_REGISTRY_ERROR;
-    }
-
-Done:
-    RegCloseKey(hDeviceKey);
-
-    DPRINT("PNP_AddID() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
 /* Function 38 */
 CONFIGRET
 PNP_IsDockStationPresent(handle_t BindingHandle,
@@ -1219,128 +1102,6 @@ PNP_RequestEjectPC(handle_t BindingHandle)
     ret = CR_FAILURE; /* FIXME */
 
     DPRINT1("PNP_RequestEjectPC() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 40 */
-CONFIGRET
-PNP_HwProfFlags(handle_t BindingHandle,
-                unsigned long Action,
-                wchar_t *DeviceId,
-                unsigned long ProfileId,
-                unsigned long *Value, // out
-                unsigned long Flags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_HwProfFlags() called\n");
-
-    ret = CR_CALL_NOT_IMPLEMENTED; /* FIXME */
-
-    DPRINT1("PNP_HwProfFlags() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 42 */
-CONFIGRET
-PNP_AddEmptyLogConf(handle_t BindingHandle,
-                    wchar_t *DeviceInstance,
-                    ULONG ulPriority,
-                    ULONG *pulLogConfTag,
-                    ULONG ulFlags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_AddEmptyLogConf() called\n");
-
-    *pulLogConfTag = 0; /* FIXME */
-
-    DPRINT1("PNP_AddEmptyLogConf() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 43 */
-CONFIGRET
-PNP_FreeLogConf(handle_t BindingHandle,
-                wchar_t *DeviceInstance,
-                ULONG ulType,
-                ULONG ulLogConfTag,
-                ULONG ulFlags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_FreeLogConf() called\n");
-
-
-    DPRINT1("PNP_FreeLogConf() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 44 */
-CONFIGRET
-PNP_GetFirstLogConf(handle_t BindingHandle,
-                    wchar_t *DeviceInstance,
-                    ULONG ulPriority,
-                    ULONG *pulLogConfTag,
-                    ULONG ulFlags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_GetFirstLogConf() called\n");
-
-    *pulLogConfTag = 0; /* FIXME */
-
-    DPRINT1("PNP_GetFirstLogConf() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 45 */
-CONFIGRET
-PNP_GetNextLogConf(handle_t BindingHandle,
-                   wchar_t *DeviceInstance,
-                   ULONG ulLogConfType,
-                   ULONG ulCurrentTag,
-                   ULONG *pulNextTag,
-                   ULONG ulFlags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_GetNextLogConf() called\n");
-
-    *pulNextTag = 0; /* FIXME */
-
-    DPRINT1("PNP_GetNextLogConf() done (returns %lx)\n", ret);
-
-    return ret;
-}
-
-
-/* Function 46 */
-CONFIGRET
-PNP_GetLogConfPriority(handle_t BindingHandle,
-                       wchar_t *DeviceInstance,
-                       ULONG ulLogConfType,
-                       ULONG ulCurrentTag,
-                       ULONG *pPriority,
-                       ULONG ulFlags)
-{
-    CONFIGRET ret = CR_SUCCESS;
-
-    DPRINT1("PNP_GetLogConfPriority() called\n");
-
-    *pPriority = 0; /* FIXME */
-
-    DPRINT1("PNP_GetLogConfPriority() done (returns %lx)\n", ret);
 
     return ret;
 }

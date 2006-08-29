@@ -4,6 +4,10 @@
  * @subpackage Cache
  */
 
+/** */
+if (!defined('MEDIAWIKI')) die( "Not a valid entry point\n");
+
+
 /**
  * FakeMemCachedClient imitates the API of memcached-client v. 0.1.2.
  * It acts as a memcached server with no RAM, that is, all objects are
@@ -35,7 +39,7 @@ $wgCaches = array();
 
 /** @todo document */
 function &wfGetCache( $inputType ) {
-	global $wgCaches, $wgMemCachedServers, $wgMemCachedDebug, $wgMemCachedPersistent;
+	global $wgCaches, $wgMemCachedServers, $wgMemCachedDebug;
 	$cache = false;
 
 	if ( $inputType == CACHE_ANYTHING ) {
@@ -49,9 +53,9 @@ function &wfGetCache( $inputType ) {
 	}
 
 	if ( $type == CACHE_MEMCACHED ) {
-		if ( !array_key_exists( CACHE_MEMCACHED, $wgCaches ) ){
+		if ( !array_key_exists( CACHE_MEMCACHED, $wgCaches ) ){ 
 			require_once( 'memcached-client.php' );
-
+			
 			if (!class_exists("MemcachedClientforWiki")) {
 				class MemCachedClientforWiki extends memcached {
 					function _debugprint( $text ) {
@@ -60,8 +64,8 @@ function &wfGetCache( $inputType ) {
 				}
 			}
 
-			$wgCaches[CACHE_DB] = new MemCachedClientforWiki(
-				array('persistant' => $wgMemCachedPersistent, 'compress_threshold' => 1500 ) );
+			$wgCaches[CACHE_DB] = new MemCachedClientforWiki( 
+				array('persistant' => false, 'compress_threshold' => 1500 ) );
 			$cache =& $wgCaches[CACHE_DB];
 			$cache->set_servers( $wgMemCachedServers );
 			$cache->set_debug( $wgMemCachedDebug );
@@ -71,9 +75,6 @@ function &wfGetCache( $inputType ) {
 			if ( function_exists( 'eaccelerator_get' ) ) {
 				require_once( 'BagOStuff.php' );
 				$wgCaches[CACHE_ACCEL] = new eAccelBagOStuff;
-			} elseif ( function_exists( 'apc_fetch') ) {
-				require_once( 'BagOStuff.php' );
-				$wgCaches[CACHE_ACCEL] = new APCBagOStuff;
 			} elseif ( function_exists( 'mmcache_get' ) ) {
 				require_once( 'BagOStuff.php' );
 				$wgCaches[CACHE_ACCEL] = new TurckBagOStuff;
@@ -93,7 +94,7 @@ function &wfGetCache( $inputType ) {
 		}
 		$cache =& $wgCaches[CACHE_DB];
 	}
-
+	
 	if ( $cache === false ) {
 		if ( !array_key_exists( CACHE_NONE, $wgCaches ) ) {
 			$wgCaches[CACHE_NONE] = new FakeMemCachedClient;

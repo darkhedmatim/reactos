@@ -24,17 +24,14 @@
 use strict;
 use lib ".";
 
-require "globals.pl";
+require "CGI.pl";
 
-use vars qw(@legal_opsys @legal_platform @legal_severity);
+use vars qw($template $vars @legal_opsys @legal_platform @legal_severity);
 
 use Bugzilla;
 use Bugzilla::Constants;
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
-my $buffer = $cgi->query_string();
 
 # Go straight back to query.cgi if we are adding a boolean chart.
 if (grep(/^cmd-/, $cgi->param())) {
@@ -52,7 +49,7 @@ GetVersionTable();
 
 Bugzilla->login();
 
-my $dbh = Bugzilla->switch_to_shadow_db();
+Bugzilla->switch_to_shadow_db();
 
 my $action = $cgi->param('action') || 'menu';
 
@@ -149,7 +146,7 @@ my $query = $search->getSQL();
 $::SIG{TERM} = 'DEFAULT';
 $::SIG{PIPE} = 'DEFAULT';
 
-my $results = $dbh->selectall_arrayref($query);
+SendSQL($query);
 
 # We have a hash of hashes for the data itself, and a hash to hold the 
 # row/col/table names.
@@ -165,8 +162,8 @@ my $col_isnumeric = 1;
 my $row_isnumeric = 1;
 my $tbl_isnumeric = 1;
 
-foreach my $result (@$results) {
-    my ($row, $col, $tbl) = @$result;
+while (MoreSQLData()) {
+    my ($row, $col, $tbl) = FetchSQLData();
 
     # handle empty dimension member names
     $row = ' ' if ($row eq '');
@@ -269,9 +266,9 @@ if ($action eq "wrap") {
     # We need to keep track of the defined restrictions on each of the 
     # axes, because buglistbase, below, throws them away. Without this, we
     # get buglistlinks wrong if there is a restriction on an axis field.
-    $vars->{'col_vals'} = join("&", $buffer =~ /[&?]($col_field=[^&]+)/g);
-    $vars->{'row_vals'} = join("&", $buffer =~ /[&?]($row_field=[^&]+)/g);
-    $vars->{'tbl_vals'} = join("&", $buffer =~ /[&?]($tbl_field=[^&]+)/g);
+    $vars->{'col_vals'} = join("&", $::buffer =~ /[&?]($col_field=[^&]+)/g);
+    $vars->{'row_vals'} = join("&", $::buffer =~ /[&?]($row_field=[^&]+)/g);
+    $vars->{'tbl_vals'} = join("&", $::buffer =~ /[&?]($tbl_field=[^&]+)/g);
     
     # We need a number of different variants of the base URL for different
     # URLs in the HTML.
@@ -295,8 +292,7 @@ else {
     ThrowCodeError("unknown_action", {action => $cgi->param('action')});
 }
 
-my $format = $template->get_format("reports/report", $formatparam,
-                                   scalar($cgi->param('ctype')));
+my $format = GetFormat("reports/report", $formatparam, $cgi->param('ctype'));
 
 # If we get a template or CGI error, it comes out as HTML, which isn't valid
 # PNG data, and the browser just displays a "corrupt PNG" message. So, you can

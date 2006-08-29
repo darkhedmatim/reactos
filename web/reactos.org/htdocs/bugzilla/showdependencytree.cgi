@@ -26,18 +26,22 @@
 use strict;
 
 use lib qw(.);
-require "globals.pl";
+require "CGI.pl";
 use Bugzilla::User;
-use Bugzilla::Bug;
+
+# Use global template variables.
+use vars qw($template $vars);
 
 Bugzilla->login();
 
 my $cgi = Bugzilla->cgi;
-my $template = Bugzilla->template;
-my $vars = {};
+
 # Connect to the shadow database if this installation is using one to improve
 # performance.
-my $dbh = Bugzilla->switch_to_shadow_db();
+Bugzilla->switch_to_shadow_db();
+
+# More warning suppression silliness.
+$::userid = $::userid;
 
 ################################################################################
 # Data/Security Validation                                                     #
@@ -141,26 +145,27 @@ sub GetBug {
     # Retrieves the necessary information about a bug, stores it in the bug cache,
     # and returns it to the calling code.
     my ($id) = @_;
-    my $dbh = Bugzilla->dbh;
-
+    
     my $bug = {};
     if (Bugzilla->user->can_see_bug($id)) {
-        ($bug->{'exists'},
-         $bug->{'status'},
-         $bug->{'summary'},
-         $bug->{'milestone'},
-         $bug->{'assignee_id'},
-         $bug->{'assignee_email'}) = $dbh->selectrow_array(
-                "SELECT 1,
+        SendSQL("SELECT 1, 
                         bug_status, 
                         short_desc, 
                         $milestone_column, 
                         assignee.userid, 
                         assignee.login_name
-                   FROM bugs
+                 FROM   bugs
              INNER JOIN profiles AS assignee
                      ON bugs.assigned_to = assignee.userid
-                  WHERE bugs.bug_id = ?", undef, $id);
+                  WHERE bugs.bug_id = $id");
+
+
+        ($bug->{'exists'}, 
+         $bug->{'status'}, 
+         $bug->{'summary'}, 
+         $bug->{'milestone'}, 
+         $bug->{'assignee_id'}, 
+         $bug->{'assignee_email'}) = FetchSQLData();
      }
     
     $bug->{'open'} = $bug->{'exists'} && IsOpenedState($bug->{'status'});
@@ -171,17 +176,19 @@ sub GetBug {
 
 sub GetDependencies {
     # Returns a list of dependencies for a given bug.
+    
     my ($id, $relationship) = @_;
-    my $dbh = Bugzilla->dbh;
-
+    
     my $bug_type = ($relationship eq "blocked") ? "dependson" : "blocked";
     
-    my $dependencies = $dbh->selectcol_arrayref(
-              "SELECT $relationship
+    SendSQL("  SELECT $relationship 
                  FROM dependencies 
-                WHERE $bug_type = ?
-             ORDER BY $relationship", undef, $id);
+                WHERE $bug_type = $id 
+             ORDER BY $relationship");
     
-    return @$dependencies;
+    my @dependencies = ();
+    push(@dependencies, FetchOneColumn()) while MoreSQLData();
+    
+    return @dependencies;
 }
 

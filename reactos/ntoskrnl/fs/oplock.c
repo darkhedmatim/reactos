@@ -1,175 +1,134 @@
 /* $Id$
  *
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/fs/oplock.c
- * PURPOSE:         Oplock-functions
+ * PURPOSE:         No purpose listed.
  *
- * PROGRAMMERS:     Emanuele Aliberti
- *                  Eric Kohl
+ * PROGRAMMERS:     No programmer listed.
  */
-
-/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 
-#define NDEBUG
-#include <internal/debug.h>
 
-/* FUNCTIONS *****************************************************************/
-
-/*++
- * @name FsRtlCheckOplock
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlCheckOplock@20
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @unimplemented
- *
- * FILLME
- *
- * @param Oplock
- *        FILLME
- *
- * @param Irp
- *        FILLME
- *
- * @param Context
- *        FILLME
- *
- * @param CompletionRoutine
- *        FILLME
- *
- * @param PostIrpRoutine
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
-NTSTATUS
-NTAPI
+ */
+NTSTATUS STDCALL
 FsRtlCheckOplock(IN POPLOCK Oplock,
-                 IN PIRP Irp,
-                 IN PVOID Context,
-                 IN POPLOCK_WAIT_COMPLETE_ROUTINE CompletionRoutine OPTIONAL,
-                 IN POPLOCK_FS_PREPOST_IRP PostIrpRoutine OPTIONAL)
+		 IN PIRP Irp,
+		 IN PVOID Context,
+		 IN POPLOCK_WAIT_COMPLETE_ROUTINE CompletionRoutine OPTIONAL,
+		 IN POPLOCK_FS_PREPOST_IRP PostIrpRoutine OPTIONAL)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
-/*++
- * @name FsRtlCurrentBatchOplock
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlCurrentBatchOplock@4
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @unimplemented
- *
- * FILLME
- *
- * @param Oplock
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
-BOOLEAN
-NTAPI
+ */
+BOOLEAN STDCALL
 FsRtlCurrentBatchOplock(IN POPLOCK Oplock)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  return(FALSE);
 }
 
-/*++
- * @name FsRtlInitializeOplock
- * @unimplemented
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlInitializeOplock@4
  *
- * FILLME
+ * DESCRIPTION
  *
- * @param Oplock
- *        FILLME
+ * ARGUMENTS
  *
- * @return None
+ * RETURN VALUE
  *
- * @remarks None
+ * NOTE
+ *	Obsolete function.
  *
- *--*/
-VOID
-NTAPI
+ * @implemented
+ */
+VOID STDCALL
 FsRtlInitializeOplock(IN OUT POPLOCK Oplock)
 {
-    UNIMPLEMENTED;
 }
 
-/*++
- * @name FsRtlOplockFsctrl
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlOplockFsctrl@12
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @unimplemented
- *
- * FILLME
- *
- * @param Oplock
- *        FILLME
- *
- * @param Irp
- *        FILLME
- *
- * @param OpenCount
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
-NTSTATUS
-NTAPI
+ */
+NTSTATUS STDCALL
 FsRtlOplockFsctrl(IN POPLOCK Oplock,
-                  IN PIRP Irp,
-                  IN ULONG OpenCount)
+		  IN PIRP Irp,
+		  IN ULONG OpenCount)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
-/*++
- * @name FsRtlOplockIsFastIoPossible
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlOplockIsFastIoPossible@4
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
+ *
  * @unimplemented
- *
- * FILLME
- *
- * @param Oplock
- *        FILLME
- *
- * @return None
- *
- * @remarks None
- *
- *--*/
-BOOLEAN
-NTAPI
+ */
+BOOLEAN STDCALL
 FsRtlOplockIsFastIoPossible(IN POPLOCK Oplock)
 {
-    UNIMPLEMENTED;
-    return FALSE;
+  return(FALSE);
 }
 
-/*++
- * @name FsRtlUninitializeOplock
- * @unimplemented
+
+/**********************************************************************
+ * NAME							EXPORTED
+ *	FsRtlUninitializeOplock@4
  *
- * FILLME
+ * DESCRIPTION
  *
- * @param Oplock
- *        FILLME
+ * ARGUMENTS
  *
- * @return None
+ * RETURN VALUE
  *
- * @remarks None
- *
- *--*/
-VOID
-NTAPI
+ * @implemented
+ */
+VOID STDCALL
 FsRtlUninitializeOplock(IN POPLOCK Oplock)
 {
-    UNIMPLEMENTED;
 }
 
 /* EOF */

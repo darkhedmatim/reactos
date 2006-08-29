@@ -26,7 +26,7 @@
 #define LEFT	16		/* left justified */
 #define SPECIAL	32		/* 0x */
 #define LARGE	64		/* use 'ABCDEF' instead of 'abcdef' */
-#define REMOVEHEX	256		/* use 256 as remve 0x frim BASE 16  */
+
 typedef struct {
     unsigned int mantissal:32;
     unsigned int mantissah:20;
@@ -115,14 +115,14 @@ number(char * buf, char * end, long long num, int base, int size, int precision,
 			size--;
 		}
 	}
-	
-	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
+	if (type & SPECIAL) {
 		if (base == 16)
 			size -= 2;
-	
-	} 
+		else if (base == 8)
+			size--;
+	}
 	i = 0;
-	if ((num == 0) && (precision !=0))
+	if (num == 0)
 		tmp[i++] = '0';
 	else while (num != 0)
 		tmp[i++] = digits[do_div(&num,base)];
@@ -141,9 +141,12 @@ number(char * buf, char * end, long long num, int base, int size, int precision,
 			*buf = sign;
 		++buf;
 	}
-	
-	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
-		 if (base==16) {
+	if (type & SPECIAL) {
+		if (base==8) {
+			if (buf <= end)
+				*buf = '0';
+			++buf;
+		} else if (base==16) {
 			if (buf <= end)
 				*buf = '0';
 			++buf;
@@ -152,7 +155,6 @@ number(char * buf, char * end, long long num, int base, int size, int precision,
 			++buf;
 		}
 	}
-	
 	if (!(type & LEFT)) {
 		while (size-- > 0) {
 			if (buf <= end)
@@ -175,7 +177,6 @@ number(char * buf, char * end, long long num, int base, int size, int precision,
 			*buf = ' ';
 		++buf;
 	}
-	
 	return buf;
 }
 
@@ -213,7 +214,7 @@ numberf(char * buf, char * end, double num, int base, int size, int precision, i
 			size--;
 		}
 	}
-	if (type & SPECIAL)  {
+	if (type & SPECIAL) {
 		if (base == 16)
 			size -= 2;
 		else if (base == 8)
@@ -286,10 +287,6 @@ static char*
 string(char* buf, char* end, const char* s, int len, int field_width, int precision, int flags)
 {
 	int i;
-    char c;
-    
-    c = (flags & ZEROPAD) ? '0' : ' ';
-
 	if (s == NULL)
 	{
 		s = "<NULL>";
@@ -313,7 +310,7 @@ string(char* buf, char* end, const char* s, int len, int field_width, int precis
 		while (len < field_width--)
 		{
 			if (buf <= end)
-				*buf = c;
+				*buf = ' ';
 			++buf;
 		}
 	for (i = 0; i < len; ++i)
@@ -335,10 +332,6 @@ static char*
 stringw(char* buf, char* end, const wchar_t* sw, int len, int field_width, int precision, int flags)
 {
 	int i;
-	char c;
-    
-    c = (flags & ZEROPAD) ? '0' : ' ';
-    
 	if (sw == NULL)
 	{
 		sw = L"<NULL>";
@@ -362,7 +355,7 @@ stringw(char* buf, char* end, const wchar_t* sw, int len, int field_width, int p
 		while (len < field_width--)
 		{
 			if (buf <= end)
-				*buf = c;
+				*buf = ' ';
 			buf++;
 		}
 	for (i = 0; i < len; ++i)
@@ -467,33 +460,34 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 		} else if (*fmt == 'I' && *(fmt+1) == '6' && *(fmt+2) == '4') {
 			qualifier = *fmt;
 			fmt += 3;
-		} else if (*fmt == 'I' && *(fmt+1) == '3' && *(fmt+2) == '2') {
-			qualifier = 'l'; 
-			fmt += 3;
-		} else if (*fmt == 'F' && *(fmt+1) == 'p') {
-			fmt += 1;
-            flags |= REMOVEHEX;
-        }
+		}
 
 		/* default base */
 		base = 10;
 
 		switch (*fmt) {
 		case 'c': /* finished */
-             if (qualifier == 'l' || qualifier == 'w') {    
-	              wchar_t sw1[2];
-				/* print unicode string */
-                sw1[0] = (wchar_t) va_arg(args, int);
-                sw1[1] = 0;
-				str = stringw(str, end, (wchar_t *)&sw1, -1, field_width, precision, flags);
+			if (!(flags & LEFT))
+				while (--field_width > 0) {
+					if (str <= end)
+						*str = ' ';
+					++str;
+				}
+			if (qualifier == 'l' || qualifier == 'w') {
+				if (str <= end)
+					*str = (unsigned char)(wchar_t) va_arg(args, int);
+				++str;
 			} else {
-                char s1[2];
-				/* print ascii string */
-                s1[0] = ( unsigned char) va_arg(args, int);
-                s1[1] = 0;
-				str = string(str, end, (char *)&s1, -1,  field_width, precision, flags);
+				if (str <= end)
+					*str = (unsigned char) va_arg(args, int);
+				++str;
 			}
-            continue;
+			while (--field_width > 0) {
+				if (str <= end)
+					*str = ' ';
+				++str;
+			}
+			continue;
 
 		case 'C': /* finished */
 			if (!(flags & LEFT))
@@ -569,9 +563,6 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 			continue;
 
 		case 'p':
-            if ((flags & LARGE) == 0)
-                flags |= LARGE; 
-                 
 			if (field_width == -1) {
 				field_width = 2 * sizeof(void *);
 				flags |= ZEROPAD;
@@ -657,6 +648,11 @@ int _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 			break;
 
 		default:
+			if (*fmt != '%') {
+				if (str <= end)
+					*str = '%';
+				++str;
+			}
 			if (*fmt) {
 				if (str <= end)
 					*str = *fmt;

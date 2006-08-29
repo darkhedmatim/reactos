@@ -188,17 +188,11 @@ IntSetSysColors(UINT nColors, INT *Elements, COLORREF *Colors);
 BOOL FASTCALL
 IntGetSysColorBrushes(HBRUSH *Brushes, UINT nBrushes);
 
-HGDIOBJ FASTCALL
-IntGetSysColorBrush(INT Object);
-
 BOOL FASTCALL
 IntGetSysColorPens(HPEN *Pens, UINT nPens);
 
 BOOL FASTCALL
 IntGetSysColors(COLORREF *Colors, UINT nColors);
-
-DWORD FASTCALL
-IntGetSysColor(INT nIndex);
 
 /* Other Stuff */
 
@@ -230,12 +224,6 @@ IntChangeDisplaySettings(
   IN LPDEVMODEW pDevMode,
   IN DWORD dwflags,
   IN PVOID lParam  OPTIONAL);
-
-HBITMAP
-FASTCALL
-IntCreateCompatibleBitmap(PDC Dc,
-                          INT Width,
-                          INT Height);
 
 #endif /* _WIN32K_INTGDI_H */
 

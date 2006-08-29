@@ -1,6 +1,5 @@
 <module name="msafd" type="win32dll" baseaddress="${BASEADDRESS_MSAFD}" installbase="system32" installname="msafd.dll">
 	<importlibrary definition="msafd.def" />
-	<include base="msafd">.</include>
 	<include base="msafd">include</include>
 	<include base="ReactOS">include/reactos/drivers</include>
 	<define name="UNICODE" />

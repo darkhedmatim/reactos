@@ -6,6 +6,11 @@
  */
 
 /**
+ *
+ */
+require_once( "LinksUpdate.php" );
+
+/**
  * Constructor
  */
 function wfSpecialMovepage( $par = null ) {
@@ -13,7 +18,7 @@ function wfSpecialMovepage( $par = null ) {
 
 	# check rights. We don't want newbies to move pages to prevents possible attack
 	if ( !$wgUser->isAllowed( 'move' ) or $wgUser->isBlocked() or ($wgOnlySysopMayMove and $wgUser->isNewbie())) {
-		$wgOut->showErrorPage( "movenologin", "movenologintext" );
+		$wgOut->errorpage( "movenologin", "movenologintext" );
 		return;
 	}
 	# We don't move protected pages
@@ -42,7 +47,7 @@ function wfSpecialMovepage( $par = null ) {
 class MovePageForm {
 	var $oldTitle, $newTitle, $reason; # Text input
 	var $moveTalk, $deleteAndMove;
-
+		
 	function MovePageForm( $par ) {
 		global $wgRequest;
 		$target = isset($par) ? $par : $wgRequest->getVal( 'target' );
@@ -50,21 +55,21 @@ class MovePageForm {
 		$this->newTitle = $wgRequest->getText( 'wpNewTitle' );
 		$this->reason = $wgRequest->getText( 'wpReason' );
 		$this->moveTalk = $wgRequest->getBool( 'wpMovetalk', true );
-		$this->deleteAndMove = $wgRequest->getBool( 'wpDeleteAndMove' ) && $wgRequest->getBool( 'wpConfirm' );
+		$this->deleteAndMove = $wgRequest->getBool( 'wpDeleteAndMove' );
 	}
-
+	
 	function showForm( $err ) {
-		global $wgOut, $wgUser;
+		global $wgOut, $wgUser, $wgLang;
 
 		$wgOut->setPagetitle( wfMsg( 'movepage' ) );
 
 		$ot = Title::newFromURL( $this->oldTitle );
 		if( is_null( $ot ) ) {
-			$wgOut->showErrorPage( 'notargettitle', 'notargettext' );
+			$wgOut->errorpage( 'notargettitle', 'notargettext' );
 			return;
 		}
 		$oldTitle = $ot->getPrefixedText();
-
+		
 		$encOldTitle = htmlspecialchars( $oldTitle );
 		if( $this->newTitle == '' ) {
 			# Show the current title as a default
@@ -90,27 +95,15 @@ class MovePageForm {
 		if ( $err == 'articleexists' && $wgUser->isAllowed( 'delete' ) ) {
 			$wgOut->addWikiText( wfMsg( 'delete_and_move_text', $encNewTitle ) );
 			$movepagebtn = wfMsgHtml( 'delete_and_move' );
-			$confirmText = wfMsgHtml( 'delete_and_move_confirm' );
 			$submitVar = 'wpDeleteAndMove';
-			$confirm = "
-				<tr>
-					<td align='right'>
-						<input type='checkbox' name='wpConfirm' id='wpConfirm' value=\"true\" />
-					</td>
-					<td align='left'><label for='wpConfirm'>{$confirmText}</label></td>
-				</tr>";
 			$err = '';
 		} else {
 			$wgOut->addWikiText( wfMsg( 'movepagetext' ) );
 			$movepagebtn = wfMsgHtml( 'movepagebtn' );
 			$submitVar = 'wpMove';
-			$confirm = false;
 		}
 
-		$oldTalk = $ot->getTalkPage();
-		$considerTalk = ( !$ot->isTalkPage() && $oldTalk->exists() );
-
-		if ( $considerTalk ) {
+		if ( !$ot->isTalkPage() ) {
 			$wgOut->addWikiText( wfMsg( 'movepagetalktext' ) );
 		}
 
@@ -129,7 +122,7 @@ class MovePageForm {
 		}
 
 		$moveTalkChecked = $this->moveTalk ? ' checked="checked"' : '';
-
+		
 		$wgOut->addHTML( "
 <form id=\"movepage\" method=\"post\" action=\"{$action}\">
 	<table border='0'>
@@ -138,20 +131,20 @@ class MovePageForm {
 			<td align='left'><strong>{$oldTitle}</strong></td>
 		</tr>
 		<tr>
-			<td align='right'><label for='wpNewTitle'>{$newtitle}:</label></td>
+			<td align='right'>{$newtitle}:</td>
 			<td align='left'>
-				<input type='text' size='40' name='wpNewTitle' id='wpNewTitle' value=\"{$encNewTitle}\" />
+				<input type='text' size='40' name=\"wpNewTitle\" value=\"{$encNewTitle}\" />
 				<input type='hidden' name=\"wpOldTitle\" value=\"{$encOldTitle}\" />
 			</td>
 		</tr>
 		<tr>
-			<td align='right' valign='top'><br /><label for='wpReason'>{$movereason}:</label></td>
+			<td align='right' valign='top'><br />{$movereason}:</td>
 			<td align='left' valign='top'><br />
 				<textarea cols='60' rows='2' name='wpReason' id='wpReason'>{$encReason}</textarea>
 			</td>
 		</tr>" );
 
-		if ( $considerTalk ) {
+		if ( ! $ot->isTalkPage() ) {
 			$wgOut->addHTML( "
 		<tr>
 			<td align='right'>
@@ -161,7 +154,6 @@ class MovePageForm {
 		</tr>" );
 		}
 		$wgOut->addHTML( "
-		{$confirm}
 		<tr>
 			<td>&nbsp;</td>
 			<td align='left'>
@@ -172,19 +164,19 @@ class MovePageForm {
 	<input type='hidden' name='wpEditToken' value=\"{$token}\" />
 </form>\n" );
 
-	$this->showLogFragment( $ot, $wgOut );
-
 	}
 
 	function doSubmit() {
-		global $wgOut, $wgUser, $wgRequest;
+		global $wgOut, $wgUser, $wgLang;
+		global $wgDeferredUpdateList, $wgMessageCache;
+		global  $wgUseSquid, $wgRequest;
 		$fname = "MovePageForm::doSubmit";
-
+		
 		if ( $wgUser->pingLimiter( 'move' ) ) {
 			$wgOut->rateLimited();
 			return;
 		}
-
+		
 		# Variables beginning with 'o' for old article 'n' for new article
 
 		$ot = Title::newFromText( $this->oldTitle );
@@ -208,34 +200,33 @@ class MovePageForm {
 			$this->showForm( $error );
 			return;
 		}
+		
+		# Move talk page if
+		# (1) the checkbox says to,
+		# (2) the namespaces are not themselves talk namespaces, and of course
+		# (3) it exists.
+		if ( ( $wgRequest->getVal('wpMovetalk') == 1 ) &&
+		     !$ot->isTalkPage() &&
+		     !$nt->isTalkPage() ) {
+			
+			$ott = $ot->getTalkPage();
+			$ntt = $nt->getTalkPage();
 
-		wfRunHooks( 'SpecialMovepageAfterMove', array( &$this , &$ot , &$nt ) )	;
-
-		# Move the talk page if relevant, if it exists, and if we've been told to
-		$ott = $ot->getTalkPage();
-		if( $ott->exists() ) {
-			if( $wgRequest->getVal( 'wpMovetalk' ) == 1 && !$ot->isTalkPage() && !$nt->isTalkPage() ) {
-				$ntt = $nt->getTalkPage();
-	
-				# Attempt the move
-				$error = $ott->moveTo( $ntt, true, $this->reason );
-				if ( $error === true ) {
-					$talkmoved = 1;
-					wfRunHooks( 'SpecialMovepageAfterMove', array( &$this , &$ott , &$ntt ) )	;
-				} else {
-					$talkmoved = $error;
-				}
+			# Attempt the move
+			$error = $ott->moveTo( $ntt, true, $this->reason );
+			if ( $error === true ) {
+				$talkmoved = 1;
 			} else {
-				# Stay silent on the subject of talk.
-				$talkmoved = '';
+				$talkmoved = $error;
 			}
 		} else {
-			$talkmoved = 'notalkpage';
+			# Stay silent on the subject of talk.
+			$talkmoved = '';
 		}
-
+		
 		# Give back result to user.
 		$titleObj = Title::makeTitle( NS_SPECIAL, 'Movepage' );
-		$success = $titleObj->getFullURL(
+		$success = $titleObj->getFullURL( 
 		  'action=success&oldtitle=' . wfUrlencode( $ot->getPrefixedText() ) .
 		  '&newtitle=' . wfUrlencode( $nt->getPrefixedText() ) .
 		  '&talkmoved='.$talkmoved );
@@ -245,39 +236,31 @@ class MovePageForm {
 
 	function showSuccess() {
 		global $wgOut, $wgRequest, $wgRawHtml;
-		
+
 		$wgOut->setPagetitle( wfMsg( 'movepage' ) );
 		$wgOut->setSubtitle( wfMsg( 'pagemovedsub' ) );
-
-		$oldText = $wgRequest->getVal('oldtitle');
-		$newText = $wgRequest->getVal('newtitle');
+		$oldtitle = $wgRequest->getVal('oldtitle');
+		$newtitle = $wgRequest->getVal('newtitle');
 		$talkmoved = $wgRequest->getVal('talkmoved');
 
-		$text = wfMsg( 'pagemovedtext', $oldText, $newText );
+		$text = wfMsg( 'pagemovedtext', $oldtitle, $newtitle );
 		
-		$allowHTML = $wgRawHtml;
+		# Temporarily disable raw html wikitext option out of XSS paranoia
+		$marchingantofdoom = $wgRawHtml;
 		$wgRawHtml = false;
 		$wgOut->addWikiText( $text );
-		$wgRawHtml = $allowHTML;
+		$wgRawHtml = $marchingantofdoom;
 
 		if ( $talkmoved == 1 ) {
 			$wgOut->addWikiText( wfMsg( 'talkpagemoved' ) );
 		} elseif( 'articleexists' == $talkmoved ) {
 			$wgOut->addWikiText( wfMsg( 'talkexists' ) );
 		} else {
-			$oldTitle = Title::newFromText( $oldText );
-			if ( !$oldTitle->isTalkPage() && $talkmoved != 'notalkpage' ) {
+			$ot = Title::newFromURL( $oldtitle );
+			if ( ! $ot->isTalkPage() ) {
 				$wgOut->addWikiText( wfMsg( 'talkpagenotmoved', wfMsg( $talkmoved ) ) );
 			}
 		}
 	}
-	
-	function showLogFragment( $title, &$out ) {
-		$out->addHtml( wfElement( 'h2', NULL, LogPage::logName( 'move' ) ) );
-		$request = new FauxRequest( array( 'page' => $title->getPrefixedText(), 'type' => 'move' ) );
-		$viewer = new LogViewer( new LogReader( $request ) );
-		$viewer->showList( $out );
-	}
-	
 }
 ?>

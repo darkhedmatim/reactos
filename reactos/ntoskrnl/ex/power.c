@@ -15,13 +15,9 @@
 
 /* FUNCTIONS *****************************************************************/
 
-/* ROS Internal. Please deprecate */
-NTHALAPI
-VOID
-NTAPI
-HalReleaseDisplayOwnership(
-    VOID
-);
+VOID STDCALL
+KeSetTargetProcessorDpc (IN	PKDPC	Dpc,
+			 IN	CCHAR	Number);
 
 VOID STDCALL
 KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
@@ -153,7 +149,7 @@ ShutdownThreadMain(PVOID Context)
                                           sizeof(PCH))]);
      }
 
-   PspShutdownProcessManager();
+   PiShutdownProcessManager();
    Waittime.QuadPart = (LONGLONG)-10000000; /* 1sec */
    KeDelayExecutionThread(KernelMode, FALSE, &Waittime);
 

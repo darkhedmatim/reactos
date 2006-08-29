@@ -208,7 +208,7 @@ static INT Driver(VOID)
                     /* if RecievePacket timed out we don't bother decoding */
                     if (iRecieveReturn != 1)
                     {
-                        iDecRes = DecodeResponse(iPacketSize);
+                        iDecRes = DecodeResponse(iPacketSize, iSeqNum);
 
                         switch (iDecRes)
                         {
@@ -570,7 +570,7 @@ static INT ReceivePacket(INT datasize)
  * It all is well, print the time taken for the round trip.
  *
  */
-static INT DecodeResponse(INT iPacketSize)
+static INT DecodeResponse(INT iPacketSize, USHORT iSeqNum)
 {
     unsigned short header_len = recvpacket.h_len * 4;
     /* cast the recieved packet into an ECHO reply and a TTL Exceed so we can check the ID*/

@@ -82,7 +82,6 @@ InternalOpenDirW(LPCWSTR DirName,
 /*
  * @implemented
  */
-/* Synced to Wine-? */
 DWORD STDCALL
 GetLogicalDriveStringsA(DWORD nBufferLength,
 			LPSTR lpBuffer)
@@ -120,7 +119,6 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 /*
  * @implemented
  */
-/* Synced to Wine-? */
 DWORD STDCALL
 GetLogicalDriveStringsW(DWORD nBufferLength,
 			LPWSTR lpBuffer)
@@ -156,7 +154,6 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 /*
  * @implemented
  */
-/* Synced to Wine-? */
 DWORD STDCALL
 GetLogicalDrives(VOID)
 {
@@ -256,14 +253,10 @@ GetDiskFreeSpaceW(
         return FALSE;
     }
 
-    if (lpSectorsPerCluster)
-        *lpSectorsPerCluster = FileFsSize.SectorsPerAllocationUnit;
-    if (lpBytesPerSector)
-        *lpBytesPerSector = FileFsSize.BytesPerSector;
-    if (lpNumberOfFreeClusters)
-        *lpNumberOfFreeClusters = FileFsSize.AvailableAllocationUnits.u.LowPart;
-    if (lpTotalNumberOfClusters)
-        *lpTotalNumberOfClusters = FileFsSize.TotalAllocationUnits.u.LowPart;
+    *lpBytesPerSector = FileFsSize.BytesPerSector;
+    *lpSectorsPerCluster = FileFsSize.SectorsPerAllocationUnit;
+    *lpNumberOfFreeClusters = FileFsSize.AvailableAllocationUnits.u.LowPart;
+    *lpTotalNumberOfClusters = FileFsSize.TotalAllocationUnits.u.LowPart;
     CloseHandle(hFile);
 
     return TRUE;

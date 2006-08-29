@@ -1,4 +1,4 @@
-/*++ NDK Version: 0098
+/*++ NDK Version: 0095
 
 Copyright (c) Alex Ionescu.  All rights reserved.
 
@@ -12,7 +12,7 @@ Abstract:
 
 Author:
 
-    Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
+    Alex Ionescu (alex.ionescu@reactos.com)   06-Oct-2004
 
 --*/
 
@@ -23,19 +23,10 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <dbgktypes.h>
 
 //
 // Native calls
 //
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtDebugActiveProcess(
-    IN HANDLE Process,
-    IN HANDLE DebugObject
-);
-
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
@@ -68,33 +59,6 @@ NtWaitForDebugEvent(
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
-NtRemoveProcessDebug(
-    IN HANDLE Process,
-    IN HANDLE DebugObject
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtSetInformationDebugObject(
-    IN HANDLE DebugObject,
-    IN DEBUGOBJECTINFOCLASS InformationClass,
-    IN PVOID Information,
-    IN ULONG InformationLength,
-    OUT PULONG ReturnLength OPTIONAL
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwDebugActiveProcess(
-    IN HANDLE Process,
-    IN HANDLE DebugObject
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
 ZwCreateDebugObject(
     OUT PHANDLE DebugHandle,
     IN ACCESS_MASK DesiredAccess,
@@ -102,7 +66,7 @@ ZwCreateDebugObject(
     IN BOOLEAN KillProcessOnExit
 );
 
-NTSYSAPI
+NTSYSCALLAPI
 NTSTATUS
 NTAPI
 ZwDebugContinue(
@@ -111,15 +75,7 @@ ZwDebugContinue(
     IN NTSTATUS ContinueStatus
 );
 
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwRemoveProcessDebug(
-    IN HANDLE Process,
-    IN HANDLE DebugObject
-);
-
-NTSYSAPI
+NTSYSCALLAPI
 NTSTATUS
 NTAPI
 ZwWaitForDebugEvent(
@@ -127,16 +83,5 @@ ZwWaitForDebugEvent(
     IN BOOLEAN Alertable,
     IN PLARGE_INTEGER Timeout OPTIONAL,
     OUT PDBGUI_WAIT_STATE_CHANGE StateChange
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwSetInformationDebugObject(
-    IN HANDLE DebugObject,
-    IN DEBUGOBJECTINFOCLASS InformationClass,
-    IN PVOID Information,
-    IN ULONG InformationLength,
-    OUT PULONG ReturnLength OPTIONAL
 );
 #endif

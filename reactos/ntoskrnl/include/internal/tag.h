@@ -49,12 +49,6 @@
 #define IO_SMALLIRP_CPU     TAG('I', 'r', 'p', 'S')
 #define IOC_TAG1             TAG('I', 'p', 'c', ' ')
 #define IOC_CPU             TAG('I', 'p', 'c', 'P')
-#define TAG_APC             TAG('K', 'A', 'P', 'C')
-#define TAG_IO              TAG('I', 'o', ' ', ' ')
-#define TAG_ERROR_LOG       TAG('I', 'o', 'E', 'r')
-#define TAG_EA              TAG('I', 'o', 'E', 'a')
-#define TAG_IO_NAME         TAG('I', 'o', 'N', 'm')
-#define TAG_REINIT          TAG('I', 'o', 'R', 'i')
 
 /* formerly located in io/work.c */
 #define TAG_IOWI TAG('I', 'O', 'W', 'I')
@@ -124,13 +118,8 @@
 #define TAG_SYMLINK_TTARGET     TAG('S', 'Y', 'T', 'T')
 #define TAG_SYMLINK_TARGET      TAG('S', 'Y', 'M', 'T')
 
-/* Object Manager Tags */
-#define OB_NAME_TAG             TAG('O', 'b', 'N', 'm')
-#define OB_DIR_TAG              TAG('O', 'b', 'D', 'i')
-
 /* formerly located in ps/cid.c */
 #define TAG_CIDOBJECT TAG('C', 'I', 'D', 'O')
-#define TAG_PS_IMPERSONATION    TAG('P', 's', 'I', 'm')
 
 /* formerly located in ps/job.c */
 #define TAG_EJOB TAG('E', 'J', 'O', 'B') /* EJOB */
@@ -156,8 +145,5 @@
 /* LPC Tags */
 #define TAG_LPC_MESSAGE   TAG('L', 'p', 'c', 'M')
 #define TAG_LPC_ZONE      TAG('L', 'p', 'c', 'Z')
-
-/* Se Process Audit */
-#define TAG_SEPA          TAG('S', 'e', 'P', 'a')
 
 #endif /* _NTOSKRNL_TAG_H */

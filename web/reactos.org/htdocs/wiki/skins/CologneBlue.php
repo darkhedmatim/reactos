@@ -8,7 +8,7 @@
  */
 
 if( !defined( 'MEDIAWIKI' ) )
-	die( -1 );
+	die();
 
 /**
  * @todo document
@@ -18,18 +18,19 @@ if( !defined( 'MEDIAWIKI' ) )
 class SkinCologneBlue extends Skin {
 
 	function getStylesheet() {
-		return "common/cologneblue.css?2";
+		return "common/cologneblue.css";
 	}
 	function getSkinName() {
 		return "cologneblue";
 	}
 
 	function doBeforeContent() {
+		global $wgOut, $wgTitle;
 
 		$s = "";
 		$qb = $this->qbSetting();
 		$mainPageObj = Title::newMainPage();
-
+		
 		$s .= "\n<div id='content'>\n<div id='topbar'>" .
 		  "<table width='100%' border='0' cellspacing='0' cellpadding='8'><tr>";
 
@@ -96,9 +97,9 @@ class SkinCologneBlue extends Skin {
 		if ( 0 != $qb ) { $s .= $this->quickBar(); }
 		return $s;
 	}
-
+	
 	function doGetUserStyles() {
-		global $wgOut;
+		global $wgOut, $wgStyleSheetPath;
 		$s = parent::doGetUserStyles();
 		$qb = $this->qbSetting();
 
@@ -121,7 +122,7 @@ class SkinCologneBlue extends Skin {
 		}
 		return $s;
 	}
-
+	
 	function sysLinks() {
 		global $wgUser, $wgContLang, $wgTitle;
 		$li = $wgContLang->specialPage("Userlogin");
@@ -130,10 +131,10 @@ class SkinCologneBlue extends Skin {
 		$rt = $wgTitle->getPrefixedURL();
 		if ( 0 == strcasecmp( urlencode( $lo ), $rt ) ) {
 			$q = "";
-		} else {
-			$q = "returnto={$rt}";
+		} else { 
+			$q = "returnto={$rt}"; 
 		}
-
+		
 		$s = "" .
 		  $this->makeKnownLink( wfMsgForContent( "mainpage" ), wfMsg( "mainpage" ) )
 		  . " | " .
@@ -164,12 +165,14 @@ class SkinCologneBlue extends Skin {
 			}
 		}
 
+
+
 		return $s;
 	}
 
 	/**
 	 * Compute the sidebar
-	 * @access private
+	 * @private
 	 */
 	function quickBar()
 	{
@@ -195,7 +198,7 @@ class SkinCologneBlue extends Skin {
 					htmlspecialchars( $link['text'] ) . '</a>' . $sep;
 			}
 		}
-
+		
 		if ( $wgOut->isArticle() ) {
 			$s .= $this->menuHead( "qbedit" );
 			$s .= "<strong>" . $this->editThisPage() . "</strong>";
@@ -221,7 +224,7 @@ class SkinCologneBlue extends Skin {
 
 			$s .= $this->menuHead( "qbpageoptions" );
 			$s .= $this->talkLink()
-			  . $sep . $this->commentLink()
+			  . $sep . $this->commentLink() 
 			  . $sep . $this->printableLink();
 			if ( $wgUser->isLoggedIn() ) {
 				$s .= $sep . $this->watchThisPage();
@@ -233,7 +236,7 @@ class SkinCologneBlue extends Skin {
 			  . $this->historyLink()
 			  . $sep . $this->whatLinksHere()
 			  . $sep . $this->watchPageLinksLink();
-
+			  
 			if( $tns == NS_USER || $tns == NS_USER_TALK ) {
 				$id=User::idFromName($wgTitle->getText());
 				if ($id != 0) {
@@ -260,7 +263,7 @@ class SkinCologneBlue extends Skin {
 			  . $sep . $tl
 			  . $sep . $this->specialLink( "watchlist" )
 			  . $sep . $this->makeKnownLinkObj( Title::makeTitle( NS_SPECIAL, "Contributions" ),
-			  	wfMsg( "mycontris" ), "target=" . wfUrlencode($wgUser->getName() ) )
+			  	wfMsg( "mycontris" ), "target=" . wfUrlencode($wgUser->getName() ) )		
 		  	  . $sep . $this->specialLink( "preferences" )
 		  	  . $sep . $this->specialLink( "userlogout" );
 		} else {
@@ -268,9 +271,9 @@ class SkinCologneBlue extends Skin {
 		}
 
 		$s .= $this->menuHead( "qbspecialpages" )
-		  . $this->specialLink( "newpages" )
-		  . $sep . $this->specialLink( "imagelist" )
-		  . $sep . $this->specialLink( "statistics" )
+		  . $this->specialLink( "newpages" ) 
+		  . $sep . $this->specialLink( "imagelist" ) 
+		  . $sep . $this->specialLink( "statistics" ) 
 		  . $sep . $this->bugReportsLink();
 		if ( $wgUser->isLoggedIn() && $wgEnableUploads ) {
 			$s .= $sep . $this->specialLink( "upload" );
@@ -280,7 +283,7 @@ class SkinCologneBlue extends Skin {
 			$s .= $sep."<a href=\"".htmlspecialchars($wgSiteSupportPage)."\" class =\"internal\">"
 			      .wfMsg( "sitesupport" )."</a>";
 		}
-
+		
 		$s .= $sep . $this->makeKnownLinkObj(
 			Title::makeTitle( NS_SPECIAL, 'Specialpages' ),
 			wfMsg( 'moredotdotdot' ) );

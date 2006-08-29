@@ -27,7 +27,6 @@
  */
 #include <windows.h>
 #include <stdlib.h>
-#include <lm.h>
 #include "resource.h"
 #include "sysdm.h"
 
@@ -40,11 +39,6 @@ ComputerPageProc(
   LPARAM lParam
 )
 {
-  LPWKSTA_INFO_101 wki;
-
-  UNREFERENCED_PARAMETER(lParam);
-  UNREFERENCED_PARAMETER(wParam);
-
   switch(uMsg)
   {
     case WM_INITDIALOG:
@@ -56,11 +50,7 @@ ComputerPageProc(
       {
           SendDlgItemMessage(hwndDlg,IDC_COMPUTERNAME,WM_SETTEXT,0,(LPARAM)ComputerName);
       }
-      if (NetWkstaGetInfo(NULL,101,(LPBYTE*)&wki) == NERR_Success)
-      {
-        SendDlgItemMessage(hwndDlg,IDC_WORKGROUPDOMAIN_NAME,WM_SETTEXT,0,(LPARAM)wki->wki101_langroup);
-        NetApiBufferFree(&wki);
-      }
+      /* FIXME: get the workgroup */
       break;
     }
   }

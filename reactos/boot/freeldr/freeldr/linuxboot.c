@@ -29,12 +29,12 @@
 PLINUX_BOOTSECTOR	LinuxBootSector = NULL;
 PLINUX_SETUPSECTOR	LinuxSetupSector = NULL;
 ULONG			SetupSectorSize = 0;
-BOOLEAN			NewStyleLinuxKernel = FALSE;
+BOOL			NewStyleLinuxKernel = FALSE;
 ULONG			LinuxKernelSize = 0;
 ULONG			LinuxInitrdSize = 0;
 CHAR			LinuxKernelName[260];
 CHAR			LinuxInitrdName[260];
-BOOLEAN			LinuxHasInitrd = FALSE;
+BOOL			LinuxHasInitrd = FALSE;
 CHAR			LinuxCommandLine[260] = "";
 ULONG			LinuxCommandLineSize = 0;
 PVOID			LinuxKernelLoadAddress = NULL;
@@ -217,7 +217,7 @@ LinuxBootFailed:
 	LinuxCommandLineSize = 0;
 }
 
-BOOLEAN LinuxParseIniSection(PCSTR OperatingSystemName)
+BOOL LinuxParseIniSection(PCSTR OperatingSystemName)
 {
 	CHAR	SettingName[260];
 	ULONG	SectionId;
@@ -262,7 +262,7 @@ BOOLEAN LinuxParseIniSection(PCSTR OperatingSystemName)
 	return TRUE;
 }
 
-BOOLEAN LinuxReadBootSector(PFILE LinuxKernelFile)
+BOOL LinuxReadBootSector(PFILE LinuxKernelFile)
 {
 	// Allocate memory for boot sector
 	LinuxBootSector = (PLINUX_BOOTSECTOR)MmAllocateMemory(512);
@@ -299,7 +299,7 @@ BOOLEAN LinuxReadBootSector(PFILE LinuxKernelFile)
 	return TRUE;
 }
 
-BOOLEAN LinuxReadSetupSector(PFILE LinuxKernelFile)
+BOOL LinuxReadSetupSector(PFILE LinuxKernelFile)
 {
 	UCHAR	TempLinuxSetupSector[512];
 
@@ -365,7 +365,7 @@ BOOLEAN LinuxReadSetupSector(PFILE LinuxKernelFile)
 	return TRUE;
 }
 
-BOOLEAN LinuxReadKernel(PFILE LinuxKernelFile)
+BOOL LinuxReadKernel(PFILE LinuxKernelFile)
 {
 	ULONG		BytesLoaded;
 	CHAR	StatusText[260];
@@ -401,7 +401,7 @@ BOOLEAN LinuxReadKernel(PFILE LinuxKernelFile)
 	return TRUE;
 }
 
-BOOLEAN LinuxCheckKernelVersion(VOID)
+BOOL LinuxCheckKernelVersion(VOID)
 {
 	// Just assume old kernel until we find otherwise
 	NewStyleLinuxKernel = FALSE;
@@ -438,7 +438,7 @@ BOOLEAN LinuxCheckKernelVersion(VOID)
 	return TRUE;
 }
 
-BOOLEAN LinuxReadInitrd(PFILE LinuxInitrdFile)
+BOOL LinuxReadInitrd(PFILE LinuxInitrdFile)
 {
 	ULONG		BytesLoaded;
 	CHAR	StatusText[260];

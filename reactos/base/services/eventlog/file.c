@@ -8,8 +8,7 @@
  
 #include "eventlog.h"
 
-PLOGFILE LogListHead = NULL;
-CRITICAL_SECTION LogListCs;
+PLOGFILE _LogListHead = NULL;
 extern HANDLE MyHeap;
 
 BOOL LogfInitializeNew(PLOGFILE LogFile)
@@ -30,15 +29,11 @@ BOOL LogfInitializeNew(PLOGFILE LogFile)
 	LogFile->Header.NextRecord = 1;
 
 	LogFile->Header.Signature = LOGFILE_SIGNATURE;
-	if(!WriteFile(LogFile->hFile,
+	WriteFile(LogFile->hFile,
 			  &LogFile->Header,
 			  sizeof(FILE_HEADER),
 			  &dwWritten,
-			  NULL))
-	{
-		DPRINT1("WriteFile failed:%d!\n", GetLastError());
-		return FALSE;
-	}
+			  NULL);
 
 	EofRec.Ones = 0x11111111;
 	EofRec.Twos = 0x22222222;
@@ -51,21 +46,9 @@ BOOL LogfInitializeNew(PLOGFILE LogFile)
 	EofRec.StartOffset = LogFile->Header.FirstRecordOffset;
 	EofRec.EndOffset = LogFile->Header.EofOffset;
 
-	if(!WriteFile(LogFile->hFile, 
-		&EofRec, 
-		sizeof(EOF_RECORD), 
-		&dwWritten, 
-		NULL))
-	{
-		DPRINT1("WriteFile failed:%d!\n", GetLastError());
-		return FALSE;
-	}
-		
-	if(!FlushFileBuffers(LogFile->hFile))
-	{
-		DPRINT1("FlushFileBuffers failed:%d!\n", GetLastError());
-		return FALSE;
-	}
+	WriteFile(LogFile->hFile, &EofRec, sizeof(EOF_RECORD), &dwWritten, NULL);
+
+	FlushFileBuffers(LogFile->hFile);
       
     return TRUE;
 }
@@ -78,21 +61,11 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 	PDWORD pdwRecSize2;
 	PEVENTLOGRECORD RecBuf;
 
-	if(SetFilePointer(LogFile->hFile, 0, NULL, FILE_BEGIN) ==
-		INVALID_SET_FILE_POINTER)
-	{
-		DPRINT1("SetFilePointer failed! %d\n", GetLastError());
-		return FALSE;
-	}
-	
-	if(!ReadFile(LogFile->hFile, 
+	SetFilePointer(LogFile->hFile, 0, NULL, FILE_BEGIN);
+	ReadFile(LogFile->hFile, 
              &LogFile->Header, 
              sizeof(FILE_HEADER), 
-             &dwRead, NULL))
-    {
-    	DPRINT1("ReadFile failed! %d\n", GetLastError());
-    	return FALSE;
-    }
+             &dwRead, NULL);
              
 	if(dwRead != sizeof(FILE_HEADER))
 	{
@@ -129,35 +102,21 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 									   0, 
 									   NULL, 
 									   FILE_CURRENT);
-		
-		if(dwFilePointer == INVALID_SET_FILE_POINTER)
-		{
-			DPRINT1("SetFilePointer failed! %d\n", GetLastError());
-			return FALSE;
-		}
 
-		if(!ReadFile(LogFile->hFile, 
+		ReadFile(LogFile->hFile, 
 				 &dwRecSize, 
 				 sizeof(dwRecSize), 
 				 &dwRead, 
-				 NULL))
-		{
-			DPRINT1("ReadFile failed! %d\n", GetLastError());
-			return FALSE;
-		}
+				 NULL);
 
 		if(dwRead != sizeof(dwRecSize))
 			break;
 
-		if(!ReadFile(LogFile->hFile,
+		ReadFile(LogFile->hFile,
 				 &dwRecSign,
 				 sizeof(dwRecSign),
 				 &dwRead,
-				 NULL))
-		{
-			DPRINT1("ReadFile() failed! %d\n", GetLastError());
-			return FALSE;
-		}
+				 NULL);
 		
 		if(dwRead != sizeof(dwRecSize))
 			break;
@@ -169,33 +128,13 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 			break;
 		}
 		
-		if(SetFilePointer(LogFile->hFile, 
-			-((LONG)sizeof(DWORD)*2), 
-			NULL, 
-			FILE_CURRENT) == INVALID_SET_FILE_POINTER)
-		{
-			DPRINT1("SetFilePointer() failed! %d", GetLastError());
-			return FALSE;
-		}
-		
+		SetFilePointer(LogFile->hFile, -((LONG)sizeof(DWORD)*2), NULL, FILE_CURRENT);
 		RecBuf = (PEVENTLOGRECORD) HeapAlloc(MyHeap, 0, dwRecSize);
-		
-		if(!RecBuf)
-		{
-			DPRINT1("Can't allocate heap!\n");
-			return FALSE;
-		}
-		
-		if(!ReadFile(LogFile->hFile,
+		ReadFile(LogFile->hFile,
 				 RecBuf,
 				 dwRecSize,
 				 &dwRead,
-				 NULL))
-		{
-			DPRINT1("ReadFile() failed! %d\n", GetLastError());
-			HeapFree(MyHeap, 0, RecBuf);
-			return FALSE;
-		}
+				 NULL);		
 		
 		if(dwRead !=  dwRecSize)
 		{
@@ -206,7 +145,7 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 		pdwRecSize2 = (PDWORD)(((PBYTE)RecBuf)+dwRecSize-4);
 		if(*pdwRecSize2 != dwRecSize)
 		{
-			DPRINT1("Invalid size2 of record %d (%x) in %s\n", 
+			DPRINT("EventLog: Invalid size2 of record %d (%x) in %s\n", 
 				dwRecordsNumber,
 				*pdwRecSize2,
 				LogFile->LogName);
@@ -218,7 +157,6 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 		
 		if(!LogfAddOffsetInformation(LogFile, RecBuf->RecordNumber, dwFilePointer))
 		{
-			DPRINT1("LogfAddOffsetInformation() failed!\n");
 			HeapFree(MyHeap, 0, RecBuf);
 			return FALSE;
 		}
@@ -229,28 +167,13 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile)
 	LogFile->Header.NextRecord = dwRecordsNumber+1;
 	LogFile->Header.OldestRecord = dwRecordsNumber ? 1 : 0; //FIXME
 
-	if(!SetFilePointer(LogFile->hFile, 0, NULL, FILE_CURRENT) ==
-		INVALID_SET_FILE_POINTER)
-	{
-		DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-		return FALSE;
-	}
-	
-	if(!WriteFile(LogFile->hFile,
+	SetFilePointer(LogFile->hFile, 0, 0, FILE_CURRENT);
+	WriteFile(LogFile->hFile,
 			  &LogFile->Header,
 			  sizeof(FILE_HEADER),
 			  &dwRead, 
-			  NULL))
-	{
-		DPRINT1("WriteFile failed! %d\n", GetLastError());
-		return FALSE;
-	}
-	
-	if(!FlushFileBuffers(LogFile->hFile))
-	{
-		DPRINT1("FlushFileBuffers failed! %d\n", GetLastError());
-		return FALSE;
-	}
+			  NULL);
+	FlushFileBuffers(LogFile->hFile);
 	
 	return TRUE;
 }
@@ -266,7 +189,7 @@ PLOGFILE LogfCreate(WCHAR *LogName,
                         sizeof(LOGFILE));
     if(!LogFile)
     {
-        DPRINT1("Can't allocate heap!\n");
+        DbgPrint("EventLog: Can't allocate heap\n");
         return NULL;
     }
     
@@ -281,43 +204,51 @@ PLOGFILE LogfCreate(WCHAR *LogName,
 	
     if(LogFile->hFile == INVALID_HANDLE_VALUE)
     {
-		DPRINT1("Can't create file %S.\n", FileName);
+		DPRINT("Can't create file %S.\n", FileName);
         HeapFree(MyHeap, 0, LogFile); 
 		return NULL;
 	}
 	
-	bCreateNew = (GetLastError() == ERROR_ALREADY_EXISTS) ? FALSE : TRUE;
+	bCreateNew = GetLastError() == ERROR_ALREADY_EXISTS ? FALSE : TRUE;
 	
 	LogFile->LogName = HeapAlloc(MyHeap,
-		HEAP_ZERO_MEMORY,
-		(lstrlenW(LogName)+1)*sizeof(WCHAR));
-    
-    if(LogFile->LogName) lstrcpyW(LogFile->LogName, LogName);
+	                             HEAP_ZERO_MEMORY,
+	                             (lstrlenW(LogName)+1)*sizeof(WCHAR));
+    if(LogFile->LogName)
+		lstrcpyW(LogFile->LogName, LogName);
 	else 
 	{
-		DPRINT1("Can't allocate heap\n");
+		DPRINT("EventLog: Can't allocate heap\n");
 		HeapFree(MyHeap, 0, LogFile);
 		return NULL;
 	}
     
 	LogFile->FileName = HeapAlloc(MyHeap,
-		HEAP_ZERO_MEMORY,
-		(lstrlenW(FileName)+1)*sizeof(WCHAR));
-    
-    if(LogFile->FileName) lstrcpyW(LogFile->FileName, FileName);
+	                             HEAP_ZERO_MEMORY,
+	                             (lstrlenW(FileName)+1)*sizeof(WCHAR));
+    if(LogFile->FileName)
+		lstrcpyW(LogFile->FileName, FileName);
 	else
 	{
-		DPRINT1("Can't allocate heap\n");
-		goto fail;
+		DPRINT("EventLog: Can't allocate heap\n");
+		HeapFree(MyHeap, 0, LogFile->LogName);
+		HeapFree(MyHeap, 0, LogFile);
+		return NULL;
 	}
 
+
 	LogFile->OffsetInfo = (PEVENT_OFFSET_INFO) 
-		HeapAlloc(MyHeap, HEAP_ZERO_MEMORY, sizeof(EVENT_OFFSET_INFO)*64);
+		HeapAlloc(MyHeap, 
+				  HEAP_ZERO_MEMORY,
+				  sizeof(EVENT_OFFSET_INFO)*64);
 
 	if(!LogFile->OffsetInfo)
 	{
-		DPRINT1("Can't allocate heap\n");
-		goto fail;
+		DPRINT("EventLog: Can't allocate heap\n");
+		HeapFree(MyHeap, 0, LogFile->FileName);
+		HeapFree(MyHeap, 0, LogFile->LogName);
+		HeapFree(MyHeap, 0, LogFile);
+		return NULL;
 	}
 
 	LogFile->OffsetInfoSize = 64;
@@ -326,21 +257,18 @@ PLOGFILE LogfCreate(WCHAR *LogName,
 		bResult = LogfInitializeNew(LogFile);
 	else bResult = LogfInitializeExisting(LogFile);
 
-	if(!bResult) goto fail;
+	if(!bResult)
+	{
+		HeapFree(MyHeap, 0, LogFile->OffsetInfo);
+		HeapFree(MyHeap, 0, LogFile->FileName);
+		HeapFree(MyHeap, 0, LogFile->LogName);
+		HeapFree(MyHeap, 0, LogFile);
+		return NULL;
+	}
     
     InitializeCriticalSection(&LogFile->cs);
     LogfListAddItem(LogFile);
     return LogFile;
-
-fail:
-	if(LogFile)
-	{
-		if(LogFile->OffsetInfo) HeapFree(MyHeap, 0, LogFile->OffsetInfo);
-		if(LogFile->FileName) HeapFree(MyHeap, 0, LogFile->FileName);
-		if(LogFile->LogName) HeapFree(MyHeap, 0, LogFile->LogName);
-		HeapFree(MyHeap, 0, LogFile);
-	}
-	return NULL;
 }
 
 VOID LogfClose(PLOGFILE LogFile)
@@ -364,118 +292,107 @@ VOID LogfClose(PLOGFILE LogFile)
     return;
 }
 
+PLOGFILE LogfListHead()
+{
+    return _LogListHead;
+}
+
 PLOGFILE LogfListItemByName(WCHAR *Name)
 {
-    PLOGFILE Item, Ret = NULL;
-    
-    EnterCriticalSection(&LogListCs);
-    
-    for(Item = LogListHead; Item; Item = (PLOGFILE)Item->Next)
-        if(Item->LogName && lstrcmpi(Item->LogName, Name)==0)
-        {
-        	Ret = Item;
-            break;
-        }
-	
-	LeaveCriticalSection(&LogListCs);
-    return Ret;
+    PLOGFILE Item;
+    Item = LogfListHead();
+    while(Item)
+    {
+        if(Item->LogName && lstrcmpW(Item->LogName, Name)==0)
+            return Item;
+        Item = (PLOGFILE)Item->Next;
+    }
+    return NULL;
 }
 
 /* index starting from 1 */
 INT LogfListItemIndexByName(WCHAR *Name)
 {
     PLOGFILE Item;
-	INT ret = 0, i = 1;
+	INT i = 1;
 
-	EnterCriticalSection(&LogListCs);
-
-	for(Item = LogListHead; Item; i++, Item = (PLOGFILE)Item->Next)
-        if(Item->LogName && lstrcmpi(Item->LogName, Name)==0)
-        {
-        	ret = i;
-            break;
-        }
+    Item = LogfListHead();
     
-	LeaveCriticalSection(&LogListCs);
-	return ret;
+	while(Item)
+    {
+        if(Item->LogName && lstrcmpW(Item->LogName, Name)==0)
+            return i;
+        Item = (PLOGFILE)Item->Next;
+		i++;
+    }
+    
+	return 0;
 }
 
 /* index starting from 1 */
 PLOGFILE LogfListItemByIndex(INT Index)
 {
     INT i = 1;
-    PLOGFILE Item = LogListHead;
-    
-    EnterCriticalSection(&LogListCs);
-    for(; Item && i<Index; Item = (PLOGFILE)Item->Next, i++); 
-    LeaveCriticalSection(&LogListCs);
-    
-    return Item;
+    PLOGFILE Item;
+    Item = LogfListHead();
+    while(Item)
+    {
+        if(i == Index) 
+            return Item;
+        i++;
+        Item = (PLOGFILE)Item->Next;
+    }
+    return NULL;
 }
 
 INT LogfListItemCount()
 {
-    PLOGFILE Item = LogListHead;
-    INT i = 0;
-    
-    EnterCriticalSection(&LogListCs);
-    while(Item) 
-    {
-    	i++;
-    	Item = (PLOGFILE) Item->Next;
+    PLOGFILE Item = NULL;
+    INT i = 1;
+    Item = LogfListHead();
+    if(Item)
+    { 
+        while(Item->Next)
+        {
+            i++;
+            Item = (PLOGFILE) Item->Next;
+        }
+        return i;
     }
-    LeaveCriticalSection(&LogListCs);
-    
-    return i;
+    else return 0;
 }
 
 VOID LogfListAddItem(PLOGFILE Item)
 {
-    EnterCriticalSection(&LogListCs);
+    PLOGFILE List;
+	
+	List = LogfListHead();
     
-	if(LogListHead)
+	if(List)
     {
-    	PLOGFILE List = LogListHead;
-        
         while(List->Next) 
             List = (PLOGFILE)List->Next;
-                
         Item->Prev = (PVOID)List;
         Item->Next = NULL;
-        List->Next = Item;
+        InterlockedExchange((PLONG)&List->Next, (LONG)Item);
     }
-    else 
-    {
+    else {
         Item->Next = NULL;
         Item->Prev = NULL;
-        LogListHead = Item;
+        InterlockedExchange((PLONG)&_LogListHead, (LONG)Item);
     }
-    
-    LeaveCriticalSection(&LogListCs);
 }
 
 VOID LogfListRemoveItem(PLOGFILE Item)
 {
-    PLOGFILE prev = (PLOGFILE)Item->Prev;
-    PLOGFILE next = (PLOGFILE)Item->Next;
-	
-	EnterCriticalSection(&LogListCs);
-
-    if(prev && next)
+    if(Item->Prev)
     {
-        prev->Next = next;
-        next->Prev = prev;
+        InterlockedExchange((PLONG)&((PLOGFILE)Item->Prev)->Next,
+                            (LONG)Item->Next);
     }
-    else if(next)
-    {
-    	LogListHead = next;
-    	next->Prev = NULL;
+    else {
+        InterlockedExchange((PLONG)&_LogListHead, (LONG)Item->Next);
     }
-    else if(prev) prev->Next = NULL;
-    else LogListHead = NULL;
-        
-    LeaveCriticalSection(&LogListCs);
-
 }
 
 BOOL LogfReadEvent(PLOGFILE LogFile,
@@ -516,21 +433,8 @@ BOOL LogfReadEvent(PLOGFILE LogFile,
 		return FALSE;
 	}
 
-	if(SetFilePointer(LogFile->hFile, dwOffset, NULL, FILE_BEGIN)
-		== INVALID_SET_FILE_POINTER)
-	{
-		DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
-	
-	if(!ReadFile(LogFile->hFile, &dwRecSize, sizeof(DWORD), &dwRead, NULL))
-	{
-		DPRINT1("ReadFile() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
-	
+	SetFilePointer(LogFile->hFile, dwOffset, NULL, FILE_BEGIN);
+	ReadFile(LogFile->hFile, &dwRecSize, sizeof(DWORD), &dwRead, NULL);
 	if(dwRecSize > BufSize)
 	{
 		*BytesRead = 0;
@@ -540,23 +444,12 @@ BOOL LogfReadEvent(PLOGFILE LogFile,
 		return FALSE;
 	}
 
-	if(SetFilePointer(LogFile->hFile, 
+	SetFilePointer(LogFile->hFile, 
 				   -((LONG)sizeof(DWORD)), 
 				   NULL, 
-				   FILE_CURRENT) == INVALID_SET_FILE_POINTER)
-	{
-		DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
+				   FILE_CURRENT);
 
-	if(!ReadFile(LogFile->hFile, Buffer, dwRecSize, &dwRead, NULL))
-	{
-		DPRINT1("ReadFile() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
-	
+	ReadFile(LogFile->hFile, Buffer, dwRecSize, &dwRead, NULL);
 	dwBufferUsage+=dwRead;
 
 	while(dwBufferUsage<BufSize)
@@ -568,43 +461,20 @@ BOOL LogfReadEvent(PLOGFILE LogFile,
 		dwOffset = LogfOffsetByNumber(LogFile, dwRecNum);
 		if(!dwOffset) break;
 
-		if(SetFilePointer(LogFile->hFile, dwOffset, NULL, FILE_BEGIN)
-			== INVALID_SET_FILE_POINTER)
-		{
-			DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-			LeaveCriticalSection(&LogFile->cs);
-			return FALSE;
-		}
-		
-		if(!ReadFile(LogFile->hFile, &dwRecSize, sizeof(DWORD), &dwRead, NULL))
-		{
-			DPRINT1("ReadFile() failed! %d\n", GetLastError());
-			LeaveCriticalSection(&LogFile->cs);
-			return FALSE;
-		}
-		
+		SetFilePointer(LogFile->hFile, dwOffset, NULL, FILE_BEGIN);
+		ReadFile(LogFile->hFile, &dwRecSize, sizeof(DWORD), &dwRead, NULL);
 		if(dwBufferUsage+dwRecSize>BufSize)break;
 
-		if(SetFilePointer(LogFile->hFile, 
+		SetFilePointer(LogFile->hFile, 
 					   -((LONG)sizeof(DWORD)),
 					   NULL,
-					   FILE_CURRENT) == INVALID_SET_FILE_POINTER)
-		{
-			DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-			LeaveCriticalSection(&LogFile->cs);
-			return FALSE;
-		}
+					   FILE_CURRENT);
 		
-		if(!ReadFile(LogFile->hFile, 
+		ReadFile(LogFile->hFile, 
 				 Buffer+dwBufferUsage,
 				 dwRecSize,
 				 &dwRead,
-				 NULL))
-		{
-			DPRINT1("ReadFile() failed! %d\n", GetLastError());
-			LeaveCriticalSection(&LogFile->cs);
-			return FALSE;
-		}
+				 NULL);
 
 		dwBufferUsage+=dwRead;
 	}
@@ -621,6 +491,7 @@ BOOL LogfWriteData(PLOGFILE LogFile,
 	DWORD dwWritten;
 	SYSTEMTIME st;
 	EOF_RECORD EofRec;
+	BOOL bResult;
 
 	if(!Buffer)
 	{
@@ -632,18 +503,11 @@ BOOL LogfWriteData(PLOGFILE LogFile,
 	
 	EnterCriticalSection(&LogFile->cs);
 
-	if(SetFilePointer(LogFile->hFile, 
-		LogFile->Header.EofOffset, 
-		NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+	SetFilePointer(LogFile->hFile, LogFile->Header.EofOffset, NULL, FILE_BEGIN);
+	WriteFile(LogFile->hFile, Buffer, BufSize, &dwWritten, NULL);
+
+	if(BufSize != dwWritten)
 	{
-		DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
-	
-	if(!WriteFile(LogFile->hFile, Buffer, BufSize, &dwWritten, NULL))
-	{
-		DPRINT1("WriteFile() failed! %d\n", GetLastError());
 		LeaveCriticalSection(&LogFile->cs);
 		return FALSE;
 	}
@@ -673,41 +537,24 @@ BOOL LogfWriteData(PLOGFILE LogFile,
 	EofRec.StartOffset = LogFile->Header.FirstRecordOffset;
 	EofRec.EndOffset = LogFile->Header.EofOffset;
 
-	if(!WriteFile(LogFile->hFile, 
-		&EofRec, 
-		sizeof(EOF_RECORD), 
-		&dwWritten, NULL))
-	{
-		DPRINT1("WriteFile() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
+	WriteFile(LogFile->hFile, &EofRec, sizeof(EOF_RECORD), &dwWritten, NULL);
 
-	if(SetFilePointer(LogFile->hFile, 0, NULL, FILE_BEGIN) 
-		== INVALID_SET_FILE_POINTER)
-	{
-		DPRINT1("SetFilePointer() failed! %d\n", GetLastError());
-		LeaveCriticalSection(&LogFile->cs);
-		return FALSE;
-	}
-	
-	if(!WriteFile(LogFile->hFile, 
+	SetFilePointer(LogFile->hFile, 0, NULL, FILE_BEGIN);
+	bResult = WriteFile(LogFile->hFile, 
 		&LogFile->Header, 
 		sizeof(FILE_HEADER), 
 		&dwWritten, 
-		NULL))
+		NULL);
+
+	if(!bResult)
 	{
-		DPRINT1("WriteFile failed! LastError = %d\n", GetLastError());
+		DPRINT("WriteFile failed! LastError = %d\n", GetLastError());
 		LeaveCriticalSection(&LogFile->cs);
 		return FALSE;
 	}
 	
 	if(!FlushFileBuffers(LogFile->hFile))
-	{
-		LeaveCriticalSection(&LogFile->cs);
-		DPRINT1("FlushFileBuffers() failed! %d\n", GetLastError());
-		return FALSE;
-	}
+		DPRINT("FlushFileBuffers() failed!\n");
 
 	LeaveCriticalSection(&LogFile->cs);
 	return TRUE;
@@ -715,7 +562,7 @@ BOOL LogfWriteData(PLOGFILE LogFile,
 
 ULONG LogfOffsetByNumber(PLOGFILE LogFile,
 						 DWORD RecordNumber)
-/* Returns 0 if nothing found. */
+/* Returns NULL if nothing found. */
 {
 	DWORD i;
 	for(i = 0; i < LogFile->OffsetInfoNext; i++)
@@ -744,7 +591,7 @@ BOOL LogfAddOffsetInformation(PLOGFILE LogFile,
 									sizeof(EVENT_OFFSET_INFO));
 		if(!NewOffsetInfo)
 		{
-			DPRINT1("Can't reallocate heap.\n");
+			DbgPrint("EventLog: Can't reallocate heap.\n");
 			return FALSE;
 		}
 
@@ -759,7 +606,7 @@ BOOL LogfAddOffsetInformation(PLOGFILE LogFile,
 	return TRUE;
 }
 
-PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
+DWORD LogfBuildNewRecord(PBYTE Buffer, 
 						 DWORD dwRecordNumber,
 						 WORD wType,
 						 WORD wCategory,
@@ -778,7 +625,6 @@ PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
 	SYSTEMTIME SysTime;
 	WCHAR *str;
 	UINT i, pos, nStrings;
-	PBYTE Buffer;
 
 	dwRecSize = sizeof(EVENTLOGRECORD) + (lstrlenW(ComputerName) + 
 	lstrlenW(SourceName) + 2)*sizeof(WCHAR);
@@ -796,13 +642,12 @@ PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
 	if(dwRecSize % 4 != 0) dwRecSize += 4 - (dwRecSize % 4);
 	dwRecSize+=4;
 
-	Buffer = HeapAlloc(MyHeap, HEAP_ZERO_MEMORY, dwRecSize);
 	if(!Buffer)
 	{
-		DPRINT1("Can't allocate heap!\n");
-		return NULL;
+		return dwRecSize;
 	}
 
+	ZeroMemory(Buffer, dwRecSize);
 	pRec = (PEVENTLOGRECORD)Buffer;
 	pRec->Length = dwRecSize;
 	pRec->Reserved = LOGFILE_SIGNATURE;
@@ -854,12 +699,6 @@ PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
 
 	if(pos % 4 != 0) pos += 4 - (pos % 4);
 	*((PDWORD)(Buffer+pos)) = dwRecSize;
-	
-	*lpRecSize = dwRecSize;
-	return Buffer;
-}
 
-inline void LogfFreeRecord(LPVOID Rec)
-{
-	HeapFree(MyHeap, 0, Rec);
+	return TRUE;
 }

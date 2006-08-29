@@ -322,8 +322,6 @@ static UINT_PTR CALLBACK DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wPar
     HWND hCombo;
     OFNOTIFY *pNotify;
 
-    UNREFERENCED_PARAMETER(wParam);
-
     switch(msg)
     {
         case WM_INITDIALOG:
@@ -364,11 +362,11 @@ static UINT_PTR CALLBACK DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wPar
 
                 hCombo = GetDlgItem(hDlg, ID_ENCODING);
 				if (hCombo)
-	                Globals.iEncoding = (int) SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+	                Globals.iEncoding = SendMessage(hCombo, CB_GETCURSEL, 0, 0);
 
                 hCombo = GetDlgItem(hDlg, ID_EOLN);
 				if (hCombo)
-	                Globals.iEoln = (int) SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+	                Globals.iEoln = SendMessage(hCombo, CB_GETCURSEL, 0, 0);
             }
             break;
     }
@@ -455,7 +453,7 @@ VOID DIALOG_FilePrint(VOID)
     printer.nMinPage              = 1;
     /* we really need to calculate number of pages to set nMaxPage and nToPage */
     printer.nToPage               = 0;
-    printer.nMaxPage              = (WORD) -1;
+    printer.nMaxPage              = -1;
 
     /* Let commdlg manage copy settings */
     printer.nCopies               = (WORD)PD_USEDEVMODECOPIES;
@@ -672,7 +670,7 @@ VOID DIALOG_SelectFont(VOID)
     cf.lStructSize=sizeof(cf);
     cf.hwndOwner=Globals.hMainWnd;
     cf.lpLogFont=&lf;
-    cf.Flags=CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
+    cf.Flags=CF_SCREENFONTS;
 
     if( ChooseFont(&cf) )
     {
@@ -774,7 +772,7 @@ VOID DIALOG_GoTo(VOID)
     SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM) &dwStart, (LPARAM) &dwEnd);
 
     nLine = 1;
-    for (i = 0; pszText[i] && (i < (int) dwStart); i++)
+    for (i = 0; pszText[i] && (i < dwStart); i++)
     {
         if (pszText[i] == '\n')
             nLine++;
@@ -805,10 +803,10 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID)
     TCHAR buff[MAX_PATH];
 
     GetCaretPos(&point);
-    line = (int) SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)-1, (LPARAM)0);
-    ccol = (int) SendMessage(Globals.hEdit, EM_CHARFROMPOS, (WPARAM)0, (LPARAM)MAKELPARAM(point.x, point.y));
+    line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)-1, (LPARAM)0);
+    ccol = SendMessage(Globals.hEdit, EM_CHARFROMPOS, (WPARAM)0, (LPARAM)MAKELPARAM(point.x, point.y));
     ccol = LOWORD(ccol);
-    col = ccol - (int) SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, (LPARAM)0);
+    col = ccol - SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, (LPARAM)0);
 
     _stprintf(buff, TEXT("%S %d, %S %d"), Globals.szStatusBarLine, line+1, Globals.szStatusBarCol, col+1);
     SendMessage(Globals.hStatusBar, SB_SETTEXT, (WPARAM) SB_SIMPLEID, (LPARAM)buff);

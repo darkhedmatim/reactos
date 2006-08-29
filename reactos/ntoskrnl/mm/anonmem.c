@@ -679,7 +679,7 @@ NtAllocateVirtualMemory(IN HANDLE ProcessHandle,
    Type = (AllocationType & MEM_COMMIT) ? MEM_COMMIT : MEM_RESERVE;
    DPRINT("Type %x\n", Type);
 
-   AddressSpace = (PMADDRESS_SPACE)&Process->VadRoot;
+   AddressSpace = &Process->AddressSpace;
    MmLockAddressSpace(AddressSpace);
 
    if (PBaseAddress != 0)
@@ -833,7 +833,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
          if (PageOp != NULL)
          {
             NTSTATUS Status;
-            MmUnlockAddressSpace((PMADDRESS_SPACE)&Process->VadRoot);
+            MmUnlockAddressSpace(&Process->AddressSpace);
             Status = KeWaitForSingleObject(&PageOp->CompletionEvent,
                                            0,
                                            KernelMode,
@@ -844,7 +844,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
                DPRINT1("Failed to wait for page op\n");
                KEBUGCHECK(0);
             }
-            MmLockAddressSpace((PMADDRESS_SPACE)&Process->VadRoot);
+            MmLockAddressSpace(&Process->AddressSpace);
             MmReleasePageOp(PageOp);
          }
       }
@@ -860,7 +860,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
    }
 
    /* Actually free the memory area. */
-   MmFreeMemoryArea((PMADDRESS_SPACE)&Process->VadRoot,
+   MmFreeMemoryArea(&Process->AddressSpace,
                     MemoryArea,
                     MmFreeVirtualMemoryPage,
                     (PVOID)Process);
@@ -913,7 +913,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
       return(Status);
    }
 
-   AddressSpace = (PMADDRESS_SPACE)&Process->VadRoot;
+   AddressSpace = &Process->AddressSpace;
 
    MmLockAddressSpace(AddressSpace);
    MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, BaseAddress);

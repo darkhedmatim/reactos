@@ -1,15 +1,8 @@
 /* $Id$
  *
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * FILE:            dll/win32/kernel32/misc/error.c
- * PURPOSE:         Environment functions
- * PROGRAMMER:      Emanuele Aliberti
- *                  Thomas Weidenmueller
- * UPDATE HISTORY:
- *                  Created 05/10/98
+ * reactos/lib/kernel32/misc/error.c
+ *
  */
-
 
 #include <k32.h>
 
@@ -22,9 +15,11 @@
  */
 VOID
 STDCALL
-SetLastError (DWORD dwErrorCode)
+SetLastError (
+	DWORD	dwErrorCode
+	)
 {
-    NtCurrentTeb ()->LastErrorValue = (ULONG) dwErrorCode;
+	NtCurrentTeb ()->LastErrorValue = (ULONG) dwErrorCode;
 }
 
 
@@ -35,7 +30,7 @@ DWORD
 STDCALL
 GetLastError (VOID)
 {
-    return (DWORD) (NtCurrentTeb ()->LastErrorValue);
+	return (DWORD) (NtCurrentTeb ()->LastErrorValue);
 }
 
 

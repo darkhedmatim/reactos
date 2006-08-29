@@ -19,7 +19,7 @@
 #
 # Contributor(s): Bradley Baetz <bbaetz@student.usyd.edu.au>
 #                 Erik Stambaugh <erik@dasbistro.com>
-#                 A. Karl Kornel <karl@kornel.name>
+#
 
 package Bugzilla;
 
@@ -33,85 +33,6 @@ use Bugzilla::Constants;
 use Bugzilla::DB;
 use Bugzilla::Template;
 use Bugzilla::User;
-use Bugzilla::Error;
-use Bugzilla::Util;
-
-use File::Basename;
-
-#####################################################################
-# Constants
-#####################################################################
-
-# Scripts that are not stopped by shutdownhtml being in effect.
-use constant SHUTDOWNHTML_EXEMPT => [
-    'editparams.cgi',
-    'checksetup.pl',
-];
-
-# Non-cgi scripts that should silently exit.
-use constant SHUTDOWNHTML_EXIT_SILENTLY => [
-    'whine.pl'
-];
-
-#####################################################################
-# Global Code
-#####################################################################
-
-# If Bugzilla is shut down, do not allow anything to run, just display a
-# message to the user about the downtime and log out.  Scripts listed in 
-# SHUTDOWNHTML_EXEMPT are exempt from this message.
-#
-# Because this is code which is run live from perl "use" commands of other
-# scripts, we're skipping this part if we get here during a perl syntax check
-# -- runtests.pl compiles scripts without running them, so we need to make sure
-# that this check doesn't apply to 'perl -c' calls.
-#
-# This code must go here. It cannot go anywhere in Bugzilla::CGI, because
-# it uses Template, and that causes various dependency loops.
-if (!$^C
-    && Param("shutdownhtml") 
-    && lsearch(SHUTDOWNHTML_EXEMPT, basename($0)) == -1) 
-{
-    # Allow non-cgi scripts to exit silently (without displaying any
-    # message), if desired. At this point, no DBI call has been made
-    # yet, and no error will be returned if the DB is inaccessible.
-    if (lsearch(SHUTDOWNHTML_EXIT_SILENTLY, basename($0)) > -1
-        && !i_am_cgi())
-    {
-        exit;
-    }
-
-    # For security reasons, log out users when Bugzilla is down.
-    # Bugzilla->login() is required to catch the logincookie, if any.
-    my $user = Bugzilla->login(LOGIN_OPTIONAL);
-    my $userid = $user->id;
-    Bugzilla->logout();
-
-    my $template = Bugzilla->template;
-    my $vars = {};
-    $vars->{'message'} = 'shutdown';
-    $vars->{'userid'} = $userid;
-    # Generate and return a message about the downtime, appropriately
-    # for if we're a command-line script or a CGI sript.
-    my $extension;
-    if (i_am_cgi() && (!Bugzilla->cgi->param('ctype')
-                       || Bugzilla->cgi->param('ctype') eq 'html')) {
-        $extension = 'html';
-    }
-    else {
-        $extension = 'txt';
-    }
-    print Bugzilla->cgi->header() if i_am_cgi();
-    my $t_output;
-    $template->process("global/message.$extension.tmpl", $vars, \$t_output)
-        || ThrowTemplateError($template->error);
-    print $t_output . "\n";
-    exit;
-}
-
-#####################################################################
-# Subroutines and Methods
-#####################################################################
 
 my $_template;
 sub template {
@@ -138,58 +59,9 @@ sub user {
     return $_user;
 }
 
-my $_sudoer;
-sub sudoer {
-    my $class = shift;    
-    return $_sudoer;
-}
-
-sub sudo_request {
-    my $class = shift;
-    my $new_user = shift;
-    my $new_sudoer = shift;
-
-    $_user = $new_user;
-    $_sudoer = $new_sudoer;
-
-    # NOTE: If you want to log the start of an sudo session, do it here.
-
-    return;
-}
-
 sub login {
     my ($class, $type) = @_;
-    my $authenticated_user = Bugzilla::Auth::Login::WWW->login($type);
-    
-    # At this point, we now know if a real person is logged in.
-    # We must now check to see if an sudo session is in progress.
-    # For a session to be in progress, the following must be true:
-    # 1: There must be a logged in user
-    # 2: That user must be in the 'bz_sudoer' group
-    # 3: There must be a valid value in the 'sudo' cookie
-    # 4: A Bugzilla::User object must exist for the given cookie value
-    # 5: That user must NOT be in the 'bz_sudo_protect' group
-    my $sudo_cookie = $class->cgi->cookie('sudo');
-    detaint_natural($sudo_cookie) if defined($sudo_cookie);
-    my $sudo_target;
-    $sudo_target = new Bugzilla::User($sudo_cookie) if defined($sudo_cookie);
-    if (defined($authenticated_user)                 &&
-        $authenticated_user->in_group('bz_sudoers')  &&
-        defined($sudo_cookie)                        &&
-        defined($sudo_target)                        &&
-        !($sudo_target->in_group('bz_sudo_protect'))
-       )
-    {
-        $_user = $sudo_target;
-        $_sudoer = $authenticated_user;
-
-        # NOTE: If you want to do any special logging, do it here.
-    }
-    else {
-        $_user = $authenticated_user;
-    }
-    
-    return $_user;
+    $_user = Bugzilla::Auth::Login::WWW->login($type);
 }
 
 sub logout {
@@ -219,7 +91,8 @@ sub logout_user_by_id {
 # hack that invalidates credentials for a single request
 sub logout_request {
     undef $_user;
-    undef $_sudoer;
+    # XXX clean this up eventually
+    $::userid = 0;
     # We can't delete from $cgi->cookie, so logincookie data will remain
     # there. Don't rely on it: use Bugzilla->user->login instead!
 }
@@ -246,6 +119,17 @@ sub batch {
         $_batch = $newval;
     }
     return $_batch || 0;
+}
+
+sub dbwritesallowed {
+    my $class = shift;
+
+    # We can write if we are connected to the main database.
+    # Note that if we don't have a shadowdb, then we claim that its ok
+    # to write even if we're nominally connected to the shadowdb.
+    # This is OK because this method is only used to test if misc
+    # updates can be done, rather than anything complicated.
+    return $class->dbh == $_dbh_main;
 }
 
 sub switch_to_shadow_db {
@@ -336,7 +220,7 @@ This approach has several advantages:
 
 =item *
 
-They're not global variables, so we don't have issues with them staying around
+They're not global variables, so we don't have issues with them staying arround
 with mod_perl
 
 =item *
@@ -383,24 +267,8 @@ method for those scripts/templates which are only use via CGI, though.
 
 =item C<user>
 
-C<undef> if there is no currently logged in user or if the login code has not
-yet been run.  If an sudo session is in progress, the C<Bugzilla::User>
-corresponding to the person who is being impersonated.  If no session is in
-progress, the current C<Bugzilla::User>.
-
-=item C<sudoer>
-
-C<undef> if there is no currently logged in user, the currently logged in user
-is not in the I<sudoer> group, or there is no session in progress.  If an sudo
-session is in progress, returns the C<Bugzilla::User> object corresponding to
-the person who logged in and initiated the session.  If no session is in
-progress, returns the C<Bugzilla::User> object corresponding to the currently
-logged in user.
-
-=item C<sudo_request>
-This begins an sudo session for the current request.  It is meant to be 
-used when a session has just started.  For normal use, sudo access should 
-normally be set at login time.
+The current C<Bugzilla::User>. C<undef> if there is no currently logged in user
+or if the login code has not yet been run.
 
 =item C<login>
 
@@ -442,6 +310,12 @@ Bugzilla->batch will return the current state of this flag.
 =item C<dbh>
 
 The current database handle. See L<DBI>.
+
+=item C<dbwritesallowed>
+
+Determines if writes to the database are permitted. This is usually used to
+determine if some general cleanup needs to occur (such as clearing the token
+table)
 
 =item C<switch_to_shadow_db>
 
