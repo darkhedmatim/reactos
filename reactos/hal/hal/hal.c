@@ -13,10 +13,10 @@
 #include <ntddk.h>
 #include <ntdddisk.h>
 #include <arc/arc.h>
-#include <intrin.h>
 #include <ndk/halfuncs.h>
 #include <ndk/iofuncs.h>
 #include <ndk/kdfuncs.h>
+#include <internal/kd.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -164,8 +164,8 @@ HalAllocateCommonBuffer(
 PVOID
 NTAPI
 HalAllocateCrashDumpRegisters(
-  PADAPTER_OBJECT AdapterObject,
-  PULONG NumberOfMapRegisters)
+  ULONG Unknown1,
+  ULONG Unknown2)
 {
   UNIMPLEMENTED;
   return NULL;
@@ -619,7 +619,7 @@ HalpAssignDriveLetters(IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
                        OUT PSTRING NtSystemPathString)
 {
     /* Call the kernel */
-    IoAssignDriveLetters(LoaderBlock,
+    return IoAssignDriveLetters(LoaderBlock,
                                 NtDeviceName,
                                 NtSystemPath,
                                 NtSystemPathString);
@@ -725,6 +725,132 @@ IoMapTransfer(
   return Address;
 }
 
+
+BOOLEAN
+NTAPI
+KdPortGetByte(
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortGetByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortInitialize(
+  PKD_PORT_INFORMATION PortInformation,
+  ULONG Unknown1,
+  ULONG Unknown2)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortInitializeEx(
+  PKD_PORT_INFORMATION PortInformation,
+  ULONG Unknown1,
+  ULONG Unknown2)
+{
+  UNIMPLEMENTED;
+  
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortPollByte(
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortPollByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+VOID
+NTAPI
+KdPortPutByte(
+  UCHAR ByteToSend)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortPutByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  UCHAR ByteToSend)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortRestore(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortSave(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortDisableInterrupts()
+{
+  UNIMPLEMENTED;
+
+  return FALSE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortEnableInterrupts()
+{
+  UNIMPLEMENTED;
+
+  return FALSE;
+}
 
 #undef KeAcquireSpinLock
 VOID

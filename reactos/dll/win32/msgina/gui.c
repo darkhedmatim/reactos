@@ -35,8 +35,6 @@ StatusMessageWindowProc(
 	IN WPARAM wParam,
 	IN LPARAM lParam)
 {
-	UNREFERENCED_PARAMETER(wParam);
-
 	switch (uMsg)
 	{
 		case WM_INITDIALOG:
@@ -77,7 +75,7 @@ StartupWindowThread(LPVOID lpParam)
 	DialogBoxParam(
 		hDllInstance, 
 		MAKEINTRESOURCE(IDD_STATUSWINDOW_DLG),
-		GetDesktopWindow(),
+		0,
 		StatusMessageWindowProc,
 		(LPARAM)lpParam);
 	SetThreadDesktop(OldDesk);
@@ -115,7 +113,7 @@ GUIDisplayStatusMessage(
 		msg->pMessage = pMessage;
 		msg->hDesktop = hDesktop;
 
-		msg->StartupEvent = CreateEventW(
+		msg->StartupEvent = CreateEvent(
 			NULL,
 			TRUE,
 			FALSE,
@@ -163,21 +161,6 @@ GUIRemoveStatusMessage(
 	return TRUE;
 }
 
-static INT_PTR CALLBACK
-EmptyWindowProc(
-	IN HWND hwndDlg,
-	IN UINT uMsg,
-	IN WPARAM wParam,
-	IN LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(hwndDlg);
-	UNREFERENCED_PARAMETER(uMsg);
-	UNREFERENCED_PARAMETER(wParam);
-	UNREFERENCED_PARAMETER(lParam);
-
-	return FALSE;
-}
-
 static VOID
 GUIDisplaySASNotice(
 	IN OUT PGINA_CONTEXT pgContext)
@@ -190,8 +173,8 @@ GUIDisplaySASNotice(
 	result = DialogBoxParam(
 		pgContext->hDllInstance,
 		MAKEINTRESOURCE(IDD_NOTICE_DLG),
-		GetDesktopWindow(),
-		EmptyWindowProc,
+		NULL,
+		NULL,
 		(LPARAM)NULL);
 	if (result == -1)
 	{
@@ -232,8 +215,6 @@ LoggedOnWindowProc(
 	IN WPARAM wParam,
 	IN LPARAM lParam)
 {
-	UNREFERENCED_PARAMETER(lParam);
-
 	switch (uMsg)
 	{
 		case WM_COMMAND:
@@ -293,7 +274,7 @@ GUILoggedOnSAS(
 		pgContext->hWlx,
 		pgContext->hDllInstance,
 		MAKEINTRESOURCEW(IDD_LOGGEDON_DLG),
-		GetDesktopWindow(),
+		NULL,
 		LoggedOnWindowProc,
 		(LPARAM)pgContext);
 	if (result >= WLX_SAS_ACTION_LOGON &&
@@ -334,7 +315,7 @@ LoggedOutWindowProc(
 			if (pgContext->hBitmap)
 			{
 				hdc = BeginPaint(hwndDlg, &ps);
-				DrawStateW(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
+				DrawState(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
 				EndPaint(hwndDlg, &ps);
 			}
 			return TRUE;
@@ -395,7 +376,7 @@ GUILoggedOutSAS(
 		pgContext->hWlx,
 		pgContext->hDllInstance,
 		MAKEINTRESOURCEW(IDD_LOGGEDOUT_DLG),
-		GetDesktopWindow(),
+		NULL,
 		LoggedOutWindowProc,
 		(LPARAM)pgContext);
 	if (result >= WLX_SAS_ACTION_LOGON &&
@@ -414,8 +395,6 @@ GUILockedSAS(
 	IN OUT PGINA_CONTEXT pgContext)
 {
 	TRACE("GUILockedSAS()\n");
-
-	UNREFERENCED_PARAMETER(pgContext);
 
 	UNIMPLEMENTED;
 	return WLX_SAS_ACTION_UNLOCK_WKSTA;

@@ -3,30 +3,54 @@
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            ntoskrnl/ex/callback.c
  * PURPOSE:         Executive callbacks
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ * PROGRAMMERS:     Filip Navara
+ *                  Alex Ionescu (alex@relsoft.net)
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
 
-/* TYPES *********************************************************************/
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, ExpInitializeCallbacks)
+#endif
+
+
+/* TYPES ********************************************************************/
 
 /* Mapping for Callback Object */
 GENERIC_MAPPING ExpCallbackMapping =
 {
-    CALLBACK_READ,
-    CALLBACK_WRITE,
-    CALLBACK_EXECUTE,
-    CALLBACK_ALL_ACCESS
+   CALLBACK_READ,
+   CALLBACK_WRITE,
+   CALLBACK_EXECUTE,
+   CALLBACK_ALL_ACCESS
 };
+
+/* Structure used to hold Callbacks */
+typedef struct _CALLBACK_REGISTRATION
+{
+   LIST_ENTRY RegisteredCallbacks;
+   PCALLBACK_OBJECT CallbackObject;
+   PCALLBACK_FUNCTION CallbackFunction;
+   PVOID CallbackContext;
+   ULONG InUse;
+   BOOLEAN PendingDeletion;
+} CALLBACK_REGISTRATION, *PCALLBACK_REGISTRATION;
+
+typedef struct
+{
+    PCALLBACK_OBJECT *CallbackObject;
+    PWSTR Name;
+} SYSTEM_CALLBACKS;
 
 /* Kernel Default Callbacks */
 PCALLBACK_OBJECT SetSystemTimeCallback;
 PCALLBACK_OBJECT SetSystemStateCallback;
 PCALLBACK_OBJECT PowerStateCallback;
+
 SYSTEM_CALLBACKS ExpInitializeCallback[] =
 {
    {&SetSystemTimeCallback, L"\\Callback\\SetSystemTime"},
@@ -37,298 +61,8 @@ SYSTEM_CALLBACKS ExpInitializeCallback[] =
 
 POBJECT_TYPE ExCallbackObjectType;
 KEVENT ExpCallbackEvent;
-EX_PUSH_LOCK ExpCallBackFlush;
 
-/* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-ExInitializeCallBack(IN OUT PEX_CALLBACK Callback)
-{
-    /* Initialize the fast references */
-    Callback->RoutineBlock.Object = NULL;
-}
-
-PEX_CALLBACK_ROUTINE_BLOCK
-NTAPI
-ExAllocateCallBack(IN PEX_CALLBACK_FUNCTION Function,
-                   IN PVOID Context)
-{
-    PEX_CALLBACK_ROUTINE_BLOCK Callback;
-
-    /* Allocate a callback */
-    Callback = ExAllocatePoolWithTag(PagedPool,
-                                     sizeof(*Callback),
-                                     TAG('C', 'b', 'r', 'b'));
-    if (Callback)
-    {
-        /* Initialize it */
-        Callback->Function = Function;
-        Callback->Context = Context;
-        ExInitializeRundownProtection(&Callback->RundownProtect);
-    }
-
-    /* Return it */
-    return Callback;
-}
-
-VOID
-NTAPI
-ExFreeCallBack(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
-{
-    /* Just free it from memory */
-    ExFreePool(Callback);
-}
-
-VOID
-NTAPI
-ExWaitForCallBacks(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
-{
-    /* Wait on the rundown */
-    ExWaitForRundownProtectionRelease(&Callback->RundownProtect);
-}
-
-PEX_CALLBACK_FUNCTION
-NTAPI
-ExGetCallBackBlockRoutine(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
-{
-    /* Return the function */
-    return Callback->Function;
-}
-
-PVOID
-NTAPI
-ExGetCallBackBlockContext(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
-{
-    /* Return the context */
-    return Callback->Context;
-}
-
-VOID
-NTAPI
-ExDereferenceCallBackBlock(IN OUT PEX_CALLBACK CallBack,
-                           IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock)
-{
-    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
-    EX_FAST_REF Value, NewValue;
-
-    /* Sanity checks */
-    ASSERT(CallbackRoutineBlock);
-    ASSERT(!(((ULONG_PTR)CallbackRoutineBlock) & MAX_FAST_REFS));
-
-    /* Start dereference loop */
-    for (;;)
-    {
-        /* Get the current count */
-        Value = *FastRef;
-        if ((Value.Value ^ (ULONG_PTR)CallbackRoutineBlock) < MAX_FAST_REFS)
-        {
-            /* Decrease the reference count */
-            NewValue.Value = Value.Value + 1;
-            NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
-                                                                NewValue.Object,
-                                                                Value.Object);
-            if (NewValue.Object != Value.Object) continue;
-
-            /* We're all done */
-            break;
-        }
-        else
-        {
-            /* Release rundown protection */
-            ExReleaseRundownProtection(&CallbackRoutineBlock->RundownProtect);
-        }
-    }
-}
-
-PEX_CALLBACK_ROUTINE_BLOCK
-NTAPI
-ExReferenceCallBackBlock(IN OUT PEX_CALLBACK CallBack)
-{
-    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
-    EX_FAST_REF Value, NewValue;
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
-
-    /* Start reference loop */
-    for (;;)
-    {
-        /* Get the current count */
-        Value = *FastRef;
-        if (Value.RefCnt != 0)
-        {
-            /* Increase the reference count */
-            NewValue.Value = Value.Value - 1;
-            NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
-                                                                NewValue.Object,
-                                                                Value.Object);
-            if (NewValue.Object != Value.Object) continue;
-        }
-
-        /* All done */
-        break;
-    }
-
-    /* Fail if there isn't any object */
-    if (!Value.Value) return NULL;
-
-    /* Check if we don't have a reference */
-    if (!Value.RefCnt)
-    {
-        /* FIXME: Race */
-        CallbackRoutineBlock = NULL;
-        DPRINT1("Unhandled callback race condition\n");
-        KEBUGCHECK(0);
-    }
-    else
-    {
-        /* Get the callback block */
-        CallbackRoutineBlock = (PVOID)(Value.Value &~ MAX_FAST_REFS);
-
-        /* Check if this is the last reference */
-        if (Value.RefCnt == 1)
-        {
-            /* Acquire rundown protection */
-            if (ExfAcquireRundownProtectionEx(&CallbackRoutineBlock->
-                                              RundownProtect,
-                                              MAX_FAST_REFS))
-            {
-                /* Sanity check */
-                ASSERT(!(((ULONG_PTR)CallbackRoutineBlock) & MAX_FAST_REFS));
-
-                /* Start reference loop */
-                for (;;)
-                {
-                    /* Check if the current count is too high */
-                    Value = *FastRef;
-                    if (((Value.RefCnt + MAX_FAST_REFS) > MAX_FAST_REFS) ||
-                        ((Value.Value &~ MAX_FAST_REFS) !=
-                         (ULONG_PTR)CallbackRoutineBlock))
-                    {
-                        /* Backdown the rundown acquire */
-                        ExfReleaseRundownProtectionEx(&CallbackRoutineBlock->
-                                                      RundownProtect,
-                                                      MAX_FAST_REFS);
-                        break;
-                    }
-
-                    /* Increase the reference count */
-                    NewValue.Value = Value.Value + MAX_FAST_REFS;
-                    NewValue.Object =
-                        InterlockedCompareExchangePointer(&FastRef->Object,
-                                                          NewValue.Object,
-                                                          Value.Object);
-                    if (NewValue.Object != Value.Object) continue;
-
-                    /* Break out if the change was OK */
-                    break;
-                }
-            }
-        }
-    }
-
-    /* Return the callback block */
-    return CallbackRoutineBlock;
-}
-
-BOOLEAN
-NTAPI
-ExCompareExchangeCallBack(IN OUT PEX_CALLBACK CallBack,
-                          IN PEX_CALLBACK_ROUTINE_BLOCK NewBlock,
-                          IN PEX_CALLBACK_ROUTINE_BLOCK OldBlock)
-{
-    EX_FAST_REF Value, NewValue;
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
-    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
-
-    /* Check that we have a new block */
-    if (NewBlock)
-    {
-        /* Acquire rundown */
-        if (!ExfAcquireRundownProtectionEx(&NewBlock->RundownProtect,
-                                           MAX_FAST_REFS + 1))
-        {
-            /* This should never happen */
-            ASSERTMSG("Callback block is already undergoing rundown", FALSE);
-            return FALSE;
-        }
-    }
-
-    /* Sanity check and start swap loop */
-    ASSERT(!(((ULONG_PTR)NewBlock) & MAX_FAST_REFS));
-    for (;;)
-    {
-        /* Get the current value */
-        Value = *FastRef;
-
-        /* Make sure there's enough references to swap */
-        if (!((Value.Value ^ (ULONG_PTR)OldBlock) <= MAX_FAST_REFS)) break;
-
-        /* Check if we have an object to swap */
-        if (NewBlock)
-        {
-            /* Set up the value with maximum fast references */
-            NewValue.Value = (ULONG_PTR)NewBlock | MAX_FAST_REFS;
-        }
-        else
-        {
-            /* Write the object address itself (which is empty) */
-            NewValue.Value = (ULONG_PTR)NewBlock;
-        }
-
-        /* Do the actual compare exchange */
-        NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
-                                                            NewValue.Object,
-                                                            Value.Object);
-        if (NewValue.Object != Value.Object) continue;
-
-        /* All done */
-        break;
-    }
-
-    /* Get the routine block */
-    CallbackRoutineBlock = (PVOID)(Value.Value & ~MAX_FAST_REFS);
-
-    /* Make sure the swap worked */
-    if (CallbackRoutineBlock == OldBlock)
-    {
-        /* Make sure we replaced a valid pointer */
-        if (CallbackRoutineBlock)
-        {
-            /* Acquire the flush lock and immediately release it */
-            KeEnterCriticalRegion();
-            ExWaitOnPushLock(&ExpCallBackFlush);
-
-            /* Release rundown protection */
-            KeLeaveCriticalRegion();
-            ExfReleaseRundownProtectionEx(&CallbackRoutineBlock->RundownProtect,
-                                          Value.RefCnt + 1);
-        }
-
-        /* Compare worked */
-        return TRUE;
-    }
-    else
-    {
-        /* It failed, check if we had a block */
-        if (NewBlock)
-        {
-            /* We did, remove the refernces that we had added */
-            ExfReleaseRundownProtectionEx(&NewBlock->RundownProtect,
-                                          MAX_FAST_REFS + 1);
-        }
-
-        /* Return failure */
-        return FALSE;
-    }
-}
-
-VOID
-NTAPI
-ExpDeleteCallback(IN PVOID Object)
-{
-    /* Sanity check */
-    ASSERT(IsListEmpty(&((PCALLBACK_OBJECT)Object)->RegisteredCallbacks));
-}
+/* FUNCTIONS *****************************************************************/
 
 /*++
  * @name ExpInitializeCallbacks
@@ -341,7 +75,7 @@ ExpDeleteCallback(IN PVOID Object)
  * @remarks None
  *
  *--*/
-BOOLEAN
+VOID
 INIT_FUNCTION
 NTAPI
 ExpInitializeCallbacks(VOID)
@@ -355,36 +89,43 @@ ExpInitializeCallbacks(VOID)
     HANDLE DirectoryHandle;
     ULONG i;
 
-    /* Setup lightweight callback lock */
-    ExpCallBackFlush.Value = 0;
-
-    /* Initialize the Callback Object type  */
+    /*  Initialize the Callback Object type  */
     RtlZeroMemory(&ObjectTypeInitializer, sizeof(ObjectTypeInitializer));
     RtlInitUnicodeString(&Name, L"Callback");
     ObjectTypeInitializer.Length = sizeof(ObjectTypeInitializer);
-    ObjectTypeInitializer.InvalidAttributes = OBJ_OPENLINK;
+    ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(CALLBACK_OBJECT);
     ObjectTypeInitializer.GenericMapping = ExpCallbackMapping;
     ObjectTypeInitializer.PoolType = NonPagedPool;
-    ObjectTypeInitializer.DeleteProcedure = ExpDeleteCallback;
-    ObjectTypeInitializer.ValidAccessMask = CALLBACK_ALL_ACCESS;
-    Status = ObCreateObjectType(&Name,
-                                &ObjectTypeInitializer,
-                                NULL,
-                                &ExCallbackObjectType);
-    if (!NT_SUCCESS(Status)) return FALSE;
+
+    Status = ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ExCallbackObjectType);
+
+    /* Fail if it wasn't created successfully */
+    if (!NT_SUCCESS(Status))
+    {
+        return;
+    }
 
     /* Initialize the Object */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &DirName,
-                               OBJ_CASE_INSENSITIVE | OBJ_PERMANENT,
-                               NULL,
-                               SePublicDefaultSd);
+    InitializeObjectAttributes(
+        &ObjectAttributes,
+        &DirName,
+        OBJ_CASE_INSENSITIVE | OBJ_PERMANENT,
+        NULL,
+        NULL
+        );
 
     /* Create the Object Directory */
-    Status = NtCreateDirectoryObject(&DirectoryHandle,
-                                     DIRECTORY_ALL_ACCESS,
-                                     &ObjectAttributes);
-    if (!NT_SUCCESS(Status)) return FALSE;
+    Status = NtCreateDirectoryObject(
+        &DirectoryHandle,
+        DIRECTORY_ALL_ACCESS,
+        &ObjectAttributes
+        );
+
+    /* Fail if couldn't create */
+    if (!NT_SUCCESS(Status))
+    {
+        return;
+    }
 
     /* Close Handle... */
     NtClose(DirectoryHandle);
@@ -393,31 +134,36 @@ ExpInitializeCallbacks(VOID)
     KeInitializeEvent(&ExpCallbackEvent, NotificationEvent, 0);
 
     /* Default NT Kernel Callbacks. */
-    for (i = 0; ExpInitializeCallback[i].CallbackObject; i++)
+    for (i=0; ExpInitializeCallback[i].CallbackObject; i++)
     {
         /* Create the name from the structure */
         RtlInitUnicodeString(&CallbackName, ExpInitializeCallback[i].Name);
 
         /* Initialize the Object Attributes Structure */
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &CallbackName,
-                                   OBJ_PERMANENT | OBJ_CASE_INSENSITIVE,
-                                   NULL,
-                                   NULL);
+        InitializeObjectAttributes(
+            &ObjectAttributes,
+            &CallbackName,
+            OBJ_PERMANENT | OBJ_CASE_INSENSITIVE,
+            NULL,
+            NULL
+            );
 
         /* Create the Callback Object */
-        Status = ExCreateCallback(ExpInitializeCallback[i].CallbackObject,
-                                  &ObjectAttributes,
-                                  TRUE,
-                                  TRUE);
-        if (!NT_SUCCESS(Status)) return FALSE;
+        Status = ExCreateCallback(
+            (PCALLBACK_OBJECT*)&(ExpInitializeCallback[i].CallbackObject),
+            &ObjectAttributes,
+            TRUE,
+            TRUE
+            );
+
+        /* Make sure Global Callbacks have been created */
+        if (!NT_SUCCESS(Status))
+        {
+            return;
+        }
     }
-
     /* Everything successful */
-    return TRUE;
 }
-
-/* PUBLIC FUNCTIONS **********************************************************/
 
 /*++
  * @name ExCreateCallback
@@ -454,15 +200,15 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
                  IN BOOLEAN Create,
                  IN BOOLEAN AllowMultipleCallbacks)
 {
-    PCALLBACK_OBJECT Callback = NULL;
-    NTSTATUS Status;
-    HANDLE Handle = NULL;
+    PCALLBACK_OBJECT Callback;
+    NTSTATUS    Status;
+    HANDLE     Handle;
+
     PAGED_CODE();
 
     /* Open a handle to the callback if it exists */
     if (ObjectAttributes->ObjectName)
     {
-        /* Open the handle */
         Status = ObOpenObjectByName(ObjectAttributes,
                                     ExCallbackObjectType,
                                     KernelMode,
@@ -473,14 +219,12 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
     }
     else
     {
-        /* Otherwise, fail */
         Status = STATUS_UNSUCCESSFUL;
     }
 
     /* We weren't able to open it...should we create it? */
-    if (!(NT_SUCCESS(Status)) && (Create))
+    if(!NT_SUCCESS(Status) && Create )
     {
-        /* Create the object */
         Status = ObCreateObject(KernelMode,
                                 ExCallbackObjectType,
                                 ObjectAttributes,
@@ -489,27 +233,25 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
                                 sizeof(CALLBACK_OBJECT),
                                 0,
                                 0,
-                                (PVOID *)&Callback);
-        if (NT_SUCCESS(Status))
-        {
-            /* Set it up */
-            Callback->Signature = TAG('C', 'a', 'l', 'l');
-            KeInitializeSpinLock(&Callback->Lock);
-            InitializeListHead(&Callback->RegisteredCallbacks);
-            Callback->AllowMultipleCallbacks = AllowMultipleCallbacks;
+                                (PVOID *)&Callback );
 
-            /* Insert the object into the object namespace */
+        /* We Created it...let's initialize the structure now */
+        if(NT_SUCCESS(Status))
+        {
+            KeInitializeSpinLock(&Callback->Lock);      /*  SpinLock   */
+            InitializeListHead(&Callback->RegisteredCallbacks);   /*  Callback Entries */
+            Callback->AllowMultipleCallbacks = AllowMultipleCallbacks; /*  Multiple Callbacks */
+            /*  Create the object */
             Status = ObInsertObject(Callback,
                                     NULL,
                                     FILE_READ_DATA,
                                     0,
                                     NULL,
-                                    &Handle);
+                                    &Handle );
         }
     }
 
-    /* Check if we have success until here */
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Get a pointer to the new object from the handle we just got */
         Status = ObReferenceObjectByHandle(Handle,
@@ -518,13 +260,15 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
                                            KernelMode,
                                            (PVOID)&Callback,
                                            NULL);
-
         /* Close the Handle, since we now have the pointer */
         ZwClose(Handle);
     }
 
     /* Everything went fine, so return a pointer to the Object */
-    if (NT_SUCCESS(Status)) *CallbackObject = Callback;
+    if (NT_SUCCESS(Status))
+    {
+        *CallbackObject = (PCALLBACK_OBJECT)Callback;
+    }
     return Status;
 }
 
@@ -534,6 +278,7 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
  *
  * Calls a function pointer (a registered callback)
  * See: http://www.osronline.com/ddkx/kmarch/k102_2f5e.htm
+ *      http://msdn.microsoft.com/library/en-us/Kernel_d/hh/Kernel_d/Synchro_e954f515-e536-4e12-8419-e7e54c4a963b.xml.asp?frame=true
  *      http://vmsone.com/~decuslib/vmssig/vmslt99b/nt/wdm-callback.txt
  *
  * @param CallbackObject
@@ -552,24 +297,17 @@ ExCreateCallback(OUT PCALLBACK_OBJECT *CallbackObject,
  *--*/
 VOID
 NTAPI
-ExNotifyCallback(IN PCALLBACK_OBJECT CallbackObject,
+ExNotifyCallback(IN PCALLBACK_OBJECT OpaqueCallbackObject,
                  IN PVOID Argument1,
                  IN PVOID Argument2)
 {
-    PLIST_ENTRY RegisteredCallbacks;
-    PCALLBACK_REGISTRATION CallbackRegistration;
-    KIRQL OldIrql;
-
-    /* Check if we don't have an object or registrations */
-    if (!(CallbackObject) ||
-        (IsListEmpty(&CallbackObject->RegisteredCallbacks)))
-    {
-        /* Don't notify */
-        return;
-    }
+    PCALLBACK_OBJECT   CallbackObject = (PCALLBACK_OBJECT)OpaqueCallbackObject;
+    PLIST_ENTRY             RegisteredCallbacks;
+    PCALLBACK_REGISTRATION  CallbackRegistration;
+    KIRQL                   OldIrql;
 
     /* Acquire the Lock */
-    KeAcquireSpinLock(&CallbackObject->Lock, &OldIrql);
+    OldIrql = KfAcquireSpinLock(&CallbackObject->Lock);
 
     /* Enumerate through all the registered functions */
     for (RegisteredCallbacks = CallbackObject->RegisteredCallbacks.Flink;
@@ -579,41 +317,39 @@ ExNotifyCallback(IN PCALLBACK_OBJECT CallbackObject,
         /* Get a pointer to a Callback Registration from the List Entries */
         CallbackRegistration = CONTAINING_RECORD(RegisteredCallbacks,
                                                  CALLBACK_REGISTRATION,
-                                                 Link);
+                                                 RegisteredCallbacks);
 
-        /* Don't bother doing notification if it's pending to be deleted */
-        if (!CallbackRegistration->UnregisterWaiting)
+        /* Don't bother doing Callback Notification if it's pending to be deleted */
+        if (!CallbackRegistration->PendingDeletion)
         {
-            /* Mark the Callback in use, so it won't get deleted */
-            CallbackRegistration->Busy += 1;
+            /* Mark the Callback in use, so it won't get deleted while we are calling it */
+            CallbackRegistration->InUse += 1;
 
             /* Release the Spinlock before making the call */
-            KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
+            KfReleaseSpinLock(&CallbackObject->Lock, OldIrql);
 
             /* Call the Registered Function */
-            CallbackRegistration->CallbackFunction(CallbackRegistration->
-                                                   CallbackContext,
-                                                   Argument1,
-                                                   Argument2);
+            CallbackRegistration->CallbackFunction(
+                CallbackRegistration->CallbackContext,
+                Argument1,
+                Argument2
+                );
 
             /* Get SpinLock back */
-            KeAcquireSpinLock(&CallbackObject->Lock, &OldIrql);
+            OldIrql = KfAcquireSpinLock(&CallbackObject->Lock);
 
             /* We are not in use anymore */
-            CallbackRegistration->Busy -= 1;
+            CallbackRegistration->InUse -= 1;
 
-            /* Check if removal is pending and we're not active */
-            if ((CallbackRegistration->UnregisterWaiting) &&
-                !(CallbackRegistration->Busy))
+            /* If another instance of this function isn't running and deletion is pending, signal the event */
+            if (CallbackRegistration->PendingDeletion  && CallbackRegistration->InUse == 0)
             {
-                /* Signal the callback event */
                 KeSetEvent(&ExpCallbackEvent, 0, FALSE);
             }
         }
     }
-
-    /* Release the Callback Object */
-    KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
+    /* Unsynchronize and release the Callback Object */
+    KfReleaseSpinLock(&CallbackObject->Lock, OldIrql);
 }
 
 /*++
@@ -641,64 +377,53 @@ ExNotifyCallback(IN PCALLBACK_OBJECT CallbackObject,
  *--*/
 PVOID
 NTAPI
-ExRegisterCallback(IN PCALLBACK_OBJECT CallbackObject,
+ExRegisterCallback(IN PCALLBACK_OBJECT OpaqueCallbackObject,
                    IN PCALLBACK_FUNCTION CallbackFunction,
                    IN PVOID CallbackContext)
 {
-    PCALLBACK_REGISTRATION CallbackRegistration = NULL;
-    KIRQL OldIrql;
+    PCALLBACK_OBJECT CallbackObject = (PCALLBACK_OBJECT)OpaqueCallbackObject;
+    PCALLBACK_REGISTRATION  CallbackRegistration = NULL;
+    KIRQL     OldIrql;
 
-    /* Sanity checks */
-    ASSERT(CallbackFunction);
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+    PAGED_CODE();
 
     /* Create reference to Callback Object */
-    ObReferenceObject(CallbackObject);
+    ObReferenceObject (CallbackObject);
 
     /* Allocate memory for the structure */
-    CallbackRegistration = ExAllocatePoolWithTag(NonPagedPool,
-                                                 sizeof(CALLBACK_REGISTRATION),
-                                                 CALLBACK_TAG);
-    if (!CallbackRegistration)
+    CallbackRegistration = ExAllocatePoolWithTag(
+                               NonPagedPool,
+                               sizeof(CallbackRegistration),
+                               CALLBACK_TAG
+                               );
+    /* Fail if memory allocation failed */
+    if(!CallbackRegistration)
     {
-        /* Dereference and fail */
         ObDereferenceObject (CallbackObject);
         return NULL;
     }
 
     /* Create Callback Registration */
-    CallbackRegistration->CallbackObject = CallbackObject;
-    CallbackRegistration->CallbackFunction = CallbackFunction;
-    CallbackRegistration->CallbackContext = CallbackContext;
-    CallbackRegistration->Busy = 0;
-    CallbackRegistration->UnregisterWaiting = FALSE;
+    CallbackRegistration->CallbackObject = CallbackObject; /* When unregistering, drivers send a handle to the Registration, not the object... */
+    CallbackRegistration->CallbackFunction = CallbackFunction; /* NotifyCallback uses Objects, so this needs to be here in order to call the registered functions */
+    CallbackRegistration->CallbackContext = CallbackContext; /* The documented NotifyCallback returns the Context, so we must save this somewhere */
 
     /* Acquire SpinLock */
-    KeAcquireSpinLock(&CallbackObject->Lock, &OldIrql);
+    OldIrql = KfAcquireSpinLock (&CallbackObject->Lock);
 
-    /* Check if 1) No Callbacks registered or 2) Multiple Callbacks allowed */
-    if ((CallbackObject->AllowMultipleCallbacks) ||
-        (IsListEmpty(&CallbackObject->RegisteredCallbacks)))
+    /* Add Callback if 1) No Callbacks registered or 2) Multiple Callbacks allowed */
+    if(CallbackObject->AllowMultipleCallbacks || IsListEmpty(&CallbackObject->RegisteredCallbacks))
     {
-        /* Register the callback */
-        InsertTailList(&CallbackObject->RegisteredCallbacks,
-                       &CallbackRegistration->Link);
-
-        /* Release SpinLock */
-        KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
+        InsertTailList(&CallbackObject->RegisteredCallbacks,&CallbackRegistration->RegisteredCallbacks);
     }
     else
     {
-        /* Release SpinLock */
-        KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
-
-        /* Free the registration */
         ExFreePool(CallbackRegistration);
         CallbackRegistration = NULL;
-
-        /* Dereference the object */
-        ObDereferenceObject(CallbackObject);
     }
+
+    /* Release SpinLock */
+    KfReleaseSpinLock(&CallbackObject->Lock, OldIrql);
 
     /* Return handle to Registration Object */
     return (PVOID)CallbackRegistration;
@@ -723,48 +448,51 @@ VOID
 NTAPI
 ExUnregisterCallback(IN PVOID CallbackRegistrationHandle)
 {
-    PCALLBACK_REGISTRATION CallbackRegistration;
-    PCALLBACK_OBJECT CallbackObject;
-    KIRQL OldIrql;
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+    PCALLBACK_REGISTRATION  CallbackRegistration;
+    PCALLBACK_OBJECT    CallbackObject;
+    KIRQL                   OldIrql;
+
+    PAGED_CODE();
 
     /* Convert Handle to valid Structure Pointer */
-    CallbackRegistration = (PCALLBACK_REGISTRATION)CallbackRegistrationHandle;
+    CallbackRegistration = (PCALLBACK_REGISTRATION) CallbackRegistrationHandle;
 
     /* Get the Callback Object */
     CallbackObject = CallbackRegistration->CallbackObject;
 
     /* Lock the Object */
-    KeAcquireSpinLock (&CallbackObject->Lock, &OldIrql);
+    OldIrql = KfAcquireSpinLock (&CallbackObject->Lock);
 
-    /* We can't Delete the Callback if it's in use */
-    while (CallbackRegistration->Busy)
+    /* We can't Delete the Callback if it's in use, because this would create a call towards a null pointer => crash */
+    while (CallbackRegistration->InUse)
     {
-        /* Let everyone else know we're unregistering */
-        CallbackRegistration->UnregisterWaiting = TRUE;
+        /* Similarly, we also don't want to wait ages for all pending callbacks to be called */
+        CallbackRegistration->PendingDeletion = TRUE;
 
         /* We are going to wait for the event, so the Lock isn't necessary */
-        KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
+        KfReleaseSpinLock (&CallbackObject->Lock, OldIrql);
 
         /* Make sure the event is cleared */
-        KeClearEvent(&ExpCallbackEvent);
+        KeClearEvent (&ExpCallbackEvent);
 
         /* Wait for the Event */
-        KeWaitForSingleObject(&ExpCallbackEvent,
-                              Executive,
-                              KernelMode,
-                              FALSE,
-                              NULL);
+        KeWaitForSingleObject (
+            &ExpCallbackEvent,
+            Executive,
+            KernelMode,
+            FALSE,
+            NULL
+            );
 
         /* We need the Lock again */
-        KeAcquireSpinLock(&CallbackObject->Lock, &OldIrql);
+        OldIrql = KfAcquireSpinLock(&CallbackObject->Lock);
     }
 
     /* Remove the Callback */
-    RemoveEntryList(&CallbackRegistration->Link);
+    RemoveEntryList(&CallbackRegistration->RegisteredCallbacks);
 
     /* It's now safe to release the lock */
-    KeReleaseSpinLock(&CallbackObject->Lock, OldIrql);
+    KfReleaseSpinLock(&CallbackObject->Lock, OldIrql);
 
     /* Delete this registration */
     ExFreePool(CallbackRegistration);

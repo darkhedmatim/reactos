@@ -14,9 +14,7 @@
 .globl _DbgBreakPointWithStatus@4
 .globl _DbgUserBreakPoint@0
 .globl _DebugService@20
-.globl _DebugService2@12
 .globl _DbgBreakPointNoBugCheck@0
-.globl _RtlpBreakWithStatusInstruction@0
 
 /* FUNCTIONS ***************************************************************/
 
@@ -36,29 +34,8 @@ _DbgUserBreakPoint@0:
 .func DbgBreakPointWithStatus@4
 _DbgBreakPointWithStatus@4:
     mov eax, [esp+4]
-
-_RtlpBreakWithStatusInstruction@0:
     int 3
     ret 4
-.endfunc
-
-.func DebugService2@12
-_DebugService2@12:
-
-    /* Setup the stack */
-    push ebp
-    mov ebp, esp
-
-    /* Call the interrupt */
-    mov eax, [ebp+16]
-    mov ecx, [ebp+8]
-    mov edx, [ebp+12]
-    int 0x2D
-    int 3
-
-    /* Restore stack */
-    pop ebp
-    ret 12
 .endfunc
 
 .func DebugService@20
@@ -82,7 +59,7 @@ _DebugService@20:
     mov ebx, [ebp+20]
     mov edi, [ebp+24]
     int 0x2D
-    int 3
+    //int 3
 
     /* Restore registers */
     pop ebx

@@ -194,17 +194,14 @@ DrawProgressBar(PPROGRESSBAR Bar)
   DrawBorder(Bar);
   
   /* Write Text Associated with Bar */
-  CONSOLE_SetTextXY(Bar->TextTop, Bar->TextRight, Bar->Text);
+  CONSOLE_SetTextXY(10, 24, Bar->Text);
   
   /* Draw the progress bar "border" border */
-  if (Bar->Double)
-  {
-      BarBorder.Top -= 5;
-      BarBorder.Bottom += 2;
-      BarBorder.Right += 5;
-      BarBorder.Left -= 5;
-      DrawThickBorder(&BarBorder);
-  }
+  BarBorder.Top -= 5;
+  BarBorder.Bottom += 2;
+  BarBorder.Right += 5;
+  BarBorder.Left -= 5;
+  DrawThickBorder(&BarBorder);
 
   /* Draw the bar */
   coPos.X = Bar->Left + 1;
@@ -232,9 +229,6 @@ CreateProgressBar(SHORT Left,
 		  SHORT Top,
 		  SHORT Right,
 		  SHORT Bottom,
-          SHORT TextTop,
-          SHORT TextRight,
-          IN BOOLEAN DoubleEdge,
           char* Text)
 {
   PPROGRESSBAR Bar;
@@ -249,9 +243,6 @@ CreateProgressBar(SHORT Left,
   Bar->Top = Top;
   Bar->Right = Right;
   Bar->Bottom = Bottom;
-  Bar->TextTop = TextTop;
-  Bar->TextRight = TextRight;
-  Bar->Double = DoubleEdge;
   Bar->Text = Text;
 
   Bar->Width = Bar->Right - Bar->Left + 1;

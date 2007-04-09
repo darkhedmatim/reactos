@@ -99,7 +99,7 @@ typedef struct _WNetEnumerator
  */
 static DWORD _findProviderIndexW(LPCWSTR lpProvider);
 
-static PWNetProviderTable providerTable;
+PWNetProviderTable providerTable;
 
 /*
  * Global provider table functions
@@ -447,7 +447,7 @@ static PWNetEnumerator _createContextEnumerator(DWORD dwScope, DWORD dwType,
  * if not all members of the array could be thunked, and something else on
  * failure.
  */
-static DWORD _thunkNetResourceArrayWToA(const NETRESOURCEW *lpNetArrayIn,
+static DWORD _thunkNetResourceArrayWToA(const LPNETRESOURCEW lpNetArrayIn,
  LPDWORD lpcCount, LPVOID lpBuffer, LPDWORD lpBufferSize)
 {
     DWORD i, numToThunk, totalBytes, ret;
@@ -466,7 +466,7 @@ static DWORD _thunkNetResourceArrayWToA(const NETRESOURCEW *lpNetArrayIn,
 
     for (i = 0, numToThunk = 0, totalBytes = 0; i < *lpcCount; i++)
     {
-        const NETRESOURCEW *lpNet = lpNetArrayIn + i;
+        LPNETRESOURCEW lpNet = lpNetArrayIn + i;
 
         totalBytes += sizeof(NETRESOURCEA);
         if (lpNet->lpLocalName)
@@ -488,7 +488,7 @@ static DWORD _thunkNetResourceArrayWToA(const NETRESOURCEW *lpNetArrayIn,
     for (i = 0; i < numToThunk; i++)
     {
         LPNETRESOURCEA lpNetOut = (LPNETRESOURCEA)lpBuffer + i;
-        const NETRESOURCEW *lpNetIn = lpNetArrayIn + i;
+        LPNETRESOURCEW lpNetIn = lpNetArrayIn + i;
 
         memcpy(lpNetOut, lpNetIn, sizeof(NETRESOURCEA));
         /* lie about string lengths, we already verified how many
@@ -532,7 +532,7 @@ static DWORD _thunkNetResourceArrayWToA(const NETRESOURCEW *lpNetArrayIn,
  * if not all members of the array could be thunked, and something else on
  * failure.
  */
-static DWORD _thunkNetResourceArrayAToW(const NETRESOURCEA *lpNetArrayIn,
+static DWORD _thunkNetResourceArrayAToW(const LPNETRESOURCEA lpNetArrayIn,
  LPDWORD lpcCount, LPVOID lpBuffer, LPDWORD lpBufferSize)
 {
     DWORD i, numToThunk, totalBytes, ret;
@@ -551,7 +551,7 @@ static DWORD _thunkNetResourceArrayAToW(const NETRESOURCEA *lpNetArrayIn,
 
     for (i = 0, numToThunk = 0, totalBytes = 0; i < *lpcCount; i++)
     {
-        const NETRESOURCEA *lpNet = lpNetArrayIn + i;
+        LPNETRESOURCEA lpNet = lpNetArrayIn + i;
 
         totalBytes += sizeof(NETRESOURCEW);
         if (lpNet->lpLocalName)
@@ -573,7 +573,7 @@ static DWORD _thunkNetResourceArrayAToW(const NETRESOURCEA *lpNetArrayIn,
     for (i = 0; i < numToThunk; i++)
     {
         LPNETRESOURCEW lpNetOut = (LPNETRESOURCEW)lpBuffer + i;
-        const NETRESOURCEA *lpNetIn = lpNetArrayIn + i;
+        LPNETRESOURCEA lpNetIn = lpNetArrayIn + i;
 
         memcpy(lpNetOut, lpNetIn, sizeof(NETRESOURCEW));
         /* lie about string lengths, we already verified how many
@@ -819,7 +819,7 @@ DWORD WINAPI WNetEnumResourceA( HANDLE hEnum, LPDWORD lpcCount,
         ret = WN_BAD_POINTER;
     else if (!lpcCount)
         ret = WN_BAD_POINTER;
-    else if (!lpBuffer)
+    if (!lpBuffer)
         ret = WN_BAD_POINTER;
     else if (!lpBufferSize)
         ret = WN_BAD_POINTER;

@@ -596,7 +596,7 @@ PcVideoSetMode80x50_80x43(VOID)
 {
   if (VIDEOCARD_VGA == PcVideoDetectVideoCard())
     {
-      PcVideoSetBiosMode(0x12);
+      PcVideoSetBiosMode(0x03);
       PcVideoSetFont8x8();
       PcVideoSelectAlternatePrintScreen();
       PcVideoDisableCursorEmulation();
@@ -1106,17 +1106,10 @@ PcVideoSync(VOID)
 }
 
 VOID
-PcVideoPrepareForReactOS(IN BOOLEAN Setup)
+PcVideoPrepareForReactOS(VOID)
 {
-    if (Setup)
-    {
-        PcVideoSetMode80x50_80x43();
-    }
-    else
-    {
-        PcVideoSetBiosMode(0x12);
-    }
-    PcVideoHideShowTextCursor(FALSE);
+  PcVideoSetMode80x50_80x43();
+  PcVideoHideShowTextCursor(FALSE);
 }
 
 /* EOF */

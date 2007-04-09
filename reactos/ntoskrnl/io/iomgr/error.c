@@ -23,7 +23,7 @@ typedef struct _IOP_ERROR_LOG_WORKER_DPC
 /* GLOBALS *******************************************************************/
 
 LONG IopTotalLogSize;
-LIST_ENTRY IopErrorLogListHead;
+LIST_ENTRY IopLogListHead;
 KSPIN_LOCK IopLogListLock;
 
 BOOLEAN IopLogWorkerRunning;
@@ -59,7 +59,7 @@ IopGetErrorLogEntry(VOID)
 
     /* Acquire the lock and check if the list is empty */
     KeAcquireSpinLock(&IopLogListLock, &OldIrql);
-    if (IsListEmpty(&IopErrorLogListHead))
+    if (IsListEmpty(&IopLogListHead))
     {
         /* List is empty, disable the worker and return NULL */
         IopLogWorkerRunning = FALSE;
@@ -68,7 +68,7 @@ IopGetErrorLogEntry(VOID)
     else
     {
         /* Otherwise, remove an entry */
-        ListEntry = RemoveHeadList(&IopErrorLogListHead);
+        ListEntry = RemoveHeadList(&IopLogListHead);
     }
 
     /* Release the lock and return the entry */
@@ -420,7 +420,7 @@ IopLogWorker(IN PVOID Parameter)
         if (!NT_SUCCESS(Status))
         {
             /* Requeue log message and restart the worker */
-            ExInterlockedInsertTailList(&IopErrorLogListHead,
+            ExInterlockedInsertTailList(&IopLogListHead,
                                         &LogEntry->ListEntry,
                                         &IopLogListLock);
             IopLogWorkerRunning = FALSE;
@@ -572,6 +572,7 @@ IoWriteErrorLogEntry(IN PVOID ElEntry)
     KIRQL Irql;
 
     /* Get the main header */
+    KEBUGCHECK(0);
     LogEntry = (PERROR_LOG_ENTRY)((ULONG_PTR)ElEntry -
                                   sizeof(ERROR_LOG_ENTRY));
 
@@ -580,19 +581,17 @@ IoWriteErrorLogEntry(IN PVOID ElEntry)
 
     /* Acquire the lock and insert this write in the list */
     KeAcquireSpinLock(&IopLogListLock, &Irql);
-    InsertHeadList(&IopErrorLogListHead, &LogEntry->ListEntry);
+    InsertHeadList(&IopLogListHead, &LogEntry->ListEntry);
 
     /* Check if the worker is runnign */
     if (!IopLogWorkerRunning)
     {
-#if 0
         /* It's not, initialize it and queue it */
         ExInitializeWorkItem(&IopErrorLogWorkItem,
                              IopLogWorker,
                              &IopErrorLogWorkItem);
         ExQueueWorkItem(&IopErrorLogWorkItem, DelayedWorkQueue);
         IopLogWorkerRunning = TRUE;
-#endif
     }
 
     /* Release the lock and return */

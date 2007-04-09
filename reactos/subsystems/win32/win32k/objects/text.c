@@ -1333,7 +1333,7 @@ GetFontFamilyInfoForSubstitutes(LPLOGFONTW LogFont,
                                 DWORD *Count,
                                 DWORD Size)
 {
-  RTL_QUERY_REGISTRY_TABLE QueryTable[2] = {{0}};
+  RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   FONT_FAMILY_INFO_CALLBACK_CONTEXT Context;
   NTSTATUS Status;
 
@@ -3978,7 +3978,7 @@ static __inline BOOLEAN
 SubstituteFontFamilyKey(PUNICODE_STRING FaceName,
                         LPCWSTR Key)
 {
-  RTL_QUERY_REGISTRY_TABLE QueryTable[2] = {{0}};
+  RTL_QUERY_REGISTRY_TABLE QueryTable[2];
   NTSTATUS Status;
   UNICODE_STRING Value;
 

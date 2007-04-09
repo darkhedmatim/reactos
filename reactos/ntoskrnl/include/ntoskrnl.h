@@ -8,16 +8,10 @@
 
 /* INCLUDES ******************************************************************/
 
-/* Version Data */
-#include <ntverp.h>
-#define _WIN32_WINNT _WIN32_WINNT_WS03
-#define NTDDI_VERSION NTDDI_WS03SP1
+/* Tells the WDK that we don't want to import */
 #define NTKERNELAPI
-#define NOEXTAPI
 
 /* DDK/IFS/NDK Headers */
-#define NTKERNELAPI
-#define NOEXTAPI
 #include <ntifs.h>
 #undef _KPROCESS
 #undef _EPROCESS
@@ -36,7 +30,6 @@
 #include <diskdump/diskdump.h>
 
 /* C Headers */
-#include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <malloc.h>
@@ -46,21 +39,15 @@
 #include <pseh/pseh.h>
 
 /* ReactOS Headers */
-#include <reactos/buildno.h>
+#include <reactos/version.h>
+#include <reactos/resource.h>
 #include <reactos/bugcodes.h>
+#include <reactos/rossym.h>
 #define ExRaiseStatus RtlRaiseStatus
 #include <reactos/probe.h>
 
 /* SetupLDR Support */
 #include <arc/setupblk.h>
-
-/* KD Support */
-#include <windbgkd.h>
-#include <wdbgexts.h>
-#include <kddll.h>
-#ifndef _WINKD_
-#include <reactos/rossym.h>
-#endif
 
 /* PNP GUIDs */
 #include <umpnpmgr/sysguid.h>

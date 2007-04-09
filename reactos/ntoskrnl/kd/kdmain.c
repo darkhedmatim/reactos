@@ -17,9 +17,8 @@ BOOLEAN KdDebuggerEnabled = FALSE;
 BOOLEAN KdEnteredDebugger = FALSE;
 BOOLEAN KdDebuggerNotPresent = TRUE;
 BOOLEAN KiEnableTimerWatchdog = FALSE;
-BOOLEAN KdBreakAfterSymbolLoad = FALSE;
+ULONG KiBugCheckData;
 BOOLEAN KdpBreakPending;
-BOOLEAN KdPitchDebugger = TRUE;
 VOID STDCALL PspDumpThreads(BOOLEAN SystemThreads);
 
 typedef struct
@@ -107,6 +106,7 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
                           IN BOOLEAN SecondChance)
 {
     KD_CONTINUE_TYPE Return;
+
     ULONG ExceptionCommand = ExceptionRecord->ExceptionInformation[0];
 
     /* Check if this was a breakpoint due to DbgPrint or Load/UnloadSymbols */
@@ -236,6 +236,22 @@ KdPollBreakIn(VOID)
 }
 
 /*
+ * @implemented
+ */
+VOID
+STDCALL
+KeEnterKernelDebugger(VOID)
+{
+    HalDisplayString("\n\n *** Entered kernel debugger ***\n");
+
+    /* Set the Variable */
+    KdEnteredDebugger = TRUE;
+
+    /* Halt the CPU */
+    for (;;) Ke386HaltProcessor();
+}
+
+/*
  * @unimplemented
  */
 NTSTATUS
@@ -249,8 +265,8 @@ KdPowerTransition(ULONG PowerState)
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+VOID
+STDCALL
 KdChangeOption(IN KD_OPTION Option,
                IN ULONG InBufferLength OPTIONAL,
                IN PVOID InBuffer,
@@ -259,7 +275,6 @@ KdChangeOption(IN KD_OPTION Option,
                OUT PULONG OutBufferRequiredLength OPTIONAL)
 {
     UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -311,23 +326,6 @@ NtSetDebugFilterState(IN ULONG ComponentId,
 	else
 		KdComponentTable[i].Level &= ~Level;
 	return STATUS_SUCCESS;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KdSystemDebugControl(IN SYSDBG_COMMAND Command,
-                     IN PVOID InputBuffer,
-                     IN ULONG InputBufferLength,
-                     OUT PVOID OutputBuffer,
-                     IN ULONG OutputBufferLength,
-                     IN OUT PULONG ReturnLength,
-                     IN KPROCESSOR_MODE PreviousMode)
-{
-    /* HACK */
-    return KdpServiceDispatcher(Command, InputBuffer, InputBufferLength);
 }
 
 PKDEBUG_ROUTINE KiDebugRoutine = KdpEnterDebuggerException;

@@ -23,7 +23,9 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <ifssupp.h>
+#if !defined(_NTIFS_)
+typedef PVOID PFS_FILTER_CALLBACKS;
+#endif
 
 //
 // I/O Completion Access Rights
@@ -123,11 +125,6 @@ extern POBJECT_TYPE NTSYSAPI IoDriverObjectType;
 //
 #define FILE_REMOVABLE_MEDIA                    0x00000001
 #define FILE_REMOTE_DEVICE                      0x00000010
-
-//
-// File Object Flags
-//
-#define FO_FILE_OBJECT_HAS_EXTENSION            0x00800000
 
 //
 // Device Object Extension Flags

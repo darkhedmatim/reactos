@@ -1081,22 +1081,6 @@ Language=English
 SPIN_LOCK_INIT_FAILURE
 .
 
-MessageId=0x8F
-Severity=Success
-Facility=System
-SymbolicName=PP0_INITIALIZATION_FAILED
-Language=English
-PP0_INITIALIZATION_FAILED
-.
-
-MessageId=0x90
-Severity=Success
-Facility=System
-SymbolicName=PP1_INITIALIZATION_FAILED
-Language=English
-PP1_INITIALIZATION_FAILED
-.
-
 MessageId=0x94
 Severity=Success
 Facility=System
@@ -1111,14 +1095,6 @@ Facility=System
 SymbolicName=INVALID_WORK_QUEUE_ITEM
 Language=English
 INVALID_WORK_QUEUE_ITEM
-.
-
-MessageId=0xA0
-Severity=Success
-Facility=System
-SymbolicName=INTERNAL_POWER_ERROR
-Language=English
-INTERNAL_POWER_ERROR
 .
 
 MessageId=0xA5
@@ -1308,42 +1284,42 @@ Language=English
 IMPERSONATING_WORKER_THREAD
 .
 
-MessageId=0x7E
+MessageId=0x9A
 Severity=Informational
 Facility=System
-SymbolicName=WINDOWS_NT_BANNER
+SymbolicName=REACTOS_BANNER
 Language=English
-ReactOS (R) Version %hs (Build %u%hs)
+ReactOS Version %s (Build %s)
 .
 
-MessageId=0x87
+MessageId=0x9B
 Severity=Informational
 Facility=System
-SymbolicName=WINDOWS_NT_CSD_STRING
+SymbolicName=REACTOS_SERVICE_PACK
 Language=English
 Service Pack
 .
 
-MessageId=0x88
+MessageId=0x9C
 Severity=Informational
 Facility=System
-SymbolicName=WINDOWS_NT_INFO_STRING
+SymbolicName=REACTOS_INFO_STRING_UNI_PROCESSOR
 Language=English
 %u System Processor [%u MB Memory] %Z
-.
-
-MessageId=0x89
-Severity=Informational
-Facility=System
-SymbolicName=WINDOWS_NT_MP_STRING
-Language=English
-MulitProcessor Kernel
 .
 
 MessageId=0x9D
 Severity=Informational
 Facility=System
-SymbolicName=WINDOWS_NT_INFO_STRING_PLURAL
+SymbolicName=REACTOS_MP_KERNEL
+Language=English
+MulitProcessor Kernel
+.
+
+MessageId=0x9E
+Severity=Informational
+Facility=System
+SymbolicName=REACTOS_INFO_STRING_MULTI_PROCESSOR
 Language=English
 %u System Processors [%u MB Memory] %Z
 .

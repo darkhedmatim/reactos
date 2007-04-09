@@ -181,7 +181,7 @@ NtWaitForMultipleObjects(IN ULONG ObjectCount,
         }
 
         /* Get the Object Header */
-        ObjectHeader = ObpGetHandleObject(HandleEntry);
+        ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
 
         /* Get default Object */
         DefaultObject = ObjectHeader->Type->DefaultObject;

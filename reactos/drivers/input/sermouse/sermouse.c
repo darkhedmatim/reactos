@@ -6,20 +6,19 @@
  * PROGRAMMERS: Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
  */
 
+#define NDEBUG
+#include <debug.h>
+
 #define INITGUID
 #include "sermouse.h"
 
-static DRIVER_UNLOAD DriverUnload;
-static DRIVER_DISPATCH IrpStub;
-DRIVER_INITIALIZE DriverEntry;
-
-static VOID NTAPI
+VOID NTAPI
 DriverUnload(IN PDRIVER_OBJECT DriverObject)
 {
 	// nothing to do here yet
 }
 
-static NTSTATUS NTAPI
+NTSTATUS NTAPI
 IrpStub(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -76,11 +75,10 @@ ReadRegistryEntries(
 	else if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
 	{
 		/* Registry path doesn't exist. Set defaults */
-		DriverExtension->NumberOfButtons = (USHORT)DefaultNumberOfButtons;
+		DriverExtension->NumberOfButtons = DefaultNumberOfButtons;
 		Status = STATUS_SUCCESS;
 	}
 
-	ExFreePool(ParametersRegistryKey.Buffer);
 	return Status;
 }
 

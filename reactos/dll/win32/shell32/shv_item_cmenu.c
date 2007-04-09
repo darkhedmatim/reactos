@@ -39,9 +39,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-/* ugly hack for cut&psate files */
-BOOL fileMoving = FALSE;
-
 /**************************************************************************
 *  IContextMenu Implementation
 */
@@ -375,8 +372,6 @@ static BOOL DoCopyOrCut(
 	LPSHELLBROWSER	lpSB;
 	LPSHELLVIEW	lpSV;
 	LPDATAOBJECT    lpDo;
-
-    fileMoving = bCut;
 
 	TRACE("(%p)->(wnd=%p,bCut=0x%08x)\n",This, hwnd, bCut);
 

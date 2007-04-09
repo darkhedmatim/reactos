@@ -627,7 +627,7 @@ InitCommonControls (void)
  */
 
 BOOL WINAPI
-InitCommonControlsEx (const INITCOMMONCONTROLSEX *lpInitCtrls)
+InitCommonControlsEx (LPINITCOMMONCONTROLSEX lpInitCtrls)
 {
     INT cCount;
     DWORD dwMask;

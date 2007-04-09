@@ -25,7 +25,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(objsel);
 
 LONG dll_refs = 0;
-static HINSTANCE hInstance;
+HINSTANCE hInstance;
 
 /***********************************************************************
  *		DllEntryPoint

@@ -551,10 +551,8 @@ EnumChildWindows(
 	LPARAM lParam)
 {
   if ( !hWndParent )
-  {
-    return EnumWindows(lpEnumFunc, lParam);
-  }
-  return User32EnumWindows ( NULL, hWndParent, lpEnumFunc, lParam, 0, TRUE );
+    hWndParent = GetDesktopWindow();
+  return User32EnumWindows ( NULL, hWndParent, lpEnumFunc, lParam, 0, FALSE );
 }
 
 

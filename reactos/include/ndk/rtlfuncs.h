@@ -2502,25 +2502,7 @@ DbgPrompt(
 
 VOID
 NTAPI
-DbgBreakPoint(
-    VOID
-);
-
-NTSTATUS
-NTAPI
-DbgLoadImageSymbols(
-    IN PANSI_STRING Name,
-    IN PVOID Base,
-    IN ULONG_PTR ProcessId
-);
-
-VOID
-NTAPI
-DbgUnLoadImageSymbols(
-    IN PANSI_STRING Name,
-    IN PVOID Base,
-    IN ULONG_PTR ProcessId
-);
+DbgBreakPoint(VOID);
 
 //
 // Generic Table Functions
@@ -2768,17 +2750,7 @@ RtlCheckRegistryKey(
 NTSYSAPI
 NTSTATUS
 NTAPI
-RtlCreateRegistryKey(
-    IN ULONG RelativeTo,
-    IN PWSTR Path
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlFormatCurrentUserKeyPath(
-    IN OUT PUNICODE_STRING KeyPath
-);
+RtlFormatCurrentUserKeyPath(IN OUT PUNICODE_STRING KeyPath);
 
 NTSYSAPI
 NTSTATUS

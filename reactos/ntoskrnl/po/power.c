@@ -13,6 +13,10 @@
 #define NDEBUG
 #include <internal/debug.h>
 
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, PoInit)
+#endif
+
 extern ULONG ExpInitialiationPhase;
 
 typedef struct _REQUEST_POWER_ITEM
@@ -300,10 +304,11 @@ PopSetSystemPowerState(
   return Status;
 }
 
-BOOLEAN
+VOID
+INIT_FUNCTION
 NTAPI
-PoInitSystem(IN ULONG BootPhase,
-             IN BOOLEAN HaveAcpiTable)
+PoInit(IN ULONG BootPhase,
+       IN BOOLEAN HaveAcpiTable)
 {
     PVOID NotificationEntry;
     PCHAR CommandLine;
@@ -321,7 +326,7 @@ PoInitSystem(IN ULONG BootPhase,
                                        PopAddRemoveSysCapsCallback,
                                        NULL,
                                        &NotificationEntry);
-        return TRUE;
+        return;
     }
 
     /* Get the Command Line */
@@ -343,8 +348,6 @@ PoInitSystem(IN ULONG BootPhase,
         /* Otherwise check the LoaderBlock's Flag */
         PopAcpiPresent = HaveAcpiTable;
     }
-
-    return TRUE;
 }
 
 VOID

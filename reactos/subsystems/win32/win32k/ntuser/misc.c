@@ -308,10 +308,10 @@ NtUserCallOneParam(
 
       case ONEPARAM_ROUTINE_SETCARETBLINKTIME:
          RETURN( (DWORD)IntSetCaretBlinkTime((UINT)Param));
-/*
+
       case ONEPARAM_ROUTINE_ENUMCLIPBOARDFORMATS:
-         RETURN( (DWORD)NtUserEnumClipboardFormats((UINT)Param));
-*/
+         RETURN( (DWORD)IntEnumClipboardFormats((UINT)Param));
+
       case ONEPARAM_ROUTINE_GETWINDOWINSTANCE:
          {
             PWINDOW_OBJECT Window;
@@ -963,12 +963,12 @@ IntSystemParametersInfo(
          /* We will change something, so set the flag here */
          bChanged = TRUE;
       case SPI_GETDESKWALLPAPER:
-      case SPI_GETWHEELSCROLLLINES:
-      case SPI_GETWHEELSCROLLCHARS:
-      case SPI_GETSCREENSAVERRUNNING:
-      case SPI_GETSCREENSAVETIMEOUT:
-      case SPI_GETSCREENSAVEACTIVE:
-      case SPI_GETFLATMENU:
+	  case SPI_GETWHEELSCROLLLINES:
+	  case SPI_GETWHEELSCROLLCHARS:
+	  case SPI_GETSCREENSAVERRUNNING:
+	  case SPI_GETSCREENSAVETIMEOUT:
+	  case SPI_GETSCREENSAVEACTIVE:
+	  case SPI_GETFLATMENU:
          {
             PSYSTEM_CURSORINFO CurInfo;
 
@@ -984,43 +984,43 @@ IntSystemParametersInfo(
 
             switch(uiAction)
             {
-               case SPI_GETFLATMENU:
+			   case SPI_GETFLATMENU:
                   ASSERT(pvParam);
                   *((UINT*)pvParam) = WinStaObject->FlatMenu;
-                  break;
-               case SPI_SETFLATMENU:
+			      break;
+               case SPI_SETFLATMENU:				   
                   WinStaObject->FlatMenu = uiParam;
-                  break;
-               case SPI_GETSCREENSAVETIMEOUT:
+			      break;
+			   case	SPI_GETSCREENSAVETIMEOUT:
                    ASSERT(pvParam);
                    *((UINT*)pvParam) = WinStaObject->ScreenSaverTimeOut;
                break;
                case SPI_SETSCREENSAVETIMEOUT:
                   WinStaObject->ScreenSaverTimeOut = uiParam;
-                  break;
-               case SPI_GETSCREENSAVERRUNNING:
-                  if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
-                  break;
+				  break;
+			   case SPI_GETSCREENSAVERRUNNING:
+                     if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
+				  break;
                case SPI_SETSCREENSAVERRUNNING:
-                  if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
+				   if (pvParam != NULL) *((BOOL*)pvParam) = WinStaObject->ScreenSaverRunning;
                   WinStaObject->ScreenSaverRunning = uiParam;
-                  break;
-               case SPI_GETSCREENSAVEACTIVE:
-                  /* FIXME: how to disable the screensaver? */
+				  break;
+			   case SPI_GETSCREENSAVEACTIVE:
+					/* FIXME: how to disable the screensaver? */
                   ASSERT(pvParam);
                   *((BOOL*)pvParam) = TRUE;
-                  break;
-               case SPI_GETWHEELSCROLLLINES:
+				  break;
+			   case SPI_GETWHEELSCROLLLINES:
                   ASSERT(pvParam);
-                  CurInfo = IntGetSysCursorInfo(WinStaObject);
+				    CurInfo = IntGetSysCursorInfo(WinStaObject);
                   *((UINT*)pvParam) = CurInfo->WheelScroLines;
-                  /* FIXME add this value to scroll list as scroll value ?? */
+					/* FIXME add this value to scroll list as scroll value ?? */
                   break;
                case SPI_GETWHEELSCROLLCHARS:
                   ASSERT(pvParam);
-                  CurInfo = IntGetSysCursorInfo(WinStaObject);
+				    CurInfo = IntGetSysCursorInfo(WinStaObject);
                   *((UINT*)pvParam) = CurInfo->WheelScroChars;
-                  // FIXME add this value to scroll list as scroll value ?? 
+					// FIXME add this value to scroll list as scroll value ?? 
                   break;
                case SPI_SETDOUBLECLKWIDTH:
                   CurInfo = IntGetSysCursorInfo(WinStaObject);
@@ -1264,12 +1264,12 @@ IntSystemParametersInfo(
             {
                return FALSE;
             }
-            Ret = (NtGdiGetDeviceCaps(hDC, BITSPIXEL) > 8) && Ret;
+               Ret = (NtGdiGetDeviceCaps(hDC, BITSPIXEL) > 8) && Ret;
 
-            ASSERT(pvParam);
-            *((PBOOL)pvParam) = Ret;
+               ASSERT(pvParam);
+               *((PBOOL)pvParam) = Ret;
             break;
-         }
+            }
       case SPI_SETFONTSMOOTHING:
          {
             IntEnableFontRendering(uiParam != 0);
@@ -1355,7 +1355,7 @@ IntSystemParametersInfo(
          /* Broadcast WM_SETTINGCHANGE to all toplevel windows */
          /* FIXME: lParam should be pointer to a string containing the reg key */
          UserPostMessage(HWND_BROADCAST, WM_SETTINGCHANGE, (WPARAM)uiAction, 0);
-      }
+}
    }
    return TRUE;
 }

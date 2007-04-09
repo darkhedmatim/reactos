@@ -45,8 +45,6 @@ KeInsertDeviceQueue(IN PKDEVICE_QUEUE DeviceQueue,
     BOOLEAN Inserted;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
 
-    DPRINT("KeInsertDeviceQueue() DevQueue %p, Entry %p\n", DeviceQueue, DeviceQueueEntry);
-
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);
 
@@ -87,8 +85,6 @@ KeInsertByKeyDeviceQueue(IN PKDEVICE_QUEUE DeviceQueue,
     KLOCK_QUEUE_HANDLE DeviceLock;
     BOOLEAN Inserted;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
-
-    DPRINT("KeInsertByKeyDeviceQueue() DevQueue %p, Entry %p, SortKey 0x%x\n", DeviceQueue, DeviceQueueEntry, SortKey);
 
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);
@@ -133,8 +129,6 @@ KeRemoveDeviceQueue(IN PKDEVICE_QUEUE	DeviceQueue)
     KLOCK_QUEUE_HANDLE DeviceLock;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
 
-    DPRINT("KeRemoveDeviceQueue() DevQueue %p\n", DeviceQueue);
-
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);
     ASSERT(DeviceQueue->Busy);
@@ -178,8 +172,6 @@ KeRemoveByKeyDeviceQueue(IN PKDEVICE_QUEUE DeviceQueue,
     KLOCK_QUEUE_HANDLE DeviceLock;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
 
-    DPRINT("KeRemoveByKeyDeviceQueue() DevQueue %p, SortKey 0x%x\n", DeviceQueue, SortKey);
-
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);
     ASSERT(DeviceQueue->Busy);
@@ -193,44 +185,26 @@ KeRemoveByKeyDeviceQueue(IN PKDEVICE_QUEUE DeviceQueue,
     }
     else
     {
-        /* If SortKey is greater than the last key, then return the first entry right away */
-        ListEntry = &DeviceQueue->DeviceListHead;
-        ReturnEntry = CONTAINING_RECORD(ListEntry->Blink,
-                                        KDEVICE_QUEUE_ENTRY,
-                                        DeviceListEntry);
-
-        if (SortKey >= ReturnEntry->SortKey)
+        /* Find entry with SortKey greater than or equal to the passed-in SortKey */
+        LIST_FOR_EACH(ReturnEntry, &DeviceQueue->DeviceListHead, KDEVICE_QUEUE_ENTRY, DeviceListEntry) 
         {
-            ReturnEntry = CONTAINING_RECORD(ListEntry->Flink,
+            /* Check if keys match */
+            if (ReturnEntry->SortKey >= SortKey)
+            {
+               /* We found it, so just remove it */
+               RemoveEntryList(&ReturnEntry->DeviceListEntry);
+               break;
+            }
+        }
+
+        /* Check if we found something */
+        if (!ReturnEntry)
+        {
+            /*  Not found, return the first entry */
+            ListEntry = RemoveHeadList(&DeviceQueue->DeviceListHead);
+            ReturnEntry = CONTAINING_RECORD(ListEntry,
                                             KDEVICE_QUEUE_ENTRY,
                                             DeviceListEntry);
-
-            /* Remove it from the list */
-            RemoveEntryList(&ReturnEntry->DeviceListEntry);
-        }
-        else
-        {
-            /* Find entry with SortKey greater than or equal to the passed-in SortKey */
-            LIST_FOR_EACH(ReturnEntry, &DeviceQueue->DeviceListHead, KDEVICE_QUEUE_ENTRY, DeviceListEntry) 
-            {
-                /* Check if keys match */
-                if (ReturnEntry->SortKey >= SortKey)
-                {
-                    /* We found it, so just remove it */
-                    RemoveEntryList(&ReturnEntry->DeviceListEntry);
-                    break;
-                }
-            }
-
-            /* Check if we found something */
-            if (!ReturnEntry)
-            {
-                /*  Not found, return the first entry */
-                ListEntry = RemoveHeadList(&DeviceQueue->DeviceListHead);
-                ReturnEntry = CONTAINING_RECORD(ListEntry,
-                                                KDEVICE_QUEUE_ENTRY,
-                                                DeviceListEntry);
-            }
         }
 
         /* Set it as non-inserted */
@@ -256,8 +230,6 @@ KeRemoveByKeyDeviceQueueIfBusy(IN PKDEVICE_QUEUE DeviceQueue,
     PKDEVICE_QUEUE_ENTRY ReturnEntry;
     KLOCK_QUEUE_HANDLE DeviceLock;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
-
-    DPRINT("KeRemoveByKeyDeviceQueueIfBusy() DevQueue %p, SortKey 0x%x\n", DeviceQueue, SortKey);
 
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);
@@ -315,8 +287,6 @@ KeRemoveEntryDeviceQueue(IN PKDEVICE_QUEUE DeviceQueue,
     BOOLEAN OldState;
     KLOCK_QUEUE_HANDLE DeviceLock;
     ASSERT_DEVICE_QUEUE(DeviceQueue);
-
-    DPRINT("KeRemoveEntryDeviceQueue() DevQueue %p, Entry %p\n", DeviceQueue, DeviceQueueEntry);
 
     /* Lock the queue */
     KiAcquireDeviceQueueLock(DeviceQueue, &DeviceLock);

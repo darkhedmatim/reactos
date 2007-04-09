@@ -865,8 +865,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 #endif
 	rbBand.fStyle = RBBS_CHILDEDGE|RBBS_GRIPPERALWAYS|RBBS_HIDETITLE;
 
-	TCHAR ExtrasBand[] = _T("Extras");
-	rbBand.lpText = ExtrasBand;
+	rbBand.lpText = TEXT("Extras");
 	rbBand.hwndChild = _hextrabar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;
@@ -875,8 +874,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 
 #ifndef _NO_WIN_FS
 	rbBand.fStyle |= RBBS_BREAK;
-	TCHAR DrivesBand[] = _T("Drives");
-	rbBand.lpText = DrivesBand;
+	rbBand.lpText = TEXT("Drives");
 	rbBand.hwndChild = _hdrivebar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;

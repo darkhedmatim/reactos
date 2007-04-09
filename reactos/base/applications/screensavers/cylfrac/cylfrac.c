@@ -18,8 +18,8 @@
  */
 
 #include <windows.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include <gl.h>
+#include <glu.h>
 #include <tchar.h>
 
 #define APPNAME _T("Cylfrac")
@@ -159,9 +159,9 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_PAINT:
 		{
 			DWORD ticks = oldticks;
-			POINT currpoint;
 			oldticks = GetTickCount();
 			DrawScene(hwnd, dc, oldticks - ticks);
+			POINT currpoint;
 			if(fullscreen)
 			{
 				GetCursorPos(&currpoint);
@@ -187,11 +187,10 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			int width = LOWORD(lParam);
 			int height = HIWORD(lParam);
-			float fscale;
 			glViewport(0, 0, width, height);
 			glMatrixMode(GL_MODELVIEW);
 			glLoadIdentity();
-			fscale = 0.8/(float)lvls;
+			float fscale = 0.8/(float)lvls;
 			glScalef(fscale, fscale, fscale);
 			break;
 		}
@@ -237,12 +236,7 @@ void InitSaver(HWND hwndParent)
 
 void ParseCommandLine(PSTR szCmdLine, int *chOption, HWND *hwndParent)
 {
-	int ch;
-	
-	if (!strlen(szCmdLine))
-		return;
-
-	ch = *szCmdLine++;
+	int ch = *szCmdLine++;
 
 	if(ch == '-' || ch == '/')
 		ch = *szCmdLine++;
@@ -251,10 +245,6 @@ void ParseCommandLine(PSTR szCmdLine, int *chOption, HWND *hwndParent)
 		ch += 'a' - 'A';
 
 	*chOption = ch;
-
-	if (ch == 's' || ch == 'c')
-		return;
-
 	ch = *szCmdLine++;
 
 	if(ch == ':')
@@ -277,8 +267,8 @@ int WINAPI WinMain (HINSTANCE hInst,
                     LPSTR lpCmdLine,
                     int iCmdShow)
 {
-	HWND	hwndParent = 0;
-	int	chOption = 0;
+	HWND	hwndParent;
+	int	chOption;
 	MSG	Message;
 
 	hInstance = hInst;

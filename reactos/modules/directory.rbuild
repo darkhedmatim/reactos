@@ -27,15 +27,15 @@
 			</xi:fallback>
 		</xi:include>
 	</directory>
-	<directory name="rostests">
-		<xi:include href="rostests/directory.rbuild">
+	<directory name="vms">
+		<xi:include href="vms/directory.rbuild">
 			<xi:fallback>
 				<xi:include href="empty.rbuild" />
 			</xi:fallback>
 		</xi:include>
 	</directory>
-	<directory name="vms">
-		<xi:include href="vms/directory.rbuild">
+	<directory name="wallpaper">
+		<xi:include href="wallpaper/directory.rbuild">
 			<xi:fallback>
 				<xi:include href="empty.rbuild" />
 			</xi:fallback>

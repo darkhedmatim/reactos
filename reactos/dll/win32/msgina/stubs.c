@@ -23,10 +23,6 @@ ShellShutdownDialog(
     DWORD Unknown,
     BOOL  bHideLogoff)
 {
-  UNREFERENCED_PARAMETER(hParent);
-  UNREFERENCED_PARAMETER(Unknown);
-  UNREFERENCED_PARAMETER(bHideLogoff);
-
   /* Return values:
    * 0x00: Cancelled/Help
    * 0x01: Log off user
@@ -47,9 +43,8 @@ VOID WINAPI
 WlxDisplayLockedNotice(
 	PVOID pWlxContext)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-
   UNIMPLEMENTED;
+  return;
 }
 
 
@@ -60,8 +55,6 @@ BOOL WINAPI
 WlxIsLockOk(
 	PVOID pWlxContext)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-
   UNIMPLEMENTED;
   return TRUE;
 }
@@ -74,8 +67,6 @@ BOOL WINAPI
 WlxIsLogoffOk(
 	PVOID pWlxContext)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-
   UNIMPLEMENTED;
   return TRUE;
 }
@@ -88,9 +79,8 @@ VOID WINAPI
 WlxLogoff(
 	PVOID pWlxContext)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-
   UNIMPLEMENTED;
+  return;
 }
 
 
@@ -102,10 +92,8 @@ WlxShutdown(
 	PVOID pWlxContext,
 	DWORD ShutdownType)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-  UNREFERENCED_PARAMETER(ShutdownType);
-
   UNIMPLEMENTED;
+  return;
 }
 
 
@@ -117,9 +105,6 @@ WlxScreenSaverNotify(
 	PVOID pWlxContext,
 	BOOL  *pSecure)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-  UNREFERENCED_PARAMETER(pSecure);
-
   //HKLM\Software\Policies\Microsoft\Windows\Control Panel\Desktop : ScreenSaverIsSecure
   UNIMPLEMENTED;
   return TRUE;
@@ -136,11 +121,6 @@ WlxGetStatusMessage(
 	PWSTR pMessage,
 	DWORD dwBufferSize)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-  UNREFERENCED_PARAMETER(pdwOptions);
-  UNREFERENCED_PARAMETER(pMessage);
-  UNREFERENCED_PARAMETER(dwBufferSize);
-
   UNIMPLEMENTED;
   return FALSE;
 }
@@ -154,9 +134,6 @@ WlxNetworkProviderLoad(
 	PVOID                pWlxContext,
 	PWLX_MPR_NOTIFY_INFO pNprNotifyInfo)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-  UNREFERENCED_PARAMETER(pNprNotifyInfo);
-
   UNIMPLEMENTED;
   return FALSE;
 }
@@ -169,9 +146,8 @@ VOID WINAPI
 WlxDisconnectNotify(
 	PVOID pWlxContext)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-
   UNIMPLEMENTED;
+  return;
 }
 
 
@@ -183,9 +159,6 @@ WlxGetConsoleSwitchCredentials(
 	PVOID pWlxContext,
 	PVOID pCredInfo)
 {
-  UNREFERENCED_PARAMETER(pWlxContext);
-  UNREFERENCED_PARAMETER(pCredInfo);
-
   UNIMPLEMENTED;
   return FALSE;
 }

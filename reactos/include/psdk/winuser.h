@@ -54,8 +54,6 @@ extern "C" {
 #define HCBT_KEYSKIPPED	7
 #define HCBT_SYSCOMMAND	8
 #define HCBT_SETFOCUS	9
-
-/* Predefined Clipboard Formats */
 #define CF_TEXT	1
 #define CF_BITMAP	2
 #define CF_METAFILEPICT	3
@@ -70,24 +68,9 @@ extern "C" {
 #define CF_WAVE	12
 #define CF_UNICODETEXT	13
 #define CF_ENHMETAFILE	14
-
-#if(WINVER >= 0x0400)
-#define CF_HDROP 15
-#define CF_LOCALE 16
-#endif 
-
-#if(WINVER >= 0x0500)
-#define CF_DIBV5 17
-#endif 
-
-#if(WINVER >= 0x0500)
-#define CF_MAX 18
-#elif(WINVER >= 0x0400)
-#define CF_MAX 17
-#else
-#define CF_MAX 15
-#endif
-
+#define CF_HDROP	15
+#define CF_LOCALE	16
+#define CF_MAX	17
 #define CF_OWNERDISPLAY	128
 #define CF_DSPTEXT	129
 #define CF_DSPBITMAP	130
@@ -97,7 +80,6 @@ extern "C" {
 #define CF_PRIVATELAST	767
 #define CF_GDIOBJFIRST	768
 #define CF_GDIOBJLAST	1023
-
 #define HKL_NEXT	1
 #define HKL_PREV	0
 #define KLF_ACTIVATE	1
@@ -107,16 +89,7 @@ extern "C" {
 #define KLF_REPLACELANG	16
 #define KLF_NOTELLSHELL	128
 #define KLF_SETFORPROCESS	256
-#if (_WIN32_WINNT >= 0x0500)
-#define KLF_SHIFTLOCK  65535
-#define KLF_RESET 0x40000000
-#endif  /*(_WIN32_WINNT >= 0x0500) */
 #define KL_NAMELENGTH 9
-#if (WINVER >= 0x0500)
-#define INPUTLANGCHANGE_BACKWARD   4
-#define INPUTLANGCHANGE_FORWARD    2
-#define INPUTLANGCHANGE_SYSCHARSET 1
-#endif /* (WINVER >= 0x0500) */
 #define MF_ENABLED	0
 #define MF_GRAYED	1
 #define MF_DISABLED	2
@@ -567,8 +540,8 @@ extern "C" {
 #define SB_BOTTOM	7
 #define SB_TOP	6
 #define IS_INTRESOURCE(i) (((ULONG_PTR)(i) >> 16) == 0)
-#define MAKEINTRESOURCEA(i) (LPSTR)((ULONG_PTR)((WORD)(i)))
-#define MAKEINTRESOURCEW(i) (LPWSTR)((ULONG_PTR)((WORD)(i)))
+#define MAKEINTRESOURCEA(i) (LPSTR)((DWORD)((WORD)(i)))
+#define MAKEINTRESOURCEW(i) (LPWSTR)((DWORD)((WORD)(i)))
 #ifndef XFree86Server
 # define RT_CURSOR MAKEINTRESOURCE(1)
 # define RT_FONT MAKEINTRESOURCE(8)

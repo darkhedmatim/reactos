@@ -23,6 +23,17 @@ extern ULONG NtOSCSDVersion;
 
 /* FUNCTIONS *****************************************************************/
 
+NTSTATUS
+NTAPI
+DebugPrint(IN PANSI_STRING DebugString,
+           IN ULONG ComponentId,
+           IN ULONG Level)
+{
+    /* Temporary hack */
+    KdpPrintString(DebugString->Buffer, DebugString->Length);
+    return STATUS_SUCCESS;
+}
+
 /*
 * @implemented
 */
@@ -47,12 +58,12 @@ RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation)
       lpVersionInformation->dwMinorVersion = NtMinorVersion;
       lpVersionInformation->dwBuildNumber = NtBuildNumber;
       lpVersionInformation->dwPlatformId = VER_PLATFORM_WIN32_NT;
-      if(((CmNtCSDVersion >> 8) & 0xFF) != 0)
+      if(((NtOSCSDVersion >> 8) & 0xFF) != 0)
       {
         int i = _snwprintf(lpVersionInformation->szCSDVersion,
                            (sizeof(lpVersionInformation->szCSDVersion) / sizeof(lpVersionInformation->szCSDVersion[0])) - 1,
                            L"Service Pack %d",
-                           ((CmNtCSDVersion >> 8) & 0xFF));
+                           ((NtOSCSDVersion >> 8) & 0xFF));
         lpVersionInformation->szCSDVersion[i] = L'\0';
       }
       else
@@ -62,8 +73,8 @@ RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation)
       if (lpVersionInformation->dwOSVersionInfoSize == sizeof(OSVERSIONINFOEXW))
       {
          RTL_OSVERSIONINFOEXW *InfoEx = (RTL_OSVERSIONINFOEXW *)lpVersionInformation;
-         InfoEx->wServicePackMajor = (USHORT)(CmNtCSDVersion >> 8) & 0xFF;
-         InfoEx->wServicePackMinor = (USHORT)(CmNtCSDVersion & 0xFF);
+         InfoEx->wServicePackMajor = (USHORT)(NtOSCSDVersion >> 8) & 0xFF;
+         InfoEx->wServicePackMinor = (USHORT)(NtOSCSDVersion & 0xFF);
          InfoEx->wSuiteMask = (USHORT)SharedUserData->SuiteMask;
          InfoEx->wProductType = SharedUserData->NtProductType;
       }

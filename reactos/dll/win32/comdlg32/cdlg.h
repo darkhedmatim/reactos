@@ -21,7 +21,9 @@
 #ifndef _WINE_DLL_CDLG_H
 #define _WINE_DLL_CDLG_H
 
-#include <wownt32.h>
+#define COM_NO_WINDOWS_H
+#include "dlgs.h"
+#include "wownt32.h"
 
 /* Common dialogs implementation globals */
 #define COMDLG32_Atom	((ATOM)0xa000)	/* MS uses this one to identify props */
@@ -152,6 +154,15 @@ typedef struct {
 #define IDS_OPEN_FILE    1205
 
 #define IDS_FAKEDOCTEXT  1300
+
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "winnls.h"
+#include "commctrl.h"
+#include "shlobj.h"
+#include "shellapi.h"
 
 /* ITEMIDLIST */
 

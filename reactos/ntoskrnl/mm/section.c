@@ -2216,7 +2216,6 @@ MmCreatePhysicalMemorySection(VOID)
    OBJECT_ATTRIBUTES Obj;
    UNICODE_STRING Name = RTL_CONSTANT_STRING(L"\\Device\\PhysicalMemory");
    LARGE_INTEGER SectionSize;
-   HANDLE Handle;
 
    /*
     * Create the section mapping physical memory
@@ -2245,12 +2244,11 @@ MmCreatePhysicalMemorySection(VOID)
                            SECTION_ALL_ACCESS,
                            0,
                            NULL,
-                           &Handle);
+                           NULL);
    if (!NT_SUCCESS(Status))
    {
       ObDereferenceObject(PhysSection);
    }
-   ObCloseHandle(Handle, KernelMode);
    PhysSection->AllocationAttributes |= SEC_PHYSICALMEMORY;
    PhysSection->Segment->Flags &= ~MM_PAGEFILE_SEGMENT;
 
@@ -3292,7 +3290,7 @@ MmCreateImageSection(PROS_SECTION_OBJECT *SectionObject,
    Status = ObReferenceObjectByHandle(FileHandle,
                                       FileAccess,
                                       IoFileObjectType,
-                                      ExGetPreviousMode(),
+                                      UserMode,
                                       (PVOID*)(PVOID)&FileObject,
                                       NULL);
 
@@ -3738,8 +3736,6 @@ NtMapViewOfSection(IN HANDLE SectionHandle,
      SafeSectionOffset.QuadPart = (SectionOffset != NULL ? SectionOffset->QuadPart : 0);
      SafeViewSize = (ViewSize != NULL ? *ViewSize : 0);
    }
-
-   SafeSectionOffset.LowPart = PAGE_ROUND_DOWN(SafeSectionOffset.LowPart);
 
    Status = ObReferenceObjectByHandle(ProcessHandle,
                                       PROCESS_VM_OPERATION,
@@ -4561,8 +4557,6 @@ MmMapViewOfSection(IN PVOID SectionObject,
             ImageSize = max(ImageSize, MaxExtent);
          }
       }
-
-      ImageSectionObject->ImageSize = ImageSize;
 
       /* Check there is enough space to map the section at that point. */
       if (MmLocateMemoryAreaByRegion(AddressSpace, (PVOID)ImageBase,

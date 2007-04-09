@@ -23,14 +23,11 @@
 	<directory name="kbdhu">
 		<xi:include href="kbdhu/kbdhu.rbuild" />
 	</directory>
-	<directory name="kbdit">
-		<xi:include href="kbdit/kbdit.rbuild" />
-	</directory>
 	<directory name="kbdru">
 		<xi:include href="kbdru/kbdru.rbuild" />
 	</directory>
-	<directory name="kbdsw">
-		<xi:include href="kbdsw/kbdsw.rbuild" />
+	<directory name="kbdse">
+		<xi:include href="kbdse/kbdse.rbuild" />
 	</directory>
 	<directory name="kbdsg">
 		<xi:include href="kbdsg/kbdsg.rbuild" />

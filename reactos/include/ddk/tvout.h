@@ -23,18 +23,12 @@
 #ifndef __TVOUT_H
 #define __TVOUT_H
 
-
 #if __GNUC__ >=3
 #pragma GCC system_header
 #endif
 
-#if _MSC_VER > 1000
-#pragma once
-#endif
-
-
-#ifndef GUID_DEFINED
-#include <guiddef.h>
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /* VIDEOPARAMETERS.dwCommand constants */
@@ -113,5 +107,8 @@ typedef struct _VIDEOPARAMETERS {
   BYTE  bOEMCopyProtection[256];
 } VIDEOPARAMETERS, *PVIDEOPARAMETERS, FAR *LPVIDEOPARAMETERS;
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __TVOUT_H */

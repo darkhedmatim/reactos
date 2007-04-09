@@ -18,7 +18,6 @@
 
 LIST_ENTRY PspReaperListHead = {0};
 WORK_QUEUE_ITEM PspReaperWorkItem;
-LARGE_INTEGER ShortTime = {{-10 * 100 * 1000, -1}};
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -82,8 +81,7 @@ NTAPI
 PspTerminateProcess(IN PEPROCESS Process,
                     IN NTSTATUS ExitStatus)
 {
-    PETHREAD Thread;
-    NTSTATUS Status = STATUS_NOTHING_TO_TERMINATE;
+    PETHREAD Thread = NULL;
     PAGED_CODE();
     PSTRACE(PS_KILL_DEBUG,
             "Process: %p ExitStatus: %p\n", Process, ExitStatus);
@@ -102,26 +100,22 @@ PspTerminateProcess(IN PEPROCESS Process,
     InterlockedOr((PLONG)&Process->Flags, PSF_PROCESS_DELETE_BIT);
 
     /* Get the first thread */
-    Thread = PsGetNextProcessThread(Process, NULL);
+    Thread = PsGetNextProcessThread(Process, Thread);
     while (Thread)
     {
         /* Kill it */
+        PSREFTRACE(Thread);
         PspTerminateThreadByPointer(Thread, ExitStatus, FALSE);
+        PSREFTRACE(Thread);
         Thread = PsGetNextProcessThread(Process, Thread);
-
-        /* We had at least one thread, so termination is OK */
-        Status = STATUS_SUCCESS;
     }
 
-    /* Check if there was nothing to terminate or if we have a debug port */
-    if ((Status == STATUS_NOTHING_TO_TERMINATE) || (Process->DebugPort))
-    {
-        /* Clear the handle table anyway */
-        ObClearProcessHandleTable(Process);
-    }
+    /* Clear the handle table */
+    if (Process->ObjectTable) ObClearProcessHandleTable(Process);
 
-    /* Return status */
-    return Status;
+    /* Return success*/
+    PSREFTRACE(Process);
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -169,16 +163,19 @@ VOID
 NTAPI
 PspReapRoutine(IN PVOID Context)
 {
-    PSINGLE_LIST_ENTRY NextEntry;
+    PLIST_ENTRY *ListAddr;
+    PLIST_ENTRY NextEntry;
     PETHREAD Thread;
     PSTRACE(PS_KILL_DEBUG, "Context: %p\n", Context);
+
+    /* Get the Reaper Address Pointer */
+    ListAddr = &PspReaperListHead.Flink;
 
     /* Start main loop */
     do
     {
         /* Write magic value and return the next entry to process */
-        NextEntry = InterlockedExchangePointer(&PspReaperListHead.Flink,
-                                               (PVOID)1);
+        NextEntry = InterlockedExchangePointer(ListAddr, (PVOID)1);
         ASSERT((NextEntry != NULL) && (NextEntry != (PVOID)1));
 
         /* Start inner loop */
@@ -193,16 +190,15 @@ PspReapRoutine(IN PVOID Context)
             Thread->Tcb.InitialStack = NULL;
 
             /* Move to the next entry */
-            NextEntry = NextEntry->Next;
+            NextEntry = NextEntry->Flink;
 
             /* Dereference this thread */
             ObDereferenceObject(Thread);
+            PSREFTRACE(Thread);
         } while ((NextEntry != NULL) && (NextEntry != (PVOID)1));
 
         /* Remove magic value, keep looping if it got changed */
-    } while (InterlockedCompareExchangePointer(&PspReaperListHead.Flink,
-                                               0,
-                                               1) != (PVOID)1);
+    } while (InterlockedCompareExchangePointer(ListAddr, 0, 1) != (PVOID)1);
 }
 
 VOID
@@ -249,7 +245,7 @@ PspDeleteProcess(IN PVOID ObjectBody)
     /* Check if we have a debug port */
     if (Process->DebugPort)
     {
-        /* Deference the Debug Port */
+        /* Dererence the Debug Port */
         ObDereferenceObject(Process->DebugPort);
         Process->DebugPort = NULL;
     }
@@ -257,7 +253,7 @@ PspDeleteProcess(IN PVOID ObjectBody)
     /* Check if we have an exception port */
     if (Process->ExceptionPort)
     {
-        /* Deference the Exception Port */
+        /* Dererence the Exception Port */
         ObDereferenceObject(Process->ExceptionPort);
         Process->ExceptionPort = NULL;
     }
@@ -265,7 +261,7 @@ PspDeleteProcess(IN PVOID ObjectBody)
     /* Check if we have a section object */
     if (Process->SectionObject)
     {
-        /* Deference the Section Object */
+        /* Dererence the Section Object */
         ObDereferenceObject(Process->SectionObject);
         Process->SectionObject = NULL;
     }
@@ -283,9 +279,12 @@ PspDeleteProcess(IN PVOID ObjectBody)
         /* Kill the Object Info */
         ObKillProcess(Process);
 
-        /* Detach */
+        /* Dettach */
         KeUnstackDetachProcess(&ApcState);
     }
+
+    /* KDB hook */
+    KDB_DELETEPROCESS_HOOK(Process);
 
     /* Check if we have an address space, and clean it */
     if (Process->HasAddressSpace)
@@ -296,7 +295,7 @@ PspDeleteProcess(IN PVOID ObjectBody)
         /* Clean the Address Space */
         PspExitProcess(FALSE, Process);
 
-        /* Detach */
+        /* Dettach */
         KeUnstackDetachProcess(&ApcState);
 
         /* Completely delete the Address Space */
@@ -304,10 +303,10 @@ PspDeleteProcess(IN PVOID ObjectBody)
     }
 
     /* See if we have a PID */
-    if (Process->UniqueProcessId)
+    if(Process->UniqueProcessId)
     {
         /* Delete the PID */
-        if (!(ExDestroyHandle(PspCidTable, Process->UniqueProcessId, NULL)))
+        if (!(ExDestroyHandle(PspCidTable, Process->UniqueProcessId)))
         {
             /* Something wrong happened, bugcheck */
             KEBUGCHECK(CID_HANDLE_DELETION);
@@ -332,6 +331,7 @@ PspDeleteProcess(IN PVOID ObjectBody)
 
     /* Destroy the Quota Block */
     PspDestroyQuotaBlock(Process);
+    PSREFTRACE(Process);
 }
 
 VOID
@@ -357,7 +357,7 @@ PspDeleteThread(IN PVOID ObjectBody)
     if (Thread->Cid.UniqueThread)
     {
         /* Delete the CID Handle */
-        if (!(ExDestroyHandle(PspCidTable, Thread->Cid.UniqueThread, NULL)))
+        if (!(ExDestroyHandle(PspCidTable, Thread->Cid.UniqueThread)))
         {
             /* Something wrong happened, bugcheck */
             KEBUGCHECK(CID_HANDLE_DELETION);
@@ -368,6 +368,7 @@ PspDeleteThread(IN PVOID ObjectBody)
     PspDeleteThreadSecurity(Thread);
 
     /* Make sure the thread was inserted, before continuing */
+    PSREFTRACE(Thread);
     if (!Process) return;
 
     /* Check if the thread list is valid */
@@ -387,6 +388,8 @@ PspDeleteThread(IN PVOID ObjectBody)
 
     /* Dereference the Process */
     ObDereferenceObject(Process);
+    PSREFTRACE(Thread);
+    PSREFTRACE(Process);
 }
 
 /*
@@ -401,7 +404,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
     NTSTATUS Status;
     PTEB Teb;
     PEPROCESS CurrentProcess;
-    PETHREAD Thread, OtherThread, PreviousThread = NULL;
+    PETHREAD Thread;
     PVOID DeallocationStack;
     ULONG Dummy;
     BOOLEAN Last = FALSE;
@@ -418,6 +421,8 @@ PspExitThread(IN NTSTATUS ExitStatus)
     ASSERT((Thread) == PsGetCurrentThread());
 
     /* Can't terminate a thread if it attached another process */
+    PSREFTRACE(Thread);
+    PSREFTRACE(CurrentProcess);
     if (KeIsAttachedProcess())
     {
         /* Bugcheck */
@@ -429,7 +434,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
     }
 
     /* Lower to Passive Level */
-    KeLowerIrql(PASSIVE_LEVEL);
+    KfLowerIrql(PASSIVE_LEVEL);
 
     /* Can't be a worker thread */
     if (Thread->ActiveExWorker)
@@ -448,9 +453,9 @@ PspExitThread(IN NTSTATUS ExitStatus)
         /* Bugcheck */
         KEBUGCHECKEX(KERNEL_APC_PENDING_DURING_EXIT,
                      0,
-                     Thread->Tcb.CombinedApcDisable,
-                     0,
-                     1);
+                     Thread->Tcb.KernelApcDisable,
+                     APC_LEVEL,
+                     0);
     }
 
     /* Lock the thread */
@@ -495,44 +500,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
             CurrentProcess->ExitStatus = ExitStatus;
         }
 
-        /* Loop all the current threads */
-        FirstEntry = &CurrentProcess->ThreadListHead;
-        CurrentEntry = FirstEntry->Flink;
-        while (FirstEntry != CurrentEntry)
-        {
-            /* Get the thread on the list */
-            OtherThread = CONTAINING_RECORD(CurrentEntry,
-                                            ETHREAD,
-                                            ThreadListEntry);
-
-            /* Check if it's a thread that's still alive */
-            if ((OtherThread != Thread) &&
-                !(KeReadStateThread(&OtherThread->Tcb)) &&
-                (ObReferenceObjectSafe(OtherThread)))
-            {
-                /* It's a live thread and we referenced it, unlock process */
-                ExReleasePushLockExclusive(&CurrentProcess->ProcessLock);
-                KeLeaveCriticalRegion();
-
-                /* Wait on the thread */
-                KeWaitForSingleObject(OtherThread,
-                                      Executive,
-                                      KernelMode,
-                                      FALSE,
-                                      NULL);
-
-                /* Check if we had a previous thread to dereference */
-                if (PreviousThread) ObDereferenceObject(PreviousThread);
-
-                /* Remember the thread and re-lock the process */
-                PreviousThread = OtherThread;
-                KeEnterCriticalRegion();
-                ExAcquirePushLockExclusive(&CurrentProcess->ProcessLock);
-            }
-
-            /* Go to the next thread */
-            CurrentEntry = CurrentEntry->Flink;
-        }
+        /* FIXME: Wait on the other threads to finish */
     }
     else if (ExitStatus != STATUS_THREAD_IS_TERMINATING)
     {
@@ -543,9 +511,6 @@ PspExitThread(IN NTSTATUS ExitStatus)
     /* Unlock the Process */
     ExReleasePushLockExclusive(&CurrentProcess->ProcessLock);
     KeLeaveCriticalRegion();
-
-    /* Check if we had a previous thread to dereference */
-    if (PreviousThread) ObDereferenceObject(PreviousThread);
 
     /* Check if the process has a debug port and if this is a user thread */
     if ((CurrentProcess->DebugPort) && !(Thread->SystemThread))
@@ -605,20 +570,15 @@ PspExitThread(IN NTSTATUS ExitStatus)
             /* Save the Create Time */
             TerminationMsg.CreateTime = Thread->CreateTime;
 
-            /* Loop trying to send message */
-            while (TRUE)
+TryAgain:
+            /* Send the LPC Message */
+            Status = LpcRequestPort(TerminationPort->Port, &TerminationMsg.h);
+            if ((Status == STATUS_NO_MEMORY) ||
+                (Status == STATUS_INSUFFICIENT_RESOURCES))
             {
-                /* Send the LPC Message */
-                Status = LpcRequestPort(TerminationPort->Port,
-                                        &TerminationMsg.h);
-                if ((Status == STATUS_NO_MEMORY) ||
-                    (Status == STATUS_INSUFFICIENT_RESOURCES))
-                {
-                    /* Wait a bit and try again */
-                    KeDelayExecutionThread(KernelMode, FALSE, &ShortTime);
-                    continue;
-                }
-                break;
+                /* Wait a bit and try again */
+                KeDelayExecutionThread(KernelMode, FALSE, &ShortPsLockDelay);
+                goto TryAgain;
             }
 
             /* Dereference this LPC Port */
@@ -631,8 +591,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
             ExFreePool(TerminationPort);
 
             /* Keep looping as long as there is a port */
-            TerminationPort = NextPort;
-        } while (TerminationPort);
+        } while ((TerminationPort = NextPort));
     }
     else if (((ExitStatus == STATUS_THREAD_IS_TERMINATING) &&
               (Thread->DeadThread)) ||
@@ -668,20 +627,16 @@ PspExitThread(IN NTSTATUS ExitStatus)
             /* Save the Create Time */
             TerminationMsg.CreateTime = Thread->CreateTime;
 
-            /* Loop trying to send message */
-            while (TRUE)
+TryAgain2:
+            /* Send the LPC Message */
+            Status = LpcRequestPort(CurrentProcess->ExceptionPort,
+                                    &TerminationMsg.h);
+            if ((Status == STATUS_NO_MEMORY) ||
+                (Status == STATUS_INSUFFICIENT_RESOURCES))
             {
-                /* Send the LPC Message */
-                Status = LpcRequestPort(CurrentProcess->ExceptionPort,
-                                        &TerminationMsg.h);
-                if ((Status == STATUS_NO_MEMORY) ||
-                    (Status == STATUS_INSUFFICIENT_RESOURCES))
-                {
-                    /* Wait a bit and try again */
-                    KeDelayExecutionThread(KernelMode, FALSE, &ShortTime);
-                    continue;
-                }
-                break;
+                /* Wait a bit and try again */
+                KeDelayExecutionThread(KernelMode, FALSE, &ShortPsLockDelay);
+                goto TryAgain2;
             }
         }
     }
@@ -691,6 +646,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
                                                      PsW32ThreadCalloutExit);
 
     /* If we are the last thread and have a W32 Process */
+    PSREFTRACE(Thread);
     if ((Last) && (CurrentProcess->Win32Process))
     {
         /* Run it down too */
@@ -718,29 +674,25 @@ PspExitThread(IN NTSTATUS ExitStatus)
 
     /* Check if we have a TEB */
     Teb = Thread->Tcb.Teb;
-    if (Teb)
+    if(Teb)
     {
-        /* Check if the thread is still alive */
-        if (!Thread->DeadThread)
+        /* Check if the thread isn't terminated and if we should free stack */
+        if (!(Thread->Terminated) && (Teb->FreeStackOnTermination))
         {
-            /* Check if we need to free its stack */
-            if (Teb->FreeStackOnTermination)
-            {
-                /* Set the TEB's Deallocation Stack as the Base Address */
-                Dummy = 0;
-                DeallocationStack = Teb->DeallocationStack;
+            /* Set the TEB's Deallocation Stack as the Base Address */
+            Dummy = 0;
+            DeallocationStack = Teb->DeallocationStack;
 
-                /* Free the Thread's Stack */
-                ZwFreeVirtualMemory(NtCurrentProcess(),
-                                    &DeallocationStack,
-                                    &Dummy,
-                                    MEM_RELEASE);
-            }
-
-            /* Free the debug handle */
-            if (Teb->DbgSsReserved[1]) ObCloseHandle(Teb->DbgSsReserved[1],
-                                                     UserMode);
+            /* Free the Thread's Stack */
+            ZwFreeVirtualMemory(NtCurrentProcess(),
+                                &DeallocationStack,
+                                &Dummy,
+                                MEM_RELEASE);
         }
+
+        /* Free the debug handle */
+        if (Teb->DbgSsReserved[1]) ObCloseHandle(Teb->DbgSsReserved[1],
+                                                 UserMode);
 
         /* Decommit the TEB */
         MmDeleteTeb(CurrentProcess, Teb);
@@ -758,6 +710,8 @@ PspExitThread(IN NTSTATUS ExitStatus)
     ASSERT(Thread->Tcb.CombinedApcDisable == 0);
 
     /* Check if this is the final thread or not */
+    PSREFTRACE(Thread);
+    PSREFTRACE(CurrentProcess);
     if (Last)
     {
         /* Set the process exit time */
@@ -782,6 +736,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
 
         /* Kill the process in the Object Manager */
         ObKillProcess(CurrentProcess);
+        PSREFTRACE(CurrentProcess);
 
         /* Check if we have a section object */
         if (CurrentProcess->SectionObject)
@@ -813,7 +768,6 @@ PspExitThread(IN NTSTATUS ExitStatus)
     FirstEntry = KeFlushQueueApc(&Thread->Tcb, UserMode);
     if (FirstEntry)
     {
-        /* Start with the first entry */
         CurrentEntry = FirstEntry;
         do
         {
@@ -827,7 +781,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
            if (Apc->RundownRoutine)
            {
               /* Call its own routine */
-              Apc->RundownRoutine(Apc);
+              (Apc->RundownRoutine)(Apc);
            }
            else
            {
@@ -846,12 +800,12 @@ PspExitThread(IN NTSTATUS ExitStatus)
 
     /* Flush the APC queue, which should be empty */
     FirstEntry = KeFlushQueueApc(&Thread->Tcb, KernelMode);
-    if ((FirstEntry) || (Thread->Tcb.CombinedApcDisable != 0))
+    if (FirstEntry)
     {
         /* Bugcheck time */
         KEBUGCHECKEX(KERNEL_APC_PENDING_DURING_EXIT,
                      (ULONG_PTR)FirstEntry,
-                     Thread->Tcb.CombinedApcDisable,
+                     Thread->Tcb.KernelApcDisable,
                      KeGetCurrentIrql(),
                      0);
     }
@@ -860,6 +814,8 @@ PspExitThread(IN NTSTATUS ExitStatus)
     if (Last) KeSetProcess(&CurrentProcess->Pcb, 0, FALSE);
 
     /* Terminate the Thread from the Scheduler */
+    PSREFTRACE(Thread);
+    PSREFTRACE(CurrentProcess);
     KeTerminateThread(0);
 }
 
@@ -955,7 +911,7 @@ PspTerminateThreadByPointer(IN PETHREAD Thread,
     if ((bSelf) || (PsGetCurrentThread() == Thread))
     {
         /* This should only happen at passive */
-        ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+        ASSERT_IRQL(PASSIVE_LEVEL);
 
         /* Mark it as terminated */
         PspSetCrossThreadFlag(Thread, CT_TERMINATED_BIT);
@@ -971,11 +927,10 @@ PspTerminateThreadByPointer(IN PETHREAD Thread,
     Apc = ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), TAG_TERMINATE_APC);
 
     /* Set the Terminated Flag */
-    Flags = Thread->CrossThreadFlags | CT_TERMINATED_BIT;
+    Flags = Thread->CrossThreadFlags | 1;
 
     /* Set it, and check if it was already set while we were running */
-    if (!(InterlockedExchange((PLONG)&Thread->CrossThreadFlags, Flags) &
-          CT_TERMINATED_BIT))
+    if (!(InterlockedExchange((PLONG)&Thread->CrossThreadFlags, Flags) & 1))
     {
         /* Initialize a Kernel Mode APC to Kill the Thread */
         KeInitializeApc(Apc,
@@ -1006,6 +961,7 @@ PspTerminateThreadByPointer(IN PETHREAD Thread,
     ExFreePool(Apc);
 
     /* Return Status */
+    PSREFTRACE(Thread);
     return Status;
 }
 
@@ -1050,6 +1006,7 @@ PspExitProcess(IN BOOLEAN LastThread,
     }
 
     /* Check if we are the last thread */
+    PSREFTRACE(Process);
     if (LastThread)
     {
         /* Check if we have to set the Timer Resolution */
@@ -1131,12 +1088,7 @@ NtTerminateProcess(IN HANDLE ProcessHandle OPTIONAL,
     }
 
     /* Lock the Process */
-    if (!ExAcquireRundownProtection(&Process->RundownProtect))
-    {
-        /* Failed to lock, fal */
-        ObDereferenceObject (Process);
-        return STATUS_PROCESS_IS_TERMINATING;
-    }
+    ExAcquireRundownProtection(&Process->RundownProtect);
 
     /* Set the delete flag */
     if (!KillByHandle) InterlockedOr((PLONG)&Process->Flags,
@@ -1161,8 +1113,7 @@ NtTerminateProcess(IN HANDLE ProcessHandle OPTIONAL,
             }
 
             /* Move to the next thread */
-            Thread = PsGetNextProcessThread(Process, Thread);
-        } while (Thread);
+        } while((Thread = PsGetNextProcessThread(Process, Thread)));
     }
 
     /* Unlock the process */

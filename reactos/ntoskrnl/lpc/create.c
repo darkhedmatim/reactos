@@ -1,196 +1,180 @@
-/*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/create.c
- * PURPOSE:         Local Procedure Call: Port/Queue/Message Creation
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ * PURPOSE:         Communication mechanism
+ *
+ * PROGRAMMERS:     David Welch (welch@cwcom.net)
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-/* PRIVATE FUNCTIONS *********************************************************/
-
-NTSTATUS
-NTAPI
-LpcpInitializePortQueue(IN PLPCP_PORT_OBJECT Port)
-{
-    PLPCP_NONPAGED_PORT_QUEUE MessageQueue;
-    PAGED_CODE();
-
-    /* Allocate the queue */
-    MessageQueue = ExAllocatePoolWithTag(NonPagedPool,
-                                         sizeof(LPCP_NONPAGED_PORT_QUEUE),
-                                         TAG('P', 'o', 'r', 't'));
-    if (!MessageQueue) return STATUS_INSUFFICIENT_RESOURCES;
-
-    /* Set it up */
-    KeInitializeSemaphore(&MessageQueue->Semaphore, 0, MAXLONG);
-    MessageQueue->BackPointer = Port;
-
-    /* And link it with the Paged Pool part */
-    Port->MsgQueue.Semaphore = &MessageQueue->Semaphore;
-    InitializeListHead(&Port->MsgQueue.ReceiveHead);
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-NTAPI
-LpcpCreatePort(OUT PHANDLE PortHandle,
-               IN POBJECT_ATTRIBUTES ObjectAttributes,
-               IN ULONG MaxConnectionInfoLength,
-               IN ULONG MaxMessageLength,
-               IN ULONG MaxPoolUsage,
-               IN BOOLEAN Waitable)
-{
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    NTSTATUS Status;
-    PLPCP_PORT_OBJECT Port;
-    PAGED_CODE();
-    LPCTRACE(LPC_CREATE_DEBUG, "Name: %wZ\n", ObjectAttributes->ObjectName);
-
-    /* Create the Object */
-    Status = ObCreateObject(PreviousMode,
-                            LpcPortObjectType,
-                            ObjectAttributes,
-                            PreviousMode,
-                            NULL,
-                            sizeof(LPCP_PORT_OBJECT),
-                            0,
-                            0,
-                            (PVOID*)&Port);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Set up the Object */
-    RtlZeroMemory(Port, sizeof(LPCP_PORT_OBJECT));
-    Port->ConnectionPort = Port;
-    Port->Creator = PsGetCurrentThread()->Cid;
-    InitializeListHead(&Port->LpcDataInfoChainHead);
-    InitializeListHead(&Port->LpcReplyChainHead);
-
-    /* Check if we don't have a name */
-    if (!ObjectAttributes->ObjectName->Buffer)
-    {
-        /* Set up for an unconnected port */
-        Port->Flags = LPCP_UNCONNECTED_PORT;
-        Port->ConnectedPort = Port;
-        Port->ServerProcess = NULL;
-    }
-    else
-    {
-        /* Set up for a named connection port */
-        Port->Flags = LPCP_CONNECTION_PORT;
-        Port->ServerProcess = PsGetCurrentProcess();
-
-        /* Don't let the process die on us */
-        ObReferenceObject(Port->ServerProcess);
-    }
-
-    /* Check if this is a waitable port */
-    if (Waitable) Port->Flags |= LPCP_WAITABLE_PORT;
-
-    /* Setup the port queue */
-    Status = LpcpInitializePortQueue(Port);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Fail */
-        ObDereferenceObject(Port);
-        return Status;
-    }
-
-    /* Check if this is a waitable port */
-    if (Port->Flags & LPCP_WAITABLE_PORT)
-    {
-        /* Setup the wait event */
-        KeInitializeEvent(&Port->WaitEvent, NotificationEvent, FALSE);
-    }
-
-    /* Set the maximum message size allowed */
-    Port->MaxMessageLength = LpcpMaxMessageSize -
-                             FIELD_OFFSET(LPCP_MESSAGE, Request);
-
-    /* Now subtract the actual message structures and get the data size */
-    Port->MaxConnectionInfoLength = Port->MaxMessageLength -
-                                    sizeof(PORT_MESSAGE) -
-                                    sizeof(LPCP_CONNECTION_MESSAGE);
-
-    /* Validate the sizes */
-    if (Port->MaxConnectionInfoLength < MaxConnectionInfoLength)
-    {
-        /* Not enough space for your request */
-        ObDereferenceObject(Port);
-        return STATUS_INVALID_PARAMETER_3;
-    }
-    else if (Port->MaxMessageLength < MaxMessageLength)
-    {
-        /* Not enough space for your request */
-        ObDereferenceObject(Port);
-        return STATUS_INVALID_PARAMETER_4;
-    }
-
-    /* Now set the custom setting */
-    Port->MaxMessageLength = MaxMessageLength;
-
-    /* Insert it now */
-    Status = ObInsertObject((PVOID)Port,
-                            NULL,
-                            PORT_ALL_ACCESS,
-                            0,
-                            NULL,
-                            PortHandle);
-
-    /* Return success or the error */
-    LPCTRACE(LPC_CREATE_DEBUG, "Port: %p. Handle: %lx\n", Port, *PortHandle);
-    return Status;
-}
-
-/* PUBLIC FUNCTIONS **********************************************************/
-
-/*
- * @implemented
+/**********************************************************************
+ * NAME
+ * 	LpcpVerifyCreateParameters/5
+ *
+ * DESCRIPTION
+ *	Verify user parameters in NtCreatePort and in
+ *	NtCreateWaitablePort.
+ *
+ * ARGUMENTS
+ *
+ * RETURN VALUE
  */
-NTSTATUS
-NTAPI
-NtCreatePort(OUT PHANDLE PortHandle,
-             IN POBJECT_ATTRIBUTES ObjectAttributes,
-             IN ULONG MaxConnectInfoLength,
-             IN ULONG MaxDataLength,
-             IN ULONG MaxPoolUsage)
+static NTSTATUS STDCALL
+LpcpVerifyCreateParameters (IN	PHANDLE			PortHandle,
+			    IN	POBJECT_ATTRIBUTES	ObjectAttributes,
+			    IN	ULONG			MaxConnectInfoLength,
+			    IN	ULONG			MaxDataLength,
+			    IN	ULONG			MaxPoolUsage)
 {
-    PAGED_CODE();
-
-    /* Call the internal API */
-    return LpcpCreatePort(PortHandle,
-                          ObjectAttributes,
-                          MaxConnectInfoLength,
-                          MaxDataLength,
-                          MaxPoolUsage,
-                          FALSE);
+  if (NULL == PortHandle)
+    {
+      return (STATUS_INVALID_PARAMETER_1);
+    }
+  if (NULL == ObjectAttributes)
+    {
+      return (STATUS_INVALID_PARAMETER_2);
+    }
+  if ((ObjectAttributes->Attributes    & OBJ_OPENLINK)
+      || (ObjectAttributes->Attributes & OBJ_OPENIF)
+      || (ObjectAttributes->Attributes & OBJ_EXCLUSIVE)
+      || (ObjectAttributes->Attributes & OBJ_PERMANENT)
+      || (ObjectAttributes->Attributes & OBJ_INHERIT))
+  {
+    return (STATUS_INVALID_PORT_ATTRIBUTES);
+  }
+  if (MaxConnectInfoLength > LPC_MAX_DATA_LENGTH)
+    {
+      return (STATUS_INVALID_PARAMETER_3);
+    }
+  if (MaxDataLength > LPC_MAX_MESSAGE_LENGTH)
+    {
+      return (STATUS_INVALID_PARAMETER_4);
+    }
+  /* TODO: some checking is done also on MaxPoolUsage
+   * to avoid choking the executive */
+  return (STATUS_SUCCESS);
 }
 
-/*
- * @implemented
+/**********************************************************************
+ * NAME							EXPORTED
+ * 	NtCreatePort/5
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *	PortHandle,
+ *	ObjectAttributes,
+ *	MaxConnectInfoLength,
+ *	MaxDataLength,
+ *	MaxPoolUsage: size of NP zone the NP part of msgs is kept in
+ *
+ * RETURN VALUE
  */
-NTSTATUS
-NTAPI
-NtCreateWaitablePort(OUT PHANDLE PortHandle,
-                     IN POBJECT_ATTRIBUTES ObjectAttributes,
-                     IN ULONG MaxConnectInfoLength,
-                     IN ULONG MaxDataLength,
-                     IN ULONG MaxPoolUsage)
+/*EXPORTED*/ NTSTATUS STDCALL
+NtCreatePort (PHANDLE		      PortHandle,
+	      POBJECT_ATTRIBUTES    ObjectAttributes,
+	      ULONG	       MaxConnectInfoLength,
+	      ULONG			MaxDataLength,
+	      ULONG			MaxPoolUsage)
 {
-    PAGED_CODE();
+  PEPORT		Port;
+  NTSTATUS	Status;
 
-    /* Call the internal API */
-    return LpcpCreatePort(PortHandle,
-                          ObjectAttributes,
-                          MaxConnectInfoLength,
-                          MaxDataLength,
-                          MaxPoolUsage,
-                          TRUE);
+  DPRINT("NtCreatePort() Name %x\n", ObjectAttributes->ObjectName->Buffer);
+
+  /* Verify parameters */
+  Status = LpcpVerifyCreateParameters (PortHandle,
+				       ObjectAttributes,
+				       MaxConnectInfoLength,
+				       MaxDataLength,
+				       MaxPoolUsage);
+  if (STATUS_SUCCESS != Status)
+    {
+      return (Status);
+    }
+
+  /* Ask Ob to create the object */
+  Status = ObCreateObject (ExGetPreviousMode(),
+			   LpcPortObjectType,
+			   ObjectAttributes,
+			   ExGetPreviousMode(),
+			   NULL,
+			   sizeof(EPORT),
+			   0,
+			   0,
+			   (PVOID*)&Port);
+  if (!NT_SUCCESS(Status))
+    {
+      return (Status);
+    }
+
+  Status = ObInsertObject ((PVOID)Port,
+			   NULL,
+			   PORT_ALL_ACCESS,
+			   0,
+			   NULL,
+			   PortHandle);
+  if (!NT_SUCCESS(Status))
+    {
+      ObDereferenceObject (Port);
+      return (Status);
+    }
+
+  Status = LpcpInitializePort (Port, EPORT_TYPE_SERVER_RQST_PORT, NULL);
+  Port->MaxConnectInfoLength = LPC_MAX_DATA_LENGTH;
+  Port->MaxDataLength = LPC_MAX_MESSAGE_LENGTH;
+  Port->MaxPoolUsage = MaxPoolUsage;
+
+  return (Status);
+}
+
+/**********************************************************************
+ * NAME							EXPORTED
+ * 	NtCreateWaitablePort/5
+ *
+ * DESCRIPTION
+ *	Waitable ports can be connected to with NtSecureConnectPort.
+ *	No port interface can be used with waitable ports but
+ *	NtReplyWaitReceivePort and NtReplyWaitReceivePortEx.
+ * 	Present only in w2k+.
+ *
+ * ARGUMENTS
+ *	PortHandle,
+ *	ObjectAttributes,
+ *	MaxConnectInfoLength,
+ *	MaxDataLength,
+ *	MaxPoolUsage
+ *
+ * RETURN VALUE
+ */
+/*EXPORTED*/ NTSTATUS STDCALL
+NtCreateWaitablePort (OUT	PHANDLE			PortHandle,
+		      IN	POBJECT_ATTRIBUTES	ObjectAttributes,
+		      IN	ULONG			MaxConnectInfoLength,
+		      IN	ULONG			MaxDataLength,
+		      IN	ULONG			MaxPoolUsage)
+{
+  NTSTATUS Status;
+
+  /* Verify parameters */
+  Status = LpcpVerifyCreateParameters (PortHandle,
+				       ObjectAttributes,
+				       MaxConnectInfoLength,
+				       MaxDataLength,
+				       MaxPoolUsage);
+  if (STATUS_SUCCESS != Status)
+    {
+      return (Status);
+    }
+  /* TODO */
+  return (STATUS_NOT_IMPLEMENTED);
 }
 
 /* EOF */

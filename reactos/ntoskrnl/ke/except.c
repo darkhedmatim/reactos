@@ -143,22 +143,24 @@ KiRaiseException(IN PEXCEPTION_RECORD ExceptionRecord,
         Status = _SEH_GetExceptionCode();
     }
     _SEH_END;
+
     if (!NT_SUCCESS(Status)) return Status;
 
-    /* Convert the context record */
-    KeContextToTrapFrame(Context,
-                         ExceptionFrame,
-                         TrapFrame,
-                         Context->ContextFlags,
-                         PreviousMode);
+        /* Convert the context record */
+        KeContextToTrapFrame(Context,
+                             ExceptionFrame,
+                             TrapFrame,
+                             Context->ContextFlags,
+                             PreviousMode);
 
-    /* Dispatch the exception */
-    ExceptionRecord->ExceptionCode &= ~KI_EXCEPTION_INTERNAL;
-    KiDispatchException(ExceptionRecord,
-                        ExceptionFrame,
-                        TrapFrame,
-                        PreviousMode,
-                        SearchFrames);
+        /* Dispatch the exception */
+        ExceptionRecord->ExceptionCode &= ~KI_EXCEPTION_INTERNAL;
+
+        KiDispatchException(ExceptionRecord,
+                            ExceptionFrame,
+                            TrapFrame,
+                            PreviousMode,
+                            SearchFrames);
 
     /* Return the status */
     return Status;

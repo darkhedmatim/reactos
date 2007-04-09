@@ -1,5 +1,5 @@
 <module name="scsiport" type="exportdriver" installbase="system32/drivers" installname="scsiport.sys">
-	<bootstrap base="$(CDOUTPUT)" />
+	<bootstrap base="reactos" />
 	<define name="__USE_W32API" />
 	<define name="_SCSIPORT_" />
 	<importlibrary definition="scsiport.def" />

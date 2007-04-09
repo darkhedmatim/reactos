@@ -27,7 +27,6 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "wingdi.h"
-#include "vfwmsgs.h"
 #include "uxtheme.h"
 #include "tmschema.h"
 
@@ -54,8 +53,8 @@ HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD dwFlags)
     static const WCHAR szTab[] = { 'T','a','b',0 };
     HRESULT hr;
 
-    TRACE("(%p,0x%08x\n", hwnd, dwFlags);
-    hr = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
+    TRACE("(%p,0x%08lx\n", hwnd, dwFlags);
+    hr = SetPropW (hwnd, MAKEINTATOMW (atDialogThemeEnabled), 
         (HANDLE)(dwFlags|0x80000000)); 
         /* 0x80000000 serves as a "flags set" flag */
     if (FAILED(hr))
@@ -76,7 +75,7 @@ BOOL WINAPI IsThemeDialogTextureEnabled(HWND hwnd)
     TRACE("(%p)\n", hwnd);
 
     dwDialogTextureFlags = (DWORD)GetPropW (hwnd, 
-        (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled));
+        MAKEINTATOMW (atDialogThemeEnabled));
     if (dwDialogTextureFlags == 0) 
         /* Means EnableThemeDialogTexture wasn't called for this dialog */
         return TRUE;
@@ -221,7 +220,7 @@ static PTHEME_PROPERTY UXTHEME_SelectImage(HTHEME hTheme, HDC hdc, int iPartId, 
                 }
             }
             if(reqsize.x <= size.x && reqsize.y <= size.y) {
-                TRACE("Using image size %dx%d, image %d\n", reqsize.x, reqsize.y, i + TMT_IMAGEFILE1);
+                TRACE("Using image size %ldx%ld, image %d\n", reqsize.x, reqsize.y, i + TMT_IMAGEFILE1);
                 return fileProp;
             }
         }
@@ -832,7 +831,7 @@ static HRESULT UXTHEME_DrawBackgroundFill(HTHEME hTheme, HDC hdc, int iPartId,
     HRESULT hr = S_OK;
     int filltype = FT_SOLID;
 
-    TRACE("(%d,%d,%d)\n", iPartId, iStateId, pOptions->dwFlags);
+    TRACE("(%d,%d,%ld)\n", iPartId, iStateId, pOptions->dwFlags);
 
     if(pOptions->dwFlags & DTBG_OMITCONTENT)
         return S_OK;
@@ -930,7 +929,7 @@ HRESULT WINAPI DrawThemeBackgroundEx(HTHEME hTheme, HDC hdc, int iPartId,
     int bgtype = BT_BORDERFILL;
     RECT rt;
 
-    TRACE("(%p,%p,%d,%d,%d,%d)\n", hTheme, hdc, iPartId, iStateId,pRect->left,pRect->top);
+    TRACE("(%p,%p,%d,%d,%ld,%ld)\n", hTheme, hdc, iPartId, iStateId,pRect->left,pRect->top);
     if(!hTheme)
         return E_HANDLE;
 
@@ -1389,7 +1388,7 @@ static HRESULT draw_rect_edge (HDC hdc, HTHEME theme, int part, int state,
         LTInnerI = RBInnerI = LTRBInnerFlat[uType & (BDR_INNER|BDR_OUTER)];
         LTOuterI = RBOuterI = LTRBOuterFlat[uType & (BDR_INNER|BDR_OUTER)];
 
-        if( LTInnerI != -1 ) LTInnerI = RBInnerI = EDGE_FILL;
+        if( LTInnerI != -1 ) LTInnerI = RBInnerI = COLOR_BTNFACE;
     }
     else if(uFlags & BF_SOFT)
     {
@@ -1628,7 +1627,7 @@ HRESULT WINAPI GetThemeBackgroundContentRect(HTHEME hTheme, HDC hdc, int iPartId
         /* If nothing was found, leave unchanged */
     }
 
-    TRACE("left:%d,top:%d,right:%d,bottom:%d\n", pContentRect->left, pContentRect->top, pContentRect->right, pContentRect->bottom);
+    TRACE("left:%ld,top:%ld,right:%ld,bottom:%ld\n", pContentRect->left, pContentRect->top, pContentRect->right, pContentRect->bottom);
 
     return S_OK;
 }
@@ -1676,7 +1675,7 @@ HRESULT WINAPI GetThemeBackgroundExtent(HTHEME hTheme, HDC hdc, int iPartId,
         /* If nothing was found, leave unchanged */
     }
 
-    TRACE("left:%d,top:%d,right:%d,bottom:%d\n", pExtentRect->left, pExtentRect->top, pExtentRect->right, pExtentRect->bottom);
+    TRACE("left:%ld,top:%ld,right:%ld,bottom:%ld\n", pExtentRect->left, pExtentRect->top, pExtentRect->right, pExtentRect->bottom);
 
     return S_OK;
 }
@@ -1719,8 +1718,8 @@ HRESULT WINAPI GetThemeBackgroundRegion(HTHEME hTheme, HDC hdc, int iPartId,
 }
 
 /* compute part size for "borderfill" backgrounds */
-static HRESULT get_border_background_size (HTHEME hTheme, int iPartId,
-                                           int iStateId, THEMESIZE eSize, POINT* psz)
+HRESULT get_border_background_size (HTHEME hTheme, int iPartId,
+                                    int iStateId, THEMESIZE eSize, POINT* psz)
 {
     HRESULT hr = S_OK;
     int bordersize = 1;

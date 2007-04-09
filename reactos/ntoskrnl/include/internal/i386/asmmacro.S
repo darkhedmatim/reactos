@@ -17,16 +17,12 @@
 #define DoRestoreSegments           1
 #define DoRestoreVolatiles          1
 #define DoPushFakeErrorCode         1
-#define DoFixupV86                  1
-#define DoFixupAbios                1
 #define NotFromSystemCall           0
 #define DoNotRestorePreviousMode    0
 #define DoNotRestoreEverything      0
 #define DoNotRestoreSegments        0
 #define DoNotRestoreVolatiles       0
 #define DoNotPushFakeErrorCode      0
-#define DoNotFixupV86               0
-#define DoNotFixupAbios             0
 
 // Arguments for idt
 #define INT_32_DPL0                 0x8E00
@@ -214,28 +210,48 @@ _KiUnexpectedInterrupt&Number:
 .endm
 
 //
-// @name TRAP_FIXUPS
+// @name V86_TRAP_FIXUP
 //
-// This macro contains out-of-line code for various Trap Frame Fixups, such as:
-//
-//  - DR Fixup: Loads and restores DR registers.
-//  - V86 Fixup: Loads and restores V86 segments.
-//  - ABIOS Fixup: Loads and restores the ABIOS state and stack.
+// This macro sets up the debug header in the trap frame.
 //
 // @param None.
 //
 // @remark ebp = PKTRAP_FRAME
 //
-.macro TRAP_FIXUPS Label, EndLabel, V86Fix, AbiosFix
-Dr_&Label:
+.macro V86_TRAP_FIXUP
+    /* Get V86 segment registers */
+    mov eax, [ebp+KTRAP_FRAME_V86_FS]
+    mov ebx, [ebp+KTRAP_FRAME_V86_GS]
+    mov ecx, [ebp+KTRAP_FRAME_V86_ES]
+    mov edx, [ebp+KTRAP_FRAME_V86_DS]
 
+    /* Restore them into Protected Mode trap frame */
+    mov [ebp+KTRAP_FRAME_FS], ax
+    mov [ebp+KTRAP_FRAME_GS], bx
+    mov [ebp+KTRAP_FRAME_ES], cx
+    mov [ebp+KTRAP_FRAME_DS], dx
+
+    /* Go back to mainline code */
+    jmp 1f
+.endm
+
+//
+// @name DR_TRAP_FIXUP
+//
+// This macro sets up the debug header in the trap frame.
+//
+// @param None.
+//
+// @remark ebp = PKTRAP_FRAME
+//
+.macro DR_TRAP_FIXUP
     /* Check if this was V86 mode */
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
     jnz 2f
 
     /* Check if it was user mode */
     test byte ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
-    jz Dr_&EndLabel
+    jz 3f
 
 2:
     /* Get DR0, 1, 2 */
@@ -263,7 +279,7 @@ Dr_&Label:
     mov dr7, ebx
 
     /* Get the PRCB */
-    mov edi, fs:[KPCR_PRCB]
+    mov edi, PCR[KPCR_PRCB]
 
     /* Get DR0, 1 */
     mov ebx, [edi+KPRCB_DR0]
@@ -288,31 +304,7 @@ Dr_&Label:
     /* Set them */
     mov dr6, ebx
     mov dr7, ecx
-    jmp Dr_&EndLabel
-
-.if \AbiosFix
-Abios_&Label:
-    UNHANDLED_PATH
-.endif
-
-.if \V86Fix
-V86_&Label:
-
-    /* Get V86 segment registers */
-    mov eax, [ebp+KTRAP_FRAME_V86_FS]
-    mov ebx, [ebp+KTRAP_FRAME_V86_GS]
-    mov ecx, [ebp+KTRAP_FRAME_V86_ES]
-    mov edx, [ebp+KTRAP_FRAME_V86_DS]
-
-    /* Restore them into Protected Mode trap frame */
-    mov [ebp+KTRAP_FRAME_FS], ax
-    mov [ebp+KTRAP_FRAME_GS], bx
-    mov [ebp+KTRAP_FRAME_ES], cx
-    mov [ebp+KTRAP_FRAME_DS], dx
-
-    /* Go back to mainline code */
-    jmp V86_&EndLabel
-.endif
+    jmp 3f
 .endm
 
 //
@@ -361,7 +353,7 @@ V86_&Label:
 
     /* Get the current thread */
 1:
-    mov ebx, PCR[KPCR_CURRENT_THREAD]
+    mov ebx, [fs:KPCR_CURRENT_THREAD]
 
     /* Make it non-alerted */
     mov byte ptr [ebx+KTHREAD_ALERTED], 0
@@ -431,7 +423,7 @@ V86_&Label:
 //              /* Handle trap */
 //              <Your Trap Code Here>
 //
-.macro TRAP_PROLOG Label EndLabel
+.macro TRAP_PROLOG Label
     /* Just to be safe, clear out the HIWORD, since it's reserved */
     mov word ptr [esp+2], 0
 
@@ -482,9 +474,9 @@ V86_&Label:
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
     jnz V86_&Label
 
-V86_&EndLabel:
+1:
     /* Get current thread */
-    mov ecx, fs:[KPCR_CURRENT_THREAD]
+    mov ecx, [fs:KPCR_CURRENT_THREAD]
     cld
 
     /* Flush DR7 */
@@ -495,7 +487,7 @@ V86_&EndLabel:
     jnz Dr_&Label
 
     /* Set the Trap Frame Debug Header */
-Dr_&EndLabel:
+3:
     SET_TF_DEBUG_HEADER
 .endm
 
@@ -511,7 +503,7 @@ Dr_&EndLabel:
 //
 // @remark For software interrupts, make sure that a fake INT stack is created.
 //
-.macro INT_PROLOG Label EndLabel FakeErrorCode
+.macro INT_PROLOG Label FakeErrorCode
 
 .if \FakeErrorCode
     /* Save fake error code */
@@ -541,7 +533,7 @@ Dr_&EndLabel:
     jnz V86_&Label
 
     /* Check if this was kernel mode */
-V86_&EndLabel:
+1:
     cmp word ptr [esp+KTRAP_FRAME_CS], KGDT_R0_CODE
     jz 1f
 
@@ -563,10 +555,10 @@ V86_&EndLabel:
 
 1: 
     /* Get the previous exception list */
-    mov ebx, fs:[KPCR_EXCEPTION_LIST]
+    mov ebx, [fs:KPCR_EXCEPTION_LIST]
 
     /* Set the exception handler chain terminator */
-    mov dword ptr fs:[KPCR_EXCEPTION_LIST], -1
+    mov dword ptr [fs:KPCR_EXCEPTION_LIST], -1
 
     /* Save the previous exception list */
     mov [esp+KTRAP_FRAME_EXCEPTION_LIST], ebx
@@ -587,7 +579,7 @@ V86_&EndLabel:
     and dword ptr [esp+KTRAP_FRAME_ERROR_CODE], 0
 
     /* Get the current thread and clear direction flag */
-    mov ecx, PCR[KPCR_CURRENT_THREAD]
+    mov ecx, [fs:KPCR_CURRENT_THREAD]
     cld
 
     /* Flush DR7 */
@@ -605,7 +597,7 @@ V86_&EndLabel:
     jnz Dr_&Label
 
     /* Set the trap frame debug header */
-Dr_&EndLabel:
+3:
     SET_TF_DEBUG_HEADER
 .endm
 
@@ -624,7 +616,7 @@ Dr_&EndLabel:
 //
 // @remark None.
 //
-.macro SYSCALL_PROLOG Label EndLabel
+.macro SYSCALL_PROLOG Label
     /* Create a trap frame */
     push 0
     push ebp
@@ -639,13 +631,13 @@ Dr_&EndLabel:
     mov fs, bx
 
     /* Get a pointer to the current thread */
-    mov esi, PCR[KPCR_CURRENT_THREAD]
+    mov esi, [fs:KPCR_CURRENT_THREAD]
 
     /* Save the previous exception list */
-    push PCR[KPCR_EXCEPTION_LIST]
+    push [fs:KPCR_EXCEPTION_LIST]
 
     /* Set the exception handler chain terminator */
-    mov dword ptr PCR[KPCR_EXCEPTION_LIST], -1
+    mov dword ptr [fs:KPCR_EXCEPTION_LIST], -1
 
     /* Save the old previous mode */
     push [esi+KTHREAD_PREVIOUS_MODE]
@@ -679,7 +671,7 @@ Dr_&EndLabel:
     jnz Dr_&Label
 
     /* Set the trap frame debug header */
-Dr_&EndLabel:
+3:
     SET_TF_DEBUG_HEADER
 
     /* Enable interrupts */
@@ -698,21 +690,22 @@ Dr_&EndLabel:
 //
 // @remark None.
 //
-.macro FASTCALL_PROLOG Label EndLabel
+.macro FASTCALL_PROLOG Label
+    /* Set FS to PCR */
+    mov ecx, KGDT_R0_PCR
+    mov fs, cx
+    //push KGDT_R0_PCR
+    //pop fs
 
     /* Set user selector */
     mov ecx, KGDT_R3_DATA | RPL_MASK
-
-    /* Set FS to PCR */
-    push KGDT_R0_PCR
-    pop fs
 
     /* Set DS/ES to User Selector */
     mov ds, cx
     mov es, cx
 
     /* Set the current stack to Kernel Stack */
-    mov ecx, PCR[KPCR_TSS]
+    mov ecx, [fs:KPCR_TSS]
     mov esp, [ecx+KTSS_ESP0]
 
     /* Set up a fake INT Stack. */
@@ -735,7 +728,7 @@ Dr_&EndLabel:
     push KGDT_R3_TEB + RPL_MASK
 
     /* Save pointer to our PCR */
-    mov ebx, PCR[KPCR_SELF]
+    mov ebx, [fs:KPCR_SELF]
 
     /* Get a pointer to the current thread */
     mov esi, [ebx+KPCR_CURRENT_THREAD]
@@ -776,7 +769,7 @@ Dr_&EndLabel:
     jnz Dr_&Label
 
     /* Set the trap frame debug header */
-Dr_&EndLabel:
+3:
     SET_TF_DEBUG_HEADER
 
     /* Enable interrupts */
@@ -798,7 +791,7 @@ Dr_&EndLabel:
 //
 // @remark None.
 //
-.macro V86_TRAP_PROLOG Label EndLabel
+.macro V86_TRAP_PROLOG Label
 
     /* Skip everything to the error code */
     sub esp, KTRAP_FRAME_ERROR_CODE
@@ -838,16 +831,14 @@ Dr_&EndLabel:
     cld
 
     /* Save the exception list */
-    mov eax, fs:[KPCR_EXCEPTION_LIST]
+    mov eax, [fs:KPCR_EXCEPTION_LIST]
     mov [esp+KTRAP_FRAME_EXCEPTION_LIST], eax
 
     /* Check if we need debugging */
     mov eax, dr7
     test eax, ~DR7_RESERVED_MASK
     mov [esp+KTRAP_FRAME_DR7], eax
-    jnz Dr_&Label
-
-Dr_&EndLabel:
+    // jnz Dr_&Label
 .endm
 
 //
@@ -863,7 +854,7 @@ Dr_&EndLabel:
 
     /* Get the current thread and make it unalerted */
 ExitBegin:
-    mov ebx, PCR[KPCR_CURRENT_THREAD]
+    mov ebx, [fs:KPCR_CURRENT_THREAD]
     mov byte ptr [ebx+KTHREAD_ALERTED], 0
 
     /* Check if it has User-mode APCs pending */
@@ -878,10 +869,9 @@ ExitBegin:
 
     /* Check if DR registers should be restored */
     test dword ptr [ebp+KTRAP_FRAME_DR7], ~DR7_RESERVED_MASK
-    jnz V86DebugRestore
+    //jnz V86DebugRestore
 
     /* Finish popping the rest of the frame, and return to P-mode */
-V86DebugContinue:
     add esp, 12
     pop edi
     pop esi
@@ -889,33 +879,6 @@ V86DebugContinue:
     pop ebp
     add esp, 4
     iretd
-
-V86DebugRestore:
-
-    /* Get DR0, 1 */
-    xor ebx, ebx
-    mov esi, [ebp+KTRAP_FRAME_DR0]
-    mov edi, [ebp+KTRAP_FRAME_DR1]
-
-    /* Clear DR 7 */
-    mov dr7, ebx
-
-    /* Get DR2 and load DR0-2 */
-    mov ebx, [ebp+KTRAP_FRAME_DR2]
-    mov dr0, esi
-    mov dr1, edi
-    mov dr2, ebx
-
-    /* Get DR3-7 */
-    mov esi, [ebp+KTRAP_FRAME_DR0]
-    mov edi, [ebp+KTRAP_FRAME_DR1]
-    mov ebx, [ebp+KTRAP_FRAME_DR7]
-
-    /* Load them */
-    mov dr3, esi
-    mov dr6, edi
-    mov dr7, ebx
-    jmp V86DebugContinue
 
 PendingUserApc:
 
@@ -991,7 +954,7 @@ PendingUserApc:
     jnz 1f
 
     /* Assert exception list */
-    cmp dword ptr PCR[KPCR_EXCEPTION_LIST], 0
+    cmp dword ptr fs:[KPCR_EXCEPTION_LIST], 0
     jnz 2f
 
 1:
@@ -1012,7 +975,7 @@ PendingUserApc:
 #endif
 
     /* Restore it */
-    mov PCR[KPCR_EXCEPTION_LIST], edx
+    mov [fs:KPCR_EXCEPTION_LIST], edx
 
 .if \RestorePreviousMode
     /* Get previous mode */
@@ -1027,7 +990,7 @@ PendingUserApc:
 #endif
 
     /* Restore the previous mode */
-    mov esi, PCR[KPCR_CURRENT_THREAD]
+    mov esi, [fs:KPCR_CURRENT_THREAD]
     mov byte ptr [esi+KTHREAD_PREVIOUS_MODE], cl
 .else
 
@@ -1043,7 +1006,7 @@ PendingUserApc:
 
     /* Check for debug registers */
     test dword ptr [esp+KTRAP_FRAME_DR7], ~DR7_RESERVED_MASK
-    jnz 2f
+    //jnz 2f
 
     /* Check for V86 */
 4:
@@ -1070,7 +1033,7 @@ PendingUserApc:
 .endif
 
     /* Check if we were called from kernel mode */
-    cmp word ptr [ebp+KTRAP_FRAME_CS], KGDT_R0_CODE
+    cmp dword ptr [ebp+KTRAP_FRAME_CS], KGDT_R0_CODE
     jz 9f
 
 .if \RestoreSegments
@@ -1247,118 +1210,4 @@ FastExit:
     mov esp, [esp]
     iret
 .endm
-
-//
-// @name INT_EPILOG
-// 
-// This macro creates an epilogue for leaving any system trap.
-// It is used for exiting system calls, exceptions, interrupts and generic
-// traps.
-//
-// @param Spurious - TRUE if the interrupt was unexpected and spurious.
-//
-// @remark None.
-//
-.macro INT_EPILOG Spurious
-
-.if \Spurious
-    /* Just exit the trap */
-    jmp _Kei386EoiHelper@0
-.else
-    /* Disable interrupts */
-    cli
-
-    /* End the interrupt and do EOI */
-    call _HalEndSystemInterrupt@8
-    jmp _Kei386EoiHelper@0
-.endif
-.endm
-
-#ifdef DBG
-
-.macro VERIFY_INT Label
-    /* Get the current time and mask it to 192 ticks */
-    mov eax, _KeTickCount
-    and eax, 0xC0
-
-    /* Check if we're in the same tick area */
-    cmp eax, dword ptr [edi+KINTERRUPT_TICK_COUNT]
-    jg VfRst_&Label
-    jl VfWrap_&Label
-
-    /* If we got here, then our count is too large */
-    dec word ptr [edi+KINTERRUPT_DISPATCH_COUNT]
-    jz VfOvr_&Label
-Vf_&Label:
-.endm
-
-.macro VERIFY_INT_END Label, Info
-VfOvr_&Label:
-
-    /* Decrement the dispatch count and check if we should bug check */
-    dec word ptr [edi+KINTERRUPT_DISPATCH_COUNT+2]
-    jz 1f
-
-    /* Update the tick count */
-    add eax, 0x40
-    mov [edi+KINTERRUPT_TICK_COUNT], eax
-    jmp VfRstDef_&Label
-
-.1:
-    /* Check if the debugger is enabled */
-    cmp byte ptr __KdDebuggerEnabled, 0
-    jnz 1f
-
-    /* It isn't, bugcheck */
-    push Info
-    push edi
-    push [edi+KINTERRUPT_SERVICE_CONTEXT]
-    push [edi+KINTERRUPT_SERVICE_ROUTINE]
-    push HARDWARE_INTERRUPT_STORM
-    call _KeBugCheckEx@20
-
-1:
-    /* Debugger enabled, do a debug print + break instead */
-    push [edi+KINTERRUPT_SERVICE_ROUTINE]
-    push offset _IsrOverflowMsg
-    call _DbgPrint
-    add esp, 8
-    int 3
-
-    /* Breakpoint handled, get the new tick count */
-    mov eax, _KeTickCount
-    and eax, 0xC0
-
-VfRst_&Label:
-    /* Reset tick count */
-    mov dword ptr [edi+KINTERRUPT_TICK_COUNT], eax
-    mov word ptr [edi+KINTERRUPT_DISPATCH_COUNT+2], 64
-
-VfRstDef_&Label:
-    /* Put default overflow count and continue */
-    mov ax, _KiISROverflow
-    mov word ptr [edi+KINTERRUPT_DISPATCH_COUNT], ax
-    jmp Vf_&Label
-
-VfWrap_&Label:
-    /* Check if we wrapped */
-    add eax, 0x40
-    cmp eax, [edi+KINTERRUPT_TICK_COUNT]
-    je Vf_&Label
-
-    /* We did, start over */
-    mov eax, _KeTickCount
-    jmp VfRst_&Label
-.endm
-
-#else
-
-/* We don't verify interrupts on retail builds */
-.macro VERIFY_INT Label
-.endm
-.macro VERIFY_INT_END Label, Info
-.endm
-
-#endif
-
 

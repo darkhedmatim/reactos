@@ -19,7 +19,7 @@ LIST_ENTRY MiVerifierDriverAddedThunkListHead;
 KMUTANT MmSystemLoadLock;
 ULONG MiActiveVerifierThunks;
 
-extern LIST_ENTRY PsLoadedModuleList;
+extern LIST_ENTRY ModuleListHead;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -32,7 +32,7 @@ MiLookupDataTableEntry(IN PVOID Address)
     PAGED_CODE();
 
     /* Loop entries */
-    NextEntry = PsLoadedModuleList.Flink;
+    NextEntry = ModuleListHead.Flink;
     do 
     {
         /* Get the loader entry */
@@ -51,7 +51,7 @@ MiLookupDataTableEntry(IN PVOID Address)
 
         /* Move on */
         NextEntry = NextEntry->Flink;
-    } while(NextEntry != &PsLoadedModuleList);
+    } while(NextEntry != &ModuleListHead);
 
     /* Return the entry */
     return FoundEntry;
@@ -164,7 +164,7 @@ MmIsDriverVerifying(IN PDRIVER_OBJECT DriverObject)
     if (!LdrEntry) return FALSE;
 
     /* Check if we're verifying or not */
-    return (LdrEntry->Flags & LDRP_IMAGE_VERIFYING) ? TRUE: FALSE;
+    return (LdrEntry->Flags & LDRP_DRIVER_VERIFYING) ? TRUE: FALSE;
 }
 
 /*

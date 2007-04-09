@@ -3,78 +3,38 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <wctype.h>
-#include <tchar.h>
 
-static LPTSTR SkipSelfArgument(LPTSTR lpszCommandLine)
-{
-	LPTSTR p = lpszCommandLine;
-	int quote = 0;
-
-	// Skip leading whitespace
-	while(*p != 0 && _istspace(*p))
-		++ p;
-
-	if(*p == 0)
-		return p;
-
-	// Skip argument 0
-	// BUGBUG: the assumption is that argument 0 never contains escaped quotes
-	do
-	{
-		if(*p == TEXT('\"'))
-		{
-			quote = !quote;
-			++ p;
-			continue;
-		}
-
-		++ p;
-	}
-	while(*p != 0 && (quote || !_istspace(*p)));
-
-	// Skip trailing whitespace
-	while(*p != 0 && _istspace(*p))
-		++ p;
-
-	return p;
-}
-
-int main()
+int main(int argc, char* argv[])
 {
     LPTSTR CommandLine, FullCommandLine, CommandLineBuffer;
     time_t StartTime, FinishTime;
-    double TotalTime;
+    float TotalTime;
     int Hour, Minute, Second;
-	int ret;
+    int Status;
+
+    //
+    // If nothing is on the command-line exit
+    //
+    if (argc == 1)
+    {
+        printf("Required parameter not specified. Exiting.\n");
+        return 1;
+    }
 
     //
     // Get the command line to pass on.
     //
     FullCommandLine = GetCommandLine();
-    CommandLine = SkipSelfArgument(FullCommandLine);
-
-    //
-    // If nothing is on the command-line exit
-    //
-    if (CommandLine[0] == 0)
-    {
-		fprintf(stderr, "buildtime: required parameter not specified\n");
-        return 1;
-    }
-
-    CommandLineBuffer = malloc((strlen(CommandLine) + 2 + 1));
+    CommandLine = &FullCommandLine[strlen(argv[0]) + 1];
+    CommandLineBuffer = (LPTSTR) malloc((strlen(CommandLine) + 3));
     if (!CommandLineBuffer)
     {
-		fprintf(stderr, "buildtime: unable to allocate memory\n");
+        printf("Unable to allocate memory. Exiting.\n");
         return 1;
     }
-
-	CommandLineBuffer[0] = 0;
-    //strcat(CommandLineBuffer, "\"");
+    strcpy(CommandLineBuffer, "\"");
     strcat(CommandLineBuffer, CommandLine);
-    //strcat(CommandLineBuffer, "\"");
+    strcat(CommandLineBuffer, "\"");
 
     //
     // Grab the starting timestamp.
@@ -84,7 +44,13 @@ int main()
     //
     // Run the program (Status is 1 on failure).
     //
-    ret = system(CommandLineBuffer);
+    Status = system(CommandLineBuffer);
+    if (Status)
+    {
+        printf("Unable to execute program. Exiting.\n");
+        free(CommandLineBuffer);
+        return 1;
+    }
 
     //
     // Grab the finishing timestamp.
@@ -114,5 +80,5 @@ int main()
     //
     free(CommandLineBuffer);
 
-    return ret;
+    return 0;
 }

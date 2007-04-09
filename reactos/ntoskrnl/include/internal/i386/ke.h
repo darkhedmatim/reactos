@@ -63,14 +63,8 @@ Ki386InitializeTss(
 
 VOID
 NTAPI
-KiRestoreProcessorControlState(
-    IN PKPROCESSOR_STATE ProcessorState
-);
-
-VOID
-NTAPI
 KiSaveProcessorControlState(
-    OUT PKPROCESSOR_STATE ProcessorState
+    IN PKPROCESSOR_STATE ProcessorState
 );
 
 VOID
@@ -95,12 +89,6 @@ KiGetCacheInformation(VOID);
 BOOLEAN
 NTAPI
 KiIsNpxPresent(
-    VOID
-);
-
-BOOLEAN
-NTAPI
-KiIsNpxErrataPresent(
     VOID
 );
 

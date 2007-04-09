@@ -5,8 +5,9 @@
 
 #define IDI_CPLSYSTEM                   50
 #define IDI_DEVMGR                      51
-#define IDI_HARDPROF                    52
-#define IDI_USERPROF                    53
+#define IDI_COMPNAME                    52
+#define IDI_HARDPROF                    53
+#define IDI_USERPROF                    54
 
 #define IDB_ROSBMP                      55
 
@@ -18,8 +19,6 @@
 #define IDS_TERABYTE                    64
 #define IDS_PETABYTE                    65
 
-#define IDS_VARIABLE                    66
-#define IDS_VALUE                       67
 
 /* propsheet - general */
 #define IDD_PROPPAGEGENERAL             100
@@ -31,6 +30,16 @@
 #define IDC_LICENCE                     106
 #define IDC_ROSIMG                      107
 #define IDC_ROSHOMEPAGE_LINK            108
+
+
+/* propsheet - computer name */
+#define IDD_PROPPAGECOMPUTER            200
+#define IDC_COMPDESC                    201
+#define IDC_COMPUTERNAME                202
+#define IDC_WORKGROUPDOMAIN_NAME        203
+#define IDC_WORKGROUPDOMAIN	            204
+#define IDC_NETWORK_ID                  205
+#define IDC_NETWORK_PROPERTY            206
 
 
 /* propsheet - hardware */

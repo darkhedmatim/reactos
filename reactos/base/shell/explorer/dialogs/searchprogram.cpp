@@ -107,18 +107,15 @@ FindProgramDlg::FindProgramDlg(HWND hwnd)
 
 	LV_COLUMN column = {LVCF_FMT|LVCF_WIDTH|LVCF_TEXT, LVCFMT_LEFT, 250};
 
-	TCHAR lvColName[] = _T("Name");
-	column.pszText = lvColName;
+	column.pszText = _T("Name");
 	ListView_InsertColumn(_list_ctrl, 0, &column);
 
 	column.cx = 300;
-	TCHAR lvColPath[] = _T("Path");
-	column.pszText = lvColPath;
+	column.pszText = _T("Path");
 	ListView_InsertColumn(_list_ctrl, 1, &column);
 
 	column.cx = 400;
-	TCHAR lvColMenuPath[] = _T("Menu Path");
-	column.pszText = lvColMenuPath;
+	column.pszText = _T("Menu Path");
 	ListView_InsertColumn(_list_ctrl, 2, &column);
 
 	ListView_SetExtendedListViewStyleEx(_list_ctrl, LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);

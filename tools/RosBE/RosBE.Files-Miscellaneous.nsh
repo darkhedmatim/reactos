@@ -1,6 +1,7 @@
-Section "-Other miscellaneous files." SEC02
+Section "-Other miscellaneous files." SEC03
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
+    File "Tools\buildtime.exe"
     File "Tools\cpucount.exe"
     File "Tools\getdate.exe"
     File "Tools\libiconv2.dll"

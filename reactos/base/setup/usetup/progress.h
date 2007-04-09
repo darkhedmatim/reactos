@@ -34,8 +34,6 @@ typedef struct _PROGRESS
   SHORT Top;
   SHORT Right;
   SHORT Bottom;
-  SHORT TextTop;
-  SHORT TextRight;
 
   SHORT Width;
 
@@ -45,7 +43,6 @@ typedef struct _PROGRESS
   ULONG StepCount;
   ULONG CurrentStep;
   
-  BOOLEAN Double;
   CHAR *Text;
 } PROGRESSBAR, *PPROGRESSBAR;
 
@@ -56,9 +53,6 @@ CreateProgressBar(SHORT Left,
 		  SHORT Top,
 		  SHORT Right,
 		  SHORT Bottom,
-          SHORT TextTop,
-          SHORT TextRight,
-          BOOLEAN DoubleEdge,
           char* Text);
 
 VOID

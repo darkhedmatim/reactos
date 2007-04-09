@@ -2,7 +2,6 @@
 #define _WIN32K_WINSTA_H
 
 #include "msgqueue.h"
-#include "clipboard.h"
 
 #define WINSTA_ROOT_NAME	L"\\Windows\\WindowStations"
 #define WINSTA_ROOT_NAME_LENGTH	23
@@ -46,10 +45,7 @@ typedef struct _WINSTATION_OBJECT
 
     ULONG Flags;
     struct _DESKTOP_OBJECT* ActiveDesktop;
-
-    PCLIPBOARDSYSTEM Clipboard;
-    DWORD           ClipboardSequenceNumber;
-    
+    /* FIXME: Clipboard */
 } WINSTATION_OBJECT, *PWINSTATION_OBJECT;
 
 extern WINSTATION_OBJECT *InputWindowStation;

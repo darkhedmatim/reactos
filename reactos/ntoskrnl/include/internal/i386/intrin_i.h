@@ -81,25 +81,17 @@ static inline void Ki386Cpuid(ULONG Op, PULONG Eax, PULONG Ebx, PULONG Ecx, PULO
 #define Ke386FnInit()               __asm__("fninit\n\t");
 
 //
-// CR Macros
-//
-#define Ke386SetCr2(X)              __asm__ __volatile__("movl %0,%%cr2" : :"r" (X));
-
-//
 // DR Macros
 //
 #define Ke386GetDr0()               _Ke386GetDr(0)
 #define Ke386GetDr1()               _Ke386GetDr(1)
 #define Ke386SetDr0(X)              _Ke386SetDr(0,X)
-#define Ke386SetDr1(X)              _Ke386SetDr(1,X)
 #define Ke386GetDr2()               _Ke386GetDr(2)
 #define Ke386SetDr2(X)              _Ke386SetDr(2,X)
 #define Ke386GetDr3()               _Ke386GetDr(3)
-#define Ke386SetDr3(X)              _Ke386SetDr(3,X)
 #define Ke386GetDr4()               _Ke386GetDr(4)
 #define Ke386SetDr4(X)              _Ke386SetDr(4,X)
 #define Ke386GetDr6()               _Ke386GetDr(6)
-#define Ke386SetDr6(X)              _Ke386SetDr(6,X)
 #define Ke386GetDr7()               _Ke386GetDr(7)
 #define Ke386SetDr7(X)              _Ke386SetDr(7,X)
 
@@ -113,44 +105,6 @@ static inline void Ki386Cpuid(ULONG Op, PULONG Eax, PULONG Ebx, PULONG Ecx, PULO
 #define Ke386SetEs(X)               _Ke386SetSeg(es, X)
 
 #elif defined(_MSC_VER)
-
-VOID
-FORCEINLINE
-Ke386Wrmsr(IN ULONG Register,
-           IN ULONG Var1,
-           IN ULONG Var2)
-{
-    __asm mov eax, Var1;
-    __asm mov edx, Var2;
-    __asm wrmsr;
-}
-
-ULONGLONG
-FORCEINLINE
-Ke386Rdmsr(IN ULONG Register,
-           IN ULONG Var1,
-           IN ULONG Var2)
-{
-    __asm mov eax, Var1;
-    __asm mov edx, Var2;
-    __asm rdmsr;
-}
-
-VOID
-FORCEINLINE
-Ki386Cpuid(IN ULONG Operation,
-           OUT PULONG Var1,
-           OUT PULONG Var2,
-           OUT PULONG Var3,
-           OUT PULONG Var4)
-{
-    __asm mov eax, Operation;
-    __asm cpuid;
-    __asm mov [Var1], eax;
-    __asm mov [Var2], ebx;
-    __asm mov [Var3], ecx;
-    __asm mov [Var4], edx;
-}
 
 VOID
 FORCEINLINE
@@ -239,17 +193,6 @@ Ke386GetTr(IN USHORT Tr)
 }
 
 //
-// CR Macros
-//
-VOID
-FORCEINLINE
-Ke386SetCr2(IN ULONG Value)
-{
-    __asm mov eax, Value;
-    __asm mov cr2, eax;
-}
-
-//
 // DR Macros
 //
 ULONG
@@ -300,14 +243,6 @@ Ke386SetDr0(IN ULONG Value)
 {
     __asm mov eax, Value;
     __asm mov dr0, eax;
-}
-
-VOID
-FORCEINLINE
-Ke386SetDr1(IN ULONG Value)
-{
-    __asm mov eax, Value;
-    __asm mov dr1, eax;
 }
 
 VOID

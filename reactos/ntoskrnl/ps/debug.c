@@ -109,7 +109,6 @@ PspGetOrSetContextKernelRoutine(IN PKAPC Apc,
                                 IN OUT PVOID* SystemArgument1,
                                 IN OUT PVOID* SystemArgument2)
 {
-#if defined(_M_IX86)
     PGET_SET_CTX_CONTEXT GetSetContext;
     PKEVENT Event;
     PCONTEXT Context;
@@ -151,10 +150,6 @@ PspGetOrSetContextKernelRoutine(IN PKAPC Apc,
 
     /* Notify the Native API that we are done */
     KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
-#else
-    DPRINT1("PspGetOrSetContextKernelRoutine() not implemented!");
-    for (;;);
-#endif
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/

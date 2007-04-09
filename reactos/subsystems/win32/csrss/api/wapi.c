@@ -227,7 +227,7 @@ ClientConnectionThread(HANDLE ServerPort)
         {
             DPRINT("Port died, oh well\n");
             CsrFreeProcessData( Request->Header.ClientId.UniqueProcess );
-            //NtClose()
+            //NtClose();
             Reply = NULL;
             continue;
             //break;
@@ -242,7 +242,7 @@ ClientConnectionThread(HANDLE ServerPort)
 
         if (Request->Header.u2.s2.Type == LPC_CLIENT_DIED)
         {
-            DPRINT("Clietn died, oh well\n");
+            DPRINT("Client died, oh well\n");
             Reply = NULL;
             continue;
         }

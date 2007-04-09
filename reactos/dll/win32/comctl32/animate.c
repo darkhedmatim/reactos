@@ -803,7 +803,6 @@ static BOOL ANIMATE_Create(HWND hWnd, LPCREATESTRUCTW lpcs)
     TRACE("Animate style=0x%08x, parent=%p\n", infoPtr->dwStyle, infoPtr->hwndNotify);
 
     InitializeCriticalSection(&infoPtr->cs);
-    infoPtr->cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": ANIMATE_INFO*->cs");
 
     return TRUE;
 }
@@ -817,7 +816,6 @@ static LRESULT ANIMATE_Destroy(ANIMATE_INFO *infoPtr)
     /* free animate info data */
     SetWindowLongPtrW(infoPtr->hwndSelf, 0, 0);
 
-    infoPtr->cs.DebugInfo->Spare[0] = 0;
     DeleteCriticalSection(&infoPtr->cs);
     Free(infoPtr);
 

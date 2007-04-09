@@ -1,8 +1,6 @@
-<group>
-<cdfile base="$(CDOUTPUT)">services</cdfile>
+<cdfile base="reactos">services</cdfile>
 <installfile base="system32/drivers/etc">services</installfile>
 <if property="KDBG" value="1">
-	<cdfile base="$(CDOUTPUT)">KDBinit</cdfile>
+	<cdfile base="reactos">KDBinit</cdfile>
 	<installfile base="system32/drivers/etc">KDBinit</installfile>
 </if>
-</group>

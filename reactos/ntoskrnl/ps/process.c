@@ -397,6 +397,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                                            (PVOID*)&Parent,
                                            NULL);
         if (!NT_SUCCESS(Status)) return Status;
+        PSREFTRACE(Parent);
 
         /* If this process should be in a job but the parent isn't */
         if ((InJob) && (!Parent->Job))
@@ -433,6 +434,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     if (!NT_SUCCESS(Status)) goto Cleanup;
 
     /* Clean up the Object */
+    PSREFTRACE(Process);
     RtlZeroMemory(Process, sizeof(EPROCESS));
 
     /* Initialize pushlock and rundown protection */
@@ -483,15 +485,14 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
         if (Parent != PsInitialSystemProcess)
         {
             /* It's not, so acquire the process rundown */
-            if (ExAcquireRundownProtection(&Process->RundownProtect))
-            {
-                /* If the parent has a section, use it */
-                SectionObject = Parent->SectionObject;
-                if (SectionObject) ObReferenceObject(SectionObject);
+            ExAcquireRundownProtection(&Process->RundownProtect);
 
-                /* Release process rundown */
-                ExReleaseRundownProtection(&Process->RundownProtect);
-            }
+            /* If the parent has a section, use it */
+            SectionObject = Parent->SectionObject;
+            if (SectionObject) ObReferenceObject(SectionObject);
+
+            /* Release process rundown */
+            ExReleaseRundownProtection(&Process->RundownProtect);
 
             /* If we don't have a section object */
             if (!SectionObject)
@@ -646,25 +647,23 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                             AccessState,
                             DesiredAccess,
                             1,
-                            NULL,
+                            (PVOID*)&Process,
                             &hProcess);
 
     /* Free the access state */
     if (AccessState) SeDeleteAccessState(AccessState);
 
     /* Cleanup on failure */
+    PSREFTRACE(Process);
     if (!NT_SUCCESS(Status)) goto Cleanup;
 
     /* Compute Quantum and Priority */
-    ASSERT(IsListEmpty(&Process->ThreadListHead) == TRUE);
-    Process->Pcb.BasePriority =
-        (SCHAR)PspComputeQuantumAndPriority(Process,
-                                            PsProcessPriorityBackground,
-                                            &Quantum);
+    Process->Pcb.BasePriority = (SCHAR)PspComputeQuantumAndPriority(Process,
+                                                                    0,
+                                                                    &Quantum);
     Process->Pcb.QuantumReset = Quantum;
 
     /* Check if we have a parent other then the initial system process */
-    Process->GrantedAccess = PROCESS_TERMINATE;
     if ((Parent) && (Parent != PsInitialSystemProcess))
     {
         /* Get the process's SD */
@@ -684,6 +683,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
         SubjectContext.ClientToken = NULL;
 
         /* Do the access check */
+        if (!SecurityDescriptor) DPRINT1("FIX PS SDs!!\n");
         Result = SeAccessCheck(SecurityDescriptor,
                                &SubjectContext,
                                FALSE,
@@ -712,9 +712,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                                    PROCESS_CREATE_THREAD |
                                    PROCESS_DUP_HANDLE |
                                    PROCESS_CREATE_PROCESS |
-                                   PROCESS_SET_INFORMATION |
-                                   STANDARD_RIGHTS_ALL |
-                                   PROCESS_SET_QUOTA);
+                                   PROCESS_SET_INFORMATION);
     }
     else
     {
@@ -722,10 +720,14 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
         Process->GrantedAccess = PROCESS_ALL_ACCESS;
     }
 
+    /* Sanity check */
+    ASSERT(IsListEmpty(&Process->ThreadListHead));
+
     /* Set the Creation Time */
     KeQuerySystemTime(&Process->CreateTime);
 
     /* Protect against bad user-mode pointer */
+    PSREFTRACE(Process);
     _SEH_TRY
     {
         /* Save the process handle */
@@ -751,6 +753,8 @@ Cleanup:
     if (Parent) ObDereferenceObject(Parent);
 
     /* Return status to caller */
+    PSREFTRACE(Process);
+    if (Parent) PSREFTRACE(Parent);
     return Status;
 }
 
@@ -1383,6 +1387,8 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
 
         /* Dereference the Process */
         ObDereferenceObject(Process);
+        PSREFTRACE(Process);
+        if (Thread) PSREFTRACE(Thread);
     }
     else
     {

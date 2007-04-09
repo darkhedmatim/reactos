@@ -44,16 +44,10 @@ IntPatBlt(
    DWORD ROP,
    PGDIBRUSHOBJ BrushObj);
 
-VOID FASTCALL
-IntGdiSetSolidBrushColor(HBRUSH hBrush, COLORREF Color);
-
 /* Pen functions */
 
 HPEN FASTCALL
 IntGdiCreatePenIndirect(PLOGPEN lgpn);
-
-VOID FASTCALL
-IntGdiSetSolidPenColor(HPEN hPen, COLORREF Color);
 
 /* Line functions */
 

@@ -184,16 +184,6 @@ enum msidbLocatorType
     msidbLocatorType64bit = 0x010,
 };
 
-enum msidbServiceControlEvent
-{
-    msidbServiceControlEventStart = 0x00000001,
-    msidbServiceControlEventStop = 0x00000002,
-    msidbServiceControlEventDelete = 0x00000008,
-    msidbServiceControlEventUninstallStart = 0x00000010,
-    msidbServiceControlEventUninstallStop = 0x00000020,
-    msidbServiceControlEventUninstallDelete = 0x00000080,
-};
-
 /*
  * Windows SDK braindamage alert
  *

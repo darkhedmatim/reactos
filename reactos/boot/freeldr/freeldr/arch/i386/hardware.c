@@ -937,8 +937,8 @@ DetectBiosFloppyController(FRLDRHKEY SystemKey,
   PartialDescriptor->Type = CmResourceTypeInterrupt;
   PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
   PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-  PartialDescriptor->u.Interrupt.Level = 6;
-  PartialDescriptor->u.Interrupt.Vector = 0;
+  PartialDescriptor->u.Interrupt.Level = 0;
+  PartialDescriptor->u.Interrupt.Vector = 6;
   PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
   /* Set DMA channel */
@@ -1422,8 +1422,8 @@ DetectSerialPorts(FRLDRHKEY BusKey)
       PartialDescriptor->Type = CmResourceTypeInterrupt;
       PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
       PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-      PartialDescriptor->u.Interrupt.Level = Irq[i];
-      PartialDescriptor->u.Interrupt.Vector = 0;
+      PartialDescriptor->u.Interrupt.Level = 0;
+      PartialDescriptor->u.Interrupt.Vector = Irq[i];
       PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
       /* Set serial data (device specific) */
@@ -1570,8 +1570,8 @@ DetectParallelPorts(FRLDRHKEY BusKey)
 	  PartialDescriptor->Type = CmResourceTypeInterrupt;
 	  PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
 	  PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-	  PartialDescriptor->u.Interrupt.Level = Irq[i];
-	  PartialDescriptor->u.Interrupt.Vector = 0;
+	  PartialDescriptor->u.Interrupt.Level = 0;
+	  PartialDescriptor->u.Interrupt.Vector = Irq[i];
 	  PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 	}
 
@@ -1621,69 +1621,58 @@ DetectKeyboardDevice(VOID)
 {
   UCHAR Status;
   UCHAR Scancode;
-  ULONG Loops;
-  BOOLEAN Result = TRUE;
 
-  /* Identify device */
   WRITE_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA,
 		   0xF2);
 
-  /* Wait for reply */
-  for (Loops = 0; Loops < 100; Loops++)
-    {
-      StallExecutionProcessor(10000);
-      Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
-      if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) != 0)
-        break;
-    }
+  StallExecutionProcessor(10000);
 
-  if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) == 0)
+  Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
+  if ((Status & 0x01) != 0x01)
     {
       /* PC/XT keyboard or no keyboard */
-      Result = FALSE;
+      return FALSE;
     }
 
   Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
   if (Scancode != 0xFA)
     {
       /* No ACK received */
-      Result = FALSE;
+      return FALSE;
     }
 
   StallExecutionProcessor(10000);
-
   Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
-  if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) == 0)
+  if ((Status & 0x01) != 0x01)
     {
       /* Found AT keyboard */
-      return Result;
+      return TRUE;
     }
 
   Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
   if (Scancode != 0xAB)
     {
       /* No 0xAB received */
-      Result = FALSE;
+      return FALSE;
     }
 
   StallExecutionProcessor(10000);
-
   Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
-  if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) == 0)
+  if ((Status & 0x01) != 0x01)
     {
       /* No byte in buffer */
-      Result = FALSE;
+      return FALSE;
     }
 
   Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
   if (Scancode != 0x41)
     {
       /* No 0x41 received */
-      Result = FALSE;
+      return FALSE;
     }
 
   /* Found MF-II keyboard */
-  return Result;
+  return TRUE;
 }
 
 
@@ -1828,8 +1817,8 @@ DetectKeyboardController(FRLDRHKEY BusKey)
   PartialDescriptor->Type = CmResourceTypeInterrupt;
   PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
   PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-  PartialDescriptor->u.Interrupt.Level = 1;
-  PartialDescriptor->u.Interrupt.Vector = 0;
+  PartialDescriptor->u.Interrupt.Level = 0;
+  PartialDescriptor->u.Interrupt.Vector = 1;
   PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
   /* Set IO Port 0x60 */
@@ -1890,13 +1879,8 @@ PS2ControllerWait(VOID)
 static BOOLEAN
 DetectPS2AuxPort(VOID)
 {
-#if 1
-  /* Current detection is too unreliable. Just do as if
-   * the PS/2 aux port is always present
-   */
-   return TRUE;
-#else
   ULONG Loops;
+  UCHAR Scancode;
   UCHAR Status;
 
   /* Put the value 0x5A in the output buffer using the
@@ -1917,16 +1901,22 @@ DetectPS2AuxPort(VOID)
 
   for (Loops = 0; Loops < 10; Loops++)
     {
-      StallExecutionProcessor(10000);
       Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
+
       if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) != 0)
-        break;
+	{
+	  Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
+	  if ((Status & CONTROLLER_STATUS_MOUSE_OUTPUT_BUFFER_FULL) != 0)
+	    {
+	      return TRUE;
+	    }
+	  break;
+	}
+
+      StallExecutionProcessor(10000);
     }
 
-  READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
-
-  return (Status & CONTROLLER_STATUS_MOUSE_OUTPUT_BUFFER_FULL);
-#endif
+  return FALSE;
 }
 
 
@@ -1935,8 +1925,6 @@ DetectPS2AuxDevice(VOID)
 {
   UCHAR Scancode;
   UCHAR Status;
-  ULONG Loops;
-  BOOLEAN Result = TRUE;
 
   PS2ControllerWait();
   WRITE_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_CONTROL,
@@ -1947,34 +1935,31 @@ DetectPS2AuxDevice(VOID)
   WRITE_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA,
 		   0xF2);
 
-  /* Wait for reply */
-  for (Loops = 0; Loops < 100; Loops++)
-    {
-      StallExecutionProcessor(10000);
-      Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
-      if ((Status & CONTROLLER_STATUS_OUTPUT_BUFFER_FULL) != 0)
-        break;
-    }
+  StallExecutionProcessor(10000);
 
   Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
   if ((Status & CONTROLLER_STATUS_MOUSE_OUTPUT_BUFFER_FULL) == 0)
-    Result = FALSE;
+    {
+      return FALSE;
+    }
 
   Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
   if (Scancode != 0xFA)
-    Result = FALSE;
+    return FALSE;
 
   StallExecutionProcessor(10000);
 
   Status = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_STATUS);
   if ((Status & CONTROLLER_STATUS_MOUSE_OUTPUT_BUFFER_FULL) == 0)
-    Result = FALSE;
+    {
+      return FALSE;
+    }
 
   Scancode = READ_PORT_UCHAR((PUCHAR)CONTROLLER_REGISTER_DATA);
   if (Scancode != 0x00)
-    Result = FALSE;
+    return FALSE;
 
-  return Result;
+  return TRUE;
 }
 
 
@@ -2020,8 +2005,8 @@ DetectPS2Mouse(FRLDRHKEY BusKey)
       FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].Type = CmResourceTypeInterrupt;
       FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].ShareDisposition = CmResourceShareUndetermined;
       FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Level = 12;
-      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Vector = 0;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Level = 0;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Vector = 12;
       FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Affinity = 0xFFFFFFFF;
 
       /* Set 'Configuration Data' value */

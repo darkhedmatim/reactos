@@ -19,7 +19,7 @@
 
 extern ULONG NtGlobalFlag;
 
-POBJECT_TYPE ObpTypeObjectType = NULL;
+POBJECT_TYPE ObTypeObjectType = NULL;
 KEVENT ObpDefaultObject;
 
 NPAGED_LOOKASIDE_LIST ObpNmLookasideList, ObpCiLookasideList;
@@ -107,6 +107,9 @@ ObpDeallocateObject(IN PVOID Object)
                 /* Add the SD charge too */
                 if (Header->Flags & OB_FLAG_SECURITY) PagedPoolCharge += 2048;
             }
+
+            /* FIXME: Should be returning quota */
+            DPRINT("Quotas: %lx %lx\n", PagedPoolCharge, NonPagedPoolCharge);
         }
     }
 
@@ -126,9 +129,6 @@ ObpDeallocateObject(IN PVOID Object)
         NameInfo->Name.Buffer = NULL;
     }
 
-    /* Catch invalid access */
-    Header->Type = (POBJECT_TYPE)0xBAADB0B0;
-
     /* Free the object using the same allocation tag */
     ExFreePoolWithTag(HeaderLocation, ObjectType->Key);
 }
@@ -142,7 +142,6 @@ ObpDeleteObject(IN PVOID Object,
     POBJECT_TYPE ObjectType;
     POBJECT_HEADER_NAME_INFO NameInfo;
     POBJECT_HEADER_CREATOR_INFO CreatorInfo;
-    KIRQL CalloutIrql;
     PAGED_CODE();
 
     /* Get the header and type */
@@ -153,32 +152,33 @@ ObpDeleteObject(IN PVOID Object,
     NameInfo = OBJECT_HEADER_TO_NAME_INFO(Header);
     CreatorInfo = OBJECT_HEADER_TO_CREATOR_INFO(Header);
 
+    /* Lock the object type */
+    ObpEnterObjectTypeMutex(ObjectType);
+
     /* Check if the object is on a type list */
     if ((CreatorInfo) && !(IsListEmpty(&CreatorInfo->TypeList)))
     {
-        /* Lock the object type */
-        ObpEnterObjectTypeMutex(ObjectType);
-
         /* Remove the object from the type list */
         RemoveEntryList(&CreatorInfo->TypeList);
-
-        /* Release the lock */
-        ObpLeaveObjectTypeMutex(ObjectType);
     }
+
+    /* Release the lock */
+    ObpLeaveObjectTypeMutex(ObjectType);
 
     /* Check if we have a name */
     if ((NameInfo) && (NameInfo->Name.Buffer))
     {
         /* Free it */
         ExFreePool(NameInfo->Name.Buffer);
-        RtlInitEmptyUnicodeString(&NameInfo->Name, NULL, 0);
+
+        /* Clean up the string so we don't try this again */
+        RtlInitUnicodeString(&NameInfo->Name, NULL);
     }
 
     /* Check if we have a security descriptor */
     if (Header->SecurityDescriptor)
     {
         /* Call the security procedure to delete it */
-        ObpCalloutStart(&CalloutIrql);
         ObjectType->TypeInfo.SecurityProcedure(Object,
                                                DeleteSecurityDescriptor,
                                                0,
@@ -187,19 +187,13 @@ ObpDeleteObject(IN PVOID Object,
                                                &Header->SecurityDescriptor,
                                                0,
                                                NULL);
-        ObpCalloutEnd(CalloutIrql, "Security", ObjectType, Object);
     }
 
     /* Check if we have a delete procedure */
     if (ObjectType->TypeInfo.DeleteProcedure)
     {
-        /* Save whether we were deleted from worker thread or not */
-        if (!CalledFromWorkerThread) Header->Flags |= OB_FLAG_DEFER_DELETE;
-
         /* Call it */
-        ObpCalloutStart(&CalloutIrql);
         ObjectType->TypeInfo.DeleteProcedure(Object);
-        ObpCalloutEnd(CalloutIrql, "Delete", ObjectType, Object);
     }
 
     /* Now de-allocate all object members */
@@ -210,13 +204,14 @@ VOID
 NTAPI
 ObpReapObject(IN PVOID Parameter)
 {
-    POBJECT_HEADER ReapObject, NextObject;
+    POBJECT_HEADER ReapObject = (PVOID)1;
+    PVOID NextObject;
 
     /* Start reaping */
     do
     {
         /* Get the reap object */
-        ReapObject = InterlockedExchangePointer(&ObpReaperList, (PVOID)1);
+        ReapObject = InterlockedExchangePointer(&ObpReaperList, ReapObject);
 
         /* Start deletion loop */
         do
@@ -229,7 +224,7 @@ ObpReapObject(IN PVOID Parameter)
 
             /* Move to the next one */
             ReapObject = NextObject;
-        } while ((ReapObject) && (ReapObject != (PVOID)1));
+        } while ((NextObject) && (NextObject != (PVOID)1));
     } while ((ObpReaperList != (PVOID)1) ||
              (InterlockedCompareExchange((PLONG)&ObpReaperList, 0, 1) != 1));
 }
@@ -261,82 +256,18 @@ ObpSetPermanentObject(IN PVOID ObjectBody,
 
     /* Get the header */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(ObjectBody);
-
-    /* Acquire object type lock */
-    ObpEnterObjectTypeMutex(ObjectHeader->Type);
-
-    /* Check what we're doing to it */
     if (Permanent)
     {
         /* Set it to permanent */
         ObjectHeader->Flags |= OB_FLAG_PERMANENT;
-
-        /* Release the lock */
-        ObpLeaveObjectTypeMutex(ObjectHeader->Type);
     }
     else
     {
         /* Remove the flag */
         ObjectHeader->Flags &= ~OB_FLAG_PERMANENT;
 
-        /* Release the lock */
-        ObpLeaveObjectTypeMutex(ObjectHeader->Type);
-
         /* Check if we should delete the object now */
         ObpDeleteNameCheck(ObjectBody);
-    }
-}
-
-PWCHAR
-NTAPI
-ObpAllocateObjectNameBuffer(IN ULONG Length,
-                            IN BOOLEAN UseLookaside,
-                            IN OUT PUNICODE_STRING ObjectName)
-{
-    ULONG MaximumLength;
-    PVOID Buffer;
-
-    /* Set the maximum length to the length plus the terminator */
-    MaximumLength = Length + sizeof(UNICODE_NULL);
-
-    /* Check if we should use the lookaside buffer */
-    if (!(UseLookaside) || (MaximumLength > 248))
-    {
-        /* Nope, allocate directly from pool */
-        Buffer = ExAllocatePoolWithTag(PagedPool,
-                                       MaximumLength,
-                                       OB_NAME_TAG);
-    }
-    else
-    {
-        /* Allocate from the lookaside */
-        //MaximumLength = 248; <= hack, we should actually set this...!
-        Buffer = ObpAllocateCapturedAttributes(LookasideNameBufferList);
-    }
-
-    /* Setup the string */
-    ObjectName->Length = (USHORT)Length;
-    ObjectName->MaximumLength = (USHORT)MaximumLength;
-    ObjectName->Buffer = Buffer;
-    return Buffer;
-}
-
-VOID
-NTAPI
-ObpFreeObjectNameBuffer(IN PUNICODE_STRING Name)
-{
-    PVOID Buffer = Name->Buffer;
-
-    /* We know this is a pool-allocation if the size doesn't match */
-    if (Name->MaximumLength != 248)
-    {
-        /* Free it from the pool */
-        ExFreePool(Buffer);
-    }
-    else
-    {
-        /* Otherwise, free from the lookaside */
-        ObpFreeCapturedAttributes(Buffer, LookasideNameBufferList);
     }
 }
 
@@ -345,12 +276,12 @@ NTAPI
 ObpCaptureObjectName(IN OUT PUNICODE_STRING CapturedName,
                      IN PUNICODE_STRING ObjectName,
                      IN KPROCESSOR_MODE AccessMode,
-                     IN BOOLEAN UseLookaside)
+                     IN BOOLEAN AllocateFromLookaside)
 {
     NTSTATUS Status = STATUS_SUCCESS;
-    ULONG StringLength;
+    ULONG StringLength, MaximumLength;
     PWCHAR StringBuffer = NULL;
-    UNICODE_STRING LocalName;
+    UNICODE_STRING LocalName = {0}; /* <= GCC 4.0 + Optimizer */
     PAGED_CODE();
 
     /* Initialize the Input String */
@@ -386,20 +317,41 @@ ObpCaptureObjectName(IN OUT PUNICODE_STRING CapturedName,
             }
             else
             {
-                /* Allocate the string buffer */
-                StringBuffer = ObpAllocateObjectNameBuffer(StringLength,
-                                                           UseLookaside,
-                                                           CapturedName);
-                if (!StringBuffer)
+                /* Set the maximum length to the length plus the terminator */
+                MaximumLength = StringLength + sizeof(UNICODE_NULL);
+
+                /* Check if we should use the lookaside buffer */
+                //if (!(AllocateFromLookaside) || (MaximumLength > 248))
                 {
-                    /* Set failure code */
-                    Status = STATUS_INSUFFICIENT_RESOURCES;
+                    /* Nope, allocate directly from pool */
+                    StringBuffer = ExAllocatePoolWithTag(NonPagedPool,
+                                                         MaximumLength,
+                                                         OB_NAME_TAG);
+                }
+                //else
+                {
+                    /* Allocate from the lookaside */
+                //    MaximumLength = 248;
+                //    StringBuffer =
+                //        ObpAllocateCapturedAttributes(LookasideNameBufferList);
+                }
+
+                /* Setup the string */
+                CapturedName->Length = (USHORT)StringLength;
+                CapturedName->MaximumLength = (USHORT)MaximumLength;
+                CapturedName->Buffer = StringBuffer;
+
+                /* Make sure we have a buffer */
+                if (StringBuffer)
+                {
+                    /* Copy the string and null-terminate it */
+                    RtlMoveMemory(StringBuffer, LocalName.Buffer, StringLength);
+                    StringBuffer[StringLength / sizeof(WCHAR)] = UNICODE_NULL;
                 }
                 else
                 {
-                    /* Copy the name */
-                    RtlCopyMemory(StringBuffer, LocalName.Buffer, StringLength);
-                    StringBuffer[StringLength / sizeof(WCHAR)] = UNICODE_NULL;
+                    /* Fail */
+                    Status = STATUS_INSUFFICIENT_RESOURCES;
                 }
             }
         }
@@ -603,12 +555,11 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     else
     {
         /* Check if we have quota */
-        if ((((ObjectCreateInfo->PagedPoolCharge !=
-               ObjectType->TypeInfo.DefaultPagedPoolCharge) ||
-              (ObjectCreateInfo->NonPagedPoolCharge !=
-               ObjectType->TypeInfo.DefaultNonPagedPoolCharge) ||
-              (ObjectCreateInfo->SecurityDescriptorCharge > 2048)) &&
-             (PsGetCurrentProcess() != PsInitialSystemProcess)) ||
+        if ((ObjectCreateInfo->PagedPoolCharge !=
+             ObjectType->TypeInfo.DefaultPagedPoolCharge) ||
+            (ObjectCreateInfo->NonPagedPoolCharge !=
+             ObjectType->TypeInfo.DefaultNonPagedPoolCharge) ||
+            (ObjectCreateInfo->SecurityDescriptorCharge > 2048) ||
             (ObjectCreateInfo->Attributes & OBJ_EXCLUSIVE))
         {
             /* Set quota size */
@@ -672,10 +623,9 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     Header = ExAllocatePoolWithTag(PoolType, FinalSize + ObjectSize, Tag);
     if (!Header) return STATUS_INSUFFICIENT_RESOURCES;
 
-    /* Check if we have a quota header */
+    /* Initialize quota info */
     if (QuotaSize)
     {
-        /* Initialize quota info */
         QuotaInfo = (POBJECT_HEADER_QUOTA_INFO)Header;
         QuotaInfo->PagedPoolCharge = ObjectCreateInfo->PagedPoolCharge;
         QuotaInfo->NonPagedPoolCharge = ObjectCreateInfo->NonPagedPoolCharge;
@@ -684,41 +634,26 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
         Header = (POBJECT_HEADER)(QuotaInfo + 1);
     }
 
-    /* Check if we have a handle database header */
+    /* Initialize Handle Info */
     if (HandleSize)
     {
-        /* Initialize Handle Info */
         HandleInfo = (POBJECT_HEADER_HANDLE_INFO)Header;
         HandleInfo->SingleEntry.HandleCount = 0;
         Header = (POBJECT_HEADER)(HandleInfo + 1);
     }
 
-    /* Check if we have a name header */
+    /* Initialize the Object Name Info */
     if (NameSize)
     {
-        /* Initialize the Object Name Info */
         NameInfo = (POBJECT_HEADER_NAME_INFO)Header;
         NameInfo->Name = *ObjectName;
         NameInfo->Directory = NULL;
-        NameInfo->QueryReferences = 1;
-
-        /* Check if this is a call with the special protection flag */
-        if ((PreviousMode == KernelMode) &&
-            (ObjectCreateInfo) &&
-            (ObjectCreateInfo->Attributes & 0x10000))
-        {
-            /* Set flag which will make the object protected from user-mode */
-            NameInfo->QueryReferences |= 0x40000000;
-        }
-
-        /* Set the header pointer */
         Header = (POBJECT_HEADER)(NameInfo + 1);
     }
 
-    /* Check if we have a creator header */
+    /* Initialize Creator Info */
     if (CreatorSize)
     {
-        /* Initialize Creator Info */
         CreatorInfo = (POBJECT_HEADER_CREATOR_INFO)Header;
         CreatorInfo->CreatorBackTraceIndex = 0;
         CreatorInfo->CreatorUniqueProcess = PsGetCurrentProcessId();
@@ -804,7 +739,7 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     if (ObjectType)
     {
         /* Increase the number of objects of this type */
-        InterlockedIncrement((PLONG)&ObjectType->TotalNumberOfObjects);
+        ObjectType->TotalNumberOfObjects++;
 
         /* Update the high water */
         ObjectType->HighWaterNumberOfObjects = max(ObjectType->
@@ -820,78 +755,6 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     *ObjectHeader = Header;
     return STATUS_SUCCESS;
 }
-
-NTSTATUS
-NTAPI
-ObQueryTypeInfo(IN POBJECT_TYPE ObjectType,
-                OUT POBJECT_TYPE_INFORMATION ObjectTypeInfo,
-                IN ULONG Length,
-                OUT PULONG ReturnLength)
-{
-    NTSTATUS Status = STATUS_SUCCESS;
-    PWSTR InfoBuffer;
-
-    /* Enter SEH */
-    _SEH_TRY
-    {
-        /* Set return length aligned to 4-byte boundary */
-        *ReturnLength += sizeof(*ObjectTypeInfo) +
-                         ALIGN_UP(ObjectType->Name.MaximumLength, ULONG);
-
-        /* Check if thats too much though. */
-        if (Length < *ReturnLength) return STATUS_INFO_LENGTH_MISMATCH;
-
-        /* Build the data */
-        ObjectTypeInfo->TotalNumberOfHandles =
-            ObjectType->TotalNumberOfHandles;
-        ObjectTypeInfo->TotalNumberOfObjects =
-            ObjectType->TotalNumberOfObjects;
-        ObjectTypeInfo->HighWaterNumberOfHandles =
-            ObjectType->HighWaterNumberOfHandles;
-        ObjectTypeInfo->HighWaterNumberOfObjects =
-            ObjectType->HighWaterNumberOfObjects;
-        ObjectTypeInfo->PoolType =
-            ObjectType->TypeInfo.PoolType;
-        ObjectTypeInfo->DefaultNonPagedPoolCharge =
-            ObjectType->TypeInfo.DefaultNonPagedPoolCharge;
-        ObjectTypeInfo->DefaultPagedPoolCharge =
-            ObjectType->TypeInfo.DefaultPagedPoolCharge;
-        ObjectTypeInfo->ValidAccessMask =
-            ObjectType->TypeInfo.ValidAccessMask;
-        ObjectTypeInfo->SecurityRequired =
-            ObjectType->TypeInfo.SecurityRequired;
-        ObjectTypeInfo->InvalidAttributes =
-            ObjectType->TypeInfo.InvalidAttributes;
-        ObjectTypeInfo->GenericMapping =
-            ObjectType->TypeInfo.GenericMapping;
-        ObjectTypeInfo->MaintainHandleCount =
-            ObjectType->TypeInfo.MaintainHandleCount;
-
-        /* Setup the name buffer */
-        InfoBuffer = (PWSTR)(ObjectTypeInfo + 1);
-        ObjectTypeInfo->TypeName.Buffer = InfoBuffer;
-        ObjectTypeInfo->TypeName.MaximumLength = ObjectType->Name.MaximumLength;
-        ObjectTypeInfo->TypeName.Length = ObjectType->Name.Length;
-
-        /* Copy it */
-        RtlCopyMemory(InfoBuffer,
-                      ObjectType->Name.Buffer,
-                      ObjectType->Name.Length);
-
-        /* Null-terminate it */
-        (InfoBuffer)[ObjectType->Name.Length / sizeof(WCHAR)] = UNICODE_NULL;
-    }
-    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
-    {
-        /* Otherwise, get the exception code */
-        Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    /* Return status to caller */
-    return Status;
-}
-
 
 /* PUBLIC FUNCTIONS **********************************************************/
 
@@ -911,6 +774,8 @@ ObCreateObject(IN KPROCESSOR_MODE ProbeMode OPTIONAL,
     POBJECT_CREATE_INFORMATION ObjectCreateInfo;
     UNICODE_STRING ObjectName;
     POBJECT_HEADER Header;
+    DPRINT("ObCreateObject(Type %p ObjectAttributes %p, Object %p)\n", 
+            Type, ObjectAttributes, Object);
 
     /* Allocate a capture buffer */
     ObjectCreateInfo = ObpAllocateCapturedAttributes(LookasideCreateInfoList);
@@ -982,7 +847,7 @@ ObCreateObject(IN KPROCESSOR_MODE ProbeMode OPTIONAL,
 
         /* Release the Capture Info, we don't need it */
         ObpReleaseCapturedAttributes(ObjectCreateInfo);
-        if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
+        if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
     }
 
     /* We failed, so release the Buffer */
@@ -1011,7 +876,6 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     /* Verify parameters */
     if (!(TypeName) ||
         !(TypeName->Length) ||
-        (TypeName->Length % sizeof(WCHAR)) ||
         !(ObjectTypeInitializer) ||
         (ObjectTypeInitializer->Length != sizeof(*ObjectTypeInitializer)) ||
         (ObjectTypeInitializer->InvalidAttributes & ~OBJ_VALID_ATTRIBUTES) ||
@@ -1034,16 +898,12 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
         if (*p++ == OBJ_NAME_PATH_SEPARATOR) return STATUS_OBJECT_NAME_INVALID;
     }
 
-    /* Setup a lookup context */
-    ObpInitializeDirectoryLookup(&Context);
-
     /* Check if we've already created the directory of types */
     if (ObpTypeDirectoryObject)
     {
-        /* Acquire the directory lock */
-        ObpAcquireDirectoryLockExclusive(ObpTypeDirectoryObject, &Context);
-
-        /* Do the lookup */
+        /* Then scan it to figure out if we've already created this type */
+        Context.Directory = ObpTypeDirectoryObject;
+        Context.DirectoryLocked = TRUE;
         if (ObpLookupEntryDirectory(ObpTypeDirectoryObject,
                                     TypeName,
                                     OBJ_CASE_INSENSITIVE,
@@ -1051,7 +911,6 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
                                     &Context))
         {
             /* We have already created it, so fail */
-            ObpCleanupDirectoryLookup(&Context);
             return STATUS_OBJECT_NAME_COLLISION;
         }
     }
@@ -1063,7 +922,6 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     if (!ObjectName.Buffer)
     {
         /* Out of memory, fail */
-        ObpCleanupDirectoryLookup(&Context);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -1074,14 +932,13 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     /* Allocate the Object */
     Status = ObpAllocateObject(NULL,
                                &ObjectName,
-                               ObpTypeObjectType,
+                               ObTypeObjectType,
                                sizeof(OBJECT_TYPE),
                                KernelMode,
                                (POBJECT_HEADER*)&Header);
     if (!NT_SUCCESS(Status))
     {
         /* Free the name and fail */
-        ObpCleanupDirectoryLookup(&Context);
         ExFreePool(ObjectName.Buffer);
         return Status;
     }
@@ -1098,11 +955,11 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     LocalObjectType->HighWaterNumberOfHandles = 0;
 
     /* Check if this is the first Object Type */
-    if (!ObpTypeObjectType)
+    if (!ObTypeObjectType)
     {
         /* It is, so set this as the type object */
-        ObpTypeObjectType = LocalObjectType;
-        Header->Type = ObpTypeObjectType;
+        ObTypeObjectType = LocalObjectType;
+        Header->Type = ObTypeObjectType;
 
         /* Set the hard-coded key and object count */
         LocalObjectType->TotalNumberOfObjects = 1;
@@ -1169,12 +1026,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
         LocalObjectType->DefaultObject = (PVOID)FIELD_OFFSET(FILE_OBJECT,
                                                              Event);
     }
-    else if ((TypeName->Length == 24) && !(wcscmp(TypeName->Buffer, L"WaitablePort")))
-    {
-        /* Wait on the LPC Port's object directly */
-        LocalObjectType->DefaultObject = (PVOID)FIELD_OFFSET(LPCP_PORT_OBJECT,
-                                                             WaitEvent);
-    }
+    /* FIXME: When LPC stops sucking, add a hack for Waitable Ports */
     else
     {
         /* No default Object */
@@ -1183,11 +1035,6 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
 
     /* Initialize Object Type components */
     ExInitializeResourceLite(&LocalObjectType->Mutex);
-    for (i = 0; i < 4; i++)
-    {
-        /* Initialize the object locks */
-        ExInitializeResourceLite(&LocalObjectType->ObjectLocks[i]);
-    }
     InitializeListHead(&LocalObjectType->TypeList);
 
     /* Lock the object type */
@@ -1195,11 +1042,11 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
 
     /* Get creator info and insert it into the type list */
     CreatorInfo = OBJECT_HEADER_TO_CREATOR_INFO(Header);
-    if (CreatorInfo) InsertTailList(&ObpTypeObjectType->TypeList,
+    if (CreatorInfo) InsertTailList(&ObTypeObjectType->TypeList,
                                     &CreatorInfo->TypeList);
 
     /* Set the index and the entry into the object type array */
-    LocalObjectType->Index = ObpTypeObjectType->TotalNumberOfObjects;
+    LocalObjectType->Index = ObTypeObjectType->TotalNumberOfObjects;
     if (LocalObjectType->Index < 32)
     {
         /* It fits, insert it */
@@ -1220,16 +1067,12 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
             ObReferenceObject(ObpTypeDirectoryObject);
         }
 
-        /* Cleanup the lookup context */
-        ObpCleanupDirectoryLookup(&Context);
-
         /* Return the object type and success */
         *ObjectType = LocalObjectType;
         return STATUS_SUCCESS;
     }
 
     /* If we got here, then we failed */
-    ObpCleanupDirectoryLookup(&Context);
     return STATUS_INSUFFICIENT_RESOURCES;
 }
 
@@ -1251,8 +1094,6 @@ VOID
 NTAPI
 ObMakeTemporaryObject(IN PVOID ObjectBody)
 {
-    PAGED_CODE();
-
     /* Call the internal API */
     ObpSetPermanentObject(ObjectBody, FALSE);
 }
@@ -1500,13 +1341,8 @@ NtQueryObject(IN HANDLE ObjectHandle,
 
             /* Information about this type */
             case ObjectTypeInformation:
-
-                /* Call the helper and break out */
-                Status = ObQueryTypeInfo(ObjectHeader->Type,
-                                         (POBJECT_TYPE_INFORMATION)
-                                         ObjectInformation,
-                                         Length,
-                                         &InfoLength);
+                DPRINT1("NOT IMPLEMENTED!\n");
+                Status = STATUS_NOT_IMPLEMENTED;
                 break;
 
             /* Information about all types */
@@ -1531,9 +1367,10 @@ NtQueryObject(IN HANDLE ObjectHandle,
                                ObjectInformation;
 
                 /* Set the flags */
-                HandleFlags->Inherit = HandleInfo.HandleAttributes & OBJ_INHERIT;
+                HandleFlags->Inherit = (HandleInfo.HandleAttributes &
+                                        EX_HANDLE_ENTRY_INHERITABLE) != 0;
                 HandleFlags->ProtectFromClose = (HandleInfo.HandleAttributes &
-                                                 OBJ_PROTECT_CLOSE) != 0;
+                                                 EX_HANDLE_ENTRY_PROTECTFROMCLOSE) != 0;
 
                 /* Break out with success */
                 Status = STATUS_SUCCESS;
@@ -1669,7 +1506,7 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
     if (!ExChangeHandle(ObjectTable,
                         ObjectHandle,
                         ObpSetHandleAttributes,
-                        (ULONG_PTR)&Context))
+                        &Context))
     {
         /* Some failure */
         Status = STATUS_ACCESS_DENIED;

@@ -8,13 +8,16 @@
 #ifndef _UNKNOWN_H_
 #define _UNKNOWN_H_
 
-//#include <windef.h>
-#include <ntddk.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <windef.h>
 #define COM_NO_WINDOWS_H
 #include <basetyps.h>
 
-#ifdef PUT_GUIDS_HERE
-    #include <initguid.h>
+#ifdef __cplusplus
+}
 #endif
 
 

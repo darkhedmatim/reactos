@@ -7,6 +7,4 @@
 #include <objbase.h>
 #endif
 
-#if !defined (_MSC_VER)
 #include_next <commdlg.h>
-#endif

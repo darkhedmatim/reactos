@@ -28,7 +28,6 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winnls.h"
-#include "vfwmsgs.h"
 #include "uxtheme.h"
 #include "tmschema.h"
 
@@ -47,7 +46,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(uxtheme);
 BOOL MSSTYLES_GetNextInteger(LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, int *value);
 BOOL MSSTYLES_GetNextToken(LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, LPWSTR lpBuff, DWORD buffSize);
 void MSSTYLES_ParseThemeIni(PTHEME_FILE tf, BOOL setMetrics);
-static HRESULT MSSTYLES_GetFont (LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, LOGFONTW* logfont);
+HRESULT MSSTYLES_GetFont (LPCWSTR lpStringStart, LPCWSTR lpStringEnd, LPCWSTR *lpValEnd, LOGFONTW* logfont);
 
 extern HINSTANCE hDllInst;
 extern int alphaBlendMode;
@@ -58,7 +57,7 @@ static const WCHAR szThemesIniResource[] = {
     't','h','e','m','e','s','_','i','n','i','\0'
 };
 
-static PTHEME_FILE tfActiveTheme;
+PTHEME_FILE tfActiveTheme = NULL;
 
 /***********************************************************************/
 
@@ -116,7 +115,7 @@ HRESULT MSSTYLES_OpenThemeFile(LPCWSTR lpThemeFile, LPCWSTR pszColorName, LPCWST
     }
     if((versize = SizeofResource(hTheme, hrsc)) != 2)
     {
-        TRACE("Version resource found, but wrong size: %d\n", versize);
+        TRACE("Version resource found, but wrong size: %ld\n", versize);
         hr = HRESULT_FROM_WIN32(ERROR_BAD_FORMAT);
         goto invalid_theme;
     }
@@ -403,7 +402,7 @@ static BOOL MSSTYLES_ParseIniSectionName(LPCWSTR lpSection, DWORD dwLen, LPWSTR 
  * RETURNS
  *  The class found, or NULL
  */
-static PTHEME_CLASS MSSTYLES_FindClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName)
+PTHEME_CLASS MSSTYLES_FindClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName)
 {
     PTHEME_CLASS cur = tf->classes;
     while(cur) {
@@ -675,7 +674,7 @@ struct PARSECOLORSTATE
     int captionColors;
 };
 
-static inline void parse_init_color (struct PARSECOLORSTATE* state)
+inline void parse_init_color (struct PARSECOLORSTATE* state)
 {
     memset (state, 0, sizeof (*state));
 }
@@ -729,7 +728,7 @@ struct PARSENONCLIENTSTATE
     LOGFONTW iconTitleFont;
 };
 
-static inline void parse_init_nonclient (struct PARSENONCLIENTSTATE* state)
+inline void parse_init_nonclient (struct PARSENONCLIENTSTATE* state)
 {
     memset (state, 0, sizeof (*state));
     state->metrics.cbSize = sizeof (NONCLIENTMETRICSW);
@@ -1226,8 +1225,8 @@ HRESULT MSSTYLES_GetPropertyColor(PTHEME_PROPERTY tp, COLORREF *pColor)
  *
  * Retrieve a color value for a property 
  */
-static HRESULT MSSTYLES_GetFont (LPCWSTR lpCur, LPCWSTR lpEnd,
-                                 LPCWSTR *lpValEnd, LOGFONTW* pFont)
+HRESULT MSSTYLES_GetFont (LPCWSTR lpCur, LPCWSTR lpEnd, 
+			  LPCWSTR *lpValEnd, LOGFONTW* pFont)
 {
     static const WCHAR szBold[] = {'b','o','l','d','\0'};
     static const WCHAR szItalic[] = {'i','t','a','l','i','c','\0'};

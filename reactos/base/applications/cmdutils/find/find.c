@@ -30,7 +30,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <io.h>
+#include <dir.h>
 #include <dos.h>
 
 

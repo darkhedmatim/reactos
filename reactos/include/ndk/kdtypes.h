@@ -162,15 +162,4 @@ typedef struct _SYSDBG_TRIAGE_DUMP
     PHANDLE Handles;
 } SYSDBG_TRIAGE_DUMP, *PSYSDBG_TRIAGE_DUMP;
 
-//
-// KD Structures
-//
-typedef struct _KD_SYMBOLS_INFO
-{
-    PVOID BaseOfDll;
-    ULONG_PTR ProcessId;
-    ULONG CheckSum;
-    ULONG SizeOfImage;
-} KD_SYMBOLS_INFO, *PKD_SYMBOLS_INFO;
-
 #endif // _KDTYPES_H

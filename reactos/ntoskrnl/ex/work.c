@@ -617,8 +617,8 @@ ExpInitializeWorkerThreads(VOID)
  *--*/
 VOID
 NTAPI
-ExQueueWorkItem(IN PWORK_QUEUE_ITEM WorkItem,
-                IN WORK_QUEUE_TYPE QueueType)
+ExQueueWorkItem(PWORK_QUEUE_ITEM WorkItem,
+                WORK_QUEUE_TYPE QueueType)
 {
     PEX_WORK_QUEUE WorkQueue = &ExWorkerQueue[QueueType];
     ASSERT(QueueType < MaximumWorkQueue);

@@ -108,7 +108,6 @@ PDEVICE_OBJECT PnpRootDeviceObject;
 
 NTSTATUS
 PnpRootCreateDevice(
-  PUNICODE_STRING ServiceName,
   PDEVICE_OBJECT *PhysicalDeviceObject)
 {
   PPNPROOT_PDO_DEVICE_EXTENSION PdoDeviceExtension;

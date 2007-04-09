@@ -22,7 +22,6 @@
 #include "wine/port.h"
 
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #ifdef HAVE_UNISTD_H

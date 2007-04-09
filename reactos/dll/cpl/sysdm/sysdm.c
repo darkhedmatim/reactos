@@ -18,132 +18,79 @@ APPLET Applets[NUM_APPLETS] =
   {IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, SystemApplet}
 };
 
-#define MAX_SYSTEM_PAGES    32
-
-static BOOL CALLBACK
-PropSheetAddPage(HPROPSHEETPAGE hpage, LPARAM lParam)
+static void
+InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
 {
-    PROPSHEETHEADER *ppsh = (PROPSHEETHEADER *)lParam;
-    if (ppsh != NULL && ppsh->nPages < MAX_SYSTEM_PAGES)
-    {
-        ppsh->phpage[ppsh->nPages++] = hpage;
-        return TRUE;
-    }
-
-    return FALSE;
+  ZeroMemory(psp, sizeof(PROPSHEETPAGE));
+  psp->dwSize = sizeof(PROPSHEETPAGE);
+  psp->dwFlags = PSP_DEFAULT;
+  psp->hInstance = hApplet;
+  psp->pszTemplate = MAKEINTRESOURCE(idDlg);
+  psp->pfnDlgProc = DlgProc;
 }
 
-static BOOL
-InitPropSheetPage(PROPSHEETHEADER *ppsh, WORD idDlg, DLGPROC DlgProc)
+/* Property Sheet Callback */
+int CALLBACK
+PropSheetProc(
+	HWND hwndDlg,
+	UINT uMsg,
+	LPARAM lParam
+)
 {
-    HPROPSHEETPAGE hPage;
-    PROPSHEETPAGE psp;
+  UNREFERENCED_PARAMETER(hwndDlg);
+  switch(uMsg)
+  {
+    case PSCB_BUTTONPRESSED:
+      switch(lParam)
+      {
+        case PSBTN_OK: /* OK */
+          break;
+        case PSBTN_CANCEL: /* Cancel */
+          break;
+        case PSBTN_APPLYNOW: /* Apply now */
+          break;
+        case PSBTN_FINISH: /* Close */
+          break;
+        default:
+          return FALSE;
+      }
+      break;
 
-    if (ppsh->nPages < MAX_SYSTEM_PAGES)
-    {
-        ZeroMemory(&psp, sizeof(psp));
-        psp.dwSize = sizeof(psp);
-        psp.dwFlags = PSP_DEFAULT;
-        psp.hInstance = hApplet;
-        psp.pszTemplate = MAKEINTRESOURCE(idDlg);
-        psp.pfnDlgProc = DlgProc;
-
-        hPage = CreatePropertySheetPage(&psp);
-        if (hPage != NULL)
-        {
-            return PropSheetAddPage(hPage, (LPARAM)ppsh);
-        }
-    }
-
-    return FALSE;
-}
-
-typedef HPROPSHEETPAGE (WINAPI *PCreateNetIDPropertyPage)(VOID);
-
-static HMODULE
-AddNetIdPage(PROPSHEETHEADER *ppsh)
-{
-    HPROPSHEETPAGE hPage;
-    HMODULE hMod;
-    PCreateNetIDPropertyPage pCreateNetIdPage;
-
-    hMod = LoadLibrary(TEXT("netid.dll"));
-    if (hMod != NULL)
-    {
-        pCreateNetIdPage = (PCreateNetIDPropertyPage)GetProcAddress(hMod,
-                                                                    "CreateNetIDPropertyPage");
-        if (pCreateNetIdPage != NULL)
-        {
-            hPage = pCreateNetIdPage();
-            if (hPage == NULL)
-                goto Fail;
-
-            if (!PropSheetAddPage(hPage, (LPARAM)ppsh))
-            {
-                DestroyPropertySheetPage(hPage);
-                goto Fail;
-            }
-        }
-        else
-        {
-Fail:
-            FreeLibrary(hMod);
-            hMod = NULL;
-        }
-    }
-
-    return hMod;
+    case PSCB_INITIALIZED:
+      break;
+  }
+  return TRUE;
 }
 
 /* First Applet */
+
 LONG CALLBACK
 SystemApplet(VOID)
 {
-  HPROPSHEETPAGE hpsp[MAX_SYSTEM_PAGES];
+  PROPSHEETPAGE psp[4];
   PROPSHEETHEADER psh;
-  HMODULE hNetIdDll;
-  HPSXA hpsxa;
-  LONG Ret;
-  static INITCOMMONCONTROLSEX icc = {sizeof(INITCOMMONCONTROLSEX), ICC_LINK_CLASS};
+  TCHAR Caption[1024];
 
-  if (!InitCommonControlsEx(&icc))
-      return 0;
+  LoadString(hApplet, IDS_CPLSYSTEMNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
 
   ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
   psh.dwSize = sizeof(PROPSHEETHEADER);
-  psh.dwFlags =  PSH_PROPTITLE;
+  psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE; /* | PSH_USECALLBACK */
   psh.hwndParent = NULL;
   psh.hInstance = hApplet;
   psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
-  psh.pszCaption = MAKEINTRESOURCE(IDS_CPLSYSTEMNAME);
-  psh.nPages = 0;
+  psh.pszCaption = Caption;
+  psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
   psh.nStartPage = 0;
-  psh.phpage = hpsp;
-  psh.pfnCallback = NULL;
+  psh.ppsp = psp;
+  psh.pfnCallback = NULL; /* PropSheetProc; */
 
-  InitPropSheetPage(&psh, IDD_PROPPAGEGENERAL, (DLGPROC) GeneralPageProc);
-  hNetIdDll = AddNetIdPage(&psh);
-  InitPropSheetPage(&psh, IDD_PROPPAGEHARDWARE, (DLGPROC) HardwarePageProc);
-  InitPropSheetPage(&psh, IDD_PROPPAGEADVANCED, (DLGPROC) AdvancedPageProc);
+  InitPropSheetPage(&psp[0], IDD_PROPPAGEGENERAL, (DLGPROC) GeneralPageProc);
+  InitPropSheetPage(&psp[1], IDD_PROPPAGECOMPUTER, (DLGPROC) ComputerPageProc);
+  InitPropSheetPage(&psp[2], IDD_PROPPAGEHARDWARE, (DLGPROC) HardwarePageProc);
+  InitPropSheetPage(&psp[3], IDD_PROPPAGEADVANCED, (DLGPROC) AdvancedPageProc);
 
-  /* Load additional pages provided by shell extensions */
-  hpsxa = SHCreatePropSheetExtArray(HKEY_LOCAL_MACHINE, REGSTR_PATH_CONTROLSFOLDER TEXT("\\System"), MAX_SYSTEM_PAGES - psh.nPages);
-  if (hpsxa != NULL)
-  {
-    SHAddFromPropSheetExtArray(hpsxa, PropSheetAddPage, (LPARAM)&psh);
-  }
-
-  Ret = (LONG)(PropertySheet(&psh) != -1);
-
-  if (hpsxa != NULL)
-  {
-    SHDestroyPropSheetExtArray(hpsxa);
-  }
-
-  if (hNetIdDll != NULL)
-      FreeLibrary(hNetIdDll);
-
-  return Ret;
+  return (LONG)(PropertySheet(&psh) != -1);
 }
 
 /* Control Panel Callback */

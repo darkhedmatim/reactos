@@ -441,12 +441,6 @@ PnpInit(
     VOID
 );
 
-BOOLEAN
-NTAPI
-PpInitSystem(
-    VOID
-);
-
 VOID
 PnpInit2(
     VOID
@@ -480,7 +474,6 @@ NTSTATUS
 IopCreateDeviceNode(
     IN PDEVICE_NODE ParentNode,
     IN PDEVICE_OBJECT PhysicalDeviceObject,
-    IN PUNICODE_STRING ServiceName,
     OUT PDEVICE_NODE *DeviceNode
 );
 
@@ -782,7 +775,6 @@ PnpRootDriverEntry(
 
 NTSTATUS
 PnpRootCreateDevice(
-    IN PUNICODE_STRING ServiceName,
     IN OUT PDEVICE_OBJECT *PhysicalDeviceObject
 );
 
@@ -801,16 +793,21 @@ IopInitializeSystemDrivers(
     VOID
 );
 
-NTSTATUS
-NTAPI
-IopCreateDriver(IN PUNICODE_STRING DriverName OPTIONAL,
-                IN PDRIVER_INITIALIZE InitializationFunction,
-                OUT PDRIVER_OBJECT *pDriverObject);
-
 VOID
 NTAPI
 IopDeleteDriver(
     IN PVOID ObjectBody
+);
+
+NTSTATUS
+FASTCALL
+IopCreateDriverObject(
+    OUT PDRIVER_OBJECT *DriverObject,
+    IN PUNICODE_STRING ServiceName,
+    IN ULONG CreateAttributes,
+    IN BOOLEAN FileSystemDriver,
+    IN PVOID DriverImageStart,
+    IN ULONG DriverImageSize
 );
 
 NTSTATUS
@@ -965,7 +962,6 @@ extern GENERIC_MAPPING IopCompletionMapping;
 extern GENERIC_MAPPING IopFileMapping;
 extern POBJECT_TYPE _IoFileObjectType;
 extern HAL_DISPATCH _HalDispatchTable;
-extern LIST_ENTRY IopErrorLogListHead;
 
 //
 // Inlined Functions

@@ -63,17 +63,17 @@ typedef struct _INTERNAL_BCB
 
 VOID
 NTAPI
-CcMdlReadComplete2(
-    IN PMDL MemoryDescriptorList,
+CcMdlReadCompleteDev(
+    IN PMDL MdlChain,
     IN PFILE_OBJECT FileObject
 );
 
 VOID
 NTAPI
-CcMdlWriteComplete2(
-    IN PFILE_OBJECT FileObject,
+CcMdlWriteCompleteDev(
     IN PLARGE_INTEGER FileOffset,
-    IN PMDL MdlChain
+    IN PMDL MdlChain,
+    IN PFILE_OBJECT FileObject
 );
 
 NTSTATUS
@@ -110,7 +110,7 @@ NTSTATUS
 NTAPI
 WriteCacheSegment(PCACHE_SEGMENT CacheSeg);
 
-BOOLEAN
+VOID
 NTAPI
 CcInitializeCacheManager(VOID);
 

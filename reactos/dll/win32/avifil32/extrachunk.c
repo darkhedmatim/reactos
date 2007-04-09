@@ -29,7 +29,8 @@
 WINE_DEFAULT_DEBUG_CHANNEL(avifile);
 
 /* reads a chunk outof the extrachunk-structure */
-HRESULT ReadExtraChunk(const LPEXTRACHUNKS extra,FOURCC ckid,LPVOID lpData,LPLONG size)
+HRESULT ReadExtraChunk(LPEXTRACHUNKS extra,FOURCC ckid,LPVOID lpData,
+		       LPLONG size)
 {
   LPBYTE lp;
   DWORD  cb;
@@ -67,7 +68,8 @@ HRESULT ReadExtraChunk(const LPEXTRACHUNKS extra,FOURCC ckid,LPVOID lpData,LPLON
 }
 
 /* writes a chunk into the extrachunk-structure */
-HRESULT WriteExtraChunk(LPEXTRACHUNKS extra,FOURCC ckid,LPCVOID lpData, LONG size)
+HRESULT WriteExtraChunk(LPEXTRACHUNKS extra,FOURCC ckid,LPVOID lpData,
+			LONG size)
 {
   LPDWORD lp;
 

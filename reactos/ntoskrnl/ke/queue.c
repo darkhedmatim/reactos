@@ -75,7 +75,6 @@ KiInsertQueue(IN PKQUEUE Queue,
     PKTHREAD Thread = KeGetCurrentThread();
     PKWAIT_BLOCK WaitBlock;
     PLIST_ENTRY WaitEntry;
-    PKTIMER Timer;
     ASSERT_QUEUE(Queue);
 
     /* Save the old state */
@@ -110,8 +109,12 @@ KiInsertQueue(IN PKQUEUE Queue,
         Thread->WaitReason = 0;
 
         /* Check if there's a Thread Timer */
-        Timer = &Thread->Timer;
-        if (Timer->Header.Inserted) KxRemoveTreeTimer(Timer);
+        if (Thread->Timer.Header.Inserted)
+        {
+            /* Cancel the Thread Timer with the no-lock fastpath */
+            Thread->Timer.Header.Inserted = FALSE;
+            RemoveEntryList(&Thread->Timer.TimerListEntry);
+        }
 
         /* Reschedule the Thread */
         KiReadyThread(Thread);
@@ -241,14 +244,13 @@ KeRemoveQueue(IN PKQUEUE Queue,
     PLIST_ENTRY QueueEntry;
     NTSTATUS Status;
     PKTHREAD Thread = KeGetCurrentThread();
+    KIRQL OldIrql;
     PKQUEUE PreviousQueue;
-    PKWAIT_BLOCK WaitBlock = &Thread->WaitBlock[0];
-    PKWAIT_BLOCK TimerBlock = &Thread->WaitBlock[TIMER_WAIT_BLOCK];
-    PKTIMER Timer = &Thread->Timer;
+    PKWAIT_BLOCK WaitBlock;
+    PKTIMER Timer;
     BOOLEAN Swappable;
     PLARGE_INTEGER OriginalDueTime = Timeout;
-    LARGE_INTEGER DueTime, NewDueTime, InterruptTime;
-    ULONG Hand = 0;
+    LARGE_INTEGER DueTime, NewDueTime;
     ASSERT_QUEUE(Queue);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
@@ -257,14 +259,12 @@ KeRemoveQueue(IN PKQUEUE Queue,
     {
         /* It is, so next time don't do expect this */
         Thread->WaitNext = FALSE;
-        KxQueueThreadWait();
     }
     else
     {
-        /* Raise IRQL to synch, prepare the wait, then lock the database */
-        Thread->WaitIrql = KeRaiseIrqlToSynchLevel();
-        KxQueueThreadWait();
-        KiAcquireDispatcherLockAtDpcLevel();
+        /* Lock the Dispatcher Database */
+        OldIrql = KiAcquireDispatcherLock();
+        Thread->WaitIrql = OldIrql;
     }
 
     /*
@@ -314,13 +314,7 @@ KeRemoveQueue(IN PKQUEUE Queue,
             /* Check if the entry is valid. If not, bugcheck */
             if (!(QueueEntry->Flink) || !(QueueEntry->Blink))
             {
-                /* Invalid item */
-                KeBugCheckEx(INVALID_WORK_QUEUE_ITEM,
-                             (ULONG_PTR)QueueEntry,
-                             (ULONG_PTR)Queue,
-                             (ULONG_PTR)NULL,
-                             (ULONG_PTR)((PWORK_QUEUE_ITEM)QueueEntry)->
-                                         WorkerRoutine);
+                KEBUGCHECK(INVALID_WORK_QUEUE_ITEM);
             }
 
             /* Remove the Entry */
@@ -332,14 +326,16 @@ KeRemoveQueue(IN PKQUEUE Queue,
         }
         else
         {
+            /* Use the Thread's Wait Block, it's big enough */
+            Thread->WaitBlockList = &Thread->WaitBlock[0];
+
             /* Check if a kernel APC is pending and we're below APC_LEVEL */
             if ((Thread->ApcState.KernelApcPending) &&
                 !(Thread->SpecialApcDisable) && (Thread->WaitIrql < APC_LEVEL))
             {
                 /* Increment the count and unlock the dispatcher */
                 Queue->CurrentCount++;
-                KiReleaseDispatcherLockFromDpcLevel();
-                KiExitDispatcher(Thread->WaitIrql);
+                KiReleaseDispatcherLock(Thread->WaitIrql);
             }
             else
             {
@@ -353,57 +349,94 @@ KeRemoveQueue(IN PKQUEUE Queue,
                     break;
                 }
 
-                /* Enable the Timeout Timer if there was any specified */
+                /* Build the Wait Block */
+                WaitBlock = &Thread->WaitBlock[0];
+                WaitBlock->Object = (PVOID)Queue;
+                WaitBlock->WaitKey = STATUS_SUCCESS;
+                WaitBlock->WaitType = WaitAny;
+                WaitBlock->Thread = Thread;
+                Thread->WaitStatus = STATUS_WAIT_0;
+
+                /* Check if we can swap the thread's stack */
+                Thread->WaitListEntry.Flink = NULL;
+                Swappable = KiCheckThreadStackSwap(Thread, WaitMode);
+
+                /* We need to wait for the object... check for a timeout */
                 if (Timeout)
                 {
-                    /* Check if the timer expired */
-                    InterruptTime.QuadPart = KeQueryInterruptTime();
-                    if (InterruptTime.QuadPart >= Timer->DueTime.QuadPart)
+                    /* Check if it's zero */
+                    if (!Timeout->QuadPart)
                     {
-                        /* It did, so we don't need to wait */
+                        /* Don't wait. Return and increase pending threads */
                         QueueEntry = (PLIST_ENTRY)STATUS_TIMEOUT;
                         Queue->CurrentCount++;
                         break;
                     }
 
-                    /* It didn't, so activate it */
-                    Timer->Header.Inserted = TRUE;
+                    /*
+                     * Set up the Timer. We'll use the internal function so
+                     * that we can hold on to the dispatcher lock.
+                     */
+                    Timer = &Thread->Timer;
+                    WaitBlock->NextWaitBlock = &Thread->WaitBlock[1];
+                    WaitBlock = &Thread->WaitBlock[1];
+
+                    /* Set up the Timer Wait Block */
+                    WaitBlock->Object = (PVOID)Timer;
+                    WaitBlock->Thread = Thread;
+                    WaitBlock->WaitKey = STATUS_TIMEOUT;
+                    WaitBlock->WaitType = WaitAny;
+
+                    /* Link the timer to this Wait Block */
+                    Timer->Header.WaitListHead.Flink =
+                        &WaitBlock->WaitListEntry;
+                    Timer->Header.WaitListHead.Blink =
+                        &WaitBlock->WaitListEntry;
+                    WaitBlock->WaitListEntry.Flink =
+                        &Timer->Header.WaitListHead;
+                    WaitBlock->WaitListEntry.Blink =
+                        &Timer->Header.WaitListHead;
+
+                    /* Create Timer */
+                    if (!KiInsertTimer(Timer, *Timeout))
+                    {
+                        /* FIXME */
+                        DPRINT1("If you see this message contact Alex ASAP\n");
+                        KEBUGCHECK(0);
+                    }
+
+                    /* Set timer due time */
+                    DueTime.QuadPart = Timer->DueTime.QuadPart;
                 }
 
-                /* Insert the wait block in the list */
+                /* Close the loop */
+                WaitBlock->NextWaitBlock = &Thread->WaitBlock[0];
+
+                /* Insert the wait block into the Queues's wait list */
+                WaitBlock = &Thread->WaitBlock[0];
                 InsertTailList(&Queue->Header.WaitListHead,
                                &WaitBlock->WaitListEntry);
 
                 /* Setup the wait information */
+                Thread->WaitMode = WaitMode;
+                Thread->WaitReason = WrQueue;
+                Thread->Alertable = FALSE;
+                Thread->WaitTime = ((PLARGE_INTEGER)&KeTickCount)->LowPart;
                 Thread->State = Waiting;
 
-                /* Add the thread to the wait list */
+                /* Find a new thread to run */
                 KiAddThreadToWaitList(Thread, Swappable);
-
-                /* Activate thread swap */
-                ASSERT(Thread->WaitIrql <= DISPATCH_LEVEL);
-                KiSetThreadSwapBusy(Thread);
-
-                /* Check if we have a timer */
-                if (Timeout)
-                {
-                    /* Insert it */
-                    KxInsertTimer(Timer, Hand);
-                }
-                else
-                {
-                    /* Otherwise, unlock the dispatcher */
-                    KiReleaseDispatcherLockFromDpcLevel();
-                }
-
-                /* Do the actual swap */
                 Status = KiSwapThread(Thread, KeGetCurrentPrcb());
 
                 /* Reset the wait reason */
                 Thread->WaitReason = 0;
 
                 /* Check if we were executing an APC */
-                if (Status != STATUS_KERNEL_APC) return (PLIST_ENTRY)Status;
+                if (Status != STATUS_KERNEL_APC)
+                {
+                    /* Done Waiting  */
+                    return (PLIST_ENTRY)Status;
+                }
 
                 /* Check if we had a timeout */
                 if (Timeout)
@@ -415,17 +448,17 @@ KeRemoveQueue(IN PKQUEUE Queue,
                 }
             }
 
-            /* Start another wait */
-            Thread->WaitIrql = KeRaiseIrqlToSynchLevel();
-            KxQueueThreadWait();
-            KiAcquireDispatcherLockAtDpcLevel();
+            /* Reacquire the lock */
+            OldIrql = KiAcquireDispatcherLock();
+
+            /* Save the new IRQL and decrease number of waiting threads */
+            Thread->WaitIrql = OldIrql;
             Queue->CurrentCount--;
         }
     }
 
     /* Unlock Database and return */
-    KiReleaseDispatcherLockFromDpcLevel();
-    KiExitDispatcher(Thread->WaitIrql);
+    KiReleaseDispatcherLock(Thread->WaitIrql);
     return QueueEntry;
 }
 

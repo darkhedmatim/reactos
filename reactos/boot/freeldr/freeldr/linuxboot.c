@@ -23,7 +23,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#ifdef __i386__
 #define	LINUX_READ_CHUNK_SIZE	0x20000			// Read 128k at a time
 
 
@@ -492,4 +491,3 @@ BOOLEAN LinuxReadInitrd(PFILE LinuxInitrdFile)
 
 	return TRUE;
 }
-#endif /* __i386__ */

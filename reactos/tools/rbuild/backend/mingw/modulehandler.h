@@ -104,7 +104,7 @@ protected:
 	                                string_list* pclean_files ) const;
 
 	std::string GetObjectFilenames ();
-
+	
 	std::string GetPreconditionDependenciesName () const;
 	std::string GetCFlagsMacro () const;
 	static std::string GetObjectsMacro ( const Module& );
@@ -244,6 +244,7 @@ public:
 	MingwKernelModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
+	std::string TypeSpecificCFlags() { return "-D_SEH_NO_NATIVE_NLG"; }
 private:
 	void GenerateKernelModuleTarget ();
 };
@@ -277,8 +278,8 @@ public:
 	MingwKernelModeDLLModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
+	std::string TypeSpecificCFlags() { return "-D_SEH_NO_NATIVE_NLG"; }
 	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
-	void AddImplicitLibraries ( Module& module );
 private:
 	void GenerateKernelModeDLLModuleTarget ();
 };
@@ -290,9 +291,8 @@ public:
 	MingwKernelModeDriverModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
-	std::string TypeSpecificCFlags() { return "-D__NTDRIVER__"; }
+	std::string TypeSpecificCFlags() { return "-D__NTDRIVER__ -D_SEH_NO_NATIVE_NLG"; }
 	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
-	void AddImplicitLibraries ( Module& module );
 private:
 	void GenerateKernelModeDriverModuleTarget ();
 };
@@ -304,8 +304,8 @@ public:
 	MingwNativeDLLModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
+	std::string TypeSpecificCFlags() { return "-D_SEH_NO_NATIVE_NLG"; }
 	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
-	void AddImplicitLibraries ( Module& module );
 private:
 	void GenerateNativeDLLModuleTarget ();
 };
@@ -317,9 +317,8 @@ public:
 	MingwNativeCUIModuleHandler ( const Module& module );
 	virtual HostType DefaultHost() { return HostFalse; }
 	virtual void Process ();
-	std::string TypeSpecificCFlags() { return "-D__NTAPP__"; }
+	std::string TypeSpecificCFlags() { return "-D__NTAPP__ -D_SEH_NO_NATIVE_NLG"; }
 	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
-	void AddImplicitLibraries ( Module& module );
 private:
 	void GenerateNativeCUIModuleTarget ();
 };

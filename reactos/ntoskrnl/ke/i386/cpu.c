@@ -74,10 +74,6 @@ KAFFINITY KeActiveProcessors = 1;
 BOOLEAN KiI386PentiumLockErrataPresent;
 BOOLEAN KiSMTProcessorsPresent;
 
-/* Freeze data */
-KIRQL KiOldIrql;
-ULONG KiFreezeFlag;
-
 /* CPU Signatures */
 static const CHAR CmpIntelID[]       = "GenuineIntel";
 static const CHAR CmpAmdID[]         = "AuthenticAMD";
@@ -108,7 +104,7 @@ WRMSR(IN ULONG Register,
 LONGLONG
 RDMSR(IN ULONG Register)
 {
-    LARGE_INTEGER LargeVal = {{0}};
+    LARGE_INTEGER LargeVal;
     Ke386Rdmsr(Register, LargeVal.HighPart, LargeVal.LowPart);
     return LargeVal.QuadPart;
 }
@@ -119,7 +115,7 @@ VOID
 NTAPI
 KiSetProcessorType(VOID)
 {
-    ULONG EFlags = 0, NewEFlags;
+    ULONG EFlags, NewEFlags;
     ULONG Reg[4];
     ULONG Stepping, Type;
 
@@ -344,14 +340,6 @@ KiGetFeatureBits(VOID)
             FeatureBits &= ~KF_WORKING_PTE;
         }
 
-        /* Check if the CPU is too old to support SYSENTER */
-        if ((Prcb->CpuType < 6) ||
-            ((Prcb->CpuType == 6) && (Prcb->CpuStep < 0x0303)))
-        {
-            /* Disable it */
-            Reg[3] &= ~0x800;
-        }
-
         /* Set the current features */
         CpuFeatures = Reg[3];
     }
@@ -366,7 +354,6 @@ KiGetFeatureBits(VOID)
     if (CpuFeatures & 0x00002000) FeatureBits |= KF_GLOBAL_PAGE | KF_CR4;
     if (CpuFeatures & 0x00008000) FeatureBits |= KF_CMOV;
     if (CpuFeatures & 0x00010000) FeatureBits |= KF_PAT;
-    if (CpuFeatures & 0x00200000) FeatureBits |= KF_DTS;
     if (CpuFeatures & 0x00800000) FeatureBits |= KF_MMX;
     if (CpuFeatures & 0x01000000) FeatureBits |= KF_FXSR;
     if (CpuFeatures & 0x02000000) FeatureBits |= KF_XMMI;
@@ -401,9 +388,6 @@ KiGetFeatureBits(VOID)
             {
                 /* Check which extended features are available. */
                 CPUID(Reg, 0x80000001);
-
-                /* Check if NX-bit is supported */
-                if (Reg[3] & 0x00100000) FeatureBits |= KF_NX_BIT;
 
                 /* Now handle each features for each CPU Vendor */
                 switch (Vendor)
@@ -548,7 +532,7 @@ KiInitializeTSS2(IN PKTSS Tss,
     {
         /* Set the Limit */
         TssEntry->LimitLow = sizeof(KTSS) - 1;
-        TssEntry->HighWord.Bits.LimitHi = 0;
+        TssEntry->HighWord.Bits.LimitHi &= 0xF0;
     }
 
     /* Now clear the I/O Map */
@@ -671,48 +655,18 @@ NTAPI
 KeFlushCurrentTb(VOID)
 {
     /* Flush the TLB by resetting CR3 */
-    __writecr3(__readcr3());
+    __writecr3((ULONGLONG)__readcr3);
 }
 
 VOID
 NTAPI
-KiRestoreProcessorControlState(PKPROCESSOR_STATE ProcessorState)
-{
-    /* Restore the CR registers */
-    __writecr0(ProcessorState->SpecialRegisters.Cr0);
-    Ke386SetCr2(ProcessorState->SpecialRegisters.Cr2);
-    __writecr3(ProcessorState->SpecialRegisters.Cr3);
-    if (KeFeatureBits & KF_CR4) __writecr4(ProcessorState->SpecialRegisters.Cr4);
-
-    //
-    // Restore the DR registers
-    //
-    Ke386SetDr0(ProcessorState->SpecialRegisters.KernelDr0);
-    Ke386SetDr1(ProcessorState->SpecialRegisters.KernelDr1);
-    Ke386SetDr2(ProcessorState->SpecialRegisters.KernelDr2);
-    Ke386SetDr3(ProcessorState->SpecialRegisters.KernelDr3);
-    Ke386SetDr6(ProcessorState->SpecialRegisters.KernelDr6);
-    Ke386SetDr7(ProcessorState->SpecialRegisters.KernelDr7);
-
-    //
-    // Restore GDT, IDT, LDT and TSS
-    //
-    Ke386SetGlobalDescriptorTable(ProcessorState->SpecialRegisters.Gdtr.Base);
-    Ke386SetInterruptDescriptorTable(ProcessorState->SpecialRegisters.Idtr.Base);
-    Ke386SetTr(ProcessorState->SpecialRegisters.Tr);
-    Ke386SetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
-}
-
-VOID
-NTAPI
-KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState)
+KiSaveProcessorControlState(IN PKPROCESSOR_STATE ProcessorState)
 {
     /* Save the CR registers */
     ProcessorState->SpecialRegisters.Cr0 = __readcr0();
     ProcessorState->SpecialRegisters.Cr2 = __readcr2();
     ProcessorState->SpecialRegisters.Cr3 = __readcr3();
-    ProcessorState->SpecialRegisters.Cr4 = (KeFeatureBits & KF_CR4) ?
-                                           __readcr4() : 0;
+    ProcessorState->SpecialRegisters.Cr4 = __readcr4();
 
     /* Save the DR registers */
     ProcessorState->SpecialRegisters.KernelDr0 = Ke386GetDr0();
@@ -724,8 +678,8 @@ KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState)
     Ke386SetDr7(0);
 
     /* Save GDT, IDT, LDT and TSS */
-    Ke386GetGlobalDescriptorTable(ProcessorState->SpecialRegisters.Gdtr.Base);
-    Ke386GetInterruptDescriptorTable(ProcessorState->SpecialRegisters.Idtr.Base);
+    Ke386GetGlobalDescriptorTable(ProcessorState->SpecialRegisters.Gdtr);
+    Ke386GetInterruptDescriptorTable(ProcessorState->SpecialRegisters.Idtr);
     Ke386GetTr(ProcessorState->SpecialRegisters.Tr);
     Ke386GetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
 }
@@ -744,10 +698,10 @@ KiLoadFastSyscallMachineSpecificRegisters(IN ULONG_PTR Context)
 {
     /* Set CS and ESP */
     Ke386Wrmsr(0x174, KGDT_R0_CODE, 0);
-    Ke386Wrmsr(0x175, (ULONG)KeGetCurrentPrcb()->DpcStack, 0);
+    Ke386Wrmsr(0x175, KeGetCurrentPrcb()->DpcStack, 0);
 
     /* Set LSTAR */
-    Ke386Wrmsr(0x176, (ULONG)KiFastCallEntry, 0);
+    Ke386Wrmsr(0x176, KiFastCallEntry, 0);
     return 0;
 }
 
@@ -787,23 +741,8 @@ ULONG_PTR
 NTAPI
 Ki386EnableXMMIExceptions(IN ULONG_PTR Context)
 {
-#if 0 // needs kitrap13
-    PKIDTENTRY IdtEntry;
-
-    /* Get the IDT Entry for Interrupt 19 */
-    IdtEntry = ((PKIPCR)KeGetPcr())->IDT[19];
-
-    /* Set it up */
-    IdtEntry->Selector = KGDT_R0_CODE;
-    IdtEntry->Offset = (KiTrap13 & 0xFFFF);
-    IdtEntry->ExtendedOffset = (KiTrap13 >> 16) & 0xFFFF;
-    ((PKIDT_ACCESS)&IdtEntry->Access)->Dpl = 0;
-    ((PKIDT_ACCESS)&IdtEntry->Access)->Present = 1;
-    ((PKIDT_ACCESS)&IdtEntry->Access)->SegmentType = I386_INTERRUPT_GATE;
-#endif
-
-    /* Enable XMMI exceptions */
-    __writecr4(__readcr4() | CR4_XMMEXCPT);
+    /* FIXME: Support this */
+    DPRINT1("Your machine supports XMMI exceptions but ReactOS doesn't\n");
     return 0;
 }
 
@@ -811,67 +750,8 @@ VOID
 NTAPI
 KiI386PentiumLockErrataFixup(VOID)
 {
-    KDESCRIPTOR IdtDescriptor = {0};
-    PKIDTENTRY NewIdt, NewIdt2;
-
-    /* Allocate memory for a new IDT */
-    NewIdt = ExAllocatePool(NonPagedPool, 2 * PAGE_SIZE);
-
-    /* Put everything after the first 7 entries on a new page */
-    NewIdt2 = (PVOID)((ULONG_PTR)NewIdt + PAGE_SIZE - (7 * sizeof(KIDTENTRY)));
-
-    /* Disable interrupts */
-    _disable();
-
-    /* Get the current IDT and copy it */
-    Ke386GetInterruptDescriptorTable(IdtDescriptor);
-    RtlCopyMemory(NewIdt2,
-                  (PVOID)IdtDescriptor.Base,
-                  IdtDescriptor.Limit + 1);
-    IdtDescriptor.Base = (ULONG)NewIdt2;
-
-    /* Set the new IDT */
-    Ke386SetInterruptDescriptorTable(IdtDescriptor);
-    ((PKIPCR)KeGetPcr())->IDT = NewIdt2;
-
-    /* Restore interrupts */
-    _enable();
-
-    /* Set the first 7 entries as read-only to produce a fault */
-    MmSetPageProtect(NULL, NewIdt, PAGE_READONLY);
-}
-
-BOOLEAN
-NTAPI
-KeFreezeExecution(IN PKTRAP_FRAME TrapFrame,
-                  IN PKEXCEPTION_FRAME ExceptionFrame)
-{
-    ULONG Flags = 0;
-
-    /* Disable interrupts and get previous state */
-    Ke386SaveFlags(Flags);
-    //Flags = __getcallerseflags();
-    _disable();
-
-    /* Save freeze flag */
-    KiFreezeFlag = 4;
-
-    /* Save the old IRQL */
-    KiOldIrql = KeGetCurrentIrql();
-
-    /* Return whether interrupts were enabled */
-    return (Flags & EFLAGS_INTERRUPT_MASK) ? TRUE: FALSE;
-}
-
-VOID
-NTAPI
-KeThawExecution(IN BOOLEAN Enable)
-{
-    /* Cleanup CPU caches */
-    KeFlushCurrentTb();
-
-    /* Re-enable interrupts */
-    if (Enable) _enable();
+    /* FIXME: Support this */
+    DPRINT1("WARNING: Your machine has a CPU bug that ReactOS can't bypass!\n");
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -884,7 +764,7 @@ NTAPI
 KeSaveFloatingPointState(OUT PKFLOATING_SAVE Save)
 {
     PFNSAVE_FORMAT FpState;
-    ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
+    ASSERT_IRQL(DISPATCH_LEVEL);
     DPRINT1("%s is not really implemented\n", __FUNCTION__);
 
     /* check if we are doing software emulation */

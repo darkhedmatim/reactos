@@ -2712,7 +2712,7 @@ NtGdiSetRectRgn(HRGN  hRgn,
 HRGN STDCALL
 NtGdiUnionRectWithRgn(HRGN hDest, CONST PRECT UnsafeRect)
 {
-    RECT SafeRect = {0};
+  RECT SafeRect;
   PROSRGNDATA Rgn;
   NTSTATUS Status = STATUS_SUCCESS;
 

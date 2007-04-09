@@ -70,17 +70,10 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 {
 	size_t i;
 
-	string vcproj_file = VcprojFileName(module);
-	string computername;
-	string username;
+ 	string vcproj_file = VcprojFileName(module);
 
-	if (getenv ( "USERNAME" ) != NULL)
-		username = getenv ( "USERNAME" );
-	if (getenv ( "COMPUTERNAME" ) != NULL)
-		computername = getenv ( "COMPUTERNAME" );
-	else if (getenv ( "HOSTNAME" ) != NULL)
-		computername = getenv ( "HOSTNAME" );
-
+	string username = getenv ( "USERNAME" );
+	string computername = getenv ( "COMPUTERNAME" );
 	string vcproj_file_user = "";
 
 	if ((computername != "") && (username != ""))
@@ -116,7 +109,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 	if ( configuration.UseVSVersionInPath )
 	{
-		vcdir = DEF_SSEP + _get_vc_dir();
+		vcdir = "\\" + _get_vc_dir();
 	}
 	// TODO FIXME - need more checks here for 'sys' and possibly 'drv'?
 
@@ -352,12 +345,12 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			fprintf ( OUT, "%s", escaped.c_str() );
 		}
 		fprintf ( OUT, "\"\r\n" );
-		fprintf ( OUT, "\t\t\t\tForcedIncludeFiles=\"%s\"\r\n", "warning.h");
-		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "TRUE" : "FALSE" );
-		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"0\"\r\n" );
+        fprintf ( OUT, "\t\t\t\tForcedIncludeFiles=\"%s\"\r\n", "warning.h");
+		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "FALSE" : "TRUE" );
+		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"%s\"\r\n", sys ? 0 : (debug ? "3" : "0") );
 		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 1 : 5 );	// 1=/MTd 5=/MT
-		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"FALSE\"\r\n" );
-		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"FALSE\"\r\n" );
+		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"%s\"\r\n", sys ? "FALSE" : (debug ? "TRUE" : "FALSE" ));
+		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"%s\"\r\n", debug ? "TRUE" : "FALSE" );
 		
 		if ( module.pch != NULL )
 		{
@@ -637,12 +630,12 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 						fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"nasmw $(InputPath) -f coff -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n");
 						fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
 					}
-					else if ((tolower(source_file.at(source_file.size() - 1)) == 's'))
-					{
-						fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
-						fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; %s /D__ASM__ | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n",include_string.c_str() );
-						fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
-					}
+                    else if ((tolower(source_file.at(source_file.size() - 1)) == 's'))
+                    {
+                        fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
+                        fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; %s /D__ASM__ | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n",include_string.c_str() );
+                        fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
+                    }
 					fprintf ( OUT, "\t\t\t\t</FileConfiguration>\r\n" );
 				}
 			//}
@@ -758,7 +751,7 @@ MSVCBackend::_replace_str(std::string string1, const std::string &find_str, cons
 }
 
 std::string
-MSVCBackend::_get_solution_version ( void )
+MSVCBackend::_get_solution_verion ( void )
 {
 	string version;
 
@@ -780,7 +773,7 @@ MSVCBackend::_get_solution_version ( void )
 void
 MSVCBackend::_generate_sln_header ( FILE* OUT )
 {
-	fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_version().c_str() );
+	fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_verion().c_str() );
 	fprintf ( OUT, "# Visual Studio 2005\r\n" );
 	fprintf ( OUT, "\r\n" );
 }

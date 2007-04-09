@@ -12,7 +12,6 @@
   <property name="BASEADDRESS_SLAYER" value="0x5c7e0000" />
   <property name="BASEADDRESS_DPLAYX" value="0x5e080000" />
   <property name="BASEADDRESS_DINPUT" value="0x5f580000" />
-  <property name="BASEADDRESS_NETID" value="0x5f660000" />
   <property name="BASEADDRESS_MAPI32" value="0x62250000" />
   <property name="BASEADDRESS_HDWWIZ" value="0x64d40000" />
   <property name="BASEADDRESS_TIMEDATE" value="0x64da0000" />
@@ -94,7 +93,6 @@
   <property name="BASEADDRESS_LSASRV" value="0x76540000" />
   <property name="BASEADDRESS_MIDIMAP" value="0x76600000" />
   <property name="BASEADDRESS_ODBC32" value="0x76660000" />
-  <property name="BASEADDRESS_ODBCCP32" value="0x76380000" />
   <property name="BASEADDRESS_WAVEMAP" value="0x76610000" />
   <property name="BASEADDRESS_MPR" value="0x76620000" />
   <property name="BASEADDRESS_SETUPAPI" value="0x76660000" />
@@ -124,9 +122,9 @@
   <property name="BASEADDRESS_OLE32" value="0x77a50000" />
   <property name="BASEADDRESS_OLEPRO32" value="0x77aa0000" />
   <property name="BASEADDRESS_ADVAPI32" value="0x77dc0000" />
-  <property name="BASEADDRESS_USER32" value="0x77e30000" />
-  <property name="BASEADDRESS_GDI32" value="0x77f70000" />
-  <property name="BASEADDRESS_DNSAPI" value="0x77fb0000" />
+  <property name="BASEADDRESS_USER32" value="0x77e40000" />
+  <property name="BASEADDRESS_GDI32" value="0x77f10000" />
+  <property name="BASEADDRESS_DNSAPI" value="0x77f30000" />
   <property name="BASEADDRESS_MSVCRT" value="0x78000000" />
   <property name="BASEADDRESS_MSVCRT20" value="0x78500000" />
   <property name="BASEADDRESS_KERNEL32" value="0x7c800000" />

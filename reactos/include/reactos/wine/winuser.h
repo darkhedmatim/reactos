@@ -5,11 +5,9 @@
  * Compatibility header
  */
 
+#include <w32api.h>
 #include <wingdi.h>
-
-#if !defined(_MSC_VER)
-#include "../../psdk/winuser.h"
-#endif
+#include_next <winuser.h>
 
 #define WS_EX_TRAYWINDOW 0x80000000L
 #define DCX_USESTYLE     0x00010000

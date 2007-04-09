@@ -168,7 +168,7 @@ CsrpCreateObjectDirectory (int argc, char ** argv, char ** envp)
 	                            NULL);
 
 	Status = NtOpenDirectoryObject(&CsrObjectDirectory,
-	                               DIRECTORY_ALL_ACCESS,
+	                               0xF000F, /* ea:??? */
 	                               &Attributes);
 	return Status;
 }

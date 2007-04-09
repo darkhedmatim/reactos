@@ -1,182 +1,115 @@
 /*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/clock.c
- * PURPOSE:         System Clock Support
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ * PURPOSE:         Handle System Clock
+ *
+ * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net) - Created
+ *                  David Welch & Phillip Susi - Implementation (?)
  */
 
-/* INCLUDES ******************************************************************/
+ /* NOTES ******************************************************************/
+/*
+ * System time units are 100-nanosecond intervals
+ */
+
+/* INCLUDES ***************************************************************/
 
 #include <ntoskrnl.h>
+
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-/* GLOBALS *******************************************************************/
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, KiInitializeSystemClock)
+#endif
 
-LARGE_INTEGER KeBootTime;
-ULONGLONG KeBootTimeBias;
+/* GLOBALS ****************************************************************/
+
+LARGE_INTEGER KeBootTime, KeBootTimeBias;
+KDPC KiExpireTimerDpc;
+BOOLEAN KiClockSetupComplete = FALSE;
+ULONG KiTimeLimitIsrMicroseconds;
+
+/*
+ * Number of timer interrupts since initialisation
+ */
 volatile KSYSTEM_TIME KeTickCount = {0};
 volatile ULONG KiRawTicks = 0;
-ULONG KeMaximumIncrement;
-ULONG KeMinimumIncrement;
-ULONG KeTimeAdjustment;
-ULONG KeTimeIncrement;
 LONG KiTickOffset = 0;
+extern LIST_ENTRY KiTimerListHead;
 
-/* PRIVATE FUNCTIONS *********************************************************/
+/*
+ * The increment in the system clock every timer tick (in system time units)
+ *
+ * = (1/18.2)*10^9
+ *
+ * RJJ was 54945055
+ */
+#define CLOCK_INCREMENT (100000)
+
+ULONG KeMaximumIncrement = 100000;
+ULONG KeMinimumIncrement = 100000;
+ULONG KeTimeAdjustment   = 100000;
+
+#define MICROSECONDS_PER_TICK (10000)
+#define TICKS_TO_CALIBRATE (1)
+#define CALIBRATE_PERIOD (MICROSECONDS_PER_TICK * TICKS_TO_CALIBRATE)
+
+/* FUNCTIONS **************************************************************/
 
 VOID
 NTAPI
-KeSetSystemTime(IN PLARGE_INTEGER NewTime,
-                OUT PLARGE_INTEGER OldTime,
-                IN BOOLEAN FixInterruptTime,
-                IN PLARGE_INTEGER HalTime OPTIONAL)
+KiSetSystemTime(PLARGE_INTEGER NewSystemTime)
 {
-    TIME_FIELDS TimeFields;
-    KIRQL OldIrql, OldIrql2;
-    LARGE_INTEGER DeltaTime;
-    PLIST_ENTRY ListHead, NextEntry;
-    PKTIMER Timer;
-    PKSPIN_LOCK_QUEUE LockQueue;
-    LIST_ENTRY TempList, TempList2;
-    ULONG Hand, i;
-    PKTIMER_TABLE_ENTRY TimerEntry;
+  LARGE_INTEGER OldSystemTime;
+  LARGE_INTEGER DeltaTime;
+  KIRQL OldIrql;
 
-    /* Sanity checks */
-    ASSERT((NewTime->HighPart & 0xF0000000) == 0);
-    ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
+  ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
 
-    /* Check if this is for the HAL */
-    if (HalTime) RtlTimeToTimeFields(HalTime, &TimeFields);
+  OldIrql = KiAcquireDispatcherLock();
 
-    /* Set affinity to this CPU, lock the dispatcher, and raise IRQL */
-    KeSetSystemAffinityThread(1);
-    OldIrql = KiAcquireDispatcherLock();
-    KeRaiseIrql(HIGH_LEVEL, &OldIrql2);
-
-    /* Query the system time now */
-    KeQuerySystemTime(OldTime);
-
-    /* Set the new system time */
-    SharedUserData->SystemTime.LowPart = NewTime->LowPart;
-    SharedUserData->SystemTime.High1Time = NewTime->HighPart;
-    SharedUserData->SystemTime.High2Time = NewTime->HighPart;
-
-    /* Check if this was for the HAL and set the RTC time */
-    if (HalTime) ExCmosClockIsSane = HalSetRealTimeClock(&TimeFields);
-
-    /* Calculate the difference between the new and the old time */
-    DeltaTime.QuadPart = NewTime->QuadPart - OldTime->QuadPart;
-
-    /* Update system boot time */
-    KeBootTime.QuadPart += DeltaTime.QuadPart;
-    KeBootTimeBias = KeBootTimeBias + DeltaTime.QuadPart;
-
-    /* Lower IRQL back */
-    KeLowerIrql(OldIrql2);
-
-    /* Check if we need to adjust interrupt time */
-    if (FixInterruptTime) KEBUGCHECK(0);
-
-    /* Setup a temporary list of absolute timers */
-    InitializeListHead(&TempList);
-
-    /* Loop current timers */
-    for (i = 0; i < TIMER_TABLE_SIZE; i++)
+  do
     {
-        /* Loop the entries in this table and lock the timers */
-        ListHead = &KiTimerTableListHead[i].Entry;
-        LockQueue = KiAcquireTimerLock(i);
-        NextEntry = ListHead->Flink;
-        while (NextEntry != ListHead)
-        {
-            /* Get the timer */
-            Timer = CONTAINING_RECORD(NextEntry, KTIMER, TimerListEntry);
-            NextEntry = NextEntry->Flink;
-
-            /* Is is absolute? */
-            if (Timer->Header.Absolute)
-            {
-                /* Remove it from the timer list */
-                if (RemoveEntryList(&Timer->TimerListEntry))
-                {
-                    /* Get the entry and check if it's empty */
-                    TimerEntry = &KiTimerTableListHead[Timer->Header.Hand];
-                    if (IsListEmpty(&TimerEntry->Entry))
-                    {
-                        /* Clear the time then */
-                        TimerEntry->Time.HighPart = 0xFFFFFFFF;
-                    }
-                }
-
-                /* Insert it into our temporary list */
-                DPRINT1("Adding a timer!\n");
-                InsertTailList(&TempList, &Timer->TimerListEntry);
-            }
-        }
-
-        /* Release the lock */
-        KiReleaseTimerLock(LockQueue);
+      OldSystemTime.u.HighPart = SharedUserData->SystemTime.High1Time;
+      OldSystemTime.u.LowPart = SharedUserData->SystemTime.LowPart;
     }
+  while (OldSystemTime.u.HighPart != SharedUserData->SystemTime.High2Time);
 
-    /* Setup a temporary list of expired timers */
-    InitializeListHead(&TempList2);
+  /* Set the new system time */
+  SharedUserData->SystemTime.LowPart = NewSystemTime->u.LowPart;
+  SharedUserData->SystemTime.High1Time = NewSystemTime->u.HighPart;
+  SharedUserData->SystemTime.High2Time = NewSystemTime->u.HighPart;
 
-    /* Loop absolute timers */
-    while (TempList.Flink != &TempList)
-    {
-        /* Get the timer */
-        Timer = CONTAINING_RECORD(TempList.Flink, KTIMER, TimerListEntry);
-        RemoveEntryList(&Timer->TimerListEntry);
+  /* Calculate the difference between the new and the old time */
+  DeltaTime.QuadPart = NewSystemTime->QuadPart - OldSystemTime.QuadPart;
 
-        /* Update the due time and handle */
-        Timer->DueTime.QuadPart -= DeltaTime.QuadPart;
-        Hand = KiComputeTimerTableIndex(Timer->DueTime.QuadPart);
-        Timer->Header.Hand = (UCHAR)Hand;
+  /* Update system boot time */
+  KeBootTime.QuadPart += DeltaTime.QuadPart;
 
-        /* Lock the timer and re-insert it */
-        LockQueue = KiAcquireTimerLock(Hand);
-        if (KiInsertTimerTable(Timer, Hand))
-        {
-            /* Remove it from the timer list */
-            if (RemoveEntryList(&Timer->TimerListEntry))
-            {
-                /* Get the entry and check if it's empty */
-                TimerEntry = &KiTimerTableListHead[Timer->Header.Hand];
-                if (IsListEmpty(&TimerEntry->Entry))
-                {
-                    /* Clear the time then */
-                    TimerEntry->Time.HighPart = 0xFFFFFFFF;
-                }
-            }
+  /* Update absolute timers */
+  DPRINT1("FIXME: TIMER UPDATE NOT DONE!!!\n");
 
-            /* Insert it into our temporary list */
-            DPRINT1("Adding a timer 2!\n");
-            InsertTailList(&TempList2, &Timer->TimerListEntry);
-        }
+  KiReleaseDispatcherLock(OldIrql);
 
-        /* Release the lock */
-        KiReleaseTimerLock(LockQueue);
-    }
-
-    /* FIXME: Process expired timers! */
-    KiReleaseDispatcherLock(OldIrql);
-
-    /* Revert affinity */
-    KeRevertToUserAffinityThread();
+  /*
+   * NOTE: Expired timers will be processed at the next clock tick!
+   */
 }
-
-/* PUBLIC FUNCTIONS **********************************************************/
 
 /*
  * @implemented
  */
 ULONG
-NTAPI
+STDCALL
 KeQueryTimeIncrement(VOID)
+/*
+ * FUNCTION: Gets the increment (in 100-nanosecond units) that is added to
+ * the system clock every time the clock interrupts
+ * RETURNS: The increment
+ */
 {
-    /* Return the increment */
     return KeMaximumIncrement;
 }
 
@@ -185,60 +118,47 @@ KeQueryTimeIncrement(VOID)
  */
 #undef KeQueryTickCount
 VOID
-NTAPI
-KeQueryTickCount(IN PLARGE_INTEGER TickCount)
+STDCALL
+KeQueryTickCount(PLARGE_INTEGER TickCount)
+/*
+ * FUNCTION: Returns the number of ticks since the system was booted
+ * ARGUMENTS:
+ *         TickCount (OUT) = Points to storage for the number of ticks
+ */
 {
-    /* Loop until we get a perfect match */
-    for (;;)
-    {
-        /* Read the tick count value */
-        TickCount->HighPart = KeTickCount.High1Time;
-        TickCount->LowPart = KeTickCount.LowPart;
-        if (TickCount->HighPart == KeTickCount.High2Time) break;
-        YieldProcessor();
-    }
+    TickCount->QuadPart = *(PULONGLONG)&KeTickCount;
 }
 
 /*
+ * FUNCTION: Gets the current system time
+ * ARGUMENTS:
+ *          CurrentTime (OUT) = The routine stores the current time here
+ * NOTE: The time is the number of 100-nanosecond intervals since the
+ * 1st of January, 1601.
+ *
  * @implemented
  */
 VOID
-NTAPI
-KeQuerySystemTime(OUT PLARGE_INTEGER CurrentTime)
+STDCALL
+KeQuerySystemTime(PLARGE_INTEGER CurrentTime)
 {
-    /* Loop until we get a perfect match */
-    for (;;)
-    {
-        /* Read the time value */
-        CurrentTime->HighPart = SharedUserData->SystemTime.High1Time;
-        CurrentTime->LowPart = SharedUserData->SystemTime.LowPart;
-        if (CurrentTime->HighPart ==
-            SharedUserData->SystemTime.High2Time) break;
-        YieldProcessor();
-    }
+    do {
+        CurrentTime->u.HighPart = SharedUserData->SystemTime.High1Time;
+        CurrentTime->u.LowPart = SharedUserData->SystemTime.LowPart;
+    } while (CurrentTime->u.HighPart != SharedUserData->SystemTime.High2Time);
 }
 
-/*
- * @implemented
- */
 ULONGLONG
-NTAPI
+STDCALL
 KeQueryInterruptTime(VOID)
 {
     LARGE_INTEGER CurrentTime;
 
-    /* Loop until we get a perfect match */
-    for (;;)
-    {
-        /* Read the time value */
-        CurrentTime.HighPart = SharedUserData->InterruptTime.High1Time;
-        CurrentTime.LowPart = SharedUserData->InterruptTime.LowPart;
-        if (CurrentTime.HighPart ==
-            SharedUserData->InterruptTime.High2Time) break;
-        YieldProcessor();
-    }
+    do {
+        CurrentTime.u.HighPart = SharedUserData->InterruptTime.High1Time;
+        CurrentTime.u.LowPart = SharedUserData->InterruptTime.LowPart;
+    } while (CurrentTime.u.HighPart != SharedUserData->InterruptTime.High2Time);
 
-    /* Return the time value */
     return CurrentTime.QuadPart;
 }
 
@@ -246,20 +166,32 @@ KeQueryInterruptTime(VOID)
  * @implemented
  */
 VOID
-NTAPI
-KeSetTimeIncrement(IN ULONG MaxIncrement,
-                   IN ULONG MinIncrement)
+STDCALL
+KeSetTimeIncrement(
+    IN ULONG MaxIncrement,
+    IN ULONG MinIncrement)
 {
     /* Set some Internal Variables */
+    /* FIXME: We use a harcoded CLOCK_INCREMENT. That *must* be changed */
     KeMaximumIncrement = MaxIncrement;
-    KeMinimumIncrement = max(MinIncrement, 10000);
-    KeTimeAdjustment = MaxIncrement;
-    KeTimeIncrement = MaxIncrement;
-    KiTickOffset = MaxIncrement;
+    KeMinimumIncrement = MinIncrement;
+}
+
+/*
+ * @implemented
+ */
+ULONG
+STDCALL
+NtGetTickCount(VOID)
+{
+    LARGE_INTEGER TickCount;
+
+    KeQueryTickCount(&TickCount);
+    return TickCount.u.LowPart;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryTimerResolution(OUT PULONG MinimumResolution,
                        OUT PULONG MaximumResolution,
                        OUT PULONG ActualResolution)
@@ -269,7 +201,7 @@ NtQueryTimerResolution(OUT PULONG MinimumResolution,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetTimerResolution(IN ULONG DesiredResolution,
                      IN BOOLEAN SetResolution,
                      OUT PULONG CurrentResolution)

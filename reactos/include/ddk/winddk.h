@@ -148,19 +148,9 @@ typedef ULONG WAIT_TYPE;
 #define WaitAny 1
 typedef HANDLE TRACEHANDLE;
 typedef PVOID PWMILIB_CONTEXT;
+typedef PVOID PSYSCTL_IRP_DISPOSITION;
 typedef ULONG LOGICAL;
 #endif
-
-/*
-** WmiLib specific structure
-*/
-typedef enum
-{
-    IrpProcessed,    // Irp was processed and possibly completed
-    IrpNotCompleted, // Irp was process and NOT completed
-    IrpNotWmi,       // Irp is not a WMI irp
-    IrpForward       // Irp is wmi irp, but targeted at another device object
-} SYSCTL_IRP_DISPOSITION, *PSYSCTL_IRP_DISPOSITION;
 
 /*
 ** Routines specific to this DDK
@@ -247,8 +237,6 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define MAXIMUM_PRIORITY                  32
 
 #define MAXIMUM_SUSPEND_COUNT             MAXCHAR
-
-#define MAXIMUM_FILENAME_LENGTH           256
 
 #define FILE_SUPERSEDED                   0x00000000
 #define FILE_OPENED                       0x00000001
@@ -438,11 +426,6 @@ typedef struct _KSYSTEM_TIME
 } KSYSTEM_TIME, *PKSYSTEM_TIME;
 
 extern volatile KSYSTEM_TIME KeTickCount;
-
-#define NX_SUPPORT_POLICY_ALWAYSOFF 0
-#define NX_SUPPORT_POLICY_ALWAYSON 1
-#define NX_SUPPORT_POLICY_OPTIN 2
-#define NX_SUPPORT_POLICY_OPTOUT 3
 
 typedef struct _KUSER_SHARED_DATA
 {
@@ -637,28 +620,6 @@ typedef IO_ALLOCATION_ACTION
   IN PVOID  MapRegisterBase,
   IN PVOID  Context);
 
-
-typedef struct _EXCEPTION_RECORD32
-{
-    NTSTATUS ExceptionCode;
-    ULONG ExceptionFlags;
-    ULONG ExceptionRecord;
-    ULONG ExceptionAddress;
-    ULONG NumberParameters;
-    ULONG ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS];
-} EXCEPTION_RECORD32, *PEXCEPTION_RECORD32;
-
-typedef struct _EXCEPTION_RECORD64
-{
-    NTSTATUS ExceptionCode;
-    ULONG ExceptionFlags;
-    ULONG64 ExceptionRecord;
-    ULONG64 ExceptionAddress;
-    ULONG NumberParameters;
-    ULONG __unusedAlignment;
-    ULONG64 ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS];
-} EXCEPTION_RECORD64, *PEXCEPTION_RECORD64;
-
 typedef EXCEPTION_DISPOSITION
 (DDKAPI *PEXCEPTION_ROUTINE)(
   IN struct _EXCEPTION_RECORD *ExceptionRecord,
@@ -674,23 +635,20 @@ typedef VOID
   IN PVOID  Context);
 
 typedef NTSTATUS
-(DDKAPI DRIVER_ADD_DEVICE)(
+(DDKAPI *PDRIVER_ADD_DEVICE)(
   IN struct _DRIVER_OBJECT  *DriverObject,
   IN struct _DEVICE_OBJECT  *PhysicalDeviceObject);
-typedef DRIVER_ADD_DEVICE *PDRIVER_ADD_DEVICE;
 
 typedef NTSTATUS
-(DDKAPI IO_COMPLETION_ROUTINE)(
+(DDKAPI *PIO_COMPLETION_ROUTINE)(
   IN struct _DEVICE_OBJECT  *DeviceObject,
   IN struct _IRP  *Irp,
   IN PVOID  Context);
-typedef IO_COMPLETION_ROUTINE *PIO_COMPLETION_ROUTINE;
 
 typedef VOID
-(DDKAPI DRIVER_CANCEL)(
+(DDKAPI *PDRIVER_CANCEL)(
   IN struct _DEVICE_OBJECT  *DeviceObject,
   IN struct _IRP  *Irp);
-typedef DRIVER_CANCEL *PDRIVER_CANCEL;
 
 typedef VOID
 (DDKAPI *PKDEFERRED_ROUTINE)(
@@ -700,10 +658,9 @@ typedef VOID
   IN PVOID  SystemArgument2);
 
 typedef NTSTATUS
-(DDKAPI DRIVER_DISPATCH)(
+(DDKAPI *PDRIVER_DISPATCH)(
   IN struct _DEVICE_OBJECT  *DeviceObject,
   IN struct _IRP  *Irp);
-typedef DRIVER_DISPATCH *PDRIVER_DISPATCH;
 
 typedef VOID
 (DDKAPI *PIO_DPC_ROUTINE)(
@@ -726,16 +683,14 @@ typedef NTSTATUS
   IN PUNICODE_STRING  RegistryPath);
 
 typedef NTSTATUS
-(DDKAPI DRIVER_INITIALIZE)(
+(DDKAPI *PDRIVER_INITIALIZE)(
   IN struct _DRIVER_OBJECT  *DriverObject,
   IN PUNICODE_STRING  RegistryPath);
-typedef DRIVER_INITIALIZE *PDRIVER_INITIALIZE;
 
 typedef BOOLEAN
-(DDKAPI KSERVICE_ROUTINE)(
+(DDKAPI *PKSERVICE_ROUTINE)(
   IN struct _KINTERRUPT  *Interrupt,
   IN PVOID  ServiceContext);
-typedef KSERVICE_ROUTINE *PKSERVICE_ROUTINE;
 
 typedef VOID
 (DDKAPI *PIO_TIMER_ROUTINE)(
@@ -749,19 +704,17 @@ typedef VOID
   IN ULONG  Count);
 
 typedef VOID
-(DDKAPI DRIVER_STARTIO)(
+(DDKAPI *PDRIVER_STARTIO)(
   IN struct _DEVICE_OBJECT  *DeviceObject,
   IN struct _IRP  *Irp);
-typedef DRIVER_STARTIO *PDRIVER_STARTIO;
 
 typedef BOOLEAN
 (DDKAPI *PKSYNCHRONIZE_ROUTINE)(
   IN PVOID  SynchronizeContext);
 
 typedef VOID
-(DDKAPI DRIVER_UNLOAD)(
+(DDKAPI *PDRIVER_UNLOAD)(
   IN struct _DRIVER_OBJECT  *DriverObject);
-typedef DRIVER_UNLOAD *PDRIVER_UNLOAD;
 
 
 
@@ -3437,6 +3390,7 @@ typedef struct _IO_COMPLETION_CONTEXT {
 #define FO_RANDOM_ACCESS                  0x00100000
 #define FO_FILE_OPEN_CANCELLED            0x00200000
 #define FO_VOLUME_OPEN                    0x00400000
+#define FO_FILE_OBJECT_HAS_EXTENSION      0x00800000
 #define FO_REMOTE_ORIGIN                  0x01000000
 
 typedef struct _FILE_OBJECT
@@ -3821,7 +3775,6 @@ typedef struct _IO_STACK_LOCATION {
 /* IO_STACK_LOCATION.Control */
 
 #define SL_PENDING_RETURNED               0x01
-#define SL_ERROR_RETURNED                 0x02
 #define SL_INVOKE_ON_CANCEL               0x20
 #define SL_INVOKE_ON_SUCCESS              0x40
 #define SL_INVOKE_ON_ERROR                0x80
@@ -4475,10 +4428,9 @@ typedef struct _IO_REMOVE_LOCK {
 typedef struct _IO_WORKITEM *PIO_WORKITEM;
 
 typedef VOID
-(DDKAPI IO_WORKITEM_ROUTINE)(
+(DDKAPI *PIO_WORKITEM_ROUTINE)(
   IN PDEVICE_OBJECT  DeviceObject,
   IN PVOID  Context);
-typedef IO_WORKITEM_ROUTINE *PIO_WORKITEM_ROUTINE;
 
 typedef struct _SHARE_ACCESS {
   ULONG  OpenCount;
@@ -5290,16 +5242,7 @@ KeGetCurrentProcessorNumber(VOID)
 #error Unknown compiler
 #endif
 }
-
-#elif defined(__x86_64__)
-
-typedef struct _KFLOATING_SAVE {
-  ULONG Dummy;
-} KFLOATING_SAVE, *PKFLOATING_SAVE;
-
-#else
-#error Unknown architecture
-#endif
+#endif /* _X86_ */
 
 #define PAGE_SIZE                         0x1000
 #define PAGE_SHIFT                        12L
@@ -5465,13 +5408,6 @@ KfReleaseSpinLock(
   IN PKSPIN_LOCK SpinLock,
   IN KIRQL NewIrql);
 
-NTKERNELAPI
-BOOLEAN
-FASTCALL
-KeTryToAcquireSpinLockAtDpcLevel(
-    IN OUT PKSPIN_LOCK SpinLock
-);
-
 #define KeAcquireSpinLockAtDpcLevel(SpinLock) KefAcquireSpinLockAtDpcLevel(SpinLock)
 #define KeReleaseSpinLockFromDpcLevel(SpinLock) KefReleaseSpinLockFromDpcLevel(SpinLock)
 #define KeAcquireSpinLock(a,b)  *(b) = KfAcquireSpinLock(a)
@@ -5488,7 +5424,7 @@ KeTryToAcquireSpinLockAtDpcLevel(
 */
 
 #define ARGUMENT_PRESENT(ArgumentPointer) \
-  ((CHAR*)((ULONG_PTR)(ArgumentPointer)) != (CHAR*)NULL)
+  ((BOOLEAN) ((PVOID)ArgumentPointer != (PVOID)NULL))
 
 /*
  * ULONG
@@ -6518,12 +6454,6 @@ RtlxUnicodeStringToAnsiSize(
 #define RtlZeroBytes RtlZeroMemory
 #endif
 
-NTKERNELAPI
-BOOLEAN
-NTAPI
-KeAreAllApcsDisabled(
-    VOID
-);
 
 /* Guarded Mutex routines */
 
@@ -6581,22 +6511,6 @@ BOOLEAN
 FASTCALL
 KeTryToAcquireGuardedMutex(
     IN OUT PKGUARDED_MUTEX GuardedMutex
-);
-
-NTKERNELAPI
-BOOLEAN
-FASTCALL
-ExAcquireRundownProtectionEx(
-     IN OUT PEX_RUNDOWN_REF RunRef,
-     IN ULONG Count
-);
-
-NTKERNELAPI
-VOID
-FASTCALL
-ExReleaseRundownProtectionEx(
-     IN OUT PEX_RUNDOWN_REF RunRef,
-     IN ULONG Count
 );
 
 /* Fast Mutex */
@@ -9229,20 +9143,13 @@ NTKERNELAPI
 KIRQL
 NTAPI
 KeRaiseIrql(
-  IN KIRQL  NewIrql,
-  OUT PKIRQL  OldIrql);
+  IN KIRQL  NewIrql);
 
 NTKERNELAPI
 KIRQL
 NTAPI
 KeRaiseIrqlToDpcLevel(
   VOID);
-
-NTKERNELAPI
-KIRQL
-DDKAPI
-KeRaiseIrqlToSynchLevel(
-    VOID);
 
 #endif
 
@@ -9299,6 +9206,19 @@ VOID
 NTAPI
 MmBuildMdlForNonPagedPool(
   IN OUT PMDL  MemoryDescriptorList);
+
+NTKERNELAPI
+NTSTATUS
+NTAPI
+MmCreateSection(
+  OUT PVOID *SectionObject,
+  IN ACCESS_MASK  DesiredAccess,
+  IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,
+  IN PLARGE_INTEGER  MaximumSize,
+  IN ULONG  SectionPageProtection,
+  IN ULONG  AllocationAttributes,
+  IN HANDLE  FileHandle  OPTIONAL,
+  IN PFILE_OBJECT  File  OPTIONAL);
 
 typedef enum _MMFLUSH_TYPE {
   MmFlushForDelete,
@@ -10569,6 +10489,7 @@ PoUnregisterSystemState(
 
 /** WMI library support routines **/
 
+NTKERNELAPI
 NTSTATUS
 NTAPI
 WmiCompleteRequest(
@@ -10578,6 +10499,7 @@ WmiCompleteRequest(
   IN ULONG  BufferUsed,
   IN CCHAR  PriorityBoost);
 
+NTKERNELAPI
 NTSTATUS
 NTAPI
 WmiFireEvent(
@@ -10597,6 +10519,7 @@ WmiQueryTraceInformation(
   OUT PULONG  RequiredLength OPTIONAL,
   IN PVOID  Buffer OPTIONAL);
 
+NTKERNELAPI
 NTSTATUS
 NTAPI
 WmiSystemControl(

@@ -3,7 +3,7 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        lib/cpl/desk/preview.c
  * PURPOSE:     Draws the preview control
- * COPYRIGHT:   Copyright 2006, 2007 Eric Kohl
+ * COPYRIGHT:   Copyright 2006, 2007 Eric Kohl (email?)
  */
 
 #include "desk.h"
@@ -15,11 +15,19 @@ typedef struct _PREVIEW_DATA
 {
     HWND hwndParent;
 
-    DWORD clrSysColor[COLOR_MENUBAR];
-
-    HBRUSH hbrScrollbar;
+    DWORD clrDesktop;
     HBRUSH hbrDesktop;
+
+    DWORD clrWindow;
     HBRUSH hbrWindow;
+
+    DWORD clrScrollbar;
+    HBRUSH hbrScrollbar;
+
+    DWORD clrActiveCaptionText;
+    DWORD clrInactiveCaptionText;
+    DWORD clrWindowText;
+    DWORD clrButtonText;
 
     INT cxEdge;
     INT cyEdge;
@@ -140,16 +148,19 @@ static VOID
 OnCreate(HWND hwnd, PPREVIEW_DATA pPreviewData)
 {
     NONCLIENTMETRICS NonClientMetrics;
-    INT i;
 
-    for (i = 0; i < COLOR_MENUBAR + 1; i++)
-    {
-        pPreviewData->clrSysColor[i] = GetSysColor(i);
-    }
+    pPreviewData->clrScrollbar = GetSysColor(COLOR_SCROLLBAR);
+    pPreviewData->hbrScrollbar = CreateSolidBrush(pPreviewData->clrScrollbar);
 
-    pPreviewData->hbrScrollbar = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_SCROLLBAR]);
-    pPreviewData->hbrDesktop = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_DESKTOP]);
-    pPreviewData->hbrWindow = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_WINDOW]);
+    pPreviewData->clrDesktop = GetSysColor(COLOR_DESKTOP);
+    pPreviewData->hbrDesktop = CreateSolidBrush(pPreviewData->clrDesktop);
+    pPreviewData->clrWindow = GetSysColor(COLOR_WINDOW);
+    pPreviewData->hbrWindow = CreateSolidBrush(pPreviewData->clrWindow);
+
+    pPreviewData->clrActiveCaptionText = GetSysColor(COLOR_CAPTIONTEXT);
+    pPreviewData->clrInactiveCaptionText = GetSysColor(COLOR_INACTIVECAPTIONTEXT);
+    pPreviewData->clrWindowText = GetSysColor(COLOR_WINDOWTEXT);
+    pPreviewData->clrButtonText = GetSysColor(COLOR_BTNTEXT);
 
     pPreviewData->cxEdge = GetSystemMetrics(SM_CXEDGE) - 2;
     pPreviewData->cyEdge = GetSystemMetrics(SM_CXEDGE) - 2;
@@ -175,13 +186,14 @@ OnCreate(HWND hwnd, PPREVIEW_DATA pPreviewData)
 
     /* Load and modify the menu */
     pPreviewData->hMenu = LoadMenu(hApplet, MAKEINTRESOURCE(IDR_PREVIEW_MENU));
-    EnableMenuItem(pPreviewData->hMenu,
-                   1, MF_BYPOSITION | MF_GRAYED);
+    EnableMenuItem(pPreviewData->hMenu, ID_MENU_DISABLED,
+                   MF_BYCOMMAND | MF_DISABLED);
     HiliteMenuItem(hwnd, pPreviewData->hMenu,
-                   2, MF_BYPOSITION | MF_HILITE);
+                   ID_MENU_SELECTED, MF_BYCOMMAND | MF_HILITE);
 
 //    GetMenuItemRect(hwnd, pPreviewData->hMenu,
-//                    2, &pPreviewData->rcSelectedMenuItem);
+//                    ID_MENU_SELECTED, &pPreviewData->rcSelectedMenuItem);
+
 
     AllocAndLoadString(&pPreviewData->lpInAct, hApplet, IDS_INACTWIN);
     AllocAndLoadString(&pPreviewData->lpAct, hApplet, IDS_ACTWIN);
@@ -300,20 +312,6 @@ OnSize(INT cx, INT cy, PPREVIEW_DATA pPreviewData)
     CalculateItemSize(pPreviewData);
 }
 
-#ifdef _MSC_VER
-
-#if _UNICODE
-typedef BOOL (WINAPI * DCT_PROC)(HWND hwnd, HDC hdc, const RECT *rect, HFONT hFont, HICON hIcon, LPCWSTR str, UINT uFlags);
-#define DCT_ORD 178
-#else
-typedef BOOL (WINAPI * DCT_PROC)(HWND hwnd, HDC hdc, const RECT *rect, HFONT hFont, HICON hIcon, LPCSTR str, UINT uFlags);
-#define DCT_ORD 177
-#endif
-
-typedef DWORD (WINAPI * DMBT_PROC)(HWND hwnd, HDC hDC, LPRECT lprect, HMENU hMenu, HFONT hFont);
-#define DMBT_ORD 186
-
-#endif
 
 static VOID
 OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
@@ -323,19 +321,6 @@ OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
     HDC hdc;
     RECT rc;
 
-#ifdef _MSC_VER
-    DCT_PROC DrawCaptionTemp;
-    DMBT_PROC DrawMenuBarTemp;
-    HMODULE hUser32;
-
-    hUser32 = LoadLibrary(_T("user32.dll"));
-    if(hUser32 == NULL)
-        return FALSE;
-
-    DrawCaptionTemp = (DCT_PROC)GetProcAddress(hUser32, (LPCSTR)DCT_ORD);
-    DrawMenuBarTemp = (DMBT_PROC)GetProcAddress(hUser32, (LPCSTR)DMBT_ORD);
-#endif
-
     hdc = BeginPaint(hwnd, &ps);
 
     /* Desktop */
@@ -343,14 +328,14 @@ OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
 
     /* Inactive Window */
     DrawEdge(hdc, &pPreviewData->rcInactiveFrame, EDGE_RAISED, BF_RECT | BF_MIDDLE);
-    SetTextColor(hdc, pPreviewData->clrSysColor[COLOR_INACTIVECAPTIONTEXT]);
+    SetTextColor(hdc, pPreviewData->clrInactiveCaptionText);
     DrawCaptionTemp(NULL, hdc, &pPreviewData->rcInactiveCaption,  pPreviewData->hCaptionFont,
                     NULL, pPreviewData->lpInAct, DC_GRADIENT | DC_ICON | DC_TEXT);
     DrawCaptionButtons(hdc, &pPreviewData->rcInactiveCaption, TRUE, pPreviewData->cyCaption - 2);
 
     /* Active Window */
     DrawEdge(hdc, &pPreviewData->rcActiveFrame, EDGE_RAISED, BF_RECT | BF_MIDDLE);
-    SetTextColor(hdc, pPreviewData->clrSysColor[COLOR_CAPTIONTEXT]);
+    SetTextColor(hdc, pPreviewData->clrActiveCaptionText);
     DrawCaptionTemp(NULL, hdc, &pPreviewData->rcActiveCaption, pPreviewData->hCaptionFont,
                     NULL, pPreviewData->lpAct, DC_ACTIVE | DC_GRADIENT | DC_ICON | DC_TEXT);
     DrawCaptionButtons(hdc, &pPreviewData->rcActiveCaption, TRUE, pPreviewData->cyCaption - 2);
@@ -369,8 +354,8 @@ OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
     CopyRect(&rc, &pPreviewData->rcActiveClient);
     rc.left += 4;
     rc.top += 2;
-    SetTextColor(hdc, pPreviewData->clrSysColor[COLOR_WINDOWTEXT]);
-    hOldFont = SelectObject(hdc, pPreviewData->hCaptionFont);
+    SetTextColor(hdc, pPreviewData->clrWindowText);
+    hOldFont = SelectObject(hdc, pPreviewData->hMessageFont);
     DrawText(hdc, pPreviewData->lpWinTxt, lstrlen(pPreviewData->lpWinTxt), &rc, DT_LEFT);
     SelectObject(hdc, hOldFont);
 
@@ -379,7 +364,7 @@ OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
 
     /* Dialog Window */
     DrawEdge(hdc, &pPreviewData->rcDialogFrame, EDGE_RAISED, BF_RECT | BF_MIDDLE);
-    SetTextColor(hdc, pPreviewData->clrSysColor[COLOR_WINDOW]);
+    SetTextColor(hdc, pPreviewData->clrActiveCaptionText);
     DrawCaptionTemp(NULL, hdc, &pPreviewData->rcDialogCaption, pPreviewData->hCaptionFont,
                     NULL, pPreviewData->lpMessBox, DC_ACTIVE | DC_GRADIENT | DC_ICON | DC_TEXT);
     DrawCaptionButtons(hdc, &pPreviewData->rcDialogCaption, FALSE, pPreviewData->cyCaption - 2);
@@ -396,7 +381,7 @@ OnPaint(HWND hwnd, PPREVIEW_DATA pPreviewData)
     /* Draw Button */
     DrawFrameControl(hdc, &pPreviewData->rcDialogButton, DFC_BUTTON, DFCS_BUTTONPUSH);
     CopyRect(&rc, &pPreviewData->rcDialogButton);
-    SetTextColor(hdc, pPreviewData->clrSysColor[COLOR_BTNTEXT]);
+    SetTextColor(hdc, pPreviewData->clrButtonText);
     hOldFont = SelectObject(hdc, pPreviewData->hMessageFont);
     DrawText(hdc, pPreviewData->lpButText, lstrlen(pPreviewData->lpButText), &rc, DT_VCENTER | DT_CENTER | DT_SINGLELINE);
     SelectObject(hdc, hOldFont);
@@ -432,11 +417,11 @@ OnLButtonDown(HWND hwnd, int xPos, int yPos, PPREVIEW_DATA pPreviewData)
     if (PtInRect(&pPreviewData->rcActiveCaptionButtons, pt))
         type = IDX_CAPTION_BUTTON;
 
-//    if (PtInRect(&pPreviewData->rcSelectedMenuItem, pt))
-//        type = IDX_SELECTION;
-
     if (PtInRect(&pPreviewData->rcActiveMenuBar, pt))
         type = IDX_MENU;
+
+//    if (PtInRect(&pPreviewData->rcSelectedMenuItem, pt))
+//        type = IDX_SELECTION;
 
     if (PtInRect(&pPreviewData->rcActiveClient, pt))
         type = IDX_WINDOW;
@@ -594,28 +579,6 @@ PreviewWndProc(HWND hwnd,
             DeleteObject(pPreviewData->hMessageFont);
             pPreviewData->hMessageFont = CreateFontIndirect(&pPreviewData->lfMessageFont);
             CalculateItemSize(pPreviewData);
-            InvalidateRect(hwnd, NULL, FALSE);
-            break;
-
-        case PVM_SETCOLOR:
-            pPreviewData->clrSysColor[(INT)wParam] = (DWORD)lParam;
-            switch((INT)wParam)
-            {
-                case COLOR_SCROLLBAR:
-                    DeleteObject(pPreviewData->hbrScrollbar);
-                    pPreviewData->hbrScrollbar = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_SCROLLBAR]);
-                    break;
-
-                case COLOR_DESKTOP:
-                    DeleteObject(pPreviewData->hbrDesktop);
-                    pPreviewData->hbrDesktop = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_DESKTOP]);
-                    break;
-
-                case COLOR_WINDOW:
-                    DeleteObject(pPreviewData->hbrWindow);
-                    pPreviewData->hbrWindow = CreateSolidBrush(pPreviewData->clrSysColor[COLOR_WINDOW]);
-                    break;
-            }
             InvalidateRect(hwnd, NULL, FALSE);
             break;
 

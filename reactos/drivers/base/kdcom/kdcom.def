@@ -1,7 +1,6 @@
 LIBRARY kdcom.dll
 EXPORTS
 
-; Old KD
 KdPortGetByte@4
 KdPortGetByteEx@8
 KdPortInitialize@12
@@ -14,11 +13,3 @@ KdPortRestore@0
 KdPortSave@0
 KdPortDisableInterrupts@0
 KdPortEnableInterrupts@0
-
-; New KD
-KdDebuggerInitialize0@4
-KdDebuggerInitialize1@4
-KdSave@4
-KdRestore@4
-KdReceivePacket@20
-KdSendPacket@16

@@ -18,12 +18,12 @@ EXPORTS
 ;SamIFree_SAMPR_USER_INFO_BUFFER
 ;SamIGetPrivateData
 ;SamIGetSerialNumberDomain
-SamIInitialize
+SamIInitialize@0
 ;SamINotifyDelta
 ;SamISetAuditingInformation
 ;SamISetPrivateData
 ;SamISetSerialNumberDomain
-SampInitializeRegistry
+SampInitializeRegistry@0
 ;SampRtlConvertUlongToUnicodeString
 ;SamrAddMemberToAlias
 ;SamrAddMemberToGroup

@@ -71,7 +71,7 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
                                     "from userland (%x %x)\n",
                                     Buf, AddressLen));
             ExFreePool( NewBuf );
-            _SEH_YIELD(return NULL);
+            return NULL;
         } _SEH_END;
 
 	for( i = 0; i < Count; i++ ) {

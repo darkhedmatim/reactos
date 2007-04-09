@@ -6,9 +6,8 @@
  * build system. It contains definitions commonly refered to as Wineisms
  * and definitions that are missing in w32api.
  */
-#if !defined (_MSC_VER)
+
 #include_next <shlwapi.h>
-#endif
 
 #ifndef __WINE_SHLWAPI_H
 #define __WINE_SHLWAPI_H

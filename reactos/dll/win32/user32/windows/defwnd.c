@@ -984,34 +984,8 @@ static void DefWndPrint( HWND hwnd, HDC hdc, ULONG uFlags)
 VOID FASTCALL
 DefWndScreenshot(HWND hWnd)
 {
-    RECT rect;
-    
-    OpenClipboard(hWnd);
-    EmptyClipboard();
-    
-    HDC hdc = GetWindowDC(hWnd);
-    GetWindowRect(hWnd, &rect);
-    INT w = rect.right - rect.left;
-    INT h = rect.bottom - rect.top;
-    
-    HBITMAP hbitmap = CreateCompatibleBitmap(hdc, w, h);
-    HDC hdc2 = CreateCompatibleDC(hdc);
-    SelectObject(hdc2, hbitmap);
-    
-    BitBlt(hdc2, 0, 0, w, h,
-           hdc, 0, 0,
-           SRCCOPY);
-           
-    SetClipboardData(CF_BITMAP, hbitmap);
-    
-    ReleaseDC(hWnd, hdc);
-    ReleaseDC(hWnd, hdc2);
-    
-    CloseClipboard();
-    
+
 }
-
-
 
 LRESULT STDCALL
 User32DefWindowProc(HWND hWnd,
@@ -1373,12 +1347,7 @@ User32DefWindowProc(HWND hWnd,
                 }
                 else if (wParam == VK_SNAPSHOT)
                 {
-                    HWND hwnd = hWnd;
-                    while (GetParent(hwnd) != NULL)
-                    {
-                        hwnd = GetParent(hwnd);
-                    }
-                    DefWndScreenshot(hwnd);
+                    DefWndScreenshot(hWnd);
                 }
             }
             else if( wParam == VK_F10 )
@@ -1553,34 +1522,7 @@ User32DefWindowProc(HWND hWnd,
         {
             return (1);
         }
-        
-        case WM_INPUTLANGCHANGEREQUEST:
-        {
-            HKL NewHkl;
-            
-            if(wParam & INPUTLANGCHANGE_BACKWARD 
-               && wParam & INPUTLANGCHANGE_FORWARD)
-            {
-                return FALSE;
-            }
-          
-            //FIXME: What to do with INPUTLANGCHANGE_SYSCHARSET ?
-          
-            if(wParam & INPUTLANGCHANGE_BACKWARD) NewHkl = (HKL) HKL_PREV;
-            else if(wParam & INPUTLANGCHANGE_FORWARD) NewHkl = (HKL) HKL_NEXT;
-            else NewHkl = (HKL) lParam;
-          
-            NtUserActivateKeyboardLayout(NewHkl, 0);
-            
-            return TRUE;
-        }
-        
-        case WM_INPUTLANGCHANGE: 
-        {
-            //FIXME: What to do?
-            return TRUE;
-        }
-   
+
         case WM_ENDSESSION:
             if (wParam) PostQuitMessage(0);
             return 0;

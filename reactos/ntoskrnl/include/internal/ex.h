@@ -17,28 +17,9 @@ extern FAST_MUTEX ExpEnvironmentLock;
 extern ERESOURCE ExpFirmwareTableResource;
 extern LIST_ENTRY ExpFirmwareTableProviderListHead;
 extern BOOLEAN ExpIsWinPEMode;
-extern LIST_ENTRY ExpSystemResourcesList;
 ULONG ExpAnsiCodePageDataOffset, ExpOemCodePageDataOffset;
 ULONG ExpUnicodeCaseTableDataOffset;
 PVOID ExpNlsSectionPointer;
-extern CHAR NtBuildLab[];
-extern ULONG CmNtCSDVersion;
-extern ULONG NtGlobalFlag;
-extern ULONG ExpInitializationPhase;
-
-typedef struct _EXHANDLE
-{
-    union
-    {
-        struct
-        {
-            ULONG TagBits:2;
-            ULONG Index:30;
-        };
-        HANDLE GenericHandleOverlay;
-        ULONG_PTR Value;
-    };
-} EXHANDLE, *PEXHANDLE;
 
 typedef struct _ETIMER
 {
@@ -53,13 +34,14 @@ typedef struct _ETIMER
     LIST_ENTRY WakeTimerListEntry;
 } ETIMER, *PETIMER;
 
-typedef struct
-{
-    PCALLBACK_OBJECT *CallbackObject;
-    PWSTR Name;
-} SYSTEM_CALLBACKS;
-
 #define MAX_FAST_REFS           7
+
+#define EX_OBJ_TO_HDR(eob) ((POBJECT_HEADER)((ULONG_PTR)(eob) &                \
+  ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
+  EX_HANDLE_ENTRY_AUDITONCLOSE)))
+#define EX_HTE_TO_HDR(hte) ((POBJECT_HEADER)((ULONG_PTR)((hte)->Object) &   \
+  ~(EX_HANDLE_ENTRY_PROTECTFROMCLOSE | EX_HANDLE_ENTRY_INHERITABLE |           \
+  EX_HANDLE_ENTRY_AUDITONCLOSE)))
 
 /* Note: we only use a spinlock on SMP. On UP, we cli/sti intead */
 #ifndef CONFIG_SMP
@@ -79,27 +61,6 @@ typedef struct
 #define ExWaitForRundownProtectionRelease               _ExWaitForRundownProtectionRelease
 #define ExRundownCompleted                              _ExRundownCompleted
 #define ExGetPreviousMode                               KeGetPreviousMode
-
-
-//
-// Various bits tagged on the handle or handle table
-//
-#define EXHANDLE_TABLE_ENTRY_LOCK_BIT    1
-#define FREE_HANDLE_MASK                -1
-
-//
-// Number of entries in each table level
-//
-#define LOW_LEVEL_ENTRIES   (PAGE_SIZE / sizeof(HANDLE_TABLE_ENTRY))
-#define MID_LEVEL_ENTRIES   (PAGE_SIZE / sizeof(PHANDLE_TABLE_ENTRY))
-#define HIGH_LEVEL_ENTRIES  (16777216 / (LOW_LEVEL_ENTRIES * MID_LEVEL_ENTRIES))
-
-//
-// Maximum index in each table level before we need another table
-//
-#define MAX_LOW_INDEX       LOW_LEVEL_ENTRIES
-#define MAX_MID_INDEX       (MID_LEVEL_ENTRIES * LOW_LEVEL_ENTRIES)
-#define MAX_HIGH_INDEX      (MID_LEVEL_ENTRIES * MID_LEVEL_ENTRIES * LOW_LEVEL_ENTRIES)
 
 //
 // Detect GCC 4.1.2+
@@ -143,7 +104,7 @@ ExInit2(VOID);
 
 VOID
 NTAPI
-Phase1Initialization(
+ExPhase2Init(
     IN PVOID Context
 );
 
@@ -176,7 +137,7 @@ ExInitializeSystemLookasideList(
     IN PLIST_ENTRY ListHead
 );
 
-BOOLEAN
+VOID
 NTAPI
 ExpInitializeCallbacks(VOID);
 
@@ -232,59 +193,7 @@ ExInitPoolLookasidePointers(VOID);
 VOID
 NTAPI
 ExInitializeCallBack(
-    IN OUT PEX_CALLBACK Callback
-);
-
-PEX_CALLBACK_ROUTINE_BLOCK
-NTAPI
-ExAllocateCallBack(
-    IN PEX_CALLBACK_FUNCTION Function,
-    IN PVOID Context
-);
-
-VOID
-NTAPI
-ExFreeCallBack(
-    IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock
-);
-
-BOOLEAN
-NTAPI
-ExCompareExchangeCallBack (
-    IN OUT PEX_CALLBACK CallBack,
-    IN PEX_CALLBACK_ROUTINE_BLOCK NewBlock,
-    IN PEX_CALLBACK_ROUTINE_BLOCK OldBlock
-);
-
-PEX_CALLBACK_ROUTINE_BLOCK
-NTAPI
-ExReferenceCallBackBlock(
-    IN OUT PEX_CALLBACK CallBack
-);
-
-VOID
-NTAPI
-ExDereferenceCallBackBlock(
-    IN OUT PEX_CALLBACK CallBack,
-    IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock
-);
-
-PEX_CALLBACK_FUNCTION
-NTAPI
-ExGetCallBackBlockRoutine(
-    IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock
-);
-
-PVOID
-NTAPI
-ExGetCallBackBlockContext(
-    IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock
-);
-
-VOID
-NTAPI
-ExWaitForCallBacks(
-    IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock
+    IN PEX_CALLBACK Callback
 );
 
 /* Rundown Functions ********************************************************/
@@ -341,98 +250,104 @@ ExfWaitForRundownProtectionRelease(
 
 /* HANDLE TABLE FUNCTIONS ***************************************************/
 
-typedef BOOLEAN
-(NTAPI *PEX_SWEEP_HANDLE_CALLBACK)(
+#define EX_HANDLE_ENTRY_LOCKED (1 << ((sizeof(PVOID) * 8) - 1))
+#define EX_HANDLE_ENTRY_PROTECTFROMCLOSE (1 << 0)
+#define EX_HANDLE_ENTRY_INHERITABLE (1 << 1)
+#define EX_HANDLE_ENTRY_AUDITONCLOSE (1 << 2)
+
+#define EX_HANDLE_TABLE_CLOSING 0x1
+
+#define EX_HANDLE_ENTRY_FLAGSMASK (EX_HANDLE_ENTRY_LOCKED |                    \
+                                   EX_HANDLE_ENTRY_PROTECTFROMCLOSE |          \
+                                   EX_HANDLE_ENTRY_INHERITABLE |               \
+                                   EX_HANDLE_ENTRY_AUDITONCLOSE)
+
+typedef VOID (NTAPI PEX_SWEEP_HANDLE_CALLBACK)(
     PHANDLE_TABLE_ENTRY HandleTableEntry,
-    HANDLE Handle,
+    HANDLE Handle,  
     PVOID Context
 );
 
-typedef BOOLEAN
-(NTAPI *PEX_DUPLICATE_HANDLE_CALLBACK)(
-    IN PEPROCESS Process,
-    IN PHANDLE_TABLE HandleTable,
-    IN PHANDLE_TABLE_ENTRY HandleTableEntry,
-    IN PHANDLE_TABLE_ENTRY NewEntry
+typedef BOOLEAN (NTAPI PEX_DUPLICATE_HANDLE_CALLBACK)(
+    PHANDLE_TABLE HandleTable, 
+    PHANDLE_TABLE_ENTRY HandleTableEntry, 
+    PVOID Context
 );
 
-typedef BOOLEAN
-(NTAPI *PEX_CHANGE_HANDLE_CALLBACK)(
-    PHANDLE_TABLE_ENTRY HandleTableEntry,
-    ULONG_PTR Context
+typedef BOOLEAN (NTAPI PEX_CHANGE_HANDLE_CALLBACK)(
+    PHANDLE_TABLE HandleTable, 
+    PHANDLE_TABLE_ENTRY HandleTableEntry, 
+    PVOID Context
 );
 
 VOID
-NTAPI
-ExpInitializeHandleTables(
-    VOID
+ExpInitializeHandleTables(VOID);
+
+PHANDLE_TABLE
+ExCreateHandleTable(IN PEPROCESS QuotaProcess  OPTIONAL);
+
+VOID
+ExDestroyHandleTable(
+    IN PHANDLE_TABLE HandleTable
+);
+
+VOID
+ExSweepHandleTable(
+    IN PHANDLE_TABLE HandleTable,
+    IN PEX_SWEEP_HANDLE_CALLBACK SweepHandleCallback  OPTIONAL,
+    IN PVOID Context  OPTIONAL
 );
 
 PHANDLE_TABLE
-NTAPI
-ExCreateHandleTable(
-    IN PEPROCESS Process OPTIONAL
-);
-
-VOID
-NTAPI
-ExUnlockHandleTableEntry(
-    IN PHANDLE_TABLE HandleTable,
-    IN PHANDLE_TABLE_ENTRY HandleTableEntry
-);
-
-HANDLE
-NTAPI
-ExCreateHandle(
-    IN PHANDLE_TABLE HandleTable,
-    IN PHANDLE_TABLE_ENTRY HandleTableEntry
-);
-
-VOID
-NTAPI
-ExDestroyHandleTable(
-    IN PHANDLE_TABLE HandleTable,
-    IN PVOID DestroyHandleProcedure OPTIONAL
+ExDupHandleTable(
+    IN PEPROCESS QuotaProcess  OPTIONAL,
+    IN PEX_DUPLICATE_HANDLE_CALLBACK DuplicateHandleCallback  OPTIONAL,
+    IN PVOID Context  OPTIONAL,
+    IN PHANDLE_TABLE SourceHandleTable
 );
 
 BOOLEAN
-NTAPI
+ExLockHandleTableEntry(
+    IN PHANDLE_TABLE HandleTable,
+    IN PHANDLE_TABLE_ENTRY Entry
+);
+
+VOID
+ExUnlockHandleTableEntry(
+    IN PHANDLE_TABLE HandleTable,
+    IN PHANDLE_TABLE_ENTRY Entry
+);
+
+HANDLE
+ExCreateHandle(
+    IN PHANDLE_TABLE HandleTable,
+    IN PHANDLE_TABLE_ENTRY Entry
+);
+
+BOOLEAN
 ExDestroyHandle(
     IN PHANDLE_TABLE HandleTable,
-    IN HANDLE Handle,
-    IN PHANDLE_TABLE_ENTRY HandleTableEntry OPTIONAL
+    IN HANDLE Handle
+);
+
+VOID
+ExDestroyHandleByEntry(
+    IN PHANDLE_TABLE HandleTable,
+    IN PHANDLE_TABLE_ENTRY Entry,
+    IN HANDLE Handle
 );
 
 PHANDLE_TABLE_ENTRY
-NTAPI
 ExMapHandleToPointer(
     IN PHANDLE_TABLE HandleTable,
     IN HANDLE Handle
 );
 
-PHANDLE_TABLE
-NTAPI
-ExDupHandleTable(
-    IN PEPROCESS Process,
-    IN PHANDLE_TABLE HandleTable,
-    IN PEX_DUPLICATE_HANDLE_CALLBACK DupHandleProcedure,
-    IN ULONG_PTR Mask
-);
-
 BOOLEAN
-NTAPI
 ExChangeHandle(
     IN PHANDLE_TABLE HandleTable,
     IN HANDLE Handle,
-    IN PEX_CHANGE_HANDLE_CALLBACK ChangeRoutine,
-    IN ULONG_PTR Context
-);
-
-VOID
-NTAPI
-ExSweepHandleTable(
-    IN PHANDLE_TABLE HandleTable,
-    IN PEX_SWEEP_HANDLE_CALLBACK EnumHandleProcedure,
+    IN PEX_CHANGE_HANDLE_CALLBACK ChangeHandleCallback,
     IN PVOID Context
 );
 
@@ -445,33 +360,6 @@ ExSystemExceptionFilter(VOID);
 static __inline _SEH_FILTER(_SEH_ExSystemExceptionFilter)
 {
     return ExSystemExceptionFilter();
-}
-
-/* CALLBACKS *****************************************************************/
-
-VOID
-FORCEINLINE
-ExDoCallBack(IN OUT PEX_CALLBACK Callback,
-             IN PVOID Context,
-             IN PVOID Argument1,
-             IN PVOID Argument2)
-{
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
-    PEX_CALLBACK_FUNCTION Function;
-
-    /* Reference the block */
-    CallbackRoutineBlock = ExReferenceCallBackBlock(Callback);
-    if (CallbackRoutineBlock)
-    {
-        /* Get the function */
-        Function = ExGetCallBackBlockRoutine(CallbackRoutineBlock);
-
-        /* Do the callback */
-        Function(Context, Argument1, Argument2);
-
-        /* Now dereference it */
-        ExDereferenceCallBackBlock(Callback, CallbackRoutineBlock);
-    }
 }
 
 /* RUNDOWN *******************************************************************/
@@ -657,24 +545,18 @@ _ExRundownCompleted(IN PEX_RUNDOWN_REF RunRef)
 
 VOID
 FASTCALL
-ExBlockPushLock(
-    IN PEX_PUSH_LOCK PushLock,
-    IN PVOID WaitBlock
-);
+ExBlockPushLock(PEX_PUSH_LOCK PushLock,
+                PVOID WaitBlock);
 
 VOID
 FASTCALL
-ExfUnblockPushLock(
-    IN PEX_PUSH_LOCK PushLock,
-    IN PVOID CurrentWaitBlock
-);
+ExfUnblockPushLock(PEX_PUSH_LOCK PushLock,
+                   PVOID CurrentWaitBlock);
 
 VOID
 FASTCALL
-ExWaitForUnblockPushLock(
-    IN PEX_PUSH_LOCK PushLock,
-    IN PVOID WaitBlock
-);
+ExWaitForUnblockPushLock(IN PEX_PUSH_LOCK PushLock,
+                         IN PEX_PUSH_LOCK_WAIT_BLOCK WaitBlock);
 
 /*++
  * @name ExInitializePushLock
@@ -830,7 +712,7 @@ ExConvertPushLockSharedToExclusive(IN PEX_PUSH_LOCK PushLock)
 VOID
 FORCEINLINE
 ExWaitOnPushLock(PEX_PUSH_LOCK PushLock)
-{  
+{
     /* Check if we're locked */
     if (PushLock->Locked)
     {
@@ -915,7 +797,7 @@ ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
 
     /* Unlock the pushlock */
     OldValue.Value = InterlockedExchangeAddSizeT((PLONG)PushLock,
-                                                 -(LONG)EX_PUSH_LOCK_LOCK);
+                                                 -EX_PUSH_LOCK_LOCK);
 
     /* Sanity checks */
     ASSERT(OldValue.Locked);
@@ -993,19 +875,6 @@ ExfpInterlockedExchange64(
 
 NTSTATUS
 ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation);
-
-BOOLEAN
-NTAPI
-ExAcquireTimeRefreshLock(BOOLEAN Wait);
-
-VOID
-NTAPI
-ExReleaseTimeRefreshLock(VOID);
-
-VOID
-NTAPI
-ExUpdateSystemTimeFromCmos(IN BOOLEAN UpdateInterruptTime,
-                           IN ULONG MaxSepInSeconds);
 
 NTSTATUS
 NTAPI

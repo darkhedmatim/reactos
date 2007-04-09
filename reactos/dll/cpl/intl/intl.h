@@ -36,7 +36,7 @@ GeneralPageProc(HWND hwndDlg,
 
 /* locale.c */
 INT_PTR CALLBACK
-InpLocalePageProc(HWND hwndDlg,
+LocalePageProc(HWND hwndDlg,
 	       UINT uMsg,
 	       WPARAM wParam,
 	       LPARAM lParam);

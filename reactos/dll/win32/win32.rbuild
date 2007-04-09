@@ -19,9 +19,6 @@
 <directory name="avifil32">
 	<xi:include href="avifil32/avifil32.rbuild" />
 </directory>
-<directory name="beepmidi">
-	<xi:include href="beepmidi/beepmidi.rbuild" />
-</directory>
 <directory name="cabinet">
 	<xi:include href="cabinet/cabinet.rbuild" />
 </directory>
@@ -139,9 +136,6 @@
 <directory name="netcfgx">
 	<xi:include href="netcfgx/netcfgx.rbuild" />
 </directory>
-<directory name="netid">
-	<xi:include href="netid/netid.rbuild" />
-</directory>
 <directory name="newdev">
 	<xi:include href="newdev/newdev.rbuild" />
 </directory>
@@ -150,9 +144,6 @@
 </directory>
 <directory name="objsel">
 	<xi:include href="objsel/objsel.rbuild" />
-</directory>
-<directory name="odbccp32">
-	<xi:include href="odbccp32/odbccp32.rbuild" />
 </directory>
 <directory name="ole32">
 	<xi:include href="ole32/ole32.rbuild" />
@@ -249,9 +240,6 @@
 </directory>
 <directory name="userenv">
 	<xi:include href="userenv/userenv.rbuild" />
-</directory>
-<directory name="usp10">
-	<xi:include href="usp10/usp10.rbuild" />
 </directory>
 <directory name="uxtheme">
 	<xi:include href="uxtheme/uxtheme.rbuild" />

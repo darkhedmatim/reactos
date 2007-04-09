@@ -122,12 +122,7 @@ NtUserEnableMenuItem(
   HMENU hMenu,
   UINT uIDEnableItem,
   UINT uEnable);
-
-UINT
-NTAPI
-NtUserEnumClipboardFormats(
-  UINT format);
-
+  
 DWORD
 NTAPI
 NtUserInsertMenuItem(
@@ -304,11 +299,11 @@ NTAPI
 NtUserAcquireOrReleaseInputOwnership(
   BOOLEAN Release);
 
-HKL
+DWORD
 NTAPI
 NtUserActivateKeyboardLayout(
-  HKL hKl,
-  ULONG Flags);
+  DWORD Unknown0,
+  DWORD Unknown1);
 
 DWORD
 NTAPI
@@ -1013,11 +1008,11 @@ NTAPI
 NtUserGetKeyboardLayout(
   DWORD dwThreadid);
 
-UINT
+DWORD
 NTAPI
 NtUserGetKeyboardLayoutList(
-  INT nItems,
-  HKL *pHklBuff);
+  DWORD Unknown0,
+  DWORD Unknown1);
 
 BOOL
 NTAPI
@@ -1042,11 +1037,6 @@ DWORD
 NTAPI
 NtUserGetKeyState(
   DWORD Unknown0);
-
-BOOL
-NTAPI
-NtUserGetLastInputInfo(
-    PLASTINPUTINFO plii);
 
 DWORD
 NTAPI
@@ -1227,14 +1217,14 @@ NtUserKillTimer
 );
 
 HKL
-STDCALL
-NtUserLoadKeyboardLayoutEx( 
-   IN DWORD dwKLID,
-   IN UINT Flags,
-   IN DWORD Unused1,
-   IN DWORD Unused2,
-   IN DWORD Unused3,
-   IN DWORD Unused4);
+NTAPI
+NtUserLoadKeyboardLayoutEx(
+  HANDLE Handle,
+  DWORD offTable,
+  HKL hKL,
+  PUNICODE_STRING puszKLID,
+  UINT KLayoutLangID,
+  UINT Flags);
 
 BOOL
 NTAPI
@@ -1449,11 +1439,6 @@ NtUserRegisterClassEx(
    WNDPROC wpExtra,
    DWORD Flags,
    HMENU hMenu);
-   
-UINT
-NTAPI
-NtUserRegisterClipboardFormat(
-    PUNICODE_STRING format);
 
 BOOL
 NTAPI
@@ -1923,10 +1908,10 @@ NTAPI
 NtUserUnhookWinEvent(
   DWORD Unknown0);
 
-BOOL
+DWORD
 NTAPI
 NtUserUnloadKeyboardLayout(
-  HKL hKl);
+  DWORD Unknown0);
 
 BOOL
 NTAPI

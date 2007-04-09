@@ -409,7 +409,7 @@ inline std::string get_utf8(const XS_String& s)
 
 #endif // XS_STRING_UTF8
 
-extern std::string EncodeXMLString(const XS_String& str, bool cdata=false);
+extern std::string EncodeXMLString(const XS_String& str);
 extern XS_String DecodeXMLString(const XS_String& str);
 
 
@@ -714,7 +714,7 @@ struct XMLNode : public XS_String
 			return super::find(x);
 		}
 
-		XS_String get(const char* x, LPCXSSTR def=XS_EMPTY_STR) const
+		XS_String get(const char* x, LPXSSTR def=XS_EMPTY_STR) const
 		{
 			const_iterator found = find(x);
 
@@ -728,7 +728,7 @@ struct XMLNode : public XS_String
 	 /// map of XML node attributes
 	struct AttributeMap : public std::map<XS_String, XS_String>
 	{
-		XS_String get(const char* x, LPCXSSTR def=XS_EMPTY_STR) const
+		XS_String get(const char* x, LPXSSTR def=XS_EMPTY_STR) const
 		{
 			const_iterator found = find(x);
 
@@ -848,7 +848,7 @@ struct XMLNode : public XS_String
 	}
 
 	 /// read only access to an attribute
-	template<typename T> XS_String get(const T& attr_name, LPCXSSTR def=XS_EMPTY_STR) const
+	template<typename T> XS_String get(const T& attr_name, LPXSSTR def=XS_EMPTY_STR) const
 	{
 		AttributeMap::const_iterator found = _attributes.find(attr_name);
 
@@ -940,9 +940,9 @@ struct XMLNode : public XS_String
 		return DecodeXMLString(ret.c_str());
 	}
 
-	void set_content(const XS_String& s, bool cdata=false)
+	void set_content(const XS_String& s)
 	{
-		_content.assign(EncodeXMLString(s.c_str(), cdata));
+		_content.assign(EncodeXMLString(s.c_str()));
 	}
 
 #ifdef XMLNODE_LOCATION
@@ -2391,10 +2391,10 @@ struct XMLWriter
 		return _stack.top()._attributes[attr_name];
 	}
 
-	void set_content(const XS_String& s, bool cdata=false)
+	void set_content(const XS_String& s)
 	{
 		if (!_stack.empty())
-			_stack.top()._content = EncodeXMLString(s.c_str(), cdata);
+			_stack.top()._content = EncodeXMLString(s.c_str());
 	}
 
 	 // public for access in StackEntry

@@ -69,11 +69,6 @@
 #        Examples of output files include *.exe, *.dll, and *.sys. N.B. Don't
 #        put a path separator at the end. The variable defaults to .\output-i386.
 #
-#    ROS_CDOUTPUT
-#        This variable controls the name of the ReactOS directory on cdrom.
-#        The variable defaults to reactos.
-#        Warning: setting this value may lead to a not bootable/installable cdrom.
-#
 #    ROS_TEMPORARY
 #        This variable controls where to put temporary files. Temporary files
 #        are (usually small) generated files that are needed to generate the
@@ -279,78 +274,60 @@ endif
 	cp = $(Q)cp
 	NUL = /dev/null
 else # mingw32-windows
-	ifeq ($(OSTYPE),msys)
-		HOST=mingw32-linux
-		export EXEPREFIX = ./
-		export EXEPOSTFIX = .exe
-		export SEP = /
-		mkdir = -$(Q)mkdir -p
-		rm = $(Q)rm -f
-		cp = $(Q)cp
-		NUL = /dev/null
-	else
-		export EXEPREFIX =
-		export EXEPOSTFIX = .exe
-		ROS_EMPTY =
-		export SEP = \$(ROS_EMPTY)
-		mkdir = -$(Q)mkdir
-		rm = $(Q)del /f /q
-		cp = $(Q)copy /y
-		NUL = NUL
-	endif
-	ifeq ($(ROS_PREFIX),)
-		gcc = $(Q)gcc
-		gpp = $(Q)g++
-		ld = $(Q)ld
-		nm = $(Q)nm
-		objdump = $(Q)objdump
-		ar = $(Q)ar
-		objcopy = $(Q)objcopy
-		dlltool = $(Q)dlltool
-		strip = $(Q)strip
-		windres = $(Q)windres
-	else
-		gcc = $(Q)$(ROS_PREFIX)-gcc
-		gpp = $(Q)$(ROS_PREFIX)-g++
-		ld = $(Q)$(ROS_PREFIX)-ld
-		nm = $(Q)$(ROS_PREFIX)-nm
-		objdump = $(Q)$(ROS_PREFIX)-objdump
-		ar = $(Q)$(ROS_PREFIX)-ar
-		objcopy = $(Q)$(ROS_PREFIX)-objcopy
-		dlltool = $(Q)$(ROS_PREFIX)-dlltool
-		strip = $(Q)$(ROS_PREFIX)-strip
-		windres = $(Q)$(ROS_PREFIX)-windres
-	endif
+  ifeq ($(OSTYPE),msys)
+	HOST=mingw32-linux
+	export EXEPREFIX = ./
+	export EXEPOSTFIX = .exe
+	export SEP = /
+	mkdir = -$(Q)mkdir -p
+	gcc = $(Q)gcc
+	gpp = $(Q)g++
+	ld = $(Q)ld
+	nm = $(Q)nm
+	objdump = $(Q)objdump
+	ar = $(Q)ar
+	objcopy = $(Q)objcopy
+	dlltool = $(Q)dlltool
+	strip = $(Q)strip
+	windres = $(Q)windres
+	rm = $(Q)rm -f
+	cp = $(Q)cp
+	NUL = /dev/null
+  else
+	export EXEPREFIX =
+	export EXEPOSTFIX = .exe
+	ROS_EMPTY =
+	export SEP = \$(ROS_EMPTY)
+	mkdir = -$(Q)mkdir
+	gcc = $(Q)gcc
+	gpp = $(Q)g++
+	ld = $(Q)ld
+	nm = $(Q)nm
+	objdump = $(Q)objdump
+	ar = $(Q)ar
+	objcopy = $(Q)objcopy
+	dlltool = $(Q)dlltool
+	strip = $(Q)strip
+	windres = $(Q)windres
+	rm = $(Q)del /f /q
+	cp = $(Q)copy /y
+	NUL = NUL
+  endif
 endif
 
 ifneq ($(ROS_INTERMEDIATE),)
   INTERMEDIATE := $(ROS_INTERMEDIATE)
 else
-  ifneq ($(ROS_CDOUTPUT),)
-    INTERMEDIATE := obj-$(ROS_CDOUTPUT)
-  else
-    INTERMEDIATE := obj-i386
-  endif
+  INTERMEDIATE := obj-i386
 endif
 INTERMEDIATE_ := $(INTERMEDIATE)$(SEP)
 
 ifneq ($(ROS_OUTPUT),)
   OUTPUT := $(ROS_OUTPUT)
 else
-  ifneq ($(ROS_CDOUTPUT),)
-    OUTPUT := output-$(ROS_CDOUTPUT)
-  else
-    OUTPUT := output-i386
-  endif
+  OUTPUT := output-i386
 endif
 OUTPUT_ := $(OUTPUT)$(SEP)
-
-ifneq ($(ROS_CDOUTPUT),)
-  CDOUTPUT := $(ROS_CDOUTPUT)
-else
-  CDOUTPUT := reactos
-endif
-CDOUTPUT_ := $(CDOUTPUT)$(SEP)
 
 ifneq ($(ROS_TEMPORARY),)
   TEMPORARY := $(ROS_TEMPORARY)
@@ -362,11 +339,7 @@ TEMPORARY_ := $(TEMPORARY)$(SEP)
 ifneq ($(ROS_INSTALL),)
   INSTALL := $(ROS_INSTALL)
 else
-  ifneq ($(ROS_CDOUTPUT),)
-    INSTALL := reactos.$(ROS_CDOUTPUT)
-  else
-    INSTALL := reactos
-  endif
+  INSTALL := reactos
 endif
 INSTALL_ := $(INSTALL)$(SEP)
 
@@ -391,7 +364,6 @@ include lib/lib.mak
 include tools/tools.mak
 include boot/freeldr/bootsect/bootsect.mak
 -include $(ROS_AUTOMAKE)
-include tools/nci/nci.mak
 
 PREAUTO := \
 	$(BIN2C_TARGET) \
@@ -401,6 +373,7 @@ PREAUTO := \
 	$(BUGCODES_RC) \
 	$(ERRCODES_H) \
 	$(ERRCODES_RC) \
+	$(NCI_SERVICE_FILES) \
 	$(GENDIB_DIB_FILES)
 
 $(ROS_AUTOMAKE): $(RBUILD_TARGET) $(PREAUTO) $(XMLBUILDFILES)

@@ -21,24 +21,6 @@
  */
 
 #include <k32.h>
-#undef SERIAL_LSRMST_ESCAPE
-#undef SERIAL_LSRMST_LSR_DATA
-#undef SERIAL_LSRMST_LSR_NODATA
-#undef SERIAL_LSRMST_MST
-#undef SERIAL_IOC_FCR_FIFO_ENABLE
-#undef SERIAL_IOC_FCR_RCVR_RESET
-#undef SERIAL_IOC_FCR_XMIT_RESET
-#undef SERIAL_IOC_FCR_DMA_MODE
-#undef SERIAL_IOC_FCR_RES1
-#undef SERIAL_IOC_FCR_RES2
-#undef SERIAL_IOC_FCR_RCVR_TRIGGER_LSB
-#undef SERIAL_IOC_FCR_RCVR_TRIGGER_MSB
-#undef SERIAL_IOC_MCR_DTR
-#undef SERIAL_IOC_MCR_RTS
-#undef SERIAL_IOC_MCR_OUT1
-#undef SERIAL_IOC_MCR_OUT2
-#undef SERIAL_IOC_MCR_LOOP
-#include <ntddser.h>
 
 #define NDEBUG
 #include "../include/debug.h"
@@ -349,7 +331,7 @@ COMMDCB_PARAM_HANDLER(data)
         return FALSE;
 
     /* success */
-    Dcb->ByteSize = (BYTE)nValue;
+    Dcb->ByteSize = nValue;
     return TRUE;
 }
 
@@ -460,7 +442,7 @@ COMMDCB_PARAM_HANDLER(parity)
         return FALSE;
 
     /* success */
-    Dcb->Parity = (BYTE)nValue;
+    Dcb->Parity = nValue;
     return TRUE;
 }
 
@@ -521,7 +503,7 @@ COMMDCB_PARAM_HANDLER(stop)
     *StopBitsSet = TRUE;
 
     /* success */
-    Dcb->StopBits = (BYTE)nValue;
+    Dcb->StopBits = nValue;
     return TRUE;
 }
 
@@ -1130,8 +1112,8 @@ GetCommState(HANDLE hFile, LPDCB lpDCB)
     if (HandFlow.FlowReplace & SERIAL_XOFF_CONTINUE) {
     	lpDCB->fTXContinueOnXoff = 1;
 	}
-    lpDCB->XonLim = (WORD)HandFlow.XonLimit;
-    lpDCB->XoffLim = (WORD)HandFlow.XoffLimit;
+    lpDCB->XonLim = HandFlow.XonLimit;
+    lpDCB->XoffLim = HandFlow.XoffLimit;
 
 	result = DeviceIoControl(hFile, IOCTL_SERIAL_GET_CHARS,
 			NULL, 0, &SpecialChars, sizeof(SpecialChars), &dwBytesReturned, NULL);

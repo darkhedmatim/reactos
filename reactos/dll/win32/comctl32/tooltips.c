@@ -1383,10 +1383,12 @@ TOOLTIPS_GetCurrentToolA (HWND hwnd, WPARAM wParam, LPARAM lParam)
     LPTTTOOLINFOA lpToolInfo = (LPTTTOOLINFOA)lParam;
     TTTOOL_INFO *toolPtr;
 
-    if (lpToolInfo) {
-        if (lpToolInfo->cbSize < TTTOOLINFOA_V1_SIZE)
-            return FALSE;
+    if (lpToolInfo == NULL)
+	return FALSE;
+    if (lpToolInfo->cbSize < TTTOOLINFOA_V1_SIZE)
+	return FALSE;
 
+    if (lpToolInfo) {
 	if (infoPtr->nCurrentTool > -1) {
 	    toolPtr = &infoPtr->tools[infoPtr->nCurrentTool];
 
@@ -1417,10 +1419,12 @@ TOOLTIPS_GetCurrentToolW (HWND hwnd, WPARAM wParam, LPARAM lParam)
     LPTTTOOLINFOW lpToolInfo = (LPTTTOOLINFOW)lParam;
     TTTOOL_INFO *toolPtr;
 
-    if (lpToolInfo) {
-        if (lpToolInfo->cbSize < TTTOOLINFOW_V1_SIZE)
-            return FALSE;
+    if (lpToolInfo == NULL)
+	return FALSE;
+    if (lpToolInfo->cbSize < TTTOOLINFOW_V1_SIZE)
+	return FALSE;
 
+    if (lpToolInfo) {
 	if (infoPtr->nCurrentTool > -1) {
 	    toolPtr = &infoPtr->tools[infoPtr->nCurrentTool];
 

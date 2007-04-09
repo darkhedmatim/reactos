@@ -7,3 +7,6 @@
 <directory name="pci">
 	<xi:include href="pci/pci.rbuild" />
 </directory>
+<directory name="serenum">
+	<xi:include href="serenum/serenum.rbuild" />
+</directory>

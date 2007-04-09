@@ -19,18 +19,20 @@ Author:
 #ifndef _OBTYPES_H
 #define _OBTYPES_H
 
-#undef NTDDI_VERSION
-#define NTDDI_VERSION NTDDI_WS03SP1
-
 //
 // Dependencies
 //
 #include <umtypes.h>
-#ifndef NTOS_MODE_USER
-#include <extypes.h>
+
+//
+// If the IFS wasn't included, define this here
+//
+#ifndef EX_PUSH_LOCK
+#define EX_PUSH_LOCK    ULONG_PTR
 #endif
 
 #ifdef NTOS_MODE_USER
+
 //
 // Definitions for Object Creation
 //
@@ -84,7 +86,6 @@ Author:
 #define OB_FLAG_PERMANENT                       0x10
 #define OB_FLAG_SECURITY                        0x20
 #define OB_FLAG_SINGLE_PROCESS                  0x40
-#define OB_FLAG_DEFER_DELETE                    0x80
 
 #define OBJECT_TO_OBJECT_HEADER(o)                          \
     CONTAINING_RECORD((o), OBJECT_HEADER, Body)
@@ -105,11 +106,6 @@ Author:
     ((POBJECT_HEADER_CREATOR_INFO)(!((h)->Flags &           \
         OB_FLAG_CREATOR_INFO) ? NULL: ((PCHAR)(h) -         \
         sizeof(OBJECT_HEADER_CREATOR_INFO))))
-
-#define OBJECT_HEADER_TO_EXCLUSIVE_PROCESS(h)               \
-    ((!((h)->Flags & OB_FLAG_EXCLUSIVE)) ?                  \
-        NULL: (((POBJECT_HEADER_QUOTA_INFO)((PCHAR)(h) -    \
-        (h)->QuotaInfoOffset))->ExclusiveProcess))
 
 //
 // Reasons for Open Callback
@@ -269,34 +265,6 @@ typedef struct _OBJECT_DIRECTORY_INFORMATION
     UNICODE_STRING TypeName;
 } OBJECT_DIRECTORY_INFORMATION, *POBJECT_DIRECTORY_INFORMATION;
 
-//
-// Object Type Information
-//
-typedef struct _OBJECT_TYPE_INFORMATION
-{
-    UNICODE_STRING TypeName;
-    ULONG TotalNumberOfObjects;
-    ULONG TotalNumberOfHandles;
-    ULONG TotalPagedPoolUsage;
-    ULONG TotalNonPagedPoolUsage;
-    ULONG TotalNamePoolUsage;
-    ULONG TotalHandleTableUsage;
-    ULONG HighWaterNumberOfObjects;
-    ULONG HighWaterNumberOfHandles;
-    ULONG HighWaterPagedPoolUsage;
-    ULONG HighWaterNonPagedPoolUsage;
-    ULONG HighWaterNamePoolUsage;
-    ULONG HighWaterHandleTableUsage;
-    ULONG InvalidAttributes;
-    GENERIC_MAPPING GenericMapping;
-    ULONG ValidAccessMask;
-    BOOLEAN SecurityRequired;
-    BOOLEAN MaintainHandleCount;
-    ULONG PoolType;
-    ULONG DefaultPagedPoolCharge;
-    ULONG DefaultNonPagedPoolCharge;
-} OBJECT_TYPE_INFORMATION, *POBJECT_TYPE_INFORMATION;
-
 #ifndef NTOS_MODE_USER
 
 typedef struct _OBJECT_BASIC_INFORMATION
@@ -334,14 +302,14 @@ typedef struct _OBJECT_CREATE_INFORMATION
 typedef struct _OBJECT_TYPE_INITIALIZER
 {
     USHORT Length;
-    BOOLEAN UseDefaultObject;
-    BOOLEAN CaseInsensitive;
+    UCHAR UseDefaultObject;
+    UCHAR CaseInsensitive;
     ULONG InvalidAttributes;
     GENERIC_MAPPING GenericMapping;
     ULONG ValidAccessMask;
-    BOOLEAN SecurityRequired;
-    BOOLEAN MaintainHandleCount;
-    BOOLEAN MaintainTypeList;
+    UCHAR SecurityRequired;
+    UCHAR MaintainHandleCount;
+    UCHAR MaintainTypeList;
     POOL_TYPE PoolType;
     ULONG DefaultPagedPoolCharge;
     ULONG DefaultNonPagedPoolCharge;
@@ -391,8 +359,8 @@ typedef struct _OBJECT_DIRECTORY
     struct _OBJECT_DIRECTORY_ENTRY *HashBuckets[NUMBER_HASH_BUCKETS];
 #if (NTDDI_VERSION < NTDDI_WINXP)
     ERESOURCE Lock;
-#else
-    EX_PUSH_LOCK Lock;
+#elif (NTDDI_VERSION >= NTDDI_WINXP)
+    ERESOURCE Lock; // FIXME: HACKHACK, SHOULD BE EX_PUSH_LOCK
 #endif
 #if (NTDDI_VERSION < NTDDI_WINXP)
     BOOLEAN CurrentEntryValid;
@@ -427,7 +395,7 @@ typedef struct _OBJECT_HANDLE_COUNT_ENTRY
 typedef struct _OBJECT_HANDLE_COUNT_DATABASE
 {
     ULONG CountEntries;
-    OBJECT_HANDLE_COUNT_ENTRY HandleCountEntries[1];
+    POBJECT_HANDLE_COUNT_ENTRY HandleCountEntries[1];
 } OBJECT_HANDLE_COUNT_DATABASE, *POBJECT_HANDLE_COUNT_DATABASE;
 
 typedef struct _OBJECT_HEADER_HANDLE_INFO

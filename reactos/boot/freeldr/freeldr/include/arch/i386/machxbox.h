@@ -45,7 +45,7 @@ BOOLEAN XboxVideoIsPaletteFixed(VOID);
 VOID XboxVideoSetPaletteColor(UCHAR Color, UCHAR Red, UCHAR Green, UCHAR Blue);
 VOID XboxVideoGetPaletteColor(UCHAR Color, UCHAR* Red, UCHAR* Green, UCHAR* Blue);
 VOID XboxVideoSync(VOID);
-VOID XboxVideoPrepareForReactOS(IN BOOLEAN Setup);
+VOID XboxVideoPrepareForReactOS(VOID);
 
 VOID XboxMemInit(VOID);
 PVOID XboxMemReserveMemory(ULONG MbToReserve);

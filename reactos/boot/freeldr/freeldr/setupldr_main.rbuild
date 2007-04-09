@@ -2,7 +2,7 @@
 	<include base="setupldr_main">include</include>
 	<include base="ntoskrnl">include</include>
 	<define name="__USE_W32API" />
-	<define name="_NTHAL_" />
+	<compilerflag>-nostdlib</compilerflag>
 	<compilerflag>-ffreestanding</compilerflag>
 	<compilerflag>-fno-builtin</compilerflag>
 	<compilerflag>-fno-inline</compilerflag>

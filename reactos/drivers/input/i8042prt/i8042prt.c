@@ -777,8 +777,8 @@ static NTSTATUS STDCALL I8042AddDevice(PDRIVER_OBJECT DriverObject,
 	if (DevExt->KeyboardExists) {
 		MappedIrqKeyboard = HalGetInterruptVector(Internal,
 		                                          0,
-		                                          KEYBOARD_IRQ,
 		                                          0,
+		                                          KEYBOARD_IRQ,
 		                                          &DirqlKeyboard,
 		                                          &Affinity);
 
@@ -827,8 +827,8 @@ static NTSTATUS STDCALL I8042AddDevice(PDRIVER_OBJECT DriverObject,
 	if (DevExt->MouseExists) {
 		MappedIrqMouse = HalGetInterruptVector(Internal,
 		                                          0,
-		                                          MOUSE_IRQ,
 		                                          0,
+		                                          MOUSE_IRQ,
 		                                          &DirqlMouse,
 		                                          &Affinity);
 

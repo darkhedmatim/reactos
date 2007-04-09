@@ -32,23 +32,7 @@
 
   See GCC manual for more CPU names and which CPUs GCC can optimize for.
 -->
-<property name="OARCH" value="pentium" />
-
-
-<!--
-  OPTIMIZE what level do you want ReactOS to be optimized at 
-  this setting does not work if GDB is set
-    0 = off
-    1 = Normal compiling recommended, is default setting in official build and debug build
-   
-    warning : 2,3,4,5  is not tested on ReactOS. Change at own risk. 
-
-    2 = gcc -Oz with -mpreferred-stack-boundary=2
-    3 = gcc -O1 with -mpreferred-stack-boundary=2
-    4 = gcc -O2 with -mpreferred-stack-boundary=2
-    5 = gcc -O3 with -mpreferred-stack-boundary=2
--->
-<property name="OPTIMIZE" value="1" />
+<property name="OARCH" value="i486" />
 
 
 <!--
@@ -86,17 +70,11 @@
 <property name="NSWPAT" value="0" />
 
 <!--
-  Whether to compile with NT-compatible LPC Semantics. This should always be 1.
+  Whether to compile with NT-compatible LPC Semantics. At the moment, this will
+  cause all LPC-related functionality to fail and should only be used if you're
+  working on the \ntlpc directory. Leave this disabled unless you really know
+  what you're doing.
 -->
-<property name="NTLPC" value="1" />
-
-<!--
-  Whether to compile with the KD protocol. This will disable support for KDBG
-  as well as rossym and symbol lookups, and allow WinDBG to connect to ReactOS.
-  This is currently not fully working, and requires kdcom from Windows 2003 or
-  TinyKRNL. Booting into debug mode with this flag enabled will result in a
-  failure to enter GUI mode. Do not enable unless you know what you're doing.
--->
-<property name="_WINKD_" value="0" />
+<property name="NTLPC" value="0" />
 
 </rbuild>

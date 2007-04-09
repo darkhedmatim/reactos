@@ -49,8 +49,7 @@ CmpCreateHandle(PVOID ObjectBody,
                 */
 {
     HANDLE_TABLE_ENTRY NewEntry;
-    PEPROCESS CurrentProcess;
-    PVOID HandleTable;
+    PEPROCESS Process, CurrentProcess;
     POBJECT_HEADER ObjectHeader;
     HANDLE Handle;
     KAPC_STATE ApcState;
@@ -67,7 +66,7 @@ CmpCreateHandle(PVOID ObjectBody,
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(ObjectBody);
 
     /* check that this is a valid kernel pointer */
-    //ASSERT((ULONG_PTR)ObjectHeader & EX_HANDLE_ENTRY_LOCKED);
+    ASSERT((ULONG_PTR)ObjectHeader & EX_HANDLE_ENTRY_LOCKED);
 
     if (GrantedAccess & MAXIMUM_ALLOWED)
     {
@@ -83,28 +82,30 @@ CmpCreateHandle(PVOID ObjectBody,
 
     NewEntry.Object = ObjectHeader;
     if(HandleAttributes & OBJ_INHERIT)
-        NewEntry.ObAttributes |= OBJ_INHERIT;
+        NewEntry.ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
     else
-        NewEntry.ObAttributes &= ~OBJ_INHERIT;
+        NewEntry.ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
     NewEntry.GrantedAccess = GrantedAccess;
 
     if ((HandleAttributes & OBJ_KERNEL_HANDLE) &&
-        ExGetPreviousMode() == KernelMode)
+        ExGetPreviousMode == KernelMode)
     {
-        HandleTable = ObpKernelHandleTable;
-        if (PsGetCurrentProcess() != PsInitialSystemProcess)
+        Process = PsInitialSystemProcess;
+        if (Process != CurrentProcess)
         {
-            KeStackAttachProcess(&PsInitialSystemProcess->Pcb,
+            KeStackAttachProcess(&Process->Pcb,
                 &ApcState);
             AttachedToProcess = TRUE;
         }
     }
     else
     {
-        HandleTable = PsGetCurrentProcess()->ObjectTable;
+        Process = CurrentProcess;
+        /* mask out the OBJ_KERNEL_HANDLE attribute */
+        HandleAttributes &= ~OBJ_KERNEL_HANDLE;
     }
 
-    Handle = ExCreateHandle(HandleTable,
+    Handle = ExCreateHandle(Process->ObjectTable,
         &NewEntry);
 
     if (AttachedToProcess)
@@ -120,8 +121,10 @@ CmpCreateHandle(PVOID ObjectBody,
             Handle = ObMarkHandleAsKernelHandle(Handle);
         }
 
-        InterlockedIncrement(&ObjectHeader->HandleCount);
-        ObReferenceObject(ObjectBody);
+        if(InterlockedIncrement(&ObjectHeader->HandleCount) == 1)
+        {
+            ObReferenceObject(ObjectBody);
+        }
 
         *HandleReturn = Handle;
 
@@ -574,9 +577,9 @@ Cleanup:
     ReleaseCapturedUnicodeString(&CapturedClass,
                                  PreviousMode);
   }
-  if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
+  if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
   if (FreeRemainingPath) RtlFreeUnicodeString(&RemainingPath);
-  if (Object != NULL) ObDereferenceObject(Object);
+  //if (Object != NULL) ObDereferenceObject(Object);
 
   return Status;
 }
@@ -1381,7 +1384,7 @@ NtOpenKey(OUT PHANDLE KeyHandle,
       PostOpenKeyInfo.Status = Status;
       CmiCallRegisteredCallbacks (RegNtPostOpenKey, &PostOpenKeyInfo);
       ObpReleaseCapturedAttributes(&ObjectCreateInfo);
-      if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
+      if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
       return Status;
     }
 
@@ -1433,7 +1436,7 @@ openkey_cleanup:
   PostOpenKeyInfo.Object = NT_SUCCESS(Status) ? (PVOID)Object : NULL;
   PostOpenKeyInfo.Status = Status;
   CmiCallRegisteredCallbacks (RegNtPostOpenKey, &PostOpenKeyInfo);
-  if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
+  if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
 
   if (Object)
     {

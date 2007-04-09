@@ -468,6 +468,10 @@ typedef DWORD FLONG;
 #define THREAD_DIRECT_IMPERSONATION	0x200
 #endif
 #define THREAD_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0x3FF)
+#define THREAD_BASE_PRIORITY_LOWRT	15
+#define THREAD_BASE_PRIORITY_MAX	2
+#define THREAD_BASE_PRIORITY_MIN	(-2)
+#define THREAD_BASE_PRIORITY_IDLE	(-15)
 #define EXCEPTION_NONCONTINUABLE	1
 #define EXCEPTION_MAXIMUM_PARAMETERS 15
 /* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
@@ -477,10 +481,6 @@ typedef DWORD FLONG;
 #define TIMER_QUERY_STATE	0x0001
 #define TIMER_MODIFY_STATE	0x0002
 #define TIMER_ALL_ACCESS	(STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|TIMER_QUERY_STATE|TIMER_MODIFY_STATE)
-#define THREAD_BASE_PRIORITY_LOWRT	15
-#define THREAD_BASE_PRIORITY_MAX	2
-#define THREAD_BASE_PRIORITY_MIN	(-2)
-#define THREAD_BASE_PRIORITY_IDLE	(-15)
 #endif
 /*
  * To prevent gcc compiler warnings, bracket these defines when initialising
@@ -1598,6 +1598,7 @@ typedef VOID (NTAPI *WORKERCALLBACKFUNC)(PVOID);
 #define INCREF(x) ((((x)&~N_BTMASK)<<N_TSHIFT)|(IMAGE_SYM_DTYPE_POINTER<<N_BTSHFT)|((x)&N_BTMASK))
 #define DECREF(x) ((((x)>>N_TSHIFT)&~N_BTMASK)|((x)&N_BTMASK))
 #define TLS_MINIMUM_AVAILABLE 64
+#define REPARSE_DATA_BUFFER_HEADER_SIZE   FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
 #define REPARSE_GUID_DATA_BUFFER_HEADER_SIZE   FIELD_OFFSET(REPARSE_GUID_DATA_BUFFER, GenericReparseBuffer)
 #define MAXIMUM_REPARSE_DATA_BUFFER_SIZE 16384
 #define IO_REPARSE_TAG_RESERVED_ZERO 0
@@ -2668,9 +2669,7 @@ typedef struct _RTL_CRITICAL_SECTION_DEBUG {
 	LIST_ENTRY ProcessLocksList;
 	DWORD EntryCount;
 	DWORD ContentionCount;
-    DWORD Flags;
-    WORD CreatorBackTraceIndexHigh;
-    WORD SpareWORD;
+	DWORD Spare[2];
 } RTL_CRITICAL_SECTION_DEBUG,*PRTL_CRITICAL_SECTION_DEBUG;
 typedef struct _RTL_CRITICAL_SECTION {
 	PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
@@ -3119,21 +3118,21 @@ typedef struct _IMAGE_IMPORT_BY_NAME {
 } IMAGE_IMPORT_BY_NAME,*PIMAGE_IMPORT_BY_NAME;
 typedef struct _IMAGE_THUNK_DATA {
 	union {
-		ULONG ForwarderString;
-		ULONG Function;
+		PBYTE ForwarderString;
+		PDWORD Function;
 		DWORD Ordinal;
-		ULONG AddressOfData;
+		PIMAGE_IMPORT_BY_NAME AddressOfData;
 	} u1;
 } IMAGE_THUNK_DATA,*PIMAGE_THUNK_DATA;
 typedef struct _IMAGE_IMPORT_DESCRIPTOR {
 	_ANONYMOUS_UNION union {
 		DWORD Characteristics;
-		ULONG OriginalFirstThunk;
+		PIMAGE_THUNK_DATA OriginalFirstThunk;
 	} DUMMYUNIONNAME;
 	DWORD TimeDateStamp;
 	DWORD ForwarderChain;
 	DWORD Name;
-	ULONG FirstThunk;
+	PIMAGE_THUNK_DATA FirstThunk;
 } IMAGE_IMPORT_DESCRIPTOR,*PIMAGE_IMPORT_DESCRIPTOR;
 typedef struct _IMAGE_BOUND_IMPORT_DESCRIPTOR {
 	DWORD TimeDateStamp;
@@ -3305,6 +3304,31 @@ typedef struct _NT_TIB {
 	PVOID ArbitraryUserPointer;
 	struct _NT_TIB *Self;
 } NT_TIB,*PNT_TIB;
+typedef struct _REPARSE_DATA_BUFFER {
+	DWORD  ReparseTag;
+	WORD   ReparseDataLength;
+	WORD   Reserved;
+	_ANONYMOUS_UNION union {
+		struct {
+			WORD   SubstituteNameOffset;
+			WORD   SubstituteNameLength;
+			WORD   PrintNameOffset;
+			WORD   PrintNameLength;
+			ULONG  Flags;
+			WCHAR PathBuffer[1];
+		} SymbolicLinkReparseBuffer;
+		struct {
+			WORD   SubstituteNameOffset;
+			WORD   SubstituteNameLength;
+			WORD   PrintNameOffset;
+			WORD   PrintNameLength;
+			WCHAR PathBuffer[1];
+		} MountPointReparseBuffer;
+		struct {
+			BYTE   DataBuffer[1];
+		} GenericReparseBuffer;
+	} DUMMYUNIONNAME;
+} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
 typedef struct _REPARSE_GUID_DATA_BUFFER {
 	DWORD  ReparseTag;
 	WORD   ReparseDataLength;

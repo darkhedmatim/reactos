@@ -225,13 +225,16 @@ LoadCursorIconImage(
          return NULL;
       }
 
-      /* Find the best fitting in the IconResDir for this resolution */
+      /*
+       * Find the best fitting in the IconResDir for this resolution
+       */
+
       id = LookupIconIdFromDirectoryEx((PBYTE)IconResDir, Icon, width, height,
                                        fuLoad & (LR_DEFAULTCOLOR | LR_MONOCHROME));
 
       hResInfo = FindResourceW(hinst, MAKEINTRESOURCEW(id),
-                                 Icon ? (LPCWSTR) RT_ICON :
-                                 (LPCWSTR) RT_CURSOR);
+                                 Icon ? MAKEINTRESOURCEW(RT_ICON) :
+                                 MAKEINTRESOURCEW(RT_CURSOR));
       if (hResInfo == NULL)
       {
          return NULL;
@@ -661,7 +664,7 @@ CopyImage(
                     {
                         /* Look if the colors of the DIB are black and white */
 
-                        monochrome =
+                        monochrome = 
                               (bi->bmiColors[0].rgbRed == 0xff
                             && bi->bmiColors[0].rgbGreen == 0xff
                             && bi->bmiColors[0].rgbBlue == 0xff

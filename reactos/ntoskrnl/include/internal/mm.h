@@ -191,7 +191,6 @@ typedef struct _MM_IMAGE_SECTION_OBJECT
     USHORT Machine;
     BOOLEAN Executable;
     ULONG NrSegments;
-    ULONG ImageSize;
     PMM_SECTION_SEGMENT Segments;
 } MM_IMAGE_SECTION_OBJECT, *PMM_IMAGE_SECTION_OBJECT;
 
@@ -331,6 +330,16 @@ typedef VOID
     PFN_TYPE Page,
     SWAPENTRY SwapEntry,
     BOOLEAN Dirty
+);
+
+
+/* FUNCTIONS */
+
+NTSTATUS
+NTAPI
+MmCheckSystemImage(
+    IN HANDLE ImageHandle,
+    IN BOOLEAN PurgeSection
 );
 
 /* aspace.c ******************************************************************/
@@ -541,10 +550,13 @@ MmInit1(
     ULONG MaxMemInMeg
 );
 
-BOOLEAN
+VOID
 NTAPI
-MmInitSystem(IN ULONG Phase,
-             IN PLOADER_PARAMETER_BLOCK LoaderBlock);
+MmInit2(VOID);
+
+VOID
+NTAPI
+MmInit3(VOID);
 
 VOID
 NTAPI
@@ -1391,10 +1403,6 @@ NTSTATUS
 NTAPI
 MmInitMpwThread(VOID);
 
-NTSTATUS
-NTAPI
-MmInitBsmThread(VOID);
-
 /* pager.c *******************************************************************/
 
 BOOLEAN
@@ -1418,44 +1426,6 @@ MiQueryVirtualMemory(
     OUT PVOID VirtualMemoryInformation,
     IN ULONG Length,
     OUT PULONG ResultLength
-);
-
-/* sysldr.c ******************************************************************/
-
-VOID
-NTAPI
-MiReloadBootLoadedDrivers(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
-);
-
-BOOLEAN
-NTAPI
-MiInitializeLoadedModuleList(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
-);
-
-NTSTATUS
-NTAPI
-MmLoadSystemImage(
-    IN PUNICODE_STRING FileName,
-    IN PUNICODE_STRING NamePrefix OPTIONAL,
-    IN PUNICODE_STRING LoadedName OPTIONAL,
-    IN ULONG Flags,
-    OUT PVOID *ModuleObject,
-    OUT PVOID *ImageBaseAddress
-);
-
-NTSTATUS
-NTAPI
-MmUnloadSystemImage(
-    IN PVOID ImageHandle
-);
-
-NTSTATUS
-NTAPI
-MmCheckSystemImage(
-    IN HANDLE ImageHandle,
-    IN BOOLEAN PurgeSection
 );
 
 #endif

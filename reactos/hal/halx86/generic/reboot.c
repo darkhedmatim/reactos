@@ -15,7 +15,7 @@
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-static VOID
+VOID
 NTAPI
 HalpWriteResetCommand(VOID)
 {
@@ -23,7 +23,7 @@ HalpWriteResetCommand(VOID)
     WRITE_PORT_UCHAR((PUCHAR)0x64, 0xFE);
 };
 
-static VOID
+VOID
 NTAPI
 HalpReboot(VOID)
 {

@@ -107,12 +107,13 @@ KdbpSymFindModule(IN PVOID Address  OPTIONAL,
 {
   PLIST_ENTRY current_entry;
   PLDR_DATA_TABLE_ENTRY current;
+  extern LIST_ENTRY ModuleListHead;
   INT Count = 0;
   INT Length;
 
-  current_entry = PsLoadedModuleList.Flink;
+  current_entry = ModuleListHead.Flink;
 
-  while (current_entry != &PsLoadedModuleList)
+  while (current_entry != &ModuleListHead)
     {
       current = CONTAINING_RECORD(current_entry, LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
 
@@ -608,7 +609,7 @@ KdbSymProcessBootSymbols(IN PUNICODE_STRING FileName)
       IsRaw = FALSE;
     }
 
-  ModuleObject = NULL;
+  ModuleObject = LdrGetModuleObject(ModuleName);
 
   if (ModuleObject != NULL)
   {

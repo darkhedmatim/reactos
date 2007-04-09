@@ -26,7 +26,6 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "wingdi.h"
-#include "vfwmsgs.h"
 #include "uxtheme.h"
 #include "tmschema.h"
 

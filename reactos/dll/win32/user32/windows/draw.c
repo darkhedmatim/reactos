@@ -724,10 +724,10 @@ static BOOL UITOOLS95_DFC_ButtonRadio(HDC dc, LPRECT r, UINT uFlags)
     HFONT hFont, hOldFont;
     int SmallDiam, i;
 
-    LPCTSTR OutRight = TEXT("j"); // Outer right
+    LPCTSTR OutRight = TEXT("j"); // Outer right 
     LPCTSTR OutLeft  = TEXT("k"); // Outer left
-    LPCTSTR InRight  = TEXT("l"); // inner left
-    LPCTSTR InLeft   = TEXT("m"); // inner right
+    LPCTSTR InRight  = TEXT("l"); // inner right
+    LPCTSTR InLeft   = TEXT("m"); // inner left
     LPCTSTR Center   = TEXT("n"); // center
 
     SmallDiam = UITOOLS_MakeSquareRect(r, &rc);

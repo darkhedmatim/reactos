@@ -23,44 +23,8 @@ ULONG ExpLastTimeZoneBias = -1;
 LARGE_INTEGER ExpTimeZoneBias;
 ULONG ExpTimeZoneId;
 ULONG ExpTickCountMultiplier;
-ERESOURCE ExpTimeRefreshLock;
 
 /* FUNCTIONS ****************************************************************/
-
-BOOLEAN
-NTAPI
-ExAcquireTimeRefreshLock(BOOLEAN Wait)
-{
-    /* Simply acquire the Resource */
-    KeEnterCriticalRegion();
-    if (!(ExAcquireResourceExclusiveLite(&ExpTimeRefreshLock, Wait)))
-    {
-        /* We failed! */
-        KeLeaveCriticalRegion();
-        return FALSE;
-    }
-
-    /* Success */
-    return TRUE;
-}
-
-VOID
-NTAPI
-ExReleaseTimeRefreshLock(VOID)
-{
-    /* Simply release the Resource */
-    ExReleaseResourceLite(&ExpTimeRefreshLock);
-    KeLeaveCriticalRegion();
-}
-
-VOID
-NTAPI
-ExUpdateSystemTimeFromCmos(IN BOOLEAN UpdateInterruptTime,
-                           IN ULONG MaxSepInSeconds)
-{
-    /* FIXME: TODO */
-    return;
-}
 
 BOOLEAN
 NTAPI
@@ -118,7 +82,7 @@ ExRefreshTimeZoneInformation(IN PLARGE_INTEGER CurrentBootTime)
 NTSTATUS
 ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
 {
-    LARGE_INTEGER LocalTime, SystemTime, OldTime;
+    LARGE_INTEGER LocalTime, SystemTime;
     TIME_FIELDS TimeFields;
     DPRINT("ExpSetTimeZoneInformation() called\n");
 
@@ -159,7 +123,7 @@ ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
     ExLocalTimeToSystemTime(&LocalTime, &SystemTime);
 
     /* Set the new system time */
-    KeSetSystemTime(&SystemTime, &OldTime, FALSE, NULL);
+    KiSetSystemTime(&SystemTime);
 
     /* Return success */
     DPRINT("ExpSetTimeZoneInformation() done\n");
@@ -220,13 +184,16 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
         return STATUS_PRIVILEGE_NOT_HELD;
     }
 
+    /* Check if caller wants the old time */
+    if(PreviousTime) KeQuerySystemTime(&OldSystemTime);
+
     /* Convert the time and set it in HAL */
     ExSystemTimeToLocalTime(&NewSystemTime, &LocalTime);
     RtlTimeToTimeFields(&LocalTime, &TimeFields);
     HalSetRealTimeClock(&TimeFields);
 
     /* Now set system time */
-    KeSetSystemTime(&NewSystemTime, &OldSystemTime, FALSE, NULL);
+    KiSetSystemTime(&NewSystemTime);
 
     /* Check if caller wanted previous time */
     if(PreviousTime)

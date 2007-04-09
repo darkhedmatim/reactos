@@ -4,6 +4,10 @@
  * PROGRAMMER:      Thomas Weidenmueller <w3seek@reactos.com>
  */
 
+/* File contains Vista Semantics */
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+
 #include <k32.h>
 
 #define NDEBUG
@@ -34,7 +38,7 @@ SleepConditionVariableCS(IN OUT PCONDITION_VARIABLE ConditionVariable,
                          IN OUT PCRITICAL_SECTION CriticalSection,
                          IN DWORD dwMilliseconds)
 {
-    NTSTATUS Status = 0;
+    NTSTATUS Status;
     LARGE_INTEGER TimeOut;
     PLARGE_INTEGER TimeOutPtr = NULL;
 
@@ -44,11 +48,10 @@ SleepConditionVariableCS(IN OUT PCONDITION_VARIABLE ConditionVariable,
         TimeOutPtr = &TimeOut;
     }
 
-#if 0
     Status = RtlSleepConditionVariableCS((PRTL_CONDITION_VARIABLE)ConditionVariable,
                                          (PRTL_CRITICAL_SECTION)CriticalSection,
                                          TimeOutPtr);
-#endif
+
     if (!NT_SUCCESS(Status))
     {
         SetLastErrorByStatus(Status);
@@ -69,7 +72,7 @@ SleepConditionVariableSRW(IN OUT PCONDITION_VARIABLE ConditionVariable,
                           IN DWORD dwMilliseconds,
                           IN ULONG Flags)
 {
-    NTSTATUS Status = 0;
+    NTSTATUS Status;
     LARGE_INTEGER TimeOut;
     PLARGE_INTEGER TimeOutPtr = NULL;
 
@@ -79,12 +82,11 @@ SleepConditionVariableSRW(IN OUT PCONDITION_VARIABLE ConditionVariable,
         TimeOutPtr = &TimeOut;
     }
 
-#if 0
     Status = RtlSleepConditionVariableSRW((PRTL_CONDITION_VARIABLE)ConditionVariable,
                                           (PRTL_SRWLOCK)SRWLock,
                                           TimeOutPtr,
                                           Flags);
-#endif
+
     if (!NT_SUCCESS(Status))
     {
         SetLastErrorByStatus(Status);

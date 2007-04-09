@@ -130,7 +130,7 @@ NotifyControlParent(IN PCHECKLISTWND infoPtr,
 
 static PCHECKITEM
 FindCheckItemByIndex(IN PCHECKLISTWND infoPtr,
-                     IN INT Index)
+                     IN UINT Index)
 {
     PCHECKITEM Item, Found = NULL;
     

@@ -315,7 +315,7 @@ GetModuleFileNameA (
 			else
 			{
 				FileName.Length = 0;
-				FileName.MaximumLength = (USHORT)nSize * sizeof(WCHAR);
+				FileName.MaximumLength = nSize * sizeof(WCHAR);
 				FileName.Buffer = lpFilename;
 
 				/* convert unicode string to ansi (or oem) */
@@ -383,7 +383,7 @@ GetModuleFileNameW (
 			else
 			{
 				FileName.Length = 0;
-				FileName.MaximumLength =(USHORT)nSize * sizeof(WCHAR);
+				FileName.MaximumLength = nSize * sizeof(WCHAR);
 				FileName.Buffer = lpFilename;
 
 				RtlCopyUnicodeString (&FileName,
@@ -680,8 +680,7 @@ LoadModule (
   HeapFree(GetProcessHeap(), 0, CommandLine);
 
   /* Wait up to 15 seconds for the process to become idle */
-  /* FIXME: This is user32! Windows soft-loads this only if required. */
-  //WaitForInputIdle(ProcessInformation.hProcess, 15000);
+  WaitForInputIdle(ProcessInformation.hProcess, 15000);
 
   CloseHandle(ProcessInformation.hThread);
   CloseHandle(ProcessInformation.hProcess);

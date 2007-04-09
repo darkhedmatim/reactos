@@ -49,42 +49,22 @@ Environment::GetEnvironmentVariablePathOrDefault ( const string& name,
 /* static */ string
 Environment::GetIntermediatePath ()
 {
-	string defaultIntermediate =
-		string( "obj-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INTERMEDIATE",
-	                                             defaultIntermediate );
+	                                             "obj-i386" );
 }
 
 /* static */ string
 Environment::GetOutputPath ()
 {
-	string defaultOutput =
-		string( "output-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_OUTPUT",
-	                                             defaultOutput );
+	                                             "output-i386" );
 }
 
 /* static */ string
 Environment::GetInstallPath ()
 {
-	string defaultInstall =
-		string( "reactos." ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INSTALL",
-	                                             defaultInstall );
-}
-
-/* static */ string
-Environment::GetCdOutputPath ()
-{
-	return GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT",
 	                                             "reactos" );
-}
-
-/* static */ string
-Environment::GetAutomakeFile ( const std::string& defaultFile )
-{
-	return GetEnvironmentVariablePathOrDefault ( "ROS_AUTOMAKE",
-	                                             defaultFile );
 }
 
 ParseContext::ParseContext ()
@@ -247,6 +227,7 @@ Project::WriteConfigurationFile ()
 void
 Project::ExecuteInvocations ()
 {
+	fprintf( stderr, "ExecuteInvocations\n" );
 	for ( size_t i = 0; i < modules.size (); i++ )
 		modules[i]->InvokeModule ();
 }
@@ -291,7 +272,7 @@ Project::ProcessXML ( const string& path )
 
 	att = node->GetAttribute ( "makefile", true );
 	assert(att);
-	makefile = Environment::GetAutomakeFile ( att->value );
+	makefile = att->value;
 
 	size_t i;
 	for ( i = 0; i < node->subElements.size (); i++ )
@@ -472,7 +453,7 @@ Project::LocateModule ( const string& name ) const
 	return NULL;
 }
 
-const std::string&
+std::string
 Project::GetProjectFilename () const
 {
 	return xmlfile;

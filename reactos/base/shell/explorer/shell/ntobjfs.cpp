@@ -230,14 +230,12 @@ void NtObjDirectory::read_directory(int scan_flags)
 			if (info->name.string_ptr) {
 				info->name.string_ptr[info->name.string_len / sizeof(WCHAR)] = 0;
 			} else {
-				TCHAR empty_string_ptr[] = _T("");
-				info->name.string_ptr = empty_string_ptr;
+				info->name.string_ptr = TEXT("");
 			}
 			if (info->type.string_ptr) {
 				info->type.string_ptr[info->type.string_len / sizeof(WCHAR)] = 0;
 			} else {
-				TCHAR empty_string_ptr[] = _T("");
-				info->type.string_ptr = empty_string_ptr;
+				info->type.string_ptr = TEXT("");
 			}
 			lstrcpynW(p, info->name.string_ptr, COUNTOF(buffer));
 #else

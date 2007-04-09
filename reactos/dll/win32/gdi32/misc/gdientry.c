@@ -209,20 +209,16 @@ DdCreateSurface(LPDDHAL_CREATESURFACEDATA pCreateSurface)
     DD_SURFACE_LOCAL DdSurfaceLocal;
     DD_SURFACE_MORE DdSurfaceMore;
     DD_SURFACE_GLOBAL DdSurfaceGlobal;
-
     HANDLE hPrevSurface, hSurface;
-
-
-    PDD_SURFACE_LOCAL pDdSurfaceLocal = NULL;
-    PDD_SURFACE_MORE pDdSurfaceMore = NULL;
-    PDD_SURFACE_GLOBAL pDdSurfaceGlobal = NULL;
-
-    PDD_SURFACE_LOCAL ptmpDdSurfaceLocal = NULL;
-    PDD_SURFACE_MORE ptmpDdSurfaceMore = NULL;
-    PDD_SURFACE_GLOBAL ptmpDdSurfaceGlobal = NULL;
+    DD_SURFACE_LOCAL* pDdSurfaceLocal;
+    DD_SURFACE_MORE* pDdSurfaceMore;
+    DD_SURFACE_GLOBAL* pDdSurfaceGlobal;
+    LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal;
+    //LPDDRAWI_DDRAWSURFACE_MORE pSurfaceMore;
+    LPDDRAWI_DDRAWSURFACE_GBL pSurfaceGlobal;
     PHANDLE phSurface = NULL, puhSurface = NULL;
     ULONG i;
-    LPDDSURFACEDESC pSurfaceDesc = NULL;
+    LPDDSURFACEDESC pSurfaceDesc;
 
     /* Check how many surfaces there are */
     if (SurfaceCount != 1)
@@ -245,142 +241,67 @@ DdCreateSurface(LPDDHAL_CREATESURFACEDATA pCreateSurface)
         RtlZeroMemory(&DdSurfaceMore, sizeof(DdSurfaceMore));  
     }
 
-    /* check if we got a surface or not */
-    if (SurfaceCount!=0)
+    /* Loop for each surface */
+    for (i = 0; i < pCreateSurface->dwSCnt; i++)
     {
-        /* Loop for each surface */
-        ptmpDdSurfaceGlobal = pDdSurfaceGlobal;
-        ptmpDdSurfaceLocal = pDdSurfaceLocal;
-        ptmpDdSurfaceMore = pDdSurfaceMore;
+        /* Get data */
+        pSurfaceLocal = pCreateSurface->lplpSList[i];
+        pSurfaceGlobal = pSurfaceLocal->lpGbl;
         pSurfaceDesc = pCreateSurface->lpDDSurfaceDesc;
 
-        for (i = 0; i < SurfaceCount; i++)
+        /* Check if it has pixel data */
+        if (pSurfaceDesc->dwFlags & DDRAWISURF_HASPIXELFORMAT)
         {
-            LPDDRAWI_DDRAWSURFACE_LCL lcl = pCreateSurface->lplpSList[i];
-            LPDDRAWI_DDRAWSURFACE_GBL gpl = pCreateSurface->lplpSList[i]->lpGbl;
-
-            phSurface[i] = (HANDLE)lcl->hDDSurface;
-            ptmpDdSurfaceLocal->ddsCaps.dwCaps = lcl->ddsCaps.dwCaps;
-
-            ptmpDdSurfaceLocal->dwFlags = (ptmpDdSurfaceLocal->dwFlags & 
-                                          (0xB0000000 | DDRAWISURF_INMASTERSPRITELIST |
-                                           DDRAWISURF_HELCB | DDRAWISURF_FRONTBUFFER |
-                                           DDRAWISURF_BACKBUFFER | DDRAWISURF_INVALID |
-                                           DDRAWISURF_DCIBUSY | DDRAWISURF_DCILOCK)) |
-                                          (lcl->dwFlags & DDRAWISURF_DRIVERMANAGED);
-
-            ptmpDdSurfaceGlobal->wWidth = gpl->wWidth;
-            ptmpDdSurfaceGlobal->wHeight = gpl->wHeight;
-            ptmpDdSurfaceGlobal->lPitch = gpl->lPitch;
-            ptmpDdSurfaceGlobal->fpVidMem = gpl->fpVidMem;
-            ptmpDdSurfaceGlobal->dwBlockSizeX = gpl->dwBlockSizeX;
-            ptmpDdSurfaceGlobal->dwBlockSizeY = gpl->dwBlockSizeY;
-
-            if (lcl->dwFlags & DDRAWISURF_HASPIXELFORMAT)
-            {
-                RtlCopyMemory( &ptmpDdSurfaceGlobal->ddpfSurface ,
-                               &gpl->ddpfSurface, 
-                               sizeof(DDPIXELFORMAT));
-
-                ptmpDdSurfaceGlobal->ddpfSurface.dwSize = sizeof(DDPIXELFORMAT);
-            }
-            else
-            {
-                RtlCopyMemory( &ptmpDdSurfaceGlobal->ddpfSurface ,
-                               &gpl->lpDD->vmiData.ddpfDisplay,
-                               sizeof(DDPIXELFORMAT));
-            }
-
-            if (lcl->lpSurfMore)
-            {
-                ptmpDdSurfaceMore->ddsCapsEx.dwCaps2 = lcl->lpSurfMore->ddsCapsEx.dwCaps2;
-                ptmpDdSurfaceMore->ddsCapsEx.dwCaps3 = lcl->lpSurfMore->ddsCapsEx.dwCaps3;
-                ptmpDdSurfaceMore->ddsCapsEx.dwCaps4 = lcl->lpSurfMore->ddsCapsEx.dwCaps4;
-                ptmpDdSurfaceMore->dwSurfaceHandle = (DWORD) pCreateSurface->lplpSList[i]->dbnOverlayNode.object_int;
-            }
-
-            /* FIXME count to next SurfaceCount for 
-               ptmpDdSurfaceGlobal = pDdSurfaceGlobal;
-               ptmpDdSurfaceLocal = pDdSurfaceLocal;
-               ptmpDdSurfaceMore = pDdSurfaceMore;
-
-               we only support one surface create at moment
-             */
+            /* Use its pixel data */
+            DdSurfaceGlobal.ddpfSurface = pSurfaceDesc->ddpfPixelFormat;
+            DdSurfaceGlobal.ddpfSurface.dwSize = sizeof(DDPIXELFORMAT);
         }
-    }
+        else
+        {
+            /* Use the one from the global surface */
+            DdSurfaceGlobal.ddpfSurface = pSurfaceGlobal->lpDD->vmiData.ddpfDisplay;
+        }
 
-    /* Call win32k now */
-    pCreateSurface->ddRVal = DDERR_GENERIC;
+        /* Convert data */
+        DdSurfaceGlobal.wWidth = pSurfaceGlobal->wWidth;
+        DdSurfaceGlobal.wHeight = pSurfaceGlobal->wHeight;
+        DdSurfaceGlobal.lPitch = pSurfaceGlobal->lPitch;
+        DdSurfaceGlobal.fpVidMem = pSurfaceGlobal->fpVidMem;
+        DdSurfaceGlobal.dwBlockSizeX = pSurfaceGlobal->dwBlockSizeX;
+        DdSurfaceGlobal.dwBlockSizeY = pSurfaceGlobal->dwBlockSizeY;
+        // DdSurfaceGlobal.ddsCaps = pSurfaceLocal->ddsCaps | 0xBF0000;
 
-    Return = NtGdiDdCreateSurface(GetDdHandle(pCreateSurface->lpDD->hDD),
-                                    (HANDLE *)phSurface,
+        /* FIXME: Ddscapsex stuff missing */
+
+        /* Call win32k now */
+        pCreateSurface->ddRVal = E_FAIL;
+		
+        Return = NtGdiDdCreateSurface(GetDdHandle(pCreateSurface->lpDD->hDD),
+                                     (HANDLE *)phSurface,
                                      pSurfaceDesc,
-                                     pDdSurfaceGlobal,
-                                     pDdSurfaceLocal,
-                                     pDdSurfaceMore,
+                                     &DdSurfaceGlobal,
+                                     &DdSurfaceLocal,
+                                     &DdSurfaceMore,
                                      (PDD_CREATESURFACEDATA)pCreateSurface,
                                      puhSurface);
+          
+	   
+        /* FIXME: Ddscapsex stuff missing */
+        
+        /* Convert the data back */
+        pSurfaceGlobal->lPitch = DdSurfaceGlobal.lPitch;
+        pSurfaceGlobal->fpVidMem = DdSurfaceGlobal.fpVidMem;
+        pSurfaceGlobal->dwBlockSizeX = DdSurfaceGlobal.dwBlockSizeX;
+        pSurfaceGlobal->dwBlockSizeY = DdSurfaceGlobal.dwBlockSizeY;
+        pCreateSurface->lplpSList[i]->hDDSurface = (DWORD) hSurface;
 
-    if (SurfaceCount == 0)
-    {
-        pCreateSurface->ddRVal = DDERR_GENERIC;
+        /* FIXME: Ddscapsex stuff missing */
     }
-    else
-    {
-        ptmpDdSurfaceMore = pDdSurfaceMore;
-        ptmpDdSurfaceGlobal = pDdSurfaceGlobal;
-        ptmpDdSurfaceLocal = pDdSurfaceLocal;
-
-        for (i=0;i<SurfaceCount;i++)
-        {
-            LPDDRAWI_DDRAWSURFACE_LCL lcl = pCreateSurface->lplpSList[i];
-            LPDDRAWI_DDRAWSURFACE_GBL gpl = pCreateSurface->lplpSList[i]->lpGbl;
-
-            gpl->lPitch = ptmpDdSurfaceGlobal->lPitch;
-            gpl->fpVidMem = ptmpDdSurfaceGlobal->fpVidMem;
-            gpl->dwBlockSizeX = ptmpDdSurfaceGlobal->dwBlockSizeX;
-            gpl->dwBlockSizeY = ptmpDdSurfaceGlobal->dwBlockSizeY;
-
-            if (lcl->dwFlags & DDRAWISURF_HASPIXELFORMAT)
-            {
-                RtlCopyMemory( &gpl->ddpfSurface, &ptmpDdSurfaceGlobal->ddpfSurface , sizeof(DDPIXELFORMAT));
-            }
-
-            if (pCreateSurface->ddRVal != DD_OK)
-            {
-                gpl->fpVidMem = 0;
-                if (lcl->hDDSurface)
-                {
-                    NtGdiDdDeleteSurfaceObject( (HANDLE)lcl->hDDSurface);
-                }
-                lcl->hDDSurface = 0;
-            }
-            else
-            {
-
-                lcl->hDDSurface = (ULONG_PTR) puhSurface[i];
-            }
-
-            lcl->ddsCaps.dwCaps = ptmpDdSurfaceLocal->ddsCaps.dwCaps;
-            if (lcl->lpSurfMore)
-            {
-                lcl->lpSurfMore->ddsCapsEx.dwCaps2 = ptmpDdSurfaceMore->ddsCapsEx.dwCaps2;
-                lcl->lpSurfMore->ddsCapsEx.dwCaps3 = ptmpDdSurfaceMore->ddsCapsEx.dwCaps3;
-                lcl->lpSurfMore->ddsCapsEx.dwCaps4 = ptmpDdSurfaceMore->ddsCapsEx.dwCaps4;
-            }
-            /* FIXME count to next SurfaceCount for 
-               ptmpDdSurfaceGlobal = pDdSurfaceGlobal;
-               ptmpDdSurfaceLocal = pDdSurfaceLocal;
-               ptmpDdSurfaceMore = pDdSurfaceMore;
-               we only support one surface create at moment
-             */
-        }
-    }
-
+    
     /* Check if we have to free all our local allocations */
     if (SurfaceCount > 1)
     {
-        /* FIXME: */
+     /* FIXME: */
     }
 
     /* Return */
@@ -491,7 +412,7 @@ DdCreateDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
                 ghDirectDraw = NtGdiDdCreateDirectDrawObject(hdc);
 
                 /* Delete our DC */                
-                NtGdiDeleteObjectApp(hdc);
+				NtGdiDeleteObjectApp(hdc);
             }
         }
 
@@ -544,19 +465,25 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
     D3DNTHAL_GLOBALDRIVERDATA D3dDriverData;
     DD_D3DBUFCALLBACKS D3dBufferCallbacks;
     DWORD CallbackFlags[3];
-    DWORD dwNumHeaps=0, FourCCs=0;
+    DWORD dwNumHeaps=0, FourCCs;
     DWORD Flags;
+
+    /* Check if we got a list pointer */
+    if (pvmList)
+    {
+        /* Allocate memory for it */
+        VidMemList = LocalAlloc(LMEM_ZEROINIT,
+                                sizeof(VIDEOMEMORY) *
+                                pHalInfo->vmiData.dwNumHeaps);
+    }
 
     /* Clear the structures */
     RtlZeroMemory(&HalInfo, sizeof(DD_HALINFO));
     RtlZeroMemory(&D3dCallbacks, sizeof(D3DNTHAL_CALLBACKS));
     RtlZeroMemory(&D3dDriverData, sizeof(D3DNTHAL_GLOBALDRIVERDATA));
     RtlZeroMemory(&D3dBufferCallbacks, sizeof(DD_D3DBUFCALLBACKS));
-    RtlZeroMemory(CallbackFlags, sizeof(DWORD)*3);
 
-    pvmList = NULL;
-
-    /* Do the query */
+    //* Do the query */
     if (!NtGdiDdQueryDirectDrawObject(GetDdHandle(pDirectDrawGlobal->hDD),
                                       &HalInfo,
                                       CallbackFlags,
@@ -570,6 +497,7 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
                                       pdwFourCC))
     {
         /* We failed, free the memory and return */
+        if (VidMemList) LocalFree(VidMemList);
         return FALSE;
     }
 
@@ -603,27 +531,19 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
     pHalInfo->vmiData.dwDisplayHeight = HalInfo.vmiData.dwDisplayHeight;
     pHalInfo->vmiData.lDisplayPitch = HalInfo.vmiData.lDisplayPitch;
     pHalInfo->vmiData.fpPrimary = 0;
-
-    RtlCopyMemory( &pHalInfo->vmiData.ddpfDisplay,
-                   &HalInfo.vmiData.ddpfDisplay,
-                   sizeof(DDPIXELFORMAT));
-
+    pHalInfo->vmiData.ddpfDisplay = HalInfo.vmiData.ddpfDisplay;
     pHalInfo->vmiData.dwOffscreenAlign = HalInfo.vmiData.dwOffscreenAlign;
     pHalInfo->vmiData.dwOverlayAlign = HalInfo.vmiData.dwOverlayAlign;
     pHalInfo->vmiData.dwTextureAlign = HalInfo.vmiData.dwTextureAlign;
     pHalInfo->vmiData.dwZBufferAlign = HalInfo.vmiData.dwZBufferAlign;
     pHalInfo->vmiData.dwAlphaAlign = HalInfo.vmiData.dwAlphaAlign;
-    pHalInfo->vmiData.dwNumHeaps = 0;
+    pHalInfo->vmiData.dwNumHeaps = dwNumHeaps;
     pHalInfo->vmiData.pvmList = pvmList;
-
-    RtlCopyMemory( &pHalInfo->ddCaps, &HalInfo.ddCaps,sizeof(DDCORECAPS ));
-
-    pHalInfo->ddCaps.dwNumFourCCCodes = FourCCs;
+    // pHalInfo->ddCaps = HalInfo.ddCaps;
+    //  pHalInfo->ddCaps.dwNumFourCCCodes = FourCCs;
     pHalInfo->lpdwFourCC = pdwFourCC;
     pHalInfo->ddCaps.dwRops[6] = 0x1000;
-
-    /* FIXME implement DdGetDriverInfo */
-    //  pHalInfo->dwFlags = HalInfo.dwFlags | DDHALINFO_GETDRIVERINFOSET;
+    pHalInfo->dwFlags = HalInfo.dwFlags | DDHALINFO_GETDRIVERINFOSET;
     //  pHalInfo->GetDriverInfo = DdGetDriverInfo;
 
     /* Now check if we got any DD callbacks */
@@ -637,8 +557,8 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 
         /* Write the header */
         pDDCallbacks->dwSize = sizeof(DDHAL_DDCALLBACKS);
-        pDDCallbacks->dwFlags = Flags;
-
+		pDDCallbacks->dwFlags = Flags;
+        
         /* Now write the pointers, if applicable */
         if (Flags & DDHAL_CB32_CREATESURFACE)
         {
@@ -666,12 +586,13 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 
         /* Set the flags for this one */
         Flags = CallbackFlags[1];
+		
 
         /* Write the header, note that some functions are always exposed */
         pDDSurfaceCallbacks->dwSize  = sizeof(DDHAL_DDSURFACECALLBACKS);
-
-        pDDSurfaceCallbacks->dwFlags = Flags;
-        /*
+		
+		pDDSurfaceCallbacks->dwFlags = Flags;
+		/*
         pDDSurfaceCallBacks->dwFlags = (DDHAL_SURFCB32_LOCK |
                                         DDHAL_SURFCB32_UNLOCK |
                                         DDHAL_SURFCB32_SETCOLORKEY |
@@ -731,7 +652,7 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 
     /* Check for D3D Callbacks */
     if (pD3dCallbacks)
-    {
+  {       
         /* Zero the struct */
         RtlZeroMemory(pD3dCallbacks, sizeof(D3DHAL_CALLBACKS));
 
@@ -744,9 +665,9 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
             /* Now check for each callback */
             if (D3dCallbacks.ContextCreate)
             {
-                /* FIXME
+				 /* FIXME
                  pD3dCallbacks->ContextCreate = D3dContextCreate; 
-                 */
+				 */
             }
             if (D3dCallbacks.ContextDestroy)
             {
@@ -754,9 +675,9 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
             }
             if (D3dCallbacks.ContextDestroyAll)
             {
-                /* FIXME 
+				/* FIXME 
                 pD3dCallbacks->ContextDestroyAll = (LPD3DHAL_CONTEXTDESTROYALLCB) NtGdiD3dContextDestroyAll;
-                */
+				*/
             }
         }
     }
@@ -775,6 +696,33 @@ DdQueryDirectDrawObject(LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
 
     /* FIXME: Check for D3D Buffer Callbacks */
 
+    /* Check if we have a video memory list */
+    if (VidMemList)
+    {
+        /* Start a loop here */
+        PVIDEOMEMORY VidMem = VidMemList;
+
+        /* Loop all the heaps we have */
+        while (dwNumHeaps--)
+        {
+            /* Copy from one format to the other */
+            pvmList->dwFlags = VidMem->dwFlags;
+            pvmList->fpStart = VidMem->fpStart;
+            pvmList->fpEnd = VidMem->fpEnd;
+            pvmList->ddsCaps = VidMem->ddsCaps;
+            pvmList->ddsCapsAlt = VidMem->ddsCapsAlt;
+            pvmList->dwHeight = VidMem->dwHeight;
+
+            /* Advance in both structures */
+            pvmList++;
+            VidMem++;
+        }
+
+        /* Free our structure */
+        LocalFree(VidMemList);
+    }
+
+  
   return TRUE;
 }
 

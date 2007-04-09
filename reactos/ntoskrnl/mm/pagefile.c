@@ -35,10 +35,6 @@
 #pragma alloc_text(INIT, MmInitPagingFile)
 #endif
 
-PVOID
-NTAPI
-MiFindExportedRoutineByName(IN PVOID DllBase,
-                            IN PANSI_STRING ExportName);
 
 /* TYPES *********************************************************************/
 
@@ -322,8 +318,6 @@ MmReadFromSwapPage(SWAPENTRY SwapEntry, PFN_TYPE Page)
    return(Status);
 }
 
-extern BOOLEAN PagingReady;
-
 VOID
 INIT_FUNCTION
 NTAPI
@@ -367,11 +361,6 @@ MmReserveSwapPages(ULONG Nr)
    KIRQL oldIrql;
    ULONG MiAvailSwapPages;
 
-   if (!PagingReady)
-   {
-       DPRINT1("PAGING USED TOO SOON!!!\n");
-       while (TRUE);
-   }
    KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
    MiAvailSwapPages =
       (MiFreeSwapPages * MM_PAGEFILE_COMMIT_RATIO) + MM_PAGEFILE_COMMIT_GRACE;
@@ -391,11 +380,6 @@ MmDereserveSwapPages(ULONG Nr)
 {
    KIRQL oldIrql;
 
-   if (!PagingReady)
-   {
-       DPRINT1("PAGING USED TOO SOON!!!\n");
-       while (TRUE);
-   }
    KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
    MiReservedSwapPages = MiReservedSwapPages - Nr;
    KeReleaseSpinLock(&PagingFileListLock, oldIrql);
@@ -407,11 +391,6 @@ MiAllocPageFromPagingFile(PPAGINGFILE PagingFile)
    KIRQL oldIrql;
    ULONG i, j;
 
-   if (!PagingReady)
-   {
-       DPRINT1("PAGING USED TOO SOON!!!\n");
-       while (TRUE);
-   }
    KeAcquireSpinLock(&PagingFile->AllocMapLock, &oldIrql);
 
    for (i = 0; i < PagingFile->AllocMapSize; i++)
@@ -441,11 +420,6 @@ MmFreeSwapPage(SWAPENTRY Entry)
    ULONG off;
    KIRQL oldIrql;
 
-   if (!PagingReady)
-   {
-       DPRINT1("PAGING USED TOO SOON!!!\n");
-       while (TRUE);
-   }
    i = FILE_FROM_ENTRY(Entry);
    off = OFFSET_FROM_ENTRY(Entry);
 
@@ -490,11 +464,6 @@ MmAllocSwapPage(VOID)
    ULONG off;
    SWAPENTRY entry;
 
-   if (!PagingReady)
-   {
-       DPRINT1("PAGING USED TOO SOON!!!\n");
-       while (TRUE);
-   }
    KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
 
    if (MiFreeSwapPages == 0)
@@ -698,7 +667,7 @@ MmInitializeCrashDump(HANDLE PageFileHandle, ULONG PageFileNum)
    UNICODE_STRING DiskDumpName = RTL_CONSTANT_STRING(L"DiskDump");
    ANSI_STRING ProcName;
    PIO_STACK_LOCATION StackPtr;
-   PLDR_DATA_TABLE_ENTRY ModuleObject = NULL;
+   PLDR_DATA_TABLE_ENTRY ModuleObject;
 
    Status = ZwFsControlFile(PageFileHandle,
                             0,
@@ -771,14 +740,16 @@ MmInitializeCrashDump(HANDLE PageFileHandle, ULONG PageFileNum)
    }
 
    /* Load the diskdump driver. */
-   Status = MmLoadSystemImage(&DiskDumpName, NULL, NULL, 0, (PVOID)&ModuleObject, NULL);
+   ModuleObject = LdrGetModuleObject(&DiskDumpName);
    if (ModuleObject == NULL)
    {
       return(STATUS_OBJECT_NAME_NOT_FOUND);
    }
    RtlInitAnsiString(&ProcName, "DiskDumpFunctions");
-   MmCoreDumpFunctions = MiFindExportedRoutineByName(ModuleObject->DllBase,
-                                                     &ProcName);
+   Status = LdrGetProcedureAddress(ModuleObject->DllBase,
+                                   &ProcName,
+                                   0,
+                                   (PVOID*)&MmCoreDumpFunctions);
    if (!NT_SUCCESS(Status))
    {
       ObDereferenceObject(PageFile);

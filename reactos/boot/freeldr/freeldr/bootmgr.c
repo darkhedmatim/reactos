@@ -119,14 +119,11 @@ NoGui:
 		}
 
 		// Install the drive mapper according to this sections drive mappings
-#ifdef __i386__
 		DriveMapMapDrivesInSection(OperatingSystemSectionNames[SelectedOperatingSystem]);
-#endif
 		if (_stricmp(SettingValue, "ReactOS") == 0)
 		{
 			LoadAndBootReactOS(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
-#ifdef __i386__
 		else if (_stricmp(SettingValue, "WindowsNT40") == 0)
 		{
 			LoadAndBootWindows(OperatingSystemSectionNames[SelectedOperatingSystem], _WIN32_WINNT_NT4);
@@ -159,7 +156,6 @@ NoGui:
 		{
 			LoadAndBootDrive(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
-#endif
 	}
 
 

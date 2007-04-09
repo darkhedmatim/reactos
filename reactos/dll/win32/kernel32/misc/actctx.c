@@ -40,10 +40,10 @@ FindActCtxSectionStringA(
     }
 
     /* Call the Unicode function */
-    bRetVal = FindActCtxSectionStringW(dwFlags, 
+    bRetVal = FindActCtxSectionStringA(dwFlags, 
                                         lpExtensionGuid,
                                         ulSectionId, 
-                                        lpStringToFindW,
+                                        lpStringToFind,
                                         ReturnedData);
 
     /* Clean up */

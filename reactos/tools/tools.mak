@@ -48,6 +48,7 @@ include tools/cdmake/cdmake.mak
 include tools/dbgprint/dbgprint.mak
 include tools/gendib/gendib.mak
 include tools/mkhive/mkhive.mak
+include tools/nci/nci.mak
 include tools/pefixup.mak
 include tools/raddr2line.mak
 include tools/rbuild/rbuild.mak
@@ -55,8 +56,8 @@ include tools/rgenstat/rgenstat.mak
 include tools/rsym.mak
 include tools/sysreg/sysreg.mak
 include tools/unicode/unicode.mak
-include tools/wpp/wpp.mak
 include tools/widl/widl.mak
 include tools/winebuild/winebuild.mak
 include tools/wmc/wmc.mak
+include tools/wpp/wpp.mak
 include tools/wrc/wrc.mak

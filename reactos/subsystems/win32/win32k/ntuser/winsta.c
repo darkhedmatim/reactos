@@ -55,7 +55,6 @@ static GENERIC_MAPPING IntWindowStationMapping =
       WINSTA_READATTRIBUTES    | WINSTA_READSCREEN        | WINSTA_WRITEATTRIBUTES
    };
 
-
 NTSTATUS FASTCALL
 InitWindowStationImpl(VOID)
 {
@@ -91,18 +90,6 @@ NTSTATUS FASTCALL
 CleanupWindowStationImpl(VOID)
 {
    return STATUS_SUCCESS;
-}
-
-BOOL FASTCALL
-IntSetupClipboard(PWINSTATION_OBJECT WinStaObj)
-{
-    WinStaObj->Clipboard = ExAllocatePool(PagedPool, sizeof(CLIPBOARDSYSTEM));
-    if (WinStaObj->Clipboard)
-    {
-        RtlZeroMemory(WinStaObj->Clipboard, sizeof(CLIPBOARDSYSTEM));
-        return TRUE;
-    }
-    return FALSE;
 }
 
 /* OBJECT CALLBACKS  **********************************************************/
@@ -530,13 +517,7 @@ NtUserCreateWindowStation(
    CurInfo->DblClickHeight = 4;
 
    WindowStationObject->SystemCursor = CurInfo;
-    
-    
-   if (!IntSetupClipboard(WindowStationObject))
-   {
-       DPRINT1("WindowStation: Error Setting up the clipboard!!!\n");
-   }   
-    
+
    if (!IntSetupCurIconHandles(WindowStationObject))
    {
       DPRINT1("Setting up the Cursor/Icon Handle table failed!\n");

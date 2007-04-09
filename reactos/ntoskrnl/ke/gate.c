@@ -8,6 +8,7 @@
 
 /* INCLUDES *****************************************************************/
 
+#define NTDDI_VERSION NTDDI_WS03
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <internal/debug.h>
@@ -75,9 +76,6 @@ KeWaitForGate(IN PKGATE Gate,
                 KiReleaseDispatcherObject(&Gate->Header);
                 KiReleaseThreadLock(Thread);
 
-                /* Release the gate lock */
-                if (Queue) KiReleaseDispatcherLockFromDpcLevel();
-
                 /* Release the APC lock and return */
                 KiReleaseApcLock(&ApcLock);
                 break;
@@ -139,6 +137,7 @@ KeSignalGateBoostPriority(IN PKGATE Gate)
     KIRQL OldIrql;
     ASSERT_GATE(Gate);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+    ASSERT(FALSE);
 
     /* Start entry loop */
     for (;;)

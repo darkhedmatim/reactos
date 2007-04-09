@@ -303,7 +303,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     Type = RtlDetermineDosPathNameType_U(lpNamedPipeName);
  
     /* Check if this was a device path, ie : "\\.\pipe\name" */
-    if (Type == RtlPathTypeLocalDevice)
+    if (Type == DEVICE_PATH)
     {
         /* Make sure it's a valid prefix */
         RtlInitUnicodeString(&PipePrefix, L"\\\\.\\pipe\\");
@@ -317,7 +317,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
         DPRINT("NewName: %wZ\n", &NewName);
         RtlInitUnicodeString(&DevicePath, L"\\DosDevices\\pipe\\");
     }
-    else if (Type == RtlPathTypeRootLocalDevice)
+    else if (Type == UNC_PATH)
     {
         /* The path is \\server\\pipe\name; find the pipename itself */
         p = &NewName.Buffer[2];
@@ -919,7 +919,7 @@ GetNamedPipeHandleStateA(HANDLE hNamedPipe,
 
   if(lpUserName != NULL)
   {
-    UserNameW.MaximumLength = (USHORT)nMaxUserNameSize * sizeof(WCHAR);
+    UserNameW.MaximumLength = nMaxUserNameSize * sizeof(WCHAR);
     UserNameW.Buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, UserNameW.MaximumLength);
     if (UserNameW.Buffer == NULL)
     {
@@ -929,7 +929,7 @@ GetNamedPipeHandleStateA(HANDLE hNamedPipe,
 
     UserNameA.Buffer = lpUserName;
     UserNameA.Length = 0;
-    UserNameA.MaximumLength = (USHORT)nMaxUserNameSize;
+    UserNameA.MaximumLength = nMaxUserNameSize;
   }
 
   Ret = GetNamedPipeHandleStateW(hNamedPipe,

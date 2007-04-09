@@ -10,6 +10,7 @@
         <define name="NTLPC" />
     </if>
 	<library>nt</library>
+	<library>intrlck</library>
 	<library>ntdll</library>
 	<library>smdll</library>
 	<directory name="api">

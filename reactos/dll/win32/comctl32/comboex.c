@@ -227,7 +227,7 @@ COMBOEX_NotifyItem (COMBOEX_INFO *infoPtr, INT code, NMCOMBOBOXEXW *hdr)
 	if (astr && hdr->ceItem.pszText == (LPWSTR)astr)
 	    hdr->ceItem.pszText = wstr;
 
-	Free(astr);
+	if (astr) Free(astr);
 
 	return ret;
     }
@@ -278,7 +278,7 @@ static void COMBOEX_FreeText (CBE_ITEMDATA *item)
 {
     if (is_textW(item->pszText)) Free(item->pszText);
     item->pszText = 0;
-    Free(item->pszTemp);
+    if (item->pszTemp) Free(item->pszTemp);
     item->pszTemp = 0;
 }
 
@@ -327,7 +327,7 @@ static LPCWSTR COMBOEX_GetText(COMBOEX_INFO *infoPtr, CBE_ITEMDATA *item)
 	    COMBOEX_FreeText(item);
 	    item->pszText = buf;
 	} else {
-	    Free(item->pszTemp);
+	    if (item->pszTemp) Free(item->pszTemp);
 	    item->pszTemp = buf;
 	}
 	text = buf;
@@ -577,25 +577,17 @@ static BOOL COMBOEX_GetItemA (COMBOEX_INFO *infoPtr, COMBOBOXEXITEMA *cit)
     tmpcit.pszText = 0;
     if(!COMBOEX_GetItemW (infoPtr, &tmpcit)) return FALSE;
 
-    if (cit->mask & CBEIF_TEXT)
-    {
-        if (is_textW(tmpcit.pszText) && cit->pszText)
-            WideCharToMultiByte(CP_ACP, 0, tmpcit.pszText, -1,
-                                cit->pszText, cit->cchTextMax, NULL, NULL);
-        else if (cit->pszText) cit->pszText[0] = 0;
-        else cit->pszText = (LPSTR)tmpcit.pszText;
-    }
+    if (is_textW(tmpcit.pszText) && cit->pszText)
+        WideCharToMultiByte (CP_ACP, 0, tmpcit.pszText, -1,
+			     cit->pszText, cit->cchTextMax, NULL, NULL);
+    else if (cit->pszText) cit->pszText[0] = 0;
+    else cit->pszText = (LPSTR)tmpcit.pszText;
 
-    if (cit->mask & CBEIF_IMAGE)
-        cit->iImage = tmpcit.iImage;
-    if (cit->mask & CBEIF_SELECTEDIMAGE)
-        cit->iSelectedImage = tmpcit.iSelectedImage;
-    if (cit->mask & CBEIF_OVERLAY)
-        cit->iOverlay = tmpcit.iOverlay;
-    if (cit->mask & CBEIF_INDENT)
-        cit->iIndent = tmpcit.iIndent;
-    if (cit->mask & CBEIF_LPARAM)
-        cit->lParam = tmpcit.lParam;
+    cit->iImage = tmpcit.iImage;
+    cit->iSelectedImage = tmpcit.iSelectedImage;
+    cit->iOverlay = tmpcit.iOverlay;
+    cit->iIndent = tmpcit.iIndent;
+    cit->lParam = tmpcit.lParam;
 
     return TRUE;
 }
@@ -709,7 +701,7 @@ static INT COMBOEX_InsertItemA (COMBOEX_INFO *infoPtr, COMBOBOXEXITEMA *cit)
     }
     ret = COMBOEX_InsertItemW(infoPtr, &citW);
 
-    Free(wstr);
+    if (wstr) Free(wstr);
 
     return ret;
 }
@@ -833,7 +825,7 @@ static BOOL COMBOEX_SetItemA (COMBOEX_INFO *infoPtr, COMBOBOXEXITEMA *cit)
     }
     ret = COMBOEX_SetItemW(infoPtr, &citW);
 
-    Free(wstr);
+    if (wstr) Free(wstr);
 
     return ret;
 }
@@ -1580,8 +1572,10 @@ static LRESULT COMBOEX_Destroy (COMBOEX_INFO *infoPtr)
     if (infoPtr->hwndCombo)
 	DestroyWindow (infoPtr->hwndCombo);
 
-    Free (infoPtr->edit);
-    infoPtr->edit = 0;
+    if (infoPtr->edit) {
+	Free (infoPtr->edit);
+	infoPtr->edit = 0;
+    }
 
     if (infoPtr->items) {
         CBE_ITEMDATA *item, *next;

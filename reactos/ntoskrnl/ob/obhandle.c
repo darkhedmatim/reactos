@@ -15,390 +15,23 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 PHANDLE_TABLE ObpKernelHandleTable = NULL;
-ULONG ObpAccessProtectCloseBit = MAXIMUM_ALLOWED;
-
-#define TAG_OB_HANDLE TAG('O', 'b', 'H', 'd')
 
 /* PRIVATE FUNCTIONS *********************************************************/
-
-PHANDLE_TABLE
-NTAPI
-ObReferenceProcessHandleTable(IN PEPROCESS Process)
-{
-    PHANDLE_TABLE HandleTable = NULL;
-
-    /* Lock the process */
-    if (ExAcquireRundownProtection(&Process->RundownProtect))
-    {
-        /* Get the handle table */
-        HandleTable = Process->ObjectTable;
-        if (!HandleTable)
-        {
-            /* No table, release the lock */
-            ExReleaseRundownProtection(&Process->RundownProtect);
-        }
-    }
-
-    /* Return the handle table */
-    return HandleTable;
-}
-
-VOID
-NTAPI
-ObDereferenceProcessHandleTable(IN PEPROCESS Process)
-{
-    /* Release the process lock */
-    ExReleaseRundownProtection(&Process->RundownProtect);
-}
-
-NTSTATUS
-NTAPI
-ObpReferenceProcessObjectByHandle(IN HANDLE Handle,
-                                  IN PEPROCESS Process,
-                                  IN PHANDLE_TABLE HandleTable,
-                                  IN KPROCESSOR_MODE AccessMode,
-                                  OUT PVOID *Object,
-                                  OUT POBJECT_HANDLE_INFORMATION HandleInformation,
-                                  OUT PACCESS_MASK AuditMask)
-{
-    PHANDLE_TABLE_ENTRY HandleEntry;
-    POBJECT_HEADER ObjectHeader;
-    ACCESS_MASK GrantedAccess;
-    ULONG Attributes;
-    PETHREAD Thread = PsGetCurrentThread();
-    NTSTATUS Status;
-
-    /* Assume failure */
-    *Object = NULL;
-
-    /* Check if the caller wants the current process */
-    if (Handle == NtCurrentProcess())
-    {
-        /* Return handle info */
-        HandleInformation->HandleAttributes = 0;
-        HandleInformation->GrantedAccess = Process->GrantedAccess;
-
-        /* No audit mask */
-        *AuditMask = 0;
-
-        /* Reference ourselves */
-        ObjectHeader = OBJECT_TO_OBJECT_HEADER(Process);
-        InterlockedIncrement(&ObjectHeader->PointerCount);
-
-        /* Return the pointer */
-        *Object = Process;
-        ASSERT(*Object != NULL);
-        return STATUS_SUCCESS;
-    }
-
-    /* Check if the caller wants the current thread */
-    if (Handle == NtCurrentThread())
-    {
-        /* Return handle information */
-        HandleInformation->HandleAttributes = 0;
-        HandleInformation->GrantedAccess = Thread->GrantedAccess;
-
-        /* Reference ourselves */
-        ObjectHeader = OBJECT_TO_OBJECT_HEADER(Thread);
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
-
-        /* No audit mask */
-        *AuditMask = 0;
-
-        /* Return the pointer */
-        *Object = Thread;
-        ASSERT(*Object != NULL);
-        return STATUS_SUCCESS;
-    }
-
-    /* Check if this is a kernel handle */
-    if (ObIsKernelHandle(Handle, AccessMode))
-    {
-        /* Use the kernel handle table and get the actual handle value */
-        Handle = ObKernelHandleToHandle(Handle);
-        HandleTable = ObpKernelHandleTable;
-    }
-
-    /* Enter a critical region while we touch the handle table */
-    ASSERT(HandleTable != NULL);
-    KeEnterCriticalRegion();
-
-    /* Get the handle entry */
-    HandleEntry = ExMapHandleToPointer(HandleTable, Handle);
-    if (HandleEntry)
-    {
-        /* Get the object header and validate the type*/
-        ObjectHeader = ObpGetHandleObject(HandleEntry);
-
-        /* Get the granted access and validate it */
-        GrantedAccess = HandleEntry->GrantedAccess;
-
-        /* Mask out the internal attributes */
-        Attributes = HandleEntry->ObAttributes & OBJ_HANDLE_ATTRIBUTES;
-
-        /* Fill out the information */
-        HandleInformation->HandleAttributes = Attributes;
-        HandleInformation->GrantedAccess = GrantedAccess;
-
-        /* No audit mask (FIXME!) */
-        *AuditMask = 0;
-
-        /* Return the pointer */
-        *Object = &ObjectHeader->Body;
-
-        /* Add a reference */
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
-
-        /* Unlock the handle */
-        ExUnlockHandleTableEntry(HandleTable, HandleEntry);
-        KeLeaveCriticalRegion();
-
-        /* Return success */
-        ASSERT(*Object != NULL);
-        return STATUS_SUCCESS;
-    }
-    else
-    {
-        /* Invalid handle */
-        Status = STATUS_INVALID_HANDLE;
-    }
-
-    /* Return failure status */
-    KeLeaveCriticalRegion();
-    return Status;
-}
-
-BOOLEAN
-NTAPI
-ObpEnumFindHandleProcedure(IN PHANDLE_TABLE_ENTRY HandleEntry,
-                           IN HANDLE Handle,
-                           IN PVOID Context)
-{
-    POBJECT_HEADER ObjectHeader;
-    ACCESS_MASK GrantedAccess;
-    ULONG HandleAttributes;
-    POBP_FIND_HANDLE_DATA FindData = Context;
-
-    /* Get the object header */
-    ObjectHeader = ObpGetHandleObject(HandleEntry);
-
-    /* Make sure it's valid and matching */
-    if ((FindData->ObjectHeader) && (FindData->ObjectHeader != ObjectHeader))
-    {
-        /* No match, fail */
-        return FALSE;
-    }
-
-    /* Now attempt to match the object type */
-    if ((FindData->ObjectType) && (FindData->ObjectType != ObjectHeader->Type))
-    {
-        /* No match, fail */
-        return FALSE;
-    }
-
-    /* Check if we have extra information */
-    if (FindData->HandleInformation)
-    {
-        /* Get the granted access and attributes */
-        GrantedAccess = HandleEntry->GrantedAccess;
-        HandleAttributes = HandleEntry->ObAttributes & OBJ_HANDLE_ATTRIBUTES;
-
-        /* Attempt to match them */
-        if ((FindData->HandleInformation->HandleAttributes != HandleAttributes) ||
-            (FindData->HandleInformation->GrantedAccess != GrantedAccess))
-        {
-            /* No match, fail */
-            return FALSE;
-        }
-    }
-
-    /* We have a match */
-    return TRUE;
-}
-
-POBJECT_HANDLE_COUNT_ENTRY
-NTAPI
-ObpInsertHandleCount(IN POBJECT_HEADER ObjectHeader)
-{
-    POBJECT_HEADER_HANDLE_INFO HandleInfo;
-    POBJECT_HANDLE_COUNT_ENTRY FreeEntry;
-    POBJECT_HANDLE_COUNT_DATABASE HandleDatabase, OldHandleDatabase;
-    ULONG i;
-    ULONG Size, OldSize;
-    OBJECT_HANDLE_COUNT_DATABASE SingleDatabase;
-    PAGED_CODE();
-
-    /* Get the handle info */
-    HandleInfo = OBJECT_HEADER_TO_HANDLE_INFO(ObjectHeader);
-    if (!HandleInfo) return NULL;
-
-    /* Check if we only have one entry */
-    if (ObjectHeader->Flags & OB_FLAG_SINGLE_PROCESS)
-    {
-        /* Fill out the single entry */
-        SingleDatabase.CountEntries = 1;
-        SingleDatabase.HandleCountEntries[0] = HandleInfo->SingleEntry;
-
-        /* Use this as the old size */
-        OldHandleDatabase = &SingleDatabase;
-        OldSize = sizeof(SingleDatabase);
-
-        /* Now we'll have two entries, and an entire DB */
-        i = 2;
-        Size = sizeof(OBJECT_HANDLE_COUNT_DATABASE) +
-               ((i - 1) * sizeof(OBJECT_HANDLE_COUNT_ENTRY));
-    }
-    else
-    {
-        /* We already have a DB, get the information from it */
-        OldHandleDatabase = HandleInfo->HandleCountDatabase;
-        i = OldHandleDatabase->CountEntries;
-        OldSize = sizeof(OBJECT_HANDLE_COUNT_DATABASE) +
-                  ((i - 1) * sizeof(OBJECT_HANDLE_COUNT_ENTRY));
-
-        /* Add 4 more entries */
-        i += 4;
-        Size = OldSize += ((i - 1) * sizeof(OBJECT_HANDLE_COUNT_ENTRY));
-    }
-
-    /* Allocate the DB */
-    HandleDatabase = ExAllocatePoolWithTag(PagedPool, Size, TAG_OB_HANDLE);
-    if (!HandleDatabase) return NULL;
-
-    /* Copy the old database */
-    RtlCopyMemory(HandleDatabase, OldHandleDatabase, OldSize);
-
-    /* Check if we he had a single entry before */
-    if (ObjectHeader->Flags & OB_FLAG_SINGLE_PROCESS)
-    {
-        /* Now we have more */
-        ObjectHeader->Flags &= ~OB_FLAG_SINGLE_PROCESS;
-    }
-    else
-    {
-        /* Otherwise we had a DB, free it */
-        ExFreePool(OldHandleDatabase);
-    }
-
-    /* Find the end of the copy and zero out the new data */
-    FreeEntry = (PVOID)((ULONG_PTR)HandleDatabase + OldSize);
-    RtlZeroMemory(FreeEntry, Size - OldSize);
-
-    /* Set the new information and return the free entry */
-    HandleDatabase->CountEntries = i;
-    HandleInfo->HandleCountDatabase = HandleDatabase;
-    return FreeEntry;
-}
-
-NTSTATUS
-NTAPI
-ObpIncrementHandleDataBase(IN POBJECT_HEADER ObjectHeader,
-                           IN PEPROCESS Process,
-                           IN OUT PULONG NewProcessHandleCount)
-{
-    POBJECT_HEADER_HANDLE_INFO HandleInfo;
-    POBJECT_HANDLE_COUNT_ENTRY HandleEntry, FreeEntry = NULL;
-    POBJECT_HANDLE_COUNT_DATABASE HandleDatabase;
-    ULONG i;
-    PAGED_CODE();
-
-    /* Get the handle info and check if we only have one entry */
-    HandleInfo = OBJECT_HEADER_TO_HANDLE_INFO(ObjectHeader);
-    if (ObjectHeader->Flags & OB_FLAG_SINGLE_PROCESS)
-    {
-        /* Check if the entry is free */
-        if (!HandleInfo->SingleEntry.HandleCount)
-        {
-            /* Add ours */
-            HandleInfo->SingleEntry.HandleCount = 1;
-            HandleInfo->SingleEntry.Process = Process;
-
-            /* Return success and 1 handle */
-            *NewProcessHandleCount = 1;
-            return STATUS_SUCCESS;
-        }
-        else if (HandleInfo->SingleEntry.Process == Process)
-        {
-            /* Busy entry, but same process */
-            *NewProcessHandleCount = ++HandleInfo->SingleEntry.HandleCount;
-            return STATUS_SUCCESS;
-        }
-        else
-        {
-            /* Insert a new entry */
-            FreeEntry = ObpInsertHandleCount(ObjectHeader);
-            if (!FreeEntry) return STATUS_INSUFFICIENT_RESOURCES;
-
-            /* Fill it out */
-            FreeEntry->Process = Process;
-            FreeEntry->HandleCount = 1;
-
-            /* Return success and 1 handle */
-            *NewProcessHandleCount = 1;
-            return STATUS_SUCCESS;
-        }
-    }
-
-    /* We have a database instead */
-    HandleDatabase = HandleInfo->HandleCountDatabase;
-    if (HandleDatabase)
-    {
-        /* Get the entries and loop them */
-        i = HandleDatabase->CountEntries;
-        HandleEntry = &HandleDatabase->HandleCountEntries[0];
-        while (i)
-        {
-            /* Check if this is a match */
-            if (HandleEntry->Process == Process)
-            {
-                /* Found it, get the process handle count */
-                *NewProcessHandleCount = ++HandleEntry->HandleCount;
-                return STATUS_SUCCESS;
-            }
-            else if (!HandleEntry->HandleCount)
-            {
-                /* Found a free entry */
-                FreeEntry = HandleEntry;
-            }
-
-            /* Keep looping */
-            HandleEntry++;
-            i--;
-        }
-
-        /* Check if we couldn't find a free entry */
-        if (!FreeEntry)
-        {
-            /* Allocate one */
-            FreeEntry = ObpInsertHandleCount(ObjectHeader);
-            if (!FreeEntry) return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        /* Fill out the entry */
-        FreeEntry->Process = Process;
-        FreeEntry->HandleCount = 1;
-        *NewProcessHandleCount = 1;
-    }
-
-    /* Return success if we got here */
-    return STATUS_SUCCESS;
-}
 
 NTSTATUS
 NTAPI
 ObpChargeQuotaForObject(IN POBJECT_HEADER ObjectHeader,
-                        IN POBJECT_TYPE ObjectType,
-                        OUT PBOOLEAN NewObject)
+                        IN POBJECT_TYPE ObjectType)
 {
     POBJECT_HEADER_QUOTA_INFO ObjectQuota;
     ULONG PagedPoolCharge, NonPagedPoolCharge;
+    PEPROCESS Process;
 
     /* Get quota information */
     ObjectQuota = OBJECT_HEADER_TO_QUOTA_INFO(ObjectHeader);
-    *NewObject = FALSE;
 
     /* Check if this is a new object */
     if (ObjectHeader->Flags & OB_FLAG_CREATE_INFO)
@@ -418,19 +51,14 @@ ObpChargeQuotaForObject(IN POBJECT_HEADER ObjectHeader,
             NonPagedPoolCharge = ObjectType->TypeInfo.DefaultNonPagedPoolCharge;
         }
 
-        /* Charge the quota */
-        ObjectHeader->QuotaBlockCharged = (PVOID)1;
-#if 0
-            PsChargeSharedPoolQuota(PsGetCurrentProcess(),
-                                    PagedPoolCharge,
-                                    NonPagedPoolCharge);
-#endif
-
-        /* Check if we don't have a quota block */
-        if (!ObjectHeader->QuotaBlockCharged) return STATUS_QUOTA_EXCEEDED;
-
-        /* Now set the flag */
-        *NewObject = TRUE;
+        /*
+         * Charge the quota
+         * FIXME: This is a *COMPLETE* guess and probably defintely not the way to do this.
+         */
+        Process = PsGetCurrentProcess();
+        Process->QuotaBlock->QuotaEntry[PagedPool].Usage += PagedPoolCharge;
+        Process->QuotaBlock->QuotaEntry[NonPagedPool].Usage += NonPagedPoolCharge;
+        ObjectHeader->QuotaBlockCharged = Process->QuotaBlock;
     }
 
     /* Return success */
@@ -460,21 +88,17 @@ VOID
 NTAPI
 ObpDecrementHandleCount(IN PVOID ObjectBody,
                         IN PEPROCESS Process,
-                        IN ACCESS_MASK GrantedAccess,
-                        IN POBJECT_TYPE ObjectType)
+                        IN ACCESS_MASK GrantedAccess)
 {
     POBJECT_HEADER ObjectHeader;
+    POBJECT_TYPE ObjectType;
     LONG SystemHandleCount, ProcessHandleCount;
     LONG NewCount;
-    KIRQL CalloutIrql;
-    POBJECT_HEADER_HANDLE_INFO HandleInfo;
-    POBJECT_HANDLE_COUNT_ENTRY HandleEntry;
-    POBJECT_HANDLE_COUNT_DATABASE HandleDatabase;
-    ULONG i;
-    PAGED_CODE();
+    POBJECT_HEADER_CREATOR_INFO CreatorInfo;
 
     /* Get the object type and header */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(ObjectBody);
+    ObjectType = ObjectHeader->Type;
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Decrementing count for: %p. HC LC %lx %lx\n",
             __FUNCTION__,
@@ -485,74 +109,23 @@ ObpDecrementHandleCount(IN PVOID ObjectBody,
     /* Lock the object type */
     ObpEnterObjectTypeMutex(ObjectType);
 
-    /* Set default counts */
+    /* FIXME: The process handle count should be in the Handle DB. Investigate */
     SystemHandleCount = ObjectHeader->HandleCount;
     ProcessHandleCount = 0;
 
     /* Decrement the handle count */
     NewCount = InterlockedDecrement(&ObjectHeader->HandleCount);
 
-    /* Check if we're out of handles and this was an exclusive object */
-    if (!(NewCount) && (ObjectHeader->Flags & OB_FLAG_EXCLUSIVE))
+    /* Check if we're out of handles */
+    if (!NewCount)
     {
-        /* Clear the exclusive flag */
-        OBJECT_HEADER_TO_QUOTA_INFO(ObjectHeader)->ExclusiveProcess = NULL;
-    }
-
-    /* Is the object type keeping track of handles? */
-    if (ObjectType->TypeInfo.MaintainHandleCount)
-    {
-        /* Get handle information */
-        HandleInfo = OBJECT_HEADER_TO_HANDLE_INFO(ObjectHeader);
-
-        /* Check if there's only a single entry */
-        if (ObjectHeader->Flags & OB_FLAG_SINGLE_PROCESS)
+        /* Get the creator info */
+        CreatorInfo = OBJECT_HEADER_TO_CREATOR_INFO(ObjectHeader);
+        if ((CreatorInfo) && !(IsListEmpty(&CreatorInfo->TypeList)))
         {
-            /* It should be us */
-            ASSERT(HandleInfo->SingleEntry.Process == Process);
-            ASSERT(HandleInfo->SingleEntry.HandleCount > 0);
-
-            /* Get the handle counts */
-            ProcessHandleCount = HandleInfo->SingleEntry.HandleCount--;
-            HandleEntry = &HandleInfo->SingleEntry;
-        }
-        else
-        {
-            /* Otherwise, get the database */
-            HandleDatabase = HandleInfo->HandleCountDatabase;
-            if (HandleDatabase)
-            {
-                /* Get the entries and loop them */
-                i = HandleDatabase->CountEntries;
-                HandleEntry = &HandleDatabase->HandleCountEntries[0];
-                while (i)
-                {
-                    /* Check if this is a match */
-                    if ((HandleEntry->HandleCount) &&
-                        (HandleEntry->Process == Process))
-                    {
-                        /* Found it, get the process handle count */
-                        ProcessHandleCount = HandleEntry->HandleCount--;
-                    }
-
-                    /* Keep looping */
-                    HandleEntry++;
-                    i--;
-                }
-            }
-            else
-            {
-                /* No database, so no entry */
-                HandleEntry = NULL;
-            }
-        }
-
-        /* Check if this is the last handle */
-        if (ProcessHandleCount == 1)
-        {
-            /* Then clear the entry */
-            HandleEntry->Process = NULL;
-            HandleEntry->HandleCount = 0;
+            /* Remove it from the list and re-initialize it */
+            RemoveEntryList(&CreatorInfo->TypeList);
+            InitializeListHead(&CreatorInfo->TypeList);
         }
     }
 
@@ -563,13 +136,11 @@ ObpDecrementHandleCount(IN PVOID ObjectBody,
     if (ObjectType->TypeInfo.CloseProcedure)
     {
         /* Call it */
-        ObpCalloutStart(&CalloutIrql);
         ObjectType->TypeInfo.CloseProcedure(Process,
                                             ObjectBody,
                                             GrantedAccess,
                                             ProcessHandleCount,
                                             SystemHandleCount);
-        ObpCalloutEnd(CalloutIrql, "Close", ObjectType, ObjectBody);
     }
 
     /* Check if we should delete the object */
@@ -622,11 +193,10 @@ ObpCloseHandleTableEntry(IN PHANDLE_TABLE HandleTable,
     POBJECT_TYPE ObjectType;
     POBJECT_HEADER ObjectHeader;
     ACCESS_MASK GrantedAccess;
-    KIRQL CalloutIrql;
     PAGED_CODE();
 
     /* Get the object data */
-    ObjectHeader = ObpGetHandleObject(HandleEntry);
+    ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
     ObjectType = ObjectHeader->Type;
     Body = &ObjectHeader->Body;
     GrantedAccess = HandleEntry->GrantedAccess;
@@ -642,24 +212,19 @@ ObpCloseHandleTableEntry(IN PHANDLE_TABLE HandleTable,
     if (ObjectType->TypeInfo.OkayToCloseProcedure)
     {
         /* Call it and check if it's not letting us close it */
-        ObpCalloutStart(&CalloutIrql);
         if (!ObjectType->TypeInfo.OkayToCloseProcedure(PsGetCurrentProcess(),
                                                        Body,
                                                        Handle,
                                                        AccessMode))
         {
             /* Fail */
-            ObpCalloutEnd(CalloutIrql, "NtClose", ObjectType, Body);
             ExUnlockHandleTableEntry(HandleTable, HandleEntry);
             return STATUS_HANDLE_NOT_CLOSABLE;
         }
-
-        /* Success, validate callout retrn */
-        ObpCalloutEnd(CalloutIrql, "NtClose", ObjectType, Body);
     }
 
     /* The callback allowed us to close it, but does the handle itself? */
-    if ((HandleEntry->ObAttributes & OBJ_PROTECT_CLOSE) &&
+    if ((HandleEntry->ObAttributes & EX_HANDLE_ENTRY_PROTECTFROMCLOSE) &&
         !(IgnoreHandleProtection))
     {
         /* It doesn't, are we from user mode? */
@@ -668,35 +233,34 @@ ObpCloseHandleTableEntry(IN PHANDLE_TABLE HandleTable,
             /* We are! Unlock the entry */
             ExUnlockHandleTableEntry(HandleTable, HandleEntry);
 
-            /* Make sure we have a debug port */
-            if (PsGetCurrentProcess()->DebugPort)
+            /* Make sure we have an exception port */
+            if (PsGetCurrentProcess()->ExceptionPort)
             {
                 /* Raise an exception */
                 return KeRaiseUserException(STATUS_HANDLE_NOT_CLOSABLE);
             }
             else
             {
-                /* Return the error instead */
+                /* Return the error isntead */
                 return STATUS_HANDLE_NOT_CLOSABLE;
             }
         }
-        else
-        {
-            /* Otherwise, bugcheck the OS */
-            KeBugCheckEx(0x8B, (ULONG_PTR)Handle, 0, 0, 0);
-        }
+
+        /* Otherwise, we are kernel mode, so unlock the entry and return */
+        ExUnlockHandleTableEntry(HandleTable, HandleEntry);
+        return STATUS_HANDLE_NOT_CLOSABLE;
     }
 
     /* Destroy and unlock the handle entry */
-    ExDestroyHandle(HandleTable, Handle, HandleEntry);
+    ExDestroyHandleByEntry(HandleTable, HandleEntry, Handle);
 
     /* Now decrement the handle count */
-    ObpDecrementHandleCount(Body,
-                            PsGetCurrentProcess(),
-                            GrantedAccess,
-                            ObjectType);
+    ObpDecrementHandleCount(Body, PsGetCurrentProcess(), GrantedAccess);
 
     /* Dereference the object as well */
+    ASSERT(ObjectHeader->Type);
+    ASSERT(ObjectHeader->PointerCount != 0xCCCCCCCC);
+
     ObDereferenceObject(Body);
 
     /* Return to caller */
@@ -751,13 +315,6 @@ ObpIncrementHandleCount(IN PVOID Object,
     POBJECT_TYPE ObjectType;
     ULONG ProcessHandleCount;
     NTSTATUS Status;
-    PEPROCESS ExclusiveProcess;
-    BOOLEAN Exclusive = FALSE, NewObject;
-    POBJECT_HEADER_CREATOR_INFO CreatorInfo;
-    KIRQL CalloutIrql;
-    KPROCESSOR_MODE ProbeMode;
-    ULONG Total;
-    PAGED_CODE();
 
     /* Get the object header and type */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
@@ -770,78 +327,15 @@ ObpIncrementHandleCount(IN PVOID Object,
             ObjectHeader->HandleCount,
             ObjectHeader->PointerCount);
 
-    /* Check if caller is forcing user mode */
-    if (HandleAttributes & OBJ_FORCE_ACCESS_CHECK)
-    {
-        /* Force it */
-        ProbeMode = UserMode;
-    }
-    else
-    {
-        /* Keep original setting */
-        ProbeMode = AccessMode;
-    }
-
     /* Lock the object type */
     ObpEnterObjectTypeMutex(ObjectType);
 
     /* Charge quota and remove the creator info flag */
-    Status = ObpChargeQuotaForObject(ObjectHeader, ObjectType, &NewObject);
+    Status = ObpChargeQuotaForObject(ObjectHeader, ObjectType);
     if (!NT_SUCCESS(Status)) return Status;
 
-    /* Check if the open is exclusive */
-    if (HandleAttributes & OBJ_EXCLUSIVE)
-    {
-        /* Check if the object allows this, or if the inherit flag was given */
-        if ((HandleAttributes & OBJ_INHERIT) ||
-            !(ObjectHeader->Flags & OB_FLAG_EXCLUSIVE))
-        {
-            /* Incorrect attempt */
-            Status = STATUS_INVALID_PARAMETER;
-            goto Quickie;
-        }
-
-        /* Check if we have access to it */
-        ExclusiveProcess = OBJECT_HEADER_TO_EXCLUSIVE_PROCESS(ObjectHeader);
-        if ((!(ExclusiveProcess) && (ObjectHeader->HandleCount)) ||
-            ((ExclusiveProcess) && (ExclusiveProcess != PsGetCurrentProcess())))
-        {
-            /* This isn't the right process */
-            Status = STATUS_ACCESS_DENIED;
-            goto Quickie;
-        }
-
-        /* Now you got exclusive access */
-        Exclusive = TRUE;
-    }
-    else if ((ObjectHeader->Flags & OB_FLAG_EXCLUSIVE) &&
-             (OBJECT_HEADER_TO_EXCLUSIVE_PROCESS(ObjectHeader)))
-    {
-        /* Caller didn't want exclusive access, but the object is exclusive */
-        Status = STATUS_ACCESS_DENIED;
-        goto Quickie;
-    }
-
-    /*
-     * Check if this is an object that went from 0 handles back to existence,
-     * but doesn't have an open procedure, only a close procedure. This means
-     * that it will never realize that the object is back alive, so we must
-     * fail the request.
-     */
-    if (!(ObjectHeader->HandleCount) &&
-        !(NewObject) &&
-        (ObjectType->TypeInfo.MaintainHandleCount) &&
-        !(ObjectType->TypeInfo.OpenProcedure) &&
-        (ObjectType->TypeInfo.CloseProcedure))
-    {
-        /* Fail */
-        Status = STATUS_UNSUCCESSFUL;
-        goto Quickie;
-    }
-
     /* Check if we're opening an existing handle */
-    if ((OpenReason == ObOpenHandle) ||
-        ((OpenReason == ObDuplicateHandle) && (AccessState)))
+    if (OpenReason == ObOpenHandle)
     {
         /* Validate the caller's access to this object */
         if (!ObCheckObjectAccess(Object,
@@ -851,7 +345,7 @@ ObpIncrementHandleCount(IN PVOID Object,
                                  &Status))
         {
             /* Access was denied, so fail */
-            goto Quickie;
+            return Status;
         }
     }
     else if (OpenReason == ObCreateHandle)
@@ -871,98 +365,30 @@ ObpIncrementHandleCount(IN PVOID Object,
             RtlMapGenericMask(&AccessState->RemainingDesiredAccess,
                               &ObjectType->TypeInfo.GenericMapping);
         }
-
-        /* Check if the caller is trying to access system security */
-        if (AccessState->RemainingDesiredAccess & ACCESS_SYSTEM_SECURITY)
-        {
-            /* FIXME: TODO */
-            DPRINT1("ACCESS_SYSTEM_SECURITY not validated!\n");
-        }
-    }
-
-    /* Check if this is an exclusive handle */
-    if (Exclusive)
-    {
-        /* Save the owner process */
-        OBJECT_HEADER_TO_QUOTA_INFO(ObjectHeader)->ExclusiveProcess = Process;
     }
 
     /* Increase the handle count */
     InterlockedIncrement(&ObjectHeader->HandleCount);
-    ProcessHandleCount = 0;
-
-    /* Check if we have a handle database */
-    if (ObjectType->TypeInfo.MaintainHandleCount)
-    {
-        /* Increment the handle database */
-        Status = ObpIncrementHandleDataBase(ObjectHeader,
-                                            Process,
-                                            &ProcessHandleCount);
-        if (!NT_SUCCESS(Status))
-        {
-            /* FIXME: This should never happen for now */
-            DPRINT1("Unhandled case\n");
-            KEBUGCHECK(0);
-            goto Quickie;
-        }
-    }
 
     /* Release the lock */
     ObpLeaveObjectTypeMutex(ObjectType);
 
+    /* FIXME: Use the Handle Database */
+    ProcessHandleCount = 0;
+
     /* Check if we have an open procedure */
-    Status = STATUS_SUCCESS;
     if (ObjectType->TypeInfo.OpenProcedure)
     {
         /* Call it */
-        ObpCalloutStart(&CalloutIrql);
-        Status = ObjectType->TypeInfo.OpenProcedure(OpenReason,
-                                                    Process,
-                                                    Object,
-                                                    AccessState ?
-                                                    AccessState->
-                                                    PreviouslyGrantedAccess :
-                                                    0,
-                                                    ProcessHandleCount);
-        ObpCalloutEnd(CalloutIrql, "Open", ObjectType, Object);
-
-        /* Check if the open procedure failed */
-        if (!NT_SUCCESS(Status))
-        {
-            /* FIXME: This should never happen for now */
-            DPRINT1("Unhandled case\n");
-            KEBUGCHECK(0);
-            return Status;
-        }
-    }
-
-    /* Check if this is a create operation */
-    if (OpenReason == ObCreateHandle)
-    {
-        /* Check if we have creator info */
-        CreatorInfo = OBJECT_HEADER_TO_CREATOR_INFO(ObjectHeader);
-        if (CreatorInfo)
-        {
-            /* We do, acquire the lock */
-            ObpEnterObjectTypeMutex(ObjectType);
-
-            /* Insert us on the list */
-            InsertTailList(&ObjectType->TypeList, &CreatorInfo->TypeList);
-
-            /* Release the lock */
-            ObpLeaveObjectTypeMutex(ObjectType);
-        }
+        ObjectType->TypeInfo.OpenProcedure(OpenReason,
+                                           Process,
+                                           Object,
+                                           AccessState->PreviouslyGrantedAccess,
+                                           ProcessHandleCount);
     }
 
     /* Increase total number of handles */
-    Total = InterlockedIncrement((PLONG)&ObjectType->TotalNumberOfHandles);
-    if (Total > ObjectType->HighWaterNumberOfHandles)
-    {
-        /* Fixup count */
-        ObjectType->HighWaterNumberOfHandles = Total;
-    }
-
-    /* Trace call and return */
+    InterlockedIncrement((PLONG)&ObjectType->TotalNumberOfHandles);
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Incremented count for: %p. Reason: %lx HC LC %lx %lx\n",
             __FUNCTION__,
@@ -970,12 +396,7 @@ ObpIncrementHandleCount(IN PVOID Object,
             OpenReason,
             ObjectHeader->HandleCount,
             ObjectHeader->PointerCount);
-    return Status;
-
-Quickie:
-    /* Release lock and return */
-    ObpLeaveObjectTypeMutex(ObjectType);
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 /*++
@@ -1018,11 +439,6 @@ ObpIncrementUnnamedHandleCount(IN PVOID Object,
     POBJECT_TYPE ObjectType;
     ULONG ProcessHandleCount;
     NTSTATUS Status;
-    PEPROCESS ExclusiveProcess;
-    BOOLEAN Exclusive = FALSE, NewObject;
-    POBJECT_HEADER_CREATOR_INFO CreatorInfo;
-    KIRQL CalloutIrql;
-    ULONG Total;
 
     /* Get the object header and type */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
@@ -1038,58 +454,8 @@ ObpIncrementUnnamedHandleCount(IN PVOID Object,
     ObpEnterObjectTypeMutex(ObjectType);
 
     /* Charge quota and remove the creator info flag */
-    Status = ObpChargeQuotaForObject(ObjectHeader, ObjectType, &NewObject);
+    Status = ObpChargeQuotaForObject(ObjectHeader, ObjectType);
     if (!NT_SUCCESS(Status)) return Status;
-
-    /* Check if the open is exclusive */
-    if (HandleAttributes & OBJ_EXCLUSIVE)
-    {
-        /* Check if the object allows this, or if the inherit flag was given */
-        if ((HandleAttributes & OBJ_INHERIT) ||
-            !(ObjectHeader->Flags & OB_FLAG_EXCLUSIVE))
-        {
-            /* Incorrect attempt */
-            Status = STATUS_INVALID_PARAMETER;
-            goto Quickie;
-        }
-
-        /* Check if we have access to it */
-        ExclusiveProcess = OBJECT_HEADER_TO_EXCLUSIVE_PROCESS(ObjectHeader);
-        if ((!(ExclusiveProcess) && (ObjectHeader->HandleCount)) ||
-            ((ExclusiveProcess) && (ExclusiveProcess != PsGetCurrentProcess())))
-        {
-            /* This isn't the right process */
-            Status = STATUS_ACCESS_DENIED;
-            goto Quickie;
-        }
-
-        /* Now you got exclusive access */
-        Exclusive = TRUE;
-    }
-    else if ((ObjectHeader->Flags & OB_FLAG_EXCLUSIVE) &&
-             (OBJECT_HEADER_TO_EXCLUSIVE_PROCESS(ObjectHeader)))
-    {
-        /* Caller didn't want exclusive access, but the object is exclusive */
-        Status = STATUS_ACCESS_DENIED;
-        goto Quickie;
-    }
-
-    /*
-     * Check if this is an object that went from 0 handles back to existence,
-     * but doesn't have an open procedure, only a close procedure. This means
-     * that it will never realize that the object is back alive, so we must
-     * fail the request.
-     */
-    if (!(ObjectHeader->HandleCount) &&
-        !(NewObject) &&
-        (ObjectType->TypeInfo.MaintainHandleCount) &&
-        !(ObjectType->TypeInfo.OpenProcedure) &&
-        (ObjectType->TypeInfo.CloseProcedure))
-    {
-        /* Fail */
-        Status = STATUS_UNSUCCESSFUL;
-        goto Quickie;
-    }
 
     /* Convert MAXIMUM_ALLOWED to GENERIC_ALL */
     if (*DesiredAccess & MAXIMUM_ALLOWED)
@@ -1107,94 +473,35 @@ ObpIncrementUnnamedHandleCount(IN PVOID Object,
                           &ObjectType->TypeInfo.GenericMapping);
     }
 
-    /* Check if this is an exclusive handle */
-    if (Exclusive)
-    {
-        /* Save the owner process */
-        OBJECT_HEADER_TO_QUOTA_INFO(ObjectHeader)->ExclusiveProcess = Process;
-    }
-
     /* Increase the handle count */
     InterlockedIncrement(&ObjectHeader->HandleCount);
-    ProcessHandleCount = 0;
 
-    /* Check if we have a handle database */
-    if (ObjectType->TypeInfo.MaintainHandleCount)
-    {
-        /* Increment the handle database */
-        Status = ObpIncrementHandleDataBase(ObjectHeader,
-                                            Process,
-                                            &ProcessHandleCount);
-        if (!NT_SUCCESS(Status))
-        {
-            /* FIXME: This should never happen for now */
-            DPRINT1("Unhandled case\n");
-            KEBUGCHECK(0);
-            goto Quickie;
-        }
-    }
-
-    /* Release the lock */
+    /* Release the object type */
     ObpLeaveObjectTypeMutex(ObjectType);
 
+    /* FIXME: Use the Handle Database */
+    ProcessHandleCount = 0;
+
     /* Check if we have an open procedure */
-    Status = STATUS_SUCCESS;
     if (ObjectType->TypeInfo.OpenProcedure)
     {
         /* Call it */
-        ObpCalloutStart(&CalloutIrql);
-        Status = ObjectType->TypeInfo.OpenProcedure(ObCreateHandle,
-                                                    Process,
-                                                    Object,
-                                                    *DesiredAccess,
-                                                    ProcessHandleCount);
-        ObpCalloutEnd(CalloutIrql, "Open", ObjectType, Object);
-
-        /* Check if the open procedure failed */
-        if (!NT_SUCCESS(Status))
-        {
-            /* FIXME: This should never happen for now */
-            DPRINT1("Unhandled case\n");
-            KEBUGCHECK(0);
-            return Status;
-        }
-    }
-
-    /* Check if we have creator info */
-    CreatorInfo = OBJECT_HEADER_TO_CREATOR_INFO(ObjectHeader);
-    if (CreatorInfo)
-    {
-        /* We do, acquire the lock */
-        ObpEnterObjectTypeMutex(ObjectType);
-
-        /* Insert us on the list */
-        InsertTailList(&ObjectType->TypeList, &CreatorInfo->TypeList);
-
-        /* Release the lock */
-        ObpLeaveObjectTypeMutex(ObjectType);
+        ObjectType->TypeInfo.OpenProcedure(ObCreateHandle,
+                                           Process,
+                                           Object,
+                                           *DesiredAccess,
+                                           ProcessHandleCount);
     }
 
     /* Increase total number of handles */
-    Total = InterlockedIncrement((PLONG)&ObjectType->TotalNumberOfHandles);
-    if (Total > ObjectType->HighWaterNumberOfHandles)
-    {
-        /* Fixup count */
-        ObjectType->HighWaterNumberOfHandles = Total;
-    }
-
-    /* Trace call and return */
+    InterlockedIncrement((PLONG)&ObjectType->TotalNumberOfHandles);
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Incremented count for: %p. UNNAMED HC LC %lx %lx\n",
             __FUNCTION__,
             Object,
             ObjectHeader->HandleCount,
             ObjectHeader->PointerCount);
-    return Status;
-
-Quickie:
-    /* Release lock and return */
-    ObpLeaveObjectTypeMutex(ObjectType);
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 /*++
@@ -1242,16 +549,14 @@ ObpCreateUnnamedHandle(IN PVOID Object,
     POBJECT_HEADER ObjectHeader;
     HANDLE Handle;
     KAPC_STATE ApcState;
-    BOOLEAN AttachedToProcess = FALSE, KernelHandle = FALSE;
+    BOOLEAN AttachedToProcess = FALSE;
     PVOID HandleTable;
     NTSTATUS Status;
-    ACCESS_MASK GrantedAccess;
-    POBJECT_TYPE ObjectType;
+    ULONG i;
     PAGED_CODE();
 
     /* Get the object header and type */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-    ObjectType = ObjectHeader->Type;
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Creating handle for: %p. UNNAMED. HC LC %lx %lx\n",
             __FUNCTION__,
@@ -1260,11 +565,10 @@ ObpCreateUnnamedHandle(IN PVOID Object,
             ObjectHeader->PointerCount);
 
     /* Check if this is a kernel handle */
-    if (HandleAttributes & OBJ_KERNEL_HANDLE)
+    if ((HandleAttributes & OBJ_KERNEL_HANDLE) && (AccessMode == KernelMode))
     {
         /* Set the handle table */
         HandleTable = ObpKernelHandleTable;
-        KernelHandle = TRUE;
 
         /* Check if we're not in the system process */
         if (PsGetCurrentProcess() != PsInitialSystemProcess)
@@ -1296,26 +600,30 @@ ObpCreateUnnamedHandle(IN PVOID Object,
         return Status;
     }
 
-    /* Save the object header */
+    /* Save the object header (assert its validity too) */
+    ASSERT((ULONG_PTR)ObjectHeader & EX_HANDLE_ENTRY_LOCKED);
     NewEntry.Object = ObjectHeader;
 
     /* Mask out the internal attributes */
-    NewEntry.ObAttributes |= HandleAttributes & OBJ_HANDLE_ATTRIBUTES;
+    NewEntry.ObAttributes |= HandleAttributes &
+                             (EX_HANDLE_ENTRY_PROTECTFROMCLOSE |
+                              EX_HANDLE_ENTRY_INHERITABLE |
+                              EX_HANDLE_ENTRY_AUDITONCLOSE);
 
-    /* Remove what's not in the valid access mask */
-    GrantedAccess = DesiredAccess & (ObjectType->TypeInfo.ValidAccessMask |
-                                     ACCESS_SYSTEM_SECURITY);
+    /* Save the access mask */
+    NewEntry.GrantedAccess = DesiredAccess;
 
     /* Handle extra references */
     if (AdditionalReferences)
     {
-        /* Add them to the header */
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount,
-                               AdditionalReferences);
+        /* Make a copy in case we fail later below */
+        i = AdditionalReferences;
+        while (i--)
+        {
+            /* Increment the count */
+            InterlockedIncrement(&ObjectHeader->PointerCount);
+        }
     }
-
-    /* Save the access mask */
-    NewEntry.GrantedAccess = GrantedAccess;
 
     /*
      * Create the actual handle. We'll need to do this *after* calling
@@ -1328,26 +636,22 @@ ObpCreateUnnamedHandle(IN PVOID Object,
             NewEntry.Object, NewEntry.ObAttributes & 3, NewEntry.GrantedAccess);
     Handle = ExCreateHandle(HandleTable, &NewEntry);
 
+     /* Detach if needed */
+    if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
+
     /* Make sure we got a handle */
     if (Handle)
     {
         /* Check if this was a kernel handle */
-        if (KernelHandle) Handle = ObMarkHandleAsKernelHandle(Handle);
+        if (HandleAttributes & OBJ_KERNEL_HANDLE)
+        {
+            /* Set the kernel handle bit */
+            Handle = ObMarkHandleAsKernelHandle(Handle);
+        }
 
         /* Return handle and object */
         *ReturnedHandle = Handle;
-
-        /* Return the new object only if caller wanted it biased */
-        if ((AdditionalReferences) && (ReturnedObject))
-        {
-            /* Return it */
-            *ReturnedObject = Object;
-        }
-
-        /* Detach if needed */
-        if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
-
-        /* Trace and return */
+        if (ReturnedObject) *ReturnedObject = Object;
         OBTRACE(OB_HANDLE_DEBUG,
                 "%s - Returning Handle: %lx HC LC %lx %lx\n",
                 __FUNCTION__,
@@ -1358,21 +662,16 @@ ObpCreateUnnamedHandle(IN PVOID Object,
     }
 
     /* Handle extra references */
-    if (AdditionalReferences)
+    while (AdditionalReferences--)
     {
-        /* Dereference it as many times as required */
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount,
-                               -AdditionalReferences);
+        /* Decrement the count */
+        InterlockedDecrement(&ObjectHeader->PointerCount);
     }
 
     /* Decrement the handle count and detach */
     ObpDecrementHandleCount(&ObjectHeader->Body,
                             PsGetCurrentProcess(),
-                            GrantedAccess,
-                            ObjectType);
-
-    /* Detach and fail */
-    if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
+                            NewEntry.GrantedAccess);
     return STATUS_INSUFFICIENT_RESOURCES;
 }
 
@@ -1410,7 +709,12 @@ ObpCreateUnnamedHandle(IN PVOID Object,
 *
 * @return <FILLMEIN>.
 *
-* @remarks Cleans up the Lookup Context on return.
+* @remarks Gloomy says OpenReason is "enables Security" if == 1.
+*          since this function *has* to call ObpIncrementHandleCount,
+*          which needs to somehow know the OpenReason, and since
+*          ObOpenHandle == 1, I'm guessing this is actually the
+*          OpenReason. Also makes sense since this function is shared
+*          by Duplication, Creation and Opening..
 *
 *--*/
 NTSTATUS
@@ -1421,7 +725,6 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
                 IN PACCESS_STATE AccessState,
                 IN ULONG AdditionalReferences,
                 IN ULONG HandleAttributes,
-                IN POBP_LOOKUP_CONTEXT Context,
                 IN KPROCESSOR_MODE AccessMode,
                 OUT PVOID *ReturnedObject,
                 OUT PHANDLE ReturnedHandle)
@@ -1430,12 +733,11 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
     POBJECT_HEADER ObjectHeader;
     HANDLE Handle;
     KAPC_STATE ApcState;
-    BOOLEAN AttachedToProcess = FALSE, KernelHandle = FALSE;
+    BOOLEAN AttachedToProcess = FALSE;
     POBJECT_TYPE ObjectType;
     PVOID HandleTable;
     NTSTATUS Status;
-    ACCESS_MASK DesiredAccess, GrantedAccess;
-    PAUX_DATA AuxData;
+    ULONG i;
     PAGED_CODE();
 
     /* Get the object header and type */
@@ -1450,19 +752,13 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
             ObjectHeader->PointerCount);
 
     /* Check if the types match */
-    if ((Type) && (ObjectType != Type))
-    {
-        /* They don't, cleanup */
-        if (Context) ObpCleanupDirectoryLookup(Context);
-        return STATUS_OBJECT_TYPE_MISMATCH;
-    }
+    if ((Type) && (ObjectType != Type)) return STATUS_OBJECT_TYPE_MISMATCH;
 
     /* Check if this is a kernel handle */
-    if (HandleAttributes & OBJ_KERNEL_HANDLE)
+    if ((HandleAttributes & OBJ_KERNEL_HANDLE) && (AccessMode == KernelMode))
     {
         /* Set the handle table */
         HandleTable = ObpKernelHandleTable;
-        KernelHandle = TRUE;
 
         /* Check if we're not in the system process */
         if (PsGetCurrentProcess() != PsInitialSystemProcess)
@@ -1491,50 +787,35 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
          * We failed (meaning security failure, according to NT Internals)
          * detach and return
          */
-        if (Context) ObpCleanupDirectoryLookup(Context);
         if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
         return Status;
     }
 
-    /* Check if we are doing audits on close */
-    if (AccessState->GenerateOnClose)
-    {
-        /* Force the attribute on */
-        HandleAttributes|= OBJ_AUDIT_OBJECT_CLOSE;
-    }
+    /* Save the object header (assert its validity too) */
+    ASSERT((ULONG_PTR)ObjectHeader & EX_HANDLE_ENTRY_LOCKED);
+    NewEntry.Object = ObjectHeader;
 
     /* Mask out the internal attributes */
-    NewEntry.ObAttributes |= HandleAttributes & OBJ_HANDLE_ATTRIBUTES;
+    NewEntry.ObAttributes |= HandleAttributes &
+                             (EX_HANDLE_ENTRY_PROTECTFROMCLOSE |
+                              EX_HANDLE_ENTRY_INHERITABLE |
+                              EX_HANDLE_ENTRY_AUDITONCLOSE);
 
-    /* Get the original desired access */
-    DesiredAccess = AccessState->RemainingDesiredAccess |
-                    AccessState->PreviouslyGrantedAccess;
-
-    /* Remove what's not in the valid access mask */
-    GrantedAccess = DesiredAccess & (ObjectType->TypeInfo.ValidAccessMask |
-                                     ACCESS_SYSTEM_SECURITY);
-
-    /* Update the value in the access state */
-    AccessState->PreviouslyGrantedAccess = GrantedAccess;
-
-    /* Get the auxiliary data */
-    AuxData = AccessState->AuxData;
+    /* Save the access mask */
+    NewEntry.GrantedAccess = AccessState->RemainingDesiredAccess |
+                             AccessState->PreviouslyGrantedAccess;
 
     /* Handle extra references */
     if (AdditionalReferences)
     {
-        /* Add them to the header */
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount, AdditionalReferences);
+        /* Make a copy in case we fail later below */
+        i = AdditionalReferences;
+        while (i--)
+        {
+            /* Increment the count */
+            InterlockedIncrement(&ObjectHeader->PointerCount);
+        }
     }
-
-    /* Now we can release the object */
-    if (Context) ObpCleanupDirectoryLookup(Context);
-
-    /* Save the object header */
-    NewEntry.Object = ObjectHeader;
-
-    /* Save the access mask */
-    NewEntry.GrantedAccess = GrantedAccess;
 
     /*
      * Create the actual handle. We'll need to do this *after* calling
@@ -1547,53 +828,22 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
             NewEntry.Object, NewEntry.ObAttributes & 3, NewEntry.GrantedAccess);
     Handle = ExCreateHandle(HandleTable, &NewEntry);
 
+     /* Detach if needed */
+    if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
+
     /* Make sure we got a handle */
     if (Handle)
     {
         /* Check if this was a kernel handle */
-        if (KernelHandle) Handle = ObMarkHandleAsKernelHandle(Handle);
+        if (HandleAttributes & OBJ_KERNEL_HANDLE)
+        {
+            /* Set the kernel handle bit */
+            Handle = ObMarkHandleAsKernelHandle(Handle);
+        }
 
-        /* Return it */
+        /* Return handle and object */
         *ReturnedHandle = Handle;
-
-        /* Check if we need to generate on audit */
-        if (AccessState->GenerateAudit)
-        {
-            /* Audit the handle creation */
-            //SeAuditHandleCreation(AccessState, Handle);
-        }
-
-        /* Check if this was a create */
-        if (OpenReason == ObCreateHandle)
-        {
-            /* Check if we need to audit the privileges */
-            if ((AuxData->PrivilegeSet) &&
-                (AuxData->PrivilegeSet->PrivilegeCount))
-            {
-                /* Do the audit */
-#if 0
-                SePrivilegeObjectAuditAlarm(Handle,
-                                            &AccessState->
-                                            SubjectSecurityContext,
-                                            GrantedAccess,
-                                            AuxData->PrivilegeSet,
-                                            TRUE,
-                                            ExGetPreviousMode());
-#endif
-            }
-        }
-
-        /* Return the new object only if caller wanted it biased */
-        if ((AdditionalReferences) && (ReturnedObject))
-        {
-            /* Return it */
-            *ReturnedObject = Object;
-        }
-
-        /* Detach if needed */
-        if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
-
-        /* Trace and return */
+        if (ReturnedObject) *ReturnedObject = Object;
         OBTRACE(OB_HANDLE_DEBUG,
                 "%s - Returning Handle: %lx HC LC %lx %lx\n",
                 __FUNCTION__,
@@ -1603,29 +853,17 @@ ObpCreateHandle(IN OB_OPEN_REASON OpenReason,
         return STATUS_SUCCESS;
     }
 
+    /* Handle extra references */
+    while (AdditionalReferences--)
+    {
+        /* Increment the count */
+        InterlockedDecrement(&ObjectHeader->PointerCount);
+    }
+
     /* Decrement the handle count and detach */
     ObpDecrementHandleCount(&ObjectHeader->Body,
                             PsGetCurrentProcess(),
-                            GrantedAccess,
-                            ObjectType);
-
-    /* Handle extra references */
-    if (AdditionalReferences)
-    {
-        /* Check how many extra references were added */
-        if (AdditionalReferences > 1)
-        {
-            /* Dereference it many times */
-            InterlockedExchangeAdd(&ObjectHeader->PointerCount,
-                                  -(AdditionalReferences - 1));
-        }
-
-        /* Dereference the object one last time */
-        ObDereferenceObject(Object);
-    }
-
-    /* Detach if necessary and fail */
-    if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
+                            NewEntry.GrantedAccess);
     return STATUS_INSUFFICIENT_RESOURCES;
 }
 
@@ -1655,7 +893,6 @@ ObpCloseHandle(IN HANDLE Handle,
     KAPC_STATE ApcState;
     PHANDLE_TABLE_ENTRY HandleTableEntry;
     NTSTATUS Status;
-    PEPROCESS Process = PsGetCurrentProcess();
     PAGED_CODE();
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Closing handle: %lx\n", __FUNCTION__, Handle);
@@ -1668,7 +905,7 @@ ObpCloseHandle(IN HANDLE Handle,
         Handle = ObKernelHandleToHandle(Handle);
 
         /* Check if we're not in the system process */
-        if (Process != PsInitialSystemProcess)
+        if (PsGetCurrentProcess() != PsInitialSystemProcess)
         {
             /* Attach to the system process */
             KeStackAttachProcess(&PsInitialSystemProcess->Pcb, &ApcState);
@@ -1678,7 +915,7 @@ ObpCloseHandle(IN HANDLE Handle,
     else
     {
         /* Use the process's handle table */
-        HandleTable = Process->ObjectTable;
+        HandleTable = PsGetCurrentProcess()->ObjectTable;
     }
 
     /* Enter a critical region to protect handle access */
@@ -1710,43 +947,18 @@ ObpCloseHandle(IN HANDLE Handle,
         /* Detach */
         if (AttachedToProcess) KeUnstackDetachProcess(&ApcState);
 
-        /* Check if we have a valid handle that's not the process or thread */
-        if ((Handle) &&
-            (Handle != NtCurrentProcess()) &&
-            (Handle != NtCurrentThread()))
+        /* Check if this was a user-mode caller with a valid exception port */
+        if ((AccessMode != KernelMode) &&
+            (PsGetCurrentProcess()->ExceptionPort))
         {
-            /* Check if we came from user mode */
-            if (AccessMode != KernelMode)
-            {
-                /* Check if we have no debug port */
-                if (Process->DebugPort)
-                {
-                    /* Make sure we're not attached */
-                    if (!KeIsAttachedProcess())
-                    {
-                        /* Raise an exception */
-                        return KeRaiseUserException(STATUS_INVALID_HANDLE);
-                    }
-                }
-            }
-            else
-            {
-                /* This is kernel mode. Check if we're exiting */
-                if (!(PsIsThreadTerminating(PsGetCurrentThread())) &&
-                    (Process->Peb))
-                {
-                    /* Check if the debugger is enabled */
-                    if (KdDebuggerEnabled)
-                    {
-                        /* Bugcheck */
-                        KeBugCheckEx(0, (ULONG_PTR)Handle, 1, 0, 0);
-                    }
-                }
-            }
+            /* Raise an exception */
+            Status = KeRaiseUserException(STATUS_INVALID_HANDLE);
         }
-
-        /* Set invalid status */
-        Status = STATUS_INVALID_HANDLE;
+        else
+        {
+            /* Just return the status */
+            Status = STATUS_INVALID_HANDLE;
+        }
     }
 
     /* Return status */
@@ -1761,6 +973,9 @@ ObpCloseHandle(IN HANDLE Handle,
 *
 *     The ObpSetHandleAttributes routine <FILLMEIN>
 *
+* @param HandleTable
+*        <FILLMEIN>.
+*
 * @param HandleTableEntry
 *        <FILLMEIN>.
 *
@@ -1774,11 +989,22 @@ ObpCloseHandle(IN HANDLE Handle,
 *--*/
 BOOLEAN
 NTAPI
-ObpSetHandleAttributes(IN OUT PHANDLE_TABLE_ENTRY HandleTableEntry,
-                       IN ULONG_PTR Context)
+ObpSetHandleAttributes(IN PHANDLE_TABLE HandleTable,
+                       IN OUT PHANDLE_TABLE_ENTRY HandleTableEntry,
+                       IN PVOID Context)
 {
-    POBP_SET_HANDLE_ATTRIBUTES_CONTEXT SetHandleInfo = (PVOID)Context;
-    POBJECT_HEADER ObjectHeader = ObpGetHandleObject(HandleTableEntry);
+    POBP_SET_HANDLE_ATTRIBUTES_CONTEXT SetHandleInfo =
+        (POBP_SET_HANDLE_ATTRIBUTES_CONTEXT)Context;
+    POBJECT_HEADER ObjectHeader = EX_HTE_TO_HDR(HandleTableEntry);
+    PAGED_CODE();
+
+    /* Don't allow operations on kernel objects */
+    if ((ObjectHeader->Flags & OB_FLAG_KERNEL_MODE) &&
+        (SetHandleInfo->PreviousMode != KernelMode))
+    {
+        /* Fail */
+        return FALSE;
+    }
 
     /* Check if making the handle inheritable */
     if (SetHandleInfo->Information.Inherit)
@@ -1791,24 +1017,24 @@ ObpSetHandleAttributes(IN OUT PHANDLE_TABLE_ENTRY HandleTableEntry,
         }
 
         /* Set the flag */
-        HandleTableEntry->ObAttributes |= OBJ_INHERIT;
+        HandleTableEntry->ObAttributes |= EX_HANDLE_ENTRY_INHERITABLE;
     }
     else
     {
         /* Otherwise this implies we're removing the flag */
-        HandleTableEntry->ObAttributes &= ~OBJ_INHERIT;
+        HandleTableEntry->ObAttributes &= ~EX_HANDLE_ENTRY_INHERITABLE;
     }
 
     /* Check if making the handle protected */
     if (SetHandleInfo->Information.ProtectFromClose)
     {
         /* Set the flag */
-        HandleTableEntry->GrantedAccess |= ObpAccessProtectCloseBit;
+        HandleTableEntry->ObAttributes |= EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
     }
     else
     {
         /* Otherwise, remove it */
-        HandleTableEntry->GrantedAccess &= ~ObpAccessProtectCloseBit;
+        HandleTableEntry->ObAttributes &= ~EX_HANDLE_ENTRY_PROTECTFROMCLOSE;
     }
 
     /* Return success */
@@ -1837,7 +1063,7 @@ ObpSetHandleAttributes(IN OUT PHANDLE_TABLE_ENTRY HandleTableEntry,
 * @remarks None.
 *
 *--*/
-BOOLEAN
+VOID
 NTAPI
 ObpCloseHandleCallback(IN PHANDLE_TABLE_ENTRY HandleTableEntry,
                        IN HANDLE Handle,
@@ -1851,7 +1077,6 @@ ObpCloseHandleCallback(IN PHANDLE_TABLE_ENTRY HandleTableEntry,
                              Handle,
                              CloseContext->AccessMode,
                              TRUE);
-    return TRUE;
 }
 
 /*++
@@ -1875,10 +1100,9 @@ ObpCloseHandleCallback(IN PHANDLE_TABLE_ENTRY HandleTableEntry,
 *--*/
 BOOLEAN
 NTAPI
-ObpDuplicateHandleCallback(IN PEPROCESS Process,
-                           IN PHANDLE_TABLE HandleTable,
-                           IN PHANDLE_TABLE_ENTRY OldEntry,
-                           IN PHANDLE_TABLE_ENTRY HandleTableEntry)
+ObpDuplicateHandleCallback(IN PHANDLE_TABLE HandleTable,
+                           IN PHANDLE_TABLE_ENTRY HandleTableEntry,
+                           IN PVOID Context)
 {
     POBJECT_HEADER ObjectHeader;
     BOOLEAN Ret = FALSE;
@@ -1887,17 +1111,11 @@ ObpDuplicateHandleCallback(IN PEPROCESS Process,
     PAGED_CODE();
 
     /* Make sure that the handle is inheritable */
-    Ret = (HandleTableEntry->ObAttributes & OBJ_INHERIT) != 0;
+    Ret = (HandleTableEntry->ObAttributes & EX_HANDLE_ENTRY_INHERITABLE) != 0;
     if (Ret)
     {
         /* Get the object header */
-        ObjectHeader = ObpGetHandleObject(HandleTableEntry);
-
-        /* Increment the pointer count */
-        InterlockedIncrement(&ObjectHeader->PointerCount);
-
-        /* Release the handle lock */
-        ExUnlockHandleTableEntry(HandleTable, OldEntry);
+        ObjectHeader = EX_HTE_TO_HDR(HandleTableEntry);
 
         /* Setup the access state */
         AccessState.PreviouslyGrantedAccess = HandleTableEntry->GrantedAccess;
@@ -1907,19 +1125,18 @@ ObpDuplicateHandleCallback(IN PEPROCESS Process,
                                          &AccessState,
                                          KernelMode,
                                          HandleTableEntry->ObAttributes,
-                                         Process,
+                                         PsGetCurrentProcess(),
                                          ObInheritHandle);
         if (!NT_SUCCESS(Status))
         {
             /* Return failure */
-            ObDereferenceObject(&ObjectHeader->Body);
             Ret = FALSE;
         }
-    }
-    else
-    {
-        /* Release the handle lock */
-        ExUnlockHandleTableEntry(HandleTable, OldEntry);
+        else
+        {
+            /* Otherwise increment the pointer count */
+            InterlockedIncrement(&ObjectHeader->PointerCount);
+        }
     }
 
     /* Return duplication result */
@@ -1960,15 +1177,11 @@ ObpCreateHandleTable(IN PEPROCESS Parent,
     /* Check if we have a parent */
     if (Parent)
     {
-        /* Get the parent's table */
-        HandleTable = ObReferenceProcessHandleTable(Parent);
-        if (!HandleTable) return STATUS_PROCESS_IS_TERMINATING;
-
         /* Duplicate the parent's */
         HandleTable = ExDupHandleTable(Process,
-                                       HandleTable,
                                        ObpDuplicateHandleCallback,
-                                       OBJ_INHERIT);
+                                       NULL,
+                                       Parent->ObjectTable);
     }
     else
     {
@@ -1976,14 +1189,11 @@ ObpCreateHandleTable(IN PEPROCESS Parent,
         HandleTable = ExCreateHandleTable(Process);
     }
 
-    /* Now write it */
+    /* Now write it and make sure we got one */
     Process->ObjectTable = HandleTable;
-
-    /* Dereference the parent's handle table if we have one */
-    if (Parent) ObDereferenceProcessHandleTable(Parent);
-
-    /* Fail or succeed depending on whether we got a handle table or not */
     if (!HandleTable) return STATUS_INSUFFICIENT_RESOURCES;
+
+    /* If we got here then the table was created OK */
     return STATUS_SUCCESS;
 }
 
@@ -2004,21 +1214,9 @@ VOID
 NTAPI
 ObKillProcess(IN PEPROCESS Process)
 {
-    PHANDLE_TABLE HandleTable;
+    PHANDLE_TABLE HandleTable = Process->ObjectTable;
     OBP_CLOSE_HANDLE_CONTEXT Context;
-    BOOLEAN HardErrors;
     PAGED_CODE();
-
-    /* Wait for process rundown and then complete it */
-    ExWaitForRundownProtectionRelease(&Process->RundownProtect);
-    ExRundownCompleted(&Process->RundownProtect);
-
-    /* Get the object table */
-    HandleTable = Process->ObjectTable;
-    if (!HandleTable) return;
-
-    /* Disable hard errors while we close handles */
-    HardErrors = IoSetThreadHardErrorMode(FALSE);
 
     /* Enter a critical region */
     KeEnterCriticalRegion();
@@ -2031,17 +1229,13 @@ ObKillProcess(IN PEPROCESS Process)
     ExSweepHandleTable(HandleTable,
                        ObpCloseHandleCallback,
                        &Context);
-    ASSERT(HandleTable->HandleCount == 0);
 
-    /* Leave the critical region */
+    /* Destroy the table and leave the critical region */
+    ExDestroyHandleTable(HandleTable);
     KeLeaveCriticalRegion();
 
-    /* Re-enable hard errors */
-    IoSetThreadHardErrorMode(HardErrors);
-
-    /* Destroy the object table */
+    /* Clear the object table */
     Process->ObjectTable = NULL;
-    ExDestroyHandleTable(HandleTable, NULL);
 }
 
 NTSTATUS
@@ -2062,14 +1256,13 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
     POBJECT_TYPE ObjectType;
     HANDLE NewHandle;
     KAPC_STATE ApcState;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ACCESS_MASK TargetAccess, SourceAccess;
     ACCESS_STATE AccessState;
     PACCESS_STATE PassedAccessState = NULL;
     AUX_DATA AuxData;
-    PHANDLE_TABLE HandleTable;
+    PHANDLE_TABLE HandleTable = NULL;
     OBJECT_HANDLE_INFORMATION HandleInformation;
-    ULONG AuditMask;
     PAGED_CODE();
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Duplicating handle: %lx for %p into %p\n",
@@ -2078,90 +1271,32 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
             SourceProcess,
             TargetProcess);
 
-    /* Assume failure */
-    if (TargetHandle) *TargetHandle = NULL;
-
-    /* Check if we're not duplicating the same access */
-    if (!(Options & DUPLICATE_SAME_ACCESS))
+    /* Check if we're not in the source process */
+    if (SourceProcess != PsGetCurrentProcess())
     {
-        /* Validate the desired access */
-        Status = STATUS_SUCCESS; //ObpValidateDesiredAccess(DesiredAccess);
-        if (!NT_SUCCESS(Status)) return Status;
+        /* Attach to it */
+        KeStackAttachProcess(&SourceProcess->Pcb, &ApcState);
+        AttachedToProcess = TRUE;
     }
 
-    /* Reference the object table */
-    HandleTable = ObReferenceProcessHandleTable(SourceProcess);
-    if (!HandleTable) return STATUS_PROCESS_IS_TERMINATING;
+    /* Now reference the source handle */
+    Status = ObReferenceObjectByHandle(SourceHandle,
+                                       0,
+                                       NULL,
+                                       PreviousMode,
+                                       (PVOID*)&SourceObject,
+                                       &HandleInformation);
 
-    /* Reference the process object */
-    Status = ObpReferenceProcessObjectByHandle(SourceHandle,
-                                               SourceProcess,
-                                               HandleTable,
-                                               PreviousMode,
-                                               &SourceObject,
-                                               &HandleInformation,
-                                               &AuditMask);
-    if (!NT_SUCCESS(Status))
+    /* Check if we were attached */
+    if (AttachedToProcess)
     {
-        /* Fail */
-        ObDereferenceProcessHandleTable(SourceProcess);
-        return Status;
-    }
-    else
-    {
-        /* Check if we have to don't have to audit object close */
-        if (!(HandleInformation.HandleAttributes & OBJ_AUDIT_OBJECT_CLOSE))
-        {
-            /* Then there is no audit mask */
-            AuditMask = 0;
-        }
+        /* We can safely detach now */
+        KeUnstackDetachProcess(&ApcState);
+        AttachedToProcess = FALSE;
     }
 
-    /* Check if there's no target process */
-    if (!TargetProcess)
-    {
-        /* Check if the caller wanted actual duplication */
-        if (!(Options & DUPLICATE_CLOSE_SOURCE))
-        {
-            /* Invalid request */
-            Status = STATUS_INVALID_PARAMETER;
-        }
-        else
-        {
-            /* Otherwise, do the attach */
-            KeStackAttachProcess(&SourceProcess->Pcb, &ApcState);
-
-            /* Close the handle and detach */
-            NtClose(SourceHandle);
-            KeUnstackDetachProcess(&ApcState);
-        }
-
-        /* Return */
-        ObDereferenceProcessHandleTable(SourceProcess);
-        ObDereferenceObject(SourceObject);
-        return Status;
-    }
-
-    /* Get the target handle table */
-    HandleTable = ObReferenceProcessHandleTable(TargetProcess);
-    if (!HandleTable)
-    {
-        /* Check if the caller wanted us to close the handle */
-        if (Options & DUPLICATE_CLOSE_SOURCE)
-        {
-            /* Do the attach */
-            KeStackAttachProcess(&SourceProcess->Pcb, &ApcState);
-
-            /* Close the handle and detach */
-            NtClose(SourceHandle);
-            KeUnstackDetachProcess(&ApcState);
-        }
-
-        /* Return */
-        ObDereferenceProcessHandleTable(SourceProcess);
-        ObDereferenceObject(SourceObject);
-        return STATUS_PROCESS_IS_TERMINATING;
-    }
+    /* Fail if we couldn't reference it */
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Get the source access */
     SourceAccess = HandleInformation.GrantedAccess;
@@ -2180,12 +1315,6 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
         /* Duplicate them */
         HandleAttributes = HandleInformation.HandleAttributes;
     }
-    else
-    {
-        /* Don't allow caller to bypass auditing */
-        HandleAttributes |= HandleInformation.HandleAttributes &
-                            OBJ_AUDIT_OBJECT_CLOSE;
-    }
 
     /* Check if we're duplicating the access */
     if (Options & DUPLICATE_SAME_ACCESS) DesiredAccess = SourceAccess;
@@ -2195,21 +1324,21 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
     ObjectType = ObjectHeader->Type;
 
     /* Fill out the entry */
-    RtlZeroMemory(&NewHandleEntry, sizeof(HANDLE_TABLE_ENTRY));
     NewHandleEntry.Object = ObjectHeader;
-    NewHandleEntry.ObAttributes |= HandleAttributes & OBJ_HANDLE_ATTRIBUTES;
+    NewHandleEntry.ObAttributes |= HandleAttributes &
+                                   (EX_HANDLE_ENTRY_PROTECTFROMCLOSE |
+                                    EX_HANDLE_ENTRY_INHERITABLE |
+                                    EX_HANDLE_ENTRY_AUDITONCLOSE);
 
     /* Check if we're using a generic mask */
     if (DesiredAccess & GENERIC_ACCESS)
     {
         /* Map it */
-        RtlMapGenericMask(&DesiredAccess,
-                          &ObjectType->TypeInfo.GenericMapping);
+        RtlMapGenericMask(&DesiredAccess, &ObjectType->TypeInfo.GenericMapping);
     }
 
-    /* Set the target access, always propagate ACCESS_SYSTEM_SECURITY */
-    TargetAccess = DesiredAccess & (ObjectType->TypeInfo.ValidAccessMask |
-                                    ACCESS_SYSTEM_SECURITY);
+    /* Set the target access */
+    TargetAccess = DesiredAccess;
     NewHandleEntry.GrantedAccess = TargetAccess;
 
     /* Check if we're asking for new access */
@@ -2247,6 +1376,9 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
                                          HandleAttributes,
                                          PsGetCurrentProcess(),
                                          ObDuplicateHandle);
+
+        /* Set the handle table, now that we know this handle was added */
+        HandleTable = PsGetCurrentProcess()->ObjectTable;
     }
 
     /* Check if we were attached */
@@ -2272,10 +1404,6 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
     /* Now check if incrementing actually failed */
     if (!NT_SUCCESS(Status))
     {
-        /* Dereference handle tables */
-        ObDereferenceProcessHandleTable(SourceProcess);
-        ObDereferenceProcessHandleTable(TargetProcess);
-
         /* Dereference the source object */
         ObDereferenceObject(SourceObject);
         return Status;
@@ -2288,8 +1416,7 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
         /* Undo the increment */
         ObpDecrementHandleCount(SourceObject,
                                 TargetProcess,
-                                TargetAccess,
-                                ObjectType);
+                                TargetAccess);
 
         /* Deference the object and set failure status */
         ObDereferenceObject(SourceObject);
@@ -2298,10 +1425,6 @@ ObDuplicateObject(IN PEPROCESS SourceProcess,
 
     /* Return the handle */
     if (TargetHandle) *TargetHandle = NewHandle;
-
-    /* Dereference handle tables */
-    ObDereferenceProcessHandleTable(SourceProcess);
-    ObDereferenceProcessHandleTable(TargetProcess);
 
     /* Return status */
     OBTRACE(OB_HANDLE_DEBUG,
@@ -2362,41 +1485,31 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
 {
     PVOID Object = NULL;
     UNICODE_STRING ObjectName;
+    OBJECT_CREATE_INFORMATION ObjectCreateInfo;
     NTSTATUS Status;
+    OBP_LOOKUP_CONTEXT Context;
     POBJECT_HEADER ObjectHeader;
+    AUX_DATA AuxData;
     PGENERIC_MAPPING GenericMapping = NULL;
+    ACCESS_STATE AccessState;
     OB_OPEN_REASON OpenReason;
-    POB_TEMP_BUFFER TempBuffer;
     PAGED_CODE();
-
-    /* Assume failure */
-    *Handle = NULL;
 
     /* Check if we didn't get any Object Attributes */
     if (!ObjectAttributes)
     {
         /* Fail with special status code */
+        *Handle = NULL;
         return STATUS_INVALID_PARAMETER;
     }
-
-    /* Allocate the temporary buffer */
-    TempBuffer = ExAllocatePoolWithTag(NonPagedPool,
-                                       sizeof(OB_TEMP_BUFFER),
-                                       TAG_OB_TEMP_STORAGE);
-    if (!TempBuffer) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Capture all the info */
     Status = ObpCaptureObjectAttributes(ObjectAttributes,
                                         AccessMode,
                                         TRUE,
-                                        &TempBuffer->ObjectCreateInfo,
+                                        &ObjectCreateInfo,
                                         &ObjectName);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Fail */
-        ExFreePool(TempBuffer);
-        return Status;
-    }
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Check if we didn't get an access state */
     if (!PassedAccessState)
@@ -2405,40 +1518,35 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
         if (ObjectType) GenericMapping = &ObjectType->TypeInfo.GenericMapping;
 
         /* Use our built-in access state */
-        PassedAccessState = &TempBuffer->LocalAccessState;
-        Status = SeCreateAccessState(&TempBuffer->LocalAccessState,
-                                     &TempBuffer->AuxData,
+        PassedAccessState = &AccessState;
+        Status = SeCreateAccessState(&AccessState,
+                                     &AuxData,
                                      DesiredAccess,
                                      GenericMapping);
         if (!NT_SUCCESS(Status)) goto Quickie;
     }
 
     /* Get the security descriptor */
-    if (TempBuffer->ObjectCreateInfo.SecurityDescriptor)
+    if (ObjectCreateInfo.SecurityDescriptor)
     {
         /* Save it in the access state */
         PassedAccessState->SecurityDescriptor =
-            TempBuffer->ObjectCreateInfo.SecurityDescriptor;
+            ObjectCreateInfo.SecurityDescriptor;
     }
 
     /* Now do the lookup */
-    Status = ObpLookupObjectName(TempBuffer->ObjectCreateInfo.RootDirectory,
-                                 &ObjectName,
-                                 TempBuffer->ObjectCreateInfo.Attributes,
-                                 ObjectType,
-                                 AccessMode,
-                                 ParseContext,
-                                 TempBuffer->ObjectCreateInfo.SecurityQos,
-                                 NULL,
-                                 PassedAccessState,
-                                 &TempBuffer->LookupContext,
-                                 &Object);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Cleanup after lookup */
-        ObpCleanupDirectoryLookup(&TempBuffer->LookupContext);
-        goto Cleanup;
-    }
+    Status = ObFindObject(ObjectCreateInfo.RootDirectory,
+                          &ObjectName,
+                          ObjectCreateInfo.Attributes,
+                          AccessMode,
+                          &Object,
+                          ObjectType,
+                          &Context,
+                          PassedAccessState,
+                          ObjectCreateInfo.SecurityQos,
+                          ParseContext,
+                          NULL);
+    if (!NT_SUCCESS(Status)) goto Cleanup;
 
     /* Check if this object has create information */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
@@ -2462,49 +1570,29 @@ ObOpenObjectByName(IN POBJECT_ATTRIBUTES ObjectAttributes,
         OpenReason = ObOpenHandle;
     }
 
-    /* Check if we have invalid object attributes */
-    if (ObjectHeader->Type->TypeInfo.InvalidAttributes &
-        TempBuffer->ObjectCreateInfo.Attributes)
-    {
-        /* Set failure code */
-        Status = STATUS_INVALID_PARAMETER;
-
-        /* Cleanup after lookup */
-        ObpCleanupDirectoryLookup(&TempBuffer->LookupContext);
-
-        /* Dereference the object */
-        ObDereferenceObject(Object);
-    }
-    else
-    {
-        /* Create the actual handle now */
-        Status = ObpCreateHandle(OpenReason,
-                                 Object,
-                                 ObjectType,
-                                 PassedAccessState,
-                                 0,
-                                 TempBuffer->ObjectCreateInfo.Attributes,
-                                 &TempBuffer->LookupContext,
-                                 AccessMode,
-                                 NULL,
-                                 Handle);
-        if (!NT_SUCCESS(Status)) ObDereferenceObject(Object);
-    }
+    /* Create the actual handle now */
+    Status = ObpCreateHandle(OpenReason,
+                             Object,
+                             ObjectType,
+                             PassedAccessState,
+                             0,
+                             ObjectCreateInfo.Attributes,
+                             AccessMode,
+                             NULL,
+                             Handle);
+    if (!NT_SUCCESS(Status)) ObDereferenceObject(Object);
 
 Cleanup:
     /* Delete the access state */
-    if (PassedAccessState == &TempBuffer->LocalAccessState)
+    if (PassedAccessState == &AccessState)
     {
         SeDeleteAccessState(PassedAccessState);
     }
 
+    /* Release the object attributes and return status */
 Quickie:
-    /* Release the object attributes and temporary buffer */
-    ObpReleaseCapturedAttributes(&TempBuffer->ObjectCreateInfo);
-    if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
-    ExFreePool(TempBuffer);
-
-    /* Return status */
+    ObpReleaseCapturedAttributes(&ObjectCreateInfo);
+    if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - returning Object %p with PC S: %lx %lx\n",
             __FUNCTION__,
@@ -2562,8 +1650,8 @@ ObOpenObjectByPointer(IN PVOID Object,
     AUX_DATA AuxData;
     PAGED_CODE();
 
-    /* Assume failure */
-    *Handle = NULL;
+    /* Get the Header Info */
+    Header = OBJECT_TO_OBJECT_HEADER(Object);
 
     /* Reference the object */
     Status = ObReferenceObjectByPointer(Object,
@@ -2571,9 +1659,6 @@ ObOpenObjectByPointer(IN PVOID Object,
                                         ObjectType,
                                         AccessMode);
     if (!NT_SUCCESS(Status)) return Status;
-
-    /* Get the Header Info */
-    Header = OBJECT_TO_OBJECT_HEADER(Object);
 
     /* Check if we didn't get an access state */
     if (!PassedAccessState)
@@ -2592,20 +1677,6 @@ ObOpenObjectByPointer(IN PVOID Object,
         }
     }
 
-    /* Check if we have invalid object attributes */
-    if (Header->Type->TypeInfo.InvalidAttributes & HandleAttributes)
-    {
-        /* Delete the access state */
-        if (PassedAccessState == &AccessState)
-        {
-            SeDeleteAccessState(PassedAccessState);
-        }
-
-        /* Dereference the object */
-        ObDereferenceObject(Object);
-        return STATUS_INVALID_PARAMETER;
-    }
-
     /* Create the handle */
     Status = ObpCreateHandle(ObOpenHandle,
                              Object,
@@ -2613,7 +1684,6 @@ ObOpenObjectByPointer(IN PVOID Object,
                              PassedAccessState,
                              0,
                              HandleAttributes,
-                             NULL,
                              AccessMode,
                              NULL,
                              Handle);
@@ -2634,80 +1704,15 @@ ObOpenObjectByPointer(IN PVOID Object,
     return Status;
 }
 
-/*++
-* @name ObFindHandleForObject
-* @implemented NT4
-*
-*     The ObFindHandleForObject routine <FILLMEIN>
-*
-* @param Process
-*        <FILLMEIN>.
-*
-* @param Object
-*        <FILLMEIN>.
-*
-* @param ObjectType
-*        <FILLMEIN>.
-*
-* @param HandleInformation
-*        <FILLMEIN>.
-*
-* @param HandleReturn
-*        <FILLMEIN>.
-*
-* @return <FILLMEIN>.
-*
-* @remarks None.
-*
-*--*/
-BOOLEAN
-NTAPI
+NTSTATUS STDCALL
 ObFindHandleForObject(IN PEPROCESS Process,
                       IN PVOID Object,
                       IN POBJECT_TYPE ObjectType,
                       IN POBJECT_HANDLE_INFORMATION HandleInformation,
-                      OUT PHANDLE Handle)
+                      OUT PHANDLE HandleReturn)
 {
-    OBP_FIND_HANDLE_DATA FindData;
-    BOOLEAN Result = FALSE;
-    PVOID ObjectTable;
-
-    /* Make sure we have an object table */
-    ObjectTable = ObReferenceProcessHandleTable(Process);
-    if (ObjectTable)
-    {
-        /* Check if we have an object */
-        if (Object)
-        {
-            /* Set its header */
-            FindData.ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-        }
-        else
-        {
-            /* Otherwise, no object to match*/
-            FindData.ObjectHeader = NULL;
-        }
-
-        /* Set other information */
-        FindData.ObjectType = ObjectType;
-        FindData.HandleInformation = HandleInformation;
-
-        /* Enumerate the handle table */
-        if (ExEnumHandleTable(Process->ObjectTable,
-                              ObpEnumFindHandleProcedure,
-                              &FindData,
-                              Handle))
-        {
-            /* Set success */
-            Result = TRUE;
-        }
-
-        /* Let go of the table */
-        ObDereferenceProcessHandleTable(Process);
-    }
-
-    /* Return the result */
-    return Result;
+    DPRINT("ObFindHandleForObject is unimplemented!\n");
+    return STATUS_UNSUCCESSFUL;
 }
 
 /*++
@@ -2742,163 +1747,121 @@ ObFindHandleForObject(IN PEPROCESS Process,
 NTSTATUS
 NTAPI
 ObInsertObject(IN PVOID Object,
-               IN PACCESS_STATE AccessState OPTIONAL,
+               IN PACCESS_STATE PassedAccessState OPTIONAL,
                IN ACCESS_MASK DesiredAccess,
-               IN ULONG ObjectPointerBias,
-               OUT PVOID *NewObject OPTIONAL,
+               IN ULONG AdditionalReferences,
+               OUT PVOID *ReferencedObject OPTIONAL,
                OUT PHANDLE Handle)
 {
     POBJECT_CREATE_INFORMATION ObjectCreateInfo;
-    POBJECT_HEADER ObjectHeader;
+    POBJECT_HEADER Header;
     POBJECT_TYPE ObjectType;
-    PUNICODE_STRING ObjectName;
-    PVOID InsertObject;
-    PSECURITY_DESCRIPTOR ParentDescriptor = NULL;
-    BOOLEAN SdAllocated = FALSE;
-    POBJECT_HEADER_NAME_INFO ObjectNameInfo;
-    OBP_LOOKUP_CONTEXT Context;
-    ACCESS_STATE LocalAccessState;
-    AUX_DATA AuxData;
-    OB_OPEN_REASON OpenReason;
-    KPROCESSOR_MODE PreviousMode;
+    PVOID FoundObject = Object;
+    POBJECT_HEADER FoundHeader = NULL;
     NTSTATUS Status = STATUS_SUCCESS, RealStatus;
-    BOOLEAN IsNewObject;
+    PSECURITY_DESCRIPTOR DirectorySd = NULL;
+    BOOLEAN SdAllocated;
+    OBP_LOOKUP_CONTEXT Context;
+    POBJECT_HEADER_NAME_INFO ObjectNameInfo;
+    ACCESS_STATE AccessState;
+    AUX_DATA AuxData;
+    BOOLEAN IsNamed = FALSE;
+    OB_OPEN_REASON OpenReason = ObCreateHandle;
     PAGED_CODE();
 
-    /* Get the Header */
-    ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-
-    /* Detect invalid insert */
-    if (!(ObjectHeader->Flags & OB_FLAG_CREATE_INFO))
-    {
-        /* Display warning and break into debugger */
-        DPRINT1("OB: Attempting to insert existing object %08x\n", Object);
-        DbgBreakPoint();
-
-        /* Allow debugger to continue */
-        ObDereferenceObject(Object);
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Get the create and name info, as well as the object type */
-    ObjectCreateInfo = ObjectHeader->ObjectCreateInfo;
-    ObjectNameInfo = ObpAcquireNameInformation(ObjectHeader);
-    ObjectType = ObjectHeader->Type;
-    ObjectName = NULL;
+    /* Get the Header and Create Info */
+    Header = OBJECT_TO_OBJECT_HEADER(Object);
+    ObjectCreateInfo = Header->ObjectCreateInfo;
+    ObjectNameInfo = OBJECT_HEADER_TO_NAME_INFO(Header);
+    ObjectType = Header->Type;
 
     /* Check if this is an named object */
-    if ((ObjectNameInfo) && (ObjectNameInfo->Name.Buffer))
-    {
-        /* Get the object name */
-        ObjectName = &ObjectNameInfo->Name;
-    }
-
-    /* Sanity check */
-    ASSERT((Handle) ||
-           ((ObjectPointerBias == 0) &&
-            (ObjectName == NULL) &&
-            (ObjectType->TypeInfo.SecurityRequired) &&
-            (NewObject == NULL)));
+    if ((ObjectNameInfo) && (ObjectNameInfo->Name.Buffer)) IsNamed = TRUE;
 
     /* Check if the object is unnamed and also doesn't have security */
-    PreviousMode = KeGetPreviousMode();
-    if (!(ObjectType->TypeInfo.SecurityRequired) && !(ObjectName))
+    if ((!ObjectType->TypeInfo.SecurityRequired) && !(IsNamed))
     {
-        /* Assume failure */
-        *Handle = NULL;
-        ObjectHeader->ObjectCreateInfo = NULL;
+        /* ReactOS HACK */
+        if (Handle)
+        {
+            /* Assume failure */
+            *Handle = NULL;
 
-        /* Create the handle */
-        Status = ObpCreateUnnamedHandle(Object,
-                                        DesiredAccess,
-                                        ObjectPointerBias + 1,
-                                        ObjectCreateInfo->Attributes,
-                                        PreviousMode,
-                                        NewObject,
-                                        Handle);
+            /* Create the handle */
+            Status = ObpCreateUnnamedHandle(Object,
+                                            DesiredAccess,
+                                            AdditionalReferences + 1,
+                                            ObjectCreateInfo->Attributes,
+                                            ExGetPreviousMode(),
+                                            ReferencedObject,
+                                            Handle);
+        }
 
         /* Free the create information */
         ObpFreeAndReleaseCapturedAttributes(ObjectCreateInfo);
-
-        /* Release the object name information */
-        ObpReleaseNameInformation(ObjectNameInfo);
+        Header->ObjectCreateInfo = NULL;
 
         /* Remove the extra keep-alive reference */
-        ObDereferenceObject(Object);
+        if (Handle) ObDereferenceObject(Object);
 
         /* Return */
         OBTRACE(OB_HANDLE_DEBUG,
                 "%s - returning Object with PC S: %lx %lx\n",
                 __FUNCTION__,
-                ObjectHeader->PointerCount,
+                OBJECT_TO_OBJECT_HEADER(Object)->PointerCount,
                 Status);
         return Status;
     }
 
     /* Check if we didn't get an access state */
-    if (!AccessState)
+    if (!PassedAccessState)
     {
         /* Use our built-in access state */
-        AccessState = &LocalAccessState;
-        Status = SeCreateAccessState(&LocalAccessState,
+        PassedAccessState = &AccessState;
+        Status = SeCreateAccessState(&AccessState,
                                      &AuxData,
                                      DesiredAccess,
                                      &ObjectType->TypeInfo.GenericMapping);
         if (!NT_SUCCESS(Status))
         {
             /* Fail */
-            ObpReleaseNameInformation(ObjectNameInfo);
             ObDereferenceObject(Object);
             return Status;
         }
     }
 
     /* Save the security descriptor */
-    AccessState->SecurityDescriptor = ObjectCreateInfo->SecurityDescriptor;
-
-    /* Validate the access mask */
-    Status = STATUS_SUCCESS;//ObpValidateAccessMask(AccessState);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Fail */
-        ObpReleaseNameInformation(ObjectNameInfo);
-        ObDereferenceObject(Object);
-        return Status;
-    }
-
-    /* Setup a lookup context */
-    ObpInitializeDirectoryLookup(&Context);
-    InsertObject = Object;
-    OpenReason = ObCreateHandle;
+    PassedAccessState->SecurityDescriptor =
+        ObjectCreateInfo->SecurityDescriptor;
 
     /* Check if the object is named */
-    if (ObjectName)
+    if (IsNamed)
     {
         /* Look it up */
-        Status = ObpLookupObjectName(ObjectCreateInfo->RootDirectory,
-                                     ObjectName,
-                                     ObjectCreateInfo->Attributes,
-                                     ObjectType,
-                                     (ObjectHeader->Flags & OB_FLAG_KERNEL_MODE) ?
-                                     KernelMode : UserMode,
-                                     ObjectCreateInfo->ParseContext,
-                                     ObjectCreateInfo->SecurityQos,
-                                     Object,
-                                     AccessState,
-                                     &Context,
-                                     &InsertObject);
-
+        Status = ObFindObject(ObjectCreateInfo->RootDirectory,
+                              &ObjectNameInfo->Name,
+                              ObjectCreateInfo->Attributes,
+                              (Header->Flags & OB_FLAG_KERNEL_MODE) ?
+                              KernelMode : UserMode,
+                              &FoundObject,
+                              ObjectType,
+                              &Context,
+                              PassedAccessState,
+                              ObjectCreateInfo->SecurityQos,
+                              ObjectCreateInfo->ParseContext,
+                              Object);
         /* Check if we found an object that doesn't match the one requested */
-        if ((NT_SUCCESS(Status)) && (InsertObject) && (Object != InsertObject))
+        if ((NT_SUCCESS(Status)) && (FoundObject) && (Object != FoundObject))
         {
             /* This means we're opening an object, not creating a new one */
+            FoundHeader = OBJECT_TO_OBJECT_HEADER(FoundObject);
             OpenReason = ObOpenHandle;
 
             /* Make sure the caller said it's OK to do this */
             if (ObjectCreateInfo->Attributes & OBJ_OPENIF)
             {
                 /* He did, but did he want this type? */
-                if (ObjectType != OBJECT_TO_OBJECT_HEADER(InsertObject)->Type)
+                if (ObjectType != FoundHeader->Type)
                 {
                     /* Wrong type, so fail */
                     Status = STATUS_OBJECT_TYPE_MISMATCH;
@@ -2911,14 +1874,6 @@ ObInsertObject(IN PVOID Object,
             }
             else
             {
-                /* Check if this was a symbolic link */
-                if (OBJECT_TO_OBJECT_HEADER(InsertObject)->Type ==
-                    ObSymbolicLinkType)
-                {
-                    /* Dereference it */
-                    ObDereferenceObject(InsertObject);
-                }
-
                 /* Caller wanted to create a new object, fail */
                 Status = STATUS_OBJECT_NAME_COLLISION;
             }
@@ -2927,60 +1882,45 @@ ObInsertObject(IN PVOID Object,
         /* Check if anything until now failed */
         if (!NT_SUCCESS(Status))
         {
-            /* Cleanup after lookup */
-            ObpCleanupDirectoryLookup(&Context);
-
-            /* Remove query reference that we added */
-            ObpReleaseNameInformation(ObjectNameInfo);
-
-            /* Dereference the object and delete the access state */
+            /* We failed, dereference the object and delete the access state */
             ObDereferenceObject(Object);
-            if (AccessState == &LocalAccessState)
+            if (PassedAccessState == &AccessState)
             {
                 /* We used a local one; delete it */
-                SeDeleteAccessState(AccessState);
+                SeDeleteAccessState(PassedAccessState);
             }
 
             /* Return failure code */
             return Status;
         }
-        else
-        {
-            /* Check if this is a symbolic link */
-            if (ObjectType == ObSymbolicLinkType)
-            {
-                /* Create the internal name */
-                ObpCreateSymbolicLinkName(Object);
-            }
-        }
     }
 
     /* Now check if this object is being created */
-    if (InsertObject == Object)
+    if (FoundObject == Object)
     {
         /* Check if it's named or forces security */
-        if ((ObjectName) || (ObjectType->TypeInfo.SecurityRequired))
+        if ((IsNamed) || (ObjectType->TypeInfo.SecurityRequired))
         {
             /* Make sure it's inserted into an object directory */
             if ((ObjectNameInfo) && (ObjectNameInfo->Directory))
             {
                 /* Get the current descriptor */
                 ObGetObjectSecurity(ObjectNameInfo->Directory,
-                                    &ParentDescriptor,
+                                    &DirectorySd,
                                     &SdAllocated);
             }
 
             /* Now assign it */
-            Status = ObAssignSecurity(AccessState,
-                                      ParentDescriptor,
+            Status = ObAssignSecurity(PassedAccessState,
+                                      DirectorySd,
                                       Object,
                                       ObjectType);
 
             /* Check if we captured one */
-            if (ParentDescriptor)
+            if (DirectorySd)
             {
                 /* We did, release it */
-                ObReleaseObjectSecurity(ParentDescriptor, SdAllocated);
+                ObReleaseObjectSecurity(DirectorySd, SdAllocated);
             }
             else if (NT_SUCCESS(Status))
             {
@@ -2990,38 +1930,24 @@ ObInsertObject(IN PVOID Object,
                                             TRUE);
 
                 /* Clear the current one */
-                AccessState->SecurityDescriptor =
-                ObjectCreateInfo->SecurityDescriptor = NULL;
+                PassedAccessState->SecurityDescriptor =
+                    ObjectCreateInfo->SecurityDescriptor = NULL;
             }
         }
 
         /* Check if anything until now failed */
         if (!NT_SUCCESS(Status))
         {
-            /* Check if the directory was added */
-            if (Context.DirectoryLocked)
-            {
-                /* Weird case where we need to do a manual delete */
-                DPRINT1("Unhandled path\n");
-                KEBUGCHECK(0);
-            }
-
-            /* Cleanup the lookup */
-            ObpCleanupDirectoryLookup(&Context);
-
-            /* Remove query reference that we added */
-            ObpReleaseNameInformation(ObjectNameInfo);
-
-            /* Dereference the object and delete the access state */
+            /* We failed, dereference the object and delete the access state */
+            KEBUGCHECK(0);
             ObDereferenceObject(Object);
-            if (AccessState == &LocalAccessState)
+            if (PassedAccessState == &AccessState)
             {
                 /* We used a local one; delete it */
-                SeDeleteAccessState(AccessState);
+                SeDeleteAccessState(PassedAccessState);
             }
 
             /* Return failure code */
-            KEBUGCHECK(0);
             return Status;
         }
     }
@@ -3029,59 +1955,54 @@ ObInsertObject(IN PVOID Object,
     /* Save the actual status until here */
     RealStatus = Status;
 
-    /* Check if caller wants us to create a handle */
-    ObjectHeader->ObjectCreateInfo = NULL;
+    /* HACKHACK: Because of ROS's incorrect startup, this can be called
+     * without a valid Process until I finalize the startup patch,
+     * so don't create a handle if this is the case. We also don't create
+     * a handle if Handle is NULL when the Registry Code calls it, because
+     * the registry code totally bastardizes the Ob and needs to be fixed
+     */
     if (Handle)
     {
         /* Create the handle */
         Status = ObpCreateHandle(OpenReason,
-                                 InsertObject,
+                                 FoundObject,
                                  NULL,
-                                 AccessState,
-                                 ObjectPointerBias + 1,
+                                 PassedAccessState,
+                                 AdditionalReferences + 1,
                                  ObjectCreateInfo->Attributes,
-                                 &Context,
-                                 PreviousMode,
-                                 NewObject,
+                                 ExGetPreviousMode(),
+                                 ReferencedObject,
                                  Handle);
-        if (!NT_SUCCESS(Status))
-        {
-            /* If the object had a name, backout everything */
-            if (ObjectName) ObpDeleteNameCheck(Object);
-
-            /* Return the status of the failure */
-            *Handle = NULL;
-            RealStatus = Status;
-        }
-
-        /* Remove a query reference */
-        ObpReleaseNameInformation(ObjectNameInfo);
-
-        /* Remove the extra keep-alive reference */
-        ObDereferenceObject(Object);
-    }
-    else
-    {
-        /* Otherwise, lock the object type */
-        ObpEnterObjectTypeMutex(ObjectType);
-
-        /* And charge quota for the process to make it appear as used */
-        RealStatus = ObpChargeQuotaForObject(ObjectHeader,
-                                             ObjectType,
-                                             &IsNewObject);
-
-        /* Release the lock */
-        ObpLeaveObjectTypeMutex(ObjectType);
-
-        /* Check if we failed and dereference the object if so */
-        if (!NT_SUCCESS(RealStatus)) ObDereferenceObject(Object);
     }
 
     /* We can delete the Create Info now */
+    Header->ObjectCreateInfo = NULL;
     ObpFreeAndReleaseCapturedAttributes(ObjectCreateInfo);
 
-    /* Check if we created our own access state and delete it if so */
-    if (AccessState == &LocalAccessState) SeDeleteAccessState(AccessState);
+    /* Check if creating the handle failed */
+    if (!NT_SUCCESS(Status))
+    {
+        /* If the object had a name, backout everything */
+        if (IsNamed) ObpDeleteNameCheck(Object);
+    }
+
+    /* Remove the extra keep-alive reference */
+    if (Handle) ObDereferenceObject(Object);
+
+    /* Check our final status */
+    if (!NT_SUCCESS(Status))
+    {
+        /* Return the status of the failure */
+        *Handle = NULL;
+        RealStatus = Status;
+    }
+
+    /* Check if we created our own access state */
+    if (PassedAccessState == &AccessState)
+    {
+        /* We used a local one; delete it */
+        SeDeleteAccessState(PassedAccessState);
+    }
 
     /* Return status code */
     OBTRACE(OB_HANDLE_DEBUG,
@@ -3136,7 +2057,9 @@ NTSTATUS
 NTAPI
 NtClose(IN HANDLE Handle)
 {
-    /* Call the internal API */
+    //
+    // Call the internal API
+    //
     return ObpCloseHandle(Handle, ExGetPreviousMode());
 }
 
@@ -3154,6 +2077,7 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
     HANDLE hTarget;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status = STATUS_SUCCESS;
+    PAGED_CODE();
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Duplicating handle: %lx for %lx into %lx.\n",
             __FUNCTION__,
@@ -3161,15 +2085,13 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
             SourceProcessHandle,
             TargetProcessHandle);
 
-    /* Check if we have a target handle */
-    if ((TargetHandle) && (PreviousMode != KernelMode))
+    if((TargetHandle) && (PreviousMode != KernelMode))
     {
         /* Enter SEH */
         _SEH_TRY
         {
-            /* Probe the handle and assume failure */
+            /* Probe the handle */
             ProbeForWriteHandle(TargetHandle);
-            *TargetHandle = NULL;
         }
         _SEH_HANDLE
         {
@@ -3177,6 +2099,8 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
             Status = _SEH_GetExceptionCode();
         }
         _SEH_END;
+
+        /* Fail if the pointer was invalid */
         if (!NT_SUCCESS(Status)) return Status;
     }
 
@@ -3251,7 +2175,7 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
             hTarget,
             TargetProcessHandle,
             Status);
-    if (Target) ObDereferenceObject(Target);
+    ObDereferenceObject(Target);
     ObDereferenceObject(SourceProcess);
     return Status;
 }

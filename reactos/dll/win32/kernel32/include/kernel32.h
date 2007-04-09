@@ -105,11 +105,11 @@ BasepInitializeContext(IN PCONTEXT Context,
                 
 VOID
 STDCALL
-BaseThreadStartupThunk(VOID);
+BaseThreadStartupThunk();
 
 VOID
 STDCALL
-BaseProcessStartThunk(VOID);
+BaseProcessStartThunk();
         
 __declspec(noreturn)
 VOID

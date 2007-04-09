@@ -43,13 +43,6 @@ STRINGTABLE DISCARDABLE
    IDS_BTN_MEM_PLUS,       "M+"
    IDS_BTN_MEM_STATUS_M,   "M"
    IDS_BTN_SQRT,           "sqrt"
-   IDS_BTN_DEGREES,        "Degrees"
-   IDS_BTN_RADIANS,        "Radians"
-   IDS_BTN_GRADS,          "Grads"
-   IDS_BTN_SHRT_HEX        "Hex"
-   IDS_BTN_SHRT_DEC        "Dec"
-   IDS_BTN_SHRT_OCT        "Oct"
-   IDS_BTN_SHRT_BIN        "Bin"
    IDS_ERR_INVALID_INPUT,  "Input invalido per la funzione."
    IDS_ERR_DIVIDE_BY_ZERO, "Non si può dividere per zero."
    IDS_ERR_UNDEFINED,      "Il risultato della funzione è indefinito."
@@ -136,19 +129,19 @@ BEGIN
    VK_F1, IDV_HELP,     VIRTKEY
 END
 
+WHATS_THIS_MENU MENU DISCARDABLE
+{
+   POPUP "" {
+      MENUITEM "?",     IDM_WHATS_THIS
+  }
+}
+
 DLG_ABOUT DIALOG 12,0,120,82
 CAPTION "Informazioni su GNU winecalc"
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 BEGIN
    DEFPUSHBUTTON "OK", IDOK,       42, 60, 30, 14, WS_CHILD | WS_VISIBLE | WS_TABSTOP
 END
-
-WHATS_THIS_MENU MENU DISCARDABLE
-{
-    POPUP "" {
-      MENUITEM "Cos'è questo?",     IDM_WHATS_THIS
-   }
-}
 
 DLG_STATS DIALOG 12,0,125,78
 CAPTION "Statistiche"

@@ -18,44 +18,20 @@
   </if>
   <if property="DBG" value="1">
     <define name="DBG" value="1" />
-	<define name="_SEH_ENABLE_TRACE" />
     <property name="DBG_OR_KDBG" value="true" />
   </if>
   <if property="KDBG" value="1">
     <define name="KDBG" value="1" />
     <property name="DBG_OR_KDBG" value="true" />
   </if>
-
+  
   <if property="GDB" value="0">
-    <if property="OPTIMIZE" value="1">
-        <compilerflag>-Os</compilerflag>
-        <compilerflag>-Wno-strict-aliasing</compilerflag>
-        <compilerflag>-ftracer</compilerflag>
-        <compilerflag>-momit-leaf-frame-pointer</compilerflag>
-        <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
-    </if>
-    <if property="OPTIMIZE" value="2">
-        <compilerflag>-Os</compilerflag>
-        <compilerflag>-Wno-strict-aliasing</compilerflag>
-        <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
-    </if>
-    <if property="OPTIMIZE" value="3">
-        <compilerflag>-O1</compilerflag>
-        <compilerflag>-Wno-strict-aliasing</compilerflag>
-        <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
-    </if>
-    <if property="OPTIMIZE" value="4">
-        <compilerflag>-O2</compilerflag>
-        <compilerflag>-Wno-strict-aliasing</compilerflag>
-        <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
-    </if>
-    <if property="OPTIMIZE" value="5">
-        <compilerflag>-O3</compilerflag>
-        <compilerflag>-Wno-strict-aliasing</compilerflag>
-        <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
-    </if>
+    <compilerflag>-Os</compilerflag>
+    <compilerflag>-Wno-strict-aliasing</compilerflag>
+    <compilerflag>-ftracer</compilerflag>
+    <compilerflag>-momit-leaf-frame-pointer</compilerflag>
+    <compilerflag>-mpreferred-stack-boundary=2</compilerflag>
   </if>
-
   <compilerflag>-Wpointer-arith</compilerflag>
   <linkerflag>-enable-stdcall-fixup</linkerflag>
 
@@ -99,6 +75,9 @@
   <directory name="ntoskrnl">
     <xi:include href="ntoskrnl/ntoskrnl.rbuild" />
   </directory>
+  <directory name="regtests">
+    <xi:include href="regtests/directory.rbuild" />
+  </directory>  
   <directory name="subsystems">
     <xi:include href="subsystems/subsystems.rbuild" />
   </directory>

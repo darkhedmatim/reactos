@@ -491,6 +491,13 @@ EngStrokePath(
   return FALSE;
 }
 
+VOID
+STDCALL
+EngUnloadImage ( IN HANDLE hModule )
+{
+  // www.osr.com/ddk/graphics/gdifncs_586f.htm
+  UNIMPLEMENTED;
+}
 
 INT
 STDCALL

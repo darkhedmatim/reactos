@@ -7,6 +7,9 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
+#define NDEBUG
+#include <debug.h>
+
 #define INITGUID
 #include "kbdclass.h"
 
@@ -208,7 +211,7 @@ ReadRegistryEntries(
 
 	ULONG DefaultConnectMultiplePorts = 0;
 	ULONG DefaultDataQueueSize = 0x64;
-	PCWSTR DefaultDeviceBaseName = L"KeyboardClass";
+	UNICODE_STRING DefaultDeviceBaseName = RTL_CONSTANT_STRING(L"KeyboardClass");
 
 	ParametersRegistryKey.Length = 0;
 	ParametersRegistryKey.MaximumLength = RegistryPath->Length + sizeof(L"\\Parameters") + sizeof(UNICODE_NULL);
@@ -242,7 +245,7 @@ ReadRegistryEntries(
 	Parameters[2].Name = L"KeyboardDeviceBaseName";
 	Parameters[2].EntryContext = &DriverExtension->DeviceBaseName;
 	Parameters[2].DefaultType = REG_SZ;
-	Parameters[2].DefaultData = (PVOID)DefaultDeviceBaseName;
+	Parameters[2].DefaultData = &DefaultDeviceBaseName;
 	Parameters[2].DefaultLength = 0;
 
 	Status = RtlQueryRegistryValues(
@@ -270,10 +273,10 @@ ReadRegistryEntries(
 		/* Registry path doesn't exist. Set defaults */
 		DriverExtension->ConnectMultiplePorts = DefaultConnectMultiplePorts;
 		DriverExtension->DataQueueSize = DefaultDataQueueSize;
-		if (RtlCreateUnicodeString(&DriverExtension->DeviceBaseName, DefaultDeviceBaseName))
-			Status = STATUS_SUCCESS;
-		else
-			Status = STATUS_NO_MEMORY;
+		Status = RtlDuplicateUnicodeString(
+			RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
+			&DefaultDeviceBaseName,
+			&DriverExtension->DeviceBaseName);
 	}
 
 	return Status;
@@ -325,7 +328,7 @@ CreateClassDeviceObject(
 	DeviceIdW = &DeviceNameU.Buffer[PrefixLength / sizeof(WCHAR)];
 	while (DeviceId < 9999)
 	{
-		DeviceNameU.Length = (USHORT)(PrefixLength + swprintf(DeviceIdW, L"%lu", DeviceId) * sizeof(WCHAR));
+		DeviceNameU.Length = PrefixLength + swprintf(DeviceIdW, L"%lu", DeviceId) * sizeof(WCHAR);
 		Status = IoCreateDevice(
 			DriverObject,
 			sizeof(CLASS_DEVICE_EXTENSION),
@@ -435,7 +438,7 @@ FillEntries(
 	return Status;
 }
 
-static BOOLEAN NTAPI
+static BOOLEAN CALLBACK
 ClassCallback(
 	IN PDEVICE_OBJECT ClassDeviceObject,
 	IN OUT PKEYBOARD_INPUT_DATA DataStart,
@@ -445,8 +448,8 @@ ClassCallback(
 	PCLASS_DEVICE_EXTENSION ClassDeviceExtension = ClassDeviceObject->DeviceExtension;
 	PIRP Irp = NULL;
 	KIRQL OldIrql;
-	SIZE_T InputCount = DataEnd - DataStart;
-	SIZE_T ReadSize;
+	ULONG InputCount = DataEnd - DataStart;
+	ULONG ReadSize;
 
 	ASSERT(ClassDeviceExtension->Common.IsClassDO);
 
@@ -486,7 +489,7 @@ ClassCallback(
 
 			/* Skip the packet we just sent away */
 			DataStart += NumberOfEntries;
-			(*ConsumedCount) += (ULONG)NumberOfEntries;
+			(*ConsumedCount) += NumberOfEntries;
 			InputCount -= NumberOfEntries;
 		}
 	}
@@ -517,7 +520,7 @@ ClassCallback(
 		/* Move the counter up */
 		ClassDeviceExtension->InputCount += ReadSize;
 
-		(*ConsumedCount) += (ULONG)ReadSize;
+		(*ConsumedCount) += ReadSize;
 	}
 	else
 	{
@@ -824,13 +827,13 @@ SearchForLegacyDrivers(
 	DriverExtension = (PCLASS_DRIVER_EXTENSION)Context;
 
 	/* Create port base name, by replacing Class by Port at the end of the class base name */
-	Status = DuplicateUnicodeString(
+	Status = RtlDuplicateUnicodeString(
 		RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
 		&DriverExtension->DeviceBaseName,
 		&PortBaseName);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT("DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
+		DPRINT("RtlDuplicateUnicodeString() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	PortBaseName.Length -= (sizeof(L"Class") - sizeof(UNICODE_NULL));
@@ -883,7 +886,7 @@ SearchForLegacyDrivers(
 		PDEVICE_OBJECT PortDeviceObject = NULL;
 		PFILE_OBJECT FileObject = NULL;
 
-		PortName.Length = PortName.MaximumLength = (USHORT)KeyValueInformation->NameLength;
+		PortName.Length = PortName.MaximumLength = KeyValueInformation->NameLength;
 		PortName.Buffer = KeyValueInformation->Name;
 
 		/* Open the device object pointer */
@@ -936,13 +939,13 @@ DriverEntry(
 	}
 	RtlZeroMemory(DriverExtension, sizeof(CLASS_DRIVER_EXTENSION));
 
-	Status = DuplicateUnicodeString(
+	Status = RtlDuplicateUnicodeString(
 		RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
 		RegistryPath,
 		&DriverExtension->RegistryPath);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT("DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
+		DPRINT("RtlDuplicateUnicodeString() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 

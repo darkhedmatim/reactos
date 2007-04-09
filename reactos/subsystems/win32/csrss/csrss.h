@@ -5,8 +5,6 @@
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
-#include <intrin.h>
-
 /* Build Number */
 #include <reactos/buildno.h>
 

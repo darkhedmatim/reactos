@@ -4,8 +4,6 @@
 	<define name="__USE_W32API" />
 	<define name="ANONYMOUSUNIONS" />
 	<define name="_WIN32_WINNT">0x0501</define>
-	<define name="UNICODE" />
-	<define name="_UNICODE" />
 	<pch>precomp.h</pch>
 	<compilationunit name="unit.c">
 		<file>alias.c</file>
@@ -69,8 +67,6 @@
 	<define name="__USE_W32API" />
 	<define name="ANONYMOUSUNIONS" />
 	<define name="_WIN32_WINNT">0x0501</define>
-	<define name="UNICODE" />
-	<define name="_UNICODE" />
 	<library>cmd_base</library>
 	<library>kernel32</library>
 	<library>advapi32</library>
@@ -79,3 +75,6 @@
 	<file>main.c</file>
 	<file>cmd.rc</file>
 </module>
+<directory name="tests">
+	<xi:include href="tests/cmd_test.rbuild" />
+</directory>

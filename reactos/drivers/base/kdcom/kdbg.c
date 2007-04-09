@@ -12,14 +12,11 @@
 
 /* INCLUDES *****************************************************************/
 
-#define NOEXTAPI
 #include <ntddk.h>
 #define NDEBUG
 #include <halfuncs.h>
 #include <stdio.h>
 #include <debug.h>
-#include "arc/arc.h"
-#include "windbgkd.h"
 
 typedef struct _KD_PORT_INFORMATION
 {
@@ -78,6 +75,10 @@ typedef struct _KD_PORT_INFORMATION
 
 
 /* GLOBAL VARIABLES *********************************************************/
+#define KdComPortInUse _KdComPortInUse
+
+ULONG KdComPortInUse = 0;
+
 
 /* STATIC VARIABLES *********************************************************/
 
@@ -268,7 +269,7 @@ KdPortInitialize (
         /*
          * set global info
          */
-        *KdComPortInUse = PortBase;
+        KdComPortInUse = (ULONG)PortBase;
 
         /*
          * print message to blue screen
@@ -550,79 +551,6 @@ KdPortEnableInterrupts()
 	WRITE_PORT_UCHAR (SER_MCR (PortBase), ch);
 
 	return TRUE;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KdDebuggerInitialize0(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
-{
-    /* FIXME: TODO */
-    return STATUS_UNSUCCESSFUL;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KdDebuggerInitialize1(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
-{
-    /* FIXME: TODO */
-    return STATUS_UNSUCCESSFUL;
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
-KdSave(IN BOOLEAN SleepTransition)
-{
-    /* Nothing to do on COM ports */
-    return STATUS_SUCCESS;
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
-KdRestore(IN BOOLEAN SleepTransition)
-{
-    /* Nothing to do on COM ports */
-    return STATUS_SUCCESS;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-KdSendPacket(IN USHORT PacketType,
-             IN PSTRING Header,
-             IN PSTRING Data OPTIONAL,
-             OUT PKD_CONTEXT Context)
-{
-    /* FIXME: TODO */
-    return;
-}
-
-/*
- * @unimplemented
- */
-ULONG
-NTAPI
-KdReceivePacket(IN USHORT PacketType,
-                OUT PSTRING Header,
-                OUT PSTRING Data,
-                OUT PUSHORT DataSize,
-                OUT PKD_CONTEXT Context OPTIONAL)
-{
-    /* FIXME: TODO */
-    return 0;
 }
 
 /* EOF */

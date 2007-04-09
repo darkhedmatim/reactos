@@ -28,7 +28,6 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
-#include "vfwmsgs.h"
 #include "uxtheme.h"
 #include "tmschema.h"
 
@@ -166,7 +165,7 @@ static void UXTHEME_LoadTheme(void)
         }
         else {
             bThemeActive = FALSE;
-            TRACE("Failed to get ThemeActive: %d\n", GetLastError());
+            TRACE("Failed to get ThemeActive: %ld\n", GetLastError());
         }
         buffsize = sizeof(szCurrentColor)/sizeof(szCurrentColor[0]);
         if(RegQueryValueExW(hKey, szColorName, NULL, NULL, (LPBYTE)szCurrentColor, &buffsize))
@@ -206,7 +205,7 @@ static void UXTHEME_LoadTheme(void)
     }
     if(!bThemeActive) {
         MSSTYLES_SetActiveTheme(NULL, FALSE);
-        TRACE("Theming not active\n");
+        TRACE("Themeing not active\n");
     }
 }
 
@@ -471,7 +470,7 @@ static void UXTHEME_SaveSystemMetrics(void)
  *
  * Change the current active theme
  */
-static HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
+HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
 {
     HKEY hKey;
     WCHAR tmp[2];
@@ -605,15 +604,15 @@ HRESULT WINAPI EnableTheming(BOOL fEnable)
  * I'm using atoms as there may be large numbers of duplicated strings
  * and they do the work of keeping memory down as a cause of that quite nicely
  */
-static HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue)
+HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue)
 {
-    ATOM oldValue = (ATOM)(size_t)RemovePropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp));
+    ATOM oldValue = (ATOM)(size_t)RemovePropW(hwnd, MAKEINTATOMW(aProp));
     if(oldValue)
         DeleteAtom(oldValue);
     if(pszValue) {
         ATOM atValue = AddAtomW(pszValue);
         if(!atValue
-           || !SetPropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp), (LPWSTR)MAKEINTATOM(atValue))) {
+           || !SetPropW(hwnd, MAKEINTATOMW(aProp), (LPWSTR)MAKEINTATOMW(atValue))) {
             HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
             if(atValue) DeleteAtom(atValue);
             return hr;
@@ -622,9 +621,9 @@ static HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue
     return S_OK;
 }
 
-static LPWSTR UXTHEME_GetWindowProperty(HWND hwnd, ATOM aProp, LPWSTR pszBuffer, int dwLen)
+LPWSTR UXTHEME_GetWindowProperty(HWND hwnd, ATOM aProp, LPWSTR pszBuffer, int dwLen)
 {
-    ATOM atValue = (ATOM)(size_t)GetPropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp));
+    ATOM atValue = (ATOM)(size_t)GetPropW(hwnd, MAKEINTATOMW(aProp));
     if(atValue) {
         if(GetAtomNameW(atValue, pszBuffer, dwLen))
             return pszBuffer;
@@ -643,7 +642,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
     LPCWSTR pszAppName;
     LPCWSTR pszUseClassList;
     HTHEME hTheme = NULL;
-    TRACE("(%p,%s)\n", hwnd, debugstr_w(pszClassList));
+    TRACE("(%p,%s)", hwnd, debugstr_w(pszClassList));
 
     if(bThemeActive)
     {
@@ -657,7 +656,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
             hTheme = MSSTYLES_OpenThemeClass(pszAppName, pszUseClassList);
     }
     if(IsWindow(hwnd))
-        SetPropW(hwnd, (LPCWSTR)MAKEINTATOM(atWindowTheme), hTheme);
+        SetPropW(hwnd, MAKEINTATOMW(atWindowTheme), hTheme);
     TRACE(" = %p\n", hTheme);
     return hTheme;
 }
@@ -676,7 +675,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
 HTHEME WINAPI GetWindowTheme(HWND hwnd)
 {
     TRACE("(%p)\n", hwnd);
-    return GetPropW(hwnd, (LPCWSTR)MAKEINTATOM(atWindowTheme));
+    return GetPropW(hwnd, MAKEINTATOMW(atWindowTheme));
 }
 
 /***********************************************************************
@@ -726,7 +725,7 @@ DWORD WINAPI GetThemeAppProperties(void)
  */
 void WINAPI SetThemeAppProperties(DWORD dwFlags)
 {
-    TRACE("(0x%08x)\n", dwFlags);
+    TRACE("(0x%08lx)\n", dwFlags);
     dwThemeAppProperties = dwFlags;
 }
 
@@ -749,7 +748,7 @@ HRESULT WINAPI HitTestThemeBackground(HTHEME hTheme, HDC hdc, int iPartId,
                                      const RECT *pRect, HRGN hrgn,
                                      POINT ptTest, WORD *pwHitTestCode)
 {
-    FIXME("%d %d 0x%08x: stub\n", iPartId, iStateId, dwOptions);
+    FIXME("%d %d 0x%08lx: stub\n", iPartId, iStateId, dwOptions);
     if(!hTheme)
         return E_HANDLE;
     return ERROR_CALL_NOT_IMPLEMENTED;
@@ -868,7 +867,7 @@ HRESULT WINAPI OpenThemeFile(LPCWSTR pszThemeFileName, LPCWSTR pszColorName,
                              LPCWSTR pszSizeName, HTHEMEFILE *hThemeFile,
                              DWORD unknown)
 {
-    TRACE("(%s,%s,%s,%p,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%s,%p,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszColorName), debugstr_w(pszSizeName),
           hThemeFile, unknown);
     return MSSTYLES_OpenThemeFile(pszThemeFileName, pszColorName, pszSizeName, (PTHEME_FILE*)hThemeFile);
@@ -948,7 +947,7 @@ HRESULT WINAPI GetThemeDefaults(LPCWSTR pszThemeFileName, LPWSTR pszColorName,
 {
     PTHEME_FILE pt;
     HRESULT hr;
-    TRACE("(%s,%p,%d,%p,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%p,%ld,%p,%ld)\n", debugstr_w(pszThemeFileName),
           pszColorName, dwColorNameLen,
           pszSizeName, dwSizeNameLen);
 
@@ -1067,7 +1066,7 @@ HRESULT WINAPI EnumThemeColors(LPWSTR pszThemeFileName, LPWSTR pszSizeName,
     HRESULT hr;
     LPWSTR tmp;
     UINT resourceId = dwColorNum + 1000;
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszSizeName), dwColorNum);
 
     hr = MSSTYLES_OpenThemeFile(pszThemeFileName, NULL, pszSizeName, &pt);
@@ -1127,7 +1126,7 @@ HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
     HRESULT hr;
     LPWSTR tmp;
     UINT resourceId = dwSizeNum + 3000;
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszColorName), dwSizeNum);
 
     hr = MSSTYLES_OpenThemeFile(pszThemeFileName, pszColorName, NULL, &pt);

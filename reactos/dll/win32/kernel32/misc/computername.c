@@ -144,7 +144,7 @@ GetComputerNameExW (
 
     case ComputerNameDnsFullyQualified:
         ResultString.Length = 0;
-        ResultString.MaximumLength = (USHORT)*nSize * sizeof(WCHAR);
+        ResultString.MaximumLength = *nSize * sizeof(WCHAR);
         ResultString.Buffer = lpBuffer;
 
         RtlZeroMemory(QueryTable, sizeof(QueryTable));
@@ -238,15 +238,15 @@ GetComputerNameExA (
 	return ERROR_OUTOFMEMORY;
     }
 
-    AnsiString.MaximumLength = (USHORT)*nSize;
+    AnsiString.MaximumLength = *nSize;
     AnsiString.Length = 0;
     AnsiString.Buffer = lpBuffer;
 
     Result = GetComputerNameExW( NameType, TempBuffer, nSize );
 
     if( Result ) {
-	UnicodeString.MaximumLength = (USHORT)*nSize * sizeof(WCHAR);
-	UnicodeString.Length = (USHORT)*nSize * sizeof(WCHAR);
+	UnicodeString.MaximumLength = *nSize * sizeof(WCHAR);
+	UnicodeString.Length = *nSize * sizeof(WCHAR);
 	UnicodeString.Buffer = TempBuffer;
 
 	RtlUnicodeStringToAnsiString (&AnsiString,

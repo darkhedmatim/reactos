@@ -32,14 +32,20 @@ Signature = "$ReactOS$"
 ; Base files
 base\applications\cacls\cacls.exe                   1
 base\applications\calc\calc.exe                     1
-base\applications\charmap\charmap.exe               1
 base\applications\cmdutils\find\find.exe            1
 base\applications\cmdutils\more\more.exe            1
 base\applications\control\control.exe               1
-base\applications\mscutils\devmgmt\devmgmt.exe      1
+base\applications\devmgr\devmgrapp.exe              1
+base\applications\devmgmt\devmgmt.exe               1
+base\applications\downloader\downloader.exe         1
+base\applications\downloader\downloader.xml         1
 base\applications\games\solitaire\sol.exe           1
 base\applications\games\winemine\winemine.exe       1
+base\applications\getfirefox\getfirefox.exe         1
+;base\applications\gettype\gettype.exe              1
 base\applications\hostname\hostname.exe             1
+base\applications\ibrowser\ibrowser.exe             1
+base\applications\imagesoft\imagesoft.exe           1
 base\applications\msconfig\msconfig.exe             1
 base\applications\network\arp\arp.exe               1
 base\applications\network\route\route.exe           1
@@ -54,13 +60,19 @@ base\applications\network\whois\whois.exe           1
 base\applications\notepad\notepad.exe               1
 base\applications\regedit\regedit.exe               4
 base\applications\regedit\clb\clb.dll               1
+;base\applications\reporterror\reporterror.exe      1
 base\applications\sc\sc.exe                         1
+base\applications\screenshot\screenshot.exe         1
 base\applications\screensavers\matrix\matrix.scr    1
-base\applications\mscutils\servman\servman.exe      1
+base\applications\servman\servman.exe               1
 base\applications\shutdown\shutdown.exe             1
+base\applications\sm\sm.exe                         1
 base\applications\sndvol32\sndvol32.exe             1
 base\applications\taskmgr\taskmgr.exe               1
-base\applications\winver\winver.exe                 1
+;base\applications\utils\rosperf\rosperf.exe        1
+;base\applications\utils\ps\ps.exe                  1
+base\applications\winefile\winefile.exe             1
+;base\applications\winver\winver.exe                1
 base\applications\wordpad\wordpad.exe               1
 
 base\services\dhcp\dhcp.exe                         1
@@ -124,11 +136,10 @@ dll\keyboard\kbdfr\kbdfr.dll                        1
 dll\keyboard\kbdgr\kbdgr.dll                        1
 dll\keyboard\kbdhe\kbdhe.dll                        1
 dll\keyboard\kbdhu\kbdhu.dll                        1
-dll\keyboard\kbdit\kbdit.dll                        1
 dll\keyboard\kbdja\kbdja.dll                        1
 dll\keyboard\kbdpo\kbdpo.dll                        1
 dll\keyboard\kbdru\kbdru.dll                        1
-dll\keyboard\kbdsw\kbdsw.dll                        1
+dll\keyboard\kbdse\kbdse.dll                        1
 dll\keyboard\kbdsg\kbdsg.dll                        1
 dll\keyboard\kbdsk\kbdsk.dll                        1
 dll\keyboard\kbdth\kbdth.dll                        1
@@ -182,7 +193,6 @@ dll\win32\msvideo\msvfw32.dll                       1
 dll\win32\mswsock\mswsock.dll                       1
 dll\win32\netapi32\netapi32.dll                     1
 dll\win32\netcfgx\netcfgx.dll                       1
-dll\win32\netid\netid.dll                           1
 dll\win32\newdev\newdev.dll                         1
 dll\win32\ntmarta\ntmarta.dll                       1
 dll\win32\objsel\objsel.dll                         1
@@ -219,7 +229,6 @@ dll\win32\version\version.dll                       1
 dll\win32\vdmdbg\vdmdbg.dll                         1
 dll\win32\wininet\wininet.dll                       1
 dll\win32\winmm\winmm.dll                           1
-dll\win32\winmm\wavemap\msacm32.drv                 1
 dll\win32\winspool\winspool.drv                     1
 dll\win32\wintrust\wintrust.dll                     1
 dll\win32\ws2_32\ws2_32.dll                         1
@@ -229,8 +238,9 @@ dll\win32\wsock32\wsock32.dll                       1
 
 
 ; Drivers
-drivers\base\bootvid\bootvid.dll                    1
+drivers\base\kdcom\kdcom.dll                      2
 drivers\base\beep\beep.sys                          2
+drivers\base\bootvid\bootvid.sys                    2
 drivers\base\null\null.sys                          2
 drivers\base\serial\serial.sys                      2
 
@@ -240,10 +250,12 @@ drivers\bus\pci\pci.sys                             2
 drivers\bus\serenum\serenum.sys                     2
 
 drivers\filesystems\fs_rec\fs_rec.sys               2
-drivers\filesystems\msfs\msfs.sys                   2
+drivers\filesystems\ms\msfs.sys                     2
 drivers\filesystems\mup\mup.sys                     2
-drivers\filesystems\npfs\npfs.sys                   2
+drivers\filesystems\np\npfs.sys                     2
 
+drivers\input\i8042prt\i8042prt.sys                 2
+drivers\input\kbdclass\kbdclass.sys                 2
 drivers\input\mouclass\mouclass.sys                 2
 drivers\input\sermouse\sermouse.sys                 2
 
@@ -255,8 +267,8 @@ drivers\network\wshtcpip\wshtcpip.dll               1
 drivers\network\dd\ne2000\ne2000.sys                2
 drivers\network\dd\pcnet\pcnet.sys                  2
 
-drivers\storage\ide\pciide\pciide.sys               2
-drivers\storage\ide\pciidex\pciidex.sys             2
+drivers\storage\pciide\pciide.sys                   2
+drivers\storage\pciidex\pciidex.sys                 2
 
 ;drivers\usb\miniport\usbohci\usbohci.sys            2
 ;drivers\usb\miniport\usbuhci\usbuhci.sys            2
@@ -269,8 +281,6 @@ drivers\video\displays\framebuf\framebuf.dll        1
 drivers\video\miniport\vga\vgamp.sys                2
 drivers\video\miniport\vbe\vbemp.sys                2
 drivers\video\videoprt\videoprt.sys                 2
-
-drivers\wmi\wmilib.sys                              2
 
 ; Media
 media\fonts\DejaVuSans.ttf                          3
@@ -305,7 +315,7 @@ media\fonts\courbi.ttf                              3
 media\fonts\courb.ttf                               3
 media\fonts\cour.ttf                                3
 media\fonts\helb____.ttf                            3
-media\fonts\Marlett.ttf                             3
+media\fonts\TGMarlett.ttf                           3
 media\fonts\timr____.ttf                            3
 media\fonts\UTBI____.ttf                            3
 media\fonts\UTB_____.ttf                            3
@@ -405,6 +415,25 @@ subsystems\win\winsrv\winsrv.dll                    1   optional
 subsystems\ntvdm\ntvdm.exe                          1
 subsystems\win32\win32k\win32k.sys                  1
 
+
+; Winetests
+regtests\winetests\advapi32\advapi32_winetest.exe   7
+regtests\winetests\cabinet\cabinet_winetest.exe     7
+regtests\winetests\comctl32\comctl32_winetest.exe   7
+regtests\winetests\gdi32\gdi32_winetest.exe         7
+regtests\winetests\icmp\icmp_winetest.exe           7 
+regtests\winetests\kernel32\kernel32_winetest.exe   7
+regtests\winetests\lz32\lz32_winetest.exe           7
+regtests\winetests\msi\msi_winetest.exe             7
+regtests\winetests\msvcrt\msvcrt_winetest.exe       7
+regtests\winetests\ntdll\ntdll_winetest.exe         7
+regtests\winetests\powrprof\powrprof_winetest.exe   7
+regtests\winetests\psapi\psapi_winetest.exe         7
+regtests\winetests\setupapi\setupapi_winetest.exe   7
+regtests\winetests\shell32\shell32_winetest.exe     7
+regtests\winetests\shlwapi\shlwapi_winetest.exe     7
+regtests\winetests\user32\user32_winetest.exe       7
+regtests\winetests\version\version_winetest.exe     7
 boot\bootdata\bootcdregtest\testboot.bat            7   optional
 tools\dbgprint\dbgprint.exe                         7   optional
 
@@ -437,21 +466,4 @@ modules\rosapps\sysutils\pedump\pedump.exe          1   optional
 modules\rosapps\sysutils\regexpl\regexpl.exe        1   optional
 modules\rosapps\sysutils\tcat\cat.exe               1   optional
 modules\rosapps\sysutils\tlist\tlist.exe            1   optional
-modules\rostests\winetests\advapi32\advapi32_winetest.exe   7   optional
-modules\rostests\winetests\cabinet\cabinet_winetest.exe     7   optional
-modules\rostests\winetests\comctl32\comctl32_winetest.exe   7   optional
-modules\rostests\winetests\gdi32\gdi32_winetest.exe         7   optional
-modules\rostests\winetests\icmp\icmp_winetest.exe           7   optional
-modules\rostests\winetests\kernel32\kernel32_winetest.exe   7   optional
-modules\rostests\winetests\lz32\lz32_winetest.exe           7   optional
-modules\rostests\winetests\msi\msi_winetest.exe             7   optional
-modules\rostests\winetests\msvcrt\msvcrt_winetest.exe       7   optional
-modules\rostests\winetests\ntdll\ntdll_winetest.exe         7   optional
-modules\rostests\winetests\powrprof\powrprof_winetest.exe   7   optional
-modules\rostests\winetests\psapi\psapi_winetest.exe         7   optional
-modules\rostests\winetests\setupapi\setupapi_winetest.exe   7   optional
-modules\rostests\winetests\shell32\shell32_winetest.exe     7   optional
-modules\rostests\winetests\shlwapi\shlwapi_winetest.exe     7   optional
-modules\rostests\winetests\user32\user32_winetest.exe       7   optional
-modules\rostests\winetests\usp10\usp10_winetest.exe         7   optional
-modules\rostests\winetests\version\version_winetest.exe     7   optional
+modules\wallpaper\lake.bmp                          1   optional

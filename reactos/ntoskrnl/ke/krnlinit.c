@@ -62,13 +62,13 @@ KiInitSystem(VOID)
     ULONG i;
 
     /* Initialize Bugcheck Callback data */
-    InitializeListHead(&KeBugcheckCallbackListHead);
-    InitializeListHead(&KeBugcheckReasonCallbackListHead);
+    InitializeListHead(&BugcheckCallbackListHead);
+    InitializeListHead(&BugcheckReasonCallbackListHead);
     KeInitializeSpinLock(&BugCheckCallbackLock);
 
     /* Initialize the Timer Expiration DPC */
-    KeInitializeDpc(&KiTimerExpireDpc, KiTimerExpiration, NULL);
-    KeSetTargetProcessorDpc(&KiTimerExpireDpc, 0);
+    KeInitializeDpc(&KiExpireTimerDpc, KiExpireTimers, NULL);
+    KeSetTargetProcessorDpc(&KiExpireTimerDpc, 0);
 
     /* Initialize Profiling data */
     KeInitializeSpinLock(&KiProfileLock);
@@ -84,6 +84,9 @@ KiInitSystem(VOID)
         KiTimerTableListHead[i].Time.LowPart = 0;
     }
 
+    /* Initialize old-style list */
+    InitializeListHead(&KiTimerListHead);
+
     /* Initialize the Swap event and all swap lists */
     KeInitializeEvent(&KiSwapEvent, SynchronizationEvent, FALSE);
     InitializeListHead(&KiProcessInSwapListHead);
@@ -91,7 +94,7 @@ KiInitSystem(VOID)
     InitializeListHead(&KiStackInSwapListHead);
 
     /* Initialize the mutex for generic DPC calls */
-    ExInitializeFastMutex(&KiGenericCallDpcMutex);
+    KeInitializeMutex(&KiGenericCallDpcMutex, 0);
 
     /* Initialize the syscall table */
     KeServiceDescriptorTable[0].Base = MainSSDT;
@@ -180,7 +183,7 @@ KiInitSpinLocks(IN PKPRCB Prcb,
     Prcb->QueueIndex = 1;
     Prcb->ReadySummary = 0;
     Prcb->DeferredReadyListHead.Next = NULL;
-    for (i = 0; i < MAXIMUM_PRIORITY; i++)
+    for (i = 0; i < 32; i++)
     {
         /* Initialize the ready list */
         InitializeListHead(&Prcb->DispatcherReadyListHead[i]);
@@ -243,13 +246,9 @@ KiInitSpinLocks(IN PKPRCB Prcb,
     {
         /* Initialize the lock and setup the Queued Spinlock */
         KeInitializeSpinLock(&KiTimerTableLock[i]);
-        Prcb->LockQueue[LockQueueTimerTableLock + i].Next = NULL;
-        Prcb->LockQueue[LockQueueTimerTableLock + i].Lock =
-            &KiTimerTableLock[i];
+        Prcb->LockQueue[i].Next = NULL;
+        Prcb->LockQueue[i].Lock = &KiTimerTableLock[i];
     }
-
-    /* Initialize the PRCB lock */
-    KeInitializeSpinLock(&Prcb->PrcbLock);
 
     /* Check if this is the boot CPU */
     if (!Number)
@@ -289,3 +288,4 @@ KeInitSystem(VOID)
     KiInitMachineDependent();
     return TRUE;
 }
+

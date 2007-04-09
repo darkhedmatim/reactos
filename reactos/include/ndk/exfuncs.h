@@ -103,19 +103,6 @@ ExTryToAcquireResourceExclusiveLite(
     IN PERESOURCE Resource
 );
 
-//
-// Handle Table Functions
-//
-NTKERNELAPI
-BOOLEAN
-NTAPI
-ExEnumHandleTable(
-    IN PHANDLE_TABLE HandleTable,
-    IN PEX_ENUM_HANDLE_CALLBACK EnumHandleProcedure,
-    IN OUT PVOID Context,
-    OUT PHANDLE Handle OPTIONAL
-);
-
 #endif
 
 //

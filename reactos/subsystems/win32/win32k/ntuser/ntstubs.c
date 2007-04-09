@@ -15,6 +15,17 @@
 
 DWORD
 STDCALL
+NtUserActivateKeyboardLayout(
+   DWORD Unknown0,
+   DWORD Unknown1)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserAttachThreadInput(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -213,8 +224,8 @@ NtUserEnumDisplayDevices (
    if (lpDisplayDevice->cb < sizeof(DISPLAY_DEVICE))
       return FALSE;
 
-   wcscpy(lpDisplayDevice->DeviceName, L"\\\\.\\DISPLAY1");
-   wcscpy(lpDisplayDevice->DeviceString, L"<Unknown>");
+   swprintf(lpDisplayDevice->DeviceName, L"\\\\.\\DISPLAY1");
+   swprintf(lpDisplayDevice->DeviceString, L"<Unknown>");
    lpDisplayDevice->StateFlags = DISPLAY_DEVICE_ATTACHED_TO_DESKTOP
                                  | DISPLAY_DEVICE_MODESPRUNED
                                  | DISPLAY_DEVICE_PRIMARY_DEVICE
@@ -616,6 +627,15 @@ NtUserTrackMouseEvent(
    return 0;
 }
 
+DWORD
+STDCALL
+NtUserUnloadKeyboardLayout(
+   DWORD Unknown0)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
 
 DWORD
 STDCALL

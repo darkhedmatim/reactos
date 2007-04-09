@@ -8,37 +8,62 @@
 //                     Do NOT ask when it will be fixed.
 //              Failure to respect this will *ACHIEVE NOTHING*.
 //
+//
+// Ob:
+//  - Add Directory Lock.
+//  - Strengthen code with debug checks and assertions.
+//  - Fix FIXMEs/commented out code.
+//
+// Ex:
+//  - Fixup existing code that talks to Ke.
+//  - Implement Generic Callback mechanism.
+//  - Use pushlocks for handle implementation.
+//
+// Lpc:
+//  - Figure out why NTLPC-processes won't die anymore.
+//
+// Ke1:
+//  - Implement KiInitMachineDependent.
+//
+// Fstub:
+//  - Implement IoAssignDriveLetters using mount manager support.
+//
 // Hal:
+//  - Use APC and DPC Interrupt Dispatchers.
 //  - CMOS Initialization and CMOS Spinlock.
 //
-// Global:
-//  - TODO: Complete the list of bufxies
-//  - Fix boot on VMWare.
-//  - Fix weird crash on boot with 0x867-0x872 EIP.
-//  - Fix trap.s AMD64 VMWare "Greatlord Issue".
-//  - Support SSE/MMX.
+// Ke2:
+//  - New optimized table-based tick-hashed timer implementation.
+//  - New Thread Scheduler based on 2003.
+//
+// Kd:
+//  - Implement KD Kernel Debugging and WinDBG support.
+//
+// Native:
+//  - Rewrite loader.
+//  - Make smss NT-compatible.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 // REACTOS GUIDANCE PLAN
 //  ________________________________________________________________________________________________________
 // /                                                                                                        \
-// | OB, PS, LPC, DBGK, EX, INIT => "Code complete". No expected changes until 0.5.0                      | |
+// | OB, PS, LPC, DBGK, IO => Almost entirely fixed interaction with Ke/Ex.                               | |
 // | SE => Not looked at. Interaction with Ps/Io is minimal and currently hacked away. Preserve.          |J|
-// | HAL => Needs APC/DPC/IRQL implementation fixed ASAP in terms of interaction with Ke.                 |A|
-// | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |N|
-// | \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/           | |
-// | BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES   |F|
-// | KE => Enable new thread scheduler and ensure it works.                                               |E|
-// | KD/KDBG => Laptop has special version of ROS without these components. Commit in branch.             |B|
-// | KD => Implement KD64 6.0, compatible with WinDBG                                                     | |
+// | EX => Needs re-visiting (in trunk). Do callbacks/push locks for interaction with Ps.                 |A|
+// | KD/KDBG => Laptop has special version of ROS without these components. Commit in branch.             |N|
+// | INIT => Boot sequence still needs work in terms of interaction with Ke and CPU features.             | |
+// | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |F|
+// | \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/           |E|
+// | HAL => Needs APC/DPC/IRQL implementation fixed ASAP in terms of interaction with Ke.                 |B|
+// | FSTUB => Needs IoAssignDriveLetters fixed ASAP but not critical to Ke/Ex. Interacts with Io.         | |
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |M|
 // | \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/           |A|
 // | CM => TOTAL REWRITE.                                                                                 |R|
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           | |
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |A|
 // | \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/           |P|
-// | PNPMGR => TBD                                                                                        |R|
+// | KE => Timer Rewrite + Thread Scheduler Rewrite.                                                      |R|
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |I|
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |L|
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           | |

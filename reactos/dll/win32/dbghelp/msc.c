@@ -2249,7 +2249,7 @@ BOOL pe_load_debug_directory(const struct process* pcs, struct module* module,
                              const IMAGE_SECTION_HEADER* sectp, DWORD nsect,
                              const IMAGE_DEBUG_DIRECTORY* dbg, int nDbg)
 {
-    BOOL                        ret = FALSE;
+    BOOL                        ret;
     int                         i;
     struct msc_debug_info       msc_dbg;
  
@@ -2261,6 +2261,8 @@ BOOL pe_load_debug_directory(const struct process* pcs, struct module* module,
  
     _SEH_TRY
     {
+        ret = FALSE;
+ 
         /* First, watch out for OMAP data */
         for (i = 0; i < nDbg; i++)
         {

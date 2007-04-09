@@ -12,9 +12,11 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-/* GLOBALS *******************************************************************/
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, ObInit)
+#endif
 
 GENERIC_MAPPING ObpTypeMapping =
 {
@@ -44,7 +46,7 @@ GENERIC_MAPPING ObpSymbolicLinkMapping =
 };
 
 PDEVICE_MAP ObSystemDeviceMap = NULL;
-ULONG ObpTraceLevel = 0;
+ULONG ObpTraceLevel = OB_HANDLE_DEBUG | OB_REFERENCE_DEBUG;
 
 VOID
 NTAPI
@@ -173,10 +175,6 @@ ObInit(VOID)
     /* Initialize the Default Event */
     KeInitializeEvent(&ObpDefaultObject, NotificationEvent, TRUE );
 
-    /* Setup default access for the system process */
-    PsGetCurrentProcess()->GrantedAccess = PROCESS_ALL_ACCESS;
-    PsGetCurrentThread()->GrantedAccess = THREAD_ALL_ACCESS;
-
     /* Setup the Object Reaper */
     ExInitializeWorkItem(&ObpReaperWorkItem, ObpReapObject, NULL);
 
@@ -198,7 +196,7 @@ ObInit(VOID)
     ObjectTypeInitializer.GenericMapping = ObpTypeMapping;
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(OBJECT_TYPE);
     ObjectTypeInitializer.InvalidAttributes = OBJ_OPENLINK;
-    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ObpTypeObjectType);
+    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &ObTypeObjectType);
 
     /* Create the Directory Type */
     RtlInitUnicodeString(&Name, L"Directory");
@@ -247,7 +245,7 @@ ObPostPhase0:
                                        0,
                                        ObDirectoryType,
                                        KernelMode,
-                                       (PVOID*)&ObpRootDirectoryObject,
+                                       (PVOID*)&NameSpaceRoot,
                                        NULL);
     if (!NT_SUCCESS(Status)) return FALSE;
 
@@ -282,14 +280,8 @@ ObPostPhase0:
     Status = NtClose(Handle);
     if (!NT_SUCCESS(Status)) return FALSE;
 
-    /* Initialize lookup context */
-    ObpInitializeDirectoryLookup(&Context);
-
-    /* Lock it */
-    ObpAcquireDirectoryLockExclusive(ObpTypeDirectoryObject, &Context);
-
     /* Loop the object types */
-    ListHead = &ObpTypeObjectType->TypeList;
+    ListHead = &ObTypeObjectType->TypeList;
     NextEntry = ListHead->Flink;
     while (ListHead != NextEntry)
     {
@@ -305,6 +297,10 @@ ObPostPhase0:
         /* Make sure we have a name, and aren't inserted yet */
         if ((NameInfo) && !(NameInfo->Directory))
         {
+            /* Set up the context for the insert */
+            Context.Directory = ObpTypeDirectoryObject;
+            Context.DirectoryLocked = TRUE;
+
             /* Do the initial lookup to setup the context */
             if (!ObpLookupEntryDirectory(ObpTypeDirectoryObject,
                                          &NameInfo->Name,
@@ -322,9 +318,6 @@ ObPostPhase0:
         /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
-
-    /* Cleanup after lookup */
-    ObpCleanupDirectoryLookup(&Context);
 
     /* Initialize DOS Devices Directory and related Symbolic Links */
     Status = ObpCreateDosDevicesDirectory();

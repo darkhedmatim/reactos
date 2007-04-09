@@ -14,6 +14,5 @@
 	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>imm.c</file>
-	<file>version.rc</file>
 	<file>imm32.spec</file>
 </module>

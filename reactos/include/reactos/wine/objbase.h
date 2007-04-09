@@ -24,9 +24,7 @@
 #define DBG 1
 #endif
 
-#if !defined(_MSC_VER)
 #include_next <objbase.h>
-#endif
 
 #ifndef _OBJBASE_H_
 #define _OBJBASE_H_

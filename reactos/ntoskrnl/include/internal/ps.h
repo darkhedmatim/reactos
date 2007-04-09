@@ -82,7 +82,7 @@ PspShutdownProcessManager(
 BOOLEAN
 NTAPI
 PsInitSystem(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
+    VOID
 );
 
 //
@@ -175,7 +175,7 @@ NTAPI
 PspSetPrimaryToken(
     IN PEPROCESS Process,
     IN HANDLE TokenHandle OPTIONAL,
-    IN PACCESS_TOKEN Token OPTIONAL
+    IN PTOKEN Token OPTIONAL
 );
 
 NTSTATUS
@@ -365,11 +365,14 @@ extern KGUARDED_MUTEX PspActiveProcessMutex;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern EPROCESS_QUOTA_BLOCK PspDefaultQuotaBlock;
 extern PHANDLE_TABLE PspCidTable;
-extern EX_CALLBACK PspThreadNotifyRoutine[PSP_MAX_CREATE_THREAD_NOTIFY];
-extern EX_CALLBACK PspProcessNotifyRoutine[PSP_MAX_CREATE_PROCESS_NOTIFY];
-extern EX_CALLBACK PspLoadImageNotifyRoutine[PSP_MAX_LOAD_IMAGE_NOTIFY];
+extern PCREATE_THREAD_NOTIFY_ROUTINE
+PspThreadNotifyRoutine[PSP_MAX_CREATE_THREAD_NOTIFY];
+extern PCREATE_PROCESS_NOTIFY_ROUTINE
+PspProcessNotifyRoutine[PSP_MAX_CREATE_PROCESS_NOTIFY];
+extern PLOAD_IMAGE_NOTIFY_ROUTINE
+PspLoadImageNotifyRoutine[PSP_MAX_LOAD_IMAGE_NOTIFY];
 extern PLEGO_NOTIFY_ROUTINE PspLegoNotifyRoutine;
-extern ULONG PspThreadNotifyRoutineCount, PspProcessNotifyRoutineCount;
+extern ULONG PspThreadNotifyRoutineCount;
 extern BOOLEAN PsImageNotifyEnabled;
 extern PKWIN32_PROCESS_CALLOUT PspW32ProcessCallout;
 extern PKWIN32_THREAD_CALLOUT PspW32ThreadCallout;
@@ -384,8 +387,7 @@ extern GENERIC_MAPPING PspJobMapping;
 extern POBJECT_TYPE PsJobType;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern UNICODE_STRING PsNtDllPathName;
-extern LIST_ENTRY PsLoadedModuleList;
-extern ULONG PsNtosImageBase;
+extern LIST_ENTRY PriorityListHead[MAXIMUM_PRIORITY];
 
 //
 // Inlined Functions

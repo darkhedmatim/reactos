@@ -133,9 +133,9 @@ namespace System_
 			TCHAR * offset = szBuffer;
 #endif
 			total_length = 0;
-			while((ptr = _tcsstr(offset, _T("\x0D\x0A"))) != NULL)
+			while(ptr = _tcsstr(offset, _T("\x0D\x0A")))
 			{
-				long long length = ((long long)ptr - (long long)offset);
+				int length = ((unsigned)ptr - (unsigned)offset);
 				length /= sizeof(TCHAR);
 
 				offset[length] = _T('\0');

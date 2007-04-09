@@ -125,7 +125,7 @@ IntGdiExtEscape(
          &BitmapObj->SurfObj,
          Escape,
          InSize,
-         (PVOID)((ULONG_PTR)InData),
+         (PVOID)InData,
          OutSize,
          (PVOID)OutData);
    }

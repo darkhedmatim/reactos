@@ -20,95 +20,58 @@ PSE_EXPORTS SeExports = NULL;
 SE_EXPORTS SepExports;
 
 static ERESOURCE SepSubjectContextLock;
-extern ULONG ExpInitializationPhase;
 
 
 /* PROTOTYPES ***************************************************************/
 
 static BOOLEAN SepInitExports(VOID);
 
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, SeInit)
+#pragma alloc_text(INIT, SepInitExports)
+#endif
+
 /* FUNCTIONS ****************************************************************/
 
-BOOLEAN
+BOOLEAN 
+INIT_FUNCTION
 NTAPI
-SepInitializationPhase0(VOID)
+SeInit(VOID)
 {
     DPRINT1("FIXME: SeAccessCheck has been HACKED to always grant access!\n");
     DPRINT1("FIXME: Please fix all the code that doesn't get proper rights!\n");
 
-    SepInitLuid();
-    if (!SepInitSecurityIDs()) return FALSE;
-    if (!SepInitDACLs()) return FALSE;
-    if (!SepInitSDs()) return FALSE;
-    SepInitPrivileges();
-    if (!SepInitExports()) return FALSE;
+  SepInitLuid();
 
-    /* Initialize the subject context lock */
-    ExInitializeResource(&SepSubjectContextLock);
+  if (!SepInitSecurityIDs())
+    return FALSE;
 
-    /* Initialize token objects */
-    SepInitializeTokenImplementation();
+  if (!SepInitDACLs())
+    return FALSE;
 
-    /* Clear impersonation info for the idle thread */
-    PsGetCurrentThread()->ImpersonationInfo = NULL;
-    PspClearCrossThreadFlag(PsGetCurrentThread(),
-                            CT_ACTIVE_IMPERSONATION_INFO_BIT);
+  if (!SepInitSDs())
+    return FALSE;
 
-    /* Initialize the boot token */
-    ObInitializeFastReference(&PsGetCurrentProcess()->Token, NULL);
-    ObInitializeFastReference(&PsGetCurrentProcess()->Token,
-                              SepCreateSystemProcessToken());
-    return TRUE;
-}
+  SepInitPrivileges();
 
-BOOLEAN
-NTAPI
-SepInitializationPhase1(VOID)
-{
-    NTSTATUS Status;
-    PAGED_CODE();
+  if (!SepInitExports())
+    return FALSE;
 
-    /* Insert the system token into the tree */
-    Status = ObInsertObject((PVOID)(PsGetCurrentProcess()->Token.Value &
-                                    ~MAX_FAST_REFS),
-                            NULL,
-                            0,
-                            0,
-                            NULL,
-                            NULL);
-    ASSERT(NT_SUCCESS(Status));
+  /* Initialize the subject context lock */
+  ExInitializeResource(&SepSubjectContextLock);
 
-    /* FIXME: TODO \\ Security directory */
-    return TRUE;
-}
+  /* Initialize token objects */
+  SepInitializeTokenImplementation();
 
-BOOLEAN
-NTAPI
-SeInit(VOID)
-{
-    /* Check the initialization phase */
-    switch (ExpInitializationPhase)
-    {
-    case 0:
+  /* Clear impersonation info for the idle thread */
+  PsGetCurrentThread()->ImpersonationInfo = NULL;
+  PspClearCrossThreadFlag(PsGetCurrentThread(), CT_ACTIVE_IMPERSONATION_INFO_BIT);
 
-        /* Do Phase 0 */
-        return SepInitializationPhase0();
-
-    case 1:
-
-        /* Do Phase 1 */
-        return SepInitializationPhase1();
-
-    default:
-
-        /* Don't know any other phase! Bugcheck! */
-        KeBugCheckEx(UNEXPECTED_INITIALIZATION_CALL,
-                     0,
-                     ExpInitializationPhase,
-                     0,
-                     0);
-        return FALSE;
-    }
+  /* Initailize the boot token */
+  ObInitializeFastReference(&PsGetCurrentProcess()->Token, NULL);
+  ObInitializeFastReference(&PsGetCurrentProcess()->Token,
+      SepCreateSystemProcessToken());
+  return TRUE;
 }
 
 BOOLEAN
@@ -911,87 +874,33 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 	      OUT PACCESS_MASK GrantedAccess,
 	      OUT PNTSTATUS AccessStatus)
 {
-    LUID_AND_ATTRIBUTES Privilege;
-    ACCESS_MASK CurrentAccess, AccessMask;
-    PACCESS_TOKEN Token;
-    ULONG i;
-    PACL Dacl;
-    BOOLEAN Present;
-    BOOLEAN Defaulted;
-    PACE CurrentAce;
-    PSID Sid;
-    NTSTATUS Status;
-    PAGED_CODE();
+  LUID_AND_ATTRIBUTES Privilege;
+  ACCESS_MASK CurrentAccess;
+  PACCESS_TOKEN Token;
+  ULONG i;
+  PACL Dacl;
+  BOOLEAN Present;
+  BOOLEAN Defaulted;
+  PACE CurrentAce;
+  PSID Sid;
+  NTSTATUS Status;
 
-    /* Check if this is kernel mode */
-    if (AccessMode == KernelMode)
-    {
-        /* Check if kernel wants everything */
-        if (DesiredAccess & MAXIMUM_ALLOWED)
-        {
-            /* Give it */
-            *GrantedAccess = GenericMapping->GenericAll;
-            *GrantedAccess |= (DesiredAccess &~ MAXIMUM_ALLOWED);
-            *GrantedAccess |= PreviouslyGrantedAccess;
-        }
-        else
-        {
-            /* Give the desired and previous access */
-            *GrantedAccess = DesiredAccess | PreviouslyGrantedAccess;
-        }
+  PAGED_CODE();
 
-        /* Success */
-        *AccessStatus = STATUS_SUCCESS;
-        return TRUE;
-    }
-
-    /* Check if we didn't get an SD */
-    if (!SecurityDescriptor)
-    {
-        /* Automatic failure */
-        *AccessStatus = STATUS_ACCESS_DENIED;
-        return FALSE;
-    }
-
-    /* Check for invalid impersonation */
-    if ((SubjectSecurityContext->ClientToken) &&
-        (SubjectSecurityContext->ImpersonationLevel < SecurityImpersonation))
-    {
-        *AccessStatus = STATUS_BAD_IMPERSONATION_LEVEL;
-        return FALSE;
-    }
-
-    /* Check for no access desired */
-    if (!DesiredAccess)
-    {
-        /* Check if we had no previous access */
-        if (!PreviouslyGrantedAccess)
-        {
-            /* Then there's nothing to give */
-            *AccessStatus = STATUS_ACCESS_DENIED;
-            return FALSE;
-        }
-
-        /* Return the previous access only */
-        *GrantedAccess = PreviouslyGrantedAccess;
-        *AccessStatus = STATUS_SUCCESS;
-        *Privileges = NULL;
-        return TRUE;
-    }
-
-    /* Acquire the lock if needed */
-    if (!SubjectContextLocked) SeLockSubjectContext(SubjectSecurityContext);
-
-  /* Map given accesses */
-  RtlMapGenericMask(&DesiredAccess, GenericMapping);
-  if (PreviouslyGrantedAccess)
-    RtlMapGenericMask(&PreviouslyGrantedAccess, GenericMapping);
-
-
+  /* Check if we didn't get an SD */
+  if (!SecurityDescriptor)
+  {
+      /* Automatic failure */
+      *AccessStatus = STATUS_ACCESS_DENIED;
+      return FALSE;
+  }
 
   CurrentAccess = PreviouslyGrantedAccess;
 
-
+  if (SubjectContextLocked == FALSE)
+    {
+      SeLockSubjectContext(SubjectSecurityContext);
+    }
 
   Token = SubjectSecurityContext->ClientToken ?
 	    SubjectSecurityContext->ClientToken : SubjectSecurityContext->PrimaryToken;
@@ -1102,34 +1011,30 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     {
       Sid = (PSID)(CurrentAce + 1);
       if (CurrentAce->Header.AceType == ACCESS_DENIED_ACE_TYPE)
-        {
-          if (SepSidInToken(Token, Sid))
-            {
-              if (SubjectContextLocked == FALSE)
-                {
-                  SeUnlockSubjectContext(SubjectSecurityContext);
-                }
+	{
+	  if (SepSidInToken(Token, Sid))
+	    {
+	      if (SubjectContextLocked == FALSE)
+		{
+		  SeUnlockSubjectContext(SubjectSecurityContext);
+		}
 
-              *GrantedAccess = 0;
-              *AccessStatus = STATUS_ACCESS_DENIED;
-              return FALSE;
-            }
-        }
+	      *GrantedAccess = 0;
+	      *AccessStatus = STATUS_ACCESS_DENIED;
+	      return FALSE;
+	    }
+	}
 
       else if (CurrentAce->Header.AceType == ACCESS_ALLOWED_ACE_TYPE)
-        {
-          if (SepSidInToken(Token, Sid))
-            {
-              AccessMask = CurrentAce->AccessMask;
-              RtlMapGenericMask(&AccessMask, GenericMapping);
-              CurrentAccess |= AccessMask;
-            }
-        }
-        else
-        {
-          DPRINT1("Unknown Ace type 0x%lx\n", CurrentAce->Header.AceType);
-      }
-        CurrentAce = (PACE)((ULONG_PTR)CurrentAce + CurrentAce->Header.AceSize);
+	{
+	  if (SepSidInToken(Token, Sid))
+	    {
+	      CurrentAccess |= CurrentAce->AccessMask;
+	    }
+	}
+	else
+	  DPRINT1("Unknown Ace type 0x%lx\n", CurrentAce->Header.AceType);
+	CurrentAce = (PACE)((ULONG_PTR)CurrentAce + CurrentAce->Header.AceSize);
     }
 
   if (SubjectContextLocked == FALSE)
@@ -1142,30 +1047,17 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 
   *GrantedAccess = CurrentAccess & DesiredAccess;
 
-  if (DesiredAccess & MAXIMUM_ALLOWED)
-    {
-      *GrantedAccess = CurrentAccess;
-      *AccessStatus = STATUS_SUCCESS;
-      return TRUE;
-    }
-  else if (*GrantedAccess == DesiredAccess)
+  if (*GrantedAccess == DesiredAccess)
     {
       *AccessStatus = STATUS_SUCCESS;
       return TRUE;
     }
   else
     {
-#if 1
       *AccessStatus = STATUS_SUCCESS;
-      DPRINT1("FIX caller rights (granted 0x%lx, desired 0x%lx, generic mapping %p)!\n",
-        *GrantedAccess, DesiredAccess, GenericMapping);
-      return TRUE;
-#else
-      DPRINT1("Denying access for caller: granted 0x%lx, desired 0x%lx (generic mapping %p)\n",
-        *GrantedAccess, DesiredAccess, GenericMapping);
-      *AccessStatus = STATUS_ACCESS_DENIED;
-      return FALSE;
-#endif
+      DPRINT("FIX caller rights (granted 0x%lx, desired 0x%lx)!\n",
+        *GrantedAccess, DesiredAccess);
+      return TRUE; /* FIXME: should be FALSE */
     }
 }
 

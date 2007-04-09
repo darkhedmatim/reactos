@@ -142,9 +142,9 @@ MachVideoSync(VOID)
 }
 
 VOID
-MachVideoPrepareForReactOS(IN BOOLEAN Setup)
+MachVideoPrepareForReactOS(VOID)
 {
-  MachVtbl.VideoPrepareForReactOS(Setup);
+  MachVtbl.VideoPrepareForReactOS();
 }
 
 ULONG

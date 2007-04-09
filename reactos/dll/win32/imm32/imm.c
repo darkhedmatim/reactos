@@ -51,7 +51,6 @@ typedef struct tagInputContextData
         BOOL            bOpen;
         BOOL            bInternalState;
         BOOL            bRead;
-        BOOL            bInComposition;
         LOGFONTW        font;
         HFONT           textfont;
         COMPOSITIONFORM CompForm;
@@ -61,7 +60,6 @@ static InputContextData *root_context = NULL;
 static HWND hwndDefault = NULL;
 static HANDLE hImeInst;
 static const WCHAR WC_IMECLASSNAME[] = {'I','M','E',0};
-static ATOM atIMEClass = 0;
 
 /* MSIME messages */
 static UINT WM_MSIME_SERVICE;
@@ -111,14 +109,12 @@ static void IMM_Register(void)
     wndClass.hbrBackground = (HBRUSH)(COLOR_WINDOW +1);
     wndClass.lpszMenuName   = 0;
     wndClass.lpszClassName = WC_IMECLASSNAME;
-    atIMEClass = RegisterClassW(&wndClass);
+    RegisterClassW(&wndClass);
 }
 
 static void IMM_Unregister(void)
 {
-    if (atIMEClass) {
-        UnregisterClassW(WC_IMECLASSNAME, NULL);
-    }
+    UnregisterClassW(WC_IMECLASSNAME, NULL);
 }
 
 static void IMM_RegisterMessages(void)
@@ -169,18 +165,6 @@ static void ImmInternalPostIMEMessage(UINT msg, WPARAM wParam, LPARAM lParam)
        PostMessageW(target, msg, wParam, lParam);
 }
 
-static LRESULT ImmInternalSendIMENotify(WPARAM notify, LPARAM lParam)
-{
-    HWND target;
-
-    target = root_context->hwnd;
-    if (!target) target = GetFocus();
-
-    if (target)
-       return SendMessageW(target, WM_IME_NOTIFY, notify, lParam);
-
-    return 0;
-}
 
 static void ImmInternalSetOpenStatus(BOOL fOpen)
 {
@@ -214,7 +198,7 @@ static void ImmInternalSetOpenStatus(BOOL fOpen)
     else
         ShowWindow(hwndDefault, SW_SHOWNOACTIVATE);
 
-   ImmInternalSendIMENotify(IMN_SETOPENSTATUS, 0);
+   SendMessageW(root_context->hwnd, WM_IME_NOTIFY, IMN_SETOPENSTATUS, 0);
 }
 
 
@@ -567,21 +551,6 @@ LONG WINAPI ImmGetCompositionStringA(
  
         rc = WideCharToMultiByte(CP_ACP, 0, (LPWSTR)data->CompositionString,
                                  data->dwCompStringLength/ sizeof(WCHAR), NULL,
-                                 0, NULL, NULL);
-
-        if (dwBufLen >= sizeof(DWORD)*2)
-        {
-            ((LPDWORD)lpBuf)[0] = 0;
-            ((LPDWORD)lpBuf)[1] = rc;
-        }
-        rc = sizeof(DWORD)*2;
-    }
-    else if (dwIndex == GCS_RESULTCLAUSE)
-    {
-        TRACE("GSC_RESULTCLAUSE %p %i\n", data->ResultString, data->dwResultStringSize);
-
-        rc = WideCharToMultiByte(CP_ACP, 0, (LPWSTR)data->ResultString,
-                                 data->dwResultStringSize/ sizeof(WCHAR), NULL,
                                  0, NULL, NULL);
 
         if (dwBufLen >= sizeof(DWORD)*2)
@@ -1143,9 +1112,6 @@ BOOL WINAPI ImmNotifyIME(
                         ImmInternalPostIMEMessage(WM_IME_COMPOSITION,
                                             root_context->ResultString[0],
                                             GCS_RESULTSTR|GCS_RESULTCLAUSE);
-
-                        ImmInternalPostIMEMessage(WM_IME_ENDCOMPOSITION, 0, 0);
-                        root_context->bInComposition = FALSE;
                     }
                     break;
                 case CPS_CONVERT:
@@ -1243,7 +1209,7 @@ BOOL WINAPI ImmSetCompositionFontA(HIMC hIMC, LPLOGFONTA lplf)
     MultiByteToWideChar(CP_ACP, 0, lplf->lfFaceName, -1, data->font.lfFaceName,
                         LF_FACESIZE);
 
-    ImmInternalSendIMENotify(IMN_SETCOMPOSITIONFONT, 0);
+    SendMessageW(root_context->hwnd, WM_IME_NOTIFY, IMN_SETCOMPOSITIONFONT, 0);
 
     if (data->textfont)
     {
@@ -1267,7 +1233,7 @@ BOOL WINAPI ImmSetCompositionFontW(HIMC hIMC, LPLOGFONTW lplf)
         return FALSE;
 
     memcpy(&data->font,lplf,sizeof(LOGFONTW));
-    ImmInternalSendIMENotify(IMN_SETCOMPOSITIONFONT, 0);
+    SendMessageW(root_context->hwnd, WM_IME_NOTIFY, IMN_SETCOMPOSITIONFONT, 0);
 
     if (data->textfont)
     {
@@ -1353,12 +1319,6 @@ BOOL WINAPI ImmSetCompositionStringW(
 
     if (dwIndex == SCS_SETSTR)
     {
-	if (!root_context->bInComposition)
-	{
-            ImmInternalPostIMEMessage(WM_IME_STARTCOMPOSITION, 0, 0);
-            root_context->bInComposition = TRUE;
-	}
-
          flags = GCS_COMPSTR;
 
          if (root_context->dwCompStringLength)
@@ -1418,7 +1378,7 @@ BOOL WINAPI ImmSetCompositionWindow(
     if (reshow)
         ShowWindow(hwndDefault,SW_SHOWNOACTIVATE);
 
-    ImmInternalSendIMENotify(IMN_SETCOMPOSITIONWINDOW, 0);
+    SendMessageW(root_context->hwnd, WM_IME_NOTIFY,IMN_SETCOMPOSITIONWINDOW, 0);
     return TRUE;
 }
 
@@ -1446,8 +1406,14 @@ BOOL WINAPI ImmSetOpenStatus(HIMC hIMC, BOOL fOpen)
 
     if (hIMC == (HIMC)FROM_IME)
     {
+        if (fOpen)
+            ImmInternalPostIMEMessage(WM_IME_STARTCOMPOSITION, 0, 0);
+
         ImmInternalSetOpenStatus(fOpen);
-        ImmInternalSendIMENotify(IMN_SETOPENSTATUS, 0);
+
+        if (!fOpen)
+            ImmInternalPostIMEMessage(WM_IME_ENDCOMPOSITION, 0, 0);
+
         return TRUE;
     }
 
@@ -1523,29 +1489,6 @@ BOOL WINAPI ImmUnregisterWordW(
   return FALSE;
 }
 
-/***********************************************************************
- *		ImmGetImeMenuItemsA (IMM32.@)
- */
-DWORD WINAPI ImmGetImeMenuItemsA( HIMC hIMC, DWORD dwFlags, DWORD dwType,
-   LPIMEMENUITEMINFOA lpImeParentMenu, LPIMEMENUITEMINFOA lpImeMenu,
-    DWORD dwSize)
-{
-  FIXME("(%p, %i, %i, %p, %p, %i): stub\n", hIMC, dwFlags, dwType,
-    lpImeParentMenu, lpImeMenu, dwSize);
-  return 0;
-}
-
-/***********************************************************************
-*		ImmGetImeMenuItemsW (IMM32.@)
-*/
-DWORD WINAPI ImmGetImeMenuItemsW( HIMC hIMC, DWORD dwFlags, DWORD dwType,
-   LPIMEMENUITEMINFOW lpImeParentMenu, LPIMEMENUITEMINFOW lpImeMenu,
-   DWORD dwSize)
-{
-  FIXME("(%p, %i, %i, %p, %p, %i): stub\n", hIMC, dwFlags, dwType,
-    lpImeParentMenu, lpImeMenu, dwSize);
-  return 0;
-}
 
 /*****
  * Internal functions to help with IME window management
@@ -1623,7 +1566,7 @@ static LRESULT WINAPI IME_WindowProc(HWND hwnd, UINT msg, WPARAM wParam,
             TRACE("IME message %s, 0x%x, 0x%x (%i)\n",
                     "WM_IME_COMPOSITION", (UINT)wParam, (UINT)lParam,
                      root_context->bRead);
-            if (lParam & GCS_RESULTSTR)
+            if ((lParam & GCS_RESULTSTR) && (!root_context->bRead))
                     IMM_PostResult(root_context);
             else
                  UpdateDataInDefaultIMEWindow(hwnd);

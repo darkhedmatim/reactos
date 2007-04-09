@@ -1,3 +1,4 @@
+
 /*
  * file system folder
  *
@@ -53,8 +54,6 @@
 #include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
-
-extern BOOL fileMoving;
 
 /***********************************************************************
 *   IShellFolder implementation
@@ -1233,14 +1232,11 @@ ISFHelper_fnCopyItems (ISFHelper * iface, IShellFolder * pSFFrom, UINT cidl,
 
     IShellFolder_QueryInterface (pSFFrom, &IID_IPersistFolder2,
      (LPVOID *) & ppf2);
-    if (ppf2) 
-    {
+    if (ppf2) {
         LPITEMIDLIST pidl;
 
-        if (SUCCEEDED (IPersistFolder2_GetCurFolder (ppf2, &pidl)))
-        {
-            for (i = 0; i < cidl; i++)
-            {
+        if (SUCCEEDED (IPersistFolder2_GetCurFolder (ppf2, &pidl))) {
+            for (i = 0; i < cidl; i++) {
                 SHGetPathFromIDListA (pidl, szSrcPath);
                 PathAddBackslashA (szSrcPath);
                 _ILSimpleGetText (apidl[i], szSrcPath + strlen (szSrcPath),
@@ -1250,42 +1246,7 @@ ISFHelper_fnCopyItems (ISFHelper * iface, IShellFolder * pSFFrom, UINT cidl,
                 PathAddBackslashA (szDstPath);
                 _ILSimpleGetText (apidl[i], szDstPath + strlen (szDstPath),
                  MAX_PATH);
-                DPRINT1 ("copy %s to %s\n", szSrcPath, szDstPath);
-                
-                if (fileMoving)
-                {
-                    fileMoving = FALSE;
-                    SHNotifyMoveFileA(szSrcPath, szDstPath);
-                }
-                else
-                {
-                    SHNotifyCopyFileA(szSrcPath, szDstPath, TRUE);
-                }
-               
-                /* FIXME: to work with folders we need SHFileOperation!
-                SHFILEOPSTRUCTA op;
-                
-                if (fileMoving)
-                {
-                    op.wFunc = FO_MOVE;
-                    fileMoving = FALSE;
-                }
-                else
-                {
-                    op.wFunc = FO_COPY;
-                }
-                
-                op.pTo = szDstPath;
-                op.pFrom = szSrcPath;
-                op.fFlags = FOF_SIMPLEPROGRESS;                
-                op.hwnd = NULL;
-                op.hNameMappings = NULL;
-                op.lpszProgressTitle = NULL;
-                
-                UINT bRes = SHFileOperationA(&op);
-                DbgPrint("CopyItems SHFileOperationA 0x%08x\n", bRes);
-                */
-   
+                MESSAGE ("would copy %s to %s\n", szSrcPath, szDstPath);
             }
             SHFree (pidl);
         }

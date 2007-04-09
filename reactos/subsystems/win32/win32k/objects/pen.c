@@ -186,17 +186,4 @@ NtGdiExtCreatePen(
    return IntGdiCreatePenIndirect(&LogPen);
 }
 
-VOID FASTCALL
-IntGdiSetSolidPenColor(HPEN hPen, COLORREF Color)
-{
-  PGDIBRUSHOBJ PenObject;
-
-  PenObject = PENOBJ_LockPen(hPen);
-  if (PenObject->flAttrs & GDIBRUSH_IS_SOLID)
-  {
-      PenObject->BrushAttr.lbColor = Color & 0xFFFFFF;
-  }
-  PENOBJ_UnlockPen(PenObject);
-}
-
 /* EOF */

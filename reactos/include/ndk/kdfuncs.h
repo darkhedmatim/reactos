@@ -28,6 +28,29 @@ Author:
 #ifndef NTOS_MODE_USER
 
 //
+// Port Functions
+//
+UCHAR
+NTAPI
+KdPollBreakIn(VOID);
+
+NTSTATUS
+NTAPI
+KdRestore(IN BOOLEAN DisableDbgPorts);
+
+NTSTATUS
+NTAPI
+KdSave(IN ULONG Unknown);
+
+#ifdef _ARC_
+NTSTATUS
+NTAPI
+KdDebuggerInitialize0(
+    IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock
+);
+#endif
+
+//
 // Debugger API
 //
 NTSTATUS
@@ -40,12 +63,6 @@ KdSystemDebugControl(
     ULONG OutputBufferLength,
     PULONG ReturnLength,
     KPROCESSOR_MODE PreviousMode
-);
-
-BOOLEAN
-NTAPI
-KdPollBreakIn(
-    VOID
 );
 
 #endif

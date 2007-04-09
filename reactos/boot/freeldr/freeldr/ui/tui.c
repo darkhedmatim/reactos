@@ -45,9 +45,9 @@ int printf(const char *format, ... )
 			{
 			case 'd': case 'u': case 'x':
                 if (c == 'x')
-                    _itoa(va_arg(ap, unsigned long), str, 16);
+                    *_itoa(va_arg(ap, unsigned long), str, 16) = 0;
                 else
-                    _itoa(va_arg(ap, unsigned long), str, 10);
+                    *_itoa(va_arg(ap, unsigned long), str, 10) = 0;
 
 				ptr = str;
 

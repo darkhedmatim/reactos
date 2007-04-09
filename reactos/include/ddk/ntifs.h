@@ -44,16 +44,11 @@ extern "C" {
 
 #pragma pack(push,4)
 
-#ifndef VER_PRODUCTBUILD
 #define VER_PRODUCTBUILD 10000
-#endif
 
 #ifndef NTSYSAPI
 #define NTSYSAPI
 #endif
-
-#define EX_PUSH_LOCK ULONG_PTR
-#define PEX_PUSH_LOCK PULONG_PTR
 
 #include "csq.h"
 
@@ -760,36 +755,6 @@ typedef enum _TOKEN_INFORMATION_CLASS {
 	TokenSandBoxInert,TokenAuditPolicy,TokenOrigin,
 } TOKEN_INFORMATION_CLASS;
 
-#define SYMLINK_FLAG_RELATIVE   1
-
-typedef struct _REPARSE_DATA_BUFFER {
-    ULONG  ReparseTag;
-    USHORT ReparseDataLength;
-    USHORT Reserved;
-    union {
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            ULONG Flags;
-            WCHAR PathBuffer[1];
-        } SymbolicLinkReparseBuffer;
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            WCHAR PathBuffer[1];
-        } MountPointReparseBuffer;
-        struct {
-            UCHAR  DataBuffer[1];
-        } GenericReparseBuffer;
-    };
-} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
-
-#define REPARSE_DATA_BUFFER_HEADER_SIZE   FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
-
 typedef struct _FILE_ACCESS_INFORMATION {
     ACCESS_MASK AccessFlags;
 } FILE_ACCESS_INFORMATION, *PFILE_ACCESS_INFORMATION;
@@ -1437,6 +1402,35 @@ typedef struct _PATHNAME_BUFFER {
     WCHAR Name[1];
 } PATHNAME_BUFFER, *PPATHNAME_BUFFER;
 
+#if (VER_PRODUCTBUILD >= 2600)
+
+typedef struct _PRIVATE_CACHE_MAP_FLAGS {
+    ULONG DontUse           : 16;
+    ULONG ReadAheadActive   : 1;
+    ULONG ReadAheadEnabled  : 1;
+    ULONG Available         : 14;
+} PRIVATE_CACHE_MAP_FLAGS, *PPRIVATE_CACHE_MAP_FLAGS;
+
+typedef struct _PRIVATE_CACHE_MAP {
+    _ANONYMOUS_UNION union {
+        CSHORT                  NodeTypeCode;
+        PRIVATE_CACHE_MAP_FLAGS Flags;
+        ULONG                   UlongFlags;
+    } DUMMYUNIONNAME;
+    ULONG                       ReadAheadMask;
+    PFILE_OBJECT                FileObject;
+    LARGE_INTEGER               FileOffset1;
+    LARGE_INTEGER               BeyondLastByte1;
+    LARGE_INTEGER               FileOffset2;
+    LARGE_INTEGER               BeyondLastByte2;
+    LARGE_INTEGER               ReadAheadOffset[2];
+    ULONG                       ReadAheadLength[2];
+    KSPIN_LOCK                  ReadAheadSpinLock;
+    LIST_ENTRY                  PrivateLinks;
+} PRIVATE_CACHE_MAP, *PPRIVATE_CACHE_MAP;
+
+#endif
+
 typedef enum _RTL_GENERIC_COMPARE_RESULTS
 {
     GenericLessThan,
@@ -1566,16 +1560,6 @@ typedef struct _RTL_AVL_TABLE
     PVOID TableContext;
 } RTL_AVL_TABLE, *PRTL_AVL_TABLE;
 
-NTSYSAPI
-VOID
-NTAPI
-RtlInitializeGenericTableAvl(
-    PRTL_AVL_TABLE Table,
-    PRTL_AVL_COMPARE_ROUTINE CompareRoutine,
-    PRTL_AVL_ALLOCATE_ROUTINE AllocateRoutine,
-    PRTL_AVL_FREE_ROUTINE FreeRoutine,
-    PVOID TableContext
-);
 
 #if defined(USE_LPC6432)
 #define LPC_CLIENT_ID CLIENT_ID64
@@ -1730,6 +1714,16 @@ typedef struct _TUNNEL {
     LIST_ENTRY          TimerQueue;
     USHORT              NumEntries;
 } TUNNEL, *PTUNNEL;
+
+typedef struct _VACB {
+    PVOID               BaseAddress;
+    PSHARED_CACHE_MAP   SharedCacheMap;
+    union {
+        LARGE_INTEGER   FileOffset;
+        USHORT          ActiveCount;
+    } Overlay;
+    LIST_ENTRY          LruList;
+} VACB, *PVACB;
 
 typedef struct _VAD_HEADER {
     PVOID       StartVPN;
@@ -3096,14 +3090,6 @@ HalDisplayString (
 );
 
 NTKERNELAPI
-UCHAR
-NTAPI
-KeSetIdealProcessorThread(
-    IN OUT PKTHREAD Thread,
-    IN UCHAR Processor
-);
-
-NTKERNELAPI
 NTSTATUS
 NTAPI
 IoAttachDeviceToDeviceStackSafe(
@@ -3813,14 +3799,6 @@ RtlAllocateHeap (
     IN HANDLE  HeapHandle,
     IN ULONG   Flags,
     IN ULONG   Size
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlAppendStringToString(
-    PSTRING Destination,
-    const STRING *Source
 );
 
 NTSYSAPI

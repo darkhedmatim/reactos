@@ -13,7 +13,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -52,7 +52,7 @@ VOID
 NTAPI
 ObpDeferObjectDeletion(IN POBJECT_HEADER Header)
 {
-    PVOID Entry;
+    PVOID Entry, NewEntry;
 
     /* Loop while trying to update the list */
     do
@@ -62,10 +62,11 @@ ObpDeferObjectDeletion(IN POBJECT_HEADER Header)
 
         /* Link our object to the list */
         Header->NextToFree = Entry;
+        NewEntry = Header;
 
         /* Update the list */
     } while (InterlockedCompareExchangePointer(&ObpReaperList,
-                                               Header,
+                                               NewEntry,
                                                Entry) != Entry);
 
     /* Queue the work item if needed */
@@ -305,8 +306,8 @@ ObfDereferenceObject(IN PVOID Object)
             return Header->PointerCount;
         }
 
-        /* Check if APCs are still active */
-        if (!KeAreAllApcsDisabled())
+        /* Check if we're at PASSIVE */
+        if (KeGetCurrentIrql() == PASSIVE_LEVEL)
         {
             /* Remove the object */
             ObpDeleteObject(Object, FALSE);
@@ -368,21 +369,21 @@ ObReferenceObjectByPointer(IN PVOID Object,
         return STATUS_OBJECT_TYPE_MISMATCH;
     }
 
-    /* Increment the reference count and return success */
+    /* Oncrement the reference count and return success */
     InterlockedIncrement(&Header->PointerCount);
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 NTAPI
-ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
-                        IN ULONG Attributes,
-                        IN PACCESS_STATE PassedAccessState,
-                        IN ACCESS_MASK DesiredAccess,
-                        IN POBJECT_TYPE ObjectType,
-                        IN KPROCESSOR_MODE AccessMode,
-                        IN OUT PVOID ParseContext,
-                        OUT PVOID* ObjectPtr)
+ObReferenceObjectByName(PUNICODE_STRING ObjectPath,
+                        ULONG Attributes,
+                        PACCESS_STATE PassedAccessState,
+                        ACCESS_MASK DesiredAccess,
+                        POBJECT_TYPE ObjectType,
+                        KPROCESSOR_MODE AccessMode,
+                        PVOID ParseContext,
+                        PVOID* ObjectPtr)
 {
     PVOID Object = NULL;
     UNICODE_STRING ObjectName;
@@ -390,17 +391,10 @@ ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
     OBP_LOOKUP_CONTEXT Context;
     AUX_DATA AuxData;
     ACCESS_STATE AccessState;
-    PAGED_CODE();
-
-    /* Fail quickly */
-    if (!ObjectPath) return STATUS_OBJECT_NAME_INVALID;
 
     /* Capture the name */
     Status = ObpCaptureObjectName(&ObjectName, ObjectPath, AccessMode, TRUE);
     if (!NT_SUCCESS(Status)) return Status;
-
-    /* We also need a valid name after capture */
-    if (!ObjectName.Length) return STATUS_OBJECT_NAME_INVALID;
 
     /* Check if we didn't get an access state */
     if (!PassedAccessState)
@@ -416,34 +410,21 @@ ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
 
     /* Find the object */
     *ObjectPtr = NULL;
-    Status = ObpLookupObjectName(NULL,
-                                 &ObjectName,
-                                 Attributes,
-                                 ObjectType,
-                                 AccessMode,
-                                 ParseContext,
-                                 NULL,
-                                 NULL,
-                                 PassedAccessState,
-                                 &Context,
-                                 &Object);
-
-    /* Cleanup after lookup */
-    ObpCleanupDirectoryLookup(&Context);
-
-    /* Check if the lookup succeeded */
+    Status = ObFindObject(NULL,
+                          &ObjectName,
+                          Attributes,
+                          AccessMode,
+                          &Object,
+                          ObjectType,
+                          &Context,
+                          PassedAccessState,
+                          NULL,
+                          ParseContext,
+                          NULL);
     if (NT_SUCCESS(Status))
     {
-        /* Check if access is allowed */
-        if (ObpCheckObjectReference(Object,
-                                    PassedAccessState,
-                                    FALSE,
-                                    AccessMode,
-                                    &Status))
-        {
-            /* Return the object */
-            *ObjectPtr = Object;
-        }
+        /* Return the object */
+        *ObjectPtr = Object;
     }
 
     /* Free the access state */
@@ -454,7 +435,7 @@ ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
 
 Quickie:
     /* Free the captured name if we had one, and return status */
-    ObpFreeObjectNameBuffer(&ObjectName);
+    if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
     return Status;
 }
 
@@ -477,8 +458,8 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     NTSTATUS Status;
     PAGED_CODE();
 
-    /* Assume failure */
-    *Object = NULL;
+    /* Fail immediately if the handle is NULL */
+    if (!Handle) return STATUS_INVALID_HANDLE;
 
     /* Check if the caller wants the current process */
     if ((Handle == NtCurrentProcess()) &&
@@ -487,6 +468,9 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
         /* Get the current process */
         CurrentProcess = PsGetCurrentProcess();
 
+        /* Reference ourselves */
+        ObReferenceObject(CurrentProcess);
+
         /* Check if the caller wanted handle information */
         if (HandleInformation)
         {
@@ -494,10 +478,6 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
             HandleInformation->HandleAttributes = 0;
             HandleInformation->GrantedAccess = PROCESS_ALL_ACCESS;
         }
-
-        /* Reference ourselves */
-        ObjectHeader = OBJECT_TO_OBJECT_HEADER(CurrentProcess);
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
 
         /* Return the pointer */
         *Object = CurrentProcess;
@@ -516,6 +496,9 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
         /* Get the current thread */
         CurrentThread = PsGetCurrentThread();
 
+        /* Reference ourselves */
+        ObReferenceObject(CurrentThread);
+
         /* Check if the caller wanted handle information */
         if (HandleInformation)
         {
@@ -523,10 +506,6 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
             HandleInformation->HandleAttributes = 0;
             HandleInformation->GrantedAccess = THREAD_ALL_ACCESS;
         }
-
-        /* Reference ourselves */
-        ObjectHeader = OBJECT_TO_OBJECT_HEADER(CurrentThread);
-        InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
 
         /* Return the pointer */
         *Object = CurrentThread;
@@ -552,7 +531,6 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     }
 
     /* Enter a critical region while we touch the handle table */
-    ASSERT(HandleTable != NULL);
     KeEnterCriticalRegion();
 
     /* Get the handle entry */
@@ -560,7 +538,7 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     if (HandleEntry)
     {
         /* Get the object header and validate the type*/
-        ObjectHeader = ObpGetHandleObject(HandleEntry);
+        ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
         if (!(ObjectType) || (ObjectType == ObjectHeader->Type))
         {
             /* Get the granted access and validate it */
@@ -572,7 +550,10 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
                 InterlockedIncrement(&ObjectHeader->PointerCount);
 
                 /* Mask out the internal attributes */
-                Attributes = HandleEntry->ObAttributes & OBJ_HANDLE_ATTRIBUTES;
+                Attributes = HandleEntry->ObAttributes &
+                             (EX_HANDLE_ENTRY_PROTECTFROMCLOSE |
+                              EX_HANDLE_ENTRY_INHERITABLE |
+                              EX_HANDLE_ENTRY_AUDITONCLOSE);
 
                 /* Check if the caller wants handle information */
                 if (HandleInformation)
@@ -587,10 +568,9 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
 
                 /* Unlock the handle */
                 ExUnlockHandleTableEntry(HandleTable, HandleEntry);
-                KeLeaveCriticalRegion();
 
                 /* Return success */
-                ASSERT(*Object != NULL);
+                KeLeaveCriticalRegion();
                 return STATUS_SUCCESS;
             }
             else

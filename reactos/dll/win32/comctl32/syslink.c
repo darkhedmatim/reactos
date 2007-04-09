@@ -117,8 +117,14 @@ static VOID SYSLINK_FreeDocItem (PDOC_ITEM DocItem)
 {
     if(DocItem->Type == slLink)
     {
-        Free(DocItem->u.Link.szID);
-        Free(DocItem->u.Link.szUrl);
+        if (DocItem->u.Link.szID != NULL)
+        {
+            Free(DocItem->u.Link.szID);
+        }
+        if (DocItem->u.Link.szUrl != NULL)
+        {
+            Free(DocItem->u.Link.szUrl);
+        }
     }
 
     /* we don't free Text because it's just a pointer to a character in the
@@ -643,24 +649,18 @@ static BOOL SYSLINK_WrapLine (HDC hdc, LPWSTR Text, WCHAR BreakChar, int *LineLe
  * SYSLINK_Render
  * Renders the document in memory
  */
-static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
+static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc)
 {
     RECT rc;
     PDOC_ITEM Current;
     HGDIOBJ hOldFont;
     int x, y, LineHeight;
-    SIZE szDoc;
-
-    szDoc.cx = szDoc.cy = 0;
-
-    rc = *pRect;
+    
+    GetClientRect(infoPtr->Self, &rc);
     rc.right -= SL_RIGHTMARGIN;
     rc.bottom -= SL_BOTTOMMARGIN;
-
-    if(rc.right - SL_LEFTMARGIN < 0)
-        rc.right = MAXLONG;
-    if (rc.bottom - SL_TOPMARGIN < 0)
-        rc.bottom = MAXLONG;
+    
+    if(rc.right - SL_LEFTMARGIN < 0 || rc.bottom - SL_TOPMARGIN < 0) return;
     
     hOldFont = SelectObject(hdc, infoPtr->Font);
     
@@ -675,20 +675,23 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
         PDOC_TEXTBLOCK bl, cbl;
         INT nFit;
         SIZE szDim;
-
+        
         if(Current->nText == 0)
         {
             continue;
         }
-
+        
         tx = Current->Text;
         n = Current->nText;
 
-        Free(Current->Blocks);
-        Current->Blocks = NULL;
+        if (Current->Blocks != NULL)
+        {
+            Free(Current->Blocks);
+            Current->Blocks = NULL;
+        }
         bl = NULL;
         nBlocks = 0;
-
+        
         if(Current->Type == slText)
         {
             SelectObject(hdc, infoPtr->Font);
@@ -718,7 +721,6 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
             {
                 int LineLen = n;
                 BOOL Wrap = FALSE;
-                PDOC_TEXTBLOCK nbl;
                 
                 if(n != 0)
                 {
@@ -757,12 +759,30 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                     }
                 }
                 
-                nbl = ReAlloc(bl, (nBlocks + 1) * sizeof(DOC_TEXTBLOCK));
-                if (nbl != NULL)
+                if(bl != NULL)
                 {
-                    bl = nbl;
-                    nBlocks++;
-
+                    PDOC_TEXTBLOCK nbl = ReAlloc(bl, (nBlocks + 1) * sizeof(DOC_TEXTBLOCK));
+                    if (nbl != NULL)
+                    {
+                        bl = nbl;
+                        nBlocks++;
+                    }
+                    else
+                    {
+                        Free(bl);
+                        bl = NULL;
+                        nBlocks = 0;
+                    }
+                }
+                else
+                {
+                    bl = Alloc(sizeof(DOC_TEXTBLOCK));
+                    if (bl != NULL)
+                        nBlocks++;
+                }
+                
+                if(bl != NULL)
+                {
                     cbl = bl + nBlocks - 1;
                     
                     cbl->nChars = LineLen;
@@ -771,12 +791,7 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                     cbl->rc.top = y;
                     cbl->rc.right = x + szDim.cx;
                     cbl->rc.bottom = y + szDim.cy;
-
-                    if (cbl->rc.right > szDoc.cx)
-                        szDoc.cx = cbl->rc.right;
-                    if (cbl->rc.bottom > szDoc.cy)
-                        szDoc.cy = cbl->rc.bottom;
-
+                    
                     if(LineLen != 0)
                     {
                         x += szDim.cx;
@@ -792,10 +807,6 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                 }
                 else
                 {
-                    Free(bl);
-                    bl = NULL;
-                    nBlocks = 0;
-
                     ERR("Failed to alloc DOC_TEXTBLOCK structure!\n");
                     break;
                 }
@@ -815,9 +826,6 @@ static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
     }
     
     SelectObject(hdc, hOldFont);
-
-    pRect->right = pRect->left + szDoc.cx;
-    pRect->bottom = pRect->top + szDoc.cy;
 }
 
 /***********************************************************************
@@ -918,7 +926,6 @@ static HFONT SYSLINK_SetFont (SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw)
     HDC hdc;
     LOGFONTW lf;
     TEXTMETRICW tm;
-    RECT rcClient;
     HFONT hOldFont = infoPtr->Font;
     infoPtr->Font = hFont;
     
@@ -930,27 +937,24 @@ static HFONT SYSLINK_SetFont (SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw)
     }
 
     /* Render text position and word wrapping in memory */
-    if (GetClientRect(infoPtr->Self, &rcClient))
+    hdc = GetDC(infoPtr->Self);
+    if(hdc != NULL)
     {
-        hdc = GetDC(infoPtr->Self);
-        if(hdc != NULL)
+        /* create a new underline font */
+        if(GetTextMetricsW(hdc, &tm) &&
+           GetObjectW(infoPtr->Font, sizeof(LOGFONTW), &lf))
         {
-            /* create a new underline font */
-            if(GetTextMetricsW(hdc, &tm) &&
-               GetObjectW(infoPtr->Font, sizeof(LOGFONTW), &lf))
-            {
-                lf.lfUnderline = TRUE;
-                infoPtr->LinkFont = CreateFontIndirectW(&lf);
-                infoPtr->BreakChar = tm.tmBreakChar;
-            }
-            else
-            {
-                ERR("Failed to create link font!\n");
-            }
-
-            SYSLINK_Render(infoPtr, hdc, &rcClient);
-            ReleaseDC(infoPtr->Self, hdc);
+            lf.lfUnderline = TRUE;
+            infoPtr->LinkFont = CreateFontIndirectW(&lf);
+            infoPtr->BreakChar = tm.tmBreakChar;
         }
+        else
+        {
+            ERR("Failed to create link font!\n");
+        }
+
+        SYSLINK_Render(infoPtr, hdc);
+        ReleaseDC(infoPtr->Self, hdc);
     }
     
     if(bRedraw)
@@ -980,19 +984,14 @@ static LRESULT SYSLINK_SetText (SYSLINK_INFO *infoPtr, LPCWSTR Text)
     /* let's parse the string and create a document */
     if(SYSLINK_ParseText(infoPtr, Text) > 0)
     {
-        RECT rcClient;
-
         /* Render text position and word wrapping in memory */
-        if (GetClientRect(infoPtr->Self, &rcClient))
+        HDC hdc = GetDC(infoPtr->Self);
+        if (hdc != NULL)
         {
-            HDC hdc = GetDC(infoPtr->Self);
-            if (hdc != NULL)
-            {
-                SYSLINK_Render(infoPtr, hdc, &rcClient);
-                ReleaseDC(infoPtr->Self, hdc);
+            SYSLINK_Render(infoPtr, hdc);
+            ReleaseDC(infoPtr->Self, hdc);
 
-                InvalidateRect(infoPtr->Self, NULL, TRUE);
-            }
+            InvalidateRect(infoPtr->Self, NULL, TRUE);
         }
     }
     
@@ -1082,7 +1081,10 @@ static LRESULT SYSLINK_SetItem (SYSLINK_INFO *infoPtr, PLITEM Item)
         }
         else
         {
-            Free(szId);
+            if (szId)
+            {
+                Free(szId);
+            }
 
             ERR("Unable to allocate memory for link url\n");
             return FALSE;
@@ -1091,13 +1093,19 @@ static LRESULT SYSLINK_SetItem (SYSLINK_INFO *infoPtr, PLITEM Item)
 
     if(Item->mask & LIF_ITEMID)
     {
-        Free(di->u.Link.szID);
+        if(di->u.Link.szID)
+        {
+            Free(di->u.Link.szID);
+        }
         di->u.Link.szID = szId;
     }
 
     if(Item->mask & LIF_URL)
     {
-        Free(di->u.Link.szUrl);
+        if(di->u.Link.szUrl)
+        {
+            Free(di->u.Link.szUrl);
+        }
         di->u.Link.szUrl = szUrl;
     }
 
@@ -1511,33 +1519,6 @@ static BOOL SYSLINK_NoNextLink (SYSLINK_INFO *infoPtr, BOOL Prev)
 }
 
 /***********************************************************************
- *           SYSLINK_GetIdealSize
- * Calculates the ideal size of a link control at a given maximum width.
- */
-static VOID SYSLINK_GetIdealSize (SYSLINK_INFO *infoPtr, int cxMaxWidth, LPSIZE lpSize)
-{
-    RECT rc;
-    HDC hdc;
-
-    rc.left = rc.top = rc.bottom = 0;
-    rc.right = cxMaxWidth;
-
-    hdc = GetDC(infoPtr->Self);
-    if (hdc != NULL)
-    {
-        HGDIOBJ hOldFont = SelectObject(hdc, infoPtr->Font);
-
-        SYSLINK_Render(infoPtr, hdc, &rc);
-
-        SelectObject(hdc, hOldFont);
-        ReleaseDC(infoPtr->Self, hdc);
-
-        lpSize->cx = rc.right;
-        lpSize->cy = rc.bottom;
-    }
-}
-
-/***********************************************************************
  *           SysLinkWindowProc
  */
 static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
@@ -1577,15 +1558,11 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
 
     case WM_SIZE:
     {
-        RECT rcClient;
-        if (GetClientRect(infoPtr->Self, &rcClient))
+        HDC hdc = GetDC(infoPtr->Self);
+        if(hdc != NULL)
         {
-            HDC hdc = GetDC(infoPtr->Self);
-            if(hdc != NULL)
-            {
-                SYSLINK_Render(infoPtr, hdc, &rcClient);
-                ReleaseDC(infoPtr->Self, hdc);
-            }
+          SYSLINK_Render(infoPtr, hdc);
+          ReleaseDC(infoPtr->Self, hdc);
         }
         return 0;
     }
@@ -1690,11 +1667,6 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         return SYSLINK_GetItem(infoPtr, (PLITEM)lParam);
 
     case LM_GETIDEALHEIGHT:
-        if (lParam)
-        {
-            /* LM_GETIDEALSIZE */
-            SYSLINK_GetIdealSize(infoPtr, (int)wParam, (LPSIZE)lParam);
-        }
         return SYSLINK_GetIdealHeight(infoPtr);
 
     case WM_SETFOCUS:
@@ -1704,10 +1676,10 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         return SYSLINK_KillFocus(infoPtr, (HWND)wParam);
 
     case WM_ENABLE:
-        infoPtr->Style &= ~WS_DISABLED;
-        infoPtr->Style |= (wParam ? 0 : WS_DISABLED);
-        InvalidateRect (infoPtr->Self, NULL, FALSE);
-        return 0;
+	infoPtr->Style &= ~WS_DISABLED;
+	infoPtr->Style |= (wParam ? 0 : WS_DISABLED);
+	InvalidateRect (infoPtr->Self, NULL, FALSE);
+	return 0;
 
     case WM_STYLECHANGED:
         if (wParam == GWL_STYLE)
@@ -1754,7 +1726,7 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
 HandleDefaultMessage:
         if ((message >= WM_USER) && (message < WM_APP))
         {
-            ERR("unknown msg %04x wp=%04x lp=%08lx\n", message, wParam, lParam );
+	        ERR("unknown msg %04x wp=%04x lp=%08lx\n", message, wParam, lParam );
         }
         return DefWindowProcW(hwnd, message, wParam, lParam);
     }

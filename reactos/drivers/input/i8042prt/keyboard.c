@@ -12,7 +12,6 @@
 /* INCLUDES ****************************************************************/
 
 #include "i8042prt.h"
-#include "kdfuncs.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -751,6 +750,10 @@ detectsetleds:
 }
 
 /* debug stuff */
+VOID STDCALL
+KdpServiceDispatcher(ULONG Code, PVOID Context1, PVOID Context2);
+#define EnterDebugger ((PVOID)0x25)
+
 static VOID STDCALL I8042DebugWorkItem(PDEVICE_OBJECT DeviceObject,
                                        PVOID Context)
 {
@@ -768,6 +771,6 @@ static VOID STDCALL I8042DebugWorkItem(PDEVICE_OBJECT DeviceObject,
 	/* We hope kernel would understand this. If
 	 * that's not the case, nothing would happen.
 	 */
-    KdSystemDebugControl(TAG('R', 'o', 's', ' '), (PVOID)Key, 0, NULL, 0, NULL, KernelMode);
+	KdpServiceDispatcher(TAG('R', 'o', 's', ' '), (PVOID)Key, NULL);
 #endif /* __REACTOS__ */
 }

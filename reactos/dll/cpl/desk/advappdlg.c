@@ -29,7 +29,7 @@ UpdateButtonColor(HWND hwndDlg, GLOBALS* g, INT ID, INT nButton, INT nColor)
 	if (nColor != -1)
 	{
 		/* Create a DC to draw on */
-		hwndColorButton = GetDlgItem(hwndDlg, ID);
+		hwndColorButton = GetDlgItem(hwndDlg, IDC_ADVAPPEARANCE_COLOR1_B);
 		hdcColorButton = GetDC(hwndColorButton);
 		hdcCompat = CreateCompatibleDC(hdcColorButton);
 		ReleaseDC(hwndColorButton, hdcColorButton);
@@ -294,7 +294,6 @@ GetColor(HWND hwndDlg, GLOBALS* g, INT nButton)
 		if (crColor != cc.rgbResult)
 		{
 			UpdateButtonColor(hwndDlg, g, ID, nButton, ColorIndex);
-			SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETCOLOR, ColorIndex, cc.rgbResult);
 			return TRUE;
 		}
 	}
@@ -391,7 +390,8 @@ AdvAppearanceDlg_Init(HWND hwndDlg, GLOBALS *g)
 	/* Fill font size combo */
 	for (i = 6; i <= 24; i++)
 	{
-		wsprintf(Size, TEXT("%d"), i);
+		SetDlgItemInt(hwndDlg, IDC_CONVERT, i, FALSE);
+		GetDlgItemText(hwndDlg, IDC_CONVERT, (LPTSTR)&Size, 3);
 		SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E, CB_ADDSTRING, 0, (LPARAM)&Size);
 	}
 
@@ -435,6 +435,7 @@ static VOID
 GetSelectedComboText(HWND hwnd, INT id, LPWSTR lpStr)
 {
     INT nCount;
+//    INT i;
 
     nCount = SendDlgItemMessage(hwnd, id, CB_GETCURSEL, 0, 0);
     if (nCount == CB_ERR)
@@ -448,38 +449,6 @@ GetSelectedComboText(HWND hwnd, INT id, LPWSTR lpStr)
     {
         *lpStr = 0;
     }
-}
-
-
-static INT
-GetSelectedComboInt(HWND hwnd, INT id)
-{
-    TCHAR szBuffer[80];
-    INT nCount;
-
-    nCount = SendDlgItemMessage(hwnd, id, CB_GETCURSEL, 0, 0);
-    if (nCount == CB_ERR)
-        return 0;
-
-    nCount = SendDlgItemMessage(hwnd, id, CB_GETLBTEXT, (WPARAM)nCount, (LPARAM)szBuffer);
-    if (nCount == CB_ERR)
-        return 0;
-
-    return _ttoi(szBuffer);
-}
-
-
-static INT
-GetEditedComboInt(HWND hwnd, INT id)
-{
-    INT nCount;
-    BOOL bTranslated;
-
-    nCount = GetDlgItemInt(hwnd, id, &bTranslated, FALSE);
-    if (bTranslated == FALSE)
-        return 12;
-
-    return nCount;
 }
 
 
@@ -537,7 +506,7 @@ AdvAppearanceDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDC_ADVAPPEARANCE_SIZE_E:
 					if (g && HIWORD(wParam) == EN_CHANGE)
 					{
-						INT i = (INT)LOWORD(SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_SIZE_UD, UDM_GETPOS,0,0L));
+						int i = (int)LOWORD(SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_SIZE_UD, UDM_GETPOS,0,0L));
 
 						switch (g->CurrentElement)
 						{
@@ -566,6 +535,8 @@ AdvAppearanceDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDC_ADVAPPEARANCE_FONT_C:
 					if (g && HIWORD(wParam) == CBN_SELCHANGE)
 					{
+//						MessageBeep(-1);
+
 						switch (g->CurrentElement)
 						{
 							case IDX_INACTIVE_CAPTION:
@@ -589,159 +560,7 @@ AdvAppearanceDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETDIALOGFONT, 0,
 									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
 								break;
-						}
-					}
-					break;
 
-				case IDC_ADVAPPEARANCE_FONTSIZE_E:
-					if (g && HIWORD(wParam) == CBN_SELCHANGE)
-					{
-						HDC hdcDlg = GetDC(hwndDlg);
-						INT i;
-
-						switch (g->CurrentElement)
-						{
-							case IDX_INACTIVE_CAPTION:
-							case IDX_ACTIVE_CAPTION:
-								i = GetSelectedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETCAPTIONFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_MENU:
-								i = GetSelectedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETMENUFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_DIALOG:
-								i = GetSelectedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETDIALOGFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-						}
-
-						ReleaseDC(hwndDlg, hdcDlg);
-					}
-					else if (g && HIWORD(wParam) == CBN_EDITCHANGE)
-					{
-						HDC hdcDlg = GetDC(hwndDlg);
-						INT i;
-
-						switch (g->CurrentElement)
-						{
-							case IDX_INACTIVE_CAPTION:
-							case IDX_ACTIVE_CAPTION:
-								i = GetEditedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETCAPTIONFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_MENU:
-								i = GetEditedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETMENUFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_DIALOG:
-								i = GetEditedComboInt(hwndDlg, IDC_ADVAPPEARANCE_FONTSIZE_E);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfHeight =
-									-MulDiv(i , GetDeviceCaps(hdcDlg, LOGPIXELSY), 72);
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETDIALOGFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-						}
-
-						ReleaseDC(hwndDlg, hdcDlg);
-					}
-					break;
-
-				case IDC_ADVAPPEARANCE_FONTBOLD:
-					if (g && HIWORD(wParam) == BN_CLICKED)
-					{
-						INT i;
-
-						switch (g->CurrentElement)
-						{
-							case IDX_INACTIVE_CAPTION:
-							case IDX_ACTIVE_CAPTION:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTBOLD, BM_GETCHECK, 0, 0);
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfWeight =
-									(i == BST_CHECKED) ? FW_BOLD : FW_NORMAL;
-
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETCAPTIONFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_MENU:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTBOLD, BM_GETCHECK, 0, 0);
-
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfWeight =
-									(i == BST_CHECKED) ? FW_BOLD : FW_NORMAL;
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETMENUFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_DIALOG:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTBOLD, BM_GETCHECK, 0, 0);
-
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfWeight =
-									(i == BST_CHECKED) ? FW_BOLD : FW_NORMAL;
-
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETDIALOGFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-						}
-					}
-					break;
-
-				case IDC_ADVAPPEARANCE_FONTITALIC:
-					if (g && HIWORD(wParam) == BN_CLICKED)
-					{
-						INT i;
-
-						switch (g->CurrentElement)
-						{
-							case IDX_INACTIVE_CAPTION:
-							case IDX_ACTIVE_CAPTION:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTITALIC, BM_GETCHECK, 0, 0);
-
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfItalic =
-									(i == BST_CHECKED) ? TRUE : FALSE;
-
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETCAPTIONFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_MENU:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTITALIC, BM_GETCHECK, 0, 0);
-
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfItalic =
-									(i == BST_CHECKED) ? TRUE : FALSE;
-
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETMENUFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
-
-							case IDX_DIALOG:
-								i = (INT)SendDlgItemMessage(hwndDlg, IDC_ADVAPPEARANCE_FONTITALIC, BM_GETCHECK, 0, 0);
-
-								g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font].lfItalic =
-									(i == BST_CHECKED) ? TRUE : FALSE;
-
-								SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, PVM_SETDIALOGFONT, 0,
-									(LPARAM)&g->ThemeAdv.lfFont[g_Assignment[g->CurrentElement].Font]);
-								break;
 						}
 					}
 					break;

@@ -1,5 +1,5 @@
 <module name="reactos" type="win32gui">
-	<bootstrap base="$(CDOUTPUT)" />
+	<bootstrap base="reactos" />
 	<include base="reactos">.</include>
 	<define name="_WIN32_IE">0x0501</define>
 	<define name="_WIN32_WINNT">0x0501</define>

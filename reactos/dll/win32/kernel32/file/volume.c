@@ -106,7 +106,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 	for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
 	  if (dwDriveMap & (1<<drive))
 	  {
-	     *p++ = 'A' + (UCHAR)drive;
+	     *p++ = 'A' + drive;
 	     *p++ = ':';
 	     *p++ = '\\';
 	     *p++ = '\0';
@@ -464,7 +464,7 @@ GetVolumeInformationA(
 
   if (lpVolumeNameBuffer)
     {
-      VolumeNameU.MaximumLength = (USHORT)nVolumeNameSize * sizeof(WCHAR);
+      VolumeNameU.MaximumLength = nVolumeNameSize * sizeof(WCHAR);
       VolumeNameU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
 	                                    0,
 	                                    VolumeNameU.MaximumLength);
@@ -477,7 +477,7 @@ GetVolumeInformationA(
   if (lpFileSystemNameBuffer)
     {
       FileSystemNameU.Length = 0;
-      FileSystemNameU.MaximumLength = (USHORT)nFileSystemNameSize * sizeof(WCHAR);
+      FileSystemNameU.MaximumLength = nFileSystemNameSize * sizeof(WCHAR);
       FileSystemNameU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
 	                                        0,
 	                                        FileSystemNameU.MaximumLength);
@@ -511,7 +511,7 @@ FailNoMem:
         {
           VolumeNameU.Length = wcslen(VolumeNameU.Buffer) * sizeof(WCHAR);
 	  VolumeName.Length = 0;
-	  VolumeName.MaximumLength = (USHORT)nVolumeNameSize;
+	  VolumeName.MaximumLength = nVolumeNameSize;
 	  VolumeName.Buffer = lpVolumeNameBuffer;
 	}
 
@@ -519,7 +519,7 @@ FailNoMem:
 	{
 	  FileSystemNameU.Length = wcslen(FileSystemNameU.Buffer) * sizeof(WCHAR);
 	  FileSystemName.Length = 0;
-	  FileSystemName.MaximumLength = (USHORT)nFileSystemNameSize;
+	  FileSystemName.MaximumLength = nFileSystemNameSize;
 	  FileSystemName.Buffer = lpFileSystemNameBuffer;
 	}
 

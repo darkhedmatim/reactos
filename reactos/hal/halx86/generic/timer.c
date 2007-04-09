@@ -101,6 +101,7 @@ HalCalibratePerformanceCounter(IN volatile PLONG Count,
     /* Do a decrement for this CPU */
     _InterlockedDecrement(Count);
 
+
     /* Wait for other CPUs */
     while (*Count);
 

@@ -1461,36 +1461,37 @@ DWORD WINAPI SHELL32_714(LPVOID x)
 /*************************************************************************
  *      SHAddFromPropSheetExtArray	[SHELL32.167]
  */
-UINT WINAPI SHAddFromPropSheetExtArray(HPSXA hpsxa, LPFNADDPROPSHEETPAGE lpfnAddPage, LPARAM lParam)
+DWORD WINAPI SHAddFromPropSheetExtArray(DWORD a, DWORD b, DWORD c)
 {
-	FIXME("(%p,%p,%08lx)stub\n", hpsxa, lpfnAddPage, lParam);
+ 	FIXME("(%08lx,%08lx,%08lx)stub\n", a, b, c);
 	return 0;
 }
 
 /*************************************************************************
  *      SHCreatePropSheetExtArray	[SHELL32.168]
  */
-HPSXA WINAPI SHCreatePropSheetExtArray(HKEY hKey, LPCWSTR pszSubKey, UINT max_iface)
+DWORD WINAPI SHCreatePropSheetExtArray(DWORD a, LPCSTR b, DWORD c)
 {
-	FIXME("(%p,%s,%u)stub\n", hKey, debugstr_w(pszSubKey), max_iface);
-	return NULL;
+ 	FIXME("(%08lx,%s,%08lx)stub\n", a, debugstr_a(b), c);
+	return 0;
 }
 
 /*************************************************************************
  *      SHReplaceFromPropSheetExtArray	[SHELL32.170]
  */
-UINT WINAPI SHReplaceFromPropSheetExtArray(HPSXA hpsxa, UINT uPageID, LPFNADDPROPSHEETPAGE lpfnReplaceWith, LPARAM lParam)
+DWORD WINAPI SHReplaceFromPropSheetExtArray(DWORD a, DWORD b, DWORD c, DWORD d)
 {
-	FIXME("(%p,%u,%p,%08lx)stub\n", hpsxa, uPageID, lpfnReplaceWith, lParam);
+ 	FIXME("(%08lx,%08lx,%08lx,%08lx)stub\n", a, b, c, d);
 	return 0;
 }
 
 /*************************************************************************
  *      SHDestroyPropSheetExtArray	[SHELL32.169]
  */
-void WINAPI SHDestroyPropSheetExtArray(HPSXA hpsxa)
+DWORD WINAPI SHDestroyPropSheetExtArray(DWORD a)
 {
-	FIXME("(%p)stub\n", hpsxa);
+ 	FIXME("(%08lx)stub\n", a);
+	return 0;
 }
 
 /*************************************************************************

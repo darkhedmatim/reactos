@@ -1,4 +1,4 @@
-<module name="expat" type="staticlibrary" allowwarnings="true">
+<module name="expat" type="staticlibrary">
 	<include base="expat">.</include>
 	<include base="expat">lib</include>
 	<include base="ReactOS">include/reactos/libs/expat</include>

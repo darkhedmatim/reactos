@@ -23,6 +23,8 @@
 /* FIXME:  these are included in winnls.h, however including this file causes alot of
            conflicting type errors. */
 
+#define LOCALE_SYEARMONTH 0x1006
+#define LOCALE_IPAPERSIZE 0x100A
 #define LOCALE_RETURN_NUMBER 0x20000000
 #define LOCALE_USE_CP_ACP 0x40000000
 #define LOCALE_LOCALEINFOFLAGSMASK (LOCALE_NOUSEROVERRIDE|LOCALE_USE_CP_ACP|LOCALE_RETURN_NUMBER)
@@ -992,7 +994,7 @@ CompareStringW (
     }
     else
         Result = RtlCompareUnicodeString(
-                      &String1, &String2, (BOOLEAN)(dwCmpFlags & NORM_IGNORECASE));
+                      &String1, &String2, dwCmpFlags & NORM_IGNORECASE);
     
     
     if (Result) /* need to translate result */
@@ -1394,23 +1396,8 @@ SetCalendarInfoW(
 }
 
 
-/**********************************************************************
- * @implemented
- * RIPPED FROM WINE's dlls\kernel\locale.c ver 0.9.29
- *
- *           SetLocaleInfoA    (KERNEL32.@)
- *
- * Set the current locale info.
- *
- * PARAMS
- *  Locale   [I] LCID of the locale
- *  LCType   [I] LCTYPE_ flags from "winnls.h"
- *  lpLCData [I] Information to set
- *
- * RETURNS
- *  Success: TRUE. The information given will be returned by GetLocaleInfoA()
- *           whenever it is called without LOCALE_NOUSEROVERRIDE.
- *  Failure: FALSE. Use GetLastError() to determine the cause.
+/*
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -1420,39 +1407,13 @@ SetLocaleInfoA (
     LPCSTR  lpLCData
     )
 {
-    UINT codepage = CP_ACP;
-    WCHAR *strW;
-    DWORD len;
-    BOOL ret;
-
-    if (!(LCType & LOCALE_USE_CP_ACP)) codepage = get_lcid_codepage( Locale );
-
-    if (!lpLCData)
-    {
-        SetLastError( ERROR_INVALID_PARAMETER );
-        return FALSE;
-    }
-    len = MultiByteToWideChar( codepage, 0, lpLCData, -1, NULL, 0 );
-    if (!(strW = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) )))
-    {
-        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
-        return FALSE;
-    }
-    MultiByteToWideChar( codepage, 0, lpLCData, -1, strW, len );
-    ret = SetLocaleInfoW( Locale, LCType, strW );
-    HeapFree( GetProcessHeap(), 0, strW );
-    return ret;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 
-/**********************************************************************
- * @implemented
- * RIPPED FROM WINE's dlls\kernel\locale.c ver 0.9.29
- *
- *           SetLocaleInfoW    (KERNEL32.@)
- *
- * See SetLocaleInfoA.
- *
+/*
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -1462,69 +1423,8 @@ SetLocaleInfoW (
     LPCWSTR lpLCData
     )
 {
-    const WCHAR *value;
-    UNICODE_STRING valueW;
-    NTSTATUS status;
-    HANDLE hkey;
-
-    LCType &= 0xffff;
-    value = RosGetLocaleValueName( LCType );
-
-    if (!lpLCData || !value)
-    {
-        SetLastError( ERROR_INVALID_PARAMETER );
-        return FALSE;
-    }
-
-    if (LCType == LOCALE_IDATE || LCType == LOCALE_ILDATE)
-    {
-        SetLastError( ERROR_INVALID_FLAGS );
-        return FALSE;
-    }
-
-    if (!(hkey = RosCreateRegistryKey())) return FALSE;
-    RtlInitUnicodeString( &valueW, value );
-    status = NtSetValueKey( hkey, &valueW, 0, REG_SZ, (PVOID)lpLCData, (lstrlenW(lpLCData)+1)*sizeof(WCHAR) );
-
-    if (LCType == LOCALE_SSHORTDATE || LCType == LOCALE_SLONGDATE)
-    {
-        /* Set I-value from S value */
-        WCHAR *lpD, *lpM, *lpY;
-        WCHAR szBuff[2];
-
-        lpD = wcschr(lpLCData, 'd');
-        lpM = wcschr(lpLCData, 'M');
-        lpY = wcschr(lpLCData, 'y');
-
-        if (lpD <= lpM)
-        {
-            szBuff[0] = '1'; /* D-M-Y */
-        }
-        else
-        {
-            if (lpY <= lpM)
-                szBuff[0] = '2'; /* Y-M-D */
-            else
-                szBuff[0] = '0'; /* M-D-Y */
-        }
-
-        szBuff[1] = '\0';
-
-        if (LCType == LOCALE_SSHORTDATE)
-            LCType = LOCALE_IDATE;
-        else
-            LCType = LOCALE_ILDATE;
-
-        value = RosGetLocaleValueName( LCType );
-
-        RtlInitUnicodeString( &valueW, value );
-        status = NtSetValueKey( hkey, &valueW, 0, REG_SZ, szBuff, sizeof(szBuff) );
-    }
-
-    NtClose( hkey );
-
-    if (status) SetLastError( RtlNtStatusToDosError(status) );
-    return !status;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 

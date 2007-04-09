@@ -6,6 +6,7 @@
 	<library>gdi32</library>
 	<library>ddraw</library>
 	<library>dxguid</library>
+	<library>string</library>
 	<library>user32</library>
 	<file>main.cpp</file>
 </module>

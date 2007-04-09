@@ -45,16 +45,10 @@ BaseFlushAppcompatCache(VOID)
 /*
  * @unimplemented
  */
-BOOL
-WINAPI
-BaseCheckAppcompatCache(ULONG Unknown1,
-                        ULONG Unknown2,
-                        ULONG Unknown3,
-                        PULONG Unknown4)
+VOID STDCALL
+BaseCheckAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
 {
     STUB;
-    if (Unknown4) *Unknown4 = 0;
-    return TRUE;
 }
 
 /*

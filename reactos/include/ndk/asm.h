@@ -20,8 +20,6 @@ Author:
 #ifndef _ASM_H
 #define _ASM_H
 
-#define NEW_SCHEDULER
-
 //
 // PCR Access
 //
@@ -103,16 +101,15 @@ Author:
 #define KTHREAD_STACK_LIMIT                     0x1C
 #define KTHREAD_TEB                             0x74
 #define KTHREAD_KERNEL_STACK                    0x20
+#define KTHREAD_STATE                           0x4C
+#define KTHREAD_NPX_STATE                       0x4D
 #define KTHREAD_ALERTED                         0x5E
 #define KTHREAD_APCSTATE_PROCESS                0x28 + 0x10
 #define KTHREAD_PENDING_USER_APC                0x28 + 0x16
 #define KTHREAD_PENDING_KERNEL_APC              0x28 + 0x15
 #define KTHREAD_CONTEXT_SWITCHES                0x48
-#define KTHREAD_STATE                           0x4C
-#define KTHREAD_NPX_STATE                       0x4D
 #define KTHREAD_WAIT_IRQL                       0x4E
 #define KTHREAD_NEXT_PROCESSOR                  0x40
-#define KTHREAD_WAIT_REASON                     0x5A
 #define KTHREAD_SWAP_BUSY                       0x5D
 #define KTHREAD_SERVICE_TABLE                   0x118
 #define KTHREAD_PREVIOUS_MODE                   0xD7
@@ -140,16 +137,6 @@ Author:
 #define EPROCESS_VDM_OBJECTS                    0x144
 
 //
-// KTIMER_TABLE Offsets
-//
-#ifdef __ASM__
-#define KTIMER_TABLE_ENTRY                      0x00
-#define KTIMER_TABLE_TIME                       0x08
-#define TIMER_ENTRY_SIZE                        0x10
-#define TIMER_TABLE_SIZE                        0x200
-#endif
-
-//
 // KPRCB Offsets
 //
 #define KPRCB_DR0                               0x2F8
@@ -158,8 +145,6 @@ Author:
 #define KPRCB_DR3                               0x304
 #define KPRCB_DR6                               0x308
 #define KPRCB_DR7                               0x30C
-#define KPRCB_TIMER_HAND                        0x964
-#define KPRCB_TIMER_REQUEST                     0x968
 
 //
 // KPCR Offsets
@@ -222,12 +207,10 @@ Author:
 //
 #define KINTERRUPT_SERVICE_ROUTINE              0x0C
 #define KINTERRUPT_SERVICE_CONTEXT              0x10
-#define KINTERRUPT_TICK_COUNT                   0x18
 #define KINTERRUPT_ACTUAL_LOCK                  0x1C
 #define KINTERRUPT_IRQL                         0x20
 #define KINTERRUPT_VECTOR                       0x24
 #define KINTERRUPT_SYNCHRONIZE_IRQL             0x29
-#define KINTERRUPT_DISPATCH_COUNT               0x38
 
 //
 // KGDTENTRY Offsets
@@ -501,13 +484,13 @@ Author:
 #define DR7_RESERVED_MASK                       0xDC00
 #define DR7_OVERRIDE_MASK                       0xF0000
 
+
 //
 // Usermode callout frame definitions
 //
 #define CBSTACK_STACK                           0x0
 #define CBSTACK_TRAP_FRAME                      0x4
 #define CBSTACK_CALLBACK_STACK                  0x8
-#define CBSTACK_EBP                             0x18
 #define CBSTACK_RESULT                          0x20
 #define CBSTACK_RESULT_LENGTH                   0x24
 
@@ -548,7 +531,6 @@ Author:
 #define IRQL_GT_ZERO_AT_SYSTEM_SERVICE          0x4A
 #define UNEXPECTED_KERNEL_MODE_TRAP             0x7F
 #define ATTEMPTED_SWITCH_FROM_DPC               0xB8
-#define HARDWARE_INTERRUPT_STORM                0xF2
 
 //
 // IRQL Levels

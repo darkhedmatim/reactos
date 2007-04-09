@@ -8,6 +8,9 @@
                 Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
  */
 
+#define NDEBUG
+#include <debug.h>
+
 #include "sermouse.h"
 
 /* Most of this file is ripped from reactos/drivers/bus/serenum/detect.c */
@@ -17,9 +20,9 @@ DeviceIoControl(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN ULONG CtlCode,
 	IN PVOID InputBuffer OPTIONAL,
-	IN SIZE_T InputBufferSize,
+	IN ULONG_PTR InputBufferSize,
 	IN OUT PVOID OutputBuffer OPTIONAL,
-	IN OUT PSIZE_T OutputBufferSize)
+	IN OUT PULONG_PTR OutputBufferSize)
 {
 	KEVENT Event;
 	PIRP Irp;
@@ -31,9 +34,9 @@ DeviceIoControl(
 	Irp = IoBuildDeviceIoControlRequest(CtlCode,
 		DeviceObject,
 		InputBuffer,
-		(ULONG)InputBufferSize,
+		InputBufferSize,
 		OutputBuffer,
-		(OutputBufferSize) ? (ULONG)*OutputBufferSize : 0,
+		(OutputBufferSize) ? *OutputBufferSize : 0,
 		FALSE,
 		&Event,
 		&IoStatus);
@@ -54,7 +57,7 @@ DeviceIoControl(
 
 	if (OutputBufferSize)
 	{
-		*OutputBufferSize = (SIZE_T)IoStatus.Information;
+		*OutputBufferSize = IoStatus.Information;
 	}
 
 	return Status;

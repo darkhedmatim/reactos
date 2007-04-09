@@ -845,9 +845,7 @@ CreateDeviceInfoElement(
 static BOOL
 DestroyClassInstallParams(struct ClassInstallParams* installParams)
 {
-    HeapFree(GetProcessHeap(), 0, installParams->PropChangeParams);
-    HeapFree(GetProcessHeap(), 0, installParams->AddPropertyPageData);
-    return TRUE;
+    return HeapFree(GetProcessHeap(), 0, installParams->PropChange);
 }
 
 static BOOL
@@ -2984,9 +2982,9 @@ SetupDiChangeState(
     TRACE("%p %p\n", DeviceInfoSet, DeviceInfoData);
 
     if (!DeviceInfoData)
-        PropChange = ((struct DeviceInfoSet *)DeviceInfoSet)->ClassInstallParams.PropChangeParams;
+        PropChange = ((struct DeviceInfoSet *)DeviceInfoSet)->ClassInstallParams.PropChange;
     else
-        PropChange = ((struct DeviceInfoElement *)DeviceInfoData->Reserved)->ClassInstallParams.PropChangeParams;
+        PropChange = ((struct DeviceInfoElement *)DeviceInfoData->Reserved)->ClassInstallParams.PropChange;
     if (!PropChange)
     {
         SetLastError(ERROR_INVALID_PARAMETER);

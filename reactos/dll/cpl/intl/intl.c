@@ -156,7 +156,7 @@ Applet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam)
   InitPropSheetPage(&psp[2], IDD_CURRENCYPAGE, CurrencyPageProc);
   InitPropSheetPage(&psp[3], IDD_TIMEPAGE, TimePageProc);
   InitPropSheetPage(&psp[4], IDD_DATEPAGE, DatePageProc);
-  InitPropSheetPage(&psp[5], IDD_LOCALEPAGE, InpLocalePageProc);
+  InitPropSheetPage(&psp[5], IDD_LOCALEPAGE, LocalePageProc);
 
   return (LONG)(PropertySheet(&psh) != -1);
 }

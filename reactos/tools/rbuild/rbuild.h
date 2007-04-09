@@ -155,9 +155,7 @@ public:
 	static std::string GetVariable ( const std::string& name );
 	static std::string GetIntermediatePath ();
 	static std::string GetOutputPath ();
-	static std::string GetCdOutputPath ();
 	static std::string GetInstallPath ();
-	static std::string GetAutomakeFile ( const std::string& defaultFile );
 	static std::string GetEnvironmentVariablePathOrDefault ( const std::string& name,
 	                                                         const std::string& defaultValue );
 };
@@ -225,7 +223,7 @@ public:
 	void ProcessXML ( const std::string& path );
 	Module* LocateModule ( const std::string& name );
 	const Module* LocateModule ( const std::string& name ) const;
-	const std::string& GetProjectFilename () const;
+	std::string GetProjectFilename () const;
 	std::string ResolveProperties ( const std::string& s ) const;
 private:
 	std::string ResolveNextProperty ( std::string& s ) const;
@@ -297,9 +295,8 @@ public:
 	ModuleType type;
 	ImportLibrary* importLibrary;
 	bool mangledSymbols;
-	bool underscoreSymbols;
 	bool isUnicode;
-	bool isDefaultEntryPoint;
+    bool isDefaultEntryPoint;
 	Bootstrap* bootstrap;
 	AutoRegister* autoRegister;
 	IfableData non_if_data;
@@ -764,9 +761,6 @@ public:
 private:
 	bool IsSupportedModuleType ( ModuleType type );
 	void Initialize();
-	static std::string ReplaceVariable ( const std::string& name,
-	                                     const std::string& value,
-	                                     std::string path );
 };
 
 
@@ -786,10 +780,6 @@ public:
 	~CDFile ();
 	void ProcessXML();
 	std::string GetPath () const;
-private:
-	static std::string ReplaceVariable ( const std::string& name,
-	                                     const std::string& value,
-	                                     std::string path );
 };
 
 

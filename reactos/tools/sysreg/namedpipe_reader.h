@@ -18,20 +18,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(WIN32)
-#include <windows.h>
-#define NULLVAL NULL
-#else
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#define NULLVAL 0
-#define DWORD unsigned long
-#define HANDLE long
-#ifndef INVALID_HANDLE_VALUE
-#define INVALID_HANDLE_VALUE -1
-#endif
+#ifdef __LINUX__
+
+#elif defined(WIN32)
+	#include <windows.h>
 #endif
 
 namespace System_
@@ -118,6 +108,8 @@ protected:
 /// @param append_line if the line isnt fully read, the line is appended
 
 	void extractLines(TCHAR * buffer, std::vector<string> & vect, bool & append_line, unsigned long cbRead);
+
+
 
 
 	HANDLE h_Pipe;

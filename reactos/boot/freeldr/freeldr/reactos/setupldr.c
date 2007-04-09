@@ -18,11 +18,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#define _NTSYSTEM_
 #include <freeldr.h>
-
-#define NDEBUG
-#include <debug.h>
 
 ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
@@ -32,10 +28,24 @@ unsigned long			reactos_memory_map_descriptor_size;
 memory_map_t			reactos_memory_map[32];		// Memory map
 char szBootPath[256];
 char szHalName[256];
-extern ULONG_PTR KernelBase, KernelEntry;
-
 
 #define USE_UI
+
+static BOOLEAN
+FreeldrReadFile(PVOID FileContext, PVOID Buffer, ULONG Size)
+{
+  ULONG BytesRead;
+
+  return FsReadFile((PFILE) FileContext, (ULONG) Size, &BytesRead, Buffer)
+         && Size == BytesRead;
+}
+
+static BOOLEAN
+FreeldrSeekFile(PVOID FileContext, ULONG_PTR Position)
+{
+  FsSetFilePointer((PFILE) FileContext, (ULONG) Position);
+    return TRUE;
+}
 
 BOOLEAN
 NTAPI
@@ -45,8 +55,6 @@ static FrLdrLoadKernel(IN PCHAR szFileName,
     PFILE FilePointer;
     PCHAR szShortName;
     CHAR szBuffer[256];
-    PVOID LoadBase;
-    PIMAGE_NT_HEADERS NtHeader;
 
     /* Extract Kernel filename without path */
     szShortName = strrchr(szFileName, '\\');
@@ -78,16 +86,65 @@ static FrLdrLoadKernel(IN PCHAR szFileName,
     UiDrawStatusText(szBuffer);
 
     /* Do the actual loading */
-    LoadBase = FrLdrMapImage(FilePointer, szShortName, 1);
-
-    /* Get the NT header, kernel base and kernel entry */
-    NtHeader = RtlImageNtHeader(LoadBase);
-    KernelBase = NtHeader->OptionalHeader.ImageBase;
-    KernelEntry = RaToPa(NtHeader->OptionalHeader.AddressOfEntryPoint);
-    LoaderBlock.KernelBase = KernelBase;
+    FrLdrMapKernel(FilePointer);
 
     /* Update Processbar and return success */
     return TRUE;
+}
+
+static BOOLEAN
+LoadKernelSymbols(PCSTR szSourcePath, PCSTR szFileName)
+{
+  static ROSSYM_CALLBACKS FreeldrCallbacks =
+    {
+      MmAllocateMemory,
+      MmFreeMemory,
+      FreeldrReadFile,
+      FreeldrSeekFile
+    };
+  CHAR szFullName[256];
+  PFILE FilePointer;
+  PROSSYM_INFO RosSymInfo;
+  ULONG Size;
+  ULONG_PTR Base;
+
+  if (szSourcePath[0] != '\\')
+    {
+      strcpy(szFullName, "\\");
+      strcat(szFullName, szSourcePath);
+    }
+  else
+    {
+      strcpy(szFullName, szSourcePath);
+    }
+
+  if (szFullName[strlen(szFullName)] != '\\')
+    {
+      strcat(szFullName, "\\");
+    }
+
+  if (szFileName[0] != '\\')
+    {
+      strcat(szFullName, szFileName);
+    }
+  else
+    {
+      strcat(szFullName, szFileName + 1);
+    }
+
+  RosSymInit(&FreeldrCallbacks);
+
+  FilePointer = FsOpenFile(szFullName);
+  if (FilePointer  && RosSymCreateFromFile(FilePointer, &RosSymInfo))
+    {
+      Base = FrLdrCreateModule("NTOSKRNL.SYM");
+      Size = RosSymGetRawDataLength(RosSymInfo);
+      RosSymGetRawData(RosSymInfo, (PVOID)Base);
+      FrLdrCloseModule(Base, Size);
+      RosSymDelete(RosSymInfo);
+      return TRUE;
+    }
+  return FALSE;
 }
 
 static BOOLEAN
@@ -149,7 +206,7 @@ LoadDriver(PCSTR szSourcePath, PCSTR szFileName)
 #endif
 
   /* Load the driver */
-  FrLdrMapImage(FilePointer, (LPSTR)szFileName, 2);
+  FrLdrLoadModule(FilePointer, szFileName, NULL);
 
   return(TRUE);
 }
@@ -225,42 +282,60 @@ VOID RunLoader(VOID)
   ULONG Size;
   const char *SourcePath;
   const char *LoadOptions;
+  UINT i;
   char szKernelName[256];
 
   HINF InfHandle;
   ULONG ErrorLine;
   INFCONTEXT InfContext;
 
+  extern ULONG PageDirectoryStart;
+  extern ULONG PageDirectoryEnd;
+
   /* Setup multiboot information structure */
+  LoaderBlock.Flags = MB_FLAGS_BOOT_DEVICE | MB_FLAGS_COMMAND_LINE | MB_FLAGS_MODULE_INFO;
+  LoaderBlock.PageDirectoryStart = (ULONG)&PageDirectoryStart;
+  LoaderBlock.PageDirectoryEnd = (ULONG)&PageDirectoryEnd;
+  LoaderBlock.BootDevice = 0xffffffff;
   LoaderBlock.CommandLine = reactos_kernel_cmdline;
   LoaderBlock.ModsCount = 0;
   LoaderBlock.ModsAddr = reactos_modules;
   LoaderBlock.MmapLength = (unsigned long)MachGetMemoryMap((PBIOS_MEMORY_MAP)(PVOID)&reactos_memory_map, 32) * sizeof(memory_map_t);
   if (LoaderBlock.MmapLength)
-  {
-      ULONG i;
-
+    {
       LoaderBlock.MmapAddr = (unsigned long)&reactos_memory_map;
+      LoaderBlock.Flags |= MB_FLAGS_MEM_INFO | MB_FLAGS_MMAP_INFO;
       reactos_memory_map_descriptor_size = sizeof(memory_map_t); // GetBiosMemoryMap uses a fixed value of 24
-      for (i=0; i<(LoaderBlock.MmapLength/sizeof(memory_map_t)); i++)
-      {
+      for (i = 0; i < (LoaderBlock.MmapLength / sizeof(memory_map_t)); i++)
+        {
           if (BiosMemoryUsable == reactos_memory_map[i].type &&
               0 == reactos_memory_map[i].base_addr_low)
-          {
+            {
               LoaderBlock.MemLower = (reactos_memory_map[i].base_addr_low + reactos_memory_map[i].length_low) / 1024;
               if (640 < LoaderBlock.MemLower)
-              {
+                {
                   LoaderBlock.MemLower = 640;
-              }
-          }
+                }
+            }
           if (BiosMemoryUsable == reactos_memory_map[i].type &&
               reactos_memory_map[i].base_addr_low <= 1024 * 1024 &&
               1024 * 1024 <= reactos_memory_map[i].base_addr_low + reactos_memory_map[i].length_low)
-          {
+            {
               LoaderBlock.MemHigher = (reactos_memory_map[i].base_addr_low + reactos_memory_map[i].length_low) / 1024 - 1024;
-          }
-      }
-  }
+            }
+#if 0
+	    printf("start: %x\t size: %x\t type %d\n",
+		   reactos_memory_map[i].base_addr_low,
+		   reactos_memory_map[i].length_low,
+		   reactos_memory_map[i].type);
+#endif
+        }
+    }
+#if 0
+  printf("low_mem = %d\n", LoaderBlock.MemLower);
+  printf("high_mem = %d\n", LoaderBlock.MemHigher);
+  MachConsGetCh();
+#endif
 
 #ifdef USE_UI
   SetupUiInitialize();
@@ -355,6 +430,9 @@ VOID RunLoader(VOID)
 
     /* Load the kernel */
     if (!FrLdrLoadKernel(szKernelName, 5)) return;
+
+  /* Create ntoskrnl.sym */
+  LoadKernelSymbols(SourcePath, "ntoskrnl.exe");
 
   /* Export the hardware hive */
   Base = FrLdrCreateModule ("HARDWARE");
@@ -555,7 +633,7 @@ for(;;);
 
   /* Now boot the kernel */
   DiskStopFloppyMotor();
-  MachVideoPrepareForReactOS(TRUE);
+  MachVideoPrepareForReactOS();
   FrLdrStartup(0x2badb002);
 }
 

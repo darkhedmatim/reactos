@@ -305,12 +305,12 @@ CreateFreeLoaderIniForDos(PWCHAR IniPath,
 		    L"SystemPath",
 		    ArcPath);
 
-  /* Options=/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS*/
+  /* Options=/DEBUGPORT=SCREEN /NOGUIBOOT */
   IniCacheInsertKey(IniSection,
 		    NULL,
 		    INSERT_LAST,
 		    L"Options",
-		    L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS");
+		    L"/DEBUGPORT=SCREEN /NOGUIBOOT");
 
   /* Create "DOS" section */
   IniSection = IniCacheAppendSection(IniCache,
@@ -398,13 +398,6 @@ CreateFreeLoaderIniForReactos(PWCHAR IniPath,
 		    L"SystemPath",
 		    ArcPath);
 
-  /* Options=/SOS*/
-  IniCacheInsertKey(IniSection,
-		    NULL,
-		    INSERT_LAST,
-		    L"Options",
-		    L"/SOS");
-
   /* Create "ReactOS_Debug" section */
   IniSection = IniCacheAppendSection(IniCache,
 				     L"ReactOS_Debug");
@@ -423,12 +416,12 @@ CreateFreeLoaderIniForReactos(PWCHAR IniPath,
 		    L"SystemPath",
 		    ArcPath);
 
-  /* Options=/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS*/
+  /* Options=/DEBUGPORT=SCREEN /NOGUIBOOT */
   IniCacheInsertKey(IniSection,
 		    NULL,
 		    INSERT_LAST,
 		    L"Options",
-		    L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS");
+		    L"/DEBUGPORT=COM1 /NOGUIBOOT");
 
   /* Save the ini file */
   IniCacheSave(IniCache, IniPath);

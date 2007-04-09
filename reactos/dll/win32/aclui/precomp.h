@@ -1,6 +1,5 @@
 #define WIN32_NO_STATUS
 #define NTOS_MODE_USER
-#define _ACLUI_
 #include <windows.h>
 #include <ndk/ntndk.h>
 #include <commctrl.h>

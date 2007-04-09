@@ -11,61 +11,13 @@
 /* INCLUDES ******************************************************************/
 
 #include <roscfg.h>
+#include <internal/i386/ke.h>
 #include <ndk/asm.h>
 .intel_syntax noprefix
 
 #define Running 2
-#define WrDispatchInt 0x1F
-
-Dividend: .float 4195835.0
-Divisor:  .float 3145727.0
-Result1:  .float 0
-Result2:  .float 0
 
 /* FUNCTIONS ****************************************************************/
-
-.globl _KiIsNpxErrataPresent@0
-.func KiIsNpxErrataPresent@0
-_KiIsNpxErrataPresent@0:
-
-    /* Disable interrupts */
-    cli
-
-    /* Get CR0 and mask out FPU flags */
-    mov eax, cr0
-    mov ecx, eax
-    and eax, ~(CR0_MP + CR0_TS + CR0_EM)
-    mov cr0, eax
-
-    /* Initialize the FPU */
-    fninit
-
-    /* Do the divison and inverse multiplication */
-    fld qword ptr Dividend
-    fstp qword ptr Result1
-    fld qword ptr Divisor
-    fstp qword ptr Result2
-    fld qword ptr Result1
-    fdiv qword ptr Result2
-    fmul qword ptr Result2
-
-    /* Do the compare and check flags */
-    fcomp qword ptr Result1
-    fstsw ax
-    sahf
-
-    /* Restore CR0 and interrupts */
-    mov cr0, ecx
-    sti
-
-    /* Return errata status */
-    xor eax, eax
-    jz NoErrata
-    inc eax
-
-NoErrata:
-    ret
-.endfunc
 
 .globl _KiIsNpxPresent@0
 .func KiIsNpxPresent@0
@@ -337,7 +289,6 @@ BadThread:
  *     Absolutely all registers except ESP can be trampled here for maximum code flexibility.
  *
  *--*/
-.globl @KiSwapContextInternal@0
 .func @KiSwapContextInternal@0, @KiSwapContextInternal@0
 @KiSwapContextInternal@0:
 
@@ -364,13 +315,11 @@ GetSwapLock:
     jnz WmiTrace
 
 AfterTrace:
-#ifdef CONFIG_SMP
 #ifdef DBG
     /* Assert that we're on the right CPU */
     mov cl, [esi+KTHREAD_NEXT_PROCESSOR]
     cmp cl, [ebx+KPCR_PROCESSOR_NUMBER]
     jnz WrongCpu
-#endif
 #endif
 
     /* Get CR0 and save it */
@@ -464,7 +413,7 @@ SameProcess:
     sub eax, NPX_FRAME_LENGTH
 
     /* Check if this isn't V86 Mode, so we can bias the Esp0 */
-    test dword ptr [eax - KTRAP_FRAME_SIZE + KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
+    test dword ptr [eax - KTRAP_FRAME_SIZE + KTRAP_FRAME_EFLAGS], X86_EFLAGS_VM
     jnz NoAdjust
 
     /* Bias esp */
@@ -552,7 +501,7 @@ NewCr0:
     /* Assert NPX State */
     test byte ptr [esi+KTHREAD_NPX_STATE], ~(NPX_STATE_NOT_LOADED)
     jnz InvalidNpx
-    test dword ptr [eax - (NPX_FRAME_LENGTH - FN_CR0_NPX_STATE)], ~(CR0_PE + CR0_MP + CR0_EM + CR0_TS)
+    test dword ptr [eax - (NPX_FRAME_LENGTH - FN_CR0_NPX_STATE)], ~(CR0_MP + CR0_EM + CR0_TS)
     jnz InvalidNpx
 #endif
 
@@ -613,6 +562,7 @@ WrongCpu:
 .globl @KiSwapContext@8
 .func @KiSwapContext@8, @KiSwapContext@8
 @KiSwapContext@8:
+    /* Note, we CANNOT touch ebp */
 
     /* Save 4 registers */
     sub esp, 4 * 4
@@ -679,18 +629,22 @@ MainLoop:
 #endif
     jz CheckSchedule
 
-    mov cl, DISPATCH_LEVEL
-    call @HalClearSoftwareInterrupt@4
-    
+    /* Raise to DISPATCH_LEVEL */
+    mov ecx, DISPATCH_LEVEL
+    call @KfRaiseIrql@4
+    mov edi, eax
+
     /* Handle the above */
     lea ecx, [ebx+KPCR_PRCB_DATA]
     call @KiRetireDpcList@4
 
+    /* Lower IRQL */
+    mov ecx, edi
+    call @KfLowerIrql@4
+
 CheckSchedule:
-#ifndef NEW_SCHEDULER
     /* FIXME: ROS HACK */
     call _NtYieldExecution@0
-#endif
 
     /* Check if a next thread is queued */
     cmp dword ptr [ebx+KPCR_PRCB_NEXT_THREAD], 0
@@ -710,7 +664,7 @@ CheckSchedule:
     /* Set the current thread to ready */
     mov edi, [ebx+KPCR_CURRENT_THREAD]
 #ifdef CONFIG_SMP
-    mov byte ptr [edi+KTHREAD_SWAP_BUSY], 1
+    mov [edi+KTHREAD_STATE], Ready
 
     /* Acquire the PRCB Lock */
     lock bts [ebx+KPCR_PRCB_PRCB_LOCK], 0

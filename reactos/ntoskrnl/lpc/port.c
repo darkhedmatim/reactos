@@ -1,25 +1,29 @@
-/*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/lpc/port.c
- * PURPOSE:         Local Procedure Call: Port Management
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+ * PURPOSE:         Communication mechanism
+ *
+ * PROGRAMMERS:     David Welch (welch@cwcom.net)
  */
 
-/* INCLUDES ******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
+
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, LpcpInitSystem)
+#endif
+ 
 
 /* GLOBALS *******************************************************************/
 
-POBJECT_TYPE LpcPortObjectType;
-ULONG LpcpMaxMessageSize;
-PAGED_LOOKASIDE_LIST LpcpMessagesLookaside;
-KGUARDED_MUTEX LpcpLock;
-ULONG LpcpTraceLevel = 0;
-ULONG LpcpNextMessageId = 1, LpcpNextCallbackId = 1;
+POBJECT_TYPE	LpcPortObjectType = 0;
+ULONG		LpcpNextMessageId = 0; /* 0 is not a valid ID */
+FAST_MUTEX	LpcpLock; /* global internal sync in LPC facility */
 
 static GENERIC_MAPPING LpcpPortMapping = 
 {
@@ -29,58 +33,105 @@ static GENERIC_MAPPING LpcpPortMapping =
     PORT_ALL_ACCESS
 };
 
-/* PRIVATE FUNCTIONS *********************************************************/
+/* FUNCTIONS *****************************************************************/
 
-BOOLEAN
+
+NTSTATUS
+INIT_FUNCTION
 NTAPI
-LpcInitSystem(VOID)
+LpcpInitSystem (VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
     UNICODE_STRING Name;
 
-    /* Setup the LPC Lock */
-    KeInitializeGuardedMutex(&LpcpLock);
-
+    DPRINT("Creating Port Object Type\n");
+  
     /* Create the Port Object Type */
     RtlZeroMemory(&ObjectTypeInitializer, sizeof(ObjectTypeInitializer));
     RtlInitUnicodeString(&Name, L"Port");
     ObjectTypeInitializer.Length = sizeof(ObjectTypeInitializer);
-    ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(LPCP_PORT_OBJECT);
-    ObjectTypeInitializer.DefaultPagedPoolCharge = sizeof(LPCP_NONPAGED_PORT_QUEUE);
+    ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(EPORT);
     ObjectTypeInitializer.GenericMapping = LpcpPortMapping;
-    ObjectTypeInitializer.PoolType = PagedPool;
+    ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObjectTypeInitializer.CloseProcedure = LpcpClosePort;
     ObjectTypeInitializer.DeleteProcedure = LpcpDeletePort;
     ObjectTypeInitializer.ValidAccessMask = PORT_ALL_ACCESS;
-    ObCreateObjectType(&Name,
-                       &ObjectTypeInitializer,
-                       NULL,
-                       &LpcPortObjectType);
+    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &LpcPortObjectType);
 
-    /* Allocate the LPC lookaside list */
-    LpcpMaxMessageSize = LPCP_MAX_MESSAGE_SIZE;
-    ExInitializePagedLookasideList(&LpcpMessagesLookaside,
-                                   NULL,
-                                   NULL,
-                                   0,
-                                   LpcpMaxMessageSize,
-                                   TAG('L', 'p', 'c', 'M'),
-                                   32);
+    LpcpNextMessageId = 0;
+    ExInitializeFastMutex (& LpcpLock);
 
-    /* We're done */
-    return TRUE;
+    return(STATUS_SUCCESS);
 }
 
-/* PUBLIC FUNCTIONS **********************************************************/
 
-NTSTATUS
-NTAPI
-NtImpersonateClientOfPort(IN HANDLE PortHandle,
-                          IN PPORT_MESSAGE ClientMessage)
+/**********************************************************************
+ * NAME							INTERNAL
+ *	NiInitializePort/3
+ *
+ * DESCRIPTION
+ *	Initialize the EPORT object attributes. The Port
+ *	object enters the inactive state.
+ *
+ * ARGUMENTS
+ *	Port	Pointer to an EPORT object to initialize.
+ *	Type	connect (RQST), or communication port (COMM)
+ *	Parent	OPTIONAL connect port a communication port
+ *		is created from
+ *
+ * RETURN VALUE
+ *	STATUS_SUCCESS if initialization succedeed. An error code
+ *	otherwise.
+ */
+NTSTATUS STDCALL
+LpcpInitializePort (IN OUT  PEPORT Port,
+		  IN      USHORT Type,
+		  IN      PEPORT Parent OPTIONAL)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+  if ((Type != EPORT_TYPE_SERVER_RQST_PORT) &&
+      (Type != EPORT_TYPE_SERVER_COMM_PORT) &&
+      (Type != EPORT_TYPE_CLIENT_COMM_PORT))
+  {
+	  return STATUS_INVALID_PARAMETER_2;
+  }
+  memset (Port, 0, sizeof(EPORT));
+  KeInitializeSpinLock (& Port->Lock);
+  KeInitializeSemaphore( &Port->Semaphore, 0, MAXLONG );
+  Port->RequestPort = Parent;
+  Port->OtherPort = NULL;
+  Port->QueueLength = 0;
+  Port->ConnectQueueLength = 0;
+  Port->Type = Type;
+  Port->State = EPORT_INACTIVE;
+  InitializeListHead (& Port->QueueListHead);
+  InitializeListHead (& Port->ConnectQueueListHead);
+
+  return (STATUS_SUCCESS);
+}
+
+
+/* MISCELLANEA SYSTEM SERVICES */
+
+
+/**********************************************************************
+ * NAME							SYSTEM
+ *	NtImpersonateClientOfPort/2
+ *
+ * DESCRIPTION
+ *
+ * ARGUMENTS
+ *	PortHandle,
+ *	ClientMessage
+ *
+ * RETURN VALUE
+ */
+NTSTATUS STDCALL
+NtImpersonateClientOfPort (HANDLE		PortHandle,
+			   PPORT_MESSAGE	ClientMessage)
+{
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
 NTSTATUS
@@ -89,18 +140,6 @@ NtQueryPortInformationProcess(VOID)
 {
     /* This is all this function does */
     return STATUS_UNSUCCESSFUL;
-}
-
-NTSTATUS
-NTAPI
-NtQueryInformationPort(IN HANDLE PortHandle,
-                       IN PORT_INFORMATION_CLASS PortInformationClass,
-                       OUT PVOID PortInformation,
-                       IN ULONG PortInformationLength,
-                       OUT PULONG ReturnLength)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

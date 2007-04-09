@@ -82,7 +82,6 @@
 	entrypoint	%CIdentifier; #IMPLIED
 	baseaddress	%CIdentifier; #IMPLIED
 	mangledsymbols	%Text; #IMPLIED
-	underscoresymbols	(true|false) "false"
 	installbase	%Text; #IMPLIED
 	installname	%Text; #IMPLIED
 	usewrc		%Text; #IMPLIED

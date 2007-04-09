@@ -10,6 +10,7 @@
 
 #include <k32.h>
 
+
 static _SEH_FILTER(lstr_page_fault)
 {
     if (_SEH_GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION)
@@ -70,6 +71,7 @@ lstrcmpiA(
 
    return Result;
 }
+
 
 /*
  * @implemented

@@ -781,7 +781,7 @@ GetShortPathNameW (
             BOOLEAN spaces;
             memcpy(ustr_buf, longpath + lp, tmplen * sizeof(WCHAR));
             ustr_buf[tmplen] = '\0';
-            ustr.Length = (USHORT)tmplen * sizeof(WCHAR);
+            ustr.Length = tmplen * sizeof(WCHAR);
             if (RtlIsNameLegalDOS8Dot3(&ustr, NULL, &spaces) && !spaces)
             {
                 sp += tmplen;
@@ -889,7 +889,7 @@ SearchPathA (
                     goto Cleanup;
         }
 
-        BufferU.MaximumLength = (USHORT)nBufferLength * sizeof(WCHAR);
+        BufferU.MaximumLength = nBufferLength * sizeof(WCHAR);
         BufferU.Buffer = RtlAllocateHeap (RtlGetProcessHeap (),
                                           0,
                                           BufferU.MaximumLength);
@@ -899,7 +899,7 @@ SearchPathA (
             goto Cleanup;
         }
 
-        Buffer.MaximumLength = (USHORT)nBufferLength;
+        Buffer.MaximumLength = nBufferLength;
         Buffer.Buffer = lpBuffer;
 
         RetValue = SearchPathW (NULL == lpPath ? NULL : PathU.Buffer,

@@ -33,15 +33,7 @@ const CHAR	CustomBootPrompt[] = "Press ENTER to boot your custom boot setup.";
 
 VOID OptionMenuCustomBoot(VOID)
 {
-	PCSTR	CustomBootMenuList[] = {
-#ifdef __i386__
-		"Disk",
-		"Partition",
-		"Boot Sector File",
-		"ReactOS",
-		"Linux"
-#endif /* __i386__ */
-		};
+	PCSTR	CustomBootMenuList[] = { "Disk", "Partition", "Boot Sector File", "ReactOS", "Linux" };
 	ULONG		CustomBootMenuCount = sizeof(CustomBootMenuList) / sizeof(CustomBootMenuList[0]);
 	ULONG		SelectedMenuItem;
 
@@ -53,7 +45,6 @@ VOID OptionMenuCustomBoot(VOID)
 
 	switch (SelectedMenuItem)
 	{
-#ifdef __i386__
 	case 0: // Disk
 		OptionMenuCustomBootDisk();
 		break;
@@ -69,11 +60,9 @@ VOID OptionMenuCustomBoot(VOID)
 	case 4: // Linux
 		OptionMenuCustomBootLinux();
 		break;
-#endif /* __i386__ */
 	}
 }
 
-#ifdef __i386__
 VOID OptionMenuCustomBootDisk(VOID)
 {
 	CHAR	SectionName[100];
@@ -408,4 +397,3 @@ VOID OptionMenuCustomBootLinux(VOID)
 
 	LoadAndBootLinux(SectionName, "Custom Linux Setup");
 }
-#endif /* __i386__ */

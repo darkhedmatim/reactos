@@ -297,32 +297,30 @@ IntParseDesktopPath(PEPROCESS Process,
 
    if(!WinStaPresent)
    {
-#if 0
       /* search the process handle table for (inherited) window station
          handles, use a more appropriate one than WinSta0 if possible. */
-      if (!ObFindHandleForObject(Process,
-                                 NULL,
-                                 ExWindowStationObjectType,
-                                 NULL,
-                                 (PHANDLE)hWinSta))
-#endif
+      Status = ObFindHandleForObject(Process,
+                                     NULL,
+                                     ExWindowStationObjectType,
+                                     NULL,
+                                     (PHANDLE)hWinSta);
+      if(!NT_SUCCESS(Status))
       {
-            /* we had no luck searching for opened handles, use WinSta0 now */
-            RtlInitUnicodeString(&WinSta, L"WinSta0");
+         /* we had no luck searching for opened handles, use WinSta0 now */
+         RtlInitUnicodeString(&WinSta, L"WinSta0");
       }
    }
 
    if(!DesktopPresent && hDesktop != NULL)
    {
-#if 0
       /* search the process handle table for (inherited) desktop
          handles, use a more appropriate one than Default if possible. */
-      if (!ObFindHandleForObject(Process,
-                                 NULL,
-                                 ExDesktopObjectType,
-                                 NULL,
-                                 (PHANDLE)hDesktop))
-#endif
+      Status = ObFindHandleForObject(Process,
+                                     NULL,
+                                     ExDesktopObjectType,
+                                     NULL,
+                                     (PHANDLE)hDesktop);
+      if(!NT_SUCCESS(Status))
       {
          /* we had no luck searching for opened handles, use Desktop now */
          RtlInitUnicodeString(&Desktop, L"Default");
@@ -481,11 +479,13 @@ IntGetDesktopObjectHandle(PDESKTOP_OBJECT DesktopObject)
 
    ASSERT(DesktopObject);
 
-   if (!ObFindHandleForObject(PsGetCurrentProcess(),
-                              DesktopObject,
-                              ExDesktopObjectType,
-                              NULL,
-                              (PHANDLE)&Ret))
+   Status = ObFindHandleForObject(PsGetCurrentProcess(),
+                                  DesktopObject,
+                                  ExDesktopObjectType,
+                                  NULL,
+                                  (PHANDLE)&Ret);
+
+   if(!NT_SUCCESS(Status))
    {
       Status = ObOpenObjectByPointer(DesktopObject,
                                      0,
@@ -500,10 +500,6 @@ IntGetDesktopObjectHandle(PDESKTOP_OBJECT DesktopObject)
          DPRINT1("Unable to create a desktop handle\n");
          return NULL;
       }
-   }
-   else
-   {
-       DPRINT1("Got handle: %lx\n", Ret);
    }
 
    return Ret;
@@ -1068,7 +1064,6 @@ NtUserOpenDesktop(
    UNICODE_STRING SafeDesktopName;
    NTSTATUS Status;
    HDESK Desktop;
-   BOOL Result;
    DECLARE_RETURN(HDESK);
 
    DPRINT("Enter NtUserOpenDesktop: %wZ\n", lpszDesktopName);
@@ -1107,19 +1102,17 @@ NtUserOpenDesktop(
       RtlInitUnicodeString(&SafeDesktopName, NULL);
    }
 
-   Result = IntGetFullWindowStationName(&DesktopName, &WinStaObject->Name,
-                                        &SafeDesktopName);
-
-   RtlFreeUnicodeString(&SafeDesktopName);
-   ObDereferenceObject(WinStaObject);
-
-
-   if (!Result)
+   if (!IntGetFullWindowStationName(&DesktopName, &WinStaObject->Name,
+                                    lpszDesktopName))
    {
       SetLastNtError(STATUS_INSUFFICIENT_RESOURCES);
+      ObDereferenceObject(WinStaObject);
+      RtlFreeUnicodeString(&SafeDesktopName);
       RETURN( 0);
    }
 
+   RtlFreeUnicodeString(&SafeDesktopName);
+   ObDereferenceObject(WinStaObject);
 
    DPRINT("Trying to open desktop (%wZ)\n", &DesktopName);
 
