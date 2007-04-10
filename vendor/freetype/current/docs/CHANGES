@@ -1,3 +1,99 @@
+CHANGES BETWEEN 2.3.4 and 2.3.3
+
+  I. IMPORTANT BUG FIXES
+
+    - A serious  bug  in  the  handling  of bitmap  fonts (and  bitmap
+      strikes of outline fonts) has been introduced in 2.3.3.
+
+
+======================================================================
+
+CHANGES BETWEEN 2.3.3 and 2.3.2
+
+  I. IMPORTANT BUG FIXES
+
+    - Remove a serious regression in the TrueType bytecode interpreter
+      that was introduced  in version 2.3.2.  Note that  this does not
+      disable the improvements introduced to the intepreter in version
+      2.3.2,  only some  ill cases  that occurred  with  certain fonts
+      (though a few popular ones).
+
+    - The auto-hinter now  ignores single-point contours for computing
+      blue zones.   This bug  created `wavy' baselines  when rendering
+      text  with  various  fonts  that  use these  contours  to  model
+      mark-attach points  (these are points that  are never rasterized
+      and are placed outside of the glyph's real outline).
+
+    - The `rsb_delta'  and `lsb_delta' glyph  slot fields are  now set
+      to 0 for mono-spaced fonts.  Otherwise code that uses them would
+      essentially ruin the fixed-advance property.
+
+    - Fix  CVE-2007-1351  which can  cause an  integer overflow  while
+      parsing BDF  fonts, leading  to a potentially  exploitable  heap
+      overflow condition.
+
+  II. MISCELLANEOUS
+
+    - Fixed compilation issues on some 64-bit platforms (see ChangeLog
+      for details).
+
+    - A new demo  program `ftdiff' has been added  to compare TrueType
+      hinting, FreeType's auto  hinting, and rendering without hinting
+      in three columns.
+
+
+======================================================================
+
+CHANGES BETWEEN 2.3.2 and 2.3.1
+
+  I. IMPORTANT BUG FIXES
+
+    - FreeType  returned incorrect  kerning information  from TrueType
+      fonts when the bytecode  interpreter was enabled.  This happened
+      due to a typo introduced in version 2.3.0.
+
+    - Negative  kerning  values  from   PFM  files  are  now  reported
+      correctly  (they were read  as 16-bit  unsigned values  from the
+      file).
+
+    - Fixed  a small  memory leak  when `FT_Init_FreeType'  failed for
+      some reason.
+
+    - The Postscript hinter placed and sized very thin and ghost stems
+      incorrectly.
+
+    - The TrueType bytecode  interpreter has been fixed to  get rid of
+      most of the  rare differences seen in comparison  to the Windows
+      font loader.
+
+
+  II. IMPORTANT CHANGES
+
+    - The auto-hinter  now better deals  with serifs and  corner cases
+      (e.g.,  glyph '9'  in Arial  at 9pt,  96dpi).  It  also improves
+      spacing  adjustments and doesn't  change widths  for non-spacing
+      glyphs.
+
+    - Many   Mac-specific   functions   are  deprecated   (but   still
+      available);  modern replacements  have been  provided  for them.
+      See the documentation in file `ftmac.h'.
+
+
+======================================================================
+
+CHANGES BETWEEN 2.3.1 and 2.3.0
+
+  I. IMPORTANT BUG FIXES
+
+    - The TrueType interpreter sometimes returned incorrect horizontal
+      metrics due to a bug in the handling of the SHZ instruction.
+
+    - A typo  in  a  security  check  introduced  after  version 2.2.1
+      prevented FreeType to render some glyphs in CFF fonts.
+
+
+======================================================================
+
 CHANGES BETWEEN 2.3.0 and 2.2.1
 
   I. IMPORTANT BUG FIXES
@@ -2679,7 +2775,7 @@ High-Level Interface:
       FT_New_Size or FT_New_Glyph.
 
     - similarly,  FT_Load_Glyph  now  only  takes  a  `face'  argument
-      (instead  of a  glyph  slot  and a  size).  Also, it's  `result'
+      (instead  of a  glyph  slot  and a  size).  Also,  its  `result'
       parameter is  gone, as the glyph  image type is  returned in the
       field `face->glyph.format'
 

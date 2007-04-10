@@ -1,6 +1,6 @@
 $! make Freetype2 under OpenVMS
 $!
-$! Copyright 2003, 2004, 2006 by
+$! Copyright 2003, 2004, 2006, 2007 by
 $! David Turner, Robert Wilhelm, and Werner Lemberg.
 $!
 $! This file is part of the FreeType project, and may only be used, modified,
@@ -57,7 +57,7 @@ $ optfile =  name + ".opt"
 $ s_case  = false
 $ liblist = ""
 $!
-$ whoami = f$parse(f$enviornment("Procedure"),,,,"NO_CONCEAL")
+$ whoami = f$parse(f$environment("Procedure"),,,,"NO_CONCEAL")
 $ mydef  = F$parse(whoami,,,"DEVICE")
 $ mydir  = f$parse(whoami,,,"DIRECTORY") - "]["
 $ myproc = f$parse(whoami,,,"Name") + f$parse(whoami,,,"type")
@@ -357,7 +357,7 @@ CFLAGS=$(COMP_FLAGS)$(DEBUG)/include=([--.builds.vms],[--.include],[--.src.base]
 
 OBJS=ftbase.obj,ftinit.obj,ftglyph.obj,ftdebug.obj,ftbdf.obj,ftmm.obj,\
      fttype1.obj,ftxf86.obj,ftpfr.obj,ftstroke.obj,ftwinfnt.obj,ftbbox.obj,\
-     ftbitmap.obj ftlcdfil.obj
+     ftbitmap.obj ftlcdfil.obj ftgasp.obj
 
 all : $(OBJS)
         library [--.lib]freetype.olb $(OBJS)
@@ -1101,7 +1101,7 @@ $   write sys$output "and afterwards re-execute ''myproc'"
 $   goto err_exit
 $ endif
 $!
-$! Init symbols used to hold CPP definitons and include path
+$! Init symbols used to hold CPP definitions and include path
 $!
 $ libdefs = ""
 $ libincs = ""
