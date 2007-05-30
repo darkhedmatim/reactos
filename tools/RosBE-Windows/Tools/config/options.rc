@@ -1,4 +1,0 @@
-#include <windows.h>
-#include "resources.h"
-
-#include "en.rc"
