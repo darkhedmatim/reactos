@@ -2955,9 +2955,29 @@ MingwBootLoaderModuleHandler::GenerateBootLoaderModuleTarget ()
 	          junk_tmp.c_str (),
 	          objectsMacro.c_str (),
 	          linkDepsMacro.c_str () );
+
 	fprintf ( fMakefile,
 	          "\t${objcopy} -O binary %s $@\n",
 	          junk_tmp.c_str () );
+
+	fprintf ( fMakefile,
+	          "\t${cp} $@ %s\n",
+	          targetName.c_str () );
+
+	fprintf ( fMakefile,
+	          "\t${objcopy} -I binary -B i386 -O elf32-i386 %s freeldr-payload.elf\n",
+	          targetName.c_str ());
+
+	fprintf ( fMakefile,
+	          "\t${rm} %s\n",
+	          targetName.c_str () );
+
+	/* FIXME: Hack, make use of vlink instead of an ugly cygwin-dependable ld! */
+	fprintf ( fMakefile,
+	          "\tcgld.exe -nostdlib -Bstatic -N -Ttext 0x100000 -o olpcros.elf boot\\freeldr\\freeldr\\arch\\i386\\ofwstub\\binary\\start.o boot\\freeldr\\freeldr\\arch\\i386\\ofwstub\\binary\\ofwboot.o boot\\freeldr\\freeldr\\arch\\i386\\ofwstub\\binary\\freeldr_ofw.o boot\\freeldr\\freeldr\\arch\\i386\\ofwstub\\binary\\libobp.a freeldr-payload.elf\n");
+
+
+
 	GenerateBuildMapCode ( junk_tmp.c_str() );
 	fprintf ( fMakefile,
 	          "\t-@${rm} %s 2>$(NUL)\n",
