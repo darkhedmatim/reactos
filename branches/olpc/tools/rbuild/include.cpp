@@ -65,26 +65,34 @@ Include::ProcessXML()
 	att = node->GetAttribute ( "base", false );
 	if ( att )
 	{
+		bool referenceResolved = false;
+
 		if ( !module )
+		{
 			throw XMLInvalidBuildFileException (
 				node->location,
 				"'base' attribute illegal from global <include>" );
-		bool referenceResolved = false;
-		if ( att->value == project.name )
-		{
-			basePath = ".";
-			referenceResolved = true;
 		}
-		else
+
+		if ( !referenceResolved )
 		{
-			const Module* base = project.LocateModule ( att->value );
-			if ( base != NULL )
+			if ( att->value == project.name )
 			{
-				baseModule = base;
-				basePath = base->GetBasePath ();
+				basePath = ".";
 				referenceResolved = true;
 			}
+			else
+			{
+				const Module* base = project.LocateModule ( att->value );
+				if ( base != NULL )
+				{
+					baseModule = base;
+					basePath = base->GetBasePath ();
+					referenceResolved = true;
+				}
+			}
 		}
+
 		if ( !referenceResolved )
 			throw XMLInvalidBuildFileException (
 				node->location,
@@ -94,4 +102,18 @@ Include::ProcessXML()
 	}
 	else
 		directory = NormalizeFilename ( node->value );
+
+	att = node->GetAttribute ( "root", false );
+	if ( att )
+	{
+		if ( att->value != "intermediate" && att->value != "output" )
+		{
+			throw InvalidAttributeValueException (
+				node->location,
+				"root",
+				att->value );
+		}
+
+		root = att->value;
+	}
 }

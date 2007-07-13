@@ -265,6 +265,9 @@ MingwModuleHandler::InstanciateHandler (
 		case IdlHeader:
 			handler = new MingwIdlHeaderModuleHandler ( module );
 			break;
+		case EmbeddedTypeLib:
+			handler = new MingwEmbeddedTypeLibModuleHandler ( module );
+			break;
 		default:
 			throw UnknownModuleTypeException (
 				module.node.location,
@@ -320,9 +323,15 @@ MingwModuleHandler::GetActualSourceFilename (
 				                     backend->intermediateDirectory );
 			return new FileLocation ( backend->intermediateDirectory, NormalizeFilename ( newname ) );
 		}
-		else //if ( module.type == IdlHeader )
+		else if ( module.type == IdlHeader )
 		{
 			newname = basename + ".h";
+			PassThruCacheDirectory ( NormalizeFilename ( newname ),
+				                     backend->intermediateDirectory );
+			return new FileLocation ( fileLocation->directory, filename );
+		}
+		else
+		{
 			return new FileLocation ( fileLocation->directory, filename );
 		}
 	}
@@ -340,8 +349,10 @@ MingwModuleHandler::GetExtraDependencies (
 		string basename = GetBasename ( filename );
 		if ( (module.type == RpcServer) || (module.type == RpcClient) )
 			return GetRpcServerHeaderFilename ( basename ) + " " + GetRpcClientHeaderFilename ( basename );
+		else if ( module.type == IdlHeader )
+			return GetIdlHeaderFilename ( basename );
 		else
-			return GetIdlHeaderFilename ( basename );			
+			return "";
 	}
 	else
 		return "";
@@ -522,9 +533,6 @@ MingwModuleHandler::GetObjectFilename (
 	else
 		directoryTree = backend->intermediateDirectory;
 
-	if (newExtension == ".h")
-		directoryTree = NULL;
-
 	string obj_file = PassThruCacheDirectory (
 		NormalizeFilename ( ReplaceExtension (
 			RemoveVariables ( sourceFilename ),
@@ -679,13 +687,20 @@ MingwModuleHandler::ConcatenatePaths (
 /* static */ string
 MingwModuleHandler::GenerateGccIncludeParametersFromVector ( const vector<Include*>& includes )
 {
-	string parameters;
+	string parameters, path_prefix;
 	for ( size_t i = 0; i < includes.size (); i++ )
 	{
 		Include& include = *includes[i];
 		if ( parameters.length () > 0 )
 			parameters += " ";
-		parameters += "-I" + include.directory;
+		if ( include.root == "intermediate" )
+			path_prefix = backend->intermediateDirectory->name + cSep;
+		else if (include.root == "output" )
+			path_prefix = backend->outputDirectory->name + cSep;
+		else
+			path_prefix = "";
+
+		parameters += "-I" + path_prefix + include.directory;
 	}
 	return parameters;
 }
@@ -791,7 +806,7 @@ MingwModuleHandler::GenerateMacro (
 	for ( i = 0; i < data.includes.size(); i++ )
 	{
 		const Include& include = *data.includes[i];
-		string includeDirectory;
+		string includeDirectory, path_prefix;
 		if ( include.baseModule != NULL &&
 		     ( include.baseModule->type == RpcServer ||
 		       include.baseModule->type == RpcClient ||
@@ -800,9 +815,18 @@ MingwModuleHandler::GenerateMacro (
 	                                                            backend->intermediateDirectory );
 		else
 			includeDirectory = include.directory;
+
+		if ( include.root == "intermediate" )
+			path_prefix = backend->intermediateDirectory->name + cSep;
+		else if (include.root == "output" )
+			path_prefix = backend->outputDirectory->name + cSep;
+		else
+			path_prefix = "";
+
 		fprintf (
 			fMakefile,
-			" -I%s",
+			" -I%s%s",
+			path_prefix.c_str(),
 			includeDirectory.c_str() );
 	}
 	for ( i = 0; i < data.defines.size(); i++ )
@@ -1234,7 +1258,37 @@ MingwModuleHandler::GetRpcClientHeaderFilename ( string basename ) const
 string
 MingwModuleHandler::GetIdlHeaderFilename ( string basename ) const
 {
-	return basename + ".h";
+	return PassThruCacheDirectory ( basename + ".h",
+	                                backend->intermediateDirectory );
+}
+
+void
+MingwModuleHandler::GenerateWidlCommandsEmbeddedTypeLib (
+	const CompilationUnit& compilationUnit,
+	const string& widlflagsMacro )
+{
+	FileLocation* sourceFileLocation = compilationUnit.GetFilename ( backend->intermediateDirectory );
+	string filename = sourceFileLocation->filename;
+	string dependencies = filename;
+	dependencies += " " + NormalizeFilename ( module.xmlbuildFile );
+
+	string basename = GetBasename ( filename );
+	string EmbeddedTypeLibFilename = basename + ".tlb";
+	
+	fprintf ( fMakefile,
+	          "%s: %s $(WIDL_TARGET) | %s\n",
+	          GetTargetMacro ( module ).c_str (),
+	          dependencies.c_str (),
+	          GetDirectory ( EmbeddedTypeLibFilename ).c_str () );
+	fprintf ( fMakefile, "\t$(ECHO_WIDL)\n" );
+	fprintf ( fMakefile,
+	          //"\t%s %s %s -t -T $@ %s\n",
+			  "\t%s %s %s -t -T %s %s\n",
+	          "$(Q)$(WIDL_TARGET)",
+	          GetWidlFlags ( compilationUnit ).c_str (),
+	          widlflagsMacro.c_str (),
+		      EmbeddedTypeLibFilename.c_str(),
+			  filename.c_str () );
 }
 
 void
@@ -1315,7 +1369,10 @@ MingwModuleHandler::GenerateWidlCommands (
 	else if ( module.type == RpcClient )
 		GenerateWidlCommandsClient ( compilationUnit,
 		                             widlflagsMacro );
-	else
+	else if ( module.type == EmbeddedTypeLib )
+		GenerateWidlCommandsEmbeddedTypeLib ( compilationUnit,
+										widlflagsMacro );
+	else // applies also for other module.types which include idl files
 		GenerateWidlCommandsIdlHeader ( compilationUnit,
 		                                widlflagsMacro );
 }
@@ -2437,6 +2494,20 @@ MingwKernelModeDLLModuleHandler::MingwKernelModeDLLModuleHandler (
 	: MingwModuleHandler ( module_ )
 {
 }
+
+MingwEmbeddedTypeLibModuleHandler::MingwEmbeddedTypeLibModuleHandler (
+	const Module& module_ )
+
+	: MingwModuleHandler ( module_ )
+{
+}
+
+void
+MingwEmbeddedTypeLibModuleHandler::Process ()
+{
+	GenerateRules ();
+}
+
 
 void
 MingwKernelModeDLLModuleHandler::AddImplicitLibraries ( Module& module )
