@@ -53,7 +53,7 @@ MSVCConfiguration::MSVCConfiguration ( const OptimizationType optimization, cons
 		if ( headers == MSVCHeaders )
 			headers_name = "";
 		else
-			headers_name = " - Wine headers";
+			headers_name = " - ReactOS headers";
 		if ( optimization == Debug )
 			this->name = "Debug" + headers_name;
 		else if ( optimization == Release )
@@ -124,7 +124,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	bool include_idl = false;
 
 	string vcproj_path = module.GetBasePath();
-	vector<string> source_files, resource_files, includes, includes_wine, libraries;
+	vector<string> source_files, resource_files, includes, includes_ros, libraries;
 	StringSet common_defines;
 	vector<const IfableData*> ifs_list;
 	ifs_list.push_back ( &module.project.non_if_data );
@@ -179,7 +179,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				 !strncmp(incs[i]->directory.c_str(), "include\\psdk", 12 ) ||
 			     !strncmp(incs[i]->directory.c_str(), "include\\reactos\\wine", 20 ) )
 			{
-				includes_wine.push_back ( path );
+				includes_ros.push_back ( path );
 			}
 			else
 			{
@@ -195,6 +195,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		const vector<Define*>& defs = data.defines;
 		for ( i = 0; i < defs.size(); i++ )
 		{
+			if ( defs[i]->backend != "" && defs[i]->backend != "msvc" )
+				continue;
+
 			if ( defs[i]->value[0] )
 				common_defines.insert( defs[i]->name + "=" + defs[i]->value );
 			else
@@ -301,11 +304,11 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				fprintf ( OUT, "%s\\include\\reactos\\idl\r\n", intdir.c_str () );
 			}
 		}
-		if ( cfg.headers == WineHeaders )
+		if ( cfg.headers == ReactOSHeaders )
 		{
-			for ( i = 0; i < includes_wine.size(); i++ )
+			for ( i = 0; i < includes_ros.size(); i++ )
 			{
-				const std::string& include = includes_wine[i];
+				const std::string& include = includes_ros[i];
 				if ( multiple_includes )
 					fprintf ( OUT, ";" );
 				fprintf ( OUT, "%s", include.c_str() );
@@ -531,11 +534,11 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				multiple_includes = true;
 			}
 		}
-		if ( cfg.headers == WineHeaders )
+		if ( cfg.headers == ReactOSHeaders )
 		{
-			for ( i = 0; i < includes_wine.size(); i++ )
+			for ( i = 0; i < includes_ros.size(); i++ )
 			{
-				const std::string& include = includes_wine[i];
+				const std::string& include = includes_ros[i];
 				if ( multiple_includes )
 					fprintf ( OUT, ";" );
 				fprintf ( OUT, "%s", include.c_str() );
@@ -546,9 +549,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 		fprintf ( OUT, "\t\t\t<Tool\r\n" );
 		fprintf ( OUT, "\t\t\t\tName=\"VCMIDLTool\"/>\r\n" );
-		fprintf ( OUT, "\t\t\t<Tool\r\n" );
 		if (configuration.VSProjectVersion == "8.00")
 		{
+			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCManifestTool\"\r\n" );
 			fprintf ( OUT, "\t\t\t\tEmbedManifest=\"false\"/>\r\n" );
 		}

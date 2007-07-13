@@ -339,6 +339,14 @@ Module::Module ( const Project& project,
 	att = moduleNode.GetAttribute ( "entrypoint", false );
 	if ( att != NULL )
 	{
+		if ( att->value == "" )
+		{
+			throw InvalidAttributeValueException (
+				moduleNode.location,
+				"entrypoint",
+				att->value );
+		}
+
 		entrypoint = att->value;
 		isDefaultEntryPoint = false;
 	}
@@ -839,6 +847,8 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return Alias;
 	if ( attribute.value == "idlheader" )
 		return IdlHeader;
+	if ( attribute.value == "embeddedtypelib" )
+		return EmbeddedTypeLib;
 	throw InvalidAttributeValueException ( location,
 	                                       attribute.name,
 	                                       attribute.value );
@@ -890,6 +900,8 @@ Module::GetDefaultModuleExtension () const
 		case BootProgram:
 		case IdlHeader:
 			return "";
+		case EmbeddedTypeLib:
+			return ".tlb";
 	}
 	throw InvalidOperationException ( __FILE__,
 	                                  __LINE__ );
@@ -939,6 +951,7 @@ Module::GetDefaultModuleEntrypoint () const
 		case Alias:
 		case BootProgram:
 		case IdlHeader:
+		case EmbeddedTypeLib:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -981,6 +994,7 @@ Module::GetDefaultModuleBaseaddress () const
 		case Alias:
 		case BootProgram:
 		case IdlHeader:
+		case EmbeddedTypeLib:
 			return "";
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -1025,6 +1039,7 @@ Module::IsDLL () const
 		case RpcClient:
 		case Alias:
 		case IdlHeader:
+		case EmbeddedTypeLib:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -1056,6 +1071,7 @@ Module::GenerateInOutputTree () const
 		case LiveIso:
 		case IsoRegTest:
 		case LiveIsoRegTest:
+		case EmbeddedTypeLib:
 			return true;
 		case StaticLibrary:
 		case ObjectLibrary:
@@ -1557,6 +1573,7 @@ AutoRegister::IsSupportedModuleType ( ModuleType type )
 		case RpcClient:
 		case Alias:
 		case IdlHeader:
+		case EmbeddedTypeLib:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,

@@ -273,7 +273,8 @@ enum ModuleType
 	ExportDriver = 22,
 	IdlHeader = 23,
 	IsoRegTest = 24,
-	LiveIsoRegTest = 25
+	LiveIsoRegTest = 25,
+	EmbeddedTypeLib = 26
 };
 
 enum HostType
@@ -366,6 +367,7 @@ public:
 	const Module* baseModule;
 	std::string directory;
 	std::string basePath;
+	std::string root;
 
 	Include ( const Project& project,
 	          const XMLElement* includeNode );
@@ -389,6 +391,7 @@ public:
     const XMLElement* node;
 	std::string name;
 	std::string value;
+    std::string backend;
 
 	Define ( const Project& project,
 	         const XMLElement& defineNode );
@@ -397,7 +400,8 @@ public:
 	         const XMLElement& defineNode );
 	Define ( const Project& project,
 	         const Module* module,
-	         const std::string name_ );
+	         const std::string name_,
+	         const std::string backend_ = "" );
 	~Define();
 	void ProcessXML();
 private:
