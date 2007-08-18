@@ -8,7 +8,45 @@
 */
 	
 	require_once("config.inc.php");
-	require_once("lang/en.inc.php");
+	require_once("languages.inc.php");
+	
+	// Get the domain for the cookie (with a leading dot if possible). Borrowed from "utils.php" of RosCMS.
+	function cookie_domain()
+	{
+		if( isset($_SERVER['SERVER_NAME']) )
+		{
+			if( preg_match('/(\.[^.]+\.[^.]+$)/', $_SERVER['SERVER_NAME'], $matches) )
+				return $matches[1];
+			else
+				return "";
+		}
+		else
+			return "";
+	}
+	
+	// Get the language and include it
+	if( isset($_GET["lang"]) )
+		$lang = $_GET["lang"];
+	else if( isset($_COOKIE["roscms_usrset_lang"]) )
+		$lang = $_COOKIE["roscms_usrset_lang"];
+	
+	// Check if the language is valid
+	$lang_valid = false;
+	
+	foreach( $getbuilds_languages as $lang_key => $lang_name )
+	{
+		if( $lang == $lang_key )
+		{
+			$lang_valid = true;
+			break;
+		}
+	}
+	
+	if( !$lang_valid )
+		$lang = "en";
+	
+	setcookie( "roscms_usrset_lang", $lang, time() + 5 * 30 * 24 * 3600, "/", cookie_domain() );
+	require_once("lang/$lang.inc.php");
 	
 	// Get the latest SVN revision
 	$fp = fopen( $SVN_ACTIVITY_URL, "r" );
@@ -35,13 +73,36 @@
 	<meta http-equiv="content-type" content="text/html; charset=utf-8">
 	<title><?php echo $getbuilds_langres["title"]; ?></title>
 	<link rel="stylesheet" type="text/css" href="getbuilds.css">
+	<!--[if lt IE 7]><link rel="stylesheet" type="text/css" href="ie-lt7-fixes.css"><![endif]-->
 	<script type="text/javascript">
 	<?php require_once("getbuilds.js.php"); ?>
 	</script>
 </head>
 <body onload="showLatestFiles();">
 
+<?php
+	readfile("http://www.reactos.org/$lang/subsys_extern_menu_top.html");
+	readfile("http://www.reactos.org/$lang/subsys_extern_menu_left.html");
+?>
+
+<div class="navTitle"><?php echo $getbuilds_langres["language"]; ?></div>
+	<ol>
+		<li style="text-align: center;">
+			<select size="1" onchange="window.location.href = '<?php echo "http://" . $_SERVER["SERVER_NAME"] . $_SERVER["PHP_SELF"]; ?>?lang=' + this.options[this.selectedIndex].value;">
+				<?php
+					foreach($getbuilds_languages as $lang_key => $lang_name)
+						printf('<option value="%s"%s>%s</option>', $lang_key, ($lang_key == $lang ? ' selected' : ''), $lang_name);
+				?>
+			</select>
+		</li>
+	</ol>
+</td>
+<td id="content">
+
+<h1><?php echo $getbuilds_langres["header"]; ?></h1>
 <h2><?php echo $getbuilds_langres["title"]; ?></h2>
+
+<p><?php echo $getbuilds_langres["intro"]; ?></p>
 
 <div class="bubble_bg">
 	<div class="rounded_ll">
@@ -58,7 +119,7 @@
 			<li><a href="http://cia.vc/stats/project/ReactOS"><?php echo $getbuilds_langres["cia"]; ?></a></li>
 		</ul>
 		
-		<?php echo $getbuilds_langres["buildbot_status"]; ?>: Not yet implemented
+		<?php echo $getbuilds_langres["buildbot_status"]; ?>:
 		<ul class="web">
 			<li><a href="http://www.reactos.org:8010"><?php echo $getbuilds_langres["buildbot_web"]; ?></a></li>
 			<li><a href="http://svn.reactos.org/iso"><?php echo $getbuilds_langres["browsebuilds"]; ?></a></li>
@@ -96,7 +157,7 @@
 								'<img src="images/rightarrow.gif" alt="&gt;" title="<?php echo $getbuilds_langres["nextrev"]; ?>" onclick="nextRev();"><br>' +
 							'</span>' +
 							
-							'<img src="images/info.gif" alt="INFO:"> <?php echo $getbuilds_langres["rangeinfo"]; ?>' +
+							'<img src="images/info.gif" alt="INFO:"> <?php printf( $getbuilds_langres["rangeinfo"], $rev, ($rev - 50), $rev ); ?>' +
 						'</td>' +
 					'</tr>' +
 					'<tr>' +
@@ -147,6 +208,10 @@
 	</div>
 	</div>
 </div>
+
+</td>
+</tr>
+</table>
 
 </body>
 </html>
