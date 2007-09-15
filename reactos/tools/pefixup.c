@@ -229,7 +229,6 @@ int main(int argc, char **argv)
 {
    int fd_in, fd_out;
    long len;
-   char hdrbuf[4] = { }, elfhdr[4] = { '\177', 'E', 'L', 'F' };
    PIMAGE_SECTION_HEADER section_header;
    PIMAGE_DATA_DIRECTORY data_dir;
    unsigned int i;
@@ -277,13 +276,6 @@ int main(int argc, char **argv)
       printf("Can't open input file.\n");
       return 1;
    }
-
-   /*
-    * PowerPC ReactOS uses elf, so doesn't need pefixup
-    */
-   len = read(fd_in, hdrbuf, sizeof(elfhdr));
-   if (!memcmp(hdrbuf, elfhdr, sizeof(elfhdr)))
-      return 0;
 
    len = lseek(fd_in, 0, SEEK_END);
    if (len < sizeof(IMAGE_DOS_HEADER))

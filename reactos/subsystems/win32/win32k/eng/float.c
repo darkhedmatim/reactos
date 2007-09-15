@@ -35,7 +35,6 @@
 
 /* DEFINES *****************************************************************/
 
-#ifdef _M_IX86
 #ifdef __GNUC__
 #define FLOAT_TO_INT(in,out)  \
            __asm__ __volatile__ ("fistpl %0" : "=m" (out) : "t" (in) : "st");
@@ -43,10 +42,6 @@
 #define FLOAT_TO_INT(in,out) \
           __asm fld in \
           __asm fistp out
-#endif
-#else
-#define FLOAT_TO_INT(in,out)  \
-          out = (long)in;
 #endif
 
 /* the following deal with IEEE single-precision numbers */

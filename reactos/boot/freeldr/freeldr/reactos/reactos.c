@@ -22,9 +22,6 @@
 #include <freeldr.h>
 #include <debug.h>
 
-extern ULONG PageDirectoryStart;
-extern ULONG PageDirectoryEnd;
-
 ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 LOADER_MODULE			reactos_modules[64];		// Array to hold boot module info loaded for the kernel
@@ -39,7 +36,7 @@ CHAR szBootPath[255];
 CHAR SystemRoot[255];
 static CHAR szLoadingMsg[] = "Loading ReactOS...";
 BOOLEAN FrLdrBootType;
-extern ULONG_PTR KernelBase, KernelEntryPoint;
+extern ULONG_PTR KernelBase, KernelEntry;
 
 BOOLEAN
 FrLdrLoadDriver(PCHAR szFileName,
@@ -595,8 +592,6 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 	 * Setup multiboot information structure
 	 */
 	LoaderBlock.CommandLine = reactos_kernel_cmdline;
-	LoaderBlock.PageDirectoryStart = (ULONG)&PageDirectoryStart;
-	LoaderBlock.PageDirectoryEnd = (ULONG)&PageDirectoryEnd;
 	LoaderBlock.ModsCount = 0;
 	LoaderBlock.ModsAddr = reactos_modules;
     LoaderBlock.DrivesAddr = reactos_arc_disk_info;
@@ -764,7 +759,7 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
     /* Get the NT header, kernel base and kernel entry */
     NtHeader = RtlImageNtHeader(LoadBase);
     KernelBase = NtHeader->OptionalHeader.ImageBase;
-    KernelEntryPoint = KernelBase + NtHeader->OptionalHeader.AddressOfEntryPoint;
+    KernelEntry = RaToPa(NtHeader->OptionalHeader.AddressOfEntryPoint);
     LoaderBlock.KernelBase = KernelBase;
 
 	/*

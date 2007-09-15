@@ -324,11 +324,6 @@ static BOOL PRINTDLG_UpdatePrintDlgA(HWND hDlg,
 	else
 	    lppd->Flags &= ~PD_PAGENUMS;
 
-        if (IsDlgButtonChecked(hDlg, rad2) == BST_CHECKED) /* Selection */
-            lppd->Flags |= PD_SELECTION;
-        else
-            lppd->Flags &= ~PD_SELECTION;
-
 	if (IsDlgButtonChecked(hDlg, chx1) == BST_CHECKED) {/* Print to file */
 	    static char file[] = "FILE:";
 	    lppd->Flags |= PD_PRINTTOFILE;
@@ -406,11 +401,6 @@ static BOOL PRINTDLG_UpdatePrintDlgW(HWND hDlg,
 	}
 	else
 	    lppd->Flags &= ~PD_PAGENUMS;
-
-        if (IsDlgButtonChecked(hDlg, rad2) == BST_CHECKED) /* Selection */
-            lppd->Flags |= PD_SELECTION;
-        else
-            lppd->Flags &= ~PD_SELECTION;
 
 	if (IsDlgButtonChecked(hDlg, chx1) == BST_CHECKED) {/* Print to file */
 	    static WCHAR file[] = {'F','I','L','E',':',0};
@@ -2413,19 +2403,21 @@ _c_size2strA(PageSetupDataA *pda,DWORD size,LPSTR strout) {
 }
 static void
 _c_size2strW(PageSetupDataW *pda,DWORD size,LPWSTR strout) {
-    static const char mm_fmt[] = "%.2f mm";
-    static const char in_fmt[] = "%.2f in";
-    char buf[20];
+    static const WCHAR UNDEF[] = { '<', 'u', 'n', 'd', 'e', 'f', '>', 0 };
+    static const WCHAR mm_fmt[] = { '%', '.', '2', 'f', 'm', 'm', 0 };
+    static const WCHAR in_fmt[] = { '%', '.', '2', 'f', 'i', 'n', 0 };
+    lstrcpyW(strout, UNDEF);
     if (pda->dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS) {
-        sprintf(buf, mm_fmt, (size * 1.0) / 100.0);
-    } else if (pda->dlga->Flags & PSD_INTHOUSANDTHSOFINCHES) {
-        sprintf(buf, in_fmt, (size * 1.0) / 1000.0);
-    } else {
-        pda->dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
-        sprintf(buf, mm_fmt, (size * 1.0) / 100.0);
+	wsprintfW(strout,mm_fmt,(size*1.0)/100.0);
+	return;
     }
-
-    MultiByteToWideChar(CP_ACP, 0, buf, -1, strout, 20);
+    if (pda->dlga->Flags & PSD_INTHOUSANDTHSOFINCHES) {
+	wsprintfW(strout,in_fmt,(size*1.0)/1000.0);
+	return;
+    }
+    pda->dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
+    wsprintfW(strout,mm_fmt,(size*1.0)/100.0);
+    return;
 }
 
 static DWORD
@@ -2571,13 +2563,6 @@ PRINTDLG_PS_UpdateDlgStructW(HWND hDlg, PageSetupDataW *pda) {
 	pda->dlga->ptPaperSize.x = pda->dlga->ptPaperSize.y;
 	pda->dlga->ptPaperSize.y = tmp;
     }
-
-    /* Save orientation */
-    if (pda->dlga->ptPaperSize.x > pda->dlga->ptPaperSize.y)
-        dm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
-    else
-        dm->u.s.dmOrientation = DMORIENT_PORTRAIT;
-
     GlobalUnlock(pda->pdlg.hDevNames);
     GlobalUnlock(pda->pdlg.hDevMode);
     return TRUE;
@@ -3253,7 +3238,6 @@ PageDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{ '_', '_', 'W', 'I', 'N', 'E', '_', 'P', 'A', 'G', 'E', 
 	  'S', 'E', 'T', 'U', 'P', 'D', 'L', 'G', 'D', 'A', 'T', 'A', 0 };
     PageSetupDataW	*pda;
-    LPDEVMODEW          dm;
     BOOL		res = FALSE;
 
     if (uMsg==WM_INITDIALOG) {
@@ -3279,14 +3263,11 @@ PageDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             EnableWindow(GetDlgItem(hDlg, edt6), FALSE);
             EnableWindow(GetDlgItem(hDlg, edt7), FALSE);
 	}
-
-        dm = GlobalLock(pda->dlga->hDevMode);
-	/* Landscape orientation */
-	if (dm->u.s.dmOrientation == DMORIENT_LANDSCAPE)
+	/* width larger as height -> landscape */
+	if (pda->dlga->ptPaperSize.x > pda->dlga->ptPaperSize.y)
             CheckRadioButton(hDlg, rad1, rad2, rad2);
 	else /* this is default if papersize is not set */
             CheckRadioButton(hDlg, rad1, rad2, rad1);
-        GlobalUnlock(pda->dlga->hDevMode);
 	if (pda->dlga->Flags & PSD_DISABLEORIENTATION) {
 	    EnableWindow(GetDlgItem(hDlg,rad1),FALSE);
 	    EnableWindow(GetDlgItem(hDlg,rad2),FALSE);
@@ -3417,16 +3398,14 @@ BOOL WINAPI PageSetupDlgA(LPPAGESETUPDLGA setupdlg) {
 
     /* short cut exit, just return default values */
     if (setupdlg->Flags & PSD_RETURNDEFAULT) {
-        DEVMODEA *dm;
-
-	setupdlg->hDevMode = pdlg.hDevMode;
-	setupdlg->hDevNames = pdlg.hDevNames;
-        dm = GlobalLock(pdlg.hDevMode);
-        PRINTDLG_PaperSizeA(&pdlg, dm->u.s.dmPaperSize, &setupdlg->ptPaperSize);
-        GlobalUnlock(pdlg.hDevMode);
-        setupdlg->ptPaperSize.x=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.x);
-        setupdlg->ptPaperSize.y=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.y);
-        return TRUE;
+	DEVMODEA *dm;
+	
+	dm = GlobalLock(pdlg.hDevMode);
+    	PRINTDLG_PaperSizeA(&pdlg, dm->u.s.dmPaperSize, &setupdlg->ptPaperSize);
+	GlobalUnlock(pdlg.hDevMode);
+	setupdlg->ptPaperSize.x=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.x);
+	setupdlg->ptPaperSize.y=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.y);
+	return TRUE;
     }
 
     /* get dialog template */

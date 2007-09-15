@@ -1543,7 +1543,7 @@ DrawPartitionList (PPARTLIST List)
 }
 
 
-DWORD
+VOID
 SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 {
   PDISKENTRY DiskEntry;
@@ -1554,7 +1554,7 @@ SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 
   /* Check for empty disks */
   if (IsListEmpty (&List->DiskListHead))
-    return FALSE;
+    return;
 
   /* Check for first usable entry on next disk */
   Entry1 = List->CurrentDisk->ListEntry.Flink;
@@ -1575,17 +1575,16 @@ SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 	            {
 	              List->CurrentDisk = DiskEntry;
 	              List->CurrentPartition = PartEntry;
-                  DrawPartitionList (List);
-	              return TRUE;
+                      DrawPartitionList (List);
+	              return;
 	            }
                 }
               Entry2 = Entry2->Flink;
             }
-          return FALSE;
+          return;
         }
       Entry1 = Entry1->Flink;
     }
-    return FALSE;
 }
 
 

@@ -593,7 +593,7 @@ CreateShortcuts(VOID)
     CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, FALSE);
 
     /* Create program startmenu shortcuts */
-    CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, FALSE);
+    //CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, FALSE);
     CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_DOWNLOADER, _T("%SystemRoot%\\system32\\downloader.exe"), IDS_CMT_DOWNLOADER, TRUE);
 
     /* Create administrative tools startmenu shortcuts */
@@ -606,7 +606,7 @@ CreateShortcuts(VOID)
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CALC, _T("%SystemRoot%\\system32\\calc.exe"), IDS_CMT_CALC, FALSE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, FALSE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_NOTEPAD, _T("%SystemRoot%\\system32\\notepad.exe"), IDS_CMT_NOTEPAD, FALSE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_REGEDIT, _T("%SystemRoot%\\regedit.exe"), IDS_CMT_REGEDIT, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_REGEDIT, _T("%SystemRoot%\\system32\\regedit.exe"), IDS_CMT_REGEDIT, FALSE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WORDPAD, _T("%SystemRoot%\\system32\\wordpad.exe"), IDS_CMT_WORDPAD, FALSE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SNAP, _T("%SystemRoot%\\system32\\screenshot.exe"), IDS_CMT_SCREENSHOT, TRUE);
     }
@@ -771,6 +771,19 @@ InstallReactOS(HINSTANCE hInstance)
         CreateDirectory(szBuffer, NULL);
     }
 
+    // Temporary hack for ROS 0.3.3 to get Firefox 2.0 to install
+    // Because of a permission problem, the Firefox installer cannot create the "chrome" subdirectory. Therefore it has to exist, before Firefox is installed
+    ZeroMemory(&szBuffer, sizeof(szBuffer));
+
+    if (SHGetSpecialFolderPath(0, szBuffer, CSIDL_PROGRAM_FILES, FALSE))
+    {
+        PathAddBackslash(szBuffer);
+        _tcscat(szBuffer, _T("Mozilla Firefox"));
+        CreateDirectory(szBuffer, NULL);
+        _tcscat(szBuffer, _T("\\chrome"));
+        CreateDirectory(szBuffer, NULL);
+    }
+
     if (!CommonInstall())
         return 0;
 
@@ -810,12 +823,9 @@ InstallReactOS(HINSTANCE hInstance)
         return 0;
     }
 
-    if (SetupData.BootCDRegtestActive)
-    {
-        /// THE FOLLOWING DPRINT IS FOR THE SYSTEM REGRESSION TOOL
-        /// DO NOT REMOVE!!!
-        DbgPrint("SYSREG_CHECKPOINT:SYSSETUP_COMPLETE\n");
-    }
+    /// THE FOLLOWING DPRINT IS FOR THE SYSTEM REGRESSION TOOL
+    /// DO NOT REMOVE!!!
+    DbgPrint("SYSREG_CHECKPOINT:SYSSETUP_COMPLETE\n");
 
     ExitWindowsEx(EWX_REBOOT, 0);
     return 0;

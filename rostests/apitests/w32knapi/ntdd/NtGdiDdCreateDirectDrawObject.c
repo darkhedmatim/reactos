@@ -1,11 +1,22 @@
 #include "../w32knapi.h"
 
+
+W32KAPI
+HANDLE
+APIENTRY
+NtGdiDdCreateDirectDrawObject(
+    IN HDC hdc
+)
+{
+	return (HANDLE)Syscall(L"NtGdiDdCreateDirectDrawObject", 1, &hdc);
+}
+
 INT
 Test_NtGdiDdCreateDirectDrawObject(PTESTINFO pti)
 {
 	HANDLE  hDirectDraw;
 	HDC hdc = CreateDCW(L"DISPLAY",NULL,NULL,NULL);
-	ASSERT(hdc != NULL);
+	ASSERT1(hdc != NULL);
 
 	/* Test ReactX */
 	RTEST(NtGdiDdCreateDirectDrawObject(NULL) == NULL);
@@ -13,7 +24,7 @@ Test_NtGdiDdCreateDirectDrawObject(PTESTINFO pti)
 
 	/* Cleanup ReactX setup */
 	DeleteDC(hdc);
-	NtGdiDdDeleteDirectDrawObject(hDirectDraw);
+	Syscall(L"NtGdiDdDeleteDirectDrawObject", 1, &hDirectDraw);
 
 	return APISTATUS_NORMAL;
 }

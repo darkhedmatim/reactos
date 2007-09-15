@@ -62,7 +62,7 @@ VOID KbdDisableMouse()
 }
 
 CHAR
-KdbpTryGetCharKeyboard(PULONG ScanCode, ULONG Retry)
+KdbpTryGetCharKeyboard(PULONG ScanCode, UINT Retry)
 {
     static byte_t last_key = 0;
     static byte_t shift = 0;

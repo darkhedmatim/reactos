@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="win32k_base" type="objectlibrary">
 	<include base="win32k">.</include>
 	<include base="win32k">include</include>
@@ -12,7 +9,6 @@
 	<define name="__USE_W32API" />
 	<define name="_WIN32_WINNT">0x0501</define>
 	<define name="WINVER">0x600</define>
-	<define name="LANGPACK" />
 	<define name="_WIN32K_" />
 	<pch>w32k.h</pch>
 
@@ -138,20 +134,20 @@
 	<directory name="objects">
 		<file>arc.c</file>
 		<file>bezier.c</file>
-		<file>bitblt.c</file>
 		<file>bitmaps.c</file>
 		<file>brush.c</file>
 		<file>cliprgn.c</file>
 		<file>color.c</file>
 		<file>coord.c</file>
 		<file>dc.c</file>
-		<file>dcutil.c</file>
 		<file>dibobj.c</file>
 		<file>fillshap.c</file>
 		<file>gdiobj.c</file>
 		<file>icm.c</file>
 		<file>line.c</file>
 		<file>metafile.c</file>
+		<file>painting.c</file>
+		<file>paintobj.c</file>
 		<file>palobj.c</file>
 		<file>path.c</file>
 		<file>pen.c</file>
@@ -178,4 +174,3 @@
 	<library>freetype</library>
 	<file>win32k.rc</file>
 </module>
-</group>

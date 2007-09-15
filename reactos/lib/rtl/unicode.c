@@ -388,7 +388,7 @@ RtlFreeUnicodeString(IN PUNICODE_STRING UnicodeString)
 
     if (UnicodeString->Buffer)
     {
-        RtlpFreeStringMemory(UnicodeString->Buffer, TAG_USTR);
+        RtlpFreeStringMemory(UnicodeString->Buffer, TAG_ASTR);
         RtlZeroMemory(UnicodeString, sizeof(UNICODE_STRING));
     }
 }

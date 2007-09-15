@@ -1,11 +1,25 @@
 /*
- * PROJECT:     ReactOS Service Control Manager
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/system/services/database.c
- * PURPOSE:     Database control interface
- * COPYRIGHT:   Copyright 2002-2006 Eric Kohl
- *              Copyright 2006 Hervé Poussineau <hpoussin@reactos.org>
- *              Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
+ *
+ * service control manager
+ *
+ * ReactOS Operating System
+ *
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.
  *
  */
 
@@ -26,7 +40,6 @@ static DWORD dwResumeCount = 1;
 
 
 /* FUNCTIONS *****************************************************************/
-
 
 PSERVICE
 ScmGetServiceEntryByName(LPWSTR lpServiceName)
@@ -116,13 +129,13 @@ ScmGetServiceEntryByResumeCount(DWORD dwResumeCount)
 
 
 PSERVICE
-ScmGetServiceEntryByClientHandle(ULONG Handle)
+ScmGetServiceEntryByThreadId(ULONG ThreadId)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
 
-    DPRINT("ScmGetServiceEntryByClientHandle() called\n");
-    DPRINT("looking for %lu\n", Handle);
+    DPRINT("ScmGetServiceEntryByThreadId() called\n");
+    DPRINT("Finding ThreadId %lu\n", ThreadId);
 
     ServiceEntry = ServiceListHead.Flink;
     while (ServiceEntry != &ServiceListHead)
@@ -130,8 +143,8 @@ ScmGetServiceEntryByClientHandle(ULONG Handle)
         CurrentService = CONTAINING_RECORD(ServiceEntry,
                                            SERVICE,
                                            ServiceListEntry);
-
-        if (CurrentService->hClient == Handle)
+        DPRINT("Found threadId %lu\n", CurrentService->ThreadId);
+        if (CurrentService->ThreadId == ThreadId)
         {
             DPRINT("Found service: '%S'\n", CurrentService->lpDisplayName);
             return CurrentService;
@@ -426,18 +439,6 @@ ScmCreateServiceDatabase(VOID)
 }
 
 
-VOID
-ScmShutdownServiceDatabase(VOID)
-{
-    DPRINT("ScmShutdownServiceDatabase() called\n");
-
-    ScmDeleteMarkedServices();
-    RtlDeleteResource(&DatabaseLock);
-
-    DPRINT("ScmShutdownServiceDatabase() done\n");
-}
-
-
 static NTSTATUS
 ScmCheckDriver(PSERVICE Service)
 {
@@ -568,27 +569,21 @@ ScmControlService(PSERVICE Service,
 {
     PSCM_CONTROL_PACKET ControlPacket;
     DWORD Count;
-    DWORD TotalLength;
 
     DPRINT("ScmControlService() called\n");
 
-    TotalLength = wcslen(Service->lpServiceName) + 1;
-
-    ControlPacket = (SCM_CONTROL_PACKET*)HeapAlloc(GetProcessHeap(),
-                                                   HEAP_ZERO_MEMORY,
-                                                   sizeof(SCM_CONTROL_PACKET) + (TotalLength * sizeof(WCHAR)));
+    ControlPacket = (SCM_CONTROL_PACKET*) HeapAlloc(GetProcessHeap(),
+                                                    HEAP_ZERO_MEMORY,
+                                                    sizeof(SCM_CONTROL_PACKET));
     if (ControlPacket == NULL)
         return ERROR_NOT_ENOUGH_MEMORY;
 
     ControlPacket->dwControl = dwControl;
-    ControlPacket->hClient = Service->hClient;
-    ControlPacket->dwSize = TotalLength;
-    wcscpy(&ControlPacket->szArguments[0], Service->lpServiceName);
 
     /* Send the start command */
     WriteFile(Service->ControlPipeHandle,
               ControlPacket,
-              sizeof(SCM_CONTROL_PACKET) + (TotalLength * sizeof(WCHAR)),
+              sizeof(SCM_CONTROL_PACKET),
               &Count,
               NULL);
 
@@ -598,10 +593,6 @@ ScmControlService(PSERVICE Service,
     HeapFree(GetProcessHeap(),
              0,
              ControlPacket);
-
-    RtlCopyMemory(lpServiceStatus,
-                  &Service->Status,
-                  sizeof(SERVICE_STATUS));
 
     DPRINT("ScmControlService) done\n");
 
@@ -640,14 +631,13 @@ ScmSendStartCommand(PSERVICE Service,
     DPRINT("ArgsLength: %ld TotalLength: %ld\n", ArgsLength, TotalLength);
 
     /* Allocate a control packet */
-    ControlPacket = (SCM_CONTROL_PACKET*)HeapAlloc(GetProcessHeap(),
-                                                   HEAP_ZERO_MEMORY,
-                                                   sizeof(SCM_CONTROL_PACKET) + (TotalLength - 1) * sizeof(WCHAR));
+    ControlPacket = (SCM_CONTROL_PACKET*) HeapAlloc(GetProcessHeap(),
+                              HEAP_ZERO_MEMORY,
+                              sizeof(SCM_CONTROL_PACKET) + (TotalLength - 1) * sizeof(WCHAR));
     if (ControlPacket == NULL)
         return ERROR_NOT_ENOUGH_MEMORY;
 
     ControlPacket->dwControl = SERVICE_CONTROL_START;
-    ControlPacket->hClient = Service->hClient;
     ControlPacket->dwSize = TotalLength;
     Ptr = &ControlPacket->szArguments[0];
     wcscpy(Ptr, Service->lpServiceName);
@@ -788,13 +778,14 @@ ScmStartUserModeService(PSERVICE Service,
     if (ConnectNamedPipe(Service->ControlPipeHandle, NULL) ?
         TRUE : (dwError = GetLastError()) == ERROR_PIPE_CONNECTED)
     {
+        DWORD dwProcessId = 0;
         DWORD dwRead = 0;
 
         DPRINT("Control pipe connected!\n");
 
-        /* Read SERVICE_STATUS_HANDLE from pipe */
+        /* Read thread id from pipe */
         if (!ReadFile(Service->ControlPipeHandle,
-                      (LPVOID)&Service->hClient,
+                      (LPVOID)&dwProcessId,
                       sizeof(DWORD),
                       &dwRead,
                       NULL))
@@ -805,7 +796,7 @@ ScmStartUserModeService(PSERVICE Service,
         }
         else
         {
-            DPRINT("Received service status %lu\n", Service->hClient);
+            DPRINT("Received process id %lu\n", dwProcessId);
 
             /* Send start command */
             dwError = ScmSendStartCommand(Service, lpArgs);
@@ -1007,34 +998,6 @@ ScmAutoStartServices(VOID)
         CurrentService->ServiceVisited = FALSE;
         ServiceEntry = ServiceEntry->Flink;
     }
-}
-
-
-VOID
-ScmAutoShutdownServices(VOID)
-{
-    PLIST_ENTRY ServiceEntry;
-    PSERVICE CurrentService;
-    SERVICE_STATUS ServiceStatus;
-
-    DPRINT("ScmAutoShutdownServices() called\n");
-
-    ServiceEntry = ServiceListHead.Flink;
-    while (ServiceEntry != &ServiceListHead)
-    {
-        CurrentService = CONTAINING_RECORD(ServiceEntry, SERVICE, ServiceListEntry);
-
-        if (CurrentService->Status.dwCurrentState == SERVICE_RUNNING ||
-            CurrentService->Status.dwCurrentState == SERVICE_START_PENDING)
-        {
-            /* shutdown service */
-            ScmControlService(CurrentService, SERVICE_CONTROL_STOP, &ServiceStatus);
-        }
-
-        ServiceEntry = ServiceEntry->Flink;
-    }
-
-    DPRINT("ScmGetBootAndSystemDriverState() done\n");
 }
 
 /* EOF */

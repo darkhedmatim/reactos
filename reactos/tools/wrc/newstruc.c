@@ -21,18 +21,20 @@
 
 #include "config.h"
 
+#include "wrc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
 
-#include "wrc.h"
 #include "newstruc.h"
 #include "utils.h"
 #include "parser.h"
 
-#include <host/pshpack2.h>
+#include "wingdi.h"	/* for BITMAPINFOHEADER */
+
+#include <pshpack2.h>
 typedef struct
 {
     DWORD biSize;
@@ -41,7 +43,7 @@ typedef struct
     WORD  biPlanes;
     WORD  biBitCount;
 } BITMAPOS2HEADER;
-#include <host/poppack.h>
+#include <poppack.h>
 
 /* Generate new_* functions that have no parameters (NOTE: no ';') */
 __NEW_STRUCT_FUNC(dialog)

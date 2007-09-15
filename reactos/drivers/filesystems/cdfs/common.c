@@ -109,7 +109,7 @@ CdfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
 	  IoSetDeviceToVerify(PsGetCurrentThread(), NULL);
 
 	  NewStatus = IoVerifyVolume(DeviceToVerify, FALSE);
-	  DPRINT1("IoVerifyVolume() returned (Status %lx)\n", NewStatus);
+	  DPRINT1("IoVerifyVolume() retuned (Status %lx)\n", NewStatus);
         }
 
       DPRINT("CdfsReadSectors() failed (Status %x)\n", Status);
@@ -198,7 +198,7 @@ CdfsDeviceIoControl (IN PDEVICE_OBJECT DeviceObject,
       IoSetDeviceToVerify(PsGetCurrentThread(), NULL);
 
       NewStatus = IoVerifyVolume(DeviceToVerify, FALSE);
-      DPRINT1("IoVerifyVolume() returned (Status %lx)\n", NewStatus);
+      DPRINT1("IoVerifyVolume() retuned (Status %lx)\n", NewStatus);
 
       if (NewStatus == STATUS_SUCCESS || NewStatus == STATUS_WRONG_VOLUME)
           Status = STATUS_SUCCESS;

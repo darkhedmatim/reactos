@@ -1,3 +1,22 @@
+#include "../w32knapi.h"
+
+BOOL
+STDCALL
+NtGdiArcInternal(
+        ARCTYPE arctype,
+        HDC  hDC,
+        int  LeftRect,
+        int  TopRect,
+        int  RightRect,
+        int  BottomRect,
+        int  XStartArc,
+        int  YStartArc,
+        int  XEndArc,
+        int  YEndArc)
+{
+	return (BOOL)Syscall(L"NtGdiArcInternal", 10, &arctype);
+}
+
 INT
 Test_NtGdiArcInternal(PTESTINFO pti)
 {

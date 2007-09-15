@@ -314,7 +314,7 @@ static void TOOLTIPS_GetDispInfoA(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
     ZeroMemory (&ttnmdi, sizeof(NMTTDISPINFOA));
     ttnmdi.hdr.hwndFrom = hwnd;
     ttnmdi.hdr.idFrom = toolPtr->uId;
-    ttnmdi.hdr.code = TTN_GETDISPINFOA; /* == TTN_NEEDTEXTA */
+    ttnmdi.hdr.code = TTN_GETDISPINFOA;
     ttnmdi.lpszText = (LPSTR)&ttnmdi.szText;
     ttnmdi.uFlags = toolPtr->uFlags;
     ttnmdi.lParam = toolPtr->lParam;
@@ -332,6 +332,7 @@ static void TOOLTIPS_GetDispInfoA(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
         }
     }
     else if (ttnmdi.lpszText == 0) {
+        /* no text available */
         infoPtr->szTipText[0] = '\0';
     }
     else if (ttnmdi.lpszText != LPSTR_TEXTCALLBACKA) {
@@ -346,22 +347,6 @@ static void TOOLTIPS_GetDispInfoA(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
         ERR("recursive text callback!\n");
         infoPtr->szTipText[0] = '\0';
     }
-
-    /* no text available - try calling parent instead as per native */
-    /* FIXME: Unsure if SETITEM should save the value or not        */
-    if (infoPtr->szTipText[0] == 0x00) {
-
-        SendMessageW(GetParent(toolPtr->hwnd), WM_NOTIFY,
-                    (WPARAM)toolPtr->uId, (LPARAM)&ttnmdi);
-
-        if (IS_INTRESOURCE(ttnmdi.lpszText)) {
-            LoadStringW(ttnmdi.hinst, LOWORD(ttnmdi.lpszText),
-                   infoPtr->szTipText, INFOTIPSIZE);
-        } else if (ttnmdi.lpszText &&
-                   ttnmdi.lpszText != LPSTR_TEXTCALLBACKA) {
-            Str_GetPtrAtoW(ttnmdi.lpszText, infoPtr->szTipText, INFOTIPSIZE);
-        }
-    }
 }
 
 static void TOOLTIPS_GetDispInfoW(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO *toolPtr)
@@ -372,7 +357,7 @@ static void TOOLTIPS_GetDispInfoW(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
     ZeroMemory (&ttnmdi, sizeof(NMTTDISPINFOW));
     ttnmdi.hdr.hwndFrom = hwnd;
     ttnmdi.hdr.idFrom = toolPtr->uId;
-    ttnmdi.hdr.code = TTN_GETDISPINFOW; /* == TTN_NEEDTEXTW */
+    ttnmdi.hdr.code = TTN_GETDISPINFOW;
     ttnmdi.lpszText = (LPWSTR)&ttnmdi.szText;
     ttnmdi.uFlags = toolPtr->uFlags;
     ttnmdi.lParam = toolPtr->lParam;
@@ -390,6 +375,7 @@ static void TOOLTIPS_GetDispInfoW(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
         }
     }
     else if (ttnmdi.lpszText == 0) {
+        /* no text available */
         infoPtr->szTipText[0] = '\0';
     }
     else if (ttnmdi.lpszText != LPSTR_TEXTCALLBACKW) {
@@ -404,23 +390,6 @@ static void TOOLTIPS_GetDispInfoW(HWND hwnd, TOOLTIPS_INFO *infoPtr, TTTOOL_INFO
         ERR("recursive text callback!\n");
         infoPtr->szTipText[0] = '\0';
     }
-
-    /* no text available - try calling parent instead as per native */
-    /* FIXME: Unsure if SETITEM should save the value or not        */
-    if (infoPtr->szTipText[0] == 0x00) {
-
-        SendMessageW(GetParent(toolPtr->hwnd), WM_NOTIFY,
-                    (WPARAM)toolPtr->uId, (LPARAM)&ttnmdi);
-
-        if (IS_INTRESOURCE(ttnmdi.lpszText)) {
-            LoadStringW(ttnmdi.hinst, LOWORD(ttnmdi.lpszText),
-                   infoPtr->szTipText, INFOTIPSIZE);
-        } else if (ttnmdi.lpszText &&
-                   ttnmdi.lpszText != LPSTR_TEXTCALLBACKW) {
-            Str_GetPtrW(ttnmdi.lpszText, infoPtr->szTipText, INFOTIPSIZE);
-        }
-    }
-
 }
 
 static void
@@ -569,18 +538,15 @@ TOOLTIPS_Show (HWND hwnd, TOOLTIPS_INFO *infoPtr)
 	if (style & TTS_BALLOON)
 	{
           ptfx = rc.left + ((rc.right - rc.left) / 2);
-
-          /* CENTERTIP ballon tooltips default to below the field
-             if they fit on the screen                            */
-          if(rc.bottom + size.cy > GetSystemMetrics(SM_CYSCREEN))
+          if(rect.top - size.cy >= 0)
           {
-            rect.top = rc.top - size.cy;
+            rect.top -= size.cy;
             infoPtr->bToolBelow = FALSE;
           }
           else
           {
             infoPtr->bToolBelow = TRUE;
-            rect.top = rc.bottom;
+            rect.top += 20;
           }
           rect.left = max(0, rect.left - BALLOON_STEMINDENT);
         }

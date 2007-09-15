@@ -24,8 +24,7 @@ using std::string;
 
 /* static */ void
 FileSupportCode::WriteIfChanged ( char* outbuf,
-                                  const string& filename,
-                                  bool ignoreError )
+                                  string filename )
 {
 	FILE* out;
 	unsigned int end;
@@ -37,11 +36,7 @@ FileSupportCode::WriteIfChanged ( char* outbuf,
 	{
 		out = fopen ( filename.c_str (), "wb" );
 		if ( out == NULL )
-		{
-			if ( ignoreError )
-				return;
 			throw AccessDeniedException ( filename );
-		}
 		fputs ( outbuf, out );
 		fclose ( out );
 		return;

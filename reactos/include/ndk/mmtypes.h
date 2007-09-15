@@ -244,7 +244,7 @@ typedef struct _MMPTE
         MMPTE_TRANSITION Trans;
         MMPTE_SUBSECTION Subsect;
         MMPTE_LIST List;
-    } u;
+    };
 } MMPTE, *PMMPTE;
 
 //
@@ -430,7 +430,6 @@ typedef struct _SUBSECTION
         MMSUBSECTION_FLAGS SubsectionFlags;
     } u;
     ULONG StartingSector;
-    ULONG NumberOfFullSectors;
     PMMPTE SubsectionBase;
     ULONG UnusedPtes;
     ULONG PtesInSubsection;
@@ -579,10 +578,8 @@ typedef struct _MMSUPPORT_FLAGS
 //
 typedef struct _MMSUPPORT
 {
-#if (NTDDI_VERSION >= NTDDI_WS03)
-    LIST_ENTRY WorkingSetExpansionLinks;
-#endif
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    LIST_ENTRY WorkingSetExpansionLinks;
     USHORT LastTrimpStamp;
     USHORT NextPageColor;
 #else
@@ -594,12 +591,12 @@ typedef struct _MMSUPPORT
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONG Spare0;
 #else
-    ULONG GrowthSinceLastEstimate;
+    ULONG WorkingSetSize;
 #endif
     ULONG MinimumWorkingSetSize;
     ULONG MaximumWorkingSetSize;
-    PMMWSL VmWorkingSetList;
-#if (NTDDI_VERSION < NTDDI_WS03)
+    PMMWSL MmWorkingSetList;
+#if (NTDDI_VERSION < NTDDI_LONGHORN)
     LIST_ENTRY WorkingSetExpansionLinks;
 #endif
     ULONG Claim;
@@ -607,18 +604,15 @@ typedef struct _MMSUPPORT
     ULONG Spare;
     ULONG WorkingSetPrivateSize;
     ULONG WorkingSetSizeOverhead;
+    ULONG WorkingSetSize;
+    PKEVENT ExitEvent;
+    EX_PUSH_LOCK WorkingSetMutex;
+    PVOID AccessLog;
 #else
     ULONG NextEstimationSlot;
     ULONG NextAgingSlot;
     ULONG EstimatedAvailable;
-#endif
-    ULONG WorkingSetSize;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PKEVENT ExitEvent;
-#endif
-    EX_PUSH_LOCK WorkingSetMutex;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PVOID AccessLog;
+    ULONG GrowthSinceLastEstimate;
 #endif
 } MMSUPPORT, *PMMSUPPORT;
 

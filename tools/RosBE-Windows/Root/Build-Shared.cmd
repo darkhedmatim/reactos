@@ -31,8 +31,8 @@ if "%1"  == "" (
 ::
 if %logdiff% == 0 (
 if not exist "RosBE-Logs\." (
-        if not exist "Makefile" (
-            echo Folder is empty. No Build can be performed without a Source Code.
+        if not exist ".svn\." (
+            echo Folder is empty. No Build can be performed.
             goto :EOB
         ) else (
             mkdir "RosBE-Logs"

@@ -63,6 +63,9 @@ extern EREGISTRY_HIVE SystemHive;   /* \Registry\Machine\SYSTEM */
 #define ERROR_MORE_DATA                  234L
 #define ERROR_NO_MORE_ITEMS              259L
 
+
+#define assert(x)
+
 /*
  * VOID
  * InitializeListHead (

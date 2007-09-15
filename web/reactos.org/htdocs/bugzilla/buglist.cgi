@@ -74,12 +74,9 @@ if (defined($searchstring)) {
     # as if this had been a normal query from the beginning.
 }
 
-# If configured to not allow empty words, reject empty searches from the
-# Find a Specific Bug search form, including words being a single or 
-# several consecutive whitespaces only.
-if (!Bugzilla->params->{'specific_search_allow_empty_words'}
-    && defined($cgi->param('content')) && $cgi->param('content') =~ /^\s*$/)
-{
+# Reject empty searches from the simple search form, including
+# words being a single or several consecutive whitespaces only.
+if (defined($cgi->param('content')) && $cgi->param('content') =~ /^\s*$/) {
     ThrowUserError("buglist_parameters_required");
 }
 
@@ -511,22 +508,17 @@ elsif (($cgi->param('cmdtype') eq "doit") && defined $cgi->param('remtype')) {
             }
 
             my %bug_ids;
-            my $is_new_name = 0;
             if ($query_name) {
                 # Make sure this name is not already in use by a normal saved search.
                 if (LookupNamedQuery($query_name, undef, QUERY_LIST, !THROW_ERROR)) {
                     ThrowUserError('query_name_exists', {'name' => $query_name});
                 }
-                $is_new_name = 1;
             }
-            # If no new tag name has been given, use the selected one.
-            $query_name ||= $cgi->param('oldqueryname');
-
-            # Don't throw an error if it's a new tag name: if the tag already
-            # exists, add/remove bugs to it, else create it. But if we are
-            # considering an existing tag, then it has to exist and we throw
-            # an error if it doesn't (hence the usage of !$is_new_name).
-            if (my $old_query = LookupNamedQuery($query_name, undef, LIST_OF_BUGS, !$is_new_name)) {
+            else {
+                # No new query name has been given. We retrieve bug IDs
+                # currently set in the selected saved search.
+                $query_name = $cgi->param('oldqueryname');
+                my $old_query = LookupNamedQuery($query_name, undef, LIST_OF_BUGS);
                 # We get the encoded query. We need to decode it.
                 my $old_cgi = new Bugzilla::CGI($old_query);
                 foreach my $bug_id (split /[\s,]+/, scalar $old_cgi->param('bug_id')) {

@@ -33,7 +33,6 @@ Signature = "$ReactOS$"
 base\applications\cacls\cacls.exe                       1
 base\applications\calc\calc.exe                         1
 base\applications\charmap\charmap.exe                   1
-base\applications\cmdutils\dbgprint\dbgprint.exe        1
 base\applications\cmdutils\find\find.exe                1
 base\applications\cmdutils\more\more.exe                1
 base\applications\control\control.exe                   1
@@ -55,7 +54,7 @@ base\applications\network\telnet\telnet.exe             1
 base\applications\network\tracert\tracert.exe           1
 base\applications\network\whois\whois.exe               1
 base\applications\notepad\notepad.exe                   1
-base\applications\regedit\regedit.exe                   4
+base\applications\regedit\regedit.exe                   1
 base\applications\regedit\clb\clb.dll                   1
 base\applications\sc\sc.exe                             1
 base\applications\screensavers\cylfrac\cylfrac.scr      1
@@ -251,7 +250,6 @@ dll\win32\ws2help\ws2help.dll                       1
 dll\win32\wshirda\wshirda.dll                       1
 dll\win32\wsock32\wsock32.dll                       1
 dll\win32\wtsapi32\wtsapi32.dll                     1
-dll\win32\beepmidi\beepmidi.dll				1
 
 
 ; Drivers
@@ -419,6 +417,8 @@ media\inf\usbport.inf                               6
 media\inf\usb.inf                                   6
 media\inf\usbstor.inf                               6
 media\inf\xboxdisp.inf                              6
+boot\bootdata\unattend.inf                          6   optional
+
 
 ; Subsystems
 subsystems\win32\csrss\csrss.exe                    1

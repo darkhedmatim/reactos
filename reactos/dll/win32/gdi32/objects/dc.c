@@ -84,17 +84,6 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
  */
 HDC
 STDCALL
-CreateCompatibleDC ( HDC hdc)
-{
-    /* FIXME need sharememory if it metadc */
-    return NtGdiCreateCompatibleDC(hdc);
-}
-
-/*
- * @implemented
- */
-HDC
-STDCALL
 CreateDCA (
 	LPCSTR		lpszDriver,
 	LPCSTR		lpszDevice,
@@ -316,85 +305,6 @@ SetArcDirection( HDC hdc, INT nDirection )
 }
 
 
-HGDIOBJ
-STDCALL
-GetDCObject( HDC hDC, INT iType)
-{
-#if 0
- if((iType == GDI_OBJECT_TYPE_BRUSH) ||
-    (iType == GDI_OBJECT_TYPE_EXTPEN)||
-    (iType == GDI_OBJECT_TYPE_PEN)   ||
-    (iType == GDI_OBJECT_TYPE_COLORSPACE))
- {
-   HGDIOBJ hGO = NULL;
-   PDC_ATTR Dc_Attr;
-   
-   if (!GdiGetHandleUserData((HGDIOBJ) hDC, (PVOID) &Dc_Attr)) return NULL;
-
-   switch (iType)
-   {
-     case GDI_OBJECT_TYPE_BRUSH:
-          hGO = Dc_Attr->hbrush;  
-          break;
-     
-     case GDI_OBJECT_TYPE_EXTPEN:
-     case GDI_OBJECT_TYPE_PEN:
-          hGO = Dc_Attr->hpen;
-          break;
-     
-     case GDI_OBJECT_TYPE_COLORSPACE:
-          hGO = Dc_Attr->hColorSpace;
-          break;
-   }   
-   return hGO;
- }
-#endif
- return NtGdiGetDCObject( hDC, iType );
-}
-
-
-/*
- * @implemented
- *
- */
-HGDIOBJ 
-STDCALL
-GetCurrentObject(HDC hdc,
-                 UINT uObjectType)
-{
-    switch(uObjectType)
-    {
-      case OBJ_EXTPEN:
-      case OBJ_PEN:
-        uObjectType = GDI_OBJECT_TYPE_PEN;
-        break;
-      case OBJ_BRUSH:
-        uObjectType = GDI_OBJECT_TYPE_BRUSH;
-        break;
-      case OBJ_PAL:
-        uObjectType = GDI_OBJECT_TYPE_PALETTE;
-        break;
-      case OBJ_FONT:
-        uObjectType = GDI_OBJECT_TYPE_FONT;
-        break;
-      case OBJ_BITMAP:
-        uObjectType = GDI_OBJECT_TYPE_BITMAP;
-        break;
-      case OBJ_COLORSPACE:
-        uObjectType = GDI_OBJECT_TYPE_COLORSPACE;
-        break;
-      /* tests show that OBJ_REGION is explicitly ignored */
-      case OBJ_REGION:
-        return NULL;
-      /* the SDK only mentions those above */
-      default:
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return NULL;
-    }
-    return  GetDCObject(hdc, uObjectType);
-}
-
-
 /*
  * @implemented
  */
@@ -475,9 +385,6 @@ GetDCDWord( HDC hDC, INT u, DWORD Result )
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 GetAspectRatioFilterEx(
@@ -691,12 +598,12 @@ GetDCBrushColor(
 	HDC hdc
 )
 {
-//#if 0
+#if 0
   PDC_ATTR Dc_Attr;
  
   if (!GdiGetHandleUserData((HGDIOBJ) hdc, (PVOID) &Dc_Attr)) return CLR_INVALID;
   return (COLORREF) Dc_Attr->ulPenClr;
-//#endif
+#endif
   return NtUserGetDCBrushColor(hdc);
 }
 
@@ -709,12 +616,12 @@ GetDCPenColor(
 	HDC hdc
 )
 {
-//#if 0
+#if 0
   PDC_ATTR Dc_Attr;
  
   if (!GdiGetHandleUserData((HGDIOBJ) hdc, (PVOID) &Dc_Attr)) return CLR_INVALID;
   return (COLORREF) Dc_Attr->ulPenClr;
-//#endif
+#endif
   return NtUserGetDCPenColor(hdc);
 }
 
@@ -728,7 +635,7 @@ SetDCBrushColor(
 	COLORREF crColor
 )
 {
-//#if 0
+#if 0
   PDC_ATTR Dc_Attr;
   COLORREF OldColor = CLR_INVALID;
 
@@ -745,7 +652,7 @@ SetDCBrushColor(
     }
   }
   return OldColor;
-//#endif
+#endif
   return NtUserSetDCBrushColor(hdc, crColor);
 }
 
@@ -759,7 +666,7 @@ SetDCPenColor(
 	COLORREF crColor
 )
 {
-//#if 0
+#if 0
   PDC_ATTR Dc_Attr;
   COLORREF OldColor = CLR_INVALID;
 
@@ -776,105 +683,10 @@ SetDCPenColor(
     }
   }
   return OldColor;
-//#endif
+#endif
   return NtUserSetDCPenColor(hdc, crColor);
 }
 
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-SetTextColor(
-	HDC hdc,
-	COLORREF crColor
-)
-{
-#if 0
-  PDC_ATTR Dc_Attr;
-  COLORREF OldColor = CLR_INVALID;
-
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, (PVOID) &Dc_Attr)) return OldColor;
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return MFDRV_SetTextColor( hDC, crColor );
-    else
-    {
-      PLDC pLDC = Dc_Attr->pvLDC;
-      if ( !pLDC )
-      {
-         SetLastError(ERROR_INVALID_HANDLE);
-         return FALSE;
-      }
-      if (pLDC->iType == LDC_EMFLDC)
-      {
-        if return EMFDRV_SetTextColor( hDC, crColor );
-      }
-    }
-  }
-#endif
-  OldColor = (COLORREF) Dc_Attr->ulForegroundClr;
-  Dc_Attr->ulForegroundClr = (ULONG) crColor;
-
-  if ( Dc_Attr->crForegroundClr != crColor )
-  {
-     Dc_Attr->ulDirty_ |= DIRTY_TEXT;
-     Dc_Attr->crForegroundClr = crColor;
-  }
-  return OldColor;
-#endif
-  return NtGdiSetTextColor(hdc, crColor);
-}
-
-/*
- * @implemented
- */
-COLORREF 
-STDCALL
-SetBkColor(
-	HDC hdc,
-	COLORREF crColor
-)
-{
-#if 0
-  PDC_ATTR Dc_Attr;
-  COLORREF OldColor = CLR_INVALID;
-
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, (PVOID) &Dc_Attr)) return OldColor;
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return MFDRV_SetBkColor( hDC, crColor );
-    else
-    {
-      PLDC pLDC = Dc_Attr->pvLDC;
-      if ( !pLDC )
-      {
-         SetLastError(ERROR_INVALID_HANDLE);
-         return FALSE;
-      }
-      if (pLDC->iType == LDC_EMFLDC)
-      {
-        if return EMFDRV_SetBkColor( hDC, crColor );
-      }
-    }
-  }
-#endif
-  OldColor = (COLORREF) Dc_Attr->ulBackgroundClr;
-  Dc_Attr->ulBackgroundClr = (ULONG) crColor;
-
-  if ( Dc_Attr->crBackgroundClr != crColor )
-  {
-     Dc_Attr->ulDirty_ |= DIRTY_LINE;
-     Dc_Attr->crBackgroundClr = crColor;
-  }
-  return OldColor;
-#endif
-  return NtGdiSetBkColor(hdc, crColor);
-}
 
 /*
  * @implemented
@@ -1120,18 +932,3 @@ SelectPalette(
 {
     return NtUserSelectPalette(hDC, hPal, bForceBackground);
 }
-
-/*
- * @implemented
- */
-INT
-STDCALL
-SetMapMode(
-	HDC hdc,
-	INT Mode
-	)
-{
-  return GetAndSetDCDWord( hdc, GdiGetSetMapMode, Mode, 0, 0, 0 );
-}
-
-

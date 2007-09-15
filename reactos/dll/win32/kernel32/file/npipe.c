@@ -13,7 +13,7 @@
 
 #define NDEBUG
 //#define USING_PROPER_NPFS_WAIT_SEMANTICS
-#include <debug.h>
+#include "../include/debug.h"
 
 /* FUNCTIONS ****************************************************************/
 

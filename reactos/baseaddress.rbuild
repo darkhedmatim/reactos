@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<rbuild xmlns:xi="http://www.w3.org/2001/XInclude">
+<group>
   <property name="BASEADDRESS_REGTESTS" value="0x07000000" />
   <property name="BASEADDRESS_NOTIFYHOOK" value="0x08000000" />
   <property name="BASEADDRESS_COMCAT" value="0x20A50000" />
@@ -14,7 +14,6 @@
   <property name="BASEADDRESS_USRMGR" value="0x5c900000" />
   <property name="BASEADDRESS_COMMCTRL" value="0x5d090000" />
   <property name="BASEADDRESS_DPLAYX" value="0x5e080000" />
-  <property name="BASEADDRESS_INPUT" value ="0x5e400000" />
   <property name="BASEADDRESS_DINPUT" value="0x5f580000" />
   <property name="BASEADDRESS_NETID" value="0x5f660000" />
   <property name="BASEADDRESS_MAPI32" value="0x62250000" />
@@ -144,3 +143,4 @@
   <property name="BASEADDRESS_HHCTRL" value="0x7e410000" />
   <property name="BASEADDRESS_FREETYPE" value="0x7f000000" />
 </group>
+</rbuild>

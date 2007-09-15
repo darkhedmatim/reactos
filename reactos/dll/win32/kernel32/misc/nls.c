@@ -16,7 +16,7 @@
 
 #include <k32.h>
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBAL VARIABLES ***********************************************************/
 
@@ -813,15 +813,12 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    HANDLE KeyHandle;
    PKEY_VALUE_PARTIAL_INFORMATION Kvpi;
    DWORD KvpiSize;
-   BOOL bRetValue;
-
-   bRetValue = FALSE;
 
    /* Convert the codepage number to string. */
    ValueName.Buffer = ValueNameBuffer;
    ValueName.MaximumLength = sizeof(ValueNameBuffer);
    if (!NT_SUCCESS(RtlIntegerToUnicodeString(CodePage, 10, &ValueName)))
-      return bRetValue;
+      return FALSE;
 
    /* Open the registry key containing file name mappings. */
    RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\System\\"
@@ -831,17 +828,17 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    Status = NtOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
    if (!NT_SUCCESS(Status))
    {
-      return bRetValue;
+      return FALSE;
    }
 
    /* Allocate buffer that will be used to query the value data. */
    KvpiSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
               (MAX_PATH * sizeof(WCHAR));
-   Kvpi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, KvpiSize);
+   Kvpi = HeapAlloc(GetProcessHeap(), 0, KvpiSize);
    if (Kvpi == NULL)
    {
       NtClose(KeyHandle);
-      return bRetValue;
+      return FALSE;
    }
 
    /* Query the file name for our code page. */
@@ -854,17 +851,15 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    if (NT_SUCCESS(Status) && Kvpi->Type == REG_SZ &&
        Kvpi->DataLength > sizeof(WCHAR))
    {
-      bRetValue = TRUE;
       if (FileName != NULL)
       {
          lstrcpynW(FileName, (WCHAR*)Kvpi->Data,
                    min(Kvpi->DataLength / sizeof(WCHAR), FileNameSize));
       }
+      return TRUE;
    }
-   
-   /* free temporary buffer */
-   HeapFree(GetProcessHeap(),0,Kvpi);
-   return bRetValue;
+
+   return FALSE;
 }
 
 /**

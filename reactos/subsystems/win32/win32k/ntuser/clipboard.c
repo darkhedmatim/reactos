@@ -579,7 +579,7 @@ NtUserEmptyClipboard(VOID)
 
     if (ret && ClipboardOwnerWindow)
     {
-        DPRINT("Clipboard: WM_DESTROYCLIPBOARD to %p", ClipboardOwnerWindow->hSelf);
+        DPRINT1("Clipboard: WM_DESTROYCLIPBOARD to %p", ClipboardOwnerWindow->hSelf);
         co_IntSendMessage( ClipboardOwnerWindow->hSelf, WM_DESTROYCLIPBOARD, 0, 0);
     }
 
@@ -1007,14 +1007,14 @@ NtUserSetClipboardData(UINT uFormat, HANDLE hMem, DWORD size)
                     bi.bmiHeader.biYPelsPerMeter = 0;
                     bi.bmiHeader.biClrUsed = 0;
 
-                    ret = NtGdiGetDIBitsInternal(hdc, hMem, 0, bm.bmHeight,  NULL, &bi, DIB_RGB_COLORS, 0, 0);
+                    ret = NtGdiGetDIBits(hdc, hMem, 0, bm.bmHeight,  NULL, &bi, DIB_RGB_COLORS);
 
                     size = bi.bmiHeader.biSizeImage + sizeof(BITMAPINFOHEADER);
 
                     hCBData = ExAllocatePool(PagedPool, size);
                     memcpy(hCBData, &bi, sizeof(BITMAPINFOHEADER));
 
-                    ret = NtGdiGetDIBitsInternal(hdc, hMem, 0, bm.bmHeight, (LPBYTE)hCBData + sizeof(BITMAPINFOHEADER), &bi, DIB_RGB_COLORS, 0, 0);
+                    ret = NtGdiGetDIBits(hdc, hMem, 0, bm.bmHeight, (LPBYTE)hCBData + sizeof(BITMAPINFOHEADER), &bi, DIB_RGB_COLORS);
 
                     UserReleaseDC(NULL, hdc, FALSE);
 

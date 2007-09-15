@@ -35,12 +35,6 @@ Environment::GetVariable ( const string& name )
 		return "";
 }
 
-string
-Environment::GetArch ()
-{
-	return GetEnvironmentVariablePathOrDefault ( "ROS_ARCH", "i386" );
-}
-
 /* static */ string
 Environment::GetEnvironmentVariablePathOrDefault ( const string& name,
                                                    const string& defaultValue )
@@ -56,7 +50,7 @@ Environment::GetEnvironmentVariablePathOrDefault ( const string& name,
 Environment::GetIntermediatePath ()
 {
 	string defaultIntermediate =
-		string( "obj-" ) + GetArch ();
+		string( "obj-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INTERMEDIATE",
 	                                             defaultIntermediate );
 }
@@ -65,7 +59,7 @@ Environment::GetIntermediatePath ()
 Environment::GetOutputPath ()
 {
 	string defaultOutput =
-		string( "output-" ) + GetArch ();
+		string( "output-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_OUTPUT",
 	                                             defaultOutput );
 }
@@ -73,7 +67,8 @@ Environment::GetOutputPath ()
 /* static */ string
 Environment::GetInstallPath ()
 {
-	string defaultInstall = GetCdOutputPath ();
+	string defaultInstall =
+		string( "reactos." ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INSTALL",
 	                                             defaultInstall );
 }
@@ -99,41 +94,10 @@ ParseContext::ParseContext ()
 }
 
 
-FileLocation::FileLocation ( const DirectoryLocation directory,
-                             const std::string& relative_path,
-                             const std::string& name )
-	: directory ( directory ),
-	  relative_path ( NormalizeFilename ( relative_path ) ),
-	  name ( name )
-{
-	if ( relative_path[0] == '/' ||
-	     relative_path[0] == '\\' ||
-	     relative_path.find ( '$' ) != string::npos ||
-	     ( relative_path.length () > 1 && ( relative_path[1] == ':' ||
-	                                        relative_path.find_last_of ( "/\\" ) == relative_path.length () - 1 ) ) ||
-	     ( relative_path.length () > 3 && relative_path.find ( ':' ) != string::npos )
-	     )
-	{
-		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "Invalid relative path '%s'",
-		                                  relative_path.c_str () );
-	}
-
-	if ( name.find_first_of ( "/\\:" ) != string::npos )
-	{
-		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "Invalid file name '%s'",
-		                                  name.c_str () );
-	}
-}
-
-
-FileLocation::FileLocation ( const FileLocation& other )
-	: directory ( other.directory ),
-	  relative_path ( other.relative_path ),
-	  name ( other.name )
+FileLocation::FileLocation ( Directory* directory,
+                             std::string filename )
+                             : directory (directory),
+                               filename (filename)
 {
 }
 

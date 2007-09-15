@@ -27,18 +27,6 @@ using std::string;
 using std::vector;
 using std::map;
 
-static std::string
-GetExtension ( const std::string& filename )
-{
-	size_t index = filename.find_last_of ( '/' );
-	if (index == string::npos) index = 0;
-	string tmp = filename.substr( index, filename.size() - index );
-	size_t ext_index = tmp.find_last_of( '.' );
-	if (ext_index != string::npos)
-		return filename.substr ( index + ext_index, filename.size() );
-	return "";
-}
-
 SourceFile::SourceFile ( AutomaticDependency* automaticDependency,
                          const Module& module,
                          const string& filename,
@@ -332,11 +320,7 @@ AutomaticDependency::GetModuleFiles ( const Module& module,
 	/* FIXME: Collect files in IFs here */
 
 	if ( module.pch != NULL )
-	{
-		const FileLocation& pch = module.pch->file;
-		File *file = new File ( pch.directory, pch.relative_path, pch.name , false, "", true );
-		files.push_back ( file );
-	}
+		files.push_back ( &module.pch->file );
 }
 
 void
@@ -380,36 +364,11 @@ AutomaticDependency::ResolveVariablesInPath ( const string& path )
 }
 
 bool
-AutomaticDependency::LocateIncludedFile ( const FileLocation& directory,
+AutomaticDependency::LocateIncludedFile ( const string& directory,
                                           const string& includedFilename,
                                           string& resolvedFilename )
 {
-	string path;
-	switch ( directory.directory )
-	{
-		case SourceDirectory:
-			path = "";
-			break;
-		case IntermediateDirectory:
-			path = Environment::GetIntermediatePath ();
-			break;
-		case OutputDirectory:
-			path = Environment::GetOutputPath ();
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  directory.directory );
-	}
-	if ( directory.relative_path.length () > 0 )
-	{
-		if ( path.length () > 0 )
-			path += sSep;
-		path += directory.relative_path;
-	}
-	
-	string normalizedFilename = NormalizeFilename ( path + sSep + includedFilename );
+	string normalizedFilename = NormalizeFilename ( directory + sSep + includedFilename );
 	FILE* f = fopen ( normalizedFilename.c_str (), "rb" );
 	if ( f != NULL )
 	{
@@ -419,6 +378,17 @@ AutomaticDependency::LocateIncludedFile ( const FileLocation& directory,
 	}
 	resolvedFilename = "";
 	return false;
+}
+
+string
+AutomaticDependency::GetFilename ( const string& filename )
+{
+	size_t index = filename.find_last_of ( cSep );
+	if (index == string::npos)
+		return filename;
+	else
+		return filename.substr ( index + 1,
+		                         filename.length () - index - 1);
 }
 
 void
@@ -445,12 +415,12 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
                                           string& resolvedFilename )
 {
 	vector<Include*> includes;
-	Include currentDirectory ( module.project, SourceDirectory, sourceFile->directoryPart );
+	Include currentDirectory ( module.project, ".", sourceFile->directoryPart );
 	GetIncludeDirectories ( includes, module, currentDirectory, searchCurrentDirectory );
 	for ( size_t j = 0; j < includes.size (); j++ )
 	{
 		Include& include = *includes[j];
-		if ( LocateIncludedFile ( *include.directory,
+		if ( LocateIncludedFile ( include.directory,
 		                          includedFilename,
 		                          resolvedFilename ) )
 		{
@@ -460,9 +430,6 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
 			return true;
 		}
 	}
-	/*printf ( "Unable to find %s, included in %s.\n",
-	         includedFilename.c_str (),
-	         sourceFile->filename.c_str () );*/
 	resolvedFilename = "";
 	return false;
 }
@@ -543,7 +510,7 @@ AutomaticDependency::CheckAutomaticDependencies ( const Module& module,
 	for ( size_t fi = 0; fi < files.size (); fi++ )
 	{
 		File& file = *files[fi];
-		string normalizedFilename = NormalizeFilename ( file.GetFullPath () );
+		string normalizedFilename = NormalizeFilename ( file.name );
 
 		SourceFile* sourceFile = RetrieveFromCache ( normalizedFilename );
 		if ( sourceFile != NULL )

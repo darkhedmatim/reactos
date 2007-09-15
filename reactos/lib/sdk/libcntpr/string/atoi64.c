@@ -1,6 +1,5 @@
 #include <string.h>
 #include <ctype.h>
-#include <basetsd.h>
 
 /*
  * @implemented

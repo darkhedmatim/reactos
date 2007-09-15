@@ -59,42 +59,37 @@ typedef struct _WIN_DC_INFO
 
 typedef struct _DC
 {
-  HGDIOBJ     hHmgr;
-  PVOID       pvEntry;
-  ULONG       lucExcLock;
-  ULONG       Tid;
-
-  DHPDEV      PDev;
-  INT         DC_Type;
-  INT         DC_Flags;
-  PDC_ATTR    pDc_Attr;
-  DC_ATTR     Dc_Attr;
-
-  HDC         hSelf;
-  HDC         hNext;
-  HSURF       FillPatternSurfaces[HS_DDI_MAX];
-  PGDIINFO    GDIInfo;
-  PDEVINFO    DevInfo;
-  HDEV        GDIDevice;
+  HDC  hSelf;
+  HDC  hNext;
+  PDC_ATTR pDc_Attr;
+  INT  DC_Type;
+  INT  DC_Flags;
+  DHPDEV  PDev;
+  HSURF  FillPatternSurfaces[HS_DDI_MAX];
+  PGDIINFO  GDIInfo;
+  PDEVINFO  DevInfo;
+  HDEV   GDIDevice;
 
   DRIVER_FUNCTIONS  DriverFunctions;
   UNICODE_STRING    DriverName;
-  HANDLE      DeviceDriver;
+  HANDLE  DeviceDriver;
 
-  CLIPOBJ     *CombinedClip;
+  CLIPOBJ *CombinedClip;
 
-  XLATEOBJ    *XlateBrush;
-  XLATEOBJ    *XlatePen;
+  XLATEOBJ *XlateBrush;
+  XLATEOBJ *XlatePen;
 
-  INT         saveLevel;
-  BOOL        IsIC;
+  INT  saveLevel;
+  BOOL IsIC;
 
-  HPALETTE    PalIndexed;
+  HPALETTE PalIndexed;
 
-  WIN_DC_INFO w;
+  WIN_DC_INFO  w;
+  DC_ATTR Dc_Attr;
   
-  HANDLE      hFile;  
+  HANDLE hFile;  
   LPENHMETAHEADER emh;
+
 } DC, *PDC;
 
 typedef struct _GDIPOINTER /* should stay private to ENG */
@@ -149,31 +144,19 @@ HDC  FASTCALL RetrieveDisplayHDC(VOID);
 HDC  FASTCALL DC_AllocDC(PUNICODE_STRING  Driver);
 VOID FASTCALL DC_InitDC(HDC  DCToInit);
 HDC  FASTCALL DC_FindOpenDC(PUNICODE_STRING  Driver);
-VOID FASTCALL DC_FreeDC(HDC);
-VOID FASTCALL DC_AllocateDcAttr(HDC, PEPROCESS);
-VOID FASTCALL DC_FreeDcAttr(HDC, PEPROCESS);
+VOID FASTCALL DC_FreeDC(HDC  DCToFree);
 BOOL INTERNAL_CALL DC_Cleanup(PVOID ObjectBody);
 HDC  FASTCALL DC_GetNextDC (PDC pDC);
 VOID FASTCALL DC_SetNextDC (PDC pDC, HDC hNextDC);
 VOID FASTCALL DC_SetOwnership(HDC DC, PEPROCESS Owner);
-VOID FASTCALL IntGdiCopyFromSaveState(PDC, PDC);
-VOID FASTCALL IntGdiCopyToSaveState(PDC, PDC);
 
 VOID FASTCALL DC_UpdateXforms(PDC  dc);
 BOOL FASTCALL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
-
-BOOL FASTCALL DCU_UpdateUserXForms(PDC, ULONG);
-BOOL FASTCALL DCU_SyncDcAttrtoUser(PDC, FLONG);
-BOOL FASTCALL DCU_SynchDcAttrtoUser(HDC, FLONG);
-BOOL FASTCALL DCU_SyncDcAttrtoW32k(PDC, FLONG);
-BOOL FASTCALL DCU_SynchDcAttrtoW32k(HDC, FLONG);
 
 VOID FASTCALL IntGetViewportExtEx(PDC dc, LPSIZE pt);
 VOID FASTCALL IntGetViewportOrgEx(PDC dc, LPPOINT pt);
 VOID FASTCALL IntGetWindowExtEx(PDC dc, LPSIZE pt);
 VOID FASTCALL IntGetWindowOrgEx(PDC dc, LPPOINT pt);
-
-NTSTATUS STDCALL NtGdiFlushUserBatch(VOID);
 
 /* For Metafile and MetaEnhFile not in windows this struct taken from wine cvs 15/9-2006*/
 typedef struct

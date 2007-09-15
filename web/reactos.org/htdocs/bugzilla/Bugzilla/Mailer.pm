@@ -41,10 +41,7 @@ use Bugzilla::Constants;
 use Bugzilla::Error;
 use Bugzilla::Util;
 
-use Date::Format qw(time2str);
-
 use Encode qw(encode);
-use Email::Address;
 use Email::MIME;
 # Loading this gives us encoding_set.
 use Email::MIME::Modifier;
@@ -67,7 +64,6 @@ sub MessageToMTA {
     # Encode the headers correctly in quoted-printable
     foreach my $header qw(From To Cc Reply-To Sender Errors-To Subject) {
         if (my $value = $email->header($header)) {
-            $value = Encode::decode("UTF-8", $value) if Bugzilla->params->{'utf8'};
             my $encoded = encode('MIME-Q', $value);
             $email->header_set($header, $encoded);
         }
@@ -81,14 +77,7 @@ sub MessageToMTA {
             $Email::Send::Sendmail::SENDMAIL = SENDMAIL_EXE;
         }
         push @args, "-i";
-        # We want to make sure that we pass *only* an email address.
-        if ($from) {
-            my ($email_obj) = Email::Address->parse($from);
-            if ($email_obj) {
-                my $from_email = $email_obj->address;
-                push(@args, "-f$from_email") if $from_email;
-            }
-        }
+        push(@args, "-f$from") if $from;
         push(@args, "-ODeliveryMode=deferred")
             if !Bugzilla->params->{"sendmailnow"};
     }
@@ -96,21 +85,15 @@ sub MessageToMTA {
         # Sendmail will automatically append our hostname to the From
         # address, but other mailers won't.
         my $urlbase = Bugzilla->params->{'urlbase'};
-        $urlbase =~ m|//([^:/]+)[:/]?|;
+        $urlbase =~ m|//([^/]+)/?|;
         $hostname = $1;
         $from .= "\@$hostname" if $from !~ /@/;
         $email->header_set('From', $from);
-        
-        # Sendmail adds a Date: header also, but others may not.
-        if (!defined $email->header('Date')) {
-            $email->header_set('Date', time2str("%a, %e %b %Y %T %z", time()));
-        }
     }
 
     if ($method eq "SMTP") {
         push @args, Host  => Bugzilla->params->{"smtpserver"},
-                    Hello => $hostname, 
-                    Debug => Bugzilla->params->{'smtp_debug'};
+                    Hello => $hostname;
     }
 
     if ($method eq "Test") {

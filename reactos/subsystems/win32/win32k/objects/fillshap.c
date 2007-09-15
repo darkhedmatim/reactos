@@ -805,29 +805,97 @@ extern BOOL FillPolygon(PDC dc,
 
 #endif
 
-
-ULONG_PTR
+BOOL
 STDCALL
-NtGdiPolyPolyDraw( IN HDC hDC,
-                   IN PPOINT Points,
-                   IN PULONG PolyCounts,
-                   IN ULONG Count,
-                   IN INT iFunc )
+NtGdiPolygon(HDC          hDC,
+             CONST PPOINT UnsafePoints,
+             int          Count)
+{
+  DC *dc;
+  LPPOINT Safept;
+  NTSTATUS Status = STATUS_SUCCESS;
+  BOOL Ret = FALSE;
+
+  if ( Count < 2 )
+  {
+    SetLastWin32Error(ERROR_INVALID_PARAMETER);
+    return FALSE;
+  }
+  
+  _SEH_TRY
+  {
+    ProbeForRead(UnsafePoints,
+                 Count * sizeof(POINT),
+                 1);
+  }
+  _SEH_HANDLE
+  {
+    Status = _SEH_GetExceptionCode();
+  }
+  _SEH_END;
+  
+  if (!NT_SUCCESS(Status))
+  {
+    SetLastNtError(Status);
+    return FALSE;
+  }
+
+  dc = DC_LockDc(hDC);
+  if(!dc)
+    SetLastWin32Error(ERROR_INVALID_HANDLE);
+  else
+  {
+    if (dc->IsIC)
+    {
+      DC_UnlockDc(dc);
+      /* Yes, Windows really returns TRUE in this case */
+      return TRUE;
+    }
+    Safept = ExAllocatePoolWithTag(PagedPool, sizeof(POINT) * Count, TAG_SHAPE);
+    if(!Safept)
+      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
+    else
+    {
+      _SEH_TRY
+      {
+        /* pointer was already probed! */
+        RtlCopyMemory(Safept,
+                      UnsafePoints,
+                      Count * sizeof(POINT));
+      }
+      _SEH_HANDLE
+      {
+        Status = _SEH_GetExceptionCode();
+      }
+      _SEH_END;
+
+      if(!NT_SUCCESS(Status))
+        SetLastNtError(Status);
+      else
+        Ret = IntGdiPolygon(dc, Safept, Count);
+
+      ExFreePool(Safept);
+    }
+    DC_UnlockDc(dc);
+  }
+
+  return Ret;
+}
+
+
+BOOL
+STDCALL
+NtGdiPolyPolygon(HDC           hDC,
+                 CONST LPPOINT Points,
+                 CONST LPINT   PolyCounts,
+                 int           Count)
 {
   DC *dc;
   LPPOINT Safept;
   LPINT SafePolyPoints;
   NTSTATUS Status = STATUS_SUCCESS;
-  BOOL Ret = TRUE;
-  INT nPoints, nEmpty, nInvalid, i;
-  
-  if (iFunc == GdiPolyPolyRgn)
-  {
-   return (ULONG_PTR) GdiCreatePolyPolygonRgn((CONST PPOINT)  Points,
-                                            (CONST PINT)  PolyCounts,
-                                                               Count,
-                                                           (INT) hDC);
-  }
+  BOOL Ret;
+
   dc = DC_LockDc(hDC);
   if(!dc)
   {
@@ -865,17 +933,22 @@ NtGdiPolyPolyDraw( IN HDC hDC,
       return FALSE;
     }
   
-    SafePolyPoints = ExAllocatePoolWithTag(PagedPool, Count * sizeof(INT), TAG_SHAPE);
-    if(!SafePolyPoints)
+    Safept = ExAllocatePoolWithTag(PagedPool, (sizeof(POINT) + sizeof(INT)) * Count, TAG_SHAPE);
+    if(!Safept)
     {
       DC_UnlockDc(dc);
       SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
       return FALSE;
     }
 
+    SafePolyPoints = (LPINT)&Safept[Count];
+    
     _SEH_TRY
     {
       /* pointers already probed! */
+      RtlCopyMemory(Safept,
+                    Points,
+                    Count * sizeof(POINT));
       RtlCopyMemory(SafePolyPoints,
                     PolyCounts,
                     Count * sizeof(INT));
@@ -889,67 +962,6 @@ NtGdiPolyPolyDraw( IN HDC hDC,
     if(!NT_SUCCESS(Status))
     {
       DC_UnlockDc(dc);
-      ExFreePool(SafePolyPoints);
-      SetLastNtError(Status);
-      return FALSE;
-    }
-    /* validate poligons */
-    nPoints = 0;
-    nEmpty = 0;
-    nInvalid = 0;
-    for (i = 0; i < Count; i++)
-    {
-      if (SafePolyPoints[i] == 0)
-      {
-         nEmpty++;
-      }
-      if (SafePolyPoints[i] == 1)
-      {
-         nInvalid++;
-      }
-      nPoints += SafePolyPoints[i];
-    }
-
-    if (nEmpty == Count)
-    {
-      /* if all polygon counts are zero, return without setting a last error code. */
-      ExFreePool(SafePolyPoints);
-      return FALSE;
-    }
-    if (nInvalid != 0)
-    {
-     /* if at least one poly count is 1, fail */
-     ExFreePool(SafePolyPoints);
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     return FALSE;
-    }
-
-    Safept = ExAllocatePoolWithTag(PagedPool, nPoints * sizeof(POINT), TAG_SHAPE);
-    if(!Safept)
-    {
-      DC_UnlockDc(dc);
-      ExFreePool(SafePolyPoints);
-      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
-      return FALSE;
-    }
-
-    _SEH_TRY
-    {
-      /* pointers already probed! */
-      RtlCopyMemory(Safept,
-                    Points,
-                    nPoints * sizeof(POINT));
-    }
-    _SEH_HANDLE
-    {
-      Status = _SEH_GetExceptionCode();
-    }
-    _SEH_END;
-
-    if(!NT_SUCCESS(Status))
-    {
-      DC_UnlockDc(dc);
-      ExFreePool(SafePolyPoints);
       ExFreePool(Safept);
       SetLastNtError(Status);
       return FALSE;
@@ -962,32 +974,24 @@ NtGdiPolyPolyDraw( IN HDC hDC,
     return FALSE;
   }
 
-  switch(iFunc)
-  {
-    case GdiPolyPolygon:
-         Ret = IntGdiPolyPolygon(dc, Safept, SafePolyPoints, Count);
-         break;
-    case GdiPolyPolyLine:
-         Ret = IntGdiPolyPolyline(dc, Safept, (LPDWORD) SafePolyPoints, Count);
-         break;
-    case GdiPolyBezier:
-         Ret = IntGdiPolyBezier(dc, Safept, *PolyCounts);
-         break;
-    case GdiPolyLineTo:
-         Ret = IntGdiPolylineTo(dc, Safept, *PolyCounts);
-         break;
-    case GdiPolyBezierTo:
-         Ret = IntGdiPolyBezierTo(dc, Safept, *PolyCounts);
-         break;
-    default:
-         SetLastWin32Error(ERROR_INVALID_PARAMETER);
-         Ret = FALSE;
-  }
-  ExFreePool(SafePolyPoints);
+  Ret = IntGdiPolyPolygon(dc, Safept, SafePolyPoints, Count);
+
   ExFreePool(Safept);
   DC_UnlockDc(dc);
 
-  return (ULONG_PTR) Ret;
+  return Ret;
+}
+
+
+ULONG_PTR
+STDCALL
+NtGdiPolyPolyDraw( IN HDC hdc,
+                   IN PPOINT ppt,
+                   IN PULONG pcpt,
+                   IN ULONG ccpt,
+                   IN INT iFunc )
+{
+  return (ULONG_PTR) 0;
 }
 
 
@@ -1653,20 +1657,6 @@ NtGdiGradientFill(
   DC_UnlockDc(dc);
   ExFreePool(SafeVertex);
   return Ret;
-}
-
-BOOL STDCALL
-NtGdiExtFloodFill(
-	HDC  hDC,
-	INT  XStart,
-	INT  YStart,
-	COLORREF  Color,
-	UINT  FillType)
-{
-	DPRINT1("FIXME: NtGdiExtFloodFill is UNIMPLEMENTED\n");
-
-	/* lie and say we succeded */
-	return TRUE;
 }
 
 /* EOF */

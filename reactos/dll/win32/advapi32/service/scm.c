@@ -21,7 +21,7 @@
 
 handle_t BindingHandle = NULL;
 
-VOID
+static VOID
 HandleBind(VOID)
 {
     LPWSTR pszStringBinding;
@@ -139,42 +139,20 @@ ChangeServiceConfig2W(SC_HANDLE hService,
                       DWORD dwInfoLevel,
                       LPVOID lpInfo)
 {
-    LPBYTE lpSendData = NULL;
-    DWORD dwInfoSize;
+    DWORD lpInfoSize;
     DWORD dwError;
 
     DPRINT("ChangeServiceConfig2W() called\n");
 
+    /* Determine the length of the lpInfo parameter */
     switch (dwInfoLevel)
     {
         case SERVICE_CONFIG_DESCRIPTION:
-        {
-            LPSERVICE_DESCRIPTIONW lpServiceDescription = lpInfo;
-            DWORD dwStringSize;
-
-            dwInfoSize = sizeof(SERVICE_DESCRIPTIONW);
-            dwStringSize = (wcslen(lpServiceDescription->lpDescription) + 1) * sizeof(WCHAR);
-            dwInfoSize += dwStringSize;
-
-            lpSendData = HeapAlloc(GetProcessHeap(), 0, dwInfoSize);
-            if (lpSendData)
-            {
-                LPBYTE pt = lpSendData;
-
-                CopyMemory(pt, lpInfo, sizeof(SERVICE_DESCRIPTIONW));
-                pt += sizeof(SERVICE_DESCRIPTIONW);
-                CopyMemory(pt, lpServiceDescription->lpDescription, dwStringSize);
-            }
-            else
-            {
-                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                return FALSE;
-            }
+            lpInfoSize = sizeof(SERVICE_DESCRIPTIONW);
             break;
-        }
 
         case SERVICE_CONFIG_FAILURE_ACTIONS:
-            dwInfoSize = sizeof(SERVICE_FAILURE_ACTIONSW);
+            lpInfoSize = sizeof(SERVICE_FAILURE_ACTIONSW);
             break;
 
         default:
@@ -184,27 +162,21 @@ ChangeServiceConfig2W(SC_HANDLE hService,
     }
 
     if (lpInfo == NULL)
-        goto done;
+        return TRUE;
 
     HandleBind();
 
     dwError = ScmrChangeServiceConfig2W(BindingHandle,
                                         (unsigned int)hService,
                                         dwInfoLevel,
-                                        lpSendData,
-                                        dwInfoSize);
+                                        lpInfo,
+                                        lpInfoSize);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrChangeServiceConfig2W() failed (Error %lu)\n", dwError);
         SetLastError(dwError);
         return FALSE;
     }
-
-done:
-    if (lpSendData != NULL)
-        HeapFree(GetProcessHeap(), 0, lpSendData);
-
-    DPRINT("ChangeServiceConfig2W() done\n");
 
     return TRUE;
 }
@@ -1983,6 +1955,38 @@ QueryServiceStatusEx(SC_HANDLE hService,
         SetLastError(dwError);
         return FALSE;
     }
+
+    return TRUE;
+}
+
+/**********************************************************************
+ *	SetServiceStatus
+ *
+ * @implemented
+ */
+BOOL STDCALL
+SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
+                 LPSERVICE_STATUS lpServiceStatus)
+{
+    DWORD dwError;
+
+    DPRINT("SetServiceStatus() called\n");
+    DPRINT("ThreadId %lu, data addr %p called\n", hServiceStatus, lpServiceStatus);
+
+    HandleBind();
+
+    /* Call to services.exe using RPC */
+    dwError = ScmrSetServiceStatus(BindingHandle,
+                                   (unsigned long)hServiceStatus,
+                                   lpServiceStatus);
+    if (dwError != ERROR_SUCCESS)
+    {
+        DPRINT1("ScmrSetServiceStatus() failed (Error %lu)\n", dwError);
+        SetLastError(dwError);
+        return FALSE;
+    }
+
+    DPRINT("SetServiceStatus() done (ret %lu\n", dwError);
 
     return TRUE;
 }

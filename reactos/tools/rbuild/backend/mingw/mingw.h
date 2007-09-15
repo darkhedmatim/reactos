@@ -30,8 +30,6 @@ class Directory;
 class MingwModuleHandler;
 
 extern std::string
-v2s ( const Backend* backend, const std::vector<FileLocation>& files, int wrap_at );
-extern std::string
 v2s ( const string_list& v, int wrap_at );
 
 
@@ -54,10 +52,6 @@ public:
 	Directory* intermediateDirectory;
 	Directory* outputDirectory;
 	Directory* installDirectory;
-
-	std::string GetFullName ( const FileLocation& file ) const;
-	std::string GetFullPath ( const FileLocation& file ) const;
-
 private:
 	void CreateMakefile ();
 	void CloseMakefile () const;
@@ -68,7 +62,7 @@ private:
 	void GenerateGlobalCFlagsAndProperties ( const char* op,
 	                                         IfableData& data ) const;
 	void GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
-	                                      IfableData& data ) const;
+                                              IfableData& data ) const;
 	void GenerateProjectGccOptions ( const char* assignmentOperation,
 	                                 IfableData& data ) const;
 	std::string GenerateProjectLFLAGS () const;
@@ -112,10 +106,12 @@ private:
 	std::string GetInstallDirectories ( const std::string& installDirectory );
 	void GetNonModuleInstallFiles ( std::vector<std::string>& out ) const;
 	void GetInstallFiles ( std::vector<std::string>& out ) const;
-	void GetNonModuleInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void GetModuleInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void GetInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void OutputInstallTarget ( const FileLocation& source, const FileLocation& target );
+	void GetNonModuleInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void GetModuleInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void GetInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void OutputInstallTarget ( const std::string& sourceFilename,
+	                           const std::string& targetFilename,
+	                           const std::string& targetDirectory );
 	void OutputNonModuleInstallTargets ();
 	void OutputModuleInstallTargets ();
 	std::string GetRegistrySourceFiles ();

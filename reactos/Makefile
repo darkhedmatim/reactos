@@ -38,7 +38,7 @@
 #        This can require several minutes to complete. If you only need to check
 #        dependencies for a single or few modules then you can use the
 #        module_depends targets instead. This target can also repair a damaged or
-#        missing makefile-{ROS_ARCH}.auto if needed.
+#        missing makefile.auto if needed.
 #
 #    module_depends
 #        These targets do a dependency check of individual modules. Replace module
@@ -65,13 +65,13 @@
 #        files are generated files that are needed to generate the final
 #        output files. Examples of intermediate files include *.o, *.a, and
 #        *.coff. N.B. Don't put a path separator at the end. The variable
-#        defaults to .\obj-{ROS_ARCH}.
+#        defaults to .\obj-i386.
 #
 #    ROS_OUTPUT
 #        This variable controls where to put output files. Output files are
 #        generated files that makes up the result of the build process.
 #        Examples of output files include *.exe, *.dll, and *.sys. N.B. Don't
-#        put a path separator at the end. The variable defaults to .\output-{ROS_ARCH}.
+#        put a path separator at the end. The variable defaults to .\output-i386.
 #
 #    ROS_CDOUTPUT
 #        This variable controls the name of the ReactOS directory on cdrom.
@@ -89,7 +89,7 @@
 #    ROS_INSTALL
 #        This variable controls where to install output files to when using
 #        'make install'. N.B. Don't put a path separator at the end. The variable
-#        defaults to .\{ROS_CDOUTPUT}.
+#        defaults to .\reactos.
 #
 #    ROS_BUILDMAP
 #        This variable controls if map files are to be generated for executable
@@ -147,12 +147,6 @@ endif
 .PHONY: world
 .PHONY: universe
 
-ifneq ($(ROS_ARCH),)
-  ARCH := $(ROS_ARCH)
-else
-  ARCH := i386
-endif
-
 ifeq ($(ROS_AUTOMAKE),)
 ROS_AUTOMAKE=makefile.auto
 endif
@@ -167,15 +161,15 @@ ifeq ($(word 1,$(shell gcc -dumpmachine)),mingw32)
 ifeq ($(findstring msys,$(shell sh --version 2>nul)),msys)
 export OSTYPE = msys
 HOST=mingw32-linux
-HOST_CFLAGS+=-fshort-wchar
-HOST_CPPFLAGS+=-fshort-wchar
+CFLAGS+=-fshort-wchar
+CPPFLAGS+=-fshort-wchar
 else
 HOST=mingw32-windows
 endif
 else
 HOST=mingw32-linux
-HOST_CFLAGS+=-fshort-wchar
-HOST_CPPFLAGS+=-fshort-wchar
+CFLAGS+=-fshort-wchar
+CPPFLAGS+=-fshort-wchar
 endif
 endif
 
@@ -333,17 +327,31 @@ else # mingw32-windows
 	endif
 endif
 
+ifneq ($(ROS_ARCH),)
+  ARCH := $(ROS_ARCH)
+else
+  ARCH := i386
+endif
+
 ifneq ($(ROS_INTERMEDIATE),)
   INTERMEDIATE := $(ROS_INTERMEDIATE)
 else
-  INTERMEDIATE := obj-$(ARCH)
+  ifneq ($(ROS_CDOUTPUT),)
+    INTERMEDIATE := obj-$(ROS_CDOUTPUT)
+  else
+    INTERMEDIATE := obj-$(ARCH)
+  endif
 endif
 INTERMEDIATE_ := $(INTERMEDIATE)$(SEP)
 
 ifneq ($(ROS_OUTPUT),)
   OUTPUT := $(ROS_OUTPUT)
 else
-  OUTPUT := output-$(ARCH)
+  ifneq ($(ROS_CDOUTPUT),)
+    OUTPUT := output-$(ROS_CDOUTPUT)
+  else
+    OUTPUT := output-$(ARCH)
+  endif
 endif
 OUTPUT_ := $(OUTPUT)$(SEP)
 
@@ -357,14 +365,18 @@ CDOUTPUT_ := $(CDOUTPUT)$(SEP)
 ifneq ($(ROS_TEMPORARY),)
   TEMPORARY := $(ROS_TEMPORARY)
 else
-  TEMPORARY := .
+  TEMPORARY :=
 endif
 TEMPORARY_ := $(TEMPORARY)$(SEP)
 
 ifneq ($(ROS_INSTALL),)
   INSTALL := $(ROS_INSTALL)
 else
-  INSTALL := $(CDOUTPUT)
+  ifneq ($(ROS_CDOUTPUT),)
+    INSTALL := reactos.$(ROS_CDOUTPUT)
+  else
+    INSTALL := reactos
+  endif
 endif
 INSTALL_ := $(INSTALL)$(SEP)
 
@@ -403,9 +415,6 @@ PREAUTO := \
 	$(ERRCODES_RC) \
 	$(GENDIB_DIB_FILES) \
 	$(NCI_SERVICE_FILES)
-ifeq ($(ARCH),powerpc)
-PREAUTO += $(OFW_INTERFACE_SERVICE_FILES) $(PPCMMU_TARGETS)
-endif
 
 $(ROS_AUTOMAKE): $(RBUILD_TARGET) $(PREAUTO) $(XMLBUILDFILES)
 	${mkdir} $(OUTPUT_)media$(SEP)inf 2>$(NUL)
@@ -435,9 +444,26 @@ universe:
 		world
 
 sysregtest:
-	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg
-	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg
-	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg
+	-mkdir $(OUTPUT_)cd$(SEP)reactos
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample boot$(SEP)bootdata$(SEP)unattend.inf
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+	$(cp) boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat.sample boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat
+	$(MAKE) dbgprint
+	$(MAKE) bootcdregtest
+	$(MAKE) sysreg
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg rosboot
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)secstage.cfg rosboot
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)runonce.cfg rosboot
+
+sysregtest_clean:
+	$(rm) boot$(SEP)bootdata$(SEP)unattend.inf
+	$(rm) boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat
+	$(rm) $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+
+regtest:
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+	$(MAKE) bootcdregtest
+	$(rm) $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
 
 .PHONY: cb
 cb: $(RBUILD_TARGET)

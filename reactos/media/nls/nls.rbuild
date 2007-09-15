@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
 <group>
 <cdfile base="$(CDOUTPUT)">c_437.nls</cdfile>
 <cdfile base="$(CDOUTPUT)">c_1252.nls</cdfile>

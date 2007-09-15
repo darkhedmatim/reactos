@@ -1,33 +1,6 @@
 #include "precomp.h"
 
 /*
- * Return the full scan size for a bitmap.
- * 
- * Based on Wine, Utils.c and Windows Graphics Prog pg 595
- */
-UINT
-FASTCALL
-DIB_BitmapMaxBitsSize( PBITMAPINFO Info, UINT ScanLines )
-{
-    UINT MaxBits = 0;
-    
-    if (Info->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
-    {
-       PBITMAPCOREHEADER Core = (PBITMAPCOREHEADER)Info;
-       MaxBits = Core->bcBitCount * Core->bcPlanes * Core->bcWidth;
-    }
-    else  /* assume BITMAPINFOHEADER */
-    {
-       if ((Info->bmiHeader.biCompression) && (Info->bmiHeader.biCompression != BI_BITFIELDS))
-           return Info->bmiHeader.biSizeImage;
-    // Planes are over looked by Yuan. I guess assumed always 1.    
-       MaxBits = Info->bmiHeader.biBitCount * Info->bmiHeader.biPlanes * Info->bmiHeader.biWidth;
-    }
-    MaxBits = ((MaxBits + 31) & ~31 ) / 8; // From Yuan, ScanLineSize = (Width * bitcount + 31)/32
-    return (MaxBits * ScanLines);  // ret the full Size.
-}
-
-/*
  * @implemented
  */
 HBITMAP STDCALL
@@ -135,43 +108,39 @@ CreateDiscardableBitmap(
    INT  Width,
    INT  Height)
 {
-   return  CreateCompatibleBitmap(hDC, Width, Height);
-}
-
-
-HBITMAP WINAPI
-CreateCompatibleBitmap(
-   HDC  hDC,
-   INT  Width,
-   INT  Height)
-{
-    /* FIXME some part shall be done in user mode */
    return  NtGdiCreateCompatibleBitmap(hDC, Width, Height);
 }
 
 
-
-
-
-INT 
-STDCALL
-GetDIBits(
+INT WINAPI
+SetDIBitsToDevice(
     HDC hDC,
-    HBITMAP hbmp,
-    UINT uStartScan,
-    UINT cScanLines,
-    LPVOID lpvBits,
-    LPBITMAPINFO lpbmi,
-    UINT uUsage
-         )
+    int XDest,
+    int YDest,
+    DWORD Width,
+    DWORD Height,
+    int XSrc,
+    int YSrc,
+    UINT StartScan,
+    UINT ScanLines,
+    CONST VOID *Bits,
+    CONST BITMAPINFO *lpbmi,
+    UINT ColorUse)
 {
-    return NtGdiGetDIBitsInternal(hDC,
-                                  hbmp,
-                                  uStartScan,
-                                  cScanLines,
-                                  lpvBits,
-                                  lpbmi,
-                                  uUsage,
-                                  DIB_BitmapMaxBitsSize( lpbmi, cScanLines ),
-                                  0);
+    return NtGdiSetDIBitsToDeviceInternal(hDC,
+                                          XDest,
+                                          YDest,
+                                          Width,
+                                          Height,
+                                          XSrc,
+                                          YSrc,
+                                          StartScan,
+                                          ScanLines,
+                                          (LPBYTE)Bits,
+                                          (LPBITMAPINFO)lpbmi,
+                                          ColorUse,
+                                          lpbmi->bmiHeader.biSizeImage,
+                                          lpbmi->bmiHeader.biSize,
+                                          FALSE,
+                                          NULL);
 }

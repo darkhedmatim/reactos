@@ -13,5 +13,4 @@
 #include "Fr.rc"
 #include "De.rc"
 #include "Gr.rc"
-#include "Uk.rc"
 #include "Ru.rc"

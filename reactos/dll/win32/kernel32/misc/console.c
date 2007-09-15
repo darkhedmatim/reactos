@@ -17,7 +17,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
 extern __declspec(noreturn) VOID CALLBACK ConsoleControlDispatcher(DWORD CodeAndFlag);

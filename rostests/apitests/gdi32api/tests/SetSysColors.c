@@ -1,3 +1,5 @@
+#include "../gdi32api.h"
+
 #define NUM_SYSCOLORS 31
 
 INT

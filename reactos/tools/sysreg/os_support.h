@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <signal.h>
-#include <sys/wait.h>
 #endif
 
 #include "user_types.h"
@@ -63,7 +62,7 @@ namespace System_
 ///
 ///
 
-		static ProcessID createProcess(TCHAR * procname, int procargsnum, TCHAR ** procargs, bool wait);
+		static ProcessID createProcess(TCHAR * procname, int procargsnum, TCHAR ** procargs);
 
 //---------------------------------------------------------------------------------------
 ///
@@ -77,16 +76,7 @@ namespace System_
 
 	static bool terminateProcess(ProcessID pid);
 
-
-//----------------------------------------------------------------------------------------
-///
-/// delayExecution
-///
-/// Description: this function sleeps the current process for the amount given in seconds
-///
-/// @param sec amount of seconds to sleep
-
-    static void delayExecution(long sec);
+    static void sleep(long value);
 
 	protected:
 //---------------------------------------------------------------------------------------

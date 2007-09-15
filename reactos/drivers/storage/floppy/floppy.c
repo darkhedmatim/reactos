@@ -674,27 +674,11 @@ static NTSTATUS NTAPI InitController(PCONTROLLER_INFO ControllerInfo)
   PAGED_CODE();
   ASSERT(ControllerInfo);
 
-  DPRINT("floppy: InitController called with Controller 0x%p\n", ControllerInfo);
+  DPRINT("floppy: InitController called with Controller 0x%x\n", ControllerInfo);
 
   KeClearEvent(&ControllerInfo->SynchEvent);
 
   DPRINT("floppy: InitController: resetting the controller\n");
-
-  /* Reset the controller */
-  if(HwReset(ControllerInfo) != STATUS_SUCCESS)
-    {
-      DPRINT("floppy: InitController: unable to reset controller\n");
-      return STATUS_IO_DEVICE_ERROR;
-    }
-
-/* Check if floppy drive exists */
-  if(HwSenseInterruptStatus(ControllerInfo) != STATUS_SUCCESS)
-	{
-	  DPRINT("floppy: Floppy drive not detected! Returning STATUS_IO_DEVICE_ERROR\n");
-	  return STATUS_IO_DEVICE_ERROR;
-	}
-
-DPRINT("floppy: InitController: resetting the controller after floppy detection\n");
 
   /* Reset the controller */
   if(HwReset(ControllerInfo) != STATUS_SUCCESS)
@@ -801,7 +785,7 @@ DPRINT("floppy: InitController: resetting the controller after floppy detection\
    */
   for(i = 0; i < ControllerInfo->NumberOfDrives; i++)
     {
-      DPRINT("floppy: InitController: recalibrating drive 0x%x on controller 0x%p\n", i, ControllerInfo);
+      DPRINT("floppy: InitController: recalibrating drive 0x%x on controller 0x%x\n", i, ControllerInfo);
       Recalibrate(&ControllerInfo->DriveInfo[i]);
     }
 
@@ -865,7 +849,7 @@ static BOOLEAN NTAPI AddControllers(PDRIVER_OBJECT DriverObject)
       /* Must set up the DPC before we connect the interrupt */
       KeInitializeDpc(&gControllerInfo[i].Dpc, DpcForIsr, &gControllerInfo[i]);
 
-      DPRINT("floppy: Connecting interrupt %d to controller%d (object 0x%p)\n", gControllerInfo[i].MappedVector,
+      DPRINT("floppy: Connecting interrupt %d to controller%d (object 0x%x)\n", gControllerInfo[i].MappedVector,
 	       i, &gControllerInfo[i]);
 
       /* NOTE: We cannot share our interrupt, even on level-triggered buses.  See Isr() for details. */
@@ -932,10 +916,8 @@ static BOOLEAN NTAPI AddControllers(PDRIVER_OBJECT DriverObject)
 	   * 14: 3,2
 	   * 15: 3,3
 	   */
-
 	  DriveNumber = (UCHAR)(i*4 + j); /* loss of precision is OK; there are only 16 of 'em */
 
-	  RtlZeroMemory(&DeviceNameBuf, MAX_DEVICE_NAME * sizeof(WCHAR));
           swprintf(DeviceNameBuf, L"\\Device\\Floppy%d", DriveNumber);
           RtlInitUnicodeString(&DeviceName, DeviceNameBuf);
 
@@ -948,7 +930,7 @@ static BOOLEAN NTAPI AddControllers(PDRIVER_OBJECT DriverObject)
               continue; /* continue on to next drive */
             }
 
-	  DPRINT("floppy: AddControllers: New device: %S (0x%p)\n", DeviceNameBuf, gControllerInfo[i].DriveInfo[j].DeviceObject);
+	  DPRINT("floppy: AddControllers: New device: %S (0x%x)\n", DeviceNameBuf, gControllerInfo[i].DriveInfo[j].DeviceObject);
 
 	  /* 3b.5: Create an ARC path in case we're booting from this drive */
 	  swprintf(gControllerInfo[i].DriveInfo[j].ArcPathBuffer,

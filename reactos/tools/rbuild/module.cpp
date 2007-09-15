@@ -137,7 +137,7 @@ GetSubPath (
 	return FixSeparator(path + cSep + att_value);
 }
 
-static string
+string
 GetExtension ( const string& filename )
 {
 	size_t index = filename.find_last_of ( '/' );
@@ -150,9 +150,23 @@ GetExtension ( const string& filename )
 }
 
 string
-GetExtension ( const FileLocation& file )
+GetDirectory ( const string& filename )
 {
-	return GetExtension ( file.name );
+	size_t index = filename.find_last_of ( cSep );
+	if ( index == string::npos )
+		return "";
+	else
+		return filename.substr ( 0, index );
+}
+
+string
+GetFilename ( const string& filename )
+{
+	size_t index = filename.find_last_of ( cSep );
+	if ( index == string::npos )
+		return filename;
+	else
+		return filename.substr ( index + 1, filename.length () - index );
 }
 
 string
@@ -251,6 +265,8 @@ Module::Module ( const Project& project,
 
 	xmlbuildFile = Path::RelativeFromWorkingDirectory ( moduleNode.xmlFile->filename () );
 
+	path = FixSeparator ( modulePath );
+
 	enabled = true;
 
 	const XMLAttribute* att = moduleNode.GetAttribute ( "if", false );
@@ -274,10 +290,6 @@ Module::Module ( const Project& project,
 		extension = att->value;
 	else
 		extension = GetDefaultModuleExtension ();
-
-	output = new FileLocation ( GetTargetDirectoryTree (),
-	                            modulePath,
-	                            name + extension );
 
 	att = moduleNode.GetAttribute ( "unicode", false );
 	if ( att != NULL )
@@ -418,16 +430,17 @@ Module::Module ( const Project& project,
 	if ( att != NULL )
 		prefix = att->value;
 
+	att = moduleNode.GetAttribute ( "installbase", false );
+	if ( att != NULL )
+		installBase = att->value;
+	else
+		installBase = "";
+
 	att = moduleNode.GetAttribute ( "installname", false );
 	if ( att != NULL )
-	{
-		const XMLAttribute* installbase = moduleNode.GetAttribute ( "installbase", false );
-		install = new FileLocation ( InstallDirectory,
-		                             installbase ? installbase->value : "",
-		                             att->value );
-	}
+		installName = att->value;
 	else
-		install = NULL;
+		installName = "";
 
 	att = moduleNode.GetAttribute ( "usewrc", false );
 	if ( att != NULL )
@@ -461,21 +474,6 @@ Module::Module ( const Project& project,
 		att = moduleNode.GetAttribute ( "payload", true );
 		payload = att->value;
 	}
-
-	if ( type == BootProgram || type == ElfExecutable )
-	{
-		att = moduleNode.GetAttribute ( "buildtype", false );
-		if ( att != NULL )
-		{
-			buildtype = att->value;
-		}
-		else
-		{
-			buildtype = "BOOTPROG";
-		}
-	}
-
-	SetImportLibrary ( NULL );
 }
 
 Module::~Module ()
@@ -524,7 +522,7 @@ Module::ProcessXML()
 	for ( i = 0; i < node.subElements.size(); i++ )
 	{
 		ParseContext parseContext;
-		ProcessXMLSubElement ( *node.subElements[i], SourceDirectory, output->relative_path, parseContext );
+		ProcessXMLSubElement ( *node.subElements[i], path, "", parseContext );
 	}
 	for ( i = 0; i < invocations.size(); i++ )
 		invocations[i]->ProcessXML ();
@@ -547,15 +545,15 @@ Module::ProcessXML()
 
 void
 Module::ProcessXMLSubElement ( const XMLElement& e,
-                               DirectoryLocation directory,
-	                           const string& relative_path,
+                               const string& path,
+                               const string& path_prefix,
                                ParseContext& parseContext )
 {
 	If* pOldIf = parseContext.ifData;
 	CompilationUnit* pOldCompilationUnit = parseContext.compilationUnit;
 	bool subs_invalid = false;
-	string subpath ( relative_path );
-	DirectoryLocation subdirectory = SourceDirectory;
+	string subpath ( path );
+	string subpath_prefix ( "" );
 	if ( e.name == "file" && e.value.size () > 0 )
 	{
 		bool first = false;
@@ -586,9 +584,8 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 			else if ( !stricmp ( ext.c_str(), ".cxx" ) )
 				cplusplus = true;
 		}
-		File* pFile = new File ( directory,
-		                         relative_path,
-		                         e.value,
+		File* pFile = new File ( FixSeparator ( path + cSep + e.value ),
+		                         path_prefix,
 		                         first,
 		                         switches,
 		                         false );
@@ -631,9 +628,9 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		if ( root )
 		{
 			if ( root->value == "intermediate" )
-				subdirectory = IntermediateDirectory;
+				subpath_prefix = "$(INTERMEDIATE)";
 			else if ( root->value == "output" )
-				subdirectory = OutputDirectory;
+				subpath_prefix = "$(OUTPUT)";
 			else
 			{
 				throw InvalidAttributeValueException (
@@ -642,11 +639,11 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 					root->value );
 			}
 		}
-		subpath = GetSubPath ( this->project, e.location, relative_path, att->value );
+		subpath = GetSubPath ( this->project, e.location, path, att->value );
 	}
 	else if ( e.name == "include" )
 	{
-		Include* include = new Include ( project, &e, this );
+		Include* include = new Include ( project, this, &e );
 		if ( parseContext.ifData )
 			parseContext.ifData->data.includes.push_back ( include );
 		else
@@ -709,7 +706,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 				e.location,
 				"Only one <importlibrary> is valid per module" );
 		}
-		SetImportLibrary ( new ImportLibrary ( project, e, *this ) );
+		importLibrary = new ImportLibrary ( e, *this );
 		subs_invalid = true;
 	}
 	else if ( e.name == "if" )
@@ -785,19 +782,8 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 				e.location,
 				"Only one <pch> is valid per module" );
 		}
-		size_t pos = e.value.find_last_of ( "/\\" );
-		if ( pos == string::npos )
-		{
-			pch = new PchFile (
-				e, *this, FileLocation ( SourceDirectory, relative_path, e.value ) );
-		}
-		else
-		{
-			string dir = e.value.substr ( 0, pos );
-			string name = e.value.substr ( pos + 1);
-			pch = new PchFile (
-				e, *this, FileLocation ( SourceDirectory, relative_path + sSep + dir, name ) );
-		}
+		pch = new PchFile (
+			e, *this, File ( FixSeparator ( path + cSep + e.value ), false, "", true ) );
 		subs_invalid = true;
 	}
 	else if ( e.name == "compilationunit" )
@@ -833,7 +819,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 			e.name.c_str() );
 	}
 	for ( size_t i = 0; i < e.subElements.size (); i++ )
-		ProcessXMLSubElement ( *e.subElements[i], subdirectory, subpath, parseContext );
+		ProcessXMLSubElement ( *e.subElements[i], subpath, subpath_prefix, parseContext );
 	parseContext.ifData = pOldIf;
 	parseContext.compilationUnit = pOldCompilationUnit;
 }
@@ -893,52 +879,9 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return IdlHeader;
 	if ( attribute.value == "embeddedtypelib" )
 		return EmbeddedTypeLib;
-	if ( attribute.value == "elfexecutable" )
-		return ElfExecutable;
 	throw InvalidAttributeValueException ( location,
 	                                       attribute.name,
 	                                       attribute.value );
-}
-
-DirectoryLocation
-Module::GetTargetDirectoryTree () const
-{
-	switch ( type )
-	{
-		case Kernel:
-		case KernelModeDLL:
-		case NativeDLL:
-		case Win32DLL:
-		case Win32OCX:
-		case KernelModeDriver:
-		case NativeCUI:
-		case Win32CUI:
-		case Test:
-		case Win32SCR:
-		case Win32GUI:
-		case BuildTool:
-		case BootLoader:
-		case BootSector:
-		case BootProgram:
-		case Iso:
-		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
-		case EmbeddedTypeLib:
-		case ElfExecutable:
-			return OutputDirectory;
-		case StaticLibrary:
-		case ObjectLibrary:
-		case RpcServer:
-		case RpcClient:
-		case Alias:
-		case IdlHeader:
-			return IntermediateDirectory;
-	}
-	throw InvalidOperationException ( __FILE__,
-	                                  __LINE__,
-	                                  "Invalid module type %d.",
-	                                  type );
 }
 
 string
@@ -948,7 +891,6 @@ Module::GetDefaultModuleExtension () const
 	{
 		case BuildTool:
 			return ExePostfix;
-		case BootProgram:
 		case StaticLibrary:
 			return ".a";
 		case ObjectLibrary:
@@ -984,7 +926,7 @@ Module::GetDefaultModuleExtension () const
 		case RpcClient:
 			return ".o";
 		case Alias:
-		case ElfExecutable:
+		case BootProgram:
 		case IdlHeader:
 			return "";
 		case EmbeddedTypeLib:
@@ -1037,7 +979,6 @@ Module::GetDefaultModuleEntrypoint () const
 		case Alias:
 		case BootProgram:
 		case IdlHeader:
-		case ElfExecutable:
 		case EmbeddedTypeLib:
 			return "";
 	}
@@ -1051,7 +992,7 @@ Module::GetDefaultModuleBaseaddress () const
 	switch ( type )
 	{
 		case Kernel:
-			return "0x80800000";
+			return "0x80000000";
 		case Win32DLL:
 		case Win32OCX:
 			return "0x10000000";
@@ -1066,8 +1007,6 @@ Module::GetDefaultModuleBaseaddress () const
 		case KernelModeDLL:
 		case KernelModeDriver:
 			return "0x00010000";
-		case ElfExecutable:
-			return "0xe00000";
 		case BuildTool:
 		case StaticLibrary:
 		case ObjectLibrary:
@@ -1127,7 +1066,44 @@ Module::IsDLL () const
 		case Alias:
 		case IdlHeader:
 		case EmbeddedTypeLib:
-		case ElfExecutable:
+			return false;
+	}
+	throw InvalidOperationException ( __FILE__,
+	                                  __LINE__ );
+}
+
+bool
+Module::GenerateInOutputTree () const
+{
+	switch ( type )
+	{
+		case Kernel:
+		case KernelModeDLL:
+		case NativeDLL:
+		case Win32DLL:
+		case Win32OCX:
+		case KernelModeDriver:
+		case NativeCUI:
+		case Win32CUI:
+		case Test:
+		case Win32SCR:
+		case Win32GUI:
+		case BuildTool:
+		case BootLoader:
+		case BootSector:
+		case BootProgram:
+		case Iso:
+		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
+		case EmbeddedTypeLib:
+			return true;
+		case StaticLibrary:
+		case ObjectLibrary:
+		case RpcServer:
+		case RpcClient:
+		case Alias:
+		case IdlHeader:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -1135,15 +1111,45 @@ Module::IsDLL () const
 }
 
 string
+Module::GetTargetName () const
+{
+	return name + extension;
+}
+
+string
+Module::GetDependencyPath () const
+{
+	if ( HasImportLibrary () )
+		return ReplaceExtension ( GetPathWithPrefix ( "lib" ), ".a" );
+	else
+		return GetPath();
+}
+
+string
+Module::GetBasePath () const
+{
+	return path;
+}
+
+string
+Module::GetPath () const
+{
+	if ( path.length() > 0 )
+		return path + cSep + GetTargetName ();
+	else
+		return GetTargetName ();
+}
+
+string
 Module::GetPathWithPrefix ( const string& prefix ) const
 {
-	return output->relative_path + cSep + prefix + output->name;
+	return path + cSep + prefix + GetTargetName ();
 }
 
 string
 Module::GetPathToBaseDir () const
 {
-	string temp_path = output->relative_path;
+	string temp_path = path;
 	string result = "..\\";
 	while(temp_path.find ('\\') != string::npos)
 	{
@@ -1200,7 +1206,7 @@ Module::InvokeModule () const
 	for ( size_t i = 0; i < invocations.size (); i++ )
 	{
 		Invoke& invoke = *invocations[i];
-		string command = FixSeparatorForSystemCommand(invoke.invokeModule->output->relative_path + "/" + invoke.invokeModule->output->name ) + " " + invoke.GetParameters ();
+		string command = FixSeparatorForSystemCommand(invoke.invokeModule->GetPath ()) + " " + invoke.GetParameters ();
 		printf ( "Executing '%s'\n\n", command.c_str () );
 		int exitcode = system ( command.c_str () );
 		if ( exitcode != 0 )
@@ -1210,29 +1216,31 @@ Module::InvokeModule () const
 }
 
 
-void
-Module::SetImportLibrary ( ImportLibrary* importLibrary )
-{
-	this->importLibrary = importLibrary;
-	dependency = new FileLocation ( IntermediateDirectory,
-	                                output->relative_path,
-	                                HasImportLibrary () ? "lib" + name + ".a" : output->name );
-}
-
-
-File::File ( DirectoryLocation directory,
-             const string& relative_path,
-             const string& name,
+File::File ( const string& _name,
              bool _first,
-             const string& _switches,
+             std::string _switches,
              bool _isPreCompiledHeader )
-	: file ( directory, relative_path, name ),
+	: name(_name),
+	  path_prefix(""),
 	  first(_first),
 	  switches(_switches),
 	  isPreCompiledHeader(_isPreCompiledHeader)
 {
 }
 
+
+File::File ( const string& _name,
+             const string& _path_prefix,
+             bool _first,
+             std::string _switches,
+             bool _isPreCompiledHeader )
+	: name(_name),
+	  path_prefix(_path_prefix),
+	  first(_first),
+	  switches(_switches),
+	  isPreCompiledHeader(_isPreCompiledHeader)
+{
+}
 
 void
 File::ProcessXML()
@@ -1242,26 +1250,10 @@ File::ProcessXML()
 
 std::string File::GetFullPath () const
 {
-	string directory ( "" );
-	switch ( file.directory )
-	{
-		case SourceDirectory:
-			break;
-		case IntermediateDirectory:
-			directory = Environment::GetIntermediatePath () + sSep;
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  file.directory );
-	}
-
-	if ( file.relative_path.length () > 0 )
-		directory += file.relative_path + sSep;
-
-
-	return directory + file.name;
+	if ( path_prefix.length () > 0 )
+		return path_prefix + sSep + name;
+	else
+		return name;
 }
 
 
@@ -1373,7 +1365,7 @@ Invoke::ProcessXMLSubElementInput ( const XMLElement& e )
 	if ( e.name == "inputfile" && e.value.size () > 0 )
 	{
 		input.push_back ( new InvokeFile (
-			e, FixSeparator ( module.output->relative_path + cSep + e.value ) ) );
+			e, FixSeparator ( module.path + cSep + e.value ) ) );
 		subs_invalid = true;
 	}
 	if ( subs_invalid && e.subElements.size() > 0 )
@@ -1392,7 +1384,7 @@ Invoke::ProcessXMLSubElementOutput ( const XMLElement& e )
 	if ( e.name == "outputfile" && e.value.size () > 0 )
 	{
 		output.push_back ( new InvokeFile (
-			e, FixSeparator ( module.output->relative_path + cSep + e.value ) ) );
+			e, FixSeparator ( module.path + cSep + e.value ) ) );
 		subs_invalid = true;
 	}
 	if ( subs_invalid && e.subElements.size() > 0 )
@@ -1544,43 +1536,35 @@ Metadata::Metadata ( const XMLElement& _node,
 }
 
 
-ImportLibrary::ImportLibrary ( const Project& project,
-                               const XMLElement& node,
-                               const Module& module )
-	: XmlNode ( project, node ),
-	  module (module)
+ImportLibrary::ImportLibrary ( const XMLElement& _node,
+                               const Module& _module )
+	: node (_node),
+	  module (_module)
 {
-	const XMLAttribute* dllname = node.GetAttribute ( "dllname", false );
-	const XMLAttribute* definition = node.GetAttribute ( "definition", true );
-	assert ( definition );
+	const XMLAttribute* att = _node.GetAttribute ( "basename", false );
+	if (att != NULL)
+		basename = att->value;
+	else
+		basename = module.name;
 
-	if ( dllname )
-		this->dllname = dllname->value;
-	else if ( module.type == StaticLibrary )
-		throw XMLInvalidBuildFileException (
-		    node.location,
-		    "<importlibrary> dllname attribute required." );
-
-	DirectoryLocation directory = SourceDirectory;
-	size_t index = definition->value.rfind ( ".spec.def" );
-	if ( index != string::npos )
-		directory = IntermediateDirectory;
-
-	index = definition->value.find_last_of ( "/\\" );
-	if ( index == string::npos )
-	{
-		source = new FileLocation ( directory,
-		                            module.output->relative_path,
-		                            definition->value );
-	}
+	att = _node.GetAttribute ( "dllname", false );
+	if (att != NULL)
+		dllname = att->value;
 	else
 	{
-		string dir = definition->value.substr ( 0, index );
-		string name = definition->value.substr ( index + 1);
-		source = new FileLocation ( directory,
-		                            NormalizeFilename ( module.output->relative_path + sSep + dir ),
-		                            name );
+		if ( _module.type == StaticLibrary )
+		{
+			throw XMLInvalidBuildFileException (
+			    node.location,
+			    "<importlibrary> dllname attribute required." );
+		}
+
+		dllname = "";
 	}
+
+	att = _node.GetAttribute ( "definition", true );
+	assert (att);
+	definition = FixSeparator(att->value);
 }
 
 
@@ -1645,12 +1629,101 @@ Property::ProcessXML()
 PchFile::PchFile (
 	const XMLElement& node_,
 	const Module& module_,
-	const FileLocation& file_ )
+	const File file_ )
 	: node(node_), module(module_), file(file_)
 {
 }
 
 void
 PchFile::ProcessXML()
+{
+}
+
+
+AutoRegister::AutoRegister ( const Project& project_,
+                             const Module* module_,
+                             const XMLElement& node_ )
+	: project(project_),
+	  module(module_),
+	  node(node_)
+{
+	Initialize();
+}
+
+AutoRegister::~AutoRegister ()
+{
+}
+
+bool
+AutoRegister::IsSupportedModuleType ( ModuleType type )
+{
+	switch ( type )
+	{
+		case Win32DLL:
+		case Win32OCX:
+			return true;
+		case Kernel:
+		case KernelModeDLL:
+		case NativeDLL:
+		case NativeCUI:
+		case Win32CUI:
+		case Win32GUI:
+		case Win32SCR:
+		case KernelModeDriver:
+		case BootSector:
+		case BootLoader:
+		case BootProgram:
+		case BuildTool:
+		case StaticLibrary:
+		case ObjectLibrary:
+		case Iso:
+		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
+		case Test:
+		case RpcServer:
+		case RpcClient:
+		case Alias:
+		case IdlHeader:
+		case EmbeddedTypeLib:
+			return false;
+	}
+	throw InvalidOperationException ( __FILE__,
+	                                  __LINE__ );
+}
+
+AutoRegisterType
+AutoRegister::GetAutoRegisterType( string type )
+{
+	if ( type == "DllRegisterServer" )
+		return DllRegisterServer;
+	if ( type == "DllInstall" )
+		return DllInstall;
+	if ( type == "Both" )
+		return Both;
+	throw XMLInvalidBuildFileException (
+		node.location,
+		"<autoregister> type attribute must be DllRegisterServer, DllInstall or Both." );
+}
+
+void
+AutoRegister::Initialize ()
+{
+	if ( !IsSupportedModuleType ( module->type ) )
+	{
+		throw XMLInvalidBuildFileException (
+			node.location,
+			"<autoregister> is not applicable for this module type." );
+	}
+
+	const XMLAttribute* att = node.GetAttribute ( "infsection", true );
+	infSection = att->value;
+
+	att = node.GetAttribute ( "type", true );
+	type = GetAutoRegisterType ( att->value );
+}
+
+void
+AutoRegister::ProcessXML()
 {
 }

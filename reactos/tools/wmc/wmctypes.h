@@ -22,7 +22,9 @@
 #define __WMC_WMCTYPES_H
 
 #include <stdarg.h>
-#include <host/typedefs.h>
+#include <typedefs64.h>
+#include "windef.h"
+#include "winbase.h"
 
 /* Byteordering defines */
 #define WMC_BO_NATIVE	0x00

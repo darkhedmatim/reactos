@@ -51,6 +51,8 @@
 #define IDS_TOOLTIP_STOP    6006
 #define IDS_TOOLTIP_PAUSE   6007
 #define IDS_TOOLTIP_RESTART 6008
+#define IDS_TOOLTIP_HELP    6009
+#define IDS_TOOLTIP_EXIT    6010
 
 #define IDS_SERVICES_STARTED 5000
 #define IDS_SERVICES_STOPPED 5001
@@ -71,6 +73,8 @@
 #define IDB_STOP            10006
 #define IDB_PAUSE           10007
 #define IDB_RESTART         10008
+#define IDB_HELP            10009
+#define IDB_EXIT            10010
 
 /* toolbar buttons */
 #define TBICON_PROP         0
@@ -82,6 +86,8 @@
 #define TBICON_STOP         6
 #define TBICON_PAUSE        7
 #define TBICON_RESTART      8
+#define TBICON_HELP         9
+#define TBICON_EXIT         10
 
 
 /* menu hints */
@@ -121,18 +127,17 @@
 
 /* properties dialog */
 #define IDD_DLG_GENERAL     10001
-#define IDC_SERV_NAME       10002
-#define IDC_DISP_NAME       10003
-#define IDC_DESCRIPTION     10004
-#define IDC_EXEPATH         10005
-#define IDC_START_TYPE      10006
-#define IDC_SERV_STATUS     10007
-#define IDC_START_PARAM     10008
-#define IDC_EDIT            10009
-#define IDC_START           10101
-#define IDC_STOP            10102
-#define IDC_PAUSE           10103
-#define IDC_RESUME          10104
+#define IDC_SERV_NAME       10041
+#define IDC_DISP_NAME       10051
+#define IDC_DESCRIPTION     10061
+#define IDC_EXEPATH         10062
+#define IDC_START_TYPE      10101
+#define IDC_SERV_STATUS     10121
+#define IDC_START           10131
+#define IDC_STOP            10141
+#define IDC_PAUSE           10151
+#define IDC_RESUME          10161
+#define IDC_START_PARAM     10191
 
 /* dependancies dialog */
 #define IDD_DLG_DEPEND      20001
@@ -162,15 +167,14 @@
 #define IDC_DEL_NAME        9002
 #define IDC_DEL_DESC        9003
 #define IDS_DELETE_STOP     9010
-#define IDS_DELETE_SUCCESS  9011
 
 
 /* progress bar */
-#define IDD_DLG_PROGRESS         7000
-#define IDC_SERVCON_PROGRESS     7001
-#define IDC_SERVCON_INFO         7002
-#define IDC_SERVCON_NAME         7003
-#define IDS_PROGRESS_INFO_START  7004
-#define IDS_PROGRESS_INFO_STOP   7005
-#define IDS_PROGRESS_INFO_PAUSE  7006
-#define IDS_PROGRESS_INFO_RESUME 7007
+#define IDD_DLG_PROGRESS    7000
+#define IDC_SERVCON_PROGRESS 7001
+#define IDC_SERVCON_INFO    7002
+#define IDC_SERVCON_NAME    7003
+#define IDS_PROGRESS_INFO_START 7004
+#define IDS_PROGRESS_INFO_STOP 7005
+
+

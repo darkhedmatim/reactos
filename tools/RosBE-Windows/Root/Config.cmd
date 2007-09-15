@@ -90,7 +90,7 @@ if exist "%ROSBEBASEDIR%\config.rbuild" (
         echo *** config.template.rbuild is newer than working config.rbuild ***
         echo *** The Editor cannot continue with this file. Do you wanna    ***
         echo *** update to the most recent one? You need to reset all your  ***
-        echo *** previously made settings.                                  ***
+        cho  *** previously made settings.                                  ***
         echo.
         SET /P XY="(yes), (no)"
         if /I "%XY%"=="yes" del "%ROSBEBASEDIR%\*.rbuild" | del "config.rbuild" | copy "config.template.rbuild" "%ROSBEBASEDIR%\config.rbuild" | goto :OK
@@ -102,6 +102,12 @@ if exist "%ROSBEBASEDIR%\config.rbuild" (
 ::
 :: Start with reading settings from config.rbuild and let the user edit them.
 ::
+echo Architecture to build for. Not Editable.
+echo.
+echo Right now
+grep \"ARCH\" "%ROSBEBASEDIR%\config.rbuild"|cut -d "\"" -f 4
+echo.
+
 echo Sub-architecture to build for.
 echo Default is: none
 echo.
@@ -185,6 +191,15 @@ echo Right now
 grep \"NSWPAT\" "%ROSBEBASEDIR%\config.rbuild"|cut -d "\"" -f 4
 SET /P D="(0), (1)"
 sed "s/\"NSWPAT\" value=\"[0-1]\"/\"NSWPAT\" value=\"%D%\"/g" "%ROSBEBASEDIR%\config7.rbuild" > "%ROSBEBASEDIR%\config8.rbuild"
+cls
+
+echo Whether to compile with NT-compatible LPC Semantics. This should
+echo always be 1.
+echo.
+echo Right now
+grep \"NTLPC\" "%ROSBEBASEDIR%\config.rbuild"|cut -d "\"" -f 4
+SET /P E="(0), (1)"
+sed "s/\"NTLPC\" value=\"[0-1]\"/\"NTLPC\" value=\"%E%\"/g" "%ROSBEBASEDIR%\config8.rbuild" > "%ROSBEBASEDIR%\config9.rbuild"
 cls
 
 echo Whether to compile with the KD protocol. This will disable support for

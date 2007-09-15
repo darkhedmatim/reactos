@@ -188,7 +188,7 @@ DestroyPartitionList (PPARTLIST List);
 VOID
 DrawPartitionList (PPARTLIST List);
 
-DWORD
+VOID
 SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber);
 
 BOOL

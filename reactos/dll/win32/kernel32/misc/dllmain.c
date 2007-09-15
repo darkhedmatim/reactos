@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS *******************************************************************/
 
@@ -66,7 +66,10 @@ OpenBaseDirectory(PHANDLE DirHandle)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING Name = RTL_CONSTANT_STRING(L"\\BaseNamedObjects");
+    UNICODE_STRING SymName = RTL_CONSTANT_STRING(L"Local");
+    UNICODE_STRING SymName2 = RTL_CONSTANT_STRING(L"Global");
     NTSTATUS Status;
+    HANDLE SymHandle;
 
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,
@@ -80,7 +83,44 @@ OpenBaseDirectory(PHANDLE DirHandle)
                                    &ObjectAttributes);
     if (!NT_SUCCESS(Status))
     {
-        return Status;
+        /* FIXME: It's not our job to create the BNO directory, csr does it */
+        Status = NtCreateDirectoryObject(DirHandle,
+                                         DIRECTORY_ALL_ACCESS,
+                                         &ObjectAttributes);
+        if (!NT_SUCCESS(Status))
+        {
+            DPRINT1("NtCreateDirectoryObject() failed\n");
+        }
+
+        /* Create the "local" Symbolic Link. FIXME: CSR should do this */
+        InitializeObjectAttributes(&ObjectAttributes,
+                                   &SymName,
+                                   OBJ_CASE_INSENSITIVE,
+                                   *DirHandle,
+                                   NULL);
+        Status = NtCreateSymbolicLinkObject(&SymHandle,
+                                            SYMBOLIC_LINK_ALL_ACCESS,
+                                            &ObjectAttributes,
+                                            &Name);
+        if (!NT_SUCCESS(Status))
+        {
+            DPRINT1("NtCreateSymbolicLinkObject() failed\n");
+        }
+
+        /* Create the "global" Symbolic Link. FIXME: CSR should do this */
+        InitializeObjectAttributes(&ObjectAttributes,
+                                   &SymName2,
+                                   OBJ_CASE_INSENSITIVE,
+                                   *DirHandle,
+                                   NULL);
+        Status = NtCreateSymbolicLinkObject(&SymHandle,
+                                            SYMBOLIC_LINK_ALL_ACCESS,
+                                            &ObjectAttributes,
+                                            &Name);
+        if (!NT_SUCCESS(Status))
+        {
+            DPRINT1("NtCreateSymbolicLinkObject() failed\n");
+        }
     }
 
     DPRINT("Opened BNO: %lx\n", *DirHandle);
@@ -257,7 +297,6 @@ DllMain(HANDLE hDll,
     {
         case DLL_PROCESS_ATTACH:
 
-#ifdef _M_IX86
         /* OK, yes, this is really retarded but it works for now */
         InWindows = NtCurrentPeb()->BeingDebugged;
 
@@ -291,7 +330,6 @@ DllMain(HANDLE hDll,
                 *Eip = (ULONG)BaseProcessStartThunk;
             }
         }
-#endif
 
         /* Don't bother us for each thread */
         LdrDisableThreadCalloutsForDll((PVOID)hDll);

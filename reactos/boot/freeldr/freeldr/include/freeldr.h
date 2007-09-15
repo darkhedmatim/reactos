@@ -87,13 +87,8 @@
 #include <reactos/helper.h>
 /* Needed if debuging is enabled */
 #include <comm.h>
-/* Swap */
-#include <bytesex.h>
 
-/* arch defines */
-#ifdef _X86_
 #define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
-#endif
 
 extern BOOLEAN UserInterfaceUp;	/* Tells us if the user interface is displayed */
 

@@ -27,13 +27,9 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
     CONTEXT Context;
     NTSTATUS Status;
 
-    /* Capture the context */
+    /* Capture the context and fixup ESP */
     RtlCaptureContext(&Context);
-
-#ifdef _M_IX86
-    /* Fixup ESP */
     Context.Esp += sizeof(ULONG);
-#endif
 
     /* Save the exception address */
     ExceptionRecord->ExceptionAddress = RtlpGetExceptionAddress();
@@ -79,10 +75,8 @@ RtlRaiseStatus(NTSTATUS Status)
      /* Capture the context */
     RtlCaptureContext(&Context);
 
-#ifdef _M_IX86
     /* Add one argument to ESP */
     Context.Esp += sizeof(PVOID);
-#endif
 
     /* Create an exception record */
     ExceptionRecord.ExceptionAddress = RtlpGetExceptionAddress();
@@ -129,18 +123,10 @@ RtlWalkFrameChain(OUT PVOID *Callers,
     ULONG i = 0;
 
     /* Get current EBP */
-#if defined(_M_IX86)
 #if defined __GNUC__
     __asm__("mov %%ebp, %0" : "=r" (Stack) : );
 #elif defined(_MSC_VER)
     __asm mov Stack, ebp
-#endif
-#elif defined(_M_MIPS)
-    __asm__("move $sp, %0" : "=r" (Stack) : );
-#elif defined(_M_PPC)
-    __asm__("mr %0,1" : "=r" (Stack) : );
-#else
-#error Unknown architecture
 #endif
 
     /* Set it as the stack begin limit as well */

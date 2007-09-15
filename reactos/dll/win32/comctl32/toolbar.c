@@ -44,7 +44,7 @@
  *     - TBN_GETOBJECT
  *     - TBN_SAVE
  *   - Button wrapping (under construction).
- *   - Fix TB_SETROWS and Separators.
+ *   - Fix TB_SETROWS.
  *   - iListGap custom draw support.
  *
  * Testing:
@@ -2669,7 +2669,33 @@ TOOLBAR_AddBitmapToImageList(TOOLBAR_INFO *infoPtr, HIMAGELIST himlDef, const TB
     TRACE("adding hInst=%p nID=%d nButtons=%d\n", bitmap->hInst, bitmap->nID, bitmap->nButtons);
     /* Add bitmaps to the default image list */
     if (bitmap->hInst == NULL)         /* a handle was passed */
-        hbmLoad = (HBITMAP)CopyImage(ULongToHandle(bitmap->nID), IMAGE_BITMAP, 0, 0, 0);
+    {
+       BITMAP  bmp;
+       HBITMAP hOldBitmapBitmap, hOldBitmapLoad;
+       HDC     hdcImage, hdcBitmap;
+
+       /* copy the bitmap before adding it so that the user's bitmap
+        * doesn't get modified.
+        */
+       GetObjectW ((HBITMAP)bitmap->nID, sizeof(BITMAP), (LPVOID)&bmp);
+
+       hdcImage  = CreateCompatibleDC(0);
+       hdcBitmap = CreateCompatibleDC(0);
+
+       /* create new bitmap */
+       hbmLoad = CreateBitmap (bmp.bmWidth, bmp.bmHeight, bmp.bmPlanes, bmp.bmBitsPixel, NULL);
+       hOldBitmapBitmap = SelectObject(hdcBitmap, (HBITMAP)bitmap->nID);
+       hOldBitmapLoad = SelectObject(hdcImage, hbmLoad);
+
+       /* Copy the user's image */
+       BitBlt (hdcImage, 0, 0, bmp.bmWidth, bmp.bmHeight,
+               hdcBitmap, 0, 0, SRCCOPY);
+
+       SelectObject (hdcImage, hOldBitmapLoad);
+       SelectObject (hdcBitmap, hOldBitmapBitmap);
+       DeleteDC (hdcImage);
+       DeleteDC (hdcBitmap);
+    }
     else
         hbmLoad = CreateMappedBitmap(bitmap->hInst, bitmap->nID, 0, NULL, 0);
 
@@ -3637,7 +3663,10 @@ TOOLBAR_GetRows (HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
     TOOLBAR_INFO *infoPtr = TOOLBAR_GetInfoPtr (hwnd);
 
-    return infoPtr->nRows;
+    if (infoPtr->dwStyle & TBSTYLE_WRAPABLE)
+	return infoPtr->nRows;
+    else
+	return 1;
 }
 
 
@@ -4944,106 +4973,19 @@ TOOLBAR_SetRows (HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
     TOOLBAR_INFO *infoPtr = TOOLBAR_GetInfoPtr (hwnd);
     LPRECT lprc = (LPRECT)lParam;
-    int rows = LOWORD(wParam);
-    BOOL bLarger = HIWORD(wParam);
 
     TRACE("\n");
 
-    TRACE("Setting rows to %d (%d)\n", rows, bLarger);
+    if (LOWORD(wParam) > 1) {
+	FIXME("multiple rows not supported!\n");
+    }
 
-    if(infoPtr->nRows != rows)
+    if(infoPtr->nRows != LOWORD(wParam))
     {
-        TBUTTON_INFO *btnPtr = infoPtr->buttons;
-        int curColumn = 0; /* Current column                      */
-        int curRow    = 0; /* Current row                         */
-        int hidden    = 0; /* Number of hidden buttons */
-        int seps      = 0; /* Number of separators     */
-        int idealWrap = 0; /* Ideal wrap point         */
-        int i;
-        BOOL wrap;
-
-        /*
-           Calculate new size and wrap points - Under windows, setrows will
-           change the dimensions if needed to show the number of requested
-           rows (if CCS_NORESIZE is set), or will take up the whole window
-           (if no CCS_NORESIZE).
-
-           Basic algorithum - If N buttons, and y rows requested, each row
-           contains N/y buttons.
-
-           FIXME: Handling of separators not obvious from testing results
-           FIXME: Take width of window into account?
-         */
-
-        /* Loop through the buttons one by one counting key items  */
-        for (i = 0; i < infoPtr->nNumButtons; i++ )
-        {
-            btnPtr[i].fsState &= ~TBSTATE_WRAP;
-            if (btnPtr[i].fsState & TBSTATE_HIDDEN)
-                hidden++;
-            else if (btnPtr[i].fsStyle & BTNS_SEP)
-                seps++;
-        }
-
-        /* FIXME: Separators make this quite complex */
-        if (seps) FIXME("Separators unhandled\n");
-
-        /* Round up so more per line, ie less rows */
-        idealWrap = (infoPtr->nNumButtons - hidden + (rows-1)) / rows;
-
-        /* Calculate ideal wrap point if we are allowed to grow, but cannot
-           achieve the requested number of rows. */
-        if (bLarger && idealWrap > 1)
-        {
-            int resRows = (infoPtr->nNumButtons + (idealWrap-1)) / idealWrap;
-            int moreRows = (infoPtr->nNumButtons + (idealWrap-2)) / (idealWrap-1);
-
-            if (resRows < rows && moreRows > rows)
-            {
-                idealWrap--;
-                TRACE("Changing idealWrap due to bLarger (now %d)\n", idealWrap);
-            }
-        }
-
-        curColumn = curRow = 0;
-        wrap = FALSE;
-        TRACE("Trying to wrap at %d (%d,%d,%d)\n", idealWrap,
-              infoPtr->nNumButtons, hidden, rows);
-
-        for (i = 0; i < infoPtr->nNumButtons; i++ )
-        {
-            if (btnPtr[i].fsState & TBSTATE_HIDDEN)
-                continue;
-
-            /* Step on, wrap if necessary or flag next to wrap */
-            if (!wrap) {
-                curColumn++;
-            } else {
-                wrap = FALSE;
-                curColumn = 1;
-                curRow++;
-            }
-
-            if (curColumn > (idealWrap-1)) {
-                wrap = TRUE;
-                btnPtr[i].fsState |= TBSTATE_WRAP;
-            }
-        }
-
-        TRACE("Result - %d rows\n", curRow + 1);
+        infoPtr->nRows = LOWORD(wParam);
 
         /* recalculate toolbar */
         TOOLBAR_CalcToolbar (hwnd);
-
-        /* Resize if necessary (Only if NORESIZE is set - odd, but basically
-           if NORESIZE is NOT set, then the toolbar will always be resized to
-           take up the whole window. With it set, sizing needs to be manual. */
-        if (infoPtr->dwStyle & CCS_NORESIZE) {
-            SetWindowPos(hwnd, NULL, 0, 0,
-                         infoPtr->rcBound.right - infoPtr->rcBound.left,
-                         infoPtr->rcBound.bottom - infoPtr->rcBound.top,
-                         SWP_NOMOVE);
-        }
 
         /* repaint toolbar */
         InvalidateRect(hwnd, NULL, TRUE);

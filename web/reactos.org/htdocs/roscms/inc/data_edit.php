@@ -74,8 +74,6 @@
 	
 		switch ($RosCMS_GET_d_flag) {
 			default:
-				//echo "<p>asasas: ".$RosCMS_GET_d_r_id." | ".strpos($RosCMS_GET_d_r_id, "tr")."</p>";
-				
 				if (strpos($RosCMS_GET_d_r_id, "tr") === false) {
 					// normal (contains NO "tr")
 					show_edit_data();
@@ -85,31 +83,24 @@
 				}
 				else {
 					// translation mode (contains "tr")					
-					$temp_rev_id = substr($RosCMS_GET_d_r_id, 2);
+					$temp_rev_id = substr($RosCMS_GET_d_r_id, 2, (strlen($RosCMS_GET_d_r_id)-2));
 					
-				
-					if ($RosCMS_GET_debug) echo "<p>rev-id: ".$temp_rev_id." | ".is_numeric($temp_rev_id)."</p>";
-
 					$query_get_rev = mysql_query("SELECT data_id, rev_language    
 															FROM data_revision 
 															WHERE rev_id = ".mysql_real_escape_string($temp_rev_id)."
 															LIMIT 1;");
 					$result_get_rev = mysql_fetch_array($query_get_rev);
-	
-					if ($RosCMS_GET_debug) echo "<p>data-id: ".$result_get_rev['data_id']."</p>";
+					
 					
 					if ($RosCMS_GET_debug) echo "<p>cur_revid: ".$temp_rev_id."; cur_dataid: ".$result_get_rev['data_id']." [".$result_get_rev['rev_language']."]</p>";
 					
 					if (roscms_security_check_kind ($result_get_rev['data_id'], "trans")) {
-						//echo "<p>security check passed</p>";
 					
 						if (move_to_archive($result_get_rev['data_id'], $temp_rev_id, 1 /* copy mode */)) {
-							//echo "<p>copy process passed</p>";
 							$query_get_new_rev = mysql_query("SELECT *    
 																FROM data_revision 
 																WHERE data_id = ".mysql_real_escape_string($result_get_rev['data_id'])."
 																AND rev_usrid = ".mysql_real_escape_string($roscms_intern_account_id)."
-																AND rev_version = 0
 																AND rev_language = '".mysql_real_escape_string($RosCMS_GET_d_r_lang)."' 
 																AND rev_date = '".mysql_real_escape_string(date("Y-m-d"))."' 
 																ORDER BY rev_id DESC
@@ -931,20 +922,7 @@
 				
 				$tmp_number++;
 				//echo "<p>dyn-nbr: ".$tmp_number."</p>";
-				
-				$tmp_number_sort = "";
-				for ($i = strlen($tmp_number); $i < 5; $i++) {
-					$tmp_number_sort .= "0";
-				}
-				$tmp_number_sort .= $tmp_number;
-				
-				//echo "<p>strlen: ".strlen($tmp_number)."</p>";
-				//echo "<p>number_sort: ".$tmp_number_sort."</p>";
-				
 				tag_add($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, "number", $tmp_number, "-1");
-				tag_add($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, "number_sort", $tmp_number_sort, "-1");
-				tag_add($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, "pub_date", date("Y-m-d"), "-1");
-				tag_add($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, "pub_user", $roscms_intern_account_id, "-1");
 				
 				
 				if ($RosCMS_GET_debug) echo "<p>add dynamic content number: ".$tmp_number."</p>";
@@ -1091,9 +1069,9 @@
 		<ul style="font-size:9px;"><li>Type: <?php echo $result_diff2_data['data_type']; ?></li><li>Language: <?php echo $result_diff2_data['lang_name']; ?></li><li>User: <?php echo $result_diff2_data['user_name']; ?></li><?php if ($roscms_security_level > 1) { ?><li>ID: <?php echo $result_diff2_data['rev_id']; ?></li><?php } ?></ul>
 		</td></tr>
 		</table>
-		<div><pre id="frmeditdiff1" style="display: none;"><?php echo $result_diff1_data_text['text_content']; ?></pre></div>
-		<div><pre id="frmeditdiff2" style="display: none; "><?php echo $result_diff2_data_text['text_content']; ?></pre></div>
-		<div style="display: block; border-width: 1px; border-bottom: 1px solid #bbb;  border-right: 1px solid #bbb; border-top: 1px solid #e3e3e3; border-left: 1px solid #e3e3e3; background: #F2F2F2 none repeat scroll 0%;"><pre style="margin:10px; font-size:9px; font-family:Arial, Helvetica, sans-serif;" id="frmeditdiff">&nbsp;</pre>
+		<div id="frmeditdiff1" style="display: none;"><?php echo $result_diff1_data_text['text_content']; ?></div>
+		<div id="frmeditdiff2" style="display: none; "><?php echo $result_diff2_data_text['text_content']; ?></div>
+		<div style="display: block; border-width: 1px; border-bottom: 1px solid #bbb;  border-right: 1px solid #bbb; border-top: 1px solid #e3e3e3; border-left: 1px solid #e3e3e3; background: #F2F2F2 none repeat scroll 0%;"><div style="margin:10px; font-size:9px;" id="frmeditdiff">&nbsp;</div>
 		
 		</div></div>
 		<?php
@@ -1168,15 +1146,14 @@
 			
 			$temp_cur_lang = "";
 			
-			$query_diff1_cbm = mysql_query("SELECT d.data_id, d.data_name, r.rev_id, r.rev_language, r.rev_version, r.rev_date, u.user_name, l.lang_name 
+			$query_diff1_cbm = mysql_query("SELECT d.data_id, d.data_name, r.rev_id, r.rev_language, r.rev_version, r.rev_date, u.user_name 
 											FROM data_".$tmp_a2." d, data_revision".$tmp_a." r, languages l, users u 
 											WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
 											AND d.data_type = '".mysql_real_escape_string($tmp_d_type)."'
 											AND r.data_id = d.data_id
 											AND r.rev_language = l.lang_id 
-											AND r.rev_version > 0 
 											AND u.user_id = r.rev_usrid 
-											ORDER BY l.lang_name  ASC, r.rev_datetime DESC;");
+											ORDER BY r.rev_datetime DESC;");
 			while ($result_diff_cbm = mysql_fetch_array($query_diff1_cbm)) {
 				if ($result_diff_cbm['rev_language'] != $temp_cur_lang) {
 					if ($temp_cur_lang != "") {
@@ -1189,7 +1166,7 @@
 													LIMIT 1;");
 					$result_cur_lang = mysql_fetch_array($query_cur_lang);
 		
-					echo "<optgroup label=\"".$result_diff_cbm['lang_name']."\">"; 
+					echo "<optgroup label=\"".$result_cur_lang['lang_name']."\">"; 
 					
 					$temp_cur_lang = $result_diff_cbm['rev_language'];
 				}
@@ -1214,7 +1191,6 @@
 	
 	function changetags($entr_count, $entr_revid, $entr_flag) {
 		global $roscms_intern_account_id;
-		global $roscms_standard_language;
 		global $RosCMS_GET_debug;
 		global $h_a;
 		global $h_a2;
@@ -1252,9 +1228,8 @@
 					if ($RosCMS_GET_debug) echo "<li>".$entry_ids2[0]." == ".$entry_ids2[1]."</li>";
 					
 					$query_rev_data = mysql_query("SELECT * 
-													FROM data_revision r, data_ d
-													WHERE r.rev_id = '".mysql_real_escape_string($entry_ids2[1])."' 
-													AND r.data_id = d.data_id 
+													FROM data_revision 
+													WHERE rev_id = '".mysql_real_escape_string($entry_ids2[1])."' 
 													LIMIT 1;");
 					$result_rev_data = mysql_fetch_array($query_rev_data);
 	
@@ -1305,9 +1280,9 @@
 							$query_revision_stable = mysql_query("SELECT * 
 																	FROM data_revision 
 																	WHERE data_id = '".mysql_real_escape_string($result_rev_data['data_id'])."'
-																	AND rev_version > 0
 																	AND rev_language = '".mysql_real_escape_string($result_rev_data['rev_language'])."'
-																	ORDER BY rev_version DESC, rev_id DESC 
+																	AND rev_version > 0
+																	ORDER BY rev_id DESC 
 																	LIMIT 1;");
 							$result_revision_stable = mysql_fetch_array($query_revision_stable);
 							
@@ -1330,14 +1305,9 @@
 								transfer_tags($result_revision_stable['data_id'], $result_revision_stable['rev_id'], $result_rev_data['data_id'], $result_rev_data['rev_id'], false);
 								
 								// move old revision to archive
-								if (move_to_archive($result_revision_stable['data_id'], $result_revision_stable['rev_id'], 0)) {;
-									if ($RosCMS_GET_debug) echo "<p>deleteRevision(".$result_revision_stable['rev_id'].");</p>";
-									deleteRevision($result_revision_stable['rev_id']);
-								}
-								else {
-									log_event_medium("move_to_archive() failed: data-id ".$result_revision_stable['data_id'].", rev-id ".$result_revision_stable['rev_id'].log_prep_info($result_revision_stable['data_id'], $result_revision_stable['rev_id'])."{changetags}");
-									echo "Process not successful :S";
-								}
+								move_to_archive($result_revision_stable['data_id'], $result_revision_stable['rev_id'], 0);
+								if ($RosCMS_GET_debug) echo "<p>deleteRevision(".$result_revision_stable['rev_id'].");</p>";
+								deleteRevision($result_revision_stable['rev_id']);
 							}
 
 							// update the version number
@@ -1345,24 +1315,8 @@
 							
 							// generate related pages
 							require("inc/data_export_page.php");
-							
-							if ($result_revision_stable['rev_language'] == "") {
-								$tmp_lang = $roscms_standard_language;
-							}
-							else {
-								$tmp_lang = $result_revision_stable['rev_language'];
-							}
-							
-							$query_entry = mysql_query("SELECT data_id 
-														FROM data_ 
-														WHERE data_name = '".mysql_real_escape_string($result_rev_data['data_name'])."'
-														AND data_type = 'page'
-														LIMIT 1;");
-							$result_entry = mysql_fetch_array($query_entry);	
-													
-							log_event_generate_low("+++++ [generate_page_output_update(".$result_rev_data['data_id'].", ".$tmp_lang.", ".$temp_dynamic.")]");
-							if ($RosCMS_GET_debug) echo "<p>! generate_page_output_update(".$result_rev_data['data_id'].", ".$tmp_lang.", ".$temp_dynamic.")</p>";
-							echo generate_page_output_update($result_entry['data_id'], $tmp_lang, $temp_dynamic);
+							log_event_generate_low("+++++ [generate_page_output_update(".$result_rev_data['data_id'].", ".$result_revision_stable['rev_language'].", ".$temp_dynamic.")]");
+							generate_page_output_update($result_rev_data['data_id'], $result_revision_stable['rev_language'], $temp_dynamic);
 						}
 						else {
 							echo "Only 'new' entries can be made stable";
@@ -1404,7 +1358,7 @@
 		global $roscms_intern_account_id;
 		global $RosCMS_GET_d_r_lang;
 		global $RosCMS_GET_debug;
-				
+		
 		$d_id_org = $d_id;
 		$d_revid_org = $d_revid;
 		$d_name = "";
@@ -1583,8 +1537,6 @@
 
 		// data_tag
 		transfer_tags($d_id_org, $d_revid_org, $d_id, $d_revid, $tmp_archive);
-		if ($RosCMS_GET_debug) echo "\n<p>transfer_tags(".$d_id_org.", ".$d_revid_org.", ".$d_id.", ".$d_revid.", ".$tmp_archive.")</p>";
-		
 		
 		if ($tm_mode > 0) {
 			if ($RosCMS_GET_debug) echo "\n<p>change status to draft</p>";
@@ -1597,15 +1549,11 @@
 	
 	function transfer_tags($d_id_org, $d_revid_org, $d_id, $d_revid, $archive) {
 		global $RosCMS_GET_debug;
-
-		if ($RosCMS_GET_debug) echo "\n<p>transfer_tags(".$d_id_org.", ".$d_revid_org.", ".$d_id.", ".$d_revid.", ".$archive.") {...}</p>";
 	
 		if ($archive == true) {
-			if ($RosCMS_GET_debug) echo "\n<p>transfer_tags: archive mode</p>";
 			$h_a = "_a";
 		}
 		else {
-			if ($RosCMS_GET_debug) echo "\n<p>transfer_tags: normal mode</p>";
 			$h_a = "";
 		}
 	
@@ -1861,7 +1809,7 @@
 					}
 				}
 				$t_counter_etagusr = $result_edit_mef_data_tag['tag_usrid'];
-				echo "<b>".$result_edit_mef_data_tag['tn_name'].":</b>&nbsp;".$result_edit_mef_data_tag['tv_value'];
+				echo "<b>".ucfirst($result_edit_mef_data_tag['tn_name']).":</b>&nbsp;".$result_edit_mef_data_tag['tv_value'];
 				
 				// show delete button
 				if (($roscms_security_level > 1 && $result_edit_mef_data_tag['tag_usrid'] == "0") || // allow to delete label if SecLev > 1
@@ -2006,22 +1954,27 @@
 				
 				$temp_cur_lang = "";
 				
-				$query_diff1_cbm = mysql_query("SELECT d.data_id, d.data_name, r.rev_id, r.rev_language,r.rev_version, r.rev_datetime, u.user_name, l.lang_name  
+				$query_diff1_cbm = mysql_query("SELECT d.data_id, d.data_name, r.rev_id, r.rev_language,r.rev_version, r.rev_datetime, u.user_name 
 												FROM data_".$tmp_a2." d, data_revision".$tmp_a." r, languages l, users u 
 												WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
 												AND d.data_type = '".mysql_real_escape_string($tmp_d_type)."'
 												AND r.data_id = d.data_id
 												AND r.rev_language = l.lang_id 
-												AND r.rev_version > 0 
 												AND u.user_id = r.rev_usrid 
-												ORDER BY l.lang_name  ASC, r.rev_datetime DESC;");
+												ORDER BY r.rev_datetime DESC;");
 				while ($result_diff_cbm = mysql_fetch_array($query_diff1_cbm)) {
 					if ($result_diff_cbm['rev_language'] != $temp_cur_lang) {
 						if ($temp_cur_lang != "") {
 							echo "</ul>";
 						}
 			
-						echo "<p><b>".$result_diff_cbm['lang_name']."</b></p><ul>"; 
+						$query_cur_lang = mysql_query("SELECT * 
+														FROM languages 
+														WHERE lang_id = '".mysql_real_escape_string($result_diff_cbm['rev_language'])."'
+														LIMIT 1;");
+						$result_cur_lang = mysql_fetch_array($query_cur_lang);
+			
+						echo "<p><b>".$result_cur_lang['lang_name']."</b></p><ul>"; 
 						
 						$temp_cur_lang = $result_diff_cbm['rev_language'];
 					}
@@ -2170,7 +2123,6 @@
 		global $roscms_security_level;
 		global $RosCMS_GET_d_id;
 		global $RosCMS_GET_d_r_id;
-		global $RosCMS_GET_d_arch;
 		global $h_a;
 		global $h_a2;
 		?>
@@ -2246,115 +2198,42 @@
 		<?php
 			}
 			
-			//echo "<p>".$t_text_lang." vs. ".$roscms_standard_language."</p>";
-			
-			//if ($t_text_lang != $roscms_standard_language) {
-				$query_get_data_name = mysql_query("SELECT data_name, data_type 
-												FROM data_".$h_a2." 
-												WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
-												LIMIT 1;");
-				$result_get_data_name = mysql_fetch_array($query_get_data_name);
-		
-				if ($RosCMS_GET_d_arch) { // archive mode
-					$query_get_data_name = mysql_query("SELECT data_name, data_type 
-													FROM data_  
-													WHERE data_name = '".mysql_real_escape_string($result_get_data_name['data_name'])."'
-													AND data_type = '".mysql_real_escape_string($result_get_data_name['data_type'])."'
-													LIMIT 1;");
-					$result_get_data_name = mysql_fetch_array($query_get_data_name);
-					
-					$tmp_d_name = $result_get_data_name['data_name'];
-					$tmp_d_type = $result_get_data_name['data_type'];
-				}
-				else {
-					$tmp_d_name = $result_get_data_name['data_name'];
-					$tmp_d_type = $result_get_data_name['data_type'];
-				}
-
-
+			if ($t_text_lang != $roscms_standard_language) {
 				$query_choose_diff_count = mysql_query("SELECT COUNT(*)
-													FROM data_a d, data_revision_a r 
-													WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
-													AND d.data_id = r.data_id
-													AND r.rev_version > 0 
-													AND r.rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
-													ORDER BY r.rev_id DESC;");
+													FROM data_revision".$h_a." 
+													WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+													AND rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
+													ORDER BY rev_id DESC;");
 				$result_choose_diff_count = mysql_fetch_row($query_choose_diff_count);
 
-
-				$query_choose_diff_count_ar = mysql_query("SELECT COUNT(*)
-													FROM data_a d, data_revision_a r 
-													WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
-													AND d.data_id = r.data_id
-													AND r.rev_version > 0 
-													AND r.rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
-													ORDER BY r.rev_id DESC;");
-				$result_choose_diff_count_ar = mysql_fetch_row($query_choose_diff_count_ar);
-
-				if ($result_choose_diff_count[0] <= 0 || $result_choose_diff_count[0] <= 0) {
+				if ($result_choose_diff_count[0] <= 1) {
 					?>
-					<span id="bshowdiff" class="frmeditbutton" onclick="diffentries3(<?php echo $RosCMS_GET_d_r_id .",". $RosCMS_GET_d_r_id; ?>)"><img id="bshowdiffi" src="images/tab_closed.gif" alt="" style="width:11px; height:11px; border:0px;" />&nbsp;Compare</span> (no related <?php echo strtolower($roscms_standard_language_full); ?> entry, choose yourself)&nbsp; 
+					<span id="bshowdiff" class="frmeditbutton" onclick="diffentries3(<?php echo $RosCMS_GET_d_r_id .",". $RosCMS_GET_d_r_id; ?>)"><img id="bshowdiffi" src="images/tab_closed.gif" alt="" style="width:11px; height:11px; border:0px;" />&nbsp;Compare</span> (no related <?php echo strtolower($roscms_standard_language_full); ?> entry found)&nbsp; 
 					<?php
 				}
 				else {
-					if ($RosCMS_GET_d_arch) {
-						$query_choose_diff_ar = mysql_query("SELECT r.rev_id
-															FROM data_a d, data_revision_a r 
-															WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
-															AND d.data_id = r.data_id
-															AND r.rev_version > 0 
-															AND r.rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
-															ORDER BY r.rev_id DESC
-															LIMIT 2;");
-						$result_choose_diff2 = mysql_fetch_array($query_choose_diff_ar);
-						$result_choose_diff1 = mysql_fetch_array($query_choose_diff_ar);
-						//echo "<p>".$result_choose_diff1['rev_id']." vs. ".$result_choose_diff2['rev_id']."</p>";
-					}
-					else {
-						$query_choose_diff = mysql_query("SELECT r.rev_id
-															FROM data_ d, data_revision r 
-															WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
-															AND d.data_id = r.data_id
-															AND r.rev_version > 0 
-															AND r.rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
-															ORDER BY r.rev_id DESC
-															LIMIT 1;");
-						$result_choose_diff2 = mysql_fetch_array($query_choose_diff);
-						
-						$query_choose_diff_ar = mysql_query("SELECT r.rev_id
-															FROM data_a d, data_revision_a r 
-															WHERE d.data_name = '".mysql_real_escape_string($tmp_d_name)."'
-															AND d.data_id = r.data_id
-															AND r.rev_version > 0 
-															AND r.rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
-															ORDER BY r.rev_id DESC
-															LIMIT 1;");
-						$result_choose_diff1 = mysql_fetch_array($query_choose_diff_ar);
-					}
+					$query_choose_diff = mysql_query("SELECT rev_id
+														FROM data_revision".$h_a." 
+														WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+														AND rev_language = '".mysql_real_escape_string($roscms_standard_language)."'
+														ORDER BY rev_id DESC 
+														LIMIT 0 , 2;");
+					$result_choose_diff1 = mysql_fetch_array($query_choose_diff);
+					$result_choose_diff2 = mysql_fetch_array($query_choose_diff);
 					
 					$t_diff1 = $result_choose_diff1['rev_id'];
 					$t_diff2 = $result_choose_diff2['rev_id'];
-					
-					
-					if ($RosCMS_GET_d_arch) {
-						$t_diff1 = "ar".$t_diff1;
-						$t_diff2 = "ar".$t_diff2;
-					}
-					else {
-						$t_diff1 = "ar".$t_diff1;
-					}
-					
 				
 					?>
-					<span id="bshowdiff" class="frmeditbutton" onclick="diffentries3('<?php echo $t_diff1 ."','". $t_diff2; ?>')"><img id="bshowdiffi" src="images/tab_closed.gif" alt="" style="width:11px; height:11px; border:0px;" />&nbsp;Compare</span> &nbsp; 
+					<span id="bshowdiff" class="frmeditbutton" onclick="diffentries3(<?php echo $t_diff1 .",". $t_diff2; ?>)"><img id="bshowdiffi" src="images/tab_closed.gif" alt="" style="width:11px; height:11px; border:0px;" />&nbsp;Compare</span> &nbsp; 
 					<?php
 				}
-			/*}
+			}
 			else {
 				?>
 				<span id="bshowdiff" class="frmeditbutton" onclick="diffentries3(<?php echo $RosCMS_GET_d_r_id .",". $RosCMS_GET_d_r_id; ?>)"><img id="bshowdiffi" src="images/tab_closed.gif" alt="" style="width:11px; height:11px; border:0px;" />&nbsp;Compare</span> (select two different entries)&nbsp; 
 				<?php
-			}		*/
+			}		
 		?>
 		&nbsp;&nbsp;<span id="mefasi">&nbsp;</div>
 		</div></div>

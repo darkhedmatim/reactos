@@ -1,3 +1,15 @@
+#include "../w32knapi.h"
+
+LONG STDCALL
+NtGdiGetBitmapBits(
+	HBITMAP  hBitmap,
+	DWORD  Bytes,
+	IN PBYTE Bits)
+{
+	return (LONG)Syscall(L"NtGdiGetBitmapBits", 3, &hBitmap);
+}
+
+
 INT
 Test_NtGdiGetBitmapBits(PTESTINFO pti)
 {

@@ -136,6 +136,12 @@ static CHARSETINFO FontTci[MAXTCIINDEX] = {
   { SYMBOL_CHARSET, 42 /* CP_SYMBOL */, FS(31)},
 };
 
+VOID FASTCALL
+IntLoadSystemFonts(VOID);
+
+INT FASTCALL
+IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics);
+
 BOOL FASTCALL
 InitFontSupport(VOID)
 {
@@ -2154,6 +2160,15 @@ fail:
 
 BOOL
 STDCALL
+NtGdiGetAspectRatioFilterEx(HDC  hDC,
+                                 LPSIZE  AspectRatio)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
 NtGdiGetCharABCWidths(HDC  hDC,
                            UINT  FirstChar,
                            UINT  LastChar,
@@ -3091,8 +3106,8 @@ NtGdiGetGlyphOutline(
 DWORD
 STDCALL
 NtGdiGetKerningPairs(HDC  hDC,
-                     ULONG  NumPairs,
-                     LPKERNINGPAIR  krnpair)
+                           DWORD  NumPairs,
+                           LPKERNINGPAIR  krnpair)
 {
   UNIMPLEMENTED;
   return 0;
@@ -3483,10 +3498,10 @@ NtGdiGetTextExtentExW(
   {
     Result = TextIntGetTextExtentPoint(dc, TextObj, String, Count, MaxExtent,
                                      NULL == UnsafeFit ? NULL : &Fit, Dx, &Size);
-    TEXTOBJ_UnlockText(TextObj);
   }
   else
     Result = FALSE;
+  TEXTOBJ_UnlockText(TextObj);
   DC_UnlockDc(dc);
 
   ExFreePool(String);

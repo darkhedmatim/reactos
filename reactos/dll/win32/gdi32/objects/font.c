@@ -1091,13 +1091,11 @@ int
 STDCALL
 AddFontResourceExW ( LPCWSTR lpszFilename, DWORD fl, PVOID pvReserved )
 {
-    if (fl & ~(FR_PRIVATE | FR_NOT_ENUM))
-    {
-        SetLastError( ERROR_INVALID_PARAMETER );
-        return 0;
-    }
+  UNICODE_STRING Filename;
 
-    return GdiAddFontResourceW(lpszFilename, fl,0);
+  /* FIXME handle fl parameter */
+  RtlInitUnicodeString(&Filename, lpszFilename);
+  return NtGdiAddFontResource ( &Filename, fl );
 }
 
 
@@ -1108,26 +1106,20 @@ int
 STDCALL
 AddFontResourceExA ( LPCSTR lpszFilename, DWORD fl, PVOID pvReserved )
 {
-    NTSTATUS Status;
-    PWSTR FilenameW;
-    int rc;
+  NTSTATUS Status;
+  PWSTR FilenameW;
+  int rc = 0;
 
-    if (fl & ~(FR_PRIVATE | FR_NOT_ENUM))
+  Status = HEAP_strdupA2W ( &FilenameW, lpszFilename );
+  if ( !NT_SUCCESS (Status) )
+    SetLastError (RtlNtStatusToDosError(Status));
+  else
     {
-        SetLastError( ERROR_INVALID_PARAMETER );
-        return 0;
-    }
+      rc = AddFontResourceExW ( FilenameW, fl, pvReserved );
 
-    Status = HEAP_strdupA2W ( &FilenameW, lpszFilename );
-    if ( !NT_SUCCESS (Status) )
-    {
-        SetLastError (RtlNtStatusToDosError(Status));
-        return 0;
+      HEAP_free ( FilenameW );
     }
-
-    rc = GdiAddFontResourceW ( FilenameW, fl, 0 );
-    HEAP_free ( FilenameW );
-    return rc;
+  return rc;
 }
 
 
@@ -1138,22 +1130,7 @@ int
 STDCALL
 AddFontResourceA ( LPCSTR lpszFilename )
 {
-    NTSTATUS Status;
-    PWSTR FilenameW;
-    int rc = 0;
-
-    Status = HEAP_strdupA2W ( &FilenameW, lpszFilename );
-    if ( !NT_SUCCESS (Status) )
-    {
-        SetLastError (RtlNtStatusToDosError(Status));
-    }
-    else
-    {
-      rc = GdiAddFontResourceW ( FilenameW, 0, 0);
-
-      HEAP_free ( FilenameW );
-    }
-    return rc;
+  return AddFontResourceExA ( lpszFilename, 0, 0 );
 }
 
 
@@ -1164,7 +1141,7 @@ int
 STDCALL
 AddFontResourceW ( LPCWSTR lpszFilename )
 {
-    return GdiAddFontResourceW ( lpszFilename, 0, 0 );
+	return AddFontResourceExW ( lpszFilename, 0, 0 );
 }
 
 
@@ -1310,78 +1287,6 @@ EnumFontsA (
 #endif
 }
 
-#define EfdFontFamilies 3
 
-INT
-STDCALL
-NewEnumFontFamiliesExW(
-    HDC hDC,
-    LPLOGFONTW lpLogfont,
-    FONTENUMPROCW lpEnumFontFamExProcW,
-    LPARAM lParam,
-    DWORD dwFlags)
-{
-	ULONG_PTR idEnum, cbDataSize, cbRetSize;
-	PENUMFONTDATAW pEfdw;
-	PBYTE pBuffer;
-	PBYTE pMax;
-	INT ret = 1;
 
-	/* Open enumeration handle and find out how much memory we need */
-	idEnum = NtGdiEnumFontOpen(hDC,
-	                           EfdFontFamilies,
-	                           0,
-	                           LF_FACESIZE,
-	                           (lpLogfont && lpLogfont->lfFaceName[0])? lpLogfont->lfFaceName : NULL,
-	                           lpLogfont? lpLogfont->lfCharSet : DEFAULT_CHARSET,
-	                           &cbDataSize);
-	if (idEnum == 0)
-	{
-		return 0;
-	}
-	if (cbDataSize == 0)
-	{
-		NtGdiEnumFontClose(idEnum);
-		return 0;
-	}
 
-	/* Allocate memory */
-	pBuffer = HeapAlloc(GetProcessHeap(), 0, cbDataSize);
-	if (pBuffer == NULL)
-	{
-		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-		NtGdiEnumFontClose(idEnum);
-		return 0;
-	}
-
-	/* Do the enumeration */
-	if (!NtGdiEnumFontChunk(hDC, idEnum, cbDataSize, &cbRetSize, (PVOID)pBuffer))
-	{
-		HeapFree(GetProcessHeap(), 0, pBuffer);
-		NtGdiEnumFontClose(idEnum);
-		return 0;
-	}
-
-    /* Get start and end address */
-    pEfdw = (PENUMFONTDATAW)pBuffer;
-	pMax = pBuffer + cbDataSize;
-
-    /* Iterate through the structures */
-    while ((PBYTE)pEfdw < pMax && ret)
-    {
-        PNTMW_INTERNAL pNtmwi = (PNTMW_INTERNAL)((ULONG_PTR)pEfdw + pEfdw->ulNtmwiOffset);
-
-        ret = lpEnumFontFamExProcW(&pEfdw->elfexdv.elfEnumLogfontEx,
-                                   &pNtmwi->ntmw,
-                                   pEfdw->dwFontType,
-                                   lParam);
-
-        pEfdw = (PENUMFONTDATAW)((ULONG_PTR)pEfdw + pEfdw->cbSize);
-	}
-
-	/* Release the memory and close handle */
-	HeapFree(GetProcessHeap(), 0, pBuffer);
-	NtGdiEnumFontClose(idEnum);
-
-	return ret;
-}

@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
 <directory name="access">
 	<xi:include href="access/access.rbuild" />
 </directory>
@@ -13,11 +10,11 @@
 <directory name="hdwwiz">
 	<xi:include href="hdwwiz/hdwwiz.rbuild" />
 </directory>
-<directory name="input">
-	<xi:include href="input/input.rbuild" />
-</directory>
 <directory name="intl">
 	<xi:include href="intl/intl.rbuild" />
+</directory>
+<directory name="intl_new">
+	<xi:include href="intl_new/intl.rbuild" />
 </directory>
 <directory name="main">
 	<xi:include href="main/main.rbuild" />
@@ -43,4 +40,3 @@
 <directory name="usrmgr">
 	<xi:include href="usrmgr/usrmgr.rbuild" />
 </directory>
-</group>

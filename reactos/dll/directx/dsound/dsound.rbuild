@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="dsound" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_DSOUND}" installbase="system32" installname="dsound.dll" allowwarnings ="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
 	<importlibrary definition="dsound.spec.def" />
@@ -31,11 +29,9 @@
 	<file>propset.c</file>
 	<file>regsvr.c</file>
 	<file>sound3d.c</file>
-	<directory name="dxroslayer">
-		<file>dxrosdrv_querydsounddesc.c</file>
-		<file>dxrosdrv_querydsoundiface.c</file>
-		<file>dxroslayer.c</file>
-		<file>getguidfromstring.c</file>
-	</directory>
+	<file>dxroslayer/dxrosdrv_querydsounddesc.c</file>
+	<file>dxroslayer/dxrosdrv_querydsoundiface.c</file>
+	<file>dxroslayer/dxroslayer.c</file>
+	<file>dxroslayer/getguidfromstring.c</file>
 	<file>dsound.spec</file>
 </module>

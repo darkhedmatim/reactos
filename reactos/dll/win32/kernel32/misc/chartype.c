@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* the character type contains the C1_* flags in the low 12 bits */
 /* and the C2_* type in the high 4 bits */

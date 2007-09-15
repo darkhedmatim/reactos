@@ -78,7 +78,7 @@ GdiFixUpHandle(HGDIOBJ hGdiObj)
  if (((ULONG_PTR)(hGdiObj)) & GDI_HANDLE_UPPER_MASK ) return hGdiObj;
  PGDI_TABLE_ENTRY Entry = GdiHandleTable + GDI_HANDLE_GET_INDEX(hGdiObj);
  return hGdiObj = (HGDIOBJ)(((LONG_PTR)(hGdiObj)) |
-                     (Entry->Type << GDI_ENTRY_UPPER_SHIFT)); // Rebuild handle for Object
+                     (Entry->Type << 16)); // Rebuild handle for Object
 }
 
 /*
@@ -158,6 +158,18 @@ GdiGetBatchLimit()
     return GDI_BatchLimit;
 }
 
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GdiReleaseLocalDC(HDC hdc)
+{
+	return 0;
+}
+
+
 /*
  * @unimplemented
  */
@@ -165,7 +177,8 @@ BOOL
 STDCALL
 GdiReleaseDC(HDC hdc)
 {
-    return 0;
+	GdiReleaseLocalDC(hdc);
+	return 0;
 }
 
 INT STDCALL

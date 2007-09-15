@@ -15,12 +15,12 @@ Test_NtGdiDdDeleteDirectDrawObject(PTESTINFO pti)
 {
 	HANDLE  hDirectDraw;
 	HDC hdc = CreateDCW(L"DISPLAY",NULL,NULL,NULL);
-	ASSERT(hdc != NULL);
+	ASSERT1(hdc != NULL);
 
 	/* Test ReactX */
 	RTEST(NtGdiDdDeleteDirectDrawObject(NULL) == FALSE);
 	RTEST((hDirectDraw=NtGdiDdCreateDirectDrawObject(hdc)) != NULL);
-	ASSERT(hDirectDraw != NULL);
+	ASSERT1(hDirectDraw != NULL);
 	RTEST(NtGdiDdDeleteDirectDrawObject(hDirectDraw) == TRUE);
 
 	/* Cleanup ReactX setup */

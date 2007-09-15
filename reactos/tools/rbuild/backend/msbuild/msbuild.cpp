@@ -72,7 +72,7 @@ void MsBuildBackend::Process()
 void
 MsBuildBackend::_generate_makefile ( const Module& module )
 {
-	string makefile = module.output->relative_path + "\\makefile";
+	string makefile = module.GetBasePath() + "\\makefile";
 	FILE* OUT = fopen ( makefile.c_str(), "wb" );
 	fprintf ( OUT, "!INCLUDE $(NTMAKEENV)\\makefile.def\r\n" );
 	fclose ( OUT );
@@ -83,12 +83,12 @@ MsBuildBackend::_generate_sources ( const Module& module )
 {
 	size_t i;
 
-	string module_type = GetExtension(*module.output);
+	string module_type = GetExtension(module.GetTargetName());
 	vector<string> source_files, resource_files, includes, libraries;
 	vector<string> header_files, common_defines, compiler_flags;
 	vector<string> vars, values;
-	string sourcesfile = module.output->relative_path + "\\sources";
-	string proj_path = module.output->relative_path;
+	string sourcesfile = module.GetBasePath() + "\\sources";
+	string proj_path = module.GetBasePath();	
 
 	FILE* OUT = fopen ( sourcesfile.c_str(), "wb" );
 	fprintf ( OUT, "TARGETNAME=%s\r\n", module.name.c_str() );
@@ -113,14 +113,15 @@ MsBuildBackend::_generate_sources ( const Module& module )
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
-			source_files.push_back ( files[i]->file.name );
+			string file = &files[i]->name[proj_path.size()+1];
+			source_files.push_back ( file );
 		}
 		const vector<Include*>& incs = data.includes;
 		for ( i = 0; i < incs.size(); i++ )
 		{
 			string path = Path::RelativeFromDirectory (
-				incs[i]->directory->relative_path,
-				module.output->relative_path );
+				incs[i]->directory,
+				module.GetBasePath() );
 
 			includes.push_back ( path );
 		}
@@ -219,14 +220,14 @@ MsBuildBackend::_clean_project_files ( void )
 	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
 		Module& module = *ProjectNode.modules[i];
-		printf("Cleaning project %s %s\n", module.name.c_str (), module.output->relative_path.c_str () );
+		printf("Cleaning project %s %s\n", module.name.c_str (), module.GetBasePath ().c_str () );
 		
-		string makefile = module.output->relative_path + "\\makefile";
-		string sourcesfile = module.output->relative_path + "\\sources";
+		string makefile = module.GetBasePath() + "\\makefile";
+		string sourcesfile = module.GetBasePath() + "\\sources";
 
-		string basepath = module.output->relative_path;
-		remove ( makefile.c_str() );
-		remove ( sourcesfile.c_str() );
+		string basepath = module.GetBasePath ();
+		remove ( makefile.c_str() );	
+		remove ( sourcesfile.c_str() );	
 	}
 }
 

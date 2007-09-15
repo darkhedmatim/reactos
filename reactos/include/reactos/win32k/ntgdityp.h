@@ -120,20 +120,7 @@ typedef struct _TMW_INTERNAL
     TMDIFF Diff;
 } TMW_INTERNAL, *PTMW_INTERNAL;
 
-typedef struct _NTMW_INTERNAL
-{
-    TMDIFF tmd;
-    NEWTEXTMETRICEXW ntmw;
-} NTMW_INTERNAL, *PNTMW_INTERNAL;
-
-typedef struct _ENUMFONTDATAW
-{
-    ULONG cbSize;
-    ULONG ulNtmwiOffset;
-    DWORD dwFontType;
-    ENUMLOGFONTEXDVW elfexdv; /* variable size! */
-    /* NTMW_INTERNAL ntmwi; use ulNtwmOffset */
-} ENUMFONTDATAW, *PENUMFONTDATAW;
+typedef struct _ENUMFONTDATAW ENUMFONTDATAW, *PENUMFONTDATAW;
 
 /* Number Representation */
 typedef struct _EFLOAT_S

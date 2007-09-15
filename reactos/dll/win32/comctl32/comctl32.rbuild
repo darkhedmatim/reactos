@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="comctl32" type="win32dll" baseaddress="${BASEADDRESS_COMCTL32}" installbase="system32" installname="comctl32.dll" allowwarnings="true">
 	<autoregister infsection="OleControlDlls" type="DllInstall" />
 	<importlibrary definition="comctl32.spec.def" />
@@ -11,6 +9,12 @@
 	<define name="_WIN32_IE">0x600</define>
 	<define name="_WIN32_WINNT">0x501</define>
 	<define name="WINVER">0x501</define>
+
+	<metadata
+		description = "Common controls used by ReactOS"
+		version = "Autosync"
+		owner = "Wine" />
+
 	<library>wine</library>
 	<library>user32</library>
 	<library>gdi32</library>

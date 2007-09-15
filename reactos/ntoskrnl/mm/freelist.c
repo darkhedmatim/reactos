@@ -428,7 +428,7 @@ MmInitializePageList(ULONG_PTR FirstPhysKernelAddress,
 	    if (j == 0)
 	    {
                /*
-                * Page zero is reserved for the IVT
+                * Page zero is reserved
                 */
                MmPageArray[0].Flags.Type = MM_PHYSICAL_PAGE_BIOS;
                MmPageArray[0].Flags.Consumer = MC_NPPOOL;
@@ -450,19 +450,6 @@ MmInitializePageList(ULONG_PTR FirstPhysKernelAddress,
                MmPageArray[1].ReferenceCount = 0;
                InsertTailList(&BiosPageListHead,
                               &MmPageArray[1].ListEntry);
-	       MmStats.NrReservedPages++;
-	    }
-	    else if (j == 2)
-	    {
-               /*
-                * Page two is reserved for the KUSER_SHARED_DATA
-                */
-               MmPageArray[2].Flags.Type = MM_PHYSICAL_PAGE_BIOS;
-               MmPageArray[2].Flags.Consumer = MC_NPPOOL;
-               MmPageArray[2].Flags.Zero = 0;
-               MmPageArray[2].ReferenceCount = 0;
-               InsertTailList(&BiosPageListHead,
-                              &MmPageArray[2].ListEntry);
 	       MmStats.NrReservedPages++;
 	    }
         /* Protect the Page Directory. This will be changed in r3 */

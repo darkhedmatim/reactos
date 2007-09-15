@@ -80,7 +80,6 @@ LONG UnattendDestinationDiskNumber;
 LONG UnattendDestinationPartitionNumber;
 LONG UnattendMBRInstallType = -1;
 LONG UnattendFormatPartition = 0;
-LONG AutoPartition = 0;
 WCHAR UnattendInstallationDirectory[MAX_PATH];
 BOOLEAN RepairUpdateFlag = FALSE;
 
@@ -579,13 +578,7 @@ CheckUnattendedSetup(VOID)
           UnattendFormatPartition = IntValue;
         }
     }
-  if (SetupFindFirstLineW(UnattendInf, L"Unattend", L"AutoPartition", &Context))
-    {
-      if (SetupGetIntField(&Context, 1, &IntValue))
-        {
-          AutoPartition = IntValue;
-        }
-    }
+
   SetupCloseInfFile(UnattendInf);
 
   DPRINT("Running unattended setup\n");
@@ -1394,22 +1387,10 @@ SelectPartitionPage(PINPUT_RECORD Ir)
 
   if (IsUnattendedSetup)
     {
-      if (!SelectPartition(PartitionList, UnattendDestinationDiskNumber, UnattendDestinationPartitionNumber))
-        {
-          if (AutoPartition)
-            {
-              PPARTENTRY PartEntry = PartEntry = PartitionList->CurrentPartition;
-              ULONG MaxSize = (PartEntry->UnpartitionedLength + (1 << 19)) >> 20;  /* in MBytes (rounded) */
-              CreateNewPartition (PartitionList,
-                			 	  MaxSize,
-                				  TRUE);
-              return (SELECT_FILE_SYSTEM_PAGE);
-            }
-        }
-      else
-        {
-          return(SELECT_FILE_SYSTEM_PAGE);
-        }
+      SelectPartition(PartitionList,
+        UnattendDestinationDiskNumber,
+        UnattendDestinationPartitionNumber);
+      return(SELECT_FILE_SYSTEM_PAGE);
     }
 
   while(TRUE)
@@ -1716,20 +1697,20 @@ CreatePartitionPage (PINPUT_RECORD Ir)
       MaxSize = (PartEntry->UnpartitionedLength + (1 << 19)) >> 20;  /* in MBytes (rounded) */
       ShowPartitionSizeInputBox (12, 14, xScreen - 12, 17, /* left, top, right, bottom */
 				 MaxSize, InputBuffer, &Quit, &Cancel);
-       if (Quit == TRUE)
+      if (Quit == TRUE)
+	{
+	  if (ConfirmQuit (Ir) == TRUE)
 	    {
-	      if (ConfirmQuit (Ir) == TRUE)
-	        {
-	          return QUIT_PAGE;
-	        }
+	      return QUIT_PAGE;
 	    }
+	}
       else if (Cancel == TRUE)
-	    {
-	      return SELECT_PARTITION_PAGE;
-	    }
+	{
+	  return SELECT_PARTITION_PAGE;
+	}
       else
-	    {
-  	          PartSize = atoi (InputBuffer);
+	{
+	  PartSize = atoi (InputBuffer);
 	  if (PartSize < 1)
 	    {
 	      /* Too small */

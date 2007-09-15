@@ -100,29 +100,35 @@ ExtCreateRegion(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
 GetBoundsRect(
-	HDC	hdc,
-	LPRECT	lprcBounds,
-	UINT	flags
+	HDC	a0,
+	LPRECT	a1,
+	UINT	a2
 	)
 {
-    return NtGdiGetBoundsRect(hdc,lprcBounds,flags & DCB_RESET);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 STDCALL
-GetMetaRgn(HDC hdc,
-           HRGN hrgn)
+GetMetaRgn(
+	HDC	a0,
+	HRGN	a1
+	)
 {
-    return NtGdiGetRandomRgn(hdc,hrgn,2);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -143,6 +149,31 @@ GetMetaFileBitsEx(
 }
 
 
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetRasterizerCaps(
+	LPRASTERIZER_STATUS	a0,
+	UINT			a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetSystemPaletteUse(HDC hDc)
+{
+    return NtGdiGetSystemPaletteUse(hDc);
+}
+
 
 /*
  * @unimplemented
@@ -157,6 +188,7 @@ GetFontLanguageInfo(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
+
 
 /*
  * @unimplemented
@@ -173,6 +205,7 @@ PlayMetaFile(
 	return FALSE;
 }
 
+
 /*
  * @unimplemented
  */
@@ -188,6 +221,7 @@ ResizePalette(
 	return FALSE;
 }
 
+
 /*
  * @unimplemented
  */
@@ -202,17 +236,21 @@ SetMetaRgn(
 	return 0;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 UINT
 STDCALL
-SetBoundsRect(HDC hdc,
-              CONST RECT *prc,
-              UINT flags)
+SetBoundsRect(
+	HDC		a0,
+	CONST RECT	*a1,
+	UINT		a2
+	)
 {
-    /* FIXME add check for vaildate the flags */
-    return NtGdiSetBoundsRect(hdc, (LPRECT)prc, flags);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 
@@ -231,6 +269,7 @@ SetMapperFlags(
 	return 0;
 }
 
+
 /*
  * @unimplemented
  */
@@ -245,6 +284,7 @@ SetMetaFileBitsEx(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
+
 
 /*
  * @unimplemented
@@ -261,6 +301,7 @@ SetSystemPaletteUse(
 	return 0;
 }
 
+
 /*
  * @unimplemented
  */
@@ -276,6 +317,7 @@ SetTextJustification(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
 
 /*
  * @unimplemented
@@ -327,6 +369,10 @@ EnumMetaFile(
 	return FALSE;
 }
 
+
+
+
+
 /*
  * @unimplemented
  */
@@ -340,6 +386,7 @@ DeleteEnhMetaFile(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
 
 /*
  * @unimplemented
@@ -358,6 +405,7 @@ EnumEnhMetaFile(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
 
 /*
  * @unimplemented
@@ -392,6 +440,7 @@ GetEnhMetaFileHeader(
 	return 0;
 }
 
+
 /*
  * @unimplemented
  */
@@ -407,6 +456,7 @@ GetEnhMetaFilePaletteEntries(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
 }
+
 
 /*
  * @unimplemented
@@ -560,6 +610,23 @@ SetColorAdjustment(
 	return FALSE;
 }
 
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetColorAdjustment(
+	HDC			hdc,
+	LPCOLORADJUSTMENT	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
 /*
  * @unimplemented
  */
@@ -690,14 +757,18 @@ UnrealizeObject(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
 GdiFlush()
 {
-    NtGdiFlush();
-    return TRUE;
+        /*
+         * Although GdiFlush is unimplemented, it's safe to return
+         * TRUE, because we don't have GDI engine surface caching
+         * implemented yet.
+         */
+	return TRUE;
 }
 
 
@@ -765,51 +836,51 @@ SetColorSpace(
 	return FALSE;
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
-GetDeviceGammaRamp( HDC hdc,
-                    LPVOID lpGammaRamp)
+DeleteColorSpace(
+	HCOLORSPACE	a0
+	)
 {
-    BOOL retValue = FALSE;
-    if (lpGammaRamp == NULL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
-    else
-    {
-        retValue = NtGdiGetDeviceGammaRamp(hdc,lpGammaRamp);
-    }
-
-    return retValue;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
-    
-
-
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
-SetDeviceGammaRamp(HDC hdc,
-                   LPVOID lpGammaRamp)
+GetDeviceGammaRamp(
+	HDC	a0,
+	LPVOID	a1
+	)
 {
-    BOOL retValue = FALSE;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
 
-    if (lpGammaRamp)
-    {
-        retValue = NtGdiSetDeviceGammaRamp(hdc, lpGammaRamp);
-    }
-    else
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
 
-    return  retValue;
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetDeviceGammaRamp(
+	HDC	a0,
+	LPVOID	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -1062,45 +1133,65 @@ wglSwapLayerBuffers(
  */
 
 
-
-
-
-
-
-
 /*
  * @unimplemented
  */
 DWORD
 STDCALL
-IsValidEnhMetaRecord(
-	DWORD	a0,
-	DWORD	a1
-	)
-{
-	UNIMPLEMENTED;
-	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-	return 0;
-
-}
-
-/*
- * @unimplemented
- */
-DWORD
-STDCALL
-IsValidEnhMetaRecordOffExt(
+GdiPlayDCScript(
 	DWORD	a0,
 	DWORD	a1,
 	DWORD	a2,
-	DWORD	a3
+	DWORD	a3,
+	DWORD	a4,
+	DWORD	a5
 	)
 {
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
-
 }
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GdiPlayJournal(
+	DWORD	a0,
+	DWORD	a1,
+	DWORD	a2,
+	DWORD	a3,
+	DWORD	a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GdiPlayScript(
+	DWORD	a0,
+	DWORD	a1,
+	DWORD	a2,
+	DWORD	a3,
+	DWORD	a4,
+	DWORD	a5,
+	DWORD	a6
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
 
 /*
  * @unimplemented
@@ -1124,6 +1215,37 @@ GetGlyphOutlineWow(
 
 
 
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+SelectBrushLocal(
+	DWORD	a0,
+	DWORD	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+SelectFontLocal(
+	DWORD	a0,
+	DWORD	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 
 /*
@@ -1192,7 +1314,17 @@ AddFontResourceTracking(
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+BOOL 
+STDCALL 
+AnyLinkedFonts(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -1233,6 +1365,18 @@ ColorCorrectPalette(HDC hDC,HPALETTE hPalette,DWORD dwFirstEntry,DWORD dwNumOfEn
 /*
  * @unimplemented
  */
+BOOL 
+STDCALL
+EnableEUDC(BOOL enable)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
 int
 STDCALL
 EndFormPage(HDC hdc)
@@ -1242,7 +1386,17 @@ EndFormPage(HDC hdc)
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+BOOL 
+STDCALL
+FontIsLinked(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -1295,9 +1449,105 @@ GdiConvertAndCheckDC(HDC hdc)
 /*
  * @unimplemented
  */
+HBITMAP 
+STDCALL
+GdiConvertBitmap(HBITMAP hbm)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HBRUSH
+STDCALL
+GdiConvertBrush(HBRUSH hbr)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HDC 
+STDCALL
+GdiConvertDC(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HFONT 
+STDCALL
+GdiConvertFont(HFONT hfont)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HPALETTE 
+STDCALL
+GdiConvertPalette(HPALETTE hpal)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HRGN
+STDCALL
+GdiConvertRegion(HRGN hregion)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
 HENHMETAFILE 
 STDCALL
 GdiConvertEnhMetaFile(HENHMETAFILE hmf)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GdiDeleteLocalDC(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+int 
+STDCALL
+GdiDescribePixelFormat(HDC hdc,int ipfd,UINT cjpfd,PPIXELFORMATDESCRIPTOR ppfd)
 {
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -1405,11 +1655,69 @@ GdiIsPlayMetafileDC(HDC hdc)
  */
 BOOL
 STDCALL
+GdiSetAttrs(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+GdiSetLastError(DWORD dwErrCode)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GdiSetPixelFormat(HDC hdc,int ipfd)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 GdiValidateHandle(HGDIOBJ hobj)
 {
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GdiSwapBuffers(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID 
+STDCALL
+GdiSetServerAttr(HDC hdc,DWORD attr)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
 
 /*
@@ -1472,33 +1780,43 @@ GetCharWidthI(
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+DWORD 
+STDCALL
+GetFontUnicodeRanges(
+	HDC hdc,
+	LPGLYPHSET lpgs
+)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
- * @implemented
+ * @unimplemented
  */
 ULONG 
 STDCALL
 GetEUDCTimeStamp(VOID)
 {
-    return NtGdiGetEudcTimeStampEx(NULL,0,TRUE);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 ULONG 
 STDCALL
 GetFontAssocStatus(HDC hdc)
 {
-    ULONG retValue = 0;
-
-    if (hdc)
-    {
-        retValue = NtGdiQueryFontAssocInfo(hdc);
-    }
-
-    return retValue;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
@@ -1528,43 +1846,64 @@ GetLayout(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
-GetTextExtentExPointWPri(HDC hdc,
-                         LPWSTR lpwsz,
-                         ULONG cwc,
-                         ULONG dxMax,
-                         ULONG *pcCh,
-                         PULONG pdxOut,
-                         LPSIZE psize)
+GetTextExtentExPointWPri(HDC hdc,LPWSTR lpwsz,ULONG cwc,ULONG dxMax,ULONG *pcCh,PULONG pdxOut,LPSIZE psize)
 {
-    return NtGdiGetTextExtentExW(hdc,lpwsz,cwc,dxMax,pcCh,pdxOut,psize,0);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-INT 
+int 
 STDCALL
-GetTextFaceAliasW(HDC hdc,
-                  int cChar,
-                  LPWSTR pszOut)
+GetTextFaceAliasW(HDC hdc,int cChar,LPWSTR pszOut)
 {
-    INT retValue = 0;
-    if ((!pszOut) || (cChar))
-    {
-        retValue = NtGdiGetTextFaceW(hdc,cChar,pszOut,TRUE);
-    }
-    else
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
-    return retValue;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
+/*
+ * @unimplemented
+ */
+BOOL 
+STDCALL
+GetTransform(HDC hdc, DWORD iXform, LPXFORM pxf)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
+/*
+ * @unimplemented
+ */
+LONG 
+STDCALL
+HT_Get8BPPFormatPalette(LPPALETTEENTRY pPaletteEntry, USHORT RedGamma,USHORT GreenGamma, USHORT BlueGamma)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+LONG 
+STDCALL
+HT_Get8BPPMaskPalette(LPPALETTEENTRY pPaletteEntry, BOOL Use8BPPMaskPal,BYTE CMYMask, USHORT RedGamma, USHORT GreenGamma, USHORT BlueGamma)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -1578,7 +1917,17 @@ MirrorRgn(HWND hwnd,HRGN hrgn)
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+int 
+STDCALL
+NamedEscape(HDC hdc,PWCHAR pDriver,int nDriver,int iEsc,int cjIn,LPSTR pjIn,int cjOut,LPSTR pjOut)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -1593,23 +1942,17 @@ QueryFontAssocStatus(VOID)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL 
 STDCALL
-RemoveFontMemResourceEx(HANDLE fh)
+RemoveFontMemResourceEx(
+	HANDLE fh
+)
 {
-    BOOL retValue=0;
-
-    if (fh)
-    {
-        retValue = NtGdiRemoveFontMemResourceEx(fh);
-    }
-    else
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
-    return retValue;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
@@ -1723,37 +2066,67 @@ UnloadNetworkFonts(DWORD unknown)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL 
 STDCALL
-GetTextExtentExPointI(HDC hdc,
-                      LPWORD pgiIn,
-                      int cgi,
-                      int nMaxExtent,
-                      LPINT lpnFit,
-                      LPINT alpDx,
-                      LPSIZE lpSize)
+GetTextExtentExPointI(
+	HDC hdc,
+	LPWORD pgiIn,
+	int cgi,
+	int nMaxExtent,
+	LPINT lpnFit,
+	LPINT alpDx,
+	LPSIZE lpSize
+)
 {
-    return NtGdiGetTextExtentExW(hdc,pgiIn,cgi,nMaxExtent,(ULONG *)lpnFit, (PULONG) alpDx,lpSize,1);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL 
 STDCALL
-GetTextExtentPointI(HDC hdc,
-                    LPWORD pgiIn,
-                    int cgi,
-                    LPSIZE lpSize)
+GetTextExtentPointI(
+	HDC hdc,
+	LPWORD pgiIn,
+	int cgi,
+	LPSIZE lpSize
+)
 {
-    return NtGdiGetTextExtent(hdc,pgiIn,cgi,lpSize,2);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
+/*
+ * @unimplemented
+ */
+NTSTATUS
+STDCALL
+GdiFullscreenControl(FULLSCREENCONTROL FullscreenCommand,PVOID FullscreenInput,
+					DWORD FullscreenInputLength,PVOID FullscreenOutput,
+					PULONG FullscreenOutputLength)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
-
-
+/*
+ * @unimplemented
+ */
+INT 
+STDCALL
+GdiQueryFonts(PUNIVERSAL_FONT_ID pufiFontList,ULONG nBufferSize,PLARGE_INTEGER pTimeStamp )
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -1767,7 +2140,17 @@ GdiRealizationInfo(HDC hdc, PREALIZATION_INFO pri)
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+BOOL 
+STDCALL
+GetCharWidthInfo(HDC hdc,PCHWIDTHINFO pChWidthInfo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -2071,49 +2454,359 @@ GdiResetDCEMF(
 	return 0;
 }
 
-
-HBITMAP 
-STDCALL 
-CreateDIBitmap(HDC
-	hDc, const BITMAPINFOHEADER *Header,
-	DWORD Init, LPCVOID Bits, const BITMAPINFO *Data,
-	UINT ColorUse)
+/*
+ * @unimplemented
+ */
+HANDLE STDCALL
+BRUSHOBJ_hGetColorTransform(BRUSHOBJ *pbo)
 {
-	/* FIMXE we need do more thing in user mode */
-	return NtGdiCreateDIBitmap(hDc, Header, Init, Bits, Data,  ColorUse);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
  * @unimplemented
  */
-INT
-STDCALL
-CombineRgn(HRGN  hDest,
-                    HRGN  hSrc1,
-                    HRGN  hSrc2,
-                    INT  CombineMode)
+PVOID STDCALL
+BRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ *BrushObj,
+		       IN ULONG ObjSize)
 {
-    /* FIXME some part should be done in user mode */
-    return NtGdiCombineRgn(hDest, hSrc1, hSrc2, CombineMode); 
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID STDCALL
+BRUSHOBJ_pvGetRbrush(IN BRUSHOBJ *BrushObj)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG STDCALL
+BRUSHOBJ_ulGetBrushColor(BRUSHOBJ *pbo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+CLIPOBJ_bEnum(IN CLIPOBJ *ClipObj,
+	      IN ULONG ObjSize,
+	      OUT ULONG *EnumRects)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG STDCALL
+CLIPOBJ_cEnumStart(IN CLIPOBJ *ClipObj,
+		   IN BOOL ShouldDoAll,
+		   IN ULONG ClipType,
+		   IN ULONG BuildOrder,
+		   IN ULONG MaxRects)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PATHOBJ* STDCALL
+CLIPOBJ_ppoGetPath(CLIPOBJ *ClipObj)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+EngAcquireSemaphore ( IN HSEMAPHORE hsem )
+{
+   RtlEnterCriticalSection((PRTL_CRITICAL_SECTION)hsem);
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngAssociateSurface(IN HSURF Surface,
+		    IN HDEV Dev,
+		    IN ULONG Hooks)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngCheckAbort(SURFOBJ *pso)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+FD_GLYPHSET* STDCALL
+EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngCopyBits(SURFOBJ *Dest,
+	    SURFOBJ *Source,
+	    CLIPOBJ *Clip,
+	    XLATEOBJ *ColorTranslation,
+	    RECTL *DestRect,
+	    POINTL *SourcePoint)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
  * @unimplemented
  */
 HBITMAP STDCALL
-CreateBitmap(
-    INT  Width,
-    INT  Height,
-    UINT  Planes,
-    UINT  BitsPixel,
-    PCVOID pUnsafeBits)
+EngCreateBitmap(IN SIZEL Size,
+		IN LONG Width,
+		IN ULONG Format,
+		IN ULONG Flags,
+		IN PVOID Bits)
 {
-    /* FIXME some part should be done in user mode */
-    return NtGdiCreateBitmap(Width, Height, Planes, BitsPixel, (LPBYTE) pUnsafeBits);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
+/*
+ * @unimplemented
+ */
+CLIPOBJ* STDCALL
+EngCreateClip(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
+/*
+ * @unimplemented
+ */
+HBITMAP STDCALL
+EngCreateDeviceBitmap(IN DHSURF Surface,
+		      IN SIZEL Size,
+		      IN ULONG Format)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
+/*
+ * @unimplemented
+ */
+HSURF STDCALL
+EngCreateDeviceSurface(IN DHSURF Surface,
+		       IN SIZEL Size,
+		       IN ULONG FormatVersion)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HPALETTE STDCALL
+EngCreatePalette(IN ULONG Mode,
+		 IN ULONG NumColors,
+		 IN ULONG *Colors,
+		 IN ULONG Red,
+		 IN ULONG Green,
+		 IN ULONG Blue)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HSEMAPHORE
+STDCALL
+EngCreateSemaphore ( VOID )
+{
+  PRTL_CRITICAL_SECTION CritSect = RtlAllocateHeap(GetProcessHeap(), 0, sizeof(RTL_CRITICAL_SECTION));
+  if (!CritSect) return NULL;
+  RtlInitializeCriticalSection( CritSect );
+  return (HSEMAPHORE)CritSect;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngDeleteClip(CLIPOBJ *ClipRegion)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngDeletePalette(IN HPALETTE Palette)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngDeletePath(PATHOBJ *ppo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+EngDeleteSemaphore ( IN HSEMAPHORE hsem )
+{
+ if (!hsem) return;
+
+ RtlDeleteCriticalSection( (PRTL_CRITICAL_SECTION) hsem );
+ RtlFreeHeap( GetProcessHeap(), 0, hsem );
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngDeleteSurface(IN HSURF Surface)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngEraseSurface(SURFOBJ *Surface,
+		RECTL *Rect,
+		ULONG iColor)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,BRUSHOBJ *pbo,POINTL *pptlBrushOrg,MIX mix,FLONG flOptions)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID STDCALL
+EngFindResource(HANDLE h,
+                int iName,
+                int iType,
+                PULONG pulSize)
+{
+ HRSRC HRSrc;
+ DWORD Size;
+ HGLOBAL Hg;
+ LPVOID Lock;
+
+ if (!(HRSrc = FindResourceW( (HMODULE) h,
+                       MAKEINTRESOURCEW(iName),
+                       MAKEINTRESOURCEW(iType)
+                          ))) 
+                               return NULL;
+ if (!(Size = SizeofResource( (HMODULE) h, HRSrc ))) return NULL; 
+ if (!(Hg   = LoadResource(   (HMODULE) h, HRSrc ))) return NULL;
+ Lock = LockResource( Hg );
+ pulSize = (PULONG) Size;
+ return (PVOID) Lock;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL 
+EngFreeModule(HANDLE h)
+{
+  LdrUnloadDll(h);
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngGetCurrentCodePage(OUT PUSHORT OemCodePage,
+		      OUT PUSHORT AnsiCodePage)
+{
+   OemCodePage  = (PUSHORT) GetOEMCP();
+   AnsiCodePage = (PUSHORT) GetACP();
+}
 
 /*
  * @unimplemented
@@ -2128,29 +2821,262 @@ EngGetDriverName(HDEV hdev)
 
 /*
  * @unimplemented
- * wrong info it is not Obsolete GDI Function as http://www.osronline.com/DDKx/graphics/gdioview_20tj.htm say
+ */
+LPWSTR STDCALL
+EngGetPrinterDataFileName(HDEV hdev)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngGradientFill(SURFOBJ *psoDest,CLIPOBJ *pco,XLATEOBJ *pxlo,TRIVERTEX *pVertex,ULONG nVertex,PVOID pMesh,ULONG nMesh,RECTL *prclExtents,POINTL *pptlDitherOrg,ULONG ulMode)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngLineTo(SURFOBJ *Surface,
+	  CLIPOBJ *Clip,
+	  BRUSHOBJ *Brush,
+	  LONG x1,
+	  LONG y1,
+	  LONG x2,
+	  LONG y2,
+	  RECTL *RectBounds,
+	  MIX mix)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE STDCALL 
+EngLoadModule(LPWSTR pwsz)
+{
+   return LoadLibraryExW ( pwsz, NULL, LOAD_LIBRARY_AS_DATAFILE);
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngMarkBandingSurface(HSURF hsurf)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngMultiByteToUnicodeN(OUT LPWSTR UnicodeString,
+		       IN ULONG MaxBytesInUnicodeString,
+		       OUT PULONG BytesInUnicodeString,
+		       IN PCHAR MultiByteString,
+		       IN ULONG BytesInMultiByteString)
+{
+  RtlMultiByteToUnicodeN(
+                     UnicodeString,
+                     MaxBytesInUnicodeString,
+                     BytesInUnicodeString,
+                     MultiByteString,
+                     BytesInMultiByteString
+                        );
+}
+
+/*
+ * @unimplemented
+ */
+INT STDCALL 
+EngMultiByteToWideChar(UINT CodePage,
+                       LPWSTR WideCharString,
+                       INT BytesInWideCharString,
+                       LPSTR MultiByteString,
+                       INT BytesInMultiByteString)
+{
+  return MultiByteToWideChar(
+                         CodePage,
+			 0,
+			 MultiByteString,
+			 BytesInMultiByteString,
+			 WideCharString,
+			(BytesInWideCharString/sizeof(WCHAR)) /* Bytes to (in WCHARs) */
+			    );
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngPaint(IN SURFOBJ *Surface,
+	 IN CLIPOBJ *ClipRegion,
+	 IN BRUSHOBJ *Brush,
+	 IN POINTL *BrushOrigin,
+	 IN MIX  Mix)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngPlgBlt(SURFOBJ *psoTrg,SURFOBJ *psoSrc,SURFOBJ *psoMsk,CLIPOBJ *pco,XLATEOBJ *pxlo,COLORADJUSTMENT *pca,POINTL *pptlBrushOrg,POINTFIX *pptfx,RECTL *prcl,POINTL *pptl,ULONG iMode)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @implemented
+ * Obsolete GDI Function
+ * http://www.osronline.com/DDKx/graphics/gdioview_20tj.htm
  */
 BOOL STDCALL
 EngQueryEMFInfo(HDEV hdev,EMFINFO *pEMFInfo)
 {
-#if 0
-    BOOL retValue = FALSE;
-    DHPDEV Dhpdev;
-
-    if ((!hdev) && (!pEMFInfo))
-    {
-        if ((Dhpdev = NtGdiGetDhpdev(hdev)))
-        {
-            /* FIXME check if it support or if it is pEMFInfo we got */
-            /* FIXME copy the data from Dhpdev to pEMFInfo           */
-        }
-    }
-    return retValue;
-#else
-    return FALSE;
-#endif
+  return FALSE;
 }
 
+/*
+ * @unimplemented
+ */
+VOID STDCALL 
+EngQueryLocalTime(PENG_TIME_FIELDS etf)
+{
+  SYSTEMTIME SystemTime;
+  GetLocalTime( &SystemTime );
+  etf->usYear    = SystemTime.wYear;
+  etf->usMonth   = SystemTime.wMonth;
+  etf->usWeekday = SystemTime.wDayOfWeek;
+  etf->usDay     = SystemTime.wDay;
+  etf->usHour    = SystemTime.wHour;
+  etf->usMinute  = SystemTime.wMinute;
+  etf->usSecond  = SystemTime.wSecond;
+  etf->usMilliseconds = SystemTime.wMilliseconds;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+EngReleaseSemaphore ( IN HSEMAPHORE hsem )
+{
+  RtlLeaveCriticalSection( (PRTL_CRITICAL_SECTION) hsem);
+}
+
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngStretchBltROP(SURFOBJ *psoDest,SURFOBJ *psoSrc,SURFOBJ *psoMask,CLIPOBJ *pco,XLATEOBJ *pxlo,COLORADJUSTMENT *pca,POINTL *pptlHTOrg,RECTL *prclDest,RECTL *prclSrc,POINTL *pptlMask,ULONG iMode,BRUSHOBJ *pbo,DWORD rop4)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngStrokeAndFillPath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHOBJ *pboStroke,LINEATTRS *plineattrs,BRUSHOBJ *pboFill,POINTL *pptlBrushOrg,MIX mixFill,FLONG flOptions)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngStrokePath(SURFOBJ *pso,PATHOBJ *ppo,CLIPOBJ *pco,XFORMOBJ *pxo,BRUSHOBJ *pbo,POINTL *pptlBrushOrg,LINEATTRS *plineattrs,MIX mix)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+EngTextOut(SURFOBJ *pso,STROBJ *pstro,FONTOBJ *pfo,CLIPOBJ *pco,RECTL *prclExtra,RECTL *prclOpaque,BRUSHOBJ *pboFore,BRUSHOBJ *pboOpaque,POINTL *pptlOrg,MIX mix)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngTransparentBlt(IN SURFOBJ *Dest,
+		  IN SURFOBJ *Source,
+		  IN CLIPOBJ *Clip,
+		  IN XLATEOBJ *ColorTranslation,
+		  IN PRECTL DestRect,
+		  IN PRECTL SourceRect,
+		  IN ULONG TransparentColor,
+		  IN ULONG Reserved)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngUnicodeToMultiByteN(OUT PCHAR MultiByteString,
+		       IN ULONG  MaxBytesInMultiByteString,
+		       OUT PULONG  BytesInMultiByteString,
+		       IN PWSTR  UnicodeString,
+		       IN ULONG  BytesInUnicodeString)
+{
+   RtlUnicodeToMultiByteN(
+                       MultiByteString,
+                       MaxBytesInMultiByteString,
+                       BytesInMultiByteString,
+                       UnicodeString,
+                       BytesInUnicodeString
+                         );
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL 
+EngUnlockSurface(SURFOBJ *pso)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
 
 /*
  * @unimplemented
@@ -2173,7 +3099,158 @@ EngWideCharToMultiByte( UINT CodePage,
                          NULL);
 }
 
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+FONTOBJ_cGetAllGlyphHandles(IN FONTOBJ *FontObj,
+                            IN HGLYPH  *Glyphs)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+FONTOBJ_cGetGlyphs(IN FONTOBJ *FontObj,
+                   IN ULONG    Mode,
+                   IN ULONG    NumGlyphs,
+                   IN HGLYPH  *GlyphHandles,
+                   IN PVOID   *OutGlyphs)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PFD_GLYPHATTR STDCALL
+FONTOBJ_pQueryGlyphAttrs(FONTOBJ *pfo,ULONG iMode)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+FD_GLYPHSET *STDCALL
+FONTOBJ_pfdg(FONTOBJ *pfo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+IFIMETRICS*
+STDCALL
+FONTOBJ_pifi(IN FONTOBJ  *FontObj)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID
+STDCALL
+FONTOBJ_pvTrueTypeFontFile(IN FONTOBJ  *FontObj,
+                           IN ULONG    *FileSize)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+XFORMOBJ*
+STDCALL
+FONTOBJ_pxoGetXform(IN FONTOBJ  *FontObj)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+FONTOBJ_vGetInfo(IN  FONTOBJ   *FontObj,
+                 IN  ULONG      InfoSize,
+                 OUT PFONTINFO  FontInfo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+PATHOBJ_bEnum(PATHOBJ *ppo,PATHDATA *ppd)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+PATHOBJ_bEnumClipLines(PATHOBJ *ppo,ULONG cb,CLIPLINE *pcl)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL 
+PATHOBJ_vEnumStart(PATHOBJ *ppo)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+PATHOBJ_vEnumStartClipLines(PATHOBJ *ppo,CLIPOBJ *pco,SURFOBJ *pso,LINEATTRS *pla)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+PATHOBJ_vGetBounds(PATHOBJ *ppo,PRECTFX prectfx)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+}
 
 /*
  * @unimplemented
@@ -2316,7 +3393,17 @@ GdiPlayEMF
 	return 0;
 }
 
-
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GdiInitSpool(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
 
 /*
  * @unimplemented
@@ -2343,398 +3430,3 @@ VOID STDCALL GdiInitializeLanguagePack(DWORD InitParam)
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
-
-
-/*
- * @implemented
- */
-INT
-STDCALL
-ExcludeClipRect(IN HDC hdc, IN INT xLeft, IN INT yTop, IN INT xRight, IN INT yBottom)
-{
-	/* FIXME some part need be done on user mode size */
-	return NtGdiExcludeClipRect(hdc, xLeft, yTop, xRight, yBottom);
-}
-
-/*
- * @implemented
- */
-INT
-STDCALL
-ExtSelectClipRgn( IN HDC hdc, IN HRGN hrgn, IN INT iMode)
-{
-	/* FIXME some part need be done on user mode size */
-	return NtGdiExtSelectClipRgn(hdc,hrgn, iMode);
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GdiGradientFill(
-    IN HDC hdc,
-    IN PTRIVERTEX pVertex,
-    IN ULONG nVertex,
-    IN PVOID pMesh,
-    IN ULONG nMesh,
-    IN ULONG ulMode)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiGradientFill(hdc, pVertex, nVertex, pMesh, nMesh, ulMode);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GdiTransparentBlt(
-    IN HDC hdcDst,
-    IN INT xDst,
-    IN INT yDst,
-    IN INT cxDst,
-    IN INT cyDst,
-    IN HDC hdcSrc,
-    IN INT xSrc,
-    IN INT ySrc,
-    IN INT cxSrc,
-    IN INT cySrc,
-    IN COLORREF TransColor
-)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiTransparentBlt(hdcDst, xDst, yDst, cxDst, cyDst, hdcSrc, xSrc, ySrc, cxSrc, cySrc, TransColor);
-}
-
-/*
- * @unimplemented
- */
-BOOL
-STDCALL
-GdiPrinterThunk(
-    IN HUMPD humpd,
-    DWORD *status,
-    DWORD unuse)
-{
-    /* FIXME figout the protypes, the HUMPD are a STRUCT or COM object */
-    /* status contain some form of return value that being save, what it is I do not known */
-    /* unsue seam have zero effect, what it is for I do not known */
-
-    // ? return NtGdiSetPUMPDOBJ(humpd->0x10,TRUE, humpd, ?) <- blackbox, OpenRCE info, and api hooks for anylaysing;
-    return FALSE;
-}
-
-/*
- * @unimplemented
- *
- */
-HBITMAP
-STDCALL
-GdiConvertBitmapV5(
-    HBITMAP in_format_BitMap, 
-    HBITMAP src_BitMap,
-    INT bpp,
-    INT unuse)
-{
-    /* FIXME guessing the prototypes */
-
-    /* 
-     * it have create a new bitmap with desired in format, 
-     * then convert it src_bitmap to new format
-     * and return it as HBITMAP 
-     */
-
-    return FALSE;
-}
-
-
-/*
- * @implemented
- *
- */
-COLORREF 
-STDCALL 
-GetBkColor(HDC hdc)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiGetBkColor(hdc);
-}
-
-/*
- * @implemented
- *
- */
-int
-STDCALL 
-GetBkMode(HDC hdc)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiGetBkMode(hdc);
-}
-
-/*
- * @implemented
- *
- */
-BOOL 
-STDCALL 
-GetBrushOrgEx(HDC hdc,LPPOINT pt)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiGetBrushOrgEx(hdc,pt);
-}
-
-/*
- * @implemented
- *
- */
-BOOL 
-STDCALL 
-GetCharABCWidthsFloatW(HDC hdc,UINT FirstChar,UINT LastChar,LPABCFLOAT abcF)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiGetCharABCWidthsFloat(hdc, FirstChar, LastChar, abcF);
-}
-
-/*
- * @implemented
- *
- */
-int 
-STDCALL 
-GetDeviceCaps(HDC hdc,
-              int i)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiGetDeviceCaps(hdc,i);
-}
-
-
-/*
- * @implemented
- *
- */
-BOOL 
-STDCALL 
-GetCurrentPositionEx(HDC hdc,
-                     LPPOINT lpPoint)
-{
-    /* FIXME some part need be done in user mode */
-    return  NtGdiGetCurrentPositionEx(hdc, lpPoint);
-}
-
-/*
- * @implemented
- *
- */
-int 
-STDCALL
-GetClipBox(HDC hdc,
-           LPRECT lprc)
-{
-    /* FIXME some part need be done in user mode */
-    return  NtGdiGetClipBox(hdc, lprc);
-}
-
-/*
- * @implemented
- *
- */
-BOOL 
-STDCALL
-GetCharWidthFloatW(HDC hdc,
-                   UINT iFirstChar, 
-                   UINT iLastChar, 
-                   PFLOAT pxBuffer)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiGetCharWidthFloat(hdc, iFirstChar, iLastChar, pxBuffer);
-}
-
-/*
- * @implemented
- *
- */
-BOOL
-STDCALL
-GetCharWidth32W(HDC hdc,
-               UINT iFirstChar,
-               UINT iLastChar,
-               LPINT lpBuffer)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiGetCharWidth32(hdc, iFirstChar, iLastChar, lpBuffer);
-}
-
-/*
- * @implemented
- *
- */
-BOOL
-STDCALL
-GetCharABCWidths(HDC hdc,
-                 UINT uFirstChar,
-                 UINT uLastChar,
-                 LPABC lpabc)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiGetCharABCWidths(hdc, uFirstChar, uLastChar, lpabc);
-}
-
-
-/*
- * @implemented
- *
- */
-DWORD 
-STDCALL
-GetFontData(HDC hdc,
-            DWORD dwTable,
-            DWORD dwOffset,
-            LPVOID lpvBuffer,
-            DWORD cbData)
-{
-    if (!lpvBuffer)
-    {
-       cbData = 0;
-    }
-    return NtGdiGetFontData(hdc, dwTable, dwOffset, lpvBuffer, cbData);
-}
-
-
-/*
- * @implemented
- *
- */
-DWORD 
-STDCALL
-GetRegionData(HRGN hrgn,
-              DWORD nCount,
-              LPRGNDATA lpRgnData)
-{
-    if (!lpRgnData)
-    {
-        nCount = 0;
-    }
-
-    return NtGdiGetRegionData(hrgn,nCount,lpRgnData);
-}
-
-
-/*
- * @implemented
- *
- */
-INT
-STDCALL
-GetRgnBox(HRGN hrgn,
-          LPRECT prcOut)
-{
-    /* FIXME some stuff need be done in user mode */
-    return NtGdiGetRgnBox(hrgn, prcOut);
-}
-
-
-/*
- * @implemented
- *
- */
-INT
-STDCALL
-OffsetRgn( HRGN hrgn,
-          int nXOffset,
-          int nYOffset)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiOffsetRgn(hrgn,nXOffset,nYOffset);
-}
-
-
-INT
-STDCALL
-GetTextCharsetInfo(HDC hdc,
-                   LPFONTSIGNATURE lpSig,
-                   DWORD dwFlags)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiGetTextCharsetInfo(hdc, lpSig, dwFlags); 
-}
-
-
-
-INT 
-STDCALL
-IntersectClipRect(HDC hdc,
-                  int nLeftRect,
-                  int nTopRect,
-                  int nRightRect,
-                  int nBottomRect)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiIntersectClipRect(hdc, nLeftRect, nTopRect, nRightRect, nBottomRect);
-}
-
-INT 
-STDCALL
-OffsetClipRgn(HDC hdc,
-              int nXOffset,
-              int nYOffset)
-{
-    /* FIXME some part are done in user mode */
-    return NtGdiOffsetClipRgn( hdc,  nXOffset,  nYOffset);
-}
-
-
-INT
-STDCALL
-NamedEscape(HDC hdc,
-            PWCHAR pDriver,
-            INT iEsc, 
-            INT cjIn,
-            LPSTR pjIn,
-            INT cjOut,
-            LPSTR pjOut)
-{
-    /* FIXME metadc, metadc are done most in user mode, and we do not support it 
-     * Windows 2000/XP/Vista ignore the current hdc, that are being pass and always set hdc to NULL 
-     * when it calls to NtGdiExtEscape from NamedEscape
-     */
-    return NtGdiExtEscape(NULL,pDriver,wcslen(pDriver),iEsc,cjIn,pjIn,cjOut,pjOut);
-}
-
-
-BOOL
-STDCALL
-PatBlt(HDC hdc, 
-       int nXLeft, 
-       int nYLeft, 
-       int nWidth, 
-       int nHeight, 
-       DWORD dwRop)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiPatBlt( hdc,  nXLeft,  nYLeft,  nWidth,  nHeight,  dwRop);
-}
-
-BOOL
-STDCALL
-PolyPatBlt(IN HDC hdc,
-           IN DWORD rop4,
-           IN PPOLYPATBLT pPoly,
-           IN DWORD Count,
-           IN DWORD Mode)
-{
-    /* FIXME some part need be done in user mode */
-    return NtGdiPolyPatBlt(hdc, rop4, pPoly,Count,Mode);
-}
-
-
-
-
-
-
-
-
-

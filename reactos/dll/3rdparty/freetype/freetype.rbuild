@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="freetype" type="kernelmodedll" entrypoint="0" baseaddress="${BASEADDRESS_FREETYPE}" installbase="system32" installname="freetype.dll" allowwarnings="true">
 	<importlibrary definition="freetype.def" />
 	<include base="freetype">include</include>
@@ -33,7 +31,6 @@
 			<file>ftgxval.c</file>
 			<file>ftmm.c</file>
 			<file>ftotval.c</file>
-			<file>ftpatent.c</file>
 			<file>ftpfr.c</file>
 			<file>ftstroke.c</file>
 			<file>ftsynth.c</file>

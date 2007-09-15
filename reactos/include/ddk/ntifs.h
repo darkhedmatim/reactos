@@ -642,7 +642,6 @@ typedef struct _KAPC_STATE {
     BOOLEAN     KernelApcPending;
     BOOLEAN     UserApcPending;
 } KAPC_STATE, *PKAPC_STATE, *RESTRICTED_POINTER PRKAPC_STATE;
-#define KAPC_STATE_ACTUAL_LENGTH (FIELD_OFFSET(KAPC_STATE, UserApcPending) + sizeof(BOOLEAN))
 
 typedef struct _BITMAP_RANGE {
     LIST_ENTRY      Links;

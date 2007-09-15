@@ -1,3 +1,17 @@
+#include "../w32knapi.h"
+
+W32KAPI
+INT
+APIENTRY
+NtGdiGetRandomRgn(
+    IN HDC hdc,
+    IN HRGN hrgn,
+    IN INT iRgn)
+{
+	return (INT)Syscall(L"NtGdiGetRandomRgn", 3, &hdc);
+}
+
+
 INT
 Test_NtGdiGetRandomRgn(PTESTINFO pti)
 {
@@ -12,7 +26,7 @@ Test_NtGdiGetRandomRgn(PTESTINFO pti)
 //	UpdateWindow(hWnd);
 	hDC = GetDC(hWnd);
 
-	ASSERT(hDC != NULL);
+	ASSERT1(hDC != NULL);
 
 	hrgn = CreateRectRgn(0,0,0,0);
 	hrgn2 = CreateRectRgn(3,3,10,10);
@@ -52,7 +66,7 @@ Test_NtGdiGetRandomRgn(PTESTINFO pti)
 	RTEST(GetLastError() == ERROR_SUCCESS);
 
 	SelectClipRgn(hDC, hrgn2);
-	RTEST(NtGdiGetRandomRgn(hDC, 0, 1) == -1);
+	TEST(NtGdiGetRandomRgn(hDC, 0, 1) == -1);
 	RTEST(GetLastError() == ERROR_SUCCESS);
 	RTEST(NtGdiGetRandomRgn(hDC, hrgn, 1) == 1);
 	RTEST(CombineRgn(hrgn, hrgn, hrgn, RGN_OR) == SIMPLEREGION);

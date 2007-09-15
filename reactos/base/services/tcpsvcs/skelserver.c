@@ -37,6 +37,17 @@ SetUpListener(USHORT Port)
     return INVALID_SOCKET;
 }
 
+/* note: consider allowing a maximum number of connections
+ * A number of threads can be allocated and worker threads will
+ * only be spawned if a free space is available
+
+typedef struct _WORKER_THREAD {
+    DWORD num;
+    BOOL available;
+    HANDLE hThread;
+} WORKER_THREAD;
+
+*/
 
 static VOID
 AcceptConnections(SOCKET ListeningSocket,
@@ -51,13 +62,13 @@ AcceptConnections(SOCKET ListeningSocket,
     INT nAddrSize = sizeof(Client);
     DWORD ThreadID;
     TCHAR buf[256];
-    INT TimeOut = 2000;
+    INT TimeOut = 2000; // 2 seconds
 
     /* set timeout values */
     TimeVal.tv_sec  = TimeOut / 1000;
     TimeVal.tv_usec = TimeOut % 1000;
 
-    while (!bShutDown)
+    while (! bShutDown) // (i<MAX_CLIENTS && !bShutDown)
     {
 		INT SelRet = 0;
 

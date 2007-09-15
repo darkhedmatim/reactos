@@ -23,12 +23,10 @@
 /* Handle Masks and shifts */
 #define GDI_HANDLE_INDEX_MASK (GDI_HANDLE_COUNT - 1)
 #define GDI_HANDLE_TYPE_MASK  0x007f0000
-#define GDI_HANDLE_BASETYPE_MASK 0x001f0000
 #define GDI_HANDLE_STOCK_MASK 0x00800000
 #define GDI_HANDLE_REUSE_MASK 0xff000000
 #define GDI_HANDLE_UPPER_MASK (GDI_HANDLE_TYPE_MASK|GDI_HANDLE_STOCK_MASK|GDI_HANDLE_REUSE_MASK)
 #define GDI_HANDLE_REUSECNT_SHIFT 24
-#define GDI_HANDLE_BASETYPE_SHIFT 16
 
 #define GDI_ENTRY_STOCK_MASK 0x00000080
 #define GDI_ENTRY_REUSE_MASK 0x0000ff00
@@ -36,54 +34,25 @@
 #define GDI_ENTRY_REUSECNT_SHIFT 8
 #define GDI_ENTRY_UPPER_SHIFT 16
 
-#define GDI_OBJECT_TAG_DC       TAG('G', 'l', 'a', '1')
-#define GDI_OBJECT_TAG_REGION   TAG('G', 'l', 'a', '4')
-#define GDI_OBJECT_TAG_BITMAP   TAG('G', 'l', 'a', '5')
-#define GDI_OBJECT_TAG_CLIOBJ   TAG('G', 'h', '0', '6')
-#define GDI_OBJECT_TAG_PATH     TAG('G', 'h', '0', '7')
-#define GDI_OBJECT_TAG_PALETTE  TAG('G', 'l', 'a', '8')
-#define GDI_OBJECT_TAG_COLSPC   TAG('G', 'h', '0', '9')
-#define GDI_OBJECT_TAG_FONT     TAG('G', 'l', 'a', ':')
-#define GDI_OBJECT_TAG_PFE      TAG('G', 'h', '0', '<')
-#define GDI_OBJECT_TAG_BRUSH    TAG('G', 'l', 'a', '@')
-#define GDI_OBJECT_TAG_ENUMFONT TAG('G', 'h', '0', 'F')
-
-#define GDI_OBJECT_TAG_DDRAW    TAG('D', 'h', ' ', '1')
-#define GDI_OBJECT_TAG_DDSURF   TAG('D', 'h', ' ', '2')
-
 /*! \defgroup GDI object types
  *
  *  GDI object types
  *
  */
 /*@{*/
-#define GDI_OBJECT_TYPE_DC            0x00010000
-#define GDI_OBJECT_TYPE_DIRECTDRAW    0x00020000 /* Should be moved away from gdi objects */
-#define GDI_OBJECT_TYPE_DD_SURFACE    0x00030000 /* Should be moved away from gdi objects */
-#define GDI_OBJECT_TYPE_REGION        0x00040000
-#define GDI_OBJECT_TYPE_BITMAP        0x00050000
-#define GDI_OBJECT_TYPE_CLIOBJ        0x00060000
-#define GDI_OBJECT_TYPE_PATH          0x00070000
-#define GDI_OBJECT_TYPE_PALETTE       0x00080000
-#define GDI_OBJECT_TYPE_COLORSPACE    0x00090000
-#define GDI_OBJECT_TYPE_FONT          0x000a0000
-
-#define GDI_OBJECT_TYPE_BRUSH         0x00100000
-#define GDI_OBJECT_TYPE_DD_VIDEOPORT  0x00120000 /* Should be moved away from gdi objects */
-#define GDI_OBJECT_TYPE_DD_MOTIONCOMP 0x00140000 /* Should be moved away from gdi objects */
-#define GDI_OBJECT_TYPE_ENUMFONT      0x00160000
-
-/* Following object types are derived types from the above base types
-   use 0x001f0000 as mask to get the base type */
+#define GDI_OBJECT_TYPE_DC          0x00010000
+#define GDI_OBJECT_TYPE_REGION      0x00040000
+#define GDI_OBJECT_TYPE_BITMAP      0x00050000
+#define GDI_OBJECT_TYPE_PALETTE     0x00080000
+#define GDI_OBJECT_TYPE_FONT        0x000a0000
+#define GDI_OBJECT_TYPE_BRUSH       0x00100000
 #define GDI_OBJECT_TYPE_EMF         0x00210000
-#define GDI_OBJECT_TYPE_METAFILE    0x00260000
-#define GDI_OBJECT_TYPE_ENHMETAFILE 0x00460000
 #define GDI_OBJECT_TYPE_PEN         0x00300000
 #define GDI_OBJECT_TYPE_EXTPEN      0x00500000
+#define GDI_OBJECT_TYPE_COLORSPACE  0x00090000
 #define GDI_OBJECT_TYPE_METADC      0x00660000
-/*#define GDI_OBJECT_TYPE_DD_PALETTE    0x00630000 unused at the moment, other value required */
-/*#define GDI_OBJECT_TYPE_DD_CLIPPER    0x00640000 unused at the moment, other value required  */
-
+#define GDI_OBJECT_TYPE_METAFILE    0x00260000
+#define GDI_OBJECT_TYPE_ENHMETAFILE 0x00460000
 /* Following object types made up for ROS */
 #define GDI_OBJECT_TYPE_DONTCARE    0x007f0000
 /** Not really an object type. Forces GDI_FreeObj to be silent. */
@@ -117,9 +86,6 @@
 
 #define GDI_ENTRY_GET_REUSECNT(e)     \
     ((((ULONG_PTR)(e)) & GDI_ENTRY_REUSE_MASK) >> GDI_ENTRY_REUSECNT_SHIFT)
-
-#define GDI_OBJECT_GET_TYPE_INDEX(t) \
-    ((t & GDI_HANDLE_BASETYPE_MASK) >> GDI_HANDLE_BASETYPE_SHIFT)
 
 /* DC OBJ Types */
 #define DC_TYPE_DIRECT 0  // normal device context
@@ -194,9 +160,8 @@
 typedef struct _GDI_TABLE_ENTRY
 {
     PVOID KernelData; /* Points to the kernel mode structure */
-    SHORT ProcessId;  /* process id that created the object, 0 for stock objects */
-    SHORT nCount;     /* usage count of object handles */
-    LONG  Type;       /* the first 16 bit is the object type including the stock obj flag, the last 16 bits is just the object type */
+    HANDLE ProcessId; /* process id that created the object, 0 for stock objects */
+    LONG Type;        /* the first 16 bit is the object type including the stock obj flag, the last 16 bits is just the object type */
     PVOID UserData;   /* Points to the user mode structure, usually NULL though */
 } GDI_TABLE_ENTRY, *PGDI_TABLE_ENTRY;
 

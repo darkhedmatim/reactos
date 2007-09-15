@@ -37,29 +37,6 @@ using std::vector;
 Directory::Directory ( const string& name_ )
 	: name(name_)
 {
-	size_t pos = name.find_first_of ( "$:" );
-	if ( pos != string::npos )
-	{
-		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "Invalid directory name '%s'",
-		                                  name.c_str() );
-	}
-
-	const char* p = strpbrk ( name_.c_str (), "/\\" );
-	if ( name_.c_str () == p )
-	{
-		throw InvalidOperationException ( __FILE__,
-		                                  __LINE__,
-		                                  "Invalid relative path '%s'",
-		                                  name_.c_str () );
-	}
-
-	if ( p )
-	{
-		name.erase ( p - name.c_str ());
-		Add ( p + 1 );
-	}
 }
 
 void
@@ -118,7 +95,7 @@ Directory::mkdir_p ( const char* path )
 }
 
 bool
-Directory::CreateDirectory ( const string& path )
+Directory::CreateDirectory ( string path )
 {
 	size_t index = 0;
 	size_t nextIndex;
@@ -139,24 +116,26 @@ Directory::CreateDirectory ( const string& path )
 	return directoryWasCreated;
 }
 
-void
-Directory::GenerateTree ( DirectoryLocation root,
-                          bool verbose )
+string
+Directory::ReplaceVariable ( const string& name,
+                             const string& value,
+                             string path )
 {
-	switch ( root )
-	{
-		case IntermediateDirectory:
-			return GenerateTree ( Environment::GetIntermediatePath (), verbose );
-		case OutputDirectory:
-			return GenerateTree ( Environment::GetOutputPath (), verbose );
-		case InstallDirectory:
-			return GenerateTree ( Environment::GetInstallPath (), verbose );
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  root );
-	}
+	size_t i = path.find ( name );
+	if ( i != string::npos )
+		return path.replace ( i, name.length (), value );
+	else
+		return path;
+}
+
+void
+Directory::ResolveVariablesInPath ( char* buf,
+                                    const string& path )
+{
+	string s = ReplaceVariable ( "$(INTERMEDIATE)", Environment::GetIntermediatePath (), path );
+	s = ReplaceVariable ( "$(OUTPUT)", Environment::GetOutputPath (), s );
+	s = ReplaceVariable ( "$(INSTALL)", Environment::GetInstallPath (), s );
+	strcpy ( buf, s.c_str () );
 }
 
 void
@@ -167,12 +146,15 @@ Directory::GenerateTree ( const string& parent,
 
 	if ( parent.size () > 0 )
 	{
+		char buf[256];
+		
 		if ( name.size () > 0 )
 			path = parent + sSep + name;
 		else
 			path = parent;
-		if ( CreateDirectory ( path ) && verbose )
-			printf ( "Created %s\n", path.c_str () );
+		ResolveVariablesInPath ( buf, path );
+		if ( CreateDirectory ( buf ) && verbose )
+			printf ( "Created %s\n", buf );
 	}
 	else
 		path = name;
@@ -186,10 +168,10 @@ Directory::GenerateTree ( const string& parent,
 }
 
 string
-Directory::EscapeSpaces ( const string& path )
+Directory::EscapeSpaces ( string path )
 {
 	string newpath;
-	const char* p = &path[0];
+	char* p = &path[0];
 	while ( *p != 0 )
 	{
 		if ( *p == ' ' )
@@ -206,16 +188,16 @@ Directory::CreateRule ( FILE* f,
                         const string& parent )
 {
 	string path;
-	string escapedName = EscapeSpaces ( name );
 
-	if ( escapedName.size() > 0 )
+	if ( parent.size() > 0 )
 	{
+		string escapedParent = EscapeSpaces ( parent );
 		fprintf ( f,
 			"%s%c%s: | %s\n",
-			parent.c_str (),
+			escapedParent.c_str (),
 			cSep,
-			escapedName.c_str (),
-			parent.c_str () );
+			EscapeSpaces ( name ).c_str (),
+			escapedParent.c_str () );
 
 		fprintf ( f,
 			"\t$(ECHO_MKDIR)\n" );
@@ -223,10 +205,10 @@ Directory::CreateRule ( FILE* f,
 		fprintf ( f,
 			"\t${mkdir} $@\n" );
 
-		path = parent + sSep + escapedName;
+		path = parent + sSep + name;
 	}
 	else
-		path = parent;
+		path = name;
 
 	for ( directory_map::iterator i = subdirs.begin();
 		i != subdirs.end();

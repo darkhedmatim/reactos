@@ -158,7 +158,7 @@ sub show_user {
 
         my $vote_list =
             $dbh->selectall_arrayref('SELECT votes.bug_id, votes.vote_count,
-                                             bugs.short_desc
+                                             bugs.short_desc, bugs.bug_status
                                         FROM votes
                                   INNER JOIN bugs
                                           ON votes.bug_id = bugs.bug_id
@@ -168,7 +168,7 @@ sub show_user {
                                       undef, ($who, $product->id));
 
         foreach (@$vote_list) {
-            my ($id, $count, $summary) = @$_;
+            my ($id, $count, $summary, $status) = @$_;
             $total += $count;
 
             # Next if user can't see this bug. So, the totals will be correct
@@ -179,7 +179,8 @@ sub show_user {
 
             push (@bugs, { id => $id, 
                            summary => $summary,
-                           count => $count });
+                           count => $count,
+                           opened => is_open_state($status) });
         }
 
         $onevoteonly = 1 if (min($product->votes_per_user,

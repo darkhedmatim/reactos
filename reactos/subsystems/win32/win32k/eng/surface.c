@@ -558,16 +558,6 @@ EngLockSurface(IN HSURF Surface)
    return NULL;
 }
 
-
-/*
- * @implemented
- */
-VOID STDCALL
-NtGdiEngUnlockSurface(IN SURFOBJ *Surface)
-{
-    EngUnlockSurface(Surface);
-}
-
 /*
  * @implemented
  */
@@ -577,6 +567,4 @@ EngUnlockSurface(IN SURFOBJ *Surface)
    if (Surface != NULL)
       GDIOBJ_UnlockObjByPtr(GdiHandleTable, Surface);
 }
-
-
 /* EOF */

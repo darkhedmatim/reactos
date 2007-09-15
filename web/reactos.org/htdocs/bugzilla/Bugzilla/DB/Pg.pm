@@ -60,8 +60,7 @@ sub new {
     $dbname ||= 'template1';
 
     # construct the DSN from the parameters we got
-    my $dsn = "DBI:Pg:dbname=$dbname";
-    $dsn .= ";host=$host" if $host;
+    my $dsn = "DBI:Pg:host=$host;dbname=$dbname";
     $dsn .= ";port=$port" if $port;
 
     # This stops Pg from printing out lots of "NOTICE" messages when

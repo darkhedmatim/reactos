@@ -77,8 +77,10 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
 {
    PVOID BaseAddress;
    ULONG Length;
+   //ULONG ParamLength = KernelLength;
    NTSTATUS Status;
    PHYSICAL_ADDRESS BoundaryAddressMultiple;
+   PFN_TYPE Pfn;
    PMEMORY_AREA MArea;
 
    DPRINT("MmInitVirtualMemory(%x, %x)\n",LastKernelAddress, KernelLength);
@@ -88,13 +90,8 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
 
    MmInitMemoryAreas();
 
-   /*
-    * FreeLDR Marks 6MB "in use" at the start of the kernel base,
-    * so start the non-paged pool at a boundary of 6MB from where
-    * the last driver was loaded. This should be the end of the
-    * FreeLDR-marked region.
-    */
-   MiNonPagedPoolStart = (PVOID)ROUND_UP((ULONG_PTR)LastKernelAddress + PAGE_SIZE, 0x600000);
+   /* Start the paged and nonpaged pool at a 4MB boundary. */ 
+   MiNonPagedPoolStart = (PVOID)ROUND_UP((ULONG_PTR)LastKernelAddress + PAGE_SIZE, 0x400000);
    MiNonPagedPoolLength = MM_NONPAGED_POOL_SIZE;
 
    MmPagedPoolBase = (PVOID)ROUND_UP((ULONG_PTR)MiNonPagedPoolStart + MiNonPagedPoolLength + PAGE_SIZE, 0x400000);
@@ -110,7 +107,7 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
     */
    MiInitPageDirectoryMap();
 
-   BaseAddress = (PVOID)KIP0PCRADDRESS;
+   BaseAddress = (PVOID)KPCR_BASE;
    MmCreateMemoryArea(MmGetKernelAddressSpace(),
                       MEMORY_AREA_SYSTEM,
                       &BaseAddress,
@@ -156,6 +153,91 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       0,
                       BoundaryAddressMultiple);
 
+#if 0
+   DPRINT1("LD Vars: %lx %lx %lx %lx %lx %lx. Last: %lx\n",
+           &_image_base__,
+           &_text_start__,
+           &_text_end__,
+           &_init_start__,
+           &_init_end__,
+           &_bss_end__,
+           LastKernelAddress);
+   BaseAddress = (PVOID)&_image_base__;
+   DPRINT1("Non-LD Vars: %lx %lx %lx %lx %lx %lx. Last: %lx\n",
+           0,
+           0,
+           0,
+           0,
+           0,
+           0,
+           LastKernelAddress);
+   Length = PAGE_ROUND_UP(((ULONG_PTR)&_text_end__)) - (ULONG_PTR)&_image_base__;
+   ParamLength = ParamLength - Length;
+
+   /*
+    * No need to lock the address space at this point since no
+    * other threads are running.
+    */
+   MmCreateMemoryArea(MmGetKernelAddressSpace(),
+                      MEMORY_AREA_SYSTEM,
+                      &BaseAddress,
+                      Length,
+                      PAGE_EXECUTE_READ,
+                      &MArea,
+                      TRUE,
+                      0,
+                      BoundaryAddressMultiple);
+
+   BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG_PTR)&_text_end__));
+   ASSERT(BaseAddress == (PVOID)&_init_start__);
+   Length = PAGE_ROUND_UP(((ULONG_PTR)&_init_end__)) -
+            PAGE_ROUND_UP(((ULONG_PTR)&_text_end__));
+   ParamLength = ParamLength - Length;
+
+   MmCreateMemoryArea(MmGetKernelAddressSpace(),
+                      MEMORY_AREA_SYSTEM,
+                      &BaseAddress,
+                      Length,
+                      PAGE_EXECUTE_READ,
+                      &MArea,
+                      TRUE,
+                      0,
+                      BoundaryAddressMultiple);
+
+   Length = PAGE_ROUND_UP(((ULONG_PTR)&_bss_end__)) -
+            PAGE_ROUND_UP(((ULONG_PTR)&_init_end__));
+   ParamLength = ParamLength - Length;
+   DPRINT("Length %x\n",Length);
+   BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG_PTR)&_init_end__));
+   DPRINT("BaseAddress %x\n",BaseAddress);
+
+   /*
+    * No need to lock the address space at this point since we are
+    * the only thread running.
+    */
+   MmCreateMemoryArea(MmGetKernelAddressSpace(),
+                      MEMORY_AREA_SYSTEM,
+                      &BaseAddress,
+                      Length,
+                      PAGE_READWRITE,
+                      &MArea,
+                      TRUE,
+                      0,
+                      BoundaryAddressMultiple);
+
+   BaseAddress = (PVOID)PAGE_ROUND_UP(((ULONG_PTR)&_bss_end__));
+   Length = LastKernelAddress - (ULONG_PTR)BaseAddress;
+   MmCreateMemoryArea(MmGetKernelAddressSpace(),
+                      MEMORY_AREA_SYSTEM,
+                      &BaseAddress,
+                      Length,
+                      PAGE_READWRITE,
+                      &MArea,
+                      TRUE,
+                      0,
+                      BoundaryAddressMultiple);
+#endif
+
    BaseAddress = MiNonPagedPoolStart;
    MmCreateMemoryArea(MmGetKernelAddressSpace(),
                       MEMORY_AREA_SYSTEM,
@@ -194,7 +276,18 @@ MmInitVirtualMemory(ULONG_PTR LastKernelAddress,
                       TRUE,
                       0,
                       BoundaryAddressMultiple);
-   MmSharedDataPagePhysicalAddress.QuadPart = 2 << PAGE_SHIFT;
+   Status = MmRequestPageMemoryConsumer(MC_NPPOOL, TRUE, &Pfn);
+   MmSharedDataPagePhysicalAddress.QuadPart = Pfn << PAGE_SHIFT;
+   Status = MmCreateVirtualMapping(NULL,
+                                   (PVOID)KI_USER_SHARED_DATA,
+                                   PAGE_READWRITE,
+                                   &Pfn,
+                                   1);
+   if (!NT_SUCCESS(Status))
+   {
+      DbgPrint("Unable to create virtual mapping\n");
+      KEBUGCHECK(0);
+   }
    RtlZeroMemory(BaseAddress, Length);
 
    /*
@@ -228,8 +321,7 @@ MemType[]  = {
    "MemoryData        ", // not used
    "NlsData           ", // used
    "SpecialMemory     ", // == Bad
-   "BBTMemory         ",
-   "LoaderReserve     "// == Bad
+   "BBTMemory         " // == Bad
 };
 
 VOID

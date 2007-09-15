@@ -402,7 +402,7 @@ static void PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
  */
 static BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
                                PropSheetInfo * psInfo,
-                               int index, BOOL resize)
+                               int index)
 {
   const DLGTEMPLATE* pTemplate;
   const WORD*  p;
@@ -503,14 +503,11 @@ static BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
   }
 
   /* remember the largest width and height */
-  if (resize)
-  {
-      if (width > psInfo->width)
-        psInfo->width = width;
+  if (width > psInfo->width)
+    psInfo->width = width;
 
-      if (height > psInfo->height)
-        psInfo->height = height;
-  }
+  if (height > psInfo->height)
+    psInfo->height = height;
 
   /* menu */
   switch ((WORD)*p)
@@ -2287,7 +2284,7 @@ static BOOL PROPSHEET_AddPage(HWND hwndDlg,
       return FALSE;
 
   psInfo->proppage = ppi;
-  if (!PROPSHEET_CollectPageInfo(ppsp, psInfo, psInfo->nPages, FALSE))
+  if (!PROPSHEET_CollectPageInfo(ppsp, psInfo, psInfo->nPages))
       return FALSE;
 
   psInfo->proppage[psInfo->nPages].hpage = hpage;
@@ -2880,7 +2877,7 @@ INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
     }
 
     if (!PROPSHEET_CollectPageInfo((LPCPROPSHEETPAGEW)psInfo->proppage[n].hpage,
-                               psInfo, n, TRUE))
+                               psInfo, n))
     {
 	if (psInfo->usePropPage)
 	    DestroyPropertySheetPage(psInfo->proppage[n].hpage);
@@ -2923,7 +2920,7 @@ INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
     }
 
     if (!PROPSHEET_CollectPageInfo((LPCPROPSHEETPAGEW)psInfo->proppage[n].hpage,
-                               psInfo, n, TRUE))
+                               psInfo, n))
     {
 	if (psInfo->usePropPage)
 	    DestroyPropertySheetPage(psInfo->proppage[n].hpage);

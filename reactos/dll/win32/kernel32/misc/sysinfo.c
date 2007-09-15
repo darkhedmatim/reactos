@@ -15,7 +15,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 #define PV_NT351 0x00030033

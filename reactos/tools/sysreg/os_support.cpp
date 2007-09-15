@@ -25,75 +25,45 @@ namespace System_
 		return ret;
 	}
 
-	OsSupport::ProcessID OsSupport::createProcess(TCHAR *procname, int procargsnum, TCHAR **procargs, bool wait)
+	OsSupport::ProcessID OsSupport::createProcess(TCHAR *procname, int procargsnum, TCHAR **procargs)
 	{
 		STARTUPINFO siStartInfo;
 		PROCESS_INFORMATION piProcInfo; 
 		OsSupport::ProcessID pid;
-        DWORD length = 0;
-        TCHAR * szBuffer;
-        TCHAR * cmd;
+
+		UNREFERENCED_PARAMETER(procargsnum);
+		UNREFERENCED_PARAMETER(procargs);
+
 		ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
 		ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
 
 		siStartInfo.cb = sizeof(STARTUPINFO);
 		siStartInfo.wShowWindow = SW_SHOWNORMAL;
 		siStartInfo.dwFlags = STARTF_USESHOWWINDOW;
-        
-        if (procargsnum)
-        {
-            for (int i = 1; i < procargsnum; i++)
-            {
-                length += _tcslen(procargs[i]);
-            }
 
-            length += procargsnum;
-            szBuffer = (TCHAR*)malloc(length * sizeof(TCHAR));
-            length = 0;
-            for (int i = 1; i < procargsnum; i++)
-            {
-                _tcscpy(&szBuffer[length], procargs[i]);
-                length += _tcslen(procargs[i]);
-                szBuffer[length] = _T(' ');
-                length++;
-            }
-            length = _tcslen(procname) + _tcslen(szBuffer) + 2;
-            cmd = (TCHAR*)malloc(length * sizeof(TCHAR));
-            _tcscpy(cmd, procname);
-            _tcscat(cmd, _T(" "));
-            _tcscat(cmd, szBuffer);
-            free(szBuffer);
-        }
-        else
-        {
-            cmd = _tcsdup(procname);
+		LPTSTR command = _tcsdup(procname);
 
-        }
-		if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &siStartInfo, &piProcInfo))
+		if (!CreateProcess(NULL, procname, NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &siStartInfo, &piProcInfo))
 		{
-            cerr << "Error: CreateProcess failed " << cmd << endl;
+			cerr << "Error: CreateProcess failed " << command <<endl;
 			pid = 0;
 		}
 		else
 		{
 			pid = piProcInfo.dwProcessId;
-            if (wait)
-            {
-                WaitForSingleObject(piProcInfo.hThread, INFINITE);
-            }
 			CloseHandle(piProcInfo.hProcess);
 			CloseHandle(piProcInfo.hThread);
 		}
-		free(cmd);
+		free(command);
 		return pid;
 	}
-   	void OsSupport::delayExecution(long value)
+   	void OsSupport::sleep(long value)
     	{
-        	Sleep(value * 1000);
+        	Sleep(value);
     	}
 #else
 /********************************************************************************************************************/
-	OsSupport::ProcessID OsSupport::createProcess(TCHAR *procname, int procargsnum, TCHAR **procargs, bool wait)
+	OsSupport::ProcessID OsSupport::createProcess(TCHAR *procname, int procargsnum, TCHAR **procargs)
 	{
 		ProcessID pid;
 
@@ -107,14 +77,7 @@ namespace System_
 			execv(procname, procargs);
 			return 0;
 		}
-        else
-        {
-            /* parent process */
-            if (wait)
-            {
-                waitpid(pid, NULL, WNOHANG);
-            }
-        }
+		
 		return pid;
 	}
 
@@ -124,9 +87,9 @@ namespace System_
 		return true;
 	}
 
-    	void OsSupport::delayExecution(long value)
+    	void OsSupport::sleep(long value)
     	{
-			sleep( value );
+        	sleep(value);
     	}
 
 

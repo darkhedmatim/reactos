@@ -105,7 +105,7 @@ TCHAR cgetchar (VOID)
  */
 VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
 {
-	UINT i = 0;
+	INT i = 0;
 	TCHAR TempPath[MAX_PATH];  
 	WIN32_FIND_DATA FindFileData;
 	HANDLE hFind;

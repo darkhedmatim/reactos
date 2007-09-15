@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE directory SYSTEM "../../../tools/rbuild/project.dtd">
 <directory name="arch">
 	<directory name="i386">
 		<if property="ARCH" value="i386">
@@ -49,8 +47,6 @@
 				<include base="freeldr_base">include</include>
 				<include base="freeldr_base">cache</include>
 				<include base="ntoskrnl">include</include>
-				<include base="ReactOS">include/reactos/libs</include>
-				<include base="ReactOS">include/reactos/elf</include>
 				<define name="__USE_W32API" />
 				<define name="_NTHAL_" />
 				<compilerflag>-ffreestanding</compilerflag>
@@ -59,16 +55,8 @@
 				<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
 				<compilerflag>-Os</compilerflag>
 				<file>boot.s</file>
-				<file>loader.c</file>
 				<file>mach.c</file>
 				<file>mboot.c</file>
-				<file>ofw.c</file>
-				<file>ofw_util.s</file>
-				<file>ofw_calls.s</file>
-				<file>prep.c</file>
-				<file>prep_ide.c</file>
-				<file>prep_pci.c</file>
-				<file>prep_vga.c</file>
 			</module>
 		</if>
 	</directory>

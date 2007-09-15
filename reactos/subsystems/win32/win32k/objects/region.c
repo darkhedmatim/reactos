@@ -2524,11 +2524,13 @@ NtGdiOffsetRgn(HRGN  hRgn,
 }
 
 BOOL
-FASTCALL
-IntGdiPaintRgn(PDC dc, HRGN  hRgn)
+STDCALL
+NtGdiPaintRgn(HDC  hDC,
+                   HRGN  hRgn)
 {
   //RECT box;
-  HRGN tmpVisRgn; //, prevVisRgn;   
+  HRGN tmpVisRgn; //, prevVisRgn;
+  DC *dc = DC_LockDc(hDC);
   PROSRGNDATA visrgn;
   CLIPOBJ* ClipRegion;
   BOOL bRet = FALSE;
@@ -2593,6 +2595,7 @@ IntGdiPaintRgn(PDC dc, HRGN  hRgn)
   NtGdiDeleteObject( tmpVisRgn );
 
   // Fill the region
+  DC_UnlockDc( dc );
   return TRUE;
 }
 
@@ -3407,10 +3410,104 @@ IntCreatePolyPolgonRgn(POINT *Pts,
     return hrgn;
 }
 
+HRGN
+STDCALL
+NtGdiCreatePolygonRgn(CONST PPOINT  pt,
+                      INT  Count,
+                      INT  PolyFillMode)
+{
+   POINT *SafePoints;
+   NTSTATUS Status = STATUS_SUCCESS;
+   HRGN hRgn;
+
+
+   if (pt == NULL || Count == 0 ||
+       (PolyFillMode != WINDING && PolyFillMode != ALTERNATE))
+   {
+      /* Windows doesn't set a last error here */
+      return (HRGN)0;
+   }
+
+   if (Count == 1)
+   {
+      /* can't create a region with only one point! */
+      SetLastWin32Error(ERROR_INVALID_PARAMETER);
+      return (HRGN)0;
+   }
+
+   if (Count == 2)
+   {
+      /* Windows creates an empty region! */
+      ROSRGNDATA *rgn;
+
+      if(!(hRgn = RGNDATA_AllocRgn(1)))
+      {
+	 return (HRGN)0;
+      }
+      if(!(rgn = RGNDATA_LockRgn(hRgn)))
+      {
+        NtGdiDeleteObject(hRgn);
+	return (HRGN)0;
+      }
+
+      EMPTY_REGION(rgn);
+
+      RGNDATA_UnlockRgn(rgn);
+      return hRgn;
+   }
+   
+   _SEH_TRY
+   {
+      ProbeForRead(pt,
+                   Count * sizeof(POINT),
+                   1);
+   }
+   _SEH_HANDLE
+   {
+      Status = _SEH_GetExceptionCode();
+   }
+   _SEH_END;
+   
+   if (!NT_SUCCESS(Status))
+   {
+      SetLastNtError(Status);
+      return (HRGN)0;
+   }
+
+   if (!(SafePoints = ExAllocatePoolWithTag(PagedPool, Count * sizeof(POINT), TAG_REGION)))
+   {
+      SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
+      return (HRGN)0;
+   }
+
+   _SEH_TRY
+   {
+      /* pointers were already probed! */
+      RtlCopyMemory(SafePoints,
+                    pt,
+                    Count * sizeof(POINT));
+   }
+   _SEH_HANDLE
+   {
+      Status = _SEH_GetExceptionCode();
+   }
+   _SEH_END;
+   if (!NT_SUCCESS(Status))
+   {
+      ExFreePool(SafePoints);
+      SetLastNtError(Status);
+      return (HRGN)0;
+   }
+
+   hRgn = IntCreatePolyPolgonRgn(SafePoints, &Count, 1, PolyFillMode);
+
+   ExFreePool(SafePoints);
+   return hRgn;
+}
 
 HRGN
-FASTCALL
-GdiCreatePolyPolygonRgn(CONST PPOINT  pt,
+STDCALL
+NtGdiCreatePolyPolygonRgn(CONST PPOINT  pt,
                           CONST PINT  PolyCounts,
                           INT  Count,
                           INT  PolyFillMode)

@@ -1,9 +1,9 @@
 /*
  * PROJECT:     ReactOS Services
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/mscutils/servman/create.c
+ * FILE:        base/system/servman/create.c
  * PURPOSE:     Create a new service
- * COPYRIGHT:   Copyright 2006-2007 Ged Murphy <gedmurphy@reactos.org>
+ * COPYRIGHT:   Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
@@ -27,111 +27,196 @@ DoCreate(PCREATE_DATA Data)
 {
     SC_HANDLE hSCManager;
     SC_HANDLE hSc;
-    BOOL bRet = FALSE;
+    TCHAR Buf[32];
 
     /* open handle to the SCM */
     hSCManager = OpenSCManager(NULL,
                                NULL,
                                SC_MANAGER_ALL_ACCESS);
-    if (hSCManager)
+    if (hSCManager == NULL)
     {
-        hSc = CreateService(hSCManager,
-                            Data->ServiceName,
-                            Data->DisplayName,
-                            SERVICE_ALL_ACCESS,
-                            SERVICE_WIN32_OWN_PROCESS,
-                            SERVICE_DEMAND_START,
-                            SERVICE_ERROR_NORMAL,
-                            Data->BinPath,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL);
+        GetError();
+        return FALSE;
+    }
 
-        if (hSc)
-        {
-            LPTSTR lpSuccess;
+    hSc = CreateService(hSCManager,
+                        Data->ServiceName,
+                        Data->DisplayName,
+                        SERVICE_ALL_ACCESS,
+                        SERVICE_WIN32_OWN_PROCESS,
+                        SERVICE_DEMAND_START,
+                        SERVICE_ERROR_NORMAL,
+                        Data->BinPath,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL);
 
-            /* Set the service description as CreateService
-               does not do this for us */
-            SetServiceDescription(Data->ServiceName,
-                                  Data->Description);
-
-            /* report success to user */
-            if (AllocAndLoadString(&lpSuccess,
-                                   hInstance,
-                                   IDS_CREATE_SUCCESS))
-            {
-                DisplayString(lpSuccess);
-
-                HeapFree(ProcessHeap,
-                         0,
-                         lpSuccess);
-            }
-
-            CloseServiceHandle(hSc);
-            bRet = TRUE;
-        }
-
+    if (hSc == NULL)
+    {
+        GetError();
         CloseServiceHandle(hSCManager);
+        return FALSE;
     }
 
-    return bRet;
-}
+    /* Set the service description in the registry
+     * CreateService does not do this for us */
+    SetDescription(Data->ServiceName,
+                   Data->Description);
 
+    /* report success to user */
+    LoadString(hInstance,
+               IDS_CREATE_SUCCESS,
+               Buf,
+               sizeof(Buf) / sizeof(TCHAR));
+	DisplayString(Buf);
 
-static LPTSTR
-GetStringFromDialog(PCREATE_DATA Data,
-                    UINT id)
-{
-    HWND hwnd;
-    LPTSTR lpString = NULL;
-    INT iLen = 0;
+	CloseServiceHandle(hSCManager);
+    CloseServiceHandle(hSc);
 
-    hwnd = GetDlgItem(Data->hSelf,
-                      id);
-    if (hwnd)
-    {
-        iLen = GetWindowTextLength(hwnd);
-        if (iLen)
-        {
-            lpString = (LPTSTR)HeapAlloc(ProcessHeap,
-                                         0,
-                                         (iLen + 1) * sizeof(TCHAR));
-            if (lpString)
-            {
-                GetWindowText(hwnd,
-                              lpString,
-                              iLen + 1);
-            }
-        }
-    }
-
-    return lpString;
+    return TRUE;
 }
 
 
 static BOOL
 GetDataFromDialog(PCREATE_DATA Data)
 {
-    BOOL bRet = FALSE;
+    HWND hwnd;
+    TCHAR Buf[64];
+    INT iLen = 0;
 
-    if ((Data->ServiceName = GetStringFromDialog(Data, IDC_CREATE_SERVNAME)))
+    /* get service name */
+    hwnd = GetDlgItem(Data->hSelf,
+                      IDC_CREATE_SERVNAME);
+    iLen = GetWindowTextLength(hwnd);
+    if (iLen != 0)
     {
-        if ((Data->DisplayName = GetStringFromDialog(Data, IDC_CREATE_DISPNAME)))
+        Data->ServiceName = (TCHAR*) HeapAlloc(ProcessHeap,
+                                      0,
+                                      (iLen+1) * sizeof(TCHAR));
+        if (Data->ServiceName != NULL)
         {
-            if ((Data->BinPath = GetStringFromDialog(Data, IDC_CREATE_PATH)))
-            {
-                Data->Description = GetStringFromDialog(Data, IDC_CREATE_DESC);
-                Data->Options = GetStringFromDialog(Data, IDC_CREATE_OPTIONS);
-
-                bRet = TRUE;
-            }
+            GetWindowText(hwnd,
+                          Data->ServiceName,
+                          iLen+1);
         }
+        else
+            return FALSE;
+    }
+    else
+    {
+        LoadString(hInstance,
+                   IDS_CREATE_REQ,
+                   Buf,
+                   sizeof(Buf));
+        DisplayString(Buf);
+        SetFocus(hwnd);
+        return FALSE;
     }
 
-    return bRet;
+    /* get display name */
+    iLen = 0;
+    hwnd = GetDlgItem(Data->hSelf,
+                      IDC_CREATE_DISPNAME);
+    iLen = GetWindowTextLength(hwnd);
+    if (iLen != 0)
+    {
+        Data->DisplayName = (TCHAR*) HeapAlloc(ProcessHeap,
+                                      0,
+                                      (iLen+1) * sizeof(TCHAR));
+        if (Data->DisplayName != NULL)
+        {
+            GetWindowText(hwnd,
+                          Data->DisplayName,
+                          iLen+1);
+        }
+        else
+            return FALSE;
+    }
+    else
+    {
+        LoadString(hInstance,
+                   IDS_CREATE_REQ,
+                   Buf,
+                   sizeof(Buf));
+        DisplayString(Buf);
+        SetFocus(hwnd);
+        return FALSE;
+    }
+
+    /* get binary path */
+    iLen = 0;
+    hwnd = GetDlgItem(Data->hSelf,
+                      IDC_CREATE_PATH);
+    iLen = GetWindowTextLength(hwnd);
+    if (iLen != 0)
+    {
+        Data->BinPath = (TCHAR*) HeapAlloc(ProcessHeap,
+                                  0,
+                                  (iLen+1) * sizeof(TCHAR));
+        if (Data->BinPath != NULL)
+        {
+            GetWindowText(hwnd,
+                          Data->BinPath,
+                          iLen+1);
+        }
+        else
+            return FALSE;
+    }
+    else
+    {
+        LoadString(hInstance,
+                   IDS_CREATE_REQ,
+                   Buf,
+                   sizeof(Buf));
+        DisplayString(Buf);
+        SetFocus(hwnd);
+        return FALSE;
+    }
+
+    /* get description */
+    iLen = 0;
+    hwnd = GetDlgItem(Data->hSelf,
+                      IDC_CREATE_DESC);
+    iLen = GetWindowTextLength(hwnd);
+    if (iLen != 0)
+    {
+        Data->Description = (TCHAR*) HeapAlloc(ProcessHeap,
+                                      0,
+                                      (iLen+1) * sizeof(TCHAR));
+        if (Data->Description != NULL)
+        {
+            GetWindowText(hwnd,
+                          Data->Description,
+                          iLen+1);
+        }
+        else
+            return FALSE;
+    }
+
+
+    /* get options */
+    iLen = 0;
+    hwnd = GetDlgItem(Data->hSelf,
+                      IDC_CREATE_PATH);
+    iLen = GetWindowTextLength(hwnd);
+    if (iLen != 0)
+    {
+        Data->Options = (TCHAR*) HeapAlloc(ProcessHeap,
+                                  0,
+                                  (iLen+1) * sizeof(TCHAR));
+        if (Data->Options != NULL)
+        {
+            GetWindowText(hwnd,
+                          Data->Options,
+                          iLen+1);
+        }
+        else
+            return FALSE;
+    }
+
+    return TRUE;
 }
 
 static VOID
@@ -233,21 +318,17 @@ CreateDialogProc(HWND hDlg,
     {
         case WM_INITDIALOG:
         {
-            hIcon = (HICON)LoadImage(hInstance,
-                                     MAKEINTRESOURCE(IDI_SM_ICON),
-                                     IMAGE_ICON,
-                                     16,
-                                     16,
-                                     0);
-            if (hIcon)
-            {
-                SendMessage(hDlg,
-                            WM_SETICON,
-                            ICON_SMALL,
-                            (LPARAM)hIcon);
-                DestroyIcon(hIcon);
-            }
+            hIcon = (HICON) LoadImage(hInstance,
+                              MAKEINTRESOURCE(IDI_SM_ICON),
+                              IMAGE_ICON,
+                              16,
+                              16,
+                              0);
 
+            SendMessage(hDlg,
+                        WM_SETICON,
+                        ICON_SMALL,
+                        (LPARAM)hIcon);
             return TRUE;
         }
 
@@ -259,10 +340,10 @@ CreateDialogProc(HWND hDlg,
                 {
                     PCREATE_DATA Data;
 
-                    Data = (PCREATE_DATA)HeapAlloc(ProcessHeap,
-                                                   HEAP_ZERO_MEMORY,
-                                                   sizeof(CREATE_DATA));
-                    if (Data)
+                    Data = (PCREATE_DATA) HeapAlloc(ProcessHeap,
+                                     HEAP_ZERO_MEMORY,
+                                     sizeof(CREATE_DATA));
+                    if (Data != NULL)
                     {
                         Data->hSelf = hDlg;
 
@@ -281,6 +362,7 @@ CreateDialogProc(HWND hDlg,
                         FreeMemory(Data);
                     }
 
+                    DestroyIcon(hIcon);
                     EndDialog(hDlg,
                               LOWORD(wParam));
                     return TRUE;
@@ -288,6 +370,7 @@ CreateDialogProc(HWND hDlg,
 
                 case IDCANCEL:
                 {
+                    DestroyIcon(hIcon);
                     EndDialog(hDlg,
                               LOWORD(wParam));
                     return TRUE;

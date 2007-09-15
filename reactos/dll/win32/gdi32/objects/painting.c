@@ -1,14 +1,49 @@
 #include "precomp.h"
 
 
-/*
- * @implemented
- */
+#if 0 /* FIXME: enable this as soon as we have working usermode gdi */
+
+// Will move to dc.c
+HGDIOBJ
+STDCALL
+GetDCObject( HDC hDC, INT iType)
+{
+
+ if((iType == GDI_OBJECT_TYPE_BRUSH) ||
+    (iType == GDI_OBJECT_TYPE_EXTPEN)||
+    (iType == GDI_OBJECT_TYPE_PEN)   ||
+    (iType == GDI_OBJECT_TYPE_COLORSPACE))
+ {
+   HGDIOBJ hGO;
+   PDC_ATTR Dc_Attr;
+   
+   if (!GdiGetHandleUserData((HGDIOBJ) hDC, (PVOID) &Dc_Attr)) return NULL;
+
+   switch (iType)
+   {
+     case GDI_OBJECT_TYPE_BRUSH:
+          hGO = Dc_Attr->hbrush;  
+          break;
+     
+     case GDI_OBJECT_TYPE_EXTPEN:
+     case GDI_OBJECT_TYPE_PEN:
+          hGO = Dc_Attr->hpen;
+          break;
+     
+     case GDI_OBJECT_TYPE_COLORSPACE:
+          hGO = Dc_Attr->hColorSpace;
+          break;
+   }   
+   return hGO;
+ }  
+ return NtGdiGetDCObject( hDC, iType );
+}
+
+
 BOOL
 STDCALL
 LineTo( HDC hDC, INT x, INT y )
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -29,11 +64,9 @@ LineTo( HDC hDC, INT x, INT y )
       return FALSE;
     }
  }
-#endif
  return NtGdiLineTo( hDC, x, y);
 }
 
-#if 0 /* FIXME: enable this as soon as we have working usermode gdi */
 
 BOOL
 STDCALL
@@ -83,16 +116,12 @@ MoveToEx( HDC hDC, INT x, INT y, LPPOINT Point )
  Dc_Attr->ulDirty_ |= ( DIRTY_PTLCURRENT|DIRTY_STYLESTATE); // Set dirty
  return TRUE;
 }
-#endif
 
-/*
- * @implemented
- */
+
 BOOL
 STDCALL
 Ellipse(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -113,19 +142,14 @@ Ellipse(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
       return FALSE;
     }
  }
-#endif
  return NtGdiEllipse( hDC, Left, Top, Right, Bottom);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
-Rectangle(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
+Rectangle(HDC, INT Left, INT Top, INT Right, INT Bottom)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -146,20 +170,15 @@ Rectangle(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
       return FALSE;
     }
  }
-#endif
  return NtGdiRectangle( hDC, Left, Top, Right, Bottom);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
-RoundRect(HDC hDC, INT Left, INT Top, INT Right, INT Bottom, 
+RoundRect(HDC, INT Left, INT Top, INT Right, INT Bottom, 
                                                 INT ell_Width, INT ell_Height)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -182,14 +201,10 @@ RoundRect(HDC hDC, INT Left, INT Top, INT Right, INT Bottom,
       return FALSE;
     }
  }
-#endif
- return NtGdiRoundRect( hDC, Left, Top, Right, Bottom, ell_Width, ell_Height);
+ return NtGdiRoundRect( hDc, Left, Top, Right, Bottom, ell_Width, ell_Height);
 }
 
 
-/*
- * @implemented
- */
 COLORREF
 STDCALL
 GetPixel( HDC hDC, INT x, INT y )
@@ -200,14 +215,10 @@ GetPixel( HDC hDC, INT x, INT y )
 }
 
 
-/*
- * @implemented
- */
 COLORREF
 STDCALL
 SetPixel( HDC hDC, INT x, INT y, COLORREF Color )
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -229,34 +240,27 @@ SetPixel( HDC hDC, INT x, INT y, COLORREF Color )
       return 0;
     }
  }
-#endif
  return NtGdiSetPixel( hDC, x, y, Color);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 SetPixelV( HDC hDC, INT x, INT y, COLORREF Color )
 {
    COLORREF Cr = SetPixel( hDC, x, y, Color );
-   if (Cr != CLR_INVALID) return TRUE;
+   if (Cr) return TRUE;
    return FALSE;
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 FillRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush )
 {
 
  if ( (!hRgn) || (!hBrush) ) return FALSE;
-#if 0 
+ 
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -277,21 +281,17 @@ FillRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush )
       return FALSE;
     }
  }
-#endif
  return NtGdiFillRgn( hDC, hRgn, hBrush);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 FrameRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush, INT nWidth, INT nHeight )
 {
 
  if ( (!hRgn) || (!hBrush) ) return FALSE;
-#if 0 
+ 
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -312,21 +312,17 @@ FrameRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush, INT nWidth, INT nHeight )
       return FALSE;
     }
  }
-#endif
  return NtGdiFrameRgn( hDC, hRgn, hBrush, nWidth, nHeight);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 InvertRgn( HDC hDC, HRGN hRgn )
 {
 
  if ( !hRgn ) return FALSE;
-#if 0 
+ 
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -347,19 +343,13 @@ InvertRgn( HDC hDC, HRGN hRgn )
       return FALSE;
     }
  }
-#endif
  return NtGdiInvertRgn( hDC, hRgn);
 }
 
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PaintRgn( HDC hDC, HRGN hRgn )
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -380,22 +370,17 @@ PaintRgn( HDC hDC, HRGN hRgn )
       return FALSE;
     }
  }
-#endif
- // Could just use Dc_Attr->hbrush? No.
- HBRUSH hBrush = (HBRUSH) GetDCObject( hDC, GDI_OBJECT_TYPE_BRUSH);
-
+ // Could just use Dc_Attr->hbrush
+ HBRUSH hbrush = (HBRUSH) GetDCObject( hDC, GDI_OBJECT_TYPE_BRUSH);
+ 
  return NtGdiFillRgn( hDC, hRgn, hBrush);
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolyBezier(HDC hDC ,const POINT* Point, DWORD cPoints)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -420,19 +405,14 @@ PolyBezier(HDC hDC ,const POINT* Point, DWORD cPoints)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC ,(PPOINT) Point, &cPoints, 1, GdiPolyBezier );
+ return NtGdiPolyPolyDraw( hDC , Point, &cPoints, 1, GdiPolyBezier );
 }
  
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolyBezierTo(HDC hDC, const POINT* Point ,DWORD cPoints)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -453,19 +433,14 @@ PolyBezierTo(HDC hDC, const POINT* Point ,DWORD cPoints)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT) Point, &cPoints, 1, GdiPolyBezierTo );
+ return NtGdiPolyPolyDraw( hDC , Point, &cPoints, 1, GdiPolyBezierTo );
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolyDraw(HDC hDC, const POINT* Point, const BYTE *lpbTypes, int cCount )
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -486,19 +461,14 @@ PolyDraw(HDC hDC, const POINT* Point, const BYTE *lpbTypes, int cCount )
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyDraw( hDC , (PPOINT) Point, (PBYTE)lpbTypes, cCount );
+ return NtGdiPolyDraw( hDC , Point, lpbTypes, cCount );
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 Polygon(HDC hDC, const POINT *Point, int Count)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -519,19 +489,14 @@ Polygon(HDC hDC, const POINT *Point, int Count)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT) Point, (PULONG)&Count, 1, GdiPolyPolygon );
+ return NtGdiPolyPolyDraw( hDC , Point, &Count, 1, GdiPolygon );
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 Polyline(HDC hDC, const POINT *Point, int Count)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -552,19 +517,14 @@ Polyline(HDC hDC, const POINT *Point, int Count)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT) Point, (PULONG)&Count, 1, GdiPolyPolyLine );
+ return NtGdiPolyPolyDraw( hDC , Point, &Count, 1, GdiPolyPolyLine );
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolylineTo(HDC hDC, const POINT* Point, DWORD Count)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -585,19 +545,15 @@ PolylineTo(HDC hDC, const POINT* Point, DWORD Count)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT) Point, &Count, 1, GdiPolyLineTo ); 
+ return NtGdiPolyPolyDraw( hDC , Point, &Count, 1, GdiPolyLineTo );
+
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolyPolygon(HDC hDC, const POINT* Point, const INT* Count, int Polys)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -618,19 +574,15 @@ PolyPolygon(HDC hDC, const POINT* Point, const INT* Count, int Polys)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT)Point, (PULONG)Count, Polys, GdiPolyPolygon );
+ return NtGdiPolyPolyDraw( hDC , Point, Count, Polys, GdiPolygon );
+
 }
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 PolyPolyline(HDC hDC, const POINT* Point, const DWORD* Counts, DWORD Polys)
 {
-#if 0
 // Handle something other than a normal dc object.
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
@@ -651,14 +603,11 @@ PolyPolyline(HDC hDC, const POINT* Point, const DWORD* Counts, DWORD Polys)
       return FALSE;
     }
  }
-#endif
- return NtGdiPolyPolyDraw( hDC , (PPOINT)Point, (PULONG)Counts, Polys, GdiPolyPolyLine );
+ return NtGdiPolyPolyDraw( hDC , Point, Count, Polys, GdiPolyPolyLine );
 }
+#endif
 
 
-/*
- * @implemented
- */
 BOOL
 STDCALL
 ExtFloodFill(
@@ -695,9 +644,6 @@ ExtFloodFill(
 }
 
 
-/*
- * @implemented
- */
 BOOL
 WINAPI
 FloodFill(
@@ -709,10 +655,6 @@ FloodFill(
     return ExtFloodFill(hDC, nXStart, nYStart, crFill, FLOODFILLBORDER);
 }
 
-
-/*
- * @implemented
- */
 BOOL WINAPI
 MaskBlt(
 	HDC hdcDest,
@@ -744,9 +686,6 @@ MaskBlt(
 }
 
 
-/*
- * @implemented
- */
 BOOL
 WINAPI
 PlgBlt(

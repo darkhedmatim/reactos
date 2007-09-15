@@ -1,10 +1,24 @@
 /*
- * PROJECT:     ReactOS Service Control Manager
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/system/services/services.c
- * PURPOSE:     Main SCM controller
- * COPYRIGHT:   Copyright 2001-2005 Eric Kohl
- *              Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
+ * service control manager
+ *
+ * ReactOS Operating System
+ *
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.
  *
  */
 
@@ -284,8 +298,7 @@ ShutdownHandlerRoutine(DWORD dwCtrlType)
         DPRINT1("Shutdown event received!\n");
         ScmShutdown = TRUE;
 
-        ScmAutoShutdownServices();
-        ScmShutdownServiceDatabase();
+        /* FIXME: Shut all services down */
     }
 
     return TRUE;
@@ -364,8 +377,6 @@ WinMain(HINSTANCE hInstance,
         NtYieldExecution();
     }
 #endif
-
-    CloseHandle(hScmStartEvent);
 
     DPRINT("SERVICES: Finished.\n");
 

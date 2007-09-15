@@ -266,13 +266,7 @@ my $format = $template->get_format("reports/duplicates",
                                    scalar($cgi->param('format')),
                                    scalar($cgi->param('ctype')));
 
-# We set the charset in Bugzilla::CGI, but CGI.pm ignores it unless the
-# Content-Type is a text type. In some cases, such as when we are
-# generating RDF, it isn't, so we specify the charset again here.
-print $cgi->header(
-    -type => $format->{'ctype'},
-    (Bugzilla->params->{'utf8'} ? ('charset', 'utf8') : () )
-);
+print $cgi->header($format->{'ctype'});
 
 # Generate and return the UI (HTML page) from the appropriate template.
 $template->process($format->{'template'}, $vars)

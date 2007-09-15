@@ -227,7 +227,11 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define ZwCurrentProcess() NtCurrentProcess()
 #define NtCurrentThread() ( (HANDLE)(LONG_PTR) -2 )
 #define ZwCurrentThread() NtCurrentThread()
+#ifdef _REACTOS_
+#define KIP0PCRADDRESS                      0xff000000
+#else
 #define KIP0PCRADDRESS                      0xffdff000
+#endif
 
 #define KERNEL_STACK_SIZE                   12288
 #define KERNEL_LARGE_STACK_SIZE             61440
@@ -1350,8 +1354,6 @@ typedef enum _TIMER_TYPE {
 #define IO_SOUND_INCREMENT                8
 #define IO_VIDEO_INCREMENT                1
 #define SEMAPHORE_INCREMENT               1
-
-#define MM_MAXIMUM_DISK_IO_SIZE          (0x10000)
 
 typedef struct _IRP {
   CSHORT  Type;
@@ -4738,11 +4740,6 @@ typedef enum _LOCK_OPERATION {
   IoModifyAccess
 } LOCK_OPERATION;
 
-typedef ULONG PFN_COUNT;
-
-typedef LONG SPFN_NUMBER, *PSPFN_NUMBER;
-typedef ULONG PFN_NUMBER, *PPFN_NUMBER;
-
 typedef enum _MM_SYSTEM_SIZE {
   MmSmallSystem,
   MmMediumSystem,
@@ -5277,12 +5274,6 @@ typedef struct _KPCR {
   ULONG  StallScaleFactor;      /* 4C */
   UCHAR  SpareUnused;           /* 50 */
   UCHAR  Number;                /* 51 */
-  UCHAR Spare0;
-  UCHAR SecondLevelCacheAssociativity;
-  ULONG VdmAlert;
-  ULONG KernelReserved[14];         // For use by the kernel
-  ULONG SecondLevelCacheSize;
-  ULONG HalReserved[16];            // For use by Hal
 } KPCR, *PKPCR;                 /* 54 */
 
 typedef struct _KFLOATING_SAVE {
@@ -5326,75 +5317,6 @@ typedef struct _KFLOATING_SAVE {
   ULONG Dummy;
 } KFLOATING_SAVE, *PKFLOATING_SAVE;
 
-#elif defined(__PowerPC__)
-
-typedef ULONG PFN_NUMBER, *PPFN_NUMBER;
-
-#define PASSIVE_LEVEL                      0
-#define LOW_LEVEL                          0
-#define APC_LEVEL                          1
-#define DISPATCH_LEVEL                     2
-#define PROFILE_LEVEL                     27
-#define CLOCK1_LEVEL                      28
-#define CLOCK2_LEVEL                      28
-#define IPI_LEVEL                         29
-#define POWER_LEVEL                       30
-#define HIGH_LEVEL                        31
-
-typedef struct _KFLOATING_SAVE {
-  ULONG Dummy;
-} KFLOATING_SAVE, *PKFLOATING_SAVE;
-
-typedef struct _KPCR_TIB {
-  PVOID  ExceptionList;         /* 00 */
-  PVOID  StackBase;             /* 04 */
-  PVOID  StackLimit;            /* 08 */
-  PVOID  SubSystemTib;          /* 0C */
-  _ANONYMOUS_UNION union {
-    PVOID  FiberData;           /* 10 */
-    DWORD  Version;             /* 10 */
-  } DUMMYUNIONNAME;
-  PVOID  ArbitraryUserPointer;  /* 14 */
-  struct _KPCR_TIB *Self;       /* 18 */
-} KPCR_TIB, *PKPCR_TIB;         /* 1C */
-
-#define PCR_MINOR_VERSION 1
-#define PCR_MAJOR_VERSION 1
-
-typedef struct _KPCR {
-  KPCR_TIB  Tib;                /* 00 */
-  struct _KPCR  *Self;          /* 1C */
-  struct _KPRCB  *Prcb;         /* 20 */
-  KIRQL  Irql;                  /* 24 */
-  ULONG  IRR;                   /* 28 */
-  ULONG  IrrActive;             /* 2C */
-  ULONG  IDR;                   /* 30 */
-  PVOID  KdVersionBlock;        /* 34 */
-  PUSHORT  IDT;                 /* 38 */
-  PUSHORT  GDT;                 /* 3C */
-  struct _KTSS  *TSS;           /* 40 */
-  USHORT  MajorVersion;         /* 44 */
-  USHORT  MinorVersion;         /* 46 */
-  KAFFINITY  SetMember;         /* 48 */
-  ULONG  StallScaleFactor;      /* 4C */
-  UCHAR  SpareUnused;           /* 50 */
-  UCHAR  Number;                /* 51 */
-} KPCR, *PKPCR;                 /* 54 */
-
-static __inline
-ULONG
-DDKAPI
-KeGetCurrentProcessorNumber(VOID)
-{
-    ULONG Number;
-  __asm__ __volatile__ (
-    "lwz %0, %c1(12)\n"
-    : "=r" (Number)
-    : "i" (FIELD_OFFSET(KPCR, Number))
-  );
-  return Number;
-}
-  
 #else
 #error Unknown architecture
 #endif
@@ -5411,9 +5333,6 @@ extern NTKERNELAPI ULONG_PTR MmUserProbeAddress;
 #define MM_USER_PROBE_ADDRESS             MmUserProbeAddress
 #define MM_LOWEST_USER_ADDRESS            (PVOID)0x10000
 #define MM_LOWEST_SYSTEM_ADDRESS          (PVOID)0xC0C00000
-
-#define MM_KSEG0_BASE       MM_SYSTEM_RANGE_START
-#define MM_SYSTEM_SPACE_END 0xFFFFFFFF
 
 #define KI_USER_SHARED_DATA               0xffdf0000
 #define SharedUserData                    ((KUSER_SHARED_DATA * CONST) KI_USER_SHARED_DATA)

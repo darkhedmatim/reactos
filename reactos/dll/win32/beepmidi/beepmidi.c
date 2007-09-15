@@ -51,8 +51,8 @@
 #include <mmddk.h>
 #include <mmsystem.h>
 
-/*#define DPRINT printf*/
-#define DPRINT FakePrintf
+#define DPRINT printf
+//#define DPRINT //
 
 /* A few MIDI command categories */
 #define MIDI_NOTE_OFF       0x80

@@ -412,11 +412,11 @@ PATH_FillPath( PDC dc, GdiPath *pPath )
      */
 
     /* Save the information about the old mapping mode */
-    mapMode = dc->Dc_Attr.iMapMode;
-    ptViewportExt = dc->Dc_Attr.szlViewportExt;
-    ptViewportOrg = dc->Dc_Attr.ptlViewportOrg;
-    ptWindowExt   = dc->Dc_Attr.szlWindowExt;
-    ptWindowOrg   = dc->Dc_Attr.ptlWindowOrg;
+    mapMode = NtGdiGetMapMode( dc->hSelf );
+    NtGdiGetViewportExtEx( dc->hSelf, &ptViewportExt );
+    NtGdiGetViewportOrgEx( dc->hSelf, &ptViewportOrg );
+    NtGdiGetWindowExtEx( dc->hSelf, &ptWindowExt );
+    NtGdiGetWindowOrgEx( dc->hSelf, &ptWindowOrg );
 
     /* Save world transform
      * NB: The Windows documentation on world transforms would lead one to
@@ -424,35 +424,32 @@ PATH_FillPath( PDC dc, GdiPath *pPath )
      * tests show that resetting the graphics mode to GM_COMPATIBLE does
      * not reset the world transform.
      */
-    xform = dc->w.xformWorld2Wnd;
-    
-    /* Set MM_TEXT */
-    IntGdiSetMapMode( dc, MM_TEXT );
-    dc->Dc_Attr.ptlViewportOrg.x = 0;
-    dc->Dc_Attr.ptlViewportOrg.y = 0;
-    dc->Dc_Attr.ptlWindowOrg.x = 0;
-    dc->Dc_Attr.ptlWindowOrg.y = 0;
+    NtGdiGetWorldTransform( dc->hSelf, &xform );
 
-    graphicsMode = dc->Dc_Attr.iGraphicsMode;
-    dc->Dc_Attr.iGraphicsMode = GM_ADVANCED;
-    IntGdiModifyWorldTransform( dc, &xform, MWT_IDENTITY );
-    dc->Dc_Attr.iGraphicsMode =  graphicsMode;
+    /* Set MM_TEXT */
+    NtGdiSetMapMode( dc->hSelf, MM_TEXT );
+    NtGdiSetViewportOrgEx( dc->hSelf, 0, 0, NULL );
+    NtGdiSetWindowOrgEx( dc->hSelf, 0, 0, NULL );
+    graphicsMode = NtGdiGetGraphicsMode( dc->hSelf );
+    NtGdiSetGraphicsMode( dc->hSelf, GM_ADVANCED );
+    NtGdiModifyWorldTransform( dc->hSelf, &xform, MWT_IDENTITY );
+    NtGdiSetGraphicsMode( dc->hSelf, graphicsMode );
 
     /* Paint the region */
-    IntGdiPaintRgn( dc, hrgn );
+    NtGdiPaintRgn( dc->hSelf, hrgn );
     NtGdiDeleteObject( hrgn );
     /* Restore the old mapping mode */
-    IntGdiSetMapMode( dc, mapMode );
-    dc->Dc_Attr.szlViewportExt = ptViewportExt;
-    dc->Dc_Attr.ptlViewportOrg = ptViewportOrg;
-    dc->Dc_Attr.szlWindowExt   = ptWindowExt;
-    dc->Dc_Attr.ptlWindowOrg   = ptWindowOrg;
+    NtGdiSetMapMode( dc->hSelf, mapMode );
+    NtGdiSetViewportExtEx( dc->hSelf, ptViewportExt.cx, ptViewportExt.cy, NULL );
+    NtGdiSetViewportOrgEx( dc->hSelf, ptViewportOrg.x, ptViewportOrg.y, NULL );
+    NtGdiSetWindowExtEx( dc->hSelf, ptWindowExt.cx, ptWindowExt.cy, NULL );
+    NtGdiSetWindowOrgEx( dc->hSelf, ptWindowOrg.x, ptWindowOrg.y, NULL );
 
     /* Go to GM_ADVANCED temporarily to restore the world transform */
-    graphicsMode = dc->Dc_Attr.iGraphicsMode;
-    dc->Dc_Attr.iGraphicsMode = GM_ADVANCED;
-    IntGdiModifyWorldTransform( dc, &xform, MWT_MAX+1 );
-    dc->Dc_Attr.iGraphicsMode = graphicsMode;
+    graphicsMode = NtGdiGetGraphicsMode( dc->hSelf );
+    NtGdiSetGraphicsMode( dc->hSelf, GM_ADVANCED );
+    NtGdiModifyWorldTransform( dc->hSelf, &xform, MWT_MAX+1 );
+    NtGdiSetGraphicsMode( dc->hSelf, graphicsMode );
     return TRUE;
   }
   return FALSE;
@@ -1626,6 +1623,7 @@ end:
         IntDPtoLP(dc, &pt, 1);
         IntGdiMoveToEx(dc, pt.x, pt.y, NULL);
     }
+
     DPRINT("Leave %s, ret=%d\n", __FUNCTION__, ret);
     return ret;
 }

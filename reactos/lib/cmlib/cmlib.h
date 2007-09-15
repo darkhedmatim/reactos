@@ -8,60 +8,12 @@
 #ifndef CMLIB_H
 #define CMLIB_H
 
+//#define WIN32_NO_STATUS
 #ifdef CMLIB_HOST
-#include <host/typedefs.h>
-#include <stdio.h>
-#include <string.h>
-
-// Definitions copied from <ntstatus.h>
-// We only want to include host headers, so we define them manually
-#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000)
-#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002)
-#define STATUS_NO_MEMORY                 ((NTSTATUS)0xC0000017)
-#define STATUS_INSUFFICIENT_RESOURCES    ((NTSTATUS)0xC000009A)
-#define STATUS_REGISTRY_CORRUPT          ((NTSTATUS)0xC000014C)
-#define STATUS_NOT_REGISTRY_FILE         ((NTSTATUS)0xC000015C)
-#define STATUS_REGISTRY_RECOVERED        ((NTSTATUS)0x40000009)
-
+#include <typedefs64.h>
 #endif
 
-#ifndef _TYPEDEFS_HOST_H
- #include <ntddk.h>
-#else
- #define REG_OPTION_VOLATILE 1
- #define OBJ_CASE_INSENSITIVE 0x00000040L
- #define USHORT_MAX USHRT_MAX
-
-VOID NTAPI
-KeQuerySystemTime(
-    OUT PLARGE_INTEGER CurrentTime);
-
-VOID NTAPI
-RtlInitializeBitMap(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG BitMapBuffer,
-    IN ULONG SizeOfBitMap);
-
-ULONG NTAPI
-RtlFindSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG NumberToFind,
-    IN ULONG HintIndex);
-
-VOID NTAPI
-RtlSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG NumberToSet);
-
-VOID NTAPI
-RtlClearAllBits(
-    IN PRTL_BITMAP BitMapHeader);
-
-#define RtlCheckBit(BMH,BP) (((((PLONG)(BMH)->Buffer)[(BP) / 32]) >> ((BP) % 32)) & 0x1)
-
-#endif
-
+#include <ntddk.h>
 #include <wchar.h>
 #include "hivedata.h"
 #include "cmdata.h"

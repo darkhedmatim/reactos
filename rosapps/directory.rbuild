@@ -49,10 +49,6 @@
 </directory>
 -->
 
-<directory name="logevent">
-	<xi:include href="logevent/logevent.rbuild" />
-</directory>
-
 <directory name="magnify">
 	<xi:include href="magnify/magnify.rbuild" />
 </directory>

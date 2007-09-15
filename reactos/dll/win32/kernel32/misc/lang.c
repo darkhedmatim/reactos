@@ -18,7 +18,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* FIXME:  these are included in winnls.h, however including this file causes alot of
            conflicting type errors. */

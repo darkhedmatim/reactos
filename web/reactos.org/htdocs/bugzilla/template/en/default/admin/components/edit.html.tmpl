@@ -29,9 +29,7 @@
 
 [% PROCESS global/variables.none.tmpl %]
 
-[% title = BLOCK %]
-  Edit component '[% comp.name FILTER html %]' of product '[% product.name FILTER html %]'
-[% END %]
+[% title = BLOCK %]Edit Component '[% comp.name FILTER html %]'[% END %]
 [% PROCESS global/header.html.tmpl
   title = title
 %]
@@ -106,7 +104,7 @@
       <td>[% terms.Bugs %]:</td>
       <td>
 [% IF comp.bug_count > 0 %]
-        <a title="[% terms.Bugs %] in component '[% comp.name FILTER html %]'"
+        <a title="Bugs in component '[% comp.name FILTER html %]'"
            href="buglist.cgi?component=
                 [%- comp.name FILTER url_quote %]&amp;product=
                 [%- product.name FILTER url_quote %]">[% comp.bug_count %]</a>

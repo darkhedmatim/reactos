@@ -20,8 +20,6 @@
 	<directory name="misc">
 		<file>heap.c</file>
 		<file>gdientry.c</file>
-		<file>hacks.c</file>
-		<file>historic.c</file>
 		<file>misc.c</file>
 		<file>stubs.c</file>
 		<file>stubsa.c</file>
@@ -34,13 +32,11 @@
 		<file>brush.c</file>
 		<file>coord.c</file>
 		<file>dc.c</file>
-		<file>eng.c</file>
 		<file>enhmfile.c</file>
 		<file>font.c</file>
 		<file>linedda.c</file>
 		<file>metafile.c</file>
 		<file>painting.c</file>
-		<file>palette.c</file>
 		<file>pen.c</file>
 		<file>region.c</file>
 		<file>text.c</file>

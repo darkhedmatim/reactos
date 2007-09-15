@@ -194,13 +194,16 @@ IntGdiModifyWorldTransform(PDC pDc,
 
      case MWT_MAX+1: // Must be MWT_SET????
        pDc->w.xformWorld2Wnd = *lpXForm; // Do it like Wine.
+       DC_UpdateXforms(pDc);             // Good wine port here too.
        break;
 
      default:
        SetLastWin32Error(ERROR_INVALID_PARAMETER);
        return FALSE;
   }
+
   DC_UpdateXforms(pDc);
+  DC_UnlockDc(pDc);
   return TRUE;
 }
 
@@ -226,9 +229,8 @@ NtGdiGetGraphicsMode ( HDC hDC )
 
 BOOL
 STDCALL
-NtGdiGetTransform(HDC  hDC,
-               DWORD iXform,
-              LPXFORM  XForm)
+NtGdiGetWorldTransform(HDC  hDC,
+                      LPXFORM  XForm)
 {
   PDC  dc;
   NTSTATUS Status = STATUS_SUCCESS;
@@ -251,14 +253,7 @@ NtGdiGetTransform(HDC  hDC,
     ProbeForWrite(XForm,
                   sizeof(XFORM),
                   1);
-   switch(iXform)
-   {
-     case GdiWorldSpaceToPageSpace:
-        *XForm = dc->w.xformWorld2Wnd;
-     break;
-     default:
-     break;
-   }
+    *XForm = dc->w.xformWorld2Wnd;
   }
   _SEH_HANDLE
   {
@@ -408,9 +403,7 @@ NtGdiTransformPoints( HDC hDC,
      SetLastNtError(Status);
      return FALSE;
    }
-//
-// If we are getting called that means User XForms is a mess!
-//
+
    DC_UnlockDc(dc);
    ExFreePool(Points);
    return TRUE;
@@ -443,6 +436,8 @@ NtGdiModifyWorldTransform(HDC hDC,
    {
       ProbeForRead(UnsafeXForm, sizeof(XFORM), 1);
       RtlCopyMemory(&SafeXForm, UnsafeXForm, sizeof(XFORM));
+      
+      Ret = IntGdiModifyWorldTransform(dc, &SafeXForm, Mode);
    }
    _SEH_HANDLE
    {
@@ -450,8 +445,6 @@ NtGdiModifyWorldTransform(HDC hDC,
    }
    _SEH_END;
 
-   // Safe to handle kernel mode data.
-   Ret = IntGdiModifyWorldTransform(dc, &SafeXForm, Mode);
    DC_UnlockDc(dc);
    return Ret;
 }
@@ -500,6 +493,7 @@ NtGdiOffsetViewportOrgEx(HDC hDC,
   dc->Dc_Attr.ptlViewportOrg.x += XOffset;
   dc->Dc_Attr.ptlViewportOrg.y += YOffset;
   DC_UpdateXforms(dc);
+
   DC_UnlockDc(dc);
   return TRUE;
 }
@@ -617,10 +611,18 @@ NtGdiSetGraphicsMode(HDC  hDC,
 
 int
 STDCALL
-IntGdiSetMapMode(PDC  dc,
+NtGdiSetMapMode(HDC  hDC,
                 int  MapMode)
 {
   int PrevMapMode;
+  PDC dc;
+
+  dc = DC_LockDc(hDC);
+  if (!dc)
+  {
+    SetLastWin32Error(ERROR_INVALID_HANDLE);
+    return 0;
+  }
 
   PrevMapMode = dc->Dc_Attr.iMapMode;
 
@@ -680,6 +682,8 @@ IntGdiSetMapMode(PDC  dc,
     DC_UpdateXforms(dc);
   }
 
+  DC_UnlockDc(dc);
+
   return PrevMapMode;
 }
 
@@ -728,7 +732,7 @@ NtGdiSetViewportExtEx(HDC  hDC,
          Size->cx = dc->Dc_Attr.szlViewportExt.cx;
          Size->cy = dc->Dc_Attr.szlViewportExt.cy;
 
-         dc->Dc_Attr.szlViewportExt.cx = XExtent;
+		 dc->Dc_Attr.szlViewportExt.cx = XExtent;
          dc->Dc_Attr.szlViewportExt.cy = YExtent;
 
          if (dc->Dc_Attr.iMapMode == MM_ISOTROPIC)

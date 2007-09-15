@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
 <module name="usbdriver" type="kernelmodedriver" installbase="system32/drivers" installname="usbdriver.sys">
 	<define name="INCLUDE_EHCI" />
 	<define name="_X86" />
@@ -7,7 +5,6 @@
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<file>ehci.c</file>
-	<file>ohci.c</file>
 	<file>uhci.c</file>
 	<file>roothub.c</file>
 	<file>hub.c</file>

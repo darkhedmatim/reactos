@@ -48,6 +48,13 @@ KeRosDumpStackFrames(
 /* apparently the first 10 entries are never used in windows as they are empty */
 #define RESERVE_ENTRIES_COUNT 10
 
+typedef struct
+{
+  ULONG Type;
+  ULONG Size;
+  GDICLEANUPPROC CleanupProc;
+} GDI_OBJ_INFO, *PGDI_OBJ_INFO;
+
 /*
  * Dummy GDI Cleanup Callback
  */
@@ -57,50 +64,30 @@ GDI_CleanupDummy(PVOID ObjectBody)
   return TRUE;
 }
 
-typedef struct
-{
-    BOOL bUseLookaside;
-    ULONG_PTR ulBodySize;
-    ULONG Tag;
-    GDICLEANUPPROC CleanupProc;
-} OBJ_TYPE_INFO, *POBJ_TYPE_INFO;
-
+/* Testing shows that regions are the most used GDIObj type,
+   so put that one first for performance */
 static const
-OBJ_TYPE_INFO ObjTypeInfo[] =
+GDI_OBJ_INFO ObjInfo[] =
 {
-  {0, 0,                     0,                       NULL},             /* 00 reserved entry */
-  {1, sizeof(DC),            GDI_OBJECT_TAG_DC,       DC_Cleanup},       /* 01 DC */
-  {1, sizeof(DD_DIRECTDRAW), GDI_OBJECT_TAG_DDRAW,    DD_Cleanup},       /* 02 DD_DDRAW, should be moved away from gdi objects */
-  {1, sizeof(DD_SURFACE),    GDI_OBJECT_TAG_DDSURF,   DDSURF_Cleanup},   /* 03 DD_SURFACE, should be moved away from gdi objects */
-  {1, sizeof(ROSRGNDATA),    GDI_OBJECT_TAG_REGION,   RGNDATA_Cleanup},  /* 04 REGION */
-  {1, sizeof(BITMAPOBJ),     GDI_OBJECT_TAG_BITMAP,   BITMAP_Cleanup},   /* 05 BITMAP */
-  {0, sizeof(DC),            GDI_OBJECT_TAG_CLIOBJ,   GDI_CleanupDummy}, /* 06 CLIOBJ: METADC,... FIXME: don't use DC struct */
-  {0, 0,                     GDI_OBJECT_TAG_PATH,     NULL},             /* 07 PATH, unused */
-  {1, sizeof(PALGDI),        GDI_OBJECT_TAG_PALETTE,  PALETTE_Cleanup},  /* 08 PALETTE */
-  {0, 0,                     GDI_OBJECT_TAG_COLSPC,   NULL},             /* 09 COLORSPACE, unused */
-  {1, sizeof(TEXTOBJ),       GDI_OBJECT_TAG_FONT,     GDI_CleanupDummy}, /* 0a FONT */
-  {0, 0,                     0,                       NULL},             /* 0b RFONT, unused */
-  {0, 0,                     0,                       NULL},             /* 0c PFE, unused */
-  {0, 0,                     0,                       NULL},             /* 0d PFT, unused */
-  {0, 0,                     0,                       NULL},             /* 0e ICMCXF, unused */
-  {0, 0,                     0,                       NULL},             /* 0f ICMDLL, unused */
-  {1, sizeof(GDIBRUSHOBJ),   GDI_OBJECT_TAG_BRUSH,    BRUSH_Cleanup},    /* 10 BRUSH, PEN, EXTPEN */
-  {0, 0,                     0,                       NULL},             /* 11 D3D_HANDLE, unused */
-  {0, 0,                     0,                       NULL},             /* 12 DD_VPORT, unused */
-  {0, 0,                     0,                       NULL},             /* 13 SPACE, unused */
-  {0, 0,                     0,                       NULL},             /* 14 DD_MOTION, unused */
-  {0, 0,                     0,                       NULL},             /* 15 META, unused */
-  {0, 0,                     0,                       NULL},             /* 16 ENUMFONT, unused */
-  {0, 0,                     0,                       NULL},             /* 18 VTFD, unused */
-  {0, 0,                     0,                       NULL},             /* 19 TTFD, unused */
-  {0, 0,                     0,                       NULL},             /* 1a RC, unused */
-  {0, 0,                     0,                       NULL},             /* 1b TEMP, unused */
-  {0, 0,                     0,                       NULL},             /* 1c DRVOBJ, unused */
-  {0, 0,                     0,                       NULL},             /* 1d DCIOBJ, unused */
-  {0, 0,                     0,                       NULL},             /* 1e SPOOL, unused */
+   /* Type */                   /* Size */             /* CleanupProc */
+  {GDI_OBJECT_TYPE_REGION,      sizeof(ROSRGNDATA),    RGNDATA_Cleanup},
+  {GDI_OBJECT_TYPE_BITMAP,      sizeof(BITMAPOBJ),     BITMAP_Cleanup},
+  {GDI_OBJECT_TYPE_DC,          sizeof(DC),            DC_Cleanup},
+  {GDI_OBJECT_TYPE_PALETTE,     sizeof(PALGDI),        PALETTE_Cleanup},
+  {GDI_OBJECT_TYPE_BRUSH,       sizeof(GDIBRUSHOBJ),   BRUSH_Cleanup},
+  {GDI_OBJECT_TYPE_PEN,         sizeof(GDIBRUSHOBJ),   GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_FONT,        sizeof(TEXTOBJ),       GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_DIRECTDRAW,  sizeof(DD_DIRECTDRAW), DD_Cleanup},
+  {GDI_OBJECT_TYPE_DD_SURFACE,  sizeof(DD_SURFACE),    DDSURF_Cleanup},
+  {GDI_OBJECT_TYPE_EXTPEN,      sizeof(GDIBRUSHOBJ),   EXTPEN_Cleanup},
+  /* FIXME do not use normal DC struct for this */
+  {GDI_OBJECT_TYPE_METADC,      sizeof(DC),             GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_METAFILE,    sizeof(DC),            GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_ENHMETAFILE, 0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_EMF,         0,                     GDI_CleanupDummy}
 };
 
-#define BASE_OBJTYPE_COUNT (sizeof(ObjTypeInfo) / sizeof(ObjTypeInfo[0]))
+#define OBJTYPE_COUNT (sizeof(ObjInfo) / sizeof(ObjInfo[0]))
 
 static LARGE_INTEGER ShortDelay;
 
@@ -168,7 +155,7 @@ GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject)
   }
 
   HandleTable->LookasideLists = ExAllocatePoolWithTag(NonPagedPool,
-                                                      BASE_OBJTYPE_COUNT * sizeof(PAGED_LOOKASIDE_LIST),
+                                                      OBJTYPE_COUNT * sizeof(PAGED_LOOKASIDE_LIST),
                                                       TAG_GDIHNDTBLE);
   if(HandleTable->LookasideLists == NULL)
   {
@@ -178,13 +165,10 @@ GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject)
     return NULL;
   }
 
-  for(ObjType = 0; ObjType < BASE_OBJTYPE_COUNT; ObjType++)
+  for(ObjType = 0; ObjType < OBJTYPE_COUNT; ObjType++)
   {
-    if (ObjTypeInfo[ObjType].bUseLookaside)
-    {
-      ExInitializePagedLookasideList(HandleTable->LookasideLists + ObjType, NULL, NULL, 0,
-                                     ObjTypeInfo[ObjType].ulBodySize + sizeof(GDIOBJHDR), ObjTypeInfo[ObjType].Tag, 0);
-    }
+    ExInitializePagedLookasideList(HandleTable->LookasideLists + ObjType, NULL, NULL, 0,
+                                   ObjInfo[ObjType].Size + sizeof(GDIOBJHDR), TAG_GDIOBJ, 0);
   }
 
   ShortDelay.QuadPart = -5000LL; /* FIXME - 0.5 ms? */
@@ -194,21 +178,55 @@ GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject)
 
 static __inline PPAGED_LOOKASIDE_LIST
 FindLookasideList(PGDI_HANDLE_TABLE HandleTable,
-                  ULONG TypeIndex)
+                  DWORD ObjectType)
 {
-  return HandleTable->LookasideLists + TypeIndex;
+  int Index;
+
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
+    {
+      return HandleTable->LookasideLists + Index;
+    }
+  }
+
+  DPRINT1("Can't find lookaside list for object type 0x%08x\n", ObjectType);
+
+  return NULL;
 }
 
 static __inline BOOL
-RunCleanupCallback(PGDIOBJ pObj, ULONG TypeIndex)
+RunCleanupCallback(PGDIOBJ pObj, DWORD ObjectType)
 {
-  return ((GDICLEANUPPROC)ObjTypeInfo[TypeIndex].CleanupProc)(pObj);
+  int Index;
+
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
+    {
+      return ((GDICLEANUPPROC)ObjInfo[Index].CleanupProc)(pObj);
+    }
+  }
+
+  DPRINT1("Can't find cleanup callback for object type 0x%08x\n", ObjectType);
+  return TRUE;
 }
 
 static __inline ULONG
-GetObjectSize(ULONG TypeIndex)
+GetObjectSize(DWORD ObjectType)
 {
-  return ObjTypeInfo[TypeIndex].ulBodySize;
+  int Index;
+
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
+    {
+      return ObjInfo[Index].Size;
+    }
+  }
+
+  DPRINT1("Can't find size for object type 0x%08x\n", ObjectType);
+  return 0;
 }
 
 #ifdef GDI_DEBUG
@@ -348,10 +366,9 @@ GDIOBJ_AllocObj(PGDI_HANDLE_TABLE HandleTable, ULONG ObjectType)
 #endif /* GDI_DEBUG */
 {
   PW32PROCESS W32Process;
-  PGDIOBJHDR  newObject = NULL;
-  PPAGED_LOOKASIDE_LIST LookasideList = NULL;
+  PGDIOBJHDR  newObject;
+  PPAGED_LOOKASIDE_LIST LookasideList;
   HANDLE CurrentProcessId, LockedProcessId;
-  ULONG TypeIndex;
 #ifdef GDI_DEBUG
   ULONG Attempts = 0;
 #endif
@@ -364,128 +381,115 @@ GDIOBJ_AllocObj(PGDI_HANDLE_TABLE HandleTable, ULONG ObjectType)
 
   ASSERT(ObjectType != GDI_OBJECT_TYPE_DONTCARE);
 
-  TypeIndex = GDI_OBJECT_GET_TYPE_INDEX(ObjectType);
-  if (ObjTypeInfo[TypeIndex].bUseLookaside)
+  LookasideList = FindLookasideList(HandleTable, ObjectType);
+  if(LookasideList != NULL)
   {
-    LookasideList = FindLookasideList(HandleTable, TypeIndex);
-    if(LookasideList != NULL)
+    newObject = ExAllocateFromPagedLookasideList(LookasideList);
+    if(newObject != NULL)
     {
-      newObject = ExAllocateFromPagedLookasideList(LookasideList);
-    }
-  }
-  else
-  {
-    newObject = ExAllocatePoolWithTag(PagedPool,
-                                      ObjTypeInfo[TypeIndex].ulBodySize + sizeof(GDIOBJHDR),
-                                      ObjTypeInfo[TypeIndex].Tag);
-  }
-  if(newObject != NULL)
-  {
-    PSLIST_ENTRY FreeEntry;
-    PGDI_TABLE_ENTRY Entry;
-    PGDIOBJ ObjectBody;
-    LONG TypeInfo;
+      PSLIST_ENTRY FreeEntry;
+      PGDI_TABLE_ENTRY Entry;
+      PGDIOBJ ObjectBody;
+      LONG TypeInfo;
 
-    CurrentProcessId = PsGetCurrentProcessId();
-    LockedProcessId = (HANDLE)((ULONG_PTR)CurrentProcessId | 0x1);
+      CurrentProcessId = PsGetCurrentProcessId();
+      LockedProcessId = (HANDLE)((ULONG_PTR)CurrentProcessId | 0x1);
 
-    newObject->LockingThread = NULL;
-    newObject->Locks = 0;
+      newObject->LockingThread = NULL;
+      newObject->Locks = 0;
 
 #ifdef GDI_DEBUG
-    newObject->createdfile = file;
-    newObject->createdline = line;
-    newObject->lockfile = NULL;
-    newObject->lockline = 0;
+      newObject->createdfile = file;
+      newObject->createdline = line;
+      newObject->lockfile = NULL;
+      newObject->lockline = 0;
 #endif
 
-    ObjectBody = GDIHdrToBdy(newObject);
+      ObjectBody = GDIHdrToBdy(newObject);
 
-    RtlZeroMemory(ObjectBody, GetObjectSize(TypeIndex));
+      RtlZeroMemory(ObjectBody, GetObjectSize(ObjectType));
 
       /* FIXME: On Windows the higher 16 bit of the type field don't always match
          the type from the handle, it is probably a storage type 
          (type = pen, storage = brush) */
-    TypeInfo = (ObjectType & GDI_HANDLE_TYPE_MASK) | (ObjectType >> GDI_ENTRY_UPPER_SHIFT);
+      TypeInfo = (ObjectType & GDI_HANDLE_TYPE_MASK) | (ObjectType >> GDI_ENTRY_UPPER_SHIFT);
 
-    FreeEntry = InterlockedPopEntrySList(&HandleTable->FreeEntriesHead);
-    if(FreeEntry != NULL)
-    {
-      HANDLE PrevProcId;
-      UINT Index;
+      FreeEntry = InterlockedPopEntrySList(&HandleTable->FreeEntriesHead);
+      if(FreeEntry != NULL)
+      {
+        HANDLE PrevProcId;
+        UINT Index;
 
-      /* calculate the entry from the address of the entry in the free slot array */
-      Index = ((ULONG_PTR)FreeEntry - (ULONG_PTR)&HandleTable->FreeEntries[0]) /
-               sizeof(HandleTable->FreeEntries[0]);
-      Entry = &HandleTable->Entries[Index];
+        /* calculate the entry from the address of the entry in the free slot array */
+        Index = ((ULONG_PTR)FreeEntry - (ULONG_PTR)&HandleTable->FreeEntries[0]) /
+                sizeof(HandleTable->FreeEntries[0]);
+        Entry = &HandleTable->Entries[Index];
 
 LockHandle:
-      PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, LockedProcessId, 0);
-      if(PrevProcId == NULL)
-      {
-        HGDIOBJ Handle;
+        PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, LockedProcessId, 0);
+        if(PrevProcId == NULL)
+        {
+          HGDIOBJ Handle;
 
-        ASSERT(Entry->KernelData == NULL);
+          ASSERT(Entry->KernelData == NULL);
 
-        Entry->KernelData = ObjectBody;
+          Entry->KernelData = ObjectBody;
 
-        /* copy the reuse-counter */
-        TypeInfo |= Entry->Type & GDI_ENTRY_REUSE_MASK;
+          /* copy the reuse-counter */
+          TypeInfo |= Entry->Type & GDI_ENTRY_REUSE_MASK;
 
-        /* we found a free entry, no need to exchange this field atomically
-           since we're holding the lock */
-        Entry->Type = TypeInfo;
+          /* we found a free entry, no need to exchange this field atomically
+             since we're holding the lock */
+          Entry->Type = TypeInfo;
 
-        /* unlock the entry */
-        (void)InterlockedExchangePointer(&Entry->ProcessId, CurrentProcessId);
+          /* unlock the entry */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, CurrentProcessId);
 
 #ifdef GDI_DEBUG
-        memset ( GDIHandleAllocator[Index], 0xcd, GDI_STACK_LEVELS * sizeof(ULONG) );
-        KeRosGetStackFrames ( GDIHandleAllocator[Index], GDI_STACK_LEVELS );
+          memset ( GDIHandleAllocator[Index], 0xcd, GDI_STACK_LEVELS * sizeof(ULONG) );
+          KeRosGetStackFrames ( GDIHandleAllocator[Index], GDI_STACK_LEVELS );
 #endif /* GDI_DEBUG */
 
-        if(W32Process != NULL)
-        {
-          InterlockedIncrement(&W32Process->GDIObjects);
-        }
-        Handle = (HGDIOBJ)((Index & 0xFFFF) | (TypeInfo << GDI_ENTRY_UPPER_SHIFT));
+          if(W32Process != NULL)
+          {
+            InterlockedIncrement(&W32Process->GDIObjects);
+          }
+          Handle = (HGDIOBJ)((Index & 0xFFFF) | (TypeInfo << GDI_ENTRY_UPPER_SHIFT));
 
-        DPRINT("GDIOBJ_AllocObj: 0x%x ob: 0x%x\n", Handle, ObjectBody);
-        return Handle;
-      }
-      else
-      {
-#ifdef GDI_DEBUG
-        if(++Attempts > 20)
-        {
-          DPRINT1("[%d]Waiting on handle in index 0x%x\n", Attempts, Index);
+          DPRINT("GDIOBJ_AllocObj: 0x%x ob: 0x%x\n", Handle, ObjectBody);
+          return Handle;
         }
+        else
+        {
+#ifdef GDI_DEBUG
+          if(++Attempts > 20)
+          {
+            DPRINT1("[%d]Waiting on handle in index 0x%x\n", Attempts, Index);
+          }
 #endif
           /* damn, someone is trying to lock the object even though it doesn't
              eve nexist anymore, wait a little and try again!
              FIXME - we shouldn't loop forever! Give up after some time! */
-        DelayExecution();
+          DelayExecution();
           /* try again */
-        goto LockHandle;
+          goto LockHandle;
+        }
       }
-    }
 
-    if (ObjTypeInfo[TypeIndex].bUseLookaside)
-    {
       ExFreeToPagedLookasideList(LookasideList, newObject);
+      DPRINT1("Failed to insert gdi object into the handle table, no handles left!\n");
+#ifdef GDI_DEBUG
+      IntDumpHandleTable(HandleTable);
+#endif /* GDI_DEBUG */
     }
     else
     {
-      ExFreePool(newObject);
+      DPRINT1("Not enough memory to allocate gdi object!\n");
     }
-    DPRINT1("Failed to insert gdi object into the handle table, no handles left!\n");
-#ifdef GDI_DEBUG
-    IntDumpHandleTable(HandleTable);
-#endif /* GDI_DEBUG */
   }
   else
   {
-    DPRINT1("Not enough memory to allocate gdi object!\n");
+    DPRINT1("Failed to find lookaside list for object type 0x%x\n", ObjectType);
   }
   return NULL;
 }
@@ -510,7 +514,7 @@ GDIOBJ_FreeObj(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ hObj, DWORD ExpectedType)
   PGDI_TABLE_ENTRY Entry;
   PPAGED_LOOKASIDE_LIST LookasideList;
   HANDLE ProcessId, LockedProcessId, PrevProcId;
-  ULONG HandleType, HandleUpper, TypeIndex;
+  ULONG HandleType, HandleUpper;
   BOOL Silent;
 #ifdef GDI_DEBUG
   ULONG Attempts = 0;
@@ -583,21 +587,13 @@ LockHandle:
         }
 
         /* call the cleanup routine. */
-        TypeIndex = GDI_OBJECT_GET_TYPE_INDEX(HandleType);
-        Ret = RunCleanupCallback(GDIHdrToBdy(GdiHdr), TypeIndex);
+        Ret = RunCleanupCallback(GDIHdrToBdy(GdiHdr), HandleType);
 
         /* Now it's time to free the memory */
-        if (ObjTypeInfo[TypeIndex].bUseLookaside)
+        LookasideList = FindLookasideList(HandleTable, HandleType);
+        if(LookasideList != NULL)
         {
-          LookasideList = FindLookasideList(HandleTable, TypeIndex);
-          if(LookasideList != NULL)
-          {
-            ExFreeToPagedLookasideList(LookasideList, GdiHdr);
-          }
-        }
-        else
-        {
-          ExFreePool(GdiHdr);
+          ExFreeToPagedLookasideList(LookasideList, GdiHdr);
         }
 
         return Ret;

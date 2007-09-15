@@ -7,21 +7,35 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <commctrl.h>
-#include <shlobj.h>
 #include "resource.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4100)
 #endif
 
+#ifndef SB_SIMPLEID
+#define SB_SIMPLEID 0xFF
+#endif
+
 #define NO_ITEM_SELECTED -1
 #define MAX_KEY_LENGTH 256
+#define NUM_BUTTONS 14
+#define PROGRESSRANGE 8
 
-#define LVNAME 0
-#define LVDESC 1
-#define LVSTATUS 2
-#define LVSTARTUP 3
-#define LVLOGONAS 4
+
+typedef struct _PROP_DLG_INFO
+{
+    HWND   hwndGenDlg;
+    HWND   hwndDepDlg;
+    LPTSTR lpServiceName;
+    LPTSTR lpDisplayName;
+    LPTSTR lpDescription;
+    LPTSTR lpPathToExe;
+    TCHAR  szStartupType;
+    TCHAR  szServiceStatus[25];
+    LPTSTR lpStartParams;
+
+} PROP_DLG_INFO, *PPROP_DLG_INFO;
 
 typedef struct _MAIN_WND_INFO
 {
@@ -29,16 +43,23 @@ typedef struct _MAIN_WND_INFO
     HWND  hListView;
     HWND  hStatus;
     HWND  hTool;
+    HWND  hProgDlg;
     HMENU hShortcutMenu;
     int   nCmdShow;
 
-    ENUM_SERVICE_STATUS_PROCESS *pAllServices;
-    ENUM_SERVICE_STATUS_PROCESS *pCurrentService;
+    /* Stores the complete services array */
+    ENUM_SERVICE_STATUS_PROCESS *pServiceStatus;
 
-    INT SelectedItem;/* selection number in the list view */
-    BOOL bDlgOpen;
-    BOOL bInMenuLoop;
-    BOOL bIsUserAnAdmin;
+    /* Stores the current selected service */
+    ENUM_SERVICE_STATUS_PROCESS *CurrentService;
+
+    /* selection number in the list view */
+    INT SelectedItem;
+
+    struct _PROP_DLG_INFO *PropSheet;
+
+    /* status flags */
+    BOOL InMenuLoop : 1;
 
 } MAIN_WND_INFO, *PMAIN_WND_INFO;
 
@@ -60,43 +81,26 @@ typedef struct _MENU_HINT
     UINT HintId;
 } MENU_HINT, *PMENU_HINT;
 
-VOID UpdateServiceCount(PMAIN_WND_INFO Info);
-VOID ChangeListViewText(PMAIN_WND_INFO Info, ENUM_SERVICE_STATUS_PROCESS* pService, UINT Column);
 BOOL InitMainWindowImpl(VOID);
 VOID UninitMainWindowImpl(VOID);
 HWND CreateMainWindow(LPCTSTR lpCaption, int nCmdShow);
 
-/* listview.c */
-VOID SetListViewStyle(HWND hListView, DWORD View);
-VOID ListViewSelectionChanged(PMAIN_WND_INFO Info, LPNMLISTVIEW pnmv);
-BOOL CreateListView(PMAIN_WND_INFO Info);
-
 /* start */
 BOOL DoStart(PMAIN_WND_INFO Info);
 
-/* control */
+/* stop */
 BOOL DoStop(PMAIN_WND_INFO Info);
-BOOL DoPause(PMAIN_WND_INFO Info);
-BOOL DoResume(PMAIN_WND_INFO Info);
 
-/* progress.c */
-HWND CreateProgressDialog(HWND hParent, LPTSTR lpServiceName, UINT Event);
-VOID IncrementProgressBar(HWND hProgDlg);
-VOID CompleteProgressBar(HWND hProgDlg);
+/* control */
+BOOL Control(PMAIN_WND_INFO Info, DWORD Control);
 
 /* query.c */
 ENUM_SERVICE_STATUS_PROCESS* GetSelectedService(PMAIN_WND_INFO Info);
-LPQUERY_SERVICE_CONFIG GetServiceConfig(LPTSTR lpServiceName);
-BOOL SetServiceConfig(LPQUERY_SERVICE_CONFIG pServiceConfig, LPTSTR lpServiceName, LPTSTR lpPassword);
-LPTSTR GetServiceDescription(LPTSTR lpServiceName);
-BOOL SetServiceDescription(LPTSTR lpServiceName, LPTSTR lpDescription);
-LPTSTR GetExecutablePath(LPTSTR lpServiceName);
-BOOL RefreshServiceList(PMAIN_WND_INFO Info);
-BOOL UpdateServiceStatus(ENUM_SERVICE_STATUS_PROCESS* pService);
-BOOL GetServiceList(PMAIN_WND_INFO Info, DWORD *NumServices);
-
-/* reg */
 BOOL SetDescription(LPTSTR, LPTSTR);
+BOOL GetDescription(LPTSTR, LPTSTR *);
+BOOL GetExecutablePath(PMAIN_WND_INFO Info, LPTSTR *);
+BOOL RefreshServiceList(PMAIN_WND_INFO Info);
+DWORD GetServiceList(PMAIN_WND_INFO Info);
 
 /* propsheet.c */
 LONG APIENTRY OpenPropSheet(PMAIN_WND_INFO Info);
@@ -108,27 +112,35 @@ VOID ExportFile(PMAIN_WND_INFO Info);
 INT AllocAndLoadString(OUT LPTSTR *lpTarget,
                        IN HINSTANCE hInst,
                        IN UINT uID);
+
 DWORD LoadAndFormatString(IN HINSTANCE hInstance,
                           IN UINT uID,
                           OUT LPTSTR *lpTarget,
                           ...);
+
 BOOL StatusBarLoadAndFormatString(IN HWND hStatusBar,
                                   IN INT PartId,
                                   IN HINSTANCE hInstance,
                                   IN UINT uID,
                                   ...);
+
 BOOL StatusBarLoadString(IN HWND hStatusBar,
                          IN INT PartId,
                          IN HINSTANCE hInstance,
                          IN UINT uID);
+
 INT GetTextFromEdit(OUT LPTSTR lpString,
                     IN HWND hDlg,
                     IN UINT Res);
+
 VOID GetError(VOID);
+
 VOID DisplayString(PTCHAR);
+
 HIMAGELIST InitImageList(UINT NumButtons,
                          UINT StartResource,
                          UINT Width,
                          UINT Height);
+
 
 #endif /* __SERVMAN_PRECOMP_H */

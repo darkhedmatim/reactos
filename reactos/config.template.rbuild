@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "tools/rbuild/project.dtd">
-<group>
+<rbuild xmlns:xi="http://www.w3.org/2001/XInclude">
 
 <!--
   This file is a template used as a starting point for compile-time
@@ -81,6 +80,11 @@
 <property name="NSWPAT" value="0" />
 
 <!--
+  Whether to compile with NT-compatible LPC Semantics. This should always be 1.
+-->
+<property name="NTLPC" value="1" />
+
+<!--
   Whether to compile with the KD protocol. This will disable support for KDBG
   as well as rossym and symbol lookups, and allow WinDBG to connect to ReactOS.
   This is currently not fully working, and requires kdcom from Windows 2003 or
@@ -89,4 +93,4 @@
 -->
 <property name="_WINKD_" value="0" />
 
-</group>
+</rbuild>

@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="csrss" type="nativecui" installbase="system32" installname="csrss.exe">
 	<include base="csrss">.</include>
 	<include base="csrss">include</include>
@@ -28,4 +25,3 @@
 <directory name="win32csr">
 	<xi:include href="win32csr/win32csr.rbuild" />
 </directory>
-</group>

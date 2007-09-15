@@ -6,7 +6,11 @@
 
 #include <stdlib.h>
 
-#include "mkhive.h"
+#define RTL_H
+
+#define NTOS_MODE_USER
+#define WIN32_NO_STATUS
+#include <ntddk.h>
 #include <bitmap.c>
 
 SIZE_T xwcslen( PCWSTR String ) {
@@ -139,6 +143,7 @@ VOID NTAPI
 KeQuerySystemTime(
 	OUT PLARGE_INTEGER CurrentTime)
 {
+	DPRINT1("KeQuerySystemTime() unimplemented\n");
 	CurrentTime->QuadPart = 0;
 }
 

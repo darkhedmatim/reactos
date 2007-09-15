@@ -352,6 +352,7 @@
 #include "config.h"
 #include "wine/port.h"
 
+#include "wrc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -362,13 +363,16 @@
 #include <alloca.h>
 #endif
 
-#include "wrc.h"
 #include "utils.h"
 #include "newstruc.h"
 #include "dumpres.h"
 #include "wine/wpp.h"
 #include "wine/unicode.h"
 #include "parser.h"
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
 
 #if defined(YYBYACC)
 	/* Berkeley yacc (byacc) doesn't seem to know about these */

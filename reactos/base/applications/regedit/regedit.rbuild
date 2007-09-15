@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="regedit" type="win32gui" installname="regedit.exe">
 	<include base="regedit">.</include>
 	<define name="__USE_W32API" />
@@ -38,4 +35,3 @@
 <directory name="clb">
 	<xi:include href="clb/clb.rbuild" />
 </directory>
-</group>

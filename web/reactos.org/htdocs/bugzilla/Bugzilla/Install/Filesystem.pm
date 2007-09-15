@@ -34,7 +34,6 @@ use Bugzilla::Util;
 
 use File::Find;
 use File::Path;
-use File::Basename;
 use IO::File;
 use POSIX ();
 
@@ -62,7 +61,6 @@ sub FILESYSTEM {
     my $webdotdir     = bz_locations()->{'webdotdir'};
     my $templatedir   = bz_locations()->{'templatedir'};
     my $libdir        = bz_locations()->{'libpath'};
-    my $skinsdir      = bz_locations()->{'skinsdir'};
 
     my $ws_group      = Bugzilla->localconfig->{'webservergroup'};
 
@@ -201,22 +199,17 @@ sub FILESYSTEM {
     );
 
     # Each standard stylesheet has an associated custom stylesheet that
-    # we create. Also, we create placeholders for standard stylesheets
-    # for contrib skins which don't provide them themselves.
-    foreach my $skin_dir ("$skinsdir/custom", <$skinsdir/contrib/*>) {
-        next unless -d $skin_dir;
-        next if basename($skin_dir) =~ /^cvs$/i;
-        foreach (<$skinsdir/standard/*.css>) {
-            my $standard_css_file = basename($_);
-            my $custom_css_file = "$skin_dir/$standard_css_file";
-            $create_files{$custom_css_file} = { perms => $ws_readable, contents => <<EOT
+    # we create.
+    foreach my $standard (<skins/standard/*.css>) {
+        my $custom = $standard;
+        $custom =~ s|^skins/standard|skins/custom|;
+        $create_files{$custom} = { perms => $ws_readable, contents => <<EOT
 /*
- * Custom rules for $standard_css_file.
+ * Custom rules for $standard.
  * The rules you put here override rules in that stylesheet.
  */
 EOT
-            }
-        }
+        };
     }
 
     # Because checksetup controls the creation of index.html separately

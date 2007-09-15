@@ -146,7 +146,7 @@ use File::Basename;
 # CONSTANTS
 #
 # Bugzilla version
-use constant BUGZILLA_VERSION => "3.0.1";
+use constant BUGZILLA_VERSION => "3.0";
 
 #
 # ControlMap constants for group_control_map.
@@ -426,7 +426,7 @@ sub bz_locations {
         'localconfig' => "$libpath/$localconfig",
         'datadir'     => "$libpath/$datadir",
         'attachdir'   => "$libpath/$datadir/attachments",
-        'skinsdir'    => "$libpath/skins",
+        'skinsdir'    => "$libpath/skins/contrib",
         # $webdotdir must be in the webtree somewhere. Even if you use a 
         # local dot, we output images to there. Also, if $webdotdir is 
         # not relative to the bugzilla root directory, you'll need to 

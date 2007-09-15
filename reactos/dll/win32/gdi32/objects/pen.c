@@ -8,10 +8,19 @@
  */
 HPEN WINAPI
 CreatePenIndirect(
-    const LOGPEN *lplgpn)
+    const LOGPEN *plgpn)
 {
-    /* Note same behoir as Windows 2000/XP/VISTA, they do not care if  plgpn is NULL´, it will crash */
-    return CreatePen(lplgpn->lopnStyle, lplgpn->lopnWidth.x, lplgpn->lopnColor);
+    if (plgpn)
+    {
+        return NtGdiCreatePen(plgpn->lopnStyle,
+        /* FIXME: MSDN says in docs for LOGPEN:
+           "If the pointer member is NULL, the pen is one pixel 
+           wide on raster devices." Do we need to handle this? */
+                              plgpn->lopnWidth.x,
+                              plgpn->lopnColor,
+                              NULL);
+    }
+    return NULL;
 }
 
 /*
@@ -23,7 +32,6 @@ CreatePen(
     int nWidth,
     COLORREF crColor)
 {
-    /* FIXME Some part need be done in user mode */
     return NtGdiCreatePen(nPenStyle, nWidth, crColor, NULL);
 }
 

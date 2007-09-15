@@ -121,16 +121,15 @@ static VOID FASTCALL
 GuiConsoleAppendMenuItems(HMENU hMenu,
                           const GUICONSOLE_MENUITEM *Items)
 {
-    UINT i = 0;
+    UINT i;
     WCHAR szMenuString[255];
     HMENU hSubMenu;
-    HINSTANCE hInst = GetModuleHandleW(L"win32csr");
 
-    do
+    for (i = 0; Items[i].uID != 0; i++)
     {
         if (Items[i].uID != (UINT)-1)
         {
-            if (LoadStringW(hInst,
+            if (LoadStringW(Win32CsrDllHandle,
                             Items[i].uID,
                             szMenuString,
                             sizeof(szMenuString) / sizeof(szMenuString[0])) > 0)
@@ -168,21 +167,20 @@ GuiConsoleAppendMenuItems(HMENU hMenu,
                         0,
                         NULL);
         }
-    i++;
-    }while(!(Items[i].uID == 0 && Items[i].SubMenu == NULL && Items[i].wCmdID == 0));
+    }
 }
 
 static VOID FASTCALL
 GuiConsoleCreateSysMenu(PCSRSS_CONSOLE Console)
 {
     HMENU hMenu;
+
     hMenu = GetSystemMenu(Console->hWindow,
                           FALSE);
     if (hMenu != NULL)
     {
         GuiConsoleAppendMenuItems(hMenu,
                                   GuiConsoleMainMenuItems);
-        DrawMenuBar(Console->hWindow);
     }
 }
 
@@ -634,35 +632,7 @@ GuiConsoleUseDefaults(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PCSRSS_
     }
 }
 
-VOID
-FASTCALL
-GuiConsoleInitScrollbar(PCSRSS_CONSOLE Console, HWND hwnd)
-{
-  SCROLLINFO sInfo;
-    
-  /* set scrollbar sizes */
-  sInfo.cbSize = sizeof(SCROLLINFO);
-  sInfo.fMask = SIF_RANGE | SIF_POS;
-  sInfo.nMin = 0;
-  sInfo.nMax = Console->ActiveBuffer->MaxY;
-  sInfo.nPos = 0;
-  SetScrollInfo(hwnd, SB_HORZ, &sInfo, TRUE);
-  ShowScrollBar(hwnd, SB_VERT, TRUE);
 
-  if (Console->ActiveBuffer->MaxX > Console->Size.X)
-  {
-      sInfo.cbSize = sizeof(SCROLLINFO);
-      sInfo.fMask = SIF_RANGE | SIF_POS;
-      sInfo.nMin = 0;
-      sInfo.nPos = 0;
-      sInfo.nMax = Console->ActiveBuffer->MaxX;
-      SetScrollInfo(hwnd, SB_HORZ, &sInfo, TRUE);
-  }
-  else
-  {
-    ShowScrollBar(hwnd, SB_HORZ, FALSE);
-  }
-}
 
 static BOOL FASTCALL
 GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
@@ -771,7 +741,6 @@ GuiConsoleHandleNcCreate(HWND hWnd, CREATESTRUCTW *Create)
 
   SetTimer(hWnd, 1, CURSOR_BLINK_TIME, NULL);
   GuiConsoleCreateSysMenu(Console);
-  GuiConsoleInitScrollbar(Console, hWnd);
   SetEvent(GuiData->hGuiInitEvent);
 
   return (BOOL) DefWindowProcW(hWnd, WM_NCCREATE, 0, (LPARAM) Create);
@@ -1561,11 +1530,14 @@ GuiConsoleResize(HWND hWnd, WPARAM wParam, LPARAM lParam)
       DPRINT1("GuiConsoleResize X %d Y %d\n", LOWORD(lParam), HIWORD(lParam));
   }
 }
-VOID
-FASTCALL
-GuiConsoleHandleScrollbarMenu()
+
+VOID FASTCALL
+GuiConsoleCreateScrollBar(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, HWND NewWindow)
 {
   HMENU hMenu;
+  HWND hVScrollBar;
+  HWND hHScrollBar;
+  SCROLLINFO sInfo;
 
   hMenu = CreatePopupMenu();
   if (hMenu == NULL)
@@ -1573,6 +1545,7 @@ GuiConsoleHandleScrollbarMenu()
       DPRINT("CreatePopupMenu failed\n");
       return;
     }
+
   //InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SCROLLHERE);
   //InsertItem(hMenu, MFT_SEPARATOR, MIIM_FTYPE, 0, NULL, -1);
   //InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SCROLLTOP);
@@ -1584,6 +1557,54 @@ GuiConsoleHandleScrollbarMenu()
   //InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SCROLLUP);
   //InsertItem(hMenu, MIIM_STRING, MIIM_ID | MIIM_FTYPE | MIIM_STRING, 0, NULL, IDS_SCROLLDOWN);
   
+  hVScrollBar = CreateWindowExW(0L,
+                                L"ScrollBar",
+                                (LPWSTR)NULL,
+                                WS_CHILD | WS_VSCROLL,
+                                0,
+                                0,
+                                200,
+                                50,
+                                NewWindow,
+                                NULL, //hMenu,
+                                GetModuleHandleW(NULL),
+                                (LPVOID)GuiData);
+
+  if (hVScrollBar)
+    {
+
+      /* set scrollbar sizes */
+      sInfo.cbSize = sizeof(SCROLLINFO);
+      sInfo.fMask = SIF_RANGE | SIF_POS;
+      sInfo.nMin = 0;
+      sInfo.nMax = Console->ActiveBuffer->MaxY;
+	  sInfo.nPos = 0;
+      SetScrollInfo(hVScrollBar, SB_CTL, &sInfo, TRUE);
+      ShowScrollBar(NewWindow, SB_CTL, TRUE);
+	  GuiData->hVScrollBar = hVScrollBar;
+    }
+ 
+  if (Console->ActiveBuffer->MaxX > Console->Size.X)
+    {
+      hHScrollBar = CreateWindowExW(0L,
+                                    L"ScrollBar",
+                                    (LPWSTR)NULL,
+                                    WS_CHILD | WS_HSCROLL,
+                                    0,
+                                    0,
+                                    200,
+                                    CW_USEDEFAULT,
+                                    NewWindow,
+                                    hMenu,
+                                    GetModuleHandleW(NULL),
+                                   (LPVOID)GuiData);
+      if (hHScrollBar)
+        {
+          sInfo.nMax = Console->ActiveBuffer->MaxX;
+          SetScrollInfo(hHScrollBar, SB_CTL, &sInfo, TRUE);
+          GuiData->hHScrollBar = hHScrollBar;
+        }
+    }
 }
 
 static VOID FASTCALL
@@ -1591,15 +1612,7 @@ GuiApplyUserSettings(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PConsole
 {
   DWORD windx, windy;
   RECT rect;
-  PCSRSS_SCREEN_BUFFER ActiveBuffer;
-  PCSRSS_PROCESS_DATA ProcessData = NULL;
-  
-  if (Console->ProcessList.Flink != &Console->ProcessList)
-    {
-      ProcessData = CONTAINING_RECORD(Console->ProcessList.Flink, CSRSS_PROCESS_DATA, ProcessEntry);
-      ConioLockScreenBuffer(ProcessData, Console->hActiveBuffer, (Object_t **)&ActiveBuffer);
-    }
-
+    
   /* apply text / background color */
   GuiData->ScreenText = pConInfo->ScreenText;
   GuiData->ScreenBackground = pConInfo->ScreenBackground;
@@ -1610,107 +1623,19 @@ GuiApplyUserSettings(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PConsole
   windx = LOWORD(pConInfo->ScreenBuffer);
   windy = HIWORD(pConInfo->ScreenBuffer);
 
-  if (windx != ActiveBuffer->MaxX || windy != ActiveBuffer->MaxY)
+  if (windx != Console->ActiveBuffer->MaxX || windy != Console->ActiveBuffer->MaxY)
   {
-     BYTE * Buffer = HeapAlloc(Win32CsrApiHeap, 0, windx * windy * 2);
+    //
+    // TODO
+    // resize screen buffer
 
-     if (Buffer)
-     {
-        DWORD Offset = 0;
-        DWORD BufferOffset = 0;
-        USHORT CurrentY;
-        BYTE * OldBuffer;
-        USHORT value;
-        DWORD diff;
-        DWORD i;
-        
-        value = MAKEWORD(' ', ActiveBuffer->DefaultAttrib);
 
-        DPRINT("MaxX %d MaxY %d windx %d windy %d value %04x DefaultAttrib %d\n",ActiveBuffer->MaxX, ActiveBuffer->MaxY, windx, windy, value, ActiveBuffer->DefaultAttrib);
-        OldBuffer = ActiveBuffer->Buffer;
-
-        for (CurrentY = 0; CurrentY < min(ActiveBuffer->MaxY, windy); CurrentY++)
-        {
-            if (windx <= ActiveBuffer->MaxX)
-            {
-                /* reduce size */
-                RtlCopyMemory(&Buffer[Offset], &OldBuffer[BufferOffset], windx * 2);
-                Offset += (windx * 2);
-                BufferOffset += (ActiveBuffer->MaxX * 2);
-            }
-            else
-            {
-                /* enlarge size */
-                RtlCopyMemory(&Buffer[Offset], &OldBuffer[BufferOffset], ActiveBuffer->MaxX * 2);
-                Offset += (ActiveBuffer->MaxX * 2);
-                
-                diff = windx - ActiveBuffer->MaxX;
-                /* zero new part of it */
-#if HAVE_WMEMSET
-                wmemset((WCHAR*)&Buffer[Offset], value, diff);
-#else
-                for (i = 0; i < diff * 2; i++)
-                {
-                    Buffer[Offset * 2] = ' ';
-                    Buffer[Offset * 2 + 1] = ActiveBuffer->DefaultAttrib;
-                }
-#endif
-                Offset += (diff * 2);
-                BufferOffset += (Console->ActiveBuffer->MaxX * 2);
-            }
-        }
-        
-        if (windy > Console->ActiveBuffer->MaxY)
-        {
-            diff = windy - Console->ActiveBuffer->MaxX;
-#if HAVE_WMEMSET
-                wmemset((WCHAR*)&Buffer[Offset], value, diff * windx);
-#else
-                for (i = 0; i < diff * 2; i++)
-                {
-                    Buffer[Offset * 2] = ' ';
-                    Buffer[Offset * 2 + 1] = ActiveBuffer->DefaultAttrib;
-                }
-#endif
-        }
-
-        (void)InterlockedExchangePointer((PVOID volatile  *)&Console->ActiveBuffer->Buffer, Buffer);
-        HeapFree(Win32CsrApiHeap, 0, OldBuffer);
-        Console->ActiveBuffer->MaxX = windx;
-        Console->ActiveBuffer->MaxY = windy;
-        InvalidateRect(pConInfo->hConsoleWindow, NULL, TRUE);
-     }
-     else
-     {
-        if (ProcessData)
-        {
-            ConioUnlockScreenBuffer(ActiveBuffer);
-        }
-        return;
-     }
+    // Console->ActiveBuffer->MaxX = windx;
+    // Console->ActiveBuffer->MaxY = windy;
   }
 
   windx = LOWORD(pConInfo->WindowSize);
   windy = HIWORD(pConInfo->WindowSize);
-
-  if (windx > Console->Size.X)
-  {
-      PWCHAR LineBuffer = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY, windx * sizeof(WCHAR));
-      if (LineBuffer)
-      {
-          HeapFree(Win32CsrApiHeap, 0, GuiData->LineBuffer);
-          GuiData->LineBuffer = LineBuffer;
-      }
-      else
-      {
-          if (ProcessData)
-          {
-              ConioUnlockScreenBuffer(ActiveBuffer);
-          }
-          return;
-      }
-  }
-
 
   if (windx != Console->Size.X || windy != Console->Size.Y)
   {
@@ -1728,111 +1653,16 @@ GuiApplyUserSettings(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PConsole
       if (Console->Size.X < Console->ActiveBuffer->MaxX)
       {
           /* show scrollbar when window becomes smaller than active screen buffer */
-          ShowScrollBar(pConInfo->hConsoleWindow, SB_CTL, TRUE);
+          //ShowScrollBar(GuiData->hHScrollBar, SB_CTL, TRUE);
       }
       else
       {
           /* hide scrollbar */
-          ShowScrollBar(pConInfo->hConsoleWindow, SB_CTL, FALSE);
+          //ShowScrollBar(GuiData->hHScrollBar, SB_CTL, FALSE);
       }
   }
-  if (ProcessData)
-  {
-      ConioUnlockScreenBuffer(ActiveBuffer);
-  }
+  /* repaint window */
   InvalidateRect(pConInfo->hConsoleWindow, NULL, TRUE);
-}
-
-static 
-LRESULT
-GuiConsoleHandleScroll(HWND hwnd, UINT uMsg, WPARAM wParam, PGUI_CONSOLE_DATA GuiData)
-{
-  SCROLLINFO sInfo;
-  int old_pos;
-
-  /* set scrollbar sizes */
-  sInfo.cbSize = sizeof(SCROLLINFO);
-  sInfo.fMask = SIF_RANGE | SIF_POS | SIF_PAGE | SIF_TRACKPOS;
-
-  if (!GetScrollInfo(hwnd,
-                    (uMsg == WM_HSCROLL ? SB_HORZ : SB_VERT),
-                    &sInfo))
-  {
-    return FALSE;
-  }
-
-  old_pos = sInfo.nPos;
-
-  switch(LOWORD(wParam))
-  {
-  case SB_LINELEFT:
-      sInfo.nPos -= 1;
-      break;
-
-  case SB_LINERIGHT:
-      sInfo.nPos += 1;
-      break;
-
-  case SB_PAGELEFT:
-      sInfo.nPos -= sInfo.nPage;
-      break;
-  
-  case SB_PAGERIGHT:
-      sInfo.nPos += sInfo.nPage;
-      break;
-
-  case SB_THUMBTRACK:
-      sInfo.nPage = sInfo.nTrackPos;
-      break;
-
-  case SB_TOP:
-      sInfo.nPos = sInfo.nMin;
-      break;
-
-  case SB_BOTTOM:
-      sInfo.nPos = sInfo.nMax;
-      break;
-
-  default: 
-     break;
-  }
-
-  sInfo.fMask = SIF_POS;
-  sInfo.cbSize = sizeof(SCROLLINFO);
-
-  SetScrollInfo(hwnd,
-                (uMsg == WM_HSCROLL ? SB_HORZ : SB_VERT),
-                &sInfo,
-                TRUE);
-
-  sInfo.cbSize = sizeof(SCROLLINFO);
-  sInfo.fMask = SIF_POS;
-
-  if (!GetScrollInfo(hwnd, 
-                (uMsg == WM_HSCROLL ? SB_HORZ : SB_VERT),
-                &sInfo))
-  {
-    return 0;
-  }
-
-  if (old_pos != sInfo.nPos)
-  {
-     ///
-     /// fixme scroll window
-     ///
-     
-      ScrollWindowEx(hwnd,
-                     0,
-                     GuiData->CharHeight * (old_pos - sInfo.nPos), 
-                     NULL,
-                     NULL,
-                     NULL,
-                     NULL,
-                     SW_INVALIDATE);
-
-      UpdateWindow(hwnd);
-  }
-  return 0;
 }
 
 static LRESULT CALLBACK
@@ -1883,10 +1713,6 @@ GuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       case WM_SYSCOMMAND:
           Result = GuiConsoleHandleSysMenuCommand(hWnd, wParam, lParam, GuiData);
           break;
-      case WM_HSCROLL:
-      case WM_VSCROLL:
-          Result = GuiConsoleHandleScroll(hWnd, msg, wParam, GuiData);
-          break;
       case WM_SIZE:
           GuiConsoleResize(hWnd, wParam, lParam);
           break;
@@ -1936,7 +1762,7 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         NewWindow = CreateWindowW(L"ConsoleWindowClass",
                                   Title,
-                                  WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_HSCROLL | WS_VSCROLL, //WS_OVERLAPPEDWINDOW
+                                  WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, //WS_OVERLAPPEDWINDOW
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
@@ -1951,6 +1777,8 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         if (NULL != NewWindow)
           {
+            // scrollbar support
+            //GuiConsoleCreateScrollBar(Console, (PGUI_CONSOLE_DATA)Console->PrivateData, NewWindow);
             SetWindowLongW(hWnd, GWL_USERDATA, GetWindowLongW(hWnd, GWL_USERDATA) + 1);
             ShowWindow(NewWindow, SW_SHOW);
           }
@@ -2050,13 +1878,13 @@ GuiInit(VOID)
   wc.lpfnWndProc = GuiConsoleWndProc;
   wc.style = 0;
   wc.hInstance = (HINSTANCE) GetModuleHandleW(NULL);
-  wc.hIcon = LoadIconW(GetModuleHandleW(L"win32csr"), MAKEINTRESOURCEW(1));
+  wc.hIcon = LoadIconW(Win32CsrDllHandle, MAKEINTRESOURCEW(1));
   wc.hCursor = LoadCursorW(NULL, (LPCWSTR) IDC_ARROW);
   wc.hbrBackground = NULL;
   wc.lpszMenuName = NULL;
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
-  wc.hIconSm = LoadImageW(GetModuleHandleW(L"win32csr"), MAKEINTRESOURCEW(1), IMAGE_ICON,
+  wc.hIconSm = LoadImageW(Win32CsrDllHandle, MAKEINTRESOURCEW(1), IMAGE_ICON,
                           GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
                           LR_SHARED);
   if (RegisterClassExW(&wc) == 0)

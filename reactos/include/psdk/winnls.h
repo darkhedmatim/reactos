@@ -637,7 +637,6 @@ typedef NUMBERFMTW NUMBERFMT;
 typedef LPNUMBERFMTW LPNUMBERFMT;
 #define CompareString CompareStringW
 #define EnumCalendarInfo EnumCalendarInfoW
-#define EnumDateFormats EnumDateFormatsW
 #define EnumSystemCodePages EnumSystemCodePagesW
 #define EnumSystemLocales EnumSystemLocalesW
 #define EnumTimeFormats EnumTimeFormatsW
@@ -680,7 +679,6 @@ typedef NUMBERFMTA NUMBERFMT;
 typedef LPNUMBERFMTA LPNUMBERFMT;
 #define CompareString CompareStringA
 #define EnumCalendarInfo EnumCalendarInfoA
-#define EnumDateFormats EnumDateFormatsA
 #define EnumSystemCodePages EnumSystemCodePagesA
 #define EnumSystemLocales EnumSystemLocalesA
 #define EnumTimeFormats EnumTimeFormatsA

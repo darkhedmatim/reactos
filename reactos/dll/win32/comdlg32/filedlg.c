@@ -1958,8 +1958,7 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
       }
       else if (!(fodInfos->ofnInfos->Flags & OFN_NOVALIDATE))
       {
-	if(*lpszTemp ||	/* points to trailing null for last path element */
-           (lpwstrTemp[strlenW(lpwstrTemp)-1] == '\\')) /* or if last element ends in '\' */
+	if(*lpszTemp)	/* points to trailing null for last path element */
         {
 	  if(fodInfos->ofnInfos->Flags & OFN_PATHMUSTEXIST)
 	  {

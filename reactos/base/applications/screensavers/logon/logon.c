@@ -155,7 +155,6 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			{
 				KillTimer (hwnd, APP_TIMER);
 				DeleteObject(bitmap);
-				ShowCursor(TRUE);
 				PostQuitMessage(0);
 				break;	
 			}
@@ -224,20 +223,14 @@ void InitSaver(HWND hwndParent)
 	else
 	{
 		HWND hwnd;
-		hwnd = CreateWindowEx(WS_EX_TOPMOST,
-                          APPNAME, 
-                          APPNAME,
-                          WS_VISIBLE | WS_POPUP,
-                          0, 0,
-                          GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
-                          HWND_DESKTOP, 0,
-                          hInstance, NULL);
-        
-    SetWindowPos(hwnd, 
-                 0, 0, 0, 0, 0, 
-                 SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_SHOWWINDOW);
-
-    ShowCursor(FALSE);
+		hwnd = CreateWindow(APPNAME, APPNAME,
+		                    WS_VISIBLE | WS_POPUP | WS_EX_TOPMOST,
+		                    0, 0,
+		                    GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+		                    HWND_DESKTOP, 0,
+		                    hInstance, NULL);
+		ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+		ShowCursor(FALSE);
 		fullscreen = TRUE;
 	}
 }

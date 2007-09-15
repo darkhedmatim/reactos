@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* FIXME: NDK */
 #define HIGH_PRIORITY 31

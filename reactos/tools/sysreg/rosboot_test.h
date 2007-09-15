@@ -83,16 +83,6 @@ namespace Sysreg_
 
 	protected:
 
-    void getDefaultHDDImage(string & img);
-    bool isFileExisting(string filename);
-    bool isDefaultHDDImageExisting();
-    bool createHDDImage(string filename);
-    bool isQemuPathValid();
-    bool getQemuDir(string &);
-    bool createBootCmd();
-    bool extractPipeFromBootCmd();
-    bool configureCDImage();
-    bool configureHDDImage();
     void getPidFromFile();
     bool executeBootCmd();
     void delayRead();
@@ -102,7 +92,6 @@ namespace Sysreg_
     bool readConfigurationValues(ConfigParser & conf_parser);
     bool configureQemu();
     bool configureVmWare();
-    bool hasQemuNoRebootOption();
     void cleanup();
 //---------------------------------------------------------------------------------------
 ///
@@ -157,8 +146,6 @@ protected:
     string m_MaxMem;
     string m_BootCmd;
     string m_Src;
-    string m_DebugPort;
-    string m_PidFile;
 
     DataSource * m_DataSource;
     OsSupport::ProcessID m_Pid;

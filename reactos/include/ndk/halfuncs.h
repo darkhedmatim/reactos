@@ -55,6 +55,8 @@ Author:
 // The DDK steals these away from you.
 //
 #ifdef _MSC_VER
+void _enable(void);
+void _disable(void);
 #pragma intrinsic(_enable)
 #pragma intrinsic(_disable)
 #endif

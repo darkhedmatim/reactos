@@ -159,10 +159,6 @@ DWORD
 STDCALL
 GetDCDWord( HDC, INT, DWORD);
 
-HGDIOBJ
-STDCALL
-GetDCObject( HDC, INT);
-
 VOID
 NTAPI
 LogFontA2W(
@@ -187,10 +183,6 @@ EnumLogFontExW2A(
 UINT
 WINAPI
 UserRealizePalette(HDC hDC);
-
-int
-STDCALL
-GdiAddFontResourceW(LPCWSTR lpszFilename,FLONG fl,DESIGNVECTOR *pdv);
 
 /* EOF */
 

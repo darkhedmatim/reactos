@@ -72,13 +72,28 @@ GetTextCharacterExtra(
  */
 int
 STDCALL
-GetTextCharset(HDC hdc)
+GetTextCharset(
+	HDC	hdc
+	)
 {
     /* MSDN docs say this is equivalent */
-    return NtGdiGetTextCharsetInfo(hdc,NULL,0);
+        return GetTextCharsetInfo(hdc, NULL, 0);        
 }
 
 
+/*
+ * @implemented
+ */
+int
+STDCALL
+GetTextCharsetInfo(
+	HDC		hdc,
+	LPFONTSIGNATURE	lpSig,
+	DWORD		dwFlags
+	)
+{
+        return NtGdiGetTextCharsetInfo(hdc, lpSig, dwFlags);
+}
 
 
 /*
@@ -318,22 +333,15 @@ ExtTextOutW(
 /*
  * @implemented
  */
-INT
+int
 STDCALL
-GetTextFaceW(HDC hDC,
-             int nCount,
-             LPWSTR	lpFaceName)
+GetTextFaceW(
+	HDC	hDC,
+	int	nCount,
+	LPWSTR	lpFaceName
+	)
 {
-    INT retValue = 0;
-    if ((!lpFaceName) || (nCount))
-    {
-        retValue = NtGdiGetTextFaceW(hDC,nCount,lpFaceName,0);
-    }
-    else
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
-    return retValue;
+	return NtGdiGetTextFaceW(hDC, nCount, lpFaceName, FALSE);
 }
 
 

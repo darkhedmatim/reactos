@@ -68,7 +68,6 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case Alias:
 		case IdlHeader:
 		case EmbeddedTypeLib:
-		case ElfExecutable:
 			return false;
 	}
 	throw InvalidOperationException ( __FILE__,
@@ -107,7 +106,7 @@ Bootstrap::Initialize ()
 	if ( att != NULL )
 		nameoncd = att->value;
 	else
-		nameoncd = module->output->name;
+		nameoncd = module->GetTargetName ();
 }
 
 void

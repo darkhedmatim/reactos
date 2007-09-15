@@ -68,11 +68,7 @@ sub get_param_list {
    type => 't',
    default => 'localhost'
   },
-  {
-   name => 'smtp_debug',
-   type => 'b',
-   default => 0
-  },
+
   {
    name => 'whinedays',
    type => 't',

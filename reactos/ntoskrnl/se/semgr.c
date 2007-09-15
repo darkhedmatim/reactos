@@ -1035,8 +1035,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                         AccessMode))
     {
       CurrentAccess |= WRITE_OWNER;
-      if ((DesiredAccess & ~VALID_INHERIT_FLAGS) == 
-          (CurrentAccess & ~VALID_INHERIT_FLAGS))
+      if (DesiredAccess == CurrentAccess)
         {
           if (SubjectContextLocked == FALSE)
             {
@@ -1068,8 +1067,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
   if (Sid && SepSidInToken(Token, Sid))
     {
       CurrentAccess |= (READ_CONTROL | WRITE_DAC);
-      if ((DesiredAccess & ~VALID_INHERIT_FLAGS) == 
-          (CurrentAccess & ~VALID_INHERIT_FLAGS))
+      if (DesiredAccess == CurrentAccess)
         {
           if (SubjectContextLocked == FALSE)
             {
@@ -1147,8 +1145,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
       *AccessStatus = STATUS_SUCCESS;
       return TRUE;
     }
-  else if ((*GrantedAccess & ~VALID_INHERIT_FLAGS) == 
-           (DesiredAccess & ~VALID_INHERIT_FLAGS))
+  else if (*GrantedAccess == DesiredAccess)
     {
       *AccessStatus = STATUS_SUCCESS;
       return TRUE;

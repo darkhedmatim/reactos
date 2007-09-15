@@ -15,12 +15,14 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
 #include <stdio.h>
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
 #define WINE_NOWINSOCK
 #include "windef.h"
 #include "winbase.h"
@@ -65,21 +67,21 @@ static void test_StrRetToStringNW(void)
     trace("StrRetToStringNAW is Unicode\n");
 
     strret.uType = STRRET_WSTR;
-    U(strret).pOleStr = CoDupStrW("Test");
+    strret.u.pOleStr = CoDupStrW("Test");
     memset(buff, 0xff, sizeof(buff));
     ret = pStrRetToStrNAW(buff, sizeof(buff)/sizeof(WCHAR), &strret, NULL);
     ok(ret == TRUE && !strcmpW(buff, szTestW),
        "STRRET_WSTR: dup failed, ret=%d\n", ret);
 
     strret.uType = STRRET_CSTR;
-    lstrcpyA(U(strret).cStr, "Test");
+    lstrcpyA(strret.u.cStr, "Test");
     memset(buff, 0xff, sizeof(buff));
     ret = pStrRetToStrNAW(buff, sizeof(buff)/sizeof(WCHAR), &strret, NULL);
     ok(ret == TRUE && !strcmpW(buff, szTestW),
        "STRRET_CSTR: dup failed, ret=%d\n", ret);
 
     strret.uType = STRRET_OFFSET;
-    U(strret).uOffset = 1;
+    strret.u.uOffset = 1;
     strcpy((char*)&iidl, " Test");
     memset(buff, 0xff, sizeof(buff));
     ret = pStrRetToStrNAW(buff, sizeof(buff)/sizeof(WCHAR), &strret, iidl);
@@ -90,7 +92,7 @@ static void test_StrRetToStringNW(void)
 #if 0
     /* Invalid dest - should return FALSE, except NT4 does not, so we don't check. */
     strret.uType = STRRET_WSTR;
-    U(strret).pOleStr = CoDupStrW("Test");
+    strret.u.pOleStr = CoDupStrW("Test");
     pStrRetToStrNAW(NULL, sizeof(buff)/sizeof(WCHAR), &strret, NULL);
     trace("NULL dest: ret=%d\n", ret);
 #endif
@@ -100,7 +102,9 @@ START_TEST(string)
 {
     CoInitialize(0);
 
-    hShell32 = GetModuleHandleA("shell32.dll");
+    hShell32 = LoadLibraryA("shell32.dll");
+    if (!hShell32)
+        return;
 
     pStrRetToStrNAW = (void*)GetProcAddress(hShell32, (LPSTR)96);
     if (pStrRetToStrNAW)

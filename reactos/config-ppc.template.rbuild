@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "tools/rbuild/project.dtd">
-<group>
+<rbuild xmlns:xi="http://www.w3.org/2001/XInclude">
 
 <!--
   This file is a template used as a starting point for compile-time
@@ -27,7 +26,7 @@
 
   See GCC manual for more CPU names and which CPUs GCC can optimize for.
 -->
-<property name="OARCH" value="" />
+<property name="OARCH" value="i486" />
 
 
 <!--
@@ -57,4 +56,4 @@
 -->
 <property name="NSWPAT" value="0" />
 
-</group>
+</rbuild>

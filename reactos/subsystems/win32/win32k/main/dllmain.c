@@ -385,8 +385,7 @@ DriverEntry (
     CalloutData.DesktopDeleteProcedure = IntDesktopObjectDelete;
     CalloutData.ProcessCallout = Win32kProcessCallback;
     CalloutData.ThreadCallout = Win32kThreadCallback;
-    CalloutData.BatchFlushRoutine = NtGdiFlushUserBatch;    
-
+    
     /*
      * Register our per-process and per-thread structures.
      */

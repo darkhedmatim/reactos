@@ -39,7 +39,7 @@
 /* NOTE - I think we should store this per window station (including gdi objects) */
 
 static PDCE FirstDce = NULL;
-static PDC defaultDCstate = NULL;
+static HDC defaultDCstate = NULL;
 //static INT DCECount = 0;
 
 #define DCX_CACHECOMPAREMASK (DCX_CLIPSIBLINGS | DCX_CLIPCHILDREN | \
@@ -126,16 +126,12 @@ DceAllocDCE(PWINDOW_OBJECT Window OPTIONAL, DCE_TYPE Type)
       ExFreePoolWithTag(pDce, TAG_PDCE);
       return NULL;     
     }
-//
-// If NULL, first time through! Build the default window dc!  
-//
+  
     if (NULL == defaultDCstate) // Ultra HAX! Dedicated to GvG!
       { // This is a cheesy way to do this. 
-        PDC dc = DC_LockDc ( pDce->hDC );
-        defaultDCstate = ExAllocatePoolWithTag(PagedPool, sizeof(DC), TAG_DC);
-        RtlZeroMemory(defaultDCstate, sizeof(DC));
-        IntGdiCopyToSaveState(dc, defaultDCstate);
-        DC_UnlockDc( dc );
+        // But, due to the right way of creating gdi handles there is no choice.
+      defaultDCstate = IntGdiGetDCState(pDce->hDC);
+      DC_SetOwnership( defaultDCstate, NULL);
     }
     
     pDce->hwndCurrent = (Window ? Window->hSelf : NULL);
@@ -148,7 +144,8 @@ DceAllocDCE(PWINDOW_OBJECT Window OPTIONAL, DCE_TYPE Type)
     KeLeaveCriticalRegion();
       
     if (Type == DCE_WINDOW_DC) //Window DCE have ownership.
-     { // Process should already own it.
+     {
+       DC_SetOwnership(pDce->hDC, PsGetCurrentProcess());
        pDce->pProcess = PsGetCurrentProcess();
      }
     else
@@ -251,8 +248,13 @@ DceReleaseDC(DCE* dce, BOOL EndPaint)
       /* make the DC clean so that SetDCState doesn't try to update the vis rgn */
       IntGdiSetHookFlags(dce->hDC, DCHF_VALIDATEVISRGN);
 
-      PDC dc = DC_LockDc ( dce->hDC );
-      IntGdiCopyFromSaveState(dc, defaultDCstate); // Was SetDCState.
+      if( dce->pProcess ) // Attempt to fix Dc_Attr problem.
+        DC_SetOwnership( defaultDCstate, dce->pProcess);
+      else
+        DC_SetOwnership( defaultDCstate, PsGetCurrentProcess());
+
+      IntGdiSetDCState(dce->hDC, defaultDCstate);
+      DC_SetOwnership( defaultDCstate, NULL); // Return default dc state to inaccessible mode.
 
       dce->DCXFlags &= ~DCX_DCEBUSY;
       if (dce->DCXFlags & DCX_DCEDIRTY)
@@ -629,6 +631,24 @@ UserReleaseDC(PWINDOW_OBJECT Window, HDC hDc, BOOL EndPaint)
    return nRet;
 }
 
+
+// Win 3.1 throw back, hWnd should be ignored and not used.
+// Replace with NtUserCallOneParam ((DWORD) hDC, ONEPARAM_ROUTINE_RELEASEDC);
+INT STDCALL
+NtUserReleaseDC(HWND hWnd, HDC hDc)
+{
+   DECLARE_RETURN(INT);
+
+   DPRINT("Enter NtUserReleaseDC\n");
+   UserEnterExclusive();
+
+   RETURN(UserReleaseDC(NULL, hDc, FALSE));
+
+CLEANUP:
+   DPRINT("Leave NtUserReleaseDC, ret=%i\n",_ret_);
+   UserLeave();
+   END_CLEANUP;
+}
 
 /***********************************************************************
  *           DceFreeDCE

@@ -10,10 +10,8 @@
 
 #include <windows.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <commctrl.h>
 #include <prsht.h>
-#include <tchar.h>
 #include "resource.h"
 #include "access.h"
 
@@ -27,19 +25,6 @@ typedef struct _GLOBAL_DATA
     TOGGLEKEYS oldToggleKeys;
     BOOL bKeyboardPref;
 } GLOBAL_DATA, *PGLOBAL_DATA;
-
-
-#define BOUNCETICKS 5
-static INT nBounceArray[BOUNCETICKS] = {500, 700, 1000, 1500, 2000};
-
-#define DELAYTICKS 5
-static INT nDelayArray[DELAYTICKS] = {300, 700, 1000, 1500, 2000};
-
-#define REPEATTICKS 6
-static INT nRepeatArray[REPEATTICKS] = {300, 500, 700, 1000, 1500, 2000};
-
-#define WAITTICKS 10
-static INT nWaitArray[WAITTICKS] = {0, 300, 500, 700, 1000, 1500, 2000, 5000, 10000, 20000};
 
 
 /* Property page dialog callback */
@@ -126,212 +111,6 @@ StickyKeysDlgProc(HWND hwndDlg,
 }
 
 
-static VOID
-AddComboBoxTime(HWND hwnd, INT nId, INT nTimeMs)
-{
-    TCHAR szBuffer[32];
-    TCHAR szSeconds[20];
-
-    if (LoadString(hApplet, IDS_SECONDS, szSeconds, 20) == 0)
-        lstrcpy(szSeconds, L"Seconds");
-
-    _stprintf(szBuffer, _T("%d.%d %s"),
-              nTimeMs / 1000, (nTimeMs % 1000) / 100,
-              szSeconds);
-
-    SendDlgItemMessage(hwnd, nId, CB_ADDSTRING, 0, (LPARAM)szBuffer);
-}
-
-
-INT_PTR CALLBACK
-BounceKeysDlgProc(HWND hwndDlg,
-                  UINT uMsg,
-                  WPARAM wParam,
-                  LPARAM lParam)
-{
-    PGLOBAL_DATA pGlobalData;
-    INT i, n;
-
-    pGlobalData = (PGLOBAL_DATA)GetWindowLongPtr(hwndDlg, DWLP_USER);
-
-    switch (uMsg)
-    {
-        case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)lParam;
-            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
-
-            /* Determine the current bounce time */
-            if (pGlobalData->filterKeys.iBounceMSec == 0)
-                pGlobalData->filterKeys.iBounceMSec = nBounceArray[0];
-
-            for (n = 0; n < BOUNCETICKS; n++)
-            {
-                 if (pGlobalData->filterKeys.iBounceMSec < nBounceArray[n])
-                     break;
-            }
-            n--;
-
-            for (i = 0; i < BOUNCETICKS; i++)
-            {
-                 AddComboBoxTime(hwndDlg, IDC_BOUNCE_TIME_COMBO, nBounceArray[i]);
-            }
-
-            SendDlgItemMessage(hwndDlg, IDC_BOUNCE_TIME_COMBO, CB_SETCURSEL, n, 0);
-            break;
-
-        case WM_COMMAND:
-            switch (LOWORD(wParam))
-            {
-                case IDOK:
-                    i = SendDlgItemMessage(hwndDlg, IDC_BOUNCE_TIME_COMBO, CB_GETCURSEL, 0, 0);
-                    if (i != CB_ERR)
-                    {
-                        pGlobalData->filterKeys.iBounceMSec = nBounceArray[i];
-                    }
-
-                    EndDialog(hwndDlg, TRUE);
-                    break;
-
-                case IDCANCEL:
-                    EndDialog(hwndDlg, FALSE);
-                    break;
-
-                default:
-                    break;
-            }
-            break;
-    }
-
-    return FALSE;
-}
-
-
-INT_PTR CALLBACK
-RepeatKeysDlgProc(HWND hwndDlg,
-                  UINT uMsg,
-                  WPARAM wParam,
-                  LPARAM lParam)
-{
-    PGLOBAL_DATA pGlobalData;
-    INT i, n;
-
-    pGlobalData = (PGLOBAL_DATA)GetWindowLongPtr(hwndDlg, DWLP_USER);
-
-    switch (uMsg)
-    {
-        case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)lParam;
-            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
-
-            CheckRadioButton(hwndDlg,
-                             IDC_REPEAT_NOREPEAT_RADIO,
-                             IDC_REPEAT_REPEAT_RADIO,
-                             (pGlobalData->filterKeys.iDelayMSec == 0) ? IDC_REPEAT_NOREPEAT_RADIO : IDC_REPEAT_REPEAT_RADIO);
-
-            /* Initialize the delay combobox */
-            for (n = 0; n < DELAYTICKS; n++)
-            {
-                 if (pGlobalData->filterKeys.iDelayMSec < nDelayArray[n])
-                     break;
-            }
-            n--;
-
-            for (i = 0; i < DELAYTICKS; i++)
-            {
-                 AddComboBoxTime(hwndDlg, IDC_REPEAT_DELAY_COMBO, nDelayArray[i]);
-            }
-
-            SendDlgItemMessage(hwndDlg, IDC_REPEAT_DELAY_COMBO, CB_SETCURSEL, n, 0);
-
-            /* Initialize the repeat combobox */
-            for (n = 0; n < REPEATTICKS; n++)
-            {
-                 if (pGlobalData->filterKeys.iRepeatMSec < nRepeatArray[n])
-                     break;
-            }
-            n--;
-
-            for (i = 0; i < REPEATTICKS; i++)
-            {
-                 AddComboBoxTime(hwndDlg, IDC_REPEAT_REPEAT_COMBO, nRepeatArray[i]);
-            }
-
-            SendDlgItemMessage(hwndDlg, IDC_REPEAT_REPEAT_COMBO, CB_SETCURSEL, n, 0);
-
-            /* Disable the delay and repeat comboboxes if needed */
-            if (pGlobalData->filterKeys.iDelayMSec == 0)
-            {
-                EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_DELAY_COMBO), FALSE);
-                EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_REPEAT_COMBO), FALSE);
-            }
-
-            /* Initialize the wait combobox */
-            for (n = 0; n < WAITTICKS; n++)
-            {
-                 if (pGlobalData->filterKeys.iWaitMSec < nWaitArray[n])
-                     break;
-            }
-            n--;
-
-            for (i = 0; i < WAITTICKS; i++)
-            {
-                 AddComboBoxTime(hwndDlg, IDC_REPEAT_WAIT_COMBO, nWaitArray[i]);
-            }
-
-            SendDlgItemMessage(hwndDlg, IDC_REPEAT_WAIT_COMBO, CB_SETCURSEL, n, 0);
-            break;
-
-        case WM_COMMAND:
-            switch (LOWORD(wParam))
-            {
-                case IDC_REPEAT_NOREPEAT_RADIO:
-                    pGlobalData->filterKeys.iDelayMSec = 0;
-                    pGlobalData->filterKeys.iRepeatMSec = 0;
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_DELAY_COMBO), FALSE);
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_REPEAT_COMBO), FALSE);
-                    break;
-
-                case IDC_REPEAT_REPEAT_RADIO:
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_DELAY_COMBO), TRUE);
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_REPEAT_COMBO), TRUE);
-                    break;
-
-                case IDOK:
-                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_DELAY_COMBO, CB_GETCURSEL, 0, 0);
-                    if (i != CB_ERR)
-                    {
-                        pGlobalData->filterKeys.iDelayMSec = nDelayArray[i];
-                    }
-
-                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_REPEAT_COMBO, CB_GETCURSEL, 0, 0);
-                    if (i != CB_ERR)
-                    {
-                        pGlobalData->filterKeys.iRepeatMSec = nRepeatArray[i];
-                    }
-
-                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_WAIT_COMBO, CB_GETCURSEL, 0, 0);
-                    if (i != CB_ERR)
-                    {
-                        pGlobalData->filterKeys.iWaitMSec = nWaitArray[i];
-                    }
-
-                    EndDialog(hwndDlg, TRUE);
-                    break;
-
-                case IDCANCEL:
-                    EndDialog(hwndDlg, FALSE);
-                    break;
-
-                default:
-                    break;
-            }
-            break;
-    }
-
-    return FALSE;
-}
-
-
 /* Property page dialog callback */
 INT_PTR CALLBACK
 FilterKeysDlgProc(HWND hwndDlg,
@@ -349,80 +128,13 @@ FilterKeysDlgProc(HWND hwndDlg,
             pGlobalData = (PGLOBAL_DATA)lParam;
             SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
 
-            memcpy(&pGlobalData->oldFilterKeys,
-                   &pGlobalData->filterKeys,
-                   sizeof(FILTERKEYS));
-
-            CheckDlgButton(hwndDlg,
-                           IDC_FILTER_ACTIVATE_CHECK,
-                           pGlobalData->filterKeys.dwFlags & FKF_HOTKEYACTIVE ? BST_CHECKED : BST_UNCHECKED);
-
-            if (pGlobalData->filterKeys.iBounceMSec != 0)
-            {
-                CheckRadioButton(hwndDlg, IDC_FILTER_BOUNCE_RADIO, IDC_FILTER_REPEAT_RADIO, IDC_FILTER_BOUNCE_RADIO);
-                EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_BOUNCE_BUTTON), TRUE);
-                EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_REPEAT_BUTTON), FALSE);
-            }
-            else
-            {
-                CheckRadioButton(hwndDlg, IDC_FILTER_BOUNCE_RADIO, IDC_FILTER_REPEAT_RADIO, IDC_FILTER_REPEAT_RADIO);
-                EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_BOUNCE_BUTTON), FALSE);
-                EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_REPEAT_BUTTON), TRUE);
-            }
-
-            CheckDlgButton(hwndDlg,
-                           IDC_FILTER_SOUND_CHECK,
-                           pGlobalData->filterKeys.dwFlags & FKF_CLICKON ? BST_CHECKED : BST_UNCHECKED);
-
-            CheckDlgButton(hwndDlg,
-                           IDC_FILTER_STATUS_CHECK,
-                           pGlobalData->filterKeys.dwFlags & FKF_INDICATOR ? BST_CHECKED : BST_UNCHECKED);
             break;
 
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
-                case IDC_FILTER_ACTIVATE_CHECK:
-                    pGlobalData->filterKeys.dwFlags ^= FKF_HOTKEYACTIVE;
-                    break;
-
-                case IDC_FILTER_BOUNCE_RADIO:
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_BOUNCE_BUTTON), TRUE);
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_REPEAT_BUTTON), FALSE);
-                    break;
-
-                case IDC_FILTER_REPEAT_RADIO:
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_BOUNCE_BUTTON), FALSE);
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_FILTER_REPEAT_BUTTON), TRUE);
-                    break;
-
-                case IDC_FILTER_BOUNCE_BUTTON:
-                    DialogBoxParam(hApplet,
-                                   MAKEINTRESOURCE(IDD_BOUNCEKEYSOPTIONS),
-                                   hwndDlg,
-                                   (DLGPROC)BounceKeysDlgProc,
-                                   (LPARAM)pGlobalData);
-                    break;
-
-                case IDC_FILTER_SOUND_CHECK:
-                    pGlobalData->filterKeys.dwFlags ^= FKF_CLICKON;
-                    break;
-
-                case IDC_FILTER_REPEAT_BUTTON:
-                    DialogBoxParam(hApplet,
-                                   MAKEINTRESOURCE(IDD_REPEATKEYSOPTIONS),
-                                   hwndDlg,
-                                   (DLGPROC)RepeatKeysDlgProc,
-                                   (LPARAM)pGlobalData);
-                    break;
-
-                case IDC_FILTER_STATUS_CHECK:
-                    pGlobalData->filterKeys.dwFlags ^= FKF_INDICATOR;
-                    break;
-
                 case IDOK:
-                    EndDialog(hwndDlg,
-                              (pGlobalData->filterKeys.dwFlags != pGlobalData->oldFilterKeys.dwFlags));
+                    EndDialog(hwndDlg, TRUE);
                     break;
 
                 case IDCANCEL:
@@ -463,6 +175,7 @@ ToggleKeysDlgProc(HWND hwndDlg,
             CheckDlgButton(hwndDlg,
                            IDC_TOGGLE_ACTIVATE_CHECK,
                            pGlobalData->toggleKeys.dwFlags & TKF_HOTKEYACTIVE ? BST_CHECKED : BST_UNCHECKED);
+
             break;
 
         case WM_COMMAND:

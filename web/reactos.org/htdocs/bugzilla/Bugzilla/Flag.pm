@@ -746,7 +746,6 @@ sub modify {
             my $requester;
             if ($flag->status eq '?') {
                 $requester = $flag->setter;
-                $flag->{'requester'} = $requester;
             }
             # Now update the flag object with its new values.
             $flag->{'setter'} = $setter;
@@ -906,7 +905,6 @@ sub clear {
     my $requester;
     if ($flag->status eq '?') {
         $requester = $flag->setter;
-        $flag->{'requester'} = $requester;
     }
 
     # Now update the flag object to its new values. The last
@@ -1047,13 +1045,9 @@ sub notify {
     # If there is nobody left to notify, return.
     return unless ($flag->{'addressee'} || $flag->type->cc_list);
 
-    my @recipients = split(/[, ]+/, $flag->type->cc_list);
-    # Only notify if the addressee is allowed to receive the email.
-    if ($flag->{'addressee'} && $flag->{'addressee'}->email_enabled) {
-        push @recipients, $flag->{'addressee'}->email;
-    }
     # Process and send notification for each recipient
-    foreach my $to (@recipients)
+    foreach my $to ($flag->{'addressee'} ? $flag->{'addressee'}->email : '',
+                    split(/[, ]+/, $flag->type->cc_list))
     {
         next unless $to;
         my $vars = { 'flag'       => $flag,

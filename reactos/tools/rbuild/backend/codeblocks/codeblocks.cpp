@@ -101,18 +101,6 @@ void CBBackend::ProcessModules()
 	}
 }
 
-static std::string
-GetExtension ( const std::string& filename )
-{
-	size_t index = filename.find_last_of ( '/' );
-	if (index == string::npos) index = 0;
-	string tmp = filename.substr( index, filename.size() - index );
-	size_t ext_index = tmp.find_last_of( '.' );
-	if (ext_index != string::npos)
-		return filename.substr ( index + ext_index, filename.size() );
-	return "";
-}
-
 static bool FileExists(string &filename)
 {
 	ifstream file(filename.c_str());
@@ -210,7 +198,7 @@ std::string
 CBBackend::CbpFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.cbp" )
+		ReplaceExtension ( module.GetPath(), + "_auto.cbp" )
 		);
 }
 
@@ -218,7 +206,7 @@ std::string
 CBBackend::LayoutFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.layout" )
+		ReplaceExtension ( module.GetPath(), + "_auto.layout" )
 		);
 }
 
@@ -226,14 +214,14 @@ std::string
 CBBackend::DependFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.depend" )
+		ReplaceExtension ( module.GetPath(), + "_auto.depend" )
 		);
 }
 
 void 
 CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 {
-	string basepath = module.output->relative_path;
+	string basepath = module.GetBasePath ();
 	size_t i;
 	string intenv = Environment::GetIntermediatePath () + "\\" + basepath + "\\";
 	string outenv = Environment::GetOutputPath () + "\\" + basepath + "\\";
@@ -263,7 +251,7 @@ CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size (); i++ )
 		{
-			string file = files[i]->file.relative_path + sSep + files[i]->file.name;
+			string file = files[i]->name;
 			string::size_type pos = file.find_last_of ("\\");
 			if ( pos != string::npos )
 				file.erase ( 0, pos+1 );
@@ -285,12 +273,12 @@ CBBackend::_clean_project_files ( void )
 	{
 		Module& module = *ProjectNode.modules[i];
 		vector<string> out;
-		printf("Cleaning project %s %s\n", module.name.c_str (), module.output->relative_path.c_str () );
+		printf("Cleaning project %s %s\n", module.name.c_str (), module.GetBasePath ().c_str () );
 		
-		string basepath = module.output->relative_path;
-		remove ( CbpFileName ( module ).c_str () );
-		remove ( DependFileName ( module ).c_str () );
-		remove ( LayoutFileName ( module ).c_str () );
+		string basepath = module.GetBasePath ();
+		remove ( CbpFileName ( module ).c_str () );	
+		remove ( DependFileName ( module ).c_str () );	
+		remove ( LayoutFileName ( module ).c_str () );	
 
 		_get_object_files ( module, out );
 		for ( size_t j = 0; j < out.size (); j++)
@@ -333,7 +321,7 @@ CBBackend::_generate_workspace ( FILE* OUT )
 				ifs_list.pop_back();
 				const vector<Library*>& libs = data.libraries;
 				for ( size_t j = 0; j < libs.size(); j++ )
-					fprintf ( OUT, "\t\t\t<Depends filename=\"%s\\%s_auto.cbp\" />\r\n", libs[j]->importedModule->output->relative_path.c_str(), libs[j]->name.c_str() );
+					fprintf ( OUT, "\t\t\t<Depends filename=\"%s\\%s_auto.cbp\" />\r\n", libs[j]->importedModule->GetBasePath().c_str(), libs[j]->name.c_str() );
 			}
 			fprintf ( OUT, "\t\t</Project>\r\n" );
 		}	
@@ -354,8 +342,8 @@ CBBackend::_generate_cbproj ( const Module& module )
 	string path_basedir = module.GetPathToBaseDir ();
 	string intenv = Environment::GetIntermediatePath ();
 	string outenv = Environment::GetOutputPath ();
-	string module_type = GetExtension(*module.output);
-	string cbproj_path = module.output->relative_path;
+	string module_type = GetExtension(module.GetTargetName());
+	string cbproj_path = module.GetBasePath();	
 	string CompilerVar;
 	string baseaddr;
 	string windres_defines;
@@ -395,7 +383,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 	{
 		string pch_path = Path::RelativeFromDirectory (
 					module.pch->file.name,
-					module.output->relative_path );
+					module.GetBasePath() );
 
 		header_files.push_back ( pch_path );
 	}
@@ -430,8 +418,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
-			string fullpath = files[i]->file.relative_path + sSep + files[i]->file.name;
-			string file = string(".") + &fullpath[cbproj_path.size()];
+			string file = string(".") + &files[i]->name[cbproj_path.size()];
 
 			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
 				resource_files.push_back ( file );
@@ -442,8 +429,8 @@ CBBackend::_generate_cbproj ( const Module& module )
 		for ( i = 0; i < incs.size(); i++ )
 		{
 			string path = Path::RelativeFromDirectory (
-				incs[i]->directory->relative_path,
-				module.output->relative_path );
+				incs[i]->directory,
+				module.GetBasePath() );
 
 			includes.push_back ( path );
 			widl_options += "-I" + path + " ";
@@ -451,7 +438,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 		const vector<Library*>& libs = data.libraries;
 		for ( i = 0; i < libs.size(); i++ )
 		{
-			string libpath = intdir + "\\" + libs[i]->importedModule->output->relative_path;
+			string libpath = intdir + "\\" + libs[i]->importedModule->GetBasePath();
 			libraries.push_back ( libs[i]->name );
 			libpaths.push_back ( libpath );
 		}
@@ -520,25 +507,25 @@ CBBackend::_generate_cbproj ( const Module& module )
 		if ( configuration.UseConfigurationInPath )
 		{
 			if ( module.type == StaticLibrary ||module.type == ObjectLibrary )
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.output->relative_path.c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.GetBasePath ().c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
 			else
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.output->relative_path.c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
-			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s%s\" />\r\n", intdir.c_str(), module.output->relative_path.c_str (), cfg.name.c_str() );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.GetBasePath ().c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
+			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s%s\" />\r\n", intdir.c_str(), module.GetBasePath ().c_str (), cfg.name.c_str() );
 		}
 		else
 		{
 			if ( module.type == StaticLibrary || module.type == ObjectLibrary )
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.output->relative_path.c_str (), module.name.c_str(), module_type.c_str() );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.GetBasePath ().c_str (), module.name.c_str(), module_type.c_str() );
 			else
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.output->relative_path.c_str (), module.name.c_str(), module_type.c_str() );
-			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s\" />\r\n", intdir.c_str(), module.output->relative_path.c_str () );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.GetBasePath ().c_str (), module.name.c_str(), module_type.c_str() );
+			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s\" />\r\n", intdir.c_str(), module.GetBasePath ().c_str () );
 		}
 
 		if ( lib )
 		{
 			fprintf ( OUT, "\t\t\t\t<Option type=\"2\" />\r\n" );
 		}
-		else if ( dll )
+		else if ( dll )		
 			fprintf ( OUT, "\t\t\t\t<Option type=\"3\" />\r\n" );
 		else if ( sys )
 			fprintf ( OUT, "\t\t\t\t<Option type=\"5\" />\r\n" );
@@ -666,12 +653,10 @@ CBBackend::_generate_cbproj ( const Module& module )
 
 		fprintf ( OUT, "\t\t\t\t<ExtraCommands>\r\n" );
 
-#if 0
 		if ( module.type == StaticLibrary && module.importLibrary )
 			fprintf ( OUT, "\t\t\t\t\t<Add after=\"dlltool --dllname %s --def %s --output-lib $exe_output; %s -U\" />\r\n", module.importLibrary->dllname.c_str (), module.importLibrary->definition.c_str(), module.mangledSymbols ? "" : "--kill-at" );
 		else if ( module.importLibrary != NULL )
 			fprintf ( OUT, "\t\t\t\t\t<Add after=\"dlltool --dllname %s --def %s --output-lib &quot;$(TARGET_OBJECT_DIR)lib$(TARGET_OUTPUT_BASENAME).a&quot; %s\" />\r\n", module.GetTargetName ().c_str(), module.importLibrary->definition.c_str(), module.mangledSymbols ? "" : "--kill-at" );
-#endif
 
 
 		for ( i = 0; i < resource_files.size(); i++ )
@@ -686,7 +671,6 @@ CBBackend::_generate_cbproj ( const Module& module )
 #endif
 		}
 
-#if 0
 		if ( dll )
 		{
 			if (IsWineModule( module ))
@@ -700,7 +684,6 @@ CBBackend::_generate_cbproj ( const Module& module )
 #endif
 			fprintf ( OUT, "\t\t\t\t\t<Mode after=\"always\" />\r\n" );
 		}
-#endif
 
 		fprintf ( OUT, "\t\t\t\t</ExtraCommands>\r\n" );
 
@@ -911,6 +894,6 @@ CBBackend::IsWineModule ( const Module& module ) const
 	if ( module.importLibrary == NULL)
 		return false;
 
-	size_t index = module.importLibrary->source->name.rfind ( ".spec.def" );
+	size_t index = module.importLibrary->definition.rfind ( ".spec.def" );
 	return ( index != string::npos );
 }

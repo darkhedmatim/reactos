@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="cmd_base" type="objectlibrary">
 	<include base="ReactOS">include/reactos/wine</include>
 	<include base="cmd_base">.</include>
@@ -82,4 +79,3 @@
 	<file>cmd.rc</file>
 	<file>main.c</file>
 </module>
-</group>

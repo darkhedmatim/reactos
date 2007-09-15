@@ -25,7 +25,7 @@
 #include <debug.h>
 
 UINT STDCALL
-IntSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors)
+NtGdiSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors)
 {
    PDC dc;
    PBITMAPOBJ BitmapObj;
@@ -62,15 +62,22 @@ IntSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Color
          Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
 
       PalGDI = PALETTE_LockPalette(BitmapObj->hDIBPalette);
-
-      for (Index = StartIndex;
-           Index < StartIndex + Entries && Index < PalGDI->NumColors;
-           Index++)
+      _SEH_TRY
       {
-         PalGDI->IndexedColors[Index].peRed = Colors[Index - StartIndex].rgbRed;
-         PalGDI->IndexedColors[Index].peGreen = Colors[Index - StartIndex].rgbGreen;
-         PalGDI->IndexedColors[Index].peBlue = Colors[Index - StartIndex].rgbBlue;
+         for (Index = StartIndex;
+              Index < StartIndex + Entries && Index < PalGDI->NumColors;
+              Index++)
+         {
+            PalGDI->IndexedColors[Index].peRed = Colors[Index - StartIndex].rgbRed;
+            PalGDI->IndexedColors[Index].peGreen = Colors[Index - StartIndex].rgbGreen;
+            PalGDI->IndexedColors[Index].peBlue = Colors[Index - StartIndex].rgbBlue;
+         }
       }
+      _SEH_HANDLE
+      {
+         Entries = 0;
+      }
+      _SEH_END
       PALETTE_UnlockPalette(PalGDI);
    }
    else
@@ -83,7 +90,7 @@ IntSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Color
 }
 
 UINT STDCALL
-IntGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
+NtGdiGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
 {
    PDC dc;
    PBITMAPOBJ BitmapObj;
@@ -120,15 +127,22 @@ IntGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors)
          Entries = (1 << BitmapObj->dib->dsBmih.biBitCount) - StartIndex;
 
       PalGDI = PALETTE_LockPalette(BitmapObj->hDIBPalette);
-
-      for (Index = StartIndex;
-           Index < StartIndex + Entries && Index < PalGDI->NumColors;
-           Index++)
+      _SEH_TRY
       {
-         Colors[Index - StartIndex].rgbRed = PalGDI->IndexedColors[Index].peRed;
-         Colors[Index - StartIndex].rgbGreen = PalGDI->IndexedColors[Index].peGreen;
-         Colors[Index - StartIndex].rgbBlue = PalGDI->IndexedColors[Index].peBlue;
+         for (Index = StartIndex;
+              Index < StartIndex + Entries && Index < PalGDI->NumColors;
+              Index++)
+         {
+            Colors[Index - StartIndex].rgbRed = PalGDI->IndexedColors[Index].peRed;
+            Colors[Index - StartIndex].rgbGreen = PalGDI->IndexedColors[Index].peGreen;
+            Colors[Index - StartIndex].rgbBlue = PalGDI->IndexedColors[Index].peBlue;
+         }
       }
+      _SEH_HANDLE
+      {
+         Entries = 0;
+      }
+      _SEH_END
       PALETTE_UnlockPalette(PalGDI);
    }
    else
@@ -338,15 +352,13 @@ NtGdiSetDIBitsToDeviceInternal(
 
 /* Converts a device-dependent bitmap to a DIB */
 INT STDCALL
-NtGdiGetDIBitsInternal(HDC hDC,
-                       HBITMAP hBitmap,
-                       UINT StartScan,
-                       UINT ScanLines,
-                       LPBYTE Bits,
-                       LPBITMAPINFO Info,
-                       UINT Usage,
-                       UINT MaxBits,
-                       UINT MaxInfo)
+NtGdiGetDIBits(HDC hDC,
+               HBITMAP hBitmap,
+               UINT StartScan,
+               UINT ScanLines,
+               LPVOID Bits,
+               LPBITMAPINFO Info,
+               UINT Usage)
 {
    BITMAPOBJ *BitmapObj;
    SURFOBJ *DestSurfObj;
@@ -585,7 +597,7 @@ INT STDCALL NtGdiStretchDIBits(HDC  hDC,
 
    if(Usage == DIB_PAL_COLORS)
    {
-      hPal = NtGdiGetDCObject(hDC, GDI_OBJECT_TYPE_PALETTE);
+      hPal = NtGdiGetCurrentObject(hDC, OBJ_PAL);
       hPal = NtUserSelectPalette(hdcMem, hPal, FALSE);
    }
 

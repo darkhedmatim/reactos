@@ -1,3 +1,19 @@
+#include "../w32knapi.h"
+
+W32KAPI
+HBITMAP
+APIENTRY
+NtGdiCreateBitmap(
+    IN INT cx,
+    IN INT cy,
+    IN UINT cPlanes,
+    IN UINT cBPP,
+    IN OPTIONAL LPBYTE pjInit
+)
+{
+	return (HBITMAP)Syscall(L"NtGdiCreateBitmap", 5, &cx);
+}
+
 INT
 Test_NtGdiCreateBitmap_Params(PTESTINFO pti)
 {
@@ -50,7 +66,7 @@ Test_NtGdiCreateBitmap_Params(PTESTINFO pti)
 	SetLastError(ERROR_SUCCESS);
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 0, 1, NULL)) != NULL);
 	TEST(GetLastError() == ERROR_SUCCESS);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmType == 0);
 	TEST(bitmap.bmWidth == 1);
 	TEST(bitmap.bmHeight == 1);
@@ -72,7 +88,7 @@ Test_NtGdiCreateBitmap_Params(PTESTINFO pti)
 	SetLastError(ERROR_SUCCESS);
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 0, NULL)) != NULL);
 	TEST(GetLastError() == ERROR_SUCCESS);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmType == 0);
 	TEST(bitmap.bmWidth == 1);
 	TEST(bitmap.bmHeight == 1);
@@ -89,32 +105,32 @@ Test_NtGdiCreateBitmap_Params(PTESTINFO pti)
 	/* Test bad cBPP */
 	SetLastError(ERROR_SUCCESS);
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 3, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 4);
 	DeleteObject(hBmp);
 
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 6, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 8);
 	DeleteObject(hBmp);
 
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 15, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 16);
 	DeleteObject(hBmp);
 
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 17, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 24);
 	DeleteObject(hBmp);
 
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 3, 7, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 24);
 	DeleteObject(hBmp);
 
 	TEST((hBmp = NtGdiCreateBitmap(1, 1, 1, 25, NULL)) != NULL);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmBitsPixel == 32);
 	DeleteObject(hBmp);
 
@@ -138,7 +154,7 @@ Test_NtGdiCreateBitmap_Params(PTESTINFO pti)
 	SetLastError(ERROR_SUCCESS);
 	TEST((hBmp = NtGdiCreateBitmap(5, 7, 2, 4, NULL)) != NULL);
 	TEST(GetLastError() == ERROR_SUCCESS);
-	ASSERT(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
+	ASSERT1(GetObject(hBmp, sizeof(BITMAP), &bitmap) == sizeof(BITMAP));
 	TEST(bitmap.bmType == 0);
 	TEST(bitmap.bmWidth == 5);
 	TEST(bitmap.bmHeight == 7);

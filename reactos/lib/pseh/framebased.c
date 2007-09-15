@@ -150,7 +150,7 @@ extern unsigned long __cdecl DbgPrint(const char * format, ...);
 	} \
 }
 #else
-#define _SEH_TRACE_CONTEXT(FRAME_, CONTEXT_)
+#error Unsupported platform.
 #endif
 
 #define _SEH_TRACE_UNWIND(FRAME_, ARGS_) \

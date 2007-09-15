@@ -1,6 +1,4 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<group>
 <directory name="midimap">
 	<xi:include href="midimap/midimap.rbuild" />
 </directory>
@@ -29,7 +27,6 @@
 	<file>playsound.c</file>
 	<file>time.c</file>
 	<file>winmm.c</file>
-	<file>registry.c</file>
 	<file>winmm_res.rc</file>
 	<file>winmm.spec</file>
 </module>

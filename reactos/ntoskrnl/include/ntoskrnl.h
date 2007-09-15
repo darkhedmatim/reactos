@@ -15,7 +15,6 @@
 
 /* DDK/IFS/NDK Headers */
 #ifdef _MSC_VER
-#include <excpt.h>
 #include <ntdef.h>
 #undef DECLSPEC_IMPORT
 #define DECLSPEC_IMPORT

@@ -946,8 +946,6 @@ TREEVIEW_RecalculateVisibleOrder(TREEVIEW_INFO *infoPtr, TREEVIEW_ITEM *start)
     for (item = start; item != NULL;
          item = TREEVIEW_GetNextListItem(infoPtr, item))
     {
-	if (!ISVISIBLE(item) && order > 0)
-		TREEVIEW_ComputeItemInternalMetrics(infoPtr, item);
 	item->visibleOrder = order;
 	order += item->iIntegral;
     }
@@ -2033,10 +2031,7 @@ TREEVIEW_GetItemRect(const TREEVIEW_INFO *infoPtr, BOOL fTextRect, LPRECT lpRect
 	lpRect->bottom = wineItem->rect.bottom;
 
 	lpRect->left = wineItem->textOffset;
-	if (!wineItem->textWidth)
-		TREEVIEW_ComputeTextWidth(infoPtr, wineItem, 0);
-
-	lpRect->right = wineItem->textOffset + wineItem->textWidth + 4;
+	lpRect->right = wineItem->textOffset + wineItem->textWidth;
     }
     else
     {
@@ -3801,7 +3796,6 @@ TREEVIEW_EndEditLabelNow(TREEVIEW_INFO *infoPtr, BOOL bCancel)
             if (ptr == NULL)
             {
                 ERR("OutOfMemory, cannot allocate space for label\n");
-                if(newText != tmpText) Free(newText);
                 DestroyWindow(infoPtr->hwndEdit);
                 infoPtr->hwndEdit = 0;
                 return FALSE;

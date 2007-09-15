@@ -1,6 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="kernel32_base" type="objectlibrary" allowwarnings="true">
 	<include base="kernel32_base">.</include>
 	<include base="kernel32_base">include</include>
@@ -111,12 +108,10 @@
 		<file>utils.c</file>
 	</directory>
 	<directory name="thread">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>fiber.S</file>
-				<file>thread.S</file>
-			</directory>
-		</if>
+		<directory name="i386">
+			<file>fiber.S</file>
+			<file>thread.S</file>
+		</directory>
 	</directory>
 </module>
 <module name="kernel32" type="win32dll" baseaddress="${BASEADDRESS_KERNEL32}" installbase="system32" installname="kernel32.dll">
@@ -135,4 +130,3 @@
 	<linkerflag>-nostdlib</linkerflag>
 	<file>kernel32.rc</file>
 </module>
-</group>

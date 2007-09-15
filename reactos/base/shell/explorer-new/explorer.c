@@ -246,6 +246,15 @@ GetExplorerRegValueSet(IN HKEY hKey,
 }
 
 
+#if 1
+/* FIXME: Should be implemented in shell32 */
+BOOL WINAPI IsUserAnAdmin(VOID)
+{
+    HRESULT WINAPI IsUserAdmin(void);
+    return (BOOL)IsUserAdmin();
+}
+#endif
+
 static BOOL
 SetShellReadyEvent(IN LPCTSTR lpEventName)
 {

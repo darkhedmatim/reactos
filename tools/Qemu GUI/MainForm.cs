@@ -41,18 +41,21 @@ namespace Qemu_GUI
             {
                 /* remove all driveletters which are in use */
                 DriveLetters.Remove(drive.RootDirectory.ToString());
+                if (drive.DriveType == DriveType.CDRom)
+                    cboCDROM.Items.Add(drive.RootDirectory);
             }
-            /* add to vdk drop box */
+
             foreach (object o in DriveLetters)
                 cboVDKDrive.Items.Add(o);
 
             cboVDKDrive.SelectedIndex = 0;
+            cboCDROM.SelectedIndex = 0;
             cboBootFrom.SelectedIndex = 1;
             cboImageFormat.SelectedIndex = 4;
             cboMachine.SelectedIndex = 0;
 
             /* load default config file */
-            LoadDefaultConfig();
+            LoadConfigFile();
 
             /* Find out which controls should be enabled or disabled */
             chkSerialToFile_CheckedChanged(null, null);
@@ -135,6 +138,9 @@ namespace Qemu_GUI
 
             if (chkUseHDC.Checked == true)
             {
+                optHostCDROM.Enabled = false;
+                cboCDROM.Enabled = false;
+                optCDImage.Enabled = false;
                 btnBrowseCDROM.Enabled = false;
                 txtCDROM.Enabled = false;
             }
@@ -150,10 +156,23 @@ namespace Qemu_GUI
                 txtHDC.Text = "Used for CD-ROM!";
                 txtHDC.Enabled = false;
                 txtCDROM.Enabled = true;
-                btnBrowseCDROM.Enabled = true;
+                optCDImage.Enabled = true;
+                if (optCDImage.Checked == true)
+                {
+                    cboCDROM.Enabled = false;
+                    btnBrowseCDROM.Enabled = true;
+                }
+                else
+                {
+                    cboCDROM.Enabled = true;
+                    btnBrowseCDROM.Enabled = false;
+                }
             }
             else
             {
+                optHostCDROM.Enabled = false;
+                cboCDROM.Enabled = false;
+                optCDImage.Enabled = false;
                 btnBrowseCDROM.Enabled = false;
                 txtCDROM.Enabled = false;
                 chkUseHDC.Enabled = true;
@@ -163,12 +182,15 @@ namespace Qemu_GUI
 
         private void optHostCDROM_CheckedChanged(object sender, System.EventArgs e)
         {
+            cboCDROM.Enabled = !optCDImage.Checked;
+            btnBrowseCDROM.Enabled = optCDImage.Checked;
             txtCDROM.Enabled = false;
         }
 
         private void optCDImage_CheckedChanged(object sender, System.EventArgs e)
         {
-
+            cboCDROM.Enabled = !optCDImage.Checked;
+            btnBrowseCDROM.Enabled = optCDImage.Checked;
             txtCDROM.Enabled = true;
         }
 
@@ -311,6 +333,7 @@ namespace Qemu_GUI
         {
             folderBrowserDialog1.Description = "Select Qemu path";
             folderBrowserDialog1.ShowNewFolderButton = false;
+            folderBrowserDialog1.RootFolder = Environment.SpecialFolder.Programs;
 
             if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
             {
@@ -323,6 +346,7 @@ namespace Qemu_GUI
         {
             folderBrowserDialog1.Description = "Select VDK path";
             folderBrowserDialog1.ShowNewFolderButton = false;
+            folderBrowserDialog1.RootFolder = Environment.SpecialFolder.Programs;
 
             if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
             {
@@ -334,50 +358,6 @@ namespace Qemu_GUI
         #endregion
 
         #region Settings
-
-        private void LoadDefaultConfig()
-        {
-            /* Load the default config file */
-            bool bLoaded = false;
-            RegistryKey RegKey = Registry.CurrentUser.OpenSubKey(strRegKey);
-
-            if (RegKey != null)
-            {
-                string DefaultConfig = (string)RegKey.GetValue(strDefCon);
-
-                if (File.Exists(DefaultConfig))
-                {
-                    XmlSerializer s = new XmlSerializer(typeof(Data));
-                    TextReader r = new StreamReader(DefaultConfig);
-                    data = (Data)s.Deserialize(r);
-                    r.Close();
-                    LoadSettings();
-                    bLoaded = true;
-                    this.Text += " - " +DefaultConfig;
-                }
-                else
-                {
-                    MessageBox.Show("Unable to load the default config file");
-                }
-
-                RegKey.Close();
-            }
-
-            if (!bLoaded)
-            {
-                /* if no settings file found, fallback to hardcoded defaults */
-
-                /* Network */
-                VNic nic = new VNic("", NicModel.ne2k_pci);
-                VUser use = new VUser("reactos", 0);
-
-                data.Network.AddNetString(nic.ToString() + use.ToString());
-
-                string[] lans = data.Network.GetNetStrings();
-                listVLANs.Items.Add(lans[0]);
-            }
-        }
-
         private void btnSave_Click(object sender, EventArgs e)
         {
             XmlSerializer s;
@@ -398,15 +378,22 @@ namespace Qemu_GUI
                 catch (Exception ex)
                 {
                     ErrorForm error = new ErrorForm();
-                    error.txtError.Text = "Error trying to save settings!";
+                    error.txtError.Text = "Error trying to save settings, contact developers with error log!";
                     error.txtError.Text += "Exception Info:" + Environment.NewLine + ex.Message;
                     error.txtError.Text += Environment.NewLine + ex.StackTrace;
                 }
+                                
             }
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            Close();
         }
 
         private void LoadSettings()
         {
+            string[] temp;
             /* General */
             cboMachine.SelectedIndex = (int) data.General.Machine;
             try
@@ -415,7 +402,7 @@ namespace Qemu_GUI
             }
             catch (Exception)
             {
-                numMemory.Value = 128;
+                numMemory.Value = 64;
             }
             try
             {
@@ -439,8 +426,10 @@ namespace Qemu_GUI
                 txtHDC.Text = "Used for CD-ROM!";
                 txtHDC.Enabled = false;
             }
+            optHostCDROM.Checked = data.CDROM.UseFromHost;
+            optCDImage.Checked = !data.CDROM.UseFromHost;
             txtCDROM.Text = data.CDROM.Image;
-
+            cboCDROM.Text = data.CDROM.HostDrive;
 
             /* Floppies */
             chkFloppyA.Checked = data.Floppies.FDD[0].Enabled;
@@ -481,12 +470,21 @@ namespace Qemu_GUI
             txtGDBPort.Text = data.Debug.GDBPort.ToString();
 
             /* Network */
-            string[] temp = data.Network.GetNetStrings();
-            listVLANs.Items.Clear();
-            if(temp[0] != null)
-            for (int i = 0; i < data.Network.Count; i++)
+            foreach (string a in data.Network.VNicStringReader())
             {
-                listVLANs.Items.Add(temp[i]);
+                listVLANs.Items.Add(a.ToString());
+                temp = a.Split(' ');
+                if (temp[1].Contains("user"))
+                {
+                    VUser vnic = new VUser();
+                    vnic.vlan = Int32.Parse(temp[1].Substring(10, 1));
+                    vnic.hostname = temp[1].Substring(21);
+                    VLanlist.Add(vnic);
+                }
+                else
+                {
+                    MessageBox.Show("unimplemented setting load for network!");
+                }
             }
 
             /* Tools */
@@ -523,7 +521,9 @@ namespace Qemu_GUI
             data.Floppies.FDD[1].Path = txtFloppyB.Text;
 
             /* CD-ROM */
+            data.CDROM.UseFromHost = optHostCDROM.Checked;
             data.CDROM.Image = txtCDROM.Text;
+            data.CDROM.HostDrive = cboCDROM.Text;
             data.CDROM.Enabled = chkUseCDROM.Checked;
 
             /* Harddisks */
@@ -553,12 +553,11 @@ namespace Qemu_GUI
             data.Debug.GDBPort = Int32.Parse(txtGDBPort.Text);
 
             /* Network */
-            for (int i = 0; i <  listVLANs.Items.Count; i++)
+            for (int i = 0; i < VLanlist.Count; i++)
             {
-                if(data.Network.GetNetStrings()[i] != listVLANs.Items[i].Text)
-                    data.Network.AddNetString(listVLANs.Items[i].ToString());
+                string vlan = VLanlist[i].ToString();
+                data.Network.VNicString += vlan;
             }
-
             /* Tools */
             data.Tools.vdk.Image = txtVDKImage.Text;
             data.Tools.vdk.DriveLetter = cboVDKDrive.Text;
@@ -606,9 +605,9 @@ namespace Qemu_GUI
             data.Paths.VDK = txtVDKPath.Text;
 
             /* Check out if we have a vdk path and a image path */
-            if (!File.Exists(data.Tools.vdk.Image) || !Directory.Exists(data.Paths.VDK))
+            if (data.Tools.vdk.Image == "" || data.Paths.VDK == "")
             {
-                MessageBox.Show("Error on vdk path or image target");
+                /* we don't do nothing */
                 return;
             }
             runner = new Runner(data);
@@ -635,11 +634,38 @@ namespace Qemu_GUI
 
         #region Network
 
-        /* Please fix this entire section */
+
+
+        public static ArrayList VLanlist = new ArrayList();
+
 
         private void btnNetAdd_Click(object sender, EventArgs e)
         {
+            if (rbtnNetUser.Checked == true)
+            {
+                VUser item = new VUser();
+                if (txtNetHost.Text == "")
+                    item.hostname = "host";
+                else
+                    item.hostname = txtNetHost.Text;
 
+                item.vlan = VLanlist.Count;
+                listVLANs.Items.Add(item.ToString());
+                VLanlist.Add(item);
+
+            }
+            if (rbtnNetNic.Checked == true)
+            {
+                VNic item = new VNic();
+                if (txtNicMACaddr.Text == "")
+                    item.macAddress = "";//???
+                else
+                    item.macAddress = txtNicMACaddr.Text;
+
+                item.vlan = VLanlist.Count;
+                listVLANs.Items.Add(item.ToString());
+                VLanlist.Add(item);
+            }
 
         }
 
@@ -655,11 +681,11 @@ namespace Qemu_GUI
 
         private void btnNetRemove_Click(object sender, EventArgs e)
         {
-            //for (int i = 0; i < listVLANs.SelectedIndices.Count; i++)
-            //{
-            //    VLanlist.RemoveAt(listVLANs.SelectedIndices[i]);
-            //    listVLANs.Items.RemoveAt(listVLANs.SelectedIndices[i]);
-            //}
+            for (int i = 0; i < listVLANs.SelectedIndices.Count; i++)
+            {
+                VLanlist.RemoveAt(listVLANs.SelectedIndices[i]);
+                listVLANs.Items.RemoveAt(listVLANs.SelectedIndices[i]);
+            }
         }
 
         #endregion
@@ -689,7 +715,7 @@ namespace Qemu_GUI
             /* check the QEmu path */
             if (!Directory.Exists(data.Paths.Qemu))
             {
-                MessageBox.Show("Qemu path does not exist", "Error - Qemu path");
+                MessageBox.Show("\"" + data.Paths.Qemu + "\"" + " does not exist", "Error - QEmu path");
                 return;
             }
 
@@ -704,7 +730,7 @@ namespace Qemu_GUI
                     }
                     else
                     {
-                        MessageBox.Show("\"" + data.Harddisks.HDD[i].Path + "\"" + " image does not exist", "Error - Harddisk image");
+                        MessageBox.Show("\"" + data.Harddisks.HDD[i].Path + "\"" + " does not exist", "Error - Harddisk file");
                         return;
                     }
                 }
@@ -720,38 +746,35 @@ namespace Qemu_GUI
                     }
                     else
                     {
-                        MessageBox.Show("\"" + data.Floppies.FDD[i].Path + "\"" + " image does not exist", "Error - Floppy image");
+                        MessageBox.Show("\"" + data.Floppies.FDD[i].Path + "\"" + " does not exist", "Error - Floppy File");
                         return;
                     }
                 }
             }
 
             /* ensure we have a correct CD image if we need to boot from it */
-            if ((txtCDROM.Text.Length > 0) && (File.Exists(data.CDROM.Image)))
+            if (optCDImage.Enabled && txtCDROM.Text.Length > 0)
             {
-                data.CDROM.Enabled = true;
-            }
-            else
-            {
-                data.CDROM.Enabled = false;
+                if (!File.Exists(txtCDROM.Text))
+                {
+                    MessageBox.Show("\"" + txtCDROM.Text + "\"" + " does not exist", "Error - CD-ROM image");
+                    return;
+                }
             }
 
             if (HasHDisk == false && data.CDROM.Enabled == false && HasFDisk == false)
+                MessageBox.Show("Must enable atleast 1 Hard disk, CD-Rom or Floppy disk!", "Error");//or specify linux kernel image???
+            else
             {
-                MessageBox.Show("Must enable atleast 1 Hard disk, CD-Rom or Floppy disk!", "Error");
-                return;
+                /* we must know where to look for qemu */
+                if (data.Paths.Qemu.Length == 0)
+                    MessageBox.Show("Please specify Qemu Path!", "Error");
+                else
+                {
+                    runner = new Runner(data);
+                    runner.StartQemu((Platforms)cboMachine.SelectedIndex);
+                }
             }
-
-            if ((data.General.BootFrom == "Floppy" && !HasFDisk) || (data.General.BootFrom == "Hardisk" && !HasHDisk) ||
-                (data.General.BootFrom == "CD-ROM" && !data.CDROM.Enabled))
-            {
-                MessageBox.Show("Booting from invalid media!", "Error");
-                return;
-            }
-
-            runner = new Runner(data);
-            runner.StartQemu((Platforms)cboMachine.SelectedIndex);
-            
         }
 
         private void loadConfigToolStripMenuItem_Click(object sender, EventArgs e)
@@ -769,8 +792,8 @@ namespace Qemu_GUI
                     s = new XmlSerializer(typeof(Data));
                     r = new StreamReader(openFile.FileName);
                     data = (Data)s.Deserialize(r);
+
                     LoadSettings();
-                    this.Text += " - " + openFile.FileName;
                 }
                 catch (Exception ex)
                 {
@@ -837,22 +860,46 @@ namespace Qemu_GUI
                     RegKey.Close();
                 }
             }
-            LoadDefaultConfig();
         }
 
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        private void LoadConfigFile()
         {
-            Application.Exit();
-        }
+            /* Load the default config file */
+            bool bLoaded = false;
+            RegistryKey RegKey = Registry.CurrentUser.OpenSubKey(strRegKey);
 
-        private void btnStop_Click(object sender, EventArgs e)
-        {
-            try
+            if (RegKey != null)
             {
-                runner.StopQemu();
-            }
-            catch { }
-        }
+                string DefaultConfig = (string)RegKey.GetValue(strDefCon);
 
+                if (File.Exists(DefaultConfig))
+                {
+                    XmlSerializer s = new XmlSerializer(typeof(Data));
+                    TextReader r = new StreamReader(DefaultConfig);
+                    data = (Data)s.Deserialize(r);
+                    r.Close();
+                    LoadSettings();
+                    bLoaded = true;
+                }
+                else
+                {
+                    MessageBox.Show("Unable to load the default config file");
+                }
+
+                RegKey.Close();
+            }
+
+            if (!bLoaded)
+            {
+                /* if no settings file found, fallback to hardcoded defaults */
+
+                /* Network */
+                VUser def = new VUser();
+                def.vlan = 0;
+                def.hostname = "host";
+                listVLANs.Items.Add(def.ToString());
+                VLanlist.Add(def);
+            }
+        }
     }
 }

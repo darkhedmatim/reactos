@@ -113,7 +113,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtInitializeRegistry(
-    USHORT Flag
+    BOOLEAN SetUpBoot
 );
 
 NTSYSCALLAPI
@@ -420,6 +420,13 @@ ZwGetPlugPlayEvent(
 NTSYSAPI
 NTSTATUS
 NTAPI
+ZwInitializeRegistry(
+    BOOLEAN SetUpBoot
+);
+
+NTSYSAPI
+NTSTATUS
+NTAPI
 ZwLoadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes
@@ -560,13 +567,6 @@ ZwSetValueKey(
     IN ULONG DataSize
 );
 #endif
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwInitializeRegistry(
-    USHORT Flag
-);
 
 NTSYSAPI
 NTSTATUS

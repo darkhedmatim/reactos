@@ -1,3 +1,5 @@
+#include "../gdi32api.h"
+
 #define INVALIDFONT "ThisFontDoesNotExist"
 
 INT

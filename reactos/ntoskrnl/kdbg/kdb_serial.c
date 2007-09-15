@@ -17,7 +17,7 @@
 #include <debug.h>
 
 CHAR
-KdbpTryGetCharSerial(ULONG Retry)
+KdbpTryGetCharSerial(UINT Retry)
 {
   CHAR Result = -1;
 

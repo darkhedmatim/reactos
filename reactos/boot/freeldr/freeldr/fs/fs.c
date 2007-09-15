@@ -18,16 +18,13 @@
  */
 
 #include <freeldr.h>
-
-#define NDEBUG
 #include <debug.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // DATA
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-ULONG FsType = 0;	// Type of filesystem on boot device, set by FsOpenVolume()
-PVOID FsStaticBufferDisk = 0, FsStaticBufferData = 0;
+ULONG			FsType = 0;	// Type of filesystem on boot device, set by FsOpenVolume()
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // FUNCTIONS
@@ -53,15 +50,6 @@ static BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG 
 	CHAR ErrorText[80];
 
 	FsType = Type;
-
-	if( !FsStaticBufferDisk )
-		FsStaticBufferDisk = MmAllocateMemory( 0x20000 );
-	if( !FsStaticBufferDisk )
-	{
-		FileSystemError("could not allocate filesystem static buffer");
-		return FALSE;
-	}
-	FsStaticBufferData = ((PCHAR)FsStaticBufferDisk) + 0x10000;
 
 	switch (FsType)
 	{

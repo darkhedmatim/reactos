@@ -103,6 +103,16 @@ STDCALL
 NtGdiAddFontResource(PUNICODE_STRING Filename,
 					 DWORD fl);
 
+/* Use NtGdiDoPalette with GdiPalAnimate */
+BOOL
+STDCALL
+NtGdiAnimatePalette (
+	HPALETTE		hpal,
+	UINT			StartIndex,
+	UINT			Entries,
+	CONST PPALETTEENTRY	ppe
+	);
+
 /* Metafiles are user mode */
 HENHMETAFILE
 STDCALL
@@ -147,12 +157,27 @@ NtGdiCreateEnhMetaFile (
 	LPCWSTR		Description
 	);
 
+/* Use NtGdiCreatePaletteInternal with palNumEntries at the end. */
+HPALETTE
+STDCALL
+NtGdiCreatePalette (
+	CONST PLOGPALETTE	lgpl
+	);
+
 /* Use NtGdiPolyPolyDraw with PolyPolyRgn. */
 HRGN
 STDCALL
 NtGdiCreatePolygonRgn(CONST PPOINT  pt,
                            INT  Count,
                            INT  PolyFillMode);
+
+/* Use NtGdiPolyPolyDraw with PolyPolyRgn. */
+HRGN
+STDCALL
+NtGdiCreatePolyPolygonRgn(CONST PPOINT  pt,
+                               CONST PINT  PolyCounts,
+                               INT  Count,
+                               INT  PolyFillMode);
 
 /* Meta are user-mode. */
 BOOL
@@ -273,11 +298,38 @@ HCOLORSPACE
 STDCALL
 NtGdiGetColorSpace(HDC  hDC);
 
+/* Should be done in user-mode and/or NtGdiGetDCObject. */
+HGDIOBJ STDCALL  NtGdiGetCurrentObject(HDC  hDC, UINT  ObjectType);
+
 /* Should be done in user mode. */
 BOOL STDCALL  NtGdiGetCurrentPositionEx(HDC  hDC, LPPOINT currentPosition);
 
 /* Use NtGdiGetDCPoint with GdiGetDCOrg. */
 BOOL STDCALL  NtGdiGetDCOrgEx(HDC  hDC, LPPOINT  Point);
+
+/* Use NtGdiDoPalette with GdiPalGetColorTable. */
+UINT
+STDCALL
+NtGdiGetDIBColorTable (
+	HDC	hDC,
+	UINT	StartIndex,
+	UINT	Entries,
+	RGBQUAD	* Colors
+	);
+
+/* Use NtGdiGetDIBitsInternal. */
+INT
+STDCALL
+NtGdiGetDIBits (
+	HDC		hDC,
+	HBITMAP		hBitmap,
+	UINT		StartScan,
+	UINT		ScanLines,
+	LPVOID		Bits,
+	LPBITMAPINFO	bi,
+	UINT		Usage
+	);
+
 
 /* Meta are user-mode. */
 HENHMETAFILE
@@ -356,6 +408,16 @@ NtGdiGetLogColorSpace(HCOLORSPACE  hColorSpace,
 /* Should be done in user-mode using shared GDI Objects. */
 INT STDCALL  NtGdiGetMapMode(HDC  hDC);
 
+/* Use NtGdiDoPalette with GdiPalGetEntries. */
+UINT
+STDCALL
+NtGdiGetPaletteEntries (
+	HPALETTE	hpal,
+	UINT		StartIndex,
+	UINT		Entries,
+	LPPALETTEENTRY	pe
+	);
+
 /* Should be done in user-mode using shared GDI Objects. */
 INT
 STDCALL
@@ -369,6 +431,16 @@ INT STDCALL  NtGdiGetROP2(HDC  hDC);
 
 /* Should be done in user-mode using shared GDI Objects. */
 INT STDCALL  NtGdiGetStretchBltMode(HDC  hDC);
+
+/* Use NtGdiDoPalette with GdiPalSetSystemEntries. */
+UINT
+STDCALL
+NtGdiGetSystemPaletteEntries (
+	HDC		hDC,
+	UINT		StartIndex,
+	UINT		Entries,
+	LPPALETTEENTRY	pe
+	);
 
 /* Should be done in user-mode using shared GDI Objects. */
 UINT STDCALL  NtGdiGetTextAlign(HDC  hDC);
@@ -392,6 +464,14 @@ BOOL STDCALL  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
 
 /* Needs to be done in user-mode. */
 BOOL STDCALL  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
+
+/* Use NtGdiGetTransform with GdiWorldSpaceToPageSpace */
+BOOL
+STDCALL
+NtGdiGetWorldTransform (
+	HDC	hDC,
+	LPXFORM	Xform
+	);
 
 /* Needs to be done in user-mode. */
 BOOL
@@ -421,6 +501,12 @@ NtGdiOffsetWindowOrgEx (
 	LPPOINT	Point
 	);
 
+/* Use NtGdiFillRgn. Add 0 at the end. */
+BOOL
+STDCALL
+NtGdiPaintRgn(HDC  hDC,
+                   HRGN  hRgn);
+
 /* Metafiles are user-mode. */
 BOOL
 STDCALL
@@ -440,11 +526,62 @@ NtGdiPlayEnhMetaFileRecord (
 	UINT			Handles
 	);
 
+/* Use NtGdiPolyPolyDraw with GdiPolyBezier. */
+BOOL
+STDCALL
+NtGdiPolyBezier(HDC  hDC,
+                     CONST LPPOINT  pt,
+                     DWORD  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyBezierTo. */
+BOOL
+STDCALL
+NtGdiPolyBezierTo(HDC  hDC,
+                       CONST LPPOINT  pt,
+                       DWORD  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyPolyLine. */
+BOOL
+STDCALL
+NtGdiPolyline(HDC  hDC,
+                   CONST LPPOINT  pt,
+                   int  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyLineTo. */
+BOOL
+STDCALL
+NtGdiPolylineTo(HDC  hDC,
+                     CONST LPPOINT  pt,
+                     DWORD  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyPolyLine. */
+BOOL
+STDCALL
+NtGdiPolyPolyline(HDC  hDC,
+                       CONST LPPOINT  pt,
+                       CONST LPDWORD  PolyPoints,
+                       DWORD  Count);
+
 /* Use NtGdiPolyTextOutW with 0 at the end. */
 BOOL
 STDCALL
 NtGdiPolyTextOut(HDC  hDC,
                       CONST LPPOLYTEXTW txt,
+                      int  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyPolygon. */
+BOOL
+STDCALL
+NtGdiPolygon(HDC  hDC,
+                  CONST PPOINT  Points,
+                  int  Count);
+
+/* Use NtGdiPolyPolyDraw with GdiPolyPolygon. */
+BOOL
+STDCALL
+NtGdiPolyPolygon(HDC  hDC,
+                      CONST LPPOINT  Points,
+                      CONST LPINT  PolyCounts,
                       int  Count);
 
 /* Call UserRealizePalette. */
@@ -467,6 +604,16 @@ COLORREF STDCALL NtGdiSetBkColor (HDC hDC, COLORREF Color);
 
 /* Needs to be done in user-mode, using shared GDI Object Attributes. */
 INT STDCALL  NtGdiSetBkMode(HDC  hDC, INT  backgroundMode);
+
+/* Use NtGdiDoPalette with GdiPalSetColorTable, TRUE. */
+UINT
+STDCALL
+NtGdiSetDIBColorTable (
+	HDC		hDC,
+	UINT		StartIndex,
+	UINT		Entries,
+	CONST RGBQUAD	* Colors
+	);
 
 /* Use SetDIBitsToDevice in gdi32. */
 INT
@@ -504,10 +651,39 @@ NtGdiSetICMProfile(HDC  hDC,
                         LPWSTR  Filename);
 
 /* Needs to be done in user-mode, using shared GDI Object Attributes. */
+int
+STDCALL
+NtGdiSetMapMode (
+	HDC	hDC,
+	int	MapMode
+	);
+
+/* Needs to be done in user-mode, using shared GDI Object Attributes. */
 DWORD
 STDCALL
 NtGdiSetMapperFlags(HDC  hDC,
                           DWORD  Flag);
+
+
+/* Use NtGdiDoPalette with GdiPalSetEntries, TRUE. */
+UINT
+STDCALL
+NtGdiSetPaletteEntries (
+	HPALETTE		hpal,
+	UINT			Start,
+	UINT			Entries,
+	CONST LPPALETTEENTRY	pe
+	);
+
+/* Use NtGdiSetPixel(hdc, x, y, color) != CLR_INVALID; */
+BOOL
+STDCALL
+NtGdiSetPixelV (
+	HDC		hDC,
+	INT		X,
+	INT		Y,
+	COLORREF	Color
+	);
 
 /* Needs to be done in user-mode, using shared GDI Object Attributes. */
 INT STDCALL  NtGdiSetPolyFillMode(HDC  hDC, INT polyFillMode);
@@ -619,21 +795,3 @@ NtUserCallTwoParam(
   (COLORREF)NtUserCallTwoParam((DWORD)(hbr), (DWORD)crColor, TWOPARAM_ROUTINE_SETDCPENCOLOR)
 
 #endif /* WIN32K_NTGDI_BAD_INCLUDED */
-
-
-/* Follow thing need be rewriten 
- *
- * Opengl icd are complete hacked in reactos and are using own way, this need be rewriten and be setup with the correct syscall
- * and the opengl32 shall using correct syscall to optain then driver interface or using the correct version in gdi32.
- * it mean whole icd are hacked in frist place and need be rewtiten from scrash. and it need enum the opengl correct way and
- * export the driver correct
- *
- * DirectX aka ReactX alot api that have been implement in reactos win32k for ReactX shall move to a file call dxg.sys 
- * there from it will really doing the stuff. And we should setup loading of dxg.sys 
- *
- *  The Init of Gdi subsystem shall move into NtGdiInit() 
- *
- *  The Init of spooler are done in NtGdiInitSpool()
- *
- *  The Init of the User subsystem shall move into NtUserInit()
- */

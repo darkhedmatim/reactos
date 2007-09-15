@@ -69,4 +69,5 @@ END
 STRINGTABLE 
 BEGIN
     IDS_APP_TITLE           "Екранна лупа"
+    IDC_MAGNIFIER           "MAGNIFIER"
 END

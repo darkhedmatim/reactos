@@ -4,6 +4,7 @@
 #pragma GCC system_header
 #endif
 
+
 /* translate GCC target defines to MS equivalents. Keep this synchronized
    with windows.h. */
 #if defined(__i686__) && !defined(_M_IX86)
@@ -246,10 +247,6 @@ typedef BYTE BOOLEAN,*PBOOLEAN;
 typedef BYTE FCHAR;
 typedef WORD FSHORT;
 typedef DWORD FLONG;
-
-#ifdef __GNUC__
-#include "intrin.h"
-#endif
 
 #define NTAPI __stdcall
 #include <basetsd.h>
@@ -2344,7 +2341,7 @@ typedef struct _CONTEXT {
 #endif
 } CONTEXT;
 
-#elif defined(_MIPS_)
+#elif defined(MIPS)
 
 /* The following flags control the contents of the CONTEXT structure. */
 
@@ -4042,41 +4039,18 @@ typedef struct _OBJECT_TYPE_LIST {
 
 #if defined(__GNUC__)
 
-#if defined(_M_IX86)
 static __inline__ PVOID GetCurrentFiber(void)
 {
     void* ret;
     __asm__ __volatile__ (
-        "movl	%%fs:0x10,%0"
-        : "=r" (ret) /* allow use of reg eax,ebx,ecx,edx,esi,edi */
-    );
+	"movl	%%fs:0x10,%0"
+	: "=r" (ret) /* allow use of reg eax,ebx,ecx,edx,esi,edi */
+	);
     return ret;
 }
-#else
-#if defined(_M_PPC)
-static __inline__ __attribute__((always_inline)) unsigned long __readfsdword_winnt(const unsigned long Offset)
-{
-    unsigned long result;
-    __asm__("\tadd 7,13,%1\n"
-            "\tlwz %0,0(7)\n"
-            : "=r" (result)
-            : "r" (Offset)
-            : "r7");
-    return result;
-}
-
-#else
-#error Unknown architecture
-#endif
-static __inline__ PVOID GetCurrentFiber(void)
-{
-    return __readfsdword_winnt(0x10);
-}
-#endif
 
 /* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
 #ifndef __NTDDK_H
-#ifdef _M_IX86
 static __inline__ struct _TEB * NtCurrentTeb(void)
 {
     struct _TEB *ret;
@@ -4089,12 +4063,6 @@ static __inline__ struct _TEB * NtCurrentTeb(void)
 
     return ret;
 }
-#else
-static __inline__ struct _TEB * NtCurrentTeb(void)
-{
-    return __readfsdword_winnt(0x18);
-}
-#endif
 #endif
 
 #elif defined(__WATCOMC__)
@@ -4154,36 +4122,30 @@ static __inline__ BOOLEAN
 InterlockedBitTestAndSet(IN LONG volatile *Base,
                          IN LONG Bit)
 {
-#if defined(_M_IX86)
 	LONG OldBit;
+
 	__asm__ __volatile__("lock "
 	                     "btsl %2,%1\n\t"
 	                     "sbbl %0,%0\n\t"
-	                     :"=r" (OldBit),"=m" (*Base)
-	                     :"Ir" (Bit)
-	                     : "memory");
+		             :"=r" (OldBit),"=m" (*Base)
+		             :"Ir" (Bit)
+			     : "memory");
 	return OldBit;
-#else
-	return (_InterlockedOr(Base, 1 << Bit) >> Bit) & 1;
-#endif
 }
 
 static __inline__ BOOLEAN
 InterlockedBitTestAndReset(IN LONG volatile *Base,
-                           IN LONG Bit)
+                          IN LONG Bit)
 {
-#if defined(_M_IX86)
 	LONG OldBit;
+
 	__asm__ __volatile__("lock "
 	                     "btrl %2,%1\n\t"
 	                     "sbbl %0,%0\n\t"
-	                     :"=r" (OldBit),"=m" (*Base)
-	                     :"Ir" (Bit)
-	                     : "memory");
+		             :"=r" (OldBit),"=m" (*Base)
+		             :"Ir" (Bit)
+			     : "memory");
 	return OldBit;
-#else
-	return (_InterlockedAnd(Base, ~(1 << Bit)) >> Bit) & 1;
-#endif
 }
 
 static __inline__ BOOLEAN
@@ -4191,36 +4153,17 @@ BitScanReverse(OUT ULONG *Index,
                IN ULONG Mask)
 {
 	BOOLEAN BitPosition = 0;
-#if defined(_M_IX86)
 	__asm__ __volatile__("bsrl %2,%0\n\t"
 	                     "setnz %1\n\t"
-	                     :"=&r" (*Index), "=r" (BitPosition)
-	                     :"rm" (Mask)
-	                     :"memory");
+                         :"=&r" (*Index), "=r" (BitPosition)
+		                 :"rm" (Mask)
+			             :"memory");
 	return BitPosition;
-#else
-	/* Slow implementation for now */
-	for( *Index = 31; *Index; *Index-- ) {
-		if( (1<<*Index) & Mask ) {
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-#endif
 }
 
 #endif
 
-#if defined(_M_IX86)
 #define YieldProcessor() __asm__ __volatile__("pause");
-#elif defined(_M_PPC)
-#define YieldProcessor() __asm__ __volatile__("nop");
-#elif defined(_M_MIPS)
-#define YieldProcessor() __asm__ __volatile__("nop");
-#else
-#error Unknown architecture
-#endif
 
 #if defined(_AMD64_)
 #if defined(_M_AMD64)
