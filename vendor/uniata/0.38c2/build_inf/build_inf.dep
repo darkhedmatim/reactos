@@ -1,0 +1,13 @@
+# Microsoft Developer Studio Generated Dependency File, included by build_inf.mak
+
+.\build_inf.cpp : \
+	"..\..\..\pcidump\head\driver\pcidump.h"\
+	"..\driver\bm_devs.h"\
+	".\SvcManLib.h"\
+	"$(MSDEVROOT)\vc98\include\basetsd.h"\
+	
+
+.\SvcManLib.cpp : \
+	".\SvcManLib.h"\
+	"$(MSDEVROOT)\vc98\include\basetsd.h"\
+	

@@ -1,0 +1,12 @@
+# Microsoft Developer Studio Generated Dependency File, included by atactl.mak
+
+.\atactl.cpp : \
+	"$(BASEDIR)\src\storage\inc\ntddscsi.h"\
+	"$(MSDEVROOT)\vc98\include\basetsd.h"\
+	"$(MSDEVROOT)\vc98\include\guiddef.h"\
+	"$(MSDEVROOT)\vc98\include\propidl.h"\
+	"$(MSDEVROOT)\vc98\include\reason.h"\
+	"$(MSDEVROOT)\vc98\include\stralign.h"\
+	"$(MSDEVROOT)\vc98\include\tvout.h"\
+	"$(MSDEVROOT)\vc98\include\winefs.h"\
+	

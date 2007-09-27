@@ -1,0 +1,12 @@
+REGEDIT4
+
+[-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\UniATA]
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PciIde]
+"Start"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PciIdex]
+"Start"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Atapi]
+"Start"=dword:00000000
