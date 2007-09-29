@@ -1,2 +1,6 @@
-r561 (current; trunk rev, relies on google breakpad *crap*, 2007-09-28)
+r561 (current; trunk rev, 2007-09-28):
+  * a few new features (search, better language support)
+  * relies on google breakpad bug reporting code => needs to be removed
+
 r342 (official 0.7 beta release, 2007-07-28)
+  * lightweight pdf viewer with basic features
