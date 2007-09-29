@@ -1,0 +1,2 @@
+r561 (current; trunk rev, relies on google breakpad *crap*, 2007-09-28)
+r342 (official 0.7 beta release, 2007-07-28)
