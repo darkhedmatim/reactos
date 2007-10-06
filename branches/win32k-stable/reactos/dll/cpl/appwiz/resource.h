@@ -1,0 +1,60 @@
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
+
+/* metrics */
+#define PROPSHEETWIDTH  	380
+#define PROPSHEETHEIGHT 	228
+#define PROPSHEETPADDING 	6
+#define SYSTEM_COLUMN   	(0 * PROPSHEETPADDING)
+// this is not supported by the MS Resource compiler:
+//#define LABELLINE(x)    0 //(((PROPSHEETPADDING + 2) * x) + (x + 2))
+
+#define ICONSIZE        16
+
+/* icons */
+#define IDI_CPLSYSTEM	1500
+#define IDI_APPICO		1501
+#define IDI_INSTICO		1502
+#define IDI_RECBINICO	1503
+#define IDI_DOWNLOADICO	1504
+#define IDI_APPINETICO	1505
+
+/* dialogs */
+#define IDD_PROPPAGEINSTALL		200
+#define IDD_PROPPAGEROSSETUP	201
+#define IDD_PROPPAGEADD			202
+#define IDD_SHORTCUT_LOCATION	203
+#define IDD_SHORTCUT_FINISH		204
+
+/* bitmaps */
+#define IDB_WATERMARK	5001
+
+/* strings */
+#define IDS_CPLSYSTEMNAME			1001
+#define IDS_CPLSYSTEMDESCRIPTION	2001
+#define IDS_NOITEM_SELECTED			2002
+#define IDS_ERROR					2003
+#define IDS_UNABLEREAD_UNINSTSTR	2004
+#define IDS_UNABLEOPEN_UNINSTKEY	2005
+#define IDS_APPLIST					2006
+#define IDS_LARGEICONS				2007
+#define IDS_LIST					2008
+#define IDS_DETAILS					2009
+#define IDS_CREATE_SHORTCUT         2010
+#define IDS_ERROR_NOT_FOUND         2011
+
+/* controls */
+#define IDC_INSTALL 			101
+#define IDC_SOFTWARELIST		102
+#define IDC_ADDREMOVE			103
+#define IDC_SHOWUPDATES			104
+#define IDC_FIND_EDIT			105
+#define IDC_INFO_BUTTON			106
+#define IDC_VIEW_COMBO			107
+#define IDC_SHORTCUT_LOCATION	108
+#define IDC_SHORTCUT_BROWSE		109
+#define IDC_SHORTCUT_NAME		110
+
+#endif /* __CPL_RESOURCE_H */
+
+/* EOF */

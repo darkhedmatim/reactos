@@ -1,0 +1,174 @@
+# ReactOS WINE porting guide for 0.3
+# Update this file when you port a dll/program from WINE.
+
+The ReactOS Project shares quite a bit of code with the WINE project.
+This document should provide a compleate reference for all of the
+locations in the ReactOS source tree where code is shared between the
+two projects. If you find something is missing from this documentation
+please add it.
+
+If you find that a function in ReactOS that is not implemented properly
+and is based on WINE sources, check the latest Winehq CVS and see if
+it has been fixed there. If so, please submit a patch to
+ros-dev@reactos.org. Otherwise please send a patch to both
+wine-patches@winehq.com and ros-dev@reactos.org
+
+When porting a new DLL from Wine to ReactOS, please do the following steps
+- Create a new directory in dll/win32/ of the same name as the new Wine DLL
+- Add a new entry in dll/win32/win32.rbuild
+- Follow the guide "Update process for autosync DLLs" at the bottom of this file
+
+
+The following build tools are shared with Wine.
+
+reactos/tools/unicode             # Synced to Wine-0_9_5
+reactos/tools/wpp                 # Synced to Wine-0_9_5
+reactos/tools/bin2res             # Resource to binary converter
+reactos/tools/winebuild           # Synced to Wine-0_9_5
+reactos/tools/wmc                 # Synced to Wine-0_9_5
+reactos/tools/wrc                 # Synced to Wine-0_9_5
+reactos/tools/widl                # Synced to Wine-20060729
+
+The following libraries are shared with Wine.
+
+reactos/dll/win32/advpack         # Autosync
+reactos/dll/win32/avifil32        # Autosync
+reactos/dll/win32/browseui        # Autosync
+reactos/dll/win32/cabinet         # Autosync
+reactos/dll/win32/clusapi         # Autosync
+reactos/dll/win32/comcat          # Autosync
+reactos/dll/win32/comctl32        # Autosync
+reactos/dll/win32/comdlg32        # Autosync
+reactos/dll/win32/crypt32         # Out of sync
+reactos/dll/win32/cryptdll        # Autosync
+reactos/dll/win32/cryptnet        # Autosync
+reactos/dll/win32/dbghelp         #
+reactos/dll/win32/hhctrl.ocx      # Autosync
+reactos/dll/win32/icmp            # Synced to Wine-0_9_10
+reactos/dll/win32/imm32           # Autosync
+reactos/dll/win32/iphlpapi        # Out of sync
+reactos/dll/win32/imagehlp        # Patches for BindImage need review and submission to winehq.
+reactos/dll/win32/lz32            # Autosync
+reactos/dll/win32/mapi32          # Autosync
+reactos/dll/win32/mlang           # Autosync
+reactos/dll/win32/mpr             # Autosync
+reactos/dll/win32/msacm32         # Out of sync
+reactos/dll/win32/msimg32         # Autosync
+reactos/dll/win32/msi             # Needs a widl update
+reactos/dll/win32/msvcrt20        # Out of sync
+reactos/dll/win32/msvfw32         # Autosync
+reactos/dll/win32/netapi32        # Autosync
+reactos/dll/win32/objsel          # Autosync
+reactos/dll/win32/odbc32          # Out of sync. Depends on port of Linux ODBC.
+reactos/dll/win32/odbccp32        # Autosync
+reactos/dll/win32/ole32           # Autosync
+reactos/dll/win32/oleacc          # Autosync
+reactos/dll/win32/oleaut32        # Autosync
+reactos/dll/win32/oledlg          # Autosync
+reactos/dll/win32/olepro32        # Autosync
+reactos/dll/win32/powrprof        # Autosync
+reactos/dll/win32/riched20        # Autosync
+reactos/dll/win32/riched32        # Autosync
+reactos/dll/win32/rpcrt4          # Synced to Wine-0_9_10
+reactos/dll/win32/sensapi         # Autosync
+reactos/dll/win32/setupapi        # Forked at Wine-20050524
+reactos/dll/win32/shell32         # Synced to Wine-0_9_5
+reactos/dll/win32/shdocvw         # Synced to Wine-0_9_5
+reactos/dll/win32/shfolder        # Autosync
+reactos/dll/win32/shlwapi         # Autosync
+reactos/dll/win32/twain_32        # Out of sync
+reactos/dll/win32/urlmon          # Autosync
+reactos/dll/win32/uxtheme         # Autosync
+reactos/dll/win32/version         # Autosync
+reactos/dll/win32/wininet         # Synced to Wine-0_9_10
+reactos/dll/win32/wintrust        # Out of sync
+reactos/dll/win32/winmm           # Forked at Wine-20050628
+reactos/dll/win32/winmm/midimap   # Forked at Wine-20050628
+reactos/dll/win32/winmm/wavemap   # Forked at Wine-20050628
+reactos/dll/win32/wldap32         # Autosync
+reactos/dll/win32/wtsapi32        # Autosync
+reactos/dll/directx/dinput        # Synced to Wine-0_9_5
+reactos/dll/directx/dinput8       # Synced to Wine-0_9_5
+reactos/dll/directx/dplay         # Synced to Wine-0_9_5
+reactos/dll/directx/dplayx        # Synced to Wine-0_9_5
+reactos/dll/directx/dxdiagn       # Synced to Wine-0_9_5
+
+ReactOS shares the following programs with Winehq.
+
+reactos/base/applications/games/winemine  # Out of sync
+reactos/base/applications/regedit         # Out of sync
+reactos/base/system/expand                # Out of sync
+reactos/base/system/msiexec               # Synced to Wine-0_9_3
+
+In addition the following libs, dlls and source files are mostly based on code ported
+from Winehq CVS. If you are looking to update something in these files
+check Wine current souces first as it may already be fixed.
+
+reactos/lib/uuid                  #
+
+advapi32 -
+  reactos/dll/win32/advapi32/crypt/*.c          # ekohl says we're not sharing this
+
+gdi32 -
+  reactos/dll/win32/gdi32/objects/linedda.c     # Out of sync
+
+kernel32 -
+  reactos/dll/win32/kernel32/misc/errormsg.c    # Out of sync
+  reactos/dll/win32/kernel32/misc/profile.c     # Out of sync
+  reactos/dll/win32/kernel32/misc/lcformat.c    # Out of sync
+
+msvcrt -
+  reactos/dll/win32/msvcrt/wine/*.c             # Out of sync
+
+User32 -
+  reactos/dll/win32/user32/controls/button.c    # Synced at 20060621
+  reactos/dll/win32/user32/controls/combo.c     # Synced at 20060904
+  reactos/dll/win32/user32/controls/edit.c      # Synced at 20060710
+  reactos/dll/win32/user32/controls/icontitle.c # Synced at 20060617
+  reactos/dll/win32/user32/controls/listbox.c   # Synced at 20060616
+  reactos/dll/win32/user32/controls/scrollbar.c # Forked
+  reactos/dll/win32/user32/controls/static.c    # Synced at 20060908
+
+  reactos/dll/win32/user32/misc/dde.c           # Synced at 20060623 (dde_misc.c)
+  reactos/dll/win32/user32/misc/ddeclient.c     # Synced at 20060623
+  reactos/dll/win32/user32/misc/ddeserver.c     # Synced at 20060623
+  reactos/dll/win32/user32/misc/exticon.c       # Last sync date unknown
+  reactos/dll/win32/user32/misc/resources.c     # Forked?
+  reactos/dll/win32/user32/misc/winhelp.c       # Last sync date unknown
+  reactos/dll/win32/user32/misc/wsprintf.c      # Synced at 20060623
+
+  reactos/dll/win32/user32/windows/defwnd.c     # Forked
+  reactos/dll/win32/user32/windows/draw.c       # Forked at Wine-20020904 (uitools.c)
+  reactos/dll/win32/user32/windows/mdi.c        # Synced at 20060703
+  reactos/dll/win32/user32/windows/menu.c       # Forked
+  reactos/dll/win32/user32/windows/messagebox.c # Forked
+  reactos/dll/win32/user32/windows/rect.c       # Forked (uitools.c)
+  reactos/dll/win32/user32/windows/text.c       # Forked (lstr.c)
+  reactos/dll/win32/user32/windows/winpos.c     # Forked
+
+Update process for autosync DLLs
+
+*** This process can only be done on Microsoft Windows ***
+- Download wineimport.cmd at svn://svn.reactos.org/reactos/trunk/tools/
+- Download cvs command line program and be sure to put it in your path
+  (available at http://ftp.gnu.org/non-gnu/cvs/binary/stable/x86-woe/ )
+- Download svn command line program and be sure to put it in your path
+  (available at http://subversion.tigris.org/servlets/ProjectDocumentList?folderID=91 )
+- Download patch command line program and be sure to put it in your path
+  (available at http://gnuwin32.sourceforge.net/packages/patch.htm )
+- Optionally, download junction.exe and put it in your path
+  (available at http://www.sysinternals.com/Utilities/Junction.html )
+- Cd to the directory containing wineimport.cmd
+- Run
+  "wineimport.cmd fullprocessing {path_to_your_reactos_directory} {name_of_the_wine_dll}"
+- In case of error, you can
+  1) add missing definitions to ReactOS headers
+  2) fix {name_of_the_wine_dll}_ros.diff patch file, by removing outdated changes
+  3) or modify Wine code, by adding a {name_of_the_wine_dll}_ros.diff patch,
+     which will be applied after Wine source checkout
+     DO NOT DIRECTLY MODIFY WINE SOURCE CODE
+- Once Wine DLL compiles, install and run ReactOS and search for regressions
+- In case of regression, you can
+  1) Fix ReactOS code (not in the shared DLL)
+  2) or update the {name_of_the_wine_dll}_ros.diff patch file
+- Commit your changes with the "Autosyncing with Wine HEAD" commit message
