@@ -1,7 +1,0 @@
-LIBRARY "d3d8.dll"
-EXPORTS
-	CheckFullscreen @1
-	ValidatePixelShader @2
-	ValidateVertexShader @3
-	DebugSetMute @4
-	Direct3DCreate8 @5
