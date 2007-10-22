@@ -1,0 +1,34 @@
+/*
+ * PROJECT:     ReactOS System Control Panel
+ * LICENSE:     GPL - See COPYING in the top level directory
+ * FILE:        base/applications/control/lang/uk-UA.rc
+ * PURPOSE:     Ukraianian Language File for control
+ * TRANSLATOR:  Artem Reznikov
+ */
+
+LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDM_MAINMENU MENU DISCARDABLE
+BEGIN
+    POPUP "&Файл"
+    BEGIN
+        MENUITEM "&Закрити",                    IDM_CLOSE
+    END
+    POPUP "&Вигляд"
+    BEGIN
+        MENUITEM "&Великі значки",              IDM_LARGEICONS
+        MENUITEM "&Дрібні значки",              IDM_SMALLICONS
+        MENUITEM "Спис&ок",                     IDM_LIST
+        MENUITEM "&Подробиці",                  IDM_DETAILS
+    END
+    POPUP "&Довідка"
+    BEGIN
+        MENUITEM "&Про програму",               IDM_ABOUT
+    END
+END
+
