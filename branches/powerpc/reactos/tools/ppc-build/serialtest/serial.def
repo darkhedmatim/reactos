@@ -1,5 +1,0 @@
-LIBRARY SERIAL.DLL
-EXPORTS
-setup@8
-send@8
-recv@4
