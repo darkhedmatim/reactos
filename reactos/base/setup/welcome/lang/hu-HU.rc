@@ -2,12 +2,12 @@
 /*
 * Copyright 2005 Robert Horvath - Hungarian trasnlation - talley at cubeclub.hu
 */
-LANGUAGE LANG_HUNGARIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_HUNGARIAN, SUBLANG_NEUTRAL
 
 /* String Tables */
 
 /* Default settings */
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_APPTITLE            "ReactOS - Üdvözlünk"
     IDS_DEFAULTTOPICTITLE   "ReactOS"

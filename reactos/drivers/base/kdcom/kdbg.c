@@ -1,10 +1,13 @@
-/*
+/* $Id: kdbg.c 23670 2006-08-23 17:28:39Z ion $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            drivers/base/kdcom/kdbg.c
+ * FILE:            ntoskrnl/hal/x86/kdbg.c
  * PURPOSE:         Serial i/o functions for the kernel debugger.
- * PROGRAMMER:      Alex Ionescu
- *                  Hervé Poussineau
+ * PROGRAMMER:      Emanuele Aliberti
+ *                  Eric Kohl
+ * UPDATE HISTORY:
+ *                  Created 05/09/99
  */
 
 /* INCLUDES *****************************************************************/
@@ -17,7 +20,6 @@
 #include <debug.h>
 #include "arc/arc.h"
 #include "windbgkd.h"
-#include <kddll.h>
 
 typedef struct _KD_PORT_INFORMATION
 {
@@ -26,61 +28,27 @@ typedef struct _KD_PORT_INFORMATION
     ULONG BaseAddress;
 } KD_PORT_INFORMATION, *PKD_PORT_INFORMATION;
 
-BOOLEAN
-NTAPI
-KdPortInitializeEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    IN ULONG Unknown1,
-    IN ULONG Unknown2);
-
-BOOLEAN
-NTAPI
-KdPortGetByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    OUT PUCHAR ByteReceived);
-
-BOOLEAN
-NTAPI
-KdPortPollByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    OUT PUCHAR ByteReceived);
-
-VOID
-NTAPI
-KdPortPutByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    IN UCHAR ByteToSend);
-
 #define DEFAULT_BAUD_RATE    19200
 
-#ifdef _M_IX86
-const ULONG BaseArray[5] = {0, 0x3F8, 0x2F8, 0x3E8, 0x2E8};
-#elif defined(_M_PPC)
-const ULONG BaseArray[5] = {0, 0x800003f8};
-#elif defined(_M_MIPS)
-const ULONG BaseArray[5] = {0, 0x80006000, 0x80007000};
-#else
-#error Unknown architecture
-#endif
 
 /* MACROS *******************************************************************/
 
-#define   SER_RBR(x)   ((PUCHAR)(x)+0)
-#define   SER_THR(x)   ((PUCHAR)(x)+0)
-#define   SER_DLL(x)   ((PUCHAR)(x)+0)
-#define   SER_IER(x)   ((PUCHAR)(x)+1)
+#define   SER_RBR(x)   ((x)+0)
+#define   SER_THR(x)   ((x)+0)
+#define   SER_DLL(x)   ((x)+0)
+#define   SER_IER(x)   ((x)+1)
 #define     SR_IER_ERDA   0x01
 #define     SR_IER_ETHRE  0x02
 #define     SR_IER_ERLSI  0x04
 #define     SR_IER_EMS    0x08
 #define     SR_IER_ALL    0x0F
-#define   SER_DLM(x)   ((PUCHAR)(x)+1)
-#define   SER_IIR(x)   ((PUCHAR)(x)+2)
-#define   SER_FCR(x)   ((PUCHAR)(x)+2)
+#define   SER_DLM(x)   ((x)+1)
+#define   SER_IIR(x)   ((x)+2)
+#define   SER_FCR(x)   ((x)+2)
 #define     SR_FCR_ENABLE_FIFO 0x01
 #define     SR_FCR_CLEAR_RCVR  0x02
 #define     SR_FCR_CLEAR_XMIT  0x04
-#define   SER_LCR(x)   ((PUCHAR)(x)+3)
+#define   SER_LCR(x)   ((x)+3)
 #define     SR_LCR_CS5 0x00
 #define     SR_LCR_CS6 0x01
 #define     SR_LCR_CS7 0x02
@@ -94,26 +62,28 @@ const ULONG BaseArray[5] = {0, 0x80006000, 0x80007000};
 #define     SR_LCR_PSP 0x38
 #define     SR_LCR_BRK 0x40
 #define     SR_LCR_DLAB 0x80
-#define   SER_MCR(x)   ((PUCHAR)(x)+4)
+#define   SER_MCR(x)   ((x)+4)
 #define     SR_MCR_DTR 0x01
 #define     SR_MCR_RTS 0x02
 #define     SR_MCR_OUT1 0x04
 #define     SR_MCR_OUT2 0x08
 #define     SR_MCR_LOOP 0x10
-#define   SER_LSR(x)   ((PUCHAR)(x)+5)
+#define   SER_LSR(x)   ((x)+5)
 #define     SR_LSR_DR  0x01
 #define     SR_LSR_TBE 0x20
-#define   SER_MSR(x)   ((PUCHAR)(x)+6)
+#define   SER_MSR(x)   ((x)+6)
 #define     SR_MSR_CTS 0x10
 #define     SR_MSR_DSR 0x20
-#define   SER_SCR(x)   ((PUCHAR)(x)+7)
+#define   SER_SCR(x)   ((x)+7)
 
 
 /* GLOBAL VARIABLES *********************************************************/
 
 /* STATIC VARIABLES *********************************************************/
 
-static KD_PORT_INFORMATION DefaultPort = { 0, 0, 0 };
+static ULONG ComPort = 0;
+static ULONG BaudRate = 0;
+static PUCHAR PortBase = (PUCHAR)0;
 
 /* The com port must only be initialized once! */
 static BOOLEAN PortInitialized = FALSE;
@@ -122,62 +92,61 @@ static BOOLEAN PortInitialized = FALSE;
 /* STATIC FUNCTIONS *********************************************************/
 
 static BOOLEAN
-KdpDoesComPortExist(
-    IN ULONG BaseAddress)
+KdpDoesComPortExist (PUCHAR BaseAddress)
 {
-    BOOLEAN found;
-    UCHAR mcr;
-    UCHAR msr;
+        BOOLEAN found;
+        UCHAR mcr;
+        UCHAR msr;
 
-    found = FALSE;
+        found = FALSE;
 
-    /* save Modem Control Register (MCR) */
-    mcr = READ_PORT_UCHAR(SER_MCR(BaseAddress));
+        /* save Modem Control Register (MCR) */
+        mcr = READ_PORT_UCHAR (SER_MCR(BaseAddress));
 
-    /* enable loop mode (set Bit 4 of the MCR) */
-    WRITE_PORT_UCHAR(SER_MCR(BaseAddress), SR_MCR_LOOP);
+        /* enable loop mode (set Bit 4 of the MCR) */
+        WRITE_PORT_UCHAR (SER_MCR(BaseAddress), 0x10);
 
-    /* clear all modem output bits */
-    WRITE_PORT_UCHAR(SER_MCR(BaseAddress), SR_MCR_LOOP);
-
-    /* read the Modem Status Register */
-    msr = READ_PORT_UCHAR(SER_MSR(BaseAddress));
-
-    /*
-     * the upper nibble of the MSR (modem output bits) must be
-     * equal to the lower nibble of the MCR (modem input bits)
-     */
-    if ((msr & 0xF0) == 0x00)
-    {
-        /* set all modem output bits */
-        WRITE_PORT_UCHAR(SER_MCR(BaseAddress), SR_MCR_DTR | SR_MCR_RTS | SR_MCR_OUT1 | SR_MCR_OUT2 | SR_MCR_LOOP);
+        /* clear all modem output bits */
+        WRITE_PORT_UCHAR (SER_MCR(BaseAddress), 0x10);
 
         /* read the Modem Status Register */
-        msr = READ_PORT_UCHAR(SER_MSR(BaseAddress));
+        msr = READ_PORT_UCHAR (SER_MSR(BaseAddress));
 
         /*
          * the upper nibble of the MSR (modem output bits) must be
          * equal to the lower nibble of the MCR (modem input bits)
          */
-        if ((msr & 0xF0) == 0xF0)
+        if ((msr & 0xF0) == 0x00)
         {
-            /*
-             * setup a resonable state for the port:
-             * enable fifo and clear recieve/transmit buffers
-             */
-            WRITE_PORT_UCHAR(SER_FCR(BaseAddress),
-                            (SR_FCR_ENABLE_FIFO | SR_FCR_CLEAR_RCVR | SR_FCR_CLEAR_XMIT));
-            WRITE_PORT_UCHAR(SER_FCR(BaseAddress), 0);
-            READ_PORT_UCHAR(SER_RBR(BaseAddress));
-            WRITE_PORT_UCHAR(SER_IER(BaseAddress), 0);
-            found = TRUE;
+                /* set all modem output bits */
+                WRITE_PORT_UCHAR (SER_MCR(BaseAddress), 0x1F);
+
+                /* read the Modem Status Register */
+                msr = READ_PORT_UCHAR (SER_MSR(BaseAddress));
+
+                /*
+                 * the upper nibble of the MSR (modem output bits) must be
+                 * equal to the lower nibble of the MCR (modem input bits)
+                 */
+                if ((msr & 0xF0) == 0xF0)
+                {
+                        /*
+                         * setup a resonable state for the port:
+                         * enable fifo and clear recieve/transmit buffers
+                         */
+                        WRITE_PORT_UCHAR (SER_FCR(BaseAddress),
+                                (SR_FCR_ENABLE_FIFO | SR_FCR_CLEAR_RCVR | SR_FCR_CLEAR_XMIT));
+                        WRITE_PORT_UCHAR (SER_FCR(BaseAddress), 0);
+                        READ_PORT_UCHAR (SER_RBR(BaseAddress));
+                        WRITE_PORT_UCHAR (SER_IER(BaseAddress), 0);
+                        found = TRUE;
+                }
         }
-    }
 
-    /* restore MCR */
-    WRITE_PORT_UCHAR(SER_MCR(BaseAddress), mcr);
+        /* restore MCR */
+        WRITE_PORT_UCHAR (SER_MCR(BaseAddress), mcr);
 
-    return found;
+        return (found);
 }
 
 
@@ -185,277 +154,402 @@ KdpDoesComPortExist(
 
 /* HAL.KdPortInitialize */
 BOOLEAN
-NTAPI
-KdPortInitialize(
-    IN PKD_PORT_INFORMATION PortInformation,
-    IN ULONG Unknown1,
-    IN ULONG Unknown2)
+STDCALL
+KdPortInitialize (
+	PKD_PORT_INFORMATION	PortInformation,
+	ULONG	Unknown1,
+	ULONG	Unknown2
+	)
 {
-    SIZE_T i;
-    CHAR buffer[80];
+        ULONG BaseArray[5] = {0, 0x3F8, 0x2F8, 0x3E8, 0x2E8};
+        char buffer[80];
+        ULONG divisor;
+        UCHAR lcr;
 
-    if (!PortInitialized)
-    {
-        DefaultPort.BaudRate = PortInformation->BaudRate;
-
-        if (PortInformation->ComPort == 0)
+        if (PortInitialized == FALSE)
         {
-            for (i = sizeof(BaseArray) / sizeof(BaseArray[0]) - 1; i > 0; i--)
-            {
-                if (KdpDoesComPortExist(BaseArray[i]))
+                if (PortInformation->BaudRate != 0)
                 {
-                    DefaultPort.BaseAddress = BaseArray[i];
-                    DefaultPort.ComPort = i;
-                    PortInformation->BaseAddress = DefaultPort.BaseAddress;
-                    PortInformation->ComPort = DefaultPort.ComPort;
-                    break;
+                        BaudRate = PortInformation->BaudRate;
                 }
-            }
-            if (i == 0)
-            {
-                sprintf(buffer,
-                        "\nKernel Debugger: No COM port found!\n\n");
-                HalDisplayString(buffer);
-                return FALSE;
-            }
+                else
+                {
+                        BaudRate = DEFAULT_BAUD_RATE;
+                }
+
+                if (PortInformation->ComPort == 0)
+                {
+                        if (KdpDoesComPortExist ((PUCHAR)BaseArray[2]))
+                        {
+                                PortBase = (PUCHAR)BaseArray[2];
+                                ComPort = 2;
+                                PortInformation->BaseAddress = (ULONG)PortBase;
+                                PortInformation->ComPort = ComPort;
+#ifndef NDEBUG
+                                sprintf (buffer,
+                                         "\nSerial port COM%ld found at 0x%lx\n",
+                                         ComPort,
+                                         (ULONG)PortBase);
+                                HalDisplayString (buffer);
+#endif /* NDEBUG */
+                        }
+                        else if (KdpDoesComPortExist ((PUCHAR)BaseArray[1]))
+                        {
+                                PortBase = (PUCHAR)BaseArray[1];
+                                ComPort = 1;
+                                PortInformation->BaseAddress = (ULONG)PortBase;
+                                PortInformation->ComPort = ComPort;
+#ifndef NDEBUG
+                                sprintf (buffer,
+                                         "\nSerial port COM%ld found at 0x%lx\n",
+                                         ComPort,
+                                         (ULONG)PortBase);
+                                HalDisplayString (buffer);
+#endif /* NDEBUG */
+                        }
+                        else
+                        {
+                                sprintf (buffer,
+                                         "\nKernel Debugger: No COM port found!!!\n\n");
+                                HalDisplayString (buffer);
+                                return FALSE;
+                        }
+                }
+                else
+                {
+                        if (KdpDoesComPortExist ((PUCHAR)BaseArray[PortInformation->ComPort]))
+                        {
+                                PortBase = (PUCHAR)BaseArray[PortInformation->ComPort];
+                                ComPort = PortInformation->ComPort;
+                                PortInformation->BaseAddress = (ULONG)PortBase;
+#ifndef NDEBUG
+                                sprintf (buffer,
+                                         "\nSerial port COM%ld found at 0x%lx\n",
+                                         ComPort,
+                                         (ULONG)PortBase);
+                                HalDisplayString (buffer);
+#endif /* NDEBUG */
+                        }
+                        else
+                        {
+                                sprintf (buffer,
+                                         "\nKernel Debugger: No serial port found!!!\n\n");
+                                HalDisplayString (buffer);
+                                return FALSE;
+                        }
+                }
+
+                PortInitialized = TRUE;
         }
 
-        PortInitialized = TRUE;
-    }
+        /*
+         * set baud rate and data format (8N1)
+         */
 
-    /* initialize port */
-    if (!KdPortInitializeEx(&DefaultPort, Unknown1, Unknown2))
-        return FALSE;
+        /*  turn on DTR and RTS  */
+        WRITE_PORT_UCHAR (SER_MCR(PortBase), SR_MCR_DTR | SR_MCR_RTS);
 
-    /* set global info */
-    *KdComPortInUse = (PUCHAR)DefaultPort.BaseAddress;
+        /* set DLAB */
+        lcr = READ_PORT_UCHAR (SER_LCR(PortBase)) | SR_LCR_DLAB;
+        WRITE_PORT_UCHAR (SER_LCR(PortBase), lcr);
 
-    return TRUE;
+        /* set baud rate */
+        divisor = 115200 / BaudRate;
+        WRITE_PORT_UCHAR (SER_DLL(PortBase), (UCHAR)(divisor & 0xff));
+        WRITE_PORT_UCHAR (SER_DLM(PortBase), (UCHAR)((divisor >> 8) & 0xff));
+
+        /* reset DLAB and set 8N1 format */
+        WRITE_PORT_UCHAR (SER_LCR(PortBase),
+                          SR_LCR_CS8 | SR_LCR_ST1 | SR_LCR_PNO);
+
+        /* read junk out of the RBR */
+        lcr = READ_PORT_UCHAR (SER_RBR(PortBase));
+
+        /*
+         * set global info
+         */
+        *KdComPortInUse = PortBase;
+
+        /*
+         * print message to blue screen
+         */
+        sprintf (buffer,
+                 "\nKernel Debugger: COM%ld (Port 0x%lx) BaudRate %ld\n\n",
+                 ComPort,
+                 (ULONG)PortBase,
+                 BaudRate);
+
+        HalDisplayString (buffer);
+
+        return TRUE;
 }
 
 
 /* HAL.KdPortInitializeEx */
 BOOLEAN
-NTAPI
-KdPortInitializeEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    IN ULONG Unknown1,
-    IN ULONG Unknown2)
+STDCALL
+KdPortInitializeEx (
+	PKD_PORT_INFORMATION	PortInformation,
+	ULONG	Unknown1,
+	ULONG	Unknown2
+	)
 {
-    ULONG ComPortBase;
-    CHAR buffer[80];
-    ULONG divisor;
-    UCHAR lcr;
+        ULONG BaseArray[5] = {0, 0x3F8, 0x2F8, 0x3E8, 0x2E8};
+		PUCHAR ComPortBase;
+        char buffer[80];
+        ULONG divisor;
+        UCHAR lcr;
 
-    if (PortInformation->BaudRate == 0)
-        PortInformation->BaudRate = DEFAULT_BAUD_RATE;
+		if (PortInformation->BaudRate == 0)
+		{
+				PortInformation->BaudRate = DEFAULT_BAUD_RATE;
+		}
 
-    if (PortInformation->ComPort == 0)
-        return FALSE;
-
-    if (!KdpDoesComPortExist(BaseArray[PortInformation->ComPort]))
-    {
-        sprintf(buffer,
-                "\nKernel Debugger: Serial port not found!\n\n");
-        HalDisplayString(buffer);
-        return FALSE;
-    }
-
-    ComPortBase = BaseArray[PortInformation->ComPort];
-    PortInformation->BaseAddress = ComPortBase;
+		if (PortInformation->ComPort == 0)
+		{
+				return FALSE;
+		}
+		else
+		{
+				if (KdpDoesComPortExist ((PUCHAR)BaseArray[PortInformation->ComPort]))
+				{
+						ComPortBase = (PUCHAR)BaseArray[PortInformation->ComPort];
+						PortInformation->BaseAddress = (ULONG)ComPortBase;
 #ifndef NDEBUG
-    sprintf(buffer,
-            "\nSerial port COM%ld found at 0x%lx\n",
-            PortInformation->ComPort,
-            ComPortBase];
-    HalDisplayString(buffer);
+						sprintf (buffer,
+								 "\nSerial port COM%ld found at 0x%lx\n",
+								 PortInformation->ComPort,
+								 (ULONG)ComPortBase];
+						HalDisplayString (buffer);
+#endif /* NDEBUG */
+				}
+				else
+				{
+						sprintf (buffer,
+								 "\nKernel Debugger: Serial port not found!!!\n\n");
+						HalDisplayString (buffer);
+						return FALSE;
+				}
+		}
+
+        /*
+         * set baud rate and data format (8N1)
+         */
+
+        /*  turn on DTR and RTS  */
+        WRITE_PORT_UCHAR (SER_MCR(ComPortBase), SR_MCR_DTR | SR_MCR_RTS);
+
+        /* set DLAB */
+        lcr = READ_PORT_UCHAR (SER_LCR(ComPortBase)) | SR_LCR_DLAB;
+        WRITE_PORT_UCHAR (SER_LCR(ComPortBase), lcr);
+
+        /* set baud rate */
+        divisor = 115200 / PortInformation->BaudRate;
+        WRITE_PORT_UCHAR (SER_DLL(ComPortBase), (UCHAR)(divisor & 0xff));
+        WRITE_PORT_UCHAR (SER_DLM(ComPortBase), (UCHAR)((divisor >> 8) & 0xff));
+
+        /* reset DLAB and set 8N1 format */
+        WRITE_PORT_UCHAR (SER_LCR(ComPortBase),
+                          SR_LCR_CS8 | SR_LCR_ST1 | SR_LCR_PNO);
+
+        /* read junk out of the RBR */
+        lcr = READ_PORT_UCHAR (SER_RBR(ComPortBase));
+
+#ifndef NDEBUG
+
+        /*
+         * print message to blue screen
+         */
+        sprintf (buffer,
+                 "\nKernel Debugger: COM%ld (Port 0x%lx) BaudRate %ld\n\n",
+                 PortInformation->ComPort,
+                 (ULONG)ComPortBase,
+                 PortInformation->BaudRate);
+
+        HalDisplayString (buffer);
+
 #endif /* NDEBUG */
 
-    /* set baud rate and data format (8N1) */
-
-    /*  turn on DTR and RTS  */
-    WRITE_PORT_UCHAR(SER_MCR(ComPortBase), SR_MCR_DTR | SR_MCR_RTS);
-
-    /* set DLAB */
-    lcr = READ_PORT_UCHAR(SER_LCR(ComPortBase)) | SR_LCR_DLAB;
-    WRITE_PORT_UCHAR(SER_LCR(ComPortBase), lcr);
-
-    /* set baud rate */
-    divisor = 115200 / PortInformation->BaudRate;
-    WRITE_PORT_UCHAR(SER_DLL(ComPortBase), (UCHAR)(divisor & 0xff));
-    WRITE_PORT_UCHAR(SER_DLM(ComPortBase), (UCHAR)((divisor >> 8) & 0xff));
-
-    /* reset DLAB and set 8N1 format */
-    WRITE_PORT_UCHAR(SER_LCR(ComPortBase),
-                     SR_LCR_CS8 | SR_LCR_ST1 | SR_LCR_PNO);
-
-    /* read junk out of the RBR */
-    lcr = READ_PORT_UCHAR(SER_RBR(ComPortBase));
-
-#ifndef NDEBUG
-    /* print message to blue screen */
-    sprintf(buffer,
-            "\nKernel Debugger: COM%ld (Port 0x%lx) BaudRate %ld\n\n",
-            PortInformation->ComPort,
-            ComPortBase,
-            PortInformation->BaudRate);
-
-    HalDisplayString(buffer);
-#endif /* NDEBUG */
-
-    return TRUE;
+        return TRUE;
 }
 
 
 /* HAL.KdPortGetByte */
 BOOLEAN
-NTAPI
-KdPortGetByte(
-    OUT PUCHAR ByteReceived)
+STDCALL
+KdPortGetByte (
+	PUCHAR	ByteRecieved
+	)
 {
-    if (!PortInitialized)
-        return FALSE;
-    return KdPortGetByteEx(&DefaultPort, ByteReceived);
+	if (PortInitialized == FALSE)
+		return FALSE;
+
+	if ((READ_PORT_UCHAR (SER_LSR(PortBase)) & SR_LSR_DR))
+	{
+		*ByteRecieved = READ_PORT_UCHAR (SER_RBR(PortBase));
+		return TRUE;
+	}
+
+	return FALSE;
 }
 
 
 /* HAL.KdPortGetByteEx */
 BOOLEAN
-NTAPI
-KdPortGetByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    OUT PUCHAR ByteReceived)
+STDCALL
+KdPortGetByteEx (
+	PKD_PORT_INFORMATION	PortInformation,
+	PUCHAR	ByteRecieved
+	)
 {
-    PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
+	PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
 
-    if ((READ_PORT_UCHAR(SER_LSR(ComPortBase)) & SR_LSR_DR))
-    {
-        *ByteReceived = READ_PORT_UCHAR(SER_RBR(ComPortBase));
-        return TRUE;
-    }
+	if ((READ_PORT_UCHAR (SER_LSR(ComPortBase)) & SR_LSR_DR))
+	{
+		*ByteRecieved = READ_PORT_UCHAR (SER_RBR(ComPortBase));
+		return TRUE;
+	}
 
-    return FALSE;
+	return FALSE;
 }
 
 
 /* HAL.KdPortPollByte */
 BOOLEAN
-NTAPI
-KdPortPollByte(
-    OUT PUCHAR ByteReceived)
+STDCALL
+KdPortPollByte (
+	PUCHAR	ByteRecieved
+	)
 {
-    if (!PortInitialized)
-        return FALSE;
-    return KdPortPollByteEx(&DefaultPort, ByteReceived);
+	if (PortInitialized == FALSE)
+		return FALSE;
+
+	while ((READ_PORT_UCHAR (SER_LSR(PortBase)) & SR_LSR_DR) == 0)
+		;
+
+	*ByteRecieved = READ_PORT_UCHAR (SER_RBR(PortBase));
+
+	return TRUE;
 }
 
 
 /* HAL.KdPortPollByteEx */
 BOOLEAN
-NTAPI
-KdPortPollByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    OUT PUCHAR ByteReceived)
+STDCALL
+KdPortPollByteEx (
+	PKD_PORT_INFORMATION	PortInformation,
+	PUCHAR	ByteRecieved
+	)
 {
-    PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
+	PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
 
-    while ((READ_PORT_UCHAR(SER_LSR(ComPortBase)) & SR_LSR_DR) == 0)
-        ;
+	while ((READ_PORT_UCHAR (SER_LSR(ComPortBase)) & SR_LSR_DR) == 0)
+		;
 
-    *ByteReceived = READ_PORT_UCHAR(SER_RBR(ComPortBase));
+	*ByteRecieved = READ_PORT_UCHAR (SER_RBR(ComPortBase));
 
-    return TRUE;
+	return TRUE;
 }
+
+
 
 
 /* HAL.KdPortPutByte */
 VOID
-NTAPI
-KdPortPutByte(
-    IN UCHAR ByteToSend)
+STDCALL
+KdPortPutByte (
+	UCHAR ByteToSend
+	)
 {
-    if (!PortInitialized)
-        return;
-    KdPortPutByteEx(&DefaultPort, ByteToSend);
+	if (PortInitialized == FALSE)
+		return;
+
+	while ((READ_PORT_UCHAR (SER_LSR(PortBase)) & SR_LSR_TBE) == 0)
+		;
+
+	WRITE_PORT_UCHAR (SER_THR(PortBase), ByteToSend);
 }
 
 /* HAL.KdPortPutByteEx */
 VOID
-NTAPI
-KdPortPutByteEx(
-    IN PKD_PORT_INFORMATION PortInformation,
-    IN UCHAR ByteToSend)
+STDCALL
+KdPortPutByteEx (
+	PKD_PORT_INFORMATION	PortInformation,
+	UCHAR ByteToSend
+	)
 {
-    PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
+	PUCHAR ComPortBase = (PUCHAR)PortInformation->BaseAddress;
 
-    while ((READ_PORT_UCHAR(SER_LSR(ComPortBase)) & SR_LSR_TBE) == 0)
-        ;
+	while ((READ_PORT_UCHAR (SER_LSR(ComPortBase)) & SR_LSR_TBE) == 0)
+		;
 
-    WRITE_PORT_UCHAR(SER_THR(ComPortBase), ByteToSend);
+	WRITE_PORT_UCHAR (SER_THR(ComPortBase), ByteToSend);
 }
 
 
 /* HAL.KdPortRestore */
 VOID
-NTAPI
-KdPortRestore(VOID)
+STDCALL
+KdPortRestore (
+	VOID
+	)
 {
-    UNIMPLEMENTED;
 }
 
 
 /* HAL.KdPortSave */
 VOID
-NTAPI
-KdPortSave(VOID)
+STDCALL
+KdPortSave (
+	VOID
+	)
 {
-    UNIMPLEMENTED;
 }
 
 
 /* HAL.KdPortDisableInterrupts */
 BOOLEAN
-NTAPI
-KdPortDisableInterrupts(VOID)
+STDCALL
+KdPortDisableInterrupts()
 {
-    UCHAR ch;
+  UCHAR ch;
 
-    if (!PortInitialized)
-        return FALSE;
+	if (PortInitialized == FALSE)
+		return FALSE;
 
-    ch = READ_PORT_UCHAR(SER_MCR(DefaultPort.BaseAddress));
-    ch &= (~(SR_MCR_OUT1 | SR_MCR_OUT2));
-    WRITE_PORT_UCHAR(SER_MCR(DefaultPort.BaseAddress), ch);
+	ch = READ_PORT_UCHAR (SER_MCR (PortBase));
+  ch &= (~(SR_MCR_OUT1 | SR_MCR_OUT2));
+	WRITE_PORT_UCHAR (SER_MCR (PortBase), ch);
 
-    ch = READ_PORT_UCHAR(SER_IER(DefaultPort.BaseAddress));
-    ch &= (~SR_IER_ALL);
-    WRITE_PORT_UCHAR(SER_IER(DefaultPort.BaseAddress), ch);
+	ch = READ_PORT_UCHAR (SER_IER (PortBase));
+  ch &= (~SR_IER_ALL);
+	WRITE_PORT_UCHAR (SER_IER (PortBase), ch);
 
-    return TRUE;
+	return TRUE;
 }
 
 
 /* HAL.KdPortEnableInterrupts */
 BOOLEAN
-NTAPI
-KdPortEnableInterrupts(VOID)
+STDCALL
+KdPortEnableInterrupts()
 {
-    UCHAR ch;
+  UCHAR ch;
 
-    if (PortInitialized == FALSE)
-        return FALSE;
+	if (PortInitialized == FALSE)
+		return FALSE;
 
-    ch = READ_PORT_UCHAR(SER_IER(DefaultPort.BaseAddress));
-    ch &= (~SR_IER_ALL);
-    ch |= SR_IER_ERDA;
-    WRITE_PORT_UCHAR(SER_IER(DefaultPort.BaseAddress), ch);
+	ch = READ_PORT_UCHAR (SER_IER (PortBase));
+  ch &= (~SR_IER_ALL);
+  ch |= SR_IER_ERDA;
+	WRITE_PORT_UCHAR (SER_IER (PortBase), ch);
 
-    ch = READ_PORT_UCHAR(SER_MCR(DefaultPort.BaseAddress));
-    ch &= (~SR_MCR_LOOP);
-    ch |= (SR_MCR_OUT1 | SR_MCR_OUT2);
-    WRITE_PORT_UCHAR(SER_MCR(DefaultPort.BaseAddress), ch);
+	ch = READ_PORT_UCHAR (SER_MCR (PortBase));
+  ch &= (~SR_MCR_LOOP);
+  ch |= (SR_MCR_OUT1 | SR_MCR_OUT2);
+	WRITE_PORT_UCHAR (SER_MCR (PortBase), ch);
 
-    return TRUE;
+	return TRUE;
 }
 
 /*
@@ -463,11 +557,10 @@ KdPortEnableInterrupts(VOID)
  */
 NTSTATUS
 NTAPI
-KdDebuggerInitialize0(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
+KdDebuggerInitialize0(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+    /* FIXME: TODO */
+    return STATUS_UNSUCCESSFUL;
 }
 
 /*
@@ -475,11 +568,10 @@ KdDebuggerInitialize0(
  */
 NTSTATUS
 NTAPI
-KdDebuggerInitialize1(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
+KdDebuggerInitialize1(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+    /* FIXME: TODO */
+    return STATUS_UNSUCCESSFUL;
 }
 
 /*
@@ -487,8 +579,7 @@ KdDebuggerInitialize1(
  */
 NTSTATUS
 NTAPI
-KdSave(
-    IN BOOLEAN SleepTransition)
+KdSave(IN BOOLEAN SleepTransition)
 {
     /* Nothing to do on COM ports */
     return STATUS_SUCCESS;
@@ -499,8 +590,7 @@ KdSave(
  */
 NTSTATUS
 NTAPI
-KdRestore(
-    IN BOOLEAN SleepTransition)
+KdRestore(IN BOOLEAN SleepTransition)
 {
     /* Nothing to do on COM ports */
     return STATUS_SUCCESS;
@@ -511,29 +601,27 @@ KdRestore(
  */
 VOID
 NTAPI
-KdSendPacket(
-    IN ULONG PacketType,
-    IN PSTRING MessageHeader,
-    IN PSTRING MessageData,
-    IN OUT PKD_CONTEXT Context)
+KdSendPacket(IN USHORT PacketType,
+             IN PSTRING Header,
+             IN PSTRING Data OPTIONAL,
+             OUT PKD_CONTEXT Context)
 {
-    UNIMPLEMENTED;
+    /* FIXME: TODO */
     return;
 }
 
 /*
  * @unimplemented
  */
-KDSTATUS
+ULONG
 NTAPI
-KdReceivePacket(
-    IN ULONG PacketType,
-    OUT PSTRING MessageHeader,
-    OUT PSTRING MessageData,
-    OUT PULONG DataLength,
-    IN OUT PKD_CONTEXT Context)
+KdReceivePacket(IN USHORT PacketType,
+                OUT PSTRING Header,
+                OUT PSTRING Data,
+                OUT PUSHORT DataSize,
+                OUT PKD_CONTEXT Context OPTIONAL)
 {
-    UNIMPLEMENTED;
+    /* FIXME: TODO */
     return 0;
 }
 

@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include "wine/port.h"
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -29,12 +29,12 @@
 #include <ctype.h>
 #include <signal.h>
 
+#include "windef.h"
+
 #include "widl.h"
 #include "utils.h"
 #include "parser.h"
 #include "header.h"
-
-#include <host/typedefs.h>
 
 #include "widltypes.h"
 #include "typelib.h"
@@ -495,11 +495,11 @@ void write_client(ifref_t *ifaces)
             int expr_eval_routines;
 
             write_implicithandledecl(iface->iface);
-
+    
             write_clientinterfacedecl(iface->iface);
             write_stubdescdecl(iface->iface);
             write_bindinghandledecl(iface->iface);
-
+    
             write_function_stubs(iface->iface, &proc_offset, &type_offset);
 
             print_client("#if !defined(__RPC_WIN32__)\n");

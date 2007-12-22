@@ -88,14 +88,14 @@ BOOL IsConsoleShell(void)
 	if (rc != ERROR_SUCCESS)
 		goto cleanup;
 
-	/* Check for CONSOLE in SystemStartOptions */
+	/* Check for CMDCONS in SystemStartOptions */
 	CurrentOption = SystemStartOptions;
 	while (CurrentOption)
 	{
 		NextOption = wcschr(CurrentOption, L' ');
 		if (NextOption)
 			*NextOption = L'\0';
-		if (wcsicmp(CurrentOption, L"CONSOLE") == 0)
+		if (wcsicmp(CurrentOption, L"CMDCONS") == 0)
 		{
 			ret = TRUE;
 			goto cleanup;
@@ -434,8 +434,6 @@ void SetUserWallpaper(void)
                        &Size) == ERROR_SUCCESS
        && Type == REG_SZ)
     {
-      ExpandEnvironmentStrings(szWallpaper, szWallpaper, MAX_PATH);
-
       /* Load and change the wallpaper */
       SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, szWallpaper, SPIF_SENDCHANGE);
     }

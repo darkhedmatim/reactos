@@ -45,7 +45,7 @@ InitDesktopImpl(VOID);
 
 NTSTATUS FASTCALL
 CleanupDesktopImpl(VOID);
-
+                       
 NTSTATUS
 STDCALL
 IntDesktopObjectParse(IN PVOID ParseObject,
@@ -74,7 +74,7 @@ IntGetScreenDC(VOID);
 HWND FASTCALL
 IntGetDesktopWindow (VOID);
 
-PWINDOW_OBJECT FASTCALL
+PWINDOW_OBJECT FASTCALL 
 UserGetDesktopWindow(VOID);
 
 HWND FASTCALL
@@ -205,7 +205,7 @@ DesktopHeapGetUserDelta(VOID)
     Mapping = PsGetCurrentProcessWin32Process()->HeapMappings.Next;
     while (Mapping != NULL)
     {
-        if (Mapping->KernelMapping == (PVOID)hDesktopHeap)
+        if (Mapping->UserMapping == (PVOID)hDesktopHeap)
         {
             Delta = (ULONG_PTR)Mapping->KernelMapping - (ULONG_PTR)Mapping->UserMapping;
             break;
@@ -218,17 +218,17 @@ DesktopHeapGetUserDelta(VOID)
 }
 
 static __inline PVOID
-DesktopHeapAddressToUser(PVOID lpMem)
+DesktopHeapAddressToUser(IN PDESKTOP Desktop,
+                         PVOID lpMem)
 {
     PW32HEAP_USER_MAPPING Mapping;
 
     Mapping = PsGetCurrentProcessWin32Process()->HeapMappings.Next;
     while (Mapping != NULL)
     {
-        if ((ULONG_PTR)lpMem >= (ULONG_PTR)Mapping->KernelMapping &&
-            (ULONG_PTR)lpMem < (ULONG_PTR)Mapping->KernelMapping + Mapping->Limit)
+        if (Mapping->KernelMapping == (PVOID)Desktop->hKernelHeap)
         {
-            return (PVOID)(((ULONG_PTR)lpMem - (ULONG_PTR)Mapping->KernelMapping) +
+            return (PVOID)(((ULONG_PTR)lpMem - (ULONG_PTR)Desktop->hKernelHeap) +
                            (ULONG_PTR)Mapping->UserMapping);
         }
 

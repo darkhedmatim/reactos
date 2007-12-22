@@ -32,6 +32,7 @@
 #include "uxtheme.h"
 #include "tmschema.h"
 
+#include "uxthemedll.h"
 #include "msstyles.h"
 
 #include "wine/unicode.h"

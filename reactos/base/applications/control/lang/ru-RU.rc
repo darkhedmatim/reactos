@@ -7,7 +7,7 @@ LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 // Menu
 //
 
-IDM_MAINMENU MENU DISCARDABLE
+IDM_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&Файл"
     BEGIN
@@ -24,14 +24,4 @@ BEGIN
     BEGIN
         MENUITEM "&О программе",                 IDM_ABOUT
     END
-END
-
-STRINGTABLE
-BEGIN
-    IDS_WINDOW_TITLE "Панель управления"
-	IDS_ABOUT "Упрощенная панель управления (не связанная с оболочкой)\rАвторские права 2004 GkWare e.K.\rhttp://www.gkware.com\rРаспространяется по GPL"
-	IDS_ABOUT_TITLE "О панели управления"
-	IDS_NO_ITEMS "Нет элементов в списке"
-	IDS_NAME "Имя"
-	IDS_COMMENT "Описание"
 END

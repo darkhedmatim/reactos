@@ -4,6 +4,7 @@
 	<include base="lsa_server">.</include>
 	<define name="UNICODE" />
 	<define name="_UNICODE" />
+	<define name="__USE_W32API" />
 	<define name="WINVER">0x600</define>
 	<define name="_WIN32_WINNT">0x0600</define>
 	<linkerflag>-nostartfiles</linkerflag>
@@ -12,7 +13,6 @@
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>rpcrt4</library>
-	<library>pseh</library>
 	<file>lsarpc.c</file>
 	<file>lsasrv.c</file>
 	<file>lsasrv.rc</file>

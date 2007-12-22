@@ -37,8 +37,7 @@ KD_DISPATCH_TABLE DispatchTable[KdMax];
 PKDP_INIT_ROUTINE InitRoutines[KdMax] = {KdpScreenInit,
                                          KdpSerialInit,
                                          KdpInitDebugLog,
-                                         KdpBochsInit,
-                                         KdpKdbgInit};
+                                         KdpBochsInit};
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -138,7 +137,7 @@ KdpCallInitRoutine(ULONG BootPhase)
 {
     PLIST_ENTRY CurrentEntry;
     PKD_DISPATCH_TABLE CurrentTable;
-
+    
     /* Call the registered handlers */
     CurrentEntry = KdProviders.Flink;
     while (CurrentEntry != &KdProviders)

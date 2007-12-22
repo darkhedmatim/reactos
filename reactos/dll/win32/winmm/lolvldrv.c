@@ -4,7 +4,6 @@
  * MMSYTEM low level drivers handling functions
  *
  * Copyright 1999 Eric Pouech
- * Modified for use with ReactOS by Andrew Greenwood, 2007
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -77,7 +76,7 @@ static WINE_LLTYPE	llTypes[MMDRV_MAX] = {
  *
  *
  */
-void    MMDRV_InstallMap(unsigned int drv,
+void    MMDRV_InstallMap(unsigned int drv, 
                          MMDRV_MAPFUNC mp1632, MMDRV_UNMAPFUNC um1632,
                          MMDRV_MAPFUNC mp3216, MMDRV_UNMAPFUNC um3216,
                          LPDRVCALLBACK cb)
@@ -251,7 +250,7 @@ DWORD  MMDRV_Message(LPWINE_MLD mld, UINT wMsg, DWORD_PTR dwParam1,
 	}
     } else {
 	assert(part->u.fnMessage16 && pFnCallMMDrvFunc16);
-
+        
 	if (bFrom32) {
 	    map = llType->Map32ATo16(wMsg, &mld->dwDriverInstance, &dwParam1, &dwParam2);
 	    switch (map) {
@@ -266,8 +265,8 @@ DWORD  MMDRV_Message(LPWINE_MLD mld, UINT wMsg, DWORD_PTR dwParam1,
 	    case WINMM_MAP_OKMEM:
 		TRACE("Calling message(dev=%u msg=%u usr=0x%08lx p1=0x%08lx p2=0x%08lx)\n",
 		      mld->uDeviceID, wMsg, mld->dwDriverInstance, dwParam1, dwParam2);
-		ret = pFnCallMMDrvFunc16((DWORD)part->u.fnMessage16,
-                                         mld->uDeviceID, wMsg, mld->dwDriverInstance,
+		ret = pFnCallMMDrvFunc16((DWORD)part->u.fnMessage16, 
+                                         mld->uDeviceID, wMsg, mld->dwDriverInstance, 
                                          dwParam1, dwParam2);
 	        TRACE("=> %s\n", WINMM_ErrorToString(ret));
 		if (map == WINMM_MAP_OKMEM)
@@ -281,8 +280,8 @@ DWORD  MMDRV_Message(LPWINE_MLD mld, UINT wMsg, DWORD_PTR dwParam1,
 	} else {
 	    TRACE("Calling message(dev=%u msg=%u usr=0x%08lx p1=0x%08lx p2=0x%08lx)\n",
 		  mld->uDeviceID, wMsg, mld->dwDriverInstance, dwParam1, dwParam2);
-            ret = pFnCallMMDrvFunc16((DWORD)part->u.fnMessage16,
-                                     mld->uDeviceID, wMsg, mld->dwDriverInstance,
+            ret = pFnCallMMDrvFunc16((DWORD)part->u.fnMessage16, 
+                                     mld->uDeviceID, wMsg, mld->dwDriverInstance, 
                                      dwParam1, dwParam2);
 	    TRACE("=> %s\n", WINMM_ErrorToString(ret));
 	}
@@ -564,7 +563,7 @@ static  BOOL	MMDRV_InitPerType(LPWINE_MM_DRIVER lpDrv, UINT type, UINT wMsg)
     }
 
     TRACE("Got %u dev for (%s:%s)\n", count, lpDrv->drvname, llTypes[type].typestr);
-
+    
     if (HIWORD(count))
         return FALSE;
 
@@ -621,7 +620,7 @@ static  BOOL	MMDRV_InitPerType(LPWINE_MM_DRIVER lpDrv, UINT type, UINT wMsg)
 /**************************************************************************
  * 				MMDRV_Install			[internal]
  */
-BOOL MMDRV_Install(LPCSTR drvRegName, LPCSTR drvFileName, BOOL bIsMapper)
+static	BOOL	MMDRV_Install(LPCSTR drvRegName, LPCSTR drvFileName, BOOL bIsMapper)
 {
     int			i, count = 0;
     LPWINE_MM_DRIVER	lpDrv = &MMDrvs[MMDrvsHi];
@@ -724,8 +723,6 @@ BOOL MMDRV_Install(LPCSTR drvRegName, LPCSTR drvFileName, BOOL bIsMapper)
  */
 BOOL	MMDRV_Init(void)
 {
-/* Redundant code, keeping this for reference only (for now) */
-#if 0
     HKEY	hKey;
     char	driver_buffer[256];
     char	mapper_buffer[256];
@@ -746,21 +743,13 @@ BOOL	MMDRV_Init(void)
             strcpy(driver_buffer, WINE_DEFAULT_WINMM_DRIVER);
     }
 
-    ret |= MMDRV_Install("beepmidi.dll", "beepmidi.dll", FALSE);
+    // AG: TESTING:
+    ret |= MMDRV_Install("mmdrv.dll", "mmdrv.dll", FALSE);
 
     ret |= MMDRV_Install("wavemapper", WINE_DEFAULT_WINMM_MAPPER, TRUE);
     ret |= MMDRV_Install("midimapper", WINE_DEFAULT_WINMM_MIDI, TRUE);
     return ret;
-#else
-    INT driver_count = 0;
 
-    driver_count += LoadRegistryMMEDrivers(NT_MME_DRIVERS_KEY);
-    driver_count += LoadRegistryMMEDrivers(NT_MME_DRIVERS32_KEY);
-
-    /* Explorer doesn't like us failing */
-    return TRUE;
-//    return ( driver_count > 0 );
-#endif
 }
 
 /******************************************************************

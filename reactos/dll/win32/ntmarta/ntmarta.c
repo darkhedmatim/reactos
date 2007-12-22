@@ -140,11 +140,6 @@ AccpGetAceStructureSize(IN PACE_HEADER AceHeader)
                 Size += sizeof(Ace->InheritedObjectType);
             break;
         }
-
-        case SYSTEM_MANDATORY_LABEL_ACE_TYPE:
-            Size = FIELD_OFFSET(SYSTEM_MANDATORY_LABEL_ACE,
-                                SidStart);
-            break;
     }
 
     return Size;
@@ -182,74 +177,6 @@ AccpIsObjectAce(IN PACE_HEADER AceHeader)
             Ret = FALSE;
             break;
     }
-
-    return Ret;
-}
-
-static DWORD
-AccpGetTrusteeObjects(IN PTRUSTEE_W Trustee,
-                      OUT GUID *pObjectTypeGuid  OPTIONAL,
-                      OUT GUID *pInheritedObjectTypeGuid  OPTIONAL)
-{
-    DWORD Ret;
-
-    switch (Trustee->TrusteeForm)
-    {
-        case TRUSTEE_IS_OBJECTS_AND_NAME:
-        {
-            POBJECTS_AND_NAME_W pOan = (POBJECTS_AND_NAME_W)Trustee->ptstrName;
-
-            /* pOan->ObjectsPresent should always be 0 here because a previous
-               call to AccpGetTrusteeSid should have rejected these trustees
-               already. */
-            ASSERT(pOan->ObjectsPresent == 0);
-
-            Ret = pOan->ObjectsPresent;
-            break;
-        }
-
-        case TRUSTEE_IS_OBJECTS_AND_SID:
-        {
-            POBJECTS_AND_SID pOas = (POBJECTS_AND_SID)Trustee->ptstrName;
-
-            if (pObjectTypeGuid != NULL && pOas->ObjectsPresent & ACE_OBJECT_TYPE_PRESENT)
-                *pObjectTypeGuid = pOas->ObjectTypeGuid;
-
-            if (pInheritedObjectTypeGuid != NULL && pOas->ObjectsPresent & ACE_INHERITED_OBJECT_TYPE_PRESENT)
-                *pObjectTypeGuid = pOas->InheritedObjectTypeGuid;
-
-            Ret = pOas->ObjectsPresent;
-            break;
-        }
-
-        default:
-            /* Any other trustee forms have no objects attached... */
-            Ret = 0;
-            break;
-    }
-
-    return Ret;
-}
-
-static DWORD
-AccpCalcNeededAceSize(IN PSID Sid,
-                      IN DWORD ObjectsPresent)
-{
-    DWORD Ret;
-
-    Ret = sizeof(ACE) + GetLengthSid(Sid);
-
-    /* This routine calculates the generic size of the ACE needed.
-       If no objects are present it is assumed that only a standard
-       ACE is to be created. */
-
-    if (ObjectsPresent & ACE_OBJECT_TYPE_PRESENT)
-        Ret += sizeof(GUID);
-    if (ObjectsPresent & ACE_INHERITED_OBJECT_TYPE_PRESENT)
-        Ret += sizeof(GUID);
-
-    if (ObjectsPresent != 0)
-        Ret += sizeof(DWORD); /* Include the Flags member to make it an object ACE */
 
     return Ret;
 }
@@ -358,179 +285,6 @@ AccpGetObjectAceInheritedObjectType(IN PACE_HEADER AceHeader)
     }
 
     return ObjectType;
-}
-
-static DWORD
-AccpOpenLSAPolicyHandle(IN LPWSTR SystemName,
-                        IN ACCESS_MASK DesiredAccess,
-                        OUT PLSA_HANDLE pPolicyHandle)
-{
-    LSA_OBJECT_ATTRIBUTES LsaObjectAttributes = {0};
-    LSA_UNICODE_STRING LsaSystemName, *psn;
-    NTSTATUS Status;
-
-    if (SystemName != NULL && SystemName[0] != L'\0')
-    {
-        LsaSystemName.Buffer = SystemName;
-        LsaSystemName.Length = wcslen(SystemName) * sizeof(WCHAR);
-        LsaSystemName.MaximumLength = LsaSystemName.Length + sizeof(WCHAR);
-        psn = &LsaSystemName;
-    }
-    else
-    {
-        psn = NULL;
-    }
-
-    Status = LsaOpenPolicy(psn,
-                           &LsaObjectAttributes,
-                           DesiredAccess,
-                           pPolicyHandle);
-    if (!NT_SUCCESS(Status))
-        return LsaNtStatusToWinError(Status);
-
-    return ERROR_SUCCESS;
-}
-
-static LPWSTR
-AccpGetTrusteeName(IN PTRUSTEE_W Trustee)
-{
-    switch (Trustee->TrusteeForm)
-    {
-        case TRUSTEE_IS_NAME:
-            return Trustee->ptstrName;
-
-        case TRUSTEE_IS_OBJECTS_AND_NAME:
-            return ((POBJECTS_AND_NAME_W)Trustee->ptstrName)->ptstrName;
-
-        default:
-            return NULL;
-    }
-}
-
-static DWORD
-AccpLookupSidByName(IN LSA_HANDLE PolicyHandle,
-                    IN LPWSTR Name,
-                    OUT PSID *pSid)
-{
-    NTSTATUS Status;
-    LSA_UNICODE_STRING LsaNames[1];
-    PLSA_REFERENCED_DOMAIN_LIST ReferencedDomains = NULL;
-    PLSA_TRANSLATED_SID2 TranslatedSid = NULL;
-    DWORD SidLen;
-    DWORD Ret = ERROR_SUCCESS;
-
-    LsaNames[0].Buffer = Name;
-    LsaNames[0].Length = wcslen(Name) * sizeof(WCHAR);
-    LsaNames[0].MaximumLength = LsaNames[0].Length + sizeof(WCHAR);
-
-    Status = LsaLookupNames2(PolicyHandle,
-                             0,
-                             sizeof(LsaNames) / sizeof(LsaNames[0]),
-                             LsaNames,
-                             &ReferencedDomains,
-                             &TranslatedSid);
-
-    if (!NT_SUCCESS(Status))
-        return LsaNtStatusToWinError(Status);
-
-    if (TranslatedSid->Use == SidTypeUnknown || TranslatedSid->Use == SidTypeInvalid)
-    {
-        Ret = LsaNtStatusToWinError(STATUS_NONE_MAPPED); /* FIXME- what error code? */
-        goto Cleanup;
-    }
-
-    SidLen = GetLengthSid(TranslatedSid->Sid);
-    ASSERT(SidLen != 0);
-
-    *pSid = LocalAlloc(LMEM_FIXED, (SIZE_T)SidLen);
-    if (*pSid != NULL)
-    {
-        if (!CopySid(SidLen,
-                     *pSid,
-                     TranslatedSid->Sid))
-        {
-            Ret = GetLastError();
-
-            LocalFree((HLOCAL)*pSid);
-            *pSid = NULL;
-        }
-    }
-    else
-        Ret = ERROR_NOT_ENOUGH_MEMORY;
-
-Cleanup:
-    LsaFreeMemory(ReferencedDomains);
-    LsaFreeMemory(TranslatedSid);
-
-    return Ret;
-}
-
-
-static DWORD
-AccpGetTrusteeSid(IN PTRUSTEE_W Trustee,
-                  IN OUT PLSA_HANDLE pPolicyHandle,
-                  OUT PSID *ppSid,
-                  OUT BOOL *Allocated)
-{
-    DWORD Ret = ERROR_SUCCESS;
-
-    *ppSid = NULL;
-    *Allocated = FALSE;
-
-    if (Trustee->pMultipleTrustee || Trustee->MultipleTrusteeOperation != NO_MULTIPLE_TRUSTEE)
-    {
-        /* This is currently not supported */
-        return ERROR_INVALID_PARAMETER;
-    }
-
-    switch (Trustee->TrusteeForm)
-    {
-        case TRUSTEE_IS_OBJECTS_AND_NAME:
-            if (((POBJECTS_AND_NAME_W)Trustee->ptstrName)->ObjectsPresent != 0)
-            {
-                /* This is not supported as there is no way to interpret the
-                   strings provided, and we need GUIDs for the ACEs... */
-                Ret = ERROR_INVALID_PARAMETER;
-                break;
-            }
-            /* fall through */
-
-        case TRUSTEE_IS_NAME:
-            if (*pPolicyHandle == NULL)
-            {
-                Ret = AccpOpenLSAPolicyHandle(NULL, /* FIXME - always local? */
-                                              POLICY_LOOKUP_NAMES,
-                                              pPolicyHandle);
-                if (Ret != ERROR_SUCCESS)
-                    return Ret;
-
-                ASSERT(*pPolicyHandle != NULL);
-            }
-
-            Ret = AccpLookupSidByName(*pPolicyHandle,
-                                      AccpGetTrusteeName(Trustee),
-                                      ppSid);
-            if (Ret == ERROR_SUCCESS)
-            {
-                ASSERT(*ppSid != NULL);
-                *Allocated = TRUE;
-            }
-            break;
-
-        case TRUSTEE_IS_OBJECTS_AND_SID:
-            *ppSid = ((POBJECTS_AND_SID)Trustee->ptstrName)->pSid;
-            break;
-
-        case TRUSTEE_IS_SID:
-            *ppSid = (PSID)Trustee->ptstrName;
-            break;
-
-        default:
-            Ret = ERROR_INVALID_PARAMETER;
-            break;
-    }
-
-    return Ret;
 }
 
 
@@ -827,13 +581,20 @@ AccpOpenNamedObject(LPWSTR pObjectName,
         case SE_WINDOW_OBJECT:
             if (Write)
             {
-                SetSecurityAccessMask(SecurityInfo,
-                                      (PDWORD)&DesiredAccess);
+                if (SecurityInfo & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
+                    DesiredAccess |= WRITE_OWNER;
+                if (SecurityInfo & DACL_SECURITY_INFORMATION)
+                    DesiredAccess |= WRITE_DAC;
+                if (SecurityInfo & SACL_SECURITY_INFORMATION)
+                    DesiredAccess |= ACCESS_SYSTEM_SECURITY;
             }
             else
             {
-                QuerySecurityAccessMask(SecurityInfo,
-                                        (PDWORD)&DesiredAccess);
+                if (SecurityInfo & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
+                                    DACL_SECURITY_INFORMATION))
+                    DesiredAccess |= READ_CONTROL;
+                if (SecurityInfo & SACL_SECURITY_INFORMATION)
+                    DesiredAccess |= ACCESS_SYSTEM_SECURITY;
             }
             break;
 
@@ -1219,7 +980,7 @@ AccRewriteSetNamedRights(LPWSTR pObjectName,
 /**********************************************************************
  * AccRewriteSetEntriesInAcl				EXPORTED
  *
- * @implemented
+ * @unimplemented
  */
 DWORD WINAPI
 AccRewriteSetEntriesInAcl(ULONG cCountOfExplicitEntries,
@@ -1227,240 +988,13 @@ AccRewriteSetEntriesInAcl(ULONG cCountOfExplicitEntries,
                           PACL OldAcl,
                           PACL* NewAcl)
 {
-    PACL pNew = NULL;
-    ACL_SIZE_INFORMATION SizeInformation;
-    PACE_HEADER pAce;
-    BOOLEAN KeepAceBuf[8];
-    BOOLEAN *pKeepAce = NULL;
-    GUID ObjectTypeGuid, InheritedObjectTypeGuid;
-    DWORD ObjectsPresent;
-    BOOL needToClean;
-    PSID pSid1, pSid2;
-    ULONG i;
-    LSA_HANDLE PolicyHandle = NULL;
-    BOOL bRet;
-    DWORD LastErr;
-    DWORD Ret = ERROR_SUCCESS;
-
-    /* save the last error code */
-    LastErr = GetLastError();
-
-    *NewAcl = NULL;
-
-    /* Get information about previous ACL */
-    if (OldAcl)
-    {
-        if (!GetAclInformation(OldAcl, &SizeInformation, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation))
-        {
-            Ret = GetLastError();
-            goto Cleanup;
-        }
-
-        if (SizeInformation.AceCount > sizeof(KeepAceBuf) / sizeof(KeepAceBuf[0]))
-        {
-            pKeepAce = (BOOLEAN *)LocalAlloc(LMEM_FIXED, SizeInformation.AceCount * sizeof(*pKeepAce));
-            if (!pKeepAce)
-            {
-                Ret = ERROR_NOT_ENOUGH_MEMORY;
-                goto Cleanup;
-            }
-        }
-        else
-            pKeepAce = KeepAceBuf;
-
-        memset(pKeepAce, TRUE, SizeInformation.AceCount * sizeof(*pKeepAce));
-    }
-    else
-    {
-        ZeroMemory(&SizeInformation, sizeof(ACL_SIZE_INFORMATION));
-        SizeInformation.AclBytesInUse = sizeof(ACL);
-    }
-
-    /* Get size required for new entries */
-    for (i = 0; i < cCountOfExplicitEntries; i++)
-    {
-        Ret = AccpGetTrusteeSid(&pListOfExplicitEntries[i].Trustee,
-                                &PolicyHandle,
-                                &pSid1,
-                                &needToClean);
-        if (Ret != ERROR_SUCCESS)
-            goto Cleanup;
-
-        ObjectsPresent = AccpGetTrusteeObjects(&pListOfExplicitEntries[i].Trustee,
-                                               NULL,
-                                               NULL);
-
-        switch (pListOfExplicitEntries[i].grfAccessMode)
-        {
-            case REVOKE_ACCESS:
-            case SET_ACCESS:
-                /* Discard all accesses for the trustee... */
-                for (i = 0; i < SizeInformation.AceCount; i++)
-                {
-                    if (!pKeepAce[i])
-                        continue;
-                    if (!GetAce(OldAcl, i, (PVOID*)&pAce))
-                    {
-                        Ret = GetLastError();
-                        goto Cleanup;
-                    }
-
-                    pSid2 = AccpGetAceSid(pAce);
-                    if (RtlEqualSid(pSid1, pSid2))
-                    {
-                        pKeepAce[i] = FALSE;
-                        SizeInformation.AclBytesInUse -= pAce->AceSize;
-                    }
-                }
-                if (pListOfExplicitEntries[i].grfAccessMode == REVOKE_ACCESS)
-                    break;
-                /* ...and replace by the current access */
-            case GRANT_ACCESS:
-            case DENY_ACCESS:
-                /* Add to ACL */
-                SizeInformation.AclBytesInUse += AccpCalcNeededAceSize(pSid1, ObjectsPresent);
-                break;
-            case SET_AUDIT_SUCCESS:
-            case SET_AUDIT_FAILURE:
-                /* FIXME */
-                DPRINT1("Case not implemented!\n");
-                break;
-            default:
-                DPRINT1("Unknown access mode 0x%x. Ignoring it\n", pListOfExplicitEntries[i].grfAccessMode);
-                break;
-        }
-
-        if (needToClean)
-            LocalFree((HLOCAL)pSid1);
-    }
-
-    /* OK, now create the new ACL */
-    DPRINT("Allocating %u bytes for the new ACL\n", SizeInformation.AclBytesInUse);
-    pNew = (PACL)LocalAlloc(LMEM_FIXED, SizeInformation.AclBytesInUse);
-    if (!pNew)
-    {
-        Ret = ERROR_NOT_ENOUGH_MEMORY;
-        goto Cleanup;
-    }
-    if (!InitializeAcl(pNew, SizeInformation.AclBytesInUse, ACL_REVISION))
-    {
-        Ret = GetLastError();
-        goto Cleanup;
-    }
-
-    /* Fill it */
-    /* 1a) New audit entries (SET_AUDIT_SUCCESS, SET_AUDIT_FAILURE) */
-    /* FIXME */
-
-    /* 1b) Existing audit entries */
-    /* FIXME */
-
-    /* 2a) New denied entries (DENY_ACCESS) */
-    for (i = 0; i < cCountOfExplicitEntries; i++)
-    {
-        if (pListOfExplicitEntries[i].grfAccessMode == DENY_ACCESS)
-        {
-            /* FIXME: take care of pListOfExplicitEntries[i].grfInheritance */
-            Ret = AccpGetTrusteeSid(&pListOfExplicitEntries[i].Trustee,
-                                    &PolicyHandle,
-                                    &pSid1,
-                                    &needToClean);
-            if (Ret != ERROR_SUCCESS)
-                goto Cleanup;
-
-            ObjectsPresent = AccpGetTrusteeObjects(&pListOfExplicitEntries[i].Trustee,
-                                                   &ObjectTypeGuid,
-                                                   &InheritedObjectTypeGuid);
-
-            if (ObjectsPresent == 0)
-            {
-                /* FIXME: Call AddAccessDeniedAceEx instead! */
-                bRet = AddAccessDeniedAce(pNew, ACL_REVISION, pListOfExplicitEntries[i].grfAccessPermissions, pSid1);
-            }
-            else
-            {
-                /* FIXME: Call AddAccessDeniedObjectAce */
-                DPRINT1("Object ACEs not yet supported!\n");
-                SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-                bRet = FALSE;
-            }
-
-            if (needToClean) LocalFree((HLOCAL)pSid1);
-            if (!bRet)
-            {
-                Ret = GetLastError();
-                goto Cleanup;
-            }
-        }
-    }
-
-    /* 2b) Existing denied entries */
-    /* FIXME */
-
-    /* 3a) New allow entries (GRANT_ACCESS, SET_ACCESS) */
-    for (i = 0; i < cCountOfExplicitEntries; i++)
-    {
-        if (pListOfExplicitEntries[i].grfAccessMode == SET_ACCESS ||
-            pListOfExplicitEntries[i].grfAccessMode == GRANT_ACCESS)
-        {
-            /* FIXME: take care of pListOfExplicitEntries[i].grfInheritance */
-            Ret = AccpGetTrusteeSid(&pListOfExplicitEntries[i].Trustee,
-                                    &PolicyHandle,
-                                    &pSid1,
-                                    &needToClean);
-            if (Ret != ERROR_SUCCESS)
-                goto Cleanup;
-
-            ObjectsPresent = AccpGetTrusteeObjects(&pListOfExplicitEntries[i].Trustee,
-                                                   &ObjectTypeGuid,
-                                                   &InheritedObjectTypeGuid);
-
-            if (ObjectsPresent == 0)
-            {
-                /* FIXME: Call AddAccessAllowedAceEx instead! */
-                bRet = AddAccessAllowedAce(pNew, ACL_REVISION, pListOfExplicitEntries[i].grfAccessPermissions, pSid1);
-            }
-            else
-            {
-                /* FIXME: Call AddAccessAllowedObjectAce */
-                DPRINT1("Object ACEs not yet supported!\n");
-                SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-                bRet = FALSE;
-            }
-
-            if (needToClean) LocalFree((HLOCAL)pSid1);
-            if (!bRet)
-            {
-                Ret = GetLastError();
-                goto Cleanup;
-            }
-        }
-    }
-
-    /* 3b) Existing allow entries */
-    /* FIXME */
-
-    *NewAcl = pNew;
-
-Cleanup:
-    if (pKeepAce && pKeepAce != KeepAceBuf)
-        LocalFree((HLOCAL)pKeepAce);
-
-    if (pNew && Ret != ERROR_SUCCESS)
-        LocalFree((HLOCAL)pNew);
-
-    if (PolicyHandle)
-        LsaClose(PolicyHandle);
-
-    /* restore the last error code */
-    SetLastError(LastErr);
-
-    return Ret;
+    UNIMPLEMENTED;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 
 /**********************************************************************
- * AccGetInheritanceSource				EXPORTED
+ * AccRewriteSetEntriesInAcl				EXPORTED
  *
  * @unimplemented
  */

@@ -103,7 +103,7 @@ typedef struct
     } WaitBlockBuffer;                                      \
     PEX_PUSH_LOCK_WAIT_BLOCK x = (PEX_PUSH_LOCK_WAIT_BLOCK) \
         ((ULONG_PTR)&WaitBlockBuffer.UnalignedBlock &~ 0xF);
-
+        
 #else
 
 //
@@ -114,7 +114,7 @@ typedef struct
 #define DEFINE_WAIT_BLOCK(x)                                \
     EX_PUSH_LOCK_WAIT_BLOCK WaitBlockBuffer;                \
     PEX_PUSH_LOCK_WAIT_BLOCK x = &WaitBlockBuffer;
-
+    
 #endif
 
 /* INITIALIZATION FUNCTIONS *************************************************/
@@ -720,40 +720,6 @@ ExAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
 }
 
 /*++
-* @name ExTryToAcquirePushLockExclusive
-* INTERNAL MACRO
-*
-*     The ExAcquirePushLockExclusive macro exclusively acquires a PushLock.
-*
-* @params PushLock
-*         Pointer to the pushlock which is to be acquired.
-*
-* @return None.
-*
-* @remarks The function attempts the quickest route to acquire the lock, which is
-*          to simply set the lock bit.
-*          However, if the pushlock is already shared, the slower path is taken.
-*
-*          Callers of ExAcquirePushLockShared must be running at IRQL <= APC_LEVEL.
-*          This macro should usually be paired up with KeAcquireCriticalRegion.
-*
-*--*/
-BOOLEAN
-FORCEINLINE
-ExTryToAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
-{
-    /* Try acquiring the lock */
-    if (InterlockedBitTestAndSet((PLONG)PushLock, EX_PUSH_LOCK_LOCK_V))
-    {
-        /* Can't acquire */
-        return FALSE;
-    }
-
-    /* Got acquired */
-    return TRUE;
-}
-
-/*++
  * @name ExAcquirePushLockShared
  * INTERNAL MACRO
  *
@@ -850,7 +816,7 @@ ExConvertPushLockSharedToExclusive(IN PEX_PUSH_LOCK PushLock)
 VOID
 FORCEINLINE
 ExWaitOnPushLock(PEX_PUSH_LOCK PushLock)
-{
+{  
     /* Check if we're locked */
     if (PushLock->Locked)
     {
@@ -874,7 +840,7 @@ ExWaitOnPushLock(PEX_PUSH_LOCK PushLock)
  *
  * @return None.
  *
- * @remarks The function attempts the quickest route to release the lock, which is
+ * @remarks The function attempts the quickest route to release the lock, which is 
  *          to simply decrease the share count and remove the lock bit.
  *          However, if the pushlock is being waited on then the long path is taken.
  *
@@ -961,7 +927,7 @@ ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
  *
  * @return None.
  *
- * @remarks The function attempts the quickest route to release the lock, which is
+ * @remarks The function attempts the quickest route to release the lock, which is 
  *          to simply clear all the fields and decrease the share count if required.
  *          However, if the pushlock is being waited on then the long path is taken.
  *

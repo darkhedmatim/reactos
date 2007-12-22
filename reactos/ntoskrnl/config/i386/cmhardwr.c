@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "../cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -247,8 +248,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
     LARGE_INTEGER ViewBase = {{0}};
     ULONG_PTR VideoRomBase;
     PCHAR CurrentVersion;
-    extern UNICODE_STRING KeRosProcessorName, KeRosBiosDate, KeRosBiosVersion;
-    extern UNICODE_STRING KeRosVideoBiosDate, KeRosVideoBiosVersion;
 
     /* Open the SMSS Memory Management key */
     RtlInitUnicodeString(&KeyName,
@@ -305,13 +304,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                          NULL,
                          REG_OPTION_NON_VOLATILE,
                          &Disposition);
-    if (ExpInTextModeSetup)
-    {
-        if (!NT_SUCCESS(Status))
-            BiosHandle = NULL;
-    }
-    else if (!NT_SUCCESS(Status))
-        return Status;
+    if (!NT_SUCCESS(Status) && !ExpInTextModeSetup) return Status;
 
     /* Create the CPU Key, and check if it already existed */
     RtlInitUnicodeString(&KeyName, L"CentralProcessor");
@@ -472,9 +465,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                            Data.Buffer,
                                            Data.Length + sizeof(UNICODE_NULL));
 
-                    /* ROS: Save a copy for bugzilla reporting */
-                    RtlCreateUnicodeString(&KeRosProcessorName, Data.Buffer);
-
                     /* Free the temporary buffer */
                     RtlFreeUnicodeString(&Data);
                 }
@@ -633,35 +623,29 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
             /* Free the string */
             RtlFreeUnicodeString(&Data);
 
-            if (BiosHandle)
+            /* Get the BIOS Date Identifier */
+            RtlCopyMemory(Buffer, (PCHAR)BaseAddress + (16*PAGE_SIZE - 11), 8);
+            Buffer[8] = ANSI_NULL;
+
+            /* Convert it to unicode */
+            RtlInitAnsiString(&TempString, Buffer);
+            Status = RtlAnsiStringToUnicodeString(&Data, &TempString, TRUE);
+            if (NT_SUCCESS(Status))
             {
-                /* Get the BIOS Date Identifier */
-                RtlCopyMemory(Buffer, (PCHAR)BaseAddress + (16*PAGE_SIZE - 11), 8);
-                Buffer[8] = ANSI_NULL;
+                /* Save it to the registry */
+                Status = NtSetValueKey(BiosHandle,
+                                       &ValueName,
+                                       0,
+                                       REG_SZ,
+                                       Data.Buffer,
+                                       Data.Length + sizeof(UNICODE_NULL));
 
-                /* Convert it to unicode */
-                RtlInitAnsiString(&TempString, Buffer);
-                Status = RtlAnsiStringToUnicodeString(&Data, &TempString, TRUE);
-                if (NT_SUCCESS(Status))
-                {
-                    /* Save it to the registry */
-                    Status = NtSetValueKey(BiosHandle,
-                                           &ValueName,
-                                           0,
-                                           REG_SZ,
-                                           Data.Buffer,
-                                           Data.Length + sizeof(UNICODE_NULL));
-
-                    /* ROS: Save a copy for bugzilla reporting */
-                    RtlCreateUnicodeString(&KeRosBiosDate, Data.Buffer);
-
-                    /* Free the string */
-                    RtlFreeUnicodeString(&Data);
-                }
-
-                /* Close the bios information handle */
-                NtClose(BiosHandle);
+                /* Free the string */
+                RtlFreeUnicodeString(&Data);
             }
+
+            /* Close the bios information handle */
+            NtClose(BiosHandle);
         }
 
         /* Get the BIOS Version */
@@ -711,9 +695,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                        REG_MULTI_SZ,
                                        BiosVersion,
                                        TotalLength);
-
-                /* ROS: Save a copy for bugzilla reporting */
-                RtlCreateUnicodeString(&KeRosBiosVersion, (PWCH)BiosVersion);
             }
         }
 
@@ -755,9 +736,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                    REG_SZ,
                                    Data.Buffer,
                                    Data.Length + sizeof(UNICODE_NULL));
-
-            /* ROS: Save a copy for bugzilla reporting */
-            RtlCreateUnicodeString(&KeRosVideoBiosDate, Data.Buffer);
 
             /* Free the string */
             RtlFreeUnicodeString(&Data);
@@ -810,9 +788,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                        REG_MULTI_SZ,
                                        BiosVersion,
                                        TotalLength);
-
-                /* ROS: Save a copy for bugzilla reporting */
-                RtlCreateUnicodeString(&KeRosVideoBiosVersion, (PWCH)BiosVersion);
             }
         }
 

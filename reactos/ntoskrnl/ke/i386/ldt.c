@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ke/i386/ldt.c
@@ -126,7 +127,7 @@ BOOLEAN PspIsDescriptorValid(PLDT_ENTRY ldt_entry)
      that wrap the address space.  Windows NT does not allow user-created
      selectors to reach into kernel memory.  However, there is no security
      risk in allowing it; the page table will prevent access anyway.
-  */
+  */  
   return (/*(Base + SegLimit > (ULONG_PTR) MmHighestUserAddress) ||
           (Base > Base+SegLimit) ? FALSE : TRUE*/ TRUE);
 }
@@ -219,5 +220,4 @@ NtSetLdtEntries (ULONG Selector1,
   KeReleaseSpinLock(&LdtLock, oldIrql);
   return STATUS_SUCCESS;
 }
-
 

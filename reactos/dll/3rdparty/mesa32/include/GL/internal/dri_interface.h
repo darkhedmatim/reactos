@@ -39,6 +39,7 @@
 #define DRI_INTERFACE_H
 
 #include <GL/internal/glcore.h>
+#include <xf86drm.h>
 #include <drm.h>
 
 /**
@@ -237,26 +238,6 @@ struct __DRIinterfaceMethodsRec {
     GLboolean (*getMSCRate)(__DRInativeDisplay * dpy, __DRIid drawable,
         int32_t * numerator, int32_t * denominator);
     /*@}*/
-
-    /**
-     * Reports areas of the given drawable which have been modified by the
-     * driver.
-     *
-     * \param drawable which the drawing was done to.
-     * \param rects rectangles affected, with the drawable origin as the
-     *	      origin.
-     * \param x X offset of the drawable within the screen (used in the
-     *	      front_buffer case)
-     * \param y Y offset of the drawable within the screen.
-     * \param front_buffer boolean flag for whether the drawing to the
-     * 	      drawable was actually done directly to the front buffer (instead
-     *	      of backing storage, for example)
-     */
-    void (*reportDamage)(__DRInativeDisplay * dpy, int screen,
-			 __DRIid drawable,
-			 int x, int y,
-			 drm_clip_rect_t *rects, int num_rects,
-			 int front_buffer);
 };
 
    
@@ -361,18 +342,6 @@ struct __DRIscreenRec {
     void * (*createNewContext)(__DRInativeDisplay *dpy, const __GLcontextModes *modes,
 			       int render_type,
 			       void *sharedPrivate, __DRIcontext *pctx);
-
-    /**
-     * Method to override base texture image with a driver specific 'offset'.
-     * The depth passed in allows e.g. to ignore the alpha channel of texture
-     * images where the non-alpha components don't occupy a whole texel.
-     *
-     * For GLX_EXT_texture_from_pixmap with AIGLX.
-     *
-     * \since Internal API version 20070121.
-     */
-    void (*setTexOffset)(__DRIcontext *pDRICtx, GLint texname,
-			 unsigned long long offset, GLint depth, GLuint pitch);
 };
 
 /**
@@ -504,14 +473,6 @@ struct __DRIdrawableRec {
      * \since Internal API version 20030317.
      */
     unsigned swap_interval;
-
-    /**
-     * Used by drivers that implement the GLX_MESA_copy_sub_buffer extension.
-     *
-     * \since Internal API version 20060314.
-     */
-    void (*copySubBuffer)(__DRInativeDisplay *dpy, void *drawablePrivate,
-			  int x, int y, int w, int h);
 };
 
 #endif

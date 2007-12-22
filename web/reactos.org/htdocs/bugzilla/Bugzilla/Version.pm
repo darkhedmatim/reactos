@@ -13,15 +13,11 @@
 # The Original Code is the Bugzilla Bug Tracking System.
 #
 # Contributor(s): Tiago R. Mello <timello@async.com.br>
-#                 Max Kanat-Alexander <mkanat@bugzilla.org>
 
 use strict;
 
 package Bugzilla::Version;
 
-use base qw(Bugzilla::Object);
-
-use Bugzilla::Install::Requirements qw(vers_cmp);
 use Bugzilla::Util;
 use Bugzilla::Error;
 
@@ -31,52 +27,49 @@ use Bugzilla::Error;
 
 use constant DEFAULT_VERSION => 'unspecified';
 
-use constant DB_TABLE => 'versions';
-
 use constant DB_COLUMNS => qw(
-    id
-    value
-    product_id
+    versions.value
+    versions.product_id
 );
 
-use constant NAME_FIELD => 'value';
-# This is "id" because it has to be filled in and id is probably the fastest.
-# We do a custom sort in new_from_list below.
-use constant LIST_ORDER => 'id';
+our $columns = join(", ", DB_COLUMNS);
 
 sub new {
-    my $class = shift;
-    my $param = shift;
-    my $dbh = Bugzilla->dbh;
-
-    my $product;
-    if (ref $param) {
-        $product = $param->{product};
-        my $name = $param->{name};
-        if (!defined $product) {
-            ThrowCodeError('bad_arg',
-                {argument => 'product',
-                 function => "${class}::new"});
-        }
-        if (!defined $name) {
-            ThrowCodeError('bad_arg',
-                {argument => 'name',
-                 function => "${class}::new"});
-        }
-
-        my $condition = 'product_id = ? AND value = ?';
-        my @values = ($product->id, $name);
-        $param = { condition => $condition, values => \@values };
-    }
-
-    unshift @_, $param;
-    return $class->SUPER::new(@_);
+    my $invocant = shift;
+    my $class = ref($invocant) || $invocant;
+    my $self = {};
+    bless($self, $class);
+    return $self->_init(@_);
 }
 
-sub new_from_list {
+sub _init {
     my $self = shift;
-    my $list = $self->SUPER::new_from_list(@_);
-    return [sort { vers_cmp(lc($a->name), lc($b->name)) } @$list];
+    my ($product_id, $value) = (@_);
+    my $dbh = Bugzilla->dbh;
+
+    my $version;
+
+    if (defined $product_id
+        && detaint_natural($product_id)
+        && defined $value) {
+
+        trick_taint($value);
+        $version = $dbh->selectrow_hashref(qq{
+            SELECT $columns FROM versions
+            WHERE value = ?
+            AND product_id = ?}, undef, ($value, $product_id));
+    } else {
+        ThrowCodeError('bad_arg',
+            {argument => 'product_id/value',
+             function => 'Bugzilla::Version::_init'});
+    }
+
+    return undef unless (defined $version);
+
+    foreach my $field (keys %$version) {
+        $self->{$field} = $version->{$field};
+    }
+    return $self;
 }
 
 sub bug_count {
@@ -90,53 +83,6 @@ sub bug_count {
             ($self->product_id, $self->name)) || 0;
     }
     return $self->{'bug_count'};
-}
-
-sub remove_from_db {
-    my $self = shift;
-    my $dbh = Bugzilla->dbh;
-
-    # The version cannot be removed if there are bugs
-    # associated with it.
-    if ($self->bug_count) {
-        ThrowUserError("version_has_bugs", { nb => $self->bug_count });
-    }
-
-    $dbh->do(q{DELETE FROM versions WHERE product_id = ? AND value = ?},
-              undef, ($self->product_id, $self->name));
-}
-
-sub update {
-    my $self = shift;
-    my ($name, $product) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    $name || ThrowUserError('version_not_specified');
-
-    # Remove unprintable characters
-    $name = clean_text($name);
-
-    return 0 if ($name eq $self->name);
-    my $version = new Bugzilla::Version({ product => $product, name => $name });
-
-    if ($version) {
-        ThrowUserError('version_already_exists',
-                       {'name' => $version->name,
-                        'product' => $product->name});
-    }
-
-    trick_taint($name);
-    $dbh->do("UPDATE bugs SET version = ?
-              WHERE version = ? AND product_id = ?", undef,
-              ($name, $self->name, $self->product_id));
-
-    $dbh->do("UPDATE versions SET value = ?
-              WHERE product_id = ? AND value = ?", undef,
-              ($name, $self->product_id, $self->name));
-
-    $self->{'value'} = $name;
-
-    return 1;
 }
 
 ###############################
@@ -154,39 +100,13 @@ sub check_version {
     my ($product, $version_name) = @_;
 
     $version_name || ThrowUserError('version_not_specified');
-    my $version = new Bugzilla::Version(
-        { product => $product, name => $version_name });
+    my $version = new Bugzilla::Version($product->id, $version_name);
     unless ($version) {
         ThrowUserError('version_not_valid',
                        {'product' => $product->name,
                         'version' => $version_name});
     }
     return $version;
-}
-
-sub create {
-    my ($name, $product) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    # Cleanups and validity checks
-    $name || ThrowUserError('version_blank_name');
-
-    # Remove unprintable characters
-    $name = clean_text($name);
-
-    my $version = new Bugzilla::Version({ product => $product, name => $name });
-    if ($version) {
-        ThrowUserError('version_already_exists',
-                       {'name' => $version->name,
-                        'product' => $product->name});
-    }
-
-    # Add the new version
-    trick_taint($name);
-    $dbh->do(q{INSERT INTO versions (value, product_id)
-               VALUES (?, ?)}, undef, ($name, $product->id));
-
-    return new Bugzilla::Version($dbh->bz_last_key('versions', 'id'));
 }
 
 1;
@@ -206,16 +126,10 @@ Bugzilla::Version - Bugzilla product version class.
     my $product_id = $version->product_id;
     my $value = $version->value;
 
-    $version->remove_from_db;
-
-    my $updated = $version->update($version_name, $product);
-
     my $version = $hash_ref->{'version_value'};
 
     my $version = Bugzilla::Version::check_version($product_obj,
                                                    'acme_version');
-
-    my $version = Bugzilla::Version::create($version_name, $product);
 
 =head1 DESCRIPTION
 
@@ -243,23 +157,6 @@ Version.pm represents a Product Version object.
 
  Returns:     Integer with the number of bugs.
 
-=item C<remove_from_db()>
-
- Description: Removes the version from the database.
-
- Params:      none.
-
- Retruns:     none.
-
-=item C<update($name, $product)>
-
- Description: Update the value of the version.
-
- Params:      $name - String with the new version value.
-              $product - Bugzilla::Product object the version belongs to.
-
- Returns:     An integer - 1 if the version has been updated, else 0.
-
 =back
 
 =head1 SUBROUTINES
@@ -274,15 +171,6 @@ Version.pm represents a Product Version object.
               $version_name - String with a version name.
 
  Returns:     Bugzilla::Version object.
-
-=item C<create($version_name, $product)>
-
- Description: Create a new version for the given product.
-
- Params:      $version_name - String with a version value.
-              $product - A Bugzilla::Product object.
-
- Returns:     A Bugzilla::Version object.
 
 =back
 

@@ -1,9 +1,9 @@
-/*
+/* 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Mouse class driver
  * FILE:            drivers/mouclass/mouclass.c
  * PURPOSE:         Mouse class driver
- *
+ * 
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
@@ -19,12 +19,6 @@ static DRIVER_DISPATCH ClassDeviceControl;
 static DRIVER_DISPATCH IrpStub;
 static DRIVER_ADD_DEVICE ClassAddDevice;
 static DRIVER_STARTIO ClassStartIo;
-static DRIVER_CANCEL ClassCancelRoutine;
-static NTSTATUS
-HandleReadIrp(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PIRP Irp,
-	BOOLEAN IsInStartIo);
 
 static VOID NTAPI
 DriverUnload(IN PDRIVER_OBJECT DriverObject)
@@ -88,13 +82,7 @@ ClassRead(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
-	KIRQL OldIrql;
-	NTSTATUS Status;
-
 	DPRINT("IRP_MJ_READ\n");
-
-	ASSERT(DeviceExtension->Common.IsClassDO);
 
 	if (!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO)
 		return ForwardIrpAndForget(DeviceObject, Irp);
@@ -108,10 +96,9 @@ ClassRead(
 		return STATUS_BUFFER_TOO_SMALL;
 	}
 
-	KeAcquireSpinLock(&DeviceExtension->SpinLock, &OldIrql);
-	Status = HandleReadIrp(DeviceObject, Irp, FALSE);
-	KeReleaseSpinLock(&DeviceExtension->SpinLock, OldIrql);
-	return Status;
+	IoMarkIrpPending(Irp);
+	IoStartPacket(DeviceObject, Irp, NULL, NULL);
+	return STATUS_PENDING;
 }
 
 static NTSTATUS NTAPI
@@ -120,7 +107,7 @@ ClassDeviceControl(
 	IN PIRP Irp)
 {
 	PCLASS_DEVICE_EXTENSION DeviceExtension;
-	NTSTATUS Status = STATUS_NOT_SUPPORTED;
+	NTSTATUS Status = Irp->IoStatus.Status;
 
 	DPRINT("IRP_MJ_DEVICE_CONTROL\n");
 
@@ -180,6 +167,7 @@ IrpStub(
 				DPRINT1("Port DO stub for major function 0x%lx\n",
 					IoGetCurrentIrpStackLocation(Irp)->MajorFunction);
 				ASSERT(FALSE);
+				Status = Irp->IoStatus.Status;
 			}
 		}
 	}
@@ -188,6 +176,7 @@ IrpStub(
 		DPRINT1("Class DO stub for major function 0x%lx\n",
 			IoGetCurrentIrpStackLocation(Irp)->MajorFunction);
 		ASSERT(FALSE);
+		Status = Irp->IoStatus.Status;
 	}
 
 	Irp->IoStatus.Status = Status;
@@ -358,8 +347,9 @@ cleanup:
 	InitializeListHead(&DeviceExtension->ListHead);
 	KeInitializeSpinLock(&DeviceExtension->ListSpinLock);
 	KeInitializeSpinLock(&DeviceExtension->SpinLock);
+	DeviceExtension->ReadIsPending = FALSE;
 	DeviceExtension->InputCount = 0;
-	DeviceExtension->PortData = ExAllocatePoolWithTag(NonPagedPool, DeviceExtension->DriverExtension->DataQueueSize * sizeof(MOUSE_INPUT_DATA), CLASS_TAG);
+	DeviceExtension->PortData = ExAllocatePoolWithTag(NonPagedPool, DeviceExtension->DriverExtension->DataQueueSize * sizeof(KEYBOARD_INPUT_DATA), CLASS_TAG);
 	if (!DeviceExtension->PortData)
 	{
 		ExFreePoolWithTag(DeviceNameU.Buffer, CLASS_TAG);
@@ -440,16 +430,56 @@ ClassCallback(
 	IN OUT PULONG ConsumedCount)
 {
 	PCLASS_DEVICE_EXTENSION ClassDeviceExtension = ClassDeviceObject->DeviceExtension;
+	PIRP Irp = NULL;
 	KIRQL OldIrql;
 	SIZE_T InputCount = DataEnd - DataStart;
 	SIZE_T ReadSize;
 
-	DPRINT("ClassCallback()\n");
-
 	ASSERT(ClassDeviceExtension->Common.IsClassDO);
 
 	KeAcquireSpinLock(&ClassDeviceExtension->SpinLock, &OldIrql);
-	if (InputCount > 0)
+
+	DPRINT("ClassCallback()\n");
+	/* A filter driver might have consumed all the data already; I'm
+	 * not sure if they are supposed to move the packets when they
+	 * consume them though.
+	 */
+	if (ClassDeviceExtension->ReadIsPending == TRUE && InputCount)
+	{
+		/* A read request is waiting for input, so go straight to it */
+		NTSTATUS Status;
+		SIZE_T NumberOfEntries;
+
+		Irp = ClassDeviceObject->CurrentIrp;
+		ClassDeviceObject->CurrentIrp = NULL;
+
+		NumberOfEntries = MIN(
+			InputCount,
+			IoGetCurrentIrpStackLocation(Irp)->Parameters.Read.Length / sizeof(MOUSE_INPUT_DATA));
+
+		Status = FillEntries(
+			ClassDeviceObject,
+			Irp,
+			DataStart,
+			NumberOfEntries);
+
+		if (NT_SUCCESS(Status))
+		{
+			/* Go to next packet and complete this request with STATUS_SUCCESS */
+			Irp->IoStatus.Status = STATUS_SUCCESS;
+			Irp->IoStatus.Information = NumberOfEntries * sizeof(MOUSE_INPUT_DATA);
+
+			ClassDeviceExtension->ReadIsPending = FALSE;
+
+			/* Skip the packet we just sent away */
+			DataStart += NumberOfEntries;
+			(*ConsumedCount) += (ULONG)NumberOfEntries;
+			InputCount -= NumberOfEntries;
+		}
+	}
+
+	/* If we have data from the port driver and a higher service to send the data to */
+	if (InputCount != 0)
 	{
 		if (ClassDeviceExtension->InputCount + InputCount > ClassDeviceExtension->DriverExtension->DataQueueSize)
 		{
@@ -475,12 +505,19 @@ ClassCallback(
 		ClassDeviceExtension->InputCount += ReadSize;
 
 		(*ConsumedCount) += (ULONG)ReadSize;
-
-		/* Complete pending IRP (if any) */
-		if (ClassDeviceExtension->PendingIrp)
-			HandleReadIrp(ClassDeviceObject, ClassDeviceExtension->PendingIrp, FALSE);
 	}
+	else
+	{
+		DPRINT("ClassCallback(): no more data to process\n");
+	}
+
 	KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
+
+	if (Irp != NULL)
+	{
+		IoStartNextPacket(ClassDeviceObject, FALSE);
+		IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
+	}
 
 	DPRINT("Leaving ClassCallback()\n");
 	return TRUE;
@@ -632,10 +669,9 @@ ClassAddDevice(
 		DPRINT("IoCreateDevice() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
-	IoSetStartIoAttributes(Fdo, TRUE, TRUE);
 
 	DeviceExtension = (PPORT_DEVICE_EXTENSION)Fdo->DeviceExtension;
-	RtlZeroMemory(DeviceExtension, sizeof(PORT_DEVICE_EXTENSION));
+	RtlZeroMemory(DeviceExtension, sizeof(CLASS_DEVICE_EXTENSION));
 	DeviceExtension->Common.IsClassDO = FALSE;
 	DeviceExtension->DeviceObject = Fdo;
 	DeviceExtension->PnpState = dsStopped;
@@ -693,60 +729,25 @@ cleanup:
 }
 
 static VOID NTAPI
-ClassCancelRoutine(
+ClassStartIo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	PCLASS_DEVICE_EXTENSION ClassDeviceExtension = DeviceObject->DeviceExtension;
-	KIRQL OldIrql;
-	BOOLEAN wasQueued = FALSE;
-
-	DPRINT("ClassCancelRoutine(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
-
-	ASSERT(ClassDeviceExtension->Common.IsClassDO);
-
-	KeAcquireSpinLock(&ClassDeviceExtension->SpinLock, &OldIrql);
-	IoAcquireCancelSpinLock(&OldIrql);
-	if (ClassDeviceExtension->PendingIrp == Irp)
-	{
-		ClassDeviceExtension->PendingIrp = NULL;
-		wasQueued = TRUE;
-	}
-	KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
-
-	if (wasQueued)
-	{
-		Irp->IoStatus.Status = STATUS_CANCELLED;
-		Irp->IoStatus.Information = 0;
-		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	}
-	else
-	{
-		/* Hm, this shouldn't happen */
-		ASSERT(FALSE);
-	}
-}
-
-static NTSTATUS
-HandleReadIrp(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PIRP Irp,
-	BOOLEAN IsInStartIo)
-{
 	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
-	NTSTATUS Status;
-
-	DPRINT("HandleReadIrp(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
 
 	ASSERT(DeviceExtension->Common.IsClassDO);
 
 	if (DeviceExtension->InputCount > 0)
 	{
+		KIRQL oldIrql;
+		NTSTATUS Status;
 		SIZE_T NumberOfEntries;
 
 		NumberOfEntries = MIN(
 			DeviceExtension->InputCount,
 			IoGetCurrentIrpStackLocation(Irp)->Parameters.Read.Length / sizeof(MOUSE_INPUT_DATA));
+
+		KeAcquireSpinLock(&DeviceExtension->SpinLock, &oldIrql);
 
 		Status = FillEntries(
 			DeviceObject,
@@ -765,55 +766,22 @@ HandleReadIrp(
 			}
 
 			DeviceExtension->InputCount -= NumberOfEntries;
+			DeviceExtension->ReadIsPending = FALSE;
 
 			Irp->IoStatus.Information = NumberOfEntries * sizeof(MOUSE_INPUT_DATA);
 		}
 
 		/* Go to next packet and complete this request */
 		Irp->IoStatus.Status = Status;
-
-		if (IsInStartIo)
-			IoStartNextPacket(DeviceObject, TRUE);
-
-		(VOID)IoSetCancelRoutine(Irp, NULL);
 		IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
-		DeviceExtension->PendingIrp = NULL;
+
+		IoStartNextPacket(DeviceObject, FALSE);
+		KeReleaseSpinLock(&DeviceExtension->SpinLock, oldIrql);
 	}
 	else
 	{
-		(VOID)IoSetCancelRoutine(Irp, ClassCancelRoutine);
-		if (Irp->Cancel && IoSetCancelRoutine(Irp, NULL))
-		{
-			DeviceExtension->PendingIrp = NULL;
-			Status = STATUS_CANCELLED;
-		}
-		else
-		{
-			IoMarkIrpPending(Irp);
-			DeviceExtension->PendingIrp = Irp;
-			Status = STATUS_PENDING;
-			if (!IsInStartIo)
-				IoStartPacket(DeviceObject, Irp, NULL, NULL);
-		}
+		DeviceExtension->ReadIsPending = TRUE;
 	}
-	return Status;
-}
-
-static VOID NTAPI
-ClassStartIo(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PIRP Irp)
-{
-	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
-	KIRQL OldIrql;
-
-	DPRINT("ClassStartIo(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
-
-	ASSERT(DeviceExtension->Common.IsClassDO);
-
-	KeAcquireSpinLock(&DeviceExtension->SpinLock, &OldIrql);
-	HandleReadIrp(DeviceObject, Irp, TRUE);
-	KeReleaseSpinLock(&DeviceExtension->SpinLock, OldIrql);
 }
 
 static VOID NTAPI

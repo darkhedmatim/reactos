@@ -14,7 +14,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#ifdef __FreeBSD__
 # include <stdlib.h>
 #else
 # include <malloc.h>
@@ -28,16 +28,13 @@
 #include <ctype.h>
 #define _finite __finite
 #define _isnan __isnan
-
-#ifndef __APPLE__
 inline int iswdigit ( wchar_t c )
 {
 	return ( c >= L'0' && c <= L'9' );
 }
-#endif
 #endif//WIN32
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__CYGWIN__)
+#ifdef __FreeBSD__
 # define __isnan isnan
 # define __finite finite
 # define powl __builtin_powl

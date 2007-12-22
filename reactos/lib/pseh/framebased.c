@@ -20,7 +20,6 @@
 	DEALINGS IN THE SOFTWARE.
 */
 
-#define _NTSYSTEM_
 #define STRICT
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -150,7 +149,7 @@ extern unsigned long __cdecl DbgPrint(const char * format, ...);
 	} \
 }
 #else
-#define _SEH_TRACE_CONTEXT(FRAME_, CONTEXT_)
+#error Unsupported platform.
 #endif
 
 #define _SEH_TRACE_UNWIND(FRAME_, ARGS_) \
@@ -282,7 +281,7 @@ extern void __cdecl _SEHGlobalUnwind(_SEHPortableFrame_t *);
 extern _SEHRegistration_t * __cdecl _SEHCurrentRegistration(void);
 
 /* Borland C++ uses a different decoration (i.e. none) for stdcall functions */
-extern void __stdcall RtlUnwind(void *, void *, PEXCEPTION_RECORD, void *);
+extern void __stdcall RtlUnwind(void *, void *, void *, void *);
 void const * _SEHRtlUnwind = RtlUnwind;
 
 static void __stdcall _SEHLocalUnwind

@@ -811,7 +811,7 @@ TRACKBAR_UpdateToolTip (const TRACKBAR_INFO *infoPtr)
     ClientToScreen(infoPtr->hwndSelf, &pt);
 
     SendMessageW (infoPtr->hwndToolTip, TTM_TRACKPOSITION,
-                  0, MAKELPARAM(pt.x, pt.y));
+                  0, (LPARAM)MAKELPARAM(pt.x, pt.y));
 }
 
 
@@ -824,7 +824,6 @@ TRACKBAR_Refresh (TRACKBAR_INFO *infoPtr, HDC hdcDst)
     HBITMAP hOldBmp = 0, hOffScreenBmp = 0;
     NMCUSTOMDRAW nmcd;
     int gcdrf, icdrf;
-    HTHEME theme;
 
     if (infoPtr->flags & TB_THUMBCHANGED) {
         TRACKBAR_UpdateThumb (infoPtr);
@@ -869,12 +868,8 @@ TRACKBAR_Refresh (TRACKBAR_INFO *infoPtr, HDC hdcDst)
     /* Erase backbround */
     if (gcdrf == CDRF_DODEFAULT ||
         notify_customdraw(infoPtr, &nmcd, CDDS_PREERASE) != CDRF_SKIPDEFAULT) {
-        if ((theme = GetWindowTheme (infoPtr->hwndSelf))) {
-            DrawThemeBackground (theme, hdc,
-                (GetWindowLongW (infoPtr->hwndSelf, GWL_STYLE) & TBS_VERT) ?
-                    TKP_TRACKVERT : TKP_TRACK, TKS_NORMAL, &rcClient, 0);
+        if (GetWindowTheme (infoPtr->hwndSelf))
             DrawThemeParentBackground (infoPtr->hwndSelf, hdc, &rcClient);
-        }
         else
 	    FillRect (hdc, &rcClient, GetSysColorBrush(COLOR_BTNFACE));
         if (gcdrf != CDRF_DODEFAULT)
@@ -1739,7 +1734,7 @@ TRACKBAR_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     TRACKBAR_INFO *infoPtr = (TRACKBAR_INFO *)GetWindowLongPtrW (hwnd, 0);
 
-    TRACE("hwnd=%p msg=%x wparam=%lx lparam=%lx\n", hwnd, uMsg, wParam, lParam);
+    TRACE("hwnd=%p msg=%x wparam=%x lparam=%lx\n", hwnd, uMsg, wParam, lParam);
 
     if (!infoPtr && (uMsg != WM_CREATE))
         return DefWindowProcW (hwnd, uMsg, wParam, lParam);
@@ -1913,7 +1908,7 @@ TRACKBAR_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     default:
         if ((uMsg >= WM_USER) && (uMsg < WM_APP))
-            ERR("unknown msg %04x wp=%08lx lp=%08lx\n", uMsg, wParam, lParam);
+            ERR("unknown msg %04x wp=%08x lp=%08lx\n", uMsg, wParam, lParam);
         return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }
 }

@@ -1,7 +1,6 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="serenum" type="kernelmodedriver" installbase="system32/drivers" installname="serenum.sys">
 	<include base="serenum">.</include>
+	<define name="__USE_W32API" />
 	<define name="NDEBUG" />
 	<library>ntoskrnl</library>
 	<library>hal</library>

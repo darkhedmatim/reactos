@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.1
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -42,103 +42,37 @@
 #include "texformat.h"
 #include "texstore.h"
 
-#if USE_EXTERNAL_DXTN_LIB && !defined(__MINGW32__)
-#include <dlfcn.h>
-#endif
-
+#if USE_EXTERNAL_DXTN_LIB
 #ifdef __MINGW32__
-#define DXTN_LIBNAME "dxtn.dll"
-#define RTLD_LAZY 0
-#define RTLD_GLOBAL 0
+/* no dlopen */
+#define DXTN_EXT "dxtn.dll"
+#define DXTN_PREFIX ""
+#define dlopen(name, mode) LoadLibrary(name)
+#define dlsym(hndl, proc) GetProcAddress(hndl, proc)
+#define dlclose(hndl) FreeLibrary(hndl)
 #elif defined(__DJGPP__)
-#define DXTN_LIBNAME "dxtn.dxe"
+/* has dlopen, but doesn't like the names */
+#include <dlfcn.h>
+#define DXTN_EXT "dxtn.dxe"
+#define DXTN_PREFIX "_"
 #else
-#define DXTN_LIBNAME "libtxc_dxtn.so"
+/* happiness */
+#include <dlfcn.h>
+#define DXTN_EXT "libtxc_dxtn.so"
+#define DXTN_PREFIX ""
 #endif
-
+#endif /* USE_EXTERNAL_DXTN_LIB */
 
 typedef void (*dxtFetchTexelFuncExt)( GLint srcRowstride, GLubyte *pixdata, GLint col, GLint row, GLvoid *texelOut );
-
 dxtFetchTexelFuncExt fetch_ext_rgb_dxt1 = NULL;
 dxtFetchTexelFuncExt fetch_ext_rgba_dxt1 = NULL;
 dxtFetchTexelFuncExt fetch_ext_rgba_dxt3 = NULL;
 dxtFetchTexelFuncExt fetch_ext_rgba_dxt5 = NULL;
 
-typedef void (*dxtCompressTexFuncExt)(GLint srccomps, GLint width,
-                                      GLint height, const GLchan *srcPixData,
-                                      GLenum destformat, GLubyte *dest,
-                                      GLint dstRowStride);
+typedef void (*dxtCompressTexFuncExt)(GLint srccomps, GLint width, GLint height, const GLubyte *srcPixData, GLenum destformat, GLubyte *dest, GLint dstRowStride);
+dxtCompressTexFuncExt ext_tx_compress_dxtn = NULL;
 
-static dxtCompressTexFuncExt ext_tx_compress_dxtn = NULL;
-
-static void *dxtlibhandle = NULL;
-
-
-typedef void (*GenericFunc)(void);
-
-
-/**
- * Wrapper for dlopen().
- * XXX Probably move this and the following wrappers into imports.h someday.
- */
-static void *
-_mesa_dlopen(const char *libname, int flags)
-{
-#if USE_EXTERNAL_DXTN_LIB
-#ifdef __MINGW32__
-   return LoadLibrary(libname);
-#else
-   return dlopen(libname, flags);
-#endif
-#else
-   return NULL;
-#endif /* USE_EXTERNAL_DXTN_LIB */
-}
-
-
-/**
- * Wrapper for dlsym() that does a cast to a generic function type,
- * rather than a void *.  This reduces the number of warnings that are
- * generated.
- */
-static GenericFunc
-_mesa_dlsym(void *handle, const char *fname)
-{
-#if USE_EXTERNAL_DXTN_LIB
-#ifdef __MINGW32__
-   return (GenericFunc) GetProcAddress(handle, fname);
-#elif defined(__DJGPP__)
-   /* need '_' prefix on symbol names */
-   char fname2[1000];
-   fname2[0] = '_';
-   _mesa_strncpy(fname2 + 1, fname, 998);
-   fname2[999] = 0;
-   return (GenericFunc) dlsym(handle, fname2);
-#else
-   return (GenericFunc) dlsym(handle, fname);
-#endif
-#else
-   return (GenericFunc) NULL;
-#endif /* USE_EXTERNAL_DXTN_LIB */
-}
-
-
-/**
- * Wrapper for dlclose().
- */
-static void
-_mesa_dlclose(void *handle)
-{
-#if USE_EXTERNAL_DXTN_LIB
-#ifdef __MINGW32__
-   FreeLibrary(handle);
-#else
-   dlclose(handle);
-#endif
-#endif
-}
-
-
+void *dxtlibhandle = NULL;
 
 void
 _mesa_init_texture_s3tc( GLcontext *ctx )
@@ -147,45 +81,44 @@ _mesa_init_texture_s3tc( GLcontext *ctx )
    ctx->Mesa_DXTn = GL_FALSE;
 #if USE_EXTERNAL_DXTN_LIB
    if (!dxtlibhandle) {
-      dxtlibhandle = _mesa_dlopen(DXTN_LIBNAME, RTLD_LAZY | RTLD_GLOBAL);
+      dxtlibhandle = dlopen (DXTN_EXT, RTLD_LAZY | RTLD_GLOBAL);
       if (!dxtlibhandle) {
-	 _mesa_warning(ctx, "couldn't open " DXTN_LIBNAME ", software DXTn "
-	    "compression/decompression unavailable");
+	 _mesa_warning(ctx, "couldn't open " DXTN_EXT ", software DXTn "
+	    "compression/decompression unavailable\n");
       }
       else {
          /* the fetch functions are not per context! Might be problematic... */
-         fetch_ext_rgb_dxt1 = (dxtFetchTexelFuncExt)
-            _mesa_dlsym(dxtlibhandle, "fetch_2d_texel_rgb_dxt1");
-         fetch_ext_rgba_dxt1 = (dxtFetchTexelFuncExt)
-            _mesa_dlsym(dxtlibhandle, "fetch_2d_texel_rgba_dxt1");
-         fetch_ext_rgba_dxt3 = (dxtFetchTexelFuncExt)
-            _mesa_dlsym(dxtlibhandle, "fetch_2d_texel_rgba_dxt3");
-         fetch_ext_rgba_dxt5 = (dxtFetchTexelFuncExt)
-            _mesa_dlsym(dxtlibhandle, "fetch_2d_texel_rgba_dxt5");
-         ext_tx_compress_dxtn = (dxtCompressTexFuncExt)
-            _mesa_dlsym(dxtlibhandle, "tx_compress_dxtn");
+         fetch_ext_rgb_dxt1 = (dxtFetchTexelFuncExt)dlsym(dxtlibhandle, DXTN_PREFIX "fetch_2d_texel_rgb_dxt1");
+         if (fetch_ext_rgb_dxt1 != NULL) {
+            fetch_ext_rgba_dxt1 = (dxtFetchTexelFuncExt)dlsym(dxtlibhandle, DXTN_PREFIX "fetch_2d_texel_rgba_dxt1");
+         }
+         if (fetch_ext_rgba_dxt1 != NULL) {
+            fetch_ext_rgba_dxt3 = (dxtFetchTexelFuncExt)dlsym(dxtlibhandle, DXTN_PREFIX "fetch_2d_texel_rgba_dxt3");
+         }
+         if (fetch_ext_rgba_dxt3 != NULL) {
+            fetch_ext_rgba_dxt5 = (dxtFetchTexelFuncExt)dlsym(dxtlibhandle, DXTN_PREFIX "fetch_2d_texel_rgba_dxt5");
+         }
+         if (fetch_ext_rgba_dxt5 != NULL) {
+            ext_tx_compress_dxtn = (dxtCompressTexFuncExt)dlsym(dxtlibhandle, DXTN_PREFIX "tx_compress_dxtn");
+         }
 
-         if (!fetch_ext_rgb_dxt1 ||
-             !fetch_ext_rgba_dxt1 ||
-             !fetch_ext_rgba_dxt3 ||
-             !fetch_ext_rgba_dxt5 ||
-             !ext_tx_compress_dxtn) {
+         if (ext_tx_compress_dxtn == NULL) {
 	    _mesa_warning(ctx, "couldn't reference all symbols in "
-	       DXTN_LIBNAME ", software DXTn compression/decompression "
-	       "unavailable");
+	       DXTN_EXT ", software DXTn compression/decompression "
+	       "unavailable\n");
             fetch_ext_rgb_dxt1 = NULL;
             fetch_ext_rgba_dxt1 = NULL;
             fetch_ext_rgba_dxt3 = NULL;
             fetch_ext_rgba_dxt5 = NULL;
             ext_tx_compress_dxtn = NULL;
-            _mesa_dlclose(dxtlibhandle);
+            dlclose(dxtlibhandle);
             dxtlibhandle = NULL;
          }
       }
    }
    if (dxtlibhandle) {
       ctx->Mesa_DXTn = GL_TRUE;
-      _mesa_warning(ctx, "software DXTn compression/decompression available");
+      _mesa_warning(ctx, "software DXTn compression/decompression available\n");
    }
 #else
    (void) ctx;
@@ -196,7 +129,7 @@ _mesa_init_texture_s3tc( GLcontext *ctx )
  * Called via TexFormat->StoreImage to store an RGB_DXT1 texture.
  */
 static GLboolean
-texstore_rgb_dxt1(TEXSTORE_PARAMS)
+texstore_rgb_dxt1(STORE_PARAMS)
 {
    const GLchan *pixels;
    GLint srcRowStride;
@@ -208,8 +141,7 @@ texstore_rgb_dxt1(TEXSTORE_PARAMS)
    ASSERT(dstXoffset % 4 == 0);
    ASSERT(dstYoffset % 4 == 0);
    ASSERT(dstZoffset % 4 == 0);
-   (void) dstZoffset;
-   (void) dstImageOffsets;
+   (void) dstZoffset; (void) dstImageStride;
 
    if (srcFormat != GL_RGB ||
        srcType != CHAN_TYPE ||
@@ -236,16 +168,14 @@ texstore_rgb_dxt1(TEXSTORE_PARAMS)
    }
 
    dst = _mesa_compressed_image_address(dstXoffset, dstYoffset, 0,
-                                        dstFormat->MesaFormat,
+                                        GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
                                         texWidth, (GLubyte *) dstAddr);
 
    if (ext_tx_compress_dxtn) {
-      (*ext_tx_compress_dxtn)(3, srcWidth, srcHeight, pixels,
-                              GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
-                              dst, dstRowStride);
+      (*ext_tx_compress_dxtn)(3, srcWidth, srcHeight, pixels,  GL_COMPRESSED_RGB_S3TC_DXT1_EXT, dst, dstRowStride);
    }
    else {
-      _mesa_warning(ctx, "external dxt library not available");
+      _mesa_problem(ctx, "external dxt library not available");
    }
 
    if (tempImage)
@@ -259,7 +189,7 @@ texstore_rgb_dxt1(TEXSTORE_PARAMS)
  * Called via TexFormat->StoreImage to store an RGBA_DXT1 texture.
  */
 static GLboolean
-texstore_rgba_dxt1(TEXSTORE_PARAMS)
+texstore_rgba_dxt1(STORE_PARAMS)
 {
    const GLchan *pixels;
    GLint srcRowStride;
@@ -271,8 +201,7 @@ texstore_rgba_dxt1(TEXSTORE_PARAMS)
    ASSERT(dstXoffset % 4 == 0);
    ASSERT(dstYoffset % 4 == 0);
    ASSERT(dstZoffset % 4 == 0);
-   (void) dstZoffset;
-   (void) dstImageOffsets;
+   (void) dstZoffset; (void) dstImageStride;
 
    if (srcFormat != GL_RGBA ||
        srcType != CHAN_TYPE ||
@@ -299,15 +228,13 @@ texstore_rgba_dxt1(TEXSTORE_PARAMS)
    }
 
    dst = _mesa_compressed_image_address(dstXoffset, dstYoffset, 0,
-                                        dstFormat->MesaFormat,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                         texWidth, (GLubyte *) dstAddr);
    if (ext_tx_compress_dxtn) {
-      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,
-                              GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                              dst, dstRowStride);
+      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,  GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, dst, dstRowStride);
    }
    else {
-      _mesa_warning(ctx, "external dxt library not available");
+      _mesa_problem(ctx, "external dxt library not available");
    }
 
    if (tempImage)
@@ -321,7 +248,7 @@ texstore_rgba_dxt1(TEXSTORE_PARAMS)
  * Called via TexFormat->StoreImage to store an RGBA_DXT3 texture.
  */
 static GLboolean
-texstore_rgba_dxt3(TEXSTORE_PARAMS)
+texstore_rgba_dxt3(STORE_PARAMS)
 {
    const GLchan *pixels;
    GLint srcRowStride;
@@ -333,8 +260,7 @@ texstore_rgba_dxt3(TEXSTORE_PARAMS)
    ASSERT(dstXoffset % 4 == 0);
    ASSERT(dstYoffset % 4 == 0);
    ASSERT(dstZoffset % 4 == 0);
-   (void) dstZoffset;
-   (void) dstImageOffsets;
+   (void) dstZoffset; (void) dstImageStride;
 
    if (srcFormat != GL_RGBA ||
        srcType != CHAN_TYPE ||
@@ -360,15 +286,13 @@ texstore_rgba_dxt3(TEXSTORE_PARAMS)
    }
 
    dst = _mesa_compressed_image_address(dstXoffset, dstYoffset, 0,
-                                        dstFormat->MesaFormat,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
                                         texWidth, (GLubyte *) dstAddr);
    if (ext_tx_compress_dxtn) {
-      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,
-                              GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
-                              dst, dstRowStride);
+      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,  GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, dst, dstRowStride);
    }
    else {
-      _mesa_warning(ctx, "external dxt library not available");
+      _mesa_problem(ctx, "external dxt library not available");
    }
 
    if (tempImage)
@@ -382,7 +306,7 @@ texstore_rgba_dxt3(TEXSTORE_PARAMS)
  * Called via TexFormat->StoreImage to store an RGBA_DXT5 texture.
  */
 static GLboolean
-texstore_rgba_dxt5(TEXSTORE_PARAMS)
+texstore_rgba_dxt5(STORE_PARAMS)
 {
    const GLchan *pixels;
    GLint srcRowStride;
@@ -394,8 +318,7 @@ texstore_rgba_dxt5(TEXSTORE_PARAMS)
    ASSERT(dstXoffset % 4 == 0);
    ASSERT(dstYoffset % 4 == 0);
    ASSERT(dstZoffset % 4 == 0);
-   (void) dstZoffset;
-   (void) dstImageOffsets;
+   (void) dstZoffset; (void) dstImageStride;
 
    if (srcFormat != GL_RGBA ||
        srcType != CHAN_TYPE ||
@@ -421,15 +344,13 @@ texstore_rgba_dxt5(TEXSTORE_PARAMS)
    }
 
    dst = _mesa_compressed_image_address(dstXoffset, dstYoffset, 0,
-                                        dstFormat->MesaFormat,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                                         texWidth, (GLubyte *) dstAddr);
    if (ext_tx_compress_dxtn) {
-      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,
-                              GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                              dst, dstRowStride);
+      (*ext_tx_compress_dxtn)(4, srcWidth, srcHeight, pixels,  GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, dst, dstRowStride);
    }
    else {
-      _mesa_warning(ctx, "external dxt library not available");
+      _mesa_problem(ctx, "external dxt library not available");
    }
 
    if (tempImage)
@@ -443,14 +364,12 @@ static void
 fetch_texel_2d_rgb_dxt1( const struct gl_texture_image *texImage,
                          GLint i, GLint j, GLint k, GLchan *texel )
 {
-   (void) k;
-   if (fetch_ext_rgb_dxt1) {
-      ASSERT (sizeof(GLchan) == sizeof(GLubyte));
-      fetch_ext_rgb_dxt1(texImage->RowStride,
-                         (GLubyte *)(texImage)->Data, i, j, texel);
-   }
-   else
-      _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
+    (void) k;
+    if (fetch_ext_rgb_dxt1) {
+       ASSERT (sizeof(GLchan) == sizeof(GLubyte));
+       (*fetch_ext_rgb_dxt1)((texImage)->RowStride, (GLubyte *)(texImage)->Data, i, j, texel);
+    }
+    else _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
 }
 
 
@@ -459,7 +378,7 @@ fetch_texel_2d_f_rgb_dxt1( const struct gl_texture_image *texImage,
                             GLint i, GLint j, GLint k, GLfloat *texel )
 {
    /* just sample as GLchan and convert to float here */
-   GLchan rgba[4];
+   GLchan rgba[4] = {0, 0, 0, 0};
    fetch_texel_2d_rgb_dxt1(texImage, i, j, k, rgba);
    texel[RCOMP] = CHAN_TO_FLOAT(rgba[RCOMP]);
    texel[GCOMP] = CHAN_TO_FLOAT(rgba[GCOMP]);
@@ -474,11 +393,9 @@ fetch_texel_2d_rgba_dxt1( const struct gl_texture_image *texImage,
 {
    (void) k;
    if (fetch_ext_rgba_dxt1) {
-      fetch_ext_rgba_dxt1(texImage->RowStride,
-                          (GLubyte *)(texImage)->Data, i, j, texel);
-   }
-   else
-      _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
+       (*fetch_ext_rgba_dxt1)((texImage)->RowStride, (GLubyte *)(texImage)->Data, i, j, texel);
+    }
+    else _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
 }
 
 
@@ -487,7 +404,7 @@ fetch_texel_2d_f_rgba_dxt1( const struct gl_texture_image *texImage,
                             GLint i, GLint j, GLint k, GLfloat *texel )
 {
    /* just sample as GLchan and convert to float here */
-   GLchan rgba[4];
+   GLchan rgba[4] = {0, 0, 0, 0};
    fetch_texel_2d_rgba_dxt1(texImage, i, j, k, rgba);
    texel[RCOMP] = CHAN_TO_FLOAT(rgba[RCOMP]);
    texel[GCOMP] = CHAN_TO_FLOAT(rgba[GCOMP]);
@@ -502,12 +419,10 @@ fetch_texel_2d_rgba_dxt3( const struct gl_texture_image *texImage,
 {
    (void) k;
    if (fetch_ext_rgba_dxt3) {
-      ASSERT (sizeof(GLchan) == sizeof(GLubyte));
-      fetch_ext_rgba_dxt3(texImage->RowStride, (GLubyte *)(texImage)->Data,
-                          i, j, texel);
-   }
-   else
-      _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
+       ASSERT (sizeof(GLchan) == sizeof(GLubyte));
+       (*fetch_ext_rgba_dxt3)((texImage)->RowStride, (GLubyte *)(texImage)->Data, i, j, texel);
+    }
+    else _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
 }
 
 
@@ -516,7 +431,7 @@ fetch_texel_2d_f_rgba_dxt3( const struct gl_texture_image *texImage,
                             GLint i, GLint j, GLint k, GLfloat *texel )
 {
    /* just sample as GLchan and convert to float here */
-   GLchan rgba[4];
+   GLchan rgba[4] = {0, 0, 0, 0};
    fetch_texel_2d_rgba_dxt3(texImage, i, j, k, rgba);
    texel[RCOMP] = CHAN_TO_FLOAT(rgba[RCOMP]);
    texel[GCOMP] = CHAN_TO_FLOAT(rgba[GCOMP]);
@@ -531,11 +446,9 @@ fetch_texel_2d_rgba_dxt5( const struct gl_texture_image *texImage,
 {
    (void) k;
    if (fetch_ext_rgba_dxt5) {
-      fetch_ext_rgba_dxt5(texImage->RowStride, (GLubyte *)(texImage)->Data,
-                          i, j, texel);
-   }
-   else
-      _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
+       (*fetch_ext_rgba_dxt5)((texImage)->RowStride, (GLubyte *)(texImage)->Data, i, j, texel);
+    }
+    else _mesa_debug(NULL, "attempted to decode s3tc texture without library available\n");
 }
 
 
@@ -544,7 +457,7 @@ fetch_texel_2d_f_rgba_dxt5( const struct gl_texture_image *texImage,
                             GLint i, GLint j, GLint k, GLfloat *texel )
 {
    /* just sample as GLchan and convert to float here */
-   GLchan rgba[4];
+   GLchan rgba[4] = {0, 0, 0, 0};
    fetch_texel_2d_rgba_dxt5(texImage, i, j, k, rgba);
    texel[RCOMP] = CHAN_TO_FLOAT(rgba[RCOMP]);
    texel[GCOMP] = CHAN_TO_FLOAT(rgba[GCOMP]);
@@ -565,7 +478,6 @@ const struct gl_texture_format _mesa_texformat_rgb_dxt1 = {
    0,					/* IntensityBits */
    0,					/* IndexBits */
    0,					/* DepthBits */
-   0,					/* StencilBits */
    0,					/* TexelBytes */
    texstore_rgb_dxt1,			/* StoreTexImageFunc */
    NULL, /*impossible*/ 		/* FetchTexel1D */
@@ -574,7 +486,6 @@ const struct gl_texture_format _mesa_texformat_rgb_dxt1 = {
    NULL, /*impossible*/ 		/* FetchTexel1Df */
    fetch_texel_2d_f_rgb_dxt1, 		/* FetchTexel2Df */
    NULL, /*impossible*/ 		/* FetchTexel3Df */
-   NULL					/* StoreTexel */
 };
 
 const struct gl_texture_format _mesa_texformat_rgba_dxt1 = {
@@ -589,7 +500,6 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt1 = {
    0,					/* IntensityBits */
    0,					/* IndexBits */
    0,					/* DepthBits */
-   0,					/* StencilBits */
    0,					/* TexelBytes */
    texstore_rgba_dxt1,			/* StoreTexImageFunc */
    NULL, /*impossible*/ 		/* FetchTexel1D */
@@ -598,7 +508,6 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt1 = {
    NULL, /*impossible*/ 		/* FetchTexel1Df */
    fetch_texel_2d_f_rgba_dxt1, 		/* FetchTexel2Df */
    NULL, /*impossible*/ 		/* FetchTexel3Df */
-   NULL					/* StoreTexel */
 };
 
 const struct gl_texture_format _mesa_texformat_rgba_dxt3 = {
@@ -613,7 +522,6 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt3 = {
    0,					/* IntensityBits */
    0,					/* IndexBits */
    0,					/* DepthBits */
-   0,					/* StencilBits */
    0,					/* TexelBytes */
    texstore_rgba_dxt3,			/* StoreTexImageFunc */
    NULL, /*impossible*/ 		/* FetchTexel1D */
@@ -622,7 +530,6 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt3 = {
    NULL, /*impossible*/ 		/* FetchTexel1Df */
    fetch_texel_2d_f_rgba_dxt3, 		/* FetchTexel2Df */
    NULL, /*impossible*/ 		/* FetchTexel3Df */
-   NULL					/* StoreTexel */
 };
 
 const struct gl_texture_format _mesa_texformat_rgba_dxt5 = {
@@ -637,7 +544,6 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt5 = {
    0,					/* IntensityBits */
    0,					/* IndexBits */
    0,					/* DepthBits */
-   0,					/* StencilBits */
    0,					/* TexelBytes */
    texstore_rgba_dxt5,			/* StoreTexImageFunc */
    NULL, /*impossible*/ 		/* FetchTexel1D */
@@ -646,5 +552,4 @@ const struct gl_texture_format _mesa_texformat_rgba_dxt5 = {
    NULL, /*impossible*/ 		/* FetchTexel1Df */
    fetch_texel_2d_f_rgba_dxt5, 		/* FetchTexel2Df */
    NULL, /*impossible*/ 		/* FetchTexel3Df */
-   NULL					/* StoreTexel */
 };

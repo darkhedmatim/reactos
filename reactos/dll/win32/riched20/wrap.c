@@ -51,7 +51,7 @@ static void ME_BeginRow(ME_WrapContext *wc)
   wc->pt.x = 0;
 }
 
-void ME_InsertRowStart(ME_WrapContext *wc, const ME_DisplayItem *pEnd)
+void ME_InsertRowStart(ME_WrapContext *wc, ME_DisplayItem *pEnd)
 {
   ME_DisplayItem *p, *row, *para;
   int ascent = 0, descent = 0, width=0, shift = 0, align = 0;
@@ -429,13 +429,11 @@ BOOL ME_WrapMarkedParagraphs(ME_TextEditor *editor) {
   ME_InitContext(&c, editor, hDC);
   c.pt.x = 0;
   c.pt.y = 0;
-  editor->nHeight = 0;
   item = editor->pBuffer->pFirst->next;
   while(item != editor->pBuffer->pLast) {
     BOOL bRedraw = FALSE;
 
     assert(item->type == diParagraph);
-    editor->nHeight = max(editor->nHeight, item->member.para.nYPos);
     if ((item->member.para.nFlags & MEPF_REWRAP)
      || (item->member.para.nYPos != c.pt.y))
       bRedraw = TRUE;

@@ -122,8 +122,8 @@ IntGdiPolyPolygon(DC      *dc,
                   int     Count);
 
 BOOL FASTCALL IntGdiGradientFill(DC *dc,
-    PTRIVERTEX pVertex,
-    ULONG uVertex,
+    PTRIVERTEX pVertex, 
+    ULONG uVertex, 
     PVOID pMesh, ULONG uMesh, ULONG ulMode);
 
 /* Rgn functions */
@@ -132,16 +132,10 @@ int FASTCALL
 IntGdiGetClipBox(HDC    hDC,
 			     LPRECT rc);
 
-INT
-STDCALL
-IntGdiSelectVisRgn(HDC hdc,
-                     HRGN hrgn);
-
 HRGN FASTCALL REGION_CropRgn(HRGN hDst, HRGN hSrc, const PRECT lpRect, PPOINT lpPt);
 void FASTCALL REGION_UnionRectWithRegion(const RECT *rect, ROSRGNDATA *rgn);
 INT FASTCALL UnsafeIntGetRgnBox(PROSRGNDATA Rgn, LPRECT pRect);
 BOOL FASTCALL UnsafeIntRectInRegion(PROSRGNDATA Rgn, CONST LPRECT rc);
-INT STDCALL IntGdiGetRgnBox(HRGN, LPRECT);
 
 #define UnsafeIntCreateRectRgnIndirect(prc) \
   NtGdiCreateRectRgn((prc)->left, (prc)->top, (prc)->right, (prc)->bottom)
@@ -160,9 +154,15 @@ IntGdiGetObject(HANDLE handle, INT count, LPVOID buffer);
 HDC FASTCALL
 IntGdiCreateDC(PUNICODE_STRING Driver,
                PUNICODE_STRING Device,
-               PVOID pUMdhpdev,
+               PUNICODE_STRING Output,
                CONST PDEVMODEW InitData,
                BOOL CreateAsIC);
+
+COLORREF FASTCALL
+IntGetDCColor(HDC hDC, ULONG Object);
+
+COLORREF FASTCALL
+IntSetDCColor(HDC hDC, ULONG Object, COLORREF Color);
 
 /* Coord functions */
 
@@ -247,55 +247,6 @@ FASTCALL
 IntCreateCompatibleBitmap(PDC Dc,
                           INT Width,
                           INT Height);
-
-HBITMAP STDCALL
-IntGdiCreateBitmap(
-    INT  Width,
-    INT  Height,
-    UINT  Planes,
-    UINT  BitsPixel,
-    IN OPTIONAL LPBYTE pBits);
-
-HDC STDCALL IntGdiGetDCState(HDC  hDC);
-
-WORD STDCALL IntGdiSetHookFlags(HDC hDC, WORD Flags);
-
-VOID STDCALL IntGdiSetDCState ( HDC hDC, HDC hDCSave );
-
-LONG STDCALL IntSetBitmapBits(PBITMAPOBJ bmp, DWORD  Bytes, IN PBYTE Bits);
-
-LONG STDCALL IntGetBitmapBits(PBITMAPOBJ bmp, DWORD Bytes, OUT PBYTE Bits);
-
-UINT STDCALL IntSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors);
-
-UINT STDCALL IntGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors);
-
-UINT STDCALL
-IntAnimatePalette(HPALETTE hPal, UINT StartIndex,
-   UINT NumEntries, CONST PPALETTEENTRY PaletteColors);
-
-UINT STDCALL
-IntGetPaletteEntries(HPALETTE  hpal,
-                     UINT  StartIndex,
-                     UINT  Entries,
-                     LPPALETTEENTRY  pe);
-
-UINT STDCALL
-IntSetPaletteEntries(HPALETTE  hpal,
-                      UINT  Start,
-                      UINT  Entries,
-                      CONST LPPALETTEENTRY  pe);
-
-UINT STDCALL
-IntGetSystemPaletteEntries(HDC  hDC,
-                           UINT  StartIndex,
-                           UINT  Entries,
-                           LPPALETTEENTRY  pe);
-UINT STDCALL
-IntGetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, RGBQUAD *Colors);
-
-UINT STDCALL
-IntSetDIBColorTable(HDC hDC, UINT StartIndex, UINT Entries, CONST RGBQUAD *Colors);
 
 #endif /* _WIN32K_INTGDI_H */
 

@@ -195,7 +195,7 @@ KdbpEvaluateExpression(
 STATIC BOOLEAN
 KdbpCmdEvalExpression(ULONG Argc, PCHAR Argv[])
 {
-   ULONG i, len;
+   UINT i, len;
    ULONGLONG Result = 0;
    ULONG ul;
    LONG l = 0;
@@ -483,8 +483,8 @@ KdbpCmdRegs(ULONG Argc, PCHAR Argv[])
    else if (Argv[0][0] == 'c') /* cregs */
    {
       ULONG Cr0, Cr2, Cr3, Cr4;
-      KDESCRIPTOR Gdtr = {0}, Ldtr = {0}, Idtr = {0};
-      ULONG Tr = 0;
+      KDESCRIPTOR Gdtr, Ldtr, Idtr;
+      ULONG Tr;
       STATIC CONST PCHAR Cr0Bits[32] = { " PE", " MP", " EM", " TS", " ET", " NE", NULL, NULL,
                                          NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                                          " WP", NULL, " AM", NULL, NULL, NULL, NULL, NULL,
@@ -500,12 +500,12 @@ KdbpCmdRegs(ULONG Argc, PCHAR Argv[])
       Cr4 = KdbCurrentTrapFrame->Cr4;
 
       /* Get descriptor table regs */
-      Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&Gdtr.Limit);
-      Ke386GetLocalDescriptorTable(Ldtr.Limit);
-      Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&Idtr.Limit);
+      asm volatile("sgdt %0" : : "m"(Gdtr.Limit));
+      asm volatile("sldt %0" : : "m"(Ldtr.Limit));
+      asm volatile("sidt %0" : : "m"(Idtr.Limit));
 
       /* Get the task register */
-      Ke386GetTr(Tr);
+      asm volatile("str %0" : "=g"(Tr));
 
       /* Display the control registers */
       KdbpPrint("CR0  0x%08x ", Cr0);
@@ -842,8 +842,7 @@ KdbpCmdBreakPoint(ULONG Argc, PCHAR Argv[])
    KDB_BREAKPOINT_TYPE Type;
    UCHAR Size = 0;
    KDB_ACCESS_TYPE AccessType = 0;
-   ULONG AddressArgIndex, i;
-   LONG ConditionArgIndex;
+   UINT AddressArgIndex, ConditionArgIndex, i;
    BOOLEAN Global = TRUE;
 
    if (Argv[0][2] == 'x') /* software breakpoint */
@@ -1189,8 +1188,8 @@ KdbpCmdProc(ULONG Argc, PCHAR Argv[])
       {
          return TRUE;
       }
-      KdbpPrint("Attached to process 0x%08x, thread 0x%08x.\n", (ULONG)ul,
-                (ULONG)KdbCurrentThread->Cid.UniqueThread);
+      KdbpPrint("Attached to process 0x%08x, thread 0x%08x.\n", (UINT)ul,
+                (UINT)KdbCurrentThread->Cid.UniqueThread);
    }
    else
    {
@@ -1290,7 +1289,10 @@ KdbpCmdMod(ULONG Argc, PCHAR Argv[])
 STATIC BOOLEAN
 KdbpCmdGdtLdtIdt(ULONG Argc, PCHAR Argv[])
 {
-    KDESCRIPTOR Reg = {0};
+   struct __attribute__((packed)) {
+      USHORT Limit;
+      ULONG Base;
+   } Reg;
    ULONG SegDesc[2];
    ULONG SegBase;
    ULONG SegLimit;
@@ -1303,7 +1305,7 @@ KdbpCmdGdtLdtIdt(ULONG Argc, PCHAR Argv[])
    if (Argv[0][0] == 'i')
    {
       /* Read IDTR */
-      Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&Reg.Limit);
+      asm volatile("sidt %0" : : "m"(Reg));
 
       if (Reg.Limit < 7)
       {
@@ -1360,14 +1362,14 @@ KdbpCmdGdtLdtIdt(ULONG Argc, PCHAR Argv[])
       if (Argv[0][0] == 'g')
       {
          /* Read GDTR */
-         Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&Reg.Limit);
+         asm volatile("sgdt %0" : : "m"(Reg));
          i = 8;
       }
       else
       {
          ASSERT(Argv[0][0] == 'l');
          /* Read LDTR */
-         Ke386GetLocalDescriptorTable(Reg.Limit);
+         asm volatile("sldt %0" : : "m"(Reg));
          i = 0;
          ul = 1 << 2;
       }
@@ -1565,7 +1567,7 @@ KdbpCmdBugCheck(ULONG Argc, PCHAR Argv[])
 STATIC BOOLEAN
 KdbpCmdSet(ULONG Argc, PCHAR Argv[])
 {
-   LONG l;
+   ULONG l;
    BOOLEAN First;
    PCHAR pend = 0;
    KDB_ENTER_CONDITION ConditionFirst = KdbDoNotEnter;
@@ -1763,9 +1765,9 @@ KdbpPrint(
    STATIC BOOLEAN TerminalReportsSize = TRUE;
    CHAR c = '\0';
    PCHAR p, p2;
-   ULONG Length;
-   ULONG i, j;
-   LONG RowsPrintedByTerminal;
+   UINT Length;
+   UINT i, j;
+   INT RowsPrintedByTerminal;
    ULONG ScanCode;
    va_list ap;
 
@@ -1927,10 +1929,6 @@ KdbpPrint(
                j = 2;
                while (!isalpha(p2[j++]));
                strcpy(p2, p2 + j);
-            }
-            else
-            {
-                strcpy(p2, p2 + 1);
             }
          }
       }
@@ -2212,7 +2210,7 @@ KdbpReadCommand(
  * \retval TRUE   Don't continue execution.
  * \retval FALSE  Continue execution (leave KDB)
  */
-STATIC BOOLEAN
+STATIC BOOL
 KdbpDoCommand(
    IN PCHAR Command)
 {
@@ -2392,7 +2390,7 @@ KdbpCliInit()
    HANDLE hFile = NULL;
    INT FileSize;
    PCHAR FileBuffer;
-   ULONG OldEflags = 0;
+   ULONG OldEflags;
 
    /* Initialize the object attributes */
    RtlInitUnicodeString(&FileName, L"\\SystemRoot\\system32\\drivers\\etc\\KDBinit");

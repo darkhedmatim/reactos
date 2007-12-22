@@ -1400,7 +1400,7 @@ DbgkInitialize(VOID)
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(DEBUG_OBJECT);
     ObjectTypeInitializer.GenericMapping = DbgkDebugObjectMapping;
     ObjectTypeInitializer.PoolType = NonPagedPool;
-    ObjectTypeInitializer.ValidAccessMask = DEBUG_OBJECT_ALL_ACCESS;
+    ObjectTypeInitializer.ValidAccessMask = DEBUG_OBJECT_WAIT_STATE_CHANGE;
     ObjectTypeInitializer.UseDefaultObject = TRUE;
     ObjectTypeInitializer.CloseProcedure = DbgkpCloseObject;
     ObjectTypeInitializer.DeleteProcedure = DbgkpDeleteObject;

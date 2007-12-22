@@ -5,7 +5,7 @@
  *  History:
  *
  *    06/14/97 (Tim Norman)
- *        changed static var in set() to a cmd_alloc'd space to pass to putenv.
+ *        changed static var in set() to a malloc'd space to pass to putenv.
  *        need to find a better way to do this, since it seems it is wasting
  *        memory when variables are redefined.
  *
@@ -35,6 +35,9 @@
  */
 
 #include <precomp.h>
+#include <malloc.h>
+#include <stdio.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_SET
 
@@ -112,13 +115,6 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		return Success;
 	}
 
-	if ( !_tcsnicmp (param, _T("/"), 1) )
-	{
-		LoadString(CMD_ModuleHandle, STRING_SYNTAX_COMMAND_INCORRECT, szMsg, RC_STRING_MAX_SIZE);
-		ConErrPrintf (szMsg, param);
-		return 0;
-	}
-
 	p = _tcschr (param, _T('='));
 	if (p)
 	{
@@ -145,7 +141,7 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		LPTSTR pszBuffer;
 		DWORD dwBuffer;
 
-		pszBuffer = (LPTSTR)cmd_alloc (ENV_BUFFER_SIZE * sizeof(TCHAR));
+		pszBuffer = (LPTSTR)malloc (ENV_BUFFER_SIZE * sizeof(TCHAR));
 		dwBuffer = GetEnvironmentVariable (param, pszBuffer, ENV_BUFFER_SIZE);
 		if (dwBuffer == 0)
 		{
@@ -155,12 +151,12 @@ INT cmd_set (LPTSTR cmd, LPTSTR param)
 		}
 		else if (dwBuffer > ENV_BUFFER_SIZE)
 		{
-			pszBuffer = (LPTSTR)cmd_realloc (pszBuffer, dwBuffer * sizeof (TCHAR));
+			pszBuffer = (LPTSTR)realloc (pszBuffer, dwBuffer * sizeof (TCHAR));
 			GetEnvironmentVariable (param, pszBuffer, dwBuffer);
 		}
 		ConOutPrintf (_T("%s\n"), pszBuffer);
 
-		cmd_free (pszBuffer);
+		free (pszBuffer);
 
 		return 0;
 	}

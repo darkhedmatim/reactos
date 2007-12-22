@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -112,7 +112,9 @@ userclip_point( GLcontext *ctx, const GLfloat v[] )
 
 
 /**
- * Compute lighting for the raster position.  Both RGB and CI modes computed.
+ * This has been split off to allow the normal shade routines to
+ * get a little closer to the vertex buffer, and to use the
+ * GLvector objects directly.
  * \param ctx the context
  * \param vertex vertex location
  * \param normal normal vector
@@ -128,44 +130,42 @@ shade_rastpos(GLcontext *ctx,
               GLfloat Rspec[4],
               GLfloat *Rindex)
 {
-   /*const*/ GLfloat (*base)[3] = ctx->Light._BaseColor;
-   const struct gl_light *light;
-   GLfloat diffuseColor[4], specularColor[4];  /* for RGB mode only */
-   GLfloat diffuseCI = 0.0, specularCI = 0.0;  /* for CI mode only */
+   GLfloat (*base)[3] = ctx->Light._BaseColor;
+   struct gl_light *light;
+   GLfloat diffuseColor[4], specularColor[4];
+   GLfloat diffuse = 0, specular = 0;
 
-   _mesa_validate_all_lighting_tables( ctx );
+   if (!ctx->_ShineTable[0] || !ctx->_ShineTable[1])
+      _mesa_validate_all_lighting_tables( ctx );
 
    COPY_3V(diffuseColor, base[0]);
    diffuseColor[3] = CLAMP( 
       ctx->Light.Material.Attrib[MAT_ATTRIB_FRONT_DIFFUSE][3], 0.0F, 1.0F );
-   ASSIGN_4V(specularColor, 0.0, 0.0, 0.0, 1.0);
+   ASSIGN_4V(specularColor, 0.0, 0.0, 0.0, 0.0);
 
    foreach (light, &ctx->Light.EnabledList) {
+      GLfloat n_dot_h;
       GLfloat attenuation = 1.0;
-      GLfloat VP[3]; /* vector from vertex to light pos */
+      GLfloat VP[3];
       GLfloat n_dot_VP;
+      GLfloat *h;
       GLfloat diffuseContrib[3], specularContrib[3];
+      GLboolean normalized;
 
       if (!(light->_Flags & LIGHT_POSITIONAL)) {
-         /* light at infinity */
 	 COPY_3V(VP, light->_VP_inf_norm);
 	 attenuation = light->_VP_inf_spot_attenuation;
       }
       else {
-         /* local/positional light */
 	 GLfloat d;
 
-         /* VP = vector from vertex pos to light[i].pos */
 	 SUB_3V(VP, light->_Position, vertex);
-         /* d = length(VP) */
 	 d = (GLfloat) LEN_3FV( VP );
-	 if (d > 1.0e-6) {
-            /* normalize VP */
+
+	 if ( d > 1e-6) {
 	    GLfloat invd = 1.0F / d;
 	    SELF_SCALE_SCALAR_3V(VP, invd);
 	 }
-
-         /* atti */
 	 attenuation = 1.0F / (light->ConstantAttenuation + d *
 			       (light->LinearAttenuation + d *
 				light->QuadraticAttenuation));
@@ -196,39 +196,43 @@ shade_rastpos(GLcontext *ctx,
 	 continue;
       }
 
-      /* Ambient + diffuse */
       COPY_3V(diffuseContrib, light->_MatAmbient[0]);
       ACC_SCALE_SCALAR_3V(diffuseContrib, n_dot_VP, light->_MatDiffuse[0]);
-      diffuseCI += n_dot_VP * light->_dli * attenuation;
+      diffuse += n_dot_VP * light->_dli * attenuation;
+      ASSIGN_3V(specularContrib, 0.0, 0.0, 0.0);
 
-      /* Specular */
       {
-         const GLfloat *h;
-         GLfloat n_dot_h;
-
-         ASSIGN_3V(specularContrib, 0.0, 0.0, 0.0);
-
 	 if (ctx->Light.Model.LocalViewer) {
 	    GLfloat v[3];
 	    COPY_3V(v, vertex);
 	    NORMALIZE_3FV(v);
 	    SUB_3V(VP, VP, v);
-            NORMALIZE_3FV(VP);
 	    h = VP;
+	    normalized = 0;
 	 }
 	 else if (light->_Flags & LIGHT_POSITIONAL) {
-	    ACC_3V(VP, ctx->_EyeZDir);
-            NORMALIZE_3FV(VP);
 	    h = VP;
+	    ACC_3V(h, ctx->_EyeZDir);
+	    normalized = 0;
 	 }
          else {
 	    h = light->_h_inf_norm;
+	    normalized = 1;
 	 }
 
 	 n_dot_h = DOT3(normal, h);
 
 	 if (n_dot_h > 0.0F) {
+	    GLfloat (*mat)[4] = ctx->Light.Material.Attrib;
 	    GLfloat spec_coef;
+	    GLfloat shininess = mat[MAT_ATTRIB_FRONT_SHININESS][0];
+
+	    if (!normalized) {
+	       n_dot_h *= n_dot_h;
+	       n_dot_h /= LEN_SQUARED_3FV( h );
+	       shininess *= .5;
+	    }
+
 	    GET_SHINE_TAB_ENTRY( ctx->_ShineTable[0], n_dot_h, spec_coef );
 
 	    if (spec_coef > 1.0e-10) {
@@ -240,8 +244,7 @@ shade_rastpos(GLcontext *ctx,
                   ACC_SCALE_SCALAR_3V( diffuseContrib, spec_coef,
                                        light->_MatSpecular[0]);
                }
-               /*assert(light->_sli > 0.0);*/
-               specularCI += spec_coef * light->_sli * attenuation;
+	       specular += spec_coef * light->_sli * attenuation;
 	    }
 	 }
       }
@@ -265,8 +268,8 @@ shade_rastpos(GLcontext *ctx,
       GLfloat d_a = ind[MAT_INDEX_DIFFUSE] - ind[MAT_INDEX_AMBIENT];
       GLfloat s_a = ind[MAT_INDEX_SPECULAR] - ind[MAT_INDEX_AMBIENT];
       GLfloat i = (ind[MAT_INDEX_AMBIENT]
-		   + diffuseCI * (1.0F-specularCI) * d_a
-		   + specularCI * s_a);
+		   + diffuse * (1.0F-specular) * d_a
+		   + specular * s_a);
       if (i > ind[MAT_INDEX_SPECULAR]) {
 	 i = ind[MAT_INDEX_SPECULAR];
       }
@@ -500,8 +503,7 @@ raster_pos4f(GLcontext *ctx, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
                      ctx->Current.Attrib[VERT_ATTRIB_COLOR1]);
          }
          else {
-            ctx->Current.RasterIndex
-               = ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0];
+            ctx->Current.RasterIndex = ctx->Current.Index;
          }
       }
 
@@ -754,8 +756,7 @@ window_pos3f(GLfloat x, GLfloat y, GLfloat z)
          = CLAMP(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][3], 0.0F, 1.0F);
    }
    else {
-      ctx->Current.RasterIndex
-         = ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0];
+      ctx->Current.RasterIndex = ctx->Current.Index;
    }
 
    /* raster texcoord = current texcoord */
@@ -991,7 +992,6 @@ void _mesa_init_rastpos( GLcontext * ctx )
    ASSIGN_4V( ctx->Current.RasterPos, 0.0, 0.0, 0.0, 1.0 );
    ctx->Current.RasterDistance = 0.0;
    ASSIGN_4V( ctx->Current.RasterColor, 1.0, 1.0, 1.0, 1.0 );
-   ASSIGN_4V( ctx->Current.RasterSecondaryColor, 0.0, 0.0, 0.0, 1.0 );
    ctx->Current.RasterIndex = 1.0;
    for (i=0; i<MAX_TEXTURE_UNITS; i++)
       ASSIGN_4V( ctx->Current.RasterTexCoords[i], 0.0, 0.0, 0.0, 1.0 );

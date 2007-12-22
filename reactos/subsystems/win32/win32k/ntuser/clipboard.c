@@ -505,20 +505,20 @@ NtUserChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext)
 {
     BOOL ret = FALSE;
     PCLIPBOARDCHAINELEMENT w = NULL;
-    PWINDOW_OBJECT removeWindow;
+
     UserEnterExclusive();
 
-    removeWindow = UserGetWindowObject(hWndRemove);
+    PWINDOW_OBJECT removeWindow = UserGetWindowObject(hWndRemove);
 
     if (removeWindow)
     {
-        if ((ret = !!IntIsWindowInChain(removeWindow)))
-        {
-            w = IntRemoveWindowFromChain(removeWindow);
-            if (w)
-            {
+		if ((ret = !!IntIsWindowInChain(removeWindow)))
+		{
+			w = IntRemoveWindowFromChain(removeWindow);
+			if (w)
+			{
                 ExFreePool(w);
-            }
+			}
         }
     }
 
@@ -526,10 +526,9 @@ NtUserChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext)
     {
         // only send message to the first window in the chain,
         // then they do the chain
-
+        DPRINT1("Message: WM_CHANGECBCHAIN to %p", WindowsChain->window->hSelf);
         /* WindowsChain->window may be NULL */
         LPARAM lparam = WindowsChain->window == NULL ? 0 : (LPARAM)WindowsChain->window->hSelf;
-        DPRINT1("Message: WM_CHANGECBCHAIN to %p", WindowsChain->window->hSelf);
         co_IntSendMessage(WindowsChain->window->hSelf, WM_CHANGECBCHAIN, (WPARAM)hWndRemove, lparam);
     }
 
@@ -579,7 +578,7 @@ NtUserEmptyClipboard(VOID)
 
     if (ret && ClipboardOwnerWindow)
     {
-        DPRINT("Clipboard: WM_DESTROYCLIPBOARD to %p", ClipboardOwnerWindow->hSelf);
+        DPRINT1("Clipboard: WM_DESTROYCLIPBOARD to %p", ClipboardOwnerWindow->hSelf);
         co_IntSendMessage( ClipboardOwnerWindow->hSelf, WM_DESTROYCLIPBOARD, 0, 0);
     }
 
@@ -816,7 +815,7 @@ NtUserGetClipboardViewer(VOID)
 INT STDCALL
 NtUserGetPriorityClipboardFormat(UINT *paFormatPriorityList, INT cFormats)
 {
-    INT i;
+    UINT i;
     UINT *priorityList;
     INT ret = 0;
 
@@ -984,11 +983,10 @@ NtUserSetClipboardData(UINT uFormat, HANDLE hMem, DWORD size)
                     INT ret;
                     BITMAP bm;
                     BITMAPINFO bi;
-                    BITMAPOBJ *BitmapObj;
 
                     hdc = UserGetDCEx(NULL, NULL, DCX_USESTYLE);
 
-
+                    BITMAPOBJ *BitmapObj;
                     BitmapObj = BITMAPOBJ_LockBitmap(hMem);
                     BITMAP_GetObject(BitmapObj, sizeof(BITMAP), (LPSTR)&bm);
                     if(BitmapObj)
@@ -996,25 +994,25 @@ NtUserSetClipboardData(UINT uFormat, HANDLE hMem, DWORD size)
                         BITMAPOBJ_UnlockBitmap(BitmapObj);
                     }
 
-                    bi.bmiHeader.biSize	= sizeof(BITMAPINFOHEADER);
-                    bi.bmiHeader.biWidth = bm.bmWidth;
-                    bi.bmiHeader.biHeight = bm.bmHeight;
-                    bi.bmiHeader.biPlanes = 1;
-                    bi.bmiHeader.biBitCount	= bm.bmPlanes * bm.bmBitsPixel;
-                    bi.bmiHeader.biCompression = BI_RGB;
-                    bi.bmiHeader.biSizeImage = 0;
-                    bi.bmiHeader.biXPelsPerMeter = 0;
-                    bi.bmiHeader.biYPelsPerMeter = 0;
-                    bi.bmiHeader.biClrUsed = 0;
+                	bi.bmiHeader.biSize	= sizeof(BITMAPINFOHEADER);
+                	bi.bmiHeader.biWidth = bm.bmWidth;
+                	bi.bmiHeader.biHeight = bm.bmHeight;
+                	bi.bmiHeader.biPlanes = 1;
+                	bi.bmiHeader.biBitCount	= bm.bmPlanes * bm.bmBitsPixel;
+                	bi.bmiHeader.biCompression = BI_RGB;
+                	bi.bmiHeader.biSizeImage = 0;
+                	bi.bmiHeader.biXPelsPerMeter = 0;
+                	bi.bmiHeader.biYPelsPerMeter = 0;
+                	bi.bmiHeader.biClrUsed = 0;
 
-                    ret = NtGdiGetDIBitsInternal(hdc, hMem, 0, bm.bmHeight,  NULL, &bi, DIB_RGB_COLORS, 0, 0);
+                    ret = NtGdiGetDIBits(hdc, hMem, 0, bm.bmHeight,  NULL, &bi, DIB_RGB_COLORS);
 
                     size = bi.bmiHeader.biSizeImage + sizeof(BITMAPINFOHEADER);
 
                     hCBData = ExAllocatePool(PagedPool, size);
                     memcpy(hCBData, &bi, sizeof(BITMAPINFOHEADER));
 
-                    ret = NtGdiGetDIBitsInternal(hdc, hMem, 0, bm.bmHeight, (LPBYTE)hCBData + sizeof(BITMAPINFOHEADER), &bi, DIB_RGB_COLORS, 0, 0);
+                    ret = NtGdiGetDIBits(hdc, hMem, 0, bm.bmHeight, (LPBYTE)hCBData + sizeof(BITMAPINFOHEADER), &bi, DIB_RGB_COLORS);
 
                     UserReleaseDC(NULL, hdc, FALSE);
 
@@ -1070,11 +1068,10 @@ NtUserSetClipboardViewer(HWND hWndNewViewer)
 {
     HWND ret = NULL;
     PCLIPBOARDCHAINELEMENT newWC = NULL;
-    PWINDOW_OBJECT window;
 
     UserEnterExclusive();
 
-    window = UserGetWindowObject(hWndNewViewer);
+    PWINDOW_OBJECT window = UserGetWindowObject(hWndNewViewer);
 
     if (window)
     {

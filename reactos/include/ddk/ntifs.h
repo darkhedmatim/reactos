@@ -609,31 +609,13 @@ typedef enum _FILE_STORAGE_TYPE {
     StorageTypeStream
 } FILE_STORAGE_TYPE;
 
-typedef enum _OBJECT_INFORMATION_CLASS
-{
-    ObjectBasicInformation,
-    ObjectNameInformation,
-    ObjectTypeInformation,
-    ObjectTypesInformation,
-    ObjectHandleFlagInformation,
-    ObjectSessionInformation,
-    MaxObjectInfoClass
-} OBJECT_INFORMATION_CLASS;
-
-typedef struct _OBJECT_BASIC_INFORMATION
-{
-    ULONG Attributes;
-    ACCESS_MASK GrantedAccess;
-    ULONG HandleCount;
-    ULONG PointerCount;
-    ULONG PagedPoolCharge;
-    ULONG NonPagedPoolCharge;
-    ULONG Reserved[ 3 ];
-    ULONG NameInfoSize;
-    ULONG TypeInfoSize;
-    ULONG SecurityDescriptorSize;
-    LARGE_INTEGER CreationTime;
-} OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
+typedef enum _OBJECT_INFO_CLASS {
+    ObjectBasicInfo,
+    ObjectNameInfo,
+    ObjectTypeInfo,
+    ObjectAllTypesInfo,
+    ObjectProtectionInfo
+} OBJECT_INFO_CLASS;
 
 typedef struct _KAPC_STATE {
     LIST_ENTRY  ApcListHead[2];
@@ -642,7 +624,6 @@ typedef struct _KAPC_STATE {
     BOOLEAN     KernelApcPending;
     BOOLEAN     UserApcPending;
 } KAPC_STATE, *PKAPC_STATE, *RESTRICTED_POINTER PRKAPC_STATE;
-#define KAPC_STATE_ACTUAL_LENGTH (FIELD_OFFSET(KAPC_STATE, UserApcPending) + sizeof(BOOLEAN))
 
 typedef struct _BITMAP_RANGE {
     LIST_ENTRY      Links;
@@ -3460,21 +3441,6 @@ IoVerifyVolume (
     IN BOOLEAN          AllowRawMount
 );
 
-NTHALAPI
-KIRQL
-FASTCALL
-KeAcquireQueuedSpinLock (
-    IN KSPIN_LOCK_QUEUE_NUMBER Number
-);
-
-NTHALAPI
-VOID
-FASTCALL
-KeReleaseQueuedSpinLock (
-    IN KSPIN_LOCK_QUEUE_NUMBER Number,
-    IN KIRQL OldIrql
-);
-
 NTKERNELAPI
 VOID
 NTAPI
@@ -3900,15 +3866,6 @@ RtlCaptureStackBackTrace (
     IN ULONG FramesToCapture,
     OUT PVOID *BackTrace,
     OUT PULONG BackTraceHash OPTIONAL
-);
-
-NTSYSAPI
-SIZE_T
-NTAPI
-RtlCompareMemoryUlong (
-    PVOID Source,
-    SIZE_T Length,
-    ULONG Pattern
 );
 
 NTSYSAPI

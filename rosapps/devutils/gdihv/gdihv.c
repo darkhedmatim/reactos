@@ -3,7 +3,7 @@
  *
  *	gdihv.c
  *
- *	Copyright (C) 2007	Timo Kreuzer <timo <dot> kreuzer <at> reactos <dot> org>
+ *	Copyright (C) 2007	Timo Kreuzer <timo <dot> kreuzer <at> web.de>
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -23,16 +23,8 @@
 #include "gdihv.h"
 
 HINSTANCE g_hInstance;
+GDIQUERYPROC GdiQueryHandleTable;
 PGDI_TABLE_ENTRY GdiHandleTable = 0;
-
-static
-PGDI_TABLE_ENTRY
-MyGdiQueryTable()
-{
-	PTEB pTeb = NtCurrentTeb();
-	PPEB pPeb = pTeb->ProcessEnvironmentBlock;
-	return pPeb->GdiSharedHandleTable;
-}
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                     HINSTANCE hPrevInstance,
@@ -44,7 +36,12 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
 
 	InitCommonControls();
 
-	GdiHandleTable = MyGdiQueryTable();
+	GdiQueryHandleTable = (GDIQUERYPROC)GetProcAddress(GetModuleHandle(L"GDI32.DLL"), "GdiQueryTable");
+	if(!GdiQueryHandleTable)
+	{
+		return -1;
+	}
+	GdiHandleTable = GdiQueryHandleTable();
 
 	DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_MAINWND), HWND_DESKTOP, MainWindow_WndProc, 0);
 

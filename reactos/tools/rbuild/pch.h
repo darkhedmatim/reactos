@@ -34,9 +34,6 @@
 #endif//MAX_PATH
 #else
 #include <unistd.h>
-#include <host/typedefs.h>
-typedef LONG *PLONG;
-
 #endif//WIN32
 
 #include <stdarg.h>
@@ -58,7 +55,7 @@ inline char * strlwr(char *x)
         }
         return x;
 }
-
+              
 inline char *strupr(char *x)
 {
         char  *y=x;
@@ -73,7 +70,7 @@ inline char *strupr(char *x)
 #define _finite __finite
 #define _isnan __isnan
 #define stricmp strcasecmp
-#define MAX_PATH PATH_MAX
+#define MAX_PATH PATH_MAX 
 #define _MAX_PATH PATH_MAX
 #endif
 

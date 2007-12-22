@@ -33,6 +33,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 /*
@@ -63,7 +64,7 @@ TCHAR cgetchar (VOID)
 	do
  	{
  		ReadConsoleInput (hInput, &irBuffer, 1, &dwRead);
-
+ 		
 		if (irBuffer.EventType == KEY_EVENT)
  		{
 			if (irBuffer.Event.KeyEvent.dwControlKeyState &
@@ -84,7 +85,7 @@ TCHAR cgetchar (VOID)
 			{
 				;
 			}
-
+ 
 			else
 			{
 				break;
@@ -105,14 +106,14 @@ TCHAR cgetchar (VOID)
  */
 VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
 {
-	UINT i = 0;
-	TCHAR TempPath[MAX_PATH];
+	INT i = 0;
+	TCHAR TempPath[MAX_PATH];  
 	WIN32_FIND_DATA FindFileData;
 	HANDLE hFind;
 	_tcscpy(TempPath, _T(""));
 	_tcscpy(OutPath, _T(""));
 
-
+	
 	for(i = 0; i < _tcslen(Path); i++)
 	{
 		if(Path[i] != _T('\\'))
@@ -141,7 +142,7 @@ VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
 			_tcscat(TempPath, _T("\\"));
 			_tcscat(OutPath, FindFileData.cFileName);
 			_tcscat(OutPath, _T("\\"));
-			FindClose(hFind);
+			CloseHandle(hFind);
 		}
 	}
 }
@@ -199,15 +200,15 @@ BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry)
 	LPTSTR q;
 	LPTSTR *oldarg;
 
-	q = cmd_alloc ((_tcslen(entry) + 1) * sizeof (TCHAR));
+	q = malloc ((_tcslen(entry) + 1) * sizeof (TCHAR));
 	if (NULL == q)
 	{
 		return FALSE;
 	}
-
 	_tcscpy (q, entry);
+
 	oldarg = *arg;
-	*arg = cmd_realloc (oldarg, (*ac + 2) * sizeof (LPTSTR));
+	*arg = realloc (oldarg, (*ac + 2) * sizeof (LPTSTR));
 	if (NULL == *arg)
 	{
 		*arg = oldarg;
@@ -232,7 +233,7 @@ static BOOL expand (LPINT ac, LPTSTR **arg, LPCTSTR pattern)
 	pathend = _tcsrchr (pattern, _T('\\'));
 	if (NULL != pathend)
 	{
-		dirpart = cmd_alloc((pathend - pattern + 2) * sizeof(TCHAR));
+		dirpart = malloc((pathend - pattern + 2) * sizeof(TCHAR));
 		if (NULL == dirpart)
 		{
 			return FALSE;
@@ -251,7 +252,7 @@ static BOOL expand (LPINT ac, LPTSTR **arg, LPCTSTR pattern)
 		{
 			if (NULL != dirpart)
 			{
-				fullname = cmd_alloc((_tcslen(dirpart) + _tcslen(FindData.cFileName) + 1) * sizeof(TCHAR));
+				fullname = malloc((_tcslen(dirpart) + _tcslen(FindData.cFileName) + 1) * sizeof(TCHAR));
 				if (NULL == fullname)
 				{
 					ok = FALSE;
@@ -260,7 +261,7 @@ static BOOL expand (LPINT ac, LPTSTR **arg, LPCTSTR pattern)
 				{
 					_tcscat (_tcscpy (fullname, dirpart), FindData.cFileName);
 					ok = add_entry(ac, arg, fullname);
-					cmd_free (fullname);
+					free (fullname);
 				}
 			}
 			else
@@ -277,7 +278,7 @@ static BOOL expand (LPINT ac, LPTSTR **arg, LPCTSTR pattern)
 
 	if (NULL != dirpart)
 	{
-		cmd_free (dirpart);
+		free (dirpart);
 	}
 
 	return ok;
@@ -297,7 +298,7 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 	INT  len;
 	BOOL bQuoted = FALSE;
 
-	arg = cmd_alloc (sizeof (LPTSTR));
+	arg = malloc (sizeof (LPTSTR));
 	if (!arg)
 		return NULL;
 	*arg = NULL;
@@ -337,7 +338,7 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 		/* a word was found */
 		if (s != start)
 		{
-			q = cmd_alloc (((len = s - start) + 1) * sizeof (TCHAR));
+			q = malloc (((len = s - start) + 1) * sizeof (TCHAR));
 			if (!q)
 			{
 				return NULL;
@@ -349,7 +350,7 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 			{
 				if (! expand(&ac, &arg, q))
 				{
-					cmd_free (q);
+					free (q);
 					freep (arg);
 					return NULL;
 				}
@@ -358,12 +359,12 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 			{
 				if (! add_entry(&ac, &arg, q))
 				{
-					cmd_free (q);
+					free (q);
 					freep (arg);
 					return NULL;
 				}
 			}
-			cmd_free (q);
+			free (q);
 		}
 
 		/* adjust string pointer if quoted (") */
@@ -399,9 +400,9 @@ VOID freep (LPTSTR *p)
 
 	q = p;
 	while (*q)
-		cmd_free(*q++);
+		free(*q++);
 
-	cmd_free(p);
+	free(p);
 }
 
 
@@ -456,7 +457,7 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	DWORD  dwRead;
 	INT len;
 #ifdef _UNICODE
-	lpString = cmd_alloc(nBufferLength);
+	lpString = malloc(nBufferLength);
 #else
 	lpString = lpBuffer;
 #endif
@@ -473,17 +474,12 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 	}
 
 	if (!dwRead && !len)
-	{
-#ifdef _UNICODE
-		cmd_free(lpString);
-#endif
 		return FALSE;
-	}
 
 	lpString[len++] = _T('\0');
 #ifdef _UNICODE
 	MultiByteToWideChar(CP_ACP, 0, lpString, len, lpBuffer, len);
-	cmd_free(lpString);
+	free(lpString);
 #endif
 	return TRUE;
 }

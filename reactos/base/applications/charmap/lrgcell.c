@@ -1,57 +1,48 @@
-/*
- * PROJECT:     ReactOS Character Map
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/charmap/lrgcell.c
- * PURPOSE:     large cell window implementation
- * COPYRIGHT:   Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
- *
- */
-
 #include <precomp.h>
 
 
 static HFONT
 SetLrgFont(PMAP infoPtr)
 {
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont = NULL;
     HDC hdc;
     HWND hCombo;
-    LPWSTR lpFontName;
+    LPTSTR lpFontName;
     INT Len;
 
-    hCombo = GetDlgItem(infoPtr->hParent,
+    hCombo = GetDlgItem(infoPtr->hParent, 
                         IDC_FONTCOMBO);
 
-    Len = GetWindowTextLengthW(hCombo);
+    Len = GetWindowTextLength(hCombo);
 
     if (Len != 0)
     {
         lpFontName = HeapAlloc(GetProcessHeap(),
                                0,
-                               (Len + 1) * sizeof(WCHAR));
+                               (Len + 1) * sizeof(TCHAR));
 
         if (lpFontName)
         {
-            SendMessageW(hCombo,
-                         WM_GETTEXT,
-                         31,
-                         (LPARAM)lpFontName);
-
-            ZeroMemory(&lf,
+            SendMessage(hCombo,
+                        WM_GETTEXT,
+                        31,
+                        (LPARAM)lpFontName);
+            
+            ZeroMemory(&lf, 
                        sizeof(lf));
 
             hdc = GetDC(infoPtr->hLrgWnd);
             lf.lfHeight = GetDeviceCaps(hdc,
                                         LOGPIXELSY) / 2;
-            ReleaseDC(infoPtr->hLrgWnd,
+            ReleaseDC(infoPtr->hLrgWnd, 
                       hdc);
 
             lf.lfCharSet =  DEFAULT_CHARSET;
-            wcscpy(lf.lfFaceName,
-                   lpFontName);
+            lstrcpy(lf.lfFaceName,
+                    lpFontName);
 
-            hFont = CreateFontIndirectW(&lf);
+            hFont = CreateFontIndirect(&lf);
 
             HeapFree(GetProcessHeap(),
                      0,
@@ -75,7 +66,7 @@ LrgCellWndProc(HWND hwnd,
     static RECT rc;
     static HFONT hFont = NULL;
 
-    infoPtr = (PMAP)GetWindowLongPtrW(hwnd,
+    infoPtr = (PMAP)GetWindowLongPtr(hwnd,
                                      GWLP_USERDATA);
 
     if (infoPtr == NULL && uMsg != WM_CREATE)
@@ -87,11 +78,11 @@ LrgCellWndProc(HWND hwnd,
     {
         case WM_CREATE:
         {
-            infoPtr = (PMAP)(((LPCREATESTRUCTW)lParam)->lpCreateParams);
+            infoPtr = (PMAP)(((LPCREATESTRUCT)lParam)->lpCreateParams);
 
-            SetWindowLongPtrW(hwnd,
-                              GWLP_USERDATA,
-                              (LONG_PTR)infoPtr);
+            SetWindowLongPtr(hwnd,
+                             GWLP_USERDATA,
+                             (LONG_PTR)infoPtr);
 
             hFont = SetLrgFont(infoPtr);
 
@@ -128,11 +119,11 @@ LrgCellWndProc(HWND hwnd,
 
             hOldFont = SelectObject(hdc, hFont);
 
-            DrawTextW(hdc,
-                      &infoPtr->pActiveCell->ch,
-                      1,
-                      &rc,
-                      DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            DrawText(hdc,
+                     &infoPtr->pActiveCell->ch,
+                     1,
+                     &rc,
+                     DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
             SelectObject(hdc, hOldFont);
 
@@ -152,10 +143,10 @@ LrgCellWndProc(HWND hwnd,
         default:
         {
 HandleDefaultMessage:
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
+            Ret = DefWindowProc(hwnd,
+                                uMsg,
+                                wParam,
+                                lParam);
             break;
         }
     }

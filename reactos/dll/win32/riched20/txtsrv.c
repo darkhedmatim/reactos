@@ -28,6 +28,7 @@
 #include "editor.h"
 #include "ole2.h"
 #include "richole.h"
+#include "winreg.h"
 #include "imm.h"
 #include "textserv.h"
 #include "wine/debug.h"

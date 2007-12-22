@@ -10,8 +10,6 @@
 #include "precomp.h"
 
 extern HGDIOBJ stock_objects[];
-BOOL SetStockObjects = FALSE;
-PDEVCAPS GdiDevCaps = NULL;
 
 /*
  * GDI32.DLL doesn't have an entry point. The initialization is done by a call
@@ -37,10 +35,8 @@ GdiProcessSetup (VOID)
 
         /* map the gdi handle table to user space */
 	GdiHandleTable = NtCurrentTeb()->ProcessEnvironmentBlock->GdiSharedHandleTable;
-	GdiSharedHandleTable = NtCurrentTeb()->ProcessEnvironmentBlock->GdiSharedHandleTable;
-	GdiDevCaps = &GdiSharedHandleTable->DevCaps;
 	CurrentProcessId = NtCurrentTeb()->Cid.UniqueProcess;
-	GDI_BatchLimit = (DWORD) NtCurrentTeb()->ProcessEnvironmentBlock->GdiDCAttributeList;
+	GDI_BatchLimit = NtCurrentTeb()->GdiBatchCount;
 }
 
 
@@ -62,21 +58,21 @@ GdiDllInitialize (
 			break;
 
 		case DLL_THREAD_ATTACH:
-                        NtCurrentTeb()->GdiTebBatch.Offset = 0;
-                        NtCurrentTeb()->GdiBatchCount = 0;
 			break;
 
 		default:
 			return FALSE;
 	}
 
+#if 0
+	/* FIXME: working teb handling needed */
+	NtCurrentTeb()->GdiTebBatch.Offset = 0;
+	NtCurrentTeb()->GdiBatchCount = 0;
+#endif
+#if 0
   // Very simple, the list will fill itself as it is needed.
-        if(!SetStockObjects)
-        {
-          RtlZeroMemory( &stock_objects, NB_STOCK_OBJECTS); //Assume Ros is dirty.
-          SetStockObjects = TRUE;
-        }
-
+        RtlZeroMemory( &stock_objects, NB_STOCK_OBJECTS); //Assume Ros is dirty.
+#endif
 	return TRUE;
 }
 

@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,11 +67,12 @@ typedef struct {
     * that clip{XYZ} were multiplied by to get ndc{XYZ}.
     */
    GLfloat win[4];
+   GLfloat texcoord[MAX_TEXTURE_COORD_UNITS][4];
    GLchan color[4];
    GLchan specular[4];
+   GLfloat fog;
    GLfloat index;
    GLfloat pointSize;
-   GLfloat attrib[FRAG_ATTRIB_MAX][4]; /**< texcoords & varying, more to come */
 } SWvertex;
 
 
@@ -80,6 +81,11 @@ struct swrast_device_driver;
 
 /* These are the public-access functions exported from swrast.
  */
+extern void
+_swrast_use_read_buffer( GLcontext *ctx );
+
+extern void
+_swrast_use_draw_buffer( GLcontext *ctx );
 
 extern GLboolean
 _swrast_CreateContext( GLcontext *ctx );
@@ -122,17 +128,21 @@ _swrast_ReadPixels( GLcontext *ctx,
 		    GLvoid *pixels );
 
 extern void
-_swrast_BlitFramebuffer(GLcontext *ctx,
-                        GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
-                        GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
-                        GLbitfield mask, GLenum filter);
+_swrast_Clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
+	       GLint x, GLint y, GLint width, GLint height );
 
 extern void
-_swrast_Clear(GLcontext *ctx, GLbitfield buffers);
+_swrast_Accum( GLcontext *ctx, GLenum op,
+	       GLfloat value, GLint xpos, GLint ypos,
+	       GLint width, GLint height );
+
 
 extern void
-_swrast_Accum(GLcontext *ctx, GLenum op, GLfloat value);
+_swrast_DrawBuffer( GLcontext *ctx, GLenum mode );
 
+
+extern void
+_swrast_DrawBuffers( GLcontext *ctx, GLsizei n, const GLenum *buffers );
 
 
 /* Reset the stipple counter
@@ -175,7 +185,7 @@ _swrast_render_finish( GLcontext *ctx );
 /* Tell the software rasterizer about core state changes.
  */
 extern void
-_swrast_InvalidateState( GLcontext *ctx, GLbitfield new_state );
+_swrast_InvalidateState( GLcontext *ctx, GLuint new_state );
 
 /* Configure software rasterizer to match hardware rasterizer characteristics:
  */
@@ -246,35 +256,42 @@ _swrast_copy_texsubimage3d(GLcontext *ctx,
                            GLint x, GLint y, GLsizei width, GLsizei height);
 
 
-extern void
-_swrast_eject_texture_images(GLcontext *ctx);
-
-
-#if FEATURE_MESA_program_debug
-extern void
-_swrast_get_program_register(GLcontext *, enum register_file file,
-                             GLuint index, GLfloat val[4]);
-#endif /* FEATURE_MESA_program_debug */
-
-
-/**
- * The driver interface for the software rasterizer.
- * XXX this may go away.
- * We may move these functions to ctx->Driver.RenderStart, RenderEnd.
+/* The driver interface for the software rasterizer.
+ * Unless otherwise noted, all functions are mandatory.  
  */
 struct swrast_device_driver {
+#if OLD_RENDERBUFFER
+   void (*SetBuffer)(GLcontext *ctx, GLframebuffer *buffer, GLuint bufferBit);
    /*
-    * These are called before and after accessing renderbuffers during
-    * software rasterization.
+    * Specifies the current color buffer for span/pixel writing/reading.
+    * buffer indicates which window to write to / read from.  Normally,
+    * this'll be the buffer currently bound to the context, but it doesn't
+    * have to be!
+    * bufferBit indicates which color buffer, exactly one of:
+    *    DD_FRONT_LEFT_BIT - this buffer always exists
+    *    DD_BACK_LEFT_BIT - when double buffering
+    *    DD_FRONT_RIGHT_BIT - when using stereo
+    *    DD_BACK_RIGHT_BIT - when using stereo and double buffering
+    *    DD_AUXn_BIT - if aux buffers are implemented
+    */
+#endif
+
+   /***
+    *** Functions for synchronizing access to the framebuffer:
+    ***/
+
+   void (*SpanRenderStart)(GLcontext *ctx);
+   void (*SpanRenderFinish)(GLcontext *ctx);
+   /* OPTIONAL.
     *
+    * Called before and after all rendering operations, including DrawPixels,
+    * ReadPixels, Bitmap, span functions, and CopyTexImage, etc commands.
     * These are a suitable place for grabbing/releasing hardware locks.
     *
     * NOTE: The swrast triangle/line/point routines *DO NOT* call
     * these functions.  Locking in that case must be organized by the
     * driver by other mechanisms.
     */
-   void (*SpanRenderStart)(GLcontext *ctx);
-   void (*SpanRenderFinish)(GLcontext *ctx);
 };
 
 

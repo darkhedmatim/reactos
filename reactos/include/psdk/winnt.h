@@ -4,6 +4,7 @@
 #pragma GCC system_header
 #endif
 
+
 /* translate GCC target defines to MS equivalents. Keep this synchronized
    with windows.h. */
 #if defined(__i686__) && !defined(_M_IX86)
@@ -49,13 +50,7 @@ extern "C" {
 #include <basetsd.h>
 #include <guiddef.h>
 
-#ifndef __cplusplus
-    typedef unsigned short wchar_t;
-#endif
-
 #include <ctype.h>
-#undef __need_wchar_t
-
 #include <winerror.h>
 #include <stddef.h>
 #include <sdkddkver.h>
@@ -100,15 +95,6 @@ extern "C" {
 #endif
 #endif
 
-/* i386 context definitions */
-#ifdef __i386__
-
-#define EXCEPTION_READ_FAULT    0
-#define EXCEPTION_WRITE_FAULT   1
-#define EXCEPTION_EXECUTE_FAULT 8
-
-#endif  /* __i386__ */
-
 #ifndef VOID
 #define VOID void
 #endif
@@ -116,8 +102,8 @@ typedef char CHAR;
 typedef short SHORT;
 #ifndef LONG_DEFINED
 #define LONG_DEFINED
-	typedef long LONG;
-	typedef unsigned long ULONG,*PULONG;
+    typedef long LONG;
+    typedef unsigned long ULONG,*PULONG;
 #endif//LONG_DEFINED
 typedef char CCHAR, *PCCHAR;
 typedef unsigned char UCHAR,*PUCHAR;
@@ -131,6 +117,20 @@ typedef void *PVOID,*LPVOID;
 #define __ptr64
 #endif
 typedef void* __ptr64 PVOID64;
+
+#ifndef _WCHAR_T_DEFINED
+#define _WCHAR_T_DEFINED
+#ifndef _WCHAR_T_DECLARED      /* for FreeBSD 5 and later */
+#define _WCHAR_T_DECLARED
+#ifndef _WCHAR_T_
+#define _WCHAR_T_
+#undef __need_wchar_t
+#ifndef __cplusplus
+typedef unsigned short wchar_t;
+#endif
+#endif
+#endif
+#endif
 
 #ifdef __cplusplus
 # define EXTERN_C    extern "C"
@@ -237,10 +237,6 @@ typedef BYTE BOOLEAN,*PBOOLEAN;
 typedef BYTE FCHAR;
 typedef WORD FSHORT;
 typedef DWORD FLONG;
-
-#ifdef __GNUC__
-#include "intrin.h"
-#endif
 
 #define NTAPI __stdcall
 #include <basetsd.h>
@@ -592,12 +588,6 @@ typedef DWORD FLONG;
 #define DOMAIN_GROUP_RID_ADMINS                 0x00000200L
 #define DOMAIN_GROUP_RID_USERS                  0x00000201L
 #define DOMAIN_GROUP_RID_GUESTS                 0x00000202L
-#define DOMAIN_GROUP_RID_COMPUTERS              0x00000203L
-#define DOMAIN_GROUP_RID_CONTROLLERS            0x00000204L
-#define DOMAIN_GROUP_RID_CERT_ADMINS            0x00000205L
-#define DOMAIN_GROUP_RID_SCHEMA_ADMINS          0x00000206L
-#define DOMAIN_GROUP_RID_ENTERPRISE_ADMINS      0x00000207L
-#define DOMAIN_GROUP_RID_POLICY_ADMINS          0x00000208L
 
 #define DOMAIN_ALIAS_RID_ADMINS                 0x00000220L
 #define DOMAIN_ALIAS_RID_USERS                  0x00000221L
@@ -725,354 +715,196 @@ typedef enum
 #define SE_GROUP_LOGON_ID 3221225472U
 #define SE_GROUP_RESOURCE 536870912
 #endif
-#define LANG_NEUTRAL   0x00
-#define LANG_INVARIANT   0x7f
-#define LANG_AFRIKAANS   0x36
-#define LANG_ALBANIAN   0x1c
-#define LANG_ALSATIAN   0x84
-#define LANG_AMHARIC   0x5e
-#define LANG_ARABIC   0x01
-#define LANG_ARMENIAN   0x2b
-#define LANG_ASSAMESE   0x4d
-#define LANG_AZERI   0x2c
-#define LANG_BASHKIR   0x6d
-#define LANG_BASQUE   0x2d
-#define LANG_BELARUSIAN   0x23
-#define LANG_BENGALI   0x45
-#define LANG_BOSNIAN   0x1a
-#define LANG_BRETON   0x7e
-#define LANG_BULGARIAN   0x02
-#define LANG_CATALAN   0x03
-#define LANG_CHINESE   0x04
-#define LANG_CHINESE_SIMPLIFIED   0x04
-#define LANG_CORSICAN   0x83
-#define LANG_CROATIAN   0x1a
-#define LANG_CROATIAN   0x1a
-#define LANG_CZECH   0x05
-#define LANG_DANISH   0x06
-#define LANG_DARI   0x8c
-#define LANG_DIVEHI   0x65
-#define LANG_DUTCH   0x13
-#define LANG_ENGLISH   0x09
-#define LANG_ESTONIAN   0x25
-#define LANG_FAEROESE   0x38
-#define LANG_FILIPINO   0x64
-#define LANG_FINNISH   0x0b
-#define LANG_FRENCH   0x0c
-#define LANG_FRISIAN   0x62
-#define LANG_GALICIAN   0x56
-#define LANG_GEORGIAN   0x37
-#define LANG_GERMAN   0x07
-#define LANG_GREEK   0x08
-#define LANG_GREENLANDIC   0x6f
-#define LANG_GUJARATI   0x47
-#define LANG_HAUSA   0x68
-#define LANG_HEBREW   0x0d
-#define LANG_HINDI   0x39
-#define LANG_HUNGARIAN   0x0e
-#define LANG_ICELANDIC   0x0f
-#define LANG_IGBO   0x70
-#define LANG_INDONESIAN   0x21
-#define LANG_INUKTITUT   0x5d
-#define LANG_IRISH   0x3c
-#define LANG_ITALIAN   0x10
-#define LANG_JAPANESE   0x11
-#define LANG_KANNADA   0x4b
-#define LANG_KASHMIRI   0x60
-#define LANG_KAZAK   0x3f
-#define LANG_KHMER   0x53
-#define LANG_KICHE   0x86
-#define LANG_KINYARWANDA   0x87
-#define LANG_KONKANI   0x57
-#define LANG_KOREAN   0x12
-#define LANG_KYRGYZ   0x40
-#define LANG_LAO   0x54
-#define LANG_LATVIAN   0x26
-#define LANG_LITHUANIAN   0x27
-#define LANG_LOWER_SORBIAN   0x2e
-#define LANG_LUXEMBOURGISH   0x6e
-#define LANG_MACEDONIAN   0x2f
-#define LANG_MALAY   0x3e
-#define LANG_MALAYALAM   0x4c
-#define LANG_MALTESE   0x3a
-#define LANG_MANIPURI   0x58
-#define LANG_MAORI   0x81
-#define LANG_MAPUDUNGUN   0x7a
-#define LANG_MARATHI   0x4e
-#define LANG_MOHAWK   0x7c
-#define LANG_MONGOLIAN   0x50
-#define LANG_NEPALI   0x61
-#define LANG_NORWEGIAN   0x14
-#define LANG_OCCITAN   0x82
-#define LANG_ORIYA   0x48
-#define LANG_PASHTO   0x63
-#define LANG_FARSI   0x29
-#define LANG_POLISH   0x15
-#define LANG_PORTUGUESE   0x16
-#define LANG_PUNJABI   0x46
-#define LANG_QUECHUA   0x6b
-#define LANG_ROMANIAN   0x18
-#define LANG_ROMANSH   0x17
-#define LANG_RUSSIAN   0x19
-#define LANG_SAMI   0x3b
-#define LANG_SANSKRIT   0x4f
-#define LANG_SERBIAN   0x1a
-#define LANG_SOTHO   0x6c
-#define LANG_TSWANA   0x32
-#define LANG_SINDHI   0x59
-#define LANG_SINHALESE   0x5b
-#define LANG_SLOVAK   0x1b
-#define LANG_SLOVENIAN   0x24
-#define LANG_SPANISH   0x0a
-#define LANG_SWAHILI   0x41
-#define LANG_SWEDISH   0x1d
-#define LANG_SYRIAC   0x5a
-#define LANG_TAJIK   0x28
-#define LANG_TAMAZIGHT   0x5f
-#define LANG_TAMIL   0x49
-#define LANG_TATAR   0x44
-#define LANG_TELUGU   0x4a
-#define LANG_THAI   0x1e
-#define LANG_TIBETAN   0x51
-#define LANG_TIGRIGNA   0x73
-#define LANG_TURKISH   0x1f
-#define LANG_TURKMEN   0x42
-#define LANG_UIGHUR   0x80
-#define LANG_UKRAINIAN   0x22
-#define LANG_UPPER_SORBIAN   0x2e
-#define LANG_URDU   0x20
-#define LANG_UZBEK   0x43
-#define LANG_VIETNAMESE   0x2a
-#define LANG_WELSH   0x52
-#define LANG_WOLOF   0x88
-#define LANG_XHOSA   0x34
-#define LANG_YAKUT   0x85
-#define LANG_YI   0x78
-#define LANG_YORUBA   0x6a
-#define LANG_ZULU   0x35
-#define SUBLANG_CUSTOM_UNSPECIFIED   0x04
-#define SUBLANG_CUSTOM_DEFAULT   0x03
-#define SUBLANG_UI_CUSTOM_DEFAULT   0x05
-#define SUBLANG_NEUTRAL   0x00
-#define SUBLANG_SYS_DEFAULT   0x02
-#define SUBLANG_DEFAULT   0x01
-#define SUBLANG_AFRIKAANS_SOUTH_AFRICA   0x01
-#define SUBLANG_ALBANIAN_ALBANIA   0x01
-#define SUBLANG_ALSATIAN_FRANCE   0x01
-#define SUBLANG_AMHARIC_ETHIOPIA   0x01
-#define SUBLANG_ARABIC_ALGERIA   0x05
-#define SUBLANG_ARABIC_BAHRAIN   0x0f
-#define SUBLANG_ARABIC_EGYPT   0x03
-#define SUBLANG_ARABIC_IRAQ   0x02
-#define SUBLANG_ARABIC_JORDAN   0x0b
-#define SUBLANG_ARABIC_KUWAIT   0x0d
-#define SUBLANG_ARABIC_LEBANON   0x0c
-#define SUBLANG_ARABIC_LIBYA   0x04
-#define SUBLANG_ARABIC_MOROCCO   0x06
-#define SUBLANG_ARABIC_OMAN   0x08
-#define SUBLANG_ARABIC_QATAR   0x10
-#define SUBLANG_ARABIC_SAUDI_ARABIA   0x01
-#define SUBLANG_ARABIC_SYRIA   0x0a
-#define SUBLANG_ARABIC_TUNISIA   0x07
-#define SUBLANG_ARABIC_UAE   0x0e
-#define SUBLANG_ARABIC_YEMEN   0x09
-#define SUBLANG_ARMENIAN_ARMENIA   0x01
-#define SUBLANG_ASSAMESE_INDIA   0x01
-#define SUBLANG_AZERI_CYRILLIC   0x02
-#define SUBLANG_AZERI_LATIN   0x01
-#define SUBLANG_BASHKIR_RUSSIA   0x01
-#define SUBLANG_BASQUE_BASQUE   0x01
-#define SUBLANG_BELARUSIAN_BELARUS   0x01
-#define SUBLANG_BENGALI_BANGLADESH   0x02
-#define SUBLANG_BENGALI_INDIA   0x01
-#define SUBLANG_BOSNIAN_BOSNIA_HERZEGOVINA_CYRILLIC   0x08
-#define SUBLANG_BOSNIAN_BOSNIA_HERZEGOVINA_LATIN   0x05
-#define SUBLANG_BRETON_FRANCE   0x01
-#define SUBLANG_BULGARIAN_BULGARIA   0x01
-#define SUBLANG_CATALAN_CATALAN   0x01
-#define SUBLANG_CHINESE_HONGKONG   0x03
-#define SUBLANG_CHINESE_MACAU   0x05
-#define SUBLANG_CHINESE_SINGAPORE   0x04
-#define SUBLANG_CHINESE_SIMPLIFIED   0x02
-#define SUBLANG_CHINESE_TRADITIONAL   0x01
-#define SUBLANG_CORSICAN_FRANCE   0x01
-#define SUBLANG_CROATIAN_BOSNIA_HERZEGOVINA_LATIN   0x04
-#define SUBLANG_CROATIAN_CROATIA   0x01
-#define SUBLANG_CZECH_CZECH_REPUBLIC   0x01
-#define SUBLANG_DANISH_DENMARK   0x01
-#define SUBLANG_DARI_AFGHANISTAN   0x01
-#define SUBLANG_DIVEHI_MALDIVES   0x01
-#define SUBLANG_DUTCH_BELGIAN   0x02
-#define SUBLANG_DUTCH   0x01
-#define SUBLANG_ENGLISH_AUS   0x03
-#define SUBLANG_ENGLISH_BELIZE   0x0a
-#define SUBLANG_ENGLISH_CAN   0x04
-#define SUBLANG_ENGLISH_CARIBBEAN   0x09
-#define SUBLANG_ENGLISH_INDIA   0x10
-#define SUBLANG_ENGLISH_EIRE   0x06
-#define SUBLANG_ENGLISH_IRELAND   0x06
-#define SUBLANG_ENGLISH_JAMAICA   0x08
-#define SUBLANG_ENGLISH_MALAYSIA   0x11
-#define SUBLANG_ENGLISH_NZ   0x05
-#define SUBLANG_ENGLISH_PHILIPPINES   0x0d
-#define SUBLANG_ENGLISH_SINGAPORE   0x12
-#define SUBLANG_ENGLISH_SOUTH_AFRICA   0x07
-#define SUBLANG_ENGLISH_TRINIDAD   0x0b
-#define SUBLANG_ENGLISH_UK   0x02
-#define SUBLANG_ENGLISH_US   0x01
-#define SUBLANG_ENGLISH_ZIMBABWE   0x0c
-#define SUBLANG_ESTONIAN_ESTONIA   0x01
-#define SUBLANG_FAEROESE_FAROE_ISLANDS   0x01
-#define SUBLANG_FILIPINO_PHILIPPINES   0x01
-#define SUBLANG_FINNISH_FINLAND   0x01
-#define SUBLANG_FRENCH_BELGIAN   0x02
-#define SUBLANG_FRENCH_CANADIAN   0x03
-#define SUBLANG_FRENCH   0x01
-#define SUBLANG_FRENCH_LUXEMBOURG   0x05
-#define SUBLANG_FRENCH_MONACO   0x06
-#define SUBLANG_FRENCH_SWISS   0x04
-#define SUBLANG_FRISIAN_NETHERLANDS   0x01
-#define SUBLANG_GALICIAN_GALICIAN   0x01
-#define SUBLANG_GEORGIAN_GEORGIA   0x01
-#define SUBLANG_GERMAN_AUSTRIAN   0x03
-#define SUBLANG_GERMAN   0x01
-#define SUBLANG_GERMAN_LIECHTENSTEIN   0x05
-#define SUBLANG_GERMAN_LUXEMBOURG   0x04
-#define SUBLANG_GERMAN_SWISS   0x02
-#define SUBLANG_GREEK_GREECE   0x01
-#define SUBLANG_GREENLANDIC_GREENLAND   0x01
-#define SUBLANG_GUJARATI_INDIA   0x01
-#define SUBLANG_HAUSA_NIGERIA_LATIN   0x01
-#define SUBLANG_HEBREW_ISRAEL   0x01
-#define SUBLANG_HINDI_INDIA   0x01
-#define SUBLANG_HUNGARIAN_HUNGARY   0x01
-#define SUBLANG_ICELANDIC_ICELAND   0x01
-#define SUBLANG_IGBO_NIGERIA   0x01
-#define SUBLANG_INDONESIAN_INDONESIA   0x01
-#define SUBLANG_INUKTITUT_CANADA_LATIN   0x02
-#define SUBLANG_INUKTITUT_CANADA   0x01
-#define SUBLANG_IRISH_IRELAND   0x02
-#define SUBLANG_ITALIAN   0x01
-#define SUBLANG_ITALIAN_SWISS   0x02
-#define SUBLANG_JAPANESE_JAPAN   0x01
-#define SUBLANG_KANNADA_INDIA   0x01
-#define SUBLANG_KASHMIRI_INDIA   0x02
-#define SUBLANG_KASHMIRI_SASIA   0x02
-#define SUBLANG_KAZAK_KAZAKHSTAN   0x01
-#define SUBLANG_KHMER_CAMBODIA   0x01
-#define SUBLANG_KICHE_GUATEMALA   0x01
-#define SUBLANG_KINYARWANDA_RWANDA   0x01
-#define SUBLANG_KONKANI_INDIA   0x01
-#define SUBLANG_KOREAN   0x01
-#define SUBLANG_KYRGYZ_KYRGYZSTAN   0x01
-#define SUBLANG_LAO_LAO   0x01
-#define SUBLANG_LATVIAN_LATVIA   0x01
-#define SUBLANG_LITHUANIAN_LITHUANIA   0x01
-#define SUBLANG_LOWER_SORBIAN_GERMANY   0x02
-#define SUBLANG_LUXEMBOURGISH_LUXEMBOURG   0x01
-#define SUBLANG_MACEDONIAN_MACEDONIA   0x01
-#define SUBLANG_MALAY_BRUNEI_DARUSSALAM   0x02
-#define SUBLANG_MALAY_MALAYSIA   0x01
-#define SUBLANG_MALAYALAM_INDIA   0x01
-#define SUBLANG_MALTESE_MALTA   0x01
-#define SUBLANG_MAORI_NEW_ZEALAND   0x01
-#define SUBLANG_MAPUDUNGUN_CHILE   0x01
-#define SUBLANG_MARATHI_INDIA   0x01
-#define SUBLANG_MOHAWK_MOHAWK   0x01
-#define SUBLANG_MONGOLIAN_CYRILLIC_MONGOLIA   0x01
-#define SUBLANG_MONGOLIAN_PRC   0x02
-#define SUBLANG_NEPALI_NEPAL   0x01
-#define SUBLANG_NEPALI_INDIA   0x02
-#define SUBLANG_NORWEGIAN_BOKMAL   0x01
-#define SUBLANG_NORWEGIAN_NYNORSK   0x02
-#define SUBLANG_OCCITAN_FRANCE   0x01
-#define SUBLANG_ORIYA_INDIA   0x01
-#define SUBLANG_PASHTO_AFGHANISTAN   0x01
-#define SUBLANG_PERSIAN_IRAN   0x01
-#define SUBLANG_POLISH_POLAND   0x01
-#define SUBLANG_PORTUGUESE_BRAZILIAN   0x01
-#define SUBLANG_PORTUGUESE   0x02
-#define SUBLANG_PORTUGUESE_PORTUGAL   0x02
-#define SUBLANG_PUNJABI_INDIA   0x01
-#define SUBLANG_QUECHUA_BOLIVIA   0x01
-#define SUBLANG_QUECHUA_ECUADOR   0x02
-#define SUBLANG_QUECHUA_PERU   0x03
-#define SUBLANG_ROMANIAN_ROMANIA   0x01
-#define SUBLANG_ROMANSH_SWITZERLAND   0x01
-#define SUBLANG_RUSSIAN_RUSSIA   0x01
-#define SUBLANG_SAMI_INARI_FINLAND   0x09
-#define SUBLANG_SAMI_LULE_NORWAY   0x04
-#define SUBLANG_SAMI_LULE_SWEDEN   0x05
-#define SUBLANG_SAMI_NORTHERN_FINLAND   0x03
-#define SUBLANG_SAMI_NORTHERN_NORWAY   0x01
-#define SUBLANG_SAMI_NORTHERN_SWEDEN   0x02
-#define SUBLANG_SAMI_SKOLT_FINLAND   0x08
-#define SUBLANG_SAMI_SOUTHERN_NORWAY   0x06
-#define SUBLANG_SAMI_SOUTHERN_SWEDEN   0x07
-#define SUBLANG_SANSKRIT_INDIA   0x01
-#define SUBLANG_SERBIAN_BOSNIA_HERZEGOVINA_CYRILLIC   0x07
-#define SUBLANG_SERBIAN_BOSNIA_HERZEGOVINA_LATIN   0x06
-#define SUBLANG_SERBIAN_CROATIA   0x01
-#define SUBLANG_SERBIAN_CYRILLIC   0x03
-#define SUBLANG_SERBIAN_LATIN   0x02
-#define SUBLANG_SOTHO_NORTHERN_SOUTH_AFRICA   0x01
-#define SUBLANG_TSWANA_SOUTH_AFRICA   0x01
-#define SUBLANG_SINDHI_AFGHANISTAN   0x02
-#define SUBLANG_SINDHI_PAKISTAN   0x01
-#define SUBLANG_SINHALESE_SRI_LANKA   0x01
-#define SUBLANG_SLOVAK_SLOVAKIA   0x01
-#define SUBLANG_SLOVENIAN_SLOVENIA   0x01
-#define SUBLANG_SPANISH_ARGENTINA   0x0b
-#define SUBLANG_SPANISH_BOLIVIA   0x10
-#define SUBLANG_SPANISH_CHILE   0x0d
-#define SUBLANG_SPANISH_COLOMBIA   0x09
-#define SUBLANG_SPANISH_COSTA_RICA   0x05
-#define SUBLANG_SPANISH_DOMINICAN_REPUBLIC   0x07
-#define SUBLANG_SPANISH_ECUADOR   0x0c
-#define SUBLANG_SPANISH_EL_SALVADOR   0x11
-#define SUBLANG_SPANISH_GUATEMALA   0x04
-#define SUBLANG_SPANISH_HONDURAS   0x12
-#define SUBLANG_SPANISH_MEXICAN   0x02
-#define SUBLANG_SPANISH_MODERN   0x03
-#define SUBLANG_SPANISH_NICARAGUA   0x13
-#define SUBLANG_SPANISH_PANAMA   0x06
-#define SUBLANG_SPANISH_PARAGUAY   0x0f
-#define SUBLANG_SPANISH_PERU   0x0a
-#define SUBLANG_SPANISH_PUERTO_RICO   0x14
-#define SUBLANG_SPANISH   0x01
-#define SUBLANG_SPANISH_US   0x15
-#define SUBLANG_SPANISH_URUGUAY   0x0e
-#define SUBLANG_SPANISH_VENEZUELA   0x08
-#define SUBLANG_SWAHILI   0x01
-#define SUBLANG_SWEDISH_FINLAND   0x02
-#define SUBLANG_SWEDISH   0x01
-#define SUBLANG_SWEDISH_SWEDEN   0x01
-#define SUBLANG_SYRIAC   0x01
-#define SUBLANG_TAJIK_TAJIKISTAN   0x01
-#define SUBLANG_TAMAZIGHT_ALGERIA_LATIN   0x02
-#define SUBLANG_TAMIL_INDIA   0x01
-#define SUBLANG_TATAR_RUSSIA   0x01
-#define SUBLANG_TELUGU_INDIA   0x01
-#define SUBLANG_THAI_THAILAND   0x01
-#define SUBLANG_TIBETAN_PRC   0x01
-#define SUBLANG_TIGRIGNA_ERITREA   0x02
-#define SUBLANG_TURKISH_TURKEY   0x01
-#define SUBLANG_TURKMEN_TURKMENISTAN   0x01
-#define SUBLANG_UIGHUR_PRC   0x01
-#define SUBLANG_UKRAINIAN_UKRAINE   0x01
-#define SUBLANG_UPPER_SORBIAN_GERMANY   0x01
-#define SUBLANG_URDU_INDIA   0x02
-#define SUBLANG_URDU_PAKISTAN   0x01
-#define SUBLANG_UZBEK_CYRILLIC   0x02
-#define SUBLANG_UZBEK_LATIN   0x01
-#define SUBLANG_VIETNAMESE_VIETNAM   0x01
-#define SUBLANG_WELSH_UNITED_KINGDOM   0x01
-#define SUBLANG_WOLOF_SENEGAL   0x01
-#define SUBLANG_XHOSA_SOUTH_AFRICA   0x01
-#define SUBLANG_YAKUT_RUSSIA   0x01
-#define SUBLANG_YI_PRC   0x01
-#define SUBLANG_YORUBA_NIGERIA   0x01
-#define SUBLANG_ZULU_SOUTH_AFRICA   0x01
+#define LANG_NEUTRAL	0x00
+#define LANG_ARABIC 	0x01
+#define LANG_BULGARIAN 	0x02
+#define LANG_CATALAN 	0x03
+#define LANG_CHINESE	0x04
+#define LANG_CZECH	0x05
+#define LANG_DANISH	0x06
+#define LANG_GERMAN	0x07
+#define LANG_GREEK	0x08
+#define LANG_ENGLISH	0x09
+#define LANG_SPANISH	0x0a
+#define LANG_FINNISH	0x0b
+#define LANG_FRENCH	0x0c
+#define LANG_HEBREW	0x0d
+#define LANG_HUNGARIAN	0x0e
+#define LANG_ICELANDIC	0x0f
+#define LANG_IRISH      0x3c
+#define LANG_ITALIAN	0x10
+#define LANG_JAPANESE	0x11
+#define LANG_KOREAN	0x12
+#define LANG_DUTCH	0x13
+#define LANG_NORWEGIAN	0x14
+#define LANG_POLISH	0x15
+#define LANG_PORTUGUESE	0x16
+#define LANG_ROMANIAN	0x18
+#define LANG_ROMANSH    0x17
+#define LANG_RUSSIAN	0x19
+#define LANG_SAMI       0x3b
+#define LANG_CROATIAN	0x1a
+#define LANG_SERBIAN	0x1a
+#define LANG_SLOVAK	0x1b
+#define LANG_ALBANIAN	0x1c
+#define LANG_SWEDISH	0x1d
+#define LANG_THAI	0x1e
+#define LANG_TURKISH	0x1f
+#define LANG_URDU	0x20
+#define LANG_INDONESIAN	0x21
+#define LANG_UPPER_SORBIAN 0x2e
+#define LANG_UKRAINIAN	0x22
+#define LANG_BELARUSIAN	0x23
+#define LANG_SLOVENIAN	0x24
+#define LANG_ESTONIAN	0x25
+#define LANG_LATVIAN	0x26
+#define LANG_LITHUANIAN	0x27
+#define LANG_TAJIK	0x28
+#define LANG_FARSI	0x29
+#define LANG_VIETNAMESE	0x2a
+#define LANG_ARMENIAN	0x2b
+#define LANG_AZERI	0x2c
+#define LANG_BASQUE	0x2d
+#define LANG_MACEDONIAN	0x2f
+#define LANG_AFRIKAANS	0x36
+#define LANG_GEORGIAN	0x37
+#define LANG_FAEROESE	0x38
+#define LANG_HINDI	0x39
+#define LANG_MALAY	0x3e
+#define LANG_KAZAK	0x3f
+#define LANG_KYRGYZ	0x40
+#define LANG_SWAHILI	0x41
+#define LANG_UZBEK	0x43
+#define LANG_TATAR	0x44
+#define LANG_BENGALI	0x45
+#define LANG_PUNJABI	0x46
+#define LANG_GUJARATI	0x47
+#define LANG_ORIYA	0x48
+#define LANG_TAMIL	0x49
+#define LANG_TELUGU	0x4a
+#define LANG_KANNADA	0x4b
+#define LANG_MALAYALAM	0x4c
+#define LANG_ASSAMESE	0x4d
+#define LANG_MARATHI	0x4e
+#define LANG_SANSKRIT	0x4f
+#define LANG_MONGOLIAN	0x50
+#define LANG_GALICIAN	0x56
+#define LANG_KONKANI	0x57
+#define LANG_MANIPURI	0x58
+#define LANG_SINDHI	0x59
+#define LANG_SYRIAC	0x5a
+#define LANG_KASHMIRI	0x60
+#define LANG_NEPALI	0x61
+#define LANG_DIVEHI	0x65
+#define LANG_INVARIANT	0x7f
+#define LANG_MAORI      0x81
+#define SUBLANG_NEUTRAL	0x00
+#define SUBLANG_DEFAULT	0x01
+#define SUBLANG_SYS_DEFAULT	0x02
+#define SUBLANG_ARABIC_SAUDI_ARABIA	0x01
+#define SUBLANG_ARABIC_IRAQ	0x02
+#define SUBLANG_ARABIC_EGYPT	0x03
+#define SUBLANG_ARABIC_LIBYA	0x04
+#define SUBLANG_ARABIC_ALGERIA	0x05
+#define SUBLANG_ARABIC_MOROCCO	0x06
+#define SUBLANG_ARABIC_TUNISIA	0x07
+#define SUBLANG_ARABIC_OMAN	0x08
+#define SUBLANG_ARABIC_YEMEN	0x09
+#define SUBLANG_ARABIC_SYRIA	0x0a
+#define SUBLANG_ARABIC_JORDAN	0x0b
+#define SUBLANG_ARABIC_LEBANON	0x0c
+#define SUBLANG_ARABIC_KUWAIT	0x0d
+#define SUBLANG_ARABIC_UAE	0x0e
+#define SUBLANG_ARABIC_BAHRAIN	0x0f
+#define SUBLANG_ARABIC_QATAR	0x10
+#define SUBLANG_AZERI_LATIN	0x01
+#define SUBLANG_AZERI_CYRILLIC	0x02
+#define SUBLANG_CHINESE_TRADITIONAL	0x01
+#define SUBLANG_CHINESE_SIMPLIFIED	0x02
+#define SUBLANG_CHINESE_HONGKONG	0x03
+#define SUBLANG_CHINESE_SINGAPORE	0x04
+#define SUBLANG_CHINESE_MACAU	0x05
+#define SUBLANG_CZECH_CZECH_REPUBLIC 0x1
+#define SUBLANG_DANISH_DENMARK 0x1
+#define SUBLANG_DUTCH	0x01
+#define SUBLANG_DUTCH_BELGIAN	0x02
+#define SUBLANG_ENGLISH_US	0x01
+#define SUBLANG_ENGLISH_UK	0x02
+#define SUBLANG_ENGLISH_AUS	0x03
+#define SUBLANG_ENGLISH_CAN	0x04
+#define SUBLANG_ENGLISH_NZ	0x05
+#define SUBLANG_ENGLISH_EIRE	0x06
+#define SUBLANG_ENGLISH_SOUTH_AFRICA	0x07
+#define SUBLANG_ENGLISH_JAMAICA	0x08
+#define SUBLANG_ENGLISH_CARIBBEAN	0x09
+#define SUBLANG_ENGLISH_BELIZE	0x0a
+#define SUBLANG_ENGLISH_TRINIDAD	0x0b
+#define SUBLANG_ENGLISH_ZIMBABWE	0x0c
+#define SUBLANG_ENGLISH_PHILIPPINES	0x0d
+#define SUBLANG_FINNISH_FINLAND 0x1
+#define SUBLANG_FRENCH	0x01
+#define SUBLANG_FRENCH_BELGIAN	0x02
+#define SUBLANG_FRENCH_CANADIAN	0x03
+#define SUBLANG_FRENCH_SWISS	0x04
+#define SUBLANG_FRENCH_LUXEMBOURG	0x05
+#define SUBLANG_FRENCH_MONACO	0x06
+#define SUBLANG_GERMAN	0x01
+#define SUBLANG_GERMAN_SWISS	0x02
+#define SUBLANG_GERMAN_AUSTRIAN	0x03
+#define SUBLANG_GERMAN_LUXEMBOURG	0x04
+#define SUBLANG_GERMAN_LIECHTENSTEIN	0x05
+#define SUBLANG_GREEK_GREECE 0x1
+#define SUBLANG_HUNGARIAN_HUNGARY 0x1
+#define SUBLANG_ITALIAN	0x01
+#define SUBLANG_ITALIAN_SWISS	0x02
+#define SUBLANG_JAPANESE_JAPAN 0x1
+#define SUBLANG_KASHMIRI_INDIA	0x02
+#define SUBLANG_KASHMIRI_SASIA	0x02
+#define SUBLANG_KOREAN	0x01
+#define SUBLANG_LITHUANIAN	0x01
+#define SUBLANG_MALAY_MALAYSIA	0x01
+#define SUBLANG_MALAY_BRUNEI_DARUSSALAM	0x02
+#define SUBLANG_NEPALI_INDIA	0x02
+#define SUBLANG_NORWEGIAN_BOKMAL	0x01
+#define SUBLANG_NORWEGIAN_NYNORSK	0x02
+#define SUBLANG_POLISH_POLAND 0x1
+#define SUBLANG_PORTUGUESE	0x01
+#define SUBLANG_PORTUGUESE_BRAZILIAN	0x02
+#define SUBLANG_ROMANIAN_ROMANIA 0x1
+#define SUBLANG_RUSSIAN_RUSSIA 0x1
+#define SUBLANG_SERBIAN_LATIN	0x02
+#define SUBLANG_SERBIAN_CYRILLIC	0x03
+#define SUBLANG_SLOVAK_SLOVAKIA 0x1
+#define SUBLANG_SLOVENIAN_SLOVENIA 0x1
+#define SUBLANG_SPANISH	0x01
+#define SUBLANG_SPANISH_MEXICAN	0x02
+#define SUBLANG_SPANISH_MODERN	0x03
+#define SUBLANG_SPANISH_GUATEMALA	0x04
+#define SUBLANG_SPANISH_COSTA_RICA	0x05
+#define SUBLANG_SPANISH_PANAMA	0x06
+#define SUBLANG_SPANISH_DOMINICAN_REPUBLIC	0x07
+#define SUBLANG_SPANISH_VENEZUELA	0x08
+#define SUBLANG_SPANISH_COLOMBIA	0x09
+#define SUBLANG_SPANISH_PERU	0x0a
+#define SUBLANG_SPANISH_ARGENTINA	0x0b
+#define SUBLANG_SPANISH_ECUADOR	0x0c
+#define SUBLANG_SPANISH_CHILE	0x0d
+#define SUBLANG_SPANISH_URUGUAY	0x0e
+#define SUBLANG_SPANISH_PARAGUAY	0x0f
+#define SUBLANG_SPANISH_BOLIVIA	0x10
+#define SUBLANG_SPANISH_EL_SALVADOR	0x11
+#define SUBLANG_SPANISH_HONDURAS	0x12
+#define SUBLANG_SPANISH_NICARAGUA	0x13
+#define SUBLANG_SPANISH_PUERTO_RICO	0x14
+#define SUBLANG_SWEDISH	0x01
+#define SUBLANG_SWEDISH_FINLAND	0x02
+#define SUBLANG_TAJIK_TAJIKISTAN	0x01
+#define SUBLANG_THAI_THAILAND 0x1
+#define SUBLANG_URDU_PAKISTAN	0x01
+#define SUBLANG_URDU_INDIA	0x02
+#define SUBLANG_UKRAINIAN_UKRAINE 0x1
+#define SUBLANG_UZBEK_LATIN	0x01
+#define SUBLANG_UZBEK_CYRILLIC	0x02
 #define NLS_VALID_LOCALE_MASK	1048575
 #define SORT_DEFAULT	0
 #define SORT_JAPANESE_XJIS	0
@@ -2012,7 +1844,7 @@ typedef struct _ACL_SIZE_INFORMATION {
 } ACL_SIZE_INFORMATION;
 
 /* FIXME: add more machines */
-#if defined(_X86_) || defined(unix) && !defined(__PowerPC__)
+#if defined(_X86_) || defined(unix)
 #define SIZE_OF_80387_REGISTERS	80
 #define CONTEXT_i386	0x10000
 #define CONTEXT_i486	0x10000
@@ -2068,8 +1900,7 @@ typedef struct _CONTEXT {
 #define CONTEXT_INTEGER	4L
 #define CONTEXT_DEBUG_REGISTERS	8L
 #define CONTEXT_FULL (CONTEXT_CONTROL|CONTEXT_FLOATING_POINT|CONTEXT_INTEGER)
-typedef struct _FLOATING_SAVE_AREA
-{
+typedef struct _CONTEXT {
 	double Fpr0;
 	double Fpr1;
 	double Fpr2;
@@ -2103,10 +1934,6 @@ typedef struct _FLOATING_SAVE_AREA
 	double Fpr30;
 	double Fpr31;
 	double Fpscr;
-} FLOATING_SAVE_AREA;
-
-typedef struct _CONTEXT {
-        FLOATING_SAVE_AREA FloatSave;
 	DWORD Gpr0;
 	DWORD Gpr1;
 	DWORD Gpr2;
@@ -2346,7 +2173,7 @@ typedef struct _CONTEXT {
 #endif
 } CONTEXT;
 
-#elif defined(_MIPS_)
+#elif defined(MIPS)
 
 /* The following flags control the contents of the CONTEXT structure. */
 
@@ -2712,9 +2539,6 @@ typedef struct _TOKEN_USER {
 } TOKEN_USER, *PTOKEN_USER;
 typedef DWORD SECURITY_INFORMATION,*PSECURITY_INFORMATION;
 typedef WORD SECURITY_DESCRIPTOR_CONTROL,*PSECURITY_DESCRIPTOR_CONTROL;
-
-#ifndef _SECURITY_ATTRIBUTES_
-#define _SECURITY_ATTRIBUTES_
 typedef struct _SECURITY_DESCRIPTOR {
 	BYTE Revision;
 	BYTE Sbz1;
@@ -2724,7 +2548,6 @@ typedef struct _SECURITY_DESCRIPTOR {
 	PACL Sacl;
 	PACL Dacl;
 } SECURITY_DESCRIPTOR, *PSECURITY_DESCRIPTOR, *PISECURITY_DESCRIPTOR;
-#endif
 typedef struct _SECURITY_DESCRIPTOR_RELATIVE {
     BYTE Revision;
     BYTE Sbz1;
@@ -2899,16 +2722,6 @@ typedef struct _RTL_CRITICAL_SECTION {
 	ULONG_PTR SpinCount;
 } RTL_CRITICAL_SECTION,*PRTL_CRITICAL_SECTION;
 #endif
-
-NTSYSAPI
-VOID
-NTAPI
-RtlUnwind (
-    IN PVOID TargetFrame OPTIONAL,
-    IN PVOID TargetIp OPTIONAL,
-    IN PEXCEPTION_RECORD ExceptionRecord OPTIONAL,
-    IN PVOID ReturnValue
-    );
 
 #define RTL_SRWLOCK_INIT {0}
 typedef struct _RTL_SRWLOCK
@@ -3395,19 +3208,16 @@ _ANONYMOUS_STRUCT typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
 		_ANONYMOUS_STRUCT struct {
 			DWORD NameOffset:31;
 			DWORD NameIsString:1;
-		}DUMMYSTRUCTNAME1;
+		}DUMMYSTRUCTNAME;
 		DWORD Name;
-		_ANONYMOUS_STRUCT struct {
-			WORD Id;
-			WORD __pad;
-		}DUMMYSTRUCTNAME2;
-	} DUMMYUNIONNAME1;
+		WORD Id;
+	} DUMMYUNIONNAME;
 	_ANONYMOUS_UNION union {
 		DWORD OffsetToData;
 		_ANONYMOUS_STRUCT struct {
 			DWORD OffsetToDirectory:31;
 			DWORD DataIsDirectory:1;
-		} DUMMYSTRUCTNAME3;
+		} DUMMYSTRUCTNAME2;
 	} DUMMYUNIONNAME2;
 } IMAGE_RESOURCE_DIRECTORY_ENTRY,*PIMAGE_RESOURCE_DIRECTORY_ENTRY;
 typedef struct _IMAGE_RESOURCE_DIRECTORY_STRING {
@@ -4022,7 +3832,6 @@ typedef OSVERSIONINFOEXA OSVERSIONINFOEX,*POSVERSIONINFOEX,*LPOSVERSIONINFOEX;
 ULONGLONG WINAPI VerSetConditionMask(ULONGLONG,DWORD,BYTE);
 #endif
 
-NTSYSAPI
 SIZE_T
 STDCALL
 RtlCompareMemory (
@@ -4044,41 +3853,18 @@ typedef struct _OBJECT_TYPE_LIST {
 
 #if defined(__GNUC__)
 
-#if defined(_M_IX86)
 static __inline__ PVOID GetCurrentFiber(void)
 {
     void* ret;
     __asm__ __volatile__ (
-        "movl	%%fs:0x10,%0"
-        : "=r" (ret) /* allow use of reg eax,ebx,ecx,edx,esi,edi */
-    );
+	"movl	%%fs:0x10,%0"
+	: "=r" (ret) /* allow use of reg eax,ebx,ecx,edx,esi,edi */
+	);
     return ret;
 }
-#else
-#if defined(_M_PPC)
-static __inline__ __attribute__((always_inline)) unsigned long __readfsdword_winnt(const unsigned long Offset)
-{
-    unsigned long result;
-    __asm__("\tadd 7,13,%1\n"
-            "\tlwz %0,0(7)\n"
-            : "=r" (result)
-            : "r" (Offset)
-            : "r7");
-    return result;
-}
-
-#else
-#error Unknown architecture
-#endif
-static __inline__ PVOID GetCurrentFiber(void)
-{
-    return __readfsdword_winnt(0x10);
-}
-#endif
 
 /* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
 #ifndef __NTDDK_H
-#ifdef _M_IX86
 static __inline__ struct _TEB * NtCurrentTeb(void)
 {
     struct _TEB *ret;
@@ -4090,17 +3876,6 @@ static __inline__ struct _TEB * NtCurrentTeb(void)
     );
 
     return ret;
-}
-#else
-static __inline__ struct _TEB * NtCurrentTeb(void)
-{
-    return __readfsdword_winnt(0x18);
-}
-#endif
-#elif defined(_M_PPC)
-static __inline__ struct _TEB * NtCurrentTeb(void)
-{
-    return __readfsdword_winnt(0x18);
 }
 #endif
 
@@ -4161,36 +3936,30 @@ static __inline__ BOOLEAN
 InterlockedBitTestAndSet(IN LONG volatile *Base,
                          IN LONG Bit)
 {
-#if defined(_M_IX86)
 	LONG OldBit;
+
 	__asm__ __volatile__("lock "
 	                     "btsl %2,%1\n\t"
 	                     "sbbl %0,%0\n\t"
-	                     :"=r" (OldBit),"=m" (*Base)
-	                     :"Ir" (Bit)
-	                     : "memory");
+		             :"=r" (OldBit),"=m" (*Base)
+		             :"Ir" (Bit)
+			     : "memory");
 	return OldBit;
-#else
-	return (_InterlockedOr(Base, 1 << Bit) >> Bit) & 1;
-#endif
 }
 
 static __inline__ BOOLEAN
 InterlockedBitTestAndReset(IN LONG volatile *Base,
-                           IN LONG Bit)
+                          IN LONG Bit)
 {
-#if defined(_M_IX86)
 	LONG OldBit;
+
 	__asm__ __volatile__("lock "
 	                     "btrl %2,%1\n\t"
 	                     "sbbl %0,%0\n\t"
-	                     :"=r" (OldBit),"=m" (*Base)
-	                     :"Ir" (Bit)
-	                     : "memory");
+		             :"=r" (OldBit),"=m" (*Base)
+		             :"Ir" (Bit)
+			     : "memory");
 	return OldBit;
-#else
-	return (_InterlockedAnd(Base, ~(1 << Bit)) >> Bit) & 1;
-#endif
 }
 
 static __inline__ BOOLEAN
@@ -4198,36 +3967,17 @@ BitScanReverse(OUT ULONG *Index,
                IN ULONG Mask)
 {
 	BOOLEAN BitPosition = 0;
-#if defined(_M_IX86)
 	__asm__ __volatile__("bsrl %2,%0\n\t"
 	                     "setnz %1\n\t"
-	                     :"=&r" (*Index), "=r" (BitPosition)
-	                     :"rm" (Mask)
-	                     :"memory");
+                         :"=&r" (*Index), "=r" (BitPosition)
+		                 :"rm" (Mask)
+			             :"memory");
 	return BitPosition;
-#else
-	/* Slow implementation for now */
-	for( *Index = 31; *Index; *Index-- ) {
-		if( (1<<*Index) & Mask ) {
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-#endif
 }
 
 #endif
 
-#if defined(_M_IX86)
 #define YieldProcessor() __asm__ __volatile__("pause");
-#elif defined(_M_PPC)
-#define YieldProcessor() __asm__ __volatile__("nop");
-#elif defined(_M_MIPS)
-#define YieldProcessor() __asm__ __volatile__("nop");
-#else
-#error Unknown architecture
-#endif
 
 #if defined(_AMD64_)
 #if defined(_M_AMD64)

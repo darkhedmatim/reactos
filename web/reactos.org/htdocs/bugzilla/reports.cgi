@@ -30,32 +30,33 @@
 #    daily stats file, so now works independently of collectstats.pl
 #    version
 #    Added image caching by date and datasets
-# Myk Melez <myk@mozilla.org>:
+# Myk Melez <myk@mozilla.org):
 #    Implemented form field validation and reorganized code.
-# Frédéric Buclin <LpSolit@gmail.com>:
-#    Templatization.
 
 use strict;
 
 use lib qw(.);
 
-use Bugzilla;
-use Bugzilla::Constants;
-use Bugzilla::Util;
-use Bugzilla::Error;
+use Bugzilla::Config qw(:DEFAULT $datadir);
+
+require "globals.pl";
+use vars qw(@legal_product); # globals from er, globals.pl
 
 eval "use GD";
 $@ && ThrowCodeError("gd_not_installed");
 eval "use Chart::Lines";
 $@ && ThrowCodeError("chart_lines_not_installed");
 
-my $dir       = bz_locations()->{'datadir'} . "/mining";
-my $graph_url = 'graphs';
-my $graph_dir = bz_locations()->{'libpath'} . '/' .$graph_url;
+my $dir = "$datadir/mining";
+my $graph_dir = "graphs";
+
+use Bugzilla;
 
 # If we're using bug groups for products, we should apply those restrictions
 # to viewing reports, as well.  Time to check the login in that case.
 my $user = Bugzilla->login();
+
+GetVersionTable();
 
 Bugzilla->switch_to_shadow_db();
 
@@ -70,33 +71,11 @@ push( @myproducts, "-All-");
 push( @myproducts, map { $_->name } @{$user->get_selectable_products} );
 
 if (! defined $cgi->param('product')) {
-    # Can we do bug charts?
-    (-d $dir && -d $graph_dir) 
-      || ThrowCodeError('chart_dir_nonexistent',
-                        {dir => $dir, graph_dir => $graph_dir});
 
-    my %default_sel = map { $_ => 1 } qw/UNCONFIRMED NEW ASSIGNED REOPENED/;
+    choose_product(@myproducts);
+    $template->put_footer();
 
-    my @datasets;
-    my @data = get_data($dir);
-
-    foreach my $dataset (@data) {
-        my $datasets = {};
-        $datasets->{'value'} = $dataset;
-        $datasets->{'selected'} = $default_sel{$dataset} ? 1 : 0;
-        push(@datasets, $datasets);
-    }
-
-    $vars->{'datasets'} = \@datasets;
-    $vars->{'products'} = \@myproducts;
-
-    print $cgi->header();
-
-    $template->process('reports/old-charts.html.tmpl', $vars)
-      || ThrowTemplateError($template->error());
-    exit;
-}
-else {
+} else {
     my $product = $cgi->param('product');
 
     # For security and correctness, validate the value of the "product" form variable.
@@ -109,55 +88,129 @@ else {
     # This means that is OK to detaint
     trick_taint($product);
 
-    defined($cgi->param('datasets')) || ThrowUserError('missing_datasets');
-
-    my $datasets = join('', $cgi->param('datasets'));
-
-    my $type = chart_image_type();
-    my $data_file = daily_stats_filename($product);
-    my $image_file = chart_image_name($data_file, $type, $datasets);
-    my $url_image = correct_urlbase() . "$graph_url/$image_file";
-
-    if (! -e "$graph_dir/$image_file") {
-        generate_chart("$dir/$data_file", "$graph_dir/$image_file", $type,
-                       $product, $datasets);
-    }
-
-    $vars->{'url_image'} = $url_image;
-
     print $cgi->header(-Content_Disposition=>'inline; filename=bugzilla_report.html');
 
-    $template->process('reports/old-charts.html.tmpl', $vars)
-      || ThrowTemplateError($template->error());
-    exit;
+    $template->put_header("Bug Charts");
+    $vars->{'header_done'} = 1;
+
+    show_chart($product);
+
+    $template->put_footer();
 }
 
-#####################
-#    Subroutines    #
-#####################
 
-sub get_data {
-    my $dir = shift;
+##################################
+# user came in with no form data #
+##################################
 
-    my @datasets;
+sub choose_product {
+    my @myproducts = (@_);
+    
     my $datafile = daily_stats_filename('-All-');
-    open(DATA, '<', "$dir/$datafile")
-      || ThrowCodeError('chart_file_open_fail', {filename => "$dir/$datafile"});
 
-    while (<DATA>) {
-        if (/^# fields?: (.+)\s*$/) {
-            @datasets = grep ! /date/i, (split /\|/, $1);
-            last;
-        }
-    }
-    close(DATA);
-    return @datasets;
+    # Can we do bug charts?  
+    (-d $dir && -d $graph_dir) 
+      || ThrowCodeError("chart_dir_nonexistent", 
+                        {dir => $dir, graph_dir => $graph_dir});
+      
+    open(DATA, "$dir/$datafile")
+      || ThrowCodeError("chart_file_open_fail", {filename => "$dir/$datafile"});
+ 
+    print $cgi->header();
+    $template->put_header("Bug Charts");
+    $vars->{'header_done'} = 1;
+
+    print <<FIN;
+<center>
+<h1>Welcome to the Bugzilla Charting Kitchen</h1>
+<form method=get action=reports.cgi>
+<table border=1 cellpadding=5>
+<tr>
+<td align=center><b>Product:</b></td>
+<td align=center>
+<select name="product">
+FIN
+foreach my $product (@myproducts) {
+    $product = html_quote($product);
+    print qq{<option value="$product">$product</option>};
+}
+print <<FIN;
+</select>
+</td>
+</tr>
+<tr>
+  <td align=center><b>Chart datasets:</b></td>
+  <td align=center>
+  <select name="datasets" multiple size=5>
+FIN
+
+      my @datasets = ();
+
+      while (<DATA>) {
+          if (/^# fields?: (.+)\s*$/) {
+              @datasets = grep ! /date/i, (split /\|/, $1);
+              last;
+          }
+      }
+
+      close(DATA);
+
+      my %default_sel = map { $_ => 1 }
+                            qw/UNCONFIRMED NEW ASSIGNED REOPENED/;
+      foreach my $dataset (@datasets) {
+          my $sel = $default_sel{$dataset} ? ' selected' : '';
+          print qq{<option value="$dataset:"$sel>$dataset</option>\n};
+      }
+
+      print <<FIN;
+      </select>
+      </td>
+      </tr>
+<tr>
+<td colspan=2 align=center>
+<input type=submit value=Continue>
+</td>
+</tr>
+</table>
+</center>
+</form>
+<p>
+FIN
 }
 
 sub daily_stats_filename {
     my ($prodname) = @_;
     $prodname =~ s/\//-/gs;
     return $prodname;
+}
+
+sub show_chart {
+    my ($product) = @_;
+
+    if (! defined $cgi->param('datasets')) {
+        ThrowUserError("missing_datasets", $vars);
+    }
+    my $datasets = join('', $cgi->param('datasets'));
+
+  print <<FIN;
+<center>
+FIN
+
+    my $type = chart_image_type();
+    my $data_file = daily_stats_filename($product);
+    my $image_file = chart_image_name($data_file, $type, $datasets);
+    my $url_image = "$graph_dir/" . url_quote($image_file);
+
+    if (! -e "$graph_dir/$image_file") {
+        generate_chart("$dir/$data_file", "$graph_dir/$image_file", $type,
+                       $product, $datasets);
+    }
+    
+    print <<FIN;
+<img src="$url_image">
+<br clear=left>
+<br>
+FIN
 }
 
 sub chart_image_type {
@@ -176,11 +229,11 @@ sub chart_image_name {
     # is that we have to check the safety of doing this. We can't just require
     # that the fields exist, because what stats were collected could change
     # over time (eg by changing the resolutions available)
-    # Instead, just require that each field name consists only of letters,
-    # numbers, underscores and hyphens.
+    # Instead, just require that each field name consists only of letters
+    # and number
 
-    if ($datasets !~ m/^[A-Za-z0-9:_-]+$/) {
-        ThrowUserError('invalid_datasets', {'datasets' => $datasets});
+    if ($datasets !~ m/^[A-Za-z0-9:]+$/) {
+        die "Invalid datasets $datasets";
     }
 
     # Since we pass the tests, consider it OK
@@ -193,14 +246,23 @@ sub chart_image_name {
     return "${data_file}_${id}.$type";
 }
 
+sub day_of_year {
+    my ($mday, $month, $year) = (localtime())[3 .. 5];
+    $month += 1;
+    $year += 1900;
+    my $date = sprintf "%02d%02d%04d", $mday, $month, $year;
+}
+
 sub generate_chart {
     my ($data_file, $image_file, $type, $product, $datasets) = @_;
-
+    
     if (! open FILE, $data_file) {
         if ($product eq '-All-') {
             $product = '';
         }
-        ThrowCodeError('chart_data_not_generated', {'product' => $product});
+
+        $vars->{'product'} = $product;
+        ThrowCodeError("chart_data_not_generated", $vars);
     }
 
     my @fields;
@@ -215,7 +277,8 @@ sub generate_chart {
             if (/^# fields?: (.*)\s*$/) {
                 @fields = split /\||\r/, $1;
                 unless ($fields[0] =~ /date/i) {
-                    ThrowCodeError('chart_datafile_corrupt', {'file' => $data_file});
+                    $vars->{'file'} = $data_file;
+                    ThrowCodeError("chart_datafile_corrupt", $vars);
                 }
                 push @labels, grep($datasets{$_}, @fields);
             }
@@ -223,9 +286,10 @@ sub generate_chart {
         }
 
         unless (@fields) {
-            ThrowCodeError('chart_datafile_corrupt', {'file' => $data_file});
+            $vars->{'file'} = $data_file;
+            ThrowCodeError("chart_datafile_corrupt", $vars);
         }
-
+        
         my @line = split /\|/;
         my $date = $line[0];
         my ($yy, $mm, $dd) = $date =~ /^\d{2}(\d{2})(\d{2})(\d{2})$/;
@@ -250,9 +314,9 @@ sub generate_chart {
     close FILE;
 
     if (! @{$data{DATE}}) {
-        ThrowUserError('insufficient_data_points');
+        ThrowUserError("insufficient_data_points", $vars);
     }
-
+    
     my $img = Chart::Lines->new (800, 600);
     my $i = 0;
 

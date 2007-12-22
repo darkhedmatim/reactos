@@ -170,8 +170,7 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
         if (Mask != NewMask)
         {
             /* Update it */
-            KeGetCurrentThread()->DispatcherHeader.DebugActive =
-                (BOOLEAN)NewMask;
+            KeGetCurrentThread()->DispatcherHeader.DebugActive = NewMask;
         }
     }
 
@@ -309,9 +308,9 @@ USHORT
 NTAPI
 KiTagWordFnsaveToFxsave(USHORT TagWord)
 {
-    INT FxTagWord = ~TagWord;
+    INT FxTagWord = ~TagWord; 
 
-    /*
+    /* 
      * Empty is now 00, any 2 bits containing 1 mean valid
      * Now convert the rest (11->0 and the rest to 1)
      */
@@ -460,7 +459,7 @@ KeContextToTrapFrame(IN PCONTEXT Context,
                           MAXIMUM_SUPPORTED_EXTENSION);
 
             /* Remove reserved bits from MXCSR */
-            FxSaveArea->U.FxArea.MXCsr &= KiMXCsrMask;
+            FxSaveArea->U.FxArea.MXCsr &= ~0xFFBF;
 
             /* Mask out any invalid flags */
             FxSaveArea->Cr0NpxState &= ~(CR0_EM | CR0_MP | CR0_TS);
@@ -799,45 +798,6 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
     if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
 }
 
-BOOLEAN
-FASTCALL
-KeInvalidAccessAllowed(IN PVOID TrapInformation OPTIONAL)
-{
-    ULONG Eip;
-    PKTRAP_FRAME TrapFrame = TrapInformation;
-    VOID NTAPI ExpInterlockedPopEntrySListFault(VOID);
-
-    /* Don't do anything if we didn't get a trap frame */
-    if (!TrapInformation) return FALSE;
-
-    /* Check where we came from */
-    switch (TrapFrame->SegCs)
-    {
-        /* Kernel mode */
-        case KGDT_R0_CODE:
-
-            /* Allow S-LIST Routine to fail */
-            Eip = (ULONG)&ExpInterlockedPopEntrySListFault;
-            break;
-
-        /* User code */
-        case KGDT_R3_CODE | RPL_MASK:
-
-            /* Allow S-LIST Routine to fail */
-            //Eip = (ULONG)KeUserPopEntrySListFault;
-            Eip = 0;
-            break;
-
-        default:
-
-            /* Anything else gets a bugcheck */
-            Eip = 0;
-    }
-
-    /* Return TRUE if we want to keep the system up */
-    return (TrapFrame->Eip == Eip) ? TRUE : FALSE;
-}
-
 VOID
 NTAPI
 KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
@@ -878,7 +838,7 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     /* Look at our exception code */
     switch (ExceptionRecord->ExceptionCode)
     {
-        /* Breakpoint */
+        /* Breapoint */
         case STATUS_BREAKPOINT:
 
             /* Decrement EIP by one */
@@ -1057,11 +1017,7 @@ DispatchToUser:
         }
 
         /* 3rd strike, kill the process */
-        DPRINT1("Kill %.16s, ExceptionCode: %lx, ExceptionAddress: %lx\n",
-                PsGetCurrentProcess()->ImageFileName,
-                ExceptionRecord->ExceptionCode,
-                ExceptionRecord->ExceptionAddress);
-
+        DPRINT1("Kill the process\n");
         ZwTerminateProcess(NtCurrentProcess(), ExceptionRecord->ExceptionCode);
         KeBugCheckEx(KMODE_EXCEPTION_NOT_HANDLED,
                      ExceptionRecord->ExceptionCode,

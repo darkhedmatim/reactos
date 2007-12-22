@@ -834,8 +834,8 @@ INT WINAPI EnumMRUListW (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
     const WINEMRUITEM *witem;
     INT desired, datasize;
 
-    if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     if (nItemPos >= mp->cursize) return -1;
+    if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     desired = mp->realMRU[nItemPos];
     desired -= 'a';
     TRACE("nItemPos=%d, desired=%d\n", nItemPos, desired);
@@ -860,8 +860,8 @@ INT WINAPI EnumMRUListA (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
     INT desired, datasize;
     DWORD lenA;
 
-    if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     if (nItemPos >= mp->cursize) return -1;
+    if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     desired = mp->realMRU[nItemPos];
     desired -= 'a';
     TRACE("nItemPos=%d, desired=%d\n", nItemPos, desired);
@@ -917,47 +917,6 @@ INT Str_GetPtrWtoA (LPCWSTR lpSrc, LPSTR lpDest, INT nMaxLen)
 	len = nMaxLen - 1;
 
     WideCharToMultiByte(CP_ACP, 0, lpSrc, -1, lpDest, len, NULL, NULL);
-    lpDest[len] = '\0';
-
-    return len;
-}
-
-/**************************************************************************
- * Str_GetPtrAtoW [internal]
- *
- * Converts a multibyte string into a unicode string
- *
- * PARAMS
- *     lpSrc   [I] Pointer to the multibyte source string
- *     lpDest  [O] Pointer to caller supplied storage for the unicode string
- *     nMaxLen [I] Size, in characters, of the destination buffer
- *
- * RETURNS
- *     Length, in characters, of the converted string.
- */
-
-INT Str_GetPtrAtoW (LPCSTR lpSrc, LPWSTR lpDest, INT nMaxLen)
-{
-    INT len;
-
-    TRACE("(%s %p %d)\n", debugstr_a(lpSrc), lpDest, nMaxLen);
-
-    if (!lpDest && lpSrc)
-	return MultiByteToWideChar(CP_ACP, 0, lpSrc, -1, 0, 0);
-
-    if (nMaxLen == 0)
-	return 0;
-
-    if (lpSrc == NULL) {
-	lpDest[0] = '\0';
-	return 0;
-    }
-
-    len = MultiByteToWideChar(CP_ACP, 0, lpSrc, -1, 0, 0);
-    if (len >= nMaxLen)
-	len = nMaxLen - 1;
-
-    MultiByteToWideChar(CP_ACP, 0, lpSrc, -1, lpDest, len);
     lpDest[len] = '\0';
 
     return len;

@@ -19,7 +19,7 @@
 #include <malloc.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS *****************************************************************/
 
@@ -612,6 +612,7 @@ MoveFileWithProgressW (
 		   {
 		     DWORD Attributes;
 
+		     FindClose(hFile);				 
 			 Attributes = GetFileAttributesW(lpDeleteFile);
              if (Attributes != INVALID_FILE_ATTRIBUTES)
              {	

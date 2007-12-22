@@ -1,4 +1,4 @@
-LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
+LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
 
 IDR_MAINMENU MENU
 BEGIN
@@ -65,7 +65,6 @@ END
 /* Hints */
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_APPNAME "Gestionnaire de périphériques ReactOS"
   IDS_HINT_BLANK        " "
   IDS_HINT_EXIT         " Quitte le programme."
   IDS_HINT_REFRESH      " Actualise la liste des services."

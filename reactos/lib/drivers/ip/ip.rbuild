@@ -1,13 +1,12 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="ip" type="staticlibrary" allowwarnings="true">
 	<define name="__NTDRIVER__"/>
+	<define name="__USE_W32API"/>
 	<include base="tcpip">include</include>
 	<include base="oskittcp">include</include>
 	<directory name="network">
 		<if property="ARCH" value="i386">
 			<directory name="i386">
-				<file>checksum.S</file>
+			        <file>checksum.S</file>
 			</directory>
 		</if>
 		<file>address.c</file>
@@ -26,20 +25,20 @@
 		<file>transmit.c</file>
 	</directory>
 	<directory name="transport">
-		<directory name="datagram">
-			<file>datagram.c</file>
+	        <directory name="datagram">
+		        <file>datagram.c</file>
 		</directory>
 		<directory name="rawip">
-			<file>rawip.c</file>
+		        <file>rawip.c</file>
 		</directory>
 		<directory name="tcp">
-			<file>accept.c</file>
+		        <file>accept.c</file>
 			<file>event.c</file>
 			<file>if.c</file>
 			<file>tcp.c</file>
 		</directory>
 		<directory name="udp">
-			<file>udp.c</file>
+		        <file>udp.c</file>
 		</directory>
 	</directory>
 </module>

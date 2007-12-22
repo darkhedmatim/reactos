@@ -376,7 +376,7 @@ MmReserveSwapPages(ULONG Nr)
    MiAvailSwapPages =
       (MiFreeSwapPages * MM_PAGEFILE_COMMIT_RATIO) + MM_PAGEFILE_COMMIT_GRACE;
    MiReservedSwapPages = MiReservedSwapPages + Nr;
-   if ((MM_PAGEFILE_COMMIT_RATIO != 0) && (MiAvailSwapPages < MiReservedSwapPages))
+   if (MM_PAGEFILE_COMMIT_RATIO != 0 && MiAvailSwapPages < MiReservedSwapPages)
    {
       KeReleaseSpinLock(&PagingFileListLock, oldIrql);
       return(FALSE);
@@ -579,14 +579,12 @@ MmDumpToPagingFile(ULONG BugCode,
    Headers->Type = MmCoreDumpType;
    if (TrapFrame != NULL)
    {
-#ifdef _M_IX86
       if (!(TrapFrame->EFlags & (1 << 17)))
       {
          memcpy(&Headers->TrapFrame, TrapFrame,
                 sizeof(KTRAP_FRAME) - (4 * sizeof(ULONG)));
       }
       else
-#endif
       {
          memcpy(&Headers->TrapFrame, TrapFrame, sizeof(KTRAP_FRAME));
       }

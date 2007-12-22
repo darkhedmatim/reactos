@@ -8,202 +8,159 @@
 #ifndef CMLIB_H
 #define CMLIB_H
 
-#ifdef CMLIB_HOST
-#include <host/typedefs.h>
-#include <stdio.h>
-#include <string.h>
-
-// Definitions copied from <ntstatus.h>
-// We only want to include host headers, so we define them manually
-#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000)
-#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002)
-#define STATUS_NO_MEMORY                 ((NTSTATUS)0xC0000017)
-#define STATUS_INSUFFICIENT_RESOURCES    ((NTSTATUS)0xC000009A)
-#define STATUS_REGISTRY_CORRUPT          ((NTSTATUS)0xC000014C)
-#define STATUS_NOT_REGISTRY_FILE         ((NTSTATUS)0xC000015C)
-#define STATUS_REGISTRY_RECOVERED        ((NTSTATUS)0x40000009)
-
-#endif
-
-//
-// Debug support switch
-//
-#define _CMLIB_DEBUG_ 1
-
-//
-// These define the Debug Masks Supported
-//
-#define CMLIB_HCELL_DEBUG                                 0x01
-
-//
-// Debug/Tracing support
-//
-#if _CMLIB_DEBUG_
-#ifdef NEW_DEBUG_SYSTEM_IMPLEMENTED // enable when Debug Filters are implemented
-#define CMLTRACE DbgPrintEx
-#else
-#define CMLTRACE(x, ...)                                 \
-    if (x & CmlibTraceLevel) DbgPrint(__VA_ARGS__)
-#endif
-#else
-#define CMLTRACE(x, ...) DPRINT(__VA_ARGS__)
-#endif
-
-#ifndef _TYPEDEFS_HOST_H
- #include <ntddk.h>
-
-#else
- #define REG_OPTION_VOLATILE 1
- #define OBJ_CASE_INSENSITIVE 0x00000040L
- #define USHORT_MAX USHRT_MAX
-
-VOID NTAPI
-KeQuerySystemTime(
-    OUT PLARGE_INTEGER CurrentTime);
-
-VOID NTAPI
-RtlInitializeBitMap(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG BitMapBuffer,
-    IN ULONG SizeOfBitMap);
-
-ULONG NTAPI
-RtlFindSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG NumberToFind,
-    IN ULONG HintIndex);
-
-VOID NTAPI
-RtlSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG NumberToSet);
-
-VOID NTAPI
-RtlClearAllBits(
-    IN PRTL_BITMAP BitMapHeader);
-
-#define RtlCheckBit(BMH,BP) (((((PLONG)(BMH)->Buffer)[(BP) / 32]) >> ((BP) % 32)) & 0x1)
-
-#define PKTHREAD PVOID
-#define PKGUARDED_MUTEX PVOID
-#define PERESOURCE PVOID
-#define PFILE_OBJECT PVOID
-#define PKEVENT PVOID
-#define PWORK_QUEUE_ITEM PVOID
-#define EX_PUSH_LOCK PULONG_PTR
-
-#endif
+//#define WIN32_NO_STATUS
+#include <ntddk.h>
+#include "hivedata.h"
+#include "cmdata.h"
 
 #ifndef ROUND_UP
 #define ROUND_UP(a,b)        ((((a)+(b)-1)/(b))*(b))
 #define ROUND_DOWN(a,b)      (((a)/(b))*(b))
 #endif
 
-#define TAG_CM 0x68742020
-
 #define CMAPI NTAPI
 
-#include <wchar.h>
-#include "hivedata.h"
-#include "cmdata.h"
+struct _HHIVE;
 
-#if defined(_TYPEDEFS_HOST_H) || defined(__FREELDR_H)
+typedef PVOID (CMAPI *PGET_CELL_ROUTINE)(
+   struct _HHIVE *Hive,
+   HCELL_INDEX Cell);
 
-#define PCM_KEY_SECURITY_CACHE_ENTRY PVOID
-#define PCM_KEY_CONTROL_BLOCK PVOID
-#define CMP_SECURITY_HASH_LISTS                         64
-#define PCM_CELL_REMAP_BLOCK PVOID
+typedef VOID (CMAPI *PRELEASE_CELL_ROUTINE)(
+   struct _HHIVE *Hive,
+   HCELL_INDEX Cell);
 
-//
-// Use Count Log and Entry
-//
-typedef struct _CM_USE_COUNT_LOG_ENTRY
+typedef PVOID (CMAPI *PALLOCATE_ROUTINE)(
+   SIZE_T Size,
+   BOOLEAN Paged);
+
+typedef VOID (CMAPI *PFREE_ROUTINE)(
+   PVOID Ptr);
+
+typedef BOOLEAN (CMAPI *PFILE_READ_ROUTINE)(
+   struct _HHIVE *RegistryHive,
+   ULONG FileType,
+   ULONGLONG FileOffset,
+   PVOID Buffer,
+   SIZE_T BufferLength);
+
+typedef BOOLEAN (CMAPI *PFILE_WRITE_ROUTINE)(
+   struct _HHIVE *RegistryHive,
+   ULONG FileType,
+   ULONGLONG FileOffset,
+   PVOID Buffer,
+   SIZE_T BufferLength);
+
+typedef BOOLEAN (CMAPI *PFILE_SET_SIZE_ROUTINE)(
+   struct _HHIVE *RegistryHive,
+   ULONG FileType,
+   ULONGLONG FileSize);
+
+typedef BOOLEAN (CMAPI *PFILE_FLUSH_ROUTINE)(
+   struct _HHIVE *RegistryHive,
+   ULONG FileType);
+
+typedef struct _HMAP_ENTRY
 {
-    HCELL_INDEX Cell;
-    PVOID Stack[7];
-} CM_USE_COUNT_LOG_ENTRY, *PCM_USE_COUNT_LOG_ENTRY;
+    ULONG_PTR Bin;
+    ULONG_PTR Block;
+    struct _CM_VIEW_OF_FILE *CmHive;
+    ULONG MemAlloc;
+} HMAP_ENTRY, *PHMAP_ENTRY;
 
-typedef struct _CM_USE_COUNT_LOG
+typedef struct _HMAP_TABLE
 {
-    USHORT Next;
-    USHORT Size;
-    CM_USE_COUNT_LOG_ENTRY Log[32];
-} CM_USE_COUNT_LOG, *PCM_USE_COUNT_LOG;
+    HMAP_ENTRY Table[512];
+} HMAP_TABLE, *PHMAP_TABLE;
 
-//
-// Configuration Manager Hive Structure
-//
-typedef struct _CMHIVE
+typedef struct _HMAP_DIRECTORY
 {
-    HHIVE Hive;
-    HANDLE FileHandles[3];
-    LIST_ENTRY NotifyList;
-    LIST_ENTRY HiveList;
-    EX_PUSH_LOCK HiveLock;
-    PKTHREAD HiveLockOwner;
-    PKGUARDED_MUTEX ViewLock;
-    PKTHREAD ViewLockOwner;
-    EX_PUSH_LOCK WriterLock;
-    PKTHREAD WriterLockOwner;
-    PERESOURCE FlusherLock;
-    EX_PUSH_LOCK SecurityLock;
-    PKTHREAD HiveSecurityLockOwner;
-    LIST_ENTRY LRUViewListHead;
-    LIST_ENTRY PinViewListHead;
-    PFILE_OBJECT FileObject;
-    UNICODE_STRING FileFullPath;
-    UNICODE_STRING FileUserName;
-    USHORT MappedViews;
-    USHORT PinnedViews;
-    ULONG UseCount;
-    ULONG SecurityCount;
-    ULONG SecurityCacheSize;
-    LONG SecurityHitHint;
-    PCM_KEY_SECURITY_CACHE_ENTRY SecurityCache;
-    LIST_ENTRY SecurityHash[CMP_SECURITY_HASH_LISTS];
-    PKEVENT UnloadEvent;
-    PCM_KEY_CONTROL_BLOCK RootKcb;
-    BOOLEAN Frozen;
-    PWORK_QUEUE_ITEM UnloadWorkItem;
-    BOOLEAN GrowOnlyMode;
-    ULONG GrowOffset;
-    LIST_ENTRY KcbConvertListHead;
-    LIST_ENTRY KnodeConvertListHead;
-    PCM_CELL_REMAP_BLOCK CellRemapArray;
-    CM_USE_COUNT_LOG UseCountLog;
-    CM_USE_COUNT_LOG LockHiveLog;
-    ULONG Flags;
-    LIST_ENTRY TrustClassEntry;
-    ULONG FlushCount;
-    BOOLEAN HiveIsLoading;
-    PKTHREAD CreatorOwner;
-} CMHIVE, *PCMHIVE;
+    PHMAP_TABLE Directory[2048];
+} HMAP_DIRECTORY, *PHMAP_DIRECTORY;
 
+typedef struct _DUAL
+{
+    ULONG Length;
+    PHMAP_DIRECTORY Map;
+    PHMAP_ENTRY BlockList; // PHMAP_TABLE SmallDir;
+    ULONG Guard;
+    HCELL_INDEX FreeDisplay[24]; //FREE_DISPLAY FreeDisplay[24];
+    ULONG FreeSummary;
+    LIST_ENTRY FreeBins;
+} DUAL, *PDUAL;
+
+typedef struct _HHIVE
+{
+    ULONG Signature;
+    PGET_CELL_ROUTINE GetCellRoutine;
+    PRELEASE_CELL_ROUTINE ReleaseCellRoutine;
+    PALLOCATE_ROUTINE Allocate;
+    PFREE_ROUTINE Free;
+    PFILE_READ_ROUTINE FileRead;
+    PFILE_WRITE_ROUTINE FileWrite;
+    PFILE_SET_SIZE_ROUTINE FileSetSize;
+    PFILE_FLUSH_ROUTINE FileFlush;
+    PHBASE_BLOCK HiveHeader;
+    RTL_BITMAP DirtyVector;
+    ULONG DirtyCount;
+    ULONG DirtyAlloc;
+    ULONG BaseBlockAlloc;
+    ULONG Cluster;
+    BOOLEAN Flat;
+    BOOLEAN ReadOnly;
+    BOOLEAN Log;
+    BOOLEAN DirtyFlag;
+    ULONG HvBinHeadersUse;
+    ULONG HvFreeCellsUse;
+    ULONG HvUsedcellsUse;
+    ULONG CmUsedCellsUse;
+    ULONG HiveFlags;
+    ULONG LogSize;
+    ULONG RefreshCount;
+    ULONG StorageTypeCount;
+    ULONG Version;
+    DUAL Storage[HvMaxStorageType];
+} HHIVE, *PHHIVE;
+
+#ifndef _CM_
+typedef struct _EREGISTRY_HIVE
+{
+  HHIVE Hive;
+  LIST_ENTRY  HiveList;
+  UNICODE_STRING  HiveFileName;
+  UNICODE_STRING  LogFileName;
+  PCM_KEY_SECURITY  RootSecurityCell;
+  ULONG  Flags;
+  HANDLE  HiveHandle;
+  HANDLE  LogHandle;
+} EREGISTRY_HIVE, *PEREGISTRY_HIVE;
 #endif
-
-extern ULONG CmlibTraceLevel;
 
 /*
  * Public functions.
  */
+
+#define HV_OPERATION_CREATE_HIVE    0
+#define HV_OPERATION_MEMORY         1
+#define HV_OPERATION_MEMORY_INPLACE 3
+
 NTSTATUS CMAPI
 HvInitialize(
-             PHHIVE RegistryHive,
+   PHHIVE RegistryHive,
    ULONG Operation,
    ULONG HiveType,
    ULONG HiveFlags,
-   PVOID HiveData OPTIONAL,
+   ULONG_PTR HiveData OPTIONAL,
+   ULONG Cluster OPTIONAL,
    PALLOCATE_ROUTINE Allocate,
    PFREE_ROUTINE Free,
-   PFILE_SET_SIZE_ROUTINE FileSetSize,
-   PFILE_WRITE_ROUTINE FileWrite,
    PFILE_READ_ROUTINE FileRead,
+   PFILE_WRITE_ROUTINE FileWrite,
+   PFILE_SET_SIZE_ROUTINE FileSetSize,
    PFILE_FLUSH_ROUTINE FileFlush,
-   ULONG Cluster OPTIONAL,
-   PUNICODE_STRING FileName);
+   IN PUNICODE_STRING FileName);
 
-VOID CMAPI
+VOID CMAPI 
 HvFree(
    PHHIVE RegistryHive);
 
@@ -224,8 +181,7 @@ HCELL_INDEX CMAPI
 HvAllocateCell(
    PHHIVE RegistryHive,
    SIZE_T Size,
-   HSTORAGE_TYPE Storage,
-   IN HCELL_INDEX Vicinity);
+   HV_STORAGE_TYPE Storage);
 
 BOOLEAN CMAPI
 HvIsCellAllocated(
@@ -244,11 +200,10 @@ HvFreeCell(
    PHHIVE RegistryHive,
    HCELL_INDEX CellOffset);
 
-BOOLEAN CMAPI
+VOID CMAPI
 HvMarkCellDirty(
    PHHIVE RegistryHive,
-   HCELL_INDEX CellOffset,
-   BOOLEAN HoldingLock);
+   HCELL_INDEX CellOffset);
 
 BOOLEAN CMAPI
 HvIsCellDirty(
@@ -281,7 +236,7 @@ PHBIN CMAPI
 HvpAddBin(
    PHHIVE RegistryHive,
    ULONG Size,
-   HSTORAGE_TYPE Storage);
+   HV_STORAGE_TYPE Storage);
 
 NTSTATUS CMAPI
 HvpCreateHiveFreeCellList(

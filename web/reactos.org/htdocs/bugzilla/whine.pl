@@ -27,12 +27,13 @@
 use strict;
 
 use lib ".";
+require "globals.pl";
 
-use Bugzilla;
+use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::Constants;
 use Bugzilla::Search;
 use Bugzilla::User;
-use Bugzilla::Mailer;
+use Bugzilla::BugMail;
 use Bugzilla::Util;
 
 # create some handles that we'll need
@@ -93,17 +94,33 @@ my $sth_schedules_by_event = $dbh->prepare(
 # After that, it looks over each user to see if they have schedules that need
 # running, then runs those and generates the email messages.
 
-# Send whines from the address in the 'mailfrom' Parameter so that all
+# Send whines from the address in the 'maintainer' Parameter so that all
 # Bugzilla-originated mail appears to come from a single address.
-my $fromaddress = Bugzilla->params->{'mailfrom'};
+my $fromaddress = Param('maintainer');
 
-# get the current date and time
-my ($now_sec, $now_minute, $now_hour, $now_day, $now_month, $now_year, 
-    $now_weekday) = localtime;
-# Convert year to two digits
-$now_year = sprintf("%02d", $now_year % 100);
-# Convert the month to January being "1" instead of January being "0".
-$now_month++;
+if ($fromaddress !~ Param('emailregexp')) {
+    die "Cannot run.  " .
+        "The maintainer email address has not been properly set!\n";
+}
+
+# Check the nomail file for users who should not receive mail
+my %nomail;
+if (open(NOMAIL, '<', "$datadir/nomail")) {
+    while (<NOMAIL>) {
+        $nomail{trim($_)} = 1;
+    }
+}
+
+# get the current date and time from the database
+$sth = $dbh->prepare('SELECT ' . $dbh->sql_date_format('NOW()', '%y,%m,%d,%a,%H,%i'));
+$sth->execute;
+my ($now_year, $now_month, $now_day, $now_weekdayname, $now_hour, $now_minute) =
+        split(',', $sth->fetchrow_array);
+$sth->finish;
+
+# As DBs have different days numbering, use day name and convert it
+# to the range 0-6
+my $now_weekday = index("SunMonTueWedThuFriSat", $now_weekdayname) / 3;
 
 my @daysinmonth = qw(0 31 28 31 30 31 30 31 31 30 31 30 31);
 # Alter February in case of a leap year.  This simple way to do it only
@@ -360,7 +377,7 @@ sub mail {
     my $args = shift;
 
     # Don't send mail to someone on the nomail list.
-    return if $args->{recipient}->email_disabled;
+    return if $nomail{$args->{'recipient'}->{'login'}};
 
     my $msg = ''; # it's a temporary variable to hold the template output
     $args->{'alternatives'} ||= [];
@@ -392,7 +409,7 @@ sub mail {
     $template->process("whine/multipart-mime.txt.tmpl", $args, \$msg)
         or die($template->error());
 
-    MessageToMTA($msg);
+    Bugzilla::BugMail::MessageToMTA($msg);
 
     delete $args->{'boundary'};
     delete $args->{'alternatives'};

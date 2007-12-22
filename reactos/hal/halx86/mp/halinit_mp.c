@@ -21,12 +21,6 @@ extern BOOLEAN HaliFindSmpConfig(VOID);
 ULONG_PTR KernelBase;
 
 /***************************************************************************/
-
-VOID NTAPI HalpInitPICs(VOID)
-{
-    UNIMPLEMENTED;
-}
-
 VOID
 HalpInitPhase0(PLOADER_PARAMETER_BLOCK LoaderBlock)
 

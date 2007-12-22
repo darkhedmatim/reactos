@@ -714,7 +714,7 @@ NtSetSecurityObject(IN HANDLE Handle,
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PVOID Object;
     SECURITY_DESCRIPTOR_RELATIVE *CapturedDescriptor;
-    ACCESS_MASK DesiredAccess = 0;
+    ACCESS_MASK DesiredAccess;
     NTSTATUS Status;
     PAGED_CODE();
 
@@ -774,11 +774,10 @@ NtSetSecurityObject(IN HANDLE Handle,
         SeReleaseSecurityDescriptor((PSECURITY_DESCRIPTOR)CapturedDescriptor,
                                     PreviousMode,
                                     TRUE);
-
-        /* Now we can dereference the object */
-        ObDereferenceObject(Object);
     }
 
+    /* Now we can dereference the object */
+    ObDereferenceObject(Object);
     return Status;
 }
 

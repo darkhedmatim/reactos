@@ -15,7 +15,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 /* GLOBALS ******************************************************************/
@@ -394,14 +394,18 @@ SetFilePointer(HANDLE hFile,
      return -1;
    }
 
+   Distance.u.LowPart = lDistanceToMove;
    if (lpDistanceToMoveHigh)
    {
       Distance.u.HighPart = *lpDistanceToMoveHigh;
-      Distance.u.LowPart = lDistanceToMove;
+   }
+   else if (lDistanceToMove >= 0)
+   {
+      Distance.u.HighPart = 0;
    }
    else
    {
-      Distance.QuadPart = lDistanceToMove;
+      Distance.u.HighPart = -1;
    }
 
    switch(dwMoveMethod)
@@ -437,14 +441,6 @@ SetFilePointer(HANDLE hFile,
      return -1;
    }
 
-   if (lpDistanceToMoveHigh == NULL && FilePosition.CurrentByteOffset.HighPart != 0)
-   {
-     /* If we're moving the pointer outside of the 32 bit boundaries but
-        the application only passed a 32 bit value we need to bail out! */
-     SetLastError(ERROR_INVALID_PARAMETER);
-     return -1;
-   }
-
    errCode = NtSetInformationFile(hFile,
 				  &IoStatusBlock,
 				  &FilePosition,
@@ -452,28 +448,14 @@ SetFilePointer(HANDLE hFile,
 				  FilePositionInformation);
    if (!NT_SUCCESS(errCode))
      {
-       if (lpDistanceToMoveHigh != NULL)
-           *lpDistanceToMoveHigh = -1;
-
-       SetLastErrorByStatus(errCode);
-       return -1;
+	SetLastErrorByStatus(errCode);
+	return -1;
      }
 
    if (lpDistanceToMoveHigh != NULL)
      {
         *lpDistanceToMoveHigh = FilePosition.CurrentByteOffset.u.HighPart;
      }
-
-   if (FilePosition.CurrentByteOffset.u.LowPart == -1)
-     {
-       /* The value of -1 is valid here, especially when the new
-          file position is greater than 4 GB. Since NtSetInformationFile
-          succeeded we never set an error code and we explicitly need
-          to clear a previously set error code in this case, which
-          an application will check if INVALID_SET_FILE_POINTER is returned! */
-       SetLastError(ERROR_SUCCESS);
-     }
-
    return FilePosition.CurrentByteOffset.u.LowPart;
 }
 
@@ -876,7 +858,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
 				     NULL,
 				     NULL))
     {
-      DPRINT1 ("Invalid path '%S'\n", lpFileName);
+      DPRINT1 ("Invalid path\n");
       SetLastError (ERROR_BAD_PATHNAME);
       return FALSE;
     }
@@ -891,7 +873,7 @@ GetFileAttributesExW(LPCWSTR lpFileName,
   /* Get file attributes */
   Status = NtQueryFullAttributesFile(&ObjectAttributes,
                                      &FileInformation);
-
+                                     
   RtlFreeUnicodeString (&FileName);
   if (!NT_SUCCESS (Status))
     {
@@ -978,15 +960,15 @@ GetFileAttributesByHandle(IN HANDLE hFile,
     FILE_BASIC_INFORMATION FileBasic;
     IO_STATUS_BLOCK IoStatusBlock;
     NTSTATUS Status;
-
+    
     UNREFERENCED_PARAMETER(dwFlags);
-
+    
     if (IsConsoleHandle(hFile))
     {
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-
+    
     Status = NtQueryInformationFile(hFile,
                                     &IoStatusBlock,
                                     &FileBasic,
@@ -997,7 +979,7 @@ GetFileAttributesByHandle(IN HANDLE hFile,
         *dwFileAttributes = FileBasic.FileAttributes;
         return TRUE;
     }
-
+    
     SetLastErrorByStatus(Status);
     return FALSE;
 }
@@ -1016,7 +998,7 @@ SetFileAttributesByHandle(IN HANDLE hFile,
     NTSTATUS Status;
 
     UNREFERENCED_PARAMETER(dwFlags);
-
+    
     if (IsConsoleHandle(hFile))
     {
         SetLastError(ERROR_INVALID_HANDLE);
@@ -1031,7 +1013,7 @@ SetFileAttributesByHandle(IN HANDLE hFile,
     if (NT_SUCCESS(Status))
     {
         FileBasic.FileAttributes = dwFileAttributes;
-
+        
         Status = NtSetInformationFile(hFile,
                                       &IoStatusBlock,
                                       &FileBasic,
@@ -1044,7 +1026,7 @@ SetFileAttributesByHandle(IN HANDLE hFile,
         SetLastErrorByStatus(Status);
         return FALSE;
     }
-
+    
     return TRUE;
 }
 
@@ -1183,7 +1165,7 @@ UINT WINAPI GetTempFileNameW( LPCWSTR path, LPCWSTR prefix, UINT unique, LPWSTR 
     int i;
     LPWSTR p;
 
-    if ( !path || !buffer )
+    if ( !path || !prefix || !buffer )
     {
         SetLastError( ERROR_INVALID_PARAMETER );
         return 0;
@@ -1195,8 +1177,7 @@ UINT WINAPI GetTempFileNameW( LPCWSTR path, LPCWSTR prefix, UINT unique, LPWSTR 
     /* add a \, if there isn't one  */
     if ((p == buffer) || (p[-1] != '\\')) *p++ = '\\';
 
-    if ( prefix )
-        for (i = 3; (i > 0) && (*prefix); i--) *p++ = *prefix++;
+    for (i = 3; (i > 0) && (*prefix); i--) *p++ = *prefix++;
 
     unique &= 0xffff;
 

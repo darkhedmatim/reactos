@@ -83,7 +83,7 @@ static void dump_ps_flags(DWORD flags)
     TRACE("flags %08x %s\n", flags, flagstr);
 }
 
-static void dump_pastespecial(const OLEUIPASTESPECIALW *ps)
+static void dump_pastespecial(LPOLEUIPASTESPECIALW ps)
 {
     UINT i;
     dump_ps_flags(ps->dwFlags);
@@ -363,7 +363,7 @@ static void init_lists(HWND hdlg, ps_struct_t *ps_struct)
         EnableWindow(GetDlgItem(hdlg, IDOK), 0);
 }
 
-static void update_src_text(HWND hdlg, const ps_struct_t *ps_struct)
+static void update_src_text(HWND hdlg, ps_struct_t *ps_struct)
 {
     WCHAR *str;
 
@@ -403,7 +403,7 @@ static void update_as_icon(HWND hdlg, ps_struct_t *ps_struct)
     EnableWindow(change_icon, 0);
 }
 
-static void update_result_text(HWND hdlg, const ps_struct_t *ps_struct)
+static void update_result_text(HWND hdlg, ps_struct_t *ps_struct)
 {
     WCHAR resource_txt[200];
     UINT res_id;
@@ -516,7 +516,7 @@ static INT_PTR CALLBACK ps_dlg_proc(HWND hdlg, UINT msg, WPARAM wp, LPARAM lp)
     static const WCHAR prop_name[] = {'W','i','n','e','_','S','t','r','u','c','t','u','r','e',0};
     ps_struct_t *ps_struct;
 
-    TRACE("(%p, %04x, %08lx, %08lx)\n", hdlg, msg, wp, lp);
+    TRACE("(%p, %04x, %08x, %08lx)\n", hdlg, msg, wp, lp);
 
     ps_struct = GetPropW(hdlg, prop_name);
 

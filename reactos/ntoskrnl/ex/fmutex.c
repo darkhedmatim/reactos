@@ -135,7 +135,7 @@ ExReleaseFastMutex(IN OUT PFAST_MUTEX FastMutex)
 
     /* Erase the owner */
     FastMutex->Owner = NULL;
-    OldIrql = (KIRQL)FastMutex->OldIrql;
+    OldIrql = FastMutex->OldIrql;
 
     /* Increase the count */
     if (InterlockedIncrement(&FastMutex->Count) <= 0)

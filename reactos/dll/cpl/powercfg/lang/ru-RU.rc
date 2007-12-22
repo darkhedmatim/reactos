@@ -1,24 +1,24 @@
 // Russian (ru) resources by Andrey Korotaev (unC0Rr@gmail.com)
 
-LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_RUSSIAN, SUBLANG_NEUTRAL
 
 IDD_PROPPAGEPOWERSHEMES DIALOGEX 0, 0, 250, 220
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Схемы управления питанием"
 FONT 8, "MS Shell Dlg"
 BEGIN
-  ICON IDI_ACDC, IDI_ACDC, 5,5,32,32
+  ICON IDI_ACDC, IDI_ACDC, 7,7,28,22
   LTEXT "Выберите схему управления электропитанием с наиболее подходящими параметрами для этого компьютера. Изменение нижеследующих параметров изменит выбранную схему.",
-	-1,37,5,194,36
+	-1,45,13,194,36
   GROUPBOX "&Схемы управления питанием", -1, 7,57,240,46
   COMBOBOX IDC_ENERGYLIST, 14,70,224,92, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-  PUSHBUTTON "Сохранить &как...", IDC_SAVEAS_BTN, 103,85,75,15,WS_DISABLED
-  PUSHBUTTON "&Удалить", IDC_DELETE_BTN, 183,85,55,15,WS_DISABLED
+  PUSHBUTTON "Сохранить &как...", -1, 100,85,75,15,WS_DISABLED
+  PUSHBUTTON "&Удалить", -1, 180,85,55,15,WS_DISABLED
   GROUPBOX "Нет данных", IDC_GRPDETAIL, 7,108,240,105
   LTEXT "При питании:",IDC_SAT,15,120,60,10
-  LTEXT "от сети",IDC_SAC,113,120,45,15
-  ICON IDI_AC, IDC_IAC, 85,115,25,15
-  LTEXT "от батарей",IDC_SDC,190,120,45,15
+  LTEXT "от сети",IDC_SAC,100,120,45,15
+  ICON IDI_AC, IDC_IAC, 75,115,25,15
+  LTEXT "от батарей",IDC_SDC,197,120,45,15
   ICON IDI_DC, IDC_IDC, 165,115,25,15
   LTEXT "Отключить &монитор:",IDC_MONITOR,15,142,80,10
   COMBOBOX IDC_MONITORACLIST, 100,140,65,150, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -44,7 +44,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,25,180,15
     LTEXT           "Нет данных",IDC_ALARMVALUE1,200,25,40,10
     LTEXT           "0%",-1,20,40,15,15
-    CONTROL         "Slider1",IDC_ALARMBAR1,"msctls_trackbar32",TBS_HORZ |
+    CONTROL         "Slider1",IDC_ALARMBAR1,"msctls_trackbar32",TBS_HORZ | 
                     TBS_AUTOTICKS | WS_TABSTOP,30,40,170,15
     LTEXT           "100%",-1,215,40,25,10
     PUSHBUTTON      "Д&ействие...",-1,20,70,70,15,WS_DISABLED
@@ -60,7 +60,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,125,180,15
     LTEXT           "Нет данных",IDC_ALARMVALUE2,200,125,40,10
     LTEXT           "0%",-1,20,140,15,15
-    CONTROL         "Slider1",IDC_ALARMBAR2,"msctls_trackbar32",TBS_HORZ |
+    CONTROL         "Slider1",IDC_ALARMBAR2,"msctls_trackbar32",TBS_HORZ | 
                     TBS_AUTOTICKS | WS_TABSTOP,30,140,170,15
     LTEXT           "100%",-1,215,140,25,10
     PUSHBUTTON      "Де&йствие...",-1,20,170,70,15,WS_DISABLED
@@ -77,24 +77,24 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Дополнительно"
 FONT 8, "MS Sans Serif"
 BEGIN
-    ICON            IDI_ACDC,IDI_ACDC,5,5,32,32
-    LTEXT           "Выберите желаемые параметры энергосбережения.",-1,37,5,205,20
+    ICON            IDI_ACDC,IDI_ACDC,5,5,20,20
+    LTEXT           "Выберите желаемые параметры энергосбережения.",-1,30,5,205,20
     GROUPBOX        "Параметры",-1,5,35,225,55
-    CONTROL         "&Всегда отображать значок на панели задач",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "&Всегда отображать значок на панели задач",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,48,200,10
-    CONTROL         "&Запрашивать пароль при выходе из ждущего режима",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "&Запрашивать пароль при выходе из ждущего режима",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,60,200,10
-    CONTROL         "&Снизить яркость монитора при работе от батарей",IDC_VIDEODIMDISPLAY,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "&Снизить яркость монитора при работе от батарей",IDC_VIDEODIMDISPLAY,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,72,200,10
     GROUPBOX        "Кнопки питания",-1,5,100,230,105
     LTEXT           "&При закрытии крышки переносного компьютера:", IDC_SLIDCLOSE,10,110,210,10
-    COMBOBOX        IDC_LIDCLOSE,10,120,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_LIDCLOSE,10,120,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     LTEXT           "При &нажатии кнопки включения питания компьютера:", IDC_SPOWERBUTTON,10,140,210,10
-    COMBOBOX        IDC_POWERBUTTON,10,150,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_POWERBUTTON,10,150,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     LTEXT           "При нажатии &кнопки перехода в спящий режим:", IDC_SSLEEPBUTTON,10,170,210,10
-    COMBOBOX        IDC_SLEEPBUTTON,10,180,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_SLEEPBUTTON,10,180,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
 END
 
@@ -103,18 +103,18 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Спящий режим"
 FONT 8, "MS Sans Serif"
 BEGIN
-    ICON            IDI_SCREEN,IDI_SCREEN,5,5,32,32
+    ICON            IDI_SCREEN,IDI_SCREEN,5,5,20,20
     LTEXT           "При переходе в спящий режим компьютер переносит содержимое оперативной памяти на диск и выключается. При выходе из спящего режима компьютер возвращается в прежнее состояние.",
-                    -1,37,5,195,35
-    GROUPBOX        "Спящий режим",-1,5,57,235,25
-    CONTROL         "&Разрешить переход в спящий режим",IDC_HIBERNATEFILE,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,10,67,210,10
-    GROUPBOX        "Место на диске для перехода в спящий режим",-1,5,92,240,60
-    LTEXT           "Свободно места на диске:",-1,10,102,100,10
-    LTEXT           "Нет данных",IDC_FREESPACE,130,102,70,10
-    LTEXT           "Требуется для спящего режима:",-1,10,112,115,10
-    LTEXT           "Нет данных",IDC_SPACEFORHIBERNATEFILE,130,112,55,10
-    LTEXT           "Для возможности перехода в спящий режим требуется освободить место на диске.",IDC_TOLESSFREESPACE,10,127,220,20
+                    -1,35,5,195,35
+    GROUPBOX        "Спящий режим",-1,5,45,235,25
+    CONTROL         "&Разрешить переход в спящий режим",IDC_HIBERNATEFILE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,10,55,210,10
+    GROUPBOX        "Место на диске для перехода в спящий режим",-1,5,80,240,60
+    LTEXT           "Свободно места на диске:",-1,10,90,100,10
+    LTEXT           "Нет данных",IDC_FREESPACE,130,90,70,10
+    LTEXT           "Требуется для спящего режима:",-1,10,100,115,10
+    LTEXT           "Нет данных",IDC_SPACEFORHIBERNATEFILE,130,100,55,10
+    LTEXT           "Для возможности перехода в спящий режим требуется освободить место на диске.",IDC_TOLESSFREESPACE,10,115,220,20
 END
 
 STRINGTABLE
@@ -130,7 +130,7 @@ BEGIN
   IDS_SIZEBYTS "%i байт"
   IDS_SIZEMB "%i МБ"
 
-  IDS_NOACTION "Не делать ничего"
+  IDS_NOACTION "Do nothing"
 
   IDS_PowerActionNone1 "Действие не требуется"
   IDS_PowerActionUnknown "Нет данных"
@@ -158,11 +158,5 @@ BEGIN
   IDS_TIMEOUT14 "через 4 часа"
   IDS_TIMEOUT15 "через 5 часов"
   IDS_TIMEOUT16 "никогда"
-  
-  IDS_DEL_SCHEME "Are you sure you want to delete the power scheme?"
-  IDS_DEL_SCHEME_TITLE "Delete Scheme"
 END
-
-
-
 

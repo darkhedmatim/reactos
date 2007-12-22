@@ -10,13 +10,12 @@ VOID
 static __inline
 IopLockFileObject(IN PFILE_OBJECT FileObject)
 {
-	/* Lock the FO and check for contention */
-    InterlockedIncrement((PLONG)&FileObject->Waiters);
-    while (InterlockedCompareExchange((PLONG)&FileObject->Busy, TRUE, FALSE) != FALSE)
+    /* Lock the FO and check for contention */
+    if (InterlockedExchange((PLONG)&FileObject->Busy, TRUE))
     {
-        /* FIXME - pause for a little while? */
+        /* FIXME: Implement contention case */
+        KEBUGCHECK(0);
     }
-    InterlockedDecrement((PLONG)&FileObject->Waiters);
 }
 
 VOID

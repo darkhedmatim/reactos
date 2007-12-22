@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS *******************************************************************/
 
@@ -54,7 +54,7 @@ GetHandleInformation (HANDLE hObject,
   }
 
   Status = NtQueryObject (hObject,
-			  ObjectHandleFlagInformation,
+			  ObjectHandleInformation,
 			  &HandleInfo,
 			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
 			  &BytesWritten);
@@ -106,7 +106,7 @@ SetHandleInformation (HANDLE hObject,
   }
 
   Status = NtQueryObject (hObject,
-			  ObjectHandleFlagInformation,
+			  ObjectHandleInformation,
 			  &HandleInfo,
 			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
 			  &BytesWritten);
@@ -118,7 +118,7 @@ SetHandleInformation (HANDLE hObject,
       HandleInfo.ProtectFromClose = (dwFlags & HANDLE_FLAG_PROTECT_FROM_CLOSE) != 0;
 
     Status = NtSetInformationObject (hObject,
-				     ObjectHandleFlagInformation,
+				     ObjectHandleInformation,
 				     &HandleInfo,
 				     sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION));
     if(!NT_SUCCESS(Status))

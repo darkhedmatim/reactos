@@ -11,7 +11,6 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 /* DDE message exchange
  *
@@ -1144,7 +1143,7 @@ IntCallWindowProcW(BOOL IsAnsiProc,
 
   if (WndProc == NULL)
   {
-      WARN("IntCallWindowsProcW() called with WndProc = NULL!\n");
+      DPRINT("IntCallWindowsProcW() called with WndProc = NULL!\n");
       return FALSE;
   }
 
@@ -1186,7 +1185,7 @@ IntCallWindowProcA(BOOL IsAnsiProc,
 
   if (WndProc == NULL)
   {
-      WARN("IntCallWindowsProcA() called with WndProc = NULL!\n");
+      DPRINT1("IntCallWindowsProcA() called with WndProc = NULL!\n");
       return FALSE;
   }
 
@@ -1233,29 +1232,22 @@ CallWindowProcA(WNDPROC lpPrevWndFunc,
 		WPARAM wParam,
 		LPARAM lParam)
 {
-    PCALLPROC CallProc;
+  WNDPROC_INFO wpInfo;
 
-    if (lpPrevWndFunc == NULL)
+  /* FIXME - can the first parameter be NULL? */
+  if (lpPrevWndFunc == NULL)
+    lpPrevWndFunc = (WNDPROC)NtUserGetWindowLong(hWnd, GWLP_WNDPROC, TRUE);
+
+  if (!IsCallProcHandle(lpPrevWndFunc) ||
+      !NtUserDereferenceWndProcHandle((HANDLE)lpPrevWndFunc,
+                                      &wpInfo))
     {
-        WARN("CallWindowProcA: lpPrevWndFunc == NULL!\n");
-        return 0;
+      return IntCallWindowProcA(TRUE, lpPrevWndFunc, hWnd, Msg, wParam, lParam);
     }
-
-    if (!IsCallProcHandle(lpPrevWndFunc))
-        return IntCallWindowProcA(TRUE, lpPrevWndFunc, hWnd, Msg, wParam, lParam);
-    else
+  else
     {
-        CallProc = ValidateCallProc((HANDLE)lpPrevWndFunc);
-        if (CallProc != NULL)
-        {
-            return IntCallWindowProcA(!CallProc->Unicode, CallProc->WndProc,
-                                      hWnd, Msg, wParam, lParam);
-        }
-        else
-        {
-            WARN("CallWindowProcA: can not dereference WndProcHandle\n");
-            return 0;
-        }
+      return IntCallWindowProcA(!wpInfo.IsUnicode, wpInfo.WindowProc,
+                                hWnd, Msg, wParam, lParam);
     }
 }
 
@@ -1270,55 +1262,23 @@ CallWindowProcW(WNDPROC lpPrevWndFunc,
 		WPARAM wParam,
 		LPARAM lParam)
 {
-    PCALLPROC CallProc;
+  WNDPROC_INFO wpInfo;
 
-    /* FIXME - can the first parameter be NULL? */
-    if (lpPrevWndFunc == NULL)
+  /* FIXME - can the first parameter be NULL? */
+  if (lpPrevWndFunc == NULL)
+    lpPrevWndFunc = (WNDPROC)NtUserGetWindowLong(hWnd, GWLP_WNDPROC, FALSE);
+
+  if (!IsCallProcHandle(lpPrevWndFunc) ||
+      !NtUserDereferenceWndProcHandle((HANDLE)lpPrevWndFunc,
+                                      &wpInfo))
     {
-        WARN("CallWindowProcA: lpPrevWndFunc == NULL!\n");
-        return 0;
+      return IntCallWindowProcW(FALSE, lpPrevWndFunc, hWnd, Msg, wParam, lParam);
     }
-
-    if (!IsCallProcHandle(lpPrevWndFunc))
-        return IntCallWindowProcW(FALSE, lpPrevWndFunc, hWnd, Msg, wParam, lParam);
-    else
+  else
     {
-        CallProc = ValidateCallProc((HANDLE)lpPrevWndFunc);
-        if (CallProc != NULL)
-        {
-            return IntCallWindowProcW(!CallProc->Unicode, CallProc->WndProc,
-                                      hWnd, Msg, wParam, lParam);
-        }
-        else
-        {
-            WARN("CallWindowProcW: can not dereference WndProcHandle\n");
-            return 0;
-        }
+      return IntCallWindowProcW(!wpInfo.IsUnicode, wpInfo.WindowProc,
+                                hWnd, Msg, wParam, lParam);
     }
-}
-
-
-static LRESULT WINAPI
-IntCallMessageProc(IN PWINDOW Wnd, IN HWND hWnd, IN UINT Msg, IN WPARAM wParam, IN LPARAM lParam, IN BOOL Ansi)
-{
-    WNDPROC WndProc;
-    BOOL IsAnsi;
-
-    if (Wnd->IsSystem)
-    {
-        WndProc = (Ansi ? Wnd->WndProcExtra : Wnd->WndProc);
-        IsAnsi = Ansi;
-    }
-    else
-    {
-        WndProc = Wnd->WndProc;
-        IsAnsi = !Wnd->Unicode;
-    }
-
-    if (!Ansi)
-        return IntCallWindowProcW(IsAnsi, WndProc, hWnd, Msg, wParam, lParam);
-    else
-        return IntCallWindowProcA(IsAnsi, WndProc, hWnd, Msg, wParam, lParam);
 }
 
 
@@ -1328,38 +1288,26 @@ IntCallMessageProc(IN PWINDOW Wnd, IN HWND hWnd, IN UINT Msg, IN WPARAM wParam, 
 LRESULT STDCALL
 DispatchMessageA(CONST MSG *lpmsg)
 {
-    LRESULT Ret = 0;
-    PWINDOW Wnd;
+  NTUSERDISPATCHMESSAGEINFO Info;
+  LRESULT Result;
 
-    if (lpmsg->hwnd != NULL)
+  Info.Ansi = TRUE;
+  Info.Msg = *lpmsg;
+  Result = NtUserDispatchMessage(&Info);
+  if (! Info.HandledByKernel)
     {
-        Wnd = ValidateHwnd(lpmsg->hwnd);
-        if (!Wnd || SharedPtrToUser(Wnd->ti) != GetW32ThreadInfo())
-            return 0;
+      /* We need to send the message ourselves */
+      SPY_EnterMessage(SPY_DISPATCHMESSAGE, Info.Msg.hwnd, Info.Msg.message,
+                       Info.Msg.wParam, Info.Msg.lParam);
+      Result = IntCallWindowProcA(Info.Ansi, Info.Proc, Info.Msg.hwnd,
+                                  Info.Msg.message, Info.Msg.wParam, Info.Msg.lParam);
+      SPY_ExitMessage(SPY_RESULT_OK, Info.Msg.hwnd, Info.Msg.message, Result,
+                      Info.Msg.wParam, Info.Msg.lParam);
     }
-    else
-        Wnd = NULL;
+  MsgConversionCleanup(lpmsg, TRUE, TRUE, &Result);
 
-    if ((lpmsg->message == WM_TIMER || lpmsg->message == WM_SYSTIMER) && lpmsg->lParam != 0)
-    {
-        WNDPROC WndProc = (WNDPROC)lpmsg->lParam;
-        Ret = WndProc(lpmsg->hwnd,
-                      lpmsg->message,
-                      lpmsg->wParam,
-                      GetTickCount());
-    }
-    else if (Wnd != NULL)
-    {
-        /* FIXME: WM_PAINT needs special handling */
-        Ret = IntCallMessageProc(Wnd,
-                                 lpmsg->hwnd,
-                                 lpmsg->message,
-                                 lpmsg->wParam,
-                                 lpmsg->lParam,
-                                 TRUE);
-    }
-
-    return Ret;}
+  return Result;
+}
 
 
 /*
@@ -1368,38 +1316,25 @@ DispatchMessageA(CONST MSG *lpmsg)
 LRESULT STDCALL
 DispatchMessageW(CONST MSG *lpmsg)
 {
-    LRESULT Ret = 0;
-    PWINDOW Wnd;
+  NTUSERDISPATCHMESSAGEINFO Info;
+  LRESULT Result;
 
-    if (lpmsg->hwnd != NULL)
+  Info.Ansi = FALSE;
+  Info.Msg = *lpmsg;
+  Result = NtUserDispatchMessage(&Info);
+  if (! Info.HandledByKernel)
     {
-        Wnd = ValidateHwnd(lpmsg->hwnd);
-        if (!Wnd || SharedPtrToUser(Wnd->ti) != GetW32ThreadInfo())
-            return 0;
+      /* We need to send the message ourselves */
+      SPY_EnterMessage(SPY_DISPATCHMESSAGE, Info.Msg.hwnd, Info.Msg.message,
+                       Info.Msg.wParam, Info.Msg.lParam);
+      Result = IntCallWindowProcW(Info.Ansi, Info.Proc, Info.Msg.hwnd,
+                                  Info.Msg.message, Info.Msg.wParam, Info.Msg.lParam);
+      SPY_ExitMessage(SPY_RESULT_OK, Info.Msg.hwnd, Info.Msg.message, Result,
+                      Info.Msg.wParam, Info.Msg.lParam);
     }
-    else
-        Wnd = NULL;
+  MsgConversionCleanup(lpmsg, FALSE, TRUE, &Result);
 
-    if ((lpmsg->message == WM_TIMER || lpmsg->message == WM_SYSTIMER) && lpmsg->lParam != 0)
-    {
-        WNDPROC WndProc = (WNDPROC)lpmsg->lParam;
-        Ret = WndProc(lpmsg->hwnd,
-                      lpmsg->message,
-                      lpmsg->wParam,
-                      GetTickCount());
-    }
-    else if (Wnd != NULL)
-    {
-        /* FIXME: WM_PAINT needs special handling */
-        Ret = IntCallMessageProc(Wnd,
-                                 lpmsg->hwnd,
-                                 lpmsg->message,
-                                 lpmsg->wParam,
-                                 lpmsg->lParam,
-                                 FALSE);
-    }
-
-    return Ret;
+  return Result;
 }
 
 
@@ -1700,25 +1635,6 @@ SendMessageW(HWND Wnd,
   NTUSERSENDMESSAGEINFO Info;
   LRESULT Result;
 
-  if (Wnd != HWND_BROADCAST && (Msg < WM_DDE_FIRST || Msg > WM_DDE_LAST))
-  {
-      PWINDOW Window;
-      PW32THREADINFO ti = GetW32ThreadInfo();
-
-      Window = ValidateHwnd(Wnd);
-      if (Window != NULL && SharedPtrToUser(Window->ti) == ti && !IsThreadHooked(ti))
-      {
-          /* NOTE: We can directly send messages to the window procedure
-                   if *all* the following conditions are met:
-
-                   * Window belongs to calling thread
-                   * The calling thread is not being hooked
-           */
-
-          return IntCallMessageProc(Window, Wnd, Msg, wParam, lParam, FALSE);
-      }
-  }
-
   UMMsg.hwnd = Wnd;
   UMMsg.message = Msg;
   UMMsg.wParam = wParam;
@@ -1756,25 +1672,6 @@ SendMessageA(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
   MSG KMMsg;
   LRESULT Result;
   NTUSERSENDMESSAGEINFO Info;
-
-  if (Wnd != HWND_BROADCAST && (Msg < WM_DDE_FIRST || Msg > WM_DDE_LAST))
-  {
-      PWINDOW Window;
-      PW32THREADINFO ti = GetW32ThreadInfo();
-
-      Window = ValidateHwnd(Wnd);
-      if (Window != NULL && SharedPtrToUser(Window->ti) == ti && !IsThreadHooked(ti))
-      {
-          /* NOTE: We can directly send messages to the window procedure
-                   if *all* the following conditions are met:
-
-                   * Window belongs to calling thread
-                   * The calling thread is not being hooked
-           */
-
-          return IntCallMessageProc(Window, Wnd, Msg, wParam, lParam, TRUE);
-      }
-  }
 
   AnsiMsg.hwnd = Wnd;
   AnsiMsg.message = Msg;
@@ -2067,17 +1964,7 @@ SendNotifyMessageW(
 BOOL STDCALL
 TranslateMessageEx(CONST MSG *lpMsg, DWORD unk)
 {
-    switch (lpMsg->message)
-    {
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-            return(NtUserTranslateMessage((LPMSG)lpMsg, (HKL)unk));
-
-        default:
-            return FALSE;
-    }
+  return(NtUserTranslateMessage((LPMSG)lpMsg, (HKL)unk));
 }
 
 

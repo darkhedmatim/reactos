@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2002-2003 Jason Edmeades
+ * Copyright (C) 2002-2003 Jason Edmeades 
  * Copyright (C) 2002-2003 Raphael Junqueira
  * Copyright (C) 2005 Oliver Stieber
  *
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_D3D9TYPES_H
@@ -41,6 +41,11 @@
 #define D3DCOLOR_XRGB(r,g,b)         D3DCOLOR_ARGB(0xff,r,g,b)
 #define D3DCOLOR_XYUV(y,u,v)         D3DCOLOR_ARGB(0xFF,y,u,v)
 #define D3DCOLOR_AYUV(a,y,u,v)       D3DCOLOR_ARGB(a,y,u,v)
+
+#define D3DCOLORWRITEENABLED_RED     1
+#define D3DCOLORWRITEENABLED_GREEN   2
+#define D3DCOLORWRITEENABLED_BLUE    4
+#define D3DCOLORWRITEENABLED_ALPHA   8
 
 #define D3DCS_LEFT                   0x001L
 #define D3DCS_RIGHT                  0x002L
@@ -106,7 +111,7 @@
 #define D3DUSAGE_RTPATCHES          0x00000080L
 #define D3DUSAGE_NPATCHES           0x00000100L
 #define D3DUSAGE_DYNAMIC            0x00000200L
-#define D3DUSAGE_AUTOGENMIPMAP      0x00000400L
+#define D3DUSAGE_AUTOGENMIPMAP      0x00000400L 
 #define D3DUSAGE_DMAP               0x00004000L
 
 #define D3DUSAGE_QUERY_FILTER                   0x00020000L
@@ -115,7 +120,7 @@
 #define D3DUSAGE_QUERY_SRGBREAD                 0x00010000L
 #define D3DUSAGE_QUERY_SRGBWRITE                0x00040000L
 #define D3DUSAGE_QUERY_VERTEXTEXTURE            0x00100000L
-#define D3DUSAGE_QUERY_WRAPANDMIP               0x00200000L
+
 
 #define D3DWRAP_U        1
 #define D3DWRAP_V        2
@@ -128,7 +133,7 @@
 #define MAX_DEVICE_IDENTIFIER_STRING        512
 
 #define D3DFVF_RESERVED0           0x0001
-#define D3DFVF_POSITION_MASK       0x000E
+#define D3DFVF_POSITION_MASK       0x4000E
 #define D3DFVF_XYZ                 0x0002
 #define D3DFVF_XYZRHW              0x0004
 #define D3DFVF_XYZB1               0x0006
@@ -167,7 +172,7 @@
 #define D3DTA_COMPLEMENT        0x00000010
 #define D3DTA_ALPHAREPLICATE    0x00000020
 
-#define D3DCOLORWRITEENABLE_RED   (1L<<0)
+#define D3DCOLORWRITEENABLE_RED   (1L<<0)   
 #define D3DCOLORWRITEENABLE_GREEN (1L<<1)
 #define D3DCOLORWRITEENABLE_BLUE  (1L<<2)
 #define D3DCOLORWRITEENABLE_ALPHA (1L<<3)
@@ -191,11 +196,9 @@
 #define D3DVERTEXTEXTURESAMPLER2 (D3DDMAPSAMPLER+3)
 #define D3DVERTEXTEXTURESAMPLER3 (D3DDMAPSAMPLER+4)
 
-#ifndef MAKEFOURCC
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)  \
     ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) |  \
     ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
-#endif
 
 /* Constants used by D3DPRESENT_PARAMETERS. when creating a device or swapchain */
 
@@ -204,10 +207,9 @@
 #define D3DPRESENTFLAG_DEVICECLIP           0x00000004 /* Clip the window blited into the client area 2k + xp only */
 #define D3DPRESENTFLAG_VIDEO                0x00000010 /* backbuffer 'may' contain video data */
 
-#define D3DPRESENT_BACK_BUFFERS_MAX         3L
-#define D3DPRESENT_RATE_DEFAULT             0x00000000
 
-/****************************
+
+/**************************** 
  * Vertex Shaders Declaration
  */
 
@@ -215,17 +217,17 @@ typedef enum _D3DDECLUSAGE {
   D3DDECLUSAGE_POSITION     = 0,
   D3DDECLUSAGE_BLENDWEIGHT  = 1,
   D3DDECLUSAGE_BLENDINDICES = 2,
-  D3DDECLUSAGE_NORMAL       = 3,
-  D3DDECLUSAGE_PSIZE        = 4,
-  D3DDECLUSAGE_TEXCOORD     = 5,
-  D3DDECLUSAGE_TANGENT      = 6,
-  D3DDECLUSAGE_BINORMAL     = 7,
-  D3DDECLUSAGE_TESSFACTOR   = 8,
-  D3DDECLUSAGE_POSITIONT    = 9,
-  D3DDECLUSAGE_COLOR        = 10,
-  D3DDECLUSAGE_FOG          = 11,
-  D3DDECLUSAGE_DEPTH        = 12,
-  D3DDECLUSAGE_SAMPLE       = 13
+  D3DDECLUSAGE_NORMAL       = 3,      
+  D3DDECLUSAGE_PSIZE        = 4,       
+  D3DDECLUSAGE_TEXCOORD     = 5,    
+  D3DDECLUSAGE_TANGENT      = 6,     
+  D3DDECLUSAGE_BINORMAL     = 7,    
+  D3DDECLUSAGE_TESSFACTOR   = 8,  
+  D3DDECLUSAGE_POSITIONT    = 9,   
+  D3DDECLUSAGE_COLOR        = 10,       
+  D3DDECLUSAGE_FOG          = 11,        
+  D3DDECLUSAGE_DEPTH        = 12,      
+  D3DDECLUSAGE_SAMPLE       = 13     
 } D3DDECLUSAGE;
 
 /* MSDN is quite confussing at this point...
@@ -441,7 +443,7 @@ typedef enum _D3DSHADER_INSTRUCTION_OPCODE_TYPE {
   D3DSIO_SETP         = 94,
   D3DSIO_TEXLDL       = 95,
   D3DSIO_BREAKP       = 96,
-
+  
   D3DSIO_PHASE        = 0xFFFD,
   D3DSIO_COMMENT      = 0xFFFE,
   D3DSIO_END          = 0XFFFF,
@@ -468,7 +470,6 @@ typedef enum _D3DSHADER_INSTRUCTION_OPCODE_TYPE {
 
 typedef enum _D3DSAMPLER_TEXTURE_TYPE {
   D3DSTT_UNKNOWN      = 0 << D3DSP_TEXTURETYPE_SHIFT,
-  D3DSTT_1D           = 1 << D3DSP_TEXTURETYPE_SHIFT,
   D3DSTT_2D           = 2 << D3DSP_TEXTURETYPE_SHIFT,
   D3DSTT_CUBE         = 3 << D3DSP_TEXTURETYPE_SHIFT,
   D3DSTT_VOLUME       = 4 << D3DSP_TEXTURETYPE_SHIFT,
@@ -508,7 +509,7 @@ typedef enum _D3DSHADER_PARAM_DSTMOD_TYPE {
 #define D3DSP_REGTYPE_MASK2      0x00001800
 
 typedef enum _D3DSHADER_PARAM_REGISTER_TYPE {
-  D3DSPR_TEMP         =  0,
+  D3DSPR_TEMP         =  0, 
   D3DSPR_INPUT        =  1,
   D3DSPR_CONST        =  2,
   D3DSPR_ADDR         =  3,
@@ -730,7 +731,7 @@ typedef enum _D3DDEGREETYPE {
     D3DDEGREE_QUADRATIC   = 2,
     D3DDEGREE_CUBIC       = 3,
     D3DDEGREE_QUINTIC     = 5,
-
+    
     D3DDEGREE_FORCE_DWORD   = 0x7fffffff
 } D3DDEGREETYPE;
 
@@ -738,7 +739,6 @@ typedef enum _D3DDEVTYPE {
     D3DDEVTYPE_HAL         = 1,
     D3DDEVTYPE_REF         = 2,
     D3DDEVTYPE_SW          = 3,
-    D3DDEVTYPE_NULLREF     = 4,
 
     D3DDEVTYPE_FORCE_DWORD = 0xffffffff
 } D3DDEVTYPE;
@@ -780,7 +780,7 @@ typedef enum _D3DFORMAT {
     D3DFMT_G16R16               =  34,
     D3DFMT_A2R10G10B10          =  35,
     D3DFMT_A16B16G16R16         =  36,
-
+  
 
     D3DFMT_A8P8                 =  40,
     D3DFMT_P8                   =  41,
@@ -794,6 +794,7 @@ typedef enum _D3DFORMAT {
     D3DFMT_X8L8V8U8             =  62,
     D3DFMT_Q8W8V8U8             =  63,
     D3DFMT_V16U16               =  64,
+    D3DFMT_W11V11U10            =  65,
     D3DFMT_A2W10V10U10          =  67,
 
     D3DFMT_UYVY                 =  MAKEFOURCC('U', 'Y', 'V', 'Y'),
@@ -803,18 +804,16 @@ typedef enum _D3DFORMAT {
     D3DFMT_DXT3                 =  MAKEFOURCC('D', 'X', 'T', '3'),
     D3DFMT_DXT4                 =  MAKEFOURCC('D', 'X', 'T', '4'),
     D3DFMT_DXT5                 =  MAKEFOURCC('D', 'X', 'T', '5'),
-    D3DFMT_MULTI2_ARGB8         =  MAKEFOURCC('M', 'E', 'T', '1'),
+    D3DFMT_MULTI2_ARGB          =  MAKEFOURCC('M', 'E', 'T', '1'),
     D3DFMT_G8R8_G8B8            =  MAKEFOURCC('G', 'R', 'G', 'B'),
     D3DFMT_R8G8_B8G8            =  MAKEFOURCC('R', 'G', 'B', 'G'),
 
     D3DFMT_D16_LOCKABLE         =  70,
     D3DFMT_D32                  =  71,
     D3DFMT_D15S1                =  73,
-    D3DFMT_D24S8                =  75,
     D3DFMT_D24X8                =  77,
     D3DFMT_D24X4S4              =  79,
     D3DFMT_D16                  =  80,
-    D3DFMT_L16                  =  81,
     D3DFMT_D32F_LOCKABLE        =  82,
     D3DFMT_D24FS8               =  83,
 
@@ -822,16 +821,16 @@ typedef enum _D3DFORMAT {
     D3DFMT_INDEX16              = 101,
     D3DFMT_INDEX32              = 102,
     D3DFMT_Q16W16V16U16         = 110,
-    /* Floating point formats */
+    /* Flaoting point formats */
     D3DFMT_R16F                 = 111,
     D3DFMT_G16R16F              = 112,
     D3DFMT_A16B16G16R16F        = 113,
-
+    
     /* IEEE formats */
     D3DFMT_R32F                 = 114,
     D3DFMT_G32R32F              = 115,
     D3DFMT_A32B32G32R32F        = 116,
-
+    
     D3DFMT_CxV8U8               = 117,
 
 
@@ -1216,7 +1215,7 @@ typedef enum _D3DSAMPLERSTATETYPE {
     D3DSAMP_SRGBTEXTURE    = 11,
     D3DSAMP_ELEMENTINDEX   = 12,
     D3DSAMP_DMAPOFFSET     = 13,
-
+                                
     D3DSAMP_FORCE_DWORD   = 0x7fffffff,
 } D3DSAMPLERSTATETYPE;
 
@@ -1224,10 +1223,7 @@ typedef enum _D3DSAMPLERSTATETYPE {
 /*****************************************************************************
  * Direct 3D v9 typedefs
  */
-#ifndef D3DCOLOR_DEFINED
 typedef DWORD D3DCOLOR;
-#define D3DCOLOR_DEFINED
-#endif
 
 /*****************************************************************************
  * Direct 3D v9 structures
@@ -1236,7 +1232,7 @@ typedef struct _D3DADAPTER_IDENTIFIER9 {
     char            Driver[MAX_DEVICE_IDENTIFIER_STRING];
     char            Description[MAX_DEVICE_IDENTIFIER_STRING];
     char            DeviceName[32];
-    LARGE_INTEGER   DriverVersion;
+    LARGE_INTEGER   DriverVersion; 
 
     DWORD           VendorId;
     DWORD           DeviceId;
@@ -1262,15 +1258,12 @@ typedef struct _D3DCLIPSTATUS9 {
    DWORD ClipIntersection;
 } D3DCLIPSTATUS9;
 
-#ifndef D3DCOLORVALUE_DEFINED
 typedef struct _D3DCOLORVALUE {
     float r;
     float g;
     float b;
     float a;
 } D3DCOLORVALUE;
-#define D3DCOLORVALUE_DEFINED
-#endif
 
 typedef struct _D3DDEVICE_CREATION_PARAMETERS {
     UINT          AdapterOrdinal;
@@ -1316,13 +1309,13 @@ typedef struct _D3DDEVINFO_D3D9STAGETIMINGS {
 /* Vertex cache optimization hints. */
 typedef struct D3DDEVINFO_VCACHE {
     /* Must be a 4 char code FOURCC (e.g. CACH) */
-    DWORD         Pattern;
+    DWORD         Pattern; 
     /* 0 to get the longest  strips, 1 vertex cache */
-    DWORD         OptMethod;
+    DWORD         OptMethod; 
      /* Cache size to use (only valid if OptMethod==1) */
     DWORD         CacheSize;
     /* internal for deciding when to restart strips, non user modifyable (only valid if OptMethod==1) */
-    DWORD         MagicNumber;
+    DWORD         MagicNumber; 
 } D3DDEVINFO_VCACHE;
 
 typedef struct D3DRESOURCESTATS {
@@ -1369,14 +1362,11 @@ typedef struct _D3DINDEXBUFFER_DESC {
     UINT                Size;
 } D3DINDEXBUFFER_DESC;
 
-#ifndef D3DVECTOR_DEFINED
 typedef struct _D3DVECTOR {
     float x;
     float y;
     float z;
 } D3DVECTOR;
-#define D3DVECTOR_DEFINED
-#endif
 
 typedef struct _D3DLIGHT9 {
     D3DLIGHTTYPE    Type;
@@ -1418,7 +1408,6 @@ typedef struct _D3DMATERIAL9 {
     float           Power;
 } D3DMATERIAL9;
 
-#ifndef D3DMATRIX_DEFINED
 typedef struct _D3DMATRIX {
     union {
         struct {
@@ -1430,8 +1419,6 @@ typedef struct _D3DMATRIX {
         float m[4][4];
     } DUMMYUNIONNAME;
 } D3DMATRIX;
-#define D3DMATRIX_DEFINED
-#endif
 
 typedef struct _D3DPRESENT_PARAMETERS_ {
     UINT                    BackBufferWidth;
@@ -1464,15 +1451,12 @@ typedef struct _D3DRASTER_STATUS {
     UINT            ScanLine;
 } D3DRASTER_STATUS;
 
-#ifndef D3DRECT_DEFINED
 typedef struct _D3DRECT {
     LONG x1;
     LONG y1;
     LONG x2;
     LONG y2;
 } D3DRECT;
-#define D3DRECT_DEFINED
-#endif
 
 typedef struct _D3DRECTPATCH_INFO {
     UINT                StartVertexOffsetWidth;
@@ -1525,7 +1509,7 @@ typedef struct _D3DVOLUME_DESC {
     D3DRESOURCETYPE     Type;
     DWORD               Usage;
     D3DPOOL             Pool;
-
+    UINT                Size;
     UINT                Width;
     UINT                Height;
     UINT                Depth;

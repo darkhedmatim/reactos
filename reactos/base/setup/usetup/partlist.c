@@ -893,7 +893,7 @@ CreatePartitionList (SHORT Left,
   OBJECT_ATTRIBUTES ObjectAttributes;
   SYSTEM_DEVICE_INFORMATION Sdi;
   IO_STATUS_BLOCK Iosb;
-  SIZE_T ReturnSize;
+  ULONG ReturnSize;
   NTSTATUS Status;
   ULONG DiskNumber;
   WCHAR Buffer[MAX_PATH];
@@ -949,7 +949,7 @@ CreatePartitionList (SHORT Left,
 				  NULL);
 
       Status = NtOpenFile (&FileHandle,
-			   FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+			   FILE_GENERIC_READ,
 			   &ObjectAttributes,
 			   &Iosb,
 			   FILE_SHARE_READ,
@@ -1049,7 +1049,7 @@ static VOID
 PrintEmptyLine (PPARTLIST List)
 {
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   USHORT Width;
   USHORT Height;
 
@@ -1085,7 +1085,7 @@ PrintPartitionData (PPARTLIST List,
 {
   CHAR LineBuffer[128];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   USHORT Width;
   USHORT Height;
 
@@ -1240,7 +1240,7 @@ PrintDiskData (PPARTLIST List,
   PPARTENTRY PartEntry;
   CHAR LineBuffer[128];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   USHORT Width;
   USHORT Height;
   ULARGE_INTEGER DiskSize;
@@ -1341,7 +1341,7 @@ DrawPartitionList (PPARTLIST List)
   PDISKENTRY DiskEntry;
   PPARTENTRY PartEntry = NULL;
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   SHORT i;
   SHORT CurrentDiskLine;
   SHORT CurrentPartLine;
@@ -1543,7 +1543,7 @@ DrawPartitionList (PPARTLIST List)
 }
 
 
-DWORD
+VOID
 SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 {
   PDISKENTRY DiskEntry;
@@ -1554,7 +1554,7 @@ SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 
   /* Check for empty disks */
   if (IsListEmpty (&List->DiskListHead))
-    return FALSE;
+    return;
 
   /* Check for first usable entry on next disk */
   Entry1 = List->CurrentDisk->ListEntry.Flink;
@@ -1575,17 +1575,16 @@ SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
 	            {
 	              List->CurrentDisk = DiskEntry;
 	              List->CurrentPartition = PartEntry;
-                  DrawPartitionList (List);
-	              return TRUE;
+                      DrawPartitionList (List);
+	              return;
 	            }
                 }
               Entry2 = Entry2->Flink;
             }
-          return FALSE;
+          return;
         }
       Entry1 = Entry1->Flink;
     }
-    return FALSE;
 }
 
 

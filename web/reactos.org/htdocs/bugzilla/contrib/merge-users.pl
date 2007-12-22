@@ -47,7 +47,7 @@ merge-users.pl - Merge two user accounts.
 use lib qw(.);
 
 use Bugzilla;
-use Bugzilla::Constants;
+use Bugzilla::Config qw(:DEFAULT);
 use Bugzilla::Util;
 
 use Getopt::Long;
@@ -59,6 +59,17 @@ my $dbh = Bugzilla->dbh;
 my $help  = 0;
 my $result = GetOptions("help|?" => \$help);
 pod2usage(0) if $help;
+
+
+# We require Bugzilla 2.20 or higher (including 2.22+).
+my $current_version = $Bugzilla::Config::VERSION;
+if ($current_version =~ /^2\.2[0123]/) {
+    print "OK, you are using Bugzilla $current_version\n"
+}
+else {
+    die "You are using Bugzilla $current_version but Bugzilla " .
+        "2.20 - 2.23 is required.\n";
+}
 
 
 # Make sure accounts were specified on the command line and exist.

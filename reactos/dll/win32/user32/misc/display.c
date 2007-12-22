@@ -31,7 +31,6 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 #define SIZEOF_DEVMODEA_300 124
 #define SIZEOF_DEVMODEA_400 148
@@ -62,7 +61,7 @@ EnumDisplayDevicesA(
       return FALSE;
     }
 
-  DisplayDeviceW.cb = sizeof(DISPLAY_DEVICEW);
+  DisplayDeviceW.cb = sizeof(DISPLAY_DEVICEW);  
   rc = NtUserEnumDisplayDevices (
     &Device,
     iDevNum,
@@ -216,7 +215,7 @@ EnumDisplaySettingsExA(
 
   memset(&lpDevModeW,0,sizeof(DEVMODEW));
   lpDevModeW.dmSize = sizeof(DEVMODEW);
-
+ 
   rc = NtUserEnumDisplaySettings ( &DeviceName, iModeNum, &lpDevModeW,
                                    dwFlags );
   if (!rc)
@@ -369,7 +368,7 @@ GetMonitorInfoA(
                                 NULL, NULL);
       if (res == 0)
         {
-          WARN("WideCharToMultiByte() failed!\n");
+          DPRINT("WideCharToMultiByte() failed!\n");
           return FALSE;
         }
     }

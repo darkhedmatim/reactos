@@ -12,7 +12,8 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+
+extern BOOL ControlsInitialized;
 
 /*
  * @implemented
@@ -58,6 +59,12 @@ GetClassInfoExA(
             SetLastError(ERROR_NOT_ENOUGH_MEMORY);
             return FALSE;
         }
+    }
+
+    /* Register built-in controls if not already done */
+    if (! ControlsInitialized)
+    {
+        ControlsInitialized = ControlsInit(ClassName.Buffer);
     }
 
     Ret = NtUserGetClassInfo(hInstance,
@@ -113,6 +120,12 @@ GetClassInfoExW(
     {
         RtlInitUnicodeString(&ClassName,
                              lpszClass);
+    }
+
+    /* Register built-in controls if not already done */
+    if (! ControlsInitialized)
+    {
+        ControlsInitialized = ControlsInit(ClassName.Buffer);
     }
 
     return NtUserGetClassInfo(hInstance,
@@ -189,111 +202,31 @@ GetClassInfoW(
 DWORD STDCALL
 GetClassLongA(HWND hWnd, int nIndex)
 {
-    PWINDOW Wnd;
-    PWINDOWCLASS Class;
-    ULONG_PTR Ret = 0;
+   TRACE("%p %d\n", hWnd, nIndex);
 
-    TRACE("%p %d\n", hWnd, nIndex);
+   switch (nIndex)
+   {
+      case GCL_HBRBACKGROUND:
+         {
+            DWORD hBrush = NtUserGetClassLong(hWnd, GCL_HBRBACKGROUND, TRUE);
+            if (hBrush != 0 && hBrush < 0x4000)
+               hBrush = (DWORD)GetSysColorBrush((ULONG)hBrush - 1);
+            return hBrush;
+         }
 
-    Wnd = ValidateHwnd(hWnd);
-    if (!Wnd)
-        return 0;
-
-    _SEH_TRY
-    {
-        Class = DesktopPtrToUser(Wnd->Class);
-        if (Class != NULL)
-        {
-            if (nIndex >= 0)
-            {
-                if (nIndex + sizeof(ULONG_PTR) < nIndex ||
-                    nIndex + sizeof(ULONG_PTR) > Class->ClsExtra)
-                {
-                    SetLastError(ERROR_INVALID_PARAMETER);
-                }
-                else
-                    Ret = *(PULONG_PTR)((ULONG_PTR)(Class + 1) + nIndex);
-            }
+      case GCL_MENUNAME:
+         {
+            PUNICODE_STRING Name;
+            Name = (PUNICODE_STRING)NtUserGetClassLong(hWnd, nIndex, TRUE);
+            if (IS_INTRESOURCE(Name))
+               return (DWORD)Name;
             else
-            {
-                switch (nIndex)
-                {
-                    case GCL_CBWNDEXTRA:
-                        Ret = (ULONG_PTR)Class->WndExtra;
-                        break;
+               return (DWORD)heap_string_poolA(Name->Buffer, Name->Length);
+         }
 
-                    case GCL_CBCLSEXTRA:
-                        Ret = (ULONG_PTR)Class->ClsExtra;
-                        break;
-
-                    case GCL_HBRBACKGROUND:
-                        Ret = (ULONG_PTR)Class->hbrBackground;
-                        if (Ret != 0 && Ret < 0x4000)
-                            Ret = (ULONG_PTR)GetSysColorBrush((ULONG)Ret - 1);
-                        break;
-
-                    case GCL_HMODULE:
-                        Ret = (ULONG_PTR)Class->hInstance;
-                        break;
-
-                    case GCL_MENUNAME:
-                        Ret = (ULONG_PTR)Class->AnsiMenuName;
-                        break;
-
-                    case GCL_STYLE:
-                        Ret = (ULONG_PTR)Class->Style;
-                        break;
-
-                    case GCW_ATOM:
-                        Ret = (ULONG_PTR)Class->Atom;
-                        break;
-
-                    case GCLP_HCURSOR:
-                        /* FIXME - get handle from pointer to CURSOR object */
-                        Ret = (ULONG_PTR)Class->hCursor;
-                        break;
-
-                    case GCLP_HICON:
-                        /* FIXME - get handle from pointer to ICON object */
-                        Ret = (ULONG_PTR)Class->hIcon;
-                        break;
-
-                    case GCLP_HICONSM:
-                        /* FIXME - get handle from pointer to ICON object */
-                        Ret = (ULONG_PTR)Class->hIconSm;
-                        break;
-
-                    case GCLP_WNDPROC:
-                        /* We need to make a call to win32k as it may be required to
-                           create a callproc handle */
-                        Wnd = NULL;
-                        break;
-
-                    default:
-                        SetLastError(ERROR_INVALID_INDEX);
-                        break;
-                }
-            }
-        }
-        else
-        {
-            /* This is a race condition! Call win32k to make sure we're getting
-               the correct result */
-            Wnd = NULL; /* Make sure we call NtUserGetClassLong */
-
-            WARN("Invalid class for hwnd 0x%p!\n", hWnd);
-        }
-    }
-    _SEH_HANDLE
-    {
-        Wnd = NULL; /* Make sure we call NtUserGetClassLong */
-    }
-    _SEH_END;
-
-    if (Wnd == NULL)
-        Ret = NtUserGetClassLong(hWnd, nIndex, TRUE);
-
-    return Ret;
+      default:
+         return NtUserGetClassLong(hWnd, nIndex, TRUE);
+   }
 }
 
 /*
@@ -302,111 +235,31 @@ GetClassLongA(HWND hWnd, int nIndex)
 DWORD STDCALL
 GetClassLongW ( HWND hWnd, int nIndex )
 {
-    PWINDOW Wnd;
-    PWINDOWCLASS Class;
-    ULONG_PTR Ret = 0;
+   TRACE("%p %d\n", hWnd, nIndex);
 
-    TRACE("%p %d\n", hWnd, nIndex);
+   switch (nIndex)
+   {
+      case GCL_HBRBACKGROUND:
+         {
+            DWORD hBrush = NtUserGetClassLong(hWnd, GCL_HBRBACKGROUND, TRUE);
+            if (hBrush != 0 && hBrush < 0x4000)
+               hBrush = (DWORD)GetSysColorBrush((ULONG)hBrush - 1);
+            return hBrush;
+         }
 
-    Wnd = ValidateHwnd(hWnd);
-    if (!Wnd)
-        return 0;
-
-    _SEH_TRY
-    {
-        Class = DesktopPtrToUser(Wnd->Class);
-        if (Class != NULL)
-        {
-            if (nIndex >= 0)
-            {
-                if (nIndex + sizeof(ULONG_PTR) < nIndex ||
-                    nIndex + sizeof(ULONG_PTR) > Class->ClsExtra)
-                {
-                    SetLastError(ERROR_INVALID_PARAMETER);
-                }
-                else
-                    Ret = *(PULONG_PTR)((ULONG_PTR)(Class + 1) + nIndex);
-            }
+      case GCL_MENUNAME:
+         {
+            PUNICODE_STRING Name;
+            Name = (PUNICODE_STRING)NtUserGetClassLong(hWnd, nIndex, FALSE);
+            if (IS_INTRESOURCE(Name))
+               return (DWORD)Name;
             else
-            {
-                switch (nIndex)
-                {
-                    case GCL_CBWNDEXTRA:
-                        Ret = (ULONG_PTR)Class->WndExtra;
-                        break;
+               return (DWORD)heap_string_poolW(Name->Buffer, Name->Length);
+         }
 
-                    case GCL_CBCLSEXTRA:
-                        Ret = (ULONG_PTR)Class->ClsExtra;
-                        break;
-
-                    case GCL_HBRBACKGROUND:
-                        Ret = (ULONG_PTR)Class->hbrBackground;
-                        if (Ret != 0 && Ret < 0x4000)
-                            Ret = (ULONG_PTR)GetSysColorBrush((ULONG)Ret - 1);
-                        break;
-
-                    case GCL_HMODULE:
-                        Ret = (ULONG_PTR)Class->hInstance;
-                        break;
-
-                    case GCL_MENUNAME:
-                        Ret = (ULONG_PTR)Class->MenuName;
-                        break;
-
-                    case GCL_STYLE:
-                        Ret = (ULONG_PTR)Class->Style;
-                        break;
-
-                    case GCW_ATOM:
-                        Ret = (ULONG_PTR)Class->Atom;
-                        break;
-
-                    case GCLP_HCURSOR:
-                        /* FIXME - get handle from pointer to CURSOR object */
-                        Ret = (ULONG_PTR)Class->hCursor;
-                        break;
-
-                    case GCLP_HICON:
-                        /* FIXME - get handle from pointer to ICON object */
-                        Ret = (ULONG_PTR)Class->hIcon;
-                        break;
-
-                    case GCLP_HICONSM:
-                        /* FIXME - get handle from pointer to ICON object */
-                        Ret = (ULONG_PTR)Class->hIconSm;
-                        break;
-
-                    case GCLP_WNDPROC:
-                        /* We need to make a call to win32k as it may be required to
-                           create a callproc handle */
-                        Wnd = NULL;
-                        break;
-
-                    default:
-                        SetLastError(ERROR_INVALID_INDEX);
-                        break;
-                }
-            }
-        }
-        else
-        {
-            /* This is a race condition! Call win32k to make sure we're getting
-               the correct result */
-            Wnd = NULL; /* Make sure we call NtUserGetClassLong */
-
-            WARN("Invalid class for hwnd 0x%p!\n", hWnd);
-        }
-    }
-    _SEH_HANDLE
-    {
-        Wnd = NULL; /* Make sure we call NtUserGetClassLong */
-    }
-    _SEH_END;
-
-    if (Wnd == NULL)
-        Ret = NtUserGetClassLong(hWnd, nIndex, FALSE);
-
-    return Ret;
+      default:
+         return NtUserGetClassLong(hWnd, nIndex, FALSE);
+   }
 }
 
 
@@ -451,7 +304,7 @@ GetClassNameW(
     UNICODE_STRING ClassName;
     int Result;
 
-    ClassName.MaximumLength = nMaxCount * sizeof(WCHAR);
+    ClassName.MaximumLength = nMaxCount;
     ClassName.Buffer = lpClassName;
 
     Result = NtUserGetClassName(hWnd,
@@ -495,55 +348,7 @@ LONG
 STDCALL
 GetWindowLongA ( HWND hWnd, int nIndex )
 {
-    PWINDOW Wnd;
-
-    Wnd = ValidateHwnd(hWnd);
-    if (Wnd == NULL)
-        return 0;
-
-    if (nIndex >= 0)
-    {
-        if ((DWORD)nIndex + sizeof(LONG) > Wnd->ExtraDataSize)
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return 0;
-        }
-
-        return *((LONG *)((PCHAR)(Wnd + 1) + nIndex));
-    }
-    else
-    {
-        switch (nIndex)
-        {
-            case GWL_EXSTYLE:
-                return Wnd->ExStyle;
-            case GWL_STYLE:
-                return Wnd->Style;
-            case GWL_HINSTANCE:
-                return (LONG)Wnd->Instance;
-            case GWL_ID:
-                return Wnd->IDMenu;
-            case GWL_USERDATA:
-                return Wnd->UserData;
-
-            case GWL_HWNDPARENT:
-                DbgPrint("GWL_HWNDPARENT\n");
-                /* FIXME: Implement in user32 */
-            {
-                HWND parent = GetAncestor( hWnd, GA_PARENT );
-                if (parent == GetDesktopWindow()) parent = GetWindow( hWnd, GW_OWNER );
-                return (LONG)parent;
-            }
-            case GWL_WNDPROC:
-                /* Call win32k for this as a callproc handle may need
-                   to be created */
-                return NtUserGetWindowLong(hWnd, nIndex, TRUE);
-
-            default:
-                SetLastError(ERROR_INVALID_PARAMETER);
-                return 0;
-        }
-    }
+  return NtUserGetWindowLong(hWnd, nIndex, TRUE);
 }
 
 
@@ -554,55 +359,7 @@ LONG
 STDCALL
 GetWindowLongW(HWND hWnd, int nIndex)
 {
-    PWINDOW Wnd;
-
-    Wnd = ValidateHwnd(hWnd);
-    if (Wnd == NULL)
-        return 0;
-
-    if (nIndex >= 0)
-    {
-        if ((DWORD)nIndex + sizeof(LONG) > Wnd->ExtraDataSize)
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return 0;
-        }
-
-        return *((LONG *)((PCHAR)(Wnd + 1) + nIndex));
-    }
-    else
-    {
-        switch (nIndex)
-        {
-            case GWL_EXSTYLE:
-                return Wnd->ExStyle;
-            case GWL_STYLE:
-                return Wnd->Style;
-            case GWL_HINSTANCE:
-                return (LONG)Wnd->Instance;
-            case GWL_ID:
-                return Wnd->IDMenu;
-            case GWL_USERDATA:
-                return Wnd->UserData;
-
-            case GWL_HWNDPARENT:
-                DbgPrint("GWL_HWNDPARENT\n");
-                /* FIXME: Implement in user32 */
-            {
-                HWND parent = GetAncestor( hWnd, GA_PARENT );
-                if (parent == GetDesktopWindow()) parent = GetWindow( hWnd, GW_OWNER );
-                return (LONG)parent;
-            }
-            case GWL_WNDPROC:
-                /* Call win32k for this as a callproc handle may need
-                   to be created */
-                return NtUserGetWindowLong(hWnd, nIndex, FALSE);
-
-            default:
-                SetLastError(ERROR_INVALID_PARAMETER);
-                return 0;
-        }
-    }
+  return NtUserGetWindowLong(hWnd, nIndex, FALSE);
 }
 
 /*
@@ -612,7 +369,7 @@ WORD
 STDCALL
 GetWindowWord(HWND hWnd, int nIndex)
 {
-  return (WORD)GetWindowLongW(hWnd, nIndex);
+  return (WORD)NtUserGetWindowLong(hWnd, nIndex,  TRUE);
 }
 
 /*
@@ -685,12 +442,12 @@ CreateSmallIcon(HICON StdIcon)
    SmallIconHeight = GetSystemMetrics(SM_CYSMICON);
    if (! GetIconInfo(StdIcon, &StdInfo))
    {
-      ERR("Failed to get icon info for icon 0x%x\n", StdIcon);
+      DPRINT1("Failed to get icon info for icon 0x%x\n", StdIcon);
       goto cleanup;
    }
    if (! GetObjectW(StdInfo.hbmMask, sizeof(BITMAP), &StdBitmapInfo))
    {
-      ERR("Failed to get bitmap info for icon 0x%x bitmap 0x%x\n",
+      DPRINT1("Failed to get bitmap info for icon 0x%x bitmap 0x%x\n",
               StdIcon, StdInfo.hbmColor);
       goto cleanup;
    }
@@ -707,71 +464,71 @@ CreateSmallIcon(HICON StdIcon)
    hInfoDc = CreateICW(NULL, NULL, NULL, NULL);
    if (NULL == hInfoDc)
    {
-      ERR("Failed to create info DC\n");
+      DPRINT1("Failed to create info DC\n");
       goto cleanup;
    }
    hSourceDc = CreateCompatibleDC(NULL);
    if (NULL == hSourceDc)
    {
-      ERR("Failed to create source DC\n");
+      DPRINT1("Failed to create source DC\n");
       goto cleanup;
    }
    hDestDc = CreateCompatibleDC(NULL);
    if (NULL == hDestDc)
    {
-      ERR("Failed to create dest DC\n");
+      DPRINT1("Failed to create dest DC\n");
       goto cleanup;
    }
 
    OldSourceBitmap = SelectObject(hSourceDc, StdInfo.hbmColor);
    if (NULL == OldSourceBitmap)
    {
-      ERR("Failed to select source color bitmap\n");
+      DPRINT1("Failed to select source color bitmap\n");
       goto cleanup;
    }
    SmallInfo.hbmColor = CreateCompatibleBitmap(hInfoDc, SmallIconWidth,
                                               SmallIconHeight);
    if (NULL == SmallInfo.hbmColor)
    {
-      ERR("Failed to create color bitmap\n");
+      DPRINT1("Failed to create color bitmap\n");
       goto cleanup;
    }
    OldDestBitmap = SelectObject(hDestDc, SmallInfo.hbmColor);
    if (NULL == OldDestBitmap)
    {
-      ERR("Failed to select dest color bitmap\n");
+      DPRINT1("Failed to select dest color bitmap\n");
       goto cleanup;
    }
    if (! StretchBlt(hDestDc, 0, 0, SmallIconWidth, SmallIconHeight,
                     hSourceDc, 0, 0, StdBitmapInfo.bmWidth,
                     StdBitmapInfo.bmHeight, SRCCOPY))
    {
-     ERR("Failed to stretch color bitmap\n");
+     DPRINT1("Failed to stretch color bitmap\n");
      goto cleanup;
    }
 
    if (NULL == SelectObject(hSourceDc, StdInfo.hbmMask))
    {
-      ERR("Failed to select source mask bitmap\n");
+      DPRINT1("Failed to select source mask bitmap\n");
       goto cleanup;
    }
    SmallInfo.hbmMask = CreateBitmap(SmallIconWidth, SmallIconHeight, 1, 1,
                                     NULL);
    if (NULL == SmallInfo.hbmMask)
    {
-      ERR("Failed to create mask bitmap\n");
+      DPRINT1("Failed to create mask bitmap\n");
       goto cleanup;
    }
    if (NULL == SelectObject(hDestDc, SmallInfo.hbmMask))
    {
-      ERR("Failed to select dest mask bitmap\n");
+      DPRINT1("Failed to select dest mask bitmap\n");
       goto cleanup;
    }
    if (! StretchBlt(hDestDc, 0, 0, SmallIconWidth, SmallIconHeight,
                     hSourceDc, 0, 0, StdBitmapInfo.bmWidth,
                     StdBitmapInfo.bmHeight, SRCCOPY))
    {
-      ERR("Failed to stretch mask bitmap\n");
+      DPRINT1("Failed to stretch mask bitmap\n");
       goto cleanup;
    }
 
@@ -781,7 +538,7 @@ CreateSmallIcon(HICON StdIcon)
    SmallIcon = CreateIconIndirect(&SmallInfo);
    if (NULL == SmallIcon)
    {
-      ERR("Failed to create icon\n");
+      DPRINT1("Failed to create icon\n");
       goto cleanup;
    }
 
@@ -880,7 +637,7 @@ RegisterClassExA(CONST WNDCLASSEXA *lpwcx)
       if (MenuName.Buffer != NULL)
          hMenu = LoadMenuA(WndClass.hInstance, WndClass.lpszMenuName);
    }
-
+ 
    if (IS_ATOM(WndClass.lpszClassName))
    {
       ClassName.Length =
@@ -1210,6 +967,7 @@ UnregisterClassA(
   HINSTANCE hInstance)
 {
     UNICODE_STRING ClassName = {0};
+    NTSTATUS Status;
     BOOL Ret;
 
     TRACE("class/atom: %s/%04x %p\n",
@@ -1219,12 +977,15 @@ UnregisterClassA(
 
     if (!IS_ATOM(lpClassName))
     {
-        if (!RtlCreateUnicodeStringFromAsciiz(&ClassName,
-                                              lpClassName))
+        Status = HEAP_strdupAtoW(&ClassName.Buffer, lpClassName, NULL);
+        if (!NT_SUCCESS(Status))
         {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return 0;
+            SetLastError(RtlNtStatusToDosError(Status));
+            return FALSE;
         }
+
+        RtlInitUnicodeString(&ClassName,
+                             ClassName.Buffer);
     }
     else
         ClassName.Buffer = (PWSTR)((ULONG_PTR)lpClassName);
@@ -1232,8 +993,8 @@ UnregisterClassA(
     Ret = NtUserUnregisterClass(&ClassName,
                                 hInstance);
 
-    if (!IS_ATOM(lpClassName))
-        RtlFreeUnicodeString(&ClassName);
+    if(!IS_ATOM(lpClassName) && ClassName.Buffer != NULL)
+        HEAP_free(ClassName.Buffer);
 
     return Ret;
 }

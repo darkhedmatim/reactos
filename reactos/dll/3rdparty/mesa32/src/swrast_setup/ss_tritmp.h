@@ -55,7 +55,8 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
       if (IND & (SS_TWOSIDE_BIT | SS_UNFILLED_BIT))
       {
 	 facing = (cc < 0.0) ^ ctx->Polygon._FrontBit;
-         ctx->_Facing = facing;
+         if (ctx->Stencil.TestTwoSide)
+            ctx->_Facing = facing; /* for 2-sided stencil test */
 
 	 if (IND & SS_UNFILLED_BIT)
 	    mode = facing ? ctx->Polygon.BackMode : ctx->Polygon.FrontMode;
@@ -63,24 +64,22 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
 	 if (facing == 1) {
 	    if (IND & SS_TWOSIDE_BIT) {
 	       if (IND & SS_RGBA_BIT) {
-                  if (VB->ColorPtr[1]) {
-                     GLfloat (*vbcolor)[4] = VB->ColorPtr[1]->data;
+		  GLfloat (*vbcolor)[4] = VB->ColorPtr[1]->data;
 
-                     COPY_CHAN4(saved_color[0], v[0]->color);
-                     COPY_CHAN4(saved_color[1], v[1]->color);
-                     COPY_CHAN4(saved_color[2], v[2]->color);
+		  COPY_CHAN4(saved_color[0], v[0]->color);
+		  COPY_CHAN4(saved_color[1], v[1]->color);
+		  COPY_CHAN4(saved_color[2], v[2]->color);
 
-                     if (VB->ColorPtr[1]->stride) {
-                        SS_COLOR(v[0]->color, vbcolor[e0]);
-                        SS_COLOR(v[1]->color, vbcolor[e1]);
-                        SS_COLOR(v[2]->color, vbcolor[e2]);
-                     }
-                     else {
-                        SS_COLOR(v[0]->color, vbcolor[0]);
-                        SS_COLOR(v[1]->color, vbcolor[0]);
-                        SS_COLOR(v[2]->color, vbcolor[0]);
-                     }
-                  }
+		  if (VB->ColorPtr[1]->stride) {
+		     SS_COLOR(v[0]->color, vbcolor[e0]);
+		     SS_COLOR(v[1]->color, vbcolor[e1]);
+		     SS_COLOR(v[2]->color, vbcolor[e2]);
+		  }
+		  else {
+		     SS_COLOR(v[0]->color, vbcolor[0]);
+		     SS_COLOR(v[1]->color, vbcolor[0]);
+		     SS_COLOR(v[2]->color, vbcolor[0]);
+		  }
 
 		  if (VB->SecondaryColorPtr[1]) {
 		     GLfloat (*vbspec)[4] = VB->SecondaryColorPtr[1]->data;
@@ -169,12 +168,9 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
    if (IND & SS_TWOSIDE_BIT) {
       if (facing == 1) {
 	 if (IND & SS_RGBA_BIT) {
-            if (VB->ColorPtr[1]) {
-               COPY_CHAN4(v[0]->color, saved_color[0]);
-               COPY_CHAN4(v[1]->color, saved_color[1]);
-               COPY_CHAN4(v[2]->color, saved_color[2]);
-            }
-
+	    COPY_CHAN4(v[0]->color, saved_color[0]);
+	    COPY_CHAN4(v[1]->color, saved_color[1]);
+	    COPY_CHAN4(v[2]->color, saved_color[2]);
 	    if (VB->SecondaryColorPtr[1]) {
 	       COPY_CHAN4(v[0]->specular, saved_spec[0]);
 	       COPY_CHAN4(v[1]->specular, saved_spec[1]);
@@ -198,16 +194,14 @@ static void TAG(quadfunc)( GLcontext *ctx, GLuint v0,
 {
    if (IND & SS_UNFILLED_BIT) {
       struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-      if (VB->EdgeFlag) { /* XXX this test shouldn't be needed (bug 12614) */
-         GLubyte ef1 = VB->EdgeFlag[v1];
-         GLubyte ef3 = VB->EdgeFlag[v3];
-         VB->EdgeFlag[v1] = 0;
-         TAG(triangle)( ctx, v0, v1, v3 );
-         VB->EdgeFlag[v1] = ef1;
-         VB->EdgeFlag[v3] = 0;
-         TAG(triangle)( ctx, v1, v2, v3 );
-         VB->EdgeFlag[v3] = ef3;
-      }
+      GLubyte ef1 = VB->EdgeFlag[v1];
+      GLubyte ef3 = VB->EdgeFlag[v3];
+      VB->EdgeFlag[v1] = 0;
+      TAG(triangle)( ctx, v0, v1, v3 );
+      VB->EdgeFlag[v1] = ef1;
+      VB->EdgeFlag[v3] = 0;
+      TAG(triangle)( ctx, v1, v2, v3 );
+      VB->EdgeFlag[v3] = ef3;
    } else {
       TAG(triangle)( ctx, v0, v1, v3 );
       TAG(triangle)( ctx, v1, v2, v3 );

@@ -2,11 +2,11 @@
  * PROJECT:     System Setup
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        \ReactOS\base\applications\regedit\clb\lang\it-IT.rc
- * PURPOSE:     Italian Translation
+ * PURPOSE:     Italian Translation 
  * PROGRAMMERS: Copyright (C) 2007 Paolo Devoti devotip at tiscali.it
  */
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 IDD_COLUMNLISTBOXSTYLES DIALOGEX 0, 0, 227, 215
 STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU

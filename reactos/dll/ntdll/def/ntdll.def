@@ -361,7 +361,7 @@ RtlConvertUlongToLargeInteger@4
 RtlCopyLuid@8
 RtlCopyLuidAndAttributesArray@12
 RtlCopyRangeList@8
-RtlCopySecurityDescriptor@8
+;RtlCopySecurityDescriptor
 RtlCopySid@12
 RtlCopySidAndAttributesArray@28
 RtlCopyString@8
@@ -1065,7 +1065,6 @@ strspn
 strstr
 strtol
 strtoul
-strtoull
 swprintf
 tan
 tolower

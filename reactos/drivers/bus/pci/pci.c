@@ -10,22 +10,8 @@
 #define INITGUID
 #include "pci.h"
 
-#ifndef NDEBUG
 #define NDEBUG
-#endif
 #include <debug.h>
-
-static DRIVER_DISPATCH PciDispatchDeviceControl;
-static NTSTATUS STDCALL PciDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
-
-static DRIVER_ADD_DEVICE PciAddDevice;
-static NTSTATUS STDCALL PciAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceObject);
-
-static DRIVER_DISPATCH PciPowerControl;
-static NTSTATUS STDCALL PciPowerControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
-
-static DRIVER_DISPATCH PciPnpControl;
-static NTSTATUS STDCALL PciPnpControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 
 #ifdef  ALLOC_PRAGMA
@@ -293,11 +279,11 @@ PciCreateHardwareIDsString(PUNICODE_STRING HardwareIDs,
   Index++;
 
   Buffer[Index] = UNICODE_NULL;
-
-  BufferU.Length = BufferU.MaximumLength = (USHORT) Index * sizeof(WCHAR);
+  
+  BufferU.Length = BufferU.MaximumLength = Index * sizeof(WCHAR);
   BufferU.Buffer = Buffer;
 
-  return PciDuplicateUnicodeString(0, &BufferU, HardwareIDs);
+  return RtlDuplicateUnicodeString(0, &BufferU, HardwareIDs);
 }
 
 
@@ -358,10 +344,10 @@ PciCreateCompatibleIDsString(PUNICODE_STRING CompatibleIDs,
 
   Buffer[Index] = UNICODE_NULL;
 
-  BufferU.Length = BufferU.MaximumLength = (USHORT)Index * sizeof(WCHAR);
+  BufferU.Length = BufferU.MaximumLength = Index * sizeof(WCHAR);
   BufferU.Buffer = Buffer;
 
-  return PciDuplicateUnicodeString(0, &BufferU, CompatibleIDs);
+  return RtlDuplicateUnicodeString(0, &BufferU, CompatibleIDs);
 }
 
 
@@ -452,7 +438,7 @@ PciCreateDeviceDescriptionString(PUNICODE_STRING DeviceDescription,
           Description = L"XGA display controller";
           break;
 
-        case PCI_SUBCLASS_VID_3D_CTLR:
+        case PCI_SUBLCASS_VID_3D_CTLR:
           Description = L"Multimedia display controller";
           break;
 
@@ -642,51 +628,6 @@ PciCreateDeviceLocationString(PUNICODE_STRING DeviceLocation,
            Device->SlotNumber.u.bits.FunctionNumber);
 
   return RtlCreateUnicodeString(DeviceLocation, Buffer) ? STATUS_SUCCESS : STATUS_INSUFFICIENT_RESOURCES;
-}
-
-NTSTATUS
-PciDuplicateUnicodeString(
-    IN ULONG Flags,
-    IN PCUNICODE_STRING SourceString,
-    OUT PUNICODE_STRING DestinationString)
-{
-    if (SourceString == NULL || DestinationString == NULL
-     || SourceString->Length > SourceString->MaximumLength
-     || (SourceString->Length == 0 && SourceString->MaximumLength > 0 && SourceString->Buffer == NULL)
-     || Flags == RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING || Flags >= 4)
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-
-    if ((SourceString->Length == 0)
-     && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE |
-                   RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING)))
-    {
-        DestinationString->Length = 0;
-        DestinationString->MaximumLength = 0;
-        DestinationString->Buffer = NULL;
-    }
-    else
-    {
-        USHORT DestMaxLength = SourceString->Length;
-
-        if (Flags & RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE)
-            DestMaxLength += sizeof(UNICODE_NULL);
-
-        DestinationString->Buffer = ExAllocatePoolWithTag(PagedPool, DestMaxLength, TAG_PCI);
-        if (DestinationString->Buffer == NULL)
-            return STATUS_NO_MEMORY;
-
-        RtlCopyMemory(DestinationString->Buffer, SourceString->Buffer, SourceString->Length);
-        DestinationString->Length = SourceString->Length;
-        DestinationString->MaximumLength = DestMaxLength;
-
-        if (Flags & RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE)
-            DestinationString->Buffer[DestinationString->Length / sizeof(WCHAR)] = 0;
-    }
-
-    return STATUS_SUCCESS;
 }
 
 /* EOF */

@@ -28,7 +28,7 @@
 
 #define NDEBUG
 
-#include <debug.h>
+#include "../include/debug.h"
 #include "wine/unicode.h"
 
 #define TRACE DPRINT
@@ -557,7 +557,7 @@ DWORD WINAPI FormatMessageW(
                                 if (sprintfbuf) {
                                     HeapFree(GetProcessHeap(),0,sprintfbuf);
                                 }
-                                len += 256;
+                                len += 256; 
                                 sprintfbuf=HeapAlloc(GetProcessHeap(),0,len*sizeof(WCHAR));
                                 /* CMF - This makes a BIG assumption about va_list */
                             } while (0 > _vsnwprintf(sprintfbuf, len, fmtstr, (va_list) argliststart));

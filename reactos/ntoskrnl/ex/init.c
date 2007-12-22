@@ -12,6 +12,9 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
+//#include <ntoskrnl/cm/newcm.h>
+#include "ntoskrnl/cm/cm.h"
+#include "ntverp.h"
 #include "ntstrsafe.h"
 
 typedef struct _INIT_BUFFER
@@ -1091,7 +1094,7 @@ ExpInitializeExecutive(IN ULONG Cpu,
         }
 
         /* Update length */
-        CmCSDVersionString.MaximumLength = sizeof(Buffer) - (USHORT)Remaining;
+        CmCSDVersionString.MaximumLength = sizeof(Buffer) - Remaining;
     }
 
     /* Check if we have an RC number */
@@ -1482,7 +1485,7 @@ Phase1InitializationDiscard(IN PVOID Context)
                                &MsgEntry);
 
     /* Get total RAM size */
-    Size = MmNumberOfPhysicalPages * PAGE_SIZE / 1024 / 1024;
+    Size = MmStats.NrTotalPages * PAGE_SIZE / 1024 / 1024;
 
     /* Create the string */
     StringBuffer = InitBuffer->VersionBuffer;

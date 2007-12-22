@@ -57,14 +57,14 @@ PCACHE_BLOCK CacheInternalFindBlock(PCACHE_DRIVE CacheDrive, ULONG BlockNumber)
 	//
 	// Make sure the block list has entries before I start searching it.
 	//
-	if (!IsListEmpty(&CacheDrive->CacheBlockHead))
+	if (!RtlListIsEmpty((PLIST_ITEM)CacheDrive->CacheBlockHead))
 	{
 		//
 		// Search the list and find the BIOS drive number
 		//
-		CacheBlock = CONTAINING_RECORD(CacheDrive->CacheBlockHead.Flink, CACHE_BLOCK, ListEntry);
+		CacheBlock = CacheDrive->CacheBlockHead;
 
-		while (&CacheBlock->ListEntry != &CacheDrive->CacheBlockHead)
+		while (CacheBlock != NULL)
 		{
 			//
 			// We found the block, so return it
@@ -79,7 +79,7 @@ PCACHE_BLOCK CacheInternalFindBlock(PCACHE_DRIVE CacheDrive, ULONG BlockNumber)
 				return CacheBlock;
 			}
 
-			CacheBlock = CONTAINING_RECORD(CacheBlock->ListEntry.Flink, CACHE_BLOCK, ListEntry);
+			CacheBlock = (PCACHE_BLOCK)RtlListGetNext((PLIST_ITEM)CacheBlock);
 		}
 	}
 
@@ -125,7 +125,14 @@ PCACHE_BLOCK CacheInternalAddBlockToCache(PCACHE_DRIVE CacheDrive, ULONG BlockNu
 	RtlCopyMemory(CacheBlock->BlockData, (PVOID)DISKREADBUFFER, CacheDrive->BlockSize * CacheDrive->BytesPerSector);
 
 	// Add it to our list of blocks managed by the cache
-	InsertTailList(&CacheDrive->CacheBlockHead, &CacheBlock->ListEntry);
+	if (CacheDrive->CacheBlockHead == NULL)
+	{
+		CacheDrive->CacheBlockHead = CacheBlock;
+	}
+	else
+	{
+		RtlListInsertTail((PLIST_ITEM)CacheDrive->CacheBlockHead, (PLIST_ITEM)CacheBlock);
+	}
 
 	// Update the cache data
 	CacheBlockCount++;
@@ -145,20 +152,28 @@ BOOLEAN CacheInternalFreeBlock(PCACHE_DRIVE CacheDrive)
 	// Get a pointer to the last item in the block list
 	// that isn't forced to be in the cache and remove
 	// it from the list
-	CacheBlockToFree = CONTAINING_RECORD(CacheDrive->CacheBlockHead.Blink, CACHE_BLOCK, ListEntry);
-	while (&CacheBlockToFree->ListEntry != &CacheDrive->CacheBlockHead && CacheBlockToFree->LockedInCache == TRUE)
+	CacheBlockToFree = (PCACHE_BLOCK)RtlListGetTail((PLIST_ITEM)CacheDrive->CacheBlockHead);
+	while (CacheBlockToFree != NULL && CacheBlockToFree->LockedInCache == TRUE)
 	{
-		CacheBlockToFree = CONTAINING_RECORD(CacheBlockToFree->ListEntry.Blink, CACHE_BLOCK, ListEntry);
+		CacheBlockToFree = (PCACHE_BLOCK)RtlListGetPrevious((PLIST_ITEM)CacheBlockToFree);
 	}
 
 	// No blocks left in cache that can be freed
 	// so just return
-	if (IsListEmpty(&CacheDrive->CacheBlockHead))
+	if (CacheBlockToFree == NULL)
 	{
 		return FALSE;
 	}
 
-	RemoveEntryList(&CacheBlockToFree->ListEntry);
+	//
+	// If we are freeing the head of the list then update it's pointer
+	//
+	if (CacheBlockToFree == CacheDrive->CacheBlockHead)
+	{
+		CacheDrive->CacheBlockHead = (PCACHE_BLOCK)RtlListGetNext((PLIST_ITEM)CacheBlockToFree);
+	}
+
+	RtlListRemoveEntry((PLIST_ITEM)CacheBlockToFree);
 
 	// Free the block memory and the block structure
 	MmFreeMemory(CacheBlockToFree->BlockData);
@@ -198,9 +213,10 @@ VOID CacheInternalDumpBlockList(PCACHE_DRIVE CacheDrive)
 	DbgPrint((DPRINT_CACHE, "CacheSizeLimit: %d.\n", CacheSizeLimit));
 	DbgPrint((DPRINT_CACHE, "CacheSizeCurrent: %d.\n", CacheSizeCurrent));
 	DbgPrint((DPRINT_CACHE, "CacheBlockCount: %d.\n", CacheBlockCount));
+	DbgPrint((DPRINT_CACHE, "Dumping %d cache blocks.\n", RtlListCountEntries((PLIST_ITEM)CacheDrive->CacheBlockHead)));
 
-	CacheBlock = CONTAINING_RECORD(CacheDrive->CacheBlockHead.Flink, CACHE_BLOCK, ListEntry);
-	while (&CacheBlock->ListEntry != &CacheDrive->CacheBlockHead)
+	CacheBlock = CacheDrive->CacheBlockHead;
+	while (CacheBlock != NULL)
 	{
 		DbgPrint((DPRINT_CACHE, "Cache Block: CacheBlock: 0x%x\n", CacheBlock));
 		DbgPrint((DPRINT_CACHE, "Cache Block: Block Number: %d\n", CacheBlock->BlockNumber));
@@ -213,7 +229,7 @@ VOID CacheInternalDumpBlockList(PCACHE_DRIVE CacheDrive)
 			BugCheck((DPRINT_CACHE, "What the heck?!?\n"));
 		}
 
-		CacheBlock = CONTAINING_RECORD(CacheBlock->ListEntry.Flink, CACHE_BLOCK, ListEntry);
+		CacheBlock = (PCACHE_BLOCK)RtlListGetNext((PLIST_ITEM)CacheBlock);
 	}
 }
 
@@ -223,12 +239,15 @@ VOID CacheInternalOptimizeBlockList(PCACHE_DRIVE CacheDrive, PCACHE_BLOCK CacheB
 	DbgPrint((DPRINT_CACHE, "CacheInternalOptimizeBlockList()\n"));
 
 	// Don't do this if this block is already at the head of the list
-	if (&CacheBlock->ListEntry != CacheDrive->CacheBlockHead.Flink)
+	if (CacheBlock != CacheDrive->CacheBlockHead)
 	{
 		// Remove this item from the block list
-		RemoveEntryList(&CacheBlock->ListEntry);
+		RtlListRemoveEntry((PLIST_ITEM)CacheBlock);
 
 		// Re-insert it at the head of the list
-		InsertHeadList(&CacheDrive->CacheBlockHead, &CacheBlock->ListEntry);
+		RtlListInsertHead((PLIST_ITEM)CacheDrive->CacheBlockHead, (PLIST_ITEM)CacheBlock);
+
+		// Update the head pointer
+		CacheDrive->CacheBlockHead = CacheBlock;
 	}
 }

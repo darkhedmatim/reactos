@@ -190,9 +190,6 @@ static VOID STDCALL MiQueryResources(
             case CmResourceTypeInterrupt:
                  Adapter->InterruptLevel = Descriptor->u.Interrupt.Level;
                  Adapter->InterruptVector = Descriptor->u.Interrupt.Vector;
-                 Adapter->InterruptShared = (Descriptor->ShareDisposition == CmResourceShareShared);
-                 Adapter->InterruptMode = Descriptor->Flags & CM_RESOURCE_INTERRUPT_LATCHED ?
-                                          NdisInterruptLatched : NdisInterruptLevelSensitive;
                  break;
             case CmResourceTypePort:
                  Adapter->IoBaseAddress = Descriptor->u.Port.Start.LowPart;
@@ -255,8 +252,6 @@ static NDIS_STATUS STDCALL MiniportInitialize(
     Adapter->IoBaseAddress          = DRIVER_DEFAULT_IO_BASE_ADDRESS;
     Adapter->InterruptLevel         = DRIVER_DEFAULT_INTERRUPT_NUMBER;
     Adapter->InterruptVector        = DRIVER_DEFAULT_INTERRUPT_NUMBER;
-    Adapter->InterruptShared        = DRIVER_DEFAULT_INTERRUPT_SHARED;
-    Adapter->InterruptMode          = DRIVER_DEFAULT_INTERRUPT_MODE;
     Adapter->MaxMulticastListSize   = DRIVER_MAX_MULTICAST_LIST_SIZE;
     Adapter->InterruptMask          = DRIVER_INTERRUPT_MASK;
     Adapter->LookaheadSize          = DRIVER_MAXIMUM_LOOKAHEAD;
@@ -397,8 +392,8 @@ static NDIS_STATUS STDCALL MiniportInitialize(
         Adapter->InterruptVector,
         Adapter->InterruptLevel,
         FALSE,
-        Adapter->InterruptShared,
-        Adapter->InterruptMode);
+        FALSE,
+        NdisInterruptLatched);
     if (Status != NDIS_STATUS_SUCCESS) {
         NDIS_DbgPrint(MIN_TRACE, ("Cannot register interrupt. Status (0x%X).\n", Status));
         MiniportHalt((NDIS_HANDLE)Adapter);

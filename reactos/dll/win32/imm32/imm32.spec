@@ -4,13 +4,13 @@
 @ stdcall ImmConfigureIMEA(long long long ptr)
 @ stdcall ImmConfigureIMEW(long long long ptr)
 @ stdcall ImmCreateContext()
-@ stdcall ImmCreateIMCC(long)
+@ stub ImmCreateIMCC
 @ stub ImmCreateSoftKeyboard
 @ stdcall ImmDestroyContext(long)
-@ stdcall ImmDestroyIMCC(long)
+@ stub ImmDestroyIMCC
 @ stub ImmDestroySoftKeyboard
 @ stdcall ImmDisableIME(long)
-@ stdcall ImmDisableIme(long) ImmDisableIME
+@ stub ImmDisableIme
 @ stub ImmEnumInputContext
 @ stdcall ImmEnumRegisterWordA(long ptr str long str ptr)
 @ stdcall ImmEnumRegisterWordW(long ptr wstr long wstr ptr)
@@ -39,9 +39,9 @@
 @ stdcall ImmGetGuideLineA(long long ptr long)
 @ stdcall ImmGetGuideLineW(long long ptr long)
 @ stub ImmGetHotKey
-@ stdcall ImmGetIMCCLockCount(long)
-@ stdcall ImmGetIMCCSize(long)
-@ stdcall ImmGetIMCLockCount(long)
+@ stub ImmGetIMCCLockCount
+@ stub ImmGetIMCCSize
+@ stub ImmGetIMCLockCount
 @ stdcall ImmGetIMEFileNameA(long ptr long)
 @ stdcall ImmGetIMEFileNameW(long ptr long)
 @ stub ImmGetImeInfoEx
@@ -67,14 +67,14 @@
 @ stub ImmLoadIME
 @ stub ImmLoadLayout
 @ stub ImmLockClientImc
-@ stdcall ImmLockIMC(long)
-@ stdcall ImmLockIMCC(long)
+@ stub ImmLockIMC
+@ stub ImmLockIMCC
 @ stub ImmLockImeDpi
 @ stdcall ImmNotifyIME(long long long long)
 @ stub ImmPenAuxInput
 @ stub ImmProcessKey
 @ stub ImmPutImeMenuItemsIntoMappedFile
-@ stdcall ImmReSizeIMCC(long long)
+@ stub ImmReSizeIMCC
 @ stub ImmRegisterClient
 @ stdcall ImmRegisterWordA(long str long str)
 @ stdcall ImmRegisterWordW(long wstr long wstr)
@@ -101,8 +101,8 @@
 @ stub ImmSystemHandler
 @ stub ImmTranslateMessage
 @ stub ImmUnlockClientImc
-@ stdcall ImmUnlockIMC(long)
-@ stdcall ImmUnlockIMCC(long)
+@ stub ImmUnlockIMC
+@ stub ImmUnlockIMCC
 @ stub ImmUnlockImeDpi
 @ stdcall ImmUnregisterWordA(long str long str)
 @ stdcall ImmUnregisterWordW(long wstr long wstr)

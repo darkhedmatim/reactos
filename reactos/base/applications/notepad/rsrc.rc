@@ -27,7 +27,6 @@
 
 IDI_NPICON ICON "res/notepad.ico"
 
-#include "lang/bg-BG.rc"
 #include "lang/cs-CZ.rc"
 #include "lang/da-DK.rc"
 #include "lang/de-DE.rc"
@@ -40,7 +39,6 @@ IDI_NPICON ICON "res/notepad.ico"
 #include "lang/id-ID.rc"
 #include "lang/it-IT.rc"
 #include "lang/ja-JP.rc"
-#include "lang/lt-LT.rc"
 #include "lang/nb-NO.rc"
 #include "lang/nl-NL.rc"
 #include "lang/pl-PL.rc"

@@ -49,7 +49,6 @@ static WCHAR PathToVideoDrivers40[MAX_PATH+1] = L"X:\\video\\winnt2k\\";
 static WCHAR DestinationPath[MAX_PATH+1];
 static WCHAR *vmx_fb = L"vmx_fb.dll";
 static WCHAR *vmx_mode = L"vmx_mode.dll";
-static WCHAR *vmx_mode_v6 = L"vmx mode.dll";
 static WCHAR *vmx_svga = L"vmx_svga.sys";
 
 static WCHAR *SrcPath = PathToVideoDrivers45;
@@ -172,7 +171,7 @@ IsVMwareCDInDrive(WCHAR *Drv)
       PathToVideoDrivers45[0] = Current;
       if(SetCurrentDirectory(PathToVideoDrivers60))
         SrcPath = PathToVideoDrivers60;
-      else if(SetCurrentDirectory(PathToVideoDrivers55))
+      if(SetCurrentDirectory(PathToVideoDrivers55))
         SrcPath = PathToVideoDrivers55;
       else if(SetCurrentDirectory(PathToVideoDrivers45))
         SrcPath = PathToVideoDrivers45;
@@ -185,7 +184,7 @@ IsVMwareCDInDrive(WCHAR *Drv)
       }
 
       if(FileExists(SrcPath, vmx_fb) &&
-         (FileExists(SrcPath, vmx_mode) || FileExists(SrcPath, vmx_mode_v6)) &&
+         FileExists(SrcPath, vmx_mode) &&
          FileExists(SrcPath, vmx_svga))
       {
         *Drv = Current;
@@ -203,39 +202,24 @@ static BOOL
 LoadResolutionSettings(DWORD *ResX, DWORD *ResY, DWORD *ColDepth)
 {
   HKEY hReg;
-  DWORD Type, Size = sizeof(DWORD);
+  DWORD Type, Size;
 
   if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                   L"SYSTEM\\CurrentControlSet\\Services\\vmx_svga\\Device0",
                   0, KEY_QUERY_VALUE, &hReg) != ERROR_SUCCESS)
   {
-    DEVMODE CurrentDevMode;
-
-    /* If this key is absent, just get current settings */
-    memset(&CurrentDevMode, 0, sizeof(CurrentDevMode));
-    CurrentDevMode.dmSize = sizeof(CurrentDevMode);
-    if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &CurrentDevMode) == TRUE)
-    {
-      *ColDepth = CurrentDevMode.dmBitsPerPel;
-      *ResX = CurrentDevMode.dmPelsWidth;
-      *ResY = CurrentDevMode.dmPelsHeight;
-
-      return TRUE;
-    }
+    return FALSE;
   }
-
   if(RegQueryValueEx(hReg, L"DefaultSettings.BitsPerPel", 0, &Type, (BYTE*)ColDepth, &Size) != ERROR_SUCCESS ||
      Type != REG_DWORD)
   {
     *ColDepth = 8;
-    Size = sizeof(DWORD);
   }
 
   if(RegQueryValueEx(hReg, L"DefaultSettings.XResolution", 0, &Type, (BYTE*)ResX, &Size) != ERROR_SUCCESS ||
      Type != REG_DWORD)
   {
     *ResX = 640;
-    Size = sizeof(DWORD);
   }
 
   if(RegQueryValueEx(hReg, L"DefaultSettings.YResolution", 0, &Type, (BYTE*)ResY, &Size) != ERROR_SUCCESS ||
@@ -277,7 +261,6 @@ static BOOL
 SaveResolutionSettings(DWORD ResX, DWORD ResY, DWORD ColDepth)
 {
   HKEY hReg;
-  DWORD VFreq = 85;
 
   if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                   L"SYSTEM\\CurrentControlSet\\Services\\vmx_svga\\Device0",
@@ -298,12 +281,6 @@ SaveResolutionSettings(DWORD ResX, DWORD ResY, DWORD ColDepth)
   }
 
   if(RegSetValueEx(hReg, L"DefaultSettings.YResolution", 0, REG_DWORD, (BYTE*)&ResY, sizeof(DWORD)) != ERROR_SUCCESS)
-  {
-    RegCloseKey(hReg);
-    return FALSE;
-  }
-
-  if(RegSetValueEx(hReg, L"DefaultSettings.VRefresh", 0, REG_DWORD, (BYTE*)&VFreq, sizeof(DWORD)) != ERROR_SUCCESS)
   {
     RegCloseKey(hReg);
     return FALSE;
@@ -554,7 +531,7 @@ PageInstallingProc(
       switch(pnmh->code)
       {
         case PSN_SETACTIVE:
-          SetDlgItemText(hwndDlg, IDC_INSTALLINGSTATUS, L"");
+          SetDlgItemText(hwndDlg, IDC_INSTALLINGSTATUS, NULL);
           SendDlgItemMessage(hwndDlg, IDC_INSTALLINGPROGRESS, PBM_SETMARQUEE, TRUE, 50);
           PropSheet_SetWizButtons(GetParent(hwndDlg), PSWIZB_BACK);
           InstStartInstallationThread(hwndDlg);

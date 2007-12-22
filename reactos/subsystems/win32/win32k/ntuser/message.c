@@ -115,7 +115,7 @@ MsgMemorySize(PMSGMEMORY MsgMemoryEntry, WPARAM wParam, LPARAM lParam)
    PUNICODE_STRING ClassName;
    UINT Size = 0;
 
-   _SEH_TRY
+   _SEH_TRY 
    {
       if (MMS_SIZE_WPARAM == MsgMemoryEntry->Size)
       {
@@ -167,12 +167,12 @@ MsgMemorySize(PMSGMEMORY MsgMemoryEntry, WPARAM wParam, LPARAM lParam)
       {
          Size = MsgMemoryEntry->Size;
       }
-   }
-   _SEH_HANDLE
+   } 
+   _SEH_HANDLE 
    {
       DPRINT1("Exception caught in MsgMemorySize()! Status: 0x%x\n", _SEH_GetExceptionCode());
       Size = 0;
-   }
+   } 
    _SEH_END;
    return Size;
 }
@@ -356,7 +356,7 @@ NtUserDispatchMessage(PNTUSERDISPATCHMESSAGEINFO UnsafeMsgInfo)
    else
    {
       PWINDOW_OBJECT Window;
-
+      
       /* Get the window object. */
       Window = UserGetWindowObject(MsgInfo.Msg.hwnd);
       if (NULL == Window)
@@ -379,14 +379,14 @@ NtUserDispatchMessage(PNTUSERDISPATCHMESSAGEINFO UnsafeMsgInfo)
             MsgInfo.HandledByKernel = FALSE;
             Result = 0;
 
-            if (Window->Wnd->IsSystem)
+            if (Window->IsSystem)
             {
-                MsgInfo.Proc = (!MsgInfo.Ansi ? Window->Wnd->WndProc : Window->Wnd->WndProcExtra);
+                MsgInfo.Proc = (!MsgInfo.Ansi ? Window->WndProc : Window->WndProcExtra);
             }
             else
             {
-                MsgInfo.Ansi = !Window->Wnd->Unicode;
-                MsgInfo.Proc = Window->Wnd->WndProc;
+                MsgInfo.Ansi = !Window->Unicode;
+                MsgInfo.Proc = Window->WndProc;
             }
          }
       }
@@ -564,9 +564,9 @@ co_IntTranslateMouseMessage(PUSER_MESSAGE_QUEUE ThreadQueue, LPMSG Msg, USHORT *
          if((DesktopWindow = UserGetWindowObject(hDesktop)))
          {
             PWINDOW_OBJECT Wnd;
-
+            
             UserRefObjectCo(DesktopWindow, &DesktopRef);
-
+            
             co_WinPosWindowFromPoint(DesktopWindow, Window->MessageQueue, &Msg->pt, &Wnd);
             if(Wnd)
             {
@@ -603,7 +603,7 @@ co_IntTranslateMouseMessage(PUSER_MESSAGE_QUEUE ThreadQueue, LPMSG Msg, USHORT *
    {
       /* generate double click messages, if necessary */
       if ((((*HitTest) != HTCLIENT) ||
-            (Window->Wnd->Class->Style & CS_DBLCLKS)) &&
+            (Window->Class->Style & CS_DBLCLKS)) &&
             MsqIsDblClk(Msg, Remove))
       {
          Msg->message += WM_LBUTTONDBLCLK - WM_LBUTTONDOWN;
@@ -633,8 +633,8 @@ co_IntTranslateMouseMessage(PUSER_MESSAGE_QUEUE ThreadQueue, LPMSG Msg, USHORT *
       {
          /* NOTE: Msg->pt should remain in screen coordinates. -- FiN */
          Msg->lParam = MAKELONG(
-                          Msg->pt.x - (WORD)Window->Wnd->ClientRect.left,
-                          Msg->pt.y - (WORD)Window->Wnd->ClientRect.top);
+                          Msg->pt.x - (WORD)Window->ClientRect.left,
+                          Msg->pt.y - (WORD)Window->ClientRect.top);
       }
    }
 
@@ -790,7 +790,7 @@ MessageFound:
                   goto CheckMessages;
                }
             }
-
+            
             UserDerefObjectCo(MsgWindow);
          }
          else
@@ -887,7 +887,7 @@ NtUserPeekMessage(PNTUSERGETMESSAGEINFO UnsafeInfo,
          if (! NT_SUCCESS(Status))
          {
             ZwFreeVirtualMemory(NtCurrentProcess(), (PVOID *) &UserMem,
-                                &Info.LParamSize, MEM_RELEASE);
+                                &Info.LParamSize, MEM_DECOMMIT);
             SetLastNtError(Status);
             RETURN( (BOOL) -1);
          }
@@ -976,9 +976,9 @@ NtUserGetMessage(PNTUSERGETMESSAGEINFO UnsafeInfo,
    {
       RETURN(-1);
    }
-
+   
 //   if (Window) UserRefObjectCo(Window, &Ref);
-
+   
    if (MsgFilterMax < MsgFilterMin)
    {
       MsgFilterMin = 0;
@@ -1186,7 +1186,7 @@ UserPostMessage(HWND Wnd,
 
       DesktopWindow = UserGetWindowObject(IntGetDesktopWindow());
       List = IntWinListChildren(DesktopWindow);
-
+      
       if (List != NULL)
       {
          for (i = 0; List[i]; i++)
@@ -1197,7 +1197,7 @@ UserPostMessage(HWND Wnd,
    else
    {
       PWINDOW_OBJECT Window;
-
+      
       Window = UserGetWindowObject(Wnd);
       if (NULL == Window)
       {
@@ -1224,7 +1224,7 @@ UserPostMessage(HWND Wnd,
       IntGetCursorLocation(PsGetCurrentThreadWin32Thread()->Desktop->WindowStation,
                            &KernelModeMsg.pt);
       KeQueryTickCount(&LargeTickCount);
-      KernelModeMsg.time = MsqCalculateMessageTime(&LargeTickCount);
+      KernelModeMsg.time = LargeTickCount.u.LowPart * (KeQueryTimeIncrement() / 10000);
       MsqPostMessage(Window->MessageQueue, &KernelModeMsg,
                      NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam,
                      QS_POSTMESSAGE);
@@ -1334,7 +1334,7 @@ co_IntSendMessage(HWND hWnd,
    return 0;
 }
 
-static
+static 
 LRESULT FASTCALL
 co_IntSendMessageTimeoutSingle(HWND hWnd,
                                UINT Msg,
@@ -1359,7 +1359,7 @@ co_IntSendMessageTimeoutSingle(HWND hWnd,
    {
        RETURN( FALSE);
    }
-
+   
    UserRefObjectCo(Window, &Ref);
 
    Win32Thread = PsGetCurrentThreadWin32Thread();
@@ -1390,7 +1390,7 @@ co_IntSendMessageTimeoutSingle(HWND hWnd,
           RETURN( FALSE);
       }
 
-      Result = (ULONG_PTR)co_IntCallWindowProc(Window->Wnd->WndProc, !Window->Wnd->Unicode, hWnd, Msg, wParam,
+      Result = (ULONG_PTR)co_IntCallWindowProc(Window->WndProc, !Window->Unicode, hWnd, Msg, wParam,
                lParamPacked,lParamBufferSize);
 
       if(uResult)
@@ -1437,7 +1437,7 @@ co_IntSendMessageTimeoutSingle(HWND hWnd,
    }
 
    RETURN( TRUE);
-
+   
 CLEANUP:
    if (Window) UserDerefObjectCo(Window);
    END_CLEANUP;
@@ -1566,17 +1566,17 @@ co_IntDoSendMessage(HWND hWnd,
                                 sizeof(BOOL));
       if (! NT_SUCCESS(Status))
       {
-         Info.Ansi = ! Window->Wnd->Unicode;
+         Info.Ansi = ! Window->Unicode;
       }
 
-      if (Window->Wnd->IsSystem)
+      if (Window->IsSystem)
       {
-          Info.Proc = (!Info.Ansi ? Window->Wnd->WndProc : Window->Wnd->WndProcExtra);
+          Info.Proc = (!Info.Ansi ? Window->WndProc : Window->WndProcExtra);
       }
       else
       {
-          Info.Ansi = !Window->Wnd->Unicode;
-          Info.Proc = Window->Wnd->WndProc;
+          Info.Ansi = !Window->Unicode;
+          Info.Proc = Window->WndProc;
       }
    }
    else
@@ -1717,7 +1717,7 @@ UserSendNotifyMessage(HWND hWnd,
 
       DesktopWindow = UserGetWindowObject(IntGetDesktopWindow());
       List = IntWinListChildren(DesktopWindow);
-
+      
       if (List != NULL)
       {
          for (i = 0; List[i]; i++)

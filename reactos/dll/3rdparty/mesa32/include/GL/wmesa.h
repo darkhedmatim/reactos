@@ -78,7 +78,7 @@ typedef struct wmesa_context *WMesaContext;
  * appropriate colormap.
  *
  * Input:
- *         hDC - Windows device or memory context
+ *         hWnd - Window handle
  *         Pal  - Palette to use
  *         rgb_flag - GL_TRUE = RGB mode,
  *                    GL_FALSE = color index mode
@@ -91,7 +91,7 @@ typedef struct wmesa_context *WMesaContext;
  *
  * Return:  a WMesa_context or NULL if error.
  */
-extern WMesaContext WMesaCreateContext(HDC hDC,HPALETTE* pPal,
+extern WMesaContext WMesaCreateContext(HWND hWnd,HPALETTE* pPal,
                                        GLboolean rgb_flag,
                                        GLboolean db_flag,
                                        GLboolean alpha_flag);
@@ -100,14 +100,15 @@ extern WMesaContext WMesaCreateContext(HDC hDC,HPALETTE* pPal,
 /*
  * Destroy a rendering context as returned by WMesaCreateContext()
  */
-extern void WMesaDestroyContext( WMesaContext ctx );
+/*extern void WMesaDestroyContext( WMesaContext ctx );*/
+extern void WMesaDestroyContext( void );
 
 
 
 /*
  * Make the specified context the current one.
  */
-extern void WMesaMakeCurrent( WMesaContext ctx, HDC hdc );
+extern void WMesaMakeCurrent( WMesaContext ctx );
 
 
 /*
@@ -120,7 +121,7 @@ extern WMesaContext WMesaGetCurrentContext( void );
  * Swap the front and back buffers for the current context.  No action
  * taken if the context is not double buffered.
  */
-extern void WMesaSwapBuffers(HDC hdc);
+extern void WMesaSwapBuffers(void);
 
 
 /*

@@ -1,9 +1,8 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="videoprt" type="kernelmodedriver" installbase="system32/drivers" installname="videoprt.sys">
+<module name="videoprt" type="exportdriver" installbase="system32/drivers" installname="videoprt.sys">
 	<importlibrary definition="videoprt.def" />
 	<include base="videoprt">.</include>
 	<include base="ntoskrnl">include</include>
+	<define name="__USE_W32API" />
 	<define name="_VIDEOPORT_" />
 	<library>ntoskrnl</library>
 	<library>hal</library>
@@ -13,7 +12,6 @@
 	<file>dispatch.c</file>
 	<file>dma.c</file>
 	<file>event.c</file>
-	<file>funclist.c</file>
 	<file>int10.c</file>
 	<file>interrupt.c</file>
 	<file>resource.c</file>

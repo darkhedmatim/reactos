@@ -2,45 +2,37 @@
     Undocumented PortCls exports
 */
 
-#include "private.h"
 #include <portcls.h>
 
-NTSTATUS
+PORTCLASSAPI NTSTATUS
 KsoDispatchCreateWithGenericFactory(
     LONG Unknown,
     PIRP Irp)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
-void
+PORTCLASSAPI void
 KsoGetIrpTargetFromFileObject(
     LONG Unknown)
 {
-    UNIMPLEMENTED;
-	return;
 }
 
-void
+PORTCLASSAPI void
 KsoGetIrpTargetFromIrp(
     LONG Unknown)
 {
-    UNIMPLEMENTED;
-	return;
 }
 
-void
+PORTCLASSAPI void
 PcAcquireFormatResources(
     LONG Unknown,
     LONG Unknown2,
     LONG Unknown3,
     LONG Unknown4)
 {
-    UNIMPLEMENTED;
-	return;
 }
 
+PORTCLASSAPI
 NTSTATUS
 PcAddToEventTable(
     PVOID Ptr,
@@ -52,10 +44,9 @@ PcAddToEventTable(
     LONG Unknown6,
     LONG Unknown7)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
+PORTCLASSAPI
 NTSTATUS
 PcAddToPropertyTable(
     PVOID Ptr,
@@ -64,10 +55,9 @@ PcAddToPropertyTable(
     LONG Unknown3,
     CHAR Unknown4)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
+PORTCLASSAPI
 NTSTATUS
 PcCaptureFormat(
     LONG Unknown,
@@ -75,16 +65,13 @@ PcCaptureFormat(
     LONG Unknown3,
     LONG Unknown4)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
+PORTCLASSAPI
 NTSTATUS
 PcCreateSubdeviceDescriptor(
     /* TODO */ )
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 /* PcDeleteSubdeviceDescriptor */

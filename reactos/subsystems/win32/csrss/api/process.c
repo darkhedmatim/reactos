@@ -107,7 +107,7 @@ PCSRSS_PROCESS_DATA STDCALL CsrCreateProcessData(HANDLE ProcessId)
    }
    else
    {
-      DPRINT1("Process data for pid %d already exist\n", ProcessId);
+      DPRINT("Process data for pid %d already exist\n", ProcessId);
    }
    UNLOCK;
    if (pProcessData == NULL)
@@ -173,10 +173,6 @@ NTSTATUS STDCALL CsrFreeProcessData(HANDLE Pid)
       if (pProcessData->CsrSectionViewBase)
         {
           NtUnmapViewOfSection(NtCurrentProcess(), pProcessData->CsrSectionViewBase);
-        }
-      if (pProcessData->ServerCommunicationPort)
-        {
-          NtClose(pProcessData->ServerCommunicationPort);
         }
       if (pPrevProcessData)
         {
@@ -253,7 +249,7 @@ CSR_API(CsrCreateProcess)
            Status = CsrDuplicateHandleTable(ProcessData, NewProcessData);
          }
      }
-
+    
    /* Set default shutdown parameters */
    NewProcessData->ShutdownLevel = 0x280;
    NewProcessData->ShutdownFlags = 0;

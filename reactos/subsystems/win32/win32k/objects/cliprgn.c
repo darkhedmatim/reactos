@@ -60,7 +60,7 @@ CLIPPING_UpdateGCRegion(DC* Dc)
 }
 
 INT STDCALL
-IntGdiSelectVisRgn(HDC hdc, HRGN hrgn)
+NtGdiSelectVisRgn(HDC hdc, HRGN hrgn)
 {
   int retval;
   DC *dc;
@@ -79,25 +79,29 @@ IntGdiSelectVisRgn(HDC hdc, HRGN hrgn)
   dc->w.flags &= ~DC_DIRTY;
 
   if (dc->w.hVisRgn == NULL)
-  {
-    dc->w.hVisRgn = NtGdiCreateRectRgn(0, 0, 0, 0);
-    GDIOBJ_CopyOwnership(GdiHandleTable, hdc, dc->w.hVisRgn);
-  }
+    {
+      dc->w.hVisRgn = NtGdiCreateRectRgn(0, 0, 0, 0);
+      GDIOBJ_CopyOwnership(GdiHandleTable, hdc, dc->w.hVisRgn);
+    }
+  else
+    {
+      NtGdiOffsetRgn(dc->w.hVisRgn, dc->w.DCOrgX, dc->w.DCOrgY);
+    }
 
   retval = NtGdiCombineRgn(dc->w.hVisRgn, hrgn, 0, RGN_COPY);
   if ( retval != ERROR )
-  {
-    NtGdiOffsetRgn(dc->w.hVisRgn, -dc->w.DCOrgX, -dc->w.DCOrgY);
-    CLIPPING_UpdateGCRegion(dc);
-  }
+    {
+      NtGdiOffsetRgn(dc->w.hVisRgn, -dc->w.DCOrgX, -dc->w.DCOrgY);
+      CLIPPING_UpdateGCRegion(dc);
+    }
   DC_UnlockDc(dc);
 
   return retval;
 }
 
 
-int STDCALL IntGdiExtSelectClipRgn(PDC dc,
-                                HRGN hrgn,
+int STDCALL IntGdiExtSelectClipRgn(PDC dc, 
+                                HRGN hrgn, 
                                 int fnMode)
 {
   int retval;
@@ -178,12 +182,14 @@ IntGdiGetClipBox(HDC hDC, LPRECT rc)
 
    if (!(dc = DC_LockDc(hDC)))
    {
+      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return ERROR;
    }
 
    if (!(Rgn = RGNDATA_LockRgn(dc->w.hGCClipRgn)))
    {
       DC_UnlockDc(dc);
+      SetLastWin32Error(ERROR_INVALID_HANDLE);
       return ERROR;
    }
    retval = UnsafeIntGetRgnBox(Rgn, rc);
@@ -194,10 +200,10 @@ IntGdiGetClipBox(HDC hDC, LPRECT rc)
    return retval;
 }
 
-INT STDCALL
-NtGdiGetAppClipBox(HDC hDC, LPRECT rc)
+int STDCALL NtGdiGetClipBox(HDC  hDC,
+			   LPRECT  rc)
 {
-  INT Ret;
+  int Ret;
   NTSTATUS Status = STATUS_SUCCESS;
   RECT Saferect;
 
@@ -218,6 +224,7 @@ NtGdiGetAppClipBox(HDC hDC, LPRECT rc)
 
   if(!NT_SUCCESS(Status))
   {
+
     SetLastNtError(Status);
     return ERROR;
   }
@@ -357,7 +364,7 @@ int STDCALL NtGdiOffsetClipRgn(HDC  hDC,
   {
     Result = NULLREGION;
   }
-
+  
   DC_UnlockDc(dc);
   return Result;
 }
@@ -428,6 +435,12 @@ BOOL STDCALL NtGdiRectVisible(HDC  hDC,
    DC_UnlockDc(dc);
 
    return Result;
+}
+
+INT STDCALL
+NtGdiSelectClipRgn(HDC hDC, HRGN hRgn)
+{
+   return NtGdiExtSelectClipRgn(hDC, hRgn, RGN_COPY);
 }
 
 int STDCALL NtGdiSetMetaRgn(HDC  hDC)

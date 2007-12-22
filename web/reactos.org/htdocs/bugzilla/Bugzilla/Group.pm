@@ -20,15 +20,12 @@
 # Contributor(s): Joel Peshkin <bugreport@peshkin.net>
 #                 Erik Stambaugh <erik@dasbistro.com>
 #                 Tiago R. Mello <timello@async.com.br>
-#                 Max Kanat-Alexander <mkanat@bugzilla.org>
 
 use strict;
 
 package Bugzilla::Group;
 
-use base qw(Bugzilla::Object);
-
-use Bugzilla::Constants;
+use Bugzilla::Config;
 use Bugzilla::Util;
 use Bugzilla::Error;
 
@@ -41,98 +38,82 @@ use constant DB_COLUMNS => qw(
     groups.name
     groups.description
     groups.isbuggroup
+    groups.last_changed
     groups.userregexp
     groups.isactive
 );
 
-use constant DB_TABLE => 'groups';
+our $columns = join(", ", DB_COLUMNS);
 
-use constant LIST_ORDER => 'isbuggroup, name';
+sub new {
+    my $invocant = shift;
+    my $class = ref($invocant) || $invocant;
+    my $self = {};
+    bless($self, $class);
+    return $self->_init(@_);
+}
 
-use constant VALIDATORS => {
-    name        => \&_check_name,
-    description => \&_check_description,
-    userregexp  => \&_check_user_regexp,
-    isbuggroup  => \&_check_is_bug_group,
-};
+sub _init {
+    my $self = shift;
+    my ($param) = (@_);
+    my $dbh = Bugzilla->dbh;
 
-use constant REQUIRED_CREATE_FIELDS => qw(name description isbuggroup);
+    my $id = $param unless (ref $param eq 'HASH');
+    my $group;
+
+    if (defined $id) {
+        detaint_natural($id)
+          || ThrowCodeError('param_must_be_numeric',
+                            {function => 'Bugzilla::Group::_init'});
+
+        $group = $dbh->selectrow_hashref(qq{
+            SELECT $columns FROM groups
+            WHERE id = ?}, undef, $id);
+
+    } elsif (defined $param->{'name'}) {
+
+        trick_taint($param->{'name'});
+
+        $group = $dbh->selectrow_hashref(qq{
+            SELECT $columns FROM groups
+            WHERE name = ?}, undef, $param->{'name'});
+
+    } else {
+        ThrowCodeError('bad_arg',
+            {argument => 'param',
+             function => 'Bugzilla::Group::_init'});
+    }
+
+    return undef unless (defined $group);
+
+    foreach my $field (keys %$group) {
+        $self->{$field} = $group->{$field};
+    }
+    return $self;
+}
 
 ###############################
 ####      Accessors      ######
 ###############################
 
+sub id           { return $_[0]->{'id'};           }
+sub name         { return $_[0]->{'name'};         }
 sub description  { return $_[0]->{'description'};  }
 sub is_bug_group { return $_[0]->{'isbuggroup'};   }
+sub last_changed { return $_[0]->{'last_changed'}; }
 sub user_regexp  { return $_[0]->{'userregexp'};   }
 sub is_active    { return $_[0]->{'isactive'};     }
-
-###############################
-####        Methods        ####
-###############################
-
-sub is_active_bug_group {
-    my $self = shift;
-    return $self->is_active && $self->is_bug_group;
-}
-
-sub _rederive_regexp {
-    my ($self) = @_;
-    RederiveRegexp($self->user_regexp, $self->id);
-}
-
-sub members_non_inherited {
-    my ($self) = @_;
-    return $self->{members_non_inherited} 
-           if exists $self->{members_non_inherited};
-
-    my $member_ids = Bugzilla->dbh->selectcol_arrayref(
-        'SELECT DISTINCT user_id FROM user_group_map 
-          WHERE isbless = 0 AND group_id = ?',
-        undef, $self->id) || [];
-    require Bugzilla::User;
-    $self->{members_non_inherited} = Bugzilla::User->new_from_list($member_ids);
-    return $self->{members_non_inherited};
-}
 
 ################################
 #####  Module Subroutines    ###
 ################################
-
-sub create {
-    my $class = shift;
-    my ($params) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    print get_text('install_group_create', { name => $params->{name} }) . "\n" 
-        if Bugzilla->usage_mode == USAGE_MODE_CMDLINE;
-
-    my $group = $class->SUPER::create(@_);
-
-    # Since we created a new group, give the "admin" group all privileges
-    # initially.
-    my $admin = new Bugzilla::Group({name => 'admin'});
-    # This function is also used to create the "admin" group itself,
-    # so there's a chance it won't exist yet.
-    if ($admin) {
-        my $sth = $dbh->prepare('INSERT INTO group_group_map
-                                 (member_id, grantor_id, grant_type)
-                                 VALUES (?, ?, ?)');
-        $sth->execute($admin->id, $group->id, GROUP_MEMBERSHIP);
-        $sth->execute($admin->id, $group->id, GROUP_BLESS);
-        $sth->execute($admin->id, $group->id, GROUP_VISIBLE);
-    }
-
-    $group->_rederive_regexp() if $group->user_regexp;
-    return $group;
-}
 
 sub ValidateGroupName {
     my ($name, @users) = (@_);
     my $dbh = Bugzilla->dbh;
     my $query = "SELECT id FROM groups " .
                 "WHERE name = ?";
-    if (Bugzilla->params->{'usevisibilitygroups'}) {
+    if (Param('usevisibilitygroups')) {
         my @visible = (-1);
         foreach my $user (@users) {
             $user && push @visible, @{$user->visible_groups_direct};
@@ -146,65 +127,19 @@ sub ValidateGroupName {
     return $ret;
 }
 
-# This sub is not perldoc'ed because we expect it to go away and
-# just become the _rederive_regexp private method.
-sub RederiveRegexp {
-    my ($regexp, $gid) = @_;
+sub get_all_groups {
     my $dbh = Bugzilla->dbh;
-    my $sth = $dbh->prepare("SELECT userid, login_name, group_id
-                               FROM profiles
-                          LEFT JOIN user_group_map
-                                 ON user_group_map.user_id = profiles.userid
-                                AND group_id = ?
-                                AND grant_type = ?
-                                AND isbless = 0");
-    my $sthadd = $dbh->prepare("INSERT INTO user_group_map
-                                 (user_id, group_id, grant_type, isbless)
-                                 VALUES (?, ?, ?, 0)");
-    my $sthdel = $dbh->prepare("DELETE FROM user_group_map
-                                 WHERE user_id = ? AND group_id = ?
-                                 AND grant_type = ? and isbless = 0");
-    $sth->execute($gid, GRANT_REGEXP);
-    while (my ($uid, $login, $present) = $sth->fetchrow_array()) {
-        if (($regexp =~ /\S+/) && ($login =~ m/$regexp/i))
-        {
-            $sthadd->execute($uid, $gid, GRANT_REGEXP) unless $present;
-        } else {
-            $sthdel->execute($uid, $gid, GRANT_REGEXP) if $present;
-        }
+
+    my $group_ids = $dbh->selectcol_arrayref('SELECT id FROM groups
+                                              ORDER BY isbuggroup, name');
+
+    my @groups;
+    foreach my $gid (@$group_ids) {
+        push @groups, new Bugzilla::Group($gid);
     }
+    return @groups;
 }
 
-###############################
-###       Validators        ###
-###############################
-
-sub _check_name {
-    my ($invocant, $name) = @_;
-    $name = trim($name);
-    $name || ThrowUserError("empty_group_name");
-    my $exists = new Bugzilla::Group({name => $name });
-    ThrowUserError("group_exists", { name => $name }) if $exists;
-    return $name;
-}
-
-sub _check_description {
-    my ($invocant, $desc) = @_;
-    $desc = trim($desc);
-    $desc || ThrowUserError("empty_group_description");
-    return $desc;
-}
-
-sub _check_user_regexp {
-    my ($invocant, $regex) = @_;
-    $regex = trim($regex) || '';
-    ThrowUserError("invalid_regexp") unless (eval {qr/$regex/});
-    return $regex;
-}
-
-sub _check_is_bug_group {
-    return $_[1] ? 1 : 0;
-}
 1;
 
 __END__
@@ -223,29 +158,39 @@ Bugzilla::Group - Bugzilla group class.
     my $id           = $group->id;
     my $name         = $group->name;
     my $description  = $group->description;
+    my $last_changed = $group->last_changed;
     my $user_reg_exp = $group->user_reg_exp;
     my $is_active    = $group->is_active;
-    my $is_active_bug_group = $group->is_active_bug_group;
 
     my $group_id = Bugzilla::Group::ValidateGroupName('admin', @users);
-    my @groups   = Bugzilla::Group->get_all;
+    my @groups = Bugzilla::get_all_groups();
 
 =head1 DESCRIPTION
 
-Group.pm represents a Bugzilla Group object. It is an implementation
-of L<Bugzilla::Object>, and thus has all the methods that L<Bugzilla::Object>
-provides, in addition to any methods documented below.
+Group.pm represents a Bugzilla Group object.
+
+=head1 METHODS
+
+=over
+
+=item C<new($param)>
+
+ Description: The constructor is used to load an existing group
+              by passing a group id or a hash with the group name.
+
+ Params:      $param - If you pass an integer, the integer is the
+                       group id from the database that we want to
+                       read in. If you pass in a hash with 'name'
+                       key, then the value of the name key is the
+                       name of a product from the DB.
+
+ Returns:     A Bugzilla::Group object.
+
+=back
 
 =head1 SUBROUTINES
 
 =over
-
-=item C<create>
-
-Note that in addition to what L<Bugzilla::Object/create($params)>
-normally does, this function also makes the new group be inherited
-by the C<admin> group. That is, the C<admin> group will automatically
-be a member of this group.
 
 =item C<ValidateGroupName($name, @users)>
 
@@ -259,17 +204,15 @@ be a member of this group.
  Returns:     It returns the group id if successful
               and undef otherwise.
 
-=back
+=item C<get_all_groups()>
 
-=head1 METHODS
+ Description: Returns all groups available, including both
+              system groups and bug groups.
 
-=over
+ Params:      none
 
-=item C<members_non_inherited>
-
-Returns an arrayref of L<Bugzilla::User> objects representing people who are
-"directly" in this group, meaning that they're in it because they match
-the group regular expression, or they have been actually added to the
-group manually.
+ Returns:     An array of group objects.
 
 =back
+
+=cut

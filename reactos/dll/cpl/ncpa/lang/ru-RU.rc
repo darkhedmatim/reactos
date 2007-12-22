@@ -52,28 +52,25 @@ BEGIN
  RTEXT "000.000.000", IDC_RECEIVED, 139, 115, 44, 8
  PUSHBUTTON "&Свойства", IDC_PROPERTIES, 10, 150, 50, 14
  PUSHBUTTON "&Отключить", IDC_ENDISABLE, 66, 150, 50, 14
- RTEXT "",IDC_STATUS,83,20,98,8
- RTEXT "",IDC_DURATION,83,34,98,8
- RTEXT "",IDC_SPEED,83,48,98,8
 END
 
 IDD_CARDSUPPORT DIALOG DISCARDABLE  0, 0, 200,180
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Поддежка"
+CAPTION "Support"
 FONT 8, "MS Shell Dlg"
 BEGIN
- GROUPBOX "Статус подключения", -1, 9, 8, 200, 88, BS_GROUPBOX
- LTEXT "Тип адреса:", -1, 22, 20, 80, 8
- LTEXT "IP адрес:", -1, 22, 34, 80, 8
- LTEXT "Маска подсети:", -1, 22, 48, 80, 8
- LTEXT "Шлюз по умолчанию:", -1, 22, 62, 80, 8
-
+ GROUPBOX "Connection Status", -1, 9, 8, 200, 88, BS_GROUPBOX
+ LTEXT "Address type:", -1, 22, 20, 80, 8
+ LTEXT "IP address:", -1, 22, 34, 80, 8
+ LTEXT "SubNet mask:", -1, 22, 48, 80, 8
+ LTEXT "Default gateway:", -1, 22, 62, 80, 8
+ 
  RTEXT "N/A", IDC_DETAILSTYPE, 122, 20, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSIP, 122, 34, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSSUBNET, 122, 48, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSGATEWAY, 122, 62, 80, 8
-
- PUSHBUTTON "&Дополнительно...", IDC_DETAILS, 22, 76, 62, 14
+ 
+ PUSHBUTTON "&Details...", IDC_DETAILS, 22, 76, 62, 14
 END
 
 IDD_TCPIPPROPERTIES DIALOG DISCARDABLE  0, 0, 246, 228
@@ -102,19 +99,13 @@ BEGIN
 END
 
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_CPLSYSTEMNAME "Сетевые настройки"
   IDS_CPLSYSTEMDESCRIPTION "Устанавливает настройки сети."
 END
 
-STRINGTABLE
-BEGIN
-  IDS_ASSIGNED_DHCP "Присвоен DHCP"
-  IDS_ASSIGNED_MANUAL "Настроен вручную"
-END
-
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_ERROR "Ошибка"
   IDS_ENTER_VALID_IPADDRESS "Введите правильный IP-адрес"
@@ -123,13 +114,4 @@ BEGIN
   IDS_CANNOT_CREATE_PROPSHEET "Невозможно создать лист настроек"
   IDS_OUT_OF_MEMORY "Память переполнена"
   IDS_CANNOT_SAVE_CHANGES "Невозможно сохранить сделанные изменения"
-  IDS_STATUS_NON_OPERATIONAL "Non-operational"
-  IDS_STATUS_UNREACHABLE "No WAN adapter found"
-  IDS_STATUS_DISCONNECTED "Disconnected"
-  IDS_STATUS_CONNECTING "Connecting"
-  IDS_STATUS_CONNECTED "Connected"
-  IDS_STATUS_OPERATIONAL "Connected"
-  IDS_SPEED_MBPS "%d Mbps"
-  IDS_DURATION_DAY "%d day %s"
-  IDS_DURATION_DAYS "%d days %s"
 END

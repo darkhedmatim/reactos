@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.0.1
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 
 
 #include "glheader.h"
+#include "bufferobj.h"
 #include "colormac.h"
 #include "context.h"
 #include "image.h"
@@ -37,55 +38,12 @@
 #include "histogram.h"
 #include "macros.h"
 #include "pixel.h"
-
-
-/**
- * NOTE:
- * Normally, BYTE_TO_FLOAT(0) returns 0.00392  That causes problems when
- * we later convert the float to a packed integer value (such as for
- * GL_RGB5_A1) because we'll wind up with a non-zero value.
- *
- * We redefine the macros here so zero is handled correctly.
- */
-#undef BYTE_TO_FLOAT
-#define BYTE_TO_FLOAT(B)    ((B) == 0 ? 0.0F : ((2.0F * (B) + 1.0F) * (1.0F/255.0F)))
-
-#undef SHORT_TO_FLOAT
-#define SHORT_TO_FLOAT(S)   ((S) == 0 ? 0.0F : ((2.0F * (S) + 1.0F) * (1.0F/65535.0F)))
-
+#include "mtypes.h"
 
 
 /** Compute ceiling of integer quotient of A divided by B. */
 #define CEILING( A, B )  ( (A) % (B) == 0 ? (A)/(B) : (A)/(B)+1 )
 
-
-/**
- * \return GL_TRUE if type is packed pixel type, GL_FALSE otherwise.
- */
-static GLboolean
-_mesa_type_is_packed(GLenum type)
-{
-   switch (type) {
-   case GL_UNSIGNED_BYTE_3_3_2:
-   case GL_UNSIGNED_BYTE_2_3_3_REV:
-   case GL_UNSIGNED_SHORT_5_6_5:
-   case GL_UNSIGNED_SHORT_5_6_5_REV:
-   case GL_UNSIGNED_SHORT_4_4_4_4:
-   case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-   case GL_UNSIGNED_SHORT_5_5_5_1:
-   case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-   case GL_UNSIGNED_INT_8_8_8_8:
-   case GL_UNSIGNED_INT_8_8_8_8_REV:
-   case GL_UNSIGNED_INT_10_10_10_2:
-   case GL_UNSIGNED_INT_2_10_10_10_REV:
-   case GL_UNSIGNED_SHORT_8_8_MESA:
-   case GL_UNSIGNED_SHORT_8_8_REV_MESA:
-   case GL_UNSIGNED_INT_24_8_EXT:
-      return GL_TRUE;
-   }
-
-   return GL_FALSE;
-}
 
 /**
  * Flip the 8 bits in each byte of the given array.
@@ -103,8 +61,9 @@ _mesa_type_is_packed(GLenum type)
 static void
 flip_bytes( GLubyte *p, GLuint n )
 {
-   GLuint i, a, b;
-   for (i = 0; i < n; i++) {
+   register GLuint i, a, b;
+
+   for (i=0;i<n;i++) {
       b = (GLuint) p[i];        /* words are often faster than bytes */
       a = ((b & 0x01) << 7) |
 	  ((b & 0x02) << 5) |
@@ -128,8 +87,9 @@ flip_bytes( GLubyte *p, GLuint n )
 void
 _mesa_swap2( GLushort *p, GLuint n )
 {
-   GLuint i;
-   for (i = 0; i < n; i++) {
+   register GLuint i;
+
+   for (i=0;i<n;i++) {
       p[i] = (p[i] >> 8) | ((p[i] << 8) & 0xff00);
    }
 }
@@ -142,8 +102,9 @@ _mesa_swap2( GLushort *p, GLuint n )
 void
 _mesa_swap4( GLuint *p, GLuint n )
 {
-   GLuint i, a, b;
-   for (i = 0; i < n; i++) {
+   register GLuint i, a, b;
+
+   for (i=0;i<n;i++) {
       b = p[i];
       a =  (b >> 24)
 	| ((b >> 8) & 0xff00)
@@ -162,8 +123,7 @@ _mesa_swap4( GLuint *p, GLuint n )
  * \return the size, in bytes, of the given data type, 0 if a GL_BITMAP, or -1
  * if an invalid type enum.
  */
-GLint
-_mesa_sizeof_type( GLenum type )
+GLint _mesa_sizeof_type( GLenum type )
 {
    switch (type) {
       case GL_BITMAP:
@@ -194,8 +154,7 @@ _mesa_sizeof_type( GLenum type )
  * Same as _mesa_sizeof_type() but also accepting the packed pixel
  * format data types.
  */
-GLint
-_mesa_sizeof_packed_type( GLenum type )
+GLint _mesa_sizeof_packed_type( GLenum type )
 {
    switch (type) {
       case GL_BITMAP:
@@ -242,9 +201,7 @@ _mesa_sizeof_packed_type( GLenum type )
          return sizeof(GLuint);
       case GL_UNSIGNED_SHORT_8_8_MESA:
       case GL_UNSIGNED_SHORT_8_8_REV_MESA:
-         return sizeof(GLushort);      
-      case GL_UNSIGNED_INT_24_8_EXT:
-         return sizeof(GLuint);
+          return sizeof(GLushort);      
       default:
          return -1;
    }
@@ -258,8 +215,7 @@ _mesa_sizeof_packed_type( GLenum type )
  *
  * \return the number of components in the given format, or -1 if a bad format.
  */
-GLint
-_mesa_components_in_format( GLenum format )
+GLint _mesa_components_in_format( GLenum format )
 {
    switch (format) {
       case GL_COLOR_INDEX:
@@ -292,8 +248,6 @@ _mesa_components_in_format( GLenum format )
          return 4;
       case GL_YCBCR_MESA:
          return 2;
-      case GL_DEPTH_STENCIL_EXT:
-         return 2;
       default:
          return -1;
    }
@@ -308,8 +262,7 @@ _mesa_components_in_format( GLenum format )
  *
  * \return bytes per pixel, or -1 if a bad format or type was given.
  */
-GLint
-_mesa_bytes_per_pixel( GLenum format, GLenum type )
+GLint _mesa_bytes_per_pixel( GLenum format, GLenum type )
 {
    GLint comps = _mesa_components_in_format( format );
    if (comps < 0)
@@ -363,11 +316,6 @@ _mesa_bytes_per_pixel( GLenum format, GLenum type )
       case GL_UNSIGNED_SHORT_8_8_REV_MESA:
          if (format == GL_YCBCR_MESA)
             return sizeof(GLushort);
-         else
-            return -1;
-      case GL_UNSIGNED_INT_24_8_EXT:
-         if (format == GL_DEPTH_STENCIL_EXT)
-            return sizeof(GLuint);
          else
             return -1;
       default:
@@ -451,9 +399,6 @@ _mesa_is_legal_format_and_type( GLcontext *ctx, GLenum format, GLenum type )
          }
       case GL_BGR:
          switch (type) {
-            /* NOTE: no packed types are supported with BGR.  That's
-             * intentional, according to the GL spec.
-             */
             case GL_BYTE:
             case GL_UNSIGNED_BYTE:
             case GL_SHORT:
@@ -495,12 +440,6 @@ _mesa_is_legal_format_and_type( GLcontext *ctx, GLenum format, GLenum type )
       case GL_YCBCR_MESA:
          if (type == GL_UNSIGNED_SHORT_8_8_MESA ||
              type == GL_UNSIGNED_SHORT_8_8_REV_MESA)
-            return GL_TRUE;
-         else
-            return GL_FALSE;
-      case GL_DEPTH_STENCIL_EXT:
-         if (ctx->Extensions.EXT_packed_depth_stencil
-             && type == GL_UNSIGNED_INT_24_8_EXT)
             return GL_TRUE;
          else
             return GL_FALSE;
@@ -676,34 +615,43 @@ _mesa_image_address3d( const struct gl_pixelstore_attrib *packing,
 
 
 /**
- * Compute the stride (in bytes) between image rows.
+ * Compute the stride between image rows.
  *
  * \param packing the pixelstore attributes
  * \param width image width.
  * \param format pixel format.
  * \param type pixel data type.
  * 
- * \return the stride in bytes for the given parameters, or -1 if error
+ * \return the stride in bytes for the given parameters.
+ *
+ * Computes the number of bytes per pixel and row and compensates for alignment.
+ *
+ * \sa gl_pixelstore_attrib.
  */
 GLint
 _mesa_image_row_stride( const struct gl_pixelstore_attrib *packing,
                         GLint width, GLenum format, GLenum type )
 {
-   GLint bytesPerRow, remainder;
-
    ASSERT(packing);
-
    if (type == GL_BITMAP) {
+      /* BITMAP data */
+      GLint bytes;
       if (packing->RowLength == 0) {
-         bytesPerRow = (width + 7) / 8;
+         bytes = (width + 7) / 8;
       }
       else {
-         bytesPerRow = (packing->RowLength + 7) / 8;
+         bytes = (packing->RowLength + 7) / 8;
       }
+      if (packing->Invert) {
+         /* negate the bytes per row (negative row stride) */
+         bytes = -bytes;
+      }
+      return bytes;
    }
    else {
       /* Non-BITMAP data */
       const GLint bytesPerPixel = _mesa_bytes_per_pixel(format, type);
+      GLint bytesPerRow, remainder;
       if (bytesPerPixel <= 0)
          return -1;  /* error */
       if (packing->RowLength == 0) {
@@ -712,19 +660,13 @@ _mesa_image_row_stride( const struct gl_pixelstore_attrib *packing,
       else {
          bytesPerRow = bytesPerPixel * packing->RowLength;
       }
+      remainder = bytesPerRow % packing->Alignment;
+      if (remainder > 0)
+         bytesPerRow += (packing->Alignment - remainder);
+      if (packing->Invert)
+         bytesPerRow = -bytesPerRow;
+      return bytesPerRow;
    }
-
-   remainder = bytesPerRow % packing->Alignment;
-   if (remainder > 0) {
-      bytesPerRow += (packing->Alignment - remainder);
-   }
-
-   if (packing->Invert) {
-      /* negate the bytes per row (negative row stride) */
-      bytesPerRow = -bytesPerRow;
-   }
-
-   return bytesPerRow;
 }
 
 
@@ -776,7 +718,7 @@ void
 _mesa_unpack_polygon_stipple( const GLubyte *pattern, GLuint dest[32],
                               const struct gl_pixelstore_attrib *unpacking )
 {
-   GLubyte *ptrn = (GLubyte *) _mesa_unpack_bitmap(32, 32, pattern, unpacking);
+   GLubyte *ptrn = (GLubyte *) _mesa_unpack_bitmap( 32, 32, pattern, unpacking );
    if (ptrn) {
       /* Convert pattern from GLubytes to GLuints and handle big/little
        * endian differences
@@ -790,7 +732,7 @@ _mesa_unpack_polygon_stipple( const GLubyte *pattern, GLuint dest[32],
                  | (p[3]      );
          p += 4;
       }
-      _mesa_free(ptrn);
+      FREE(ptrn);
    }
 }
 
@@ -835,9 +777,10 @@ _mesa_unpack_bitmap( GLint width, GLint height, const GLubyte *pixels,
 
    /* Alloc dest storage */
    bytes = ((width + 7) / 8 * height);
-   buffer = (GLubyte *) _mesa_malloc( bytes );
+   buffer = (GLubyte *) MALLOC( bytes );
    if (!buffer)
       return NULL;
+
 
    width_in_bytes = CEILING( width, 8 );
    dst = buffer;
@@ -846,12 +789,12 @@ _mesa_unpack_bitmap( GLint width, GLint height, const GLubyte *pixels,
          _mesa_image_address2d(packing, pixels, width, height,
                                GL_COLOR_INDEX, GL_BITMAP, row, 0);
       if (!src) {
-         _mesa_free(buffer);
+         FREE(buffer);
          return NULL;
       }
 
-      if ((packing->SkipPixels & 7) == 0) {
-         _mesa_memcpy( dst, src, width_in_bytes );
+      if (packing->SkipPixels == 0) {
+         MEMCPY( dst, src, width_in_bytes );
          if (packing->LsbFirst) {
             flip_bytes( dst, width_in_bytes );
          }
@@ -942,8 +885,8 @@ _mesa_pack_bitmap( GLint width, GLint height, const GLubyte *source,
       if (!dst)
          return;
 
-      if ((packing->SkipPixels & 7) == 0) {
-         _mesa_memcpy( dst, src, width_in_bytes );
+      if (packing->SkipPixels == 0) {
+         MEMCPY( dst, src, width_in_bytes );
          if (packing->LsbFirst) {
             flip_bytes( dst, width_in_bytes );
          }
@@ -952,8 +895,8 @@ _mesa_pack_bitmap( GLint width, GLint height, const GLubyte *source,
          /* handling SkipPixels is a bit tricky (no pun intended!) */
          GLint i;
          if (packing->LsbFirst) {
-            GLubyte srcMask = 128;
-            GLubyte dstMask = 1 << (packing->SkipPixels & 0x7);
+            GLubyte srcMask = 1 << (packing->SkipPixels & 0x7);
+            GLubyte dstMask = 128;
             const GLubyte *s = src;
             GLubyte *d = dst;
             *d = 0;
@@ -961,26 +904,26 @@ _mesa_pack_bitmap( GLint width, GLint height, const GLubyte *source,
                if (*s & srcMask) {
                   *d |= dstMask;
                }
-               if (srcMask == 1) {
-                  srcMask = 128;
+               if (srcMask == 128) {
+                  srcMask = 1;
                   s++;
                }
                else {
-                  srcMask = srcMask >> 1;
+                  srcMask = srcMask << 1;
                }
-               if (dstMask == 128) {
-                  dstMask = 1;
+               if (dstMask == 1) {
+                  dstMask = 128;
                   d++;
                   *d = 0;
                }
                else {
-                  dstMask = dstMask << 1;
+                  dstMask = dstMask >> 1;
                }
             }
          }
          else {
-            GLubyte srcMask = 128;
-            GLubyte dstMask = 128 >> (packing->SkipPixels & 0x7);
+            GLubyte srcMask = 128 >> (packing->SkipPixels & 0x7);
+            GLubyte dstMask = 128;
             const GLubyte *s = src;
             GLubyte *d = dst;
             *d = 0;
@@ -1016,7 +959,7 @@ _mesa_pack_bitmap( GLint width, GLint height, const GLubyte *source,
  * as indicated by the transferOps bitmask
  */
 void
-_mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLbitfield transferOps,
+_mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLuint transferOps,
                               GLuint n, GLfloat rgba[][4])
 {
    /* scale & bias */
@@ -1033,7 +976,7 @@ _mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLbitfield transferOps,
    }
    /* GL_COLOR_TABLE lookup */
    if (transferOps & IMAGE_COLOR_TABLE_BIT) {
-      _mesa_lookup_rgba_float(&ctx->ColorTable[COLORTABLE_PRECONVOLUTION], n, rgba);
+      _mesa_lookup_rgba_float(&ctx->ColorTable, n, rgba);
    }
    /* convolution */
    if (transferOps & IMAGE_CONVOLUTION_BIT) {
@@ -1054,7 +997,7 @@ _mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLbitfield transferOps,
    }
    /* GL_POST_CONVOLUTION_COLOR_TABLE lookup */
    if (transferOps & IMAGE_POST_CONVOLUTION_COLOR_TABLE_BIT) {
-      _mesa_lookup_rgba_float(&ctx->ColorTable[COLORTABLE_POSTCONVOLUTION], n, rgba);
+      _mesa_lookup_rgba_float(&ctx->PostConvolutionColorTable, n, rgba);
    }
    /* color matrix transform */
    if (transferOps & IMAGE_COLOR_MATRIX_BIT) {
@@ -1062,7 +1005,7 @@ _mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLbitfield transferOps,
    }
    /* GL_POST_COLOR_MATRIX_COLOR_TABLE lookup */
    if (transferOps & IMAGE_POST_COLOR_MATRIX_COLOR_TABLE_BIT) {
-      _mesa_lookup_rgba_float(&ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX], n, rgba);
+      _mesa_lookup_rgba_float(&ctx->PostColorMatrixColorTable, n, rgba);
    }
    /* update histogram count */
    if (transferOps & IMAGE_HISTOGRAM_BIT) {
@@ -1085,130 +1028,48 @@ _mesa_apply_rgba_transfer_ops(GLcontext *ctx, GLbitfield transferOps,
 }
 
 
+
 /*
- * Apply color index shift and offset to an array of pixels.
- */
-static void
-shift_and_offset_ci( const GLcontext *ctx, GLuint n, GLuint indexes[] )
-{
-   GLint shift = ctx->Pixel.IndexShift;
-   GLint offset = ctx->Pixel.IndexOffset;
-   GLuint i;
-   if (shift > 0) {
-      for (i=0;i<n;i++) {
-         indexes[i] = (indexes[i] << shift) + offset;
-      }
-   }
-   else if (shift < 0) {
-      shift = -shift;
-      for (i=0;i<n;i++) {
-         indexes[i] = (indexes[i] >> shift) + offset;
-      }
-   }
-   else {
-      for (i=0;i<n;i++) {
-         indexes[i] = indexes[i] + offset;
-      }
-   }
-}
-
-
-
-/**
- * Apply color index shift, offset and table lookup to an array
- * of color indexes;
- */
-void
-_mesa_apply_ci_transfer_ops(const GLcontext *ctx, GLbitfield transferOps,
-                            GLuint n, GLuint indexes[])
-{
-   if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
-      shift_and_offset_ci(ctx, n, indexes);
-   }
-   if (transferOps & IMAGE_MAP_COLOR_BIT) {
-      const GLuint mask = ctx->PixelMaps.ItoI.Size - 1;
-      GLuint i;
-      for (i = 0; i < n; i++) {
-         const GLuint j = indexes[i] & mask;
-         indexes[i] = IROUND(ctx->PixelMaps.ItoI.Map[j]);
-      }
-   }
-}
-
-
-/**
- * Apply stencil index shift, offset and table lookup to an array
- * of stencil values.
- */
-void
-_mesa_apply_stencil_transfer_ops(const GLcontext *ctx, GLuint n,
-                                 GLstencil stencil[])
-{
-   if (ctx->Pixel.IndexShift != 0 || ctx->Pixel.IndexOffset != 0) {
-      const GLint offset = ctx->Pixel.IndexOffset;
-      GLint shift = ctx->Pixel.IndexShift;
-      GLuint i;
-      if (shift > 0) {
-         for (i = 0; i < n; i++) {
-            stencil[i] = (stencil[i] << shift) + offset;
-         }
-      }
-      else if (shift < 0) {
-         shift = -shift;
-         for (i = 0; i < n; i++) {
-            stencil[i] = (stencil[i] >> shift) + offset;
-         }
-      }
-      else {
-         for (i = 0; i < n; i++) {
-            stencil[i] = stencil[i] + offset;
-         }
-      }
-   }
-   if (ctx->Pixel.MapStencilFlag) {
-      GLuint mask = ctx->PixelMaps.StoS.Size - 1;
-      GLuint i;
-      for (i = 0; i < n; i++) {
-         stencil[i] = ctx->PixelMaps.StoS.Map[ stencil[i] & mask ];
-      }
-   }
-}
-
-
-/**
  * Used to pack an array [][4] of RGBA float colors as specified
  * by the dstFormat, dstType and dstPacking.  Used by glReadPixels,
  * glGetConvolutionFilter(), etc.
- * Incoming colors will be clamped to [0,1] if needed.
- * Note: the rgba values will be modified by this function when any pixel
- * transfer ops are enabled.
  */
 void
-_mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
-                           GLenum dstFormat, GLenum dstType,
-                           GLvoid *dstAddr,
-                           const struct gl_pixelstore_attrib *dstPacking,
-                           GLbitfield transferOps)
+_mesa_pack_rgba_span_float( GLcontext *ctx,
+                            GLuint n, CONST GLfloat rgbaIn[][4],
+                            GLenum dstFormat, GLenum dstType,
+                            GLvoid *dstAddr,
+                            const struct gl_pixelstore_attrib *dstPacking,
+                            GLuint transferOps )
 {
-   GLfloat luminance[MAX_WIDTH];
    const GLint comps = _mesa_components_in_format(dstFormat);
+   GLfloat luminance[MAX_WIDTH];
+   const GLfloat (*rgba)[4];
    GLuint i;
 
-   if (dstType != GL_FLOAT || ctx->Color.ClampReadColor == GL_TRUE) {
-      /* need to clamp to [0, 1] */
-      transferOps |= IMAGE_CLAMP_BIT;
-   }
-
    if (transferOps) {
-      _mesa_apply_rgba_transfer_ops(ctx, transferOps, n, rgba);
+      /* make copy of incoming data */
+      DEFMARRAY(GLfloat, rgbaCopy, MAX_WIDTH, 4);  /* mac 32k limitation */
+      CHECKARRAY(rgbaCopy, return);  /* mac 32k limitation */
+
+      _mesa_memcpy(rgbaCopy, rgbaIn, n * 4 * sizeof(GLfloat));
+      _mesa_apply_rgba_transfer_ops(ctx, transferOps, n, rgbaCopy);
+      rgba = (const GLfloat (*)[4]) rgbaCopy;
+
       if ((transferOps & IMAGE_MIN_MAX_BIT) && ctx->MinMax.Sink) {
+         UNDEFARRAY(rgbaCopy);  /* mac 32k limitation */
          return;
       }
+      UNDEFARRAY(rgbaCopy);  /* mac 32k limitation */
+   }
+   else {
+      /* use incoming data, not a copy */
+      rgba = (const GLfloat (*)[4]) rgbaIn;
    }
 
    if (dstFormat == GL_LUMINANCE || dstFormat == GL_LUMINANCE_ALPHA) {
       /* compute luminance values */
-      if (dstType != GL_FLOAT || ctx->Color.ClampReadColor == GL_TRUE) {
+      if (ctx->ClampFragmentColors) {
          for (i = 0; i < n; i++) {
             GLfloat sum = rgba[i][RCOMP] + rgba[i][GCOMP] + rgba[i][BCOMP];
             luminance[i] = CLAMP(sum, 0.0F, 1.0F);
@@ -1357,7 +1218,6 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      dst[i*4+2] = FLOAT_TO_BYTE(rgba[i][RCOMP]);
                      dst[i*4+3] = FLOAT_TO_BYTE(rgba[i][ACOMP]);
                   }
-		  break;
                case GL_ABGR_EXT:
                   for (i=0;i<n;i++) {
                      dst[i*4+0] = FLOAT_TO_BYTE(rgba[i][ACOMP]);
@@ -1377,70 +1237,73 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
             switch (dstFormat) {
                case GL_RED:
                   for (i=0;i<n;i++)
-                     CLAMPED_FLOAT_TO_USHORT(dst[i], rgba[i][RCOMP]);
+                     dst[i] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
                   break;
                case GL_GREEN:
                   for (i=0;i<n;i++)
-                     CLAMPED_FLOAT_TO_USHORT(dst[i], rgba[i][GCOMP]);
+                     dst[i] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
                   break;
                case GL_BLUE:
                   for (i=0;i<n;i++)
-                     CLAMPED_FLOAT_TO_USHORT(dst[i], rgba[i][BCOMP]);
+                     dst[i] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
                   break;
                case GL_ALPHA:
                   for (i=0;i<n;i++)
-                     CLAMPED_FLOAT_TO_USHORT(dst[i], rgba[i][ACOMP]);
+                     dst[i] = FLOAT_TO_USHORT(rgba[i][ACOMP]);
                   break;
                case GL_LUMINANCE:
                   for (i=0;i<n;i++)
-                     UNCLAMPED_FLOAT_TO_USHORT(dst[i], luminance[i]);
+                     dst[i] = FLOAT_TO_USHORT(luminance[i]);
                   break;
                case GL_LUMINANCE_ALPHA:
                   for (i=0;i<n;i++) {
-                     UNCLAMPED_FLOAT_TO_USHORT(dst[i*2+0], luminance[i]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*2+1], rgba[i][ACOMP]);
+                     dst[i*2+0] = FLOAT_TO_USHORT(luminance[i]);
+                     dst[i*2+1] = FLOAT_TO_USHORT(rgba[i][ACOMP]);
                   }
                   break;
                case GL_RGB:
                   for (i=0;i<n;i++) {
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+0], rgba[i][RCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+1], rgba[i][GCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+2], rgba[i][BCOMP]);
+                     dst[i*3+0] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
+                     dst[i*3+1] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
+                     dst[i*3+2] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
                   }
                   break;
                case GL_RGBA:
                   for (i=0;i<n;i++) {
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+0], rgba[i][RCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+1], rgba[i][GCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+2], rgba[i][BCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+3], rgba[i][ACOMP]);
+                     dst[i*4+0] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
+                     dst[i*4+1] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
+                     dst[i*4+2] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
+                     dst[i*4+3] = FLOAT_TO_USHORT(rgba[i][ACOMP]);
                   }
                   break;
                case GL_BGR:
                   for (i=0;i<n;i++) {
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+0], rgba[i][BCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+1], rgba[i][GCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*3+2], rgba[i][RCOMP]);
+                     dst[i*3+0] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
+                     dst[i*3+1] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
+                     dst[i*3+2] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
                   }
                   break;
                case GL_BGRA:
                   for (i=0;i<n;i++) {
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+0], rgba[i][BCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+1], rgba[i][GCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+2], rgba[i][RCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+3], rgba[i][ACOMP]);
+                     dst[i*4+0] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
+                     dst[i*4+1] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
+                     dst[i*4+2] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
+                     dst[i*4+3] = FLOAT_TO_USHORT(rgba[i][ACOMP]);
                   }
                   break;
                case GL_ABGR_EXT:
                   for (i=0;i<n;i++) {
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+0], rgba[i][ACOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+1], rgba[i][BCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+2], rgba[i][GCOMP]);
-                     CLAMPED_FLOAT_TO_USHORT(dst[i*4+3], rgba[i][RCOMP]);
+                     dst[i*4+0] = FLOAT_TO_USHORT(rgba[i][ACOMP]);
+                     dst[i*4+1] = FLOAT_TO_USHORT(rgba[i][BCOMP]);
+                     dst[i*4+2] = FLOAT_TO_USHORT(rgba[i][GCOMP]);
+                     dst[i*4+3] = FLOAT_TO_USHORT(rgba[i][RCOMP]);
                   }
                   break;
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
+            }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap2( (GLushort *) dst, n * comps);
             }
          }
          break;
@@ -1503,7 +1366,6 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      dst[i*4+2] = FLOAT_TO_SHORT(rgba[i][RCOMP]);
                      dst[i*4+3] = FLOAT_TO_SHORT(rgba[i][ACOMP]);
                   }
-		  break;
                case GL_ABGR_EXT:
                   for (i=0;i<n;i++) {
                      dst[i*4+0] = FLOAT_TO_SHORT(rgba[i][ACOMP]);
@@ -1514,6 +1376,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   break;
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
+            }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap2( (GLushort *) dst, n * comps );
             }
          }
          break;
@@ -1588,6 +1453,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
             }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap4( (GLuint *) dst, n * comps );
+            }
          }
          break;
       case GL_INT:
@@ -1660,6 +1528,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   break;
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
+            }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap4( (GLuint *) dst, n * comps );
             }
          }
          break;
@@ -1734,6 +1605,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
             }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap4( (GLuint *) dst, n * comps );
+            }
          }
          break;
       case GL_HALF_FLOAT_ARB:
@@ -1807,6 +1681,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                default:
                   _mesa_problem(ctx, "bad format in _mesa_pack_rgba_span\n");
             }
+            if (dstPacking->SwapBytes) {
+               _mesa_swap2( (GLushort *) dst, n * comps );
+            }
          }
          break;
       case GL_UNSIGNED_BYTE_3_3_2:
@@ -1825,7 +1702,7 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
             for (i=0;i<n;i++) {
                dst[i] = (((GLint) (rgba[i][RCOMP] * 7.0F))     )
                       | (((GLint) (rgba[i][GCOMP] * 7.0F)) << 3)
-                      | (((GLint) (rgba[i][BCOMP] * 3.0F)) << 6);
+                      | (((GLint) (rgba[i][BCOMP] * 3.0F)) << 5);
             }
          }
          break;
@@ -1871,9 +1748,9 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
          else if (dstFormat == GL_ABGR_EXT) {
             GLushort *dst = (GLushort *) dstAddr;
             for (i=0;i<n;i++) {
-               dst[i] = (((GLint) (rgba[i][ACOMP] * 15.0F)) << 12)
+               dst[i] = (((GLint) (rgba[i][ACOMP] * 15.0F)) <<  4)
                       | (((GLint) (rgba[i][BCOMP] * 15.0F)) <<  8)
-                      | (((GLint) (rgba[i][GCOMP] * 15.0F)) <<  4)
+                      | (((GLint) (rgba[i][GCOMP] * 15.0F)) << 12)
                       | (((GLint) (rgba[i][RCOMP] * 15.0F))      );
             }
          }
@@ -2083,21 +1960,81 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
          break;
       default:
          _mesa_problem(ctx, "bad type in _mesa_pack_rgba_span_float");
-         return;
    }
+}
 
-   if (dstPacking->SwapBytes) {
-      GLint swapSize = _mesa_sizeof_packed_type(dstType);
-      if (swapSize == 2) {
-         if (dstPacking->SwapBytes) {
-            _mesa_swap2((GLushort *) dstAddr, n * comps);
-         }
+
+/*
+ * Pack the given RGBA span into client memory at 'dest' address
+ * in the given pixel format and type.
+ * Optionally apply the enabled pixel transfer ops.
+ * Pack into memory using the given packing params struct.
+ * This is used by glReadPixels and glGetTexImage?D()
+ * \param ctx - the context
+ *         n - number of pixels in the span
+ *         rgba - the pixels
+ *         format - dest packing format
+ *         type - dest packing data type
+ *         destination - destination packing address
+ *         packing - pixel packing parameters
+ *         transferOps - bitmask of IMAGE_*_BIT operations to apply
+ */
+void
+_mesa_pack_rgba_span_chan( GLcontext *ctx,
+                           GLuint n, CONST GLchan srcRgba[][4],
+                           GLenum dstFormat, GLenum dstType,
+                           GLvoid *dstAddr,
+                           const struct gl_pixelstore_attrib *dstPacking,
+                           GLuint transferOps)
+{
+   ASSERT((ctx->NewState & _NEW_PIXEL) == 0 || transferOps == 0);
+
+   /* Test for optimized case first */
+   if (transferOps == 0 && dstFormat == GL_RGBA && dstType == CHAN_TYPE) {
+      /* common simple case */
+      MEMCPY(dstAddr, srcRgba, n * 4 * sizeof(GLchan));
+   }
+   else if (transferOps == 0 && dstFormat == GL_RGB && dstType == CHAN_TYPE) {
+      /* common simple case */
+      GLuint i;
+      GLchan *dest = (GLchan *) dstAddr;
+      for (i = 0; i < n; i++) {
+         dest[0] = srcRgba[i][RCOMP];
+         dest[1] = srcRgba[i][GCOMP];
+         dest[2] = srcRgba[i][BCOMP];
+         dest += 3;
       }
-      else if (swapSize == 4) {
-         if (dstPacking->SwapBytes) {
-            _mesa_swap4((GLuint *) dstAddr, n * comps);
-         }
+   }
+   else if (transferOps == 0 && dstFormat == GL_RGBA && dstType == GL_UNSIGNED_BYTE) {
+      /* common simple case */
+      GLuint i;
+      GLubyte *dest = (GLubyte *) dstAddr;
+      for (i = 0; i < n; i++) {
+         dest[0] = CHAN_TO_UBYTE(srcRgba[i][RCOMP]);
+         dest[1] = CHAN_TO_UBYTE(srcRgba[i][GCOMP]);
+         dest[2] = CHAN_TO_UBYTE(srcRgba[i][BCOMP]);
+         dest[3] = CHAN_TO_UBYTE(srcRgba[i][ACOMP]);
+         dest += 4;
       }
+   }
+   else {
+      /* general solution */
+      GLuint i;
+      DEFMARRAY(GLfloat, rgba, MAX_WIDTH, 4);  /* mac 32k limitation */
+      CHECKARRAY(rgba, return);  /* mac 32k limitation */
+
+      assert(n <= MAX_WIDTH);
+      /* convert color components to floating point */
+      for (i = 0; i < n; i++) {
+         rgba[i][RCOMP] = CHAN_TO_FLOAT(srcRgba[i][RCOMP]);
+         rgba[i][GCOMP] = CHAN_TO_FLOAT(srcRgba[i][GCOMP]);
+         rgba[i][BCOMP] = CHAN_TO_FLOAT(srcRgba[i][BCOMP]);
+         rgba[i][ACOMP] = CHAN_TO_FLOAT(srcRgba[i][ACOMP]);
+      }
+      _mesa_pack_rgba_span_float(ctx, n, (const GLfloat (*)[4]) rgba,
+                                 dstFormat, dstType, dstAddr,
+                                 dstPacking, transferOps);
+      UNDEFARRAY(rgba);  /* mac 32k limitation */
    }
 }
 
@@ -2127,7 +2064,7 @@ extract_uint_indexes(GLuint n, GLuint indexes[],
                      GLenum srcFormat, GLenum srcType, const GLvoid *src,
                      const struct gl_pixelstore_attrib *unpack )
 {
-   ASSERT(srcFormat == GL_COLOR_INDEX || srcFormat == GL_STENCIL_INDEX);
+   assert(srcFormat == GL_COLOR_INDEX);
 
    ASSERT(srcType == GL_BITMAP ||
           srcType == GL_UNSIGNED_BYTE ||
@@ -2136,7 +2073,6 @@ extract_uint_indexes(GLuint n, GLuint indexes[],
           srcType == GL_SHORT ||
           srcType == GL_UNSIGNED_INT ||
           srcType == GL_INT ||
-          srcType == GL_UNSIGNED_INT_24_8_EXT ||
           srcType == GL_HALF_FLOAT_ARB ||
           srcType == GL_FLOAT);
 
@@ -2292,24 +2228,6 @@ extract_uint_indexes(GLuint n, GLuint indexes[],
             }
          }
          break;
-      case GL_UNSIGNED_INT_24_8_EXT:
-         {
-            GLuint i;
-            const GLuint *s = (const GLuint *) src;
-            if (unpack->SwapBytes) {
-               for (i = 0; i < n; i++) {
-                  GLuint value = s[i];
-                  SWAP4BYTE(value);
-                  indexes[i] = value & 0xff;  /* lower 8 bits */
-               }
-            }
-            else {
-               for (i = 0; i < n; i++)
-                  indexes[i] = s[i] & 0xfff;  /* lower 8 bits */
-            }
-         }
-         break;
-
       default:
          _mesa_problem(NULL, "bad srcType in extract_uint_indexes");
          return;
@@ -2858,7 +2776,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
                               GLenum srcFormat, GLenum srcType,
                               const GLvoid *source,
                               const struct gl_pixelstore_attrib *srcPacking,
-                              GLbitfield transferOps )
+                              GLuint transferOps )
 {
    ASSERT(dstFormat == GL_ALPHA ||
           dstFormat == GL_LUMINANCE ||
@@ -2909,7 +2827,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
       if (srcType == CHAN_TYPE) {
          if (dstFormat == GL_RGBA) {
             if (srcFormat == GL_RGBA) {
-               _mesa_memcpy( dest, source, n * 4 * sizeof(GLchan) );
+               MEMCPY( dest, source, n * 4 * sizeof(GLchan) );
                return;
             }
             else if (srcFormat == GL_RGB) {
@@ -2929,7 +2847,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
          }
          else if (dstFormat == GL_RGB) {
             if (srcFormat == GL_RGB) {
-               _mesa_memcpy( dest, source, n * 3 * sizeof(GLchan) );
+               MEMCPY( dest, source, n * 3 * sizeof(GLchan) );
                return;
             }
             else if (srcFormat == GL_RGBA) {
@@ -2949,7 +2867,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
          else if (dstFormat == srcFormat) {
             GLint comps = _mesa_components_in_format(srcFormat);
             assert(comps > 0);
-            _mesa_memcpy( dest, source, n * comps * sizeof(GLchan) );
+            MEMCPY( dest, source, n * comps * sizeof(GLchan) );
             return;
          }
       }
@@ -3025,7 +2943,8 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
       GLint dstComponents;
       GLint dstRedIndex, dstGreenIndex, dstBlueIndex, dstAlphaIndex;
       GLint dstLuminanceIndex, dstIntensityIndex;
-      GLfloat rgba[MAX_WIDTH][4];
+      DEFMARRAY(GLfloat, rgba, MAX_WIDTH, 4);  /* mac 32k limitation */
+      CHECKARRAY(rgba, return);  /* mac 32k limitation */
 
       dstComponents = _mesa_components_in_format( dstFormat );
       /* source & dest image formats should have been error checked by now */
@@ -3040,20 +2959,25 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
          extract_uint_indexes(n, indexes, srcFormat, srcType, source,
                               srcPacking);
 
+         if (dstFormat == GL_COLOR_INDEX
+             && (transferOps & IMAGE_MAP_COLOR_BIT)) {
+            _mesa_map_ci(ctx, n, indexes);
+         }
+         if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
+            _mesa_shift_and_offset_ci(ctx, n, indexes);
+         }
+
          if (dstFormat == GL_COLOR_INDEX) {
-            GLuint i;
-            _mesa_apply_ci_transfer_ops(ctx, transferOps, n, indexes);
             /* convert to GLchan and return */
+            GLuint i;
             for (i = 0; i < n; i++) {
                dest[i] = (GLchan) (indexes[i] & 0xff);
             }
+            UNDEFARRAY(rgba);  /* mac 32k limitation */
             return;
          }
          else {
             /* Convert indexes to RGBA */
-            if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
-               shift_and_offset_ci(ctx, n, indexes);
-            }
             _mesa_map_ci_to_rgba(ctx, n, indexes, rgba);
          }
 
@@ -3117,6 +3041,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
             break;
          default:
             _mesa_problem(ctx, "bad dstFormat in _mesa_unpack_chan_span()");
+            UNDEFARRAY(rgba);  /* mac 32k limitation */
             return;
       }
 
@@ -3180,6 +3105,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
             dst += dstComponents;
          }
       }
+      UNDEFARRAY(rgba);  /* mac 32k limitation */
    }
 }
 
@@ -3194,7 +3120,7 @@ _mesa_unpack_color_span_float( GLcontext *ctx,
                                GLenum srcFormat, GLenum srcType,
                                const GLvoid *source,
                                const struct gl_pixelstore_attrib *srcPacking,
-                               GLbitfield transferOps )
+                               GLuint transferOps )
 {
    ASSERT(dstFormat == GL_ALPHA ||
           dstFormat == GL_LUMINANCE ||
@@ -3245,7 +3171,8 @@ _mesa_unpack_color_span_float( GLcontext *ctx,
       GLint dstComponents;
       GLint dstRedIndex, dstGreenIndex, dstBlueIndex, dstAlphaIndex;
       GLint dstLuminanceIndex, dstIntensityIndex;
-      GLfloat rgba[MAX_WIDTH][4];
+      DEFMARRAY(GLfloat, rgba, MAX_WIDTH, 4);  /* mac 32k limitation */
+      CHECKARRAY(rgba, return);  /* mac 32k limitation */
 
       dstComponents = _mesa_components_in_format( dstFormat );
       /* source & dest image formats should have been error checked by now */
@@ -3260,20 +3187,25 @@ _mesa_unpack_color_span_float( GLcontext *ctx,
          extract_uint_indexes(n, indexes, srcFormat, srcType, source,
                               srcPacking);
 
+         if (dstFormat == GL_COLOR_INDEX
+             && (transferOps & IMAGE_MAP_COLOR_BIT)) {
+            _mesa_map_ci(ctx, n, indexes);
+         }
+         if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
+            _mesa_shift_and_offset_ci(ctx, n, indexes);
+         }
+
          if (dstFormat == GL_COLOR_INDEX) {
-            GLuint i;
-            _mesa_apply_ci_transfer_ops(ctx, transferOps, n, indexes);
             /* convert to GLchan and return */
+            GLuint i;
             for (i = 0; i < n; i++) {
                dest[i] = (GLchan) (indexes[i] & 0xff);
             }
+            UNDEFARRAY(rgba);  /* mac 32k limitation */
             return;
          }
          else {
             /* Convert indexes to RGBA */
-            if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
-               shift_and_offset_ci(ctx, n, indexes);
-            }
             _mesa_map_ci_to_rgba(ctx, n, indexes, rgba);
          }
 
@@ -3332,6 +3264,7 @@ _mesa_unpack_color_span_float( GLcontext *ctx,
             break;
          default:
             _mesa_problem(ctx, "bad dstFormat in _mesa_unpack_color_span_float()");
+            UNDEFARRAY(rgba);  /* mac 32k limitation */
             return;
       }
 
@@ -3393,6 +3326,7 @@ _mesa_unpack_color_span_float( GLcontext *ctx,
             dst += dstComponents;
          }
       }
+      UNDEFARRAY(rgba);  /* mac 32k limitation */
    }
 }
 
@@ -3416,7 +3350,7 @@ _mesa_unpack_index_span( const GLcontext *ctx, GLuint n,
                          GLenum dstType, GLvoid *dest,
                          GLenum srcType, const GLvoid *source,
                          const struct gl_pixelstore_attrib *srcPacking,
-                         GLbitfield transferOps )
+                         GLuint transferOps )
 {
    ASSERT(srcType == GL_BITMAP ||
           srcType == GL_UNSIGNED_BYTE ||
@@ -3440,11 +3374,11 @@ _mesa_unpack_index_span( const GLcontext *ctx, GLuint n,
     */
    if (transferOps == 0 && srcType == GL_UNSIGNED_BYTE
        && dstType == GL_UNSIGNED_BYTE) {
-      _mesa_memcpy(dest, source, n * sizeof(GLubyte));
+      MEMCPY(dest, source, n * sizeof(GLubyte));
    }
    else if (transferOps == 0 && srcType == GL_UNSIGNED_INT
             && dstType == GL_UNSIGNED_INT && !srcPacking->SwapBytes) {
-      _mesa_memcpy(dest, source, n * sizeof(GLuint));
+      MEMCPY(dest, source, n * sizeof(GLuint));
    }
    else {
       /*
@@ -3456,8 +3390,14 @@ _mesa_unpack_index_span( const GLcontext *ctx, GLuint n,
       extract_uint_indexes(n, indexes, GL_COLOR_INDEX, srcType, source,
                            srcPacking);
 
-      if (transferOps)
-         _mesa_apply_ci_transfer_ops(ctx, transferOps, n, indexes);
+      if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
+         /* shift and offset indexes */
+         _mesa_shift_and_offset_ci(ctx, n, indexes);
+      }
+      if (transferOps & IMAGE_MAP_COLOR_BIT) {
+         /* Apply lookup table */
+         _mesa_map_ci(ctx, n, indexes);
+      }
 
       /* convert to dest type */
       switch (dstType) {
@@ -3480,7 +3420,7 @@ _mesa_unpack_index_span( const GLcontext *ctx, GLuint n,
             }
             break;
          case GL_UNSIGNED_INT:
-            _mesa_memcpy(dest, indexes, n * sizeof(GLuint));
+            MEMCPY(dest, indexes, n * sizeof(GLuint));
             break;
          default:
             _mesa_problem(ctx, "bad dstType in _mesa_unpack_index_span");
@@ -3493,7 +3433,7 @@ void
 _mesa_pack_index_span( const GLcontext *ctx, GLuint n,
                        GLenum dstType, GLvoid *dest, const GLuint *source,
                        const struct gl_pixelstore_attrib *dstPacking,
-                       GLbitfield transferOps )
+                       GLuint transferOps )
 {
    GLuint indexes[MAX_WIDTH];
 
@@ -3503,8 +3443,13 @@ _mesa_pack_index_span( const GLcontext *ctx, GLuint n,
 
    if (transferOps & (IMAGE_MAP_COLOR_BIT | IMAGE_SHIFT_OFFSET_BIT)) {
       /* make a copy of input */
-      _mesa_memcpy(indexes, source, n * sizeof(GLuint));
-      _mesa_apply_ci_transfer_ops(ctx, transferOps, n, indexes);
+      MEMCPY(indexes, source, n * sizeof(GLuint));
+      if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
+         _mesa_shift_and_offset_ci( ctx, n, indexes);
+      }
+      if (transferOps & IMAGE_MAP_COLOR_BIT) {
+         _mesa_map_ci(ctx, n, indexes);
+      }
       source = indexes;
    }
 
@@ -3624,7 +3569,7 @@ _mesa_unpack_stencil_span( const GLcontext *ctx, GLuint n,
                            GLenum dstType, GLvoid *dest,
                            GLenum srcType, const GLvoid *source,
                            const struct gl_pixelstore_attrib *srcPacking,
-                           GLbitfield transferOps )
+                           GLuint transferOps )
 {
    ASSERT(srcType == GL_BITMAP ||
           srcType == GL_UNSIGNED_BYTE ||
@@ -3633,7 +3578,6 @@ _mesa_unpack_stencil_span( const GLcontext *ctx, GLuint n,
           srcType == GL_SHORT ||
           srcType == GL_UNSIGNED_INT ||
           srcType == GL_INT ||
-          srcType == GL_UNSIGNED_INT_24_8_EXT ||
           srcType == GL_HALF_FLOAT_ARB ||
           srcType == GL_FLOAT);
 
@@ -3648,17 +3592,15 @@ _mesa_unpack_stencil_span( const GLcontext *ctx, GLuint n,
     * Try simple cases first
     */
    if (transferOps == 0 &&
-       !ctx->Pixel.MapStencilFlag &&
        srcType == GL_UNSIGNED_BYTE &&
        dstType == GL_UNSIGNED_BYTE) {
-      _mesa_memcpy(dest, source, n * sizeof(GLubyte));
+      MEMCPY(dest, source, n * sizeof(GLubyte));
    }
    else if (transferOps == 0 &&
-            !ctx->Pixel.MapStencilFlag &&
             srcType == GL_UNSIGNED_INT &&
             dstType == GL_UNSIGNED_INT &&
             !srcPacking->SwapBytes) {
-      _mesa_memcpy(dest, source, n * sizeof(GLuint));
+      MEMCPY(dest, source, n * sizeof(GLuint));
    }
    else {
       /*
@@ -3667,20 +3609,22 @@ _mesa_unpack_stencil_span( const GLcontext *ctx, GLuint n,
       GLuint indexes[MAX_WIDTH];
       assert(n <= MAX_WIDTH);
 
-      extract_uint_indexes(n, indexes, GL_STENCIL_INDEX, srcType, source,
+      extract_uint_indexes(n, indexes, GL_COLOR_INDEX, srcType, source,
                            srcPacking);
 
-      if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
-         /* shift and offset indexes */
-         shift_and_offset_ci(ctx, n, indexes);
-      }
+      if (transferOps) {
+         if (transferOps & IMAGE_SHIFT_OFFSET_BIT) {
+            /* shift and offset indexes */
+            _mesa_shift_and_offset_ci(ctx, n, indexes);
+         }
 
-      if (ctx->Pixel.MapStencilFlag) {
-         /* Apply stencil lookup table */
-         const GLuint mask = ctx->PixelMaps.StoS.Size - 1;
-         GLuint i;
-         for (i = 0; i < n; i++) {
-            indexes[i] = ctx->PixelMaps.StoS.Map[ indexes[i] & mask ];
+         if (ctx->Pixel.MapStencilFlag) {
+            /* Apply stencil lookup table */
+            GLuint mask = ctx->Pixel.MapStoSsize - 1;
+            GLuint i;
+            for (i=0;i<n;i++) {
+               indexes[i] = ctx->Pixel.MapStoS[ indexes[i] & mask ];
+            }
          }
       }
 
@@ -3705,7 +3649,7 @@ _mesa_unpack_stencil_span( const GLcontext *ctx, GLuint n,
             }
             break;
          case GL_UNSIGNED_INT:
-            _mesa_memcpy(dest, indexes, n * sizeof(GLuint));
+            MEMCPY(dest, indexes, n * sizeof(GLuint));
             break;
          default:
             _mesa_problem(ctx, "bad dstType in _mesa_unpack_stencil_span");
@@ -3726,15 +3670,20 @@ _mesa_pack_stencil_span( const GLcontext *ctx, GLuint n,
    if (ctx->Pixel.IndexShift || ctx->Pixel.IndexOffset ||
        ctx->Pixel.MapStencilFlag) {
       /* make a copy of input */
-      _mesa_memcpy(stencil, source, n * sizeof(GLstencil));
-      _mesa_apply_stencil_transfer_ops(ctx, n, stencil);
+      MEMCPY(stencil, source, n * sizeof(GLstencil));
+      if (ctx->Pixel.IndexShift || ctx->Pixel.IndexOffset) {
+         _mesa_shift_and_offset_stencil( ctx, n, stencil );
+      }
+      if (ctx->Pixel.MapStencilFlag) {
+         _mesa_map_stencil( ctx, n, stencil );
+      }
       source = stencil;
    }
 
    switch (dstType) {
    case GL_UNSIGNED_BYTE:
-      if (sizeof(GLstencil) == 1) {
-         _mesa_memcpy( dest, source, n );
+      if (sizeof(GLstencil) == 8) {
+         MEMCPY( dest, source, n );
       }
       else {
          GLubyte *dst = (GLubyte *) dest;
@@ -3745,11 +3694,14 @@ _mesa_pack_stencil_span( const GLcontext *ctx, GLuint n,
       }
       break;
    case GL_BYTE:
-      {
+      if (sizeof(GLstencil) == 8) {
+         MEMCPY( dest, source, n );
+      }
+      else {
          GLbyte *dst = (GLbyte *) dest;
          GLuint i;
          for (i=0;i<n;i++) {
-            dst[i] = (GLbyte) (source[i] & 0x7f);
+            dst[i] = (GLbyte) source[i];
          }
       }
       break;
@@ -3794,7 +3746,7 @@ _mesa_pack_stencil_span( const GLcontext *ctx, GLuint n,
          GLint *dst = (GLint *) dest;
          GLuint i;
          for (i=0;i<n;i++) {
-            dst[i] = (GLint) source[i];
+            *dst++ = (GLint) source[i];
          }
          if (dstPacking->SwapBytes) {
             _mesa_swap4( (GLuint *) dst, n );
@@ -3862,152 +3814,79 @@ _mesa_pack_stencil_span( const GLcontext *ctx, GLuint n,
    }
 }
 
-#define DEPTH_VALUES(GLTYPE, GLTYPE2FLOAT)                              \
-    do {                                                                \
-        GLuint i;                                                       \
-        const GLTYPE *src = (const GLTYPE *)source;                     \
-        for (i = 0; i < n; i++) {                                       \
-            GLTYPE value = src[i];                                      \
-            if (srcPacking->SwapBytes) {                                \
-                if (sizeof(GLTYPE) == 2) {                              \
-                    SWAP2BYTE(value);                                   \
-                } else if (sizeof(GLTYPE) == 4) {                       \
-                    SWAP4BYTE(value);                                   \
-                }                                                       \
-            }                                                           \
-            depthValues[i] = GLTYPE2FLOAT(value);                       \
-        }                                                               \
-    } while (0)
 
-
-/**
- * Unpack a row of depth/z values from memory, returning GLushort, GLuint
- * or GLfloat values.
- * The glPixelTransfer (scale/bias) params will be applied.
- *
- * \param dstType  one of GL_UNSIGNED_SHORT, GL_UNSIGNED_INT, GL_FLOAT
- * \param depthScale  scale factor (max value) for returned GLushort or
- *                    GLuint values (ignored for GLfloat).
- */
 void
-_mesa_unpack_depth_span( const GLcontext *ctx, GLuint n,
-                         GLenum dstType, GLvoid *dest, GLfloat depthScale,
+_mesa_unpack_depth_span( const GLcontext *ctx, GLuint n, GLfloat *dest,
                          GLenum srcType, const GLvoid *source,
                          const struct gl_pixelstore_attrib *srcPacking )
 {
-   GLfloat depthTemp[MAX_WIDTH], *depthValues;
-   GLboolean needClamp = GL_FALSE;
+   (void) srcPacking;
 
-   /* Look for special cases first.
-    * Not only are these faster, they're less prone to numeric conversion
-    * problems.  Otherwise, converting from an int type to a float then
-    * back to an int type can introduce errors that will show up as
-    * artifacts in things like depth peeling which uses glCopyTexImage.
-    */
-   if (ctx->Pixel.DepthScale == 1.0 && ctx->Pixel.DepthBias == 0.0) {
-      if (srcType == GL_UNSIGNED_INT && dstType == GL_UNSIGNED_SHORT) {
-         const GLuint *src = (const GLuint *) source;
-         GLushort *dst = (GLushort *) dest;
-         GLuint i;
-         for (i = 0; i < n; i++) {
-            dst[i] = src[i] >> 16;
-         }
-         return;
-      }
-      if (srcType == GL_UNSIGNED_SHORT
-          && dstType == GL_UNSIGNED_INT
-          && depthScale == (GLfloat) 0xffffffff) {
-         const GLushort *src = (const GLushort *) source;
-         GLuint *dst = (GLuint *) dest;
-         GLuint i;
-         for (i = 0; i < n; i++) {
-            dst[i] = src[i] | (src[i] << 16);
-         }
-         return;
-      }
-      /* XXX may want to add additional cases here someday */
-   }
-
-   /* general case path follows */
-
-   if (dstType == GL_FLOAT) {
-      depthValues = (GLfloat *) dest;
-   }
-   else {
-      depthValues = depthTemp;
-   }
-
-   /* Convert incoming values to GLfloat.  Some conversions will require
-    * clamping, below.
-    */
    switch (srcType) {
       case GL_BYTE:
-         DEPTH_VALUES(GLbyte, BYTE_TO_FLOAT);
-         needClamp = GL_TRUE;
+         {
+            GLuint i;
+            const GLubyte *src = (const GLubyte *) source;
+            for (i = 0; i < n; i++) {
+               dest[i] = BYTE_TO_FLOAT(src[i]);
+            }
+         }
          break;
       case GL_UNSIGNED_BYTE:
-         DEPTH_VALUES(GLubyte, UBYTE_TO_FLOAT);
+         {
+            GLuint i;
+            const GLubyte *src = (const GLubyte *) source;
+            for (i = 0; i < n; i++) {
+               dest[i] = UBYTE_TO_FLOAT(src[i]);
+            }
+         }
          break;
       case GL_SHORT:
-         DEPTH_VALUES(GLshort, SHORT_TO_FLOAT);
-         needClamp = GL_TRUE;
+         {
+            GLuint i;
+            const GLshort *src = (const GLshort *) source;
+            for (i = 0; i < n; i++) {
+               dest[i] = SHORT_TO_FLOAT(src[i]);
+            }
+         }
          break;
       case GL_UNSIGNED_SHORT:
-         DEPTH_VALUES(GLushort, USHORT_TO_FLOAT);
+         {
+            GLuint i;
+            const GLushort *src = (const GLushort *) source;
+            for (i = 0; i < n; i++) {
+               dest[i] = USHORT_TO_FLOAT(src[i]);
+            }
+         }
          break;
       case GL_INT:
-         DEPTH_VALUES(GLint, INT_TO_FLOAT);
-         needClamp = GL_TRUE;
+         {
+            GLuint i;
+            const GLint *src = (const GLint *) source;
+            for (i = 0; i < n; i++) {
+               dest[i] = INT_TO_FLOAT(src[i]);
+            }
+         }
          break;
       case GL_UNSIGNED_INT:
-         DEPTH_VALUES(GLuint, UINT_TO_FLOAT);
-         break;
-      case GL_UNSIGNED_INT_24_8_EXT: /* GL_EXT_packed_depth_stencil */
-         if (dstType == GL_UNSIGNED_INT &&
-             depthScale == (GLfloat) 0xffffff &&
-             ctx->Pixel.DepthScale == 1.0 &&
-             ctx->Pixel.DepthBias == 0.0) {
-            const GLuint *src = (const GLuint *) source;
-            GLuint *zValues = (GLuint *) dest;
+         {
             GLuint i;
-            for (i = 0; i < n; i++) {
-                GLuint value = src[i];
-                if (srcPacking->SwapBytes) {
-                    SWAP4BYTE(value);
-                }
-                zValues[i] = value & 0xffffff00;
-            }
-            return;
-         }
-         else {
             const GLuint *src = (const GLuint *) source;
-            const GLfloat scale = 1.0f / 0xffffff;
-            GLuint i;
             for (i = 0; i < n; i++) {
-                GLuint value = src[i];
-                if (srcPacking->SwapBytes) {
-                    SWAP4BYTE(value);
-                }
-                depthValues[i] = (value >> 8) * scale;
+               dest[i] = UINT_TO_FLOAT(src[i]);
             }
          }
          break;
       case GL_FLOAT:
-         DEPTH_VALUES(GLfloat, 1*);
-         needClamp = GL_TRUE;
+         MEMCPY(dest, source, n * sizeof(GLfloat));
          break;
       case GL_HALF_FLOAT_ARB:
          {
             GLuint i;
             const GLhalfARB *src = (const GLhalfARB *) source;
             for (i = 0; i < n; i++) {
-               GLhalfARB value = src[i];
-               if (srcPacking->SwapBytes) {
-                  SWAP2BYTE(value);
-               }
-               depthValues[i] = _mesa_half_to_float(value);
+               dest[i] = _mesa_half_to_float(src[i]);
             }
-            needClamp = GL_TRUE;
          }
          break;
       default:
@@ -4015,61 +3894,14 @@ _mesa_unpack_depth_span( const GLcontext *ctx, GLuint n,
          return;
    }
 
-   /* apply depth scale and bias */
-   {
-      const GLfloat scale = ctx->Pixel.DepthScale;
-      const GLfloat bias = ctx->Pixel.DepthBias;
-      if (scale != 1.0 || bias != 0.0) {
-         GLuint i;
-         for (i = 0; i < n; i++) {
-            depthValues[i] = depthValues[i] * scale + bias;
-         }
-         needClamp = GL_TRUE;
-      }
-   }
 
-   /* clamp to [0, 1] */
-   if (needClamp) {
+   /* apply depth scale and bias and clamp to [0,1] */
+   if (ctx->Pixel.DepthScale != 1.0 || ctx->Pixel.DepthBias != 0.0) {
       GLuint i;
       for (i = 0; i < n; i++) {
-         depthValues[i] = CLAMP(depthValues[i], 0.0, 1.0);
+         GLfloat d = dest[i] * ctx->Pixel.DepthScale + ctx->Pixel.DepthBias;
+         dest[i] = CLAMP(d, 0.0F, 1.0F);
       }
-   }
-
-   /*
-    * Convert values to dstType
-    */
-   if (dstType == GL_UNSIGNED_INT) {
-      GLuint *zValues = (GLuint *) dest;
-      GLuint i;
-      if (depthScale <= (GLfloat) 0xffffff) {
-         /* no overflow worries */
-         for (i = 0; i < n; i++) {
-            zValues[i] = (GLuint) (depthValues[i] * depthScale);
-         }
-      }
-      else {
-         /* need to use double precision to prevent overflow problems */
-         for (i = 0; i < n; i++) {
-            GLdouble z = depthValues[i] * depthScale;
-            if (z >= (GLdouble) 0xffffffff)
-               zValues[i] = 0xffffffff;
-            else
-               zValues[i] = (GLuint) z;
-         }
-      }
-   }
-   else if (dstType == GL_UNSIGNED_SHORT) {
-      GLushort *zValues = (GLushort *) dest;
-      GLuint i;
-      ASSERT(depthScale <= 65535.0);
-      for (i = 0; i < n; i++) {
-         zValues[i] = (GLushort) (depthValues[i] * depthScale);
-      }
-   }
-   else {
-      ASSERT(dstType == GL_FLOAT);
-      ASSERT(depthScale == 1.0F);
    }
 }
 
@@ -4083,12 +3915,18 @@ _mesa_pack_depth_span( const GLcontext *ctx, GLuint n, GLvoid *dest,
                        const struct gl_pixelstore_attrib *dstPacking )
 {
    GLfloat depthCopy[MAX_WIDTH];
+   const GLboolean bias_or_scale = ctx->Pixel.DepthBias != 0.0 ||
+                                   ctx->Pixel.DepthScale != 1.0;
 
    ASSERT(n <= MAX_WIDTH);
 
-   if (ctx->Pixel.DepthScale != 1.0 || ctx->Pixel.DepthBias != 0.0) {
-      _mesa_memcpy(depthCopy, depthSpan, n * sizeof(GLfloat));
-      _mesa_scale_and_bias_depth(ctx, n, depthCopy);
+   if (bias_or_scale) {
+      GLuint i;
+      for (i = 0; i < n; i++) {
+         GLfloat d;
+         d = depthSpan[i] * ctx->Pixel.DepthScale + ctx->Pixel.DepthBias;
+         depthCopy[i] = CLAMP(d, 0.0F, 1.0F);
+      }
       depthSpan = depthCopy;
    }
 
@@ -4116,7 +3954,7 @@ _mesa_pack_depth_span( const GLcontext *ctx, GLuint n, GLvoid *dest,
          GLushort *dst = (GLushort *) dest;
          GLuint i;
          for (i = 0; i < n; i++) {
-            CLAMPED_FLOAT_TO_USHORT(dst[i], depthSpan[i]);
+            dst[i] = FLOAT_TO_USHORT( depthSpan[i] );
          }
          if (dstPacking->SwapBytes) {
             _mesa_swap2( (GLushort *) dst, n );
@@ -4189,49 +4027,6 @@ _mesa_pack_depth_span( const GLcontext *ctx, GLuint n, GLvoid *dest,
 }
 
 
-
-/**
- * Pack depth and stencil values as GL_DEPTH_STENCIL/GL_UNSIGNED_INT_24_8.
- */
-void
-_mesa_pack_depth_stencil_span(const GLcontext *ctx, GLuint n, GLuint *dest,
-                              const GLfloat *depthVals,
-                              const GLstencil *stencilVals,
-                              const struct gl_pixelstore_attrib *dstPacking)
-{
-   GLfloat depthCopy[MAX_WIDTH];
-   GLstencil stencilCopy[MAX_WIDTH];
-   GLuint i;
-
-   ASSERT(n <= MAX_WIDTH);
-
-   if (ctx->Pixel.DepthScale != 1.0 || ctx->Pixel.DepthBias != 0.0) {
-      _mesa_memcpy(depthCopy, depthVals, n * sizeof(GLfloat));
-      _mesa_scale_and_bias_depth(ctx, n, depthCopy);
-      depthVals = depthCopy;
-   }
-
-   if (ctx->Pixel.IndexShift ||
-       ctx->Pixel.IndexOffset ||
-       ctx->Pixel.MapStencilFlag) {
-      _mesa_memcpy(stencilCopy, stencilVals, n * sizeof(GLstencil));
-      _mesa_apply_stencil_transfer_ops(ctx, n, stencilCopy);
-      stencilVals = stencilCopy;
-   }
-
-   for (i = 0; i < n; i++) {
-      GLuint z = (GLuint) (depthVals[i] * 0xffffff);
-      dest[i] = (z << 8) | (stencilVals[i] & 0xff);
-   }
-
-   if (dstPacking->SwapBytes) {
-      _mesa_swap4(dest, n);
-   }
-}
-
-
-
-
 /**
  * Unpack image data.  Apply byte swapping, byte flipping (bitmap).
  * Return all image data in a contiguous block.  This is used when we
@@ -4253,20 +4048,16 @@ _mesa_unpack_image( GLuint dimensions,
    if (width <= 0 || height <= 0 || depth <= 0)
       return NULL;  /* generate error later */
 
-   if (type == GL_BITMAP) {
+   if (format == GL_BITMAP) {
       bytesPerRow = (width + 7) >> 3;
-      flipBytes = unpack->LsbFirst;
+      flipBytes = !unpack->LsbFirst;
       swap2 = swap4 = GL_FALSE;
       compsPerRow = 0;
    }
    else {
       const GLint bytesPerPixel = _mesa_bytes_per_pixel(format, type);
-      GLint components = _mesa_components_in_format(format);
+      const GLint components = _mesa_components_in_format(format);
       GLint bytesPerComp;
-
-      if (_mesa_type_is_packed(type))
-          components = 1;
-
       if (bytesPerPixel <= 0 || components <= 0)
          return NULL;   /* bad format or type.  generate error later */
       bytesPerRow = bytesPerPixel * width;
@@ -4279,8 +4070,7 @@ _mesa_unpack_image( GLuint dimensions,
    }
 
    {
-      GLubyte *destBuffer
-         = (GLubyte *) _mesa_malloc(bytesPerRow * height * depth);
+      GLubyte *destBuffer = (GLubyte *) MALLOC(bytesPerRow * height * depth);
       GLubyte *dst;
       GLint img, row;
       if (!destBuffer)
@@ -4291,69 +4081,7 @@ _mesa_unpack_image( GLuint dimensions,
          for (row = 0; row < height; row++) {
             const GLvoid *src = _mesa_image_address(dimensions, unpack, pixels,
                                width, height, format, type, img, row, 0);
-
-            if ((type == GL_BITMAP) && (unpack->SkipPixels & 0x7)) {
-               GLint i;
-               flipBytes = GL_FALSE;
-               if (unpack->LsbFirst) {
-                  GLubyte srcMask = 1 << (unpack->SkipPixels & 0x7);
-                  GLubyte dstMask = 128;
-                  const GLubyte *s = src;
-                  GLubyte *d = dst;
-                  *d = 0;
-                  for (i = 0; i < width; i++) {
-                     if (*s & srcMask) {
-                        *d |= dstMask;
-                     }      
-                     if (srcMask == 128) {
-                        srcMask = 1;
-                        s++;
-                     }
-                     else {
-                        srcMask = srcMask << 1;
-                     }
-                     if (dstMask == 1) {
-                        dstMask = 128;
-                        d++;
-                        *d = 0;
-                     }
-                     else {
-                        dstMask = dstMask >> 1;
-                     }
-                  }
-               }
-               else {
-                  GLubyte srcMask = 128 >> (unpack->SkipPixels & 0x7);
-                  GLubyte dstMask = 128;
-                  const GLubyte *s = src;
-                  GLubyte *d = dst;
-                  *d = 0;
-                  for (i = 0; i < width; i++) {
-                     if (*s & srcMask) {
-                        *d |= dstMask;
-                     }
-                     if (srcMask == 1) {
-                        srcMask = 128;
-                        s++;
-                     }
-                     else {
-                        srcMask = srcMask >> 1;
-                     }
-                     if (dstMask == 1) {
-                        dstMask = 128;
-                        d++;
-                        *d = 0;
-                     }
-                     else {
-                        dstMask = dstMask >> 1;
-                     }      
-                  }
-               }
-            }
-            else {
-               _mesa_memcpy(dst, src, bytesPerRow);
-            }
-
+            MEMCPY(dst, src, bytesPerRow);
             /* byte flipping/swapping */
             if (flipBytes) {
                flip_bytes((GLubyte *) dst, bytesPerRow);
@@ -4371,139 +4099,14 @@ _mesa_unpack_image( GLuint dimensions,
    }
 }
 
-#endif /* _HAVE_FULL_GL */
-
-
-
-/**
- * Convert an array of RGBA colors from one datatype to another.
- * NOTE: src may equal dst.  In that case, we use a temporary buffer.
- */
-void
-_mesa_convert_colors(GLenum srcType, const GLvoid *src,
-                     GLenum dstType, GLvoid *dst,
-                     GLuint count, const GLubyte mask[])
-{
-   GLuint tempBuffer[MAX_WIDTH][4];
-   const GLboolean useTemp = (src == dst);
-
-   ASSERT(srcType != dstType);
-
-   switch (srcType) {
-   case GL_UNSIGNED_BYTE:
-      if (dstType == GL_UNSIGNED_SHORT) {
-         const GLubyte (*src1)[4] = (const GLubyte (*)[4]) src;
-         GLushort (*dst2)[4] = (GLushort (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               dst2[i][RCOMP] = UBYTE_TO_USHORT(src1[i][RCOMP]);
-               dst2[i][GCOMP] = UBYTE_TO_USHORT(src1[i][GCOMP]);
-               dst2[i][BCOMP] = UBYTE_TO_USHORT(src1[i][BCOMP]);
-               dst2[i][ACOMP] = UBYTE_TO_USHORT(src1[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLushort));
-      }
-      else {
-         const GLubyte (*src1)[4] = (const GLubyte (*)[4]) src;
-         GLfloat (*dst4)[4] = (GLfloat (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         ASSERT(dstType == GL_FLOAT);
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               dst4[i][RCOMP] = UBYTE_TO_FLOAT(src1[i][RCOMP]);
-               dst4[i][GCOMP] = UBYTE_TO_FLOAT(src1[i][GCOMP]);
-               dst4[i][BCOMP] = UBYTE_TO_FLOAT(src1[i][BCOMP]);
-               dst4[i][ACOMP] = UBYTE_TO_FLOAT(src1[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLfloat));
-      }
-      break;
-   case GL_UNSIGNED_SHORT:
-      if (dstType == GL_UNSIGNED_BYTE) {
-         const GLushort (*src2)[4] = (const GLushort (*)[4]) src;
-         GLubyte (*dst1)[4] = (GLubyte (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               dst1[i][RCOMP] = USHORT_TO_UBYTE(src2[i][RCOMP]);
-               dst1[i][GCOMP] = USHORT_TO_UBYTE(src2[i][GCOMP]);
-               dst1[i][BCOMP] = USHORT_TO_UBYTE(src2[i][BCOMP]);
-               dst1[i][ACOMP] = USHORT_TO_UBYTE(src2[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLubyte));
-      }
-      else {
-         const GLushort (*src2)[4] = (const GLushort (*)[4]) src;
-         GLfloat (*dst4)[4] = (GLfloat (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         ASSERT(dstType == GL_FLOAT);
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               dst4[i][RCOMP] = USHORT_TO_FLOAT(src2[i][RCOMP]);
-               dst4[i][GCOMP] = USHORT_TO_FLOAT(src2[i][GCOMP]);
-               dst4[i][BCOMP] = USHORT_TO_FLOAT(src2[i][BCOMP]);
-               dst4[i][ACOMP] = USHORT_TO_FLOAT(src2[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLfloat));
-      }
-      break;
-   case GL_FLOAT:
-      if (dstType == GL_UNSIGNED_BYTE) {
-         const GLfloat (*src4)[4] = (const GLfloat (*)[4]) src;
-         GLubyte (*dst1)[4] = (GLubyte (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               UNCLAMPED_FLOAT_TO_UBYTE(dst1[i][RCOMP], src4[i][RCOMP]);
-               UNCLAMPED_FLOAT_TO_UBYTE(dst1[i][GCOMP], src4[i][GCOMP]);
-               UNCLAMPED_FLOAT_TO_UBYTE(dst1[i][BCOMP], src4[i][BCOMP]);
-               UNCLAMPED_FLOAT_TO_UBYTE(dst1[i][ACOMP], src4[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLubyte));
-      }
-      else {
-         const GLfloat (*src4)[4] = (const GLfloat (*)[4]) src;
-         GLushort (*dst2)[4] = (GLushort (*)[4]) (useTemp ? tempBuffer : dst);
-         GLuint i;
-         ASSERT(dstType == GL_UNSIGNED_SHORT);
-         for (i = 0; i < count; i++) {
-            if (!mask || mask[i]) {
-               UNCLAMPED_FLOAT_TO_USHORT(dst2[i][RCOMP], src4[i][RCOMP]);
-               UNCLAMPED_FLOAT_TO_USHORT(dst2[i][GCOMP], src4[i][GCOMP]);
-               UNCLAMPED_FLOAT_TO_USHORT(dst2[i][BCOMP], src4[i][BCOMP]);
-               UNCLAMPED_FLOAT_TO_USHORT(dst2[i][ACOMP], src4[i][ACOMP]);
-            }
-         }
-         if (useTemp)
-            _mesa_memcpy(dst, tempBuffer, count * 4 * sizeof(GLushort));
-      }
-      break;
-   default:
-      _mesa_problem(NULL, "Invalid datatype in _mesa_convert_colors");
-   }
-}
-
-
+#endif
 
 
 /**
- * Perform basic clipping for glDrawPixels.  The image's position and size
- * and the unpack SkipPixels and SkipRows are adjusted so that the image
- * region is entirely within the window and scissor bounds.
- * NOTE: this will only work when glPixelZoom is (1, 1) or (1, -1).
- * If Pixel.ZoomY is -1, *destY will be changed to be the first row which
- * we'll actually write.  Beforehand, *destY-1 is the first drawing row.
+ * Perform clipping for glDrawPixels.  The image's window position
+ * and size, and the unpack skipPixels and skipRows are adjusted so
+ * that the image region is entirely within the window and scissor bounds.
+ * NOTE: this will only work when glPixelZoom is (1, 1).
  *
  * \return  GL_TRUE if image is ready for drawing or
  *          GL_FALSE if image was completely clipped away (draw nothing)
@@ -4512,20 +4115,15 @@ GLboolean
 _mesa_clip_drawpixels(const GLcontext *ctx,
                       GLint *destX, GLint *destY,
                       GLsizei *width, GLsizei *height,
-                      struct gl_pixelstore_attrib *unpack)
+                      GLint *skipPixels, GLint *skipRows)
 {
    const GLframebuffer *buffer = ctx->DrawBuffer;
 
-   if (unpack->RowLength == 0) {
-      unpack->RowLength = *width;
-   }
-
-   ASSERT(ctx->Pixel.ZoomX == 1.0F);
-   ASSERT(ctx->Pixel.ZoomY == 1.0F || ctx->Pixel.ZoomY == -1.0F);
+   ASSERT(ctx->Pixel.ZoomX == 1.0F && ctx->Pixel.ZoomY == 1.0F);
 
    /* left clipping */
    if (*destX < buffer->_Xmin) {
-      unpack->SkipPixels += (buffer->_Xmin - *destX);
+      *skipPixels += (buffer->_Xmin - *destX);
       *width -= (buffer->_Xmin - *destX);
       *destX = buffer->_Xmin;
    }
@@ -4536,30 +4134,15 @@ _mesa_clip_drawpixels(const GLcontext *ctx,
    if (*width <= 0)
       return GL_FALSE;
 
-   if (ctx->Pixel.ZoomY == 1.0F) {
-      /* bottom clipping */
-      if (*destY < buffer->_Ymin) {
-         unpack->SkipRows += (buffer->_Ymin - *destY);
-         *height -= (buffer->_Ymin - *destY);
-         *destY = buffer->_Ymin;
-      }
-      /* top clipping */
-      if (*destY + *height > buffer->_Ymax)
-         *height -= (*destY + *height - buffer->_Ymax);
+   /* bottom clipping */
+   if (*destY < buffer->_Ymin) {
+      *skipRows += (buffer->_Ymin - *destY);
+      *height -= (buffer->_Ymin - *destY);
+      *destY = buffer->_Ymin;
    }
-   else { /* upside down */
-      /* top clipping */
-      if (*destY > buffer->_Ymax) {
-         unpack->SkipRows += (*destY - buffer->_Ymax);
-         *height -= (*destY - buffer->_Ymax);
-         *destY = buffer->_Ymax;
-      }
-      /* bottom clipping */
-      if (*destY - *height < buffer->_Ymin)
-         *height -= (buffer->_Ymin - (*destY - *height));
-      /* adjust destY so it's the first row to write to */
-      (*destY)--;
-   }
+   /* top clipping */
+   if (*destY + *height > buffer->_Ymax)
+      *height -= (*destY + *height - buffer->_Ymax);
 
    if (*height <= 0)
       return GL_TRUE;
@@ -4570,11 +4153,11 @@ _mesa_clip_drawpixels(const GLcontext *ctx,
 
 /**
  * Perform clipping for glReadPixels.  The image's window position
- * and size, and the pack skipPixels, skipRows and rowLength are adjusted
- * so that the image region is entirely within the window bounds.
+ * and size, and the pack skipPixels and skipRows are adjusted so
+ * that the image region is entirely within the window bounds.
  * Note: this is different from _mesa_clip_drawpixels() in that the
- * scissor box is ignored, and we use the bounds of the current readbuffer
- * surface.
+ * scissor box is ignored, and we use the bounds of the current "read"
+ * surface;
  *
  * \return  GL_TRUE if image is ready for drawing or
  *          GL_FALSE if image was completely clipped away (draw nothing)
@@ -4583,17 +4166,13 @@ GLboolean
 _mesa_clip_readpixels(const GLcontext *ctx,
                       GLint *srcX, GLint *srcY,
                       GLsizei *width, GLsizei *height,
-                      struct gl_pixelstore_attrib *pack)
+                      GLint *skipPixels, GLint *skipRows)
 {
    const GLframebuffer *buffer = ctx->ReadBuffer;
 
-   if (pack->RowLength == 0) {
-      pack->RowLength = *width;
-   }
-
    /* left clipping */
    if (*srcX < 0) {
-      pack->SkipPixels += (0 - *srcX);
+      *skipPixels += (0 - *srcX);
       *width -= (0 - *srcX);
       *srcX = 0;
    }
@@ -4606,7 +4185,7 @@ _mesa_clip_readpixels(const GLcontext *ctx,
 
    /* bottom clipping */
    if (*srcY < 0) {
-      pack->SkipRows += (0 - *srcY);
+      *skipRows += (0 - *srcY);
       *height -= (0 - *srcY);
       *srcY = 0;
    }
@@ -4620,43 +4199,3 @@ _mesa_clip_readpixels(const GLcontext *ctx,
    return GL_TRUE;
 }
 
-
-/**
- * Clip the rectangle defined by (x, y, width, height) against the bounds
- * specified by [xmin, xmax) and [ymin, ymax).
- * \return GL_FALSE if rect is totally clipped, GL_TRUE otherwise.
- */
-GLboolean
-_mesa_clip_to_region(GLint xmin, GLint ymin,
-                     GLint xmax, GLint ymax,
-                     GLint *x, GLint *y,
-                     GLsizei *width, GLsizei *height )
-{
-   /* left clipping */
-   if (*x < xmin) {
-      *width -= (xmin - *x);
-      *x = xmin;
-   }
-
-   /* right clipping */
-   if (*x + *width > xmax)
-      *width -= (*x + *width - xmax - 1);
-
-   if (*width <= 0)
-      return GL_FALSE;
-
-   /* bottom (or top) clipping */
-   if (*y < ymin) {
-      *height -= (ymin - *y);
-      *y = ymin;
-   }
-
-   /* top (or bottom) clipping */
-   if (*y + *height > ymax)
-      *height -= (*y + *height - ymax - 1);
-
-   if (*height <= 0)
-      return GL_FALSE;
-
-   return GL_TRUE;
-}

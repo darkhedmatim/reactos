@@ -290,10 +290,8 @@ void _swsetup_choose_trifuncs( GLcontext *ctx )
        ctx->Polygon.OffsetFill)
       ind |= SS_OFFSET_BIT;
 
-   /* Note: gl_FrontFacing lives in fragment input FOGC.Y at this time */
    if ((ctx->Light.Enabled && ctx->Light.Model.TwoSide) ||
-       (ctx->VertexProgram._Enabled && ctx->VertexProgram.TwoSideEnabled) ||
-       (ctx->FragmentProgram._Current && ctx->FragmentProgram._Current->Base.InputsRead & (1 << FRAG_ATTRIB_FOGC)))
+       (ctx->VertexProgram._Enabled && ctx->VertexProgram.TwoSideEnabled))
       ind |= SS_TWOSIDE_BIT;
 
    /* We piggyback the two-sided stencil front/back determination on the
@@ -301,7 +299,7 @@ void _swsetup_choose_trifuncs( GLcontext *ctx )
     */
    if (ctx->Polygon.FrontMode != GL_FILL ||
        ctx->Polygon.BackMode != GL_FILL ||
-       (ctx->Stencil.Enabled && ctx->Stencil._TestTwoSide))
+       (ctx->Stencil.Enabled && ctx->Stencil.TestTwoSide))
       ind |= SS_UNFILLED_BIT;
 
    if (ctx->Visual.rgbMode)

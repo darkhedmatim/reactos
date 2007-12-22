@@ -3,11 +3,11 @@
 * LICENSE:     GPL - See COPYING in the top level directory
 * FILE:        subsystems/win32/csrss/win32csr/lang/it-IT.rc
 * PURPOSE:     Italian Translation of subsystems/win32/csrss/win32csr/lang/en-US.rc
-* PROGRAMMERS:
+* PROGRAMMERS: 
 *              Copyright (C) 2007 Daniele Forsi (dforsi at gmail.com) Italian Translation
 */
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 IDD_END_NOW DIALOG DISCARDABLE  0, 0, 200, 95
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU

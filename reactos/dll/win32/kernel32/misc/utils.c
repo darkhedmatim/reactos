@@ -9,12 +9,10 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#ifdef _M_IX86
 #include "i386/ketypes.h"
-#endif
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS ******************************************************************/
 
@@ -336,7 +334,6 @@ BasepInitializeContext(IN PCONTEXT Context,
                        IN PVOID StackAddress,
                        IN ULONG ContextType)
 {
-#ifdef _M_IX86
     DPRINT("BasepInitializeContext: %p\n", Context);
     
     /* Setup the Initial Win32 Thread Context */
@@ -374,11 +371,6 @@ BasepInitializeContext(IN PCONTEXT Context,
     
     /* Give it some room for the Parameter */
     Context->Esp -= sizeof(PVOID);
-#else
-#warning Unknown architecture
-    UNIMPLEMENTED;
-    DbgBreakPoint();
-#endif
 }
 
 /*

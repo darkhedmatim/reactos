@@ -1,11 +1,10 @@
 # Makefile for core library for VMS
-# contributed by Jouk Jansen  joukj@hrem.nano.tudelft.nl
-# Last revision : 2 November 2005
+# contributed by Jouk Jansen  joukj@hrem.stm.tudelft.nl
+# Last revision : 16 June 2003
 
 .first
 	define gl [----.include.gl]
 	define math [--.math]
-	define tnl [--.tnl]
 	define swrast [--.swrast]
 
 .include [----]mms-config.
@@ -16,7 +15,7 @@ VPATH = RCS
 
 INCDIR = [----.include],[--.main],[--.glapi],[--.shader]
 LIBDIR = [----.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
 SOURCES = driverfuncs.c
 

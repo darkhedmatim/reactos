@@ -1872,7 +1872,6 @@
 #define MAKE_SCODE(s,f,c) ((SCODE)(((unsigned long)(s)<<31)|((unsigned long)(f)<<16)|((unsigned long)(c))) )
 #define FACILITY_NT_BIT 0x10000000
 #define HRESULT_FROM_WIN32(x) (x?((HRESULT)(((x)&0x0000FFFF)|(FACILITY_WIN32<<16)|0x80000000)):0)
-#define __HRESULT_FROM_WIN32(x) HRESULT_FROM_WIN32(x)
 #define HRESULT_FROM_NT(x) ((HRESULT)((x)|FACILITY_NT_BIT))
 #define GetScode(hr) ((SCODE) (hr))
 #define ResultFromScode(sc) ((HRESULT) (sc))
@@ -2588,11 +2587,6 @@
 #define SCARD_W_CHV_BLOCKED                                _HRESULT_TYPEDEF_(0x8010006CL)
 #define SCARD_W_CARD_NOT_AUTHENTICATED                     _HRESULT_TYPEDEF_(0x8010006FL)
 
-
-#define CAT_E_FIRST                                        _HRESULT_TYPEDEF_(0x80040160L)
-#define CAT_E_CATIDNOEXIST                                 _HRESULT_TYPEDEF_(0x80040160L)
-#define CAT_E_NODESCRIPTION                                _HRESULT_TYPEDEF_(0x80040161L)
-#define CAT_E_LAST                                         _HRESULT_TYPEDEF_(0x80040161L)
 
 
 #endif

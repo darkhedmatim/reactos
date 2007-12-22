@@ -1,5 +1,6 @@
 /*
  *  ReactOS kernel
+ *  Copyright (C) 2004 ReactOS Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,13 +16,13 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/userenv/profile.c
  * PURPOSE:         User profile code
- * PROGRAMMERS:     Eric Kohl
- *                  Hervé Poussineau
+ * PROGRAMMER:      Eric Kohl
  */
 
 #include <precomp.h>
@@ -62,7 +63,7 @@ AppendSystemPostfix (LPWSTR lpName,
       lpszPtr++;
     }
 
-  if (wcslen(lpName) + wcslen(lpszPostfix) + 1 >= dwMaxLength)
+  if (wcslen(lpName) + wcslen(lpszPostfix) >= dwMaxLength)
     {
       DPRINT1("Error: buffer overflow\n");
       SetLastError(ERROR_BUFFER_OVERFLOW);
@@ -97,67 +98,6 @@ CreateUserProfileA (PSID Sid,
   RtlFreeUnicodeString (&UserName);
 
   return bResult;
-}
-
-
-static BOOL
-AcquireRemoveRestorePrivilege(
-    IN BOOL bAcquire)
-{
-    HANDLE Process;
-    HANDLE Token;
-    PTOKEN_PRIVILEGES TokenPriv;
-    BOOL bRet;
-
-    DPRINT("AcquireRemoveRestorePrivilege(%d)\n", bAcquire);
-
-    Process = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, GetCurrentProcessId());
-    if (!Process)
-    {
-        DPRINT1("OpenProcess() failed with error %lu\n", GetLastError());
-        return FALSE;
-    }
-    bRet = OpenProcessToken(Process, TOKEN_ADJUST_PRIVILEGES, &Token);
-    CloseHandle(Process);
-    if (!bRet)
-    {
-        DPRINT1("OpenProcessToken() failed with error %lu\n", GetLastError());
-        return FALSE;
-    }
-    TokenPriv = HeapAlloc(GetProcessHeap(), 0, FIELD_OFFSET(TOKEN_PRIVILEGES, Privileges) + sizeof(LUID_AND_ATTRIBUTES));
-    if (!TokenPriv)
-    {
-        DPRINT1("Failed to allocate mem for token privileges\n");
-        CloseHandle(Token);
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
-    TokenPriv->PrivilegeCount = 1;
-    TokenPriv->Privileges[0].Attributes = bAcquire ? SE_PRIVILEGE_ENABLED : 0;
-    if (!LookupPrivilegeValue(NULL, SE_RESTORE_NAME, &TokenPriv->Privileges[0].Luid))
-    {
-        DPRINT1("LookupPrivilegeValue() failed with error %lu\n", GetLastError());
-        HeapFree(GetProcessHeap(), 0, TokenPriv);
-        CloseHandle(Token);
-        return FALSE;
-    }
-    bRet = AdjustTokenPrivileges(
-        Token,
-        FALSE,
-        TokenPriv,
-        0,
-        NULL,
-        NULL);
-    HeapFree(GetProcessHeap(), 0, TokenPriv);
-    CloseHandle(Token);
-
-    if (!bRet)
-    {
-        DPRINT1("AdjustTokenPrivileges() failed with error %lu\n", GetLastError());
-        return FALSE;
-    }
-
-    return TRUE;
 }
 
 
@@ -345,19 +285,10 @@ CreateUserProfileW (PSID Sid,
   wcscpy (szBuffer, szUserProfilePath);
   wcscat (szBuffer, L"\\ntuser.dat");
 
-  /* Acquire restore privilege */
-  if (!AcquireRemoveRestorePrivilege(TRUE))
-    {
-      DPRINT1("Error: %lu\n", Error);
-      LocalFree ((HLOCAL)SidString);
-      return FALSE;
-    }
-
   /* Create new user hive */
   Error = RegLoadKeyW (HKEY_USERS,
 		       SidString,
 		       szBuffer);
-  AcquireRemoveRestorePrivilege(FALSE);
   if (Error != ERROR_SUCCESS)
     {
       DPRINT1("Error: %lu\n", Error);
@@ -835,7 +766,7 @@ GetUserProfileDirectoryW (HANDLE hToken,
   dwLength = wcslen (szImagePath) + 1;
   if (*lpcchSize < dwLength)
     {
-      *lpcchSize = dwLength;
+      DPRINT1 ("Buffer too small\n");
       SetLastError (ERROR_INSUFFICIENT_BUFFER);
       return FALSE;
     }
@@ -894,190 +825,91 @@ LoadUserProfileA (HANDLE hToken,
 
 
 BOOL WINAPI
-LoadUserProfileW(
-    IN HANDLE hToken,
-    IN OUT LPPROFILEINFOW lpProfileInfo)
+LoadUserProfileW (HANDLE hToken,
+		  LPPROFILEINFOW lpProfileInfo)
 {
-    WCHAR szUserHivePath[MAX_PATH];
-    LPWSTR UserName = NULL, Domain = NULL;
-    DWORD UserNameLength = 0, DomainLength = 0;
-    PTOKEN_USER UserSid = NULL;
-    SID_NAME_USE AccountType;
-    UNICODE_STRING SidString = { 0, };
-    LONG Error;
-    BOOL ret = FALSE;
-    DWORD dwLength = sizeof(szUserHivePath) / sizeof(szUserHivePath[0]);
+  WCHAR szUserHivePath[MAX_PATH];
+  UNICODE_STRING SidString;
+  LONG Error;
+  DWORD dwLength = sizeof(szUserHivePath) / sizeof(szUserHivePath[0]);
 
-    DPRINT("LoadUserProfileW() called\n");
+  DPRINT ("LoadUserProfileW() called\n");
 
-    /* Check profile info */
-    if (!lpProfileInfo
-     || lpProfileInfo->dwSize != sizeof(PROFILEINFOW)
-     || lpProfileInfo->lpUserName == NULL
-     || lpProfileInfo->lpUserName[0] == 0)
+  /* Check profile info */
+  if (lpProfileInfo->dwSize != sizeof(PROFILEINFOW) ||
+      lpProfileInfo->lpUserName == NULL ||
+      lpProfileInfo->lpUserName[0] == 0)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return TRUE;
+      SetLastError (ERROR_INVALID_PARAMETER);
+      return FALSE;
     }
 
-    /* Don't load a profile twice */
-    if (CheckForLoadedProfile(hToken))
+  /* Don't load a profile twice */
+  if (CheckForLoadedProfile (hToken))
     {
-        DPRINT ("Profile already loaded\n");
-        lpProfileInfo->hProfile = NULL;
-        return TRUE;
+      DPRINT ("Profile already loaded\n");
+      lpProfileInfo->hProfile = NULL;
+      return TRUE;
     }
 
-    if (lpProfileInfo->lpProfilePath)
+  if (!GetProfilesDirectoryW (szUserHivePath,
+			      &dwLength))
     {
-        wcscpy(szUserHivePath, lpProfileInfo->lpProfilePath);
-    }
-    else
-    {
-        /* FIXME: check if MS Windows allows lpProfileInfo->lpProfilePath to be NULL */
-        if (!GetProfilesDirectoryW(szUserHivePath, &dwLength))
-        {
-            DPRINT1("GetProfilesDirectoryW() failed (error %ld)\n", GetLastError());
-            return FALSE;
-        }
+      DPRINT1("GetProfilesDirectoryW() failed\n", GetLastError());
+      return FALSE;
     }
 
-    wcscat(szUserHivePath, L"\\");
-    wcscat(szUserHivePath, lpProfileInfo->lpUserName);
-    dwLength = sizeof(szUserHivePath) / sizeof(szUserHivePath[0]);
-    if (!AppendSystemPostfix(szUserHivePath, dwLength))
+  wcscat (szUserHivePath, L"\\");
+  wcscat (szUserHivePath, lpProfileInfo->lpUserName);
+  if (!AppendSystemPostfix (szUserHivePath, MAX_PATH))
     {
-        DPRINT1("AppendSystemPostfix() failed\n", GetLastError());
-        return FALSE;
+      DPRINT1("AppendSystemPostfix() failed\n", GetLastError());
+      return FALSE;
     }
 
-    /* Create user hive name */
-    wcscat(szUserHivePath, L"\\ntuser.dat");
-    DPRINT("szUserHivePath: %S\n", szUserHivePath);
+  /* Create user hive name */
+  wcscat (szUserHivePath, L"\\ntuser.dat");
 
-    /* Create user profile directory if needed */
-    if (GetFileAttributesW(szUserHivePath) == INVALID_FILE_ATTRIBUTES)
+  DPRINT ("szUserHivePath: %S\n", szUserHivePath);
+
+  if (!GetUserSidFromToken (hToken,
+			    &SidString))
     {
-        /* Get user sid */
-        if (GetTokenInformation(hToken, TokenUser, NULL, 0, &dwLength)
-         || GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-        {
-            DPRINT1 ("GetTokenInformation() failed\n");
-            return FALSE;
-        }
-        UserSid = (PTOKEN_USER)HeapAlloc(GetProcessHeap(), 0, dwLength);
-        if (!UserSid)
-        {
-            DPRINT1 ("HeapAlloc() failed\n");
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            goto cleanup;
-        }
-        if (!GetTokenInformation(hToken, TokenUser, UserSid, dwLength, &dwLength))
-        {
-            DPRINT1 ("GetTokenInformation() failed\n");
-            goto cleanup;
-        }
-
-        /* Get user name */
-        do
-        {
-            if (UserNameLength > 0)
-            {
-                HeapFree(GetProcessHeap(), 0, UserName);
-                UserName = (LPWSTR)HeapAlloc(GetProcessHeap(), 0, UserNameLength * sizeof(WCHAR));
-                if (!UserName)
-                {
-                    DPRINT1("HeapAlloc() failed\n");
-                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                    goto cleanup;
-                }
-            }
-            if (DomainLength > 0)
-            {
-                HeapFree(GetProcessHeap(), 0, Domain);
-                Domain = (LPWSTR)HeapAlloc(GetProcessHeap(), 0, DomainLength * sizeof(WCHAR));
-                if (!Domain)
-                {
-                    DPRINT1("HeapAlloc() failed\n");
-                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                    goto cleanup;
-                }
-            }
-            ret = LookupAccountSidW(
-                NULL, UserSid->User.Sid,
-                UserName, &UserNameLength,
-                Domain, &DomainLength,
-               &AccountType);
-        } while (!ret && GetLastError() == ERROR_INSUFFICIENT_BUFFER);
-
-        if (!ret)
-        {
-            DPRINT1("LookupAccountSidW() failed\n");
-            goto cleanup;
-        }
-
-        /* Create profile */
-        /* FIXME: ignore Domain? */
-        DPRINT("UserName %S, Domain %S\n", UserName, Domain);
-        ret = CreateUserProfileW(UserSid->User.Sid, UserName);
-        if (!ret)
-        {
-            DPRINT1("CreateUserProfileW() failed\n");
-            goto cleanup;
-        }
+      DPRINT1 ("GetUserSidFromToken() failed\n");
+      return FALSE;
     }
 
-    /* Get user SID string */
-    ret = GetUserSidFromToken(hToken, &SidString);
-    if (!ret)
-    {
-        DPRINT1("GetUserSidFromToken() failed\n");
-        goto cleanup;
-    }
-    ret = FALSE;
+  DPRINT ("SidString: '%wZ'\n", &SidString);
 
-    /* Acquire restore privilege */
-    if (!AcquireRemoveRestorePrivilege(TRUE))
+  Error = RegLoadKeyW (HKEY_USERS,
+		       SidString.Buffer,
+		       szUserHivePath);
+  if (Error != ERROR_SUCCESS)
     {
-        DPRINT1("AcquireRemoveRestorePrivilege() failed (Error %ld)\n", GetLastError());
-        goto cleanup;
+      DPRINT1 ("RegLoadKeyW() failed (Error %ld)\n", Error);
+      RtlFreeUnicodeString (&SidString);
+      SetLastError((DWORD)Error);
+      return FALSE;
     }
 
-    /* Load user registry hive */
-    Error = RegLoadKeyW(HKEY_USERS,
-                        SidString.Buffer,
-                        szUserHivePath);
-    AcquireRemoveRestorePrivilege(FALSE);
-    if (Error != ERROR_SUCCESS)
+  Error = RegOpenKeyExW (HKEY_USERS,
+		         SidString.Buffer,
+		         0,
+		         MAXIMUM_ALLOWED,
+		         (PHKEY)&lpProfileInfo->hProfile);
+  if (Error != ERROR_SUCCESS)
     {
-        DPRINT1("RegLoadKeyW() failed (Error %ld)\n", Error);
-        SetLastError((DWORD)Error);
-        goto cleanup;
+      DPRINT1 ("RegOpenKeyExW() failed (Error %ld)\n", Error);
+      RtlFreeUnicodeString (&SidString);
+      SetLastError((DWORD)Error);
+      return FALSE;
     }
 
-    /* Open future HKEY_CURRENT_USER */
-    Error = RegOpenKeyExW(HKEY_USERS,
-                          SidString.Buffer,
-                          0,
-                          MAXIMUM_ALLOWED,
-                          (PHKEY)&lpProfileInfo->hProfile);
-    if (Error != ERROR_SUCCESS)
-    {
-        DPRINT1("RegOpenKeyExW() failed (Error %ld)\n", Error);
-        SetLastError((DWORD)Error);
-        goto cleanup;
-    }
+  RtlFreeUnicodeString (&SidString);
 
-    ret = TRUE;
+  DPRINT ("LoadUserProfileW() done\n");
 
-cleanup:
-    HeapFree(GetProcessHeap(), 0, UserSid);
-    HeapFree(GetProcessHeap(), 0, UserName);
-    HeapFree(GetProcessHeap(), 0, Domain);
-    RtlFreeUnicodeString(&SidString);
-
-    DPRINT("LoadUserProfileW() done\n");
-    return ret;
+  return TRUE;
 }
 
 

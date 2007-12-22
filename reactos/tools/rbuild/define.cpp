@@ -33,7 +33,7 @@ Define::Define ( const Project& project,
 }
 
 Define::Define ( const Project& project,
-                 const Module* module,
+	             const Module* module,
                  const XMLElement& defineNode )
 	: project(project),
 	  module(module),
@@ -43,16 +43,14 @@ Define::Define ( const Project& project,
 }
 
 Define::Define ( const Project& project,
-                 const Module* module,
-                 const std::string& name_,
-                 const std::string& backend_)
+	             const Module* module,
+	             const std::string name_ )
 	: project(project),
 	  module(module),
 	  node(NULL)
 {
 	name = name_;
 	value = "";
-	backend = backend_;
 }
 
 Define::~Define ()
@@ -63,21 +61,11 @@ void
 Define::Initialize()
 {
 	const XMLAttribute* att = node->GetAttribute ( "name", true );
-
-	att = node->GetAttribute ( "name", true );
+	const XMLAttribute* empty = node->GetAttribute ( "empty", false );
 	assert(att);
 	name = att->value;
 	value = node->value;
-
-	att = node->GetAttribute ( "backend", false );
-	if ( att )
-		backend = att->value;
-
-	att = node->GetAttribute ( "overridable", false );
-	if ( att )
-		overridable = ( att->value == "true" || att->value == "yes" );
-	else
-		overridable = false;
+	if( empty ) value = " ";
 }
 
 void

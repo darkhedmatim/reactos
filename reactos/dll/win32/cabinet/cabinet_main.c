@@ -37,6 +37,13 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(cabinet);
 
+/* the following defintions are copied from msvcrt/fcntl.h */
+
+#define _O_RDONLY      0
+#define _O_WRONLY      1
+#define _O_RDWR        2
+#define _O_ACCMODE     (_O_RDONLY|_O_WRONLY|_O_RDWR)
+
 
 /***********************************************************************
  * DllGetVersion (CABINET.2)
@@ -84,7 +91,7 @@ static INT_PTR fdi_open(char *pszFile, int oflag, int pmode)
     HANDLE handle;
     DWORD dwAccess = 0;
     DWORD dwShareMode = 0;
-    DWORD dwCreateDisposition;
+    DWORD dwCreateDisposition = OPEN_EXISTING;
 
     switch (oflag & _O_ACCMODE)
     {
@@ -102,17 +109,10 @@ static INT_PTR fdi_open(char *pszFile, int oflag, int pmode)
             break;
     }
 
-    if (oflag & _O_CREAT)
-    {
-        dwCreateDisposition = OPEN_ALWAYS;
-        if (oflag & _O_EXCL) dwCreateDisposition = CREATE_NEW;
-        else if (oflag & _O_TRUNC) dwCreateDisposition = CREATE_ALWAYS;
-    }
-    else
-    {
+    if (GetFileAttributesA(pszFile) != INVALID_FILE_ATTRIBUTES)
         dwCreateDisposition = OPEN_EXISTING;
-        if (oflag & _O_TRUNC) dwCreateDisposition = TRUNCATE_EXISTING;
-    }
+    else
+        dwCreateDisposition = CREATE_NEW;
 
     handle = CreateFileA(pszFile, dwAccess, dwShareMode, NULL,
                          dwCreateDisposition, 0, NULL);
@@ -154,27 +154,21 @@ static long fdi_seek(INT_PTR hf, long dist, int seektype)
     return SetFilePointer(handle, dist, NULL, seektype);
 }
 
-static void fill_file_node(struct FILELIST *pNode, LPCSTR szFilename)
+static void fill_file_node(struct ExtractFileList *pNode, LPCSTR szFilename)
 {
     pNode->next = NULL;
-    pNode->DoExtract = FALSE;
+    pNode->flag = FALSE;
 
-    pNode->FileName = HeapAlloc(GetProcessHeap(), 0, strlen(szFilename) + 1);
-    lstrcpyA(pNode->FileName, szFilename);
+    pNode->filename = HeapAlloc(GetProcessHeap(), 0, strlen(szFilename) + 1);
+    lstrcpyA(pNode->filename, szFilename);
 }
 
-static BOOL file_in_list(struct FILELIST *pNode, LPCSTR szFilename,
-                         struct FILELIST **pOut)
+static BOOL file_in_list(const struct ExtractFileList *pNode, LPCSTR szFilename)
 {
     while (pNode)
     {
-        if (!lstrcmpiA(pNode->FileName, szFilename))
-        {
-            if (pOut)
-                *pOut = pNode;
-
+        if (!lstrcmpiA(pNode->filename, szFilename))
             return TRUE;
-        }
 
         pNode = pNode->next;
     }
@@ -188,17 +182,17 @@ static INT_PTR fdi_notify_extract(FDINOTIFICATIONTYPE fdint, PFDINOTIFICATION pf
     {
         case fdintCOPY_FILE:
         {
-            struct FILELIST *fileList, *node = NULL;
-            SESSION *pDestination = pfdin->pv;
+            struct ExtractFileList **fileList;
+            EXTRACTdest *pDestination = pfdin->pv;
             LPSTR szFullPath, szDirectory;
             HANDLE hFile = 0;
             DWORD dwSize;
 
-            dwSize = lstrlenA(pDestination->Destination) +
+            dwSize = lstrlenA(pDestination->directory) +
                     lstrlenA("\\") + lstrlenA(pfdin->psz1) + 1;
             szFullPath = HeapAlloc(GetProcessHeap(), 0, dwSize);
 
-            lstrcpyA(szFullPath, pDestination->Destination);
+            lstrcpyA(szFullPath, pDestination->directory);
             lstrcatA(szFullPath, "\\");
             lstrcatA(szFullPath, pfdin->psz1);
 
@@ -207,28 +201,26 @@ static INT_PTR fdi_notify_extract(FDINOTIFICATIONTYPE fdint, PFDINOTIFICATION pf
             szDirectory = HeapAlloc(GetProcessHeap(), 0, dwSize);
             lstrcpynA(szDirectory, szFullPath, dwSize);
 
-            pDestination->FileSize += pfdin->cb;
-
-            if (pDestination->Operation & EXTRACT_FILLFILELIST)
+            if (pDestination->flags & EXTRACT_FILLFILELIST)
             {
-                fileList = HeapAlloc(GetProcessHeap(), 0,
-                                     sizeof(struct FILELIST));
+                fileList = &pDestination->filelist;
 
-                fill_file_node(fileList, pfdin->psz1);
-                fileList->DoExtract = TRUE;
-                fileList->next = pDestination->FileList;
-                pDestination->FileList = fileList;
-                lstrcpyA(pDestination->CurrentFile, szFullPath);
-                pDestination->FileCount++;
+                while (*fileList)
+                    fileList = &((*fileList)->next);
+
+                *fileList = HeapAlloc(GetProcessHeap(), 0,
+                                      sizeof(struct ExtractFileList));
+
+                fill_file_node(*fileList, pfdin->psz1);
+                lstrcpyA(pDestination->lastfile, szFullPath);
+                pDestination->filecount++;
             }
 
-            if ((pDestination->Operation & EXTRACT_EXTRACTFILES) ||
-                file_in_list(pDestination->FilterList, pfdin->psz1, NULL))
+            if ((pDestination->flags & EXTRACT_EXTRACTFILES) ||
+                file_in_list(pDestination->filterlist, pfdin->psz1))
             {
-		/* find the file node */
-                file_in_list(pDestination->FileList, pfdin->psz1, &node);
-
-                if (node && !node->DoExtract)
+                /* skip this file if it is not in the file list */
+                if (!file_in_list(pDestination->filelist, pfdin->psz1))
                     return 0;
 
                 /* create the destination directory if it doesn't exist */
@@ -240,8 +232,6 @@ static INT_PTR fdi_notify_extract(FDINOTIFICATIONTYPE fdint, PFDINOTIFICATION pf
 
                 if (hFile == INVALID_HANDLE_VALUE)
                     hFile = 0;
-                else if (node)
-                    node->DoExtract = FALSE;
             }
 
             HeapFree(GetProcessHeap(), 0, szFullPath);
@@ -291,31 +281,29 @@ static INT_PTR fdi_notify_extract(FDINOTIFICATIONTYPE fdint, PFDINOTIFICATION pf
  * NOTES
  *   The following members of the dest struct control the operation
  *   of Extract:
- *       FileSize    [O] The size of all files extracted up to CurrentFile.
- *       Error       [O] The error in case the extract operation fails.
- *       FileList    [I] A linked list of filenames.  Extract only extracts
- *                       files from the cabinet that are in this list.
- *       FileCount   [O] Contains the number of files in FileList on
- *                       completion.
- *       Operation   [I] See Operation.
- *       Destination [I] The destination directory.
- *       CurrentFile [O] The last file extracted.
- *       FilterList  [I] A linked list of files that should not be extracted.
+ *       filelist  [I] A linked list of filenames.  Extract only extracts
+ *                     files from the cabinet that are in this list.
+ *       filecount [O] Contains the number of files in filelist on
+ *                     completion.
+ *       flags     [I] See Operation.
+ *       directory [I] The destination directory.
+ *       lastfile  [O] The last file extracted.
  *
  *   Operation
- *     If Operation contains EXTRACT_FILLFILELIST, then FileList will be
- *     filled with all the files in the cabinet.  If Operation contains
- *     EXTRACT_EXTRACTFILES, then only the files in the FileList will
+ *     If flags contains EXTRACT_FILLFILELIST, then filelist will be
+ *     filled with all the files in the cabinet.  If flags contains
+ *     EXTRACT_EXTRACTFILES, then only the files in the filelist will
  *     be extracted from the cabinet.  EXTRACT_FILLFILELIST can be called
- *     by itself, but EXTRACT_EXTRACTFILES must have a valid FileList
- *     in order to succeed.  If Operation contains both EXTRACT_FILLFILELIST
+ *     by itself, but EXTRACT_EXTRACTFILES must have a valid filelist
+ *     in order to succeed.  If flags contains both EXTRACT_FILLFILELIST
  *     and EXTRACT_EXTRACTFILES, then all the files in the cabinet
  *     will be extracted.
  */
-HRESULT WINAPI Extract(SESSION *dest, LPCSTR szCabName)
+HRESULT WINAPI Extract(EXTRACTdest *dest, LPCSTR szCabName)
 {
     HRESULT res = S_OK;
     HFDI hfdi;
+    ERF erf;
     char *str, *path, *name;
 
     TRACE("(%p, %s)\n", dest, szCabName);
@@ -328,12 +316,12 @@ HRESULT WINAPI Extract(SESSION *dest, LPCSTR szCabName)
                      fdi_close,
                      fdi_seek,
                      cpuUNKNOWN,
-                     &dest->Error);
+                     &erf);
 
     if (!hfdi)
         return E_FAIL;
 
-    if (GetFileAttributesA(dest->Destination) == INVALID_FILE_ATTRIBUTES)
+    if (GetFileAttributesA(dest->directory) == INVALID_FILE_ATTRIBUTES)
         return S_OK;
 
     /* split the cabinet name into path + name */
@@ -355,11 +343,9 @@ HRESULT WINAPI Extract(SESSION *dest, LPCSTR szCabName)
         path = NULL;
     }
 
-    dest->FileSize = 0;
-
     if (!FDICopy(hfdi, name, path, 0,
          fdi_notify_extract, NULL, dest))
-        res = HRESULT_FROM_WIN32(GetLastError());
+        res = E_FAIL;
 
     HeapFree(GetProcessHeap(), 0, str);
 end:

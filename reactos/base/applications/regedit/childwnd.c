@@ -67,18 +67,12 @@ static void draw_splitbar(HWND hWnd, int x)
 static void ResizeWnd(ChildWnd* pChildWnd, int cx, int cy)
 {
     HDWP hdwp = BeginDeferWindowPos(2);
-    RECT rt, rs;
-
+    RECT rt;
     SetRect(&rt, 0, 0, cx, cy);
-    cy = 0;
-    if (hStatusBar != NULL) {
-        GetWindowRect(hStatusBar, &rs);
-        cy = rs.bottom - rs.top + 8;
-    }
+
     cx = pChildWnd->nSplitPos + SPLIT_WIDTH/2;
-	DeferWindowPos(hdwp, pChildWnd->hAddressBarWnd, 0, rt.left, rt.top, rt.right-rt.left, 23, SWP_NOZORDER|SWP_NOACTIVATE);
-    DeferWindowPos(hdwp, pChildWnd->hTreeWnd, 0, rt.left, rt.top + 25, pChildWnd->nSplitPos-SPLIT_WIDTH/2-rt.left, rt.bottom-rt.top-cy, SWP_NOZORDER|SWP_NOACTIVATE);
-    DeferWindowPos(hdwp, pChildWnd->hListWnd, 0, rt.left+cx  , rt.top + 25, rt.right-cx, rt.bottom-rt.top-cy, SWP_NOZORDER|SWP_NOACTIVATE);
+    DeferWindowPos(hdwp, pChildWnd->hTreeWnd, 0, rt.left, rt.top, pChildWnd->nSplitPos-SPLIT_WIDTH/2-rt.left, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
+    DeferWindowPos(hdwp, pChildWnd->hListWnd, 0, rt.left+cx  , rt.top, rt.right-cx, rt.bottom-rt.top, SWP_NOZORDER|SWP_NOACTIVATE);
     EndDeferWindowPos(hdwp);
 }
 
@@ -136,8 +130,8 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         if (keyPath == 0 || *keyPath == 0)
         {
-           MessageBeep(MB_ICONHAND);
-        } else
+           MessageBeep(MB_ICONHAND); 
+        } else 
         if (DeleteKey(hWnd, hRootKey, keyPath))
           DeleteNode(g_pChildWnd->hTreeWnd, 0);
         break;
@@ -202,7 +196,7 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 	iSuggestionsLength--;
 
 	/* Are we a root key in HKEY_CLASSES_ROOT? */
-	if ((hRootKey == HKEY_CLASSES_ROOT) && pszKeyPath[0] && !_tcschr(pszKeyPath, TEXT('\\')))
+	if ((hRootKey == HKEY_CLASSES_ROOT) && pszKeyPath[0] && !_tcschr(pszKeyPath, '\\'))
 	{
 		do
 		{
@@ -259,39 +253,6 @@ static void SuggestKeys(HKEY hRootKey, LPCTSTR pszKeyPath, LPTSTR pszSuggestions
 	}
 }
 
-
-LRESULT CALLBACK AddressBarProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    WNDPROC oldwndproc;
-	static TCHAR s_szNode[256];
-    oldwndproc = (WNDPROC)(LONG_PTR)GetWindowLongPtr(hwnd, GWL_USERDATA);
-
-	switch (uMsg)
-    {
-		case WM_KEYUP:
-			if (wParam == VK_RETURN)
-			{
-				GetWindowText(hwnd, s_szNode, sizeof(s_szNode) / sizeof(s_szNode[0]));
-				SelectNode(g_pChildWnd->hTreeWnd, s_szNode);
-			}
-			break;
-		default:
-			break;
-	}
-	return CallWindowProc(oldwndproc, hwnd, uMsg, wParam, lParam);
-}
-
-/* fix coords to top-left when SHIFT-F10 is pressed */
-void FixPointIfContext(POINTS *pt, HWND hWnd)
-{
-    if (pt->x == -1 && pt->y == -1) {
-        POINT p = { 0, 0 };
-        ClientToScreen(hWnd, &p);
-        pt->x = (WORD)(p.x);
-        pt->y = (WORD)(p.y);
-    }
-}
-
 /*******************************************************************************
  *
  *  FUNCTION: ChildWndProc(HWND, unsigned, WORD, LONG)
@@ -312,40 +273,20 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
     switch (message) {
     case WM_CREATE:
     {
-		WNDPROC oldproc;
-        HFONT hFont;
         TCHAR buffer[MAX_PATH];
         /* load "My Computer" string */
         LoadString(hInst, IDS_MY_COMPUTER, buffer, sizeof(buffer)/sizeof(TCHAR));
 
 	    g_pChildWnd = pChildWnd = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(ChildWnd));
-
+		
         if (!pChildWnd) return 0;
         _tcsncpy(pChildWnd->szPath, buffer, MAX_PATH);
         pChildWnd->nSplitPos = 250;
         pChildWnd->hWnd = hWnd;
-		pChildWnd->hAddressBarWnd = CreateWindowEx(WS_EX_CLIENTEDGE, _T("Edit"), NULL, WS_CHILD | WS_VISIBLE | WS_CHILDWINDOW | WS_TABSTOP,
-										CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-										hWnd, (HMENU)0, hInst, 0);
-		pChildWnd->hTreeWnd = CreateTreeView(hWnd, pChildWnd->szPath, (HMENU) TREE_WINDOW);
+        pChildWnd->hTreeWnd = CreateTreeView(hWnd, pChildWnd->szPath, (HMENU) TREE_WINDOW);
         pChildWnd->hListWnd = CreateListView(hWnd, (HMENU) LIST_WINDOW/*, pChildWnd->szPath*/);
         SetFocus(pChildWnd->hTreeWnd);
-
-        /* set the address bar font */
-        if (pChildWnd->hAddressBarWnd)
-        {
-            hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            SendMessage(pChildWnd->hAddressBarWnd,
-                        WM_SETFONT,
-                        (WPARAM)hFont,
-                        0);
-        }
-
-		/* Subclass the AddressBar */
-		oldproc = (WNDPROC)(LONG_PTR)GetWindowLongPtr(pChildWnd->hAddressBarWnd, GWL_WNDPROC);
-        SetWindowLongPtr(pChildWnd->hAddressBarWnd, GWL_USERDATA, (DWORD_PTR)oldproc);
-        SetWindowLongPtr(pChildWnd->hAddressBarWnd, GWL_WNDPROC, (DWORD_PTR)AddressBarProc);
-		break;
+        break;
     }
     case WM_COMMAND:
         if (!_CmdWndProc(hWnd, message, wParam, lParam)) {
@@ -483,12 +424,11 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 			if (fullPath) {
 			    _stprintf(fullPath, _T("%s\\%s"), rootName, keyPath);
 			    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)fullPath);
-				SendMessage(pChildWnd->hAddressBarWnd, WM_SETTEXT, 0, (LPARAM)fullPath);
 			    HeapFree(GetProcessHeap(), 0, fullPath);
 
 			    {
 			        HKEY hKey;
-			        TCHAR szBuffer[MAX_PATH];
+			        TCHAR szBuffer[MAX_PATH];			
 			    	_sntprintf(szBuffer, sizeof(szBuffer) / sizeof(szBuffer[0]), _T("My Computer\\%s\\%s"), rootName, keyPath);
 
 			    	if (RegCreateKey(HKEY_CURRENT_USER,
@@ -506,44 +446,20 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 	    case NM_SETFOCUS:
 		pChildWnd->nFocusPanel = 0;
 		break;
-            case TVN_BEGINLABELEDIT:
-            {
-				LPNMTVDISPINFO ptvdi;
-				/* cancel label edit for rootkeys  */
-				ptvdi = (LPNMTVDISPINFO) lParam;
-                if (!TreeView_GetParent(pChildWnd->hTreeWnd, ptvdi->item.hItem) ||
-					!TreeView_GetParent(pChildWnd->hTreeWnd, TreeView_GetParent(pChildWnd->hTreeWnd, ptvdi->item.hItem)))
-                  return TRUE;
-				break;
-			}
             case TVN_ENDLABELEDIT:
                 {
                   LPCTSTR keyPath;
                   HKEY hRootKey;
-                  HKEY hKey = NULL;
                   LPNMTVDISPINFO ptvdi;
-                  LONG lResult = TRUE;
-                  TCHAR szBuffer[MAX_PATH];
+                  LONG lResult;
 
                   ptvdi = (LPNMTVDISPINFO) lParam;
                   if (ptvdi->item.pszText)
                   {
-                    keyPath = GetItemPath(pChildWnd->hTreeWnd, TreeView_GetParent(pChildWnd->hTreeWnd, ptvdi->item.hItem), &hRootKey);
-                    _sntprintf(szBuffer, sizeof(szBuffer) / sizeof(szBuffer[0]), _T("%s\\%s"), keyPath, ptvdi->item.pszText);
                     keyPath = GetItemPath(pChildWnd->hTreeWnd, ptvdi->item.hItem, &hRootKey);
-                    if (RegOpenKeyEx(hRootKey, szBuffer, 0, KEY_READ, &hKey) == ERROR_SUCCESS)
-                    {
-                      lResult = FALSE;
-                      RegCloseKey(hKey);
-                      (void)TreeView_EditLabel(pChildWnd->hTreeWnd, ptvdi->item.hItem);
-                    }
-                    else
-                    {
-                      if (RegRenameKey(hRootKey, keyPath, ptvdi->item.pszText) != ERROR_SUCCESS)
-						  lResult = FALSE;
-                    }
-                    return lResult;
-                  }
+                    lResult = RegRenameKey(hRootKey, keyPath, ptvdi->item.pszText);
+                    return lResult == ERROR_SUCCESS;
+		  }
                 }
             default:
                 return 0;
@@ -578,7 +494,6 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         pt = MAKEPOINTS(lParam);
         cnt = ListView_GetSelectedCount(pChildWnd->hListWnd);
         i = ListView_GetNextItem(pChildWnd->hListWnd, -1, LVNI_FOCUSED | LVNI_SELECTED);
-        FixPointIfContext(&pt, pChildWnd->hListWnd);
         if(i == -1)
         {
           TrackPopupMenu(GetSubMenu(hPopupMenus, PM_NEW), TPM_RIGHTBUTTON, pt.x, pt.y, 0, hFrameWnd, NULL);
@@ -618,7 +533,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         ScreenToClient(pChildWnd->hTreeWnd, &hti.pt);
         (void)TreeView_HitTest(pChildWnd->hTreeWnd, &hti);
 
-        if ((hti.flags & TVHT_ONITEM) != 0 || (pt.x == -1 && pt.y == -1))
+        if ((hti.flags & TVHT_ONITEM) != 0)
         {
           hContextMenu = GetSubMenu(hPopupMenus, PM_TREECONTEXT);
           (void)TreeView_SelectItem(pChildWnd->hTreeWnd, hti.hItem);
@@ -679,7 +594,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
               s += _tcslen(s) + 1;
 			}
 		  }
-          FixPointIfContext(&pt, pChildWnd->hTreeWnd);
+
           TrackPopupMenu(hContextMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, pChildWnd->hWnd, NULL);
         }
       }

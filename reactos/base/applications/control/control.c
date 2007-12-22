@@ -40,7 +40,7 @@
 //#define CONTROL_DEBUG_ENABLE
 
 #ifdef CONTROL_DEBUG_ENABLE
-#define CTL_DEBUG(x) dbgprint x
+#define CTL_DEBUG(x) dbgprint x 
 #else
 #define CTL_DEBUG(x)
 #endif
@@ -181,8 +181,6 @@ VOID PopulateCPLList(HWND hLisCtrl)
 
 LRESULT CALLBACK MyWindowProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
-	TCHAR szBuf[1024];
-
 	switch (uMsg)
 	{
 	case WM_CREATE:
@@ -199,13 +197,11 @@ LRESULT CALLBACK MyWindowProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 			column.fmt = LVCFMT_LEFT;
 			column.cx = (rect.right - rect.left) / 3;
 			column.iSubItem = 0;
-			LoadString(hInst, IDS_NAME, szBuf, sizeof(szBuf) / sizeof(TCHAR));
-			column.pszText = szBuf;
+			column.pszText = _T("Name");
 			(void)ListView_InsertColumn(hListView,0,&column);
 			column.cx = (rect.right - rect.left) - ((rect.right - rect.left) / 3) - 1;
 			column.iSubItem = 1;
-			LoadString(hInst, IDS_COMMENT, szBuf, sizeof(szBuf) / sizeof(TCHAR));
-			column.pszText = szBuf;
+			column.pszText = _T("Comment");
 			(void)ListView_InsertColumn(hListView,1,&column);
 			PopulateCPLList(hListView);
 			(void)ListView_SetColumnWidth(hListView,2,LVSCW_AUTOSIZE_USEHEADER);
@@ -246,8 +242,7 @@ LRESULT CALLBACK MyWindowProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 					if (nSelect==-1)
 					{
 						/* no items */
-						LoadString(hInst, IDS_NO_ITEMS, szBuf, sizeof(szBuf) / sizeof(TCHAR));
-						MessageBox(hWnd,(LPCTSTR)szBuf,NULL,MB_OK|MB_ICONINFORMATION);
+						MessageBox(hWnd,_T("No Items in ListView"),_T("Error"),MB_OK|MB_ICONINFORMATION);
 						break;
 					}
 
@@ -289,14 +284,7 @@ LRESULT CALLBACK MyWindowProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 			DestroyWindow(hWnd);
 			break;
 		case IDM_ABOUT:
-			{
-				TCHAR Title[256];
-				
-				LoadString(hInst, IDS_ABOUT, szBuf, sizeof(szBuf) / sizeof(TCHAR));
-				LoadString(hInst, IDS_ABOUT_TITLE, Title, sizeof(Title) / sizeof(TCHAR));
-				
-				MessageBox(hWnd,(LPCTSTR)szBuf,(LPCTSTR)Title,MB_OK | MB_ICONINFORMATION);
-			}
+			MessageBox(hWnd,_T("Simple Control Panel (not Shell-namespace based)\rCopyright 2004 GkWare e.K.\rhttp://www.gkware.com\rReleased under the GPL"),_T("About the Control Panel"),MB_OK | MB_ICONINFORMATION);
 			break;
 		}
 		break;
@@ -314,7 +302,6 @@ RunControlPanelWindow(int nCmdShow)
 {
   MSG msg;
   WNDCLASS wc;
-  TCHAR szBuf[256];
 
   memset(&wc,0x00,sizeof(wc));
   wc.hIcon = LoadIcon(hInst,MAKEINTRESOURCE(IDI_MAINICON));
@@ -324,11 +311,10 @@ RunControlPanelWindow(int nCmdShow)
   RegisterClass(&wc);
 
   InitCommonControls();
-  
-  LoadString(hInst, IDS_WINDOW_TITLE, szBuf, sizeof(szBuf) / sizeof(TCHAR));
+
   hMainWnd = CreateWindowEx(WS_EX_CLIENTEDGE,
 			    MYWNDCLASS,
-			    (LPCTSTR)szBuf,
+			    _T("Control Panel"),
 			    WS_OVERLAPPEDWINDOW,
 			    CW_USEDEFAULT,
 			    CW_USEDEFAULT,
@@ -400,39 +386,46 @@ RunControlPanel(LPCTSTR lpName, UINT uIndex)
   return 0;
 }
 
-int
-_tmain(int argc, const TCHAR *argv[])
+
+int WINAPI
+_tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-  STARTUPINFO si;
+  LPTSTR lpCommandLine;
+  LPTSTR lpParam;
 
-  si.cb = sizeof(si);
-  GetStartupInfo(&si);
+  hInst = hInstance;
+  CTL_DEBUG((_T("My Control Panel\r\n")));
 
-  hInst = GetModuleHandle(NULL);
+  lpCommandLine = GetCommandLine();
 
-  if (argc <= 1)
+  CTL_DEBUG((_T("CommandLine: %s\n"), lpCommandLine));
+
+  lpParam = _tcschr(lpCommandLine, _T(' '));
+  if (lpParam == NULL)
     {
       /* No argument on the command line */
-      return RunControlPanelWindow(si.wShowWindow);
+      return RunControlPanelWindow(nCmdShow);
     }
 
-  if (_tcsicmp(argv[1], _T("desktop")) == 0)
+  lpParam++;
+
+  if (_tcsicmp(lpParam, _T("desktop")) == 0)
     {
       return RunControlPanel(_T("desk.cpl"), 0);
     }
-  else if (_tcsicmp(argv[1], _T("date/time")) == 0)
+  else if (_tcsicmp(lpParam, _T("date/time")) == 0)
     {
       return RunControlPanel(_T("timedate.cpl"), 0);
     }
-  else if (_tcsicmp(argv[1], _T("international")) == 0)
+  else if (_tcsicmp(lpParam, _T("international")) == 0)
     {
       return RunControlPanel(_T("intl.cpl"), 0);
     }
-  else if (_tcsicmp(argv[1], _T("mouse")) == 0)
+  else if (_tcsicmp(lpParam, _T("mouse")) == 0)
     {
       return RunControlPanel(_T("main.cpl"), 0);
     }
-  else if (_tcsicmp(argv[1], _T("keyboard")) == 0)
+  else if (_tcsicmp(lpParam, _T("keyboard")) == 0)
     {
       return RunControlPanel(_T("main.cpl"), 1);
     }

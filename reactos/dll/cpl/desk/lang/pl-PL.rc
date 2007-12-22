@@ -4,7 +4,7 @@
 * xxrogers@users.sourceforge.net
 * https://sourceforge.net/projects/reactospl
 */
-LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+LANGUAGE LANG_POLISH, SUBLANG_NEUTRAL
 
 IDD_BACKGROUND DIALOGEX DISCARDABLE 0, 0, 246, 188
 STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -13,7 +13,7 @@ FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "", IDC_BACKGROUND_PREVIEW, "Static", SS_OWNERDRAW,
                     70, 10, 105, 70, WS_EX_STATICEDGE
-    CONTROL         "", IDC_BACKGROUND_LIST, "SysListView32", LVS_REPORT |
+    CONTROL         "", IDC_BACKGROUND_LIST, "SysListView32", LVS_REPORT | 
                     LVS_SINGLESEL | LVS_NOCOLUMNHEADER | LVS_SHAREIMAGELISTS |
                     WS_BORDER | WS_TABSTOP, 7, 99, 173, 71
     LTEXT           "Wybierz obraz do u¿ycia jako tapeta pulpitu:",
@@ -32,7 +32,7 @@ FONT 8, "MS Shell Dlg", 0, 0
 BEGIN
     CONTROL         "", IDC_SCREENS_PREVIEW, "Static", SS_OWNERDRAW,
                     70, 10, 105, 70, WS_EX_STATICEDGE
-    GROUPBOX        "&Wygaszacz ekranu",IDC_SCREENS_DUMMY, 8, 92, 230, 52
+    GROUPBOX        "&Wygaszasz ekranu",IDC_SCREENS_DUMMY, 8, 92, 230, 52
     COMBOBOX        IDC_SCREENS_LIST, 14, 103, 100, 100, CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "&Ustawienia",IDC_SCREENS_SETTINGS, 120, 103, 50, 13, WS_GROUP
     PUSHBUTTON      "&Podgl¹d",IDC_SCREENS_TESTSC, 175, 103, 50, 13
@@ -105,8 +105,6 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Ustawienia"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT           "Drag the monitor icons to match the physical arrangement of your monitors.",-1,3,3,240,10
-    CONTROL         "",IDC_SETTINGS_MONSEL,"MONITORSELWNDCLASS",WS_CHILD|WS_VISIBLE|WS_TABSTOP,3,16,240,82,WS_EX_CLIENTEDGE
     LTEXT           "&Ekran:",1820,3,100,30,8
     LTEXT           "<brak>",IDC_SETTINGS_DEVICE,9,109,224,8
     GROUPBOX        "&Rozdzielczoœæ ekranu",1818,3,120,115,43
@@ -116,50 +114,25 @@ BEGIN
     LTEXT           "Wiêcej",1816,93,130,21,8,NOT WS_GROUP
     LTEXT           "",IDC_SETTINGS_RESOLUTION_TEXT,10,150,100,10,NOT WS_GROUP | SS_CENTER
     GROUPBOX        "&Jakoœæ kolorów",1817,125,120,115,43
-    COMBOBOX        IDC_SETTINGS_BPP,131,130,103,80,CBS_DROPDOWNLIST | CBS_AUTOHSCROLL |
+    COMBOBOX        IDC_SETTINGS_BPP,131,130,103,80,CBS_DROPDOWNLIST | CBS_AUTOHSCROLL | 
                     WS_VSCROLL | WS_TABSTOP
-    CONTROL         "",IDC_SETTINGS_SPECTRUM,"Static",SS_OWNERDRAW | SS_SUNKEN,131,148,103,9
-    PUSHBUTTON      "Zaawa&nsowane...",IDC_SETTINGS_ADVANCED,170,165,70,14
-END
-
-IDD_ADVANCED_GENERAL DIALOGEX DISCARDABLE 0, 0, 246, 204
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "General"
-FONT 8, "MS Shell Dlg"
-BEGIN
+    CONTROL         "",1813,"Static",SS_BITMAP | SS_CENTERIMAGE | SS_SUNKEN,
+                    131,148,103,9
+    PUSHBUTTON      "Zaawa&nsowane...",IDC_SETTINGS_ADVANCED,306,165,56,14
 END
 
 IDR_PREVIEW_MENU MENU
 BEGIN
-    MENUITEM "Normalny",        ID_MENU_NORMAL
-    MENUITEM "Wy³¹czony",       ID_MENU_DISABLED
+    MENUITEM "Normalny",           ID_MENU_NORMAL
+    MENUITEM "Wy³¹czony",         ID_MENU_DISABLED
     MENUITEM "Wybrany",         ID_MENU_SELECTED
 END
 
-IDM_MONITOR_MENU MENU
-BEGIN
-    POPUP ""
-    BEGIN
-        MENUITEM "&Attached",   ID_MENU_ATTACHED
-        MENUITEM "&Primary",    ID_MENU_PRIMARY
-        MENUITEM SEPARATOR
-        MENUITEM "&Identify",   ID_MENU_IDENTIFY
-        MENUITEM "P&roperties", ID_MENU_PROPERTIES
-    END
-END
-
-STRINGTABLE
-BEGIN
-    IDS_MULTIPLEMONITORS "(Multiple Monitors)"
-    IDS_UNKNOWNMONITOR "(Unknown Monitor)"
-    IDS_ADVANCEDTITLEFMT "%s and %s"
-END
-
-STRINGTABLE
+STRINGTABLE 
 BEGIN
     IDS_CPLNAME "Ekran"
     IDS_CPLDESCRIPTION "Dostosowuje wygl¹d pulpitu oraz wygaszacze."
-    IDS_NONE "(brak)"
+    IDS_NONE "(Brak)"
     IDS_CENTER "Do œrodka"
     IDS_STRETCH "Rozci¹gniêcie"
     IDS_TILE "S¹siaduj¹co"

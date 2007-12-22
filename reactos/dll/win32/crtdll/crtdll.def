@@ -523,7 +523,6 @@ strtod
 strtok
 strtol=NTDLL.strtol
 strtoul
-strtoull
 strxfrm
 swprintf=crt_swprintf
 swscanf

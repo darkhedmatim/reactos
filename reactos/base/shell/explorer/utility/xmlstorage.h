@@ -1,6 +1,6 @@
 
  //
- // XML storage C++ classes version 1.2
+ // XML storage classes version 1.2
  //
  // Copyright (c) 2004, 2005, 2006, 2007 Martin Fuchs <martin-fuchs@gmx.net>
  //
@@ -39,9 +39,6 @@
 
 #ifndef _XMLSTORAGE_H
 
-#ifndef __REACTOS__
-#include <strstream>
-#endif
 
 #ifdef UNICODE
 #ifndef _UNICODE
@@ -157,10 +154,6 @@ typedef XMLCh XML_Char;
 #include <windows.h>	// for LPCTSTR
 #include <tchar.h>
 #include <malloc.h>
-
-#ifndef _MSC_VER
-#include <stdio.h>	// vsnprintf(), snprintf()
-#endif
 
 #else
 
@@ -483,12 +476,10 @@ extern XS_String DecodeXMLString(const XS_String& str);
 
 #ifdef __GNUC__
 #include <ext/stdio_filebuf.h>
-#define FILE_FILEBUF __gnu_cxx::stdio_filebuf<char>
-#elif defined(_MSC_VER)
-#define FILE_FILEBUF std::filebuf
+typedef __gnu_cxx::stdio_filebuf<char> STDIO_FILEBUF;
+#else
+typedef std::filebuf STDIO_FILEBUF;
 #endif
-
-#ifdef FILE_FILEBUF
 
  /// base class for XMLStorage::tifstream and XMLStorage::tofstream
 struct FileHolder
@@ -530,7 +521,7 @@ struct tifstream : public std::istream, FileHolder
 	}
 
 protected:
-	FILE_FILEBUF _buf;
+	STDIO_FILEBUF _buf;
 };
 
  /// output file stream with ANSI/UNICODE file names
@@ -555,36 +546,8 @@ struct tofstream : public std::ostream, FileHolder
 	}
 
 protected:
-	FILE_FILEBUF _buf;
+	STDIO_FILEBUF _buf;
 };
-
-#else // FILE_FILEBUF
-
-#ifdef UNICODE
-#error UNICODE not supported for this platform
-#endif
-
-struct tifstream : public std::ifstream
-{
-	typedef std::ifstream super;
-
-	tifstream(const char* path)
-	 : super(path, std::ios::in|std::ios::binary)
-	{
-	}
-};
-
-struct tofstream : public std::ofstream
-{
-	typedef std::ofstream super;
-
-	tofstream(const char* path)
-	 : super(path, std::ios::out|std::ios::binary)
-	{
-	}
-};
-
-#endif
 
 
  // write XML files with 2 spaces indenting
@@ -939,7 +902,7 @@ struct XMLNode : public XS_String
 		_attributes[attr_name] = value;
 	}
 
-	 /// index operator write access to an attribute
+	 /// C++ write access to an attribute
 	XS_String& operator[](const XS_String& attr_name)
 	{
 		return _attributes[attr_name];
@@ -1060,7 +1023,7 @@ struct XMLNode : public XS_String
 			break;
 
 		  case FORMAT_ORIGINAL:
-			write_worker(out);
+			write_worker(out, indent);
 			break;
 
 		default:	 // FORMAT_SMART
@@ -1150,13 +1113,10 @@ protected:
 	 /// relative XPath create function
 	XMLNode* create_relative(const char* path);
 
-	void	write_worker(std::ostream& out) const;
+	void	write_worker(std::ostream& out, int indent) const;
 	void	plain_write_worker(std::ostream& out) const;
 	void	pretty_write_worker(std::ostream& out, const XMLFormat& format, int indent) const;
 	void	smart_write_worker(std::ostream& out, const XMLFormat& format, int indent) const;
-
-protected:
-	XMLNode* get_child_relative(const char*& path, bool create); // mutable for create==true
 };
 
 
@@ -1407,7 +1367,7 @@ struct XMLPos
 		return *_cur;
 	}
 
-	 /// automatic access to current node
+	 /// C++ access to current node
 	operator const XMLNode*() const {return _cur;}
 	operator XMLNode*() {return _cur;}
 
@@ -1418,9 +1378,9 @@ struct XMLPos
 	XMLNode& operator*() {return *_cur;}
 
 	 /// attribute access
-	XS_String get(const XS_String& attr_name, LPCXSSTR def=XS_EMPTY_STR) const
+	XS_String get(const XS_String& attr_name) const
 	{
-		return _cur->get(attr_name, def);
+		return _cur->get(attr_name);
 	}
 
 	 /// attribute setting
@@ -1429,7 +1389,7 @@ struct XMLPos
 		_cur->put(attr_name, value);
 	}
 
-	 /// index operator attribute access
+	 /// C++ attribute access
 	template<typename T> XS_String get(const T& attr_name) const {return (*_cur)[attr_name];}
 	XS_String& operator[](const XS_String& attr_name) {return (*_cur)[attr_name];}
 
@@ -1604,7 +1564,7 @@ struct const_XMLPos
 		return *_cur;
 	}
 
-	 /// automatic access to current node
+	 /// C++ access to current node
 	operator const XMLNode*() const {return _cur;}
 
 	const XMLNode* operator->() const {return _cur;}
@@ -1617,7 +1577,7 @@ struct const_XMLPos
 		return _cur->get(attr_name);
 	}
 
-	 /// index operator attribute access
+	 /// C++ attribute access
 	template<typename T> XS_String get(const T& attr_name) const {return _cur->get(attr_name);}
 
 	 /// go back to previous position
@@ -1984,23 +1944,23 @@ private:
 };
 
  /// type converter for string data with write access
-struct XMLStringRef
+struct XMStringRef
 {
-	XMLStringRef(XMLNode* node, const XS_String& attr_name, LPCXSSTR def=XS_EMPTY)
+	XMStringRef(XMLNode* node, const XS_String& attr_name, LPCXSSTR def=XS_EMPTY)
 	 :	_ref((*node)[attr_name])
 	{
 		if (_ref.empty())
 			assign(def);
 	}
 
-	XMLStringRef(const XS_String& node_name, XMLNode* node, const XS_String& attr_name, LPCXSSTR def=XS_EMPTY)
+	XMStringRef(XMLNode* node, const XS_String& node_name, const XS_String& attr_name, LPCXSSTR def=XS_EMPTY)
 	 :	_ref(node->subvalue(node_name, attr_name))
 	{
 		if (_ref.empty())
 			assign(def);
 	}
 
-	XMLStringRef& operator=(const XS_String& value)
+	XMStringRef& operator=(const XS_String& value)
 	{
 		assign(value);
 
@@ -2245,7 +2205,7 @@ struct fast_ostringbuffer : public std::streambuf
 	typedef std::char_traits<_E> _Tr;
 
 	explicit fast_ostringbuffer()
-		{_Init(0, 0, /*std::_Noread*/4);}	// optimized for ios::out mode
+		{_Init(0, 0, std::_Noread);}	// optimized for ios::out mode
 
 	virtual ~fast_ostringbuffer()
 		{_Tidy();}
@@ -2274,10 +2234,10 @@ protected:
 			else if (_ALSIZE < _Alsize)
 				_Alsize = _ALSIZE;
 
-			if (_Strmode & std::strstreambuf::_Allocated)
+			if (_Strmode & std::_Allocated)
 				_Al.deallocate(eback(), _Os);
 
-			_Strmode |= std::strstreambuf::_Allocated;
+			_Strmode |= std::_Allocated;
 
 			if (_Os == 0)
 				{_Seekhigh = _P;
@@ -2291,24 +2251,24 @@ protected:
 
 			return _C;}}
 
-	void _Init(const _E *_S, size_t _N, std::strstreambuf::_Strstate _M)
+	void _Init(const _E *_S, size_t _N, std::_Strstate _M)
 		{_Pendsave = 0, _Seekhigh = 0;
 		_Alsize = _MINSIZE, _Strmode = _M;
 		setg(0, 0, 0);
 		setp(0, 0);}
 
 	void _Tidy()
-		{if (_Strmode & std::strstreambuf::_Allocated)
+		{if (_Strmode & std::_Allocated)
 			_Al.deallocate(eback(), (pptr() != 0 ? epptr() : egptr()) - eback());
 		_Seekhigh = 0;
-		_Strmode &= ~std::strstreambuf::_Allocated;}
+		_Strmode &= ~std::_Allocated;}
 
 private:
 	enum {_ALSIZE = 65536/*512*/, _MINSIZE = 32768/*32*/};	// bigger buffer sizes
 
 	_E *_Pendsave, *_Seekhigh;
 	int _Alsize;
-	std::strstreambuf::_Strstate _Strmode;
+	std::_Strstate _Strmode;
 	std::allocator<_E> _Al;
 };
 
@@ -2344,11 +2304,11 @@ struct XMLDoc : public XMLNode
 	XMLDoc(LPCTSTR path)
 	 :	XMLNode("")
 	{
-		read_file(path);
+		read(path);
 	}
 
 #ifdef XS_USE_XERCES
-	bool read_file(LPCTSTR path)
+	bool read(LPCTSTR path)
 	{
 		XMLReader reader(this, path);
 
@@ -2359,7 +2319,7 @@ struct XMLDoc : public XMLNode
 #endif
 	}
 
-	bool read_buffer(const char* buffer, size_t len, const std::string& system_id=std::string())
+	bool read(const char* buffer, size_t len, const std::string& system_id=std::string())
 	{
 		XMLReader reader(this, (const XMLByte*)buffer, len, system_id);
 
@@ -2368,7 +2328,7 @@ struct XMLDoc : public XMLNode
 
 #else // XS_USE_XERCES
 
-	bool read_file(LPCTSTR path)
+	bool read(LPCTSTR path)
 	{
 		tifstream in(path);
 		XMLReader reader(this, in);
@@ -2380,7 +2340,7 @@ struct XMLDoc : public XMLNode
 #endif
 	}
 
-	bool read_buffer(const char* buffer, size_t len, const std::string& system_id=std::string())
+	bool read(const char* buffer, size_t len, const std::string& system_id=std::string())
 	{
 		std::istringstream in(std::string(buffer, len));
 
@@ -2417,8 +2377,7 @@ struct XMLDoc : public XMLNode
 		return true;
 	}
 
-	 /// write XML stream
-	 // FORMAT_SMART: preserving previous white space and comments
+	 /// write XML stream preserving previous white space and comments
 	bool write(std::ostream& out, WRITE_MODE mode=FORMAT_SMART) const
 	{
 		_format.print_header(out, mode!=FORMAT_PLAIN);
@@ -2439,7 +2398,7 @@ struct XMLDoc : public XMLNode
 		return write(out, FORMAT_PRETTY);
 	}
 
-	bool write_file(LPCTSTR path, WRITE_MODE mode=FORMAT_SMART) const
+	bool write(LPCTSTR path, WRITE_MODE mode=FORMAT_SMART) const
 	{
 		tofstream out(path);
 
@@ -2495,7 +2454,7 @@ struct XMLMessageFromString : public XMLMessage
 {
 	XMLMessageFromString(const std::string& xml_str, const std::string& system_id=std::string())
 	{
-		read_buffer(xml_str.c_str(), xml_str.length(), system_id);
+		read(xml_str.c_str(), xml_str.length(), system_id);
 	}
 };
 
@@ -2506,7 +2465,7 @@ struct XMLMessageReader : public XMLPos
 	XMLMessageReader(const std::string& xml_str, const std::string& system_id=std::string())
 	 :	XMLPos(&_msg)
 	{
-		_msg.read_buffer(xml_str.c_str(), xml_str.length(), system_id);
+		_msg.read(xml_str.c_str(), xml_str.length(), system_id);
 	}
 
 	const XMLDoc& get_document()
@@ -2584,7 +2543,7 @@ struct XMLWriter
 			_stack.top()._attributes[attr_name] = value;
 	}
 
-	 /// index operator write access to an attribute
+	 /// C++ write access to an attribute
 	XS_String& operator[](const XS_String& attr_name)
 	{
 		if (_stack.empty())

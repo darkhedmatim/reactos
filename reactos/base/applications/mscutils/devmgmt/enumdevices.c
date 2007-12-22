@@ -87,7 +87,7 @@ OpenPropSheet(HWND hTreeView,
         DevicePropertiesExW(hTreeView,
                             NULL,
                             (LPTSTR)tvItem.lParam,
-                            DPF_EXTENDED,
+                            0,
                             FALSE);
     }
 

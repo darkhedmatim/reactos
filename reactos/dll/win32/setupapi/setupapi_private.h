@@ -28,7 +28,6 @@
 #include <wchar.h>
 
 #define WIN32_NO_STATUS
-#define COBJMACROS
 #include <windows.h>
 #include <aclapi.h>
 #include <cfgmgr32.h>
@@ -50,26 +49,26 @@
 #undef __WINESRC__
 #endif
 
-#define SETUP_DEVICE_INFO_SET_MAGIC 0xd00ff057
+#define SETUP_DEV_INFO_SET_MAGIC 0xd00ff057
 #define SETUP_CLASS_IMAGE_LIST_MAGIC 0xd00ff058
 
-struct DeviceInterface /* Element of DeviceInfo.InterfaceListHead */
+struct DeviceInterface /* Element of DeviceInfoElement.InterfaceListHead */
 {
     LIST_ENTRY ListEntry;
 
     /* Link to is parent device */
-    struct DeviceInfo *DeviceInfo;
+    struct DeviceInfoElement* DeviceInfo;
     GUID InterfaceClassGuid;
 
-
+    
     /* SPINT_ACTIVE : the interface is active/enabled
      * SPINT_DEFAULT: the interface is the default interface for the device class
      * SPINT_REMOVED: the interface is removed
      */
     DWORD Flags;
 
-    /* Contains the symbolic link of this interface, for example
-     * \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
+	/* Contains the symbolic link of this interface, for example
+	 * \\?\ACPI#PNP0501#4&2658d0a0&0#{GUID} */
     WCHAR SymbolicLink[ANYSIZE_ARRAY];
 };
 
@@ -90,11 +89,11 @@ struct InfFileDetails
      * Points into szData at then end of the structure */
     PCWSTR FileName;
 
-    /* Variable size array (contains data for DirectoryName and FileName) */
+	/* Variable size array (contains data for DirectoryName and FileName) */
     WCHAR szData[ANYSIZE_ARRAY];
 };
 
-struct DriverInfoElement /* Element of DeviceInfoSet.DriverListHead and DeviceInfo.DriverListHead */
+struct DriverInfoElement /* Element of DeviceInfoSet.DriverListHead and DeviceInfoElement.DriverListHead */
 {
     LIST_ENTRY ListEntry;
 
@@ -113,14 +112,11 @@ struct ClassInstallParams
     PSP_ADDPROPERTYPAGE_DATA AddPropertyPageData;
 };
 
-struct DeviceInfo /* Element of DeviceInfoSet.ListHead */
+struct DeviceInfoElement /* Element of DeviceInfoSet.ListHead */
 {
     LIST_ENTRY ListEntry;
     /* Used when dealing with CM_* functions */
     DEVINST dnDevInst;
-
-    /* Link to parent DeviceInfoSet */
-    struct DeviceInfoSet *set;
 
     /* Reserved Field of SP_DEVINSTALL_PARAMS_W structure
      * points to a struct DriverInfoElement */
@@ -167,13 +163,13 @@ struct DeviceInfo /* Element of DeviceInfoSet.ListHead */
     /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
     struct ClassInstallParams ClassInstallParams;
 
-    /* Variable size array (contains data for DeviceName, UniqueId, DeviceDescription) */
+	/* Variable size array (contains data for DeviceName, UniqueId, DeviceDescription) */
     WCHAR Data[ANYSIZE_ARRAY];
 };
 
 struct DeviceInfoSet /* HDEVINFO */
 {
-    DWORD magic; /* SETUP_DEVICE_INFO_SET_MAGIC */
+    DWORD magic; /* SETUP_DEV_INFO_SET_MAGIC */
     /* If != GUID_NULL, only devices of this class can be in the device info set */
     GUID ClassGuid;
     /* Local or distant HKEY_LOCAL_MACHINE registry key */
@@ -188,9 +184,9 @@ struct DeviceInfoSet /* HDEVINFO */
      * searched/detected, this list is empty) */
     LIST_ENTRY DriverListHead;
 
-    /* List of struct DeviceInfo */
+	/* List of struct DeviceInfoElement */
     LIST_ENTRY ListHead;
-    struct DeviceInfo *SelectedDevice;
+    struct DeviceInfoElement *SelectedDevice;
 
     /* Used by SetupDiGetClassInstallParamsW/SetupDiSetClassInstallParamsW */
     struct ClassInstallParams ClassInstallParams;
@@ -225,27 +221,15 @@ extern HINSTANCE hInstance;
 #define REGPART_RENAME "\\Rename"
 #define REG_VERSIONCONFLICT "Software\\Microsoft\\VersionConflictManager"
 
-inline static WCHAR *strdupAtoW( const char *str )
-{
-    WCHAR *ret = NULL;
-    if (str)
-    {
-        DWORD len = MultiByteToWideChar( CP_ACP, 0, str, -1, NULL, 0 );
-        if ((ret = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) )))
-            MultiByteToWideChar( CP_ACP, 0, str, -1, ret, len );
-    }
-    return ret;
-}
-
 /* string substitutions */
 
 struct inf_file;
 extern const WCHAR *DIRID_get_string( int dirid );
 extern const WCHAR *PARSER_get_inf_filename( HINF hinf );
-extern unsigned int PARSER_string_substA( const struct inf_file *file, const WCHAR *text, char *buffer,
-                                          unsigned int size );
-extern unsigned int PARSER_string_substW( const struct inf_file *file, const WCHAR *text, WCHAR *buffer,
-                                          unsigned int size );
+extern unsigned int PARSER_string_substA( struct inf_file *file, const WCHAR *text,
+                                          char *buffer, unsigned int size );
+extern unsigned int PARSER_string_substW( struct inf_file *file, const WCHAR *text,
+                                          WCHAR *buffer, unsigned int size );
 extern WCHAR *PARSER_get_src_root( HINF hinf );
 extern WCHAR *PARSER_get_dest_dir( INFCONTEXT *context );
 
@@ -269,11 +253,11 @@ extern OSVERSIONINFOW OsVersionInfo;
 /* devinst.c */
 
 BOOL
-CreateDeviceInfo(
+CreateDeviceInfoElement(
     IN struct DeviceInfoSet *list,
     IN LPCWSTR InstancePath,
     IN LPCGUID pClassGuid,
-    OUT struct DeviceInfo **pDeviceInfo);
+    OUT struct DeviceInfoElement **pDeviceInfo);
 
 /* driver.c */
 
@@ -320,14 +304,6 @@ FreeFunctionPointer(
     IN PVOID FunctionPointer);
 
 DWORD WINAPI CaptureAndConvertAnsiArg(LPCSTR pSrc, LPWSTR *pDst);
-
-VOID WINAPI MyFree(LPVOID lpMem);
-LPVOID WINAPI MyMalloc(DWORD dwSize);
-LPVOID WINAPI MyRealloc(LPVOID lpSrc, DWORD dwSize);
-LPWSTR WINAPI DuplicateString(LPCWSTR lpSrc);
-BOOL WINAPI IsUserAdmin(VOID);
-LPWSTR WINAPI MultiByteToUnicode(LPCSTR lpMultiByteStr, UINT uCodePage);
-LPSTR WINAPI UnicodeToMultiByte(LPCWSTR lpUnicodeStr, UINT uCodePage);
 
 /* parser.c */
 

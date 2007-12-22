@@ -49,47 +49,51 @@ FindAcpiBios(VOID)
 
 
 VOID
-DetectAcpiBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
+DetectAcpiBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 {
-    PCONFIGURATION_COMPONENT_DATA BiosKey;
-    CM_PARTIAL_RESOURCE_LIST PartialResourceList;
+    WCHAR Buffer[80];
+    FRLDRHKEY BiosKey;
+    LONG Error;
 
     if (FindAcpiBios())
     {
         AcpiPresent = TRUE;
-
         /* Create new bus key */
-        FldrCreateComponentKey(SystemKey,
-                               L"MultifunctionAdapter",
-                               *BusNumber,
-                               AdapterClass,
-                               MultiFunctionAdapter,
-                               &BiosKey);
-        
-        /* Set 'Component Information' */
-        FldrSetComponentInformation(BiosKey,
-                                    0x0,
-                                    0x0,
-                                    0xFFFFFFFF);
-        
-        /* Set 'Configuration Data' value */
-        memset(&PartialResourceList, 0, sizeof(CM_PARTIAL_RESOURCE_LIST));
-        PartialResourceList.Version = 0;
-        PartialResourceList.Revision = 0;
-        PartialResourceList.Count = 0;
-        FldrSetConfigurationData(BiosKey,
-                                 &PartialResourceList,
-                                 sizeof(CM_PARTIAL_RESOURCE_LIST) -
-                                 sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
+        swprintf(Buffer,
+                 L"MultifunctionAdapter\\%u", *BusNumber);
+        Error = RegCreateKey(SystemKey,
+                             Buffer,
+                             &BiosKey);
+        if (Error != ERROR_SUCCESS)
+        {
+            DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+            return;
+        }
+
+#if 0
+      /* Set 'Component Information' */
+      SetComponentInformation(BiosKey,
+                              0x0,
+                              0x0,
+                              0xFFFFFFFF);
+#endif
 
         /* Increment bus number */
         (*BusNumber)++;
-        
+
         /* Set 'Identifier' value */
-        FldrSetIdentifier(BiosKey, L"ACPI BIOS");
+        Error = RegSetValue(BiosKey,
+                            L"Identifier",
+                            REG_SZ,
+                            (PCHAR)L"ACPI BIOS",
+                            10 * sizeof(WCHAR));
+        if (Error != ERROR_SUCCESS)
+        {
+            DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+            return;
+        }
+
     }
-    
-    /* FIXME: Add congiguration data */
 }
 
 /* EOF */

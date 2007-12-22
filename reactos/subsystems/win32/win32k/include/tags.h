@@ -24,7 +24,6 @@
 #define TAG_TIMERBMP	TAG('T', 'I', 'M', 'B') /* timers bitmap */
 #define TAG_CALLBACK	TAG('C', 'B', 'C', 'K') /* callback memory */
 #define TAG_WINSTA	TAG('W', 'S', 'T', 'A') /* window station */
-#define TAG_PDCE      TAG('U', 's', 'd', 'c') /* dce */
 
 /* objects */
 #define TAG_BEZIER	TAG('B', 'E', 'Z', 'R') /* bezier */
@@ -35,7 +34,6 @@
 #define TAG_DC		TAG('D', 'C', 'D', 'C') /* dc */
 #define TAG_GDIOBJ	TAG('G', 'D', 'I', 'O') /* gdi obj */
 #define TAG_GDIHNDTBLE	TAG('G', 'D', 'I', 'H') /* gdi handle table */
-#define TAG_GDIICM	TAG('G', 'i', 'c', 'm') /* gdi Icm */
 #define TAG_DIB		TAG('D', 'I', 'B', ' ') /* dib */
 #define TAG_COLORMAP	TAG('C', 'O', 'L', 'M') /* color map */
 #define TAG_SHAPE	TAG('S', 'H', 'A', 'P') /* shape */

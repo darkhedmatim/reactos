@@ -1,10 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="freeldr_base" type="objectlibrary">
 	<include base="freeldr_base">include</include>
 	<include base="freeldr_base">cache</include>
 	<include base="cmlib">.</include>
 	<include base="ntoskrnl">include</include>
+	<define name="__USE_W32API" />
 	<define name="_NTHAL_" />
 	<define name="_NTSYSTEM_" />
 	<compilerflag>-ffreestanding</compilerflag>
@@ -46,24 +45,24 @@
 	<directory name="reactos">
 		<file>registry.c</file>
 		<file>arcname.c</file>
-		<file>archwsup.c</file>
 		<file>binhive.c</file>
 		<file>reactos.c</file>
 	</directory>
 	<directory name="rtl">
 		<file>libsupp.c</file>
+		<file>list.c</file>
 	</directory>
 	<directory name="ui">
 		<file>gui.c</file>
-		<file>minitui.c</file>
-		<file>noui.c</file>
 		<file>tui.c</file>
 		<file>tuimenu.c</file>
 		<file>ui.c</file>
 	</directory>
 	<directory name="video">
+		<file>bank.c</file>
 		<file>fade.c</file>
 		<file>palette.c</file>
+		<file>pixel.c</file>
 		<file>video.c</file>
 	</directory>
 	<if property="ARCH" value="i386">
@@ -80,7 +79,5 @@
 	<file>version.c</file>
 	<file>cmdline.c</file>
 	<file>machine.c</file>
-	<directory name="include">
-		<pch>freeldr.h</pch>
-	</directory>
+	<pch>include/freeldr.h</pch>
 </module>

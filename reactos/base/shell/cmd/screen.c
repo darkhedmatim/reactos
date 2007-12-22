@@ -12,6 +12,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_SCREEN
 
@@ -43,7 +44,7 @@ INT CommandScreen (LPTSTR cmd, LPTSTR param)
 	if (y<0 || y>(maxy-1))
 	{
 		ConOutResPuts(STRING_SCREEN_ROW);
-
+		
 		return 1;
 	}
 

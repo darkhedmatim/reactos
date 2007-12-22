@@ -42,7 +42,7 @@ BEGIN
     LTEXT           "Les développeurs de ReactOS voudraient présenter les projets Open Source suivants, "\
                     "(ou seulement des composants) qui ont été utilisés pour créer ReactOS:",
                     IDC_STATIC,15,7,286,19
-    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS |
+    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS | 
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL
     LTEXT           "ReactOS est sous license GPL, ainsi si vous voulez le réutiliser ou le redistribuer "\
                     "(ou seulement des composants) vous devez respecter la GPL",
@@ -76,16 +76,16 @@ BEGIN
           "Si vous êtes sur un réseau, le nom saisi doit être unique.",
           IDC_STATIC, 54, 7, 250, 24
     LTEXT "&Nom de l'ordinateur :", IDC_STATIC, 54, 38, 75, 8
-    EDITTEXT IDC_COMPUTERNAME, 165, 35, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
+    EDITTEXT IDC_COMPUTERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
     LTEXT "L'assistant va créer un compte utilisateur sur votre ordinateur appelé Administrateur. "\
           "Vous pourrez utiliser ce compte pour avoir un accès complet à votre ordinateur.",
           IDC_STATIC, 54, 57, 250, 25
     LTEXT "Entrez le mot de passe Administrateur (14 caractères ou moins).",
           IDC_STATIC, 54, 87, 250, 8
-    LTEXT "&Mot de passe :", IDC_STATIC, 54, 104, 105, 8
-    EDITTEXT IDC_ADMINPASSWORD1, 165, 101, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
-    LTEXT "Confirmation :", IDC_STATIC, 54, 123, 105, 8
-    EDITTEXT IDC_ADMINPASSWORD2, 165, 120, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "&Mot de passe :", IDC_STATIC, 54, 104, 75, 8
+    EDITTEXT IDC_ADMINPASSWORD1, 132, 101, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "Confirmation :", IDC_STATIC, 54, 123, 75, 8
+    EDITTEXT IDC_ADMINPASSWORD2, 132, 120, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
 END
 
 
@@ -100,13 +100,13 @@ BEGIN
     LTEXT "", IDC_LOCALETEXT, 53, 29, 250, 16
     LTEXT "Pour changer la localisation système, cliquez sur Modifier.",
           IDC_STATIC, 53, 60, 184, 8
-    PUSHBUTTON "&Modifier...", IDC_CUSTOMLOCALE, 250, 57, 50, 14
+    PUSHBUTTON "&Modifier...", IDC_CUSTOMLOCALE, 245, 57, 50, 14
     LTEXT "La configuration clavier contrôle la saisie des touches quand vous tapez.",
           IDC_STATIC, 53, 86, 253, 8
     LTEXT "", IDC_LAYOUTTEXT, 53, 100, 250, 16
     LTEXT "Pour changer la configuration clavier, cliquez sur Modifier.",
           IDC_STATIC, 53, 126, 184, 8
-    PUSHBUTTON "M&odifier...", IDC_CUSTOMLAYOUT, 250, 122, 50, 14
+    PUSHBUTTON "M&odifier...", IDC_CUSTOMLAYOUT, 245, 122, 50, 14
 END
 
 
@@ -115,12 +115,12 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT "Date et Heure :", IDC_STATIC, 53, 7, 253, 8
+    LTEXT "Date et Heure", IDC_STATIC, 53, 7, 253, 8
     CONTROL "", IDC_DATEPICKER, "SysDateTimePick32",
             DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 14
     CONTROL "", IDC_TIMEPICKER, "SysDateTimePick32",
             DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 14
-    LTEXT "Fuseau horaire :", IDC_STATIC, 53, 42, 253, 8
+    LTEXT "Fuseau horaire", IDC_STATIC, 53, 42, 253, 8
     COMBOBOX IDC_TIMEZONELIST, 53, 52, 201, 93,
              CBS_DROPDOWNLIST | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL
     AUTOCHECKBOX "Ajuster automatiquement l'horloge pour l'heure &d'été",
@@ -158,18 +158,9 @@ STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL |
+    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL
     DEFPUSHBUTTON   "OK",IDOK,141,209,50,14
-END
-
-
-IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
-CAPTION "Veuillez patienter..."
-FONT 8,"MS Shell Dlg 2",400,0,1
-BEGIN
-    LTEXT           "",IDC_STATUSLABEL,7,8,234,12,SS_WORDELLIPSIS
 END
 
 
@@ -185,12 +176,15 @@ BEGIN
     IDS_LOCALESUBTITLE   "Vous pouvez modifier ReactOS pour différentes régions et langues."
     IDS_DATETIMETITLE    "Date et Heure"
     IDS_DATETIMESUBTITLE "Configurez la date et l'heure correcte pour votre ordinateur."
-    IDS_PROCESSTITLE     "Enregistrement des composants"
-    IDS_PROCESSSUBTITLE  "Veuillez patienter..."
+    IDS_PROCESSTITLE     "Titre de page de processus"
+    IDS_PROCESSSUBTITLE  "Sous-titre de page de processus"
 END
 
 STRINGTABLE
 BEGIN
+    IDS_CMT_WINEFILE    "Lancer Winefile"
+    IDS_CMT_IBROWSER	"Lancer iBrowser"
+    IDS_CMT_GETFIREFOX	"Télécharger/installer FireFox"
     IDS_CMT_DOWNLOADER  "Télécharger et installer diverses applications"
 END
 
@@ -204,9 +198,6 @@ BEGIN
     IDS_CMT_REGEDIT     "Lancer l'Éditeur de Registre"
     IDS_CMT_WORDPAD     "Lancer l'Éditeur de Documents"
     IDS_CMT_SCREENSHOT  "Faire une capture d'écran"
-    IDS_CMT_DEVMGMT     "Lancer le gestionnaire de périphériques"
-    IDS_CMT_SERVMAN     "Lancer le gestionnaire de services"
-    IDS_CMT_RDESKTOP    "Lancer le bureau distant"
 END
 
 STRINGTABLE
@@ -214,18 +205,6 @@ BEGIN
     IDS_GAMES		    "Jeux"
     IDS_CMT_SOLITAIRE	"Solitaire"
     IDS_CMT_WINEMINE	"WineMine"
-END
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_TOOLS        "Outils système"
-	IDS_CMT_CHARMAP      "Table des Caractères"
-END
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_ACCESSIBILITY        "Accessibilité"
-	IDS_CMT_MAGNIFY      	     "Loupe"
 END
 
 STRINGTABLE
@@ -246,6 +225,7 @@ BEGIN
     IDS_SHORT_CMD        "Invite de commandes.lnk"
     IDS_SHORT_EXPLORER   "Explorateur ReactOS.lnk"
     IDS_SHORT_DOWNLOADER "Télécharger !.lnk"
+    IDS_SHORT_FIREFOX    "Rélécharger FireFox.lnk"
     IDS_SHORT_SERVICE    "Gestionnaire de services.lnk"
     IDS_SHORT_DEVICE     "Gestionnaire de périphériques.lnk"
     IDS_SHORT_CALC       "Calculatrice.lnk"
@@ -255,9 +235,6 @@ BEGIN
     IDS_SHORT_SNAP       "Capture d'écran.lnk"
     IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
     IDS_SHORT_WINEMINE   "WineMine.lnk"
-    IDS_SHORT_CHARMAP    "Table des Caractères.lnk"
-    IDS_SHORT_MAGNIFY    "Loupe.lnk"
-    IDS_SHORT_RDESKTOP   "Bureau Distant.lnk"
 END
 
 STRINGTABLE
@@ -270,10 +247,4 @@ BEGIN
     IDS_WZD_PASSWORDCHAR  "Le mot de passe entré contient des caractères invalides. Veuillez saisir un mot de passe correct."
     IDS_WZD_LOCALTIME    "L'installation n'a pas réussi à définir l'heure locale."
 END
-
-STRINGTABLE
-BEGIN
-    IDS_STATUS_INSTALL_DEV "Installation des périphériques en cours..."
-END
-
 /* EOF */

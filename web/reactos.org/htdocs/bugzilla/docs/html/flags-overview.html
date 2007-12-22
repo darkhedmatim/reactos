@@ -7,7 +7,8 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 3.0.2  Release"
+TITLE="The Bugzilla Guide - 2.22 
+    Release"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Administering Bugzilla"
@@ -16,8 +17,8 @@ REL="PREVIOUS"
 TITLE="Milestones"
 HREF="milestones.html"><LINK
 REL="NEXT"
-TITLE="Custom Fields"
-HREF="custom-fields.html"></HEAD
+TITLE="Voting"
+HREF="voting.html"></HEAD
 ><BODY
 CLASS="section"
 BGCOLOR="#FFFFFF"
@@ -37,7 +38,8 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 3.0.2  Release</TH
+>The Bugzilla Guide - 2.22 
+    Release</TH
 ></TR
 ><TR
 ><TD
@@ -59,7 +61,7 @@ WIDTH="10%"
 ALIGN="right"
 VALIGN="bottom"
 ><A
-HREF="custom-fields.html"
+HREF="voting.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -276,16 +278,16 @@ NAME="flag-askto"
 >3.8.3. Using flag requests</A
 ></H2
 ><P
->&#13;       If a flag has been defined as 'requestable', and a user has enough privileges
-       to request it (see below), the user can set the flag's status to <SPAN
+>&#13;       If a flag has been defined as 'requestable', 
+       users are allowed to set the flag's status to <SPAN
 CLASS="QUOTE"
 >"?"</SPAN
 >.
-       This status indicates that someone (a.k.a. <SPAN
+       This status indicates that someone (aka <SPAN
 CLASS="QUOTE"
 >"the requester"</SPAN
->) is asking
-       someone else to set the flag to either <SPAN
+> is asking
+       for someone else to set the flag to either <SPAN
 CLASS="QUOTE"
 >"+"</SPAN
 > or <SPAN
@@ -296,7 +298,7 @@ CLASS="QUOTE"
 ><P
 >&#13;       If a flag has been defined as 'specifically requestable', 
        a text box will appear next to the flag into which the requester may
-       enter a Bugzilla username. That named person (a.k.a. <SPAN
+       enter a Bugzilla username. That named person (aka <SPAN
 CLASS="QUOTE"
 >"the requestee"</SPAN
 >)
@@ -361,7 +363,8 @@ CLASS="computeroutput"
          he has to check out that attachment and approve it or deny it.
        </P
 ><P
->&#13;         For a Bugzilla user, attachment flags show up in three places:
+>&#13;         For a Bugzilla user, attachment flags show up in two 
+         places:
          <P
 ></P
 ><OL
@@ -392,23 +395,6 @@ CLASS="QUOTE"
               screen is where you set flags to ?, -, +, or unset them.
              </P
 ></LI
-><LI
-><P
->&#13;               Requests are listed in the <SPAN
-CLASS="QUOTE"
->"Request Queue"</SPAN
->, which
-               is accessible from the <SPAN
-CLASS="QUOTE"
->"My Requests"</SPAN
-> link (if you are
-               logged in) or <SPAN
-CLASS="QUOTE"
->"Requests"</SPAN
-> link (if you are logged out)
-               visible in the footer of all pages.
-             </P
-></LI
 ></OL
 >
        </P
@@ -426,19 +412,20 @@ NAME="flag-type-bug"
          see Bug Flags in the <SPAN
 CLASS="QUOTE"
 >"Show Bug"</SPAN
-> and <SPAN
-CLASS="QUOTE"
->"Requests"</SPAN
->
-         screens, as described above.
+> screen 
+         (<TT
+CLASS="filename"
+>editbug.cgi</TT
+>).
        </P
 ><P
->&#13;         Only users with enough privileges (see below) may set flags on bugs.
-         This doesn't necessarily include the assignee, reporter, or users with the
-         <SAMP
+>&#13;         Only users with the ability to edit the bug may 
+         set flags on bugs. This includes the assignee, reporter, and 
+         any user with the <SAMP
 CLASS="computeroutput"
 >editbugs</SAMP
-> permission.
+> 
+         permission.
        </P
 ></DIV
 ></DIV
@@ -497,8 +484,7 @@ NAME="flags-create-field-name"
 ><P
 >&#13;            This is the name of the flag. This will be displayed 
             to Bugzilla users who are looking at or setting the flag. 
-            The name may contain any valid Unicode characters except commas
-            and spaces.
+            The name may consist of any valid Unicode character. 
           </P
 ></DIV
 ><DIV
@@ -510,16 +496,10 @@ NAME="flags-create-field-description"
 >3.8.5.1.2. Description</A
 ></H4
 ><P
->&#13;            The description describes the flag in more detail. It is visible
-            in a tooltip when hovering over a flag either in the <SPAN
-CLASS="QUOTE"
->"Show Bug"</SPAN
->
-            or <SPAN
-CLASS="QUOTE"
->"Edit Attachment"</SPAN
-> pages. This field can be as
-            long as you like, and can contain any character you want.
+>&#13;            This describes the flag in more detail. At present, this doesn't
+            show up anywhere helpful; ideally, it would be nice to have
+            it show up as a tooltip. This field 
+            can be as long as you like, and can contain any character you want.
           </P
 ></DIV
 ><DIV
@@ -615,9 +595,9 @@ CLASS="QUOTE"
           </P
 ><P
 >&#13;            You may select a Product without selecting a specific Component,
-            but you can't select a Component without a Product, or to select a
-            Component that does not belong to the named Product. If you do so,
-            Bugzilla will display an error message, even if all your products
+            but it is illegal to select a Component without a Product, or to select a
+            Component that does not belong to the named Product. Doing so as of
+            this writing (2.18rc3) will raise an error... even if all your products
             have a component by that name.
           </P
 ><P
@@ -732,8 +712,22 @@ CLASS="section"
 ><H4
 CLASS="section"
 ><A
+NAME="flags-create-field-cclist"
+>3.8.5.1.7. CC List</A
+></H4
+><P
+>&#13;            If you want certain users to be notified every time this flag is 
+            set to ?, -, +, or unset, add them here. This is a comma-separated 
+            list of email addresses that need not be restricted to Bugzilla usernames..
+          </P
+></DIV
+><DIV
+CLASS="section"
+><H4
+CLASS="section"
+><A
 NAME="flags-create-field-specific"
->3.8.5.1.7. Specifically Requestable</A
+>3.8.5.1.8. Specifically Requestable</A
 ></H4
 ><P
 >&#13;            By default this box is checked for new flags, meaning that users may make
@@ -753,7 +747,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="flags-create-field-multiplicable"
->3.8.5.1.8. Multiplicable</A
+>3.8.5.1.9. Multiplicable</A
 ></H4
 ><P
 >&#13;            Any flag with <SPAN
@@ -770,65 +764,6 @@ CLASS="QUOTE"
 >"additional"</SPAN
 >) before the name. There is no limit to the number of
             times a Multiplicable flags may be set on the same bug/attachment.
-          </P
-></DIV
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="flags-create-field-cclist"
->3.8.5.1.9. CC List</A
-></H4
-><P
->&#13;            If you want certain users to be notified every time this flag is 
-            set to ?, -, +, or unset, add them here. This is a comma-separated 
-            list of email addresses that need not be restricted to Bugzilla usernames.
-          </P
-></DIV
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="flags-create-grant-group"
->3.8.5.1.10. Grant Group</A
-></H4
-><P
->&#13;            When this field is set to some given group, only users in the group
-            can set the flag to <SPAN
-CLASS="QUOTE"
->"+"</SPAN
-> and <SPAN
-CLASS="QUOTE"
->"-"</SPAN
->. This
-            field does not affect who can request or cancel the flag. For that,
-            see the <SPAN
-CLASS="QUOTE"
->"Request Group"</SPAN
-> field below. If this field
-            is left blank, all users can set or delete this flag. This field is
-            useful for restricting which users can approve or reject requests.
-          </P
-></DIV
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="flags-create-request-group"
->3.8.5.1.11. Request Group</A
-></H4
-><P
->&#13;            When this field is set to some given group, only users in the group
-            can request or cancel this flag. Note that this field has no effect
-            if the <SPAN
-CLASS="QUOTE"
->"grant group"</SPAN
-> field is empty. You can set the
-            value of this field to a different group, but both fields have to be
-            set to a group for this field to have an effect.
           </P
 ></DIV
 ></DIV
@@ -949,7 +884,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="custom-fields.html"
+HREF="voting.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -973,7 +908,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Custom Fields</TD
+>Voting</TD
 ></TR
 ></TABLE
 ></DIV

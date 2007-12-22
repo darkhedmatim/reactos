@@ -1,9 +1,10 @@
-<module name="shdocvw" type="win32dll" baseaddress="${BASEADDRESS_SHDOCVW}" installbase="system32" installname="shdocvw.dll" allowwarnings="true">
+<module name="shdocvw" type="win32dll" baseaddress="${BASEADDRESS_SHDOCVW}" installbase="system32" installname="shdocvw.dll" usewrc="false" allowwarnings="true">
 	<autoregister infsection="OleControlDlls" type="Both" />
 	<importlibrary definition="shdocvw.spec.def" />
 	<include base="shdocvw">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
 	<define name="_WIN32_IE">0x600</define>
 	<define name="_WIN32_WINNT">0x501</define>
 	<define name="WINVER">0x501</define>
@@ -28,7 +29,7 @@
 	<file>persist.c</file>
 	<file>regsvr.c</file>
 	<file>shdocvw_main.c</file>
-	<file>shlinstobj.c</file>
+        <file>shlinstobj.c</file>
 	<file>view.c</file>
 	<file>webbrowser.c</file>
 	<file>shdocvw.rc</file>

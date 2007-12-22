@@ -12,7 +12,6 @@
  *   CSH 15/08-2003 Made it portable
  *   CF  04/05-2007 Reformatted the code to be more consistent and use TABs instead of spaces
  *   CF  04/05-2007 Made it compatible with 64-bit operating systems
- *   CF  18/08-2007 Use typedefs64.h and the Windows types for compatibility with 64-bit operating systems
  */
 #include <stdio.h>
 #include "mszip.h"
@@ -54,10 +53,10 @@ CMSZipCodec::~CMSZipCodec()
 }
 
 
-ULONG CMSZipCodec::Compress(void* OutputBuffer,
+uint32_t CMSZipCodec::Compress(void* OutputBuffer,
                                void* InputBuffer,
-                               ULONG InputLength,
-                               PULONG OutputLength)
+                               uint32_t InputLength,
+                               uint32_t* OutputLength)
 /*
  * FUNCTION: Compresses data in a buffer
  * ARGUMENTS:
@@ -67,16 +66,16 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
  *     OutputLength   = Address of buffer to place size of compressed data
  */
 {
-	PUSHORT Magic;
+	uint16_t* Magic;
 
 	DPRINT(MAX_TRACE, ("InputLength (%lu).\n", InputLength));
 
-	Magic  = (PUSHORT)OutputBuffer;
+	Magic  = (uint16_t*)OutputBuffer;
 	*Magic = MSZIP_MAGIC;
 
 	ZStream.next_in   = (unsigned char*)InputBuffer;
 	ZStream.avail_in  = InputLength;
-	ZStream.next_out  = (unsigned char*)((_W64 unsigned long)OutputBuffer + 2);
+	ZStream.next_out  = (unsigned char*)((uintptr_t)OutputBuffer + 2);
 	ZStream.avail_out = CAB_BLOCKSIZE + 12;
 
 	/* WindowBits is passed < 0 to tell that there is no zlib header */
@@ -114,10 +113,10 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
 }
 
 
-ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
+uint32_t CMSZipCodec::Uncompress(void* OutputBuffer,
                                  void* InputBuffer,
-                                 ULONG InputLength,
-                                 PULONG OutputLength)
+                                 uint32_t InputLength,
+                                 uint32_t* OutputLength)
 /*
  * FUNCTION: Uncompresses data in a buffer
  * ARGUMENTS:
@@ -127,11 +126,11 @@ ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
  *     OutputLength = Address of buffer to place size of uncompressed data
  */
 {
-	USHORT Magic;
+	uint16_t Magic;
 
 	DPRINT(MAX_TRACE, ("InputLength (%lu).\n", InputLength));
 
-	Magic = *((PUSHORT)InputBuffer);
+	Magic = *((uint16_t*)InputBuffer);
 
 	if (Magic != MSZIP_MAGIC)
 	{
@@ -139,7 +138,7 @@ ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
 		return CS_BADSTREAM;
 	}
 
-	ZStream.next_in   = (unsigned char*)((_W64 unsigned long)InputBuffer + 2);
+	ZStream.next_in   = (unsigned char*)((uintptr_t)InputBuffer + 2);
 	ZStream.avail_in  = InputLength - 2;
 	ZStream.next_out  = (unsigned char*)OutputBuffer;
 	ZStream.avail_out = CAB_BLOCKSIZE + 12;

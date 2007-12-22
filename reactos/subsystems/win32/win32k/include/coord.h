@@ -21,8 +21,6 @@ VOID
 FASTCALL
 IntLPtoDP ( PDC dc, LPPOINT Points, INT Count );
 
-int STDCALL IntGdiSetMapMode(PDC, int);
-
 BOOL
 FASTCALL
 IntGdiModifyWorldTransform(PDC pDc,

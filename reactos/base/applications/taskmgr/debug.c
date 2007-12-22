@@ -28,16 +28,16 @@ void ProcessPage_OnDebug(void)
     LVITEM               lvitem;
     ULONG                Index;
     DWORD                dwProcessId;
-    WCHAR                strErrorText[260];
+    TCHAR                strErrorText[260];
     HKEY                 hKey;
-    WCHAR                strDebugPath[260];
-    WCHAR                strDebugger[260];
+    TCHAR                strDebugPath[260];
+    TCHAR                strDebugger[260];
     DWORD                dwDebuggerSize;
     PROCESS_INFORMATION  pi;
-    STARTUPINFOW         si;
+    STARTUPINFO          si;
     HANDLE               hDebugEvent;
-    WCHAR                szTemp[256];
-    WCHAR                szTempA[256];
+    TCHAR                szTemp[256];
+    TCHAR                szTempA[256];
 
 
     for (Index=0; Index<(ULONG)ListView_GetItemCount(hProcessPageListCtrl); Index++)
@@ -59,56 +59,56 @@ void ProcessPage_OnDebug(void)
     if ((ListView_GetSelectedCount(hProcessPageListCtrl) != 1) || (dwProcessId == 0))
         return;
 
-    LoadStringW(hInst, IDS_MSG_WARNINGDEBUG, szTemp, 256);
-    LoadStringW(hInst, IDS_MSG_TASKMGRWARNING, szTempA, 256);
+    LoadString(hInst, IDS_MSG_WARNINGDEBUG, szTemp, 256);
+    LoadString(hInst, IDS_MSG_TASKMGRWARNING, szTempA, 256);
 
-    if (MessageBoxW(hMainWnd, szTemp, szTempA, MB_YESNO|MB_ICONWARNING) != IDYES)
+    if (MessageBox(hMainWnd, szTemp, szTempA, MB_YESNO|MB_ICONWARNING) != IDYES)
     {
         GetLastErrorText(strErrorText, 260);
-        LoadStringW(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
-        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
+        LoadString(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
+        MessageBox(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         return;
     }
 
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug", 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, _T("Software\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug"), 0, KEY_READ, &hKey) != ERROR_SUCCESS)
     {
         GetLastErrorText(strErrorText, 260);
-        LoadStringW(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
-        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
+        LoadString(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
+        MessageBox(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         return;
     }
 
     dwDebuggerSize = 260;
-    if (RegQueryValueExW(hKey, L"Debugger", NULL, NULL, (LPBYTE)strDebugger, &dwDebuggerSize) != ERROR_SUCCESS)
+    if (RegQueryValueEx(hKey, _T("Debugger"), NULL, NULL, (LPBYTE)strDebugger, &dwDebuggerSize) != ERROR_SUCCESS)
     {
         GetLastErrorText(strErrorText, 260);
-        LoadStringW(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
-        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
+        LoadString(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
+        MessageBox(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         RegCloseKey(hKey);
         return;
     }
 
     RegCloseKey(hKey);
 
-    hDebugEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
+    hDebugEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if (!hDebugEvent)
     {
         GetLastErrorText(strErrorText, 260);
-        LoadStringW(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
-        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
+        LoadString(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
+        MessageBox(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         return;
     }
 
-    wsprintfW(strDebugPath, strDebugger, dwProcessId, hDebugEvent);
+    wsprintf(strDebugPath, strDebugger, dwProcessId, hDebugEvent);
 
     memset(&pi, 0, sizeof(PROCESS_INFORMATION));
-    memset(&si, 0, sizeof(STARTUPINFOW));
-    si.cb = sizeof(STARTUPINFOW);
-    if (!CreateProcessW(NULL, strDebugPath, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+    memset(&si, 0, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    if (!CreateProcess(NULL, strDebugPath, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
     {
         GetLastErrorText(strErrorText, 260);
-        LoadStringW(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
-        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
+        LoadString(hInst, IDS_MSG_UNABLEDEBUGPROCESS, szTemp, 256);
+        MessageBox(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
     }
 
     CloseHandle(hDebugEvent);

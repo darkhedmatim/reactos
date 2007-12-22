@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<!DOCTYPE project SYSTEM "tools/rbuild/project.dtd">
+<group>
 <directory name="acledit">
 	<xi:include href="acledit/acledit.rbuild" />
 </directory>
@@ -22,9 +22,6 @@
 <directory name="beepmidi">
 	<xi:include href="beepmidi/beepmidi.rbuild" />
 </directory>
-<directory name="browseui">
-	<xi:include href="browseui/browseui.rbuild" />
-</directory>
 <directory name="cabinet">
 	<xi:include href="cabinet/cabinet.rbuild" />
 </directory>
@@ -39,9 +36,6 @@
 </directory>
 <directory name="console">
 	<xi:include href="console/console.rbuild" />
-</directory>
-<directory name="comcat">
-	<xi:include href="comcat/comcat.rbuild" />
 </directory>
 <directory name="comctl32">
 	<xi:include href="comctl32/comctl32.rbuild" />
@@ -117,12 +111,6 @@
 </directory>
 <directory name="mapi32">
 	<xi:include href="mapi32/mapi32.rbuild" />
-</directory>
-<directory name="modemui">
-	<xi:include href="modemui/modemui.rbuild" />
-</directory>
-<directory name="mlang">
-	<xi:include href="mlang/mlang.rbuild" />
 </directory>
 <directory name="mmdrv">
 	<xi:include href="mmdrv/mmdrv.rbuild" />
@@ -202,15 +190,6 @@
 <directory name="psapi">
 	<xi:include href="psapi/psapi.rbuild" />
 </directory>
-<directory name="rasapi32">
-	<xi:include href="rasapi32/rasapi32.rbuild" />
-</directory>
-<directory name="rasdlg">
-	<xi:include href="rasdlg/rasdlg.rbuild" />
-</directory>
-<directory name="rasman">
-	<xi:include href="rasman/rasman.rbuild" />
-</directory>
 <directory name="riched20">
 	<xi:include href="riched20/riched20.rbuild" />
 </directory>
@@ -219,12 +198,6 @@
 </directory>
 <directory name="rpcrt4">
 	<xi:include href="rpcrt4/rpcrt4.rbuild" />
-</directory>
-<directory name="rsabase">
-	<xi:include href="rsabase/rsabase.rbuild" />
-</directory>
-<directory name="rsaenh">
-	<xi:include href="rsaenh/rsaenh.rbuild" />
 </directory>
 <directory name="samlib">
 	<xi:include href="samlib/samlib.rbuild" />
@@ -271,9 +244,6 @@
 <directory name="syssetup">
 	<xi:include href="syssetup/syssetup.rbuild" />
 </directory>
-<directory name="tapiui">
-	<xi:include href="tapiui/tapiui.rbuild" />
-</directory>
 <directory name="twain_32">
 	<xi:include href="twain_32/twain_32.rbuild" />
 </directory>
@@ -312,9 +282,6 @@
 </directory>
 <directory name="winspool">
 	<xi:include href="winspool/winspool.rbuild" />
-</directory>
-<directory name="winsta">
-	<xi:include href="winsta/winsta.rbuild" />
 </directory>
 <directory name="wintrust">
 	<xi:include href="wintrust/wintrust.rbuild" />

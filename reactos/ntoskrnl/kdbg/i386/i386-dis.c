@@ -8,9 +8,7 @@
  * PROGRAMMERS:     No programmer listed.
  */
 
-#include <ntoskrnl.h>
-#define NDEBUG
-#include <debug.h>
+#include <stdarg.h>
 
 /* ReactOS compatibility stuff. */
 #define PARAMS(X) X
@@ -27,19 +25,30 @@ typedef unsigned int bfd_vma;
 typedef unsigned char bfd_byte;
 enum bfd_endian { BFD_ENDIAN_BIG, BIG_ENDIAN_LITTLE, BFD_ENDIAN_UNKNOWN };
 typedef void* bfd;
+typedef void* FILE;
 typedef signed int bfd_signed_vma;
+#define NULL 0
 #define bfd_mach_x86_64_intel_syntax 0
 #define bfd_mach_x86_64 1
 #define bfd_mach_i386_i386_intel_syntax 2
 #define bfd_mach_i386_i386 3
 #define bfd_mach_i386_i8086 4
-#define abort() DbgBreakPoint();
+#define abort() __asm__("int $3\n\t")
 #define _(X) X
 #define ATTRIBUTE_UNUSED
+extern char* strcpy(char *dest, const char *src);
+extern unsigned int strlen(const char *s);
 extern int sprintf(char *str, const char *format, ...);
+extern int vsprintf(char *buf, const char *format, va_list ap);
+extern void* memcpy(void *dest, const void *src, unsigned int length);
+extern void DbgPrint(const char *format, ...);
 #define sprintf_vma(BUF, VMA) sprintf(BUF, "0x%X", VMA)
 #define _setjmp setjmp
+extern unsigned int KdbSymPrintAddress(void* address);
 struct disassemble_info;
+
+extern long KdbpSafeReadMemory(void*, void*, unsigned int);
+
 
 int
 print_insn_i386 (bfd_vma pc, struct disassemble_info *info);
@@ -53,7 +62,7 @@ KdbpPrintDisasm(void* Ignored, const char* fmt, ...)
 
   va_start(ap, fmt);
   ret = vsprintf(buffer, fmt, ap);
-  DbgPrint("%s", buffer);
+  DbgPrint(buffer);
   va_end(ap);
   return(ret);
 }
@@ -93,8 +102,8 @@ KdbpNopPrintAddress(unsigned int Addr, struct disassemble_info * Ignored)
 
 #include "dis-asm.h"
 
-LONG
-KdbpGetInstLength(IN ULONG Address)
+long
+KdbpGetInstLength(unsigned int Address)
 {
   disassemble_info info;
 
@@ -119,8 +128,8 @@ KdbpGetInstLength(IN ULONG Address)
   return(print_insn_i386(Address, &info));
 }
 
-LONG
-KdbpDisassemble(IN ULONG Address, IN ULONG IntelSyntax)
+long
+KdbpDisassemble(unsigned int Address, unsigned long IntelSyntax)
 {
   disassemble_info info;
 
@@ -2155,7 +2164,7 @@ print_insn (pc, info)
   start_codep = priv.the_buffer;
   codep = priv.the_buffer;
 
-  if (_setjmp (priv.bailout) != 0)
+  if (setjmp (priv.bailout) != 0)
     {
       const char *name;
 

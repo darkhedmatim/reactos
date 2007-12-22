@@ -76,9 +76,7 @@ _mesa_Accum( GLenum op, GLfloat value )
    }
 
    if (ctx->DrawBuffer != ctx->ReadBuffer) {
-      /* See GLX_SGI_make_current_read or WGL_ARB_make_current_read,
-       * or GL_EXT_framebuffer_blit.
-       */
+      /* See GLX_SGI_make_current_read or WGL_ARB_make_current_read */
       _mesa_error(ctx, GL_INVALID_OPERATION,
                   "glAccum(different read/draw buffers)");
       return;
@@ -94,7 +92,11 @@ _mesa_Accum( GLenum op, GLfloat value )
    }
 
    if (ctx->RenderMode == GL_RENDER) {
-      ctx->Driver.Accum(ctx, op, value);
+      GLint x = ctx->DrawBuffer->_Xmin;
+      GLint y = ctx->DrawBuffer->_Ymin;
+      GLint width =  ctx->DrawBuffer->_Xmax - ctx->DrawBuffer->_Xmin;
+      GLint height = ctx->DrawBuffer->_Ymax - ctx->DrawBuffer->_Ymin;
+      ctx->Driver.Accum(ctx, op, value, x, y, width, height);
    }
 }
 

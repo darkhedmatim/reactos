@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.1
+ * Version:  3.5
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,7 +53,7 @@ static void TAG(unfilled_tri)( GLcontext *ctx,
    v[1] = (VERTEX *)GET_VERTEX(e1);
    v[2] = (VERTEX *)GET_VERTEX(e2);
 
-   if (ctx->Light.ShadeModel == GL_FLAT && HAVE_HW_FLATSHADE) {
+   if ((ctx->_TriangleCaps & DD_FLATSHADE) && HAVE_HW_FLATSHADE) {
       if (HAVE_RGBA) {
 	 VERT_SAVE_RGBA(0);
 	 VERT_SAVE_RGBA(1);
@@ -97,7 +98,7 @@ static void TAG(unfilled_tri)( GLcontext *ctx,
       }
    }
 
-   if (ctx->Light.ShadeModel == GL_FLAT && HAVE_HW_FLATSHADE) {
+   if ((ctx->_TriangleCaps & DD_FLATSHADE) && HAVE_HW_FLATSHADE) {
       if (HAVE_RGBA) {
 	 VERT_RESTORE_RGBA(0);
 	 VERT_RESTORE_RGBA(1);
@@ -132,7 +133,7 @@ static void TAG(unfilled_quad)( GLcontext *ctx,
    /* Hardware flatshading breaks down here.  If the hardware doesn't
     * support flatshading, this will already have been done:
     */
-   if (ctx->Light.ShadeModel == GL_FLAT && HAVE_HW_FLATSHADE) {
+   if ((ctx->_TriangleCaps & DD_FLATSHADE) && HAVE_HW_FLATSHADE) {
       if (HAVE_RGBA) {
 	 VERT_SAVE_RGBA(0);
 	 VERT_SAVE_RGBA(1);
@@ -174,7 +175,7 @@ static void TAG(unfilled_quad)( GLcontext *ctx,
       if (ef[e3]) LINE( v[3], v[0] );
    }
 
-   if (ctx->Light.ShadeModel == GL_FLAT && HAVE_HW_FLATSHADE) {
+   if ((ctx->_TriangleCaps & DD_FLATSHADE) && HAVE_HW_FLATSHADE) {
       if (HAVE_RGBA) {
 	 VERT_RESTORE_RGBA(0);
 	 VERT_RESTORE_RGBA(1);

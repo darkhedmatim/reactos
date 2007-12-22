@@ -6,10 +6,10 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include "pciidex.h"
-
 #define NDEBUG
 #include <debug.h>
+
+#include "pciidex.h"
 
 static NTSTATUS
 GetBusInterface(
@@ -78,7 +78,7 @@ GetBusInterface(
 	Status = STATUS_SUCCESS;
 
 cleanup:
-	if (BusInterface) ExFreePool(BusInterface);
+	ExFreePool(BusInterface);
 	return Status;
 }
 
@@ -440,11 +440,6 @@ PciIdeXFdoPnpDispatch(
 				}
 			}
 			break;
-		}
-		case IRP_MN_FILTER_RESOURCE_REQUIREMENTS: /* 0x0d */
-		{
-			DPRINT("IRP_MJ_PNP / IRP_MN_FILTER_RESOURCE_REQUIREMENTS\n");
-			return ForwardIrpAndForget(DeviceObject, Irp);
 		}
 		default:
 		{

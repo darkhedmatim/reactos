@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
@@ -49,30 +49,32 @@ HRESULT UMCreateStreamOnCacheFile(LPCWSTR pszURL,
 {
     IUMCacheStream* ucstr;
     HANDLE handle;
-    DWORD size;
-    LPWSTR url, c, ext = NULL;
+    LPWSTR ext;
+    LPCWSTR c;
+    LPCWSTR eloc = 0;
     HRESULT hr;
 
-    size = (strlenW(pszURL)+1)*sizeof(WCHAR);
-    url = urlmon_alloc(size);
-    memcpy(url, pszURL, size);
-
-    for (c = url; *c && *c != '#' && *c != '?'; ++c)
+    for (c = pszURL; *c && *c != '#' && *c != '?'; ++c)
     {
         if (*c == '.')
-            ext = c+1;
-        else if(*c == '/')
-            ext = NULL;
+           eloc = c + 1;
+        else if (*c == '/' || *c == '\\')
+           eloc = 0;
     }
 
-    *c = 0;
+    if (!eloc)
+       eloc = c;
 
-    if(!CreateUrlCacheEntryW(url, dwSize, ext, pszFileName, 0))
+    ext = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR) * (c - eloc + 1));
+    memcpy(ext, eloc, sizeof(WCHAR) * (c - eloc));
+    ext[c - eloc] = 0;
+
+    if(!CreateUrlCacheEntryW(pszURL, dwSize, ext, pszFileName, 0))
        hr = HRESULT_FROM_WIN32(GetLastError());
     else
        hr = 0;
 
-    urlmon_free(url);
+    HeapFree(GetProcessHeap(), 0, ext);
 
     if (hr)
        return hr;
@@ -99,13 +101,17 @@ HRESULT UMCreateStreamOnCacheFile(LPCWSTR pszURL,
        }
     }
 
-    ucstr = urlmon_alloc_zero(sizeof(IUMCacheStream));
-    if(ucstr)
+    ucstr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,sizeof(IUMCacheStream));
+    if(ucstr )
     {
-       ucstr->pszURL = urlmon_alloc_zero(sizeof(WCHAR) * (lstrlenW(pszURL) + 1));
+       ucstr->pszURL = HeapAlloc(GetProcessHeap(),
+                                 HEAP_ZERO_MEMORY,
+                                 sizeof(WCHAR) * (lstrlenW(pszURL) + 1));
        if (ucstr->pszURL)
        {
-            ucstr->pszFileName = urlmon_alloc_zero(sizeof(WCHAR) * (lstrlenW(pszFileName) + 1));
+            ucstr->pszFileName = HeapAlloc(GetProcessHeap(),
+                                           HEAP_ZERO_MEMORY,
+                                           sizeof(WCHAR) * (lstrlenW(pszFileName) + 1));
            if (ucstr->pszFileName)
            {
               ucstr->lpVtbl=&stvt;
@@ -119,9 +125,9 @@ HRESULT UMCreateStreamOnCacheFile(LPCWSTR pszURL,
 
               return S_OK;
            }
-           urlmon_free(ucstr->pszURL);
+           HeapFree(GetProcessHeap(), 0, ucstr->pszURL);
        }
-       urlmon_free(ucstr);
+       HeapFree(GetProcessHeap(), 0, ucstr);
     }
     CloseHandle(handle);
     if (phfile)
@@ -187,7 +193,7 @@ static ULONG WINAPI IStream_fnAddRef(IStream *iface)
     IUMCacheStream *This = (IUMCacheStream *)iface;
     ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE("(%p)->(count=%u)\n", This, refCount - 1);
+    TRACE("(%p)->(count=%lu)\n", This, refCount - 1);
 
     return refCount;
 }
@@ -200,16 +206,16 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
     IUMCacheStream *This = (IUMCacheStream *)iface;
     ULONG refCount = InterlockedDecrement(&This->ref);
 
-    TRACE("(%p)->(count=%u)\n", This, refCount + 1);
+    TRACE("(%p)->(count=%lu)\n", This, refCount + 1);
 
     if (!refCount)
     {
        TRACE(" destroying UMCacheStream (%p)\n",This);
        UMCloseCacheFileStream(This);
        CloseHandle(This->handle);
-       urlmon_free(This->pszFileName);
-       urlmon_free(This->pszURL);
-       urlmon_free(This);
+       HeapFree(GetProcessHeap(), 0, This->pszFileName);
+       HeapFree(GetProcessHeap(), 0, This->pszURL);
+       HeapFree(GetProcessHeap(),0,This);
     }
     return refCount;
 }
@@ -222,7 +228,7 @@ static HRESULT WINAPI IStream_fnRead (IStream * iface,
     ULONG dwBytesRead;
     IUMCacheStream *This = (IUMCacheStream *)iface;
 
-    TRACE("(%p)->(%p,0x%08x,%p)\n",This, pv, cb, pcbRead);
+    TRACE("(%p)->(%p,0x%08lx,%p)\n",This, pv, cb, pcbRead);
 
     if ( !pv )
        return STG_E_INVALIDPOINTER;
@@ -374,309 +380,3 @@ static const IStreamVtbl stvt =
     IStream_fnClone
 
 };
-
-typedef struct ProxyBindStatusCallback
-{
-    const IBindStatusCallbackVtbl *lpVtbl;
-
-    IBindStatusCallback *pBSC;
-} ProxyBindStatusCallback;
-
-static HRESULT WINAPI ProxyBindStatusCallback_QueryInterface(IBindStatusCallback *iface, REFIID riid, void **ppv)
-{
-    if (IsEqualGUID(&IID_IBindStatusCallback, riid) ||
-        IsEqualGUID(&IID_IUnknown, riid))
-    {
-        *ppv = iface;
-        IUnknown_AddRef(iface);
-        return S_OK;
-    }
-
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI ProxyBindStatusCallback_AddRef(IBindStatusCallback *iface)
-{
-    return 2;
-}
-
-static ULONG WINAPI ProxyBindStatusCallback_Release(IBindStatusCallback *iface)
-{
-    return 1;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnStartBinding(IBindStatusCallback *iface, DWORD dwReserved,
-                                               IBinding *pib)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnStartBinding(This->pBSC, dwReserved, pib);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_GetPriority(IBindStatusCallback *iface, LONG *pnPriority)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_GetPriority(This->pBSC, pnPriority);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnLowResource(IBindStatusCallback *iface, DWORD reserved)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnLowResource(This->pBSC, reserved);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnProgress(IBindStatusCallback *iface, ULONG ulProgress,
-                                           ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR szStatusText)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnProgress(This->pBSC, ulProgress,
-                                          ulProgressMax, ulStatusCode,
-                                          szStatusText);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnStopBinding(IBindStatusCallback *iface, HRESULT hresult, LPCWSTR szError)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnStopBinding(This->pBSC, hresult, szError);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_GetBindInfo(IBindStatusCallback *iface, DWORD *grfBINDF, BINDINFO *pbindinfo)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_GetBindInfo(This->pBSC, grfBINDF, pbindinfo);
-
-    return E_INVALIDARG;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnDataAvailable(IBindStatusCallback *iface, DWORD grfBSCF,
-                                                              DWORD dwSize, FORMATETC* pformatetc, STGMEDIUM* pstgmed)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnDataAvailable(This->pBSC, grfBSCF, dwSize,
-                                               pformatetc, pstgmed);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI ProxyBindStatusCallback_OnObjectAvailable(IBindStatusCallback *iface, REFIID riid, IUnknown *punk)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-
-    if(This->pBSC)
-        return IBindStatusCallback_OnObjectAvailable(This->pBSC, riid, punk);
-
-    return S_OK;
-}
-
-static HRESULT WINAPI BlockingBindStatusCallback_OnDataAvailable(IBindStatusCallback *iface, DWORD grfBSCF,
-                                                                 DWORD dwSize, FORMATETC* pformatetc, STGMEDIUM* pstgmed)
-{
-    return S_OK;
-}
-
-static const IBindStatusCallbackVtbl BlockingBindStatusCallbackVtbl =
-{
-    ProxyBindStatusCallback_QueryInterface,
-    ProxyBindStatusCallback_AddRef,
-    ProxyBindStatusCallback_Release,
-    ProxyBindStatusCallback_OnStartBinding,
-    ProxyBindStatusCallback_GetPriority,
-    ProxyBindStatusCallback_OnLowResource,
-    ProxyBindStatusCallback_OnProgress,
-    ProxyBindStatusCallback_OnStopBinding,
-    ProxyBindStatusCallback_GetBindInfo,
-    BlockingBindStatusCallback_OnDataAvailable,
-    ProxyBindStatusCallback_OnObjectAvailable
-};
-
-static HRESULT WINAPI AsyncBindStatusCallback_GetBindInfo(IBindStatusCallback *iface, DWORD *grfBINDF, BINDINFO *pbindinfo)
-{
-    ProxyBindStatusCallback *This = (ProxyBindStatusCallback *)iface;
-    HRESULT hr = IBindStatusCallback_GetBindInfo(This->pBSC, grfBINDF, pbindinfo);
-    *grfBINDF |= BINDF_PULLDATA | BINDF_ASYNCHRONOUS | BINDF_ASYNCSTORAGE;
-    return hr;
-}
-
-static const IBindStatusCallbackVtbl AsyncBindStatusCallbackVtbl =
-{
-    ProxyBindStatusCallback_QueryInterface,
-    ProxyBindStatusCallback_AddRef,
-    ProxyBindStatusCallback_Release,
-    ProxyBindStatusCallback_OnStartBinding,
-    ProxyBindStatusCallback_GetPriority,
-    ProxyBindStatusCallback_OnLowResource,
-    ProxyBindStatusCallback_OnProgress,
-    ProxyBindStatusCallback_OnStopBinding,
-    AsyncBindStatusCallback_GetBindInfo,
-    ProxyBindStatusCallback_OnDataAvailable,
-    ProxyBindStatusCallback_OnObjectAvailable
-};
-
-static HRESULT URLStartDownload(LPCWSTR szURL, LPSTREAM *ppStream, IBindStatusCallback *pBSC)
-{
-    HRESULT hr;
-    IMoniker *pMoniker;
-    IBindCtx *pbc;
-
-    *ppStream = NULL;
-
-    hr = CreateURLMoniker(NULL, szURL, &pMoniker);
-    if (FAILED(hr))
-        return hr;
-
-    hr = CreateBindCtx(0, &pbc);
-    if (FAILED(hr))
-    {
-        IMoniker_Release(pMoniker);
-        return hr;
-    }
-
-    hr = RegisterBindStatusCallback(pbc, pBSC, NULL, 0);
-    if (FAILED(hr))
-    {
-        IBindCtx_Release(pbc);
-        IMoniker_Release(pMoniker);
-        return hr;
-    }
-
-    hr = IMoniker_BindToStorage(pMoniker, pbc, NULL, &IID_IStream, (void **)ppStream);
-
-    /* BindToStorage returning E_PENDING because it's asynchronous is not an error */
-    if (hr == E_PENDING) hr = S_OK;
-
-    IBindCtx_Release(pbc);
-    IMoniker_Release(pMoniker);
-
-    return hr;
-}
-
-/***********************************************************************
- *		URLOpenBlockingStreamA (URLMON.@)
- */
-HRESULT WINAPI URLOpenBlockingStreamA(LPUNKNOWN pCaller, LPCSTR szURL,
-                                      LPSTREAM *ppStream, DWORD dwReserved,
-                                      LPBINDSTATUSCALLBACK lpfnCB)
-{
-    LPWSTR szURLW;
-    int len;
-    HRESULT hr;
-
-    TRACE("(%p, %s, %p, 0x%x, %p)\n", pCaller, szURL, ppStream, dwReserved, lpfnCB);
-
-    if (!szURL || !ppStream)
-        return E_INVALIDARG;
-
-    len = MultiByteToWideChar(CP_ACP, 0, szURL, -1, NULL, 0);
-    szURLW = urlmon_alloc(len * sizeof(WCHAR));
-    if (!szURLW)
-    {
-        *ppStream = NULL;
-        return E_OUTOFMEMORY;
-    }
-    MultiByteToWideChar(CP_ACP, 0, szURL, -1, szURLW, len);
-
-    hr = URLOpenBlockingStreamW(pCaller, szURLW, ppStream, dwReserved, lpfnCB);
-
-    urlmon_free(szURLW);
-
-    return hr;
-}
-
-/***********************************************************************
- *		URLOpenBlockingStreamW (URLMON.@)
- */
-HRESULT WINAPI URLOpenBlockingStreamW(LPUNKNOWN pCaller, LPCWSTR szURL,
-                                      LPSTREAM *ppStream, DWORD dwReserved,
-                                      LPBINDSTATUSCALLBACK lpfnCB)
-{
-    ProxyBindStatusCallback blocking_bsc;
-
-    TRACE("(%p, %s, %p, 0x%x, %p)\n", pCaller, debugstr_w(szURL), ppStream,
-          dwReserved, lpfnCB);
-
-    if (!szURL || !ppStream)
-        return E_INVALIDARG;
-
-    blocking_bsc.lpVtbl = &BlockingBindStatusCallbackVtbl;
-    blocking_bsc.pBSC = lpfnCB;
-
-    return URLStartDownload(szURL, ppStream, (IBindStatusCallback *)&blocking_bsc);
-}
-
-/***********************************************************************
- *		URLOpenStreamA (URLMON.@)
- */
-HRESULT WINAPI URLOpenStreamA(LPUNKNOWN pCaller, LPCSTR szURL, DWORD dwReserved,
-                              LPBINDSTATUSCALLBACK lpfnCB)
-{
-    LPWSTR szURLW;
-    int len;
-    HRESULT hr;
-
-    TRACE("(%p, %s, 0x%x, %p)\n", pCaller, szURL, dwReserved, lpfnCB);
-
-    if (!szURL)
-        return E_INVALIDARG;
-
-    len = MultiByteToWideChar(CP_ACP, 0, szURL, -1, NULL, 0);
-    szURLW = urlmon_alloc(len * sizeof(WCHAR));
-    if (!szURLW)
-        return E_OUTOFMEMORY;
-    MultiByteToWideChar(CP_ACP, 0, szURL, -1, szURLW, len);
-
-    hr = URLOpenStreamW(pCaller, szURLW, dwReserved, lpfnCB);
-
-    urlmon_free(szURLW);
-
-    return hr;
-}
-
-/***********************************************************************
- *		URLOpenStreamW (URLMON.@)
- */
-HRESULT WINAPI URLOpenStreamW(LPUNKNOWN pCaller, LPCWSTR szURL, DWORD dwReserved,
-                              LPBINDSTATUSCALLBACK lpfnCB)
-{
-    HRESULT hr;
-    ProxyBindStatusCallback async_bsc;
-    IStream *pStream;
-
-    TRACE("(%p, %s, 0x%x, %p)\n", pCaller, debugstr_w(szURL), dwReserved,
-          lpfnCB);
-
-    if (!szURL)
-        return E_INVALIDARG;
-
-    async_bsc.lpVtbl = &AsyncBindStatusCallbackVtbl;
-    async_bsc.pBSC = lpfnCB;
-
-    hr = URLStartDownload(szURL, &pStream, (IBindStatusCallback *)&async_bsc);
-    if (SUCCEEDED(hr) && pStream)
-        IStream_Release(pStream);
-
-    return hr;
-}

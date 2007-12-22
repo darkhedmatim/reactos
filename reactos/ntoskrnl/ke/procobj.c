@@ -30,6 +30,27 @@ PVOID KeRaiseUserExceptionDispatcher;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
+FORCEINLINE
+VOID
+NTAPI
+UpdatePageDirs(IN PKTHREAD Thread,
+               IN PKPROCESS Process)
+{
+    /*
+     * The stack and the thread structure of the current process may be
+     * located in a page which is not present in the page directory of
+     * the process we're attaching to. That would lead to a page fault
+     * when this function returns. However, since the processor can't
+     * call the page fault handler 'cause it can't push EIP on the stack,
+     * this will show up as a stack fault which will crash the entire system.
+     * To prevent this, make sure the page directory of the process we're
+     * attaching to is up-to-date.
+     */
+    MmUpdatePageDir((PEPROCESS)Process,
+                    (PVOID)Thread->StackLimit,
+                    KERNEL_STACK_SIZE);
+}
+
 VOID
 NTAPI
 KiAttachProcess(IN PKTHREAD Thread,
@@ -287,7 +308,7 @@ KeSetPriorityAndQuantumProcess(IN PKPROCESS Process,
 
     /* Save the current base priority and update it */
     OldPriority = Process->BasePriority;
-    Process->BasePriority = (SCHAR)Priority;
+    Process->BasePriority = Priority;
 
     /* Calculate the priority delta */
     Delta = Priority - OldPriority;
@@ -343,7 +364,7 @@ KeSetPriorityAndQuantumProcess(IN PKPROCESS Process,
                 }
 
                 /* Update priority and quantum */
-                Thread->BasePriority = (SCHAR)NewPriority;
+                Thread->BasePriority = NewPriority;
                 Thread->Quantum = Thread->QuantumReset;
 
                 /* Disable decrements and update priority */
@@ -405,7 +426,7 @@ KeSetPriorityAndQuantumProcess(IN PKPROCESS Process,
                 }
 
                 /* Update priority and quantum */
-                Thread->BasePriority = (SCHAR)NewPriority;
+                Thread->BasePriority = NewPriority;
                 Thread->Quantum = Thread->QuantumReset;
 
                 /* Disable decrements and update priority */
@@ -442,15 +463,13 @@ NTAPI
 KeAttachProcess(IN PKPROCESS Process)
 {
     KLOCK_QUEUE_HANDLE ApcLock;
-    PKTHREAD Thread = KeGetCurrentThread();
+    PKTHREAD Thread;
     ASSERT_PROCESS(Process);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
     /* Make sure that we are in the right page directory */
-    MiSyncThreadProcessViews(Process,
-                             (PVOID)Thread->StackLimit,
-                             Thread->LargeStack ?
-                             KERNEL_STACK_SIZE : KERNEL_LARGE_STACK_SIZE);
+    Thread = KeGetCurrentThread();
+    UpdatePageDirs(Thread, Process);
 
     /* Check if we're already in that process */
     if (Thread->ApcState.Process == Process) return;
@@ -576,10 +595,7 @@ KeStackAttachProcess(IN PKPROCESS Process,
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
     /* Make sure that we are in the right page directory */
-    MiSyncThreadProcessViews(Process,
-                             (PVOID)Thread->StackLimit,
-                             Thread->LargeStack ?
-                             KERNEL_STACK_SIZE : KERNEL_LARGE_STACK_SIZE);
+    UpdatePageDirs(Thread, Process);
 
     /* Crash system if DPC is being executed! */
     if (KeIsExecutingDpc())

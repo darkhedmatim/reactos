@@ -59,7 +59,7 @@ typedef struct
 } PRINT_PTRW;
 
 /* Debugging info */
-static const struct pd_flags {
+static struct pd_flags {
   DWORD  flag;
   LPCSTR name;
 } pd_flags[] = {

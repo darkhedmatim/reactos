@@ -129,9 +129,7 @@ sub _get_create_table_ddl {
 
     my($self, $table) = @_;
 
-    my $charset = Bugzilla->dbh->bz_db_is_utf8 ? "CHARACTER SET utf8" : '';
-    return($self->SUPER::_get_create_table_ddl($table) 
-           . " ENGINE = MYISAM $charset");
+    return($self->SUPER::_get_create_table_ddl($table) . ' TYPE = MYISAM');
 
 } #eosub--_get_create_table_ddl
 #------------------------------------------------------------------------------
@@ -151,16 +149,6 @@ sub _get_create_index_ddl {
 
 } #eosub--_get_create_index_ddl
 #--------------------------------------------------------------------
-
-sub get_create_database_sql {
-    my ($self, $name) = @_;
-    # We only create as utf8 if we have no params (meaning we're doing
-    # a new installation) or if the utf8 param is on.
-    my $create_utf8 = Bugzilla->params->{'utf8'} 
-                      || !defined Bugzilla->params->{'utf8'};
-    my $charset = $create_utf8 ? "CHARACTER SET utf8" : '';
-    return ("CREATE DATABASE $name $charset");
-}
 
 # MySQL has a simpler ALTER TABLE syntax than ANSI.
 sub get_alter_column_ddl {
@@ -257,7 +245,7 @@ sub column_info_to_column {
     if (defined $column_info->{COLUMN_DEF}) {
         # The defaults that MySQL inputs automatically are usually
         # something that would be considered "false" by perl, either
-        # a 0 or an empty string. (Except for datetime and decimal
+        # a 0 or an empty string. (Except for ddatetime and decimal
         # fields, which have their own special auto-defaults.)
         #
         # Here's how we handle this: If it exists in the schema

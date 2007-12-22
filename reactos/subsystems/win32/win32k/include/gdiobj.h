@@ -11,17 +11,10 @@
 
 typedef struct _GDI_HANDLE_TABLE
 {
-/* The table must be located at the beginning of this structure so it can be
- * properly mapped!
- */
-//////////////////////////////////////////////////////////////////////////////
+  /* the table must be located at the beginning of this structure so it can be
+     properly mapped! */
   GDI_TABLE_ENTRY Entries[GDI_HANDLE_COUNT];
-  DEVCAPS         DevCaps;                 // Device Capabilities
-  FLONG           flDeviceUniq;            // Device settings uniqueness.
-  PVOID           pvLangPack;              // Lanuage Pack.
-  CFONT           cfPublic[GDI_CFONT_MAX]; // Public Fonts.
-  DWORD           dwCsbSupported1;         // OEM code-page bitfield.
-//////////////////////////////////////////////////////////////////////////////
+
   PPAGED_LOOKASIDE_LIST LookasideLists;
 
   SLIST_HEADER FreeEntriesHead;
@@ -49,19 +42,6 @@ typedef struct _GDIOBJHDR
   int lockline;
 #endif
 } GDIOBJHDR, *PGDIOBJHDR;
-
-//
-// Every GDI Object must have this standard type of header.
-// It's for thread locking.
-// This header is standalone, used only in gdiobj.c.
-//
-typedef struct _GDIOBJEMPTYHDR
-{
-  HGDIOBJ     hHmgr;
-  PVOID       pvEntry;
-  ULONG       lucExcLock;
-  ULONG       Tid;
-} GDIOBJEMPTYHDR, *PGDIOBJEMPTYHDR;
 
 BOOL    INTERNAL_CALL GDIOBJ_OwnedByCurrentProcess(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ ObjectHandle);
 void    INTERNAL_CALL GDIOBJ_SetOwnership(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ ObjectHandle, PEPROCESS Owner);
@@ -99,8 +79,5 @@ PVOID   INTERNAL_CALL GDI_MapHandleTable(PSECTION_OBJECT SectionObject, PEPROCES
 #define GDIOBJFLAG_DEFAULT	(0x0)
 #define GDIOBJFLAG_IGNOREPID 	(0x1)
 #define GDIOBJFLAG_IGNORELOCK 	(0x2)
-
-BOOL FASTCALL  NtGdiDeleteObject(HGDIOBJ hObject);
-BOOL FASTCALL  IsObjectDead(HGDIOBJ);
 
 #endif

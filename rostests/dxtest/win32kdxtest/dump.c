@@ -86,7 +86,7 @@ void
 dump_halinfo(DD_HALINFO *pHalInfo, char *text)
 {
     printf("dumping the DD_HALINFO from %s\n",text);
-
+    
     if (pHalInfo->dwSize == sizeof(DD_HALINFO_V4))
     {
         DD_HALINFO_V4 *pHalInfo4 = (DD_HALINFO_V4 *) pHalInfo;
@@ -101,7 +101,7 @@ dump_halinfo(DD_HALINFO *pHalInfo, char *text)
         printf(" pHalInfo4->vmiData->lDisplayPitch                  : 0x%08lx\n",(long)pHalInfo4->vmiData.lDisplayPitch);
 
         printf(" pHalInfo4->vmiData->ddpfDisplay.dwSize             : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwSize);
-        printf(" pHalInfo4->vmiData->ddpfDisplay.dwFlags            : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwFlags);
+        printf(" pHalInfo4->vmiData->ddpfDisplay.dwFlags            : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwFlags); 
         printf(" pHalInfo4->vmiData->ddpfDisplay.dwFourCC           : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwFourCC);
         printf(" pHalInfo4->vmiData->ddpfDisplay.dwRGBBitCount      : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwRGBBitCount);
         printf(" pHalInfo4->vmiData->ddpfDisplay.dwRBitMask         : 0x%08lx\n",(long)pHalInfo4->vmiData.ddpfDisplay.dwRBitMask);
@@ -203,7 +203,7 @@ dump_halinfo(DD_HALINFO *pHalInfo, char *text)
         printf(" pHalInfo->vmiData->lDisplayPitch                  : 0x%08lx\n",(long)pHalInfo->vmiData.lDisplayPitch);
 
         printf(" pHalInfo->vmiData->ddpfDisplay.dwSize             : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwSize);
-        printf(" pHalInfo->vmiData->ddpfDisplay.dwFlags            : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwFlags);
+        printf(" pHalInfo->vmiData->ddpfDisplay.dwFlags            : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwFlags); 
         printf(" pHalInfo->vmiData->ddpfDisplay.dwFourCC           : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwFourCC);
         printf(" pHalInfo->vmiData->ddpfDisplay.dwRGBBitCount      : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwRGBBitCount);
         printf(" pHalInfo->vmiData->ddpfDisplay.dwRBitMask         : 0x%08lx\n",(long)pHalInfo->vmiData.ddpfDisplay.dwRBitMask);
@@ -251,7 +251,8 @@ dump_halinfo(DD_HALINFO *pHalInfo, char *text)
         checkflag(flag,DDCAPS_PALETTE,"DDCAPS_PALETTE");
         checkflag(flag,DDCAPS_PALETTEVSYNC,"DDCAPS_PALETTEVSYNC");
         checkflag(flag,DDCAPS_READSCANLINE,"DDCAPS_READSCANLINE");
-        checkflag(flag,DDCAPS_STEREOVIEW,"DDCAPS_STEREOVIEW");
+/* FIXME */
+//        checkflag(flag,DDCAPS_STEREOVIEW,"DDCAPS_STEREOVIEW");
         checkflag(flag,DDCAPS_VBI,"DDCAPS_VBI");
         checkflag(flag,DDCAPS_ZBLTS,"DDCAPS_ZBLTS");
         checkflag(flag,DDCAPS_ZOVERLAYS,"DDCAPS_ZOVERLAYS");
@@ -270,8 +271,8 @@ dump_halinfo(DD_HALINFO *pHalInfo, char *text)
         checkflag(flag,DDCAPS2_CANFLIPODDEVEN,"DDCAPS2_CANFLIPODDEVEN");
         checkflag(flag,DDCAPS2_CANMANAGERESOURCE,"DDCAPS2_CANMANAGERESOURCE");
         checkflag(flag,DDCAPS2_CANMANAGETEXTURE,"DDCAPS2_CANMANAGETEXTURE");
-
-        checkflag(flag,DDCAPS2_CANRENDERWINDOWED,"DDCAPS2_CANRENDERWINDOWED");
+/* FIXME */
+//        checkflag(flagDDCAPS2_CANRENDERWINDOWED,"DDCAPS2_CANRENDERWINDOWED");
         checkflag(flag,DDCAPS2_CERTIFIED,"DDCAPS2_CERTIFIED");
         checkflag(flag,DDCAPS2_COLORCONTROLOVERLAY,"DDCAPS2_COLORCONTROLOVERLAY");
         checkflag(flag,DDCAPS2_COLORCONTROLPRIMARY,"DDCAPS2_COLORCONTROLPRIMARY");
@@ -437,8 +438,9 @@ dump_halinfo(DD_HALINFO *pHalInfo, char *text)
 
         flag = pHalInfo->dwFlags;
         count = 0;
-        checkflag(flag,DDHALINFO_ISPRIMARYDISPLAY,"DDHALINFO_ISPRIMARYDISPLAY");
-        checkflag(flag,DDHALINFO_MODEXILLEGAL,"DDHALINFO_MODEXILLEGAL");
+        // FIXME missing DDHALINFO_ISPRIMARYDISPLAY and DDHALINFO_MODEXILLEGAL in currrent headers
+        // checkflag(flag,DDHALINFO_ISPRIMARYDISPLAY,"DDHALINFO_ISPRIMARYDISPLAY");
+        // checkflag(flag,DDHALINFO_MODEXILLEGAL,"DDHALINFO_MODEXILLEGAL");
         checkflag(flag,DDHALINFO_GETDRIVERINFOSET,"DDHALINFO_GETDRIVERINFOSET");
         checkflag(flag,DDHALINFO_GETDRIVERINFO2,"DDHALINFO_GETDRIVERINFO2");
         endcheckflag(flag,"pHalInfo->dwFlags");

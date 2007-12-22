@@ -17,7 +17,7 @@ class CardWindow
 {
 	friend class CardRegion;
 	friend class CardButton;
-
+	
 	friend void RegisterCardWindow();
 
 public:
@@ -46,7 +46,6 @@ public:
 	void	 SetBackColor(COLORREF cr);
 	COLORREF GetBackColor();
 	void	 SetBackCardIdx(UINT uBackIdx);
-	UINT	 GetBackCardIdx();
 	void	 SetBackImage(HBITMAP hBitmap);
 
 	void EmptyStacks(void);
@@ -57,7 +56,7 @@ public:
 	void SetResizeProc(pResizeWndProc proc);
 	int  GetWidth() { return nWidth; }
 	int  GetHeight() { return nHeight; }
-
+	
 	//
 	//	Dropzone support
 	//
@@ -93,7 +92,7 @@ static LRESULT CALLBACK CardWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM 
 
 	HWND m_hWnd;			//window handle!
 	int  nWidth, nHeight;
-
+	
 	UINT	nBackCardIdx;	//all stacks share this card index by default
 
 	HBITMAP	hbmBackImage;

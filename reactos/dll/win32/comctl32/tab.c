@@ -255,7 +255,6 @@ static inline LRESULT TAB_SetCurSel (TAB_INFO *infoPtr, INT iItem)
   else {
       if (infoPtr->iSelected != iItem) {
           infoPtr->iSelected=iItem;
-          infoPtr->uFocus=iItem;
           TAB_EnsureSelectionVisible(infoPtr);
           TAB_InvalidateTabArea(infoPtr);
       }
@@ -864,7 +863,7 @@ static LRESULT TAB_AdjustRect(const TAB_INFO *infoPtr, WPARAM fLarger, LPRECT pr
     DWORD lStyle = GetWindowLongW(infoPtr->hwnd, GWL_STYLE);
     LONG *iRightBottom, *iLeftTop;
 
-    TRACE ("hwnd=%p fLarger=%ld (%d,%d)-(%d,%d)\n", infoPtr->hwnd, fLarger, prc->left, prc->top, prc->right, prc->bottom);
+    TRACE ("hwnd=%p fLarger=%d (%d,%d)-(%d,%d)\n", infoPtr->hwnd, fLarger, prc->left, prc->top, prc->right, prc->bottom);
 
     if(lStyle & TCS_VERTICAL)
     {
@@ -2325,6 +2324,11 @@ static void TAB_Refresh (TAB_INFO *infoPtr, HDC hdc)
 
     /* Then, draw the selected item */
     TAB_DrawItem (infoPtr, hdc, infoPtr->iSelected);
+
+    /* If we haven't set the current focus yet, set it now.
+     * Only happens when we first paint the tab controls */
+    if (infoPtr->uFocus == -1)
+      TAB_SetCurFocus(infoPtr, infoPtr->iSelected);
   }
 
   SelectObject (hdc, hOldFont);
@@ -2632,10 +2636,6 @@ TAB_InsertItemT (TAB_INFO *infoPtr, WPARAM wParam, LPARAM lParam, BOOL bUnicode)
   TRACE("[%p]: added item %d %s\n",
         infoPtr->hwnd, iItem, debugstr_w(item->pszText));
 
-  /* If we haven't set the current focus yet, set it now. */
-  if (infoPtr->uFocus == -1)
-    TAB_SetCurFocus(infoPtr, iItem);
-
   return iItem;
 }
 
@@ -2681,9 +2681,12 @@ static inline LRESULT TAB_SetMinTabWidth (TAB_INFO *infoPtr, INT cx)
 
   TRACE("(%p,%d)\n", infoPtr, cx);
 
-  oldcx = infoPtr->tabMinWidth;
-  infoPtr->tabMinWidth = cx;
+  if (infoPtr) {
+    oldcx = infoPtr->tabMinWidth;
+    infoPtr->tabMinWidth = cx;
+  }
   TAB_SetItemBounds(infoPtr);
+
   return oldcx;
 }
 
@@ -3063,7 +3066,8 @@ TAB_Destroy (TAB_INFO *infoPtr)
 
   if (infoPtr->items) {
     for (iItem = 0; iItem < infoPtr->uNumItem; iItem++) {
-      Free (TAB_GetItem(infoPtr, iItem)->pszText);
+      if (TAB_GetItem(infoPtr, iItem)->pszText)
+	Free (TAB_GetItem(infoPtr, iItem)->pszText);
     }
     Free (infoPtr->items);
   }
@@ -3120,7 +3124,7 @@ TAB_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     TAB_INFO *infoPtr = TAB_GetInfoPtr(hwnd);
 
-    TRACE("hwnd=%p msg=%x wParam=%lx lParam=%lx\n", hwnd, uMsg, wParam, lParam);
+    TRACE("hwnd=%p msg=%x wParam=%x lParam=%lx\n", hwnd, uMsg, wParam, lParam);
     if (!infoPtr && (uMsg != WM_CREATE))
       return DefWindowProcW (hwnd, uMsg, wParam, lParam);
 
@@ -3290,7 +3294,7 @@ TAB_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     default:
       if (uMsg >= WM_USER && uMsg < WM_APP)
-	WARN("unknown msg %04x wp=%08lx lp=%08lx\n",
+	WARN("unknown msg %04x wp=%08x lp=%08lx\n",
 	     uMsg, wParam, lParam);
       break;
     }

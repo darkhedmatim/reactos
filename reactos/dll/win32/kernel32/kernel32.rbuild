@@ -1,11 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="kernel32_base" type="objectlibrary" allowwarnings="true">
 	<include base="kernel32_base">.</include>
 	<include base="kernel32_base">include</include>
 	<include base="ReactOS">include/reactos/subsys</include>
 	<define name="_DISABLE_TIDENTS" />
+	<define name="__USE_W32API" />
 	<define name="_WIN32_WINNT">0x0600</define>
 	<define name="__NO_CTYPE_INLINES" />
 	<define name="WINVER">0x609</define>
@@ -110,23 +108,20 @@
 		<file>utils.c</file>
 	</directory>
 	<directory name="thread">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>fiber.S</file>
-				<file>thread.S</file>
-			</directory>
-		</if>
+		<directory name="i386">
+			<file>fiber.S</file>
+            		<file>thread.S</file>
+		</directory>
 	</directory>
 </module>
 <module name="kernel32" type="win32dll" baseaddress="${BASEADDRESS_KERNEL32}" installbase="system32" installname="kernel32.dll">
 	<importlibrary definition="kernel32.def" />
 	<include base="kernel32">.</include>
-	<include base="kernel32" root="intermediate">.</include>
 	<include base="kernel32">include</include>
 	<define name="_DISABLE_TIDENTS" />
+	<define name="__USE_W32API" />
 	<define name="WINVER">0x0500</define>
 	<library>kernel32_base</library>
-	<library>wine</library>
 	<library>pseh</library>
 	<library>ntdll</library>
 	<linkerflag>-lgcc</linkerflag>
@@ -134,4 +129,3 @@
 	<linkerflag>-nostdlib</linkerflag>
 	<file>kernel32.rc</file>
 </module>
-</group>

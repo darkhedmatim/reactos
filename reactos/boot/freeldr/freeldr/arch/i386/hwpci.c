@@ -54,13 +54,13 @@ typedef struct _PCI_IRQ_ROUTING_TABLE
   ROUTING_SLOT Slot[1];
 } __attribute__((packed)) PCI_IRQ_ROUTING_TABLE, *PPCI_IRQ_ROUTING_TABLE;
 
-typedef struct _PCI_REGISTRY_INFO
+typedef struct _CM_PCI_BUS_DATA
 {
-    UCHAR MajorRevision;
-    UCHAR MinorRevision;
-    UCHAR NoBuses;
-    UCHAR HardwareMechanism;
-} PCI_REGISTRY_INFO, *PPCI_REGISTRY_INFO;
+  UCHAR  BusCount;
+  USHORT PciVersion;
+  UCHAR  HardwareMechanism;
+} __attribute__((packed)) CM_PCI_BUS_DATA, *PCM_PCI_BUS_DATA;
+
 
 static PPCI_IRQ_ROUTING_TABLE
 GetPciIrqRoutingTable(VOID)
@@ -106,7 +106,7 @@ GetPciIrqRoutingTable(VOID)
 
 
 static BOOLEAN
-FindPciBios(PPCI_REGISTRY_INFO BusData)
+FindPciBios(PCM_PCI_BUS_DATA BusData)
 {
   REGS  RegsIn;
   REGS  RegsOut;
@@ -125,9 +125,8 @@ FindPciBios(PPCI_REGISTRY_INFO BusData)
       DbgPrint((DPRINT_HWDETECT, "BL: %x\n", RegsOut.b.bl));
       DbgPrint((DPRINT_HWDETECT, "CL: %x\n", RegsOut.b.cl));
 
-      BusData->NoBuses = RegsOut.b.cl + 1;
-      BusData->MajorRevision = RegsOut.b.bh;
-      BusData->MinorRevision = RegsOut.b.bl;
+      BusData->BusCount = RegsOut.b.cl + 1;
+      BusData->PciVersion = RegsOut.w.bx;
       BusData->HardwareMechanism = RegsOut.b.cl;
 
       return TRUE;
@@ -141,205 +140,235 @@ FindPciBios(PPCI_REGISTRY_INFO BusData)
 
 
 static VOID
-DetectPciIrqRoutingTable(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectPciIrqRoutingTable(FRLDRHKEY BusKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
   PPCI_IRQ_ROUTING_TABLE Table;
-  PCONFIGURATION_COMPONENT_DATA TableKey;
+  FRLDRHKEY TableKey;
   ULONG Size;
+  LONG Error;
 
   Table = GetPciIrqRoutingTable();
   if (Table != NULL)
     {
       DbgPrint((DPRINT_HWDETECT, "Table size: %u\n", Table->Size));
 
-      FldrCreateComponentKey(BusKey,
-                             L"RealModeIrqRoutingTable",
-                             0,
-                             PeripheralClass,
-                             RealModeIrqRoutingTable,
-                             &TableKey);
+      Error = RegCreateKey(BusKey,
+			   L"RealModeIrqRoutingTable\\0",
+			   &TableKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+	  return;
+	}
 
       /* Set 'Component Information' */
-      FldrSetComponentInformation(TableKey,
-                                  0x0,
-                                  0x0,
-                                  0xFFFFFFFF);
+      SetComponentInformation(TableKey,
+                              0x0,
+                              0x0,
+                              0xFFFFFFFF);
 
       /* Set 'Identifier' value */
-      FldrSetIdentifier(TableKey, L"PCI Real-mode IRQ Routing Table");
+      Error = RegSetValue(TableKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)L"PCI Real-mode IRQ Routing Table",
+			  32 * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+	  return;
+	}
 
       /* Set 'Configuration Data' value */
-      Size = FIELD_OFFSET(CM_PARTIAL_RESOURCE_LIST, PartialDescriptors) +
-         2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR) + Table->Size;
-      PartialResourceList = MmAllocateMemory(Size);
-      if (PartialResourceList == NULL)
-      {
-          DbgPrint((DPRINT_HWDETECT,
-              "Failed to allocate resource descriptor\n"));
-          return;
-      }
+      Size = FIELD_OFFSET(CM_FULL_RESOURCE_DESCRIPTOR, PartialResourceList.PartialDescriptors) +
+	     2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR) + Table->Size;
+      FullResourceDescriptor = MmAllocateMemory(Size);
+      if (FullResourceDescriptor == NULL)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Failed to allocate resource descriptor\n"));
+	  return;
+	}
 
       /* Initialize resource descriptor */
-      memset(PartialResourceList, 0, Size);
-      PartialResourceList->Version = 1;
-      PartialResourceList->Revision = 1;
-      PartialResourceList->Count = 2;
+      memset(FullResourceDescriptor, 0, Size);
+      FullResourceDescriptor->InterfaceType = Isa;
+      FullResourceDescriptor->BusNumber = 0;
+      FullResourceDescriptor->PartialResourceList.Version = 1;
+      FullResourceDescriptor->PartialResourceList.Revision = 1;
+      FullResourceDescriptor->PartialResourceList.Count = 2;
 
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
       PartialDescriptor->Type = CmResourceTypeBusNumber;
       PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
       PartialDescriptor->u.BusNumber.Start = 0;
       PartialDescriptor->u.BusNumber.Length = 1;
 
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[1];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[1];
       PartialDescriptor->Type = CmResourceTypeDeviceSpecific;
       PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
       PartialDescriptor->u.DeviceSpecificData.DataSize = Table->Size;
 
-      memcpy(&PartialResourceList->PartialDescriptors[2],
-          Table, Table->Size);
+      memcpy(&FullResourceDescriptor->PartialResourceList.PartialDescriptors[2],
+	     Table,
+	     Table->Size);
 
       /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(TableKey, PartialResourceList, Size);
-      MmFreeMemory(PartialResourceList);
+      Error = RegSetValue(TableKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR) FullResourceDescriptor,
+			  Size);
+      MmFreeMemory(FullResourceDescriptor);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	  return;
+	}
     }
 }
 
 
 VOID
-DetectPciBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
+DetectPciBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
-  PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
-  PCI_REGISTRY_INFO BusData;
-  PCONFIGURATION_COMPONENT_DATA BiosKey;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
+  CM_PCI_BUS_DATA BusData;
+  WCHAR Buffer[80];
+  FRLDRHKEY BiosKey;
   ULONG Size;
-  PCONFIGURATION_COMPONENT_DATA BusKey;
+  LONG Error;
+#if 0
+  FRLDRHKEY BusKey;
   ULONG i;
   WCHAR szPci[] = L"PCI";
+#endif
 
   /* Report the PCI BIOS */
   if (FindPciBios(&BusData))
     {
       /* Create new bus key */
-      FldrCreateComponentKey(SystemKey,
-                             L"MultifunctionAdapter",
-                             *BusNumber,
-                             AdapterClass,
-                             MultiFunctionAdapter,
-                             &BiosKey);
+      swprintf(Buffer,
+	      L"MultifunctionAdapter\\%u", *BusNumber);
+      Error = RegCreateKey(SystemKey,
+			   Buffer,
+			   &BiosKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+	  return;
+	}
 
       /* Set 'Component Information' */
-      FldrSetComponentInformation(BiosKey,
-                                  0x0,
-                                  0x0,
-                                  0xFFFFFFFF);
+      SetComponentInformation(BiosKey,
+                              0x0,
+                              0x0,
+                              0xFFFFFFFF);
 
       /* Increment bus number */
       (*BusNumber)++;
 
       /* Set 'Identifier' value */
-      FldrSetIdentifier(BiosKey, L"PCI BIOS");
+      Error = RegSetValue(BiosKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)L"PCI BIOS",
+			  9 * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+	  return;
+	}
 
       /* Set 'Configuration Data' value */
-      Size = FIELD_OFFSET(CM_PARTIAL_RESOURCE_LIST,
-                          PartialDescriptors);
-      PartialResourceList = MmAllocateMemory(Size);
-      if (PartialResourceList == NULL)
-      {
-          DbgPrint((DPRINT_HWDETECT,
-              "Failed to allocate resource descriptor\n"));
-          return;
-      }
+      Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR);
+      FullResourceDescriptor = MmAllocateMemory(Size);
+      if (FullResourceDescriptor == NULL)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Failed to allocate resource descriptor\n"));
+	  return;
+	}
 
       /* Initialize resource descriptor */
-      memset(PartialResourceList, 0, Size);
+      memset(FullResourceDescriptor, 0, Size);
+      FullResourceDescriptor->InterfaceType = PCIBus;
+      FullResourceDescriptor->BusNumber = 0;
+      FullResourceDescriptor->PartialResourceList.Version = 1;
+      FullResourceDescriptor->PartialResourceList.Revision = 1;
+      FullResourceDescriptor->PartialResourceList.Count = 1;
+      FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Type = CmResourceTypeBusNumber;
+      FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].ShareDisposition = CmResourceShareDeviceExclusive;
+      FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].u.BusNumber.Start = 0;
+      FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].u.BusNumber.Length = 1;
 
       /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(BiosKey, PartialResourceList, Size);
-      MmFreeMemory(PartialResourceList);
+      Error = RegSetValue(BiosKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR) FullResourceDescriptor,
+			  Size);
+      MmFreeMemory(FullResourceDescriptor);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	  return;
+	}
 
       DetectPciIrqRoutingTable(BiosKey);
 
+#if 0
+      /*
+       * FIXME:
+       * Enabling this piece of code will corrupt the boot sequence!
+       * This is probably caused by a bug in the registry code!
+       */
+
       /* Report PCI buses */
-      for (i = 0; i < (ULONG)BusData.NoBuses; i++)
-      {
-          /* Create the bus key */
-          FldrCreateComponentKey(SystemKey,
-                                 L"MultifunctionAdapter",
-                                 *BusNumber,
-                                 AdapterClass,
-                                 MultiFunctionAdapter,
-                                 &BusKey);
+      for (i = 0; i < (ULONG)BusData.BusCount; i++)
+	{
+	  swprintf(Buffer,
+		   L"MultifunctionAdapter\\%u", *BusNumber);
+	  Error = RegCreateKey(SystemKey,
+			       Buffer,
+			       &BusKey);
+	  if (Error != ERROR_SUCCESS)
+	    {
+	      DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+	      printf("RegCreateKey() failed (Error %u)\n", (int)Error);
+	      return;
+	    }
 
-          /* Set 'Component Information' */
-          FldrSetComponentInformation(BusKey,
-                                      0x0,
-                                      0x0,
-                                      0xFFFFFFFF);
+	  /* Set 'Component Information' */
+	  SetComponentInformation(BusKey,
+				  0x0,
+				  0x0,
+				  0xFFFFFFFF);
 
-          /* Check if this is the first bus */
-          if (i == 0)
-          {
-              /* Set 'Configuration Data' value */
-              Size = FIELD_OFFSET(CM_PARTIAL_RESOURCE_LIST,
-                                  PartialDescriptors) +
-                     sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR) +
-                     sizeof(PCI_REGISTRY_INFO);
-              PartialResourceList = MmAllocateMemory(Size);
-              if (!PartialResourceList)
-              {
-                  DbgPrint((DPRINT_HWDETECT,
-                            "Failed to allocate resource descriptor\n"));
-                  return;
-              }
+	  /* Increment bus number */
+	  (*BusNumber)++;
 
-              /* Initialize resource descriptor */
-              memset(PartialResourceList, 0, Size);
-              PartialResourceList->Version = 1;
-              PartialResourceList->Revision = 1;
-              PartialResourceList->Count = 1;
-              PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
-              PartialDescriptor->Type = CmResourceTypeDeviceSpecific;
-              PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
-              PartialDescriptor->u.DeviceSpecificData.DataSize = sizeof(PCI_REGISTRY_INFO);
-              memcpy(&PartialResourceList->PartialDescriptors[1],
-                     &BusData,
-                     sizeof(PCI_REGISTRY_INFO));
 
-              /* Set 'Configuration Data' value */
-              FldrSetConfigurationData(BusKey, PartialResourceList, Size);
-              MmFreeMemory(PartialResourceList);
-          }
-          else
-          {
-              /* Set 'Configuration Data' value */
-              Size = FIELD_OFFSET(CM_PARTIAL_RESOURCE_LIST,
-                                  PartialDescriptors);
-              PartialResourceList = MmAllocateMemory(Size);
-              if (!PartialResourceList)
-              {
-                  DbgPrint((DPRINT_HWDETECT,
-                            "Failed to allocate resource descriptor\n"));
-                  return;
-              }
+	  /* Set 'Identifier' value */
+	  Error = RegSetValue(BusKey,
+			      L"Identifier",
+			      REG_SZ,
+			      (PCSTR)szPci,
+			      sizeof(szPci));
+	  if (Error != ERROR_SUCCESS)
+	    {
+	      DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+	      return;
+	    }
+	}
+#endif
 
-              /* Initialize resource descriptor */
-              memset(PartialResourceList, 0, Size);
-
-              /* Set 'Configuration Data' value */
-              FldrSetConfigurationData(BusKey, PartialResourceList, Size);
-              MmFreeMemory(PartialResourceList);
-          }
-
-          /* Increment bus number */
-          (*BusNumber)++;
-
-          /* Set 'Identifier' value */
-          FldrSetIdentifier(BusKey, szPci);
-      }
     }
 }
 

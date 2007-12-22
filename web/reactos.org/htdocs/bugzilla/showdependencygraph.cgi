@@ -26,12 +26,12 @@ use strict;
 use lib qw(.);
 
 use File::Temp;
-
 use Bugzilla;
-use Bugzilla::Constants;
+use Bugzilla::Config qw(:DEFAULT $webdotdir);
 use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::Bug;
+
+require "globals.pl";
 
 Bugzilla->login();
 
@@ -42,7 +42,10 @@ my $vars = {};
 # performance.
 my $dbh = Bugzilla->switch_to_shadow_db();
 
-local our (%seen, %edgesdone, %bugtitles);
+my %seen;
+my %edgesdone;
+my %bugtitles; # html title attributes for imagemap areas
+
 
 # CreateImagemap: This sub grabs a local filename as a parameter, reads the 
 # dot-generated image map datafile residing in that file and turns it into
@@ -65,12 +68,14 @@ sub CreateImagemap {
             $default = qq{<area alt="" shape="default" href="$1">\n};
         }
 
-        if ($line =~ /^rectangle \((.*),(.*)\) \((.*),(.*)\) (http[^ ]*) (\d+)(\\n.*)?$/) {
-            my ($leftx, $rightx, $topy, $bottomy, $url, $bugid) = ($1, $3, $2, $4, $5, $6);
+        if ($line =~ /^rectangle \((.*),(.*)\) \((.*),(.*)\) (http[^ ]*)(.*)?$/) {
+            my ($leftx, $rightx, $topy, $bottomy, $url) = ($1, $3, $2, $4, $5);
 
             # Pick up bugid from the mapdata label field. Getting the title from
             # bugtitle hash instead of mapdata allows us to get the summary even
             # when showsummary is off, and also gives us status and resolution.
+
+            my ($bugid) = ($6 =~ /^\s*(\d+)/);
             my $bugtitle = value_quote($bugtitles{$bugid});
             $map .= qq{<area alt="bug $bugid" name="bug$bugid" shape="rect" } .
                     qq{title="$bugtitle" href="$url" } .
@@ -94,17 +99,7 @@ sub AddLink {
     }
 }
 
-# The list of valid directions. Some are not proposed in the dropdrown
-# menu despite they are valid ones.
-my @valid_rankdirs = ('LR', 'RL', 'TB', 'BT');
-
 my $rankdir = $cgi->param('rankdir') || "LR";
-# Make sure the submitted 'rankdir' value is valid.
-if (lsearch(\@valid_rankdirs, $rankdir) < 0) {
-    $rankdir = 'LR';
-}
-
-my $webdotdir = bz_locations()->{'webdotdir'};
 
 if (!defined $cgi->param('id') && !defined $cgi->param('doall')) {
     ThrowCodeError("missing_bug_id");
@@ -113,7 +108,7 @@ if (!defined $cgi->param('id') && !defined $cgi->param('doall')) {
 my ($fh, $filename) = File::Temp::tempfile("XXXXXXXXXX",
                                            SUFFIX => '.dot',
                                            DIR => $webdotdir);
-my $urlbase = Bugzilla->params->{'urlbase'};
+my $urlbase = Param('urlbase');
 
 print $fh "digraph G {";
 print $fh qq{
@@ -193,7 +188,7 @@ foreach my $k (keys(%seen)) {
         push(@params, "shape=box");
     }
 
-    if (is_open_state($stat)) {
+    if (IsOpenedState($stat)) {
         push(@params, "color=green");
     }
 
@@ -221,7 +216,7 @@ close $fh;
 
 chmod 0777, $filename;
 
-my $webdotbase = Bugzilla->params->{'webdotbase'};
+my $webdotbase = Param('webdotbase');
 
 if ($webdotbase =~ /^https?:/) {
      # Remote dot server
@@ -245,11 +240,6 @@ if ($webdotbase =~ /^https?:/) {
     
     # On Windows $pngfilename will contain \ instead of /
     $pngfilename =~ s|\\|/|g if $^O eq 'MSWin32';
-
-    # Under mod_perl, pngfilename will have an absolute path, and we
-    # need to make that into a relative path.
-    my $cgi_root = bz_locations()->{cgi_path};
-    $pngfilename =~ s#^\Q$cgi_root\E/?##;
     
     $vars->{'image_url'} = $pngfilename;
 
@@ -288,9 +278,7 @@ foreach my $f (@files)
     }
 }
 
-# Make sure we only include valid integers (protects us from XSS attacks).
-my @bugs = grep(detaint_natural($_), split(/[\s,]+/, $cgi->param('id')));
-$vars->{'bug_id'} = join(', ', @bugs);
+$vars->{'bug_id'} = $cgi->param('id');
 $vars->{'multiple_bugs'} = ($cgi->param('id') =~ /[ ,]/);
 $vars->{'doall'} = $cgi->param('doall');
 $vars->{'rankdir'} = $rankdir;

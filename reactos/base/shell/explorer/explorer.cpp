@@ -93,12 +93,12 @@ void ExplorerGlobals::read_persistent()
 	_cfg_dir.printf(TEXT("%s\\ReactOS"), (LPCTSTR)SpecialFolderFSPath(CSIDL_APPDATA,0));
 	_cfg_path.printf(TEXT("%s\\ros-explorer-cfg.xml"), _cfg_dir.c_str());
 
-	if (!_cfg.read_file(_cfg_path)) {
+	if (!_cfg.read(_cfg_path)) {
 		//if (_cfg._last_error != XML_ERROR_NO_ELEMENTS)
 		MessageBox(_hwndDesktop, _cfg._errors.str(),
 					TEXT("ROS Explorer - reading user settings"), MB_OK);
 
-		_cfg.read_file(TEXT("explorer-cfg-template.xml"));
+		_cfg.read(TEXT("explorer-cfg-template.xml"));
 	}
 
 	 // read bookmarks
@@ -115,7 +115,7 @@ void ExplorerGlobals::write_persistent()
 	 // write configuration file
 	RecursiveCreateDirectory(_cfg_dir);
 
-	_cfg.write_file(_cfg_path);
+	_cfg.write(_cfg_path);
 	_favorites.write(_favorites_path);
 }
 
@@ -402,7 +402,6 @@ void IconCache::init()
 	_icons[ICID_COMPUTER]	= Icon(ICID_COMPUTER,	IDI_COMPUTER,	icon_size);
 	_icons[ICID_LOGOFF] 	= Icon(ICID_LOGOFF, 	IDI_LOGOFF,		icon_size);
 	_icons[ICID_SHUTDOWN]	= Icon(ICID_SHUTDOWN,	IDI_SHUTDOWN,	icon_size);
-	_icons[ICID_RESTART]	= Icon(ICID_RESTART,	IDI_RESTART,	icon_size);
 	_icons[ICID_BOOKMARK]	= Icon(ICID_BOOKMARK,	IDI_DOT_TRANS,	icon_size);
 	_icons[ICID_MINIMIZE]	= Icon(ICID_MINIMIZE,	IDI_MINIMIZE,	icon_size);
 	_icons[ICID_CONTROLPAN] = Icon(ICID_CONTROLPAN, IDI_CONTROLPAN,	icon_size);

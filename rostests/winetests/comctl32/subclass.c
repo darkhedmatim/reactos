@@ -156,7 +156,7 @@ static void ok_sequence(const struct message *expected, const char *context)
             "%s: the procnum %d was expected, but got procnum %d instead\n",
             context, expected->procnum, actual->procnum);
         ok(expected->wParam == actual->wParam,
-            "%s: in procnum %d expecting wParam 0x%lx got 0x%lx\n",
+            "%s: in procnum %d expecting wParam 0x%x got 0x%x\n",
             context, expected->procnum, expected->wParam, actual->wParam);
         expected++;
         actual++;
@@ -285,12 +285,9 @@ START_TEST(subclass)
     
     hdll = GetModuleHandleA("comctl32.dll");
     assert(hdll);
-    /* Functions have to be loaded by ordinal. Only XP and W2K3 export
-     * them by name.
-     */
-    pSetWindowSubclass = (void*)GetProcAddress(hdll, (LPSTR)410);
-    pRemoveWindowSubclass = (void*)GetProcAddress(hdll, (LPSTR)412);
-    pDefSubclassProc = (void*)GetProcAddress(hdll, (LPSTR)413);
+    pSetWindowSubclass = (void*)GetProcAddress(hdll, "SetWindowSubclass");
+    pRemoveWindowSubclass = (void*)GetProcAddress(hdll, "RemoveWindowSubclass");
+    pDefSubclassProc = (void*)GetProcAddress(hdll, "DefSubclassProc");
     
     if(!pSetWindowSubclass || !pRemoveWindowSubclass || !pDefSubclassProc)
         return;

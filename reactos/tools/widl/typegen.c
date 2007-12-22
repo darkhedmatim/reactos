@@ -37,6 +37,7 @@
 #include "utils.h"
 #include "parser.h"
 #include "header.h"
+#include "windef.h"
 #include "wine/list.h"
 
 #include "widl.h"

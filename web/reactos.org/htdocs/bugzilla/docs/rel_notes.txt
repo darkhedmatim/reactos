@@ -1,11 +1,3 @@
-Release Notes for Bugzilla version 3.0 and higher are available in HTML
-format, either on the bugzilla.org website, or in your current installation,
-linked from the index page.
-
-bugzilla.org links for release notes
-------------------------------------
-3.0.2: http://www.bugzilla.org/releases/3.0.2/release-notes.html
-
 ***************************************
 *** The Bugzilla 2.22 Release Notes ***
 ***************************************
@@ -14,7 +6,6 @@ Table of Contents
 *****************
 
 - Introduction
-- Important Updates In This Point Release
 - Minimum Requirements
     * Perl
     * For MySQL Users
@@ -70,57 +61,6 @@ Contributor's Guide at:
 http://www.bugzilla.org/docs/contributor.html
 
 
-Important Updates In This Point Release
-***************************************
-
-This section describes bugs fixed in releases after the original 2.22
-release.
-
-Version 2.22.2
---------------
-
-+ Make Bugzilla compatible with Template Toolkit 2.15 (bug 357374)
-
-+ Make Bugzilla compatible with versions of MySQL higher than 5.0.25
-  (bug 321645)
-
-+ Sanity Check can now only be run by people with the "admin" privilege.
-  (bug 91761)
-
-Version 2.22.1
---------------
-
-+ When sending mail, Bugzilla could throw the error "Insecure dependency in
-  exec while running with -T switch" (bug 340538).
-
-+ Using the public webdot server (for dependency graphs) should work 
-  again (bug 351243).
-
-+ The "I'm added to or removed from this capacity" email preference
-  wasn't working for new bugs (bug 349852).
-
-+ The original release of 2.22 incorrectly said it required Template-Toolkit
-  version 2.08. In actual fact, Bugzilla requires version 2.10 (bug 351478).
-
-+ votes.cgi would crash if your bug was the one confirming a bug (bug 351300).
-
-+ checksetup.pl now correctly reports if your Template::Plugin::GD module
-  is missing. If missing, it could lead to charts and graphs not working
-  (bug 345389).
-
-+ The "Keyword" field on buglist.cgi was not sorted alphabetically, so
-  it wasn't very useful for sorting (bug 342828).
-
-+ Sendmail will no longer complain about there being a newline in the
-  email address, when Bugzilla sends mail (bug 331365).
-
-+ contrib/bzdbcopy.pl would try to insert an invalid value into the
-  database, unnecessarily (bug 335572).
-
-+ Deleting a bug now correctly deletes its attachments from the database
-  (bug 339667).
-
-
 Minimum Requirements
 ********************
 
@@ -162,7 +102,7 @@ Required Perl Modules
   DBI v1.38
   File::Spec v0.84
   File::Temp (any)
-  Template Toolkit v2.10 (changed from 2.20)
+  Template Toolkit v2.08
   Text::Wrap v2001.0131
   Mail::Mailer v1.67     (changed from 2.20)
   MIME::Base64 v3.01     (new in 2.22)
@@ -274,13 +214,11 @@ It now:
   * Is much more forgiving about small problems in the XML
 
 
-Adding Individual Bugs to Saved Searches (Tagging)
---------------------------------------------------
+Adding Individual Bugs to Saved Searches
+----------------------------------------
 Users now have the option of adding an individual bug to any
-particular Saved Search. Individual users that disagree with the site
-default can add or remove this feature (which appears as an entry box
-visible in the footer) by changing the General Preferences setting
-called "Enable tags for bugs".
+particular Saved Search. If you don't like having the entry box in
+your footer for this feature, you can disable it in your Preferences.
 
 
 Attach URLs
@@ -296,7 +234,7 @@ Optional "Strict Isolation" for Groups
 --------------------------------------
 If you turn on the "strict_isolation" parameter in Bugzilla, you
 will *not* be able to add any user to the CC field (or set them
-as an Assignee or QA Contact) unless that user could normally see
+as an Asignee or QA Contact) unless that user could normally see
 the bug. That is, you will no longer be able to "accidentally" 
 (or intentionally) give somebody access to a bug that they 
 otherwise couldn't see.
@@ -594,32 +532,6 @@ TRUNCATE TABLE logincookies;
 This is actually safe to do at any time--it just forces a logout of
 every single user, even those with saved sessions. (It invalidates
 every login cookie Bugzilla has ever given out.)
-
-Version 2.22.2
---------------
-
-A Cross-Site Scripting vulnerability is fixed in Bugzilla 2.22.2. You can
-read the details of the fix at:
-
-http://www.bugzilla.org/security/2.20.3/
-
-Version 2.22.1
---------------
-
-The Bugzilla team fixed two Information Leaks and three Cross-Site
-Scripting vulnerabilities that existed in versions of Bugzilla
-prior to 2.22.1. We strongly recommend that you update any 2.22 
-installation to 2.22.1, to be protected from these vulnerabilities.
-
-In addition, we have made an enhancement to security in this version
-of Bugzilla. In previous versions, it was possible for malicious
-users to exploit administrators in certain ways. Although this has
-never happened (to our knowledge) in the real world, we thought it
-was important that we protect administrators from this sort of attack.
-
-You can see details on all the vulnerabilities and enhancements at:
-
-http://www.bugzilla.org/security/2.18.5/
 
 
 Release Notes For Previous Versions
@@ -2389,7 +2301,7 @@ See also next section.
   'letsubmitterchoosepriority' was off.
   (bug 63018)
 
-- Most CGIs are now templatized.  This helps to make it
+- Most CGIs are now templatised.  This helps to make it
   easier to remember to HTML filter values and easier to spot
   when they are not, preventing cross site scripting attacks.
   (bug 86168)
@@ -2400,17 +2312,17 @@ See also next section.
 
 *** IMPORTANT CHANGES ***
 
-- 2.16 introduces "templatization", a new feature that allows
-  administrators to easily customize the HTML output (the "look and feel")
+- 2.16 introduces "templatisation", a new feature that allows
+  administrators to easily customise the HTML output (the "look and feel")
   of Bugzilla without altering Perl code.  Bugzilla uses the
-  "Template Toolkit" for this.  Please see the "Template Customization"
+  "Template Toolkit" for this.  Please see the "Template Customisation"
   section of the Bugzilla Guide for more details.
 
-  Administrators who ran the 2.15 development version with custom
+  Administrators who ran the 2.15 development version and customised
   templates should check the templates are still valid, as file names
   and file paths have changed.
 
-  Most output is now templatized.  This process will be complete next
+  Most output is now templatised.  This process will be complete next
   milestone.
 
   For speed, compiled templates are cached on disk.  If you modify the
@@ -2464,7 +2376,7 @@ See also next section.
   lengthy delays in future if this problem reoccurs.
   (bug 106377)
 
-- In parallel with templatization, a lot of changes have been made to the HTML
+- In parallel with templatisation, a lot of changes have been made to the HTML
   output of the Bugzilla CGIs.  This could break code that attempts to parse
   such code.  For example, this breaks mozbot.
   (no bug number)
@@ -2741,8 +2653,8 @@ known to us after the Bugzilla 2.14 release.
 
 *** SECURITY ISSUES RESOLVED ***
 
-- Multiple instances of unauthorized access to confidential
-  bugs have been fixed.
+- Multiple instances of unauthorised access to confidential
+  bugs has been fixed.
   (bug 39524, 39526, 39527, 39531, 39533, 70189, 82781)
 
 - Multiple instances of untrusted parameters not being
@@ -2753,7 +2665,7 @@ known to us after the Bugzilla 2.14 release.
 - After logging in passwords no longer appear in the URL.
   (bug 15980)
 
-- Procedures to prevent unauthorized access to confidential
+- Procedures to prevent unauthorised access to confidential
   files are now simpler.  In particular the shadow directory
   no longer exists and the data/comments file no longer needs
   to be directly accessible, so the entire data directory can
@@ -2764,7 +2676,7 @@ known to us after the Bugzilla 2.14 release.
 
 - If they do not already exist, checksetup.pl will attempt to
   write Apache .htaccess files by default, to prevent
-  unauthorized access to confidential files.  You can turn this
+  unauthorised access to confidential files.  You can turn this
   off in the localconfig file.
   (bug 76154)
 

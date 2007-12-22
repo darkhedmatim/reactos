@@ -1,5 +1,5 @@
 // Italian language resource file (Paolo Devoti, devotip@tiscali.it, 2007-01-11)
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 IDD_SLAYERSHEET DIALOGEX 0, 0, 224, 226
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -31,7 +31,7 @@ BEGIN
   PUSHBUTTON "A&nnulla", IDCANCEL, 162,116,60,14
 END
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_SLAYER "Slayer"
   IDS_DESCRIPTION "Estensione dell'ambiente per la compatibilià delle applicazioni"

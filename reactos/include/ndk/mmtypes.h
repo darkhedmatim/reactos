@@ -30,9 +30,11 @@ Author:
 // Page-Rounding Macros
 //
 #define PAGE_ROUND_DOWN(x)                                  \
-    (((ULONG_PTR)(x))&(~(PAGE_SIZE-1)))
+    (((ULONG_PTR)x)&(~(PAGE_SIZE-1)))
 #define PAGE_ROUND_UP(x)                                    \
-    ( (((ULONG_PTR)(x)) + PAGE_SIZE-1)  & (~(PAGE_SIZE-1)) )
+    ( (((ULONG_PTR)x)%PAGE_SIZE) ?                          \
+    ((((ULONG_PTR)x)&(~(PAGE_SIZE-1)))+PAGE_SIZE) :         \
+    ((ULONG_PTR)x) )
 #ifdef NTOS_MODE_USER
 #define ROUND_TO_PAGES(Size)                                \
     (((ULONG_PTR)(Size) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
@@ -56,7 +58,6 @@ Author:
 #define MEM_PHYSICAL                                        0x400000
 #define MEM_ROTATE                                          0x800000
 #define MEM_IMAGE                                           SEC_IMAGE
-#define MEM_DOS_LIM                                         0x40000000
 
 //
 // Section Flags for NtCreateSection
@@ -242,8 +243,22 @@ typedef struct _MMPTE
         MMPTE_TRANSITION Trans;
         MMPTE_SUBSECTION Subsect;
         MMPTE_LIST List;
-    } u;
+    };
 } MMPTE, *PMMPTE;
+
+//
+// Section Information structure
+//
+typedef struct _MI_EXTRA_IMAGE_INFORMATION
+{
+    ULONG SizeOfHeaders;
+} MI_EXTRA_IMAGE_INFORMATION, *PMI_EXTRA_IMAGE_INFORMATION;
+
+typedef struct _MI_SECTION_IMAGE_INFORMATION
+{
+    SECTION_IMAGE_INFORMATION ExportedImageInformation;
+    MI_EXTRA_IMAGE_INFORMATION InternalImageInformation;
+} MI_SECTION_IMAGE_INFORMATION, *PMI_SECTION_IMAGE_INFORMATION;
 
 //
 // Section Extension Information
@@ -279,12 +294,12 @@ typedef struct _SEGMENT
     PVOID BaseAddress;
     union
     {
-        SIZE_T ImageCommitment;
+        ULONG ImageCommitment;
         PEPROCESS CreatingProcess;
     } u1;
     union
     {
-        PSECTION_IMAGE_INFORMATION ImageInformation;
+        PMI_SECTION_IMAGE_INFORMATION ImageInformation;
         PVOID FirstMappedVa;
     } u2;
     PMMPTE PrototypePte;
@@ -352,13 +367,6 @@ typedef struct _MMSUBSECTION_FLAGS
     ULONG SectorEndOffset:12;
 } MMSUBSECTION_FLAGS, *PMMSUBSECTION_FLAGS;
 
-typedef struct _MMSUBSECTION_FLAGS2
-{
-    ULONG SubsectionAccessed:1;
-    ULONG SubsectionConverted:1;
-    ULONG Reserved:30;
-} MMSUBSECTION_FLAGS2;
-
 //
 // Control Area Structures
 //
@@ -410,7 +418,7 @@ typedef struct _LARGE_CONTROL_AREA
 } LARGE_CONTROL_AREA, *PLARGE_CONTROL_AREA;
 
 //
-// Subsection and Mapped Subsection
+// Subsection
 //
 typedef struct _SUBSECTION
 {
@@ -421,35 +429,11 @@ typedef struct _SUBSECTION
         MMSUBSECTION_FLAGS SubsectionFlags;
     } u;
     ULONG StartingSector;
-    ULONG NumberOfFullSectors;
     PMMPTE SubsectionBase;
     ULONG UnusedPtes;
     ULONG PtesInSubsection;
-    struct _SUBSECTION *NextSubsection;
+    struct _SUBSECTION *NextSubSection;
 } SUBSECTION, *PSUBSECTION;
-
-typedef struct _MSUBSECTION
-{
-    PCONTROL_AREA ControlArea;
-    union
-    {
-        ULONG LongFlags;
-        MMSUBSECTION_FLAGS SubsectionFlags;
-    } u;
-    ULONG StartingSector;
-    ULONG NumberOfFullSectors;
-    PMMPTE SubsectionBase;
-    ULONG UnusedPtes;
-    ULONG PtesInSubsection;
-    struct _SUBSECTION *NextSubsection;
-    LIST_ENTRY DereferenceList;
-    ULONG_PTR NumberOfMappedViews;
-    union
-    {
-        ULONG LongFlags2;
-        MMSUBSECTION_FLAGS2 SubsectionFlags2;
-    } u2;
-} MSUBSECTION, *PMSUBSECTION;
 
 //
 // Segment Object
@@ -522,22 +506,6 @@ typedef struct _MM_AVL_TABLE
 } MM_AVL_TABLE, *PMM_AVL_TABLE;
 
 //
-// Actual Section Object
-//
-typedef struct _SECTION
-{
-    MMADDRESS_NODE Address;
-    PSEGMENT Segment;
-    LARGE_INTEGER SizeOfSection;
-    union
-    {
-        ULONG LongFlags;
-        MMSECTION_FLAGS Flags;
-    } u;
-    ULONG InitialPageProtection;
-} SECTION, *PSECTION;
-
-//
 // Memory Manager Working Set Structures
 //
 typedef struct _MMWSLENTRY
@@ -559,7 +527,7 @@ typedef struct _MMWSLE
         PVOID VirtualAddress;
         ULONG Long;
         MMWSLENTRY e1;
-    } u1;
+    };
 } MMWSLE, *PMMWSLE;
 
 typedef struct _MMWSLE_HASH
@@ -576,7 +544,7 @@ typedef struct _MMWSL
     ULONG NextSlot;
     PMMWSLE Wsle;
     ULONG LastInitializedWsle;
-    ULONG NonDirectCount;
+    ULONG NonDirectcout;
     PMMWSLE_HASH HashTable;
     ULONG HashTableSize;
     ULONG NumberOfCommittedPageTables;
@@ -597,14 +565,11 @@ typedef struct _MMSUPPORT_FLAGS
     ULONG BeingTrimmed:1;
     ULONG SessionLeader:1;
     ULONG TrimHard:1;
-    ULONG MaximumWorkingSetHard:1;
-    ULONG ForceTrim:1;
-    ULONG MinimumworkingSetHard:1;
-    ULONG Available0:1;
+    ULONG WorkingSetHard:1;
+    ULONG AddressSpaceBeingDeleted :1;
+    ULONG Available:10;
+    ULONG AllowWorkingSetAdjustment:8;
     ULONG MemoryPriority:8;
-    ULONG GrowWsleHash:1;
-    ULONG AcquiredUnsafe:1;
-    ULONG Available:14;
 } MMSUPPORT_FLAGS, *PMMSUPPORT_FLAGS;
 
 //
@@ -612,10 +577,8 @@ typedef struct _MMSUPPORT_FLAGS
 //
 typedef struct _MMSUPPORT
 {
-#if (NTDDI_VERSION >= NTDDI_WS03)
-    LIST_ENTRY WorkingSetExpansionLinks;
-#endif
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    LIST_ENTRY WorkingSetExpansionLinks;
     USHORT LastTrimpStamp;
     USHORT NextPageColor;
 #else
@@ -627,12 +590,12 @@ typedef struct _MMSUPPORT
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONG Spare0;
 #else
-    ULONG GrowthSinceLastEstimate;
+    ULONG WorkingSetSize;
 #endif
     ULONG MinimumWorkingSetSize;
     ULONG MaximumWorkingSetSize;
-    PMMWSL VmWorkingSetList;
-#if (NTDDI_VERSION < NTDDI_WS03)
+    PMMWSL MmWorkingSetList;
+#if (NTDDI_VERSION < NTDDI_LONGHORN)
     LIST_ENTRY WorkingSetExpansionLinks;
 #endif
     ULONG Claim;
@@ -640,18 +603,15 @@ typedef struct _MMSUPPORT
     ULONG Spare;
     ULONG WorkingSetPrivateSize;
     ULONG WorkingSetSizeOverhead;
+    ULONG WorkingSetSize;
+    PKEVENT ExitEvent;
+    EX_PUSH_LOCK WorkingSetMutex;
+    PVOID AccessLog;
 #else
     ULONG NextEstimationSlot;
     ULONG NextAgingSlot;
     ULONG EstimatedAvailable;
-#endif
-    ULONG WorkingSetSize;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PKEVENT ExitEvent;
-#endif
-    EX_PUSH_LOCK WorkingSetMutex;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PVOID AccessLog;
+    ULONG GrowthSinceLastEstimate;
 #endif
 } MMSUPPORT, *PMMSUPPORT;
 

@@ -556,26 +556,13 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     /* Set default exit code */
     Process->ExitStatus = STATUS_TIMEOUT;
 
-    /* Check if this is the initial process being built */
-    if (Parent)
-    {
-        /* Create the address space for the child */
-        if (!MmCreateProcessAddressSpace(MinWs,
-                                         Process,
-                                         &DirectoryTableBase))
-        {
-            /* Failed */
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto CleanupWithRef;
-        }
-    }
-    else
-    {
-        /* Otherwise, we are the boot process, we're already semi-initialized */
-        Process->ObjectTable = CurrentProcess->ObjectTable;
-        Status = MmInitializeHandBuiltProcess(Process, &DirectoryTableBase);
-        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-    }
+    /* Create or Clone the Handle Table */
+    ObpCreateHandleTable(Parent, Process);
+
+    /* Set Process's Directory Base */
+    MmCopyMmInfo(Parent ? Parent : PsInitialSystemProcess,
+                 Process,
+                 &DirectoryTableBase);
 
     /* We now have an address space */
     InterlockedOr((PLONG)&Process->Flags, PSF_HAS_ADDRESS_SPACE_BIT);
@@ -597,84 +584,15 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     /* Set default priority class */
     Process->PriorityClass = PROCESS_PRIORITY_CLASS_NORMAL;
 
-    /* Check if we have a parent */
-    if (Parent)
-    {
-        /* Check our priority class */
-        if (Parent->PriorityClass == PROCESS_PRIORITY_CLASS_IDLE ||
-            Parent->PriorityClass == PROCESS_PRIORITY_CLASS_BELOW_NORMAL)
-        {
-            /* Normalize it */
-            Process->PriorityClass = Parent->PriorityClass;
-        }
-
-        /* Initialize object manager for the process */
-        Status = ObInitProcess(Flags & PS_INHERIT_HANDLES ? Parent : NULL,
-                               Process);
-        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-    }
-    else
-    {
-        /* Do the second part of the boot process memory setup */
-        Status = MmInitializeHandBuiltProcess2(Process);
-        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-    }
-
-    /* Set success for now */
-    Status = STATUS_SUCCESS;
-
-    /* Check if this is a real user-mode process */
-    if (SectionHandle)
-    {
-        /* Initialize the address space */
-        Status = MmInitializeProcessAddressSpace(Process,
-                                                 NULL,
-                                                 SectionObject,
-                                                 &Flags,
-                                                 &Process->
-                                                 SeAuditProcessCreationInfo.
-                                                 ImageFileName);
-        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-    }
-    else if (Parent)
-    {
-        /* Check if this is a child of the system process */
-        if (Parent != PsInitialSystemProcess)
-        {
-            /* This is a clone! */
-            ASSERTMSG("No support for cloning yet\n", FALSE);
-        }
-        else
-        {
-            /* This is the initial system process */
-            Flags &= ~PS_LARGE_PAGES;
-            Status = MmInitializeProcessAddressSpace(Process,
-                                                     NULL,
-                                                     NULL,
-                                                     &Flags,
-                                                     NULL);
-            if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-
-            /* Create a dummy image file name */
-            Process->SeAuditProcessCreationInfo.ImageFileName =
-                ExAllocatePoolWithTag(PagedPool,
-                                      sizeof(OBJECT_NAME_INFORMATION),
-                                      TAG('S', 'e', 'P', 'a'));
-            if (!Process->SeAuditProcessCreationInfo.ImageFileName)
-            {
-                /* Fail */
-                Status = STATUS_INSUFFICIENT_RESOURCES;
-                goto CleanupWithRef;
-            }
-
-            /* Zero it out */
-            RtlZeroMemory(Process->SeAuditProcessCreationInfo.ImageFileName,
-                          sizeof(OBJECT_NAME_INFORMATION));
-        }
-    }
+    /* Create the Process' Address Space */
+    Status = MmCreateProcessAddressSpace(Process,
+                                         (PROS_SECTION_OBJECT)SectionObject,
+                                         &Process->SeAuditProcessCreationInfo.
+                                         ImageFileName);
+    if (!NT_SUCCESS(Status)) goto CleanupWithRef;
 
     /* Check if we have a section object and map the system DLL */
-    if (SectionObject) PspMapSystemDll(Process, NULL, FALSE);
+    if (SectionObject) PspMapSystemDll(Process, NULL);
 
     /* Create a handle for the Process */
     CidEntry.Object = Process;
@@ -682,7 +600,6 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     Process->UniqueProcessId = ExCreateHandle(PspCidTable, &CidEntry);
     if (!Process->UniqueProcessId)
     {
-        /* Fail */
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto CleanupWithRef;
     }
@@ -704,7 +621,6 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     /* Create PEB only for User-Mode Processes */
     if (Parent)
     {
-        /* Create it */
         Status = MmCreatePeb(Process);
         if (!NT_SUCCESS(Status)) goto CleanupWithRef;
     }
@@ -823,7 +739,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     _SEH_END;
 
 CleanupWithRef:
-    /*
+    /* 
      * Dereference the process. For failures, kills the process and does
      * cleanup present in PspDeleteProcess. For success, kills the extra
      * reference added by ObInsertObject.

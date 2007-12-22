@@ -3,19 +3,28 @@
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS DirectX
  * FILE:                 ddraw/surface/surface_stubs.c
- * PURPOSE:              IDirectDrawSurface7 Implementation
+ * PURPOSE:              IDirectDrawSurface7 Implementation 
  * PROGRAMMER:           Magnus Olsen, Maarten Bosma
  *
  */
 
 #include "rosdraw.h"
 
+HRESULT WINAPI
+Main_DDrawSurface_QueryInterface(LPDIRECTDRAWSURFACE7 iface, REFIID riid,
+				      LPVOID* ppObj)
+{
+    DX_WINDBG_trace();
 
+	DX_STUB_str("Unimplement\n");
+
+	return E_NOINTERFACE;
+}
 
 
 /* MSDN: "not currently implemented." */
 HRESULT WINAPI
-Main_DDrawSurface_AddOverlayDirtyRect(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_AddOverlayDirtyRect(LPDIRECTDRAWSURFACE7 iface,
 					   LPRECT pRect)
 {
     DX_WINDBG_trace();
@@ -24,8 +33,8 @@ Main_DDrawSurface_AddOverlayDirtyRect(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_BltFast(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dstx,
-			      DWORD dsty, LPDDRAWI_DDRAWSURFACE_INT src,
+Main_DDrawSurface_BltFast(LPDIRECTDRAWSURFACE7 iface, DWORD dstx,
+			      DWORD dsty, LPDIRECTDRAWSURFACE7 src,
 			      LPRECT rsrc, DWORD trans)
 {
     DX_WINDBG_trace();
@@ -34,7 +43,7 @@ Main_DDrawSurface_BltFast(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dstx,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_Restore(LPDDRAWI_DDRAWSURFACE_INT iface)
+Main_DDrawSurface_Restore(LPDIRECTDRAWSURFACE7 iface)
 {
     DX_WINDBG_trace();
 
@@ -43,7 +52,7 @@ Main_DDrawSurface_Restore(LPDDRAWI_DDRAWSURFACE_INT iface)
 
 /* MSDN: "not currently implemented." */
 HRESULT WINAPI
-Main_DDrawSurface_BltBatch(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_BltBatch(LPDIRECTDRAWSURFACE7 iface,
 				LPDDBLTBATCH pBatch, DWORD dwCount,
 				DWORD dwFlags)
 {
@@ -53,7 +62,7 @@ Main_DDrawSurface_BltBatch(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_ChangeUniquenessValue(LPDDRAWI_DDRAWSURFACE_INT iface)
+Main_DDrawSurface_ChangeUniquenessValue(LPDIRECTDRAWSURFACE7 iface)
 {
     DX_WINDBG_trace();
 
@@ -61,9 +70,9 @@ Main_DDrawSurface_ChangeUniquenessValue(LPDDRAWI_DDRAWSURFACE_INT iface)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_DeleteAttachedSurface(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_DeleteAttachedSurface(LPDIRECTDRAWSURFACE7 iface,
 					     DWORD dwFlags,
-					     LPDDRAWI_DDRAWSURFACE_INT pAttach)
+					     LPDIRECTDRAWSURFACE7 pAttach)
 {
     DX_WINDBG_trace();
 
@@ -71,17 +80,17 @@ Main_DDrawSurface_DeleteAttachedSurface(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_EnumAttachedSurfaces(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_EnumAttachedSurfaces(LPDIRECTDRAWSURFACE7 iface,
 					    LPVOID context,
 					    LPDDENUMSURFACESCALLBACK7 cb)
 {
 	DX_WINDBG_trace();
 
-	DX_STUB;
+	DX_STUB;    
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_EnumOverlayZOrders(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_EnumOverlayZOrders(LPDIRECTDRAWSURFACE7 iface,
 					  DWORD dwFlags, LPVOID context,
 					  LPDDENUMSURFACESCALLBACK7 cb)
 {
@@ -91,8 +100,16 @@ Main_DDrawSurface_EnumOverlayZOrders(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_Flip(LPDDRAWI_DDRAWSURFACE_INT iface,
-			    LPDDRAWI_DDRAWSURFACE_INT lpDDSurfaceTargetOverride, DWORD dwFlags)
+Main_DDrawSurface_Flip(LPDIRECTDRAWSURFACE7 iface,
+			    LPDIRECTDRAWSURFACE7 lpDDSurfaceTargetOverride, DWORD dwFlags)
+{        
+    DX_WINDBG_trace();
+
+    DX_STUB;    
+}
+
+HRESULT WINAPI
+Main_DDrawSurface_FreePrivateData(LPDIRECTDRAWSURFACE7 iface, REFGUID tag)
 {
     DX_WINDBG_trace();
 
@@ -100,40 +117,33 @@ Main_DDrawSurface_Flip(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_FreePrivateData(LPDDRAWI_DDRAWSURFACE_INT iface, REFGUID tag)
-{
-    DX_WINDBG_trace();
+Main_DDrawSurface_GetClipper(LPDIRECTDRAWSURFACE7 iface,
+				  LPDIRECTDRAWCLIPPER* ppClipper)
+{	
 
     DX_STUB;
 }
+
 HRESULT WINAPI
-Main_DDrawSurface_GetColorKey(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dwFlags,
+Main_DDrawSurface_GetColorKey(LPDIRECTDRAWSURFACE7 iface, DWORD dwFlags,
 				   LPDDCOLORKEY pCKey)
 {
     //LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
-	DX_WINDBG_trace();
+	DX_WINDBG_trace();	
 
     DX_STUB;
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetDDInterface(LPDDRAWI_DDRAWSURFACE_INT iface, LPVOID* pDD)
+Main_DDrawSurface_GetDDInterface(LPDIRECTDRAWSURFACE7 iface, LPVOID* pDD)
 {
     DX_WINDBG_trace();
 
     DX_STUB;
 }
 HRESULT WINAPI
-Main_DDrawSurface_GetFlipStatus(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dwFlags)
-{
-    DX_WINDBG_trace();
-
-    DX_STUB;
-}
-
-HRESULT WINAPI
-Main_DDrawSurface_GetLOD(LPDDRAWI_DDRAWSURFACE_INT iface, LPDWORD pdwMaxLOD)
+Main_DDrawSurface_GetFlipStatus(LPDIRECTDRAWSURFACE7 iface, DWORD dwFlags)
 {
     DX_WINDBG_trace();
 
@@ -141,7 +151,15 @@ Main_DDrawSurface_GetLOD(LPDDRAWI_DDRAWSURFACE_INT iface, LPDWORD pdwMaxLOD)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetOverlayPosition(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_GetLOD(LPDIRECTDRAWSURFACE7 iface, LPDWORD pdwMaxLOD)
+{
+    DX_WINDBG_trace();
+
+    DX_STUB;
+}
+
+HRESULT WINAPI
+Main_DDrawSurface_GetOverlayPosition(LPDIRECTDRAWSURFACE7 iface,
 					  LPLONG pX, LPLONG pY)
 {
     DX_WINDBG_trace();
@@ -149,7 +167,7 @@ Main_DDrawSurface_GetOverlayPosition(LPDDRAWI_DDRAWSURFACE_INT iface,
     DX_STUB;
 }
 HRESULT WINAPI
-Main_DDrawSurface_GetPalette(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_GetPalette(LPDIRECTDRAWSURFACE7 iface,
 				  LPDIRECTDRAWPALETTE* ppPalette)
 {
     DX_WINDBG_trace();
@@ -158,7 +176,7 @@ Main_DDrawSurface_GetPalette(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetPriority(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_GetPriority(LPDIRECTDRAWSURFACE7 iface,
 				   LPDWORD pdwPriority)
 {
     DX_WINDBG_trace();
@@ -167,7 +185,7 @@ Main_DDrawSurface_GetPriority(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetPrivateData(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_GetPrivateData(LPDIRECTDRAWSURFACE7 iface,
 				      REFGUID tag, LPVOID pBuffer,
 				      LPDWORD pcbBufferSize)
 {
@@ -177,7 +195,7 @@ Main_DDrawSurface_GetPrivateData(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetUniquenessValue(LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_GetUniquenessValue(LPDIRECTDRAWSURFACE7 iface,
 					  LPDWORD pValue)
 {
     DX_WINDBG_trace();
@@ -186,17 +204,17 @@ Main_DDrawSurface_GetUniquenessValue(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_IsLost(LPDDRAWI_DDRAWSURFACE_INT iface)
+Main_DDrawSurface_IsLost(LPDIRECTDRAWSURFACE7 iface)
 {
     DX_WINDBG_trace();
 
     //DX_STUB;
     DX_STUB_str("not implement return not lost\n");
-    return DD_OK;
+    return DD_OK;    
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_PageLock(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dwFlags)
+Main_DDrawSurface_PageLock(LPDIRECTDRAWSURFACE7 iface, DWORD dwFlags)
 {
     DX_WINDBG_trace();
 
@@ -204,15 +222,26 @@ Main_DDrawSurface_PageLock(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dwFlags)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_PageUnlock(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD dwFlags)
+Main_DDrawSurface_PageUnlock(LPDIRECTDRAWSURFACE7 iface, DWORD dwFlags)
 {
     DX_WINDBG_trace();
 
     DX_STUB;
 }
 
+
 HRESULT WINAPI
-Main_DDrawSurface_SetPalette (LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_SetClipper (LPDIRECTDRAWSURFACE7 iface,
+				  LPDIRECTDRAWCLIPPER pDDClipper)
+{
+    DX_WINDBG_trace();
+
+    DX_STUB;
+}
+
+
+HRESULT WINAPI
+Main_DDrawSurface_SetPalette (LPDIRECTDRAWSURFACE7 iface,
 				  LPDIRECTDRAWPALETTE pPalette)
 {
     DX_WINDBG_trace();
@@ -221,7 +250,7 @@ Main_DDrawSurface_SetPalette (LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetPriority (LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_SetPriority (LPDIRECTDRAWSURFACE7 iface,
 				   DWORD dwPriority)
 {
     DX_WINDBG_trace();
@@ -230,7 +259,7 @@ Main_DDrawSurface_SetPriority (LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetPrivateData (LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_SetPrivateData (LPDIRECTDRAWSURFACE7 iface,
 				      REFGUID tag, LPVOID pData,
 				      DWORD cbSize, DWORD dwFlags)
 {
@@ -240,9 +269,9 @@ Main_DDrawSurface_SetPrivateData (LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_UpdateOverlay (LPDDRAWI_DDRAWSURFACE_INT iface,
+Main_DDrawSurface_UpdateOverlay (LPDIRECTDRAWSURFACE7 iface,
 				     LPRECT pSrcRect,
-				     LPDDRAWI_DDRAWSURFACE_INT pDstSurface,
+				     LPDIRECTDRAWSURFACE7 pDstSurface,
 				     LPRECT pDstRect, DWORD dwFlags,
 				     LPDDOVERLAYFX pFX)
 {
@@ -254,13 +283,14 @@ Main_DDrawSurface_UpdateOverlay (LPDDRAWI_DDRAWSURFACE_INT iface,
 
 /* MSDN: "not currently implemented." */
 HRESULT WINAPI
-Main_DDrawSurface_UpdateOverlayDisplay (LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_UpdateOverlayDisplay (LPDIRECTDRAWSURFACE7 iface,
 					    DWORD dwFlags)
-{
+{    
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DX_WINDBG_trace();
 
-	if (!This->lpLcl->lpGbl->lpDD->lpDDCBtmp->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_UPDATEOVERLAY)
+	if (!This->lpLcl->lpGbl->lpDD->lpDDCBtmp->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_UPDATEOVERLAY) 
 	{
 		return DDERR_GENERIC;
 	}
@@ -269,8 +299,8 @@ Main_DDrawSurface_UpdateOverlayDisplay (LPDDRAWI_DDRAWSURFACE_INT This,
 }
 
 
-HRESULT WINAPI Main_DDrawSurface_UpdateOverlayZOrder (LPDDRAWI_DDRAWSURFACE_INT iface,
-					   DWORD dwFlags, LPDDRAWI_DDRAWSURFACE_INT pDDSRef)
+HRESULT WINAPI Main_DDrawSurface_UpdateOverlayZOrder (LPDIRECTDRAWSURFACE7 iface,
+					   DWORD dwFlags, LPDIRECTDRAWSURFACE7 pDDSRef)
 {
     DX_WINDBG_trace();
 
@@ -278,7 +308,7 @@ HRESULT WINAPI Main_DDrawSurface_UpdateOverlayZOrder (LPDDRAWI_DDRAWSURFACE_INT 
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetSurfaceDesc(LPDDRAWI_DDRAWSURFACE_INT iface, DDSURFACEDESC2 *DDSD, DWORD Flags)
+Main_DDrawSurface_SetSurfaceDesc(LPDIRECTDRAWSURFACE7 iface, DDSURFACEDESC2 *DDSD, DWORD Flags)
 {
 	DX_WINDBG_trace();
 
@@ -286,11 +316,10 @@ Main_DDrawSurface_SetSurfaceDesc(LPDDRAWI_DDRAWSURFACE_INT iface, DDSURFACEDESC2
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetLOD(LPDDRAWI_DDRAWSURFACE_INT iface, DWORD MaxLOD)
+Main_DDrawSurface_SetLOD(LPDIRECTDRAWSURFACE7 iface, DWORD MaxLOD)
 {
 	DX_WINDBG_trace();
 
     DX_STUB;
 }
-
 

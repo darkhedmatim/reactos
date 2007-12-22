@@ -14,7 +14,6 @@
 
 
 #include "user_types.h"
-#include "data_source.h"
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +42,7 @@ namespace System_
 ///
 /// Description: this class implements a named pipe reader. 
 
-    class NamedPipeReader : public DataSource
+	class NamedPipeReader
 	{
 	public:
 
@@ -65,7 +64,7 @@ namespace System_
 
 //---------------------------------------------------------------------------------------
 ///
-/// open
+/// openPipe
 ///
 /// Description: this function attempts to open a pipe. If an pipe is already open or
 /// it fails to open a pipe, the function returns false
@@ -74,17 +73,17 @@ namespace System_
 ///
 /// @return bool
 
-		virtual bool openSource(const string & PipeCmd);
+		bool openPipe(const string & PipeCmd);
 
 //---------------------------------------------------------------------------------------
 ///
-/// close
+/// closePipe
 ///
 /// Description: closes a pipe. Returns true on success
 ///
 /// @return bool
 
-		virtual bool closeSource();
+		bool closePipe();
 
 //---------------------------------------------------------------------------------------
 ///
@@ -96,7 +95,7 @@ namespace System_
 /// @param Buffer to be written to
 /// @return size_t
 
-	virtual bool readSource(std::vector<string> & vect);
+		size_t readPipe(std::vector<string> & vect);
 
 //---------------------------------------------------------------------------------------
 ///
@@ -105,7 +104,7 @@ namespace System_
 /// Description: returns true if the pipe has reached end of file. The caller should call
 /// closePipe if this function returns true
 
-	virtual bool isSourceOpen();
+	bool isEof();
 
 protected:
 //---------------------------------------------------------------------------------------
@@ -118,20 +117,11 @@ protected:
 /// @param vect vector storing the extracted lines
 /// @param append_line if the line isnt fully read, the line is appended
 
-	void extractLines(char * buffer, std::vector<string> & vect, bool & append_line, unsigned long cbRead);
-    void insertLine(std::vector<string> & vect, string line, bool append_line);
-
-    bool readPipe(char * buffer, int bufferlength, long & read);
+	void extractLines(TCHAR * buffer, std::vector<string> & vect, bool & append_line, unsigned long cbRead);
 
 
 	HANDLE h_Pipe;
-    char * m_Buffer;
-    int m_BufferLength;
-#ifdef UNICODE
-    WCHAR * m_WBuffer;
-#endif
 
-    static const char * s_LineBreak;
 	}; // end of class NamedPipeReader
 
 } // end of namespace System_

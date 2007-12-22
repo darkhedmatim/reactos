@@ -56,7 +56,7 @@ static LIST_ENTRY CacheSegmentLRUListHead;
 static LIST_ENTRY ClosedListHead;
 ULONG DirtyPageCount=0;
 
-KGUARDED_MUTEX ViewLock;
+FAST_MUTEX ViewLock;
 
 #ifdef CACHE_BITMAP
 #define	CI_CACHESEG_MAPPING_REGION_SIZE	(128*1024*1024)
@@ -114,6 +114,22 @@ static void CcRosCacheSegmentDecRefCount_ ( PCACHE_SEGMENT cs, const char* file,
 NTSTATUS
 CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg);
 
+BOOLEAN
+FASTCALL
+CcTryToAcquireBrokenMutex(PFAST_MUTEX FastMutex)
+{
+    KeEnterCriticalRegion();
+    if (InterlockedCompareExchange(&FastMutex->Count, 0, 1) == 1)
+    {
+        FastMutex->Owner = KeGetCurrentThread();
+        return(TRUE);
+    }
+    else
+    {
+        KeLeaveCriticalRegion();
+        return(FALSE);
+    }
+}
 
 /* FUNCTIONS *****************************************************************/
 
@@ -137,7 +153,7 @@ CcRosTraceCacheMap (
 	{
 		DPRINT1("Enabling Tracing for CacheMap 0x%p:\n", Bcb );
 
-		KeAcquireGuardedMutex(&ViewLock);
+		ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
 		KeAcquireSpinLock(&Bcb->BcbLock, &oldirql);
 
 		current_entry = Bcb->BcbSegmentListHead.Flink;
@@ -150,7 +166,7 @@ CcRosTraceCacheMap (
 				current, current->ReferenceCount, current->Dirty, current->PageOut );
 		}
 		KeReleaseSpinLock(&Bcb->BcbLock, oldirql);
-		KeReleaseGuardedMutex(&ViewLock);
+		ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 	}
 	else
 	{
@@ -167,139 +183,119 @@ NTSTATUS
 NTAPI
 CcRosFlushCacheSegment(PCACHE_SEGMENT CacheSegment)
 {
-    NTSTATUS Status;
-    KIRQL oldIrql;
-    
-    Status = WriteCacheSegment(CacheSegment);
-    if (NT_SUCCESS(Status))
+  NTSTATUS Status;
+  KIRQL oldIrql;
+  Status = WriteCacheSegment(CacheSegment);
+  if (NT_SUCCESS(Status))
     {
-        KeAcquireGuardedMutex(&ViewLock);
-        KeAcquireSpinLock(&CacheSegment->Bcb->BcbLock, &oldIrql);
-        
-        CacheSegment->Dirty = FALSE;
-        RemoveEntryList(&CacheSegment->DirtySegmentListEntry);
-        DirtyPageCount -= CacheSegment->Bcb->CacheSegmentSize / PAGE_SIZE;
-        CcRosCacheSegmentDecRefCount ( CacheSegment );
-        
-        KeReleaseSpinLock(&CacheSegment->Bcb->BcbLock, oldIrql);
-        KeReleaseGuardedMutex(&ViewLock);
+      ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
+      KeAcquireSpinLock(&CacheSegment->Bcb->BcbLock, &oldIrql);
+      CacheSegment->Dirty = FALSE;
+      RemoveEntryList(&CacheSegment->DirtySegmentListEntry);
+      DirtyPageCount -= CacheSegment->Bcb->CacheSegmentSize / PAGE_SIZE;
+      CcRosCacheSegmentDecRefCount ( CacheSegment );
+      KeReleaseSpinLock(&CacheSegment->Bcb->BcbLock, oldIrql);
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
     }
-    
-    return(Status);
+  return(Status);
 }
 
 NTSTATUS
 NTAPI
 CcRosFlushDirtyPages(ULONG Target, PULONG Count)
 {
-    PLIST_ENTRY current_entry;
-    PCACHE_SEGMENT current;
-    ULONG PagesPerSegment;
-    BOOLEAN Locked;
-    NTSTATUS Status;
-    static ULONG WriteCount[4] = {0, 0, 0, 0};
-    ULONG NewTarget;
-    
-    DPRINT("CcRosFlushDirtyPages(Target %d)\n", Target);
-    
-    (*Count) = 0;
-    
-    KeAcquireGuardedMutex(&ViewLock);
-    
-    WriteCount[0] = WriteCount[1];
-    WriteCount[1] = WriteCount[2];
-    WriteCount[2] = WriteCount[3];
-    WriteCount[3] = 0;
-    
-    NewTarget = WriteCount[0] + WriteCount[1] + WriteCount[2];
-    
-    if (NewTarget < DirtyPageCount)
+  PLIST_ENTRY current_entry;
+  PCACHE_SEGMENT current;
+  ULONG PagesPerSegment;
+  BOOLEAN Locked;
+  NTSTATUS Status;
+  static ULONG WriteCount[4] = {0, 0, 0, 0};
+  ULONG NewTarget;
+
+  DPRINT("CcRosFlushDirtyPages(Target %d)\n", Target);
+
+  (*Count) = 0;
+
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
+
+  WriteCount[0] = WriteCount[1];
+  WriteCount[1] = WriteCount[2];
+  WriteCount[2] = WriteCount[3];
+  WriteCount[3] = 0;
+
+  NewTarget = WriteCount[0] + WriteCount[1] + WriteCount[2];
+
+  if (NewTarget < DirtyPageCount)
+  {
+     NewTarget = (DirtyPageCount - NewTarget + 3) / 4;
+     WriteCount[0] += NewTarget;
+     WriteCount[1] += NewTarget;
+     WriteCount[2] += NewTarget;
+     WriteCount[3] += NewTarget;
+  }
+
+  NewTarget = WriteCount[0];
+
+  Target = max(NewTarget, Target);
+
+  current_entry = DirtySegmentListHead.Flink;
+  if (current_entry == &DirtySegmentListHead)
+  {
+     DPRINT("No Dirty pages\n");
+  }
+  while (current_entry != &DirtySegmentListHead && Target > 0)
     {
-        NewTarget = (DirtyPageCount - NewTarget + 3) / 4;
-        WriteCount[0] += NewTarget;
-        WriteCount[1] += NewTarget;
-        WriteCount[2] += NewTarget;
-        WriteCount[3] += NewTarget;
+      current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+				  DirtySegmentListEntry);
+      current_entry = current_entry->Flink;
+    
+//      Locked = current->Bcb->Callbacks.AcquireForLazyWrite(current->Bcb->Context, FALSE);
+      Locked = ExTryToAcquireResourceExclusiveLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
+      if (!Locked)
+        {
+          continue;
+        }
+      Locked = CcTryToAcquireBrokenMutex(&current->Lock);
+      if (!Locked)
+	{
+//          current->Bcb->Callbacks.ReleaseFromLazyWrite(current->Bcb->Context);
+          ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
+	  continue;
+	}
+      ASSERT(current->Dirty);
+      if (current->ReferenceCount > 1)
+	{
+	  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&current->Lock);
+//          current->Bcb->Callbacks.ReleaseFromLazyWrite(current->Bcb->Context);
+          ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
+	  continue;
+	}
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
+      PagesPerSegment = current->Bcb->CacheSegmentSize / PAGE_SIZE;
+      Status = CcRosFlushCacheSegment(current);
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&current->Lock);
+//      current->Bcb->Callbacks.ReleaseFromLazyWrite(current->Bcb->Context);
+      ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
+      if (!NT_SUCCESS(Status) &&  (Status != STATUS_END_OF_FILE))
+      {
+	 DPRINT1("CC: Failed to flush cache segment.\n");
+      }
+      else
+      {
+         (*Count) += PagesPerSegment;
+         Target -= PagesPerSegment;
+      }
+      ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
+      current_entry = DirtySegmentListHead.Flink;
     }
-    
-    NewTarget = WriteCount[0];
-    
-    Target = max(NewTarget, Target);
-    
-    current_entry = DirtySegmentListHead.Flink;
-    if (current_entry == &DirtySegmentListHead)
-    {
-        DPRINT("No Dirty pages\n");
-    }
-    
-    while (current_entry != &DirtySegmentListHead && Target > 0)
-    {
-        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
-                                    DirtySegmentListEntry);
-        current_entry = current_entry->Flink;
+  if (*Count < NewTarget)
+  {
+     WriteCount[1] += (NewTarget - *Count);
+  }
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
+  DPRINT("CcRosFlushDirtyPages() finished\n");
 
-        /* This Ros-specific function needs FileObject to be referenced,
-           ohterwise it may be deleted while this function still works
-           with it */
-        ObReferenceObject(current->Bcb->FileObject);
-
-        Locked = ExTryToAcquireResourceExclusiveLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
-        if (!Locked)
-        {
-            ObDereferenceObject(current->Bcb->FileObject);
-            continue;
-        }
-        
-        Locked = ExTryToAcquirePushLockExclusive(&current->Lock);
-        if (!Locked)
-        {
-            ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
-            ObDereferenceObject(current->Bcb->FileObject);
-            continue;
-        }
-        
-        ASSERT(current->Dirty);
-        if (current->ReferenceCount > 1)
-        {
-            ExReleasePushLock(&current->Lock);
-            ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
-            ObDereferenceObject(current->Bcb->FileObject);
-            continue;
-        }
-        
-        PagesPerSegment = current->Bcb->CacheSegmentSize / PAGE_SIZE;
-
-        KeReleaseGuardedMutex(&ViewLock);
-        
-        Status = CcRosFlushCacheSegment(current);
-
-        ExReleasePushLock(&current->Lock);
-        ExReleaseResourceLite(((FSRTL_COMMON_FCB_HEADER*)(current->Bcb->FileObject->FsContext))->Resource);
-        ObDereferenceObject(current->Bcb->FileObject);
-
-        if (!NT_SUCCESS(Status) &&  (Status != STATUS_END_OF_FILE))
-        {
-            DPRINT1("CC: Failed to flush cache segment.\n");
-        }
-        else
-        {
-            (*Count) += PagesPerSegment;
-            Target -= PagesPerSegment;
-        }
-        
-        KeAcquireGuardedMutex(&ViewLock);
-        current_entry = DirtySegmentListHead.Flink;
-    }
-    
-    if (*Count < NewTarget)
-    {
-        WriteCount[1] += (NewTarget - *Count);
-    }
-    
-    KeReleaseGuardedMutex(&ViewLock);
-    
-    DPRINT("CcRosFlushDirtyPages() finished\n");
-    return(STATUS_SUCCESS);
+  return(STATUS_SUCCESS);
 }
 
 NTSTATUS
@@ -326,7 +322,7 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 
   InitializeListHead(&FreeList);
 
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   current_entry = CacheSegmentLRUListHead.Flink;
   while (current_entry != &CacheSegmentLRUListHead && Target > 0)
     {
@@ -358,7 +354,7 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 	     last = current;
 	     current->PageOut = TRUE;
              KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
-	     KeReleaseGuardedMutex(&ViewLock);
+	     ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 	     for (i = 0; i < current->Bcb->CacheSegmentSize / PAGE_SIZE; i++)
 	       {
 	         PFN_TYPE Page;
@@ -369,7 +365,7 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 		     break;
 		   }
 	       }
-             KeAcquireGuardedMutex(&ViewLock);
+             ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
              KeAcquireSpinLock(&current->Bcb->BcbLock, &oldIrql);
              CcRosCacheSegmentDecRefCount(current);
              current->PageOut = FALSE;
@@ -380,7 +376,7 @@ CcRosTrimCache(ULONG Target, ULONG Priority, PULONG NrFreed)
 	 KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
       }
   }
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 
   while (!IsListEmpty(&FreeList))
   {
@@ -413,7 +409,7 @@ CcRosReleaseCacheSegment(PBCB Bcb,
   CacheSeg->Valid = Valid;
   CacheSeg->Dirty = CacheSeg->Dirty || Dirty;
 
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   if (!WasDirty && CacheSeg->Dirty)
     {
       InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
@@ -437,43 +433,42 @@ CcRosReleaseCacheSegment(PBCB Bcb,
       CcRosCacheSegmentIncRefCount(CacheSeg);
   }
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
-  KeReleaseGuardedMutex(&ViewLock);
-  ExReleasePushLock(&CacheSeg->Lock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&CacheSeg->Lock);
 
   return(STATUS_SUCCESS);
 }
 
-/* Returns with Cache Segment Lock Held! */
 PCACHE_SEGMENT
 NTAPI
 CcRosLookupCacheSegment(PBCB Bcb, ULONG FileOffset)
 {
-    PLIST_ENTRY current_entry;
-    PCACHE_SEGMENT current;
-    KIRQL oldIrql;
-    
-    ASSERT(Bcb);
-    
-    DPRINT("CcRosLookupCacheSegment(Bcb -x%p, FileOffset %d)\n", Bcb, FileOffset);
-    
-    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
-    current_entry = Bcb->BcbSegmentListHead.Flink;
-    while (current_entry != &Bcb->BcbSegmentListHead)
+  PLIST_ENTRY current_entry;
+  PCACHE_SEGMENT current;
+  KIRQL oldIrql;
+
+  ASSERT(Bcb);
+
+  DPRINT("CcRosLookupCacheSegment(Bcb -x%p, FileOffset %d)\n", Bcb, FileOffset);
+
+  KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
+  current_entry = Bcb->BcbSegmentListHead.Flink;
+  while (current_entry != &Bcb->BcbSegmentListHead)
     {
-        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
-                                    BcbSegmentListEntry);
-        if (current->FileOffset <= FileOffset &&
-            (current->FileOffset + Bcb->CacheSegmentSize) > FileOffset)
-        {
-            CcRosCacheSegmentIncRefCount(current);
-            KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
-            ExAcquirePushLockExclusive(&current->Lock);
-            return(current);
-        }
-        current_entry = current_entry->Flink;
+      current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+				  BcbSegmentListEntry);
+      if (current->FileOffset <= FileOffset &&
+	  (current->FileOffset + Bcb->CacheSegmentSize) > FileOffset)
+	{
+          CcRosCacheSegmentIncRefCount(current);
+	  KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
+          ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&current->Lock);
+	  return(current);
+	}
+      current_entry = current_entry->Flink;
     }
-    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
-    return(NULL);
+  KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
+  return(NULL);
 }
 
 NTSTATUS
@@ -494,10 +489,10 @@ CcRosMarkDirtyCacheSegment(PBCB Bcb, ULONG FileOffset)
     }
   if (!CacheSeg->Dirty)
     {
-      KeAcquireGuardedMutex(&ViewLock);
+      ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
       InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
       DirtyPageCount += Bcb->CacheSegmentSize / PAGE_SIZE;
-      KeReleaseGuardedMutex(&ViewLock);
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
     }
   else
   {
@@ -508,7 +503,7 @@ CcRosMarkDirtyCacheSegment(PBCB Bcb, ULONG FileOffset)
 
 
   CacheSeg->Dirty = TRUE;
-  ExReleasePushLock(&CacheSeg->Lock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&CacheSeg->Lock);
 
   return(STATUS_SUCCESS);
 }
@@ -539,10 +534,10 @@ CcRosUnmapCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty)
 
   if (!WasDirty && NowDirty)
   {
-     KeAcquireGuardedMutex(&ViewLock);
+     ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
      InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
      DirtyPageCount += Bcb->CacheSegmentSize / PAGE_SIZE;
-     KeReleaseGuardedMutex(&ViewLock);
+     ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
   }
 
   KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
@@ -557,7 +552,7 @@ CcRosUnmapCacheSegment(PBCB Bcb, ULONG FileOffset, BOOLEAN NowDirty)
   }
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 
-  ExReleasePushLock(&CacheSeg->Lock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&CacheSeg->Lock);
   return(STATUS_SUCCESS);
 }
 
@@ -606,9 +601,9 @@ CcRosCreateCacheSegment(PBCB Bcb,
   current->DirtySegmentListEntry.Flink = NULL;
   current->DirtySegmentListEntry.Blink = NULL;
   current->ReferenceCount = 1;
-  ExInitializePushLock((PULONG_PTR)&current->Lock);
-  ExAcquirePushLockExclusive(&current->Lock);
-  KeAcquireGuardedMutex(&ViewLock);
+  ExInitializeFastMutex(&current->Lock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&current->Lock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
 
   *CacheSeg = current;
   /* There is window between the call to CcRosLookupCacheSegment
@@ -637,11 +632,11 @@ CcRosCreateCacheSegment(PBCB Bcb,
 			current );
 	}
 #endif
-	ExReleasePushLock(&(*CacheSeg)->Lock);
-	KeReleaseGuardedMutex(&ViewLock);
+	ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&(*CacheSeg)->Lock);
+	ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 	ExFreeToNPagedLookasideList(&CacheSegLookasideList, *CacheSeg);
 	*CacheSeg = current;
-        ExAcquirePushLockExclusive(&current->Lock);
+        ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&current->Lock);
 	return STATUS_SUCCESS;
      }
      if (current->FileOffset < FileOffset)
@@ -673,7 +668,7 @@ CcRosCreateCacheSegment(PBCB Bcb,
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
   InsertTailList(&CacheSegmentListHead, &current->CacheSegmentListEntry);
   InsertTailList(&CacheSegmentLRUListHead, &current->CacheSegmentLRUListEntry);
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 #ifdef CACHE_BITMAP
   KeAcquireSpinLock(&CiCacheSegMappingRegionLock, &oldIrql);
 
@@ -947,7 +942,7 @@ CcRosFreeCacheSegment(PBCB Bcb, PCACHE_SEGMENT CacheSeg)
   DPRINT("CcRosFreeCacheSegment(Bcb 0x%p, CacheSeg 0x%p)\n",
          Bcb, CacheSeg);
 
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
   RemoveEntryList(&CacheSeg->BcbSegmentListEntry);
   RemoveEntryList(&CacheSeg->CacheSegmentListEntry);
@@ -959,7 +954,7 @@ CcRosFreeCacheSegment(PBCB Bcb, PCACHE_SEGMENT CacheSeg)
 
   }
   KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 
   Status = CcRosInternalFreeCacheSegment(CacheSeg);
   return(Status);
@@ -1017,7 +1012,7 @@ CcFlushCache(IN PSECTION_OBJECT_POINTERS SectionObjectPointers,
 	       }
 	    }
             KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
-	    ExReleasePushLock(&current->Lock);
+	    ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&current->Lock);
             CcRosCacheSegmentDecRefCount(current);
 	    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 	 }
@@ -1058,11 +1053,11 @@ CcRosDeleteFileCache(PFILE_OBJECT FileObject, PBCB Bcb)
    ASSERT(Bcb);
 
    Bcb->RefCount++;
-   KeReleaseGuardedMutex(&ViewLock);
+   ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 
    CcFlushCache(FileObject->SectionObjectPointer, NULL, 0, NULL);
 
-   KeAcquireGuardedMutex(&ViewLock);
+   ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
    Bcb->RefCount--;
    if (Bcb->RefCount == 0)
    {
@@ -1099,7 +1094,7 @@ CcRosDeleteFileCache(PFILE_OBJECT FileObject, PBCB Bcb)
 #endif
       KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 
-      KeReleaseGuardedMutex(&ViewLock);
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
       ObDereferenceObject (Bcb->FileObject);
 
       while (!IsListEmpty(&FreeList))
@@ -1109,7 +1104,7 @@ CcRosDeleteFileCache(PFILE_OBJECT FileObject, PBCB Bcb)
          Status = CcRosInternalFreeCacheSegment(current);
       }
       ExFreeToNPagedLookasideList(&BcbLookasideList, Bcb);
-      KeAcquireGuardedMutex(&ViewLock);
+      ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
    }
    return(STATUS_SUCCESS);
 }
@@ -1119,7 +1114,7 @@ NTAPI
 CcRosReferenceCache(PFILE_OBJECT FileObject)
 {
   PBCB Bcb;
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
   ASSERT(Bcb);
   if (Bcb->RefCount == 0)
@@ -1134,7 +1129,7 @@ CcRosReferenceCache(PFILE_OBJECT FileObject)
      ASSERT(Bcb->BcbRemoveListEntry.Flink == NULL);
   }
   Bcb->RefCount++;
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 }
 
 VOID
@@ -1143,7 +1138,7 @@ CcRosSetRemoveOnClose(PSECTION_OBJECT_POINTERS SectionObjectPointer)
 {
   PBCB Bcb;
   DPRINT("CcRosSetRemoveOnClose()\n");
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   Bcb = (PBCB)SectionObjectPointer->SharedCacheMap;
   if (Bcb)
   {
@@ -1153,7 +1148,7 @@ CcRosSetRemoveOnClose(PSECTION_OBJECT_POINTERS SectionObjectPointer)
       CcRosDeleteFileCache(Bcb->FileObject, Bcb);
     }
   }
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 }
 
 
@@ -1162,7 +1157,7 @@ NTAPI
 CcRosDereferenceCache(PFILE_OBJECT FileObject)
 {
   PBCB Bcb;
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
   Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
   ASSERT(Bcb);
   if (Bcb->RefCount > 0)
@@ -1182,7 +1177,7 @@ CcRosDereferenceCache(PFILE_OBJECT FileObject)
        }
     }
   }
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 }
 
 NTSTATUS STDCALL
@@ -1194,7 +1189,7 @@ CcRosReleaseFileCache(PFILE_OBJECT FileObject)
 {
   PBCB Bcb;
 
-  KeAcquireGuardedMutex(&ViewLock);
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
 
   if (FileObject->SectionObjectPointer->SharedCacheMap != NULL)
   {
@@ -1221,7 +1216,7 @@ CcRosReleaseFileCache(PFILE_OBJECT FileObject)
       }
     }
   }
-  KeReleaseGuardedMutex(&ViewLock);
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
   return(STATUS_SUCCESS);
 }
 
@@ -1232,7 +1227,7 @@ CcTryToInitializeFileCache(PFILE_OBJECT FileObject)
    PBCB Bcb;
    NTSTATUS Status;
 
-   KeAcquireGuardedMutex(&ViewLock);
+   ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
 
    Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
    if (Bcb == NULL)
@@ -1253,7 +1248,7 @@ CcTryToInitializeFileCache(PFILE_OBJECT FileObject)
       }
       Status = STATUS_SUCCESS;
    }
-   KeReleaseGuardedMutex(&ViewLock);
+   ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 
    return Status;
 }
@@ -1272,13 +1267,13 @@ CcRosInitializeFileCache(PFILE_OBJECT FileObject,
    DPRINT("CcRosInitializeFileCache(FileObject 0x%p, Bcb 0x%p, CacheSegmentSize %d)\n",
            FileObject, Bcb, CacheSegmentSize);
 
-   KeAcquireGuardedMutex(&ViewLock);
+   ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
    if (Bcb == NULL)
    {
       Bcb = ExAllocateFromNPagedLookasideList(&BcbLookasideList);
       if (Bcb == NULL)
       {
-        KeReleaseGuardedMutex(&ViewLock);
+        ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 	return(STATUS_UNSUCCESSFUL);
       }
       memset(Bcb, 0, sizeof(BCB));
@@ -1309,7 +1304,7 @@ CcRosInitializeFileCache(PFILE_OBJECT FileObject,
       RemoveEntryList(&Bcb->BcbRemoveListEntry);
       Bcb->BcbRemoveListEntry.Flink = NULL;
    }
-   KeReleaseGuardedMutex(&ViewLock);
+   ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
 
    return(STATUS_SUCCESS);
 }
@@ -1364,7 +1359,7 @@ CmLazyCloseThreadMain(PVOID Ignored)
 	  break;
       }
 
-      KeAcquireGuardedMutex(&ViewLock);
+      ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&ViewLock);
       CcTimeStamp++;
       if (CcTimeStamp >= 30)
       {
@@ -1380,7 +1375,7 @@ CmLazyCloseThreadMain(PVOID Ignored)
             CcRosDeleteFileCache(current->FileObject, current);
 	 }
       }
-      KeReleaseGuardedMutex(&ViewLock);
+      ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&ViewLock);
    }
 }
 
@@ -1431,7 +1426,7 @@ CcInitView(VOID)
   InitializeListHead(&DirtySegmentListHead);
   InitializeListHead(&CacheSegmentLRUListHead);
   InitializeListHead(&ClosedListHead);
-  KeInitializeGuardedMutex(&ViewLock);
+  ExInitializeFastMutex(&ViewLock);
   ExInitializeNPagedLookasideList (&iBcbLookasideList,
 	                           NULL,
 				   NULL,
@@ -1480,7 +1475,6 @@ CcInitView(VOID)
 }
 
 /* EOF */
-
 
 
 

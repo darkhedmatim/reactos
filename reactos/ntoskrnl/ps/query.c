@@ -26,18 +26,18 @@ NTAPI
 PsReferenceProcessFilePointer(IN PEPROCESS Process,
                               OUT PFILE_OBJECT *FileObject)
 {
-    PSECTION Section;
+    PROS_SECTION_OBJECT Section;
     PAGED_CODE();
 
     /* Lock the process */
     ExAcquireRundownProtection(&Process->RundownProtect);
 
     /* Get the section */
-    Section = Process->SectionObject;
+    Section = (PROS_SECTION_OBJECT)Process->SectionObject;
     if (Section)
     {
         /* Get the file object and reference it */
-        *FileObject = MmGetFileObjectForSection((PVOID)Section);
+        *FileObject = MmGetFileObjectForSection(Section);
         ObReferenceObject(*FileObject);
     }
 
@@ -117,14 +117,6 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
         /* Basic process information */
         case ProcessBasicInformation:
 
-            /* Set return length */
-            Length = sizeof(PROCESS_BASIC_INFORMATION);
-
-            if ( ProcessInformationLength != Length )
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
             /* Protect writes with SEH */
             _SEH_TRY
             {
@@ -132,12 +124,14 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                 ProcessBasicInfo->ExitStatus = Process->ExitStatus;
                 ProcessBasicInfo->PebBaseAddress = Process->Peb;
                 ProcessBasicInfo->AffinityMask = Process->Pcb.Affinity;
-                ProcessBasicInfo->UniqueProcessId = (ULONG_PTR)Process->
+                ProcessBasicInfo->UniqueProcessId = (ULONG)Process->
                                                     UniqueProcessId;
                 ProcessBasicInfo->InheritedFromUniqueProcessId =
                     (ULONG)Process->InheritedFromUniqueProcessId;
                 ProcessBasicInfo->BasePriority = Process->Pcb.BasePriority;
 
+                /* Set return length */
+                Length = sizeof(PROCESS_BASIC_INFORMATION);
             }
             _SEH_HANDLE
             {
@@ -150,28 +144,11 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
         /* Quote limits and I/O Counters: not implemented */
         case ProcessQuotaLimits:
         case ProcessIoCounters:
-
-            Length = sizeof(IO_COUNTERS);
-            if ( ProcessInformationLength != Length )
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
             Status = STATUS_NOT_IMPLEMENTED;
             break;
 
         /* Timing */
         case ProcessTimes:
-
-            /* Set the return length */
-            Length = sizeof(KERNEL_USER_TIMES);
-
-            if ( ProcessInformationLength != Length )
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
 
             /* Protect writes with SEH */
             _SEH_TRY
@@ -183,6 +160,9 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                 ProcessTime->KernelTime.QuadPart = Process->Pcb.KernelTime *
                                                    100000LL;
                 ProcessTime->ExitTime = Process->ExitTime;
+
+                /* Set the return length */
+                Length = sizeof(KERNEL_USER_TIMES);
             }
             _SEH_HANDLE
             {
@@ -222,15 +202,6 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
 
         case ProcessHandleCount:
 
-            /* Set the return length*/
-            Length = sizeof(ULONG);
-
-            if ( ProcessInformationLength != Length )
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
             /* Count the number of handles this process has */
             HandleCount = ObpGetHandleCountByHandleTable(Process->ObjectTable);
 
@@ -239,6 +210,9 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
             {
                 /* Return the count of handles */
                 *(PULONG)ProcessInformation = HandleCount;
+
+                /* Set the return length*/
+                Length = sizeof(ULONG);
             }
             _SEH_HANDLE
             {
@@ -276,15 +250,6 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
         /* Virtual Memory Statistics */
         case ProcessVmCounters:
 
-            /* Set the return length */
-            Length = sizeof(VM_COUNTERS);
-
-            if ( ProcessInformationLength != Length )
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
             /* Enter SEH for write safety */
             _SEH_TRY
             {
@@ -301,6 +266,8 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                 VmCounters->PagefileUsage = Process->QuotaUsage[2];
                 VmCounters->PeakPagefileUsage = Process->QuotaPeak[2];
 
+                /* Set the return length */
+                Length = sizeof(VM_COUNTERS);
             }
             _SEH_HANDLE
             {
@@ -848,7 +815,7 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
                 (Priority < THREAD_BASE_PRIORITY_MIN))
             {
                 /* These ones are OK */
-                if ((Priority != THREAD_BASE_PRIORITY_LOWRT + 1) &&
+                if ((Priority != THREAD_BASE_PRIORITY_LOWRT + 1) ||
                     (Priority != THREAD_BASE_PRIORITY_IDLE - 1))
                 {
                     /* Check if the process is real time */
@@ -916,7 +883,6 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
                 /* Release the lock and rundown */
                 ExReleasePushLockShared(&Process->ProcessLock);
                 KeLeaveCriticalRegion();
-                ExReleaseRundownProtection(&Process->RundownProtect);
             }
             else
             {

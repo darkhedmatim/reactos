@@ -508,7 +508,7 @@ MiniLocateDevice(
   KeAcquireSpinLock(&AdapterListLock, &OldIrql);
     {
       CurrentEntry = AdapterListHead.Flink;
-
+	
       while (CurrentEntry != &AdapterListHead)
         {
 	  Adapter = CONTAINING_RECORD(CurrentEntry, LOGICAL_ADAPTER, ListEntry);
@@ -518,12 +518,12 @@ MiniLocateDevice(
 	  NDIS_DbgPrint(DEBUG_MINIPORT, ("Examining adapter 0x%lx\n", Adapter));
 	  NDIS_DbgPrint(DEBUG_MINIPORT, ("AdapterName = %wZ\n", AdapterName));
 	  NDIS_DbgPrint(DEBUG_MINIPORT, ("DeviceName = %wZ\n", &Adapter->NdisMiniportBlock.MiniportName));
-
+	    
 	  if (RtlCompareUnicodeString(AdapterName, &Adapter->NdisMiniportBlock.MiniportName, TRUE) == 0)
 	    {
 	      break;
 	    }
-
+	    
 	  Adapter = NULL;
 	  CurrentEntry = CurrentEntry->Flink;
         }
@@ -615,20 +615,20 @@ MiniQueueWorkItem(
     PNDIS_MINIPORT_WORK_ITEM Item;
 
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
+    
     ASSERT(Adapter);
     ASSERT(KeGetCurrentIrql() >= DISPATCH_LEVEL);
-
+    
     Item = ExAllocatePool(NonPagedPool, sizeof(NDIS_MINIPORT_WORK_ITEM));
     if (Item == NULL)
     {
         NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
         return NDIS_STATUS_RESOURCES;
     }
-
+    
     Item->WorkItemType    = WorkItemType;
     Item->WorkItemContext = WorkItemContext;
-
+    
     /* safe due to adapter lock held */
     Item->Link.Next = NULL;
     if (!Adapter->WorkQueueHead)
@@ -641,9 +641,9 @@ MiniQueueWorkItem(
         Adapter->WorkQueueTail->Link.Next = (PSINGLE_LIST_ENTRY)Item;
         Adapter->WorkQueueTail = Item;
     }
-
+    
     KeInsertQueueDpc(&Adapter->NdisMiniportBlock.DeferredDpc, NULL, NULL);
-
+    
     return NDIS_STATUS_SUCCESS;
 }
 
@@ -668,27 +668,27 @@ MiniDequeueWorkItem(
  */
 {
     PNDIS_MINIPORT_WORK_ITEM Item;
-
+    
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
+    
     Item = Adapter->WorkQueueHead;
-
+    
     if (Item)
     {
         /* safe due to adapter lock held */
         Adapter->WorkQueueHead = (PNDIS_MINIPORT_WORK_ITEM)Item->Link.Next;
-
+        
         if (Item == Adapter->WorkQueueTail)
             Adapter->WorkQueueTail = NULL;
-
+        
         *WorkItemType    = Item->WorkItemType;
         *WorkItemContext = Item->WorkItemContext;
-
+        
         ExFreePool(Item);
-
+        
         return NDIS_STATUS_SUCCESS;
     }
-
+    
     return NDIS_STATUS_FAILURE;
 }
 
@@ -707,9 +707,9 @@ MiniDoRequest(
  */
 {
     NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
-
+    
     Adapter->MediaRequest = NdisRequest;
-
+    
     switch (NdisRequest->RequestType)
     {
     case NdisRequestQueryInformation:
@@ -721,7 +721,7 @@ MiniDoRequest(
             (PULONG)&NdisRequest->DATA.QUERY_INFORMATION.BytesWritten,
             (PULONG)&NdisRequest->DATA.QUERY_INFORMATION.BytesNeeded);
         break;
-
+        
     case NdisRequestSetInformation:
         return (*Adapter->DriverHandle->MiniportCharacteristics.SetInformationHandler)(
             Adapter->MiniportAdapterContext,
@@ -731,7 +731,7 @@ MiniDoRequest(
             (PULONG)&NdisRequest->DATA.SET_INFORMATION.BytesRead,
             (PULONG)&NdisRequest->DATA.SET_INFORMATION.BytesNeeded);
         break;
-
+        
     default:
         return NDIS_STATUS_FAILURE;
     }
@@ -777,7 +777,7 @@ VOID NTAPI MiniportDpc(
 
   NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
 
-  NdisStatus =
+  NdisStatus = 
       MiniDequeueWorkItem
       (Adapter, &WorkItemType, &WorkItemContext);
 
@@ -1152,7 +1152,7 @@ DoQueries(
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
   /* Get MAC options for adapter */
-  NdisStatus = MiniQueryInformation(Adapter, OID_GEN_MAC_OPTIONS, sizeof(UINT),
+  NdisStatus = MiniQueryInformation(Adapter, OID_GEN_MAC_OPTIONS, sizeof(UINT), 
                                     &Adapter->NdisMiniportBlock.MacOptions,
                                     &BytesWritten);
 
@@ -1404,18 +1404,7 @@ NdisIPnPStartDevice(
       else
         Adapter->NdisMiniportBlock.SlotNumber = 0;
     }
-  else
-    {
-        /* Convert slotnumber to PCI_SLOT_NUMBER */
-        ULONG PciSlotNumber = Adapter->NdisMiniportBlock.SlotNumber;
-        PCI_SLOT_NUMBER SlotNumber;
 
-        SlotNumber.u.AsULONG = 0;
-        SlotNumber.u.bits.DeviceNumber = (PciSlotNumber >> 16) & 0xFFFF;
-        SlotNumber.u.bits.FunctionNumber = PciSlotNumber & 0xFFFF;
-
-        Adapter->NdisMiniportBlock.SlotNumber = SlotNumber.u.AsULONG;
-    }
   NdisCloseConfiguration(ConfigHandle);
 
   /*
@@ -2048,36 +2037,9 @@ NdisMWriteLogData(
     IN  PVOID       LogBuffer,
     IN  UINT        LogBufferSize)
 {
-    PUCHAR Buffer = LogBuffer;
-    UINT i, j, idx;
+    UNIMPLEMENTED
 
-    UNIMPLEMENTED;
-    for (i = 0; i < LogBufferSize; i += 16)
-    {
-        DbgPrint("%08x |", i);
-        for (j = 0; j < 16; j++)
-        {
-            idx = i + j;
-            if (idx < LogBufferSize)
-                DbgPrint(" %02x", Buffer[idx]);
-            else
-                DbgPrint("   ");
-        }
-        DbgPrint(" | ");
-        for (j = 0; j < 16; j++)
-        {
-            idx = i + j;
-            if (idx == LogBufferSize)
-                break;
-            if (Buffer[idx] >= ' ') /* FIXME: not portable! replace by if (isprint(Buffer[idx])) ? */
-                DbgPrint("%c", Buffer[idx]);
-            else
-                DbgPrint(".");
-        }
-        DbgPrint("\n");
-    }
-
-    return NDIS_STATUS_FAILURE;
+  return NDIS_STATUS_FAILURE;
 }
 
 

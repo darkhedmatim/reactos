@@ -2,16 +2,16 @@
 	<autoregister infsection="OleControlDlls" type="Both" />
 	<importlibrary definition="shell32.spec.def" />
 	<include base="shell32">.</include>
-	<include base="recyclebin">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
 	<define name="_WIN32_IE">0x600</define>
-	<define name="_WIN32_WINNT">0x600</define>
-	<define name="WINVER">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="WINVER">0x501</define>
 	<define name="_SHELL32_" />
 	<define name="COM_NO_WINDOWS_H" />
 	<library>wine</library>
 	<library>uuid</library>
-	<library>recyclebin</library>
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>advapi32</library>
@@ -20,9 +20,6 @@
 	<library>comctl32</library>
 	<library>shlwapi</library>
 	<library>ole32</library>
-	<library>version</library>
-	<library>devmgr</library>
-	<library>winspool</library>
 	<file>authors.c</file>
 	<file>autocomplete.c</file>
 	<file>brsfolder.c</file>
@@ -37,7 +34,6 @@
 	<file>dialogs.c</file>
 	<file>dragdrophelper.c</file>
 	<file>enumidlist.c</file>
-	<file>extracticon.c</file>
 	<file>folders.c</file>
 	<file>iconcache.c</file>
 	<file>pidl.c</file>
@@ -52,8 +48,6 @@
 	<file>shfldr_desktop.c</file>
 	<file>shfldr_fs.c</file>
 	<file>shfldr_mycomp.c</file>
-	<file>shlfldr_mydocuments.c</file>
-	<file>shfldr_printers.c</file>
 	<file>shlexec.c</file>
 	<file>shlfileop.c</file>
 	<file>shlfolder.c</file>
@@ -63,14 +57,7 @@
 	<file>shpolicy.c</file>
 	<file>shv_bg_cmenu.c</file>
 	<file>shv_item_cmenu.c</file>
-	<file>startmenu.c</file>
 	<file>ros-systray.c</file>
-	<file>shell32.rc</file>
+	<file>shres.rc</file>
 	<file>shell32.spec</file>
-	<file>fprop.c</file>
-	<file>drive.c</file>
-	<file>recyclebin.c</file>
-	<file>she_ocmenu.c</file>
-	<file>shv_item_new.c</file>
-	<file>folder_options.c</file>
 </module>

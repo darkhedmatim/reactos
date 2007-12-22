@@ -7,9 +7,8 @@
 
 #include "msgina.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
 typedef struct _DISPLAYSTATUSMSG
 {
@@ -76,7 +75,7 @@ StartupWindowThread(LPVOID lpParam)
 		return FALSE;
 	}
 	DialogBoxParam(
-		hDllInstance,
+		hDllInstance, 
 		MAKEINTRESOURCE(IDD_STATUSWINDOW_DLG),
 		GetDesktopWindow(),
 		StatusMessageWindowProc,

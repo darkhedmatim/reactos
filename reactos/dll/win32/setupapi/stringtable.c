@@ -39,6 +39,8 @@ typedef struct _STRING_TABLE
     DWORD dwMaxDataSize;
 } STRING_TABLE, *PSTRING_TABLE;
 
+WCHAR empty[] = {0};
+
 
 /**************************************************************************
  * StringTableInitialize [SETUPAPI.@]
@@ -71,7 +73,7 @@ StringTableInitialize(VOID)
     pStringTable->pSlots = MyMalloc(sizeof(TABLE_SLOT) * TABLE_DEFAULT_SIZE);
     if (pStringTable->pSlots == NULL)
     {
-        MyFree(pStringTable);
+        MyFree(pStringTable->pSlots);
         return NULL;
     }
 
@@ -109,14 +111,18 @@ StringTableInitializeEx(DWORD dwMaxExtraDataSize,
     TRACE("\n");
 
     pStringTable = MyMalloc(sizeof(STRING_TABLE));
-    if (pStringTable == NULL) return NULL;
+    if (pStringTable == NULL)
+    {
+        ERR("Invalid hStringTable!\n");
+        return NULL;
+    }
 
     memset(pStringTable, 0, sizeof(STRING_TABLE));
 
     pStringTable->pSlots = MyMalloc(sizeof(TABLE_SLOT) * TABLE_DEFAULT_SIZE);
     if (pStringTable->pSlots == NULL)
     {
-        MyFree(pStringTable);
+        MyFree(pStringTable->pSlots);
         return NULL;
     }
 
@@ -149,7 +155,7 @@ StringTableDestroy(HSTRING_TABLE hStringTable)
     PSTRING_TABLE pStringTable;
     DWORD i;
 
-    TRACE("%p\n", hStringTable);
+    TRACE("%p\n", (PVOID)hStringTable);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -159,12 +165,18 @@ StringTableDestroy(HSTRING_TABLE hStringTable)
     {
         for (i = 0; i < pStringTable->dwMaxSlots; i++)
         {
-            MyFree(pStringTable->pSlots[i].pString);
-            pStringTable->pSlots[i].pString = NULL;
+            if (pStringTable->pSlots[i].pString != NULL)
+            {
+                MyFree(pStringTable->pSlots[i].pString);
+                pStringTable->pSlots[i].pString = NULL;
+            }
 
-            MyFree(pStringTable->pSlots[i].pData);
-            pStringTable->pSlots[i].pData = NULL;
-            pStringTable->pSlots[i].dwSize = 0;
+            if (pStringTable->pSlots[i].pData != NULL)
+            {
+                MyFree(pStringTable->pSlots[i].pData);
+                pStringTable->pSlots[i].pData = NULL;
+                pStringTable->pSlots[i].dwSize = 0;
+            }
         }
 
         MyFree(pStringTable->pSlots);
@@ -202,7 +214,7 @@ StringTableAddString(HSTRING_TABLE hStringTable,
     PSTRING_TABLE pStringTable;
     DWORD i;
 
-    TRACE("%p %s %x\n", hStringTable, debugstr_w(lpString), dwFlags);
+    TRACE("%p %s %lx\n", (PVOID)hStringTable, debugstr_w(lpString), dwFlags);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -236,21 +248,8 @@ StringTableAddString(HSTRING_TABLE hStringTable,
     /* Check for filled slot table */
     if (pStringTable->dwUsedSlots == pStringTable->dwMaxSlots)
     {
-        PTABLE_SLOT pNewSlots;
-        DWORD dwNewMaxSlots;
-
-        /* FIXME: not thread safe */
-        dwNewMaxSlots = pStringTable->dwMaxSlots * 2;
-        pNewSlots = MyMalloc(sizeof(TABLE_SLOT) * dwNewMaxSlots);
-        if (pNewSlots == NULL)
-            return (DWORD)-1;
-        memset(&pNewSlots[pStringTable->dwMaxSlots], 0, sizeof(TABLE_SLOT) * (dwNewMaxSlots - pStringTable->dwMaxSlots));
-        memcpy(pNewSlots, pStringTable->pSlots, sizeof(TABLE_SLOT) * pStringTable->dwMaxSlots);
-        pNewSlots = InterlockedExchangePointer(&pStringTable->pSlots, pNewSlots);
-        MyFree(pNewSlots);
-        pStringTable->dwMaxSlots = dwNewMaxSlots;
-
-        return StringTableAddString(hStringTable, lpString, dwFlags);
+        FIXME("Resize the string table!\n");
+        return (DWORD)-1;
     }
 
     /* Search for an empty slot */
@@ -410,7 +409,7 @@ StringTableDuplicate(HSTRING_TABLE hStringTable)
     DWORD i;
     DWORD length;
 
-    TRACE("%p\n", hStringTable);
+    TRACE("%p\n", (PVOID)hStringTable);
 
     pSourceTable = (PSTRING_TABLE)hStringTable;
     if (pSourceTable == NULL)
@@ -496,8 +495,8 @@ StringTableGetExtraData(HSTRING_TABLE hStringTable,
 {
     PSTRING_TABLE pStringTable;
 
-    TRACE("%p %x %p %u\n",
-          hStringTable, dwId, lpExtraData, dwExtraDataSize);
+    TRACE("%p %lx %p %lu\n",
+          (PVOID)hStringTable, dwId, lpExtraData, dwExtraDataSize);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -549,7 +548,7 @@ StringTableLookUpString(HSTRING_TABLE hStringTable,
     PSTRING_TABLE pStringTable;
     DWORD i;
 
-    TRACE("%p %s %x\n", hStringTable, debugstr_w(lpString), dwFlags);
+    TRACE("%p %s %lx\n", (PVOID)hStringTable, debugstr_w(lpString), dwFlags);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -673,8 +672,8 @@ StringTableSetExtraData(HSTRING_TABLE hStringTable,
 {
     PSTRING_TABLE pStringTable;
 
-    TRACE("%p %x %p %u\n",
-          hStringTable, dwId, lpExtraData, dwExtraDataSize);
+    TRACE("%p %lx %p %lu\n",
+          (PVOID)hStringTable, dwId, lpExtraData, dwExtraDataSize);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -729,9 +728,8 @@ StringTableStringFromId(HSTRING_TABLE hStringTable,
                         DWORD dwId)
 {
     PSTRING_TABLE pStringTable;
-    static WCHAR empty[] = {0};
 
-    TRACE("%p %x\n", hStringTable, dwId);
+    TRACE("%p %lx\n", (PVOID)hStringTable, dwId);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -772,7 +770,8 @@ StringTableStringFromIdEx(HSTRING_TABLE hStringTable,
     DWORD dwLength;
     BOOL bResult = FALSE;
 
-    TRACE("%p %x %p %p\n", hStringTable, dwId, lpBuffer, lpBufferLength);
+    TRACE("%p %lx %p %p\n",
+          (PVOID)hStringTable, dwId, lpBuffer, lpBufferLength);
 
     pStringTable = (PSTRING_TABLE)hStringTable;
     if (pStringTable == NULL)
@@ -817,5 +816,5 @@ StringTableStringFromIdEx(HSTRING_TABLE hStringTable,
 VOID WINAPI
 StringTableTrim(HSTRING_TABLE hStringTable)
 {
-    FIXME("%p\n", hStringTable);
+    FIXME("%p\n", (PVOID)hStringTable);
 }

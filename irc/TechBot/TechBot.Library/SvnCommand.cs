@@ -2,29 +2,33 @@ using System;
 
 namespace TechBot.Library
 {
-	public class SvnCommand : Command
+	public class SvnCommand : BaseCommand, ICommand
 	{
-		private string m_SvnRoot;
+		private IServiceOutput serviceOutput;
+		private string svnCommand;
 
-        public SvnCommand(TechBotService techBot)
-            : base(techBot)
+		public SvnCommand(IServiceOutput serviceOutput,
+		                       string svnCommand)
 		{
-			m_SvnRoot = Settings.Default.SVNRoot;
+			this.serviceOutput = serviceOutput;
+			this.svnCommand = svnCommand;
+		}
+		
+		public bool CanHandle(string commandName)
+		{
+			return CanHandle(commandName,
+			                 new string[] { "svn" });
 		}
 
-        public override string[] AvailableCommands
-        {
-            get { return new string[] { "svn" }; }
-        }
-		
-		public override void Handle(MessageContext context,
+		public void Handle(MessageContext context,
 		                   string commandName,
 		                   string parameters)
 		{
-			TechBot.ServiceOutput.WriteLine(context, string.Format("svn co {0}" , m_SvnRoot));
+			serviceOutput.WriteLine(context,
+			                        svnCommand);
 		}
-
-        public override string Help()
+		
+		public string Help()
 		{
 			return "!svn";
 		}

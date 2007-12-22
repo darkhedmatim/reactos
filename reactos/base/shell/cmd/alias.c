@@ -31,6 +31,7 @@
 
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef FEATURE_ALIASES
 
@@ -88,9 +89,9 @@ DeleteAlias (LPTSTR pszName)
 				prev->next = ptr->next;
 			else
 				lpFirst = ptr->next;
-			cmd_free (ptr->lpName);
-			cmd_free (ptr->lpSubst);
-			cmd_free (ptr);
+			free (ptr->lpName);
+			free (ptr->lpSubst);
+			free (ptr);
 			return;
 		}
 		prev = ptr;
@@ -110,14 +111,14 @@ AddAlias (LPTSTR name, LPTSTR subst)
 	{
 		if (!_tcsicmp (ptr->lpName, name))
 		{
-			s = (LPTSTR)cmd_alloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
+			s = (LPTSTR)malloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
 			if (!s)
-			{
+			{        
 				error_out_of_memory ();
 				return;
 			}
 
-			cmd_free (ptr->lpSubst);
+			free (ptr->lpSubst);
 			ptr->lpSubst = s;
 			_tcscpy (ptr->lpSubst, subst);
 			return;
@@ -125,27 +126,27 @@ AddAlias (LPTSTR name, LPTSTR subst)
 		ptr = ptr->next;
 	}
 
-	ptr = (LPALIAS)cmd_alloc (sizeof (ALIAS));
+	ptr = (LPALIAS)malloc (sizeof (ALIAS));
 	if (!ptr)
 		return;
 
 	ptr->next = 0;
 
-	ptr->lpName = (LPTSTR)cmd_alloc ((_tcslen (name) + 1)*sizeof(TCHAR));
+	ptr->lpName = (LPTSTR)malloc ((_tcslen (name) + 1)*sizeof(TCHAR));
 	if (!ptr->lpName)
 	{
 		error_out_of_memory ();
-		cmd_free (ptr);
+		free (ptr);
 		return;
 	}
 	_tcscpy (ptr->lpName, name);
 
-	ptr->lpSubst = (LPTSTR)cmd_alloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
+	ptr->lpSubst = (LPTSTR)malloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
 	if (!ptr->lpSubst)
 	{
 		error_out_of_memory ();
-		cmd_free (ptr->lpName);
-		cmd_free (ptr);
+		free (ptr->lpName);
+		free (ptr);
 		return;
 	}
 	_tcscpy (ptr->lpSubst, subst);
@@ -219,14 +220,14 @@ VOID DestroyAlias (VOID)
                 lpLast = lpFirst;
                 lpFirst = lpLast->next;
 
-                cmd_free (lpLast->lpName);
-                cmd_free (lpLast->lpSubst);
-                cmd_free (lpLast);
+                free (lpLast->lpName);
+                free (lpLast->lpSubst);
+                free (lpLast);
         }
 
-        cmd_free (lpFirst->lpName);
-        cmd_free (lpFirst->lpSubst);
-        cmd_free (lpFirst);
+        free (lpFirst->lpName);
+        free (lpFirst->lpSubst);
+        free (lpFirst);
 
         lpFirst = NULL;
         lpLast = NULL;

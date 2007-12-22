@@ -46,12 +46,12 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
 			 BOOLEAN Write, BOOLEAN LockAddress ) {
     UINT i;
     /* Copy the buffer array so we don't lose it */
-    UINT Lock = (LockAddress && AddressLen) ? 2 : 0;
+    UINT Lock = LockAddress ? 2 : 0;
     UINT Size = sizeof(AFD_WSABUF) * (Count + Lock);
     PAFD_WSABUF NewBuf = ExAllocatePool( PagedPool, Size * 2 );
     PMDL NewMdl;
 
-    AFD_DbgPrint(MID_TRACE,("Called(%08x)\n", NewBuf));
+    AFD_DbgPrint(MID_TRACE,("Called\n"));
 
     if( NewBuf ) {
 	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
@@ -237,15 +237,10 @@ NTSTATUS NTAPI UnlockAndMaybeComplete
   UINT Information,
   PIO_COMPLETION_ROUTINE Completion,
   BOOL ShouldUnlock ) {
-
-    if( Status == STATUS_PENDING ) {
-	/* We should firstly mark this IRP as pending, because
-	   otherwise it may be completed by StreamSocketConnectComplete()
-	   before we return from SocketStateUnlock(). */
-	IoMarkIrpPending( Irp );
     SocketStateUnlock( FCB );
+    if( Status == STATUS_PENDING ) {
+	IoMarkIrpPending( Irp );
     } else {
-	SocketStateUnlock( FCB );
 	Irp->IoStatus.Status = Status;
 	Irp->IoStatus.Information = Information;
 	if( Completion )

@@ -80,7 +80,6 @@ GENERATE_IDT_STUBS                  /* INT 30-FF: UNEXPECTED INTERRUPTS     */
 
 .globl _KiIdtDescriptor
 _KiIdtDescriptor:
-    .short 0
     .short 0x800
     .long _KiIdt
 
@@ -192,7 +191,7 @@ ReadBatch:
     /* Flush it */
     push edx
     push eax
-    call [_KeGdiFlushUserBatch]
+    //call [_KeGdiFlushUserBatch]
     pop eax
     pop edx
 
@@ -657,6 +656,7 @@ _DispatchOneParam:
 .func DispatchTwoParam
 _DispatchTwoParam:
     /* Call the common dispatcher */
+    xor edx, edx
     mov ecx, 2
     call _CommonDispatchException
 .endfunc
@@ -1033,7 +1033,7 @@ StartTrapHandle:
     sub ecx, NPX_FRAME_LENGTH
 
     /* Check if emulation is enabled */
-    test byte ptr [ecx+FN_CR0_NPX_STATE], CR0_EM
+    test dword ptr [ecx+FN_CR0_NPX_STATE], CR0_EM
     jnz EmulationEnabled
 
 CheckState:
@@ -1229,7 +1229,6 @@ InvalidStack:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_STACK_CHECK
-    xor edx, edx
     jmp _DispatchTwoParam
 
 ValidNpxOpcode:
@@ -1449,7 +1448,6 @@ _KiTrap13:
     mov ebx, [ebp+KTRAP_FRAME_EIP]
     mov esi, -1
     mov eax, STATUS_ACCESS_VIOLATION
-    xor edx, edx
     jmp _DispatchTwoParam
 
 RaiseIrql:
@@ -1594,7 +1592,6 @@ TrapCopy:
     mov esi, [ebp+KTRAP_FRAME_ERROR_CODE]
     and esi, 0xFFFF
     mov eax, STATUS_ACCESS_VIOLATION
-    xor edx, edx
     jmp _DispatchTwoParam
 
 MsrCheck:
@@ -1804,7 +1801,6 @@ SetException:
     mov ebx, [ebp+KTRAP_FRAME_EIP]
     mov esi, -1
     mov eax, STATUS_ACCESS_VIOLATION
-    xor edx, edx
     jmp _DispatchTwoParam
 
 DispatchV86Gpf:
@@ -1903,8 +1899,8 @@ SysCallCopyFault:
     /* Check if the fault occured in a V86 mode */
 CheckVdmPf:
     mov ecx, [ebp+KTRAP_FRAME_ERROR_CODE]
-    shr ecx, 1
     and ecx, 1
+    shr ecx, 1
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
     jnz VdmPF
 
@@ -2029,180 +2025,6 @@ _KiTrap17:
     mov eax, 17
     jmp _KiSystemFatalException
 .endfunc
-
-.globl _KiTrap19
-.func KiTrap19
-TRAP_FIXUPS kit19_a, kit19_t, DoFixupV86, DoNotFixupAbios
-_KiTrap19:
-    /* Push error code */
-    push 0
-
-    /* Enter trap */
-    TRAP_PROLOG kit19_a, kit19_t
-
-    /* Check if this is the NPX Thread */
-    mov eax, PCR[KPCR_CURRENT_THREAD]
-    cmp eax, PCR[KPCR_NPX_THREAD]
-
-    /* If this is a valid fault, handle it */
-    jz HandleXmmiFault
-
-    /* Otherwise, bugcheck */
-    mov eax, 19
-    jmp _KiSystemFatalException
-
-HandleXmmiFault:
-    /* Get the initial stack and NPX frame */
-    mov ecx, [eax+KTHREAD_INITIAL_STACK]
-    lea ecx, [ecx-NPX_FRAME_LENGTH]
-
-    /* Check if the trap came from V86 mode */
-    test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
-    jnz V86Xmmi
-
-    /* Check if it came from kernel mode */
-    test byte ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
-    jz KernelXmmi
-
-    /* Check if it came from a VDM */
-    cmp word ptr [ebp+KTRAP_FRAME_CS], KGDT_R3_CODE + RPL_MASK
-    jne VdmXmmi
-
-HandleUserXmmi:
-    /* Set new CR0 */
-    mov ebx, cr0
-    and ebx, ~(CR0_MP + CR0_EM + CR0_TS)
-    mov cr0, ebx
-
-    /* Check if we have FX support */
-    test byte ptr _KeI386FxsrPresent, 1
-    jz XmmiFnSave2
-
-    /* Save the state */
-    fxsave [ecx]
-    jmp XmmiMakeCr0Dirty
-XmmiFnSave2:
-    fnsave [ecx]
-    wait
-
-XmmiMakeCr0Dirty:
-    /* Make CR0 state not loaded */
-    or ebx, NPX_STATE_NOT_LOADED
-    or ebx, [ecx+FN_CR0_NPX_STATE]
-    mov cr0, ebx
-
-    /* Update NPX state */
-    mov byte ptr [eax+KTHREAD_NPX_STATE], NPX_STATE_NOT_LOADED
-    mov dword ptr PCR[KPCR_NPX_THREAD], 0
-
-    /* Clear the TS bit and re-enable interrupts */
-    and dword ptr [ecx+FN_CR0_NPX_STATE], ~CR0_TS
-
-    /* Re-enable interrupts for user-mode and send the exception */
-    sti
-    mov ebx, [ebp+KTRAP_FRAME_EIP]
-
-    /* Get MxCSR and get current mask (bits 7-12) */
-    movzx eax, word ptr [ecx+FX_MXCSR]
-    mov edx, eax
-    shr edx, 7
-    not edx
-
-    /* Set faulting opcode address to 0 */
-    mov esi, 0
-
-    /* Apply legal exceptions mask */
-    and eax, 0x3f
-
-    /* Apply the mask we got in MXCSR itself */
-    and eax, edx
-
-    /* Check for invalid operation */
-    test al, 1
-    jz 1f
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParam
-
-1:
-    /* Check for zero divide */
-    test al, 2
-    jz 1f
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParam
-
-1:
-    /* Check for denormal */
-    test al, 4
-    jz 1f
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParam
-
-1:
-    /* Check for overflow*/
-    test al, 8
-    jz 1f
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParam
-
-1:
-    /* Check for denormal */
-    test al, 16
-    jz 1f
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParam
-
-1:
-    /* Check for Precision */
-    test al, 32
-    jz UnexpectedXmmi
-
-    /* Raise exception */
-    mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParam
-
-UnexpectedXmmi:
-    /* Strange result, bugcheck the OS */
-    sti
-    push ebp
-    push 1
-    push 0
-    push eax
-    push 13
-    push TRAP_CAUSE_UNKNOWN
-    call _KeBugCheckWithTf@24
-
-VdmXmmi:
-    /* Check if this is a VDM */
-    mov eax, PCR[KPCR_CURRENT_THREAD]
-    mov ebx, [eax+KTHREAD_APCSTATE_PROCESS]
-    cmp dword ptr [ebx+EPROCESS_VDM_OBJECTS], 0
-    jz HandleUserXmmi
-
-V86Xmmi:
-    /* V86 XMMI not handled */
-    UNHANDLED_PATH
-
-KernelXmmi:
-    /* Another weird situation */
-    push ebp
-    push 2
-    push 0
-    push eax
-    push 13
-    push TRAP_CAUSE_UNKNOWN
-    call _KeBugCheckWithTf@24
-.endfunc
-
 
 .func KiSystemFatalException
 _KiSystemFatalException:

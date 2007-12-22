@@ -1,4 +1,4 @@
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 
 IDR_MAINMENU MENU
 BEGIN
@@ -21,7 +21,7 @@ BEGIN
     MENUITEM "Aktualisieren",     ID_REFRESH
     MENUITEM SEPARATOR
     MENUITEM "Bearbeiten...",     ID_EDIT, GRAYED
-    MENUITEM "Erstellen...",   ID_CREATE, GRAYED
+    MENUITEM "Erstellen...",   ID_CREATE
     MENUITEM "Löschen...",   ID_DELETE, GRAYED
     MENUITEM SEPARATOR
     MENUITEM "Eigenschaften...", ID_PROP, GRAYED
@@ -68,13 +68,13 @@ CAPTION "Info über Dienst-Manager"
 FONT 8, "MS Shell Dlg",0,0
 STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 BEGIN
-  LTEXT "Dienst-Manager v0.8\nCopyright (C) 2005-2007\nby Ged Murphy (gedmurphy@reactos.org)", IDC_STATIC, 48, 7, 135, 26
+  LTEXT "Dienst-Manager v0.5.1\nCopyright (C) 2005-2006\nby Ged Murphy (gedmurphy@gmail.com)", IDC_STATIC, 48, 7, 130, 26
   PUSHBUTTON "Schließen", IDOK, 75, 162, 44, 15
   ICON IDI_SM_ICON, IDC_STATIC, 10, 10, 7, 30
   EDITTEXT IDC_LICENSE_EDIT, 8, 44, 174, 107, WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | ES_READONLY | ES_MULTILINE
 END
 
-IDD_DLG_GENERAL DIALOGEX 6,6,253,232
+IDD_DLG_GENERAL DIALOGEX 6,6,253,225
 CAPTION "Allgemein"
 FONT 8, "MS Shell Dlg",0,0
 STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
@@ -98,7 +98,6 @@ BEGIN
   LTEXT "Sie können die Startparameter angeben, die übernommen werden sollen, wenn der Dienst von hier aus gestartet wird.",IDC_STATIC, 6,177,240,20
   LTEXT "Startparameter:", IDC_STATIC, 6, 200, 58, 11
   EDITTEXT IDC_START_PARAM, 68, 199, 178, 13, WS_CHILD | WS_VISIBLE | WS_TABSTOP
-  PUSHBUTTON "Bearbeiten", IDC_EDIT, 192, 215, 54, 15, WS_DISABLED
 END
 
 IDD_DLG_DEPEND DIALOGEX 6,6,253,225
@@ -144,7 +143,7 @@ BEGIN
   LTEXT "", IDC_DEL_NAME, 15, 53, 160, 15
   EDITTEXT IDC_DEL_DESC, 6, 73, 174, 48, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_EX_STATICEDGE | ES_MULTILINE | ES_READONLY
   PUSHBUTTON "Ja", IDOK, 26, 129, 54, 13
-  DEFPUSHBUTTON "Nein", IDCANCEL, 102, 129, 54, 13
+  PUSHBUTTON "Nein", IDCANCEL, 102, 129, 54, 13
 END
 
 IDD_DLG_HELP_OPTIONS DIALOGEX 6,6,200,150
@@ -159,7 +158,7 @@ END
 IDD_DLG_PROGRESS DIALOGEX 6,6,255,89
 CAPTION "Dienststeuerung"
 FONT 8, "MS Shell Dlg",0,0
-STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_VISIBLE | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 EXSTYLE WS_EX_TOOLWINDOW
 BEGIN
   CONTROL "", IDC_SERVCON_PROGRESS, "msctls_progress32", 0x50000000, 8, 46, 238, 13
@@ -191,7 +190,7 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
   IDS_NUM_SERVICES "Anzahl der Dienste: %d"
-  IDS_LICENSE "Dieses Programm ist kostenlos; Sie können es frei verteilen mit od. ohne Änderungen unter der GNU Lesser General Public License wie es von der Free Software Foundation veröffentlicht wurde; entweder Version 2.1 der Lizenz, oder eine spätere Version (ihrer Wahl).\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
+  IDS_LICENSE "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
 END
 
 STRINGTABLE DISCARDABLE
@@ -205,16 +204,15 @@ BEGIN
   IDS_TOOLTIP_STOP "Dienst beenden"
   IDS_TOOLTIP_PAUSE "Dienst anhalten"
   IDS_TOOLTIP_RESTART "Dienst neu starten"
+  IDS_TOOLTIP_HELP "Hilfe"
+  IDS_TOOLTIP_EXIT "Beenden"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
   IDS_PROGRESS_INFO_START "ReactOS versucht den folgenden Dienst zu starten"
   IDS_PROGRESS_INFO_STOP  "ReactOS versucht den folgenden Dienst zu beenden"
-  IDS_PROGRESS_INFO_PAUSE  "ReactOS versucht den folgenden Dienst zu pausieren"
-  IDS_PROGRESS_INFO_RESUME "ReactOS versucht den folgenden Dienst fortzusetzen"
-  IDS_CREATE_SUCCESS "Der Dienst wurde erfolgreich erstellt"
-  IDS_DELETE_SUCCESS "Der Dienst wurde erfolgreich gelöscht"
+  IDS_CREATE_SUCCESS "Dienst wurde erfolgreich erstellt"
   IDS_CREATE_REQ "Mit einem Sternchen gekennzeichnete Felder sind erforderlich"
   IDS_DELETE_STOP "Sie müssen den Dienst manuell beenden, bevor er gelöscht werden kann!"
 END
@@ -223,7 +221,30 @@ STRINGTABLE DISCARDABLE
 BEGIN
   IDS_HELP_OPTIONS "ERSTELLOPTIONEN:\r\nBEACHTEN SIE: Der Optionsname enthält das Gleichheitszeichen.\r\n type= <own|share|interact|kernel|filesys|rec>\r\n       (Standard = own)\r\n start= <boot|system|auto|demand|disabled>\r\n       (Standard = demand) \r\n error= <normal|severe|critical|ignore>\r\n       (Standard = normal)\r\n group= <LoadOrderGroup>\r\n tag= <yes|no>\r\n depend= <Abhängigkeiten (getrennt durch / (Schrägstrich))>\r\n obj= <KontoName|ObjektName>\r\n       (Standard = LocalSystem)\r\n password= <Passwort>\r\n"
 END
+#define IDS_HINT_BLANK          20000
+#define IDS_HINT_EXPORT         20001
+#define IDS_HINT_EXIT           20002
 
+#define IDS_HINT_CONNECT        20011
+#define IDS_HINT_START          20012
+#define IDS_HINT_STOP           21013
+#define IDS_HINT_PAUSE          21014
+#define IDS_HINT_RESUME         20015
+#define IDS_HINT_RESTART        20016
+#define IDS_HINT_REFRESH        20017
+#define IDS_HINT_EDIT           20018
+#define IDS_HINT_CREATE         20019
+#define IDS_HINT_DELETE         20020
+#define IDS_HINT_PROP           20021
+
+#define IDS_HINT_LARGE          20030
+#define IDS_HINT_SMALL          20031
+#define IDS_HINT_LIST           20032
+#define IDS_HINT_DETAILS        20033
+#define IDS_HINT_CUST           20034
+
+#define IDS_HINT_HELP           20040
+#define IDS_HINT_ABOUT          20041
 /* Hints */
 STRINGTABLE DISCARDABLE
 BEGIN
@@ -258,10 +279,4 @@ BEGIN
   IDS_HINT_SYS_MINIMIZE " Minimiert dieses Fenster zu einem Symbol."
   IDS_HINT_SYS_MAXIMIZE " Maximiert dieses Fenster auf Bildschirmgröße."
   IDS_HINT_SYS_CLOSE    " Schließt dieses Fenster."
-END
-
-/* Application title */
-STRINGTABLE DISCARDABLE
-BEGIN
-  IDS_APPNAME "ReactOS Service Manager"
 END

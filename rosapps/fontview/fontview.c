@@ -23,13 +23,11 @@
 #include "fontview.h"
 
 HINSTANCE g_hInstance;
-WCHAR g_szTypeFaceName[LF_FULLFACESIZE];
-LOGFONTW g_LogFontW;
-
+WCHAR g_szTypeFaceName[MAX_TYPEFACENAME];
 static const WCHAR g_szFontViewClassName[] = L"FontViewWClass";
 
 /* Tye definition for the GetFontResourceInfo function */
-typedef BOOL (WINAPI *PGFRI)(LPCWSTR, DWORD *, LPVOID, DWORD);
+typedef BOOL (WINAPI *PGFRI)(LPCWSTR, DWORD *, LPWSTR, DWORD);
 
 DWORD
 FormatString(
@@ -82,7 +80,7 @@ ErrorMsgBox(HWND hParent, DWORD dwCaptionID, DWORD dwMessageId, ...)
 	LocalFree(hMemText);
 }
 
-int WINAPI
+int WINAPI 
 WinMain (HINSTANCE hThisInstance,
          HINSTANCE hPrevInstance,
          LPSTR lpCmdLine,
@@ -119,13 +117,6 @@ WinMain (HINSTANCE hThisInstance,
 	/* Get the font name */
 	dwSize = sizeof(g_szTypeFaceName);
 	if (!GetFontResourceInfoW(argv[1], &dwSize, g_szTypeFaceName, 1))
-	{
-		ErrorMsgBox(0, IDS_ERROR, IDS_ERROR_NOFONT, argv[1]);
-		return -1;
-	}
-
-	dwSize = sizeof(LOGFONTW);
-	if (!GetFontResourceInfoW(argv[1], &dwSize, &g_LogFontW, 2))
 	{
 		ErrorMsgBox(0, IDS_ERROR, IDS_ERROR_NOFONT, argv[1]);
 		return -1;
@@ -215,7 +206,7 @@ MainWnd_OnCreate(HWND hwnd)
 	SendMessage(hDisplay, FVM_SETSTRING, 0, (LPARAM)szString);
 
 	/* Init the display window with the font name */
-	SendMessage(hDisplay, FVM_SETTYPEFACE, 0, (LPARAM)&g_LogFontW.lfFaceName);
+	SendMessage(hDisplay, FVM_SETTYPEFACE, 0, (LPARAM)g_szTypeFaceName);
 	ShowWindow(hDisplay, SW_SHOWNORMAL);
 
 	/* Create the quit button */
@@ -312,15 +303,15 @@ MainWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 
-		case WM_DESTROY:
-			PostQuitMessage (0);	/* send a WM_QUIT to the message queue */
-			break;
+        case WM_DESTROY:
+            PostQuitMessage (0);	/* send a WM_QUIT to the message queue */
+            break;
 
-		default:					/* for messages that we don't deal with */
-			return DefWindowProcW(hwnd, message, wParam, lParam);
-	}
+        default:					/* for messages that we don't deal with */
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+    }
 
-	return 0;
+    return 0;
 }
 
 /* EOF */

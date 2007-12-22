@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -23,7 +24,7 @@ CmpHiveRootSecurityDescriptor(VOID)
     NTSTATUS Status;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     PACL Acl, AclCopy;
-    PSID Sid[4];
+    PSID Sid[3];
     SID_IDENTIFIER_AUTHORITY WorldAuthority = {SECURITY_WORLD_SID_AUTHORITY};
     SID_IDENTIFIER_AUTHORITY NtAuthority = {SECURITY_NT_AUTHORITY};
     ULONG AceLength, AclLength, SidLength;
@@ -107,7 +108,7 @@ CmpHiveRootSecurityDescriptor(VOID)
 
     /* Phase 6: Allocate the security descriptor and make space for the ACL */
     SecurityDescriptor = ExAllocatePoolWithTag(PagedPool,
-                                               sizeof(SECURITY_DESCRIPTOR) +
+                                               sizeof(SECURITY_DESCRIPTOR) + 
                                                AclLength,
                                                TAG_CM);
     if (!SecurityDescriptor) KEBUGCHECKEX(REGISTRY_ERROR, 11, 6, 0, 0);

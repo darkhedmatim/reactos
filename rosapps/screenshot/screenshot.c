@@ -334,9 +334,9 @@ ConvertDDBtoDIB(PSCREENSHOT pScrSht)
 
 
 // INT WINAPI GetScreenshot(BOOL bFullScreen)
-int WINAPI _tWinMain(HINSTANCE hInstance,
+int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
-                   LPTSTR szCmdLine,
+                   PSTR szCmdLine,
                    int iCmdShow)
 {
     PSCREENSHOT pScrSht;

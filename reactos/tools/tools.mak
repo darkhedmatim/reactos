@@ -5,9 +5,9 @@ TOOLS_INT_ = $(TOOLS_INT)$(SEP)
 TOOLS_OUT = $(OUTPUT_)$(TOOLS_BASE)
 TOOLS_OUT_ = $(TOOLS_OUT)$(SEP)
 
-TOOLS_CFLAGS = -Wall -Wpointer-arith -Wno-strict-aliasing -D__REACTOS__ $(HOST_CFLAGS)
-TOOLS_CPPFLAGS = -Wall -Wpointer-arith -D__REACTOS__ $(HOST_CPPFLAGS)
-TOOLS_LFLAGS = $(HOST_LFLAGS)
+TOOLS_CFLAGS = $(CFLAGS) -Wall -Wpointer-arith -Wno-strict-aliasing
+TOOLS_CPPFLAGS = $(CPPFLAGS) -Wall -Wpointer-arith
+TOOLS_LFLAGS = $(LFLAGS)
 
 $(TOOLS_INT): | $(INTERMEDIATE)
 	$(ECHO_MKDIR)
@@ -34,23 +34,20 @@ XML_SSPRINTF_OBJECTS = \
 
 $(TOOLS_INT_)ssprintf.o: $(TOOLS_BASE_)ssprintf.cpp $(XML_SSPRINTF_HEADERS) | $(TOOLS_INT)
 	$(ECHO_CC)
-	${host_gpp} $(TOOLS_CPPFLAGS) -c $< -o $@
+	${host_gcc} $(TOOLS_CPPFLAGS) -c $< -o $@
 
 $(TOOLS_INT_)xml.o: $(TOOLS_BASE_)xml.cpp $(XML_SSPRINTF_HEADERS) | $(TOOLS_INT)
 	$(ECHO_CC)
-	${host_gpp} $(TOOLS_CPPFLAGS) -c $< -o $@
+	${host_gcc} $(TOOLS_CPPFLAGS) -c $< -o $@
 
 include tools/bin2c.mak
 include tools/bin2res/bin2res.mak
 include tools/buildno/buildno.mak
 include tools/cabman/cabman.mak
 include tools/cdmake/cdmake.mak
+include tools/dbgprint/dbgprint.mak
 include tools/gendib/gendib.mak
-ifeq ($(ARCH),powerpc)
-include tools/ofw_interface/ofw_interface.mak
-endif
 include tools/mkhive/mkhive.mak
-include tools/nci/nci.mak
 include tools/pefixup.mak
 include tools/raddr2line.mak
 include tools/rbuild/rbuild.mak

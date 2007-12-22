@@ -2,18 +2,6 @@
 #include <gdiplusprivate.h>
 #include <debug.h>
 
-
-/*
- * @unimplemented
- */
-GpStatus WINGDIPAPI
-GdipCreatePath( GpFillMode brushMode,GpPath **path)
-{
-    return NotImplemented;
-}
-
-
-
 /*
  * @unimplemented
  */

@@ -23,7 +23,6 @@
 #include <win32csr.h>
 
 #include <tchar.h>
-#include <wchar.h>
 #include <cpl.h>
 
 #include "resource.h"

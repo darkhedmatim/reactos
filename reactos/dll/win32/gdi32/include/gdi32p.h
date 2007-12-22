@@ -6,15 +6,14 @@
  * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
  */
 
+#define GDI_BATCH_LIMIT 20
 
 /* DATA **********************************************************************/
 
 extern PGDI_TABLE_ENTRY GdiHandleTable;
-extern PGDI_SHARED_HANDLE_TABLE GdiSharedHandleTable;
 extern HANDLE hProcessHeap;
 extern HANDLE CurrentProcessId;
 extern DWORD GDI_BatchLimit;
-extern PDEVCAPS GdiDevCaps;
 
 typedef INT
 (CALLBACK* EMFPLAYPROC)(
@@ -30,17 +29,18 @@ typedef INT
 #define METAFILE_MEMORY 1
 #define METAFILE_DISK   2
 
+#define STOCK_LAST          19
 #define DEFAULT_BITMAP (STOCK_LAST+1)
 #define NB_STOCK_OBJECTS (STOCK_LAST+2)
 
 /* TYPES *********************************************************************/
 
-// Based on wmfapi.h and Wine.
+// Based on wmfapi.h and Wine. This is the DC_ATTR for a MetaDC file.
 typedef struct tagMETAFILEDC {
   PVOID      pvMetaBuffer;
   HANDLE     hFile;
   DWORD      Size;
-  METAHEADER mh;
+  PMETAHEADER mf;
   UINT       handles_size, cur_handles;
   HGDIOBJ   *handles;
 
@@ -49,17 +49,9 @@ typedef struct tagMETAFILEDC {
   HGDIOBJ    Brush;
   HGDIOBJ    Palette;
   HGDIOBJ    Font;
-
-  WCHAR      Filename[MAX_PATH+2];
   // Add more later.
 } METAFILEDC,*PMETAFILEDC;
 
-// Metafile Entry handle
-typedef struct tagMF_ENTRY {
-  LIST_ENTRY   List;
-  HGDIOBJ      hmDC;             // Handle return from NtGdiCreateClientObj.
-  PMETAFILEDC pmfDC;
-} MF_ENTRY, *PMF_ENTRY;
 
 typedef struct tagENHMETAFILE {
   PVOID      pvMetaBuffer;
@@ -115,16 +107,11 @@ NewTextMetricExW2A(
 );
 
 BOOL
-FASTCALL
-DeleteRegion( HRGN );
-
-BOOL
 GdiIsHandleValid(HGDIOBJ hGdiObj);
 
 BOOL
 GdiGetHandleUserData(
     HGDIOBJ hGdiObj,
-    DWORD ObjectType,
     PVOID *UserData
 );
 
@@ -156,18 +143,6 @@ DEVMODEW *
 NTAPI
 GdiConvertToDevmodeW(DEVMODEA *dm);
 
-DWORD
-STDCALL
-GetAndSetDCDWord( HDC, INT, DWORD, DWORD, DWORD, DWORD );
-
-DWORD
-STDCALL
-GetDCDWord( HDC, INT, DWORD);
-
-HGDIOBJ
-STDCALL
-GetDCObject( HDC, INT);
-
 VOID
 NTAPI
 LogFontA2W(
@@ -184,7 +159,7 @@ LogFontW2A(
 
 VOID
 STDCALL
-EnumLogFontExW2A(
+EnumLogFontExW2A( 
     LPENUMLOGFONTEXA fontA,
     CONST ENUMLOGFONTEXW *fontW );
 
@@ -192,14 +167,6 @@ EnumLogFontExW2A(
 UINT
 WINAPI
 UserRealizePalette(HDC hDC);
-
-int
-STDCALL
-GdiAddFontResourceW(LPCWSTR lpszFilename,FLONG fl,DESIGNVECTOR *pdv);
-
-VOID
-STDCALL
-GdiSetLastError( DWORD dwErrCode );
 
 /* EOF */
 

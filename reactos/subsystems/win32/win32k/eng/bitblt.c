@@ -248,53 +248,6 @@ CallDibBitBlt(SURFOBJ* OutputObj,
 
 INT __cdecl abs(INT nm);
 
-
-/*
- * @implemented
- */
-BOOL STDCALL
-NtGdiEngBitBlt(
-                IN SURFOBJ  *psoTrg,
-                IN SURFOBJ  *psoSrc,
-                IN SURFOBJ  *psoMask,
-                IN CLIPOBJ  *pco,
-                IN XLATEOBJ  *pxlo,
-                IN RECTL  *prclTrg,
-                IN POINTL  *pptlSrc,
-                IN POINTL  *pptlMask,
-                IN BRUSHOBJ  *pbo,
-                IN POINTL  *pptlBrush,
-                IN ROP4  rop4    )
-{
-    RECTL  rclTrg;
-    POINTL ptlSrc;
-    POINTL ptlMask;
-    POINTL ptlBrush;
-
-    _SEH_TRY
-    {
-        ProbeForRead(prclTrg, sizeof(RECTL), 1);
-        RtlCopyMemory(&rclTrg,prclTrg, sizeof(RECTL));
-
-        ProbeForRead(pptlSrc, sizeof(POINTL), 1);
-        RtlCopyMemory(&ptlSrc, pptlSrc, sizeof(POINTL));
-
-        ProbeForRead(pptlMask, sizeof(POINTL), 1);
-        RtlCopyMemory(&ptlMask, pptlMask, sizeof(POINTL));
-
-        ProbeForRead(pptlBrush, sizeof(POINTL), 1);
-        RtlCopyMemory(&ptlBrush, pptlBrush, sizeof(POINTL));
-
-    }
-    _SEH_HANDLE
-    {
-        _SEH_YIELD(return FALSE);
-    }
-    _SEH_END;
-
-    return  EngBitBlt(psoTrg, psoSrc, psoMask, pco, pxlo, &rclTrg, &ptlSrc, &ptlMask, pbo, &ptlBrush, rop4);
-}
-
 /*
  * @implemented
  */
@@ -761,55 +714,6 @@ CallDibStretchBlt(SURFOBJ* OutputObj,
 
 BOOL
 STDCALL
-NtGdiEngStretchBlt(
-    IN SURFOBJ  *DestObj,
-    IN SURFOBJ  *SourceObj,
-    IN SURFOBJ  *Mask,
-    IN CLIPOBJ  *ClipRegion,
-    IN XLATEOBJ  *ColorTranslation,
-    IN COLORADJUSTMENT  *pca,
-    IN POINTL  *BrushOrigin,
-    IN RECTL  *prclDest,
-    IN RECTL  *prclSrc,
-    IN POINTL  *MaskOrigin,
-    IN ULONG  Mode
-)
-{
-    COLORADJUSTMENT  ca;
-    POINTL  lBrushOrigin;
-    RECTL rclDest;
-    RECTL rclSrc;
-    POINTL lMaskOrigin;
-
-    _SEH_TRY
-    {
-        ProbeForRead(pca, sizeof(COLORADJUSTMENT), 1);
-        RtlCopyMemory(&ca,pca, sizeof(COLORADJUSTMENT));
-
-        ProbeForRead(BrushOrigin, sizeof(POINTL), 1);
-        RtlCopyMemory(&lBrushOrigin, BrushOrigin, sizeof(POINTL));
-
-        ProbeForRead(prclDest, sizeof(RECTL), 1);
-        RtlCopyMemory(&rclDest, prclDest, sizeof(RECTL));
-
-        ProbeForRead(prclSrc, sizeof(RECTL), 1);
-        RtlCopyMemory(&rclSrc, prclSrc, sizeof(RECTL));
-
-        ProbeForRead(MaskOrigin, sizeof(POINTL), 1);
-        RtlCopyMemory(&lMaskOrigin, MaskOrigin, sizeof(POINTL));
-
-    }
-    _SEH_HANDLE
-    {
-        _SEH_YIELD(return FALSE);
-    }
-    _SEH_END;
-
-    return EngStretchBlt(DestObj, SourceObj, Mask, ClipRegion, ColorTranslation, &ca, &lBrushOrigin, &rclDest, &rclSrc, &lMaskOrigin, Mode);
-}
-
-BOOL
-STDCALL
 EngStretchBlt(
     IN SURFOBJ  *DestObj,
     IN SURFOBJ  *SourceObj,
@@ -988,44 +892,6 @@ IntEngStretchBlt(SURFOBJ *DestSurf,
     return ret;
 }
 
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-NtGdiEngAlphaBlend(IN SURFOBJ *Dest,
-                   IN SURFOBJ *Source,
-                   IN CLIPOBJ *ClipRegion,
-                   IN XLATEOBJ *ColorTranslation,
-                   IN PRECTL upDestRect,
-                   IN PRECTL upSourceRect,
-                   IN BLENDOBJ *BlendObj)
-{
-    RECTL DestRect;
-    RECTL SourceRect;
-
-    _SEH_TRY
-    {
-        ProbeForRead(upDestRect, sizeof(RECTL), 1);
-        RtlCopyMemory(&DestRect,upDestRect, sizeof(RECTL));
-
-        ProbeForRead(upSourceRect, sizeof(RECTL), 1);
-        RtlCopyMemory(&SourceRect, upSourceRect, sizeof(RECTL));
-
-    }
-    _SEH_HANDLE
-    {
-        _SEH_YIELD(return FALSE);
-    }
-    _SEH_END;
-
-    return EngAlphaBlend(Dest, Source, ClipRegion, ColorTranslation, &DestRect, &SourceRect, BlendObj);
-}
-
-/*
- * @implemented
- */
 BOOL
 STDCALL
 EngAlphaBlend(IN SURFOBJ *Dest,

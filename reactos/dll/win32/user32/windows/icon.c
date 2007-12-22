@@ -31,10 +31,9 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+
 
 /* FUNCTIONS *****************************************************************/
-
 
 HICON
 ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
@@ -148,19 +147,16 @@ ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cx
  */
 HICON
 STDCALL
-CopyIcon(HICON hIcon)
+CopyIcon(
+  HICON hIcon)
 {
-    HICON hRetIcon = NULL;
-    ICONINFO IconInfo;
+  ICONINFO IconInfo;
 
-    if(GetIconInfo(hIcon, &IconInfo))
-    {
-        hRetIcon = CreateIconIndirect(&IconInfo);
-        DeleteObject(IconInfo.hbmColor);
-        DeleteObject(IconInfo.hbmMask);
-    }
-
-    return hRetIcon;
+  if(NtUserGetCursorIconInfo((HANDLE)hIcon, &IconInfo))
+  {
+    return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  }
+  return (HICON)0;
 }
 
 
@@ -246,7 +242,7 @@ CreateIconFromResourceEx(
   }
   */
 
-  TRACE("dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
+  DPRINT("dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
 
   if (! fIcon)
     {
@@ -355,7 +351,7 @@ STDCALL
 DestroyIcon(
   HICON hIcon)
 {
-  return (BOOL)NtUserDestroyCursor((HANDLE)hIcon, 0);
+  return (BOOL)NtUserDestroyCursorIcon((HANDLE)hIcon, 0);
 }
 
 
@@ -404,7 +400,8 @@ GetIconInfo(
   HICON hIcon,
   PICONINFO IconInfo)
 {
-  return NtUserGetIconInfo((HANDLE)hIcon, IconInfo, 0, 0, 0, 0);
+  /* FIXME - copy bitmaps */
+  return (BOOL)NtUserGetCursorIconInfo((HANDLE)hIcon, IconInfo);
 }
 
 
@@ -508,7 +505,7 @@ CURSORICON_FindBestIcon(LPVOID dir,
         }
     }
 
-    TRACE("Best Icon: ResId: %d, bits : %d\n", BestEntry, BestBits);
+    DPRINT("Best Icon: ResId: %d, bits : %d\n", BestEntry, BestBits);
 
     return BestEntry;
 }
@@ -564,7 +561,7 @@ CURSORICON_FindBestCursor(LPVOID dir,
         }
     }
 
-    TRACE("Best Cursor: ResId: %d, bits : %d\n", BestEntry, BestBits);
+    DPRINT("Best Cursor: ResId: %d, bits : %d\n", BestEntry, BestBits);
 
     return BestEntry;
 }
@@ -681,7 +678,7 @@ LookupIconIdFromDirectoryEx(PBYTE xdir,
             retVal = entry->nID;
     }
     else
-        WARN("%s() : Invalid resource directory\n", __FUNCTION__);
+        DPRINT1("%s() : Invalid resource directory\n", __FUNCTION__);
 
     return retVal;
 }

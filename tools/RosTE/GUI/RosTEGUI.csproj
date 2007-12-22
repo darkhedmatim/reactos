@@ -120,27 +120,6 @@
     <Compile Include="AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="ConsoleSettings.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="ConsoleSettings.Designer.cs">
-      <DependentUpon>ConsoleSettings.cs</DependentUpon>
-    </Compile>
-    <Compile Include="DeleteVM.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="DeleteVM.Designer.cs">
-      <DependentUpon>DeleteVM.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ErrorForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="ErrorForm.Designer.cs">
-      <DependentUpon>ErrorForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="MainConfig.cs">
-      <DependentUpon>MainConfig.xsd</DependentUpon>
-    </Compile>
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -148,18 +127,6 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="native.cs" />
-    <Compile Include="NewHardDiskForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="NewHardDiskForm.Designer.cs">
-      <DependentUpon>NewHardDiskForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="NewNetCardForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="NewNetCardForm.Designer.cs">
-      <DependentUpon>NewNetCardForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="NewVMWizard.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -174,8 +141,6 @@
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    <Compile Include="qemu.cs">
     </Compile>
     <Compile Include="SettingsForm.cs">
       <SubType>Form</SubType>
@@ -230,26 +195,6 @@
       <SubType>Designer</SubType>
       <DependentUpon>AboutForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="ConsoleSettings.resx">
-      <SubType>Designer</SubType>
-      <DependentUpon>ConsoleSettings.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="DeleteVM.resx">
-      <SubType>Designer</SubType>
-      <DependentUpon>DeleteVM.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="ErrorForm.resx">
-      <SubType>Designer</SubType>
-      <DependentUpon>ErrorForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="NewHardDiskForm.resx">
-      <SubType>Designer</SubType>
-      <DependentUpon>NewHardDiskForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="NewNetCardForm.resx">
-      <SubType>Designer</SubType>
-      <DependentUpon>NewNetCardForm.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="NewVMWizard.resx">
       <SubType>Designer</SubType>
       <DependentUpon>NewVMWizard.cs</DependentUpon>
@@ -288,20 +233,12 @@
     <Content Include="Wizard\wizBigOnlineFolder.gif" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="VMConfig.xsd">
+    <None Include="Config.xsd">
       <SubType>Designer</SubType>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="VMConfig.xsx">
-      <DependentUpon>VMConfig.xsd</DependentUpon>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="MainConfig.xsd">
-      <SubType>Designer</SubType>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="MainConfig.xsx">
-      <DependentUpon>MainConfig.xsd</DependentUpon>
+    <None Include="Config.xsx">
+      <DependentUpon>Config.xsd</DependentUpon>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

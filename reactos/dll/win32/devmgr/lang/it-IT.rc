@@ -1,6 +1,6 @@
 // Italian language resource file (Paolo Devoti, devotip@tiscali.it, 2007-01-10)
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 STRINGTABLE
 BEGIN
@@ -68,7 +68,7 @@ BEGIN
     IDS_DEV_NO_VALID_LOG_CONF "ReactOS non può indicare le risorse per questo dispositivo."
     IDS_DEV_FAILED_INSTALL "I driver non sono installati."
     IDS_DEV_HARDWARE_DISABLED "Disabilitato perchè il BIOS del dispositivo non ha assegnato nessuna risorsa."
-    IDS_DEV_CANT_SHARE_IRQ "Questo dispositivo usa un Interrupt Request (IRQ) che è già in uso e non può essere condiviso.\nDevi cambiare l'impostazione in conflitto o togliere il driver \"real-mode\" che provoca il conflitto."
+    IDS_DEV_CANT_SHARE_IRQ "Questo dispositivo usa un Interrupt Request (IRQ) che è già in uso e non può essere condiviso.\nDevi cambiare l\'impostazione in conflitto o togliere il driver \"real-mode\" che provoca il conflitto."
     IDS_DEV_FAILED_ADD "Non funziona regolarmente a causa di $1 ."
     IDS_DEV_DISABLED_SERVICE "ReactOS non può installare i driver del dispositivo perchè non è possibile accedere al disco o alla rete dove si trovano i file di setup."
     IDS_DEV_TRANSLATION_FAILED "Il dispositivo non risponde ai suoi driver."
@@ -96,8 +96,8 @@ STYLE DS_3DLOOK | DS_CONTROL | WS_CHILD | WS_VISIBLE | WS_CAPTION | DS_SHELLFONT
 FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT           "&Dispositivi:",IDC_DEVICES,7,6,196,10
-    CONTROL         "",IDC_LV_DEVICES,"SysListView32",LVS_REPORT |
-                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS |
+    CONTROL         "",IDC_LV_DEVICES,"SysListView32",LVS_REPORT | 
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS | 
                     LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,16,196,50
     GROUPBOX        "Proprieta dei dispositivi",IDC_PROPERTIESGROUP,7,76,196,105
     LTEXT           "",IDC_MANUFACTURER,14,88,183,10,SS_ENDELLIPSIS

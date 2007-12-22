@@ -19,14 +19,12 @@
  */
 #include "iphlpapi_private.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(iphlpapi);
-
 /*
  * @unimplemented
  */
 DWORD STDCALL DisableMediaSense(HANDLE *pHandle,OVERLAPPED *pOverLapped)
 {
-    UNIMPLEMENTED;
+    UNIMPLEMENTED
     return 0L;
 }
 
@@ -35,7 +33,7 @@ DWORD STDCALL DisableMediaSense(HANDLE *pHandle,OVERLAPPED *pOverLapped)
  */
 DWORD STDCALL RestoreMediaSense(OVERLAPPED* pOverlapped,LPDWORD lpdwEnableCount)
 {
-    UNIMPLEMENTED;
+    UNIMPLEMENTED
     return 0L;
 }
 

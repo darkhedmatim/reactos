@@ -26,19 +26,18 @@
 @ stdcall CreateAsyncBindCtxEx(ptr long ptr ptr ptr long)
 @ stdcall CreateFormatEnumerator(long ptr ptr)
 @ stdcall CreateURLMoniker(ptr wstr ptr)
-@ stdcall CreateURLMonikerEx(ptr wstr ptr long)
 @ stdcall -private DllCanUnloadNow()
 @ stdcall -private DllGetClassObject(ptr ptr ptr)
 @ stdcall -private DllInstall(long wstr)
 @ stdcall -private DllRegisterServer()
 @ stdcall -private DllRegisterServerEx()
 @ stdcall -private DllUnregisterServer()
-@ stdcall Extract(long ptr)
+@ stdcall Extract(long ptr) cabinet.Extract
 @ stdcall FaultInIEFeature(long ptr ptr long)
 @ stub FindMediaType
 @ stub FindMediaTypeClass
 @ stdcall FindMimeFromData(long ptr ptr long ptr long ptr long)
-@ stdcall GetClassFileOrMime(ptr wstr ptr long wstr long ptr)
+@ stub GetClassFileOrMime
 @ stub GetClassURL
 @ stub GetComponentIDFromCLSSPEC
 @ stub GetMarkOfTheWeb
@@ -70,12 +69,12 @@
 @ stdcall URLDownloadToFileA(ptr str str long ptr)
 @ stdcall URLDownloadToFileW(ptr wstr wstr long ptr)
 @ stub URLDownloadW
-@ stdcall URLOpenBlockingStreamA(ptr str ptr long ptr)
-@ stdcall URLOpenBlockingStreamW(ptr wstr ptr long ptr)
+@ stub URLOpenBlockingStreamA
+@ stub URLOpenBlockingStreamW
 @ stub URLOpenPullStreamA
 @ stub URLOpenPullStreamW
-@ stdcall URLOpenStreamA(ptr str long ptr)
-@ stdcall URLOpenStreamW(ptr wstr long ptr)
+@ stub URLOpenStreamA
+@ stub URLOpenStreamW
 @ stub UrlMkBuildVersion
 @ stdcall UrlMkGetSessionOption(long ptr long ptr long)
 @ stdcall UrlMkSetSessionOption(long ptr long long)

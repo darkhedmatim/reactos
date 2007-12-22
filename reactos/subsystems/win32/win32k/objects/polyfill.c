@@ -272,7 +272,7 @@ POLYGONFILL_MakeEdgeList(PPOINT Points, int Count)
   for ( CurPt = 1; CurPt < Count; ++CurPt )
   {
     e = POLYGONFILL_MakeEdge ( Points[CurPt-1], Points[CurPt] );
-    if ( !e )
+    if ( !e )   
       goto fail;
 
     // if a straight horizontal line - who cares?
@@ -284,7 +284,7 @@ POLYGONFILL_MakeEdgeList(PPOINT Points, int Count)
   e = POLYGONFILL_MakeEdge ( Points[CurPt-1], Points[0] );
   if ( !e )
     goto fail;
-
+      
   if ( !e->absdy )
     EngFreeMem ( e );
   else
@@ -292,7 +292,7 @@ POLYGONFILL_MakeEdgeList(PPOINT Points, int Count)
   return list;
 
 fail:
-
+  
   DPRINT1("Out Of MEMORY!!\n");
   POLYGONFILL_DestroyEdgeList ( list );
   return 0;
@@ -560,7 +560,7 @@ FillPolygon(
   FILL_EDGE_LIST *list = 0;
   FILL_EDGE *ActiveHead = 0;
   int ScanLine;
-  PDC_ATTR Dc_Attr = dc->pDc_Attr;
+
   void
   (STDCALL *FillScanLine)(
     PDC dc,
@@ -570,8 +570,6 @@ FillPolygon(
     BRUSHOBJ *BrushObj,
     MIX RopMode );
 
-  if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
-  
   //DPRINT("FillPolygon\n");
 
   /* Create Edge List. */
@@ -580,7 +578,7 @@ FillPolygon(
   if (NULL == list)
     return FALSE;
 
-  if ( WINDING == Dc_Attr->jFillMode )
+  if ( WINDING == dc->w.polyFillMode )
     FillScanLine = POLYGONFILL_FillScanLineWinding;
   else /* default */
     FillScanLine = POLYGONFILL_FillScanLineAlternate;

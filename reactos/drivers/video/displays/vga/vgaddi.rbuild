@@ -1,8 +1,7 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
 <module name="vgaddi" type="kernelmodedll" entrypoint="_DrvEnableDriver@12" installbase="system32" installname="vgaddi.dll">
 	<importlibrary definition="vgaddi.def" />
 	<include base="vgaddi">.</include>
+	<define name="__USE_W32API" />
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<library>win32k</library>

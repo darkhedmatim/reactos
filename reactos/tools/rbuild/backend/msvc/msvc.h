@@ -42,7 +42,7 @@ enum OptimizationType
 enum HeadersType
 {
 	MSVCHeaders,
-	ReactOSHeaders
+	WineHeaders
 };
 
 class MSVCConfiguration
@@ -71,7 +71,7 @@ class MSVCBackend : public Backend
 
 		void ProcessModules();
 		void ProcessFile(std::string &filename);
-
+		
 		bool CheckFolderAdded(std::string &folder);
 		void AddFolders(std::string &folder);
 
@@ -112,7 +112,6 @@ class MSVCBackend : public Backend
 
 		// functions in vcprojmaker.cpp:
 
-		std::string _strip_gcc_deffile(std::string Filename, std::string sourcedir, std::string objdir);
 		std::string _get_solution_version ( void );
 		std::string _gen_guid();
 		std::string _replace_str(

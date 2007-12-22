@@ -18,6 +18,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 /* a list of all the internal commands, associating their command names */
@@ -174,10 +175,6 @@ COMMAND cmds[] =
 #ifdef INCLUDE_CMD_RENAME
 	{_T("ren"), 0, cmd_rename},
 	{_T("rename"), 0, cmd_rename},
-#endif
-
-#ifdef INCLUDE_CMD_REPLACE
-	{_T("replace"), 0, cmd_replace},
 #endif
 
 #ifdef INCLUDE_CMD_RMDIR

@@ -16,7 +16,7 @@ $(RGENSTAT_OUT): | $(TOOLS_OUT)
 endif
 
 RGENSTAT_TARGET = \
-	$(RGENSTAT_OUT_)rgenstat$(EXEPOSTFIX)
+	$(EXEPREFIX)$(RGENSTAT_OUT_)rgenstat$(EXEPOSTFIX)
 
 RGENSTAT_SOURCES = $(addprefix $(RGENSTAT_BASE_), \
 	rgenstat.c \
@@ -26,9 +26,9 @@ RGENSTAT_SOURCES = $(addprefix $(RGENSTAT_BASE_), \
 RGENSTAT_OBJECTS = \
 	$(addprefix $(INTERMEDIATE_), $(RGENSTAT_SOURCES:.c=.o))
 
-RGENSTAT_HOST_CFLAGS = -g -Werror -Wall $(TOOLS_CFLAGS)
+RGENSTAT_HOST_CFLAGS = -g -Werror -Wall
 
-RGENSTAT_HOST_LFLAGS = $(TOOLS_LFLAGS) -g
+RGENSTAT_HOST_LFLAGS = -g
 
 $(RGENSTAT_TARGET): $(RGENSTAT_OBJECTS) | $(RGENSTAT_OUT)
 	$(ECHO_LD)
@@ -46,6 +46,6 @@ $(RGENSTAT_INT_)llmosrt.o: $(RGENSTAT_BASE_)llmosrt.c | $(RGENSTAT_INT)
 rgenstat: $(RGENSTAT_TARGET)
 
 .PHONY: rgenstat_clean
-rgenstat_clean:
+rgenstat_clean: $(RGENSTAT_TARGET)
 	-@$(rm) $(RGENSTAT_TARGET) $(RGENSTAT_OBJECTS) 2>$(NUL)
 clean: rgenstat_clean

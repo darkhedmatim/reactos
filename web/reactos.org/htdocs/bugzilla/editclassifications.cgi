@@ -27,18 +27,18 @@ use Bugzilla;
 use Bugzilla::Constants;
 use Bugzilla::Util;
 use Bugzilla::Error;
+use Bugzilla::Config qw($datadir);
 use Bugzilla::Classification;
-use Bugzilla::Token;
 
-my $dbh = Bugzilla->dbh;
+require "globals.pl";
+
 my $cgi = Bugzilla->cgi;
+my $dbh = Bugzilla->dbh;
 my $template = Bugzilla->template;
-local our $vars = {};
+my $vars = {};
 
 sub LoadTemplate {
     my $action = shift;
-    my $cgi = Bugzilla->cgi;
-    my $template = Bugzilla->template;
 
     $action =~ /(\w+)/;
     $action = $1;
@@ -61,16 +61,14 @@ exists Bugzilla->user->groups->{'editclassifications'}
                                      action => "edit",
                                      object => "classifications"});
 
-ThrowUserError("auth_classification_not_enabled") 
-    unless Bugzilla->params->{"useclassification"};
+ThrowUserError("auth_classification_not_enabled") unless Param("useclassification");
 
 #
 # often used variables
 #
 my $action     = trim($cgi->param('action')         || '');
 my $class_name = trim($cgi->param('classification') || '');
-my $token      = $cgi->param('token');
-
+    
 #
 # action='' -> Show nice list of classifications
 #
@@ -90,7 +88,6 @@ unless ($action) {
 #
 
 if ($action eq 'add') {
-    $vars->{'token'} = issue_session_token('add_classification');
     LoadTemplate($action);
 }
 
@@ -99,7 +96,6 @@ if ($action eq 'add') {
 #
 
 if ($action eq 'new') {
-    check_token_data($token, 'add_classification');
 
     $class_name || ThrowUserError("classification_not_specified");
 
@@ -110,25 +106,20 @@ if ($action eq 'new') {
         ThrowUserError("classification_already_exists",
                        { name => $classification->name });
     }
-
+    
     my $description = trim($cgi->param('description')  || '');
-
-    my $sortkey = trim($cgi->param('sortkey') || 0);
-    my $stored_sortkey = $sortkey;
-    detaint_natural($sortkey)
-      || ThrowUserError('classification_invalid_sortkey', {'name' => $class_name,
-                                                           'sortkey' => $stored_sortkey});
-
     trick_taint($description);
     trick_taint($class_name);
 
     # Add the new classification.
-    $dbh->do("INSERT INTO classifications (name, description, sortkey)
-              VALUES (?, ?, ?)", undef, ($class_name, $description, $sortkey));
+    $dbh->do("INSERT INTO classifications (name, description)
+              VALUES (?, ?)", undef, ($class_name, $description));
+
+    # Make versioncache flush
+    unlink "$datadir/versioncache";
 
     $vars->{'classification'} = $class_name;
 
-    delete_token($token);
     LoadTemplate($action);
 }
 
@@ -152,7 +143,6 @@ if ($action eq 'del') {
     }
 
     $vars->{'classification'} = $classification;
-    $vars->{'token'} = issue_session_token('delete_classification');
 
     LoadTemplate($action);
 }
@@ -162,7 +152,6 @@ if ($action eq 'del') {
 #
 
 if ($action eq 'delete') {
-    check_token_data($token, 'delete_classification');
 
     my $classification =
         Bugzilla::Classification::check_classification($class_name);
@@ -184,9 +173,10 @@ if ($action eq 'delete') {
 
     $dbh->bz_unlock_tables();
 
+    unlink "$datadir/versioncache";
+
     $vars->{'classification'} = $classification;
 
-    delete_token($token);
     LoadTemplate($action);
 }
 
@@ -202,7 +192,6 @@ if ($action eq 'edit') {
         Bugzilla::Classification::check_classification($class_name);
 
     $vars->{'classification'} = $classification;
-    $vars->{'token'} = issue_session_token('edit_classification');
 
     LoadTemplate($action);
 }
@@ -212,22 +201,14 @@ if ($action eq 'edit') {
 #
 
 if ($action eq 'update') {
-    check_token_data($token, 'edit_classification');
 
     $class_name || ThrowUserError("classification_not_specified");
 
     my $class_old_name = trim($cgi->param('classificationold') || '');
+    my $description    = trim($cgi->param('description')       || '');
 
     my $class_old =
         Bugzilla::Classification::check_classification($class_old_name);
-
-    my $description = trim($cgi->param('description') || '');
-
-    my $sortkey = trim($cgi->param('sortkey') || 0);
-    my $stored_sortkey = $sortkey;
-    detaint_natural($sortkey)
-      || ThrowUserError('classification_invalid_sortkey', {'name' => $class_old->name,
-                                                           'sortkey' => $stored_sortkey});
 
     $dbh->bz_lock_tables('classifications WRITE');
 
@@ -241,8 +222,10 @@ if ($action eq 'update') {
         trick_taint($class_name);
         $dbh->do("UPDATE classifications SET name = ? WHERE id = ?",
                  undef, ($class_name, $class_old->id));
-
+        
         $vars->{'updated_classification'} = 1;
+
+        unlink "$datadir/versioncache";
     }
 
     if ($description ne $class_old->description) {
@@ -252,19 +235,12 @@ if ($action eq 'update') {
                  ($description, $class_old->id));
 
         $vars->{'updated_description'} = 1;
-    }
 
-    if ($sortkey ne $class_old->sortkey) {
-        $dbh->do("UPDATE classifications SET sortkey = ?
-                  WHERE id = ?", undef,
-                 ($sortkey, $class_old->id));
-
-        $vars->{'updated_sortkey'} = 1;
+        unlink "$datadir/versioncache";
     }
 
     $dbh->bz_unlock_tables();
 
-    delete_token($token);
     LoadTemplate($action);
 }
 
@@ -281,30 +257,25 @@ if ($action eq 'reclassify') {
                              WHERE name = ?");
 
     if (defined $cgi->param('add_products')) {
-        check_token_data($token, 'reclassify_classifications');
         if (defined $cgi->param('prodlist')) {
             foreach my $prod ($cgi->param("prodlist")) {
                 trick_taint($prod);
                 $sth->execute($classification->id, $prod);
             }
         }
-        delete_token($token);
     } elsif (defined $cgi->param('remove_products')) {
-        check_token_data($token, 'reclassify_classifications');
         if (defined $cgi->param('myprodlist')) {
             foreach my $prod ($cgi->param("myprodlist")) {
                 trick_taint($prod);
                 $sth->execute(1,$prod);
             }
         }
-        delete_token($token);
     }
 
     my @classifications = 
         Bugzilla::Classification::get_all_classifications;
     $vars->{'classifications'} = \@classifications;
     $vars->{'classification'} = $classification;
-    $vars->{'token'} = issue_session_token('reclassify_classifications');
 
     LoadTemplate($action);
 }

@@ -13,7 +13,7 @@ static VOID
 DrawBorder(PPROGRESSBAR Bar)
 {
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   SHORT i;
 
   /* draw upper left corner */
@@ -94,7 +94,7 @@ static VOID
 DrawThickBorder(PPROGRESSBAR Bar)
 {
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   SHORT i;
 
   /* draw upper left corner */
@@ -176,7 +176,7 @@ DrawProgressBar(PPROGRESSBAR Bar)
 {
   CHAR TextBuffer[8];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   PROGRESSBAR BarBorder = *Bar;
 
   /* Print percentage */
@@ -192,10 +192,10 @@ DrawProgressBar(PPROGRESSBAR Bar)
 
   /* Draw the progress bar border */
   DrawBorder(Bar);
-
+  
   /* Write Text Associated with Bar */
   CONSOLE_SetTextXY(Bar->TextTop, Bar->TextRight, Bar->Text);
-
+  
   /* Draw the progress bar "border" border */
   if (Bar->Double)
   {
@@ -292,7 +292,7 @@ ProgressNextStep(PPROGRESSBAR Bar)
 {
   CHAR TextBuffer[8];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   ULONG NewPercent;
   ULONG NewPos;
 
@@ -368,7 +368,7 @@ ProgressSetStep (PPROGRESSBAR Bar,
 {
   CHAR TextBuffer[8];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   ULONG NewPercent;
   ULONG NewPos;
 

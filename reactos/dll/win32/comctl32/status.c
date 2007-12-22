@@ -310,20 +310,6 @@ STATUSBAR_Refresh (STATUS_INFO *infoPtr, HDC hdc)
 }
 
 
-static int
-STATUSBAR_InternalHitTest(const STATUS_INFO *infoPtr, const LPPOINT pt)
-{
-    int i;
-    if (infoPtr->simple)
-        return 255;
-
-    for (i = 0; i < infoPtr->numParts; i++)
-        if (pt->x >= infoPtr->parts[i].bound.left && pt->x <= infoPtr->parts[i].bound.right)
-            return i;
-    return -2;
-}
-
-
 static void
 STATUSBAR_SetPartBounds (STATUS_INFO *infoPtr)
 {
@@ -633,6 +619,7 @@ STATUSBAR_SetMinHeight (STATUS_INFO *infoPtr, INT height)
 	RECT parent_rect;
         HTHEME theme;
 
+	GetClientRect (infoPtr->Notify, &parent_rect);
 	infoPtr->height = height + infoPtr->verticalBorder;
         
         if ((theme = GetWindowTheme (infoPtr->Self)))
@@ -650,14 +637,13 @@ STATUSBAR_SetMinHeight (STATUS_INFO *infoPtr, INT height)
             ReleaseDC (infoPtr->Self, hdc);
         }
         
-        if (GetClientRect (infoPtr->Notify, &parent_rect))
-        {
-            width = parent_rect.right - parent_rect.left;
-            x = parent_rect.left;
-            y = parent_rect.bottom - infoPtr->height;
-            MoveWindow (infoPtr->Self, x, y, width, infoPtr->height, TRUE);
-            STATUSBAR_SetPartBounds (infoPtr);
-        }
+	width = parent_rect.right - parent_rect.left;
+	x = parent_rect.left;
+	y = parent_rect.bottom - infoPtr->height;
+	MoveWindow (infoPtr->Self, parent_rect.left,
+		    parent_rect.bottom - infoPtr->height,
+		    width, infoPtr->height, TRUE);
+	STATUSBAR_SetPartBounds (infoPtr);
     }
 
     return TRUE;
@@ -1191,13 +1177,13 @@ STATUSBAR_WMSize (STATUS_INFO *infoPtr, WORD flags)
     if (GetWindowLongW(infoPtr->Self, GWL_STYLE) & CCS_NORESIZE) return FALSE;
 
     /* width and height don't apply */
-    if (!GetClientRect (infoPtr->Notify, &parent_rect))
-        return FALSE;
-
+    GetClientRect (infoPtr->Notify, &parent_rect);
     width = parent_rect.right - parent_rect.left;
     x = parent_rect.left;
     y = parent_rect.bottom - infoPtr->height;
-    MoveWindow (infoPtr->Self, x, y, width, infoPtr->height, TRUE);
+    MoveWindow (infoPtr->Self, parent_rect.left,
+		parent_rect.bottom - infoPtr->height,
+		width, infoPtr->height, TRUE);
     STATUSBAR_SetPartBounds (infoPtr);
     return TRUE;
 }
@@ -1225,20 +1211,15 @@ STATUSBAR_NotifyFormat (STATUS_INFO *infoPtr, HWND from, INT cmd)
 
 
 static LRESULT
-STATUSBAR_SendMouseNotify(const STATUS_INFO *infoPtr, UINT code, LPARAM lParam)
+STATUSBAR_SendNotify (const STATUS_INFO *infoPtr, UINT code)
 {
-    NMMOUSE  nm;
+    NMHDR  nmhdr;
 
-    TRACE("code %04x, lParam=%lx\n", code, lParam);
-    nm.hdr.hwndFrom = infoPtr->Self;
-    nm.hdr.idFrom = GetWindowLongPtrW(infoPtr->Self, GWLP_ID);
-    nm.hdr.code = code;
-    nm.pt.x = (short)LOWORD(lParam);
-    nm.pt.y = (short)HIWORD(lParam);
-    nm.dwItemSpec = STATUSBAR_InternalHitTest(infoPtr, &nm.pt);
-    nm.dwItemData = 0;
-    nm.dwHitInfo = 0x30000;     /* seems constant */
-    SendMessageW(infoPtr->Notify, WM_NOTIFY, 0, (LPARAM)&nm);
+    TRACE("code %04x\n", code);
+    nmhdr.hwndFrom = infoPtr->Self;
+    nmhdr.idFrom = GetWindowLongPtrW (infoPtr->Self, GWLP_ID);
+    nmhdr.code = code;
+    SendMessageW (infoPtr->Notify, WM_NOTIFY, 0, (LPARAM)&nmhdr);
     return 0;
 }
 
@@ -1251,7 +1232,7 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     INT nPart = ((INT) wParam) & 0x00ff;
     LRESULT res;
 
-    TRACE("hwnd=%p msg=%x wparam=%lx lparam=%lx\n", hwnd, msg, wParam, lParam);
+    TRACE("hwnd=%p msg=%x wparam=%x lparam=%lx\n", hwnd, msg, wParam, lParam);
     if (!infoPtr && msg != WM_CREATE)
         return DefWindowProcW (hwnd, msg, wParam, lParam);
 
@@ -1339,10 +1320,10 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	    return STATUSBAR_GetTextLength (infoPtr, 0);
 
 	case WM_LBUTTONDBLCLK:
-            return STATUSBAR_SendMouseNotify(infoPtr, NM_DBLCLK, lParam);
+            return STATUSBAR_SendNotify (infoPtr, NM_DBLCLK);
 
 	case WM_LBUTTONUP:
-	    return STATUSBAR_SendMouseNotify(infoPtr, NM_CLICK, lParam);
+	    return STATUSBAR_SendNotify (infoPtr, NM_CLICK);
 
 	case WM_MOUSEMOVE:
 	    return STATUSBAR_Relay2Tip (infoPtr, msg, wParam, lParam);
@@ -1366,10 +1347,10 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	    return STATUSBAR_WMPaint (infoPtr, (HDC)wParam);
 
 	case WM_RBUTTONDBLCLK:
-	    return STATUSBAR_SendMouseNotify(infoPtr, NM_RDBLCLK, lParam);
+	    return STATUSBAR_SendNotify (infoPtr, NM_RDBLCLK);
 
 	case WM_RBUTTONUP:
-	    return STATUSBAR_SendMouseNotify(infoPtr, NM_RCLICK, lParam);
+	    return STATUSBAR_SendNotify (infoPtr, NM_RCLICK);
 
 	case WM_SETFONT:
 	    return STATUSBAR_WMSetFont (infoPtr, (HFONT)wParam, LOWORD(lParam));
@@ -1386,7 +1367,7 @@ StatusWindowProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	default:
 	    if ((msg >= WM_USER) && (msg < WM_APP))
-		ERR("unknown msg %04x wp=%04lx lp=%08lx\n",
+		ERR("unknown msg %04x wp=%04x lp=%08lx\n",
 		     msg, wParam, lParam);
 	    return DefWindowProcW (hwnd, msg, wParam, lParam);
     }

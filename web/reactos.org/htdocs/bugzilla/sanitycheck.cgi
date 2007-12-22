@@ -22,16 +22,14 @@
 #                 Matthew Tuck <matty@chariot.net.au>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
 #                 Marc Schumann <wurblzap@gmail.com>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 use strict;
 
 use lib qw(.);
 
-use Bugzilla;
+require "globals.pl";
 use Bugzilla::Constants;
 use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::User;
 
 ###########################################################################
@@ -79,14 +77,16 @@ Bugzilla->login(LOGIN_REQUIRED);
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
 my $template = Bugzilla->template;
-my $user = Bugzilla->user;
 
-# Make sure the user is authorized to access sanitycheck.cgi.
-# As this script can now alter the group_control_map table, we no longer
-# let users with editbugs privs run it anymore.
-$user->in_group("editcomponents")
-  || ($user->in_group('editkeywords') && defined $cgi->param('rebuildkeywordcache'))
-  || ThrowUserError("auth_failure", {group  => "editcomponents",
+# Make sure the user is authorized to access sanitycheck.cgi.  Access
+# is restricted to logged-in users who have "editbugs" privileges,
+# which is a reasonable compromise between allowing all users to access
+# the script (creating the potential for denial of service attacks)
+# and restricting access to this installation's administrators (which
+# prevents users with a legitimate interest in Bugzilla integrity
+# from accessing the script).
+UserInGroup("editbugs")
+  || ThrowUserError("auth_failure", {group  => "editbugs",
                                      action => "run",
                                      object => "sanity_check"});
 
@@ -94,17 +94,7 @@ print $cgi->header();
 
 my @row;
 
-$template->put_header("Sanity Check");
-
-###########################################################################
-# Users with 'editkeywords' privs only can only check keywords.
-###########################################################################
-unless ($user->in_group('editcomponents')) {
-    check_votes_or_keywords('keywords');
-    Status("Sanity check completed.");
-    $template->put_footer();
-    exit;
-}
+$template->put_header("Bugzilla Sanity Check");
 
 ###########################################################################
 # Fix vote cache
@@ -113,15 +103,16 @@ unless ($user->in_group('editcomponents')) {
 if (defined $cgi->param('rebuildvotecache')) {
     Status("OK, now rebuilding vote cache.");
     $dbh->bz_lock_tables('bugs WRITE', 'votes READ');
-    $dbh->do(q{UPDATE bugs SET votes = 0});
-    my $sth_update = $dbh->prepare(q{UPDATE bugs 
-                                        SET votes = ? 
-                                      WHERE bug_id = ?});
-    my $sth = $dbh->prepare(q{SELECT bug_id, SUM(vote_count)
-                                FROM votes }. $dbh->sql_group_by('bug_id'));
-    $sth->execute();
-    while (my ($id, $v) = $sth->fetchrow_array) {
-        $sth_update->execute($v, $id);
+    SendSQL("UPDATE bugs SET votes = 0");
+    SendSQL("SELECT bug_id, SUM(vote_count) FROM votes " .
+            $dbh->sql_group_by('bug_id'));
+    my %votes;
+    while (@row = FetchSQLData()) {
+        my ($id, $v) = (@row);
+        $votes{$id} = $v;
+    }
+    foreach my $id (keys %votes) {
+        SendSQL("UPDATE bugs SET votes = $votes{$id} WHERE bug_id = $id");
     }
     $dbh->bz_unlock_tables();
     Status("Vote cache has been rebuilt.");
@@ -231,33 +222,22 @@ if (defined $cgi->param('rescanallBugMail')) {
     require Bugzilla::BugMail;
 
     Status("OK, now attempting to send unsent mail");
-    my $time = $dbh->sql_interval(30, 'MINUTE');
-    
-    my $list = $dbh->selectcol_arrayref(qq{
-                                        SELECT bug_id
-                                          FROM bugs 
-                                         WHERE (lastdiffed IS NULL
-                                                OR lastdiffed < delta_ts)
-                                           AND delta_ts < now() - $time
-                                      ORDER BY bug_id});
-         
-    Status(scalar(@$list) . ' bugs found with possibly unsent mail.');
-
-    my $vars = {};
-    # We cannot simply look at the bugs_activity table to find who did the
-    # last change in a given bug, as e.g. adding a comment doesn't add any
-    # entry to this table. And some other changes may be private
-    # (such as time-related changes or private attachments or comments)
-    # and so choosing this user as being the last one having done a change
-    # for the bug may be problematic. So the best we can do at this point
-    # is to choose the currently logged in user for email notification.
-    $vars->{'changer'} = Bugzilla->user->login;
-
-    foreach my $bugid (@$list) {
-        Bugzilla::BugMail::Send($bugid, $vars);
+    SendSQL("SELECT bug_id FROM bugs 
+              WHERE (lastdiffed IS NULL OR lastdiffed < delta_ts) AND
+             delta_ts < now() - " . $dbh->sql_interval(30, 'MINUTE') .
+            " ORDER BY bug_id");
+    my @list;
+    while (MoreSQLData()) {
+        push (@list, FetchOneColumn());
     }
 
-    if (scalar(@$list) > 0) {
+    Status(scalar(@list) . ' bugs found with possibly unsent mail.');
+
+    foreach my $bugid (@list) {
+        Bugzilla::BugMail::Send($bugid);
+    }
+
+    if (scalar(@list) > 0) {
         Status("Unsent mail has been sent.");
     }
 
@@ -269,7 +249,7 @@ if (defined $cgi->param('rescanallBugMail')) {
 # Remove all references to deleted bugs
 ###########################################################################
 
-if (defined $cgi->param('remove_invalid_bug_references')) {
+if (defined $cgi->param('remove_invalid_references')) {
     Status("OK, now removing all references to deleted bugs.");
 
     $dbh->bz_lock_tables('attachments WRITE', 'bug_group_map WRITE',
@@ -300,30 +280,6 @@ if (defined $cgi->param('remove_invalid_bug_references')) {
     Status("All references to deleted bugs have been removed.");
 }
 
-###########################################################################
-# Remove all references to deleted attachments
-###########################################################################
-
-if (defined $cgi->param('remove_invalid_attach_references')) {
-    Status("OK, now removing all references to deleted attachments.");
-
-    $dbh->bz_lock_tables('attachments WRITE', 'attach_data WRITE');
-
-    my $attach_ids =
-        $dbh->selectcol_arrayref('SELECT attach_data.id
-                                    FROM attach_data
-                               LEFT JOIN attachments
-                                      ON attachments.attach_id = attach_data.id
-                                   WHERE attachments.attach_id IS NULL');
-
-    if (scalar(@$attach_ids)) {
-        $dbh->do('DELETE FROM attach_data WHERE id IN (' .
-                 join(',', @$attach_ids) . ')');
-    }
-
-    $dbh->bz_unlock_tables();
-    Status("All references to deleted attachments have been removed.");
-}
 
 print "OK, now running sanity checks.<p>\n";
 
@@ -352,7 +308,6 @@ print "OK, now running sanity checks.<p>\n";
 sub CrossCheck {
     my $table = shift @_;
     my $field = shift @_;
-    my $dbh = Bugzilla->dbh;
 
     Status("Checking references to $table.$field");
 
@@ -364,42 +319,33 @@ sub CrossCheck {
         my %exceptions = map { $_ => 1 } @$exceptions;
 
         Status("... from $refertable.$referfield");
-       
-        my $query = qq{SELECT DISTINCT $refertable.$referfield} .
-            ($keyname ? qq{, $refertable.$keyname } : q{}) .
-                     qq{ FROM $refertable
-                    LEFT JOIN $table
-                           ON $refertable.$referfield = $table.$field
-                        WHERE $table.$field IS NULL
-                          AND $refertable.$referfield IS NOT NULL};
-         
-        my $sth = $dbh->prepare($query);
-        $sth->execute;
+        
+        SendSQL("SELECT DISTINCT $refertable.$referfield" . ($keyname ? ", $refertable.$keyname" : '') . " " .
+                "FROM   $refertable LEFT JOIN $table " .
+                "  ON   $refertable.$referfield = $table.$field " .
+                "WHERE  $table.$field IS NULL " .
+                "  AND  $refertable.$referfield IS NOT NULL");
 
         my $has_bad_references = 0;
-
-        while (my ($value, $key) = $sth->fetchrow_array) {
-            next if $exceptions{$value};
-            my $alert = "Bad value &quot;$value&quot; found in $refertable.$referfield";
-            if ($keyname) {
-                if ($keyname eq 'bug_id') {
-                    $alert .= ' (bug ' . BugLink($key) . ')';
-                } else {
-                    $alert .= " ($keyname == '$key')";
+        while (MoreSQLData()) {
+            my ($value, $key) = FetchSQLData();
+            if (!$exceptions{$value}) {
+                my $alert = "Bad value &quot;$value&quot; found in $refertable.$referfield";
+                if ($keyname) {
+                    if ($keyname eq 'bug_id') {
+                        $alert .= ' (bug ' . BugLink($key) . ')';
+                    }
+                    else {
+                        $alert .= " ($keyname == '$key')";
+                    }
                 }
+                Alert($alert);
+                $has_bad_references = 1;
             }
-            Alert($alert);
-            $has_bad_references = 1;
         }
         # References to non existent bugs can be safely removed, bug 288461
         if ($table eq 'bugs' && $has_bad_references) {
-            print qq{<a href="sanitycheck.cgi?remove_invalid_bug_references=1">
-                     Remove invalid references to non existent bugs.</a><p>\n};
-        }
-        # References to non existent attachments can be safely removed.
-        if ($table eq 'attachments' && $has_bad_references) {
-            print qq{<a href="sanitycheck.cgi?remove_invalid_attach_references=1">
-                     Remove invalid references to non existent attachments.</a><p>\n};
+            print qq{<a href="sanitycheck.cgi?remove_invalid_references=1">Remove invalid references to non existent bugs.</a><p>\n};
         }
     }
 }
@@ -410,7 +356,7 @@ CrossCheck('classifications', 'id',
 CrossCheck("keyworddefs", "id",
            ["keywords", "keywordid"]);
 
-CrossCheck("fielddefs", "id",
+CrossCheck("fielddefs", "fieldid",
            ["bugs_activity", "fieldid"],
            ['profiles_activity', 'fieldid']);
 
@@ -437,13 +383,7 @@ CrossCheck("groups", "id",
            ["group_group_map", "grantor_id"],
            ["group_group_map", "member_id"],
            ["group_control_map", "group_id"],
-           ["namedquery_group_map", "group_id"],
            ["user_group_map", "group_id"]);
-
-CrossCheck("namedqueries", "id",
-           ["namedqueries_link_in_footer", "namedquery_id"],
-           ["namedquery_group_map", "namedquery_id"],
-          );
 
 CrossCheck("profiles", "userid",
            ['profiles_activity', 'userid'],
@@ -463,16 +403,14 @@ CrossCheck("profiles", "userid",
            ["longdescs", "who", "bug_id"],
            ["logincookies", "userid"],
            ["namedqueries", "userid"],
-           ["namedqueries_link_in_footer", "user_id"],
-           ['series', 'creator', 'series_id'],
+           ['series', 'creator', 'series_id', ['0']],
            ["watch", "watcher"],
            ["watch", "watched"],
            ['whine_events', 'owner_userid'],
            ["tokens", "userid"],
            ["user_group_map", "user_id"],
            ["components", "initialowner", "name"],
-           ["components", "initialqacontact", "name"],
-           ["component_cc", "user_id"]);
+           ["components", "initialqacontact", "name"]);
 
 CrossCheck("products", "id",
            ["bugs", "product_id", "bug_id"],
@@ -482,9 +420,6 @@ CrossCheck("products", "id",
            ["group_control_map", "product_id"],
            ["flaginclusions", "product_id", "type_id"],
            ["flagexclusions", "product_id", "type_id"]);
-
-CrossCheck("components", "id",
-           ["component_cc", "component_id"]);
 
 # Check the former enum types -mkanat@bugzilla.org
 CrossCheck("bug_status", "value",
@@ -515,9 +450,6 @@ CrossCheck('whine_events', 'id',
            ['whine_queries', 'eventid'],
            ['whine_schedules', 'eventid']);
 
-CrossCheck('attachments', 'attach_id',
-           ['attach_data', 'id']);
-
 ###########################################################################
 # Perform double field referential (cross) checks
 ###########################################################################
@@ -540,7 +472,6 @@ sub DoubleCrossCheck {
     my $table = shift @_;
     my $field1 = shift @_;
     my $field2 = shift @_;
-    my $dbh = Bugzilla->dbh;
  
     Status("Checking references to $table.$field1 / $table.$field2");
  
@@ -549,22 +480,19 @@ sub DoubleCrossCheck {
         my ($refertable, $referfield1, $referfield2, $keyname) = @$ref;
  
         Status("... from $refertable.$referfield1 / $refertable.$referfield2");
-
-        my $d_cross_check = $dbh->selectall_arrayref(qq{
-                        SELECT DISTINCT $refertable.$referfield1, 
-                                        $refertable.$referfield2 } .
-                       ($keyname ? qq{, $refertable.$keyname } : q{}) .
-                      qq{ FROM $refertable
-                     LEFT JOIN $table
-                            ON $refertable.$referfield1 = $table.$field1
-                           AND $refertable.$referfield2 = $table.$field2 
-                         WHERE $table.$field1 IS NULL 
-                           AND $table.$field2 IS NULL 
-                           AND $refertable.$referfield1 IS NOT NULL 
-                           AND $refertable.$referfield2 IS NOT NULL});
-
-        foreach my $check (@$d_cross_check) {
-            my ($value1, $value2, $key) = @$check;
+        
+        SendSQL("SELECT DISTINCT $refertable.$referfield1, $refertable.$referfield2" . ($keyname ? ", $refertable.$keyname" : '') . " " .
+                "FROM   $refertable LEFT JOIN $table " .
+                "  ON   $refertable.$referfield1 = $table.$field1 " .
+                " AND   $refertable.$referfield2 = $table.$field2 " .
+                "WHERE  $table.$field1 IS NULL " .
+                "  AND  $table.$field2 IS NULL " .
+                "  AND  $refertable.$referfield1 IS NOT NULL " .
+                "  AND  $refertable.$referfield2 IS NOT NULL");
+ 
+        while (MoreSQLData()) {
+            my ($value1, $value2, $key) = FetchSQLData();
+ 
             my $alert = "Bad values &quot;$value1&quot;, &quot;$value2&quot; found in " .
                 "$refertable.$referfield1 / $refertable.$referfield2";
             if ($keyname) {
@@ -602,10 +530,9 @@ DoubleCrossCheck("milestones", "product_id", "value",
  
 Status("Checking profile logins");
 
-my $sth = $dbh->prepare(q{SELECT userid, login_name FROM profiles});
-$sth->execute;
+SendSQL("SELECT userid, login_name FROM profiles");
 
-while (my ($id, $email) = $sth->fetchrow_array) {
+while (my ($id,$email) = (FetchSQLData())) {
     validate_email_syntax($email)
       || Alert "Bad profile email address, id=$id,  &lt;$email&gt;.";
 }
@@ -614,237 +541,154 @@ while (my ($id, $email) = $sth->fetchrow_array) {
 # Perform vote/keyword cache checks
 ###########################################################################
 
+my $offervotecacherebuild = 0;
+
 sub AlertBadVoteCache {
     my ($id) = (@_);
     Alert("Bad vote cache for bug " . BugLink($id));
+    $offervotecacherebuild = 1;
 }
 
-check_votes_or_keywords();
+SendSQL("SELECT bug_id, votes, keywords FROM bugs " .
+        "WHERE votes != 0 OR keywords != ''");
 
-sub check_votes_or_keywords {
-    my $check = shift || 'all';
+my %votes;
+my %bugid;
+my %keyword;
 
-    my $dbh = Bugzilla->dbh;
-    my $sth = $dbh->prepare(q{SELECT bug_id, votes, keywords
-                                FROM bugs
-                               WHERE votes != 0 OR keywords != ''});
-    $sth->execute;
-
-    my %votes;
-    my %keyword;
-
-    while (my ($id, $v, $k) = $sth->fetchrow_array) {
-        if ($v != 0) {
-            $votes{$id} = $v;
-        }
-        if ($k) {
-            $keyword{$id} = $k;
-        }
+while (@row = FetchSQLData()) {
+    my($id, $v, $k) = (@row);
+    if ($v != 0) {
+        $votes{$id} = $v;
     }
-
-    # If we only want to check keywords, skip checks about votes.
-    _check_votes(\%votes) unless ($check eq 'keywords');
-    # If we only want to check votes, skip checks about keywords.
-    _check_keywords(\%keyword) unless ($check eq 'votes');
-}
-
-sub _check_votes {
-    my $votes = shift;
-
-    Status("Checking cached vote counts");
-    my $dbh = Bugzilla->dbh;
-    my $sth = $dbh->prepare(q{SELECT bug_id, SUM(vote_count)
-                                FROM votes }.
-                                $dbh->sql_group_by('bug_id'));
-    $sth->execute;
-
-    my $offer_votecache_rebuild = 0;
-
-    while (my ($id, $v) = $sth->fetchrow_array) {
-        if ($v <= 0) {
-            Alert("Bad vote sum for bug $id");
-        } else {
-            if (!defined $votes->{$id} || $votes->{$id} != $v) {
-                AlertBadVoteCache($id);
-                $offer_votecache_rebuild = 1;
-            }
-            delete $votes->{$id};
-        }
-    }
-    foreach my $id (keys %$votes) {
-        AlertBadVoteCache($id);
-        $offer_votecache_rebuild = 1;
-    }
-
-    if ($offer_votecache_rebuild) {
-        print qq{<a href="sanitycheck.cgi?rebuildvotecache=1">Click here to rebuild the vote cache</a><p>\n};
+    if ($k) {
+        $keyword{$id} = $k;
     }
 }
 
-sub _check_keywords {
-    my $keyword = shift;
+Status("Checking cached vote counts");
+SendSQL("SELECT bug_id, SUM(vote_count) FROM votes " .
+        $dbh->sql_group_by('bug_id'));
 
-    Status("Checking keywords table");
-    my $dbh = Bugzilla->dbh;
-    my $cgi = Bugzilla->cgi;
-
-    my %keywordids;
-    my $keywords = $dbh->selectall_arrayref(q{SELECT id, name
-                                                FROM keyworddefs});
-
-    foreach (@$keywords) {
-        my ($id, $name) = @$_;
-        if ($keywordids{$id}) {
-            Alert("Duplicate entry in keyworddefs for id $id");
+while (@row = FetchSQLData()) {
+    my ($id, $v) = (@row);
+    if ($v <= 0) {
+        Alert("Bad vote sum for bug $id");
+    } else {
+        if (!defined $votes{$id} || $votes{$id} != $v) {
+            AlertBadVoteCache($id);
         }
-        $keywordids{$id} = 1;
-        if ($name =~ /[\s,]/) {
-            Alert("Bogus name in keyworddefs for id $id");
-        }
+        delete $votes{$id};
     }
+}
+foreach my $id (keys %votes) {
+    AlertBadVoteCache($id);
+}
 
-    my $sth = $dbh->prepare(q{SELECT bug_id, keywordid
-                                FROM keywords
-                            ORDER BY bug_id, keywordid});
-    $sth->execute;
-    my $lastid;
-    my $lastk;
-    while (my ($id, $k) = $sth->fetchrow_array) {
-        if (!$keywordids{$k}) {
-            Alert("Bogus keywordids $k found in keywords table");
-        }
-        if (defined $lastid && $id eq $lastid && $k eq $lastk) {
-            Alert("Duplicate keyword ids found in bug " . BugLink($id));
-        }
-        $lastid = $id;
-        $lastk = $k;
+if ($offervotecacherebuild) {
+    print qq{<a href="sanitycheck.cgi?rebuildvotecache=1">Click here to rebuild the vote cache</a><p>\n};
+}
+
+
+Status("Checking keywords table");
+
+my %keywordids;
+SendSQL("SELECT id, name FROM keyworddefs");
+while (@row = FetchSQLData()) {
+    my ($id, $name) = (@row);
+    if ($keywordids{$id}) {
+        Alert("Duplicate entry in keyworddefs for id $id");
     }
+    $keywordids{$id} = 1;
+    if ($name =~ /[\s,]/) {
+        Alert("Bogus name in keyworddefs for id $id");
+    }
+}
 
-    Status("Checking cached keywords");
 
+SendSQL("SELECT bug_id, keywordid FROM keywords ORDER BY bug_id, keywordid");
+my $lastid;
+my $lastk;
+while (@row = FetchSQLData()) {
+    my ($id, $k) = (@row);
+    if (!$keywordids{$k}) {
+        Alert("Bogus keywordids $k found in keywords table");
+    }
+    if (defined $lastid && $id eq $lastid && $k eq $lastk) {
+        Alert("Duplicate keyword ids found in bug " . BugLink($id));
+    }
+    $lastid = $id;
+    $lastk = $k;
+}
+
+Status("Checking cached keywords");
+
+my %realk;
+
+if (defined $cgi->param('rebuildkeywordcache')) {
+    $dbh->bz_lock_tables('bugs write', 'keywords read',
+                                  'keyworddefs read');
+}
+
+SendSQL("SELECT keywords.bug_id, keyworddefs.name " .
+        "FROM keywords " .
+        "INNER JOIN keyworddefs " .
+        "   ON keyworddefs.id = keywords.keywordid " .
+        "INNER JOIN bugs " .
+        "   ON keywords.bug_id = bugs.bug_id " .
+        "ORDER BY keywords.bug_id, keyworddefs.name");
+
+my $lastb = 0;
+my @list;
+while (1) {
+    my ($b, $k) = FetchSQLData();
+    if (!defined $b || $b != $lastb) {
+        if (@list) {
+            $realk{$lastb} = join(', ', @list);
+        }
+        if (!$b) {
+            last;
+        }
+        $lastb = $b;
+        @list = ();
+    }
+    push(@list, $k);
+}
+
+my @badbugs = ();
+
+foreach my $b (keys(%keyword)) {
+    if (!exists $realk{$b} || $realk{$b} ne $keyword{$b}) {
+        push(@badbugs, $b);
+    }
+}
+foreach my $b (keys(%realk)) {
+    if (!exists $keyword{$b}) {
+        push(@badbugs, $b);
+    }
+}
+if (@badbugs) {
+    @badbugs = sort {$a <=> $b} @badbugs;
+    Alert(scalar(@badbugs) . " bug(s) found with incorrect keyword cache: " .
+          BugListLinks(@badbugs));
     if (defined $cgi->param('rebuildkeywordcache')) {
-        $dbh->bz_lock_tables('bugs write', 'keywords read', 'keyworddefs read');
-    }
-
-    my $query = q{SELECT keywords.bug_id, keyworddefs.name
-                    FROM keywords
-              INNER JOIN keyworddefs
-                      ON keyworddefs.id = keywords.keywordid
-              INNER JOIN bugs
-                      ON keywords.bug_id = bugs.bug_id
-                ORDER BY keywords.bug_id, keyworddefs.name};
-
-    $sth = $dbh->prepare($query);
-    $sth->execute;
-
-    my $lastb = 0;
-    my @list;
-    my %realk;
-    while (1) {
-        my ($b, $k) = $sth->fetchrow_array;
-        if (!defined $b || $b != $lastb) {
-            if (@list) {
-                $realk{$lastb} = join(', ', @list);
+        Status("OK, now fixing keyword cache.");
+        foreach my $b (@badbugs) {
+            my $k = '';
+            if (exists($realk{$b})) {
+                $k = $realk{$b};
             }
-            last unless $b;
-
-            $lastb = $b;
-            @list = ();
+            SendSQL("UPDATE bugs SET keywords = " . SqlQuote($k) .
+                    " WHERE bug_id = $b");
         }
-        push(@list, $k);
-    }
-
-    my @badbugs = ();
-
-    foreach my $b (keys(%$keyword)) {
-        if (!exists $realk{$b} || $realk{$b} ne $keyword->{$b}) {
-            push(@badbugs, $b);
-        }
-    }
-    foreach my $b (keys(%realk)) {
-        if (!exists $keyword->{$b}) {
-            push(@badbugs, $b);
-        }
-    }
-    if (@badbugs) {
-        @badbugs = sort {$a <=> $b} @badbugs;
-        Alert(scalar(@badbugs) . " bug(s) found with incorrect keyword cache: " .
-              BugListLinks(@badbugs));
-
-        my $sth_update = $dbh->prepare(q{UPDATE bugs
-                                            SET keywords = ?
-                                          WHERE bug_id = ?});
-
-        if (defined $cgi->param('rebuildkeywordcache')) {
-            Status("OK, now fixing keyword cache.");
-            foreach my $b (@badbugs) {
-                my $k = '';
-                if (exists($realk{$b})) {
-                    $k = $realk{$b};
-                }
-                $sth_update->execute($k, $b);
-            }
-            Status("Keyword cache fixed.");
-        } else {
-            print qq{<a href="sanitycheck.cgi?rebuildkeywordcache=1">Click here to rebuild the keyword cache</a><p>\n};
-        }
-    }
-
-    if (defined $cgi->param('rebuildkeywordcache')) {
-        $dbh->bz_unlock_tables();
+        Status("Keyword cache fixed.");
+    } else {
+        print qq{<a href="sanitycheck.cgi?rebuildkeywordcache=1">Click here to rebuild the keyword cache</a><p>\n};
     }
 }
 
-###########################################################################
-# Check for flags being in incorrect products and components
-###########################################################################
-
-Status('Checking for flags being in the wrong product/component');
-
-my $invalid_flags = $dbh->selectall_arrayref(
-       'SELECT DISTINCT flags.id, flags.bug_id, flags.attach_id
-          FROM flags
-    INNER JOIN bugs
-            ON flags.bug_id = bugs.bug_id
-     LEFT JOIN flaginclusions AS i
-            ON flags.type_id = i.type_id
-           AND (bugs.product_id = i.product_id OR i.product_id IS NULL)
-           AND (bugs.component_id = i.component_id OR i.component_id IS NULL)
-         WHERE i.type_id IS NULL');
-
-my @invalid_flags = @$invalid_flags;
-
-$invalid_flags = $dbh->selectall_arrayref(
-       'SELECT DISTINCT flags.id, flags.bug_id, flags.attach_id
-          FROM flags
-    INNER JOIN bugs
-            ON flags.bug_id = bugs.bug_id
-    INNER JOIN flagexclusions AS e
-            ON flags.type_id = e.type_id
-         WHERE (bugs.product_id = e.product_id OR e.product_id IS NULL)
-           AND (bugs.component_id = e.component_id OR e.component_id IS NULL)');
-
-push(@invalid_flags, @$invalid_flags);
-
-if (scalar(@invalid_flags)) {
-    if ($cgi->param('remove_invalid_flags')) {
-        Status("OK, now deleting invalid flags.");
-        my @flag_ids = map {$_->[0]} @invalid_flags;
-        $dbh->bz_lock_tables('flags WRITE');
-        # Silently delete these flags, with no notification to requesters/setters.
-        $dbh->do('DELETE FROM flags WHERE id IN (' . join(',', @flag_ids) .')');
-        $dbh->bz_unlock_tables();
-        Status("Invalid flags deleted.");
-    }
-    else {
-        foreach my $flag (@$invalid_flags) {
-            my ($flag_id, $bug_id, $attach_id) = @$flag;
-            Alert("Invalid flag $flag_id for " .
-                  ($attach_id ? "attachment $attach_id in bug " : "bug ") . BugLink($bug_id));
-        }
-        print qq{<a href="sanitycheck.cgi?remove_invalid_flags=1">Click
-                 here to delete invalid flags</a><p>\n};
-    }
+if (defined $cgi->param('rebuildkeywordcache')) {
+    $dbh->bz_unlock_tables();
 }
 
 ###########################################################################
@@ -853,14 +697,20 @@ if (scalar(@invalid_flags)) {
 
 sub BugCheck {
     my ($middlesql, $errortext, $repairparam, $repairtext) = @_;
-    my $dbh = Bugzilla->dbh;
- 
-    my $badbugs = $dbh->selectcol_arrayref(qq{SELECT DISTINCT bugs.bug_id
-                                                FROM $middlesql 
-                                            ORDER BY bugs.bug_id});
+    
+    SendSQL("SELECT DISTINCT bugs.bug_id " .
+            "FROM $middlesql " .
+            "ORDER BY bugs.bug_id");
+    
+    my @badbugs = ();
+    
+    while (@row = FetchSQLData()) {
+        my ($id) = (@row);
+        push (@badbugs, $id);
+    }
 
-    if (scalar(@$badbugs)) {
-        Alert("$errortext: " . BugListLinks(@$badbugs));
+    if (@badbugs) {
+        Alert("$errortext: " . BugListLinks(@badbugs));
         if ($repairparam) {
             $repairtext ||= 'Repair these bugs';
             print qq{<a href="sanitycheck.cgi?$repairparam=1">$repairtext</a>.},
@@ -887,7 +737,7 @@ BugCheck("bugs LEFT JOIN duplicates ON bugs.bug_id = duplicates.dupe WHERE " .
 
 Status("Checking statuses/resolutions");
 
-my @open_states = map($dbh->quote($_), BUG_STATE_OPEN);
+my @open_states = map(SqlQuote($_), OpenStates());
 my $open_states = join(', ', @open_states);
 
 BugCheck("bugs WHERE bug_status IN ($open_states) AND resolution != ''",
@@ -899,10 +749,10 @@ Status("Checking statuses/everconfirmed");
 
 BugCheck("bugs WHERE bug_status = 'UNCONFIRMED' AND everconfirmed = 1",
          "Bugs that are UNCONFIRMED but have everconfirmed set");
-# The below list of resolutions is hard-coded because we don't know if future
+# The below list of resolutions is hardcoded because we don't know if future
 # resolutions will be confirmed, unconfirmed or maybeconfirmed.  I suspect
 # they will be maybeconfirmed, e.g. ASLEEP and REMIND.  This hardcoding should
-# disappear when we have customized statuses.
+# disappear when we have customised statuses.
 BugCheck("bugs WHERE bug_status IN ('NEW', 'ASSIGNED', 'REOPENED') AND everconfirmed = 0",
          "Bugs with confirmed status but don't have everconfirmed set"); 
 
@@ -913,25 +763,42 @@ BugCheck("bugs INNER JOIN products ON bugs.product_id = products.id " .
          "Bugs that have enough votes to be confirmed but haven't been");
 
 ###########################################################################
+# Date checks
+###########################################################################
+
+sub DateCheck {
+    my $table = shift @_;
+    my $field = shift @_;
+    Status("Checking dates in $table.$field");
+    SendSQL("SELECT COUNT( $field ) FROM $table WHERE $field > NOW()");
+    my $c = FetchOneColumn();
+    if ($c) {
+        Alert("Found $c dates in future");
+    }
+}
+    
+DateCheck("groups", "last_changed");
+DateCheck("profiles", "refreshed_when");
+
+###########################################################################
 # Control Values
 ###########################################################################
 
 # Checks for values that are invalid OR
 # not among the 9 valid combinations
 Status("Checking for bad values in group_control_map");
-my $groups = join(", ", (CONTROLMAPNA, CONTROLMAPSHOWN, CONTROLMAPDEFAULT,
-CONTROLMAPMANDATORY));
-my $query = qq{
-     SELECT COUNT(product_id) 
-       FROM group_control_map 
-      WHERE membercontrol NOT IN( $groups )
-         OR othercontrol NOT IN( $groups )
-         OR ((membercontrol != othercontrol)
-             AND (membercontrol != } . CONTROLMAPSHOWN . q{)
-             AND ((membercontrol != } . CONTROLMAPDEFAULT . q{)
-                  OR (othercontrol = } . CONTROLMAPSHOWN . q{)))};
-                  
-my $c = $dbh->selectrow_array($query);
+SendSQL("SELECT COUNT(product_id) FROM group_control_map WHERE " .
+        "membercontrol NOT IN(" . CONTROLMAPNA . "," . CONTROLMAPSHOWN .
+        "," . CONTROLMAPDEFAULT . "," . CONTROLMAPMANDATORY . ")" .
+        " OR " .
+        "othercontrol NOT IN(" . CONTROLMAPNA . "," . CONTROLMAPSHOWN .
+        "," . CONTROLMAPDEFAULT . "," . CONTROLMAPMANDATORY . ")" .
+        " OR " .
+        "( (membercontrol != othercontrol) " .
+          "AND (membercontrol != " . CONTROLMAPSHOWN . ") " .
+          "AND ((membercontrol != " . CONTROLMAPDEFAULT . ") " .
+            "OR (othercontrol = " . CONTROLMAPSHOWN . ")))");
+my $c = FetchOneColumn();
 if ($c) {
     Alert("Found $c bad group_control_map entries");
 }
@@ -970,18 +837,21 @@ BugCheck("bugs
 
 Status("Checking for unsent mail");
 
-my $time = $dbh->sql_interval(30, 'MINUTE');
-my $badbugs = $dbh->selectcol_arrayref(qq{
-                    SELECT bug_id 
-                      FROM bugs 
-                     WHERE (lastdiffed IS NULL OR lastdiffed < delta_ts)
-                       AND delta_ts < now() - $time
-                  ORDER BY bug_id});
+@badbugs = ();
 
+SendSQL("SELECT bug_id " .
+        "FROM bugs WHERE (lastdiffed IS NULL OR lastdiffed < delta_ts) AND " .
+        "delta_ts < now() - " . $dbh->sql_interval(30, 'MINUTE') .
+        " ORDER BY bug_id");
 
-if (scalar(@$badbugs > 0)) {
+while (@row = FetchSQLData()) {
+    my ($id) = (@row);
+    push(@badbugs, $id);
+}
+
+if (@badbugs > 0) {
     Alert("Bugs that have changes but no mail sent for at least half an hour: " .
-          BugListLinks(@$badbugs));
+          BugListLinks(@badbugs));
 
     print qq{<a href="sanitycheck.cgi?rescanallBugMail=1">Send these mails</a>.<p>\n};
 }

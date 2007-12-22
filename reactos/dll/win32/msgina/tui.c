@@ -7,9 +7,8 @@
 
 #include "msgina.h"
 
+#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
 static BOOL
 TUIInitialize(
@@ -220,7 +219,6 @@ static INT
 TUILockedSAS(
 	IN OUT PGINA_CONTEXT pgContext)
 {
-	HANDLE hToken;
 	WCHAR UserName[256];
 	WCHAR Password[256];
 
@@ -237,15 +235,7 @@ TUILockedSAS(
 	if (!ReadString(IDS_ASKFORPASSWORD, Password, 256, FALSE))
 		return WLX_SAS_ACTION_NONE;
 
-	if (!LogonUserW(UserName, NULL, Password,
-		LOGON32_LOGON_UNLOCK,
-		LOGON32_PROVIDER_DEFAULT,
-		&hToken))
-	{
-		TRACE("LogonUserW() failed\n");
-		return WLX_SAS_ACTION_NONE;
-	}
-	CloseHandle(hToken);
+	FIXME("FIXME: Check user/password\n");
 	return WLX_SAS_ACTION_UNLOCK_WKSTA;
 }
 

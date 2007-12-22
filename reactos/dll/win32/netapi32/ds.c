@@ -15,48 +15,18 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
 
-#include "ntstatus.h"
-#define WIN32_NO_STATUS
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
-#include "ntsecapi.h"
 #include "wine/debug.h"
 #include "dsrole.h"
-#include "dsgetdc.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ds);
-
-DWORD WINAPI DsGetDcNameW(LPCWSTR ComputerName, LPCWSTR AvoidDCName,
- GUID* DomainGuid, LPCWSTR SiteName, ULONG Flags,
- PDOMAIN_CONTROLLER_INFOW *DomainControllerInfo)
-{
-    FIXME("(%s, %s, %s, %s, %08x, %p): stub\n", debugstr_w(ComputerName),
-     debugstr_w(AvoidDCName), debugstr_guid(DomainGuid),
-     debugstr_w(SiteName), Flags, DomainControllerInfo);
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD WINAPI DsGetDcNameA(LPCSTR ComputerName, LPCSTR AvoidDCName,
- GUID* DomainGuid, LPCSTR SiteName, ULONG Flags,
- PDOMAIN_CONTROLLER_INFOA *DomainControllerInfo)
-{
-    FIXME("(%s, %s, %s, %s, %08x, %p): stub\n", debugstr_a(ComputerName),
-     debugstr_a(AvoidDCName), debugstr_guid(DomainGuid),
-     debugstr_a(SiteName), Flags, DomainControllerInfo);
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD WINAPI DsGetSiteNameW(LPCWSTR ComputerName, LPWSTR *SiteName)
-{
-    FIXME("(%s, %p): stub\n", debugstr_w(ComputerName), SiteName);
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
 
 /************************************************************
  *  DsRoleFreeMemory (NETAPI32.@)
@@ -69,8 +39,7 @@ DWORD WINAPI DsGetSiteNameW(LPCWSTR ComputerName, LPWSTR *SiteName)
  */
 VOID WINAPI DsRoleFreeMemory(PVOID Buffer)
 {
-    TRACE("(%p)\n", Buffer);
-    HeapFree(GetProcessHeap(), 0, Buffer);
+    FIXME("(%p) stub\n", Buffer);
 }
 
 /************************************************************
@@ -90,8 +59,6 @@ DWORD WINAPI DsRoleGetPrimaryDomainInformation(
     LPCWSTR lpServer, DSROLE_PRIMARY_DOMAIN_INFO_LEVEL InfoLevel,
     PBYTE* Buffer)
 {
-    DWORD ret;
-
     FIXME("(%p, %d, %p) stub\n", lpServer, InfoLevel, Buffer);
 
     /* Check some input parameters */
@@ -99,51 +66,5 @@ DWORD WINAPI DsRoleGetPrimaryDomainInformation(
     if (!Buffer) return ERROR_INVALID_PARAMETER;
     if ((InfoLevel < DsRolePrimaryDomainInfoBasic) || (InfoLevel > DsRoleOperationState)) return ERROR_INVALID_PARAMETER;
 
-    switch (InfoLevel)
-    {
-        case DsRolePrimaryDomainInfoBasic:
-        {
-            LSA_OBJECT_ATTRIBUTES ObjectAttributes;
-            LSA_HANDLE PolicyHandle;
-            PPOLICY_ACCOUNT_DOMAIN_INFO DomainInfo;
-            NTSTATUS NtStatus;
-            int logon_domain_sz;
-            DWORD size;
-            PDSROLE_PRIMARY_DOMAIN_INFO_BASIC basic;
-
-            ZeroMemory(&ObjectAttributes, sizeof(ObjectAttributes));
-            NtStatus = LsaOpenPolicy(NULL, &ObjectAttributes,
-             POLICY_VIEW_LOCAL_INFORMATION, &PolicyHandle);
-            if (NtStatus != STATUS_SUCCESS)
-            {
-                TRACE("LsaOpenPolicyFailed with NT status %x\n",
-                    LsaNtStatusToWinError(NtStatus));
-                return ERROR_OUTOFMEMORY;
-            }
-            LsaQueryInformationPolicy(PolicyHandle,
-             PolicyAccountDomainInformation, (PVOID*)&DomainInfo);
-            logon_domain_sz = lstrlenW(DomainInfo->DomainName.Buffer) + 1;
-            LsaClose(PolicyHandle);
-
-            size = sizeof(DSROLE_PRIMARY_DOMAIN_INFO_BASIC) +
-             logon_domain_sz * sizeof(WCHAR);
-            basic = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
-            if (basic)
-            {
-                basic->MachineRole = DsRole_RoleStandaloneWorkstation;
-                basic->DomainNameFlat = (LPWSTR)((LPBYTE)basic +
-                 sizeof(DSROLE_PRIMARY_DOMAIN_INFO_BASIC));
-                lstrcpyW(basic->DomainNameFlat, DomainInfo->DomainName.Buffer);
-                ret = ERROR_SUCCESS;
-            }
-            else
-                ret = ERROR_OUTOFMEMORY;
-            *Buffer = (PBYTE)basic;
-            LsaFreeMemory(DomainInfo);
-        }
-        break;
-    default:
-        ret = ERROR_CALL_NOT_IMPLEMENTED;
-    }
-    return ret;
+    return E_NOTIMPL;
 }

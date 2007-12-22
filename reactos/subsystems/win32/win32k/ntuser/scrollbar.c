@@ -60,9 +60,8 @@ BOOL FASTCALL
 IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, PRECT lprect)
 {
    BOOL vertical;
-   PWINDOW Wnd = Window->Wnd;
-   RECT ClientRect = Window->Wnd->ClientRect;
-   RECT WindowRect = Window->Wnd->WindowRect;
+   RECT ClientRect = Window->ClientRect;
+   RECT WindowRect = Window->WindowRect;
 
    switch (nBar)
    {
@@ -75,7 +74,7 @@ IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, PRECT lprect)
          break;
 
       case SB_VERT:
-         if(Wnd->ExStyle & WS_EX_LEFTSCROLLBAR)
+         if(Window->ExStyle & WS_EX_LEFTSCROLLBAR)
          {
             lprect->right = ClientRect.left - WindowRect.left;
             lprect->left = lprect->right - UserGetSystemMetrics(SM_CXVSCROLL);
@@ -92,7 +91,7 @@ IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, PRECT lprect)
 
       case SB_CTL:
          IntGetClientRect (Window, lprect);
-         vertical = ((Wnd->Style & SBS_VERT) != 0);
+         vertical = ((Window->Style & SBS_VERT) != 0);
          break;
 
       default:
@@ -105,7 +104,6 @@ IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, PRECT lprect)
 BOOL FASTCALL
 IntCalculateThumb(PWINDOW_OBJECT Window, LONG idObject, PSCROLLBARINFO psbi, LPSCROLLINFO psi)
 {
-   PWINDOW Wnd = Window->Wnd;
    INT Thumb, ThumbBox, ThumbPos, cxy, mx;
    RECT ClientRect;
 
@@ -121,7 +119,7 @@ IntCalculateThumb(PWINDOW_OBJECT Window, LONG idObject, PSCROLLBARINFO psbi, LPS
          break;
       case SB_CTL:
          IntGetClientRect (Window, &ClientRect);
-         if(Wnd->Style & SBS_VERT)
+         if(Window->Style & SBS_VERT)
          {
             Thumb = UserGetSystemMetrics(SM_CYVSCROLL);
             cxy = ClientRect.bottom - ClientRect.top;
@@ -330,7 +328,11 @@ co_IntSetScrollInfo(PWINDOW_OBJECT Window, INT nBar, LPCSCROLLINFO lpsi, BOOL bR
    }
 
    /* Make sure the page size is valid */
-   if (Info->nMax - Info->nMin + 1 < Info->nPage)
+   if (Info->nPage < 0)
+   {
+      Info->nPage = 0;
+   }
+   else if (Info->nMax - Info->nMin + 1 < Info->nPage)
    {
       Info->nPage = Info->nMax - Info->nMin + 1;
    }
@@ -392,10 +394,10 @@ co_IntSetScrollInfo(PWINDOW_OBJECT Window, INT nBar, LPCSCROLLINFO lpsi, BOOL bR
    if (bRedraw)
    {
       RECT UpdateRect = psbi->rcScrollBar;
-      UpdateRect.left -= Window->Wnd->ClientRect.left - Window->Wnd->WindowRect.left;
-      UpdateRect.right -= Window->Wnd->ClientRect.left - Window->Wnd->WindowRect.left;
-      UpdateRect.top -= Window->Wnd->ClientRect.top - Window->Wnd->WindowRect.top;
-      UpdateRect.bottom -= Window->Wnd->ClientRect.top - Window->Wnd->WindowRect.top;
+      UpdateRect.left -= Window->ClientRect.left - Window->WindowRect.left;
+      UpdateRect.right -= Window->ClientRect.left - Window->WindowRect.left;
+      UpdateRect.top -= Window->ClientRect.top - Window->WindowRect.top;
+      UpdateRect.bottom -= Window->ClientRect.top - Window->WindowRect.top;
       co_UserRedrawWindow(Window, &UpdateRect, 0, RDW_INVALIDATE | RDW_FRAME);
    }
 
@@ -465,8 +467,8 @@ co_IntCreateScrollBars(PWINDOW_OBJECT Window)
    RtlZeroMemory(Window->Scroll, Size);
 
    Result = co_WinPosGetNonClientSize(Window,
-                                      &Window->Wnd->WindowRect,
-                                      &Window->Wnd->ClientRect);
+                                      &Window->WindowRect,
+                                      &Window->ClientRect);
 
    for(s = SB_HORZ; s <= SB_VERT; s++)
    {
@@ -829,11 +831,8 @@ DWORD FASTCALL
 co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow)
 {
    DWORD Style, OldStyle;
-   PWINDOW Wnd;
 
    ASSERT_REFS_CO(Window);
-
-   Wnd = Window->Wnd;
 
    switch(wBar)
    {
@@ -867,20 +866,20 @@ co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow)
       return( TRUE);
    }
 
-   OldStyle = Wnd->Style;
+   OldStyle = Window->Style;
    if(bShow)
-      Wnd->Style |= Style;
+      Window->Style |= Style;
    else
-      Wnd->Style &= ~Style;
+      Window->Style &= ~Style;
 
-   if(Wnd->Style != OldStyle)
+   if(Window->Style != OldStyle)
    {
-      if(Wnd->Style & WS_HSCROLL)
+      if(Window->Style & WS_HSCROLL)
          IntUpdateSBInfo(Window, SB_HORZ);
-      if(Wnd->Style & WS_VSCROLL)
+      if(Window->Style & WS_VSCROLL)
          IntUpdateSBInfo(Window, SB_VERT);
 
-      if(Wnd->Style & WS_VISIBLE)
+      if(Window->Style & WS_VISIBLE)
       {
          /* Frame has been changed, let the window redraw itself */
          co_WinPosSetWindowPos(Window, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE |

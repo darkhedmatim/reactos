@@ -74,7 +74,6 @@ FsRecLoadFileSystem(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_DISPATCH FsRecCreate;
 NTSTATUS
 STDCALL
 FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
@@ -103,7 +102,6 @@ FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_DISPATCH FsRecClose;
 NTSTATUS
 STDCALL
 FsRecClose(IN PDEVICE_OBJECT DeviceObject,
@@ -116,7 +114,6 @@ FsRecClose(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
-DRIVER_DISPATCH FsRecFsControl;
 NTSTATUS
 STDCALL
 FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
@@ -165,7 +162,6 @@ FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_UNLOAD FsRecUnload;
 VOID
 STDCALL
 FsRecUnload(IN PDRIVER_OBJECT DriverObject)

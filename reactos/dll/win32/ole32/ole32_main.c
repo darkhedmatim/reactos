@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include "windef.h"
+#include "winerror.h"
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"

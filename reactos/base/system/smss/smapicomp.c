@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this software; see the file COPYING.LIB. If not, write
  * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
- * MA 02139, USA.
+ * MA 02139, USA.  
  *
  * --------------------------------------------------------------------
  */
@@ -38,7 +38,7 @@ SMAPI(SmCompSes)
 
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
-	DPRINT("SM: %s: ClientId.UniqueProcess=%p\n",
+	DPRINT("SM: %s: ClientId.UniqueProcess=%lx\n",
 		__FUNCTION__, Request->Header.ClientId.UniqueProcess);
 	Status = SmCompleteClientInitialization ((ULONG) Request->Header.ClientId.UniqueProcess);
 	if (!NT_SUCCESS(Status))

@@ -6,13 +6,13 @@
 #define SWP_NOCLIENTSIZE          0x1000
 
 #define IntPtInWindow(WndObject,x,y) \
-  ((x) >= (WndObject)->Wnd->WindowRect.left && \
-   (x) < (WndObject)->Wnd->WindowRect.right && \
-   (y) >= (WndObject)->Wnd->WindowRect.top && \
-   (y) < (WndObject)->Wnd->WindowRect.bottom && \
-   (!(WndObject)->WindowRegion || ((WndObject)->Wnd->Style & WS_MINIMIZE) || \
-    NtGdiPtInRegion((WndObject)->WindowRegion, (INT)((x) - (WndObject)->Wnd->WindowRect.left), \
-                    (INT)((y) - (WndObject)->Wnd->WindowRect.top))))
+  ((x) >= (WndObject)->WindowRect.left && \
+   (x) < (WndObject)->WindowRect.right && \
+   (y) >= (WndObject)->WindowRect.top && \
+   (y) < (WndObject)->WindowRect.bottom && \
+   (!(WndObject)->WindowRegion || ((WndObject)->Style & WS_MINIMIZE) || \
+    NtGdiPtInRegion((WndObject)->WindowRegion, (INT)((x) - (WndObject)->WindowRect.left), \
+                    (INT)((y) - (WndObject)->WindowRect.top))))
 
 UINT
 FASTCALL co_WinPosArrangeIconicWindows(PWINDOW_OBJECT parent);
@@ -35,7 +35,7 @@ co_WinPosWindowFromPoint(PWINDOW_OBJECT ScopeWin, PUSER_MESSAGE_QUEUE OnlyHitTes
 		      PWINDOW_OBJECT* Window);
 VOID FASTCALL co_WinPosActivateOtherWindow(PWINDOW_OBJECT Window);
 
-VOID FASTCALL WinPosInitInternalPos(PWINDOW_OBJECT WindowObject,
-                                    POINT *pt, PRECT RestoreRect);
+PINTERNALPOS FASTCALL WinPosInitInternalPos(PWINDOW_OBJECT WindowObject,
+                                            POINT *pt, PRECT RestoreRect);
 
 #endif /* _WIN32K_WINPOS_H */

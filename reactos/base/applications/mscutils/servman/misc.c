@@ -3,8 +3,7 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        base/system/servman/misc.c
  * PURPOSE:     miscallanous functions
- * COPYRIGHT:   Copyright 2005 Thomas Weidenmueller <w3seek@reactos.org>
- *              Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
+ * COPYRIGHT:   Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
@@ -224,8 +223,7 @@ InitImageList(UINT StartResource,
 {
     HBITMAP hBitmap;
     HIMAGELIST hImageList;
-    UINT i;
-	INT Ret;
+    INT i, Ret;
 
     /* Create the toolbar icon image list */
     hImageList = ImageList_Create(Width,

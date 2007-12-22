@@ -1,7 +1,7 @@
+#include <debug.h>
 #include <ntifs.h>
 #include <ntdddisk.h>
 #include <reactos/helper.h>
-#include <debug.h>
 
 #ifdef __GNUC__
 #include <ccros.h>
@@ -413,7 +413,6 @@ typedef struct _VFATCCB
 #define TAG_CCB TAG('V', 'C', 'C', 'B')
 #define TAG_FCB TAG('V', 'F', 'C', 'B')
 #define TAG_IRP TAG('V', 'I', 'R', 'P')
-#define TAG_VFAT TAG('V', 'F', 'A', 'T')
 
 #define ENTRIES_PER_SECTOR (BLOCKSIZE / sizeof(FATDirEntry))
 
@@ -463,7 +462,6 @@ typedef struct _VFAT_DIRENTRY_CONTEXT
 
 /*  ------------------------------------------------------  shutdown.c  */
 
-DRIVER_DISPATCH VfatShutdown;
 NTSTATUS NTAPI VfatShutdown (PDEVICE_OBJECT DeviceObject,
                                PIRP Irp);
 
@@ -763,7 +761,6 @@ PVFAT_IRP_CONTEXT VfatAllocateIrpContext(PDEVICE_OBJECT DeviceObject,
 
 VOID VfatFreeIrpContext(PVFAT_IRP_CONTEXT IrpContext);
 
-DRIVER_DISPATCH VfatBuildRequest;
 NTSTATUS NTAPI VfatBuildRequest (PDEVICE_OBJECT DeviceObject,
                                    PIRP Irp);
 

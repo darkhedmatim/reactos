@@ -7,8 +7,6 @@
 
 #include "cmlib.h"
 
-ULONG CmlibTraceLevel = 0;
-
 BOOLEAN CMAPI
 CmCreateRootNode(
    PHHIVE Hive,
@@ -18,47 +16,31 @@ CmCreateRootNode(
    HCELL_INDEX RootCellIndex;
    SIZE_T NameSize;
 
-   /* Allocate the cell */
    NameSize = wcslen(Name) * sizeof(WCHAR);
-   RootCellIndex = HvAllocateCell(Hive,
-                                  FIELD_OFFSET(CM_KEY_NODE, Name) + NameSize,
-                                  Stable,
-                                  HCELL_NIL);
-   if (RootCellIndex == HCELL_NIL) return FALSE;
+   RootCellIndex = HvAllocateCell(Hive, sizeof(CM_KEY_NODE) + NameSize, HvStable);
+   if (RootCellIndex == HCELL_NULL)
+      return FALSE;
 
-   /* Seutp the base block */
-   Hive->BaseBlock->RootCell = RootCellIndex;
-   Hive->BaseBlock->CheckSum = HvpHiveHeaderChecksum(Hive->BaseBlock);
+   Hive->HiveHeader->RootCell = RootCellIndex;
+   Hive->HiveHeader->Checksum = HvpHiveHeaderChecksum(Hive->HiveHeader);
 
-   /* Get the key cell */
    KeyCell = (PCM_KEY_NODE)HvGetCell(Hive, RootCellIndex);
-   if (!KeyCell) return FALSE;
-
-   /* Setup the cell */
-   KeyCell->Signature = (USHORT)CM_KEY_NODE_SIGNATURE;
-   KeyCell->Flags = KEY_HIVE_ENTRY | KEY_NO_DELETE;
+   KeyCell->Id = REG_KEY_CELL_ID;
+   KeyCell->Flags = REG_KEY_ROOT_CELL;
    KeyCell->LastWriteTime.QuadPart = 0;
-   KeyCell->Parent = HCELL_NIL;
-   KeyCell->SubKeyCounts[Stable] = 0;
-   KeyCell->SubKeyCounts[Volatile] = 0;
-   KeyCell->SubKeyLists[Stable] = HCELL_NIL;
-   KeyCell->SubKeyLists[Volatile] = HCELL_NIL;
+   KeyCell->Parent = HCELL_NULL;
+   KeyCell->SubKeyCounts[0] = 0;
+   KeyCell->SubKeyCounts[1] = 0;
+   KeyCell->SubKeyLists[0] = HCELL_NULL;
+   KeyCell->SubKeyLists[1] = HCELL_NULL;
    KeyCell->ValueList.Count = 0;
-   KeyCell->ValueList.List = HCELL_NIL;
-   KeyCell->Security = HCELL_NIL;
-   KeyCell->Class = HCELL_NIL;
-   KeyCell->ClassLength = 0;
-   KeyCell->MaxNameLen = 0;
-   KeyCell->MaxClassLen = 0;
-   KeyCell->MaxValueNameLen = 0;
-   KeyCell->MaxValueDataLen = 0;
-   
-   /* Write the name */
-   KeyCell->NameLength = (USHORT)NameSize;
+   KeyCell->ValueList.List = HCELL_NULL;
+   KeyCell->SecurityKeyOffset = HCELL_NULL;
+   KeyCell->ClassNameOffset = HCELL_NULL; 
+   KeyCell->NameSize = (USHORT)NameSize;
+   KeyCell->ClassSize = 0;
    memcpy(KeyCell->Name, Name, NameSize);
 
-   /* Return success */
-   HvReleaseCell(Hive, RootCellIndex);
    return TRUE;
 }
 
@@ -68,22 +50,22 @@ CmpPrepareKey(
    PCM_KEY_NODE KeyCell)
 {
    PCM_KEY_NODE SubKeyCell;
-   PCM_KEY_FAST_INDEX HashCell;
+   PHASH_TABLE_CELL HashCell;
    ULONG i;
 
-   ASSERT(KeyCell->Signature == CM_KEY_NODE_SIGNATURE);
+   ASSERT(KeyCell->Id == REG_KEY_CELL_ID);
 
-   KeyCell->SubKeyLists[Volatile] = HCELL_NIL;
-   KeyCell->SubKeyCounts[Volatile] = 0;
+   KeyCell->SubKeyLists[HvVolatile] = HCELL_NULL;
+   KeyCell->SubKeyCounts[HvVolatile] = 0;
 
    /* Enumerate and add subkeys */
-   if (KeyCell->SubKeyCounts[Stable] > 0)
+   if (KeyCell->SubKeyCounts[HvStable] > 0)
    {
-      HashCell = HvGetCell(RegistryHive, KeyCell->SubKeyLists[Stable]);
+      HashCell = HvGetCell(RegistryHive, KeyCell->SubKeyLists[HvStable]);
 
-      for (i = 0; i < KeyCell->SubKeyCounts[Stable]; i++)
+      for (i = 0; i < KeyCell->SubKeyCounts[HvStable]; i++)
       {
-         SubKeyCell = HvGetCell(RegistryHive, HashCell->List[i].Cell);
+         SubKeyCell = HvGetCell(RegistryHive, HashCell->Table[i].KeyOffset);
          CmpPrepareKey(RegistryHive, SubKeyCell);
       }
    }
@@ -92,9 +74,9 @@ CmpPrepareKey(
 VOID CMAPI
 CmPrepareHive(
    PHHIVE RegistryHive)
-{
+{ 
    PCM_KEY_NODE RootCell;
 
-   RootCell = HvGetCell(RegistryHive, RegistryHive->BaseBlock->RootCell);
+   RootCell = HvGetCell(RegistryHive, RegistryHive->HiveHeader->RootCell);
    CmpPrepareKey(RegistryHive, RootCell);
 }

@@ -20,7 +20,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
+ 
 #include "config.h"
 #include "iphlpapi_private.h"
 
@@ -55,13 +55,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(iphlpapi);
 DWORD createIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
     HANDLE tcpFile = INVALID_HANDLE_VALUE;
     NTSTATUS status = openTcpFile( &tcpFile );
-    TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED req =
+    TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED req = 
         TCP_REQUEST_SET_INFORMATION_INIT;
     IPRouteEntry *rte;
     TDIEntityID   id;
     DWORD         returnSize = 0;
-
-    TRACE("Called.\n");
+    
+    DPRINT("Called.\n");
 
     if( NT_SUCCESS(status) )
         status = getNthIpEntity( tcpFile, 0, &id );
@@ -72,7 +72,7 @@ DWORD createIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
         req.Req.ID.toi_id                   = IP_MIB_ROUTETABLE_ENTRY_ID;
         req.Req.ID.toi_entity               = id;
         req.Req.BufferSize                  = sizeof(*rte);
-        rte                                 =
+        rte                                 = 
             (IPRouteEntry *)&req.Req.Buffer[0];
 
 	// dwForwardPolicy
@@ -103,7 +103,7 @@ DWORD createIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
     if( tcpFile != INVALID_HANDLE_VALUE )
         closeTcpFile( tcpFile );
 
-    TRACE("Returning: %08x (IOCTL was %08x)\n", status, IOCTL_TCP_SET_INFORMATION_EX);
+    DPRINT("Returning: %08x (IOCTL was %08x)\n", status, IOCTL_TCP_SET_INFORMATION_EX);
 
     if( NT_SUCCESS(status) )
 	return NO_ERROR;
@@ -119,13 +119,13 @@ DWORD setIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
 DWORD deleteIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
     HANDLE tcpFile = INVALID_HANDLE_VALUE;
     NTSTATUS status = openTcpFile( &tcpFile );
-    TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED req =
+    TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED req = 
         TCP_REQUEST_SET_INFORMATION_INIT;
     IPRouteEntry *rte;
     TDIEntityID   id;
     DWORD         returnSize = 0;
-
-    TRACE("Called.\n");
+    
+    DPRINT("Called.\n");
 
     if( NT_SUCCESS(status) )
         status = getNthIpEntity( tcpFile, 0, &id );
@@ -136,7 +136,7 @@ DWORD deleteIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
         req.Req.ID.toi_id                   = IP_MIB_ROUTETABLE_ENTRY_ID;
         req.Req.ID.toi_entity               = id;
         req.Req.BufferSize                  = sizeof(*rte);
-        rte                                 =
+        rte                                 = 
             (IPRouteEntry *)&req.Req.Buffer[0];
 
 	// dwForwardPolicy
@@ -167,7 +167,7 @@ DWORD deleteIpForwardEntry( PMIB_IPFORWARDROW pRoute ) {
     if( tcpFile != INVALID_HANDLE_VALUE )
         closeTcpFile( tcpFile );
 
-    TRACE("Returning: %08x (IOCTL was %08x)\n", status, IOCTL_TCP_SET_INFORMATION_EX);
+    DPRINT("Returning: %08x (IOCTL was %08x)\n", status, IOCTL_TCP_SET_INFORMATION_EX);
 
     if( NT_SUCCESS(status) )
 	return NO_ERROR;

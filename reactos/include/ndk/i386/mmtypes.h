@@ -114,10 +114,8 @@ typedef struct _MMPTE_LIST
 {
     ULONG Valid:1;
     ULONG OneEntry:1;
-    ULONG filler0:8;
+    ULONG filler10:10;
     ULONG NextEntry:20;
-    ULONG Prototype:1;
-    ULONG filler1:1;
 } MMPTE_LIST;
 
 #ifndef CONFIG_SMP

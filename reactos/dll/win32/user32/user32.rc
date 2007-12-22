@@ -83,7 +83,6 @@ OBM_MNARROW BITMAP "resources/obm_mnarrow.bmp"
 // Languages
 //
 
-#include "Bg.rc"
 #include "Da.rc"
 #include "De.rc"
 #include "En.rc"
@@ -95,8 +94,5 @@ OBM_MNARROW BITMAP "resources/obm_mnarrow.bmp"
 #include "Nl.rc"
 #include "No.rc"
 #include "Pl.rc"
-#include "Ru.rc"
-#include "Sk.rc"
 #include "Sv.rc"
 #include "Uk.rc"
-#include "Gr.rc"

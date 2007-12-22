@@ -449,15 +449,6 @@ RtlUnwind(
 // Tracing Functions
 //
 NTSYSAPI
-ULONG
-NTAPI
-RtlWalkFrameChain(
-    OUT PVOID *Callers,
-    IN ULONG Count,
-    IN ULONG Flags
-);
-
-NTSYSAPI
 USHORT
 NTAPI
 RtlLogStackBackTrace(
@@ -585,7 +576,7 @@ RtlReAllocateHeap(
     HANDLE Heap,
     ULONG Flags,
     PVOID Ptr,
-    SIZE_T Size
+    ULONG Size
 );
 
 NTSYSAPI
@@ -669,7 +660,7 @@ RtlAddAccessAllowedAceEx(
     IN OUT PACL pAcl,
     IN ULONG dwAceRevision,
     IN ULONG AceFlags,
-    IN ACCESS_MASK AccessMask,
+    IN ULONG AccessMask,
     IN PSID pSid
 );
 
@@ -680,7 +671,7 @@ RtlAddAccessAllowedObjectAce(
     IN OUT PACL pAcl,
     IN ULONG dwAceRevision,
     IN ULONG AceFlags,
-    IN ACCESS_MASK AccessMask,
+    IN ULONG AccessMask,
     IN GUID *ObjectTypeGuid  OPTIONAL,
     IN GUID *InheritedObjectTypeGuid  OPTIONAL,
     IN PSID pSid
@@ -714,7 +705,7 @@ RtlAddAccessDeniedObjectAce(
     IN OUT PACL pAcl,
     IN ULONG dwAceRevision,
     IN ULONG AceFlags,
-    IN ACCESS_MASK AccessMask,
+    IN ULONG AccessMask,
     IN GUID *ObjectTypeGuid  OPTIONAL,
     IN GUID *InheritedObjectTypeGuid  OPTIONAL,
     IN PSID pSid
@@ -906,14 +897,6 @@ NTAPI
 RtlCreateSecurityDescriptorRelative(
     OUT PISECURITY_DESCRIPTOR_RELATIVE SecurityDescriptor,
     IN ULONG Revision
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlCopySecurityDescriptor(
-    IN PSECURITY_DESCRIPTOR pSourceSecurityDescriptor,
-    OUT PSECURITY_DESCRIPTOR pDestinationSecurityDescriptor
 );
 
 NTSYSAPI
@@ -2935,13 +2918,6 @@ ULONG
 NTAPI
 RtlUniform(
     IN PULONG Seed
-);
-
-NTSYSAPI
-ULONG
-NTAPI
-RtlRandom(
-    IN OUT PULONG Seed
 );
 
 NTSYSAPI

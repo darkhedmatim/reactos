@@ -78,10 +78,6 @@ extern void GLAPIENTRY
 _mesa_GetMaterialiv( GLenum face, GLenum pname, GLint *params );
 
 
-extern void
-_mesa_light(GLcontext *ctx, GLuint lnum, GLenum pname, const GLfloat *params);
-
-
 /* Lerp between adjacent values in the f(x) lookup table, giving a
  * continuous function, with adequeate overall accuracy.  (Though
  * still pretty good compared to a straight lookup).
@@ -92,8 +88,7 @@ do {									\
    struct gl_shine_tab *_tab = table;					\
    float f = (dp * (SHINE_TABLE_SIZE-1));				\
    int k = (int) f;							\
-   if (k < 0 /* gcc may cast an overflow float value to negative int value*/ \
-	|| k > SHINE_TABLE_SIZE-2)					\
+   if (k > SHINE_TABLE_SIZE-2) 						\
       result = (GLfloat) _mesa_pow( dp, _tab->shininess );		\
    else									\
       result = _tab->tab[k] + (f-k)*(_tab->tab[k+1]-_tab->tab[k]);	\

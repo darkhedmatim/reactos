@@ -27,10 +27,10 @@ namespace System_
 {
 
 	using std::vector;
-	string SymbolFile::VAR_ROS_OUTPUT = "ROS_OUTPUT";
-	string SymbolFile::ROS_ADDR2LINE = "ROS_ADDR2LINE";
-	string SymbolFile::m_SymbolPath= "";
-	string SymbolFile::m_SymResolver= "";
+	string SymbolFile::VAR_ROS_OUTPUT = _T("ROS_OUTPUT");
+	string SymbolFile::ROS_ADDR2LINE = _T("ROS_ADDR2LINE");
+	string SymbolFile::m_SymbolPath= _T("");
+	string SymbolFile::m_SymResolver= _T("");
 	SymbolFile::SymbolMap SymbolFile::m_Map;
 
 //---------------------------------------------------------------------------------------
@@ -46,14 +46,14 @@ namespace System_
 	}
 
 //---------------------------------------------------------------------------------------
-	bool SymbolFile::initialize(ConfigParser & conf_parser, string const &Path)
+	bool SymbolFile::initialize(ConfigParser & conf_parser, string const &Path) 
 	{
 		vector<string> vect;
 		string current_dir;
 
-		if (Path == "")
+		if (Path == _T(""))
 		{
-			current_dir = "output-i386";
+			current_dir = _T("output-i386");
 			EnvironmentVariable::getValue(SymbolFile::VAR_ROS_OUTPUT, current_dir);
 		}
 		else
@@ -70,10 +70,10 @@ namespace System_
 		}
 
 		string val = current_dir;
-		val.insert (val.length()-1, "\\*");
+		val.insert (val.length()-1, _T("\\*"));
 
-		struct _finddatai64_t c_file;
-		intptr_t hFile = _findfirsti64(val.c_str(), &c_file);
+		struct _tfinddatai64_t c_file;
+		intptr_t hFile = _tfindfirsti64(val.c_str(), &c_file);
 
 		if (hFile == -1L)
 		{
@@ -86,18 +86,18 @@ namespace System_
 
 			do
 			{
-				char * pos;
-				if ((pos = strstr(c_file.name, ".nostrip.")))
+				TCHAR * pos;
+				if ((pos = _tcsstr(c_file.name, _T(".nostrip."))))
 				{
-					size_t len = strlen(pos);
+					size_t len = _tcslen(pos);
 					string modulename = c_file.name;
 					string filename = modulename;
 					modulename.erase(modulename.length() - len, len);
 
 					string path = current_dir;
-					path.insert (path.length () -1, "\\");
+					path.insert (path.length () -1, _T("\\"));
 					path.insert (path.length () -1, filename);
-#ifdef NDEBUG
+#ifdef NDEBUG				
 					cerr << "Module Name " << modulename << endl << "File Name " << path << endl;
 #endif
 
@@ -109,7 +109,7 @@ namespace System_
 					if (c_file.name[0] != _T('.'))
 					{
 						string path = current_dir;
-						path.insert (path.length ()-1, "\\");
+						path.insert (path.length ()-1, _T("\\"));
 						path.insert (path.length ()-1, c_file.name);
 						vect.push_back (path);
 					}
@@ -125,7 +125,7 @@ namespace System_
 				current_dir = vect.front ();
 				vect.erase (vect.begin());
 				val = current_dir;
-				val.insert (val.length() -1, "\\*");
+				val.insert (val.length() -1, _T("\\*"));
 				hFile = _tfindfirsti64(val.c_str(), &c_file);
 				if (hFile != -1L)
 				{
@@ -145,31 +145,36 @@ namespace System_
 	}
 
 //---------------------------------------------------------------------------------------
-	bool SymbolFile::resolveAddress(const string &module_name, const string &module_address, string &Buffer)
+	bool SymbolFile::resolveAddress(const string &module_name, const string &module_address, string &Buffer) 
 	{
 		SymbolMap::const_iterator it = m_Map.find (module_name);
 
-		if (it == m_Map.end () || m_SymResolver == "")
+		if (it == m_Map.end () || m_SymResolver == _T(""))
 		{
 			cerr << "SymbolFile::resolveAddress> no symbol file or ROS_ADDR2LINE not set" << endl;
 			return false;
 		}
 
-		char szCmd[300];
+		TCHAR szCmd[300];
 
-		sprintf(szCmd, "%s %s %s", m_SymResolver.c_str (), it->second.c_str (), module_address.c_str());
+		_stprintf(szCmd, _T("%s %s %s"), m_SymResolver.c_str (), it->second.c_str (), module_address.c_str());	
 		string pipe_cmd(szCmd);
-        vector<string> vect;
+
 		PipeReader pipe_reader;
 
-		if (!pipe_reader.openSource(pipe_cmd))
+		if (!pipe_reader.openPipe (pipe_cmd))
 		{
 			cerr << "SymbolFile::resolveAddress> failed to open pipe" <<pipe_cmd <<endl;
 			return false;
 		}
 
-		bool ret = pipe_reader.readSource (vect);
-		pipe_reader.closeSource ();
+		if (Buffer.capacity () < 100)
+		{
+			Buffer.reserve (500);
+		}
+
+		bool ret = pipe_reader.readPipe (Buffer);
+		pipe_reader.closePipe ();
 		return ret;
 	}
 

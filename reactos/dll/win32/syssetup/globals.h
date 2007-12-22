@@ -47,7 +47,6 @@ typedef struct _SETUPDATA
   TCHAR AdminPassword[15];				/* max. 14 characters */
   BOOL  UnattendSetup;
   BOOL  DisableVmwInst;
-  DWORD BootCDRegtestActive;
 
   SYSTEMTIME SystemTime;
   PTIMEZONE_ENTRY TimeZoneListHead;
@@ -60,7 +59,6 @@ typedef struct _SETUPDATA
 
 extern HINSTANCE hDllInstance;
 extern HINF hSysSetupInf;
-extern SETUPDATA SetupData;
 
 /* wizard.c */
 VOID InstallWizard (VOID);

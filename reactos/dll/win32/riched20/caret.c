@@ -47,18 +47,18 @@ int ME_GetTextLength(ME_TextEditor *editor)
 }
 
 
-int ME_GetTextLengthEx(ME_TextEditor *editor, const GETTEXTLENGTHEX *how)
+int ME_GetTextLengthEx(ME_TextEditor *editor, GETTEXTLENGTHEX *how)
 {
   int length;
-
+  
   if (how->flags & GTL_PRECISE && how->flags & GTL_CLOSE)
     return E_INVALIDARG;
   if (how->flags & GTL_NUMCHARS && how->flags & GTL_NUMBYTES)
     return E_INVALIDARG;
   
   length = ME_GetTextLength(editor);
-
-  if ((GetWindowLongW(editor->hWnd, GWL_STYLE) & ES_MULTILINE) && (how->flags & GTL_USECRLF))
+  
+  if (how->flags & GTL_USECRLF)
     length += editor->nParagraphs;
   
   if (how->flags & GTL_NUMBYTES)
@@ -230,31 +230,23 @@ ME_MoveCaret(ME_TextEditor *editor)
 {
   int x, y, height;
 
-  if (ME_WrapMarkedParagraphs(editor))
-    ME_UpdateScrollBar(editor);
+  ME_WrapMarkedParagraphs(editor);
   ME_GetCursorCoordinates(editor, &editor->pCursors[0], &x, &y, &height);
-  if(editor->bHaveFocus)
-  {
-    CreateCaret(editor->hWnd, NULL, 0, height);
-    SetCaretPos(x, y);
-  }
+  CreateCaret(editor->hWnd, NULL, 0, height);
+  SetCaretPos(x, y);
 }
 
 
 void ME_ShowCaret(ME_TextEditor *ed)
 {
   ME_MoveCaret(ed);
-  if(ed->bHaveFocus)
-    ShowCaret(ed->hWnd);
+  ShowCaret(ed->hWnd);
 }
 
 void ME_HideCaret(ME_TextEditor *ed)
 {
-  if(ed->bHaveFocus)
-  {
-    HideCaret(ed->hWnd);
-    DestroyCaret();
-  }
+  HideCaret(ed->hWnd);
+  DestroyCaret();
 }
 
 void ME_InternalDeleteText(ME_TextEditor *editor, int nOfs, 
@@ -374,8 +366,6 @@ void ME_DeleteTextAtCursor(ME_TextEditor *editor, int nCursor,
   int nChars)
 {  
   assert(nCursor>=0 && nCursor<editor->nCursors);
-  /* text operations set modified state */
-  editor->nModifyStep = 1;
   ME_InternalDeleteText(editor, ME_GetCursorOfs(editor, nCursor), nChars);
 }
 
@@ -441,7 +431,7 @@ void ME_InsertTextFromCursor(ME_TextEditor *editor, int nCursor,
 {
   const WCHAR *pos;
   ME_Cursor *p = NULL;
-  int oldLen;
+  int freeSpace;
 
   /* FIXME really HERE ? */
   if (ME_IsSelection(editor))
@@ -449,7 +439,7 @@ void ME_InsertTextFromCursor(ME_TextEditor *editor, int nCursor,
 
   /* FIXME: is this too slow? */
   /* Didn't affect performance for WM_SETTEXT (around 50sec/30K) */
-  oldLen = ME_GetTextLength(editor);
+  freeSpace = editor->nTextLimit - ME_GetTextLength(editor);
 
   /* text operations set modified state */
   editor->nModifyStep = 1;
@@ -459,11 +449,7 @@ void ME_InsertTextFromCursor(ME_TextEditor *editor, int nCursor,
   assert(nCursor>=0 && nCursor<editor->nCursors);
   if (len == -1)
     len = lstrlenW(str);
-
-  /* grow the text limit to fit our text */
-  if(editor->nTextLimit < oldLen +len)
-    editor->nTextLimit = oldLen + len;
-
+  len = min(len, freeSpace);
   while (len)
   {
     pos = str;
@@ -479,22 +465,6 @@ void ME_InsertTextFromCursor(ME_TextEditor *editor, int nCursor,
       ME_InternalInsertTextFromCursor(editor, nCursor, &tab, 1, style, MERF_TAB);
  
       pos++;
-      if(pos-str <= len) {
-        len -= pos - str;
-        str = pos;
-        continue;
-      }
-    }
-    /* handle special \r\r\n sequence (richedit 2.x and higher only) */
-    if (!editor->bEmulateVersion10 && pos-str < len-2 && pos[0] == '\r' && pos[1] == '\r' && pos[2] == '\n') {
-      WCHAR space = ' ';
-
-      if (pos!=str)
-        ME_InternalInsertTextFromCursor(editor, nCursor, str, pos-str, style, 0);
-
-      ME_InternalInsertTextFromCursor(editor, nCursor, &space, 1, style, 0);
-
-      pos+=3;
       if(pos-str <= len) {
         len -= pos - str;
         str = pos;
@@ -701,6 +671,7 @@ ME_SelectWord(ME_TextEditor *editor)
 int ME_GetCursorOfs(ME_TextEditor *editor, int nCursor)
 {
   ME_Cursor *pCursor = &editor->pCursors[nCursor];
+  
   return ME_GetParagraph(pCursor->pRun)->member.para.nCharOfs
     + pCursor->pRun->member.run.nCharOfs + pCursor->nOffset;
 }
@@ -1168,8 +1139,8 @@ static int ME_GetSelCursor(ME_TextEditor *editor, int dir)
   else
     return 1;
 }
-
-BOOL ME_UpdateSelection(ME_TextEditor *editor, const ME_Cursor *pTempCursor)
+      
+BOOL ME_UpdateSelection(ME_TextEditor *editor, ME_Cursor *pTempCursor)
 {
   ME_Cursor old_anchor = editor->pCursors[1];
   

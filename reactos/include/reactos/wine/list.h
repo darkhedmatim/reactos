@@ -140,7 +140,7 @@ __inline static void list_init( struct list *list )
 }
 
 /* count the elements of a list */
-__inline static unsigned int list_count( const struct list *list )
+inline static unsigned int list_count( const struct list *list )
 {
     unsigned count = 0;
     const struct list *ptr;
@@ -170,12 +170,6 @@ __inline static unsigned int list_count( const struct list *list )
          &(cursor)->field != (list); \
          (cursor) = (cursor2), \
          (cursor2) = LIST_ENTRY((cursor)->field.next, type, field))
-
-/* iterate through the list in reverse order using a list entry */
-#define LIST_FOR_EACH_ENTRY_REV(elem, list, type, field) \
-    for ((elem) = LIST_ENTRY((list)->prev, type, field); \
-         &(elem)->field != (list); \
-         (elem) = LIST_ENTRY((elem)->field.prev, type, field))
 
 /* macros for statically initialized lists */
 #define LIST_INIT(list)  { &(list), &(list) }

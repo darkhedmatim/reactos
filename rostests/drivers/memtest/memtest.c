@@ -21,11 +21,11 @@
 
 /* INCLUDES *******************************************************************/
 
-#include <ddk/ntddk.h>
-#include "memtest.h"
-
 //#define NDEBUG
 #include <debug.h>
+
+#include <ddk/ntddk.h>
+#include "memtest.h"
 
 HANDLE MonitorThreadHandle;
 

@@ -112,18 +112,6 @@ extern "C" {
     (ALIGN_DOWN_POINTER(((ULONG_PTR)(p) + sizeof(t) - 1), t))
 
 /*
- * GUID Comparison
- */
-
-#ifndef __IID_ALIGNED__
-    #define __IID_ALIGNED__
-
-    #define IsEqualGUIDAligned(guid1, guid2) \
-        ( (*(PLONGLONG)(guid1) == *(PLONGLONG)(guid2)) && \
-            (*((PLONGLONG)(guid1) + 1) == *((PLONGLONG)(guid2) + 1)) )
-#endif
-
-/*
 ** Forward declarations
 */
 
@@ -143,12 +131,8 @@ struct _DEVICE_DESCRIPTION;
 struct _SCATTER_GATHER_LIST;
 struct _DRIVE_LAYOUT_INFORMATION;
 struct _DRIVE_LAYOUT_INFORMATION_EX;
-struct _LOADER_PARAMETER_BLOCK;
 
-#ifndef _SECURITY_ATTRIBUTES_
-#define _SECURITY_ATTRIBUTES_
 typedef PVOID PSECURITY_DESCRIPTOR;
-#endif
 typedef ULONG SECURITY_INFORMATION, *PSECURITY_INFORMATION;
 typedef PVOID PSID;
 
@@ -228,11 +212,15 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define ZwCurrentProcess() NtCurrentProcess()
 #define NtCurrentThread() ( (HANDLE)(LONG_PTR) -2 )
 #define ZwCurrentThread() NtCurrentThread()
+#ifdef _REACTOS_
+#define KIP0PCRADDRESS                      0xff000000
+#else
 #define KIP0PCRADDRESS                      0xffdff000
+#endif
 
 #define KERNEL_STACK_SIZE                   12288
 #define KERNEL_LARGE_STACK_SIZE             61440
-#define KERNEL_LARGE_STACK_COMMIT           12288
+
 
 #define DPFLTR_ERROR_LEVEL                  0
 #define DPFLTR_WARNING_LEVEL                1
@@ -240,12 +228,7 @@ typedef struct _ADAPTER_OBJECT *PADAPTER_OBJECT;
 #define DPFLTR_INFO_LEVEL                   3
 #define DPFLTR_MASK                         0x80000000
 
-typedef enum _DPFLTR_TYPE
-{
-    DPFLTR_I8042PRT_ID = 15,
-    DPFLTR_TCPIP_ID = 30,
-    DPFLTR_PREFETCHER_ID = 65,
-} DPFLTR_TYPE;
+#define DPFLTR_PREFETCHER_ID                63
 
 #define MAXIMUM_PROCESSORS                32
 
@@ -1268,8 +1251,8 @@ typedef struct _EX_RUNDOWN_REF
 {
     union
     {
-        volatile ULONG_PTR Count;
-        volatile PVOID Ptr;
+        __volatile ULONG_PTR Count;
+        __volatile PVOID Ptr;
     };
 } EX_RUNDOWN_REF, *PEX_RUNDOWN_REF;
 
@@ -1357,8 +1340,6 @@ typedef enum _TIMER_TYPE {
 #define IO_VIDEO_INCREMENT                1
 #define SEMAPHORE_INCREMENT               1
 
-#define MM_MAXIMUM_DISK_IO_SIZE          (0x10000)
-
 typedef struct _IRP {
   CSHORT  Type;
   USHORT  Size;
@@ -1366,7 +1347,7 @@ typedef struct _IRP {
   ULONG  Flags;
   union {
     struct _IRP  *MasterIrp;
-    volatile LONG  IrpCount;
+    __volatile LONG  IrpCount;
     PVOID  SystemBuffer;
   } AssociatedIrp;
   LIST_ENTRY  ThreadListEntry;
@@ -1388,7 +1369,7 @@ typedef struct _IRP {
     } AsynchronousParameters;
     LARGE_INTEGER  AllocationSize;
   } Overlay;
-  volatile PDRIVER_CANCEL  CancelRoutine;
+  __volatile PDRIVER_CANCEL  CancelRoutine;
   PVOID  UserBuffer;
   union {
     struct {
@@ -1781,42 +1762,7 @@ typedef struct _CM_INT13_DRIVE_PARAMETER {
   USHORT  MaxHeads;
   USHORT  NumberDrives;
 } CM_INT13_DRIVE_PARAMETER, *PCM_INT13_DRIVE_PARAMETER;
-
-typedef struct _CM_PNP_BIOS_DEVICE_NODE
-{
-    USHORT Size;
-    UCHAR Node;
-    ULONG ProductId;
-    UCHAR DeviceType[3];
-    USHORT DeviceAttributes;
-} CM_PNP_BIOS_DEVICE_NODE,*PCM_PNP_BIOS_DEVICE_NODE;
-
-typedef struct _CM_PNP_BIOS_INSTALLATION_CHECK
-{
-    UCHAR Signature[4];
-    UCHAR Revision;
-    UCHAR Length;
-    USHORT ControlField;
-    UCHAR Checksum;
-    ULONG EventFlagAddress;
-    USHORT RealModeEntryOffset;
-    USHORT RealModeEntrySegment;
-    USHORT ProtectedModeEntryOffset;
-    ULONG ProtectedModeCodeBaseAddress;
-    ULONG OemDeviceId;
-    USHORT RealModeDataBaseAddress;
-    ULONG ProtectedModeDataBaseAddress;
-} CM_PNP_BIOS_INSTALLATION_CHECK, *PCM_PNP_BIOS_INSTALLATION_CHECK;
-
 #include <poppack.h>
-
-typedef struct _CM_DISK_GEOMETRY_DEVICE_DATA
-{
-    ULONG BytesPerSector;
-    ULONG NumberOfCylinders;
-    ULONG SectorsPerTrack;
-    ULONG NumberOfHeads;
-} CM_DISK_GEOMETRY_DEVICE_DATA, *PCM_DISK_GEOMETRY_DEVICE_DATA;
 
 typedef struct _CM_KEYBOARD_DEVICE_DATA {
   USHORT  Version;
@@ -2213,7 +2159,7 @@ typedef struct _VPB {
 #define FILE_DEVICE_SERENUM               0x00000037
 #define FILE_DEVICE_TERMSRV               0x00000038
 #define FILE_DEVICE_KSEC                  0x00000039
-#define FILE_DEVICE_FIPS                  0x0000003a
+#define FILE_DEVICE_FIPS		              0x0000003a
 
 typedef struct _DEVICE_OBJECT {
   CSHORT  Type;
@@ -2226,7 +2172,7 @@ typedef struct _DEVICE_OBJECT {
   PIO_TIMER  Timer;
   ULONG  Flags;
   ULONG  Characteristics;
-  volatile PVPB  Vpb;
+  __volatile PVPB  Vpb;
   PVOID  DeviceExtension;
   DEVICE_TYPE  DeviceType;
   CCHAR  StackSize;
@@ -3016,6 +2962,11 @@ extern DECL_EXPORT HAL_DISPATCH HalDispatchTable;
 #define HalQuerySystemInformation       HALDISPATCH->HalQuerySystemInformation
 #define HalSetSystemInformation         HALDISPATCH->HalSetSystemInformation
 #define HalQueryBusSlots                HALDISPATCH->HalQueryBusSlots
+#define HalDeviceControl                HALDISPATCH->HalDeviceControl
+#define HalIoAssignDriveLetters         HALDISPATCH->HalIoAssignDriveLetters
+#define HalIoReadPartitionTable         HALDISPATCH->HalIoReadPartitionTable
+#define HalIoSetPartitionInformation    HALDISPATCH->HalIoSetPartitionInformation
+#define HalIoWritePartitionTable        HALDISPATCH->HalIoWritePartitionTable
 #define HalReferenceHandlerForBus       HALDISPATCH->HalReferenceHandlerForBus
 #define HalReferenceBusHandler          HALDISPATCH->HalReferenceBusHandler
 #define HalDereferenceBusHandler        HALDISPATCH->HalDereferenceBusHandler
@@ -3028,14 +2979,6 @@ extern DECL_EXPORT HAL_DISPATCH HalDispatchTable;
 #define HalMirrorPhysicalMemory         HALDISPATCH->HalMirrorPhysicalMemory
 #define HalEndOfBoot                    HALDISPATCH->HalEndOfBoot
 #define HalMirrorVerify                 HALDISPATCH->HalMirrorVerify
-
-#ifndef _NTOSKRNL_
-#define HalDeviceControl                HALDISPATCH->HalDeviceControl
-#define HalIoAssignDriveLetters         HALDISPATCH->HalIoAssignDriveLetters
-#define HalIoReadPartitionTable         HALDISPATCH->HalIoReadPartitionTable
-#define HalIoSetPartitionInformation    HALDISPATCH->HalIoSetPartitionInformation
-#define HalIoWritePartitionTable        HALDISPATCH->HalIoWritePartitionTable
-#endif
 
 typedef enum _FILE_INFORMATION_CLASS {
   FileDirectoryInformation = 1,
@@ -3189,8 +3132,8 @@ typedef struct _ERESOURCE {
   POWNER_ENTRY  OwnerTable;
   SHORT  ActiveCount;
   USHORT  Flag;
-  volatile PKSEMAPHORE  SharedWaiters;
-  volatile PKEVENT  ExclusiveWaiters;
+  __volatile PKSEMAPHORE  SharedWaiters;
+  __volatile PKEVENT  ExclusiveWaiters;
   OWNER_ENTRY  OwnerThreads[2];
   ULONG  ContentionCount;
   USHORT  NumberOfSharedWaiters;
@@ -3521,15 +3464,15 @@ typedef struct _FILE_OBJECT
     ULONG Flags;
     UNICODE_STRING FileName;
     LARGE_INTEGER CurrentByteOffset;
-    volatile ULONG Waiters;
-    volatile ULONG Busy;
+    __volatile ULONG Waiters;
+    __volatile ULONG Busy;
     PVOID LastLock;
     KEVENT Lock;
     KEVENT Event;
-    volatile PIO_COMPLETION_CONTEXT CompletionContext;
+    __volatile PIO_COMPLETION_CONTEXT CompletionContext;
     KSPIN_LOCK IrpListLock;
     LIST_ENTRY IrpList;
-    volatile PVOID FileObjectExtension;
+    __volatile PVOID FileObjectExtension;
 } FILE_OBJECT;
 typedef struct _FILE_OBJECT *PFILE_OBJECT;
 
@@ -4167,7 +4110,7 @@ typedef struct _PCI_COMMON_CONFIG {
 
 #define PCI_SUBCLASS_VID_VGA_CTLR           0x00
 #define PCI_SUBCLASS_VID_XGA_CTLR           0x01
-#define PCI_SUBCLASS_VID_3D_CTLR            0x02
+#define PCI_SUBLCASS_VID_3D_CTLR            0x02
 #define PCI_SUBCLASS_VID_OTHER              0x80
 
 /* PCI device subclasses for class 4 (multimedia device)*/
@@ -4239,14 +4182,14 @@ typedef enum _POOL_TYPE {
   NonPagedPoolCacheAligned,
   PagedPoolCacheAligned,
   NonPagedPoolCacheAlignedMustS,
-  MaxPoolType,
-  NonPagedPoolSession = 32,
-  PagedPoolSession,
-  NonPagedPoolMustSucceedSession,
-  DontUseThisTypeSession,
-  NonPagedPoolCacheAlignedSession,
-  PagedPoolCacheAlignedSession,
-  NonPagedPoolCacheAlignedMustSSession
+	MaxPoolType,
+	NonPagedPoolSession = 32,
+	PagedPoolSession,
+	NonPagedPoolMustSucceedSession,
+	DontUseThisTypeSession,
+	NonPagedPoolCacheAlignedSession,
+	PagedPoolCacheAlignedSession,
+	NonPagedPoolCacheAlignedMustSSession
 } POOL_TYPE;
 
 #define POOL_COLD_ALLOCATION                256
@@ -4509,7 +4452,7 @@ typedef struct _IO_REMOVE_LOCK_TRACKING_BLOCK * PIO_REMOVE_LOCK_TRACKING_BLOCK;
 typedef struct _IO_REMOVE_LOCK_COMMON_BLOCK {
   BOOLEAN  Removed;
   BOOLEAN  Reserved[3];
-  volatile LONG  IoCount;
+  __volatile LONG  IoCount;
   KEVENT  RemoveEvent;
 } IO_REMOVE_LOCK_COMMON_BLOCK;
 
@@ -4520,7 +4463,7 @@ typedef struct _IO_REMOVE_LOCK_DBG_BLOCK {
   LONG  AllocateTag;
   LIST_ENTRY  LockList;
   KSPIN_LOCK  Spin;
-  volatile LONG  LowMemoryCount;
+  __volatile LONG  LowMemoryCount;
   ULONG  Reserved1[4];
   PVOID  Reserved2;
   PIO_REMOVE_LOCK_TRACKING_BLOCK  Blocks;
@@ -4693,7 +4636,7 @@ typedef VOID
 typedef struct _WORK_QUEUE_ITEM {
   LIST_ENTRY  List;
   PWORKER_THREAD_ROUTINE  WorkerRoutine;
-  volatile PVOID  Parameter;
+  __volatile PVOID  Parameter;
 } WORK_QUEUE_ITEM, *PWORK_QUEUE_ITEM;
 
 typedef enum _KBUGCHECK_CALLBACK_REASON {
@@ -4781,13 +4724,6 @@ typedef enum _LOCK_OPERATION {
   IoWriteAccess,
   IoModifyAccess
 } LOCK_OPERATION;
-
-typedef ULONG PFN_COUNT;
-
-typedef LONG SPFN_NUMBER, *PSPFN_NUMBER;
-typedef ULONG PFN_NUMBER, *PPFN_NUMBER;
-
-#define FLUSH_MULTIPLE_MAXIMUM 32
 
 typedef enum _MM_SYSTEM_SIZE {
   MmSmallSystem,
@@ -5323,12 +5259,6 @@ typedef struct _KPCR {
   ULONG  StallScaleFactor;      /* 4C */
   UCHAR  SpareUnused;           /* 50 */
   UCHAR  Number;                /* 51 */
-  UCHAR Spare0;
-  UCHAR SecondLevelCacheAssociativity;
-  ULONG VdmAlert;
-  ULONG KernelReserved[14];         // For use by the kernel
-  ULONG SecondLevelCacheSize;
-  ULONG HalReserved[16];            // For use by Hal
 } KPCR, *PKPCR;                 /* 54 */
 
 typedef struct _KFLOATING_SAVE {
@@ -5372,75 +5302,6 @@ typedef struct _KFLOATING_SAVE {
   ULONG Dummy;
 } KFLOATING_SAVE, *PKFLOATING_SAVE;
 
-#elif defined(__PowerPC__)
-
-typedef ULONG PFN_NUMBER, *PPFN_NUMBER;
-
-#define PASSIVE_LEVEL                      0
-#define LOW_LEVEL                          0
-#define APC_LEVEL                          1
-#define DISPATCH_LEVEL                     2
-#define PROFILE_LEVEL                     27
-#define CLOCK1_LEVEL                      28
-#define CLOCK2_LEVEL                      28
-#define IPI_LEVEL                         29
-#define POWER_LEVEL                       30
-#define HIGH_LEVEL                        31
-
-typedef struct _KFLOATING_SAVE {
-  ULONG Dummy;
-} KFLOATING_SAVE, *PKFLOATING_SAVE;
-
-typedef struct _KPCR_TIB {
-  PVOID  ExceptionList;         /* 00 */
-  PVOID  StackBase;             /* 04 */
-  PVOID  StackLimit;            /* 08 */
-  PVOID  SubSystemTib;          /* 0C */
-  _ANONYMOUS_UNION union {
-    PVOID  FiberData;           /* 10 */
-    DWORD  Version;             /* 10 */
-  } DUMMYUNIONNAME;
-  PVOID  ArbitraryUserPointer;  /* 14 */
-  struct _KPCR_TIB *Self;       /* 18 */
-} KPCR_TIB, *PKPCR_TIB;         /* 1C */
-
-#define PCR_MINOR_VERSION 1
-#define PCR_MAJOR_VERSION 1
-
-typedef struct _KPCR {
-  KPCR_TIB  Tib;                /* 00 */
-  struct _KPCR  *Self;          /* 1C */
-  struct _KPRCB  *Prcb;         /* 20 */
-  KIRQL  Irql;                  /* 24 */
-  ULONG  IRR;                   /* 28 */
-  ULONG  IrrActive;             /* 2C */
-  ULONG  IDR;                   /* 30 */
-  PVOID  KdVersionBlock;        /* 34 */
-  PUSHORT  IDT;                 /* 38 */
-  PUSHORT  GDT;                 /* 3C */
-  struct _KTSS  *TSS;           /* 40 */
-  USHORT  MajorVersion;         /* 44 */
-  USHORT  MinorVersion;         /* 46 */
-  KAFFINITY  SetMember;         /* 48 */
-  ULONG  StallScaleFactor;      /* 4C */
-  UCHAR  SpareUnused;           /* 50 */
-  UCHAR  Number;                /* 51 */
-} KPCR, *PKPCR;                 /* 54 */
-
-static __inline
-ULONG
-DDKAPI
-KeGetCurrentProcessorNumber(VOID)
-{
-    ULONG Number;
-  __asm__ __volatile__ (
-    "lwz %0, %c1(12)\n"
-    : "=r" (Number)
-    : "i" (FIELD_OFFSET(KPCR, Number))
-  );
-  return Number;
-}
-
 #else
 #error Unknown architecture
 #endif
@@ -5457,9 +5318,6 @@ extern NTKERNELAPI ULONG_PTR MmUserProbeAddress;
 #define MM_USER_PROBE_ADDRESS             MmUserProbeAddress
 #define MM_LOWEST_USER_ADDRESS            (PVOID)0x10000
 #define MM_LOWEST_SYSTEM_ADDRESS          (PVOID)0xC0C00000
-
-#define MM_KSEG0_BASE       MM_SYSTEM_RANGE_START
-#define MM_SYSTEM_SPACE_END 0xFFFFFFFF
 
 #define KI_USER_SHARED_DATA               0xffdf0000
 #define SharedUserData                    ((KUSER_SHARED_DATA * CONST) KI_USER_SHARED_DATA)
@@ -5865,7 +5723,7 @@ RemoveTailList(
   return Entry;
 }
 
-#if !defined(_WINBASE_) || _WIN32_WINNT < 0x0501
+#if !defined(_WINBASE_H) || _WIN32_WINNT < 0x0501
 
 NTKERNELAPI
 PSLIST_ENTRY
@@ -8225,7 +8083,7 @@ IoIs32bitProcess(
  *   IN NTSTATUS  Status);
  */
 #define IoIsErrorUserInduced(Status) \
-   ((BOOLEAN)(((Status) == STATUS_DEVICE_NOT_READY) || \
+	((BOOLEAN)(((Status) == STATUS_DEVICE_NOT_READY) || \
    ((Status) == STATUS_IO_TIMEOUT) || \
    ((Status) == STATUS_MEDIA_WRITE_PROTECTED) || \
    ((Status) == STATUS_NO_MEDIA_IN_DEVICE) || \
@@ -8540,7 +8398,7 @@ IoReuseIrp(
     _CompletionRoutine != NULL : TRUE); \
   _IrpSp = IoGetNextIrpStackLocation(_Irp); \
   _IrpSp->CompletionRoutine = (PIO_COMPLETION_ROUTINE)(_CompletionRoutine); \
-  _IrpSp->Context = (_Context); \
+	_IrpSp->Context = (_Context); \
   _IrpSp->Control = 0; \
   if (_InvokeOnSuccess) _IrpSp->Control = SL_INVOKE_ON_SUCCESS; \
   if (_InvokeOnError) _IrpSp->Control |= SL_INVOKE_ON_ERROR; \
@@ -8944,11 +8802,6 @@ KeEnterCriticalRegion(
  *   IN BOOLEAN  DmaOperation)
  */
 #define KeFlushIoBuffers(_Mdl, _ReadOperation, _DmaOperation)
-
-#define ExAcquireSpinLock(Lock, OldIrql) KeAcquireSpinLock((Lock), (OldIrql))
-#define ExReleaseSpinLock(Lock, OldIrql) KeReleaseSpinLock((Lock), (OldIrql))
-#define ExAcquireSpinLockAtDpcLevel(Lock) KeAcquireSpinLockAtDpcLevel(Lock)
-#define ExReleaseSpinLockFromDpcLevel(Lock) KeReleaseSpinLockFromDpcLevel(Lock)
 
 NTHALAPI
 VOID
@@ -9371,35 +9224,6 @@ KeRaiseIrqlToSynchLevel(
 #define KeLowerIrql(a) KfLowerIrql(a)
 #define KeRaiseIrql(a,b) *(b) = KfRaiseIrql(a)
 
-#elif defined(__PowerPC__)
-
-NTHALAPI
-VOID
-FASTCALL
-KfLowerIrql(
-  IN KIRQL  NewIrql);
-
-NTHALAPI
-KIRQL
-FASTCALL
-KfRaiseIrql(
-  IN KIRQL  NewIrql);
-
-NTHALAPI
-KIRQL
-DDKAPI
-KeRaiseIrqlToDpcLevel(
-  VOID);
-
-NTHALAPI
-KIRQL
-DDKAPI
-KeRaiseIrqlToSynchLevel(
-    VOID);
-
-#define KeLowerIrql(a) KfLowerIrql(a)
-#define KeRaiseIrql(a,b) *(b) = KfRaiseIrql(a)
-
 #else
 
 NTKERNELAPI
@@ -9409,7 +9233,7 @@ KeLowerIrql(
   IN KIRQL  NewIrql);
 
 NTKERNELAPI
-VOID
+KIRQL
 NTAPI
 KeRaiseIrql(
   IN KIRQL  NewIrql,
@@ -9762,20 +9586,6 @@ MmMapLockedPages(
 NTKERNELAPI
 PVOID
 NTAPI
-MmLockPageableDataSection (
-    IN PVOID AddressWithinSection
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-MmUnlockPageableImageSection(
-    IN PVOID ImageSectionHandle
-);
-
-NTKERNELAPI
-PVOID
-NTAPI
 MmPageEntireDriver(
   IN PVOID  AddressWithinSection);
 
@@ -9834,9 +9644,6 @@ MmUnsecureVirtualMemory(
     ASSERT(((_Mdl)->MdlFlags & MDL_MAPPED_TO_SYSTEM_VA) == 0); \
   } \
 }
-
-#define MmGetProcedureAddress(Address) (Address)
-#define MmLockPagableCodeSection(Address) MmLockPagableDataSection(Address)
 
 NTKERNELAPI
 VOID
@@ -10118,11 +9925,6 @@ HANDLE
 NTAPI
 PsGetCurrentThreadId(
   VOID);
-
-NTKERNELAPI
-HANDLE
-NTAPI
-PsGetProcessId(PEPROCESS Process);
 
 NTKERNELAPI
 BOOLEAN

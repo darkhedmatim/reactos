@@ -388,7 +388,7 @@ RtlFreeUnicodeString(IN PUNICODE_STRING UnicodeString)
 
     if (UnicodeString->Buffer)
     {
-        RtlpFreeStringMemory(UnicodeString->Buffer, TAG_USTR);
+        RtlpFreeStringMemory(UnicodeString->Buffer, TAG_ASTR);
         RtlZeroMemory(UnicodeString, sizeof(UNICODE_STRING));
     }
 }
@@ -1417,7 +1417,7 @@ RtlUnicodeStringToCountedOemString(
 
     if (!Length)
     {
-        RtlZeroMemory(OemDest, sizeof(OEM_STRING));
+        RtlZeroMemory(OemDest, sizeof(UNICODE_STRING));
     }
 
     if (Length > MAXUSHORT) return STATUS_INVALID_PARAMETER_2;
@@ -1619,7 +1619,7 @@ RtlUpcaseUnicodeStringToCountedOemString(
 
     if (!Length)
     {
-        RtlZeroMemory(OemDest, sizeof(OEM_STRING));
+        RtlZeroMemory(OemDest, sizeof(UNICODE_STRING));
     }
 
     if (Length > MAXUSHORT) return STATUS_INVALID_PARAMETER_2;
@@ -1632,7 +1632,7 @@ RtlUpcaseUnicodeStringToCountedOemString(
         OemDest->MaximumLength = Length;
         if (!OemDest->Buffer) return STATUS_NO_MEMORY;
     }
-    else if (OemDest->Length > OemDest->MaximumLength)
+    else if (OemDest->Length >= OemDest->MaximumLength)
     {
         return STATUS_BUFFER_OVERFLOW;
     }
@@ -2110,8 +2110,8 @@ RtlDuplicateUnicodeString(
     }
 
 
-   if ((SourceString->Length == 0) &&
-       (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE |
+   if ((SourceString->Length == 0) && 
+       (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE | 
                   RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING)))
    {
       DestinationString->Length = 0;

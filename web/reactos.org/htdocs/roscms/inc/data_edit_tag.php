@@ -18,24 +18,17 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
     */
 
-	global $h_a;
-	global $h_a2;
-
-
 	function getTagId($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, $RosCMS_intern_current_usrid, $RosCMS_intern_current_tag_name) {
-		global $h_a;
-		global $h_a2;
-
 		// tag name
 		$query_edit_mef_tag_get_id = mysql_query("SELECT tn_id, tn_name 
-													FROM data_tag_name".$h_a." 
+													FROM data_tag_name
 													WHERE tn_name = '".mysql_real_escape_string($RosCMS_intern_current_tag_name)."'
 													LIMIT 1;");
 		$result_edit_mef_tag_get_id = mysql_fetch_array($query_edit_mef_tag_get_id);
 		
 		// tag
 		$query_edit_mef_tag_get_id = mysql_query("SELECT tag_id 
-												FROM data_tag".$h_a." 
+												FROM data_tag 
 												WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
 												AND data_rev_id = '".mysql_real_escape_string($RosCMS_GET_d_r_id)."'
 												AND tag_name_id = '".mysql_real_escape_string($result_edit_mef_tag_get_id['tn_id'])."'
@@ -47,13 +40,10 @@
 	}
 	
 	function getTagValue($RosCMS_GET_d_id, $RosCMS_GET_d_r_id, $RosCMS_intern_current_usrid, $RosCMS_intern_current_tag_name) {
-		global $h_a;
-		global $h_a2;
-
 		//echo "<p>=> getTagValue(".$RosCMS_GET_d_id.", ".$RosCMS_GET_d_r_id.", ".$RosCMS_intern_current_usrid.", ".$RosCMS_intern_current_tag_name.")</p>";
 		// tag name
 		$query_edit_mef_tag_get_id = mysql_query("SELECT tn_id, tn_name 
-													FROM data_tag_name".$h_a." 
+													FROM data_tag_name
 													WHERE tn_name = '".mysql_real_escape_string($RosCMS_intern_current_tag_name)."'
 													LIMIT 1;");
 		$result_edit_mef_tag_get_id = mysql_fetch_array($query_edit_mef_tag_get_id);
@@ -62,7 +52,7 @@
 		
 		// tag
 		$query_edit_mef_tag_get_id_val = mysql_query("SELECT tag_value_id 
-												FROM data_tag".$h_a." 
+												FROM data_tag 
 												WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
 												AND data_rev_id = '".mysql_real_escape_string($RosCMS_GET_d_r_id)."'
 												AND tag_name_id = '".mysql_real_escape_string($result_edit_mef_tag_get_id['tn_id'])."'
@@ -75,7 +65,7 @@
 		
 		// tag value
 		$query_edit_mef_tag_get_value = mysql_query("SELECT tv_value 
-													FROM data_tag_value".$h_a." 
+													FROM data_tag_value 
 													WHERE tv_id = '".mysql_real_escape_string($result_edit_mef_tag_get_id_val['tag_value_id'])."'
 													LIMIT 1;");
 		$result_edit_mef_tag_get_value = mysql_fetch_array($query_edit_mef_tag_get_value);

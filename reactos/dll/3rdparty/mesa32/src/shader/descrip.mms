@@ -1,6 +1,7 @@
 # Makefile for core library for VMS
-# contributed by Jouk Jansen  joukj@hrem.nano.tudelft.nl
-# Last revision : 20 November 2006
+# contributed by Jouk Jansen  joukj@hrem.stm.tudelft.nl
+# Last revision : 1 June 2005
+
 .first
 	define gl [---.include.gl]
 	define math [-.math]
@@ -15,12 +16,14 @@ VPATH = RCS
 
 INCDIR = [---.include],[.grammar],[-.main],[-.glapi],[.slang]
 LIBDIR = [---.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1,"__extension__=")/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
 SOURCES = \
 	atifragshader.c \
+	arbfragparse.c \
 	arbprogparse.c \
 	arbprogram.c \
+	arbvertparse.c \
 	nvfragparse.c \
 	nvprogram.c \
 	nvvertexec.c \
@@ -31,8 +34,10 @@ SOURCES = \
 
 OBJECTS = \
 	atifragshader.obj,\
+	arbfragparse.obj,\
 	arbprogparse.obj,\
 	arbprogram.obj,\
+	arbvertparse.obj,\
 	nvfragparse.obj,\
 	nvprogram.obj,\
 	nvvertexec.obj,\
@@ -64,8 +69,10 @@ clean :
 	delete *.obj;*
 
 atifragshader.obj : atifragshader.c
+arbfragparse.obj : arbfragparse.c
 arbprogparse.obj : arbprogparse.c
 arbprogram.obj : arbprogram.c
+arbvertparse.obj : arbvertparse.c
 nvfragparse.obj : nvfragparse.c
 nvprogram.obj : nvprogram.c
 nvvertexec.obj : nvvertexec.c

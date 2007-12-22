@@ -1,6 +1,6 @@
 // Italian language resource file (Paolo Devoti, devotip@tiscali.it, 2007-01-10)
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 IDD_KEYBSPEED DIALOGEX 0, 0, 246, 228
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -65,7 +65,7 @@ BEGIN
   CONTROL "", IDC_IMAGE_DOUBLE_CLICK_SPEED, "Static", SS_ICON | SS_NOTIFY | SS_CENTERIMAGE | WS_VISIBLE, 165, 85, 65, 57, WS_EX_STATICEDGE
   GROUPBOX "Blocca clic", -1, 5, 150, 230, 70
   CHECKBOX "&Abilita Blocca Clic", IDC_CHECK_CLICK_LOCK, 10, 160, 70, 20
-  PUSHBUTTON "&Impostazioni...", IDC_BUTTON_CLICK_LOCK, 170, 160, 50, 10
+  PUSHBUTTON "&Impostazioni...", IDC_BUTTON_CLICK_LOCK, 170, 160, 50, 10 
   LTEXT "Permette di selezionare e trascinare senza tenere premuto il tasto del mouse. Per attivare premere brevemente il tasto del mouse. Per disattivare, cliccare di nuovo", -1, 10, 180, 190, 30
 END
 
@@ -164,10 +164,10 @@ BEGIN
   IDS_HAND "Seleziona collegamento"
   IDS_NONE "(Nessuna)"
   IDS_SYSTEM_SCHEME "(Schema di sistema)"
-  IDS_BROWSE_FILTER "Cursori (*.ani, *.cur)\0*.ani;*.cur\0Cursori animati (*.ani)\0*.ani\0Cursor statici (*.cur)\0*.cur\0Tutti i file\0*.*\0\0"
-  IDS_BROWSE_TITLE "Sfoglia"
-  IDS_REMOVE_TITLE "Conferma la rimozione dello schema"
-  IDS_REMOVE_TEXT "Confermate di voler rimuovere lo schema dei cursori '%s'?"
-  IDS_OVERWRITE_TITLE "Sovrascrittura dello schema dei cursori"
-  IDS_OVERWRITE_TEXT "Il nome dello schema dei cursori è già in uso. Confermate di voler sovrascrivere lo schema dei cursori?"
+  IDS_BROWSE_FILTER "Cursors (*.ani, *.cur)\0*.ani;*.cur\0Animated Cursors (*.ani)\0*.ani\0Static Cursors (*.cur)\0*.cur\0All Files\0*.*\0\0"
+  IDS_BROWSE_TITLE "Browse"
+  IDS_REMOVE_TITLE "Confirm Scheme Removal"
+  IDS_REMOVE_TEXT "Are you sure you want to remove the cursor scheme '%s'?"
+  IDS_OVERWRITE_TITLE "Confirm Cursor Scheme Overwrite"
+  IDS_OVERWRITE_TEXT "The cursor scheme name you chose is already in use. Do you want to overwrite the existing cursor scheme?"
 END

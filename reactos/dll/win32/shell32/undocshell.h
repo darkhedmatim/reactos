@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_UNDOCSHELL_H
@@ -83,6 +83,12 @@ BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 /****************************************************************************
  * Shell Common Dialogs
  */
+
+BOOL WINAPI PickIconDlg(
+	HWND hwndOwner,
+	LPSTR lpstrFile,
+	DWORD nMaxFile,
+	LPDWORD lpdwIconIndex);
 
 /* RunFileDlg flags */
 #define RFF_NOBROWSE       0x01
@@ -350,6 +356,12 @@ BOOL WINAPI DAD_SetDragImageFromListView(
 
 BOOL WINAPI DAD_ShowDragImage(BOOL bShow);
 
+HRESULT WINAPI CIDLData_CreateFromIDArray(
+	LPCITEMIDLIST pidlFolder,
+	DWORD cpidlFiles,
+	LPCITEMIDLIST *lppidlFiles,
+	LPDATAOBJECT *ppdataObject);
+
 /****************************************************************************
  * Path Manipulation Routines
  */
@@ -443,7 +455,7 @@ int WINAPI PathParseIconLocationAW(LPVOID lpszPath);
 
 BOOL WINAPI PathIsSameRootAW(LPCVOID lpszPath1, LPCVOID lpszPath2);
 
-BOOL WINAPI PathFindOnPathAW(LPVOID sFile, LPCVOID *sOtherDirs);
+BOOL WINAPI PathFindOnPathAW(LPVOID sFile, LPCVOID sOtherDirs);
 
 /****************************************************************************
  * Shell Namespace Routines
@@ -553,9 +565,6 @@ DWORD WINAPI CheckEscapesW(LPWSTR string, DWORD len);
 
 /* policy functions */
 BOOL WINAPI SHInitRestricted(LPCVOID unused, LPCVOID inpRegKey);
-
-DEFINE_GUID(CLSID_OpenWith, 0x09799AFB, 0xAD67, 0x11d1, 0xAB,0xCD,0x00,0xC0,0x4F,0xC3,0x09,0x36);
-DEFINE_GUID(CLSID_StartMenu, 0x4622AD11, 0xFF23, 0x11D0, 0x8D,0x34,0x00,0xA0,0xC9,0x0F,0x27,0x19);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -41,7 +41,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "scrnintstr.h"
 #include "pixmapstr.h"
-#include "gcstruct.h"
 
 typedef struct _XMesaImageRec XMesaImage;
 
@@ -96,18 +95,6 @@ do { \
     (*gc->ops->PolyPoint)(__b, __gc, __m, __n, __p); \
 } while (0)
 
-#define XMesaDrawLine(__d, __b, __gc, __x0, __y0, __x1, __y1) \
-do { \
-    XMesaPoint __p[2]; \
-    (void) __d; \
-    __p[0].x = __x0; \
-    __p[0].y = __y0; \
-    __p[1].x = __x1; \
-    __p[1].y = __y1; \
-    ValidateGC(__b, __gc); \
-    (*gc->ops->PolyLines)(__b, __gc, CoordModeOrigin, 2, __p); \
-} while (0)
-
 #define XMesaFillRectangle(__d,__b,__gc,__x,__y,__w,__h) \
 do { \
     xRectangle __r[1]; \
@@ -124,7 +111,8 @@ do { \
 do { \
     /* Assumes: Images are always in ZPixmap format */ \
     (void) __d; \
-    ASSERT(!__sx && !__sy); /* The SubImage case */     \
+    if (__sx || __sy) /* The non-trivial case */ \
+	XMesaPutImageHelper(__d,__b,__gc,__i,__sx,__sy,__x,__y,__w,__h); \
     ValidateGC(__b, __gc); \
     (*__gc->ops->PutImage)(__b, __gc, ((XMesaDrawable)(__b))->depth, \
 			   __x, __y, __w, __h, 0, ZPixmap, \

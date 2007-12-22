@@ -32,31 +32,47 @@ use strict;
 
 package Bugzilla::BugMail;
 
-use Bugzilla::Error;
 use Bugzilla::User;
 use Bugzilla::Constants;
+use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::Util;
-use Bugzilla::Bug;
-use Bugzilla::Product;
-use Bugzilla::Component;
-use Bugzilla::Mailer;
 
 use Date::Parse;
 use Date::Format;
-
-use constant BIT_DIRECT    => 1;
-use constant BIT_WATCHING  => 2;
+use Mail::Mailer;
+use Mail::Header;
+use MIME::Base64;
+use MIME::QuotedPrint;
+use MIME::Parser;
+use Mail::Address;
 
 # We need these strings for the X-Bugzilla-Reasons header
 # Note: this hash uses "," rather than "=>" to avoid auto-quoting of the LHS.
-use constant REL_NAMES => {
-    REL_ASSIGNEE      , "AssignedTo", 
-    REL_REPORTER      , "Reporter",
-    REL_QA            , "QAcontact",
-    REL_CC            , "CC",
-    REL_VOTER         , "Voter",
-    REL_GLOBAL_WATCHER, "GlobalWatcher"
-};
+my %rel_names = (REL_ASSIGNEE          , "AssignedTo", 
+                 REL_REPORTER          , "Reporter",
+                 REL_QA                , "QAcontact",
+                 REL_CC                , "CC",
+                 REL_VOTER             , "Voter");
+
+# This code is really ugly. It was a commandline interface, then it was moved.
+# This really needs to be cleaned at some point.
+
+my %nomail;
+
+my $sitespec = '@'.Param('urlbase');
+$sitespec =~ s/:\/\//\./; # Make the protocol look like part of the domain
+$sitespec =~ s/^([^:\/]+):(\d+)/$1/; # Remove a port number, to relocate
+if ($2) {
+    $sitespec = "-$2$sitespec"; # Put the port number back in, before the '@'
+}
+
+# This is run when we load the package
+if (open(NOMAIL, '<', "$datadir/nomail")) {
+    while (<NOMAIL>) {
+        $nomail{trim($_)} = 1;
+    }
+    close(NOMAIL);
+}
 
 sub FormatTriple {
     my ($a, $b, $c) = (@_);
@@ -92,6 +108,16 @@ END
 sub Send {
     my ($id, $forced) = (@_);
 
+    # This only works in a sub. Probably something to do with the
+    # require abuse we do.
+    &::GetVersionTable();
+
+    return ProcessOneBug($id, $forced);
+}
+
+sub ProcessOneBug {
+    my ($id, $forced) = (@_);
+
     my @headerlist;
     my %defmailhead;
     my %fielddescription;
@@ -99,26 +125,25 @@ sub Send {
     my $msg = "";
 
     my $dbh = Bugzilla->dbh;
+    
+    my $fields = $dbh->selectall_arrayref('SELECT name, description, mailhead 
+                                           FROM fielddefs ORDER BY sortkey');
 
-    # XXX - These variables below are useless. We could use field object
-    # methods directly. But we first have to implement a cache in
-    # Bugzilla->get_fields to avoid querying the DB all the time.
-    foreach my $field (Bugzilla->get_fields({obsolete => 0})) {
-        push(@headerlist, $field->name);
-        $defmailhead{$field->name} = $field->in_new_bugmail;
-        $fielddescription{$field->name} = $field->description;
+    foreach my $fielddef (@$fields) {
+        my ($field, $description, $mailhead) = @$fielddef;
+        push(@headerlist, $field);
+        $defmailhead{$field} = $mailhead;
+        $fielddescription{$field} = $description;
     }
 
     my %values = %{$dbh->selectrow_hashref(
-        'SELECT ' . join(',', editable_bug_fields()) . ',
+        'SELECT ' . join(',', @::log_columns) . ',
                 lastdiffed AS start, LOCALTIMESTAMP(0) AS end
            FROM bugs WHERE bug_id = ?',
         undef, $id)};
-
-    my $product = new Bugzilla::Product($values{product_id});
-    $values{product} = $product->name;
-    my $component = new Bugzilla::Component($values{component_id});
-    $values{component} = $component->name;
+    
+    $values{product} = &::get_product_name($values{product_id});
+    $values{component} = &::get_component_name($values{component_id});
 
     my ($start, $end) = ($values{start}, $values{end});
 
@@ -148,29 +173,24 @@ sub Send {
     # At this point, we don't care if there are duplicates in these arrays.
     my $changer = $forced->{'changer'};
     if ($forced->{'owner'}) {
-        push (@assignees, login_to_id($forced->{'owner'}, THROW_ERROR));
+        push (@assignees, &::DBNameToIdAndCheck($forced->{'owner'}));
     }
     
     if ($forced->{'qacontact'}) {
-        push (@qa_contacts, login_to_id($forced->{'qacontact'}, THROW_ERROR));
+        push (@qa_contacts, &::DBNameToIdAndCheck($forced->{'qacontact'}));
     }
     
     if ($forced->{'cc'}) {
         foreach my $cc (@{$forced->{'cc'}}) {
-            push(@ccs, login_to_id($cc, THROW_ERROR));
+            push(@ccs, &::DBNameToIdAndCheck($cc));
         }
     }
     
     # Convert to names, for later display
-    $values{'changer'} = $changer;
-    # If no changer is specified, then it has no name.
-    if ($changer) {
-        $values{'changername'} = Bugzilla::User->new({name => $changer})->name;
-    }
-    $values{'assigned_to'} = user_id_to_login($values{'assigned_to'});
-    $values{'reporter'} = user_id_to_login($values{'reporter'});
+    $values{'assigned_to'} = &::DBID_to_name($values{'assigned_to'});
+    $values{'reporter'} = &::DBID_to_name($values{'reporter'});
     if ($values{'qa_contact'}) {
-        $values{'qa_contact'} = user_id_to_login($values{'qa_contact'});
+        $values{'qa_contact'} = &::DBID_to_name($values{'qa_contact'});
     }
     $values{'cc'} = join(', ', @cc_login_names);
     $values{'estimated_time'} = format_time_decimal($values{'estimated_time'});
@@ -203,33 +223,28 @@ sub Send {
     }
     
     my $diffs = $dbh->selectall_arrayref(
-           "SELECT profiles.login_name, profiles.realname, fielddefs.description,
+           "SELECT profiles.login_name, fielddefs.description, 
                    bugs_activity.bug_when, bugs_activity.removed, 
                    bugs_activity.added, bugs_activity.attach_id, fielddefs.name
               FROM bugs_activity
         INNER JOIN fielddefs
-                ON fielddefs.id = bugs_activity.fieldid
+                ON fielddefs.fieldid = bugs_activity.fieldid
         INNER JOIN profiles
                 ON profiles.userid = bugs_activity.who
              WHERE bugs_activity.bug_id = ?
                    $when_restriction
           ORDER BY bugs_activity.bug_when", undef, @args);
 
-    my @new_depbugs;
     my $difftext = "";
     my $diffheader = "";
     my @diffparts;
     my $lastwho = "";
-    my $fullwho;
-    my @changedfields;
     foreach my $ref (@$diffs) {
-        my ($who, $whoname, $what, $when, $old, $new, $attachid, $fieldname) = (@$ref);
+        my ($who, $what, $when, $old, $new, $attachid, $fieldname) = (@$ref);
         my $diffpart = {};
         if ($who ne $lastwho) {
             $lastwho = $who;
-            $fullwho = $whoname ? "$whoname <$who" . Bugzilla->params->{'emailsuffix'} . ">" :
-                                  "$who" . Bugzilla->params->{'emailsuffix'};
-            $diffheader = "\n$fullwho changed:\n\n";
+            $diffheader = "\n$who" . Param('emailsuffix') . " changed:\n\n";
             $diffheader .= FormatTriple("What    ", "Removed", "Added");
             $diffheader .= ('-' x 76) . "\n";
         }
@@ -238,9 +253,6 @@ sub Send {
             $fieldname eq 'remaining_time' ) {
             $old = format_time_decimal($old);
             $new = format_time_decimal($new);
-        }
-        if ($fieldname eq 'dependson') {
-            push(@new_depbugs, grep {$_ =~ /^\d+$/} split(/[\s,]+/, $new));
         }
         if ($attachid) {
             ($diffpart->{'isprivate'}) = $dbh->selectrow_array(
@@ -252,23 +264,11 @@ sub Send {
         $diffpart->{'fieldname'} = $fieldname;
         $diffpart->{'text'} = $difftext;
         push(@diffparts, $diffpart);
-        push(@changedfields, $what);
     }
-    $values{'changed_fields'} = join(' ', @changedfields);
 
-    my @depbugs;
     my $deptext = "";
-    # Do not include data about dependent bugs when they have just been added.
-    # Completely skip checking for dependent bugs on bug creation as all
-    # dependencies bugs will just have been added.
-    if ($start) {
-        my $dep_restriction = "";
-        if (scalar @new_depbugs) {
-            $dep_restriction = "AND bugs_activity.bug_id NOT IN (" .
-                               join(", ", @new_depbugs) . ")";
-        }
 
-        my $dependency_diffs = $dbh->selectall_arrayref(
+    my $dependency_diffs = $dbh->selectall_arrayref(
            "SELECT bugs_activity.bug_id, bugs.short_desc, fielddefs.name, 
                    bugs_activity.removed, bugs_activity.added
               FROM bugs_activity
@@ -277,56 +277,56 @@ sub Send {
         INNER JOIN dependencies
                 ON bugs_activity.bug_id = dependencies.dependson
         INNER JOIN fielddefs
-                ON fielddefs.id = bugs_activity.fieldid
+                ON fielddefs.fieldid = bugs_activity.fieldid
              WHERE dependencies.blocked = ?
                AND (fielddefs.name = 'bug_status'
                     OR fielddefs.name = 'resolution')
                    $when_restriction
-                   $dep_restriction
           ORDER BY bugs_activity.bug_when, bugs.bug_id", undef, @args);
 
-        my $thisdiff = "";
-        my $lastbug = "";
-        my $interestingchange = 0;
-        foreach my $dependency_diff (@$dependency_diffs) {
-            my ($depbug, $summary, $what, $old, $new) = @$dependency_diff;
+    my $thisdiff = "";
+    my $lastbug = "";
+    my $interestingchange = 0;
+    my @depbugs;
+    foreach my $dependency_diff (@$dependency_diffs) {
+        my ($depbug, $summary, $what, $old, $new) = @$dependency_diff;
 
-            if ($depbug ne $lastbug) {
-                if ($interestingchange) {
-                    $deptext .= $thisdiff;
-                }
-                $lastbug = $depbug;
-                my $urlbase = Bugzilla->params->{"urlbase"};
-                $thisdiff =
-                  "\nBug $id depends on bug $depbug, which changed state.\n\n" .
-                  "Bug $depbug Summary: $summary\n" .
-                  "${urlbase}show_bug.cgi?id=$depbug\n\n";
-                $thisdiff .= FormatTriple("What    ", "Old Value", "New Value");
-                $thisdiff .= ('-' x 76) . "\n";
-                $interestingchange = 0;
+        if ($depbug ne $lastbug) {
+            if ($interestingchange) {
+                $deptext .= $thisdiff;
             }
-            $thisdiff .= FormatTriple($fielddescription{$what}, $old, $new);
-            if ($what eq 'bug_status'
-                && Bugzilla::Bug::is_open_state($old) ne Bugzilla::Bug::is_open_state($new))
-            {
-                $interestingchange = 1;
-            }
-            push(@depbugs, $depbug);
+            $lastbug = $depbug;
+            my $urlbase = Param("urlbase");
+            $thisdiff =
+              "\nBug $id depends on bug $depbug, which changed state.\n\n" . 
+              "Bug $depbug Summary: $summary\n" . 
+              "${urlbase}show_bug.cgi?id=$depbug\n\n"; 
+            $thisdiff .= FormatTriple("What    ", "Old Value", "New Value");
+            $thisdiff .= ('-' x 76) . "\n";
+            $interestingchange = 0;
         }
-
-        if ($interestingchange) {
-            $deptext .= $thisdiff;
+        $thisdiff .= FormatTriple($fielddescription{$what}, $old, $new);
+        if ($what eq 'bug_status' && &::IsOpenedState($old) ne &::IsOpenedState($new)) {
+            $interestingchange = 1;
         }
-        $deptext = trim($deptext);
-
-        if ($deptext) {
-            my $diffpart = {};
-            $diffpart->{'text'} = "\n" . trim("\n\n" . $deptext);
-            push(@diffparts, $diffpart);
-        }
+        
+        push(@depbugs, $depbug);
+    }
+    
+    if ($interestingchange) {
+        $deptext .= $thisdiff;
     }
 
-    my ($raw_comments, $anyprivate, $count) = get_comments_by_bug($id, $start, $end);
+    $deptext = trim($deptext);
+
+    if ($deptext) {
+        my $diffpart = {};
+        $diffpart->{'text'} = "\n" . trim("\n\n" . $deptext);
+        push(@diffparts, $diffpart);
+    }
+
+
+    my ($newcomments, $anyprivate) = get_comments_by_bug($id, $start, $end);
 
     ###########################################################################
     # Start of email filtering code
@@ -334,7 +334,6 @@ sub Send {
     
     # A user_id => roles hash to keep track of people.
     my %recipients;
-    my %watching;
     
     # Now we work out all the people involved with this bug, and note all of
     # the relationships in a hash. The keys are userids, the values are an
@@ -344,29 +343,29 @@ sub Send {
     my $voters = $dbh->selectcol_arrayref(
         "SELECT who FROM votes WHERE bug_id = ?", undef, ($id));
         
-    $recipients{$_}->{+REL_VOTER} = BIT_DIRECT foreach (@$voters);
+    push(@{$recipients{$_}}, REL_VOTER) foreach (@$voters);
 
     # CCs
-    $recipients{$_}->{+REL_CC} = BIT_DIRECT foreach (@ccs);
+    push(@{$recipients{$_}}, REL_CC) foreach (@ccs);
     
     # Reporter (there's only ever one)
-    $recipients{$reporter}->{+REL_REPORTER} = BIT_DIRECT;
+    push(@{$recipients{$reporter}}, REL_REPORTER);
     
     # QA Contact
-    if (Bugzilla->params->{'useqacontact'}) {
+    if (Param('useqacontact')) {
         foreach (@qa_contacts) {
             # QA Contact can be blank; ignore it if so.
-            $recipients{$_}->{+REL_QA} = BIT_DIRECT if $_;
+            push(@{$recipients{$_}}, REL_QA) if $_;
         }
     }
 
     # Assignee
-    $recipients{$_}->{+REL_ASSIGNEE} = BIT_DIRECT foreach (@assignees);
+    push(@{$recipients{$_}}, REL_ASSIGNEE) foreach (@assignees);
 
     # The last relevant set of people are those who are being removed from 
     # their roles in this change. We get their names out of the diffs.
     foreach my $ref (@$diffs) {
-        my ($who, $whoname, $what, $when, $old, $new) = (@$ref);
+        my ($who, $what, $when, $old, $new) = (@$ref);
         if ($old) {
             # You can't stop being the reporter, and mail isn't sent if you
             # remove your vote.
@@ -374,102 +373,76 @@ sub Send {
             if ($what eq "CC") {
                 foreach my $cc_user (split(/[\s,]+/, $old)) {
                     my $uid = login_to_id($cc_user);
-                    $recipients{$uid}->{+REL_CC} = BIT_DIRECT if $uid;
+                    push(@{$recipients{$uid}}, REL_CC) if $uid;
                 }
             }
             elsif ($what eq "QAContact") {
                 my $uid = login_to_id($old);
-                $recipients{$uid}->{+REL_QA} = BIT_DIRECT if $uid;
+                push(@{$recipients{$uid}}, REL_QA) if $uid;
             }
             elsif ($what eq "AssignedTo") {
                 my $uid = login_to_id($old);
-                $recipients{$uid}->{+REL_ASSIGNEE} = BIT_DIRECT if $uid;
+                push(@{$recipients{$uid}}, REL_ASSIGNEE) if $uid;
             }
         }
     }
     
-    if (Bugzilla->params->{"supportwatchers"}) {
+    if (Param("supportwatchers")) {
         # Find all those user-watching anyone on the current list, who is not 
         # on it already themselves.
         my $involved = join(",", keys %recipients);
 
         my $userwatchers = 
             $dbh->selectall_arrayref("SELECT watcher, watched FROM watch 
-                                      WHERE watched IN ($involved)");
+                                      WHERE watched IN ($involved)
+                                      AND watcher NOT IN ($involved)");
 
         # Mark these people as having the role of the person they are watching
         foreach my $watch (@$userwatchers) {
-            while (my ($role, $bits) = each %{$recipients{$watch->[1]}}) {
-                $recipients{$watch->[0]}->{$role} |= BIT_WATCHING
-                    if $bits & BIT_DIRECT;
-            }
-            push (@{$watching{$watch->[0]}}, $watch->[1]);
+            $recipients{$watch->[0]} = $recipients{$watch->[1]};
         }
     }
-
-    # Global watcher
-    my @watchers = split(/[,\s]+/, Bugzilla->params->{'globalwatchers'});
-    foreach (@watchers) {
-        my $watcher_id = login_to_id($_);
-        next unless $watcher_id;
-        $recipients{$watcher_id}->{+REL_GLOBAL_WATCHER} = BIT_DIRECT;
-    }
-
+        
     # We now have a complete set of all the users, and their relationships to
     # the bug in question. However, we are not necessarily going to mail them
     # all - there are preferences, permissions checks and all sorts to do yet.
     my @sent;
     my @excluded;
 
-    # Some comments are language specific. We cache them here.
-    my %comments;
-
     foreach my $user_id (keys %recipients) {
-        my %rels_which_want;
+        my @rels_which_want;
         my $sent_mail = 0;
 
         my $user = new Bugzilla::User($user_id);
         # Deleted users must be excluded.
         next unless $user;
 
-        # What's the language chosen by this user for email?
-        my $lang = $user->settings->{'lang'}->{'value'};
-
-        if ($user->can_see_bug($id)) {
-            # It's time to format language specific comments.
-            unless (exists $comments{$lang}) {
-                Bugzilla->template_inner($lang);
-                $comments{$lang} = prepare_comments($raw_comments, $count);
-                Bugzilla->template_inner("");
-            }
-
+        if ($user->can_see_bug($id))
+        {
             # Go through each role the user has and see if they want mail in
             # that role.
-            foreach my $relationship (keys %{$recipients{$user_id}}) {
+            foreach my $relationship (@{$recipients{$user_id}}) {
                 if ($user->wants_bug_mail($id,
                                           $relationship, 
                                           $diffs, 
-                                          $comments{$lang},
-                                          $deptext,
-                                          $changer,
-                                          !$start))
+                                          $newcomments, 
+                                          $changer))
                 {
-                    $rels_which_want{$relationship} = 
-                        $recipients{$user_id}->{$relationship};
+                    push(@rels_which_want, $relationship);
                 }
             }
         }
         
-        if (scalar(%rels_which_want)) {
+        if (scalar(@rels_which_want)) {
             # So the user exists, can see the bug, and wants mail in at least
             # one role. But do we want to send it to them?
 
             # If we are using insiders, and the comment is private, only send 
             # to insiders
             my $insider_ok = 1;
-            $insider_ok = 0 if (Bugzilla->params->{"insidergroup"} && 
+            $insider_ok = 0 if (Param("insidergroup") && 
                                 ($anyprivate != 0) && 
-                                (!$user->groups->{Bugzilla->params->{"insidergroup"}}));
+                                (!$user->groups->{Param("insidergroup")}));
 
             # We shouldn't send mail if this is a dependency mail (i.e. there 
             # is something in @depbugs), and any of the depending bugs are not 
@@ -485,24 +458,22 @@ sub Send {
 
             # Make sure the user isn't in the nomail list, and the insider and 
             # dep checks passed.
-            if ($user->email_enabled &&
+            if ((!$nomail{$user->login}) &&
                 $insider_ok &&
                 $dep_ok)
             {
                 # OK, OK, if we must. Email the user.
                 $sent_mail = sendMail($user, 
                                       \@headerlist,
-                                      \%rels_which_want, 
+                                      \@rels_which_want, 
                                       \%values,
                                       \%defmailhead, 
                                       \%fielddescription, 
                                       \@diffparts,
-                                      $comments{$lang},
+                                      $newcomments, 
                                       $anyprivate, 
                                       $start, 
-                                      $id,
-                                      exists $watching{$user_id} ?
-                                             $watching{$user_id} : undef);
+                                      $id);
             }
         }
        
@@ -523,7 +494,7 @@ sub Send {
 sub sendMail {
     my ($user, $hlRef, $relRef, $valueRef, $dmhRef, $fdRef,  
         $diffRef, $newcomments, $anyprivate, $start, 
-        $id, $watchingRef) = @_;
+        $id) = @_;
 
     my %values = %$valueRef;
     my @headerlist = @$hlRef;
@@ -541,7 +512,7 @@ sub sendMail {
         }
         # Only send estimated_time if it is enabled and the user is in the group
         if (($f ne 'estimated_time' && $f ne 'deadline') ||
-             $user->groups->{Bugzilla->params->{'timetrackinggroup'}}) {
+             $user->groups->{Param('timetrackinggroup')}) {
 
             my $desc = $fielddescription{$f};
             $head .= FormatDouble($desc, $value);
@@ -562,12 +533,12 @@ sub sendMail {
              $diff->{'fieldname'} eq 'remaining_time' ||
              $diff->{'fieldname'} eq 'work_time' ||
              $diff->{'fieldname'} eq 'deadline')){
-            if ($user->groups->{Bugzilla->params->{"timetrackinggroup"}}) {
+            if ($user->groups->{Param("timetrackinggroup")}) {
                 $add_diff = 1;
             }
         } elsif (($diff->{'isprivate'}) 
-                 && Bugzilla->params->{'insidergroup'}
-                 && !($user->groups->{Bugzilla->params->{'insidergroup'}})
+                 && Param('insidergroup')
+                 && !($user->groups->{Param('insidergroup')})
                 ) {
             $add_diff = 0;
         } else {
@@ -589,86 +560,244 @@ sub sendMail {
       return 0;
     }
     
+    # XXX: This needs making localisable, probably by passing the role to
+    # the email template and letting it choose the text.
+    my $reasonsbody = "------- You are receiving this mail because: -------\n";
+
+    foreach my $relationship (@$relRef) {
+        if ($relationship == REL_ASSIGNEE) {
+            $reasonsbody .= "You are the assignee for the bug, or are watching the assignee.\n";
+        } elsif ($relationship == REL_REPORTER) {
+            $reasonsbody .= "You reported the bug, or are watching the reporter.\n";
+        } elsif ($relationship == REL_QA) {
+            $reasonsbody .= "You are the QA contact for the bug, or are watching the QA contact.\n";
+        } elsif ($relationship == REL_CC) {
+            $reasonsbody .= "You are on the CC list for the bug, or are watching someone who is.\n";
+        } elsif ($relationship == REL_VOTER) {
+            $reasonsbody .= "You are a voter for the bug, or are watching someone who is.\n";
+        }
+    }
+
     my $isnew = !$start;
     
+    my %substs;
+
     # If an attachment was created, then add an URL. (Note: the 'g'lobal
     # replace should work with comments with multiple attachments.)
 
     if ( $newcomments =~ /Created an attachment \(/ ) {
 
         my $showattachurlbase =
-            Bugzilla->params->{'urlbase'} . "attachment.cgi?id=";
+            Param('urlbase') . "attachment.cgi?id=";
 
-        $newcomments =~ s/(Created an attachment \(id=([0-9]+)\))/$1\n --> \(${showattachurlbase}$2\)/g;
+        $newcomments =~ s/(Created an attachment \(id=([0-9]+)\))/$1\n --> \(${showattachurlbase}$2&action=view\)/g;
     }
 
-    my $diffs = $difftext . "\n\n" . $newcomments;
+    $substs{"neworchanged"} = $isnew ? 'New: ' : '';
+    $substs{"to"} = $user->email;
+    $substs{"cc"} = '';
+    $substs{"bugid"} = $id;
     if ($isnew) {
-        $diffs = $head . ($difftext ? "\n\n" : "") . $diffs;
-    }
-
-    my (@reasons, @reasons_watch);
-    while (my ($relationship, $bits) = each %{$relRef}) {
-        push(@reasons, $relationship) if ($bits & BIT_DIRECT);
-        push(@reasons_watch, $relationship) if ($bits & BIT_WATCHING);
-    }
-
-    my @headerrel   = map { REL_NAMES->{$_} } @reasons;
-    my @watchingrel = map { REL_NAMES->{$_} } @reasons_watch;
-    push(@headerrel,   'None') unless @headerrel;
-    push(@watchingrel, 'None') unless @watchingrel;
-    push @watchingrel, map { user_id_to_login($_) } @$watchingRef;
-
-    my $sitespec = '@' . Bugzilla->params->{'urlbase'};
-    $sitespec =~ s/:\/\//\./; # Make the protocol look like part of the domain
-    $sitespec =~ s/^([^:\/]+):(\d+)/$1/; # Remove a port number, to relocate
-    if ($2) {
-        $sitespec = "-$2$sitespec"; # Put the port number back in, before the '@'
-    }
-    my $threadingmarker;
-    if ($isnew) {
-        $threadingmarker = "Message-ID: <bug-$id-" . $user->id . "$sitespec>";
+      $substs{"diffs"} = $head . "\n\n" . $newcomments;
     } else {
-        $threadingmarker = "In-Reply-To: <bug-$id-" . $user->id . "$sitespec>";
+      $substs{"diffs"} = $difftext . "\n\n" . $newcomments;
+    }
+    $substs{"product"} = $values{'product'};
+    $substs{"component"} = $values{'component'};
+    $substs{"keywords"} = $values{'keywords'};
+    $substs{"severity"} = $values{'bug_severity'};
+    $substs{"summary"} = $values{'short_desc'};
+    $substs{"reasonsheader"} = join(" ", map { $rel_names{$_} } @$relRef);
+    $substs{"reasonsbody"} = $reasonsbody;
+    $substs{"space"} = " ";
+    if ($isnew) {
+        $substs{'threadingmarker'} = "Message-ID: <bug-$id-" . 
+                                     $user->id . "$sitespec>";
+    } else {
+        $substs{'threadingmarker'} = "In-Reply-To: <bug-$id-" . 
+                                     $user->id . "$sitespec>";
     }
     
-
-    my $vars = {
-        neworchanged => $isnew ? 'New: ' : '',
-        to => $user->email,
-        bugid => $id,
-        product => $values{'product'},
-        comp => $values{'component'},
-        keywords => $values{'keywords'},
-        severity => $values{'bug_severity'},
-        status => $values{'bug_status'},
-        priority => $values{'priority'},
-        assignedto => $values{'assigned_to'},
-        targetmilestone => $values{'target_milestone'},
-        changedfields => $values{'changed_fields'},
-        summary => $values{'short_desc'},
-        reasons => \@reasons,
-        reasons_watch => \@reasons_watch,
-        reasonsheader => join(" ", @headerrel),
-        reasonswatchheader => join(" ", @watchingrel),
-        changer => $values{'changer'},
-        changername => $values{'changername'},
-        diffs => $diffs,
-        threadingmarker => $threadingmarker
-    };
-
-    my $msg;
-    my $template = Bugzilla->template_inner($user->settings->{'lang'}->{'value'});
-    $template->process("email/newchangedmail.txt.tmpl", $vars, \$msg)
-      || ThrowTemplateError($template->error());
-    Bugzilla->template_inner("");
+    my $template = Param("newchangedmail");
+    
+    my $msg = perform_substs($template, \%substs);
 
     MessageToMTA($msg);
 
     return 1;
 }
 
-# Get bug comments for the given period.
+sub MessageToMTA {
+    my ($msg) = (@_);
+    return if (Param('mail_delivery_method') eq "none");
+
+    my ($header, $body) = $msg =~ /(.*?\n)\n(.*)/s ? ($1, $2) : ('', $msg);
+    my $headers;
+
+    if (Param('utf8') and (!is_7bit_clean($header) or !is_7bit_clean($body))) {
+        ($headers, $body) = encode_message($msg);
+    } else {
+        my @header_lines = split(/\n/, $header);
+        $headers = new Mail::Header \@header_lines, Modify => 0;
+    }
+
+    my $from = $headers->get('from');
+
+    if (Param("mail_delivery_method") eq "sendmail" && $^O =~ /MSWin32/i) {
+        my $cmd = '|' . SENDMAIL_EXE . ' -t -i';
+        if ($from) {
+            # We're on Windows, thus no danger of command injection
+            # via $from. In other words, it is safe to embed $from.
+            $cmd .= qq# -f"$from"#;
+        }
+        open(SENDMAIL, $cmd) ||
+            die "Failed to execute " . SENDMAIL_EXE . ": $!\n";
+        print SENDMAIL $headers->as_string;
+        print SENDMAIL "\n";
+        print SENDMAIL $body;
+        close SENDMAIL;
+        return;
+    }
+
+    my @args;
+    if (Param("mail_delivery_method") eq "sendmail") {
+        push @args, "-i";
+        if ($from) {
+            push(@args, "-f$from");
+        }
+    }
+    if (Param("mail_delivery_method") eq "sendmail" && !Param("sendmailnow")) {
+        push @args, "-ODeliveryMode=deferred";
+    }
+    if (Param("mail_delivery_method") eq "smtp") {
+        push @args, Server => Param("smtpserver");
+        if ($from) {
+            $ENV{'MAILADDRESS'} = $from;
+        }
+    }
+    my $mailer = new Mail::Mailer Param("mail_delivery_method"), @args;
+    if (Param("mail_delivery_method") eq "testfile") {
+        $Mail::Mailer::testfile::config{outfile} = "$datadir/mailer.testfile";
+    }
+    
+    $mailer->open($headers->header_hashref);
+    print $mailer $body;
+    $mailer->close;
+}
+
+sub encode_qp_words {
+    my ($line) = (@_);
+    my @encoded;
+    foreach my $word (split / /, $line) {
+        if (!is_7bit_clean($word)) {
+            push @encoded, '=?UTF-8?Q?_' . encode_qp($word, '') . '?=';
+        } else {
+            push @encoded, $word;
+        }
+    }
+    return join(' ', @encoded);
+}
+
+sub encode_message {
+    my ($msg) = @_;
+
+    my $parser = MIME::Parser->new;
+    $parser->output_to_core(1);
+    $parser->tmp_to_core(1);
+    my $entity = $parser->parse_data($msg);
+    $entity = encode_message_entity($entity);
+
+    my @header_lines = split(/\n/, $entity->header_as_string);
+    my $head = new Mail::Header \@header_lines, Modify => 0;
+
+    my $body = $entity->body_as_string;
+
+    return ($head, $body);
+}
+
+sub encode_message_entity {
+    my ($entity) = @_;
+
+    my $head = $entity->head;
+
+    # encode the subject
+
+    my $subject = $head->get('subject');
+    if (defined $subject && !is_7bit_clean($subject)) {
+        $subject =~ s/[\r\n]+$//;
+        $head->replace('subject', encode_qp_words($subject));
+    }
+
+    # encode addresses
+
+    foreach my $field (qw(from to cc reply-to sender errors-to)) {
+        my $high = $head->count($field) - 1;
+        foreach my $index (0..$high) {
+            my $value = $head->get($field, $index);
+            my @addresses;
+            my $changed = 0;
+            foreach my $addr (Mail::Address->parse($value)) {
+                my $phrase = $addr->phrase;
+                if (is_7bit_clean($phrase)) {
+                    push @addresses, $addr->format;
+                } else {
+                    push @addresses, encode_qp_phrase($phrase) . 
+                        ' <' . $addr->address . '>';
+                    $changed = 1;
+                }
+            }
+            $changed && $head->replace($field, join(', ', @addresses), $index);
+        }
+    }
+
+    # process the body
+
+    if (scalar($entity->parts)) {
+        my $newparts = [];
+        foreach my $part ($entity->parts) {
+            my $newpart = encode_message_entity($part);
+            push @$newparts, $newpart;
+        }
+        $entity->parts($newparts);
+    }
+    else {
+        # Extract the body from the entity, for examination
+        # At this point, we can rely on MIME::Tools to do our encoding for us!
+        my $bodyhandle = $entity->bodyhandle;
+        my $body = $bodyhandle->as_string;
+        if (!is_7bit_clean($body)) {
+            # count number of 7-bit chars, and use quoted-printable if more
+            # than half the message is 7-bit clean
+            my $count = ($body =~ tr/\x20-\x7E\x0A\x0D//);
+            if ($count > length($body) / 2) {
+                $head->mime_attr('Content-Transfer-Encoding' => 'quoted-printable');
+            } else {
+                $head->mime_attr('Content-Transfer-Encoding' => 'base64');
+            }
+        }
+
+        # Set the content/type and charset of the part, if not set
+        $head->mime_attr('Content-Type' => 'text/plain')
+            unless defined $head->mime_attr('content-type');
+        $head->mime_attr('Content-Type.charset' => 'UTF-8');
+    }
+
+    $head->fold(75);
+    return $entity;
+}
+
+# Send the login name and password of the newly created account to the user.
+sub MailPassword {
+    my ($login, $password) = (@_);
+    my $template = Param("passwordmail");
+    my $msg = perform_substs($template,
+                            {"mailaddress" => $login . Param('emailsuffix'),
+                             "login" => $login,
+                             "password" => $password});
+    MessageToMTA($msg);
+}
+
+# Get bug comments for the given period and format them to be used in emails.
 sub get_comments_by_bug {
     my ($id, $start, $end) = @_;
     my $dbh = Bugzilla->dbh;
@@ -677,6 +806,17 @@ sub get_comments_by_bug {
     my $count = 0;
     my $anyprivate = 0;
 
+    my $query = 'SELECT profiles.login_name, ' .
+                        $dbh->sql_date_format('longdescs.bug_when', '%Y.%m.%d %H:%i') . ',
+                        longdescs.thetext, longdescs.isprivate,
+                        longdescs.already_wrapped
+                   FROM longdescs
+             INNER JOIN profiles
+                     ON profiles.userid = longdescs.who
+                  WHERE longdescs.bug_id = ? ';
+
+    my @args = ($id);
+
     # $start will be undef for new bugs, and defined for pre-existing bugs.
     if ($start) {
         # If $start is not NULL, obtain the count-index
@@ -684,41 +824,29 @@ sub get_comments_by_bug {
         $count = $dbh->selectrow_array('SELECT COUNT(*) FROM longdescs
                                         WHERE bug_id = ? AND bug_when <= ?',
                                         undef, ($id, $start));
+
+        $query .= ' AND longdescs.bug_when > ?
+                    AND longdescs.bug_when <= ? ';
+        push @args, ($start, $end);
     }
 
-    my $raw = 1; # Do not format comments which are not of type CMT_NORMAL.
-    my $comments = Bugzilla::Bug::GetComments($id, "oldest_to_newest", $start, $end, $raw);
+    $query .= ' ORDER BY longdescs.bug_when';
+    my $comments = $dbh->selectall_arrayref($query, undef, @args);
 
-    if (Bugzilla->params->{'insidergroup'}) {
-        $anyprivate = 1 if scalar(grep {$_->{'isprivate'} > 0} @$comments);
-    }
-
-    return ($comments, $anyprivate, $count);
-}
-
-# Prepare comments for the given language.
-sub prepare_comments {
-    my ($raw_comments, $count) = @_;
-
-    my $result = "";
-    foreach my $comment (@$raw_comments) {
+    foreach (@$comments) {
+        my ($who, $when, $text, $isprivate, $already_wrapped) = @$_;
         if ($count) {
-            $result .= "\n\n--- Comment #$count from ";
-            if ($comment->{'name'} eq $comment->{'email'}) {
-                $result .= $comment->{'email'};
-            } else {
-                $result .= $comment->{'name'} . " <" . $comment->{'email'} . ">";
-            }
-            $result .= "  " . format_time($comment->{'time'}) . " ---\n";
+            $result .= "\n\n------- Comment #$count from $who" .
+                       Param('emailsuffix'). "  " . format_time($when) .
+                       " -------\n";
         }
-        # Format language specific comments. We don't update $comment->{'body'}
-        # directly, otherwise it would grow everytime you call format_comment()
-        # with a different language as some text may be appended to the existing one.
-        my $body = Bugzilla::Bug::format_comment($comment);
-        $result .= ($comment->{'already_wrapped'} ? $body : wrap_comment($body));
+        if ($isprivate > 0 && Param('insidergroup')) {
+            $anyprivate = 1;
+        }
+        $result .= ($already_wrapped ? $text : wrap_comment($text));
         $count++;
     }
-    return $result;
+    return ($result, $anyprivate);
 }
 
 1;

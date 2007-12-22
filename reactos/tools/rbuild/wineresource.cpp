@@ -37,7 +37,7 @@ WineResource::~WineResource ()
 bool
 WineResource::IsSpecFile ( const File& file )
 {
-	string extension = GetExtension ( file.file );
+	string extension = GetExtension ( file.name );
 	if ( extension == ".spec" || extension == ".SPEC" )
 		return true;
 	return false;
@@ -58,7 +58,7 @@ WineResource::IsWineModule ( const Module& module )
 bool
 WineResource::IsResourceFile ( const File& file )
 {
-	string extension = GetExtension ( file.file );
+	string extension = GetExtension ( file.name );
 	if ( extension == ".rc" || extension == ".RC" )
 		return true;
 	return false;
@@ -71,7 +71,7 @@ WineResource::GetResourceFilename ( const Module& module )
 	for ( size_t i = 0; i < files.size (); i++ )
 	{
 		if ( IsResourceFile ( *files[i] ) )
-			return files[i]->file.relative_path + sSep + files[i]->file.name;
+			return files[i]->name;
 	}
 	return "";
 }
@@ -103,23 +103,15 @@ WineResource::UnpackResourcesInModule ( Module& module,
 		         module.name.c_str () );
 	}
 
-	string relativeDirectory = module.output->relative_path;
-	string outputDirectory = Environment::GetIntermediatePath() + sSep + module.output->relative_path;
-	string parameters = ssprintf ( "-b %s -O %s -f -x %s",
-	                               NormalizeFilename ( relativeDirectory ).c_str (),
+	string outputDirectory = module.GetBasePath ();
+	    string parameters = ssprintf ( "-b %s -f -x %s",
 	                               NormalizeFilename ( outputDirectory ).c_str (),
 	                               NormalizeFilename ( resourceFilename ).c_str () );
 	string command = FixSeparatorForSystemCommand(bin2res) + " " + parameters;
-
-	Directory( relativeDirectory ).GenerateTree( IntermediateDirectory, project.configuration.Verbose );
-
 	int exitcode = system ( command.c_str () );
 	if ( exitcode != 0 )
 	{
 		throw InvocationFailedException ( command,
 		                                  exitcode );
 	}
-	module.non_if_data.includes.push_back( new Include ( module.project,
-	                                                     IntermediateDirectory,
-	                                                     module.output->relative_path ) );
 }

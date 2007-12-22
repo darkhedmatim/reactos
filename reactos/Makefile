@@ -38,7 +38,7 @@
 #        This can require several minutes to complete. If you only need to check
 #        dependencies for a single or few modules then you can use the
 #        module_depends targets instead. This target can also repair a damaged or
-#        missing makefile-{ROS_ARCH}.auto if needed.
+#        missing makefile.auto if needed.
 #
 #    module_depends
 #        These targets do a dependency check of individual modules. Replace module
@@ -48,10 +48,6 @@
 #
 #
 # Accepted environment variables:
-#
-#    ROS_ARCH
-#        This variable specifies the name of the architecture to build ReactOS for.
-#        The variable defaults to i386.
 #
 #    ROS_PREFIX
 #        This variable specifies the prefix of the MinGW installation. On Windows
@@ -65,13 +61,13 @@
 #        files are generated files that are needed to generate the final
 #        output files. Examples of intermediate files include *.o, *.a, and
 #        *.coff. N.B. Don't put a path separator at the end. The variable
-#        defaults to .\obj-{ROS_ARCH}.
+#        defaults to .\obj-i386.
 #
 #    ROS_OUTPUT
 #        This variable controls where to put output files. Output files are
 #        generated files that makes up the result of the build process.
 #        Examples of output files include *.exe, *.dll, and *.sys. N.B. Don't
-#        put a path separator at the end. The variable defaults to .\output-{ROS_ARCH}.
+#        put a path separator at the end. The variable defaults to .\output-i386.
 #
 #    ROS_CDOUTPUT
 #        This variable controls the name of the ReactOS directory on cdrom.
@@ -89,7 +85,7 @@
 #    ROS_INSTALL
 #        This variable controls where to install output files to when using
 #        'make install'. N.B. Don't put a path separator at the end. The variable
-#        defaults to .\{ROS_CDOUTPUT}.
+#        defaults to .\reactos.
 #
 #    ROS_BUILDMAP
 #        This variable controls if map files are to be generated for executable
@@ -147,12 +143,6 @@ endif
 .PHONY: world
 .PHONY: universe
 
-ifneq ($(ROS_ARCH),)
-  ARCH := $(ROS_ARCH)
-else
-  ARCH := i386
-endif
-
 ifeq ($(ROS_AUTOMAKE),)
 ROS_AUTOMAKE=makefile.auto
 endif
@@ -167,15 +157,15 @@ ifeq ($(word 1,$(shell gcc -dumpmachine)),mingw32)
 ifeq ($(findstring msys,$(shell sh --version 2>nul)),msys)
 export OSTYPE = msys
 HOST=mingw32-linux
-HOST_CFLAGS+=-fshort-wchar
-HOST_CPPFLAGS+=-fshort-wchar
+CFLAGS+=-fshort-wchar
+CPPFLAGS+=-fshort-wchar
 else
 HOST=mingw32-windows
 endif
 else
 HOST=mingw32-linux
-HOST_CFLAGS+=-fshort-wchar
-HOST_CPPFLAGS+=-fshort-wchar
+CFLAGS+=-fshort-wchar
+CPPFLAGS+=-fshort-wchar
 endif
 endif
 
@@ -229,7 +219,6 @@ ifeq ($(HALFVERBOSEECHO),yes)
   ECHO_TEST    =@echo $(QUOTE)[TEST]     $@$(QUOTE)
   ECHO_GENDIB  =@echo $(QUOTE)[GENDIB]   $@$(QUOTE)
   ECHO_STRIP   =@echo $(QUOTE)[STRIP]    $@$(QUOTE)
-  ECHO_RGENSTAT=@echo $(QUOTE)[RGENSTAT] $@$(QUOTE)
 else
   ECHO_CP      =
   ECHO_MKDIR   =
@@ -259,85 +248,100 @@ else
   ECHO_TEST    =
   ECHO_GENDIB  =
   ECHO_STRIP   =
-  ECHO_RGENSTAT=
 endif
 
-# Set host compiler/linker
-ifeq ($(HOST_CC),)
-  HOST_CC = gcc
-endif
-ifeq ($(HOST_CPP),)
-  HOST_CPP = g++
-endif
-host_gcc = $(Q)$(HOST_CC)
-host_gpp = $(Q)$(HOST_CPP)
+
+host_gcc = $(Q)gcc
+host_gpp = $(Q)g++
 host_ld = $(Q)ld
 host_ar = $(Q)ar
 host_objcopy = $(Q)objcopy
-
-# Set target compiler/linker
-ifneq ($(ROS_PREFIX),)
-  PREFIX_ := $(ROS_PREFIX)-
-else
-  ifeq ($(HOST),mingw32-linux)
-    PREFIX_ := mingw32-
-  else
-    PREFIX_ :=
-  endif
-endif
-ifeq ($(TARGET_CC),)
-  TARGET_CC = $(PREFIX_)gcc
-endif
-ifeq ($(TARGET_CPP),)
-  TARGET_CPP = $(PREFIX_)g++
-endif
-gcc = $(Q)$(TARGET_CC)
-gpp = $(Q)$(TARGET_CPP)
-ld = $(Q)$(PREFIX_)ld
-nm = $(Q)$(PREFIX_)nm
-objdump = $(Q)$(PREFIX_)objdump
-ar = $(Q)$(PREFIX_)ar
-objcopy = $(Q)$(PREFIX_)objcopy
-dlltool = $(Q)$(PREFIX_)dlltool
-strip = $(Q)$(PREFIX_)strip
-windres = $(Q)$(PREFIX_)windres
-
-# Set utilities
-ifeq ($(OSTYPE),msys)
-  HOST=mingw32-linux
-endif
 ifeq ($(HOST),mingw32-linux)
-	ifeq ($(OSTYPE),msys)
-		export EXEPOSTFIX = .exe
-	else
-		export EXEPOSTFIX =
-	endif
+	export EXEPREFIX = ./
+ifeq ($(OSTYPE),msys)
+	export EXEPOSTFIX = .exe
+else
+	export EXEPOSTFIX =
+endif
 	export SEP = /
 	mkdir = -$(Q)mkdir -p
+	gcc = $(Q)$(PREFIX)-gcc
+	gpp = $(Q)$(PREFIX)-g++
+	ld = $(Q)$(PREFIX)-ld
+	nm = $(Q)$(PREFIX)-nm
+	objdump = $(Q)$(PREFIX)-objdump
+	ar = $(Q)$(PREFIX)-ar
+	objcopy = $(Q)$(PREFIX)-objcopy
+	dlltool = $(Q)$(PREFIX)-dlltool
+	strip = $(Q)$(PREFIX)-strip
+	windres = $(Q)$(PREFIX)-windres
 	rm = $(Q)rm -f
 	cp = $(Q)cp
 	NUL = /dev/null
 else # mingw32-windows
-	export EXEPOSTFIX = .exe
-	ROS_EMPTY =
-	export SEP = \$(ROS_EMPTY)
-	mkdir = -$(Q)mkdir
-	rm = $(Q)del /f /q
-	cp = $(Q)copy /y
-	NUL = NUL
+	ifeq ($(OSTYPE),msys)
+		HOST=mingw32-linux
+		export EXEPREFIX = ./
+		export EXEPOSTFIX = .exe
+		export SEP = /
+		mkdir = -$(Q)mkdir -p
+		rm = $(Q)rm -f
+		cp = $(Q)cp
+		NUL = /dev/null
+	else
+		export EXEPREFIX =
+		export EXEPOSTFIX = .exe
+		ROS_EMPTY =
+		export SEP = \$(ROS_EMPTY)
+		mkdir = -$(Q)mkdir
+		rm = $(Q)del /f /q
+		cp = $(Q)copy /y
+		NUL = NUL
+	endif
+	ifeq ($(ROS_PREFIX),)
+		gcc = $(Q)gcc
+		gpp = $(Q)g++
+		ld = $(Q)ld
+		nm = $(Q)nm
+		objdump = $(Q)objdump
+		ar = $(Q)ar
+		objcopy = $(Q)objcopy
+		dlltool = $(Q)dlltool
+		strip = $(Q)strip
+		windres = $(Q)windres
+	else
+		gcc = $(Q)$(ROS_PREFIX)-gcc
+		gpp = $(Q)$(ROS_PREFIX)-g++
+		ld = $(Q)$(ROS_PREFIX)-ld
+		nm = $(Q)$(ROS_PREFIX)-nm
+		objdump = $(Q)$(ROS_PREFIX)-objdump
+		ar = $(Q)$(ROS_PREFIX)-ar
+		objcopy = $(Q)$(ROS_PREFIX)-objcopy
+		dlltool = $(Q)$(ROS_PREFIX)-dlltool
+		strip = $(Q)$(ROS_PREFIX)-strip
+		windres = $(Q)$(ROS_PREFIX)-windres
+	endif
 endif
 
 ifneq ($(ROS_INTERMEDIATE),)
   INTERMEDIATE := $(ROS_INTERMEDIATE)
 else
-  INTERMEDIATE := obj-$(ARCH)
+  ifneq ($(ROS_CDOUTPUT),)
+    INTERMEDIATE := obj-$(ROS_CDOUTPUT)
+  else
+    INTERMEDIATE := obj-i386
+  endif
 endif
 INTERMEDIATE_ := $(INTERMEDIATE)$(SEP)
 
 ifneq ($(ROS_OUTPUT),)
   OUTPUT := $(ROS_OUTPUT)
 else
-  OUTPUT := output-$(ARCH)
+  ifneq ($(ROS_CDOUTPUT),)
+    OUTPUT := output-$(ROS_CDOUTPUT)
+  else
+    OUTPUT := output-i386
+  endif
 endif
 OUTPUT_ := $(OUTPUT)$(SEP)
 
@@ -351,18 +355,20 @@ CDOUTPUT_ := $(CDOUTPUT)$(SEP)
 ifneq ($(ROS_TEMPORARY),)
   TEMPORARY := $(ROS_TEMPORARY)
 else
-  TEMPORARY := .
+  TEMPORARY :=
 endif
 TEMPORARY_ := $(TEMPORARY)$(SEP)
 
 ifneq ($(ROS_INSTALL),)
   INSTALL := $(ROS_INSTALL)
 else
-  INSTALL := $(CDOUTPUT)
+  ifneq ($(ROS_CDOUTPUT),)
+    INSTALL := reactos.$(ROS_CDOUTPUT)
+  else
+    INSTALL := reactos
+  endif
 endif
 INSTALL_ := $(INSTALL)$(SEP)
-
-RBUILD_FLAGS := -rReactOS-$(ARCH).rbuild -DARCH=$(ARCH)
 
 $(INTERMEDIATE):
 	${mkdir} $@
@@ -375,17 +381,27 @@ endif
 
 NTOSKRNL_MC = ntoskrnl$(SEP)ntoskrnl.mc
 KERNEL32_MC = dll$(SEP)win32$(SEP)kernel32$(SEP)kernel32.mc
-BUILDNO_H = $(INTERMEDIATE_)include$(SEP)reactos$(SEP)buildno.h
-BUGCODES_H = $(INTERMEDIATE_)include$(SEP)reactos$(SEP)bugcodes.h
-BUGCODES_RC = $(INTERMEDIATE_)ntoskrnl$(SEP)bugcodes.rc
-ERRCODES_H = $(INTERMEDIATE_)include$(SEP)reactos$(SEP)errcodes.h
-ERRCODES_RC = $(INTERMEDIATE_)dll$(SEP)win32$(SEP)kernel32$(SEP)errcodes.rc
+BUILDNO_H = include$(SEP)reactos$(SEP)buildno.h
+BUGCODES_H = include$(SEP)reactos$(SEP)bugcodes.h
+BUGCODES_RC = ntoskrnl$(SEP)bugcodes.rc
+ERRCODES_H = include$(SEP)reactos$(SEP)errcodes.h
+ERRCODES_RC = dll$(SEP)win32$(SEP)kernel32$(SEP)errcodes.rc
 
+
+# Hack getting ReactOS trunk Build again
+# the reail ARCH are not avail until we run 
+# rbuild and rbuild genreate makefile.auto
+# only in makefile.auto we got the 
+# ARCH avail not before. So FIX THIS
+# ISSSUE ASAP, other wise the ntapi.h
+# will not be autogenretaed for right 
+# platforms. 
 
 include lib/lib.mak
 include tools/tools.mak
 include boot/freeldr/bootsect/bootsect.mak
 -include $(ROS_AUTOMAKE)
+include tools/nci/nci.mak
 
 PREAUTO := \
 	$(BIN2C_TARGET) \
@@ -395,16 +411,17 @@ PREAUTO := \
 	$(BUGCODES_RC) \
 	$(ERRCODES_H) \
 	$(ERRCODES_RC) \
-	$(GENDIB_DIB_FILES) \
-	$(NCI_SERVICE_FILES)
-ifeq ($(ARCH),powerpc)
-PREAUTO += $(OFW_INTERFACE_SERVICE_FILES) $(PPCMMU_TARGETS)
-endif
+	$(GENDIB_DIB_FILES)
 
-$(ROS_AUTOMAKE): $(RBUILD_TARGET) $(XMLBUILDFILES) | $(PREAUTO)
-	${mkdir} $(OUTPUT_)media$(SEP)inf 2>$(NUL)
+POSTAUTO : \
+	psdk \
+	$(IDL_FILES) \
+	$(NCI_SERVICE_FILES)
+
+$(ROS_AUTOMAKE): $(RBUILD_TARGET) $(PREAUTO) $(XMLBUILDFILES)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) mingw
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) mingw
+	@$(MAKE) POSTAUTO
 
 world: all bootcd livecd
 
@@ -429,163 +446,148 @@ universe:
 		world
 
 sysregtest:
-	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg
+	-mkdir $(OUTPUT_)cd$(SEP)reactos
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample boot$(SEP)bootdata$(SEP)unattend.inf
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+	$(cp) boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat.sample boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat
+	$(MAKE) dbgprint
+	$(MAKE) bootcdregtest
+	$(MAKE) sysreg
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)txtmode.cfg rosboot
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)secstage.cfg rosboot
+	$(OUTPUT_)tools$(SEP)sysreg$(SEP)sysreg$(EXEPOSTFIX) tools$(SEP)sysreg$(SEP)runonce.cfg rosboot
 
-.PHONY: rgenstat
-rgenstat: $(RGENSTAT_TARGET)
-	$(ECHO_RGENSTAT)
-	$(Q)$(RGENSTAT_TARGET) apistatus.lst apistatus.xml
+sysregtest_clean:
+	$(rm) boot$(SEP)bootdata$(SEP)unattend.inf
+	$(rm) boot$(SEP)bootdata$(SEP)bootcdregtest$(SEP)testboot.bat
+	$(rm) $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+
+regtest:
+	$(cp) boot$(SEP)bootdata$(SEP)unattend.inf.sample $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
+	$(MAKE) bootcdregtest
+	$(rm) $(OUTPUT_)cd$(SEP)reactos$(SEP)unattend.inf
 
 .PHONY: cb
 cb: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) cb
-
-.PHONY: msbuild
-msbuild: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) msbuild
-
-.PHONY: msbuild_clean
-msbuild_clean: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c msbuild
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) cb
 
 .PHONY: depmap
 depmap: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) depmap
-
-.PHONY: vreport
-vreport:$(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) vreport
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) depmap
 
 .PHONY: msvc
 msvc: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) msvc
 
 $(BUGCODES_H) $(BUGCODES_RC): $(WMC_TARGET) $(NTOSKRNL_MC)
-	${mkdir} $(INTERMEDIATE_)include$(SEP)reactos 2>$(NUL)
-	${mkdir} $(INTERMEDIATE_)ntoskrnl 2>$(NUL)
 	$(ECHO_WMC)
 	$(Q)$(WMC_TARGET) -i -H $(BUGCODES_H) -o $(BUGCODES_RC) $(NTOSKRNL_MC)
 
 $(ERRCODES_H) $(ERRCODES_RC): $(WMC_TARGET) $(KERNEL32_MC)
-	${mkdir} $(INTERMEDIATE_)include$(SEP)reactos 2>$(NUL)
-	${mkdir} $(INTERMEDIATE_)dll$(SEP)win32$(SEP)kernel32 2>$(NUL)
 	$(ECHO_WMC)
 	$(Q)$(WMC_TARGET) -i -U -H $(ERRCODES_H) -o $(ERRCODES_RC) $(KERNEL32_MC)
 
 .PHONY: msvc6
 msvc6: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs6.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs6.00 -voversionconfiguration msvc
 
 .PHONY: msvc7
 msvc7: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -voversionconfiguration msvc
 
 .PHONY: msvc71
 msvc71: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -voversionconfiguration msvc
 
 .PHONY: msvc8
 msvc8: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs8.00 -voversionconfiguration msvc
-
-.PHONY: msvc9
-msvc9: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs9.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -voversionconfiguration msvc
 
 .PHONY: msvc6_clean
 msvc6_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
 
 .PHONY: msvc7_clean
 msvc7_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
 
 .PHONY: msvc71_clean
 msvc71_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
 
 .PHONY: msvc8_clean
 msvc8_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs8.00 -voversionconfiguration msvc
-
-.PHONY: msvc9_clean
-msvc9_clean: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs9.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.00 -voversionconfiguration msvc
 
 .PHONY: msvc_clean
 msvc_clean: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c msvc
 
 .PHONY: msvc_clean_all
 msvc_clean_all: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs8.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs6.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.00 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs7.10 -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -c -vs8.10 -voversionconfiguration msvc
 
 .PHONY: msvc7_install_debug
 msvc7_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.00 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcdebug -voversionconfiguration msvc
 
 .PHONY: msvc7_install_release
 msvc7_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.00 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcrelease -voversionconfiguration msvc
 
 .PHONY: msvc7_install_speed
 msvc7_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.00 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.00 -vcspeed -voversionconfiguration msvc
 
 .PHONY: msvc71_install_debug
 msvc71_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.10 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcdebug -voversionconfiguration msvc
 
 .PHONY: msvc71_install_release
 msvc71_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.10 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcrelease -voversionconfiguration msvc
 
 
 .PHONY: msvc71_install_speed
 msvc71_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs7.10 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs7.10 -vcspeed -voversionconfiguration msvc
 
 .PHONY: msvc8_install_debug
 msvc8_install_debug: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs8.00 -vcdebug -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcdebug -voversionconfiguration msvc
 
 .PHONY: msvc8_install_release
 msvc8_install_release: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs8.00 -vcrelease -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcrelease -voversionconfiguration msvc
 
 .PHONY: msvc8_install_speed
 msvc8_install_speed: $(RBUILD_TARGET)
 	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs8.00 -vcspeed -voversionconfiguration msvc
+	$(Q)$(RBUILD_TARGET) $(ROS_RBUILDFLAGS) -vs8.00 -vcspeed -voversionconfiguration msvc
 
 .PHONY: makefile_auto_clean
 makefile_auto_clean:
@@ -595,6 +597,6 @@ makefile_auto_clean:
 clean: makefile_auto_clean
 
 .PHONY: depends
-depends: $(RBUILD_TARGET)
-	$(ECHO_RBUILD)
-	$(Q)$(RBUILD_TARGET) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) mingw
+depends:
+	@-$(rm) makefile.auto
+	@$(MAKE) $(filter-out depends, $(MAKECMDGOALS))

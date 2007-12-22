@@ -35,15 +35,15 @@ struct default_callback_context
 
 struct file_op
 {
-    struct file_op *next;
-    UINT            style;
-    WCHAR          *src_root;
-    WCHAR          *src_path;
-    WCHAR          *src_file;
-    WCHAR          *src_descr;
-    WCHAR          *src_tag;
-    WCHAR          *dst_path;
-    WCHAR          *dst_file;
+    struct file_op       *next;
+    UINT                  style;
+    WCHAR                *src_root;
+    WCHAR                *src_path;
+    WCHAR                *src_file;
+    WCHAR                *src_descr;
+    WCHAR                *src_tag;
+    WCHAR                *dst_path;
+    WCHAR                *dst_file;
     PSECURITY_DESCRIPTOR  dst_sd;
 };
 
@@ -70,6 +70,19 @@ inline static WCHAR *strdupW( const WCHAR *str )
     {
         int len = (strlenW(str) + 1) * sizeof(WCHAR);
         if ((ret = HeapAlloc( GetProcessHeap(), 0, len ))) memcpy( ret, str, len );
+    }
+    return ret;
+}
+
+
+inline static WCHAR *strdupAtoW( const char *str )
+{
+    WCHAR *ret = NULL;
+    if (str)
+    {
+        DWORD len = MultiByteToWideChar( CP_ACP, 0, str, -1, NULL, 0 );
+        if ((ret = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) )))
+            MultiByteToWideChar( CP_ACP, 0, str, -1, ret, len );
     }
     return ret;
 }
@@ -207,7 +220,6 @@ UINT CALLBACK QUEUE_callback_WtoA( void *context, UINT notification,
     case SPFILENOTIFY_RENAMEERROR:
     case SPFILENOTIFY_STARTCOPY:
     case SPFILENOTIFY_ENDCOPY:
-    case SPFILENOTIFY_QUEUESCAN_EX:
         {
             FILEPATHS_W *pathsW = (FILEPATHS_W *)param1;
             FILEPATHS_A pathsA;
@@ -241,18 +253,8 @@ UINT CALLBACK QUEUE_callback_WtoA( void *context, UINT notification,
         }
         break;
 
-    case SPFILENOTIFY_QUEUESCAN:
-        {
-            LPWSTR targetW = (LPWSTR)param1;
-            LPSTR target = strdupWtoA( targetW );
-
-            ret = callback_ctx->orig_handler( callback_ctx->orig_context, notification,
-                                              (UINT_PTR)target, param2 );
-            HeapFree( GetProcessHeap(), 0, target );
-        }
-        break;
-
     case SPFILENOTIFY_NEEDMEDIA:
+    case SPFILENOTIFY_QUEUESCAN:
         FIXME("mapping for %d not implemented\n",notification);
     case SPFILENOTIFY_STARTQUEUE:
     case SPFILENOTIFY_ENDQUEUE:
@@ -974,13 +976,12 @@ static BOOL create_full_pathW(const WCHAR *path)
     return ret;
 }
 
-static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style, 
-                           PSP_FILE_CALLBACK_W handler, PVOID context )
+static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style)
 {
     BOOL rc = FALSE;
     BOOL docopy = TRUE;
 
-    TRACE("copy %s to %s style 0x%x\n",debugstr_w(source),debugstr_w(target),style);
+    TRACE("copy %s to %s style 0x%lx\n",debugstr_w(source),debugstr_w(target),style);
 
     /* before copy processing */
     if (style & SP_COPY_REPLACEONLY)
@@ -1011,7 +1012,7 @@ static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style,
             VersionSizeTarget = GetFileVersionInfoSizeW((LPWSTR)target,&zero);
         }
 
-        TRACE("SizeTarget %i ... SizeSource %i\n",VersionSizeTarget,
+        TRACE("SizeTarget %li ... SizeSource %li\n",VersionSizeTarget,
                 VersionSizeSource);
 
         if (VersionSizeSource && VersionSizeTarget)
@@ -1042,32 +1043,20 @@ static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style,
 
                 if (ret)
                 {
-                    FILEPATHS_W filepaths;
-
-                    TRACE("Versions: Source %i.%i target %i.%i\n",
+                    TRACE("Versions: Source %li.%li target %li.%li\n",
                       SourceInfo->dwFileVersionMS, SourceInfo->dwFileVersionLS,
                       TargetInfo->dwFileVersionMS, TargetInfo->dwFileVersionLS);
 
-                    /* used in case of notification */
-                    filepaths.Target = target;
-                    filepaths.Source = source;
-                    filepaths.Win32Error = 0;
-                    filepaths.Flags = 0;
-
                     if (TargetInfo->dwFileVersionMS > SourceInfo->dwFileVersionMS)
                     {
-                        if (handler)
-                            docopy = handler (context, SPFILENOTIFY_TARGETNEWER, (UINT_PTR)&filepaths, 0);
-                        else
-                            docopy = FALSE;
+                        FIXME("Notify that target version is greater..\n");
+                        docopy = FALSE;
                     }
                     else if ((TargetInfo->dwFileVersionMS == SourceInfo->dwFileVersionMS)
                              && (TargetInfo->dwFileVersionLS > SourceInfo->dwFileVersionLS))
                     {
-                        if (handler)
-                            docopy = handler (context, SPFILENOTIFY_TARGETNEWER, (UINT_PTR)&filepaths, 0);
-                        else
-                            docopy = FALSE;
+                        FIXME("Notify that target version is greater..\n");
+                        docopy = FALSE;
                     }
                     else if ((style & SP_COPY_NEWER_ONLY) &&
                         (TargetInfo->dwFileVersionMS ==
@@ -1075,10 +1064,8 @@ static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style,
                         &&(TargetInfo->dwFileVersionLS ==
                         SourceInfo->dwFileVersionLS))
                     {
-                        if (handler)
-                            docopy = handler (context, SPFILENOTIFY_TARGETNEWER, (UINT_PTR)&filepaths, 0);
-                        else
-                            docopy = FALSE;
+                        FIXME("Notify that target version is greater..\n");
+                        docopy = FALSE;
                     }
                 }
             }
@@ -1097,7 +1084,7 @@ static BOOL do_file_copyW( LPCWSTR source, LPCWSTR target, DWORD style,
     if (style & (SP_COPY_NODECOMP | SP_COPY_LANGUAGEAWARE | SP_COPY_FORCE_IN_USE |
                  SP_COPY_IN_USE_NEEDS_REBOOT | SP_COPY_NOSKIP | SP_COPY_WARNIFSKIP))
     {
-        ERR("Unsupported style(s) 0x%x\n",style);
+        ERR("Unsupported style(s) 0x%lx\n",style);
     }
 
     if (docopy)
@@ -1133,7 +1120,7 @@ BOOL WINAPI SetupCommitFileQueueW( HWND owner, HSPFILEQ handle, PSP_FILE_CALLBAC
     if (!queue->copy_queue.count && !queue->delete_queue.count && !queue->rename_queue.count)
         return TRUE;  /* nothing to do */
 
-    if (!handler( context, SPFILENOTIFY_STARTQUEUE, (UINT_PTR)owner, 0 )) return FALSE;
+    if (!handler( context, SPFILENOTIFY_STARTQUEUE, (UINT)owner, 0 )) return FALSE;
 
     /* perform deletes */
 
@@ -1214,7 +1201,7 @@ BOOL WINAPI SetupCommitFileQueueW( HWND owner, HSPFILEQ handle, PSP_FILE_CALLBAC
 		    }
 		}
                 if (do_file_copyW( op_result == FILEOP_NEWPATH ? newpath : paths.Source,
-                               paths.Target, op->style, handler, context )) break;  /* success */
+                               paths.Target, op->style )) break;  /* success */
                 /* try to extract it from the cabinet file */
                 if (op->src_tag)
                 {
@@ -1264,17 +1251,11 @@ BOOL WINAPI SetupCommitFileQueueW( HWND owner, HSPFILEQ handle, PSP_FILE_CALLBAC
 /***********************************************************************
  *            SetupScanFileQueueA   (SETUPAPI.@)
  */
-BOOL WINAPI SetupScanFileQueueA( HSPFILEQ handle, DWORD flags, HWND window,
-                                 PSP_FILE_CALLBACK_A handler, PVOID context, PDWORD result )
+BOOL WINAPI SetupScanFileQueueA( HSPFILEQ queue, DWORD flags, HWND window,
+                                 PSP_FILE_CALLBACK_A callback, PVOID context, PDWORD result )
 {
-    struct callback_WtoA_context ctx;
-
-    TRACE("%p %x %p %p %p %p\n", handle, flags, window, handler, context, result);
-
-    ctx.orig_context = context;
-    ctx.orig_handler = handler;
-
-    return SetupScanFileQueueW( handle, flags, window, QUEUE_callback_WtoA, &ctx, result );
+    FIXME("stub\n");
+    return FALSE;
 }
 
 
@@ -1282,53 +1263,42 @@ BOOL WINAPI SetupScanFileQueueA( HSPFILEQ handle, DWORD flags, HWND window,
  *            SetupScanFileQueueW   (SETUPAPI.@)
  */
 BOOL WINAPI SetupScanFileQueueW( HSPFILEQ handle, DWORD flags, HWND window,
-                                 PSP_FILE_CALLBACK_W handler, PVOID context, PDWORD result )
+                                 PSP_FILE_CALLBACK_W callback, PVOID context, PDWORD result )
 {
     struct file_queue *queue = handle;
     struct file_op *op;
+    BOOL allnodesprocessed = FALSE;
     FILEPATHS_W paths;
-    UINT notification = 0;
-    BOOL ret = FALSE;
-
-    TRACE("%p %x %p %p %p %p\n", handle, flags, window, handler, context, result);
-
-    *result = FALSE;
-
-    if (!queue->copy_queue.count) return TRUE;
-
-    if (flags & SPQ_SCAN_USE_CALLBACK)        notification = SPFILENOTIFY_QUEUESCAN;
-    else if (flags & SPQ_SCAN_USE_CALLBACKEX) notification = SPFILENOTIFY_QUEUESCAN_EX;
-
-    if (flags & ~(SPQ_SCAN_USE_CALLBACK | SPQ_SCAN_USE_CALLBACKEX))
-    {
-        FIXME("flags %x not fully implemented\n", flags);
-    }
 
     paths.Source = paths.Target = NULL;
+    *result = FALSE;
 
-    for (op = queue->copy_queue.head; op; op = op->next)
+    if ( flags & (SPQ_SCAN_FILE_PRESENCE | SPQ_SCAN_FILE_VALIDITY | SPQ_SCAN_USE_CALLBACKEX | SPQ_SCAN_INFORM_USER | SPQ_SCAN_PRUNE_COPY_QUEUE /*| SPQ_SCAN_USE_CALLBACK_SIGNERINFO | SPQ_SCAN_PRUNE_DELREN*/) )
     {
-        build_filepathsW( op, &paths );
-        switch (notification)
+        FIXME( "flags ignored 0x%lx\n", flags & (SPQ_SCAN_FILE_PRESENCE | SPQ_SCAN_FILE_VALIDITY | SPQ_SCAN_USE_CALLBACKEX | SPQ_SCAN_INFORM_USER | SPQ_SCAN_PRUNE_COPY_QUEUE /*| SPQ_SCAN_USE_CALLBACK_SIGNERINFO | SPQ_SCAN_PRUNE_DELREN*/) );
+    }
+
+    if (queue->copy_queue.count)
+    {
+        for (op = queue->copy_queue.head; op; op = op->next)
         {
-        case SPFILENOTIFY_QUEUESCAN:
-            /* FIXME: handle delay flag */
-            if (handler( context,  notification, (UINT_PTR)paths.Target, 0 )) goto done;
-            break;
-        case SPFILENOTIFY_QUEUESCAN_EX:
-            if (handler( context, notification, (UINT_PTR)&paths, 0 )) goto done;
-            break;
-        default:
-            ret = TRUE; goto done;
+            build_filepathsW( op, &paths );
+            if (flags & SPQ_SCAN_USE_CALLBACK)
+            {
+                /* FIXME: sometimes set param 2 to SPQ_DELAYED_COPY */
+                if (NO_ERROR != callback( context, SPFILENOTIFY_QUEUESCAN, (UINT)paths.Target, 0 ))
+                    goto done;
+            }
         }
     }
 
     *result = TRUE;
+    allnodesprocessed = TRUE;
 
  done:
     HeapFree( GetProcessHeap(), 0, (void *)paths.Source );
     HeapFree( GetProcessHeap(), 0, (void *)paths.Target );
-    return ret;
+    return allnodesprocessed;
 }
 
 
@@ -1451,10 +1421,10 @@ UINT WINAPI SetupDefaultQueueCallbackA( PVOID context, UINT notification,
         TRACE( "end queue\n" );
         return 0;
     case SPFILENOTIFY_STARTSUBQUEUE:
-        TRACE( "start subqueue %ld count %ld\n", param1, param2 );
+        TRACE( "start subqueue %d count %d\n", param1, param2 );
         return TRUE;
     case SPFILENOTIFY_ENDSUBQUEUE:
-        TRACE( "end subqueue %ld\n", param1 );
+        TRACE( "end subqueue %d\n", param1 );
         return 0;
     case SPFILENOTIFY_STARTDELETE:
         TRACE( "start delete %s\n", debugstr_a(paths->Target) );
@@ -1490,7 +1460,7 @@ UINT WINAPI SetupDefaultQueueCallbackA( PVOID context, UINT notification,
         TRACE( "need media\n" );
         return FILEOP_SKIP;
     default:
-        FIXME( "notification %d params %lx,%lx\n", notification, param1, param2 );
+        FIXME( "notification %d params %x,%x\n", notification, param1, param2 );
         break;
     }
     return 0;
@@ -1515,10 +1485,10 @@ UINT WINAPI SetupDefaultQueueCallbackW( PVOID context, UINT notification,
         TRACE( "end queue\n" );
         return 0;
     case SPFILENOTIFY_STARTSUBQUEUE:
-        TRACE( "start subqueue %ld count %ld\n", param1, param2 );
+        TRACE( "start subqueue %d count %d\n", param1, param2 );
         return TRUE;
     case SPFILENOTIFY_ENDSUBQUEUE:
-        TRACE( "end subqueue %ld\n", param1 );
+        TRACE( "end subqueue %d\n", param1 );
         return 0;
     case SPFILENOTIFY_STARTDELETE:
         TRACE( "start delete %s\n", debugstr_w(paths->Target) );
@@ -1555,7 +1525,7 @@ UINT WINAPI SetupDefaultQueueCallbackW( PVOID context, UINT notification,
         TRACE( "need media\n" );
         return FILEOP_SKIP;
     default:
-        FIXME( "notification %d params %lx,%lx\n", notification, param1, param2 );
+        FIXME( "notification %d params %x,%x\n", notification, param1, param2 );
         break;
     }
     return 0;
@@ -1636,23 +1606,4 @@ UINT WINAPI SetupCopyErrorW( HWND parent, PCWSTR dialogTitle, PCWSTR diskname,
     FIXME( "stub: (Error Number %d when attempting to copy file %s from %s to %s)\n",
            w32error, debugstr_w(sourcefile), debugstr_w(sourcepath) ,debugstr_w(targetpath));
     return DPROMPT_SKIPFILE;
-}
-
-/***********************************************************************
- *            pSetupGetQueueFlags   (SETUPAPI.@)
- */
-DWORD WINAPI pSetupGetQueueFlags( HSPFILEQ handle )
-{
-    struct file_queue *queue = handle;
-    return queue->flags;
-}
-
-/***********************************************************************
- *            pSetupSetQueueFlags   (SETUPAPI.@)
- */
-BOOL WINAPI pSetupSetQueueFlags( HSPFILEQ handle, DWORD flags )
-{
-    struct file_queue *queue = handle;
-    queue->flags = flags;
-    return TRUE;
 }

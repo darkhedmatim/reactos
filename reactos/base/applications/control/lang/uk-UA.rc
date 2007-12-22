@@ -1,9 +1,9 @@
 /*
  * PROJECT:     ReactOS System Control Panel
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/control/lang/uk-UA.rc
- * PURPOSE:     Ukraianian Language File for control
- * TRANSLATOR:  Artem Reznikov
+ * FILE:        base/applications/control/Uk.rc
+ * PURPOSE:     Ukraianian Language File for ReactOS System Control Panel
+ * PROGRAMMERS: temarez
  */
 
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
@@ -13,7 +13,7 @@ LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
 // Menu
 //
 
-IDM_MAINMENU MENU DISCARDABLE
+IDM_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&Файл"
     BEGIN
@@ -21,9 +21,9 @@ BEGIN
     END
     POPUP "&Вигляд"
     BEGIN
-        MENUITEM "&Великі значки",              IDM_LARGEICONS
-        MENUITEM "&Дрібні значки",              IDM_SMALLICONS
-        MENUITEM "Спис&ок",                     IDM_LIST
+        MENUITEM "&Великі Іконки",              IDM_LARGEICONS
+        MENUITEM "&Малі Іконки",                IDM_SMALLICONS
+        MENUITEM "&Список",                     IDM_LIST
         MENUITEM "&Подробиці",                  IDM_DETAILS
     END
     POPUP "&Довідка"
@@ -32,12 +32,3 @@ BEGIN
     END
 END
 
-STRINGTABLE
-BEGIN
-    IDS_WINDOW_TITLE "Панель керування"
-	IDS_ABOUT "Проста панель управління (не заснована на просторі імен оболонки)\rCopyright 2004 GkWare e.K.\rhttp://www.gkware.com\rРозповсюджується по GPL"
-	IDS_ABOUT_TITLE "Про панель керування"
-	IDS_NO_ITEMS "Немає елементів в ListView"
-	IDS_NAME "Ім'я"
-	IDS_COMMENT "Опис"
-END

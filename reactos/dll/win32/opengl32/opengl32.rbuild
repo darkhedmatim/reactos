@@ -2,6 +2,7 @@
 	<importlibrary definition="opengl32.def" />
 	<include base="wsock32">.</include>
 	<define name="UNICODE" />
+	<define name="__USE_W32API" />
 	<define name="_DISABLE_TIDENTS" />
 	<library>ntdll</library>
 	<library>kernel32</library>

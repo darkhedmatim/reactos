@@ -412,6 +412,26 @@ static long FDI_getoffset(HFDI hfdi, INT_PTR hf)
 }
 
 /**********************************************************************
+ * FDI_realloc (internal)
+ *
+ * we can't use _msize; the user might not be using malloc, so we require
+ * an explicit specification of the previous size.  inefficient.
+ */
+static void *FDI_realloc(HFDI hfdi, void *mem, size_t prevsize, size_t newsize)
+{
+  void *rslt = NULL;
+  char *irslt, *imem;
+  size_t copysize = (prevsize < newsize) ? prevsize : newsize;
+  if (prevsize == newsize) return mem;
+  rslt = PFDI_ALLOC(hfdi, newsize); 
+  if (rslt)
+    for (irslt = (char *)rslt, imem = (char *)mem; (copysize); copysize--)
+      *irslt++ = *imem++;
+  PFDI_FREE(hfdi, mem);
+  return rslt;
+}
+
+/**********************************************************************
  * FDI_read_string (internal)
  *
  * allocate and read an arbitrarily long string from the cabinet
@@ -419,17 +439,19 @@ static long FDI_getoffset(HFDI hfdi, INT_PTR hf)
 static char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
 {
   size_t len=256,
+         oldlen = 0,
          base = FDI_getoffset(hfdi, hf),
          maxlen = cabsize - base;
   BOOL ok = FALSE;
   unsigned int i;
   cab_UBYTE *buf = NULL;
 
-  TRACE("(hfdi == ^%p, hf == %ld, cabsize == %ld)\n", hfdi, hf, cabsize);
+  TRACE("(hfdi == ^%p, hf == %d)\n", hfdi, hf);
 
   do {
     if (len > maxlen) len = maxlen;
-    if (!(buf = PFDI_ALLOC(hfdi, len))) break;
+    if (!(buf = FDI_realloc(hfdi, buf, oldlen, len))) break;
+    oldlen = len;
     if (!PFDI_READ(hfdi, hf, buf, len)) break;
 
     /* search for a null terminator in what we've just read */
@@ -442,13 +464,8 @@ static char *FDI_read_string(HFDI hfdi, INT_PTR hf, long cabsize)
         ERR("cabinet is truncated\n");
         break;
       }
-      /* The buffer is too small for the string. Reset the file to the point
-       * were we started, free the buffer and increase the size for the next try
-       */
+      len += 256;
       PFDI_SEEK(hfdi, hf, base, SEEK_SET);
-      PFDI_FREE(hfdi, buf);
-      buf = NULL;
-      len *= 2;
     }
   } while (!ok);
 
@@ -484,7 +501,7 @@ static BOOL FDI_read_entries(
   cab_UBYTE buf[64], block_resv;
   char *prevname = NULL, *previnfo = NULL, *nextname = NULL, *nextinfo = NULL;
 
-  TRACE("(hfdi == ^%p, hf == %ld, pfdici == ^%p)\n", hfdi, hf, pfdici);
+  TRACE("(hfdi == ^%p, hf == %d, pfdici == ^%p)\n", hfdi, hf, pfdici);
 
   /* 
    * FIXME: I just noticed that I am memorizing the initial file pointer
@@ -740,7 +757,7 @@ BOOL __cdecl FDIIsCabinet(
 {
   BOOL rv;
 
-  TRACE("(hfdi == ^%p, hf == ^%ld, pfdici == ^%p)\n", hfdi, hf, pfdici);
+  TRACE("(hfdi == ^%p, hf == ^%d, pfdici == ^%p)\n", hfdi, hf, pfdici);
 
   if (!REALLY_IS_FDI(hfdi)) {
     ERR("REALLY_IS_FDI failed on ^%p\n", hfdi);
@@ -2111,7 +2128,7 @@ static int fdi_decomp(const struct fdi_file *fi, int savemode, fdi_decomp_state 
             TRACE("full cab path/file name: %s\n", debugstr_a(fullpath));
         
             /* try to get a handle to the cabfile */
-            cabhf = PFDI_OPEN(CAB(hfdi), fullpath, _O_RDONLY|_O_BINARY, _S_IREAD | _S_IWRITE);
+            cabhf = PFDI_OPEN(CAB(hfdi), fullpath, 32768, _S_IREAD | _S_IWRITE);
             if (cabhf == -1) {
               /* no file.  allow the user to try again */
               fdin.fdie = FDIERROR_CABINET_NOT_FOUND;
@@ -2475,9 +2492,10 @@ BOOL __cdecl FDICopy(
   TRACE("full cab path/file name: %s\n", debugstr_a(fullpath));
 
   /* get a handle to the cabfile */
-  cabhf = PFDI_OPEN(hfdi, fullpath, _O_RDONLY|_O_BINARY, _S_IREAD | _S_IWRITE);
+  cabhf = PFDI_OPEN(hfdi, fullpath, 32768, _S_IREAD | _S_IWRITE);
   if (cabhf == -1) {
     PFDI_INT(hfdi)->perf->erfOper = FDIERROR_CABINET_NOT_FOUND;
+    PFDI_INT(hfdi)->perf->erfType = ERROR_FILE_NOT_FOUND;
     PFDI_INT(hfdi)->perf->fError = TRUE;
     SetLastError(ERROR_FILE_NOT_FOUND);
     return FALSE;
@@ -2672,7 +2690,6 @@ BOOL __cdecl FDICopy(
         PFDI_INT(hfdi)->perf->erfOper = FDIERROR_USER_ABORT;
         PFDI_INT(hfdi)->perf->erfType = 0;
         PFDI_INT(hfdi)->perf->fError = TRUE;
-        filehf = 0;
         goto bail_and_fail;
       }
     }

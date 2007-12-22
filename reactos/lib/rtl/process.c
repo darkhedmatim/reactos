@@ -72,8 +72,8 @@ RtlpInitEnvironment(HANDLE ProcessHandle,
 {
     NTSTATUS Status;
     PVOID BaseAddress = NULL;
-    SIZE_T EnviroSize;
-    SIZE_T Size;
+    ULONG EnviroSize;
+    ULONG Size;
     PWCHAR Environment = 0;
     DPRINT("RtlpInitEnvironment (hProcess: %p, Peb: %p Params: %p)\n",
             ProcessHandle, Peb, ProcessParameters);
@@ -213,11 +213,11 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
 
     /* Use us as parent if none other specified */
     if (!ParentProcess) ParentProcess = NtCurrentProcess();
-
+    
     /* Initialize the Object Attributes */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               NULL,
-                               0,
+    InitializeObjectAttributes(&ObjectAttributes, 
+                               NULL, 
+                               0, 
                                NULL,
                                ProcessSecurityDescriptor);
 

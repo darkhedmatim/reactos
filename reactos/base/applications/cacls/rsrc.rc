@@ -1,10 +1,14 @@
+
+
 #include <windows.h>
 #include "resource.h"
 
-#include "lang/bg-BG.rc"
-#include "lang/ca-ES.rc"
+/* define language neutral resources */
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+/* include localised resources */
 #include "lang/de-DE.rc"
-#include "lang/el-GR.rc"
 #include "lang/en-US.rc"
 #include "lang/fr-FR.rc"
 #include "lang/id-ID.rc"
@@ -13,6 +17,4 @@
 #include "lang/nl-NL.rc"
 #include "lang/pl-PL.rc"
 #include "lang/ru-RU.rc"
-#include "lang/uk-UA.rc"
 #include "lang/zh-CN.rc"
-#include "lang/zh-TW.rc"

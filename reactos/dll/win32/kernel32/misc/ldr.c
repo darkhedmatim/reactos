@@ -10,7 +10,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 typedef struct tagLOADPARMS32 {
   LPSTR lpEnvAddress;
@@ -34,10 +34,10 @@ extern BOOLEAN InWindows;
 LPWSTR STDCALL
 GetDllLoadPath(LPCWSTR lpModule)
 {
-	ULONG Pos = 0, Length = 0;
-	PWCHAR EnvironmentBufferW = NULL;
-	LPCWSTR lpModuleEnd = NULL;
-	UNICODE_STRING ModuleName;
+        ULONG Pos = 0, Length = 0;
+        PWCHAR EnvironmentBufferW = NULL;
+        LPCWSTR lpModuleEnd = NULL;
+        UNICODE_STRING ModuleName;
 
 	if (lpModule != NULL)
 	{
@@ -45,18 +45,16 @@ GetDllLoadPath(LPCWSTR lpModule)
 	}
 	else
 	{
-		ModuleName = NtCurrentPeb()->ProcessParameters->ImagePathName;
-		lpModule = ModuleName.Buffer;
-		lpModuleEnd = lpModule + (ModuleName.Length / sizeof(WCHAR));
+	        ModuleName = NtCurrentTeb()->ProcessEnvironmentBlock->ProcessParameters->ImagePathName;
+	        lpModule = ModuleName.Buffer;
+	        lpModuleEnd = lpModule + (ModuleName.Length / sizeof(WCHAR));
 	}
 
 	if (lpModule != NULL)
 	{
-		while (lpModuleEnd > lpModule && *lpModuleEnd != L'/' &&
-		       *lpModuleEnd != L'\\' && *lpModuleEnd != L':')
-		{
+	        while (lpModuleEnd > lpModule && *lpModuleEnd != L'/' &&
+	               *lpModuleEnd != L'\\' && *lpModuleEnd != L':')
 			--lpModuleEnd;
-		}
 		Length = (lpModuleEnd - lpModule) + 1;
 	}
 
@@ -66,11 +64,9 @@ GetDllLoadPath(LPCWSTR lpModule)
 	Length += GetEnvironmentVariableW(L"PATH", NULL, 0);
 
 	EnvironmentBufferW = RtlAllocateHeap(RtlGetProcessHeap(), 0,
-	                                     Length * sizeof(WCHAR));
+                                             Length * sizeof(WCHAR));
 	if (EnvironmentBufferW == NULL)
-	{
 		return NULL;
-	}
 
 	if (lpModule)
 	{
@@ -79,7 +75,6 @@ GetDllLoadPath(LPCWSTR lpModule)
 		Pos += lpModuleEnd - lpModule;
 		EnvironmentBufferW[Pos++] = L';';
 	}
-
 	Pos += GetCurrentDirectoryW(Length, EnvironmentBufferW + Pos);
 	EnvironmentBufferW[Pos++] = L';';
 	Pos += GetSystemDirectoryW(EnvironmentBufferW + Pos, Length - Pos);
@@ -417,28 +412,40 @@ HMODULE
 STDCALL
 GetModuleHandleA ( LPCSTR lpModuleName )
 {
+	UNICODE_STRING UnicodeName;
 	ANSI_STRING ModuleName;
+	PVOID BaseAddress;
 	NTSTATUS Status;
-	PTEB pTeb = NtCurrentTeb();
 
 	if (lpModuleName == NULL)
+		return ((HMODULE)NtCurrentPeb()->ImageBaseAddress);
+	RtlInitAnsiString (&ModuleName,
+	                   (LPSTR)lpModuleName);
+
+	/* convert ansi (or oem) string to unicode */
+	if (bIsFileApiAnsi)
+		RtlAnsiStringToUnicodeString (&UnicodeName,
+					      &ModuleName,
+					      TRUE);
+	else
+		RtlOemStringToUnicodeString (&UnicodeName,
+					     &ModuleName,
+					     TRUE);
+
+	Status = LdrGetDllHandle (0,
+				  0,
+				  &UnicodeName,
+				  &BaseAddress);
+
+	RtlFreeUnicodeString (&UnicodeName);
+
+	if (!NT_SUCCESS(Status))
 	{
-		return ((HMODULE)pTeb->ProcessEnvironmentBlock->ImageBaseAddress);
+		SetLastErrorByStatus (Status);
+		return NULL;
 	}
 
-	RtlInitAnsiString(&ModuleName, lpModuleName);
-
-	Status = RtlAnsiStringToUnicodeString(&pTeb->StaticUnicodeString,
-	                                      &ModuleName,
-	                                      FALSE);
-
-	if (NT_SUCCESS(Status))
-	{
-		return GetModuleHandleW(pTeb->StaticUnicodeString.Buffer);
-	}
-
-	SetLastErrorByStatus(Status);
-	return FALSE;
+	return ((HMODULE)BaseAddress);
 }
 
 
@@ -549,12 +556,11 @@ GetModuleHandleExA(IN DWORD dwFlags,
                    IN LPCSTR lpModuleName  OPTIONAL,
                    OUT HMODULE* phModule)
 {
+    UNICODE_STRING UnicodeName;
     ANSI_STRING ModuleName;
     LPCWSTR lpModuleNameW;
     NTSTATUS Status;
     BOOL Ret;
-
-    PTEB pTeb = NtCurrentTeb();
 
     if (dwFlags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS)
     {
@@ -562,11 +568,18 @@ GetModuleHandleExA(IN DWORD dwFlags,
     }
     else
     {
-        RtlInitAnsiString(&ModuleName, lpModuleName);
+        RtlInitAnsiString(&ModuleName,
+                          (LPSTR)lpModuleName);
 
-        Status = RtlAnsiStringToUnicodeString(&pTeb->StaticUnicodeString,
-                                              &ModuleName,
-                                              FALSE);
+        /* convert ansi (or oem) string to unicode */
+        if (bIsFileApiAnsi)
+            Status = RtlAnsiStringToUnicodeString(&UnicodeName,
+                                                  &ModuleName,
+                                                  TRUE);
+        else
+            Status = RtlOemStringToUnicodeString(&UnicodeName,
+                                                 &ModuleName,
+                                                 TRUE);
 
         if (!NT_SUCCESS(Status))
         {
@@ -574,12 +587,17 @@ GetModuleHandleExA(IN DWORD dwFlags,
             return FALSE;
         }
 
-        lpModuleNameW = pTeb->StaticUnicodeString.Buffer;
+        lpModuleNameW = UnicodeName.Buffer;
     }
 
     Ret = GetModuleHandleExW(dwFlags,
                              lpModuleNameW,
                              phModule);
+
+    if (!(dwFlags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS))
+    {
+        RtlFreeUnicodeString(&UnicodeName);
+    }
 
     return Ret;
 }

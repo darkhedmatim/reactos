@@ -18,8 +18,6 @@
 # Rights Reserved.
 #
 # Contributor(s): Bradley Baetz <bbaetz@acm.org>
-#                 Marc Schumann <wurblzap@gmail.com>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 package Bugzilla::Error;
 
@@ -28,21 +26,10 @@ use base qw(Exporter);
 
 @Bugzilla::Error::EXPORT = qw(ThrowCodeError ThrowTemplateError ThrowUserError);
 
+use Bugzilla::Config qw($datadir);
 use Bugzilla::Constants;
-use Bugzilla::WebService::Constants;
 use Bugzilla::Util;
 use Date::Format;
-
-# We cannot use $^S to detect if we are in an eval(), because mod_perl
-# already eval'uates everything, so $^S = 1 in all cases under mod_perl!
-sub _in_eval {
-    my $in_eval = 0;
-    for (my $stack = 1; my $sub = (caller($stack))[3]; $stack++) {
-        last if $sub =~ /^ModPerl/;
-        $in_eval = 1 if $sub =~ /^\(eval\)/;
-    }
-    return $in_eval;
-}
 
 sub _throw_error {
     my ($name, $error, $vars) = @_;
@@ -53,11 +40,8 @@ sub _throw_error {
 
     # Make sure any locked tables are unlocked
     # and the transaction is rolled back (if supported)
-    # If we are within an eval(), do not unlock tables as we are
-    # eval'uating some test on purpose.
-    Bugzilla->dbh->bz_unlock_tables(UNLOCK_ABORT) unless _in_eval();
+    Bugzilla->dbh->bz_unlock_tables(UNLOCK_ABORT);
 
-    my $datadir = bz_locations()->{'datadir'};
     # If a writable $datadir/errorlog exists, log error details there.
     if (-w "$datadir/errorlog") {
         require Data::Dumper;
@@ -90,26 +74,15 @@ sub _throw_error {
     }
 
     my $template = Bugzilla->template;
-    if (Bugzilla->error_mode == ERROR_MODE_WEBPAGE) {
-        print Bugzilla->cgi->header();
-        $template->process($name, $vars)
-          || ThrowTemplateError($template->error());
-    }
-    else {
+    if (Bugzilla->batch) {
         my $message;
         $template->process($name, $vars, \$message)
           || ThrowTemplateError($template->error());
-        if (Bugzilla->error_mode == ERROR_MODE_DIE) {
-            die("$message\n");
-        }
-        elsif (Bugzilla->error_mode == ERROR_MODE_DIE_SOAP_FAULT) {
-            my $code = WS_ERROR_CODE->{$error};
-            if (!$code) {
-                $code = ERROR_UNKNOWN_FATAL if $name =~ /code/i;
-                $code = ERROR_UNKNOWN_TRANSIENT if $name =~ /user/i;
-            }
-            die SOAP::Fault->faultcode($code)->faultstring($message);
-        }
+        die("$message");
+    } else {
+        print Bugzilla->cgi->header();
+        $template->process($name, $vars)
+          || ThrowTemplateError($template->error());
     }
     exit;
 }
@@ -130,7 +103,7 @@ sub ThrowTemplateError {
     Bugzilla->dbh->bz_unlock_tables(UNLOCK_ABORT);
 
     my $vars = {};
-    if (Bugzilla->error_mode == ERROR_MODE_DIE) {
+    if (Bugzilla->batch) {
         die("error: template error: $template_err");
     }
 
@@ -142,9 +115,9 @@ sub ThrowTemplateError {
     # Try a template first; but if this one fails too, fall back
     # on plain old print statements.
     if (!$template->process("global/code-error.html.tmpl", $vars)) {
-        my $maintainer = Bugzilla->params->{'maintainer'};
-        my $error = html_quote($vars->{'template_error_msg'});
-        my $error2 = html_quote($template->error());
+        my $maintainer = Bugzilla::Config::Param('maintainer');
+        my $error = Bugzilla::Util::html_quote($vars->{'template_error_msg'});
+        my $error2 = Bugzilla::Util::html_quote($template->error());
         print <<END;
         <tt>
           <p>
@@ -187,7 +160,7 @@ Bugzilla::Error - Error handling utilities for Bugzilla
 
 Various places throughout the Bugzilla codebase need to report errors to the
 user. The C<Throw*Error> family of functions allow this to be done in a
-generic and localizable manner.
+generic and localisable manner.
 
 These functions automatically unlock the database tables, if there were any
 locked. They will also roll back the transaction, if it is supported by

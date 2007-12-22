@@ -1,6 +1,3 @@
-#ifndef _VGADDI_H_
-#define _VGADDI_H_
-
 #define _WINBASE_
 #define _WINDOWS_H
 #include <stdarg.h>
@@ -11,17 +8,6 @@
 #include <winioctl.h>
 #include <ntddvdeo.h>
 
-#include "vgavideo/vgavideo.h"
-#include "objects/brush.h"
-#include "objects/bitblt.h"
-
-#ifndef NDEBUG
-#define DPRINT DbgPrint
-#else
-#define DPRINT
-#endif
-#define DPRINT1 DbgPrint
-
 /* FIXME - what a headers mess.... */
 
 #define DDKAPI __stdcall
@@ -30,10 +16,10 @@
 #define DDKCDECLAPI __cdecl
 
 ULONG DbgPrint(PCCH Format,...);
-VOID DDKAPI WRITE_PORT_UCHAR(IN PUCHAR Port, IN UCHAR Value);
-VOID DDKAPI WRITE_PORT_USHORT(IN PUSHORT Port, IN USHORT Value);
-VOID DDKAPI WRITE_REGISTER_UCHAR(IN PUCHAR Register, IN UCHAR Value);
-UCHAR DDKAPI READ_REGISTER_UCHAR(IN PUCHAR Register);
+VOID DDKAPI DbgBreakPoint(VOID);
+VOID DDKAPI WRITE_PORT_UCHAR(IN PUCHAR  Port, IN UCHAR  Value);
+VOID DDKAPI WRITE_REGISTER_UCHAR(IN PUCHAR  Register, IN UCHAR  Value);
+UCHAR DDKAPI READ_REGISTER_UCHAR(IN PUCHAR  Register);
 
 static __inline BOOLEAN
 RemoveEntryList(
@@ -289,10 +275,8 @@ DWORD getAvailableModes(HANDLE Driver,
                         PVIDEO_MODE_INFORMATION *modeInformation,
                         DWORD *ModeSize);
 
-VOID FASTCALL
-vgaReadScan(int x, int y, int w, void *b);
+void FASTCALL
+vgaReadScan ( int x, int y, int w, void *b );
 
-VOID FASTCALL
-vgaWriteScan(int x, int y, int w, void *b);
-
-#endif /* _VGADDI_H_ */
+void FASTCALL
+vgaWriteScan ( int x, int y, int w, void *b );

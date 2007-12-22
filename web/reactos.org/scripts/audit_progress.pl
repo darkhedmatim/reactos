@@ -18,14 +18,15 @@ my (@locked_files, $total_files, $todo_width, $done_width, $done_pct);
 open HTML, "> $out_file"
     or die "couldn't open $out_file for writing: $!\n";
 
-my @files = `svn ls -R $in_path`;
+my @files = `svn ls -v -R $in_path`;
 
 foreach (@files) {
     next if /\/$/;
     $total_files++;
-    if(`svn propget svn:needs-lock -R $_`) {
+    my @fields = split /\s+/;
+    if( $fields[3] eq 'O' ) {
         $unclean_files++;
-        push @locked_files, "$_";
+        push @locked_files, "$fields[-1]\n";
     }
 }
 

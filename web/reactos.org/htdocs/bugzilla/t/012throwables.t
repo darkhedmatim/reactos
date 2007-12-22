@@ -19,7 +19,6 @@
 # Rights Reserved.
 # 
 # Contributor(s): Dennis Melentyev <dennis.melentyev@infopulse.com.ua>
-#                 Max Kanat-Alexander <mkanat@bugzilla.org>
 
 
 
@@ -30,8 +29,6 @@
 use strict;
 
 use lib 't';
-
-use Bugzilla::WebService::Constants;
 
 use File::Spec;
 use Support::Files;
@@ -66,8 +63,8 @@ foreach my $include_path (@include_paths) {
     }
 }
 
-# Count the tests. The +1 is for checking the WS_ERROR_CODE errors.
-my $tests = (scalar keys %test_modules) + (scalar keys %test_templates) + 1;
+# Count the tests
+my $tests = (scalar keys %test_modules) + (scalar keys %test_templates);
 exit 0 if !$tests;
 
 # Set requested tests counter.
@@ -91,7 +88,7 @@ foreach my $file (keys %test_templates) {
             my $errtag = $1;
             if ($errtag =~ /\s/) {
                 Register(\%test_templates, $file, 
-                "has an error definition \"$errtag\" at line $lineno with "
+                "has an error definition \"$errtag\" at line $lineno with"
                 . "space(s) embedded --ERROR");
             }
             else {
@@ -116,18 +113,9 @@ foreach my $file (keys %test_modules) {
         last if $line =~ /^__END__/; # skip the POD (at least in
                                         # Bugzilla/Error.pm)
         $lineno++;
-        if ($line =~
-/^[^#]*(Throw(Code|User)Error|error\s+=>)\s*\(?\s*["'](.*?)['"]/) {
-            my $errtype;
-            # If it's a normal ThrowCode/UserError
-            if ($2) {
-                $errtype = lc($2);
-            }
-            # If it's an AUTH_ERROR tag
-            else {
-                $errtype = 'code';
-            }
-            my $errtag = $3;
+        if ($line =~ /^[^#]*Throw(Code|User)Error\s*\(\s*["'](.*?)['"]/) {
+            my $errtype = lc($1);
+            my $errtag = $2;
             push @{$Errors{$errtype}{$errtag}{used_in}{$file}}, $lineno;
         }
     }
@@ -165,26 +153,10 @@ foreach my $errtype (keys %Errors) {
     }
 }
 
-# And make sure that everything defined in WS_ERROR_CODE
-# is actually a valid error.
-foreach my $err_name (keys %{WS_ERROR_CODE()}) {
-    if (!defined $Errors{'code'}{$err_name} 
-        && !defined $Errors{'user'}{$err_name})
-    {
-        Register(\%test_modules, 'WS_ERROR_CODE',
-            "Error tag '$err_name' is used in WS_ERROR_CODE in"
-            . " Bugzilla/WebService/Constants.pm"
-            . " but not defined in any template, and not used in any code.");
-    }
-}
-
 # Now report modules results
 foreach my $file (sort keys %test_modules) {
     Report($file, @{$test_modules{$file}});
 }
-
-# And report WS_ERROR_CODE results
-Report('WS_ERROR_CODE', @{$test_modules{'WS_ERROR_CODE'}});
 
 # Now report templates results
 foreach my $file (sort keys %test_templates) {
@@ -192,26 +164,14 @@ foreach my $file (sort keys %test_templates) {
 }
 
 sub Register {
-    my ($hash, $file, $message, $warning) = @_;
-    # If set to 1, $warning will avoid the test to fail.
-    $warning ||= 0;
-    push(@{$hash->{$file}}, {'message' => $message, 'warning' => $warning});
+    my ($hash, $file, $message) = @_;
+    push @{$hash->{$file}}, $message;
 }
 
 sub Report {
     my ($file, @errors) = @_;
     if (scalar @errors) {
-        # Do we only have warnings to report or also real errors?
-        my @real_errors = grep {$_->{'warning'} == 0} @errors;
-        # Extract error messages.
-        @errors = map {$_->{'message'}} @errors;
-        if (scalar(@real_errors)) {
-            ok(0, "$file has ". scalar(@errors) ." error(s):\n" . join("\n", @errors));
-        }
-        else {
-            ok(1, "--WARNING $file has " . scalar(@errors) .
-                  " unused error tag(s):\n" . join("\n", @errors));
-        }
+        ok(0, "$file has ". scalar @errors ." error(s):\n" . join("\n", @errors));
     }
     else {
         # This is used for both code and template files, so let's use
@@ -236,7 +196,7 @@ sub DefinedIn {
         Register(\%test_templates, $file, 
             "$errtype error tag '$errtag' is defined at line(s) ("
             . join (',', @{$Errors{$errtype}{$errtag}{defined_in}{$lang}{$file}}) 
-            . ") but is not used anywhere", 1);
+            . ") but is not used anywhere");
     }
 }
 

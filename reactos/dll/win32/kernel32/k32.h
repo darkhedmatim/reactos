@@ -16,11 +16,6 @@
 #define _KERNEL32_
 #include <windows.h>
 #include <tlhelp32.h>
-
-#ifdef __GNUC__
-#include "intrin.h"
-#endif
-
 #include <ndk/ntndk.h>
 
 /* CSRSS Header */

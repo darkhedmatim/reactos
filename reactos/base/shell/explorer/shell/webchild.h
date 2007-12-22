@@ -768,19 +768,14 @@ struct ANSUNC DWebBrowserEvents2Impl
 			break;
 
 		  case DISPID_CLIENTTOHOSTWINDOW:// sent during window.open to request conversion of dimensions
-		  {
-			long cx, cy;
 			if (pDispParams->cArgs != 2)
 				return E_INVALIDARG;
 			if (V_VT(&pDispParams->rgvarg[0]) != (VT_I4|VT_BYREF))
 				return E_INVALIDARG;
 			if (V_VT(&pDispParams->rgvarg[1]) != (VT_I4|VT_BYREF))
 				return E_INVALIDARG;
-			cx = *V_I4REF(&pDispParams->rgvarg[1]);
-			cy = *V_I4REF(&pDispParams->rgvarg[0]);
-			_callback->ClientToHostWindow(cx, cy);
+			_callback->ClientToHostWindow(*V_I4REF(&pDispParams->rgvarg[1]), *V_I4REF(&pDispParams->rgvarg[0]));
 			break;
-		  }
 
 		  case DISPID_SETSECURELOCKICON:// sent to suggest the appropriate security icon to show
 			if (pDispParams->cArgs != 1)

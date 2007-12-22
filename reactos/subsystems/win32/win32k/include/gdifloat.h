@@ -1,9 +1,6 @@
 #ifndef __WIN32K_FLOAT_H
 #define __WIN32K_FLOAT_H
 
-
-#include <reactos/win32k/ntgdityp.h>
-#include <reactos/win32k/ntgdihdl.h>
 #include "dc.h"
 #include "math.h"
 #include <ft2build.h>
@@ -83,28 +80,24 @@ static __inline void INTERNAL_LPTODP(DC *dc, LPPOINT point)
 
 #define MulDiv( x, y, z ) EngMulDiv( x, y, z )
 
-#define XDPTOLP(Dc_Attr,tx) \
-    (MulDiv(((tx)-(Dc_Attr)->ptlViewportOrg.x), (Dc_Attr)->szlWindowExt.cx, (Dc_Attr)->szlViewportExt.cx) + (Dc_Attr)->ptlWindowOrg.x)
-#define YDPTOLP(Dc_Attr,ty) \
-    (MulDiv(((ty)-(Dc_Attr)->ptlViewportOrg.y), (Dc_Attr)->szlWindowExt.cy, (Dc_Attr)->szlViewportExt.cy) + (Dc_Attr)->ptlWindowOrg.y)
-#define XLPTODP(Dc_Attr,tx) \
-    (MulDiv(((tx)-(Dc_Attr)->ptlWindowOrg.x), (Dc_Attr)->szlViewportExt.cx, (Dc_Attr)->szlWindowExt.cx) + (Dc_Attr)->ptlViewportOrg.x)
-#define YLPTODP(Dc_Attr,ty) \
-    (MulDiv(((ty)-(Dc_Attr)->ptlWindowOrg.y), (Dc_Attr)->szlViewportExt.cy, (Dc_Attr)->szlWindowExt.cy) + (Dc_Attr)->ptlViewportOrg.y)
+#define XDPTOLP(dc,x) \
+    (MulDiv(((x)-(dc)->vportOrgX), (dc)->wndExtX, (dc)->vportExtX) + (dc)->wndOrgX)
+#define YDPTOLP(dc,y) \
+    (MulDiv(((y)-(dc)->vportOrgY), (dc)->wndExtY, (dc)->vportExtY) + (dc)->wndOrgY)
+#define XLPTODP(dc,x) \
+    (MulDiv(((x)-(dc)->wndOrgX), (dc)->vportExtX, (dc)->wndExtX) + (dc)->vportOrgX)
+#define YLPTODP(dc,y) \
+    (MulDiv(((y)-(dc)->wndOrgY), (dc)->vportExtY, (dc)->wndExtY) + (dc)->vportOrgY)
 
   /* Device <-> logical size conversion */
 
-#define XDSTOLS(Dc_Attr,tx) \
-    MulDiv((tx), (Dc_Attr)->szlWindowExt.cx, (Dc_Attr)->szlViewportExt.cx)
-#define YDSTOLS(DC_Attr,ty) \
-    MulDiv((ty), (Dc_Attr)->szlWindowExt.cy, (Dc_Attr)->szlViewportExt.cy)
-#define XLSTODS(Dc_Attr,tx) \
-    MulDiv((tx), (Dc_Attr)->szlViewportExt.cx, (Dc_Attr)->szlWindowExt.cx)
-#define YLSTODS(Dc_Attr,ty) \
-    MulDiv((ty), (Dc_Attr)->szlViewportExt.cy, (Dc_Attr)->szlWindowExt.cy)
-
-VOID FASTCALL XForm2MatrixS( MATRIX_S *, PXFORM);
-VOID FASTCALL MatrixS2XForm( PXFORM, MATRIX_S *);
+#define XDSTOLS(dc,x) \
+    MulDiv((x), (dc)->wndExtX, (dc)->vportExtX)
+#define YDSTOLS(dc,y) \
+    MulDiv((y), (dc)->wndExtY, (dc)->vportExtY)
+#define XLSTODS(dc,x) \
+    MulDiv((x), (dc)->vportExtX, (dc)->wndExtX)
+#define YLSTODS(dc,y) \
+    MulDiv((y), (dc)->vportExtY, (dc)->wndExtY)
 
 #endif
-

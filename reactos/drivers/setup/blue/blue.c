@@ -19,7 +19,7 @@ typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES;
 #include <wincon.h>
 #include <blue/ntddblue.h>
 #include <ndk/inbvfuncs.h>
-//#include <intrin.h>
+#include <intrin.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -255,7 +255,7 @@ ScrAcquireOwnership(PDEVICE_EXTENSION DeviceExtension)
     DeviceExtension->Rows = 30;
 #endif
 
-    DPRINT ("%d Columns  %d Rows %d Scanlines\n",
+    DPRINT1 ("%d Columns  %d Rows %d Scanlines\n",
             DeviceExtension->Columns,
             DeviceExtension->Rows,
             DeviceExtension->ScanLines);
@@ -264,7 +264,6 @@ ScrAcquireOwnership(PDEVICE_EXTENSION DeviceExtension)
 NTSTATUS STDCALL
 DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
 
-static DRIVER_DISPATCH ScrCreate;
 static NTSTATUS STDCALL
 ScrCreate(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
@@ -274,7 +273,7 @@ ScrCreate(PDEVICE_OBJECT DeviceObject,
     NTSTATUS Status;
 
     DeviceExtension = DeviceObject->DeviceExtension;
-
+    
     ScrAcquireOwnership(DeviceExtension);
 
     /* get pointer to video memory */
@@ -298,7 +297,7 @@ ScrCreate(PDEVICE_OBJECT DeviceObject,
     return (Status);
 }
 
-static DRIVER_DISPATCH ScrWrite;
+
 static NTSTATUS STDCALL
 ScrWrite(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
@@ -440,7 +439,7 @@ ScrWrite(PDEVICE_OBJECT DeviceObject,
     return (Status);
 }
 
-static DRIVER_DISPATCH ScrIoControl;
+
 static NTSTATUS STDCALL
 ScrIoControl(PDEVICE_OBJECT DeviceObject,
 	     PIRP Irp)
@@ -768,7 +767,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
   return Status;
 }
 
-static DRIVER_DISPATCH ScrDispatch;
+
 static NTSTATUS STDCALL
 ScrDispatch(PDEVICE_OBJECT DeviceObject,
 	    PIRP Irp)

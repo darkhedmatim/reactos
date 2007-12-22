@@ -176,7 +176,7 @@ static inline OLEFontImpl *impl_from_IPersistStreamInit( IPersistStreamInit *ifa
  * Prototypes for the implementation functions for the IFont
  * interface
  */
-static OLEFontImpl* OLEFontImpl_Construct(const FONTDESC *fontDesc);
+static OLEFontImpl* OLEFontImpl_Construct(LPFONTDESC fontDesc);
 static void         OLEFontImpl_Destroy(OLEFontImpl* fontDesc);
 static ULONG        WINAPI OLEFontImpl_AddRef(IFont* iface);
 
@@ -1269,7 +1269,7 @@ static HRESULT WINAPI OLEFontImpl_GetIDsOfNames(
  * OLEFontImpl_Invoke (IDispatch)
  *
  * See Windows documentation for more details on IDispatch methods.
- *
+ * 
  * Note: Do not call _put_Xxx methods, since setting things here
  * should not call notify functions as I found out debugging the generic
  * MS VB5 installer.
@@ -2100,7 +2100,7 @@ static HRESULT WINAPI OLEFontImpl_IPersistPropertyBag_Save(
   return E_FAIL;
 }
 
-static const IPersistPropertyBagVtbl OLEFontImpl_IPersistPropertyBag_VTable =
+static const IPersistPropertyBagVtbl OLEFontImpl_IPersistPropertyBag_VTable = 
 {
   OLEFontImpl_IPersistPropertyBag_QueryInterface,
   OLEFontImpl_IPersistPropertyBag_AddRef,
@@ -2178,7 +2178,7 @@ static HRESULT WINAPI OLEFontImpl_IPersistStreamInit_InitNew(
   return S_OK;
 }
 
-static const IPersistStreamInitVtbl OLEFontImpl_IPersistStreamInit_VTable =
+static const IPersistStreamInitVtbl OLEFontImpl_IPersistStreamInit_VTable = 
 {
   OLEFontImpl_IPersistStreamInit_QueryInterface,
   OLEFontImpl_IPersistStreamInit_AddRef,
@@ -2201,7 +2201,7 @@ static const IPersistStreamInitVtbl OLEFontImpl_IPersistStreamInit_VTable =
  * The caller of this method must release the object when it's
  * done with it.
  */
-static OLEFontImpl* OLEFontImpl_Construct(const FONTDESC *fontDesc)
+static OLEFontImpl* OLEFontImpl_Construct(LPFONTDESC fontDesc)
 {
   OLEFontImpl* newObject = 0;
 

@@ -21,11 +21,11 @@
  *
  * This code was audited for completeness against the documented features
  * of Comctl32.dll version 6.0 on Oct. 4, 2004, by Dimitrie O. Paun.
- *
+ * 
  * Unless otherwise noted, we believe this code to be complete, as per
  * the specification mentioned above.
  * If you discover missing features, or bugs, please note them below.
- *
+ * 
  * TODO:
  *   - ComboBox_[GS]etMinVisible()
  *   - CB_GETMINVISIBLE, CB_SETMINVISIBLE
@@ -53,8 +53,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(combo);
 #define CB_OWNERDRAWN( lphc ) ((lphc)->dwStyle & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE))
 #define CB_HASSTRINGS( lphc ) ((lphc)->dwStyle & CBS_HASSTRINGS)
 #define CB_HWND( lphc )       ((lphc)->self)
-// ReactOS already define in include/controls.h We have it here as a sync note.
-//#define CB_GETTYPE( lphc )    ((lphc)->dwStyle & (CBS_DROPDOWNLIST))
 
 #define ISWIN31 (LOWORD(GetVersion()) == 0x0a03)
 
@@ -139,17 +137,6 @@ static BOOL COMBO_Init()
   return FALSE;
 }
 
-
-/* Retrieve the UI state for the control */
-static BOOL COMBO_update_uistate(LPHEADCOMBO lphc)
-{
-    LONG prev_flags;
-
-    prev_flags = lphc->UIState;
-    lphc->UIState = DefWindowProcW(lphc->self, WM_QUERYUISTATE, 0, 0);
-    return prev_flags != lphc->UIState;
-}
-
 /***********************************************************************
  *           COMBO_NCCreate
  */
@@ -161,8 +148,6 @@ static LRESULT COMBO_NCCreate(HWND hwnd, LONG style)
     {
         lphc->self = hwnd;
         SetWindowLongPtrW( hwnd, 0, (LONG_PTR)lphc );
-
-        COMBO_update_uistate(lphc);
 
        /* some braindead apps do try to use scrollbar/border flags */
 
@@ -214,9 +199,8 @@ static LRESULT COMBO_NCDestroy( LPHEADCOMBO lphc )
  * The height of the text area is set in two ways.
  * It can be set explicitly through a combobox message or through a
  * WM_MEASUREITEM callback.
- * If this is not the case, the height is set to font height + 4px
+ * If this is not the case, the height is set to 13 dialog units.
  * This height was determined through experimentation.
- * CBCalcPlacement will add 2*COMBO_YBORDERSIZE pixels for the border
  */
 static INT CBGetTextAreaHeight(
   HWND        hwnd,
@@ -247,7 +231,14 @@ static INT CBGetTextAreaHeight(
 
     ReleaseDC(hwnd, hDC);
 
-    iTextItemHeight = baseUnitY + 4;
+    iTextItemHeight = ((13 * baseUnitY) / 8);
+
+    /*
+     * This "formula" calculates the height of the complete control.
+     * To calculate the height of the text area, we have to remove the
+     * borders.
+     */
+    iTextItemHeight -= 2*COMBO_YBORDERSIZE();
   }
 
   /*
@@ -443,7 +434,7 @@ static void CBCalcPlacement(
   /* don't allow negative window width */
     if (lprEdit->right < lprEdit->left)
         lprEdit->right = lprEdit->left;
-
+        
   TRACE("\ttext\t= (%ld,%ld-%ld,%ld)\n",
 	lprEdit->left, lprEdit->top, lprEdit->right, lprEdit->bottom);
 
@@ -830,8 +821,7 @@ static void CBPaintText(
 		    &rectEdit,
 		    pText ? pText : empty_stringW , size, NULL );
 
-       if(lphc->wState & CBF_FOCUSED && !(lphc->wState & CBF_DROPPED) &&
-          !(lphc->UIState & UISF_HIDEFOCUS))
+       if(lphc->wState & CBF_FOCUSED && !(lphc->wState & CBF_DROPPED))
 	 DrawFocusRect( hdc, &rectEdit );
      }
 
@@ -1000,7 +990,8 @@ static INT CBUpdateLBox( LPHEADCOMBO lphc, BOOL bSelect )
 
    if( pText )
    {
-       GetWindowTextW( lphc->hWndEdit, pText, length + 1);
+       if( length ) GetWindowTextW( lphc->hWndEdit, pText, length + 1);
+       else pText[0] = '\0';
        idx = SendMessageW(lphc->hWndLBox, LB_FINDSTRING,
 			     (WPARAM)(-1), (LPARAM)pText );
        HeapFree( GetProcessHeap(), 0, pText );
@@ -1058,8 +1049,6 @@ static void CBUpdateEdit( LPHEADCOMBO lphc , INT index )
  */
 static void CBDropDown( LPHEADCOMBO lphc )
 {
-   HMONITOR monitor;
-   MONITORINFO mon_info;
    RECT rect,r;
    int nItems = 0;
    int nDroppedHeight;
@@ -1131,10 +1120,6 @@ static void CBDropDown( LPHEADCOMBO lphc )
    }
 
    /*If height of dropped rectangle gets beyond a screen size it should go up, otherwise down.*/
-   monitor = MonitorFromRect( &rect, MONITOR_DEFAULTTOPRIMARY );
-   mon_info.cbSize = sizeof(mon_info);
-   GetMonitorInfoW( monitor, &mon_info );
-
    if( (rect.bottom + nDroppedHeight) >= GetSystemMetrics( SM_CYSCREEN ) )
       rect.bottom = rect.top - nDroppedHeight;
 
@@ -1230,7 +1215,7 @@ BOOL COMBO_FlipListbox( LPHEADCOMBO lphc, BOOL ok, BOOL bRedrawButton )
  */
 static void CBRepaintButton( LPHEADCOMBO lphc )
    {
-  NtUserInvalidateRect(lphc->self, &lphc->buttonRect, TRUE);
+  InvalidateRect(lphc->self, &lphc->buttonRect, TRUE);
   UpdateWindow(lphc->self);
 }
 
@@ -1249,9 +1234,7 @@ static void COMBO_SetFocus( LPHEADCOMBO lphc )
        /* lphc->wState |= CBF_FOCUSED;  */
 
        if( !(lphc->wState & CBF_EDIT) )
-       {
-            NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
-       }
+	 InvalidateRect(lphc->self, &lphc->textRect, TRUE);
 
        CB_NOTIFY( lphc, CBN_SETFOCUS );
        lphc->wState |= CBF_FOCUSED;
@@ -1273,11 +1256,11 @@ static void COMBO_KillFocus( LPHEADCOMBO lphc )
            if( CB_GETTYPE(lphc) == CBS_DROPDOWNLIST )
                SendMessageW(lphc->hWndLBox, LB_CARETOFF, 0, 0);
 
-           lphc->wState &= ~CBF_FOCUSED;
+ 	   lphc->wState &= ~CBF_FOCUSED;
 
            /* redraw text */
-           if( !(lphc->wState & CBF_EDIT) )
-                NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
+	   if( !(lphc->wState & CBF_EDIT) )
+	     InvalidateRect(lphc->self, &lphc->textRect, TRUE);
 
            CB_NOTIFY( lphc, CBN_KILLFOCUS );
        }
@@ -1295,12 +1278,12 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 
        switch( HIWORD(wParam) >> 8 )
        {
-        case (EN_SETFOCUS >> 8):
+	   case (EN_SETFOCUS >> 8):
 
                TRACE("[%p]: edit [%p] got focus\n", lphc->self, lphc->hWndEdit );
 
-               COMBO_SetFocus( lphc );
-               break;
+		COMBO_SetFocus( lphc );
+	        break;
 
 	   case (EN_KILLFOCUS >> 8):
 
@@ -1363,8 +1346,6 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 
                TRACE("[%p]: lbox selection change [%x]\n", lphc->self, lphc->wState );
 
-                CB_NOTIFY( lphc, CBN_SELCHANGE );
-
 		if( HIWORD(wParam) == LBN_SELCHANGE)
 		{
 		   if( lphc->wState & CBF_EDIT )
@@ -1376,7 +1357,7 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 		       SendMessageW(lphc->hWndEdit, EM_SETSEL, 0, (LPARAM)(-1));
 		   }
 		   else
-		       NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
+		       InvalidateRect(lphc->self, &lphc->textRect, TRUE);
 		}
 
 		/* do not roll up if selection is being tracked
@@ -1387,7 +1368,9 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
                 }
 		else lphc->wState &= ~CBF_NOROLLUP;
 
-                break;
+		CB_NOTIFY( lphc, CBN_SELCHANGE );
+
+		/* fall through */
 
 	   case LBN_SETFOCUS:
 	   case LBN_KILLFOCUS:
@@ -1654,7 +1637,7 @@ static LRESULT COMBO_SetItemHeight( LPHEADCOMBO lphc, INT index, INT height )
    {
        if( height < 32768 )
        {
-           lphc->editHeight = height + 2;  /* Is the 2 for 2*EDIT_CONTROL_PADDING? */
+           lphc->editHeight = height;
 
 	 /*
 	  * Redo the layout of the control.
@@ -1696,7 +1679,7 @@ static LRESULT COMBO_SelectString( LPHEADCOMBO lphc, INT start, LPARAM pText, BO
        CBUpdateEdit( lphc, index );
      else
      {
-       NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
+       InvalidateRect(lphc->self, &lphc->textRect, TRUE);
      }
    }
    return (LRESULT)index;
@@ -2005,7 +1988,7 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
 		EnableWindow( lphc->hWndLBox, (BOOL)wParam );
 
 		/* Force the control to repaint when the enabled state changes. */
-		NtUserInvalidateRect(lphc->self, NULL, TRUE);
+		InvalidateRect(lphc->self, NULL, TRUE);
 		return  TRUE;
 	case WM_SETREDRAW:
 		if( wParam )
@@ -2096,13 +2079,11 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
                         string = strdupA((LPSTR)lParam);
                         CharLowerA(string);
                     }
-
                     else if( lphc->dwStyle & CBS_UPPERCASE )
                     {
                         string = strdupA((LPSTR)lParam);
                         CharUpperA(string);
                     }
-
                     ret = SendMessageA(lphc->hWndLBox, LB_ADDSTRING, 0, string ? (LPARAM)string : lParam);
                     HeapFree(GetProcessHeap(), 0, string);
                     return ret;
@@ -2189,7 +2170,7 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
                     SendMessageW(lphc->hWndEdit, WM_SETTEXT, 0, (LPARAM)empty_stringW);
 		}
                 else
-                    NtUserInvalidateRect(lphc->self, NULL, TRUE);
+                    InvalidateRect(lphc->self, NULL, TRUE);
 		return  TRUE;
 	case CB_INITSTORAGE:
 		return SendMessageW(lphc->hWndLBox, LB_INITSTORAGE, wParam, lParam);
@@ -2278,7 +2259,7 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
 		if( lphc->wState & CBF_EDIT )
 		    CBUpdateEdit( lphc, (INT)wParam );
 		else
-		    NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
+		    InvalidateRect(lphc->self, &lphc->textRect, TRUE);
 		lphc->wState &= ~CBF_SELCHANGE;
 	        return  lParam;
 #ifndef __REACTOS__
@@ -2351,21 +2332,6 @@ static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
                 if( lphc->wState & CBF_EDIT )
                    return SendMessageW(lphc->hWndEdit, EM_LIMITTEXT, wParam, lParam);
                 break;
-
-    case WM_UPDATEUISTATE:
-        if (unicode)
-            DefWindowProcW(lphc->self, message, wParam, lParam);
-        else
-            DefWindowProcA(lphc->self, message, wParam, lParam);
-
-        if (COMBO_update_uistate(lphc))
-        {
-           /* redraw text */
-           if( !(lphc->wState & CBF_EDIT) )
-                NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
-        }
-        break;
-
 	default:
 		if (message >= WM_USER)
 		    WARN("unknown msg WM_USER+%04x wp=%04x lp=%08lx\n",
@@ -2403,10 +2369,5 @@ static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPA
 BOOL WINAPI GetComboBoxInfo(HWND hwndCombo,      /* [in] handle to combo box */
 			    PCOMBOBOXINFO pcbi   /* [in/out] combo box information */)
 {
-    TRACE("(%p, %p)\n", hwndCombo, pcbi);
-#ifndef __REACTOS__
     return SendMessageW(hwndCombo, CB_GETCOMBOBOXINFO, 0, (LPARAM)pcbi);
-#else
-    return NtUserGetComboBoxInfo(hwndCombo, pcbi);
-#endif
 }

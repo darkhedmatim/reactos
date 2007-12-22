@@ -33,8 +33,8 @@ PLOADER_MODULE CurrentModule = NULL;
 /* Unrelocated Kernel Base in Virtual Memory */
 ULONG_PTR KernelBase;
 
-/* Kernel Entrypoint in Virtual Memory */
-ROS_KERNEL_ENTRY_POINT KernelEntryPoint;
+/* Kernel Entrypoint in Physical Memory */
+ULONG_PTR KernelEntry;
 
 /* Page Directory and Tables for non-PAE Systems */
 extern PAGE_DIRECTORY_X86 startup_pagedirectory;
@@ -108,6 +108,7 @@ FASTCALL
 FrLdrSetupPae(ULONG Magic)
 {
     ULONG_PTR PageDirectoryBaseAddress = (ULONG_PTR)&startup_pagedirectory;
+    ASMCODE PagedJump;
 
     /* Set the PDBR */
     __writecr3(PageDirectoryBaseAddress);
@@ -116,7 +117,8 @@ FrLdrSetupPae(ULONG Magic)
     __writecr0(__readcr0() | X86_CR0_PG | X86_CR0_WP);
 
     /* Jump to Kernel */
-    (*KernelEntryPoint)(Magic, &LoaderBlock);
+    PagedJump = (ASMCODE)(PVOID)(KernelEntryPoint);
+    PagedJump(Magic, &LoaderBlock);
 }
 
 /*++
@@ -173,10 +175,20 @@ FrLdrSetupPageDirectory(VOID)
     PageDir->Pde[HyperspacePageTableIndex].Write = 1;
     PageDir->Pde[HyperspacePageTableIndex].PageFrameNumber = PaPtrToPfn(hyperspace_pagetable);
 
-    /* Set up the HAL PDE */
-    PageDir->Pde[HalPageTableIndex].Valid = 1;
-    PageDir->Pde[HalPageTableIndex].Write = 1;
-    PageDir->Pde[HalPageTableIndex].PageFrameNumber = PaPtrToPfn(apic_pagetable);
+    /* Set up the Apic PDE */
+    PageDir->Pde[ApicPageTableIndex].Valid = 1;
+    PageDir->Pde[ApicPageTableIndex].Write = 1;
+    PageDir->Pde[ApicPageTableIndex].PageFrameNumber = PaPtrToPfn(apic_pagetable);
+
+    /* Set up the KPCR PDE */
+    PageDir->Pde[KpcrPageTableIndex].Valid = 1;
+    PageDir->Pde[KpcrPageTableIndex].Write = 1;
+    PageDir->Pde[KpcrPageTableIndex].PageFrameNumber = PaPtrToPfn(kpcr_pagetable);
+
+    /* Set up the KUSER PDE */
+    PageDir->Pde[KuserPageTableIndex].Valid = 1;
+    PageDir->Pde[KuserPageTableIndex].Write = 1;
+    PageDir->Pde[KuserPageTableIndex].PageFrameNumber = PaPtrToPfn(kuser_pagetable);
 
     /* Set up Low Memory PTEs */
     PageDir = (PPAGE_DIRECTORY_X86)&lowmem_pagetable;
@@ -197,28 +209,35 @@ FrLdrSetupPageDirectory(VOID)
         PageDir->Pde[i].PageFrameNumber = PaToPfn(KERNEL_BASE_PHYS + i * PAGE_SIZE);
     }
 
-    /* Setup APIC Base */
+    /* Set up APIC PTEs */
     PageDir = (PPAGE_DIRECTORY_X86)&apic_pagetable;
     PageDir->Pde[0].Valid = 1;
     PageDir->Pde[0].Write = 1;
     PageDir->Pde[0].CacheDisable = 1;
     PageDir->Pde[0].WriteThrough = 1;
-    PageDir->Pde[0].PageFrameNumber = PaToPfn(HAL_BASE);
+    PageDir->Pde[0].PageFrameNumber = PaToPfn(APIC_BASE);
     PageDir->Pde[0x200].Valid = 1;
     PageDir->Pde[0x200].Write = 1;
     PageDir->Pde[0x200].CacheDisable = 1;
     PageDir->Pde[0x200].WriteThrough = 1;
-    PageDir->Pde[0x200].PageFrameNumber = PaToPfn(HAL_BASE + KERNEL_BASE_PHYS);
+    PageDir->Pde[0x200].PageFrameNumber = PaToPfn(APIC_BASE + KERNEL_BASE_PHYS);
 
-    /* Setup KUSER_SHARED_DATA Base */
-    PageDir->Pde[0x1F0].Valid = 1;
-    PageDir->Pde[0x1F0].Write = 1;
-    PageDir->Pde[0x1F0].PageFrameNumber = 2;
+    /* Set up KPCR PTEs */
+    PageDir = (PPAGE_DIRECTORY_X86)&kpcr_pagetable;
+    PageDir->Pde[0].Valid = 1;
+    PageDir->Pde[0].Write = 1;
+    PageDir->Pde[0].PageFrameNumber = 1;
 
-    /* Setup KPCR Base*/
-    PageDir->Pde[0x1FF].Valid = 1;
-    PageDir->Pde[0x1FF].Write = 1;
-    PageDir->Pde[0x1FF].PageFrameNumber = 1;
+    /* Setup KUSER PTEs */
+    PageDir = (PPAGE_DIRECTORY_X86)&kuser_pagetable;
+    for (i = 0; i < 1024; i++)
+    {
+        /* SEetup each entry */
+        PageDir->Pde[i].Valid = 1;
+        PageDir->Pde[i].Write = 1;
+        PageDir->Pde[i].Owner = 1;
+        PageDir->Pde[i].PageFrameNumber = PaToPfn(KI_USER_SHARED_DATA + i * PAGE_SIZE);
+    }
 }
 
 PLOADER_MODULE
@@ -278,9 +297,9 @@ LdrPEGetExportByName(PVOID BaseAddress,
     ULONG ExportDirSize;
 
     /* HAL and NTOS use a virtual address, switch it to physical mode */
-    if ((ULONG_PTR)BaseAddress & KSEG0_BASE)
+    if ((ULONG_PTR)BaseAddress & 0x80000000)
     {
-        BaseAddress = RVA(BaseAddress, -KSEG0_BASE);
+        BaseAddress = (PVOID)((ULONG_PTR)BaseAddress - KSEG0_BASE + 0x200000);
     }
 
     ExportDir = (PIMAGE_EXPORT_DIRECTORY)
@@ -420,7 +439,7 @@ LdrPEProcessImportDirectoryEntry(PVOID DriverBase,
             *ImportAddressList = LdrPEGetExportByName((PVOID)LoaderModule->ModStart, pe_name->Name, pe_name->Hint);
 
             /* Fixup the address to be virtual */
-            *ImportAddressList = RVA(*ImportAddressList, KSEG0_BASE);
+            *ImportAddressList = (PVOID)((ULONG_PTR)*ImportAddressList + (KSEG0_BASE - 0x200000));
 
             //DbgPrint("Looked for: %s and found: %p\n", pe_name->Name, *ImportAddressList);
             if ((*ImportAddressList) == NULL)
@@ -435,8 +454,6 @@ LdrPEProcessImportDirectoryEntry(PVOID DriverBase,
     return STATUS_SUCCESS;
 }
 
-extern BOOLEAN FrLdrLoadDriver(PCHAR szFileName, INT nPos);
-
 NTSTATUS
 NTAPI
 LdrPEGetOrLoadModule(IN PCHAR ModuleName,
@@ -448,15 +465,31 @@ LdrPEGetOrLoadModule(IN PCHAR ModuleName,
     *ImportedModule = LdrGetModuleObject(ImportedName);
     if (*ImportedModule == NULL)
     {
-	if (!FrLdrLoadDriver(ImportedName, 0))
-	{
-	    return STATUS_UNSUCCESSFUL;
-	}
-	else
-	{
-	    return LdrPEGetOrLoadModule
-		(ModuleName, ImportedName, ImportedModule);
-	}
+        /*
+         * For now, we only support import-loading the HAL.
+         * Later, FrLdrLoadDriver should be made to share the same
+         * code, and we'll just call it instead.
+         */
+        if (!_stricmp(ImportedName, "hal.dll") ||
+            !_stricmp(ImportedName, "kdcom.dll") ||
+            !_stricmp(ImportedName, "bootvid.dll"))
+        {
+            /* Load the HAL */
+            FrLdrLoadImage(ImportedName, 10, FALSE);
+
+            /* Return the new module */
+            *ImportedModule = LdrGetModuleObject(ImportedName);
+            if (*ImportedModule == NULL)
+            {
+                DbgPrint("Error loading import: %s\n", ImportedName);
+                return STATUS_UNSUCCESSFUL;
+            }
+        }
+        else
+        {
+            DbgPrint("Don't yet support loading new modules from imports\n");
+            Status = STATUS_NOT_IMPLEMENTED;
+        }
     }
 
     return Status;
@@ -479,7 +512,7 @@ LdrPEFixupImports(IN PVOID DllBase,
                                      TRUE,
                                      IMAGE_DIRECTORY_ENTRY_IMPORT,
                                      &Size);
-    while (ImportModuleDirectory && ImportModuleDirectory->Name)
+    while (ImportModuleDirectory->Name)
     {
         /*  Check to make sure that import lib is kernel  */
         ImportedName = (PCHAR) DllBase + ImportModuleDirectory->Name;
@@ -563,17 +596,9 @@ FrLdrMapImage(IN FILE *Image,
     ULONG ImageSize;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    /* Try to see, maybe it's loaded already */
-    if (LdrGetModuleObject(Name) != NULL)
-    {
-        /* It's loaded, return NULL. It would be wise to return
-           correct LoadBase, but it seems to be ignored almost everywhere */
-        return NULL;
-    }
-
     /* Set the virtual (image) and physical (load) addresses */
     LoadBase = (PVOID)NextModuleBase;
-    ImageBase = RVA(LoadBase, KSEG0_BASE);
+    ImageBase = RVA(LoadBase , -KERNEL_BASE_PHYS + KSEG0_BASE);
 
     /* Save the Image Size */
     ImageSize = FsGetFileSize(Image);
@@ -618,14 +643,11 @@ FrLdrMapImage(IN FILE *Image,
     /* Increase the next Load Base */
     NextModuleBase = ROUND_UP(NextModuleBase + ImageSize, PAGE_SIZE);
 
+    /* Load HAL if this is the kernel */
+    if (ImageType == 1) FrLdrLoadImage("hal.dll", 10, FALSE);
+
     /* Perform import fixups */
-    if (!NT_SUCCESS(LdrPEFixupImports(LoadBase, Name)))
-    {
-        /* Fixup failed, just don't include it in the list */
-        // NextModuleBase = OldNextModuleBase;
-        LoaderBlock.ModsCount = ImageId;
-        return NULL;
-    }
+    LdrPEFixupImports(LoadBase, Name);
 
     /* Return the final mapped address */
     return LoadBase;

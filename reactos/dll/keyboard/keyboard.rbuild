@@ -1,23 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<group>
 	<directory name="kbdbe">
 		<xi:include href="kbdbe/kbdbe.rbuild" />
 	</directory>
-	<directory name="kbdbga">
-		<xi:include href="kbdbga/kbdbga.rbuild" />
-	</directory>
-	<directory name="kbdbgm">
-		<xi:include href="kbdbgm/kbdbgm.rbuild" />
-	</directory>
-	<directory name="kbdbgt">
-		<xi:include href="kbdbgt/kbdbgt.rbuild" />
-	</directory>
 	<directory name="kbdbur">
 		<xi:include href="kbdbur/kbdbur.rbuild" />
-	</directory>
-	<directory name="kbdcz1">
-		<xi:include href="kbdcz1/kbdcz1.rbuild" />
 	</directory>
 	<directory name="kbdda">
 		<xi:include href="kbdda/kbdda.rbuild" />
@@ -51,12 +37,6 @@
 	</directory>
 	<directory name="kbdja">
 		<xi:include href="kbdja/kbdja.rbuild" />
-	</directory>
-	<directory name="kbdlt">
-		<xi:include href="kbdlt/kbdlt.rbuild" />
-	</directory>
-	<directory name="kbdno">
-		<xi:include href="kbdno/kbdno.rbuild" />
 	</directory>
 	<directory name="kbdpl1">
 		<xi:include href="kbdpl1/kbdpl1.rbuild" />

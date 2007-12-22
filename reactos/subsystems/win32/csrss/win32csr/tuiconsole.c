@@ -69,7 +69,7 @@ TuiInit(VOID)
       DPRINT1("Failed to register console wndproc\n");
       return FALSE;
     }
-
+  
   return TRUE;
 }
 
@@ -214,12 +214,6 @@ TuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCurs
 }
 
 static BOOL STDCALL
-TuiUpdateScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
-{
-    return TRUE;
-}
-
-static BOOL STDCALL
 TuiChangeTitle(PCSRSS_CONSOLE Console)
 {
   return TRUE;
@@ -229,7 +223,7 @@ static VOID STDCALL
 TuiCleanupConsole(PCSRSS_CONSOLE Console)
 {
   DestroyWindow(Console->hWindow);
-
+  
   EnterCriticalSection(&ActiveConsoleLock);
 
   /* Switch to next console */
@@ -284,6 +278,7 @@ TuiConsoleThread (PVOID Data)
           msg.message == WM_KEYDOWN || msg.message == WM_KEYUP ||
           msg.message == WM_SYSKEYDOWN || msg.message == WM_SYSKEYUP)
         {
+          CHECKPOINT1;
           ConioProcessKey(&msg, Console, TRUE);
         }
     }
@@ -298,7 +293,6 @@ static CSRSS_CONSOLE_VTBL TuiVtbl =
   TuiDrawRegion,
   TuiSetCursorInfo,
   TuiSetScreenInfo,
-  TuiUpdateScreenInfo,
   TuiChangeTitle,
   TuiCleanupConsole
 };

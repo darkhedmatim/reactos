@@ -293,19 +293,19 @@ IntGetWindowStationObject(PWINSTATION_OBJECT Object)
 BOOL FASTCALL
 co_IntInitializeDesktopGraphics(VOID)
 {
-   UNICODE_STRING DriverName = RTL_CONSTANT_STRING(L"DISPLAY");
+   UNICODE_STRING DriverName;
    if (! IntCreatePrimarySurface())
    {
       return FALSE;
    }
+   RtlInitUnicodeString(&DriverName, L"DISPLAY");
    ScreenDeviceContext = IntGdiCreateDC(&DriverName, NULL, NULL, NULL, FALSE);
    if (NULL == ScreenDeviceContext)
    {
       IntDestroyPrimarySurface();
       return FALSE;
    }
-   DC_FreeDcAttr(ScreenDeviceContext);         // Free the dcattr!
-   DC_SetOwnership(ScreenDeviceContext, NULL); // This hDC is inaccessible!
+   DC_SetOwnership(ScreenDeviceContext, NULL);
 
    /* Setup the cursor */
    co_IntLoadDefaultCursors();
@@ -317,7 +317,7 @@ VOID FASTCALL
 IntEndDesktopGraphics(VOID)
 {
    if (NULL != ScreenDeviceContext)
-   {  // No need to allocate a new dcattr.
+   {
       DC_SetOwnership(ScreenDeviceContext, PsGetCurrentProcess());
       NtGdiDeleteObjectApp(ScreenDeviceContext);
       ScreenDeviceContext = NULL;
@@ -377,8 +377,7 @@ NtUserCreateWindowStation(
    LPSECURITY_ATTRIBUTES lpSecurity,
    DWORD Unknown3,
    DWORD Unknown4,
-   DWORD Unknown5,
-   DWORD Unknown6)
+   DWORD Unknown5)
 {
    PSYSTEM_CURSORINFO CurInfo;
    UNICODE_STRING WindowStationName;
@@ -499,9 +498,8 @@ NtUserCreateWindowStation(
    /*
     * Initialize the new window station object
     */
-
    WindowStationObject->ScreenSaverRunning = FALSE;
-
+   WindowStationObject->ScreenSaverTimeOut = 10 * 60;
    WindowStationObject->FlatMenu = FALSE;
 
    if(!(CurInfo = ExAllocatePool(PagedPool, sizeof(SYSTEM_CURSORINFO))))
@@ -519,36 +517,26 @@ NtUserCreateWindowStation(
    CurInfo->LastBtnDown = 0;
    CurInfo->CurrentCursorObject = NULL;
    CurInfo->ShowingCursor = 0;
-
-   /* FIXME: Obtain the following information from the registry */
-
+    
    CurInfo->WheelScroLines = 3;
    CurInfo->WheelScroChars = 3;
+
+   
+
+   /* FIXME: Obtain the following information from the registry */    
    CurInfo->SwapButtons = FALSE;
    CurInfo->DblClickSpeed = 500;
    CurInfo->DblClickWidth = 4;
    CurInfo->DblClickHeight = 4;
 
-   CurInfo->MouseSpeed = 10;
-   CurInfo->CursorAccelerationInfo.FirstThreshold  = 6;
-   CurInfo->CursorAccelerationInfo.SecondThreshold = 10;
-   CurInfo->CursorAccelerationInfo.Acceleration    = 1;
-
-   CurInfo->MouseHoverTime = 80;
-   CurInfo->MouseHoverWidth = 4;
-   CurInfo->MouseHoverHeight = 4;
-
-   WindowStationObject->ScreenSaverActive = FALSE;
-   WindowStationObject->ScreenSaverTimeOut = 10;
    WindowStationObject->SystemCursor = CurInfo;
-
-   /* END FIXME loading from register */
-
+    
+    
    if (!IntSetupClipboard(WindowStationObject))
    {
        DPRINT1("WindowStation: Error Setting up the clipboard!!!\n");
-   }
-
+   }   
+    
    if (!IntSetupCurIconHandles(WindowStationObject))
    {
       DPRINT1("Setting up the Cursor/Icon Handle table failed!\n");
@@ -556,7 +544,7 @@ NtUserCreateWindowStation(
       ExFreePool(FullWindowStationName.Buffer);
    }
 
-   DPRINT("Window station successfully created (%wZ)\n", &FullWindowStationName);
+   DPRINT("Window station successfully created (%wZ)\n", FullWindowStationName);
    ExFreePool(FullWindowStationName.Buffer);
    return WindowStation;
 }

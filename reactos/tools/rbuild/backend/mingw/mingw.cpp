@@ -34,105 +34,6 @@ using std::map;
 
 typedef set<string> set_string;
 
-string
-MingwBackend::GetFullPath ( const FileLocation& file ) const
-{
-	MingwModuleHandler::PassThruCacheDirectory ( &file );
-
-	string directory;
-	switch ( file.directory )
-	{
-		case SourceDirectory:
-			directory = "";
-			break;
-		case IntermediateDirectory:
-			directory = "$(INTERMEDIATE)";
-			break;
-		case OutputDirectory:
-			directory = "$(OUTPUT)";
-			break;
-		case InstallDirectory:
-			directory = "$(INSTALL)";
-			break;
-		case TemporaryDirectory:
-			directory = "$(TEMPORARY)";
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  file.directory );
-	}
-
-	if ( file.relative_path.length () > 0 )
-	{
-		if ( directory.length () > 0 )
-			directory += sSep;
-		directory += file.relative_path;
-	}
-	return directory;
-}
-
-string
-MingwBackend::GetFullName ( const FileLocation& file ) const
-{
-	string directory;
-	switch ( file.directory )
-	{
-		case SourceDirectory:
-			directory = "";
-			break;
-		case IntermediateDirectory:
-			directory = "$(INTERMEDIATE)";
-			break;
-		case OutputDirectory:
-			directory = "$(OUTPUT)";
-			break;
-		case InstallDirectory:
-			directory = "$(INSTALL)";
-			break;
-		case TemporaryDirectory:
-			directory = "$(TEMPORARY)";
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  file.directory );
-	}
-
-	if ( file.relative_path.length () > 0 )
-	{
-		if ( directory.length () > 0 )
-			directory += sSep;
-		directory += file.relative_path;
-	}
-
-	if ( directory.length () > 0 )
-		directory += sSep;
-
-	return directory + file.name;
-}
-
-string
-v2s ( const Backend* backend, const vector<FileLocation>& files, int wrap_at )
-{
-	if ( !files.size() )
-		return "";
-	string s;
-	int wrap_count = 0;
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		const FileLocation& file = files[i];
-		if ( wrap_at > 0 && wrap_count++ == wrap_at )
-			s += " \\\n\t\t";
-		else if ( s.size() )
-			s += " ";
-		s += backend->GetFullName ( file );
-	}
-	return s;
-}
-
 
 string
 v2s ( const string_list& v, int wrap_at )
@@ -172,9 +73,9 @@ MingwBackend::MingwBackend ( Project& project,
                              Configuration& configuration )
 	: Backend ( project, configuration ),
 	  manualBinutilsSetting( false ),
-	  intermediateDirectory ( new Directory ( "" ) ),
-	  outputDirectory ( new Directory ( "" ) ),
-	  installDirectory ( new Directory ( "" ) )
+	  intermediateDirectory ( new Directory ("$(INTERMEDIATE)" ) ),
+	  outputDirectory ( new Directory ( "$(OUTPUT)" ) ),
+	  installDirectory ( new Directory ( "$(INSTALL)" ) )
 {
 	compilerPrefix = "";
 }
@@ -261,8 +162,6 @@ MingwBackend::ProcessModules ()
 	size_t iend = v.size ();
 
 	for ( i = 0; i < iend; i++ )
-		v[i]->GenerateSourceMacro();
-	for ( i = 0; i < iend; i++ )
 		v[i]->GenerateObjectMacro();
 	fprintf ( fMakefile, "\n" );
 	for ( i = 0; i < iend; i++ )
@@ -312,7 +211,7 @@ MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 			        configuration.CheckDependenciesForModuleOnlyModule.c_str () );
 			return;
 		}
-
+		
 		printf ( "Checking automatic dependencies for module '%s'...",
 		         module->name.c_str () );
 		AutomaticDependency automaticDependency ( ProjectNode );
@@ -334,12 +233,12 @@ MingwBackend::ProcessNormal ()
 	GenerateHeader ();
 	GenerateGlobalVariables ();
 	GenerateXmlBuildFilesMacro ();
-	UnpackWineResources ();
 	ProcessModules ();
 	GenerateInstallTarget ();
 	GenerateTestTarget ();
 	GenerateDirectoryTargets ();
 	GenerateDirectories ();
+	UnpackWineResources ();
 	GenerateTestSupportCode ();
 	GenerateCompilationUnitSupportCode ();
 	GenerateSysSetup ();
@@ -372,31 +271,34 @@ MingwBackend::GenerateHeader () const
 		ProjectNode.GetProjectFilename ().c_str () );
 }
 
+string
+MingwBackend::GenerateIncludesAndDefines ( IfableData& data ) const
+{
+	string includeParameters = MingwModuleHandler::GenerateGccIncludeParametersFromVector ( data.includes );
+	string defineParameters = MingwModuleHandler::GenerateGccDefineParametersFromVector ( data.defines );
+	return includeParameters + " " + defineParameters;
+}
+
 void
 MingwBackend::GenerateProjectCFlagsMacro ( const char* assignmentOperation,
-                                           const IfableData& data ) const
+                                           IfableData& data ) const
 {
-	set<string> used_defs;
+	fprintf (
+		fMakefile,
+		"PROJECT_CFLAGS %s",
+		assignmentOperation );
+	
+	fprintf ( fMakefile,
+	          " %s",
+	          GenerateIncludesAndDefines ( data ).c_str() );
 
-	if ( data.includes.size () > 0 )
-		fprintf (
-			fMakefile,
-			"PROJECT_CFLAGS %s %s\n",
-			assignmentOperation,
-			MingwModuleHandler::GenerateGccIncludeParametersFromVector ( data.includes ).c_str ());
-
-	if ( data.defines.size () > 0 )
-		fprintf (
-			fMakefile,
-			"PROJECT_CDEFINES %s %s\n",
-			assignmentOperation,
-			MingwModuleHandler::GenerateGccDefineParametersFromVector ( data.defines, used_defs ).c_str ());
+	fprintf ( fMakefile, "\n" );
 }
 
 void
 MingwBackend::GenerateGlobalCFlagsAndProperties (
 	const char* assignmentOperation,
-	const IfableData& data ) const
+	IfableData& data ) const
 {
 	size_t i;
 
@@ -416,7 +318,7 @@ MingwBackend::GenerateGlobalCFlagsAndProperties (
 
 	for ( i = 0; i < data.ifs.size(); i++ )
 	{
-		const If& rIf = *data.ifs[i];
+		If& rIf = *data.ifs[i];
 		if ( rIf.data.defines.size()
 			|| rIf.data.includes.size()
 			|| rIf.data.ifs.size() )
@@ -446,7 +348,7 @@ MingwBackend::GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
 		fMakefile,
 		"PROJECT_GCCOPTIONS %s",
 		assignmentOperation );
-
+	
 	for ( i = 0; i < data.compilerFlags.size(); i++ )
 	{
 		fprintf (
@@ -519,14 +421,12 @@ MingwBackend::GenerateGlobalVariables () const
 	GenerateGlobalCFlagsAndProperties ( "=", ProjectNode.non_if_data );
 	GenerateProjectGccOptions ( "=", ProjectNode.non_if_data );
 
-	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
+	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS)\n" );
+	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS)\n" );
 	fprintf ( fMakefile, "PROJECT_LFLAGS := %s\n",
 	          GenerateProjectLFLAGS ().c_str () );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
-	fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
-	fprintf ( fMakefile, "endif\n" );
+    fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += $(PROJECT_GCCOPTIONS)\n" );
 	fprintf ( fMakefile, "\n" );
 }
@@ -587,7 +487,7 @@ MingwBackend::GetBuildToolDependencies () const
 		{
 			if ( dependencies.length () > 0 )
 				dependencies += " ";
-			dependencies += GetFullName ( *module.dependency );
+			dependencies += module.GetDependencyPath ();
 		}
 	}
 	return dependencies;
@@ -622,9 +522,6 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 	          ProjectNode.GetProjectFilename ().c_str () );
 	string xmlbuildFilenames;
 	int numberOfExistingFiles = 0;
-	struct stat statbuf;
-	time_t SystemTime, lastWriteTime;
-
 	for ( size_t i = 0; i < ProjectNode.xmlbuildfiles.size (); i++ )
 	{
 		XMLInclude& xmlbuildfile = *ProjectNode.xmlbuildfiles[i];
@@ -633,28 +530,6 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 		numberOfExistingFiles++;
 		if ( xmlbuildFilenames.length () > 0 )
 			xmlbuildFilenames += " ";
-
-		FILE* f = fopen ( xmlbuildfile.topIncludeFilename.c_str (), "rb" );
-		if ( !f )
-		throw FileNotFoundException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-
-		if ( fstat ( fileno ( f ), &statbuf ) != 0 )
-		{
-			fclose ( f );
-			throw AccessDeniedException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-		}
-
-		lastWriteTime = statbuf.st_mtime;
-		SystemTime = time(NULL);
-
-		if (SystemTime != -1)
-		{
-			if (difftime (lastWriteTime, SystemTime) > 0)
-				throw InvalidDateException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-		}
-
-		fclose ( f );
-
 		xmlbuildFilenames += NormalizeFilename ( xmlbuildfile.topIncludeFilename );
 		if ( numberOfExistingFiles % 5 == 4 || i == ProjectNode.xmlbuildfiles.size () - 1 )
 		{
@@ -754,14 +629,23 @@ MingwBackend::CheckAutomaticDependencies ()
 	}
 }
 
+bool
+MingwBackend::IncludeDirectoryTarget ( const string& directory ) const
+{
+	if ( directory == "$(INTERMEDIATE)" + sSep + "tools")
+		return false;
+	else
+		return true;
+}
+
 void
 MingwBackend::GenerateDirectories ()
 {
 	printf ( "Creating directories..." );
-	intermediateDirectory->GenerateTree ( IntermediateDirectory, configuration.Verbose );
-	outputDirectory->GenerateTree ( OutputDirectory, configuration.Verbose );
+	intermediateDirectory->GenerateTree ( "", configuration.Verbose );
+	outputDirectory->GenerateTree ( "", configuration.Verbose );
 	if ( !configuration.MakeHandlesInstallDirectories )
-		installDirectory->GenerateTree ( InstallDirectory, configuration.Verbose );
+		installDirectory->GenerateTree ( "", configuration.Verbose );
 	printf ( "done\n" );
 }
 
@@ -840,15 +724,14 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 {
 	FILE *fp;
 	int ch, i;
-	size_t newline;
 	char buffer[81];
 
 	fp = popen ( versionCommand.c_str () , "r" );
-	for( i = 0;
-	     ( i < 80 ) &&
-	       ( feof ( fp ) == 0 &&
-	         ( ( ch = fgetc( fp ) ) != -1 ) );
-	     i++ )
+	for( i = 0; 
+             ( i < 80 ) && 
+                 ( feof ( fp ) == 0 && 
+                   ( ( ch = fgetc( fp ) ) != -1 ) ); 
+             i++ )
 	{
 		buffer[i] = (char) ch;
 	}
@@ -858,7 +741,7 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 	char separators[] = " ";
 	char *token;
 	char *prevtoken = NULL;
-
+	
 	string version;
 
 	token = strtok ( buffer, separators );
@@ -866,8 +749,6 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 	{
 		prevtoken = token;
 		version = string( prevtoken );
-		if ( (newline = version.find('\n')) != std::string::npos )
-			version.erase(newline, 1);
 		if ( version.find('.') != std::string::npos )
 			break;
 		token = strtok ( NULL, separators );
@@ -949,21 +830,21 @@ MingwBackend::GetBinutilsVersionDate ( const string& binutilsCommand )
 	                                   NUL,
 	                                   NUL );
 	fp = popen ( versionCommand.c_str () , "r" );
-	for( i = 0;
-	     ( i < 80 ) &&
-	         ( feof ( fp ) == 0 &&
-	           ( ( ch = fgetc( fp ) ) != -1 ) );
-	     i++ )
+	for( i = 0; 
+             ( i < 80 ) && 
+                 ( feof ( fp ) == 0 && 
+                   ( ( ch = fgetc( fp ) ) != -1 ) ); 
+             i++ )
 	{
 		buffer[i] = (char) ch;
 	}
 	buffer[i] = '\0';
 	pclose ( fp );
-
+	
 	char separators[] = " ";
 	char *token;
 	char *prevtoken = NULL;
-
+	
 	token = strtok ( buffer, separators );
 	while ( token != NULL )
 	{
@@ -982,20 +863,14 @@ bool
 MingwBackend::IsSupportedBinutilsVersion ( const string& binutilsVersion )
 {
 	if ( manualBinutilsSetting ) return true;
-
+	
 	/* linux */
 	if ( binutilsVersion.find('.') != std::string::npos )
 	{
-		/* TODO: blacklist versions on version number instead of date */
+		/* TODO: blacklist versions on version number instead of date */		
 		return true;
 	}
 
-	/*
-	 * - Binutils older than 2003/10/01 have broken windres which can't handle
-	 *   icons with alpha channel.
-	 * - Binutils between 2004/09/02 and 2004/10/08 have broken handling of
-	 *   forward exports in dlltool.
-	 */
 	if ( ( ( strcmp ( binutilsVersion.c_str (), "20040902") >= 0 ) &&
 	       ( strcmp ( binutilsVersion.c_str (), "20041008") <= 0 ) ) ||
 	       ( strcmp ( binutilsVersion.c_str (), "20031001") < 0 ) )
@@ -1141,52 +1016,78 @@ MingwBackend::DetectPCHSupport ()
 
 void
 MingwBackend::GetNonModuleInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
 	for ( size_t i = 0; i < ProjectNode.installfiles.size (); i++ )
 	{
 		const InstallFile& installfile = *ProjectNode.installfiles[i];
-		out.push_back ( *installfile.target );
+		string targetFilenameNoFixup = installfile.base + sSep + installfile.newname;
+		string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
+			NormalizeFilename ( targetFilenameNoFixup ),
+			installDirectory );
+		out.push_back ( targetFilename );
 	}
 }
 
 void
 MingwBackend::GetModuleInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
 	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
 	{
 		const Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
-		if ( module.install )
-			out.push_back ( *module.install );
+		if ( module.installName.length () > 0 )
+		{
+			string targetFilenameNoFixup;
+			if ( module.installBase.length () > 0 )
+				targetFilenameNoFixup = module.installBase + sSep + module.installName;
+			else
+				targetFilenameNoFixup = module.installName;
+			string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
+				NormalizeFilename ( targetFilenameNoFixup ),
+				installDirectory );
+			out.push_back ( targetFilename );
+		}
 	}
 }
 
 void
 MingwBackend::GetInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
 	GetNonModuleInstallTargetFiles ( out );
 	GetModuleInstallTargetFiles ( out );
 }
 
 void
-MingwBackend::OutputInstallTarget ( const FileLocation& source,
-                                    const FileLocation& target )
+MingwBackend::OutputInstallTarget ( const string& sourceFilename,
+	                            const string& targetFilename,
+	                            const string& targetDirectory )
 {
+	string fullTargetFilename;
+	if ( targetDirectory.length () > 0)
+		fullTargetFilename = targetDirectory + sSep + targetFilename;
+	else
+		fullTargetFilename = targetFilename;
+	string normalizedTargetFilename = MingwModuleHandler::PassThruCacheDirectory (
+		NormalizeFilename ( fullTargetFilename ),
+		installDirectory );
+	string normalizedTargetDirectory = MingwModuleHandler::PassThruCacheDirectory (
+		NormalizeFilename ( targetDirectory ),
+		installDirectory );
 	fprintf ( fMakefile,
 	          "%s: %s | %s\n",
-	          GetFullName ( target ).c_str (),
-	          GetFullName ( source ).c_str (),
-	          GetFullPath ( target ).c_str () );
+	          normalizedTargetFilename.c_str (),
+	          sourceFilename.c_str (),
+	          normalizedTargetDirectory.c_str () );
 	fprintf ( fMakefile,
 	          "\t$(ECHO_CP)\n" );
 	fprintf ( fMakefile,
 	          "\t${cp} %s %s 1>$(NUL)\n",
-	          GetFullName ( source ).c_str (),
-	          GetFullName ( target ).c_str () );
+	          sourceFilename.c_str (),
+	          normalizedTargetFilename.c_str () );
 }
 
 void
@@ -1195,7 +1096,9 @@ MingwBackend::OutputNonModuleInstallTargets ()
 	for ( size_t i = 0; i < ProjectNode.installfiles.size (); i++ )
 	{
 		const InstallFile& installfile = *ProjectNode.installfiles[i];
-		OutputInstallTarget ( *installfile.source, *installfile.target );
+		OutputInstallTarget ( installfile.GetPath (),
+		                      installfile.newname,
+		                      installfile.base );
 	}
 }
 
@@ -1220,10 +1123,15 @@ MingwBackend::OutputModuleInstallTargets ()
 		const Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
-		if ( module.install )
+		if ( module.installName.length () > 0 )
 		{
 			const Module& aliasedModule = GetAliasedModuleOrModule ( module );
-			OutputInstallTarget ( *aliasedModule.output, *module.install );
+			string sourceFilename = MingwModuleHandler::PassThruCacheDirectory (
+				NormalizeFilename ( aliasedModule.GetPath () ),
+				outputDirectory );
+			OutputInstallTarget ( sourceFilename,
+			                      module.installName,
+			                      module.installBase );
 		}
 	}
 }
@@ -1241,23 +1149,24 @@ MingwBackend::GetRegistrySourceFiles ()
 string
 MingwBackend::GetRegistryTargetFiles ()
 {
-	string system32ConfigDirectory = "system32" + sSep + "config";
-	FileLocation system32 ( InstallDirectory, system32ConfigDirectory, "" );
-
-	vector<FileLocation> registry_files;
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "default" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "sam" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "security" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "software" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "system" ) );
-
-	return v2s( this, registry_files, 6 );
+	string system32ConfigDirectory = NormalizeFilename (
+		MingwModuleHandler::PassThruCacheDirectory (
+		"system32" + sSep + "config" + sSep,
+		installDirectory ) );
+	return system32ConfigDirectory + sSep + "default " +
+		system32ConfigDirectory + sSep + "sam " +
+		system32ConfigDirectory + sSep + "security " +
+		system32ConfigDirectory + sSep + "software " +
+		system32ConfigDirectory + sSep + "system";
 }
 
 void
 MingwBackend::OutputRegistryInstallTarget ()
 {
-	FileLocation system32 ( InstallDirectory, "system32" + sSep + "config", "" );
+	string system32ConfigDirectory = NormalizeFilename (
+		MingwModuleHandler::PassThruCacheDirectory (
+		"system32" + sSep + "config" + sSep,
+		installDirectory ) );
 
 	string registrySourceFiles = GetRegistrySourceFiles ();
 	string registryTargetFiles = GetRegistryTargetFiles ();
@@ -1268,12 +1177,12 @@ MingwBackend::OutputRegistryInstallTarget ()
 	          "%s: %s %s $(MKHIVE_TARGET)\n",
 	          registryTargetFiles.c_str (),
 	          registrySourceFiles.c_str (),
-	          GetFullPath ( system32 ).c_str () );
+	          system32ConfigDirectory.c_str () );
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
 	          "\t$(MKHIVE_TARGET) boot%cbootdata %s boot%cbootdata%chiveinst.inf\n",
-	          cSep, GetFullPath ( system32 ).c_str (),
+	          cSep, system32ConfigDirectory.c_str (),
 	          cSep, cSep );
 	fprintf ( fMakefile,
 	          "\n" );
@@ -1282,15 +1191,15 @@ MingwBackend::OutputRegistryInstallTarget ()
 void
 MingwBackend::GenerateInstallTarget ()
 {
-	vector<FileLocation> vInstallTargetFiles;
+	vector<string> vInstallTargetFiles;
 	GetInstallTargetFiles ( vInstallTargetFiles );
-	string installTargetFiles = v2s ( this, vInstallTargetFiles, 5 );
+	string installTargetFiles = v2s ( vInstallTargetFiles, 5 );
 	string registryTargetFiles = GetRegistryTargetFiles ();
 
 	fprintf ( fMakefile,
 	          "install: %s %s\n",
 	          installTargetFiles.c_str (),
-	          registryTargetFiles.c_str () );
+		  registryTargetFiles.c_str () );
 	OutputNonModuleInstallTargets ();
 	OutputModuleInstallTargets ();
 	OutputRegistryInstallTarget ();
@@ -1329,7 +1238,7 @@ MingwBackend::GenerateTestTarget ()
 void
 MingwBackend::GenerateDirectoryTargets ()
 {
-	intermediateDirectory->CreateRule ( fMakefile, "$(INTERMEDIATE)" );
-	outputDirectory->CreateRule ( fMakefile, "$(OUTPUT)" );
-	installDirectory->CreateRule ( fMakefile, "$(INSTALL)" );
+	intermediateDirectory->CreateRule ( fMakefile, "" );
+	outputDirectory->CreateRule ( fMakefile, "" );
+	installDirectory->CreateRule ( fMakefile, "" );
 }

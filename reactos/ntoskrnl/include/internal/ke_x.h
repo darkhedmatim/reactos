@@ -7,7 +7,7 @@
 */
 
 //
-// Thread Dispatcher Header DebugActive Mask
+// Thread Dispatcher Header DebugActive Mask 
 //
 #define DR_MASK(x)                              1 << x
 #define DR_ACTIVE_MASK                          0x10
@@ -96,7 +96,7 @@ Ke386SanitizeDr(IN PVOID DrAddress,
     PKTHREAD _Thread = KeGetCurrentThread();                                \
                                                                             \
     /* Sanity checks */                                                     \
-    ASSERT(KeGetCurrentIrql() <= APC_LEVEL);                                \
+    ASSERT_IRQL_LESS_OR_EQUAL(APC_LEVEL);                                   \
     ASSERT(_Thread == KeGetCurrentThread());                                \
     ASSERT((_Thread->SpecialApcDisable <= 0) &&                             \
            (_Thread->SpecialApcDisable != -32768));                         \
@@ -113,7 +113,7 @@ Ke386SanitizeDr(IN PVOID DrAddress,
     PKTHREAD _Thread = KeGetCurrentThread();                                \
                                                                             \
     /* Sanity checks */                                                     \
-    ASSERT(KeGetCurrentIrql() <= APC_LEVEL);                                \
+    ASSERT_IRQL_LESS_OR_EQUAL(APC_LEVEL);                                   \
     ASSERT(_Thread == KeGetCurrentThread());                                \
     ASSERT(_Thread->SpecialApcDisable < 0);                                 \
                                                                             \
@@ -355,7 +355,7 @@ KiRundownThread(IN PKTHREAD Thread)
     {
         /* Clear it */
         KeGetCurrentPrcb()->NpxThread = NULL;
-        KeArchFnInit();
+        Ke386FnInit();
     }
 }
 
@@ -1529,11 +1529,7 @@ FORCEINLINE
 KeGetCurrentThread(VOID)
 {
     /* Return the current thread */
-#ifdef _M_PPC
-    return ((PKIPCR)KeGetPcr())->PrcbData->CurrentThread;
-#else
     return ((PKIPCR)KeGetPcr())->PrcbData.CurrentThread;
-#endif
 }
 
 UCHAR
@@ -1542,17 +1538,5 @@ KeGetPreviousMode(VOID)
 {
     /* Return the current mode */
     return KeGetCurrentThread()->PreviousMode;
-}
-
-VOID
-FORCEINLINE
-KeFlushProcessTb(VOID)
-{
-    /* Flush the TLB by resetting CR3 */
-#ifdef _M_PPC
-    __asm__("sync\n\tisync\n\t");
-#else
-    __writecr3(__readcr3());
-#endif
 }
 

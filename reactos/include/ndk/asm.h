@@ -29,7 +29,7 @@ Author:
 #ifdef CONFIG_SMP
 #define PCR                                     fs:
 #else
-#define PCR                                     ds:[0xFFDFF000]
+#define PCR                                     ds:[0xFF000000]
 #endif
 #endif
 
@@ -113,7 +113,6 @@ Author:
 #define KTHREAD_WAIT_IRQL                       0x4E
 #define KTHREAD_NEXT_PROCESSOR                  0x40
 #define KTHREAD_WAIT_REASON                     0x5A
-#define KTHREAD_PRIORITY                        0x5B
 #define KTHREAD_SWAP_BUSY                       0x5D
 #define KTHREAD_SERVICE_TABLE                   0x118
 #define KTHREAD_PREVIOUS_MODE                   0xD7
@@ -264,7 +263,6 @@ Author:
 #define FX_ERROR_SELECTOR                       0xC
 #define FX_DATA_OFFSET                          0x10
 #define FX_DATA_SELECTOR                        0x14
-#define FX_MXCSR                                0x18
 
 //
 // NPX States
@@ -611,7 +609,5 @@ Author:
 #define PRIMARY_VECTOR_BASE                     0x30 // FIXME: HACK
 #define MAXIMUM_IDTVECTOR                       0xFF
 #endif // !_ASM_H
-
-
 
 

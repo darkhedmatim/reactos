@@ -1,11 +1,10 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="gdiplus" type="win32dll" baseaddress="${BASEADDRESS_GDIPLUS}" installbase="system32" installname="gdiplus.dll">
 	<importlibrary definition="gdiplus.def" />
 	<include base="gdiplus">include</include>
 	<define name="_DISABLE_TIDENTS" />
 	<define name="UNICODE" />
 	<define name="_UNICODE" />
+	<define name="__USE_W32API" />
 	<define name="_WIN32_IE">0x600</define>
 	<define name="_WIN32_WINNT">0x501</define>
 	<define name="WINVER">0x501</define>

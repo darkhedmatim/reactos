@@ -2,6 +2,7 @@
 #define __CHARMAP_PRECOMP_H
 #include <windows.h>
 #include <stdio.h>
+#include <tchar.h>
 #include <commctrl.h>
 #include "resource.h"
 
@@ -22,7 +23,7 @@ typedef struct _CELL
     RECT CellInt;
     BOOL bActive;
     BOOL bLarge;
-    WCHAR ch;
+    TCHAR ch;
 } CELL, *PCELL;
 
 typedef struct _MAP
@@ -35,13 +36,13 @@ typedef struct _MAP
     CELL Cells[YCELLS][XCELLS];
     PCELL pActiveCell;
     HFONT hFont;
-    LOGFONTW CurrentFont;
-    INT iYStart;
+    LOGFONT CurrentFont;
+    INT iPage;
 } MAP, *PMAP;
 
 typedef struct {
     NMHDR hdr;
-    WCHAR ch;
+    TCHAR ch;
 } MAPNOTIFY, *LPMAPNOTIFY;
 
 

@@ -18,7 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 
@@ -588,7 +587,7 @@ int vsnprintfW(WCHAR *str, size_t len, const WCHAR *format, va_list valist)
                     *fmta = '\0';
                     if (*iter == 'a' || *iter == 'A' ||
                         *iter == 'e' || *iter == 'E' ||
-                        *iter == 'f' || *iter == 'F' ||
+                        *iter == 'f' || *iter == 'F' || 
                         *iter == 'g' || *iter == 'G')
                         sprintf(bufaiter, fmtbufa, va_arg(valist, double));
                     else

@@ -337,14 +337,12 @@ NtfsDeviceIoControl(IN PDEVICE_OBJECT DeviceObject,
 
 /* close.c */
 
-DRIVER_DISPATCH NtfsClose;
 NTSTATUS STDCALL
 NtfsClose(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
 
 /* create.c */
 
-DRIVER_DISPATCH NtfsCreate;
 NTSTATUS STDCALL
 NtfsCreate(PDEVICE_OBJECT DeviceObject,
 	   PIRP Irp);
@@ -352,7 +350,6 @@ NtfsCreate(PDEVICE_OBJECT DeviceObject,
 
 /* dirctl.c */
 
-DRIVER_DISPATCH NtfsDirectoryControl;
 NTSTATUS STDCALL
 NtfsDirectoryControl(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
@@ -411,7 +408,6 @@ NtfsGetFCBForFile(PDEVICE_EXTENSION Vcb,
 
 /* finfo.c */
 
-DRIVER_DISPATCH NtfsQueryInformation;
 NTSTATUS STDCALL
 NtfsQueryInformation(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
@@ -419,7 +415,6 @@ NtfsQueryInformation(PDEVICE_OBJECT DeviceObject,
 
 /* fsctl.c */
 
-DRIVER_DISPATCH NtfsFileSystemControl;
 NTSTATUS STDCALL
 NtfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp);
@@ -506,12 +501,10 @@ CdfsFileFlagsToAttributes(PFCB Fcb,
 
 /* rw.c */
 
-DRIVER_DISPATCH NtfsRead;
 NTSTATUS STDCALL
 NtfsRead(PDEVICE_OBJECT DeviceObject,
 	PIRP Irp);
 
-DRIVER_DISPATCH NtfsWrite;
 NTSTATUS STDCALL
 NtfsWrite(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
@@ -519,12 +512,10 @@ NtfsWrite(PDEVICE_OBJECT DeviceObject,
 
 /* volinfo.c */
 
-DRIVER_DISPATCH NtfsQueryVolumeInformation;
 NTSTATUS STDCALL
 NtfsQueryVolumeInformation(PDEVICE_OBJECT DeviceObject,
 			   PIRP Irp);
 
-DRIVER_DISPATCH NtfsSetVolumeInformation;
 NTSTATUS STDCALL
 NtfsSetVolumeInformation(PDEVICE_OBJECT DeviceObject,
 			 PIRP Irp);

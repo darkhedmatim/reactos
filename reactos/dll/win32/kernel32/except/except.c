@@ -13,9 +13,9 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
-LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = NULL;
+LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = UnhandledExceptionFilter;
 
 UINT
 WINAPI
@@ -124,7 +124,6 @@ _module_name_from_addr(const void* addr, void **module_start_addr,
    return psz;
 }
 
-#ifdef _M_IX86
 static VOID
 _dump_context(PCONTEXT pc)
 {
@@ -139,13 +138,6 @@ _dump_context(PCONTEXT pc)
 	    pc->Ebp, pc->Esi, pc->Esp);
    DbgPrint("EDI: %.8x   EFLAGS: %.8x\n", pc->Edi, pc->EFlags);
 }
-#else
-#warning Unknown architecture
-static VOID
-_dump_context(PCONTEXT pc)
-{
-}
-#endif
 
 static LONG
 BasepCheckForReadOnlyResource(IN PVOID Ptr)
@@ -213,26 +205,16 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
    LONG RetValue;
    HANDLE DebugPort = NULL;
    NTSTATUS ErrCode;
-   ULONG ErrorParameters[4];
-   ULONG ErrorResponse;
 
    if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
-       ExceptionInfo->ExceptionRecord->NumberParameters >= 2)
+       ExceptionInfo->ExceptionRecord->ExceptionInformation[0])
    {
-      switch(ExceptionInfo->ExceptionRecord->ExceptionInformation[0])
-      {
-      case EXCEPTION_WRITE_FAULT:
-         /* Change the protection on some write attempts, some InstallShield setups
-            have this bug */
-         RetValue = BasepCheckForReadOnlyResource(
-            (PVOID)ExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-         if (RetValue == EXCEPTION_CONTINUE_EXECUTION)
-            return EXCEPTION_CONTINUE_EXECUTION;
-         break;
-      case EXCEPTION_EXECUTE_FAULT:
-         /* FIXME */
-         break;
-      }
+      /* Change the protection on some write attempts, some InstallShield setups
+         have this bug */
+      RetValue = BasepCheckForReadOnlyResource(
+         (PVOID)ExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+      if (RetValue == EXCEPTION_CONTINUE_EXECUTION)
+         return EXCEPTION_CONTINUE_EXECUTION;
    }
 
    /* Is there a debugger running ? */
@@ -251,20 +233,13 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
       return EXCEPTION_CONTINUE_SEARCH;
    }
 
-   if (GlobalTopLevelExceptionFilter)
-   {
-      LONG ret = GlobalTopLevelExceptionFilter( ExceptionInfo );
-      if (ret != EXCEPTION_CONTINUE_SEARCH)
-         return ret;
-   }
-
    if ((GetErrorMode() & SEM_NOGPFAULTERRORBOX) == 0)
    {
 #ifdef _X86_
       PULONG Frame;
-#endif
       PVOID StartAddr;
       CHAR szMod[128] = "";
+#endif
 
       /* Print a stack trace. */
       DbgPrint("Unhandled exception\n");
@@ -306,34 +281,6 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
       }
       _SEH_END;
 #endif
-   }
-
-   /* Save exception code and address */
-   ErrorParameters[0] = (ULONG)ExceptionInfo->ExceptionRecord->ExceptionCode;
-   ErrorParameters[1] = (ULONG)ExceptionInfo->ExceptionRecord->ExceptionAddress;
-
-   if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION)
-   {
-       /* get the type of operation that caused the access violation */
-       ErrorParameters[2] = ExceptionInfo->ExceptionRecord->ExceptionInformation[0];
-   }
-   else
-   {
-       ErrorParameters[2] = ExceptionInfo->ExceptionRecord->ExceptionInformation[2];
-   }
-
-   /* Save faulting address */
-   ErrorParameters[3] = ExceptionInfo->ExceptionRecord->ExceptionInformation[1];
-
-   /* Raise the harderror */
-   ErrCode = NtRaiseHardError(STATUS_UNHANDLED_EXCEPTION | 0x10000000,
-       4, 0, ErrorParameters, OptionOkCancel, &ErrorResponse);
-
-   if (NT_SUCCESS(ErrCode) && (ErrorResponse == ResponseCancel))
-   {
-       /* FIXME: Check the result, if the "Cancel" button was
-                 clicked run a debugger */
-       DPRINT1("Debugging is not implemented yet\n");
    }
 
    /*

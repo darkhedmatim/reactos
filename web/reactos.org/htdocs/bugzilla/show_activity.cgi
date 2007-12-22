@@ -26,8 +26,8 @@ use strict;
 
 use lib qw(.);
 
-use Bugzilla;
-use Bugzilla::Error;
+require "globals.pl";
+
 use Bugzilla::Bug;
 
 my $cgi = Bugzilla->cgi;

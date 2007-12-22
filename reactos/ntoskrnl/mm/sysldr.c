@@ -21,7 +21,7 @@ sprintf_nt(IN PCHAR Buffer,
 {
     va_list ap;
     va_start(ap, Format);
-    vsprintf(Buffer, Format, ap);
+    sprintf(Buffer, Format, ap);
     va_end(ap);
 }
 
@@ -177,23 +177,15 @@ NTSTATUS
 NTAPI
 MiDereferenceImports(IN PLOAD_IMPORTS ImportList)
 {
-    SIZE_T i;
-
     /* Check if there's no imports or if we're a boot driver */
-    if ((ImportList == (PVOID)-1) ||
-        (ImportList == (PVOID)-2) ||
-        (ImportList->Count == 0))
+    if ((ImportList == (PVOID)-1) || (ImportList == (PVOID)-2))
     {
         /* Then there's nothing to do */
         return STATUS_SUCCESS;
     }
 
     /* Otherwise, FIXME */
-    DPRINT1("%u imports not dereferenced!\n", ImportList->Count);
-    for (i = 0; i < ImportList->Count; i++)
-    {
-        DPRINT1("%wZ <%wZ>\n", &ImportList->Entry[i]->FullDllName, &ImportList->Entry[i]->BaseDllName);
-    }
+    DPRINT1("Imports not dereferenced!\n");
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -821,8 +813,9 @@ MiResolveImageReferences(IN PVOID ImageBase,
                                               TAG_LDR_WSTR);
         if (LoadedImports)
         {
-            /* Zero it */
+            /* Zero it and set the count */
             RtlZeroMemory(LoadedImports, LoadedImportsSize);
+            LoadedImports->Count = ImportCount;
         }
     }
     else
@@ -1013,8 +1006,8 @@ CheckDllState:
             if (!(LdrEntry->Flags & LDRP_LOAD_IN_PROGRESS))
             {
                 /* Add the entry */
-                LoadedImports->Entry[LoadedImports->Count] = LdrEntry;
-                LoadedImports->Count++;
+                LoadedImports->Entry[ImportCount] = LdrEntry;
+                ImportCount++;
             }
         }
 
@@ -1111,17 +1104,17 @@ CheckDllState:
             if (NewImports)
             {
                 /* Set count */
-                NewImports->Count = 0;
+                NewImports->Count = ImportCount;
 
                 /* Loop all the imports */
-                for (i = 0; i < LoadedImports->Count; i++)
+                for (i = 0, ImportCount = 0; i < LoadedImports->Count; i++)
                 {
                     /* Make sure it's valid */
                     if (LoadedImports->Entry[i])
                     {
                         /* Copy it */
-                        NewImports->Entry[NewImports->Count] = LoadedImports->Entry[i];
-                        NewImports->Count++;
+                        NewImports->Entry[i] = LoadedImports->Entry[i];
+                        ImportCount++;
                     }
                 }
 
@@ -1774,7 +1767,7 @@ LoaderScan:
                                    NtHeader->OptionalHeader.AddressOfEntryPoint);
     LdrEntry->SizeOfImage = DriverSize;
     LdrEntry->CheckSum = NtHeader->OptionalHeader.CheckSum;
-    LdrEntry->SectionPointer = Section;
+    LdrEntry->SectionPointer = LdrEntry;
 
     /* Now write the DLL name */
     LdrEntry->BaseDllName.Buffer = (PVOID)(LdrEntry + 1);
@@ -1867,12 +1860,7 @@ LoaderScan:
     }
 
     /* Check if there's symbols */
-#ifdef KDBG
-    /* If KDBG is defined, then we always have symbols */
-    if (TRUE)
-#else
     if (MiCacheImageSymbols(LdrEntry->DllBase))
-#endif
     {
         /* Check if the system root is present */
         if ((PrefixName.Length > (11 * sizeof(WCHAR))) &&

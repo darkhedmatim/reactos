@@ -108,9 +108,6 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
 {
     KD_CONTINUE_TYPE Return;
     ULONG ExceptionCommand = ExceptionRecord->ExceptionInformation[0];
-#ifdef _M_IX86
-    ULONG EipOld;
-#endif
 
     /* Check if this was a breakpoint due to DbgPrint or Load/UnloadSymbols */
     if ((ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) &&
@@ -128,27 +125,14 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
                                  (PVOID)ExceptionRecord->ExceptionInformation[1],
                                  ExceptionRecord->ExceptionInformation[2]);
         }
-        else if (ExceptionCommand == BREAKPOINT_LOAD_SYMBOLS)
-        {
-            /* Load symbols. Currently implemented only for KDBG! */
-            KDB_SYMBOLFILE_HOOK((PANSI_STRING)ExceptionRecord->ExceptionInformation[1],
-                (PKD_SYMBOLS_INFO)ExceptionRecord->ExceptionInformation[2]);
-        }
 
         /* This we can handle: simply bump EIP */
-#ifdef _M_IX86
         Context->Eip++;
-#endif
         return TRUE;
     }
 
     /* Get out of here if the Debugger isn't connected */
     if (KdDebuggerNotPresent) return FALSE;
-
-    /* Save old EIP value */
-#ifdef _M_IX86
-    EipOld = Context->Eip;
-#endif
 
     /* Call KDBG if available */
     Return = KdbEnterDebuggerException(ExceptionRecord,
@@ -156,21 +140,6 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
                                        Context,
                                        TrapFrame,
                                        !SecondChance);
-
-    /* Bump EIP over int 3 if debugger did not already change it */
-    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT)
-    {
-#ifdef KDBG
-        if (Context->Eip == EipOld)
-            Context->Eip++;
-#else
-        /* We simulate the original behaviour when KDBG is turned off.
-           Return var is set to kdHandleException, thus we always return FALSE */
-#ifdef _M_IX86
-        Context->Eip = EipOld;
-#endif
-#endif
-    }
 
     /* Convert return to BOOLEAN */
     if (Return == kdContinue) return TRUE;

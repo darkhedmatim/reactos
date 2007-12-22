@@ -25,9 +25,6 @@
 #include <windows.h>
 #include "teb.h"
 
-#define C_ASSERT(e) extern char __C_ASSERT__[(e)?1:-1]
-C_ASSERT(FIELD_OFFSET(TEB, glTable) == 0xbe8);
-
 #include "opengl32.h"
 
 int STDCALL glEmptyFunc0() { return 0; }
@@ -64,8 +61,6 @@ int STDCALL glEmptyFunc56( long l1, long l2, long l3, long l4, long l5,
 
 #if defined(_M_IX86)
 # define FOO(x) #x
-
-#if __MINGW32__
 # define X(func, ret, typeargs, args, icdidx, tebidx, stack)          \
 __asm__(".align 4"                                    "\n\t"          \
         ".globl _"#func"@"#stack                      "\n\t"          \
@@ -73,26 +68,7 @@ __asm__(".align 4"                                    "\n\t"          \
         "       movl %fs:0x18, %eax"                  "\n\t"          \
         "       movl 0xbe8(%eax), %eax"               "\n\t"          \
         "       jmp *"FOO((icdidx*4))"(%eax)"         "\n\t");
-#else
-# define X(func, ret, typeargs, args, icdidx, tebidx, stack)          \
-ret STDCALL func typeargs                                             \
-{                                                                     \
-	PROC *table;                                                  \
-	PROC fn;                                                      \
-	if (tebidx >= 0 && 0)                                         \
-	{                                                             \
-		table = (PROC *)NtCurrentTeb()->glDispatchTable;      \
-		fn = table[tebidx];                                   \
-	}                                                             \
-	else                                                          \
-	{                                                             \
-		table = (PROC *)NtCurrentTeb()->glTable;              \
-		fn = table[icdidx];                                   \
-	}                                                             \
-	return (ret)((ret(*)typeargs)fn)args;                         \
-}
-#endif
-
+        
 GLFUNCS_MACRO
 # undef FOO
 # undef X

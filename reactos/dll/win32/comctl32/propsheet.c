@@ -120,7 +120,6 @@ typedef struct tagPropSheetInfo
   BOOL hasHelp;
   BOOL hasApply;
   BOOL hasFinish;
-  BOOL usePropPage;
   BOOL useCallback;
   BOOL activeValid;
   PropPageInfo* proppage;
@@ -287,44 +286,28 @@ static void PROPSHEET_AtoW(LPCWSTR *tostr, LPCSTR frstr)
 }
 
 /******************************************************************************
- *            PROPSHEET_CollectSheetInfoCommon
- *
- * Common code for PROPSHEET_CollectSheetInfoA/W
- */
-static void PROPSHEET_CollectSheetInfoCommon(PropSheetInfo * psInfo, DWORD dwFlags)
-{
-  PROPSHEET_UnImplementedFlags(dwFlags);
-
-  psInfo->hasHelp = dwFlags & PSH_HASHELP;
-  psInfo->hasApply = !(dwFlags & PSH_NOAPPLYNOW);
-  psInfo->hasFinish = dwFlags & PSH_WIZARDHASFINISH;
-  psInfo->isModeless = dwFlags & PSH_MODELESS;
-  psInfo->usePropPage = dwFlags & PSH_PROPSHEETPAGE;
-  if (psInfo->active_page < 0 || psInfo->active_page >= psInfo->nPages)
-     psInfo->active_page = 0;
-
-  psInfo->result = 0;
-  psInfo->hImageList = 0;
-  psInfo->activeValid = FALSE;
-}
-
-/******************************************************************************
  *            PROPSHEET_CollectSheetInfoA
  *
  * Collect relevant data.
  */
-static void PROPSHEET_CollectSheetInfoA(LPCPROPSHEETHEADERA lppsh,
+static BOOL PROPSHEET_CollectSheetInfoA(LPCPROPSHEETHEADERA lppsh,
                                        PropSheetInfo * psInfo)
 {
   DWORD dwSize = min(lppsh->dwSize,sizeof(PROPSHEETHEADERA));
   DWORD dwFlags = lppsh->dwFlags;
 
+  psInfo->hasHelp = dwFlags & PSH_HASHELP;
+  psInfo->hasApply = !(dwFlags & PSH_NOAPPLYNOW);
+  psInfo->hasFinish = dwFlags & PSH_WIZARDHASFINISH;
   psInfo->useCallback = (dwFlags & PSH_USECALLBACK )&& (lppsh->pfnCallback);
+  psInfo->isModeless = dwFlags & PSH_MODELESS;
 
   memcpy(&psInfo->ppshheader,lppsh,dwSize);
   TRACE("\n** PROPSHEETHEADER **\ndwSize\t\t%d\ndwFlags\t\t%08x\nhwndParent\t%p\nhInstance\t%p\npszCaption\t'%s'\nnPages\t\t%d\npfnCallback\t%p\n",
 	lppsh->dwSize, lppsh->dwFlags, lppsh->hwndParent, lppsh->hInstance,
 	debugstr_a(lppsh->pszCaption), lppsh->nPages, lppsh->pfnCallback);
+
+  PROPSHEET_UnImplementedFlags(lppsh->dwFlags);
 
   if (lppsh->dwFlags & INTRNL_ANY_WIZARD)
      psInfo->ppshheader.pszCaption = NULL;
@@ -349,7 +332,14 @@ static void PROPSHEET_CollectSheetInfoA(LPCPROPSHEETHEADERA lppsh,
   else
     psInfo->active_page = lppsh->u2.nStartPage;
 
-  PROPSHEET_CollectSheetInfoCommon(psInfo, dwFlags);
+  if (psInfo->active_page < 0 || psInfo->active_page >= psInfo->nPages)
+     psInfo->active_page = 0;
+
+  psInfo->result = 0;
+  psInfo->hImageList = 0;
+  psInfo->activeValid = FALSE;
+
+  return TRUE;
 }
 
 /******************************************************************************
@@ -357,17 +347,23 @@ static void PROPSHEET_CollectSheetInfoA(LPCPROPSHEETHEADERA lppsh,
  *
  * Collect relevant data.
  */
-static void PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
+static BOOL PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
                                        PropSheetInfo * psInfo)
 {
   DWORD dwSize = min(lppsh->dwSize,sizeof(PROPSHEETHEADERW));
   DWORD dwFlags = lppsh->dwFlags;
 
+  psInfo->hasHelp = dwFlags & PSH_HASHELP;
+  psInfo->hasApply = !(dwFlags & PSH_NOAPPLYNOW);
+  psInfo->hasFinish = dwFlags & PSH_WIZARDHASFINISH;
   psInfo->useCallback = (dwFlags & PSH_USECALLBACK) && (lppsh->pfnCallback);
+  psInfo->isModeless = dwFlags & PSH_MODELESS;
 
   memcpy(&psInfo->ppshheader,lppsh,dwSize);
   TRACE("\n** PROPSHEETHEADER **\ndwSize\t\t%d\ndwFlags\t\t%08x\nhwndParent\t%p\nhInstance\t%p\npszCaption\t%s\nnPages\t\t%d\npfnCallback\t%p\n",
       lppsh->dwSize, lppsh->dwFlags, lppsh->hwndParent, lppsh->hInstance, debugstr_w(lppsh->pszCaption), lppsh->nPages, lppsh->pfnCallback);
+
+  PROPSHEET_UnImplementedFlags(lppsh->dwFlags);
 
   if (lppsh->dwFlags & INTRNL_ANY_WIZARD)
      psInfo->ppshheader.pszCaption = NULL;
@@ -391,7 +387,14 @@ static void PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
   else
     psInfo->active_page = lppsh->u2.nStartPage;
 
-  PROPSHEET_CollectSheetInfoCommon(psInfo, dwFlags);
+  if (psInfo->active_page < 0 || psInfo->active_page >= psInfo->nPages)
+     psInfo->active_page = 0;
+
+  psInfo->result = 0;
+  psInfo->hImageList = 0;
+  psInfo->activeValid = FALSE;
+
+  return TRUE;
 }
 
 /******************************************************************************
@@ -402,7 +405,7 @@ static void PROPSHEET_CollectSheetInfoW(LPCPROPSHEETHEADERW lppsh,
  */
 static BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
                                PropSheetInfo * psInfo,
-                               int index, BOOL resize)
+                               int index)
 {
   const DLGTEMPLATE* pTemplate;
   const WORD*  p;
@@ -503,14 +506,11 @@ static BOOL PROPSHEET_CollectPageInfo(LPCPROPSHEETPAGEW lppsp,
   }
 
   /* remember the largest width and height */
-  if (resize)
-  {
-      if (width > psInfo->width)
-        psInfo->width = width;
+  if (width > psInfo->width)
+    psInfo->width = width;
 
-      if (height > psInfo->height)
-        psInfo->height = height;
-  }
+  if (height > psInfo->height)
+    psInfo->height = height;
 
   /* menu */
   switch ((WORD)*p)
@@ -1527,7 +1527,7 @@ static VOID PROPSHEET_LoadWizardBitmaps(PropSheetInfo *psInfo)
     if ((psInfo->ppshheader.dwFlags & PSH_WATERMARK) &&
         !(psInfo->ppshheader.dwFlags & PSH_USEHBMWATERMARK))
     {
-      psInfo->ppshheader.u4.hbmWatermark =
+      ((PropSheetInfo *)psInfo)->ppshheader.u4.hbmWatermark = 
         CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT_PTR)psInfo->ppshheader.u4.pszbmWatermark, 0, NULL, 0);
     }
 
@@ -1535,7 +1535,7 @@ static VOID PROPSHEET_LoadWizardBitmaps(PropSheetInfo *psInfo)
     if ((psInfo->ppshheader.dwFlags & PSH_HEADER) &&
         !(psInfo->ppshheader.dwFlags & PSH_USEHBMHEADER))
     {
-      psInfo->ppshheader.u5.hbmHeader =
+      ((PropSheetInfo *)psInfo)->ppshheader.u5.hbmHeader = 
         CreateMappedBitmap(psInfo->ppshheader.hInstance, (INT_PTR)psInfo->ppshheader.u5.pszbmHeader, 0, NULL, 0);
     }
   }
@@ -2081,7 +2081,7 @@ static BOOL PROPSHEET_SetCurSel(HWND hwndDlg,
       index = PROPSHEET_FindPageByResId(psInfo, result);
       if(index >= psInfo->nPages) {
         index = old_index;
-        WARN("Tried to skip to nonexistent page by res id\n");
+        WARN("Tried to skip to nonexistant page by res id\n");
         break;
       }
       continue;
@@ -2287,7 +2287,7 @@ static BOOL PROPSHEET_AddPage(HWND hwndDlg,
       return FALSE;
 
   psInfo->proppage = ppi;
-  if (!PROPSHEET_CollectPageInfo(ppsp, psInfo, psInfo->nPages, FALSE))
+  if (!PROPSHEET_CollectPageInfo(ppsp, psInfo, psInfo->nPages))
       return FALSE;
 
   psInfo->proppage[psInfo->nPages].hpage = hpage;
@@ -2817,31 +2817,6 @@ static INT do_loop(const PropSheetInfo *psInfo)
 }
 
 /******************************************************************************
- *            PROPSHEET_PropertySheet
- *
- * Common code between PropertySheetA/W
- */
-static INT_PTR PROPSHEET_PropertySheet(PropSheetInfo* psInfo, BOOL unicode)
-{
-  INT_PTR bRet = 0;
-  if (psInfo->active_page >= psInfo->nPages) psInfo->active_page = 0;
-  TRACE("startpage: %d of %d pages\n", psInfo->active_page, psInfo->nPages);
-
-  psInfo->unicode = unicode;
-  psInfo->ended = FALSE;
-
-  bRet = PROPSHEET_CreateDialog(psInfo);
-  if(!psInfo->isModeless)
-  {
-      HWND parent = GetParent(psInfo->hwnd);
-      if (parent) EnableWindow(parent, FALSE);
-      bRet = do_loop(psInfo);
-      if (parent) EnableWindow(parent, TRUE);
-  }
-  return bRet;
-}
-
-/******************************************************************************
  *            PropertySheet    (COMCTL32.@)
  *            PropertySheetA   (COMCTL32.@)
  *
@@ -2856,6 +2831,7 @@ static INT_PTR PROPSHEET_PropertySheet(PropSheetInfo* psInfo, BOOL unicode)
  */
 INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
 {
+  INT_PTR bRet = 0;
   PropSheetInfo* psInfo = (PropSheetInfo*) GlobalAlloc(GPTR,
                                                        sizeof(PropSheetInfo));
   UINT i, n;
@@ -2871,7 +2847,7 @@ INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
 
   for (n = i = 0; i < lppsh->nPages; i++, n++)
   {
-    if (!psInfo->usePropPage)
+    if (!(lppsh->dwFlags & PSH_PROPSHEETPAGE))
       psInfo->proppage[n].hpage = psInfo->ppshheader.u3.phpage[i];
     else
     {
@@ -2880,16 +2856,26 @@ INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
     }
 
     if (!PROPSHEET_CollectPageInfo((LPCPROPSHEETPAGEW)psInfo->proppage[n].hpage,
-                               psInfo, n, TRUE))
+                               psInfo, n))
     {
-	if (psInfo->usePropPage)
+	if (lppsh->dwFlags & PSH_PROPSHEETPAGE)
 	    DestroyPropertySheetPage(psInfo->proppage[n].hpage);
 	n--;
 	psInfo->nPages--;
     }
   }
 
-  return PROPSHEET_PropertySheet(psInfo, FALSE);
+  if (psInfo->active_page >= psInfo->nPages) psInfo->active_page = 0;
+  TRACE("startpage: %d of %d pages\n", psInfo->active_page, psInfo->nPages);
+
+  psInfo->unicode = FALSE;
+  psInfo->ended = FALSE;
+
+  bRet = PROPSHEET_CreateDialog(psInfo);
+  if(!psInfo->isModeless)
+      bRet = do_loop(psInfo);
+
+  return bRet;
 }
 
 /******************************************************************************
@@ -2899,6 +2885,7 @@ INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA lppsh)
  */
 INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
 {
+  INT_PTR bRet = 0;
   PropSheetInfo* psInfo = (PropSheetInfo*) GlobalAlloc(GPTR,
                                                        sizeof(PropSheetInfo));
   UINT i, n;
@@ -2914,7 +2901,7 @@ INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
 
   for (n = i = 0; i < lppsh->nPages; i++, n++)
   {
-    if (!psInfo->usePropPage)
+    if (!(lppsh->dwFlags & PSH_PROPSHEETPAGE))
       psInfo->proppage[n].hpage = psInfo->ppshheader.u3.phpage[i];
     else
     {
@@ -2923,16 +2910,26 @@ INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW lppsh)
     }
 
     if (!PROPSHEET_CollectPageInfo((LPCPROPSHEETPAGEW)psInfo->proppage[n].hpage,
-                               psInfo, n, TRUE))
+                               psInfo, n))
     {
-	if (psInfo->usePropPage)
+	if (lppsh->dwFlags & PSH_PROPSHEETPAGE)
 	    DestroyPropertySheetPage(psInfo->proppage[n].hpage);
 	n--;
 	psInfo->nPages--;
     }
   }
 
-  return PROPSHEET_PropertySheet(psInfo, TRUE);
+  if (psInfo->active_page >= psInfo->nPages) psInfo->active_page = 0;
+  TRACE("startpage: %d of %d pages\n", psInfo->active_page, psInfo->nPages);
+
+  psInfo->unicode = TRUE;
+  psInfo->ended = FALSE;
+
+  bRet = PROPSHEET_CreateDialog(psInfo);
+  if(!psInfo->isModeless)
+      bRet = do_loop(psInfo);
+
+  return bRet;
 }
 
 static LPWSTR load_string( HINSTANCE instance, LPCWSTR str )
@@ -3442,7 +3439,7 @@ static LRESULT PROPSHEET_Paint(HWND hwnd, HDC hdcParam)
 static INT_PTR CALLBACK
 PROPSHEET_DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  TRACE("hwnd=%p msg=0x%04x wparam=%lx lparam=%lx\n",
+  TRACE("hwnd=%p msg=0x%04x wparam=%x lparam=%lx\n",
 	hwnd, uMsg, wParam, lParam);
 
   switch (uMsg)
@@ -3557,8 +3554,6 @@ PROPSHEET_DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        * as some programs call TCM_GETCURSEL to get the current selection
        * from which to switch to the next page */
       SendMessageW(hwndTabCtrl, TCM_SETCURSEL, psInfo->active_page, 0);
-
-      PROPSHEET_UnChanged(hwnd, (HWND)wParam);
 
       return TRUE;
     }

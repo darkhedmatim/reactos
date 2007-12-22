@@ -22,7 +22,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 #define MAX_DOS_DRIVES 26
@@ -50,7 +50,7 @@ InternalOpenDirW(LPCWSTR DirName,
 
     InitializeObjectAttributes(&ObjectAttributes,
 	                       &NtPathU,
-			       OBJ_CASE_INSENSITIVE,
+			       Write ? FILE_WRITE_ATTRIBUTES : FILE_READ_ATTRIBUTES,
 			       NULL,
 			       NULL);
 
@@ -99,7 +99,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
      }
 
 
-   if (count * 4 <= nBufferLength)
+   if (count * 4 * sizeof(char) <= nBufferLength)
      {
 	LPSTR p = lpBuffer;
 
@@ -113,7 +113,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 	  }
 	*p = '\0';
      }
-    return (count * 4);
+    return (count * 4 * sizeof(char));
 }
 
 
@@ -136,7 +136,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 	   count++;
      }
 
-    if (count * 4 <=  nBufferLength)
+    if (count * 4 * sizeof(WCHAR) <=  nBufferLength)
     {
         LPWSTR p = lpBuffer;
         for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
@@ -149,7 +149,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
             }
         *p = (WCHAR)'\0';
     }
-    return (count * 4);
+    return (count * 4 * sizeof(WCHAR));
 }
 
 
@@ -307,104 +307,61 @@ GetDiskFreeSpaceExW(
     PULARGE_INTEGER lpTotalNumberOfFreeBytes
     )
 {
-    union
-    {
-        FILE_FS_SIZE_INFORMATION FsSize;
-        FILE_FS_FULL_SIZE_INFORMATION FsFullSize;
-    } FsInfo;
+    FILE_FS_SIZE_INFORMATION FileFsSize;
     IO_STATUS_BLOCK IoStatusBlock;
     ULARGE_INTEGER BytesPerCluster;
+    WCHAR RootPathName[MAX_PATH];
     HANDLE hFile;
-    NTSTATUS Status;
+    NTSTATUS errCode;
 
-    if (lpDirectoryName == NULL)
-        lpDirectoryName = L"\\";
+    /*
+    FIXME: this is obviously wrong for UNC paths, symbolic directories etc.
+    -Gunnar
+    */
+    if (lpDirectoryName)
+    {
+        wcsncpy (RootPathName, lpDirectoryName, 3);
+    }
+    else
+    {
+        GetCurrentDirectoryW (MAX_PATH, RootPathName);
+    }
+    RootPathName[3] = 0;
 
-    hFile = InternalOpenDirW(lpDirectoryName, FALSE);
+    hFile = InternalOpenDirW(RootPathName, FALSE);
     if (INVALID_HANDLE_VALUE == hFile)
     {
         return FALSE;
     }
 
-    if (lpFreeBytesAvailableToCaller != NULL || lpTotalNumberOfBytes != NULL)
+    errCode = NtQueryVolumeInformationFile(hFile,
+                                           &IoStatusBlock,
+                                           &FileFsSize,
+                                           sizeof(FILE_FS_SIZE_INFORMATION),
+                                           FileFsSizeInformation);
+    if (!NT_SUCCESS(errCode))
     {
-        /* To get the free space available to the user associated with the
-           current thread, try FileFsFullSizeInformation. If this is not
-           supported by the file system, fall back to FileFsSize */
-
-        Status = NtQueryVolumeInformationFile(hFile,
-                                              &IoStatusBlock,
-                                              &FsInfo.FsFullSize,
-                                              sizeof(FsInfo.FsFullSize),
-                                              FileFsFullSizeInformation);
-
-        if (NT_SUCCESS(Status))
-        {
-            /* Close the handle before returning data
-               to avoid a handle leak in case of a fault! */
-            CloseHandle(hFile);
-
-            BytesPerCluster.QuadPart =
-                FsInfo.FsFullSize.BytesPerSector * FsInfo.FsFullSize.SectorsPerAllocationUnit;
-
-            if (lpFreeBytesAvailableToCaller != NULL)
-            {
-                lpFreeBytesAvailableToCaller->QuadPart =
-                    BytesPerCluster.QuadPart * FsInfo.FsFullSize.CallerAvailableAllocationUnits.QuadPart;
-            }
-
-            if (lpTotalNumberOfBytes != NULL)
-            {
-                lpTotalNumberOfBytes->QuadPart =
-                    BytesPerCluster.QuadPart * FsInfo.FsFullSize.TotalAllocationUnits.QuadPart;
-            }
-
-            if (lpTotalNumberOfFreeBytes != NULL)
-            {
-                lpTotalNumberOfFreeBytes->QuadPart =
-                    BytesPerCluster.QuadPart * FsInfo.FsFullSize.ActualAvailableAllocationUnits.QuadPart;
-            }
-
-            return TRUE;
-        }
-    }
-
-    Status = NtQueryVolumeInformationFile(hFile,
-                                          &IoStatusBlock,
-                                          &FsInfo.FsSize,
-                                          sizeof(FsInfo.FsSize),
-                                          FileFsSizeInformation);
-
-    /* Close the handle before returning data
-       to avoid a handle leak in case of a fault! */
-    CloseHandle(hFile);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus (Status);
+        CloseHandle(hFile);
+        SetLastErrorByStatus (errCode);
         return FALSE;
     }
 
     BytesPerCluster.QuadPart =
-        FsInfo.FsSize.BytesPerSector * FsInfo.FsSize.SectorsPerAllocationUnit;
+        FileFsSize.BytesPerSector * FileFsSize.SectorsPerAllocationUnit;
 
-    if (lpFreeBytesAvailableToCaller)
-    {
+    // FIXME: Use quota information
+	if (lpFreeBytesAvailableToCaller)
         lpFreeBytesAvailableToCaller->QuadPart =
-            BytesPerCluster.QuadPart * FsInfo.FsSize.AvailableAllocationUnits.QuadPart;
-    }
+            BytesPerCluster.QuadPart * FileFsSize.AvailableAllocationUnits.QuadPart;
 
-    if (lpTotalNumberOfBytes)
-    {
+	if (lpTotalNumberOfBytes)
         lpTotalNumberOfBytes->QuadPart =
-            BytesPerCluster.QuadPart * FsInfo.FsSize.TotalAllocationUnits.QuadPart;
-    }
-
-    if (lpTotalNumberOfFreeBytes)
-    {
+            BytesPerCluster.QuadPart * FileFsSize.TotalAllocationUnits.QuadPart;
+	if (lpTotalNumberOfFreeBytes)
         lpTotalNumberOfFreeBytes->QuadPart =
-            BytesPerCluster.QuadPart * FsInfo.FsSize.AvailableAllocationUnits.QuadPart;
-    }
+            BytesPerCluster.QuadPart * FileFsSize.AvailableAllocationUnits.QuadPart;
+
+    CloseHandle(hFile);
 
     return TRUE;
 }

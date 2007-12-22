@@ -12,6 +12,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 
@@ -21,7 +22,7 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 {
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	LPTSTR *arg;
-	INT    args;
+	INT    args;	
 	UINT uNewCodePage;
 
 	/* print help */
@@ -30,7 +31,7 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 		ConOutResPaging(TRUE,STRING_CHCP_HELP);
 		return 0;
 	}
-
+    
 	nErrorLevel = 0;
 
 	/* get parameters */
@@ -41,7 +42,6 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 		/* display active code page number */
 		LoadString(CMD_ModuleHandle, STRING_CHCP_ERROR1, szMsg, RC_STRING_MAX_SIZE);
 		ConErrPrintf(szMsg, InputCodePage);
-		freep (arg);
 		return 0;
 	}
 
@@ -51,7 +51,6 @@ INT CommandChcp (LPTSTR cmd, LPTSTR param)
 		LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_PARAM_FORMAT, szMsg, RC_STRING_MAX_SIZE);
 		ConErrPrintf(szMsg, param);
 		nErrorLevel = 1;
-		freep (arg);
 		return 1;
 	}
 

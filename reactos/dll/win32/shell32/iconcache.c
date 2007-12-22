@@ -15,13 +15,14 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
 #include "wine/port.h"
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #ifdef HAVE_UNISTD_H
@@ -39,6 +40,7 @@
 
 #include "shellapi.h"
 #include "objbase.h"
+#include "shlguid.h"
 #include "pidl.h"
 #include "shell32_main.h"
 #include "undocshell.h"
@@ -78,15 +80,15 @@ static CRITICAL_SECTION SHELL32_SicCS = { &critsect_debug, -1, 0, 0, 0, 0 };
  */
 static INT CALLBACK SIC_CompareEntries( LPVOID p1, LPVOID p2, LPARAM lparam)
 {	LPSIC_ENTRY e1 = (LPSIC_ENTRY)p1, e2 = (LPSIC_ENTRY)p2;
-
+	
 	TRACE("%p %p %8lx\n", p1, p2, lparam);
 
 	/* Icons in the cache are keyed by the name of the file they are
 	 * loaded from, their resource index and the fact if they have a shortcut
-	 * icon overlay or not.
+	 * icon overlay or not. 
 	 */
 	if (e1->dwSourceIndex != e2->dwSourceIndex || /* first the faster one */
-	    (e1->dwFlags & GIL_FORSHORTCUT) != (e2->dwFlags & GIL_FORSHORTCUT))
+	    (e1->dwFlags & GIL_FORSHORTCUT) != (e2->dwFlags & GIL_FORSHORTCUT)) 
 	  return 1;
 
 	if (strcmpiW(e1->sSourceFile,e2->sSourceFile))
@@ -96,14 +98,14 @@ static INT CALLBACK SIC_CompareEntries( LPVOID p1, LPVOID p2, LPARAM lparam)
 }
 
 /* declare SIC_LoadOverlayIcon() */
-static int SIC_LoadOverlayIcon(int icon_idx);
+static int SIC_LoadOverlayIcon(int idx);
 
 /*****************************************************************************
  * SIC_OverlayShortcutImage			[internal]
  *
  * NOTES
  *  Creates a new icon as a copy of the passed-in icon, overlayed with a
- *  shortcut image.
+ *  shortcut image. 
  */
 static HICON SIC_OverlayShortcutImage(HICON SourceIcon, BOOL large)
 {	ICONINFO SourceIconInfo, ShortcutIconInfo, TargetIconInfo;
@@ -427,12 +429,12 @@ BOOL SIC_Initialize(void)
         ImageList_SetBkColor(ShellBigIconList, CLR_NONE);
 
         /* Load the document icon, which is used as the default if an icon isn't found. */
-        hSm = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT),
+        hSm = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT), 
                                 IMAGE_ICON, cx_small, cy_small, LR_SHARED);
-        hLg = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT),
+        hLg = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT), 
                                 IMAGE_ICON, cx_large, cy_large, LR_SHARED);
 
-        if (!hSm || !hLg)
+        if (!hSm || !hLg) 
         {
           FIXME("Failed to load IDI_SHELL_DOCUMENT icon!\n");
           return FALSE;
@@ -440,7 +442,7 @@ BOOL SIC_Initialize(void)
 
         SIC_IconAppend (swShell32Name, IDI_SHELL_DOCUMENT-1, hSm, hLg, 0);
         SIC_IconAppend (swShell32Name, -IDI_SHELL_DOCUMENT, hSm, hLg, 0);
-
+   
 	TRACE("hIconSmall=%p hIconBig=%p\n",ShellSmallIconList, ShellBigIconList);
 
 	return TRUE;
@@ -472,7 +474,6 @@ void SIC_Destroy(void)
 	ShellBigIconList = 0;
 
 	LeaveCriticalSection(&SHELL32_SicCS);
-	//DeleteCriticalSection(&SHELL32_SicCS); //static
 }
 
 /*****************************************************************************
@@ -480,7 +481,7 @@ void SIC_Destroy(void)
  *
  * Load a shell overlay icon and return its icon cache index.
  */
-static int SIC_LoadOverlayIcon(int icon_idx)
+static int SIC_LoadOverlayIcon(int idx)
 {
 	WCHAR buffer[1024], wszIdx[8];
 	HKEY hKeyShellIcons;
@@ -491,17 +492,17 @@ static int SIC_LoadOverlayIcon(int icon_idx)
 	    'S','o','f','t','w','a','r','e','\\','M','i','c','r','o','s','o','f','t','\\',
 	    'W','i','n','d','o','w','s','\\','C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\',
 	    'E','x','p','l','o','r','e','r','\\','S','h','e','l','l',' ','I','c','o','n','s',0
-	};
+	}; 
 	static const WCHAR wszNumFmt[] = {'%','d',0};
 
 	iconPath = swShell32Name;	/* default: load icon from shell32.dll */
-	iconIdx = icon_idx;
+	iconIdx = idx;
 
 	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, wszShellIcons, 0, KEY_READ, &hKeyShellIcons) == ERROR_SUCCESS)
 	{
 	    DWORD count = sizeof(buffer);
 
-	    sprintfW(wszIdx, wszNumFmt, icon_idx);
+	    sprintfW(wszIdx, wszNumFmt, idx);
 
 	    /* read icon path and index */
 	    if (RegQueryValueExW(hKeyShellIcons, wszIdx, NULL, NULL, (LPBYTE)buffer, &count) == ERROR_SUCCESS)
@@ -630,19 +631,6 @@ int WINAPI SHMapPIDLToSystemImageListIndex(
 }
 
 /*************************************************************************
- * SHMapIDListToImageListIndexAsync  [SHELL32.148]
- */
-HRESULT WINAPI SHMapIDListToImageListIndexAsync(IUnknown *pts, IShellFolder *psf,
-                                                LPCITEMIDLIST pidl, UINT flags,
-                                                void *pfn, void *pvData, void *pvHint,
-                                                int *piIndex, int *piIndexSel)
-{
-    FIXME("(%p, %p, %p, 0x%08x, %p, %p, %p, %p, %p)\n",
-            pts, psf, pidl, flags, pfn, pvData, pvHint, piIndex, piIndexSel);
-    return E_FAIL;
-}
-
-/*************************************************************************
  * Shell_GetCachedImageIndex		[SHELL32.72]
  *
  */
@@ -731,7 +719,7 @@ UINT WINAPI ExtractIconExA(LPCSTR lpszFile, INT nIconIndex, HICON * phiconLarge,
  * executable) and patch parameters if needed.
  */
 HICON WINAPI ExtractAssociatedIconA(HINSTANCE hInst, LPSTR lpIconPath, LPWORD lpiIcon)
-{
+{	
     HICON hIcon = NULL;
     INT len = MultiByteToWideChar(CP_ACP, 0, lpIconPath, -1, NULL, 0);
     /* Note that we need to allocate MAX_PATH, since we are supposed to fill

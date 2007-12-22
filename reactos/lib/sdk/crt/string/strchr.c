@@ -3,6 +3,6 @@
 
 #define _XINT int
 #include <string.h>
-#include "tcschr.h"
+#include "internal/tcschr.h"
 
 /* EOF */

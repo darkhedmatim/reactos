@@ -1,3 +1,19 @@
+Index: listview.c
+===================================================================
+--- listview.c	(revision 23123)
++++ listview.c	(working copy)
+@@ -3805,9 +3805,8 @@
+     if (himl && lvItem.iImage >= 0 && !IsRectEmpty(&rcIcon))
+     {
+         TRACE("iImage=%d\n", lvItem.iImage);
++        ImageList_Draw(himl, lvItem.iImage, hdc, rcIcon.left, rcIcon.top,
++                       (lvItem.state & LVIS_SELECTED) && (infoPtr->bFocus) ? ILD_SELECTED : ILD_NORMAL);
+-        ImageList_DrawEx(himl, lvItem.iImage, hdc, rcIcon.left, rcIcon.top,
+-                         rcIcon.right - rcIcon.left, rcIcon.bottom - rcIcon.top, infoPtr->clrBk, CLR_DEFAULT,
+-                         (lvItem.state & LVIS_SELECTED) && (infoPtr->bFocus) ? ILD_SELECTED : ILD_NORMAL);
+     }
+ 
+     /* Don't bother painting item being edited */
 Index: propsheet.c
 ===================================================================
 --- propsheet.c	(revision 25766)
@@ -86,10 +102,10 @@ Index: tooltips.c
 ===================================================================
 --- tooltips.c	(revision 25790)
 +++ tooltips.c	(working copy)
-@@ -2440,7 +2440,34 @@
+@@ -2446,7 +2446,34 @@
  TOOLTIPS_NotifyFormat (HWND hwnd, WPARAM wParam, LPARAM lParam)
  {
-     FIXME ("hwnd=%p wParam=%lx lParam=%lx\n", hwnd, wParam, lParam);
+     FIXME ("hwnd=%p wParam=%x lParam=%lx\n", hwnd, wParam, lParam);
 +    TOOLTIPS_INFO *infoPtr = TOOLTIPS_GetInfoPtr (hwnd);
 +    TTTOOL_INFO *toolPtr = infoPtr->tools;
 +    INT nResult;
@@ -121,16 +137,3 @@ Index: tooltips.c
      return 0;
  }
  
-Index: treeview.c
-===================================================================
---- treeview.c	(revision 27134)
-+++ treeview.c	(working copy)
-@@ -2844,8 +2844,6 @@
- 	}
-     }
- 
--    TREEVIEW_UpdateScrollBars(infoPtr);
--
-     if (infoPtr->cdmode & CDRF_NOTIFYPOSTPAINT)
- 	infoPtr->cdmode =
- 	    TREEVIEW_SendCustomDrawNotify(infoPtr, CDDS_POSTPAINT, hdc, rect);

@@ -64,20 +64,19 @@ BOOLEAN CacheInitializeDrive(ULONG DriveNumber)
 		//
 		// Loop through and free the cache blocks
 		//
-		while (!IsListEmpty(&CacheManagerDrive.CacheBlockHead))
+		while (CacheManagerDrive.CacheBlockHead != NULL)
 		{
-			NextCacheBlock = CONTAINING_RECORD(RemoveHeadList(&CacheManagerDrive.CacheBlockHead),
-			                                   CACHE_BLOCK,
-			                                   ListEntry);
+			NextCacheBlock = (PCACHE_BLOCK)RtlListGetNext((PLIST_ITEM)CacheManagerDrive.CacheBlockHead);
 
-			MmFreeMemory(NextCacheBlock->BlockData);
-			MmFreeMemory(NextCacheBlock);
+			MmFreeMemory(CacheManagerDrive.CacheBlockHead->BlockData);
+			MmFreeMemory(CacheManagerDrive.CacheBlockHead);
+
+			CacheManagerDrive.CacheBlockHead = NextCacheBlock;
 		}
 	}
 
 	// Initialize the structure
 	RtlZeroMemory(&CacheManagerDrive, sizeof(CACHE_DRIVE));
-	InitializeListHead(&CacheManagerDrive.CacheBlockHead);
 	CacheManagerDrive.DriveNumber = DriveNumber;
 	if (!MachDiskGetDriveGeometry(DriveNumber, &DriveGeometry))
 	{

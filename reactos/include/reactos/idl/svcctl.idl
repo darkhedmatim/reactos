@@ -6,7 +6,7 @@
 //#include <winsvc.h>
 #include "include/reactos/idl/wtypes.idl"
 
-#define SC_HANDLE unsigned long
+#define SC_HANDLE unsigned int
 #define SC_LOCK unsigned int
 #define SERVICE_STATUS_HANDLE unsigned long
 #define SC_STATUS_TYPE unsigned long
@@ -78,8 +78,7 @@ cpp_quote("#endif")
 
   /* Function 7 */
   DWORD R(SetServiceStatus) ([in] handle_t BindingHandle,
-                             [in] SERVICE_STATUS_HANDLE hServiceStatus,
-                             [in] SERVICE_STATUS *lpServiceStatus);
+                             [in] SERVICE_STATUS_HANDLE hServiceStatus); /* FIXME */
 
   /* Function 8 */
   DWORD R(UnlockServiceDatabase) ([in] handle_t BindingHandle,
@@ -268,7 +267,7 @@ cpp_quote("#endif")
                                 [in] DWORD dwBufSize,
                                 [out] LPDWORD pcbBytesNeeded,
                                 [out] LPDWORD lpServicesReturned,
-                                [in, out, unique] SC_HANDLE *lpResumeHandle);
+                                [in, out, unique] LPDWORD lpResumeHandle);
 
   /* Function 27 */
   DWORD R(OpenSCManagerA) ([in] handle_t BindingHandle,
@@ -278,11 +277,11 @@ cpp_quote("#endif")
                            [out] SC_HANDLE *hScm);
 
   /* Function 28 */
-  DWORD R(OpenServiceA) ([in] handle_t BindingHandle,
-                         [in] SC_HANDLE hSCManager,
-                         [in, string] LPCSTR lpServiceName,
-                         [in] DWORD dwDesiredAccess,
-                         [out] SC_HANDLE *hScm);
+  SC_HANDLE R(OpenServiceA) ([in] handle_t BindingHandle,
+                             [in] SC_HANDLE hSCManager,
+                             [in, string] LPCSTR lpServiceName,
+                             [in] DWORD dwDesiredAccess,
+                             [out] SC_HANDLE *hScm);
 
   /* Function 29 */
   DWORD R(QueryServiceConfigA) ([in] handle_t BindingHandle,
@@ -379,7 +378,7 @@ cpp_quote("#endif")
                                   [in] DWORD cbBufSize,
                                   [out] LPDWORD pcbBytesNeeded,
                                   [out] LPDWORD lpServicesReturned,
-                                  [in, out, unique] SC_HANDLE *lpResumeHandle,
+                                  [in, out, unique] LPDWORD lpResumeHandle,
                                   [in, string, unique] LPCSTR pszGroupName);
 
   /* Function 42 */

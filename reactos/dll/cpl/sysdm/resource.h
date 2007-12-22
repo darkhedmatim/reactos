@@ -7,8 +7,6 @@
 #define IDI_DEVMGR                      51
 #define IDI_HARDPROF                    52
 #define IDI_USERPROF                    53
-#define IDI_UP                          2500
-#define IDI_DOWN                        2501
 
 #define IDB_ROSBMP                      55
 
@@ -22,17 +20,6 @@
 
 #define IDS_VARIABLE                    66
 #define IDS_VALUE                       67
-#define IDS_NO_DUMP                     68
-#define IDS_MINI_DUMP                   69
-#define IDS_KERNEL_DUMP                 70
-#define IDS_FULL_DUMP                   71
-
-#define IDS_USERPROFILE_NAME            72
-#define IDS_USERPROFILE_SIZE            73
-#define IDS_USERPROFILE_TYPE            74
-#define IDS_USERPROFILE_STATUS          75
-#define IDS_USERPROFILE_MODIFIED        76
-
 
 /* propsheet - general */
 #define IDD_PROPPAGEGENERAL             100
@@ -48,10 +35,10 @@
 
 /* propsheet - hardware */
 #define IDD_PROPPAGEHARDWARE            300
-#define IDC_HARDWARE_WIZARD             207
+#define IDC_HARDWARE_WIZARD	            207
 #define IDC_HARDWARE_PROFILE            209
 #define IDC_HARDWARE_DRIVER_SIGN        210
-#define IDC_HARDWARE_DEVICE_MANAGER     211
+#define IDC_HARDWARE_DEVICE_MANAGER	    211
 
 
 /* propsheet - advanced */

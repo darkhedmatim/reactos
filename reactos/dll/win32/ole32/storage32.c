@@ -91,7 +91,7 @@ static StorageInternalImpl* StorageInternalImpl_Construct(StorageImpl* ancestorS
                                                           DWORD openFlags, ULONG rootTropertyIndex);
 static void StorageImpl_Destroy(StorageBaseImpl* iface);
 static BOOL StorageImpl_ReadBigBlock(StorageImpl* This, ULONG blockIndex, void* buffer);
-static BOOL StorageImpl_WriteBigBlock(StorageImpl* This, ULONG blockIndex, const void* buffer);
+static BOOL StorageImpl_WriteBigBlock(StorageImpl* This, ULONG blockIndex, void* buffer);
 static void StorageImpl_SetNextBlockInChain(StorageImpl* This, ULONG blockIndex, ULONG nextBlock);
 static HRESULT StorageImpl_LoadFileHeader(StorageImpl* This);
 static void StorageImpl_SaveFileHeader(StorageImpl* This);
@@ -279,7 +279,7 @@ static HRESULT StorageImpl_ReadAt(StorageImpl* This,
 
 static HRESULT StorageImpl_WriteAt(StorageImpl* This,
   ULARGE_INTEGER offset,
-  const void*    buffer,
+  void*          buffer,
   const ULONG    size,
   ULONG*         bytesWritten)
 {
@@ -753,7 +753,6 @@ static HRESULT WINAPI StorageBaseImpl_Stat(
       grfStatFlag);
 
     pstatstg->grfMode = This->openFlags;
-    pstatstg->grfStateBits = This->stateBits;
 
     res = S_OK;
     goto end;
@@ -972,7 +971,7 @@ static HRESULT WINAPI StorageBaseImpl_CreateStream(
   if ( FAILED( validateSTGM(grfMode) ))
     return STG_E_INVALIDFLAG;
 
-  if (STGM_SHARE_MODE(grfMode) != STGM_SHARE_EXCLUSIVE)
+  if (STGM_SHARE_MODE(grfMode) != STGM_SHARE_EXCLUSIVE) 
     return STG_E_INVALIDFLAG;
 
   /*
@@ -2353,9 +2352,8 @@ static HRESULT WINAPI StorageImpl_SetStateBits(
   DWORD         grfStateBits,/* [in] */
   DWORD         grfMask)     /* [in] */
 {
-  StorageImpl* const This = (StorageImpl*)iface;
-  This->base.stateBits = (This->base.stateBits & ~grfMask) | (grfStateBits & grfMask);
-  return S_OK;
+  FIXME("not implemented!\n");
+  return E_NOTIMPL;
 }
 
 /*
@@ -3373,9 +3371,9 @@ BOOL StorageImpl_ReadProperty(
  * Write the specified property into the property chain
  */
 BOOL StorageImpl_WriteProperty(
-  StorageImpl*          This,
-  ULONG                 index,
-  const StgProperty*    buffer)
+  StorageImpl* This,
+  ULONG          index,
+  StgProperty*   buffer)
 {
   BYTE           currentProperty[PROPSET_BLOCK_SIZE];
   ULARGE_INTEGER offsetInPropSet;
@@ -3492,9 +3490,9 @@ static BOOL StorageImpl_ReadDWordFromBigBlock(
 }
 
 static BOOL StorageImpl_WriteBigBlock(
-  StorageImpl*  This,
-  ULONG         blockIndex,
-  const void*   buffer)
+  StorageImpl* This,
+  ULONG          blockIndex,
+  void*          buffer)
 {
   ULARGE_INTEGER ulOffset;
   DWORD  wrote;
@@ -4225,13 +4223,16 @@ static StorageInternalImpl* StorageInternalImpl_Construct(
   /*
    * Allocate space for the new storage object
    */
-  newStorage = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(StorageInternalImpl));
+  newStorage = HeapAlloc(GetProcessHeap(), 0, sizeof(StorageInternalImpl));
 
   if (newStorage!=0)
   {
+    memset(newStorage, 0, sizeof(StorageInternalImpl));
+
     /*
      * Initialize the stream list
      */
+
     list_init(&newStorage->base.strmHead);
 
     /*
@@ -4337,15 +4338,15 @@ void StorageUtl_WriteGUID(BYTE* buffer, ULONG offset, const GUID* value)
 }
 
 void StorageUtl_CopyPropertyToSTATSTG(
-  STATSTG*              destination,
-  const StgProperty*    source,
-  int                   statFlags)
+  STATSTG*     destination,
+  StgProperty* source,
+  int          statFlags)
 {
   /*
    * The copy of the string occurs only when the flag is not set
    */
-  if( ((statFlags & STATFLAG_NONAME) != 0) ||
-       (source->name == NULL) ||
+  if( ((statFlags & STATFLAG_NONAME) != 0) || 
+       (source->name == NULL) || 
        (source->name[0] == 0) )
   {
     destination->pwcsName = 0;
@@ -4643,6 +4644,10 @@ HRESULT BlockChainStream_WriteAt(BlockChainStream* This,
     return STG_E_DOCFILECORRUPT;
   }
 
+  /*
+   * Here, I'm casting away the constness on the buffer variable
+   * This is OK since we don't intend to modify that buffer.
+   */
   *bytesWritten   = 0;
   bufferWalker = (const BYTE*)buffer;
 
@@ -4663,7 +4668,7 @@ HRESULT BlockChainStream_WriteAt(BlockChainStream* This,
 
     StorageImpl_WriteAt(This->parentStorage,
          ulOffset,
-         bufferWalker,
+         (BYTE*)bufferWalker,
          bytesToWrite,
          &bytesWrittenAt);
 
@@ -5678,10 +5683,6 @@ HRESULT WINAPI StgCreateDocfile(
   if (reserved != 0)
     return STG_E_INVALIDPARAMETER;
 
-  /* if no share mode given then DENY_NONE is the default */
-  if (STGM_SHARE_MODE(grfMode) == 0)
-      grfMode |= STGM_SHARE_DENY_NONE;
-
   /*
    * Validate the STGM flags
    */
@@ -5698,6 +5699,14 @@ HRESULT WINAPI StgCreateDocfile(
     goto end;
   }
 
+  /* if no share mode given then DENY_NONE is the default */     
+  if (STGM_SHARE_MODE(grfMode) == 0)
+    grfMode |= STGM_SHARE_DENY_NONE;
+
+  /* must have at least one access mode */
+  if (STGM_ACCESS_MODE(grfMode) == 0)
+    goto end;
+  
   /* in direct mode, can only use SHARE_EXCLUSIVE */
   if (!(grfMode & STGM_TRANSACTED) && (STGM_SHARE_MODE(grfMode) != STGM_SHARE_EXCLUSIVE))
     goto end;
@@ -5819,25 +5828,25 @@ HRESULT WINAPI StgCreateStorageEx(const WCHAR* pwcsName, DWORD grfMode, DWORD st
     if (stgfmt != STGFMT_FILE && grfAttrs != 0)
     {
         ERR("grfAttrs must be 0 if stgfmt != STGFMT_FILE\n");
-        return STG_E_INVALIDPARAMETER;
+        return STG_E_INVALIDPARAMETER;  
     }
 
     if (stgfmt == STGFMT_FILE && grfAttrs != 0 && grfAttrs != FILE_FLAG_NO_BUFFERING)
     {
         ERR("grfAttrs must be 0 or FILE_FLAG_NO_BUFFERING if stgfmt == STGFMT_FILE\n");
-        return STG_E_INVALIDPARAMETER;
+        return STG_E_INVALIDPARAMETER;  
     }
 
     if (stgfmt == STGFMT_FILE)
     {
-        ERR("Cannot use STGFMT_FILE - this is NTFS only\n");
+        ERR("Cannot use STGFMT_FILE - this is NTFS only\n");  
         return STG_E_INVALIDPARAMETER;
     }
 
     if (stgfmt == STGFMT_STORAGE || stgfmt == STGFMT_DOCFILE)
     {
         FIXME("Stub: calling StgCreateDocfile, but ignoring pStgOptions and grfAttrs\n");
-        return StgCreateDocfile(pwcsName, grfMode, 0, (IStorage **)ppObjectOpen);
+        return StgCreateDocfile(pwcsName, grfMode, 0, (IStorage **)ppObjectOpen); 
     }
 
     ERR("Invalid stgfmt argument\n");
@@ -5872,15 +5881,15 @@ HRESULT WINAPI StgOpenStorageEx(const WCHAR* pwcsName, DWORD grfMode, DWORD stgf
     if (stgfmt != STGFMT_DOCFILE && grfAttrs != 0)
     {
         ERR("grfAttrs must be 0 if stgfmt != STGFMT_DOCFILE\n");
-        return STG_E_INVALIDPARAMETER;
+        return STG_E_INVALIDPARAMETER;  
     }
 
     switch (stgfmt)
     {
     case STGFMT_FILE:
-        ERR("Cannot use STGFMT_FILE - this is NTFS only\n");
+        ERR("Cannot use STGFMT_FILE - this is NTFS only\n");  
         return STG_E_INVALIDPARAMETER;
-
+        
     case STGFMT_STORAGE:
         break;
 
@@ -5888,7 +5897,7 @@ HRESULT WINAPI StgOpenStorageEx(const WCHAR* pwcsName, DWORD grfMode, DWORD stgf
         if (grfAttrs && grfAttrs != FILE_FLAG_NO_BUFFERING)
         {
             ERR("grfAttrs must be 0 or FILE_FLAG_NO_BUFFERING if stgfmt == STGFMT_DOCFILE\n");
-            return STG_E_INVALIDPARAMETER;
+            return STG_E_INVALIDPARAMETER;  
         }
         FIXME("Stub: calling StgOpenStorage, but ignoring pStgOptions and grfAttrs\n");
         break;
@@ -5901,7 +5910,7 @@ HRESULT WINAPI StgOpenStorageEx(const WCHAR* pwcsName, DWORD grfMode, DWORD stgf
         return STG_E_INVALIDPARAMETER;
     }
 
-    return StgOpenStorage(pwcsName, NULL, grfMode, (SNB)NULL, 0, (IStorage **)ppObjectOpen);
+    return StgOpenStorage(pwcsName, NULL, grfMode, (SNB)NULL, 0, (IStorage **)ppObjectOpen); 
 }
 
 
@@ -6240,7 +6249,7 @@ HRESULT WINAPI StgSetTimes(OLECHAR const *str, FILETIME const *pctime,
 {
   IStorage *stg = NULL;
   HRESULT r;
-
+ 
   TRACE("%s %p %p %p\n", debugstr_w(str), pctime, patime, pmtime);
 
   r = StgOpenStorage(str, NULL, STGM_READWRITE | STGM_SHARE_DENY_WRITE,
@@ -6860,7 +6869,7 @@ static HRESULT OLECONVERT_SaveOLE10(OLECONVERT_OLESTREAM_DATA *pData, LPOLESTREA
  *
  *
  */
-static void OLECONVERT_GetOLE20FromOLE10(LPSTORAGE pDestStorage, const BYTE *pBuffer, DWORD nBufferLength)
+static void OLECONVERT_GetOLE20FromOLE10(LPSTORAGE pDestStorage, BYTE *pBuffer, DWORD nBufferLength)
 {
     HRESULT hRes;
     HANDLE hFile;
@@ -7026,7 +7035,7 @@ static HRESULT STREAM_ReadString( IStream *stm, LPWSTR *string )
         return E_OUTOFMEMORY;
 
     TRACE("%d bytes\n",len);
-
+    
     str = CoTaskMemAlloc( len );
     if( !str )
         return E_OUTOFMEMORY;
@@ -7128,7 +7137,7 @@ HRESULT WINAPI WriteFmtUserTypeStg(
 
     TRACE("progid is %s\n",debugstr_w(wstrProgID));
 
-    r = STORAGE_WriteCompObj( pstg, &clsid,
+    r = STORAGE_WriteCompObj( pstg, &clsid, 
                               lpszUserType, szwClipName, wstrProgID );
 
     CoTaskMemFree(wstrProgID);
@@ -7153,7 +7162,7 @@ HRESULT WINAPI ReadFmtUserTypeStg (LPSTORAGE pstg, CLIPFORMAT* pcf, LPOLESTR* lp
 
     TRACE("(%p,%p,%p)\n", pstg, pcf, lplpszUserType);
 
-    r = IStorage_OpenStream( pstg, szCompObj, NULL,
+    r = IStorage_OpenStream( pstg, szCompObj, NULL, 
                     STGM_READ | STGM_SHARE_EXCLUSIVE, 0, &stm );
     if( FAILED ( r ) )
     {
@@ -7410,7 +7419,7 @@ static void OLECONVERT_CreateOlePresStream(LPSTORAGE pStorage, DWORD dwExtentX, 
  *     Might need to verify the data and return appropriate error message
  *
  */
-static void OLECONVERT_CreateOle10NativeStream(LPSTORAGE pStorage, const BYTE *pData, DWORD dwDataLength)
+static void OLECONVERT_CreateOle10NativeStream(LPSTORAGE pStorage, BYTE *pData, DWORD dwDataLength)
 {
     HRESULT hRes;
     IStream *pStream;

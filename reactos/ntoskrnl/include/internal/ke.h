@@ -118,7 +118,7 @@ extern KTSS KiBootTss;
 #endif
 extern UCHAR P0BootStack[];
 extern UCHAR KiDoubleFaultStack[];
-extern EX_PUSH_LOCK KernelAddressSpaceLock;
+extern FAST_MUTEX KernelAddressSpaceLock;
 extern ULONG KiMaximumDpcQueueDepth;
 extern ULONG KiMinimumDpcRate;
 extern ULONG KiAdjustDpcThreshold;
@@ -142,7 +142,6 @@ extern KEVENT KiSwapEvent;
 extern PKPRCB KiProcessorBlock[];
 extern ULONG KiMask32Array[MAXIMUM_PRIORITY];
 extern ULONG KiIdleSummary;
-extern VOID __cdecl KiTrap19(VOID);
 extern VOID __cdecl KiTrap8(VOID);
 extern VOID __cdecl KiTrap2(VOID);
 extern VOID __cdecl KiFastCallEntry(VOID);
@@ -333,7 +332,7 @@ KeFindNextRightSetAffinity(
     IN ULONG Set
 );
 
-VOID
+VOID 
 NTAPI
 DbgBreakPointNoBugCheck(VOID);
 
@@ -752,19 +751,6 @@ VOID
 NTAPI
 KeFlushCurrentTb(VOID);
 
-BOOLEAN
-NTAPI
-KeInvalidateAllCaches(VOID);
-
-VOID
-FASTCALL
-KeZeroPages(IN PVOID Address,
-            IN ULONG Size);
-
-BOOLEAN
-FASTCALL
-KeInvalidAccessAllowed(IN PVOID TrapInformation OPTIONAL);
-
 VOID
 NTAPI
 KeRosDumpStackFrames(
@@ -841,17 +827,6 @@ VOID
 NTAPI
 KiFlushNPXState(
     IN FLOATING_SAVE_AREA *SaveArea
-);
-
-VOID
-NTAPI
-KiSetupStackAndInitializeKernel(
-    IN PKPROCESS InitProcess,
-    IN PKTHREAD InitThread,
-    IN PVOID IdleStack,
-    IN PKPRCB Prcb,
-    IN CCHAR Number,
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
 VOID
@@ -953,18 +928,6 @@ BOOLEAN
 NTAPI
 KeDisableInterrupts(
     VOID
-);
-
-VOID
-FASTCALL
-KeAcquireQueuedSpinLockAtDpcLevel(
-    IN OUT PKSPIN_LOCK_QUEUE LockQueue
-);
-
-VOID
-FASTCALL
-KeReleaseQueuedSpinLockFromDpcLevel(
-    IN OUT PKSPIN_LOCK_QUEUE LockQueue
 );
 
 #include "ke_x.h"

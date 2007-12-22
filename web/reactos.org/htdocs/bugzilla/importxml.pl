@@ -21,8 +21,6 @@
 # Contributor(s): Dawn Endico <endico@mozilla.org>
 #                 Gregary Hendricks <ghendricks@novell.com>
 #                 Vance Baarda <vrb@novell.com>
-#                 Guzman Braso <gbn@hqso.net>
-#                 Erik Purins <epurins@day1studios.com>
 
 # This script reads in xml bug data from standard input and inserts
 # a new bug into bugzilla. Everything before the beginning <?xml line
@@ -81,13 +79,11 @@ use Bugzilla::Version;
 use Bugzilla::Component;
 use Bugzilla::Milestone;
 use Bugzilla::FlagType;
+use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::BugMail;
-use Bugzilla::Mailer;
 use Bugzilla::User;
 use Bugzilla::Util;
 use Bugzilla::Constants;
-use Bugzilla::Keyword;
-use Bugzilla::Field;
 
 use MIME::Base64;
 use MIME::Parser;
@@ -96,19 +92,19 @@ use Getopt::Long;
 use Pod::Usage;
 use XML::Twig;
 
+require "globals.pl";
+
 # We want to capture errors and handle them here rather than have the Template
 # code barf all over the place.
-Bugzilla->usage_mode(Bugzilla::Constants::USAGE_MODE_CMDLINE);
+Bugzilla->batch(1);
 
 my $debug = 0;
 my $mail  = '';
-my $attach_path = '';
 my $help  = 0;
 
 my $result = GetOptions(
     "verbose|debug+" => \$debug,
     "mail|sendmail!" => \$mail,
-    "attach_path=s"  => \$attach_path,
     "help|?"         => \$help
 );
 
@@ -118,24 +114,37 @@ use constant OK_LEVEL    => 3;
 use constant DEBUG_LEVEL => 2;
 use constant ERR_LEVEL   => 1;
 
+GetVersionTable();
 our @logs;
 our @attachments;
 our $bugtotal;
 my $xml;
 my $dbh = Bugzilla->dbh;
-my $params = Bugzilla->params;
 my ($timestamp) = $dbh->selectrow_array("SELECT NOW()");
 
 ###############################################################################
 # Helper sub routines                                                         #
 ###############################################################################
 
+# This can go away as soon as data/versioncache is removed. Since we still
+# have to use GetVersionTable() though, it stays for now.
+
+sub sillyness {
+    my $zz;
+    $zz = @::legal_bug_status;
+    $zz = @::legal_opsys;
+    $zz = @::legal_platform;
+    $zz = @::legal_priority;
+    $zz = @::legal_severity;
+    $zz = @::legal_resolution;
+}
+
 sub MailMessage {
     return unless ($mail);
     my $subject    = shift;
     my $message    = shift;
     my @recipients = @_;
-    my $from   = $params->{"moved-from-address"};
+    my $from   = Param("moved-from-address");
     $from =~ s/@/\@/g;
 
     foreach my $to (@recipients){
@@ -143,7 +152,7 @@ sub MailMessage {
         $header .= "From: Bugzilla <$from>\n";
         $header .= "Subject: $subject\n\n";
         my $sendmessage = $header . $message . "\n";
-        MessageToMTA($sendmessage);
+        Bugzilla::BugMail::MessageToMTA($sendmessage);
     }
 
 }
@@ -162,11 +171,32 @@ sub Error {
     my $subject = "Bug import error: $reason";
     my $message = "Cannot import these bugs because $reason ";
     $message .= "\n\nPlease re-open the original bug.\n" if ($errtype);
-    $message .= "For more info, contact " . $params->{"maintainer"} . ".\n";
-    my @to = ( $params->{"maintainer"}, $exporter);
+    $message .= "For more info, contact " . Param("maintainer") . ".\n";
+    my @to = ( Param("maintainer"), $exporter);
     Debug( $message, ERR_LEVEL );
     MailMessage( $subject, $message, @to );
     exit;
+}
+
+# This will be implemented in Bugzilla::Field as soon as bug 31506 lands
+sub check_field {
+    my ($name, $value, $legalsRef, $no_warn) = @_;
+    my $dbh = Bugzilla->dbh;
+
+    if (!defined($value)
+        || trim($value) eq ""
+        || (defined($legalsRef) && lsearch($legalsRef, $value) < 0))
+    {
+        return 0 if $no_warn; # We don't want an error to be thrown; return.
+
+        trick_taint($name);
+        my ($result) = $dbh->selectrow_array("SELECT description FROM fielddefs
+                                              WHERE name = ?", undef, $name);
+        
+        my $field = $result || $name;
+        ThrowCodeError('illegal_field', { field => $field });
+    }
+    return 1;
 }
 
 # This subroutine handles flags for process_bug. It is generic in that
@@ -181,7 +211,7 @@ sub flag_handler {
 
     my $type         = ($attachid) ? "attachment" : "bug";
     my $err          = '';
-    my $setter       = new Bugzilla::User({ name => $setter_login });
+    my $setter       = Bugzilla::User->new_from_login($setter_login);
     my $requestee;
     my $requestee_id;
 
@@ -197,7 +227,7 @@ sub flag_handler {
     }
     my $setter_id = $setter->id;
     if ( defined($requestee_login) ) {
-        $requestee = new Bugzilla::User({ name => $requestee_login });
+        $requestee = Bugzilla::User->new_from_login($requestee_login);
         if ( $requestee ) {
             if ( !$requestee->can_see_bug($bugid) ) {
                 $err .= "Requestee is not a member of bug group\n";
@@ -226,7 +256,7 @@ sub flag_handler {
             } );
     }
     else {
-        my $bug = new Bugzilla::Bug($bugid);
+        my $bug = new Bugzilla::Bug( $bugid, $exporterid );
         $flag_types = $bug->flag_types;
     }
     unless ($flag_types){
@@ -240,24 +270,24 @@ sub flag_handler {
     # If this is the case, we will only match the first one.
     my $ftype;
     foreach my $f ( @{$flag_types} ) {
-        if ( $f->name eq $name) {
+        if ( $f->{'name'} eq $name) {
             $ftype = $f;
             last;
         }
     }
 
     if ($ftype) {    # We found the flag in the list
-        my $grant_group = $ftype->grant_group;
+        my $grant_gid = $ftype->{'grant_gid'};
         if (( $status eq '+' || $status eq '-' ) 
-            && $grant_group && !$setter->in_group_id($grant_group->id)) {
+            && $grant_gid && !$setter->in_group_id($grant_gid)) {
             $err = "Setter $setter_login on $type flag $name ";
             $err .= "is not in the Grant Group\n";
             $err .= "   Dropping flag $name\n";
             return $err;
         }
-        my $request_group = $ftype->request_group;
-        if ($request_group
-            && $status eq '?' && !$setter->in_group_id($request_group->id)) {
+        my $request_gid = $ftype->{'request_gid'};
+        if ($request_gid 
+            && $status eq '?' && !$setter->in_group_id($request_gid)) {
             $err = "Setter $setter_login on $type flag $name ";
             $err .= "is not in the Request Group\n";
             $err .= "   Dropping flag $name\n";
@@ -265,18 +295,22 @@ sub flag_handler {
         }
 
         # Take the first flag_type that matches
-        unless ($ftype->is_active) {
+        my $ftypeid   = $ftype->{'id'};
+        my $is_active = $ftype->{'is_active'};
+        unless ($is_active) {
             $err = "Flag $name is not active in this database\n";
             $err .= "   Dropping flag $name\n";
             return $err;
         }
 
+        my ($fid) = $dbh->selectrow_array("SELECT MAX(id) FROM flags") || 0;
         $dbh->do("INSERT INTO flags 
-                 (type_id, status, bug_id, attach_id, creation_date, 
-                  setter_id, requestee_id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)", undef,
-            ($ftype->id, $status, $bugid, $attachid, $timestamp,
-            $setter_id, $requestee_id));
+                 (id, type_id, status, bug_id, attach_id, creation_date, 
+                  setter_id, requestee_id, is_active)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", undef,
+            ++$fid,     $ftypeid,      $status, $bugid, $attachid, $timestamp,
+            $setter_id, $requestee_id, 1
+        );
     }
     else {
         $err = "Dropping unknown $type flag: $name\n";
@@ -296,7 +330,7 @@ sub flag_handler {
 #    exporter:   email address of the person moving the bugs
 #    maintainer: the maintainer of the bugzilla installation
 #                as set in the parameters file
-#    urlbase:    The urlbase parameter of the installation
+#    urlbase:    The urlbase paramter of the installation
 #                bugs are being moved from
 #
 sub init() {
@@ -307,33 +341,33 @@ sub init() {
     my $urlbase    = $root->{'att'}->{'urlbase'};
     my $xmlversion = $root->{'att'}->{'version'};
 
-    if ($xmlversion ne BUGZILLA_VERSION) {
+    if ($xmlversion ne $Bugzilla::Config::VERSION) {
             my $log = "Possible version conflict!\n";
             $log .= "   XML was exported from Bugzilla version $xmlversion\n";
             $log .= "   But this installation uses ";
-            $log .= BUGZILLA_VERSION . "\n";
+            $log .= $Bugzilla::Config::VERSION . "\n";
             Debug($log, OK_LEVEL);
             push(@logs, $log);
     }
     Error( "no maintainer", "REOPEN", $exporter ) unless ($maintainer);
     Error( "no exporter",   "REOPEN", $exporter ) unless ($exporter);
-    Error( "bug importing is disabled here", undef, $exporter ) unless ( $params->{"move-enabled"} );
+    Error( "bug importing is disabled here", undef, $exporter ) unless ( Param("move-enabled") );
     Error( "invalid exporter: $exporter", "REOPEN", $exporter ) if ( !login_to_id($exporter) );
     Error( "no urlbase set", "REOPEN", $exporter ) unless ($urlbase);
     my $def_product =
-        new Bugzilla::Product( { name => $params->{"moved-default-product"} } )
+        new Bugzilla::Product( { name => Param("moved-default-product") } )
         || Error("Cannot import these bugs because an invalid default 
                   product was defined for the target db."
-                  . $params->{"maintainer"} . " needs to fix the definitions of
+                  . Param("maintainer") . " needs to fix the definitions of
                   moved-default-product. \n", "REOPEN", $exporter);
     my $def_component = new Bugzilla::Component(
         {
-            product => $def_product,
-            name    => $params->{"moved-default-component"}
+            product_id => $def_product->id,
+            name       => Param("moved-default-component")
         })
     || Error("Cannot import these bugs because an invalid default 
               component was defined for the target db."
-              . $params->{"maintainer"} . " needs to fix the definitions of
+              . Param("maintainer") . " needs to fix the definitions of
               moved-default-component.\n", "REOPEN", $exporter);
 }
     
@@ -343,7 +377,7 @@ sub init() {
 # This subroutine is called once for each attachment in the xml file.
 # It is called as soon as the closing </attachment> tag is parsed.
 # Since attachments have the potential to be very large, and
-# since each attachment will be inside <bug>..</bug> tags we shove
+# since each attachement will be inside <bug>..</bug> tags we shove
 # the attachment onto an array which will be processed by process_bug
 # and then disposed of. The attachment array will then contain only
 # one bugs' attachments at a time.
@@ -367,24 +401,14 @@ sub process_attachment() {
     $attachment{'isprivate'}  = $attach->{'att'}->{'isprivate'} || 0;
     $attachment{'filename'}   = $attach->field('filename') || "file";
     # Attachment data is not exported in versions 2.20 and older.
-    if (defined $attach->first_child('data') &&
-            defined $attach->first_child('data')->{'att'}->{'encoding'}) {
-        my $encoding = $attach->first_child('data')->{'att'}->{'encoding'};
-        if ($encoding =~ /base64/) {
-            # decode the base64
-            my $data   = $attach->field('data');
-            my $output = decode_base64($data);
-            $attachment{'data'} = $output;
-        }
-        elsif ($encoding =~ /filename/) {
-            # read the attachment file
-            Error("attach_path is required", undef) unless ($attach_path);
-            my $attach_filename = $attach_path . "/" . $attach->field('data');
-            open(ATTACH_FH, $attach_filename) or
-                Error("cannot open $attach_filename", undef);
-            $attachment{'data'} = do { local $/; <ATTACH_FH> };
-            close ATTACH_FH;
-        }
+    if (defined $attach->first_child('data')
+        && defined $attach->first_child('data')->{'att'}->{'encoding'}
+        && $attach->first_child('data')->{'att'}->{'encoding'} =~ /base64/ )
+    {
+        # decode the base64
+        my $data   = $attach->field('data');
+        my $output = decode_base64($data);
+        $attachment{'data'} = $output;
     }
     else {
         $attachment{'data'} = $attach->field('data');
@@ -425,7 +449,7 @@ sub process_bug {
     my $root             = $twig->root;
     my $maintainer       = $root->{'att'}->{'maintainer'};
     my $exporter_login   = $root->{'att'}->{'exporter'};
-    my $exporter         = new Bugzilla::User({ name => $exporter_login });
+    my $exporter         = Bugzilla::User->new_from_login($exporter_login);
     my $urlbase          = $root->{'att'}->{'urlbase'};
 
     # We will store output information in this variable.
@@ -499,7 +523,7 @@ sub process_bug {
         $long_desc{'isprivate'} = $comment->{'att'}->{'isprivate'} || 0;
 
         # if one of the comments is private we need to set this flag
-        if ( $long_desc{'isprivate'} && $exporter->in_group($params->{'insidergroup'})) {
+        if ( $long_desc{'isprivate'} && $exporter->in_group(Param('insidergroup'))) {
             $private = 1;
         }
         my $data = $comment->field('thetext');
@@ -510,8 +534,8 @@ sub process_bug {
             $data = decode_base64($data);
         }
 
-        # If we leave the attachment ID in the comment it will be made a link
-        # to the wrong attachment. Since the new attachment ID is unknown yet
+        # If we leave the attachemnt ID in the comment it will be made a link
+        # to the wrong attachment. Since the new attachment ID is unkown yet
         # let's strip it out for now. We will make a comment with the right ID
         # later
         $data =~ s/Created an attachment \(id=\d+\)/Created an attachment/g;
@@ -557,7 +581,7 @@ sub process_bug {
 
     $comments .= "\n\n--- Bug imported by $exporter_login ";
     $comments .= time2str( "%Y-%m-%d %H:%M", time ) . " ";
-    $comments .= $params->{'timezone'};
+    $comments .= Param('timezone');
     $comments .= " ---\n\n";
     $comments .= "This bug was previously known as _bug_ $bug_fields{'bug_id'} at ";
     $comments .= $urlbase . "show_bug.cgi?id=" . $bug_fields{'bug_id'} . "\n";
@@ -613,19 +637,19 @@ sub process_bug {
 
     # Bug Access
     push( @query,  "cclist_accessible" );
-    push( @values, $bug_fields{'cclist_accessible'} ? 1 : 0 );
+    push( @values, $bug_fields{'cclist_accessible'} == 1 ? 1 : 0 );
 
     push( @query,  "reporter_accessible" );
-    push( @values, $bug_fields{'reporter_accessible'} ? 1 : 0 );
+    push( @values, $bug_fields{'reporter_accessible'} == 1 ? 1 : 0 );
 
     # Product and Component if there is no valid default product and
     # component defined in the parameters, we wouldn't be here
     my $def_product =
-      new Bugzilla::Product( { name => $params->{"moved-default-product"} } );
+      new Bugzilla::Product( { name => Param("moved-default-product") } );
     my $def_component = new Bugzilla::Component(
         {
-            product => $def_product,
-            name    => $params->{"moved-default-component"}
+            product_id => $def_product->id,
+            name       => Param("moved-default-component")
         }
     );
     my $product;
@@ -645,8 +669,8 @@ sub process_bug {
     if ( defined $bug_fields{'component'} ) {
         $component = new Bugzilla::Component(
             {
-                product => $product,
-                name    => $bug_fields{'component'}
+                product_id => $product->id,
+                name       => $bug_fields{'component'}
             }
         );
         unless ($component) {
@@ -673,8 +697,8 @@ sub process_bug {
     # Since there is no default version for a product, we check that the one
     # coming over is valid. If not we will use the first one in @versions
     # and warn them.
-    my $version = new Bugzilla::Version(
-          { product => $product, name => $bug_fields{'version'} });
+    my $version =
+      new Bugzilla::Version( $product->id, $bug_fields{'version'} );
 
     push( @query, "version" );
     if ($version) {
@@ -693,14 +717,10 @@ sub process_bug {
     }
 
     # Milestone
-    if ( $params->{"usetargetmilestone"} ) {
-        my $milestone;
-        if (defined $bug_fields{'target_milestone'}
-            && $bug_fields{'target_milestone'} ne "") {
-
-            $milestone = new Bugzilla::Milestone(
-                { product => $product, name => $bug_fields{'target_milestone'} });
-        }
+    if ( Param("usetargetmilestone") ) {
+        my $milestone =
+          new Bugzilla::Milestone( $product->id,
+                                   $bug_fields{'target_milestone'} );
         if ($milestone) {
             push( @values, $milestone->name );
         }
@@ -721,107 +741,97 @@ sub process_bug {
     # imported is valid. If it is not we use the defaults set in the parameters.
     if (defined( $bug_fields{'bug_severity'} )
         && check_field('bug_severity', scalar $bug_fields{'bug_severity'},
-                       undef, ERR_LEVEL) )
+            \@::legal_severity, ERR_LEVEL) )
     {
         push( @values, $bug_fields{'bug_severity'} );
     }
     else {
-        push( @values, $params->{'defaultseverity'} );
+        push( @values, Param('defaultseverity') );
         $err .= "Unknown severity ";
         $err .= ( defined $bug_fields{'bug_severity'} )
           ? $bug_fields{'bug_severity'}
           : "unknown";
         $err .= ". Setting to default severity \"";
-        $err .= $params->{'defaultseverity'} . "\".\n";
+        $err .= Param('defaultseverity') . "\".\n";
     }
     push( @query, "bug_severity" );
 
     if (defined( $bug_fields{'priority'} )
         && check_field('priority', scalar $bug_fields{'priority'},
-                       undef, ERR_LEVEL ) )
+            \@::legal_priority, ERR_LEVEL ) )
     {
         push( @values, $bug_fields{'priority'} );
     }
     else {
-        push( @values, $params->{'defaultpriority'} );
+        push( @values, Param('defaultpriority') );
         $err .= "Unknown priority ";
         $err .= ( defined $bug_fields{'priority'} )
           ? $bug_fields{'priority'}
           : "unknown";
         $err .= ". Setting to default priority \"";
-        $err .= $params->{'defaultpriority'} . "\".\n";
+        $err .= Param('defaultpriority') . "\".\n";
     }
     push( @query, "priority" );
 
     if (defined( $bug_fields{'rep_platform'} )
         && check_field('rep_platform', scalar $bug_fields{'rep_platform'},
-                       undef, ERR_LEVEL ) )
+            \@::legal_platform, ERR_LEVEL ) )
     {
         push( @values, $bug_fields{'rep_platform'} );
     }
     else {
-        push( @values, $params->{'defaultplatform'} );
+        push( @values, Param('defaultplatform') );
         $err .= "Unknown platform ";
         $err .= ( defined $bug_fields{'rep_platform'} )
           ? $bug_fields{'rep_platform'}
           : "unknown";
         $err .=". Setting to default platform \"";
-        $err .= $params->{'defaultplatform'} . "\".\n";
+        $err .= Param('defaultplatform') . "\".\n";
     }
     push( @query, "rep_platform" );
 
     if (defined( $bug_fields{'op_sys'} )
         && check_field('op_sys',  scalar $bug_fields{'op_sys'},
-                       undef, ERR_LEVEL ) )
+            \@::legal_opsys, ERR_LEVEL ) )
     {
         push( @values, $bug_fields{'op_sys'} );
     }
     else {
-        push( @values, $params->{'defaultopsys'} );
+        push( @values, Param('defaultopsys') );
         $err .= "Unknown operating system ";
         $err .= ( defined $bug_fields{'op_sys'} )
           ? $bug_fields{'op_sys'}
           : "unknown";
-        $err .= ". Setting to default OS \"" . $params->{'defaultopsys'} . "\".\n";
+        $err .= ". Setting to default OS \"" . Param('defaultopsys') . "\".\n";
     }
     push( @query, "op_sys" );
 
     # Process time fields
-    if ( $params->{"timetrackinggroup"} ) {
+    if ( Param("timetrackinggroup") ) {
         my $date = format_time( $bug_fields{'deadline'}, "%Y-%m-%d" )
           || undef;
         push( @values, $date );
         push( @query,  "deadline" );
-        if ( defined $bug_fields{'estimated_time'} ) {
-            eval {
-                Bugzilla::Bug::ValidateTime($bug_fields{'estimated_time'}, "e");
-            };
-            if (!$@){
-                push( @values, $bug_fields{'estimated_time'} );
-                push( @query,  "estimated_time" );
-            }
+        eval {
+            Bugzilla::Bug::ValidateTime($bug_fields{'estimated_time'}, "e");
+        };
+        if (!$@){
+            push( @values, $bug_fields{'estimated_time'} );
+            push( @query,  "estimated_time" );
         }
-        if ( defined $bug_fields{'remaining_time'} ) {
-            eval {
-                Bugzilla::Bug::ValidateTime($bug_fields{'remaining_time'}, "r");
-            };
-            if (!$@){
-                push( @values, $bug_fields{'remaining_time'} );
-                push( @query,  "remaining_time" );
-            }
+        eval {
+            Bugzilla::Bug::ValidateTime($bug_fields{'remaining_time'}, "r");
+        };
+        if (!$@){
+            push( @values, $bug_fields{'remaining_time'} );
+            push( @query,  "remaining_time" );
         }
-        if ( defined $bug_fields{'actual_time'} ) {
-            eval {
-                Bugzilla::Bug::ValidateTime($bug_fields{'actual_time'}, "a");
-            };
-            if ($@){
-                $bug_fields{'actual_time'} = 0.0;
-                $err .= "Invalid Actual Time. Setting to 0.0\n";
-            }
-        }
-        else {
+        eval {
+            Bugzilla::Bug::ValidateTime($bug_fields{'actual_time'}, "a");
+        };
+        if ($@){
             $bug_fields{'actual_time'} = 0.0;
-            $err .= "Actual time not defined. Setting to 0.0\n";
+            $err .= "Invalid Actual Time. Setting to 0.0\n";
         }
     }
 
@@ -867,7 +877,7 @@ sub process_bug {
         }
     }
 
-    if ( $params->{"useqacontact"} ) {
+    if ( Param("useqacontact") ) {
         my $qa_contact;
         push( @query, "qa_contact" );
         if ( ( defined $bug_fields{'qa_contact'})
@@ -888,11 +898,11 @@ sub process_bug {
     my $has_status = defined($bug_fields{'bug_status'});
     my $valid_res = check_field('resolution',  
                                   scalar $bug_fields{'resolution'}, 
-                                  undef, ERR_LEVEL );
+                                  \@::legal_resolution, ERR_LEVEL );
     my $valid_status = check_field('bug_status',  
                                   scalar $bug_fields{'bug_status'}, 
-                                  undef, ERR_LEVEL );
-    my $is_open = is_open_state($bug_fields{'bug_status'}); 
+                                  \@::legal_bug_status, ERR_LEVEL );
+    my $is_open = IsOpenedState($bug_fields{'bug_status'}); 
     my $status = $bug_fields{'bug_status'} || undef;
     my $resolution = $bug_fields{'resolution'} || undef;
     
@@ -1008,27 +1018,6 @@ sub process_bug {
     push( @query,  "bug_status" );
     push( @values, $status );
 
-    # Custom fields
-    foreach my $custom_field (Bugzilla->custom_field_names) {
-        next unless defined($bug_fields{$custom_field});
-        my $field = new Bugzilla::Field({name => $custom_field});
-        if ($field->type == FIELD_TYPE_FREETEXT) {
-            push(@query, $custom_field);
-            push(@values, clean_text($bug_fields{$custom_field}));
-        } elsif ($field->type == FIELD_TYPE_SINGLE_SELECT) {
-            my $is_well_formed = check_field($custom_field, scalar $bug_fields{$custom_field},
-                                             undef, ERR_LEVEL);
-            if ($is_well_formed) {
-                push(@query, $custom_field);
-                push(@values, $bug_fields{$custom_field});
-            } else {
-                $err .= "Skipping illegal value \"$bug_fields{$custom_field}\" in $custom_field.\n" ;
-            }
-        } else {
-            $err .= "Type of custom field $custom_field is an unhandled FIELD_TYPE: " .
-                    $field->type . "\n";
-        }
-    }
 
     # For the sake of sanitycheck.cgi we do this.
     # Update lastdiffed if you do not want to have mail sent
@@ -1087,14 +1076,14 @@ sub process_bug {
         );
         foreach my $keyword ( split( /[\s,]+/, $bug_fields{'keywords'} )) {
             next unless $keyword;
-            my $keyword_obj = new Bugzilla::Keyword({name => $keyword});
-            if (!$keyword_obj) {
+            my $i = GetKeywordIdFromName($keyword);
+            if ( !$i ) {
                 $err .= "Skipping unknown keyword: $keyword.\n";
                 next;
             }
-            if (!$keywordseen{$keyword_obj->id}) {
-                $key_sth->execute($id, $keyword_obj->id);
-                $keywordseen{$keyword_obj->id} = 1;
+            if ( !$keywordseen{$i} ) {
+                $key_sth->execute( $id, $i );
+                $keywordseen{$i} = 1;
             }
         }
         my ($keywordarray) = $dbh->selectcol_arrayref(
@@ -1126,7 +1115,7 @@ sub process_bug {
             $err .= "No attachment ID specified, dropping attachment\n";
             next;
         }
-        if (!$exporter->in_group($params->{'insidergroup'}) && $att->{'isprivate'}){
+        if (!$exporter->in_group(Param('insidergroup')) && $att->{'isprivate'}){
             $err .= "Exporter not in insidergroup and attachment marked private.\n";
             $err .= "   Marking attachment public\n";
             $att->{'isprivate'} = 0;
@@ -1165,7 +1154,7 @@ sub process_bug {
 
     # Insert longdesc and append any errors
     my $worktime = $bug_fields{'actual_time'} || 0.0;
-    $worktime = 0.0 if (!$exporter->in_group($params->{'timetrackinggroup'}));
+    $worktime = 0.0 if (!$exporter->in_group(Param('timetrackinggroup')));
     $long_description .= "\n" . $comments;
     if ($err) {
         $long_description .= "\n$err\n";
@@ -1189,7 +1178,7 @@ sub process_bug {
 
     $log .= "Bug ${urlbase}show_bug.cgi?id=$bug_fields{'bug_id'} ";
     $log .= "imported as bug $id.\n";
-    $log .= $params->{"urlbase"} . "show_bug.cgi?id=$id\n\n";
+    $log .= Param("urlbase") . "show_bug.cgi?id=$id\n\n";
     if ($err) {
         $log .= "The following problems were encountered while creating bug $id.\n";
         $log .= $err;
@@ -1210,22 +1199,16 @@ Debug( "Reading xml", DEBUG_LEVEL );
 local ($/);
 $xml = <>;
 
-# If there's anything except whitespace before <?xml then we guess it's a mail
-# and MIME::Parser should parse it. Else don't.
-if ($xml =~ m/\S.*<\?xml/s ) {
+# If the email was encoded (BugMail::MessageToMTA() does it when using UTF-8),
+# we have to decode it first, else the XML parsing will fail.
+my $parser = MIME::Parser->new;
+$parser->output_to_core(1);
+$parser->tmp_to_core(1);
+my $entity = $parser->parse_data($xml);
+my $bodyhandle = $entity->bodyhandle;
+$xml = $bodyhandle->as_string;
 
-    # If the email was encoded (Mailer::MessageToMTA() does it when using UTF-8),
-    # we have to decode it first, else the XML parsing will fail.
-    my $parser = MIME::Parser->new;
-    $parser->output_to_core(1);
-    $parser->tmp_to_core(1);
-    my $entity = $parser->parse_data($xml);
-    my $bodyhandle = $entity->bodyhandle;
-    $xml = $bodyhandle->as_string;
-
-}
-
-# remove everything in file before xml header
+# remove everything in file before xml header (i.e. remove the mail header)
 $xml =~ s/^.+(<\?xml version.+)$/$1/s;
 
 Debug( "Parsing tree", DEBUG_LEVEL );
@@ -1246,7 +1229,7 @@ my $urlbase    = $root->{'att'}->{'urlbase'};
 my $log = join("\n\n", @logs);
 $log .=  "\n\nImported $bugtotal bug(s) from $urlbase,\n  sent by $exporter.\n";
 my $subject =  "$bugtotal Bug(s) successfully moved from $urlbase to " 
-   . $params->{"urlbase"};
+   . Param("urlbase");
 my @to = ($exporter, $maintainer);
 MailMessage( $subject, $log, @to );
 
@@ -1265,8 +1248,6 @@ importxml - Import bugzilla bug data from xml.
        -v --verbose     print error and debug information. 
                         Mulltiple -v increases verbosity
        -m --sendmail    send mail to recipients with log of bugs imported
-       --attach_path    The path to the attachment files.
-                        (Required if encoding="filename" is used for attachments.)
 
 =head1 OPTIONS
 
@@ -1287,7 +1268,7 @@ importxml - Import bugzilla bug data from xml.
 =back
 
 =head1 DESCRIPTION
-
+    
      This script is used to import bugs from another installation of bugzilla.
      It can be used in two ways.
      First using the move function of bugzilla
@@ -1297,14 +1278,14 @@ importxml - Import bugzilla bug data from xml.
      run by this script and imported into your database.  Run 'newaliases'
      after adding this alias to your aliases file. Make sure your sendmail
      installation is configured to allow mail aliases to execute code. 
-
+    
      bugzilla-import: "|/usr/bin/perl /opt/bugzilla/importxml.pl --mail"
-
+    
      Second it can be run from the command line with any xml file from 
      STDIN that conforms to the bugzilla DTD. In this case you can pass 
      an argument to set whether you want to send the
      mail that will be sent to the exporter and maintainer normally.
-
+    
      importxml.pl [options] bugsfile.xml
 
 =cut

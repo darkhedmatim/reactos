@@ -25,15 +25,12 @@
 use strict;
 use lib ".";
 
-use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Config qw(:admin);
+use Bugzilla::Config qw(:DEFAULT :admin :params $datadir);
 use Bugzilla::Config::Common;
-use Bugzilla::Util;
-use Bugzilla::Error;
-use Bugzilla::Token;
-use Bugzilla::User;
-use Bugzilla::User::Setting;
+
+require "globals.pl";
+use vars qw(@parampanels);
 
 my $user = Bugzilla->login(LOGIN_REQUIRED);
 my $cgi = Bugzilla->cgi;
@@ -48,16 +45,18 @@ $user->in_group('tweakparams')
                                      object => "parameters"});
 
 my $action = trim($cgi->param('action') || '');
-my $token  = $cgi->param('token');
 my $current_panel = $cgi->param('section') || 'core';
 $current_panel =~ /^([A-Za-z0-9_-]+)$/;
 $current_panel = $1;
 
+GetVersionTable();
+
 my $current_module;
 my @panels = ();
-foreach my $panel (Bugzilla::Config::param_panels()) {
-    eval("require Bugzilla::Config::$panel") || die $@;
-    my @module_param_list = "Bugzilla::Config::${panel}"->get_param_list(1);
+foreach my $panel (@parampanels) {
+    next if ($panel eq 'Common');
+    require "Bugzilla/Config/$panel.pm";
+    my @module_param_list = "Bugzilla::Config::${panel}"->get_param_list();
     my $item = { name => lc($panel),
                  current => ($current_panel eq lc($panel)) ? 1 : 0,
                  param_list => \@module_param_list,
@@ -70,11 +69,9 @@ foreach my $panel (Bugzilla::Config::param_panels()) {
 $vars->{panels} = \@panels;
 
 if ($action eq 'save' && $current_module) {
-    check_token_data($token, 'edit_parameters');
     my @changes = ();
-    my @module_param_list = "Bugzilla::Config::${current_module}"->get_param_list(1);
+    my @module_param_list = "Bugzilla::Config::${current_module}"->get_param_list();
 
-    my $update_lang_user_pref = 0;
     foreach my $i (@module_param_list) {
         my $name = $i->{'name'};
         my $value = $cgi->param($name);
@@ -95,7 +92,7 @@ if ($action eq 'save' && $current_module) {
 
         my $changed;
         if ($i->{'type'} eq 'm') {
-            my @old = sort @{Bugzilla->params->{$name}};
+            my @old = sort @{Param($name)};
             my @new = sort @$value;
             if (scalar(@old) != scalar(@new)) {
                 $changed = 1;
@@ -110,7 +107,7 @@ if ($action eq 'save' && $current_module) {
                 }
             }
         } else {
-            $changed = ($value eq Bugzilla->params->{$name})? 0 : 1;
+            $changed = ($value eq Param($name))? 0 : 1;
         }
 
         if ($changed) {
@@ -119,45 +116,20 @@ if ($action eq 'save' && $current_module) {
                 if ($ok ne "") {
                     ThrowUserError('invalid_parameter', { name => $name, err => $ok });
                 }
-            } elsif ($name eq 'globalwatchers') {
-                # can't check this as others, as Bugzilla::Config::Common
-                # can not use Bugzilla::User
-                foreach my $watcher (split(/[,\s]+/, $value)) {
-                    ThrowUserError(
-                        'invalid_parameter',
-                        { name => $name, err => "no such user $watcher" }
-                    ) unless login_to_id($watcher);
-                }
             }
             push(@changes, $name);
             SetParam($name, $value);
             if (($name eq "shutdownhtml") && ($value ne "")) {
                 $vars->{'shutdown_is_active'} = 1;
             }
-            if ($name eq 'languages') {
-                $update_lang_user_pref = 1;
-            }
         }
     }
-    if ($update_lang_user_pref) {
-        # We have to update the list of languages users can choose.
-        # If some users have selected a language which is no longer available,
-        # then we delete it (the user pref is reset to the default one).
-        my @languages = split(/[\s,]+/, Bugzilla->params->{'languages'});
-        map {trick_taint($_)} @languages;
-        my $lang = Bugzilla->params->{'defaultlanguage'};
-        trick_taint($lang);
-        add_setting('lang', \@languages, $lang, undef, 1);
-    }
-
     $vars->{'message'} = 'parameters_updated';
     $vars->{'param_changed'} = \@changes;
 
-    write_params();
-    delete_token($token);
+    WriteParams();
+    unlink "$datadir/versioncache";
 }
-
-$vars->{'token'} = issue_session_token('edit_parameters');
 
 $template->process("admin/params/editparams.html.tmpl", $vars)
     || ThrowTemplateError($template->error());

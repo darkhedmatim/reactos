@@ -31,6 +31,10 @@
   <ulink url="http://www.cpan.org/modules/by-module/DBI/"/>
   </para>
 
+  <para>Data::Dumper module: 
+  <ulink url="http://www.cpan.org/modules/by-module/Data/"/>
+  </para>
+
   <para>MySQL related Perl modules: 
   <ulink url="http://www.cpan.org/modules/by-module/Mysql/"/>
   </para>

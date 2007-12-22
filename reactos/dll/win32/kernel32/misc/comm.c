@@ -41,7 +41,7 @@
 #include <ntddser.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* BUILDCOMMDCB & BUILDCOMMDCBANDTIMEOUTS */
 

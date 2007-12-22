@@ -99,7 +99,7 @@ filelen ( FILE* f )
 #ifdef WIN32
 	return _filelengthi64 ( _fileno(f) );
 #else
-# if defined(__FreeBSD__) || defined(__APPLE__) || defined(__CYGWIN__)
+# ifdef __FreeBSD__
 	struct stat file_stat;
 	if ( fstat(fileno(f), &file_stat) != 0 )
 # else
@@ -860,7 +860,6 @@ XMLLoadFile (
 
 	if ( !f->open ( filename ) )
 	{
-		delete f;
 		throw XMLFileNotFoundException ( "(virtual)", filename );
 		return NULL;
 	}
@@ -885,7 +884,6 @@ XMLLoadFile (
 		{
 			string location = e->location;
 			delete e;
-			delete f;
 			throw XMLException ( location, "internal tool error: xi:include doesn't have a parent" );
 			return NULL;
 		}
@@ -901,7 +899,6 @@ XMLLoadFile (
 		{
 			string location = e->location;
 			delete e;
-			delete f;
 			throw XMLException ( location, "internal tool error: couldn't find xi:include in parent's sub-elements" );
 			return NULL;
 		}
@@ -913,7 +910,6 @@ XMLLoadFile (
 		e->attributes.resize ( 0 );
 		delete e;
 	}
-	delete f;
 	return head;
 }
 

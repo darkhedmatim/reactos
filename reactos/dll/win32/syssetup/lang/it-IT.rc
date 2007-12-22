@@ -8,7 +8,7 @@
  *              Copyright (C) 2007 Daniele Forsi (dforsi at gmail.com) Italian Translation
  */
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 
 IDD_WELCOMEPAGE DIALOG DISCARDABLE  0, 0, 317, 193
@@ -31,14 +31,14 @@ FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT           "Gli sviluppatori di ReactOS desiderano citare i seguenti progetti Open Source, "\
                     "che sono stati usati (in tutto o in parte) per creare ReactOS:",
-                    IDC_STATIC,20,7,286,19
-    LISTBOX         IDC_PROJECTS,20,30,280,75,LBS_NOSEL | LBS_HASSTRINGS |
+                    IDC_STATIC,15,7,286,19
+    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS | 
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL
     LTEXT           "ReactOS è soggetto alla licenza GPL, per cui se si desidera riusarlo o ridistribuirlo "\
                     "(in tutto o in parte) è necessario rispettare la GPL",
-                    IDC_STATIC,20,110,227,19
+                    IDC_STATIC,15,110,227,19
     PUSHBUTTON      "&Mostra la GPL...",IDC_VIEWGPL,251,110,50,19
-    LTEXT           "Selezionare Avanti per proseguire con la configurazione.",IDC_STATIC,20,136,
+    LTEXT           "Selezionare Avanti per proseguire con la configurazione.",IDC_STATIC,15,136,
                     195,17
 END
 
@@ -49,10 +49,10 @@ CAPTION "Installazione di ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT "Scrivere il proprio nome completo e il nome della propria ditta o organizzazione.",
-          IDC_STATIC, 20, 7, 242, 21
-    LTEXT "No&me:", IDC_STATIC, 20, 37, 120, 8
+          IDC_STATIC, 44, 7, 242, 21
+    LTEXT "No&me:", IDC_STATIC, 44, 37, 120, 8
     EDITTEXT IDC_OWNERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
-    LTEXT "&Organizzazione:", IDC_STATIC, 20, 57, 120, 8
+    LTEXT "&Organizzazione:", IDC_STATIC, 44, 57, 120, 8
     EDITTEXT IDC_OWNERORGANIZATION, 132, 55, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
 END
 
@@ -64,18 +64,18 @@ FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT "Scrivere un nome per il computer che sia lungo al massimo 63 caratteri.\n"\
           "Se si è in rete, il nome del computer deve essere univoco.",
-          IDC_STATIC, 20, 7, 250, 24
-    LTEXT "Nome del &computer:", IDC_STATIC, 20, 38, 75, 8
-    EDITTEXT IDC_COMPUTERNAME, 140, 35, 160, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
+          IDC_STATIC, 44, 7, 250, 24
+    LTEXT "Nome del &computer:", IDC_STATIC, 44, 38, 75, 8
+    EDITTEXT IDC_COMPUTERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
     LTEXT "Questa procedura creerà su questo computer un account utente chiamato Administrator. "\
           "Si potrà usare questo account se si necessita l'accesso completo al computer.",
-          IDC_STATIC, 20, 57, 250, 25
+          IDC_STATIC, 44, 57, 250, 25
     LTEXT "Scrivere una password per Administrator che sia lunga al massimo 14 caratteri.",
-          IDC_STATIC, 20, 87, 250, 8
-    LTEXT "Password per &Administrator:", IDC_STATIC, 20, 105, 95, 8
-    EDITTEXT IDC_ADMINPASSWORD1, 140, 100, 160, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
-    LTEXT "C&onfermare la password:", IDC_STATIC, 20, 125, 95, 8
-    EDITTEXT IDC_ADMINPASSWORD2, 140, 120, 160, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+          IDC_STATIC, 44, 87, 250, 8
+    LTEXT "Password per &Administrator:", IDC_STATIC, 44, 104, 95, 8
+    EDITTEXT IDC_ADMINPASSWORD1, 132, 101, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "C&onfermare la password:", IDC_STATIC, 44, 123, 95, 8
+    EDITTEXT IDC_ADMINPASSWORD2, 132, 120, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
 END
 
 
@@ -86,17 +86,17 @@ FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT "Le impostazioni linguistiche del sistema devono coincidere con la lingua degli applicativi "\
           "che si desidera usare. Le impostazioni linguistiche dell'utente stabiliscono come appaiono "\
-          "i numeri, i valori monetari e le date.", IDC_STATIC, 20, 7, 253, 20
-    LTEXT "", IDC_LOCALETEXT, 20, 29, 250, 16
+          "i numeri, i valori monetari e le date.", IDC_STATIC, 53, 7, 253, 20
+    LTEXT "", IDC_LOCALETEXT, 53, 29, 250, 16
     LTEXT "Per cambiare le impostazioni linguistiche del sistema o dell'utente, selezionare Personalizza.",
-          IDC_STATIC, 20, 50, 184, 16
-    PUSHBUTTON "&Personalizza...", IDC_CUSTOMLOCALE, 250, 50, 50, 16
+          IDC_STATIC, 53, 50, 184, 8
+    PUSHBUTTON "&Personalizza...", IDC_CUSTOMLOCALE, 245, 47, 50, 14
     LTEXT "Il formato della tastiera stabilisce i caratteri che appaiono quando si preme un tasto.",
-          IDC_STATIC, 20, 86, 253, 16
-    LTEXT "", IDC_LAYOUTTEXT, 20, 100, 250, 16
+          IDC_STATIC, 53, 86, 253, 8
+    LTEXT "", IDC_LAYOUTTEXT, 53, 100, 250, 16
     LTEXT "Per cambiare il formato della tastiera, selezionare Personalizza.",
-          IDC_STATIC, 20, 110, 184, 16
-    PUSHBUTTON "P&ersonalizza...", IDC_CUSTOMLAYOUT, 250, 110, 50, 16
+          IDC_STATIC, 53, 106, 184, 8
+    PUSHBUTTON "P&ersonalizza...", IDC_CUSTOMLAYOUT, 245, 102, 50, 14
 END
 
 
@@ -105,16 +105,16 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installazione di ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT "Data e ora", IDC_STATIC, 20, 7, 253, 8
+    LTEXT "Data e ora", IDC_STATIC, 53, 7, 253, 8
     CONTROL "", IDC_DATEPICKER, "SysDateTimePick32",
-            DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 20, 17, 137, 10
+            DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 14
     CONTROL "", IDC_TIMEPICKER, "SysDateTimePick32",
-            DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 10
-    LTEXT "Fuso orario", IDC_STATIC, 20, 42, 253, 8
-    COMBOBOX IDC_TIMEZONELIST, 20, 52, 201, 93,
+            DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 14
+    LTEXT "Fuso orario", IDC_STATIC, 53, 42, 253, 8
+    COMBOBOX IDC_TIMEZONELIST, 53, 52, 201, 93,
              CBS_DROPDOWNLIST | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL
     AUTOCHECKBOX "Cambia automaticamente con l'ora &legale",
-                 IDC_AUTODAYLIGHT, 20, 124, 201, 10
+                 IDC_AUTODAYLIGHT, 53, 124, 201, 10
 END
 
 
@@ -123,10 +123,10 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installazione di ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT "", IDC_ACTIVITY, 20, 7, 253, 20
-    LTEXT "", IDC_ITEM, 20, 29, 253, 20
+    LTEXT "", IDC_ACTIVITY, 53, 7, 253, 20
+    LTEXT "", IDC_ITEM, 53, 29, 253, 20
     CONTROL "", IDC_PROCESSPROGRESS, "msctls_progress32",
-            PBS_SMOOTH | WS_CHILD | WS_VISIBLE | WS_BORDER, 20, 70, 253, 8
+            PBS_SMOOTH | WS_CHILD | WS_VISIBLE | WS_BORDER, 53, 70, 253, 8
 END
 
 
@@ -149,18 +149,9 @@ STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL |
+    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL
     DEFPUSHBUTTON   "OK",IDOK,141,209,50,14
-END
-
-
-IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
-CAPTION "Attendere ..."
-FONT 8,"MS Shell Dlg 2",400,0,1
-BEGIN
-    LTEXT           "",IDC_STATUSLABEL,7,8,234,12,SS_WORDELLIPSIS
 END
 
 
@@ -182,6 +173,9 @@ END
 
 STRINGTABLE
 BEGIN
+    IDS_CMT_WINEFILE    "Lancia Winefile"
+    IDS_CMT_IBROWSER	"Lancia iBrowser"
+    IDS_CMT_GETFIREFOX	"Scarica/installa Firefox"
     IDS_CMT_DOWNLOADER  "Scarica e installa varie applicazioni"
 END
 
@@ -195,39 +189,24 @@ BEGIN
     IDS_CMT_REGEDIT     "Lancia l'editor del registro"
     IDS_CMT_WORDPAD     "Lancia l'editor dei documenti"
     IDS_CMT_SCREENSHOT  "Salva una schermata"
-    IDS_CMT_DEVMGMT     "Lancia la Gestione periferiche"
-    IDS_CMT_SERVMAN     "Lancia la Gestione dei servizi"
-    IDS_CMT_RDESKTOP    "Launch Remote Desktop"
 END
 
 STRINGTABLE
 BEGIN
-    IDS_GAMES           "Giochi"
-    IDS_CMT_SOLITAIRE   "Solitario"
-    IDS_CMT_WINEMINE    "Campo minato"
+    IDS_GAMES		"Giochi"
+    IDS_CMT_SOLITAIRE	"Solitario"
+    IDS_CMT_WINEMINE	"Campo minato"
 END
 
 STRINGTABLE
 BEGIN
-	IDS_SYS_TOOLS        "Strumenti di sistema"
-	IDS_CMT_CHARMAP      "Mappa dei caratteri"
-END
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_ACCESSIBILITY        "Accessibilità"
-	IDS_CMT_MAGNIFY      	     "Ingrandisci"
-END
-
-STRINGTABLE
-BEGIN
-IDS_REACTOS_SETUP               "Installazione di ReactOS"
+IDS_REACTOS_SETUP		"Installazione di ReactOS"
     IDS_UNKNOWN_ERROR           "Errore sconosciuto"
     IDS_REGISTERING_COMPONENTS  "Registrazione dei componenti..."
-    IDS_LOADLIBRARY_FAILED	    "LoadLibrary fallito: "
-    IDS_GETPROCADDR_FAILED	    "GetProcAddr fallito: "
+    IDS_LOADLIBRARY_FAILED	"LoadLibrary fallito: "
+    IDS_GETPROCADDR_FAILED	"GetProcAddr fallito: "
     IDS_REGSVR_FAILED           "DllRegisterServer fallito: "
-    IDS_DLLINSTALL_FAILED       "DllInstall fallito: "
+    IDS_DLLINSTALL_FAILED	"DllInstall fallito: "
     IDS_TIMEOUT	                "Tempo scaduto durante la registrazione"
     IDS_REASON_UNKNOWN          ""
 END
@@ -237,6 +216,7 @@ BEGIN
     IDS_SHORT_CMD        "Command Prompt.lnk"
     IDS_SHORT_EXPLORER   "ReactOS Explorer.lnk"
     IDS_SHORT_DOWNLOADER "Download !.lnk"
+    IDS_SHORT_FIREFOX    "Get Firefox.lnk"
     IDS_SHORT_SERVICE    "Service Manager.lnk"
     IDS_SHORT_DEVICE     "Device Manager.lnk"
     IDS_SHORT_CALC       "Calculator.lnk"
@@ -246,9 +226,6 @@ BEGIN
     IDS_SHORT_SNAP       "SnapShot.lnk"
     IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
     IDS_SHORT_WINEMINE   "WineMine.lnk"
-	IDS_SHORT_CHARMAP    "CharMap.lnk"
-	IDS_SHORT_MAGNIFY    "Magnify.lnk"
-    IDS_SHORT_RDESKTOP   "Remote Desktop.lnk"
 END
 
 STRINGTABLE
@@ -261,10 +238,4 @@ BEGIN
     IDS_WZD_PASSWORDCHAR    "La password contiene caratteri non validi. Digitate una password diversa."
     IDS_WZD_LOCALTIME       "La procedura di installazione non ha potuto impostare l'ora locale."
 END
-
-STRINGTABLE
-BEGIN
-    IDS_STATUS_INSTALL_DEV "Installazione dei dispositivi in corso..."
-END
-
 /* EOF */

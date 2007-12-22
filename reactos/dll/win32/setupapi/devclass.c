@@ -276,7 +276,7 @@ SetupDiBuildClassInfoListExW(
             TRACE("Guid: %s\n", debugstr_w(szKeyName));
             if (dwGuidListIndex < ClassGuidListSize)
             {
-                if (szKeyName[0] == '{' && szKeyName[37] == '}')
+                if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
                     szKeyName[37] = 0;
 
                 UuidFromStringW(&szKeyName[1],
@@ -472,7 +472,7 @@ SetupDiClassGuidsFromNameExW(
                     TRACE("Guid: %s\n", debugstr_w(szKeyName));
                     if (dwGuidListIndex < ClassGuidListSize)
                     {
-                        if (szKeyName[0] == '{' && szKeyName[37] == '}')
+                        if (szKeyName[0] == L'{' && szKeyName[37] == L'}')
                             szKeyName[37] = 0;
 
                         UuidFromStringW(&szKeyName[1],
@@ -558,9 +558,9 @@ SetupDiClassNameFromGuidExA(
         RequiredSize, MachineNameW, Reserved);
     if (ret)
     {
-        DWORD len = (DWORD)WideCharToMultiByte(CP_ACP, 0, ClassNameW, -1, ClassName,
+        int len = WideCharToMultiByte(CP_ACP, 0, ClassNameW, -1, ClassName,
             ClassNameSize, NULL, NULL);
-        if (len == 0 || len > ClassNameSize)
+        if (len > ClassNameSize)
         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             ret = FALSE;
@@ -754,9 +754,9 @@ SetupDiGetClassDescriptionExA(
         ClassDescriptionSize * sizeof(WCHAR), RequiredSize, MachineNameW, Reserved);
     if (ret)
     {
-        DWORD len = (DWORD)WideCharToMultiByte(CP_ACP, 0, ClassDescriptionW, -1, ClassDescription,
+        int len = WideCharToMultiByte(CP_ACP, 0, ClassDescriptionW, -1, ClassDescription,
             ClassDescriptionSize, NULL, NULL);
-        if (len == 0 || len > ClassDescriptionSize)
+        if (len > ClassDescriptionSize)
         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             ret = FALSE;
@@ -941,7 +941,7 @@ SETUP_CreateDevicesListFromEnumerator(
     WCHAR KeyBuffer[MAX_PATH];
     WCHAR InstancePath[MAX_PATH];
     LPWSTR pEndOfInstancePath; /* Pointer into InstancePath buffer */
-    struct DeviceInfo *deviceInfo;
+    struct DeviceInfoElement *deviceInfo;
     DWORD i = 0, j;
     DWORD dwLength, dwRegType;
     DWORD rc;
@@ -1026,7 +1026,7 @@ SETUP_CreateDevicesListFromEnumerator(
             }
 
             /* Add the entry to the list */
-            if (!CreateDeviceInfo(list, InstancePath, &KeyGuid, &deviceInfo))
+            if (!CreateDeviceInfoElement(list, InstancePath, &KeyGuid, &deviceInfo))
             {
                 rc = GetLastError();
                 goto cleanup;
@@ -1164,7 +1164,7 @@ SetupDiGetClassDevsExW(
     if (DeviceInfoSet)
     {
         list = (struct DeviceInfoSet *)DeviceInfoSet;
-        if (list->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+        if (list->magic != SETUP_DEV_INFO_SET_MAGIC)
         {
             SetLastError(ERROR_INVALID_HANDLE);
             goto cleanup;
@@ -1185,14 +1185,7 @@ SetupDiGetClassDevsExW(
         FIXME(": flag DIGCF_PROFILE ignored\n");
 
     if (Flags & DIGCF_DEVICEINTERFACE)
-    {
-        if (!ClassGuid)
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            goto cleanup;
-        }
         rc = SETUP_CreateInterfaceList(list, MachineName, ClassGuid, Enumerator, Flags & DIGCF_PRESENT);
-    }
     else
     {
         /* Determine which class(es) should be included in the deviceset */
@@ -1449,7 +1442,7 @@ SetupDiGetClassImageListExW(
 
         /* Prepare a HIMAGELIST */
         InitCommonControls();
-        ClassImageListData->ImageList = ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, 100, 10);
+        ClassImageListData->ImageList = ImageList_Create(16, 16, ILC_COLOR, 100, 10);
         if (!ClassImageListData->ImageList)
             goto cleanup;
 
@@ -1459,25 +1452,14 @@ SetupDiGetClassImageListExW(
          * and put their index in the image list in the IconIndexes array */
         for (i = 0; i < list->NumberOfGuids; i++)
         {
-            INT miniIconIndex;
-
             ret = SetupDiLoadClassIcon(
                 &list->Guids[i],
-                NULL,
-                &miniIconIndex);
+                &hIcon,
+                NULL);
             if (ret)
-            {
-                hIcon = LoadImage(hInstance, MAKEINTRESOURCE(miniIconIndex), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
-                if (hIcon)
-                {
-                    list->IconIndexes[i] = ImageList_AddIcon(ClassImageListData->ImageList, hIcon);
-                    DestroyIcon(hIcon);
-                }
-                else
-                    list->IconIndexes[i] = -1;
-            }
+                list->IconIndexes[i] = ImageList_AddIcon(ClassImageListData->ImageList, hIcon);
             else
-                list->IconIndexes[i] = -1; /* Special value to indicate that the icon is unavailable */
+                list->IconIndexes[i] = -1; /* Special value to tell that icon is unavailable */
         }
 
         ret = TRUE;
@@ -1623,8 +1605,7 @@ SetupDiLoadClassIcon(
         TRACE("Icon index %d, dll name %s\n", iconIndex, debugstr_w(DllName));
         if (LargeIcon)
         {
-            *LargeIcon = LoadImage(hInstance, MAKEINTRESOURCE(iconIndex), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
-            if (!*LargeIcon)
+            if (1 != ExtractIconEx(DllName, iconIndex, LargeIcon, NULL, 1))
             {
                 SetLastError(ERROR_INVALID_INDEX);
                 goto cleanup;
@@ -2137,7 +2118,7 @@ SETUP_PropertyChangeHandler(
     else
     {
         PSP_PROPCHANGE_PARAMS *CurrentPropChangeParams;
-        struct DeviceInfo *deviceInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+        struct DeviceInfoElement *deviceInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
         CurrentPropChangeParams = &deviceInfo->ClassInstallParams.PropChangeParams;
 
         if (*CurrentPropChangeParams)
@@ -2188,7 +2169,7 @@ SETUP_PropertyAddPropertyAdvancedHandler(
         }
         else
         {
-            struct DeviceInfo *deviceInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+            struct DeviceInfoElement *deviceInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
             CurrentAddPropertyPageData = &deviceInfo->ClassInstallParams.AddPropertyPageData;
         }
         if (*CurrentAddPropertyPageData)
@@ -2233,7 +2214,7 @@ SetupDiSetClassInstallParamsW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -2372,9 +2353,9 @@ SetupDiGetClassDevPropertySheetsW(
 
     if (!DeviceInfoSet)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (!PropertySheetHeader)
         SetLastError(ERROR_INVALID_PARAMETER);

@@ -97,9 +97,10 @@ SetupCopyFile(PWCHAR SourceFileName,
   OBJECT_ATTRIBUTES ObjectAttributes;
   HANDLE FileHandleSource;
   HANDLE FileHandleDest;
-  static IO_STATUS_BLOCK IoStatusBlock;
+  IO_STATUS_BLOCK IoStatusBlock;
   FILE_STANDARD_INFORMATION FileStandard;
   FILE_BASIC_INFORMATION FileBasic;
+  PUCHAR Buffer;
   ULONG RegionSize;
   UNICODE_STRING FileName;
   NTSTATUS Status;
@@ -107,6 +108,8 @@ SetupCopyFile(PWCHAR SourceFileName,
   HANDLE SourceFileSection;
   SIZE_T SourceSectionSize = 0;
   LARGE_INTEGER ByteOffset;
+
+  Buffer = NULL;
 
 #ifdef __REACTOS__
   RtlInitUnicodeString(&FileName,
@@ -204,9 +207,7 @@ SetupCopyFile(PWCHAR SourceFileName,
 			FILE_ATTRIBUTE_NORMAL,
 			0,
 			FILE_OVERWRITE_IF,
-			FILE_NO_INTERMEDIATE_BUFFERING |
-			FILE_SEQUENTIAL_ONLY |
-			FILE_SYNCHRONOUS_IO_NONALERT,
+			FILE_NO_INTERMEDIATE_BUFFERING | FILE_SEQUENTIAL_ONLY,
 			NULL,
 			0);
   if(!NT_SUCCESS(Status))
@@ -245,17 +246,11 @@ SetupCopyFile(PWCHAR SourceFileName,
     }
 
   /* shorten the file back to it's real size after completing the write */
-  Status = NtSetInformationFile(FileHandleDest,
+  NtSetInformationFile(FileHandleDest,
 		       &IoStatusBlock,
 		       &FileStandard.EndOfFile,
 		       sizeof(FILE_END_OF_FILE_INFORMATION),
 		       FileEndOfFileInformation);
-
-  if(!NT_SUCCESS(Status))
-    {
-      DPRINT1("NtSetInformationFile failed: %x\n", Status);
-    }
-
  closedest:
   NtClose(FileHandleDest);
  unmapsrcsec:

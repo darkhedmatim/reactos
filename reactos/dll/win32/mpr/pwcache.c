@@ -50,15 +50,14 @@ static inline CHAR ctox( CHAR x )
     return -1;
 }
 
-static LPSTR MPR_GetValueName( LPCSTR pbResource, WORD cbResource, BYTE nType )
+static LPSTR MPR_GetValueName( LPSTR pbResource, WORD cbResource, BYTE nType )
 {
     LPSTR name;
     DWORD  i;
 
     name = HeapAlloc( GetProcessHeap(), 0, 6+cbResource*2 );
-    if( !name ) return NULL;
-
-    sprintf( name, "X-%02X-", nType );
+    if( name )
+        sprintf( name, "X-%02X-", nType );
     for(i=0; i<cbResource; i++)
     {
         name[5+i*2]=hex((pbResource[i]&0xf0)>>4);

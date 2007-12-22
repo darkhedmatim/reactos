@@ -119,24 +119,6 @@ $(RBUILD_CODEBLOCKS_OUT): | $(RBUILD_BACKEND_OUT)
 	${mkdir} $@
 endif
 
-
-RBUILD_MSBUILD_BASE = $(RBUILD_BACKEND_BASE_)msbuild
-RBUILD_MSBUILD_BASE_ = $(RBUILD_MSBUILD_BASE)$(SEP)
-RBUILD_MSBUILD_INT = $(INTERMEDIATE_)$(RBUILD_MSBUILD_BASE)
-RBUILD_MSBUILD_INT_ = $(RBUILD_MSBUILD_INT)$(SEP)
-RBUILD_MSBUILD_OUT = $(OUTPUT_)$(RBUILD_MSBUILD_BASE)
-RBUILD_MSBUILD_OUT_ = $(RBUILD_MSBUILD_OUT)$(SEP)
-
-$(RBUILD_MSBUILD_INT): | $(RBUILD_BACKEND_INT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-
-ifneq ($(INTERMEDIATE),$(OUTPUT))
-$(RBUILD_MSBUILD_OUT): | $(RBUILD_BACKEND_OUT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-endif
-
 RBUILD_DEPMAP_BASE = $(RBUILD_BACKEND_BASE_)dependencymap
 RBUILD_DEPMAP_BASE_ = $(RBUILD_DEPMAP_BASE)$(SEP)
 RBUILD_DEPMAP_INT = $(INTERMEDIATE_)$(RBUILD_DEPMAP_BASE)
@@ -150,23 +132,6 @@ $(RBUILD_DEPMAP_INT): | $(RBUILD_BACKEND_INT)
 
 ifneq ($(INTERMEDIATE),$(OUTPUT))
 $(RBUILD_DEPMAP_OUT): | $(RBUILD_BACKEND_OUT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-endif
-
-RBUILD_VREPORT_BASE = $(RBUILD_BACKEND_BASE_)versionreport
-RBUILD_VREPORT_BASE_ = $(RBUILD_VREPORT_BASE)$(SEP)
-RBUILD_VREPORT_INT = $(INTERMEDIATE_)$(RBUILD_VREPORT_BASE)
-RBUILD_VREPORT_INT_ = $(RBUILD_VREPORT_INT)$(SEP)
-RBUILD_VREPORT_OUT = $(OUTPUT_)$(RBUILD_VREPORT_BASE)
-RBUILD_VREPORT_OUT_ = $(RBUILD_VREPORT_OUT)$(SEP)
-
-$(RBUILD_VREPORT_INT): | $(RBUILD_BACKEND_INT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-
-ifneq ($(INTERMEDIATE),$(OUTPUT))
-$(RBUILD_VREPORT_OUT): | $(RBUILD_BACKEND_OUT)
 	$(ECHO_MKDIR)
 	${mkdir} $@
 endif
@@ -191,10 +156,10 @@ endif
 
 
 RBUILD_TARGET = \
-	$(RBUILD_OUT_)rbuild$(EXEPOSTFIX)
+	$(EXEPREFIX)$(RBUILD_OUT_)rbuild$(EXEPOSTFIX)
 
 RBUILD_TEST_TARGET = \
-	$(RBUILD_OUT_)rbuild_test$(EXEPOSTFIX)
+	$(EXEPREFIX)$(RBUILD_OUT_)rbuild_test$(EXEPOSTFIX)
 
 RBUILD_BACKEND_MINGW_BASE_SOURCES = $(addprefix $(RBUILD_MINGW_BASE_), \
 	mingw.cpp \
@@ -214,13 +179,6 @@ RBUILD_BACKEND_DEPMAP_BASE_SOURCES = $(addprefix $(RBUILD_DEPMAP_BASE_), \
 	dependencymap.cpp \
 	)
 
-RBUILD_BACKEND_VREPORT_BASE_SOURCES = $(addprefix $(RBUILD_VREPORT_BASE_), \
-	versionreport.cpp \
-	)
-
-RBUILD_BACKEND_MSBUILD_BASE_SOURCES = $(addprefix $(RBUILD_MSBUILD_BASE_), \
-	msbuild.cpp \
-	)
 
 RBUILD_BACKEND_MSVC_BASE_SOURCES = $(addprefix $(RBUILD_MSVC_BASE_), \
 	genguid.cpp \
@@ -235,8 +193,6 @@ RBUILD_BACKEND_SOURCES = \
 	$(RBUILD_BACKEND_MSVC_BASE_SOURCES) \
 	$(RBUILD_BACKEND_CODEBLOCKS_BASE_SOURCES) \
 	$(RBUILD_BACKEND_DEPMAP_BASE_SOURCES) \
-	$(RBUILD_BACKEND_VREPORT_BASE_SOURCES) \
-	$(RBUILD_BACKEND_MSBUILD_BASE_SOURCES) \
 	$(RBUILD_BACKEND_BASE_)backend.cpp
 
 RBUILD_COMMON_SOURCES = \
@@ -244,7 +200,6 @@ RBUILD_COMMON_SOURCES = \
 	$(addprefix $(RBUILD_BASE_), \
 		global.cpp \
 		automaticdependency.cpp \
-		autoregister.cpp \
 		bootstrap.cpp \
 		cdfile.cpp \
 		compilationunit.cpp \
@@ -265,7 +220,6 @@ RBUILD_COMMON_SOURCES = \
 		syssetupgenerator.cpp \
 		testsupportcode.cpp \
 		wineresource.cpp \
-		xmlnode.cpp \
 		)
 
 RBUILD_SPECIAL_SOURCES = \
@@ -297,12 +251,6 @@ RBUILD_BACKEND_CODEBLOCKS_HEADERS = \
 RBUILD_BACKEND_DEPMAP_HEADERS = \
 	dependencymap.h
 
-RBUILD_BACKEND_VREPORT_HEADERS = \
-	versionreport.h
-
-RBUILD_BACKEND_MSBUILD_HEADERS = \
-	msbuild.h
-
 RBUILD_BACKEND_MINGW_HEADERS = \
 	mingw.h \
 	modulehandler.h
@@ -313,8 +261,6 @@ RBUILD_BACKEND_HEADERS = \
 	$(addprefix msvc$(SEP), $(RBUILD_BACKEND_MSVC_HEADERS)) \
 	$(addprefix mingw$(SEP), $(RBUILD_BACKEND_MINGW_HEADERS)) \
 	$(addprefix codeblocks$(SEP), $(RBUILD_BACKEND_CODEBLOCKS_HEADERS)) \
-	$(addprefix msbuild$(SEP), $(RBUILD_BACKEND_MSBUILD_HEADERS)) \
-	$(addprefix versionreport$(SEP), $(RBUILD_BACKEND_VREPORT_HEADERS)) \
 	$(addprefix dependencymap$(SEP), $(RBUILD_BACKEND_DEPMAP_HEADERS))
 
 RBUILD_HEADERS = \
@@ -356,7 +302,7 @@ RBUILD_TEST_OBJECTS = \
 	$(RBUILD_COMMON_OBJECTS) \
 	$(RBUILD_TEST_SPECIAL_OBJECTS)
 
-RBUILD_HOST_CXXFLAGS = -I$(RBUILD_BASE) -I$(TOOLS_BASE) -I$(INFLIB_BASE) $(TOOLS_CPPFLAGS) -Iinclude -Iinclude/reactos
+RBUILD_HOST_CXXFLAGS = -I$(RBUILD_BASE) -I$(TOOLS_BASE) -I$(INFLIB_BASE) $(TOOLS_CPPFLAGS)
 
 RBUILD_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
@@ -373,10 +319,6 @@ $(RBUILD_INT_)global.o: $(RBUILD_BASE_)global.cpp $(RBUILD_HEADERS) | $(RBUILD_I
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_INT_)automaticdependency.o: $(RBUILD_BASE_)automaticdependency.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_INT_)autoregister.o: $(RBUILD_BASE_)autoregister.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
@@ -460,10 +402,6 @@ $(RBUILD_INT_)wineresource.o: $(RBUILD_BASE_)wineresource.cpp $(RBUILD_HEADERS) 
 	$(ECHO_CC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
-$(RBUILD_INT_)xmlnode.o: $(RBUILD_BASE_)xmlnode.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
 $(RBUILD_INT_)testsupportcode.o: $(RBUILD_BASE_)testsupportcode.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
@@ -493,14 +431,6 @@ $(RBUILD_CODEBLOCKS_INT_)codeblocks.o: $(RBUILD_CODEBLOCKS_BASE_)codeblocks.cpp 
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_DEPMAP_INT_)dependencymap.o: $(RBUILD_DEPMAP_BASE_)dependencymap.cpp $(RBUILD_HEADERS) | $(RBUILD_DEPMAP_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_VREPORT_INT_)versionreport.o: $(RBUILD_VREPORT_BASE_)versionreport.cpp $(RBUILD_HEADERS) | $(RBUILD_VREPORT_INT)
-	$(ECHO_CC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_MSBUILD_INT_)msbuild.o: $(RBUILD_MSBUILD_BASE_)msbuild.cpp $(RBUILD_HEADERS) | $(RBUILD_MSBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 

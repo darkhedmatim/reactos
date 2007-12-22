@@ -29,8 +29,7 @@ static DWORD OPENGL32_RegGetDriverInfo( LPCWSTR driver, GLDRIVERDATA *icd );
 
 
 /* global vars */
-/* Do not assume it have the free value -1 set, any value can be in here */
-DWORD OPENGL32_tls = -1;
+DWORD OPENGL32_tls;
 GLPROCESSDATA OPENGL32_processdata;
 
 
@@ -72,7 +71,7 @@ OPENGL32_ThreadAttach()
 
 	teb->glTable = dispatchTable;
 	TlsSetValue( OPENGL32_tls, lpData );
-
+	
 	return TRUE;
 }
 
@@ -111,7 +110,7 @@ OPENGL32_ProcessAttach()
 	                               TRUE /* bInheritHandle */ };
 
 	OPENGL32_tls = TlsAlloc();
-	if (-1 == OPENGL32_tls)
+	if (0xFFFFFFFF == OPENGL32_tls)
 		return FALSE;
 
 	memset( &OPENGL32_processdata, 0, sizeof (OPENGL32_processdata) );
@@ -155,27 +154,27 @@ OPENGL32_ProcessDetach()
 	{
 		dcdata2 = dcdata;
 		dcdata = dcdata->next;
-		if (!HeapFree( GetProcessHeap(), 0, dcdata2 ))
+		if (!HeapFree( GetProcessHeap(), 0, dcdata ))
 			DBGPRINT( "Warning: HeapFree() on DCDATA 0x%08x failed (%d)",
-			          dcdata2, GetLastError() );
+			          dcdata, GetLastError() );
 	}
 
 	for (glrc = OPENGL32_processdata.glrc_list; glrc != NULL;)
 	{
 		glrc2 = glrc;
 		glrc = glrc->next;
-		if (!HeapFree( GetProcessHeap(), 0, glrc2 ))
+		if (!HeapFree( GetProcessHeap(), 0, glrc ))
 			DBGPRINT( "Warning: HeapFree() on GLRC 0x%08x failed (%d)",
-			          glrc2, GetLastError() );
+			          glrc, GetLastError() );
 	}
 
 	for (icd = OPENGL32_processdata.driver_list; icd != NULL;)
 	{
 		icd2 = icd;
 		icd = icd->next;
-		if (!HeapFree( GetProcessHeap(), 0, icd2 ))
+		if (!HeapFree( GetProcessHeap(), 0, icd ))
 			DBGPRINT( "Warning: HeapFree() on DRIVERDATA 0x%08x failed (%d)",
-			          icd2, GetLastError() );
+			          icd, GetLastError() );
 	}
 
 	/* free mutexes */
@@ -187,7 +186,7 @@ OPENGL32_ProcessDetach()
 		CloseHandle( OPENGL32_processdata.dcdata_mutex );
 
 	/* free TLS */
-	if (OPENGL32_tls != -1)
+	if (OPENGL32_tls != 0xffffffff)
 		TlsFree(OPENGL32_tls);
 }
 
@@ -521,8 +520,11 @@ OPENGL32_UnloadICD( GLDRIVERDATA *icd )
 		return FALSE; /* FIXME: do we have to expect such an error and handle it? */
 	}
 
-	if (--icd->refcount == 0)
+	icd->refcount--;
+	if (icd->refcount == 0)
+//	if (0)
 		ret = OPENGL32_UnloadDriver( icd );
+	/* FIXME: InitializeICD crashes when called a second time */
 
 	/* release mutex */
 	if (!ReleaseMutex( OPENGL32_processdata.driver_mutex ))
@@ -540,7 +542,7 @@ OPENGL32_UnloadICD( GLDRIVERDATA *icd )
  *               Output is length of the drivername.
  *               Can be NULL if name is NULL.
  *
- * \return Error code
+ * \return Error code 
  * \retval ERROR_NO_MORE_ITEMS  End of driver list.
  * \retval ERROR_SUCCESS        Success.
  */
@@ -591,7 +593,7 @@ OPENGL32_RegEnumDrivers( DWORD idx, LPWSTR name, LPDWORD cName )
  * \param driver  Name of the driver to get information about.
  * \param icd     Pointer to GLDRIVERDATA.
  *
- * \return Error code.
+ * \return Error code. 
  * \retval ERROR_SUCCESS  Success.
  *
  * \note On success the following fields of \a icd are filled: \a driver_name,
@@ -601,7 +603,7 @@ static DWORD
 OPENGL32_RegGetDriverInfo( LPCWSTR driver, GLDRIVERDATA *icd )
 {
 	HKEY hKey;
-	WCHAR subKey[1024] = OPENGL_DRIVERS_SUBKEY2;
+	WCHAR subKey[1024] = OPENGL_DRIVERS_SUBKEY"\\";
 	LONG ret;
 	DWORD type, size;
 

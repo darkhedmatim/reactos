@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.0.2
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,7 +25,6 @@
 #include "glheader.h"
 #include "imports.h"
 #include "accum.h"
-#include "arrayobj.h"
 #include "attrib.h"
 #include "blend.h"
 #include "buffers.h"
@@ -51,33 +50,7 @@
 #include "math/m_xform.h"
 
 
-/**
- * Special struct for saving/restoring texture state (GL_TEXTURE_BIT)
- */
-struct texture_state
-{
-   struct gl_texture_attrib Texture;  /**< The usual context state */
-
-   /** to save per texture object state (wrap modes, filters, etc): */
-   struct gl_texture_object Saved1D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object Saved2D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object Saved3D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object SavedCube[MAX_TEXTURE_UNITS];
-   struct gl_texture_object SavedRect[MAX_TEXTURE_UNITS];
-
-   /**
-    * To save references to texture objects (so they don't get accidentally
-    * deleted while saved in the attribute stack).
-    */
-   struct gl_texture_object *SavedRef1D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object *SavedRef2D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object *SavedRef3D[MAX_TEXTURE_UNITS];
-   struct gl_texture_object *SavedRefCube[MAX_TEXTURE_UNITS];
-   struct gl_texture_object *SavedRefRect[MAX_TEXTURE_UNITS];
-};
-
-
-/**
+/*
  * Allocate a new attribute state node.  These nodes have a
  * "kind" value and a pointer to a struct of state data.
  */
@@ -164,9 +137,9 @@ _mesa_PushAttrib(GLbitfield mask)
       attr->Blend = ctx->Color.BlendEnabled;
       attr->ClipPlanes = ctx->Transform.ClipPlanesEnabled;
       attr->ColorMaterial = ctx->Light.ColorMaterialEnabled;
-      for (i = 0; i < COLORTABLE_MAX; i++) {
-         attr->ColorTable[i] = ctx->Pixel.ColorTableEnabled[i];
-      }
+      attr->ColorTable = ctx->Pixel.ColorTableEnabled;
+      attr->PostColorMatrixColorTable = ctx->Pixel.PostColorMatrixColorTableEnabled;
+      attr->PostConvolutionColorTable = ctx->Pixel.PostConvolutionColorTableEnabled;
       attr->Convolution1D = ctx->Pixel.Convolution1DEnabled;
       attr->Convolution2D = ctx->Pixel.Convolution2DEnabled;
       attr->Separable2D = ctx->Pixel.Separable2DEnabled;
@@ -174,7 +147,7 @@ _mesa_PushAttrib(GLbitfield mask)
       attr->DepthTest = ctx->Depth.Test;
       attr->Dither = ctx->Color.DitherFlag;
       attr->Fog = ctx->Fog.Enabled;
-      for (i = 0; i < ctx->Const.MaxLights; i++) {
+      for (i=0;i<MAX_LIGHTS;i++) {
          attr->Light[i] = ctx->Light.Light[i].Enabled;
       }
       attr->Lighting = ctx->Light.Enabled;
@@ -206,6 +179,7 @@ _mesa_PushAttrib(GLbitfield mask)
       MEMCPY(attr->Map2Attrib, ctx->Eval.Map2Attrib, sizeof(ctx->Eval.Map2Attrib));
       attr->Normalize = ctx->Transform.Normalize;
       attr->RasterPositionUnclipped = ctx->Transform.RasterPositionUnclipped;
+      attr->PixelTexture = ctx->Pixel.PixelTextureEnabled;
       attr->PointSmooth = ctx->Point.SmoothFlag;
       attr->PointSprite = ctx->Point.PointSprite;
       attr->PolygonOffsetPoint = ctx->Polygon.OffsetPoint;
@@ -302,8 +276,6 @@ _mesa_PushAttrib(GLbitfield mask)
       struct gl_pixel_attrib *attr;
       attr = MALLOC_STRUCT( gl_pixel_attrib );
       MEMCPY( attr, &ctx->Pixel, sizeof(struct gl_pixel_attrib) );
-      /* push the Read FBO's ReadBuffer state, not ctx->Pixel.ReadBuffer */
-      attr->ReadBuffer = ctx->ReadBuffer->ColorReadBuffer;
       newnode = new_attrib_node( GL_PIXEL_MODE_BIT );
       newnode->data = attr;
       newnode->next = head;
@@ -361,48 +333,35 @@ _mesa_PushAttrib(GLbitfield mask)
    }
 
    if (mask & GL_TEXTURE_BIT) {
-      struct texture_state *texstate = CALLOC_STRUCT( texture_state );
+      struct gl_texture_attrib *attr;
       GLuint u;
-
-      if (!texstate) {
-         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glPushAttrib(GL_TEXTURE_BIT)");
-         goto end;
-      }
-
-      _mesa_lock_context_textures(ctx);
-
-      /* copy/save the bulk of texture state here */
-      _mesa_memcpy(&texstate->Texture, &ctx->Texture, sizeof(ctx->Texture));
-
-      /* Save references to the currently bound texture objects so they don't
-       * accidentally get deleted while referenced in the attribute stack.
+      /* Bump the texture object reference counts so that they don't
+       * inadvertantly get deleted.
        */
       for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
-         _mesa_reference_texobj(&texstate->SavedRef1D[u], ctx->Texture.Unit[u].Current1D);
-         _mesa_reference_texobj(&texstate->SavedRef2D[u], ctx->Texture.Unit[u].Current2D);
-         _mesa_reference_texobj(&texstate->SavedRef3D[u], ctx->Texture.Unit[u].Current3D);
-         _mesa_reference_texobj(&texstate->SavedRefCube[u], ctx->Texture.Unit[u].CurrentCubeMap);
-         _mesa_reference_texobj(&texstate->SavedRefRect[u], ctx->Texture.Unit[u].CurrentRect);
+	 ctx->Texture.Unit[u].Current1D->RefCount++;
+	 ctx->Texture.Unit[u].Current2D->RefCount++;
+	 ctx->Texture.Unit[u].Current3D->RefCount++;
+	 ctx->Texture.Unit[u].CurrentCubeMap->RefCount++;
+	 ctx->Texture.Unit[u].CurrentRect->RefCount++;
       }
-
-      /* copy state/contents of the currently bound texture objects */
+      attr = MALLOC_STRUCT( gl_texture_attrib );
+      MEMCPY( attr, &ctx->Texture, sizeof(struct gl_texture_attrib) );
+      /* copy state of the currently bound texture objects */
       for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
-         _mesa_copy_texture_object(&texstate->Saved1D[u],
-                                   ctx->Texture.Unit[u].Current1D);
-         _mesa_copy_texture_object(&texstate->Saved2D[u],
-                                   ctx->Texture.Unit[u].Current2D);
-         _mesa_copy_texture_object(&texstate->Saved3D[u],
-                                   ctx->Texture.Unit[u].Current3D);
-         _mesa_copy_texture_object(&texstate->SavedCube[u],
-                                   ctx->Texture.Unit[u].CurrentCubeMap);
-         _mesa_copy_texture_object(&texstate->SavedRect[u],
-                                   ctx->Texture.Unit[u].CurrentRect);
+         _mesa_copy_texture_object(&attr->Unit[u].Saved1D,
+                                   attr->Unit[u].Current1D);
+         _mesa_copy_texture_object(&attr->Unit[u].Saved2D,
+                                   attr->Unit[u].Current2D);
+         _mesa_copy_texture_object(&attr->Unit[u].Saved3D,
+                                   attr->Unit[u].Current3D);
+         _mesa_copy_texture_object(&attr->Unit[u].SavedCubeMap,
+                                   attr->Unit[u].CurrentCubeMap);
+         _mesa_copy_texture_object(&attr->Unit[u].SavedRect,
+                                   attr->Unit[u].CurrentRect);
       }
-
-      _mesa_unlock_context_textures(ctx);
-
       newnode = new_attrib_node( GL_TEXTURE_BIT );
-      newnode->data = texstate;
+      newnode->data = attr;
       newnode->next = head;
       head = newnode;
    }
@@ -438,7 +397,6 @@ _mesa_PushAttrib(GLbitfield mask)
       head = newnode;
    }
 
-end:
    ctx->AttribStack[ctx->AttribStackDepth] = head;
    ctx->AttribStackDepth++;
 }
@@ -467,15 +425,14 @@ pop_enable_group(GLcontext *ctx, const struct gl_enable_attrib *enable)
 
    TEST_AND_UPDATE(ctx->Light.ColorMaterialEnabled, enable->ColorMaterial,
                    GL_COLOR_MATERIAL);
-   TEST_AND_UPDATE(ctx->Pixel.ColorTableEnabled[COLORTABLE_PRECONVOLUTION],
-                   enable->ColorTable[COLORTABLE_PRECONVOLUTION],
+   TEST_AND_UPDATE(ctx->Pixel.ColorTableEnabled, enable->ColorTable,
                    GL_COLOR_TABLE);
-   TEST_AND_UPDATE(ctx->Pixel.ColorTableEnabled[COLORTABLE_POSTCONVOLUTION],
-                   enable->ColorTable[COLORTABLE_POSTCONVOLUTION],
-                   GL_POST_CONVOLUTION_COLOR_TABLE);
-   TEST_AND_UPDATE(ctx->Pixel.ColorTableEnabled[COLORTABLE_POSTCOLORMATRIX],
-                   enable->ColorTable[COLORTABLE_POSTCOLORMATRIX],
+   TEST_AND_UPDATE(ctx->Pixel.PostColorMatrixColorTableEnabled,
+                   enable->PostColorMatrixColorTable,
                    GL_POST_COLOR_MATRIX_COLOR_TABLE);
+   TEST_AND_UPDATE(ctx->Pixel.PostConvolutionColorTableEnabled,
+                   enable->PostConvolutionColorTable,
+                   GL_POST_CONVOLUTION_COLOR_TABLE);
    TEST_AND_UPDATE(ctx->Polygon.CullFlag, enable->CullFace, GL_CULL_FACE);
    TEST_AND_UPDATE(ctx->Depth.Test, enable->DepthTest, GL_DEPTH_TEST);
    TEST_AND_UPDATE(ctx->Color.DitherFlag, enable->Dither, GL_DITHER);
@@ -542,6 +499,8 @@ pop_enable_group(GLcontext *ctx, const struct gl_enable_attrib *enable)
    TEST_AND_UPDATE(ctx->Transform.RasterPositionUnclipped,
                    enable->RasterPositionUnclipped,
                    GL_RASTER_POSITION_UNCLIPPED_IBM);
+   TEST_AND_UPDATE(ctx->Pixel.PixelTextureEnabled, enable->PixelTexture,
+                   GL_POINT_SMOOTH);
    TEST_AND_UPDATE(ctx->Point.SmoothFlag, enable->PointSmooth,
                    GL_POINT_SMOOTH);
    if (ctx->Extensions.NV_point_sprite || ctx->Extensions.ARB_point_sprite) {
@@ -577,16 +536,16 @@ pop_enable_group(GLcontext *ctx, const struct gl_enable_attrib *enable)
    TEST_AND_UPDATE(ctx->Multisample.SampleCoverageInvert,
                    enable->SampleCoverageInvert,
                    GL_SAMPLE_COVERAGE_INVERT_ARB);
-   /* GL_ARB_vertex_program, GL_NV_vertex_program */
+   /* GL_NV_vertex_program */
    TEST_AND_UPDATE(ctx->VertexProgram.Enabled,
                    enable->VertexProgram,
-                   GL_VERTEX_PROGRAM_ARB);
+                   GL_VERTEX_PROGRAM_NV);
    TEST_AND_UPDATE(ctx->VertexProgram.PointSizeEnabled,
                    enable->VertexProgramPointSize,
-                   GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
+                   GL_VERTEX_PROGRAM_POINT_SIZE_NV);
    TEST_AND_UPDATE(ctx->VertexProgram.TwoSideEnabled,
                    enable->VertexProgramTwoSide,
-                   GL_VERTEX_PROGRAM_TWO_SIDE_ARB);
+                   GL_VERTEX_PROGRAM_TWO_SIDE_NV);
 
 #undef TEST_AND_UPDATE
 
@@ -648,34 +607,29 @@ pop_enable_group(GLcontext *ctx, const struct gl_enable_attrib *enable)
 }
 
 
-/**
- * Pop/restore texture attribute/group state.
- */
 static void
-pop_texture_group(GLcontext *ctx, struct texture_state *texstate)
+pop_texture_group(GLcontext *ctx, const struct gl_texture_attrib *texAttrib)
 {
    GLuint u;
 
-   _mesa_lock_context_textures(ctx);
-
    for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
-      const struct gl_texture_unit *unit = &texstate->Texture.Unit[u];
-      GLuint tgt;
+      const struct gl_texture_unit *unit = &texAttrib->Unit[u];
+      GLuint i;
 
       _mesa_ActiveTextureARB(GL_TEXTURE0_ARB + u);
       _mesa_set_enable(ctx, GL_TEXTURE_1D,
-                       (unit->Enabled & TEXTURE_1D_BIT) ? GL_TRUE : GL_FALSE);
+              (GLboolean) (unit->Enabled & TEXTURE_1D_BIT ? GL_TRUE : GL_FALSE));
       _mesa_set_enable(ctx, GL_TEXTURE_2D,
-                       (unit->Enabled & TEXTURE_2D_BIT) ? GL_TRUE : GL_FALSE);
+              (GLboolean) (unit->Enabled & TEXTURE_2D_BIT ? GL_TRUE : GL_FALSE));
       _mesa_set_enable(ctx, GL_TEXTURE_3D,
-                       (unit->Enabled & TEXTURE_3D_BIT) ? GL_TRUE : GL_FALSE);
+              (GLboolean) (unit->Enabled & TEXTURE_3D_BIT ? GL_TRUE : GL_FALSE));
       if (ctx->Extensions.ARB_texture_cube_map) {
          _mesa_set_enable(ctx, GL_TEXTURE_CUBE_MAP_ARB,
-                     (unit->Enabled & TEXTURE_CUBE_BIT) ? GL_TRUE : GL_FALSE);
+             (GLboolean) (unit->Enabled & TEXTURE_CUBE_BIT ? GL_TRUE : GL_FALSE));
       }
       if (ctx->Extensions.NV_texture_rectangle) {
          _mesa_set_enable(ctx, GL_TEXTURE_RECTANGLE_NV,
-                     (unit->Enabled & TEXTURE_RECT_BIT) ? GL_TRUE : GL_FALSE);
+             (GLboolean) (unit->Enabled & TEXTURE_RECT_BIT ? GL_TRUE : GL_FALSE));
       }
       if (ctx->Extensions.SGI_texture_color_table) {
          _mesa_set_enable(ctx, GL_TEXTURE_COLOR_TABLE_SGI,
@@ -691,20 +645,10 @@ pop_texture_group(GLcontext *ctx, struct texture_state *texstate)
       _mesa_TexGenfv(GL_T, GL_OBJECT_PLANE, unit->ObjectPlaneT);
       _mesa_TexGenfv(GL_R, GL_OBJECT_PLANE, unit->ObjectPlaneR);
       _mesa_TexGenfv(GL_Q, GL_OBJECT_PLANE, unit->ObjectPlaneQ);
-      /* Eye plane done differently to avoid re-transformation */
-      {
-         struct gl_texture_unit *destUnit = &ctx->Texture.Unit[u];
-         COPY_4FV(destUnit->EyePlaneS, unit->EyePlaneS);
-         COPY_4FV(destUnit->EyePlaneT, unit->EyePlaneT);
-         COPY_4FV(destUnit->EyePlaneR, unit->EyePlaneR);
-         COPY_4FV(destUnit->EyePlaneQ, unit->EyePlaneQ);
-         if (ctx->Driver.TexGen) {
-            ctx->Driver.TexGen(ctx, GL_S, GL_EYE_PLANE, unit->EyePlaneS);
-            ctx->Driver.TexGen(ctx, GL_T, GL_EYE_PLANE, unit->EyePlaneT);
-            ctx->Driver.TexGen(ctx, GL_R, GL_EYE_PLANE, unit->EyePlaneR);
-            ctx->Driver.TexGen(ctx, GL_Q, GL_EYE_PLANE, unit->EyePlaneQ);
-         }
-      }
+      _mesa_TexGenfv(GL_S, GL_EYE_PLANE, unit->EyePlaneS);
+      _mesa_TexGenfv(GL_T, GL_EYE_PLANE, unit->EyePlaneT);
+      _mesa_TexGenfv(GL_R, GL_EYE_PLANE, unit->EyePlaneR);
+      _mesa_TexGenfv(GL_Q, GL_EYE_PLANE, unit->EyePlaneQ);
       _mesa_set_enable(ctx, GL_TEXTURE_GEN_S,
                        ((unit->TexGenEnabled & S_BIT) ? GL_TRUE : GL_FALSE));
       _mesa_set_enable(ctx, GL_TEXTURE_GEN_T,
@@ -753,43 +697,40 @@ pop_texture_group(GLcontext *ctx, struct texture_state *texstate)
                        1 << unit->Combine.ScaleShiftA);
       }
 
-      /* Restore texture object state for each target */
-      for (tgt = 0; tgt < NUM_TEXTURE_TARGETS; tgt++) {
+      /* Restore texture object state */
+      for (i = 0; i < NUM_TEXTURE_TARGETS; i++) {
+         GLenum target = 0;
          const struct gl_texture_object *obj = NULL;
          GLfloat bordColor[4];
-         GLenum target;
 
-         switch (tgt) {
-         case TEXTURE_1D_INDEX:
-            obj = &texstate->Saved1D[u];
-            ASSERT(obj->Target == GL_TEXTURE_1D);
+         switch (i) {
+         case 0:
+            target = GL_TEXTURE_1D;
+            obj = &unit->Saved1D;
             break;
-         case TEXTURE_2D_INDEX:
-            obj = &texstate->Saved2D[u];
-            ASSERT(obj->Target == GL_TEXTURE_2D);
+         case 1:
+            target = GL_TEXTURE_2D;
+            obj = &unit->Saved2D;
             break;
-         case TEXTURE_3D_INDEX:
-            obj = &texstate->Saved3D[u];
-            ASSERT(obj->Target == GL_TEXTURE_3D);
+         case 2:
+            target = GL_TEXTURE_3D;
+            obj = &unit->Saved3D;
             break;
-         case TEXTURE_CUBE_INDEX:
+         case 3:
             if (!ctx->Extensions.ARB_texture_cube_map)
                continue;
-            obj = &texstate->SavedCube[u];
-            ASSERT(obj->Target == GL_TEXTURE_CUBE_MAP_ARB);
+            target = GL_TEXTURE_CUBE_MAP_ARB;
+            obj = &unit->SavedCubeMap;
             break;
-         case TEXTURE_RECT_INDEX:
+         case 4:
             if (!ctx->Extensions.NV_texture_rectangle)
                continue;
-            obj = &texstate->SavedRect[u];
-            ASSERT(obj->Target == GL_TEXTURE_RECTANGLE_NV);
+            target = GL_TEXTURE_RECTANGLE_NV;
+            obj = &unit->SavedRect;
             break;
          default:
-            _mesa_problem(ctx, "bad texture index in pop_texture_group");
-            continue;
+            ; /* silence warnings */
          }
-
-         target = obj->Target;
 
          _mesa_BindTexture(target, obj->Name);
 
@@ -807,10 +748,8 @@ pop_texture_group(GLcontext *ctx, struct texture_state *texstate)
          _mesa_TexParameteri(target, GL_TEXTURE_MAG_FILTER, obj->MagFilter);
          _mesa_TexParameterf(target, GL_TEXTURE_MIN_LOD, obj->MinLod);
          _mesa_TexParameterf(target, GL_TEXTURE_MAX_LOD, obj->MaxLod);
-         _mesa_TexParameterf(target, GL_TEXTURE_LOD_BIAS, obj->LodBias);
          _mesa_TexParameteri(target, GL_TEXTURE_BASE_LEVEL, obj->BaseLevel);
-         if (target != GL_TEXTURE_RECTANGLE_ARB)
-            _mesa_TexParameteri(target, GL_TEXTURE_MAX_LEVEL, obj->MaxLevel);
+         _mesa_TexParameteri(target, GL_TEXTURE_MAX_LEVEL, obj->MaxLevel);
          if (ctx->Extensions.EXT_texture_filter_anisotropic) {
             _mesa_TexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT,
                                 obj->MaxAnisotropy);
@@ -825,19 +764,23 @@ pop_texture_group(GLcontext *ctx, struct texture_state *texstate)
             _mesa_TexParameterf(target, GL_SHADOW_AMBIENT_SGIX,
                                 obj->ShadowAmbient);
          }
+
       }
-
-      /* remove saved references to the texture objects */
-      _mesa_reference_texobj(&texstate->SavedRef1D[u], NULL);
-      _mesa_reference_texobj(&texstate->SavedRef2D[u], NULL);
-      _mesa_reference_texobj(&texstate->SavedRef3D[u], NULL);
-      _mesa_reference_texobj(&texstate->SavedRefCube[u], NULL);
-      _mesa_reference_texobj(&texstate->SavedRefRect[u], NULL);
    }
+   _mesa_ActiveTextureARB(GL_TEXTURE0_ARB
+                          + texAttrib->CurrentUnit);
 
-   _mesa_ActiveTextureARB(GL_TEXTURE0_ARB + texstate->Texture.CurrentUnit);
-
-   _mesa_unlock_context_textures(ctx);
+   /* "un-bump" the texture object reference counts.  We did that so they
+    * wouldn't inadvertantly get deleted while they were still referenced
+    * inside the attribute state stack.
+    */
+   for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
+      ctx->Texture.Unit[u].Current1D->RefCount--;
+      ctx->Texture.Unit[u].Current2D->RefCount--;
+      ctx->Texture.Unit[u].Current3D->RefCount--;
+      ctx->Texture.Unit[u].CurrentCubeMap->RefCount--;
+      ctx->Texture.Unit[u].CurrentRect->RefCount--;
+   }
 }
 
 
@@ -898,36 +841,13 @@ _mesa_PopAttrib(void)
                                (GLboolean) (color->ColorMask[1] != 0),
                                (GLboolean) (color->ColorMask[2] != 0),
                                (GLboolean) (color->ColorMask[3] != 0));
-               {
-                  /* Need to determine if more than one color output is
-                   * specified.  If so, call glDrawBuffersARB, else call
-                   * glDrawBuffer().  This is a subtle, but essential point
-                   * since GL_FRONT (for example) is illegal for the former
-                   * function, but legal for the later.
-                   */
-                  GLboolean multipleBuffers = GL_FALSE;
-                  if (ctx->Extensions.ARB_draw_buffers) {
-                     GLuint i;
-                     for (i = 1; i < ctx->Const.MaxDrawBuffers; i++) {
-                        if (color->DrawBuffer[i] != GL_NONE) {
-                           multipleBuffers = GL_TRUE;
-                           break;
-                        }
-                     }
-                  }
-                  /* Call the API_level functions, not _mesa_drawbuffers()
-                   * since we need to do error checking on the pop'd
-                   * GL_DRAW_BUFFER.
-                   * Ex: if GL_FRONT were pushed, but we're popping with a
-                   * user FBO bound, GL_FRONT will be illegal and we'll need
-                   * to record that error.  Per OpenGL ARB decision.
-                   */
-                  if (multipleBuffers)
-                     _mesa_DrawBuffersARB(ctx->Const.MaxDrawBuffers,
-                                          color->DrawBuffer);
-                  else
-                     _mesa_DrawBuffer(color->DrawBuffer[0]);
-               }
+#if 0
+               _mesa_DrawBuffersARB(ctx->Const.MaxDrawBuffers,
+                                    color->DrawBuffer);
+#else
+               _mesa_drawbuffers(ctx, ctx->Const.MaxDrawBuffers,
+                                 color->DrawBuffer, NULL);
+#endif
                _mesa_set_enable(ctx, GL_ALPHA_TEST, color->AlphaEnabled);
                _mesa_AlphaFunc(color->AlphaFunc, color->AlphaRef);
                _mesa_set_enable(ctx, GL_BLEND, color->BlendEnabled);
@@ -970,6 +890,9 @@ _mesa_PopAttrib(void)
                _mesa_ClearDepth(depth->Clear);
                _mesa_set_enable(ctx, GL_DEPTH_TEST, depth->Test);
                _mesa_DepthMask(depth->Mask);
+               if (ctx->Extensions.HP_occlusion_test)
+                  _mesa_set_enable(ctx, GL_OCCLUSION_TEST_HP,
+                                   depth->OcclusionTest);
             }
             break;
          case GL_ENABLE_BIT:
@@ -1025,22 +948,26 @@ _mesa_PopAttrib(void)
                if (_math_matrix_is_dirty(ctx->ModelviewMatrixStack.Top))
                   _math_matrix_analyse( ctx->ModelviewMatrixStack.Top );
 	       
-               for (i = 0; i < ctx->Const.MaxLights; i++) {
+               for (i = 0; i < MAX_LIGHTS; i++) {
+                  GLenum lgt = (GLenum) (GL_LIGHT0 + i);
 		  const struct gl_light *l = &light->Light[i];
-                  _mesa_set_enable(ctx, GL_LIGHT0 + i, l->Enabled);
-		  _mesa_light(ctx, i, GL_AMBIENT, l->Ambient);
-		  _mesa_light(ctx, i, GL_DIFFUSE, l->Diffuse);
-		  _mesa_light(ctx, i, GL_SPECULAR, l->Specular );
-		  _mesa_light(ctx, i, GL_POSITION, l->EyePosition);
-		  _mesa_light(ctx, i, GL_SPOT_DIRECTION, l->EyeDirection);
-		  _mesa_light(ctx, i, GL_SPOT_EXPONENT, &l->SpotExponent);
-		  _mesa_light(ctx, i, GL_SPOT_CUTOFF, &l->SpotCutoff);
-		  _mesa_light(ctx, i, GL_CONSTANT_ATTENUATION,
-                              &l->ConstantAttenuation);
-		  _mesa_light(ctx, i, GL_LINEAR_ATTENUATION,
-                              &l->LinearAttenuation);
-		  _mesa_light(ctx, i, GL_QUADRATIC_ATTENUATION,
-                              &l->QuadraticAttenuation);
+		  GLfloat tmp[4];
+                  _mesa_set_enable(ctx, lgt, l->Enabled);
+		  _mesa_Lightfv( lgt, GL_AMBIENT, l->Ambient );
+		  _mesa_Lightfv( lgt, GL_DIFFUSE, l->Diffuse );
+		  _mesa_Lightfv( lgt, GL_SPECULAR, l->Specular );
+		  TRANSFORM_POINT( tmp, ctx->ModelviewMatrixStack.Top->inv, l->EyePosition );
+		  _mesa_Lightfv( lgt, GL_POSITION, tmp );
+		  TRANSFORM_POINT( tmp, ctx->ModelviewMatrixStack.Top->m, l->EyeDirection );
+		  _mesa_Lightfv( lgt, GL_SPOT_DIRECTION, tmp );
+		  _mesa_Lightfv( lgt, GL_SPOT_EXPONENT, &l->SpotExponent );
+		  _mesa_Lightfv( lgt, GL_SPOT_CUTOFF, &l->SpotCutoff );
+		  _mesa_Lightfv( lgt, GL_CONSTANT_ATTENUATION, 
+				 &l->ConstantAttenuation );
+		  _mesa_Lightfv( lgt, GL_LINEAR_ATTENUATION, 
+				 &l->LinearAttenuation );
+		  _mesa_Lightfv( lgt, GL_QUADRATIC_ATTENUATION, 
+				 &l->QuadraticAttenuation );
                }
                /* light model */
                _mesa_LightModelfv(GL_LIGHT_MODEL_AMBIENT,
@@ -1051,6 +978,9 @@ _mesa_PopAttrib(void)
                                  (GLfloat) light->Model.TwoSide);
                _mesa_LightModelf(GL_LIGHT_MODEL_COLOR_CONTROL,
                                  (GLfloat) light->Model.ColorControl);
+               /* materials */
+               MEMCPY(&ctx->Light.Material, &light->Material,
+                      sizeof(struct gl_material));
                /* shade model */
                _mesa_ShadeModel(light->ShadeModel);
                /* color material */
@@ -1058,9 +988,6 @@ _mesa_PopAttrib(void)
                                    light->ColorMaterialMode);
                _mesa_set_enable(ctx, GL_COLOR_MATERIAL,
                                 light->ColorMaterialEnabled);
-               /* materials */
-               MEMCPY(&ctx->Light.Material, &light->Material,
-                      sizeof(struct gl_material));
             }
             break;
          case GL_LINE_BIT:
@@ -1106,8 +1033,7 @@ _mesa_PopAttrib(void)
                                    (GLint) point->CoordReplace[u]);
                   }
                   _mesa_set_enable(ctx, GL_POINT_SPRITE_NV,point->PointSprite);
-                  if (ctx->Extensions.NV_point_sprite)
-                     _mesa_PointParameteriNV(GL_POINT_SPRITE_R_MODE_NV,
+                  _mesa_PointParameteriNV(GL_POINT_SPRITE_R_MODE_NV,
                                           ctx->Point.SpriteRMode);
                   _mesa_PointParameterfEXT(GL_POINT_SPRITE_COORD_ORIGIN,
                                            (GLfloat)ctx->Point.SpriteOrigin);
@@ -1152,34 +1078,26 @@ _mesa_PopAttrib(void)
             break;
          case GL_STENCIL_BUFFER_BIT:
             {
+               GLint face;
                const struct gl_stencil_attrib *stencil;
                stencil = (const struct gl_stencil_attrib *) attr->data;
                _mesa_set_enable(ctx, GL_STENCIL_TEST, stencil->Enabled);
                _mesa_ClearStencil(stencil->Clear);
+               face = stencil->ActiveFace;
                if (ctx->Extensions.EXT_stencil_two_side) {
-                  _mesa_set_enable(ctx, GL_STENCIL_TEST_TWO_SIDE_EXT,
-                                   stencil->TestTwoSide);
-                  _mesa_ActiveStencilFaceEXT(stencil->ActiveFace
-                                             ? GL_BACK : GL_FRONT);
+                  _mesa_set_enable(ctx, GL_STENCIL_TEST_TWO_SIDE_EXT, stencil->TestTwoSide);
+                  face ^= 1;
                }
-               /* front state */
-               _mesa_StencilFuncSeparate(GL_FRONT,
-                                         stencil->Function[0],
-                                         stencil->Ref[0],
-                                         stencil->ValueMask[0]);
-               _mesa_StencilMaskSeparate(GL_FRONT, stencil->WriteMask[0]);
-               _mesa_StencilOpSeparate(GL_FRONT, stencil->FailFunc[0],
-                                       stencil->ZFailFunc[0],
-                                       stencil->ZPassFunc[0]);
-               /* back state */
-               _mesa_StencilFuncSeparate(GL_BACK,
-                                         stencil->Function[1],
-                                         stencil->Ref[1],
-                                         stencil->ValueMask[1]);
-               _mesa_StencilMaskSeparate(GL_BACK, stencil->WriteMask[1]);
-               _mesa_StencilOpSeparate(GL_BACK, stencil->FailFunc[1],
-                                       stencil->ZFailFunc[1],
-                                       stencil->ZPassFunc[1]);
+               do {
+                  _mesa_ActiveStencilFaceEXT(face);
+                  _mesa_StencilFunc(stencil->Function[face], stencil->Ref[face],
+                                    stencil->ValueMask[face]);
+                  _mesa_StencilMask(stencil->WriteMask[face]);
+                  _mesa_StencilOp(stencil->FailFunc[face],
+                                  stencil->ZFailFunc[face],
+                                  stencil->ZPassFunc[face]);
+                  face ^= 1;
+               } while (face != (stencil->ActiveFace ^ 1));
             }
             break;
          case GL_TRANSFORM_BIT:
@@ -1217,9 +1135,9 @@ _mesa_PopAttrib(void)
          case GL_TEXTURE_BIT:
             /* Take care of texture object reference counters */
             {
-               struct texture_state *texstate
-                  = (struct texture_state *) attr->data;
-               pop_texture_group(ctx, texstate);
+               const struct gl_texture_attrib *texture;
+               texture = (const struct gl_texture_attrib *) attr->data;
+               pop_texture_group(ctx, texture);
 	       ctx->NewState |= _NEW_TEXTURE;
             }
             break;
@@ -1261,17 +1179,17 @@ static void
 adjust_buffer_object_ref_counts(struct gl_array_attrib *array, GLint step)
 {
    GLuint i;
-   array->ArrayObj->Vertex.BufferObj->RefCount += step;
-   array->ArrayObj->Normal.BufferObj->RefCount += step;
-   array->ArrayObj->Color.BufferObj->RefCount += step;
-   array->ArrayObj->SecondaryColor.BufferObj->RefCount += step;
-   array->ArrayObj->FogCoord.BufferObj->RefCount += step;
-   array->ArrayObj->Index.BufferObj->RefCount += step;
-   array->ArrayObj->EdgeFlag.BufferObj->RefCount += step;
+   array->Vertex.BufferObj->RefCount += step;
+   array->Normal.BufferObj->RefCount += step;
+   array->Color.BufferObj->RefCount += step;
+   array->SecondaryColor.BufferObj->RefCount += step;
+   array->FogCoord.BufferObj->RefCount += step;
+   array->Index.BufferObj->RefCount += step;
+   array->EdgeFlag.BufferObj->RefCount += step;
    for (i = 0; i < MAX_TEXTURE_COORD_UNITS; i++)
-      array->ArrayObj->TexCoord[i].BufferObj->RefCount += step;
+      array->TexCoord[i].BufferObj->RefCount += step;
    for (i = 0; i < VERT_ATTRIB_MAX; i++)
-      array->ArrayObj->VertexAttrib[i].BufferObj->RefCount += step;
+      array->VertexAttrib[i].BufferObj->RefCount += step;
 
    array->ArrayBufferObj->RefCount += step;
    array->ElementArrayBufferObj->RefCount += step;
@@ -1323,22 +1241,8 @@ _mesa_PushClientAttrib(GLbitfield mask)
    }
    if (mask & GL_CLIENT_VERTEX_ARRAY_BIT) {
       struct gl_array_attrib *attr;
-      struct gl_array_object *obj;
-
       attr = MALLOC_STRUCT( gl_array_attrib );
-      obj = MALLOC_STRUCT( gl_array_object );
-
-#if FEATURE_ARB_vertex_buffer_object
-      /* increment ref counts since we're copying pointers to these objects */
-      ctx->Array.ArrayBufferObj->RefCount++;
-      ctx->Array.ElementArrayBufferObj->RefCount++;
-#endif
-
       MEMCPY( attr, &ctx->Array, sizeof(struct gl_array_attrib) );
-      MEMCPY( obj, ctx->Array.ArrayObj, sizeof(struct gl_array_object) );
-
-      attr->ArrayObj = obj;
-
       newnode = new_attrib_node( GL_CLIENT_VERTEX_ARRAY_BIT );
       newnode->data = attr;
       newnode->next = head;
@@ -1396,38 +1300,13 @@ _mesa_PopClientAttrib(void)
                     sizeof(struct gl_pixelstore_attrib) );
 	    ctx->NewState |= _NEW_PACKUNPACK;
             break;
-         case GL_CLIENT_VERTEX_ARRAY_BIT: {
-	    struct gl_array_attrib * data =
-	      (struct gl_array_attrib *) attr->data;
-
+         case GL_CLIENT_VERTEX_ARRAY_BIT:
             adjust_buffer_object_ref_counts(&ctx->Array, -1);
-	 
-            ctx->Array.ActiveTexture = data->ActiveTexture;
-	    ctx->Array.LockFirst = data->LockFirst;
-	    ctx->Array.LockCount = data->LockCount;
-
-	    _mesa_BindVertexArrayAPPLE( data->ArrayObj->Name );
-	    
-#if FEATURE_ARB_vertex_buffer_object
-            _mesa_BindBufferARB(GL_ARRAY_BUFFER_ARB,
-                                data->ArrayBufferObj->Name);
-            _mesa_BindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB,
-                                data->ElementArrayBufferObj->Name);
-#endif
-
-	    MEMCPY( ctx->Array.ArrayObj, data->ArrayObj,
-		    sizeof( struct gl_array_object ) );
-
-	    FREE( data->ArrayObj );
-	    
-	    /* FIXME: Should some bits in ctx->Array->NewState also be set
-	     * FIXME: here?  It seems like it should be set to inclusive-or
-	     * FIXME: of the old ArrayObj->_Enabled and the new _Enabled.
-	     */
-
+            MEMCPY( &ctx->Array, attr->data,
+		    sizeof(struct gl_array_attrib) );
+            /* decrement reference counts on buffer objects */
 	    ctx->NewState |= _NEW_ARRAY;
             break;
-	 }
          default:
             _mesa_problem( ctx, "Bad attrib flag in PopClientAttrib");
             break;
@@ -1437,41 +1316,6 @@ _mesa_PopClientAttrib(void)
       FREE( attr->data );
       FREE( attr );
       attr = next;
-   }
-}
-
-
-void
-_mesa_free_attrib_data(GLcontext *ctx)
-{
-   while (ctx->AttribStackDepth > 0) {
-      struct gl_attrib_node *attr, *next;
-
-      ctx->AttribStackDepth--;
-      attr = ctx->AttribStack[ctx->AttribStackDepth];
-
-      while (attr) {
-         if (attr->kind == GL_TEXTURE_BIT) {
-            struct texture_state *texstate = (struct texture_state*)attr->data;
-            GLuint u;
-            /* clear references to the saved texture objects */
-            for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
-               _mesa_reference_texobj(&texstate->SavedRef1D[u], NULL);
-               _mesa_reference_texobj(&texstate->SavedRef2D[u], NULL);
-               _mesa_reference_texobj(&texstate->SavedRef3D[u], NULL);
-               _mesa_reference_texobj(&texstate->SavedRefCube[u], NULL);
-               _mesa_reference_texobj(&texstate->SavedRefRect[u], NULL);
-            }
-         }
-         else {
-            /* any other chunks of state that requires special handling? */
-         }
-
-         next = attr->next;
-         _mesa_free(attr->data);
-         _mesa_free(attr);
-         attr = next;
-      }
    }
 }
 

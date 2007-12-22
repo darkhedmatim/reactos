@@ -229,7 +229,6 @@ int main(int argc, char **argv)
 {
    int fd_in, fd_out;
    long len;
-   char hdrbuf[4] = { }, elfhdr[4] = { '\177', 'E', 'L', 'F' };
    PIMAGE_SECTION_HEADER section_header;
    PIMAGE_DATA_DIRECTORY data_dir;
    unsigned int i;
@@ -278,13 +277,6 @@ int main(int argc, char **argv)
       return 1;
    }
 
-   /*
-    * PowerPC ReactOS uses elf, so doesn't need pefixup
-    */
-   len = read(fd_in, hdrbuf, sizeof(elfhdr));
-   if (!memcmp(hdrbuf, elfhdr, sizeof(elfhdr)))
-      return 0;
-
    len = lseek(fd_in, 0, SEEK_END);
    if (len < sizeof(IMAGE_DOS_HEADER))
    {
@@ -318,7 +310,7 @@ int main(int argc, char **argv)
 
    dos_header = (PIMAGE_DOS_HEADER)buffer;
    nt_header = (PIMAGE_NT_HEADERS)(buffer + dtohl(dos_header->e_lfanew));
-
+   
    if (dtohs(dos_header->e_magic) != IMAGE_DOS_SIGNATURE ||
        dtohl(nt_header->Signature) != IMAGE_NT_SIGNATURE)
    {

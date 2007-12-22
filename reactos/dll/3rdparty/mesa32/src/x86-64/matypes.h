@@ -12,18 +12,18 @@
  * Offsets for GLcontext
  */
 
-#define CTX_DRIVER_CTX              	952
+#define CTX_DRIVER_CTX              	908
 
-#define CTX_LIGHT_ENABLED           	39312
-#define CTX_LIGHT_SHADE_MODEL       	39316
-#define CTX_LIGHT_COLOR_MAT_FACE    	39320
-#define CTX_LIGHT_COLOR_MAT_MODE    	39324
-#define CTX_LIGHT_COLOR_MAT_MASK    	39328
-#define CTX_LIGHT_COLOR_MAT_ENABLED 	39332
-#define CTX_LIGHT_ENABLED_LIST      	39340
-#define CTX_LIGHT_NEED_VERTS        	43701
-#define CTX_LIGHT_FLAGS             	43704
-#define CTX_LIGHT_BASE_COLOR        	43708
+#define CTX_LIGHT_ENABLED           	38596
+#define CTX_LIGHT_SHADE_MODEL       	38600
+#define CTX_LIGHT_COLOR_MAT_FACE    	38604
+#define CTX_LIGHT_COLOR_MAT_MODE    	38608
+#define CTX_LIGHT_COLOR_MAT_MASK    	38612
+#define CTX_LIGHT_COLOR_MAT_ENABLED 	38616
+#define CTX_LIGHT_ENABLED_LIST      	38620
+#define CTX_LIGHT_NEED_VERTS        	42977
+#define CTX_LIGHT_FLAGS             	42980
+#define CTX_LIGHT_BASE_COLOR        	42984
 
 
 /* =============================================================
@@ -49,9 +49,11 @@
 #define VB_INDEX_PTR           	80
 #define VB_COLOR_PTR           	88
 #define VB_SECONDARY_COLOR_PTR 	96
-#define VB_FOG_COORD_PTR       	104
-#define VB_PRIMITIVE           	108
+#define VB_FOG_COORD_PTR       	108
+#define VB_POINT_SIZE_PTR      	104
+#define VB_PRIMITIVE           	112
 
+#define VB_LAST_CLIPPED        	244
 
 /*
  * Flags for struct vertex_buffer
@@ -117,26 +119,26 @@
 #define LIGHT_EYE_DIRECTION     	72
 #define LIGHT_SPOT_EXPONENT     	88
 #define LIGHT_SPOT_CUTOFF       	92
-#define LIGHT_COS_CUTOFF        	100
-#define LIGHT_CONST_ATTEN       	104
-#define LIGHT_LINEAR_ATTEN      	108
-#define LIGHT_QUADRATIC_ATTEN   	112
-#define LIGHT_ENABLED           	116
+#define LIGHT_COS_CUTOFF        	96
+#define LIGHT_CONST_ATTEN       	100
+#define LIGHT_LINEAR_ATTEN      	104
+#define LIGHT_QUADRATIC_ATTEN   	108
+#define LIGHT_ENABLED           	112
 
-#define LIGHT_FLAGS             	120
+#define LIGHT_FLAGS             	116
 
-#define LIGHT_POSITION          	124
-#define LIGHT_VP_INF_NORM       	140
-#define LIGHT_H_INF_NORM        	152
-#define LIGHT_NORM_DIRECTION    	164
-#define LIGHT_VP_INF_SPOT_ATTEN 	180
+#define LIGHT_POSITION          	120
+#define LIGHT_VP_INF_NORM       	136
+#define LIGHT_H_INF_NORM        	148
+#define LIGHT_NORM_DIRECTION    	160
+#define LIGHT_VP_INF_SPOT_ATTEN 	176
 
-#define LIGHT_SPOT_EXP_TABLE    	184
-#define LIGHT_MAT_AMBIENT       	4280
-#define LIGHT_MAT_DIFFUSE       	4304
-#define LIGHT_MAT_SPECULAR      	4328
+#define LIGHT_SPOT_EXP_TABLE    	180
+#define LIGHT_MAT_AMBIENT       	4276
+#define LIGHT_MAT_DIFFUSE       	4300
+#define LIGHT_MAT_SPECULAR      	4324
 
-#define SIZEOF_GL_LIGHT         	4360
+#define SIZEOF_GL_LIGHT         	4356
 
 /*
  * Flags for struct gl_light

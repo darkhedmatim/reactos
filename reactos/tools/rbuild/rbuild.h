@@ -70,7 +70,6 @@ extern char cBadSep;
 
 #define MS_VS_DEF_VERSION "7.10"
 
-class XmlNode;
 class Directory;
 class Project;
 class IfableData;
@@ -102,32 +101,9 @@ class FileLocation;
 class AutoRegister;
 
 class SourceFileTest;
-class Metadata;
+
 
 typedef std::map<std::string,Directory*> directory_map;
-
-class XmlNode
-{
-protected:
-	const Project& project;
-	const XMLElement& node;
-
-	XmlNode ( const Project& project_,
-	          const XMLElement& node_ );
-	virtual ~XmlNode();
-
-public:
-	virtual void ProcessXML();
-};
-
-enum DirectoryLocation
-{
-	SourceDirectory,
-	IntermediateDirectory,
-	OutputDirectory,
-	InstallDirectory,
-	TemporaryDirectory,
-};
 
 class Directory
 {
@@ -136,16 +112,20 @@ public:
 	directory_map subdirs;
 	Directory ( const std::string& name );
 	void Add ( const char* subdir );
-	void GenerateTree ( DirectoryLocation root,
+	void GenerateTree ( const std::string& parent,
 	                    bool verbose );
+	std::string EscapeSpaces ( std::string path );
 	void CreateRule ( FILE* f,
 	                  const std::string& parent );
 private:
 	bool mkdir_p ( const char* path );
-	bool CreateDirectory ( const std::string& path );
-	std::string EscapeSpaces ( const std::string& path );
-	void GenerateTree ( const std::string& parent,
-	                    bool verbose );
+	std::string ReplaceVariable ( std::string name,
+	                              std::string value,
+	                              std::string path );
+	std::string GetEnvironmentVariable ( const std::string& name );
+	void ResolveVariablesInPath ( char* buf,
+	                              std::string path );
+	bool CreateDirectory ( std::string path );
 };
 
 
@@ -173,7 +153,6 @@ class Environment
 {
 public:
 	static std::string GetVariable ( const std::string& name );
-	static std::string GetArch ();
 	static std::string GetIntermediatePath ();
 	static std::string GetOutputPath ();
 	static std::string GetCdOutputPath ();
@@ -188,8 +167,7 @@ class FileSupportCode
 {
 public:
 	static void WriteIfChanged ( char* outbuf,
-	                             const std::string& filename,
-	                             bool ignoreError = false );
+	                             std::string filename );
 };
 
 
@@ -214,9 +192,7 @@ public:
 	std::vector<Module*> modules;
 	std::vector<CompilerFlag*> compilerFlags;
 	std::vector<If*> ifs;
-	int asmFiles; // number of .asm files in compilationUnits
 
-	IfableData();
 	~IfableData();
 	void ProcessXML();
 	void ExtractModules( std::vector<Module*> &modules );
@@ -239,8 +215,7 @@ public:
 	IfableData non_if_data;
 
 	Project ( const Configuration& configuration,
-	          const std::string& filename,
-	          const std::map<std::string, std::string>* properties = NULL );
+	          const std::string& filename );
 	~Project ();
 	void SetBackend ( Backend* backend ) { _backend = backend; }
 	Backend& GetBackend() { return *_backend; }
@@ -253,7 +228,7 @@ public:
 	const std::string& GetProjectFilename () const;
 	std::string ResolveProperties ( const std::string& s ) const;
 private:
-	std::string ResolveNextProperty ( const std::string& s ) const;
+	std::string ResolveNextProperty ( std::string& s ) const;
 	const Property* LookupProperty ( const std::string& name ) const;
 	void SetConfigurationOption ( char* s,
 	                              std::string name,
@@ -295,11 +270,10 @@ enum ModuleType
 	Alias = 19,
 	BootProgram = 20,
 	Win32SCR = 21,
+	ExportDriver = 22,
 	IdlHeader = 23,
 	IsoRegTest = 24,
-	LiveIsoRegTest = 25,
-	EmbeddedTypeLib = 26,
-	ElfExecutable = 27
+	LiveIsoRegTest = 25
 };
 
 enum HostType
@@ -307,21 +281,6 @@ enum HostType
 	HostFalse,
 	HostDefault,
 	HostTrue
-};
-
-class FileLocation
-{
-public:
-	DirectoryLocation directory;
-	std::string relative_path;
-	std::string name;
-
-	FileLocation ( const DirectoryLocation directory,
-	               const std::string& relative_path,
-	               const std::string& name,
-	               const XMLElement *node = NULL );
-
-	FileLocation ( const FileLocation& other );
 };
 
 class Module
@@ -335,16 +294,15 @@ public:
 	std::string extension;
 	std::string baseaddress;
 	std::string payload;
-	std::string buildtype;
+	std::string path;
 	ModuleType type;
 	ImportLibrary* importLibrary;
-	Metadata* metadata;
 	bool mangledSymbols;
 	bool underscoreSymbols;
 	bool isUnicode;
 	bool isDefaultEntryPoint;
 	Bootstrap* bootstrap;
-	AutoRegister* autoRegister; // <autoregister> node
+	AutoRegister* autoRegister;
 	IfableData non_if_data;
 	std::vector<Invoke*> invocations;
 	std::vector<Dependency*> dependencies;
@@ -356,13 +314,14 @@ public:
 	bool cplusplus;
 	std::string prefix;
 	HostType host;
+	std::string installBase;
+	std::string installName;
 	std::string aliasedModuleName;
+	bool useWRC;
 	bool allowWarnings;
 	bool enabled;
-	bool isStartupLib;
-	FileLocation *output; // "path/foo.exe"
-	FileLocation *dependency; // "path/foo.exe" or "path/libfoo.a"
-	FileLocation *install;
+	bool useHostStdlib;
+    bool isStartupLib;
 
 	Module ( const Project& project,
 	         const XMLElement& moduleNode,
@@ -372,6 +331,11 @@ public:
 	                           const XMLAttribute& attribute );
 	bool HasImportLibrary () const;
 	bool IsDLL () const;
+	bool GenerateInOutputTree () const;
+	std::string GetTargetName () const; // "foo.exe"
+	std::string GetDependencyPath () const; // "path/foo.exe" or "path/libfoo.a"
+	std::string GetBasePath () const; // "path"
+	std::string GetPath () const; // "path/foo.exe"
 	std::string GetPathWithPrefix ( const std::string& prefix ) const; // "path/prefixfoo.exe"
 	std::string GetPathToBaseDir() const; // "../" offset to rootdirectory
 	std::string GetEntryPoint(bool leadingUnderscore) const;
@@ -380,16 +344,15 @@ public:
 	bool HasFileWithExtension ( const IfableData&, const std::string& extension ) const;
 	void InvokeModule () const;
 	void ProcessXML ();
+	void GetSourceFilenames ( string_list& list,
+                                  bool includeGeneratedFiles ) const;
 private:
-	void SetImportLibrary ( ImportLibrary* importLibrary );
-	DirectoryLocation GetTargetDirectoryTree () const;
 	std::string GetDefaultModuleExtension () const;
 	std::string GetDefaultModuleEntrypoint () const;
 	std::string GetDefaultModuleBaseaddress () const;
 	std::string entrypoint;
 	void ProcessXMLSubElement ( const XMLElement& e,
-	                            DirectoryLocation directory,
-	                            const std::string& relative_path,
+	                            const std::string& path,
 	                            ParseContext& parseContext );
 };
 
@@ -397,23 +360,24 @@ private:
 class Include
 {
 public:
-	FileLocation *directory;
+	const Project& project;
+	const Module* module;
+	const XMLElement* node;
+	const Module* baseModule;
+	std::string directory;
+	std::string basePath;
 
 	Include ( const Project& project,
 	          const XMLElement* includeNode );
 	Include ( const Project& project,
-	          const XMLElement* includeNode,
-	          const Module* module );
+	          const Module* module,
+	          const XMLElement* includeNode );
 	Include ( const Project& project,
-	          DirectoryLocation directory,
-	          const std::string& relative_path );
+	          std::string directory,
+	          std::string basePath );
 	~Include ();
-	void ProcessXML ();
+	void ProcessXML();
 private:
-	const Project& project;
-	const XMLElement* node;
-	const Module* module;
-	DirectoryLocation GetDefaultDirectoryTree ( const Module* module ) const;
 };
 
 
@@ -422,11 +386,9 @@ class Define
 public:
 	const Project& project;
 	const Module* module;
-	const XMLElement* node;
+    const XMLElement* node;
 	std::string name;
 	std::string value;
-	std::string backend;
-	bool overridable;
 
 	Define ( const Project& project,
 	         const XMLElement& defineNode );
@@ -435,8 +397,7 @@ public:
 	         const XMLElement& defineNode );
 	Define ( const Project& project,
 	         const Module* module,
-	         const std::string& name_,
-	         const std::string& backend_ = "" );
+	         const std::string name_ );
 	~Define();
 	void ProcessXML();
 private:
@@ -447,20 +408,17 @@ private:
 class File
 {
 public:
-	FileLocation file;
+	std::string name;
 	bool first;
 	std::string switches;
 	bool isPreCompiledHeader;
 
-	File ( DirectoryLocation directory,
-	       const std::string& relative_path,
-	       const std::string& name,
+	File ( const std::string& _name,
 	       bool _first,
-	       const std::string& _switches,
+	       std::string _switches,
 	       bool _isPreCompiledHeader );
 
 	void ProcessXML();
-	std::string GetFullPath () const;
 };
 
 
@@ -531,35 +489,20 @@ public:
 	void ProcessXML();
 };
 
-class Metadata
+
+class ImportLibrary
 {
 public:
 	const XMLElement& node;
 	const Module& module;
-	std::string name;
-	std::string description;
-	std::string version;
-	std::string copyright;
-	std::string url;
-	std::string date;
-	std::string owner;
-
-	Metadata ( const XMLElement& _node,
-	          const Module& _module );
-
-	void ProcessXML();
-};
-
-class ImportLibrary : public XmlNode
-{
-public:
-	const Module& module;
+	std::string basename;
+	std::string definition;
 	std::string dllname;
-	FileLocation *source;
 
-	ImportLibrary ( const Project& project,
-	                const XMLElement& node,
+	ImportLibrary ( const XMLElement& _node,
 	                const Module& module );
+
+	void ProcessXML ();
 };
 
 
@@ -626,13 +569,16 @@ private:
 class LinkerScript
 {
 public:
+	const Project& project;
+	const Module* module;
 	const XMLElement& node;
-	const Module& module;
-	FileLocation file;
+	const Module* baseModule;
+	std::string directory;
+	std::string basePath;
 
-	LinkerScript ( const XMLElement& node,
-	               const Module& module,
-	               const FileLocation& file );
+	LinkerScript ( const Project& project,
+	               const Module* module,
+	               const XMLElement& node );
 	~LinkerScript ();
 	void ProcessXML();
 };
@@ -641,6 +587,7 @@ public:
 class Property
 {
 public:
+	const XMLElement& node;
 	const Project& project;
 	const Module* module;
 	std::string name, value;
@@ -648,11 +595,6 @@ public:
 	Property ( const XMLElement& node_,
 	           const Project& project_,
 	           const Module* module_ );
-
-	Property ( const Project& project_,
-	           const Module* module_,
-	           const std::string& name_,
-	           const std::string& value_ );
 
 	void ProcessXML();
 };
@@ -679,11 +621,11 @@ private:
 	void WriteHooksFile ( Module& module );
 	std::string GetStubsFilename ( Module& module );
 	char* WriteStubbedSymbolToStubsFile ( char* buffer,
-	                                      const StubbedComponent& component,
+                                              const StubbedComponent& component,
 	                                      const StubbedSymbol& symbol,
 	                                      int stubIndex );
 	char* WriteStubbedComponentToStubsFile ( char* buffer,
-	                                         const StubbedComponent& component,
+                                                 const StubbedComponent& component,
 	                                         int* stubIndex );
 	void WriteStubsFile ( Module& module );
 	std::string GetStartupFilename ( Module& module );
@@ -691,9 +633,9 @@ private:
 	std::string GetTestDispatcherName ( std::string filename );
 	bool IsTestFile ( std::string& filename ) const;
 	void GetSourceFilenames ( string_list& list,
-	                          Module& module ) const;
+                                  Module& module ) const;
 	char* WriteTestDispatcherPrototypesToStartupFile ( char* buffer,
-	                                                   Module& module );
+                                                           Module& module );
 	char* WriteRegisterTestsFunctionToStartupFile ( char* buffer,
 	                                                Module& module );
 	void WriteStartupFile ( Module& module );
@@ -725,27 +667,35 @@ class SourceFile
 public:
 	SourceFile ( AutomaticDependency* automaticDependency,
 	             const Module& module,
-	             const File& file,
-	             SourceFile* parent );
+	             const std::string& filename,
+	             SourceFile* parent,
+	             bool isNonAutomaticDependency );
+	SourceFile* ParseFile ( const std::string& normalizedFilename );
 	void Parse ();
-	std::vector<SourceFile*> files; /* List of files included in this file */
-	const File& file;
+	std::string Location () const;
+	std::vector<SourceFile*> files;
 	AutomaticDependency* automaticDependency;
 	const Module& module;
+	std::string filename;
+	std::string filenamePart;
+	std::string directoryPart;
 	std::vector<SourceFile*> parents; /* List of files, this file is included from */
+	bool isNonAutomaticDependency;
+	std::string cachedDependencies;
 	time_t lastWriteTime;
 	time_t youngestLastWriteTime; /* Youngest last write time of this file and all children */
 	SourceFile* youngestFile;
 private:
+	void GetDirectoryAndFilenameParts ();
 	void Close ();
 	void Open ();
 	void SkipWhitespace ();
 	bool ReadInclude ( std::string& filename,
 	                   bool& searchCurrentDirectory,
 	                   bool& includeNext );
-	bool IsIncludedFrom ( const File& file );
-	SourceFile* ParseFile(const File& file);
-	bool CanProcessFile ( const File& file );
+	bool IsIncludedFrom ( const std::string& normalizedFilename );
+	SourceFile* GetParentSourceFile ();
+	bool CanProcessFile ( const std::string& extension );
 	bool IsParentOf ( const SourceFile* parent,
 	                  const SourceFile* child );
 	std::string buf;
@@ -762,30 +712,34 @@ public:
 
 	AutomaticDependency ( const Project& project );
 	~AutomaticDependency ();
-	bool LocateIncludedFile ( const FileLocation& directory,
-	                          const std::string& includedFilename );
+	std::string GetFilename ( const std::string& filename );
+	bool LocateIncludedFile ( const std::string& directory,
+	                          const std::string& includedFilename,
+	                          std::string& resolvedFilename );
 	bool LocateIncludedFile ( SourceFile* sourceFile,
 	                          const Module& module,
 	                          const std::string& includedFilename,
 	                          bool searchCurrentDirectory,
 	                          bool includeNext,
-	                          File& resolvedFile );
+	                          std::string& resolvedFilename );
 	SourceFile* RetrieveFromCacheOrParse ( const Module& module,
-	                                       const File& file,
+	                                       const std::string& filename,
 	                                       SourceFile* parentSourceFile );
-	SourceFile* RetrieveFromCache ( const File& file );
+	SourceFile* RetrieveFromCache ( const std::string& filename );
 	void CheckAutomaticDependencies ( bool verbose );
 	void CheckAutomaticDependenciesForModule ( Module& module,
 	                                           bool verbose );
 private:
 	void GetModulesToCheck ( Module& module, std::vector<const Module*>& modules );
 	void CheckAutomaticDependencies ( const Module& module,
-	                                  bool verbose );
+                                          bool verbose );
 	void CheckAutomaticDependenciesForFile ( SourceFile* sourceFile );
 	void GetIncludeDirectories ( std::vector<Include*>& includes,
-	                             const Module& module );
+	                             const Module& module,
+                                     Include& currentDirectory,
+                                     bool searchCurrentDirectory );
 	void GetModuleFiles ( const Module& module,
-	                          std::vector<File*>& files ) const;
+                              std::vector<File*>& files ) const;
 	void ParseFiles ();
 	void ParseFiles ( const Module& module );
 	void ParseFile ( const Module& module,
@@ -817,15 +771,22 @@ private:
 };
 
 
-class CDFile : public XmlNode
+class CDFile
 {
 public:
-	FileLocation *source;
-	FileLocation *target;
+	const Project& project;
+	const XMLElement& node;
+	std::string name;
+	std::string base;
+	std::string nameoncd;
+	std::string path;
 
 	CDFile ( const Project& project,
 	         const XMLElement& bootstrapNode,
 	         const std::string& path );
+	~CDFile ();
+	void ProcessXML();
+	std::string GetPath () const;
 private:
 	static std::string ReplaceVariable ( const std::string& name,
 	                                     const std::string& value,
@@ -833,15 +794,22 @@ private:
 };
 
 
-class InstallFile : public XmlNode
+class InstallFile
 {
 public:
-	FileLocation *source;
-	FileLocation *target;
+	const Project& project;
+	const XMLElement& node;
+	std::string name;
+	std::string base;
+	std::string newname;
+	std::string path;
 
 	InstallFile ( const Project& project,
 	              const XMLElement& bootstrapNode,
 	              const std::string& path );
+	~InstallFile ();
+	void ProcessXML ();
+	std::string GetPath () const;
 };
 
 
@@ -850,12 +818,12 @@ class PchFile
 public:
 	const XMLElement& node;
 	const Module& module;
-	FileLocation file;
+	File file;
 
 	PchFile (
 		const XMLElement& node,
 		const Module& module,
-		const FileLocation& file );
+		const File file );
 	void ProcessXML();
 };
 
@@ -910,10 +878,8 @@ public:
 	bool IsGeneratedFile () const;
 	bool HasFileWithExtension ( const std::string& extension ) const;
 	bool IsFirstFile () const;
-	const FileLocation* GetFilename () const;
+	FileLocation* GetFilename ( Directory* intermediateDirectory ) const;
 	std::string GetSwitches () const;
-private:
-	std::string local_name;
 };
 
 
@@ -935,6 +901,16 @@ private:
 };
 
 
+class FileLocation
+{
+public:
+	Directory* directory;
+	std::string filename;
+	FileLocation ( Directory* directory,
+	               std::string filename );
+};
+
+
 enum AutoRegisterType
 {
 	DllRegisterServer,
@@ -942,18 +918,22 @@ enum AutoRegisterType
 	Both
 };
 
-class AutoRegister : public XmlNode
+class AutoRegister
 {
 public:
+	const Project& project;
 	const Module* module;
+	const XMLElement& node;
 	std::string infSection;
 	AutoRegisterType type;
 	AutoRegister ( const Project& project_,
 	               const Module* module_,
 	               const XMLElement& node_ );
+	~AutoRegister ();
+	void ProcessXML();
 private:
 	bool IsSupportedModuleType ( ModuleType type );
-	AutoRegisterType GetAutoRegisterType( const std::string& type );
+	AutoRegisterType GetAutoRegisterType( std::string type );
 	void Initialize ();
 };
 
@@ -1003,13 +983,18 @@ ReplaceExtension (
 
 extern std::string
 GetSubPath (
-	const Project& project,
 	const std::string& location,
 	const std::string& path,
 	const std::string& att_value );
 
 extern std::string
-GetExtension ( const FileLocation& file );
+GetExtension ( const std::string& filename );
+
+extern std::string
+GetDirectory ( const std::string& filename );
+
+extern std::string
+GetFilename ( const std::string& filename );
 
 extern std::string
 NormalizeFilename ( const std::string& filename );

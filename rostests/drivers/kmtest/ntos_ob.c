@@ -23,7 +23,6 @@
 /* INCLUDES *******************************************************************/
 
 #include <ddk/ntddk.h>
-#include <ddk/ntifs.h>
 #include "kmtest.h"
 
 //#define NDEBUG
@@ -201,10 +200,10 @@ ObtCreateObjectTypes()
         ObTypeInitializer[i].ParseProcedure = (OB_PARSE_METHOD)ParseProc;
         //ObTypeInitializer[i].OkayToCloseProcedure =
         //    (OB_OKAYTOCLOSE_METHOD)OkayToCloseProc;
-
+        
         //ObTypeInitializer[i].QueryNameProcedure =
         //    (OB_QUERYNAME_METHOD)QueryNameProc;
-
+        
         //ObTypeInitializer[i].SecurityProcedure =
         // (OB_SECURITY_METHOD)SecurityProc;
 
@@ -284,7 +283,7 @@ ObtCreateObjects()
     QueryNameSave=QueryNameCount;
 
     Status = ObInsertObject(ObBody[1], NULL, GENERIC_ALL, 0,
-        &ObBody[1], &ObHandle1[1]);
+        &ObBody[1], &ObHandle1[1]); 
     ok(Status == STATUS_SUCCESS,
         "Failed to insert object 1 with status=0x%lX", Status);
     ok(ObBody[1] != NULL, "Object body = NULL");

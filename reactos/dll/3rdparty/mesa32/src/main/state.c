@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.1
+ * Version:  6.4
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,7 +45,6 @@
 #if FEATURE_ARB_vertex_buffer_object
 #include "bufferobj.h"
 #endif
-#include "arrayobj.h"
 #include "buffers.h"
 #include "clip.h"
 #include "colortab.h"
@@ -70,12 +69,12 @@
 #include "lines.h"
 #include "macros.h"
 #include "matrix.h"
+#if FEATURE_ARB_occlusion_query
+#include "occlude.h"
+#endif
 #include "pixel.h"
 #include "points.h"
 #include "polygon.h"
-#if FEATURE_ARB_occlusion_query || FEATURE_EXT_timer_query
-#include "queryobj.h"
-#endif
 #include "rastpos.h"
 #include "state.h"
 #include "stencil.h"
@@ -88,12 +87,13 @@
 #include "nvprogram.h"
 #endif
 #if FEATURE_NV_fragment_program
+#include "nvfragprog.h"
 #include "nvprogram.h"
 #include "program.h"
 #include "texenvprogram.h"
 #endif
 #if FEATURE_ARB_shader_objects
-#include "shaders.h"
+#include "shaderobjects.h"
 #endif
 #include "debug.h"
 #include "dispatch.h"
@@ -304,6 +304,7 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_GenTextures(exec, _mesa_GenTextures);
 #if _HAVE_FULL_GL
    SET_AreTexturesResident(exec, _mesa_AreTexturesResident);
+   SET_AreTexturesResidentEXT(exec, _mesa_AreTexturesResident);
    SET_ColorPointer(exec, _mesa_ColorPointer);
    SET_CopyTexImage1D(exec, _mesa_CopyTexImage1D);
    SET_CopyTexImage2D(exec, _mesa_CopyTexImage2D);
@@ -312,10 +313,12 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_DisableClientState(exec, _mesa_DisableClientState);
    SET_EdgeFlagPointer(exec, _mesa_EdgeFlagPointer);
    SET_EnableClientState(exec, _mesa_EnableClientState);
+   SET_GenTexturesEXT(exec, _mesa_GenTextures);
    SET_GetPointerv(exec, _mesa_GetPointerv);
    SET_IndexPointer(exec, _mesa_IndexPointer);
    SET_InterleavedArrays(exec, _mesa_InterleavedArrays);
    SET_IsTexture(exec, _mesa_IsTexture);
+   SET_IsTextureEXT(exec, _mesa_IsTexture);
    SET_NormalPointer(exec, _mesa_NormalPointer);
    SET_PopClientAttrib(exec, _mesa_PopClientAttrib);
    SET_PrioritizeTextures(exec, _mesa_PrioritizeTextures);
@@ -353,18 +356,31 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_CopyConvolutionFilter1D(exec, _mesa_CopyConvolutionFilter1D);
    SET_CopyConvolutionFilter2D(exec, _mesa_CopyConvolutionFilter2D);
    SET_GetColorTable(exec, _mesa_GetColorTable);
+   SET_GetColorTableEXT(exec, _mesa_GetColorTable);
    SET_GetColorTableParameterfv(exec, _mesa_GetColorTableParameterfv);
+   SET_GetColorTableParameterfvEXT(exec, _mesa_GetColorTableParameterfv);
    SET_GetColorTableParameteriv(exec, _mesa_GetColorTableParameteriv);
+   SET_GetColorTableParameterivEXT(exec, _mesa_GetColorTableParameteriv);
    SET_GetConvolutionFilter(exec, _mesa_GetConvolutionFilter);
+   SET_GetConvolutionFilterEXT(exec, _mesa_GetConvolutionFilter);
    SET_GetConvolutionParameterfv(exec, _mesa_GetConvolutionParameterfv);
+   SET_GetConvolutionParameterfvEXT(exec, _mesa_GetConvolutionParameterfv);
    SET_GetConvolutionParameteriv(exec, _mesa_GetConvolutionParameteriv);
+   SET_GetConvolutionParameterivEXT(exec, _mesa_GetConvolutionParameteriv);
    SET_GetHistogram(exec, _mesa_GetHistogram);
+   SET_GetHistogramEXT(exec, _mesa_GetHistogram);
    SET_GetHistogramParameterfv(exec, _mesa_GetHistogramParameterfv);
+   SET_GetHistogramParameterfvEXT(exec, _mesa_GetHistogramParameterfv);
    SET_GetHistogramParameteriv(exec, _mesa_GetHistogramParameteriv);
+   SET_GetHistogramParameterivEXT(exec, _mesa_GetHistogramParameteriv);
    SET_GetMinmax(exec, _mesa_GetMinmax);
+   SET_GetMinmaxEXT(exec, _mesa_GetMinmax);
    SET_GetMinmaxParameterfv(exec, _mesa_GetMinmaxParameterfv);
+   SET_GetMinmaxParameterfvEXT(exec, _mesa_GetMinmaxParameterfv);
    SET_GetMinmaxParameteriv(exec, _mesa_GetMinmaxParameteriv);
+   SET_GetMinmaxParameterivEXT(exec, _mesa_GetMinmaxParameteriv);
    SET_GetSeparableFilter(exec, _mesa_GetSeparableFilter);
+   SET_GetSeparableFilterEXT(exec, _mesa_GetSeparableFilter);
    SET_Histogram(exec, _mesa_Histogram);
    SET_Minmax(exec, _mesa_Minmax);
    SET_ResetHistogram(exec, _mesa_ResetHistogram);
@@ -376,32 +392,6 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_StencilFuncSeparate(exec, _mesa_StencilFuncSeparate);
    SET_StencilMaskSeparate(exec, _mesa_StencilMaskSeparate);
    SET_StencilOpSeparate(exec, _mesa_StencilOpSeparate);
-#if FEATURE_ARB_shader_objects
-   SET_AttachShader(exec, _mesa_AttachShader);
-   SET_CreateProgram(exec, _mesa_CreateProgram);
-   SET_CreateShader(exec, _mesa_CreateShader);
-   SET_DeleteProgram(exec, _mesa_DeleteProgram);
-   SET_DeleteShader(exec, _mesa_DeleteShader);
-   SET_DetachShader(exec, _mesa_DetachShader);
-   SET_GetAttachedShaders(exec, _mesa_GetAttachedShaders);
-   SET_GetProgramiv(exec, _mesa_GetProgramiv);
-   SET_GetProgramInfoLog(exec, _mesa_GetProgramInfoLog);
-   SET_GetShaderiv(exec, _mesa_GetShaderiv);
-   SET_GetShaderInfoLog(exec, _mesa_GetShaderInfoLog);
-   SET_IsProgram(exec, _mesa_IsProgram);
-   SET_IsShader(exec, _mesa_IsShader);
-#endif
-
-   /* OpenGL 2.1 */
-#if FEATURE_ARB_shader_objects
-   SET_UniformMatrix2x3fv(exec, _mesa_UniformMatrix2x3fv);
-   SET_UniformMatrix3x2fv(exec, _mesa_UniformMatrix3x2fv);
-   SET_UniformMatrix2x4fv(exec, _mesa_UniformMatrix2x4fv);
-   SET_UniformMatrix4x2fv(exec, _mesa_UniformMatrix4x2fv);
-   SET_UniformMatrix3x4fv(exec, _mesa_UniformMatrix3x4fv);
-   SET_UniformMatrix4x3fv(exec, _mesa_UniformMatrix4x3fv);
-#endif
-
 
    /* 2. GL_EXT_blend_color */
 #if 0
@@ -421,7 +411,7 @@ _mesa_init_exec_table(struct _glapi_table *exec)
 #endif
 
    /* 11. GL_EXT_histogram */
-#if 0
+#if _HAVE_FULL_GL
    SET_GetHistogramEXT(exec, _mesa_GetHistogram);
    SET_GetHistogramParameterfvEXT(exec, _mesa_GetHistogramParameterfv);
    SET_GetHistogramParameterivEXT(exec, _mesa_GetHistogramParameteriv);
@@ -430,13 +420,19 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_GetMinmaxParameterivEXT(exec, _mesa_GetMinmaxParameteriv);
 #endif
 
-   /* 14. SGI_color_table */
-#if 0
-   SET_ColorTableSGI(exec, _mesa_ColorTable);
-   SET_ColorSubTableSGI(exec, _mesa_ColorSubTable);
-   SET_GetColorTableSGI(exec, _mesa_GetColorTable);
-   SET_GetColorTableParameterfvSGI(exec, _mesa_GetColorTableParameterfv);
-   SET_GetColorTableParameterivSGI(exec, _mesa_GetColorTableParameteriv);
+   /* ?. GL_SGIX_pixel_texture */
+#if _HAVE_FULL_GL
+   SET_PixelTexGenSGIX(exec, _mesa_PixelTexGenSGIX);
+#endif
+
+   /* 15. GL_SGIS_pixel_texture */
+#if _HAVE_FULL_GL
+   SET_PixelTexGenParameteriSGIS(exec, _mesa_PixelTexGenParameteriSGIS);
+   SET_PixelTexGenParameterivSGIS(exec, _mesa_PixelTexGenParameterivSGIS);
+   SET_PixelTexGenParameterfSGIS(exec, _mesa_PixelTexGenParameterfSGIS);
+   SET_PixelTexGenParameterfvSGIS(exec, _mesa_PixelTexGenParameterfvSGIS);
+   SET_GetPixelTexGenParameterivSGIS(exec, _mesa_GetPixelTexGenParameterivSGIS);
+   SET_GetPixelTexGenParameterfvSGIS(exec, _mesa_GetPixelTexGenParameterfvSGIS);
 #endif
 
    /* 30. GL_EXT_vertex_array */
@@ -458,6 +454,17 @@ _mesa_init_exec_table(struct _glapi_table *exec)
 #if _HAVE_FULL_GL
    SET_PointParameterfEXT(exec, _mesa_PointParameterfEXT);
    SET_PointParameterfvEXT(exec, _mesa_PointParameterfvEXT);
+#endif
+
+   /* 78. GL_EXT_paletted_texture */
+#if 0
+   SET_ColorTableEXT(exec, _mesa_ColorTableEXT);
+   SET_ColorSubTableEXT(exec, _mesa_ColorSubTableEXT);
+#endif
+#if _HAVE_FULL_GL
+   SET_GetColorTableEXT(exec, _mesa_GetColorTable);
+   SET_GetColorTableParameterfvEXT(exec, _mesa_GetColorTableParameterfv);
+   SET_GetColorTableParameterivEXT(exec, _mesa_GetColorTableParameteriv);
 #endif
 
    /* 97. GL_EXT_compiled_vertex_array */
@@ -533,7 +540,7 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_GetVertexAttribfvNV(exec, _mesa_GetVertexAttribfvNV);
    SET_GetVertexAttribivNV(exec, _mesa_GetVertexAttribivNV);
    SET_GetVertexAttribPointervNV(exec, _mesa_GetVertexAttribPointervNV);
-   SET_IsProgramNV(exec, _mesa_IsProgramARB);
+   SET_IsProgramNV(exec, _mesa_IsProgram);
    SET_LoadProgramNV(exec, _mesa_LoadProgramNV);
    SET_ProgramParameter4dNV(exec, _mesa_ProgramParameter4dNV);
    SET_ProgramParameter4dvNV(exec, _mesa_ProgramParameter4dvNV);
@@ -545,12 +552,6 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_VertexAttribPointerNV(exec, _mesa_VertexAttribPointerNV);
    /* glVertexAttrib*NV functions handled in api_loopback.c */
 #endif
-
-   /* 273. GL_APPLE_vertex_array_object */
-   SET_BindVertexArrayAPPLE(exec, _mesa_BindVertexArrayAPPLE);
-   SET_DeleteVertexArraysAPPLE(exec, _mesa_DeleteVertexArraysAPPLE);
-   SET_GenVertexArraysAPPLE(exec, _mesa_GenVertexArraysAPPLE);
-   SET_IsVertexArrayAPPLE(exec, _mesa_IsVertexArrayAPPLE);
 
    /* 282. GL_NV_fragment_program */
 #if FEATURE_NV_fragment_program
@@ -797,24 +798,6 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_GetFramebufferAttachmentParameterivEXT(exec, _mesa_GetFramebufferAttachmentParameterivEXT);
    SET_GenerateMipmapEXT(exec, _mesa_GenerateMipmapEXT);
 #endif
-
-#if FEATURE_EXT_timer_query
-   SET_GetQueryObjecti64vEXT(exec, _mesa_GetQueryObjecti64vEXT);
-   SET_GetQueryObjectui64vEXT(exec, _mesa_GetQueryObjectui64vEXT);
-#endif
-
-#if FEATURE_EXT_framebuffer_blit
-   SET_BlitFramebufferEXT(exec, _mesa_BlitFramebufferEXT);
-#endif
-
-   /* GL_EXT_gpu_program_parameters */
-#if FEATURE_ARB_vertex_program || FEATURE_ARB_fragment_program
-   SET_ProgramEnvParameters4fvEXT(exec, _mesa_ProgramEnvParameters4fvEXT);
-   SET_ProgramLocalParameters4fvEXT(exec, _mesa_ProgramLocalParameters4fvEXT);
-#endif
-
-   /* GL_ATI_separate_stencil */
-   SET_StencilFuncSeparateATI(exec, _mesa_StencilFuncSeparateATI);
 }
 
 
@@ -845,12 +828,12 @@ update_arrays( GLcontext *ctx )
    /* find min of _MaxElement values for all enabled arrays */
 
    /* 0 */
-   if (ctx->VertexProgram._Current
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_POS].Enabled) {
-      min = ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_POS]._MaxElement;
+   if (ctx->VertexProgram._Enabled
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_POS].Enabled) {
+      min = ctx->Array.VertexAttrib[VERT_ATTRIB_POS]._MaxElement;
    }
-   else if (ctx->Array.ArrayObj->Vertex.Enabled) {
-      min = ctx->Array.ArrayObj->Vertex._MaxElement;
+   else if (ctx->Array.Vertex.Enabled) {
+      min = ctx->Array.Vertex._MaxElement;
    }
    else {
       /* can't draw anything without vertex positions! */
@@ -859,86 +842,77 @@ update_arrays( GLcontext *ctx )
 
    /* 1 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_WEIGHT].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_WEIGHT]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_WEIGHT].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_WEIGHT]._MaxElement);
    }
    /* no conventional vertex weight array */
 
    /* 2 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_NORMAL].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_NORMAL]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_NORMAL].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_NORMAL]._MaxElement);
    }
-   else if (ctx->Array.ArrayObj->Normal.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->Normal._MaxElement);
+   else if (ctx->Array.Normal.Enabled) {
+      min = MIN2(min, ctx->Array.Normal._MaxElement);
    }
 
    /* 3 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR0].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR0]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_COLOR0].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_COLOR0]._MaxElement);
    }
-   else if (ctx->Array.ArrayObj->Color.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->Color._MaxElement);
+   else if (ctx->Array.Color.Enabled) {
+      min = MIN2(min, ctx->Array.Color._MaxElement);
    }
 
    /* 4 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR1].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR1]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_COLOR1].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_COLOR1]._MaxElement);
    }
-   else if (ctx->Array.ArrayObj->SecondaryColor.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->SecondaryColor._MaxElement);
+   else if (ctx->Array.SecondaryColor.Enabled) {
+      min = MIN2(min, ctx->Array.SecondaryColor._MaxElement);
    }
 
    /* 5 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_FOG].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_FOG]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_FOG].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_FOG]._MaxElement);
    }
-   else if (ctx->Array.ArrayObj->FogCoord.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->FogCoord._MaxElement);
+   else if (ctx->Array.FogCoord.Enabled) {
+      min = MIN2(min, ctx->Array.FogCoord._MaxElement);
    }
 
    /* 6 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR_INDEX].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_COLOR_INDEX]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_SIX].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_SIX]._MaxElement);
    }
-   else if (ctx->Array.ArrayObj->Index.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->Index._MaxElement);
-   }
-
 
    /* 7 */
    if (ctx->VertexProgram._Enabled
-       && ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_EDGEFLAG].Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[VERT_ATTRIB_EDGEFLAG]._MaxElement);
+       && ctx->Array.VertexAttrib[VERT_ATTRIB_SEVEN].Enabled) {
+      min = MIN2(min, ctx->Array.VertexAttrib[VERT_ATTRIB_SEVEN]._MaxElement);
    }
 
    /* 8..15 */
-   for (i = VERT_ATTRIB_TEX0; i <= VERT_ATTRIB_TEX7; i++) {
+   for (i = VERT_ATTRIB_TEX0; i < VERT_ATTRIB_MAX; i++) {
       if (ctx->VertexProgram._Enabled
-          && ctx->Array.ArrayObj->VertexAttrib[i].Enabled) {
-         min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[i]._MaxElement);
+          && ctx->Array.VertexAttrib[i].Enabled) {
+         min = MIN2(min, ctx->Array.VertexAttrib[i]._MaxElement);
       }
       else if (i - VERT_ATTRIB_TEX0 < ctx->Const.MaxTextureCoordUnits
-               && ctx->Array.ArrayObj->TexCoord[i - VERT_ATTRIB_TEX0].Enabled) {
-         min = MIN2(min, ctx->Array.ArrayObj->TexCoord[i - VERT_ATTRIB_TEX0]._MaxElement);
+               && ctx->Array.TexCoord[i - VERT_ATTRIB_TEX0].Enabled) {
+         min = MIN2(min, ctx->Array.TexCoord[i - VERT_ATTRIB_TEX0]._MaxElement);
       }
    }
 
-   /* 16..31 */
-   if (ctx->VertexProgram._Current) {
-      for (i = VERT_ATTRIB_GENERIC0; i < VERT_ATTRIB_MAX; i++) {
-         if (ctx->Array.ArrayObj->VertexAttrib[i].Enabled) {
-            min = MIN2(min, ctx->Array.ArrayObj->VertexAttrib[i]._MaxElement);
-         }
-      }
+   if (ctx->Array.Index.Enabled) {
+      min = MIN2(min, ctx->Array.Index._MaxElement);
    }
 
-   if (ctx->Array.ArrayObj->EdgeFlag.Enabled) {
-      min = MIN2(min, ctx->Array.ArrayObj->EdgeFlag._MaxElement);
+   if (ctx->Array.EdgeFlag.Enabled) {
+      min = MIN2(min, ctx->Array.EdgeFlag._MaxElement);
    }
 
    /* _MaxElement is one past the last legal array element */
@@ -952,224 +926,48 @@ update_arrays( GLcontext *ctx )
 static void
 update_program(GLcontext *ctx)
 {
-   const struct gl_shader_program *shProg = ctx->Shader.CurrentProgram;
-
-   /* These _Enabled flags indicate if the program is enabled AND valid. */
+   /* For now, just set the _Enabled (really enabled) flags.
+    * In the future we may have to check other state to be sure we really
+    * have a runable program or shader.
+    */
    ctx->VertexProgram._Enabled = ctx->VertexProgram.Enabled
-      && ctx->VertexProgram.Current->Base.Instructions;
+      && ctx->VertexProgram.Current->Instructions;
    ctx->FragmentProgram._Enabled = ctx->FragmentProgram.Enabled
-      && ctx->FragmentProgram.Current->Base.Instructions;
+      && ctx->FragmentProgram.Current->Instructions;
    ctx->ATIFragmentShader._Enabled = ctx->ATIFragmentShader.Enabled
       && ctx->ATIFragmentShader.Current->Instructions;
-
-   /*
-    * Set the ctx->VertexProgram._Current and ctx->FragmentProgram._Current
-    * pointers to the programs that should be enabled/used.
-    *
-    * These programs may come from several sources.  The priority is as
-    * follows:
-    *   1. OpenGL 2.0/ARB vertex/fragment shaders
-    *   2. ARB/NV vertex/fragment programs
-    *   3. Programs derived from fixed-function state.
-    */
-
-   ctx->FragmentProgram._Current = NULL;
-
-   if (shProg && shProg->LinkStatus) {
-      /* Use shader programs */
-      /* XXX this isn't quite right, since we may have either a vertex
-       * _or_ fragment shader (not always both).
-       */
-      ctx->VertexProgram._Current = shProg->VertexProgram;
-      ctx->FragmentProgram._Current = shProg->FragmentProgram;
-   }
-   else {
-      if (ctx->VertexProgram._Enabled) {
-         /* use user-defined vertex program */
-         ctx->VertexProgram._Current = ctx->VertexProgram.Current;
-      }
-      else if (ctx->VertexProgram._MaintainTnlProgram) {
-         /* Use vertex program generated from fixed-function state.
-          * The _Current pointer will get set in
-          * _tnl_UpdateFixedFunctionProgram() later if appropriate.
-          */
-         ctx->VertexProgram._Current = NULL;
-      }
-      else {
-         /* no vertex program */
-         ctx->VertexProgram._Current = NULL;
-      }
-
-      if (ctx->FragmentProgram._Enabled) {
-         /* use user-defined vertex program */
-         ctx->FragmentProgram._Current = ctx->FragmentProgram.Current;
-      }
-      else if (ctx->FragmentProgram._MaintainTexEnvProgram) {
-         /* Use fragment program generated from fixed-function state.
-          * The _Current pointer will get set in _mesa_UpdateTexEnvProgram()
-          * later if appropriate.
-          */
-         ctx->FragmentProgram._Current = NULL;
-      }
-      else {
-         /* no fragment program */
-         ctx->FragmentProgram._Current = NULL;
-      }
-   }
-
+      
+   ctx->FragmentProgram._Current = ctx->FragmentProgram.Current;
    ctx->FragmentProgram._Active = ctx->FragmentProgram._Enabled;
-   if (ctx->FragmentProgram._MaintainTexEnvProgram &&
-       !ctx->FragmentProgram._Enabled) {
-      if (ctx->FragmentProgram._UseTexEnvProgram)
-	 ctx->FragmentProgram._Active = GL_TRUE;
-   }
-}
 
+   if (ctx->_MaintainTexEnvProgram && !ctx->FragmentProgram._Enabled) {
+      if (!ctx->_TexEnvProgram)
+	 ctx->_TexEnvProgram = (struct fragment_program *)
+	    ctx->Driver.NewProgram(ctx, GL_FRAGMENT_PROGRAM_ARB, 0);
 
-static void
-update_viewport_matrix(GLcontext *ctx)
-{
-   const GLfloat depthMax = ctx->DrawBuffer->_DepthMaxF;
-
-   ASSERT(depthMax > 0);
-
-   /* Compute scale and bias values. This is really driver-specific
-    * and should be maintained elsewhere if at all.
-    * NOTE: RasterPos uses this.
-    */
-   _math_matrix_viewport(&ctx->Viewport._WindowMap,
-                         ctx->Viewport.X, ctx->Viewport.Y,
-                         ctx->Viewport.Width, ctx->Viewport.Height,
-                         ctx->Viewport.Near, ctx->Viewport.Far,
-                         depthMax);
-}
-
-
-/**
- * Update derived color/blend/logicop state.
- */
-static void
-update_color(GLcontext *ctx)
-{
-   /* This is needed to support 1.1's RGB logic ops AND
-    * 1.0's blending logicops.
-    */
-   ctx->Color._LogicOpEnabled = RGBA_LOGICOP_ENABLED(ctx);
-}
-
-
-/*
- * Check polygon state and set DD_TRI_CULL_FRONT_BACK and/or DD_TRI_OFFSET
- * in ctx->_TriangleCaps if needed.
- */
-static void
-update_polygon( GLcontext *ctx )
-{
-   ctx->_TriangleCaps &= ~(DD_TRI_CULL_FRONT_BACK | DD_TRI_OFFSET);
-
-   if (ctx->Polygon.CullFlag && ctx->Polygon.CullFaceMode == GL_FRONT_AND_BACK)
-      ctx->_TriangleCaps |= DD_TRI_CULL_FRONT_BACK;
-
-   /* Any Polygon offsets enabled? */
-   if (ctx->Polygon.OffsetPoint ||
-       ctx->Polygon.OffsetLine ||
-       ctx->Polygon.OffsetFill) {
-      ctx->_TriangleCaps |= DD_TRI_OFFSET;
+      ctx->FragmentProgram._Current = ctx->_TexEnvProgram;
+      ctx->FragmentProgram._Active = GL_TRUE;
    }
 }
 
 
 /**
- * Update the ctx->_TriangleCaps bitfield.
- * XXX that bitfield should really go away someday!
- * This function must be called after other update_*() functions since
- * there are dependencies on some other derived values.
- */
-#if 0
-static void
-update_tricaps(GLcontext *ctx, GLbitfield new_state)
-{
-   ctx->_TriangleCaps = 0;
-
-   /*
-    * Points
-    */
-   if (1/*new_state & _NEW_POINT*/) {
-      if (ctx->Point.SmoothFlag)
-         ctx->_TriangleCaps |= DD_POINT_SMOOTH;
-      if (ctx->Point._Size != 1.0F)
-         ctx->_TriangleCaps |= DD_POINT_SIZE;
-      if (ctx->Point._Attenuated)
-         ctx->_TriangleCaps |= DD_POINT_ATTEN;
-   }
-
-   /*
-    * Lines
-    */
-   if (1/*new_state & _NEW_LINE*/) {
-      if (ctx->Line.SmoothFlag)
-         ctx->_TriangleCaps |= DD_LINE_SMOOTH;
-      if (ctx->Line.StippleFlag)
-         ctx->_TriangleCaps |= DD_LINE_STIPPLE;
-      if (ctx->Line._Width != 1.0)
-         ctx->_TriangleCaps |= DD_LINE_WIDTH;
-   }
-
-   /*
-    * Polygons
-    */
-   if (1/*new_state & _NEW_POLYGON*/) {
-      if (ctx->Polygon.SmoothFlag)
-         ctx->_TriangleCaps |= DD_TRI_SMOOTH;
-      if (ctx->Polygon.StippleFlag)
-         ctx->_TriangleCaps |= DD_TRI_STIPPLE;
-      if (ctx->Polygon.FrontMode != GL_FILL
-          || ctx->Polygon.BackMode != GL_FILL)
-         ctx->_TriangleCaps |= DD_TRI_UNFILLED;
-      if (ctx->Polygon.CullFlag
-          && ctx->Polygon.CullFaceMode == GL_FRONT_AND_BACK)
-         ctx->_TriangleCaps |= DD_TRI_CULL_FRONT_BACK;
-      if (ctx->Polygon.OffsetPoint ||
-          ctx->Polygon.OffsetLine ||
-          ctx->Polygon.OffsetFill)
-         ctx->_TriangleCaps |= DD_TRI_OFFSET;
-   }
-
-   /*
-    * Lighting and shading
-    */
-   if (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
-      ctx->_TriangleCaps |= DD_TRI_LIGHT_TWOSIDE;
-   if (ctx->Light.ShadeModel == GL_FLAT)
-      ctx->_TriangleCaps |= DD_FLATSHADE;
-   if (NEED_SECONDARY_COLOR(ctx))
-      ctx->_TriangleCaps |= DD_SEPARATE_SPECULAR;
-
-   /*
-    * Stencil
-    */
-   if (ctx->Stencil._TestTwoSide)
-      ctx->_TriangleCaps |= DD_TRI_TWOSTENCIL;
-}
-#endif
-
-
-/**
- * Compute derived GL state.
- * If __GLcontextRec::NewState is non-zero then this function \b must
- * be called before rendering anything.
+ * If __GLcontextRec::NewState is non-zero then this function \b must be called
+ * before rendering any primitive.  Basically, function pointers and
+ * miscellaneous flags are updated to reflect the current state of the state
+ * machine.
  *
  * Calls dd_function_table::UpdateState to perform any internal state
  * management necessary.
  * 
  * \sa _mesa_update_modelview_project(), _mesa_update_texture(),
- * _mesa_update_buffer_bounds(),
+ * _mesa_update_buffer_bounds(), _mesa_update_polygon(),
  * _mesa_update_lighting() and _mesa_update_tnl_spaces().
  */
 void
-_mesa_update_state_locked( GLcontext *ctx )
+_mesa_update_state( GLcontext *ctx )
 {
-   GLbitfield new_state = ctx->NewState;
+   GLuint new_state = ctx->NewState;
 
    if (MESA_VERBOSE & VERBOSE_STATE)
       _mesa_print_state("_mesa_update_state", new_state);
@@ -1189,14 +987,14 @@ _mesa_update_state_locked( GLcontext *ctx )
    if (new_state & (_NEW_SCISSOR | _NEW_BUFFERS | _NEW_VIEWPORT))
       _mesa_update_draw_buffer_bounds( ctx );
 
+   if (new_state & _NEW_POINT)
+      _mesa_update_point( ctx );
+
    if (new_state & _NEW_POLYGON)
-      update_polygon( ctx );
+      _mesa_update_polygon( ctx );
 
    if (new_state & _NEW_LIGHT)
       _mesa_update_lighting( ctx );
-
-   if (new_state & _NEW_STENCIL)
-      _mesa_update_stencil( ctx );
 
    if (new_state & _IMAGE_NEW_TRANSFER_STATE)
       _mesa_update_pixel( ctx, new_state );
@@ -1207,19 +1005,7 @@ _mesa_update_state_locked( GLcontext *ctx )
    if (new_state & (_NEW_ARRAY | _NEW_PROGRAM))
       update_arrays( ctx );
 
-   if (new_state & (_NEW_BUFFERS | _NEW_VIEWPORT))
-      update_viewport_matrix(ctx);
-
-   if (new_state & _NEW_COLOR)
-      update_color( ctx );
-
-#if 0
-   if (new_state & (_NEW_POINT | _NEW_LINE | _NEW_POLYGON | _NEW_LIGHT
-                    | _NEW_STENCIL | _DD_NEW_SEPARATE_SPECULAR))
-      update_tricaps( ctx, new_state );
-#endif
-
-   if (ctx->FragmentProgram._MaintainTexEnvProgram) {
+   if (ctx->_MaintainTexEnvProgram) {
       if (new_state & (_NEW_TEXTURE | _DD_NEW_SEPARATE_SPECULAR | _NEW_FOG))
 	 _mesa_UpdateTexEnvProgram(ctx);
    }
@@ -1251,19 +1037,4 @@ _mesa_update_state_locked( GLcontext *ctx )
    ctx->Array.NewState = 0;
 }
 
-
-/* This is the usual entrypoint for state updates:
- */
-void
-_mesa_update_state( GLcontext *ctx )
-{
-   _mesa_lock_context_textures(ctx);
-   _mesa_update_state_locked(ctx);
-   _mesa_unlock_context_textures(ctx);
-}
-
-
-
 /*@}*/
-
-

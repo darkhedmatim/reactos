@@ -154,17 +154,17 @@ FONT 8, "MS Shell Dlg"
  LTEXT "&Egendefinerade färger:",  1089, 4,   106, 140, 10
  LTEXT "Enfärgat",  1090, 150, 151,  48, 10
  LTEXT   "&Röd:", 726 /*1094*/,249,126,24,10
- EDITTEXT 706, 275,124,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 706, 275,124,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT   "&Grön:",727/*1095*/,249,140,24,10
- EDITTEXT 707, 275,138,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 707, 275,138,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT   "&Blå:",728 /*1096*/,249,154,24,10
- EDITTEXT 708, 275,152,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 708, 275,152,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "&Int:" ,723 /*1091*/,202,126,22,10
- EDITTEXT 703, 226,124,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 703, 226,124,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "&Met:" ,724 /*1092*/,202,140,22,10
- EDITTEXT 704, 226,138,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 704, 226,138,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "&Lum:" ,725 /*1093*/,202,154,22,10
- EDITTEXT 705, 226,152,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 705, 226,152,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  CONTROL "" ,720,"STATIC",SS_SIMPLE|WS_TABSTOP|WS_GROUP,4,14,140,86
  CONTROL "" ,721,"STATIC",SS_SIMPLE|WS_TABSTOP|WS_GROUP,4,116,140,28
  CONTROL "" ,710,"STATIC",WS_BORDER|SS_SIMPLE|WS_TABSTOP|WS_GROUP, 152,4,118,116
@@ -387,28 +387,28 @@ Var god skriv in ett värde mellan %d och %d."
  PD32_FROM_NOT_ABOVE_TO                "'från'-fältet kan inte överskrida 'till'-fältet"
  PD32_MARGINS_OVERLAP                  "Marginalerna överlappar eller är utanför \
 pappersgränserna.\nVar god skriv in marginallerna igen."
- PD32_NR_OF_COPIES_EMPTY               "Fältet 'Antal kopior' kan inte vara tomt."
- PD32_TOO_LARGE_COPIES                 "Din skrivare saknar stöd för så många kopior som du angav. Vad god skriv in ett värde mellan 1 och %d."
+ PD32_NR_OF_COPIES_EMPTY               "Numret 'Antal kopior' kan inte vara tomt."
+ PD32_TOO_LARGE_COPIES                 "Din skrivare stödjer inte så många kopior som du angav. Vad god skriv in ett värde mellan 1 och %d."
  PD32_PRINT_ERROR                      "Ett skrivarfel inträffade."
  PD32_NO_DEFAULT_PRINTER               "Det finns ingen standardskrivare."
  PD32_CANT_FIND_PRINTER                "Kan inte hitta skrivare."
  PD32_OUT_OF_MEMORY                    "Slut på minne."
- PD32_GENERIC_ERROR                    "Ett fel uppstod."
+ PD32_GENERIC_ERROR                    "Ett fel uppstog."
  PD32_DRIVER_UNKNOWN                   "Okänd skrivardrivrutin."
  PD32_NO_DEVICES                       "Before you can perform printer-related tasks \
 such as page setup or printing a document, you need to install a printer. \
 Please install one and retry."
 
  PD32_DEFAULT_PRINTER                  "Standardskrivare; "
- PD32_NR_OF_DOCUMENTS_IN_QUEUE         "Det finns %d dokument i kön"
- PD32_MARGINS_IN_INCHES                "Marginaler [tum]"
+ PD32_NR_OF_DOCUMENTS_IN_QUEUE         "Det är %d dokument i kön"
+ PD32_MARGINS_IN_INCHES                "Marginaler [inches]"
  PD32_MARGINS_IN_MILIMETERS            "Marginaler [millimeter]"
  PD32_MILIMETERS                       "millimeter"
 
  PD32_PRINTER_STATUS_READY             "Redo"
  PD32_PRINTER_STATUS_PAUSED            "Stannad; "
  PD32_PRINTER_STATUS_ERROR             "Fel; "
- PD32_PRINTER_STATUS_PENDING_DELETION  "Väntande borttagning; "
+ PD32_PRINTER_STATUS_PENDING_DELETION  "Pendlande borttagning; "
  PD32_PRINTER_STATUS_PAPER_JAM         "Papperskrångel; "
  PD32_PRINTER_STATUS_PAPER_OUT         "Slut på papper; "
  PD32_PRINTER_STATUS_MANUAL_FEED       "Fyll på papper manuellet; "
@@ -420,8 +420,8 @@ Please install one and retry."
  PD32_PRINTER_STATUS_OUTPUT_BIN_FULL   "Utmatningsfacket är fullt; "
  PD32_PRINTER_STATUS_NOT_AVAILABLE     "Inte tillgänglig; "
  PD32_PRINTER_STATUS_WAITING           "Väntar; "
- PD32_PRINTER_STATUS_PROCESSING        "Behandlar; "
- PD32_PRINTER_STATUS_INITIALIZING      "Initierar; "
+ PD32_PRINTER_STATUS_PROCESSING        "Proceserar; "
+ PD32_PRINTER_STATUS_INITIALIZING      "Initialiserar; "
  PD32_PRINTER_STATUS_WARMING_UP        "Värmer upp; "
  PD32_PRINTER_STATUS_TONER_LOW         "Toner snart slut; "
  PD32_PRINTER_STATUS_NO_TONER          "Inga toner; "

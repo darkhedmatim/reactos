@@ -11,7 +11,6 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <cstdio>
 
 namespace Sysreg_
 {
@@ -29,48 +28,51 @@ namespace Sysreg_
 	}
 
 //---------------------------------------------------------------------------------------
-	bool ConfigParser::parseFile(char * FileName)
+	bool ConfigParser::parseFile(TCHAR * FileName)
 	{
-		FILE * file = fopen(FileName, "rt");
+		FILE * file;
+#ifdef UNICODE
+		file = _tfopen(FileName, _T("rt,ccs=UNICODE"));
+#else
+		file = _tfopen(FileName, _T("rt"));
+#endif
 		if (!file)
 		{
 			cerr << "Error: ConfigParser::parseFile failed to open configuration file " << FileName << endl;
 			return false;
 		}
+
 		bool ret = false;
 		while (!feof(file))
 		{
-			char buffer[500];
-			char * buf;
+			TCHAR buffer[500];
+			TCHAR * buf;
 
-			buf = fgets(buffer, sizeof(buffer) / sizeof(char), file);
+			buf = _fgetts(buffer, sizeof(buffer) / sizeof(TCHAR), file);
 			if (buf)
 			{
-				if (buffer[0] != ';')
+				if (buffer[0] != _T(';'))
 				{
 					string s_buffer = string(buffer);
-					string::size_type ws_pos = s_buffer.find_first_of ("=");
+					string::size_type ws_pos = s_buffer.find_first_of (_T("="));
 
 					if (ws_pos != string::npos && ws_pos > 0 && ws_pos < s_buffer.size())
 					{
 						string name = s_buffer.substr (0, ws_pos);
-						string value = s_buffer.substr (ws_pos + 1, s_buffer.size() - ws_pos - 2);
-/*
+						string value = s_buffer.substr (ws_pos + 1);
 						if (value[value.length () -1] == 0xA)
 						{
 							// remove newline char
-							value[value.length ()-1] = '\0';
+							value[value.length ()-1] = _T('\0');
 						}
-*/
-//                        cerr << "name: "<< name << "value: "<< value << "|" << endl;
 						m_Map[name] = value;
 						ret = true;
 					}
 				}
 			}
 		}
-		fclose(file);
 		return ret;
+
 	}
 
 //---------------------------------------------------------------------------------------
@@ -79,38 +81,13 @@ namespace Sysreg_
 		ConfigMap::iterator it = m_Map.find (ConfVariable);
 		if (it == m_Map.end ())
 		{
-			//cerr << "ConfigParser::getValue failed to find " << ConfVariable << endl;
+			cerr << "ConfigParser::getValue failed to find " << ConfVariable << endl;
 			return false;
 		}
-
+		
 		ConfValue = it->second;
 		return true;
 	}
-//----------------------------------------------------------------------------------------
-    bool ConfigParser::getDoubleValue(string ConfVariable, double & ConfValue)
-    {
-		ConfigMap::iterator it = m_Map.find (ConfVariable);
-		if (it == m_Map.end ())
-		{
-			cerr << "ConfigParser::getValue failed to find " << ConfVariable << endl;
-			return false;
-		}
 
-        ConfValue = strtod(it->second.c_str(), NULL);
-        return true;
-    }
-//-----------------------------------------------------------------------------------------
-    bool ConfigParser::getIntValue(string ConfVariable, long int & ConfValue)
-    {
-		ConfigMap::iterator it = m_Map.find (ConfVariable);
-		if (it == m_Map.end ())
-		{
-			cerr << "ConfigParser::getValue failed to find " << ConfVariable << endl;
-			return false;
-		}
-
-        ConfValue = strtol(it->second.c_str(), NULL, 10);
-        return true;
-    }
 
 } // end of namespace Sysreg_

@@ -1,11 +1,11 @@
 /* It.rc by Roberto 'Speekix' Pellegrino */
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 /* String Tables */
 
 /* Default settings */
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_APPTITLE            "ReactOS - Benvenuto"
     IDS_DEFAULTTOPICTITLE   "ReactOS"

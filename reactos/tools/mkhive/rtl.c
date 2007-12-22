@@ -5,9 +5,12 @@
  */
 
 #include <stdlib.h>
-#include <stdarg.h>
 
-#include "mkhive.h"
+#define RTL_H
+
+#define NTOS_MODE_USER
+#define WIN32_NO_STATUS
+#include <ntddk.h>
 #include <bitmap.c>
 
 SIZE_T xwcslen( PCWSTR String ) {
@@ -26,23 +29,6 @@ PWSTR xwcschr( PWSTR String, WCHAR Char )
 
 	if( String[i] ) return &String[i];
 	else return NULL;
-}
-
-int xwcsncmp(PCWSTR s1, PCWSTR s2, size_t n)
-{
-    while(n--)
-    {
-        if(*s1 != *s2)
-            return 1;
-
-        if(*s1 == 0)
-            return 0;
-
-        s1++;
-        s2++;
-    }
-
-    return 0;
 }
 
 /*
@@ -157,6 +143,7 @@ VOID NTAPI
 KeQuerySystemTime(
 	OUT PLARGE_INTEGER CurrentTime)
 {
+	DPRINT1("KeQuerySystemTime() unimplemented\n");
 	CurrentTime->QuadPart = 0;
 }
 
@@ -175,42 +162,3 @@ ExFreePool(
 	free(p);
 }
 
-ULONG
-__cdecl
-DbgPrint(
-  IN CHAR *Format,
-  IN ...)
-{
-    va_list ap;
-    va_start(ap, Format);
-    vprintf(Format, ap);
-    va_end(ap);
-
-    return 0;
-}
-
-VOID
-NTAPI
-RtlAssert(PVOID FailedAssertion,
-          PVOID FileName,
-          ULONG LineNumber,
-          PCHAR Message)
-{
-   if (NULL != Message)
-   {
-      DbgPrint("Assertion \'%s\' failed at %s line %d: %s\n",
-               (PCHAR)FailedAssertion,
-               (PCHAR)FileName,
-               LineNumber,
-               Message);
-   }
-   else
-   {
-      DbgPrint("Assertion \'%s\' failed at %s line %d\n",
-               (PCHAR)FailedAssertion,
-               (PCHAR)FileName,
-               LineNumber);
-   }
-
-   //DbgBreakPoint();
-}

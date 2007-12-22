@@ -30,7 +30,6 @@ if (get_magic_quotes_gpc()) {
 	$ros_paste_SET_path = "http://localhost/reactos.org/paste/";
 	$ros_paste_SET_path_ex = "http://localhost/reactos.org/paste/index.php/";
 	$ros_paste_SET_dirs = "reactos.org/paste/";
-	$ros_paste_SET_content = "content";
 
 
 
@@ -83,12 +82,10 @@ if (get_magic_quotes_gpc()) {
 		}
 	}
 	
-	include("inc/tools.php");
-
 	switch ($ros_paste_SET_page) {
 		default:
 		case "paste": // Paste Your Content
-			if (@$ros_paste_SET_pasteflag == "text" || @$ros_paste_SET_pasteflag == "textw") {
+			if (@$ros_paste_SET_pasteflag == "text") {
 				include("inc/account.php");
 				$query_pasteid=mysql_query("SELECT * 
 											FROM `paste_service` 
@@ -97,12 +94,8 @@ if (get_magic_quotes_gpc()) {
 				$result_pasteid = mysql_fetch_array($query_pasteid);
 				
 				header('Content-type: text/plain');
-				//echo "<!-- ReactOS Paste Service - http://www.reactos.org/paste/".$result_pasteid['paste_id']." --> \n\n";
-				$filename = $ros_paste_SET_content."/".$result_pasteid['paste_id'].".txt";
-				$handle = @fopen($filename, "r");
-				$contents = @fread($handle, @filesize($filename));
-				@fclose($handle);
-				$ros_paste_SET_textcontent = $contents;
+				//echo "ReactOS Paste Service - http://www.reactos.org/paste/".$result_pasteid['paste_id']."/ \n\n";
+				$ros_paste_SET_textcontent = $result_pasteid['paste_content'];
 				//$ros_paste_SET_textcontent = str_replace("&nbsp;"," ",$ros_paste_SET_textcontent);
 				if ($result_pasteid['paste_tabs'] != "0") {
 					$PASTE_var_tabs = "";
@@ -111,11 +104,7 @@ if (get_magic_quotes_gpc()) {
 					}
 					$ros_paste_SET_textcontent = str_replace("\t",$PASTE_var_tabs,$ros_paste_SET_textcontent);
 				}
-				if (@$ros_paste_SET_pasteflag == "textw") {
-					echo wordwrap($ros_paste_SET_textcontent, 80, "\n", true);
-				} else {
-					echo $ros_paste_SET_textcontent;
-				}
+				echo $ros_paste_SET_textcontent;
 			}
 			else {
 				include("inc/header.php");
@@ -127,20 +116,18 @@ if (get_magic_quotes_gpc()) {
 			break;
 		case "conditions": // Conditions
 			include("inc/header.php");
-			create_header();
 			include("inc/conditions.php");
 			include("inc/footer.php");
 			break;
 		case "help": // Help & FAQ
 			include("inc/header.php");
-			create_header();
 			include("inc/help.php");
 			include("inc/footer.php");
 			break;
 		case "recent": // Recent Pastes
 			include("inc/header.php");
-			create_header();
 			include("inc/account.php");
+			include("inc/tools.php");
 			include("inc/recent.php");
 			include("inc/footer.php");
 			break;

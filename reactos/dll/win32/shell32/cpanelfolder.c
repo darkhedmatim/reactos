@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or(at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -109,7 +109,7 @@ static inline ICPanelImpl *impl_from_IShellExecuteHookA( IShellExecuteHookA *ifa
 *   IShellFolder [ControlPanel] implementation
 */
 
-static const shvheader ControlPanelSFHeader[] = {
+static shvheader ControlPanelSFHeader[] = {
     {IDS_SHV_COLUMN8, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},/*FIXME*/
     {IDS_SHV_COLUMN9, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 200},/*FIXME*/
 };
@@ -189,7 +189,7 @@ static ULONG WINAPI ISF_ControlPanel_fnAddRef(IShellFolder2 * iface)
     ICPanelImpl *This = (ICPanelImpl *)iface;
     ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE("(%p)->(count=%u)\n", This, refCount - 1);
+    TRACE("(%p)->(count=%lu)\n", This, refCount - 1);
 
     return refCount;
 }
@@ -199,11 +199,12 @@ static ULONG WINAPI ISF_ControlPanel_fnRelease(IShellFolder2 * iface)
     ICPanelImpl *This = (ICPanelImpl *)iface;
     ULONG refCount = InterlockedDecrement(&This->ref);
 
-    TRACE("(%p)->(count=%u)\n", This, refCount + 1);
+    TRACE("(%p)->(count=%lu)\n", This, refCount + 1);
 
     if (!refCount) {
         TRACE("-- destroying IShellFolder(%p)\n", This);
-        SHFree(This->pidlRoot);
+        if (This->pidlRoot)
+            SHFree(This->pidlRoot);
         LocalFree((HLOCAL) This);
     }
     return refCount;
@@ -230,7 +231,7 @@ ISF_ControlPanel_fnParseDisplayName(IShellFolder2 * iface,
     if (pchEaten)
 	*pchEaten = 0;
 
-    TRACE("(%p)->(-- ret=0x%08x)\n", This, hr);
+    TRACE("(%p)->(-- ret=0x%08lx)\n", This, hr);
 
     return hr;
 }
@@ -409,9 +410,9 @@ static BOOL CreateCPanelEnumList(
     WIN32_FIND_DATAA wfd;
     HANDLE hFile;
 
-    TRACE("(%p)->(flags=0x%08x)\n", iface, dwFlags);
+    TRACE("(%p)->(flags=0x%08lx)\n", iface, dwFlags);
 
-    /* enumerate control panel folders */
+    /* enumerate control panel folders folders */
     if (dwFlags & SHCONTF_FOLDERS)
         SHELL_RegisterCPanelFolders(iface, HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ControlPanel\\NameSpace");
 
@@ -456,7 +457,7 @@ ISF_ControlPanel_fnEnumObjects(IShellFolder2 * iface, HWND hwndOwner, DWORD dwFl
 {
     ICPanelImpl *This = (ICPanelImpl *)iface;
 
-    TRACE("(%p)->(HWND=%p flags=0x%08x pplist=%p)\n", This, hwndOwner, dwFlags, ppEnumIDList);
+    TRACE("(%p)->(HWND=%p flags=0x%08lx pplist=%p)\n", This, hwndOwner, dwFlags, ppEnumIDList);
 
     *ppEnumIDList = IEnumIDList_Constructor();
     if (*ppEnumIDList)
@@ -557,7 +558,7 @@ ISF_ControlPanel_fnGetAttributesOf(IShellFolder2 * iface, UINT cidl, LPCITEMIDLI
 
     HRESULT hr = S_OK;
 
-    TRACE("(%p)->(cidl=%d apidl=%p mask=%p (0x%08x))\n",
+    TRACE("(%p)->(cidl=%d apidl=%p mask=%p (0x%08lx))\n",
           This, cidl, apidl, rgfInOut, rgfInOut ? *rgfInOut : 0);
 
     if (!rgfInOut)
@@ -577,7 +578,7 @@ ISF_ControlPanel_fnGetAttributesOf(IShellFolder2 * iface, UINT cidl, LPCITEMIDLI
     /* make sure SFGAO_VALIDATE is cleared, some apps depend on that */
     *rgfInOut &= ~SFGAO_VALIDATE;
 
-    TRACE("-- result=0x%08x\n", *rgfInOut);
+    TRACE("-- result=0x%08lx\n", *rgfInOut);
     return hr;
 }
 
@@ -611,7 +612,8 @@ ISF_ControlPanel_fnGetUIObjectOf(IShellFolder2 * iface,
 	*ppvOut = NULL;
 
 	if (IsEqualIID(riid, &IID_IContextMenu) &&(cidl >= 1)) {
-        hr = CDefFolderMenu_Create2(This->pidlRoot, hwndOwner, cidl, apidl, (IShellFolder*)iface, NULL, 0, NULL, (IContextMenu**)&pObj);
+	    pObj = (LPUNKNOWN) ISvItemCm_Constructor((IShellFolder *) iface, This->pidlRoot, apidl, cidl);
+	    hr = S_OK;
 	} else if (IsEqualIID(riid, &IID_IDataObject) &&(cidl >= 1)) {
 	    pObj = (LPUNKNOWN) IDataObject_Constructor(hwndOwner, This->pidlRoot, apidl, cidl);
 	    hr = S_OK;
@@ -639,7 +641,7 @@ ISF_ControlPanel_fnGetUIObjectOf(IShellFolder2 * iface,
 
 	*ppvOut = pObj;
     }
-    TRACE("(%p)->hr=0x%08x\n", This, hr);
+    TRACE("(%p)->hr=0x%08lx\n", This, hr);
     return hr;
 }
 
@@ -650,13 +652,12 @@ static HRESULT WINAPI ISF_ControlPanel_fnGetDisplayNameOf(IShellFolder2 * iface,
 {
     ICPanelImpl *This = (ICPanelImpl *)iface;
 
-    CHAR szPath[MAX_PATH];
-    WCHAR wszPath[MAX_PATH+1]; /* +1 for potential backslash */
+    CHAR szPath[MAX_PATH*2];
     PIDLCPanelStruct* pcpanel;
 
     *szPath = '\0';
 
-    TRACE("(%p)->(pidl=%p,0x%08x,%p)\n", This, pidl, dwFlags, strRet);
+    TRACE("(%p)->(pidl=%p,0x%08lx,%p)\n", This, pidl, dwFlags, strRet);
     pdump(pidl);
 
     if (!pidl || !strRet)
@@ -670,12 +671,12 @@ static HRESULT WINAPI ISF_ControlPanel_fnGetDisplayNameOf(IShellFolder2 * iface,
 	if (!(dwFlags & SHGDN_FORPARSING))
 	    FIXME("retrieve display name from control panel app\n");
     }
-    /* take names of special folders only if it's only this folder */
+    /* take names of special folders only if its only this folder */
     else if (_ILIsSpecialFolder(pidl)) {
 	BOOL bSimplePidl = _ILIsPidlSimple(pidl);
 
 	if (bSimplePidl) {
-	    _ILSimpleGetTextW(pidl, wszPath, MAX_PATH);	/* append my own path */
+	    _ILSimpleGetText(pidl, szPath, MAX_PATH);	/* append my own path */
 	} else {
 	    FIXME("special pidl\n");
 	}
@@ -683,20 +684,13 @@ static HRESULT WINAPI ISF_ControlPanel_fnGetDisplayNameOf(IShellFolder2 * iface,
 	if ((dwFlags & SHGDN_FORPARSING) && !bSimplePidl) { /* go deeper if needed */
 	    int len = 0;
 
-	    PathAddBackslashW(wszPath);
-	    len = lstrlenW(wszPath);
+	    PathAddBackslashA(szPath); /*FIXME*/
+	    len = lstrlenA(szPath);
 
 	    if (!SUCCEEDED
-	      (SHELL32_GetDisplayNameOfChild(iface, pidl, dwFlags | SHGDN_INFOLDER, wszPath + len, MAX_PATH + 1 - len)))
+	      (SHELL32_GetDisplayNameOfChild(iface, pidl, dwFlags | SHGDN_INFOLDER, szPath + len, MAX_PATH - len)))
 		return E_OUTOFMEMORY;
-	    if (!WideCharToMultiByte(CP_ACP, 0, wszPath, -1, szPath, MAX_PATH, NULL, NULL))
-		wszPath[0] = '\0';
-    } else {
-        if (bSimplePidl) {
-	        if (!WideCharToMultiByte(CP_ACP, 0, wszPath, -1, szPath, MAX_PATH, NULL, NULL))
-		    wszPath[0] = '\0';
-        }
-    }
+	}
     }
 
     strRet->uType = STRRET_CSTR;
@@ -722,7 +716,7 @@ static HRESULT WINAPI ISF_ControlPanel_fnSetNameOf(IShellFolder2 * iface, HWND h
 						  LPCOLESTR lpName, DWORD dwFlags, LPITEMIDLIST * pPidlOut)
 {
     ICPanelImpl *This = (ICPanelImpl *)iface;
-    FIXME("(%p)->(%p,pidl=%p,%s,%u,%p)\n", This, hwndOwner, pidl, debugstr_w(lpName), dwFlags, pPidlOut);
+    FIXME("(%p)->(%p,pidl=%p,%s,%lu,%p)\n", This, hwndOwner, pidl, debugstr_w(lpName), dwFlags, pPidlOut);
     return E_FAIL;
 }
 
@@ -850,7 +844,7 @@ static ULONG WINAPI ICPanel_PersistFolder2_AddRef(IPersistFolder2 * iface)
 {
     ICPanelImpl *This = impl_from_IPersistFolder2(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_AddRef(_IUnknown_(This));
 }
@@ -862,7 +856,7 @@ static ULONG WINAPI ICPanel_PersistFolder2_Release(IPersistFolder2 * iface)
 {
     ICPanelImpl *This = impl_from_IPersistFolder2(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_Release(_IUnknown_(This));
 }
@@ -921,7 +915,7 @@ static const IPersistFolder2Vtbl vt_PersistFolder2 =
     ICPanel_PersistFolder2_GetCurFolder
 };
 
-HRESULT CPanel_GetIconLocationW(LPCITEMIDLIST pidl,
+HRESULT CPanel_GetIconLocationW(LPITEMIDLIST pidl,
                LPWSTR szIconFile, UINT cchMax, int* piIndex)
 {
     PIDLCPanelStruct* pcpanel = _ILGetCPanelPointer(pidl);
@@ -945,7 +939,7 @@ static HRESULT WINAPI IShellExecuteHookW_fnQueryInterface(
 {
     ICPanelImpl *This = impl_from_IShellExecuteHookW(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_QueryInterface(This->pUnkOuter, riid, ppvObject);
 }
@@ -954,7 +948,7 @@ static ULONG STDMETHODCALLTYPE IShellExecuteHookW_fnAddRef(IShellExecuteHookW* i
 {
     ICPanelImpl *This = impl_from_IShellExecuteHookW(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_AddRef(This->pUnkOuter);
 }
@@ -1033,7 +1027,7 @@ static HRESULT WINAPI IShellExecuteHookA_fnQueryInterface(IShellExecuteHookA* if
 {
     ICPanelImpl *This = impl_from_IShellExecuteHookA(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_QueryInterface(This->pUnkOuter, riid, ppvObject);
 }
@@ -1042,7 +1036,7 @@ static ULONG STDMETHODCALLTYPE IShellExecuteHookA_fnAddRef(IShellExecuteHookA* i
 {
     ICPanelImpl *This = impl_from_IShellExecuteHookA(iface);
 
-    TRACE("(%p)->(count=%u)\n", This, This->ref);
+    TRACE("(%p)->(count=%lu)\n", This, This->ref);
 
     return IUnknown_AddRef(This->pUnkOuter);
 }

@@ -31,21 +31,56 @@
 #define NDEBUG
 #include <debug.h>
 
+typedef enum _PAGE_NUMBER
+{
+  START_PAGE,
+  INTRO_PAGE,
+  LICENSE_PAGE,
+  INSTALL_INTRO_PAGE,
+
+//  SCSI_CONTROLLER_PAGE,
+
+  DEVICE_SETTINGS_PAGE,
+  COMPUTER_SETTINGS_PAGE,
+  DISPLAY_SETTINGS_PAGE,
+  KEYBOARD_SETTINGS_PAGE,
+  LAYOUT_SETTINGS_PAGE,
+
+  SELECT_PARTITION_PAGE,
+  CREATE_PARTITION_PAGE,
+  DELETE_PARTITION_PAGE,
+
+  SELECT_FILE_SYSTEM_PAGE,
+  FORMAT_PARTITION_PAGE,
+  CHECK_FILE_SYSTEM_PAGE,
+
+  PREPARE_COPY_PAGE,
+  INSTALL_DIRECTORY_PAGE,
+  FILE_COPY_PAGE,
+  REGISTRY_PAGE,
+  BOOT_LOADER_PAGE,
+  BOOT_LOADER_FLOPPY_PAGE,
+  BOOT_LOADER_HARDDISK_PAGE,
+
+  REPAIR_INTRO_PAGE,
+
+  SUCCESS_PAGE,
+  QUIT_PAGE,
+  FLUSH_PAGE,
+  REBOOT_PAGE,			/* virtual page */
+} PAGE_NUMBER, *PPAGE_NUMBER;
+
 /* GLOBALS ******************************************************************/
 
 HANDLE ProcessHeap;
 UNICODE_STRING SourceRootPath;
-UNICODE_STRING SourceRootDir;
 UNICODE_STRING SourcePath;
 BOOLEAN IsUnattendedSetup = FALSE;
 LONG UnattendDestinationDiskNumber;
 LONG UnattendDestinationPartitionNumber;
 LONG UnattendMBRInstallType = -1;
 LONG UnattendFormatPartition = 0;
-LONG AutoPartition = 0;
 WCHAR UnattendInstallationDirectory[MAX_PATH];
-BOOLEAN RepairUpdateFlag = FALSE;
-HANDLE hPnpThread = INVALID_HANDLE_VALUE;
 
 /* LOCALS *******************************************************************/
 
@@ -73,7 +108,7 @@ static PGENERIC_LIST ComputerList = NULL;
 static PGENERIC_LIST DisplayList = NULL;
 static PGENERIC_LIST KeyboardList = NULL;
 static PGENERIC_LIST LayoutList = NULL;
-static PGENERIC_LIST LanguageList = NULL;
+
 
 /* FUNCTIONS ****************************************************************/
 
@@ -98,6 +133,10 @@ PrintString(char* fmt,...)
 }
 
 
+#define POPUP_WAIT_NONE    0
+#define POPUP_WAIT_ANY_KEY 1
+#define POPUP_WAIT_ENTER   2
+
 static VOID
 DrawBox(
 	IN SHORT xLeft,
@@ -106,7 +145,7 @@ DrawBox(
 	IN SHORT Height)
 {
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	/* draw upper left corner */
 	coPos.X = xLeft;
@@ -197,7 +236,7 @@ DrawBox(
 		&Written);
 }
 
-VOID
+static VOID
 PopupError(PCHAR Text,
 	   PCHAR Status,
 	   PINPUT_RECORD Ir,
@@ -206,7 +245,7 @@ PopupError(PCHAR Text,
   SHORT yTop;
   SHORT xLeft;
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   ULONG Length;
   ULONG MaxLength;
   ULONG Lines;
@@ -368,7 +407,15 @@ static BOOL
 ConfirmQuit(PINPUT_RECORD Ir)
 {
   BOOL Result = FALSE;
-  MUIDisplayError(ERROR_NOT_INSTALLED, NULL, POPUP_WAIT_NONE);
+
+  PopupError("ReactOS is not completely installed on your\n"
+	     "computer. If you quit Setup now, you will need to\n"
+	     "run Setup again to install ReactOS.\n"
+	     "\n"
+	     "  \x07  Press ENTER to continue Setup.\n"
+	     "  \x07  Press F3 to quit Setup.",
+	     "F3= Quit  ENTER = Continue",
+	     NULL, POPUP_WAIT_NONE);
 
   while(TRUE)
     {
@@ -425,7 +472,7 @@ CheckUnattendedSetup(VOID)
   if (!SetupFindFirstLineW(UnattendInf, L"Unattend", L"Signature", &Context))
     {
       DPRINT("SetupFindFirstLineW() failed for section 'Unattend'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
 
@@ -433,7 +480,7 @@ CheckUnattendedSetup(VOID)
   if (!INF_GetData(&Context, NULL, &Value))
     {
       DPRINT("INF_GetData() failed for key 'Signature'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
 
@@ -441,7 +488,7 @@ CheckUnattendedSetup(VOID)
   if (_wcsicmp(Value, L"$ReactOS$") != 0)
     {
       DPRINT("Signature not $ReactOS$\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
 
@@ -449,19 +496,19 @@ CheckUnattendedSetup(VOID)
   if (!SetupFindFirstLineW(UnattendInf, L"Unattend", L"UnattendSetupEnabled", &Context))
     {
       DPRINT("Can't find key 'UnattendSetupEnabled'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
   if (!INF_GetData(&Context, NULL, &Value))
     {
       DPRINT("Can't read key 'UnattendSetupEnabled'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
   if (_wcsicmp(Value, L"yes") != 0)
     {
       DPRINT("Unattend setup is disabled by 'UnattendSetupEnabled' key!\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
 
@@ -469,13 +516,13 @@ CheckUnattendedSetup(VOID)
   if (!SetupFindFirstLineW(UnattendInf, L"Unattend", L"DestinationDiskNumber", &Context))
     {
       DPRINT("SetupFindFirstLine() failed for key 'DestinationDiskNumber'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
   if (!SetupGetIntField(&Context, 1, &IntValue))
     {
       DPRINT("SetupGetIntField() failed for key 'DestinationDiskNumber'\n");
-      SetupCloseInfFile(UnattendInf);
+      SetupCloseInfFile(&UnattendInf);
       return;
     }
   UnattendDestinationDiskNumber = (LONG)IntValue;
@@ -530,66 +577,10 @@ CheckUnattendedSetup(VOID)
           UnattendFormatPartition = IntValue;
         }
     }
-  if (SetupFindFirstLineW(UnattendInf, L"Unattend", L"AutoPartition", &Context))
-    {
-      if (SetupGetIntField(&Context, 1, &IntValue))
-        {
-          AutoPartition = IntValue;
-        }
-    }
+
   SetupCloseInfFile(UnattendInf);
 
   DPRINT("Running unattended setup\n");
-}
-
-static PAGE_NUMBER
-LanguagePage(PINPUT_RECORD Ir)
-{
-  if (LanguageList == NULL)
-    {
-      LanguageList = MUICreateLanguageList();
-      if (LanguageList == NULL)
-        {
-           PopupError("Setup failed to initialize available translations", NULL, NULL, POPUP_WAIT_NONE);
-           return START_PAGE;
-        }
-    }
-
-  DrawGenericList(LanguageList,
-		  2,
-		  18,
-		  xScreen - 3,
-		  yScreen - 3);
-
-  MUIDisplayPage(LANGUAGE_PAGE);
-
-  while(TRUE)
-    {
-      CONSOLE_ConInKey(Ir);
-
-      if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
-	{
-	  ScrollDownGenericList (LanguageList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
-	{
-	  ScrollUpGenericList (LanguageList);
-	}
-      else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3)) /* F3 */
-	{
-	  if (ConfirmQuit(Ir) == TRUE)
-	    return QUIT_PAGE;
-	}
-      else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
-	{
-      MUISelectLanguage((ULONG)LanguageList->CurrentEntry->UserData);
-	  return START_PAGE;
-	}
-    }
-  return START_PAGE;
 }
 
 
@@ -607,7 +598,7 @@ SetupStartPage(PINPUT_RECORD Ir)
   INFCONTEXT Context;
   PWCHAR Value;
   UINT ErrorLine;
-  SIZE_T ReturnSize;
+  ULONG ReturnSize;
 
   CONSOLE_SetStatusText("   Please wait...");
 
@@ -620,24 +611,29 @@ SetupStartPage(PINPUT_RECORD Ir)
   if (!NT_SUCCESS (Status))
     {
       CONSOLE_PrintTextXY(6, 15, "NtQuerySystemInformation() failed (Status 0x%08lx)", Status);
-      MUIDisplayError(ERROR_DRIVE_INFORMATION, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup could not retrieve system drive information.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
   if (Sdi.NumberOfDisks == 0)
     {
-      MUIDisplayError(ERROR_NO_HDD, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup could not find a harddisk.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
   /* Get the source path and source root path */
   Status = GetSourcePaths(&SourcePath,
-			  &SourceRootPath,
-			  &SourceRootDir);
+			  &SourceRootPath);
   if (!NT_SUCCESS(Status))
     {
       CONSOLE_PrintTextXY(6, 15, "GetSourcePaths() failed (Status 0x%08lx)", Status);
-      MUIDisplayError(ERROR_NO_SOURCE_DRIVE, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup could not find its source drive.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 #if 0
@@ -645,7 +641,6 @@ SetupStartPage(PINPUT_RECORD Ir)
     {
       CONSOLE_PrintTextXY(6, 15, "SourcePath: '%wZ'", &SourcePath);
       CONSOLE_PrintTextXY(6, 16, "SourceRootPath: '%wZ'", &SourceRootPath);
-      CONSOLE_PrintTextXY(6, 17, "SourceRootDir: '%wZ'", &SourceRootDir);
     }
 #endif
 
@@ -659,14 +654,18 @@ SetupStartPage(PINPUT_RECORD Ir)
 		       &ErrorLine);
   if (SetupInf == INVALID_HANDLE_VALUE)
     {
-      MUIDisplayError(ERROR_LOAD_TXTSETUPSIF, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to load the file TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
   /* Open 'Version' section */
   if (!SetupFindFirstLineW (SetupInf, L"Version", L"Signature", &Context))
     {
-      MUIDisplayError(ERROR_CORRUPT_TXTSETUPSIF, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup found a corrupt TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -674,23 +673,19 @@ SetupStartPage(PINPUT_RECORD Ir)
   /* Get pointer 'Signature' key */
   if (!INF_GetData (&Context, NULL, &Value))
     {
-      MUIDisplayError(ERROR_CORRUPT_TXTSETUPSIF, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup found a corrupt TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
   /* Check 'Signature' string */
   if (_wcsicmp(Value, L"$ReactOS$") != 0)
     {
-      MUIDisplayError(ERROR_SIGNATURE_TXTSETUPSIF, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup found an invalid signature in TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
-    }
-
-  /* Start PnP thread */
-  if (hPnpThread != INVALID_HANDLE_VALUE)
-    {
-      //HACK: Commented out till the problem with CM is solved
-      //NtResumeThread(hPnpThread, NULL);
-      hPnpThread = INVALID_HANDLE_VALUE;
     }
 
   CheckUnattendedSetup();
@@ -707,7 +702,20 @@ SetupStartPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 IntroPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(START_PAGE);
+  CONSOLE_SetHighlightedTextXY(6, 8, "Welcome to ReactOS Setup");
+
+  CONSOLE_SetTextXY(6, 11, "This part of the setup copies the ReactOS Operating System to your");
+  CONSOLE_SetTextXY(6, 12, "computer and prepares the second part of the setup.");
+
+  CONSOLE_SetTextXY(8, 15, "\x07  Press ENTER to install ReactOS.");
+  CONSOLE_SetTextXY(8, 17, "\x07  Press R to repair ReactOS.");
+  CONSOLE_SetTextXY(8, 19, "\x07  Press L to view the ReactOS Licensing Terms and Conditions");
+  CONSOLE_SetTextXY(8, 21, "\x07  Press F3 to quit without installing ReactOS.");
+
+  CONSOLE_SetTextXY(6, 23, "For more information on ReactOS, please visit:");
+  CONSOLE_SetHighlightedTextXY(6, 24, "http://www.reactos.org");
+
+  CONSOLE_SetStatusText("   ENTER = Continue  R = Repair F3 = Quit");
 
   if (IsUnattendedSetup)
     {
@@ -759,9 +767,32 @@ IntroPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 LicensePage(PINPUT_RECORD Ir)
 {
-   MUIDisplayPage(LICENSE_PAGE);
+  CONSOLE_SetHighlightedTextXY(6, 6, "Licensing:");
 
-    while (TRUE)
+  CONSOLE_SetTextXY(8, 8, "The ReactOS System is licensed under the terms of the");
+  CONSOLE_SetTextXY(8, 9, "GNU GPL with parts containing code from other compatible");
+  CONSOLE_SetTextXY(8, 10, "licenses such as the X11 or BSD and GNU LGPL licenses.");
+  CONSOLE_SetTextXY(8, 11, "All software that is part of the ReactOS system is");
+  CONSOLE_SetTextXY(8, 12, "therefore released under the GNU GPL as well as maintaining");
+  CONSOLE_SetTextXY(8, 13, "the original license.");
+
+  CONSOLE_SetTextXY(8, 15, "This software comes with NO WARRANTY or restrictions on usage");
+  CONSOLE_SetTextXY(8, 16, "save applicable local and international law. The licensing of");
+  CONSOLE_SetTextXY(8, 17, "ReactOS only covers distribution to third parties.");
+
+  CONSOLE_SetTextXY(8, 18, "If for some reason you did not receive a copy of the");
+  CONSOLE_SetTextXY(8, 19, "GNU General Public License with ReactOS please visit");
+  CONSOLE_SetHighlightedTextXY(8, 20, "http://www.gnu.org/licenses/licenses.html");
+
+  CONSOLE_SetHighlightedTextXY(6, 22, "Warranty:");
+
+  CONSOLE_SetTextXY(8, 24, "This is free software; see the source for copying conditions.");
+  CONSOLE_SetTextXY(8, 25, "There is NO warranty; not even for MERCHANTABILITY or");
+  CONSOLE_SetTextXY(8, 26, "FITNESS FOR A PARTICULAR PURPOSE");
+
+  CONSOLE_SetStatusText("   ENTER = Return");
+
+  while (TRUE)
     {
       CONSOLE_ConInKey(Ir);
 
@@ -778,7 +809,18 @@ LicensePage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 RepairIntroPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(REPAIR_INTRO_PAGE);
+  CONSOLE_SetTextXY(6, 8, "ReactOS Setup is in an early development phase. It does not yet");
+  CONSOLE_SetTextXY(6, 9, "support all the functions of a fully usable setup application.");
+
+  CONSOLE_SetTextXY(6, 12, "The repair functions are not implemented yet.");
+
+  CONSOLE_SetTextXY(8, 15, "\x07  Press R for the Recovery Console.");
+
+  CONSOLE_SetTextXY(8, 17, "\x07  Press ESC to return to the main page.");
+
+  CONSOLE_SetTextXY(8, 19, "\x07  Press ENTER to reboot your computer.");
+
+  CONSOLE_SetStatusText("   ESC = Main page  ENTER = Reboot");
 
   while(TRUE)
     {
@@ -787,11 +829,6 @@ RepairIntroPage(PINPUT_RECORD Ir)
       if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
 	{
 	  return REBOOT_PAGE;
-	}
-    else if (toupper(Ir->Event.KeyEvent.uChar.AsciiChar) == 'U') /* U */
-	{
-	  RepairUpdateFlag = TRUE;
-	  return INSTALL_INTRO_PAGE;
 	}
     else if (toupper(Ir->Event.KeyEvent.uChar.AsciiChar) == 'R') /* R */
 	{
@@ -811,13 +848,27 @@ RepairIntroPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 InstallIntroPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(INSTALL_INTRO_PAGE);
+  CONSOLE_SetUnderlinedTextXY(4, 3, " ReactOS " KERNEL_VERSION_STR " Setup ");
 
-  if (RepairUpdateFlag)
-    {
-      //return SELECT_PARTITION_PAGE;
-      return DEVICE_SETTINGS_PAGE;
-    }
+  CONSOLE_SetTextXY(6, 8, "ReactOS Setup is in an early development phase. It does not yet");
+  CONSOLE_SetTextXY(6, 9, "support all the functions of a fully usable setup application.");
+
+  CONSOLE_SetTextXY(6, 12, "The following limitations apply:");
+  CONSOLE_SetTextXY(8, 13, "- Setup can not handle more than one primary partition per disk.");
+  CONSOLE_SetTextXY(8, 14, "- Setup can not delete a primary partition from a disk");
+  CONSOLE_SetTextXY(8, 15, "  as long as extended partitions exist on this disk.");
+  CONSOLE_SetTextXY(8, 16, "- Setup can not delete the first extended partition from a disk");
+  CONSOLE_SetTextXY(8, 17, "  as long as other extended partitions exist on this disk.");
+  CONSOLE_SetTextXY(8, 18, "- Setup supports FAT file systems only.");
+  CONSOLE_SetTextXY(8, 19, "- File system checks are not implemented yet.");
+
+
+  CONSOLE_SetTextXY(8, 23, "\x07  Press ENTER to install ReactOS.");
+
+  CONSOLE_SetTextXY(8, 25, "\x07  Press F3 to quit without installing ReactOS.");
+
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
 
   if (IsUnattendedSetup)
     {
@@ -886,7 +937,6 @@ static PAGE_NUMBER
 DeviceSettingsPage(PINPUT_RECORD Ir)
 {
   static ULONG Line = 16;
-  MUIDisplayPage(DEVICE_SETTINGS_PAGE);
 
   /* Initialize the computer settings list */
   if (ComputerList == NULL)
@@ -894,7 +944,9 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
       ComputerList = CreateComputerTypeList(SetupInf);
       if (ComputerList == NULL)
 	{
-      MUIDisplayError(ERROR_LOAD_COMPUTER, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to load the computer type list.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
     }
@@ -905,7 +957,9 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
       DisplayList = CreateDisplayDriverList(SetupInf);
       if (DisplayList == NULL)
 	{
-      MUIDisplayError(ERROR_LOAD_DISPLAY, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to load the display settings list.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
     }
@@ -916,7 +970,9 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
       KeyboardList = CreateKeyboardDriverList(SetupInf);
       if (KeyboardList == NULL)
 	{
-      MUIDisplayError(ERROR_LOAD_KEYBOARD, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to load the keyboard type list.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
     }
@@ -928,25 +984,39 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
       if (LayoutList == NULL)
 	{
 	  /* FIXME: report error */
-      MUIDisplayError(ERROR_LOAD_KBLAYOUT, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to load the keyboard layout list.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
     }
 
-  MUIDisplayPage(DEVICE_SETTINGS_PAGE);
+  CONSOLE_SetTextXY(6, 8, "The list below shows the current device settings.");
 
+  CONSOLE_SetTextXY(8, 11, "       Computer:");
+  CONSOLE_SetTextXY(8, 12, "        Display:");
+  CONSOLE_SetTextXY(8, 13, "       Keyboard:");
+  CONSOLE_SetTextXY(8, 14, "Keyboard layout:");
+
+  CONSOLE_SetTextXY(8, 16, "         Accept:");
 
   CONSOLE_SetTextXY(25, 11, GetGenericListEntry(ComputerList)->Text);
   CONSOLE_SetTextXY(25, 12, GetGenericListEntry(DisplayList)->Text);
   CONSOLE_SetTextXY(25, 13, GetGenericListEntry(KeyboardList)->Text);
   CONSOLE_SetTextXY(25, 14, GetGenericListEntry(LayoutList)->Text);
 
+  CONSOLE_SetTextXY(25, 16, "Accept these device settings");
   CONSOLE_InvertTextXY (24, Line, 48, 1);
 
-  if (RepairUpdateFlag)
-    {
-      return SELECT_PARTITION_PAGE;
-    }
+
+  CONSOLE_SetTextXY(6, 19, "You can change the hardware settings by pressing the UP or DOWN keys");
+  CONSOLE_SetTextXY(6, 20, "to select an entry. Then press the ENTER key to select alternative");
+  CONSOLE_SetTextXY(6, 21, "settings.");
+
+  CONSOLE_SetTextXY(6, 23, "When all settings are correct, select \"Accept these device settings\"");
+  CONSOLE_SetTextXY(6, 24, "and press ENTER.");
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
 
   while(TRUE)
     {
@@ -1005,13 +1075,21 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 ComputerSettingsPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(COMPUTER_SETTINGS_PAGE);
+  CONSOLE_SetTextXY(6, 8, "You want to change the type of computer to be installed.");
+
+  CONSOLE_SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired computer type.");
+  CONSOLE_SetTextXY(8, 11, "   Then press ENTER.");
+
+  CONSOLE_SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
+  CONSOLE_SetTextXY(8, 14, "   the computer type.");
 
   DrawGenericList(ComputerList,
 		  2,
 		  18,
 		  xScreen - 3,
 		  yScreen - 3);
+
+  CONSOLE_SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
 
   SaveGenericListState(ComputerList);
 
@@ -1055,13 +1133,21 @@ ComputerSettingsPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 DisplaySettingsPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(DISPLAY_SETTINGS_PAGE);
+  CONSOLE_SetTextXY(6, 8, "You want to change the type of display to be installed.");
+
+  CONSOLE_SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired display type.");
+  CONSOLE_SetTextXY(8, 11, "   Then press ENTER.");
+
+  CONSOLE_SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
+  CONSOLE_SetTextXY(8, 14, "   the display type.");
 
   DrawGenericList(DisplayList,
 		  2,
 		  18,
 		  xScreen - 3,
 		  yScreen - 3);
+
+  CONSOLE_SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
 
   SaveGenericListState(DisplayList);
 
@@ -1107,7 +1193,13 @@ DisplaySettingsPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 KeyboardSettingsPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(KEYBOARD_SETTINGS_PAGE);
+  CONSOLE_SetTextXY(6, 8, "You want to change the type of keyboard to be installed.");
+
+  CONSOLE_SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired keyboard type.");
+  CONSOLE_SetTextXY(8, 11, "   Then press ENTER.");
+
+  CONSOLE_SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
+  CONSOLE_SetTextXY(8, 14, "   the keyboard type.");
 
   DrawGenericList(KeyboardList,
 		  2,
@@ -1115,7 +1207,7 @@ KeyboardSettingsPage(PINPUT_RECORD Ir)
 		  xScreen - 3,
 		  yScreen - 3);
 
-
+  CONSOLE_SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
 
   SaveGenericListState(KeyboardList);
 
@@ -1159,13 +1251,21 @@ KeyboardSettingsPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 LayoutSettingsPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(LAYOUT_SETTINGS_PAGE);
+  CONSOLE_SetTextXY(6, 8, "You want to change the keyboard layout to be installed.");
+
+  CONSOLE_SetTextXY(8, 10, "\x07  Press the UP or DOWN key to select the desired keyboard");
+  CONSOLE_SetTextXY(8, 11, "    layout. Then press ENTER.");
+
+  CONSOLE_SetTextXY(8, 13, "\x07  Press the ESC key to return to the previous page without changing");
+  CONSOLE_SetTextXY(8, 14, "   the keyboard layout.");
 
   DrawGenericList(LayoutList,
 		  2,
-		  15,
+		  18,
 		  xScreen - 3,
 		  yScreen - 3);
+
+  CONSOLE_SetStatusText("   ENTER = Continue   ESC = Cancel   F3 = Quit");
 
   SaveGenericListState(LayoutList);
 
@@ -1209,7 +1309,15 @@ LayoutSettingsPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 SelectPartitionPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(SELECT_PARTITION_PAGE);
+  CONSOLE_SetTextXY(6, 8, "The list below shows existing partitions and unused disk");
+  CONSOLE_SetTextXY(6, 9, "space for new partitions.");
+
+  CONSOLE_SetTextXY(8, 11, "\x07  Press UP or DOWN to select a list entry.");
+  CONSOLE_SetTextXY(8, 13, "\x07  Press ENTER to install ReactOS onto the selected partition.");
+  CONSOLE_SetTextXY(8, 15, "\x07  Press C to create a new partition.");
+  CONSOLE_SetTextXY(8, 17, "\x07  Press D to delete an existing partition.");
+
+  CONSOLE_SetStatusText("   Please wait...");
 
   if (PartitionList == NULL)
     {
@@ -1232,7 +1340,15 @@ SelectPartitionPage(PINPUT_RECORD Ir)
   if (WarnLinuxPartitions == TRUE &&
       CheckForLinuxFdiskPartitions (PartitionList) == TRUE)
     {
-      MUIDisplayError(ERROR_WARN_PARTITION, NULL, POPUP_WAIT_NONE);
+      PopupError ("Setup found that at least one harddisk contains an incompatible\n"
+		  "partition table that can not be handled properly!\n"
+		  "\n"
+		  "Creating or deleting partitions can destroy the partiton table.\n"
+		  "\n"
+		  "  \x07  Press F3 to quit Setup."
+		  "  \x07  Press ENTER to continue.",
+		  "F3= Quit  ENTER = Continue",
+		  NULL, POPUP_WAIT_NONE);
       while (TRUE)
 	{
 	  CONSOLE_ConInKey (Ir);
@@ -1252,22 +1368,10 @@ SelectPartitionPage(PINPUT_RECORD Ir)
 
   if (IsUnattendedSetup)
     {
-      if (!SelectPartition(PartitionList, UnattendDestinationDiskNumber, UnattendDestinationPartitionNumber))
-        {
-          if (AutoPartition)
-            {
-              PPARTENTRY PartEntry = PartEntry = PartitionList->CurrentPartition;
-              ULONG MaxSize = (PartEntry->UnpartitionedLength + (1 << 19)) >> 20;  /* in MBytes (rounded) */
-              CreateNewPartition (PartitionList,
-                			 	  MaxSize,
-                				  TRUE);
-              return (SELECT_FILE_SYSTEM_PAGE);
-            }
-        }
-      else
-        {
-          return(SELECT_FILE_SYSTEM_PAGE);
-        }
+      SelectPartition(PartitionList,
+        UnattendDestinationDiskNumber,
+        UnattendDestinationPartitionNumber);
+      return(SELECT_FILE_SYSTEM_PAGE);
     }
 
   while(TRUE)
@@ -1322,7 +1426,13 @@ SelectPartitionPage(PINPUT_RECORD Ir)
 	{
 	  if (PartitionList->CurrentPartition->Unpartitioned == FALSE)
 	    {
-          MUIDisplayError(ERROR_NEW_PARTITION, Ir, POPUP_WAIT_ANY_KEY);
+	      PopupError ("You can not create a new Partition inside\n"
+			  "of an already existing Partition!\n"
+			  "\n"
+			  "  * Press any key to continue.",
+			  NULL,
+			  Ir, POPUP_WAIT_ANY_KEY);
+
 	      return SELECT_PARTITION_PAGE;
 	    }
 
@@ -1332,7 +1442,12 @@ SelectPartitionPage(PINPUT_RECORD Ir)
 	{
 	  if (PartitionList->CurrentPartition->Unpartitioned == TRUE)
 	    {
-          MUIDisplayError(ERROR_DELETE_SPACE, Ir, POPUP_WAIT_ANY_KEY);
+	      PopupError ("You can not delete unpartitioned disk space!\n"
+			  "\n"
+			  "  * Press any key to continue.",
+			  NULL,
+			  Ir, POPUP_WAIT_ANY_KEY);
+
 	      return SELECT_PARTITION_PAGE;
 	    }
 
@@ -1352,7 +1467,7 @@ DrawInputField(ULONG FieldLength,
 {
   CHAR buf[100];
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
 
   coPos.X = Left;
   coPos.Y = Top;
@@ -1382,7 +1497,7 @@ ShowPartitionSizeInputBox(SHORT Left,
 {
   INPUT_RECORD Ir;
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   CHAR Buffer[100];
   ULONG Index;
   CHAR ch;
@@ -1563,20 +1678,20 @@ CreatePartitionPage (PINPUT_RECORD Ir)
       MaxSize = (PartEntry->UnpartitionedLength + (1 << 19)) >> 20;  /* in MBytes (rounded) */
       ShowPartitionSizeInputBox (12, 14, xScreen - 12, 17, /* left, top, right, bottom */
 				 MaxSize, InputBuffer, &Quit, &Cancel);
-       if (Quit == TRUE)
+      if (Quit == TRUE)
+	{
+	  if (ConfirmQuit (Ir) == TRUE)
 	    {
-	      if (ConfirmQuit (Ir) == TRUE)
-	        {
-	          return QUIT_PAGE;
-	        }
+	      return QUIT_PAGE;
 	    }
+	}
       else if (Cancel == TRUE)
-	    {
-	      return SELECT_PARTITION_PAGE;
-	    }
+	{
+	  return SELECT_PARTITION_PAGE;
+	}
       else
-	    {
-  	          PartSize = atoi (InputBuffer);
+	{
+	  PartSize = atoi (InputBuffer);
 	  if (PartSize < 1)
 	    {
 	      /* Too small */
@@ -1641,7 +1756,7 @@ DeletePartitionPage (PINPUT_RECORD Ir)
   DiskEntry = PartitionList->CurrentDisk;
   PartEntry = PartitionList->CurrentPartition;
 
-  MUIDisplayPage(DELETE_PARTITION_PAGE);
+  CONSOLE_SetTextXY (6, 8, "You have chosen to delete the partition");
 
   /* Determine partition type */
   PartType = NULL;
@@ -1747,6 +1862,13 @@ DeletePartitionPage (PINPUT_RECORD Ir)
 		   DiskEntry->Bus,
 		   DiskEntry->Id);
     }
+
+  CONSOLE_SetTextXY (8, 18, "\x07  Press D to delete the partition.");
+  CONSOLE_SetTextXY (11, 19, "WARNING: All data on this partition will be lost!");
+
+  CONSOLE_SetTextXY (8, 21, "\x07  Press ESC to cancel.");
+
+  CONSOLE_SetStatusText ("   D = Delete Partition   ESC = Cancel   F3 = Quit");
 
   while (TRUE)
     {
@@ -1915,7 +2037,12 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
 		  &DiskEntry->DriverName);
     }
 
-  MUIDisplayPage(SELECT_FILE_SYSTEM_PAGE);
+
+  CONSOLE_SetTextXY(6, 17, "Select a file system from the list below.");
+
+  CONSOLE_SetTextXY(8, 19, "\x07  Press UP or DOWN to select a file system.");
+  CONSOLE_SetTextXY(8, 21, "\x07  Press ENTER to format the partition.");
+  CONSOLE_SetTextXY(8, 23, "\x07  Press ESC to select another partition.");
 
   if (FileSystemList == NULL)
     {
@@ -1930,11 +2057,7 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
     }
   DrawFileSystemList (FileSystemList);
 
-  if (RepairUpdateFlag)
-    {
-       return (CHECK_FILE_SYSTEM_PAGE);
-    //return SELECT_PARTITION_PAGE;
-    }
+  CONSOLE_SetStatusText ("   ENTER = Continue   ESC = Cancel   F3 = Quit");
 
   if (IsUnattendedSetup)
     {
@@ -2004,7 +2127,13 @@ FormatPartitionPage (PINPUT_RECORD Ir)
   PLIST_ENTRY Entry;
 #endif
 
-  MUIDisplayPage(FORMAT_PARTITION_PAGE);
+
+  CONSOLE_SetTextXY(6, 8, "Format partition");
+
+  CONSOLE_SetTextXY(6, 10, "Setup will now format the partition. Press ENTER to continue.");
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
+
 
   if (PartitionList == NULL ||
       PartitionList->CurrentDisk == NULL ||
@@ -2133,7 +2262,10 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 	  if (WritePartitionsToDisk (PartitionList) == FALSE)
 	    {
 	      DPRINT ("WritePartitionsToDisk() failed\n");
-          MUIDisplayError(ERROR_WRITE_PTABLE, Ir, POPUP_WAIT_ENTER);
+
+	      PopupError ("Setup failed to write partition tables.\n",
+			  "ENTER = Reboot computer",
+			  Ir, POPUP_WAIT_ENTER);
 	      return QUIT_PAGE;
 	    }
 
@@ -2383,7 +2515,10 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
   /* Search for 'DefaultPath' in the 'SetupData' section */
   if (!SetupFindFirstLineW (SetupInf, L"SetupData", L"DefaultPath", &Context))
     {
-      MUIDisplayError(ERROR_FIND_SETUPDATA, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to find the 'SetupData' section\n"
+		 "in TXTSETUP.SIF.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -2397,8 +2532,17 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
       wcscpy(InstallDir, L"\\ReactOS");
     }
   Length = wcslen(InstallDir);
+
+  CONSOLE_SetTextXY(6, 8, "Setup installs ReactOS files onto the selected partition. Choose a");
+  CONSOLE_SetTextXY(6, 9, "directory where you want ReactOS to be installed:");
+
   CONSOLE_SetInputTextXY(8, 11, 51, InstallDir);
-  MUIDisplayPage(INSTALL_DIRECTORY_PAGE);
+
+  CONSOLE_SetTextXY(6, 14, "To change the suggested directory, press BACKSPACE to delete");
+  CONSOLE_SetTextXY(6, 15, "characters and then type the directory where you want ReactOS to");
+  CONSOLE_SetTextXY(6, 16, "be installed.");
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
 
   if (IsUnattendedSetup)
     {
@@ -2445,7 +2589,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
 }
 
 static BOOLEAN
-AddSectionToCopyQueueCab(HINF InfFile,
+AddSectionToCopyQueue(HINF InfFile,
 		       PWCHAR SectionName,
 		       PWCHAR SourceCabinet,
 			   PCUNICODE_STRING DestinationPath,
@@ -2505,7 +2649,7 @@ AddSectionToCopyQueueCab(HINF InfFile,
       if (!SetupQueueCopy(SetupFileQueue,
 			  SourceCabinet,
 			  SourceRootPath.Buffer,
-			  SourceRootDir.Buffer,
+			  L"\\reactos",
 			  FileKeyName,
 			  DirKeyValue,
 			  TargetFileName))
@@ -2513,94 +2657,6 @@ AddSectionToCopyQueueCab(HINF InfFile,
 	  /* FIXME: Handle error! */
 	  DPRINT1("SetupQueueCopy() failed\n");
 	}
-    }
-  while (SetupFindNextLine(&FilesContext, &FilesContext));
-
-  return TRUE;
-}
-
-static BOOLEAN
-AddSectionToCopyQueue(HINF InfFile,
-                      PWCHAR SectionName,
-                      PWCHAR SourceCabinet,
-                      PCUNICODE_STRING DestinationPath,
-                      PINPUT_RECORD Ir)
-{
-  INFCONTEXT FilesContext;
-  INFCONTEXT DirContext;
-  PWCHAR FileKeyName;
-  PWCHAR FileKeyValue;
-  PWCHAR DirKeyValue;
-  PWCHAR TargetFileName;
-
-  if (SourceCabinet)
-    return AddSectionToCopyQueueCab(InfFile, L"SourceFiles", SourceCabinet, DestinationPath, Ir);
-
-  /* Search for the SectionName section */
-  if (!SetupFindFirstLineW (InfFile, SectionName, NULL, &FilesContext))
-    {
-      char Buffer[128];
-      sprintf(Buffer, "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n", SectionName);
-      PopupError(Buffer, "ENTER = Reboot computer", Ir, POPUP_WAIT_ENTER);
-      return(FALSE);
-    }
-
-  /*
-   * Enumerate the files in the section
-   * and add them to the file queue.
-   */
-  do
-    {
-      /* Get source file name and target directory id */
-      if (!INF_GetData (&FilesContext, &FileKeyName, &FileKeyValue))
-        {
-          /* FIXME: Handle error! */
-          DPRINT1("INF_GetData() failed\n");
-          break;
-        }
-
-      /* Get target directory id */
-      if (!INF_GetDataField (&FilesContext, 13, &FileKeyValue))
-        {
-          /* FIXME: Handle error! */
-          DPRINT1("INF_GetData() failed\n");
-          break;
-        }
-
-      /* Get optional target file name */
-      if (!INF_GetDataField (&FilesContext, 11, &TargetFileName))
-        TargetFileName = NULL;
-      else if (!*TargetFileName)
-        TargetFileName = NULL;
-
-      DPRINT ("FileKeyName: '%S'  FileKeyValue: '%S'\n", FileKeyName, FileKeyValue);
-
-      /* Lookup target directory */
-      if (!SetupFindFirstLineW (InfFile, L"Directories", FileKeyValue, &DirContext))
-        {
-          /* FIXME: Handle error! */
-          DPRINT1("SetupFindFirstLine() failed\n");
-          break;
-        }
-
-      if (!INF_GetData (&DirContext, NULL, &DirKeyValue))
-        {
-          /* FIXME: Handle error! */
-          DPRINT1("INF_GetData() failed\n");
-          break;
-        }
-
-      if (!SetupQueueCopy(SetupFileQueue,
-                          SourceCabinet,
-                          SourceRootPath.Buffer,
-                          SourceRootDir.Buffer,
-                          FileKeyName,
-                          DirKeyValue,
-                          TargetFileName))
-        {
-          /* FIXME: Handle error! */
-          DPRINT1("SetupQueueCopy() failed\n");
-        }
     }
   while (SetupFindNextLine(&FilesContext, &FilesContext));
 
@@ -2620,7 +2676,7 @@ PrepareCopyPageInfFile(HINF InfFile,
   NTSTATUS Status;
 
   /* Add common files */
-  if (!AddSectionToCopyQueue(InfFile, L"SourceDisksFiles", SourceCabinet, &DestinationPath, Ir))
+  if (!AddSectionToCopyQueue(InfFile, L"SourceFiles", SourceCabinet, &DestinationPath, Ir))
     return FALSE;
 
   /* Add specific files depending of computer type */
@@ -2657,7 +2713,9 @@ PrepareCopyPageInfFile(HINF InfFile,
   if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_COLLISION)
     {
       DPRINT("Creating directory '%S' failed: Status = 0x%08lx", PathBuffer, Status);
-      MUIDisplayError(ERROR_CREATE_INSTALL_DIR, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup could not create the install directory.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return(FALSE);
     }
 
@@ -2666,12 +2724,16 @@ PrepareCopyPageInfFile(HINF InfFile,
   if (!SetupFindFirstLineW(InfFile, L"Directories", NULL, &DirContext))
     {
       if (SourceCabinet)
-	    {
-          MUIDisplayError(ERROR_CABINET_SECTION, Ir, POPUP_WAIT_ENTER);
-	    }
-        else
-	    {
-          MUIDisplayError(ERROR_TXTSETUP_SECTION, Ir, POPUP_WAIT_ENTER);
+	{
+	  PopupError("Setup failed to find the 'Directories' section\n"
+		     "in the cabinet.\n", "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
+	}
+      else
+	{
+	  PopupError("Setup failed to find the 'Directories' section\n"
+		     "in TXTSETUP.SIF.\n", "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
         }
       return(FALSE);
     }
@@ -2707,7 +2769,9 @@ PrepareCopyPageInfFile(HINF InfFile,
 	  if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_COLLISION)
 	    {
 	      DPRINT("Creating directory '%S' failed: Status = 0x%08lx", PathBuffer, Status);
-          MUIDisplayError(ERROR_CREATE_DIR, Ir, POPUP_WAIT_ENTER);
+	      PopupError("Setup could not create install directories.",
+			 "ENTER = Reboot computer",
+			 Ir, POPUP_WAIT_ENTER);
 	      return(FALSE);
 	    }
 	}
@@ -2728,13 +2792,17 @@ PrepareCopyPage(PINPUT_RECORD Ir)
   UINT ErrorLine;
   PVOID InfFileData;
 
-  MUIDisplayPage(PREPARE_COPY_PAGE);
+  CONSOLE_SetTextXY(6, 8, "Setup prepares your computer for copying the ReactOS files. ");
+
+  CONSOLE_SetStatusText("   Building the file copy list...");
 
   /* Create the file queue */
   SetupFileQueue = SetupOpenFileQueue();
   if (SetupFileQueue == NULL)
     {
-      MUIDisplayError(ERROR_COPY_QUEUE, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to open the copy file queue.\n",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return(QUIT_PAGE);
     }
 
@@ -2774,14 +2842,19 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 	  InfFileData = CabinetGetCabinetReservedArea(&InfFileSize);
 	  if (InfFileData == NULL)
 	    {
-          MUIDisplayError(ERROR_CABINET_SCRIPT, Ir, POPUP_WAIT_ENTER);
+	      PopupError("Cabinet has no setup script.\n",
+			 "ENTER = Reboot computer",
+			 Ir, POPUP_WAIT_ENTER);
 	      return QUIT_PAGE;
 	    }
 	}
       else
 	{
 	  DPRINT("Cannot open cabinet: %S.\n", CabinetGetCabinetName());
-      MUIDisplayError(ERROR_CABINET_MISSING, Ir, POPUP_WAIT_ENTER);
+
+	  PopupError("Cabinet not found.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
 
@@ -2792,7 +2865,9 @@ PrepareCopyPage(PINPUT_RECORD Ir)
 				   &ErrorLine);
       if (InfHandle == INVALID_HANDLE_VALUE)
 	{
-      MUIDisplayError(ERROR_INVALID_CABINET_INF, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Cabinet has no valid inf file.\n",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
 
@@ -2887,7 +2962,13 @@ FileCopyPage(PINPUT_RECORD Ir)
 {
     COPYCONTEXT CopyContext;
 
-    MUIDisplayPage(FILE_COPY_PAGE);
+    /* Display status text */
+    CONSOLE_SetStatusText("                                                           \xB3 Please wait...    ");
+
+    /* Displey information text */
+    CONSOLE_SetTextXY(11, 12, "Please wait while ReactOS Setup copies files to your ReactOS");
+    CONSOLE_SetTextXY(30, 13, "installation folder.");
+    CONSOLE_SetTextXY(20, 14, "This may take several minutes to complete.");
 
     /* Create context for the copy process */
     CopyContext.DestinationRootPath = DestinationRootPath.Buffer;
@@ -2966,25 +3047,24 @@ RegistryPage(PINPUT_RECORD Ir)
 
   CONSOLE_SetStatusText("   Creating registry hives...");
 
-  if (RepairUpdateFlag)
-    {
-    	return SUCCESS_PAGE;
-    }
-
   if (!SetInstallPathValue(&DestinationPath))
     {
       DPRINT("SetInstallPathValue() failed\n");
-      MUIDisplayError(ERROR_INITIALIZE_REGISTRY, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to set the initialize the registry.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
   /* Create the default hives */
 #ifdef __REACTOS__
-  Status = NtInitializeRegistry(CM_BOOT_FLAG_SETUP);
+  Status = NtInitializeRegistry(TRUE);
   if (!NT_SUCCESS(Status))
     {
       DPRINT("NtInitializeRegistry() failed (Status %lx)\n", Status);
-      MUIDisplayError(ERROR_CREATE_HIVE, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to create the registry hives.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 #else
@@ -2997,7 +3077,9 @@ RegistryPage(PINPUT_RECORD Ir)
   if (!SetupFindFirstLineW(SetupInf, L"HiveInfs.Install", NULL, &InfContext))
     {
       DPRINT1("SetupFindFirstLine() failed\n");
-      MUIDisplayError(ERROR_FIND_REGISTRY, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to find the registry data files.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -3028,7 +3110,9 @@ RegistryPage(PINPUT_RECORD Ir)
 	{
 	  DPRINT("Importing %S failed\n", File);
 
-      MUIDisplayError(ERROR_IMPORT_HIVE, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to import a hive file.",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
     }
@@ -3038,7 +3122,9 @@ RegistryPage(PINPUT_RECORD Ir)
   CONSOLE_SetStatusText("   Updating display registry settings...");
   if (!ProcessDisplayRegistry(SetupInf, DisplayList))
     {
-      MUIDisplayError(ERROR_UPDATE_DISPLAY_SETTINGS, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to update display registry settings.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -3046,7 +3132,9 @@ RegistryPage(PINPUT_RECORD Ir)
   CONSOLE_SetStatusText("   Updating keyboard layout settings...");
   if (!ProcessKeyboardLayoutRegistry(LayoutList))
     {
-      MUIDisplayError(ERROR_UPDATE_KBSETTINGS, Ir, POPUP_WAIT_ENTER);
+      PopupError("Setup failed to update keyboard layout settings.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -3131,8 +3219,14 @@ BootLoaderPage(PINPUT_RECORD Ir)
         }
     }
 
-  MUIDisplayPage(BOOT_LOADER_PAGE);
-  CONSOLE_InvertTextXY (8, Line, 60, 1);
+  CONSOLE_SetTextXY(6, 8, "Setup is installing the boot loader");
+
+  CONSOLE_SetTextXY(8, 12, "Install bootloader on the harddisk (MBR).");
+  CONSOLE_SetTextXY(8, 13, "Install bootloader on a floppy disk.");
+  CONSOLE_SetTextXY(8, 14, "Skip install bootloader.");
+  CONSOLE_InvertTextXY (8, Line, 48, 1);
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
 
   while(TRUE)
     {
@@ -3141,7 +3235,7 @@ BootLoaderPage(PINPUT_RECORD Ir)
       if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
 	  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN)) /* DOWN */
 	{
-	  CONSOLE_NormalTextXY (8, Line, 60, 1);
+	  CONSOLE_NormalTextXY (8, Line, 48, 1);
 
 	  Line++;
       if (Line<12) Line=14;
@@ -3149,7 +3243,7 @@ BootLoaderPage(PINPUT_RECORD Ir)
 
 
 
-	  CONSOLE_InvertTextXY (8, Line, 60, 1);
+	  CONSOLE_InvertTextXY (8, Line, 48, 1);
 	}
       else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
 	       (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP)) /* UP */
@@ -3199,8 +3293,14 @@ BootLoaderFloppyPage(PINPUT_RECORD Ir)
 {
   NTSTATUS Status;
 
-  MUIDisplayPage(BOOT_LOADER_FLOPPY_PAGE);
+  CONSOLE_SetTextXY(6, 8, "Setup cannot install the bootloader on your computers");
+  CONSOLE_SetTextXY(6, 9, "harddisk");
 
+  CONSOLE_SetTextXY(6, 13, "Please insert a formatted floppy disk in drive A: and");
+  CONSOLE_SetTextXY(6, 14, "press ENTER.");
+
+
+  CONSOLE_SetStatusText("   ENTER = Continue   F3 = Quit");
 //  SetStatusText("   Please wait...");
 
   while(TRUE)
@@ -3218,7 +3318,9 @@ BootLoaderFloppyPage(PINPUT_RECORD Ir)
 	{
 	  if (DoesFileExist(L"\\Device\\Floppy0", L"\\") == FALSE)
 	    {
-          MUIDisplayError(ERROR_NO_FLOPPY, Ir, POPUP_WAIT_ENTER);
+	      PopupError("No disk in drive A:.",
+			 "ENTER = Continue",
+			 Ir, POPUP_WAIT_ENTER);
 	      return BOOT_LOADER_FLOPPY_PAGE;
 	    }
 
@@ -3258,7 +3360,9 @@ BootLoaderHarddiskPage(PINPUT_RECORD Ir)
 					     PartitionType);
       if (!NT_SUCCESS(Status))
 	{
-      MUIDisplayError(ERROR_INSTALL_BOOTCODE, Ir, POPUP_WAIT_ENTER);
+	  PopupError("Setup failed to install the FAT bootcode on the system partition.",
+		     "ENTER = Reboot computer",
+		     Ir, POPUP_WAIT_ENTER);
 	  return QUIT_PAGE;
 	}
 
@@ -3266,7 +3370,9 @@ BootLoaderHarddiskPage(PINPUT_RECORD Ir)
     }
   else
     {
-      MUIDisplayError(ERROR_WRITE_BOOT, Ir, POPUP_WAIT_ENTER);
+      PopupError("failed to install FAT bootcode on the system partition.",
+		 "ENTER = Reboot computer",
+		 Ir, POPUP_WAIT_ENTER);
       return QUIT_PAGE;
     }
 
@@ -3277,7 +3383,14 @@ BootLoaderHarddiskPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 QuitPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(QUIT_PAGE);
+  CONSOLE_SetTextXY(10, 6, "ReactOS is not completely installed");
+
+  CONSOLE_SetTextXY(10, 8, "Remove floppy disk from Drive A: and");
+  CONSOLE_SetTextXY(10, 9, "all CD-ROMs from CD-Drives.");
+
+  CONSOLE_SetTextXY(10, 11, "Press ENTER to reboot your computer.");
+
+  CONSOLE_SetStatusText("   Please wait ...");
 
   /* Destroy partition list */
   if (PartitionList != NULL)
@@ -3321,12 +3434,6 @@ QuitPage(PINPUT_RECORD Ir)
       LayoutList = NULL;
     }
 
-  if (LanguageList != NULL)
-    {
-      DestroyGenericList(LanguageList, FALSE);
-      LanguageList = NULL;
-    }
-
   CONSOLE_SetStatusText("   ENTER = Reboot computer");
 
   while(TRUE)
@@ -3344,7 +3451,14 @@ QuitPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 SuccessPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(SUCCESS_PAGE);
+  CONSOLE_SetTextXY(10, 6, "The basic components of ReactOS have been installed successfully.");
+
+  CONSOLE_SetTextXY(10, 8, "Remove floppy disk from Drive A: and");
+  CONSOLE_SetTextXY(10, 9, "all CD-ROMs from CD-Drive.");
+
+  CONSOLE_SetTextXY(10, 11, "Press ENTER to reboot your computer.");
+
+  CONSOLE_SetStatusText("   ENTER = Reboot computer");
 
   if (IsUnattendedSetup)
     {
@@ -3366,13 +3480,16 @@ SuccessPage(PINPUT_RECORD Ir)
 static PAGE_NUMBER
 FlushPage(PINPUT_RECORD Ir)
 {
-  MUIDisplayPage(FLUSH_PAGE);
+  CONSOLE_SetTextXY(10, 6, "The system is now making sure all data is stored on your disk");
+
+  CONSOLE_SetTextXY(10, 8, "This may take a minute");
+  CONSOLE_SetTextXY(10, 9, "When finished, your computer will reboot automatically");
+
+  CONSOLE_SetStatusText("   Flushing cache");
+
   return REBOOT_PAGE;
 }
 
-
-DWORD WINAPI
-PnpEventThread(IN LPVOID lpParameter);
 
 VOID
 RunUSetup(VOID)
@@ -3380,13 +3497,9 @@ RunUSetup(VOID)
   INPUT_RECORD Ir;
   PAGE_NUMBER Page;
   LARGE_INTEGER Time;
-  NTSTATUS Status;
 
   NtQuerySystemTime(&Time);
 
-  Status = RtlCreateUserThread(NtCurrentProcess(), NULL, TRUE, 0, 0, 0, PnpEventThread, &SetupInf, &hPnpThread, NULL);
-  if (!NT_SUCCESS(Status))
-      hPnpThread = INVALID_HANDLE_VALUE;
   if (!CONSOLE_Init())
     {
       PrintString("Unable to open the console\n\n");
@@ -3401,7 +3514,6 @@ RunUSetup(VOID)
   /* Initialize global unicode strings */
   RtlInitUnicodeString(&SourcePath, NULL);
   RtlInitUnicodeString(&SourceRootPath, NULL);
-  RtlInitUnicodeString(&SourceRootDir, NULL);
   RtlInitUnicodeString(&InstallPath, NULL);
   RtlInitUnicodeString(&DestinationPath, NULL);
   RtlInitUnicodeString(&DestinationArcPath, NULL);
@@ -3411,21 +3523,15 @@ RunUSetup(VOID)
   /* Hide the cursor */
   CONSOLE_SetCursorType(TRUE, FALSE);
 
-  Page = LANGUAGE_PAGE;
+  Page = START_PAGE;
   while (Page != REBOOT_PAGE)
     {
       CONSOLE_ClearScreen();
 
       CONSOLE_SetUnderlinedTextXY(4, 3, " ReactOS " KERNEL_VERSION_STR " Setup ");
 
-      CONSOLE_Flush();
-
       switch (Page)
 	{
-      /* Language page */
-      case LANGUAGE_PAGE:
-        Page = LanguagePage(&Ir);
-        break;
 	  /* Start page */
 	  case START_PAGE:
 	    Page = SetupStartPage(&Ir);

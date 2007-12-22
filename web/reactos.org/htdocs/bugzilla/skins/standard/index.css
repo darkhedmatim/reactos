@@ -27,11 +27,6 @@
         padding: 0;
     }
 
-    #page-index ul
-    {
-        padding-bottom: 1em;
-    }
-
     #page-index li
     {
         list-style: none;
@@ -39,7 +34,7 @@
 
     #page-index p
     {
-        padding-bottom: 0.5em;
+        padding-bottom: 1em;
     }
 
     /* Hide from NN4 */
@@ -48,9 +43,10 @@
         width: 250px;
         height: 200px;
 
-        margin-top: -15px;
-        margin-right: 5px;
+        margin-top: 2.3em;
+        margin-right: 2.3em;
         float: right;
+
         background: transparent no-repeat url(index/front.png);
     }
 
@@ -64,22 +60,10 @@
         padding-top: 1em;
     }
 
-    #new_release
+    /* Hide from MSIE6- */
+    #page-index [id]#sidebar
     {
-        border: 2px solid red;
-        padding: 0.5em 1em;
-        margin: 1em;
-        font-weight: bold;
+        padding: 1em 0;
     }
 
-    #new_release .notice
-    {
-        font-size: 80%;
-        font-weight: normal;
-    }
-
-    #welcome-admin a
-    {
-        font-weight: bold;
-    }
 /* index page (end) */

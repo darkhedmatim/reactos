@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  5.1
  *
- * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,6 +45,9 @@
 #include "macros.h"
 #include "imports.h"
 #include "mtypes.h"
+#include "nvfragprog.h"
+#include "math/m_matrix.h"
+#include "math/m_xform.h"
 
 #include "t_pipeline.h"
 
@@ -73,8 +77,7 @@
 #define EDGEFLAG_SET(idx, val) VB->EdgeFlag[idx] = val
 
 
-/* This does NOT include the CLIP_USER_BIT! */
-#define CLIPMASK (CLIP_FRUSTUM_BITS | CLIP_CULL_BIT)
+#define CLIPMASK (CLIP_ALL_BITS|CLIP_CULL_BIT)
 
 
 /* Vertices, with the possibility of clipping.
@@ -130,6 +133,7 @@ do {							\
 #define TAG(x) clip_##x##_verts
 #define INIT(x) tnl->Driver.Render.PrimitiveNotify( ctx, x )
 #define RESET_STIPPLE if (stipple) tnl->Driver.Render.ResetLineStipple( ctx )
+#define RESET_OCCLUSION ctx->OcclusionResult = GL_TRUE
 #define PRESERVE_VB_DEFS
 #include "t_vb_rendertmp.h"
 
@@ -216,6 +220,7 @@ static void clip_elt_triangles( GLcontext *ctx,
    (void) elt; (void) stipple
 
 #define RESET_STIPPLE if (stipple) tnl->Driver.Render.ResetLineStipple( ctx )
+#define RESET_OCCLUSION ctx->OcclusionResult = GL_TRUE
 #define INIT(x) tnl->Driver.Render.PrimitiveNotify( ctx, x )
 #define RENDER_TAB_QUALIFIER
 #define PRESERVE_VB_DEFS
@@ -305,11 +310,11 @@ static GLboolean run_render( GLcontext *ctx,
 
       for (i = 0 ; i < VB->PrimitiveCount ; i++)
       {
-	 GLuint prim = _tnl_translate_prim(&VB->Primitive[i]);
+	 GLuint prim = VB->Primitive[i].mode;
 	 GLuint start = VB->Primitive[i].start;
 	 GLuint length = VB->Primitive[i].count;
 
-	 assert((prim & PRIM_MODE_MASK) <= GL_POLYGON);
+	 assert((prim & PRIM_MODE_MASK) < GL_POLYGON+1);
 
 	 if (MESA_VERBOSE & VERBOSE_PRIMS) 
 	    _mesa_debug(NULL, "MESA prim %s %d..%d\n", 

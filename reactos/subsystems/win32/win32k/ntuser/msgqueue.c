@@ -163,8 +163,8 @@ MsqInsertSystemMessage(MSG* Msg)
    }
 
    KeQueryTickCount(&LargeTickCount);
-   Msg->time = MsqCalculateMessageTime(&LargeTickCount);
-
+   Msg->time = LargeTickCount.u.LowPart;
+   
    /*
     * If we got WM_MOUSEMOVE and there are already messages in the
     * system message queue, check if the last message is mouse move
@@ -267,7 +267,7 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd, UINT Fi
    USHORT Msg = Message->Msg.message;
    PWINDOW_OBJECT Window = NULL;
    HWND hCaptureWin;
-
+   
    ASSERT_REFS_CO(ScopeWin);
 
    /*
@@ -275,7 +275,7 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd, UINT Fi
    that window has a ref that we need to deref. Thats why we add "dummy"
    refs in all other cases.
    */
-
+   
    hCaptureWin = IntGetCaptureWindow();
    if (hCaptureWin == NULL)
    {
@@ -478,8 +478,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
    NTSTATUS WaitStatus;
    DECLARE_RETURN(BOOL);
    USER_REFERENCE_ENTRY Ref;
-   PDESKTOP Desk = NULL;
-
+   
    WaitObjects[1] = MessageQueue->NewMessages;
    WaitObjects[0] = &HardwareMessageQueueLock;
    do
@@ -499,13 +498,9 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
    while (NT_SUCCESS(WaitStatus) && STATUS_WAIT_0 != WaitStatus);
 
    DesktopWindow = UserGetWindowObject(IntGetDesktopWindow());
-
-   if (DesktopWindow)
-   {
-       UserRefObjectCo(DesktopWindow, &Ref);//can DesktopWindow be NULL?
-       Desk = DesktopWindow->ti->Desktop;
-   }
-
+   
+   if (DesktopWindow) UserRefObjectCo(DesktopWindow, &Ref);//can DesktopWindow be NULL?
+   
    /* Process messages in the message queue itself. */
    IntLockHardwareMessageQueue(MessageQueue);
    CurrentEntry = MessageQueue->HardwareMessagesListHead.Flink;
@@ -517,8 +512,9 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
       if (Current->Msg.message >= WM_MOUSEFIRST &&
             Current->Msg.message <= WM_MOUSELAST)
       {
-
-
+         
+         
+         
          Accept = co_MsqTranslateMouseMessage(MessageQueue, hWnd, FilterLow, FilterHigh,
                                               Current, Remove, &Freed,
                                               DesktopWindow, &ScreenPoint, FALSE);
@@ -531,10 +527,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
             IntUnLockHardwareMessageQueue(MessageQueue);
             IntUnLockSystemHardwareMessageQueueLock(FALSE);
             *Message = Current;
-
-            if (Desk)
-                Desk->LastInputWasKbd = FALSE;
-
+            
             RETURN(TRUE);
          }
 
@@ -678,9 +671,9 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
 
    RETURN(FALSE);
 
-CLEANUP:
+CLEANUP:   
    if (DesktopWindow) UserDerefObjectCo(DesktopWindow);
-
+   
    END_CLEANUP;
 }
 
@@ -701,7 +694,7 @@ co_MsqPostKeyboardMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
    Msg.lParam = lParam;
 
    KeQueryTickCount(&LargeTickCount);
-   Msg.time = MsqCalculateMessageTime(&LargeTickCount);
+   Msg.time = LargeTickCount.u.LowPart;
    /* We can't get the Msg.pt point here since we don't know thread
       (and thus the window station) the message will end up in yet. */
 
@@ -730,9 +723,6 @@ co_MsqPostKeyboardMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
          Msg.hwnd = FocusMessageQueue->FocusWindow;
          DPRINT("Msg.hwnd = %x\n", Msg.hwnd);
-
-         FocusMessageQueue->Desktop->DesktopInfo->LastInputWasKbd = TRUE;
-
          IntGetCursorLocation(FocusMessageQueue->Desktop->WindowStation,
                               &Msg.pt);
          MsqPostMessage(FocusMessageQueue, &Msg, FALSE, QS_KEY);
@@ -780,7 +770,7 @@ MsqPostHotKeyMessage(PVOID Thread, HWND hWnd, WPARAM wParam, LPARAM lParam)
    Mesg.wParam = wParam;
    Mesg.lParam = lParam;
    KeQueryTickCount(&LargeTickCount);
-   Mesg.time = MsqCalculateMessageTime(&LargeTickCount);
+   Mesg.time = LargeTickCount.u.LowPart;
    IntGetCursorLocation(WinSta, &Mesg.pt);
    MsqPostMessage(Window->MessageQueue, &Mesg, FALSE, QS_HOTKEY);
    ObmDereferenceObject(Window);
@@ -1797,7 +1787,7 @@ MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
    Msg->wParam = (WPARAM) Timer->IDEvent;
    Msg->lParam = (LPARAM) Timer->TimerFunc;
    KeQueryTickCount(&LargeTickCount);
-   Msg->time = MsqCalculateMessageTime(&LargeTickCount);
+   Msg->time = LargeTickCount.u.LowPart;
    IntGetCursorLocation(PsGetCurrentThreadWin32Thread()->Desktop->WindowStation,
                         &Msg->pt);
 

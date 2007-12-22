@@ -18,6 +18,7 @@ use strict;
 
 package Bugzilla::Product;
 
+use Bugzilla::Component;
 use Bugzilla::Version;
 use Bugzilla::Milestone;
 
@@ -25,17 +26,11 @@ use Bugzilla::Util;
 use Bugzilla::Group;
 use Bugzilla::Error;
 
-use Bugzilla::Install::Requirements;
-
-use base qw(Bugzilla::Object);
-
 use constant DEFAULT_CLASSIFICATION_ID => 1;
 
 ###############################
 ####    Initialization     ####
 ###############################
-
-use constant DB_TABLE => 'products';
 
 use constant DB_COLUMNS => qw(
    products.id
@@ -50,6 +45,52 @@ use constant DB_COLUMNS => qw(
    products.defaultmilestone
 );
 
+my $columns = join(", ", DB_COLUMNS);
+
+sub new {
+    my $invocant = shift;
+    my $class = ref($invocant) || $invocant;
+    my $self = {};
+    bless($self, $class);
+    return $self->_init(@_);
+}
+
+sub _init {
+    my $self = shift;
+    my ($param) = @_;
+    my $dbh = Bugzilla->dbh;
+
+    my $id = $param unless (ref $param eq 'HASH');
+    my $product;
+
+    if (defined $id) {
+        detaint_natural($id)
+          || ThrowCodeError('param_must_be_numeric',
+                            {function => 'Bugzilla::Product::_init'});
+
+        $product = $dbh->selectrow_hashref(qq{
+            SELECT $columns FROM products
+            WHERE id = ?}, undef, $id);
+
+    } elsif (defined $param->{'name'}) {
+
+        trick_taint($param->{'name'});
+        $product = $dbh->selectrow_hashref(qq{
+            SELECT $columns FROM products
+            WHERE name = ?}, undef, $param->{'name'});
+    } else {
+        ThrowCodeError('bad_arg',
+            {argument => 'param',
+             function => 'Bugzilla::Product::_init'});
+    }
+
+    return undef unless (defined $product);
+
+    foreach my $field (keys %$product) {
+        $self->{$field} = $product->{$field};
+    }
+    return $self;
+}
 
 ###############################
 ####       Methods         ####
@@ -65,8 +106,11 @@ sub components {
             WHERE product_id = ?
             ORDER BY name}, undef, $self->id);
 
-        require Bugzilla::Component;
-        $self->{components} = Bugzilla::Component->new_from_list($ids);
+        my @components;
+        foreach my $id (@$ids) {
+            push @components, new Bugzilla::Component($id);
+        }
+        $self->{components} = \@components;
     }
     return $self->{components};
 }
@@ -81,10 +125,7 @@ sub group_controls {
                        group_control_map.entry,
                        group_control_map.membercontrol,
                        group_control_map.othercontrol,
-                       group_control_map.canedit,
-                       group_control_map.editcomponents,
-                       group_control_map.editbugs,
-                       group_control_map.canconfirm
+                       group_control_map.canedit
                   FROM groups
                   LEFT JOIN group_control_map
                         ON groups.id = group_control_map.group_id
@@ -106,11 +147,16 @@ sub versions {
     my $dbh = Bugzilla->dbh;
 
     if (!defined $self->{versions}) {
-        my $ids = $dbh->selectcol_arrayref(q{
-            SELECT id FROM versions
-            WHERE product_id = ?}, undef, $self->id);
+        my $values = $dbh->selectcol_arrayref(q{
+            SELECT value FROM versions
+            WHERE product_id = ?
+            ORDER BY value}, undef, $self->id);
 
-        $self->{versions} = Bugzilla::Version->new_from_list($ids);
+        my @versions;
+        foreach my $value (@$values) {
+            push @versions, new Bugzilla::Version($self->id, $value);
+        }
+        $self->{versions} = \@versions;
     }
     return $self->{versions};
 }
@@ -120,11 +166,16 @@ sub milestones {
     my $dbh = Bugzilla->dbh;
 
     if (!defined $self->{milestones}) {
-        my $ids = $dbh->selectcol_arrayref(q{
-            SELECT id FROM milestones
-             WHERE product_id = ?}, undef, $self->id);
+        my $values = $dbh->selectcol_arrayref(q{
+            SELECT value FROM milestones
+            WHERE product_id = ?
+            ORDER BY sortkey}, undef, $self->id);
  
-        $self->{milestones} = Bugzilla::Milestone->new_from_list($ids);
+        my @milestones;
+        foreach my $value (@$values) {
+            push @milestones, new Bugzilla::Milestone($self->id, $value);
+        }
+        $self->{milestones} = \@milestones;
     }
     return $self->{milestones};
 }
@@ -155,42 +206,13 @@ sub bug_ids {
     return $self->{'bug_ids'};
 }
 
-sub user_has_access {
-    my ($self, $user) = @_;
-
-    return Bugzilla->dbh->selectrow_array(
-        'SELECT CASE WHEN group_id IS NULL THEN 1 ELSE 0 END
-           FROM products LEFT JOIN group_control_map
-                ON group_control_map.product_id = products.id
-                   AND group_control_map.entry != 0
-                   AND group_id NOT IN (' . $user->groups_as_string . ')
-          WHERE products.id = ? ' . Bugzilla->dbh->sql_limit(1),
-          undef, $self->id);
-}
-
-sub flag_types {
-    my $self = shift;
-
-    if (!defined $self->{'flag_types'}) {
-        $self->{'flag_types'} = {};
-        foreach my $type ('bug', 'attachment') {
-            my %flagtypes;
-            foreach my $component (@{$self->components}) {
-                foreach my $flagtype (@{$component->flag_types->{$type}}) {
-                    $flagtypes{$flagtype->{'id'}} ||= $flagtype;
-                }
-            }
-            $self->{'flag_types'}->{$type} = [sort { $a->{'sortkey'} <=> $b->{'sortkey'}
-                                                    || $a->{'name'} cmp $b->{'name'} } values %flagtypes];
-        }
-    }
-    return $self->{'flag_types'};
-}
 
 ###############################
 ####      Accessors      ######
 ###############################
 
+sub id                { return $_[0]->{'id'};                }
+sub name              { return $_[0]->{'name'};              }
 sub description       { return $_[0]->{'description'};       }
 sub milestone_url     { return $_[0]->{'milestoneurl'};      }
 sub disallow_new      { return $_[0]->{'disallownew'};       }
@@ -203,6 +225,19 @@ sub classification_id { return $_[0]->{'classification_id'}; }
 ###############################
 ####      Subroutines    ######
 ###############################
+
+sub get_all_products {
+    my $dbh = Bugzilla->dbh;
+
+    my $ids = $dbh->selectcol_arrayref(q{
+        SELECT id FROM products ORDER BY name});
+
+    my @products;
+    foreach my $id (@$ids) {
+        push @products, new Bugzilla::Product($id);
+    }
+    return @products;
+}
 
 sub check_product {
     my ($product_name) = @_;
@@ -231,7 +266,7 @@ Bugzilla::Product - Bugzilla product class.
     use Bugzilla::Product;
 
     my $product = new Bugzilla::Product(1);
-    my $product = new Bugzilla::Product({ name => 'AcmeProduct' });
+    my $product = new Bugzilla::Product('AcmeProduct');
 
     my @components      = $product->components();
     my $groups_controls = $product->group_controls();
@@ -239,8 +274,6 @@ Bugzilla::Product - Bugzilla product class.
     my @versions        = $product->versions();
     my $bugcount        = $product->bug_count();
     my $bug_ids         = $product->bug_ids();
-    my $has_access      = $product->user_has_access($user);
-    my $flag_types      = $product->flag_types();
 
     my $id               = $product->id;
     my $name             = $product->name;
@@ -255,16 +288,24 @@ Bugzilla::Product - Bugzilla product class.
 
 =head1 DESCRIPTION
 
-Product.pm represents a product object. It is an implementation
-of L<Bugzilla::Object>, and thus provides all methods that
-L<Bugzilla::Object> provides.
-
-The methods that are specific to C<Bugzilla::Product> are listed 
-below.
+Product.pm represents a product object.
 
 =head1 METHODS
 
 =over
+
+=item C<new($param)>
+
+ Description: The constructor is used to load an existing product
+              by passing a product id or a hash.
+
+ Params:      $param - If you pass an integer, the integer is the
+                       product id from the database that we want to
+                       read in. If you pass in a hash with 'name' key,
+                       then the value of the name key is the name of a
+                       product from the DB.
+
+ Returns:     A Bugzilla::Product object.
 
 =item C<components()>
 
@@ -318,32 +359,19 @@ below.
 
  Returns:     An array of integer.
 
-=item C<user_has_access()>
-
- Description: Tells you whether or not the user is allowed to enter
-              bugs into this product, based on the C<entry> group
-              control. To see whether or not a user can actually
-              enter a bug into a product, use C<$user-&gt;can_enter_product>.
-
- Params:      C<$user> - A Bugzilla::User object.
-
- Returns      C<1> If this user's groups allow him C<entry> access to
-              this Product, C<0> otherwise.
-
-=item C<flag_types()>
-
- Description: Returns flag types available for at least one of
-              its components.
-
- Params:      none.
-
- Returns:     Two references to an array of flagtype objects.
-
 =back
 
 =head1 SUBROUTINES
 
 =over
+
+=item C<get_all_products()>
+
+ Description: Returns all products from the database.
+
+ Params:      none.
+
+ Returns:     Bugzilla::Product object list.
 
 =item C<check_product($product_name)>
 
@@ -355,9 +383,5 @@ below.
  Returns:     Bugzilla::Product object.
 
 =back
-
-=head1 SEE ALSO
-
-L<Bugzilla::Object>
 
 =cut

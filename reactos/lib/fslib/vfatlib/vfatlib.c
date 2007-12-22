@@ -212,7 +212,7 @@ VfatChkdsk(
 	IN BOOLEAN ScanDrive,
 	IN PFMIFSCALLBACK Callback)
 {
-	UNIMPLEMENTED;
+	DPRINT1("VfatChkdsk() unimplemented!\n");
 	return STATUS_SUCCESS;
 }
 

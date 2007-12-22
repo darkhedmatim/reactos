@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.4
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,55 +30,26 @@
  * \author Karl Rasche
  */
 
+#include "mtypes.h"
 #include "glheader.h"
+#include "context.h"
+#include "hash.h"
 #include "imports.h"
+#include "macros.h"
+#include "program.h"
+#include "nvvertprog.h"
+#include "nvfragprog.h"
 #include "arbprogparse.h"
 #include "grammar_mesa.h"
-#include "program.h"
-#include "prog_parameter.h"
-#include "prog_statevars.h"
-#include "context.h"
-#include "macros.h"
-#include "mtypes.h"
-#include "prog_instruction.h"
 
+#include "dispatch.h"
 
-/* For ARB programs, use the NV instruction limits */
-#define MAX_INSTRUCTIONS MAX2(MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS, \
-                              MAX_NV_VERTEX_PROGRAM_INSTRUCTIONS)
-
-
-/**
- * This is basically a union of the vertex_program and fragment_program
- * structs that we can use to parse the program into
- *
- * XXX we can probably get rid of this entirely someday.
- */
-struct arb_program
-{
-   struct gl_program Base;
-
-   GLuint Position;       /* Just used for error reporting while parsing */
-   GLuint MajorVersion;
-   GLuint MinorVersion;
-
-   /* ARB_vertex_progmra options */
-   GLboolean HintPositionInvariant;
-
-   /* ARB_fragment_progmra options */
-   GLenum PrecisionOption; /* GL_DONT_CARE, GL_NICEST or GL_FASTEST */
-   GLenum FogOption;       /* GL_NONE, GL_LINEAR, GL_EXP or GL_EXP2 */
-
-   /* ARB_fragment_program specifics */
-   GLbitfield TexturesUsed[MAX_TEXTURE_IMAGE_UNITS]; 
-   GLuint NumAluInstructions; 
-   GLuint NumTexInstructions;
-   GLuint NumTexIndirections;
-
-   GLboolean UsesKill;
-};
-
-
+#ifndef __extension__
+#if !defined(__GNUC__) || (__GNUC__ < 2) || \
+    ((__GNUC__ == 2) && (__GNUC_MINOR__ <= 7))
+# define __extension__
+#endif
+#endif
 
 /* TODO:
  *    Fragment Program Stuff:
@@ -164,11 +135,10 @@ struct arb_program
 
 typedef GLubyte *production;
 
-
 /**
  * This is the text describing the rules to parse the grammar
  */
-LONGSTRING static char arb_grammar_text[] =
+__extension__ static char arb_grammar_text[] =
 #include "arbprogram_syn.h"
 ;
 
@@ -512,21 +482,25 @@ typedef enum
 } var_type;
 
 
-/**
- * Setting an explicit field for each of the binding properties is a bit
- * wasteful of space, but it should be much more clear when reading later on..
+/*
+ * Setting an explicit field for each of the binding properties is a bit wasteful
+ * of space, but it should be much more clear when reading later on..
  */
 struct var_cache
 {
-   const GLubyte *name;         /* don't free() - no need */
+   GLubyte *name;
    var_type type;
    GLuint address_binding;      /* The index of the address register we should
                                  * be using                                        */
    GLuint attrib_binding;       /* For type vt_attrib, see nvfragprog.h for values */
+   GLuint attrib_binding_idx;   /* The index into the attrib register file corresponding
+                                 * to the state in attrib_binding                  */
    GLuint attrib_is_generic;    /* If the attrib was specified through a generic
                                  * vertex attrib                                   */
    GLuint temp_binding;         /* The index of the temp register we are to use    */
-   GLuint output_binding;       /* Output/result register number */
+   GLuint output_binding;       /* For type vt_output, see nvfragprog.h for values */
+   GLuint output_binding_idx;   /* This is the index into the result register file
+                                 * corresponding to the bound result state         */
    struct var_cache *alias_binding;     /* For type vt_alias, points to the var_cache entry
                                          * that this is aliased to                         */
    GLuint param_binding_type;   /* {PROGRAM_STATE_VAR, PROGRAM_LOCAL_PARAM,
@@ -552,6 +526,7 @@ var_cache_create (struct var_cache **va)
       (**va).attrib_is_generic = 0;
       (**va).temp_binding = ~0;
       (**va).output_binding = ~0;
+      (**va).output_binding_idx = ~0;
       (**va).param_binding_type = ~0;
       (**va).param_binding_begin = ~0;
       (**va).param_binding_length = ~0;
@@ -580,12 +555,12 @@ var_cache_append (struct var_cache **va, struct var_cache *nv)
 }
 
 static struct var_cache *
-var_cache_find (struct var_cache *va, const GLubyte * name)
+var_cache_find (struct var_cache *va, GLubyte * name)
 {
    /*struct var_cache *first = va;*/
 
    while (va) {
-      if (!_mesa_strcmp ( (const char*) name, (const char*) va->name)) {
+      if (!strcmp ( (const char*) name, (const char*) va->name)) {
          if (va->type == vt_alias)
             return va->alias_binding;
          return va;
@@ -597,74 +572,11 @@ var_cache_find (struct var_cache *va, const GLubyte * name)
    return NULL;
 }
 
-
-
-/**
- * Called when an error is detected while parsing/compiling a program.
- * Sets the ctx->Program.ErrorString field to descript and records a
- * GL_INVALID_OPERATION error.
- * \param position  position of error in program string
- * \param descrip  verbose error description
- */
-static void
-program_error(GLcontext *ctx, GLint position, const char *descrip)
-{
-   if (descrip) {
-      const char *prefix = "glProgramString(", *suffix = ")";
-      char *str = (char *) _mesa_malloc(_mesa_strlen(descrip) +
-                                        _mesa_strlen(prefix) +
-                                        _mesa_strlen(suffix) + 1);
-      if (str) {
-         _mesa_sprintf(str, "%s%s%s", prefix, descrip, suffix);
-         _mesa_error(ctx, GL_INVALID_OPERATION, str);
-         _mesa_free(str);
-      }
-   }
-   _mesa_set_program_error(ctx, position, descrip);
-}
-
-
-/**
- * As above, but with an extra string parameter for more info.
- */
-static void
-program_error2(GLcontext *ctx, GLint position, const char *descrip,
-               const char *var)
-{
-   if (descrip) {
-      const char *prefix = "glProgramString(", *suffix = ")";
-      char *str = (char *) _mesa_malloc(_mesa_strlen(descrip) +
-                                        _mesa_strlen(": ") +
-                                        _mesa_strlen(var) +
-                                        _mesa_strlen(prefix) +
-                                        _mesa_strlen(suffix) + 1);
-      if (str) {
-         _mesa_sprintf(str, "%s%s: %s%s", prefix, descrip, var, suffix);
-         _mesa_error(ctx, GL_INVALID_OPERATION, str);
-         _mesa_free(str);
-      }
-   }
-   {
-      char *str = (char *) _mesa_malloc(_mesa_strlen(descrip) +
-                                        _mesa_strlen(": ") +
-                                        _mesa_strlen(var) + 1);
-      if (str) {
-         _mesa_sprintf(str, "%s: %s", descrip, var);
-      }
-      _mesa_set_program_error(ctx, position, str);
-      if (str) {
-         _mesa_free(str);
-      }
-   }
-}
-
-
-
 /**
  * constructs an integer from 4 GLubytes in LE format
  */
 static GLuint
-parse_position (const GLubyte ** inst)
+parse_position (GLubyte ** inst)
 {
    GLuint value;
 
@@ -686,10 +598,10 @@ parse_position (const GLubyte ** inst)
  * \return       The location on the var_cache corresponding the the string starting at I
  */
 static struct var_cache *
-parse_string (const GLubyte ** inst, struct var_cache **vc_head,
+parse_string (GLubyte ** inst, struct var_cache **vc_head,
               struct arb_program *Program, GLuint * found)
 {
-   const GLubyte *i = *inst;
+   GLubyte *i = *inst;
    struct var_cache *va = NULL;
    (void) Program;
 
@@ -704,7 +616,7 @@ parse_string (const GLubyte ** inst, struct var_cache **vc_head,
 
    *found = 0;
    var_cache_create (&va);
-   va->name = (const GLubyte *) i;
+   va->name = i;
 
    var_cache_append (vc_head, va);
 
@@ -712,9 +624,9 @@ parse_string (const GLubyte ** inst, struct var_cache **vc_head,
 }
 
 static char *
-parse_string_without_adding (const GLubyte ** inst, struct arb_program *Program)
+parse_string_without_adding (GLubyte ** inst, struct arb_program *Program)
 {
-   const GLubyte *i = *inst;
+   GLubyte *i = *inst;
    (void) Program;
    
    *inst += _mesa_strlen ((char *) i) + 1;
@@ -726,7 +638,7 @@ parse_string_without_adding (const GLubyte ** inst, struct arb_program *Program)
  * \return -1 if we parse '-', return 1 otherwise
  */
 static GLint
-parse_sign (const GLubyte ** inst)
+parse_sign (GLubyte ** inst)
 {
    /*return *(*inst)++ != '+'; */
 
@@ -746,7 +658,7 @@ parse_sign (const GLubyte ** inst)
  * parses and returns signed integer
  */
 static GLint
-parse_integer (const GLubyte ** inst, struct arb_program *Program)
+parse_integer (GLubyte ** inst, struct arb_program *Program)
 {
    GLint sign;
    GLint value;
@@ -783,7 +695,7 @@ parse_integer (const GLubyte ** inst, struct arb_program *Program)
   in the string.
 */
 static GLdouble
-parse_float_string(const GLubyte ** inst, struct arb_program *Program, GLdouble *scale)
+parse_float_string(GLubyte ** inst, struct arb_program *Program, GLdouble *scale)
 {
    GLdouble value = 0.0;
    GLdouble oscale = 1.0;
@@ -816,7 +728,7 @@ parse_float_string(const GLubyte ** inst, struct arb_program *Program, GLdouble 
      12.34e-4
  */
 static GLfloat
-parse_float (const GLubyte ** inst, struct arb_program *Program)
+parse_float (GLubyte ** inst, struct arb_program *Program)
 {
    GLint exponent;
    GLdouble whole, fraction, fracScale = 1.0;
@@ -836,7 +748,7 @@ parse_float (const GLubyte ** inst, struct arb_program *Program)
 /**
  */
 static GLfloat
-parse_signed_float (const GLubyte ** inst, struct arb_program *Program)
+parse_signed_float (GLubyte ** inst, struct arb_program *Program)
 {
    GLint sign = parse_sign (inst);
    GLfloat value = parse_float (inst, Program);
@@ -850,7 +762,7 @@ parse_signed_float (const GLubyte ** inst, struct arb_program *Program)
  * \param values - The 4 component vector with the constant value in it
  */
 static GLvoid
-parse_constant (const GLubyte ** inst, GLfloat *values, struct arb_program *Program,
+parse_constant (GLubyte ** inst, GLfloat *values, struct arb_program *Program,
                 GLboolean use)
 {
    GLuint components, i;
@@ -888,10 +800,9 @@ parse_constant (const GLubyte ** inst, GLfloat *values, struct arb_program *Prog
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_relative_offset(GLcontext *ctx, const GLubyte **inst,
-                      struct arb_program *Program, GLint *offset)
+parse_relative_offset (GLcontext *ctx, GLubyte **inst, struct arb_program *Program,
+                        GLint *offset)
 {
-   (void) ctx;
    *offset = parse_integer(inst, Program);
    return 0;
 }
@@ -901,7 +812,7 @@ parse_relative_offset(GLcontext *ctx, const GLubyte **inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_color_type (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Program,
+parse_color_type (GLcontext * ctx, GLubyte ** inst, struct arb_program *Program,
                   GLint * color)
 {
    (void) ctx; (void) Program;
@@ -915,15 +826,17 @@ parse_color_type (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Pr
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_generic_attrib_num(GLcontext *ctx, const GLubyte ** inst,
+parse_generic_attrib_num(GLcontext *ctx, GLubyte ** inst,
                        struct arb_program *Program, GLuint *attrib)
 {
    GLint i = parse_integer(inst, Program);
 
-   if ((i < 0) || (i >= MAX_VERTEX_PROGRAM_ATTRIBS))
+   if ((i < 0) || (i > MAX_VERTEX_PROGRAM_ATTRIBS))
    {
-      program_error(ctx, Program->Position,
-                    "Invalid generic vertex attribute index");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Invalid generic vertex attribute index");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Invalid generic vertex attribute index");
+
       return 1;
    }
 
@@ -938,13 +851,15 @@ parse_generic_attrib_num(GLcontext *ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_output_color_num (GLcontext * ctx, const GLubyte ** inst,
+parse_output_color_num (GLcontext * ctx, GLubyte ** inst,
                     struct arb_program *Program, GLuint * color)
 {
    GLint i = parse_integer (inst, Program);
 
    if ((i < 0) || (i >= (int)ctx->Const.MaxDrawBuffers)) {
-      program_error(ctx, Program->Position, "Invalid draw buffer index");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Invalid draw buffer index");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Invalid draw buffer index");
       return 1;
    }
 
@@ -958,13 +873,15 @@ parse_output_color_num (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_texcoord_num (GLcontext * ctx, const GLubyte ** inst,
+parse_texcoord_num (GLcontext * ctx, GLubyte ** inst,
                     struct arb_program *Program, GLuint * coord)
 {
    GLint i = parse_integer (inst, Program);
 
    if ((i < 0) || (i >= (int)ctx->Const.MaxTextureUnits)) {
-      program_error(ctx, Program->Position, "Invalid texture unit index");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Invalid texture unit index");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Invalid texture unit index");
       return 1;
    }
 
@@ -977,13 +894,15 @@ parse_texcoord_num (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_weight_num (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Program,
+parse_weight_num (GLcontext * ctx, GLubyte ** inst, struct arb_program *Program,
                   GLint * coord)
 {
    *coord = parse_integer (inst, Program);
 
    if ((*coord < 0) || (*coord >= 1)) {
-      program_error(ctx, Program->Position, "Invalid weight index");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Invalid weight index");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Invalid weight index");
       return 1;
    }
 
@@ -995,13 +914,15 @@ parse_weight_num (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Pr
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_clipplane_num (GLcontext * ctx, const GLubyte ** inst,
+parse_clipplane_num (GLcontext * ctx, GLubyte ** inst,
                      struct arb_program *Program, GLint * coord)
 {
    *coord = parse_integer (inst, Program);
 
    if ((*coord < 0) || (*coord >= (GLint) ctx->Const.MaxClipPlanes)) {
-      program_error(ctx, Program->Position, "Invalid clip plane index");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Invalid clip plane index");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Invalid clip plane index");
       return 1;
    }
 
@@ -1013,7 +934,7 @@ parse_clipplane_num (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on front face, 1 on back face
  */
 static GLuint
-parse_face_type (const GLubyte ** inst)
+parse_face_type (GLubyte ** inst)
 {
    switch (*(*inst)++) {
       case FACE_FRONT:
@@ -1036,7 +957,7 @@ parse_face_type (const GLubyte ** inst)
  * \return 0 on sucess, 1 on failure
  */
 static GLuint
-parse_matrix (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Program,
+parse_matrix (GLcontext * ctx, GLubyte ** inst, struct arb_program *Program,
               GLint * matrix, GLint * matrix_idx, GLint * matrix_modifier)
 {
    GLubyte mat = *(*inst)++;
@@ -1045,29 +966,33 @@ parse_matrix (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Progra
 
    switch (mat) {
       case MATRIX_MODELVIEW:
-         *matrix = STATE_MODELVIEW_MATRIX;
+         *matrix = STATE_MODELVIEW;
          *matrix_idx = parse_integer (inst, Program);
          if (*matrix_idx > 0) {
-            program_error(ctx, Program->Position,
-                          "ARB_vertex_blend not supported");
+            _mesa_set_program_error (ctx, Program->Position,
+               "ARB_vertex_blend not supported\n");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+               "ARB_vertex_blend not supported\n");
             return 1;
          }
          break;
 
       case MATRIX_PROJECTION:
-         *matrix = STATE_PROJECTION_MATRIX;
+         *matrix = STATE_PROJECTION;
          break;
 
       case MATRIX_MVP:
-         *matrix = STATE_MVP_MATRIX;
+         *matrix = STATE_MVP;
          break;
 
       case MATRIX_TEXTURE:
-         *matrix = STATE_TEXTURE_MATRIX;
+         *matrix = STATE_TEXTURE;
          *matrix_idx = parse_integer (inst, Program);
          if (*matrix_idx >= (GLint) ctx->Const.MaxTextureUnits) {
-            program_error(ctx, Program->Position, "Invalid Texture Unit");
-            /* bad *matrix_id */
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Texture Unit");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Texture Unit: %d", *matrix_idx);
             return 1;
          }
          break;
@@ -1075,17 +1000,21 @@ parse_matrix (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Progra
          /* This is not currently supported (ARB_matrix_palette) */
       case MATRIX_PALETTE:
          *matrix_idx = parse_integer (inst, Program);
-         program_error(ctx, Program->Position,
-                       "ARB_matrix_palette not supported");
+         _mesa_set_program_error (ctx, Program->Position,
+              "ARB_matrix_palette not supported\n");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+              "ARB_matrix_palette not supported\n");
          return 1;
          break;
 
       case MATRIX_PROGRAM:
-         *matrix = STATE_PROGRAM_MATRIX;
+         *matrix = STATE_PROGRAM;
          *matrix_idx = parse_integer (inst, Program);
          if (*matrix_idx >= (GLint) ctx->Const.MaxProgramMatrices) {
-            program_error(ctx, Program->Position, "Invalid Program Matrix");
-            /* bad *matrix_idx */
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Program Matrix");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Program Matrix: %d", *matrix_idx);
             return 1;
          }
          break;
@@ -1119,9 +1048,8 @@ parse_matrix (GLcontext * ctx, const GLubyte ** inst, struct arb_program *Progra
  * \return             - 0 on sucess, 1 on error
  */
 static GLuint
-parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
-                         struct arb_program *Program,
-                         gl_state_index state_tokens[STATE_LENGTH])
+parse_state_single_item (GLcontext * ctx, GLubyte ** inst,
+                         struct arb_program *Program, GLint * state_tokens)
 {
    switch (*(*inst)++) {
       case STATE_MATERIAL_PARSER:
@@ -1152,8 +1080,10 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
 
          /* Check the value of state_tokens[1] against the # of lights */
          if (state_tokens[1] >= (GLint) ctx->Const.MaxLights) {
-            program_error(ctx, Program->Position, "Invalid Light Number");
-            /* bad state_tokens[1] */
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Light Number");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Light Number: %d", state_tokens[1]);
             return 1;
          }
 
@@ -1174,7 +1104,7 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
                state_tokens[2] = STATE_ATTENUATION;
                break;
             case LIGHT_HALF:
-               state_tokens[2] = STATE_HALF_VECTOR;
+               state_tokens[2] = STATE_HALF;
                break;
             case LIGHT_SPOT_DIRECTION:
                state_tokens[2] = STATE_SPOT_DIRECTION;
@@ -1200,8 +1130,10 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
 
          /* Check the value of state_tokens[1] against the # of lights */
          if (state_tokens[1] >= (GLint) ctx->Const.MaxLights) {
-            program_error(ctx, Program->Position, "Invalid Light Number");
-            /* bad state_tokens[1] */
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Light Number");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Light Number: %d", state_tokens[1]);
             return 1;
          }
 
@@ -1252,10 +1184,10 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
 	    state_tokens[1] = coord;
 
             /* EYE or OBJECT */
-            type = *(*inst)++;
+            type = *(*inst++);
 
             /* 0 - s, 1 - t, 2 - r, 3 - q */
-            coord = *(*inst)++;
+            coord = *(*inst++);
 
             if (type == TEX_GEN_EYE) {
                switch (coord) {
@@ -1271,9 +1203,6 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
                   case COMPONENT_W:
                      state_tokens[2] = STATE_TEXGEN_EYE_Q;
                      break;
-                  default:
-                     _mesa_problem(ctx, "bad texgen component in "
-                                   "parse_state_single_item()");
                }
             }
             else {
@@ -1290,9 +1219,6 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
                   case COMPONENT_W:
                      state_tokens[2] = STATE_TEXGEN_OBJECT_Q;
                      break;
-                  default:
-                     _mesa_problem(ctx, "bad texgen component in "
-                                   "parse_state_single_item()");
                }
             }
          }
@@ -1309,13 +1235,12 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
       case STATE_CLIP_PLANE:
          state_tokens[0] = STATE_CLIPPLANE;
          state_tokens[1] = parse_integer (inst, Program);
-         if (parse_clipplane_num (ctx, inst, Program,
-                                  (GLint *) &state_tokens[1]))
+         if (parse_clipplane_num (ctx, inst, Program, &state_tokens[1]))
             return 1;
          break;
 
       case STATE_POINT:
-         switch (*(*inst)++) {
+         switch (*(*inst++)) {
             case POINT_SIZE:
                state_tokens[0] = STATE_POINT_SIZE;
                break;
@@ -1328,25 +1253,27 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
 
          /* XXX: I think this is the correct format for a matrix row */
       case STATE_MATRIX_ROWS:
-         if (parse_matrix(ctx, inst, Program,
-                          (GLint *) &state_tokens[0],
-                          (GLint *) &state_tokens[1],
-                          (GLint *) &state_tokens[4]))
+         state_tokens[0] = STATE_MATRIX;
+         if (parse_matrix
+             (ctx, inst, Program, &state_tokens[1], &state_tokens[2],
+              &state_tokens[5]))
             return 1;
 
-         state_tokens[2] = parse_integer (inst, Program);       /* The first row to grab */
+         state_tokens[3] = parse_integer (inst, Program);       /* The first row to grab */
 
          if ((**inst) != 0) {                                   /* Either the last row, 0 */
-            state_tokens[3] = parse_integer (inst, Program);
-            if (state_tokens[3] < state_tokens[2]) {
-               program_error(ctx, Program->Position,
-                             "Second matrix index less than the first");
-               /* state_tokens[4] vs. state_tokens[3] */
+            state_tokens[4] = parse_integer (inst, Program);
+            if (state_tokens[4] < state_tokens[3]) {
+               _mesa_set_program_error (ctx, Program->Position,
+                     "Second matrix index less than the first");
+               _mesa_error (ctx, GL_INVALID_OPERATION,
+                     "Second matrix index (%d) less than the first (%d)",
+                     state_tokens[4], state_tokens[3]);
                return 1;
             }
          }
          else {
-            state_tokens[3] = state_tokens[2];
+            state_tokens[4] = state_tokens[3];
             (*inst)++;
          }
          break;
@@ -1386,9 +1313,8 @@ parse_state_single_item (GLcontext * ctx, const GLubyte ** inst,
  * \return             - 0 on sucess, 1 on failure
  */
 static GLuint
-parse_program_single_item (GLcontext * ctx, const GLubyte ** inst,
-                           struct arb_program *Program,
-                           gl_state_index state_tokens[STATE_LENGTH])
+parse_program_single_item (GLcontext * ctx, GLubyte ** inst,
+                           struct arb_program *Program, GLint * state_tokens)
 {
    if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB)
       state_tokens[0] = STATE_FRAGMENT_PROGRAM;
@@ -1403,13 +1329,15 @@ parse_program_single_item (GLcontext * ctx, const GLubyte ** inst,
 
          /* Check state_tokens[2] against the number of ENV parameters available */
          if (((Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) &&
-              (state_tokens[2] >= (GLint) ctx->Const.FragmentProgram.MaxEnvParams))
+              (state_tokens[2] >= (GLint) ctx->Const.MaxFragmentProgramEnvParams))
              ||
              ((Program->Base.Target == GL_VERTEX_PROGRAM_ARB) &&
-              (state_tokens[2] >= (GLint) ctx->Const.VertexProgram.MaxEnvParams))) {
-            program_error(ctx, Program->Position,
-                          "Invalid Program Env Parameter");
-            /* bad state_tokens[2] */
+              (state_tokens[2] >= (GLint) ctx->Const.MaxVertexProgramEnvParams))) {
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Program Env Parameter");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Program Env Parameter: %d",
+                         state_tokens[2]);
             return 1;
          }
 
@@ -1421,13 +1349,15 @@ parse_program_single_item (GLcontext * ctx, const GLubyte ** inst,
 
          /* Check state_tokens[2] against the number of LOCAL parameters available */
          if (((Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) &&
-              (state_tokens[2] >= (GLint) ctx->Const.FragmentProgram.MaxLocalParams))
+              (state_tokens[2] >= (GLint) ctx->Const.MaxFragmentProgramLocalParams))
              ||
              ((Program->Base.Target == GL_VERTEX_PROGRAM_ARB) &&
-              (state_tokens[2] >= (GLint) ctx->Const.VertexProgram.MaxLocalParams))) {
-            program_error(ctx, Program->Position,
-                          "Invalid Program Local Parameter");
-            /* bad state_tokens[2] */
+              (state_tokens[2] >= (GLint) ctx->Const.MaxVertexProgramLocalParams))) {
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "Invalid Program Local Parameter");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                         "Invalid Program Local Parameter: %d",
+                         state_tokens[2]);
             return 1;
          }
          break;
@@ -1462,9 +1392,9 @@ generic_attrib_check(struct var_cache *vc_head)
    while (curr) {
       if (curr->type == vt_attrib) {
          if (curr->attrib_is_generic)
-            genericAttrib[ curr->attrib_binding ] = GL_TRUE;
+            genericAttrib[ curr->attrib_binding_idx ] = GL_TRUE;
          else
-            explicitAttrib[ curr->attrib_binding ] = GL_TRUE;
+            explicitAttrib[ curr->attrib_binding_idx ] = GL_TRUE;
       }
 
       curr = curr->next;
@@ -1481,41 +1411,46 @@ generic_attrib_check(struct var_cache *vc_head)
 /**
  * This will handle the binding side of an ATTRIB var declaration
  *
- * \param inputReg  returns the input register index, one of the
- *                  VERT_ATTRIB_* or FRAG_ATTRIB_* values.
- * \return returns 0 on success, 1 on error
+ * \param binding     - the fragment input register state, defined in nvfragprog.h
+ * \param binding_idx - the index in the attrib register file that binding is associated with
+ * \return returns 0 on sucess, 1 on error
+ *
+ * See nvfragparse.c for attrib register file layout
  */
 static GLuint
-parse_attrib_binding(GLcontext * ctx, const GLubyte ** inst,
-                     struct arb_program *Program,
-                     GLuint *inputReg, GLuint *is_generic)
+parse_attrib_binding (GLcontext * ctx, GLubyte ** inst,
+                      struct arb_program *Program, GLuint * binding,
+                      GLuint * binding_idx, GLuint *is_generic)
 {
+   GLuint texcoord;
+   GLint coord;
    GLint err = 0;
 
    *is_generic = 0;
-
    if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
       switch (*(*inst)++) {
          case FRAGMENT_ATTRIB_COLOR:
-            {
-               GLint coord;
-               err = parse_color_type (ctx, inst, Program, &coord);
-               *inputReg = FRAG_ATTRIB_COL0 + coord;
-            }
+            err = parse_color_type (ctx, inst, Program, &coord);
+            *binding = FRAG_ATTRIB_COL0 + coord;
+            *binding_idx = 1 + coord;
             break;
+
          case FRAGMENT_ATTRIB_TEXCOORD:
-            {
-               GLuint texcoord = 0;
-               err = parse_texcoord_num (ctx, inst, Program, &texcoord);
-               *inputReg = FRAG_ATTRIB_TEX0 + texcoord;
-            }
+            err = parse_texcoord_num (ctx, inst, Program, &texcoord);
+            *binding = FRAG_ATTRIB_TEX0 + texcoord;
+            *binding_idx = 4 + texcoord;
             break;
+
          case FRAGMENT_ATTRIB_FOGCOORD:
-            *inputReg = FRAG_ATTRIB_FOGC;
+            *binding = FRAG_ATTRIB_FOGC;
+            *binding_idx = 3;
             break;
+
          case FRAGMENT_ATTRIB_POSITION:
-            *inputReg = FRAG_ATTRIB_WPOS;
+            *binding = FRAG_ATTRIB_WPOS;
+            *binding_idx = 0;
             break;
+
          default:
             err = 1;
             break;
@@ -1524,77 +1459,105 @@ parse_attrib_binding(GLcontext * ctx, const GLubyte ** inst,
    else {
       switch (*(*inst)++) {
          case VERTEX_ATTRIB_POSITION:
-            *inputReg = VERT_ATTRIB_POS;
+            *binding = VERT_ATTRIB_POS;
+            *binding_idx = 0;
             break;
 
          case VERTEX_ATTRIB_WEIGHT:
             {
                GLint weight;
+
                err = parse_weight_num (ctx, inst, Program, &weight);
-               *inputReg = VERT_ATTRIB_WEIGHT;
-#if 1
-               /* hack for Warcraft (see bug 8060) */
-               _mesa_warning(ctx, "Application error: vertex program uses 'vertex.weight' but GL_ARB_vertex_blend not supported.");
-               break;
-#else
-               program_error(ctx, Program->Position,
-                             "ARB_vertex_blend not supported");
-               return 1;
-#endif
+               *binding = VERT_ATTRIB_WEIGHT;
+               *binding_idx = 1;
             }
+            _mesa_set_program_error (ctx, Program->Position,
+                 "ARB_vertex_blend not supported\n");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                 "ARB_vertex_blend not supported\n");
+            return 1;
+            break;
 
          case VERTEX_ATTRIB_NORMAL:
-            *inputReg = VERT_ATTRIB_NORMAL;
+            *binding = VERT_ATTRIB_NORMAL;
+            *binding_idx = 2;
             break;
 
          case VERTEX_ATTRIB_COLOR:
             {
                GLint color;
+
                err = parse_color_type (ctx, inst, Program, &color);
                if (color) {
-                  *inputReg = VERT_ATTRIB_COLOR1;
+                  *binding = VERT_ATTRIB_COLOR1;
+                  *binding_idx = 4;
                }
                else {
-                  *inputReg = VERT_ATTRIB_COLOR0;
+                  *binding = VERT_ATTRIB_COLOR0;
+                  *binding_idx = 3;
                }
             }
             break;
 
          case VERTEX_ATTRIB_FOGCOORD:
-            *inputReg = VERT_ATTRIB_FOG;
+            *binding = VERT_ATTRIB_FOG;
+            *binding_idx = 5;
             break;
 
          case VERTEX_ATTRIB_TEXCOORD:
             {
-               GLuint unit = 0;
+               GLuint unit;
+
                err = parse_texcoord_num (ctx, inst, Program, &unit);
-               *inputReg = VERT_ATTRIB_TEX0 + unit;
+               *binding = VERT_ATTRIB_TEX0 + unit;
+               *binding_idx = 8 + unit;
             }
             break;
 
+            /* It looks like we don't support this at all, atm */
          case VERTEX_ATTRIB_MATRIXINDEX:
-            /* Not supported at this time */
-            {
-               const char *msg = "ARB_palette_matrix not supported";
-               parse_integer (inst, Program);
-               program_error(ctx, Program->Position, msg);
-            }
+            parse_integer (inst, Program);
+            _mesa_set_program_error (ctx, Program->Position,
+                  "ARB_palette_matrix not supported");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+                  "ARB_palette_matrix not supported");
             return 1;
+            break;
 
          case VERTEX_ATTRIB_GENERIC:
             {
                GLuint attrib;
-               err = parse_generic_attrib_num(ctx, inst, Program, &attrib);
-               if (!err) {
+
+               if (!parse_generic_attrib_num(ctx, inst, Program, &attrib)) {
                   *is_generic = 1;
-                  /* Add VERT_ATTRIB_GENERIC0 here because ARB_vertex_program's
-                   * attributes do not alias the conventional vertex
-                   * attributes.
-                   */
-                  if (attrib > 0)
-                     *inputReg = attrib + VERT_ATTRIB_GENERIC0;
-                  else
-                     *inputReg = 0;
+                  switch (attrib) {
+                     case 0:
+                        *binding = VERT_ATTRIB_POS;
+                        break;
+                     case 1:
+                        *binding = VERT_ATTRIB_WEIGHT;
+                        break;
+                     case 2:
+                        *binding = VERT_ATTRIB_NORMAL;
+                        break;
+                     case 3:
+                        *binding = VERT_ATTRIB_COLOR0;
+                        break;
+                     case 4:
+                        *binding = VERT_ATTRIB_COLOR1;
+                        break;
+                     case 5:
+                        *binding = VERT_ATTRIB_FOG;
+                        break;
+                     case 6:
+                        break;
+                     case 7:
+                        break;
+                     default:
+                        *binding = VERT_ATTRIB_TEX0 + (attrib-8);
+                        break;
+                  }
+                  *binding_idx = attrib;
                }
             }
             break;
@@ -1605,106 +1568,119 @@ parse_attrib_binding(GLcontext * ctx, const GLubyte ** inst,
       }
    }
 
+   /* Can this even happen? */
    if (err) {
-      program_error(ctx, Program->Position, "Bad attribute binding");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Bad attribute binding");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Bad attribute binding");
    }
 
-   Program->Base.InputsRead |= (1 << *inputReg);
+   Program->InputsRead |= (1 << *binding_idx);
 
    return err;
 }
-
 
 /**
  * This translates between a binary token for an output variable type
  * and the mesa token for the same thing.
  *
- * \param inst       The parsed tokens
- * \param outputReg  Returned index/number of the output register,
- *                   one of the VERT_RESULT_* or FRAG_RESULT_* values.
+ *
+ * XXX: What is the 'name' for vertex program state? -> do we need it?
+ *         I don't think we do;
+ *
+ * See nvfragprog.h for definitions
+ *
+ * \param inst        - The parsed tokens
+ * \param binding     - The name of the state we are binding too
+ * \param binding_idx - The index into the result register file that this is bound too
+ *
+ * See nvfragparse.c for the register file layout for fragment programs
+ * See nvvertparse.c for the register file layout for vertex programs
  */
 static GLuint
-parse_result_binding(GLcontext *ctx, const GLubyte **inst,
-                     GLuint *outputReg, struct arb_program *Program)
+parse_result_binding (GLcontext * ctx, GLubyte ** inst, GLuint * binding,
+                      GLuint * binding_idx, struct arb_program *Program)
 {
-   const GLubyte token = *(*inst)++;
+   GLuint b, out_color;
 
-   switch (token) {
+   switch (*(*inst)++) {
       case FRAGMENT_RESULT_COLOR:
+         /* for frag programs, this is FRAGMENT_RESULT_COLOR */
          if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
-            GLuint out_color;
-
             /* This gets result of the color buffer we're supposed to 
-             * draw into.  This pertains to GL_ARB_draw_buffers.
+             * draw into
              */
             parse_output_color_num(ctx, inst, Program, &out_color);
-            ASSERT(out_color < MAX_DRAW_BUFFERS);
-            *outputReg = FRAG_RESULT_COLR;
+
+            *binding = FRAG_OUTPUT_COLR;
+
+				/* XXX: We're ignoring the color buffer for now. */
+            *binding_idx = 0;
          }
+         /* for vtx programs, this is VERTEX_RESULT_POSITION */
          else {
-            /* for vtx programs, this is VERTEX_RESULT_POSITION */
-            *outputReg = VERT_RESULT_HPOS;
+            *binding_idx = 0;
          }
          break;
 
       case FRAGMENT_RESULT_DEPTH:
+         /* for frag programs, this is FRAGMENT_RESULT_DEPTH */
          if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
-            /* for frag programs, this is FRAGMENT_RESULT_DEPTH */
-            *outputReg = FRAG_RESULT_DEPR;
+            *binding = FRAG_OUTPUT_DEPR;
+            *binding_idx = 2;
          }
+         /* for vtx programs, this is VERTEX_RESULT_COLOR */
          else {
-            /* for vtx programs, this is VERTEX_RESULT_COLOR */
             GLint color_type;
             GLuint face_type = parse_face_type(inst);
-	    GLint err = parse_color_type(ctx, inst, Program, &color_type);
-            if (err)
-               return 1;
+	    GLint color_type_ret = parse_color_type(ctx, inst, Program, &color_type);
 
+            /* back face */
             if (face_type) {
-               /* back face */
+               if (color_type_ret) return 1;
+
+               /* secondary color */
                if (color_type) {
-                  *outputReg = VERT_RESULT_BFC1; /* secondary color */
+                  *binding_idx = 4;
                }
+               /*  primary color */
                else {
-                  *outputReg = VERT_RESULT_BFC0; /* primary color */
+                  *binding_idx = 3;
                }
             }
+            /* front face */
             else {
-               /* front face */
+               /* secondary color */
                if (color_type) {
-                  *outputReg = VERT_RESULT_COL1; /* secondary color */
+                  *binding_idx = 2;
                }
                /* primary color */
                else {
-                  *outputReg = VERT_RESULT_COL0; /* primary color */
+                  *binding_idx = 1;
                }
             }
          }
          break;
 
       case VERTEX_RESULT_FOGCOORD:
-         *outputReg = VERT_RESULT_FOGC;
+         *binding_idx = 5;
          break;
 
       case VERTEX_RESULT_POINTSIZE:
-         *outputReg = VERT_RESULT_PSIZ;
+         *binding_idx = 6;
          break;
 
       case VERTEX_RESULT_TEXCOORD:
-         {
-            GLuint unit;
-            if (parse_texcoord_num (ctx, inst, Program, &unit))
-               return 1;
-            *outputReg = VERT_RESULT_TEX0 + unit;
-         }
+         if (parse_texcoord_num (ctx, inst, Program, &b))
+            return 1;
+         *binding_idx = 7 + b;
          break;
    }
 
-   Program->Base.OutputsWritten |= (1 << *outputReg);
+   Program->OutputsWritten |= (1 << *binding_idx);
 
    return 0;
 }
-
 
 /**
  * This handles the declaration of ATTRIB variables
@@ -1715,32 +1691,46 @@ parse_result_binding(GLcontext *ctx, const GLubyte **inst,
  * \return 0 on sucess, 1 on error
  */
 static GLint
-parse_attrib (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_attrib (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
               struct arb_program *Program)
 {
    GLuint found;
+   char *error_msg;
    struct var_cache *attrib_var;
 
    attrib_var = parse_string (inst, vc_head, Program, &found);
    Program->Position = parse_position (inst);
    if (found) {
-      program_error2(ctx, Program->Position,
-                     "Duplicate variable declaration",
-                     (char *) attrib_var->name);
+      error_msg = (char *)
+         _mesa_malloc (_mesa_strlen ((char *) attrib_var->name) + 40);
+      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                     attrib_var->name);
+
+      _mesa_set_program_error (ctx, Program->Position, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+      _mesa_free (error_msg);
       return 1;
    }
 
    attrib_var->type = vt_attrib;
 
-   if (parse_attrib_binding(ctx, inst, Program, &attrib_var->attrib_binding,
-                            &attrib_var->attrib_is_generic))
-      return 1;
+   /* I think this is ok now - karl */
+   /* XXX: */
+   /*if (Program->type == GL_FRAGMENT_PROGRAM_ARB) */
+   {
+      if (parse_attrib_binding
+          (ctx, inst, Program, &attrib_var->attrib_binding,
+           &attrib_var->attrib_binding_idx, &attrib_var->attrib_is_generic))
+         return 1;
+      if (generic_attrib_check(*vc_head)) {
+         _mesa_set_program_error (ctx, Program->Position,
+   "Cannot use both a generic vertex attribute and a specific attribute of the same type");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+   "Cannot use both a generic vertex attribute and a specific attribute of the same type");
+         return 1;
+      }
 
-   if (generic_attrib_check(*vc_head)) {
-      program_error(ctx, Program->Position,
-                    "Cannot use both a generic vertex attribute "
-                    "and a specific attribute of the same type");
-      return 1;
    }
 
    Program->Base.NumAttributes++;
@@ -1753,38 +1743,38 @@ parse_attrib (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head
  *               if we get a signed or unsigned float for scalar constants
  */
 static GLuint
-parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
+parse_param_elements (GLcontext * ctx, GLubyte ** inst,
                       struct var_cache *param_var,
                       struct arb_program *Program, GLboolean use)
 {
    GLint idx;
-   GLuint err = 0;
-   gl_state_index state_tokens[STATE_LENGTH];
+   GLuint err;
+   GLint state_tokens[6];
    GLfloat const_values[4];
+
+   err = 0;
 
    switch (*(*inst)++) {
       case PARAM_STATE_ELEMENT:
+
          if (parse_state_single_item (ctx, inst, Program, state_tokens))
             return 1;
 
          /* If we adding STATE_MATRIX that has multiple rows, we need to
           * unroll it and call _mesa_add_state_reference() for each row
           */
-         if ((state_tokens[0] == STATE_MODELVIEW_MATRIX ||
-              state_tokens[0] == STATE_PROJECTION_MATRIX ||
-              state_tokens[0] == STATE_MVP_MATRIX ||
-              state_tokens[0] == STATE_TEXTURE_MATRIX ||
-              state_tokens[0] == STATE_PROGRAM_MATRIX)
-             && (state_tokens[2] != state_tokens[3])) {
+         if ((state_tokens[0] == STATE_MATRIX)
+             && (state_tokens[3] != state_tokens[4])) {
             GLint row;
-            const GLint first_row = state_tokens[2];
-            const GLint last_row = state_tokens[3];
+            GLint first_row = state_tokens[3];
+            GLint last_row = state_tokens[4];
 
             for (row = first_row; row <= last_row; row++) {
-               state_tokens[2] = state_tokens[3] = row;
+               state_tokens[3] = state_tokens[4] = row;
 
-               idx = _mesa_add_state_reference(Program->Base.Parameters,
-                                               state_tokens);
+               idx =
+                  _mesa_add_state_reference (Program->Parameters,
+                                             state_tokens);
                if (param_var->param_binding_begin == ~0U)
                   param_var->param_binding_begin = idx;
                param_var->param_binding_length++;
@@ -1792,8 +1782,8 @@ parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
             }
          }
          else {
-            idx = _mesa_add_state_reference(Program->Base.Parameters,
-                                            state_tokens);
+            idx =
+               _mesa_add_state_reference (Program->Parameters, state_tokens);
             if (param_var->param_binding_begin == ~0U)
                param_var->param_binding_begin = idx;
             param_var->param_binding_length++;
@@ -1802,9 +1792,10 @@ parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
          break;
 
       case PARAM_PROGRAM_ELEMENT:
+
          if (parse_program_single_item (ctx, inst, Program, state_tokens))
             return 1;
-         idx = _mesa_add_state_reference (Program->Base.Parameters, state_tokens);
+         idx = _mesa_add_state_reference (Program->Parameters, state_tokens);
          if (param_var->param_binding_begin == ~0U)
             param_var->param_binding_begin = idx;
          param_var->param_binding_length++;
@@ -1819,44 +1810,48 @@ parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
             out_of_range = 0;
             if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
                if (((state_tokens[1] == STATE_ENV)
-                    && (end_idx >= ctx->Const.FragmentProgram.MaxEnvParams))
+                    && (end_idx >= ctx->Const.MaxFragmentProgramEnvParams))
                    || ((state_tokens[1] == STATE_LOCAL)
                        && (end_idx >=
-                           ctx->Const.FragmentProgram.MaxLocalParams)))
+                           ctx->Const.MaxFragmentProgramLocalParams)))
                   out_of_range = 1;
             }
             else {
                if (((state_tokens[1] == STATE_ENV)
-                    && (end_idx >= ctx->Const.VertexProgram.MaxEnvParams))
+                    && (end_idx >= ctx->Const.MaxVertexProgramEnvParams))
                    || ((state_tokens[1] == STATE_LOCAL)
                        && (end_idx >=
-                           ctx->Const.VertexProgram.MaxLocalParams)))
+                           ctx->Const.MaxVertexProgramLocalParams)))
                   out_of_range = 1;
             }
             if (out_of_range) {
-               program_error(ctx, Program->Position,
-                             "Invalid Program Parameter"); /*end_idx*/
+               _mesa_set_program_error (ctx, Program->Position,
+                                        "Invalid Program Parameter");
+               _mesa_error (ctx, GL_INVALID_OPERATION,
+                            "Invalid Program Parameter: %d", end_idx);
                return 1;
             }
 
             for (new_idx = start_idx; new_idx <= end_idx; new_idx++) {
                state_tokens[2] = new_idx;
-               idx = _mesa_add_state_reference(Program->Base.Parameters,
-                                               state_tokens);
+               idx =
+                  _mesa_add_state_reference (Program->Parameters,
+                                             state_tokens);
                param_var->param_binding_length++;
                Program->Base.NumParameters++;
             }
          }
-         else {
-            (*inst)++;
-         }
+			else
+			{
+				(*inst)++;
+			}
          break;
 
       case PARAM_CONSTANT:
          parse_constant (inst, const_values, Program, use);
-         idx = _mesa_add_named_constant(Program->Base.Parameters,
-                                        (char *) param_var->name,
-                                        const_values, 4);
+         idx =
+            _mesa_add_named_constant (Program->Parameters,
+                                      (char *) param_var->name, const_values);
          if (param_var->param_binding_begin == ~0U)
             param_var->param_binding_begin = idx;
          param_var->param_binding_length++;
@@ -1864,25 +1859,28 @@ parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
          break;
 
       default:
-         program_error(ctx, Program->Position,
-                       "Unexpected token (in parse_param_elements())");
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Unexpected token in parse_param_elements()");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Unexpected token in parse_param_elements()");
          return 1;
    }
 
    /* Make sure we haven't blown past our parameter limits */
    if (((Program->Base.Target == GL_VERTEX_PROGRAM_ARB) &&
         (Program->Base.NumParameters >=
-         ctx->Const.VertexProgram.MaxLocalParams))
+         ctx->Const.MaxVertexProgramLocalParams))
        || ((Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB)
            && (Program->Base.NumParameters >=
-               ctx->Const.FragmentProgram.MaxLocalParams))) {
-      program_error(ctx, Program->Position, "Too many parameter variables");
+               ctx->Const.MaxFragmentProgramLocalParams))) {
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Too many parameter variables");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Too many parameter variables");
       return 1;
    }
 
    return err;
 }
-
 
 /**
  * This picks out PARAM program parameter bindings.
@@ -1892,11 +1890,12 @@ parse_param_elements (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_param (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_param (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
              struct arb_program *Program)
 {
    GLuint found, err;
    GLint specified_length;
+   char *error_msg;
    struct var_cache *param_var;
 
    err = 0;
@@ -1904,16 +1903,24 @@ parse_param (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
    Program->Position = parse_position (inst);
 
    if (found) {
-      program_error2(ctx, Program->Position,
-                     "Duplicate variable declaration",
-                     (char *) param_var->name);
+      error_msg = (char *) _mesa_malloc (_mesa_strlen ((char *) param_var->name) + 40);
+      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                     param_var->name);
+
+      _mesa_set_program_error (ctx, Program->Position, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+      _mesa_free (error_msg);
       return 1;
    }
 
    specified_length = parse_integer (inst, Program);
 
    if (specified_length < 0) {
-      program_error(ctx, Program->Position, "Negative parameter array length");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Negative parameter array length");
+      _mesa_error (ctx, GL_INVALID_OPERATION,
+                   "Negative parameter array length: %d", specified_length);
       return 1;
    }
 
@@ -1941,8 +1948,10 @@ parse_param (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
    /* Test array length here! */
    if (specified_length) {
       if (specified_length != (int)param_var->param_binding_length) {
-         program_error(ctx, Program->Position,
-              "Declared parameter array length does not match parameter list");
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Declared parameter array lenght does not match parameter list");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Declared parameter array lenght does not match parameter list");
       }
    }
 
@@ -1955,14 +1964,14 @@ parse_param (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
  *
  */
 static GLuint
-parse_param_use (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_param_use (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
                  struct arb_program *Program, struct var_cache **new_var)
 {
    struct var_cache *param_var;
 
    /* First, insert a dummy entry into the var_cache */
    var_cache_create (&param_var);
-   param_var->name = (const GLubyte *) " ";
+   param_var->name = (GLubyte *) _mesa_strdup (" ");
    param_var->type = vt_param;
 
    param_var->param_binding_length = 0;
@@ -1991,19 +2000,26 @@ parse_param_use (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_h
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_temp (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_temp (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
             struct arb_program *Program)
 {
    GLuint found;
    struct var_cache *temp_var;
+   char *error_msg;
 
    while (**inst != 0) {
       temp_var = parse_string (inst, vc_head, Program, &found);
       Program->Position = parse_position (inst);
       if (found) {
-         program_error2(ctx, Program->Position,
-                        "Duplicate variable declaration",
-                        (char *) temp_var->name);
+         error_msg = (char *)
+            _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
+         _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                        temp_var->name);
+
+         _mesa_set_program_error (ctx, Program->Position, error_msg);
+         _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+         _mesa_free (error_msg);
          return 1;
       }
 
@@ -2011,12 +2027,14 @@ parse_temp (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
 
       if (((Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) &&
            (Program->Base.NumTemporaries >=
-            ctx->Const.FragmentProgram.MaxTemps))
+            ctx->Const.MaxFragmentProgramTemps))
           || ((Program->Base.Target == GL_VERTEX_PROGRAM_ARB)
               && (Program->Base.NumTemporaries >=
-                  ctx->Const.VertexProgram.MaxTemps))) {
-         program_error(ctx, Program->Position,
-                       "Too many TEMP variables declared");
+                  ctx->Const.MaxVertexProgramTemps))) {
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Too many TEMP variables declared");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Too many TEMP variables declared");
          return 1;
       }
 
@@ -2034,26 +2052,31 @@ parse_temp (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_output (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_output (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
               struct arb_program *Program)
 {
    GLuint found;
    struct var_cache *output_var;
-   GLuint err;
 
    output_var = parse_string (inst, vc_head, Program, &found);
    Program->Position = parse_position (inst);
    if (found) {
-      program_error2(ctx, Program->Position,
-                     "Duplicate variable declaration",
-                     (char *) output_var->name);
+      char *error_msg;
+      error_msg = (char *)
+         _mesa_malloc (_mesa_strlen ((char *) output_var->name) + 40);
+      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                     output_var->name);
+
+      _mesa_set_program_error (ctx, Program->Position, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+      _mesa_free (error_msg);
       return 1;
    }
 
    output_var->type = vt_output;
-
-   err = parse_result_binding(ctx, inst, &output_var->output_binding, Program);
-   return err;
+   return parse_result_binding (ctx, inst, &output_var->output_binding,
+                                &output_var->output_binding_idx, Program);
 }
 
 /**
@@ -2062,19 +2085,27 @@ parse_output (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_alias (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_alias (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
              struct arb_program *Program)
 {
    GLuint found;
    struct var_cache *temp_var;
+   char *error_msg;
+
 
    temp_var = parse_string (inst, vc_head, Program, &found);
    Program->Position = parse_position (inst);
 
    if (found) {
-      program_error2(ctx, Program->Position,
-                    "Duplicate variable declaration",
-                     (char *) temp_var->name);
+      error_msg = (char *)
+         _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
+      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                     temp_var->name);
+
+      _mesa_set_program_error (ctx, Program->Position, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+      _mesa_free (error_msg);
       return 1;
    }
 
@@ -2084,9 +2115,15 @@ parse_alias (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
 
    if (!found)
    {
-      program_error2(ctx, Program->Position,
-                     "Undefined alias value",
-                     (char *) temp_var->alias_binding->name);
+      error_msg = (char *)
+         _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
+      _mesa_sprintf (error_msg, "Alias value %s is not defined",
+                     temp_var->alias_binding->name);
+
+      _mesa_set_program_error (ctx, Program->Position, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+      _mesa_free (error_msg);
       return 1;
    }
 
@@ -2099,28 +2136,37 @@ parse_alias (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_address (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_address (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
                struct arb_program *Program)
 {
    GLuint found;
    struct var_cache *temp_var;
+   char *error_msg;
 
    while (**inst != 0) {
       temp_var = parse_string (inst, vc_head, Program, &found);
       Program->Position = parse_position (inst);
       if (found) {
-         program_error2(ctx, Program->Position,
-                        "Duplicate variable declaration",
-                        (char *) temp_var->name);
+         error_msg = (char *)
+            _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
+         _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+                        temp_var->name);
+
+         _mesa_set_program_error (ctx, Program->Position, error_msg);
+         _mesa_error (ctx, GL_INVALID_OPERATION, error_msg);
+
+         _mesa_free (error_msg);
          return 1;
       }
 
       temp_var->type = vt_address;
 
       if (Program->Base.NumAddressRegs >=
-          ctx->Const.VertexProgram.MaxAddressRegs) {
-         const char *msg = "Too many ADDRESS variables declared";
-         program_error(ctx, Program->Position, msg);
+          ctx->Const.MaxVertexProgramAddressRegs) {
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Too many ADDRESS variables declared");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Too many ADDRESS variables declared");
          return 1;
       }
 
@@ -2138,7 +2184,7 @@ parse_address (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_hea
  * \return 0 on sucess, 1 on error
  */
 static GLint
-parse_declaration (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc_head,
+parse_declaration (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
                    struct arb_program *Program)
 {
    GLint err = 0;
@@ -2173,11 +2219,10 @@ parse_declaration (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc
 }
 
 /**
- * Handle the parsing out of a masked destination register, either for a
- * vertex or fragment program.
+ * Handle the parsing out of a masked destination register
  *
  * If we are a vertex program, make sure we don't write to
- * result.position if we have specified that the program is
+ * result.position of we have specified that the program is
  * position invariant
  *
  * \param File      - The register file we write to
@@ -2187,11 +2232,11 @@ parse_declaration (GLcontext * ctx, const GLubyte ** inst, struct var_cache **vc
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
+parse_masked_dst_reg (GLcontext * ctx, GLubyte ** inst,
                       struct var_cache **vc_head, struct arb_program *Program,
-                      enum register_file *File, GLuint *Index, GLint *WriteMask)
+                      GLint * File, GLint * Index, GLint *WriteMask)
 {
-   GLuint tmp, result;
+   GLuint result, tmp;
    struct var_cache *dst;
 
    /* We either have a result register specified, or a
@@ -2199,7 +2244,8 @@ parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
     */
    switch (*(*inst)++) {
       case REGISTER_RESULT:
-         if (parse_result_binding(ctx, inst, Index, Program))
+         if (parse_result_binding
+             (ctx, inst, &result, (GLuint *) Index, Program))
             return 1;
          *File = PROGRAM_OUTPUT;
          break;
@@ -2210,14 +2256,17 @@ parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
 
          /* If the name has never been added to our symbol table, we're hosed */
          if (!result) {
-            program_error(ctx, Program->Position, "0: Undefined variable");
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "0: Undefined variable");
+            _mesa_error (ctx, GL_INVALID_OPERATION, "0: Undefined variable: %s",
+                         dst->name);
             return 1;
          }
 
          switch (dst->type) {
             case vt_output:
                *File = PROGRAM_OUTPUT;
-               *Index = dst->output_binding;
+               *Index = dst->output_binding_idx;
                break;
 
             case vt_temp:
@@ -2227,15 +2276,20 @@ parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
 
                /* If the var type is not vt_output or vt_temp, no go */
             default:
-               program_error(ctx, Program->Position,
-                             "Destination register is read only");
+               _mesa_set_program_error (ctx, Program->Position,
+                                        "Destination register is read only");
+               _mesa_error (ctx, GL_INVALID_OPERATION,
+                            "Destination register is read only: %s",
+                            dst->name);
                return 1;
          }
          break;
 
       default:
-         program_error(ctx, Program->Position,
-                       "Unexpected opcode in parse_masked_dst_reg()");
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Unexpected opcode in parse_masked_dst_reg()");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Unexpected opcode in parse_masked_dst_reg()");
          return 1;
    }
 
@@ -2247,7 +2301,9 @@ parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
    */
    /*if ((Program->HintPositionInvariant) && (*File == PROGRAM_OUTPUT) &&
       (*Index == 0))   {
-      program_error(ctx, Program->Position,
+      _mesa_set_program_error (ctx, Program->Position,
+                  "Vertex program specified position invariance and wrote vertex position");
+      _mesa_error (ctx, GL_INVALID_OPERATION,
                   "Vertex program specified position invariance and wrote vertex position");
    }*/
 
@@ -2277,26 +2333,30 @@ parse_masked_dst_reg (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_address_reg (GLcontext * ctx, const GLubyte ** inst,
+parse_address_reg (GLcontext * ctx, GLubyte ** inst,
                           struct var_cache **vc_head,
                           struct arb_program *Program, GLint * Index)
 {
    struct var_cache *dst;
    GLuint result;
-
-   *Index = 0; /* XXX */
+   (void) Index;
 
    dst = parse_string (inst, vc_head, Program, &result);
    Program->Position = parse_position (inst);
 
    /* If the name has never been added to our symbol table, we're hosed */
    if (!result) {
-      program_error(ctx, Program->Position, "Undefined variable");
+      _mesa_set_program_error (ctx, Program->Position, "Undefined variable");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "Undefined variable: %s",
+                   dst->name);
       return 1;
    }
 
    if (dst->type != vt_address) {
-      program_error(ctx, Program->Position, "Variable is not of type ADDRESS");
+      _mesa_set_program_error (ctx, Program->Position,
+                               "Variable is not of type ADDRESS");
+      _mesa_error (ctx, GL_INVALID_OPERATION,
+                   "Variable: %s is not of type ADDRESS", dst->name);
       return 1;
    }
 
@@ -2313,7 +2373,7 @@ parse_address_reg (GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_masked_address_reg (GLcontext * ctx, const GLubyte ** inst,
+parse_masked_address_reg (GLcontext * ctx, GLubyte ** inst,
                           struct var_cache **vc_head,
                           struct arb_program *Program, GLint * Index,
                           GLboolean * WriteMask)
@@ -2335,97 +2395,110 @@ parse_masked_address_reg (GLcontext * ctx, const GLubyte ** inst,
 /**
  * Parse out a swizzle mask.
  *
- * Basically convert COMPONENT_X/Y/Z/W to SWIZZLE_X/Y/Z/W
+ * The values in the input stream are:
+ *   COMPONENT_X -> x/r
+ *   COMPONENT_Y -> y/g
+ *   COMPONENT_Z-> z/b
+ *   COMPONENT_W-> w/a
+ *
+ * The values in the output mask are:
+ *   0 -> x/r
+ *   1 -> y/g
+ *   2 -> z/b
+ *   3 -> w/a
  *
  * The len parameter allows us to grab 4 components for a vector
  * swizzle, or just 1 component for a scalar src register selection
  */
-static void
-parse_swizzle_mask(const GLubyte ** inst, GLubyte *swizzle, GLint len)
+static GLuint
+parse_swizzle_mask (GLubyte ** inst, GLubyte * mask, GLint len)
 {
-   GLint i;
+   GLint a;
 
-   for (i = 0; i < 4; i++)
-      swizzle[i] = i;
+   for (a = 0; a < 4; a++)
+      mask[a] = a;
 
-   for (i = 0; i < len; i++) {
+   for (a = 0; a < len; a++) {
       switch (*(*inst)++) {
          case COMPONENT_X:
-            swizzle[i] = SWIZZLE_X;
+            mask[a] = 0;
             break;
+
          case COMPONENT_Y:
-            swizzle[i] = SWIZZLE_Y;
+            mask[a] = 1;
             break;
+
          case COMPONENT_Z:
-            swizzle[i] = SWIZZLE_Z;
+            mask[a] = 2;
             break;
+
          case COMPONENT_W:
-            swizzle[i] = SWIZZLE_W;
+            mask[a] = 3;
             break;
-         default:
-            _mesa_problem(NULL, "bad component in parse_swizzle_mask()");
-            return;
       }
    }
+
+   return 0;
 }
 
-
 /**
- * Parse an extended swizzle mask which is a sequence of
- * four x/y/z/w/0/1 tokens.
- * \return swizzle  four swizzle values
- * \return negateMask  four element bitfield
  */
-static void
-parse_extended_swizzle_mask(const GLubyte **inst, GLubyte swizzle[4],
-                            GLubyte *negateMask)
+static GLuint
+parse_extended_swizzle_mask(GLubyte **inst, GLubyte *mask, GLubyte *negate)
 {
-   GLint i;
+   GLint a;
+   GLubyte swz;
 
-   *negateMask = 0x0;
-   for (i = 0; i < 4; i++) {
-      GLubyte swz;
-      if (parse_sign(inst) == -1)
-         *negateMask |= (1 << i);
+   *negate = 0x0;
+   for (a = 0; a < 4; a++) {
+      if (parse_sign (inst) == -1)
+         *negate |= (1 << a);
 
       swz = *(*inst)++;
 
       switch (swz) {
          case COMPONENT_0:
-            swizzle[i] = SWIZZLE_ZERO;
+            mask[a] = SWIZZLE_ZERO;
             break;
          case COMPONENT_1:
-            swizzle[i] = SWIZZLE_ONE;
+            mask[a] = SWIZZLE_ONE;
             break;
          case COMPONENT_X:
-            swizzle[i] = SWIZZLE_X;
+            mask[a] = SWIZZLE_X;
             break;
          case COMPONENT_Y:
-            swizzle[i] = SWIZZLE_Y;
+            mask[a] = SWIZZLE_Y;
             break;
          case COMPONENT_Z:
-            swizzle[i] = SWIZZLE_Z;
+            mask[a] = SWIZZLE_Z;
             break;
          case COMPONENT_W:
-            swizzle[i] = SWIZZLE_W;
+            mask[a] = SWIZZLE_W;
             break;
-         default:
-            _mesa_problem(NULL, "bad case in parse_extended_swizzle_mask()");
-            return;
+
       }
+#if 0
+      if (swz == 0)
+         mask[a] = SWIZZLE_ZERO;
+      else if (swz == 1)
+         mask[a] = SWIZZLE_ONE;
+      else
+         mask[a] = swz - 2;
+#endif
+
    }
+
+   return 0;
 }
 
 
 static GLuint
-parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
-               struct var_cache **vc_head,
-               struct arb_program *Program,
-               enum register_file * File, GLint * Index,
+parse_src_reg (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
+               struct arb_program *Program, GLint * File, GLint * Index,
                GLboolean *IsRelOffset )
 {
    struct var_cache *src;
-   GLuint binding, is_generic, found;
+   GLuint binding_state, binding_idx, is_generic, found;
    GLint offset;
 
    *IsRelOffset = 0;
@@ -2434,24 +2507,26 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
    switch (*(*inst)++) {
       case REGISTER_ATTRIB:
          if (parse_attrib_binding
-             (ctx, inst, Program, &binding, &is_generic))
+             (ctx, inst, Program, &binding_state, &binding_idx, &is_generic))
             return 1;
          *File = PROGRAM_INPUT;
-         *Index = binding;
+         *Index = binding_idx;
 
          /* We need to insert a dummy variable into the var_cache so we can
           * catch generic vertex attrib aliasing errors
           */
          var_cache_create(&src);
          src->type = vt_attrib;
-         src->name = (const GLubyte *) "Dummy Attrib Variable";
-         src->attrib_binding = binding;
-         src->attrib_is_generic = is_generic;
+         src->name = (GLubyte *)_mesa_strdup("Dummy Attrib Variable");
+         src->attrib_binding     = binding_state;
+         src->attrib_binding_idx = binding_idx;
+         src->attrib_is_generic  = is_generic;
          var_cache_append(vc_head, src);
          if (generic_attrib_check(*vc_head)) {
-            program_error(ctx, Program->Position,
-                          "Cannot use both a generic vertex attribute "
-                          "and a specific attribute of the same type");
+            _mesa_set_program_error (ctx, Program->Position,
+   "Cannot use both a generic vertex attribute and a specific attribute of the same type");
+            _mesa_error (ctx, GL_INVALID_OPERATION,
+   "Cannot use both a generic vertex attribute and a specific attribute of the same type");
             return 1;
          }
          break;
@@ -2464,13 +2539,14 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
                Program->Position = parse_position (inst);
 
                if (!found) {
-                  program_error2(ctx, Program->Position,
-                                 "Undefined variable",
-                                 (char *) src->name);
+                  _mesa_set_program_error (ctx, Program->Position,
+                                           "2: Undefined variable");
+                  _mesa_error (ctx, GL_INVALID_OPERATION,
+                               "2: Undefined variable: %s", src->name);
                   return 1;
                }
 
-               *File = (enum register_file) src->param_binding_type;
+               *File = src->param_binding_type;
 
                switch (*(*inst)++) {
                   case ARRAY_INDEX_ABSOLUTE:
@@ -2478,9 +2554,11 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
 
                      if ((offset < 0)
                          || (offset >= (int)src->param_binding_length)) {
-                        program_error(ctx, Program->Position,
-                                      "Index out of range");
-                        /* offset, src->name */
+                        _mesa_set_program_error (ctx, Program->Position,
+                                                 "Index out of range");
+                        _mesa_error (ctx, GL_INVALID_OPERATION,
+                                     "Index %d out of range for %s", offset,
+                                     src->name);
                         return 1;
                      }
 
@@ -2513,35 +2591,39 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
                break;
 
             default:
+
                if (parse_param_use (ctx, inst, vc_head, Program, &src))
                   return 1;
 
-               *File = (enum register_file) src->param_binding_type;
+               *File = src->param_binding_type;
                *Index = src->param_binding_begin;
                break;
          }
          break;
 
       case REGISTER_ESTABLISHED_NAME:
+
          src = parse_string (inst, vc_head, Program, &found);
          Program->Position = parse_position (inst);
 
          /* If the name has never been added to our symbol table, we're hosed */
          if (!found) {
-            program_error(ctx, Program->Position,
-                          "3: Undefined variable"); /* src->name */
+            _mesa_set_program_error (ctx, Program->Position,
+                                     "3: Undefined variable");
+            _mesa_error (ctx, GL_INVALID_OPERATION, "3: Undefined variable: %s",
+                         src->name);
             return 1;
          }
 
          switch (src->type) {
             case vt_attrib:
                *File = PROGRAM_INPUT;
-               *Index = src->attrib_binding;
+               *Index = src->attrib_binding_idx;
                break;
 
                /* XXX: We have to handle offsets someplace in here!  -- or are those above? */
             case vt_param:
-               *File = (enum register_file) src->param_binding_type;
+               *File = src->param_binding_type;
                *Index = src->param_binding_begin;
                break;
 
@@ -2552,16 +2634,20 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
 
                /* If the var type is vt_output no go */
             default:
-               program_error(ctx, Program->Position,
-                             "destination register is read only");
-               /* bad src->name */
+               _mesa_set_program_error (ctx, Program->Position,
+                                        "destination register is read only");
+               _mesa_error (ctx, GL_INVALID_OPERATION,
+                            "destination register is read only: %s",
+                            src->name);
                return 1;
          }
          break;
 
       default:
-         program_error(ctx, Program->Position,
-                       "Unknown token in parse_src_reg");
+         _mesa_set_program_error (ctx, Program->Position,
+                                  "Unknown token in parse_src_reg");
+         _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Unknown token in parse_src_reg");
          return 1;
    }
 
@@ -2569,54 +2655,55 @@ parse_src_reg (GLcontext * ctx, const GLubyte ** inst,
 }
 
 /**
- * Parse fragment program vector source register.
  */
 static GLuint
-parse_fp_vector_src_reg(GLcontext * ctx, const GLubyte ** inst,
-                        struct var_cache **vc_head,
-                        struct arb_program *program,
-                        struct prog_src_register *reg)
+parse_fp_vector_src_reg (GLcontext * ctx, GLubyte ** inst,
+			 struct var_cache **vc_head, struct arb_program *Program,
+			 struct fp_src_register *reg )
 {
-   enum register_file file;
-   GLint index;
-   GLboolean negate;
-   GLubyte swizzle[4];
-   GLboolean isRelOffset;
+
+   GLint File;
+   GLint Index;
+   GLboolean Negate;
+   GLubyte Swizzle[4];
+   GLboolean IsRelOffset;
 
    /* Grab the sign */
-   negate = (parse_sign (inst) == -1) ? 0xf : 0x0;
+   Negate = (parse_sign (inst) == -1) ? 0xf : 0x0;
 
    /* And the src reg */
-   if (parse_src_reg(ctx, inst, vc_head, program, &file, &index, &isRelOffset))
+   if (parse_src_reg (ctx, inst, vc_head, Program, &File, &Index, &IsRelOffset))
       return 1;
 
    /* finally, the swizzle */
-   parse_swizzle_mask(inst, swizzle, 4);
+   parse_swizzle_mask (inst, Swizzle, 4);
 
-   reg->File = file;
-   reg->Index = index;
-   reg->NegateBase = negate;
-   reg->Swizzle = MAKE_SWIZZLE4(swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
+   reg->File = File;
+   reg->Index = Index;
+   reg->Abs = 0;		/* NV only */
+   reg->NegateAbs = 0;		/* NV only */
+   reg->NegateBase = Negate;
+   reg->Swizzle = (Swizzle[0] << 0 |
+		   Swizzle[1] << 3 |
+		   Swizzle[2] << 6 |
+		   Swizzle[3] << 9);
+
    return 0;
 }
 
 
-/**
- * Parse fragment program destination register.
- * \return 1 if error, 0 if no error.
- */
 static GLuint 
-parse_fp_dst_reg(GLcontext * ctx, const GLubyte ** inst,
+parse_fp_dst_reg(GLcontext * ctx, GLubyte ** inst,
 		 struct var_cache **vc_head, struct arb_program *Program,
-		 struct prog_dst_register *reg )
+		 struct fp_dst_register *reg )
 {
-   GLint mask;
-   GLuint idx;
-   enum register_file file;
-
+   GLint file, idx, mask;
+   
    if (parse_masked_dst_reg (ctx, inst, vc_head, Program, &file, &idx, &mask))
       return 1;
 
+   reg->CondMask = 0;		/* NV only */
+   reg->CondSwizzle = 0;	/* NV only */
    reg->File = file;
    reg->Index = idx;
    reg->WriteMask = mask;
@@ -2624,19 +2711,16 @@ parse_fp_dst_reg(GLcontext * ctx, const GLubyte ** inst,
 }
 
 
-/**
- * Parse fragment program scalar src register.
- * \return 1 if error, 0 if no error.
- */
+
 static GLuint
-parse_fp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
-			 struct var_cache **vc_head,
-                         struct arb_program *Program,
-			 struct prog_src_register *reg )
+parse_fp_scalar_src_reg (GLcontext * ctx, GLubyte ** inst,
+			 struct var_cache **vc_head, struct arb_program *Program,
+			 struct fp_src_register *reg )
 {
-   enum register_file File;
+
+   GLint File;
    GLint Index;
-   GLubyte Negate;
+   GLboolean Negate;
    GLubyte Swizzle[4];
    GLboolean IsRelOffset;
 
@@ -2648,10 +2732,12 @@ parse_fp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
       return 1;
 
    /* finally, the swizzle */
-   parse_swizzle_mask(inst, Swizzle, 1);
+   parse_swizzle_mask (inst, Swizzle, 1);
 
    reg->File = File;
    reg->Index = Index;
+   reg->Abs = 0;		/* NV only */
+   reg->NegateAbs = 0;		/* NV only */
    reg->NegateBase = Negate;
    reg->Swizzle = (Swizzle[0] << 0);
 
@@ -2662,22 +2748,29 @@ parse_fp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
 /**
  * This is a big mother that handles getting opcodes into the instruction
  * and handling the src & dst registers for fragment program instructions
- * \return 1 if error, 0 if no error
  */
 static GLuint
-parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
+parse_fp_instruction (GLcontext * ctx, GLubyte ** inst,
                       struct var_cache **vc_head, struct arb_program *Program,
-                      struct prog_instruction *fp)
+                      struct fp_instruction *fp)
 {
    GLint a;
    GLuint texcoord;
    GLubyte instClass, type, code;
    GLboolean rel;
 
-   _mesa_init_instructions(fp, 1);
+   /* No condition codes in ARB_fp */
+   fp->UpdateCondRegister = 0;
 
    /* Record the position in the program string for debugging */
    fp->StringPos = Program->Position;
+
+   fp->Data = NULL;
+
+   fp->DstReg.File = 0xf;	/* mark as undef */
+   fp->SrcReg[0].File = 0xf;	/* mark as undef */
+   fp->SrcReg[1].File = 0xf;	/* mark as undef */
+   fp->SrcReg[2].File = 0xf;	/* mark as undef */
 
    /* OP_ALU_INST or OP_TEX_INST */
    instClass = *(*inst)++;
@@ -2700,37 +2793,42 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
          break;
    }
 
+   fp->Saturate = 0;
+   fp->Precision = FLOAT32;
+
+   fp->DstReg.CondMask = COND_TR;
+
    switch (type) {
       case OP_ALU_VECTOR:
          switch (code) {
             case OP_ABS_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_ABS:
-               fp->Opcode = OPCODE_ABS;
+               fp->Opcode = FP_OPCODE_ABS;
                break;
 
             case OP_FLR_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_FLR:
-               fp->Opcode = OPCODE_FLR;
+               fp->Opcode = FP_OPCODE_FLR;
                break;
 
             case OP_FRC_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_FRC:
-               fp->Opcode = OPCODE_FRC;
+               fp->Opcode = FP_OPCODE_FRC;
                break;
 
             case OP_LIT_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_LIT:
-               fp->Opcode = OPCODE_LIT;
+               fp->Opcode = FP_OPCODE_LIT;
                break;
 
             case OP_MOV_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_MOV:
-               fp->Opcode = OPCODE_MOV;
+               fp->Opcode = FP_OPCODE_MOV;
                break;
          }
 
@@ -2744,46 +2842,46 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_SCALAR:
          switch (code) {
             case OP_COS_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_COS:
-               fp->Opcode = OPCODE_COS;
+               fp->Opcode = FP_OPCODE_COS;
                break;
 
             case OP_EX2_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_EX2:
-               fp->Opcode = OPCODE_EX2;
+               fp->Opcode = FP_OPCODE_EX2;
                break;
 
             case OP_LG2_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_LG2:
-               fp->Opcode = OPCODE_LG2;
+               fp->Opcode = FP_OPCODE_LG2;
                break;
 
             case OP_RCP_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_RCP:
-               fp->Opcode = OPCODE_RCP;
+               fp->Opcode = FP_OPCODE_RCP;
                break;
 
             case OP_RSQ_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_RSQ:
-               fp->Opcode = OPCODE_RSQ;
+               fp->Opcode = FP_OPCODE_RSQ;
                break;
 
             case OP_SIN_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SIN:
-               fp->Opcode = OPCODE_SIN;
+               fp->Opcode = FP_OPCODE_SIN;
                break;
 
             case OP_SCS_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SCS:
 
-               fp->Opcode = OPCODE_SCS;
+               fp->Opcode = FP_OPCODE_SCS;
                break;
          }
 
@@ -2797,9 +2895,9 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_BINSC:
          switch (code) {
             case OP_POW_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_POW:
-               fp->Opcode = OPCODE_POW;
+               fp->Opcode = FP_OPCODE_POW;
                break;
          }
 
@@ -2816,75 +2914,75 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_BIN:
          switch (code) {
             case OP_ADD_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_ADD:
-               fp->Opcode = OPCODE_ADD;
+               fp->Opcode = FP_OPCODE_ADD;
                break;
 
             case OP_DP3_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_DP3:
-               fp->Opcode = OPCODE_DP3;
+               fp->Opcode = FP_OPCODE_DP3;
                break;
 
             case OP_DP4_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_DP4:
-               fp->Opcode = OPCODE_DP4;
+               fp->Opcode = FP_OPCODE_DP4;
                break;
 
             case OP_DPH_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_DPH:
-               fp->Opcode = OPCODE_DPH;
+               fp->Opcode = FP_OPCODE_DPH;
                break;
 
             case OP_DST_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_DST:
-               fp->Opcode = OPCODE_DST;
+               fp->Opcode = FP_OPCODE_DST;
                break;
 
             case OP_MAX_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_MAX:
-               fp->Opcode = OPCODE_MAX;
+               fp->Opcode = FP_OPCODE_MAX;
                break;
 
             case OP_MIN_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_MIN:
-               fp->Opcode = OPCODE_MIN;
+               fp->Opcode = FP_OPCODE_MIN;
                break;
 
             case OP_MUL_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_MUL:
-               fp->Opcode = OPCODE_MUL;
+               fp->Opcode = FP_OPCODE_MUL;
                break;
 
             case OP_SGE_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SGE:
-               fp->Opcode = OPCODE_SGE;
+               fp->Opcode = FP_OPCODE_SGE;
                break;
 
             case OP_SLT_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SLT:
-               fp->Opcode = OPCODE_SLT;
+               fp->Opcode = FP_OPCODE_SLT;
                break;
 
             case OP_SUB_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SUB:
-               fp->Opcode = OPCODE_SUB;
+               fp->Opcode = FP_OPCODE_SUB;
                break;
 
             case OP_XPD_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_XPD:
-               fp->Opcode = OPCODE_XPD;
+               fp->Opcode = FP_OPCODE_XPD;
                break;
          }
 
@@ -2899,21 +2997,21 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_TRI:
          switch (code) {
             case OP_CMP_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_CMP:
-               fp->Opcode = OPCODE_CMP;
+               fp->Opcode = FP_OPCODE_CMP;
                break;
 
             case OP_LRP_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_LRP:
-               fp->Opcode = OPCODE_LRP;
+               fp->Opcode = FP_OPCODE_LRP;
                break;
 
             case OP_MAD_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_MAD:
-               fp->Opcode = OPCODE_MAD;
+               fp->Opcode = FP_OPCODE_MAD;
                break;
          }
 
@@ -2929,51 +3027,50 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_SWZ:
          switch (code) {
             case OP_SWZ_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_SWZ:
-               fp->Opcode = OPCODE_SWZ;
+               fp->Opcode = FP_OPCODE_SWZ;
                break;
          }
          if (parse_fp_dst_reg (ctx, inst, vc_head, Program, &fp->DstReg))
             return 1;
 
 	 {
-	    GLubyte swizzle[4];
+	    GLubyte Swizzle[4]; /* FP's swizzle mask is a GLubyte, while VP's is GLuint */
 	    GLubyte negateMask;
-            enum register_file file;
-	    GLint index;
+	    GLint File, Index;
 
-	    if (parse_src_reg(ctx, inst, vc_head, Program, &file, &index, &rel))
+	    if (parse_src_reg(ctx, inst, vc_head, Program, &File, &Index, &rel))
 	       return 1;
-	    parse_extended_swizzle_mask(inst, swizzle, &negateMask);
-	    fp->SrcReg[0].File = file;
-	    fp->SrcReg[0].Index = index;
+	    parse_extended_swizzle_mask (inst, Swizzle, &negateMask);
+	    fp->SrcReg[0].File = File;
+	    fp->SrcReg[0].Index = Index;
 	    fp->SrcReg[0].NegateBase = negateMask;
-	    fp->SrcReg[0].Swizzle = MAKE_SWIZZLE4(swizzle[0],
-                                                  swizzle[1],
-                                                  swizzle[2],
-                                                  swizzle[3]);
+	    fp->SrcReg[0].Swizzle = (Swizzle[0] << 0 |
+				     Swizzle[1] << 3 |
+				     Swizzle[2] << 6 |
+				     Swizzle[3] << 9);
 	 }
          break;
 
       case OP_TEX_SAMPLE:
          switch (code) {
             case OP_TEX_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_TEX:
-               fp->Opcode = OPCODE_TEX;
+               fp->Opcode = FP_OPCODE_TEX;
                break;
 
             case OP_TXP_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_TXP:
-               fp->Opcode = OPCODE_TXP;
+               fp->Opcode = FP_OPCODE_TXP;
                break;
 
             case OP_TXB_SAT:
-               fp->SaturateMode = SATURATE_ZERO_ONE;
+               fp->Saturate = 1;
             case OP_TXB:
-               fp->Opcode = OPCODE_TXB;
+               fp->Opcode = FP_OPCODE_TXB;
                break;
          }
 
@@ -2991,19 +3088,19 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
          /* texTarget */
          switch (*(*inst)++) {
             case TEXTARGET_1D:
-               fp->TexSrcTarget = TEXTURE_1D_INDEX;
+               fp->TexSrcIdx = TEXTURE_1D_INDEX;
                break;
             case TEXTARGET_2D:
-               fp->TexSrcTarget = TEXTURE_2D_INDEX;
+               fp->TexSrcIdx = TEXTURE_2D_INDEX;
                break;
             case TEXTARGET_3D:
-               fp->TexSrcTarget = TEXTURE_3D_INDEX;
+               fp->TexSrcIdx = TEXTURE_3D_INDEX;
                break;
             case TEXTARGET_RECT:
-               fp->TexSrcTarget = TEXTURE_RECT_INDEX;
+               fp->TexSrcIdx = TEXTURE_RECT_INDEX;
                break;
             case TEXTARGET_CUBE:
-               fp->TexSrcTarget = TEXTURE_CUBE_INDEX;
+               fp->TexSrcIdx = TEXTURE_CUBE_INDEX;
                break;
 	    case TEXTARGET_SHADOW1D:
 	    case TEXTARGET_SHADOW2D:
@@ -3011,37 +3108,25 @@ parse_fp_instruction (GLcontext * ctx, const GLubyte ** inst,
 	       /* TODO ARB_fragment_program_shadow code */
 	       break;
          }
-         Program->TexturesUsed[texcoord] |= (1 << fp->TexSrcTarget);
-         /* Check that both "2D" and "CUBE" (for example) aren't both used */
-         if (_mesa_bitcount(Program->TexturesUsed[texcoord]) > 1) {
-            program_error(ctx, Program->Position,
-                          "multiple targets used on one texture image unit");
-            return 1;
-         }
+         Program->TexturesUsed[texcoord] |= (1<<fp->TexSrcIdx);
          break;
 
       case OP_TEX_KIL:
-         Program->UsesKill = 1;
 	 if (parse_fp_vector_src_reg(ctx, inst, vc_head, Program, &fp->SrcReg[0]))
             return 1;
-         fp->Opcode = OPCODE_KIL;
+         fp->Opcode = FP_OPCODE_KIL;
          break;
-      default:
-         _mesa_problem(ctx, "bad type 0x%x in parse_fp_instruction()", type);
-         return 1;
    }
 
    return 0;
 }
 
 static GLuint 
-parse_vp_dst_reg(GLcontext * ctx, const GLubyte ** inst,
+parse_vp_dst_reg(GLcontext * ctx, GLubyte ** inst,
 		 struct var_cache **vc_head, struct arb_program *Program,
-		 struct prog_dst_register *reg )
+		 struct vp_dst_register *reg )
 {
-   GLint mask;
-   GLuint idx;
-   enum register_file file;
+   GLint file, idx, mask;
 
    if (parse_masked_dst_reg(ctx, inst, vc_head, Program, &file, &idx, &mask))
       return 1;
@@ -3061,10 +3146,10 @@ parse_vp_dst_reg(GLcontext * ctx, const GLubyte ** inst,
  * \return 0 on sucess, 1 on error
  */
 static GLuint
-parse_vp_address_reg (GLcontext * ctx, const GLubyte ** inst,
+parse_vp_address_reg (GLcontext * ctx, GLubyte ** inst,
 		      struct var_cache **vc_head,
 		      struct arb_program *Program,
-		      struct prog_dst_register *reg)
+		      struct vp_dst_register *reg)
 {
    GLint idx;
 
@@ -3083,49 +3168,50 @@ parse_vp_address_reg (GLcontext * ctx, const GLubyte ** inst,
 }
 
 /**
- * Parse vertex program vector source register.
  */
 static GLuint
-parse_vp_vector_src_reg(GLcontext * ctx, const GLubyte ** inst,
-                        struct var_cache **vc_head,
-                        struct arb_program *program,
-                        struct prog_src_register *reg )
+parse_vp_vector_src_reg (GLcontext * ctx, GLubyte ** inst,
+			 struct var_cache **vc_head, struct arb_program *Program,
+			 struct vp_src_register *reg )
 {
-   enum register_file file;
-   GLint index;
-   GLubyte negateMask;
-   GLubyte swizzle[4];
-   GLboolean isRelOffset;
+
+   GLint File;
+   GLint Index;
+   GLboolean Negate;
+   GLubyte Swizzle[4];
+   GLboolean IsRelOffset;
 
    /* Grab the sign */
-   negateMask = (parse_sign (inst) == -1) ? 0xf : 0x0;
+   Negate = (parse_sign (inst) == -1) ? 0xf : 0x0;
 
    /* And the src reg */
-   if (parse_src_reg (ctx, inst, vc_head, program, &file, &index, &isRelOffset))
+   if (parse_src_reg (ctx, inst, vc_head, Program, &File, &Index, &IsRelOffset))
       return 1;
 
    /* finally, the swizzle */
-   parse_swizzle_mask(inst, swizzle, 4);
+   parse_swizzle_mask (inst, Swizzle, 4);
 
-   reg->File = file;
-   reg->Index = index;
-   reg->Swizzle = MAKE_SWIZZLE4(swizzle[0], swizzle[1],
-                                swizzle[2], swizzle[3]);
-   reg->NegateBase = negateMask;
-   reg->RelAddr = isRelOffset;
+   reg->File = File;
+   reg->Index = Index;
+   reg->Swizzle = ((Swizzle[0] << 0) |
+		   (Swizzle[1] << 3) |
+		   (Swizzle[2] << 6) |
+		   (Swizzle[3] << 9));
+   reg->Negate = Negate;
+   reg->RelAddr = IsRelOffset;
    return 0;
 }
 
 
 static GLuint
-parse_vp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
-			 struct var_cache **vc_head,
-                         struct arb_program *Program,
-			 struct prog_src_register *reg )
+parse_vp_scalar_src_reg (GLcontext * ctx, GLubyte ** inst,
+			 struct var_cache **vc_head, struct arb_program *Program,
+			 struct vp_src_register *reg )
 {
-   enum register_file File;
+
+   GLint File;
    GLint Index;
-   GLubyte Negate;
+   GLboolean Negate;
    GLubyte Swizzle[4];
    GLboolean IsRelOffset;
 
@@ -3137,12 +3223,12 @@ parse_vp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
       return 1;
 
    /* finally, the swizzle */
-   parse_swizzle_mask(inst, Swizzle, 1);
+   parse_swizzle_mask (inst, Swizzle, 1);
 
    reg->File = File;
    reg->Index = Index;
    reg->Swizzle = (Swizzle[0] << 0);
-   reg->NegateBase = Negate;
+   reg->Negate = Negate;
    reg->RelAddr = IsRelOffset;
    return 0;
 }
@@ -3153,9 +3239,9 @@ parse_vp_scalar_src_reg (GLcontext * ctx, const GLubyte ** inst,
  * and handling the src & dst registers for vertex program instructions
  */
 static GLuint
-parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
+parse_vp_instruction (GLcontext * ctx, GLubyte ** inst,
                       struct var_cache **vc_head, struct arb_program *Program,
-                      struct prog_instruction *vp)
+                      struct vp_instruction *vp)
 {
    GLint a;
    GLubyte type, code;
@@ -3166,14 +3252,20 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
    /* The actual opcode name */
    code = *(*inst)++;
 
-   _mesa_init_instructions(vp, 1);
    /* Record the position in the program string for debugging */
    vp->StringPos = Program->Position;
+   vp->Data = NULL;
+   vp->SrcReg[0].RelAddr = vp->SrcReg[1].RelAddr = vp->SrcReg[2].RelAddr = 0;
+   vp->SrcReg[0].Swizzle = SWIZZLE_NOOP;
+   vp->SrcReg[1].Swizzle = SWIZZLE_NOOP;
+   vp->SrcReg[2].Swizzle = SWIZZLE_NOOP;
+   vp->SrcReg[3].Swizzle = SWIZZLE_NOOP;
+   vp->DstReg.WriteMask = 0xf;
 
    switch (type) {
          /* XXX: */
       case OP_ALU_ARL:
-         vp->Opcode = OPCODE_ARL;
+         vp->Opcode = VP_OPCODE_ARL;
 
          /* Remember to set SrcReg.RelAddr; */
 
@@ -3192,19 +3284,19 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_VECTOR:
          switch (code) {
             case OP_ABS:
-               vp->Opcode = OPCODE_ABS;
+               vp->Opcode = VP_OPCODE_ABS;
                break;
             case OP_FLR:
-               vp->Opcode = OPCODE_FLR;
+               vp->Opcode = VP_OPCODE_FLR;
                break;
             case OP_FRC:
-               vp->Opcode = OPCODE_FRC;
+               vp->Opcode = VP_OPCODE_FRC;
                break;
             case OP_LIT:
-               vp->Opcode = OPCODE_LIT;
+               vp->Opcode = VP_OPCODE_LIT;
                break;
             case OP_MOV:
-               vp->Opcode = OPCODE_MOV;
+               vp->Opcode = VP_OPCODE_MOV;
                break;
          }
 
@@ -3218,22 +3310,22 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_SCALAR:
          switch (code) {
             case OP_EX2:
-               vp->Opcode = OPCODE_EX2;
+               vp->Opcode = VP_OPCODE_EX2;
                break;
             case OP_EXP:
-               vp->Opcode = OPCODE_EXP;
+               vp->Opcode = VP_OPCODE_EXP;
                break;
             case OP_LG2:
-               vp->Opcode = OPCODE_LG2;
+               vp->Opcode = VP_OPCODE_LG2;
                break;
             case OP_LOG:
-               vp->Opcode = OPCODE_LOG;
+               vp->Opcode = VP_OPCODE_LOG;
                break;
             case OP_RCP:
-               vp->Opcode = OPCODE_RCP;
+               vp->Opcode = VP_OPCODE_RCP;
                break;
             case OP_RSQ:
-               vp->Opcode = OPCODE_RSQ;
+               vp->Opcode = VP_OPCODE_RSQ;
                break;
          }
          if (parse_vp_dst_reg(ctx, inst, vc_head, Program, &vp->DstReg))
@@ -3246,7 +3338,7 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_BINSC:
          switch (code) {
             case OP_POW:
-               vp->Opcode = OPCODE_POW;
+               vp->Opcode = VP_OPCODE_POW;
                break;
          }
          if (parse_vp_dst_reg(ctx, inst, vc_head, Program, &vp->DstReg))
@@ -3261,40 +3353,40 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_BIN:
          switch (code) {
             case OP_ADD:
-               vp->Opcode = OPCODE_ADD;
+               vp->Opcode = VP_OPCODE_ADD;
                break;
             case OP_DP3:
-               vp->Opcode = OPCODE_DP3;
+               vp->Opcode = VP_OPCODE_DP3;
                break;
             case OP_DP4:
-               vp->Opcode = OPCODE_DP4;
+               vp->Opcode = VP_OPCODE_DP4;
                break;
             case OP_DPH:
-               vp->Opcode = OPCODE_DPH;
+               vp->Opcode = VP_OPCODE_DPH;
                break;
             case OP_DST:
-               vp->Opcode = OPCODE_DST;
+               vp->Opcode = VP_OPCODE_DST;
                break;
             case OP_MAX:
-               vp->Opcode = OPCODE_MAX;
+               vp->Opcode = VP_OPCODE_MAX;
                break;
             case OP_MIN:
-               vp->Opcode = OPCODE_MIN;
+               vp->Opcode = VP_OPCODE_MIN;
                break;
             case OP_MUL:
-               vp->Opcode = OPCODE_MUL;
+               vp->Opcode = VP_OPCODE_MUL;
                break;
             case OP_SGE:
-               vp->Opcode = OPCODE_SGE;
+               vp->Opcode = VP_OPCODE_SGE;
                break;
             case OP_SLT:
-               vp->Opcode = OPCODE_SLT;
+               vp->Opcode = VP_OPCODE_SLT;
                break;
             case OP_SUB:
-               vp->Opcode = OPCODE_SUB;
+               vp->Opcode = VP_OPCODE_SUB;
                break;
             case OP_XPD:
-               vp->Opcode = OPCODE_XPD;
+               vp->Opcode = VP_OPCODE_XPD;
                break;
          }
          if (parse_vp_dst_reg(ctx, inst, vc_head, Program, &vp->DstReg))
@@ -3309,7 +3401,7 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_TRI:
          switch (code) {
             case OP_MAD:
-               vp->Opcode = OPCODE_MAD;
+               vp->Opcode = VP_OPCODE_MAD;
                break;
          }
 
@@ -3325,30 +3417,32 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
       case OP_ALU_SWZ:
          switch (code) {
             case OP_SWZ:
-               vp->Opcode = OPCODE_SWZ;
+               vp->Opcode = VP_OPCODE_SWZ;
                break;
          }
 	 {
-	    GLubyte swizzle[4]; 
-	    GLubyte negateMask;
-	    GLboolean relAddr;
-            enum register_file file;
-	    GLint index;
+	    GLubyte Swizzle[4]; /* FP's swizzle mask is a GLubyte, while VP's is GLuint */
+	    GLubyte Negate[4];
+	    GLboolean RelAddr;
+	    GLint File, Index;
 
 	    if (parse_vp_dst_reg(ctx, inst, vc_head, Program, &vp->DstReg))
 	       return 1;
 
-	    if (parse_src_reg(ctx, inst, vc_head, Program, &file, &index, &relAddr))
+	    if (parse_src_reg(ctx, inst, vc_head, Program, &File, &Index, &RelAddr))
 	       return 1;
-	    parse_extended_swizzle_mask (inst, swizzle, &negateMask);
-	    vp->SrcReg[0].File = file;
-	    vp->SrcReg[0].Index = index;
-	    vp->SrcReg[0].NegateBase = negateMask;
-	    vp->SrcReg[0].Swizzle = MAKE_SWIZZLE4(swizzle[0],
-                                                  swizzle[1],
-                                                  swizzle[2],
-                                                  swizzle[3]);
-	    vp->SrcReg[0].RelAddr = relAddr;
+	    parse_extended_swizzle_mask (inst, Swizzle, Negate);
+	    vp->SrcReg[0].File = File;
+	    vp->SrcReg[0].Index = Index;
+	    vp->SrcReg[0].Negate = (Negate[0] << 0 |
+				    Negate[1] << 1 |
+				    Negate[2] << 2 |
+				    Negate[3] << 3);
+	    vp->SrcReg[0].Swizzle = (Swizzle[0] << 0 |
+				     Swizzle[1] << 3 |
+				     Swizzle[2] << 6 |
+				     Swizzle[3] << 9);
+	    vp->SrcReg[0].RelAddr = RelAddr;
 	 }
          break;
    }
@@ -3358,18 +3452,198 @@ parse_vp_instruction (GLcontext * ctx, const GLubyte ** inst,
 #if DEBUG_PARSING
 
 static GLvoid
+print_state_token (GLint token)
+{
+   switch (token) {
+      case STATE_MATERIAL:
+         fprintf (stderr, "STATE_MATERIAL ");
+         break;
+      case STATE_LIGHT:
+         fprintf (stderr, "STATE_LIGHT ");
+         break;
+
+      case STATE_LIGHTMODEL_AMBIENT:
+         fprintf (stderr, "STATE_AMBIENT ");
+         break;
+
+      case STATE_LIGHTMODEL_SCENECOLOR:
+         fprintf (stderr, "STATE_SCENECOLOR ");
+         break;
+
+      case STATE_LIGHTPROD:
+         fprintf (stderr, "STATE_LIGHTPROD ");
+         break;
+
+      case STATE_TEXGEN:
+         fprintf (stderr, "STATE_TEXGEN ");
+         break;
+
+      case STATE_FOG_COLOR:
+         fprintf (stderr, "STATE_FOG_COLOR ");
+         break;
+
+      case STATE_FOG_PARAMS:
+         fprintf (stderr, "STATE_FOG_PARAMS ");
+         break;
+
+      case STATE_CLIPPLANE:
+         fprintf (stderr, "STATE_CLIPPLANE ");
+         break;
+
+      case STATE_POINT_SIZE:
+         fprintf (stderr, "STATE_POINT_SIZE ");
+         break;
+
+      case STATE_POINT_ATTENUATION:
+         fprintf (stderr, "STATE_ATTENUATION ");
+         break;
+
+      case STATE_MATRIX:
+         fprintf (stderr, "STATE_MATRIX ");
+         break;
+
+      case STATE_MODELVIEW:
+         fprintf (stderr, "STATE_MODELVIEW ");
+         break;
+
+      case STATE_PROJECTION:
+         fprintf (stderr, "STATE_PROJECTION ");
+         break;
+
+      case STATE_MVP:
+         fprintf (stderr, "STATE_MVP ");
+         break;
+
+      case STATE_TEXTURE:
+         fprintf (stderr, "STATE_TEXTURE ");
+         break;
+
+      case STATE_PROGRAM:
+         fprintf (stderr, "STATE_PROGRAM ");
+         break;
+
+      case STATE_MATRIX_INVERSE:
+         fprintf (stderr, "STATE_INVERSE ");
+         break;
+
+      case STATE_MATRIX_TRANSPOSE:
+         fprintf (stderr, "STATE_TRANSPOSE ");
+         break;
+
+      case STATE_MATRIX_INVTRANS:
+         fprintf (stderr, "STATE_INVTRANS ");
+         break;
+
+      case STATE_AMBIENT:
+         fprintf (stderr, "STATE_AMBIENT ");
+         break;
+
+      case STATE_DIFFUSE:
+         fprintf (stderr, "STATE_DIFFUSE ");
+         break;
+
+      case STATE_SPECULAR:
+         fprintf (stderr, "STATE_SPECULAR ");
+         break;
+
+      case STATE_EMISSION:
+         fprintf (stderr, "STATE_EMISSION ");
+         break;
+
+      case STATE_SHININESS:
+         fprintf (stderr, "STATE_SHININESS ");
+         break;
+
+      case STATE_HALF:
+         fprintf (stderr, "STATE_HALF ");
+         break;
+
+      case STATE_POSITION:
+         fprintf (stderr, "STATE_POSITION ");
+         break;
+
+      case STATE_ATTENUATION:
+         fprintf (stderr, "STATE_ATTENUATION ");
+         break;
+
+      case STATE_SPOT_DIRECTION:
+         fprintf (stderr, "STATE_DIRECTION ");
+         break;
+
+      case STATE_TEXGEN_EYE_S:
+         fprintf (stderr, "STATE_TEXGEN_EYE_S ");
+         break;
+
+      case STATE_TEXGEN_EYE_T:
+         fprintf (stderr, "STATE_TEXGEN_EYE_T ");
+         break;
+
+      case STATE_TEXGEN_EYE_R:
+         fprintf (stderr, "STATE_TEXGEN_EYE_R ");
+         break;
+
+      case STATE_TEXGEN_EYE_Q:
+         fprintf (stderr, "STATE_TEXGEN_EYE_Q ");
+         break;
+
+      case STATE_TEXGEN_OBJECT_S:
+         fprintf (stderr, "STATE_TEXGEN_EYE_S ");
+         break;
+
+      case STATE_TEXGEN_OBJECT_T:
+         fprintf (stderr, "STATE_TEXGEN_OBJECT_T ");
+         break;
+
+      case STATE_TEXGEN_OBJECT_R:
+         fprintf (stderr, "STATE_TEXGEN_OBJECT_R ");
+         break;
+
+      case STATE_TEXGEN_OBJECT_Q:
+         fprintf (stderr, "STATE_TEXGEN_OBJECT_Q ");
+         break;
+
+      case STATE_TEXENV_COLOR:
+         fprintf (stderr, "STATE_TEXENV_COLOR ");
+         break;
+
+      case STATE_DEPTH_RANGE:
+         fprintf (stderr, "STATE_DEPTH_RANGE ");
+         break;
+
+      case STATE_VERTEX_PROGRAM:
+         fprintf (stderr, "STATE_VERTEX_PROGRAM ");
+         break;
+
+      case STATE_FRAGMENT_PROGRAM:
+         fprintf (stderr, "STATE_FRAGMENT_PROGRAM ");
+         break;
+
+      case STATE_ENV:
+         fprintf (stderr, "STATE_ENV ");
+         break;
+
+      case STATE_LOCAL:
+         fprintf (stderr, "STATE_LOCAL ");
+         break;
+
+   }
+   fprintf (stderr, "[%d] ", token);
+}
+
+
+static GLvoid
 debug_variables (GLcontext * ctx, struct var_cache *vc_head,
                  struct arb_program *Program)
 {
    struct var_cache *vc;
    GLint a, b;
 
-   fprintf (stderr, "debug_variables, vc_head: %p\n", (void*) vc_head);
+   fprintf (stderr, "debug_variables, vc_head: %x\n", vc_head);
 
    /* First of all, print out the contents of the var_cache */
    vc = vc_head;
    while (vc) {
-      fprintf (stderr, "[%p]\n", (void*) vc);
+      fprintf (stderr, "[%x]\n", vc);
       switch (vc->type) {
          case vt_none:
             fprintf (stderr, "UNDEFINED %s\n", vc->name);
@@ -3384,20 +3658,27 @@ debug_variables (GLcontext * ctx, struct var_cache *vc_head,
             b = vc->param_binding_begin;
             for (a = 0; a < vc->param_binding_length; a++) {
                fprintf (stderr, "%s\n",
-                        Program->Base.Parameters->Parameters[a + b].Name);
-               if (Program->Base.Parameters->Parameters[a + b].Type == PROGRAM_STATE_VAR) {
-                  const char *s;
-                  s = _mesa_program_state_string(Program->Base.Parameters->Parameters
-                                                 [a + b].StateIndexes);
-                  fprintf(stderr, "%s\n", s);
-                  _mesa_free((char *) s);
+                        Program->Parameters->Parameters[a + b].Name);
+               if (Program->Parameters->Parameters[a + b].Type == STATE) {
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[0]);
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[1]);
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[2]);
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[3]);
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[4]);
+                  print_state_token (Program->Parameters->Parameters[a + b].
+                                     StateIndexes[5]);
                }
                else
                   fprintf (stderr, "%f %f %f %f\n",
-                           Program->Base.Parameters->ParameterValues[a + b][0],
-                           Program->Base.Parameters->ParameterValues[a + b][1],
-                           Program->Base.Parameters->ParameterValues[a + b][2],
-                           Program->Base.Parameters->ParameterValues[a + b][3]);
+                           Program->Parameters->Parameters[a + b].Values[0],
+                           Program->Parameters->Parameters[a + b].Values[1],
+                           Program->Parameters->Parameters[a + b].Values[2],
+                           Program->Parameters->Parameters[a + b].Values[3]);
             }
             break;
          case vt_temp:
@@ -3410,35 +3691,27 @@ debug_variables (GLcontext * ctx, struct var_cache *vc_head,
             break;
          case vt_alias:
             fprintf (stderr, "ALIAS     %s\n", vc->name);
-            fprintf (stderr, "          binding: 0x%p (%s)\n",
-                     (void*) vc->alias_binding, vc->alias_binding->name);
+            fprintf (stderr, "          binding: 0x%x (%s)\n",
+                     vc->alias_binding, vc->alias_binding->name);
             break;
-         default:
-            /* nothing */
-            ;
       }
       vc = vc->next;
    }
 }
 
-#endif /* DEBUG_PARSING */
+#endif
 
 
 /**
  * The main loop for parsing a fragment or vertex program
  *
- * \return 1 on error, 0 on success
+ * \return 0 on sucess, 1 on error
  */
 static GLint
-parse_instructions(GLcontext * ctx, const GLubyte * inst,
-                   struct var_cache **vc_head, struct arb_program *Program)
+parse_arb_program (GLcontext * ctx, GLubyte * inst, struct var_cache **vc_head,
+                   struct arb_program *Program)
 {
-   const GLuint maxInst = (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB)
-      ? ctx->Const.FragmentProgram.MaxInstructions
-      : ctx->Const.VertexProgram.MaxInstructions;
    GLint err = 0;
-
-   ASSERT(MAX_INSTRUCTIONS >= maxInst);
 
    Program->MajorVersion = (GLuint) * inst++;
    Program->MinorVersion = (GLuint) * inst++;
@@ -3470,7 +3743,7 @@ parse_instructions(GLcontext * ctx, const GLubyte * inst,
 
                case ARB_POSITION_INVARIANT:
                   if (Program->Base.Target == GL_VERTEX_PROGRAM_ARB)
-                     Program->HintPositionInvariant = GL_TRUE;
+                     Program->HintPositionInvariant = 1;
                   break;
 
                case ARB_FRAGMENT_PROGRAM_SHADOW:
@@ -3488,24 +3761,54 @@ parse_instructions(GLcontext * ctx, const GLubyte * inst,
             break;
 
          case INSTRUCTION:
-            /* check length */
-            if (Program->Base.NumInstructions + 1 >= maxInst) {
-               program_error(ctx, Program->Position,
-                             "Max instruction count exceeded");
-               return 1;
-            }
             Program->Position = parse_position (&inst);
-            /* parse the current instruction */
+
             if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
+
+               /* Check the instruction count
+                * XXX: Does END count as an instruction?
+                */
+               if (Program->Base.NumInstructions+1 == MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS) {
+                  _mesa_set_program_error (ctx, Program->Position,
+                      "Max instruction count exceeded!");
+                  _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Max instruction count exceeded!");
+               }
+
+               /* Realloc Program->FPInstructions */
+               Program->FPInstructions =
+                  (struct fp_instruction *) _mesa_realloc (Program->FPInstructions,
+                                                           Program->Base.NumInstructions*sizeof(struct fp_instruction),
+                                                           (Program->Base.NumInstructions+1)*sizeof (struct fp_instruction));
+
+               /* parse the current instruction   */
                err = parse_fp_instruction (ctx, &inst, vc_head, Program,
-                      &Program->Base.Instructions[Program->Base.NumInstructions]);
+                                           &Program->FPInstructions[Program->Base.NumInstructions]);
+
             }
             else {
+               /* Check the instruction count
+                * XXX: Does END count as an instruction?
+                */
+               if (Program->Base.NumInstructions+1 == MAX_NV_VERTEX_PROGRAM_INSTRUCTIONS) {
+                  _mesa_set_program_error (ctx, Program->Position,
+                      "Max instruction count exceeded!");
+                  _mesa_error (ctx, GL_INVALID_OPERATION,
+                      "Max instruction count exceeded!");
+               }
+
+               /* Realloc Program->VPInstructions */
+               Program->VPInstructions =
+                  (struct vp_instruction *) _mesa_realloc (Program->VPInstructions,
+                                                           Program->Base.NumInstructions*sizeof(struct vp_instruction),
+                                                           (Program->Base.NumInstructions +1)*sizeof(struct vp_instruction));
+
+               /* parse the current instruction   */
                err = parse_vp_instruction (ctx, &inst, vc_head, Program,
-                      &Program->Base.Instructions[Program->Base.NumInstructions]);
+                                           &Program->VPInstructions[Program->Base.NumInstructions]);
             }
 
-            /* increment instuction count */
+            /* increment Program->Base.NumInstructions */
             Program->Base.NumInstructions++;
             break;
 
@@ -3522,50 +3825,55 @@ parse_instructions(GLcontext * ctx, const GLubyte * inst,
    }
 
    /* Finally, tag on an OPCODE_END instruction */
-   {
-      const GLuint numInst = Program->Base.NumInstructions;
-      _mesa_init_instructions(Program->Base.Instructions + numInst, 1);
-      Program->Base.Instructions[numInst].Opcode = OPCODE_END;
+   if (Program->Base.Target == GL_FRAGMENT_PROGRAM_ARB) {
+      Program->FPInstructions =
+         (struct fp_instruction *) _mesa_realloc (Program->FPInstructions,
+						  Program->Base.NumInstructions*sizeof(struct fp_instruction),
+                                                  (Program->Base.NumInstructions+1)*sizeof(struct fp_instruction));
+
+      Program->FPInstructions[Program->Base.NumInstructions].Opcode = FP_OPCODE_END;
+      Program->FPInstructions[Program->Base.NumInstructions].Saturate = 0;
+      Program->FPInstructions[Program->Base.NumInstructions].DstReg.File = 0xf;
+      Program->FPInstructions[Program->Base.NumInstructions].SrcReg[0].File = 0xf;
+      Program->FPInstructions[Program->Base.NumInstructions].SrcReg[1].File = 0xf;
+      Program->FPInstructions[Program->Base.NumInstructions].SrcReg[2].File = 0xf;
       /* YYY Wrong Position in program, whatever, at least not random -> crash
 	 Program->Position = parse_position (&inst);
       */
-      Program->Base.Instructions[numInst].StringPos = Program->Position;
+      Program->FPInstructions[Program->Base.NumInstructions].StringPos = Program->Position;
+      Program->FPInstructions[Program->Base.NumInstructions].Data = NULL;
    }
-   Program->Base.NumInstructions++;
+   else {
+      Program->VPInstructions =
+         (struct vp_instruction *) _mesa_realloc (Program->VPInstructions,
+                                                  Program->Base.NumInstructions*sizeof(struct vp_instruction),
+                                                  (Program->Base.NumInstructions+1)*sizeof(struct vp_instruction));
 
-   /*
-    * Initialize native counts to logical counts.  The device driver may
-    * change them if program is translated into a hardware program.
-    */
-   Program->Base.NumNativeInstructions = Program->Base.NumInstructions;
-   Program->Base.NumNativeTemporaries = Program->Base.NumTemporaries;
-   Program->Base.NumNativeParameters = Program->Base.NumParameters;
-   Program->Base.NumNativeAttributes = Program->Base.NumAttributes;
-   Program->Base.NumNativeAddressRegs = Program->Base.NumAddressRegs;
+      Program->VPInstructions[Program->Base.NumInstructions].Opcode = VP_OPCODE_END;
+      /* YYY Wrong Position in program, whatever, at least not random -> crash
+	 Program->Position = parse_position (&inst);
+      */
+      Program->VPInstructions[Program->Base.NumInstructions].StringPos = Program->Position;
+      Program->VPInstructions[Program->Base.NumInstructions].Data = NULL;
+   }
+
+   /* increment Program->Base.NumInstructions */
+   Program->Base.NumInstructions++;
 
    return err;
 }
 
-
 /* XXX temporary */
-LONGSTRING static char core_grammar_text[] =
+__extension__ static char core_grammar_text[] =
 #include "grammar_syn.h"
 ;
 
-
-/**
- * Set a grammar parameter.
- * \param name the grammar parameter
- * \param value the new parameter value
- * \return 0 if OK, 1 if error
- */
-static int
-set_reg8 (GLcontext *ctx, grammar id, const char *name, GLubyte value)
+static int set_reg8 (GLcontext *ctx, grammar id, const byte *name, byte value)
 {
    char error_msg[300];
    GLint error_pos;
 
-   if (grammar_set_reg8 (id, (const byte *) name, value))
+   if (grammar_set_reg8 (id, name, value))
       return 0;
 
    grammar_get_last_error ((byte *) error_msg, 300, &error_pos);
@@ -3574,64 +3882,33 @@ set_reg8 (GLcontext *ctx, grammar id, const char *name, GLubyte value)
    return 1;
 }
 
-
-/**
- * Enable support for the given language option in the parser.
- * \return 1 if OK, 0 if error
- */
-static int
-enable_ext(GLcontext *ctx, grammar id, const char *name)
+static int extension_is_supported (const GLubyte *ext)
 {
-   return !set_reg8(ctx, id, name, 1);
+   const GLubyte *extensions = CALL_GetString(GET_DISPATCH(), (GL_EXTENSIONS));
+   const GLubyte *end = extensions + _mesa_strlen ((const char *) extensions);
+   const GLint ext_len = (GLint)_mesa_strlen ((const char *) ext);
+
+   while (extensions < end)
+   {
+      const GLubyte *name_end = (const GLubyte *) strchr ((const char *) extensions, ' ');
+      if (name_end == NULL)
+         name_end = end;
+      if (name_end - extensions == ext_len && _mesa_strncmp ((const char *) ext,
+         (const char *) extensions, ext_len) == 0)
+         return 1;
+      extensions = name_end + 1;
+   }
+
+   return 0;
 }
 
-
-/**
- * Enable parser extensions based on which OpenGL extensions are supported
- * by this rendering context.
- *
- * \return GL_TRUE if OK, GL_FALSE if error.
- */
-static GLboolean
-enable_parser_extensions(GLcontext *ctx, grammar id)
+static int enable_ext (GLcontext *ctx, grammar id, const byte *name, const byte *extname)
 {
-#if 0
-   /* These are not supported at this time */
-   if ((ctx->Extensions.ARB_vertex_blend ||
-        ctx->Extensions.EXT_vertex_weighting)
-       && !enable_ext(ctx, id, "vertex_blend"))
-      return GL_FALSE;
-   if (ctx->Extensions.ARB_matrix_palette
-       && !enable_ext(ctx, id, "matrix_palette"))
-      return GL_FALSE;
-   if (ctx->Extensions.ARB_fragment_program_shadow
-       && !enable_ext(ctx, id, "fragment_program_shadow"))
-      return GL_FALSE;
-#endif
-   if (ctx->Extensions.EXT_point_parameters
-       && !enable_ext(ctx, id, "point_parameters"))
-      return GL_FALSE;
-   if (ctx->Extensions.EXT_secondary_color
-       && !enable_ext(ctx, id, "secondary_color"))
-      return GL_FALSE;
-   if (ctx->Extensions.EXT_fog_coord
-       && !enable_ext(ctx, id, "fog_coord"))
-      return GL_FALSE;
-   if (ctx->Extensions.NV_texture_rectangle
-       && !enable_ext(ctx, id, "texture_rectangle"))
-      return GL_FALSE;
-   if (ctx->Extensions.ARB_draw_buffers
-       && !enable_ext(ctx, id, "draw_buffers"))
-      return GL_FALSE;
-
-#if 1
-   /* hack for Warcraft (see bug 8060) */
-   enable_ext(ctx, id, "vertex_blend");
-#endif
-
-   return GL_TRUE;
+   if (extension_is_supported (extname))
+      if (set_reg8 (ctx, id, name, 0x01))
+         return 1;
+   return 0;
 }
-
 
 /**
  * This kicks everything off.
@@ -3639,13 +3916,12 @@ enable_parser_extensions(GLcontext *ctx, grammar id)
  * \param ctx - The GL Context
  * \param str - The program string
  * \param len - The program string length
- * \param program - The arb_program struct to return all the parsed info in
- * \return GL_TRUE on sucess, GL_FALSE on error
+ * \param Program - The arb_program struct to return all the parsed info in
+ * \return 0 on sucess, 1 on error
  */
-static GLboolean
-_mesa_parse_arb_program(GLcontext *ctx, GLenum target,
-                        const GLubyte *str, GLsizei len,
-                        struct arb_program *program)
+GLuint
+_mesa_parse_arb_program (GLcontext * ctx, const GLubyte * str, GLsizei len,
+                         struct arb_program * program)
 {
    GLint a, err, error_pos;
    char error_msg[300];
@@ -3656,46 +3932,42 @@ _mesa_parse_arb_program(GLcontext *ctx, GLenum target,
    GLubyte *strz = NULL;
    static int arbprogram_syn_is_ok = 0;		/* XXX temporary */
 
-   /* set the program target before parsing */
-   program->Base.Target = target;
-
    /* Reset error state */
    _mesa_set_program_error(ctx, -1, NULL);
 
-   /* check if arb_grammar_text (arbprogram.syn) is syntactically correct */
+#if DEBUG_PARSING
+   fprintf (stderr, "Loading grammar text!\n");
+#endif
+
+   /* check if the arb_grammar_text (arbprogram.syn) is syntactically correct */
    if (!arbprogram_syn_is_ok) {
-      /* One-time initialization of parsing system */
       grammar grammar_syn_id;
+      GLint err;
       GLuint parsed_len;
+      byte *parsed;
 
       grammar_syn_id = grammar_load_from_text ((byte *) core_grammar_text);
       if (grammar_syn_id == 0) {
          grammar_get_last_error ((byte *) error_msg, 300, &error_pos);
-         /* XXX this is not a GL error - it's an implementation bug! - FIX */
          _mesa_set_program_error (ctx, error_pos, error_msg);
          _mesa_error (ctx, GL_INVALID_OPERATION,
-                      "glProgramStringARB(Error loading grammar rule set)");
-         return GL_FALSE;
+                      "Error loading grammar rule set");
+         return 1;
       }
 
-      err = !grammar_check(grammar_syn_id, (byte *) arb_grammar_text,
-                           &parsed, &parsed_len);
+      err = grammar_check (grammar_syn_id, (byte *) arb_grammar_text, &parsed, &parsed_len);
 
-      /* 'parsed' is unused here */
-      _mesa_free (parsed);
-      parsed = NULL;
+      /* NOTE: we cant destroy grammar_syn_id right here because grammar_destroy() can
+         reset the last error
+      */
 
-      /* NOTE: we can't destroy grammar_syn_id right here because
-       * grammar_destroy() can reset the last error
-       */
-      if (err) {
-         /* XXX this is not a GL error - it's an implementation bug! - FIX */
+      if (err == 0) {
          grammar_get_last_error ((byte *) error_msg, 300, &error_pos);
          _mesa_set_program_error (ctx, error_pos, error_msg);
-         _mesa_error (ctx, GL_INVALID_OPERATION,
-                      "glProgramString(Error loading grammar rule set");
+         _mesa_error (ctx, GL_INVALID_OPERATION, "Error loading grammar rule set");
+
          grammar_destroy (grammar_syn_id);
-         return GL_FALSE;
+         return 1;
       }
 
       grammar_destroy (grammar_syn_id);
@@ -3706,122 +3978,143 @@ _mesa_parse_arb_program(GLcontext *ctx, GLenum target,
    /* create the grammar object */
    arbprogram_syn_id = grammar_load_from_text ((byte *) arb_grammar_text);
    if (arbprogram_syn_id == 0) {
-      /* XXX this is not a GL error - it's an implementation bug! - FIX */
       grammar_get_last_error ((GLubyte *) error_msg, 300, &error_pos);
       _mesa_set_program_error (ctx, error_pos, error_msg);
       _mesa_error (ctx, GL_INVALID_OPERATION,
-                   "glProgramString(Error loading grammer rule set)");
-      return GL_FALSE;
+                   "Error loading grammer rule set");
+      return 1;
    }
 
    /* Set program_target register value */
-   if (set_reg8 (ctx, arbprogram_syn_id, "program_target",
+   if (set_reg8 (ctx, arbprogram_syn_id, (byte *) "program_target",
       program->Base.Target == GL_FRAGMENT_PROGRAM_ARB ? 0x10 : 0x20)) {
       grammar_destroy (arbprogram_syn_id);
-      return GL_FALSE;
+      return 1;
    }
 
-   if (!enable_parser_extensions(ctx, arbprogram_syn_id)) {
-      grammar_destroy(arbprogram_syn_id);
-      return GL_FALSE;
+   /* Enable all active extensions */
+   if (enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "vertex_blend", (byte *) "GL_ARB_vertex_blend") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "vertex_blend", (byte *) "GL_EXT_vertex_weighting") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "matrix_palette", (byte *) "GL_ARB_matrix_palette") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "point_parameters", (byte *) "GL_ARB_point_parameters") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "point_parameters", (byte *) "GL_EXT_point_parameters") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "secondary_color", (byte *) "GL_EXT_secondary_color") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "fog_coord", (byte *) "GL_EXT_fog_coord") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "texture_rectangle", (byte *) "GL_ARB_texture_rectangle") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "texture_rectangle", (byte *) "GL_EXT_texture_rectangle") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "texture_rectangle", (byte *) "GL_NV_texture_rectangle") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "fragment_program_shadow", (byte *) "GL_ARB_fragment_program_shadow") ||
+       enable_ext (ctx, arbprogram_syn_id,
+          (byte *) "draw_buffers", (byte *) "GL_ARB_draw_buffers")) {
+      grammar_destroy (arbprogram_syn_id);
+      return 1;
    }
 
    /* check for NULL character occurences */
    {
-      GLint i;
-      for (i = 0; i < len; i++) {
+      int i;
+      for (i = 0; i < len; i++)
          if (str[i] == '\0') {
-            program_error(ctx, i, "illegal character");
+            _mesa_set_program_error (ctx, i, "invalid character");
+            _mesa_error (ctx, GL_INVALID_OPERATION, "Lexical Error");
+
             grammar_destroy (arbprogram_syn_id);
-            return GL_FALSE;
+            return 1;
          }
-      }
    }
 
    /* copy the program string to a null-terminated string */
+   /* XXX should I check for NULL from malloc()? */
    strz = (GLubyte *) _mesa_malloc (len + 1);
-   if (!strz) {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY, "glProgramStringARB");
-      grammar_destroy (arbprogram_syn_id);
-      return GL_FALSE;
-   }
    _mesa_memcpy (strz, str, len);
    strz[len] = '\0';
 
+#if DEBUG_PARSING
+   printf ("Checking Grammar!\n");
+#endif
    /* do a fast check on program string - initial production buffer is 4K */
-   err = !grammar_fast_check(arbprogram_syn_id, strz,
-                             &parsed, &parsed_len, 0x1000);
+   err = grammar_fast_check (arbprogram_syn_id, strz, &parsed, &parsed_len, 0x1000);
 
    /* Syntax parse error */
-   if (err) {
-      grammar_get_last_error((GLubyte *) error_msg, 300, &error_pos);
-      program_error(ctx, error_pos, error_msg);
+   if (err == 0) {
+      _mesa_free (strz);
+      grammar_get_last_error ((GLubyte *) error_msg, 300, &error_pos);
+      _mesa_set_program_error (ctx, error_pos, error_msg);
+      _mesa_error (ctx, GL_INVALID_OPERATION, "glProgramStringARB(syntax error)");
 
-#if DEBUG_PARSING
       /* useful for debugging */
-      do {
+      if (0) {
          int line, col;
          char *s;
-         fprintf(stderr, "program: %s\n", (char *) strz);
-         fprintf(stderr, "Error Pos: %d\n", ctx->program.ErrorPos);
-         s = (char *) _mesa_find_line_column(strz, strz+ctx->program.ErrorPos,
-                                             &line, &col);
-         fprintf(stderr, "line %d col %d: %s\n", line, col, s);
-      } while (0)
-#endif
-
-      _mesa_free(strz);
-      _mesa_free(parsed);
+         printf("Program: %s\n", (char *) strz);
+         printf("Error Pos: %d\n", ctx->Program.ErrorPos);
+         s = (char *) _mesa_find_line_column(strz, strz+ctx->Program.ErrorPos, &line, &col);
+         printf("line %d col %d: %s\n", line, col, s);
+      }
 
       grammar_destroy (arbprogram_syn_id);
-      return GL_FALSE;
+      return 1;
    }
 
+#if DEBUG_PARSING
+   printf ("Destroying grammer dict [parse retval: %d]\n", err);
+#endif
    grammar_destroy (arbprogram_syn_id);
-
-   /*
-    * Program string is syntactically correct at this point
-    * Parse the tokenized version of the program now, generating
-    * vertex/fragment program instructions.
-    */
 
    /* Initialize the arb_program struct */
    program->Base.String = strz;
-   program->Base.Instructions = _mesa_alloc_instructions(MAX_INSTRUCTIONS);
    program->Base.NumInstructions =
    program->Base.NumTemporaries =
    program->Base.NumParameters =
    program->Base.NumAttributes = program->Base.NumAddressRegs = 0;
-   program->Base.Parameters = _mesa_new_parameter_list ();
-   program->Base.InputsRead = 0x0;
-   program->Base.OutputsWritten = 0x0;
+   program->Parameters = _mesa_new_parameter_list ();
+   program->InputsRead = 0;
+   program->OutputsWritten = 0;
    program->Position = 0;
    program->MajorVersion = program->MinorVersion = 0;
    program->PrecisionOption = GL_DONT_CARE;
    program->FogOption = GL_NONE;
    program->HintPositionInvariant = GL_FALSE;
    for (a = 0; a < MAX_TEXTURE_IMAGE_UNITS; a++)
-      program->TexturesUsed[a] = 0x0;
+      program->TexturesUsed[a] = 0;
    program->NumAluInstructions =
    program->NumTexInstructions =
    program->NumTexIndirections = 0;
-   program->UsesKill = 0;
+
+   program->FPInstructions = NULL;
+   program->VPInstructions = NULL;
 
    vc_head = NULL;
-   err = GL_FALSE;
+   err = 0;
 
    /* Start examining the tokens in the array */
    inst = parsed;
 
    /* Check the grammer rev */
    if (*inst++ != REVISION) {
-      program_error (ctx, 0, "Grammar version mismatch");
-      err = GL_TRUE;
+      _mesa_set_program_error (ctx, 0, "Grammar version mismatch");
+      _mesa_error (ctx, GL_INVALID_OPERATION, "glProgramStringARB(Grammar verison mismatch)");
+      err = 1;
    }
    else {
       /* ignore program target */
       inst++;
-      err = parse_instructions(ctx, inst, &vc_head, program);
+
+      err = parse_arb_program (ctx, inst, &vc_head, program);
+#if DEBUG_PARSING
+      fprintf (stderr, "Symantic analysis returns %d [1 is bad!]\n", err);
+#endif
    }
 
    /*debug_variables(ctx, vc_head, program); */
@@ -3830,124 +4123,8 @@ _mesa_parse_arb_program(GLcontext *ctx, GLenum target,
    var_cache_destroy (&vc_head);
 
    _mesa_free (parsed);
-
-   /* Reallocate the instruction array from size [MAX_INSTRUCTIONS]
-    * to size [ap.Base.NumInstructions].
-    */
-   program->Base.Instructions
-      = _mesa_realloc_instructions(program->Base.Instructions,
-                                   MAX_INSTRUCTIONS,
-                                   program->Base.NumInstructions);
-
-   return !err;
-}
-
-
-
-void
-_mesa_parse_arb_fragment_program(GLcontext* ctx, GLenum target,
-                                 const GLvoid *str, GLsizei len,
-                                 struct gl_fragment_program *program)
-{
-   struct arb_program ap;
-   GLuint i;
-
-   ASSERT(target == GL_FRAGMENT_PROGRAM_ARB);
-   if (!_mesa_parse_arb_program(ctx, target, (const GLubyte*) str, len, &ap)) {
-      /* Error in the program. Just return. */
-      return;
-   }
-
-   /* Copy the relevant contents of the arb_program struct into the
-    * fragment_program struct.
-    */
-   program->Base.String          = ap.Base.String;
-   program->Base.NumInstructions = ap.Base.NumInstructions;
-   program->Base.NumTemporaries  = ap.Base.NumTemporaries;
-   program->Base.NumParameters   = ap.Base.NumParameters;
-   program->Base.NumAttributes   = ap.Base.NumAttributes;
-   program->Base.NumAddressRegs  = ap.Base.NumAddressRegs;
-   program->Base.NumNativeInstructions = ap.Base.NumNativeInstructions;
-   program->Base.NumNativeTemporaries = ap.Base.NumNativeTemporaries;
-   program->Base.NumNativeParameters = ap.Base.NumNativeParameters;
-   program->Base.NumNativeAttributes = ap.Base.NumNativeAttributes;
-   program->Base.NumNativeAddressRegs = ap.Base.NumNativeAddressRegs;
-   program->Base.NumAluInstructions   = ap.Base.NumAluInstructions;
-   program->Base.NumTexInstructions   = ap.Base.NumTexInstructions;
-   program->Base.NumTexIndirections   = ap.Base.NumTexIndirections;
-   program->Base.NumNativeAluInstructions = ap.Base.NumAluInstructions;
-   program->Base.NumNativeTexInstructions = ap.Base.NumTexInstructions;
-   program->Base.NumNativeTexIndirections = ap.Base.NumTexIndirections;
-   program->Base.InputsRead      = ap.Base.InputsRead;
-   program->Base.OutputsWritten  = ap.Base.OutputsWritten;
-   for (i = 0; i < MAX_TEXTURE_IMAGE_UNITS; i++)
-      program->Base.TexturesUsed[i] = ap.TexturesUsed[i];
-   program->FogOption          = ap.FogOption;
-   program->UsesKill          = ap.UsesKill;
-
-   if (program->Base.Instructions)
-      _mesa_free(program->Base.Instructions);
-   program->Base.Instructions = ap.Base.Instructions;
-
-   if (program->Base.Parameters)
-      _mesa_free_parameter_list(program->Base.Parameters);
-   program->Base.Parameters    = ap.Base.Parameters;
-
-#if DEBUG_FP
-   _mesa_printf("____________Fragment program %u ________\n", program->Base.ID);
-   _mesa_print_program(&program->Base);
+#if DEBUG_PARSING
+   printf ("_mesa_parse_arb_program() done\n");
 #endif
-}
-
-
-
-/**
- * Parse the vertex program string.  If success, update the given
- * vertex_program object with the new program.  Else, leave the vertex_program
- * object unchanged.
- */
-void
-_mesa_parse_arb_vertex_program(GLcontext *ctx, GLenum target,
-			       const GLvoid *str, GLsizei len,
-			       struct gl_vertex_program *program)
-{
-   struct arb_program ap;
-
-   ASSERT(target == GL_VERTEX_PROGRAM_ARB);
-
-   if (!_mesa_parse_arb_program(ctx, target, (const GLubyte*) str, len, &ap)) {
-      /* Error in the program. Just return. */
-      return;
-   }
-
-   /* Copy the relevant contents of the arb_program struct into the 
-    * vertex_program struct.
-    */
-   program->Base.String          = ap.Base.String;
-   program->Base.NumInstructions = ap.Base.NumInstructions;
-   program->Base.NumTemporaries  = ap.Base.NumTemporaries;
-   program->Base.NumParameters   = ap.Base.NumParameters;
-   program->Base.NumAttributes   = ap.Base.NumAttributes;
-   program->Base.NumAddressRegs  = ap.Base.NumAddressRegs;
-   program->Base.NumNativeInstructions = ap.Base.NumNativeInstructions;
-   program->Base.NumNativeTemporaries = ap.Base.NumNativeTemporaries;
-   program->Base.NumNativeParameters = ap.Base.NumNativeParameters;
-   program->Base.NumNativeAttributes = ap.Base.NumNativeAttributes;
-   program->Base.NumNativeAddressRegs = ap.Base.NumNativeAddressRegs;
-   program->Base.InputsRead     = ap.Base.InputsRead;
-   program->Base.OutputsWritten = ap.Base.OutputsWritten;
-   program->IsPositionInvariant = ap.HintPositionInvariant;
-
-   if (program->Base.Instructions)
-      _mesa_free(program->Base.Instructions);
-   program->Base.Instructions = ap.Base.Instructions;
-
-   if (program->Base.Parameters)
-      _mesa_free_parameter_list(program->Base.Parameters);
-   program->Base.Parameters = ap.Base.Parameters; 
-
-#if DEBUG_VP
-   _mesa_printf("____________Vertex program %u __________\n", program->Base.Id);
-   _mesa_print_program(&program->Base);
-#endif
+   return err;
 }

@@ -1,98 +1,78 @@
 /*
  * PROJECT:     ReactOS Services
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/mscutils/servman/stop.c
- * PURPOSE:     Stops running a service
- * COPYRIGHT:   Copyright 2006-2007 Ged Murphy <gedmurphy@reactos.org>
+ * FILE:        base/system/servman/stop.c
+ * PURPOSE:     Stops a service
+ * COPYRIGHT:   Copyright 2005 - 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
 #include "precomp.h"
 
-BOOL
-DoStop(PMAIN_WND_INFO Info)
+BOOL DoStop(PMAIN_WND_INFO Info)
 {
-    SC_HANDLE hSCManager = NULL;
-    SC_HANDLE hSc = NULL;
-    LPQUERY_SERVICE_CONFIG lpServiceConfig = NULL;
     HWND hProgDlg;
-    DWORD BytesNeeded = 0;
-    BOOL ret = FALSE;
+    TCHAR ProgDlgBuf[100];
 
-    hSCManager = OpenSCManager(NULL,
-                               NULL,
-                               SC_MANAGER_ENUMERATE_SERVICE);
-    if (hSCManager == NULL)
+    /* open the progress dialog */
+    hProgDlg = CreateDialog(hInstance,
+                            MAKEINTRESOURCE(IDD_DLG_PROGRESS),
+                            Info->hMainWnd,
+                            (DLGPROC)ProgressDialogProc);
+    if (hProgDlg != NULL)
     {
-        GetError();
-        return FALSE;
+        ShowWindow(hProgDlg,
+                   SW_SHOW);
+
+        /* write the  info to the progress dialog */
+        LoadString(hInstance,
+                   IDS_PROGRESS_INFO_STOP,
+                   ProgDlgBuf,
+                   sizeof(ProgDlgBuf) / sizeof(TCHAR));
+
+        SendDlgItemMessage(hProgDlg,
+                           IDC_SERVCON_INFO,
+                           WM_SETTEXT,
+                           0,
+                           (LPARAM)ProgDlgBuf);
+
+        /* write the service name to the progress dialog */
+        SendDlgItemMessage(hProgDlg,
+                           IDC_SERVCON_NAME,
+                           WM_SETTEXT,
+                           0,
+                           (LPARAM)Info->CurrentService->lpServiceName);
     }
 
-    hSc = OpenService(hSCManager,
-                      Info->pCurrentService->lpServiceName,
-                      SERVICE_QUERY_CONFIG);
-    if (hSc)
+    if ( Control(Info, SERVICE_CONTROL_STOP) )
     {
-        if (!QueryServiceConfig(hSc,
-                                lpServiceConfig,
-                                0,
-                                &BytesNeeded))
+        LVITEM item;
+        TCHAR buf[25];
+
+        item.pszText = _T('\0');
+        item.iItem = Info->SelectedItem;
+        item.iSubItem = 2;
+        SendMessage(Info->hListView,
+                    LVM_SETITEMTEXT,
+                    item.iItem,
+                    (LPARAM) &item);
+
+        /* change dialog status */
+        if (Info->PropSheet != NULL)
         {
-            if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-            {
-                lpServiceConfig = (LPQUERY_SERVICE_CONFIG)HeapAlloc(ProcessHeap,
-                                                                    0,
-                                                                    BytesNeeded);
-                if (lpServiceConfig == NULL)
-                    goto cleanup;
+            LoadString(hInstance,
+                       IDS_SERVICES_STOPPED,
+                       buf,
+                       sizeof(buf) / sizeof(TCHAR));
 
-                if (QueryServiceConfig(hSc,
-                                       lpServiceConfig,
-                                       BytesNeeded,
-                                       &BytesNeeded))
-                {
-#if 0
-                    if (lpServiceConfig->lpDependencies)
-                    {
-                        TCHAR str[500];
-
-                        _sntprintf(str, 499, _T("%s depends on this service, implement the dialog to allow closing of other services"),
-                                   lpServiceConfig->lpDependencies);
-                        MessageBox(NULL, str, NULL, 0);
-
-                        //FIXME: open 'stop other services' box
-                    }
-                    else
-                    {
-#endif
-                            hProgDlg = CreateProgressDialog(Info->hMainWnd,
-                                                            Info->pCurrentService->lpServiceName,
-                                                            IDS_PROGRESS_INFO_STOP);
-                            if (hProgDlg)
-                            {
-                                ret = Control(Info,
-                                              hProgDlg,
-                                              SERVICE_CONTROL_STOP);
-
-                                DestroyWindow(hProgDlg);
-                            }
-                    //}
-
-                    HeapFree(ProcessHeap,
-                             0,
-                             lpServiceConfig);
-
-                    lpServiceConfig = NULL;
-                }
-            }
+            SendDlgItemMessageW(Info->PropSheet->hwndGenDlg,
+                                IDC_SERV_STATUS, WM_SETTEXT,
+                                0,
+                                (LPARAM)buf);
         }
     }
 
-cleanup:
-    if (hSCManager != NULL)
-        CloseServiceHandle(hSCManager);
-    if (hSc != NULL)
-        CloseServiceHandle(hSc);
+    SendMessage(hProgDlg, WM_DESTROY, 0, 0);
 
-    return ret;
+    return TRUE;
 }

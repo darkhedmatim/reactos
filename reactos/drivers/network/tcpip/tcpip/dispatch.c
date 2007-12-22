@@ -198,15 +198,15 @@ VOID NTAPI DispCancelRequest(
     switch(MinorFunction) {
     case TDI_SEND:
     case TDI_RECEIVE:
-	DisType.Type = TDI_DISCONNECT_RELEASE |
+	DisType.Type = TDI_DISCONNECT_RELEASE | 
 	    ((MinorFunction == TDI_RECEIVE) ? TDI_DISCONNECT_ABORT : 0);
 	DisType.Context = TranContext->Handle.ConnectionContext;
 	DisType.Irp = Irp;
 	DisType.FileObject = FileObject;
-
+	
 	TCPRemoveIRP( TranContext->Handle.ConnectionContext, Irp );
 
-	if( !ChewCreate( &WorkItem, sizeof(DISCONNECT_TYPE),
+	if( !ChewCreate( &WorkItem, sizeof(DISCONNECT_TYPE), 
 			 DispDoDisconnect, &DisType ) )
 	    ASSERT(0);
         break;
@@ -871,7 +871,7 @@ NTSTATUS DispTdiReceiveDatagram(
 			 &DataBuffer,
 			 &BufferSize );
 
-      Status = DGReceiveDatagram(
+      Status = UDPReceiveDatagram(
 	  Request.Handle.AddressHandle,
 	  DgramInfo->ReceiveDatagramInformation,
 	  DataBuffer,
@@ -880,8 +880,7 @@ NTSTATUS DispTdiReceiveDatagram(
 	  DgramInfo->ReturnDatagramInformation,
 	  &BytesReceived,
 	  (PDATAGRAM_COMPLETION_ROUTINE)DispDataRequestComplete,
-	  Irp,
-          Irp);
+	  Irp);
       if (Status != STATUS_PENDING) {
           DispDataRequestComplete(Irp, Status, BytesReceived);
       } else
@@ -1512,7 +1511,7 @@ NTSTATUS DispTdiSetIPAddress( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
         (PIP_SET_ADDRESS)Irp->AssociatedIrp.SystemBuffer;
     IF_LIST_ITER(IF);
 
-    TI_DbgPrint(MID_TRACE,("Setting IP Address for adapter %d\n",
+    TI_DbgPrint(MID_TRACE,("Setting IP Address for adapter %d\n", 
 			   IpAddrChange->NteIndex));
 
     ForEachInterface(IF) {

@@ -466,48 +466,6 @@ SetSecurityDescriptorSacl (
 
 
 /*
- * @implemented
- */
-VOID
-WINAPI
-QuerySecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
-                        OUT LPDWORD DesiredAccess)
-{
-    *DesiredAccess = 0;
-
-    if (SecurityInformation & (OWNER_SECURITY_INFORMATION |
-                               GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION))
-    {
-        *DesiredAccess |= READ_CONTROL;
-    }
-
-    if (SecurityInformation & SACL_SECURITY_INFORMATION)
-        *DesiredAccess |= ACCESS_SYSTEM_SECURITY;
-}
-
-
-/*
- * @implemented
- */
-VOID
-WINAPI
-SetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
-                      OUT LPDWORD DesiredAccess)
-{
-    *DesiredAccess = 0;
-
-    if (SecurityInformation & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
-        *DesiredAccess |= WRITE_OWNER;
-
-    if (SecurityInformation & DACL_SECURITY_INFORMATION)
-        *DesiredAccess |= WRITE_DAC;
-
-    if (SecurityInformation & SACL_SECURITY_INFORMATION)
-        *DesiredAccess |= ACCESS_SYSTEM_SECURITY;
-}
-
-
-/*
  * @unimplemented
  */
 BOOL
@@ -581,17 +539,19 @@ BOOL WINAPI DecryptFileA(LPCSTR lpFileName, DWORD dwReserved)
 {
     UNICODE_STRING FileName;
     NTSTATUS Status;
-    BOOL ret;
+    BOOL ret = FALSE;
+
+    FileName.Buffer = NULL;
 
     Status = RtlCreateUnicodeStringFromAsciiz(&FileName, lpFileName);
     if (!NT_SUCCESS(Status))
     {
         SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+        goto cleanup;
     }
-
     ret = DecryptFileW(FileName.Buffer, dwReserved);
 
+cleanup:
     if (FileName.Buffer != NULL)
         RtlFreeUnicodeString(&FileName);
     return ret;
@@ -608,32 +568,19 @@ BOOL WINAPI EncryptFileW(LPCWSTR lpFileName)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI EncryptFileA(LPCSTR lpFileName)
 {
-    UNICODE_STRING FileName;
-    NTSTATUS Status;
-    BOOL ret;
-
-    Status = RtlCreateUnicodeStringFromAsciiz(&FileName, lpFileName);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    ret = EncryptFileW(FileName.Buffer);
-
-    if (FileName.Buffer != NULL)
-        RtlFreeUnicodeString(&FileName);
-    return ret;
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(
-    PSECURITY_DESCRIPTOR pSecurityDescriptor,
-    DWORD dword,
-    SECURITY_INFORMATION SecurityInformation,
+    PSECURITY_DESCRIPTOR pSecurityDescriptor, 
+    DWORD dword, 
+    SECURITY_INFORMATION SecurityInformation, 
     LPWSTR* lpwstr,
     PULONG pulong)
 {
@@ -643,9 +590,9 @@ BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(
 }
 
 BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(
-    PSECURITY_DESCRIPTOR pSecurityDescriptor,
-    DWORD dword,
-    SECURITY_INFORMATION SecurityInformation,
+    PSECURITY_DESCRIPTOR pSecurityDescriptor, 
+    DWORD dword, 
+    SECURITY_INFORMATION SecurityInformation, 
     LPSTR* lpstr,
     PULONG pulong)
 {

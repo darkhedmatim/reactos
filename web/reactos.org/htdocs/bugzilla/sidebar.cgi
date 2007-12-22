@@ -18,11 +18,10 @@
 use strict;
 
 use lib ".";
-
-use Bugzilla;
-use Bugzilla::Error;
+require "globals.pl";
 
 Bugzilla->login();
+
 my $cgi = Bugzilla->cgi;
 my $template = Bugzilla->template;
 

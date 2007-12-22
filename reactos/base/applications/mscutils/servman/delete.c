@@ -1,9 +1,9 @@
 /*
  * PROJECT:     ReactOS Services
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/mscutils/servman/delete.c
+ * FILE:        base/system/servman/delete.c
  * PURPOSE:     Delete an existing service
- * COPYRIGHT:   Copyright 2006-2007 Ged Murphy <gedmurphy@reactos.org>
+ * COPYRIGHT:   Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
@@ -15,44 +15,42 @@ DoDeleteService(PMAIN_WND_INFO Info,
 {
     SC_HANDLE hSCManager;
     SC_HANDLE hSc;
-    BOOL bRet = FALSE;
 
+    /* open handle to the SCM */
     hSCManager = OpenSCManager(NULL,
                                NULL,
                                SC_MANAGER_ALL_ACCESS);
-    if (hSCManager)
+    if (hSCManager == NULL)
     {
-        hSc = OpenService(hSCManager,
-                          Info->pCurrentService->lpServiceName,
-                          DELETE);
-        if (hSc)
-        {
-            if (DeleteService(hSc))
-            {
-                LPTSTR lpSuccess;
-
-                /* report success to user */
-                if (AllocAndLoadString(&lpSuccess,
-                                       hInstance,
-                                       IDS_DELETE_SUCCESS))
-                {
-                    DisplayString(lpSuccess);
-
-                    HeapFree(ProcessHeap,
-                             0,
-                             lpSuccess);
-                }
-
-                bRet = TRUE;
-            }
-
-            CloseServiceHandle(hSc);
-        }
-
-        CloseServiceHandle(hSCManager);
+        GetError();
+        return FALSE;
     }
 
-    return bRet;
+    /* get a handle to the service requested for deleting */
+    hSc = OpenService(hSCManager,
+                      Info->CurrentService->lpServiceName,
+                      DELETE);
+    if (hSc == NULL)
+    {
+        GetError();
+        CloseServiceHandle(hSCManager);
+        return FALSE;
+    }
+
+    /* delete the service opened */
+    if (! DeleteService(hSc))
+    {
+        GetError();
+        CloseServiceHandle(hSCManager);
+        CloseServiceHandle(hSc);
+        return FALSE;
+    }
+
+
+    CloseServiceHandle(hSCManager);
+    CloseServiceHandle(hSc);
+
+    return TRUE;
 }
 
 
@@ -64,66 +62,53 @@ DeleteDialogProc(HWND hDlg,
 {
     PMAIN_WND_INFO Info = NULL;
     HICON hIcon = NULL;
-
-    /* Get the window context */
-    Info = (PMAIN_WND_INFO)GetWindowLongPtr(hDlg,
-                                            GWLP_USERDATA);
-    if (Info == NULL && message != WM_INITDIALOG)
-    {
-        return FALSE;
-    }
+    TCHAR Buf[1000];
+    LVITEM item;
 
     switch (message)
     {
         case WM_INITDIALOG:
         {
-            LPTSTR lpDescription;
-
             Info = (PMAIN_WND_INFO)lParam;
-            if (Info != NULL)
-            {
-                SetWindowLongPtr(hDlg,
-                                 GWLP_USERDATA,
-                                 (LONG_PTR)Info);
 
-                hIcon = (HICON)LoadImage(hInstance,
-                                         MAKEINTRESOURCE(IDI_SM_ICON),
-                                         IMAGE_ICON,
-                                         16,
-                                         16,
-                                         0);
-                if (hIcon)
-                {
-                    SendMessage(hDlg,
-                                WM_SETICON,
-                                ICON_SMALL,
-                                (LPARAM)hIcon);
-                    DestroyIcon(hIcon);
-                }
+            hIcon = (HICON) LoadImage(hInstance,
+                              MAKEINTRESOURCE(IDI_SM_ICON),
+                              IMAGE_ICON,
+                              16,
+                              16,
+                              0);
 
-                SendDlgItemMessage(hDlg,
-                                   IDC_DEL_NAME,
-                                   WM_SETTEXT,
-                                   0,
-                                   (LPARAM)Info->pCurrentService->lpDisplayName);
+            SendMessage(hDlg,
+                        WM_SETICON,
+                        ICON_SMALL,
+                        (LPARAM)hIcon);
 
-                lpDescription = GetServiceDescription(Info->pCurrentService->lpServiceName);
-                if (lpDescription)
-                {
-                    SendDlgItemMessage(hDlg,
-                                       IDC_DEL_DESC,
-                                       WM_SETTEXT,
-                                       0,
-                                       (LPARAM)lpDescription);
-                    HeapFree(ProcessHeap,
-                             0,
-                             lpDescription);
-                }
+            SendDlgItemMessage(hDlg,
+                               IDC_DEL_NAME,
+                               WM_SETTEXT,
+                               0,
+                               (LPARAM)Info->CurrentService->lpDisplayName);
 
-                return TRUE;
-            }
 
-            return FALSE;
+            item.mask = LVIF_TEXT;
+            item.iItem = Info->SelectedItem;
+            item.iSubItem = 1;
+            item.pszText = Buf;
+            item.cchTextMax = sizeof(Buf);
+            SendMessage(Info->hListView,
+                        LVM_GETITEM,
+                        0,
+                        (LPARAM)&item);
+
+            SendDlgItemMessage(hDlg,
+                               IDC_DEL_DESC,
+                               WM_SETTEXT,
+                               0,
+                               (LPARAM)Buf);
+
+            SetFocus(GetDlgItem(hDlg, IDCANCEL));
+
+            return TRUE;
         }
 
         case WM_COMMAND:
@@ -133,11 +118,10 @@ DeleteDialogProc(HWND hDlg,
                 case IDOK:
                 {
                     if (DoDeleteService(Info, hDlg))
-                    {
                         (void)ListView_DeleteItem(Info->hListView,
                                                   Info->SelectedItem);
-                        UpdateServiceCount(Info);
-                    }
+
+                    DestroyIcon(hIcon);
                     EndDialog(hDlg,
                               LOWORD(wParam));
                     return TRUE;
@@ -145,6 +129,7 @@ DeleteDialogProc(HWND hDlg,
 
                 case IDCANCEL:
                 {
+                    DestroyIcon(hIcon);
                     EndDialog(hDlg,
                               LOWORD(wParam));
                     return TRUE;

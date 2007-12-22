@@ -55,48 +55,10 @@ DeviceCreateHardwarePageEx(HWND hWndParent,
 HINSTANCE hApplet = 0;
 
 /* Applets */
-const APPLET Applets[NUM_APPLETS] =
+const APPLET Applets[NUM_APPLETS] = 
 {
   {IDI_CPLICON, IDS_CPLNAME, IDS_CPLDESCRIPTION, MmSysApplet},
 };
-
-/* Audio property page dialog callback */
-static INT_PTR CALLBACK
-AudioDlgProc(HWND hwndDlg,
-	        UINT uMsg,
-	        WPARAM wParam,
-	        LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    UNREFERENCED_PARAMETER(wParam);
-    UNREFERENCED_PARAMETER(hwndDlg);
-    switch(uMsg)
-    {
-        case WM_INITDIALOG:
-        break;
-    }
-
-    return FALSE;
-}
-
-/* Voice property page dialog callback */
-static INT_PTR CALLBACK
-VoiceDlgProc(HWND hwndDlg,
-	        UINT uMsg,
-	        WPARAM wParam,
-	        LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    UNREFERENCED_PARAMETER(wParam);
-    UNREFERENCED_PARAMETER(hwndDlg);
-    switch(uMsg)
-    {
-        case WM_INITDIALOG:
-        break;
-    }
-
-    return FALSE;
-}
 
 /* Hardware property page dialog callback */
 static INT_PTR CALLBACK
@@ -130,11 +92,11 @@ HardwareDlgProc(HWND hwndDlg,
 LONG APIENTRY
 MmSysApplet(HWND hwnd,
             UINT uMsg,
-            LPARAM wParam,
-            LPARAM lParam)
+            LONG wParam,
+            LONG lParam)
 {
-    PROPSHEETPAGE psp[5];
-    PROPSHEETHEADER psh; //= {0};
+    PROPSHEETPAGE psp[1];
+    PROPSHEETHEADER psh = {0};
     TCHAR Caption[256];
 
     UNREFERENCED_PARAMETER(lParam);
@@ -158,11 +120,9 @@ MmSysApplet(HWND hwnd,
     psh.nStartPage = 0;
     psh.ppsp = psp;
 
-	InitPropSheetPage(&psp[0], IDD_VOLUME,VolumeDlgProc);
-	InitPropSheetPage(&psp[1], IDD_SOUNDS,SoundsDlgProc);
-	InitPropSheetPage(&psp[2], IDD_AUDIO,AudioDlgProc);
-	InitPropSheetPage(&psp[3], IDD_VOICE,VoiceDlgProc);
-    InitPropSheetPage(&psp[4], IDD_HARDWARE,HardwareDlgProc);
+    InitPropSheetPage(&psp[0],
+                      IDD_HARDWARE,
+                      HardwareDlgProc);
 
     return (LONG)(PropertySheet(&psh) != -1);
 }

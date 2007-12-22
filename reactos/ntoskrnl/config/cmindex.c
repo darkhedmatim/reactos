@@ -9,27 +9,18 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
 /* GLOBALS *******************************************************************/
-
-ULONG CmpMaxFastIndexPerHblock =
-    (HBLOCK_SIZE - (sizeof(HBIN) +
-                    sizeof(HCELL) +
-                    FIELD_OFFSET(CM_KEY_FAST_INDEX, List))) / sizeof(CM_INDEX);
-
-ULONG CmpMaxIndexPerHblock =
-    (HBLOCK_SIZE - (sizeof(HBIN) +
-                    sizeof(HCELL) +
-                    FIELD_OFFSET(CM_KEY_INDEX, List))) / sizeof(HCELL_INDEX) - 1;
 
 /* FUNCTIONS *****************************************************************/
 
 LONG
 NTAPI
 CmpDoCompareKeyName(IN PHHIVE Hive,
-                    IN PCUNICODE_STRING SearchName,
+                    IN PUNICODE_STRING SearchName,
                     IN HCELL_INDEX Cell)
 {
     PCM_KEY_NODE Node;
@@ -65,7 +56,7 @@ CmpDoCompareKeyName(IN PHHIVE Hive,
 LONG
 NTAPI
 CmpCompareInIndex(IN PHHIVE Hive,
-                  IN PCUNICODE_STRING SearchName,
+                  IN PUNICODE_STRING SearchName,
                   IN ULONG Count,
                   IN PCM_KEY_INDEX Index,
                   IN PHCELL_INDEX SubKey)
@@ -142,7 +133,7 @@ ULONG
 NTAPI
 CmpFindSubKeyInRoot(IN PHHIVE Hive,
                     IN PCM_KEY_INDEX Index,
-                    IN PCUNICODE_STRING SearchName,
+                    IN PUNICODE_STRING SearchName,
                     IN PHCELL_INDEX SubKey)
 {
     ULONG High, Low = 0, i, ReturnIndex;
@@ -358,7 +349,7 @@ ULONG
 NTAPI
 CmpFindSubKeyInLeaf(IN PHHIVE Hive,
                     IN PCM_KEY_INDEX Index,
-                    IN PCUNICODE_STRING SearchName,
+                    IN PUNICODE_STRING SearchName,
                     IN PHCELL_INDEX SubKey)
 {
     ULONG High, Low = 0, i;
@@ -472,7 +463,7 @@ CmpFindSubKeyInLeaf(IN PHHIVE Hive,
 ULONG
 NTAPI
 CmpComputeHashKey(IN ULONG Hash,
-                  IN PCUNICODE_STRING Name,
+                  IN PUNICODE_STRING Name,
                   IN BOOLEAN AllowSeparators)
 {
     LPWSTR Cp;
@@ -619,35 +610,35 @@ CmpFindSubKeyByNumber(IN PHHIVE Hive,
     HCELL_INDEX Result = HCELL_NIL;
 
     /* Check if it's in the stable list */
-    if (Number < Node->SubKeyCounts[Stable])
+    if (Number < Node->SubKeyCounts[HvStable])
     {
         /* Get the actual key index */
-        Index = (PCM_KEY_INDEX)HvGetCell(Hive, Node->SubKeyLists[Stable]);
+        Index = (PCM_KEY_INDEX)HvGetCell(Hive, Node->SubKeyLists[HvStable]);
         if (!Index) return HCELL_NIL;
 
         /* Do a search inside it */
         Result = CmpDoFindSubKeyByNumber(Hive, Index, Number);
 
         /* Release the cell and return the result */
-        HvReleaseCell(Hive, Node->SubKeyLists[Stable]);
+        HvReleaseCell(Hive, Node->SubKeyLists[HvStable]);
         return Result;
     }
-    else if (Hive->StorageTypeCount > Volatile)
+    else if (Hive->StorageTypeCount > HvVolatile)
     {
         /* It's in the volatile list */
-        Number = Number - Node->SubKeyCounts[Stable];
-        if (Number < Node->SubKeyCounts[Volatile])
+        Number = Number - Node->SubKeyCounts[HvStable];
+        if (Number < Node->SubKeyCounts[HvVolatile])
         {
             /* Get the actual key index */
             Index = (PCM_KEY_INDEX)HvGetCell(Hive,
-                                             Node->SubKeyLists[Volatile]);
+                                             Node->SubKeyLists[HvVolatile]);
             if (!Index) return HCELL_NIL;
 
             /* Do a search inside it */
             Result = CmpDoFindSubKeyByNumber(Hive, Index, Number);
 
             /* Release the cell and return the result */
-            HvReleaseCell(Hive, Node->SubKeyLists[Volatile]);
+            HvReleaseCell(Hive, Node->SubKeyLists[HvVolatile]);
             return Result;
         }
     }
@@ -656,11 +647,11 @@ CmpFindSubKeyByNumber(IN PHHIVE Hive,
     return HCELL_NIL;
 }
 
-static HCELL_INDEX
+HCELL_INDEX
 NTAPI
 CmpFindSubKeyByHash(IN PHHIVE Hive,
                     IN PCM_KEY_FAST_INDEX FastIndex,
-                    IN PCUNICODE_STRING SearchName)
+                    IN PUNICODE_STRING SearchName)
 {
     ULONG HashKey, i;
     PCM_INDEX FastEntry;
@@ -697,7 +688,7 @@ HCELL_INDEX
 NTAPI
 CmpFindSubKeyByName(IN PHHIVE Hive,
                     IN PCM_KEY_NODE Parent,
-                    IN PCUNICODE_STRING SearchName)
+                    IN PUNICODE_STRING SearchName)
 {
     ULONG i;
     PCM_KEY_INDEX IndexRoot;
@@ -731,7 +722,7 @@ CmpFindSubKeyByName(IN PHHIVE Hive,
                 HvReleaseCell(Hive, CellToRelease);
 
                 /* Make sure we found something valid */
-                if (Found & 0x80000000) break;
+                if (Found < 0) break;
 
                 /* Get the new Index Root and set the new cell to be released */
                 if (SubKey == HCELL_NIL) continue;
@@ -758,7 +749,7 @@ CmpFindSubKeyByName(IN PHHIVE Hive,
                 HvReleaseCell(Hive, CellToRelease);
 
                 /* Make sure we found a valid index */
-                if (Found & 0x80000000) break;
+                if (Found < 0) break;
             }
             else
             {
@@ -874,7 +865,7 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
                 if (Child == HCELL_NIL) continue;
 
                 /* We found it, mark the cell dirty */
-                HvMarkCellDirty(Hive, IndexCell, FALSE);
+                HvMarkCellDirty(Hive, IndexCell);
 
                 /* Check if we had anything to release from before */
                 if (CellToRelease != HCELL_NIL)
@@ -917,7 +908,7 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
                 }
 
                 /* And mark the index cell dirty */
-                HvMarkCellDirty(Hive, IndexCell, FALSE);
+                HvMarkCellDirty(Hive, IndexCell);
                 return TRUE;
             }
         }
@@ -931,410 +922,6 @@ Quickie:
     /* Free the search name and return failure */
     if (IsCompressed) ExFreePool(SearchName.Buffer);
     return FALSE;
-}
-
-HCELL_INDEX
-NTAPI
-CmpAddToLeaf(IN PHHIVE Hive,
-             IN HCELL_INDEX LeafCell,
-             IN HCELL_INDEX NewKey,
-             IN PUNICODE_STRING Name)
-{
-    PCM_KEY_INDEX Leaf;
-    PCM_KEY_FAST_INDEX FastLeaf;
-    ULONG Size, OldSize, EntrySize, i, j;
-    HCELL_INDEX NewCell, Child;
-    LONG Result;
-
-    /* Mark the leaf dirty */
-    HvMarkCellDirty(Hive, LeafCell, FALSE);
-
-    /* Get the leaf cell */
-    Leaf = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-    if (!Leaf)
-    {
-        /* Shouldn't happen */
-        ASSERT(FALSE);
-        return HCELL_NIL;
-    }
-
-    /* Release it */
-    HvReleaseCell(Hive, LeafCell);
-
-    /* Check if this is an index leaf */
-    if (Leaf->Signature == CM_KEY_INDEX_LEAF)
-    {
-        /* This is an old-style leaf */
-        FastLeaf = NULL;
-        EntrySize = sizeof(HCELL_INDEX);
-    }
-    else
-    {
-        /* Sanity check */
-        ASSERT((Leaf->Signature == CM_KEY_FAST_LEAF) ||
-               (Leaf->Signature == CM_KEY_HASH_LEAF));
-
-        /* This is a new-style optimized fast (or hash) leaf */
-        FastLeaf = (PCM_KEY_FAST_INDEX)Leaf;
-        EntrySize = sizeof(CM_INDEX);
-    }
-
-    /* Get the current size of the leaf */
-    OldSize = HvGetCellSize(Hive, Leaf);
-
-    /* Calculate the size of the free entries */
-    Size = OldSize;
-    Size -= EntrySize * Leaf->Count + FIELD_OFFSET(CM_KEY_INDEX, List);
-
-    /* Assume we'll re-use the same leaf */
-    NewCell = LeafCell;
-
-    /* Check if we're out of space */
-    if ((Size / EntrySize) < 1)
-    {
-        /* Grow the leaf by 1.5x, making sure we can at least fit this entry */
-        Size = OldSize + OldSize / 2;
-        if (Size < (OldSize + EntrySize)) Size = OldSize + EntrySize;
-
-        /* Re-allocate the leaf */
-        NewCell = HvReallocateCell(Hive, LeafCell, Size);
-        if (NewCell == HCELL_NIL) return HCELL_NIL;
-
-        /* Get the leaf cell */
-        Leaf = (PCM_KEY_INDEX)HvGetCell(Hive, NewCell);
-        if (!Leaf)
-        {
-            /* This shouldn't happen */
-            ASSERT(FALSE);
-            return HCELL_NIL;
-        }
-
-        /* Release the cell */
-        HvReleaseCell(Hive, NewCell);
-
-        /* Update the fast leaf pointer if we had one */
-        if (FastLeaf) FastLeaf = (PCM_KEY_FAST_INDEX)Leaf;
-    }
-
-    /* Find the insertion point for our entry */
-    i = CmpFindSubKeyInLeaf(Hive, Leaf, Name, &Child);
-    if (i & 0x80000000) return HCELL_NIL;
-    ASSERT(Child == HCELL_NIL);
-
-    /* Check if we're not last */
-    if (i != Leaf->Count)
-    {
-        /* Find out where we should go */
-        Result = CmpCompareInIndex(Hive,
-                                   Name,
-                                   i,
-                                   Leaf,
-                                   &Child);
-        if (Result == 2) return HCELL_NIL;
-        ASSERT(Result != 0);
-
-        /* Check if we come after */
-        if (Result > 0)
-        {
-            /* We do, insert us after the key */
-            ASSERT(Result == 1);
-            i++;
-        }
-
-        /* Check if we're still not last */
-        if (i != Leaf->Count)
-        {
-            /* Check if we had a fast leaf or not */
-            if (FastLeaf)
-            {
-                /* Copy the fast indexes */
-                RtlMoveMemory(&FastLeaf->List[i + 1],
-                              &FastLeaf->List[i],
-                              (FastLeaf->Count - i) * sizeof(CM_INDEX));
-            }
-            else
-            {
-                /* Copy the indexes themselves */
-                RtlMoveMemory(&Leaf->List[i + 1],
-                              &Leaf->List[i],
-                              (Leaf->Count - i) * sizeof(HCELL_INDEX));
-            }
-        }
-    }
-
-    /* Check if this is a new-style leaf */
-    if (FastLeaf)
-    {
-        /* Set our cell */
-        FastLeaf->List[i].Cell = NewKey;
-
-        /* Check if this is a hash leaf */
-        if( FastLeaf->Signature == CM_KEY_HASH_LEAF )
-        {
-            /* Set our hash key */
-            FastLeaf->List[i].HashKey = CmpComputeHashKey(0, Name, FALSE);
-        }
-        else
-        {
-            /* First, clear the name */
-            FastLeaf->List[i].NameHint[0] = 0;
-            FastLeaf->List[i].NameHint[1] = 0;
-            FastLeaf->List[i].NameHint[2] = 0;
-            FastLeaf->List[i].NameHint[3] = 0;
-
-            /* Now, figure out if we can fit */
-            if (Name->Length / sizeof(WCHAR) < 4)
-            {
-                /* We can fit, use our length */
-                j = Name->Length / sizeof(WCHAR);
-            }
-            else
-            {
-                /* We can't, use a maximum of 4 */
-                j = 4;
-            }
-
-            /* Now fill out the name hint */
-            do
-            {
-                /* Look for invalid characters and break out if we found one */
-                if ((USHORT)Name->Buffer[j - 1] > (UCHAR)-1) break;
-
-                /* Otherwise, copy the a character */
-                FastLeaf->List[i].NameHint[j - 1] = (UCHAR)Name->Buffer[j - 1];
-            } while (--j > 0);
-        }
-    }
-    else
-    {
-        /* This is an old-style leaf, just set our index directly */
-        Leaf->List[i] = NewKey;
-    }
-
-    /* Update the leaf count and return the new cell */
-    Leaf->Count += 1;
-    return NewCell;
-}
-
-BOOLEAN
-NTAPI
-CmpAddSubKey(IN PHHIVE Hive,
-             IN HCELL_INDEX Parent,
-             IN HCELL_INDEX Child)
-{
-    PCM_KEY_NODE KeyNode;
-    PCM_KEY_INDEX Index;
-    PCM_KEY_FAST_INDEX OldIndex;
-    UNICODE_STRING Name;
-    HCELL_INDEX IndexCell = HCELL_NIL, CellToRelease = HCELL_NIL, LeafCell;
-    PHCELL_INDEX RootPointer = NULL;
-    ULONG Type, i;
-    BOOLEAN IsCompressed;
-    PAGED_CODE();
-
-    /* Get the key node */
-    KeyNode = (PCM_KEY_NODE)HvGetCell(Hive, Child);
-    if (!KeyNode)
-    {
-        /* Shouldn't happen */
-        ASSERT(FALSE);
-        return FALSE;
-    }
-
-    /* Check if the name is compressed */
-    if (KeyNode->Flags & KEY_COMP_NAME)
-    {
-        /* Remember for later */
-        IsCompressed = TRUE;
-
-        /* Create the compressed name and allocate it */
-        Name.Length = CmpCompressedNameSize(KeyNode->Name, KeyNode->NameLength);
-        Name.MaximumLength = Name.Length;
-        Name.Buffer = Hive->Allocate(Name.Length, TRUE, TAG_CM);
-        if (!Name.Buffer)
-        {
-            /* Release the cell and fail */
-            HvReleaseCell(Hive, Child);
-            ASSERT(FALSE);
-            return FALSE;
-        }
-
-        /* Copy the compressed name */
-        CmpCopyCompressedName(Name.Buffer,
-                              Name.MaximumLength,
-                              KeyNode->Name,
-                              KeyNode->NameLength);
-    }
-    else
-    {
-        /* Remember for later */
-        IsCompressed = FALSE;
-
-        /* Build the unicode string */
-        Name.Length = KeyNode->NameLength;
-        Name.MaximumLength = KeyNode->NameLength;
-        Name.Buffer = &KeyNode->Name[0];
-    }
-
-    /* Release the cell */
-    HvReleaseCell(Hive, Child);
-
-    /* Get the parent node */
-    KeyNode = (PCM_KEY_NODE)HvGetCell(Hive, Parent);
-    if (!KeyNode)
-    {
-        /* Not handled */
-        ASSERT(FALSE);
-    }
-
-    /* Find out the type of the cell, and check if this is the first subkey */
-    Type = HvGetCellType(Child);
-    if (!KeyNode->SubKeyCounts[Type])
-    {
-        /* Allocate a fast leaf */
-        IndexCell = HvAllocateCell(Hive, sizeof(CM_KEY_FAST_INDEX), Type, HCELL_NIL);
-        if (IndexCell == HCELL_NIL)
-        {
-            /* Not handled */
-            ASSERT(FALSE);
-        }
-
-        /* Get the leaf cell */
-        Index = (PCM_KEY_INDEX)HvGetCell(Hive, IndexCell);
-        if (!Index)
-        {
-            /* Shouldn't happen */
-            ASSERT(FALSE);
-        }
-
-        /* Now check what kind of hive we're dealing with */
-        if (Hive->Version >= 5)
-        {
-            /* XP Hive: Use hash leaf */
-            Index->Signature = CM_KEY_HASH_LEAF;
-        }
-        else if (Hive->Version >= 3)
-        {
-            /* Windows 2000 and ReactOS: Use fast leaf */
-            Index->Signature = CM_KEY_FAST_LEAF;
-        }
-        else
-        {
-            /* NT 4: Use index leaf */
-            Index->Signature = CM_KEY_INDEX_LEAF;
-        }
-
-        /* Setup the index list */
-        Index->Count = 0;
-        KeyNode->SubKeyLists[Type] = IndexCell;
-    }
-    else
-    {
-        /* We already have an index, get it */
-        Index = (PCM_KEY_INDEX)HvGetCell(Hive, KeyNode->SubKeyLists[Type]);
-        if (!Index)
-        {
-            /* Not handled */
-            ASSERT(FALSE);
-        }
-
-        /* Remember to release the cell later */
-        CellToRelease = KeyNode->SubKeyLists[Type];
-
-        /* Check if this is a fast leaf that's gotten too full */
-        if ((Index->Signature == CM_KEY_FAST_LEAF) &&
-            (Index->Count >= CmpMaxFastIndexPerHblock))
-        {
-            DPRINT("Doing Fast->Slow Leaf conversion\n");
-
-            /* Mark this cell as dirty */
-            HvMarkCellDirty(Hive, CellToRelease, FALSE);
-
-            /* Convert */
-            OldIndex = (PCM_KEY_FAST_INDEX)Index;
-
-            for (i=0; i < OldIndex->Count; i++)
-            {
-                Index->List[i] = OldIndex->List[i].Cell;
-            }
-
-            /* Set the new type value */
-            Index->Signature = CM_KEY_INDEX_LEAF;
-        }
-        else if (((Index->Signature == CM_KEY_INDEX_LEAF) ||
-                  (Index->Signature == CM_KEY_HASH_LEAF)) &&
-                  (Index->Count >= CmpMaxIndexPerHblock))
-        {
-            /* This is an old/hashed leaf that's gotten too large, root it */
-            IndexCell = HvAllocateCell(Hive,
-                                      sizeof(CM_KEY_INDEX) +
-                                      sizeof(HCELL_INDEX),
-                                      Type,
-                                      HCELL_NIL);
-            if (IndexCell == HCELL_NIL)
-            {
-                /* Not handled */
-                ASSERT(FALSE);
-            }
-
-            /* Get the index cell */
-            Index = (PCM_KEY_INDEX)HvGetCell(Hive, IndexCell);
-            if (!Index)
-            {
-                /* Shouldn't happen */
-                ASSERT(FALSE);
-            }
-
-            /* Mark the index as a root, and set the index cell */
-            Index->Signature = CM_KEY_INDEX_ROOT;
-            Index->Count = 1;
-            Index->List[0] = KeyNode->SubKeyLists[Type];
-            KeyNode->SubKeyLists[Type] = IndexCell;
-        }
-    }
-
-    /* Now we can choose the leaf cell */
-    LeafCell = KeyNode->SubKeyLists[Type];
-
-    /* Check if we turned the index into a root */
-    if (Index->Signature == CM_KEY_INDEX_ROOT)
-    {
-        /* Not handled yet */
-        DPRINT1("Leaf->Root Index Conversion not yet implemented!\n");
-        ASSERT(FALSE);
-    }
-
-    /* Add our leaf cell */
-    LeafCell = CmpAddToLeaf(Hive, LeafCell, Child, &Name);
-    if (LeafCell == HCELL_NIL)
-    {
-        /* Not handled */
-        ASSERT(FALSE);
-    }
-
-    /* Update the key counts */
-    KeyNode->SubKeyCounts[Type]++;
-
-    /* Check if caller wants us to return the leaf */
-    if (RootPointer)
-    {
-        /* Return it */
-        *RootPointer = LeafCell;
-    }
-    else
-    {
-        /* Otherwise, mark it as the list index for the cell */
-        KeyNode->SubKeyLists[Type] = LeafCell;
-    }
-
-    /* If the name was compressed, free our copy */
-    if (IsCompressed) Hive->Free(Name.Buffer, 0);
-
-    /* Release all our cells */
-    if (IndexCell != HCELL_NIL) HvReleaseCell(Hive, IndexCell);
-    if (CellToRelease != HCELL_NIL) HvReleaseCell(Hive, CellToRelease);
-    HvReleaseCell(Hive, Parent);
-    return TRUE;
 }
 
 BOOLEAN

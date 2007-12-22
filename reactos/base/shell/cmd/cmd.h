@@ -31,8 +31,6 @@
 
 #include "cmdver.h"
 
-#include "cmddbg.h"
-
 #define BREAK_BATCHFILE 1
 #define BREAK_OUTOFBATCH 2
 #define BREAK_INPUT 3
@@ -46,9 +44,6 @@
 
 /* command line buffer length */
 #define CMDLINE_LENGTH  8192
-
-/* 16k = max buffer size */
-#define BUFF_SIZE 16384
 
 /* global variables */
 extern HANDLE hOut;
@@ -103,8 +98,6 @@ VOID ParseCommandLine (LPTSTR);
 LPCTSTR GetEnvVarOrSpecial ( LPCTSTR varName );
 VOID AddBreakHandler (VOID);
 VOID RemoveBreakHandler (VOID);
-VOID DoCommand (LPTSTR line);
-int cmd_main (int argc, const TCHAR *argv[]);
 
 extern HANDLE CMD_ModuleHandle;
 
@@ -250,7 +243,6 @@ INT cmd_goto (LPTSTR, LPTSTR);
 
 /* Prototypes for HISTORY.C */
 #ifdef FEATURE_HISTORY
-LPCTSTR PeekHistory(INT);
 VOID History (INT, LPTSTR);/*add entries browse history*/
 VOID History_move_to_bottom(VOID);/*F3*/
 VOID InitHistory(VOID);
@@ -351,8 +343,6 @@ INT GetRedirection (LPTSTR, LPTSTR, LPTSTR, LPTSTR, LPINT);
 /* Prototypes for REN.C */
 INT cmd_rename (LPTSTR, LPTSTR);
 
-/* Prototypes for REN.C */
-INT cmd_replace (LPTSTR, LPTSTR);
 
 /* Prototypes for SCREEN.C */
 INT CommandScreen (LPTSTR, LPTSTR);

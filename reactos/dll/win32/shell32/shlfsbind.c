@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
 #include "config.h"
@@ -28,6 +28,7 @@
 
 #include "windef.h"
 #include "winbase.h"
+#include "winreg.h"
 #include "winuser.h"
 #include "shlobj.h"
 #include "shell32_main.h"
@@ -133,7 +134,7 @@ HRESULT WINAPI FileSystemBindData_SetFindData(LPBC pbc, const WIN32_FIND_DATAW *
     LPUNKNOWN pUnk;
     IFileSystemBindData *pfsbd = NULL;
     HRESULT ret;
-
+    
     TRACE("%p, %p\n", pbc, pfd);
 
     ret = IBindCtx_GetObjectParam(pbc, (LPOLESTR)wFileSystemBindData, &pUnk);
@@ -178,7 +179,7 @@ static ULONG WINAPI IFileSystemBindData_fnAddRef(IFileSystemBindData *iface)
     IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
     ULONG refCount = InterlockedIncrement(&This->ref);
 
-    TRACE("(%p)->(count=%i)\n", This, refCount - 1);
+    TRACE("(%p)->(count=%li)\n", This, refCount - 1);
 
     return refCount;
 }
@@ -187,8 +188,8 @@ static ULONG WINAPI IFileSystemBindData_fnRelease(IFileSystemBindData *iface)
 {
     IFileSystemBindDataImpl *This = (IFileSystemBindDataImpl *)iface;
     ULONG refCount = InterlockedDecrement(&This->ref);
-
-    TRACE("(%p)->(count=%i)\n", This, refCount + 1);
+    
+    TRACE("(%p)->(count=%li)\n", This, refCount + 1);
 
     if (!refCount)
     {

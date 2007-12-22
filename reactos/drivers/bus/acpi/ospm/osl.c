@@ -210,8 +210,8 @@ acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
   Vector = HalGetInterruptVector(
     Internal,
     0,
-    irq,
     0,
+    irq,
     &DIrql,
     &Affinity);
 
@@ -302,38 +302,38 @@ acpi_os_out32(ACPI_IO_ADDRESS port, u32 val)
   WRITE_PORT_ULONG((PULONG)port, val);
 }
 
-u8
+UINT8
 acpi_os_mem_in8 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PUCHAR)(ULONG)phys_addr);
 }
 
-u16
+UINT16
 acpi_os_mem_in16 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PUSHORT)(ULONG)phys_addr);
 }
 
-u32
+UINT32
 acpi_os_mem_in32 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PULONG)(ULONG)phys_addr);
 }
 
 void
-acpi_os_mem_out8 (ACPI_PHYSICAL_ADDRESS phys_addr, u8 value)
+acpi_os_mem_out8 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT8 value)
 {
   *(PUCHAR)(ULONG)phys_addr = value;
 }
 
 void
-acpi_os_mem_out16 (ACPI_PHYSICAL_ADDRESS phys_addr, u16 value)
+acpi_os_mem_out16 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT16 value)
 {
   *(PUSHORT)(ULONG)phys_addr = value;
 }
 
 void
-acpi_os_mem_out32 (ACPI_PHYSICAL_ADDRESS phys_addr, u32 value)
+acpi_os_mem_out32 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT32 value)
 {
   *(PULONG)(ULONG)phys_addr = value;
 }
@@ -351,10 +351,10 @@ acpi_os_read_pci_cfg_byte(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
-
+  
   DPRINT("acpi_os_read_pci_cfg_byte, slot=0x%X, func=0x%X\n", slot.u.AsULONG, func);
   ret = HalGetBusDataByOffset(PCIConfiguration,
            bus,
@@ -382,7 +382,7 @@ acpi_os_read_pci_cfg_word(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
 
@@ -413,7 +413,7 @@ acpi_os_read_pci_cfg_dword(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
 
@@ -445,7 +445,7 @@ acpi_os_write_pci_cfg_byte(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
 
@@ -477,7 +477,7 @@ acpi_os_write_pci_cfg_word(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
 
@@ -509,7 +509,7 @@ acpi_os_write_pci_cfg_dword(
   if (func == 0)
     return AE_ERROR;
 
-  slot.u.AsULONG = 0;
+  slot.u.AsULONG = 0;  
   slot.u.bits.DeviceNumber = (func >> 16) & 0xFFFF;
   slot.u.bits.FunctionNumber = func & 0xFFFF;
 

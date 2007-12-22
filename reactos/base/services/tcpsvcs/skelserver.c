@@ -12,8 +12,34 @@
 extern BOOL bShutDown;
 extern BOOL bPause;
 
-static SOCKET
-SetUpListener(USHORT Port)
+DWORD WINAPI StartServer(LPVOID lpParam)
+{
+	SOCKET ListeningSocket;
+	PSERVICES pServices;
+    TCHAR buf[256];
+
+    pServices = (PSERVICES)lpParam;
+
+//DebugBreak();
+    ListeningSocket = SetUpListener(htons(pServices->Port));
+    if (ListeningSocket == INVALID_SOCKET)
+    {
+		LogEvent(_T("Socket error when setting up listener\n"), 0, TRUE);
+        return 3;
+    }
+
+    _stprintf(buf, _T("%s is waiting for connections on port %d...\n"),
+        pServices->Name, pServices->Port);
+    LogEvent(buf, 0, FALSE);
+
+    if (! bShutDown)
+    	AcceptConnections(ListeningSocket, pServices->Service, pServices->Name);
+
+    ExitThread(0);
+}
+
+
+SOCKET SetUpListener(USHORT Port)
 {
     SOCKET Sock;
     SOCKADDR_IN Server;
@@ -33,15 +59,23 @@ SetUpListener(USHORT Port)
             LogEvent(_T("bind() failed\n"), 0, TRUE);
 
     }
-
     return INVALID_SOCKET;
 }
 
+/* note: consider allowing a maximum number of connections
+ * A number of threads can be allocated and worker threads will
+ * only be spawned if a free space is available
 
-static VOID
-AcceptConnections(SOCKET ListeningSocket,
-                  LPTHREAD_START_ROUTINE Service,
-                  TCHAR *Name)
+typedef struct _WORKER_THREAD {
+    DWORD num;
+    BOOL available;
+    HANDLE hThread;
+} WORKER_THREAD;
+
+*/
+
+VOID AcceptConnections(SOCKET ListeningSocket,
+    LPTHREAD_START_ROUTINE Service, TCHAR *Name)
 {
     SOCKADDR_IN Client;
     SOCKET Sock;
@@ -51,13 +85,15 @@ AcceptConnections(SOCKET ListeningSocket,
     INT nAddrSize = sizeof(Client);
     DWORD ThreadID;
     TCHAR buf[256];
-    INT TimeOut = 2000;
+    INT TimeOut = 2000; // 2 seconds
+
+//DebugBreak();
 
     /* set timeout values */
     TimeVal.tv_sec  = TimeOut / 1000;
     TimeVal.tv_usec = TimeOut % 1000;
 
-    while (!bShutDown)
+    while (! bShutDown) // (i<MAX_CLIENTS && !bShutDown)
     {
 		INT SelRet = 0;
 
@@ -108,9 +144,7 @@ AcceptConnections(SOCKET ListeningSocket,
     }
 }
 
-BOOL
-ShutdownConnection(SOCKET Sock,
-                   BOOL bRec)
+BOOL ShutdownConnection(SOCKET Sock, BOOL bRec)
 {
     TCHAR buf[256];
 
@@ -146,37 +180,4 @@ ShutdownConnection(SOCKET Sock,
         return FALSE;
 
     return TRUE;
-}
-
-
-DWORD WINAPI
-StartServer(LPVOID lpParam)
-{
-    SOCKET ListeningSocket;
-    PSERVICES pServices;
-    TCHAR buf[256];
-
-    pServices = (PSERVICES)lpParam;
-
-    ListeningSocket = SetUpListener(htons(pServices->Port));
-    if (ListeningSocket == INVALID_SOCKET)
-    {
-        LogEvent(_T("Socket error when setting up listener"), 0, TRUE);
-        return 3;
-    }
-
-    _stprintf(buf,
-              _T("%s is waiting for connections on port %d"),
-              pServices->Name,
-              pServices->Port);
-    LogEvent(buf, 0, FALSE);
-
-    if (!bShutDown)
-        AcceptConnections(ListeningSocket, pServices->Service, pServices->Name);
-
-    _stprintf(buf,
-              _T("Exiting %s thread"),
-              pServices->Name);
-    LogEvent(buf, 0, FALSE);
-    ExitThread(0);
 }

@@ -3,31 +3,35 @@ using System.Xml;
 
 namespace TechBot.Library
 {
-	public class WMCommand : XmlCommand
+	public class WmCommand : BaseCommand, ICommand
 	{
-        public WMCommand(TechBotService techBot)
-            : base(techBot)
+		private IServiceOutput serviceOutput;
+		private string wmXml;
+		private XmlDocument wmXmlDocument;
+
+		public WmCommand(IServiceOutput serviceOutput,
+		                 string wmXml)
 		{
+			this.serviceOutput = serviceOutput;
+			this.wmXml = wmXml;
+			wmXmlDocument = new XmlDocument();
+			wmXmlDocument.Load(wmXml);
+		}
+		
+		public bool CanHandle(string commandName)
+		{
+			return CanHandle(commandName,
+			                 new string[] { "wm" });
 		}
 
-        public override string XmlFile
-        {
-            get { return Settings.Default.WMXml; }
-        }
-		
-        public override string[] AvailableCommands
-        {
-            get { return new string[] { "wm" }; }
-        }
-
-		public override void Handle(MessageContext context,
+		public void Handle(MessageContext context,
 		                   string commandName,
 		                   string parameters)
 		{
 			string wmText = parameters;
 			if (wmText.Equals(String.Empty))
 			{
-				TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        "Please provide a valid window message value or name.");
 				return;
 			}
@@ -47,27 +51,27 @@ namespace TechBot.Library
 
 			if (output != null)
 			{
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        String.Format("{0} is {1}.",
 				                                      wmText,
 			        	                              output));
 			}
 			else
 			{
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        String.Format("I don't know about window message {0}.",
 			        	                              wmText));
 			}
 		}
-
-        public override string Help()
+		
+		public string Help()
 		{
 			return "!wm <value> or !wm <name>";
 		}
 		
 		private string GetWmDescription(long wm)
 		{
-			XmlElement root = base.m_XmlDocument.DocumentElement;
+			XmlElement root = wmXmlDocument.DocumentElement;
 			XmlNode node = root.SelectSingleNode(String.Format("WindowMessage[@value='{0}']",
 			                                                   wm));
 			if (node != null)
@@ -83,7 +87,7 @@ namespace TechBot.Library
 		
 		private string GetWmNumber(string wmName)
 		{
-			XmlElement root = base.m_XmlDocument.DocumentElement;
+			XmlElement root = wmXmlDocument.DocumentElement;
 			XmlNode node = root.SelectSingleNode(String.Format("WindowMessage[@text='{0}']",
 			                                                   wmName));
 			if (node != null)

@@ -5,24 +5,6 @@
 #include <debug.h>
 #include "bootvid/bootvid.h"
 
-//
-// Bitmap Header
-//
-typedef struct tagBITMAPINFOHEADER
-{
-    ULONG biSize;
-    LONG biWidth;
-    LONG biHeight;
-    USHORT biPlanes;
-    USHORT biBitCount;
-    ULONG biCompression;
-    ULONG biSizeImage;
-    LONG biXPelsPerMeter;
-    LONG biYPelsPerMeter;
-    ULONG biClrUsed;
-    ULONG biClrImportant;
-} BITMAPINFOHEADER, *PBITMAPINFOHEADER;
-
 /* GLOBALS *******************************************************************/
 
 KSPIN_LOCK BootDriverLock;
@@ -111,7 +93,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     PCHAR CommandLine;
     BOOLEAN CustomLogo = FALSE;
     ULONG i;
-    extern BOOLEAN ExpInTextModeSetup;
 
     /* Quit if we're already installed */
     if (InbvBootDriverInstalled) return TRUE;
@@ -124,9 +105,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
         CommandLine = _strupr(LoaderBlock->LoadOptions);
         CustomLogo = strstr(CommandLine, "BOOTLOGO") ? TRUE: FALSE;
     }
-
-    /* For SetupLDR, don't reset the BIOS Display -- FIXME! */
-    if (ExpInTextModeSetup) CustomLogo = TRUE;
 
     /* Initialize the video */
     InbvBootDriverInstalled = VidInitialize(!CustomLogo);
@@ -394,7 +372,7 @@ InbvSolidColorFill(IN ULONG Left,
         if (InbvBootDriverInstalled)
         {
             /* Call bootvid */
-            VidSolidColorFill(Left, Top, Width, Height, (UCHAR)Color);
+            VidSolidColorFill(Left, Top, Width, Height, Color);
         }
 
         /* FIXME: Headless */
@@ -594,7 +572,7 @@ DisplayBootBitmap(IN BOOLEAN SosMode)
             InbvSolidColorFill(0, 421, 639, 479, 1);
 
             /* Get resources */
-            Bitmap = InbvGetResourceAddress(6);
+            Bitmap = InbvGetResourceAddress(14);
             Header = InbvGetResourceAddress(15);
         }
 
@@ -615,19 +593,6 @@ DisplayBootBitmap(IN BOOLEAN SosMode)
         if (!InbvBootDriverInstalled) return;
 
         /* FIXME: TODO, display full-screen bitmap */
-        Bitmap = InbvGetResourceAddress(5);
-        if (Bitmap)
-        {
-            PBITMAPINFOHEADER BitmapInfoHeader = (PBITMAPINFOHEADER)Bitmap;
-            ULONG Top, Left;
-
-            Left = (640 - BitmapInfoHeader->biWidth) / 2;
-            if (BitmapInfoHeader->biHeight < 0)
-                Top = (480 + BitmapInfoHeader->biHeight) / 2;
-            else
-                Top = (480 - BitmapInfoHeader->biHeight) / 2;
-            InbvBitBlt(Bitmap, Left, Top);
-        }
     }
 
     /* Do we have a system thread? */

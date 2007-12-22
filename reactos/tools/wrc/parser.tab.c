@@ -369,6 +369,10 @@
 #include "wine/wpp.h"
 #include "wine/unicode.h"
 #include "parser.h"
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
 
 #if defined(YYBYACC)
 	/* Berkeley yacc (byacc) doesn't seem to know about these */
@@ -1735,7 +1739,7 @@ yyparse ()
 #endif
 #endif
 {
-
+  
   register int yystate;
   register int yyn;
   int yyresult;

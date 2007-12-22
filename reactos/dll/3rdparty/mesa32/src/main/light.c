@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.0
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,7 +44,7 @@ _mesa_ShadeModel( GLenum mode )
       _mesa_debug(ctx, "glShadeModel %s\n", _mesa_lookup_enum_by_nr(mode));
 
    if (mode != GL_FLAT && mode != GL_SMOOTH) {
-      _mesa_error(ctx, GL_INVALID_ENUM, "glShadeModel");
+      _mesa_error( ctx, GL_INVALID_ENUM, "glShadeModel" );
       return;
    }
 
@@ -53,121 +53,9 @@ _mesa_ShadeModel( GLenum mode )
 
    FLUSH_VERTICES(ctx, _NEW_LIGHT);
    ctx->Light.ShadeModel = mode;
-   if (mode == GL_FLAT)
-      ctx->_TriangleCaps |= DD_FLATSHADE;
-   else
-      ctx->_TriangleCaps &= ~DD_FLATSHADE;
-
+   ctx->_TriangleCaps ^= DD_FLATSHADE;
    if (ctx->Driver.ShadeModel)
-      ctx->Driver.ShadeModel( ctx, mode );
-}
-
-
-/**
- * Helper function called by _mesa_Lightfv and _mesa_PopAttrib to set
- * per-light state.
- * For GL_POSITION and GL_SPOT_DIRECTION the params position/direction
- * will have already been transformed by the modelview matrix!
- * Also, all error checking should have already been done.
- */
-void
-_mesa_light(GLcontext *ctx, GLuint lnum, GLenum pname, const GLfloat *params)
-{
-   struct gl_light *light;
-
-   ASSERT(lnum < MAX_LIGHTS);
-   light = &ctx->Light.Light[lnum];
-
-   switch (pname) {
-   case GL_AMBIENT:
-      if (TEST_EQ_4V(light->Ambient, params))
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      COPY_4V( light->Ambient, params );
-      break;
-   case GL_DIFFUSE:
-      if (TEST_EQ_4V(light->Diffuse, params))
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      COPY_4V( light->Diffuse, params );
-      break;
-   case GL_SPECULAR:
-      if (TEST_EQ_4V(light->Specular, params))
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      COPY_4V( light->Specular, params );
-      break;
-   case GL_POSITION:
-      /* NOTE: position has already been transformed by ModelView! */
-      if (TEST_EQ_4V(light->EyePosition, params))
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      COPY_4V(light->EyePosition, params);
-      if (light->EyePosition[3] != 0.0F)
-	 light->_Flags |= LIGHT_POSITIONAL;
-      else
-	 light->_Flags &= ~LIGHT_POSITIONAL;
-      break;
-   case GL_SPOT_DIRECTION:
-      /* NOTE: Direction already transformed by inverse ModelView! */
-      if (TEST_EQ_3V(light->EyeDirection, params))
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      COPY_3V(light->EyeDirection, params);
-      break;
-   case GL_SPOT_EXPONENT:
-      ASSERT(params[0] >= 0.0);
-      ASSERT(params[0] <= ctx->Const.MaxSpotExponent);
-      if (light->SpotExponent == params[0])
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      light->SpotExponent = params[0];
-      _mesa_invalidate_spot_exp_table(light);
-      break;
-   case GL_SPOT_CUTOFF:
-      ASSERT(params[0] == 180.0 || (params[0] >= 0.0 && params[0] <= 90.0));
-      if (light->SpotCutoff == params[0])
-         return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      light->SpotCutoff = params[0];
-      light->_CosCutoffNeg = (GLfloat) (_mesa_cos(light->SpotCutoff * DEG2RAD));
-      if (light->_CosCutoffNeg < 0)
-         light->_CosCutoff = 0;
-      else
-         light->_CosCutoff = light->_CosCutoffNeg;
-      if (light->SpotCutoff != 180.0F)
-         light->_Flags |= LIGHT_SPOT;
-      else
-         light->_Flags &= ~LIGHT_SPOT;
-      break;
-   case GL_CONSTANT_ATTENUATION:
-      ASSERT(params[0] >= 0.0);
-      if (light->ConstantAttenuation == params[0])
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      light->ConstantAttenuation = params[0];
-      break;
-   case GL_LINEAR_ATTENUATION:
-      ASSERT(params[0] >= 0.0);
-      if (light->LinearAttenuation == params[0])
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      light->LinearAttenuation = params[0];
-      break;
-   case GL_QUADRATIC_ATTENUATION:
-      ASSERT(params[0] >= 0.0);
-      if (light->QuadraticAttenuation == params[0])
-	 return;
-      FLUSH_VERTICES(ctx, _NEW_LIGHT);
-      light->QuadraticAttenuation = params[0];
-      break;
-   default:
-      _mesa_problem(ctx, "Unexpected pname in _mesa_light()");
-      return;
-   }
-
-   if (ctx->Driver.Lightfv)
-      ctx->Driver.Lightfv( ctx, GL_LIGHT0 + lnum, pname, params );
+      (*ctx->Driver.ShadeModel)( ctx, mode );
 }
 
 
@@ -183,69 +71,124 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
 {
    GET_CURRENT_CONTEXT(ctx);
    GLint i = (GLint) (light - GL_LIGHT0);
-   GLfloat temp[4];
+   struct gl_light *l = &ctx->Light.Light[i];
 
    if (i < 0 || i >= (GLint) ctx->Const.MaxLights) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glLight(light=0x%x)", light );
       return;
    }
 
-   /* do particular error checks, transformations */
    switch (pname) {
    case GL_AMBIENT:
+      if (TEST_EQ_4V(l->Ambient, params))
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      COPY_4V( l->Ambient, params );
+      break;
    case GL_DIFFUSE:
+      if (TEST_EQ_4V(l->Diffuse, params))
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      COPY_4V( l->Diffuse, params );
+      break;
    case GL_SPECULAR:
-      /* nothing */
+      if (TEST_EQ_4V(l->Specular, params))
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      COPY_4V( l->Specular, params );
       break;
-   case GL_POSITION:
+   case GL_POSITION: {
+      GLfloat tmp[4];
       /* transform position by ModelView matrix */
-      TRANSFORM_POINT(temp, ctx->ModelviewMatrixStack.Top->m, params);
-      params = temp;
+      TRANSFORM_POINT( tmp, ctx->ModelviewMatrixStack.Top->m, params );
+      if (TEST_EQ_4V(l->EyePosition, tmp))
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      COPY_4V(l->EyePosition, tmp);
+      if (l->EyePosition[3] != 0.0F)
+	 l->_Flags |= LIGHT_POSITIONAL;
+      else
+	 l->_Flags &= ~LIGHT_POSITIONAL;
       break;
-   case GL_SPOT_DIRECTION:
+   }
+   case GL_SPOT_DIRECTION: {
+      GLfloat tmp[4];
       /* transform direction by inverse modelview */
       if (_math_matrix_is_dirty(ctx->ModelviewMatrixStack.Top)) {
-	 _math_matrix_analyse(ctx->ModelviewMatrixStack.Top);
+	 _math_matrix_analyse( ctx->ModelviewMatrixStack.Top );
       }
-      TRANSFORM_NORMAL(temp, params, ctx->ModelviewMatrixStack.Top->inv);
-      params = temp;
+      TRANSFORM_NORMAL( tmp, params, ctx->ModelviewMatrixStack.Top->inv );
+      if (TEST_EQ_3V(l->EyeDirection, tmp))
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      COPY_3V(l->EyeDirection, tmp);
       break;
+   }
    case GL_SPOT_EXPONENT:
-      if (params[0] < 0.0 || params[0] > ctx->Const.MaxSpotExponent) {
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glLight");
+      if (params[0]<0.0 || params[0]>ctx->Const.MaxSpotExponent) {
+	 _mesa_error( ctx, GL_INVALID_VALUE, "glLight" );
 	 return;
       }
+      if (l->SpotExponent == params[0])
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      l->SpotExponent = params[0];
+      _mesa_invalidate_spot_exp_table( l );
       break;
    case GL_SPOT_CUTOFF:
-      if ((params[0] < 0.0 || params[0] > 90.0) && params[0] != 180.0) {
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glLight");
+      if ((params[0]<0.0 || params[0]>90.0) && params[0]!=180.0) {
+	 _mesa_error( ctx, GL_INVALID_VALUE, "glLight" );
 	 return;
       }
+      if (l->SpotCutoff == params[0])
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      l->SpotCutoff = params[0];
+      l->_CosCutoff = (GLfloat) _mesa_cos(params[0]*DEG2RAD);
+      if (l->_CosCutoff < 0)
+	 l->_CosCutoff = 0;
+      if (l->SpotCutoff != 180.0F)
+	 l->_Flags |= LIGHT_SPOT;
+      else
+	 l->_Flags &= ~LIGHT_SPOT;
       break;
    case GL_CONSTANT_ATTENUATION:
-      if (params[0] < 0.0) {
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glLight");
+      if (params[0]<0.0) {
+	 _mesa_error( ctx, GL_INVALID_VALUE, "glLight" );
 	 return;
       }
+      if (l->ConstantAttenuation == params[0])
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      l->ConstantAttenuation = params[0];
       break;
    case GL_LINEAR_ATTENUATION:
-      if (params[0] < 0.0) {
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glLight");
+      if (params[0]<0.0) {
+	 _mesa_error( ctx, GL_INVALID_VALUE, "glLight" );
 	 return;
       }
+      if (l->LinearAttenuation == params[0])
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      l->LinearAttenuation = params[0];
       break;
    case GL_QUADRATIC_ATTENUATION:
-      if (params[0] < 0.0) {
-	 _mesa_error(ctx, GL_INVALID_VALUE, "glLight");
+      if (params[0]<0.0) {
+	 _mesa_error( ctx, GL_INVALID_VALUE, "glLight" );
 	 return;
       }
+      if (l->QuadraticAttenuation == params[0])
+	 return;
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
+      l->QuadraticAttenuation = params[0];
       break;
    default:
-      _mesa_error(ctx, GL_INVALID_ENUM, "glLight(pname=0x%x)", pname);
+      _mesa_error( ctx, GL_INVALID_ENUM, "glLight(pname=0x%x)", pname );
       return;
    }
 
-   _mesa_light(ctx, i, pname, params);
+   if (ctx->Driver.Lightfv)
+      ctx->Driver.Lightfv( ctx, light, pname, params );
 }
 
 
@@ -446,10 +389,11 @@ _mesa_LightModelfv( GLenum pname, const GLfloat *params )
 	    return;
 	 FLUSH_VERTICES(ctx, _NEW_LIGHT);
 	 ctx->Light.Model.TwoSide = newbool;
-         if (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
-            ctx->_TriangleCaps |= DD_TRI_LIGHT_TWOSIDE;
-         else
-            ctx->_TriangleCaps &= ~DD_TRI_LIGHT_TWOSIDE;
+
+	 if (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
+	    ctx->_TriangleCaps |= DD_TRI_LIGHT_TWOSIDE;
+	 else
+	    ctx->_TriangleCaps &= ~DD_TRI_LIGHT_TWOSIDE;
          break;
       case GL_LIGHT_MODEL_COLOR_CONTROL:
          if (params[0] == (GLfloat) GL_SINGLE_COLOR)
@@ -731,7 +675,7 @@ _mesa_ColorMaterial( GLenum face, GLenum mode )
    }
 
    if (ctx->Driver.ColorMaterial)
-      ctx->Driver.ColorMaterial( ctx, face, mode );
+      (*ctx->Driver.ColorMaterial)( ctx, face, mode );
 }
 
 
@@ -1002,13 +946,14 @@ _mesa_validate_all_lighting_tables( GLcontext *ctx )
    if (!ctx->_ShineTable[1] || ctx->_ShineTable[1]->shininess != shininess)
       validate_shine_table( ctx, 1, shininess );
 
-   for (i = 0; i < ctx->Const.MaxLights; i++)
+   for (i = 0 ; i < MAX_LIGHTS ; i++)
       if (ctx->Light.Light[i]._SpotExpTable[0][0] == -1)
 	 validate_spot_exp_table( &ctx->Light.Light[i] );
 }
 
 
-/**
+
+/*
  * Examine current lighting parameters to determine if the optimized lighting
  * function can be used.
  * Also, precompute some lighting values such as the products of light
@@ -1018,7 +963,7 @@ void
 _mesa_update_lighting( GLcontext *ctx )
 {
    struct gl_light *light;
-   ctx->Light._NeedEyeCoords = GL_FALSE;
+   ctx->Light._NeedEyeCoords = 0;
    ctx->Light._Flags = 0;
 
    if (!ctx->Light.Enabled)
@@ -1036,12 +981,15 @@ _mesa_update_lighting( GLcontext *ctx )
    ctx->Light._NeedEyeCoords = ((ctx->Light._Flags & LIGHT_POSITIONAL) ||
 				ctx->Light.Model.LocalViewer);
 
+
+
    /* XXX: This test is overkill & needs to be fixed both for software and
     * hardware t&l drivers.  The above should be sufficient & should
     * be tested to verify this.
     */
    if (ctx->Light._NeedVertices)
       ctx->Light._NeedEyeCoords = GL_TRUE;
+
 
    /* Precompute some shading values.  Although we reference
     * Light.Material here, we can get away without flushing
@@ -1076,12 +1024,9 @@ _mesa_update_lighting( GLcontext *ctx )
 }
 
 
-/**
- * Update state derived from light position, spot direction.
- * Called upon:
- *   _NEW_MODELVIEW
- *   _NEW_LIGHT
- *   _TNL_NEW_NEED_EYE_COORDS
+/* _NEW_MODELVIEW
+ * _NEW_LIGHT
+ * _TNL_NEW_NEED_EYE_COORDS
  *
  * Update on (_NEW_MODELVIEW | _NEW_LIGHT) when lighting is enabled.
  * Also update on lighting space changes.
@@ -1105,11 +1050,9 @@ compute_light_positions( GLcontext *ctx )
    foreach (light, &ctx->Light.EnabledList) {
 
       if (ctx->_NeedEyeCoords) {
-         /* _Position is in eye coordinate space */
 	 COPY_4FV( light->_Position, light->EyePosition );
       }
       else {
-         /* _Position is in object coordinate space */
 	 TRANSFORM_POINT( light->_Position, ctx->ModelviewMatrixStack.Top->inv,
 			  light->EyePosition );
       }
@@ -1125,13 +1068,6 @@ compute_light_positions( GLcontext *ctx )
 	    NORMALIZE_3FV( light->_h_inf_norm );
 	 }
 	 light->_VP_inf_spot_attenuation = 1.0;
-      }
-      else {
-         /* positional light w/ homogeneous coordinate, divide by W */
-         GLfloat wInv = 1.0 / light->_Position[3];
-         light->_Position[0] *= wInv;
-         light->_Position[1] *= wInv;
-         light->_Position[2] *= wInv;
       }
 
       if (light->_Flags & LIGHT_SPOT) {
@@ -1183,8 +1119,7 @@ update_modelview_scale( GLcontext *ctx )
 }
 
 
-/**
- * Bring up to date any state that relies on _NeedEyeCoords.
+/* Bring uptodate any state that relies on _NeedEyeCoords.
  */
 void
 _mesa_update_tnl_spaces( GLcontext *ctx, GLuint new_state )
@@ -1192,17 +1127,18 @@ _mesa_update_tnl_spaces( GLcontext *ctx, GLuint new_state )
    const GLuint oldneedeyecoords = ctx->_NeedEyeCoords;
 
    (void) new_state;
-   ctx->_NeedEyeCoords = GL_FALSE;
+   ctx->_NeedEyeCoords = 0;
 
    if (ctx->_ForceEyeCoords ||
        (ctx->Texture._GenFlags & TEXGEN_NEED_EYE_COORD) ||
        ctx->Point._Attenuated ||
        ctx->Light._NeedEyeCoords)
-      ctx->_NeedEyeCoords = GL_TRUE;
+      ctx->_NeedEyeCoords = 1;
 
    if (ctx->Light.Enabled &&
        !_math_matrix_is_length_preserving(ctx->ModelviewMatrixStack.Top))
-      ctx->_NeedEyeCoords = GL_TRUE;
+      ctx->_NeedEyeCoords = 1;
+
 
    /* Check if the truth-value interpretations of the bitfields have
     * changed:
@@ -1231,8 +1167,7 @@ _mesa_update_tnl_spaces( GLcontext *ctx, GLuint new_state )
 }
 
 
-/**
- * Drivers may need this if the hardware tnl unit doesn't support the
+/* Drivers may need this if the hardware tnl unit doesn't support the
  * light-in-modelspace optimization.  It's also useful for debugging.
  */
 void
@@ -1276,7 +1211,6 @@ init_light( struct gl_light *l, GLuint n )
    l->SpotExponent = 0.0;
    _mesa_invalidate_spot_exp_table( l );
    l->SpotCutoff = 180.0;
-   l->_CosCutoffNeg = -1.0f;
    l->_CosCutoff = 0.0;		/* KW: -ve values not admitted */
    l->ConstantAttenuation = 1.0;
    l->LinearAttenuation = 0.0;
@@ -1324,9 +1258,6 @@ init_material( struct gl_material *m )
 }
 
 
-/**
- * Initialize all lighting state for the given context.
- */
 void
 _mesa_init_lighting( GLcontext *ctx )
 {
@@ -1350,7 +1281,6 @@ _mesa_init_lighting( GLcontext *ctx )
                                                NULL );
 
    ctx->Light.ColorMaterialEnabled = GL_FALSE;
-   ctx->Light.ClampVertexColor = GL_TRUE;
 
    /* Lighting miscellaneous */
    ctx->_ShineTabList = MALLOC_STRUCT( gl_shine_tab );
@@ -1364,15 +1294,12 @@ _mesa_init_lighting( GLcontext *ctx )
    }
 
    /* Miscellaneous */
-   ctx->Light._NeedEyeCoords = GL_FALSE;
-   ctx->_NeedEyeCoords = GL_FALSE;
+   ctx->Light._NeedEyeCoords = 0;
+   ctx->_NeedEyeCoords = 0;
    ctx->_ModelViewInvScale = 1.0;
 }
 
 
-/**
- * Deallocate malloc'd lighting state attached to given context.
- */
 void
 _mesa_free_lighting_data( GLcontext *ctx )
 {
@@ -1380,7 +1307,7 @@ _mesa_free_lighting_data( GLcontext *ctx )
 
    /* Free lighting shininess exponentiation table */
    foreach_s( s, tmps, ctx->_ShineTabList ) {
-      _mesa_free( s );
+      FREE( s );
    }
-   _mesa_free( ctx->_ShineTabList );
+   FREE( ctx->_ShineTabList );
 }

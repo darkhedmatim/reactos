@@ -22,15 +22,15 @@ public:
 	/* Default destructor */
 	virtual ~CMSZipCodec();
 	/* Compresses a data block */
-	virtual ULONG Compress(void* OutputBuffer,
+	virtual uint32_t Compress(void* OutputBuffer,
 	                          void* InputBuffer,
-	                          ULONG InputLength,
-	                          PULONG OutputLength);
+	                          uint32_t InputLength,
+	                          uint32_t* OutputLength);
 	/* Uncompresses a data block */
-	virtual ULONG Uncompress(void* OutputBuffer,
+	virtual uint32_t Uncompress(void* OutputBuffer,
 	                            void* InputBuffer,
-	                            ULONG InputLength,
-	                            PULONG OutputLength);
+	                            uint32_t InputLength,
+	                            uint32_t* OutputLength);
 private:
 	int Status;
 	z_stream ZStream; /* Zlib stream */

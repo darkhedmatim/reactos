@@ -480,7 +480,7 @@ KeStartThread(IN OUT PKTHREAD Thread)
 #ifdef CONFIG_SMP
     /* Get the KNODE and its PRCB */
     Node = KeNodeBlock[Process->IdealNode];
-    NodePrcb = KiProcessorBlock[Process->ThreadSeed];
+    NodePrcb = (PKPRCB)(KPCR_BASE + (Process->ThreadSeed * PAGE_SIZE));
 
     /* Calculate affinity mask */
     Set = ~NodePrcb->MultiThreadProcessorSet;
@@ -797,7 +797,8 @@ KeInitThread(IN OUT PKTHREAD Thread,
     if (!KernelStack)
     {
         /* We don't, allocate one */
-        KernelStack = MmCreateKernelStack(FALSE, 0);
+        KernelStack = (PVOID)((ULONG_PTR)MmCreateKernelStack(FALSE) +
+                              KERNEL_STACK_SIZE);
         if (!KernelStack) return STATUS_INSUFFICIENT_RESOURCES;
 
         /* Remember for later */
@@ -805,27 +806,28 @@ KeInitThread(IN OUT PKTHREAD Thread,
     }
 
     /* Set the Thread Stacks */
-    Thread->InitialStack = KernelStack;
-    Thread->StackBase = KernelStack;
+    Thread->InitialStack = (PCHAR)KernelStack;
+    Thread->StackBase = (PCHAR)KernelStack;
     Thread->StackLimit = (ULONG_PTR)KernelStack - KERNEL_STACK_SIZE;
     Thread->KernelStackResident = TRUE;
 
-    /* Make sure that we are in the right page directory */
-    MiSyncThreadProcessViews(Process,
-                             (PVOID)Thread->StackLimit,
-                             KERNEL_STACK_SIZE);
-    MiSyncThreadProcessViews(Process, Thread, sizeof(ETHREAD));
+    /* ROS Mm HACK */
+    MmUpdatePageDir((PEPROCESS)Process,
+                    (PVOID)Thread->StackLimit,
+                    KERNEL_STACK_SIZE);
+    MmUpdatePageDir((PEPROCESS)Process, (PVOID)Thread, sizeof(ETHREAD));
 
+#if defined(_M_IX86)
     /* Enter SEH to avoid crashes due to user mode */
     Status = STATUS_SUCCESS;
     _SEH_TRY
     {
         /* Initalize the Thread Context */
-        KeArchInitThreadWithContext(Thread,
-                                    SystemRoutine,
-                                    StartRoutine,
-                                    StartContext,
-                                    Context);
+        Ke386InitThreadWithContext(Thread,
+                                   SystemRoutine,
+                                   StartRoutine,
+                                   StartContext,
+                                   Context);
     }
     _SEH_HANDLE
     {
@@ -836,11 +838,14 @@ KeInitThread(IN OUT PKTHREAD Thread,
         if (AllocatedStack)
         {
             /* Delete the stack */
-            MmDeleteKernelStack((PVOID)Thread->StackLimit, FALSE);
+            MmDeleteKernelStack(Thread->StackBase, FALSE);
             Thread->InitialStack = NULL;
         }
     }
     _SEH_END;
+#else
+    Status = STATUS_SUCCESS;
+#endif
 
     /* Set the Thread to initalized */
     Thread->State = Initialized;
@@ -878,7 +883,7 @@ NTAPI
 KeUninitThread(IN PKTHREAD Thread)
 {
     /* Delete the stack */
-    MmDeleteKernelStack((PVOID)Thread->StackLimit, FALSE);
+    MmDeleteKernelStack(Thread->StackBase, FALSE);
     Thread->InitialStack = NULL;
 }
 
@@ -1002,6 +1007,7 @@ KeRevertToUserAffinityThread(VOID)
         /* Lock the PRCB */
         KiAcquirePrcbLock(Prcb);
 
+#ifdef NEW_SCHEDULER
         /* Check if there's no next thread scheduled */
         if (!Prcb->NextThread)
         {
@@ -1010,6 +1016,14 @@ KeRevertToUserAffinityThread(VOID)
             NextThread->State = Standby;
             Prcb->NextThread = NextThread;
         }
+#else
+        /* We need to dispatch a new thread */
+        NextThread = NULL;
+        CurrentThread->WaitIrql = OldIrql;
+        KiDispatchThreadNoLock(Ready);
+        KeLowerIrql(OldIrql);
+        return;
+#endif
 
         /* Release the PRCB lock */
         KiReleasePrcbLock(Prcb);
@@ -1111,6 +1125,7 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
         /* Lock the PRCB */
         KiAcquirePrcbLock(Prcb);
 
+#ifdef NEW_SCHEDULER
         /* Check if there's no next thread scheduled */
         if (!Prcb->NextThread)
         {
@@ -1119,6 +1134,14 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
             NextThread->State = Standby;
             Prcb->NextThread = NextThread;
         }
+#else
+        /* We need to dispatch a new thread */
+        NextThread = NULL;
+        CurrentThread->WaitIrql = OldIrql;
+        KiDispatchThreadNoLock(Ready);
+        KeLowerIrql(OldIrql);
+        return;
+#endif
 
         /* Release the PRCB lock */
         KiReleasePrcbLock(Prcb);

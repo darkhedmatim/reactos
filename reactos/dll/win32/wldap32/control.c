@@ -31,6 +31,9 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_SUCCESS        0x00
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -45,7 +48,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(wldap32);
  */
 ULONG CDECL ldap_control_freeA( LDAPControlA *control )
 {
-    ULONG ret = WLDAP32_LDAP_SUCCESS;
+    ULONG ret = LDAP_SUCCESS;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", control );
@@ -68,7 +71,7 @@ ULONG CDECL ldap_control_freeA( LDAPControlA *control )
  */
 ULONG CDECL ldap_control_freeW( LDAPControlW *control )
 {
-    ULONG ret = WLDAP32_LDAP_SUCCESS;
+    ULONG ret = LDAP_SUCCESS;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", control );
@@ -85,7 +88,7 @@ ULONG CDECL ldap_control_freeW( LDAPControlW *control )
  */
 ULONG CDECL ldap_controls_freeA( LDAPControlA **controls )
 {
-    ULONG ret = WLDAP32_LDAP_SUCCESS;
+    ULONG ret = LDAP_SUCCESS;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", controls );
@@ -108,7 +111,7 @@ ULONG CDECL ldap_controls_freeA( LDAPControlA **controls )
  */
 ULONG CDECL ldap_controls_freeW( LDAPControlW **controls )
 {
-    ULONG ret = WLDAP32_LDAP_SUCCESS;
+    ULONG ret = LDAP_SUCCESS;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", controls );
@@ -126,7 +129,7 @@ ULONG CDECL ldap_controls_freeW( LDAPControlW **controls )
 ULONG CDECL ldap_create_sort_controlA( WLDAP32_LDAP *ld, PLDAPSortKeyA *sortkey,
     UCHAR critical, PLDAPControlA *control )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPSortKeyW **sortkeyW = NULL;
     LDAPControlW *controlW = NULL;
@@ -176,7 +179,7 @@ ULONG CDECL ldap_create_sort_controlA( WLDAP32_LDAP *ld, PLDAPSortKeyA *sortkey,
 ULONG CDECL ldap_create_sort_controlW( WLDAP32_LDAP *ld, PLDAPSortKeyW *sortkey,
     UCHAR critical, PLDAPControlW *control )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPSortKey **sortkeyU = NULL;
     LDAPControl *controlU = NULL;
@@ -209,7 +212,7 @@ ULONG CDECL ldap_create_sort_controlW( WLDAP32_LDAP *ld, PLDAPSortKeyW *sortkey,
 INT CDECL ldap_create_vlv_controlA( WLDAP32_LDAP *ld, WLDAP32_LDAPVLVInfo *info,
     UCHAR critical, LDAPControlA **control )
 {
-    INT ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    INT ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControlW *controlW = NULL;
 
@@ -219,7 +222,7 @@ INT CDECL ldap_create_vlv_controlA( WLDAP32_LDAP *ld, WLDAP32_LDAPVLVInfo *info,
 
     ret = ldap_create_vlv_controlW( ld, info, critical, &controlW );
 
-    if (ret == WLDAP32_LDAP_SUCCESS)
+    if (ret == LDAP_SUCCESS)
     {
         *control = controlWtoA( controlW );
         if (!*control) ret = WLDAP32_LDAP_NO_MEMORY;
@@ -255,7 +258,7 @@ INT CDECL ldap_create_vlv_controlA( WLDAP32_LDAP *ld, WLDAP32_LDAPVLVInfo *info,
 INT CDECL ldap_create_vlv_controlW( WLDAP32_LDAP *ld, WLDAP32_LDAPVLVInfo *info,
     UCHAR critical, LDAPControlW **control )
 {
-    INT ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    INT ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControl *controlU = NULL;
 

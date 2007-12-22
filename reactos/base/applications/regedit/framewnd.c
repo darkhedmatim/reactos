@@ -87,7 +87,7 @@ static void OnInitMenu(HWND hWnd)
         while(RemoveMenu(hMenu, s_nFavoriteMenuSubPos, MF_BYPOSITION))
             ;
     }
-
+    
     lResult = RegOpenKey(HKEY_CURRENT_USER, s_szFavoritesRegKey, &hKey);
     if (lResult != ERROR_SUCCESS)
         goto done;
@@ -150,7 +150,7 @@ static void OnMenuSelect(HWND hWnd, UINT nItemID, UINT nFlags, HMENU hSysMenu)
         /* load appropriate string*/
         LPTSTR lpsz = str;
         /* first newline terminates actual string*/
-        lpsz = _tcschr(lpsz, _T('\n'));
+        lpsz = _tcschr(lpsz, '\n');
         if (lpsz != NULL)
             *lpsz = '\0';
     }
@@ -171,10 +171,12 @@ void SetupStatusBar(HWND hWnd, BOOL bResize)
 
 void UpdateStatusBar(void)
 {
-	NMHDR nmhdr;
-	ZeroMemory(&nmhdr, sizeof(NMHDR));
-    nmhdr.code = TVN_SELCHANGED;
-    SendMessage(g_pChildWnd->hWnd, WM_NOTIFY, (WPARAM)TREE_WINDOW, (LPARAM)&nmhdr);
+    TCHAR text[260];
+    DWORD size;
+
+    size = sizeof(text)/sizeof(TCHAR);
+    GetComputerName(text, &size);
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)text);
 }
 
 static void toggle_child(HWND hWnd, UINT cmd, HWND hchild)
@@ -590,7 +592,7 @@ static BOOL CreateNewValue(HKEY hRootKey, LPCTSTR pszKeyPath, DWORD dwType)
     LVFINDINFO lvfi;
 
     if (RegOpenKey(hRootKey, pszKeyPath, &hKey) != ERROR_SUCCESS)
-        return FALSE;
+        return FALSE;    
 
     LoadString(hInst, IDS_NEW_VALUE, szNewValueFormat, sizeof(szNewValueFormat)
         / sizeof(szNewValueFormat[0]));
@@ -805,7 +807,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         IDsObjectPicker *ObjectPicker;
         TCHAR szComputerName[MAX_COMPUTERNAME_LENGTH + 1];
         HRESULT hRet;
-
+        
         hRet = CoInitialize(NULL);
         if (SUCCEEDED(hRet))
         {
@@ -877,7 +879,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (lRet != ERROR_SUCCESS) hKey = 0;
     }
 
-    switch (LOWORD(wParam)) {
+     switch (LOWORD(wParam)) {
     case ID_EDIT_MODIFY:
         if (valueName && ModifyValue(hWnd, hKey, valueName, FALSE))
             RefreshListView(g_pChildWnd->hListWnd, hKeyRoot, keyPath);
@@ -887,23 +889,13 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             RefreshListView(g_pChildWnd->hListWnd, hKeyRoot, keyPath);
         break;
     case ID_EDIT_RENAME:
-        if (GetFocus() == g_pChildWnd->hListWnd)
+        if(ListView_GetSelectedCount(g_pChildWnd->hListWnd) == 1)
         {
-            if(ListView_GetSelectedCount(g_pChildWnd->hListWnd) == 1)
-            {
-                item = ListView_GetNextItem(g_pChildWnd->hListWnd, -1, LVNI_SELECTED);
-                if(item > -1)
-                {
-                    (void)ListView_EditLabel(g_pChildWnd->hListWnd, item);
-                }
-            }
-        }
-        if (GetFocus() == g_pChildWnd->hTreeWnd)
-        {
-            /* Get focused entry of treeview (if any) */
-            HTREEITEM hItem = TreeView_GetSelection(g_pChildWnd->hTreeWnd);
-            if (hItem != NULL)
-                (void)TreeView_EditLabel(g_pChildWnd->hTreeWnd, hItem);
+          item = ListView_GetNextItem(g_pChildWnd->hListWnd, -1, LVNI_SELECTED);
+          if(item > -1)
+          {
+            (void)ListView_EditLabel(g_pChildWnd->hListWnd, item);
+          }
         }
         break;
     case ID_EDIT_DELETE:
@@ -941,18 +933,15 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
               }
             }
           }
-        } else
+        } else 
         if (GetFocus() == g_pChildWnd->hTreeWnd)
         {
           if (keyPath == 0 || *keyPath == 0)
           {
-             MessageBeep(MB_ICONHAND);
+             MessageBeep(MB_ICONHAND); 
           } else
           if (DeleteKey(hWnd, hKeyRoot, keyPath))
-          {
             DeleteNode(g_pChildWnd->hTreeWnd, 0);
-            RefreshTreeView(g_pChildWnd->hTreeWnd);
-          }
         }
 	break;
     case ID_EDIT_NEW_STRINGVALUE:
@@ -1060,7 +1049,7 @@ LRESULT CALLBACK FrameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
             return DefWindowProc(hWnd, message, wParam, lParam);
         break;
     case WM_ACTIVATE:
-        if (LOWORD(hWnd))
+        if (LOWORD(hWnd)) 
             SetFocus(g_pChildWnd->hWnd);
         break;
     case WM_SIZE:

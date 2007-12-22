@@ -1,6 +1,4 @@
-// Revised by Caemyr (Olaf Siejka) - 07.2007
-
-LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+LANGUAGE LANG_POLISH, SUBLANG_NEUTRAL
 
 IDD_PROPPAGENETWORK DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -28,8 +26,8 @@ BEGIN
  PUSHBUTTON "&Odinstaluj", IDC_UNINSTALL, 90, 130, 65, 14, WS_DISABLED | WS_TABSTOP
  PUSHBUTTON "&W³aœciwoœci", IDC_PROPERTIES, 174, 130, 65, 14
  GROUPBOX "Opis", -1, 9, 153, 230, 46, BS_GROUPBOX
- LTEXT "Opis komponentu:", IDC_DESCRIPTION, 15, 165, 217, 28, WS_GROUP
- CHECKBOX "Pokazuj ikonê w zasobniku systemowym, kiedy po³¹czony", IDC_SHOWTASKBAR, 9, 206, 230, 12, BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP
+ LTEXT "Tutaj opis komponentu...", IDC_DESCRIPTION, 15, 165, 217, 28, WS_GROUP
+ CHECKBOX "Pokazuj ikonê w zasobniku systemowym kiedy po³¹czony", IDC_SHOWTASKBAR, 9, 206, 230, 12, BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP
 END
 
 
@@ -54,14 +52,11 @@ BEGIN
  RTEXT "000.000.000", IDC_RECEIVED, 139, 115, 44, 8
  PUSHBUTTON "&W³aœciwoœci", IDC_PROPERTIES, 10, 150, 50, 14
  PUSHBUTTON "&Od³¹cz", IDC_ENDISABLE, 66, 150, 50, 14
- RTEXT "",IDC_STATUS,83,20,98,8
- RTEXT "",IDC_DURATION,83,34,98,8
- RTEXT "",IDC_SPEED,83,48,98,8
 END
 
 IDD_CARDSUPPORT DIALOG DISCARDABLE  0, 0, 200,180
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Szczegó³y"
+CAPTION "Wsparcie"
 FONT 8, "MS Shell Dlg"
 BEGIN
  GROUPBOX "Status po³¹czenia", -1, 9, 8, 200, 88, BS_GROUPBOX
@@ -69,12 +64,12 @@ BEGIN
  LTEXT "Adres IP:", -1, 22, 34, 80, 8
  LTEXT "Maska podsieci:", -1, 22, 48, 80, 8
  LTEXT "Domyœlna brama:", -1, 22, 62, 80, 8
-
+ 
  RTEXT "N/A", IDC_DETAILSTYPE, 122, 20, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSIP, 122, 34, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSSUBNET, 122, 48, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSGATEWAY, 122, 62, 80, 8
-
+ 
  PUSHBUTTON "&Szczegó³y...", IDC_DETAILS, 22, 76, 62, 14
 END
 
@@ -83,7 +78,7 @@ STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Ogólne"
 FONT 8, "MS Shell Dlg"
 BEGIN
- LTEXT "Mo¿esz automatycznie pobraæ ustawienia sieciowe protoko³u IP, je¿eli Twoja sieæ obs³uguje te funkcje. W innym przypadku musisz skontaktowaæ siê z administratorem w celu zdobycia odpowiednich ustawieñ.", -1, 9, 9, 228, 27
+ LTEXT "Mo¿esz automatycznie pobraæ ustawienia siecioweprotoko³u IP, je¿eli twoja sieæ obs³uguje te funkcje. W innym przypadku musisz skontaktowaæ siê z administratorem w celu zdobycia odpowiednich ustawieñ.", -1, 9, 9, 228, 27
  CONTROL "Pobierz adres IP automatycznie", IDC_USEDHCP, "BUTTON", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 43, 210, 12
  GROUPBOX "", -1, 9, 61, 228, 70, BS_GROUPBOX
  CONTROL "&U¿yj nastêpuj¹cego adresu IP:", IDC_NODHCP, "BUTTON", BS_AUTORADIOBUTTON, 14, 59, 105, 12
@@ -104,28 +99,19 @@ BEGIN
 END
 
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_CPLSYSTEMNAME "Ustawienia sieciowe"
   IDS_CPLSYSTEMDESCRIPTION "Zmiany ustawieñ sieci."
 END
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_ERROR "B³¹d"
   IDS_ENTER_VALID_IPADDRESS "Musisz wpisaæ poprawny adres IP"
   IDS_ENTER_VALID_SUBNET "Musisz wpisaæ poprawn¹ maskê podsieci"
-  IDS_CANNOT_LOAD_CONFIG "Nie mo¿na odczytaæ bie¿¹cej konfiguracji"
+  IDS_CANNOT_LOAD_CONFIG "Nie mo¿na odczytaæ obecnej konfiguracji"
   IDS_CANNOT_CREATE_PROPSHEET "Nie mo¿na utworzyæ przegl¹du ustawieñ"
   IDS_OUT_OF_MEMORY "Brak wolnej pamiêci"
-  IDS_CANNOT_SAVE_CHANGES "Nie mo¿na zapisaæ dokonanych zmian!"
-  IDS_STATUS_NON_OPERATIONAL "Non-operational"
-  IDS_STATUS_UNREACHABLE "No WAN adapter found"
-  IDS_STATUS_DISCONNECTED "Disconnected"
-  IDS_STATUS_CONNECTING "Connecting"
-  IDS_STATUS_CONNECTED "Connected"
-  IDS_STATUS_OPERATIONAL "Connected"
-  IDS_SPEED_MBPS "%d Mbps"
-  IDS_DURATION_DAY "%d day %s"
-  IDS_DURATION_DAYS "%d days %s"
+  IDS_CANNOT_SAVE_CHANGES "Nie mo¿na zapisaæ zmian których dokona³eœ"
 END

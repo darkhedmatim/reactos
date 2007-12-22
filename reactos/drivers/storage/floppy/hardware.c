@@ -48,9 +48,9 @@
  * TODO: Figure out the right delays in Send_Byte and Get_Byte
  */
 
-#include <ntddk.h>
 #define NDEBUG
 #include <debug.h>
+#include <ntddk.h>
 
 #include "floppy.h"
 #include "hardware.h"
@@ -1057,7 +1057,7 @@ NTSTATUS NTAPI HwPowerOff(PCONTROLLER_INFO ControllerInfo)
  *     - Wake up with a hardware reset
  */
 {
-  DPRINT("floppy: HwPowerOff called on controller 0x%p\n", ControllerInfo);
+  DPRINT("floppy: HwPowerOff called on controller 0x%x\n", ControllerInfo);
 
   WRITE_PORT_UCHAR(ControllerInfo->BaseAddress + DATA_RATE_SELECT_REGISTER, DRSR_POWER_DOWN);
 

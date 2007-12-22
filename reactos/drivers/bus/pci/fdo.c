@@ -9,9 +9,7 @@
 
 #include "pci.h"
 
-#ifndef NDEBUG
 #define NDEBUG
-#endif
 #include <debug.h>
 
 /*** PRIVATE *****************************************************************/
@@ -124,7 +122,7 @@ FdoEnumerateDevices(
       Status = FdoLocateChildDevice(&Device, DeviceExtension, SlotNumber, &PciConfig);
       if (!NT_SUCCESS(Status))
       {
-        Device = (PPCI_DEVICE)ExAllocatePoolWithTag(NonPagedPool, sizeof(PCI_DEVICE),TAG_PCI);
+        Device = (PPCI_DEVICE)ExAllocatePool(NonPagedPool, sizeof(PCI_DEVICE));
         if (!Device)
         {
           /* FIXME: Cleanup resources for already discovered devices */
@@ -206,7 +204,7 @@ FdoQueryBusRelations(
 
   Size = sizeof(DEVICE_RELATIONS) + sizeof(Relations->Objects) *
     (DeviceExtension->DeviceListCount - 1);
-  Relations = (PDEVICE_RELATIONS)ExAllocatePoolWithTag(PagedPool, Size, TAG_PCI);
+  Relations = (PDEVICE_RELATIONS)ExAllocatePool(PagedPool, Size);
   if (!Relations)
     return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -368,6 +366,15 @@ FdoStartDevice(
   DeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   AllocatedResources = IoGetCurrentIrpStackLocation(Irp)->Parameters.StartDevice.AllocatedResources;
+  /* HACK due to a bug in ACPI driver, which doesn't report the bus number */
+  if (!FoundBuggyAllocatedResourcesList || !AllocatedResources || AllocatedResources->Count == 0)
+  {
+    FoundBuggyAllocatedResourcesList = TRUE;
+    DPRINT1("No bus number resource found (bug in acpi.sys?), assuming bus number #0\n");
+    DeviceExtension->BusNumber = 0;
+    goto next;
+  }
+  /* END HACK */
   if (!AllocatedResources)
   {
     DPRINT("No allocated resources sent to driver\n");
@@ -399,18 +406,9 @@ FdoStartDevice(
         break;
       }
       default:
-        DPRINT("Unknown resource descriptor type 0x%x\n", ResourceDescriptor->Type);
+        DPRINT1("Unknown resource descriptor type 0x%x\n", ResourceDescriptor->Type);
     }
   }
-  /* HACK due to a bug in ACPI driver, which doesn't report the bus number */
-  if (!FoundBuggyAllocatedResourcesList && !FoundBusNumber)
-  {
-    FoundBuggyAllocatedResourcesList = TRUE;
-    DPRINT1("No bus number resource found (bug in acpi.sys?), assuming bus number #0\n");
-    DeviceExtension->BusNumber = 0;
-    goto next;
-  }
-  /* END HACK */
   if (!FoundBusNumber)
   {
     DPRINT("Some required resources were not found in allocated resources list\n");
@@ -535,9 +533,7 @@ FdoPnpControl(
 #endif
   default:
     DPRINT1("Unknown IOCTL 0x%lx\n", IrpSp->MinorFunction);
-    /* fall through */
 
-  case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
     /*
      * Do NOT complete the IRP as it will be processed by the lower
      * device object, which will complete the IRP

@@ -9,9 +9,6 @@
 #ifndef INFPRIV_H_INCLUDED
 #define INFPRIV_H_INCLUDED
 
-#ifndef FIELD_OFFSET
-#define FIELD_OFFSET(t,f) ((ptrdiff_t)&(((t*)0)->f))
-#endif
 
 #define INF_STATUS_INSUFFICIENT_RESOURCES  (0xC000009A)
 #define INF_STATUS_BAD_SECTION_NAME_LINE   (0xC0700001)
@@ -91,8 +88,8 @@ extern PINFCACHESECTION InfpFindSection(PINFCACHE Cache,
                                         PCTSTR Section);
 
 extern INFSTATUS InfpBuildFileBuffer(PINFCACHE InfHandle,
-                                     PCHAR *Buffer,
-                                     PULONG BufferSize);
+                                     char **Buffer,
+                                     unsigned long *BufferSize);
 
 extern INFSTATUS InfpFindFirstLine(PINFCACHE InfHandle,
                                    PCTSTR Section,

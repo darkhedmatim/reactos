@@ -42,7 +42,7 @@
 static char dummy;
 #endif
 
-#ifdef DEBUG_MATH  /* This code only used for debugging */
+#ifdef DEBUG  /* This code only used for debugging */
 
 
 /* Overhead of profiling counter in cycles.  Automatically adjusted to
@@ -284,7 +284,7 @@ void _math_test_all_transform_functions( char *description )
 
    if ( first_time ) {
       first_time = 0;
-      mesa_profile = _mesa_getenv( "MESA_PROFILE" );
+      mesa_profile = getenv( "MESA_PROFILE" );
    }
 
 #ifdef RUN_DEBUG_BENCHMARK
@@ -335,4 +335,4 @@ void _math_test_all_transform_functions( char *description )
 }
 
 
-#endif /* DEBUG_MATH */
+#endif /* DEBUG */

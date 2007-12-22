@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -89,7 +90,7 @@ CmpInitializeRegistryNode(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
         ASSERT(Disposition == REG_CREATED_NEW_KEY);
     }
 
-    /* Setup the component information key */
+    /* Sstup the compnent information key */
     RtlInitUnicodeString(&ValueName, L"Component Information");
     Status = NtSetValueKey(KeyHandle,
                            &ValueName,
@@ -115,7 +116,6 @@ CmpInitializeRegistryNode(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
         Status = RtlAnsiStringToUnicodeString(&ValueData,
                                               &TempString,
                                               TRUE);
-        RtlCreateUnicodeString(&ValueData, (PWCHAR)Component->Identifier);
         if (NT_SUCCESS(Status))
         {
             /* Save the identifier in the registry */
@@ -196,122 +196,6 @@ CmpInitializeRegistryNode(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
 
 NTSTATUS
 NTAPI
-CmpSetupConfigurationTree(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
-                          IN HANDLE ParentHandle,
-                          IN INTERFACE_TYPE InterfaceType,
-                          IN ULONG BusNumber)
-{
-    PCONFIGURATION_COMPONENT Component;
-    USHORT DeviceIndexTable[MaximumType + 1] = {0};
-    ULONG Interface = InterfaceType, Bus = BusNumber, i;
-    NTSTATUS Status;
-    HANDLE NewHandle;
-
-    /* Loop each entry */
-    while (CurrentEntry)
-    {
-        /* Check if this is an adapter */
-        Component = &CurrentEntry->ComponentEntry;
-        if ((Component->Class == AdapterClass) &&
-            (CurrentEntry->Parent->ComponentEntry.Class == SystemClass))
-        {
-            /* Check what kind of adapter it is */
-            switch (Component->Type)
-            {
-                /* EISA */
-                case EisaAdapter:
-                    
-                    /* Fixup information */
-                    Interface = Eisa;
-                    Bus = CmpTypeCount[EisaAdapter]++;
-                    break;
-
-                /* Turbo-channel */
-                case TcAdapter:
-                    
-                    /* Fixup information */
-                    Interface = TurboChannel;
-                    Bus = CmpTypeCount[TurboChannel]++;
-                    break;
-
-                /* ISA, PCI, etc busses */
-                case MultiFunctionAdapter:
-                    
-                    /* Check if we have an  identifier */
-                    if (Component->Identifier)
-                    {
-                        /* Loop each multi-function adapter type */
-                        for (i = 0; CmpMultifunctionTypes[i].Identifier; i++)
-                        {
-                            /* Check for a name match */
-                            if (!_wcsicmp(CmpMultifunctionTypes[i].Identifier,
-                                          (PWCHAR)Component->Identifier))
-                            {
-                                /* Match found */
-                                break;
-                            }
-                        }
-                        
-                        /* Fix up information */
-                        Interface = CmpMultifunctionTypes[i].InterfaceType;
-                        Bus = CmpMultifunctionTypes[i].Count++;
-                    }
-                    break;
-
-                /* SCSI Bus */
-                case ScsiAdapter:
-                    
-                    /* Fix up */
-                    Interface = Internal;
-                    Bus = CmpTypeCount[ScsiAdapter]++;
-                    break;
-
-                /* Unknown */
-                default:
-                    Interface = -1;
-                    Bus = CmpUnknownBusCount++;
-                    break;
-            }
-        }
-        
-        /* Dump information on the component */
-
-        /* Setup the hardware node */
-        Status = CmpInitializeRegistryNode(CurrentEntry,
-                                           ParentHandle,
-                                           &NewHandle,
-                                           Interface,
-                                           Bus,
-                                           DeviceIndexTable);
-        if (!NT_SUCCESS(Status)) return Status;
-        
-        /* Check for children */
-        if (CurrentEntry->Child)
-        {
-            /* Recurse child */
-            Status = CmpSetupConfigurationTree(CurrentEntry->Child,
-                                               NewHandle,
-                                               Interface,
-                                               Bus);
-            if (!NT_SUCCESS(Status))
-            {
-                /* Fail */
-                NtClose(NewHandle);
-                return Status;
-            }
-        }
-        
-        /* Get to the next entry */
-        NtClose(NewHandle);
-        CurrentEntry = CurrentEntry->Sibling;
-    }
-    
-    /* We're done */
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-NTAPI
 CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
     NTSTATUS Status;
@@ -341,7 +225,7 @@ CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     NtClose(KeyHandle);
 
     /* Nobody should've created this key yet! */
-    ASSERT(Disposition == REG_CREATED_NEW_KEY);
+    //ASSERT(Disposition == REG_CREATED_NEW_KEY);
 
     /* Setup the key name */
     RtlInitUnicodeString(&KeyName,
@@ -363,7 +247,7 @@ CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     if (!NT_SUCCESS(Status)) return Status;
 
     /* Nobody should've created this key yet! */
-    ASSERT(Disposition == REG_CREATED_NEW_KEY);
+    //ASSERT(Disposition == REG_CREATED_NEW_KEY);
 
     /* Allocate the configuration data buffer */
     CmpConfigurationData = ExAllocatePoolWithTag(PagedPool,
@@ -374,11 +258,7 @@ CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     /* Check if we got anything from NTLDR */
     if (LoaderBlock->ConfigurationRoot)
     {
-        /* Setup the configuration tree */
-        Status = CmpSetupConfigurationTree(LoaderBlock->ConfigurationRoot,
-                                           KeyHandle,
-                                           -1,
-                                           -1);
+        ASSERTMSG("NTLDR ARC Hardware Tree Not Supported!\n", FALSE);
     }
     else
     {
@@ -391,8 +271,4 @@ CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     NtClose(KeyHandle);
     return Status;
 }
-
-
-
-
 

@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,7 +61,7 @@ static GLboolean run_texmat_stage( GLcontext *ctx,
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    GLuint i;
 
-   if (!ctx->Texture._TexMatEnabled || ctx->VertexProgram._Current) 
+   if (!ctx->Texture._TexMatEnabled || ctx->VertexProgram._Enabled) 
       return GL_TRUE;
 
    /* ENABLE_TEXMAT implies that the texture matrix is not the
@@ -71,10 +71,10 @@ static GLboolean run_texmat_stage( GLcontext *ctx,
       if (ctx->Texture._TexMatEnabled & ENABLE_TEXMAT(i)) {
 	 (void) TransformRaw( &store->texcoord[i],
 			      ctx->TextureMatrixStack[i].Top,
-			      VB->AttribPtr[_TNL_ATTRIB_TEX0 + i]);
+			      VB->TexCoordPtr[i]);
 
-         VB->TexCoordPtr[i] = 
-	 VB->AttribPtr[VERT_ATTRIB_TEX0+i] = &store->texcoord[i];
+	 VB->AttribPtr[VERT_ATTRIB_TEX0+i] = 
+	    VB->TexCoordPtr[i] = &store->texcoord[i];
       }
    }
 

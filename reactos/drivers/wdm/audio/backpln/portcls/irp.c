@@ -9,18 +9,17 @@
  *                  27 Jan 07   Created
  */
 
-
-#include "private.h"
 #include <portcls.h>
+#include "private.h"
+
 
 /*
     A safe place for IRPs to be bounced to, if no handler has been
     set. Whether this is a good idea or not...?
 */
 #if 0
-static
+static NTAPI
 NTSTATUS
-NTAPI
 IrpStub(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -41,8 +40,8 @@ IrpStub(
     Handles IRP_MJ_CREATE, which occurs when someone wants to make use of
     a device.
 */
-NTSTATUS
 NTAPI
+NTSTATUS
 PortClsCreate(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -63,8 +62,8 @@ PortClsCreate(
     IRP_MJ_PNP handler
     Used for things like IRP_MN_START_DEVICE
 */
-NTSTATUS
 NTAPI
+NTSTATUS
 PortClsPnp(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -113,7 +112,7 @@ PortClsPnp(
         ASSERT(portcls_ext->StartDevice);
 
         /* Call the StartDevice routine */
-        DPRINT("Calling StartDevice at 0x%8p\n", portcls_ext->StartDevice);
+        DPRINT("Calling StartDevice at 0x%8x\n", portcls_ext->StartDevice);
         status = portcls_ext->StartDevice(DeviceObject, Irp, resource_list);
 
         if ( ! NT_SUCCESS(status) )
@@ -149,8 +148,8 @@ PortClsPnp(
     Power management. Handles IRP_MJ_POWER
     (not implemented)
 */
-NTSTATUS
 NTAPI
+NTSTATUS
 PortClsPower(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -170,8 +169,8 @@ PortClsPower(
     System control. Handles IRP_MJ_SYSTEM_CONTROL
     (not implemented)
 */
-NTSTATUS
 NTAPI
+NTSTATUS
 PortClsSysControl(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -198,7 +197,7 @@ PortClsSysControl(
     Drivers may implement their own IRP handlers. If a driver decides to let
     PortCls handle the IRP, it can do so by calling this.
 */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcDispatchIrp(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -251,7 +250,7 @@ PcDispatchIrp(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcCompleteIrp(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp,
@@ -264,7 +263,7 @@ PcCompleteIrp(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcForwardIrpSynchronous(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)

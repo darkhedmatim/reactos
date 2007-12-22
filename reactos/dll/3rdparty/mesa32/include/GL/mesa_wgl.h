@@ -26,12 +26,11 @@
 /* prototypes for the Mesa WGL functions */
 /* relocated here so that I could make GLUT get them properly */
 
+#define _mesa_wgl_h_
+
 #ifndef _mesa_wgl_h_
 #define _mesa_wgl_h_
 
-#if defined(__MINGW32__)
-#  define __W32API_USE_DLLIMPORT__
-#endif
 
 #include <GL/gl.h>
 
@@ -40,16 +39,23 @@ extern "C" {
 #endif
 
 
-#ifndef WGLAPI
-#define WGLAPI GLAPI
-#endif
-
-#if defined(__MINGW32__)
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN 1
-#  endif
-#  include <windows.h>
-#endif
+#if !defined(OPENSTEP) && (defined(__WIN32__) || defined(__CYGWIN32__))
+#  if (defined(_MSC_VER) || defined(__MINGW32__)) && defined(BUILD_GL32) /* tag specify we're building mesa as a DLL */
+#    define GLAPI __declspec(dllexport)
+#    define WGLAPI __declspec(dllexport)
+#  elif (defined(_MSC_VER) || defined(__MINGW32__)) && defined(_DLL) /* tag specifying we're building for DLL runtime support */
+#    define GLAPI __declspec(dllimport)
+#    define WGLAPI __declspec(dllimport)
+#  else /* for use with static link lib build of Win32 edition only */
+#    define GLAPI extern
+#    define WGLAPI __declspec(dllimport)
+#  endif /* _STATIC_MESA support */
+#  define GLAPIENTRY __stdcall
+#else
+/* non-Windows compilation */
+#  define GLAPI extern
+#  define GLAPIENTRY
+#endif /* WIN32 / CYGWIN32 bracket */
 
 
 #if defined(_WIN32) && !defined(_WINGDI_) && !defined(_GNU_H_WINDOWS32_DEFINES) && !defined(OPENSTEP)
@@ -74,23 +80,23 @@ typedef struct tagPIXELFORMATDESCRIPTOR PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESC
 #  pragma warning( disable : 4273 ) /* 'function' : inconsistent DLL linkage. dllexport assumed. */
 #endif
 
-
+WGLAPI int   GLAPIENTRY wglDeleteContext(HGLRC);
+WGLAPI int   GLAPIENTRY wglMakeCurrent(HDC,HGLRC);
 WGLAPI int   GLAPIENTRY wglSetPixelFormat(HDC, int, const PIXELFORMATDESCRIPTOR *);
 WGLAPI int   GLAPIENTRY wglSwapBuffers(HDC hdc);
-WGLAPI int   GLAPIENTRY wglChoosePixelFormat(HDC, const PIXELFORMATDESCRIPTOR *);
-WGLAPI int   GLAPIENTRY wglDescribePixelFormat(HDC,int, unsigned int, LPPIXELFORMATDESCRIPTOR);
-WGLAPI int   GLAPIENTRY wglGetPixelFormat(HDC hdc);
-
-WGLAPI int   GLAPIENTRY wglCopyContext(HGLRC, HGLRC, unsigned int);
+WGLAPI HDC   GLAPIENTRY wglGetCurrentDC(void);
 WGLAPI HGLRC GLAPIENTRY wglCreateContext(HDC);
 WGLAPI HGLRC GLAPIENTRY wglCreateLayerContext(HDC,int);
+WGLAPI HGLRC GLAPIENTRY wglGetCurrentContext(void);
+WGLAPI PROC  GLAPIENTRY wglGetProcAddress(const char*);
+WGLAPI int   GLAPIENTRY wglChoosePixelFormat(HDC, const PIXELFORMATDESCRIPTOR *);
+WGLAPI int   GLAPIENTRY wglCopyContext(HGLRC, HGLRC, unsigned int);
 WGLAPI int   GLAPIENTRY wglDeleteContext(HGLRC);
 WGLAPI int   GLAPIENTRY wglDescribeLayerPlane(HDC, int, int, unsigned int,LPLAYERPLANEDESCRIPTOR);
-WGLAPI HGLRC GLAPIENTRY wglGetCurrentContext(void);
-WGLAPI HDC   GLAPIENTRY wglGetCurrentDC(void);
+WGLAPI int   GLAPIENTRY wglDescribePixelFormat(HDC,int, unsigned int, LPPIXELFORMATDESCRIPTOR);
 WGLAPI int   GLAPIENTRY wglGetLayerPaletteEntries(HDC, int, int, int,COLORREF *);
-WGLAPI PROC  GLAPIENTRY wglGetProcAddress(const char*);
-WGLAPI int   GLAPIENTRY wglMakeCurrent(HDC,HGLRC);
+WGLAPI int   GLAPIENTRY wglGetPixelFormat(HDC hdc);
+WGLAPI int   GLAPIENTRY wglMakeCurrent(HDC, HGLRC);
 WGLAPI int   GLAPIENTRY wglRealizeLayerPalette(HDC, int, int);
 WGLAPI int   GLAPIENTRY wglSetLayerPaletteEntries(HDC, int, int, int,const COLORREF *);
 WGLAPI int   GLAPIENTRY wglShareLists(HGLRC, HGLRC);
@@ -99,45 +105,11 @@ WGLAPI int   GLAPIENTRY wglUseFontBitmapsA(HDC, unsigned long, unsigned long, un
 WGLAPI int   GLAPIENTRY wglUseFontBitmapsW(HDC, unsigned long, unsigned long, unsigned long);
 WGLAPI int   GLAPIENTRY wglUseFontOutlinesA(HDC, unsigned long, unsigned long, unsigned long, float,float, int, LPGLYPHMETRICSFLOAT);
 WGLAPI int   GLAPIENTRY wglUseFontOutlinesW(HDC, unsigned long, unsigned long, unsigned long, float,float, int, LPGLYPHMETRICSFLOAT);
-
-#ifndef __MINGW32__
-
-typedef void *HPBUFFERARB;
-
 WGLAPI int   GLAPIENTRY SwapBuffers(HDC);
 WGLAPI int   GLAPIENTRY ChoosePixelFormat(HDC,const PIXELFORMATDESCRIPTOR *);
 WGLAPI int   GLAPIENTRY DescribePixelFormat(HDC,int,unsigned int,LPPIXELFORMATDESCRIPTOR);
 WGLAPI int   GLAPIENTRY GetPixelFormat(HDC);
 WGLAPI int   GLAPIENTRY SetPixelFormat(HDC,int,const PIXELFORMATDESCRIPTOR *);
-
-GLAPI const char * GLAPIENTRY wglGetExtensionsStringEXT (void);
-GLAPI BOOL GLAPIENTRY wglChoosePixelFormatARB (HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats);
-GLAPI BOOL GLAPIENTRY wglSwapIntervalEXT (int interval);
-GLAPI int GLAPIENTRY wglGetSwapIntervalEXT (void);
-GLAPI BOOL GLAPIENTRY wglGetPixelFormatAttribivARB (HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, int *piAttributes, int *piValues);
-GLAPI BOOL GLAPIENTRY wglGetPixelFormatAttribfvARB (HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, int *piAttributes, FLOAT *pfValues);
-GLAPI BOOL GLAPIENTRY wglMakeContextCurrentARB(HDC hDrawDC, HDC hReadDC, HGLRC hglrc);
-GLAPI HANDLE GLAPIENTRY wglGetCurrentReadDCARB(void);
-GLAPI HPBUFFERARB GLAPIENTRY wglCreatePbufferARB (HDC hDC, int iPixelFormat, int iWidth, int iHeight, const int *piAttribList);
-GLAPI HDC GLAPIENTRY wglGetPbufferDCARB (HPBUFFERARB hPbuffer);
-GLAPI int GLAPIENTRY wglReleasePbufferDCARB (HPBUFFERARB hPbuffer, HDC hDC);
-GLAPI BOOL GLAPIENTRY wglDestroyPbufferARB (HPBUFFERARB hPbuffer);
-GLAPI BOOL GLAPIENTRY wglQueryPbufferARB (HPBUFFERARB hPbuffer, int iAttribute, int *piValue);
-GLAPI HANDLE GLAPIENTRY wglCreateBufferRegionARB(HDC hDC, int iLayerPlane, UINT uType);
-GLAPI VOID GLAPIENTRY wglDeleteBufferRegionARB(HANDLE hRegion);
-GLAPI BOOL GLAPIENTRY wglSaveBufferRegionARB(HANDLE hRegion, int x, int y, int width, int height);
-GLAPI BOOL GLAPIENTRY wglRestoreBufferRegionARB(HANDLE hRegion, int x, int y, int width, int height, int xSrc, int ySrc);
-GLAPI BOOL GLAPIENTRY wglSetPbufferAttribARB (HPBUFFERARB hPbuffer, const int *piAttribList);
-GLAPI BOOL GLAPIENTRY wglBindTexImageARB (HPBUFFERARB hPbuffer, int iBuffer);
-GLAPI BOOL GLAPIENTRY wglReleaseTexImageARB (HPBUFFERARB hPbuffer, int iBuffer);
-#endif
-
-#ifndef WGL_ARB_extensions_string
-#define WGL_ARB_extensions_string 1
-
-WGLAPI const char * GLAPIENTRY wglGetExtensionsStringARB(HDC hdc);
-#endif /* WGL_ARB_extensions_string */
-
 
 #ifdef _MSC_VER
 #  pragma warning( pop )

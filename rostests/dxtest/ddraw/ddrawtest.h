@@ -5,11 +5,7 @@
 
 #include <stdio.h>
 #include <windows.h>
-#include <stdio.h>
 #include <ddraw.h>
-#include <ddrawi.h>
-#include <d3dhal.h>
-#include <ddrawgdi.h>
 
 #define TEST(x) \
 	if (x)\

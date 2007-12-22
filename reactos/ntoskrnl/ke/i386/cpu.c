@@ -38,7 +38,7 @@ KGDTENTRY KiBootGdt[256] =
     {0xffff, 0x0000, {{0x00, 0xfb, 0xcf, 0x00}}},       /* KGDT_R3_CODE */
     {0xffff, 0x0000, {{0x00, 0xf3, 0xcf, 0x00}}},       /* KGDT_R3_DATA*/
     {0x0000, 0x0000, {{0x00, 0x00, 0x00, 0x00}}},       /* KGDT_TSS */
-    {0x0001, 0xf000, {{0xdf, 0x93, 0xc0, 0xff}}},       /* KGDT_R0_PCR */
+    {0x0fff, 0x0000, {{0x00, 0x93, 0xc0, 0xff}}},       /* KGDT_R0_PCR */
     {0x0fff, 0x0000, {{0x00, 0xf3, 0x40, 0x00}}},       /* KGDT_R3_TEB */
     {0x0000, 0x0000, {{0x00, 0x00, 0x00, 0x00}}},       /* KGDT_UNUSED */
     {0x0000, 0x0000, {{0x00, 0x00, 0x00, 0x00}}},       /* KGDT_LDT */
@@ -47,7 +47,7 @@ KGDTENTRY KiBootGdt[256] =
 };
 
 /* GDT Descriptor */
-KDESCRIPTOR KiGdtDescriptor = {0, sizeof(KiBootGdt), (ULONG)KiBootGdt};
+KDESCRIPTOR KiGdtDescriptor = {sizeof(KiBootGdt), (ULONG)KiBootGdt};
 
 /* CPU Features and Flags */
 ULONG KeI386CpuType;
@@ -77,9 +77,6 @@ BOOLEAN KiSMTProcessorsPresent;
 /* Freeze data */
 KIRQL KiOldIrql;
 ULONG KiFreezeFlag;
-
-/* Flush data */
-volatile LONG KiTbFlushTimeStamp;
 
 /* CPU Signatures */
 static const CHAR CmpIntelID[]       = "GenuineIntel";
@@ -708,8 +705,8 @@ KiRestoreProcessorControlState(PKPROCESSOR_STATE ProcessorState)
     //
     // Restore GDT, IDT, LDT and TSS
     //
-    Ke386SetGlobalDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Gdtr.Limit);
-    Ke386SetInterruptDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Idtr.Limit);
+    Ke386SetGlobalDescriptorTable(ProcessorState->SpecialRegisters.Gdtr.Base);
+    Ke386SetInterruptDescriptorTable(ProcessorState->SpecialRegisters.Idtr.Base);
     Ke386SetTr(ProcessorState->SpecialRegisters.Tr);
     Ke386SetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
 }
@@ -735,8 +732,8 @@ KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState)
     Ke386SetDr7(0);
 
     /* Save GDT, IDT, LDT and TSS */
-    Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Gdtr.Limit);
-    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Idtr.Limit);
+    Ke386GetGlobalDescriptorTable(ProcessorState->SpecialRegisters.Gdtr.Base);
+    Ke386GetInterruptDescriptorTable(ProcessorState->SpecialRegisters.Idtr.Base);
     Ke386GetTr(ProcessorState->SpecialRegisters.Tr);
     Ke386GetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
 }
@@ -798,18 +795,20 @@ ULONG_PTR
 NTAPI
 Ki386EnableXMMIExceptions(IN ULONG_PTR Context)
 {
+#if 0 // needs kitrap13
     PKIDTENTRY IdtEntry;
 
     /* Get the IDT Entry for Interrupt 19 */
-    IdtEntry = &((PKIPCR)KeGetPcr())->IDT[19];
+    IdtEntry = ((PKIPCR)KeGetPcr())->IDT[19];
 
     /* Set it up */
     IdtEntry->Selector = KGDT_R0_CODE;
-    IdtEntry->Offset = ((ULONG_PTR)KiTrap19 & 0xFFFF);
-    IdtEntry->ExtendedOffset = ((ULONG_PTR)KiTrap19 >> 16) & 0xFFFF;
+    IdtEntry->Offset = (KiTrap13 & 0xFFFF);
+    IdtEntry->ExtendedOffset = (KiTrap13 >> 16) & 0xFFFF;
     ((PKIDT_ACCESS)&IdtEntry->Access)->Dpl = 0;
     ((PKIDT_ACCESS)&IdtEntry->Access)->Present = 1;
     ((PKIDT_ACCESS)&IdtEntry->Access)->SegmentType = I386_INTERRUPT_GATE;
+#endif
 
     /* Enable XMMI exceptions */
     __writecr4(__readcr4() | CR4_XMMEXCPT);
@@ -833,14 +832,14 @@ KiI386PentiumLockErrataFixup(VOID)
     _disable();
 
     /* Get the current IDT and copy it */
-    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
+    Ke386GetInterruptDescriptorTable(IdtDescriptor);
     RtlCopyMemory(NewIdt2,
                   (PVOID)IdtDescriptor.Base,
                   IdtDescriptor.Limit + 1);
     IdtDescriptor.Base = (ULONG)NewIdt2;
 
     /* Set the new IDT */
-    Ke386SetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
+    Ke386SetInterruptDescriptorTable(IdtDescriptor);
     ((PKIPCR)KeGetPcr())->IDT = NewIdt2;
 
     /* Restore interrupts */
@@ -881,27 +880,6 @@ KeThawExecution(IN BOOLEAN Enable)
 
     /* Re-enable interrupts */
     if (Enable) _enable();
-}
-
-BOOLEAN
-NTAPI
-KeInvalidateAllCaches(VOID)
-{
-    /* Only supported on Pentium Pro and higher */
-    if (KeI386CpuType < 6) return FALSE;
-
-    /* Invalidate all caches */
-    __wbinvd();
-    return TRUE;
-}
-
-VOID
-FASTCALL
-KeZeroPages(IN PVOID Address,
-            IN ULONG Size)
-{
-    /* Not using XMMI in this routine */
-    RtlZeroMemory(Address, Size);
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/

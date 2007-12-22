@@ -36,10 +36,10 @@ void
 SysSetupGenerator::Generate ()
 {
 	HINF inf;
-	ULONG errorLine;
+	unsigned long errorLine;
 
 	string syssetupTemplate = "media" + sSep + "inf" + sSep + "syssetup.inf.tpl";
-	string syssetup = Environment::GetOutputPath() + sSep + "media" + sSep + "inf" + sSep + "syssetup.inf";
+	string syssetup = "media" + sSep + "inf" + sSep + "syssetup.inf";
 
 	if ( 0 != InfHostOpenFile ( &inf, syssetupTemplate.c_str (), &errorLine ) )
 		throw new FileNotFoundException ( syssetupTemplate );
@@ -65,7 +65,7 @@ SysSetupGenerator::Generate ()
 string
 SysSetupGenerator::GetDirectoryId ( const Module& module )
 {
-	if ( module.install && ToLower ( module.install->relative_path ) == "system32" )
+	if ( ToLower ( module.installBase ) == "system32" )
 		return DIRECTORYID_SYSTEM32;
 	throw InvalidOperationException ( __FILE__,
 	                                  __LINE__ );
@@ -104,7 +104,7 @@ SysSetupGenerator::Generate ( HINF inf,
 	if ( 0 != InfHostAddLine ( context, NULL ) ||
 	     0 != InfHostAddField ( context, GetDirectoryId ( module ).c_str () ) ||
 	     0 != InfHostAddField ( context, "" ) ||
-	     ( module.install && 0 != InfHostAddField ( context, module.install->name.c_str () ) ) ||
+	     0 != InfHostAddField ( context, module.installName.c_str () ) ||
 	     0 != InfHostAddField ( context, GetFlags ( module ).c_str () ) )
 	{
 		InfHostFreeContext ( context );

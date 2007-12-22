@@ -3,14 +3,12 @@
 @ stub DsDeregisterDnsHostRecords
 @ stub DsEnumerateDomainTrusts
 @ stub DsGetDcClose
-@ stdcall DsGetDcNameA(str str ptr str long ptr)
-@ stdcall DsGetDcNameW(wstr wstr ptr wstr long ptr)
+@ stub DsGetDcName
 @ stub DsGetDcNext
 @ stub DsGetDcOpen
 @ stub DsGetDcSiteCoverage
 @ stub DsGetForestTrustInformationW
-@ stub DsGetSiteNameA # (str str)
-@ stdcall DsGetSiteNameW(wstr wstr)
+@ stub DsGetSiteName
 @ stub DsMergeForestTrustInformationW
 @ stdcall DsRoleFreeMemory(ptr)
 @ stdcall DsRoleGetPrimaryDomainInformation(wstr long ptr)
@@ -104,16 +102,16 @@
 @ stub NetGroupSetInfo
 @ stub NetGroupSetUsers
 @ stdcall NetLocalGroupAdd(wstr long ptr ptr)
-@ stdcall NetLocalGroupAddMember(wstr wstr ptr)
-@ stdcall NetLocalGroupAddMembers(wstr wstr long ptr long)
-@ stdcall NetLocalGroupDel(wstr wstr)
-@ stdcall NetLocalGroupDelMember(wstr wstr ptr)
-@ stdcall NetLocalGroupDelMembers(wstr wstr long ptr long)
-@ stdcall NetLocalGroupEnum(wstr long ptr long ptr ptr ptr)
-@ stdcall NetLocalGroupGetInfo(wstr wstr long ptr)
-@ stdcall NetLocalGroupGetMembers(wstr wstr long ptr long ptr ptr ptr)
-@ stdcall NetLocalGroupSetInfo(wstr wstr long ptr ptr)
-@ stdcall NetLocalGroupSetMembers(wstr wstr long ptr long)
+@ stub NetLocalGroupAddMember
+@ stub NetLocalGroupAddMembers
+@ stub NetLocalGroupDel
+@ stub NetLocalGroupDelMember
+@ stub NetLocalGroupDelMembers
+@ stub NetLocalGroupEnum
+@ stub NetLocalGroupGetInfo
+@ stub NetLocalGroupGetMembers
+@ stub NetLocalGroupSetInfo
+@ stdcall NetLocalGroupSetMembers(wstr wstr long ptr ptr)
 @ stub NetMessageBufferSend
 @ stub NetMessageNameAdd
 @ stub NetMessageNameDel
@@ -174,7 +172,7 @@
 @ stub NetServerComputerNameDel
 @ stub NetServerDiskEnum
 @ stdcall NetServerEnum(wstr long ptr long ptr ptr long wstr ptr)
-@ stdcall NetServerEnumEx(wstr long ptr long ptr ptr long wstr wstr)
+@ stub NetServerEnumEx
 @ stdcall NetServerGetInfo(wstr long ptr)
 @ stub NetServerSetInfo
 @ stub NetServerTransportAdd
@@ -186,28 +184,28 @@
 @ stub NetServiceGetInfo
 @ stub NetServiceInstall
 @ stub NetSessionDel
-@ stdcall NetSessionEnum(wstr wstr wstr long ptr long ptr ptr ptr)
+@ stub NetSessionEnum
 @ stub NetSessionGetInfo
 @ stub NetShareAdd
 @ stub NetShareCheck
-@ stdcall NetShareDel(wstr wstr long)
+@ stub NetShareDel
 @ stub NetShareDelSticky
 @ stdcall NetShareEnum(wstr long ptr long ptr ptr ptr)
 @ stub NetShareEnumSticky
 @ stub NetShareGetInfo
 @ stub NetShareSetInfo
 @ stdcall NetStatisticsGet(wstr wstr long long ptr)
-@ stdcall NetUseAdd(wstr long ptr ptr)
+@ stub NetUseAdd
 @ stub NetUseDel
-@ stdcall NetUseEnum(wstr long ptr long ptr ptr ptr)
+@ stub NetUseEnum
 @ stub NetUseGetInfo
 @ stdcall NetUserAdd(wstr long ptr ptr)
-@ stdcall NetUserChangePassword(wstr wstr wstr wstr)
+@ stub NetUserChangePassword
 @ stdcall NetUserDel(wstr wstr)
 @ stdcall NetUserEnum(wstr long long ptr long ptr ptr ptr)
 @ stub NetUserGetGroups
 @ stdcall NetUserGetInfo(wstr wstr long ptr)
-@ stdcall NetUserGetLocalGroups(wstr wstr long long ptr long ptr ptr)
+@ stub NetUserGetLocalGroups
 @ stdcall NetUserModalsGet(wstr long ptr)
 @ stub NetUserModalsSet
 @ stub NetUserSetGroups

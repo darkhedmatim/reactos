@@ -86,8 +86,7 @@ IntSetMenuInfo(PMENU_OBJECT MenuObject, PROSMENUINFO lpmi);
 
 int FASTCALL
 IntGetMenuItemByFlag(PMENU_OBJECT MenuObject, UINT uSearchBy, UINT fFlag,
-                     PMENU_OBJECT *SubMenu, PMENU_ITEM *MenuItem,
-                     PMENU_ITEM *PrevMenuItem);
+                      PMENU_ITEM *MenuItem, PMENU_ITEM *PrevMenuItem);
 
 UINT FASTCALL
 IntEnableMenuItem(PMENU_OBJECT MenuObject, UINT uIDEnableItem, UINT uEnable);

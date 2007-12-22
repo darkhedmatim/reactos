@@ -107,8 +107,9 @@ typedef BOOL (*enum_handler_t)(const char*, int, void*);
 static BOOL enum_drivers(DWORD fccType, enum_handler_t handler, void* param)
 {
     CHAR buf[2048], fccTypeStr[5], *s;
-    DWORD i, cnt = 0, lRet;
+    DWORD i, cnt = 0, bufLen, lRet;
     BOOL result = FALSE;
+    FILETIME lastWrite;
     HKEY hKey;
 
     fourcc_to_string(fccTypeStr, fccType);
@@ -118,17 +119,14 @@ static BOOL enum_drivers(DWORD fccType, enum_handler_t handler, void* param)
     lRet = RegOpenKeyExA(HKEY_LOCAL_MACHINE, HKLM_DRIVERS32, 0, KEY_QUERY_VALUE, &hKey);
     if (lRet == ERROR_SUCCESS) 
     {
-        DWORD name, data, type;
-        i = 0;
-        for (;;)
+	DWORD numkeys;
+	RegQueryInfoKeyA( hKey, 0, 0, 0, &numkeys, 0, 0, 0, 0, 0, 0, 0);
+	for (i = 0; i < numkeys; i++) 
 	{
-	    name = 10;
-	    data = sizeof buf - name;
-	    lRet = RegEnumValueA(hKey, i++, buf, &name, 0, &type, (LPBYTE)(buf+name), &data);
-	    if (lRet == ERROR_NO_MORE_ITEMS) break;
+	    bufLen = sizeof(buf) / sizeof(buf[0]);
+	    lRet = RegEnumKeyExA(hKey, i, buf, &bufLen, 0, 0, 0, &lastWrite);
 	    if (lRet != ERROR_SUCCESS) continue;
-	    if (name != 9 || strncasecmp(buf, fccTypeStr, 5)) continue;
-	    buf[name] = '=';
+	    if (strncasecmp(buf, fccTypeStr, 5) || buf[9] != '=') continue;
 	    if ((result = handler(buf, cnt++, param))) break;
 	}
     	RegCloseKey( hKey );
@@ -1296,9 +1294,10 @@ HANDLE VFWAPI ICImageDecompress(
 		cbHdr = ICDecompressGetFormatSize(hic,lpbiIn);
 		if ( cbHdr < sizeof(BITMAPINFOHEADER) )
 			goto err;
-		pHdr = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,cbHdr+sizeof(RGBQUAD)*256);
+		pHdr = HeapAlloc(GetProcessHeap(),0,cbHdr+sizeof(RGBQUAD)*256);
 		if ( pHdr == NULL )
 			goto err;
+		ZeroMemory( pHdr, cbHdr+sizeof(RGBQUAD)*256 );
 		if ( ICDecompressGetFormat( hic, lpbiIn, (BITMAPINFO*)pHdr ) != ICERR_OK )
 			goto err;
 		lpbiOut = (BITMAPINFO*)pHdr;

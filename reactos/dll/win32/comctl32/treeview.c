@@ -503,7 +503,7 @@ static INT get_notifycode(const TREEVIEW_INFO *infoPtr, INT code)
 static LRESULT
 TREEVIEW_SendRealNotify(const TREEVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
-    TRACE("wParam=%ld, lParam=%ld\n", wParam, lParam);
+    TRACE("wParam=%d, lParam=%ld\n", wParam, lParam);
     return SendMessageW(infoPtr->hwndNotify, WM_NOTIFY, wParam, lParam);
 }
 
@@ -946,8 +946,6 @@ TREEVIEW_RecalculateVisibleOrder(TREEVIEW_INFO *infoPtr, TREEVIEW_ITEM *start)
     for (item = start; item != NULL;
          item = TREEVIEW_GetNextListItem(infoPtr, item))
     {
-	if (!ISVISIBLE(item) && order > 0)
-		TREEVIEW_ComputeItemInternalMetrics(infoPtr, item);
 	item->visibleOrder = order;
 	order += item->iIntegral;
     }
@@ -1748,7 +1746,7 @@ TREEVIEW_SetImageList(TREEVIEW_INFO *infoPtr, WPARAM wParam, HIMAGELIST himlNew)
     int oldHeight = infoPtr->normalImageHeight;
 
 
-    TRACE("%lx,%p\n", wParam, himlNew);
+    TRACE("%x,%p\n", wParam, himlNew);
 
     switch (wParam)
     {
@@ -2033,10 +2031,7 @@ TREEVIEW_GetItemRect(const TREEVIEW_INFO *infoPtr, BOOL fTextRect, LPRECT lpRect
 	lpRect->bottom = wineItem->rect.bottom;
 
 	lpRect->left = wineItem->textOffset;
-	if (!wineItem->textWidth)
-		TREEVIEW_ComputeTextWidth(infoPtr, wineItem, 0);
-
-	lpRect->right = wineItem->textOffset + wineItem->textWidth + 4;
+	lpRect->right = wineItem->textOffset + wineItem->textWidth;
     }
     else
     {
@@ -2844,6 +2839,8 @@ TREEVIEW_Refresh(TREEVIEW_INFO *infoPtr, HDC hdc, const RECT *rc)
 	}
     }
 
+    TREEVIEW_UpdateScrollBars(infoPtr);
+
     if (infoPtr->cdmode & CDRF_NOTIFYPOSTPAINT)
 	infoPtr->cdmode =
 	    TREEVIEW_SendCustomDrawNotify(infoPtr, CDDS_POSTPAINT, hdc, rect);
@@ -3578,7 +3575,7 @@ TREEVIEW_Edit_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 static LRESULT
 TREEVIEW_Command(TREEVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
-    TRACE("%lx %ld\n", wParam, lParam);
+    TRACE("%x %ld\n", wParam, lParam);
 
     switch (HIWORD(wParam))
     {
@@ -3801,7 +3798,6 @@ TREEVIEW_EndEditLabelNow(TREEVIEW_INFO *infoPtr, BOOL bCancel)
             if (ptr == NULL)
             {
                 ERR("OutOfMemory, cannot allocate space for label\n");
-                if(newText != tmpText) Free(newText);
                 DestroyWindow(infoPtr->hwndEdit);
                 infoPtr->hwndEdit = 0;
                 return FALSE;
@@ -3994,7 +3990,7 @@ TREEVIEW_LButtonDown(TREEVIEW_INFO *infoPtr, LPARAM lParam)
     if(ht.hItem && (ht.flags & TVHT_ONITEM))
     {
         infoPtr->focusedItem = ht.hItem;
-        InvalidateRect(hwnd, &ht.hItem->rect, TRUE);
+        InvalidateRect(hwnd, &(((HTREEITEM)(ht.hItem))->rect), TRUE);
 
         if(infoPtr->selectedItem)
             InvalidateRect(hwnd, &(infoPtr->selectedItem->rect), TRUE);
@@ -4158,21 +4154,6 @@ TREEVIEW_RButtonDown(TREEVIEW_INFO *infoPtr, LPARAM lParam)
 static LRESULT
 TREEVIEW_RButtonUp(const TREEVIEW_INFO *infoPtr, const POINT *pPt)
 {
-    TVHITTESTINFO ht;
-
-    ht.pt = *pPt;
-
-    TREEVIEW_HitTest(infoPtr, &ht);
-
-    if (ht.hItem)
-    {
-        /* Change to screen coordinate for WM_CONTEXTMENU */
-        ClientToScreen(infoPtr->hwnd, &ht.pt);
-
-        /* Send a WM_CONTEXTMENU message in response to the RBUTTONUP */
-        SendMessageW(infoPtr->hwnd, WM_CONTEXTMENU,
-            (WPARAM)infoPtr->hwnd, MAKELPARAM(ht.pt.x, ht.pt.y));
-    }
     return 0;
 }
 
@@ -4678,7 +4659,7 @@ TREEVIEW_VScroll(TREEVIEW_INFO *infoPtr, WPARAM wParam)
 
     int nScrollCode = LOWORD(wParam);
 
-    TRACE("wp %lx\n", wParam);
+    TRACE("wp %x\n", wParam);
 
     if (!(infoPtr->uInternalStatus & TV_VSCROLL))
 	return 0;
@@ -4748,7 +4729,7 @@ TREEVIEW_HScroll(TREEVIEW_INFO *infoPtr, WPARAM wParam)
     int scrollX = infoPtr->scrollX;
     int nScrollCode = LOWORD(wParam);
 
-    TRACE("wp %lx\n", wParam);
+    TRACE("wp %x\n", wParam);
 
     if (!(infoPtr->uInternalStatus & TV_HSCROLL))
 	return FALSE;
@@ -4986,9 +4967,7 @@ TREEVIEW_Create(HWND hwnd, const CREATESTRUCTW *lpcs)
     TREEVIEW_NotifyFormat(infoPtr, infoPtr->hwndNotify, NF_REQUERY);
 
     if (!(infoPtr->dwStyle & TVS_NOTOOLTIPS))
-        infoPtr->hwndToolTip = CreateWindowExW(0, TOOLTIPS_CLASSW, NULL, WS_POPUP,
-            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-            hwnd, 0, 0, 0);
+	infoPtr->hwndToolTip = COMCTL32_CreateToolTip(hwnd);
 
     if (infoPtr->dwStyle & TVS_CHECKBOXES)
         initialize_checkboxes(infoPtr);
@@ -5091,7 +5070,7 @@ TREEVIEW_KeyDown(TREEVIEW_INFO *infoPtr, WPARAM wParam)
 
     TREEVIEW_ITEM *prevItem = infoPtr->selectedItem;
 
-    TRACE("%lx\n", wParam);
+    TRACE("%x\n", wParam);
 
     if (prevItem == NULL)
 	return FALSE;
@@ -5339,7 +5318,7 @@ TREEVIEW_Size(TREEVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
     }
     else
     {
-	FIXME("WM_SIZE flag %lx %lx not handled\n", wParam, lParam);
+	FIXME("WM_SIZE flag %x %lx not handled\n", wParam, lParam);
     }
 
     TREEVIEW_Invalidate(infoPtr, NULL);
@@ -5349,7 +5328,7 @@ TREEVIEW_Size(TREEVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 static LRESULT
 TREEVIEW_StyleChanged(TREEVIEW_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
-    TRACE("(%lx %lx)\n", wParam, lParam);
+    TRACE("(%x %lx)\n", wParam, lParam);
 
     if (wParam == GWL_STYLE)
     {
@@ -5457,7 +5436,7 @@ TREEVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     TREEVIEW_INFO *infoPtr = TREEVIEW_GetInfoPtr(hwnd);
 
-    TRACE("hwnd %p msg %04x wp=%08lx lp=%08lx\n", hwnd, uMsg, wParam, lParam);
+    TRACE("hwnd %p msg %04x wp=%08x lp=%08lx\n", hwnd, uMsg, wParam, lParam);
 
     if (infoPtr) TREEVIEW_VerifyTree(infoPtr);
     else
@@ -5724,7 +5703,7 @@ TREEVIEW_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     default:
 	/* This mostly catches MFC and Delphi messages. :( */
 	if ((uMsg >= WM_USER) && (uMsg < WM_APP))
-	    TRACE("Unknown msg %04x wp=%08lx lp=%08lx\n", uMsg, wParam, lParam);
+	    TRACE("Unknown msg %04x wp=%08x lp=%08lx\n", uMsg, wParam, lParam);
 def:
 	return DefWindowProcW(hwnd, uMsg, wParam, lParam);
     }

@@ -20,19 +20,23 @@
 #
 # Contributor(s): Terry Weissman <terry@mozilla.org>
 #                 Gervase Markham <gerv@gerv.net>
-#                 Max Kanat-Alexander <mkanat@bugzilla.org>
 
 use strict;
 
 use lib qw(.);
 
+use vars qw(
+  @legal_keywords
+);
+
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Error;
 use Bugzilla::User;
-use Bugzilla::Keyword;
+require "globals.pl";
 
 Bugzilla->login();
+
+GetVersionTable();
 
 my $cgi = Bugzilla->cgi;
 my $template = Bugzilla->template;
@@ -45,40 +49,38 @@ my @masterlist = ("opendate", "changeddate", "bug_severity", "priority",
                   "reporter", "reporter_realname", "bug_status",
                   "resolution");
 
-if (Bugzilla->params->{"useclassification"}) {
+if (Param("useclassification")) {
     push(@masterlist, "classification");
 }
 
 push(@masterlist, ("product", "component", "version", "op_sys"));
 
-if (Bugzilla->params->{"usevotes"}) {
+if (Param("usevotes")) {
     push (@masterlist, "votes");
 }
-if (Bugzilla->params->{"usebugaliases"}) {
+if (Param("usebugaliases")) {
     unshift(@masterlist, "alias");
 }
-if (Bugzilla->params->{"usetargetmilestone"}) {
+if (Param("usetargetmilestone")) {
     push(@masterlist, "target_milestone");
 }
-if (Bugzilla->params->{"useqacontact"}) {
+if (Param("useqacontact")) {
     push(@masterlist, "qa_contact");
     push(@masterlist, "qa_contact_realname");
 }
-if (Bugzilla->params->{"usestatuswhiteboard"}) {
+if (Param("usestatuswhiteboard")) {
     push(@masterlist, "status_whiteboard");
 }
-if (Bugzilla::Keyword::keyword_count()) {
+if (@::legal_keywords) {
     push(@masterlist, "keywords");
 }
 
-if (Bugzilla->user->in_group(Bugzilla->params->{"timetrackinggroup"})) {
+if (UserInGroup(Param("timetrackinggroup"))) {
     push(@masterlist, ("estimated_time", "remaining_time", "actual_time",
                        "percentage_complete", "deadline")); 
 }
 
 push(@masterlist, ("short_desc", "short_short_desc"));
-
-push(@masterlist, Bugzilla->custom_field_names);
 
 $vars->{'masterlist'} = \@masterlist;
 
@@ -98,7 +100,7 @@ if (defined $cgi->param('rememberedquery')) {
         }
     }
     my $list = join(" ", @collist);
-    my $urlbase = Bugzilla->params->{"urlbase"};
+    my $urlbase = Param("urlbase");
 
     if ($list) {
         $cgi->send_cookie(-name => 'COLUMNLIST',

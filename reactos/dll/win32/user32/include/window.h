@@ -40,7 +40,7 @@ BOOL UserDrawSysMenuButton( HWND hWnd, HDC hDC, LPRECT, BOOL down );
 void
 UserGetFrameSize(ULONG Style, ULONG ExStyle, SIZE *Size);
 void
-UserGetInsideRectNC(PWINDOW Wnd, RECT *rect);
+UserGetInsideRectNC(HWND hWnd, RECT *rect);
 
 DWORD
 SCROLL_HitTest( HWND hwnd, INT nBar, POINT pt, BOOL bDragging );
@@ -48,18 +48,3 @@ SCROLL_HitTest( HWND hwnd, INT nBar, POINT pt, BOOL bDragging );
 LRESULT FASTCALL IntCallWindowProcW(BOOL IsAnsiProc, WNDPROC WndProc,
                                     HWND hWnd, UINT Msg, WPARAM wParam,
                                     LPARAM lParam);
-
-HWND STDCALL
-User32CreateWindowEx(DWORD dwExStyle,
-		LPCSTR lpClassName,
-		LPCSTR lpWindowName,
-		DWORD dwStyle,
-		int x,
-		int y,
-		int nWidth,
-		int nHeight,
-		HWND hWndParent,
-		HMENU hMenu,
-		HINSTANCE hInstance,
-		LPVOID lpParam,
-		BOOL Unicode);

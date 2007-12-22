@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.0
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -84,8 +84,7 @@
 #include <windows.h>
 #endif
 
-#if defined(_WIN32) && !defined(_WINGDI_) && !defined(_GNU_H_WINDOWS32_DEFINES) \
-     && !defined(OPENSTEP) && !defined(__CYGWIN__) || defined(__MINGW32__)
+#if defined(_WIN32) && !defined(_WINGDI_) && !defined(_GNU_H_WINDOWS32_DEFINES) && !defined(OPENSTEP) && !defined(__CYGWIN__)
 #include <GL/mesa_wgl.h>
 #endif
 
@@ -442,16 +441,16 @@ typedef double		GLclampd;	/* double precision float in [0,1] */
 #define GL_OR_INVERTED				0x150D
 
 /* Stencil */
-#define GL_STENCIL_BITS				0x0D57
 #define GL_STENCIL_TEST				0x0B90
-#define GL_STENCIL_CLEAR_VALUE			0x0B91
+#define GL_STENCIL_WRITEMASK			0x0B98
+#define GL_STENCIL_BITS				0x0D57
 #define GL_STENCIL_FUNC				0x0B92
 #define GL_STENCIL_VALUE_MASK			0x0B93
-#define GL_STENCIL_FAIL				0x0B94
-#define GL_STENCIL_PASS_DEPTH_FAIL		0x0B95
-#define GL_STENCIL_PASS_DEPTH_PASS		0x0B96
 #define GL_STENCIL_REF				0x0B97
-#define GL_STENCIL_WRITEMASK			0x0B98
+#define GL_STENCIL_FAIL				0x0B94
+#define GL_STENCIL_PASS_DEPTH_PASS		0x0B96
+#define GL_STENCIL_PASS_DEPTH_FAIL		0x0B95
+#define GL_STENCIL_CLEAR_VALUE			0x0B91
 #define GL_STENCIL_INDEX			0x1901
 #define GL_KEEP					0x1E00
 #define GL_REPLACE				0x1E01
@@ -501,16 +500,16 @@ typedef double		GLclampd;	/* double precision float in [0,1] */
 
 /* Implementation limits */
 #define GL_MAX_LIST_NESTING			0x0B31
-#define GL_MAX_EVAL_ORDER			0x0D30
-#define GL_MAX_LIGHTS				0x0D31
-#define GL_MAX_CLIP_PLANES			0x0D32
-#define GL_MAX_TEXTURE_SIZE			0x0D33
-#define GL_MAX_PIXEL_MAP_TABLE			0x0D34
 #define GL_MAX_ATTRIB_STACK_DEPTH		0x0D35
 #define GL_MAX_MODELVIEW_STACK_DEPTH		0x0D36
 #define GL_MAX_NAME_STACK_DEPTH			0x0D37
 #define GL_MAX_PROJECTION_STACK_DEPTH		0x0D38
 #define GL_MAX_TEXTURE_STACK_DEPTH		0x0D39
+#define GL_MAX_EVAL_ORDER			0x0D30
+#define GL_MAX_LIGHTS				0x0D31
+#define GL_MAX_CLIP_PLANES			0x0D32
+#define GL_MAX_TEXTURE_SIZE			0x0D33
+#define GL_MAX_PIXEL_MAP_TABLE			0x0D34
 #define GL_MAX_VIEWPORT_DIMS			0x0D3A
 #define GL_MAX_CLIENT_ATTRIB_STACK_DEPTH	0x0D3B
 
@@ -568,22 +567,22 @@ typedef double		GLclampd;	/* double precision float in [0,1] */
 #define GL_MAP2_GRID_DOMAIN			0x0DD2
 #define GL_MAP2_GRID_SEGMENTS			0x0DD3
 #define GL_COEFF				0x0A00
-#define GL_ORDER				0x0A01
 #define GL_DOMAIN				0x0A02
+#define GL_ORDER				0x0A01
 
 /* Hints */
+#define GL_FOG_HINT				0x0C54
+#define GL_LINE_SMOOTH_HINT			0x0C52
 #define GL_PERSPECTIVE_CORRECTION_HINT		0x0C50
 #define GL_POINT_SMOOTH_HINT			0x0C51
-#define GL_LINE_SMOOTH_HINT			0x0C52
 #define GL_POLYGON_SMOOTH_HINT			0x0C53
-#define GL_FOG_HINT				0x0C54
 #define GL_DONT_CARE				0x1100
 #define GL_FASTEST				0x1101
 #define GL_NICEST				0x1102
 
 /* Scissor box */
-#define GL_SCISSOR_BOX				0x0C10
 #define GL_SCISSOR_TEST				0x0C11
+#define GL_SCISSOR_BOX				0x0C10
 
 /* Pixel Mode / Transfer */
 #define GL_MAP_COLOR				0x0D10
@@ -688,8 +687,8 @@ typedef double		GLclampd;	/* double precision float in [0,1] */
 
 /* Errors */
 #define GL_NO_ERROR 				0x0
-#define GL_INVALID_ENUM				0x0500
 #define GL_INVALID_VALUE			0x0501
+#define GL_INVALID_ENUM				0x0500
 #define GL_INVALID_OPERATION			0x0502
 #define GL_STACK_OVERFLOW			0x0503
 #define GL_STACK_UNDERFLOW			0x0504
@@ -2153,24 +2152,35 @@ typedef void (APIENTRYP PFNGLMULTITEXCOORD4SVARBPROC) (GLenum target, const GLsh
 
 
 
-#if GL_ARB_shader_objects
+/*
+ * ???. GL_MESA_trace
+ * XXX obsolete
+ */
+#ifndef GL_MESA_trace
+#define GL_MESA_trace 1
 
-#ifndef GL_MESA_shader_debug
-#define GL_MESA_shader_debug 1
+#define GL_TRACE_ALL_BITS_MESA			0xFFFF
+#define GL_TRACE_OPERATIONS_BIT_MESA		0x0001
+#define GL_TRACE_PRIMITIVES_BIT_MESA		0x0002
+#define GL_TRACE_ARRAYS_BIT_MESA		0x0004
+#define GL_TRACE_TEXTURES_BIT_MESA		0x0008
+#define GL_TRACE_PIXELS_BIT_MESA		0x0010
+#define GL_TRACE_ERRORS_BIT_MESA		0x0020
+#define GL_TRACE_MASK_MESA			0x8755
+#define GL_TRACE_NAME_MESA			0x8756
 
-#define GL_DEBUG_OBJECT_MESA              0x8759
-#define GL_DEBUG_PRINT_MESA               0x875A
-#define GL_DEBUG_ASSERT_MESA              0x875B
+GLAPI void GLAPIENTRY glEnableTraceMESA( GLbitfield mask );
+GLAPI void GLAPIENTRY glDisableTraceMESA( GLbitfield mask );
+GLAPI void GLAPIENTRY glNewTraceMESA( GLbitfield mask, const GLubyte * traceName );
+GLAPI void GLAPIENTRY glEndTraceMESA( void );
+GLAPI void GLAPIENTRY glTraceAssertAttribMESA( GLbitfield attribMask );
+GLAPI void GLAPIENTRY glTraceCommentMESA( const GLubyte * comment );
+GLAPI void GLAPIENTRY glTraceTextureMESA( GLuint name, const GLubyte* comment );
+GLAPI void GLAPIENTRY glTraceListMESA( GLuint name, const GLubyte* comment );
+GLAPI void GLAPIENTRY glTracePointerMESA( GLvoid* pointer, const GLubyte* comment );
+GLAPI void GLAPIENTRY glTracePointerRangeMESA( const GLvoid* first, const GLvoid* last, const GLubyte* comment );
 
-GLAPI GLhandleARB GLAPIENTRY glCreateDebugObjectMESA (void);
-GLAPI void GLAPIENTRY glClearDebugLogMESA (GLhandleARB obj, GLenum logType, GLenum shaderType);
-GLAPI void GLAPIENTRY glGetDebugLogMESA (GLhandleARB obj, GLenum logType, GLenum shaderType, GLsizei maxLength,
-                                         GLsizei *length, GLcharARB *debugLog);
-GLAPI GLsizei GLAPIENTRY glGetDebugLogLengthMESA (GLhandleARB obj, GLenum logType, GLenum shaderType);
-
-#endif /* GL_MESA_shader_debug */
-
-#endif /* GL_ARB_shader_objects */
+#endif /* GL_MESA_trace */
 
 
 /*
@@ -2219,7 +2229,6 @@ GLAPI void GLAPIENTRY glBlendEquationSeparateATI( GLenum modeRGB, GLenum modeA )
 typedef void (APIENTRYP PFNGLBLENDEQUATIONSEPARATEATIPROC) (GLenum modeRGB, GLenum modeA);
 
 #endif /* GL_ATI_blend_equation_separate */
-
 
 
 /**

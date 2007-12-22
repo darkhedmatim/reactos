@@ -65,7 +65,6 @@ int          WINAPI SHMapPIDLToSystemImageListIndex(IShellFolder*,LPCITEMIDLIST,
 HRESULT      WINAPI SHStartNetConnectionDialog(HWND,LPCSTR,DWORD);
 VOID         WINAPI SHUpdateImageA(LPCSTR,INT,UINT,INT);
 VOID         WINAPI SHUpdateImageW(LPCWSTR,INT,UINT,INT);
-INT          WINAPI PickIconDlg(HWND,LPWSTR,UINT,int *);
 #define             SHUpdateImage WINELIB_NAME_AW(SHUpdateImage)
 int          WINAPI RestartDialog(HWND,LPCWSTR,DWORD);
 int          WINAPI RestartDialogEx(HWND,LPCWSTR,DWORD,DWORD);
@@ -211,23 +210,9 @@ typedef GUID SHELLVIEWID;
 #define FCIDM_STATUS       (FCIDM_BROWSERFIRST + 1)
 
 
-VOID WINAPI SHSetInstanceExplorer(LPUNKNOWN);
-BOOL WINAPI IsUserAnAdmin(VOID);
-
 /****************************************************************************
  * IShellIcon interface
  */
-
-#undef  INTERFACE
-#define INTERFACE   IShellFolderViewCB
-DECLARE_INTERFACE_(IShellFolderViewCB, IUnknown)
-{
-    STDMETHOD(QueryInterface) (THIS_ REFIID riid, void **ppv) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS)  PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-    STDMETHOD(MessageSFVCB)(THIS_ UINT uMsg, WPARAM wParam, LPARAM lParam) PURE;
-};
-#undef INTERFACE
 
 #define INTERFACE IShellIcon
 DECLARE_INTERFACE_(IShellIcon,IUnknown)
@@ -370,97 +355,6 @@ DECLARE_INTERFACE_(IACList,IUnknown)
 #define IACList_Expand(p,a)             (p)->lpVtbl->Expand(p,a)
 #endif
 
-/* IProgressDialog interface */
-#define PROGDLG_NORMAL           0x00000000
-#define PROGDLG_MODAL            0x00000001
-#define PROGDLG_AUTOTIME         0x00000002
-#define PROGDLG_NOTIME           0x00000004
-#define PROGDLG_NOMINIMIZE       0x00000008
-#define PROGDLG_NOPROGRESSBAR    0x00000010
-#define PROGDLG_MARQUEEPROGRESS  0x00000020
-#define PROGDLG_NOCANCEL         0x00000040
-
-#define PDTIMER_RESET            0x00000001
-#define PDTIMER_PAUSE            0x00000002
-#define PDTIMER_RESUME           0x00000003
-
-#define INTERFACE IProgressDialog
-DECLARE_INTERFACE_(IProgressDialog,IUnknown)
-{
-    /*** IUnknown methods ***/
-    STDMETHOD_(HRESULT,QueryInterface) (THIS_ REFIID riid, void** ppvObject) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS) PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-    /*** IProgressDialog methods ***/
-    STDMETHOD(StartProgressDialog)(THIS_ HWND hwndParent, IUnknown *punkEnableModeless, DWORD dwFlags, LPCVOID reserved) PURE;
-    STDMETHOD(StopProgressDialog)(THIS) PURE;
-    STDMETHOD(SetTitle)(THIS_ LPCWSTR pwzTitle) PURE;
-    STDMETHOD(SetAnimation)(THIS_ HINSTANCE hInstance, UINT uiResourceId) PURE;
-    STDMETHOD_(BOOL,HasUserCancelled)(THIS) PURE;
-    STDMETHOD(SetProgress)(THIS_ DWORD dwCompleted, DWORD dwTotal) PURE;
-    STDMETHOD(SetProgress64)(THIS_ ULONGLONG ullCompleted, ULONGLONG ullTotal) PURE;
-    STDMETHOD(SetLine)(THIS_ DWORD dwLineNum, LPCWSTR pwzString, BOOL bPath, LPCVOID reserved) PURE;
-    STDMETHOD(SetCancelMsg)(THIS_ LPCWSTR pwzCancelMsg, LPCVOID reserved) PURE;
-    STDMETHOD(Timer)(THIS_ DWORD dwTimerAction, LPCVOID reserved) PURE;
-};
-#undef INTERFACE
-
-#if !defined(__cplusplus) || defined(CINTERFACE)
-/*** IUnknown methods ***/
-#define IProgressDialog_QueryInterface(p,a,b)  (p)->lpVtbl->QueryInterface(p,a,b)
-#define IProgressDialog_AddRef(p)              (p)->lpVtbl->AddRef(p)
-#define IProgressDialog_Release(p)             (p)->lpVtbl->Release(p)
-/*** IProgressDialog methods ***/
-#define IProgressDialog_StartProgressDialog(p,a,b,c,d)    (p)->lpVtbl->StartProgressDialog(p,a,b,c,d)
-#define IProgressDialog_StopProgressDialog(p)             (p)->lpVtbl->StopProgressDialog(p)
-#define IProgressDialog_SetTitle(p,a)                     (p)->lpVtbl->SetTitle(p,a)
-#define IProgressDialog_SetAnimation(p,a,b)               (p)->lpVtbl->SetAnimation(p,a,b)
-#define IProgressDialog_HasUserCancelled(p)               (p)->lpVtbl->HasUserCancelled(p)
-#define IProgressDialog_SetProgress(p,a,b)                (p)->lpVtbl->SetProgress(p,a,b)
-#define IProgressDialog_SetProgress64(p,a,b)              (p)->lpVtbl->SetProgress64(p,a,b)
-#define IProgressDialog_SetLine(p,a,b,c,d)                (p)->lpVtbl->SetLine(p,a,b,c,d)
-#define IProgressDialog_SetCancelMsg(p,a,b)               (p)->lpVtbl->SetCancelMsg(p,a,b)
-#define IProgressDialog_Timer(p,a,b)                      (p)->lpVtbl->Timer(p,a,b)
-#endif
-
-/* IDockingWindowFrame interface */
-#define INTERFACE IDockingWindow
-DECLARE_INTERFACE_(IDockingWindow,IUnknown)
-{
-    /*** IUnknown methods ***/
-    STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
-    STDMETHOD_(ULONG,AddRef)(THIS) PURE;
-    STDMETHOD_(ULONG,Release)(THIS) PURE;
-    /*** IOleWindow methods ***/
-    STDMETHOD_(HRESULT,GetWindow)(THIS_ HWND*) PURE;
-    STDMETHOD_(HRESULT,ContextSensitiveHelp)(THIS_ BOOL) PURE;
-    /*** IDockingWindow methods ***/
-    STDMETHOD_(HRESULT,ShowDW)(THIS_ BOOL) PURE;
-    STDMETHOD_(HRESULT,CloseDW)(THIS_ DWORD) PURE;
-    STDMETHOD_(HRESULT,ResizeBoderDW)(THIS_ LPCRECT,IUnknown*,BOOL) PURE;
-};
-#undef INTERFACE
-
-
-/* IDeskBarClient interface */
-#define INTERFACE IDeskBarClient
-DECLARE_INTERFACE_(IDeskBarClient,IUnknown)
-{
-    /*** IUnknown methods ***/
-    STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
-    STDMETHOD_(ULONG,AddRef)(THIS) PURE;
-    STDMETHOD_(ULONG,Release)(THIS) PURE;
-    /*** IOleWindow methods ***/
-    STDMETHOD_(HRESULT,GetWindow)(THIS_ HWND*) PURE;
-    STDMETHOD_(HRESULT,ContextSensitiveHelp)(THIS_ BOOL) PURE;
-    /*** IDeskBarClient methods ***/
-    STDMETHOD_(HRESULT,SetDeskBarSite)(THIS_ IUnknown*) PURE;
-    STDMETHOD_(HRESULT,SetModeDBC)(THIS_ DWORD) PURE;
-    STDMETHOD_(HRESULT,UIActivateDBC)(THIS_ DWORD) PURE;
-    STDMETHOD_(HRESULT,GetSize)(THIS_ DWORD,LPRECT) PURE;
-};
-#undef INTERFACE
-
 
 /****************************************************************************
 * SHAddToRecentDocs API
@@ -471,15 +365,6 @@ DECLARE_INTERFACE_(IDeskBarClient,IUnknown)
 #define SHARD_PATH WINELIB_NAME_AW(SHARD_PATH)
 
 void WINAPI SHAddToRecentDocs(UINT,LPCVOID);
-
-HANDLE WINAPI SHChangeNotification_Lock(
-	HANDLE hChange,
-	DWORD dwProcessId,
-	LPITEMIDLIST **lppidls,
-	LPLONG lpwEventId);
-BOOL WINAPI SHChangeNotification_Unlock ( HANDLE hLock);
-
-
 
 /****************************************************************************
  * SHBrowseForFolder API
@@ -524,11 +409,6 @@ typedef struct tagBROWSEINFOW {
 #define BIF_EDITBOX            0x0010
 #define BIF_VALIDATE           0x0020
 #define BIF_NEWDIALOGSTYLE     0x0040
-#define BIF_USENEWUI           (BIF_NEWDIALOGSTYLE | BIF_EDITBOX)
-#define BIF_BROWSEINCLUDEURLS  0x0080
-#define BIF_UAHINT             0x0100
-#define BIF_NONEWFOLDERBUTTON  0x0200
-#define BIF_NOTRANSLATETARGETS 0x0400
 
 #define BIF_BROWSEFORCOMPUTER  0x1000
 #define BIF_BROWSEFORPRINTER   0x2000
@@ -639,23 +519,8 @@ HRESULT WINAPI SHCreateShellFolderViewEx(LPCSFV pshfvi, IShellView **ppshv);
 #define SFVM_GET_WEBVIEW_THEME        86 /* undocumented */
 #define SFVM_GETDEFERREDVIEWSETTINGS  92 /* undocumented */
 
-#define SHPPFW_NONE 0
-#define SHPPFW_DIRCREATE 1
-#define SHPPFW_DEFAULT SHPPFW_DIRCREATE
-#define SHPPFW_ASKDIRCREATE 2
-#define SHPPFW_IGNOREFILENAME 4
-#define SHPPFW_NOWRITECHECK 8
-
 /* Types and definitions for the SFM_* parameters */
 #include <pshpack8.h>
-typedef struct _SFV_CREATE
-{
-    UINT cbSize;
-    IShellFolder *pshf;
-    IShellView *psvOuter;
-    IShellFolderViewCB *psfvcb;
-} SFV_CREATE;
-
 
 #define QCMINFO_PLACE_BEFORE          0
 #define QCMINFO_PLACE_AFTER           1
@@ -776,12 +641,6 @@ BOOL WINAPI SHGetSpecialFolderPathW (HWND hwndOwner, LPWSTR szPath, int nFolder,
 #define  SHGetSpecialFolderPath WINELIB_NAME_AW(SHGetSpecialFolderPath)
 
 HRESULT WINAPI SHGetMalloc(LPMALLOC *lpmal) ;
-
-/**********************************************************************
- * SHCreateShellFolderView ()
- */
-
-HRESULT WINAPI SHCreateShellFolderView(const SFV_CREATE *pcsfv, IShellView **ppsv);
 
 /**********************************************************************
  * SHGetSetSettings ()
@@ -1122,35 +981,6 @@ typedef struct tagDATABLOCKHEADER
 
 typedef struct {
     DATABLOCK_HEADER dbh;
-    WORD wFillAttribute;
-    WORD wPopupFillAttribute;
-    COORD dwScreenBufferSize;
-    COORD dwWindowSize;
-    COORD dwWindowOrigin;
-    DWORD nFont;
-    DWORD nInputBufferSize;
-    COORD dwFontSize;
-    UINT uFontFamily;
-    UINT uFontWeight;
-    WCHAR FaceName[LF_FACESIZE];
-    UINT uCursorSize;
-    BOOL bFullScreen;
-    BOOL bQuickEdit;
-    BOOL bInsertMode;
-    BOOL bAutoPosition;
-    UINT uHistoryBufferSize;
-    UINT uNumberOfHistoryBuffers;
-    BOOL bHistoryNoDup;
-    COLORREF ColorTable[16];
-} NT_CONSOLE_PROPS, *LPNT_CONSOLE_PROPS;
-
-typedef struct {
-    DATABLOCK_HEADER dbh;
-    UINT uCodePage;
-} NT_FE_CONSOLE_PROPS, *LPNT_FE_CONSOLE_PROPS;
-
-typedef struct {
-    DATABLOCK_HEADER dbh;
     CHAR szDarwinID[MAX_PATH];
     WCHAR szwDarwinID[MAX_PATH];
 } EXP_DARWIN_LINK, *LPEXP_DARWIN_LINK;
@@ -1193,6 +1023,8 @@ typedef struct _SHChangeProductKeyAsIDList {
 ULONG WINAPI SHChangeNotifyRegister(HWND hwnd, int fSources, LONG fEvents, UINT wMsg,
                                     int cEntries, SHChangeNotifyEntry *pshcne);
 BOOL WINAPI SHChangeNotifyDeregister(ULONG ulID);
+HANDLE WINAPI SHChangeNotification_Lock(HANDLE hChangeNotification, DWORD dwProcessId,
+                                        LPITEMIDLIST **pppidl, LONG *plEvent);
 BOOL WINAPI SHChangeNotification_Unlock(HANDLE hLock);
 
 HRESULT WINAPI SHGetRealIDL(IShellFolder *psf, LPCITEMIDLIST pidlSimple, LPITEMIDLIST * ppidlReal);
@@ -1443,68 +1275,6 @@ HRESULT      WINAPI ILSaveToStream(LPSTREAM,LPCITEMIDLIST);
 
 
 #include <poppack.h>
-
-
-/* menu merging */
-#define MM_ADDSEPARATOR         0x00000001L
-#define MM_SUBMENUSHAVEIDS      0x00000002L
-#define MM_DONTREMOVESEPS       0x00000004L
-
-HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uIDAdjust, UINT uIDAdjustMax, ULONG uFlags);
-
-
-/****************************************************************************
- * SHCreateDefaultContextMenu API
- */
-
-typedef struct
-{
-  HWND hwnd;
-  IContextMenuCB *pcmcb;
-  LPCITEMIDLIST pidlFolder;
-  IShellFolder *psf;
-  UINT cidl;
-  LPCITEMIDLIST* apidl;
-  IUnknown *punkAssociationInfo;
-  UINT cKeys;
-  const HKEY *aKeys;
-}DEFCONTEXTMENU;
-
-HRESULT WINAPI SHCreateDefaultContextMenu(const DEFCONTEXTMENU *,REFIID,void **ppv);
-
-typedef HRESULT (CALLBACK * LPFNDFMCALLBACK)(IShellFolder*,HWND,IDataObject*,UINT,WPARAM,LPARAM);
-INT WINAPI CDefFolderMenu_Create2(LPCITEMIDLIST,HWND,UINT,LPCITEMIDLIST*,IShellFolder*,LPFNDFMCALLBACK,UINT,HKEY *,IContextMenu **);
-
-/****************************************************************************
- * SHCreateDefaultContextMenu API
- */
-
-HRESULT WINAPI
-SHCreateDefaultExtractIcon(
-  REFIID riid,
-  void **ppv);
-
-/****************************************************************************
- * SHCreateDataObject API
- */
-
-HRESULT WINAPI SHCreateDataObject(
-  LPCITEMIDLIST pidlFolder,
-  UINT cidl,
-  LPCITEMIDLIST* apidl,
-  IDataObject *pdtInner,
-  REFIID riid,
-  void **ppv);
-
-/****************************************************************************
- * CIDLData_CreateFromIDArray API
- */
-
-HRESULT WINAPI CIDLData_CreateFromIDArray(
-	LPCITEMIDLIST pidlFolder,
-	UINT cidl,
-	LPCITEMIDLIST* apidl,
-	IDataObject **ppdtobj);
 
 #ifdef __cplusplus
 } /* extern "C" */

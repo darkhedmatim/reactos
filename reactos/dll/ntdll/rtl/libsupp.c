@@ -13,22 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-SIZE_T RtlpAllocDeallocQueryBufferSize = PAGE_SIZE;
-
 /* FUNCTIONS ***************************************************************/
-
-/*
- * @implemented
- */
-ULONG
-NTAPI
-RtlWalkFrameChain(OUT PVOID *Callers,
-                  IN ULONG Count,
-                  IN ULONG Flags)
-{
-    /* Not implemented for user-mode */
-    return 0;
-}
 
 BOOLEAN
 NTAPI
@@ -139,7 +124,7 @@ RtlpAllocateMemory(UINT Bytes,
                    ULONG Tag)
 {
     UNREFERENCED_PARAMETER(Tag);
-
+    
     return RtlAllocateHeap(RtlGetProcessHeap(),
                            0,
                            Bytes);
@@ -152,7 +137,7 @@ RtlpFreeMemory(PVOID Mem,
                ULONG Tag)
 {
     UNREFERENCED_PARAMETER(Tag);
-
+    
     RtlFreeHeap(RtlGetProcessHeap(),
                 0,
                 Mem);
@@ -292,7 +277,7 @@ VOID
 RtlpFreeAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
 {
    PRTL_HANDLE_TABLE_ENTRY RtlHandleEntry;
-
+   
    if (RtlIsValidIndexHandle(&AtomTable->RtlHandleTable,
                              (ULONG)Entry->HandleIndex,
                              &RtlHandleEntry))
@@ -307,7 +292,7 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
 {
    ULONG HandleIndex;
    PRTL_HANDLE_TABLE_ENTRY RtlHandle;
-
+   
    RtlHandle = RtlAllocateHandle(&AtomTable->RtlHandleTable,
                                  &HandleIndex);
    if (RtlHandle != NULL)
@@ -329,7 +314,7 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
       {
          /* set the valid flag, otherwise RtlFreeHandle will fail! */
          AtomHandle->Handle.Flags = RTL_HANDLE_VALID;
-
+         
          RtlFreeHandle(&AtomTable->RtlHandleTable,
                        RtlHandle);
       }
@@ -342,7 +327,7 @@ PRTL_ATOM_TABLE_ENTRY
 RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
 {
    PRTL_HANDLE_TABLE_ENTRY RtlHandle;
-
+   
    if (RtlIsValidIndexHandle(&AtomTable->RtlHandleTable,
                              Index,
                              &RtlHandle))
@@ -351,7 +336,7 @@ RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
 
       return AtomHandle->AtomEntry;
    }
-
+   
    return NULL;
 }
 

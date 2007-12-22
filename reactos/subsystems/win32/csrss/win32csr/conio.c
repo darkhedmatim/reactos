@@ -13,9 +13,6 @@
 #define NDEBUG
 #include <debug.h>
 
-extern NTSTATUS FASTCALL
-Win32CsrInsertObject2(PCSRSS_PROCESS_DATA, PHANDLE, Object_t *);
-
 /* GLOBALS *******************************************************************/
 
 #define ConioInitRect(Rect, Top, Left, Bottom, Right) \
@@ -39,16 +36,14 @@ Win32CsrInsertObject2(PCSRSS_PROCESS_DATA, PHANDLE, Object_t *);
 static NTSTATUS FASTCALL
 ConioConsoleFromProcessData(PCSRSS_PROCESS_DATA ProcessData, PCSRSS_CONSOLE *Console)
 {
-  PCSRSS_CONSOLE ProcessConsole = ProcessData->Console;
-
-  if (!ProcessConsole)
+  if (NULL == ProcessData->Console)
     {
       *Console = NULL;
       return STATUS_SUCCESS;
     }
 
-  EnterCriticalSection(&(ProcessConsole->Header.Lock));
-  *Console = ProcessConsole;
+  EnterCriticalSection(&(ProcessData->Console->Header.Lock));
+  *Console = ProcessData->Console;
 
   return STATUS_SUCCESS;
 }
@@ -153,7 +148,6 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
   Console->Mode = ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT;
   Console->EarlyReturn = FALSE;
   Console->ActiveBuffer = NULL;
-  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
   InitializeListHead(&Console->InputEvents);
   Console->CodePage = GetOEMCP();
   Console->OutputCodePage = GetOEMCP();
@@ -175,6 +169,13 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
 
   /* allocate console screen buffer */
   NewBuffer = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY, sizeof(CSRSS_SCREEN_BUFFER));
+  /* init screen buffer with defaults */
+  NewBuffer->CursorInfo.bVisible = TRUE;
+  NewBuffer->CursorInfo.dwSize = 5;
+  /* make console active, and insert into console list */
+  Console->ActiveBuffer = (PCSRSS_SCREEN_BUFFER) NewBuffer;
+  /* add a reference count because the buffer is tied to the console */
+  InterlockedIncrement(&Console->ActiveBuffer->Header.ReferenceCount);
   if (NULL == NewBuffer)
     {
       RtlFreeUnicodeString(&Console->Title);
@@ -182,15 +183,6 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
       CloseHandle(Console->ActiveEvent);
       return STATUS_INSUFFICIENT_RESOURCES;
     }
-  /* init screen buffer with defaults */
-  NewBuffer->CursorInfo.bVisible = TRUE;
-  NewBuffer->CursorInfo.dwSize = 5;
-  /* make console active, and insert into console list */
-  Console->ActiveBuffer = (PCSRSS_SCREEN_BUFFER) NewBuffer;
-  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
-  /* add a reference count because the buffer is tied to the console */
-  InterlockedIncrement(&Console->ActiveBuffer->Header.ReferenceCount);
-
 
   if (! GuiMode)
     {
@@ -226,6 +218,7 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
       DPRINT1("CsrInitConsoleScreenBuffer: failed\n");
       return Status;
     }
+
 
   /* copy buffer contents to screen */
   ConioDrawConsole(Console);
@@ -312,9 +305,9 @@ CSR_API(CsrAllocConsole)
     if (NewConsole || !ProcessData->bInheritHandles)
     {
         /* Insert the Objects */
-        Status = Win32CsrInsertObject2(ProcessData,
-                                       &Request->Data.AllocConsoleRequest.InputHandle,
-                                       &Console->Header);
+        Status = Win32CsrInsertObject(ProcessData,
+                                      &Request->Data.AllocConsoleRequest.InputHandle,
+                                      &Console->Header);
         if (! NT_SUCCESS(Status))
         {
             DPRINT1("Failed to insert object\n");
@@ -323,9 +316,9 @@ CSR_API(CsrAllocConsole)
             return Request->Status = Status;
         }
 
-        Status = Win32CsrInsertObject2(ProcessData,
-                                       &Request->Data.AllocConsoleRequest.OutputHandle,
-                                       &Console->ActiveBuffer->Header);
+        Status = Win32CsrInsertObject(ProcessData,
+                                      &Request->Data.AllocConsoleRequest.OutputHandle,
+                                      &Console->ActiveBuffer->Header);
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("Failed to insert object\n");
@@ -335,7 +328,6 @@ CSR_API(CsrAllocConsole)
             ProcessData->Console = 0;
             return Request->Status = Status;
         }
-        Console->hActiveBuffer = Request->Data.AllocConsoleRequest.OutputHandle;
     }
 
     /* Duplicate the Event */
@@ -612,9 +604,9 @@ CSR_API(CsrReadConsole)
         {
           /*
            * backspace handling - if we are in charge of echoing it then we handle it here
-           * otherwise we treat it like a normal char.
+           * otherwise we treat it like a normal char. 
            */
-          if ('\b' == Input->InputEvent.Event.KeyEvent.uChar.AsciiChar && 0
+          if ('\b' == Input->InputEvent.Event.KeyEvent.uChar.AsciiChar && 0 
               != (Console->Mode & ENABLE_ECHO_INPUT))
             {
               /* echo if it has not already been done, and either we or the client has chars to be deleted */
@@ -636,7 +628,7 @@ CSR_API(CsrReadConsole)
                   Request->Data.ReadConsoleRequest.NrCharactersRead = 0;
                   Request->Status = STATUS_NOTIFY_CLEANUP;
                   return STATUS_NOTIFY_CLEANUP;
-
+                  
                 }
               Request->Data.ReadConsoleRequest.nCharsCanBeDeleted--;
               Input->Echoed = TRUE;   /* mark as echoed so we don't echo it below */
@@ -1061,15 +1053,12 @@ ConioDeleteConsole(Object_t *Object)
       HeapFree(Win32CsrApiHeap, 0, Event);
     }
 
-#if 0 // FIXME
   if (0 == InterlockedDecrement(&Console->ActiveBuffer->Header.ReferenceCount))
     {
       ConioDeleteScreenBuffer((Object_t *) Console->ActiveBuffer);
     }
-#endif
 
   Console->ActiveBuffer = NULL;
-  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
   ConioCleanupConsole(Console);
 
   CloseHandle(Console->ActiveEvent);
@@ -2049,6 +2038,7 @@ CSR_API(CsrSetTextAttrib)
   NTSTATUS Status;
   PCSRSS_CONSOLE Console;
   PCSRSS_SCREEN_BUFFER Buff;
+  LONG OldCursorX, OldCursorY;
 
   DPRINT("CsrSetTextAttrib\n");
 
@@ -2068,10 +2058,12 @@ CSR_API(CsrSetTextAttrib)
       return Request->Status = Status;
     }
 
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &OldCursorX, &OldCursorY);
+
   Buff->DefaultAttrib = Request->Data.SetAttribRequest.Attrib;
   if (NULL != Console && Buff == Console->ActiveBuffer)
     {
-      if (! ConioUpdateScreenInfo(Console, Buff))
+      if (! ConioSetScreenInfo(Console, Buff, OldCursorX, OldCursorY))
         {
           ConioUnlockScreenBuffer(Buff);
           ConioUnlockConsole(Console);
@@ -2274,7 +2266,6 @@ CSR_API(CsrSetScreenBuffer)
     }
   /* tie console to new buffer */
   Console->ActiveBuffer = Buff;
-  Console->hActiveBuffer = Request->Data.SetScreenBufferRequest.OutputHandle;
   /* inc ref count on new buffer */
   InterlockedIncrement(&Buff->Header.ReferenceCount);
   /* Redraw the console */
@@ -2577,19 +2568,11 @@ CSR_API(CsrScrollConsoleScreenBuffer)
   if (! ConioGetIntersection(&SrcRegion, &ScreenBuffer, &ScrollRectangle))
     {
       ConioUnlockScreenBuffer(Buff);
-      if (NULL != Console)
-        {
-          ConioUnlockConsole(Console);
-        }
       return Request->Status = STATUS_INVALID_PARAMETER;
     }
 
   if (UseClipRectangle && ! ConioGetIntersection(&SrcRegion, &SrcRegion, &ClipRectangle))
     {
-      if (NULL != Console)
-        {
-          ConioUnlockConsole(Console);
-        }
       ConioUnlockScreenBuffer(Buff);
       return Request->Status = STATUS_SUCCESS;
     }
@@ -2604,10 +2587,6 @@ CSR_API(CsrScrollConsoleScreenBuffer)
   /* Make sure destination rectangle is inside the screen buffer */
   if (! ConioGetIntersection(&DstRegion, &DstRegion, &ScreenBuffer))
     {
-      if (NULL != Console)
-        {
-          ConioUnlockConsole(Console);
-        }
       ConioUnlockScreenBuffer(Buff);
       return Request->Status = STATUS_INVALID_PARAMETER;
     }
@@ -2678,10 +2657,6 @@ CSR_API(CsrReadConsoleOutputChar)
   Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputCharRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      if (NULL != Console)
-        {
-          ConioUnlockConsole(Console);
-        }
       return Request->Status = Status;
     }
 

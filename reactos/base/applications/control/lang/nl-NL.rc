@@ -1,6 +1,6 @@
 // Dutch language resource file (frik85, 2005-03-08)
 
-LANGUAGE LANG_DUTCH, SUBLANG_NEUTRAL  //vertaald door Lionel Lowie
+LANGUAGE LANG_DUTCH, SUBLANG_DUTCH  //vertaald door Lionel Lowie
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -8,7 +8,7 @@ LANGUAGE LANG_DUTCH, SUBLANG_NEUTRAL  //vertaald door Lionel Lowie
 // Menu
 //
 
-IDM_MAINMENU MENU DISCARDABLE
+IDM_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&Bestand"
     BEGIN
@@ -27,12 +27,3 @@ BEGIN
     END
 END
 
-STRINGTABLE
-BEGIN
-    IDS_WINDOW_TITLE "Control Panel"
-	IDS_ABOUT "Simple Control Panel (not Shell-namespace based)\rCopyright 2004 GkWare e.K.\rhttp://www.gkware.com\rReleased under the GPL"
-	IDS_ABOUT_TITLE "About the Control Panel"
-	IDS_NO_ITEMS "No Items in ListView"
-	IDS_NAME "Name"
-	IDS_COMMENT "Comment"
-END

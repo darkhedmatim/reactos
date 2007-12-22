@@ -22,23 +22,19 @@
 #                 Stephan Niemz  <st.n@gmx.net>
 #                 Christopher Aillon <christopher@aillon.com>
 #                 Gervase Markham <gerv@gerv.net>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 use strict;
 use lib ".";
 
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::Bug;
-use Bugzilla::User;
-use Bugzilla::Product;
 
-use List::Util qw(min);
+require "globals.pl";
 
 my $cgi = Bugzilla->cgi;
-local our $vars = {};
+my $template = Bugzilla->template;
+my $vars = {};
 
 # If the action is show_bug, you need a bug_id.
 # If the action is show_user, you can supply a userid to show the votes for
@@ -74,14 +70,14 @@ ValidateBugID($bug_id) if defined $bug_id;
 ################################################################################
 
 if ($action eq "show_bug") {
-    show_bug($bug_id);
+    show_bug();
 } 
 elsif ($action eq "show_user") {
-    show_user($bug_id);
+    show_user();
 }
 elsif ($action eq "vote") {
-    record_votes() if Bugzilla->params->{'usevotes'};
-    show_user($bug_id);
+    record_votes() if Param('usevotes');
+    show_user();
 }
 else {
     ThrowCodeError("unknown_action", {action => $action});
@@ -91,10 +87,8 @@ exit;
 
 # Display the names of all the people voting for this one bug.
 sub show_bug {
-    my ($bug_id) = @_;
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
-    my $template = Bugzilla->template;
 
     ThrowCodeError("missing_bug_id") unless defined $bug_id;
 
@@ -115,24 +109,25 @@ sub show_bug {
 # Display all the votes for a particular user. If it's the user
 # doing the viewing, give them the option to edit them too.
 sub show_user {
-    my ($bug_id) = @_;
+    GetVersionTable();
+
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
     my $user = Bugzilla->user;
-    my $template = Bugzilla->template;
 
     # If a bug_id is given, and we're editing, we'll add it to the votes list.
     $bug_id ||= "";
-
+    
     my $name = $cgi->param('user') || $user->login;
-    my $who = login_to_id($name, THROW_ERROR);
+    my $who = DBNameToIdAndCheck($name);
     my $userid = $user->id;
-
-    my $canedit = (Bugzilla->params->{'usevotes'} && $userid == $who) ? 1 : 0;
+    
+    my $canedit = (Param('usevotes') && $userid == $who) ? 1 : 0;
 
     $dbh->bz_lock_tables('bugs READ', 'products READ', 'votes WRITE',
              'cc READ', 'bug_group_map READ', 'user_group_map READ',
-             'group_group_map READ', 'groups READ', 'group_control_map READ');
+             'group_group_map READ',
+             'cc AS selectVisible_cc READ', 'groups READ');
 
     if ($canedit && $bug_id) {
         # Make sure there is an entry for this bug
@@ -145,54 +140,70 @@ sub show_user {
                       VALUES (?, ?, 0)', undef, ($who, $bug_id));
         }
     }
-
+    
+    # Calculate the max votes per bug for each product; doing it here means
+    # we can do it all in one query.
+    my %maxvotesperbug;
+    if($canedit) {
+        my $products = $dbh->selectall_arrayref('SELECT name, maxvotesperbug 
+                                                 FROM products');
+        foreach (@$products) {
+            my ($prod, $max) = @$_;
+            $maxvotesperbug{$prod} = $max;
+        }
+    }
+    
     my @products;
-    my $products = $user->get_selectable_products;
-    # Read the votes data for this user for each product.
-    foreach my $product (@$products) {
-        next unless ($product->votes_per_user > 0);
-
+    
+    # Read the votes data for this user for each product
+    foreach my $product (sort(keys(%::prodmaxvotes))) {
+        next if $::prodmaxvotes{$product} <= 0;
+        
         my @bugs;
         my $total = 0;
         my $onevoteonly = 0;
 
         my $vote_list =
             $dbh->selectall_arrayref('SELECT votes.bug_id, votes.vote_count,
-                                             bugs.short_desc
-                                        FROM votes
-                                  INNER JOIN bugs
-                                          ON votes.bug_id = bugs.bug_id
-                                       WHERE votes.who = ?
-                                         AND bugs.product_id = ?
+                                             bugs.short_desc, bugs.bug_status 
+                                        FROM  votes
+                                  INNER JOIN bugs ON votes.bug_id = bugs.bug_id
+                                  INNER JOIN products ON bugs.product_id = products.id 
+                                       WHERE votes.who = ? AND products.name = ?
                                     ORDER BY votes.bug_id',
-                                      undef, ($who, $product->id));
+                                      undef, ($who, $product));
 
         foreach (@$vote_list) {
-            my ($id, $count, $summary) = @$_;
+            my ($id, $count, $summary, $status) = @$_;
             $total += $count;
 
             # Next if user can't see this bug. So, the totals will be correct
             # and they can see there are votes 'missing', but not on what bug
             # they are. This seems a reasonable compromise; the alternative is
             # to lie in the totals.
-            next if !$user->can_see_bug($id);
+            next if !$user->can_see_bug($id);            
 
             push (@bugs, { id => $id, 
                            summary => $summary,
-                           count => $count });
+                           count => $count,
+                           opened => IsOpenedState($status) });
         }
+        
+        # In case we didn't populate this earlier (i.e. an error, or
+        # a not logged in user viewing a users votes)
+        $maxvotesperbug{$product} ||= 0;
 
-        $onevoteonly = 1 if (min($product->votes_per_user,
-                                 $product->max_votes_per_bug) == 1);
-
+        $onevoteonly = 1 if (min($::prodmaxvotes{$product},
+                                 $maxvotesperbug{$product}) == 1);
+        
         # Only add the product for display if there are any bugs in it.
-        if ($#bugs > -1) {
-            push (@products, { name => $product->name,
+        if ($#bugs > -1) {                         
+            push (@products, { name => $product,
                                bugs => \@bugs,
                                onevoteonly => $onevoteonly,
                                total => $total,
-                               maxvotes => $product->votes_per_user,
-                               maxperbug => $product->max_votes_per_bug });
+                               maxvotes => $::prodmaxvotes{$product},
+                               maxperbug => $maxvotesperbug{$product} });
         }
     }
 
@@ -217,7 +228,6 @@ sub record_votes {
 
     my $cgi = Bugzilla->cgi;
     my $dbh = Bugzilla->dbh;
-    my $template = Bugzilla->template;
 
     # Build a list of bug IDs for which votes have been submitted.  Votes
     # are submitted in form fields in which the field names are the bug 
@@ -256,35 +266,43 @@ sub record_votes {
     ############################################################################
     # End Data/Security Validation
     ############################################################################
+
+    GetVersionTable();
+
     my $who = Bugzilla->user->id;
 
     # If the user is voting for bugs, make sure they aren't overstuffing
     # the ballot box.
     if (scalar(@buglist)) {
-        my %prodcount;
-        my %products;
-        # XXX - We really need a $bug->product() method.
-        foreach my $bug_id (@buglist) {
-            my $bug = new Bugzilla::Bug($bug_id);
-            my $prod = $bug->product;
-            $products{$prod} ||= new Bugzilla::Product({name => $prod});
-            $prodcount{$prod} ||= 0;
-            $prodcount{$prod} += $votes{$bug_id};
+        my $product_vote_settings =
+            $dbh->selectall_arrayref('SELECT bugs.bug_id, products.name,
+                                             products.maxvotesperbug
+                                        FROM bugs
+                                  INNER JOIN products
+                                          ON products.id = bugs.product_id
+                                       WHERE bugs.bug_id IN
+                                             (' . join(', ', @buglist) . ')');
 
+        my %prodcount;
+        foreach (@$product_vote_settings) {
+            my ($id, $prod, $max) = @$_;
+            $prodcount{$prod} ||= 0;
+            $prodcount{$prod} += $votes{$id};
+            
             # Make sure we haven't broken the votes-per-bug limit
-            ($votes{$bug_id} <= $products{$prod}->max_votes_per_bug)
+            ($votes{$id} <= $max)               
               || ThrowUserError("too_many_votes_for_bug",
-                                {max => $products{$prod}->max_votes_per_bug,
-                                 product => $prod,
-                                 votes => $votes{$bug_id}});
+                                {max => $max, 
+                                 product => $prod, 
+                                 votes => $votes{$id}});
         }
 
         # Make sure we haven't broken the votes-per-product limit
         foreach my $prod (keys(%prodcount)) {
-            ($prodcount{$prod} <= $products{$prod}->votes_per_user)
+            ($prodcount{$prod} <= $::prodmaxvotes{$prod})
               || ThrowUserError("too_many_votes_for_product",
-                                {max => $products{$prod}->votes_per_user,
-                                 product => $prod,
+                                {max => $::prodmaxvotes{$prod}, 
+                                 product => $prod, 
                                  votes => $prodcount{$prod}});
         }
     }
@@ -340,8 +358,7 @@ sub record_votes {
     $dbh->bz_unlock_tables();
 
     $vars->{'type'} = "votes";
-    $vars->{'mailrecipients'} = { 'changer' => Bugzilla->user->login };
-    $vars->{'title_tag'} = 'change_votes';
+    $vars->{'mailrecipients'} = { 'changer' => $who };
 
     foreach my $bug_id (@updated_bugs) {
         $vars->{'id'} = $bug_id;

@@ -22,22 +22,16 @@
 #include <freeldr.h>
 #include <debug.h>
 
-extern ULONG PageDirectoryStart;
-extern ULONG PageDirectoryEnd;
-
 ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 LOADER_MODULE			reactos_modules[64];		// Array to hold boot module info loaded for the kernel
 char					reactos_module_strings[64][256];	// Array to hold module names
-reactos_mem_data_t reactos_mem_data;
-extern char reactos_arc_hardware_data[HW_MAX_ARC_HEAP_SIZE];
+unsigned long			reactos_memory_map_descriptor_size;
+memory_map_t			reactos_memory_map[32];		// Memory map
 char szBootPath[256];
 char szHalName[256];
-CHAR SystemRoot[255];
-extern ULONG_PTR KernelBase;
-extern ROS_KERNEL_ENTRY_POINT KernelEntryPoint;
+extern ULONG_PTR KernelBase, KernelEntry;
 
-extern BOOLEAN FrLdrLoadDriver(PCHAR szFileName, INT nPos);
 
 #define USE_UI
 
@@ -87,7 +81,7 @@ static FrLdrLoadKernel(IN PCHAR szFileName,
     /* Get the NT header, kernel base and kernel entry */
     NtHeader = RtlImageNtHeader(LoadBase);
     KernelBase = NtHeader->OptionalHeader.ImageBase;
-    KernelEntryPoint = (ROS_KERNEL_ENTRY_POINT)(KernelBase + NtHeader->OptionalHeader.AddressOfEntryPoint);
+    KernelEntry = RaToPa(NtHeader->OptionalHeader.AddressOfEntryPoint);
     LoaderBlock.KernelBase = KernelBase;
 
     /* Update Processbar and return success */
@@ -97,15 +91,10 @@ static FrLdrLoadKernel(IN PCHAR szFileName,
 static BOOLEAN
 LoadDriver(PCSTR szSourcePath, PCSTR szFileName)
 {
-    return FrLdrLoadDriver((PCHAR)szFileName, 0);
-}
-
-
-static BOOLEAN
-LoadNlsFile(PCSTR szSourcePath, PCSTR szFileName, PCSTR szModuleName)
-{
   CHAR szFullName[256];
+#ifdef USE_UI
   CHAR szBuffer[80];
+#endif
   PFILE FilePointer;
   PCSTR szShortName;
 
@@ -150,8 +139,77 @@ LoadNlsFile(PCSTR szSourcePath, PCSTR szFileName, PCSTR szModuleName)
   /*
    * Update the status bar with the current file
    */
+#ifdef USE_UI
   sprintf(szBuffer, "Setup is loading files (%s)", szShortName);
   UiDrawStatusText(szBuffer);
+#else
+  printf("Reading %s\n", szShortName);
+#endif
+
+  /* Load the driver */
+  FrLdrMapImage(FilePointer, (LPSTR)szFileName, 2);
+
+  return(TRUE);
+}
+
+
+static BOOLEAN
+LoadNlsFile(PCSTR szSourcePath, PCSTR szFileName, PCSTR szModuleName)
+{
+  CHAR szFullName[256];
+#ifdef USE_UI
+  CHAR szBuffer[80];
+#endif
+  PFILE FilePointer;
+  PCSTR szShortName;
+
+  if (szSourcePath[0] != '\\')
+    {
+      strcpy(szFullName, "\\");
+      strcat(szFullName, szSourcePath);
+    }
+  else
+    {
+      strcpy(szFullName, szSourcePath);
+    }
+
+  if (szFullName[strlen(szFullName)] != '\\')
+    {
+      strcat(szFullName, "\\");
+    }
+
+  if (szFileName[0] != '\\')
+    {
+      strcat(szFullName, szFileName);
+    }
+  else
+    {
+      strcat(szFullName, szFileName + 1);
+    }
+
+  szShortName = strrchr(szFileName, '\\');
+  if (szShortName == NULL)
+    szShortName = szFileName;
+  else
+    szShortName = szShortName + 1;
+
+
+  FilePointer = FsOpenFile(szFullName);
+  if (FilePointer == NULL)
+    {
+      printf("Could not find %s\n", szFileName);
+      return(FALSE);
+    }
+
+  /*
+   * Update the status bar with the current file
+   */
+#ifdef USE_UI
+  sprintf(szBuffer, "Setup is loading files (%s)", szShortName);
+  UiDrawStatusText(szBuffer);
+#else
+  printf("Reading %s\n", szShortName);
+#endif
 
   /* Load the driver */
   FrLdrLoadModule(FilePointer, szModuleName, NULL);
@@ -161,20 +219,10 @@ LoadNlsFile(PCSTR szSourcePath, PCSTR szFileName, PCSTR szModuleName)
 
 VOID RunLoader(VOID)
 {
-  ULONG i;
+  ULONG_PTR Base;
+  ULONG Size;
   const char *SourcePath;
-  const char *LoadOptions = "", *DbgLoadOptions = "";
-  const char *sourcePaths[] = {
-      "", /* Only for floppy boot */
-#if defined(_M_IX86)
-      "\\I386",
-#elif defined(_M_MPPC)
-      "\\PPC",
-#elif defined(_M_MRX000)
-      "\\MIPS",
-#endif
-      "\\reactos",
-      NULL };
+  const char *LoadOptions;
   char szKernelName[256];
 
   HINF InfHandle;
@@ -183,21 +231,15 @@ VOID RunLoader(VOID)
 
   /* Setup multiboot information structure */
   LoaderBlock.CommandLine = reactos_kernel_cmdline;
-  LoaderBlock.PageDirectoryStart = (ULONG)&PageDirectoryStart;
-  LoaderBlock.PageDirectoryEnd = (ULONG)&PageDirectoryEnd;
   LoaderBlock.ModsCount = 0;
   LoaderBlock.ModsAddr = reactos_modules;
-  LoaderBlock.ArchExtra = (ULONG)reactos_arc_hardware_data;
   LoaderBlock.MmapLength = (unsigned long)MachGetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
   if (LoaderBlock.MmapLength)
   {
-#ifdef _M_IX86
       ULONG i;
-#endif
-      LoaderBlock.Flags |= MB_FLAGS_MEM_INFO | MB_FLAGS_MMAP_INFO;
+
       LoaderBlock.MmapAddr = (unsigned long)&reactos_memory_map;
       reactos_memory_map_descriptor_size = sizeof(memory_map_t); // GetBiosMemoryMap uses a fixed value of 24
-#ifdef _M_IX86
       for (i=0; i<(LoaderBlock.MmapLength/sizeof(memory_map_t)); i++)
       {
           if (BiosMemoryUsable == reactos_memory_map[i].type &&
@@ -216,13 +258,12 @@ VOID RunLoader(VOID)
               LoaderBlock.MemHigher = (reactos_memory_map[i].base_addr_low + reactos_memory_map[i].length_low) / 1024 - 1024;
           }
       }
-#endif
   }
 
 #ifdef USE_UI
   SetupUiInitialize();
-#endif
   UiDrawStatusText("");
+#endif
 
     extern BOOLEAN FrLdrBootType;
     FrLdrBootType = TRUE;
@@ -231,9 +272,15 @@ VOID RunLoader(VOID)
   RegInitializeRegistry();
 
   /* Detect hardware */
+#ifdef USE_UI
   UiDrawStatusText("Detecting hardware...");
+#else
+  printf("Detecting hardware...\n\n");
+#endif
   MachHwDetect();
+#ifdef USE_UI
   UiDrawStatusText("");
+#endif
 
   /* set boot device */
   MachDiskGetBootDevice(&LoaderBlock.BootDevice);
@@ -241,39 +288,25 @@ VOID RunLoader(VOID)
   /* Open boot drive */
   if (!FsOpenBootVolume())
     {
+#ifdef USE_UI
       UiMessageBox("Failed to open boot drive.");
+#else
+      printf("Failed to open boot drive.");
+#endif
       return;
     }
 
   /* Open 'txtsetup.sif' */
-  for (i = MachDiskBootingFromFloppy() ? 0 : 1; ; i++)
-  {
-    SourcePath = sourcePaths[i];
-    if (!SourcePath)
+  if (!InfOpenFile (&InfHandle,
+		    MachDiskBootingFromFloppy() ? "\\txtsetup.sif" : "\\reactos\\txtsetup.sif",
+		    &ErrorLine))
     {
       printf("Failed to open 'txtsetup.sif'\n");
       return;
     }
-    strcpy(szKernelName, SourcePath);
-    strcat(szKernelName, "\\txtsetup.sif");
-    if (InfOpenFile (&InfHandle, szKernelName, &ErrorLine))
-      break;
-  }
-  if (!*SourcePath)
-    SourcePath = "\\";
 
-#ifdef DBG
   /* Get load options */
-  if (InfFindFirstLine (InfHandle,
-			"SetupData",
-			"DbgOsLoadOptions",
-			&InfContext))
-    {
-	if (!InfGetDataField (&InfContext, 1, &DbgLoadOptions))
-	    DbgLoadOptions = "";
-    }
-#endif
-  if (!strlen(DbgLoadOptions) && !InfFindFirstLine (InfHandle,
+  if (!InfFindFirstLine (InfHandle,
 			 "SetupData",
 			 "OsLoadOptions",
 			 &InfContext))
@@ -289,14 +322,25 @@ VOID RunLoader(VOID)
       printf("Failed to get load options\n");
       return;
     }
+#if 0
+  printf("LoadOptions: '%s'\n", LoadOptions);
+#endif
+
+  if (MachDiskBootingFromFloppy())
+    {
+      /* Boot from floppy disk */
+      SourcePath = "\\";
+    }
+  else
+    {
+      /* Boot from cdrom */
+      SourcePath = "\\reactos";
+    }
 
   /* Set kernel command line */
   MachDiskGetBootPath(reactos_kernel_cmdline, sizeof(reactos_kernel_cmdline));
-  strcat(strcat(strcat(strcat(reactos_kernel_cmdline, SourcePath), " "),
-		LoadOptions), DbgLoadOptions);
-
-  strcpy(SystemRoot, SourcePath);
-  strcat(SystemRoot, "\\");
+  strcat(strcat(strcat(reactos_kernel_cmdline, SourcePath), " "),
+         LoadOptions);
 
     /* Setup the boot path and kernel path */
     strcpy(szBootPath, SourcePath);
@@ -310,15 +354,36 @@ VOID RunLoader(VOID)
     /* Load the kernel */
     if (!FrLdrLoadKernel(szKernelName, 5)) return;
 
+  /* Export the hardware hive */
+  Base = FrLdrCreateModule ("HARDWARE");
+  RegExportBinaryHive (L"\\Registry\\Machine\\HARDWARE", (PVOID)Base, &Size);
+  FrLdrCloseModule (Base, Size);
+
+#if 0
+  printf("Base: %x\n", Base);
+  printf("Size: %u\n", Size);
+  printf("*** System stopped ***\n");
+for(;;);
+#endif
+
   /* Insert boot disk 2 */
   if (MachDiskBootingFromFloppy())
     {
+#ifdef USE_UI
       UiMessageBox("Please insert \"ReactOS Boot Disk 2\" and press ENTER");
+#else
+      printf("\n\n Please insert \"ReactOS Boot Disk 2\" and press ENTER\n");
+      MachConsGetCh();
+#endif
 
       /* Open boot drive */
       if (!FsOpenBootVolume())
 	{
+#ifdef USE_UI
 	  UiMessageBox("Failed to open boot drive.");
+#else
+	  printf("Failed to open boot drive.");
+#endif
 	  return;
 	}
 
@@ -347,7 +412,11 @@ VOID RunLoader(VOID)
   /* Load ANSI codepage file */
   if (!LoadNlsFile(SourcePath, LoadOptions, "ansi.nls"))
     {
+#ifdef USE_UI
       UiMessageBox("Failed to load the ANSI codepage file.");
+#else
+      printf("Failed to load the ANSI codepage file.");
+#endif
       return;
     }
 
@@ -372,7 +441,11 @@ VOID RunLoader(VOID)
   /* Load OEM codepage file */
   if (!LoadNlsFile(SourcePath, LoadOptions, "oem.nls"))
     {
+#ifdef USE_UI
       UiMessageBox("Failed to load the OEM codepage file.");
+#else
+      printf("Failed to load the OEM codepage file.");
+#endif
       return;
     }
 
@@ -397,36 +470,86 @@ VOID RunLoader(VOID)
   /* Load Unicode casemap file */
   if (!LoadNlsFile(SourcePath, LoadOptions, "casemap.nls"))
     {
+#ifdef USE_UI
       UiMessageBox("Failed to load the Unicode casemap file.");
+#else
+      printf("Failed to load the Unicode casemap file.");
+#endif
       return;
     }
+
+#if 0
+  /* Load acpi.sys */
+  if (!LoadDriver(SourcePath, "acpi.sys"))
+    return;
+#endif
+
+#if 0
+  /* Load isapnp.sys */
+  if (!LoadDriver(SourcePath, "isapnp.sys"))
+    return;
+#endif
+
+#if 0
+  /* Load pci.sys */
+  if (!LoadDriver(SourcePath, "pci.sys"))
+    return;
+#endif
+
+  /* Load scsiport.sys */
+  if (!LoadDriver(SourcePath, "scsiport.sys"))
+    return;
+
+  /* Load atapi.sys (depends on hardware detection) */
+  if (!LoadDriver(SourcePath, "atapi.sys"))
+    return;
+
+  /* Load buslogic.sys (depends on hardware detection) */
+  if (!LoadDriver(SourcePath, "buslogic.sys"))
+    return;
+
+  /* Load class2.sys */
+  if (!LoadDriver(SourcePath, "class2.sys"))
+    return;
+
+  /* Load cdrom.sys */
+  if (!LoadDriver(SourcePath, "cdrom.sys"))
+    return;
+
+  /* Load cdfs.sys */
+  if (!LoadDriver(SourcePath, "cdfs.sys"))
+    return;
+
+  /* Load disk.sys */
+  if (!LoadDriver(SourcePath, "disk.sys"))
+    return;
+
+  /* Load floppy.sys */
+  if (!LoadDriver(SourcePath, "floppy.sys"))
+    return;
 
   /* Load vfatfs.sys (could be loaded by the setup prog!) */
   if (!LoadDriver(SourcePath, "vfatfs.sys"))
     return;
 
-    /* Load additional files specified in txtsetup.inf */
-    if (InfFindFirstLine(InfHandle,
-                         "SourceDisksFiles",
-                         NULL,
-                         &InfContext))
-    {
-        do
-        {
-            LPCSTR Media, DriverName;
-            if (InfGetDataField(&InfContext, 7, &Media) &&
-                InfGetDataField(&InfContext, 0, &DriverName))
-            {
-                if (strcmp(Media, "x") == 0)
-                {
-                    if (!LoadDriver(SourcePath, DriverName))
-                        return;
-                }
-            }
-        } while (InfFindNextLine(&InfContext, &InfContext));
-    }
 
+  /* Load keyboard driver */
+#if 0
+  if (!LoadDriver(SourcePath, "keyboard.sys"))
+    return;
+#endif
+  if (!LoadDriver(SourcePath, "i8042prt.sys"))
+    return;
+  if (!LoadDriver(SourcePath, "kbdclass.sys"))
+    return;
+
+  /* Load screen driver */
+  if (!LoadDriver(SourcePath, "blue.sys"))
+    return;
+
+#ifdef USE_UI
   UiUnInitialize("Booting ReactOS...");
+#endif
 
   /* Now boot the kernel */
   DiskStopFloppyMotor();

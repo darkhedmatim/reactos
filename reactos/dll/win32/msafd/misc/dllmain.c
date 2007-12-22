@@ -644,7 +644,7 @@ WSPSelect(
     PollBuffer = HeapAlloc(GlobalHeap, 0, PollBufferSize);
 
     if (!PollBuffer) {
-      if (lpErrno) *lpErrno = WSAEFAULT;
+      if (*lpErrno) *lpErrno = WSAEFAULT;
       NtClose(SockEvent);
       return SOCKET_ERROR;
     }
@@ -757,18 +757,18 @@ WSPSelect(
     HeapFree( GlobalHeap, 0, PollBuffer );
     NtClose( SockEvent );
 
+    AFD_DbgPrint(MID_TRACE,("lpErrno = %x\n", lpErrno));
 
     if( lpErrno ) {
-        switch( IOSB.Status ) {
-            case STATUS_SUCCESS: 
-            case STATUS_TIMEOUT: *lpErrno = 0; break;
-            default: *lpErrno = WSAEINVAL; break;
-        }
-        AFD_DbgPrint(MID_TRACE,("*lpErrno = %x\n", *lpErrno));
+	switch( IOSB.Status ) {
+	case STATUS_SUCCESS: 
+	case STATUS_TIMEOUT: *lpErrno = 0; break;
+	default: *lpErrno = WSAEINVAL; break;
+	}
     }
 
     AFD_DbgPrint(MID_TRACE,("%d events\n", OutCount));
-
+    
     return OutCount;
 }
 
@@ -1903,7 +1903,7 @@ BOOLEAN SockCreateOrReferenceAsyncThread(VOID)
 		HandleFlags.ProtectFromClose = TRUE;
 		HandleFlags.Inherit = FALSE;
 		Status = NtSetInformationObject(SockAsyncCompletionPort,
-						ObjectHandleFlagInformation,
+						ObjectHandleInformation,
 						&HandleFlags,
 						sizeof(HandleFlags));
 	}
@@ -2014,7 +2014,7 @@ BOOLEAN SockGetAsyncSelectHelperAfdHandle(VOID)
 	HandleFlags.ProtectFromClose = TRUE;
 	HandleFlags.Inherit = FALSE;
 	Status = NtSetInformationObject(SockAsyncCompletionPort,
-					ObjectHandleFlagInformation,
+					ObjectHandleInformation,
 					&HandleFlags,
 					sizeof(HandleFlags));
 

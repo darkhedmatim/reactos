@@ -1,4 +1,4 @@
-<module name="newdev" type="win32dll" installbase="system32" installname="newdev.dll" unicode="true">
+<module name="newdev" type="win32dll" installbase="system32" installname="newdev.dll">
 	<include base="newdev">.</include>
 	<importlibrary definition="newdev.spec.def" />
 	<define name="_WIN32_IE">0x0600</define>

@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* FIXME: NDK */
 #define HIGH_PRIORITY 31
@@ -489,10 +489,10 @@ SuspendThread(HANDLE hThread)
 /*
  * @implemented
  */
-DWORD_PTR
+DWORD
 WINAPI
 SetThreadAffinityMask(HANDLE hThread,
-                      DWORD_PTR dwThreadAffinityMask)
+                      DWORD dwThreadAffinityMask)
 {
     THREAD_BASIC_INFORMATION ThreadBasic;
     KAFFINITY AffinityMask;

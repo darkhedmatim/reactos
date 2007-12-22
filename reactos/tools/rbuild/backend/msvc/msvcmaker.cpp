@@ -56,7 +56,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 		imports.push_back ( module.non_if_data.libraries[i]->name );
 	}
 
-	string module_type = GetExtension(*module.output);
+	string module_type = GetExtension(module.GetTargetName());
 	bool lib = (module_type == ".lib") || (module_type == ".a");
 	bool dll = (module_type == ".dll") || (module_type == ".cpl");
 	bool exe = (module_type == ".exe") || (module_type == ".scr");
@@ -82,7 +82,8 @@ MSVCBackend::_generate_dsp ( const Module& module )
 	//$output->progress("$dsp_file (file $progress_current of $progress_max)");
 
 	// TODO FIXME - what's diff. betw. 'c_srcs' and 'source_files'?
-	vector<string> c_srcs, source_files, header_files, resource_files, includes, libraries;
+	string dsp_path = module.GetBasePath();
+	vector<string> c_srcs, source_files, resource_files, includes, libraries;
 	StringSet common_defines;
 	vector<const IfableData*> ifs_list;
 	ifs_list.push_back ( &module.project.non_if_data );
@@ -101,29 +102,30 @@ MSVCBackend::_generate_dsp ( const Module& module )
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
-			if (files[i]->file.directory != SourceDirectory)
-				continue;
-
-			// We want the full path here for directory support later on
-			string path = Path::RelativeFromDirectory (
-				files[i]->file.relative_path,
-				module.output->relative_path );
-			string file = path + std::string("\\") + files[i]->file.name;
+			// TODO FIXME - do we want the full path of the file here?
+			string file = string(".") + &files[i]->name[dsp_path.size()];
 
 			source_files.push_back ( file );
 			if ( !stricmp ( Right(file,2).c_str(), ".c" ) )
 				c_srcs.push_back ( file );
-			if ( !stricmp ( Right(file,2).c_str(), ".h" ) )
-				header_files.push_back ( file );
 			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
 				resource_files.push_back ( file );
 		}
 		const vector<Include*>& incs = data.includes;
 		for ( i = 0; i < incs.size(); i++ )
 		{
+
+			// explicitly omit win32api directories
+			if ( !strncmp(incs[i]->directory.c_str(), "w32api", 6 ) )
+				continue;
+
+			// explicitly omit include/wine directories
+			if ( !strncmp(incs[i]->directory.c_str(), "include\\wine", 12 ) )
+				continue;
+
 			string path = Path::RelativeFromDirectory (
-				incs[i]->directory->relative_path,
-				module.output->relative_path );
+				incs[i]->directory,
+				module.GetBasePath() );
 			includes.push_back ( path );
 		}
 		const vector<Library*>& libs = data.libraries;
@@ -142,7 +144,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 	}
 	// TODO FIXME - we don't include header files in our build system
 	//my @header_files = @{module->{header_files}};
-	//vector<string> header_files;
+	vector<string> header_files;
 
 	// TODO FIXME - wine hack?
 	/*if (module.name !~ /^wine(?:_unicode|build|runtests|test)?$/ &&
@@ -652,7 +654,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 				output_dir.c_str(),
 				spec_file.c_str(),
 				def_file.c_str() );
-
+			
 			if ( module.name == "ntdll" )
 			{
 				int n = 0;

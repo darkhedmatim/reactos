@@ -28,22 +28,20 @@ CompilationUnit::CompilationUnit ( File* file )
 	  module(NULL),
 	  node(NULL)
 {
-	local_name = file->file.name;
-	name = file->file.relative_path + sSep + file->file.name;
+	name = file->name;
 	files.push_back ( file );
 }
 
 CompilationUnit::CompilationUnit ( const Project* project,
-                                   const Module* module,
-                                   const XMLElement* node )
+	                           const Module* module,
+	                           const XMLElement* node )
 	: project(project),
 	  module(module),
 	  node(node)
 {
 	const XMLAttribute* att = node->GetAttribute ( "name", true );
 	assert(att);
-	local_name = att->value;
-	name = module->output->relative_path + cSep + att->value;
+	name = module->GetBasePath () + cSep + att->value;
 }
 
 CompilationUnit::~CompilationUnit ()
@@ -67,7 +65,7 @@ CompilationUnit::IsGeneratedFile () const
 	if ( files.size () != 1 )
 		return false;
 	File* file = files[0];
-	string extension = GetExtension ( file->file );
+	string extension = GetExtension ( file->name );
 	return ( extension == ".spec" || extension == ".SPEC" );
 }
 
@@ -78,7 +76,7 @@ CompilationUnit::HasFileWithExtension ( const std::string& extension ) const
 	for ( i = 0; i < files.size (); i++ )
 	{
 		File& file = *files[i];
-		string fileExtension = GetExtension ( file.file );
+		string fileExtension = GetExtension ( file.name );
 		if ( !stricmp ( fileExtension.c_str (), extension.c_str () ) )
 			return true;
 	}
@@ -94,20 +92,13 @@ CompilationUnit::IsFirstFile () const
 	return file->first;
 }
 
-
-const FileLocation*
-CompilationUnit::GetFilename () const
+FileLocation*
+CompilationUnit::GetFilename ( Directory* intermediateDirectory ) const
 {
 	if ( files.size () == 0 || files.size () > 1 )
-	{
-		return new FileLocation ( IntermediateDirectory,
-		                          module ? module->output->relative_path : "",
-		                          local_name,
-		                          node );
-	}
-
+		return new FileLocation ( intermediateDirectory, name );
 	File* file = files[0];
-	return new FileLocation ( file->file );
+	return new FileLocation ( NULL, file->name );
 }
 
 std::string

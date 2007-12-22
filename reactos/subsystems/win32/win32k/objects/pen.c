@@ -99,27 +99,27 @@ IntGdiExtCreatePen(
 
       case PS_ALTERNATE:
          PenObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-         PenObject->hbmPattern = IntGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternAlternate);
+         PenObject->hbmPattern = NtGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternAlternate);
          break;
 
       case PS_DOT:
          PenObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-         PenObject->hbmPattern = IntGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDot);
+         PenObject->hbmPattern = NtGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDot);
          break;
 
       case PS_DASH:
          PenObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-         PenObject->hbmPattern = IntGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDash);
+         PenObject->hbmPattern = NtGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDash);
          break;
 
       case PS_DASHDOT:
          PenObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-         PenObject->hbmPattern = IntGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDashDot);
+         PenObject->hbmPattern = NtGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDashDot);
          break;
 
       case PS_DASHDOTDOT:
          PenObject->flAttrs |= GDIBRUSH_IS_BITMAP;
-         PenObject->hbmPattern = IntGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDashDotDot);
+         PenObject->hbmPattern = NtGdiCreateBitmap(24, 1, 1, 1, (LPBYTE)PatternDashDotDot);
          break;
 
       case PS_INSIDEFRAME:
@@ -201,6 +201,19 @@ PEN_GetObject(PGDIBRUSHOBJ pPenObject, INT cbCount, PLOGPEN pBuffer)
    return cbRetCount;
 }
 
+BOOL INTERNAL_CALL
+EXTPEN_Cleanup(PVOID ObjectBody)
+{
+   PGDIBRUSHOBJ pPenObject = (PGDIBRUSHOBJ)ObjectBody;
+
+   /* Free the kmode Styles array */
+   if (pPenObject->pStyle)
+   {
+      ExFreePool(pPenObject->pStyle);
+   }
+   return TRUE;
+}
+
 /* PUBLIC FUNCTIONS ***********************************************************/
 
 HPEN STDCALL
@@ -219,6 +232,44 @@ NtGdiCreatePen(
                              Width,
                              BS_SOLID,
                              Color,
+                             0,
+                             0,
+                             0,
+                             NULL,
+                             0,
+                             TRUE,
+                             0);
+}
+
+HPEN STDCALL
+NtGdiCreatePenIndirect(CONST PLOGPEN LogPen)
+{
+   LOGPEN SafeLogPen = {0};
+   NTSTATUS Status = STATUS_SUCCESS;
+
+   _SEH_TRY
+   {
+     ProbeForRead(LogPen,
+                  sizeof(LOGPEN),
+                  1);
+     SafeLogPen = *LogPen;
+   }
+   _SEH_HANDLE
+   {
+     Status = _SEH_GetExceptionCode();
+   }
+   _SEH_END;
+
+   if (!NT_SUCCESS(Status))
+   {
+      SetLastNtError(Status);
+      return 0;
+   }
+
+   return IntGdiExtCreatePen(SafeLogPen.lopnStyle,
+                             SafeLogPen.lopnWidth.x,
+                             BS_SOLID,
+                             SafeLogPen.lopnColor,
                              0,
                              0,
                              0,

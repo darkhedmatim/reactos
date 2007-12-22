@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,19 +67,19 @@ run_normal_stage(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 
    store->NormalTransform( ctx->ModelviewMatrixStack.Top,
 			   ctx->_ModelViewInvScale,
-			   VB->AttribPtr[_TNL_ATTRIB_NORMAL],  /* input normals */
+			   VB->NormalPtr,  /* input normals */
 			   lengths,
 			   &store->normal ); /* resulting normals */
 
-   if (VB->AttribPtr[_TNL_ATTRIB_NORMAL]->count > 1) {
+   if (VB->NormalPtr->count > 1) {
       store->normal.stride = 4 * sizeof(GLfloat);
    }
    else {
       store->normal.stride = 0;
    }
 
-   VB->AttribPtr[_TNL_ATTRIB_NORMAL] = &store->normal;
    VB->NormalPtr = &store->normal;
+   VB->AttribPtr[_TNL_ATTRIB_NORMAL] = VB->NormalPtr;
 
    VB->NormalLengthPtr = NULL;	/* no longer valid */
    return GL_TRUE;
@@ -95,7 +95,7 @@ validate_normal_stage(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 {
    struct normal_stage_data *store = NORMAL_STAGE_DATA(stage);
 
-   if (ctx->VertexProgram._Current ||
+   if (ctx->VertexProgram._Enabled ||
        (!ctx->Light.Enabled &&
 	!(ctx->Texture._GenFlags & TEXGEN_NEED_NORMALS))) {
       store->NormalTransform = NULL;

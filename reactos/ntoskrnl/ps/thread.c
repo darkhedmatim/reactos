@@ -324,8 +324,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
         Thread->StartAddress = (PVOID)ThreadContext->Eip;
         Thread->Win32StartAddress = (PVOID)ThreadContext->Eax;
 #elif defined(_M_PPC)
-	Thread->StartAddress = (PVOID)ThreadContext->Dr0;
-	Thread->Win32StartAddress = (PVOID)ThreadContext->Gpr3;
+#error Not implemented yet for PPC architecture!
 #elif defined(_M_MIPS)
         for (;;);
 #else
@@ -704,7 +703,7 @@ BOOLEAN
 NTAPI
 PsGetThreadHardErrorsAreDisabled(IN PETHREAD Thread)
 {
-    return Thread->HardErrorsAreDisabled ? TRUE : FALSE;
+    return Thread->HardErrorsAreDisabled;
 }
 
 /*
@@ -824,7 +823,7 @@ BOOLEAN
 NTAPI
 PsIsThreadImpersonating(IN PETHREAD Thread)
 {
-    return Thread->ActiveImpersonationInfo ? TRUE : FALSE;
+    return Thread->ActiveImpersonationInfo;
 }
 
 /*

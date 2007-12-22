@@ -1,11 +1,9 @@
 #include <windows.h>
-#include <ddrawi.h>
 #include <ddraw.h>
 
 LPDIRECTDRAW7 DirectDraw = NULL;
 LPDIRECTDRAWSURFACE7 FrontBuffer = NULL;
 LPDIRECTDRAWCLIPPER Clipper = NULL;
-LPDDRAWI_DIRECTDRAW_INT This = NULL;
 
 PCHAR DDErrorString (HRESULT hResult);
 LONG WINAPI WndProc (HWND hwnd, UINT message, UINT wParam, LONG lParam);
@@ -15,20 +13,18 @@ bool Fullscreen, Running;
 
 bool Init (HWND hwnd)
 {
-	DDSURFACEDESC2 ddsd;
+	DDSURFACEDESC2 ddsd; 
 	HRESULT hResult;
 
 	// Create the main object
 	OutputDebugString("=> DirectDrawCreateEx\n");
-	hResult = DirectDrawCreateEx(NULL, (VOID**)&DirectDraw, IID_IDirectDraw7, NULL);
+	hResult = DirectDrawCreateEx(NULL, (VOID**)&DirectDraw, IID_IDirectDraw7, NULL); 
 
 	if (hResult != DD_OK)
 	{
 		MessageBox(0,DDErrorString(hResult), "DirectDrawCreateEx", 0);
 		return 0;
 	}
-
-    This = (LPDDRAWI_DIRECTDRAW_INT)DirectDraw;
 
 	// Set Fullscreen or windowed mode
 	OutputDebugString("=> DDraw->SetCooperativeLevel\n");
@@ -37,7 +33,7 @@ bool Init (HWND hwnd)
 		hResult = DirectDraw->SetCooperativeLevel (hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN);
 	else
 		hResult = DirectDraw->SetCooperativeLevel (hwnd, DDSCL_NORMAL);
-
+		
 	if (hResult != DD_OK)
 	{
 		MessageBox(0,DDErrorString(hResult), "DDraw->SetCooperativeLevel", 0);
@@ -49,7 +45,7 @@ bool Init (HWND hwnd)
 	{
 		OutputDebugString("=> DDraw->SetDisplayMode\n");
 		hResult = DirectDraw->SetDisplayMode (800, 600, 32, 0, 0);
-
+			
 		if (hResult != DD_OK)
 		{
 			MessageBox(0,DDErrorString(hResult), "DDraw->SetDisplayMode", 0);
@@ -90,7 +86,7 @@ bool Init (HWND hwnd)
     {
 		MessageBox(0,DDErrorString(hResult), "Clipper->SetHWnd", 0);
         return  0;
-    }
+    }    
 
 	OutputDebugString("=> Suface->SetClipper\n");
     hResult = FrontBuffer->SetClipper(Clipper);
@@ -112,12 +108,12 @@ void Draw (HWND hwnd)
 
 	DDBLTFX	 ddbltfx;
 	ddbltfx.dwSize = sizeof(DDBLTFX);
-	ddbltfx.dwFillColor = RGB(255, 0, 255);
+	ddbltfx.dwFillColor = RGB(255, 0, 255); 
 
 	OutputDebugString("=> Surface->Blt (DDBLT_COLORFILL)\n");
-
+	
 	FrontBuffer->Blt(&rect, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &ddbltfx);
-}
+}		
 
 void CleanUp (void)
 {
@@ -142,59 +138,51 @@ void CleanUp (void)
 	}
 }
 
-int WINAPI WinMain (HINSTANCE hInst, HINSTANCE hPrevInst,
+int WINAPI WinMain (HINSTANCE hInst, HINSTANCE hPrevInst, 
 					LPSTR lpCmdLine, int nCmdShow)
 {
-	MSG msg;
-	WNDCLASS wndclass;
-	HWND hwnd;
+	MSG msg;  
+	WNDCLASS wndclass; 
+
 	Fullscreen = MessageBox(0, "Do you want to me to run in Fullscreen ?", 0, MB_YESNO) == IDYES;
 
 	// Create windnow
-	wndclass.style         = CS_HREDRAW | CS_VREDRAW;
+	wndclass.style         = CS_HREDRAW | CS_VREDRAW; 
 	wndclass.lpfnWndProc   = WndProc;
 	wndclass.cbClsExtra    = 0;
 	wndclass.cbWndExtra    = 0;
 	wndclass.hInstance     = hInst;
 	wndclass.hIcon         = LoadIcon (NULL, IDI_APPLICATION);
-	wndclass.hCursor       = LoadCursor (NULL, IDC_ARROW);
+	wndclass.hCursor       = LoadCursor (NULL, IDC_ARROW); 
 	wndclass.hbrBackground = (HBRUSH)GetStockObject (LTGRAY_BRUSH);
 	wndclass.lpszMenuName  = NULL;
-	wndclass.lpszClassName = "DDrawDemo";
+	wndclass.lpszClassName = "DDrawDemo"; 
 
-	RegisterClass(&wndclass);
+	RegisterClass(&wndclass);    
 
+	HWND hwnd = CreateWindow("DDrawDemo", 
+                         "ReactOS DirectDraw Demo", 
 #ifdef USE_CLIPPER
-	hwnd = CreateWindow("DDrawDemo",
-                         "ReactOS DirectDraw Demo",
 						 Fullscreen ? WS_POPUP : WS_OVERLAPPEDWINDOW,
-						 CW_USEDEFAULT,
-						 CW_USEDEFAULT,
-						 800,
-						 600,
-						 NULL, NULL,
-						 hInst, NULL);
 #else
-	hwnd = CreateWindow("DDrawDemo",
-                         "ReactOS DirectDraw Demo",
-                         WS_POPUP,
+						 WS_POPUP,
+#endif 
+			             CW_USEDEFAULT, 
 						 CW_USEDEFAULT,
-						 CW_USEDEFAULT,
-						 800,
-						 600,
-						 NULL, NULL,
+                         800, 
+                         600,     
+                         NULL, NULL, 
 						 hInst, NULL);
-#endif
 
 	// Inizalize Ddraw
 	if(Init(hwnd))
 	{
 		Running = true;
 
-		ShowWindow(hwnd, nCmdShow);
+		ShowWindow(hwnd, nCmdShow);  
 		UpdateWindow(hwnd);
 	}
-
+    
 	// Main loop
 	while (Running)
 	{
@@ -202,12 +190,12 @@ int WINAPI WinMain (HINSTANCE hInst, HINSTANCE hPrevInst,
 			Draw(hwnd);
 
 		if (PeekMessage(&msg,NULL,0,0,PM_REMOVE))
-		{
+		{ 
 			if (msg.message == WM_QUIT) break;
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-	}
+	} 
 
 	CleanUp();
 
@@ -215,9 +203,9 @@ int WINAPI WinMain (HINSTANCE hInst, HINSTANCE hPrevInst,
 }
 
 
-LONG WINAPI WndProc (HWND hwnd, UINT message,
-                         UINT wParam, LONG lParam)
-{
+LONG WINAPI WndProc (HWND hwnd, UINT message, 
+                         UINT wParam, LONG lParam) 
+{ 
 	switch (message)
 	{
 		case WM_PAINT:
@@ -238,13 +226,13 @@ LONG WINAPI WndProc (HWND hwnd, UINT message,
 
 		case WM_DESTROY:
 		{
-			PostQuitMessage (0);
+			PostQuitMessage (0); 
 			return 0;
 		} break;
 	}
 
 	return DefWindowProc (hwnd, message, wParam, lParam);
-}
+} 
 
 PCHAR DDErrorString (HRESULT hResult)
 {

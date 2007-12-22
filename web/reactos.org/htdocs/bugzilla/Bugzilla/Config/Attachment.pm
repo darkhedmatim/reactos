@@ -41,11 +41,6 @@ sub get_param_list {
   my $class = shift;
   my @param_list = (
   {
-  name => 'allow_attachment_deletion',
-  type => 'b',
-  default => 0
-  },
-  {
   name => 'allow_attach_url',
   type => 'b',
   default => 0

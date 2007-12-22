@@ -34,13 +34,11 @@ package Bugzilla::Config::GroupSecurity;
 use strict;
 
 use Bugzilla::Config::Common;
-use Bugzilla::Group;
 
 $Bugzilla::Config::GroupSecurity::sortkey = "07";
 
 sub get_param_list {
   my $class = shift;
-
   my @param_list = (
   {
    name => 'makeproductgroups',
@@ -56,34 +54,20 @@ sub get_param_list {
 
   {
    name => 'chartgroup',
-   type => 's',
-   choices => \&_get_all_group_names,
-   default => 'editbugs',
-   checker => \&check_group
+   type => 't',
+   default => 'editbugs'
   },
-
+  
   {
    name => 'insidergroup',
-   type => 's',
-   choices => \&_get_all_group_names,
-   default => '',
-   checker => \&check_group
+   type => 't',
+   default => ''
   },
 
   {
    name => 'timetrackinggroup',
-   type => 's',
-   choices => \&_get_all_group_names,
-   default => 'editbugs',
-   checker => \&check_group
-  },
-
-  {
-   name => 'querysharegroup',
-   type => 's',
-   choices => \&_get_all_group_names,
-   default => 'editbugs',
-   checker => \&check_group
+   type => 't',
+   default => ''
   },
   
   {
@@ -100,9 +84,4 @@ sub get_param_list {
   return @param_list;
 }
 
-sub _get_all_group_names {
-    my @group_names = map {$_->name} Bugzilla::Group->get_all;
-    unshift(@group_names, '');
-    return \@group_names;
-}
 1;

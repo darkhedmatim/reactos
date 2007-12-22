@@ -47,7 +47,6 @@ typedef struct _CSRSS_PROCESS_DATA
   HANDLE ConsoleEvent;
   PVOID CsrSectionViewBase;
   ULONG CsrSectionViewSize;
-  HANDLE ServerCommunicationPort;
   struct _CSRSS_PROCESS_DATA * next;
   LIST_ENTRY ProcessEntry;
   PCONTROLDISPATCHER CtrlDispatcher;

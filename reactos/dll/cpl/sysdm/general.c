@@ -5,7 +5,7 @@
  * PURPOSE:     General System Information
  * COPYRIGHT:   Copyright Thomas Weidenmueller <w3seek@reactos.org>
  *              Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
- *              Copyright 2006-2007 Colin Finck <mail@colinfinck.de>
+ *              Copyright 2006 Colin Finck <mail@colinfinck.de>
  *
  */
 
@@ -23,27 +23,27 @@ typedef struct _IMGINFO
 void
 ShowLastWin32Error(HWND hWndOwner)
 {
-    LPTSTR lpMsg;
-    DWORD LastError;
+  LPTSTR lpMsg;
+  DWORD LastError;
 
-    LastError = GetLastError();
+  LastError = GetLastError();
 
-    if ((LastError == 0) ||
-         !FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                        FORMAT_MESSAGE_FROM_SYSTEM,
-                        NULL,
-                        LastError,
-                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                        (LPTSTR)&lpMsg,
-                        0,
-                        NULL))
-    {
-        return;
-    }
+  if((LastError == 0) ||
+      !FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                       FORMAT_MESSAGE_FROM_SYSTEM,
+                     NULL,
+                     LastError,
+                     MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                     (LPTSTR)&lpMsg,
+                     0,
+                     NULL))
+  {
+    return;
+  }
 
-    MessageBox(hWndOwner, lpMsg, NULL, MB_OK | MB_ICONERROR);
+  MessageBox(hWndOwner, lpMsg, NULL, MB_OK | MB_ICONERROR);
 
-    LocalFree((LPVOID)lpMsg);
+  LocalFree((LPVOID)lpMsg);
 }
 
 
@@ -91,8 +91,7 @@ SetRegTextData(HWND hwnd,
         lpBuf = HeapAlloc(GetProcessHeap(),
                           0,
                           BufSize);
-        if (!lpBuf)
-            return;
+        if (!lpBuf) return;
 
         if (RegQueryValueEx(hKey,
                             Value,
@@ -126,7 +125,7 @@ SetProcNameString(HWND hwnd,
     TCHAR szBuf[31];
     TCHAR* szLastSpace;
     INT LastSpace = 0;
-
+    
     if (RegQueryValueEx(hKey,
                         Value,
                         NULL,
@@ -136,9 +135,8 @@ SetProcNameString(HWND hwnd,
     {
         lpBuf = HeapAlloc(GetProcessHeap(),
                           0,
-                          BufSize);
-        if (!lpBuf)
-            return 0;
+                          BufSize);   
+        if (!lpBuf) return 0;
 
         if (RegQueryValueEx(hKey,
                             Value,
@@ -147,87 +145,64 @@ SetProcNameString(HWND hwnd,
                             (PBYTE)lpBuf,
                             &BufSize) == ERROR_SUCCESS)
         {
-            if (BufSize > ((30 + 1) * sizeof(TCHAR)))
-            {
-                /* Wrap the Processor Name String like XP does:                           *
-                *   - Take the first 30 characters and look for the last space.          *
-                *     Then wrap the string after this space.                             *
-                *   - If no space is found, wrap the string after character 30.          *
-                *                                                                        *
-                * For example the Processor Name String of a Pentium 4 is right-aligned. *
-                * With this wrapping the first line looks centered.                      */
+        	  if(BufSize > ((30 + 1) * sizeof(TCHAR)))
+        	  {
+              /* Wrap the Processor Name String like XP does:                           *
+               *   - Take the first 30 characters and look for the last space.          *
+               *     Then wrap the string after this space.                             *
+               *   - If no space is found, wrap the string after character 30.          *
+               *                                                                        *
+               * For example the Processor Name String of a Pentium 4 is right-aligned. *
+               * With this wrapping the first line looks centered.                      */
 
-                _tcsncpy(szBuf, lpBuf, 30);
-                szBuf[30] = 0;
-                szLastSpace = _tcsrchr(szBuf, ' ');
-
-                if (szLastSpace == 0)
-                {
-                    LastSpace = 30;
-                }
-                else
-                {
-                    LastSpace = (szLastSpace - szBuf);
-                    szBuf[LastSpace] = 0;
-                }
-
-                _tcsncpy(szBuf, lpBuf, LastSpace);
-
-                SetDlgItemText(hwnd,
-                               uID1,
-                               szBuf);
-
-                SetDlgItemText(hwnd,
-                               uID2,
-                               lpBuf+LastSpace+1);
-
-                /* Return the number of used lines */
-                Ret = 2;
+              _tcsncpy(szBuf, lpBuf, 30);
+              szLastSpace = _tcsrchr(szBuf, ' ');
+              
+              if(szLastSpace == 0)
+                LastSpace = 30;
+              else
+                LastSpace = (szLastSpace - szBuf);
+              
+              _tcsncpy(szBuf, lpBuf, LastSpace);
+              szBuf[LastSpace] = 0;
+              
+              SetDlgItemText(hwnd,
+                             uID1,
+                             szBuf);
+        	  	
+              SetDlgItemText(hwnd,
+                             uID2,
+                             lpBuf+LastSpace+1);
+        	  	
+              /* Return the number of used lines */
+              Ret = 2;
             }
             else
             {
-                SetDlgItemText(hwnd,
+              SetDlgItemText(hwnd,
                              uID1,
                              lpBuf);
-
-                Ret = 1;
+              
+              Ret = 1;
             }
         }
 
         HeapFree(GetProcessHeap(),
                  0,
                  lpBuf);
+        
+        return Ret;
     }
-
-    return Ret;
+    
+    return 0;
 }
 
-static VOID
-MakeFloatValueString(double* dFloatValue,
-                     LPTSTR szOutput,
-                     LPTSTR szAppend)
-{
-    TCHAR szDecimalSeparator[4];
-
-    /* Get the decimal separator for the current locale */
-    if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, szDecimalSeparator, sizeof(szDecimalSeparator) / sizeof(TCHAR)) > 0)
-    {
-        UCHAR uDecimals;
-        UINT uIntegral;
-
-        /* Show the value with two decimals */
-        uIntegral = (UINT)*dFloatValue;
-        uDecimals = (UCHAR)((UINT)(*dFloatValue * 100) - uIntegral * 100);
-
-        wsprintf(szOutput, _T("%u%s%02u %s"), uIntegral, szDecimalSeparator, uDecimals, szAppend);
-    }
-}
-
-static VOID
+static  VOID
 SetProcSpeed(HWND hwnd,
              HKEY hKey,
              LPTSTR Value,
              UINT uID)
+
 {
     TCHAR szBuf[64];
     DWORD BufSize = sizeof(DWORD);
@@ -243,21 +218,21 @@ SetProcSpeed(HWND hwnd,
                                 (PVOID)&ppi,
                                 sizeof(ppi)) == STATUS_SUCCESS &&
          ppi.CurrentMhz != 0) ||
-         RegQueryValueEx(hKey,
-                         Value,
-                         NULL,
-                         &Type,
-                         (PBYTE)&ppi.CurrentMhz,
-                         &BufSize) == ERROR_SUCCESS)
+        RegQueryValueEx(hKey,
+                        Value,
+                        NULL,
+                        &Type,
+                        (PBYTE)&ppi.CurrentMhz,
+                        &BufSize) == ERROR_SUCCESS)
     {
         if (ppi.CurrentMhz < 1000)
         {
-            wsprintf(szBuf, _T("%lu MHz"), ppi.CurrentMhz);
+            _stprintf(szBuf, _T("%lu MHz"), ppi.CurrentMhz);
         }
         else
         {
             double flt = ppi.CurrentMhz / 1000.0;
-            MakeFloatValueString(&flt, szBuf, _T("GHz"));
+            _stprintf(szBuf, _T("%.2f GHz"), flt);
         }
 
         SetDlgItemText(hwnd,
@@ -273,10 +248,11 @@ GetSystemInformation(HWND hwnd)
     TCHAR ProcKey[] = _T("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");
     MEMORYSTATUSEX MemStat;
     TCHAR Buf[32];
+    INT Ret = 0;
     INT CurMachineLine = IDC_MACHINELINE1;
 
-    /*
-     * Get Processor information
+
+    /* Get Processor information *
      * although undocumented, this information is being pulled
      * directly out of the registry instead of via setupapi as it
      * contains all the info we need, and should remain static
@@ -287,21 +263,22 @@ GetSystemInformation(HWND hwnd)
                      KEY_READ,
                      &hKey) == ERROR_SUCCESS)
     {
-        SetRegTextData(hwnd,
-                       hKey,
-                       _T("VendorIdentifier"),
+        SetRegTextData(hwnd, 
+                       hKey, 
+                       _T("VendorIdentifier"), 
                        CurMachineLine);
         CurMachineLine++;
-
-        CurMachineLine += SetProcNameString(hwnd,
-                                            hKey,
-                                            _T("ProcessorNameString"),
-                                            CurMachineLine,
-                                            CurMachineLine + 1);
-
-        SetProcSpeed(hwnd,
-                     hKey,
-                     _T("~MHz"),
+        
+        Ret = SetProcNameString(hwnd, 
+                                hKey, 
+                                _T("ProcessorNameString"), 
+                                CurMachineLine,
+                                CurMachineLine+1);
+        CurMachineLine += Ret;
+        
+        SetProcSpeed(hwnd, 
+                     hKey, 
+                     _T("~MHz"), 
                      CurMachineLine);
         CurMachineLine++;
     }
@@ -313,54 +290,58 @@ GetSystemInformation(HWND hwnd)
     {
         TCHAR szStr[32];
         double dTotalPhys;
+        UINT i = 0;
+        static const UINT uStrId[] = {
+            IDS_MEGABYTE,
+            IDS_GIGABYTE,
+            IDS_TERABYTE,
+            IDS_PETABYTE
+        };
 
         if (MemStat.ullTotalPhys > 1024 * 1024 * 1024)
         {
-            UINT i = 0;
-            static const UINT uStrId[] = {
-                IDS_GIGABYTE,
-                IDS_TERABYTE,
-                IDS_PETABYTE
-            };
-
-            // We're dealing with GBs or more
+            /* We're dealing with GBs or more */
             MemStat.ullTotalPhys /= 1024 * 1024;
+            i++;
 
             if (MemStat.ullTotalPhys > 1024 * 1024)
             {
-                // We're dealing with TBs or more
+                /* We're dealing with TBs or more */
                 MemStat.ullTotalPhys /= 1024;
                 i++;
 
                 if (MemStat.ullTotalPhys > 1024 * 1024)
                 {
-                    // We're dealing with PBs or more
+                    /* We're dealing with PBs or more */
+
                     MemStat.ullTotalPhys /= 1024;
                     i++;
 
                     dTotalPhys = (double)MemStat.ullTotalPhys / 1024;
                 }
                 else
-                {
                     dTotalPhys = (double)MemStat.ullTotalPhys / 1024;
-                }
             }
             else
-            {
                 dTotalPhys = (double)MemStat.ullTotalPhys / 1024;
-            }
-
-            LoadString(hApplet, uStrId[i], szStr, sizeof(szStr) / sizeof(TCHAR));
-            MakeFloatValueString(&dTotalPhys, Buf, szStr);
         }
         else
         {
-            // We're dealing with MBs, don't show any decimals
-            LoadString(hApplet, IDS_MEGABYTE, szStr, sizeof(szStr) / sizeof(TCHAR));
-            wsprintf(Buf, _T("%u %s"), (UINT)MemStat.ullTotalPhys / 1024 / 1024, szStr);
+            /* We're daling with MBs */
+            dTotalPhys = (double)MemStat.ullTotalPhys / 1024 / 1024;
         }
 
-        SetDlgItemText(hwnd, CurMachineLine, Buf);
+        if (LoadString(hApplet, uStrId[i], szStr, sizeof(szStr) / sizeof(szStr[0])))
+        {
+            Ret = _stprintf(Buf, _T("%.2f %s"), dTotalPhys, szStr);
+        }
+    }
+
+    if (Ret)
+    {
+        SetDlgItemText(hwnd,
+                       CurMachineLine,
+                       Buf);
     }
 }
 
@@ -372,34 +353,22 @@ GeneralPageProc(HWND hwndDlg,
                 WPARAM wParam,
                 LPARAM lParam)
 {
-    PIMGINFO pImgInfo;
+    static IMGINFO ImgInfo;
 
     UNREFERENCED_PARAMETER(lParam);
     UNREFERENCED_PARAMETER(wParam);
 
-    pImgInfo = (PIMGINFO)GetWindowLongPtr(hwndDlg, DWLP_USER);
-
-    switch (uMsg)
+    switch(uMsg)
     {
         case WM_INITDIALOG:
-            pImgInfo = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IMGINFO));
-            if (pImgInfo == NULL)
-            {
-                EndDialog(hwndDlg, 0);
-                return FALSE;
-            }
-
-            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pImgInfo);
-
-            InitImageInfo(pImgInfo);
+        {
+            InitImageInfo(&ImgInfo);
             GetSystemInformation(hwndDlg);
-            break;
-
-        case WM_DESTROY:
-            HeapFree(GetProcessHeap(), 0, pImgInfo);
-            break;
+        }
+        break;
 
         case WM_COMMAND:
+        {
             if (LOWORD(wParam) == IDC_LICENCE)
             {
                 DialogBox(hApplet,
@@ -409,24 +378,25 @@ GeneralPageProc(HWND hwndDlg,
 
                 return TRUE;
             }
-            break;
+        }
+        break;
 
         case WM_DRAWITEM:
         {
             LPDRAWITEMSTRUCT lpDrawItem;
             lpDrawItem = (LPDRAWITEMSTRUCT) lParam;
-            if (lpDrawItem->CtlID == IDC_ROSIMG)
+            if(lpDrawItem->CtlID == IDC_ROSIMG)
             {
                 HDC hdcMem;
                 LONG left;
 
                 /* position image in centre of dialog */
-                left = (lpDrawItem->rcItem.right - pImgInfo->cxSource) / 2;
+                left = (lpDrawItem->rcItem.right - ImgInfo.cxSource) / 2;
 
                 hdcMem = CreateCompatibleDC(lpDrawItem->hDC);
                 if (hdcMem != NULL)
                 {
-                    SelectObject(hdcMem, pImgInfo->hBitmap);
+                    SelectObject(hdcMem, ImgInfo.hBitmap);
                     BitBlt(lpDrawItem->hDC,
                            left,
                            lpDrawItem->rcItem.top,
@@ -464,3 +434,8 @@ GeneralPageProc(HWND hwndDlg,
 
     return FALSE;
 }
+
+
+
+
+

@@ -1,15 +1,15 @@
 /* $Id: en-US.rc 24952 2006-11-28 21:44:53Z janderwald $ */
 
-LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+LANGUAGE LANG_POLISH, SUBLANG_NEUTRAL
 
 /* String Tables */
 
 /* Default settings */
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_APPTITLE            "ReactOS - Zapraszamy"
     IDS_DEFAULTTOPICTITLE   "ReactOS"
-    IDS_DEFAULTTOPICDESC    "Witaj w systemie operacyjnym ReactOS.\n\nWybierz temat po lewej."
+    IDS_DEFAULTTOPICDESC    "Witaj w systemie opercyjnym ReactOS.\n\nWybierz temat po lewej."
 //    IDS_CHECKTEXT           "Poka¿ ten dialog ponownie"
 //    IDS_CLOSETEXT           "Wyjœcie"
 END

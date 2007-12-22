@@ -1,5 +1,5 @@
 <!-- <!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"> -->
-<!-- $Id: installation.xml,v 1.136.2.2 2007/03/10 01:21:11 vladd%bugzilla.org Exp $ -->
+<!-- $Id: installation.xml,v 1.107.2.7 2006/03/03 22:23:18 jocuri%softhome.net Exp $ -->
 <chapter id="installing-bugzilla">
   <title>Installing Bugzilla</title>
 
@@ -258,7 +258,7 @@
         <para>Many people complain that Perl modules will not install for
         them. Most times, the error messages complain that they are missing a
         file in 
-        <quote>@INC</quote>.
+        <quote>@INC</quote>. 
         Virtually every time, this error is due to permissions being set too
         restrictively for you to compile Perl modules or not having the
         necessary Perl development libraries installed on your system.
@@ -287,10 +287,22 @@
 
         <listitem>
           <para>
-            CGI &min-cgi-ver; or CGI &min-mp-cgi-ver; if using mod_perl
+            AppConfig (&min-appconfig-ver;)
           </para>
         </listitem>
 
+        <listitem>
+          <para>
+            CGI (&min-cgi-ver;)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Data::Dumper (&min-data-dumper-ver;)
+          </para>
+        </listitem>
+    
         <listitem>
           <para>
             Date::Format (&min-date-format-ver;)
@@ -324,6 +336,12 @@
 
         <listitem>
           <para>
+            File::Temp (&min-file-temp-ver;)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
             <link linkend="install-modules-template">Template</link>
             (&min-template-ver;)
           </para>
@@ -331,30 +349,41 @@
 
         <listitem>
           <para>
-            Email::Send (&min-email-send-ver;)
+            Text::Wrap (&min-text-wrap-ver;)
           </para>
         </listitem>
 
         <listitem>
           <para>
-            Email::MIME::Modifier (&min-email-mime-modifier-ver;)
+            Mail::Mailer (&min-mail-mailer-ver;)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            MIME::Base64 (&min-mime-base64-ver;)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            MIME::Parser (&min-mime-parser-ver;)
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Storable (&min-storable-ver;)
           </para>
         </listitem>
       </orderedlist>
 
       Optional Perl modules:
-      <orderedlist>
+      <orderedlist>  
         <listitem>
           <para>
             <link linkend="install-modules-gd">GD</link>
             (&min-gd-ver;) for bug charting
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            Template::Plugin::GD::Image
-            (&min-gd-ver;) for Graphical Reports
           </para>
         </listitem>
 
@@ -374,28 +403,15 @@
 
         <listitem>
           <para>
-            <link linkend="install-modules-gd-text">GD::Text</link>
-            (&min-gd-text-ver;) for bug charting
+            <link linkend="install-modules-gd-text-align">GD::Text::Align</link>
+            (&min-gd-text-align-ver;) for bug charting
           </para>
         </listitem>
 
         <listitem>
           <para>
-            <link linkend="install-modules-xml-twig">XML::Twig</link>
-            (&min-xml-twig-ver;) for bug import/export
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            MIME::Parser (&min-mime-parser-ver;) for bug import/export
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            LWP::UserAgent
-            (&min-lwp-useragent-ver;) for Automatic Update Notifications
+            <link linkend="install-modules-xml-parser">XML::Parser</link>
+            (&min-xml-parser-ver;) for the XML interface
           </para>
         </listitem>
 
@@ -411,70 +427,7 @@
             Image::Magick (&min-image-magick-ver;) for converting BMP image attachments to PNG
           </para>
         </listitem>
-
-        <listitem>
-          <para>
-            Net::LDAP
-            (&min-net-ldap-ver;) for LDAP Authentication
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            <link linkend="install-modules-soap-lite">SOAP::Lite</link>
-            (&min-soap-lite-ver;) for the web service interface
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            HTML::Parser
-            (&min-html-parser-ver;) for More HTML in Product/Group Descriptions
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            HTML::Scrubber
-            (&min-html-scrubber-ver;) for More HTML in Product/Group Descriptions
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            Email::MIME::Attachment::Stripper
-            (&min-email-mime-attachment-stripper-ver;) for Inbound Email
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            Email::Reply
-            (&min-email-reply-ver;) for Inbound Email
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            mod_perl2
-            (&min-mod_perl2-ver;) for mod_perl
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            CGI
-            (&min-cgi-ver;) for mod_perl
-          </para>
-        </listitem>
-
-        <listitem>
-          <para>
-            Apache::DBI
-            (&min-apache-dbi-ver;) for mod_perl2
-          </para>
-        </listitem>
-      </orderedlist>
+      </orderedlist>          
       </para>
 
       <section id="install-modules-dbd-mysql">
@@ -547,29 +500,23 @@
         </para>
       </section>
 
-      <section id="install-modules-gd-text">
-        <title>GD::Text (&min-gd-text-ver;)</title>
+      <section id="install-modules-gd-text-align">
+        <title>GD::Text::Align (&min-gd-text-align-ver;)</title>
 
-        <para>The GD::Text module is only required if you want graphical 
+        <para>The GD::Text::Align module is only required if you want graphical 
         reports.
         </para>
       </section>
 
-      <section id="install-modules-xml-twig">
-        <title>XML::Twig (&min-xml-twig-ver;)</title>
+      <section id="install-modules-xml-parser">
+        <title>XML::Parser (&min-xml-parser-ver;)</title>
 
-        <para>The XML::Twig module is only required if you want to import
+        <para>The XML::Parser module is only required if you want to import
         XML bugs using the <filename>importxml.pl</filename>
         script. This is required to use Bugzilla's "move bugs" feature;
         you may also want to use it for migrating from another bug database.
-        </para>
-      </section>
-
-      <section id="install-modules-soap-lite">
-        <title>SOAP::Lite (&min-soap-lite-ver;)</title>
-        <para>Installing SOAP::Lite enables your Bugzilla installation to be
-        accessible at a standardized Web Service interface (SOAP/XML-RPC)
-        by third-party applications via HTTP(S).
+        XML::Parser requires that the
+        <classname>expat</classname> library is already installed on your machine.
         </para>
       </section>
 
@@ -602,8 +549,8 @@
         </para>
 
         <para>
-          For more information, see the <quote>mail_delivery_method</quote> parameter
-          in <xref linkend="parameters" />.
+          For more information, see the "maildeliverymethod" parameter in 
+          <xref linkend="parameters" />.
         </para>
       </note>
     
@@ -637,23 +584,7 @@
       </para>
 
     </section>  
-    <section id="using-mod_perl-with-bugzilla">
-      <title>Installing Bugzilla on mod_perl</title>
-      <para>It is now possible to run the Bugzilla software under <literal>mod_perl</literal> on
-      Apache. <literal>mod_perl</literal> has some additional requirements to that of running
-      Bugzilla under <literal>mod_cgi</literal> (the standard and previous way).</para>
-      
-      <para>Bugzilla requires <literal>mod_perl</literal> to be installed, which can be
-      obtained from <ulink url="http://perl.apache.org"/> - Bugzilla requires
-      version &min-mod_perl2-ver; (AKA 2.0.0-RC5) to be installed.</para>
-      
-      <para>Bugzilla also requires a more up-to-date version of the CGI
-      perl module to be installed, version &min-mp-cgi-ver; as opposed to &min-cgi-ver;
-      </para>
-      
-      <para>Finally, Bugzilla also requires <literal>Apache::DBI</literal>
-      (&min-apache-dbi-ver;) to be installed as well.</para>
-    </section>
+
   </section>
   
   
@@ -723,25 +654,10 @@
     
     <section id="database-engine">
       <title>Database Server</title>
-      <para>
-        This section deals with configuring your database server for use
-        with Bugzilla. Currently, MySQL (<xref linkend="mysql"/>) and
-        PostgreSQL (<xref linkend="postgresql"/>) are available.
-      </para>
-
-      <section id="database-schema">
-        <title>Bugzilla Database Schema</title>
-
-        <para>
-          The Bugzilla database schema is available at
-          <ulink url="http://www.ravenbrook.com/project/p4dti/tool/cgi/bugzilla-schema/">Ravenbrook</ulink>.
-          This very valuable tool can generate a written description of
-          the Bugzilla database schema for any version of Bugzilla. It
-          can also generate a diff between two versions to help someone
-          see what has changed.
-        </para>
-      </section>
-
+      <para>This section deals with configuring your database server for use
+      with Bugzilla. Currently <xref linkend="mysql"/> and
+      <xref linkend="postgresql"/> are available.</para>
+      
       <section id="mysql">
         <title>MySQL</title>
 
@@ -762,9 +678,19 @@
             to modify your <filename>/etc/my.cnf</filename> as below.
           </para>
 
+          <para>
+            If you are using MySQL 4.0 or newer, enter:
+          </para>
           <screen>  [mysqld]
   # Allow packets up to 1M
   max_allowed_packet=1M</screen>
+
+          <para>
+            If you are using an older version of MySQL, enter:
+          </para>
+          <screen>  [mysqld]
+  # Allow packets up to 1M
+  set-variable = max_allowed_packet=1M</screen>
 
           <para>
             There is also a parameter in Bugzilla called 'maxattachmentsize'
@@ -803,6 +729,45 @@
           <para>Rebuilding the indexes can be done based on documentation found at
           <ulink url="http://www.mysql.com/doc/en/Fulltext_Fine-tuning.html"/>.
           </para>
+
+          <note>
+            <para>
+              The ft_min_word_len parameter is only supported in MySQL v4 or higher.
+            </para>
+          </note>
+        </section>
+        
+        <section>
+          <title>Permit attachments table to grow beyond 4GB</title>
+
+          <para>
+            By default, MySQL will limit the size of a table to 4GB.
+            This limit is present even if the underlying filesystem
+            has no such limit.  To set a higher limit, follow these
+            instructions.
+          </para>
+
+          <para>
+            Run the <filename>MySQL</filename> command-line client and
+            enter:
+          </para>
+
+          <screen>  <prompt>mysql&gt;</prompt> ALTER TABLE attachments 
+            AVG_ROW_LENGTH=1000000, MAX_ROWS=20000;
+          </screen>
+
+          <para>
+            The above command will change the limit to 20GB. Mysql will have 
+            to make a temporary copy of your entire table to do this. Ideally, 
+            you should do this when your attachments table is still small.
+          </para>
+
+          <note>
+            <para>
+              This does not affect Big Files, attachments that are stored directly
+              on disk instead of in the database.
+            </para>
+          </note>
         </section>
         
         <section id="install-setupdatabase-adduser">
@@ -830,7 +795,11 @@
           </para>
         
           <para>
-            Run the <filename>mysql</filename> command-line client and enter:
+            Run the <filename>mysql</filename> command-line client.
+          </para>
+
+          <para>
+            If you are using MySQL 4.0 or newer, enter:
           </para>
 
           <screen>  <prompt>mysql&gt;</prompt> GRANT SELECT, INSERT,
@@ -839,48 +808,32 @@
            TO bugs@localhost IDENTIFIED BY '<replaceable>$db_pass</replaceable>';
            <prompt>mysql&gt;</prompt> FLUSH PRIVILEGES;</screen>
 
+          <para>
+            If you are using an older version of MySQL,the
+            <computeroutput>LOCK TABLES</computeroutput> and 
+            <computeroutput>CREATE TEMPORARY TABLES</computeroutput>
+            permissions will be unavailable and should be removed from
+            the permissions list. In this case, the following command
+            line can be used:
+          </para>
+
+          <screen>  <prompt>mysql&gt;</prompt> GRANT SELECT, INSERT,
+           UPDATE, DELETE, INDEX, ALTER, CREATE, DROP,
+           REFERENCES ON bugs.* TO bugs@localhost IDENTIFIED BY
+           '<replaceable>$db_pass</replaceable>';
+           <prompt>mysql&gt;</prompt> FLUSH PRIVILEGES;</screen>
         </section>      
-        
-        <section>
-          <title>Permit attachments table to grow beyond 4GB</title>
-
-          <para>
-            By default, MySQL will limit the size of a table to 4GB.
-            This limit is present even if the underlying filesystem
-            has no such limit.  To set a higher limit, follow these
-            instructions.
-          </para>
-
-          <para>
-            After you have completed the rest of the installation (or at least the
-            database setup parts), you should run the <filename>MySQL</filename>
-            command-line client and enter the following, replacing <literal>$bugs_db</literal>
-            with your Bugzilla database name (<emphasis>bugs</emphasis> by default):
-          </para>
-
-          <screen>
-            <prompt>mysql&gt;</prompt> use <replaceable>$bugs_db</replaceable>
-            <prompt>mysql&gt;</prompt> ALTER TABLE attachments 
-            AVG_ROW_LENGTH=1000000, MAX_ROWS=20000;
-          </screen>
-
-          <para>
-            The above command will change the limit to 20GB. Mysql will have 
-            to make a temporary copy of your entire table to do this. Ideally, 
-            you should do this when your attachments table is still small. 
-          </para>
-
-          <note>
-            <para>
-              This does not affect Big Files, attachments that are stored directly
-              on disk instead of in the database.
-            </para>
-          </note>
-        </section>
       </section>
       
       <section id="postgresql">
         <title>PostgreSQL</title>
+        <note>
+          <para>If you are using PostgreSQL 8.0.1 or higher, then you
+          will require to use a version of DBD::Pg which is equal to or
+          greater than version 1.41
+          </para>
+        </note>
+        
         <section>
           <title>Add a User to PostgreSQL</title>
 
@@ -915,13 +868,28 @@
           you will need to add a new line to it as follows:</para>
 
           <para>
-            <computeroutput>host   all    bugs   127.0.0.1    255.255.255.255  md5</computeroutput>
+	    <computeroutput>host   all    bugs   127.0.0.1    255.255.255.255  md5</computeroutput>
           </para>
-          
+	  
           <para>This means that for TCP/IP (host) connections, allow connections from
           '127.0.0.1' to 'all' databases on this server from the 'bugs' user, and use
           password authentication (md5) for that user.</para>
 
+          <para>If you are using <emphasis role="bold">versions of PostgreSQL
+          before version 8</emphasis>, you may also need to edit <filename>postgresql.conf</filename>
+          , also usually found in the <filename>/var/lib/pgsql/data/</filename> folder.
+          You will need to make a single line change, changing</para>
+
+          <para>
+            <computeroutput># tcpip_socket = false</computeroutput>
+          </para>
+  
+          <para>to</para>
+            
+	  <para>
+            <computeroutput>tcpip_socket = true</computeroutput>
+	  </para>
+  
           <para>Now, you will need to restart PostgreSQL, but you will need to fully
           stop and start the server rather than just restarting due to the possibility
           of a change to <filename>postgresql.conf</filename>. After the server has
@@ -966,220 +934,107 @@
       <para>
         Configure your web server according to the instructions in the
         appropriate section. (If it makes a difference in your choice,
-        the Bugzilla Team recommends Apache.) To check whether your web server
-	is correctly configured, try to access <filename>testagent.cgi</filename>
-	from your web server. If "OK" is displayed, then your configuration
-	is successful. Regardless of which web server
+        the Bugzilla Team recommends Apache.) Regardless of which webserver
         you are using, however, ensure that sensitive information is
         not remotely available by properly applying the access controls in
-        <xref linkend="security-webserver-access"/>. You can run
-        <filename>testserver.pl</filename> to check if your web server serves
-        Bugzilla files as expected.
+        <xref linkend="security-webserver-access"/>.
       </para>
 
       <section id="http-apache">
-        <title>Bugzilla using Apache</title>
-        <para>You have two options for running Bugzilla under Apache - 
-          <link linkend="http-apache-mod_cgi">mod_cgi</link> (the default) and
-          <link linkend="http-apache-mod_perl">mod_perl</link> (new in Bugzilla
-          2.23)
+        <title>Apache <productname>httpd</productname></title>
+
+        <para>
+          To configure your Apache web server to work with Bugzilla,
+          do the following:
         </para>
-        <section id="http-apache-mod_cgi">
-            <title>Apache <productname>httpd</productname> with mod_cgi</title>
-    
+           
+        <procedure>
+          <step>
             <para>
-            To configure your Apache web server to work with Bugzilla while using
-            mod_cgi, do the following:
+              Load <filename>httpd.conf</filename> in your editor.
+              In Fedora and Red Hat Linux, this file is found in
+              <filename class="directory">/etc/httpd/conf</filename>.
             </para>
-            
-            <procedure>
-            <step>
-                <para>
-                Load <filename>httpd.conf</filename> in your editor.
-                In Fedora and Red Hat Linux, this file is found in
-                <filename class="directory">/etc/httpd/conf</filename>.
-                </para>
-            </step>
-    
-            <step>
-                <para>
-                Apache uses <computeroutput>&lt;Directory&gt;</computeroutput>
-                directives to permit fine-grained permission setting. Add the
-                following lines to a directive that applies to the location
-                of your Bugzilla installation. (If such a section does not
-                exist, you'll want to add one.) In this example, Bugzilla has
-                been installed at 
-                <filename class="directory">/var/www/html/bugzilla</filename>.
-                </para>
-    
-                <programlisting>
-    &lt;Directory /var/www/html/bugzilla&gt;
-    AddHandler cgi-script .cgi
-    Options +Indexes +ExecCGI
-    DirectoryIndex index.cgi
-    AllowOverride Limit
-    &lt;/Directory&gt;
-                </programlisting>
-    
-                <para>
-                These instructions: allow apache to run .cgi files found
-                within the bugzilla directory; instructs the server to look
-                for a file called <filename>index.cgi</filename> if someone
-                only types the directory name into the browser; and allows
-                Bugzilla's <filename>.htaccess</filename> files to override
-                global permissions.
-                </para>
-    
-                <note>
-                <para>
-                    It is possible to make these changes globally, or to the
-                    directive controlling Bugzilla's parent directory (e.g.
-                    <computeroutput>&lt;Directory /var/www/html/&gt;</computeroutput>).
-                    Such changes would also apply to the Bugzilla directory...
-                    but they would also apply to many other places where they
-                    may or may not be appropriate. In most cases, including
-                    this one, it is better to be as restrictive as possible
-                    when granting extra access.
-                </para>
-                </note>
-            </step>                    
-    
-            <step>
-                <para>
-                <filename>checksetup.pl</filename> can set tighter permissions
-                on Bugzilla's files and directories if it knows what group the
-                webserver runs as. Find the <computeroutput>Group</computeroutput>
-                line in <filename>httpd.conf</filename>, place the value found
-                there in the <replaceable>$webservergroup</replaceable> variable
-                in <filename>localconfig</filename>, then rerun
-                <filename>checksetup.pl</filename>.
-                </para>
-            </step>
-    
-            <step>
-                <para>
-                Optional: If Bugzilla does not actually reside in the webspace
-                directory, but instead has been symbolically linked there, you
-                will need to add the following to the
-                <computeroutput>Options</computeroutput> line of the Bugzilla 
-                <computeroutput>&lt;Directory&gt;</computeroutput> directive
-                (the same one as in the step above):
-                </para>
-    
-                <programlisting>
-    +FollowSymLinks
-                </programlisting>
-    
-                <para>
-                Without this directive, Apache will not follow symbolic links
-                to places outside its own directory structure, and you will be
-                unable to run Bugzilla.
-                </para>
-            </step>
-            </procedure>
-        </section>
-        <section id="http-apache-mod_perl">
-            <title>Apache <productname>httpd</productname> with mod_perl</title>
-            
-            <para>Some configuration is required to make Bugzilla work with Apache
-            and mod_perl</para>
-            
-            <procedure>
-            <step>
-                <para>
-                Load <filename>httpd.conf</filename> in your editor.
-                In Fedora and Red Hat Linux, this file is found in
-                <filename class="directory">/etc/httpd/conf</filename>.
-                </para>
-            </step>
-            
-            <step>
-                <para>Add the following information to your httpd.conf file, substituting
-                where appropriate with your own local paths.</para>
-                
-                <note>
-                <para>This should be used instead of the &lt;Directory&gt; block
-                shown above. This should also be above any other <literal>mod_perl</literal>
-                directives within the <filename>httpd.conf</filename> and must be specified
-                in the order as below.</para>
-                </note>
-                <warning>
-                <para>You should also ensure that you have disabled <literal>KeepAlive</literal>
-                support in your Apache install when utilizing Bugzilla under mod_perl</para>
-                </warning> 
-                
-                <programlisting>
-    PerlSwitches -I/var/www/html/bugzilla -w -T
-    PerlConfigRequire /var/www/html/bugzilla/mod_perl.pl
-                </programlisting>
-            </step>
-			
-			<step>
-				<para>
-					<filename>checksetup.pl</filename> can set tighter permissions
-					on Bugzilla's files and directories if it knows what group the
-					webserver runs as. Find the <computeroutput>Group</computeroutput>
-					line in <filename>httpd.conf</filename>, place the value found
-					there in the <replaceable>$webservergroup</replaceable> variable
-					in <filename>localconfig</filename>, then rerun
-					<filename>checksetup.pl</filename>.
-				</para>
-            </step>
-            </procedure>
-            
-            <para>On restarting Apache, Bugzilla should now be running within the
-            mod_perl environment. Please ensure you have run checksetup.pl to set
-		    permissions before you restart Apache.</para>
-        
+          </step>
+
+          <step>
+            <para>
+              Apache uses <computeroutput>&lt;Directory&gt;</computeroutput>
+              directives to permit fine-grained permission setting. Add the
+              following lines to a directive that applies to the location
+              of your Bugzilla installation. (If such a section does not
+              exist, you'll want to add one.) In this example, Bugzilla has
+              been installed at 
+              <filename class="directory">/var/www/html/bugzilla</filename>.
+            </para>
+
+            <programlisting>
+&lt;Directory /var/www/html/bugzilla&gt;
+  AddHandler cgi-script .cgi
+  Options +Indexes +ExecCGI
+  DirectoryIndex index.cgi
+  AllowOverride Limit
+&lt;/Directory&gt;
+            </programlisting>
+
+            <para>
+              These instructions: allow apache to run .cgi files found
+              within the bugzilla directory; instructs the server to look
+              for a file called <filename>index.cgi</filename> if someone
+              only types the directory name into the browser; and allows
+              Bugzilla's <filename>.htaccess</filename> files to override
+              global permissions.
+            </para>
+
             <note>
-            <para>Please bear the following points in mind when looking at using 
-                Bugzilla under mod_perl: 
-            <itemizedlist>
-                <listitem>
-                <para>
-                    mod_perl support in Bugzilla can take up a HUGE amount of RAM. You could be
-                    looking at 30MB per httpd child, easily. Basically, you just need a lot of RAM.
-                    The more RAM you can get, the better. mod_perl is basically trading RAM for
-                    speed. At least 2GB total system RAM is recommended for running Bugzilla under
-                    mod_perl.
-                </para>
-                </listitem>
-                <listitem>
-                <para>
-                    Under mod_perl, you have to restart Apache if you make any manual change to
-                    any Bugzilla file. You can't just reload--you have to actually 
-					<emphasis>restart</emphasis> the server (as in make sure it stops and starts 
-					again). You <emphasis>can</emphasis> change localconfig and the params file 
-					manually, if you want, because those are re-read every time you load a page.
-                </para>
-                </listitem>
-                <listitem>
-                <para>
-                    You must run in Apache's Prefork MPM (this is the default). The Worker MPM
-                    may not work--we haven't tested Bugzilla's mod_perl support under threads.
-					(And, in fact, we're fairly sure it <emphasis>won't</emphasis> work.)
-                </para>
-                </listitem>
-                <listitem>
-                <para>
-                    Bugzilla generally expects to be the only mod_perl application running on
-                    your entire server. It may or may not work if there are other applications also
-                    running under mod_perl. It does try its best to play nice with other mod_perl
-                    applications, but it still may have conflicts.
-                </para>
-                </listitem>
-                <listitem>
-                <para>
-                    It is recommended that you have one Bugzilla instance running under mod_perl
-                    on your server. Bugzilla has not been tested with more than one instance running.
-                </para>
-                </listitem>
-            </itemizedlist>
-            </para>
+              <para>
+                It is possible to make these changes globally, or to the
+                directive controlling Bugzilla's parent directory (e.g.
+                <computeroutput>&lt;Directory /var/www/html/&gt;</computeroutput>).
+                Such changes would also apply to the Bugzilla directory...
+                but they would also apply to many other places where they
+                may or may not be appropriate. In most cases, including
+                this one, it is better to be as restrictive as possible
+                when granting extra access.
+              </para>
             </note>
-        </section>
+          </step>                    
+
+          <step>
+            <para>
+              <filename>checksetup.pl</filename> can set tighter permissions
+              on Bugzilla's files and directories if it knows what group the
+              webserver runs as. Find the <computeroutput>Group</computeroutput>
+              line in <filename>httpd.conf</filename>, place the value found
+              there in the <replaceable>$webservergroup</replaceable> variable
+              in <filename>localconfig</filename>, then rerun
+              <filename>checksetup.pl</filename>.
+            </para>
+          </step>
+
+          <step>
+            <para>
+              Optional: If Bugzilla does not actually reside in the webspace
+              directory, but instead has been symbolically linked there, you
+              will need to add the following to the
+              <computeroutput>Options</computeroutput> line of the Bugzilla 
+              <computeroutput>&lt;Directory&gt;</computeroutput> directive
+              (the same one as in the step above):
+            </para>
+
+            <programlisting>
+ +FollowSymLinks
+            </programlisting>
+
+            <para>
+              Without this directive, Apache will not follow symbolic links
+              to places outside its own directory structure, and you will be
+              unable to run Bugzilla.
+            </para>
+          </step>
+        </procedure>
       </section>
-      
+
       <section id="http-iis">
         <title>Microsoft <productname>Internet Information Services</productname></title>
 
@@ -1521,18 +1376,16 @@ c:\perl\bin\perl.exe -xc:\bugzilla -wT "%s" %s
       you need to deal with user ID (e.g assigning a bug) use the email
       address. The LDAP authentication builds on top of this scheme, rather
       than replacing it. The initial log in is done with a username and
-      password for the LDAP directory. Bugzilla tries to bind to LDAP using
-      those credentials, and if successful, try to map this account to a
-      Bugzilla account. If a  LDAP mail attribute is defined, the value of this
-      attribute is used, otherwise emailsuffix parameter is appended to LDAP
-      username to form a full email address. If an account for this address
-      already exists in your Bugzilla system, it will log in to that account.
-      If no account for that email address exists, one is created at the time
-      of login. (In this case, Bugzilla will attempt to use the "displayName"
-      or "cn" attribute to determine the user's full name.) After
-      authentication, all other user-related tasks are still handled by email
-      address, not LDAP username. You still assign bugs by email address, query
-      on users by email address, etc.
+      password for the LDAP directory. This then fetches the email address
+      from LDAP and authenticates seamlessly in the standard Bugzilla
+      authentication scheme using this email address. If an account for this
+      address already exists in your Bugzilla system, it will log in to that
+      account. If no account for that email address exists, one is created at
+      the time of login. (In this case, Bugzilla will attempt to use the
+      "displayName" or "cn" attribute to determine the user's full name.)
+      After authentication, all other user-related tasks are still handled by
+      email address, not LDAP username. You still assign bugs by email
+      address, query on users by email address, etc.
       </para>
 
       <caution>
@@ -1547,12 +1400,12 @@ c:\perl\bin\perl.exe -xc:\bugzilla -wT "%s" %s
         201069</ulink>.
         </para>
       </caution>
-
+      
       <para>Parameters required to use LDAP Authentication:</para>
 
       <variablelist>
-        <varlistentry id="param-user_verify_class">
-          <term>user_verify_class</term>
+        <varlistentry id="param-loginmethod">
+          <term>loginmethod</term>
           <listitem>
             <para>This parameter should be set to <quote>LDAP</quote>
             <emphasis>only</emphasis> if you will be using an LDAP directory
@@ -1560,7 +1413,7 @@ c:\perl\bin\perl.exe -xc:\bugzilla -wT "%s" %s
             fail to set up the other parameters listed below you will not be
             able to log back in to Bugzilla one you log out. If this happens
             to you, you will need to manually edit
-            <filename>data/params</filename> and set user_verify_class to
+            <filename>data/params</filename> and set loginmethod to
             <quote>DB</quote>.
             </para>
           </listitem>
@@ -1575,15 +1428,6 @@ c:\perl\bin\perl.exe -xc:\bugzilla -wT "%s" %s
             </para>
             <para>Ex. <quote>ldap.company.com</quote>
              or <quote>ldap.company.com:3268</quote>
-            </para>
-            <para>You can also specify a LDAP URI, so as to use other
-            protocols, such as LDAPS or LDAPI. If port was not specified in
-            the URI, the default is either 389 or 636 for 'LDAP' and 'LDAPS'
-            schemes respectively.
-            </para>
-            <para>Ex. <quote>ldap://ldap.company.com</quote>,
-            <quote>ldaps://ldap.company.com</quote> or
-            <quote>ldapi://%2fvar%2flib%2fldap_sock</quote>
             </para>
            </listitem>
          </varlistentry>
@@ -1663,46 +1507,6 @@ AddType application/rdf+xml .rdf</screen>
     </section>    
   </section>
 
-  <section>
-    <title>Multiple Bugzilla databases with a single installation</title>
-
-    <para>The previous instructions referred to a standard installation, with
-      one unique Bugzilla database. However, you may want to host several
-      distinct installations, without having several copies of the code. This is
-      possible by using the PROJECT environment variable. When accessed,
-      Bugzilla checks for the existence of this variable, and if present, uses
-      its value to check for an alternative configuration file named
-      <filename>localconfig.&lt;PROJECT&gt;</filename> in the same location as
-      the default one (<filename>localconfig</filename>). It also checks for
-      customized templates in a directory named
-      <filename>&lt;PROJECT&gt;</filename> in the same location as the
-      default one (<filename>template/&lt;langcode&gt;</filename>). By default
-      this is <filename>template/en/default</filename> so PROJECT's templates
-      would be located at <filename>template/en/PROJECT</filename>.</para> 
-
-      <para>To set up an alternate installation, just export PROJECT=foo before
-      running <command>checksetup.pl</command> for the first time. It will
-      result in a file called <filename>localconfig.foo</filename> instead of
-      <filename>localconfig</filename>. Edit this file as described above, with
-      reference to a new database, and re-run <command>checksetup.pl</command>
-      to populate it. That's all.</para>
-
-    <para>Now you have to configure the web server to pass this environment
-      variable when accessed via an alternate URL, such as virtual host for
-      instance. The following is an example of how you could do it in Apache,
-      other Webservers may differ.
-<programlisting>
-&lt;VirtualHost 212.85.153.228:80&gt;
-    ServerName foo.bar.baz
-    SetEnv PROJECT foo
-    Alias /bugzilla /var/www/bugzilla
-&lt;/VirtualHost&gt;
-</programlisting>
-    </para>
-
-    <para>Don't forget to also export this variable before accessing Bugzilla
-       by other means, such as cron tasks for instance.</para> 
-  </section>
 
   <section id="os-specific">
     <title>OS-Specific Installation Notes</title>

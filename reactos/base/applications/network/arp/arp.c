@@ -69,7 +69,7 @@ DWORD DoFormatMessage(VOID)
 
     DWORD ErrorCode = GetLastError();
 
-    if (ErrorCode != ERROR_SUCCESS)
+    if (ErrorCode != ERROR_SUCCESS) 
     {
         RetVal = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                FORMAT_MESSAGE_FROM_SYSTEM |
@@ -153,7 +153,7 @@ INT DisplayArpEntries(PTCHAR pszInetAddr, PTCHAR pszIfAddr)
     UINT i, k;
     PMIB_IPNETTABLE pIpNetTable = NULL;
     PMIB_IPADDRTABLE pIpAddrTable = NULL;
-    ULONG Size = 0;
+    DWORD Size = 0;
     struct in_addr inaddr, inaddr2;
     PTCHAR pszIpAddr;
     TCHAR szIntIpAddr[20];
@@ -248,7 +248,7 @@ INT DisplayArpEntries(PTCHAR pszInetAddr, PTCHAR pszIfAddr)
     }
 
     return EXIT_SUCCESS;
-
+    
 cleanup:
     if (pIpNetTable != NULL)
         HeapFree(GetProcessHeap(), 0, pIpNetTable);
@@ -413,7 +413,7 @@ INT Deletehost(PTCHAR pszInetAddr, PTCHAR pszIfAddr)
 {
     PMIB_IPNETROW pDelHost = NULL;
     PMIB_IPNETTABLE pIpNetTable = NULL;
-    ULONG Size = 0;
+    DWORD Size = 0;
     DWORD dwIpAddr = 0;
     INT iRet;
     BOOL bFlushTable = FALSE;
@@ -618,4 +618,4 @@ INT main(int argc, char* argv[])
         Usage();
 
     return EXIT_SUCCESS;
-}
+} 

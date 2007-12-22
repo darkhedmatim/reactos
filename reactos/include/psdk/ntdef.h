@@ -3,11 +3,7 @@
 #if __GNUC__ >=3
 #pragma GCC system_header
 #endif
-
-#include <stdarg.h>
-#include <windef.h>
-#include <excpt.h>
-
+ 
 /* TODO: some compilers support this */
 #define RESTRICTED_POINTER
 

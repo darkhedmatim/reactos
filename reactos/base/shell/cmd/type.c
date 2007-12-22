@@ -27,6 +27,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_TYPE
 
@@ -49,7 +50,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 	{
 		ConOutResPaging(TRUE,STRING_TYPE_HELP1);
 		return 0;
-	}
+	}	
 
 	if (!*param)
 	{
@@ -97,13 +98,13 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 			               NULL);
 			ConErrPrintf (_T("%s - %s"), argv[i], errmsg);
 			LocalFree (errmsg);
-			nErrorLevel = 1;
+      nErrorLevel = 1;
 			continue;
 		}
-
+		
 		do
 		{
-			bRet = FileGetString (hFile, buff, sizeof(buff) / sizeof(TCHAR));
+                        bRet = FileGetString (hFile, buff, sizeof(buff) / sizeof(TCHAR));
 			if(bPaging)
 			{
 				if(bRet)
@@ -116,7 +117,7 @@ INT cmd_type (LPTSTR cmd, LPTSTR param)
 				}
 			}
 			else
-			{
+			{				
 				if(bRet)
 					ConOutPrintf(buff);
 			}

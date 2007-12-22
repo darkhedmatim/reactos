@@ -176,7 +176,7 @@ sub directive_ok {
     return 1 if $directive =~ /^(IF|END|UNLESS|FOREACH|PROCESS|INCLUDE|
                                  BLOCK|USE|ELSE|NEXT|LAST|DEFAULT|FLUSH|
                                  ELSIF|SET|SWITCH|CASE|WHILE|RETURN|STOP|
-                                 TRY|CATCH|FINAL|THROW|CLEAR|MACRO)/x;
+                                 TRY|CATCH|FINAL|THROW|CLEAR)/x;
 
     # ? :
     if ($directive =~ /.+\?(.+):(.+)/) {
@@ -208,7 +208,7 @@ sub directive_ok {
     return 1 if $directive =~ /^Hook.process\(/;
 
     # Other functions guaranteed to return OK output
-    return 1 if $directive =~ /^(time2str|url)\(/;
+    return 1 if $directive =~ /^(time2str|GetBugLink|url)\(/;
 
     # Safe Template Toolkit virtual methods
     return 1 if $directive =~ /\.(length$|size$|push\()/;
@@ -223,9 +223,9 @@ sub directive_ok {
     # Note: If a single directive prints two things, and only one is 
     # filtered, we may not catch that case.
     return 1 if $directive =~ /FILTER\ (html|csv|js|base64|url_quote|css_class_quote|
-                                        ics|quoteUrls|time|uri|xml|lower|html_light|
+                                        ics|quoteUrls|time|uri|xml|lower|
                                         obsolete|inactive|closed|unitconvert|
-                                        txt|none)\b/x;
+                                        none)\b/x;
 
     return 0;
 }

@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -121,22 +122,25 @@ CmGetSystemControlValues(IN PVOID SystemHiveData,
 
     /* Initialize the Hive */
     Status = HvInitialize(SystemHive,
-                          HINIT_FLAT,
+                          HINIT_MEMORY_INPLACE, /* FIXME: Should be flat */
                           HIVE_VOLATILE,
                           HFILE_TYPE_PRIMARY,
-                          SystemHiveData,
-                          NULL,
-                          NULL,
-                          NULL,
-                          NULL,
-                          NULL,
-                          NULL,
+                          (ULONG_PTR)SystemHiveData,
                           1,
+                          NULL,
+                          NULL,
+                          NULL,
+                          NULL,
+                          NULL,
+                          NULL,
                           NULL);
     if (!NT_SUCCESS(Status)) KeBugCheckEx(BAD_SYSTEM_CONFIG_INFO, 1, 1, 0, 0);
 
     /* Sanity check, flat hives don't have release routines */
     ASSERT(SystemHive->ReleaseCellRoutine == NULL);
+
+    /* FIXME: Prepare it */
+    CmPrepareHive(SystemHive);
 
     /* Set the Root Cell */
     RootCell = ((PHBASE_BLOCK)SystemHiveData)->RootCell;

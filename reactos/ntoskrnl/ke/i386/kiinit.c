@@ -18,10 +18,6 @@
 KSPIN_LOCK KiFreezeExecutionLock;
 KSPIN_LOCK Ki486CompatibilityLock;
 
-/* BIOS Memory Map. Not NTLDR-compliant yet */
-extern ULONG KeMemoryMapRangeCount;
-extern ADDRESS_RANGE KeMemoryMap[64];
-
 /* FUNCTIONS *****************************************************************/
 
 VOID
@@ -210,11 +206,10 @@ KiInitMachineDependent(VOID)
                                               CurrentSample->TSCStart;
 
                     /* Compute CPU Speed */
-                    CurrentSample->MHz = (ULONG)((CurrentSample->TSCDelta *
-                                                  CurrentSample->
-                                                  PerfFreq.QuadPart + 500000) /
-                                                 (CurrentSample->PerfDelta *
-                                                  1000000));
+                    CurrentSample->MHz = ((CurrentSample->TSCDelta *
+                                           CurrentSample->PerfFreq.QuadPart +
+                                           500000) /
+                                          (CurrentSample->PerfDelta * 1000000));
 
                     /* Check if this isn't the first sample */
                     if (Sample)
@@ -232,13 +227,6 @@ KiInitMachineDependent(VOID)
                     /* Move on */
                     CurrentSample++;
                     Sample++;
-
-                    if (Sample == sizeof(Samples) / sizeof(Samples[0]))
-                    {
-                        /* Restart */
-                        CurrentSample = Samples;
-                        Sample = 0;
-                    }
                 }
 
                 /* Save the CPU Speed */
@@ -540,8 +528,8 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
     MmInit1(MmFreeLdrFirstKrnlPhysAddr,
             MmFreeLdrLastKrnlPhysAddr,
             MmFreeLdrLastKernelAddress,
-            KeMemoryMap,
-            KeMemoryMapRangeCount,
+            NULL,
+            0,
             4096);
 
     /* Set basic CPU Features that user mode can read */
@@ -580,9 +568,9 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
         Prcb->AdjustDpcThreshold = KiAdjustDpcThreshold;
 
         /* Allocate the DPC Stack */
-        DpcStack = MmCreateKernelStack(FALSE, 0);
+        DpcStack = MmCreateKernelStack(FALSE);
         if (!DpcStack) KeBugCheckEx(NO_PAGES_AVAILABLE, 1, 0, 0, 0);
-        Prcb->DpcStack = DpcStack;
+        Prcb->DpcStack = (PVOID)((ULONG_PTR)DpcStack + KERNEL_STACK_SIZE);
 
         /* Allocate the IOPM save area. */
         Ki386IopmSaveArea = ExAllocatePoolWithTag(PagedPool,
@@ -623,8 +611,8 @@ KiGetMachineBootPointers(IN PKGDTENTRY *Gdt,
     USHORT Tr = 0, Fs;
 
     /* Get GDT and IDT descriptors */
-    Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&GdtDescriptor.Limit);
-    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
+    Ke386GetGlobalDescriptorTable(GdtDescriptor);
+    Ke386GetInterruptDescriptorTable(IdtDescriptor);
 
     /* Save IDT and GDT */
     *Gdt = (PKGDTENTRY)GdtDescriptor.Base;
@@ -661,7 +649,6 @@ KiSystemStartup(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     ULONG InitialStack;
     PKGDTENTRY Gdt;
     PKIDTENTRY Idt;
-    KIDTENTRY NmiEntry, DoubleFaultEntry;
     PKTSS Tss;
     PKIPCR Pcr;
 
@@ -723,19 +710,6 @@ KiSystemStartup(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     Ke386SetDs(KGDT_R3_DATA | RPL_MASK);
     Ke386SetEs(KGDT_R3_DATA | RPL_MASK);
 
-    /* Save NMI and double fault traps */
-    RtlCopyMemory(&NmiEntry, &Idt[2], sizeof(KIDTENTRY));
-    RtlCopyMemory(&DoubleFaultEntry, &Idt[8], sizeof(KIDTENTRY));
-
-    /* Copy kernel's trap handlers */
-    RtlCopyMemory(Idt,
-                  (PVOID)KiIdtDescriptor.Base,
-                  KiIdtDescriptor.Limit + 1);
-
-    /* Restore NMI and double fault */
-    RtlCopyMemory(&Idt[2], &NmiEntry, sizeof(KIDTENTRY));
-    RtlCopyMemory(&Idt[8], &DoubleFaultEntry, sizeof(KIDTENTRY));
-
 AppCpuInit:
     /* Loop until we can release the freeze lock */
     do
@@ -771,13 +745,39 @@ AppCpuInit:
     KfRaiseIrql(HIGH_LEVEL);
 
     /* Align stack and make space for the trap frame and NPX frame */
-    InitialStack &= ~(KTRAP_FRAME_ALIGN - 1);
+    InitialStack &= -KTRAP_FRAME_ALIGN;
+#ifdef __GNUC__
+    __asm__ __volatile__("xorl %ebp, %ebp");
+    __asm__ __volatile__("movl %0,%%esp" : :"r" (InitialStack));
+    __asm__ __volatile__("subl %0,%%esp" : :"r" (NPX_FRAME_LENGTH +
+                                                 KTRAP_FRAME_LENGTH +
+                                                 KTRAP_FRAME_ALIGN));
+    __asm__ __volatile__("push %0" : :"r" (CR0_EM + CR0_TS + CR0_MP));
+#else
+    __asm xor ebp, ebp;
+    __asm mov esp, InitialStack;
+    __asm sub esp, NPX_FRAME_LENGTH + KTRAP_FRAME_ALIGN + KTRAP_FRAME_LENGTH;
+    __asm push CR0_EM + CR0_TS + CR0_MP;
+#endif
 
-    /* Switch to new kernel stack and start kernel bootstrapping */
-    KiSetupStackAndInitializeKernel(&KiInitialProcess.Pcb,
-                                    InitialThread,
-                                    (PVOID)InitialStack,
-                                    (PKPRCB)__readfsdword(KPCR_PRCB),
-                                    (CCHAR)Cpu,
-                                    KeLoaderBlock);
+    /* Call main kernel initialization */
+    KiInitializeKernel(&KiInitialProcess.Pcb,
+                       InitialThread,
+                       (PVOID)InitialStack,
+                       (PKPRCB)__readfsdword(KPCR_PRCB),
+                       (CCHAR)Cpu,
+                       KeLoaderBlock);
+
+    /* Set the priority of this thread to 0 */
+    KeGetCurrentThread()->Priority = 0;
+
+    /* Force interrupts enabled and lower IRQL back to DISPATCH_LEVEL */
+    _enable();
+    KfLowerIrql(DISPATCH_LEVEL);
+
+    /* Set the right wait IRQL */
+    KeGetCurrentThread()->WaitIrql = DISPATCH_LEVEL;
+
+    /* Jump into the idle loop */
+    KiIdleLoop();
 }

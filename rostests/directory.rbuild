@@ -16,6 +16,3 @@
 <directory name="winetests">
 	<xi:include href="winetests/directory.rbuild" />
 </directory>
-<directory name="apitests">
-	<xi:include href="apitests/directory.rbuild" />
-</directory>

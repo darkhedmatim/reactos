@@ -6,7 +6,7 @@
  *
  * PROGRAMMERS:     Jason Filby (jasonfilby@yahoo.com)
  *                  Filip Navara (xnavara@volny.cz)
- *                  Hervé Poussineau (hpoussin@reactos.org)
+ *                  Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #include "serenum.h"

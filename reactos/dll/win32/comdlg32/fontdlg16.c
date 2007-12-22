@@ -32,6 +32,7 @@
 #include "wine/winbase16.h"
 #include "wine/winuser16.h"
 #include "commdlg.h"
+#include "dlgs.h"
 #include "wine/debug.h"
 #include "cderr.h"
 
@@ -43,7 +44,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 static const WCHAR strWineFontData16[] =
                                {'_','_','W','I','N','E','_','F','O','N','T','D','L','G','D','A','T','A','1','6',0};
 
-static void FONT_LogFont16To32W( const LOGFONT16 *font16, LPLOGFONTW font32 )
+static void FONT_LogFont16To32W( const LPLOGFONT16 font16, LPLOGFONTW font32 )
 {
     font32->lfHeight = font16->lfHeight;
     font32->lfWidth = font16->lfWidth;
@@ -71,17 +72,15 @@ static void FONT_Metrics16To32W( const TEXTMETRIC16 *pm16,
     pnm32w->ntmTm.tmExternalLeading = pm16->tmExternalLeading;
 }
 
-static void CFn_CHOOSEFONT16to32W(const CHOOSEFONT16 *chf16, LPCHOOSEFONTW chf32w)
+static void CFn_CHOOSEFONT16to32W(LPCHOOSEFONT16 chf16, LPCHOOSEFONTW chf32w)
 {
   int len;
   if (chf16->Flags & CF_ENABLETEMPLATE)
   {
-      LPWSTR name32w;
-
       len = MultiByteToWideChar( CP_ACP, 0, MapSL(chf16->lpTemplateName), -1, NULL, 0);
-      name32w = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-      MultiByteToWideChar( CP_ACP, 0, MapSL(chf16->lpTemplateName), -1, name32w, len);
-      chf32w->lpTemplateName = name32w;
+      chf32w->lpTemplateName = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+      MultiByteToWideChar( CP_ACP, 0, MapSL(chf16->lpTemplateName),
+                           -1, (LPWSTR)chf32w->lpTemplateName, len);
   }
   if (chf16->Flags & CF_USESTYLE)
   {
@@ -107,7 +106,7 @@ static void CFn_CHOOSEFONT16to32W(const CHOOSEFONT16 *chf16, LPCHOOSEFONTW chf32
 /***********************************************************************
  *                          CFn_HookCallChk                 [internal]
  */
-static BOOL CFn_HookCallChk(const CHOOSEFONT16 *lpcf)
+static BOOL CFn_HookCallChk(LPCHOOSEFONT16 lpcf)
 {
  if (lpcf)
   if(lpcf->Flags & CF_ENABLEHOOK)
@@ -165,22 +164,21 @@ INT16 WINAPI FontStyleEnumProc16( SEGPTR logfont, SEGPTR metrics,
 BOOL16 WINAPI ChooseFont16(LPCHOOSEFONT16 lpChFont)
 {
     HINSTANCE16 hInst;
-    HANDLE16 hDlgTmpl16 = 0;
+    HANDLE16 hDlgTmpl16 = 0, hResource16 = 0;
     HGLOBAL16 hGlobal16 = 0;
     BOOL16 bRet = FALSE;
-    LPVOID template;
+    LPCVOID template;
     FARPROC16 ptr;
     CHOOSEFONTW cf32w;
     LOGFONTW lf32w;
     LOGFONT16 *font16;
     SEGPTR lpTemplateName;
 
-    TRACE("ChooseFont\n");
-
-    if (!lpChFont) return FALSE;
-
     cf32w.lpLogFont=&lf32w;
     CFn_CHOOSEFONT16to32W(lpChFont, &cf32w);
+
+    TRACE("ChooseFont\n");
+    if (!lpChFont) return FALSE;
 
     if (TRACE_ON(commdlg))
 	_dump_cf_flags(lpChFont->Flags);
@@ -232,7 +230,7 @@ BOOL16 WINAPI ChooseFont16(LPCHOOSEFONT16 lpChFont)
         if (!hGlobal16)
         {
             COMDLG32_SetCommDlgExtendedError(CDERR_MEMALLOCFAILURE);
-            ERR("alloc failure for %d bytes\n", size);
+            ERR("alloc failure for %ld bytes\n", size);
             return FALSE;
         }
         template = GlobalLock16(hGlobal16);
@@ -243,7 +241,7 @@ BOOL16 WINAPI ChooseFont16(LPCHOOSEFONT16 lpChFont)
             GlobalFree16(hGlobal16);
             return FALSE;
         }
-        ConvertDialog32To16(template32, size, template);
+        ConvertDialog32To16((LPVOID)template32, size, (LPVOID)template);
         hDlgTmpl16 = hGlobal16;
 
     }
@@ -256,6 +254,7 @@ BOOL16 WINAPI ChooseFont16(LPCHOOSEFONT16 lpChFont)
     hInst = GetWindowLongPtrA(HWND_32(lpChFont->hwndOwner), GWLP_HINSTANCE);
     bRet = DialogBoxIndirectParam16(hInst, hDlgTmpl16, lpChFont->hwndOwner,
                      (DLGPROC16) ptr, (DWORD)lpChFont);
+    if (hResource16) FreeResource16(hDlgTmpl16);
     if (hGlobal16)
     {
         GlobalUnlock16(hGlobal16);

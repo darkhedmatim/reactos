@@ -35,8 +35,8 @@
 #
 # JS-less chart creation - hard.
 # Broken image on error or no data - need to do much better.
-# Centralise permission checking, so Bugzilla->user->in_group('editbugs')
-#   not scattered everywhere.
+# Centralise permission checking, so UserInGroup('editbugs') not scattered
+#   everywhere.
 # User documentation :-)
 #
 # Bonus:
@@ -45,21 +45,16 @@
 use strict;
 use lib qw(.);
 
+require "globals.pl";
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Error;
-use Bugzilla::Util;
 use Bugzilla::Chart;
 use Bugzilla::Series;
 use Bugzilla::User;
 
-# For most scripts we don't make $cgi and $template global variables. But
-# when preparing Bugzilla for mod_perl, this script used these
-# variables in so many subroutines that it was easier to just
-# make them globals.
-local our $cgi = Bugzilla->cgi;
-local our $template = Bugzilla->template;
-local our $vars = {};
+my $cgi = Bugzilla->cgi;
+my $template = Bugzilla->template;
+my $vars = {};
 
 # Go back to query.cgi if we are adding a boolean chart parameter.
 if (grep(/^cmd-/, $cgi->param())) {
@@ -73,9 +68,9 @@ my $action = $cgi->param('action');
 my $series_id = $cgi->param('series_id');
 
 # Because some actions are chosen by buttons, we can't encode them as the value
-# of the action param, because that value is localization-dependent. So, we
+# of the action param, because that value is localisation-dependent. So, we
 # encode it in the name, as "action-<action>". Some params even contain the
-# series_id they apply to (e.g. subscribe, unsubscribe).
+# series_id they apply to (e.g. subscribe, unsubscribe.)
 my @actions = grep(/^action-/, $cgi->param());
 if ($actions[0] && $actions[0] =~ /^action-([^\d]+)(\d*)$/) {
     $action = $1;
@@ -93,13 +88,13 @@ if ($action eq "search") {
 
 my $user = Bugzilla->login(LOGIN_REQUIRED);
 
-Bugzilla->user->in_group(Bugzilla->params->{"chartgroup"})
-  || ThrowUserError("auth_failure", {group  => Bugzilla->params->{"chartgroup"},
+UserInGroup(Param("chartgroup"))
+  || ThrowUserError("auth_failure", {group  => Param("chartgroup"),
                                      action => "use",
                                      object => "charts"});
 
 # Only admins may create public queries
-Bugzilla->user->in_group('admin') || $cgi->delete('public');
+UserInGroup('admin') || $cgi->delete('public');
 
 # All these actions relate to chart construction.
 if ($action =~ /^(assemble|add|remove|sum|subscribe|unsubscribe)$/) {
@@ -224,11 +219,11 @@ sub assertCanEdit {
 sub assertCanCreate {
     my ($cgi) = shift;
     
-    Bugzilla->user->in_group("editbugs") || ThrowUserError("illegal_series_creation");
+    UserInGroup("editbugs") || ThrowUserError("illegal_series_creation");
 
     # Check permission for frequency
     my $min_freq = 7;
-    if ($cgi->param('frequency') < $min_freq && !Bugzilla->user->in_group("admin")) {
+    if ($cgi->param('frequency') < $min_freq && !UserInGroup("admin")) {
         ThrowUserError("illegal_frequency", { 'minimum' => $min_freq });
     }    
 }

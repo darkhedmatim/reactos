@@ -109,16 +109,6 @@ Author:
 #define INITIAL_STALL_COUNT     0x64
 
 //
-// IOPM Definitions
-//
-#define IO_ACCESS_MAP_NONE      0
-#define IOPM_OFFSET             FIELD_OFFSET(KTSS, IoMaps[0].IoMap)
-#define KiComputeIopmOffset(MapNumber)              \
-    (MapNumber == IO_ACCESS_MAP_NONE) ?             \
-        (USHORT)(sizeof(KTSS)) :                    \
-        (USHORT)(FIELD_OFFSET(KTSS, IoMaps[MapNumber-1].IoMap))
-
-//
 // Static Kernel-Mode Address start (use MM_KSEG0_BASE for actual)
 //
 #define KSEG0_BASE              0x80000000
@@ -271,12 +261,14 @@ typedef struct _KIDTENTRY
     USHORT ExtendedOffset;
 } KIDTENTRY, *PKIDTENTRY;
 
+#include <pshpack2.h>
 typedef struct _DESCRIPTOR
 {
-    USHORT Pad;
     USHORT Limit;
     ULONG Base;
+    USHORT Padding;
 } KDESCRIPTOR, *PKDESCRIPTOR;
+#include <poppack.h>
 
 #ifndef NTOS_MODE_USER
 //
@@ -619,7 +611,7 @@ typedef struct _KIPCR
     union
     {
         NT_TIB NtTib;
-        struct
+        struct 
         {
             struct _EXCEPTION_REGISTRATION_RECORD *Used_ExceptionList;
             PVOID Used_StackBase;
@@ -638,7 +630,7 @@ typedef struct _KIPCR
     ULONG IDR;
     PVOID KdVersionBlock;
     PKIDTENTRY IDT;
-#ifdef __REACTOS__
+#ifdef _REACTOS_
     PUSHORT GDT;
 #else
     PKGDTENTRY GDT;

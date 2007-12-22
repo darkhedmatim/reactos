@@ -28,9 +28,10 @@ use strict;
 
 use lib qw(.);
 
+require "globals.pl";
+
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Error;
 use Bugzilla::User;
 use Bugzilla::BugMail;
 use Bugzilla::Util;
@@ -48,11 +49,11 @@ my $vars = {};
 print $cgi->header();
 
 # If we're using LDAP for login, then we can't create a new account here.
-unless (Bugzilla->user->authorizer->user_can_create_account) {
+unless (Bugzilla::Auth->can_edit('new')) {
     ThrowUserError("auth_cant_create_account");
 }
 
-my $createexp = Bugzilla->params->{'createemailregexp'};
+my $createexp = Param('createemailregexp');
 unless ($createexp) {
     ThrowUserError("account_creation_disabled");
 }
@@ -60,16 +61,40 @@ unless ($createexp) {
 my $login = $cgi->param('login');
 
 if (defined($login)) {
-    $login = Bugzilla::User->check_login_name_for_creation($login);
+    # We've been asked to create an account.
+    my $realname = trim($cgi->param('realname'));
+
+    validate_email_syntax($login)
+      || ThrowUserError('illegal_email_address', {addr => $login});
+
     $vars->{'login'} = $login;
+
+    $dbh->bz_lock_tables('profiles WRITE', 'groups READ',
+                         'user_group_map WRITE', 'email_setting WRITE',
+                         'tokens READ');
+
+    if (!is_available_username($login)) {
+        # Account already exists
+        $dbh->bz_unlock_tables();
+        $template->process("account/exists.html.tmpl", $vars)
+          || ThrowTemplateError($template->error());
+        exit;
+    }
 
     if ($login !~ /$createexp/) {
         ThrowUserError("account_creation_disabled");
     }
+    
+    # Create account
+    my $password = insert_new_user($login, $realname);
 
-    # Create and send a token for this new account.
-    Bugzilla::Token::issue_new_user_account_token($login);
+    $dbh->bz_unlock_tables();
 
+    # Clear out the login cookies in case the user is currently logged in.
+    Bugzilla->logout();
+
+    Bugzilla::BugMail::MailPassword($login, $password);
+    
     $template->process("account/created.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     exit;

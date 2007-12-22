@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -33,15 +33,19 @@
 
 #include "windef.h"
 #include "winbase.h"
+#include "winerror.h"
 #include "winreg.h"
 #include "wownt32.h"
+#include "dlgs.h"
 #include "shellapi.h"
 #include "winuser.h"
 #include "wingdi.h"
 #include "shlobj.h"
 #include "shlwapi.h"
+#include "ddeml.h"
 
 #include "wine/winbase16.h"
+#include "wine/winuser16.h"
 #include "shell32_main.h"
 
 #include "wine/debug.h"
@@ -56,9 +60,9 @@ typedef struct {     /* structure for dropped files */
  /* memory block with filenames follows */
 } DROPFILESTRUCT16, *LPDROPFILESTRUCT16;
 
-static const char lpstrMsgWndCreated[] = "OTHERWINDOWCREATED";
-static const char lpstrMsgWndDestroyed[] = "OTHERWINDOWDESTROYED";
-static const char lpstrMsgShellActivate[] = "ACTIVATESHELLWINDOW";
+static const char*	lpstrMsgWndCreated = "OTHERWINDOWCREATED";
+static const char*	lpstrMsgWndDestroyed = "OTHERWINDOWDESTROYED";
+static const char*	lpstrMsgShellActivate = "ACTIVATESHELLWINDOW";
 
 static HWND	SHELL_hWnd = 0;
 static HHOOK	SHELL_hHook = 0;
@@ -120,8 +124,10 @@ UINT16 WINAPI DragQueryFile16(
 	}
 
 	i = strlen(lpDrop);
+	i++;
 	if (!lpszFile ) goto end;   /* needed buffer size */
-	lstrcpynA (lpszFile, lpDrop, wLength);
+	i = (wLength > i) ? i : wLength;
+	lstrcpynA (lpszFile,  lpDrop,  i);
 end:
 	GlobalUnlock16(hDrop);
 	return i;
@@ -307,7 +313,7 @@ static LPSTR SHELL_FindString(LPSTR lpEnv, LPCSTR entry)
 
 /**********************************************************************/
 
-SEGPTR WINAPI FindEnvironmentString16(LPCSTR str)
+SEGPTR WINAPI FindEnvironmentString16(LPSTR str)
 { SEGPTR  spEnv;
   LPSTR lpEnv,lpString;
   TRACE("\n");
@@ -412,7 +418,7 @@ DWORD WINAPI DoEnvironmentSubst16(LPSTR str,WORD length)
  */
 static LRESULT WINAPI SHELL_HookProc(INT code, WPARAM wParam, LPARAM lParam)
 {
-    TRACE("%i, %lx, %08lx\n", code, wParam, lParam );
+    TRACE("%i, %x, %08lx\n", code, wParam, lParam );
 
     if (SHELL_hWnd)
     {
@@ -583,7 +589,7 @@ DWORD WINAPI RegEnumKey16( HKEY hkey, DWORD index, LPSTR name, DWORD name_len )
 /*************************************************************************
  *           SHELL_Execute16 [Internal]
  */
-static UINT_PTR SHELL_Execute16(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
+static UINT SHELL_Execute16(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
 			    LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
 {
     UINT ret;
@@ -622,10 +628,10 @@ HINSTANCE16 WINAPI ShellExecute16( HWND16 hWnd, LPCSTR lpOperation,
 
     SHELL_execute( &seiW, SHELL_Execute16 );
 
-    SHFree(wVerb);
-    SHFree(wFile);
-    SHFree(wParameters);
-    SHFree(wDirectory);
+    if (wVerb) SHFree(wVerb);
+    if (wFile) SHFree(wFile);
+    if (wParameters) SHFree(wParameters);
+    if (wDirectory) SHFree(wDirectory);
 
     return HINSTANCE_16(seiW.hInstApp);
 }

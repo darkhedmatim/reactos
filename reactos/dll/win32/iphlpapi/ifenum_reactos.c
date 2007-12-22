@@ -22,9 +22,9 @@
  * - This iphlpapi does not rely on any reactos-only features.
  * - This implementation is meant to be largely correct.  I am not, however,
  *   paying any attention to performance.  It can be done faster, and
- *   someone should definately optimize this code when speed is more of a
+ *   someone should definately optimize this code when speed is more of a 
  *   priority than it is now.
- *
+ * 
  * Edited implementation notes from the original -- Basically edited to add
  *   information and prune things which are not accurate about this file.
  * Interface index fun:
@@ -42,8 +42,6 @@
 
 //#define NDEBUG
 #include "debug.h"
-
-WINE_DEFAULT_DEBUG_CHANNEL(iphlpapi);
 
 /* Globals */
 const PWCHAR TcpFileName = L"\\Device\\Tcp";
@@ -82,7 +80,7 @@ NTSTATUS openTcpFile(PHANDLE tcpFile) {
                                 NULL );
 
     status = ZwCreateFile( tcpFile,
-                           SYNCHRONIZE | GENERIC_EXECUTE |
+                           SYNCHRONIZE | GENERIC_EXECUTE | 
                            GENERIC_READ | GENERIC_WRITE,
                            &objectAttributes,
                            &ioStatusBlock,
@@ -98,7 +96,7 @@ NTSTATUS openTcpFile(PHANDLE tcpFile) {
      * string we provided */
 
     if (!NT_SUCCESS(status)) {
-        ERR("openTcpFile for <%wZ> failed: 0x%lx\n", &fileName, status);
+        DPRINT1("openTcpFile for <%wZ> failed: 0x%lx\n", &fileName, status);
     }
 
     return status;
@@ -121,7 +119,7 @@ void closeTcpFile( HANDLE h ) {
  *   IPAddrEntry
  *   IPInterfaceInfo
  */
-NTSTATUS tdiGetSetOfThings( HANDLE tcpFile,
+NTSTATUS tdiGetSetOfThings( HANDLE tcpFile, 
                             DWORD toiClass,
                             DWORD toiType,
                             DWORD toiId,
@@ -134,17 +132,17 @@ NTSTATUS tdiGetSetOfThings( HANDLE tcpFile,
     TCP_REQUEST_QUERY_INFORMATION_EX req = TCP_REQUEST_QUERY_INFORMATION_INIT;
     PVOID entitySet = 0;
     NTSTATUS status = STATUS_SUCCESS;
-    DWORD allocationSizeForEntityArray = entrySize * MAX_TDI_ENTITIES,
+    DWORD allocationSizeForEntityArray = entrySize * MAX_TDI_ENTITIES, 
         arraySize = entrySize * MAX_TDI_ENTITIES;
 
     TRACE("TdiGetSetOfThings(tcpFile %x,toiClass %x,toiType %x,toiId %x,"
           "teiEntity %x,fixedPart %d,entrySize %d)\n",
-          (int)tcpFile,
-          (int)toiClass,
-          (int)toiType,
-          (int)toiId,
+          (int)tcpFile, 
+          (int)toiClass, 
+          (int)toiType, 
+          (int)toiId, 
           (int)teiEntity,
-          (int)fixedPart,
+          (int)fixedPart, 
           (int)entrySize );
 
     req.ID.toi_class                = toiClass;
@@ -174,16 +172,16 @@ NTSTATUS tdiGetSetOfThings( HANDLE tcpFile,
 
         if(!NT_SUCCESS(status))
         {
-            ERR("IOCTL Failed\n");
+            DPRINT("IOCTL Failed\n");
             return STATUS_UNSUCCESSFUL;
         }
-
+        
         arraySize = allocationSizeForEntityArray;
         entitySet = HeapAlloc( GetProcessHeap(), 0, arraySize );
-
+                                              
         if( !entitySet ) {
             status = STATUS_INSUFFICIENT_RESOURCES;
-            WARN("TdiGetSetOfThings() => %08x\n", (int)status);
+            DPRINT("TdiGetSetOfThings() => %08x\n", (int)status);
             return status;
         }
 
@@ -195,7 +193,7 @@ NTSTATUS tdiGetSetOfThings( HANDLE tcpFile,
                                   arraySize,
                                   &allocationSizeForEntityArray,
                                   NULL );
-
+        
         /* This is why we have the loop -- we might have added an adapter */
         if( arraySize == allocationSizeForEntityArray )
             break;
@@ -205,19 +203,19 @@ NTSTATUS tdiGetSetOfThings( HANDLE tcpFile,
 
         if(!status)
         {
-            WARN("IOCTL Failed\n");
+            DPRINT("IOCTL Failed\n");
             return STATUS_UNSUCCESSFUL;
         }
 
-        WARN("TdiGetSetOfThings(): Array changed size: %d -> %d.\n",
+        DPRINT("TdiGetSetOfThings(): Array changed size: %d -> %d.\n",
                arraySize, allocationSizeForEntityArray );
-    } while( TRUE ); /* We break if the array we received was the size we
+    } while( TRUE ); /* We break if the array we received was the size we 
                       * expected.  Therefore, we got here because it wasn't */
-
+    
     *numEntries = (arraySize - fixedPart) / entrySize;
     *tdiEntitySet = entitySet;
 
-    WARN("TdiGetSetOfThings() => Success: %d things @ %08x\n",
+    DPRINT("TdiGetSetOfThings() => Success: %d things @ %08x\n", 
            (int)*numEntries, (int)entitySet);
 
     return STATUS_SUCCESS;
@@ -233,7 +231,7 @@ NTSTATUS tdiGetMibForIfEntity
     NTSTATUS status = STATUS_SUCCESS;
     DWORD returnSize;
 
-    WARN("TdiGetMibForIfEntity(tcpFile %x,entityId %x)\n",
+    DPRINT("TdiGetMibForIfEntity(tcpFile %x,entityId %x)\n",
            (int)tcpFile, (int)ent->tei_instance);
 
     req.ID.toi_class                = INFO_CLASS_PROTOCOL;
@@ -252,11 +250,11 @@ NTSTATUS tdiGetMibForIfEntity
 
     if(!status)
     {
-            WARN("IOCTL Failed\n");
+            DPRINT("IOCTL Failed\n");
             return STATUS_UNSUCCESSFUL;
     }
 
-    TRACE("TdiGetMibForIfEntity() => {\n"
+    DPRINT("TdiGetMibForIfEntity() => {\n"
            "  if_index ....................... %x\n"
            "  if_type ........................ %x\n"
            "  if_mtu ......................... %d\n"
@@ -267,7 +265,7 @@ NTSTATUS tdiGetMibForIfEntity
            entry->ent.if_mtu,
            entry->ent.if_speed,
            entry->ent.if_physaddrlen);
-    TRACE("  if_physaddr .................... %02x:%02x:%02x:%02x:%02x:%02x\n"
+    DPRINT("  if_physaddr .................... %02x:%02x:%02x:%02x:%02x:%02x\n"
            "  if_descr ....................... %s\n",
            entry->ent.if_physaddr[0] & 0xff,
            entry->ent.if_physaddr[1] & 0xff,
@@ -276,13 +274,13 @@ NTSTATUS tdiGetMibForIfEntity
            entry->ent.if_physaddr[4] & 0xff,
            entry->ent.if_physaddr[5] & 0xff,
            entry->ent.if_descr);
-    TRACE("} status %08x\n",status);
-
-    return status;
+    DPRINT("} status %08x\n",status);
+        
+    return status;    
 }
 
 NTSTATUS tdiGetEntityIDSet( HANDLE tcpFile,
-                            TDIEntityID **entitySet,
+                            TDIEntityID **entitySet, 
                             PDWORD numEntities ) {
     NTSTATUS status = tdiGetSetOfThings( tcpFile,
                                          INFO_CLASS_GENERIC,
@@ -298,18 +296,18 @@ NTSTATUS tdiGetEntityIDSet( HANDLE tcpFile,
         int i;
 
         for( i = 0; i < *numEntities; i++ ) {
-            TRACE("%-4d: %04x:%08x\n",
+            DPRINT("%-4d: %04x:%08x\n",
                    i,
-                   (*entitySet)[i].tei_entity,
+                   (*entitySet)[i].tei_entity, 
                    (*entitySet)[i].tei_instance );
         }
     }
-
+    
     return status;
 }
 
 BOOL isInterface( TDIEntityID *if_maybe ) {
-    return
+    return 
         if_maybe->tei_entity == IF_ENTITY;
 }
 
@@ -317,11 +315,11 @@ static BOOL isLoopback( HANDLE tcpFile, TDIEntityID *loop_maybe ) {
     IFEntrySafelySized entryInfo;
     NTSTATUS status;
 
-    status = tdiGetMibForIfEntity( tcpFile,
+    status = tdiGetMibForIfEntity( tcpFile, 
                                    loop_maybe,
                                    &entryInfo );
 
-    return NT_SUCCESS(status) && (!entryInfo.ent.if_type ||
+    return NT_SUCCESS(status) && (!entryInfo.ent.if_type || 
         entryInfo.ent.if_type == IFENT_SOFTWARE_LOOPBACK);
 }
 
@@ -330,7 +328,7 @@ NTSTATUS tdiGetEntityType( HANDLE tcpFile, TDIEntityID *ent, PULONG type ) {
     NTSTATUS status = STATUS_SUCCESS;
     DWORD returnSize;
 
-    TRACE("TdiGetEntityType(tcpFile %x,entityId %x)\n",
+    DPRINT("TdiGetEntityType(tcpFile %x,entityId %x)\n",
            (DWORD)tcpFile, ent->tei_instance);
 
     req.ID.toi_class                = INFO_CLASS_GENERIC;
@@ -348,7 +346,7 @@ NTSTATUS tdiGetEntityType( HANDLE tcpFile, TDIEntityID *ent, PULONG type ) {
                               &returnSize,
                               NULL );
 
-    TRACE("TdiGetEntityType() => %08x %08x\n", *type, status);
+    DPRINT("TdiGetEntityType() => %08x %08x\n", *type, status);
 
     return (status ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
 }
@@ -377,7 +375,7 @@ BOOL hasArp( HANDLE tcpFile, TDIEntityID *arp_maybe ) {
     return type == AT_ENTITY;
 }
 
-static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
+static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile, 
                                      IFInfo **infoSet,
                                      PDWORD numInterfaces ) {
     DWORD numEntities;
@@ -388,13 +386,13 @@ static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
     int curInterf = 0, i;
 
     if (!NT_SUCCESS(status)) {
-        ERR("getInterfaceInfoSet: tdiGetEntityIDSet() failed: 0x%lx\n", status);
+        DPRINT1("getInterfaceInfoSet: tdiGetEntityIDSet() failed: 0x%lx\n", status);
         return status;
     }
 
-    infoSetInt = HeapAlloc( GetProcessHeap(), 0,
+    infoSetInt = HeapAlloc( GetProcessHeap(), 0, 
                             sizeof(IFInfo) * numEntities );
-
+    
     if( infoSetInt ) {
         for( i = 0; i < numEntities; i++ ) {
             if( isInterface( &entIDSet[i] ) ) {
@@ -403,7 +401,7 @@ static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
                     ( tcpFile,
                       &entIDSet[i],
                       &infoSetInt[curInterf].if_info );
-                TRACE("tdiGetMibForIfEntity: %08x\n", status);
+		DPRINT("tdiGetMibForIfEntity: %08x\n", status);
                 if( NT_SUCCESS(status) ) {
                     DWORD numAddrs;
                     IPAddrEntry *addrs;
@@ -416,8 +414,8 @@ static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
 			status = tdiGetIpAddrsForIpEntity
 			    ( tcpFile, &ip_ent, &addrs, &numAddrs );
 		    for( j = 0; j < numAddrs && NT_SUCCESS(status); j++ ) {
-			TRACE("ADDR %d: index %d (target %d)\n", j, addrs[j].iae_index, infoSetInt[curInterf].if_info.ent.if_index);
-			if( addrs[j].iae_index ==
+			DPRINT("ADDR %d: index %d (target %d)\n", j, addrs[j].iae_index, infoSetInt[curInterf].if_info.ent.if_index);
+			if( addrs[j].iae_index == 
 			    infoSetInt[curInterf].if_info.ent.if_index ) {
 			    memcpy( &infoSetInt[curInterf].ip_addr,
 				    &addrs[j],
@@ -454,31 +452,31 @@ static DWORD getNumInterfacesInt(BOOL onlyNonLoopback)
     status = openTcpFile( &tcpFile );
 
     if( !NT_SUCCESS(status) ) {
-        WARN("getNumInterfaces: failed %08x\n", status );
+        DPRINT("getNumInterfaces: failed %08x\n", status );
         return 0;
     }
 
     status = tdiGetEntityIDSet( tcpFile, &entitySet, &numEntities );
 
     if( !NT_SUCCESS(status) ) {
-        WARN("getNumInterfaces: failed %08x\n", status );
+        DPRINT("getNumInterfaces: failed %08x\n", status );
         return 0;
     }
 
     for( i = 0; i < numEntities; i++ ) {
         if( isInterface( &entitySet[i] ) &&
-            (!onlyNonLoopback ||
+            (!onlyNonLoopback || 
 	     (onlyNonLoopback && !isLoopback( tcpFile, &entitySet[i] ))) )
             numInterfaces++;
     }
 
-    TRACE("getNumInterfaces: success: %d %d %08x\n",
+    DPRINT("getNumInterfaces: success: %d %d %08x\n", 
            onlyNonLoopback, numInterfaces, status );
 
     closeTcpFile( tcpFile );
 
     tdiFreeThingSet( entitySet );
-
+    
     return numInterfaces;
 }
 
@@ -509,7 +507,7 @@ DWORD getNthInterfaceEntity( HANDLE tcpFile, DWORD index, TDIEntityID *ent ) {
         }
     }
 
-    TRACE("Index %d is entity #%d - %04x:%08x\n", index, i,
+    DPRINT("Index %d is entity #%d - %04x:%08x\n", index, i, 
            entitySet[i].tei_entity, entitySet[i].tei_instance );
 
     if( numInterfaces == index && i < numEntities ) {
@@ -527,7 +525,7 @@ NTSTATUS getInterfaceInfoByIndex( HANDLE tcpFile, DWORD index, IFInfo *info ) {
     DWORD numInterfaces;
     NTSTATUS status = getInterfaceInfoSet( tcpFile, &ifInfo, &numInterfaces );
     int i;
-
+    
     if( NT_SUCCESS(status) )
         for( i = 0; i < numInterfaces; i++ ) {
             if( ifInfo[i].if_info.ent.if_index == index ) {
@@ -541,13 +539,13 @@ NTSTATUS getInterfaceInfoByIndex( HANDLE tcpFile, DWORD index, IFInfo *info ) {
     else
         return status;
 }
-
+    
 NTSTATUS getInterfaceInfoByName( HANDLE tcpFile, char *name, IFInfo *info ) {
     IFInfo *ifInfo;
     DWORD numInterfaces;
-    int i;
+    int i;    
     NTSTATUS status = getInterfaceInfoSet( tcpFile, &ifInfo, &numInterfaces );
-
+    
     if( NT_SUCCESS(status) )
         for( i = 0; i < numInterfaces; i++ ) {
             if( !strcmp(ifInfo[i].if_info.ent.if_descr, name) ) {
@@ -555,13 +553,13 @@ NTSTATUS getInterfaceInfoByName( HANDLE tcpFile, char *name, IFInfo *info ) {
                 break;
             }
         }
-
+    
     if( NT_SUCCESS(status) )
         return i < numInterfaces ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL;
     else
         return status;
 }
-
+    
 /* Note that the result of this operation must be freed later */
 
 const char *getInterfaceNameByIndex(DWORD index)
@@ -573,14 +571,14 @@ const char *getInterfaceNameByIndex(DWORD index)
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByIndex( tcpFile, index, &ifInfo );
-
+        
         if( NT_SUCCESS(status) ) {
             adapter_name = ifInfo.if_info.ent.if_descr;
-
-            interfaceName = HeapAlloc( GetProcessHeap(), 0,
+            
+            interfaceName = HeapAlloc( GetProcessHeap(), 0, 
                                        strlen(adapter_name) + 1 );
             strcpy( interfaceName, adapter_name );
-
+            
             closeTcpFile( tcpFile );
         }
     }
@@ -600,7 +598,7 @@ DWORD getInterfaceIndexByName(const char *name, PDWORD index)
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByName( tcpFile, (char *)name, &ifInfo );
-
+        
         if( NT_SUCCESS(status) ) {
             *index = ifInfo.if_info.ent.if_index;
             closeTcpFile( tcpFile );
@@ -621,39 +619,39 @@ InterfaceIndexTable *getInterfaceIndexTableInt( BOOL nonLoopbackOnly ) {
   if( NT_SUCCESS(status) ) {
       status = getInterfaceInfoSet( tcpFile, &ifInfo, &numInterfaces );
 
-      TRACE("InterfaceInfoSet: %08x, %04x:%08x\n",
-	     status,
+      DPRINT("InterfaceInfoSet: %08x, %04x:%08x\n", 
+	     status, 
 	     ifInfo->entity_id.tei_entity,
 	     ifInfo->entity_id.tei_instance);
 
       if( NT_SUCCESS(status) ) {
           ret = (InterfaceIndexTable *)
               calloc(1,
-                     sizeof(InterfaceIndexTable) +
+                     sizeof(InterfaceIndexTable) + 
                      (numInterfaces - 1) * sizeof(DWORD));
-
+          
           if (ret) {
               ret->numAllocated = numInterfaces;
-	      TRACE("NumInterfaces = %d\n", numInterfaces);
-
+	      DPRINT("NumInterfaces = %d\n", numInterfaces);
+          
               for( i = 0; i < numInterfaces; i++ ) {
-		  TRACE("Examining interface %d\n", i);
-                  if( !nonLoopbackOnly ||
+		  DPRINT("Examining interface %d\n", i);
+                  if( !nonLoopbackOnly || 
                       !isLoopback( tcpFile, &ifInfo[i].entity_id ) ) {
-		      TRACE("Interface %d matches (%d)\n", i, curInterface);
-                      ret->indexes[curInterface++] =
+		      DPRINT("Interface %d matches (%d)\n", i, curInterface);
+                      ret->indexes[curInterface++] = 
                           ifInfo[i].if_info.ent.if_index;
                   }
-              }
+              } 
 
               ret->numIndexes = curInterface;
           }
-
+          
           tdiFreeThingSet( ifInfo );
       }
       closeTcpFile( tcpFile );
   }
-
+              
   return ret;
 }
 
@@ -670,17 +668,17 @@ DWORD getInterfaceIPAddrByName(const char *name)
     return INADDR_ANY;
 }
 
-NTSTATUS getIPAddrEntryForIf(HANDLE tcpFile,
+NTSTATUS getIPAddrEntryForIf(HANDLE tcpFile, 
                              char *name,
                              DWORD index,
                              IFInfo *ifInfo) {
-    NTSTATUS status =
-        name ?
+    NTSTATUS status = 
+        name ? 
         getInterfaceInfoByName( tcpFile, name, ifInfo ) :
         getInterfaceInfoByIndex( tcpFile, index, ifInfo );
 
     if (!NT_SUCCESS(status)) {
-        ERR("getIPAddrEntryForIf returning %lx\n", status);
+        DPRINT1("getIPAddrEntryForIf returning %lx\n", status);
     }
 
     return status;
@@ -709,7 +707,7 @@ DWORD getAddrByIndexOrName( char *name, DWORD index, IPHLPAddrType addrType ) {
     }
 
     return addrOut;
-}
+}                           
 
 DWORD getInterfaceIPAddrByIndex(DWORD index) {
     return getAddrByIndexOrName( 0, index, IPAAddr );
@@ -731,7 +729,7 @@ DWORD getInterfaceMaskByIndex(DWORD index) {
     return getAddrByIndexOrName( 0, index, IPAMask );
 }
 
-void getInterfacePhysicalFromInfo( IFInfo *info,
+void getInterfacePhysicalFromInfo( IFInfo *info, 
                                    PDWORD len, PBYTE addr, PDWORD type ) {
     *len = info->if_info.ent.if_physaddrlen;
     memcpy( addr, info->if_info.ent.if_physaddr, *len );
@@ -747,7 +745,7 @@ DWORD getInterfacePhysicalByName(const char *name, PDWORD len, PBYTE addr,
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByName( tcpFile, (char *)name, &info );
-        if( NT_SUCCESS(status) )
+        if( NT_SUCCESS(status) ) 
             getInterfacePhysicalFromInfo( &info, len, addr, type );
         closeTcpFile( tcpFile );
     }
@@ -764,7 +762,7 @@ DWORD getInterfacePhysicalByIndex(DWORD index, PDWORD len, PBYTE addr,
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByIndex( tcpFile, index, &info );
-        if( NT_SUCCESS(status) )
+        if( NT_SUCCESS(status) ) 
             getInterfacePhysicalFromInfo( &info, len, addr, type );
         closeTcpFile( tcpFile );
     }
@@ -799,18 +797,18 @@ DWORD getInterfaceEntryByName(const char *name, PMIB_IFROW entry)
     IFInfo info;
     NTSTATUS status = openTcpFile( &tcpFile );
 
-    TRACE("Called.\n");
+    DPRINT("Called.\n");
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByName( tcpFile, (char *)name, &info );
-
+        
         if( NT_SUCCESS(status) ) {
             memcpy( &entry->wszName[MAX_INTERFACE_NAME_LEN],
                     &info.if_info,
                     sizeof(info.if_info) );
         }
-
-        TRACE("entry->bDescr = %s\n", entry->bDescr);
+        
+        DPRINT("entry->bDescr = %s\n", entry->bDescr);
 
         closeTcpFile( tcpFile );
     }
@@ -824,17 +822,17 @@ DWORD getInterfaceEntryByIndex(DWORD index, PMIB_IFROW entry)
     IFInfo info;
     NTSTATUS status = openTcpFile( &tcpFile );
 
-    TRACE("Called.\n");
+    DPRINT("Called.\n");
 
     if( NT_SUCCESS(status) ) {
         status = getInterfaceInfoByIndex( tcpFile, index, &info );
-
+        
         if( NT_SUCCESS(status) ) {
             memcpy( &entry->wszName[MAX_INTERFACE_NAME_LEN],
                     &info.if_info,
                     sizeof(info.if_info) );
         }
-
+        
         closeTcpFile( tcpFile );
     }
 
@@ -854,26 +852,26 @@ char *toIPAddressString(unsigned int addr, char string[16])
   return string;
 }
 
-NTSTATUS addIPAddress( IPAddr Address, IPMask Mask, DWORD IfIndex,
-                       PULONG NteContext, PULONG NteInstance )
+NTSTATUS addIPAddress( IPAddr Address, IPMask Mask, DWORD IfIndex, 
+                       PULONG NteContext, PULONG NteInstance ) 
 {
   HANDLE tcpFile;
   NTSTATUS status = openTcpFile( &tcpFile );
   IP_SET_DATA Data;
   IO_STATUS_BLOCK Iosb;
 
-  TRACE("Called.\n");
-
+  DPRINT("Called.\n");
+  
   if( !NT_SUCCESS(status) ) return status;
 
   Data.NteContext = IfIndex;
   Data.NewAddress = Address;
   Data.NewNetmask = Mask;
 
-  status = NtDeviceIoControlFile( tcpFile,
+  status = NtDeviceIoControlFile( tcpFile, 
                                   NULL,
                                   NULL,
-                                  NULL,
+                                  NULL, 
                                   &Iosb,
                                   IOCTL_SET_IP_ADDRESS,
                                   &Data,
@@ -882,34 +880,34 @@ NTSTATUS addIPAddress( IPAddr Address, IPMask Mask, DWORD IfIndex,
                                   sizeof(Data) );
 
   closeTcpFile( tcpFile );
-
+  
   if( NT_SUCCESS(status) ) {
       *NteContext = Iosb.Information;
       *NteInstance = Data.NewAddress;
   }
 
   if (!NT_SUCCESS(status)) {
-      ERR("addIPAddress for if %d returning 0x%lx\n", IfIndex, status);
+      DPRINT1("addIPAddress for if %d returning 0x%lx\n", IfIndex, status);
   }
 
   return status;
 
 }
 
-NTSTATUS deleteIpAddress( ULONG NteContext )
+NTSTATUS deleteIpAddress( ULONG NteContext ) 
 {
   HANDLE tcpFile;
   NTSTATUS status = openTcpFile( &tcpFile );
   IO_STATUS_BLOCK Iosb;
 
-  TRACE("Called.\n");
-
+  DPRINT("Called.\n");
+  
   if( !NT_SUCCESS(status) ) return status;
 
-  status = NtDeviceIoControlFile( tcpFile,
+  status = NtDeviceIoControlFile( tcpFile, 
                                   NULL,
                                   NULL,
-                                  NULL,
+                                  NULL, 
                                   &Iosb,
                                   IOCTL_DELETE_IP_ADDRESS,
                                   &NteContext,
@@ -920,7 +918,7 @@ NTSTATUS deleteIpAddress( ULONG NteContext )
   closeTcpFile( tcpFile );
 
   if (!NT_SUCCESS(status)) {
-      ERR("deleteIpAddress(%lu) returning 0x%lx\n", NteContext, status);
+      DPRINT1("deleteIpAddress(%lu) returning 0x%lx\n", NteContext, status);
   }
 
   return status;

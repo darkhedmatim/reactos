@@ -55,7 +55,7 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
 {
    PUSER_HANDLE_ENTRY entry;
 
-   DPRINT("handles used %i\n",usedHandles);
+//   DPRINT1("handles used %i\n",usedHandles);
 
    if (ht->freelist)
    {
@@ -68,47 +68,7 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
 
    if (ht->nb_handles >= ht->allocated_handles)  /* need to grow the array */
    {
-/**/
-      int i, iFree = 0, iWindow = 0, iMenu = 0, iCursorIcon = 0, 
-          iHook = 0, iCallProc = 0, iAccel = 0, iMonitor = 0;
- /**/
-      DPRINT1("Out of user handles! Used -> %i, NM_Handle -> %d\n", usedHandles, ht->nb_handles);
-//#if 0
-      for(i = 0; i < ht->nb_handles; i++)
-      {
-         switch (ht->handles[i].type)
-         {
-           case otFree: // Should be zero.
-            iFree++;
-            break;
-           case otWindow:
-            iWindow++;
-            break;
-           case otMenu:
-            iMenu++;
-            break;
-           case otCursorIcon:
-            iCursorIcon++;
-            break;
-           case otHook:
-            iHook++;
-            break;
-           case otCallProc:
-            iCallProc++;
-            break;
-           case otAccel:
-            iAccel++;
-            break;
-           case otMonitor:
-            iMonitor++;
-            break;
-           default:
-            break;
-         }
-      }
-      DPRINT1("Handle Count by Type:\n Free = %d Window = %d Menu = %d CursorIcon = %d Hook = %d\n CallProc = %d Accel = %d Monitor = %d\n",
-      iFree, iWindow, iMenu, iCursorIcon, iHook, iCallProc, iAccel, iMonitor );
-//#endif      
+      DPRINT1("Out of user handles!\n");
       return NULL;
 #if 0
       PUSER_HANDLE_ENTRY new_handles;
@@ -148,43 +108,11 @@ __inline static void *free_user_entry(PUSER_HANDLE_TABLE ht, PUSER_HANDLE_ENTRY 
    ret = entry->ptr;
    entry->ptr  = ht->freelist;
    entry->type = 0;
-   entry->pi = NULL;
    ht->freelist  = entry;
 
    usedHandles--;
 
    return ret;
-}
-
-static __inline PVOID
-UserHandleOwnerByType(USER_OBJECT_TYPE type)
-{
-    PVOID pi;
-
-    switch (type)
-    {
-        case otWindow:
-            pi = GetW32ThreadInfo();
-            break;
-
-        case otMenu:
-        case otCursorIcon:
-        case otHook:
-        case otCallProc:
-        case otAccel:
-            pi = GetW32ProcessInfo();
-            break;
-
-        case otMonitor:
-            pi = NULL; /* System */
-            break;
-
-        default:
-            pi = NULL;
-            break;
-    }
-
-    return pi;
 }
 
 /* allocate a user handle for a given object */
@@ -195,7 +123,6 @@ HANDLE UserAllocHandle(PUSER_HANDLE_TABLE ht, PVOID object, USER_OBJECT_TYPE typ
       return 0;
    entry->ptr  = object;
    entry->type = type;
-   entry->pi = UserHandleOwnerByType(type);
    if (++entry->generation >= 0xffff)
       entry->generation = 1;
    return entry_to_handle(ht, entry );
@@ -361,9 +288,6 @@ BOOL FASTCALL ObmDereferenceObject2(PVOID obj)
    ASSERT(hdr->RefCount >= 1);
 
    hdr->RefCount--;
-
-   // You can not have a zero here!
-   if (!hdr->destroyed && hdr->RefCount == 0) hdr->RefCount++; // BOUNCE!!!!!
 
    if (hdr->RefCount == 0 && hdr->destroyed)
    {

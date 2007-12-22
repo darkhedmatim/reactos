@@ -1,24 +1,8 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../tools/rbuild/project.dtd">
 <module name="psdk" type="idlheader">
-	<file>activscp.idl</file>
-	<file>control.idl</file>
-	<file>dispex.idl</file>
 	<file>docobj.idl</file>
-	<file>downloadmgr.idl</file>
-	<file>hlink.idl</file>
-	<file>htiframe.idl</file>
-	<file>iads.idl</file>
-	<file>indexsrv.idl</file>
-	<file>mimeinfo.idl</file>
-	<file>mlang.idl</file>
-	<file>mshtml.idl</file>
-	<file>msxml.idl</file>
-	<file>msxml2.idl</file>
 	<file>oaidl.idl</file>
 	<file>objidl.idl</file>
 	<file>objsafe.idl</file>
-	<file>ocidl.idl</file>
 	<file>ocmm.idl</file>
 	<file>oledb.idl</file>
 	<file>oleidl.idl</file>
@@ -39,7 +23,4 @@
 	<file>mshtmhst.idl</file>
 	<file>exdisp.idl</file>
 	<file>wtypes.idl</file>
-	<file>comcat.idl</file>
-	<file>xmldso.idl</file>
-	<file>xmldom.idl</file>
 </module>

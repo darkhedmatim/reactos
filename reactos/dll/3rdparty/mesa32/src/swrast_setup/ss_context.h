@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,12 +32,11 @@
 #include "mtypes.h"
 #include "swrast/swrast.h"
 #include "swrast_setup.h"
-#include "tnl/t_context.h"
 
 typedef struct {
    GLuint NewState;
    GLenum render_prim;
-   DECLARE_RENDERINPUTS(last_index_bitset);
+   GLuint last_index;
    SWvertex *verts;
 } SScontext;
 

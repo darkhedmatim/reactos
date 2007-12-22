@@ -17,7 +17,10 @@
  *        Fixed ConPrintfPaging
  */
 
+
+
 #include <precomp.h>
+#include "resource.h"
 
 
 #define OUTPUT_BUFFER_SIZE  4096
@@ -100,7 +103,7 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 	PCHAR pBuf;
 
 #ifdef _UNICODE
-	pBuf = (PCHAR)cmd_alloc(dwLength);
+	pBuf = (PCHAR)malloc(dwLength);
 #else
 	pBuf = lpInput;
 #endif
@@ -126,7 +129,7 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 	}
 
 #ifdef _UNICODE
-	cmd_free(pBuf);
+	free(pBuf);
 #endif
 
 	SetConsoleMode (hFile, dwOldMode);
@@ -166,7 +169,7 @@ VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 
 	len = _tcslen(szText);
 #ifdef _UNICODE
-	pBuf = cmd_alloc(len + 1);
+	pBuf = malloc(len + 1);
 	len = WideCharToMultiByte( OutputCodePage, 0, szText, len + 1, pBuf, len + 1, NULL, NULL) - 1;
 #else
 	pBuf = szText;
@@ -182,7 +185,7 @@ VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 	           &dwWritten,
 	           NULL);
 #ifdef _UNICODE
-	cmd_free(pBuf);
+	free(pBuf);
 #endif
 }
 
@@ -216,7 +219,7 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 
 	len = _vstprintf (szOut, szFormat, arg_ptr);
 #ifdef _UNICODE
-	pBuf = cmd_alloc(len + 1);
+	pBuf = malloc(len + 1);
 	len = WideCharToMultiByte( OutputCodePage, 0, szOut, len + 1, pBuf, len + 1, NULL, NULL) - 1;
 #else
 	pBuf = szOut;
@@ -230,7 +233,7 @@ VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 
 
 #ifdef _UNICODE
-	cmd_free(pBuf);
+	free(pBuf);
 #endif
 }
 
@@ -246,13 +249,13 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
 	static int LineCount = 0;
 
 	/* used to see how big the screen is */
-	int ScreenLines = 0;
+	int ScreenLines = 0;  
 
 	/* the number of chars in a roow */
-	int ScreenCol = 0;
+	int ScreenCol = 0;  
 
 	/* chars since start of line */
-	int CharSL = 0;
+	int CharSL = 0; 
 
 	int i = 0;
 
@@ -275,7 +278,7 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
 	ScreenLines = (csbi.srWindow.Bottom  - csbi.srWindow.Top) - 4;
 	ScreenCol = (csbi.srWindow.Right - csbi.srWindow.Left) + 1;
 
-	//make sure they didnt make the screen to small
+	//make sure they didnt make the screen to small 
 	if(ScreenLines<4)
 	{
 		ConPrintf(szFormat, arg_ptr, nStdHandle);
@@ -284,7 +287,7 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
 
 	len = _vstprintf (szOut, szFormat, arg_ptr);
 #ifdef _UNICODE
-	pBuf = cmd_alloc(len + 1);
+	pBuf = malloc(len + 1);
 	len = WideCharToMultiByte( OutputCodePage, 0, szOut, len + 1, pBuf, len + 1, NULL, NULL) - 1;
 #else
 	pBuf = szOut;
@@ -297,22 +300,22 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
 			CharSL++;
 
 		WriteFile (GetStdHandle (nStdHandle),&pBuf[i-CharSL],sizeof(CHAR)*(CharSL+1),&dwWritten,NULL);
-		LineCount++;
+		LineCount++; 
 		CharSL=0;
 
 		if(LineCount >= ScreenLines)
 		{
 			if(_strnicmp(&pBuf[i], "\n", 2)!=0)
-				WriteFile (GetStdHandle (nStdHandle),_T("\n"),sizeof(CHAR),&dwWritten,NULL);
+				WriteFile (GetStdHandle (nStdHandle),_T("\n"),sizeof(CHAR),&dwWritten,NULL); 
 
 			if(PagePrompt() != PROMPT_YES)
 			{
 #ifdef _UNICODE
-				cmd_free(pBuf);
+				free(pBuf);
 #endif
 				return 1;
 			}
-			//reset the number of lines being printed
+			//reset the number of lines being printed         
 			LineCount = 0;
 			CharSL=0;
 		}
@@ -320,7 +323,7 @@ INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHa
 	}
 
 #ifdef _UNICODE
-	cmd_free(pBuf);
+	free(pBuf);
 #endif
 	return 0;
 }

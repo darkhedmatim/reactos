@@ -19,6 +19,6 @@
 
 use strict;
 print "content-type:text/plain\n\n";
-print "OK " . ($::ENV{MOD_PERL} || "mod_cgi") . "\n";
+print "OK\n";
 exit;
 

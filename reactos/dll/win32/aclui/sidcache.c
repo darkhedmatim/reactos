@@ -36,7 +36,7 @@
 
 typedef struct _SIDCACHEMGR
 {
-    volatile LONG RefCount;
+    LONG RefCount;
     LSA_HANDLE LsaHandle;
     CRITICAL_SECTION Lock;
     LIST_ENTRY QueueListHead;
@@ -109,6 +109,12 @@ FreeCacheEntry(IN PSIDCACHEMGR scm,
 static VOID
 CleanupSidCacheMgr(IN PSIDCACHEMGR scm)
 {
+    /* make sure the lookup thread runs down */
+    SetEvent(scm->LookupEvent);
+    WaitForSingleObject(scm->LookupThread,
+                        INFINITE);
+
+
     LsaClose(scm->LsaHandle);
     CloseHandle(scm->LookupEvent);
     CloseHandle(scm->LookupThread);
@@ -160,8 +166,11 @@ DereferenceSidCacheMgr(IN PSIDCACHEMGR scm)
 {
     if (InterlockedDecrement(&scm->RefCount) == 0)
     {
-        /* Signal the lookup thread so it can terminate */
-        SetEvent(scm->LookupEvent);
+        CleanupSidCacheMgr(scm);
+
+        HeapFree(scm->Heap,
+                 0,
+                 scm);
     }
 }
 
@@ -447,17 +456,7 @@ CacheLookupResults(IN PSIDCACHEMGR scm,
 static DWORD WINAPI
 LookupThreadProc(IN LPVOID lpParameter)
 {
-    HMODULE hModule;
     PSIDCACHEMGR scm = (PSIDCACHEMGR)lpParameter;
-
-    /* Reference the dll to avoid problems in case of accidental
-       FreeLibrary calls... */
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                            (LPCWSTR)hDllInstance,
-                            &hModule))
-    {
-        hModule = NULL;
-    }
 
     while (scm->RefCount != 0)
     {
@@ -565,19 +564,6 @@ LookupThreadProc(IN LPVOID lpParameter)
             FreeQueueEntry(scm,
                            QueueEntry);
         }
-    }
-
-    CleanupSidCacheMgr(scm);
-
-    HeapFree(scm->Heap,
-             0,
-             scm);
-
-    if (hModule != NULL)
-    {
-        /* dereference the library and exit */
-        FreeLibraryAndExitThread(hModule,
-                                 0);
     }
 
     return 0;

@@ -36,22 +36,23 @@
 
 
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(XFree86Server)
 
 /*
  * Allocate a large block of memory which can hold code then dole it out
  * in pieces by means of the generic memory manager code.
 */
 
+
 #include <unistd.h>
 #include <sys/mman.h>
 #include "mm.h"
 
-#define EXEC_HEAP_SIZE (10*1024*1024)
+#define EXEC_HEAP_SIZE (128*1024)
 
 _glthread_DECLARE_STATIC_MUTEX(exec_mutex);
 
-static struct mem_block *exec_heap = NULL;
+static memHeap_t *exec_heap = NULL;
 static unsigned char *exec_mem = NULL;
 
 
@@ -71,7 +72,7 @@ init_heap(void)
 void *
 _mesa_exec_malloc(GLuint size)
 {
-   struct mem_block *block = NULL;
+   PMemBlock block = NULL;
    void *addr = NULL;
 
    _glthread_LOCK_MUTEX(exec_mutex);
@@ -85,9 +86,7 @@ _mesa_exec_malloc(GLuint size)
 
    if (block)
       addr = exec_mem + block->ofs;
-   else 
-      _mesa_printf("_mesa_exec_malloc failed\n");
-   
+
    _glthread_UNLOCK_MUTEX(exec_mutex);
    
    return addr;
@@ -100,7 +99,7 @@ _mesa_exec_free(void *addr)
    _glthread_LOCK_MUTEX(exec_mutex);
 
    if (exec_heap) {
-      struct mem_block *block = mmFindBlock(exec_heap, (unsigned char *)addr - exec_mem);
+      PMemBlock block = mmFindBlock(exec_heap, (unsigned char *)addr - exec_mem);
    
       if (block)
 	 mmFreeMem(block);

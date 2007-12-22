@@ -3,13 +3,10 @@
 
 
 extern void
-_mesa_render_texture(GLcontext *ctx,
-                     struct gl_framebuffer *fb,
-                     struct gl_renderbuffer_attachment *att);
-
-extern void
-_mesa_finish_render_texture(GLcontext *ctx,
-                            struct gl_renderbuffer_attachment *att);
+_mesa_renderbuffer_texture(GLcontext *ctx,
+                           struct gl_renderbuffer_attachment *att,
+                           struct gl_texture_object *texObj,
+                           GLenum texTarget, GLuint level, GLuint zoffset);
 
 
 #endif /* TEXRENDER_H */

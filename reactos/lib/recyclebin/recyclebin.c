@@ -1,34 +1,35 @@
 /*
  * PROJECT:     Recycle bin management
  * LICENSE:     GPL v2 - See COPYING in the top level directory
- * FILE:        lib/recyclebin/recyclebin.c
+ * FILE:        lib/recyclebin/openclose.c
  * PURPOSE:     Public interface
- * PROGRAMMERS: Copyright 2006-2007 Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS: Copyright 2006 Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#define COBJMACROS
 #include "recyclebin_private.h"
-#include <stdio.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(recyclebin);
+typedef struct _ENUMERATE_RECYCLE_BIN_CONTEXT
+{
+	PRECYCLE_BIN bin;
+	PENUMERATE_RECYCLEBIN_CALLBACK pFnCallback;
+	PVOID Context;
+} ENUMERATE_RECYCLE_BIN_CONTEXT, *PENUMERATE_RECYCLE_BIN_CONTEXT;
 
 BOOL WINAPI
 CloseRecycleBinHandle(
 	IN HANDLE hDeletedFile)
 {
-	IRecycleBinFile *rbf = (IRecycleBinFile *)hDeletedFile;
-	HRESULT hr;
+	BOOL ret = FALSE;
 
-	TRACE("(%p)\n", hDeletedFile);
-
-	hr = IRecycleBinFile_Release(rbf);
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
+	if (!IntCheckDeletedFileHandle(hDeletedFile))
+		SetLastError(ERROR_INVALID_HANDLE);
 	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
+	{
+		PDELETED_FILE_HANDLE file = (PDELETED_FILE_HANDLE)hDeletedFile;
+		ret = DereferenceHandle(&file->refCount);
+	}
+
+	return ret;
 }
 
 BOOL WINAPI
@@ -38,8 +39,6 @@ DeleteFileToRecycleBinA(
 	int len;
 	LPWSTR FileNameW = NULL;
 	BOOL ret = FALSE;
-
-	TRACE("(%s)\n", debugstr_a(FileName));
 
 	/* Check parameters */
 	if (FileName == NULL)
@@ -71,169 +70,186 @@ BOOL WINAPI
 DeleteFileToRecycleBinW(
 	IN LPCWSTR FileName)
 {
-	IRecycleBin *prb;
-	HRESULT hr;
-
-	TRACE("(%s)\n", debugstr_w(FileName));
-
-	hr = GetDefaultRecycleBin(NULL, &prb);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-
-	hr = IRecycleBin_DeleteFile(prb, FileName);
-	IRecycleBin_Release(prb);
-
-cleanup:
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
-	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
-}
-
-BOOL WINAPI
-EmptyRecycleBinA(
-	IN LPCSTR pszRoot OPTIONAL)
-{
-	int len;
-	LPWSTR szRootW = NULL;
+	LPWSTR FullFileName = NULL;
+	DWORD dwBufferLength = 0;
+	LPWSTR lpFilePart;
+	DWORD len;
+	PRECYCLE_BIN bin = NULL;
 	BOOL ret = FALSE;
 
-	TRACE("(%s)\n", debugstr_a(pszRoot));
-
-	if (pszRoot)
+	/* Check parameters */
+	if (FileName == NULL)
 	{
-		len = MultiByteToWideChar(CP_ACP, 0, pszRoot, -1, NULL, 0);
+		SetLastError(ERROR_INVALID_PARAMETER);
+		goto cleanup;
+	}
+
+	/* Get full file name */
+	while (TRUE)
+	{
+		len = GetFullPathNameW(FileName, dwBufferLength, FullFileName, &lpFilePart);
 		if (len == 0)
 			goto cleanup;
-		szRootW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-		if (!szRootW)
+		else if (len < dwBufferLength)
+			break;
+		HeapFree(GetProcessHeap(), 0, FullFileName);
+		dwBufferLength = len;
+		FullFileName = HeapAlloc(GetProcessHeap(), 0, dwBufferLength * sizeof(WCHAR));
+		if (!FullFileName)
 		{
 			SetLastError(ERROR_NOT_ENOUGH_MEMORY);
 			goto cleanup;
 		}
-		if (MultiByteToWideChar(CP_ACP, 0, pszRoot, -1, szRootW, len) == 0)
-			goto cleanup;
 	}
 
-	ret = EmptyRecycleBinW(szRootW);
+	if (!lpFilePart || dwBufferLength < 2 || FullFileName[1] != ':')
+	{
+		/* Only a directory name, or not a local file */
+		SetLastError(ERROR_INVALID_NAME);
+	}
+
+	/* Open recycle bin */
+	bin = IntReferenceRecycleBin(FullFileName[0]);
+	if (!bin)
+		goto cleanup;
+
+	if (bin->Callbacks.DeleteFile)
+		ret = bin->Callbacks.DeleteFile(bin, FullFileName, lpFilePart);
+	else
+		SetLastError(ERROR_NOT_SUPPORTED);
 
 cleanup:
-	HeapFree(GetProcessHeap(), 0, szRootW);
+	HeapFree(GetProcessHeap(), 0, FullFileName);
+	if (bin)
+		DereferenceHandle(&bin->refCount);
 	return ret;
 }
 
 BOOL WINAPI
-EmptyRecycleBinW(
-	IN LPCWSTR pszRoot OPTIONAL)
+EmptyRecycleBinA(
+	IN CHAR driveLetter)
 {
-	IRecycleBin *prb;
-	HRESULT hr;
+	return EmptyRecycleBinW((WCHAR)driveLetter);
+}
 
-	TRACE("(%s)\n", debugstr_w(pszRoot));
+BOOL WINAPI
+EmptyRecycleBinW(
+	IN WCHAR driveLetter)
+{
+	PRECYCLE_BIN bin = NULL;
+	BOOL ret = FALSE;
 
-	hr = GetDefaultRecycleBin(pszRoot, &prb);
-	if (!SUCCEEDED(hr))
+	/* Open recycle bin */
+	bin = IntReferenceRecycleBin(driveLetter);
+	if (!bin)
 		goto cleanup;
 
-	hr = IRecycleBin_EmptyRecycleBin(prb);
-	IRecycleBin_Release(prb);
+	if (bin->Callbacks.EmptyRecycleBin)
+		ret = bin->Callbacks.EmptyRecycleBin(&bin);
+	else
+		SetLastError(ERROR_NOT_SUPPORTED);
 
 cleanup:
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
-	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
+	if (bin)
+		DereferenceHandle(&bin->refCount);
+	return ret;
 }
 
 BOOL WINAPI
 EnumerateRecycleBinA(
-	IN LPCSTR pszRoot OPTIONAL,
+	IN CHAR driveLetter,
 	IN PENUMERATE_RECYCLEBIN_CALLBACK pFnCallback,
 	IN PVOID Context OPTIONAL)
 {
-	int len;
-	LPWSTR szRootW = NULL;
+	return EnumerateRecycleBinW((WCHAR)driveLetter, pFnCallback, Context);
+}
+
+static BOOL
+IntCloseDeletedFileHandle(
+	IN PREFCOUNT_DATA pData)
+{
+	PDELETED_FILE_HANDLE file;
+
+	file = CONTAINING_RECORD(pData, DELETED_FILE_HANDLE, refCount);
+	if (!DereferenceHandle(&file->bin->refCount))
+		return FALSE;
+
+	file->magic = 0;
+	HeapFree(GetProcessHeap(), 0, file);
+	return TRUE;
+}
+
+static BOOL
+IntEnumerateRecycleBinCallback(
+	IN PVOID Context,
+	IN HANDLE hDeletedFile)
+{
+	PENUMERATE_RECYCLE_BIN_CONTEXT CallbackContext = (PENUMERATE_RECYCLE_BIN_CONTEXT)Context;
+	PDELETED_FILE_HANDLE DeletedFileHandle = NULL;
 	BOOL ret = FALSE;
 
-	TRACE("(%s, %p, %p)\n", debugstr_a(pszRoot), pFnCallback, Context);
-
-	if (pszRoot)
+	DeletedFileHandle = HeapAlloc(GetProcessHeap(), 0, sizeof(DELETED_FILE_HANDLE));
+	if (!DeletedFileHandle)
 	{
-		len = MultiByteToWideChar(CP_ACP, 0, pszRoot, -1, NULL, 0);
-		if (len == 0)
-			goto cleanup;
-		szRootW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-		if (!szRootW)
-		{
-			SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-			goto cleanup;
-		}
-		if (MultiByteToWideChar(CP_ACP, 0, pszRoot, -1, szRootW, len) == 0)
-			goto cleanup;
+		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+		goto cleanup;
 	}
 
-	ret = EnumerateRecycleBinW(szRootW, pFnCallback, Context);
+	ReferenceHandle(&CallbackContext->bin->refCount);
+	InitializeHandle(&DeletedFileHandle->refCount, IntCloseDeletedFileHandle);
+	DeletedFileHandle->magic = DELETEDFILE_MAGIC;
+	DeletedFileHandle->bin = CallbackContext->bin;
+	DeletedFileHandle->hDeletedFile = hDeletedFile;
+
+	ret = CallbackContext->pFnCallback(CallbackContext->Context, DeletedFileHandle);
 
 cleanup:
-	HeapFree(GetProcessHeap(), 0, szRootW);
+	if (!ret)
+	{
+		if (DeletedFileHandle)
+			DereferenceHandle(&DeletedFileHandle->refCount);
+	}
 	return ret;
 }
 
 BOOL WINAPI
 EnumerateRecycleBinW(
-	IN LPCWSTR pszRoot OPTIONAL,
+	IN WCHAR driveLetter,
 	IN PENUMERATE_RECYCLEBIN_CALLBACK pFnCallback,
 	IN PVOID Context OPTIONAL)
 {
-	IRecycleBin *prb = NULL;
-	IRecycleBinEnumList *prbel = NULL;
-	IRecycleBinFile *prbf;
-	HRESULT hr;
+	PRECYCLE_BIN bin = NULL;
+	BOOL ret = FALSE;
 
-	TRACE("(%s, %p, %p)\n", debugstr_w(pszRoot), pFnCallback, Context);
-
-	hr = GetDefaultRecycleBin(NULL, &prb);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-
-	hr = IRecycleBin_EnumObjects(prb, &prbel);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	while (TRUE)
+	/* Check parameters */
+	if (pFnCallback == NULL)
 	{
-		hr = IRecycleBinEnumList_Next(prbel, 1, &prbf, NULL);
-		if (hr == S_FALSE)
-		{
-			hr = S_OK;
-			goto cleanup;
-		}
-		else if (!SUCCEEDED(hr))
-			goto cleanup;
-		if (!pFnCallback(Context, (HANDLE)prbf))
-		{
-			hr = HRESULT_FROM_WIN32(GetLastError());
-			goto cleanup;
-		}
+		SetLastError(ERROR_INVALID_PARAMETER);
+		goto cleanup;
 	}
 
-cleanup:
-	if (prb)
-		IRecycleBin_Release(prb);
-	if (prbel)
-		IRecycleBinEnumList_Release(prbel);
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
+	/* Open recycle bin */
+	bin = IntReferenceRecycleBin(driveLetter);
+	if (!bin)
+		goto cleanup;
+
+	if (bin->Callbacks.EnumerateFiles)
+	{
+		ENUMERATE_RECYCLE_BIN_CONTEXT CallbackContext;
+
+		CallbackContext.bin = bin;
+		CallbackContext.pFnCallback = pFnCallback;
+		CallbackContext.Context = Context;
+
+		ret = bin->Callbacks.EnumerateFiles(bin, IntEnumerateRecycleBinCallback, &CallbackContext);
+	}
 	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
+		SetLastError(ERROR_NOT_SUPPORTED);
+
+cleanup:
+	if (bin)
+		DereferenceHandle(&bin->refCount);
+	return ret;
 }
 
 BOOL WINAPI
@@ -246,8 +262,6 @@ GetDeletedFileDetailsA(
 	PDELETED_FILE_DETAILS_W FileDetailsW = NULL;
 	DWORD BufferSizeW = 0;
 	BOOL ret = FALSE;
-
-	TRACE("(%p, %lu, %p, %p)\n", hDeletedFile, BufferSize, FileDetails, RequiredSize);
 
 	if (BufferSize >= FIELD_OFFSET(DELETED_FILE_DETAILS_A, FileName))
 	{
@@ -270,7 +284,7 @@ GetDeletedFileDetailsA(
 
 	if (FileDetails)
 	{
-		CopyMemory(FileDetails, FileDetailsW, FIELD_OFFSET(DELETED_FILE_DETAILS_A, FileName));
+		memcpy(FileDetails, FileDetailsW, FIELD_OFFSET(DELETED_FILE_DETAILS_A, FileName));
 		if (0 == WideCharToMultiByte(CP_ACP, 0, FileDetailsW->FileName, -1, FileDetails->FileName, BufferSize - FIELD_OFFSET(DELETED_FILE_DETAILS_A, FileName), NULL, NULL))
 			goto cleanup;
 	}
@@ -288,98 +302,38 @@ GetDeletedFileDetailsW(
 	IN OUT PDELETED_FILE_DETAILS_W FileDetails OPTIONAL,
 	OUT LPDWORD RequiredSize OPTIONAL)
 {
-	IRecycleBinFile *rbf = (IRecycleBinFile *)hDeletedFile;
-	HRESULT hr;
-	SIZE_T NameSize, Needed;
+	BOOL ret = FALSE;
 
-	TRACE("(%p, %lu, %p, %p)\n", hDeletedFile, BufferSize, FileDetails, RequiredSize);
-
-	hr = IRecycleBinFile_GetFileName(rbf, 0, NULL, &NameSize);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	Needed = FIELD_OFFSET(DELETED_FILE_DETAILS_W, FileName) + NameSize;
-	if (RequiredSize)
-		*RequiredSize = (DWORD)Needed;
-	if (Needed > BufferSize)
-	{
-		hr = HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
-		goto cleanup;
-	}
-	hr = IRecycleBinFile_GetFileName(rbf, NameSize, FileDetails->FileName, NULL);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	hr = IRecycleBinFile_GetLastModificationTime(rbf, &FileDetails->LastModification);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	hr = IRecycleBinFile_GetDeletionTime(rbf, &FileDetails->DeletionTime);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	hr = IRecycleBinFile_GetFileSize(rbf, &FileDetails->FileSize);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	hr = IRecycleBinFile_GetPhysicalFileSize(rbf, &FileDetails->PhysicalFileSize);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-	hr = IRecycleBinFile_GetAttributes(rbf, &FileDetails->Attributes);
-	if (!SUCCEEDED(hr))
-		goto cleanup;
-
-cleanup:
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
+	if (!IntCheckDeletedFileHandle(hDeletedFile))
+		SetLastError(ERROR_INVALID_HANDLE);
 	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
+	{
+		PDELETED_FILE_HANDLE DeletedFile = (PDELETED_FILE_HANDLE)hDeletedFile;
+		if (DeletedFile->bin->Callbacks.GetDetails)
+			ret = DeletedFile->bin->Callbacks.GetDetails(DeletedFile->bin, DeletedFile->hDeletedFile, BufferSize, FileDetails, RequiredSize);
+		else
+			SetLastError(ERROR_NOT_SUPPORTED);
+	}
+
+	return ret;
 }
 
 BOOL WINAPI
 RestoreFile(
 	IN HANDLE hDeletedFile)
 {
-	IRecycleBinFile *rbf = (IRecycleBinFile *)hDeletedFile;
-	HRESULT hr;
+	BOOL ret = FALSE;
 
-	TRACE("(%p)\n", hDeletedFile);
-
-	hr = IRecycleBinFile_Restore(rbf);
-	if (SUCCEEDED(hr))
-		return TRUE;
-	if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-		SetLastError(HRESULT_CODE(hr));
-	else
-		SetLastError(ERROR_GEN_FAILURE);
-	return FALSE;
-}
-
-HRESULT WINAPI
-GetDefaultRecycleBin(
-	IN LPCWSTR pszVolume OPTIONAL,
-	OUT IRecycleBin **pprb)
-{
-	IUnknown *pUnk;
-	HRESULT hr;
-
-	TRACE("(%s, %p)\n", debugstr_w(pszVolume), pprb);
-
-	if (!pprb)
-		return E_POINTER;
-
-	if (!pszVolume)
-		hr = RecycleBinGeneric_Constructor(&pUnk);
+	if (!IntCheckDeletedFileHandle(hDeletedFile))
+		SetLastError(ERROR_INVALID_HANDLE);
 	else
 	{
-		/* FIXME: do a better validation! */
-		if (wcslen(pszVolume) != 3 || pszVolume[1] != ':' || pszVolume[2] != '\\')
-			return HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
-
-		/* For now, only support this type of recycle bins... */
-		hr = RecycleBin5_Constructor(pszVolume, &pUnk);
+		PDELETED_FILE_HANDLE DeletedFile = (PDELETED_FILE_HANDLE)hDeletedFile;
+		if (DeletedFile->bin->Callbacks.RestoreFile)
+			ret = DeletedFile->bin->Callbacks.RestoreFile(DeletedFile->bin, DeletedFile->hDeletedFile);
+		else
+			SetLastError(ERROR_NOT_SUPPORTED);
 	}
-	if (!SUCCEEDED(hr))
-		return hr;
-	hr = IUnknown_QueryInterface(pUnk, &IID_IRecycleBin, (void **)pprb);
-	IUnknown_Release(pUnk);
-	return hr;
+
+	return ret;
 }

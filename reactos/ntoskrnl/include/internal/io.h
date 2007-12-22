@@ -350,18 +350,6 @@ typedef struct _OPEN_PACKET
 } OPEN_PACKET, *POPEN_PACKET;
 
 //
-// Parameters packet for Load/Unload work item's context
-//
-typedef struct _LOAD_UNLOAD_PARAMS
-{
-    NTSTATUS Status;
-    PUNICODE_STRING ServiceName;
-    WORK_QUEUE_ITEM WorkItem;
-    KEVENT Event;
-    PDRIVER_OBJECT DriverObject;
-} LOAD_UNLOAD_PARAMS, *PLOAD_UNLOAD_PARAMS;
-
-//
 // List of Bus Type GUIDs
 //
 typedef struct _IO_BUS_TYPE_GUID_LIST
@@ -538,7 +526,7 @@ IoDestroyDriverList(
     VOID
 );
 
-NTSTATUS
+NTSTATUS 
 INIT_FUNCTION
 IopInitPlugPlayEvents(VOID);
 
@@ -610,7 +598,7 @@ IopMountVolume(
     OUT PVPB *Vpb
 );
 
-PVOID
+PVOID 
 IoOpenSymlink(
     IN PVOID SymbolicLink
 );
@@ -817,9 +805,6 @@ NTSTATUS
 NTAPI
 IopCreateDriver(IN PUNICODE_STRING DriverName OPTIONAL,
                 IN PDRIVER_INITIALIZE InitializationFunction,
-                IN PUNICODE_STRING RegistryPath,
-                IN PVOID DllBase,
-                IN ULONG SizeOfImage,
                 OUT PDRIVER_OBJECT *pDriverObject);
 
 VOID
@@ -843,13 +828,7 @@ IopLoadServiceModule(
     OUT PLDR_DATA_TABLE_ENTRY *ModuleObject
 );
 
-VOID
-NTAPI
-IopLoadUnloadDriver(
-    IN OUT PLOAD_UNLOAD_PARAMS LoadParams
-);
-
-NTSTATUS
+NTSTATUS 
 FASTCALL
 IopInitializeDriverModule(
     IN PDEVICE_NODE DeviceNode,

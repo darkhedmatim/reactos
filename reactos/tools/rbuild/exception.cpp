@@ -51,13 +51,6 @@ void Exception::SetMessageV ( const char* message, va_list args )
 }
 
 
-MissingArgumentException::MissingArgumentException ( const string& argument )
-	: Exception ( "Argument '%s' is missing",
-	              argument.c_str () )
-{
-}
-
-
 OutOfMemoryException::OutOfMemoryException ()
 	: Exception ( "Out of memory" )
 {
@@ -69,13 +62,6 @@ InvalidOperationException::InvalidOperationException (
 	const int linenumber )
 	: Exception ( "%s:%d", filename, linenumber )
 {
-}
-
-InvalidDateException::InvalidDateException ( const string& filename)
-	: Exception ( "File '%s' has an invalid date.",
-	             filename.c_str() )
-{
-	Filename = filename;
 }
 
 InvalidOperationException::InvalidOperationException (
@@ -135,7 +121,7 @@ InvalidAttributeValueException::InvalidAttributeValueException (
 		name.c_str (),
 		value.c_str () )
 {
-
+	
 }
 
 BackendNameConflictException::BackendNameConflictException ( const string& name )

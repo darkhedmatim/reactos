@@ -8,7 +8,7 @@
     -
 */
 
-#include "private.h"
+#include <ntddk.h>
 
 /*
  * @implemented

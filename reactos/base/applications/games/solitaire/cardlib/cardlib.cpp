@@ -48,7 +48,7 @@ void CardLib_SetZoomSpeed(int speed)
                           It uses the Card(int uval) constructor,
                           which results in a 2 of clubs...
                           not what was expected
-*/
+*/ 
 /*
 void CardLib_SetAcesHigh(bool fHigh);
 bool operator != (const Card &lhs, const Card &rhs);
@@ -117,6 +117,6 @@ bool operator <= (const Card &lhs, const Card &rhs)
 void PaintRect(HDC hdc, RECT *rect, COLORREF colour)
 {
     COLORREF oldcr = SetBkColor(hdc, colour);
-    ExtTextOut(hdc, 0, 0, ETO_OPAQUE, rect, TEXT(""), 0, 0);
+    ExtTextOut(hdc, 0, 0, ETO_OPAQUE, rect, "", 0, 0);
     SetBkColor(hdc, oldcr);
 }

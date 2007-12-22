@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <stdarg.h>
 #include <string.h>
@@ -24,121 +24,36 @@
 
 #include "windef.h"
 #include "winbase.h"
-#include "winuser.h"
 #include "objbase.h"
-#include "shlobj.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
-/* dwSignature for contained DATABLOCK_HEADER items */
+/* DataBlock list element (ordinals 17-22) */
+typedef struct tagSHLWAPI_CLIST
+{
+  ULONG ulSize;        /* Size of this list element and its data */
+  ULONG ulId;          /* If 0xFFFFFFFF, The real element follows        */
+  /* Item data (or a contained SHLWAPI_CLIST) follows...         */
+} SHLWAPI_CLIST, *LPSHLWAPI_CLIST;
+
+typedef const SHLWAPI_CLIST* LPCSHLWAPI_CLIST;
+
+/* ulId for contained SHLWAPI_CLIST items */
 #define CLIST_ID_CONTAINER (~0U)
+
+HRESULT WINAPI SHAddDataBlock(LPSHLWAPI_CLIST*,LPCSHLWAPI_CLIST);
 
 /*************************************************************************
  * NextItem
  *
  * Internal helper: move a DataBlock pointer to the next item.
  */
-static inline LPDATABLOCK_HEADER NextItem(LPDBLIST lpList)
+inline static LPSHLWAPI_CLIST NextItem(LPCSHLWAPI_CLIST lpList)
 {
-  char* address = (char*)lpList;
-  address += lpList->cbSize;
-  return (LPDATABLOCK_HEADER)address;
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.20]
- *
- * Insert a new item into a DataBlock list.
- *
- * PARAMS
- *  lppList   [0] Pointer to the List
- *  lpNewItem [I] The new item to add to the list
- *
- * RETURNS
- *  Success: S_OK. The item is added to the list.
- *  Failure: An HRESULT error code.
- *
- * NOTES
- *  If the size of the element to be inserted is less than the size of a
- *  DATABLOCK_HEADER node, or the Id for the item is CLIST_ID_CONTAINER,
- *  the call returns S_OK but does not actually add the element.
- *  See SHWriteDataBlockList.
- */
-HRESULT WINAPI SHAddDataBlock(LPDBLIST* lppList, const DATABLOCK_HEADER *lpNewItem)
-{
-  LPDATABLOCK_HEADER lpInsertAt = NULL;
-  ULONG ulSize;
-
-  TRACE("(%p,%p)\n", lppList, lpNewItem);
-
-  if(!lppList || !lpNewItem )
-    return E_INVALIDARG;
-
-  if (lpNewItem->cbSize < sizeof(DATABLOCK_HEADER) ||
-      lpNewItem->dwSignature == CLIST_ID_CONTAINER)
-    return S_OK;
-
-  ulSize = lpNewItem->cbSize;
-
-  if(ulSize & 0x3)
-  {
-    /* Tune size to a ULONG boundary, add space for container element */
-    ulSize = ((ulSize + 0x3) & 0xFFFFFFFC) + sizeof(DATABLOCK_HEADER);
-    TRACE("Creating container item, new size = %d\n", ulSize);
-  }
-
-  if(!*lppList)
-  {
-    /* An empty list. Allocate space for terminal ulSize also */
-    *lppList = (LPDATABLOCK_HEADER)LocalAlloc(LMEM_ZEROINIT,
-                                           ulSize + sizeof(ULONG));
-    lpInsertAt = *lppList;
-  }
-  else
-  {
-    /* Append to the end of the list */
-    ULONG ulTotalSize = 0;
-    LPDATABLOCK_HEADER lpIter = *lppList;
-
-    /* Iterate to the end of the list, calculating the total size */
-    while (lpIter->cbSize)
-    {
-      ulTotalSize += lpIter->cbSize;
-      lpIter = NextItem(lpIter);
-    }
-
-    /* Increase the size of the list */
-    lpIter = (LPDATABLOCK_HEADER)LocalReAlloc((HLOCAL)*lppList,
-                                          ulTotalSize + ulSize+sizeof(ULONG),
-                                          LMEM_ZEROINIT | LMEM_MOVEABLE);
-    if(lpIter)
-    {
-      *lppList = lpIter;
-      lpInsertAt = (LPDATABLOCK_HEADER)((char*)lpIter + ulTotalSize); /* At end */
-    }
-  }
-
-  if(lpInsertAt)
-  {
-    /* Copy in the new item */
-    LPDATABLOCK_HEADER lpDest = lpInsertAt;
-
-    if(ulSize != lpNewItem->cbSize)
-    {
-      lpInsertAt->cbSize = ulSize;
-      lpInsertAt->dwSignature = CLIST_ID_CONTAINER;
-      lpDest++;
-    }
-    memcpy(lpDest, lpNewItem, lpNewItem->cbSize);
-
-    /* Terminate the list */
-    lpInsertAt = NextItem(lpInsertAt);
-    lpInsertAt->cbSize = 0;
-
-    return lpNewItem->cbSize;
-  }
-  return S_OK;
+  const char* address = (const char*)lpList;
+  address += lpList->ulSize;
+  return (LPSHLWAPI_CLIST)address;
 }
 
 /*************************************************************************
@@ -178,27 +93,27 @@ HRESULT WINAPI SHAddDataBlock(LPDBLIST* lppList, const DATABLOCK_HEADER *lpNewIt
  *
  *  These functions are slow for large objects and long lists.
  */
-HRESULT WINAPI SHWriteDataBlockList(IStream* lpStream, LPDBLIST lpList)
+HRESULT WINAPI SHWriteDataBlockList(IStream* lpStream, LPSHLWAPI_CLIST lpList)
 {
   ULONG ulSize;
-  HRESULT hRet = S_OK;
+  HRESULT hRet = E_FAIL;
 
   TRACE("(%p,%p)\n", lpStream, lpList);
 
   if(lpList)
   {
-    while (lpList->cbSize)
+    while (lpList->ulSize)
     {
-      LPDATABLOCK_HEADER lpItem = lpList;
+      LPSHLWAPI_CLIST lpItem = lpList;
 
-      if(lpList->dwSignature == CLIST_ID_CONTAINER)
+      if(lpList->ulId == CLIST_ID_CONTAINER)
         lpItem++;
 
-      hRet = IStream_Write(lpStream,lpItem,lpItem->cbSize,&ulSize);
+      hRet = IStream_Write(lpStream,lpItem,lpItem->ulSize,&ulSize);
       if (FAILED(hRet))
         return hRet;
 
-      if(lpItem->cbSize != ulSize)
+      if(lpItem->ulSize != ulSize)
         return STG_E_MEDIUMFULL;
 
       lpList = NextItem(lpList);
@@ -234,11 +149,11 @@ HRESULT WINAPI SHWriteDataBlockList(IStream* lpStream, LPDBLIST lpList)
  *  When read from a file, list objects are limited in size to 64k.
  *  See SHWriteDataBlockList.
  */
-HRESULT WINAPI SHReadDataBlockList(IStream* lpStream, LPDBLIST* lppList)
+HRESULT WINAPI SHReadDataBlockList(IStream* lpStream, LPSHLWAPI_CLIST* lppList)
 {
-  DATABLOCK_HEADER bBuff[128]; /* Temporary storage for new list item */
+  SHLWAPI_CLIST bBuff[128]; /* Temporary storage for new list item */
   ULONG ulBuffSize = sizeof(bBuff);
-  LPDATABLOCK_HEADER pItem = bBuff;
+  LPSHLWAPI_CLIST pItem = bBuff;
   ULONG ulRead, ulSize;
   HRESULT hRet = S_OK;
 
@@ -274,18 +189,18 @@ HRESULT WINAPI SHReadDataBlockList(IStream* lpStream, LPDBLIST* lppList)
       }
       break;
     }
-    else if (ulSize >= sizeof(DATABLOCK_HEADER))
+    else if (ulSize >= sizeof(SHLWAPI_CLIST))
     {
       /* Add this new item to the list */
       if(ulSize > ulBuffSize)
       {
         /* We need more buffer space, allocate it */
-        LPDATABLOCK_HEADER lpTemp;
+        LPSHLWAPI_CLIST lpTemp;
 
         if (pItem == bBuff)
-          lpTemp = (LPDATABLOCK_HEADER)LocalAlloc(LMEM_ZEROINIT, ulSize);
+          lpTemp = (LPSHLWAPI_CLIST)LocalAlloc(LMEM_ZEROINIT, ulSize);
         else
-          lpTemp = (LPDATABLOCK_HEADER)LocalReAlloc((HLOCAL)pItem, ulSize,
+          lpTemp = (LPSHLWAPI_CLIST)LocalReAlloc((HLOCAL)pItem, ulSize,
                                                  LMEM_ZEROINIT|LMEM_MOVEABLE);
 
         if(!lpTemp)
@@ -297,11 +212,11 @@ HRESULT WINAPI SHReadDataBlockList(IStream* lpStream, LPDBLIST* lppList)
         pItem = lpTemp;
       }
 
-      pItem->cbSize = ulSize;
-      ulSize -= sizeof(pItem->cbSize); /* already read this member */
+      pItem->ulSize = ulSize;
+      ulSize -= sizeof(pItem->ulSize); /* already read this member */
 
       /* Read the item Id and data */
-      hRet = IStream_Read(lpStream, &pItem->dwSignature, ulSize, &ulRead);
+      hRet = IStream_Read(lpStream, &pItem->ulId, ulSize, &ulRead);
 
       if(FAILED(hRet) || ulRead != ulSize)
         break;
@@ -331,7 +246,7 @@ HRESULT WINAPI SHReadDataBlockList(IStream* lpStream, LPDBLIST* lppList)
  * NOTES
  *  See SHWriteDataBlockList.
  */
-VOID WINAPI SHFreeDataBlockList(LPDBLIST lpList)
+VOID WINAPI SHFreeDataBlockList(LPSHLWAPI_CLIST lpList)
 {
   TRACE("(%p)\n", lpList);
 
@@ -340,13 +255,108 @@ VOID WINAPI SHFreeDataBlockList(LPDBLIST lpList)
 }
 
 /*************************************************************************
+ *      @	[SHLWAPI.20]
+ *
+ * Insert a new item into a DataBlock list.
+ *
+ * PARAMS
+ *  lppList   [0] Pointer to the List
+ *  lpNewItem [I] The new item to add to the list
+ *
+ * RETURNS
+ *  Success: S_OK. The item is added to the list.
+ *  Failure: An HRESULT error code.
+ *
+ * NOTES
+ *  If the size of the element to be inserted is less than the size of a
+ *  SHLWAPI_CLIST node, or the Id for the item is CLIST_ID_CONTAINER,
+ *  the call returns S_OK but does not actually add the element.
+ *  See SHWriteDataBlockList.
+ */
+HRESULT WINAPI SHAddDataBlock(LPSHLWAPI_CLIST* lppList, LPCSHLWAPI_CLIST lpNewItem)
+{
+  LPSHLWAPI_CLIST lpInsertAt = NULL;
+  ULONG ulSize;
+
+  TRACE("(%p,%p)\n", lppList, lpNewItem);
+
+  if(!lppList || !lpNewItem )
+    return E_INVALIDARG;
+
+  if (lpNewItem->ulSize < sizeof(SHLWAPI_CLIST) ||
+      lpNewItem->ulId == CLIST_ID_CONTAINER)
+    return S_OK;
+
+  ulSize = lpNewItem->ulSize;
+
+  if(ulSize & 0x3)
+  {
+    /* Tune size to a ULONG boundary, add space for container element */
+    ulSize = ((ulSize + 0x3) & 0xFFFFFFFC) + sizeof(SHLWAPI_CLIST);
+    TRACE("Creating container item, new size = %ld\n", ulSize);
+  }
+
+  if(!*lppList)
+  {
+    /* An empty list. Allocate space for terminal ulSize also */
+    *lppList = (LPSHLWAPI_CLIST)LocalAlloc(LMEM_ZEROINIT,
+                                           ulSize + sizeof(ULONG));
+    lpInsertAt = *lppList;
+  }
+  else
+  {
+    /* Append to the end of the list */
+    ULONG ulTotalSize = 0;
+    LPSHLWAPI_CLIST lpIter = *lppList;
+
+    /* Iterate to the end of the list, calculating the total size */
+    while (lpIter->ulSize)
+    {
+      ulTotalSize += lpIter->ulSize;
+      lpIter = NextItem(lpIter);
+    }
+
+    /* Increase the size of the list */
+    lpIter = (LPSHLWAPI_CLIST)LocalReAlloc((HLOCAL)*lppList,
+                                          ulTotalSize + ulSize+sizeof(ULONG),
+                                          LMEM_ZEROINIT | LMEM_MOVEABLE);
+    if(lpIter)
+    {
+      *lppList = lpIter;
+      lpInsertAt = (LPSHLWAPI_CLIST)((char*)lpIter + ulTotalSize); /* At end */
+    }
+  }
+
+  if(lpInsertAt)
+  {
+    /* Copy in the new item */
+    LPSHLWAPI_CLIST lpDest = lpInsertAt;
+
+    if(ulSize != lpNewItem->ulSize)
+    {
+      lpInsertAt->ulSize = ulSize;
+      lpInsertAt->ulId = CLIST_ID_CONTAINER;
+      lpDest++;
+    }
+    memcpy(lpDest, lpNewItem, lpNewItem->ulSize);
+
+    /* Terminate the list */
+    lpInsertAt = NextItem(lpInsertAt);
+    lpInsertAt->ulSize = 0;
+
+    return lpNewItem->ulSize;
+  }
+  return S_OK;
+}
+
+/*************************************************************************
  *      @	[SHLWAPI.21]
  *
  * Remove an item from a DataBlock list.
  *
  * PARAMS
- *  lppList     [O] List to remove the item from
- *  dwSignature [I] Id of item to remove
+ *  lppList [O] List to remove the item from
+ *  ulId    [I] Id of item to remove
  *
  * RETURNS
  *  Success: TRUE.
@@ -355,22 +365,22 @@ VOID WINAPI SHFreeDataBlockList(LPDBLIST lpList)
  * NOTES
  *  See SHWriteDataBlockList.
  */
-BOOL WINAPI SHRemoveDataBlock(LPDBLIST* lppList, DWORD dwSignature)
+BOOL WINAPI SHRemoveDataBlock(LPSHLWAPI_CLIST* lppList, ULONG ulId)
 {
-  LPDATABLOCK_HEADER lpList = 0;
-  LPDATABLOCK_HEADER lpItem = NULL;
-  LPDATABLOCK_HEADER lpNext;
+  LPSHLWAPI_CLIST lpList = 0;
+  LPSHLWAPI_CLIST lpItem = NULL;
+  LPSHLWAPI_CLIST lpNext;
   ULONG ulNewSize;
 
-  TRACE("(%p,%d)\n", lppList, dwSignature);
+  TRACE("(%p,%ld)\n", lppList, ulId);
 
   if(lppList && (lpList = *lppList))
   {
     /* Search for item in list */
-    while (lpList->cbSize)
+    while (lpList->ulSize)
     {
-      if(lpList->dwSignature == dwSignature ||
-        (lpList->dwSignature == CLIST_ID_CONTAINER && lpList[1].dwSignature == dwSignature))
+      if(lpList->ulId == ulId ||
+        (lpList->ulId == CLIST_ID_CONTAINER && lpList[1].ulId == ulId))
       {
         lpItem = lpList; /* Found */
         break;
@@ -385,11 +395,11 @@ BOOL WINAPI SHRemoveDataBlock(LPDBLIST* lppList, DWORD dwSignature)
   lpList = lpNext = NextItem(lpItem);
 
   /* Locate the end of the list */
-  while (lpList->cbSize)
+  while (lpList->ulSize)
     lpList = NextItem(lpList);
 
   /* Resize the list */
-  ulNewSize = LocalSize((HLOCAL)*lppList) - lpItem->cbSize;
+  ulNewSize = LocalSize((HLOCAL)*lppList) - lpItem->ulSize;
 
   /* Copy following elements over lpItem */
   memmove(lpItem, lpNext, (char *)lpList - (char *)lpNext + sizeof(ULONG));
@@ -401,7 +411,7 @@ BOOL WINAPI SHRemoveDataBlock(LPDBLIST* lppList, DWORD dwSignature)
   }
   else
   {
-    lpList = (LPDATABLOCK_HEADER)LocalReAlloc((HLOCAL)*lppList, ulNewSize,
+    lpList = (LPSHLWAPI_CLIST)LocalReAlloc((HLOCAL)*lppList, ulNewSize,
                                            LMEM_ZEROINIT|LMEM_MOVEABLE);
     if(lpList)
       *lppList = lpList;
@@ -415,8 +425,8 @@ BOOL WINAPI SHRemoveDataBlock(LPDBLIST* lppList, DWORD dwSignature)
  * Find an item in a DataBlock list.
  *
  * PARAMS
- *  lpList      [I] List to search
- *  dwSignature [I] Id of item to find
+ *  lpList [I] List to search
+ *  ulId   [I] Id of item to find
  *
  * RETURNS
  *  Success: A pointer to the list item found
@@ -425,17 +435,17 @@ BOOL WINAPI SHRemoveDataBlock(LPDBLIST* lppList, DWORD dwSignature)
  * NOTES
  *  See SHWriteDataBlockList.
  */
-DATABLOCK_HEADER* WINAPI SHFindDataBlock(LPDBLIST lpList, DWORD dwSignature)
+LPSHLWAPI_CLIST WINAPI SHFindDataBlock(LPSHLWAPI_CLIST lpList, ULONG ulId)
 {
-  TRACE("(%p,%d)\n", lpList, dwSignature);
+  TRACE("(%p,%ld)\n", lpList, ulId);
 
   if(lpList)
   {
-    while(lpList->cbSize)
+    while(lpList->ulSize)
     {
-      if(lpList->dwSignature == dwSignature)
+      if(lpList->ulId == ulId)
         return lpList; /* Matched */
-      else if(lpList->dwSignature == CLIST_ID_CONTAINER && lpList[1].dwSignature == dwSignature)
+      else if(lpList->ulId == CLIST_ID_CONTAINER && lpList[1].ulId == ulId)
         return lpList + 1; /* Contained item matches */
 
       lpList = NextItem(lpList);

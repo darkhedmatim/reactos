@@ -55,7 +55,7 @@ PCI_CONFIG_HANDLER PCIConfigHandlerType2 =
 {
     /* Synchronization */
     (FncSync)HalpPCISynchronizeType2,
-    (FncReleaseSync)HalpPCIReleaseSynchronizationType2,
+    (FncReleaseSync)HalpPCIReleaseSynchronzationType2,
 
     /* Read */
     {
@@ -187,8 +187,8 @@ HalpPCISynchronizeType2(IN PBUS_HANDLER BusHandler,
 
 VOID
 NTAPI
-HalpPCIReleaseSynchronizationType2(IN PBUS_HANDLER BusHandler,
-                                   IN KIRQL Irql)
+HalpPCIReleaseSynchronzationType2(IN PBUS_HANDLER BusHandler,
+                                  IN KIRQL Irql)
 {
     PCI_TYPE2_CSE_BITS PciCfg2Cse;
     PPCIPBUSDATA BusData = (PPCIPBUSDATA)BusHandler->BusData;
@@ -346,26 +346,6 @@ HalpGetPCIData(IN PBUS_HANDLER BusHandler,
     PPCI_COMMON_CONFIG PciConfig = (PPCI_COMMON_CONFIG)PciBuffer;
     ULONG Len = 0;
 
-#ifdef SARCH_XBOX
-    /* Trying to get PCI config data from devices 0:0:1 and 0:0:2 will completely
-     * hang the Xbox. Also, the device number doesn't seem to be decoded for the
-     * video card, so it appears to be present on 1:0:0 - 1:31:0.
-     * We hack around these problems by indicating "device not present" for devices
-     * 0:0:1, 0:0:2, 1:1:0, 1:2:0, 1:3:0, ...., 1:31:0 */
-    if ((0 == BusHandler->BusNumber && 0 == Slot.u.bits.DeviceNumber &&
-         (1 == Slot.u.bits.FunctionNumber || 2 == Slot.u.bits.FunctionNumber)) ||
-        (1 == BusHandler->BusNumber && 0 != Slot.u.bits.DeviceNumber))
-    {
-        DPRINT("Blacklisted PCI slot\n");
-        if (0 == Offset && 2 <= Length)
-        {
-            *(PUSHORT)Buffer = PCI_INVALID_VENDORID;
-            return 2;
-        }
-        return 0;
-    }
-#endif
-
     /* Normalize the length */
     if (Length > sizeof(PCI_COMMON_CONFIG)) Length = sizeof(PCI_COMMON_CONFIG);
 
@@ -437,21 +417,6 @@ HalpSetPCIData(IN PBUS_HANDLER BusHandler,
     PPCI_COMMON_CONFIG PciConfig = (PPCI_COMMON_CONFIG)PciBuffer;
     ULONG Len = 0;
 
-#ifdef SARCH_XBOX
-    /* Trying to get PCI config data from devices 0:0:1 and 0:0:2 will completely
-     * hang the Xbox. Also, the device number doesn't seem to be decoded for the
-     * video card, so it appears to be present on 1:0:0 - 1:31:0.
-     * We hack around these problems by indicating "device not present" for devices
-     * 0:0:1, 0:0:2, 1:1:0, 1:2:0, 1:3:0, ...., 1:31:0 */
-    if ((0 == BusHandler->BusNumber && 0 == Slot.u.bits.DeviceNumber &&
-         (1 == Slot.u.bits.FunctionNumber || 2 == Slot.u.bits.FunctionNumber)) ||
-        (1 == BusHandler->BusNumber && 0 != Slot.u.bits.DeviceNumber))
-    {
-        DPRINT1("Trying to set data on blacklisted PCI slot\n");
-        return 0;
-    }
-#endif
-
     /* Normalize the length */
     if (Length > sizeof(PCI_COMMON_CONFIG)) Length = sizeof(PCI_COMMON_CONFIG);
 
@@ -520,14 +485,6 @@ HalpReleasePciDeviceForDebugging(IN OUT PDEBUG_DEVICE_DESCRIPTOR PciDevice)
     return STATUS_NOT_IMPLEMENTED;
 }
 
-static ULONG STDCALL
-PciSize(ULONG Base, ULONG Mask)
-{
-    ULONG Size = Mask & Base; /* Find the significant bits */
-    Size = Size & ~(Size - 1); /* Get the lowest of them to find the decode size */
-    return Size;
-}
-
 NTSTATUS
 NTAPI
 HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
@@ -537,126 +494,10 @@ HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
                            IN PDRIVER_OBJECT DriverObject,
                            IN PDEVICE_OBJECT DeviceObject OPTIONAL,
                            IN ULONG Slot,
-                           IN OUT PCM_RESOURCE_LIST *AllocatedResources)
+                           IN OUT PCM_RESOURCE_LIST *pAllocatedResources)
 {
-    PCI_COMMON_CONFIG PciConfig;
-    SIZE_T Address;
-    SIZE_T ResourceCount;
-    ULONG Size[PCI_TYPE0_ADDRESSES];
-    NTSTATUS Status = STATUS_SUCCESS;
-    UCHAR Offset;
-    PCM_PARTIAL_RESOURCE_DESCRIPTOR Descriptor;
-    PCI_SLOT_NUMBER SlotNumber;
-    ULONG WriteBuffer;
-
-    /* FIXME: Should handle 64-bit addresses */
-
-    /* Read configuration data */
-    SlotNumber.u.AsULONG = Slot;
-    HalpReadPCIConfig(BusHandler, SlotNumber, &PciConfig, 0, PCI_COMMON_HDR_LENGTH);
-
-    /* Check if we read it correctly */
-    if (PciConfig.VendorID == PCI_INVALID_VENDORID)
-        return STATUS_NO_SUCH_DEVICE;
-
-    /* Read the PCI configuration space for the device and store base address and
-    size information in temporary storage. Count the number of valid base addresses */
-    ResourceCount = 0;
-    for (Address = 0; Address < PCI_TYPE0_ADDRESSES; Address++)
-    {
-        if (0xffffffff == PciConfig.u.type0.BaseAddresses[Address])
-            PciConfig.u.type0.BaseAddresses[Address] = 0;
-
-        /* Memory resource */
-        if (0 != PciConfig.u.type0.BaseAddresses[Address])
-        {
-            ResourceCount++;
-
-            Offset = FIELD_OFFSET(PCI_COMMON_CONFIG, u.type0.BaseAddresses[Address]);
-
-            /* Write 0xFFFFFFFF there */
-            WriteBuffer = 0xffffffff;
-            HalpWritePCIConfig(BusHandler, SlotNumber, &WriteBuffer, Offset, sizeof(ULONG));
-
-            /* Read that figure back from the config space */
-            HalpReadPCIConfig(BusHandler, SlotNumber, &Size[Address], Offset, sizeof(ULONG));
-
-            /* Write back initial value */
-            HalpWritePCIConfig(BusHandler, SlotNumber, &PciConfig.u.type0.BaseAddresses[Address], Offset, sizeof(ULONG));
-        }
-    }
-
-    /* Interrupt resource */
-    if (0 != PciConfig.u.type0.InterruptLine)
-        ResourceCount++;
-
-    /* Allocate output buffer and initialize */
-    *AllocatedResources = ExAllocatePoolWithTag(
-        PagedPool,
-        sizeof(CM_RESOURCE_LIST) +
-        (ResourceCount - 1) * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR),
-        TAG('H','a','l',' '));
-
-    if (NULL == *AllocatedResources)
-        return STATUS_NO_MEMORY;
-
-    (*AllocatedResources)->Count = 1;
-    (*AllocatedResources)->List[0].InterfaceType = PCIBus;
-    (*AllocatedResources)->List[0].BusNumber = BusHandler->BusNumber;
-    (*AllocatedResources)->List[0].PartialResourceList.Version = 1;
-    (*AllocatedResources)->List[0].PartialResourceList.Revision = 1;
-    (*AllocatedResources)->List[0].PartialResourceList.Count = ResourceCount;
-    Descriptor = (*AllocatedResources)->List[0].PartialResourceList.PartialDescriptors;
-
-    /* Store configuration information */
-    for (Address = 0; Address < PCI_TYPE0_ADDRESSES; Address++)
-    {
-        if (0 != PciConfig.u.type0.BaseAddresses[Address])
-        {
-            if (/*PCI_BASE_ADDRESS_SPACE_MEMORY*/ 0 ==
-                (PciConfig.u.type0.BaseAddresses[Address] & 0x1))
-            {
-                Descriptor->Type = CmResourceTypeMemory;
-                Descriptor->ShareDisposition = CmResourceShareDeviceExclusive; /* FIXME I have no idea... */
-                Descriptor->Flags = CM_RESOURCE_MEMORY_READ_WRITE;             /* FIXME Just a guess */
-                Descriptor->u.Memory.Start.QuadPart = (PciConfig.u.type0.BaseAddresses[Address] & PCI_ADDRESS_MEMORY_ADDRESS_MASK);
-                Descriptor->u.Memory.Length = PciSize(Size[Address], PCI_ADDRESS_MEMORY_ADDRESS_MASK);
-            }
-            else if (PCI_ADDRESS_IO_SPACE ==
-                (PciConfig.u.type0.BaseAddresses[Address] & 0x1))
-            {
-                Descriptor->Type = CmResourceTypePort;
-                Descriptor->ShareDisposition = CmResourceShareDeviceExclusive; /* FIXME I have no idea... */
-                Descriptor->Flags = CM_RESOURCE_PORT_IO;                       /* FIXME Just a guess */
-                Descriptor->u.Port.Start.QuadPart = PciConfig.u.type0.BaseAddresses[Address] &= PCI_ADDRESS_IO_ADDRESS_MASK;
-                Descriptor->u.Port.Length = PciSize(Size[Address], PCI_ADDRESS_IO_ADDRESS_MASK & 0xffff);
-            }
-            else
-            {
-                ASSERT(FALSE);
-                return STATUS_UNSUCCESSFUL;
-            }
-            Descriptor++;
-        }
-    }
-
-    if (0 != PciConfig.u.type0.InterruptLine)
-    {
-        Descriptor->Type = CmResourceTypeInterrupt;
-        Descriptor->ShareDisposition = CmResourceShareShared;          /* FIXME Just a guess */
-        Descriptor->Flags = CM_RESOURCE_INTERRUPT_LEVEL_SENSITIVE;     /* FIXME Just a guess */
-        Descriptor->u.Interrupt.Level = PciConfig.u.type0.InterruptLine;
-        Descriptor->u.Interrupt.Vector = PciConfig.u.type0.InterruptLine;
-        Descriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
-
-        Descriptor++;
-    }
-
-    ASSERT(Descriptor == (*AllocatedResources)->List[0].PartialResourceList.PartialDescriptors + ResourceCount);
-
-    /* FIXME: Should store the resources in the registry resource map */
-
-    return Status;
+    KEBUGCHECK(0);
+    return STATUS_SUCCESS;
 }
 
 ULONG

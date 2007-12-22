@@ -1,13 +1,13 @@
 // French language resource file (Heis Spiter, 2006-11-28)
 
-LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
+LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
 
-IDM_MAINMENU MENU DISCARDABLE
+IDM_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&Fichier"
     BEGIN
@@ -26,12 +26,3 @@ BEGIN
     END
 END
 
-STRINGTABLE
-BEGIN
-	IDS_WINDOW_TITLE "Panneau de contrôle"
-	IDS_ABOUT "Panneau de contrôle simple (non basé sur Shell-namespace)\rCopyright 2004 GkWare e.K.\rhttp://www.gkware.com\rSous licence GPL"
-	IDS_ABOUT_TITLE "À propos du panneau de contrôle"
-	IDS_NO_ITEMS "Aucun élément dans la ListView"
-	IDS_NAME "Nom"
-	IDS_COMMENT "Commentaire"
-END

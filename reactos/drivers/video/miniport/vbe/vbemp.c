@@ -42,9 +42,9 @@ DriverEntry(IN PVOID Context1, IN PVOID Context2)
    InitData.HwInitialize = VBEInitialize;
    InitData.HwStartIO = VBEStartIO;
    InitData.HwResetHw = VBEResetHw;
-   //InitData.HwGetPowerState = VBEGetPowerState;
-   //InitData.HwSetPowerState = VBESetPowerState;
-   //InitData.HwGetVideoChildDescriptor = VBEGetVideoChildDescriptor;
+   InitData.HwGetPowerState = VBEGetPowerState;
+   InitData.HwSetPowerState = VBESetPowerState;
+   InitData.HwGetVideoChildDescriptor = VBEGetVideoChildDescriptor;
    InitData.HwDeviceExtensionSize = sizeof(VBE_DEVICE_EXTENSION);
 
    return VideoPortInitialize(Context1, Context2, &InitData, NULL);
@@ -245,7 +245,7 @@ VBEInitialize(PVOID HwDeviceExtension)
          VideoPortDebugPrint(Warn, "No VBE BIOS present\n");
          return FALSE;
       }
-
+      
       VideoPortDebugPrint(Trace, "VBE BIOS Present (%d.%d, %8ld Kb)\n",
          VBEDeviceExtension->VbeInfo.Version / 0x100,
          VBEDeviceExtension->VbeInfo.Version & 0xFF,
@@ -350,12 +350,8 @@ VBEInitialize(PVOID HwDeviceExtension)
       {
          if (VbeModeInfo->ModeAttributes & VBE_MODEATTR_LINEAR)
          {
-            /* Bit 15 14 13 12 | 11 10 9 8 | 7 6 5 4 | 3 2 1 0 */
-             // if (ModeTemp & 0x4000)
-             //{
-                VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp | 0x4000;
-                SuitableModeCount++;
-             //}
+            VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp | 0x4000;
+            SuitableModeCount++;
          }
 #ifdef VBE12_SUPPORT
          else
@@ -367,10 +363,8 @@ VBEInitialize(PVOID HwDeviceExtension)
       }
    }
 
-
    if (SuitableModeCount == 0)
    {
-
       VideoPortDebugPrint(Warn, "VBEMP: No video modes supported\n");
       return FALSE;
    }
@@ -887,7 +881,7 @@ VBEQueryMode(
    ULONG VideoModeId)
 {
    PVBE_MODEINFO VBEMode = &DeviceExtension->ModeInfo[VideoModeId];
-
+   
    VideoMode->Length = sizeof(VIDEO_MODE_INFORMATION);
    VideoMode->ModeIndex = VideoModeId;
    VideoMode->VisScreenWidth = VBEMode->XResolution;

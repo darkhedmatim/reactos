@@ -21,8 +21,6 @@
     IUnknown
 */
 
-#ifndef __IUnknown_INTERFACE_DEFINED__
-#define __IUnknown_INTERFACE_DEFINED__
 DEFINE_GUID(
     IID_IUnknown,
     0x00000000, 0x0000, 0x0000, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x46);
@@ -43,7 +41,6 @@ DECLARE_INTERFACE(IUnknown)
     STDMETHOD_(ULONG, Release)( THIS )
     PURE;
 };
-#endif
 
 #undef INTERFACE
 

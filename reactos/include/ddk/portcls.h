@@ -14,87 +14,87 @@
 
     == EXPORTS ==
     DRM (new in XP):
-    * PcAddContentHandlers
+    * PcAddContentHandlers 
     * PcCreateContentMixed
     * PcDestroyContent
-    * PcForwardContentToDeviceObject
+    * PcForwardContentToDeviceObject 
     * PcForwardContentToFileObject
     * PcForwardContentToInterface
     * PcGetContentRights
 
     IRP HANDLING:
-    * PcCompleteIrp
-    * PcDispatchIrp
+    * PcCompleteIrp 
+    * PcDispatchIrp 
     * PcForwardIrpSynchronous
 
     ADAPTER:
-    * PcAddAdapterDevice
-    * PcInitializeAdapterDriver
+    * PcAddAdapterDevice 
+    * PcInitializeAdapterDriver 
 
     FACTORIES:
-    * PcNewDmaChannel
-    * PcNewInterruptSync
-    * PcNewMiniport
-    * PcNewPort
-    * PcNewRegistryKey
-    * PcNewResourceList
-    * PcNewResourceSublist
-    * PcNewServiceGroup
+    * PcNewDmaChannel 
+    * PcNewInterruptSync 
+    * PcNewMiniport 
+    * PcNewPort 
+    * PcNewRegistryKey 
+    * PcNewResourceList 
+    * PcNewResourceSublist 
+    * PcNewServiceGroup 
 
     POWER MANAGEMENT:
-    * PcRegisterAdapterPowerManagement
+    * PcRegisterAdapterPowerManagement 
     * PcRequestNewPowerState
 
     PROPERTIES:
-    * PcCompletePendingPropertyRequest
-    * PcGetDeviceProperty
+    * PcCompletePendingPropertyRequest 
+    * PcGetDeviceProperty 
 
     IO TIMEOUTS:
     * PcRegisterIoTimeout
     * PcUnregisterIoTimeout
 
     PHYSICAL CONNECTIONS:
-    * PcRegisterPhysicalConnection
-    * PcRegisterPhysicalConnectionFromExternal
-    * PcRegisterPhysicalConnectionToExternal
+    * PcRegisterPhysicalConnection 
+    * PcRegisterPhysicalConnectionFromExternal 
+    * PcRegisterPhysicalConnectionToExternal 
 
     MISC:
-    * PcGetTimeInterval
-    * PcRegisterSubdevice
+    * PcGetTimeInterval 
+    * PcRegisterSubdevice 
 
 
     == AUDIO HELPER OBJECT INTERFACES ==
-    IDmaChannel
-    IDmaChannelSlave
-    IDmaOperations
+    IDmaChannel 
+    IDmaChannelSlave 
+    IDmaOperations 
     IDrmPort                        (XP)
     IDrmPort2                       (XP)
-    IInterruptSync
-    IMasterClock
+    IInterruptSync 
+    IMasterClock 
     IPortClsVersion                 (XP)
-    IPortEvents
+    IPortEvents 
     IPreFetchOffset                 (XP)
     IRegistryKey
-    IResourceList
-    IServiceGroup
+    IResourceList 
+    IServiceGroup 
     IServiceSink
     IUnregisterPhysicalConnection   (Vista)
     IUnregisterSubdevice            (Vista)
 
     == AUDIO PORT OBJECT INTERFACES ==
-    IPort
-    IPortDMus
-    IPortMidi
-    IPortTopology
-    IPortWaveCyclic
+    IPort 
+    IPortDMus 
+    IPortMidi 
+    IPortTopology 
+    IPortWaveCyclic 
     IPortWavePci
 
     == AUDIO MINIPORT OBJECT INTERFACES ==
-    IMiniport
-    IMiniportDMus
-    IMiniportMidi
-    IMiniportTopology
-    IMiniportWaveCyclic
+    IMiniport 
+    IMiniportDMus 
+    IMiniportMidi 
+    IMiniportTopology 
+    IMiniportWaveCyclic 
     IMiniportWavePci
 
     == AUDIO MINIPORT AUXILIARY INTERFACES ==
@@ -102,17 +102,17 @@
     IPinCount                       (XP)
 
     == AUDIO STREAM OBJECT INTERFACES ==
-    IAllocatorMXF
+    IAllocatorMXF 
     IDrmAudioStream                 (XP)
-    IMiniportMidiStream
-    IMiniportWaveCyclicStream
-    IMiniportWavePciStream
-    IMXF
-    IPortWavePciStream
+    IMiniportMidiStream 
+    IMiniportWaveCyclicStream 
+    IMiniportWavePciStream 
+    IMXF 
+    IPortWavePciStream 
     ISynthSinkDMus
 
     == DIRECTMUSIC USERMODE SYNTH AND SYNTH SINK INTERFACES ==
-    IDirectMusicSynth
+    IDirectMusicSynth 
     IDirectMusicSynthSink
 
     == AUDIO POWER MANAGEMENT INTERFACES ==
@@ -123,28 +123,16 @@
 #ifndef PORTCLS_H
 #define PORTCLS_H
 
-#ifdef __cplusplus
-extern "C"
-{
-    #include <wdm.h>
-}
-#else
-    #include <wdm.h>
-#endif
+#include <wdm.h>
 
-//#include <windef.h>
+#include <windef.h>
 #include <ks.h>
 #include <punknown.h>
-#include <ntddk.h>
 #include <drmk.h>
 
-#ifndef PC_NO_IMPORTS
-#define PORTCLASSAPI EXTERN_C __declspec(dllimport)
-#else
-#define PORTCLASSAPI EXTERN_C
-#endif
-
 /* TODO */
+#define PORTCLASSAPI EXTERN_C
+
 #define PCFILTER_NODE ((ULONG) -1)
 
 /* HACK */
@@ -412,7 +400,7 @@ DECLARE_INTERFACE_(IResourceList, IUnknown)
         IN  PCM_PARTIAL_RESOURCE_DESCRIPTOR Untranslated) PURE;
 
     STDMETHOD_(NTSTATUS, AddEntryFromParent)( THIS_
-        IN  IResourceList* Parent,
+        IN  struct IResourceList* Parent,
         IN  CM_RESOURCE_TYPE Type,
         IN  ULONG Index) PURE;
 
@@ -439,7 +427,7 @@ DECLARE_INTERFACE_(IResourceList, IUnknown)
         IN  PCM_PARTIAL_RESOURCE_DESCRIPTOR Untranslated); \
 \
     STDMETHODIMP_(NTSTATUS) AddEntryFromParent( \
-        IN  IResourceList* Parent, \
+        IN  struct IResourceList* Parent, \
         IN  CM_RESOURCE_TYPE Type, \
         IN  ULONG Index); \
 \
@@ -905,11 +893,6 @@ typedef IMusicTechnology *PMUSICTECHNOLOGY;
     IPort Interface
 */
 
-#if 0
-#define STATIC_IPort 0xb4c90a25L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-DEFINE_GUIDSTRUCT("0xB4C90A25-5791-11d0-86f9-00a0c911b544", IID_IPort);
-#define IID_IPort DEFINE_GUIDNAMED(IID_IPort)
-#endif
 DEFINE_GUID(IID_IPort,
     0xb4c90a25L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
@@ -972,15 +955,6 @@ typedef IPort *PPORT;
     IPortMidi Interface
 */
 
-#if 0
-#define STATIC_IID_IPortMidi \
-    0xb4c90a43L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-DEFINE_GUIDSTRUCT("0xB4C90A43-5791-11d0-86f9-00a0c911b544", IID_IPortMidi);
-#define IID_IPortMidi DEFINE_GUIDNAMED(IID_IPortMidi)
-#endif
-
-DEFINE_GUID(IID_IPortMidi,
-    0xb4c90a40L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 DEFINE_GUID(CLSID_PortMidi,
     0xb4c90a43L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
@@ -1010,18 +984,6 @@ typedef IPortMidi *PPORTMIDI;
 /* ===============================================================
     IPortWaveCyclic Interface
 */
-
-#if 0
-#define STATIC_IPortWaveCyclic \
-    0xb4c90a26L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-DEFINE_GUIDSTRUCT("0xB4C90A26-5791-11d0-86f9-00a0c911b544", IID_IPortWaveCyclic);
-#define IID_IPortWaveCyclic DEFINE_GUIDNAMED(IID_IPortWaveCyclic)
-#endif
-
-DEFINE_GUID(IID_IPortWaveCyclic,
-    0xb4c90a26L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-DEFINE_GUID(CLSID_PortWaveCyclic,
-    0xb4c90a2aL, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
 DECLARE_INTERFACE_(IPortWaveCyclic, IPort)
 {
@@ -1058,18 +1020,6 @@ DECLARE_INTERFACE_(IPortWaveCyclic, IPort)
     IPortWavePci Interface
 */
 
-#if 0
-#define STATIC_IID_IPortWavePci \
-    0xb4c90a50L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-DEFINE_GUIDSTRUCT("0xB4C90A50-5791-11d0-86f9-00a0c911b544", IID_IPortWavePci);
-#define IID_IPortWavePci DEFINE_GUIDNAMED(IID_IPortWavePci)
-#endif
-
-DEFINE_GUID(IID_IPortWavePci,
-    0xb4c90a50L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-DEFINE_GUID(CLSID_PortWavePci,
-    0xb4c90a54L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-
 DECLARE_INTERFACE_(IPortWavePci, IPort)
 {
     DEFINE_ABSTRACT_UNKNOWN()
@@ -1098,14 +1048,6 @@ DECLARE_INTERFACE_(IPortWavePci, IPort)
 /* ===============================================================
     IPortWavePciStream Interface
 */
-
-#define STATIC_IPortWavePciStream \
-    0xb4c90a51L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-
-DEFINE_GUID(IID_IPortWavePciStream, 0xb4c90a51L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-
-/* ... */
-
 
 
 /* ===============================================================
@@ -1191,25 +1133,12 @@ DECLARE_INTERFACE_(IMiniportMidi, IMiniport)
     IMiniportDriverUart Interface
 */
 
-DEFINE_GUID(IID_MiniportDriverUart,
-    0xb4c90ae1L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 DEFINE_GUID(CLSID_MiniportDriverUart,
     0xb4c90ae1L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
 /* ===============================================================
     IPortTopology Interface
 */
-#if 0
-#define STATIC_IPortTopology \
-    0xb4c90a30L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44
-DEFINE_GUIDSTRUCT("0xB4C90A30-5791-11d0-86f9-00a0c911b544", IID_IPortTopology);
-#define IID_IPortTopology DEFINE_GUIDNAMED(IID_IPortTopology)
-#endif
-
-DEFINE_GUID(IID_IPortTopology,
-    0xb4c90a30L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-DEFINE_GUID(CLSID_PortTopology,
-    0xb4c90a32L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
 DECLARE_INTERFACE_(IPortTopology, IPort)
 {

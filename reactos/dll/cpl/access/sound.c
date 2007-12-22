@@ -1,13 +1,12 @@
 /* $Id$
  *
- * PROJECT:         ReactOS Accessibility Control Panel
+ * PROJECT:         ReactOS System Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            dll/cpl/access/sound.c
  * PURPOSE:         Sound-related acessibility settings
  * COPYRIGHT:       Copyright 2004 Johannes Anderwald (j_anderw@sbox.tugraz.at)
  *                  Copyright 2007 Eric Kohl
  */
-
 #include <windows.h>
 #include <commctrl.h>
 #include <prsht.h>
@@ -16,11 +15,29 @@
 #include "access.h"
 
 
+typedef struct _SOUNDDATA
+{
+    SOUNDSENTRY ssSoundSentry;
+    BOOL bShowSounds;
+} SOUNDDATA, *PSOUNDDATA;
+
+
 static VOID
-OnInitDialog(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
+OnInitDialog(HWND hwndDlg, PSOUNDDATA pSoundData)
 {
     TCHAR szBuffer[256];
     UINT i;
+
+    pSoundData->ssSoundSentry.cbSize = sizeof(SOUNDSENTRY);
+    SystemParametersInfo(SPI_GETSOUNDSENTRY,
+                         sizeof(SOUNDSENTRY),
+                         &pSoundData->ssSoundSentry,
+                         0);
+
+    SystemParametersInfo(SPI_GETSHOWSOUNDS,
+                         0,
+                         &pSoundData->bShowSounds,
+                         0);
 
     /* Add strings to the combo-box */
     for (i = 0; i < 4; i++)
@@ -30,10 +47,10 @@ OnInitDialog(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     }
 
     /* Select a combo-box item */
-    SendDlgItemMessage(hwndDlg, IDC_SENTRY_COMBO, CB_SETCURSEL, pGlobalData->ssSoundSentry.iWindowsEffect, 0);
+    SendDlgItemMessage(hwndDlg, IDC_SENTRY_COMBO, CB_SETCURSEL, pSoundData->ssSoundSentry.iWindowsEffect, 0);
 
     /* Initialize SoundSentry settings */
-    if (!(pGlobalData->ssSoundSentry.dwFlags & SSF_AVAILABLE))
+    if (!(pSoundData->ssSoundSentry.dwFlags & SSF_AVAILABLE))
     {
         EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_BOX), FALSE);
         EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_TEXT), FALSE);
@@ -41,7 +58,7 @@ OnInitDialog(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     }
     else
     {
-        if (pGlobalData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)
+        if (pSoundData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)
         {
             CheckDlgButton(hwndDlg, IDC_SENTRY_BOX, BST_CHECKED);
         }
@@ -53,7 +70,7 @@ OnInitDialog(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     }
 
     /* Initialize ShowSounds settings */
-    if (pGlobalData->bShowSounds)
+    if (pSoundData->bShowSounds)
         CheckDlgButton(hwndDlg, IDC_SSHOW_BOX, BST_CHECKED);
 }
 
@@ -65,41 +82,40 @@ SoundPageProc(HWND hwndDlg,
               WPARAM wParam,
               LPARAM lParam)
 {
-    PGLOBAL_DATA pGlobalData;
+    PSOUNDDATA pSoundData;
 
-    pGlobalData = (PGLOBAL_DATA)GetWindowLongPtr(hwndDlg, DWLP_USER);
+    pSoundData = (PSOUNDDATA)GetWindowLongPtr(hwndDlg, DWLP_USER);
 
     switch (uMsg)
     {
         case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)((LPPROPSHEETPAGE)lParam)->lParam;
+            pSoundData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(SOUNDDATA));
+            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pSoundData);
 
-            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
-
-            OnInitDialog(hwndDlg, pGlobalData);
+            OnInitDialog(hwndDlg, pSoundData);
             break;
 
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
                 case IDC_SENTRY_BOX:
-                    pGlobalData->ssSoundSentry.dwFlags ^= SSF_SOUNDSENTRYON;
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_TEXT), (pGlobalData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)?TRUE:FALSE);
-                    EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_COMBO), (pGlobalData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)?TRUE:FALSE);
+                    pSoundData->ssSoundSentry.dwFlags ^= SSF_SOUNDSENTRYON;
+                    EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_TEXT), (pSoundData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)?TRUE:FALSE);
+                    EnableWindow(GetDlgItem(hwndDlg, IDC_SENTRY_COMBO), (pSoundData->ssSoundSentry.dwFlags & SSF_SOUNDSENTRYON)?TRUE:FALSE);
                     PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     break;
 
                 case IDC_SENTRY_COMBO:
                     if (HIWORD(wParam) == CBN_SELENDOK)
                     {
-                        pGlobalData->ssSoundSentry.iWindowsEffect =
+                        pSoundData->ssSoundSentry.iWindowsEffect =
                             (DWORD)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
                         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     }
                     break;
 
                 case IDC_SSHOW_BOX:
-                    pGlobalData->bShowSounds = !pGlobalData->bShowSounds;
+                    pSoundData->bShowSounds = !pSoundData->bShowSounds;
                     PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     break;
 
@@ -114,10 +130,10 @@ SoundPageProc(HWND hwndDlg,
                 case PSN_APPLY:
                     SystemParametersInfo(SPI_SETSOUNDSENTRY,
                                          sizeof(SOUNDSENTRY),
-                                         &pGlobalData->ssSoundSentry,
+                                         &pSoundData->ssSoundSentry,
                                          SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
                     SystemParametersInfo(SPI_SETSHOWSOUNDS,
-                                         pGlobalData->bShowSounds,
+                                         pSoundData->bShowSounds,
                                          0,
                                          SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
                     return TRUE;
@@ -125,6 +141,10 @@ SoundPageProc(HWND hwndDlg,
                 default:
                     break;
             }
+            break;
+
+        case WM_DESTROY:
+            HeapFree(GetProcessHeap(), 0, pSoundData);
             break;
     }
 

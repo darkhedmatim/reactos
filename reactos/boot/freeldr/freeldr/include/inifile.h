@@ -29,7 +29,7 @@
 // Name=Value
 typedef struct
 {
-	LIST_ENTRY	ListEntry;
+	LIST_ITEM	ListEntry;
 	PCHAR		ItemName;
 	PCHAR		ItemValue;
 
@@ -42,15 +42,14 @@ typedef struct
 // one INI_SECTION_ITEM for each line in the section
 typedef struct
 {
-	LIST_ENTRY			ListEntry;
+	LIST_ITEM			ListEntry;
 	PCHAR				SectionName;
 	ULONG					SectionItemCount;
-	LIST_ENTRY	SectionItemList; // Contains PINI_SECTION_ITEM structures
+	PINI_SECTION_ITEM	SectionItemList;
 
 } INI_SECTION, *PINI_SECTION;
 
-extern	LIST_ENTRY		IniFileSectionListHead;
-extern	BOOLEAN			IniFileSectionInitialized;
+extern	PINI_SECTION		IniFileSectionListHead;
 extern	ULONG					IniFileSectionCount;
 extern	ULONG					IniFileSettingCount;
 

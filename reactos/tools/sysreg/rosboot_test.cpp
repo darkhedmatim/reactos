@@ -15,7 +15,6 @@
 //#include "sym_file.h"
 #include "file_reader.h"
 #include "os_support.h"
-#include "env_var.h"
 
 #include <iostream>
 #include <vector>
@@ -26,12 +25,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <signal.h>
-#ifndef __LINUX__
-#include <io.h>
-#include <errno.h>
-#endif
-
+ 
+			
 namespace Sysreg_
 {
 	using std::vector;
@@ -40,7 +35,6 @@ namespace Sysreg_
 /*	using System_::SymbolFile; */
 	using System_::FileReader;
 	using System_::OsSupport;
-    using System_::EnvironmentVariable;
 
 #ifdef UNICODE
 	using std::wofstream;
@@ -49,743 +43,111 @@ namespace Sysreg_
 	using std::ofstream;
 #endif
 
-	string RosBootTest::ROS_EMU_TYPE= "ROS_EMU_TYPE";
-	string RosBootTest::EMU_TYPE_QEMU = "qemu";
-	string RosBootTest::EMU_TYPE_VMWARE = "vmware";
-	string RosBootTest::ROS_HDD_IMAGE= "ROS_HDD_IMAGE";
-	string RosBootTest::ROS_CD_IMAGE = "ROS_CD_IMAGE";
-	string RosBootTest::ROS_MAX_TIME = "ROS_MAX_TIME";
-	string RosBootTest::ROS_LOG_FILE = "ROS_LOG_FILE";
-	string RosBootTest::ROS_SYM_DIR = "ROS_SYM_DIR";
-	string RosBootTest::ROS_DELAY_READ = "ROS_DELAY_READ";
-	string RosBootTest::ROS_SYSREG_CHECKPOINT = "SYSREG_CHECKPOINT:";
-	string RosBootTest::ROS_CRITICAL_IMAGE = "ROS_CRITICAL_IMAGE";
-	string RosBootTest::ROS_EMU_KILL = "ROS_EMU_KILL";
-	string RosBootTest::ROS_EMU_MEM = "ROS_EMU_MEM";
-	string RosBootTest::ROS_BOOT_CMD = "ROS_BOOT_CMD";
-
-#ifdef __LINUX__
-    string RosBootTest::ROS_EMU_PATH = "ROS_EMU_PATH_LIN";
-#else
-    string RosBootTest::ROS_EMU_PATH = "ROS_EMU_PATH_WIN";
-#endif
+	string RosBootTest::VARIABLE_NAME = _T("ROSBOOT_CMD");
+	string RosBootTest::CLASS_NAME = _T("rosboot");
+	string RosBootTest::DEBUG_PORT = _T("ROSBOOT_DEBUG_PORT");
+	string RosBootTest::DEBUG_FILE = _T("ROSBOOT_DEBUG_FILE");
+	string RosBootTest::TIME_OUT = _T("ROSBOOT_TIME_OUT");
+	string RosBootTest::PID_FILE= _T("ROSBOOT_PID_FILE");
+	string RosBootTest::DELAY_READ = _T("ROSBOOT_DELAY_READ");
+	string RosBootTest::CHECK_POINT = _T("ROSBOOT_CHECK_POINT");
+	string RosBootTest::SYSREG_CHECKPOINT = _T("SYSREG_CHECKPOINT:");
+	string RosBootTest::CRITICAL_APP = _T("ROSBOOT_CRITICAL_APP");
 
 //---------------------------------------------------------------------------------------
-	RosBootTest::RosBootTest() : m_MaxTime(65), m_DelayRead(0)
+	RosBootTest::RosBootTest() : RegressionTest(RosBootTest::CLASS_NAME),  m_Timeout(60.0), m_Delayread(0)
 	{
 
 	}
 
 //---------------------------------------------------------------------------------------
-	RosBootTest::~RosBootTest()
+	RosBootTest::~RosBootTest() 
 	{
 
 	}
+
 //---------------------------------------------------------------------------------------
-    bool RosBootTest::executeBootCmd()
-    {
-        int numargs = 0;
-        char * args[128];
-        char * pBuf;
-        char szBuffer[128];
+	bool RosBootTest::execute(ConfigParser &conf_parser) 
+	{
+		string boot_cmd;
+		string debug_port;
+		string timeout;
+		string delayread;
+		bool ret;
 
-        pBuf = (char*)m_BootCmd.c_str ();
-        if (pBuf)
-        {
-            pBuf = strtok(pBuf, " ");
-            while(pBuf != NULL)
-            {
-                if (!numargs)
-                    strcpy(szBuffer, pBuf);
+		///
+		/// read required configuration arguments
+		///
 
-                args[numargs] = pBuf;
-                numargs++;
-                pBuf = strtok(NULL, " ");
-            }
-            args[numargs++] = 0;
-        }
-        else
-        {
-            strcpy(szBuffer, pBuf);
-        }
-        m_Pid = OsSupport::createProcess (szBuffer, numargs-1, args, false);
-        if (!m_Pid)
-        {
-            cerr << "Error: failed to launch boot cmd " << m_BootCmd << endl;
-            return false;
-        }
-
-        return true;
-    }
-//---------------------------------------------------------------------------------------
-    void RosBootTest::delayRead()
-    {
-        if (m_DelayRead)
+		if (!conf_parser.getStringValue (RosBootTest::DEBUG_PORT, debug_port))
 		{
-			///
-			/// delay reading until emulator is ready
-			///
-
-            OsSupport::delayExecution(m_DelayRead);
+			cerr << "Error: ROSBOOT_DEBUG_TYPE is not set in configuration file" << endl;
+			return false;
 		}
-    }
-//---------------------------------------------------------------------------------------
-    void RosBootTest::getDefaultHDDImage(string & img)
-    {
-        img = "output-i386";
+		if (!conf_parser.getStringValue(RosBootTest::VARIABLE_NAME, boot_cmd))
+		{
+			cerr << "Error: ROSBOOT_CMD is not set in configuration file" << endl;
+			return false;
+		}
+		
+		if (conf_parser.getStringValue(RosBootTest::TIME_OUT, timeout))
+		{
+			TCHAR * stop;
+			m_Timeout = _tcstod(timeout.c_str (), &stop);
 
-        EnvironmentVariable::getValue("ROS_OUTPUT", img);
-#ifdef __LINUX__
-        img += "/ros.hd";
-#else
-        img += "\\ros.hd";
-#endif
-    }
-//---------------------------------------------------------------------------------------
-    bool RosBootTest::isFileExisting(string output)
-    {
-        FILE * file;
-        file = fopen(output.c_str(), "r");
+			if (isnan(m_Timeout) || m_Timeout == 0.0)
+			{
+				cerr << "Warning: overriding timeout with default of 60 sec" << endl;
+				m_Timeout = 60.0;
+			}
+		}
 
-        if (file)
-        {
-            /* the file exists */
-            fclose(file);
-            return true;
-        }
-        return false;
-    }
+		if (conf_parser.getStringValue(RosBootTest::DELAY_READ, delayread))
+		{
+			TCHAR * stop;
+			m_Delayread = _tcstoul(delayread.c_str (), &stop, 10);
+			if (m_Delayread > 60 || m_Delayread < 0)
+			{
+				cerr << "Warning: disabling delay read" << endl;
+				m_Delayread = 0;
+			}
+		}
 
-//---------------------------------------------------------------------------------------
-    bool RosBootTest::isDefaultHDDImageExisting()
-    {
-        string img;
+		///
+		/// read optional arguments
+		///
 
-        getDefaultHDDImage(img);
-        return isFileExisting(img);
-    }
+		conf_parser.getStringValue (RosBootTest::CHECK_POINT, m_Checkpoint);
+		conf_parser.getStringValue (RosBootTest::CRITICAL_APP, m_CriticalApp);
+		conf_parser.getStringValue (RosBootTest::DEBUG_FILE, m_DebugFile);
 
-//---------------------------------------------------------------------------------------
-    bool RosBootTest::createHDDImage(string image)
-    {
+		if (conf_parser.getStringValue (RosBootTest::PID_FILE, m_PidFile))
+		{
+			_tremove(m_PidFile.c_str ());
+		}
+		
+		if (!_tcscmp(debug_port.c_str(), _T("pipe")))
+		{
+			ret = fetchDebugByPipe(boot_cmd);
+		}
+		else if (!_tcscmp(debug_port.c_str(),  _T("file")))
+		{
+			if (!m_DebugFile.length())
+			{
+				cerr << "Error: ROSBOOT_DEBUG_FILE is not set in configuration file" << endl;
+				return false;
+			}
+			ret = fetchDebugByFile(boot_cmd);
+		}
+		else
+		{
+			cerr <<"Error: unknown debug port " << debug_port <<endl
+				<<" Currently only file|pipe is supported" <<endl;
+			return false;
+		}
 
-        string qemuimgdir;
-        if (!getQemuDir(qemuimgdir))
-        {
-            cerr << "Error: failed to retrieve qemu directory path" << endl;
-            return false;
-        }
-
-
-#ifdef __LINUX__
-        qemuimgdir += "/qemu-img";
-
-#else
-        qemuimgdir += "\\qemu-img.exe";
-#endif
-
-       if (!isFileExisting(qemuimgdir))
-        {
-            cerr << "Error: ROS_EMU_PATH must contain the path to qemu and qemu-img " << qemuimgdir << endl;
-            return false;
-        }
-       remove(image.c_str ());
-
-        char * options[] = {NULL,
-                             "create",
-                             "-f",
-#ifdef __LINUX__
-                            "raw",
-#else
-                            "vmdk",
-#endif
-                            NULL,
-                            "100M",
-                            NULL
-                            };
-
-
-        options[0] = (char*)qemuimgdir.c_str();
-        options[4] = (char*)image.c_str();
-
-        cerr << "Creating HDD Image ..." << image << endl;
-        OsSupport::createProcess ((char*)qemuimgdir.c_str(), 6, options, true);
-        if (isFileExisting(image))
-        {
-            m_HDDImage = image;
-            return true;
-        }
-        return false;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::isQemuPathValid()
-    {
-        string qemupath;
-
-        if (m_BootCmd.length())
-        {
-            /* the boot cmd is already provided
-             * check if path to qemu is valid
-             */
-            string::size_type pos = m_BootCmd.find_first_of(" ");
-            if (pos == string::npos)
-            {
-                /* the bootcmd is certainly not valid */
-                return false;
-            }
-            qemupath = m_BootCmd.substr(0, pos);
-        }
-        else
-        {
-            /* the qemu path is provided ROS_EMU_PATH variable */
-            qemupath = m_EmuPath;
-        }
-
-
-        return isFileExisting(qemupath);
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::hasQemuNoRebootOption()
-    {
-        ///
-        /// FIXME
-        /// extract version
-        ///
-
-        return true;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::getQemuDir(string & qemupath)
-    {
-        string::size_type pos;
-
-#ifdef __LINUX__
-        pos = m_EmuPath.find_last_of("/");
-#else
-        pos = m_EmuPath.find_last_of("\\");
-#endif
-        if (pos == string::npos)
-        {
-            cerr << "Error: ROS_EMU_PATH is invalid!!!" << endl;
-            return false;
-        }
-        qemupath = m_EmuPath.substr(0, pos);
-        return true;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::createBootCmd()
-    {
-        string pipe;
-        string qemudir;
-        char pipename[] = "qemuXXXXXX";
-        if (m_MaxMem.length() == 0)
-        {
-            /* set default memory size to 64M */
-            m_MaxMem = "64";
-        }
-
-#ifdef __LINUX__
-
-        if (mktemp(pipename))
-        {
-            string temp = pipename;
-            m_Src = "/tmp/" + temp;
-            pipe = "pipe:" + m_Src;
-        }
-        else
-        {
-
-            pipe = "pipe:/tmp/qemu";
-	    m_Src = "/tmp/qemu";
-        }
-
-        qemudir = "/usr/share/qemu";
-        m_DebugPort = "pipe";
-#else
-        if (_mktemp(pipename))
-        {
-            string temp = pipename;
-    		pipe = "pipe:" + temp;
-		    m_Src = "\\\\.\\pipe\\" + temp;
-        }
-        else
-        {
-    		pipe = "pipe:qemu";
-		    m_Src = "\\\\.\\pipe\\qemu";
-        }
-        m_DebugPort = "pipe";
-
-        if (!getQemuDir(qemudir))
-        {
-            return false;
-        }
-#endif
-
-
-        m_BootCmd = m_EmuPath + " -L " + qemudir + " -m " + m_MaxMem + " -serial " + pipe;
-
-        if (m_CDImage.length())
-        {
-            /* boot from cdrom */
-            m_BootCmd +=  " -boot d -cdrom " + m_CDImage;
-
-            if (m_HDDImage.length ())
-            {
-                /* add disk when specified */
-                m_BootCmd += " -hda " + m_HDDImage;
-            }
-
-        }
-        else if (m_HDDImage.length ())
-        {
-            /* boot from hdd */
-            m_BootCmd += " -boot c -hda " + m_HDDImage;
-        }
-        else
-        {
-            /*
-             * no boot device provided
-             */
-            cerr << "Error: no bootdevice provided" << endl;
-            return false;
-        }
-
-#ifdef __LINUX__
-                /* on linux we need get pid in order to be able
-                 * to terminate the emulator in case of errors
-                 * on windows we can get pid as return of CreateProcess
-                 */
-        m_PidFile = "output-i386";
-        EnvironmentVariable::getValue("ROS_OUTPUT", m_PidFile);
-        m_PidFile += "/pid.txt";
-        m_BootCmd += " -pidfile ";
-        m_BootCmd += m_PidFile;
-	m_BootCmd += " -nographic";
-#else
-
-        if (hasQemuNoRebootOption())
-        {
-            m_BootCmd += " -no-reboot ";
-        }
-#endif
-        return true;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::extractPipeFromBootCmd()
-    {
-	string::size_type pos = m_BootCmd.find("-serial pipe:");
-        if (pos == string::npos)
-        {
-            	/* no debug options provided */
-		cerr << "Error: provided boot cmd does not specify a pipe debugging port" << endl;
-            	return false;
-        }
-
-        string pipe = m_BootCmd.substr(pos + 13, m_BootCmd.size() - pos - 13);
-        pos = pipe.find(" ");
-        if (pos != string::npos)
-        {
-           pipe = pipe.substr(0, pos);
-        }
-#ifdef __LINUX__
-        m_Src = pipe;
-#else
-	m_Src = "\\\\.\\pipe\\" + pipe.substr(0, pos);
-#endif
-        m_DebugPort = "pipe";
-        return true;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::configureHDDImage()
-    {
-        //cout << "configureHDDImage m_HDDImage " << m_HDDImage.length() << " m_CDImage " << m_CDImage.length() << " m_BootCmd: " << m_BootCmd.length() << endl;
-        if (m_HDDImage.length())
-        {
-            /* check if ROS_HDD_IMAGE points to hdd image */
-            if (!isFileExisting(m_HDDImage))
-            {
-                if (!m_CDImage.length ())
-                {
-                    cerr << "Error: HDD image is not existing and CDROM image not provided" << endl;
-                    return false;
-                }
-                /* create it */
-                return createHDDImage(m_HDDImage);
-            }
-            return true;
-        }
-        else if (!m_BootCmd.length ())
-        {
-            /* no hdd image provided
-             * but also no override by
-             * ROS_BOOT_CMD
-             */
-            if (!m_CDImage.length ())
-            {
-                cerr << "Error: no HDD and CDROM image provided" << endl;
-                return false;
-            }
-
-            getDefaultHDDImage(m_HDDImage);
-            if (isFileExisting(m_HDDImage))
-            {
-                cerr << "Falling back to default hdd image " << m_HDDImage << endl;
-                return true;
-            }
-            return createHDDImage(m_HDDImage);
-        }
-        /*
-         * verify the provided ROS_BOOT_CMD for hdd image
-         *
-         */
-
-        bool hdaboot = false;
-        string::size_type pos = m_BootCmd.find ("-boot c");
-        if (pos != string::npos)
-        {
-            hdaboot = true;
-        }
-
-        pos = m_BootCmd.find("-hda ");
-        if (pos != string::npos)
-        {
-            string hdd = m_BootCmd.substr(pos + 5, m_BootCmd.length() - pos - 5);
-            if (!hdd.length ())
-            {
-                cerr << "Error: ROS_BOOT_CMD misses value of -hda option" << endl;
-                return false;
-            }
-            pos = m_BootCmd.find(" ");
-            if (pos != string::npos)
-            {
-                /// FIXME
-                /// sysreg assumes that the hdd image filename has no spaces
-                ///
-                hdd = hdd.substr(0, pos);
-            }
-            if (!isFileExisting(hdd))
-            {
-                if (hdaboot)
-                {
-                    cerr << "Error: ROS_BOOT_CMD specifies booting from hda but no valid hdd image " << hdd << " provided" << endl;
-                    return false;
-                }
-
-                /* the file does not exist create it */
-                return createHDDImage(hdd);
-            }
-            return true;
-        }
-
-        return false;
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::configureCDImage()
-    {
-        if (!m_BootCmd.length ())
-        {
-            if (m_CDImage.length())
-            {
-                /* we have a cd image lets check if its valid */
-                if (isFileExisting(m_CDImage))
-                {
-                    cerr << "Using CDROM image " << m_CDImage << endl;
-                    return true;
-                }
-            }
-            if (isFileExisting("ReactOS-RegTest.iso"))
-            {
-                m_CDImage = "ReactOS-RegTest.iso";
-                cerr << "Falling back to default CDROM image " << m_CDImage << endl;
-                return true;
-            }
-            cerr << "No CDROM image found, boot device is HDD" << endl;
-            m_CDImage = "";
-            return true;
-        }
-
-        string::size_type pos = m_BootCmd.find("-boot ");
-        if (pos == string::npos)
-        {
-            /* ROS_BOOT_CMD must provide a boot parameter*/
-            cerr << "Error: ROS_BOOT_CMD misses boot parameter" << endl;
-            return false;
-        }
-
-        string rest = m_BootCmd.substr(pos + 6, m_BootCmd.length() - pos - 6);
-        if (rest.length() < 1)
-        {
-            /* boot parameter misses option where to boot from */
-            cerr << "Error: ROS_BOOT_CMD misses boot parameter" << endl;
-            return false;
-        }
-        if (rest[0] != 'c' && rest[0] != 'd')
-        {
-            cerr << "Error: ROS_BOOT_CMD has invalid boot parameter" << endl;
-            return false;
-        }
-
-        if (rest[0] == 'c')
-        {
-            /* ROS_BOOT_CMD boots from hdd */
-            return true;
-        }
-
-        pos = m_BootCmd.find("-cdrom ");
-        if (pos == string::npos)
-        {
-            cerr << "Error: ROS_BOOT_CMD misses cdrom parameter" << endl;
-            return false;
-        }
-        rest = m_BootCmd.substr(pos + 7, m_BootCmd.length() - pos - 7);
-        if (!rest.length())
-        {
-            cerr << "Error: ROS_BOOT_CMD misses cdrom parameter" << endl;
-            return false;
-        }
-        pos = rest.find(" ");
-        if (pos != string::npos)
-        {
-            rest = rest.substr(0, pos);
-        }
-
-        if (!isFileExisting(rest))
-        {
-            cerr << "Error: cdrom image " << rest << " does not exist" << endl;
-            return false;
-        }
-        else
-        {
-            m_CDImage = rest;
-            return true;
-        }
-    }
-//----------------------------------------------------------------------------------------
-    bool RosBootTest::configureQemu()
-    {
-        if (!isQemuPathValid())
-        {
-            cerr << "Error: the path to qemu is not valid" << endl;
-            return false;
-        }
-
-        if (!configureCDImage())
-        {
-            cerr << "Error: failed to set a valid cdrom configuration" << endl;
-            return false;
-        }
-
-        if (!configureHDDImage())
-        {
-            cerr << "Error: failed to set a valid hdd configuration" << endl;
-            return false;
-        }
-
-        if (m_BootCmd.length())
-        {
-            if (!extractPipeFromBootCmd())
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if (!createBootCmd())
-            {
-                return false;
-            }
-        }
-#ifdef __LINUX__
-	if (mkfifo(m_Src.c_str(), 400))
-	{
-/*
-	    if (errno != EEXIST)
-	    {
-            	cerr <<"Error: mkfifo failed with " << errno << endl;
-            }
-*/
-	    return false;
+		return ret;
 	}
-
-#endif
-        if (m_PidFile.length () && isFileExisting(m_PidFile))
-        {
-            cerr << "Deleting pid file " << m_PidFile << endl;
-            remove(m_PidFile.c_str ());
-        }
-
-
-
-        cerr << "Opening Data Source:" << m_BootCmd << endl;
-        m_DataSource = new NamedPipeReader();
-        if (!executeBootCmd())
-        {
-            cerr << "Error: failed to launch emulator with: " << m_BootCmd << endl;
-            return false;
-        }
-
-        return true;
-    }
-
-//---------------------------------------------------------------------------------------
-    bool RosBootTest::configureVmWare()
-    {
-        cerr << "VmWare is currently not yet supported" << endl;
-        return false;
-    }
-//---------------------------------------------------------------------------------------
-    bool RosBootTest::readConfigurationValues(ConfigParser &conf_parser)
-    {
-#if 0
-        if (!conf_parser.getStringValue(RosBootTest::ROS_EMU_TYPE, m_EmuType))
-        {
-            cerr << "Error: ROS_EMU_TYPE is not set" << endl;
-            return false;
-        }
-#endif
-
-        if (!conf_parser.getStringValue(RosBootTest::ROS_EMU_PATH, m_EmuPath))
-        {
-            cerr << "Error: ROS_EMU_PATH is not set" << endl;
-            return false;
-        }
-        if (!m_HDDImage.length())
-        {
-            /* only read image once */
-            conf_parser.getStringValue (RosBootTest::ROS_HDD_IMAGE, m_HDDImage);
-        }
-        if (!m_CDImage.length())
-        {
-            /* only read cdimage once */
-            conf_parser.getStringValue (RosBootTest::ROS_CD_IMAGE, m_CDImage);
-        }
-        /* reset boot cmd */
-        m_BootCmd = "";
-
-
-        conf_parser.getIntValue (RosBootTest::ROS_MAX_TIME, m_MaxTime);
-		conf_parser.getStringValue (RosBootTest::ROS_LOG_FILE, m_DebugFile);
-        conf_parser.getStringValue (RosBootTest::ROS_SYM_DIR, m_SymDir);
-        conf_parser.getIntValue (RosBootTest::ROS_DELAY_READ, m_DelayRead);
-        conf_parser.getStringValue (RosBootTest::ROS_SYSREG_CHECKPOINT, m_Checkpoint);
-        conf_parser.getStringValue (RosBootTest::ROS_CRITICAL_IMAGE, m_CriticalImage);
-        conf_parser.getStringValue (RosBootTest::ROS_EMU_KILL, m_KillEmulator);
-        conf_parser.getStringValue (RosBootTest::ROS_EMU_MEM, m_MaxMem);
-        conf_parser.getStringValue (RosBootTest::ROS_BOOT_CMD, m_BootCmd);
-
-        return true;
-    }
-//---------------------------------------------------------------------------------------
-	void RosBootTest::cleanup()
-	{
-        m_DataSource->closeSource();
-        OsSupport::delayExecution(3);
-
-        if (m_Pid)
-        {
-			OsSupport::terminateProcess (m_Pid, 0);
-        }
-		delete m_DataSource;
-        m_DataSource = NULL;
-
-        if (m_PidFile.length ())
-        {
-            remove(m_PidFile.c_str ());
-        }
-	}
-
-//---------------------------------------------------------------------------------------
-	bool RosBootTest::execute(ConfigParser &conf_parser)
-	{
-		if (!readConfigurationValues(conf_parser))
-        {
-            return false;
-        }
-#if 0
-        if (m_EmuType == EMU_TYPE_QEMU)
-        {
-            if (!configureQemu())
-            {
-                cerr << "Error: failed to configure qemu" << endl;
-                return false;
-            }
-        }
-        else if (m_EmuType == EMU_TYPE_VMWARE)
-        {
-            if (!configureVmWare())
-            {
-                cerr << "Error: failed to configure vmware" << endl;
-                return false;
-            }
-        }
-        else
-        {
-            ///
-            /// unsupported emulator
-
-            cerr << "Error: ROS_EMU_TYPE value is not supported:" << m_EmuType << "=" << EMU_TYPE_QEMU << endl;
-            return false;
-        }
-#else
-        if (!configureQemu())
-        {
-            cerr << "Error: failed to configure qemu" << endl;
-            return false;
-        }
-#endif
-
-        if (m_DelayRead)
-        {
-            cerr << "Delaying read for " << m_DelayRead << " seconds" << endl;
-            OsSupport::delayExecution(m_DelayRead);
-        }
-
-        if (!m_DataSource->openSource(m_Src))
-        {
-            cerr << "Error: failed to open data source with " << m_Src << endl;
-            cleanup();
-            return false;
-        }
-#ifdef __LINUX__
-        /*
-         * For linux systems we can only
-         * check if the emulator runs by
-         * opening pid.txt and lookthrough if
-         * it exists
-         */
-
-        FILE * file = fopen(m_PidFile.c_str(), "r");
-        if (!file)
-        {
-            cerr << "Error: failed to launch emulator" << endl;
-            cleanup();
-            return false;
-        }
-        char buffer[128];
-        if (!fread(buffer, 1, sizeof(buffer), file))
-        {
-            cerr << "Error: pid file w/o pid!!! " << endl;
-            fclose(file);
-            cleanup();
-            return false;
-        }
-        m_Pid = atoi(buffer);
-        fclose(file);
-#endif
-        OsSupport::cancelAlarms();
-#ifdef __LINUX__
-        //OsSupport::setAlarm (m_MaxTime, m_Pid);
-        //OsSupport::setAlarm(m_MaxTime, getpid());
-#else
-        OsSupport::setAlarm (m_MaxTime, m_Pid);
-        OsSupport::setAlarm(m_MaxTime, GetCurrentProcessId());
-#endif
-
-        bool ret = analyzeDebugData();
-	cleanup();
-
-	return ret;
-}
 //---------------------------------------------------------------------------------------
 	void RosBootTest::dumpCheckpoints()
 	{
@@ -815,11 +177,10 @@ namespace Sysreg_
 
 			cout << line << endl;
 
-			if (line.find (RosBootTest::ROS_SYSREG_CHECKPOINT) != string::npos)
+			if (line.find (RosBootTest::SYSREG_CHECKPOINT) != string::npos)
 			{
-				line.erase (0, line.find (RosBootTest::ROS_SYSREG_CHECKPOINT) +
-							  RosBootTest::ROS_SYSREG_CHECKPOINT.length ());
-				if (!strncmp(line.c_str (), m_Checkpoint.c_str (), m_Checkpoint.length ()))
+				line.erase (0, line.find (RosBootTest::SYSREG_CHECKPOINT) + RosBootTest::SYSREG_CHECKPOINT.length ());
+				if (!_tcsncmp(line.c_str (), m_Checkpoint.c_str (), m_Checkpoint.length ()))
 				{
 					state = DebugStateCPReached;
 					break;
@@ -828,7 +189,7 @@ namespace Sysreg_
 			}
 
 
-			if (line.find ("*** Fatal System Error") != string::npos)
+			if (line.find (_T("*** Fatal System Error")) != string::npos)
 			{
 				cerr << "Blue Screen of Death detected" <<endl;
 				if (m_Checkpoints.size ())
@@ -840,7 +201,7 @@ namespace Sysreg_
 						m_Checkpoints.erase (m_Checkpoints.begin ());
 						cerr << cp << endl;
 					}while(m_Checkpoints.size ());
-					cerr << "----------------------------------" << endl;
+					cerr << _T("----------------------------------") << endl;
 				}
 				if (i + 1 < debug_data.size () )
 				{
@@ -851,14 +212,14 @@ namespace Sysreg_
 						cerr << data << endl;
 						i++;
 					}
-					cerr << "----------------------------------" << endl;
+					cerr << _T("----------------------------------") << endl;
 				}
 				state = DebugStateBSODDetected;
 				break;
 			}
-			else if (line.find ("Unhandled exception") != string::npos)
+			else if (line.find (_T("Unhandled exception")) != string::npos)
 			{
-				if (m_CriticalImage == "IGNORE")
+				if (m_CriticalApp == _T("IGNORE"))
 				{
 					///
 					/// ignoring all user-mode exceptions
@@ -878,10 +239,10 @@ namespace Sysreg_
 
 				///
 				/// extract address from next line
-				///
+				/// 
 
 				string address = debug_data[i+2];
-				string::size_type pos = address.find_last_of (" ");
+				string::size_type pos = address.find_last_of (_T(" "));
 				if (pos == string::npos)
 				{
 					cerr << "Error: trace is not available (corrupted debug info" << endl;
@@ -895,8 +256,8 @@ namespace Sysreg_
 				/// extract module name
 				///
 				string modulename = debug_data[i+3];
-
-				pos = modulename.find_last_of ("\\");
+				
+				pos = modulename.find_last_of (_T("\\"));
 				if (pos == string::npos)
 				{
 					cerr << "Error: trace is not available (corrupted debug info" << endl;
@@ -904,16 +265,16 @@ namespace Sysreg_
 				}
 
 				string appname = modulename.substr (pos + 1, modulename.length () - pos);
-				if (m_CriticalImage.find (appname) == string::npos && m_CriticalImage.length () > 1)
+				if (m_CriticalApp.find (appname) == string::npos && m_CriticalApp.length () > 1)
 				{
-					/// the application is not in the list of
+					/// the application is not in the list of 
 					/// critical apps. Therefore we ignore the user-mode
 					/// exception
 
 					continue;
 				}
 
-				pos = appname.find_last_of (".");
+				pos = appname.find_last_of (_T("."));
 				if (pos == string::npos)
 				{
 					cerr << "Error: trace is not available (corrupted debug info" << endl;
@@ -933,11 +294,11 @@ namespace Sysreg_
 #if 0
 				SymbolFile::resolveAddress (modulename, address, result);
 				cerr << result << endl;
-#endif
+#endif				
 				///
 				/// TODO
 				///
-				/// resolve frame addresses
+				/// resolve frame addresses 
 
 
 
@@ -952,27 +313,102 @@ namespace Sysreg_
 		return state;
 	}
 //---------------------------------------------------------------------------------------
-	bool RosBootTest::analyzeDebugData()
+	bool RosBootTest::isTimeout(double max_timeout)
 	{
+		static time_t start = 0;
+
+		if (!start)
+		{
+			time(&start);
+			return false;
+		}
+
+		time_t stop;
+		time(&stop);
+
+		double elapsed = difftime(stop, start);
+		if (elapsed > max_timeout)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+
+	}
+//---------------------------------------------------------------------------------------
+	bool RosBootTest::fetchDebugByPipe(string boot_cmd)
+	{
+		string pipecmd = _T("");
+		bool ret = true;
+		
+		///
+		/// FIXME
+		/// split up arguments
+
+
+		OsSupport::ProcessID pid = OsSupport::createProcess ((TCHAR*)boot_cmd.c_str (), 0, NULL); 
+		string::size_type pipe_pos = boot_cmd.find (_T("serial pipe:"));
+
+		NamedPipeReader namedpipe_reader;
+		if (pipe_pos != string::npos)
+		{
+			pipe_pos += 12;
+			string::size_type pipe_pos_end = boot_cmd.find (_T(" "), pipe_pos);
+			if (pipe_pos != string::npos && pipe_pos > 0 && pipe_pos < boot_cmd.size())
+			{
+				pipecmd = _T("\\\\.\\pipe\\") + boot_cmd.substr (pipe_pos, pipe_pos_end - pipe_pos);
+			}
+		}
+
+		if (!pipecmd.length ())
+		{
+			//FIXME
+			pipecmd = _T("\\\\.\\pipe\\vmwaredebug");
+		}
+
+		if (m_Delayread)
+		{
+			///
+			/// delay reading until emulator is ready
+			///
+
+			sleep( (clock_t)m_Delayread * CLOCKS_PER_SEC );
+		}
+
+		if (!namedpipe_reader.openPipe(pipecmd))
+		{
+			cerr << "Error: failed to open pipe with cmd: " << boot_cmd <<endl;
+			return false;
+		}
+		string Buffer;
+		Buffer.reserve (500);
+
 		vector<string> vect;
 		size_t lines = 0;
 		bool write_log;
 		ofstream file;
-        bool ret = true;
-
-        if (m_DebugFile.length ())
+		if (m_DebugFile.length ())
 		{
-			remove(m_DebugFile.c_str ());
+			_tremove(m_DebugFile.c_str ());
 			file.open (m_DebugFile.c_str ());
 		}
 
 		write_log = file.is_open ();
+
 		while(1)
 		{
-			size_t prev_count = vect.size ();
-			if (!m_DataSource->readSource (vect))
+			if (isTimeout(m_Timeout))
 			{
-				continue;
+				break;
+			}
+			size_t prev_count = vect.size ();
+			size_t line_count = namedpipe_reader.readPipe (vect);
+			if (!line_count)
+			{
+				cerr << "No data read" << endl;
+				continue;				
 			}
 			if (write_log)
 			{
@@ -993,13 +429,109 @@ namespace Sysreg_
 			{
 				break;
 			}
-			lines += (vect.size() -prev_count); //WTF?
-        }
+			lines += line_count;
+		}
+		namedpipe_reader.closePipe ();
 		if (write_log)
 		{
 			file.close();
 		}
+		_sleep(3* CLOCKS_PER_SEC);
+		OsSupport::terminateProcess (pid);
 
-        return ret;
+		return ret;
 	}
+//---------------------------------------------------------------------------------------
+	bool RosBootTest::fetchDebugByFile(string boot_cmd)
+	{
+		PipeReader pipe_reader;
+		_tremove(m_DebugFile.c_str ());
+
+		if (!pipe_reader.openPipe(boot_cmd, string(_T("rt"))))
+		{
+			cerr << "Error: failed to open pipe with cmd: " << boot_cmd << endl;
+			return false;
+		}
+
+		if (m_Delayread)
+		{
+			///
+			/// delay reading until emulator is ready
+			///
+
+			sleep( (clock_t)m_Delayread * CLOCKS_PER_SEC );
+		}
+
+		OsSupport::ProcessID pid = 0;
+
+		if (m_PidFile != _T(""))
+		{
+			FileReader file;
+			if (file.openFile(m_PidFile.c_str ()))
+			{
+				vector<string> lines;
+				file.readFile(lines);
+				if (lines.size())
+				{
+					string line = lines[0];
+					pid = _ttoi(line.c_str ());
+				}
+				file.closeFile();
+			}
+		}
+		FileReader file;
+		if (!file.openFile (m_DebugFile.c_str ()))
+		{
+			cerr << "Error: failed to open debug log " << m_DebugFile<< endl;
+			pipe_reader.closePipe ();
+			return false;
+		}
+
+		vector<string> lines;
+		bool ret = true;
+
+		while(!pipe_reader.isEof ())
+		{
+			if (file.readFile (lines))
+			{
+				DebugState state = checkDebugData(lines);
+
+				if (state == DebugStateBSODDetected || state == DebugStateUMEDetected)
+				{
+					ret = false;
+					break;
+				}
+				else if (state == DebugStateCPReached)
+				{
+					break;
+				}
+			}
+			if (isTimeout(m_Timeout))
+			{
+				///
+				/// timeout has been reached
+				///
+				if (m_Checkpoint != _T(""))
+				{
+					///
+					/// timeout was reached but
+					/// the checkpoint was not reached
+					/// we see this as a "hang"
+					///
+					ret = false;
+				}
+				break;
+			}
+		}
+		file.closeFile ();
+
+		if (pid)
+		{
+			OsSupport::terminateProcess (pid);
+		}
+
+		pipe_reader.closePipe ();	
+		return ret;
+	}
+
 } // end of namespace Sysreg_

@@ -43,6 +43,7 @@ VOID CALLBACK ServiceMain(DWORD argc, LPTSTR * argv)
     else
         CloseHandle(hThread);
 
+#ifdef RPC_ENABLED
     hThread = CreateThread(NULL,
                            0,
                            (LPTHREAD_START_ROUTINE)
@@ -55,6 +56,7 @@ VOID CALLBACK ServiceMain(DWORD argc, LPTSTR * argv)
         DPRINT("Can't create RpcThread\n");
     else
         CloseHandle(hThread);
+#endif
 }
 
 BOOL LoadLogFile(HKEY hKey, WCHAR * LogName)

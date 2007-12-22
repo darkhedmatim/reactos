@@ -65,7 +65,7 @@ ExpQueryModuleInformation(IN PLIST_ENTRY KernelModeList,
             ModuleInfo->ImageSize = LdrEntry->SizeOfImage;
             ModuleInfo->Flags = LdrEntry->Flags;
             ModuleInfo->LoadCount = LdrEntry->LoadCount;
-            ModuleInfo->LoadOrderIndex = (USHORT)ModuleCount;
+            ModuleInfo->LoadOrderIndex = ModuleCount;
             ModuleInfo->InitOrderIndex = 0;
 
             /* Setup name */
@@ -231,7 +231,7 @@ NtQuerySystemEnvironmentValue (IN	PUNICODE_STRING	VariableName,
 {
   ANSI_STRING AName;
   UNICODE_STRING WName;
-  ARC_STATUS Result;
+  BOOLEAN Result;
   PCH Value;
   ANSI_STRING AValue;
   UNICODE_STRING WValue;
@@ -417,7 +417,7 @@ NtSetSystemEnvironmentValue (IN	PUNICODE_STRING	VariableName,
                                                 TRUE);
           if(NT_SUCCESS(Status))
           {
-            ARC_STATUS Result = HalSetEnvironmentVariable(AName.Buffer,
+            BOOLEAN Result = HalSetEnvironmentVariable(AName.Buffer,
                                                        AValue.Buffer);
 
             Status = (Result ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
@@ -501,7 +501,6 @@ QSI_DEF(SystemBasicInformation)
 	{
 		return (STATUS_INFO_LENGTH_MISMATCH);
 	}
-	RtlZeroMemory(Sbi, Size);
 	Sbi->Reserved = 0;
 	Sbi->TimerResolution = KeMaximumIncrement;
 	Sbi->PageSize = PAGE_SIZE;
@@ -723,7 +722,6 @@ QSI_DEF(SystemProcessInformation)
 		{
 			_SEH_YIELD(return STATUS_INFO_LENGTH_MISMATCH); // in case buffer size is too small
 		}
-		RtlZeroMemory(Spi, Size);
 
 		syspr = PsGetNextProcess(NULL);
 		pr = syspr;
@@ -768,7 +766,7 @@ QSI_DEF(SystemProcessInformation)
 			SpiCur->UserTime.QuadPart = pr->Pcb.UserTime * 100000LL;
 			SpiCur->KernelTime.QuadPart = pr->Pcb.KernelTime * 100000LL;
 			SpiCur->ImageName.Length = strlen(pr->ImageFileName) * sizeof(WCHAR);
-			SpiCur->ImageName.MaximumLength = (USHORT)inLen;
+			SpiCur->ImageName.MaximumLength = inLen;
 			SpiCur->ImageName.Buffer = (void*)(pCur+curSize);
 
 			// copy name to the end of the struct
@@ -904,7 +902,7 @@ QSI_DEF(SystemProcessorPerformanceInformation)
 	}
 
 	CurrentTime.QuadPart = KeQueryInterruptTime();
-	Prcb = KeGetPcr()->Prcb;
+	Prcb = ((PKPCR)KPCR_BASE)->Prcb;
 	for (i = 0; i < KeNumberProcessors; i++)
 	{
 	   Spi->IdleTime.QuadPart = (Prcb->IdleThread->KernelTime + Prcb->IdleThread->UserTime) * 100000LL; // IdleTime
@@ -1060,7 +1058,7 @@ QSI_DEF(SystemHandleInformation)
 
             for (Count = 0; HandleCount > 0 ; HandleCount--)
                {
-                 Shi->Handles[i].UniqueProcessId = (USHORT)(ULONG)pr->UniqueProcessId;
+                 Shi->Handles[i].UniqueProcessId = (ULONG)pr->UniqueProcessId;
                  Count++;
                  i++;
                }
@@ -1196,7 +1194,7 @@ QSI_DEF(SystemInterruptInformation)
 
   ti = KeQueryTimeIncrement();
 
-  Prcb = KeGetPcr()->Prcb;
+  Prcb = ((PKPCR)KPCR_BASE)->Prcb;
   for (i = 0; i < KeNumberProcessors; i++)
   {
     //sii->ContextSwitches = Prcb->KeContextSwitches;
@@ -1821,6 +1819,9 @@ NtQuerySystemInformation (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
             ProbeForWriteUlong(UnsafeResultLength);
         }
 
+      /* Clear user buffer. */
+      RtlZeroMemory(SystemInformation, Length);
+
       /*
        * Check the request is valid.
        */
@@ -1841,7 +1842,15 @@ NtQuerySystemInformation (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
 	    {
               if (PreviousMode != KernelMode)
                 {
+                  _SEH_TRY
+                    {
                       *UnsafeResultLength = ResultLength;
+                    }
+                  _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
+                    {
+                      FStatus = _SEH_GetExceptionCode();
+                    }
+                  _SEH_END;
                 }
               else
                 {
@@ -1923,7 +1932,7 @@ NtFlushInstructionCache (
 #if defined(_M_IX86)
     __wbinvd();
 #elif defined(_M_PPC)
-    __asm__ __volatile__("tlbsync");
+#error Needs to be implemented for PPC architecture!
 #elif defined(_M_MIPS)
     DPRINT1("NtFlushInstructionCache() is not implemented\n");
     for (;;);

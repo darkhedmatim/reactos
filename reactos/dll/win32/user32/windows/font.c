@@ -34,14 +34,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-void _assert(const char *msg, const char *file, int line)
-{
-  /* Assertion failed at foo.c line 45: x<y */
-  DbgPrint("Assertion failed at %s line %d: %s\n", file, line, msg);
-  ExitProcess(3);
-  for(;;); /* eliminate warning by mingw */
-}
-
 /*
  * @implemented
  */
@@ -112,7 +104,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
         INT x0;
         x0 = x;
         r.left = x0;
-        /* chop the string into substrings of 0 or more <tabs>
+        /* chop the string into substrings of 0 or more <tabs> 
          * possibly followed by 1 or more normal characters */
         for (i = 0; i < count; i++)
             if (lpstr[i] != '\t') break;
@@ -157,7 +149,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
             }
         } else
             x += extent.cx;
-
+        
         if (fDisplayText)
         {
             r.top    = y;
@@ -1014,7 +1006,7 @@ static void TEXT_DrawUnderscore (HDC hdc, int x, int y, const WCHAR *str, int of
         if (prefix_x   < rect->left ) prefix_x   = rect->left;
         if (prefix_end > rect->right) prefix_end = rect->right;
     }
-
+    
     hpen = CreatePen (PS_SOLID, 1, GetTextColor (hdc));
     oldPen = SelectObject (hdc, hpen);
     MoveToEx (hdc, prefix_x, y, NULL);
@@ -1158,14 +1150,13 @@ DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
                 else
                     len_seg = len;
 
-                if (!(flags & DT_PREFIXONLY)&&
-                    !ExtTextOutW( hdc, xseg, y,
+                if (!ExtTextOutW( hdc, xseg, y,
                                  ((flags & DT_NOCLIP) ? 0 : ETO_CLIPPED) |
                                  ((flags & DT_RTLREADING) ? ETO_RTLREADING : 0),
                                  rect, str, len_seg, NULL ))  return 0;
-                if (prefix_offset != -1 && prefix_offset < len_seg && !(flags & DT_HIDEPREFIX))
+                if (prefix_offset != -1 && prefix_offset < len_seg)
                 {
-                    TEXT_DrawUnderscore (hdc, xseg, y + tm.tmAscent + 2, str, prefix_offset, (flags & DT_NOCLIP) ? NULL : rect);
+                    TEXT_DrawUnderscore (hdc, xseg, y + tm.tmAscent + 1, str, prefix_offset, (flags & DT_NOCLIP) ? NULL : rect);
                 }
                 len -= len_seg;
                 str += len_seg;

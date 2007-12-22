@@ -87,8 +87,7 @@ void _tnl_register_fastpath( struct tnl_clipspace *vtx,
    fastpath->attr_count = vtx->attr_count;
    fastpath->match_strides = match_strides;
    fastpath->func = vtx->emit;
-   fastpath->attr = (struct tnl_attr_type *)
-      _mesa_malloc(vtx->attr_count * sizeof(fastpath->attr[0]));
+   fastpath->attr = MALLOC(vtx->attr_count * sizeof(fastpath->attr[0]));
 
    for (i = 0; i < vtx->attr_count; i++) {
       fastpath->attr[i].format = vtx->attr[i].format;
@@ -229,15 +228,7 @@ void _tnl_get_attr( GLcontext *ctx, const void *vin,
 
    /* Else return the value from ctx->Current.
     */
-   if (attr == _TNL_ATTRIB_POINTSIZE) {
-      /* If the hardware vertex doesn't have point size then use size from
-       * GLcontext.  XXX this will be wrong if drawing attenuated points!
-       */
-      dest[0] = ctx->Point._Size;
-   }
-   else {
-      _mesa_memcpy( dest, ctx->Current.Attrib[attr], 4*sizeof(GLfloat));
-   }
+   _mesa_memcpy( dest, ctx->Current.Attrib[attr], 4*sizeof(GLfloat));
 }
 
 
@@ -434,7 +425,7 @@ void *_tnl_emit_vertices_to_buffer( GLcontext *ctx,
 
    /* Note: dest should not be adjusted for non-zero 'start' values:
     */
-   vtx->emit( ctx, end - start, (GLubyte*) dest );	
+   vtx->emit( ctx, end - start, dest );	
    return (void *)((GLubyte *)dest + vtx->vertex_size * (end - start));
 }
 
@@ -503,14 +494,7 @@ void _tnl_free_vertices( GLcontext *ctx )
    for (fp = vtx->fastpath ; fp ; fp = tmp) {
       tmp = fp->next;
       FREE(fp->attr);
-
-      /* KW: At the moment, fp->func is constrained to be allocated by
-       * _mesa_exec_alloc(), as the hardwired fastpaths in
-       * t_vertex_generic.c are handled specially.  It would be nice
-       * to unify them, but this probably won't change until this
-       * module gets another overhaul.
-       */
-      _mesa_exec_free((void *) fp->func);
+      FREE((void *)fp->func);
       FREE(fp);
    }
    

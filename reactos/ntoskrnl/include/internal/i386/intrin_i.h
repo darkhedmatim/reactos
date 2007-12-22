@@ -80,7 +80,6 @@ static inline void Ki386Cpuid(ULONG Op, PULONG Eax, PULONG Ebx, PULONG Ecx, PULO
 
 #define Ke386FnInit()               __asm__("fninit\n\t");
 
-
 //
 // CR Macros
 //
@@ -409,9 +408,6 @@ Ke386SetEs(IN USHORT Value)
 #else
 #error Unknown compiler for inline assembler
 #endif
-
-#define KeArchFnInit() Ke386FnInit()
-#define KeArchHaltProcessor() Ke386HaltProcessor()
 
 #endif
 

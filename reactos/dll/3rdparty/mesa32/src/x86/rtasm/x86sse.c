@@ -1,4 +1,4 @@
-#if defined(USE_X86_ASM) || defined(SLANG_X86)
+#if defined(USE_X86_ASM)
 
 #include "imports.h"
 #include "x86sse.h"
@@ -142,8 +142,8 @@ static void emit_op_modrm( struct x86_function *p,
 
 /* Create and manipulate registers and regmem values:
  */
-struct x86_reg x86_make_reg( enum x86_reg_file file,
-			     enum x86_reg_name idx )
+struct x86_reg x86_make_reg( GLuint file,
+			     GLuint idx )
 {
    struct x86_reg reg;
 
@@ -198,7 +198,7 @@ GLubyte *x86_get_label( struct x86_function *p )
 
 
 void x86_jcc( struct x86_function *p,
-	      enum x86_cc cc,
+	      GLuint cc,
 	      GLubyte *label )
 {
    GLint offset = label - (x86_get_label(p) + 2);
@@ -217,23 +217,9 @@ void x86_jcc( struct x86_function *p,
 /* Always use a 32bit offset for forward jumps:
  */
 GLubyte *x86_jcc_forward( struct x86_function *p,
-			  enum x86_cc cc )
+			  GLuint cc )
 {
    emit_2ub(p, 0x0f, 0x80 + cc);
-   emit_1i(p, 0);
-   return x86_get_label(p);
-}
-
-GLubyte *x86_jmp_forward( struct x86_function *p)
-{
-   emit_1ub(p, 0xe9);
-   emit_1i(p, 0);
-   return x86_get_label(p);
-}
-
-GLubyte *x86_call_forward( struct x86_function *p)
-{
-   emit_1ub(p, 0xe8);
    emit_1i(p, 0);
    return x86_get_label(p);
 }
@@ -244,29 +230,6 @@ void x86_fixup_fwd_jump( struct x86_function *p,
 			 GLubyte *fixup )
 {
    *(int *)(fixup - 4) = x86_get_label(p) - fixup;
-}
-
-void x86_jmp( struct x86_function *p, GLubyte *label)
-{
-   emit_1ub(p, 0xe9);
-   emit_1i(p, label - x86_get_label(p) - 4);
-}
-
-void x86_call( struct x86_function *p, GLubyte *label)
-{
-   emit_1ub(p, 0xe8);
-   emit_1i(p, label - x86_get_label(p) - 4);
-}
-
-/* michal:
- * Temporary. As I need immediate operands, and dont want to mess with the codegen,
- * I load the immediate into general purpose register and use it.
- */
-void x86_mov_reg_imm( struct x86_function *p, struct x86_reg dst, GLint imm )
-{
-   assert(dst.mod == mod_REG);
-   emit_1ub(p, 0xb8 + dst.idx);
-   emit_1i(p, imm);
 }
 
 void x86_push( struct x86_function *p,
@@ -346,41 +309,6 @@ void x86_test( struct x86_function *p,
    emit_modrm( p, dst, src );
 }
 
-void x86_add( struct x86_function *p,
-	       struct x86_reg dst,
-	       struct x86_reg src )
-{
-   emit_op_modrm(p, 0x03, 0x01, dst, src );
-}
-
-void x86_mul( struct x86_function *p,
-	       struct x86_reg src )
-{
-   assert (src.file == file_REG32 && src.mod == mod_REG);
-   emit_op_modrm(p, 0xf7, 0, x86_make_reg (file_REG32, reg_SP), src );
-}
-
-void x86_sub( struct x86_function *p,
-	       struct x86_reg dst,
-	       struct x86_reg src )
-{
-   emit_op_modrm(p, 0x2b, 0x29, dst, src );
-}
-
-void x86_or( struct x86_function *p,
-             struct x86_reg dst,
-             struct x86_reg src )
-{
-   emit_op_modrm( p, 0x0b, 0x09, dst, src );
-}
-
-void x86_and( struct x86_function *p,
-              struct x86_reg dst,
-              struct x86_reg src )
-{
-   emit_op_modrm( p, 0x23, 0x21, dst, src );
-}
-
 
 
 /***********************************************************************
@@ -438,14 +366,6 @@ void sse_maxps( struct x86_function *p,
    emit_modrm( p, dst, src );
 }
 
-void sse_maxss( struct x86_function *p,
-		struct x86_reg dst,
-		struct x86_reg src )
-{
-   emit_3ub(p, 0xF3, X86_TWOB, 0x5F);
-   emit_modrm( p, dst, src );
-}
-
 void sse_divss( struct x86_function *p,
 		struct x86_reg dst,
 		struct x86_reg src )
@@ -475,14 +395,6 @@ void sse_mulps( struct x86_function *p,
 		struct x86_reg src )
 {
    emit_2ub(p, X86_TWOB, 0x59);
-   emit_modrm( p, dst, src );
-}
-
-void sse_mulss( struct x86_function *p,
-		struct x86_reg dst,
-		struct x86_reg src )
-{
-   emit_3ub(p, 0xF3, X86_TWOB, 0x59);
    emit_modrm( p, dst, src );
 }
 
@@ -657,12 +569,6 @@ void x87_fistp( struct x86_function *p, struct x86_reg dst )
 {
    emit_1ub(p, 0xdb);
    emit_modrm_noreg(p, 3, dst);
-}
-
-void x87_fild( struct x86_function *p, struct x86_reg arg )
-{
-   emit_1ub(p, 0xdf);
-   emit_modrm_noreg(p, 0, arg);
 }
 
 void x87_fldz( struct x86_function *p )
@@ -1063,29 +969,15 @@ struct x86_reg x86_fn_arg( struct x86_function *p,
 }
 
 
-/**
- * Initialize an x86_function object, allocating space for up to
- * 'code_size' bytes of code.
- */
-GLboolean x86_init_func( struct x86_function *p, GLuint code_size )
+void x86_init_func( struct x86_function *p )
 {
-   assert(!p->store);
-   p->store = _mesa_exec_malloc(code_size);
-   if (p->store) {
-      p->csr = p->store;
-      return GL_TRUE;
-   }
-   else {
-      p->csr = NULL;
-      return GL_FALSE;
-   }
+   p->store = _mesa_exec_malloc(1024);
+   p->csr = p->store;
 }
 
 void x86_release_func( struct x86_function *p )
 {
-   if (p->store)
-      _mesa_exec_free(p->store);
-   p->store = p->csr = NULL;
+   _mesa_exec_free(p->store);
 }
 
 
@@ -1093,7 +985,7 @@ void (*x86_get_func( struct x86_function *p ))(void)
 {
    if (DISASSEM)
       _mesa_printf("disassemble %p %p\n", p->store, p->csr);
-   return (void (*)(void))p->store;
+   return (void (*)())p->store;
 }
 
 #else

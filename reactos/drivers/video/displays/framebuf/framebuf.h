@@ -29,6 +29,10 @@
 #include <winioctl.h>
 #include <ntddvdeo.h>
 
+#define DDKAPI __stdcall
+#define DDKFASTAPI __fastcall
+#define FASTCALL __fastcall
+#define DDKCDECLAPI __cdecl
 //#define EXPERIMENTAL_MOUSE_CURSOR_SUPPORT
 
 typedef struct _PDEV
@@ -48,7 +52,7 @@ typedef struct _PDEV
    PVOID ScreenPtr;
    HPALETTE DefaultPalette;
    PALETTEENTRY *PaletteEntries;
-
+  
 #ifdef EXPERIMENTAL_MOUSE_CURSOR_SUPPORT
    VIDEO_POINTER_ATTRIBUTES PointerAttributes;
    XLATEOBJ *PointerXlateObject;
@@ -58,14 +62,14 @@ typedef struct _PDEV
    POINTL PointerHotSpot;
 #endif
 
-   /* DirectX Support */
+   /* DirectX Support */   
    DWORD iDitherFormat;
    ULONG MemHeight;
    ULONG MemWidth;
    DWORD dwHeap;
-   VIDEOMEMORY* pvmList;
-   BOOL bDDInitialized;
-   DDPIXELFORMAT ddpfDisplay;
+   VIDEOMEMORY* pvmList; 
+   BOOL bDDInitialized;   
+   DDPIXELFORMAT ddpfDisplay;   
 } PDEV, *PPDEV;
 
 #define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
@@ -74,7 +78,7 @@ typedef struct _PDEV
 #define ALLOC_TAG	TAG('F','B','U','F')
 
 
-DHPDEV APIENTRY
+DHPDEV STDCALL
 DrvEnablePDEV(
    IN DEVMODEW *pdm,
    IN LPWSTR pwszLogAddress,
@@ -88,35 +92,35 @@ DrvEnablePDEV(
    IN LPWSTR pwszDeviceName,
    IN HANDLE hDriver);
 
-VOID APIENTRY
+VOID STDCALL
 DrvCompletePDEV(
    IN DHPDEV dhpdev,
    IN HDEV hdev);
 
-VOID APIENTRY
+VOID STDCALL
 DrvDisablePDEV(
    IN DHPDEV dhpdev);
 
-HSURF APIENTRY
+HSURF STDCALL
 DrvEnableSurface(
    IN DHPDEV dhpdev);
 
-VOID APIENTRY
+VOID STDCALL
 DrvDisableSurface(
    IN DHPDEV dhpdev);
 
-BOOL APIENTRY
+BOOL STDCALL
 DrvAssertMode(
    IN DHPDEV dhpdev,
    IN BOOL bEnable);
 
-ULONG APIENTRY
+ULONG STDCALL
 DrvGetModes(
    IN HANDLE hDriver,
    IN ULONG cjSize,
    OUT DEVMODEW *pdm);
 
-BOOL APIENTRY
+BOOL STDCALL
 DrvSetPalette(
    IN DHPDEV dhpdev,
    IN PALOBJ *ppalo,
@@ -124,7 +128,7 @@ DrvSetPalette(
    IN ULONG iStart,
    IN ULONG cColors);
 
-ULONG APIENTRY
+ULONG STDCALL
 DrvSetPointerShape(
    IN SURFOBJ *pso,
    IN SURFOBJ *psoMask,
@@ -137,30 +141,33 @@ DrvSetPointerShape(
    IN RECTL *prcl,
    IN FLONG fl);
 
-VOID APIENTRY
+VOID STDCALL
 DrvMovePointer(
    IN SURFOBJ *pso,
    IN LONG x,
    IN LONG y,
    IN RECTL *prcl);
 
-BOOL
+BOOL FASTCALL
 IntInitScreenInfo(
    PPDEV ppdev,
    LPDEVMODEW pDevMode,
    PGDIINFO pGdiInfo,
    PDEVINFO pDevInfo);
 
-BOOL
+BOOL FASTCALL
 IntInitDefaultPalette(
    PPDEV ppdev,
    PDEVINFO pDevInfo);
 
-BOOL APIENTRY
+BOOL DDKAPI
 IntSetPalette(
    IN DHPDEV dhpdev,
    IN PPALETTEENTRY ppalent,
    IN ULONG iStart,
    IN ULONG cColors);
 
+
+
 #endif /* FRAMEBUF_H */
+

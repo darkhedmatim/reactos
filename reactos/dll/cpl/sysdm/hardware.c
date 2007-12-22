@@ -12,8 +12,7 @@
 
 typedef BOOL (STDCALL *PDEVMGREXEC)(HWND hWndParent, HINSTANCE hInst, PVOID Unknown, int nCmdShow);
 
-static BOOL
-LaunchDeviceManager(HWND hWndParent)
+BOOL LaunchDeviceManager(HWND hWndParent)
 {
 /* hack for ROS to start our devmgmt until we have mmc */
 #ifdef __REACTOS__
@@ -50,30 +49,39 @@ HardwarePageProc(HWND hwndDlg,
 {
     UNREFERENCED_PARAMETER(lParam);
 
-    switch (uMsg)
+    switch(uMsg)
     {
         case WM_INITDIALOG:
-            break;
+        break;
 
         case WM_COMMAND:
-            switch (LOWORD(wParam))
+        {
+            switch(LOWORD(wParam))
             {
                 case IDC_HARDWARE_DEVICE_MANAGER:
-                    if (!LaunchDeviceManager(hwndDlg))
+                {
+                    if(!LaunchDeviceManager(hwndDlg))
                     {
                         /* FIXME */
                     }
+
                     return TRUE;
+                }
 
                 case IDC_HARDWARE_PROFILE:
+                {
                     DialogBox(hApplet,
                               MAKEINTRESOURCE(IDD_HARDWAREPROFILES),
                               hwndDlg,
                               (DLGPROC)HardProfDlgProc);
+
                     return TRUE;
+                }
             }
-            break;
+        }
+        break;
     }
 
     return FALSE;
 }
+

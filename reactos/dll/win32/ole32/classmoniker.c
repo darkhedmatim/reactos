@@ -31,6 +31,7 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
+#include "winnls.h"
 #include "wine/debug.h"
 #include "ole2.h"
 #include "wine/unicode.h"
@@ -482,7 +483,7 @@ static HRESULT WINAPI ClassMoniker_Inverse(IMoniker* iface,IMoniker** ppmk)
 static HRESULT WINAPI ClassMoniker_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** ppmkPrefix)
 {
     DWORD mkSys;
-
+    
     TRACE("(%p, %p)\n", pmkOther, ppmkPrefix);
 
     *ppmkPrefix = NULL;

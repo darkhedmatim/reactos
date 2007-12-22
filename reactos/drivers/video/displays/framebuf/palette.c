@@ -56,7 +56,7 @@ const PALETTEENTRY BASEPALETTE[20] =
  * by the GDI standard.
  */
 
-BOOL
+BOOL FASTCALL
 IntInitDefaultPalette(
    PPDEV ppdev,
    PDEVINFO pDevInfo)
@@ -106,7 +106,7 @@ IntInitDefaultPalette(
  * as closely as possible.
  */
 
-BOOL APIENTRY
+BOOL DDKAPI
 IntSetPalette(
    IN DHPDEV dhpdev,
    IN PPALETTEENTRY ppalent,
@@ -121,7 +121,6 @@ IntSetPalette(
    pClut->FirstEntry = iStart;
    pClut->NumEntries = cColors;
    memcpy(&pClut->LookupTable[0].RgbLong, ppalent, sizeof(ULONG) * cColors);
-   EngFreeMem(ppalent);
 
    if (((PPDEV)dhpdev)->PaletteShift)
    {
@@ -167,7 +166,7 @@ IntSetPalette(
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL DDKAPI
 DrvSetPalette(
    IN DHPDEV dhpdev,
    IN PALOBJ *ppalo,
@@ -176,9 +175,6 @@ DrvSetPalette(
    IN ULONG cColors)
 {
    PPALETTEENTRY PaletteEntries;
-
-   if (cColors == 0)
-       return FALSE;
 
    PaletteEntries = EngAllocMem(0, cColors * sizeof(ULONG), ALLOC_TAG);
    if (PaletteEntries == NULL)
@@ -189,7 +185,6 @@ DrvSetPalette(
    if (PALOBJ_cGetColors(ppalo, iStart, cColors, (PULONG)PaletteEntries) !=
        cColors)
    {
-      EngFreeMem(PaletteEntries);
       return FALSE;
    }
 

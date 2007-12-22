@@ -12,10 +12,6 @@
 #ifndef OPENGL32_PRIVATE_H
 #define OPENGL32_PRIVATE_H
 
-#ifdef _MSC_VER
-#define snwprintf _snwprintf
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -27,7 +23,6 @@ extern "C" {
 #endif
 
 #define OPENGL_DRIVERS_SUBKEY L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\OpenGLDrivers"
-#define OPENGL_DRIVERS_SUBKEY2 L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\OpenGLDrivers\\"
 
 /* gl function list */
 #include "glfuncs.h"
@@ -47,12 +42,16 @@ extern "C" {
 #endif /* !NDEBUG */
 
 /* debug macros */
+#ifdef _MSC_VER
+inline void DBGPRINT ( ... ) {}
+#else
 # ifdef DEBUG_OPENGL32
 ULONG DbgPrint(PCH Format,...);
 #  include <debug.h>
 #  define DBGPRINT( fmt, args... ) \
           DPRINT( "OpenGL32.DLL: %s: "fmt"\n", __FUNCTION__, ##args )
 # endif
+#endif
 
 #ifndef DBGPRINT
 # define DBGPRINT( ... ) do {} while (0)
@@ -116,7 +115,7 @@ typedef double GLclampd;
 typedef void GLvoid;
 
 /* Called by the driver to set the dispatch table */
-typedef DWORD (WINAPI *SetContextCallBack)( const ICDTable * );
+typedef DWORD WINAPI (*SetContextCallBack)( const ICDTable * );
 
 /* OpenGL ICD data */
 typedef struct tagGLDRIVERDATA
@@ -130,23 +129,23 @@ typedef struct tagGLDRIVERDATA
 	DWORD   driver_version;         /*!< DriverVersion value from registry */
 	DWORD   flags;                  /*!< Flags value from registry */
 
-	BOOL      (WINAPI *DrvCopyContext)( HGLRC, HGLRC, UINT );
-	HGLRC     (WINAPI *DrvCreateContext)( HDC );
-	HGLRC     (WINAPI *DrvCreateLayerContext)( HDC, int );
-	BOOL      (WINAPI *DrvDeleteContext)( HGLRC );
-	BOOL      (WINAPI *DrvDescribeLayerPlane)( HDC, int, int, UINT, LPLAYERPLANEDESCRIPTOR );
-	int       (WINAPI *DrvDescribePixelFormat)( IN HDC, IN int, IN UINT, OUT LPPIXELFORMATDESCRIPTOR );
-	int       (WINAPI *DrvGetLayerPaletteEntries)( HDC, int, int, int, COLORREF * );
-	PROC      (WINAPI *DrvGetProcAddress)( LPCSTR lpProcName );
-	void      (WINAPI *DrvReleaseContext)( HGLRC hglrc ); /* maybe returns BOOL? */
-	BOOL      (WINAPI *DrvRealizeLayerPalette)( HDC, int, BOOL );
-	PICDTable (WINAPI *DrvSetContext)( HDC hdc, HGLRC hglrc, SetContextCallBack callback );
-	int       (WINAPI *DrvSetLayerPaletteEntries)( HDC, int, int, int, CONST COLORREF * );
-	BOOL      (WINAPI *DrvSetPixelFormat)( IN HDC, IN int, const PIXELFORMATDESCRIPTOR * );
-	BOOL      (WINAPI *DrvShareLists)( HGLRC, HGLRC );
-	BOOL      (WINAPI *DrvSwapBuffers)( HDC );
-	BOOL      (WINAPI *DrvSwapLayerBuffers)( HDC, UINT );
-	BOOL      (WINAPI *DrvValidateVersion)( DWORD );
+	BOOL      WINAPI (*DrvCopyContext)( HGLRC, HGLRC, UINT );
+	HGLRC     WINAPI (*DrvCreateContext)( HDC );
+	HGLRC     WINAPI (*DrvCreateLayerContext)( HDC, int );
+	BOOL      WINAPI (*DrvDeleteContext)( HGLRC );
+	BOOL      WINAPI (*DrvDescribeLayerPlane)( HDC, int, int, UINT, LPLAYERPLANEDESCRIPTOR );
+	int       WINAPI (*DrvDescribePixelFormat)( IN HDC, IN int, IN UINT, OUT LPPIXELFORMATDESCRIPTOR );
+	int       WINAPI (*DrvGetLayerPaletteEntries)( HDC, int, int, int, COLORREF * );
+	PROC      WINAPI (*DrvGetProcAddress)( LPCSTR lpProcName );
+	void      WINAPI (*DrvReleaseContext)( HGLRC hglrc ); /* maybe returns BOOL? */
+	BOOL      WINAPI (*DrvRealizeLayerPalette)( HDC, int, BOOL );
+	PICDTable WINAPI (*DrvSetContext)( HDC hdc, HGLRC hglrc, SetContextCallBack callback );
+	int       WINAPI (*DrvSetLayerPaletteEntries)( HDC, int, int, int, CONST COLORREF * );
+	BOOL      WINAPI (*DrvSetPixelFormat)( IN HDC, IN int ); /*, IN CONST PIXELFORMATDESCRIPTOR * );*/
+	BOOL      WINAPI (*DrvShareLists)( HGLRC, HGLRC );
+	BOOL      WINAPI (*DrvSwapBuffers)( HDC );
+	BOOL      WINAPI (*DrvSwapLayerBuffers)( HDC, UINT );
+	BOOL      WINAPI (*DrvValidateVersion)( DWORD );
 
 	struct tagGLDRIVERDATA *next;   /* next ICD -- linked list */
 } GLDRIVERDATA;

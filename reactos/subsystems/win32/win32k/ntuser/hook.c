@@ -35,7 +35,6 @@
 #include <debug.h>
 
 #define HOOKID_TO_INDEX(HookId) (HookId - WH_MINHOOK)
-#define HOOKID_TO_FLAG(HookId) (1 << ((HookId) + 1))
 
 static PHOOKTABLE GlobalHooks;
 
@@ -63,13 +62,13 @@ IntAllocHookTable(void)
 PHOOK FASTCALL IntGetHookObject(HHOOK hHook)
 {
    PHOOK Hook;
-
+   
    if (!hHook)
    {
       SetLastWin32Error(ERROR_INVALID_HOOK_HANDLE);
       return NULL;
    }
-
+   
    Hook = (PHOOK)UserGetObject(gHandleTable, hHook, otHook);
    if (!Hook)
    {
@@ -90,7 +89,6 @@ PHOOK FASTCALL IntGetHookObject(HHOOK hHook)
 static PHOOK
 IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinStaObj)
 {
-   PW32THREAD W32Thread;
    PHOOK Hook;
    PHOOKTABLE Table = Global ? GlobalHooks : MsqGetHooks(((PW32THREAD)Thread->Tcb.Win32Thread)->MessageQueue);
    HANDLE Handle;
@@ -121,13 +119,6 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
    Hook->Self = Handle;
    Hook->Thread = Thread;
    Hook->HookId = HookId;
-
-   W32Thread = ((PW32THREAD)Thread->Tcb.Win32Thread);
-   ASSERT(W32Thread != NULL);
-   W32Thread->Hooks |= HOOKID_TO_FLAG(HookId);
-   if (W32Thread->ThreadInfo != NULL)
-       W32Thread->ThreadInfo->Hooks = W32Thread->Hooks;
-
    RtlInitUnicodeString(&Hook->ModuleName, NULL);
 
    InsertHeadList(&Table->Hooks[HOOKID_TO_INDEX(HookId)], &Hook->Chain);
@@ -222,7 +213,6 @@ IntFreeHook(PHOOKTABLE Table, PHOOK Hook, PWINSTATION_OBJECT WinStaObj)
 static VOID
 IntRemoveHook(PHOOK Hook, PWINSTATION_OBJECT WinStaObj, BOOL TableAlreadyLocked)
 {
-   PW32THREAD W32Thread;
    PHOOKTABLE Table = IntGetTable(Hook);
 
    ASSERT(NULL != Table);
@@ -230,12 +220,6 @@ IntRemoveHook(PHOOK Hook, PWINSTATION_OBJECT WinStaObj, BOOL TableAlreadyLocked)
    {
       return;
    }
-
-   W32Thread = ((PW32THREAD)Hook->Thread->Tcb.Win32Thread);
-   ASSERT(W32Thread != NULL);
-   W32Thread->Hooks &= ~HOOKID_TO_FLAG(Hook->HookId);
-   if (W32Thread->ThreadInfo != NULL)
-       W32Thread->ThreadInfo->Hooks = W32Thread->Hooks;
 
    if (0 != Table->Counts[HOOKID_TO_INDEX(Hook->HookId)])
    {

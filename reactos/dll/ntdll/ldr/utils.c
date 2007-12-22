@@ -731,36 +731,38 @@ NTSTATUS NTAPI
 LdrLoadDll (IN PWSTR SearchPath OPTIONAL,
             IN PULONG LoadFlags OPTIONAL,
             IN PUNICODE_STRING Name,
-            OUT PVOID *BaseAddress /* also known as HMODULE*, and PHANDLE 'DllHandle' */)
+            OUT PVOID *BaseAddress OPTIONAL)
 {
   NTSTATUS              Status;
-  PLDR_DATA_TABLE_ENTRY Module;
-
-  PPEB Peb = NtCurrentPeb();
+  PLDR_DATA_TABLE_ENTRY           Module;
 
   TRACE_LDR("LdrLoadDll, loading %wZ%s%S\n",
             Name,
             SearchPath ? L" from " : L"",
             SearchPath ? SearchPath : L"");
 
-  Status = LdrpLoadModule(SearchPath, LoadFlags ? *LoadFlags : 0, Name, &Module, BaseAddress);
-
-  if (NT_SUCCESS(Status) &&
-      (!LoadFlags || 0 == (*LoadFlags & LOAD_LIBRARY_AS_DATAFILE)))
+  if (Name == NULL)
     {
-      if (!(Module->Flags & LDRP_PROCESS_ATTACH_CALLED))
-        {
-          RtlEnterCriticalSection(Peb->LoaderLock);
-          Status = LdrpAttachProcess();
-          RtlLeaveCriticalSection(Peb->LoaderLock);
-        }
+      if (BaseAddress)
+        *BaseAddress = NtCurrentPeb()->ImageBaseAddress;
+      return STATUS_SUCCESS;
     }
 
- if ((!Module) && (NT_SUCCESS(Status)))
-    return Status;
+  if (BaseAddress)
+    *BaseAddress = NULL;
 
-  *BaseAddress = NT_SUCCESS(Status) ? Module->DllBase : NULL;
-
+  Status = LdrpLoadModule(SearchPath, LoadFlags ? *LoadFlags : 0, Name, &Module, BaseAddress);
+  if (NT_SUCCESS(Status)
+  && (!LoadFlags || 0 == (*LoadFlags & LOAD_LIBRARY_AS_DATAFILE)))
+    {
+      RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
+      Status = LdrpAttachProcess();
+      RtlLeaveCriticalSection(NtCurrentPeb()->LoaderLock);
+      if (NT_SUCCESS(Status) && BaseAddress)
+        {
+          *BaseAddress = Module->DllBase;
+        }
+   }
   return Status;
 }
 
@@ -1195,7 +1197,7 @@ LdrGetExportByName(PVOID BaseAddress,
           }
      }
 
-   DPRINT("LdrGetExportByName(): failed to find %s\n",SymbolName);
+   DPRINT1("LdrGetExportByName(): failed to find %s\n",SymbolName);
    return (PVOID)NULL;
 }
 
@@ -1230,7 +1232,7 @@ LdrPerformRelocations(PIMAGE_NT_HEADERS NTHeaders,
 
   if (NTHeaders->FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED)
     {
-      return STATUS_SUCCESS;
+      return STATUS_UNSUCCESSFUL;
     }
 
   RelocationDDir =
@@ -1322,7 +1324,7 @@ LdrPerformRelocations(PIMAGE_NT_HEADERS NTHeaders,
 }
 
 static NTSTATUS
-LdrpGetOrLoadModule(PWCHAR SearchPath,
+LdrpGetOrLoadModule(PWCHAR SerachPath,
                     PCHAR Name,
                     PLDR_DATA_TABLE_ENTRY* Module,
                     BOOLEAN Load)
@@ -1343,7 +1345,7 @@ LdrpGetOrLoadModule(PWCHAR SearchPath,
    Status = LdrFindEntryForName (&DllName, Module, Load);
    if (Load && !NT_SUCCESS(Status))
      {
-       Status = LdrpLoadModule(SearchPath,
+       Status = LdrpLoadModule(SerachPath,
                                NtCurrentPeb()->Ldr->Initialized ? 0 : LDRP_PROCESS_CREATION_TIME,
                                &DllName,
                                Module,
@@ -1989,7 +1991,7 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
     NTSTATUS Status;
     PLDR_DATA_TABLE_ENTRY tmpModule;
     HANDLE SectionHandle;
-    SIZE_T ViewSize;
+    ULONG ViewSize;
     PVOID ImageBase;
     PIMAGE_NT_HEADERS NtHeaders;
     BOOLEAN MappedAsDataFile;
@@ -2961,7 +2963,7 @@ LdrVerifyImageMatchesChecksum (IN HANDLE FileHandle,
   FILE_STANDARD_INFORMATION FileInfo;
   IO_STATUS_BLOCK IoStatusBlock;
   HANDLE SectionHandle;
-  SIZE_T ViewSize;
+  ULONG ViewSize;
   PVOID BaseAddress;
   BOOLEAN Result;
   NTSTATUS Status;

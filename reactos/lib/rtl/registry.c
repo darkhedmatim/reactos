@@ -15,8 +15,6 @@
 
 #define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
-extern SIZE_T RtlpAllocDeallocQueryBufferSize;
-
 /* DATA **********************************************************************/
 
 PCWSTR RtlpRegPaths[RTL_REGISTRY_MAXIMUM] =
@@ -972,7 +970,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
     NTSTATUS Status;
     PKEY_VALUE_FULL_INFORMATION KeyValueInfo = NULL;
     HANDLE KeyHandle, CurrentKey;
-    SIZE_T BufferSize, InfoSize;
+    SIZE_T BufferSize = 128, InfoSize;
     UNICODE_STRING KeyPath, KeyValueName;
     OBJECT_ATTRIBUTES ObjectAttributes;
     ULONG i, Value;
@@ -987,7 +985,6 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
                          (RelativeTo & RTL_REGISTRY_HANDLE) ? NULL : Path);
 
     /* Allocate a query buffer */
-    BufferSize = RtlpAllocDeallocQueryBufferSize;
     KeyValueInfo = RtlpAllocDeallocQueryBuffer(&BufferSize, NULL, 0, &Status);
     if (!KeyValueInfo)
     {

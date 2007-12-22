@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Winlogon
- * FILE:            base/system/winlogon/winlogon.c
+ * FILE:            services/winlogon/winlogon.c
  * PURPOSE:         Logon
  * PROGRAMMERS:     Thomas Weidenmueller (w3seek@users.sourceforge.net)
  *                  Filip Navara
@@ -9,12 +9,10 @@
  */
 
 /* INCLUDES *****************************************************************/
-
 #include "winlogon.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
 
 /* GLOBALS ******************************************************************/
 
@@ -66,18 +64,18 @@ StartServicesManager(VOID)
 	{
 		Sleep(1000);
 
-		TRACE("WL: Attempting to open event \"SvcctrlStartEvent_A3752DX\"\n");
+		TRACE("WL: Attempting to open event \"SvcctrlStartEvent_A3725DX\"\n");
 		ServicesInitEvent = OpenEventW(
 			SYNCHRONIZE,
 			FALSE,
-			L"SvcctrlStartEvent_A3752DX");
+			L"SvcctrlStartEvent_A3725DX");
 		if (ServicesInitEvent)
 			break;
 	}
 
 	if (!ServicesInitEvent)
 	{
-		ERR("WL: Failed to open event \"SvcctrlStartEvent_A3752DX\"\n");
+		ERR("WL: Failed to open event \"SvcctrlStartEvent_A3725DX\"\n");
 		return FALSE;
 	}
 
@@ -154,6 +152,130 @@ StartLsass(VOID)
 
 	return TRUE;
 }
+
+#if 0
+static BOOL
+OpenRegistryKey(
+	OUT HKEY *WinLogonKey)
+{
+   return ERROR_SUCCESS == RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                                        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\WinLogon",
+                                        0,
+                                        KEY_QUERY_VALUE,
+                                        WinLogonKey);
+}
+#endif
+
+#if 0
+static BOOL
+StartProcess(
+	IN PWCHAR ValueName)
+{
+   BOOL StartIt;
+   HKEY WinLogonKey;
+   DWORD Type;
+   DWORD Size;
+   DWORD StartValue;
+
+   StartIt = TRUE;
+   if (OpenRegistryKey(&WinLogonKey))
+     {
+	Size = sizeof(DWORD);
+	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                             ValueName,
+	                                     NULL,
+	                                     &Type,
+	                                     (LPBYTE) &StartValue,
+                                             &Size))
+	   {
+	   if (REG_DWORD == Type)
+	     {
+		StartIt = (0 != StartValue);
+	     }
+	   }
+	RegCloseKey(WinLogonKey);
+     }
+
+   return StartIt;
+}
+#endif
+
+/*
+static BOOL RestartShell(
+	IN OUT PWLSESSION Session)
+{
+  HKEY WinLogonKey;
+  DWORD Type, Size, Value;
+
+  if(OpenRegistryKey(&WinLogonKey))
+  {
+    Size = sizeof(DWORD);
+    if(ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                        L"AutoRestartShell",
+                                        NULL,
+                                        &Type,
+                                        (LPBYTE)&Value,
+                                        &Size))
+    {
+      if(Type == REG_DWORD)
+      {
+        RegCloseKey(WinLogonKey);
+        return (Value != 0);
+      }
+    }
+    RegCloseKey(WinLogonKey);
+  }
+  return FALSE;
+}
+*/
+
+#if 0
+static PWCHAR
+GetUserInit(
+	OUT WCHAR *CommandLine,
+	IN DWORD BufferLength)
+{
+   HKEY WinLogonKey;
+   BOOL GotCommandLine;
+   DWORD Type;
+   DWORD Size;
+   WCHAR Shell[_MAX_PATH];
+
+   GotCommandLine = FALSE;
+   if (OpenRegistryKey(&WinLogonKey))
+     {
+	Size = MAX_PATH;
+	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                         L"UserInit",
+	                                     NULL,
+	                                     &Type,
+	                                     (LPBYTE) Shell,
+                                         &Size))
+	   {
+	   if (REG_EXPAND_SZ == Type)
+	     {
+		ExpandEnvironmentStrings(Shell, CommandLine, _MAX_PATH);
+		GotCommandLine = TRUE;
+	     }
+	   else if (REG_SZ == Type)
+	     {
+		wcscpy(CommandLine, Shell);
+		GotCommandLine = TRUE;
+	     }
+	   }
+	RegCloseKey(WinLogonKey);
+     }
+
+   if (! GotCommandLine)
+     {
+	GetSystemDirectory(CommandLine, MAX_PATH - 15);
+	wcscat(CommandLine, L"\\userinit.exe");
+     }
+
+   return CommandLine;
+}
+
+#endif
 
 BOOL
 DisplayStatusMessage(
@@ -285,9 +407,25 @@ WinMain(
 		ExitProcess(1);
 	}
 
+	/* Check for pending setup */
+	if (GetSetupType() != 0)
+	{
+		TRACE("WL: Setup mode detected\n");
+
+		/* Set locale */
+		SetDefaultLanguage(FALSE);
+
+		/* Run setup and reboot when done */
+		SwitchDesktop(WLSession->ApplicationDesktop);
+		RunSetup();
+
+		HandleShutdown(WLSession, WLX_SAS_ACTION_SHUTDOWN_REBOOT);
+		ExitProcess(0);
+	}
+
 	if (!StartLsass())
 	{
-		ERR("WL: Failed to start lsass.exe service (error %lu)\n", GetLastError());
+		DPRINT1("WL: Failed to start lsass.exe service (error %lu)\n", GetLastError());
 		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, OptionOk, &HardErrorResponse);
 		ExitProcess(1);
 	}
@@ -348,18 +486,7 @@ WinMain(
 	/* Display logged out screen */
 	WLSession->LogonStatus = WKSTA_IS_LOGGED_OFF;
 	RemoveStatusMessage(WLSession);
-
-	/* Check for pending setup */
-	if (GetSetupType() != 0)
-	{
-		TRACE("WL: Setup mode detected\n");
-
-		/* Run setup and reboot when done */
-		SwitchDesktop(WLSession->ApplicationDesktop);
-		RunSetup();
-	}
-	else
-		PostMessageW(WLSession->SASWindow, WLX_WM_SAS, WLX_SAS_TYPE_TIMEOUT, 0);
+	PostMessageW(WLSession->SASWindow, WLX_WM_SAS, WLX_SAS_TYPE_TIMEOUT, 0);
 
 	/* Message loop for the SAS window */
 	while (GetMessageW(&Msg, WLSession->SASWindow, 0, 0))

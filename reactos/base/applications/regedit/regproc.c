@@ -24,11 +24,14 @@
 
 #define REG_VAL_BUF_SIZE        4096
 
+/* Delimiters used to parse the "value" to query queryValue*/
+#define QUERY_VALUE_MAX_ARGS  1
+
 /* maximal number of characters in hexadecimal data line,
    not including '\' character */
 #define REG_FILE_HEX_LINE_LEN   76
 
-/* Globals used by the api setValue */
+/* Globals used by the api setValue, queryValue */
 static LPSTR currentKeyName   = NULL;
 static HKEY  currentKeyClass  = 0;
 static HKEY  currentKeyHandle = 0;
@@ -58,7 +61,7 @@ static HKEY reg_class_keys[REG_CLASS_NUMBER] = {
 #define CHECK_ENOUGH_MEMORY(p) \
 if (!(p)) \
 { \
-    fprintf(stderr,"%s: file %s, line %d: Not enough memory\n", \
+    fprintf(stderr,"%s: file %s, line %d: Not enough memory", \
             getAppName(), __FILE__, __LINE__); \
     exit(NOT_ENOUGH_MEMORY); \
 }
@@ -154,56 +157,108 @@ void get_file_name(CHAR **command_line, CHAR *file_name)
 /******************************************************************************
  * Converts a hex representation of a DWORD into a DWORD.
  */
-static BOOL convertHexToDWord(char* str, DWORD *dw)
+DWORD convertHexToDWord(char *str, BYTE *buf)
 {
-    char dummy;
-    if (strlen(str) > 8 || sscanf(str, "%lx%c", dw, &dummy) != 1) {
-        fprintf(stderr,"%s: ERROR, invalid hex value\n", getAppName());
-        return FALSE;
-    }
-    return TRUE;
+    DWORD dw;
+    char xbuf[9];
+
+    memcpy(xbuf,str,8);
+    xbuf[8]='\0';
+    sscanf(xbuf,"%08lx",&dw);
+    memcpy(buf,&dw,sizeof(DWORD));
+    return sizeof(DWORD);
 }
 
 /******************************************************************************
-* Converts a hex comma separated values list into a binary string.
-  */
-static BYTE* convertHexCSVToHex(char *str, DWORD *size)
+ * Converts a hex buffer into a hex comma separated values
+ */
+char* convertHexToHexCSV(BYTE *buf, ULONG bufLen)
 {
-    char *s;
-    BYTE *d, *data;
+    char* str;
+    char* ptrStr;
+    BYTE* ptrBuf;
 
-    /* The worst case is 1 digit + 1 comma per byte */
-    *size=(strlen(str)+1)/2;
-    data=HeapAlloc(GetProcessHeap(), 0, *size);
-    CHECK_ENOUGH_MEMORY(data);
+    ULONG current = 0;
 
-    s = str;
-    d = data;
-    *size=0;
-    while (*s != '\0') {
-        UINT wc;
-        char dummy;
+    str    = HeapAlloc(GetProcessHeap(), 0, (bufLen+1)*2);
+    memset(str, 0, (bufLen+1)*2);
+    ptrStr = str;  /* Pointer to result  */
+    ptrBuf = buf;  /* Pointer to current */
 
-        if (s[1] != ',' && s[1] != '\0' && s[2] != ',' && s[2] != '\0') {
-            fprintf(stderr,"%s: ERROR converting CSV hex stream. Invalid sequence at '%s'\n",
-                    getAppName(), s);
-            HeapFree(GetProcessHeap(), 0, data);
-            return NULL;
-        }
-        if (sscanf(s, "%x%c", &wc, &dummy) < 1 || dummy != ',') {
-            fprintf(stderr,"%s: ERROR converting CSV hex stream. Invalid value at '%s'\n",
-                    getAppName(), s);
-            HeapFree(GetProcessHeap(), 0, data);
-            return NULL;
-        }
-        *d++ =(BYTE)wc;
-        (*size)++;
-        /* Skip one or two digits and any comma */
-        while (*s && *s!=',') s++;
-        if (*s) s++;
+    while (current < bufLen) {
+        BYTE bCur = ptrBuf[current++];
+        char res[3];
+
+        sprintf(res, "%02x", (unsigned int)*&bCur);
+        strcat(str, res);
+        strcat(str, ",");
     }
 
-    return data;
+    /* Get rid of the last comma */
+    str[strlen(str)-1] = '\0';
+    return str;
+}
+
+/******************************************************************************
+ * Converts a hex buffer into a DWORD string
+ */
+char* convertHexToDWORDStr(BYTE *buf, ULONG bufLen)
+{
+    char* str;
+    DWORD dw;
+
+    if ( bufLen != sizeof(DWORD) ) return NULL;
+
+    str = HeapAlloc(GetProcessHeap(), 0, (bufLen*2)+1);
+
+    memcpy(&dw,buf,sizeof(DWORD));
+    sprintf(str, "%08lx", dw);
+
+    /* Get rid of the last comma */
+    return str;
+}
+
+/******************************************************************************
+ * Converts a hex comma separated values list into a hex list.
+ * The Hex input string must be in exactly the correct form.
+ */
+DWORD convertHexCSVToHex(char *str, BYTE *buf, ULONG bufLen)
+{
+    char *s = str;  /* Pointer to current */
+    char *b = (char*) buf;  /* Pointer to result  */
+
+    size_t strLen    = strlen(str);
+    size_t strPos    = 0;
+    DWORD byteCount = 0;
+
+    memset(buf, 0, bufLen);
+
+    /*
+     * warn the user if we are here with a string longer than 2 bytes that does
+     * not contains ",".  It is more likely because the data is invalid.
+     */
+    if ( ( strLen > 2) && ( strchr(str, ',') == NULL) )
+        fprintf(stderr,"%s: WARNING converting CSV hex stream with no comma, "
+                "input data seems invalid.\n", getAppName());
+    if (strLen > 3*bufLen)
+        fprintf(stderr,"%s: ERROR converting CSV hex stream.  Too long\n",
+                getAppName());
+
+    while (strPos < strLen) {
+        char xbuf[3];
+        UINT wc;
+
+        memcpy(xbuf,s,2); xbuf[2]='\0';
+        sscanf(xbuf,"%02x",&wc);
+        if (byteCount < bufLen)
+            *b++ =(unsigned char)wc;
+
+        s+=3;
+        strPos+=3;
+        byteCount++;
+    }
+
+    return byteCount;
 }
 
 /******************************************************************************
@@ -250,8 +305,7 @@ DWORD getDataType(LPSTR *lpValue, DWORD* parse_type)
         }
         return type;
     }
-    *parse_type=REG_NONE;
-    return REG_NONE;
+    return (**lpValue=='\0'?REG_SZ:REG_NONE);
 }
 
 /******************************************************************************
@@ -275,7 +329,6 @@ LPSTR getArg( LPSTR arg)
     if( arg[0]     == '\"' ) arg++;
 
     tmp = HeapAlloc(GetProcessHeap(), 0, strlen(arg)+1);
-    CHECK_ENOUGH_MEMORY(tmp);
     strcpy(tmp, arg);
 
     return tmp;
@@ -321,26 +374,22 @@ static void REGPROC_unescape_string(LPSTR str)
  * val_name - name of the registry value
  * val_data - registry value data
  */
-LONG setValue(LPSTR val_name, LPSTR val_data)
+HRESULT setValue(LPSTR val_name, LPSTR val_data)
 {
-    LONG res;
-    DWORD  dwDataType, dwParseType;
+    HRESULT hRes;
+    DWORD   dwDataType, dwParseType = REG_BINARY;
     LPBYTE lpbData;
-    DWORD  dwData, dwLen;
+    BYTE   convert[KEY_MAX_LEN];
+    BYTE *bBigBuffer = 0;
+    DWORD  dwLen;
 
     if ( (val_name == NULL) || (val_data == NULL) )
         return ERROR_INVALID_PARAMETER;
 
-    if (strcmp(val_data, "-") == 0)
-    {
-        res=RegDeleteValueA(currentKeyHandle,val_name);
-        return (res == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : res);
-    }
-
     /* Get the data type stored into the value field */
     dwDataType = getDataType(&val_data, &dwParseType);
 
-    if (dwParseType == REG_SZ)        /* no conversion for string */
+    if ( dwParseType == REG_SZ)        /* no conversion for string */
     {
         dwLen = (DWORD) strlen(val_data);
         if (dwLen>0 && val_data[dwLen-1]=='"')
@@ -351,27 +400,25 @@ LONG setValue(LPSTR val_name, LPSTR val_data)
         dwLen++;
         REGPROC_unescape_string(val_data);
         lpbData = (LPBYTE)val_data;
-    }
-    else if (dwParseType == REG_DWORD)  /* Convert the dword types */
+    } else if (dwParseType == REG_DWORD)  /* Convert the dword types */
     {
-        if (!convertHexToDWord(val_data, &dwData))
-            return ERROR_INVALID_DATA;
-        lpbData = (BYTE*)&dwData;
-        dwLen = sizeof(dwData);    
-    }
-    else if (dwParseType == REG_BINARY) /* Convert the binary data */
+        dwLen   = convertHexToDWord(val_data, convert);
+        lpbData = convert;
+    } else                               /* Convert the hexadecimal types */
     {
-        lpbData = convertHexCSVToHex(val_data, &dwLen);
-        if (!lpbData)
-            return ERROR_INVALID_DATA;    
-    }
-    else                                /* unknown format */
-    {
-        fprintf(stderr,"%s: ERROR, unknown data format\n", getAppName());
-        return ERROR_INVALID_DATA;
+        size_t b_len = strlen (val_data)+2/3;
+        if (b_len > KEY_MAX_LEN) {
+            bBigBuffer = HeapAlloc (GetProcessHeap(), 0, b_len);
+            CHECK_ENOUGH_MEMORY(bBigBuffer);
+            dwLen = convertHexCSVToHex(val_data, bBigBuffer, (ULONG) b_len);
+            lpbData = bBigBuffer;
+        } else {
+            dwLen   = convertHexCSVToHex(val_data, convert, KEY_MAX_LEN);
+            lpbData = convert;
+        }
     }
 
-    res = RegSetValueExA(
+    hRes = RegSetValueExA(
                currentKeyHandle,
                val_name,
                0,                  /* Reserved */
@@ -379,34 +426,35 @@ LONG setValue(LPSTR val_name, LPSTR val_data)
                lpbData,
                dwLen);
 
-    if (dwParseType == REG_BINARY)
-        HeapFree(GetProcessHeap(), 0, lpbData);
-    return res;
+    if (bBigBuffer)
+        HeapFree (GetProcessHeap(), 0, bBigBuffer);
+    return hRes;
 }
 
 
 /******************************************************************************
  * Open the key
  */
-LONG openKey( LPSTR stdInput)
+HRESULT openKey( LPSTR stdInput)
 {
-    DWORD dwDisp;
-    LONG res;
+    DWORD   dwDisp;
+    HRESULT hRes;
 
     /* Sanity checks */
     if (stdInput == NULL)
         return ERROR_INVALID_PARAMETER;
 
     /* Get the registry class */
-    if (!getRegClass(stdInput, &currentKeyClass)) /* Sets global variable */
-        return ERROR_INVALID_PARAMETER;
+    currentKeyClass = getRegClass(stdInput); /* Sets global variable */
+    if (currentKeyClass == (HKEY)ERROR_INVALID_PARAMETER)
+        return (HRESULT)ERROR_INVALID_PARAMETER;
 
     /* Get the key name */
     currentKeyName = getRegKeyName(stdInput); /* Sets global variable */
     if (currentKeyName == NULL)
         return ERROR_INVALID_PARAMETER;
 
-    res = RegCreateKeyExA(
+    hRes = RegCreateKeyExA(
                currentKeyClass,          /* Class     */
                currentKeyName,           /* Sub Key   */
                0,                        /* MUST BE 0 */
@@ -418,10 +466,10 @@ LONG openKey( LPSTR stdInput)
                &dwDisp);                 /* disposition, REG_CREATED_NEW_KEY or
                                                         REG_OPENED_EXISTING_KEY */
 
-    if (res == ERROR_SUCCESS)
+    if (hRes == ERROR_SUCCESS)
         bTheKeyIsOpen = TRUE;
 
-    return res;
+    return hRes;
 
 }
 
@@ -441,14 +489,12 @@ LPSTR getRegKeyName(LPSTR lpLine)
 
     keyNameBeg = strchr(lpLineCopy, '\\');    /* The key name start by '\' */
     if (keyNameBeg) {
-        if (lpLine[0] == '[') /* need to find matching ']' */
-        {
-            LPSTR keyNameEnd;
+        LPSTR keyNameEnd;
 
-            keyNameEnd = strrchr(lpLineCopy, ']');
-            if (keyNameEnd) {
-                *keyNameEnd = '\0';               /* remove ']' from the key name */
-            }
+        keyNameBeg++;                             /* is not part of the name */
+        keyNameEnd = strchr(lpLineCopy, ']');
+        if (keyNameEnd) {
+            *keyNameEnd = '\0';               /* remove ']' from the key name */
         }
     } else {
         keyNameBeg = lpLineCopy + strlen(lpLineCopy); /* branch - empty string */
@@ -463,7 +509,7 @@ LPSTR getRegKeyName(LPSTR lpLine)
  * Extracts from [HKEY\some\key\path] or HKEY\some\key\path types of line
  * the key class (what ends before the first '\')
  */
-BOOL getRegClass(LPSTR lpClass, HKEY* hkey)
+HKEY getRegClass(LPSTR lpClass)
 {
     LPSTR classNameEnd;
     LPSTR classNameBeg;
@@ -472,7 +518,7 @@ BOOL getRegClass(LPSTR lpClass, HKEY* hkey)
     char  lpClassCopy[KEY_MAX_LEN];
 
     if (lpClass == NULL)
-        return FALSE;
+        return (HKEY)ERROR_INVALID_PARAMETER;
 
     lstrcpynA(lpClassCopy, lpClass, KEY_MAX_LEN);
 
@@ -494,11 +540,10 @@ BOOL getRegClass(LPSTR lpClass, HKEY* hkey)
 
     for (i = 0; i < REG_CLASS_NUMBER; i++) {
         if (!strcmp(classNameBeg, reg_class_names[i])) {
-            *hkey = reg_class_keys[i];
-            return TRUE;
+            return reg_class_keys[i];
         }
     }
-    return FALSE;
+    return (HKEY)ERROR_INVALID_PARAMETER;
 }
 
 /******************************************************************************
@@ -540,18 +585,6 @@ void doSetValue(LPSTR stdInput)
         if ( bTheKeyIsOpen != FALSE )
             closeKey();                    /* Close the previous key before */
 
-        /* delete the key if we encounter '-' at the start of reg key */
-        if ( stdInput[1] == '-')
-        {
-            int last_chr = strlen(stdInput) - 1;
-
-            /* skip leading "[-" and get rid of trailing "]" */
-            if (stdInput[last_chr] == ']')
-                stdInput[last_chr] = '\0';
-            delete_registry_key(stdInput+2);
-            return;
-        }
-
         if ( openKey(stdInput) != ERROR_SUCCESS )
             fprintf(stderr,"%s: setValue failed to open key %s\n",
                     getAppName(), stdInput);
@@ -560,6 +593,44 @@ void doSetValue(LPSTR stdInput)
                 ( stdInput[0] == '\"'))) /* reading a new value=data pair */
     {
         processSetValue(stdInput);
+    } else                               /* since we are assuming that the */
+    {                                  /* file format is valid we must   */
+        if ( bTheKeyIsOpen )             /* be reading a blank line which  */
+            closeKey();                    /* indicate end of this key processing */
+    }
+}
+
+/******************************************************************************
+ * This function is the main entry point to the queryValue type of action.  It
+ * receives the currently read line and dispatch the work depending on the
+ * context.
+ */
+void doQueryValue(LPSTR stdInput)
+{
+    /*
+     * We encountered the end of the file, make sure we
+     * close the opened key and exit
+     */
+    if (stdInput == NULL) {
+        if (bTheKeyIsOpen != FALSE)
+            closeKey();
+
+        return;
+    }
+
+    if      ( stdInput[0] == '[')      /* We are reading a new key */
+    {
+        if ( bTheKeyIsOpen != FALSE )
+            closeKey();                    /* Close the previous key before */
+
+        if ( openKey(stdInput) != ERROR_SUCCESS )
+            fprintf(stderr,"%s: queryValue failed to open key %s\n",
+                    getAppName(), stdInput);
+    } else if( ( bTheKeyIsOpen ) &&
+               (( stdInput[0] == '@') || /* reading a default @=data pair */
+                ( stdInput[0] == '\"'))) /* reading a new value=data pair */
+    {
+        processQueryValue(stdInput);
     } else                               /* since we are assuming that the */
     {                                  /* file format is valid we must   */
         if ( bTheKeyIsOpen )             /* be reading a blank line which  */
@@ -614,7 +685,7 @@ void processSetValue(LPSTR line)
     LPSTR val_data;                   /* registry value data   */
 
     int line_idx = 0;                 /* current character under analysis */
-    LONG res;
+    HRESULT hRes = 0;
 
     /* get value name */
     if (line[line_idx] == '@' && line[line_idx + 1] == '=') {
@@ -625,11 +696,6 @@ void processSetValue(LPSTR line)
         line_idx++;
         val_name = line + line_idx;
         while (TRUE) {
-            /* check if the line is unterminated (otherwise it may loop forever!) */
-            if (line[line_idx] == '\0') {
-                fprintf(stderr,"Warning! unrecognized line:\n%s\n", line);
-                return;
-            } else
             if (line[line_idx] == '\\')   /* skip escaped character */
             {
                 line_idx += 2;
@@ -657,13 +723,143 @@ void processSetValue(LPSTR line)
     val_data = line + line_idx;
 
     REGPROC_unescape_string(val_name);
-    res = setValue(val_name, val_data);
-    if ( res != ERROR_SUCCESS )
+    hRes = setValue(val_name, val_data);
+    if ( hRes != ERROR_SUCCESS )
         fprintf(stderr,"%s: ERROR Key %s not created. Value: %s, Data: %s\n",
                 getAppName(),
                 currentKeyName,
                 val_name,
                 val_data);
+}
+
+/******************************************************************************
+ * This function is a wrapper for the queryValue function.  It prepares the
+ * land and clean the area once completed.
+ */
+void processQueryValue(LPSTR cmdline)
+{
+    UNREFERENCED_PARAMETER(cmdline);
+    fprintf(stderr,"ERROR!!! - temporary disabled");
+    exit(1);
+#if 0
+    LPSTR   argv[QUERY_VALUE_MAX_ARGS];/* args storage    */
+    LPSTR   token      = NULL;         /* current token analyzed */
+    ULONG   argCounter = 0;            /* counter of args */
+    INT     counter;
+    HRESULT hRes       = 0;
+    LPSTR   keyValue   = NULL;
+    LPSTR   lpsRes     = NULL;
+
+    /*
+     * Init storage and parse the line
+     */
+    for (counter=0; counter<QUERY_VALUE_MAX_ARGS; counter++)
+        argv[counter]=NULL;
+
+    while( (token = getToken(&cmdline, queryValueDelim[argCounter])) != NULL ) {
+        argv[argCounter++] = getArg(token);
+
+        if (argCounter == QUERY_VALUE_MAX_ARGS)
+            break;  /* Stop processing args no matter what */
+    }
+
+    /* The value we look for is the first token on the line */
+    if ( argv[0] == NULL )
+        return; /* SHOULD NOT HAPPEN */
+    else
+        keyValue = argv[0];
+
+    if( (keyValue[0] == '@') && (strlen(keyValue) == 1) ) {
+        LONG  lLen  = KEY_MAX_LEN;
+        CHAR*  lpsData=HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,KEY_MAX_LEN);
+        /*
+         * We need to query the key default value
+         */
+        hRes = RegQueryValue(
+                   currentKeyHandle,
+                   currentKeyName,
+                   (LPBYTE)lpsData,
+                   &lLen);
+
+        if (hRes==ERROR_MORE_DATA) {
+            lpsData=HeapReAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,lpsData,lLen);
+            hRes = RegQueryValue(currentKeyHandle,currentKeyName,(LPBYTE)lpsData,&lLen);
+        }
+
+        if (hRes == ERROR_SUCCESS) {
+            lpsRes = HeapAlloc( GetProcessHeap(), 0, lLen);
+            lstrcpynA(lpsRes, lpsData, lLen);
+        }
+    } else {
+        DWORD  dwLen  = KEY_MAX_LEN;
+        BYTE*  lpbData=HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,KEY_MAX_LEN);
+        DWORD  dwType;
+        /*
+         * We need to query a specific value for the key
+         */
+        hRes = RegQueryValueEx(
+                   currentKeyHandle,
+                   keyValue,
+                   0,
+                   &dwType,
+                   (LPBYTE)lpbData,
+                   &dwLen);
+
+        if (hRes==ERROR_MORE_DATA) {
+            lpbData=HeapReAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,lpbData,dwLen);
+            hRes = RegQueryValueEx(currentKeyHandle,keyValue,NULL,&dwType,(LPBYTE)lpbData,&dwLen);
+        }
+
+        if (hRes == ERROR_SUCCESS) {
+            /*
+             * Convert the returned data to a displayable format
+             */
+            switch ( dwType ) {
+            case REG_SZ:
+            case REG_EXPAND_SZ: {
+                    lpsRes = HeapAlloc( GetProcessHeap(), 0, dwLen);
+                    lstrcpynA(lpsRes, lpbData, dwLen);
+                    break;
+                }
+            case REG_DWORD: {
+                    lpsRes = convertHexToDWORDStr(lpbData, dwLen);
+                    break;
+                }
+            default: {
+                    lpsRes = convertHexToHexCSV(lpbData, dwLen);
+                    break;
+                }
+            }
+        }
+
+        HeapFree(GetProcessHeap(), 0, lpbData);
+    }
+
+
+    if ( hRes == ERROR_SUCCESS )
+        fprintf(stderr,
+                "%s: Value \"%s\" = \"%s\" in key [%s]\n",
+                getAppName(),
+                keyValue,
+                lpsRes,
+                currentKeyName);
+
+    else
+        fprintf(stderr,"%s: ERROR Value \"%s\" not found for key \"%s\".\n",
+                getAppName(),
+                keyValue,
+                currentKeyName);
+
+    /*
+     * Do some cleanup
+     */
+    for (counter=0; counter<argCounter; counter++)
+        if (argv[counter] != NULL)
+            HeapFree(GetProcessHeap(), 0, argv[counter]);
+
+    if (lpsRes != NULL)
+        HeapFree(GetProcessHeap(), 0, lpsRes);
+#endif
 }
 
 /******************************************************************************
@@ -1132,7 +1328,8 @@ BOOL export_registry_key(const TCHAR *file_name, CHAR *reg_key_name)
         strcpy(reg_key_name_buf, reg_key_name);
 
         /* open the specified key */
-        if (!getRegClass(reg_key_name, &reg_key_class)) {
+        reg_key_class = getRegClass(reg_key_name);
+        if (reg_key_class == (HKEY)ERROR_INVALID_PARAMETER) {
             fprintf(stderr,"%s: Incorrect registry class specification in '%s'\n",
                     getAppName(), reg_key_name);
             exit(1);
@@ -1194,19 +1391,7 @@ BOOL import_registry_file(LPTSTR filename)
     FILE* reg_file = _tfopen(filename, _T("r"));
 
     if (reg_file) {
-        unsigned char ch1 = fgetc(reg_file);
-        unsigned char ch2 = fgetc(reg_file);
-
-        /* detect UTF-16.LE or UTF-16.BE format */
-        if ((ch1 == 0xff && ch2 == 0xfe) ||
-            (ch1 == 0xfe && ch2 == 0xff)) {
-            /* TODO: implement support for UNICODE files! */
-        } else {
-            /* restore read point to the first line */
-            fseek(reg_file, 0L, SEEK_SET);
-            processRegLines(reg_file, doSetValue);
-        }
-        fclose(reg_file);
+        processRegLines(reg_file, doSetValue);
         return TRUE;
     }
     return FALSE;
@@ -1276,7 +1461,8 @@ void delete_registry_key(CHAR *reg_key_name)
     if (!reg_key_name || !reg_key_name[0])
         return;
     /* open the specified key */
-    if (!getRegClass(reg_key_name, &reg_key_class)) {
+    reg_key_class = getRegClass(reg_key_name);
+    if (reg_key_class == (HKEY)ERROR_INVALID_PARAMETER) {
         fprintf(stderr,"%s: Incorrect registry class specification in '%s'\n",
                 getAppName(), reg_key_name);
         exit(1);
@@ -1403,9 +1589,6 @@ LONG RegRenameKey(HKEY hKey, LPCTSTR lpSubKey, LPCTSTR lpNewName)
     LPTSTR lpNewSubKey = NULL;
     LONG Ret = 0;
 
-	if (!lpSubKey)
-		return Ret;
-
     s = _tcsrchr(lpSubKey, _T('\\'));
     if (s)
     {
@@ -1420,7 +1603,7 @@ LONG RegRenameKey(HKEY hKey, LPCTSTR lpSubKey, LPCTSTR lpNewName)
         else
             return ERROR_NOT_ENOUGH_MEMORY;
     }
-
+    
     Ret = RegMoveKey(hKey, lpNewName, hKey, lpSubKey);
 
     if (lpNewSubKey)
@@ -1519,7 +1702,7 @@ static LONG RegNextKey(HKEY hKey, LPTSTR lpSubKey, size_t iSubKeyLength)
         lResult = RegEnumKeyEx(hSubKey, 0, lpSubKey + _tcslen(lpSubKey) + 1,
             &cbName, NULL, NULL, NULL, &ft);
         RegCloseKey(hSubKey);
-
+        
         if (lResult == ERROR_SUCCESS)
         {
             lpSubKey[_tcslen(lpSubKey)] = '\\';
@@ -1532,7 +1715,7 @@ static LONG RegNextKey(HKEY hKey, LPTSTR lpSubKey, size_t iSubKeyLength)
         /* Go up and find the next sibling key */
         do
         {
-            s = _tcsrchr(lpSubKey, TEXT('\\'));
+            s = _tcsrchr(lpSubKey, '\\');
             if (s)
             {
                 *s = '\0';
@@ -1606,7 +1789,7 @@ static BOOL RegSearchCompare(LPCTSTR s1, LPCTSTR s2, DWORD dwSearchFlags)
 }
 
 LONG RegSearch(HKEY hKey, LPTSTR lpSubKey, size_t iSubKeyLength,
-    LPCTSTR pszSearchString, DWORD dwValueIndex,
+    LPCTSTR pszSearchString, DWORD dwValueIndex,    
     DWORD dwSearchFlags, BOOL (*pfnCallback)(LPVOID), LPVOID lpParam)
 {
     LONG lResult;
@@ -1629,7 +1812,7 @@ LONG RegSearch(HKEY hKey, LPTSTR lpSubKey, size_t iSubKeyLength,
         if (lResult != ERROR_SUCCESS)
             return lResult;
 
-        s = _tcsrchr(lpSubKey, TEXT('\\'));
+        s = _tcsrchr(lpSubKey, '\\');
         s = s ? s + 1 : lpSubKey;
     }
     while(!(dwSearchFlags & RSF_LOOKATKEYS) || !RegSearchCompare(s, pszSearchString, dwSearchFlags));
@@ -1666,6 +1849,4 @@ BOOL RegKeyGetName(LPTSTR pszDest, size_t iDestLength, HKEY hRootKey, LPCTSTR lp
         _sntprintf(pszDest, iDestLength, TEXT("%s"), pszRootKey);
     return TRUE;
 }
-
-
 

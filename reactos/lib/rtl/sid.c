@@ -80,7 +80,7 @@ RtlSubAuthoritySid(IN PSID Sid_,
 
   PAGED_CODE_RTL();
 
-  return (PULONG)&Sid->SubAuthority[SubAuthority];
+  return &Sid->SubAuthority[SubAuthority];
 }
 
 
@@ -116,7 +116,7 @@ RtlEqualSid(IN PSID Sid1_,
    {
       return(FALSE);
    }
-
+   
    SidLen = RtlLengthSid(Sid1);
    return RtlCompareMemory(Sid1, Sid2, SidLen) == SidLen;
 }
@@ -394,7 +394,7 @@ RtlConvertSidToUnicodeString(PUNICODE_STRING String,
       if (Length < String->MaximumLength)
          String->Buffer[Length / sizeof(WCHAR)] = 0;
    }
-
+   
    return STATUS_SUCCESS;
 }
 

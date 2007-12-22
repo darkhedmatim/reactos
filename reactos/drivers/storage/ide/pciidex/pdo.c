@@ -6,10 +6,10 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include "pciidex.h"
-
 #define NDEBUG
 #include <debug.h>
+
+#include "pciidex.h"
 
 static NTSTATUS
 PciIdeXPdoQueryId(
@@ -111,7 +111,7 @@ PciIdeXPdoQueryId(
 			return STATUS_NOT_SUPPORTED;
 	}
 
-	Status = DuplicateUnicodeString(
+	Status = RtlDuplicateUnicodeString(
 		RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
 		&SourceString,
 		&String);
@@ -471,13 +471,6 @@ PciIdeXPdoPnpDispatch(
 		case IRP_MN_QUERY_DEVICE_TEXT: /* 0x0c */
 		{
 			Status = PciIdeXPdoQueryDeviceText(DeviceObject, Irp, &Information);
-			break;
-		}
-		case IRP_MN_FILTER_RESOURCE_REQUIREMENTS: /* 0x0d */
-		{
-			DPRINT("IRP_MJ_PNP / IRP_MN_FILTER_RESOURCE_REQUIREMENTS\n");
-			Information = Irp->IoStatus.Information;
-			Status = Irp->IoStatus.Status;
 			break;
 		}
 		case IRP_MN_QUERY_ID: /* 0x13 */

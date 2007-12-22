@@ -1192,13 +1192,8 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 
         hOldBrush = SelectObject (hImageDC, CreateSolidBrush (colour));
         PatBlt( hImageDC, 0, 0, cx, cy, PATCOPY );
-        if (himl->hbmMask)
-        {
-            BitBlt( hImageDC, 0, 0, cx, cy, hMaskListDC, pt.x, pt.y, SRCAND );
-            BitBlt( hImageDC, 0, 0, cx, cy, hImageListDC, pt.x, pt.y, SRCPAINT );
-        }
-        else
-            BitBlt( hImageDC, 0, 0, cx, cy, hImageListDC, pt.x, pt.y, SRCCOPY);
+        BitBlt( hImageDC, 0, 0, cx, cy, hMaskListDC, pt.x, pt.y, SRCAND );
+        BitBlt( hImageDC, 0, 0, cx, cy, hImageListDC, pt.x, pt.y, SRCPAINT );
         DeleteObject (SelectObject (hImageDC, hOldBrush));
     }
 
@@ -2291,6 +2286,8 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT nIndex, HICON hIcon)
         return -1;
     }
 
+    if (ii.hbmColor == 0)
+	ERR("no color!\n");
     ret = GetObjectW (ii.hbmMask, sizeof(BITMAP), (LPVOID)&bmp);
     if (!ret) {
         ERR("couldn't get mask bitmap info\n");
@@ -2315,32 +2312,18 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT nIndex, HICON hIcon)
     if (hdcImage == 0)
 	ERR("invalid hdcImage!\n");
 
-    imagelist_point_from_index(himl, nIndex, &pt);
-
     SetTextColor(himl->hdcImage, RGB(0,0,0));
     SetBkColor  (himl->hdcImage, RGB(255,255,255));
+    hbmOldSrc = SelectObject (hdcImage, ii.hbmColor);
 
-    if (ii.hbmColor)
-    {
-        hbmOldSrc = SelectObject (hdcImage, ii.hbmColor);
-        StretchBlt (himl->hdcImage, pt.x, pt.y, himl->cx, himl->cy,
-                    hdcImage, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
-        if (himl->hbmMask)
-        {
-            SelectObject (hdcImage, ii.hbmMask);
-            StretchBlt (himl->hdcMask, pt.x, pt.y, himl->cx, himl->cy,
-                        hdcImage, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
-        }
-    }
-    else
-    {
-        UINT height = bmp.bmHeight / 2;
-        hbmOldSrc = SelectObject (hdcImage, ii.hbmMask);
-        StretchBlt (himl->hdcImage, pt.x, pt.y, himl->cx, himl->cy,
-                    hdcImage, 0, height, bmp.bmWidth, height, SRCCOPY);
-        if (himl->hbmMask)
-            StretchBlt (himl->hdcMask, pt.x, pt.y, himl->cx, himl->cy,
-                        hdcImage, 0, 0, bmp.bmWidth, height, SRCCOPY);
+    imagelist_point_from_index(himl, nIndex, &pt);
+    StretchBlt (himl->hdcImage, pt.x, pt.y, himl->cx, himl->cy,
+                  hdcImage, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
+
+    if (himl->hbmMask) {
+        SelectObject (hdcImage, ii.hbmMask);
+        StretchBlt   (himl->hdcMask, pt.x, pt.y, himl->cx, himl->cy,
+                      hdcImage, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
     }
 
     SelectObject (hdcImage, hbmOldSrc);
@@ -2575,13 +2558,15 @@ BOOL WINAPI
 ImageList_SetImageCount (HIMAGELIST himl, UINT iImageCount)
 {
     HDC     hdcBitmap;
-    HBITMAP hbmNewBitmap, hbmOld;
+    HBITMAP hbmNewBitmap;
     INT     nNewCount, nCopyCount;
 
     TRACE("%p %d\n",himl,iImageCount);
 
     if (!is_valid(himl))
 	return FALSE;
+    if (iImageCount < 0)
+        return FALSE;
     if (himl->cMaxImage > iImageCount)
     {
         himl->cCurImage = iImageCount;
@@ -2598,9 +2583,8 @@ ImageList_SetImageCount (HIMAGELIST himl, UINT iImageCount)
 
     if (hbmNewBitmap != 0)
     {
-        hbmOld = SelectObject (hdcBitmap, hbmNewBitmap);
+        SelectObject (hdcBitmap, hbmNewBitmap);
         imagelist_copy_images( himl, himl->hdcImage, hdcBitmap, 0, nCopyCount, 0 );
-        SelectObject (hdcBitmap, hbmOld);
 
 	/* FIXME: delete 'empty' image space? */
 
@@ -2618,9 +2602,8 @@ ImageList_SetImageCount (HIMAGELIST himl, UINT iImageCount)
         hbmNewBitmap = CreateBitmap (sz.cx, sz.cy, 1, 1, NULL);
         if (hbmNewBitmap != 0)
         {
-            hbmOld = SelectObject (hdcBitmap, hbmNewBitmap);
+            SelectObject (hdcBitmap, hbmNewBitmap);
             imagelist_copy_images( himl, himl->hdcMask, hdcBitmap, 0, nCopyCount, 0 );
-            SelectObject (hdcBitmap, hbmOld);
 
 	    /* FIXME: delete 'empty' image space? */
 

@@ -10,9 +10,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <ntoskrnl.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -48,7 +48,7 @@ IoReportDetectedDevice(
     UNICODE_STRING ServiceName;
     ServiceName.Buffer = DriverObject->DriverName.Buffer + sizeof(DRIVER_ROOT_NAME) / sizeof(WCHAR) - 1;
     ServiceName.Length = ServiceName.MaximumLength = DriverObject->DriverName.Length - sizeof(DRIVER_ROOT_NAME) + sizeof(WCHAR);
-
+    
     /* create a new PDO and return it in *DeviceObject */
     Status = IopCreateDeviceNode(IopRootDeviceNode, NULL, &ServiceName, &DeviceNode);
     if (!NT_SUCCESS(Status))
@@ -62,6 +62,10 @@ IoReportDetectedDevice(
   }
 
   /* we don't need to call AddDevice and send IRP_MN_START_DEVICE */
+
+  /* FIXME: save this device into the root-enumerated list, so this
+   * device would be detected as a PnP device during next startups.
+   */
 
   return Status;
 }

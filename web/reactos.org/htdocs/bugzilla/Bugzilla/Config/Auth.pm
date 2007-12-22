@@ -1,4 +1,4 @@
-﻿# -*- Mode: perl; indent-tabs-mode: nil -*-
+# -*- Mode: perl; indent-tabs-mode: nil -*-
 #
 # The contents of this file are subject to the Mozilla Public
 # License Version 1.1 (the "License"); you may not use this file
@@ -77,7 +77,7 @@ sub get_param_list {
   {
    name => 'user_verify_class',
    type => 's',
-   choices => [ 'DB', 'LDAP', 'DB,LDAP', 'LDAP,DB', 'ROSCMS' ],
+   choices => [ 'DB', 'LDAP', 'DB,LDAP', 'LDAP,DB', 'ROSCMS', 'ROSCMS,DB' ],
    default => 'DB',
    checker => \&check_user_verify_class
   },
@@ -93,7 +93,7 @@ sub get_param_list {
   {
    name => 'loginnetmask',
    type => 't',
-   default => '0',
+   default => '32',
    checker => \&check_netmask
   },
 

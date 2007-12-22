@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.1
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,16 +67,16 @@ struct LineInfo
    GLfloat iPlane[4];
    /* DO_SPEC */
    GLfloat srPlane[4], sgPlane[4], sbPlane[4];
-   /* DO_ATTRIBS */
-   GLfloat sPlane[FRAG_ATTRIB_MAX][4];
-   GLfloat tPlane[FRAG_ATTRIB_MAX][4];
-   GLfloat uPlane[FRAG_ATTRIB_MAX][4];
-   GLfloat vPlane[FRAG_ATTRIB_MAX][4];
-   GLfloat lambda[FRAG_ATTRIB_MAX];
-   GLfloat texWidth[FRAG_ATTRIB_MAX];
-   GLfloat texHeight[FRAG_ATTRIB_MAX];
+   /* DO_TEX or DO_MULTITEX */
+   GLfloat sPlane[MAX_TEXTURE_COORD_UNITS][4];
+   GLfloat tPlane[MAX_TEXTURE_COORD_UNITS][4];
+   GLfloat uPlane[MAX_TEXTURE_COORD_UNITS][4];
+   GLfloat vPlane[MAX_TEXTURE_COORD_UNITS][4];
+   GLfloat lambda[MAX_TEXTURE_COORD_UNITS];
+   GLfloat texWidth[MAX_TEXTURE_COORD_UNITS];
+   GLfloat texHeight[MAX_TEXTURE_COORD_UNITS];
 
-   SWspan span;
+   struct sw_span span;
 };
 
 
@@ -210,7 +210,7 @@ compute_lambda(const GLfloat sPlane[4], const GLfloat tPlane[4],
    if (rho2 == 0.0F)
       return 0.0;
    else
-      return (GLfloat) (LOGF(rho2) * 1.442695 * 0.5);/* 1.442695 = 1/log(2) */
+      return (GLfloat) (log(rho2) * 1.442695 * 0.5);/* 1.442695 = 1/log(2) */
 }
 
 
@@ -499,7 +499,15 @@ segment(GLcontext *ctx,
 #define DO_Z
 #define DO_FOG
 #define DO_RGBA
-#define DO_ATTRIBS
+#define DO_TEX
+#include "s_aalinetemp.h"
+
+
+#define NAME(x)  aa_multitex_rgba_##x
+#define DO_Z
+#define DO_FOG
+#define DO_RGBA
+#define DO_MULTITEX
 #include "s_aalinetemp.h"
 
 
@@ -507,7 +515,7 @@ segment(GLcontext *ctx,
 #define DO_Z
 #define DO_FOG
 #define DO_RGBA
-#define DO_ATTRIBS
+#define DO_MULTITEX
 #define DO_SPEC
 #include "s_aalinetemp.h"
 
@@ -522,15 +530,18 @@ _swrast_choose_aa_line_function(GLcontext *ctx)
 
    if (ctx->Visual.rgbMode) {
       /* RGBA */
-      if (ctx->Texture._EnabledCoordUnits != 0
-          || ctx->FragmentProgram._Current) {
-
-         if (ctx->Light.Model.ColorControl==GL_SEPARATE_SPECULAR_COLOR || 
-             ctx->Fog.ColorSumEnabled)
-            swrast->Line = aa_multitex_spec_line;
-         else
+      if (ctx->Texture._EnabledCoordUnits != 0) {
+         if (ctx->Texture._EnabledCoordUnits > 1) {
+            /* Multitextured! */
+            if (ctx->Light.Model.ColorControl==GL_SEPARATE_SPECULAR_COLOR || 
+                ctx->Fog.ColorSumEnabled)
+               swrast->Line = aa_multitex_spec_line;
+            else
+               swrast->Line = aa_multitex_rgba_line;
+         }
+         else {
             swrast->Line = aa_tex_rgba_line;
-
+         }
       }
       else {
          swrast->Line = aa_rgba_line;

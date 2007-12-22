@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<!DOCTYPE project SYSTEM "tools/rbuild/project.dtd">
+<group>
 <directory name="cacls">
 	<xi:include href="cacls/cacls.rbuild" />
 </directory>
@@ -25,17 +25,11 @@
 <directory name="hostname">
 	<xi:include href="hostname/hostname.rbuild" />
 </directory>
-<directory name="logoff">
-	<xi:include href="logoff/logoff.rbuild" />
-</directory>
 <directory name="msconfig">
 	<xi:include href="msconfig/msconfig.rbuild" />
 </directory>
 <directory name="mscutils">
 	<xi:include href="mscutils/directory.rbuild" />
-</directory>
-<directory name="mstsc">
-	<xi:include href="mstsc/mstsc.rbuild" />
 </directory>
 <directory name="network">
 	<xi:include href="network/network.rbuild" />

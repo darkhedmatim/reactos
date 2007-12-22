@@ -9,9 +9,7 @@
 
 #include "pci.h"
 
-#ifndef NDEBUG
 #define NDEBUG
-#endif
 #include <debug.h>
 
 /*** PRIVATE *****************************************************************/
@@ -74,7 +72,7 @@ PdoQueryId(
 
   switch (IrpSp->Parameters.QueryId.IdType) {
     case BusQueryDeviceID:
-      Status = PciDuplicateUnicodeString(
+      Status = RtlDuplicateUnicodeString(
         RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
         &DeviceExtension->DeviceID,
         &String);
@@ -85,7 +83,7 @@ PdoQueryId(
       break;
 
     case BusQueryHardwareIDs:
-      Status = PciDuplicateUnicodeString(
+      Status = RtlDuplicateUnicodeString(
         RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
         &DeviceExtension->HardwareIDs,
         &String);
@@ -94,7 +92,7 @@ PdoQueryId(
       break;
 
     case BusQueryCompatibleIDs:
-      Status = PciDuplicateUnicodeString(
+      Status = RtlDuplicateUnicodeString(
         RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
         &DeviceExtension->CompatibleIDs,
         &String);
@@ -103,7 +101,7 @@ PdoQueryId(
       break;
 
     case BusQueryInstanceID:
-      Status = PciDuplicateUnicodeString(
+      Status = RtlDuplicateUnicodeString(
         RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
         &DeviceExtension->InstanceID,
         &String);
@@ -136,7 +134,7 @@ PdoQueryBusInformation(
 
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
   FdoDeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceExtension->Fdo->DeviceExtension;
-  BusInformation = ExAllocatePoolWithTag(PagedPool, sizeof(PNP_BUS_INFORMATION), TAG_PCI);
+  BusInformation = ExAllocatePool(PagedPool, sizeof(PNP_BUS_INFORMATION));
   Irp->IoStatus.Information = (ULONG_PTR)BusInformation;
   if (BusInformation != NULL)
   {
@@ -159,7 +157,6 @@ PdoQueryCapabilities(
 {
   PPDO_DEVICE_EXTENSION DeviceExtension;
   PDEVICE_CAPABILITIES DeviceCapabilities;
-  ULONG DeviceNumber, FunctionNumber;
 
   DPRINT("Called\n");
 
@@ -169,11 +166,8 @@ PdoQueryCapabilities(
   if (DeviceCapabilities->Version != 1)
     return STATUS_UNSUCCESSFUL;
 
-  DeviceNumber = DeviceExtension->PciDevice->SlotNumber.u.bits.DeviceNumber;
-  FunctionNumber = DeviceExtension->PciDevice->SlotNumber.u.bits.FunctionNumber;
-
   DeviceCapabilities->UniqueID = FALSE;
-  DeviceCapabilities->Address = ((DeviceNumber << 16) & 0xFFFF0000) + (FunctionNumber & 0xFFFF);
+  DeviceCapabilities->Address = DeviceExtension->PciDevice->SlotNumber.u.AsULONG;
   DeviceCapabilities->UINumber = (ULONG)-1; /* FIXME */
 
   return STATUS_SUCCESS;
@@ -399,8 +393,8 @@ PdoQueryResourceRequirements(
   DPRINT("ListSize %lu (0x%lx)\n", ListSize, ListSize);
 
   /* Allocate the resource requirements list */
-  ResourceList = ExAllocatePoolWithTag(PagedPool,
-                                ListSize, TAG_PCI);
+  ResourceList = ExAllocatePool(PagedPool,
+                                ListSize);
   if (ResourceList == NULL)
   {
     Irp->IoStatus.Information = 0;
@@ -704,8 +698,8 @@ PdoQueryResources(
     + ResCount * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
 
   /* Allocate the resource list */
-  ResourceList = ExAllocatePoolWithTag(PagedPool,
-                                ListSize, TAG_PCI);
+  ResourceList = ExAllocatePool(PagedPool,
+                                ListSize);
   if (ResourceList == NULL)
     return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -1369,12 +1363,6 @@ PdoPnpControl(
   case IRP_MN_WRITE_CONFIG:
     DPRINT("IRP_MN_WRITE_CONFIG received\n");
     Status = PdoWriteConfig(DeviceObject, Irp, IrpSp);
-    break;
-
-  case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-    DPRINT("IRP_MN_FILTER_RESOURCE_REQUIREMENTS received\n");
-    /* Nothing to do */
-    Irp->IoStatus.Status = Status;
     break;
 
   default:

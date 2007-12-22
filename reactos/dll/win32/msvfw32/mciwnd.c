@@ -28,6 +28,7 @@
 #include "winnls.h"
 #include "wingdi.h"
 #include "winuser.h"
+#include "winreg.h"
 #include "winternl.h"
 #include "vfw.h"
 #include "digitalv.h"
@@ -447,7 +448,7 @@ static LRESULT WINAPI MCIWndProc(HWND hWnd, UINT wMsg, WPARAM wParam, LPARAM lPa
 {
     MCIWndInfo *mwi;
 
-    TRACE("%p %04x %08lx %08lx\n", hWnd, wMsg, wParam, lParam);
+    TRACE("%p %04x %08x %08lx\n", hWnd, wMsg, wParam, lParam);
 
     mwi = (MCIWndInfo*)GetWindowLongW(hWnd, 0);
     if (!mwi && wMsg != WM_CREATE)
@@ -1056,7 +1057,7 @@ end_of_mci_open:
         return mwi->inactive_timer;
 
     case MCIWNDM_CHANGESTYLES:
-        TRACE("MCIWNDM_CHANGESTYLES mask %08lx, set %08lx\n", wParam, lParam);
+        TRACE("MCIWNDM_CHANGESTYLES mask %08x, set %08lx\n", wParam, lParam);
         /* FIXME: update the visual window state as well:
          * add/remove trackbar, autosize, etc.
          */
@@ -1120,7 +1121,7 @@ end_of_mci_open:
         {
             MCI_STATUS_PARMS mci_status;
 
-            TRACE("MCIWNDM_GETTIMEFORMAT %08lx %08lx\n", wParam, lParam);
+            TRACE("MCIWNDM_GETTIMEFORMAT %08x %08lx\n", wParam, lParam);
 
             /* get format string if requested */
             if (wParam && lParam)
@@ -1185,8 +1186,6 @@ end_of_mci_open:
                 if (!mwi->lasterror)
                     SendDlgItemMessageW(hWnd, CTL_TRACKBAR, TBM_SETRANGEMAX, 1,
                                         SendMessageW(hWnd, MCIWNDM_GETLENGTH, 0, 0));
-
-                HeapFree(GetProcessHeap(), 0, cmdW);
             }
 
             if (wMsg == MCIWNDM_SETTIMEFORMATA)

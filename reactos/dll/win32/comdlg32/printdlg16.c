@@ -40,6 +40,7 @@
 #include "wine/debug.h"
 #include "cderr.h"
 #include "winspool.h"
+#include "winerror.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 
@@ -55,8 +56,8 @@ typedef struct
 
 /* Internal Functions */
 
-static BOOL PRINTDLG_CreateDevNames16(HGLOBAL16 *hmem, const char* DeviceDriverName,
-				      const char* DeviceName, const char* OutputPort)
+static BOOL PRINTDLG_CreateDevNames16(HGLOBAL16 *hmem, char* DeviceDriverName,
+				      char* DeviceName, char* OutputPort)
 {
     long size;
     char*   pDevNamesSpace;
@@ -148,13 +149,13 @@ static LRESULT PRINTDLG_WMInitDialog16(HWND hDlg, WPARAM wParam, PRINT_PTRA16* p
 
 	    pdm = GlobalLock16(lppd->hDevMode);
 	    if(pdm) {
-		switch (pdm->u1.s1.dmPrintQuality) {
+		switch (pdm->dmPrintQuality) {
 		case DMRES_HIGH		: strcpy(buf,"High");break;
 		case DMRES_MEDIUM	: strcpy(buf,"Medium");break;
 		case DMRES_LOW		: strcpy(buf,"Low");break;
 		case DMRES_DRAFT	: strcpy(buf,"Draft");break;
 		case 0			: strcpy(buf,"Default");break;
-		default			: sprintf(buf,"%ddpi",pdm->u1.s1.dmPrintQuality);break;
+		default			: sprintf(buf,"%ddpi",pdm->dmPrintQuality);break;
 		}
 	        GlobalUnlock16(lppd->hDevMode);
 	    } else
@@ -248,7 +249,7 @@ static HGLOBAL16 PRINTDLG_Get16TemplateFrom32(LPCSTR PrintResourceName)
         if (!hGlobal16)
         {
             COMDLG32_SetCommDlgExtendedError(CDERR_MEMALLOCFAILURE);
-            ERR("alloc failure for %d bytes\n", size);
+            ERR("alloc failure for %ld bytes\n", size);
             return 0;
         }
         template = GlobalLock16(hGlobal16);
@@ -259,7 +260,7 @@ static HGLOBAL16 PRINTDLG_Get16TemplateFrom32(LPCSTR PrintResourceName)
             GlobalFree16(hGlobal16);
             return 0;
         }
-        ConvertDialog32To16(template32, size, template);
+        ConvertDialog32To16((LPVOID)template32, size, (LPVOID)template);
         GlobalUnlock16(hGlobal16);
         return hGlobal16;
 }
@@ -290,7 +291,7 @@ static BOOL PRINTDLG_CreateDC16(LPPRINTDLG16 lppd)
  *      PRINTDLG_GetDlgTemplate
  *
  */
-static HGLOBAL16 PRINTDLG_GetDlgTemplate16(const PRINTDLG16 *lppd)
+static HGLOBAL16 PRINTDLG_GetDlgTemplate16(PRINTDLG16 *lppd)
 {
     HGLOBAL16 hDlgTmpl, hResInfo;
 
@@ -327,7 +328,7 @@ static HGLOBAL16 PRINTDLG_GetDlgTemplate16(const PRINTDLG16 *lppd)
 /***********************************************************************
  *           PrintDlg   (COMMDLG.20)
  *
- *  Displays the PRINT dialog box, which enables the user to specify
+ *  Displays the the PRINT dialog box, which enables the user to specify
  *  specific properties of the print job.
  *
  * RETURNS
@@ -348,21 +349,21 @@ BOOL16 WINAPI PrintDlg16(
 
     if(TRACE_ON(commdlg)) {
         char flagstr[1000] = "";
-	const struct pd_flags *pflag = pd_flags;
+	struct pd_flags *pflag = pd_flags;
 	for( ; pflag->name; pflag++) {
 	    if(lppd->Flags & pflag->flag)
 	        strcat(flagstr, pflag->name);
 	}
 	TRACE("(%p): hwndOwner = %08x, hDevMode = %08x, hDevNames = %08x\n"
-              "pp. %d-%d, min p %d, max p %d, copies %d, hinst %08x\n"
-              "flags %08x (%s)\n",
+	      "pp. %d-%d, min p %d, max p %d, copies %d, hinst %08x\n"
+	      "flags %08lx (%s)\n",
 	      lppd, lppd->hwndOwner, lppd->hDevMode, lppd->hDevNames,
 	      lppd->nFromPage, lppd->nToPage, lppd->nMinPage, lppd->nMaxPage,
 	      lppd->nCopies, lppd->hInstance, lppd->Flags, flagstr);
     }
 
     if(lppd->lStructSize != sizeof(PRINTDLG16)) {
-        ERR("structure size %d\n",lppd->lStructSize);
+        ERR("structure size %ld\n",lppd->lStructSize);
 	COMDLG32_SetCommDlgExtendedError(CDERR_STRUCTSIZE);
 	return FALSE;
     }
@@ -390,10 +391,9 @@ BOOL16 WINAPI PrintDlg16(
 	GetPrinterDriverA(hprn, NULL, 3, NULL, 0, &needed);
 	dbuf = HeapAlloc(GetProcessHeap(),0,needed);
 	if (!GetPrinterDriverA(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed)) {
-	    ERR("GetPrinterDriverA failed for %s, le %d, fix your config!\n",
-	        pbuf->pPrinterName,GetLastError());
-	    HeapFree(GetProcessHeap(), 0, dbuf);
-	    HeapFree(GetProcessHeap(), 0, pbuf);
+	    ERR("GetPrinterDriverA failed for %s, le %ld, fix your config!\n",
+		    pbuf->pPrinterName,GetLastError());
+            HeapFree(GetProcessHeap(), 0, dbuf);
 	    COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
 	    return FALSE;
 	}
@@ -507,7 +507,7 @@ BOOL16 WINAPI PrintDlg16(
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpPrinterInfo);
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpDriverInfo);
-	HeapFree(GetProcessHeap(), 0, ptr16);
+	HeapFree(GetProcessHeap(), 0, PrintStructures);
     }
     if(bRet && (lppd->Flags & PD_RETURNDC || lppd->Flags & PD_RETURNIC))
         bRet = PRINTDLG_CreateDC16(lppd);

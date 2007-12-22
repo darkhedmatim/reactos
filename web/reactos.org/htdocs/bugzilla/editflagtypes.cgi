@@ -19,7 +19,6 @@
 # Rights Reserved.
 #
 # Contributor(s): Myk Melez <myk@mozilla.org>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 ################################################################################
 # Script Initialization
@@ -29,6 +28,9 @@
 use strict;
 use lib ".";
 
+# Include the Bugzilla CGI and general utility library.
+require "globals.pl";
+
 # Use Bugzilla's flag modules for handling flag types.
 use Bugzilla;
 use Bugzilla::Constants;
@@ -36,16 +38,9 @@ use Bugzilla::Flag;
 use Bugzilla::FlagType;
 use Bugzilla::Group;
 use Bugzilla::Util;
-use Bugzilla::Error;
-use Bugzilla::Product;
-use Bugzilla::Component;
-use Bugzilla::Bug;
-use Bugzilla::Attachment;
-use Bugzilla::Token;
 
-local our $cgi = Bugzilla->cgi;
-local our $template = Bugzilla->template;
-local our $vars = {};
+my $template = Bugzilla->template;
+my $vars = {};
 
 # Make sure the user is logged in and is an administrator.
 my $user = Bugzilla->login(LOGIN_REQUIRED);
@@ -53,6 +48,13 @@ $user->in_group('editcomponents')
   || ThrowUserError("auth_failure", {group  => "editcomponents",
                                      action => "edit",
                                      object => "flagtypes"});
+
+# Suppress "used only once" warnings.
+use vars qw(@legal_product @legal_components %components);
+
+my $cgi = Bugzilla->cgi;
+my $product_id;
+my $component_id;
 
 ################################################################################
 # Main Body Execution
@@ -64,24 +66,23 @@ $user->in_group('editcomponents')
 
 # Determine whether to use the action specified by the user or the default.
 my $action = $cgi->param('action') || 'list';
-my $token  = $cgi->param('token');
 my @categoryActions;
 
 if (@categoryActions = grep(/^categoryAction-.+/, $cgi->param())) {
     $categoryActions[0] =~ s/^categoryAction-//;
-    processCategoryChange($categoryActions[0], $token);
+    processCategoryChange($categoryActions[0]);
     exit;
 }
 
 if    ($action eq 'list')           { list();           }
-elsif ($action eq 'enter')          { edit($action);    }
-elsif ($action eq 'copy')           { edit($action);    }
-elsif ($action eq 'edit')           { edit($action);    }
-elsif ($action eq 'insert')         { insert($token);   }
-elsif ($action eq 'update')         { update($token);   }
+elsif ($action eq 'enter')          { edit();           }
+elsif ($action eq 'copy')           { edit();           }
+elsif ($action eq 'edit')           { edit();           }
+elsif ($action eq 'insert')         { insert();         }
+elsif ($action eq 'update')         { update();         }
 elsif ($action eq 'confirmdelete')  { confirmDelete();  } 
-elsif ($action eq 'delete')         { deleteType(undef, $token); }
-elsif ($action eq 'deactivate')     { deactivate($token); }
+elsif ($action eq 'delete')         { deleteType();     }
+elsif ($action eq 'deactivate')     { deactivate();     }
 else { 
     ThrowCodeError("action_unrecognized", { action => $action });
 }
@@ -93,55 +94,13 @@ exit;
 ################################################################################
 
 sub list {
-    # Restrict the list to the given product and component, if given.
-    $vars = get_products_and_components($vars);
-
-    my $product = validateProduct(scalar $cgi->param('product'));
-    my $component = validateComponent($product, scalar $cgi->param('component'));
-    my $product_id = $product ? $product->id : 0;
-    my $component_id = $component ? $component->id : 0;
-
     # Define the variables and functions that will be passed to the UI template.
-    $vars->{'selected_product'} = $cgi->param('product');
-    $vars->{'selected_component'} = $cgi->param('component');
-
-    my $bug_flagtypes;
-    my $attach_flagtypes;
-
-    # If a component is given, restrict the list to flag types available
-    # for this component.
-    if ($component) {
-        $bug_flagtypes = $component->flag_types->{'bug'};
-        $attach_flagtypes = $component->flag_types->{'attachment'};
-
-        # Filter flag types if a group ID is given.
-        $bug_flagtypes = filter_group($bug_flagtypes);
-        $attach_flagtypes = filter_group($attach_flagtypes);
-
-    }
-    # If only a product is specified but no component, then restrict the list
-    # to flag types available in at least one component of that product.
-    elsif ($product) {
-        $bug_flagtypes = $product->flag_types->{'bug'};
-        $attach_flagtypes = $product->flag_types->{'attachment'};
-
-        # Filter flag types if a group ID is given.
-        $bug_flagtypes = filter_group($bug_flagtypes);
-        $attach_flagtypes = filter_group($attach_flagtypes);
-    }
-    # If no product is given, then show all flag types available.
-    else {
-        $bug_flagtypes =
-            Bugzilla::FlagType::match({'target_type' => 'bug',
-                                       'group' => scalar $cgi->param('group')});
-
-        $attach_flagtypes =
-            Bugzilla::FlagType::match({'target_type' => 'attachment',
-                                         'group' => scalar $cgi->param('group')});
-    }
-
-    $vars->{'bug_types'} = $bug_flagtypes;
-    $vars->{'attachment_types'} = $attach_flagtypes;
+    $vars->{'bug_types'} = 
+      Bugzilla::FlagType::match({ 'target_type' => 'bug', 
+                                  'group' => scalar $cgi->param('group') }, 1);
+    $vars->{'attachment_types'} = 
+      Bugzilla::FlagType::match({ 'target_type' => 'attachment', 
+                                  'group' => scalar $cgi->param('group') }, 1);
 
     # Return the appropriate HTTP response headers.
     print $cgi->header();
@@ -153,32 +112,40 @@ sub list {
 
 
 sub edit {
-    my ($action) = @_;
+    $action eq 'enter' ? validateTargetType() : (my $id = validateID());
+    my $dbh = Bugzilla->dbh;
+    
+    # Get this installation's products and components.
+    GetVersionTable();
 
-    my $flag_type;
-    if ($action eq 'enter') {
-        validateTargetType();
-    }
-    else {
-        $flag_type = validateID();
-    }
-
-    # Fill $vars with products and components data.
-    $vars = get_products_and_components($vars);
-
+    # products and components and the function used to modify the components
+    # menu when the products menu changes; used by the template to populate
+    # the menus and keep the components menu consistent with the products menu
+    $vars->{'products'} = \@::legal_product;
+    $vars->{'components'} = \@::legal_components;
+    $vars->{'components_by_product'} = \%::components;
+    
     $vars->{'last_action'} = $cgi->param('action');
     if ($cgi->param('action') eq 'enter' || $cgi->param('action') eq 'copy') {
         $vars->{'action'} = "insert";
-        $vars->{'token'} = issue_session_token('add_flagtype');
     }
     else { 
         $vars->{'action'} = "update";
-        $vars->{'token'} = issue_session_token('edit_flagtype');
     }
-
+    
     # If copying or editing an existing flag type, retrieve it.
     if ($cgi->param('action') eq 'copy' || $cgi->param('action') eq 'edit') { 
-        $vars->{'type'} = $flag_type;
+        $vars->{'type'} = Bugzilla::FlagType::get($id);
+        $vars->{'type'}->{'inclusions'} = Bugzilla::FlagType::get_inclusions($id);
+        $vars->{'type'}->{'exclusions'} = Bugzilla::FlagType::get_exclusions($id);
+        # Users want to see group names, not IDs
+        foreach my $group ("grant_gid", "request_gid") {
+            my $gid = $vars->{'type'}->{$group};
+            next if (!$gid);
+            ($vars->{'type'}->{$group}) =
+                $dbh->selectrow_array('SELECT name FROM groups WHERE id = ?',
+                                       undef, $gid);
+        }
     }
     # Otherwise set the target type (the minimal information about the type
     # that the template needs to know) from the URL parameter and default
@@ -190,7 +157,7 @@ sub edit {
                             'inclusions'  => \%inclusions };
     }
     # Get a list of groups available to restrict this flag type against.
-    my @groups = Bugzilla::Group->get_all;
+    my @groups = Bugzilla::Group::get_all_groups();
     $vars->{'groups'} = \@groups;
     # Return the appropriate HTTP response headers.
     print $cgi->header();
@@ -201,7 +168,7 @@ sub edit {
 }
 
 sub processCategoryChange {
-    my ($categoryAction, $token) = @_;
+    my $categoryAction = shift;
     validateIsActive();
     validateIsRequestable();
     validateIsRequesteeble();
@@ -210,17 +177,15 @@ sub processCategoryChange {
     my @inclusions = $cgi->param('inclusions');
     my @exclusions = $cgi->param('exclusions');
     if ($categoryAction eq 'include') {
-        my $product = validateProduct(scalar $cgi->param('product'));
-        my $component = validateComponent($product, scalar $cgi->param('component'));
-        my $category = ($product ? $product->id : 0) . ":" .
-                       ($component ? $component->id : 0);
+        validateProduct();
+        validateComponent();
+        my $category = ($product_id || 0) . ":" . ($component_id || 0);
         push(@inclusions, $category) unless grep($_ eq $category, @inclusions);
     }
     elsif ($categoryAction eq 'exclude') {
-        my $product = validateProduct(scalar $cgi->param('product'));
-        my $component = validateComponent($product, scalar $cgi->param('component'));
-        my $category = ($product ? $product->id : 0) . ":" .
-                       ($component ? $component->id : 0);
+        validateProduct();
+        validateComponent();
+        my $category = ($product_id || 0) . ":" . ($component_id || 0);
         push(@exclusions, $category) unless grep($_ eq $category, @exclusions);
     }
     elsif ($categoryAction eq 'removeInclusion') {
@@ -237,27 +202,23 @@ sub processCategoryChange {
     my %inclusions = clusion_array_to_hash(\@inclusions);
     my %exclusions = clusion_array_to_hash(\@exclusions);
 
-    # Fill $vars with products and components data.
-    $vars = get_products_and_components($vars);
+    # Get this installation's products and components.
+    GetVersionTable();
 
-    my @groups = Bugzilla::Group->get_all;
+    # products and components; used by the template to populate the menus 
+    # and keep the components menu consistent with the products menu
+    $vars->{'products'} = \@::legal_product;
+    $vars->{'components'} = \@::legal_components;
+    $vars->{'components_by_product'} = \%::components;
+    my @groups = Bugzilla::Group::get_all_groups();
     $vars->{'groups'} = \@groups;
     $vars->{'action'} = $cgi->param('action');
-
     my $type = {};
     foreach my $key ($cgi->param()) { $type->{$key} = $cgi->param($key) }
-    # That's what I call a big hack. The template expects to see a group object.
-    # This script needs some rewrite anyway.
-    $type->{'grant_group'} = {};
-    $type->{'grant_group'}->{'name'} = $cgi->param('grant_group');
-    $type->{'request_group'} = {};
-    $type->{'request_group'}->{'name'} = $cgi->param('request_group');
-
     $type->{'inclusions'} = \%inclusions;
     $type->{'exclusions'} = \%exclusions;
     $vars->{'type'} = $type;
-    $vars->{'token'} = $token;
-
+    
     # Return the appropriate HTTP response headers.
     print $cgi->header();
 
@@ -271,29 +232,17 @@ sub processCategoryChange {
 sub clusion_array_to_hash {
     my $array = shift;
     my %hash;
-    my %products;
-    my %components;
     foreach my $ids (@$array) {
         trick_taint($ids);
         my ($product_id, $component_id) = split(":", $ids);
-        my $product_name = "__Any__";
-        if ($product_id) {
-            $products{$product_id} ||= new Bugzilla::Product($product_id);
-            $product_name = $products{$product_id}->name if $products{$product_id};
-        }
-        my $component_name = "__Any__";
-        if ($component_id) {
-            $components{$component_id} ||= new Bugzilla::Component($component_id);
-            $component_name = $components{$component_id}->name if $components{$component_id};
-        }
+        my $product_name = get_product_name($product_id) || "__Any__";
+        my $component_name = get_component_name($component_id) || "__Any__";
         $hash{"$product_name:$component_name"} = $ids;
     }
     return %hash;
 }
 
 sub insert {
-    my $token = shift;
-    check_token_data($token, 'add_flagtype');
     my $name = validateName();
     my $description = validateDescription();
     my $cc_list = validateCCList();
@@ -313,21 +262,21 @@ sub insert {
                          'components READ', 'flaginclusions WRITE',
                          'flagexclusions WRITE');
 
+    # Determine the new flag type's unique identifier.
+    my $id = $dbh->selectrow_array('SELECT MAX(id) FROM flagtypes') + 1;
+
     # Insert a record for the new flag type into the database.
     $dbh->do('INSERT INTO flagtypes
-                          (name, description, cc_list, target_type,
+                          (id, name, description, cc_list, target_type,
                            sortkey, is_active, is_requestable, 
                            is_requesteeble, is_multiplicable, 
                            grant_group_id, request_group_id) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              undef, ($name, $description, $cc_list, $target_type,
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              undef, ($id, $name, $description, $cc_list, $target_type,
                       $cgi->param('sortkey'), $cgi->param('is_active'),
                       $cgi->param('is_requestable'), $cgi->param('is_requesteeble'),
                       $cgi->param('is_multiplicable'), scalar($cgi->param('grant_gid')),
                       scalar($cgi->param('request_gid'))));
-
-    # Get the ID of the new flag type.
-    my $id = $dbh->bz_last_key('flagtypes', 'id');
 
     # Populate the list of inclusions/exclusions for this flag type.
     validateAndSubmit($id);
@@ -336,7 +285,6 @@ sub insert {
 
     $vars->{'name'} = $cgi->param('name');
     $vars->{'message'} = "flag_type_created";
-    delete_token($token);
 
     # Return the appropriate HTTP response headers.
     print $cgi->header();
@@ -348,10 +296,7 @@ sub insert {
 
 
 sub update {
-    my $token = shift;
-    check_token_data($token, 'edit_flagtype');
-    my $flag_type = validateID();
-    my $id = $flag_type->id;
+    my $id = validateID();
     my $name = validateName();
     my $description = validateDescription();
     my $cc_list = validateCCList();
@@ -364,7 +309,6 @@ sub update {
     validateGroups();
 
     my $dbh = Bugzilla->dbh;
-    my $user = Bugzilla->user;
     $dbh->bz_lock_tables('flagtypes WRITE', 'products READ',
                          'components READ', 'flaginclusions WRITE',
                          'flagexclusions WRITE');
@@ -384,10 +328,10 @@ sub update {
     validateAndSubmit($id);
 
     $dbh->bz_unlock_tables();
-
+    
     # Clear existing flags for bugs/attachments in categories no longer on 
     # the list of inclusions or that have been added to the list of exclusions.
-    my $flag_ids = $dbh->selectcol_arrayref('SELECT DISTINCT flags.id
+    my $flag_ids = $dbh->selectcol_arrayref('SELECT flags.id
                                                FROM flags
                                          INNER JOIN bugs
                                                  ON flags.bug_id = bugs.bug_id
@@ -398,42 +342,32 @@ sub update {
                                                      AND (bugs.component_id = i.component_id
                                                           OR i.component_id IS NULL))
                                               WHERE flags.type_id = ?
+                                                AND flags.is_active = 1
                                                 AND i.type_id IS NULL',
                                              undef, $id);
-    my $flags = Bugzilla::Flag->new_from_list($flag_ids);
-    foreach my $flag (@$flags) {
-        my $bug = new Bugzilla::Bug($flag->bug_id);
-        Bugzilla::Flag::clear($flag, $bug, $flag->attachment);
+    foreach my $flag_id (@$flag_ids) {
+        Bugzilla::Flag::clear($flag_id);
     }
-
-    $flag_ids = $dbh->selectcol_arrayref('SELECT DISTINCT flags.id
+    
+    $flag_ids = $dbh->selectcol_arrayref('SELECT flags.id 
                                             FROM flags
                                       INNER JOIN bugs 
                                               ON flags.bug_id = bugs.bug_id
                                       INNER JOIN flagexclusions AS e
                                               ON flags.type_id = e.type_id
                                            WHERE flags.type_id = ?
+                                             AND flags.is_active = 1
                                              AND (bugs.product_id = e.product_id
                                                   OR e.product_id IS NULL)
                                              AND (bugs.component_id = e.component_id
                                                   OR e.component_id IS NULL)',
                                           undef, $id);
-    $flags = Bugzilla::Flag->new_from_list($flag_ids);
-    foreach my $flag (@$flags) {
-        my $bug = new Bugzilla::Bug($flag->bug_id);
-        Bugzilla::Flag::clear($flag, $bug, $flag->attachment);
+    foreach my $flag_id (@$flag_ids) {
+        Bugzilla::Flag::clear($flag_id);
     }
-
-    # Now silently remove requestees from flags which are no longer
-    # specifically requestable.
-    if (!$cgi->param('is_requesteeble')) {
-        $dbh->do('UPDATE flags SET requestee_id = NULL WHERE type_id = ?',
-                 undef, $id);
-    }
-
+    
     $vars->{'name'} = $cgi->param('name');
     $vars->{'message'} = "flag_type_changes_saved";
-    delete_token($token);
 
     # Return the appropriate HTTP response headers.
     print $cgi->header();
@@ -444,12 +378,19 @@ sub update {
 }
 
 
-sub confirmDelete {
-  my $flag_type = validateID();
+sub confirmDelete 
+{
+  my $id = validateID();
 
-  if ($flag_type->flag_count) {
-    $vars->{'flag_type'} = $flag_type;
-    $vars->{'token'} = issue_session_token('delete_flagtype');
+  # check if we need confirmation to delete:
+  
+  my $count = Bugzilla::Flag::count({ 'type_id' => $id,
+                                      'is_active' => 1 });
+  
+  if ($count > 0) {
+    $vars->{'flag_type'} = Bugzilla::FlagType::get($id);
+    $vars->{'flag_count'} = scalar($count);
+
     # Return the appropriate HTTP response headers.
     print $cgi->header();
 
@@ -458,27 +399,22 @@ sub confirmDelete {
       || ThrowTemplateError($template->error());
   } 
   else {
-    # We should *always* ask if the admin really wants to delete
-    # a flagtype, even if there is no flag belonging to this type.
-    my $token = issue_session_token('delete_flagtype');
-    deleteType($flag_type, $token);
+    deleteType();
   }
 }
 
 
 sub deleteType {
-    my $flag_type = shift || validateID();
-    my $token = shift;
-    check_token_data($token, 'delete_flagtype');
-    my $id = $flag_type->id;
+    my $id = validateID();
     my $dbh = Bugzilla->dbh;
 
     $dbh->bz_lock_tables('flagtypes WRITE', 'flags WRITE',
                          'flaginclusions WRITE', 'flagexclusions WRITE');
-
+    
     # Get the name of the flag type so we can tell users
     # what was deleted.
-    $vars->{'name'} = $flag_type->name;
+    ($vars->{'name'}) = $dbh->selectrow_array('SELECT name FROM flagtypes
+                                               WHERE id = ?', undef, $id);
 
     $dbh->do('DELETE FROM flags WHERE type_id = ?', undef, $id);
     $dbh->do('DELETE FROM flaginclusions WHERE type_id = ?', undef, $id);
@@ -487,7 +423,6 @@ sub deleteType {
     $dbh->bz_unlock_tables();
 
     $vars->{'message'} = "flag_type_deleted";
-    delete_token($token);
 
     # Return the appropriate HTTP response headers.
     print $cgi->header();
@@ -499,21 +434,18 @@ sub deleteType {
 
 
 sub deactivate {
-    my $token = shift;
-    check_token_data($token, 'delete_flagtype');
-    my $flag_type = validateID();
+    my $id = validateID();
     validateIsActive();
 
     my $dbh = Bugzilla->dbh;
 
     $dbh->bz_lock_tables('flagtypes WRITE');
-    $dbh->do('UPDATE flagtypes SET is_active = 0 WHERE id = ?', undef, $flag_type->id);
+    $dbh->do('UPDATE flagtypes SET is_active = 0 WHERE id = ?', undef, $id);
     $dbh->bz_unlock_tables();
-
+    
     $vars->{'message'} = "flag_type_deactivated";
-    $vars->{'flag_type'} = $flag_type;
-    delete_token($token);
-
+    $vars->{'flag_type'} = Bugzilla::FlagType::get($id);
+    
     # Return the appropriate HTTP response headers.
     print $cgi->header();
 
@@ -522,32 +454,26 @@ sub deactivate {
       || ThrowTemplateError($template->error());
 }
 
-sub get_products_and_components {
-    my $vars = shift;
-
-    my @products = Bugzilla::Product->get_all;
-    # We require all unique component names.
-    my %components;
-    foreach my $product (@products) {
-        foreach my $component (@{$product->components}) {
-            $components{$component->name} = 1;
-        }
-    }
-    $vars->{'products'} = \@products;
-    $vars->{'components'} = [sort(keys %components)];
-    return $vars;
-}
 
 ################################################################################
 # Data Validation / Security Authorization
 ################################################################################
 
 sub validateID {
-    my $id = $cgi->param('id');
-    my $flag_type = new Bugzilla::FlagType($id)
-        || ThrowCodeError('flag_type_nonexistent', { id => $id });
+    my $dbh = Bugzilla->dbh;
+    # $flagtype_id is destroyed if detaint_natural fails.
+    my $flagtype_id = $cgi->param('id');
+    detaint_natural($flagtype_id)
+      || ThrowCodeError("flag_type_id_invalid",
+                        { id => scalar $cgi->param('id') });
 
-    return $flag_type;
+    my $flagtype_exists =
+        $dbh->selectrow_array('SELECT 1 FROM flagtypes WHERE id = ?',
+                               undef, $flagtype_id);
+    $flagtype_exists
+      || ThrowCodeError("flag_type_nonexistent", { id => $flagtype_id });
+
+    return $flagtype_id;
 }
 
 sub validateName {
@@ -591,22 +517,27 @@ sub validateCCList {
 }
 
 sub validateProduct {
-    my $product_name = shift;
-    return unless $product_name;
-
-    my $product = Bugzilla::Product::check_product($product_name);
-    return $product;
+    return if !$cgi->param('product');
+    
+    $product_id = get_product_id($cgi->param('product'));
+    
+    defined($product_id)
+      || ThrowCodeError("flag_type_product_nonexistent", 
+                        { product => $cgi->param('product') });
 }
 
 sub validateComponent {
-    my ($product, $component_name) = @_;
-    return unless $component_name;
+    return if !$cgi->param('component');
+    
+    $product_id
+      || ThrowCodeError("flag_type_component_without_product");
+    
+    $component_id = get_component_id($product_id, $cgi->param('component'));
 
-    ($product && $product->id)
-      || ThrowUserError("flag_type_component_without_product");
-
-    my $component = Bugzilla::Component::check_component($product, $component_name);
-    return $component;
+    defined($component_id)
+      || ThrowCodeError("flag_type_component_nonexistent", 
+                        { product   => $cgi->param('product'),
+                          name => $cgi->param('component') });
 }
 
 sub validateSortKey {
@@ -644,15 +575,18 @@ sub validateAllowMultiple {
 sub validateGroups {
     my $dbh = Bugzilla->dbh;
     # Convert group names to group IDs
-    foreach my $col ('grant', 'request') {
-        my $name = $cgi->param($col . '_group');
-        if ($name) {
-            trick_taint($name);
-            my $gid = $dbh->selectrow_array('SELECT id FROM groups
-                                             WHERE name = ?', undef, $name);
-            $gid || ThrowUserError("group_unknown", { name => $name });
-            $cgi->param($col . '_gid', $gid);
-        }
+    foreach my $col ("grant_gid", "request_gid") {
+      my $name = $cgi->param($col);
+      if ($name) {
+          trick_taint($name);
+          my $gid = $dbh->selectrow_array('SELECT id FROM groups
+                                           WHERE name = ?', undef, $name);
+          $gid || ThrowUserError("group_unknown", { name => $name });
+          $cgi->param($col, $gid);
+      }
+      else {
+          $cgi->delete($col);
+      }
     }
 }
 
@@ -664,8 +598,6 @@ sub validateAndSubmit {
     my ($id) = @_;
     my $dbh = Bugzilla->dbh;
 
-    # Cache product objects.
-    my %products;
     foreach my $category_type ("inclusions", "exclusions") {
         # Will be used several times below.
         my $sth = $dbh->prepare("INSERT INTO flag$category_type " .
@@ -676,32 +608,18 @@ sub validateAndSubmit {
         foreach my $category ($cgi->param($category_type)) {
             trick_taint($category);
             my ($product_id, $component_id) = split(":", $category);
-            # Does the product exist?
-            if ($product_id) {
-                $products{$product_id} ||= new Bugzilla::Product($product_id);
-                next unless defined $products{$product_id};
-            }
+            # The product does not exist.
+            next if ($product_id && !get_product_name($product_id));
             # A component was selected without a product being selected.
             next if (!$product_id && $component_id);
-            # Does the component belong to this product?
-            if ($component_id) {
-                my @match = grep {$_->id == $component_id} @{$products{$product_id}->components};
-                next unless scalar(@match);
-            }
+            # The component does not belong to this product.
+            next if ($component_id
+                     && !$dbh->selectrow_array("SELECT id FROM components
+                                                WHERE id = ? AND product_id = ?",
+                                                undef, ($component_id, $product_id)));
             $product_id ||= undef;
             $component_id ||= undef;
             $sth->execute($id, $product_id, $component_id);
         }
     }
-}
-
-sub filter_group {
-    my $flag_types = shift;
-    return $flag_types unless Bugzilla->cgi->param('group');
-
-    my $gid = scalar $cgi->param('group');
-    my @flag_types = grep {($_->grant_group && $_->grant_group->id == $gid)
-                           || ($_->request_group && $_->request_group->id == $gid)} @$flag_types;
-
-    return \@flag_types;
 }

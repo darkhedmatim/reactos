@@ -7,17 +7,18 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 3.0.2  Release"
+TITLE="The Bugzilla Guide - 2.22 
+    Release"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Using Bugzilla"
 HREF="using.html"><LINK
 REL="PREVIOUS"
-TITLE="Attachments"
-HREF="attachments.html"><LINK
+TITLE="Patch Viewer"
+HREF="patchviewer.html"><LINK
 REL="NEXT"
-TITLE="Time Tracking Information"
-HREF="timetracking.html"></HEAD
+TITLE="User Preferences"
+HREF="userpreferences.html"></HEAD
 ><BODY
 CLASS="section"
 BGCOLOR="#FFFFFF"
@@ -37,7 +38,8 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 3.0.2  Release</TH
+>The Bugzilla Guide - 2.22 
+    Release</TH
 ></TR
 ><TR
 ><TD
@@ -45,7 +47,7 @@ WIDTH="10%"
 ALIGN="left"
 VALIGN="bottom"
 ><A
-HREF="attachments.html"
+HREF="patchviewer.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -53,13 +55,13 @@ ACCESSKEY="P"
 WIDTH="80%"
 ALIGN="center"
 VALIGN="bottom"
->Chapter 5. Using Bugzilla</TD
+>Chapter 6. Using Bugzilla</TD
 ><TD
 WIDTH="10%"
 ALIGN="right"
 VALIGN="bottom"
 ><A
-HREF="timetracking.html"
+HREF="userpreferences.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -74,7 +76,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="hintsandtips"
->5.8. Hints and Tips</A
+>6.9. Hints and Tips</A
 ></H1
 ><P
 >This section distills some Bugzilla tips and best practices
@@ -84,8 +86,8 @@ CLASS="section"
 ><H2
 CLASS="section"
 ><A
-NAME="AEN2363"
->5.8.1. Autolinkification</A
+NAME="AEN2429"
+>6.9.1. Autolinkification</A
 ></H2
 ><P
 >Bugzilla comments are plain text - so typing &#60;U&#62; will
@@ -153,8 +155,42 @@ CLASS="section"
 ><H2
 CLASS="section"
 ><A
+NAME="quicksearch"
+>6.9.2. Quicksearch</A
+></H2
+><P
+>Quicksearch is a single-text-box query tool which uses
+      metacharacters to indicate what is to be searched. For example, typing
+      "<TT
+CLASS="filename"
+>foo|bar</TT
+>" 
+      into Quicksearch would search for "foo" or "bar" in the 
+      summary and status whiteboard of a bug; adding 
+      "<TT
+CLASS="filename"
+>:BazProduct</TT
+>" would
+      search only in that product.
+      You can use it to find a bug by its number or its alias, too.
+      </P
+><P
+>You'll find the Quicksearch box in Bugzilla's footer area.
+      On Bugzilla's front page, there is an additional
+      <A
+HREF="../../page.cgi?id=quicksearch.html"
+TARGET="_top"
+>Help</A
+>
+      link which details how to use it.</P
+></DIV
+><DIV
+CLASS="section"
+><H2
+CLASS="section"
+><A
 NAME="commenting"
->5.8.2. Comments</A
+>6.9.3. Comments</A
 ></H2
 ><P
 >If you are changing the fields on a bug, only comment if
@@ -177,8 +213,53 @@ CLASS="section"
 ><H2
 CLASS="section"
 ><A
+NAME="attachments"
+>6.9.4. Attachments</A
+></H2
+><P
+>&#13;      Use attachments, rather than comments, for large chunks of ASCII data,
+      such as trace, debugging output files, or log files. That way, it doesn't
+      bloat the bug for everyone who wants to read it, and cause people to
+      receive fat, useless mails.
+      </P
+><P
+>Trim screenshots. There's no need to show the whole screen if
+      you are pointing out a single-pixel problem.
+      </P
+><P
+>Don't attach simple test cases (e.g. one HTML file, one 
+      CSS file and an image) as a ZIP file. Instead, upload them in 
+      reverse order and edit the referring file so that they point to the
+      attached files. This way, the test case works immediately 
+      out of the bug.
+      </P
+><P
+>Bugzilla stores and uses a Content-Type for each attachment 
+      (e.g. text/html). To download an attachment as a different 
+      Content-Type (e.g. application/xhtml+xml), you can override this 
+      using a 'content-type' parameter on the URL, e.g.
+      <TT
+CLASS="filename"
+>&#38;content-type=text/plain</TT
+>.
+      </P
+><P
+>&#13;        If you have a really large attachment, something that does not need to
+        be recorded forever (as most attachments are), you can mark your
+        attachment as a Big File, Assuming the administrator of the
+        installation has enabled this feature.  Big Files are stored directly on
+        disk instead of in the database, and can be deleted when it is no longer
+        needed.  The maximum size of a Big File is normally larger than the
+        maximum size of a regular attachment.
+      </P
+></DIV
+><DIV
+CLASS="section"
+><H2
+CLASS="section"
+><A
 NAME="dependencytree"
->5.8.3. Dependency Tree</A
+>6.9.5. Dependency Tree</A
 ></H2
 ><P
 >&#13;        On the <SPAN
@@ -213,7 +294,7 @@ WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
 ><A
-HREF="attachments.html"
+HREF="patchviewer.html"
 ACCESSKEY="P"
 >Prev</A
 ></TD
@@ -231,7 +312,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="timetracking.html"
+HREF="userpreferences.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -241,7 +322,7 @@ ACCESSKEY="N"
 WIDTH="33%"
 ALIGN="left"
 VALIGN="top"
->Attachments</TD
+>Patch Viewer</TD
 ><TD
 WIDTH="34%"
 ALIGN="center"
@@ -255,7 +336,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Time Tracking Information</TD
+>User Preferences</TD
 ></TR
 ></TABLE
 ></DIV

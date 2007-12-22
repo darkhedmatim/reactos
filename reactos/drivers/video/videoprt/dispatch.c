@@ -81,7 +81,14 @@ IntVideoPortAddDevice(
       DriverExtension,
       PhysicalDeviceObject,
       &DeviceObject);
+   if (!NT_SUCCESS(Status))
+      return Status;
 
+   if (PhysicalDeviceObject == NULL)
+   {
+      /* We will never have a IRP_MJ_PNP/IRP_MN_START_DEVICE Irp */
+      Status = IntVideoPortFindAdapter(DriverObject, DriverExtension, DeviceObject);
+   }
    return Status;
 }
 
@@ -476,8 +483,7 @@ IntVideoPortDispatchPnp(
          break;
 
       default:
-         Status = Irp->IoStatus.Status;
-         IoCompleteRequest(Irp, IO_NO_INCREMENT);
+         return STATUS_NOT_IMPLEMENTED;
          break;
    }
 
@@ -503,14 +509,6 @@ IntVideoPortDispatchCleanup(
 
 NTSTATUS NTAPI
 IntVideoPortDispatchPower(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp)
-{
-   return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS NTAPI
-IntVideoPortDispatchSystemControl(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp)
 {

@@ -550,7 +550,7 @@ HRESULT WINAPI AVIStreamInfoW(PAVISTREAM pstream, LPAVISTREAMINFOW asi,
  *		AVIStreamFindSample	(AVIFIL32.@)
  *		AVIStreamFindSample	(AVIFILE.163)
  */
-LONG WINAPI AVIStreamFindSample(PAVISTREAM pstream, LONG pos, LONG flags)
+HRESULT WINAPI AVIStreamFindSample(PAVISTREAM pstream, LONG pos, DWORD flags)
 {
   TRACE("(%p,%d,0x%X)\n", pstream, pos, flags);
 
@@ -1913,7 +1913,7 @@ HRESULT WINAPI AVISaveVW(LPCWSTR szFile, CLSID *pclsidHandler,
 	  hres = AVIStreamReadFormat(pInStreams[curStream], sInfo.dwStart,
 				     lpBuffer, &lBufferSize);
 	  if (FAILED(hres))
-	    goto error;
+	    return hres;
 	  AVIStreamSetFormat(pOutStreams[curStream], sInfo.dwStart,
 			     lpBuffer, lBufferSize);
 

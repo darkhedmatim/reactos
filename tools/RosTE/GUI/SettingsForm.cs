@@ -7,35 +7,29 @@ using System.Text;
 using System.Windows.Forms;
 using System.Management;
 using System.Runtime.InteropServices;
-using System.IO;
 
 
 namespace RosTEGUI
 {
     public partial class SettingsForm : Form
     {
-        private VirtualMachine VirtMach;
         private Panel[] hardwarePanels;
         private Panel[] optionsPanels;
         private int hardwarePrevSel = 0;
         private int optionsPrevSel = 0;
 
-        public SettingsForm(object sender)
+        public SettingsForm()
         {
             InitializeComponent();
-
-            VirtMach = (VirtualMachine)sender;
-            Text = VirtMach.Name + " " + Text;
         }
 
-        private bool LoadMemoryPage()
+        private void LoadDynamicControlInfo()
         {
-            bool ret = false;
-
+            // set the memory dialog info
             ulong totMem = Native.Memory.GetTotalMemory();
             if (totMem != 0)
             {
-                totMem /= (ulong)Math.Pow(1024, 2); // MB
+                totMem /= 1048576; //(1024^2)
                 memoryPhyRam.Text = Convert.ToString(totMem) + " MB";
 
                 memoryTrkBar.Maximum = Convert.ToInt32(totMem) * 2;
@@ -48,89 +42,12 @@ namespace RosTEGUI
                 memoryRecMin.Text = Convert.ToString(totMem / 8) + " MB";
                 memoryRec.Text = Convert.ToString(totMem / 4) + " MB";
                 memoryRecMax.Text = Convert.ToString(totMem / 1.4) + " MB";
-
-                memoryTrkBar.Value = VirtMach.MemSize;
-                memoryUpDwn.Value = VirtMach.MemSize;
-
-                ret = true;
-            }
-
-            return ret;
-        }
-
-        private void LoadCdRomPage()
-        {
-            DriveInfo[] drives = DriveInfo.GetDrives();
-
-            foreach(DriveInfo drive in drives)
-            {
-                if (drive.DriveType == DriveType.CDRom)
-                    cdromPhyDrvCombo.Items.Add(drive);
-            }
-
-            cdromEnableChkBox.Checked = VirtMach.CdRomEnable;
-
-            int id = cdromPhyDrvCombo.FindString(VirtMach.CdRomPhysDrv);
-            if (id == -1) id = 0;
-            cdromPhyDrvCombo.SelectedIndex = id;
-
-            if (VirtMach.CdRomUsePhys)
-            {
-                cdromPhyDrvRadio.Checked = true;
-            }
-            else
-            {
-                cdromIsoRadio.Checked = true;
-                cdromIsoTxtBox.Text = VirtMach.CdRomIsoImg;
             }
         }
 
-        private void LoadHardDiskPage()
+        private void GetHardwareInfo()
         {
-            ArrayList hardDrives = VirtMach.GetHardDisks();
-            foreach (VMHardDrive vmhd in hardDrives)
-            {
-                harddiskLstBox.Items.Add(vmhd);
-            }
 
-            if (harddiskLstBox.Items.Count > 0)
-                harddiskLstBox.SelectedIndex = 0;
-        }
-
-        private void LoadFloppyPage()
-        {
-            DriveInfo[] drives = DriveInfo.GetDrives();
-
-            foreach (DriveInfo drive in drives)
-            {
-                if (drive.DriveType == DriveType.Removable)
-                    floppyPhyDrvCombo.Items.Add(drive);
-            }
-
-            floppyEnableChkBox.Checked = VirtMach.FloppyEnable;
-
-            int id = floppyPhyDrvCombo.FindString(VirtMach.FloppyPhysDrv);
-            if (id == -1) id = 0;
-            floppyPhyDrvCombo.SelectedIndex = id;
-
-            if (VirtMach.CdRomUsePhys)
-            {
-                floppyPhyDrvRadio.Checked = true;
-            }
-            else
-            {
-                floppyImgRadio.Checked = true;
-                floppyImgTxtBox.Text = VirtMach.FloppyIsoImg;
-            }
-        }
-
-        private void LoadFormData()
-        {
-            if (!LoadMemoryPage())
-                MessageBox.Show("An error occured whilst loading memory page data");
-            LoadCdRomPage();
-            LoadHardDiskPage();
-            LoadFloppyPage();
         }
 
         private void SettingsForm_Load(object sender, EventArgs e)
@@ -174,9 +91,7 @@ namespace RosTEGUI
             hardwareSelLstBox.SelectedItem = hardwareSelLstBox.Items[0];
             optionsSelLstBox.SelectedItem = optionsSelLstBox.Items[0];
 
-            //we load all form data when the form opens, not as each individual
-            //page is loaded. This is because we save all form data on close
-            LoadFormData();
+            LoadDynamicControlInfo();
         }
 
         private void listboxSelection_SelectedIndexChanged(object sender, EventArgs e)
@@ -233,29 +148,9 @@ namespace RosTEGUI
             ListBox listbox = (ListBox)sender;
         }
 
-        private void memoryTrkBar_ValueChanged(object sender, EventArgs e)
+        private void memoryTrkBar_Scroll(object sender, EventArgs e)
         {
-            TrackBar tb = (TrackBar)sender;
-            memoryUpDwn.Value = tb.Value;
-            
-            char[] chars = { ' ', 'M', 'B' };
-            string max = memoryRecMax.Text.TrimEnd(chars);
-            string min = memoryRecMin.Text.TrimEnd(chars);
-            if (tb.Value > Convert.ToInt32(max))
-            {
-                memoryRecMin.ForeColor = SystemColors.WindowText;
-                memoryRecMax.ForeColor = Color.Red;
-            }
-            else if (tb.Value < Convert.ToInt32(min))
-            {
-                memoryRecMin.ForeColor = Color.Red;
-                memoryRecMax.ForeColor = SystemColors.WindowText;
-            }
-            else
-            {
-                memoryRecMin.ForeColor = SystemColors.WindowText;
-                memoryRecMax.ForeColor = SystemColors.WindowText;
-            }
+            memoryUpDwn.Value = memoryTrkBar.Value;
         }
 
         private void memoryUpDwn_ValueChanged(object sender, EventArgs e)
@@ -275,112 +170,6 @@ namespace RosTEGUI
             bool bEnabled = floppyEnableChkBox.Checked;
 
             floppyConnGrpBox.Enabled = bEnabled;
-        }
-
-        private void generalEditbutton_Click(object sender, EventArgs e)
-        {
-            generalVMName.ReadOnly = false;
-            generalWorkDir.ReadOnly = false;
-            generalWorkDirBrows.Enabled = true;
-            generalEditbutton.Enabled = false;
-        }
-
-        private void generalOnVisible(object sender, EventArgs e)
-        {
-            Panel panel = (Panel)sender;
-
-            if (panel.Visible)
-            {
-                generalVMName.Text = VirtMach.Name;
-                generalWorkDir.Text = VirtMach.DefDir;
-
-                if (VirtMach.MachType == "pc")
-                    generalMachine.SelectedIndex = 0;
-                else
-                    generalMachine.SelectedIndex = 1;
-
-                generalSetClockHost.Checked = VirtMach.SetClockToHost;
-            }
-        }
-
-        private void harddiskLstBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            ListBox lb = (ListBox)sender;
-            if (lb.SelectedItem != null)
-            {
-                VMHardDrive vmhd = (VMHardDrive)lb.SelectedItem;
-
-                harddiskDriveName.Text = vmhd.Drive;
-                harddiskFileNameTxtBox.Text = vmhd.Path;
-                harddiskSizeLbl.Text = vmhd.Size.ToString();
-                harddiskBootImageChk.Checked = vmhd.BootImg;
-            }
-        }
-
-        private void harddiskAddBtn_Click(object sender, EventArgs e)
-        {
-            if (harddiskLstBox.Items.Count < 3)
-            {
-                ArrayList curDrives = new ArrayList(3);
-                ArrayList hardDisks = VirtMach.GetHardDisks();
-                
-                foreach (VMHardDrive vmhd in hardDisks)
-                {
-                    curDrives.Add(vmhd.Drive);
-                }
-
-                NewHardDiskForm hdf = new NewHardDiskForm(curDrives);
-                hdf.StartPosition = FormStartPosition.CenterParent;
-                if (hdf.ShowDialog() == DialogResult.OK)
-                {
-                    VMHardDrive vmhd = VirtMach.AddHardDisk(hdf.DiskName,
-                                                            hdf.QEmuDrive,
-                                                            hdf.Path,
-                                                            hdf.DiskSize,
-                                                            hdf.BootImage);
-
-                    if (vmhd != null)
-                        harddiskLstBox.Items.Add(vmhd);
-                }
-            }
-            else
-            {
-                MessageBox.Show("A maximum of 3 disk images is permittted");
-            }
-        }
-
-        private void harddiskRemoveBtn_Click(object sender, EventArgs e)
-        {
-            int oldSel = harddiskLstBox.SelectedIndex;
-            VMHardDrive vmhd = (VMHardDrive)harddiskLstBox.SelectedItem;
-
-            DialogResult ret;
-            ret = MessageBox.Show("Do you want to delete the image file too?",
-                                  "Deleting harddisk",
-                                  MessageBoxButtons.YesNoCancel,
-                                  MessageBoxIcon.Warning);
-            if (ret == DialogResult.Cancel)
-            {
-                return;
-            }
-            else if (ret == DialogResult.Yes)
-            {
-                ;//FIXME: delete the image
-            }
-
-            VirtMach.DeleteHardDisk(vmhd);
-            harddiskLstBox.Items.Remove(vmhd);
-            harddiskLstBox.SelectedIndex = oldSel - 1;
-        }
-
-        private void ethAddBtn_Click(object sender, EventArgs e)
-        {
-            NewNetCardForm ncf = new NewNetCardForm();
-            ncf.StartPosition = FormStartPosition.CenterParent;
-            if (ncf.ShowDialog() == DialogResult.OK)
-            {
-
-            }
         }
     }
 }

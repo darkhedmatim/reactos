@@ -22,110 +22,20 @@
 #include <freeldr.h>
 #include <debug.h>
 
-extern ULONG PageDirectoryStart;
-extern ULONG PageDirectoryEnd;
-
 ROS_LOADER_PARAMETER_BLOCK LoaderBlock;
 char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 LOADER_MODULE			reactos_modules[64];		// Array to hold boot module info loaded for the kernel
 char					reactos_module_strings[64][256];	// Array to hold module names
-// Make this a single struct to guarantee that these elements are nearby in
-// memory.  
-reactos_mem_data_t reactos_mem_data;
+unsigned long			reactos_memory_map_descriptor_size;
+memory_map_t			reactos_memory_map[32];		// Memory map
 ARC_DISK_SIGNATURE      reactos_arc_disk_info[32]; // ARC Disk Information
 char                    reactos_arc_strings[32][256];
 unsigned long           reactos_disk_count = 0;
-char reactos_arc_hardware_data[HW_MAX_ARC_HEAP_SIZE] = {0};
-
 CHAR szHalName[255];
 CHAR szBootPath[255];
-CHAR SystemRoot[255];
 static CHAR szLoadingMsg[] = "Loading ReactOS...";
 BOOLEAN FrLdrBootType;
-extern ULONG_PTR KernelBase;
-extern ROS_KERNEL_ENTRY_POINT KernelEntryPoint;
-
-BOOLEAN
-FrLdrLoadDriver(PCHAR szFileName,
-                INT nPos)
-{
-    PFILE FilePointer;
-    CHAR value[256], *FinalSlash;
-    LPSTR p;
-
-    if (!_stricmp(szFileName, "hal.dll"))
-    {
-        /* Use the boot.ini name instead */
-        szFileName = szHalName;
-    }
-
-    FinalSlash = strrchr(szFileName, '\\');
-    if(FinalSlash)
-	szFileName = FinalSlash + 1;
-
-    /* Open the Driver */
-    FilePointer = FsOpenFile(szFileName);
-
-    /* Try under the system root in the main dir and drivers */
-    if (FilePointer == NULL)
-    {
-	strcpy(value, SystemRoot);
-	if(value[strlen(value)-1] != '\\')
-	    strcat(value, "\\");
-	strcat(value, szFileName);
-	FilePointer = FsOpenFile(value);
-    }
-
-    if (FilePointer == NULL)
-    {
-	strcpy(value, SystemRoot);
-	if(value[strlen(value)-1] != '\\')
-	    strcat(value, "\\");
-	strcat(value, "SYSTEM32\\");
-	strcat(value, szFileName);
-	FilePointer = FsOpenFile(value);
-    }
-
-    if (FilePointer == NULL)
-    {
-	strcpy(value, SystemRoot);
-	if(value[strlen(value)-1] != '\\')
-	    strcat(value, "\\");
-	strcat(value, "SYSTEM32\\DRIVERS\\");
-	strcat(value, szFileName);
-	FilePointer = FsOpenFile(value);
-    }
-
-    /* Make sure we did */
-    if (FilePointer == NULL) {
-
-        /* Fail if file wasn't opened */
-        strcpy(value, szFileName);
-        strcat(value, " not found.");
-        return(FALSE);
-    }
-
-    /* Update the status bar with the current file */
-    strcpy(value, "Reading ");
-    p = strrchr(szFileName, '\\');
-    if (p == NULL) {
-
-        strcat(value, szFileName);
-
-    } else {
-
-        strcat(value, p + 1);
-
-    }
-    UiDrawStatusText(value);
-
-    /* Load the driver */
-    FrLdrMapImage(FilePointer, szFileName, 0);
-
-    /* Update status and return */
-    UiDrawProgressBarCenter(nPos, 100, szLoadingMsg);
-    return(TRUE);
-}
+extern ULONG_PTR KernelBase, KernelEntry;
 
 PVOID
 NTAPI
@@ -137,6 +47,13 @@ FrLdrLoadImage(IN PCHAR szFileName,
     PCHAR szShortName;
     CHAR szBuffer[256], szFullPath[256];
     PVOID LoadBase;
+
+    /* Check if this the HAL being loaded */
+    if (!_stricmp(szFileName, "hal.dll"))
+    {
+        /* Use the boot.ini name instead */
+        szFileName = szHalName;
+    }
 
     /* Extract filename without path */
     szShortName = strrchr(szFileName, '\\');
@@ -413,7 +330,7 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
         if (rc != ERROR_SUCCESS) OrderList[0] = 0;
 
         /* enumerate all drivers */
-        for (TagIndex = 1; TagIndex <= SWAPD(OrderList[0]); TagIndex++) {
+        for (TagIndex = 1; TagIndex <= OrderList[0]; TagIndex++) {
 
             Index = 0;
 
@@ -599,22 +516,16 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 	 * Setup multiboot information structure
 	 */
 	LoaderBlock.CommandLine = reactos_kernel_cmdline;
-	LoaderBlock.PageDirectoryStart = (ULONG)&PageDirectoryStart;
-	LoaderBlock.PageDirectoryEnd = (ULONG)&PageDirectoryEnd;
 	LoaderBlock.ModsCount = 0;
 	LoaderBlock.ModsAddr = reactos_modules;
     LoaderBlock.DrivesAddr = reactos_arc_disk_info;
-    LoaderBlock.ArchExtra = (ULONG)reactos_arc_hardware_data;
     LoaderBlock.MmapLength = (unsigned long)MachGetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
     if (LoaderBlock.MmapLength)
     {
-#ifdef _M_IX86
         ULONG i;
-#endif
-        LoaderBlock.Flags |= MB_FLAGS_MEM_INFO | MB_FLAGS_MMAP_INFO;
+
         LoaderBlock.MmapAddr = (unsigned long)&reactos_memory_map;
         reactos_memory_map_descriptor_size = sizeof(memory_map_t); // GetBiosMemoryMap uses a fixed value of 24
-#ifdef _M_IX86
         for (i=0; i<(LoaderBlock.MmapLength/sizeof(memory_map_t)); i++)
         {
             if (BiosMemoryUsable == reactos_memory_map[i].type &&
@@ -633,7 +544,6 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
                 LoaderBlock.MemHigher = (reactos_memory_map[i].base_addr_low + reactos_memory_map[i].length_low) / 1024 - 1024;
             }
         }
-#endif
     }
 
 	/*
@@ -708,7 +618,6 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 		strcat(szBootPath, "\\");
 
 	DbgPrint((DPRINT_REACTOS,"SystemRoot: '%s'\n", szBootPath));
-	strcpy(SystemRoot, szBootPath);
 
 	/*
 	 * Find the kernel image name
@@ -766,15 +675,15 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 		strcat(szHalName, value);
 	}
 
-	/* Load the kernel */
-	LoadBase = FrLdrLoadImage(szKernelName, 5, 1);
-	if (!LoadBase) return;
+    /* Load the kernel */
+    LoadBase = FrLdrLoadImage(szKernelName, 5, 1);
+    if (!LoadBase) return;
 
-	/* Get the NT header, kernel base and kernel entry */
-	NtHeader = RtlImageNtHeader(LoadBase);
-	KernelBase = SWAPD(NtHeader->OptionalHeader.ImageBase);
-	KernelEntryPoint = (ROS_KERNEL_ENTRY_POINT)(KernelBase + SWAPD(NtHeader->OptionalHeader.AddressOfEntryPoint));
-	LoaderBlock.KernelBase = KernelBase;
+    /* Get the NT header, kernel base and kernel entry */
+    NtHeader = RtlImageNtHeader(LoadBase);
+    KernelBase = NtHeader->OptionalHeader.ImageBase;
+    KernelEntry = RaToPa(NtHeader->OptionalHeader.AddressOfEntryPoint);
+    LoaderBlock.KernelBase = KernelBase;
 
 	/*
 	 * Load the System hive from disk
@@ -823,6 +732,13 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 
 	UiDrawProgressBarCenter(15, 100, szLoadingMsg);
 
+	/*
+	 * Export the hardware hive
+	 */
+	Base = FrLdrCreateModule ("HARDWARE");
+	RegExportBinaryHive (L"\\Registry\\Machine\\HARDWARE", (PCHAR)Base, &Size);
+	FrLdrCloseModule (Base, Size);
+
 	UiDrawProgressBarCenter(20, 100, szLoadingMsg);
 
 	/*
@@ -830,7 +746,7 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 	 */
 	if (!FrLdrLoadNlsFiles(szBootPath, MsgBuffer))
 	{
-		UiMessageBox(MsgBuffer);
+	        UiMessageBox(MsgBuffer);
 		return;
 	}
 	UiDrawProgressBarCenter(30, 100, szLoadingMsg);
@@ -845,8 +761,8 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
 	 * Now boot the kernel
 	 */
 	DiskStopFloppyMotor();
-	MachVideoPrepareForReactOS(FALSE);
-	FrLdrStartup(0x2badb002);
+    MachVideoPrepareForReactOS(FALSE);
+    FrLdrStartup(0x2badb002);
 }
 
 #undef DbgPrint

@@ -1135,7 +1135,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     /* Calculate how much space our header'll take up */
     HeaderSize = sizeof(OBJECT_HEADER) +
                  sizeof(OBJECT_HEADER_NAME_INFO) +
-                 (ObjectTypeInitializer->MaintainHandleCount ?
+                 (ObjectTypeInitializer->MaintainHandleCount ? 
                   sizeof(OBJECT_HEADER_HANDLE_INFO) : 0);
 
     /* Check the pool type */
@@ -1411,7 +1411,7 @@ NtQueryObject(IN HANDLE ObjectHandle,
      * Make sure this isn't a generic type query, since the caller doesn't
      * have to give a handle for it
      */
-    if (ObjectInformationClass != ObjectTypesInformation)
+    if (ObjectInformationClass != ObjectAllTypesInformation)
     {
         /* Reference the object */
         Status = ObReferenceObjectByHandle(ObjectHandle,
@@ -1463,27 +1463,27 @@ NtQueryObject(IN HANDLE ObjectHandle,
                 }
 
                 /* Copy quota information */
-                BasicInfo->PagedPoolCharge = 0; /* FIXME*/
-                BasicInfo->NonPagedPoolCharge = 0; /* FIXME*/
+                BasicInfo->PagedPoolUsage = 0; /* FIXME*/
+                BasicInfo->NonPagedPoolUsage = 0; /* FIXME*/
 
                 /* Copy name information */
-                BasicInfo->NameInfoSize = 0; /* FIXME*/
-                BasicInfo->TypeInfoSize = 0; /* FIXME*/
+                BasicInfo->NameInformationLength = 0; /* FIXME*/
+                BasicInfo->TypeInformationLength = 0; /* FIXME*/
 
                 /* Copy security information */
-                BasicInfo->SecurityDescriptorSize = 0; /* FIXME*/
+                BasicInfo->SecurityDescriptorLength = 0; /* FIXME*/
 
                 /* Check if this is a symlink */
                 if (ObjectHeader->Type == ObSymbolicLinkType)
                 {
                     /* Return the creation time */
-                    BasicInfo->CreationTime.QuadPart =
+                    BasicInfo->CreateTime.QuadPart =
                         ((POBJECT_SYMBOLIC_LINK)Object)->CreationTime.QuadPart;
                 }
                 else
                 {
                     /* Otherwise return 0 */
-                    BasicInfo->CreationTime.QuadPart = (ULONGLONG)0;
+                    BasicInfo->CreateTime.QuadPart = (ULONGLONG)0;
                 }
 
                 /* Break out with success */
@@ -1513,13 +1513,13 @@ NtQueryObject(IN HANDLE ObjectHandle,
                 break;
 
             /* Information about all types */
-            case ObjectTypesInformation:
+            case ObjectAllTypesInformation:
                 DPRINT1("NOT IMPLEMENTED!\n");
                 Status = STATUS_NOT_IMPLEMENTED;
                 break;
 
             /* Information about the handle flags */
-            case ObjectHandleFlagInformation:
+            case ObjectHandleInformation:
 
                 /* Validate length */
                 InfoLength = sizeof (OBJECT_HANDLE_ATTRIBUTE_INFORMATION);
@@ -1609,7 +1609,7 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
     PAGED_CODE();
 
     /* Validate the information class */
-    if (ObjectInformationClass != ObjectHandleFlagInformation)
+    if (ObjectInformationClass != ObjectHandleInformation)
     {
         /* Invalid class */
         return STATUS_INVALID_INFO_CLASS;

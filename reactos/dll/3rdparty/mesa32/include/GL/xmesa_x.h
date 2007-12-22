@@ -64,7 +64,6 @@ typedef XColor       XMesaColor;
 
 #define XMesaDrawPoint         XDrawPoint
 #define XMesaDrawPoints        XDrawPoints
-#define XMesaDrawLine          XDrawLine
 #define XMesaFillRectangle     XFillRectangle
 #define XMesaPutImage          XPutImage
 #define XMesaCopyArea          XCopyArea

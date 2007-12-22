@@ -584,7 +584,6 @@ int WINAPI GetTimeFormatA(LCID,DWORD,const SYSTEMTIME*,LPCSTR,LPSTR,int);
 int WINAPI GetTimeFormatW(LCID,DWORD,const SYSTEMTIME*,LPCWSTR,LPWSTR,int);
 LANGID WINAPI GetUserDefaultLangID(void);
 LCID WINAPI GetUserDefaultLCID(void);
-LANGID WINAPI GetUserDefaultUILanguage(void);
 GEOID WINAPI GetUserGeoID(GEOCLASS);
 BOOL WINAPI IsDBCSLeadByte(BYTE);
 BOOL WINAPI IsDBCSLeadByteEx(UINT,BYTE);
@@ -638,7 +637,6 @@ typedef NUMBERFMTW NUMBERFMT;
 typedef LPNUMBERFMTW LPNUMBERFMT;
 #define CompareString CompareStringW
 #define EnumCalendarInfo EnumCalendarInfoW
-#define EnumDateFormats EnumDateFormatsW
 #define EnumSystemCodePages EnumSystemCodePagesW
 #define EnumSystemLocales EnumSystemLocalesW
 #define EnumTimeFormats EnumTimeFormatsW
@@ -681,7 +679,6 @@ typedef NUMBERFMTA NUMBERFMT;
 typedef LPNUMBERFMTA LPNUMBERFMT;
 #define CompareString CompareStringA
 #define EnumCalendarInfo EnumCalendarInfoA
-#define EnumDateFormats EnumDateFormatsA
 #define EnumSystemCodePages EnumSystemCodePagesA
 #define EnumSystemLocales EnumSystemLocalesA
 #define EnumTimeFormats EnumTimeFormatsA

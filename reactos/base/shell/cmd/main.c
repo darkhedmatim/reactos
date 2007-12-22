@@ -1,6 +1,26 @@
 #include <precomp.h>
+#include "resource.h"
 
-int _tmain (int argc, const TCHAR *argv[])
+#ifdef _UNICODE
+extern int _main (void);
+#else
+extern int _main (int argc, char *argv[]);
+#endif
+
+/*
+ * main function
+ */
+#ifdef _UNICODE
+int main(void)
+#else
+int main (int argc, char *argv[])
+#endif
 {
-    return cmd_main(argc, argv);
+#ifdef _UNICODE
+  return _main();
+#else
+  return _main(argc, argv);
+#endif
 }
+
+/* EOF */

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -74,25 +74,25 @@
  * The 'Codepages' keyword is a wmc extension.
  */
 
-static const WCHAR ustr_application[]	= { 'A', 'p', 'p', 'l', 'i', 'c', 'a', 't', 'i', 'o', 'n', 0 };
-static const WCHAR ustr_codepages[]	= { 'C', 'o', 'd', 'e', 'p', 'a', 'g', 'e', 's', 0 };
-static const WCHAR ustr_english[]	= { 'E', 'n', 'g', 'l', 'i', 's', 'h', 0 };
-static const WCHAR ustr_error[]		= { 'E', 'r', 'r', 'o', 'r', 0 };
-static const WCHAR ustr_facility[]	= { 'F', 'a', 'c', 'i', 'l', 'i', 't', 'y', 0 };
-static const WCHAR ustr_facilitynames[]	= { 'F', 'a', 'c', 'i', 'l', 'i', 't', 'y', 'N', 'a', 'm', 'e', 's', 0 };
-static const WCHAR ustr_informational[]	= { 'I', 'n', 'f', 'o', 'r', 'm', 'a', 't', 'i', 'o', 'n', 'a', 'l', 0 };
-static const WCHAR ustr_language[]	= { 'L', 'a', 'n', 'g', 'u', 'a', 'g', 'e', 0};
-static const WCHAR ustr_languagenames[]	= { 'L', 'a', 'n', 'g', 'u', 'a', 'g', 'e', 'N', 'a', 'm', 'e', 's', 0};
-static const WCHAR ustr_messageid[]	= { 'M', 'e', 's', 's', 'a', 'g', 'e', 'I', 'd', 0 };
-static const WCHAR ustr_messageidtypedef[] = { 'M', 'e', 's', 's', 'a', 'g', 'e', 'I', 'd', 'T', 'y', 'p', 'e', 'd', 'e', 'f', 0 };
-static const WCHAR ustr_outputbase[]	= { 'O', 'u', 't', 'p', 'u', 't', 'B', 'a', 's', 'e', 0 };
-static const WCHAR ustr_severity[]	= { 'S', 'e', 'v', 'e', 'r', 'i', 't', 'y', 0 };
-static const WCHAR ustr_severitynames[]	= { 'S', 'e', 'v', 'e', 'r', 'i', 't', 'y', 'N', 'a', 'm', 'e', 's', 0 };
-static const WCHAR ustr_success[]	= { 'S', 'u', 'c', 'c', 'e', 's', 's', 0 };
-static const WCHAR ustr_symbolicname[]	= { 'S', 'y', 'm', 'b', 'o', 'l', 'i', 'c', 'N', 'a', 'm', 'e', 0 };
-static const WCHAR ustr_system[]	= { 'S', 'y', 's', 't', 'e', 'm', 0 };
-static const WCHAR ustr_warning[]	= { 'W', 'a', 'r', 'n', 'i', 'n', 'g', 0 };
-static const WCHAR ustr_msg00001[]	= { 'm', 's', 'g', '0', '0', '0', '0', '1', 0 };
+static WCHAR ustr_application[]	= { 'A', 'p', 'p', 'l', 'i', 'c', 'a', 't', 'i', 'o', 'n', 0 };
+static WCHAR ustr_codepages[]		= { 'C', 'o', 'd', 'e', 'p', 'a', 'g', 'e', 's', 0 };
+static WCHAR ustr_english[]		= { 'E', 'n', 'g', 'l', 'i', 's', 'h', 0 };
+static WCHAR ustr_error[]		= { 'E', 'r', 'r', 'o', 'r', 0 };
+static WCHAR ustr_facility[]		= { 'F', 'a', 'c', 'i', 'l', 'i', 't', 'y', 0 };
+static WCHAR ustr_facilitynames[]	= { 'F', 'a', 'c', 'i', 'l', 'i', 't', 'y', 'N', 'a', 'm', 'e', 's', 0 };
+static WCHAR ustr_informational[]	= { 'I', 'n', 'f', 'o', 'r', 'm', 'a', 't', 'i', 'o', 'n', 'a', 'l', 0 };
+static WCHAR ustr_language[]		= { 'L', 'a', 'n', 'g', 'u', 'a', 'g', 'e', 0};
+static WCHAR ustr_languagenames[]	= { 'L', 'a', 'n', 'g', 'u', 'a', 'g', 'e', 'N', 'a', 'm', 'e', 's', 0};
+static WCHAR ustr_messageid[]		= { 'M', 'e', 's', 's', 'a', 'g', 'e', 'I', 'd', 0 };
+static WCHAR ustr_messageidtypedef[]	= { 'M', 'e', 's', 's', 'a', 'g', 'e', 'I', 'd', 'T', 'y', 'p', 'e', 'd', 'e', 'f', 0 };
+static WCHAR ustr_outputbase[]	= { 'O', 'u', 't', 'p', 'u', 't', 'B', 'a', 's', 'e', 0 };
+static WCHAR ustr_severity[]		= { 'S', 'e', 'v', 'e', 'r', 'i', 't', 'y', 0 };
+static WCHAR ustr_severitynames[]	= { 'S', 'e', 'v', 'e', 'r', 'i', 't', 'y', 'N', 'a', 'm', 'e', 's', 0 };
+static WCHAR ustr_success[]		= { 'S', 'u', 'c', 'c', 'e', 's', 's', 0 };
+static WCHAR ustr_symbolicname[]	= { 'S', 'y', 'm', 'b', 'o', 'l', 'i', 'c', 'N', 'a', 'm', 'e', 0 };
+static WCHAR ustr_system[]		= { 'S', 'y', 's', 't', 'e', 'm', 0 };
+static WCHAR ustr_warning[]		= { 'W', 'a', 'r', 'n', 'i', 'n', 'g', 0 };
+static WCHAR ustr_msg00001[]		= { 'm', 's', 'g', '0', '0', '0', '0', '1', 0 };
 /*
  * This table is to beat any form of "expression building" to check for
  * correct filename characters. It is also used for ident checks.
@@ -156,7 +156,7 @@ void set_codepage(int cp)
 	codepage = cp;
 	codepage_def = find_codepage(codepage);
 	if(!codepage_def)
-		xyyerror("Codepage %d not found; cannot process\n", codepage);
+		xyyerror("Codepage %d not found; cannot process", codepage);
 }
 
 /*
@@ -187,7 +187,7 @@ static int fill_inputbuffer(void)
 
 	if(!inputbuffer)
 	{
-		inputbuffer = xmalloc(INPUTBUFFER_SIZE*sizeof(WCHAR));
+		inputbuffer = xmalloc(INPUTBUFFER_SIZE);
 		xlatebuffer = xmalloc(INPUTBUFFER_SIZE);
 	}
 
@@ -203,7 +203,7 @@ try_again:
 		assert(codepage_def != NULL);
 		n = wine_cp_mbstowcs(codepage_def, 0, xlatebuffer, strlen(xlatebuffer)+1, inputbuffer, INPUTBUFFER_SIZE);
 		if(n < 0)
-			internal_error(__FILE__, __LINE__, "Could not translate to unicode (%d)\n", n);
+			internal_error(__FILE__, __LINE__, "Could not translate to unicode (%d)", n);
 		if(n <= 1)
 			goto try_again;	/* Should not hapen */
 		n--;	/* Strip added conversion '\0' from input length */
@@ -224,7 +224,7 @@ try_again:
 				if(!n && ferror(yyin))
 					xyyerror(err_fatalread);
 				else
-					xyyerror("Fatal: file to short to determine byteorder (should never happen)\n");
+					xyyerror("Fatal: file to short to determine byteorder (should never happen)");
 			}
 			if(isisochar(inputbuffer[0]) &&
 				isisochar(inputbuffer[1]) &&
@@ -249,7 +249,7 @@ try_again:
 #endif
 			}
 			else
-				xyyerror("Fatal: cannot determine file's byteorder\n");
+				xyyerror("Fatal: cannot determine file's byteorder");
 			/* FIXME:
 			 * Determine the file-endian with the leader-bytes
 			 * "FF FE..."; can't remember the exact sequence.
@@ -302,7 +302,7 @@ try_again:
 
 	if(!n)
 	{
-		mcy_warning("Re-read line (input was or converted to zilch)\n");
+		yywarning("Re-read line (input was or converted to zilch)");
 		goto try_again;	/* Should not happen, but could be due to stdin reading and a signal */
 	}
 
@@ -458,7 +458,7 @@ static int scan_number(int ch)
 	while(1)
 	{
 		if(!isisochar(ch))
-			xyyerror("Invalid digit\n");
+			xyyerror("Invalid digit");
 
 		switch(state)
 		{
@@ -472,7 +472,7 @@ static int scan_number(int ch)
 					state = 4;
 			}
 			else
-				internal_error(__FILE__, __LINE__, "Non-digit in first number-scanner state\n");
+				internal_error(__FILE__, __LINE__, "Non-digit in first number-scanner state");
 			break;
 		case 1:
 			if(ch == 'x' || ch == 'X')
@@ -486,11 +486,11 @@ static int scan_number(int ch)
 				state = 3;
 			}
 			else if(isalpha(ch) || ch == '_')
-				xyyerror("Invalid number digit\n");
+				xyyerror("Invalid number digit");
 			else
 			{
 				unget_unichar(ch);
-				mcy_lval.num = 0;
+				yylval.num = 0;
 				return tNUMBER;
 			}
 			break;
@@ -498,7 +498,7 @@ static int scan_number(int ch)
 			if(isxdigit(ch))
 				push_char(ch);
 			else if(isalpha(ch) || ch == '_' || !isxdigit(tos_char_stack()))
-				xyyerror("Invalid hex digit\n");
+				xyyerror("Invalid hex digit");
 			else
 			{
 				base = 16;
@@ -509,7 +509,7 @@ static int scan_number(int ch)
 			if(ch >= '0' && ch <= '7')
 				push_char(ch);
 			else if(isalnum(ch) || ch == '_')
-				xyyerror("Invalid octal digit\n");
+				xyyerror("Invalid octal digit");
 			else
 			{
 				base = 8;
@@ -520,7 +520,7 @@ static int scan_number(int ch)
 			if(isdigit(ch))
 				push_char(ch);
 			else if(isalnum(ch) || ch == '_')
-				xyyerror("Invalid decimal digit\n");
+				xyyerror("Invalid decimal digit");
 			else
 			{
 				base = 10;
@@ -528,14 +528,14 @@ static int scan_number(int ch)
 			}
 			break;
 		default:
-			internal_error(__FILE__, __LINE__, "Invalid state in number-scanner\n");
+			internal_error(__FILE__, __LINE__, "Invalid state in number-scanner");
 		}
 		ch = get_unichar();
 	}
 finish:
 	unget_unichar(ch);
 	push_char(0);
-	mcy_lval.num = strtoul(get_char_stack(), NULL, base);
+	yylval.num = strtoul(get_char_stack(), NULL, base);
 	return tNUMBER;
 }
 
@@ -586,7 +586,7 @@ void get_tokentable(token_t **tab, int *len)
  * The scanner
  *
  */
-int mcy_lex(void)
+int yylex(void)
 {
 	static const WCHAR ustr_dot1[] = { '.', '\n', 0 };
 	static const WCHAR ustr_dot2[] = { '.', '\r', '\n', 0 };
@@ -626,7 +626,7 @@ int mcy_lex(void)
 			while((ch = get_unichar()) != '\n')
 			{
 				if(ch == EOF)
-					xyyerror("Unexpected EOF\n");
+					xyyerror("Unexpected EOF");
 				push_unichar(ch);
 			}
 			newline();
@@ -639,7 +639,7 @@ int mcy_lex(void)
 				set_codepage(WMC_DEFAULT_CODEPAGE);
 				return tMSGEND;
 			}
-			mcy_lval.str = xunistrdup(get_unichar_stack());
+			yylval.str = xunistrdup(get_unichar_stack());
 			return tLINE;
 		}
 
@@ -677,7 +677,7 @@ int mcy_lex(void)
 				unget_unichar(ch);
 				push_unichar(0);
 				want_file = 0;
-				mcy_lval.str = xunistrdup(get_unichar_stack());
+				yylval.str = xunistrdup(get_unichar_stack());
 				return tFILE;
 			}
 
@@ -693,7 +693,7 @@ int mcy_lex(void)
 				push_unichar(0);
 				if(!(tok = lookup_token(get_unichar_stack())))
 				{
-					mcy_lval.str = xunistrdup(get_unichar_stack());
+					yylval.str = xunistrdup(get_unichar_stack());
 					return tIDENT;
 				}
 				switch(tok->type)
@@ -706,11 +706,11 @@ int mcy_lex(void)
 					/* Fall through */
 				case tok_severity:
 				case tok_facility:
-					mcy_lval.tok = tok;
+					yylval.tok = tok;
 					return tTOKEN;
 
 				default:
-					internal_error(__FILE__, __LINE__, "Invalid token type encountered\n");
+					internal_error(__FILE__, __LINE__, "Invalid token type encountered");
 				}
 			}
 
@@ -738,10 +738,10 @@ int mcy_lex(void)
 			newline();
 			push_unichar(ch);	/* Include the newline */
 			push_unichar(0);
-			mcy_lval.str = xunistrdup(get_unichar_stack());
+			yylval.str = xunistrdup(get_unichar_stack());
 			return tCOMMENT;
 		default:
-			xyyerror("Invalid character '%c' (0x%04x)\n", isisochar(ch) && isprint(ch) ? ch : '.', ch);
+			xyyerror("Invalid character '%c' (0x%04x)", isisochar(ch) && isprint(ch) ? ch : '.', ch);
 		}
 	}
 }

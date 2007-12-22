@@ -72,7 +72,6 @@ typedef struct
     RECT checkbox;  /* checkbox allowing the control to be enabled/disabled */
     RECT calbutton; /* button that toggles the dropdown of the monthcal control */
     BOOL bCalDepressed; /* TRUE = cal button is depressed */
-    int  bDropdownEnabled;
     int  select;
     HFONT hFont;
     int nrFieldsAllocated;
@@ -740,10 +739,7 @@ DATETIME_LButtonDown (DATETIME_INFO *infoPtr, WORD wKey, INT x, INT y)
             TRACE("update calendar %04d/%02d/%02d\n", 
             lprgSysTimeArray->wYear, lprgSysTimeArray->wMonth, lprgSysTimeArray->wDay);
             SendMessageW(infoPtr->hMonthCal, MCM_SETCURSEL, 0, (LPARAM)(&infoPtr->date));
-
-            if (infoPtr->bDropdownEnabled)
-                ShowWindow(infoPtr->hMonthCal, SW_SHOW);
-            infoPtr->bDropdownEnabled = TRUE;
+            ShowWindow(infoPtr->hMonthCal, SW_SHOW);
         }
 
         TRACE ("dt:%p mc:%p mc parent:%p, desktop:%p\n",
@@ -780,10 +776,6 @@ DATETIME_Paint (DATETIME_INFO *infoPtr, HDC hdc)
     } else {
         DATETIME_Refresh (infoPtr, hdc);
     }
-
-    /* Not a click on the dropdown box, enabled it */
-    infoPtr->bDropdownEnabled = TRUE;
-
     return 0;
 }
 
@@ -819,9 +811,6 @@ DATETIME_Enable (DATETIME_INFO *infoPtr, BOOL bEnable)
         infoPtr->dwStyle &= ~WS_DISABLED;
     else
         infoPtr->dwStyle |= WS_DISABLED;
-
-    InvalidateRect(infoPtr->hwndSelf, NULL, TRUE);
-
     return 0;
 }
 
@@ -1071,19 +1060,6 @@ DATETIME_SetFocus (DATETIME_INFO *infoPtr, HWND lostFocus)
 {
     TRACE("got focus from %p\n", lostFocus);
 
-    /* if monthcal is open and it loses focus, close monthcal */
-    if (infoPtr->hMonthCal && (lostFocus == infoPtr->hMonthCal) && \
-        IsWindowVisible(infoPtr->hMonthCal))
-    {
-        ShowWindow(infoPtr->hMonthCal, SW_HIDE);
-        DATETIME_SendSimpleNotify(infoPtr, DTN_CLOSEUP);
-        /* note: this get triggered even if monthcal loses focus to a dropdown
-         * box click, which occurs without an intermediate WM_PAINT call
-         */
-        infoPtr->bDropdownEnabled = FALSE;
-        return 0;
-    }
-
     if (infoPtr->haveFocus == 0) {
 	DATETIME_SendSimpleNotify (infoPtr, NM_SETFOCUS);
 	infoPtr->haveFocus = DTHT_GOTFOCUS;
@@ -1170,7 +1146,7 @@ DATETIME_StyleChanged(DATETIME_INFO *infoPtr, WPARAM wStyleType, const STYLESTRU
 {
     static const WCHAR buttonW[] = { 'b', 'u', 't', 't', 'o', 'n', 0 };
 
-    TRACE("(styletype=%lx, styleOld=0x%08x, styleNew=0x%08x)\n",
+    TRACE("(styletype=%x, styleOld=0x%08x, styleNew=0x%08x)\n",
           wStyleType, lpss->styleOld, lpss->styleNew);
 
     if (wStyleType != GWL_STYLE) return 0;
@@ -1228,7 +1204,6 @@ DATETIME_Create (HWND hwnd, const CREATESTRUCTW *lpcs)
     infoPtr->buflen = (int *) Alloc (infoPtr->nrFieldsAllocated * sizeof(int));
     infoPtr->hwndNotify = lpcs->hwndParent;
     infoPtr->select = -1; /* initially, nothing is selected */
-    infoPtr->bDropdownEnabled = TRUE;
 
     DATETIME_StyleChanged(infoPtr, GWL_STYLE, &ss);
     DATETIME_SetFormatW (infoPtr, 0);
@@ -1270,7 +1245,7 @@ DATETIME_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     DATETIME_INFO *infoPtr = ((DATETIME_INFO *)GetWindowLongPtrW (hwnd, 0));
     LRESULT ret;
 
-    TRACE ("%x, %lx, %lx\n", uMsg, wParam, lParam);
+    TRACE ("%x, %x, %lx\n", uMsg, wParam, lParam);
 
     if (!infoPtr && (uMsg != WM_CREATE) && (uMsg != WM_NCCREATE))
 	return DefWindowProcW( hwnd, uMsg, wParam, lParam );
@@ -1371,7 +1346,7 @@ DATETIME_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     default:
 	if ((uMsg >= WM_USER) && (uMsg < WM_APP))
-		ERR("unknown msg %04x wp=%08lx lp=%08lx\n",
+		ERR("unknown msg %04x wp=%08x lp=%08lx\n",
 		     uMsg, wParam, lParam);
 	return DefWindowProcW (hwnd, uMsg, wParam, lParam);
     }

@@ -54,13 +54,6 @@ sub get_param_list {
   },
 
   {
-   name => 'docs_urlbase',
-   type => 't',
-   default => 'docs/html/',
-   checker => \&check_url
-  },
-
-  {
    name => 'sslbase',
    type => 't',
    default => '',
@@ -91,41 +84,18 @@ sub get_param_list {
    name => 'timezone',
    type => 't',
    default => '',
-   checker => \&check_timezone
   },
 
   {
    name => 'utf8',
    type => 'b',
    default => '0',
-   checker => \&check_utf8
   },
 
   {
    name => 'shutdownhtml',
    type => 'l',
    default => ''
-  },
-
-  {
-   name => 'announcehtml',
-   type => 'l',
-   default => ''
-  },
-
-  {
-   name => 'proxy_url',
-   type => 't',
-   default => ''
-  },
-
-  {
-   name => 'upgrade_notification',
-   type => 's',
-   choices => ['development_snapshot', 'latest_stable_release',
-               'stable_branch_release', 'disabled'],
-   default => 'latest_stable_release',
-   checker => \&check_notification
   } );
   return @param_list;
 }

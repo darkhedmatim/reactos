@@ -111,6 +111,7 @@ KeSetSystemTime(IN PLARGE_INTEGER NewTime,
                 }
 
                 /* Insert it into our temporary list */
+                DPRINT1("Adding a timer!\n");
                 InsertTailList(&TempList, &Timer->TimerListEntry);
             }
         }
@@ -151,6 +152,7 @@ KeSetSystemTime(IN PLARGE_INTEGER NewTime,
             }
 
             /* Insert it into our temporary list */
+            DPRINT1("Adding a timer 2!\n");
             InsertTailList(&TempList2, &Timer->TimerListEntry);
         }
 

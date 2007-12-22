@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <string.h>
@@ -27,11 +27,13 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
+#include "winerror.h"
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
 
 #include "shlobj.h"
+#include "shellapi.h"
 #include "shlwapi.h"
 #include "shell32_main.h"
 #include "undocshell.h"
@@ -44,7 +46,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 BOOL WINAPI StrRetToStrNA(LPSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
 {
-	TRACE("dest=%p len=0x%x strret=%p(%s) pidl=%p\n",
+	TRACE("dest=%p len=0x%lx strret=%p(%s) pidl=%p\n",
 	    dest,len,src,
 	    (src->uType == STRRET_WSTR) ? "STRRET_WSTR" :
 	    (src->uType == STRRET_CSTR) ? "STRRET_CSTR" :
@@ -82,7 +84,7 @@ BOOL WINAPI StrRetToStrNA(LPSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST 
 
 BOOL WINAPI StrRetToStrNW(LPWSTR dest, DWORD len, LPSTRRET src, const ITEMIDLIST *pidl)
 {
-	TRACE("dest=%p len=0x%x strret=%p(%s) pidl=%p\n",
+	TRACE("dest=%p len=0x%lx strret=%p(%s) pidl=%p\n",
 	    dest,len,src,
 	    (src->uType == STRRET_WSTR) ? "STRRET_WSTR" :
 	    (src->uType == STRRET_CSTR) ? "STRRET_CSTR" :
@@ -232,7 +234,7 @@ BOOL WINAPI OleStrToStrNAW (LPVOID lpOut, INT nOut, LPCVOID lpIn, INT nIn)
  *  length of actual string
  *
  * NOTES
- *  Not really sure if this function returns actually a value at all.
+ *  Not really sure if this function returns actually a value at all. 
  */
 DWORD WINAPI CheckEscapesA(
 	LPSTR	string,         /* [I/O]   string to check ??*/
@@ -241,7 +243,7 @@ DWORD WINAPI CheckEscapesA(
 	LPWSTR wString;
 	DWORD ret = 0;
 
-	TRACE("(%s %d)\n", debugstr_a(string), len);
+	TRACE("(%s %ld)\n", debugstr_a(string), len);
 	wString = (LPWSTR)LocalAlloc(LPTR, len * sizeof(WCHAR));
 	if (wString)
 	{
@@ -267,7 +269,7 @@ DWORD WINAPI CheckEscapesW(
 	DWORD size = lstrlenW(string);
 	LPWSTR s, d;
 
-	TRACE("(%s %d) stub\n", debugstr_w(string), len);
+	TRACE("(%s %ld) stub\n", debugstr_w(string), len);
 
 	if (StrPBrkW(string, strEscapedChars) && size + 2 <= len)
 	{

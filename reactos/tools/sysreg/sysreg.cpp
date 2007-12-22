@@ -12,44 +12,66 @@
 #include "sysreg.h"
 
 using System_::EnvironmentVariable;
+using System_::ComponentFactoryTemplate;
 
 using Sysreg_::ConfigParser;
 
 //regression test classes
+using Sysreg_::RegressionTest;
 using Sysreg_::RosBootTest;
 
 #if 0
 using System_::SymbolFile;
 #endif
 
-static const char USAGE[] =
-"sysreg.exe [conf_file]\nconfiguration file (default: sysreg.cfg)";
+typedef ComponentFactoryTemplate<RegressionTest, string> ComponentFactory;
+
+static const TCHAR USAGE[] = 
+_T("sysreg.exe -l | [conf_file] <testname>\n\n-l            - list available tests\nconf_file     - (optional) path to a configuration file (default: sysreg.cfg)\ntest_name     - name of test to execute\n");
 
 
 
 
-int main(int argc, char * argv[])
+int _tmain(int argc, TCHAR * argv[])
 {
 	ConfigParser config;
-	char DefaultConfig[] = "sysreg.cfg";
-	char *ConfigFile;
+	ComponentFactory comp_factory;
+	TCHAR DefaultConfig[] = _T("sysreg.cfg");
+	TCHAR *ConfigFile;
+	TCHAR * TestName;
 
-	if ((argc > 2))
+	if ((argc != 3) && (argc != 2))
 	{
 		cerr << USAGE << endl;
 		return -1;
 	}
 
 //---------------------------------------------------------------------------------------
+	/// regression tests should be registered here
+	comp_factory.registerComponent<RosBootTest>(RosBootTest::CLASS_NAME);
+
+//---------------------------------------------------------------------------------------
 
 	if (argc == 2)
 	{
-		ConfigFile = argv[1];
+		if (_tcscmp(argv[1], _T("-l")) == 0)
+		{
+			comp_factory.listComponentIds();
+			return -1;
+		}
+	}
+
+	if (argc == 2)
+	{
+		ConfigFile = DefaultConfig;
+		TestName = argv[1];
 	}
 	else
 	{
-		ConfigFile = DefaultConfig;
+		ConfigFile = argv[1];
+		TestName = argv[2];
 	}
+
 
 	if (!config.parseFile (ConfigFile))
 	{
@@ -57,31 +79,28 @@ int main(int argc, char * argv[])
 		return -1;
 	}
 
-	RosBootTest * regtest = new RosBootTest();
+	RegressionTest * regtest = comp_factory.createComponent (TestName);
 	if (!regtest)
 	{
-		cerr << "Error: failed to create regression test" << endl;
+		cerr << "Error: the requested regression test does not exist" << endl;
 		return -1;
 	}
-
+	
 	string envvar;
-	string ros = "ROS_OUTPUT";
+	string ros = _T("ROS_OUTPUT");
 	config.getStringValue (ros, envvar);
 #if 0
 	SymbolFile::initialize (config, envvar);
-#endif
+#endif	
+	if (regtest->execute (config))
+	{
+		cout << "The regression test " << regtest->getName () << " completed successfully" << endl;
+	}
+	else
+	{
+		cout << "The regression test " << regtest->getName () << " failed" << endl;
+		return -2;
+	}
 
-    for(int i = 0; i < 3; i++)
-    {
-        bool ret = regtest->execute(config);
-        if (!ret)
-        {
-            cout << "The regression test has failed at stage: " << i << endl;
-			delete regtest;
-            return -2;
-        }
-    }
-	cout << "The regression test completed successfully" << endl;
-	delete regtest;
 	return 0;
 }

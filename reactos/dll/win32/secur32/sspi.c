@@ -102,16 +102,6 @@ CompleteAuthToken(PCtxtHandle Handle,
 
 SECURITY_STATUS
 WINAPI
-QueryContextAttributesA(PCtxtHandle Handle,
-                        ULONG Foo,
-                        PVOID Bar)
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-SECURITY_STATUS
-WINAPI
 QueryContextAttributesW(PCtxtHandle Handle,
                         ULONG Foo,
                         PVOID Bar)
@@ -122,7 +112,7 @@ QueryContextAttributesW(PCtxtHandle Handle,
 
 SECURITY_STATUS
 WINAPI
-AcquireCredentialsHandleA (
+AcquireCredentialsHandleA ( 
     SEC_CHAR* pszPrincipal,
     SEC_CHAR* pszPackage,
     ULONG fUsage,
@@ -140,7 +130,7 @@ AcquireCredentialsHandleA (
 
 SECURITY_STATUS
 WINAPI
-AcquireCredentialsHandleW (
+AcquireCredentialsHandleW ( 
     SEC_WCHAR* pszPrincipal,
     SEC_WCHAR* pszPackage,
     ULONG fUsage,
@@ -156,30 +146,10 @@ AcquireCredentialsHandleW (
 	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-SECURITY_STATUS
-WINAPI
-InitializeSecurityContextW (
-    PCredHandle phCred,
-    PCtxtHandle phContext,
-    SEC_WCHAR* pszTarget,
-    ULONG fContextReq,
-    ULONG Reserved,
-    ULONG TargetData,
-    PSecBufferDesc pInput,
-    ULONG Reserved2,
-    PCtxtHandle phNewContext,
-    PSecBufferDesc pOut,
-    PULONG pfContextAttributes,
-    PTimeStamp pExpires
-    )
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
 
 SECURITY_STATUS
 WINAPI
-InitializeSecurityContextA (
+InitializeSecurityContextA ( 
     PCredHandle phCred,
     PCtxtHandle phContext,
     SEC_CHAR* pszTarget,
@@ -192,34 +162,6 @@ InitializeSecurityContextA (
     PSecBufferDesc pOut,
     PULONG pfContextAttributes,
     PTimeStamp pExpires
-    )
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-SECURITY_STATUS
-SEC_ENTRY
-MakeSignature(
-    PCtxtHandle phContext,
-    ULONG fQOP,
-    PSecBufferDesc pMessage,
-    ULONG MessageSeqNo
-    )
-{
-	DPRINT1("%s() not implemented!\n", __FUNCTION__);
-	return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-
-SECURITY_STATUS
-SEC_ENTRY
-VerifySignature(
-    PCtxtHandle phContext,
-    PSecBufferDesc pMessage,
-    ULONG MessageSeqNo,
-    PULONG pfQOP
     )
 {
 	DPRINT1("%s() not implemented!\n", __FUNCTION__);

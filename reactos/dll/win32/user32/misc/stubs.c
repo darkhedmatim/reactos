@@ -14,8 +14,6 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
 /*
  * @unimplemented
  */
@@ -101,6 +99,19 @@ LockWindowUpdate(
 BOOL
 STDCALL
 LockWorkStation(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+UnregisterDeviceNotification(
+  HDEVNOTIFY Handle)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -322,6 +333,21 @@ ClientThreadSetup ( VOID )
 /*
  * @unimplemented
  */
+HDEVNOTIFY
+STDCALL
+RegisterDeviceNotificationW(
+    HANDLE hRecipient,
+    LPVOID NotificationFilter,
+    DWORD Flags
+    )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
 UINT
 STDCALL
 GetRawInputDeviceInfoW(
@@ -363,6 +389,21 @@ CsrBroadcastSystemMessageExW(
     WPARAM wParam,
     LPARAM lParam,
     PBSMINFO pBSMInfo)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+HDEVNOTIFY
+STDCALL
+RegisterDeviceNotificationA(
+    HANDLE hRecipient,
+    LPVOID NotificationFilter,
+    DWORD Flags
+    )
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -493,6 +534,18 @@ GetRegisteredRawInputDevices(
     PRAWINPUTDEVICE pRawInputDevices,
     PUINT puiNumDevices,
     UINT cbSize)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsGUIThread(
+    BOOL bConvert)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -781,14 +834,3 @@ BOOL STDCALL DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY
   UNIMPLEMENTED;
   return FALSE;
 }
-
-
-/*
- * @unimplemented
- */
-DWORD STDCALL User32InitializeImmEntryTable(PVOID p)
-{
-  UNIMPLEMENTED;
-  return 0;
-}
-

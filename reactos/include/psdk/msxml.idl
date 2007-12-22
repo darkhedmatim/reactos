@@ -19,12 +19,11 @@
 
 #include <msxmldid.h>
 
-#ifndef DO_NO_IMPORTS
 import "unknwn.idl";
 import "wtypes.idl";
 import "objidl.idl";
 import "oaidl.idl";
-#endif
+
 
 [
 local,

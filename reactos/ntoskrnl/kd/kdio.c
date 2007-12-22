@@ -26,6 +26,8 @@ KD_PORT_INFORMATION SerialPortInfo = {DEFAULT_DEBUG_PORT, DEFAULT_DEBUG_BAUD_RAT
 
 /* Current Port in use. FIXME: Do we support more then one? */
 ULONG KdpPort;
+/* If serial debugging is enabled, is pointing to the UART base address. */
+PUCHAR *KdComPortInUse;
 
 /* DEBUG LOG FUNCTIONS *******************************************************/
 
@@ -70,8 +72,8 @@ KdpPrintToLog(PCH String,
     /* Make sure we are initialized and can queue */
     if (!KdpLogInitialized || (ItemQueued)) return;
 
-    /*
-     * Queue the work item
+    /* 
+     * Queue the work item 
      * Note that we don't want to queue if we are > DISPATCH_LEVEL...
      * The message is in the buffer and will simply be taken care of at
      * the next time we are at <= DISPATCH, so it won't be lost.
@@ -97,7 +99,7 @@ KdpInitDebugLog(PKD_DISPATCH_TABLE DispatchTable,
 
     if (BootPhase == 0)
     {
-        *KdComPortInUse = NULL;
+        KdComPortInUse = NULL;
 
         /* Write out the functions that we support for now */
         DispatchTable->KdpInitRoutine = KdpInitDebugLog;
@@ -182,7 +184,7 @@ KdpSerialInit(PKD_DISPATCH_TABLE DispatchTable,
             KdpDebugMode.Serial = FALSE;
             return;
         }
-        *KdComPortInUse = (PUCHAR)(ULONG_PTR)SerialPortInfo.BaseAddress;
+        KdComPortInUse = (PUCHAR*)&SerialPortInfo.BaseAddress;
 
         /* Register as a Provider */
         InsertTailList(&KdProviders, &DispatchTable->KdProvidersList);

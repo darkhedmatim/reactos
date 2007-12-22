@@ -523,8 +523,8 @@ void free_hostent(struct hostent *he)
     {
        char *next = 0;
         HFREE(he->h_name);
-        if(he->h_aliases)
-       {
+        if(he->h_aliases) 
+       { 
            next = he->h_aliases[0];
            while(next) { HFREE(next); next++; }
        }
@@ -1323,6 +1323,110 @@ inet_ntoa(IN  IN_ADDR in)
     return (CHAR FAR*)p;
 }
 
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetHostByAddr(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* addr,
+                      IN  INT len,
+                      IN  INT type,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetHostByName(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* name,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetProtoByName(IN  HWND hWnd,
+                       IN  UINT wMsg,
+                       IN  CONST CHAR FAR* name,
+                       OUT CHAR FAR* buf,
+                       IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetProtoByNumber(IN  HWND hWnd,
+                         IN  UINT wMsg,
+                         IN  INT number,
+                         OUT CHAR FAR* buf,
+                         IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetServByName(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* name,
+                      IN  CONST CHAR FAR* proto,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetServByPort(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  INT port,
+                      IN  CONST CHAR FAR* proto,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
 
 /* EOF */
 

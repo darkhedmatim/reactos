@@ -26,9 +26,8 @@
 
 #include "msgina.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
 extern HINSTANCE hDllInstance;
 
@@ -65,10 +64,6 @@ ReadRegSzKey(
 	DWORD cbData = 0;
 	LPWSTR Value;
 
-	if (!pValue)
-		return ERROR_INVALID_PARAMETER;
-
-	*pValue = NULL;
 	rc = RegQueryValueExW(hKey, pszKey, NULL, &dwType, NULL, &cbData);
 	if (rc != ERROR_SUCCESS)
 		return rc;
@@ -117,7 +112,7 @@ ChooseGinaUI(VOID)
 		NextOption = wcschr(CurrentOption, L' ');
 		if (NextOption)
 			*NextOption = L'\0';
-		if (wcsicmp(CurrentOption, L"CONSOLE") == 0)
+		if (wcsicmp(CurrentOption, L"CMDCONS") == 0)
 		{
 			TRACE("Found %S. Switching to console boot\n", CurrentOption);
 			ConsoleBoot = TRUE;
@@ -148,44 +143,39 @@ WlxInitialize(
 	PVOID  pWinlogonFunctions,
 	PVOID  *pWlxContext)
 {
-	PGINA_CONTEXT pgContext;
+  PGINA_CONTEXT pgContext;
+  
+  pgContext = (PGINA_CONTEXT)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, sizeof(GINA_CONTEXT));
+  if(!pgContext)
+    return FALSE;
+  
+  /* return the context to winlogon */
+  *pWlxContext = (PVOID)pgContext;
+  
+  pgContext->hDllInstance = hDllInstance;
+  
+  /* save pointer to dispatch table */
+  pgContext->pWlxFuncs = (PWLX_DISPATCH_VERSION_1_3)pWinlogonFunctions;
+  
+  /* save the winlogon handle used to call the dispatch functions */
+  pgContext->hWlx = hWlx;
+  
+  /* save window station */
+  pgContext->station = lpWinsta;
+  
+  /* clear status window handle */
+  pgContext->hStatusWindow = 0;
+  
+  /* notify winlogon that we will use the default SAS */
+  pgContext->pWlxFuncs->WlxUseCtrlAltDel(hWlx);
+  
+  /* Locates the authentification package */
+  //LsaRegisterLogonProcess(...);
 
-	UNREFERENCED_PARAMETER(pvReserved);
+  pgContext->AutoLogonState = AUTOLOGON_CHECK_REGISTRY;
 
-	pgContext = (PGINA_CONTEXT)LocalAlloc(LMEM_FIXED | LMEM_ZEROINIT, sizeof(GINA_CONTEXT));
-	if(!pgContext)
-	{
-		WARN("LocalAlloc() failed\n");
-		return FALSE;
-	}
-
-	/* Return the context to winlogon */
-	*pWlxContext = (PVOID)pgContext;
-	pgContext->hDllInstance = hDllInstance;
-
-	/* Save pointer to dispatch table */
-	pgContext->pWlxFuncs = (PWLX_DISPATCH_VERSION_1_3)pWinlogonFunctions;
-
-	/* Save the winlogon handle used to call the dispatch functions */
-	pgContext->hWlx = hWlx;
-
-	/* Save window station */
-	pgContext->station = lpWinsta;
-
-	/* Clear status window handle */
-	pgContext->hStatusWindow = 0;
-
-	/* Notify winlogon that we will use the default SAS */
-	pgContext->pWlxFuncs->WlxUseCtrlAltDel(hWlx);
-
-	/* Locates the authentification package */
-	//LsaRegisterLogonProcess(...);
-
-	/* Check autologon settings the first time */
-	pgContext->AutoLogonState = AUTOLOGON_CHECK_REGISTRY;
-
-	ChooseGinaUI();
-	return pGinaUI->Initialize(pgContext);
+  ChooseGinaUI();
+  return pGinaUI->Initialize(pgContext);
 }
 
 /*
@@ -198,60 +188,39 @@ WlxStartApplication(
 	PVOID pEnvironment,
 	PWSTR pszCmdLine)
 {
-	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
-	STARTUPINFOW StartupInfo;
-	PROCESS_INFORMATION ProcessInformation;
-	WCHAR CurrentDirectory[MAX_PATH];
-	HANDLE hAppToken;
-	UINT len;
-	BOOL ret;
-
-	len = GetWindowsDirectoryW(CurrentDirectory, MAX_PATH);
-	if (len == 0 || len > MAX_PATH)
-	{
-		WARN("GetWindowsDirectoryW() failed\n");
-		return FALSE;
-	}
-
-	ret = DuplicateTokenEx(pgContext->UserToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &hAppToken);
-	if (!ret)
-	{
-		WARN("DuplicateTokenEx() failed with error %lu\n", GetLastError());
-		return FALSE;
-	}
-
-	ZeroMemory(&StartupInfo, sizeof(STARTUPINFOW));
-	ZeroMemory(&ProcessInformation, sizeof(PROCESS_INFORMATION));
-	StartupInfo.cb = sizeof(STARTUPINFOW);
-	StartupInfo.lpTitle = pszCmdLine;
-	StartupInfo.dwX = StartupInfo.dwY = StartupInfo.dwXSize = StartupInfo.dwYSize = 0L;
-	StartupInfo.dwFlags = 0;
-	StartupInfo.wShowWindow = SW_SHOW;
-	StartupInfo.lpDesktop = pszDesktopName;
-
-	len = GetWindowsDirectoryW(CurrentDirectory, MAX_PATH);
-	if (len == 0 || len > MAX_PATH)
-	{
-		WARN("GetWindowsDirectoryW() failed\n");
-		return FALSE;
-	}
-	ret = CreateProcessAsUserW(
-		hAppToken,
-		pszCmdLine,
-		NULL,
-		NULL,
-		NULL,
-		FALSE,
-		CREATE_UNICODE_ENVIRONMENT,
-		pEnvironment,
-		CurrentDirectory,
-		&StartupInfo,
-		&ProcessInformation);
-	CloseHandle(hAppToken);
-	if (!ret)
-		WARN("CreateProcessAsUserW() failed with error %lu\n", GetLastError());
-	return ret;
+  PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
+  STARTUPINFOW StartupInfo;
+  PROCESS_INFORMATION ProcessInformation;
+  WCHAR CurrentDirectory[MAX_PATH];
+  BOOL Ret;
+  
+  StartupInfo.cb = sizeof(STARTUPINFOW);
+  StartupInfo.lpReserved = NULL;
+  StartupInfo.lpTitle = pszCmdLine;
+  StartupInfo.dwX = StartupInfo.dwY = StartupInfo.dwXSize = StartupInfo.dwYSize = 0L;
+  StartupInfo.dwFlags = 0;
+  StartupInfo.wShowWindow = SW_SHOW;  
+  StartupInfo.lpReserved2 = NULL;
+  StartupInfo.cbReserved2 = 0;
+  StartupInfo.lpDesktop = pszDesktopName;
+  
+  GetWindowsDirectoryW (CurrentDirectory, MAX_PATH);
+  Ret = CreateProcessAsUserW(pgContext->UserToken,
+                            pszCmdLine,
+                            NULL,
+                            NULL,
+                            NULL,
+                            FALSE,
+                            CREATE_UNICODE_ENVIRONMENT,
+                            pEnvironment,
+                            CurrentDirectory,
+                            &StartupInfo,
+                            &ProcessInformation);
+  
+  //VirtualFree(pEnvironment, 0, MEM_RELEASE);
+  return Ret;
 }
+
 
 /*
  * @implemented
@@ -263,57 +232,37 @@ WlxActivateUserShell(
 	PWSTR pszMprLogonScript,
 	PVOID pEnvironment)
 {
-	HKEY hKey;
-	DWORD BufSize, ValueType;
-	WCHAR pszUserInitApp[MAX_PATH + 1];
-	WCHAR pszExpUserInitApp[MAX_PATH];
-	DWORD len;
-	LONG rc;
-
-	TRACE("WlxActivateUserShell()\n");
-
-	UNREFERENCED_PARAMETER(pszMprLogonScript);
-
-	/* Get the path of userinit */
-	rc = RegOpenKeyExW(
-		HKEY_LOCAL_MACHINE, 
-		L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-		0,
-		KEY_QUERY_VALUE,
-		&hKey);
-	if (rc != ERROR_SUCCESS)
-	{
-		WARN("RegOpenKeyExW() failed with error %lu\n", rc);
-		return FALSE;
-	}
-
-	/* Query userinit application */
-	BufSize = sizeof(pszUserInitApp) - sizeof(UNICODE_NULL);
-	rc = RegQueryValueExW(
-		hKey,
-		L"Userinit",
-		NULL,
-		&ValueType,
-		(LPBYTE)pszUserInitApp,
-		&BufSize);
-	RegCloseKey(hKey);
-	if (rc != ERROR_SUCCESS || (ValueType != REG_SZ && ValueType != REG_EXPAND_SZ))
-	{
-		WARN("RegQueryValueExW() failed with error %lu\n", rc);
-		return FALSE;
-	}
-	pszUserInitApp[MAX_PATH] = UNICODE_NULL;
-
-	len = ExpandEnvironmentStringsW(pszUserInitApp, pszExpUserInitApp, MAX_PATH);
-	if (len > MAX_PATH)
-	{
-		WARN("ExpandEnvironmentStringsW() failed. Required size %lu\n", len);
-		return FALSE;
-	}
-
-	/* Start userinit app */
-	return WlxStartApplication(pWlxContext, pszDesktopName, pEnvironment, pszExpUserInitApp);
+  HKEY hKey;
+  DWORD BufSize, ValueType;
+  WCHAR pszUserInitApp[MAX_PATH];
+  WCHAR pszExpUserInitApp[MAX_PATH];
+  TRACE("WlxActivateUserShell()\n");
+  /* get the path of userinit */
+  if(RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
+                  L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", 
+                  0, KEY_QUERY_VALUE, &hKey) != ERROR_SUCCESS)
+  {ERR("GINA: Failed: 1\n");
+    VirtualFree(pEnvironment, 0, MEM_RELEASE);
+    return FALSE;
+  }
+  BufSize = MAX_PATH * sizeof(WCHAR);
+  if((RegQueryValueExW(hKey, L"Userinit", NULL, &ValueType, (LPBYTE)pszUserInitApp, 
+                     &BufSize) != ERROR_SUCCESS) || 
+                     !((ValueType == REG_SZ) || (ValueType == REG_EXPAND_SZ)))
+  {ERR("GINA: Failed: 2\n");
+    RegCloseKey(hKey);
+    VirtualFree(pEnvironment, 0, MEM_RELEASE);
+    return FALSE;
+  }
+  RegCloseKey(hKey);
+  ExpandEnvironmentStringsW(pszUserInitApp, pszExpUserInitApp, MAX_PATH);
+  
+  /* Start userinit */
+  /* FIXME - allow to start more applications that are comma-separated */
+  /* FIXME: Call VirtualFree(pEnvironment, 0, MEM_RELEASE); ? */
+  return WlxStartApplication(pWlxContext, pszDesktopName, pEnvironment, pszExpUserInitApp);
 }
+
 
 /*
  * @implemented
@@ -328,8 +277,6 @@ WlxLoggedOnSAS(
 	INT SasAction = WLX_SAS_ACTION_NONE;
 
 	TRACE("WlxLoggedOnSAS(0x%lx)\n", dwSasType);
-
-	UNREFERENCED_PARAMETER(pReserved);
 
 	switch (dwSasType)
 	{
@@ -412,49 +359,26 @@ DoLoginTasks(
 	IN PWSTR Domain,
 	IN PWSTR Password)
 {
-	LPWSTR ProfilePath = NULL;
 	TOKEN_STATISTICS Stats;
-	PWLX_PROFILE_V1_0 pProfile = NULL;
-	DWORD cbStats, cbSize;
-	BOOL bResult;
+	DWORD cbStats;
 
 	if (!LogonUserW(UserName, Domain, Password,
-		LOGON32_LOGON_INTERACTIVE,
+		LOGON32_LOGON_INTERACTIVE, /* FIXME - use LOGON32_LOGON_UNLOCK instead! */
 		LOGON32_PROVIDER_DEFAULT,
 		&pgContext->UserToken))
 	{
 		WARN("LogonUserW() failed\n");
-		goto cleanup;
+		return FALSE;
 	}
 
-	/* Get profile path */
-	cbSize = 0;
-	bResult = GetProfilesDirectoryW(NULL, &cbSize);
-	if (!bResult && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+	if (!pgContext->UserToken)
 	{
-		ProfilePath = HeapAlloc(GetProcessHeap(), 0, cbSize * sizeof(WCHAR));
-		if (!ProfilePath)
-		{
-			WARN("HeapAlloc() failed\n");
-			goto cleanup;
-		}
-		bResult = GetProfilesDirectoryW(ProfilePath, &cbSize);
-	}
-	if (!bResult)
-	{
-		WARN("GetUserProfileDirectoryW() failed\n");
-		goto cleanup;
+		WARN("UserToken == NULL!\n");
+		return FALSE;
 	}
 
-	/* Allocate memory for profile */
-	pProfile = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(WLX_PROFILE_V1_0));
-	if (!pProfile)
-	{
-		WARN("HeapAlloc() failed\n");
-		goto cleanup;
-	}
-	pProfile->dwType = WLX_PROFILE_TYPE_V1_0;
-	pProfile->pszProfile = ProfilePath;
+	*pgContext->pdwOptions = 0;
+	*pgContext->pProfile = NULL;
 
 	if (!GetTokenInformation(pgContext->UserToken,
 		TokenStatistics,
@@ -463,21 +387,14 @@ DoLoginTasks(
 		&cbStats))
 	{
 		WARN("Couldn't get Authentication id from user token!\n");
-		goto cleanup;
+		return FALSE;
 	}
 	*pgContext->pAuthenticationId = Stats.AuthenticationId; 
-	pgContext->pMprNotifyInfo->pszUserName = DuplicationString(UserName);
-	pgContext->pMprNotifyInfo->pszDomain = DuplicationString(Domain);
-	pgContext->pMprNotifyInfo->pszPassword = DuplicationString(Password);
-	pgContext->pMprNotifyInfo->pszOldPassword = NULL;
-	*pgContext->pdwOptions = 0;
-	*pgContext->pProfile = pProfile;
+	pgContext->pNprNotifyInfo->pszUserName = DuplicationString(UserName);
+	pgContext->pNprNotifyInfo->pszDomain = DuplicationString(Domain);
+	pgContext->pNprNotifyInfo->pszPassword = DuplicationString(Password);
+	pgContext->pNprNotifyInfo->pszOldPassword = NULL;
 	return TRUE;
-
-cleanup:
-	HeapFree(GetProcessHeap(), 0, pProfile);
-	HeapFree(GetProcessHeap(), 0, ProfilePath);
-	return FALSE;
 }
 
 static BOOL
@@ -616,7 +533,7 @@ WlxLoggedOutSAS(
 	IN OUT PSID pLogonSid,
 	OUT PDWORD pdwOptions,
 	OUT PHANDLE phToken,
-	OUT PWLX_MPR_NOTIFY_INFO pMprNotifyInfo,
+	OUT PWLX_MPR_NOTIFY_INFO pNprNotifyInfo,
 	OUT PVOID *pProfile)
 {
 	PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
@@ -624,15 +541,12 @@ WlxLoggedOutSAS(
 
 	TRACE("WlxLoggedOutSAS()\n");
 
-	UNREFERENCED_PARAMETER(dwSasType);
-	UNREFERENCED_PARAMETER(pLogonSid);
-
 	pgContext->pAuthenticationId = pAuthenticationId;
 	pgContext->pdwOptions = pdwOptions;
-	pgContext->pMprNotifyInfo = pMprNotifyInfo;
+	pgContext->pNprNotifyInfo = pNprNotifyInfo;
 	pgContext->pProfile = pProfile;
 
-	if (0 == GetSystemMetrics(SM_REMOTESESSION) &&
+	if (!GetSystemMetrics(SM_REMOTESESSION) &&
 	    DoAutoLogon(pgContext))
 	{
 		/* User is local and registry contains information
@@ -658,8 +572,6 @@ WlxWkstaLockedSAS(
 
 	TRACE("WlxWkstaLockedSAS()\n");
 
-	UNREFERENCED_PARAMETER(dwSasType);
-
 	return pGinaUI->LockedSAS(pgContext);
 }
 
@@ -669,8 +581,6 @@ DllMain(
 	IN DWORD dwReason,
 	IN LPVOID lpvReserved)
 {
-	UNREFERENCED_PARAMETER(lpvReserved);
-
 	if (dwReason == DLL_PROCESS_ATTACH)
 		hDllInstance = hinstDLL;
 

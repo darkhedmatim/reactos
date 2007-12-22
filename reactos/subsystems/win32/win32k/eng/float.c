@@ -35,7 +35,6 @@
 
 /* DEFINES *****************************************************************/
 
-#ifdef _M_IX86
 #ifdef __GNUC__
 #define FLOAT_TO_INT(in,out)  \
            __asm__ __volatile__ ("fistpl %0" : "=m" (out) : "t" (in) : "st");
@@ -43,10 +42,6 @@
 #define FLOAT_TO_INT(in,out) \
           __asm fld in \
           __asm fistp out
-#endif
-#else
-#define FLOAT_TO_INT(in,out)  \
-          out = (long)in;
 #endif
 
 /* the following deal with IEEE single-precision numbers */
@@ -56,7 +51,7 @@
 #define EXP(fp)         (((fp) >> 23L) & 0xFF)
 #define MANT(fp)        ((fp) & 0x7FFFFFL)
 #define PACK(s,e,m)     ((s) | ((e) << 23L) | (m))
-
+ 
 /* FUNCTIONS *****************************************************************/
 
 BOOL
@@ -144,14 +139,14 @@ FtoEF( EFLOAT_S * efp, FLOATL f)
 #endif
 
  Exp = EXP(worker.l);
- Mant = MANT(worker.l);
+ Mant = MANT(worker.l); 
  if (SIGN(worker.l)) Sign = -1;
 //// M$ storage emulation
  Mant = ((Mant << 7) | 0x40000000);
- Mant ^= Sign;
+ Mant ^= Sign; 
  Mant -= Sign;
  Exp -= (EXCESS-1);
-////
+//// 
  efp->lMant = Mant;
  efp->lExp = Exp;
 }
@@ -175,7 +170,7 @@ FLOATOBJ_Add (
   FtoEF( efp, f.l );
 #else
   FtoEF( efp, f.f );
-#endif
+#endif 
 }
 
 VOID
@@ -202,43 +197,6 @@ FLOATOBJ_AddFloat(
   FtoEF( efp, fe.f );
 #endif
 }
-
-VOID FASTCALL
-XForm2MatrixS( MATRIX_S * Matrix, PXFORM XForm)
-{
-gxf_long f;
-  f.f = XForm->eM11;
-  FtoEF( &Matrix->efM11, f.l);
-  f.f = XForm->eM12;
-  FtoEF( &Matrix->efM12, f.l);
-  f.f = XForm->eM21;
-  FtoEF( &Matrix->efM21, f.l);
-  f.f = XForm->eM22;
-  FtoEF( &Matrix->efM22, f.l);
-  f.f = XForm->eDx;
-  FtoEF( &Matrix->efDx, f.l);
-  f.f = XForm->eDy;
-  FtoEF( &Matrix->efDy, f.l);
-}
-
-VOID FASTCALL
-MatrixS2XForm( PXFORM XForm, MATRIX_S * Matrix)
-{
-gxf_long f;
-  f.l =  EFtoF(&Matrix->efM11);
-  XForm->eM11 = f.f;
-  f.l =  EFtoF(&Matrix->efM12);
-  XForm->eM12 = f.f;
-  f.l =  EFtoF(&Matrix->efM21);
-  XForm->eM21 = f.f;
-  f.l =  EFtoF(&Matrix->efM22);
-  XForm->eM22 = f.f;
-  f.l =  EFtoF(&Matrix->efDx);
-  XForm->eDx = f.f;
-  f.l =  EFtoF(&Matrix->efDy);
-  XForm->eDy = f.f;
-}
-
 
 VOID
 STDCALL
@@ -278,7 +236,7 @@ FLOATOBJ_Div(
   FtoEF( efp, f.l );
 #else
   FtoEF( efp, f.f );
-#endif
+#endif 
 }
 
 VOID
@@ -339,7 +297,7 @@ FLOATOBJ_Equal(
   gxf_long f1;
   f.l = EFtoF(efp);
   f1.l = EFtoF(efp1);
-  if (f.f == f1.f) return TRUE;
+  if (f.f == f1.f) return TRUE;            
   return FALSE;
 }
 
@@ -354,7 +312,7 @@ FLOATOBJ_EqualLong(
   EFLOAT_S * efp = (EFLOAT_S *)pf;
   gxf_long f;
   f.l = EFtoF(efp);
-  if (f.f == l) return TRUE;
+  if (f.f == l) return TRUE;            
   return FALSE;
 }
 
@@ -375,10 +333,10 @@ FLOATOBJ_GetLong ( IN PFLOATOBJ pf )
   EFLOAT_S * efp = (EFLOAT_S *)pf;
   gxf_long f;
   long l;
-
+   
   f.l = EFtoF( efp );
   FLOAT_TO_INT(f.f, l); // Let FPP handle it the fasty haxy way.
-
+     
   return l;
 }
 
@@ -396,7 +354,7 @@ FLOATOBJ_GreaterThan(
   gxf_long f1;
   f.l = EFtoF(efp);
   f1.l = EFtoF(efp1);
-  if(f.f > f1.f) return TRUE;
+  if(f.f > f1.f) return TRUE;            
   return FALSE;
 }
 
@@ -411,7 +369,7 @@ FLOATOBJ_GreaterThanLong(
   EFLOAT_S * efp = (EFLOAT_S *)pf;
   gxf_long f;
   f.l = EFtoF(efp);
-  if (f.f > l) return TRUE;
+  if (f.f > l) return TRUE;            
   return FALSE;
 }
 
@@ -429,7 +387,7 @@ FLOATOBJ_LessThan(
   gxf_long f1;
   f.l = EFtoF(efp);
   f1.l = EFtoF(efp1);
-  if(f.f < f1.f) return TRUE;
+  if(f.f < f1.f) return TRUE;            
   return FALSE;
 }
 
@@ -444,7 +402,7 @@ FLOATOBJ_LessThanLong(
   EFLOAT_S * efp = (EFLOAT_S *)pf;
   gxf_long f;
   f.l = EFtoF(efp);
-  if (f.f < l) return TRUE;
+  if (f.f < l) return TRUE;            
   return FALSE;
 }
 
@@ -467,7 +425,7 @@ FLOATOBJ_Mul(
   FtoEF( efp, f.l );
 #else
   FtoEF( efp, f.f );
-#endif
+#endif 
 }
 
 VOID
@@ -550,7 +508,7 @@ FLOATOBJ_SetLong(
   FtoEF( efp, f.l );
 #else
   FtoEF( efp, f.f );
-#endif
+#endif       
 }
 
 VOID
@@ -572,7 +530,7 @@ FLOATOBJ_Sub(
   FtoEF( efp, f.l );
 #else
   FtoEF( efp, f.f );
-#endif
+#endif 
 }
 
 VOID

@@ -9,6 +9,9 @@
  *
  */
 
+/* Define only if used under ReactOS */
+#define __REACTOS__
+
 #ifndef _CONFIG_H_INCLUDED_
 #define _CONFIG_H_INCLUDED_
 
@@ -76,7 +79,6 @@
 #define INCLUDE_CMD_PROMPT
 #define INCLUDE_CMD_RMDIR
 #define INCLUDE_CMD_RENAME
-#define INCLUDE_CMD_REPLACE
 #define INCLUDE_CMD_SCREEN
 #define INCLUDE_CMD_SET
 #define INCLUDE_CMD_START

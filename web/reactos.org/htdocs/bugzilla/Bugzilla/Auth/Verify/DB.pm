@@ -28,51 +28,97 @@
 #                 Erik Stambaugh <erik@dasbistro.com>
 
 package Bugzilla::Auth::Verify::DB;
-use strict;
-use base qw(Bugzilla::Auth::Verify);
 
+use strict;
+
+use Bugzilla::Config;
 use Bugzilla::Constants;
-use Bugzilla::Token;
 use Bugzilla::Util;
 use Bugzilla::User;
 
-sub check_credentials {
-    my ($self, $login_data) = @_;
-    my $dbh = Bugzilla->dbh;
+my $edit_options = {
+    'new' => 1,
+    'userid' => 0,
+    'login_name' => 1,
+    'realname' => 1,
+};
 
-    my $username = $login_data->{username};
-    my $user_id  = login_to_id($username);
+sub can_edit {
+    my ($class, $type) = @_;
+    return $edit_options->{$type};
+}
 
-    return { failure => AUTH_NO_SUCH_USER } unless $user_id;
+sub authenticate {
+    my ($class, $username, $passwd) = @_;
 
-    $login_data->{bz_username} = $username;
-    my $password = $login_data->{password};
+    return (AUTH_NODATA) unless defined $username && defined $passwd;
 
-    trick_taint($username);
-    my ($real_password_crypted) = $dbh->selectrow_array(
-        "SELECT cryptpassword FROM profiles WHERE userid = ?",
-        undef, $user_id);
+    my $userid = Bugzilla::User::login_to_id($username);
+    return (AUTH_LOGINFAILED) unless $userid;
 
-    # Using the internal crypted password as the salt,
-    # crypt the password the user entered.
-    my $entered_password_crypted = crypt($password, $real_password_crypted);
- 
-    return { failure => AUTH_LOGINFAILED }
-        if $entered_password_crypted ne $real_password_crypted;
+    return (AUTH_LOGINFAILED, $userid) 
+        unless $class->check_password($userid, $passwd);
 
     # The user's credentials are okay, so delete any outstanding
     # password tokens they may have generated.
-    Bugzilla::Token::DeletePasswordTokens($user_id, "user_logged_in");
+    require Bugzilla::Token;
+    Bugzilla::Token::DeletePasswordTokens($userid, "user_logged_in");
 
-    return $login_data;
+    # Account may have been disabled
+    my $disabledtext = $class->get_disabled($userid);
+    return (AUTH_DISABLED, $userid, $disabledtext)
+      if $disabledtext ne '';
+
+    return (AUTH_OK, $userid);
+}
+
+sub get_disabled {
+    my ($class, $userid) = @_;
+    my $dbh = Bugzilla->dbh;
+    my $sth = $dbh->prepare_cached("SELECT disabledtext FROM profiles " .
+                                   "WHERE userid=?");
+    my ($text) = $dbh->selectrow_array($sth, undef, $userid);
+    return $text;
+}
+
+sub check_password {
+    my ($class, $userid, $passwd) = @_;
+    my $dbh = Bugzilla->dbh;
+    my $sth = $dbh->prepare_cached("SELECT cryptpassword FROM profiles " .
+                                   "WHERE userid=?");
+    my ($realcryptpwd) = $dbh->selectrow_array($sth, undef, $userid);
+
+    # Get the salt from the user's crypted password.
+    my $salt = $realcryptpwd;
+
+    # Using the salt, crypt the password the user entered.
+    my $enteredCryptedPassword = crypt($passwd, $salt);
+
+    return $enteredCryptedPassword eq $realcryptpwd;
 }
 
 sub change_password {
-    my ($self, $user, $password) = @_;
+    my ($class, $userid, $password) = @_;
     my $dbh = Bugzilla->dbh;
     my $cryptpassword = bz_crypt($password);
-    $dbh->do("UPDATE profiles SET cryptpassword = ? WHERE userid = ?",
-             undef, $cryptpassword, $user->id);
+    $dbh->do("UPDATE profiles SET cryptpassword = ? WHERE userid = ?", 
+             undef, $cryptpassword, $userid);
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Bugzilla::Auth::Verify::DB - database authentication for Bugzilla
+
+=head1 SUMMARY
+
+This is an L<authentication module|Bugzilla::Auth/"AUTHENTICATION"> for
+Bugzilla, which logs the user in using the password stored in the C<profiles>
+table. This is the most commonly used authentication module.
+
+=head1 SEE ALSO
+
+L<Bugzilla::Auth>

@@ -1,8 +1,7 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="freeldr_base64k" type="objectlibrary">
 	<include base="freeldr_base64k">include</include>
 	<include base="ntoskrnl">include</include>
+	<define name="__USE_W32API" />
 	<define name="_NTHAL_" />
 	<compilerflag>-ffreestanding</compilerflag>
 	<compilerflag>-fno-builtin</compilerflag>

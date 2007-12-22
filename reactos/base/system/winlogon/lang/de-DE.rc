@@ -1,6 +1,6 @@
 //German translation by Michael Wirth
 
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 
 IDD_SHUTDOWNCOMPUTER DIALOG  45, 22, 164, 52
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
@@ -31,11 +31,11 @@ BEGIN
     IDS_APPLYINGYOURPERSONALSETTINGS "Ihre persönlichen Einstellungen setzen..."
     IDS_RUNNINGLOGOFFSCRIPTS "Skripte um abzumelden ausführen..."
     IDS_RUNNINGLOGONSCRIPTS "Skripte um anzumelden ausführen..."
-    IDS_LOADINGYOURPERSONALSETTINGS "Ihre persönlichen Einstellungen laden..."
+    IDS_LOADINGYOURPERSONALSETTINGS "Ihr persönlichen Einstellungen laden..."
     IDS_CLOSINGNETWORKCONNECTIONS "Netzwerkverbindungen schliessen..."
     IDS_REACTOSISSHUTTINGDOWN "ReactOS fährt herunter..."
     IDS_PREPARETOSTANDBY "Vorbereiten für den StandBy Modus..."
-    IDS_PREPARETOHIBERNATE "Vorbereiten für den Ruhezustand..."
+    IDS_PREPARETOHIBERNATE "Vorbereiten für den Nachtmodus..."
     IDS_SAVEYOURSETTINGS "Speichern Ihrer persönlichen Einstellungen..."
     IDS_REACTOSISSTARTINGUP "ReactOS startet..."
 END

@@ -290,7 +290,7 @@ AfdDisconnect(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			    FCB->AddressFrom,
 			    ConnInfo);
 
-    if (ConnInfo) ExFreePool( ConnInfo );
+    ExFreePool( ConnInfo );
 
     return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, TRUE );
 }

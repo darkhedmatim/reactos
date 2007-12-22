@@ -17,7 +17,7 @@
 
 LIST_ENTRY HandleTableListHead;
 EX_PUSH_LOCK HandleTableListLock;
-#define SizeOfHandle(x) (sizeof(HANDLE) * x)
+#define SizeOfHandle(x) sizeof(HANDLE) * x
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -1120,9 +1120,6 @@ ExDupHandleTable(IN PEPROCESS Process,
                                            HandleTableEntry,
                                            NewEntry))
                     {
-                        /* Clear failure flag */
-                        Failed = FALSE;
-
                         /* Lock the entry, increase the handle count */
                         NewEntry->Value |= EXHANDLE_TABLE_ENTRY_LOCK_BIT;
                         NewTable->HandleCount++;

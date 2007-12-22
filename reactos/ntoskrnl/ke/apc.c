@@ -499,7 +499,7 @@ KiMoveApcState(PKAPC_STATE OldState,
                PKAPC_STATE NewState)
 {
     /* Restore backup of Original Environment */
-    RtlCopyMemory(NewState, OldState, KAPC_STATE_ACTUAL_LENGTH);
+    *NewState = *OldState;
 
     /* Repair Lists */
     RepairList(NewState->ApcListHead, OldState->ApcListHead, KernelMode);

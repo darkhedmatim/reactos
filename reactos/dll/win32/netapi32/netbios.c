@@ -12,7 +12,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include "config.h"
 #include "wine/debug.h"
@@ -104,7 +104,6 @@ void NetBIOSInit(void)
 {
     memset(&gNBTable, 0, sizeof(gNBTable));
     InitializeCriticalSection(&gNBTable.cs);
-    gNBTable.cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": NetBIOSAdapterTable.cs");
 }
 
 void NetBIOSShutdown(void)
@@ -123,7 +122,6 @@ void NetBIOSShutdown(void)
         if (gTransports[i].transport.cleanup)
             gTransports[i].transport.cleanup();
     LeaveCriticalSection(&gNBTable.cs);
-    gNBTable.cs.DebugInfo->Spare[0] = 0;
     DeleteCriticalSection(&gNBTable.cs);
     HeapFree(GetProcessHeap(), 0, gNBTable.table);
 }
@@ -132,12 +130,13 @@ BOOL NetBIOSRegisterTransport(ULONG id, NetBIOSTransport *transport)
 {
     BOOL ret;
 
-    TRACE(": transport 0x%08x, p %p\n", id, transport);
+    TRACE(": transport 0x%08lx, p %p\n", id, transport);
     if (!transport)
         ret = FALSE;
     else if (gNumTransports >= sizeof(gTransports) / sizeof(gTransports[0]))
     {
-        FIXME("Too many transports %d\n", gNumTransports + 1);
+        FIXME("You tried to add %d transports, but I only have space for %d\n",
+         gNumTransports + 1, sizeof(gTransports) / sizeof(gTransports[0]));
         ret = FALSE;
     }
     else
@@ -149,7 +148,7 @@ BOOL NetBIOSRegisterTransport(ULONG id, NetBIOSTransport *transport)
         {
             if (gTransports[i].id == id)
             {
-                WARN("Replacing NetBIOS transport ID %d\n", id);
+                WARN("Replacing NetBIOS transport ID %ld\n", id);
                 memcpy(&gTransports[i].transport, transport,
                  sizeof(NetBIOSTransport));
                 ret = TRUE;
@@ -177,15 +176,15 @@ BOOL NetBIOSRegisterAdapter(ULONG transport, DWORD ifIndex, void *data)
     BOOL ret;
     UCHAR i;
 
-    TRACE(": transport 0x%08x, ifIndex 0x%08x, data %p\n", transport, ifIndex,
+    TRACE(": transport 0x%08lx, ifIndex 0x%08lx, data %p\n", transport, ifIndex,
      data);
     for (i = 0; i < gNumTransports && gTransports[i].id != transport; i++)
         ;
-    if ((i < gNumTransports) && gTransports[i].id == transport)
+    if (gTransports[i].id == transport)
     {
         NetBIOSTransport *transportPtr = &gTransports[i].transport;
 
-        TRACE(": found transport %p for id 0x%08x\n", transportPtr, transport);
+        TRACE(": found transport %p for id 0x%08lx\n", transportPtr, transport);
 
         EnterCriticalSection(&gNBTable.cs);
         ret = FALSE;
@@ -212,7 +211,6 @@ BOOL NetBIOSRegisterAdapter(ULONG transport, DWORD ifIndex, void *data)
             gNBTable.table[i].impl.data = data;
             gNBTable.table[i].cmdQueue = NBCmdQueueCreate(GetProcessHeap());
             InitializeCriticalSection(&gNBTable.table[i].cs);
-            gNBTable.table[i].cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": NetBIOSAdapterTable.NetBIOSAdapter.cs");
             gNBTable.table[i].enabled = TRUE;
             ret = TRUE;
         }
@@ -249,7 +247,6 @@ static void nbShutdownAdapter(NetBIOSAdapter *adapter)
         if (adapter->transport->cleanupAdapter)
             adapter->transport->cleanupAdapter(adapter->impl.data);
         NBCmdQueueDestroy(adapter->cmdQueue);
-        adapter->cs.DebugInfo->Spare[0] = 0;
         DeleteCriticalSection(&adapter->cs);
         memset(adapter, 0, sizeof(NetBIOSAdapter));
     }
@@ -296,7 +293,7 @@ UCHAR NetBIOSNumAdapters(void)
 void NetBIOSEnumAdapters(ULONG transport, NetBIOSEnumAdaptersCallback cb,
  void *closure)
 {
-    TRACE("transport 0x%08x, callback %p, closure %p\n", transport, cb,
+    TRACE("transport 0x%08lx, callback %p, closure %p\n", transport, cb,
      closure);
     if (cb)
     {
@@ -640,7 +637,7 @@ static UCHAR nbInternalHangup(NetBIOSAdapter *adapter, NetBIOSSession *session)
     return NRC_GOODRET;
 }
 
-static UCHAR nbHangup(NetBIOSAdapter *adapter, const NCB *ncb)
+static UCHAR nbHangup(NetBIOSAdapter *adapter, PNCB ncb)
 {
     UCHAR ret;
     NetBIOSSession *session;
@@ -661,7 +658,7 @@ static UCHAR nbHangup(NetBIOSAdapter *adapter, const NCB *ncb)
     return ret;
 }
 
-void NetBIOSHangupSession(const NCB *ncb)
+void NetBIOSHangupSession(PNCB ncb)
 {
     NetBIOSAdapter *adapter;
 
@@ -798,7 +795,7 @@ UCHAR WINAPI Netbios(PNCB ncb)
         ncb->ncb_retcode = ncb->ncb_cmd_cplt = ret = nbEnum(ncb);
     else if (cmd == NCBADDNAME)
     {
-        FIXME("NCBADDNAME: stub, returning success\n");
+        FIXME("NCBADDNAME: stub, returning success");
         ncb->ncb_retcode = ncb->ncb_cmd_cplt = ret = NRC_GOODRET;
     }
     else

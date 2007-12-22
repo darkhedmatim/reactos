@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.2
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,9 +35,6 @@
 #include "s_span.h"
 
 
-/* XXX this would have to change for accum buffers with more or less
- * than 16 bits per color channel.
- */
 #define ACCUM_SCALE16 32767.0
 
 
@@ -65,7 +62,7 @@
  */
 
 
-#if CHAN_BITS == 8
+#if CHAN_BITS == 8 && ACCUM_BITS <= 32
 /* enable the optimization */
 #define USE_OPTIMIZED_ACCUM  1
 #else
@@ -136,9 +133,7 @@ _swrast_clear_accum_buffer( GLcontext *ctx, struct gl_renderbuffer *rb )
       return;
    }
 
-   if (!rb || !rb->Data)
-      return;
-
+   assert(rb);
    assert(rb->_BaseFormat == GL_RGBA);
    /* add other types in future? */
    assert(rb->DataType == GL_SHORT || rb->DataType == GL_UNSIGNED_SHORT);
@@ -291,6 +286,8 @@ accum_accum(GLcontext *ctx, GLfloat value,
    if (swrast->_IntegerAccumMode && value != swrast->_IntegerAccumScaler)
       rescale_accum(ctx);
 
+   _swrast_use_read_buffer(ctx);
+
    if (rb->DataType == GL_SHORT || rb->DataType == GL_UNSIGNED_SHORT) {
       const GLfloat scale = value * ACCUM_SCALE16 / CHAN_MAXF;
       GLshort accumRow[4 * MAX_WIDTH];
@@ -309,7 +306,7 @@ accum_accum(GLcontext *ctx, GLfloat value,
 
          /* read colors from color buffer */
          _swrast_read_rgba_span(ctx, ctx->ReadBuffer->_ColorReadBuffer, width,
-                                xpos, ypos + i, CHAN_TYPE, rgba);
+                                xpos, ypos + i, rgba);
 
          /* do accumulation */
          if (swrast->_IntegerAccumMode) {
@@ -341,6 +338,8 @@ accum_accum(GLcontext *ctx, GLfloat value,
    else {
       /* other types someday */
    }
+
+   _swrast_use_draw_buffer(ctx);
 }
 
 
@@ -375,6 +374,8 @@ accum_load(GLcontext *ctx, GLfloat value,
       swrast->_IntegerAccumScaler = 0.0;
    }
 
+   _swrast_use_read_buffer(ctx);
+
    if (rb->DataType == GL_SHORT || rb->DataType == GL_UNSIGNED_SHORT) {
       const GLfloat scale = value * ACCUM_SCALE16 / CHAN_MAXF;
       GLshort accumRow[4 * MAX_WIDTH];
@@ -393,7 +394,7 @@ accum_load(GLcontext *ctx, GLfloat value,
 
          /* read colors from color buffer */
          _swrast_read_rgba_span(ctx, ctx->ReadBuffer->_ColorReadBuffer, width,
-                                xpos, ypos + i, CHAN_TYPE, rgba);
+                                xpos, ypos + i, rgba);
 
          /* do load */
          if (swrast->_IntegerAccumMode) {
@@ -424,6 +425,11 @@ accum_load(GLcontext *ctx, GLfloat value,
          }
       }
    }
+   else {
+      /* other types someday */
+   }
+
+   _swrast_use_draw_buffer(ctx);
 }
 
 
@@ -464,19 +470,13 @@ accum_return(GLcontext *ctx, GLfloat value,
    if (accumRb->DataType == GL_SHORT ||
        accumRb->DataType == GL_UNSIGNED_SHORT) {
       const GLfloat scale = value * CHAN_MAXF / ACCUM_SCALE16;
-      GLuint buffer;
-      GLint i;
+      GLuint buffer, i;
 
       /* XXX maybe transpose the 'i' and 'buffer' loops??? */
       for (i = 0; i < height; i++) {
+         GLchan rgba[MAX_WIDTH][4];
          GLshort accumRow[4 * MAX_WIDTH];
          GLshort *acc;
-         SWspan span;
-
-         /* init color span */
-         INIT_SPAN(span, GL_BITMAP, width, 0, SPAN_RGBA);
-         span.x = xpos;
-         span.y = ypos + i;
 
          if (directAccess) {
             acc = (GLshort *) accumRb->GetPointer(ctx, accumRb, xpos, ypos +i);
@@ -494,31 +494,24 @@ accum_return(GLcontext *ctx, GLfloat value,
                ASSERT(acc[j * 4 + 1] < max);
                ASSERT(acc[j * 4 + 2] < max);
                ASSERT(acc[j * 4 + 3] < max);
-               span.array->rgba[j][RCOMP] = multTable[acc[j * 4 + 0]];
-               span.array->rgba[j][GCOMP] = multTable[acc[j * 4 + 1]];
-               span.array->rgba[j][BCOMP] = multTable[acc[j * 4 + 2]];
-               span.array->rgba[j][ACOMP] = multTable[acc[j * 4 + 3]];
+               rgba[j][RCOMP] = multTable[acc[j * 4 + 0]];
+               rgba[j][GCOMP] = multTable[acc[j * 4 + 1]];
+               rgba[j][BCOMP] = multTable[acc[j * 4 + 2]];
+               rgba[j][ACOMP] = multTable[acc[j * 4 + 3]];
             }
          }
          else {
             /* scaled integer (or float) accum buffer */
             GLint j;
             for (j = 0; j < width; j++) {
-#if CHAN_BITS==32
-               GLchan r = acc[j * 4 + 0] * scale;
-               GLchan g = acc[j * 4 + 1] * scale;
-               GLchan b = acc[j * 4 + 2] * scale;
-               GLchan a = acc[j * 4 + 3] * scale;
-#else
                GLint r = IROUND( (GLfloat) (acc[j * 4 + 0]) * scale );
                GLint g = IROUND( (GLfloat) (acc[j * 4 + 1]) * scale );
                GLint b = IROUND( (GLfloat) (acc[j * 4 + 2]) * scale );
                GLint a = IROUND( (GLfloat) (acc[j * 4 + 3]) * scale );
-#endif
-               span.array->rgba[j][RCOMP] = CLAMP( r, 0, CHAN_MAX );
-               span.array->rgba[j][GCOMP] = CLAMP( g, 0, CHAN_MAX );
-               span.array->rgba[j][BCOMP] = CLAMP( b, 0, CHAN_MAX );
-               span.array->rgba[j][ACOMP] = CLAMP( a, 0, CHAN_MAX );
+               rgba[j][RCOMP] = CLAMP( r, 0, CHAN_MAX );
+               rgba[j][GCOMP] = CLAMP( g, 0, CHAN_MAX );
+               rgba[j][BCOMP] = CLAMP( b, 0, CHAN_MAX );
+               rgba[j][ACOMP] = CLAMP( a, 0, CHAN_MAX );
             }
          }
 
@@ -526,9 +519,9 @@ accum_return(GLcontext *ctx, GLfloat value,
          for (buffer = 0; buffer < fb->_NumColorDrawBuffers[0]; buffer++) {
             struct gl_renderbuffer *rb = fb->_ColorDrawBuffers[0][buffer];
             if (masking) {
-               _swrast_mask_rgba_span(ctx, rb, &span);
+               _swrast_mask_rgba_array(ctx, rb, width, xpos, ypos + i, rgba);
             }
-            rb->PutRow(ctx, rb, width, xpos, ypos + i, span.array->rgba, NULL);
+            rb->PutRow(ctx, rb, width, xpos, ypos + i, rgba, NULL);
          }
       }
    }
@@ -543,10 +536,12 @@ accum_return(GLcontext *ctx, GLfloat value,
  * Software fallback for glAccum.
  */
 void
-_swrast_Accum(GLcontext *ctx, GLenum op, GLfloat value)
+_swrast_Accum( GLcontext *ctx, GLenum op, GLfloat value,
+	       GLint xpos, GLint ypos,
+	       GLint width, GLint height )
+
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   GLint xpos, ypos, width, height;
 
    if (SWRAST_CONTEXT(ctx)->NewState)
       _swrast_validate_derived( ctx );
@@ -557,14 +552,6 @@ _swrast_Accum(GLcontext *ctx, GLenum op, GLfloat value)
    }
 
    RENDER_START(swrast, ctx);
-
-   /* Compute region after calling RENDER_START so that we know the
-    * drawbuffer's size/bounds are up to date.
-    */
-   xpos = ctx->DrawBuffer->_Xmin;
-   ypos = ctx->DrawBuffer->_Ymin;
-   width =  ctx->DrawBuffer->_Xmax - ctx->DrawBuffer->_Xmin;
-   height = ctx->DrawBuffer->_Ymax - ctx->DrawBuffer->_Ymin;
 
    switch (op) {
       case GL_ADD:

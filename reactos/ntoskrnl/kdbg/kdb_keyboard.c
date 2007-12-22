@@ -49,7 +49,7 @@ static unsigned char keyb_layout[2][128] =
 	"\r\000/"					/* 0x60 - 0x6f */
 };
 
-typedef UCHAR byte_t;
+typedef BYTE byte_t;
 
 VOID KbdEnableMouse()
 {
@@ -62,7 +62,7 @@ VOID KbdDisableMouse()
 }
 
 CHAR
-KdbpTryGetCharKeyboard(PULONG ScanCode, ULONG Retry)
+KdbpTryGetCharKeyboard(PULONG ScanCode, UINT Retry)
 {
     static byte_t last_key = 0;
     static byte_t shift = 0;

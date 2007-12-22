@@ -114,6 +114,13 @@ int              check_arp( struct interface_info *ip, struct client_lease *lp )
 
 time_t	scripttime;
 
+/* XXX Added this since it's not in the NDK ;0/ */
+ULONG
+NTAPI
+RtlRandom(
+  IN OUT PULONG  Seed
+  );
+
 /* XXX Implement me */
 int check_arp( struct interface_info *ip, struct client_lease *lp ) {
     return 1;
@@ -433,7 +440,7 @@ dhcpack(struct packet *packet)
 		ip->client->new->rebind = ip->client->new->renewal +
 		    ip->client->new->renewal / 2 + ip->client->new->renewal / 4;
 
-#ifdef __REACTOS__
+#ifdef _REACTOS_
 	ip->client->new->obtained = cur_time;
 #endif
 	ip->client->new->expiry += cur_time;
@@ -825,7 +832,7 @@ packet_to_lease(struct packet *packet)
 
 	lease->address.len = sizeof(packet->raw->yiaddr);
 	memcpy(lease->address.iabuf, &packet->raw->yiaddr, lease->address.len);
-#ifdef __REACTOS__
+#ifdef _REACTOS_
 	lease->serveraddress.len = sizeof(packet->raw->siaddr);
 	memcpy(lease->serveraddress.iabuf, &packet->raw->siaddr, lease->address.len);
 #endif

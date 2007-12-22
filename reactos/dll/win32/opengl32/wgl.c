@@ -122,7 +122,7 @@ ROSGL_RemoveContext( GLRC *glrc )
  */
 static
 GLRC *
-ROSGL_NewContext(void)
+ROSGL_NewContext()
 {
 	GLRC *glrc;
 
@@ -134,51 +134,6 @@ ROSGL_NewContext(void)
 	ROSGL_AppendContext( glrc );
 
 	return glrc;
-}
-
-/*! \brief Delete all GLDCDATA with this IDC
- *
- * \param icd [IN] Pointer to a ICD
- */
-static
-VOID
-ROSGL_DeleteDCDataForICD( GLDRIVERDATA *icd )
-{
-	GLDCDATA *p, **pptr;
-
-	/* synchronize */
-	if (WaitForSingleObject( OPENGL32_processdata.dcdata_mutex, INFINITE ) ==
-	    WAIT_FAILED)
-	{
-		DBGPRINT( "Error: WaitForSingleObject() failed (%d)", GetLastError() );
-		return;
-	}
-
-	p = OPENGL32_processdata.dcdata_list;
-	pptr = &OPENGL32_processdata.dcdata_list;
-	while (p != NULL)
-	{
-		if (p->icd == icd)
-		{
-			*pptr = p->next;
-			OPENGL32_UnloadICD( p->icd );
-
-			if (!HeapFree( GetProcessHeap(), 0, p ))
-				DBGPRINT( "Warning: HeapFree() on GLDCDATA failed (%d)",
-				          GetLastError() );
-
-			p = *pptr;
-		}
-		else
-		{
-			pptr = &p->next;
-			p = p->next;
-		}
-	}
-
-	/* release mutex */
-	if (!ReleaseMutex( OPENGL32_processdata.dcdata_mutex ))
-		DBGPRINT( "Error: ReleaseMutex() failed (%d)", GetLastError() );
 }
 
 
@@ -195,7 +150,7 @@ ROSGL_DeleteContext( GLRC *glrc )
 {
 	/* unload icd */
 	if (glrc->icd != NULL)
-		ROSGL_DeleteDCDataForICD( glrc->icd );
+		OPENGL32_UnloadICD( glrc->icd );
 
 	/* remove from list */
 	ROSGL_RemoveContext( glrc );
@@ -339,7 +294,6 @@ GLDRIVERDATA *
 ROSGL_ICDForHDC( HDC hdc )
 {
 	GLDCDATA *dcdata;
-	GLDRIVERDATA *drvdata;
 
 	dcdata = ROSGL_GetPrivateDCData( hdc );
 	if (dcdata == NULL)
@@ -349,9 +303,6 @@ ROSGL_ICDForHDC( HDC hdc )
 	{
 		LPCWSTR driverName;
 		OPENGL_INFO info;
-
-		/* NOTE: This might be done by multiple threads simultaneously, but only the fastest
-		         actually gets to set the ICD! */
 
 		driverName = _wgetenv( L"OPENGL32_DRIVER" );
 		if (driverName == NULL)
@@ -385,7 +336,7 @@ ROSGL_ICDForHDC( HDC hdc )
 				}
 
 				/* open registry key */
-				ret = RegOpenKeyExW( HKEY_LOCAL_MACHINE, OPENGL_DRIVERS_SUBKEY, 0, KEY_QUERY_VALUE, &hKey );
+				ret = RegOpenKeyExW( HKEY_LOCAL_MACHINE, OPENGL_DRIVERS_SUBKEY, 0, KEY_READ, &hKey );
 				if (ret != ERROR_SUCCESS)
 				{
 					DBGPRINT( "Error: Couldn't open registry key '%ws'", OPENGL_DRIVERS_SUBKEY );
@@ -410,8 +361,8 @@ ROSGL_ICDForHDC( HDC hdc )
 			wcsncpy( info.DriverName, driverName, sizeof (info.DriverName) / sizeof (info.DriverName[0]) );
 		}
 		/* load driver (or get a reference) */
-		drvdata = OPENGL32_LoadICD( info.DriverName );
-		if (drvdata == NULL)
+		dcdata->icd = OPENGL32_LoadICD( info.DriverName );
+		if (dcdata->icd == NULL)
 		{
 			WCHAR Buffer[256];
 			snwprintf(Buffer, sizeof(Buffer)/sizeof(WCHAR),
@@ -419,17 +370,6 @@ ROSGL_ICDForHDC( HDC hdc )
 			MessageBox(WindowFromDC( hdc ), Buffer,
 			           L"OPENGL32.dll: Warning",
 			           MB_OK | MB_ICONWARNING);
-		}
-		else
-		{
-			/* Atomically set the ICD!!! */
-			if (InterlockedCompareExchangePointer((PVOID*)&dcdata->icd,
-			                                      (PVOID)drvdata,
-			                                      NULL) != NULL)
-			{
-				/* Too bad, somebody else was faster... */
-				OPENGL32_UnloadICD(drvdata);
-			}
 		}
 	}
 
@@ -642,7 +582,7 @@ rosglCopyContext( HGLRC hsrc, HGLRC hdst, UINT mask )
 	}
 
 	/* I think this is only possible within one ICD */
-	if (src->icd != dst->icd)
+	if (src->icd != src->icd)
 	{
 		DBGPRINT( "Error: src and dst GLRC use different ICDs!" );
 		SetLastError( ERROR_INVALID_HANDLE );
@@ -909,37 +849,6 @@ rosglGetProcAddress( LPCSTR proc )
 	PROC func;
 	GLDRIVERDATA *icd;
 
-	/* FIXME we should Flush the gl here */
-
-	if (OPENGL32_threaddata->glrc == NULL)
-	{
-		DBGPRINT( "Error: No current GLRC!" );
-		SetLastError( ERROR_INVALID_FUNCTION );
-		return NULL;
-	}
-
-	icd = OPENGL32_threaddata->glrc->icd;
-	func = icd->DrvGetProcAddress( proc );
-	if (func != NULL)
-	{
-		DBGPRINT( "Info: Proc \"%s\" loaded from ICD.", proc );
-		return func;
-	}
-
-	/* FIXME: Should we return wgl/gl 1.1 functions? */
-	SetLastError( ERROR_PROC_NOT_FOUND );
-	return NULL;
-}
-
-PROC
-APIENTRY
-rosglGetDefaultProcAddress( LPCSTR proc )
-{
-	PROC func;
-	GLDRIVERDATA *icd;
-
-	/*  wglGetDefaultProcAddress does not flush the gl */
-
 	if (OPENGL32_threaddata->glrc == NULL)
 	{
 		DBGPRINT( "Error: No current GLRC!" );
@@ -1027,7 +936,7 @@ rosglMakeCurrent( HDC hdc, HGLRC hglrc )
 			DBGPRINT( "Info: Calling DrvSetContext!" );
 			SetLastError( ERROR_SUCCESS );
 			icdTable = glrc->icd->DrvSetContext( hdc, glrc->hglrc,
-			                                     (void *)ROSGL_SetContextCallBack );
+			                                     ROSGL_SetContextCallBack );
 			if (icdTable == NULL)
 			{
 				DBGPRINT( "Error: DrvSetContext failed (%d)\n", GetLastError() );
@@ -1102,7 +1011,7 @@ rosglSetPixelFormat( HDC hdc, int iFormat, CONST PIXELFORMATDESCRIPTOR *pfd )
 	}
 
 	/* call ICD */
-	if (!icd->DrvSetPixelFormat( hdc, iFormat, pfd ))
+	if (!icd->DrvSetPixelFormat( hdc, iFormat/*, pfd*/ ))
 	{
 		DBGPRINT( "Warning: DrvSetPixelFormat(format=%d) failed (%d)",
 		          iFormat, GetLastError() );

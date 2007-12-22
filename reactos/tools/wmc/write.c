@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -87,7 +87,7 @@
  * for normal character strings and 1 for unicode strings.
  */
 
-static const char str_header[] =
+static char str_header[] =
 	"/* This file is generated with wmc version " PACKAGE_VERSION ". Do not edit! */\n"
 	"/* Source : %s */\n"
 	"/* Cmdline: %s */\n"
@@ -101,11 +101,11 @@ static char *dup_u2c(int cp, const WCHAR *uc)
 	char *cptr;
 	const union cptable *cpdef = find_codepage(cp);
 	if(!cpdef)
-		internal_error(__FILE__, __LINE__, "Codepage %d not found (vanished?)\n", cp);
+		internal_error(__FILE__, __LINE__, "Codepage %d not found (vanished?)", cp);
 	len = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, NULL, 0, NULL, NULL);
 	cptr = xmalloc(len);
 	if((len = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, cptr, len, NULL, NULL)) < 0)
-		internal_error(__FILE__, __LINE__, "Buffer overflow? code %d\n", len);
+		internal_error(__FILE__, __LINE__, "Buffer overflow? code %d.", len);
 	return cptr;
 }
 
@@ -271,14 +271,14 @@ void write_h_file(const char *fname)
 					fprintf(fp, "#define %s\t0x%08xL\n\n", cptr, ndp->u.msg->realid);
 				break;
 			default:
-				internal_error(__FILE__, __LINE__, "Invalid base for number print\n");
+				internal_error(__FILE__, __LINE__, "Invalid base for number print");
 			}
 			free(cptr);
 			if(cast)
 				free(cast);
 			break;
 		default:
-			internal_error(__FILE__, __LINE__, "Invalid node type %d\n", ndp->type);
+			internal_error(__FILE__, __LINE__, "Invalid node type %d", ndp->type);
 		}
 	}
 	fprintf(fp, "\n#endif\n");
@@ -308,7 +308,7 @@ static void write_rcbin(FILE *fp)
 			}
 		}
 		if(!cptr)
-			internal_error(__FILE__, __LINE__, "Filename vanished for language 0x%0x\n", lbp->lan);
+			internal_error(__FILE__, __LINE__, "Filename vanished for language 0x%0x", lbp->lan);
 		fprintf(fp, "1 MESSAGETABLE \"%s.bin\"\n", cptr);
 		free(cptr);
 	}
@@ -390,7 +390,7 @@ static char *make_string(WCHAR *uc, int len, int codepage)
 		mlen = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, NULL, 0, NULL, NULL);
 		cc = tmp = xmalloc(mlen);
 		if((i = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, tmp, mlen, NULL, NULL)) < 0)
-			internal_error(__FILE__, __LINE__, "Buffer overflow? code %d\n", i);
+			internal_error(__FILE__, __LINE__, "Buffer overflow? code %d.", i);
 		*cptr++ = ' ';
 		*cptr++ = '"';
 		for(i = b = 0; i < len; i++, cc++)
@@ -509,110 +509,7 @@ void write_rc_file(const char *fname)
 	fclose(fp);
 }
 
-static void write_bin_file(const char *fname, lan_blk_t *lbp)
+void write_bin_files(void)
 {
-	FILE *fp;
-	unsigned int offs;
-	unsigned short buf;
-	int i, j, k;
-
-	fp = fopen(fname, "wb");
-
-	fwrite(&lbp->nblk, sizeof(int), 1, fp);
-
-	offs = 4 * (lbp->nblk * 3 + 1);
-	for(i = 0; i < lbp->nblk; i++)
-	{
-		fwrite(&lbp->blks[i].idlo, sizeof(unsigned), 2, fp);
-		fwrite(&offs, sizeof(int), 1, fp);
-
-		offs += lbp->blks[i].size;
-	}
-
-	for(i = 0; i < lbp->nblk; i++)
-	{
-		block_t *blk = &lbp->blks[i];
-		for(j = 0; j < blk->nmsg; j++)
-		{
-			char *cptr;
-			int len = blk->msgs[j]->len;
-			short aligned_size = (unicodeout ? (len*2+3)&~3 : (len+3)&~3) + 4;
-
-			fwrite(&aligned_size, sizeof(short), 1, fp);
-
-			buf = unicodeout ? 1 : 0;
-			fwrite(&buf, sizeof(buf), 1, fp);
-
-			// no need to count these 4 bytes when calculating alignment
-			aligned_size -= 4;
-
-			if (unicodeout)
-			{
-				fwrite(blk->msgs[j]->msg, sizeof(WCHAR), len, fp);
-
-				// fill with nulls so it matches aligned_len
-				for (k=0; k<(aligned_size-(len*sizeof(WCHAR))); k++)
-					fputc(0, fp);
-			}
-			else
-			{
-				WCHAR *uc;
-				char *tmp;
-				int mlen, len;
-				const union cptable *cpdef = find_codepage(blk->msgs[j]->cp);
-				uc = blk->msgs[j]->msg;
-
-				assert(cpdef != NULL);
-				mlen = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, NULL, 0, NULL, NULL);
-				tmp = xmalloc(mlen);
-				if((i = wine_cp_wcstombs(cpdef, 0, uc, unistrlen(uc)+1, tmp, mlen, NULL, NULL)) < 0)
-					internal_error(__FILE__, __LINE__, "Buffer overflow? code %d\n", i);
-
-				len = strlen(tmp);
-				fwrite(tmp, sizeof(char), len, fp);
-
-				// fill with nulls so it matches aligned_len
-				for (k=0; k<(aligned_size-len); k++)
-					fputc(0, fp);
-
-				free(tmp);
-			}
-
-			free(cptr);
-		}
-	}
-
-	fclose(fp);
-}
-
-void write_bin_files(const char *basedir)
-{
-	lan_blk_t *lbp;
-	token_t *ttab;
-	char fname[256];
-	int ntab;
-	int i;
-
-	get_tokentable(&ttab, &ntab);
-
-	for(lbp = lanblockhead; lbp; lbp = lbp->next)
-	{
-		char *cptr = NULL;
-		for(i = 0; i < ntab; i++)
-		{
-			if(ttab[i].type == tok_language && ttab[i].token == lbp->lan)
-			{
-				if(ttab[i].alias)
-					cptr = dup_u2c(WMC_DEFAULT_CODEPAGE, ttab[i].alias);
-				break;
-			}
-		}
-		if(!cptr)
-			internal_error(__FILE__, __LINE__, "Filename vanished for language 0x%0x\n", lbp->lan);
-
-		sprintf(fname, "%s%s.bin", basedir, cptr);
-		write_bin_file(fname, lbp);
-
-		free(cptr);
-	}
+	assert(rcinline == 0);
 }

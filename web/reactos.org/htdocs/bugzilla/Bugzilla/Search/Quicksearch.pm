@@ -23,19 +23,17 @@ package Bugzilla::Search::Quicksearch;
 # Make it harder for us to do dangerous things in Perl.
 use strict;
 
+use Bugzilla;
+use Bugzilla::Config;
 use Bugzilla::Error;
-use Bugzilla::Constants;
-use Bugzilla::Keyword;
-use Bugzilla::Bug;
-use Bugzilla::Field;
-use Bugzilla::Util;
 
 use base qw(Exporter);
 @Bugzilla::Search::Quicksearch::EXPORT = qw(quicksearch);
 
+my $cgi = Bugzilla->cgi;
+
 # Word renamings
-use constant MAPPINGS => {
-                # Status, Resolution, Platform, OS, Priority, Severity
+my %mappings = (# Status, Resolution, Platform, OS, Priority, Severity
                 "status" => "bug_status",
                 "resolution" => "resolution",  # no change
                 "platform" => "rep_platform",
@@ -85,33 +83,26 @@ use constant MAPPINGS => {
                 "attachmentdata" => "attach_data.thedata",
                 "attachdata" => "attach_data.thedata",
                 "attachmentmimetype" => "attachments.mimetype",
-                "attachmimetype" => "attachments.mimetype"
-};
+                "attachmimetype" => "attachments.mimetype");
 
 # We might want to put this into localconfig or somewhere
-use constant PLATFORMS => ('pc', 'sun', 'macintosh', 'mac');
-use constant PRODUCT_EXCEPTIONS => (
-    'row',   # [Browser]
-             #   ^^^
-    'new',   # [MailNews]
-             #      ^^^
-);
-use constant COMPONENT_EXCEPTIONS => (
-    'hang'   # [Bugzilla: Component/Keyword Changes]
-             #                               ^^^^
-);
+my @platforms = ('pc', 'sun', 'macintosh', 'mac');
+my @productExceptions =   ('row'    # [Browser]
+                                    #   ^^^
+                          ,'new'    # [MailNews]
+                                    #      ^^^
+                          );
+my @componentExceptions = ('hang'   # [Bugzilla: Component/Keyword Changes]
+                                    #                               ^^^^
+                          );
 
 # Quicksearch-wide globals for boolean charts.
-our ($chart, $and, $or);
+my $chart = 0;
+my $and = 0;
+my $or = 0;
 
 sub quicksearch {
     my ($searchstring) = (@_);
-    my $cgi = Bugzilla->cgi;
-    my $urlbase = correct_urlbase();
-
-    $chart = 0;
-    $and   = 0;
-    $or    = 0;
 
     # Remove leading and trailing commas and whitespace.
     $searchstring =~ s/(^[\s,]+|[\s,]+$)//g;
@@ -125,7 +116,8 @@ sub quicksearch {
 
         if (index($searchstring, ',') < $[) {
             # Single bug number; shortcut to show_bug.cgi.
-            print $cgi->redirect(-uri => "${urlbase}show_bug.cgi?id=$searchstring");
+            print $cgi->redirect(-uri => Param('urlbase') .
+                                         "show_bug.cgi?id=$searchstring");
             exit;
         }
         else {
@@ -144,14 +136,15 @@ sub quicksearch {
                                                   WHERE alias = ?},
                                                undef,
                                                $1)) {
-                print $cgi->redirect(-uri => "${urlbase}show_bug.cgi?id=$1");
+                print $cgi->redirect(-uri => Param('urlbase') .
+                                             "show_bug.cgi?id=$1");
                 exit;
             }
         }
 
         # It's no alias either, so it's a more complex query.
-        my $legal_statuses = get_legal_field_values('bug_status');
-        my $legal_resolutions = get_legal_field_values('resolution');
+
+        &::GetVersionTable();
 
         # Globally translate " AND ", " OR ", " NOT " to space, pipe, dash.
         $searchstring =~ s/\s+AND\s+/ /g;
@@ -159,19 +152,17 @@ sub quicksearch {
         $searchstring =~ s/\s+NOT\s+/ -/g;
 
         my @words = splitString($searchstring);
-        my $searchComments = 
-            $#words < Bugzilla->params->{'quicksearch_comment_cutoff'};
-        my @openStates = BUG_STATE_OPEN;
+        my $searchComments = $#words < Param('quicksearch_comment_cutoff');
+        my @openStates = &::OpenStates();
         my @closedStates;
-        my @unknownFields;
         my (%states, %resolutions);
 
-        foreach (@$legal_statuses) {
-            push(@closedStates, $_) unless is_open_state($_);
+        foreach (@::legal_bug_status) {
+            push(@closedStates, $_) unless &::IsOpenedState($_);
         }
         foreach (@openStates) { $states{$_} = 1 }
         if ($words[0] eq 'ALL') {
-            foreach (@$legal_statuses) { $states{$_} = 1 }
+            foreach (@::legal_bug_status) { $states{$_} = 1 }
             shift @words;
         }
         elsif ($words[0] eq 'OPEN') {
@@ -183,7 +174,7 @@ sub quicksearch {
                               \%resolutions,
                               [split(/,/, substr($words[0], 1))],
                               \@closedStates,
-                              $legal_resolutions)) {
+                              \@::legal_resolution)) {
                 shift @words;
                 # Allowing additional resolutions means we need to keep
                 # the "no resolution" resolution.
@@ -199,8 +190,8 @@ sub quicksearch {
             if (matchPrefixes(\%states,
                               \%resolutions,
                               [split(/,/, $words[0])],
-                              $legal_statuses,
-                              $legal_resolutions)) {
+                              \@::legal_bug_status,
+                              \@::legal_resolution)) {
                 shift @words;
             }
             else {
@@ -274,12 +265,9 @@ sub quicksearch {
                         my @fields = split(/,/, $1);
                         my @values = split(/,/, $2);
                         foreach my $field (@fields) {
-                            # Skip and record any unknown fields
-                            if (!defined(MAPPINGS->{$field})) {
-                                push(@unknownFields, $field);
-                                next;
-                            }
-                            $field = MAPPINGS->{$field};
+                            # Be tolerant about unknown fields
+                            next unless defined($mappings{$field});
+                            $field = $mappings{$field};
                             foreach (@values) {
                                 addChart($field, 'substring', $_, $negate);
                             }
@@ -292,7 +280,7 @@ sub quicksearch {
                         # by comma, which is another legal boolean OR indicator.
                         foreach my $word (split(/,/, $or_operand)) {
                             # Platform
-                            if (grep({lc($word) eq $_} PLATFORMS)) {
+                            if (grep({lc($word) eq $_} @platforms)) {
                                 addChart('rep_platform', 'substring',
                                          $word, $negate);
                             }
@@ -303,7 +291,7 @@ sub quicksearch {
                             }
                             # Severity
                             elsif (grep({lc($word) eq substr($_, 0, 3)}
-                                        @{get_legal_field_values('bug_severity')})) {
+                                        @::legal_severity)) {
                                 addChart('bug_severity', 'substring',
                                          $word, $negate);
                             }
@@ -321,21 +309,21 @@ sub quicksearch {
                             else { # Default QuickSearch word
 
                                 if (!grep({lc($word) eq $_}
-                                          PRODUCT_EXCEPTIONS) &&
+                                          @productExceptions) &&
                                     length($word)>2
                                    ) {
                                     addChart('product', 'substring',
                                              $word, $negate);
                                 }
                                 if (!grep({lc($word) eq $_}
-                                          COMPONENT_EXCEPTIONS) &&
+                                          @componentExceptions) &&
                                     length($word)>2
                                    ) {
                                     addChart('component', 'substring',
                                              $word, $negate);
                                 }
                                 if (grep({lc($word) eq $_}
-                                         map($_->name, Bugzilla::Keyword->get_all))) {
+                                         @::legal_keywords)) {
                                     addChart('keywords', 'substring',
                                              $word, $negate);
                                     if (length($word)>2) {
@@ -380,13 +368,8 @@ sub quicksearch {
             $or = 0;
         } # foreach (@words)
 
-        # Inform user about any unknown fields
-        if (scalar(@unknownFields)) {
-            ThrowUserError("quicksearch_unknown_field",
-                           { fields => \@unknownFields });
-        }
-
-        # Make sure we have some query terms left
+        # We've been very tolerant about invalid queries, so all that's left
+        # may be an empty query.
         scalar($cgi->param())>0 || ThrowUserError("buglist_parameters_required");
     }
 
@@ -396,8 +379,9 @@ sub quicksearch {
 
     if ($cgi->param('load')) {
         # Param 'load' asks us to display the query in the advanced search form.
-        print $cgi->redirect(-uri => "${urlbase}query.cgi?format=advanced&amp;"
-                             . $modified_query_string);
+        print $cgi->redirect(-uri => Param('urlbase') . "query.cgi?" .
+                                     "format=advanced&amp;" .
+                                     $modified_query_string);
     }
 
     # Otherwise, pass the modified query string to the caller.
@@ -418,22 +402,28 @@ sub splitString {
     my @parts;
     my $i = 0;
 
+    # Escape backslashes
+    $string =~ s/\\/\\\//g;
+
     # Now split on quote sign; be tolerant about unclosed quotes
     @quoteparts = split(/"/, $string);
-    foreach my $part (@quoteparts) {
-        # After every odd quote, quote special chars
-        $part = url_quote($part) if $i++ % 2;
+    foreach (@quoteparts) {
+        # After every odd quote, escape whitespace
+        s/(\s)/\\$1/g if $i++ % 2;
     }
     # Join again
     $string = join('"', @quoteparts);
 
     # Now split on unescaped whitespace
-    @parts = split(/\s+/, $string);
+    @parts = split(/(?<!\\)\s+/, $string);
     foreach (@parts) {
+        # Restore whitespace
+        s/\\(\s)/$1/g;
+        # Restore backslashes
+        s/\\\//\\/g;
         # Remove quotes
         s/"//g;
     }
-                        
     return @parts;
 }
 
@@ -501,10 +491,9 @@ sub addChart {
 sub makeChart {
     my ($expr, $field, $type, $value) = @_;
 
-    my $cgi = Bugzilla->cgi;
     $cgi->param("field$expr", $field);
     $cgi->param("type$expr",  $type);
-    $cgi->param("value$expr", url_decode($value));
+    $cgi->param("value$expr", $value);
 }
 
 1;

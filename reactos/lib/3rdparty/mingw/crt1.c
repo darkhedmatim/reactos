@@ -11,7 +11,7 @@
 
 /* Hide the declaration of _fmode with dllimport attribute in stdlib.h to
    avoid problems with older GCC. */
-#define __IN_MINGW_RUNTIME
+#define __IN_MINGW_RUNTIME 
 #include <stdlib.h>
 #include <stdio.h>
 #include <io.h>
@@ -34,24 +34,21 @@ extern void _pei386_runtime_relocator (void);
 extern int main (int, char **, char **);
 
 /*
- * Must have the correct app type for MSVCRT.
+ * Must have the correct app type for MSVCRT. 
  */
 
 #ifdef __MSVCRT__
 #define __UNKNOWN_APP    0
 #define __CONSOLE_APP    1
 #define __GUI_APP        2
-#ifndef _M_PPC
-__MINGW_IMPORT
-#endif
-void __set_app_type(int);
+__MINGW_IMPORT void __set_app_type(int);
 #endif /* __MSVCRT__ */
 
 /*  Global _fmode for this .exe, not the one in msvcrt.dll,
     The default is set in txtmode.o in libmingw32.a */
 /* Override the dllimport'd declarations in stdlib.h */
-#undef _fmode
-extern int _fmode;
+#undef _fmode 
+extern int _fmode; 
 #ifdef __MSVCRT__
 extern int* __p__fmode(void); /* To access the dll _fmode */
 #endif
@@ -93,7 +90,7 @@ _mingw32_init_fmode (void)
 
     /*  Now sync  the dll _fmode to the  one for this .exe.  */
 #ifdef __MSVCRT__
-    *__p__fmode() = _fmode;
+    *__p__fmode() = _fmode;	
 #else
     *_imp___fmode_dll = _fmode;
 #endif
@@ -101,11 +98,11 @@ _mingw32_init_fmode (void)
 
 /* This function will be called when a trap occurs. Thanks to Jacob
    Navia for his contribution. */
-static LONG CALLBACK
+static CALLBACK long
 _gnu_exception_handler (EXCEPTION_POINTERS * exception_data)
 {
   void (*old_handler) (int);
-  LONG action = EXCEPTION_CONTINUE_SEARCH;
+  long action = EXCEPTION_CONTINUE_SEARCH;
   int reset_fpu = 0;
 
   switch (exception_data->ExceptionRecord->ExceptionCode)
@@ -192,7 +189,7 @@ __mingw_CRTStartup (void)
    * Set up the top-level exception handler so that signal handling
    * works as expected. The mapping between ANSI/POSIX signals and
    * Win32 SE is not 1-to-1, so caveat emptore.
-   *
+   * 
    */
   SetUnhandledExceptionFilter (_gnu_exception_handler);
 
@@ -214,25 +211,13 @@ __mingw_CRTStartup (void)
    * NOTE: DLLs don't do this because that would be rude!
    */
   _mingw32_init_fmode ();
-
+  
    /* Adust references to dllimported data that have non-zero offsets.  */
-#if defined(__i386__)
   _pei386_runtime_relocator ();
-#endif
 
-#if defined(__i386__)
   /* Align the stack to 16 bytes for the sake of SSE ops in main
      or in functions inlined into main.  */
   asm  __volatile__  ("andl $-16, %%esp" : : : "%esp");
-#elif defined(__mips__)
-  /* Align the stack to 16 bytes */
-  asm  __volatile__  ("andi %sp,%sp,-16" : : : "%sp");
-#elif defined(__PowerPC__)
-  /* Align the stack to 16 bytes */
-  asm  __volatile__  ("li 0,15\n\tandc 1,1,0" : : : "r1");
-#else
-#error Unsupported architecture
-#endif
 
   /*
    * Call the main function. If the user does not supply one

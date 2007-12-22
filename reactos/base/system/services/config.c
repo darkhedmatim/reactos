@@ -1,10 +1,5 @@
 /*
- * PROJECT:     ReactOS Service Control Manager
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/system/services/config.c
- * PURPOSE:     Service configuration interface
- * COPYRIGHT:   Copyright 2005 Eric Kohl
- *
+ * config.c
  */
 
 /* INCLUDES *****************************************************************/
@@ -293,8 +288,7 @@ done:;
     if (dwError != ERROR_SUCCESS)
     {
         HeapFree(GetProcessHeap(), 0, ptr);
-        if (expanded)
-            HeapFree(GetProcessHeap(), 0, expanded);
+        HeapFree(GetProcessHeap(), 0, expanded);
     }
 
     return dwError;

@@ -2,7 +2,6 @@
 #define __MSGINA_H
 
 #include <windows.h>
-#include <userenv.h>
 #include <winwlx.h>
 #include "resource.h"
 
@@ -25,7 +24,7 @@ typedef struct
 	HANDLE UserToken;
 	PLUID pAuthenticationId;
 	PDWORD pdwOptions;
-	PWLX_MPR_NOTIFY_INFO pMprNotifyInfo;
+	PWLX_MPR_NOTIFY_INFO pNprNotifyInfo;
 	PVOID *pProfile;
 
 	/* Current logo to display */

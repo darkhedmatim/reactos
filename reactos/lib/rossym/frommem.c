@@ -3,7 +3,7 @@
  * PROJECT:         ReactOS kernel
  * FILE:            lib/rossym/frommem.c
  * PURPOSE:         Creating rossym info from an in-memory image
- *
+ * 
  * PROGRAMMERS:     Ge van Geldorp (gvg@reactos.com)
  */
 
@@ -24,9 +24,8 @@ RosSymCreateFromMem(PVOID ImageStart, ULONG_PTR ImageSize, PROSSYM_INFO *RosSymI
   PIMAGE_DOS_HEADER DosHeader;
   PIMAGE_NT_HEADERS NtHeaders;
   PIMAGE_SECTION_HEADER SectionHeader;
-  ULONG SectionIndex;
-  BOOLEAN RosSymSectionFound = FALSE;
-  CHAR SectionName[IMAGE_SIZEOF_SHORT_NAME];
+  unsigned SectionIndex;
+  char SectionName[IMAGE_SIZEOF_SHORT_NAME];
 
   /* Check if MZ header is valid */
   DosHeader = (PIMAGE_DOS_HEADER) ImageStart;
@@ -59,13 +58,11 @@ RosSymCreateFromMem(PVOID ImageStart, ULONG_PTR ImageSize, PROSSYM_INFO *RosSymI
     {
       if (0 == memcmp(SectionName, SectionHeader->Name, IMAGE_SIZEOF_SHORT_NAME))
         {
-          RosSymSectionFound = TRUE;
           break;
         }
       SectionHeader++;
     }
-
-  if (!RosSymSectionFound)
+  if (NtHeaders->FileHeader.NumberOfSections <= SectionIndex)
     {
       DPRINT("No %s section found\n", ROSSYM_SECTION_NAME);
       return FALSE;
@@ -75,18 +72,12 @@ RosSymCreateFromMem(PVOID ImageStart, ULONG_PTR ImageSize, PROSSYM_INFO *RosSymI
   if (ImageSize < SectionHeader->PointerToRawData + SectionHeader->SizeOfRawData
       || SectionHeader->SizeOfRawData < sizeof(ROSSYM_HEADER))
     {
-      DPRINT("Invalid %s section\n", ROSSYM_SECTION_NAME);
+      DPRINT1("Invalid %s section\n", ROSSYM_SECTION_NAME);
       return FALSE;
     }
 
-  if (SectionHeader->VirtualAddress + SectionHeader->Misc.VirtualSize > ImageSize)
-  {
-      DPRINT("Bad %s section virtual size!\n", ROSSYM_SECTION_NAME);
-      return FALSE;
-  }
-
   /* Load it */
-  return RosSymCreateFromRaw((char *) ImageStart + SectionHeader->VirtualAddress,
+  return RosSymCreateFromRaw((char *) ImageStart + SectionHeader->PointerToRawData,
                              SectionHeader->SizeOfRawData, RosSymInfo);
 }
 

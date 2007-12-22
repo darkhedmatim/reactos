@@ -3,9 +3,8 @@
 	<include base="acledit">.</include>
 	<define name="UNICODE" />
 	<define name="_UNICODE" />
-
-	<metadata description = "Access Control List Editor" />
-
+	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>advapi32</library>

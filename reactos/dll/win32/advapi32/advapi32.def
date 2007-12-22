@@ -451,7 +451,6 @@ PrivilegedServiceAuditAlarmW@20
 ;QueryAllTracesA
 ;QueryAllTracesW
 QueryRecoveryAgentsOnEncryptedFile@8
-QuerySecurityAccessMask@8
 QueryServiceConfig2A@20
 QueryServiceConfig2W@20
 QueryServiceConfigA@16
@@ -479,8 +478,6 @@ RegCreateKeyExW@36
 RegCreateKeyW@12
 RegDeleteKeyA@8
 RegDeleteKeyW@8
-RegDeleteKeyExA@16
-RegDeleteKeyExW@16
 RegDeleteKeyValueA@12
 RegDeleteKeyValueW@12
 RegDeleteTreeA@8
@@ -503,8 +500,8 @@ RegGetValueA@28
 RegGetValueW@28
 RegLoadKeyA@12
 RegLoadKeyW@12
-RegLoadMUIStringA@28
-RegLoadMUIStringW@28
+RegLoadMUIStringA@24
+RegLoadMUIStringW@24
 RegNotifyChangeKeyValue@20
 RegOpenCurrentUser@8
 RegOpenKeyA@12
@@ -587,7 +584,6 @@ SetNamedSecurityInfoA@28
 SetNamedSecurityInfoW@28
 SetPrivateObjectSecurity@20
 ;SetPrivateObjectSecurityEx
-SetSecurityAccessMask@8
 SetSecurityDescriptorControl@12
 SetSecurityDescriptorDacl@16
 SetSecurityDescriptorGroup@12

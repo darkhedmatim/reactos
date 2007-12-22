@@ -21,7 +21,7 @@
     The AddDevice parameter is a driver-supplied pointer to a function which
     typically then calls PcAddAdapterDevice (see below.)
 */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcInitializeAdapterDriver(
     IN  PDRIVER_OBJECT DriverObject,
     IN  PUNICODE_STRING RegistryPathName,
@@ -89,7 +89,7 @@ PcInitializeAdapterDriver(
     The StartDevice parameter is a driver-supplied function which gets
     called in response to IRP_MJ_PNP / IRP_MN_START_DEVICE.
 */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcAddAdapterDevice(
     IN  PDRIVER_OBJECT DriverObject,
     IN  PDEVICE_OBJECT PhysicalDeviceObject,
@@ -151,7 +151,7 @@ PcAddAdapterDevice(
 
     if ( ! NT_SUCCESS(status) )
     {
-        DPRINT("IoCreateDevice() failed with status 0x%08lx\n", status);
+        DPRINT("IoCreateDevice() failed with status 0x$08lx\n", status);
         return status;
     }
 

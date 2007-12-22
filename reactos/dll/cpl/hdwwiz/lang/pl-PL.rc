@@ -3,10 +3,10 @@
 * xxrogers@users.sourceforge.net
 * https://sourceforge.net/projects/reactospl
 */
-LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+LANGUAGE LANG_POLISH, SUBLANG_NEUTRAL
 
 STRINGTABLE
 BEGIN
 	IDS_CPLNAME "Dodaj sprzêt"
-	IDS_CPLDESCRIPTION "Dodaje sprzêt do Twojego komputera."
+	IDS_CPLDESCRIPTION "Dodaje sprzêt na twoim komputerze."
 END

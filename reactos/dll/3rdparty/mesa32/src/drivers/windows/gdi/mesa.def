@@ -1,6 +1,6 @@
 ; DO NOT EDIT - This file generated automatically by mesadef.py script
-;DESCRIPTION 'Mesa (OpenGL work-alike) for Win32'
-VERSION 6.5
+DESCRIPTION 'Mesa (OpenGL work-alike) for Win32'
+VERSION 6.0
 ;
 ; Module definition file for Mesa (OPENGL32.DLL)
 ;
@@ -500,6 +500,8 @@ EXPORTS
 	glPolygonOffsetEXT
 	glTexImage3DEXT
 	glTexSubImage3DEXT
+	glGetTexFilterFuncSGIS
+	glTexFilterFuncSGIS
 	glTexSubImage1DEXT
 	glTexSubImage2DEXT
 	glCopyTexImage1DEXT
@@ -507,12 +509,57 @@ EXPORTS
 	glCopyTexSubImage1DEXT
 	glCopyTexSubImage2DEXT
 	glCopyTexSubImage3DEXT
+	glGetHistogramEXT
+	glGetHistogramParameterfvEXT
+	glGetHistogramParameterivEXT
+	glGetMinmaxEXT
+	glGetMinmaxParameterfvEXT
+	glGetMinmaxParameterivEXT
+	glHistogramEXT
+	glMinmaxEXT
+	glResetHistogramEXT
+	glResetMinmaxEXT
+	glConvolutionFilter1DEXT
+	glConvolutionFilter2DEXT
+	glConvolutionParameterfEXT
+	glConvolutionParameterfvEXT
+	glConvolutionParameteriEXT
+	glConvolutionParameterivEXT
+	glCopyConvolutionFilter1DEXT
+	glCopyConvolutionFilter2DEXT
+	glGetConvolutionFilterEXT
+	glGetConvolutionParameterfvEXT
+	glGetConvolutionParameterivEXT
+	glGetSeparableFilterEXT
+	glSeparableFilter2DEXT
+	glColorTableSGI
+	glColorTableParameterfvSGI
+	glColorTableParameterivSGI
+	glCopyColorTableSGI
+	glGetColorTableSGI
+	glGetColorTableParameterfvSGI
+	glGetColorTableParameterivSGI
+	glPixelTexGenSGIX
+	glPixelTexGenParameteriSGIS
+	glPixelTexGenParameterivSGIS
+	glPixelTexGenParameterfSGIS
+	glPixelTexGenParameterfvSGIS
+	glGetPixelTexGenParameterivSGIS
+	glGetPixelTexGenParameterfvSGIS
+	glTexImage4DSGIS
+	glTexSubImage4DSGIS
 	glAreTexturesResidentEXT
 	glBindTextureEXT
 	glDeleteTexturesEXT
 	glGenTexturesEXT
 	glIsTextureEXT
 	glPrioritizeTexturesEXT
+	glDetailTexFuncSGIS
+	glGetDetailTexFuncSGIS
+	glSharpenTexFuncSGIS
+	glGetSharpenTexFuncSGIS
+	glSampleMaskSGIS
+	glSamplePatternSGIS
 	glArrayElementEXT
 	glColorPointerEXT
 	glDrawArraysEXT
@@ -523,16 +570,63 @@ EXPORTS
 	glTexCoordPointerEXT
 	glVertexPointerEXT
 	glBlendEquationEXT
+	glSpriteParameterfSGIX
+	glSpriteParameterfvSGIX
+	glSpriteParameteriSGIX
+	glSpriteParameterivSGIX
 	glPointParameterfEXT
 	glPointParameterfvEXT
 	glPointParameterfARB
 	glPointParameterfvARB
+	glPointParameterfSGIS
+	glPointParameterfvSGIS
+	glGetInstrumentsSGIX
+	glInstrumentsBufferSGIX
+	glPollInstrumentsSGIX
+	glReadInstrumentsSGIX
+	glStartInstrumentsSGIX
+	glStopInstrumentsSGIX
+	glFrameZoomSGIX
+	glTagSampleBufferSGIX
+	glReferencePlaneSGIX
+	glFlushRasterSGIX
+	glColorSubTableEXT
+	glCopyColorSubTableEXT
+	glHintPGI
 	glColorTableEXT
 	glGetColorTableEXT
 	glGetColorTableParameterivEXT
 	glGetColorTableParameterfvEXT
+	glGetListParameterfvSGIX
+	glGetListParameterivSGIX
+	glListParameterfSGIX
+	glListParameterfvSGIX
+	glListParameteriSGIX
+	glListParameterivSGIX
+	glIndexMaterialEXT
+	glIndexFuncEXT
 	glLockArraysEXT
 	glUnlockArraysEXT
+	glCullParameterdvEXT
+	glCullParameterfvEXT
+	glFragmentColorMaterialSGIX
+	glFragmentLightfSGIX
+	glFragmentLightfvSGIX
+	glFragmentLightiSGIX
+	glFragmentLightivSGIX
+	glFragmentLightModelfSGIX
+	glFragmentLightModelfvSGIX
+	glFragmentLightModeliSGIX
+	glFragmentLightModelivSGIX
+	glFragmentMaterialfSGIX
+	glFragmentMaterialfvSGIX
+	glFragmentMaterialiSGIX
+	glFragmentMaterialivSGIX
+	glGetFragmentLightfvSGIX
+	glGetFragmentLightivSGIX
+	glGetFragmentMaterialfvSGIX
+	glGetFragmentMaterialivSGIX
+	glLightEnviSGIX
 	glDrawRangeElementsEXT
 	glSecondaryColor3bEXT
 	glSecondaryColor3bvEXT
@@ -559,6 +653,10 @@ EXPORTS
 	glFogCoorddvEXT
 	glFogCoordPointerEXT
 	glBlendFuncSeparateEXT
+	glBlendFuncSeparateINGR
+	glVertexWeightfEXT
+	glVertexWeightfvEXT
+	glVertexWeightPointerEXT
 	glFlushVertexArrayRangeNV
 	glVertexArrayRangeNV
 	glCombinerParameterfvNV
@@ -599,6 +697,11 @@ EXPORTS
 	glWindowPos4ivMESA
 	glWindowPos4sMESA
 	glWindowPos4svMESA
+	glMultiModeDrawArraysIBM
+	glMultiModeDrawElementsIBM
+	glTbufferMask3DFX
+	glSampleMaskEXT
+	glSamplePatternEXT
 	glWindowPos2dARB
 	glWindowPos2fARB
 	glWindowPos2iARB
@@ -681,6 +784,7 @@ EXPORTS
 	glVertexAttribs4ubvNV
 	glPointParameteriNV
 	glPointParameterivNV
+	glBlendFuncSeparate
 	glFogCoordf
 	glFogCoordfv
 	glFogCoordd
@@ -725,6 +829,14 @@ EXPORTS
 	glWindowPos3iv
 	glWindowPos3s
 	glWindowPos3sv
+	glActiveStencilFaceEXT
+	glDeleteFencesNV
+	glGenFencesNV
+	glIsFenceNV
+	glTestFenceNV
+	glGetFenceivNV
+	glFinishFenceNV
+	glSetFenceNV
 	glVertexAttrib1sARB
 	glVertexAttrib1fARB
 	glVertexAttrib1dARB
@@ -804,6 +916,7 @@ EXPORTS
 	glIsBufferARB
 	glMapBufferARB
 	glUnmapBufferARB
+	glDepthBoundsEXT
 	glGenQueriesARB
 	glDeleteQueriesARB
 	glIsQueryARB
@@ -856,19 +969,15 @@ EXPORTS
 	wglUseFontBitmapsW
 	wglUseFontOutlinesA
 	wglUseFontOutlinesW
-	wglGetExtensionsStringARB
 ;
 ; Mesa internals - mostly for OSMESA
-	_vbo_CreateContext
-	_vbo_DestroyContext
-	_vbo_InvalidateState
-	_glapi_check_multithread
+	_ac_CreateContext
+	_ac_DestroyContext
+	_ac_InvalidateState
 	_glapi_get_context
 	_glapi_get_proc_address
 	_mesa_add_soft_renderbuffers
 	_mesa_add_renderbuffer
-	_mesa_attach_shader
-	_mesa_bind_attrib_location
 	_mesa_buffer_data
 	_mesa_buffer_get_subdata
 	_mesa_buffer_map
@@ -877,72 +986,44 @@ EXPORTS
 	_mesa_bzero
 	_mesa_calloc
 	_mesa_choose_tex_format
-	_mesa_compile_shader
 	_mesa_compressed_texture_size
 	_mesa_create_framebuffer
-	_mesa_create_program
-	_mesa_create_shader
 	_mesa_create_visual
-	_mesa_delete_array_object
 	_mesa_delete_buffer_object
 	_mesa_delete_program
-	_mesa_delete_program2
-	_mesa_delete_shader
 	_mesa_delete_texture_object
 	_mesa_destroy_framebuffer
 	_mesa_destroy_visual
-	_mesa_detach_shader
 	_mesa_enable_1_3_extensions
 	_mesa_enable_1_4_extensions
 	_mesa_enable_1_5_extensions
 	_mesa_enable_sw_extensions
 	_mesa_error
-	_mesa_finish_render_texture
 	_mesa_framebuffer_renderbuffer
 	_mesa_free
 	_mesa_free_context_data
 	_mesa_free_texture_image_data
-	_mesa_get_active_attrib
-	_mesa_get_active_uniform 
-	_mesa_get_attached_shaders
-	_mesa_get_attrib_location
 	_mesa_get_compressed_teximage
 	_mesa_get_current_context
-	_mesa_get_handle
-	_mesa_get_programiv
-	_mesa_get_program_info_log
-	_mesa_get_program_register
-	_mesa_get_shaderiv
-	_mesa_get_shader_info_log
-	_mesa_get_shader_source
 	_mesa_get_teximage
-	_mesa_get_uniformfv
-	_mesa_get_uniform_location
+	_mesa_init_default_imports
 	_mesa_init_driver_functions
 	_mesa_init_renderbuffer
 	_mesa_initialize_context
-	_mesa_is_program
-	_mesa_is_shader
-	_mesa_link_program
 	_mesa_make_current
 	_mesa_memcpy
 	_mesa_memset
-	_mesa_new_array_object
 	_mesa_new_buffer_object
 	_mesa_new_framebuffer
 	_mesa_new_program
-	_mesa_new_query_object
-	_mesa_new_renderbuffer
 	_mesa_new_soft_renderbuffer
 	_mesa_new_texture_image
 	_mesa_new_texture_object
 	_mesa_problem
-	_mesa_reference_renderbuffer
-	_mesa_remove_renderbuffer
-	_mesa_render_texture
+	_mesa_renderbuffer_texture
 	_mesa_ResizeBuffersMESA
 	_mesa_resize_framebuffer
-	_mesa_shader_source
+;	_mesa_resize_renderbuffer
 	_mesa_store_compressed_teximage1d
 	_mesa_store_compressed_teximage2d
 	_mesa_store_compressed_teximage3d
@@ -957,17 +1038,12 @@ EXPORTS
 	_mesa_store_texsubimage3d
 	_mesa_strcmp
 	_mesa_test_proxy_teximage
-	_mesa_uniform
-	_mesa_uniform_matrix
-	_mesa_unreference_framebuffer
-	_mesa_update_framebuffer_visual
-	_mesa_use_program
-	_mesa_validate_program
 	_mesa_Viewport
 	_swrast_Accum
+;	_swrast_alloc_buffers
 	_swrast_Bitmap
-	_swrast_BlitFramebuffer
 	_swrast_CopyPixels
+	_swrast_DrawBuffer
 	_swrast_DrawPixels
 	_swrast_GetDeviceDriverReference
 	_swrast_Clear
@@ -984,9 +1060,9 @@ EXPORTS
 	_swrast_copy_texsubimage3d
 	_swrast_CreateContext
 	_swrast_DestroyContext
-	_swrast_exec_fragment_program
 	_swrast_InvalidateState
 	_swrast_ReadPixels
+;	_swrast_zbuffer_address
 	_swsetup_Wakeup
 	_swsetup_CreateContext
 	_swsetup_DestroyContext
@@ -994,5 +1070,5 @@ EXPORTS
 	_tnl_CreateContext
 	_tnl_DestroyContext
 	_tnl_InvalidateState
+	_tnl_MakeCurrent
 	_tnl_run_pipeline
-	_tnl_program_string

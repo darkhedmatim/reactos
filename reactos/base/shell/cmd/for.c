@@ -31,6 +31,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 /*
@@ -48,7 +49,7 @@
  */
 
 INT cmd_for (LPTSTR cmd, LPTSTR param)
-{
+{	
 	LPBATCH_CONTEXT lpNew;
 	LPTSTR pp;
 	TCHAR  var;
@@ -125,7 +126,7 @@ INT cmd_for (LPTSTR cmd, LPTSTR param)
 	}
 
 	/* OK all is correct, build a bcontext.... */
-	lpNew = (LPBATCH_CONTEXT)cmd_alloc (sizeof (BATCH_CONTEXT));
+	lpNew = (LPBATCH_CONTEXT)malloc (sizeof (BATCH_CONTEXT));
 
 	lpNew->prev = bc;
 	bc = lpNew;
@@ -135,7 +136,7 @@ INT cmd_for (LPTSTR cmd, LPTSTR param)
 	bc->params = BatchParams (_T(""), param); /* Split out list */
 	bc->shiftlevel = 0;
 	bc->forvar = var;
-	bc->forproto = cmd_dup (pp);
+	bc->forproto = _tcsdup (pp);
 	if (bc->prev)
 		bc->bEcho = bc->prev->bEcho;
 	else

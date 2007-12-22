@@ -124,6 +124,7 @@ AddKnownDriverToList(
     HANDLE hFile = INVALID_HANDLE_VALUE;
     BOOL Result = FALSE;
     PLIST_ENTRY PreviousEntry;
+    LPWSTR pDot;
     BOOL ret = FALSE;
 
     driverInfo = HeapAlloc(GetProcessHeap(), 0, sizeof(struct DriverInfoElement));
@@ -157,6 +158,9 @@ AddKnownDriverToList(
 
     /* Fill SectionName field */
     lstrcpynW(driverInfo->Details.SectionName, SectionName, LINE_LEN);
+    pDot = strchrW(driverInfo->Details.SectionName, '.');
+    if (pDot)
+        *pDot = UNICODE_NULL;
 
     /* Fill DrvDescription field */
     lstrcpynW(driverInfo->Details.DrvDescription, DriverDescription, LINE_LEN);
@@ -267,8 +271,7 @@ AddDriverToList(
     Result = SetupGetStringFieldW(
         &ContextDevice,
         1,
-        SectionName,
-        LINE_LEN,
+        SectionName, LINE_LEN,
         NULL);
     if (!Result)
         goto cleanup;
@@ -621,7 +624,7 @@ RegpApplyRestrictions( DWORD dwFlags, DWORD dwType, DWORD cbData,
 }
 
 static LONG WINAPI
-RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue,
+RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue, 
               DWORD dwFlags, LPDWORD pdwType, PVOID pvData,
               LPDWORD pcbData )
 {
@@ -629,7 +632,7 @@ RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue,
     PVOID pvBuf = NULL;
     LONG ret;
 
-    TRACE("(%p,%s,%s,%ld,%p,%p,%p=%ld)\n",
+    TRACE("(%p,%s,%s,%ld,%p,%p,%p=%ld)\n", 
           hKey, debugstr_w(pszSubKey), debugstr_w(pszValue), dwFlags, pdwType,
           pvData, pcbData, cbData);
 
@@ -643,7 +646,7 @@ RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue,
     }
 
     ret = RegQueryValueExW(hKey, pszValue, NULL, &dwType, pvData, &cbData);
-
+    
     /* If we are going to expand we need to read in the whole the value even
      * if the passed buffer was too small as the expanded string might be
      * smaller than the unexpanded one and could fit into cbData bytes. */
@@ -652,7 +655,7 @@ RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue,
     {
         do {
             if (pvBuf) HeapFree(GetProcessHeap(), 0, pvBuf);
-
+            
             pvBuf = HeapAlloc(GetProcessHeap(), 0, cbData);
             if (!pvBuf)
             {
@@ -661,11 +664,11 @@ RegGetValueW( HKEY hKey, LPCWSTR pszSubKey, LPCWSTR pszValue,
             }
 
             if (ret == ERROR_MORE_DATA)
-                ret = RegQueryValueExW(hKey, pszValue, NULL,
+                ret = RegQueryValueExW(hKey, pszValue, NULL, 
                                        &dwType, pvBuf, &cbData);
             else
             {
-                /* Even if cbData was large enough we have to copy the
+                /* Even if cbData was large enough we have to copy the 
                  * string since ExpandEnvironmentStrings can't handle
                  * overlapping buffers. */
                 CopyMemory(pvBuf, pvData, cbData);
@@ -737,7 +740,7 @@ SetupDiBuildDriverInfoList(
 
     if (!DeviceInfoSet)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (list->HKLM != HKEY_LOCAL_MACHINE)
         SetLastError(ERROR_INVALID_HANDLE);
@@ -759,7 +762,7 @@ SetupDiBuildDriverInfoList(
 
         if (DeviceInfoData)
         {
-            struct DeviceInfo *devInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+            struct DeviceInfoElement *devInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
             if (!(devInfo->CreationFlags & DICD_INHERIT_CLASSDRVS))
                 pDriverListHead = &devInfo->DriverListHead;
         }
@@ -789,7 +792,7 @@ SetupDiBuildDriverInfoList(
             WCHAR InfFileName[MAX_PATH];
             WCHAR InfFileSection[MAX_PATH];
             ULONG RequiredSize;
-            struct DeviceInfo *devInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+            struct DeviceInfoElement *devInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
             struct InfFileDetails *infFileDetails = NULL;
             FILETIME DriverDate;
             LONG rc;
@@ -1217,7 +1220,7 @@ SetupDiDestroyDriverInfoList(
 
     if (!DeviceInfoSet)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if ((list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DriverType != SPDIT_CLASSDRIVER && DriverType != SPDIT_COMPATDRIVER)
         SetLastError(ERROR_INVALID_PARAMETER);
@@ -1255,12 +1258,12 @@ SetupDiDestroyDriverInfoList(
         else
         {
             SP_DEVINSTALL_PARAMS_W InstallParamsSet;
-            struct DeviceInfo *deviceInfo;
+            struct DeviceInfoElement *deviceInfo;
 
             InstallParamsSet.cbSize = sizeof(SP_DEVINSTALL_PARAMS_W);
             if (!SetupDiGetDeviceInstallParamsW(DeviceInfoSet, NULL, &InstallParamsSet))
                 goto done;
-            deviceInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+            deviceInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
             while (!IsListEmpty(&deviceInfo->DriverListHead))
             {
                  ListEntry = RemoveHeadList(&deviceInfo->DriverListHead);
@@ -1369,7 +1372,7 @@ SetupDiEnumDriverInfoW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DriverType != SPDIT_CLASSDRIVER && DriverType != SPDIT_COMPATDRIVER)
         SetLastError(ERROR_INVALID_PARAMETER);
@@ -1379,10 +1382,10 @@ SetupDiEnumDriverInfoW(
         SetLastError(ERROR_INVALID_USER_BUFFER);
     else
     {
-        struct DeviceInfo *devInfo = NULL;
+        struct DeviceInfoElement *devInfo = NULL;
         PLIST_ENTRY ItemList;
         if (DeviceInfoData)
-            devInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
+            devInfo = (struct DeviceInfoElement *)DeviceInfoData->Reserved;
         if (!devInfo || (devInfo->CreationFlags & DICD_INHERIT_CLASSDRVS))
         {
             ListHead = &((struct DeviceInfoSet *)DeviceInfoSet)->DriverListHead;
@@ -1489,7 +1492,7 @@ SetupDiGetSelectedDriverW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -1600,7 +1603,7 @@ SetupDiSetSelectedDriverW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -1613,8 +1616,8 @@ SetupDiSetSelectedDriverW(
 
         if (DeviceInfoData)
         {
-            pDriverInfo = (struct DriverInfoElement **)&((struct DeviceInfo *)DeviceInfoData->Reserved)->InstallParams.Reserved;
-            ListHead = &((struct DeviceInfo *)DeviceInfoData->Reserved)->DriverListHead;
+            pDriverInfo = (struct DriverInfoElement **)&((struct DeviceInfoElement *)DeviceInfoData->Reserved)->InstallParams.Reserved;
+            ListHead = &((struct DeviceInfoElement *)DeviceInfoData->Reserved)->DriverListHead;
         }
         else
         {
@@ -1893,7 +1896,7 @@ SetupDiGetDriverInfoDetailW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -2016,7 +2019,7 @@ SetupDiGetDriverInstallParamsW(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -2102,11 +2105,11 @@ SetupDiInstallDriverFiles(
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (((struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
-    else if (DeviceInfoData && ((struct DeviceInfo *)DeviceInfoData->Reserved)->InstallParams.Reserved == 0)
+    else if (DeviceInfoData && ((struct DeviceInfoElement *)DeviceInfoData->Reserved)->InstallParams.Reserved == 0)
         SetLastError(ERROR_NO_DRIVER_SELECTED);
     else if (!DeviceInfoData && ((struct DeviceInfoSet *)DeviceInfoSet)->InstallParams.Reserved == 0)
         SetLastError(ERROR_NO_DRIVER_SELECTED);

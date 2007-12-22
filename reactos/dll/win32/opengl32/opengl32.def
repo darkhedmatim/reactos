@@ -1,6 +1,6 @@
 ; $Id$
 ;
-; opengl32.def
+; opengl32.edf
 ;
 ; ReactOS Operating System
 ;
@@ -383,7 +383,7 @@ wglDescribeLayerPlane@20=rosglDescribeLayerPlane@20
 wglDescribePixelFormat@16=rosglDescribePixelFormat@16
 wglGetCurrentContext@0=rosglGetCurrentContext@0
 wglGetCurrentDC@0=rosglGetCurrentDC@0
-wglGetDefaultProcAddress@4=rosglGetDefaultProcAddress@4
+;wglGetDefaultProcAddress=rosglGetDefaultProcAddress@
 wglGetLayerPaletteEntries@20=rosglGetLayerPaletteEntries@20
 wglGetPixelFormat@4=rosglGetPixelFormat@4
 wglGetProcAddress@4=rosglGetProcAddress@4

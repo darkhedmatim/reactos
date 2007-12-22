@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -41,7 +42,7 @@ CmpSetValueCached(IN PHCELL_INDEX CellIndex)
 
 VALUE_SEARCH_RETURN_TYPE
 NTAPI
-CmpGetValueListFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
+CmpGetValueListFromCache(IN PKEY_OBJECT KeyObject,
                          OUT PCELL_DATA *CellData,
                          OUT BOOLEAN *IndexIsCached,
                          OUT PHCELL_INDEX ValueListToRelease)
@@ -49,17 +50,17 @@ CmpGetValueListFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     PHHIVE Hive;
     PCACHED_CHILD_LIST ChildList;
     HCELL_INDEX CellToRelease;
-    PCM_KEY_NODE KeyNode;
 
     /* Set defaults */
     *ValueListToRelease = HCELL_NIL;
     *IndexIsCached = FALSE;
 
-    /* Get the hive and value ceche */
-    Hive = Kcb->KeyHive;
-    ChildList = &Kcb->ValueCache;
-    KeyNode = (PCM_KEY_NODE)HvGetCell(Hive, Kcb->KeyCell);
-    ChildList = (PCACHED_CHILD_LIST)&KeyNode->ValueList;
+    /* Get the hive */
+    Hive = &KeyObject->RegistryHive->Hive;
+
+    /* Get the child value cache */
+    //ChildList = &KeyObject->ValueCache;
+    ChildList = (PCACHED_CHILD_LIST)&KeyObject->KeyCell->ValueList;
 
     /* Check if the value is cached */
     if (CmpIsValueCached(ChildList->ValueList))
@@ -71,20 +72,10 @@ CmpGetValueListFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     }
     else
     {
-        /* Make sure the KCB is locked exclusive */
-        if (!(CmpIsKcbLockedExclusive(Kcb)) &&
-            !(CmpTryToConvertKcbSharedToExclusive(Kcb)))
-        {
-            /* We need the exclusive lock */
-            return SearchNeedExclusiveLock;
-        }
-                
         /* Select the value list as our cell, and get the actual list array */
         CellToRelease = ChildList->ValueList;
         *CellData = (PCELL_DATA)HvGetCell(Hive, CellToRelease);
         if (!(*CellData)) return SearchFail;
-        
-        /* FIXME: Here we would cache the value */
 
         /* Return the cell to be released */
         *ValueListToRelease = CellToRelease;
@@ -96,7 +87,7 @@ CmpGetValueListFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
 
 VALUE_SEARCH_RETURN_TYPE
 NTAPI
-CmpGetValueKeyFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
+CmpGetValueKeyFromCache(IN PKEY_OBJECT KeyObject,
                         IN PCELL_DATA CellData,
                         IN ULONG Index,
                         OUT PCM_CACHED_VALUE **CachedValue,
@@ -115,7 +106,7 @@ CmpGetValueKeyFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     *ValueIsCached = FALSE;
 
     /* Get the hive */
-    Hive = Kcb->KeyHive;
+    Hive = &KeyObject->RegistryHive->Hive;
 
     /* Check if the index was cached */
     if (IndexIsCached)
@@ -142,7 +133,7 @@ CmpGetValueKeyFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
 
 VALUE_SEARCH_RETURN_TYPE
 NTAPI
-CmpGetValueDataFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
+CmpGetValueDataFromCache(IN PKEY_OBJECT KeyObject,
                          IN PCM_CACHED_VALUE *CachedValue,
                          IN PCELL_DATA ValueKey,
                          IN BOOLEAN ValueIsCached,
@@ -163,7 +154,7 @@ CmpGetValueDataFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     *CellToRelease = HCELL_NIL;
 
     /* Get the hive */
-    Hive = Kcb->KeyHive;
+    Hive = &KeyObject->RegistryHive->Hive;
 
     /* Check it the value is cached */
     if (ValueIsCached)
@@ -194,8 +185,8 @@ CmpGetValueDataFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
 
 VALUE_SEARCH_RETURN_TYPE
 NTAPI
-CmpFindValueByNameFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
-                            IN PCUNICODE_STRING Name,
+CmpFindValueByNameFromCache(IN PKEY_OBJECT KeyObject,
+                            IN PUNICODE_STRING Name,
                             OUT PCM_CACHED_VALUE **CachedValue,
                             OUT ULONG *Index,
                             OUT PCM_KEY_VALUE *Value,
@@ -212,33 +203,25 @@ CmpFindValueByNameFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     BOOLEAN IndexIsCached;
     ULONG i = 0;
     HCELL_INDEX Cell = HCELL_NIL;
-    PCM_KEY_NODE KeyNode;
 
     /* Set defaults */
     *CellToRelease = HCELL_NIL;
     *Value = NULL;
 
     /* Get the hive and child list */
-    Hive = Kcb->KeyHive;
-    ChildList = &Kcb->ValueCache;
-    KeyNode = (PCM_KEY_NODE)HvGetCell(Hive, Kcb->KeyCell);
-    ChildList = (PCACHED_CHILD_LIST)&KeyNode->ValueList;
+    Hive = &KeyObject->RegistryHive->Hive;
+    //ChildList = &KeyObject->ValueCache;
+    ChildList = (PCACHED_CHILD_LIST)&KeyObject->KeyCell->ValueList;
 
     /* Check if the child list has any entries */
     if (ChildList->Count != 0)
     {
         /* Get the value list associated to this child list */
-        SearchResult = CmpGetValueListFromCache(Kcb,
+        SearchResult = CmpGetValueListFromCache(KeyObject,
                                                 &CellData,
                                                 &IndexIsCached,
                                                 &Cell);
-        if (SearchResult != SearchSuccess)
-        {
-            /* We either failed or need the exclusive lock */
-            ASSERT((SearchResult == SearchFail) || !(CmpIsKcbLockedExclusive(Kcb)));
-            ASSERT(Cell == HCELL_NIL);
-            return SearchResult;
-        }
+        if (SearchResult != SearchSuccess) return SearchResult;
 
         /* The index shouldn't be cached right now */
         if (IndexIsCached) ASSERT_VALUE_CACHE();
@@ -255,7 +238,7 @@ CmpFindValueByNameFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
             }
 
             /* Get the key value for this index */
-            SearchResult =  CmpGetValueKeyFromCache(Kcb,
+            SearchResult =  CmpGetValueKeyFromCache(KeyObject,
                                                     CellData,
                                                     i,
                                                     CachedValue,
@@ -263,13 +246,7 @@ CmpFindValueByNameFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
                                                     IndexIsCached,
                                                     ValueIsCached,
                                                     CellToRelease);
-            if (SearchResult != SearchSuccess)
-            {
-                /* We either failed or need the exclusive lock */
-                ASSERT((SearchResult == SearchFail) || !(CmpIsKcbLockedExclusive(Kcb)));
-                ASSERT(Cell == HCELL_NIL);
-                return SearchResult;
-            }
+            if (SearchResult != SearchSuccess) return SearchResult;
 
             /* Check if the both the index and the value are cached */
             if ((IndexIsCached) && (*ValueIsCached))
@@ -330,7 +307,7 @@ Quickie:
 
 VALUE_SEARCH_RETURN_TYPE
 NTAPI
-CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
+CmpQueryKeyValueData(IN PKEY_OBJECT KeyObject,
                      IN PCM_CACHED_VALUE *CachedValue,
                      IN PCM_KEY_VALUE ValueKey,
                      IN BOOLEAN ValueIsCached,
@@ -351,7 +328,7 @@ CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
     VALUE_SEARCH_RETURN_TYPE Result = SearchSuccess;
 
     /* Get the hive and cell data */
-    Hive = Kcb->KeyHive;
+    Hive = &KeyObject->RegistryHive->Hive;
     CellData = (PCELL_DATA)ValueKey;
 
     /* Check if the value is compressed */
@@ -515,7 +492,7 @@ CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
                 else
                 {
                     /* Otherwise, we must retrieve it from the value cache */
-                    Result = CmpGetValueDataFromCache(Kcb,
+                    Result = CmpGetValueDataFromCache(KeyObject,
                                                       CachedValue,
                                                       CellData,
                                                       ValueIsCached,
@@ -535,8 +512,7 @@ CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
                 Info->KeyValueFullInformation.DataOffset = AlignedData;
 
                 /* Only the data remains to be copied */
-                SizeLeft = (((LONG)Length - (LONG)AlignedData) < 0) ?
-                           0 : (Length - AlignedData);
+                SizeLeft = max(0, Length - AlignedData);
                 Size = KeySize;
 
                 /* Check if the caller has no space for it */
@@ -610,7 +586,7 @@ CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
                 else
                 {
                     /* Otherwise, we must retrieve it from the value cache */
-                    Result = CmpGetValueDataFromCache(Kcb,
+                    Result = CmpGetValueDataFromCache(KeyObject,
                                                       CachedValue,
                                                       CellData,
                                                       ValueIsCached,
@@ -664,144 +640,4 @@ CmpQueryKeyValueData(IN PCM_KEY_CONTROL_BLOCK Kcb,
 
     /* Return the search result as well */
     return Result;
-}
-
-VALUE_SEARCH_RETURN_TYPE
-NTAPI
-CmpCompareNewValueDataAgainstKCBCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
-                                      IN PUNICODE_STRING ValueName,
-                                      IN ULONG Type,
-                                      IN PVOID Data,
-                                      IN ULONG DataSize)
-{
-    VALUE_SEARCH_RETURN_TYPE SearchResult;
-    PCM_KEY_NODE KeyNode;
-    PCM_CACHED_VALUE *CachedValue;
-    ULONG Index;
-    PCM_KEY_VALUE Value;
-    BOOLEAN ValueCached, BufferAllocated = FALSE;
-    PVOID Buffer;
-    HCELL_INDEX ValueCellToRelease = HCELL_NIL, CellToRelease = HCELL_NIL;
-    BOOLEAN IsSmall;
-    ULONG CompareResult;
-    PAGED_CODE();
-
-    /* Check if this is a symlink */
-    if (Kcb->Flags & KEY_SYM_LINK)
-    {
-        /* We need the exclusive lock */
-        if (!(CmpIsKcbLockedExclusive(Kcb)) &&
-            !(CmpTryToConvertKcbSharedToExclusive(Kcb)))
-        {
-            /* We need the exclusive lock */
-            return SearchNeedExclusiveLock;
-        }
-        
-        /* Otherwise, get the key node */
-        KeyNode = (PCM_KEY_NODE)HvGetCell(Kcb->KeyHive, Kcb->KeyCell);
-        if (!KeyNode) return SearchFail;
-        
-        /* Cleanup the KCB cache */
-        CmpCleanUpKcbValueCache(Kcb);
-        
-        /* Sanity checks */
-        ASSERT(!(CMP_IS_CELL_CACHED(Kcb->ValueCache.ValueList)));
-        ASSERT(!(Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND));
-        
-        /* Set the value cache */
-        Kcb->ValueCache.Count = KeyNode->ValueList.Count;
-        Kcb->ValueCache.ValueList = KeyNode->ValueList.List;
-        
-        /* Release the cell */
-        HvReleaseCell(Kcb->KeyHive, Kcb->KeyCell);
-    }
-    
-    /* Do the search */
-    SearchResult = CmpFindValueByNameFromCache(Kcb,
-                                               ValueName,
-                                               &CachedValue,
-                                               &Index,
-                                               &Value,
-                                               &ValueCached,
-                                               &ValueCellToRelease);
-    if (SearchResult == SearchNeedExclusiveLock)
-    {
-        /* We need the exclusive lock */
-        ASSERT(!CmpIsKcbLockedExclusive(Kcb));
-        ASSERT(ValueCellToRelease == HCELL_NIL);
-        ASSERT(Value == NULL);
-        goto Quickie;
-    }
-    else if (SearchResult == SearchSuccess)
-    {
-        /* Sanity check */
-        ASSERT(Value);
-        
-        /* First of all, check if the key size and type matches */
-        if ((Type == Value->Type) &&
-            (DataSize == (Value->DataLength & ~CM_KEY_VALUE_SPECIAL_SIZE)))
-        {
-            /* Check if this is a small key */
-            IsSmall = (DataSize <= CM_KEY_VALUE_SMALL) ? TRUE: FALSE;
-            if (IsSmall)
-            {
-                /* Compare against the data directly */
-                Buffer = &Value->Data;
-            }
-            else
-            {
-                /* Do a search */
-                SearchResult = CmpGetValueDataFromCache(Kcb,
-                                                        CachedValue,
-                                                        (PCELL_DATA)Value,
-                                                        ValueCached,
-                                                        &Buffer,
-                                                        &BufferAllocated,
-                                                        &CellToRelease);
-                if (SearchResult != SearchSuccess)
-                {
-                    /* Sanity checks */
-                    ASSERT(Buffer == NULL);
-                    ASSERT(BufferAllocated == FALSE);
-                    goto Quickie;
-                }
-            }
-            
-            /* Now check the data size */
-            if (DataSize)
-            {
-                /* Do the compare */
-                CompareResult = RtlCompareMemory(Buffer,
-                                                 Data,
-                                                 DataSize &
-                                                 ~CM_KEY_VALUE_SPECIAL_SIZE);
-            }
-            else
-            {
-                /* It's equal */
-                CompareResult = 0;
-            }
-            
-            /* Now check if the compare wasn't equal */
-            if (CompareResult != DataSize) SearchResult = SearchFail;
-        }
-        else
-        {
-            /* The length or type isn't equal */
-            SearchResult = SearchFail;
-        }
-    }
-
-Quickie:
-    /* Release the value cell */
-    if (ValueCellToRelease) HvReleaseCell(Kcb->KeyHive, ValueCellToRelease);
-    
-    /* Free the buffer */
-    if (BufferAllocated) ExFreePool(Buffer);
-    
-    /* Free the cell */
-    if (CellToRelease) HvReleaseCell(Kcb->KeyHive, CellToRelease);
-
-    /* Return the search result */
-    return SearchResult;
 }

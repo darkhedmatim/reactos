@@ -5,6 +5,8 @@
 	<include base="ReactOS">include/reactos/subsys</include>
 	<define name="_DISABLE_TIDENTS" />
 	<define name="UNICODE" />
+	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
 	<define name="WINVER">0x0600</define>
 	<define name="_WIN32_WINNT">0x0501</define>
 	<library>wine</library>
@@ -13,9 +15,6 @@
 	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>imm32</library>
-	<library>win32ksys</library>
-	<library>pseh</library>
-
 	<directory name="include">
 		<pch>user32.h</pch>
 	</directory>
@@ -41,11 +40,27 @@
 		<file>misc.c</file>
 		<file>object.c</file>
 		<file>resources.c</file>
+		<file>strpool.c</file>
 		<file>stubs.c</file>
 		<file>timer.c</file>
 		<file>winhelp.c</file>
 		<file>winsta.c</file>
 		<file>wsprintf.c</file>
+		<if property="ARCH" value="i386">
+			<directory name="i386">
+				<file>win32k.S</file>
+			</directory>
+		</if>
+		<if property="ARCH" value="powerpc">
+			<directory name="powerpc">
+				<file>win32k.S</file>
+			</directory>
+		</if>
+		<if property="ARCH" value="mips">
+			<directory name="mips">
+				<file>win32k.S</file>
+			</directory>
+		</if>
 	</directory>
 	<directory name="windows">
 		<file>accel.c</file>

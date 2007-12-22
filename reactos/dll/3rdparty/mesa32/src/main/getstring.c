@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.2
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,15 +54,7 @@ _mesa_GetString( GLenum name )
    static const char *version_1_3 = "1.3 Mesa " MESA_VERSION_STRING;
    static const char *version_1_4 = "1.4 Mesa " MESA_VERSION_STRING;
    static const char *version_1_5 = "1.5 Mesa " MESA_VERSION_STRING;
-   static const char *version_2_0 = "2.0 Mesa " MESA_VERSION_STRING;
-   static const char *version_2_1 = "2.1 Mesa " MESA_VERSION_STRING;
-
-#if FEATURE_ARB_shading_language_100
-   static const char *sl_version_110 = "1.10 Mesa " MESA_VERSION_STRING;
-#endif
-
-   if (!ctx)
-      return NULL;
+   static const char *version_2_0 = "1.5 Mesa " MESA_VERSION_STRING;/*XXX FIX*/
 
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, NULL);
 
@@ -111,19 +103,9 @@ _mesa_GetString( GLenum name )
                    ctx->Extensions.EXT_shadow_funcs) {
                   if (ctx->Extensions.ARB_draw_buffers &&
                       ctx->Extensions.ARB_point_sprite &&
-                      ctx->Extensions.ARB_shader_objects &&
-                      ctx->Extensions.ARB_vertex_shader &&
-                      ctx->Extensions.ARB_fragment_shader &&
                       ctx->Extensions.ARB_texture_non_power_of_two &&
-                      ctx->Extensions.EXT_blend_equation_separate) {
-                     if (ctx->Extensions.ARB_shading_language_120 &&
-                         ctx->Extensions.EXT_pixel_buffer_object &&
-                         ctx->Extensions.EXT_texture_sRGB) {
-                        return (const GLubyte *) version_2_1;
-                     }
-                     else {
-                        return (const GLubyte *) version_2_0;
-                     }
+                      ctx->Extensions.EXT_stencil_two_side) {
+                     return (const GLubyte *) version_2_0;
                   }
                   else {
                      return (const GLubyte *) version_1_5;
@@ -144,12 +126,6 @@ _mesa_GetString( GLenum name )
          if (!ctx->Extensions.String)
             ctx->Extensions.String = _mesa_make_extension_string(ctx);
          return (const GLubyte *) ctx->Extensions.String;
-#if FEATURE_ARB_shading_language_100
-      case GL_SHADING_LANGUAGE_VERSION_ARB:
-         if (ctx->Extensions.ARB_shading_language_100)
-            return (const GLubyte *) sl_version_110;
-         goto error;
-#endif
 #if FEATURE_NV_fragment_program || FEATURE_ARB_fragment_program || \
     FEATURE_NV_vertex_program || FEATURE_ARB_vertex_program
       case GL_PROGRAM_ERROR_STRING_NV:
@@ -160,9 +136,6 @@ _mesa_GetString( GLenum name )
             return (const GLubyte *) ctx->Program.ErrorString;
          }
          /* FALL-THROUGH */
-#endif
-#if FEATURE_ARB_shading_language_100
-      error:
 #endif
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glGetString" );
@@ -201,28 +174,28 @@ _mesa_GetPointerv( GLenum pname, GLvoid **params )
 
    switch (pname) {
       case GL_VERTEX_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->Vertex.Ptr;
+         *params = (GLvoid *) ctx->Array.Vertex.Ptr;
          break;
       case GL_NORMAL_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->Normal.Ptr;
+         *params = (GLvoid *) ctx->Array.Normal.Ptr;
          break;
       case GL_COLOR_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->Color.Ptr;
+         *params = (GLvoid *) ctx->Array.Color.Ptr;
          break;
       case GL_SECONDARY_COLOR_ARRAY_POINTER_EXT:
-         *params = (GLvoid *) ctx->Array.ArrayObj->SecondaryColor.Ptr;
+         *params = (GLvoid *) ctx->Array.SecondaryColor.Ptr;
          break;
       case GL_FOG_COORDINATE_ARRAY_POINTER_EXT:
-         *params = (GLvoid *) ctx->Array.ArrayObj->FogCoord.Ptr;
+         *params = (GLvoid *) ctx->Array.FogCoord.Ptr;
          break;
       case GL_INDEX_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->Index.Ptr;
+         *params = (GLvoid *) ctx->Array.Index.Ptr;
          break;
       case GL_TEXTURE_COORD_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->TexCoord[clientUnit].Ptr;
+         *params = (GLvoid *) ctx->Array.TexCoord[clientUnit].Ptr;
          break;
       case GL_EDGE_FLAG_ARRAY_POINTER:
-         *params = (GLvoid *) ctx->Array.ArrayObj->EdgeFlag.Ptr;
+         *params = (GLvoid *) ctx->Array.EdgeFlag.Ptr;
          break;
       case GL_FEEDBACK_BUFFER_POINTER:
          *params = ctx->Feedback.Buffer;

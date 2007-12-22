@@ -9,15 +9,15 @@
 
 /* INCLUDES *****************************************************************/
 
+//#define NDEBUG
+#include <debug.h>
+
 #include <stdio.h>
 #define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 #include <fmifs/fmifs.h>
-
-//#define NDEBUG
-#include <debug.h>
 
 /* DEFINES ******************************************************************/
 
@@ -73,7 +73,7 @@ OpenDirectory(
     InitializeObjectAttributes(
         &ObjectAttributes,
         &NtPathU,
-        OBJ_CASE_INSENSITIVE,
+        Write ? FILE_WRITE_ATTRIBUTES : FILE_READ_ATTRIBUTES,
         NULL,
         NULL);
 
@@ -144,10 +144,10 @@ GetFileSystem(
 }
 
 // This is based on SysInternal's ChkDsk app
-static BOOLEAN NTAPI
+static BOOLEAN CALLBACK
 ChkdskCallback(
     IN CALLBACKCOMMAND Command,
-    IN ULONG Modifier,
+    IN DWORD Modifier,
     IN PVOID Argument)
 {
     PDWORD      Percent;
@@ -285,7 +285,7 @@ CheckVolume(
 
     /* Load the provider which will do the chkdsk */
     Provider = LoadProvider(FileSystem);
-    if (Provider == NULL)
+    if (!NT_SUCCESS(Status))
     {
         DPRINT1("LoadProvider() failed\n");
         PrintString("  Unable to verify a %S volume\n", FileSystem);

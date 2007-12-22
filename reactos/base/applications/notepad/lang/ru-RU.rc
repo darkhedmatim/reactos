@@ -26,7 +26,7 @@ ID_ACCEL ACCELERATORS
     "^C", CMD_COPY
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
-    "H", CMD_REPLACE, VIRTKEY, CONTROL
+    "H", CMD_REPLACE, VIRTKEY, CONTROL 
     "^O", CMD_OPEN
     "^S", CMD_SAVE
     "^V", CMD_PASTE
@@ -36,9 +36,9 @@ ID_ACCEL ACCELERATORS
     VK_F5, CMD_TIME_DATE, VIRTKEY
 }
 
-MAIN_MENU MENU
+MAIN_MENU MENU 
 BEGIN
-	POPUP "&Файл"
+	POPUP "&Файл" 
 	BEGIN
 		MENUITEM "Созд&ать",                CMD_NEW
 		MENUITEM "&Открыть...",             CMD_OPEN
@@ -77,7 +77,7 @@ BEGIN
 	BEGIN
 		MENUITEM "Строка &состояния",       CMD_STATUSBAR
 	END
-	POPUP "&Справка"
+	POPUP "&Справка" 
 	BEGIN
 		MENUITEM "&Содержание",             CMD_HELP_CONTENTS
 		MENUITEM "&Поиск...",               CMD_HELP_SEARCH
@@ -118,7 +118,7 @@ PUSHBUTTON    "&Справка",   IDHELP,                 180, 39, 40, 15, WS_TABSTOP
 /* Dialog `Encoding' */
 
 DIALOG_ENCODING DIALOG 0, 0, 256, 44
-STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS | 
     WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Кодировка символов"
@@ -144,10 +144,10 @@ PUSHBUTTON      "Отмена", IDCANCEL, 120, 30, 40, 15, WS_CHILD | WS_TABSTOP
 
 IDD_ABOUTBOX DIALOG DISCARDABLE  22,16,284,170
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-CAPTION "О программе Блокнот ReactOS"
+CAPTION "О программе ReactOS Notepad"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    CONTROL         "Блокнот ReactOS v1.0\r\nCopyright 1997,98 Marcel Baur <mbaur@g26.ethz.ch>\r\nCopyright 2000 Mike McCormack <Mike_McCormack@looksmart.com.au>\r\nCopyright 2002 Sylvain Petreolle <spetreolle@yahoo.fr>\r\nCopyright 2002 Andriy Palamarchuk\r\n ",
+    CONTROL         "ReactOS Notepad v1.0\r\nCopyright 1997,98 Marcel Baur <mbaur@g26.ethz.ch>\r\nCopyright 2000 Mike McCormack <Mike_McCormack@looksmart.com.au>\r\nCopyright 2002 Sylvain Petreolle <spetreolle@yahoo.fr>\r\nCopyright 2002 Andriy Palamarchuk\r\n ",
                     -1,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,46,7,232,39
     CONTROL         " ",
                     -1,"Static",0x50000000,8,48,272,11
@@ -159,10 +159,10 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-  STRING_LICENSE, "Эта программа является свободно распространяемой; Вы можете распространять ее повторно и (или) изменять, соблюдая условия Открытого лицензионного соглашения GNU, опубликованного Фондом свободно распространяемого программного обеспечения; либо редакции 2 Соглашения, либо (на ваше усмотрение) любой редакции, выпущенной позже.\r\n\r\nЭта программа распространяется в надежде на то, что она окажется полезной, но БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ, включая подразумеваемую гарантию КАЧЕСТВА либо ПРИГОДНОСТИ ДЛЯ ОПРЕДЕЛЕННЫХ ЦЕЛЕЙ. Подробности содержатся в Открытом лицензионном соглашении GNU.\r\n\r\nВместе с этой программой должен распространяться экземпляр Открытого лицензионного соглашения GNU, если он отсутствует, сообщите об этом в Фонд свободно распространяемого программного обеспечения (Free Software Foundation, Inc.), 675 Mass Ave, Cambridge, MA 02139, USA."
+  STRING_LICENSE, "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 {
 STRING_PAGESETUP_HEADERVALUE,   "&n"            /* FIXME */
 STRING_PAGESETUP_FOOTERVALUE,   "Страница &s"   /* FIXME */
@@ -192,12 +192,12 @@ STRING_NOTSAVED,                                "Файл '%s'\nбыл изменен\n\n \
 STRING_NOTFOUND,                                "'%s' не найден."
 STRING_OUT_OF_MEMORY,                           "Недостаточно памяти для завершения этой операции. \
 \nЗакройте одно или несколько приложений и повторите попытку."
-STRING_CANNOTFIND                               "Невозможно найти '%s'"
+STRING_CANNOTFIND                               "Не найду '%s'"
 STRING_ANSI,                                    "ANSI"
 STRING_UNICODE,                                 "Юникод"
 STRING_UNICODE_BE,                              "Юникод (big endian)"
 STRING_UTF8,                                    "UTF-8"
-STRING_CRLF,                                    "Windows"
-STRING_LF,                                      "Unix"
+STRING_CRLF,                                    "Форточки"
+STRING_LF,                                      "Юникс"
 STRING_CR,                                      "Макинтош"
 }

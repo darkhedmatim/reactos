@@ -18,7 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * $Id: dma.c 27066 2007-06-07 22:12:10Z greatlrd $
+ * $Id$
  */
 
 #include "videoprt.h"
@@ -75,7 +75,7 @@ VideoPortPutDmaAdapter(
    IN PVOID HwDeviceExtension,
    IN PVP_DMA_ADAPTER VpDmaAdapter)
 {
-   DPRINT1("unimplemented VideoPortPutDmaAdapter\n");
+   DPRINT("VideoPortPutDmaAdapter: Unimplemented.\n");
 }
 
 /*
@@ -116,29 +116,4 @@ VideoPortGetDmaAdapter(
       (PVP_DMA_ADAPTER)HalGetAdapter(&DeviceDescription, &NumberOfMapRegisters);
    DPRINT("Adapter %X\n", Adapter);
    return(Adapter);
-}
-
-/*
- * @implemented
- */
-VOID NTAPI
-VideoPortFreeCommonBuffer( IN PVOID HwDeviceExtension,
-                                 IN ULONG  Length,
-                                 IN PVOID  VirtualAddress,
-                                 IN PHYSICAL_ADDRESS  LogicalAddress,
-                                 IN BOOLEAN  CacheEnabled)
-{
-   DEVICE_DESCRIPTION DeviceDescription;
-   PVP_DMA_ADAPTER VpDmaAdapter;
-
-   VpDmaAdapter = VideoPortGetDmaAdapter(
-                    HwDeviceExtension,
-                    (PVP_DEVICE_DESCRIPTION)&DeviceDescription);
-
-   HalFreeCommonBuffer(
-      (PADAPTER_OBJECT)VpDmaAdapter,
-      Length,
-      LogicalAddress,
-      VirtualAddress,
-      CacheEnabled);
 }

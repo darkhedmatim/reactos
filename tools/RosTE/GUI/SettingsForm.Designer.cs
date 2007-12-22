@@ -36,8 +36,6 @@ namespace RosTEGUI
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.memoryPanel = new System.Windows.Forms.Panel();
             this.memoryGrpBox = new System.Windows.Forms.GroupBox();
-            this.memoryHorizRuleLight = new System.Windows.Forms.Panel();
-            this.memoryHorizRuleDark = new System.Windows.Forms.Panel();
             this.memoryPhyRam = new System.Windows.Forms.Label();
             this.memoryLabel2 = new System.Windows.Forms.Label();
             this.memoryGrpBox1 = new System.Windows.Forms.GroupBox();
@@ -72,9 +70,6 @@ namespace RosTEGUI
             this.harddiskFreeSpcLbl = new System.Windows.Forms.Label();
             this.harddiskLabel4 = new System.Windows.Forms.Label();
             this.harddiskDetailsGrpBox = new System.Windows.Forms.GroupBox();
-            this.harddiskDriveName = new System.Windows.Forms.Label();
-            this.harddiskLabel5 = new System.Windows.Forms.Label();
-            this.harddiskBootImageChk = new System.Windows.Forms.CheckBox();
             this.harddiskSizeLbl = new System.Windows.Forms.Label();
             this.harddiskLabel3 = new System.Windows.Forms.Label();
             this.harddiskLabel2 = new System.Windows.Forms.Label();
@@ -122,14 +117,12 @@ namespace RosTEGUI
             this.settingsHelpBtn = new System.Windows.Forms.Button();
             this.settingsTab = new System.Windows.Forms.TabControl();
             this.settingsHardwareTab = new System.Windows.Forms.TabPage();
-            this.hardwareSelLstBox = new RosTEGUI.OptListBox();
             this.settingsOptionsTab = new System.Windows.Forms.TabPage();
             this.optionsContainerPanel = new System.Windows.Forms.Panel();
             this.optionsTempDesignSheetTab = new System.Windows.Forms.TabControl();
             this.tabPage8 = new System.Windows.Forms.TabPage();
             this.generalPanel = new System.Windows.Forms.Panel();
             this.generalGrpBox = new System.Windows.Forms.GroupBox();
-            this.generalEditbutton = new System.Windows.Forms.Button();
             this.generalSetClockHost = new System.Windows.Forms.CheckBox();
             this.generalWorkDirBrows = new System.Windows.Forms.Button();
             this.generalWorkDir = new System.Windows.Forms.TextBox();
@@ -150,8 +143,11 @@ namespace RosTEGUI
             this.tabPage12 = new System.Windows.Forms.TabPage();
             this.debugPanel = new System.Windows.Forms.Panel();
             this.debugGrpBox = new System.Windows.Forms.GroupBox();
-            this.optionsSelLstBox = new RosTEGUI.OptListBox();
             this.browseDlg = new System.Windows.Forms.FolderBrowserDialog();
+            this.memoryHorizRuleDark = new System.Windows.Forms.Panel();
+            this.memoryHorizRuleLight = new System.Windows.Forms.Panel();
+            this.hardwareSelLstBox = new RosTEGUI.OptListBox();
+            this.optionsSelLstBox = new RosTEGUI.OptListBox();
             this.hardwareContainerPanel.SuspendLayout();
             this.hardwareTempDesignSheetTab.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -282,22 +278,6 @@ namespace RosTEGUI
             this.memoryGrpBox.TabIndex = 0;
             this.memoryGrpBox.TabStop = false;
             this.memoryGrpBox.Text = "Memory";
-            // 
-            // memoryHorizRuleLight
-            // 
-            this.memoryHorizRuleLight.BackColor = System.Drawing.SystemColors.ControlLightLight;
-            this.memoryHorizRuleLight.Location = new System.Drawing.Point(9, 185);
-            this.memoryHorizRuleLight.Name = "memoryHorizRuleLight";
-            this.memoryHorizRuleLight.Size = new System.Drawing.Size(265, 1);
-            this.memoryHorizRuleLight.TabIndex = 16;
-            // 
-            // memoryHorizRuleDark
-            // 
-            this.memoryHorizRuleDark.BackColor = System.Drawing.SystemColors.ControlDark;
-            this.memoryHorizRuleDark.Location = new System.Drawing.Point(9, 184);
-            this.memoryHorizRuleDark.Name = "memoryHorizRuleDark";
-            this.memoryHorizRuleDark.Size = new System.Drawing.Size(265, 1);
-            this.memoryHorizRuleDark.TabIndex = 15;
             // 
             // memoryPhyRam
             // 
@@ -436,7 +416,7 @@ namespace RosTEGUI
             this.memoryTrkBar.Name = "memoryTrkBar";
             this.memoryTrkBar.Size = new System.Drawing.Size(209, 45);
             this.memoryTrkBar.TabIndex = 0;
-            this.memoryTrkBar.ValueChanged += new System.EventHandler(this.memoryTrkBar_ValueChanged);
+            this.memoryTrkBar.Scroll += new System.EventHandler(this.memoryTrkBar_Scroll);
             // 
             // tabPage2
             // 
@@ -605,12 +585,11 @@ namespace RosTEGUI
             this.harddiskRemoveBtn.TabIndex = 7;
             this.harddiskRemoveBtn.Text = "Remove";
             this.harddiskRemoveBtn.UseVisualStyleBackColor = true;
-            this.harddiskRemoveBtn.Click += new System.EventHandler(this.harddiskRemoveBtn_Click);
             // 
             // harddiskFreeSpcLbl
             // 
             this.harddiskFreeSpcLbl.AutoSize = true;
-            this.harddiskFreeSpcLbl.Location = new System.Drawing.Point(121, 323);
+            this.harddiskFreeSpcLbl.Location = new System.Drawing.Point(129, 275);
             this.harddiskFreeSpcLbl.Name = "harddiskFreeSpcLbl";
             this.harddiskFreeSpcLbl.Size = new System.Drawing.Size(69, 13);
             this.harddiskFreeSpcLbl.TabIndex = 6;
@@ -619,7 +598,7 @@ namespace RosTEGUI
             // harddiskLabel4
             // 
             this.harddiskLabel4.AutoSize = true;
-            this.harddiskLabel4.Location = new System.Drawing.Point(10, 323);
+            this.harddiskLabel4.Location = new System.Drawing.Point(18, 275);
             this.harddiskLabel4.Name = "harddiskLabel4";
             this.harddiskLabel4.Size = new System.Drawing.Size(105, 13);
             this.harddiskLabel4.TabIndex = 5;
@@ -627,52 +606,21 @@ namespace RosTEGUI
             // 
             // harddiskDetailsGrpBox
             // 
-            this.harddiskDetailsGrpBox.Controls.Add(this.harddiskDriveName);
-            this.harddiskDetailsGrpBox.Controls.Add(this.harddiskLabel5);
-            this.harddiskDetailsGrpBox.Controls.Add(this.harddiskBootImageChk);
             this.harddiskDetailsGrpBox.Controls.Add(this.harddiskSizeLbl);
             this.harddiskDetailsGrpBox.Controls.Add(this.harddiskLabel3);
             this.harddiskDetailsGrpBox.Controls.Add(this.harddiskLabel2);
             this.harddiskDetailsGrpBox.Controls.Add(this.harddiskFileNameTxtBox);
             this.harddiskDetailsGrpBox.Location = new System.Drawing.Point(13, 147);
             this.harddiskDetailsGrpBox.Name = "harddiskDetailsGrpBox";
-            this.harddiskDetailsGrpBox.Size = new System.Drawing.Size(261, 155);
+            this.harddiskDetailsGrpBox.Size = new System.Drawing.Size(261, 96);
             this.harddiskDetailsGrpBox.TabIndex = 4;
             this.harddiskDetailsGrpBox.TabStop = false;
             this.harddiskDetailsGrpBox.Text = "Details";
             // 
-            // harddiskDriveName
-            // 
-            this.harddiskDriveName.AutoSize = true;
-            this.harddiskDriveName.Location = new System.Drawing.Point(53, 27);
-            this.harddiskDriveName.Name = "harddiskDriveName";
-            this.harddiskDriveName.Size = new System.Drawing.Size(37, 13);
-            this.harddiskDriveName.TabIndex = 6;
-            this.harddiskDriveName.Text = "<hda>";
-            // 
-            // harddiskLabel5
-            // 
-            this.harddiskLabel5.AutoSize = true;
-            this.harddiskLabel5.Location = new System.Drawing.Point(6, 27);
-            this.harddiskLabel5.Name = "harddiskLabel5";
-            this.harddiskLabel5.Size = new System.Drawing.Size(32, 13);
-            this.harddiskLabel5.TabIndex = 5;
-            this.harddiskLabel5.Text = "Drive";
-            // 
-            // harddiskBootImageChk
-            // 
-            this.harddiskBootImageChk.AutoSize = true;
-            this.harddiskBootImageChk.Location = new System.Drawing.Point(9, 120);
-            this.harddiskBootImageChk.Name = "harddiskBootImageChk";
-            this.harddiskBootImageChk.Size = new System.Drawing.Size(121, 17);
-            this.harddiskBootImageChk.TabIndex = 4;
-            this.harddiskBootImageChk.Text = "Boot from this image";
-            this.harddiskBootImageChk.UseVisualStyleBackColor = true;
-            // 
             // harddiskSizeLbl
             // 
             this.harddiskSizeLbl.AutoSize = true;
-            this.harddiskSizeLbl.Location = new System.Drawing.Point(53, 92);
+            this.harddiskSizeLbl.Location = new System.Drawing.Point(53, 66);
             this.harddiskSizeLbl.Name = "harddiskSizeLbl";
             this.harddiskSizeLbl.Size = new System.Drawing.Size(37, 13);
             this.harddiskSizeLbl.TabIndex = 3;
@@ -681,7 +629,7 @@ namespace RosTEGUI
             // harddiskLabel3
             // 
             this.harddiskLabel3.AutoSize = true;
-            this.harddiskLabel3.Location = new System.Drawing.Point(6, 92);
+            this.harddiskLabel3.Location = new System.Drawing.Point(6, 66);
             this.harddiskLabel3.Name = "harddiskLabel3";
             this.harddiskLabel3.Size = new System.Drawing.Size(27, 13);
             this.harddiskLabel3.TabIndex = 2;
@@ -690,7 +638,7 @@ namespace RosTEGUI
             // harddiskLabel2
             // 
             this.harddiskLabel2.AutoSize = true;
-            this.harddiskLabel2.Location = new System.Drawing.Point(6, 62);
+            this.harddiskLabel2.Location = new System.Drawing.Point(6, 29);
             this.harddiskLabel2.Name = "harddiskLabel2";
             this.harddiskLabel2.Size = new System.Drawing.Size(44, 13);
             this.harddiskLabel2.TabIndex = 1;
@@ -698,7 +646,7 @@ namespace RosTEGUI
             // 
             // harddiskFileNameTxtBox
             // 
-            this.harddiskFileNameTxtBox.Location = new System.Drawing.Point(56, 59);
+            this.harddiskFileNameTxtBox.Location = new System.Drawing.Point(56, 26);
             this.harddiskFileNameTxtBox.Name = "harddiskFileNameTxtBox";
             this.harddiskFileNameTxtBox.ReadOnly = true;
             this.harddiskFileNameTxtBox.Size = new System.Drawing.Size(199, 20);
@@ -730,7 +678,6 @@ namespace RosTEGUI
             this.harddiskAddBtn.TabIndex = 1;
             this.harddiskAddBtn.Text = "Add";
             this.harddiskAddBtn.UseVisualStyleBackColor = true;
-            this.harddiskAddBtn.Click += new System.EventHandler(this.harddiskAddBtn_Click);
             // 
             // harddiskLstBox
             // 
@@ -739,7 +686,6 @@ namespace RosTEGUI
             this.harddiskLstBox.Name = "harddiskLstBox";
             this.harddiskLstBox.Size = new System.Drawing.Size(237, 56);
             this.harddiskLstBox.TabIndex = 0;
-            this.harddiskLstBox.SelectedIndexChanged += new System.EventHandler(this.harddiskLstBox_SelectedIndexChanged);
             // 
             // tabPage4
             // 
@@ -994,7 +940,6 @@ namespace RosTEGUI
             this.ethAddBtn.TabIndex = 6;
             this.ethAddBtn.Text = "Add";
             this.ethAddBtn.UseVisualStyleBackColor = true;
-            this.ethAddBtn.Click += new System.EventHandler(this.ethAddBtn_Click);
             // 
             // ethLstBox
             // 
@@ -1130,20 +1075,6 @@ namespace RosTEGUI
             this.settingsHardwareTab.Text = "Hardware";
             this.settingsHardwareTab.UseVisualStyleBackColor = true;
             // 
-            // hardwareSelLstBox
-            // 
-            this.hardwareSelLstBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.hardwareSelLstBox.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.hardwareSelLstBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-            this.hardwareSelLstBox.FormattingEnabled = true;
-            this.hardwareSelLstBox.ImageList = this.optListBoxImgLst;
-            this.hardwareSelLstBox.Location = new System.Drawing.Point(3, 6);
-            this.hardwareSelLstBox.Name = "hardwareSelLstBox";
-            this.hardwareSelLstBox.Size = new System.Drawing.Size(74, 340);
-            this.hardwareSelLstBox.TabIndex = 0;
-            this.hardwareSelLstBox.MouseEnter += new System.EventHandler(this.hardwareSelLstBox_MouseEnter);
-            this.hardwareSelLstBox.SelectedIndexChanged += new System.EventHandler(this.listboxSelection_SelectedIndexChanged);
-            // 
             // settingsOptionsTab
             // 
             this.settingsOptionsTab.Controls.Add(this.optionsContainerPanel);
@@ -1196,11 +1127,9 @@ namespace RosTEGUI
             this.generalPanel.Name = "generalPanel";
             this.generalPanel.Size = new System.Drawing.Size(280, 361);
             this.generalPanel.TabIndex = 0;
-            this.generalPanel.VisibleChanged += new System.EventHandler(this.generalOnVisible);
             // 
             // generalGrpBox
             // 
-            this.generalGrpBox.Controls.Add(this.generalEditbutton);
             this.generalGrpBox.Controls.Add(this.generalSetClockHost);
             this.generalGrpBox.Controls.Add(this.generalWorkDirBrows);
             this.generalGrpBox.Controls.Add(this.generalWorkDir);
@@ -1216,20 +1145,10 @@ namespace RosTEGUI
             this.generalGrpBox.TabStop = false;
             this.generalGrpBox.Text = "General";
             // 
-            // generalEditbutton
-            // 
-            this.generalEditbutton.Location = new System.Drawing.Point(6, 118);
-            this.generalEditbutton.Name = "generalEditbutton";
-            this.generalEditbutton.Size = new System.Drawing.Size(75, 23);
-            this.generalEditbutton.TabIndex = 8;
-            this.generalEditbutton.Text = "Edit";
-            this.generalEditbutton.UseVisualStyleBackColor = true;
-            this.generalEditbutton.Click += new System.EventHandler(this.generalEditbutton_Click);
-            // 
             // generalSetClockHost
             // 
             this.generalSetClockHost.AutoSize = true;
-            this.generalSetClockHost.Location = new System.Drawing.Point(6, 203);
+            this.generalSetClockHost.Location = new System.Drawing.Point(17, 201);
             this.generalSetClockHost.Name = "generalSetClockHost";
             this.generalSetClockHost.Size = new System.Drawing.Size(128, 17);
             this.generalSetClockHost.TabIndex = 7;
@@ -1238,8 +1157,7 @@ namespace RosTEGUI
             // 
             // generalWorkDirBrows
             // 
-            this.generalWorkDirBrows.Enabled = false;
-            this.generalWorkDirBrows.Location = new System.Drawing.Point(199, 118);
+            this.generalWorkDirBrows.Location = new System.Drawing.Point(199, 148);
             this.generalWorkDirBrows.Name = "generalWorkDirBrows";
             this.generalWorkDirBrows.Size = new System.Drawing.Size(75, 23);
             this.generalWorkDirBrows.TabIndex = 6;
@@ -1248,16 +1166,15 @@ namespace RosTEGUI
             // 
             // generalWorkDir
             // 
-            this.generalWorkDir.Location = new System.Drawing.Point(6, 92);
+            this.generalWorkDir.Location = new System.Drawing.Point(9, 150);
             this.generalWorkDir.Name = "generalWorkDir";
-            this.generalWorkDir.ReadOnly = true;
-            this.generalWorkDir.Size = new System.Drawing.Size(268, 20);
+            this.generalWorkDir.Size = new System.Drawing.Size(184, 20);
             this.generalWorkDir.TabIndex = 5;
             // 
             // generalLabel3
             // 
             this.generalLabel3.AutoSize = true;
-            this.generalLabel3.Location = new System.Drawing.Point(3, 76);
+            this.generalLabel3.Location = new System.Drawing.Point(3, 134);
             this.generalLabel3.Name = "generalLabel3";
             this.generalLabel3.Size = new System.Drawing.Size(90, 13);
             this.generalLabel3.TabIndex = 4;
@@ -1269,15 +1186,15 @@ namespace RosTEGUI
             this.generalMachine.Items.AddRange(new object[] {
             "Standard PC (default)",
             "ISA-only PC"});
-            this.generalMachine.Location = new System.Drawing.Point(6, 165);
+            this.generalMachine.Location = new System.Drawing.Point(6, 93);
             this.generalMachine.Name = "generalMachine";
-            this.generalMachine.Size = new System.Drawing.Size(265, 21);
+            this.generalMachine.Size = new System.Drawing.Size(268, 21);
             this.generalMachine.TabIndex = 3;
             // 
             // generalLabel2
             // 
             this.generalLabel2.AutoSize = true;
-            this.generalLabel2.Location = new System.Drawing.Point(6, 149);
+            this.generalLabel2.Location = new System.Drawing.Point(3, 77);
             this.generalLabel2.Name = "generalLabel2";
             this.generalLabel2.Size = new System.Drawing.Size(48, 13);
             this.generalLabel2.TabIndex = 2;
@@ -1296,7 +1213,6 @@ namespace RosTEGUI
             // 
             this.generalVMName.Location = new System.Drawing.Point(6, 42);
             this.generalVMName.Name = "generalVMName";
-            this.generalVMName.ReadOnly = true;
             this.generalVMName.Size = new System.Drawing.Size(268, 20);
             this.generalVMName.TabIndex = 0;
             // 
@@ -1416,6 +1332,36 @@ namespace RosTEGUI
             this.debugGrpBox.TabStop = false;
             this.debugGrpBox.Text = "Debug";
             // 
+            // memoryHorizRuleDark
+            // 
+            this.memoryHorizRuleDark.BackColor = System.Drawing.SystemColors.ControlDark;
+            this.memoryHorizRuleDark.Location = new System.Drawing.Point(9, 184);
+            this.memoryHorizRuleDark.Name = "memoryHorizRuleDark";
+            this.memoryHorizRuleDark.Size = new System.Drawing.Size(265, 1);
+            this.memoryHorizRuleDark.TabIndex = 15;
+            // 
+            // memoryHorizRuleLight
+            // 
+            this.memoryHorizRuleLight.BackColor = System.Drawing.SystemColors.ControlLightLight;
+            this.memoryHorizRuleLight.Location = new System.Drawing.Point(9, 185);
+            this.memoryHorizRuleLight.Name = "memoryHorizRuleLight";
+            this.memoryHorizRuleLight.Size = new System.Drawing.Size(265, 1);
+            this.memoryHorizRuleLight.TabIndex = 16;
+            // 
+            // hardwareSelLstBox
+            // 
+            this.hardwareSelLstBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.hardwareSelLstBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.hardwareSelLstBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.hardwareSelLstBox.FormattingEnabled = true;
+            this.hardwareSelLstBox.ImageList = this.optListBoxImgLst;
+            this.hardwareSelLstBox.Location = new System.Drawing.Point(3, 6);
+            this.hardwareSelLstBox.Name = "hardwareSelLstBox";
+            this.hardwareSelLstBox.Size = new System.Drawing.Size(74, 340);
+            this.hardwareSelLstBox.TabIndex = 0;
+            this.hardwareSelLstBox.MouseEnter += new System.EventHandler(this.hardwareSelLstBox_MouseEnter);
+            this.hardwareSelLstBox.SelectedIndexChanged += new System.EventHandler(this.listboxSelection_SelectedIndexChanged);
+            // 
             // optionsSelLstBox
             // 
             this.optionsSelLstBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
@@ -1442,7 +1388,7 @@ namespace RosTEGUI
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.Name = "SettingsForm";
-            this.Text = "virtual machine settings";
+            this.Text = "Virtual Machine Settings";
             this.Load += new System.EventHandler(this.SettingsForm_Load);
             this.hardwareContainerPanel.ResumeLayout(false);
             this.hardwareTempDesignSheetTab.ResumeLayout(false);
@@ -1624,9 +1570,5 @@ namespace RosTEGUI
         private System.Windows.Forms.GroupBox debugGrpBox;
         private System.Windows.Forms.Panel memoryHorizRuleDark;
         private System.Windows.Forms.Panel memoryHorizRuleLight;
-        private System.Windows.Forms.Button generalEditbutton;
-        private System.Windows.Forms.CheckBox harddiskBootImageChk;
-        private System.Windows.Forms.Label harddiskDriveName;
-        private System.Windows.Forms.Label harddiskLabel5;
     }
 }

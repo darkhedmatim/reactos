@@ -4,7 +4,7 @@
  * FILE:            drivers/bus/serenum/serenum.c
  * PURPOSE:         Serial enumerator driver entry point
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #define INITGUID

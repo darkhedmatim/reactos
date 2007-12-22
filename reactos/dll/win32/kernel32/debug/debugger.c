@@ -10,7 +10,7 @@
 
 #include <k32.h>
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 typedef struct _DBGSS_THREAD_DATA
 {
@@ -492,7 +492,7 @@ WaitForDebugEvent(IN LPDEBUG_EVENT lpDebugEvent,
     }
 
     /* Loop while we keep getting interrupted */
-    do
+    do 
     {
         /* Call the native API */
         Status = DbgUiWaitStateChange(&WaitStateChange, Timeout);

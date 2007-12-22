@@ -13,7 +13,6 @@
 #include <internal/debug.h>
 
 extern ULONG ExpInitializationPhase;
-extern BOOLEAN SysThreadCreated;
 
 GENERIC_MAPPING PspProcessMapping =
 {
@@ -59,7 +58,7 @@ BOOLEAN PspDoingGiveBacks;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-USHORT
+ULONG
 NTAPI
 NameToOrdinal(IN PCHAR Name,
               IN PVOID DllBase,
@@ -219,14 +218,13 @@ PspLookupKernelUserEntryPoints(VOID)
 NTSTATUS
 NTAPI
 PspMapSystemDll(IN PEPROCESS Process,
-                IN PVOID *DllBase,
-                IN BOOLEAN UseLargePages)
+                IN PVOID *DllBase)
 {
     NTSTATUS Status;
     LARGE_INTEGER Offset = {{0}};
     SIZE_T ViewSize = 0;
     PVOID ImageBase = 0;
-    
+
     /* Map the System DLL */
     Status = MmMapViewOfSection(PspSystemDllSection,
                                 Process,
@@ -238,12 +236,7 @@ PspMapSystemDll(IN PEPROCESS Process,
                                 ViewShare,
                                 0,
                                 PAGE_READWRITE);
-    if (Status != STATUS_SUCCESS)
-    {
-        /* Normalize status code */
-        Status = STATUS_CONFLICTING_ADDRESSES;
-    }
-    
+
     /* Write the image base and return status */
     if (DllBase) *DllBase = ImageBase;
     return Status;
@@ -323,7 +316,7 @@ PsLocateSystemDll(VOID)
     }
 
     /* Map it */
-    Status = PspMapSystemDll(PsGetCurrentProcess(), &PspSystemDllBase, FALSE);
+    Status = PspMapSystemDll(PsGetCurrentProcess(), &PspSystemDllBase);
     if (!NT_SUCCESS(Status))
     {
         /* Failed, bugcheck */
@@ -582,7 +575,6 @@ PspInitPhase0(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
                               (PVOID*)&SysThread,
                               NULL);
     ZwClose(SysThreadHandle);
-    SysThreadCreated = TRUE;
 
     /* Return success */
     return TRUE;

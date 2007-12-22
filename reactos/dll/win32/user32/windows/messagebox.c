@@ -35,8 +35,6 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
 /* DEFINES *******************************************************************/
 
 #define MSGBOX_IDICON   (1088)
@@ -920,16 +918,6 @@ MessageBeep(UINT uType)
 #else
   return Beep(500, 100);    // Beep through speaker
 #endif
-}
-
-
-/*
- * @implemented
- */
-LPWSTR STDCALL MB_GetString(DWORD string)
-{
-    UNIMPLEMENTED;
-    return NULL;
 }
 
 /* EOF */

@@ -4,13 +4,6 @@
 
 static ULONG User32TlsIndex;
 HINSTANCE User32Instance;
-PUSER_HANDLE_TABLE gHandleTable = NULL;
-PUSER_HANDLE_ENTRY gHandleEntries = NULL;
-PW32PROCESSINFO g_pi = NULL; /* User Mode Pointer */
-PW32PROCESSINFO g_kpi = NULL; /* Kernel Mode Pointer */
-
-PW32PROCESSINFO
-GetW32ProcessInfo(VOID);
 
 PUSER32_THREAD_DATA
 User32GetThreadData()
@@ -57,11 +50,6 @@ Init(VOID)
    NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
       (PVOID)User32CallHookProcFromKernel;
 
-   g_pi = GetW32ProcessInfo();
-   g_kpi = SharedPtrToKernel(g_pi);
-   gHandleTable = SharedPtrToUser(g_pi->UserHandleTable);
-   gHandleEntries = SharedPtrToUser(gHandleTable->handles);
-
    /* Allocate an index for user32 thread local data. */
    User32TlsIndex = TlsAlloc();
    if (User32TlsIndex != TLS_OUT_OF_INDEXES)
@@ -105,12 +93,7 @@ DllMain(
    {
       case DLL_PROCESS_ATTACH:
          User32Instance = hInstanceDll;
-         if (!NtUserRegisterUserModule(hInstanceDll) ||
-             !RegisterSystemControls())
-         {
-             return FALSE;
-         }
-
+         hProcessHeap = RtlGetProcessHeap();
          if (!Init())
             return FALSE;
          if (!InitThread())
@@ -118,7 +101,7 @@ DllMain(
             Cleanup();
             return FALSE;
          }
-
+     
          /* Initialize message spying */
         if (!SPY_Init()) return FALSE;
 

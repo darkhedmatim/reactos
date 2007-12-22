@@ -37,6 +37,10 @@
 #include "wrc.h"
 #include "genres.h"
 #include "utils.h"
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
 #include "wine/unicode.h"
 
 /* Fix 64-bit host, re: put_dword */

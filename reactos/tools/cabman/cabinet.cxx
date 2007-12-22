@@ -11,7 +11,6 @@
  *   CSH 15/08-2003 Made it portable
  *   CF  04/05-2007 Reformatted the code to be more consistent and use TABs instead of spaces
  *   CF  04/05-2007 Made it compatible with 64-bit operating systems
- *   CF  18/08-2007 Use typedefs64.h and the Windows types for compatibility with 64-bit operating systems
  * TODO:
  *   - Checksum of datablocks should be calculated
  *   - EXTRACT.EXE complains if a disk is created manually
@@ -20,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#ifdef __FreeBSD__
 # include <sys/stat.h>
 #endif // __FreeBSD__
 #include "cabinet.h"
@@ -29,31 +28,31 @@
 
 #if defined(WIN32)
 #define GetSizeOfFile(handle) _GetSizeOfFile(handle)
-static LONG _GetSizeOfFile(FILEHANDLE handle)
+static int32_t _GetSizeOfFile(FILEHANDLE handle)
 {
-	ULONG size = GetFileSize(handle, NULL);
+	uint32_t size = GetFileSize(handle, NULL);
 	if (size == INVALID_FILE_SIZE)
 		return -1;
 
 	return size;
 }
 #define ReadFileData(handle, buffer, size, bytesread) _ReadFileData(handle, buffer, size, bytesread)
-static bool _ReadFileData(FILEHANDLE handle, void* buffer, ULONG size, PULONG bytesread)
+static bool _ReadFileData(FILEHANDLE handle, void* buffer, uint32_t size, uint32_t* bytesread)
 {
 	return ReadFile(handle, buffer, size, (LPDWORD)bytesread, NULL) != 0;
 }
 #else
 #define GetSizeOfFile(handle) _GetSizeOfFile(handle)
-static LONG _GetSizeOfFile(FILEHANDLE handle)
+static int32_t _GetSizeOfFile(FILEHANDLE handle)
 {
-	LONG size;
+	int32_t size;
 	fseek(handle, 0, SEEK_END);
 	size = ftell(handle);
 	fseek(handle, 0, SEEK_SET);
 	return size;
 }
 #define ReadFileData(handle, buffer, size, bytesread) _ReadFileData(handle, buffer, size, bytesread)
-static bool _ReadFileData(FILEHANDLE handle, void* buffer, ULONG size, PULONG bytesread)
+static bool _ReadFileData(FILEHANDLE handle, void* buffer, uint32_t size, uint32_t* bytesread)
 {
 	*bytesread = fread(buffer, 1, size, handle);
 	return *bytesread == size;
@@ -65,10 +64,10 @@ static bool _ReadFileData(FILEHANDLE handle, void* buffer, ULONG size, PULONG by
 #if 0
 #ifdef DBG
 
-void DumpBuffer(void* Buffer, ULONG Size)
+void DumpBuffer(void* Buffer, uint32_t Size)
 {
 	FILEHANDLE FileHandle;
-	ULONG BytesWritten;
+	uint32_t BytesWritten;
 
 	/* Create file, overwrite if it already exists */
 	FileHandle = CreateFile("dump.bin", // Create this file
@@ -80,13 +79,13 @@ void DumpBuffer(void* Buffer, ULONG Size)
 		NULL);                          // No attribute template
 	if (FileHandle == INVALID_HANDLE_VALUE)
 	{
-		DPRINT(MID_TRACE, ("ERROR OPENING '%lu'.\n", (ULONG)GetLastError()));
+		DPRINT(MID_TRACE, ("ERROR OPENING '%d'.\n", (unsigned int)GetLastError()));
 		return;
 	}
 
 	if (!WriteFile(FileHandle, Buffer, Size, &BytesWritten, NULL))
 	{
-		DPRINT(MID_TRACE, ("ERROR WRITING '%lu'.\n", (ULONG)GetLastError()));
+		DPRINT(MID_TRACE, ("ERROR WRITING '%d'.\n", (unsigned int)GetLastError()));
 	}
 
 	CloseFile(FileHandle);
@@ -115,7 +114,7 @@ CCFDATAStorage::~CCFDATAStorage()
 }
 
 
-ULONG CCFDATAStorage::Create(char* FileName)
+uint32_t CCFDATAStorage::Create(char* FileName)
 /*
  * FUNCTION: Creates the file
  * ARGUMENTS:
@@ -144,7 +143,7 @@ ULONG CCFDATAStorage::Create(char* FileName)
 		NULL);                          // No attribute template
 	if (FileHandle == INVALID_HANDLE_VALUE)
 	{
-		DPRINT(MID_TRACE, ("ERROR '%lu'.\n", (ULONG)GetLastError()));
+		DPRINT(MID_TRACE, ("ERROR '%d'.\n", (unsigned int)GetLastError()));
 		return CAB_STATUS_CANNOT_CREATE;
 	}
 #else /* !WIN32 */
@@ -154,7 +153,7 @@ ULONG CCFDATAStorage::Create(char* FileName)
 		/*
 	FileHandle = fopen(FullName, "w+b");
 	if (FileHandle == NULL) {
-		DPRINT(MID_TRACE, ("ERROR '%lu'.\n", (ULONG)errno));
+		DPRINT(MID_TRACE, ("ERROR '%d'.\n", (unsigned int)errno));
 		return CAB_STATUS_CANNOT_CREATE;
 	}
 		*/
@@ -166,7 +165,7 @@ ULONG CCFDATAStorage::Create(char* FileName)
 }
 
 
-ULONG CCFDATAStorage::Destroy()
+uint32_t CCFDATAStorage::Destroy()
 /*
  * FUNCTION: Destroys the file
  * RETURNS:
@@ -183,7 +182,7 @@ ULONG CCFDATAStorage::Destroy()
 }
 
 
-ULONG CCFDATAStorage::Truncate()
+uint32_t CCFDATAStorage::Truncate()
 /*
  * FUNCTION: Truncate the scratch file to zero bytes
  * RETURNS:
@@ -200,7 +199,7 @@ ULONG CCFDATAStorage::Truncate()
 	FileHandle = tmpfile();
 	if (FileHandle == NULL)
 	{
-		DPRINT(MID_TRACE, ("ERROR '%lu'.\n", (ULONG)errno));
+		DPRINT(MID_TRACE, ("ERROR '%d'.\n", (unsigned int)errno));
 		return CAB_STATUS_FAILURE;
 	}
 #endif
@@ -208,7 +207,7 @@ ULONG CCFDATAStorage::Truncate()
 }
 
 
-ULONG CCFDATAStorage::Position()
+uint32_t CCFDATAStorage::Position()
 /*
  * FUNCTION: Returns current position in file
  * RETURNS:
@@ -218,12 +217,12 @@ ULONG CCFDATAStorage::Position()
 #if defined(WIN32)
 	return SetFilePointer(FileHandle, 0, NULL, FILE_CURRENT);
 #else
-	return (ULONG)ftell(FileHandle);
+	return (uint32_t)ftell(FileHandle);
 #endif
 }
 
 
-ULONG CCFDATAStorage::Seek(LONG Position)
+uint32_t CCFDATAStorage::Seek(int32_t Position)
 /*
  * FUNCTION: Seeks to an absolute position
  * ARGUMENTS:
@@ -249,7 +248,7 @@ ULONG CCFDATAStorage::Seek(LONG Position)
 }
 
 
-ULONG CCFDATAStorage::ReadBlock(PCFDATA Data, void* Buffer, PULONG BytesRead)
+uint32_t CCFDATAStorage::ReadBlock(PCFDATA Data, void* Buffer, uint32_t* BytesRead)
 /*
  * FUNCTION: Reads a CFDATA block from the file
  * ARGUMENTS:
@@ -273,7 +272,7 @@ ULONG CCFDATAStorage::ReadBlock(PCFDATA Data, void* Buffer, PULONG BytesRead)
 }
 
 
-ULONG CCFDATAStorage::WriteBlock(PCFDATA Data, void* Buffer, PULONG BytesWritten)
+uint32_t CCFDATAStorage::WriteBlock(PCFDATA Data, void* Buffer, uint32_t* BytesWritten)
 /*
  * FUNCTION: Writes a CFDATA block to the file
  * ARGUMENTS:
@@ -420,7 +419,7 @@ char* CCabinet::GetFileName(char* Path)
  *     Pointer to filename
  */
 {
-	ULONG i, j;
+	uint32_t i, j;
 
 	j = i = (Path[0] ? (Path[1] == ':' ? 2 : 0) : 0);
 
@@ -440,7 +439,7 @@ void CCabinet::RemoveFileName(char* Path)
  */
 {
 	char* FileName;
-	ULONG i;
+	uint32_t i;
 
 	i = (Path [0] ? (Path[1] == ':' ? 2 : 0) : 0);
 	FileName = GetFileName(Path + i);
@@ -454,7 +453,7 @@ void CCabinet::RemoveFileName(char* Path)
 
 
 bool CCabinet::NormalizePath(char* Path,
-                             ULONG Length)
+                             uint32_t Length)
 /*
  * FUNCTION: Normalizes a path
  * ARGUMENTS:
@@ -464,10 +463,10 @@ bool CCabinet::NormalizePath(char* Path,
  *     true if there was enough room in Path, or false
  */
 {
-	ULONG n;
+	uint32_t n;
 	bool OK = true;
 
-	if ((n = (ULONG)strlen(Path)) &&
+	if ((n = (uint32_t)strlen(Path)) &&
 		(!IsSeparator(Path[n - 1])) &&
 		(OK = ((n + 1) < Length)))
 	{
@@ -533,7 +532,7 @@ bool CCabinet::SetCabinetReservedFile(char* FileName)
  */
 {
 	FILEHANDLE FileHandle;
-	ULONG BytesRead;
+	uint32_t BytesRead;
 
 #if defined(WIN32)
 	FileHandle = CreateFile(ConvertPath(FileName, true),  // Open this file
@@ -558,7 +557,7 @@ bool CCabinet::SetCabinetReservedFile(char* FileName)
 #endif
 
 	CabinetReservedFileSize = GetSizeOfFile(FileHandle);
-	if (CabinetReservedFileSize == (ULONG)-1)
+	if (CabinetReservedFileSize == (uint32_t)-1)
 	{
 		DPRINT(MIN_TRACE, ("Cannot read from cabinet reserved file.\n"));
 		return false;
@@ -602,7 +601,7 @@ char* CCabinet::GetCabinetReservedFile()
 }
 
 
-ULONG CCabinet::GetCurrentDiskNumber()
+uint32_t CCabinet::GetCurrentDiskNumber()
 /*
  * FUNCTION: Returns current disk number
  * RETURNS:
@@ -613,7 +612,7 @@ ULONG CCabinet::GetCurrentDiskNumber()
 }
 
 
-ULONG CCabinet::Open()
+uint32_t CCabinet::Open()
 /*
  * FUNCTION: Opens a cabinet file
  * RETURNS:
@@ -621,13 +620,13 @@ ULONG CCabinet::Open()
  */
 {
 	PCFFOLDER_NODE FolderNode;
-	ULONG Status;
-	ULONG Index;
+	uint32_t Status;
+	uint32_t Index;
 
 	if (!FileOpen)
 	{
-		ULONG BytesRead;
-		ULONG Size;
+		uint32_t BytesRead;
+		uint32_t Size;
 
 		OutputBuffer = AllocateMemory(CAB_BLOCKSIZE + 12);    // This should be enough
 		if (!OutputBuffer)
@@ -662,7 +661,7 @@ ULONG CCabinet::Open()
 		if ((Status = ReadBlock(&CABHeader, sizeof(CFHEADER), &BytesRead))
 			!= CAB_STATUS_SUCCESS)
 		{
-			DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 			return CAB_STATUS_INVALID_CAB;
 		}
 
@@ -684,10 +683,10 @@ ULONG CCabinet::Open()
 		/* Read/skip any reserved bytes */
 		if (CABHeader.Flags & CAB_FLAG_RESERVE)
 		{
-			if ((Status = ReadBlock(&Size, sizeof(ULONG), &BytesRead))
+			if ((Status = ReadBlock(&Size, sizeof(uint32_t), &BytesRead))
 				!= CAB_STATUS_SUCCESS)
 			{
-				DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+				DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 				return CAB_STATUS_INVALID_CAB;
 			}
 			CabinetReserved = Size & 0xFFFF;
@@ -762,7 +761,7 @@ ULONG CCabinet::Open()
 			if ((Status = ReadBlock(&FolderNode->Folder,
 				sizeof(CFFOLDER), &BytesRead)) != CAB_STATUS_SUCCESS)
 			{
-				DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+				DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 				return CAB_STATUS_INVALID_CAB;
 			}
 		}
@@ -771,7 +770,7 @@ ULONG CCabinet::Open()
 		Status = ReadFileTable();
 		if (Status != CAB_STATUS_SUCCESS)
 		{
-			DPRINT(MIN_TRACE, ("ReadFileTable() failed (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("ReadFileTable() failed (%d).\n", (unsigned int)Status));
 			return Status;
 		}
 
@@ -782,7 +781,7 @@ ULONG CCabinet::Open()
 			Status = ReadDataBlocks(FolderNode);
 			if (Status != CAB_STATUS_SUCCESS)
 			{
-				DPRINT(MIN_TRACE, ("ReadDataBlocks() failed (%lu).\n", (ULONG)Status));
+				DPRINT(MIN_TRACE, ("ReadDataBlocks() failed (%d).\n", (unsigned int)Status));
 				return Status;
 			}
 			FolderNode = FolderNode->Next;
@@ -805,7 +804,7 @@ void CCabinet::Close()
 }
 
 
-ULONG CCabinet::FindFirst(char* FileName,
+uint32_t CCabinet::FindFirst(char* FileName,
                              PCAB_SEARCH Search)
 /*
  * FUNCTION: Finds the first file in the cabinet that matches a search criteria
@@ -823,7 +822,7 @@ ULONG CCabinet::FindFirst(char* FileName,
 }
 
 
-ULONG CCabinet::FindNext(PCAB_SEARCH Search)
+uint32_t CCabinet::FindNext(PCAB_SEARCH Search)
 /*
  * FUNCTION: Finds next file in the cabinet that matches a search criteria
  * ARGUMENTS:
@@ -832,7 +831,7 @@ ULONG CCabinet::FindNext(PCAB_SEARCH Search)
  *     Status of operation
  */
 {
-	ULONG Status;
+	uint32_t Status;
 
 	if (RestartSearch)
 	{
@@ -882,7 +881,7 @@ ULONG CCabinet::FindNext(PCAB_SEARCH Search)
 }
 
 
-ULONG CCabinet::ExtractFile(char* FileName)
+uint32_t CCabinet::ExtractFile(char* FileName)
 /*
  * FUNCTION: Extracts a file from the cabinet
  * ARGUMENTS:
@@ -891,21 +890,21 @@ ULONG CCabinet::ExtractFile(char* FileName)
  *     Status of operation
  */
 {
-	ULONG Size;
-	ULONG Offset;
-	ULONG BytesRead;
-	ULONG BytesToRead;
-	ULONG BytesWritten;
-	ULONG BytesSkipped;
-	ULONG BytesToWrite;
-	ULONG TotalBytesRead;
-	ULONG CurrentOffset;
+	uint32_t Size;
+	uint32_t Offset;
+	uint32_t BytesRead;
+	uint32_t BytesToRead;
+	uint32_t BytesWritten;
+	uint32_t BytesSkipped;
+	uint32_t BytesToWrite;
+	uint32_t TotalBytesRead;
+	uint32_t CurrentOffset;
 	unsigned char* Buffer;
 	unsigned char* CurrentBuffer;
 	FILEHANDLE DestFile;
 	PCFFILE_NODE File;
 	CFDATA CFData;
-	ULONG Status;
+	uint32_t Status;
 	bool Skip;
 #if defined(WIN32)
 	FILETIME FileTime;
@@ -916,7 +915,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 	Status = LocateFile(FileName, &File);
 	if (Status != CAB_STATUS_SUCCESS)
 	{
-		DPRINT(MID_TRACE, ("Cannot locate file (%lu).\n", (ULONG)Status));
+		DPRINT(MID_TRACE, ("Cannot locate file (%d).\n", (unsigned int)Status));
 		return Status;
 	}
 
@@ -936,11 +935,11 @@ ULONG CCabinet::ExtractFile(char* FileName)
 			return CAB_STATUS_UNSUPPCOMP;
 	}
 
-	DPRINT(MAX_TRACE, ("Extracting file at uncompressed offset (0x%lX)  Size (%lu bytes)  AO (0x%lX)  UO (0x%lX).\n",
-		(ULONG)File->File.FileOffset,
-		(ULONG)File->File.FileSize,
-		(ULONG)File->DataBlock->AbsoluteOffset,
-		(ULONG)File->DataBlock->UncompOffset));
+	DPRINT(MAX_TRACE, ("Extracting file at uncompressed offset (0x%X)  Size (%d bytes)  AO (0x%X)  UO (0x%X).\n",
+		(unsigned int)File->File.FileOffset,
+		(unsigned int)File->File.FileSize,
+		(unsigned int)File->DataBlock->AbsoluteOffset,
+		(unsigned int)File->DataBlock->UncompOffset));
 
 	strcpy(DestName, DestPath);
 	strcat(DestName, FileName);
@@ -1057,13 +1056,13 @@ ULONG CCabinet::ExtractFile(char* FileName)
 	{
 		do
 		{
-			DPRINT(MAX_TRACE, ("CO (0x%lX)    ReuseBlock (%lu)    Offset (0x%lX)   Size (%ld)  BytesLeftInBlock (%ld)\n",
-				File->DataBlock->UncompOffset, (ULONG)ReuseBlock, Offset, Size,
+			DPRINT(MAX_TRACE, ("CO (0x%lX)    ReuseBlock (%d)    Offset (0x%lX)   Size (%ld)  BytesLeftInBlock (%ld)\n",
+				File->DataBlock->UncompOffset, (unsigned int)ReuseBlock, Offset, Size,
 				BytesLeftInBlock));
 
 			if (/*(CurrentDataNode != File->DataBlock) &&*/ (!ReuseBlock) || (BytesLeftInBlock <= 0))
 			{
-				DPRINT(MAX_TRACE, ("Filling buffer. ReuseBlock (%lu)\n", (ULONG)ReuseBlock));
+				DPRINT(MAX_TRACE, ("Filling buffer. ReuseBlock (%d)\n", (unsigned int)ReuseBlock));
 
 				CurrentBuffer  = Buffer;
 				TotalBytesRead = 0;
@@ -1076,28 +1075,28 @@ ULONG CCabinet::ExtractFile(char* FileName)
 					{
 						CloseFile(DestFile);
 						FreeMemory(Buffer);
-						DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+						DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 						return CAB_STATUS_INVALID_CAB;
 					}
 
-					DPRINT(MAX_TRACE, ("Data block: Checksum (0x%lX)  CompSize (%lu bytes)  UncompSize (%lu bytes)\n",
-						(ULONG)CFData.Checksum,
-						(ULONG)CFData.CompSize,
-						(ULONG)CFData.UncompSize));
+					DPRINT(MAX_TRACE, ("Data block: Checksum (0x%X)  CompSize (%d bytes)  UncompSize (%d bytes)\n",
+						(unsigned int)CFData.Checksum,
+						(unsigned int)CFData.CompSize,
+						(unsigned int)CFData.UncompSize));
 
 					ASSERT(CFData.CompSize <= CAB_BLOCKSIZE + 12);
 
 					BytesToRead = CFData.CompSize;
 
 					DPRINT(MAX_TRACE, ("Read: (0x%lX,0x%lX).\n",
-						(_W64 unsigned long)CurrentBuffer, (_W64 unsigned long)Buffer));
+						(uintptr_t)CurrentBuffer, (uintptr_t)Buffer));
 
 					if (((Status = ReadBlock(CurrentBuffer, BytesToRead, &BytesRead)) !=
 						CAB_STATUS_SUCCESS) || (BytesToRead != BytesRead))
 					{
 						CloseFile(DestFile);
 						FreeMemory(Buffer);
-						DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+						DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 						return CAB_STATUS_INVALID_CAB;
 					}
 
@@ -1105,7 +1104,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 /*
 					if (CFData.Checksum != 0)
 					{
-						ULONG Checksum = ComputeChecksum(CurrentBuffer, BytesRead, 0);
+						uint32_t Checksum = ComputeChecksum(CurrentBuffer, BytesRead, 0);
 						if (Checksum != CFData.Checksum)
 						{
 							CloseFile(DestFile);
@@ -1145,7 +1144,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 						Status = LocateFile(TempName, &File);
 						if (Status == CAB_STATUS_NOFILE)
 						{
-							DPRINT(MID_TRACE, ("Cannot locate file (%lu).\n", (ULONG)Status));
+							DPRINT(MID_TRACE, ("Cannot locate file (%d).\n", (unsigned int)Status));
 							return Status;
 						}
 
@@ -1171,11 +1170,11 @@ ULONG CCabinet::ExtractFile(char* FileName)
 						}
 #endif
 
-						DPRINT(MAX_TRACE, ("Continuing extraction of file at uncompressed offset (0x%lX)  Size (%lu bytes)  AO (0x%lX)  UO (0x%lX).\n",
-							(ULONG)File->File.FileOffset,
-							(ULONG)File->File.FileSize,
-							(ULONG)File->DataBlock->AbsoluteOffset,
-							(ULONG)File->DataBlock->UncompOffset));
+						DPRINT(MAX_TRACE, ("Continuing extraction of file at uncompressed offset (0x%X)  Size (%d bytes)  AO (0x%X)  UO (0x%X).\n",
+							(unsigned int)File->File.FileOffset,
+							(unsigned int)File->File.FileSize,
+							(unsigned int)File->DataBlock->AbsoluteOffset,
+							(unsigned int)File->DataBlock->UncompOffset));
 
 						CurrentDataNode = File->DataBlock;
 						ReuseBlock = true;
@@ -1208,7 +1207,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 			}
 			else
 			{
-				DPRINT(MAX_TRACE, ("Using same buffer. ReuseBlock (%lu)\n", (ULONG)ReuseBlock));
+				DPRINT(MAX_TRACE, ("Using same buffer. ReuseBlock (%d)\n", (unsigned int)ReuseBlock));
 
 				BytesToWrite = BytesLeftInBlock;
 
@@ -1221,7 +1220,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 				{
 					CloseFile(DestFile);
 					FreeMemory(Buffer);
-					DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+					DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 					return CAB_STATUS_INVALID_CAB;
 				}
 
@@ -1262,22 +1261,22 @@ ULONG CCabinet::ExtractFile(char* FileName)
 			if (Size < BytesToWrite)
 				BytesToWrite = Size;
 
-			DPRINT(MAX_TRACE, ("Offset (0x%lX)  CurrentOffset (0x%lX)  ToWrite (%lu)  Skipped (%lu)(%lu)  Size (%lu).\n",
-				(ULONG)Offset,
-				(ULONG)CurrentOffset,
-				(ULONG)BytesToWrite,
-				(ULONG)BytesSkipped, (ULONG)Skip,
-				(ULONG)Size));
+			DPRINT(MAX_TRACE, ("Offset (0x%X)  CurrentOffset (0x%X)  ToWrite (%d)  Skipped (%d)(%d)  Size (%d).\n",
+				(unsigned int)Offset,
+				(unsigned int)CurrentOffset,
+				(unsigned int)BytesToWrite,
+				(unsigned int)BytesSkipped, (unsigned int)Skip,
+				(unsigned int)Size));
 
 #if defined(WIN32)
-			if (!WriteFile(DestFile, (void*)((unsigned long *)OutputBuffer + BytesSkipped),
+			if (!WriteFile(DestFile, (void*)((uintptr_t)OutputBuffer + BytesSkipped),
 				BytesToWrite, (LPDWORD)&BytesWritten, NULL) ||
 				(BytesToWrite != BytesWritten))
 			{
 						DPRINT(MIN_TRACE, ("Status 0x%lX.\n", GetLastError()));
 #else
 			BytesWritten = BytesToWrite;
-			if (fwrite((void*)((unsigned long *)OutputBuffer + BytesSkipped),
+			if (fwrite((void*)((uintptr_t)OutputBuffer + BytesSkipped),
 				BytesToWrite, 1, DestFile) < 1)
 			{
 #endif
@@ -1303,7 +1302,7 @@ ULONG CCabinet::ExtractFile(char* FileName)
 }
 
 
-void CCabinet::SelectCodec(ULONG Id)
+void CCabinet::SelectCodec(uint32_t Id)
 /*
  * FUNCTION: Selects codec engine to use
  * ARGUMENTS:
@@ -1344,14 +1343,14 @@ void CCabinet::SelectCodec(ULONG Id)
 
 /* CAB write methods */
 
-ULONG CCabinet::NewCabinet()
+uint32_t CCabinet::NewCabinet()
 /*
  * FUNCTION: Creates a new cabinet
  * RETURNS:
  *     Status of operation
  */
 {
-	ULONG Status;
+	uint32_t Status;
 
 	CurrentDiskNumber = 0;
 
@@ -1415,7 +1414,7 @@ ULONG CCabinet::NewCabinet()
 }
 
 
-ULONG CCabinet::NewDisk()
+uint32_t CCabinet::NewDisk()
 /*
  * FUNCTION: Forces a new disk to be created
  * RETURNS:
@@ -1439,7 +1438,7 @@ ULONG CCabinet::NewDisk()
 }
 
 
-ULONG CCabinet::NewFolder()
+uint32_t CCabinet::NewFolder()
 /*
  * FUNCTION: Forces a new folder to be created
  * RETURNS:
@@ -1484,7 +1483,7 @@ ULONG CCabinet::NewFolder()
 }
 
 
-ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
+uint32_t CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
 /*
  * FUNCTION: Writes a file to the scratch file
  * ARGUMENTS:
@@ -1493,10 +1492,10 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
  *     Status of operation
  */
 {
-	ULONG BytesToRead;
-	ULONG BytesRead;
-	ULONG Status;
-	ULONG Size;
+	uint32_t BytesToRead;
+	uint32_t BytesRead;
+	uint32_t Status;
+	uint32_t Size;
 
 	if (!ContinueFile)
 	{
@@ -1541,11 +1540,11 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
 
 		FileNode->File.FileOffset        = CurrentFolderNode->UncompOffset;
 		CurrentFolderNode->UncompOffset += TotalBytesLeft;
-		FileNode->File.FileControlID     = (USHORT)(NextFolderNumber - 1);
+		FileNode->File.FileControlID     = (uint16_t)(NextFolderNumber - 1);
 		CurrentFolderNode->Commit        = true;
 		PrevCabinetNumber				 = CurrentDiskNumber;
 
-		Size = sizeof(CFFILE) + (ULONG)strlen(GetFileName(FileNode->FileName)) + 1;
+		Size = sizeof(CFFILE) + (uint32_t)strlen(GetFileName(FileNode->FileName)) + 1;
 		CABHeader.FileTableOffset += Size;
 		TotalFileSize += Size;
 		DiskSize += Size;
@@ -1557,7 +1556,7 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
 	{
 		do
 		{
-			if (TotalBytesLeft > (ULONG)CAB_BLOCKSIZE - CurrentIBufferSize)
+			if (TotalBytesLeft > (uint32_t)CAB_BLOCKSIZE - CurrentIBufferSize)
 				BytesToRead = CAB_BLOCKSIZE - CurrentIBufferSize;
 			else
 				BytesToRead = TotalBytesLeft;
@@ -1571,7 +1570,7 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
 
 			*(unsigned char**)&CurrentIBuffer += BytesRead;
 
-			CurrentIBufferSize += (USHORT)BytesRead;
+			CurrentIBufferSize += (uint16_t)BytesRead;
 
 			if (CurrentIBufferSize == CAB_BLOCKSIZE)
 			{
@@ -1615,7 +1614,7 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
 }
 
 
-ULONG CCabinet::WriteDisk(ULONG MoreDisks)
+uint32_t CCabinet::WriteDisk(uint32_t MoreDisks)
 /*
  * FUNCTION: Forces the current disk to be written
  * ARGUMENTS:
@@ -1625,7 +1624,7 @@ ULONG CCabinet::WriteDisk(ULONG MoreDisks)
  */
 {
 	PCFFILE_NODE FileNode;
-	ULONG Status;
+	uint32_t Status;
 
 	ContinueFile = false;
 	FileNode = FileListHead;
@@ -1701,7 +1700,7 @@ ULONG CCabinet::WriteDisk(ULONG MoreDisks)
 }
 
 
-ULONG CCabinet::CommitDisk(ULONG MoreDisks)
+uint32_t CCabinet::CommitDisk(uint32_t MoreDisks)
 /*
  * FUNCTION: Commits the current disk
  * ARGUMENTS:
@@ -1711,7 +1710,7 @@ ULONG CCabinet::CommitDisk(ULONG MoreDisks)
  */
 {
 	PCFFOLDER_NODE FolderNode;
-	ULONG Status;
+	uint32_t Status;
 
 	OnCabinetName(CurrentDiskNumber, CabinetName);
 
@@ -1726,7 +1725,7 @@ ULONG CCabinet::CommitDisk(ULONG MoreDisks)
 		NULL);                           // No attribute template
 	if (FileHandle == INVALID_HANDLE_VALUE)
 	{
-		ULONG Status;
+		uint32_t Status;
 		/* If file exists, ask to overwrite file */
 		if (((Status = GetLastError()) == ERROR_FILE_EXISTS) &&
 			(OnOverwrite(NULL, CabinetName)))
@@ -1807,7 +1806,7 @@ ULONG CCabinet::CommitDisk(ULONG MoreDisks)
 }
 
 
-ULONG CCabinet::CloseDisk()
+uint32_t CCabinet::CloseDisk()
 /*
  * FUNCTION: Closes the current disk
  * RETURNS:
@@ -1825,14 +1824,14 @@ ULONG CCabinet::CloseDisk()
 }
 
 
-ULONG CCabinet::CloseCabinet()
+uint32_t CCabinet::CloseCabinet()
 /*
  * FUNCTION: Closes the current cabinet
  * RETURNS:
  *     Status of operation
  */
 {
-	ULONG Status;
+	uint32_t Status;
 
 	DestroyFileNodes();
 
@@ -1863,7 +1862,7 @@ ULONG CCabinet::CloseCabinet()
 }
 
 
-ULONG CCabinet::AddFile(char* FileName)
+uint32_t CCabinet::AddFile(char* FileName)
 /*
  * FUNCTION: Adds a file to the current disk
  * ARGUMENTS:
@@ -1924,7 +1923,7 @@ ULONG CCabinet::AddFile(char* FileName)
 
 	/* FIXME: Check for and handle large files (>= 2GB) */
 	FileNode->File.FileSize = GetSizeOfFile(SrcFile);
-	if (FileNode->File.FileSize == (ULONG)-1)
+	if (FileNode->File.FileSize == (uint32_t)-1)
 	{
 		DPRINT(MIN_TRACE, ("Cannot read from file.\n"));
 		FreeMemory(NewFileName);
@@ -1941,7 +1940,7 @@ ULONG CCabinet::AddFile(char* FileName)
 }
 
 
-void CCabinet::SetMaxDiskSize(ULONG Size)
+void CCabinet::SetMaxDiskSize(uint32_t Size)
 /*
  * FUNCTION: Sets the maximum size of the current disk
  * ARGUMENTS:
@@ -2009,7 +2008,7 @@ void CCabinet::OnAdd(PCFFILE File,
 }
 
 
-bool CCabinet::OnDiskLabel(ULONG Number, char* Label)
+bool CCabinet::OnDiskLabel(uint32_t Number, char* Label)
 /*
  * FUNCTION: Called when a disk needs a label
  * ARGUMENTS:
@@ -2023,7 +2022,7 @@ bool CCabinet::OnDiskLabel(ULONG Number, char* Label)
 }
 
 
-bool CCabinet::OnCabinetName(ULONG Number, char* Name)
+bool CCabinet::OnCabinetName(uint32_t Number, char* Name)
 /*
  * FUNCTION: Called when a cabinet needs a name
  * ARGUMENTS:
@@ -2038,7 +2037,7 @@ bool CCabinet::OnCabinetName(ULONG Number, char* Name)
 
 #endif /* CAB_READ_ONLY */
 
-PCFFOLDER_NODE CCabinet::LocateFolderNode(ULONG Index)
+PCFFOLDER_NODE CCabinet::LocateFolderNode(uint32_t Index)
 /*
  * FUNCTION: Locates a folder node
  * ARGUMENTS:
@@ -2070,7 +2069,7 @@ PCFFOLDER_NODE CCabinet::LocateFolderNode(ULONG Index)
 }
 
 
-ULONG CCabinet::GetAbsoluteOffset(PCFFILE_NODE File)
+uint32_t CCabinet::GetAbsoluteOffset(PCFFILE_NODE File)
 /*
  * FUNCTION: Returns the absolute offset of a file
  * ARGUMENTS:
@@ -2081,18 +2080,18 @@ ULONG CCabinet::GetAbsoluteOffset(PCFFILE_NODE File)
 {
 	PCFDATA_NODE Node;
 
-	DPRINT(MAX_TRACE, ("FileName '%s'  FileOffset (0x%lX)  FileSize (%lu).\n",
+	DPRINT(MAX_TRACE, ("FileName '%s'  FileOffset (0x%X)  FileSize (%d).\n",
 		(char*)File->FileName,
-		(ULONG)File->File.FileOffset,
-		(ULONG)File->File.FileSize));
+		(unsigned int)File->File.FileOffset,
+		(unsigned int)File->File.FileSize));
 
 	Node = CurrentFolderNode->DataListHead;
 	while (Node != NULL)
 	{
-		DPRINT(MAX_TRACE, ("GetAbsoluteOffset(): Comparing (0x%lX, 0x%lX) (%lu).\n",
-			(ULONG)Node->UncompOffset,
-			(ULONG)Node->UncompOffset + Node->Data.UncompSize,
-			(ULONG)Node->Data.UncompSize));
+		DPRINT(MAX_TRACE, ("GetAbsoluteOffset(): Comparing (0x%X, 0x%X) (%d).\n",
+			(unsigned int)Node->UncompOffset,
+			(unsigned int)Node->UncompOffset + Node->Data.UncompSize,
+			(unsigned int)Node->Data.UncompSize));
 
 		/* Node->Data.UncompSize will be 0 if the block is split
 		   (ie. it is the last block in this cabinet) */
@@ -2111,7 +2110,7 @@ ULONG CCabinet::GetAbsoluteOffset(PCFFILE_NODE File)
 }
 
 
-ULONG CCabinet::LocateFile(char* FileName,
+uint32_t CCabinet::LocateFile(char* FileName,
                               PCFFILE_NODE *File)
 /*
  * FUNCTION: Locates a file in the cabinet
@@ -2125,7 +2124,7 @@ ULONG CCabinet::LocateFile(char* FileName,
  */
 {
 	PCFFILE_NODE Node;
-	ULONG Status;
+	uint32_t Status;
 
 	DPRINT(MAX_TRACE, ("FileName '%s'\n", FileName));
 
@@ -2137,8 +2136,8 @@ ULONG CCabinet::LocateFile(char* FileName,
 			CurrentFolderNode = LocateFolderNode(Node->File.FileControlID);
 			if (!CurrentFolderNode)
 			{
-				DPRINT(MID_TRACE, ("Folder with index number (%lu) not found.\n",
-					(ULONG)Node->File.FileControlID));
+				DPRINT(MID_TRACE, ("Folder with index number (%d) not found.\n",
+					(unsigned int)Node->File.FileControlID));
 				return CAB_STATUS_INVALID_CAB;
 			}
 
@@ -2156,7 +2155,7 @@ ULONG CCabinet::LocateFile(char* FileName,
 }
 
 
-ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
+uint32_t CCabinet::ReadString(char* String, uint32_t MaxLength)
 /*
  * FUNCTION: Reads a NULL-terminated string from the cabinet
  * ARGUMENTS:
@@ -2166,10 +2165,10 @@ ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
  *     Status of operation
  */
 {
-	ULONG BytesRead;
-	ULONG Offset;
-	ULONG Status;
-	ULONG Size;
+	uint32_t BytesRead;
+	uint32_t Offset;
+	uint32_t Status;
+	uint32_t Size;
 	bool Found;
 
 	Offset = 0;
@@ -2187,7 +2186,7 @@ ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
 		Status = ReadBlock(&String[Offset], Size, &BytesRead);
 		if ((Status != CAB_STATUS_SUCCESS) || (BytesRead != Size))
 		{
-			DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 			return CAB_STATUS_INVALID_CAB;
 		}
 
@@ -2208,8 +2207,8 @@ ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
 	Size = (BytesRead - Size) - 1;
 #if defined(WIN32)
 	SetLastError(NO_ERROR);
-	(ULONG)SetFilePointer(FileHandle,
-		-(LONG)Size,
+	(unsigned int)SetFilePointer(FileHandle,
+		-(int32_t)Size,
 		NULL,
 		FILE_CURRENT);
 	if (GetLastError() != NO_ERROR)
@@ -2218,7 +2217,7 @@ ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
 		return CAB_STATUS_INVALID_CAB;
 	}
 #else
-	if (fseek(FileHandle, (off_t)(-(LONG)Size), SEEK_CUR) != 0)
+	if (fseek(FileHandle, (off_t)(-(int32_t)Size), SEEK_CUR) != 0)
 	{
 		DPRINT(MIN_TRACE, ("fseek() failed.\n"));
 		return CAB_STATUS_INVALID_CAB;
@@ -2228,16 +2227,16 @@ ULONG CCabinet::ReadString(char* String, ULONG MaxLength)
 }
 
 
-ULONG CCabinet::ReadFileTable()
+uint32_t CCabinet::ReadFileTable()
 /*
  * FUNCTION: Reads the file table from the cabinet file
  * RETURNS:
  *     Status of operation
  */
 {
-	ULONG i;
-	ULONG Status;
-	ULONG BytesRead;
+	uint32_t i;
+	uint32_t Status;
+	uint32_t BytesRead;
 	PCFFILE_NODE File;
 
 	DPRINT(MAX_TRACE, ("Reading file table at absolute offset (0x%lX).\n",
@@ -2276,7 +2275,7 @@ ULONG CCabinet::ReadFileTable()
 		if ((Status = ReadBlock(&File->File, sizeof(CFFILE),
 			&BytesRead)) != CAB_STATUS_SUCCESS)
 		{
-			DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 			return CAB_STATUS_INVALID_CAB;
 		}
 
@@ -2292,18 +2291,18 @@ ULONG CCabinet::ReadFileTable()
 		if (Status != CAB_STATUS_SUCCESS)
 			return Status;
 
-		DPRINT(MAX_TRACE, ("Found file '%s' at uncompressed offset (0x%lX).  Size (%lu bytes)  ControlId (0x%lX).\n",
+		DPRINT(MAX_TRACE, ("Found file '%s' at uncompressed offset (0x%X).  Size (%d bytes)  ControlId (0x%X).\n",
 			(char*)File->FileName,
-			(ULONG)File->File.FileOffset,
-			(ULONG)File->File.FileSize,
-			(ULONG)File->File.FileControlID));
+			(unsigned int)File->File.FileOffset,
+			(unsigned int)File->File.FileSize,
+			(unsigned int)File->File.FileControlID));
 
 	}
 	return CAB_STATUS_SUCCESS;
 }
 
 
-ULONG CCabinet::ReadDataBlocks(PCFFOLDER_NODE FolderNode)
+uint32_t CCabinet::ReadDataBlocks(PCFFOLDER_NODE FolderNode)
 /*
  * FUNCTION: Reads all CFDATA blocks for a folder from the cabinet file
  * ARGUMENTS:
@@ -2312,12 +2311,12 @@ ULONG CCabinet::ReadDataBlocks(PCFFOLDER_NODE FolderNode)
  *     Status of operation
  */
 {
-	ULONG AbsoluteOffset;
-	ULONG UncompOffset;
+	uint32_t AbsoluteOffset;
+	uint32_t UncompOffset;
 	PCFDATA_NODE Node;
-	ULONG BytesRead;
-	ULONG Status;
-	ULONG i;
+	uint32_t BytesRead;
+	uint32_t Status;
+	uint32_t i;
 
 	DPRINT(MAX_TRACE, ("Reading data blocks for folder (%lu)  at absolute offset (0x%lX).\n",
 		FolderNode->Index, FolderNode->Folder.DataOffset));
@@ -2357,16 +2356,16 @@ ULONG CCabinet::ReadDataBlocks(PCFFOLDER_NODE FolderNode)
 		if ((Status = ReadBlock(&Node->Data, sizeof(CFDATA),
 			&BytesRead)) != CAB_STATUS_SUCCESS)
 		{
-			DPRINT(MIN_TRACE, ("Cannot read from file (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("Cannot read from file (%d).\n", (unsigned int)Status));
 			return CAB_STATUS_INVALID_CAB;
 		}
 
-		DPRINT(MAX_TRACE, ("AbsOffset (0x%lX)  UncompOffset (0x%lX)  Checksum (0x%lX)  CompSize (%lu)  UncompSize (%lu).\n",
-			(ULONG)AbsoluteOffset,
-			(ULONG)UncompOffset,
-			(ULONG)Node->Data.Checksum,
-			(ULONG)Node->Data.CompSize,
-			(ULONG)Node->Data.UncompSize));
+		DPRINT(MAX_TRACE, ("AbsOffset (0x%X)  UncompOffset (0x%X)  Checksum (0x%X)  CompSize (%d)  UncompSize (%d).\n",
+			(unsigned int)AbsoluteOffset,
+			(unsigned int)UncompOffset,
+			(unsigned int)Node->Data.Checksum,
+			(unsigned int)Node->Data.CompSize,
+			(unsigned int)Node->Data.UncompSize));
 
 		Node->AbsoluteOffset = AbsoluteOffset;
 		Node->UncompOffset   = UncompOffset;
@@ -2552,7 +2551,7 @@ void CCabinet::DestroyDeletedFileNodes()
 
 			DPRINT(MAX_TRACE, ("Deleting file: '%s'\n", CurNode->FileName));
 
-			TotalFileSize -= (sizeof(CFFILE) + (ULONG)strlen(GetFileName(CurNode->FileName)) + 1);
+			TotalFileSize -= (sizeof(CFFILE) + (uint32_t)strlen(GetFileName(CurNode->FileName)) + 1);
 
 			if (CurNode->FileName)
 				FreeMemory(CurNode->FileName);
@@ -2627,9 +2626,9 @@ void CCabinet::DestroyDeletedFolderNodes()
 }
 
 
-ULONG CCabinet::ComputeChecksum(void* Buffer,
-                                   ULONG Size,
-                                   ULONG Seed)
+uint32_t CCabinet::ComputeChecksum(void* Buffer,
+                                   unsigned int Size,
+                                   uint32_t Seed)
 /*
  * FUNCTION: Computes checksum for data block
  * ARGUMENTS:
@@ -2641,14 +2640,14 @@ ULONG CCabinet::ComputeChecksum(void* Buffer,
  */
 {
 	int UlongCount; // Number of ULONGs in block
-	ULONG Checksum; // Checksum accumulator
+	uint32_t Checksum; // Checksum accumulator
 	unsigned char* pb;
-	ULONG ul;
+	uint32_t ul;
 
 	/* FIXME: Doesn't seem to be correct. EXTRACT.EXE
 	   won't accept checksums computed by this routine */
 
-	DPRINT(MIN_TRACE, ("Checksumming buffer (0x%p)  Size (%lu)\n", Buffer, Size));
+	DPRINT(MIN_TRACE, ("Checksumming buffer (0x%p)  Size (%d)\n", Buffer, Size));
 
 	UlongCount = Size / 4;              // Number of ULONGs
 	Checksum   = Seed;                  // Init checksum
@@ -2657,11 +2656,11 @@ ULONG CCabinet::ComputeChecksum(void* Buffer,
 	/* Checksum integral multiple of ULONGs */
 	while (UlongCount-- > 0)
 	{
-		/* NOTE: Build ULONG in big/little-endian independent manner */
+		/* NOTE: Build uint32_t in big/little-endian independent manner */
 		ul = *pb++;                     // Get low-order byte
-		ul |= (((ULONG)(*pb++)) <<  8); // Add 2nd byte
-		ul |= (((ULONG)(*pb++)) << 16); // Add 3nd byte
-		ul |= (((ULONG)(*pb++)) << 24); // Add 4th byte
+		ul |= (((uint32_t)(*pb++)) <<  8); // Add 2nd byte
+		ul |= (((uint32_t)(*pb++)) << 16); // Add 3nd byte
+		ul |= (((uint32_t)(*pb++)) << 24); // Add 4th byte
 
 		Checksum ^= ul;                 // Update checksum
 	}
@@ -2671,9 +2670,9 @@ ULONG CCabinet::ComputeChecksum(void* Buffer,
 	switch (Size % 4)
 	{
 		case 3:
-			ul |= (((ULONG)(*pb++)) << 16); // Add 3rd byte
+			ul |= (((uint32_t)(*pb++)) << 16); // Add 3rd byte
 		case 2:
-			ul |= (((ULONG)(*pb++)) <<  8); // Add 2nd byte
+			ul |= (((uint32_t)(*pb++)) <<  8); // Add 2nd byte
 		case 1:
 			ul |= *pb++;                    // Get low-order byte
 		default:
@@ -2686,15 +2685,15 @@ ULONG CCabinet::ComputeChecksum(void* Buffer,
 }
 
 
-ULONG CCabinet::ReadBlock(void* Buffer,
-                             ULONG Size,
-                             PULONG BytesRead)
+uint32_t CCabinet::ReadBlock(void* Buffer,
+                             uint32_t Size,
+                             uint32_t* BytesRead)
 /*
  * FUNCTION: Read a block of data from file
  * ARGUMENTS:
  *     Buffer    = Pointer to data buffer
  *     Size      = Length of data buffer
- *     BytesRead = Pointer to ULONG that on return will contain
+ *     BytesRead = Pointer to uint32_t that on return will contain
  *                 number of bytes read
  * RETURNS:
  *     Status of operation
@@ -2707,22 +2706,22 @@ ULONG CCabinet::ReadBlock(void* Buffer,
 
 #ifndef CAB_READ_ONLY
 
-ULONG CCabinet::InitCabinetHeader()
+uint32_t CCabinet::InitCabinetHeader()
 /*
  * FUNCTION: Initializes cabinet header and optional fields
  * RETURNS:
  *     Status of operation
  */
 {
-	ULONG TotalSize;
-	ULONG Size;
+	uint32_t TotalSize;
+	uint32_t Size;
 
 	CABHeader.FileTableOffset = 0;    // Not known yet
 	CABHeader.FolderCount     = 0;    // Not known yet
 	CABHeader.FileCount       = 0;    // Not known yet
 	CABHeader.Flags           = 0;    // Not known yet
 
-	CABHeader.CabinetNumber = (USHORT)CurrentDiskNumber;
+	CABHeader.CabinetNumber = (uint16_t)CurrentDiskNumber;
 
 	if ((CurrentDiskNumber > 0) && (OnCabinetName(PrevCabinetNumber, CabinetPrev)))
 	{
@@ -2746,10 +2745,10 @@ ULONG CCabinet::InitCabinetHeader()
 		DPRINT(MAX_TRACE, ("CabinetPrev '%s'.\n", CabinetPrev));
 
 		/* Calculate size of name of previous cabinet */
-		TotalSize += (ULONG)strlen(CabinetPrev) + 1;
+		TotalSize += (uint32_t)strlen(CabinetPrev) + 1;
 
 		/* Calculate size of label of previous disk */
-		TotalSize += (ULONG)strlen(DiskPrev) + 1;
+		TotalSize += (uint32_t)strlen(DiskPrev) + 1;
 	}
 
 	if ((CABHeader.Flags & CAB_FLAG_HASNEXT) > 0)
@@ -2758,12 +2757,12 @@ ULONG CCabinet::InitCabinetHeader()
 		DPRINT(MAX_TRACE, ("CabinetNext '%s'.\n", CabinetNext));
 
 		/* Calculate size of name of next cabinet */
-		Size = (ULONG)strlen(CabinetNext) + 1;
+		Size = (uint32_t)strlen(CabinetNext) + 1;
 		TotalSize += Size;
 		NextFieldsSize = Size;
 
 		/* Calculate size of label of next disk */
-		Size = (ULONG)strlen(DiskNext) + 1;
+		Size = (uint32_t)strlen(DiskNext) + 1;
 		TotalSize += Size;
 		NextFieldsSize += Size;
 	}
@@ -2775,7 +2774,7 @@ ULONG CCabinet::InitCabinetHeader()
 	{
 		CABHeader.Flags |= CAB_FLAG_RESERVE;
 		TotalSize += CabinetReservedFileSize;
-		TotalSize += sizeof(ULONG); /* For CabinetResSize, FolderResSize, and FileResSize fields */
+		TotalSize += sizeof(uint32_t); /* For CabinetResSize, FolderResSize, and FileResSize fields */
 	}
 
 	DiskSize += TotalSize;
@@ -2786,7 +2785,7 @@ ULONG CCabinet::InitCabinetHeader()
 }
 
 
-ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
+uint32_t CCabinet::WriteCabinetHeader(bool MoreDisks)
 /*
  * FUNCTION: Writes the cabinet header and optional fields
  * ARGUMENTS:
@@ -2797,8 +2796,8 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 {
 	PCFFOLDER_NODE FolderNode;
 	PCFFILE_NODE FileNode;
-	ULONG BytesWritten;
-	ULONG Size;
+	uint32_t BytesWritten;
+	uint32_t Size;
 
 	if (MoreDisks)
 	{
@@ -2861,20 +2860,20 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 	/* Write per-cabinet reserved area if present */
 	if (CABHeader.Flags & CAB_FLAG_RESERVE)
 	{
-		ULONG ReservedSize;
+		uint32_t ReservedSize;
 
 		ReservedSize = CabinetReservedFileSize & 0xffff;
 		ReservedSize |= (0 << 16); /* Folder reserved area size */
 		ReservedSize |= (0 << 24); /* Folder reserved area size */
 #if defined(WIN32)
-		if (!WriteFile(FileHandle, &ReservedSize, sizeof(ULONG), (LPDWORD)&BytesWritten, NULL))
+		if (!WriteFile(FileHandle, &ReservedSize, sizeof(uint32_t), (LPDWORD)&BytesWritten, NULL))
 		{
 			DPRINT(MIN_TRACE, ("Cannot write to file.\n"));
 			return CAB_STATUS_CANNOT_WRITE;
 		}
 #else
-		BytesWritten = sizeof(ULONG);
-		if (fwrite(&ReservedSize, sizeof(ULONG), 1, FileHandle) < 1)
+		BytesWritten = sizeof(uint32_t);
+		if (fwrite(&ReservedSize, sizeof(uint32_t), 1, FileHandle) < 1)
 		{
 			DPRINT(MIN_TRACE, ("Cannot write to file.\n"));
 			return CAB_STATUS_CANNOT_WRITE;
@@ -2902,7 +2901,7 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 		DPRINT(MAX_TRACE, ("CabinetPrev '%s'.\n", CabinetPrev));
 
 		/* Write name of previous cabinet */
-		Size = (ULONG)strlen(CabinetPrev) + 1;
+		Size = (uint32_t)strlen(CabinetPrev) + 1;
 #if defined(WIN32)
 		if (!WriteFile(FileHandle, CabinetPrev, Size, (LPDWORD)&BytesWritten, NULL))
 		{
@@ -2921,7 +2920,7 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 		DPRINT(MAX_TRACE, ("DiskPrev '%s'.\n", DiskPrev));
 
 		/* Write label of previous disk */
-		Size = (ULONG)strlen(DiskPrev) + 1;
+		Size = (uint32_t)strlen(DiskPrev) + 1;
 #if defined(WIN32)
 		if (!WriteFile(FileHandle, DiskPrev, Size, (LPDWORD)&BytesWritten, NULL))
 		{
@@ -2943,7 +2942,7 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 		DPRINT(MAX_TRACE, ("CabinetNext '%s'.\n", CabinetNext));
 
 		/* Write name of next cabinet */
-		Size = (ULONG)strlen(CabinetNext) + 1;
+		Size = (uint32_t)strlen(CabinetNext) + 1;
 #if defined(WIN32)
 		if (!WriteFile(FileHandle, CabinetNext, Size, (LPDWORD)&BytesWritten, NULL))
 		{
@@ -2962,7 +2961,7 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 		DPRINT(MAX_TRACE, ("DiskNext '%s'.\n", DiskNext));
 
 		/* Write label of next disk */
-		Size = (ULONG)strlen(DiskNext) + 1;
+		Size = (uint32_t)strlen(DiskNext) + 1;
 #if defined(WIN32)
 		if (!WriteFile(FileHandle, DiskNext, Size, (LPDWORD)&BytesWritten, NULL))
 		{
@@ -2983,7 +2982,7 @@ ULONG CCabinet::WriteCabinetHeader(bool MoreDisks)
 }
 
 
-ULONG CCabinet::WriteFolderEntries()
+uint32_t CCabinet::WriteFolderEntries()
 /*
  * FUNCTION: Writes folder entries
  * RETURNS:
@@ -2991,7 +2990,7 @@ ULONG CCabinet::WriteFolderEntries()
  */
 {
 	PCFFOLDER_NODE FolderNode;
-	ULONG BytesWritten;
+	uint32_t BytesWritten;
 
 	DPRINT(MAX_TRACE, ("Writing folder table.\n"));
 
@@ -3029,7 +3028,7 @@ ULONG CCabinet::WriteFolderEntries()
 }
 
 
-ULONG CCabinet::WriteFileEntries()
+uint32_t CCabinet::WriteFileEntries()
 /*
  * FUNCTION: Writes file entries for all files
  * RETURNS:
@@ -3037,7 +3036,7 @@ ULONG CCabinet::WriteFileEntries()
  */
 {
 	PCFFILE_NODE File;
-	ULONG BytesWritten;
+	uint32_t BytesWritten;
 	bool SetCont = false;
 
 	DPRINT(MAX_TRACE, ("Writing file table.\n"));
@@ -3110,7 +3109,7 @@ ULONG CCabinet::WriteFileEntries()
 }
 
 
-ULONG CCabinet::CommitDataBlocks(PCFFOLDER_NODE FolderNode)
+uint32_t CCabinet::CommitDataBlocks(PCFFOLDER_NODE FolderNode)
 /*
  * FUNCTION: Writes data blocks to the cabinet
  * ARGUMENTS:
@@ -3120,9 +3119,9 @@ ULONG CCabinet::CommitDataBlocks(PCFFOLDER_NODE FolderNode)
  */
 {
 	PCFDATA_NODE DataNode;
-	ULONG BytesWritten;
-	ULONG BytesRead;
-	ULONG Status;
+	uint32_t BytesWritten;
+	uint32_t BytesRead;
+	uint32_t Status;
 
 	DataNode = FolderNode->DataListHead;
 	if (DataNode != NULL)
@@ -3141,7 +3140,7 @@ ULONG CCabinet::CommitDataBlocks(PCFFOLDER_NODE FolderNode)
 		Status = ScratchFile->ReadBlock(&DataNode->Data, InputBuffer, &BytesRead);
 		if (Status != CAB_STATUS_SUCCESS)
 		{
-			DPRINT(MIN_TRACE, ("Cannot read from scratch file (%lu).\n", (ULONG)Status));
+			DPRINT(MIN_TRACE, ("Cannot read from scratch file (%d).\n", (unsigned int)Status));
 			return Status;
 		}
 
@@ -3183,15 +3182,15 @@ ULONG CCabinet::CommitDataBlocks(PCFFOLDER_NODE FolderNode)
 }
 
 
-ULONG CCabinet::WriteDataBlock()
+uint32_t CCabinet::WriteDataBlock()
 /*
  * FUNCTION: Writes the current data block to the scratch file
  * RETURNS:
  *     Status of operation
  */
 {
-	ULONG Status;
-	ULONG BytesWritten;
+	uint32_t Status;
+	uint32_t BytesWritten;
 	PCFDATA_NODE DataNode;
 
 	if (!BlockIsSplit)
@@ -3225,14 +3224,14 @@ ULONG CCabinet::WriteDataBlock()
 
 	if (BlockIsSplit)
 	{
-		DataNode->Data.CompSize   = (USHORT)(MaxDiskSize - DiskSize);
+		DataNode->Data.CompSize   = (uint16_t)(MaxDiskSize - DiskSize);
 		DataNode->Data.UncompSize = 0;
 		CreateNewDisk = true;
 	}
 	else
 	{
-		DataNode->Data.CompSize   = (USHORT)CurrentOBufferSize;
-		DataNode->Data.UncompSize = (USHORT)CurrentIBufferSize;
+		DataNode->Data.CompSize   = (uint16_t)CurrentOBufferSize;
+		DataNode->Data.UncompSize = (uint16_t)CurrentIBufferSize;
 	}
 
 	DataNode->Data.Checksum = 0;
@@ -3241,10 +3240,10 @@ ULONG CCabinet::WriteDataBlock()
 	// FIXME: MAKECAB.EXE does not like this checksum algorithm
 	//DataNode->Data.Checksum = ComputeChecksum(CurrentOBuffer, DataNode->Data.CompSize, 0);
 
-	DPRINT(MAX_TRACE, ("Writing block. Checksum (0x%lX)  CompSize (%lu)  UncompSize (%lu).\n",
-		(ULONG)DataNode->Data.Checksum,
-		(ULONG)DataNode->Data.CompSize,
-		(ULONG)DataNode->Data.UncompSize));
+	DPRINT(MAX_TRACE, ("Writing block. Checksum (0x%X)  CompSize (%d)  UncompSize (%d).\n",
+		(unsigned int)DataNode->Data.Checksum,
+		(unsigned int)DataNode->Data.CompSize,
+		(unsigned int)DataNode->Data.UncompSize));
 
 	Status = ScratchFile->WriteBlock(&DataNode->Data,
 		CurrentOBuffer, &BytesWritten);
@@ -3270,11 +3269,12 @@ ULONG CCabinet::WriteDataBlock()
 	return CAB_STATUS_SUCCESS;
 }
 
+
 #if !defined(WIN32)
 
 void CCabinet::ConvertDateAndTime(time_t* Time,
-                                  PUSHORT DosDate,
-                                  PUSHORT DosTime)
+                                  uint16_t* DosDate,
+                                  uint16_t* DosTime)
 /*
  * FUNCTION: Returns file times of a file
  * ARGUMENTS:
@@ -3304,7 +3304,7 @@ void CCabinet::ConvertDateAndTime(time_t* Time,
 #endif // !WIN32
 
 
-ULONG CCabinet::GetFileTimes(FILEHANDLE FileHandle, PCFFILE_NODE File)
+uint32_t CCabinet::GetFileTimes(FILEHANDLE FileHandle, PCFFILE_NODE File)
 /*
  * FUNCTION: Returns file times of a file
  * ARGUMENTS:
@@ -3344,7 +3344,7 @@ ULONG CCabinet::GetFileTimes(FILEHANDLE FileHandle, PCFFILE_NODE File)
 }
 
 
-ULONG CCabinet::GetAttributesOnFile(PCFFILE_NODE File)
+uint32_t CCabinet::GetAttributesOnFile(PCFFILE_NODE File)
 /*
  * FUNCTION: Returns attributes on a file
  * ARGUMENTS:
@@ -3354,7 +3354,7 @@ ULONG CCabinet::GetAttributesOnFile(PCFFILE_NODE File)
  */
 {
 #if defined(WIN32)
-	LONG Attributes;
+	int32_t Attributes;
 
 	Attributes = GetFileAttributes(File->FileName);
 	if (Attributes == -1)
@@ -3407,7 +3407,7 @@ ULONG CCabinet::GetAttributesOnFile(PCFFILE_NODE File)
 }
 
 
-ULONG CCabinet::SetAttributesOnFile(PCFFILE_NODE File)
+uint32_t CCabinet::SetAttributesOnFile(PCFFILE_NODE File)
 /*
  * FUNCTION: Sets attributes on a file
  * ARGUMENTS:
@@ -3417,7 +3417,7 @@ ULONG CCabinet::SetAttributesOnFile(PCFFILE_NODE File)
  */
 {
 #if defined(WIN32)
-	ULONG Attributes = 0;
+	uint32_t Attributes = 0;
 
 	if (File->File.Attributes & CAB_ATTRIB_READONLY)
 		Attributes |= FILE_ATTRIBUTE_READONLY;

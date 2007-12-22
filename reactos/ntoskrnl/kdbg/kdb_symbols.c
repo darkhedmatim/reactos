@@ -442,7 +442,7 @@ KdbpSymLoadModuleSymbols(IN PUNICODE_STRING FileName,
                       FILE_SYNCHRONOUS_IO_NONALERT);
   if (!NT_SUCCESS(Status))
     {
-      DPRINT("Could not open image file: %wZ\n", FileName);
+      DPRINT("Could not open image file: %wZ\n", &FileName);
       return;
     }
 
@@ -577,29 +577,57 @@ KdbSymUnloadDriverSymbols(IN PLDR_DATA_TABLE_ENTRY ModuleObject)
   ModuleObject->PatchInformation = NULL;
 }
 
+/*! \brief Called when a symbol file is loaded by the loader?
+ *
+ * Tries to find a driver (.sys) or executable (.exe) with the same base name
+ * as the symbol file and sets the drivers/exes symbol info to the loaded
+ * module.
+ * Used to load ntoskrnl and hal symbols before the SystemRoot is available to us.
+ *
+ * \param FileName        Filename for which the symbols are loaded.
+ */
 VOID
-KdbSymProcessSymbols(IN PANSI_STRING AnsiFileName, IN PKD_SYMBOLS_INFO SymbolInfo)
+KdbSymProcessBootSymbols(IN PUNICODE_STRING FileName)
 {
-    BOOLEAN Found = FALSE;
-    PLIST_ENTRY ListHead, NextEntry;
-    PLDR_DATA_TABLE_ENTRY LdrEntry = NULL;
+  PLDR_DATA_TABLE_ENTRY ModuleObject;
+  BOOLEAN Found = FALSE;
+  BOOLEAN IsRaw;
+  PLIST_ENTRY ListHead, NextEntry;
+  PLDR_DATA_TABLE_ENTRY LdrEntry;
+  PUNICODE_STRING ModuleName = FileName;
+  UNICODE_STRING NtosSymName = RTL_CONSTANT_STRING(L"ntoskrnl.sym");
+  UNICODE_STRING NtosName = RTL_CONSTANT_STRING(L"ntoskrnl.exe");
 
-    //DPRINT("KdbSymProcessSymbols(%Z)\n", AnsiFileName);
-
-    /* We use PsLoadedModuleList here, otherwise (in case of
-       using KeLoaderBlock) all our data will be just lost */
-    ListHead = &PsLoadedModuleList;
-
-    /* Found module we are interested in */
-    NextEntry = ListHead->Flink;
-    while (ListHead != NextEntry)
+  if (RtlEqualUnicodeString(FileName, &NtosSymName, TRUE))
     {
-        /* Get the entry */
-        LdrEntry = CONTAINING_RECORD(NextEntry,
-                                     LDR_DATA_TABLE_ENTRY,
-                                     InLoadOrderLinks);
+      ModuleName = &NtosName;
+      IsRaw = TRUE;
+    }
+  else
+    {
+      IsRaw = FALSE;
+    }
 
-        if (SymbolInfo->BaseOfDll == LdrEntry->DllBase)
+  ModuleObject = NULL;
+
+  if (ModuleObject != NULL)
+  {
+     if (! LoadSymbols)
+     {
+        ModuleObject->PatchInformation = NULL;
+        return;
+     }
+
+     ListHead = &KeLoaderBlock->LoadOrderListHead;
+     NextEntry = ListHead->Flink;
+     while (ListHead != NextEntry)
+     {
+         /* Get the entry */
+         LdrEntry = CONTAINING_RECORD(NextEntry,
+                                      LDR_DATA_TABLE_ENTRY,
+                                      InLoadOrderLinks);
+
+        if (RtlEqualUnicodeString(FileName, &LdrEntry->BaseDllName, TRUE))
         {
             Found = TRUE;
             break;
@@ -609,167 +637,112 @@ KdbSymProcessSymbols(IN PANSI_STRING AnsiFileName, IN PKD_SYMBOLS_INFO SymbolInf
         NextEntry = NextEntry->Flink;
     }
 
-    /* Exit if we didn't find the module requested */
-    if (!Found)
-        return;
+     if (Found)
+     {
+        if (ModuleObject->PatchInformation != NULL)
+        {
+           KdbpSymRemoveCachedFile(ModuleObject->PatchInformation);
+        }
 
-    DPRINT("Found LdrEntry=%p\n", LdrEntry);
-    if (!LoadSymbols)
-    {
-        LdrEntry->PatchInformation = NULL;
-        return;
-    }
+        if (IsRaw)
+        {
+            DPRINT("Data: %p %p %wZ\n", LdrEntry->DllBase, LdrEntry->SizeOfImage, &LdrEntry->FullDllName);
+           if (! RosSymCreateFromRaw(LdrEntry->DllBase,
+                                     LdrEntry->SizeOfImage,
+                                     (PROSSYM_INFO*)&ModuleObject->PatchInformation))
+           {
+              return;
+           }
+        }
+        else
+        {
+           if (! RosSymCreateFromMem(LdrEntry->DllBase,
+                                     LdrEntry->SizeOfImage,
+                                     (PROSSYM_INFO*)&ModuleObject->PatchInformation))
+           {
+              return;
+           }
+        }
 
-    /* Remove symbol info if it already exists */
-    if (LdrEntry->PatchInformation != NULL)
-    {
-        KdbpSymRemoveCachedFile(LdrEntry->PatchInformation);
-    }
+        /* add file to cache */
+        KdbpSymAddCachedFile(FileName, ModuleObject->PatchInformation);
 
-    /* Load new symbol information */
-    if (! RosSymCreateFromMem(LdrEntry->DllBase,
-        LdrEntry->SizeOfImage,
-        (PROSSYM_INFO*)&LdrEntry->PatchInformation))
-    {
-        /* Error loading symbol info, try to load it from file */
-        KdbpSymLoadModuleSymbols(&LdrEntry->FullDllName,
-            (PROSSYM_INFO*)&LdrEntry->PatchInformation);
-
-        /* It already added symbols to cache */
-    }
-    else
-    {
-        /* Add file to cache */
-        KdbpSymAddCachedFile(&LdrEntry->FullDllName, LdrEntry->PatchInformation);
-    }
-
-    DPRINT("Installed symbols: %wZ@%08x-%08x %p\n",
-           &LdrEntry->BaseDllName,
-           LdrEntry->DllBase,
-           LdrEntry->SizeOfImage + (ULONG)LdrEntry->DllBase,
-           LdrEntry->PatchInformation);
-
+        DPRINT("Installed symbols: %wZ@%08x-%08x %p\n",
+	       FileName,
+	       ModuleObject->DllBase,
+	       ModuleObject->SizeOfImage + (ULONG)ModuleObject->DllBase,
+	       ModuleObject->PatchInformation);
+     }
+  }
 }
-
-VOID
-NTAPI
-KdbDebugPrint(PCH Message, ULONG Length)
-{
-    /* Nothing here */
-}
-
 
 /*! \brief Initializes the KDB symbols implementation.
  *
- * \param DispatchTable         Pointer to the KD dispatch table
- * \param BootPhase             Phase of initialization
+ * \param NtoskrnlModuleObject  LDR_DATA_TABLE_ENTRY of ntoskrnl.exe
+ * \param LdrHalModuleObject    LDR_DATA_TABLE_ENTRY of hal.sys
  */
 VOID
-NTAPI
-KdbInitialize(PKD_DISPATCH_TABLE DispatchTable,
-              ULONG BootPhase)
+KdbSymInit(IN PLDR_DATA_TABLE_ENTRY NtoskrnlModuleObject,
+	   IN PLDR_DATA_TABLE_ENTRY LdrHalModuleObject)
 {
-    PCHAR p1, p2;
-    SHORT Found;
-    CHAR YesNo;
-    LIST_ENTRY *ModuleEntry;
-    PLDR_DATA_TABLE_ENTRY DataTableEntry;
-    KD_SYMBOLS_INFO SymbolsInfo;
+  PCHAR p1, p2;
+  int Found;
+  char YesNo;
 
-    DPRINT("KdbSymInit() BootPhase=%d\n", BootPhase);
+  NtoskrnlModuleObject->PatchInformation = NULL;
+  LdrHalModuleObject->PatchInformation = NULL;
 
-    if (BootPhase == 0)
-    {
-        /* Write out the functions that we support for now */
-        DispatchTable->KdpInitRoutine = KdpKdbgInit;
-        DispatchTable->KdpPrintRoutine = KdbDebugPrint;
-
-        /* Register as a Provider */
-        InsertTailList(&KdProviders, &DispatchTable->KdProvidersList);
-
-        /* Perform actual initialization of symbol module */
-        //NtoskrnlModuleObject->PatchInformation = NULL;
-        //LdrHalModuleObject->PatchInformation = NULL;
-
-        InitializeListHead(&SymbolFileListHead);
-        KeInitializeSpinLock(&SymbolFileListLock);
+  InitializeListHead(&SymbolFileListHead);
+  KeInitializeSpinLock(&SymbolFileListLock);
 
 #ifdef DBG
-        LoadSymbols = TRUE;
+  LoadSymbols = TRUE;
 #else
-        LoadSymbols = FALSE;
+  LoadSymbols = FALSE;
 #endif
 
-        /* Check the command line for /LOADSYMBOLS, /NOLOADSYMBOLS,
-        * /LOADSYMBOLS={YES|NO}, /NOLOADSYMBOLS={YES|NO} */
-        ASSERT(KeLoaderBlock);
-        p1 = KeLoaderBlock->LoadOptions;
-        while('\0' != *p1 && NULL != (p2 = strchr(p1, '/')))
-        {
-            p2++;
-            Found = 0;
-            if (0 == _strnicmp(p2, "LOADSYMBOLS", 11))
-            {
-                Found = +1;
-                p2 += 11;
-            }
-            else if (0 == _strnicmp(p2, "NOLOADSYMBOLS", 13))
-            {
-                Found = -1;
-                p2 += 13;
-            }
-            if (0 != Found)
-            {
-                while (isspace(*p2))
-                {
-                    p2++;
-                }
-                if ('=' == *p2)
-                {
-                    p2++;
-                    while (isspace(*p2))
-                    {
-                        p2++;
-                    }
-                    YesNo = toupper(*p2);
-                    if ('N' == YesNo || 'F' == YesNo || '0' == YesNo)
-                    {
-                        Found = -1 * Found;
-                    }
-                }
-                LoadSymbols = (0 < Found);
-            }
-            p1 = p2;
-        }
-
-        RosSymInitKernelMode();
-    }
-    else if (BootPhase == 1)
+  /* Check the command line for /LOADSYMBOLS, /NOLOADSYMBOLS,
+   * /LOADSYMBOLS={YES|NO}, /NOLOADSYMBOLS={YES|NO} */
+  p1 = KeLoaderBlock->LoadOptions;
+  while('\0' != *p1 && NULL != (p2 = strchr(p1, '/')))
     {
-        /* Load symbols for NTOSKRNL.EXE */
-        ModuleEntry = &KeLoaderBlock->LoadOrderListHead;
-        DataTableEntry = CONTAINING_RECORD(ModuleEntry,
-            LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
-
-        SymbolsInfo.BaseOfDll = DataTableEntry->DllBase;
-        SymbolsInfo.CheckSum = DataTableEntry->CheckSum;
-        SymbolsInfo.ProcessId = 0;
-        SymbolsInfo.SizeOfImage = DataTableEntry->SizeOfImage;
-
-        KdbSymProcessSymbols(NULL, &SymbolsInfo);
-
-        /* and HAL.DLL */
-        ModuleEntry = ModuleEntry->Flink;
-        DataTableEntry = CONTAINING_RECORD(ModuleEntry,
-            LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
-
-        SymbolsInfo.BaseOfDll = DataTableEntry->DllBase;
-        SymbolsInfo.CheckSum = DataTableEntry->CheckSum;
-        SymbolsInfo.ProcessId = 0;
-        SymbolsInfo.SizeOfImage = DataTableEntry->SizeOfImage;
-
-        KdbSymProcessSymbols(NULL, &SymbolsInfo);
+      p2++;
+      Found = 0;
+      if (0 == _strnicmp(p2, "LOADSYMBOLS", 11))
+        {
+          Found = +1;
+          p2 += 11;
+        }
+      else if (0 == _strnicmp(p2, "NOLOADSYMBOLS", 13))
+        {
+          Found = -1;
+          p2 += 13;
+        }
+      if (0 != Found)
+        {
+          while (isspace(*p2))
+            {
+              p2++;
+            }
+          if ('=' == *p2)
+            {
+              p2++;
+              while (isspace(*p2))
+                {
+                  p2++;
+                }
+              YesNo = toupper(*p2);
+              if ('N' == YesNo || 'F' == YesNo || '0' == YesNo)
+                {
+                  Found = -1 * Found;
+                }
+            }
+          LoadSymbols = (0 < Found);
+        }
+      p1 = p2;
     }
+
+  RosSymInitKernelMode();
 }
 
 /* EOF */

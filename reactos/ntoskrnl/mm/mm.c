@@ -193,6 +193,17 @@ MmNotPresentFault(KPROCESSOR_MODE Mode,
       CPRINT("Page fault at high IRQL was %d, address %x\n", KeGetCurrentIrql(), Address);
       return(STATUS_UNSUCCESSFUL);
    }
+   if (PsGetCurrentProcess() == NULL)
+   {
+      /* Allow this! It lets us page alloc much earlier! It won't be needed 
+       * after my init patch anyways
+       */
+      DPRINT("No current process\n");
+      if (Address < (ULONG_PTR)MmSystemRangeStart)
+      {
+         return(STATUS_ACCESS_VIOLATION);
+      }
+   }
 
    /*
     * Find the memory area for the faulting address
@@ -262,7 +273,7 @@ MmNotPresentFault(KPROCESSOR_MODE Mode,
             break;
 
          case MEMORY_AREA_SHARED_DATA:
-            Pfn = MmSharedDataPagePhysicalAddress.LowPart >> PAGE_SHIFT;
+	    Pfn = MmSharedDataPagePhysicalAddress.QuadPart >> PAGE_SHIFT;
             Status =
                MmCreateVirtualMapping(PsGetCurrentProcess(),
                                       (PVOID)PAGE_ROUND_DOWN(Address),
@@ -298,14 +309,12 @@ MmAccessFault(IN BOOLEAN StoreInstruction,
     /* Cute little hack for ROS */
     if ((ULONG_PTR)Address >= (ULONG_PTR)MmSystemRangeStart)
     {
-#ifdef _M_IX86
         /* Check for an invalid page directory in kernel mode */
         if (Mmi386MakeKernelPageTableGlobal(Address))
         {
             /* All is well with the world */
             return STATUS_SUCCESS;
         }
-#endif
     }
 
     /* Keep same old ReactOS Behaviour */

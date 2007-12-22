@@ -79,6 +79,44 @@
 /* Timeout in ms for sending to keyboard controller. */
 #define CONTROLLER_TIMEOUT                              250
 
+
+typedef struct _CM_DISK_GEOMETRY_DEVICE_DATA
+{
+  ULONG BytesPerSector;
+  ULONG NumberOfCylinders;
+  ULONG SectorsPerTrack;
+  ULONG NumberOfHeads;
+} CM_DISK_GEOMETRY_DEVICE_DATA, *PCM_DISK_GEOMETRY_DEVICE_DATA;
+
+
+typedef struct _CM_PNP_BIOS_DEVICE_NODE
+{
+  USHORT Size;
+  CHAR  Node;
+  ULONG ProductId;
+  CHAR  DeviceType[3];
+  USHORT DeviceAttributes;
+} __attribute__((packed)) CM_PNP_BIOS_DEVICE_NODE, *PCM_PNP_BIOS_DEVICE_NODE;
+
+
+typedef struct _CM_PNP_BIOS_INSTALLATION_CHECK
+{
+  UCHAR  Signature[4];
+  UCHAR  Revision;
+  UCHAR  Length;
+  USHORT ControlField;
+  UCHAR  Checksum;
+  ULONG EventFlagAddress;
+  USHORT RealModeEntryOffset;
+  USHORT RealModeEntrySegment;
+  USHORT ProtectedModeEntryOffset;
+  ULONG ProtectedModeCodeBaseAddress;
+  ULONG OemDeviceId;
+  USHORT RealModeDataBaseAddress;
+  ULONG ProtectedModeDataBaseAddress;
+} __attribute__((packed)) CM_PNP_BIOS_INSTALLATION_CHECK, *PCM_PNP_BIOS_INSTALLATION_CHECK;
+
+
 static WCHAR Hex[] = L"0123456789ABCDEF";
 static unsigned int delay_count = 1;
 
@@ -195,13 +233,42 @@ HalpCalibrateStallExecution(VOID)
   delay_count /= (MILLISEC / 2);   /* Calculate delay_count for 1ms */
 }
 
-static VOID
-DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
+
+VOID
+SetComponentInformation(FRLDRHKEY ComponentKey,
+			ULONG Flags,
+			ULONG Key,
+			ULONG Affinity)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  CM_COMPONENT_INFORMATION CompInfo;
+  LONG Error;
+
+  CompInfo.Flags = Flags;
+  CompInfo.Version = 0;
+  CompInfo.Key = Key;
+  CompInfo.Affinity = Affinity;
+
+  /* Set 'Component Information' value */
+  Error = RegSetValue(ComponentKey,
+		      L"Component Information",
+		      REG_BINARY,
+		      (PCHAR)&CompInfo,
+		      sizeof(CM_COMPONENT_INFORMATION));
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+    }
+}
+
+
+static VOID
+DetectPnpBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
+{
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PNP_BIOS_DEVICE_NODE DeviceNode;
   PCM_PNP_BIOS_INSTALLATION_CHECK InstData;
-  PCONFIGURATION_COMPONENT_DATA BusKey;
+  WCHAR Buffer[80];
+  FRLDRHKEY BusKey;
   ULONG x;
   ULONG NodeSize = 0;
   ULONG NodeCount = 0;
@@ -211,6 +278,7 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
   ULONG PnpBufferSize;
   ULONG Size;
   char *Ptr;
+  LONG Error;
 
   InstData = (PCM_PNP_BIOS_INSTALLATION_CHECK)PnpBiosSupported();
   if (InstData == NULL || strncmp((CHAR*)InstData->Signature, "$PnP", 4))
@@ -236,45 +304,62 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
   DbgPrint((DPRINT_HWDETECT, "MaxNodeSize %u  NodeCount %u\n", NodeSize, NodeCount));
   DbgPrint((DPRINT_HWDETECT, "Estimated buffer size %u\n", NodeSize * NodeCount));
 
-    /* Create component key */
-    FldrCreateComponentKey(SystemKey,
-                           L"MultifunctionAdapter",
-                           *BusNumber,
-                           AdapterClass,
-                           MultiFunctionAdapter,
-                           &BusKey);
-    (*BusNumber)++;
-    
-    /* Set the component information */
-    FldrSetComponentInformation(BusKey,
-                                0x0,
-                                0x0,
-                                0xFFFFFFFF);
-    
-    /* Set the identifier */
-    FldrSetIdentifier(BusKey, L"PNP BIOS");
+  /* Create new bus key */
+  swprintf(Buffer,
+	  L"MultifunctionAdapter\\%u", *BusNumber);
+  Error = RegCreateKey(SystemKey,
+		       Buffer,
+		       &BusKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+      return;
+    }
 
-    /* Set 'Configuration Data' value */
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) + (NodeSize * NodeCount);
-  PartialResourceList = MmAllocateMemory(Size);
-  if (PartialResourceList == NULL)
+  /* Increment bus number */
+  (*BusNumber)++;
+
+  /* Set 'Component Information' value similar to my NT4 box */
+  SetComponentInformation(BusKey,
+                          0x0,
+                          0x0,
+                          0xFFFFFFFF);
+
+  /* Set 'Identifier' value */
+  Error = RegSetValue(BusKey,
+		      L"Identifier",
+		      REG_SZ,
+		      (PCHAR)L"PNP BIOS",
+		      9 * sizeof(WCHAR));
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+      return;
+    }
+
+  /* Set 'Configuration Data' value */
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) + (NodeSize * NodeCount);
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
       return;
     }
-  memset(PartialResourceList, 0, Size);
+  memset(FullResourceDescriptor, 0, Size);
 
   /* Initialize resource descriptor */
-  PartialResourceList->Version = 1;
-  PartialResourceList->Revision = 1;
-  PartialResourceList->Count = 1;
-  PartialResourceList->PartialDescriptors[0].Type =
+  FullResourceDescriptor->InterfaceType = Internal;
+  FullResourceDescriptor->BusNumber = 0;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 1;
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Type =
     CmResourceTypeDeviceSpecific;
-  PartialResourceList->PartialDescriptors[0].ShareDisposition =
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].ShareDisposition =
     CmResourceShareUndetermined;
 
-  Ptr = (char *)(((ULONG_PTR)&PartialResourceList->PartialDescriptors[0]) +
+  Ptr = (char *)(((ULONG_PTR)&FullResourceDescriptor->PartialResourceList.PartialDescriptors[0]) +
 		 sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
 
   /* Set instalation check data */
@@ -313,53 +398,67 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
     }
 
   /* Set real data size */
-  PartialResourceList->PartialDescriptors[0].u.DeviceSpecificData.DataSize =
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].u.DeviceSpecificData.DataSize =
     PnpBufferSize;
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) + PnpBufferSize;
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) + PnpBufferSize;
 
   DbgPrint((DPRINT_HWDETECT, "Real buffer size: %u\n", PnpBufferSize));
   DbgPrint((DPRINT_HWDETECT, "Resource size: %u\n", Size));
-  
-    FldrSetConfigurationData(BusKey, PartialResourceList, Size);
-    MmFreeMemory(PartialResourceList);
+
+  /* Set 'Configuration Data' value */
+  Error = RegSetValue(BusKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR) FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+    }
 }
 
 
 
 static VOID
-SetHarddiskConfigurationData(PCONFIGURATION_COMPONENT_DATA DiskKey,
+SetHarddiskConfigurationData(FRLDRHKEY DiskKey,
 			     ULONG DriveNumber)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_DISK_GEOMETRY_DEVICE_DATA DiskGeometry;
   EXTENDED_GEOMETRY ExtGeometry;
   GEOMETRY Geometry;
   ULONG Size;
+  LONG Error;
 
   /* Set 'Configuration Data' value */
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	 sizeof(CM_DISK_GEOMETRY_DEVICE_DATA);
-  PartialResourceList = MmAllocateMemory(Size);
-  if (PartialResourceList == NULL)
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate a full resource descriptor\n"));
       return;
     }
 
-  memset(PartialResourceList, 0, Size);
-  PartialResourceList->Version = 1;
-  PartialResourceList->Revision = 1;
-  PartialResourceList->Count = 1;
-  PartialResourceList->PartialDescriptors[0].Type =
+  memset(FullResourceDescriptor, 0, Size);
+  FullResourceDescriptor->InterfaceType = InterfaceTypeUndefined;
+  FullResourceDescriptor->BusNumber = 0;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 1;
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Type =
     CmResourceTypeDeviceSpecific;
-//  PartialResourceList->PartialDescriptors[0].ShareDisposition =
-//  PartialResourceList->PartialDescriptors[0].Flags =
-  PartialResourceList->PartialDescriptors[0].u.DeviceSpecificData.DataSize =
+//  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].ShareDisposition =
+//  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Flags =
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].u.DeviceSpecificData.DataSize =
     sizeof(CM_DISK_GEOMETRY_DEVICE_DATA);
 
   /* Get pointer to geometry data */
-  DiskGeometry = (PVOID)(((ULONG_PTR)PartialResourceList) + sizeof(CM_PARTIAL_RESOURCE_LIST));
+  DiskGeometry = (PVOID)(((ULONG_PTR)FullResourceDescriptor) + sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
 
   /* Get the disk geometry */
   ExtGeometry.Size = sizeof(EXTENDED_GEOMETRY);
@@ -380,7 +479,7 @@ SetHarddiskConfigurationData(PCONFIGURATION_COMPONENT_DATA DiskKey,
   else
     {
       DbgPrint((DPRINT_HWDETECT, "Reading disk geometry failed\n"));
-      MmFreeMemory(PartialResourceList);
+      MmFreeMemory(FullResourceDescriptor);
       return;
     }
   DbgPrint((DPRINT_HWDETECT,
@@ -391,13 +490,23 @@ SetHarddiskConfigurationData(PCONFIGURATION_COMPONENT_DATA DiskKey,
 	   DiskGeometry->SectorsPerTrack,
 	   DiskGeometry->BytesPerSector));
 
-  FldrSetConfigurationData(DiskKey, PartialResourceList, Size);
-  MmFreeMemory(PartialResourceList);
+  Error = RegSetValue(DiskKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR) FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+    }
 }
 
 
 static VOID
-SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
+SetHarddiskIdentifier(FRLDRHKEY DiskKey,
 		      ULONG DriveNumber)
 {
   PMASTER_BOOT_RECORD Mbr;
@@ -407,6 +516,7 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   ULONG Signature;
   WCHAR Identifier[20];
   CHAR ArcName[256];
+  LONG Error;
 
   /* Read the MBR */
   if (!MachDiskReadLogicalSectors(DriveNumber, 0ULL, 1, (PVOID)DISKREADBUFFER))
@@ -463,8 +573,151 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   DbgPrint((DPRINT_HWDETECT, "Identifier: %S\n", Identifier));
 
   /* Set identifier */
-  FldrSetIdentifier(DiskKey, Identifier);
+  Error = RegSetValue(DiskKey,
+		      L"Identifier",
+		      REG_SZ,
+		      (PCHAR)Identifier,
+		      sizeof(Identifier));
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Identifier) failed (Error %u)\n",
+		(int)Error));
+    }
 }
+
+
+static VOID
+DetectBiosDisks(FRLDRHKEY SystemKey,
+		FRLDRHKEY BusKey)
+{
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
+  PCM_INT13_DRIVE_PARAMETER Int13Drives;
+  GEOMETRY Geometry;
+  WCHAR Buffer[80];
+  FRLDRHKEY DiskKey;
+  ULONG DiskCount;
+  ULONG Size;
+  ULONG i;
+  LONG Error;
+  BOOLEAN Changed;
+
+  /* Count the number of visible drives */
+  DiskReportError(FALSE);
+  DiskCount = 0;
+
+  /* There are some really broken BIOSes out there. There are even BIOSes
+   * that happily report success when you ask them to read from non-existent
+   * harddisks. So, we set the buffer to known contents first, then try to
+   * read. If the BIOS reports success but the buffer contents haven't
+   * changed then we fail anyway */
+  memset((PVOID) DISKREADBUFFER, 0xcd, 512);
+  while (MachDiskReadLogicalSectors(0x80 + DiskCount, 0ULL, 1, (PVOID)DISKREADBUFFER))
+    {
+      Changed = FALSE;
+      for (i = 0; ! Changed && i < 512; i++)
+        {
+          Changed = ((PUCHAR)DISKREADBUFFER)[i] != 0xcd;
+        }
+      if (! Changed)
+        {
+          DbgPrint((DPRINT_HWDETECT, "BIOS reports success for disk %d but data didn't change\n",
+                    (int)DiskCount));
+          break;
+        }
+      DiskCount++;
+      memset((PVOID) DISKREADBUFFER, 0xcd, 512);
+    }
+  DiskReportError(TRUE);
+  DbgPrint((DPRINT_HWDETECT, "BIOS reports %d harddisk%s\n",
+	    (int)DiskCount, (DiskCount == 1) ? "": "s"));
+
+  /* Allocate resource descriptor */
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
+	 sizeof(CM_INT13_DRIVE_PARAMETER) * DiskCount;
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
+      return;
+    }
+
+  /* Initialize resource descriptor */
+  memset(FullResourceDescriptor, 0, Size);
+  FullResourceDescriptor->InterfaceType = InterfaceTypeUndefined;
+  FullResourceDescriptor->BusNumber = -1;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 1;
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Type =
+    CmResourceTypeDeviceSpecific;
+//  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].ShareDisposition =
+//  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].Flags =
+  FullResourceDescriptor->PartialResourceList.PartialDescriptors[0].u.DeviceSpecificData.DataSize =
+    sizeof(CM_INT13_DRIVE_PARAMETER) * DiskCount;
+
+  /* Get harddisk Int13 geometry data */
+  Int13Drives = (PVOID)(((ULONG_PTR)FullResourceDescriptor) + sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
+  for (i = 0; i < DiskCount; i++)
+    {
+      if (MachDiskGetDriveGeometry(0x80 + i, &Geometry))
+	{
+	  Int13Drives[i].DriveSelect = 0x80 + i;
+	  Int13Drives[i].MaxCylinders = Geometry.Cylinders - 1;
+	  Int13Drives[i].SectorsPerTrack = Geometry.Sectors;
+	  Int13Drives[i].MaxHeads = Geometry.Heads - 1;
+	  Int13Drives[i].NumberDrives = DiskCount;
+
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Disk %x: %u Cylinders  %u Heads  %u Sectors  %u Bytes\n",
+		    0x80 + i,
+		    Geometry.Cylinders - 1,
+		    Geometry.Heads -1,
+		    Geometry.Sectors,
+		    Geometry.BytesPerSector));
+	}
+    }
+
+  /* Set 'Configuration Data' value */
+  Error = RegSetValue(SystemKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR) FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
+
+  /* Create and fill subkey for each harddisk */
+  for (i = 0; i < DiskCount; i++)
+    {
+      /* Create disk key */
+      swprintf (Buffer,
+	        L"DiskController\\0\\DiskPeripheral\\%u",
+	        i);
+
+      Error = RegCreateKey(BusKey,
+			   Buffer,
+			   &DiskKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "Failed to create drive key\n"));
+	  continue;
+	}
+      DbgPrint((DPRINT_HWDETECT, "Created key: %S\n", Buffer));
+
+      /* Set disk values */
+      SetHarddiskConfigurationData(DiskKey, 0x80 + i);
+      SetHarddiskIdentifier(DiskKey, 0x80 + i);
+    }
+}
+
 
 static ULONG
 GetFloppyCount(VOID)
@@ -506,14 +759,16 @@ GetInt1eTable(VOID)
 
 
 static VOID
-DetectBiosFloppyPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
+DetectBiosFloppyPeripheral(FRLDRHKEY ControllerKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
   PCM_FLOPPY_DEVICE_DATA FloppyData;
+  WCHAR KeyName[32];
   WCHAR Identifier[20];
-  PCONFIGURATION_COMPONENT_DATA PeripheralKey;
+  FRLDRHKEY PeripheralKey;
   ULONG Size;
+  LONG Error;
   ULONG FloppyNumber;
   UCHAR FloppyType;
   ULONG MaxDensity[6] = {0, 360, 1200, 720, 1440, 2880};
@@ -529,41 +784,49 @@ DetectBiosFloppyPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     DiskResetController(FloppyNumber);
 
     Ptr = GetInt1eTable();
-    
-    FldrCreateComponentKey(ControllerKey,
-                           L"FloppyDiskPeripheral",
-                           FloppyNumber,
-                           PeripheralClass,
-                           FloppyDiskPeripheral,
-                           &PeripheralKey);
+
+    swprintf(KeyName, L"FloppyDiskPeripheral\\%u", FloppyNumber);
+
+    Error = RegCreateKey(ControllerKey,
+			 KeyName,
+			 &PeripheralKey);
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "Failed to create peripheral key\n"));
+      return;
+    }
+
+    DbgPrint((DPRINT_HWDETECT, "Created key: %S\n", KeyName));
 
     /* Set 'ComponentInformation' value */
-    FldrSetComponentInformation(PeripheralKey,
-                                Input | Output,
-                                FloppyNumber,
-                                0xFFFFFFFF);
+    SetComponentInformation(PeripheralKey,
+			    0x0,
+			    FloppyNumber,
+			    0xFFFFFFFF);
 
-    Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+    Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	   sizeof(CM_FLOPPY_DEVICE_DATA);
-    PartialResourceList = MmAllocateMemory(Size);
-    if (PartialResourceList == NULL)
+    FullResourceDescriptor = MmAllocateMemory(Size);
+    if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
       return;
     }
 
-    memset(PartialResourceList, 0, Size);
-    PartialResourceList->Version = 1;
-    PartialResourceList->Revision = 1;
-    PartialResourceList->Count = 1;
+    memset(FullResourceDescriptor, 0, Size);
+    FullResourceDescriptor->InterfaceType = Isa;
+    FullResourceDescriptor->BusNumber = 0;
+    FullResourceDescriptor->PartialResourceList.Version = 1;
+    FullResourceDescriptor->PartialResourceList.Revision = 1;
+    FullResourceDescriptor->PartialResourceList.Count = 1;
 
-    PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+    PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
     PartialDescriptor->Type = CmResourceTypeDeviceSpecific;
     PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
     PartialDescriptor->u.DeviceSpecificData.DataSize = sizeof(CM_FLOPPY_DEVICE_DATA);
 
-    FloppyData = (PVOID)(((ULONG_PTR)PartialResourceList) + sizeof(CM_PARTIAL_RESOURCE_LIST));
+    FloppyData = (PVOID)(((ULONG_PTR)FullResourceDescriptor) + sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
     FloppyData->Version = 2;
     FloppyData->Revision = 0;
     FloppyData->MaxDensity = MaxDensity[FloppyType];
@@ -575,48 +838,93 @@ DetectBiosFloppyPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     FloppyData->DataTransferRate = 0;
 
     /* Set 'Configuration Data' value */
-    FldrSetConfigurationData(PeripheralKey, PartialResourceList, Size);
-    MmFreeMemory(PartialResourceList);
+    Error = RegSetValue(PeripheralKey,
+			L"Configuration Data",
+			REG_FULL_RESOURCE_DESCRIPTOR,
+			(PCHAR) FullResourceDescriptor,
+			Size);
+    MmFreeMemory(FullResourceDescriptor);
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
 
     /* Set 'Identifier' value */
     swprintf(Identifier, L"FLOPPY%u", FloppyNumber + 1);
-    FldrSetIdentifier(PeripheralKey, Identifier);
+    Error = RegSetValue(PeripheralKey,
+			L"Identifier",
+			REG_SZ,
+			(PCHAR)Identifier,
+			(wcslen(Identifier) + 1) * sizeof(WCHAR));
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue() failed (Error %u)\n",
+		(int)Error));
+    }
   }
 }
 
 
 static VOID
-DetectBiosFloppyController(PCONFIGURATION_COMPONENT_DATA BusKey,
-                           PCONFIGURATION_COMPONENT_DATA ControllerKey)
+DetectBiosFloppyController(FRLDRHKEY SystemKey,
+			   FRLDRHKEY BusKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
+  FRLDRHKEY ControllerKey;
   ULONG Size;
+  LONG Error;
   ULONG FloppyCount;
 
   FloppyCount = GetFloppyCount();
   DbgPrint((DPRINT_HWDETECT,
 	    "Floppy count: %u\n",
 	    FloppyCount));
-  
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+
+  if (FloppyCount == 0)
+    return;
+
+  Error = RegCreateKey(BusKey,
+		       L"DiskController\\0",
+		       &ControllerKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+      return;
+    }
+
+  DbgPrint((DPRINT_HWDETECT, "Created key: DiskController\\0\n"));
+
+  /* Set 'ComponentInformation' value */
+  SetComponentInformation(ControllerKey,
+			  0x64,
+			  0,
+			  0xFFFFFFFF);
+
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	 2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
-  PartialResourceList = MmAllocateMemory(Size);
-  if (PartialResourceList == NULL)
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
       return;
     }
-  memset(PartialResourceList, 0, Size);
+  memset(FullResourceDescriptor, 0, Size);
 
   /* Initialize resource descriptor */
-  PartialResourceList->Version = 1;
-  PartialResourceList->Revision = 1;
-  PartialResourceList->Count = 3;
+  FullResourceDescriptor->InterfaceType = Isa;
+  FullResourceDescriptor->BusNumber = 0;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 3;
 
   /* Set IO Port */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
   PartialDescriptor->Type = CmResourceTypePort;
   PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
   PartialDescriptor->Flags = CM_RESOURCE_PORT_IO;
@@ -625,16 +933,16 @@ DetectBiosFloppyController(PCONFIGURATION_COMPONENT_DATA BusKey,
   PartialDescriptor->u.Port.Length = 8;
 
   /* Set Interrupt */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[1];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[1];
   PartialDescriptor->Type = CmResourceTypeInterrupt;
   PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
   PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
   PartialDescriptor->u.Interrupt.Level = 6;
-  PartialDescriptor->u.Interrupt.Vector = 6;
+  PartialDescriptor->u.Interrupt.Vector = 0;
   PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
   /* Set DMA channel */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[2];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[2];
   PartialDescriptor->Type = CmResourceTypeDma;
   PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
   PartialDescriptor->Flags = 0;
@@ -642,141 +950,23 @@ DetectBiosFloppyController(PCONFIGURATION_COMPONENT_DATA BusKey,
   PartialDescriptor->u.Dma.Port = 0;
 
   /* Set 'Configuration Data' value */
-  FldrSetConfigurationData(ControllerKey, PartialResourceList, Size);
-  MmFreeMemory(PartialResourceList);
+  Error = RegSetValue(ControllerKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR) FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
 
-  if (FloppyCount) DetectBiosFloppyPeripheral(ControllerKey);
+  DetectBiosFloppyPeripheral(ControllerKey);
 }
 
-static VOID
-DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
-                PCONFIGURATION_COMPONENT_DATA BusKey)
-{
-    PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
-    PCM_INT13_DRIVE_PARAMETER Int13Drives;
-    GEOMETRY Geometry;
-    PCONFIGURATION_COMPONENT_DATA DiskKey, ControllerKey;
-    ULONG DiskCount;
-    ULONG Size;
-    ULONG i;
-    BOOLEAN Changed;
-    
-    /* Count the number of visible drives */
-    DiskReportError(FALSE);
-    DiskCount = 0;
-    
-    /* There are some really broken BIOSes out there. There are even BIOSes
-        * that happily report success when you ask them to read from non-existent
-        * harddisks. So, we set the buffer to known contents first, then try to
-        * read. If the BIOS reports success but the buffer contents haven't
-        * changed then we fail anyway */
-    memset((PVOID) DISKREADBUFFER, 0xcd, 512);
-    while (MachDiskReadLogicalSectors(0x80 + DiskCount, 0ULL, 1, (PVOID)DISKREADBUFFER))
-    {
-        Changed = FALSE;
-        for (i = 0; ! Changed && i < 512; i++)
-        {
-            Changed = ((PUCHAR)DISKREADBUFFER)[i] != 0xcd;
-        }
-        if (! Changed)
-        {
-            DbgPrint((DPRINT_HWDETECT, "BIOS reports success for disk %d but data didn't change\n",
-                      (int)DiskCount));
-            break;
-        }
-        DiskCount++;
-        memset((PVOID) DISKREADBUFFER, 0xcd, 512);
-    }
-    DiskReportError(TRUE);
-    DbgPrint((DPRINT_HWDETECT, "BIOS reports %d harddisk%s\n",
-              (int)DiskCount, (DiskCount == 1) ? "": "s"));
-    
-    FldrCreateComponentKey(BusKey,
-                           L"DiskController",
-                           0,
-                           ControllerClass,
-                           DiskController,
-                           &ControllerKey);
-    DbgPrint((DPRINT_HWDETECT, "Created key: DiskController\\0\n"));
-    
-    /* Set 'ComponentInformation' value */
-    FldrSetComponentInformation(ControllerKey,
-                                Output | Input | Removable,
-                                0,
-                                0xFFFFFFFF);
-    
-    DetectBiosFloppyController(BusKey, ControllerKey);
-    
-    /* Allocate resource descriptor */
-    Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
-        sizeof(CM_INT13_DRIVE_PARAMETER) * DiskCount;
-    PartialResourceList = MmAllocateMemory(Size);
-    if (PartialResourceList == NULL)
-    {
-        DbgPrint((DPRINT_HWDETECT,
-                  "Failed to allocate resource descriptor\n"));
-        return;
-    }
-    
-    /* Initialize resource descriptor */
-    memset(PartialResourceList, 0, Size);
-    PartialResourceList->Version = 1;
-    PartialResourceList->Revision = 1;
-    PartialResourceList->Count = 1;
-    PartialResourceList->PartialDescriptors[0].Type = CmResourceTypeDeviceSpecific;
-    PartialResourceList->PartialDescriptors[0].ShareDisposition = 0;
-    PartialResourceList->PartialDescriptors[0].Flags = 0;
-    PartialResourceList->PartialDescriptors[0].u.DeviceSpecificData.DataSize =
-        sizeof(CM_INT13_DRIVE_PARAMETER) * DiskCount;
-    
-    /* Get harddisk Int13 geometry data */
-    Int13Drives = (PVOID)(((ULONG_PTR)PartialResourceList) + sizeof(CM_PARTIAL_RESOURCE_LIST));
-    for (i = 0; i < DiskCount; i++)
-    {
-        if (MachDiskGetDriveGeometry(0x80 + i, &Geometry))
-        {
-            Int13Drives[i].DriveSelect = 0x80 + i;
-            Int13Drives[i].MaxCylinders = Geometry.Cylinders - 1;
-            Int13Drives[i].SectorsPerTrack = Geometry.Sectors;
-            Int13Drives[i].MaxHeads = Geometry.Heads - 1;
-            Int13Drives[i].NumberDrives = DiskCount;
-            
-            DbgPrint((DPRINT_HWDETECT,
-                      "Disk %x: %u Cylinders  %u Heads  %u Sectors  %u Bytes\n",
-                      0x80 + i,
-                      Geometry.Cylinders - 1,
-                      Geometry.Heads -1,
-                      Geometry.Sectors,
-                      Geometry.BytesPerSector));
-        }
-    }
-    
-    /* Set 'Configuration Data' value */
-    FldrSetConfigurationData(SystemKey, PartialResourceList, Size);
-    MmFreeMemory(PartialResourceList);
-    
-    /* Create and fill subkey for each harddisk */
-    for (i = 0; i < DiskCount; i++)
-    {
-        /* Create disk key */
-        FldrCreateComponentKey(ControllerKey,
-                               L"DiskPeripheral",
-                               i,
-                               PeripheralClass,
-                               DiskPeripheral,
-                               &DiskKey);
-        
-        /* Set 'ComponentInformation' value */
-        FldrSetComponentInformation(DiskKey,
-                                    Output | Input,
-                                    0,
-                                    0xFFFFFFFF);
-        
-        /* Set disk values */
-        SetHarddiskConfigurationData(DiskKey, 0x80 + i);
-        SetHarddiskIdentifier(DiskKey, 0x80 + i);
-    }
-}
 
 static VOID
 InitializeSerialPort(ULONG Port,
@@ -951,18 +1141,19 @@ GetSerialMousePnpId(ULONG Port, char *Buffer)
 
 
 static VOID
-DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
+DetectSerialPointerPeripheral(FRLDRHKEY ControllerKey,
 			      ULONG Base)
 {
-  CM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  CM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   char Buffer[256];
   WCHAR Identifier[256];
-  PCONFIGURATION_COMPONENT_DATA PeripheralKey;
+  FRLDRHKEY PeripheralKey;
   ULONG MouseType;
   ULONG Length;
   ULONG i;
   ULONG j;
   ULONG k;
+  LONG Error;
 
   DbgPrint((DPRINT_HWDETECT,
 	    "DetectSerialPointerPeripheral()\n"));
@@ -1090,42 +1281,65 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
 	}
 
       /* Create 'PointerPeripheral' key */
-      FldrCreateComponentKey(ControllerKey,
-                             L"PointerPeripheral",
-                             0,
-                             PeripheralClass,
-                             PointerPeripheral,
-                             &PeripheralKey);
+      Error = RegCreateKey(ControllerKey,
+			   L"PointerPeripheral\\0",
+			   &PeripheralKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Failed to create peripheral key\n"));
+	  return;
+	}
       DbgPrint((DPRINT_HWDETECT,
 		"Created key: PointerPeripheral\\0\n"));
 
       /* Set 'ComponentInformation' value */
-      FldrSetComponentInformation(PeripheralKey,
-                                  Input,
-                                  0,
-                                  0xFFFFFFFF);
+      SetComponentInformation(PeripheralKey,
+			      0x20,
+			      0,
+			      0xFFFFFFFF);
 
       /* Set 'Configuration Data' value */
-      memset(&PartialResourceList, 0, sizeof(CM_PARTIAL_RESOURCE_LIST));
-      PartialResourceList.Version = 1;
-      PartialResourceList.Revision = 1;
-      PartialResourceList.Count = 0;
+      memset(&FullResourceDescriptor, 0, sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
+      FullResourceDescriptor.InterfaceType = Isa;
+      FullResourceDescriptor.BusNumber = 0;
+      FullResourceDescriptor.PartialResourceList.Version = 1;
+      FullResourceDescriptor.PartialResourceList.Revision = 1;
+      FullResourceDescriptor.PartialResourceList.Count = 0;
 
-      FldrSetConfigurationData(PeripheralKey,
-                               &PartialResourceList,
-                               sizeof(CM_PARTIAL_RESOURCE_LIST) -
-                               sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
+      Error = RegSetValue(PeripheralKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR)&FullResourceDescriptor,
+			  sizeof(CM_FULL_RESOURCE_DESCRIPTOR) -
+			  sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	}
 
       /* Set 'Identifier' value */
-      FldrSetIdentifier(PeripheralKey, Identifier);
+      Error = RegSetValue(PeripheralKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)Identifier,
+			  (wcslen(Identifier) + 1) * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue() failed (Error %u)\n",
+		    (int)Error));
+	}
     }
 }
 
 
 static VOID
-DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectSerialPorts(FRLDRHKEY BusKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
   PCM_SERIAL_DEVICE_DATA SerialDeviceData;
   ULONG Irq[4] = {4, 3, 4, 3};
@@ -1133,8 +1347,9 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
   WCHAR Buffer[80];
   PUSHORT BasePtr;
   ULONG ControllerNumber = 0;
-  PCONFIGURATION_COMPONENT_DATA ControllerKey;
+  FRLDRHKEY ControllerKey;
   ULONG i;
+  LONG Error;
   ULONG Size;
 
   DbgPrint((DPRINT_HWDETECT, "DetectSerialPorts()\n"));
@@ -1153,39 +1368,48 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
 		Base));
 
       /* Create controller key */
-      FldrCreateComponentKey(BusKey,
-                             L"SerialController",
-                             ControllerNumber,
-                             ControllerClass,
-                             SerialController,
-                             &ControllerKey);
+      swprintf(Buffer,
+	      L"SerialController\\%u",
+	      ControllerNumber);
+
+      Error = RegCreateKey(BusKey,
+			   Buffer,
+			   &ControllerKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+	  continue;
+	}
+      DbgPrint((DPRINT_HWDETECT, "Created key: %S\n", Buffer));
 
       /* Set 'ComponentInformation' value */
-      FldrSetComponentInformation(ControllerKey,
-                                  Output | Input | ConsoleIn | ConsoleOut,
-                                  ControllerNumber,
-                                  0xFFFFFFFF);
+      SetComponentInformation(ControllerKey,
+			      0x78,
+			      ControllerNumber,
+			      0xFFFFFFFF);
 
       /* Build full device descriptor */
-      Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+      Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	     2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR) +
 	     sizeof(CM_SERIAL_DEVICE_DATA);
-      PartialResourceList = MmAllocateMemory(Size);
-      if (PartialResourceList == NULL)
+      FullResourceDescriptor = MmAllocateMemory(Size);
+      if (FullResourceDescriptor == NULL)
 	{
 	  DbgPrint((DPRINT_HWDETECT,
 		    "Failed to allocate resource descriptor\n"));
 	  continue;
 	}
-      memset(PartialResourceList, 0, Size);
+      memset(FullResourceDescriptor, 0, Size);
 
       /* Initialize resource descriptor */
-      PartialResourceList->Version = 1;
-      PartialResourceList->Revision = 1;
-      PartialResourceList->Count = 3;
+      FullResourceDescriptor->InterfaceType = Isa;
+      FullResourceDescriptor->BusNumber = 0;
+      FullResourceDescriptor->PartialResourceList.Version = 1;
+      FullResourceDescriptor->PartialResourceList.Revision = 1;
+      FullResourceDescriptor->PartialResourceList.Count = 3;
 
       /* Set IO Port */
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
       PartialDescriptor->Type = CmResourceTypePort;
       PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
       PartialDescriptor->Flags = CM_RESOURCE_PORT_IO;
@@ -1194,7 +1418,7 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       PartialDescriptor->u.Port.Length = 7;
 
       /* Set Interrupt */
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[1];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[1];
       PartialDescriptor->Type = CmResourceTypeInterrupt;
       PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
       PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
@@ -1203,23 +1427,46 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
       /* Set serial data (device specific) */
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[2];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[2];
       PartialDescriptor->Type = CmResourceTypeDeviceSpecific;
       PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
       PartialDescriptor->Flags = 0;
       PartialDescriptor->u.DeviceSpecificData.DataSize = sizeof(CM_SERIAL_DEVICE_DATA);
 
       SerialDeviceData =
-	(PCM_SERIAL_DEVICE_DATA)&PartialResourceList->PartialDescriptors[3];
+	(PCM_SERIAL_DEVICE_DATA)&FullResourceDescriptor->PartialResourceList.PartialDescriptors[3];
       SerialDeviceData->BaudClock = 1843200; /* UART Clock frequency (Hertz) */
 
       /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(ControllerKey, PartialResourceList, Size);
-      MmFreeMemory(PartialResourceList);
+      Error = RegSetValue(ControllerKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR) FullResourceDescriptor,
+			  Size);
+      MmFreeMemory(FullResourceDescriptor);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	}
 
       /* Set 'Identifier' value */
-      swprintf(Buffer, L"COM%u", i + 1);
-      FldrSetIdentifier(ControllerKey, Buffer);
+      swprintf(Buffer,
+	       L"COM%u",
+	       i + 1);
+      Error = RegSetValue(ControllerKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)Buffer,
+			  (wcslen(Buffer) + 1) * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue() failed (Error %u)\n",
+		    (int)Error));
+	  continue;
+	}
       DbgPrint((DPRINT_HWDETECT,
 		"Created value: Identifier %s\n",
 		Buffer));
@@ -1236,17 +1483,18 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
 
 
 static VOID
-DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectParallelPorts(FRLDRHKEY BusKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
   ULONG Irq[3] = {7, 5, (ULONG)-1};
   WCHAR Buffer[80];
-  PCONFIGURATION_COMPONENT_DATA ControllerKey;
+  FRLDRHKEY ControllerKey;
   PUSHORT BasePtr;
   ULONG Base;
   ULONG ControllerNumber;
   ULONG i;
+  LONG Error;
   ULONG Size;
 
   DbgPrint((DPRINT_HWDETECT, "DetectParallelPorts() called\n"));
@@ -1265,40 +1513,49 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
 		Base));
 
       /* Create controller key */
-      FldrCreateComponentKey(BusKey,
-                             L"ParallelController",
-                             ControllerNumber,
-                             ControllerClass,
-                             ParallelController,
-                             &ControllerKey);
+      swprintf(Buffer,
+	       L"ParallelController\\%u",
+	       ControllerNumber);
+
+      Error = RegCreateKey(BusKey,
+			   Buffer,
+			   &ControllerKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+	  continue;
+	}
+      DbgPrint((DPRINT_HWDETECT, "Created key: %S\n", Buffer));
 
       /* Set 'ComponentInformation' value */
-      FldrSetComponentInformation(ControllerKey,
-                                  Output,
-                                  ControllerNumber,
-                                  0xFFFFFFFF);
+      SetComponentInformation(ControllerKey,
+			      0x40,
+			      ControllerNumber,
+			      0xFFFFFFFF);
 
       /* Build full device descriptor */
-      Size = sizeof(CM_PARTIAL_RESOURCE_LIST);
+      Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR);
       if (Irq[i] != (ULONG)-1)
 	Size += sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
 
-      PartialResourceList = MmAllocateMemory(Size);
-      if (PartialResourceList == NULL)
+      FullResourceDescriptor = MmAllocateMemory(Size);
+      if (FullResourceDescriptor == NULL)
 	{
 	  DbgPrint((DPRINT_HWDETECT,
 		    "Failed to allocate resource descriptor\n"));
 	  continue;
 	}
-      memset(PartialResourceList, 0, Size);
+      memset(FullResourceDescriptor, 0, Size);
 
       /* Initialize resource descriptor */
-      PartialResourceList->Version = 1;
-      PartialResourceList->Revision = 1;
-      PartialResourceList->Count = (Irq[i] != (ULONG)-1) ? 2 : 1;
+      FullResourceDescriptor->InterfaceType = Isa;
+      FullResourceDescriptor->BusNumber = 0;
+      FullResourceDescriptor->PartialResourceList.Version = 1;
+      FullResourceDescriptor->PartialResourceList.Revision = 1;
+      FullResourceDescriptor->PartialResourceList.Count = (Irq[i] != (ULONG)-1) ? 2 : 1;
 
       /* Set IO Port */
-      PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+      PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
       PartialDescriptor->Type = CmResourceTypePort;
       PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
       PartialDescriptor->Flags = CM_RESOURCE_PORT_IO;
@@ -1309,7 +1566,7 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       /* Set Interrupt */
       if (Irq[i] != (ULONG)-1)
 	{
-	  PartialDescriptor = &PartialResourceList->PartialDescriptors[1];
+	  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[1];
 	  PartialDescriptor->Type = CmResourceTypeInterrupt;
 	  PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
 	  PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
@@ -1319,12 +1576,35 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
 	}
 
       /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(ControllerKey, PartialResourceList, Size);
-      MmFreeMemory(PartialResourceList);
+      Error = RegSetValue(ControllerKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR) FullResourceDescriptor,
+			  Size);
+      MmFreeMemory(FullResourceDescriptor);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	}
 
       /* Set 'Identifier' value */
-      swprintf(Buffer, L"PARALLEL%u", i + 1);
-      FldrSetIdentifier(ControllerKey, Buffer);
+      swprintf(Buffer,
+	      L"PARALLEL%u",
+	      i + 1);
+      Error = RegSetValue(ControllerKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)Buffer,
+			  (wcslen(Buffer) + 1) * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue() failed (Error %u)\n",
+		    (int)Error));
+	  continue;
+	}
       DbgPrint((DPRINT_HWDETECT,
 		"Created value: Identifier %s\n",
 		Buffer));
@@ -1408,37 +1688,40 @@ DetectKeyboardDevice(VOID)
 
 
 static VOID
-DetectKeyboardPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
+DetectKeyboardPeripheral(FRLDRHKEY ControllerKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
   PCM_KEYBOARD_DEVICE_DATA KeyboardData;
-  PCONFIGURATION_COMPONENT_DATA PeripheralKey;
+  FRLDRHKEY PeripheralKey;
   ULONG Size;
+  LONG Error;
 
   /* HACK: don't call DetectKeyboardDevice() as it fails in Qemu 0.8.2 */
   if (TRUE || DetectKeyboardDevice())
   {
-      /* Create controller key */
-      FldrCreateComponentKey(ControllerKey,
-                             L"KeyboardPeripheral",
-                             0,
-                             PeripheralClass,
-                             KeyboardPeripheral,
-                             &PeripheralKey);
+    /* Create controller key */
+    Error = RegCreateKey(ControllerKey,
+			 L"KeyboardPeripheral\\0",
+			 &PeripheralKey);
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "Failed to create peripheral key\n"));
+      return;
+    }
     DbgPrint((DPRINT_HWDETECT, "Created key: KeyboardPeripheral\\0\n"));
 
     /* Set 'ComponentInformation' value */
-    FldrSetComponentInformation(PeripheralKey,
-                                Input | ConsoleIn,
-                                0,
-                                0xFFFFFFFF);
+    SetComponentInformation(ControllerKey,
+			    0x28,
+			    0,
+			    0xFFFFFFFF);
 
     /* Set 'Configuration Data' value */
-    Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+    Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	   sizeof(CM_KEYBOARD_DEVICE_DATA);
-    PartialResourceList = MmAllocateMemory(Size);
-    if (PartialResourceList == NULL)
+    FullResourceDescriptor = MmAllocateMemory(Size);
+    if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
@@ -1446,12 +1729,14 @@ DetectKeyboardPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     }
 
     /* Initialize resource descriptor */
-    memset(PartialResourceList, 0, Size);
-    PartialResourceList->Version = 1;
-    PartialResourceList->Revision = 1;
-    PartialResourceList->Count = 1;
+    memset(FullResourceDescriptor, 0, Size);
+    FullResourceDescriptor->InterfaceType = Isa;
+    FullResourceDescriptor->BusNumber = 0;
+    FullResourceDescriptor->PartialResourceList.Version = 1;
+    FullResourceDescriptor->PartialResourceList.Revision = 1;
+    FullResourceDescriptor->PartialResourceList.Count = 1;
 
-    PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+    PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
     PartialDescriptor->Type = CmResourceTypeDeviceSpecific;
     PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
     PartialDescriptor->u.DeviceSpecificData.DataSize = sizeof(CM_KEYBOARD_DEVICE_DATA);
@@ -1464,43 +1749,66 @@ DetectKeyboardPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     KeyboardData->KeyboardFlags = 0x20;
 
     /* Set 'Configuration Data' value */
-    FldrSetConfigurationData(PeripheralKey, PartialResourceList, Size);
-    MmFreeMemory(PartialResourceList);
+    Error = RegSetValue(PeripheralKey,
+			L"Configuration Data",
+			REG_FULL_RESOURCE_DESCRIPTOR,
+			(PCHAR)FullResourceDescriptor,
+			Size);
+    MmFreeMemory(FullResourceDescriptor);
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+    }
 
     /* Set 'Identifier' value */
-    FldrSetIdentifier(PeripheralKey, L"PCAT_ENHANCED");
+    Error = RegSetValue(PeripheralKey,
+			L"Identifier",
+			REG_SZ,
+			(PCHAR)L"PCAT_ENHANCED",
+			14 * sizeof(WCHAR));
+    if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue() failed (Error %u)\n",
+		(int)Error));
+    }
   }
 }
 
 
 static VOID
-DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectKeyboardController(FRLDRHKEY BusKey)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR PartialDescriptor;
-  PCONFIGURATION_COMPONENT_DATA ControllerKey;
+  FRLDRHKEY ControllerKey;
   ULONG Size;
+  LONG Error;
 
   /* Create controller key */
-  FldrCreateComponentKey(BusKey,
-                         L"KeyboardController",
-                         0,
-                         ControllerClass,
-                         KeyboardController,
-                         &ControllerKey);
+  Error = RegCreateKey(BusKey,
+		       L"KeyboardController\\0",
+		       &ControllerKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+      return;
+    }
   DbgPrint((DPRINT_HWDETECT, "Created key: KeyboardController\\0\n"));
 
   /* Set 'ComponentInformation' value */
-  FldrSetComponentInformation(ControllerKey,
-                              Input | ConsoleIn,
-                              0,
-                              0xFFFFFFFF);
+  SetComponentInformation(ControllerKey,
+			  0x28,
+			  0,
+			  0xFFFFFFFF);
 
   /* Set 'Configuration Data' value */
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) +
 	  2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
-  PartialResourceList = MmAllocateMemory(Size);
-  if (PartialResourceList == NULL)
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
@@ -1508,13 +1816,15 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
     }
 
   /* Initialize resource descriptor */
-  memset(PartialResourceList, 0, Size);
-  PartialResourceList->Version = 1;
-  PartialResourceList->Revision = 1;
-  PartialResourceList->Count = 3;
+  memset(FullResourceDescriptor, 0, Size);
+  FullResourceDescriptor->InterfaceType = Isa;
+  FullResourceDescriptor->BusNumber = 0;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 3;
 
   /* Set Interrupt */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[0];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[0];
   PartialDescriptor->Type = CmResourceTypeInterrupt;
   PartialDescriptor->ShareDisposition = CmResourceShareUndetermined;
   PartialDescriptor->Flags = CM_RESOURCE_INTERRUPT_LATCHED;
@@ -1523,7 +1833,7 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
   PartialDescriptor->u.Interrupt.Affinity = 0xFFFFFFFF;
 
   /* Set IO Port 0x60 */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[1];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[1];
   PartialDescriptor->Type = CmResourceTypePort;
   PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
   PartialDescriptor->Flags = CM_RESOURCE_PORT_IO;
@@ -1532,7 +1842,7 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
   PartialDescriptor->u.Port.Length = 1;
 
   /* Set IO Port 0x64 */
-  PartialDescriptor = &PartialResourceList->PartialDescriptors[2];
+  PartialDescriptor = &FullResourceDescriptor->PartialResourceList.PartialDescriptors[2];
   PartialDescriptor->Type = CmResourceTypePort;
   PartialDescriptor->ShareDisposition = CmResourceShareDeviceExclusive;
   PartialDescriptor->Flags = CM_RESOURCE_PORT_IO;
@@ -1541,9 +1851,20 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
   PartialDescriptor->u.Port.Length = 1;
 
   /* Set 'Configuration Data' value */
-  FldrSetConfigurationData(ControllerKey, PartialResourceList, Size);
-  MmFreeMemory(PartialResourceList);
- 
+  Error = RegSetValue(ControllerKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR)FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
+
   DetectKeyboardPeripheral(ControllerKey);
 }
 
@@ -1658,109 +1979,151 @@ DetectPS2AuxDevice(VOID)
 
 
 static VOID
-DetectPS2Mouse(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectPS2Mouse(FRLDRHKEY BusKey)
 {
-  CM_PARTIAL_RESOURCE_LIST PartialResourceList;
-  PCONFIGURATION_COMPONENT_DATA ControllerKey;
-  PCONFIGURATION_COMPONENT_DATA PeripheralKey;
+  CM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
+  FRLDRHKEY ControllerKey;
+  FRLDRHKEY PeripheralKey;
+  LONG Error;
 
   if (DetectPS2AuxPort())
     {
       DbgPrint((DPRINT_HWDETECT, "Detected PS2 port\n"));
 
       /* Create controller key */
-      FldrCreateComponentKey(BusKey,
-                             L"PointerController",
-                             0,
-                             ControllerClass,
-                             PointerController,
-                             &ControllerKey);
+      Error = RegCreateKey(BusKey,
+			   L"PointerController\\0",
+			   &ControllerKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+	  return;
+	}
       DbgPrint((DPRINT_HWDETECT, "Created key: PointerController\\0\n"));
 
       /* Set 'ComponentInformation' value */
-      FldrSetComponentInformation(ControllerKey,
-                                  Input,
-                                  0,
-                                  0xFFFFFFFF);
+      SetComponentInformation(ControllerKey,
+			      0x20,
+			      0,
+			      0xFFFFFFFF);
 
-      memset(&PartialResourceList, 0, sizeof(CM_PARTIAL_RESOURCE_LIST));
+      memset(&FullResourceDescriptor, 0, sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
 
       /* Initialize resource descriptor */
-      PartialResourceList.Version = 1;
-      PartialResourceList.Revision = 1;
-      PartialResourceList.Count = 1;
+      FullResourceDescriptor.InterfaceType = Isa;
+      FullResourceDescriptor.BusNumber = 0;
+      FullResourceDescriptor.PartialResourceList.Version = 1;
+      FullResourceDescriptor.PartialResourceList.Revision = 1;
+      FullResourceDescriptor.PartialResourceList.Count = 1;
 
       /* Set Interrupt */
-      PartialResourceList.PartialDescriptors[0].Type = CmResourceTypeInterrupt;
-      PartialResourceList.PartialDescriptors[0].ShareDisposition = CmResourceShareUndetermined;
-      PartialResourceList.PartialDescriptors[0].Flags = CM_RESOURCE_INTERRUPT_LATCHED;
-      PartialResourceList.PartialDescriptors[0].u.Interrupt.Level = 12;
-      PartialResourceList.PartialDescriptors[0].u.Interrupt.Vector = 0;
-      PartialResourceList.PartialDescriptors[0].u.Interrupt.Affinity = 0xFFFFFFFF;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].Type = CmResourceTypeInterrupt;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].ShareDisposition = CmResourceShareUndetermined;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].Flags = CM_RESOURCE_INTERRUPT_LATCHED;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Level = 12;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Vector = 0;
+      FullResourceDescriptor.PartialResourceList.PartialDescriptors[0].u.Interrupt.Affinity = 0xFFFFFFFF;
 
       /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(ControllerKey,
-                               &PartialResourceList,
-                               sizeof(CM_PARTIAL_RESOURCE_LIST));
+      Error = RegSetValue(ControllerKey,
+			  L"Configuration Data",
+			  REG_FULL_RESOURCE_DESCRIPTOR,
+			  (PCHAR)&FullResourceDescriptor,
+			  sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT,
+		    "RegSetValue(Configuration Data) failed (Error %u)\n",
+		    (int)Error));
+	  return;
+	}
+
 
       if (DetectPS2AuxDevice())
 	{
 	  DbgPrint((DPRINT_HWDETECT, "Detected PS2 mouse\n"));
 
-          /* Create peripheral key */
-          FldrCreateComponentKey(ControllerKey,
-                                 L"PointerPeripheral",
-                                 0,
-                                 ControllerClass,
-                                 PointerPeripheral,
-                                 &PeripheralKey);
+	  /* Create peripheral key */
+	  Error = RegCreateKey(ControllerKey,
+			       L"PointerPeripheral\\0",
+			       &PeripheralKey);
+	  if (Error != ERROR_SUCCESS)
+	    {
+	      DbgPrint((DPRINT_HWDETECT, "Failed to create peripheral key\n"));
+	      return;
+	    }
 	  DbgPrint((DPRINT_HWDETECT, "Created key: PointerPeripheral\\0\n"));
 
 	  /* Set 'ComponentInformation' value */
-	  FldrSetComponentInformation(PeripheralKey,
-                                  Input,
-                                  0,
-                                  0xFFFFFFFF);
+	  SetComponentInformation(PeripheralKey,
+				  0x20,
+				  0,
+				  0xFFFFFFFF);
 
 	  /* Initialize resource descriptor */
-	  memset(&PartialResourceList, 0, sizeof(CM_PARTIAL_RESOURCE_LIST));
-	  PartialResourceList.Version = 1;
-	  PartialResourceList.Revision = 1;
-	  PartialResourceList.Count = 0;
+	  memset(&FullResourceDescriptor, 0, sizeof(CM_FULL_RESOURCE_DESCRIPTOR));
+	  FullResourceDescriptor.InterfaceType = Isa;
+	  FullResourceDescriptor.BusNumber = 0;
+	  FullResourceDescriptor.PartialResourceList.Version = 1;
+	  FullResourceDescriptor.PartialResourceList.Revision = 1;
+	  FullResourceDescriptor.PartialResourceList.Count = 0;
 
 	  /* Set 'Configuration Data' value */
-      FldrSetConfigurationData(PeripheralKey,
-                               &PartialResourceList,
-                               sizeof(CM_PARTIAL_RESOURCE_LIST) -
-                               sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
+	  Error = RegSetValue(PeripheralKey,
+			      L"Configuration Data",
+			      REG_FULL_RESOURCE_DESCRIPTOR,
+			      (PCHAR)&FullResourceDescriptor,
+			      sizeof(CM_FULL_RESOURCE_DESCRIPTOR) -
+			      sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR));
+	  if (Error != ERROR_SUCCESS)
+	    {
+	      DbgPrint((DPRINT_HWDETECT,
+			"RegSetValue(Configuration Data) failed (Error %u)\n",
+			(int)Error));
+	      return;
+	    }
 
 	  /* Set 'Identifier' value */
-      FldrSetIdentifier(PeripheralKey, L"MICROSOFT PS2 MOUSE");
+	  Error = RegSetValue(PeripheralKey,
+			      L"Identifier",
+			      REG_SZ,
+			      (PCHAR)L"MICROSOFT PS2 MOUSE",
+			      20 * sizeof(WCHAR));
+	  if (Error != ERROR_SUCCESS)
+	    {
+	      DbgPrint((DPRINT_HWDETECT,
+			"RegSetValue() failed (Error %u)\n",
+			(int)Error));
+	      return;
+	    }
+	}
     }
-  }
 }
 
 
 static VOID
-DetectDisplayController(PCONFIGURATION_COMPONENT_DATA BusKey)
+DetectDisplayController(FRLDRHKEY BusKey)
 {
   WCHAR Buffer[80];
-  PCONFIGURATION_COMPONENT_DATA ControllerKey;
+  FRLDRHKEY ControllerKey;
   USHORT VesaVersion;
+  LONG Error;
 
-  FldrCreateComponentKey(BusKey,
-                         L"DisplayController",
-                         0,
-                         ControllerClass,
-                         DisplayController,
-                         &ControllerKey);
+  Error = RegCreateKey(BusKey,
+		       L"DisplayController\\0",
+		       &ControllerKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "Failed to create controller key\n"));
+      return;
+    }
   DbgPrint((DPRINT_HWDETECT, "Created key: DisplayController\\0\n"));
 
   /* Set 'ComponentInformation' value */
-  FldrSetComponentInformation(ControllerKey,
-                              0x00,
-                              0,
-                              0xFFFFFFFF);
+  SetComponentInformation(ControllerKey,
+			  0x00,
+			  0,
+			  0xFFFFFFFF);
 
   /* FIXME: Set 'ComponentInformation' value */
 
@@ -1790,44 +2153,70 @@ DetectDisplayController(PCONFIGURATION_COMPONENT_DATA BusKey)
     }
 
   /* Set 'Identifier' value */
-  FldrSetIdentifier(ControllerKey, Buffer);
+  Error = RegSetValue(ControllerKey,
+		      L"Identifier",
+		      REG_SZ,
+		      (PCHAR)Buffer,
+		      (wcslen(Buffer) + 1) * sizeof(WCHAR));
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue() failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
 
   /* FIXME: Add display peripheral (monitor) data */
 }
 
 
 static VOID
-DetectIsaBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
+DetectIsaBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 {
-  PCM_PARTIAL_RESOURCE_LIST PartialResourceList;
-  PCONFIGURATION_COMPONENT_DATA BusKey;
+  PCM_FULL_RESOURCE_DESCRIPTOR FullResourceDescriptor;
+  WCHAR Buffer[80];
+  FRLDRHKEY BusKey;
   ULONG Size;
+  LONG Error;
 
   /* Create new bus key */
-  FldrCreateComponentKey(SystemKey,
-                         L"MultifunctionAdapter",
-                         *BusNumber,
-                         AdapterClass,
-                         MultiFunctionAdapter,
-                         &BusKey);
+  swprintf(Buffer,
+	  L"MultifunctionAdapter\\%u", *BusNumber);
+  Error = RegCreateKey(SystemKey,
+		       Buffer,
+		       &BusKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+      return;
+    }
 
   /* Set 'Component Information' value similar to my NT4 box */
-  FldrSetComponentInformation(BusKey,
-                              0x0,
-                              0x0,
-                              0xFFFFFFFF);
+  SetComponentInformation(BusKey,
+                          0x0,
+                          0x0,
+                          0xFFFFFFFF);
 
   /* Increment bus number */
   (*BusNumber)++;
 
   /* Set 'Identifier' value */
-  FldrSetIdentifier(BusKey, L"ISA");
+  Error = RegSetValue(BusKey,
+		      L"Identifier",
+		      REG_SZ,
+		      (PCHAR)L"ISA",
+		      4 * sizeof(WCHAR));
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+      return;
+    }
 
   /* Set 'Configuration Data' value */
-  Size = sizeof(CM_PARTIAL_RESOURCE_LIST) -
+  Size = sizeof(CM_FULL_RESOURCE_DESCRIPTOR) -
 	 sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
-  PartialResourceList = MmAllocateMemory(Size);
-  if (PartialResourceList == NULL)
+  FullResourceDescriptor = MmAllocateMemory(Size);
+  if (FullResourceDescriptor == NULL)
     {
       DbgPrint((DPRINT_HWDETECT,
 		"Failed to allocate resource descriptor\n"));
@@ -1835,17 +2224,32 @@ DetectIsaBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
     }
 
   /* Initialize resource descriptor */
-  memset(PartialResourceList, 0, Size);
-  PartialResourceList->Version = 1;
-  PartialResourceList->Revision = 1;
-  PartialResourceList->Count = 0;
+  memset(FullResourceDescriptor, 0, Size);
+  FullResourceDescriptor->InterfaceType = Isa;
+  FullResourceDescriptor->BusNumber = 0;
+  FullResourceDescriptor->PartialResourceList.Version = 1;
+  FullResourceDescriptor->PartialResourceList.Revision = 1;
+  FullResourceDescriptor->PartialResourceList.Count = 0;
 
   /* Set 'Configuration Data' value */
-  FldrSetConfigurationData(BusKey, PartialResourceList, Size);
-  MmFreeMemory(PartialResourceList);
+  Error = RegSetValue(BusKey,
+		      L"Configuration Data",
+		      REG_FULL_RESOURCE_DESCRIPTOR,
+		      (PCHAR) FullResourceDescriptor,
+		      Size);
+  MmFreeMemory(FullResourceDescriptor);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT,
+		"RegSetValue(Configuration Data) failed (Error %u)\n",
+		(int)Error));
+      return;
+    }
 
   /* Detect ISA/BIOS devices */
   DetectBiosDisks(SystemKey, BusKey);
+
+  DetectBiosFloppyController(SystemKey, BusKey);
 
   DetectSerialPorts(BusKey);
 
@@ -1864,28 +2268,35 @@ DetectIsaBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
 VOID
 PcHwDetect(VOID)
 {
-  PCONFIGURATION_COMPONENT_DATA SystemKey;
+  FRLDRHKEY SystemKey;
   ULONG BusNumber = 0;
+  LONG Error;
 
   DbgPrint((DPRINT_HWDETECT, "DetectHardware()\n"));
 
   /* Create the 'System' key */
-  FldrCreateSystemKey(&SystemKey);
+  Error = RegCreateKey(NULL,
+		       L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System",
+		       &SystemKey);
+  if (Error != ERROR_SUCCESS)
+    {
+      DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+      return;
+    }
 
-  /* Set empty component information */
-  FldrSetComponentInformation(SystemKey,
-                              0x0,
-                              0x0,
-                              0xFFFFFFFF);
-  
   /* Detect buses */
   DetectPciBios(SystemKey, &BusNumber);
   DetectApmBios(SystemKey, &BusNumber);
   DetectPnpBios(SystemKey, &BusNumber);
   DetectIsaBios(SystemKey, &BusNumber);
   DetectAcpiBios(SystemKey, &BusNumber);
-  
+
   DbgPrint((DPRINT_HWDETECT, "DetectHardware() Done\n"));
+
+#if 0
+  printf("*** System stopped ***\n");
+  for (;;);
+#endif
 }
 
 /* EOF */

@@ -7,7 +7,6 @@
  *              Copyright 2006 Ge van Geldorp <gvg@reactos.org>
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -22,13 +21,20 @@
 
 #ifdef _MSC_VER
 #include <cpl.h>
+#else
+
+// this is missing on reactos...
+#ifndef IPM_SETADDRESS
+#define IPM_SETADDRESS (WM_USER+101)
+#endif
+
 #endif
 
 #include "resource.h"
 #include "ncpa.h"
 
-#include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(ncpa);
+#define NDEBUG
+#include <debug.h>
 
 typedef struct _TCPIP_PROPERTIES_DATA {
     DWORD AdapterIndex;
@@ -57,10 +63,10 @@ DWORD APIENTRY DhcpNotifyConfigChange(LPWSTR ServerName, LPWSTR AdapterName,
 
 static void
 ManualDNS(HWND Dlg, BOOL Enabled, UINT uCmd) {
-    PTCPIP_PROPERTIES_DATA DlgData =
+    PTCPIP_PROPERTIES_DATA DlgData = 
         (PTCPIP_PROPERTIES_DATA) GetWindowLongPtrW(Dlg, GWL_USERDATA);
 
-    if (! DlgData->OldDhcpEnabled &&
+    if (! DlgData->OldDhcpEnabled && 
         (uCmd == IDC_USEDHCP || uCmd == IDC_NODHCP)) {
         if (INADDR_NONE != DlgData->OldIpAddress) {
             SendDlgItemMessage(Dlg, IDC_IPADDR, IPM_SETADDRESS, 0,
@@ -76,7 +82,7 @@ ManualDNS(HWND Dlg, BOOL Enabled, UINT uCmd) {
         }
     }
 
-    if (INADDR_NONE != DlgData->OldDns1 &&
+    if (INADDR_NONE != DlgData->OldDns1 && 
         (uCmd == IDC_FIXEDDNS || uCmd == IDC_AUTODNS || IDC_NODHCP)) {
         SendDlgItemMessage(Dlg, IDC_DNS1, IPM_SETADDRESS, 0,
                            ntohl(DlgData->OldDns1));
@@ -95,7 +101,7 @@ ManualDNS(HWND Dlg, BOOL Enabled, UINT uCmd) {
     if (! Enabled) {
         SendDlgItemMessage(Dlg, IDC_DNS1, IPM_CLEARADDRESS, 0, 0);
         SendDlgItemMessage(Dlg, IDC_DNS2, IPM_CLEARADDRESS, 0, 0);
-
+	
     }
 }
 
@@ -129,12 +135,11 @@ ShowError(HWND Parent, UINT MsgId)
                          MsgId, Msg, sizeof(Msg) / sizeof(Msg[0]))) {
         wcscpy(Msg, L"Unknown error");
     }
-    ERR("%s\n", debugstr_w(Msg));
     MessageBoxW(Parent, Msg, Error, MB_OK | MB_ICONSTOP);
 }
 
 static
-BOOL GetAddressFromField( HWND hwndDlg, UINT CtlId,
+BOOL GetAddressFromField( HWND hwndDlg, UINT CtlId, 
                           DWORD *dwIPAddr,
                           const char **AddressString ) {
     LRESULT lResult;
@@ -142,10 +147,10 @@ BOOL GetAddressFromField( HWND hwndDlg, UINT CtlId,
 
     *AddressString = NULL;
 
-    lResult = SendMessage(GetDlgItem(hwndDlg, CtlId), IPM_GETADDRESS, 0,
+    lResult = SendMessage(GetDlgItem(hwndDlg, CtlId), IPM_GETADDRESS, 0, 
                           (ULONG_PTR)dwIPAddr);
     if( lResult != 4 ) return FALSE;
-
+    
     *dwIPAddr = htonl(*dwIPAddr);
     inIPAddr.s_addr = *dwIPAddr;
     *AddressString = inet_ntoa(inIPAddr);
@@ -199,7 +204,7 @@ ValidateAndStore(HWND Dlg, PTCPIP_PROPERTIES_DATA DlgData)
 	RowToAdd.dwForwardNextHop = DlgData->Gateway;
 
 	CreateIpForwardEntry( &RowToAdd );
-        assert(BST_CHECKED == IsDlgButtonChecked(Dlg, IDC_FIXEDDNS));
+        ASSERT(BST_CHECKED == IsDlgButtonChecked(Dlg, IDC_FIXEDDNS));
     } else {
         DlgData->IpAddress = INADDR_NONE;
         DlgData->SubnetMask = INADDR_NONE;
@@ -245,7 +250,7 @@ InternTCPIPSettings(HWND Dlg, PTCPIP_PROPERTIES_DATA DlgData) {
 
     if (! ValidateAndStore(Dlg, DlgData)) {
         /* Should never happen, we should have validated at PSN_KILLACTIVE */
-        assert(FALSE);
+        ASSERT(FALSE);
         return FALSE;
     }
 
@@ -295,6 +300,8 @@ InternTCPIPSettings(HWND Dlg, PTCPIP_PROPERTIES_DATA DlgData) {
             goto cleanup;
     }
 
+    // arty ... Not needed anymore ... We update the address live now
+    //MessageBox(NULL, TEXT("You need to reboot before the new parameters take effect."), TEXT("Reboot required"), MB_OK | MB_ICONWARNING);
     ret = TRUE;
 
 cleanup:
@@ -513,7 +520,7 @@ DisplayTCPIPProperties(HWND hParent, IP_ADAPTER_INFO *pInfo)
             _tcscat(tpszCaption, suffix);
         }
     }
-
+    
     if (! LoadDataFromInfo(&DlgData, pInfo))
     {
         ShowError(hParent, IDS_CANNOT_LOAD_CONFIG);

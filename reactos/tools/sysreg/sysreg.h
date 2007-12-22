@@ -13,6 +13,7 @@
 #include "user_types.h"
 #include "env_var.h"
 #include "sym_file.h"
+#include "comp_factory.h"
 #include "conf_parser.h"
 
 // regression test classes

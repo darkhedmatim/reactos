@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id$
  */
 
 #ifndef VIDEOPRT_H
@@ -165,11 +166,6 @@ IntVideoPortDispatchPower(
    IN PIRP Irp);
 
 NTSTATUS NTAPI
-IntVideoPortDispatchSystemControl(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS NTAPI
 IntVideoPortDispatchWrite(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
@@ -225,11 +221,6 @@ IntVideoPortFindAdapter(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
    IN PDEVICE_OBJECT DeviceObject);
-
-PVOID NTAPI
-IntVideoPortGetProcAddress(
-   IN PVOID HwDeviceExtension,
-   IN PUCHAR FunctionName);
 
 /* int10.c */
 

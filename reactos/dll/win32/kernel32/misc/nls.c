@@ -16,7 +16,7 @@
 
 #include <k32.h>
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBAL VARIABLES ***********************************************************/
 
@@ -498,116 +498,6 @@ IntMultiByteToWideCharCP(UINT CodePage, DWORD Flags,
 }
 
 /**
- * @name IntMultiByteToWideCharSYMBOL
- *
- * Internal version of MultiByteToWideChar for SYMBOL.
- *
- * @see MultiByteToWideChar
- */
-
-static INT STDCALL 
-IntMultiByteToWideCharSYMBOL(DWORD Flags, 
-                             LPCSTR MultiByteString, INT MultiByteCount, 
-                             LPWSTR WideCharString, INT WideCharCount)
-{
-   LONG Count;
-   UCHAR Char;
-   INT WideCharMaxLen;
-
-
-   if (Flags != 0)
-   {
-      SetLastError(ERROR_INVALID_FLAGS);
-      return 0;
-   }
-
-   if (WideCharCount == 0) 
-   {
-      return MultiByteCount;
-   }
-
-   WideCharMaxLen = WideCharCount > MultiByteCount ? MultiByteCount : WideCharCount;
-
-   for (Count = 0; Count < WideCharMaxLen; Count++)
-   {
-      Char = MultiByteString[Count];
-      if ( Char < 0x20 )
-      {
-         WideCharString[Count] = Char;
-      }
-      else
-      {
-         WideCharString[Count] = Char + 0xf000;
-      }
-   }
-   if (MultiByteCount > WideCharMaxLen) 
-   {
-      SetLastError(ERROR_INSUFFICIENT_BUFFER);
-      return 0;
-   }
-
-   return WideCharMaxLen;
-}
-
-/**
- * @name IntWideCharToMultiByteSYMBOL
- *
- * Internal version of WideCharToMultiByte for SYMBOL.
- *
- * @see WideCharToMultiByte
- */
-
-static INT STDCALL
-IntWideCharToMultiByteSYMBOL(DWORD Flags,
-                             LPCWSTR WideCharString, INT WideCharCount,
-                             LPSTR MultiByteString, INT MultiByteCount)
-{
-   LONG Count;
-   INT MaxLen;
-   WCHAR Char;
-
-   if (Flags!=0)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-
-
-   if( MultiByteCount == 0) 
-   {
-      return WideCharCount;
-   }
-
-   MaxLen = MultiByteCount>WideCharCount?WideCharCount:MultiByteCount;
-   for (Count = 0;Count<MaxLen;Count++)
-   {
-      Char = WideCharString[Count];
-      if (Char<0x20)
-      {
-         MultiByteString[Count] = Char;
-      }
-      else 
-      {
-         if ((Char>=0xf020)&&(Char<0xf100))
-         {
-            MultiByteString[Count] = Char - 0xf000;
-         }
-         else
-         {
-            SetLastError(ERROR_NO_UNICODE_TRANSLATION);
-            return 0;
-         }
-      }
-   }
-   if ( WideCharCount > MaxLen) 
-   {
-      SetLastError(ERROR_INSUFFICIENT_BUFFER);
-      return 0;
-   }
-   return MaxLen;
-}
-
-/**
  * @name IntWideCharToMultiByteUTF8
  *
  * Internal version of WideCharToMultiByte for UTF8.
@@ -820,7 +710,7 @@ IntWideCharToMultiByteCP(UINT CodePage, DWORD Flags,
    }
 }
 
-/**
+/** 
  * @name IntIsLeadByte
  *
  * Internal function to detect if byte is lead byte in specific character
@@ -923,15 +813,12 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    HANDLE KeyHandle;
    PKEY_VALUE_PARTIAL_INFORMATION Kvpi;
    DWORD KvpiSize;
-   BOOL bRetValue;
-
-   bRetValue = FALSE;
 
    /* Convert the codepage number to string. */
    ValueName.Buffer = ValueNameBuffer;
    ValueName.MaximumLength = sizeof(ValueNameBuffer);
    if (!NT_SUCCESS(RtlIntegerToUnicodeString(CodePage, 10, &ValueName)))
-      return bRetValue;
+      return FALSE;
 
    /* Open the registry key containing file name mappings. */
    RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\System\\"
@@ -941,17 +828,17 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    Status = NtOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
    if (!NT_SUCCESS(Status))
    {
-      return bRetValue;
+      return FALSE;
    }
 
    /* Allocate buffer that will be used to query the value data. */
    KvpiSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
               (MAX_PATH * sizeof(WCHAR));
-   Kvpi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, KvpiSize);
+   Kvpi = HeapAlloc(GetProcessHeap(), 0, KvpiSize);
    if (Kvpi == NULL)
    {
       NtClose(KeyHandle);
-      return bRetValue;
+      return FALSE;
    }
 
    /* Query the file name for our code page. */
@@ -964,17 +851,15 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
    if (NT_SUCCESS(Status) && Kvpi->Type == REG_SZ &&
        Kvpi->DataLength > sizeof(WCHAR))
    {
-      bRetValue = TRUE;
       if (FileName != NULL)
       {
          lstrcpynW(FileName, (WCHAR*)Kvpi->Data,
                    min(Kvpi->DataLength / sizeof(WCHAR), FileNameSize));
       }
+      return TRUE;
    }
 
-   /* free temporary buffer */
-   HeapFree(GetProcessHeap(),0,Kvpi);
-   return bRetValue;
+   return FALSE;
 }
 
 /**
@@ -1061,9 +946,9 @@ MultiByteToWideChar(UINT CodePage, DWORD Flags,
          return 0;
 
       case CP_SYMBOL:
-         return IntMultiByteToWideCharSYMBOL(
-            Flags, MultiByteString, MultiByteCount,
-            WideCharString, WideCharCount);
+         DPRINT1("MultiByteToWideChar for CP_SYMBOL is not implemented!\n");
+         return 0;
+
       default:
          return IntMultiByteToWideCharCP(
             CodePage, Flags, MultiByteString, MultiByteCount,
@@ -1144,14 +1029,8 @@ WideCharToMultiByte(UINT CodePage, DWORD Flags,
          return 0;
 
       case CP_SYMBOL:
-         if ((DefaultChar!=NULL) || (UsedDefaultChar!=NULL))
-         {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return 0;
-         }
-         return IntWideCharToMultiByteSYMBOL(
-            Flags,WideCharString,WideCharCount,MultiByteString,
-            MultiByteCount);
+         DPRINT1("WideCharToMultiByte for CP_SYMBOL is not implemented!\n");
+         return 0;
 
       default:
          return IntWideCharToMultiByteCP(
@@ -1179,7 +1058,7 @@ GetACP(VOID)
  * @name GetOEMCP
  *
  * Get active OEM code page number.
- *
+ * 
  * @implemented
  */
 

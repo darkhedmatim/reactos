@@ -33,7 +33,8 @@ use strict;
 use lib ".";
 
 use Bugzilla;
-use Bugzilla::Error;
+
+require "globals.pl";
 
 Bugzilla->login();
 

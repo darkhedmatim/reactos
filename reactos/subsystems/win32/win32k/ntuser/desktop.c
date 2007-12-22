@@ -31,11 +31,8 @@
 
 #include <w32k.h>
 
-#define NDEBUG
-#include <debug.h>
-#define TRACE DPRINT
-#define WARN DPRINT1
-#define ERR DPRINT1
+//#define YDEBUG
+#include <wine/debug.h>
 
 static
 VOID
@@ -653,15 +650,13 @@ IntHideDesktop(PDESKTOP_OBJECT Desktop)
 #else
 
    PWINDOW_OBJECT DesktopWindow;
-   PWINDOW DesktopWnd;
 
    DesktopWindow = IntGetWindowObject(Desktop->DesktopWindow);
    if (! DesktopWindow)
    {
       return ERROR_INVALID_WINDOW_HANDLE;
    }
-   DesktopWnd = DesktopWindow->Wnd;
-   DesktopWnd->Style &= ~WS_VISIBLE;
+   DesktopWindow->Style &= ~WS_VISIBLE;
 
    return STATUS_SUCCESS;
 #endif
@@ -677,7 +672,7 @@ UserBuildShellHookHwndList(PDESKTOP_OBJECT Desktop)
    ULONG entries=0;
    PSHELL_HOOK_WINDOW Current;
    HWND* list;
-
+   
    /* fixme: if we save nb elements in desktop, we dont have to loop to find nb entries */
    LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
       entries++;
@@ -688,10 +683,10 @@ UserBuildShellHookHwndList(PDESKTOP_OBJECT Desktop)
    if (list)
    {
       HWND* cursor = list;
-
+      
       LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
          *cursor++ = Current->hWnd;
-
+   
       *cursor = NULL; /* nullterm list */
    }
 
@@ -737,7 +732,7 @@ VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam)
    if (HwndList)
    {
       HWND* cursor = HwndList;
-
+      
       for (; *cursor; cursor++)
       {
          DPRINT("Sending notify\n");
@@ -749,7 +744,7 @@ VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam)
 
       ExFreePool(HwndList);
    }
-
+   
 }
 
 /*
@@ -872,9 +867,8 @@ NtUserCreateDesktop(
    SIZE_T DesktopInfoSize;
    UNICODE_STRING SafeDesktopName;
    ULONG DummyContext;
-   ULONG_PTR HeapLimit = 4 * 1024 * 1024; /* FIXME */
    DECLARE_RETURN(HDESK);
-
+  
 
    DPRINT("Enter NtUserCreateDesktop: %wZ\n", lpszDesktopName);
    UserEnterExclusive();
@@ -958,7 +952,7 @@ NtUserCreateDesktop(
    DesktopObject->DesktopHeapSection = NULL;
    DesktopObject->hDesktopHeap = UserCreateHeap(&DesktopObject->DesktopHeapSection,
                                                 &DesktopHeapSystemBase,
-                                                HeapLimit);
+                                                4 * 1024 * 1024); /* FIXME */
    if (DesktopObject->hDesktopHeap == NULL)
    {
        ObDereferenceObject(DesktopObject);
@@ -984,7 +978,6 @@ NtUserCreateDesktop(
                  DesktopInfoSize);
 
    DesktopObject->DesktopInfo->hKernelHeap = DesktopObject->hDesktopHeap;
-   DesktopObject->DesktopInfo->HeapLimit = HeapLimit;
    RtlCopyMemory(DesktopObject->DesktopInfo->szDesktopName,
                  lpszDesktopName->Buffer,
                  lpszDesktopName->Length);
@@ -1238,11 +1231,11 @@ NtUserOpenInputDesktop(
 
    SetLastNtError(Status);
    RETURN((HDESK)0);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserOpenInputDesktop, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;   
 }
 
 /*
@@ -1307,7 +1300,7 @@ NtUserCloseDesktop(HDESK hDesktop)
 CLEANUP:
    DPRINT("Leave NtUserCloseDesktop, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;     
 }
 
 
@@ -1350,14 +1343,14 @@ NtUserPaintDesktop(HDC hDC)
    IntGdiGetClipBox(hDC, &Rect);
 
    hWndDesktop = IntGetDesktopWindow();
-
+   
    WndDesktop = UserGetWindowObject(hWndDesktop);
    if (!WndDesktop)
    {
       RETURN(FALSE);
    }
 
-   DesktopBrush = (HBRUSH)UserGetClassLongPtr(WndDesktop->Wnd->Class, GCL_HBRBACKGROUND, FALSE);
+   DesktopBrush = (HBRUSH)UserGetClassLongPtr(WndDesktop->Class, GCL_HBRBACKGROUND, FALSE);
 
 
    /*
@@ -1369,16 +1362,16 @@ NtUserPaintDesktop(HDC hDC)
       PWINDOW_OBJECT DeskWin;
 
       DeskWin = UserGetWindowObject(hWndDesktop);
-
+      
       if (DeskWin)
       {
          SIZE sz;
          int x, y;
          HDC hWallpaperDC;
 
-         sz.cx = DeskWin->Wnd->WindowRect.right - DeskWin->Wnd->WindowRect.left;
-         sz.cy = DeskWin->Wnd->WindowRect.bottom - DeskWin->Wnd->WindowRect.top;
-
+         sz.cx = DeskWin->WindowRect.right - DeskWin->WindowRect.left;
+         sz.cy = DeskWin->WindowRect.bottom - DeskWin->WindowRect.top;
+ 
          if (WinSta->WallpaperMode == wmStretch ||
              WinSta->WallpaperMode == wmTile)
          {
@@ -1391,28 +1384,28 @@ NtUserPaintDesktop(HDC hDC)
             x = (sz.cx / 2) - (WinSta->cxWallpaper / 2);
             y = (sz.cy / 2) - (WinSta->cyWallpaper / 2);
          }
-
+ 
          hWallpaperDC = NtGdiCreateCompatibleDC(hDC);
          if(hWallpaperDC != NULL)
          {
             HBITMAP hOldBitmap;
-
+ 
             /* fill in the area that the bitmap is not going to cover */
             if (x > 0 || y > 0)
             {
-               /* FIXME - clip out the bitmap
+               /* FIXME - clip out the bitmap 
                                             can be replaced with "NtGdiPatBlt(hDC, x, y, WinSta->cxWallpaper, WinSta->cyWallpaper, PATCOPY | DSTINVERT);"
                                             once we support DSTINVERT */
-              PreviousBrush = NtGdiSelectBrush(hDC, DesktopBrush);
+              PreviousBrush = NtGdiSelectObject(hDC, DesktopBrush);
               NtGdiPatBlt(hDC, Rect.left, Rect.top, Rect.right, Rect.bottom, PATCOPY);
-              NtGdiSelectBrush(hDC, PreviousBrush);
+              NtGdiSelectObject(hDC, PreviousBrush);
             }
-
+ 
             /*Do not fill the background after it is painted no matter the size of the picture */
             doPatBlt = FALSE;
-
-            hOldBitmap = NtGdiSelectBitmap(hWallpaperDC, WinSta->hbmWallpaper);
-
+ 
+            hOldBitmap = NtGdiSelectObject(hWallpaperDC, WinSta->hbmWallpaper);
+ 
             if (WinSta->WallpaperMode == wmStretch)
             {
                 if(Rect.right && Rect.bottom)
@@ -1424,11 +1417,11 @@ NtUserPaintDesktop(HDC hDC)
                                 hWallpaperDC,
                                 0,
                                 0,
-                                WinSta->cxWallpaper,
-                                WinSta->cyWallpaper,
+                                WinSta->cxWallpaper, 
+                                WinSta->cyWallpaper, 
                                 SRCCOPY,
                                 0);
-
+                                
             }
             else if (WinSta->WallpaperMode == wmTile)
             {
@@ -1437,14 +1430,14 @@ NtUserPaintDesktop(HDC hDC)
                 {
                     for(x = 0; x < Rect.right; x += WinSta->cxWallpaper)
                     {
-                        NtGdiBitBlt(hDC,
-                                    x,
-                                    y,
-                                    WinSta->cxWallpaper,
-                                    WinSta->cyWallpaper,
-                                    hWallpaperDC,
-                                    0,
-                                    0,
+                        NtGdiBitBlt(hDC, 
+                                    x, 
+                                    y, 
+                                    WinSta->cxWallpaper, 
+                                    WinSta->cyWallpaper, 
+                                    hWallpaperDC, 
+                                    0, 
+                                    0, 
                                     SRCCOPY,
                                     0,
                                     0);
@@ -1453,19 +1446,19 @@ NtUserPaintDesktop(HDC hDC)
             }
             else
             {
-                NtGdiBitBlt(hDC,
-                            x,
-                            y,
-                            WinSta->cxWallpaper,
-                            WinSta->cyWallpaper,
-                            hWallpaperDC,
-                            0,
-                            0,
+                NtGdiBitBlt(hDC, 
+                            x, 
+                            y, 
+                            WinSta->cxWallpaper, 
+                            WinSta->cyWallpaper, 
+                            hWallpaperDC, 
+                            0, 
+                            0, 
                             SRCCOPY,
                             0,
                             0);
-            }
-            NtGdiSelectBitmap(hWallpaperDC, hOldBitmap);
+            } 
+            NtGdiSelectObject(hWallpaperDC, hOldBitmap); 
             NtGdiDeleteObjectApp(hWallpaperDC);
          }
       }
@@ -1474,9 +1467,9 @@ NtUserPaintDesktop(HDC hDC)
    /* Back ground is set to none, clear the screen */
    if (doPatBlt)
    {
-      PreviousBrush = NtGdiSelectBrush(hDC, DesktopBrush);
+      PreviousBrush = NtGdiSelectObject(hDC, DesktopBrush);
       NtGdiPatBlt(hDC, Rect.left, Rect.top, Rect.right, Rect.bottom, PATCOPY);
-      NtGdiSelectBrush(hDC, PreviousBrush);
+      NtGdiSelectObject(hDC, PreviousBrush);
    }
 
    /*
@@ -1509,7 +1502,7 @@ NtUserPaintDesktop(HDC hDC)
          align_old = NtGdiSetTextAlign(hDC, TA_RIGHT);
          mode_old = NtGdiSetBkMode(hDC, TRANSPARENT);
 
-         NtGdiExtTextOut(hDC, rect.right-16, rect.bottom-48, 0, NULL, s_wszVersion, len, NULL);
+         NtGdiTextOut(hDC, rect.right-16, rect.bottom-48, s_wszVersion, len);
 
          NtGdiSetBkMode(hDC, mode_old);
          NtGdiSetTextAlign(hDC, align_old);
@@ -1518,11 +1511,11 @@ NtUserPaintDesktop(HDC hDC)
    }
 
    RETURN(TRUE);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserPaintDesktop, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;   
 }
 
 
@@ -1548,7 +1541,7 @@ NtUserSwitchDesktop(HDESK hDesktop)
    PDESKTOP_OBJECT DesktopObject;
    NTSTATUS Status;
    DECLARE_RETURN(BOOL);
-
+   
    UserEnterExclusive();
    DPRINT("Enter NtUserSwitchDesktop\n");
 
@@ -1594,11 +1587,11 @@ NtUserSwitchDesktop(HDESK hDesktop)
    ObDereferenceObject(DesktopObject);
 
    RETURN(TRUE);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserSwitchDesktop, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;   
 }
 
 /*
@@ -1631,7 +1624,7 @@ NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
    HDESK Ret, hThreadDesktop;
    OBJECT_HANDLE_INFORMATION HandleInformation;
    DECLARE_RETURN(HDESK);
-
+   
    UserEnterExclusive();
    DPRINT("Enter NtUserGetThreadDesktop\n");
 
@@ -1694,7 +1687,7 @@ NtUserGetThreadDesktop(DWORD dwThreadId, DWORD Unknown1)
    ObDereferenceObject(DesktopObject);
    ObDereferenceObject(Thread);
    RETURN(Ret);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserGetThreadDesktop, ret=%i\n",_ret_);
    UserLeave();
@@ -1740,8 +1733,6 @@ IntUnmapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
         if (ti->Desktop == DesktopObject->DesktopInfo)
         {
             ti->Desktop = NULL;
-            ti->DesktopHeapBase = NULL;
-            ti->DesktopHeapLimit = 0;
             ti->DesktopHeapDelta = 0;
         }
     }
@@ -1805,7 +1796,6 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
     HeapMapping->Next = NULL;
     HeapMapping->KernelMapping = (PVOID)DesktopObject->hDesktopHeap;
     HeapMapping->UserMapping = UserBase;
-    HeapMapping->Limit = ViewSize;
     HeapMapping->Count = 1;
     *PrevLink = HeapMapping;
 
@@ -1818,8 +1808,6 @@ IntMapDesktopView(IN PDESKTOP_OBJECT DesktopObject)
         if (ti->Desktop == NULL)
         {
             ti->Desktop = DesktopObject->DesktopInfo;
-            ti->DesktopHeapBase = DesktopObject->hDesktopHeap;
-            ti->DesktopHeapLimit = ViewSize;
             ti->DesktopHeapDelta = DesktopHeapGetUserDelta();
         }
     }
@@ -1863,16 +1851,6 @@ IntSetThreadDesktop(IN PDESKTOP_OBJECT DesktopObject,
             }
         }
 
-        if (W32Thread->Desktop == NULL)
-        {
-            PW32THREADINFO ti = GetW32ThreadInfo();
-            if (ti != NULL)
-            {
-                ti->Desktop = NULL;
-                ti->DesktopHeapDelta = 0;
-            }
-        }
-
         if (OldDesktop != NULL &&
             !IntCheckProcessDesktopClasses(OldDesktop->DesktopInfo,
                                            FreeOnFailure))
@@ -1900,6 +1878,22 @@ IntSetThreadDesktop(IN PDESKTOP_OBJECT DesktopObject,
             }
 
             ObDereferenceObject(OldDesktop);
+
+            /* update the thread info */
+            if (W32Thread != NULL && W32Thread->ThreadInfo != NULL &&
+                W32Thread->ThreadInfo->Desktop != (DesktopObject != NULL ? DesktopObject->DesktopInfo : NULL))
+            {
+                if (DesktopObject != NULL)
+                {
+                    W32Thread->ThreadInfo->Desktop = DesktopObject->DesktopInfo;
+                    W32Thread->ThreadInfo->DesktopHeapDelta = DesktopHeapGetUserDelta();
+                }
+                else
+                {
+                    W32Thread->ThreadInfo->Desktop = NULL;
+                    W32Thread->ThreadInfo->DesktopHeapDelta = 0;
+                }
+            }
         }
     }
 
@@ -1919,10 +1913,10 @@ NtUserSetThreadDesktop(HDESK hDesktop)
    PDESKTOP_OBJECT DesktopObject;
    NTSTATUS Status;
    DECLARE_RETURN(BOOL);
-
+   
    UserEnterExclusive();
    DPRINT("Enter NtUserSetThreadDesktop\n");
-
+   
    /* Validate the new desktop. */
    Status = IntValidateDesktopHandle(
                hDesktop,
@@ -1945,7 +1939,7 @@ NtUserSetThreadDesktop(HDESK hDesktop)
    }
 
    RETURN(TRUE);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserSetThreadDesktop, ret=%i\n",_ret_);
    UserLeave();

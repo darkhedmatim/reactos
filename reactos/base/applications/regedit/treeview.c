@@ -218,17 +218,7 @@ BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
             pszNodes[dwActualSize] = '\0';
     }
 
-    /* Now go through all the children in the tree, and check if any have to be removed. */
-    childItem = TreeView_GetChild(hwndTV, hItem);
-    while (childItem) {
-        HTREEITEM nextItem = TreeView_GetNextSibling(hwndTV, childItem);
-        if (RefreshTreeItem(hwndTV, childItem) == FALSE) {
-            (void)TreeView_DeleteItem(hwndTV, childItem);
-        }
-        childItem = nextItem;
-    }
-
-	/* Now go through all the children in the registry, and check if any have to be added. */
+    /* Now go through all the children in the registry, and check if any have to be added. */
     bAddedAny = FALSE;
     for (dwIndex = 0; dwIndex < dwCount; dwIndex++) {
         DWORD cName = dwMaxSubKeyLen, dwSubCount;
@@ -268,6 +258,15 @@ BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
     if (bAddedAny)
         SendMessage(hwndTV, TVM_SORTCHILDREN, 0, (LPARAM) hItem);
 
+    /* Now go through all the children in the tree, and check if any have to be removed. */
+    childItem = TreeView_GetChild(hwndTV, hItem);
+    while (childItem) {
+        HTREEITEM nextItem = TreeView_GetNextSibling(hwndTV, childItem);
+        if (RefreshTreeItem(hwndTV, childItem) == FALSE) {
+            (void)TreeView_DeleteItem(hwndTV, childItem);
+        }
+        childItem = nextItem;
+    }
     bSuccess = TRUE;
 
 done:
@@ -296,7 +295,7 @@ BOOL RefreshTreeView(HWND hwndTV)
 
     SendMessage(hwndTV, WM_SETREDRAW, TRUE, 0);
     SetCursor(hcursorOld);
-
+    
     /* We reselect the currently selected node, this will prompt a refresh of the listview. */
     (void)TreeView_SelectItem(hwndTV, hSelectedItem);
     return TRUE;
@@ -347,7 +346,7 @@ HTREEITEM InsertNode(HWND hwndTV, HTREEITEM hItem, LPTSTR name)
             item.cchTextMax = COUNT_OF(buf);
             if (!TreeView_GetItem(hwndTV, &item)) continue;
             if (lstrcmp(name, item.pszText) == 0) break;
-        }
+        }	
     }
     if (hNewItem) (void)TreeView_SelectItem(hwndTV, hNewItem);
 
@@ -395,7 +394,7 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
         /* Win9x specific key */
         if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_DYN_DATA"), HKEY_DYN_DATA, 1)) return FALSE;
 	}
-
+    
     /* expand and select host name */
     (void)TreeView_Expand(hwndTV, hRoot, TVE_EXPAND);
     (void)TreeView_Select(hwndTV, hRoot, TVGN_CARET);
@@ -603,7 +602,7 @@ BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath)
 
 	while(keyPath[0])
 	{
-		s = _tcschr(keyPath, TEXT('\\'));
+		s = _tcschr(keyPath, '\\');
 		lstrcpyn(szPathPart, keyPath, s ? s - keyPath + 1 : _tcslen(keyPath) + 1);
 
 		/* Special case for root to expand root key abbreviations */
@@ -656,5 +655,4 @@ BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath)
 
 	return TRUE;
 }
-
 

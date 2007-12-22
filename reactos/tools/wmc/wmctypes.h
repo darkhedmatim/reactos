@@ -15,14 +15,15 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WMC_WMCTYPES_H
 #define __WMC_WMCTYPES_H
 
 #include <stdarg.h>
-#include <host/typedefs.h>
+#include "windef.h"
+#include "winbase.h"
 
 /* Byteordering defines */
 #define WMC_BO_NATIVE	0x00

@@ -33,21 +33,18 @@
 
 use strict;
 use lib ".";
-
-use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Util;
-use Bugzilla::Error;
+require "globals.pl";
 use Bugzilla::Bug;
 use Bugzilla::Series;
-use Bugzilla::Mailer;
+use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::Product;
 use Bugzilla::Classification;
 use Bugzilla::Milestone;
-use Bugzilla::Group;
-use Bugzilla::User;
-use Bugzilla::Field;
-use Bugzilla::Token;
+
+# Shut up misguided -w warnings about "used only once".  "use vars" just
+# doesn't work for me.
+use vars qw(@legal_bug_status @legal_resolution);
 
 #
 # Preliminary checks:
@@ -64,7 +61,6 @@ my $vars = {};
 print $cgi->header();
 
 $user->in_group('editcomponents')
-  || scalar(@{$user->get_products_by_permission('editcomponents')})
   || ThrowUserError("auth_failure", {group  => "editcomponents",
                                      action => "edit",
                                      object => "products"});
@@ -76,14 +72,13 @@ my $classification_name = trim($cgi->param('classification') || '');
 my $product_name = trim($cgi->param('product') || '');
 my $action  = trim($cgi->param('action')  || '');
 my $showbugcounts = (defined $cgi->param('showbugcounts'));
-my $token = $cgi->param('token');
 
 #
 # product = '' -> Show nice list of classifications (if
 # classifications enabled)
 #
 
-if (Bugzilla->params->{'useclassification'} 
+if (Param('useclassification') 
     && !$classification_name
     && !$product_name)
 {
@@ -101,11 +96,10 @@ if (Bugzilla->params->{'useclassification'}
 #
 
 if (!$action && !$product_name) {
-    my $classification;
     my $products;
 
-    if (Bugzilla->params->{'useclassification'}) {
-        $classification =
+    if (Param('useclassification')) {
+        my $classification = 
             Bugzilla::Classification::check_classification($classification_name);
 
         $products = $user->get_selectable_products($classification->id);
@@ -114,14 +108,6 @@ if (!$action && !$product_name) {
         $products = $user->get_selectable_products;
     }
 
-    # If the user has editcomponents privs for some products only,
-    # we have to restrict the list of products to display.
-    unless ($user->in_group('editcomponents')) {
-        $products = $user->get_products_by_permission('editcomponents');
-        if (Bugzilla->params->{'useclassification'}) {
-            @$products = grep {$_->classification_id == $classification->id} @$products;
-        }
-    }
     $vars->{'products'} = $products;
     $vars->{'showbugcounts'} = $showbugcounts;
 
@@ -140,20 +126,12 @@ if (!$action && !$product_name) {
 #
 
 if ($action eq 'add') {
-    # The user must have the global editcomponents privs to add
-    # new products.
-    $user->in_group('editcomponents')
-      || ThrowUserError("auth_failure", {group  => "editcomponents",
-                                         action => "add",
-                                         object => "products"});
 
-    if (Bugzilla->params->{'useclassification'}) {
+    if (Param('useclassification')) {
         my $classification = 
             Bugzilla::Classification::check_classification($classification_name);
         $vars->{'classification'} = $classification;
     }
-    $vars->{'token'} = issue_session_token('add_product');
-
     $template->process("admin/products/create.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
 
@@ -166,18 +144,11 @@ if ($action eq 'add') {
 #
 
 if ($action eq 'new') {
-    # The user must have the global editcomponents privs to add
-    # new products.
-    $user->in_group('editcomponents')
-      || ThrowUserError("auth_failure", {group  => "editcomponents",
-                                         action => "add",
-                                         object => "products"});
 
-    check_token_data($token, 'add_product');
     # Cleanups and validity checks
 
     my $classification_id = 1;
-    if (Bugzilla->params->{'useclassification'}) {
+    if (Param('useclassification')) {
         my $classification = 
             Bugzilla::Classification::check_classification($classification_name);
         $classification_id = $classification->id;
@@ -194,13 +165,13 @@ if ($action eq 'new') {
 
         # Check for exact case sensitive match:
         if ($product->name eq $product_name) {
-            ThrowUserError("product_name_already_in_use",
+            ThrowUserError("prod_name_already_in_use",
                            {'product' => $product->name});
         }
 
         # Next check for a case-insensitive match:
         if (lc($product->name) eq lc($product_name)) {
-            ThrowUserError("product_name_diff_in_case",
+            ThrowUserError("prod_name_diff_in_case",
                            {'product' => $product_name,
                             'existing_product' => $product->name}); 
         }
@@ -258,24 +229,25 @@ if ($action eq 'new') {
 
     # If we're using bug groups, then we need to create a group for this
     # product as well.  -JMR, 2/16/00
-    if (Bugzilla->params->{"makeproductgroups"}) {
+    if (Param("makeproductgroups")) {
         # Next we insert into the groups table
         my $productgroup = $product->name;
-        while (new Bugzilla::Group({name => $productgroup})) {
+        while (GroupExists($productgroup)) {
             $productgroup .= '_';
         }
         my $group_description = "Access to bugs in the " .
                                 $product->name . " product";
 
-        $dbh->do('INSERT INTO groups (name, description, isbuggroup)
-                  VALUES (?, ?, ?)',
+        $dbh->do('INSERT INTO groups
+                  (name, description, isbuggroup, last_changed)
+                  VALUES (?, ?, ?, NOW())',
                   undef, ($productgroup, $group_description, 1));
 
         my $gid = $dbh->bz_last_key('groups', 'id');
 
-        # If we created a new group, give the "admin" group privileges
+        # If we created a new group, give the "admin" group priviledges
         # initially.
-        my $admin = Bugzilla::Group->new({name => 'admin'})->id();
+        my $admin = GroupNameToId('admin');
         
         my $sth = $dbh->prepare('INSERT INTO group_group_map
                                  (member_id, grantor_id, grant_type)
@@ -290,15 +262,15 @@ if ($action eq 'new') {
                   (group_id, product_id, entry, membercontrol,
                    othercontrol, canedit)
                   VALUES (?, ?, ?, ?, ?, ?)',
-                 undef, ($gid, $product->id, 
-                         Bugzilla->params->{'useentrygroupdefault'},
+                 undef, ($gid, $product->id, Param('useentrygroupdefault'),
                  CONTROLMAPDEFAULT, CONTROLMAPNA, 0));
     }
 
     if ($cgi->param('createseries')) {
         # Insert default charting queries for this product.
         # If they aren't using charting, this won't do any harm.
-        #
+        GetVersionTable();
+
         # $open_name and $product are sqlquoted by the series code 
         # and never used again here, so we can trick_taint them.
         my $open_name = $cgi->param('open_name');
@@ -307,19 +279,19 @@ if ($action eq 'new') {
         my @series;
     
         # We do every status, every resolution, and an "opened" one as well.
-        foreach my $bug_status (@{get_legal_field_values('bug_status')}) {
+        foreach my $bug_status (@::legal_bug_status) {
             push(@series, [$bug_status, 
                            "bug_status=" . url_quote($bug_status)]);
         }
 
-        foreach my $resolution (@{get_legal_field_values('resolution')}) {
+        foreach my $resolution (@::legal_resolution) {
             next if !$resolution;
             push(@series, [$resolution, "resolution=" .url_quote($resolution)]);
         }
 
-        # For localization reasons, we get the name of the "global" subcategory
+        # For localisation reasons, we get the name of the "global" subcategory
         # and the title of the "open" query from the submitted form.
-        my @openedstatuses = BUG_STATE_OPEN;
+        my @openedstatuses = OpenStates();
         my $query = 
                join("&", map { "bug_status=" . url_quote($_) } @openedstatuses);
         push(@series, [$open_name, $query]);
@@ -333,10 +305,11 @@ if ($action eq 'new') {
             $series->writeToDatabase();
         }
     }
-    delete_token($token);
+    # Make versioncache flush
+    unlink "$datadir/versioncache";
 
     $vars->{'product'} = $product;
-
+    
     $template->process("admin/products/created.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
     exit;
@@ -349,9 +322,14 @@ if ($action eq 'new') {
 #
 
 if ($action eq 'del') {
-    my $product = $user->check_can_admin_product($product_name);
+    # First make sure the product name is valid.
+    my $product = Bugzilla::Product::check_product($product_name);
 
-    if (Bugzilla->params->{'useclassification'}) {
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product->name)
+      || ThrowUserError('product_access_denied', {product => $product->name});
+
+    if (Param('useclassification')) {
         my $classification = 
             Bugzilla::Classification::check_classification($classification_name);
         if ($classification->id != $product->classification_id) {
@@ -363,7 +341,6 @@ if ($action eq 'del') {
     }
 
     $vars->{'product'} = $product;
-    $vars->{'token'} = issue_session_token('delete_product');
 
     $template->process("admin/products/confirm-delete.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
@@ -375,12 +352,16 @@ if ($action eq 'del') {
 #
 
 if ($action eq 'delete') {
-    my $product = $user->check_can_admin_product($product_name);
-    check_token_data($token, 'delete_product');
+    # First make sure the product name is valid.
+    my $product = Bugzilla::Product::check_product($product_name);
 
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product->name)
+      || ThrowUserError('product_access_denied', {product => $product->name});
+    
     $vars->{'product'} = $product;
 
-    if (Bugzilla->params->{'useclassification'}) {
+    if (Param('useclassification')) {
         my $classification = 
             Bugzilla::Classification::check_classification($classification_name);
         if ($classification->id != $product->classification_id) {
@@ -392,11 +373,9 @@ if ($action eq 'delete') {
     }
 
     if ($product->bug_count) {
-        if (Bugzilla->params->{"allowbugdeletion"}) {
+        if (Param("allowbugdeletion")) {
             foreach my $bug_id (@{$product->bug_ids}) {
-                # Note that we allow the user to delete bugs he can't see,
-                # which is okay, because he's deleting the whole Product.
-                my $bug = new Bugzilla::Bug($bug_id);
+                my $bug = new Bugzilla::Bug($bug_id, $whoid);
                 $bug->remove_from_db();
             }
         }
@@ -408,15 +387,8 @@ if ($action eq 'delete') {
 
     $dbh->bz_lock_tables('products WRITE', 'components WRITE',
                          'versions WRITE', 'milestones WRITE',
-                         'group_control_map WRITE', 'component_cc WRITE',
+                         'group_control_map WRITE',
                          'flaginclusions WRITE', 'flagexclusions WRITE');
-
-    my $comp_ids = $dbh->selectcol_arrayref('SELECT id FROM components
-                                             WHERE product_id = ?',
-                                             undef, $product->id);
-
-    $dbh->do('DELETE FROM component_cc WHERE component_id IN
-              (' . join(',', @$comp_ids) . ')') if scalar(@$comp_ids);
 
     $dbh->do("DELETE FROM components WHERE product_id = ?",
              undef, $product->id);
@@ -441,7 +413,7 @@ if ($action eq 'delete') {
 
     $dbh->bz_unlock_tables();
 
-    delete_token($token);
+    unlink "$datadir/versioncache";
 
     $template->process("admin/products/deleted.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
@@ -456,9 +428,14 @@ if ($action eq 'delete') {
 #
 
 if ($action eq 'edit' || (!$action && $product_name)) {
-    my $product = $user->check_can_admin_product($product_name);
+    # First make sure the product name is valid.
+    my $product = Bugzilla::Product::check_product($product_name);
 
-    if (Bugzilla->params->{'useclassification'}) {
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product->name)
+      || ThrowUserError('product_access_denied', {product => $product->name});
+
+    if (Param('useclassification')) {
         my $classification; 
         if (!$classification_name) {
             $classification = 
@@ -492,9 +469,9 @@ if ($action eq 'edit' || (!$action && $product_name)) {
         }
     }
     $vars->{'group_controls'} = $group_controls;
-    $vars->{'product'} = $product;
-    $vars->{'token'} = issue_session_token('edit_product');
 
+    $vars->{'product'} = $product;
+        
     $template->process("admin/products/edit.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
 
@@ -506,8 +483,12 @@ if ($action eq 'edit' || (!$action && $product_name)) {
 #
 
 if ($action eq 'updategroupcontrols') {
-    my $product = $user->check_can_admin_product($product_name);
-    check_token_data($token, 'edit_group_controls');
+    # First make sure the product name is valid.
+    my $product = Bugzilla::Product::check_product($product_name);
+
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product->name)
+      || ThrowUserError('product_access_denied', {product => $product->name});
 
     my @now_na = ();
     my @now_mandatory = ();
@@ -595,23 +576,19 @@ if ($action eq 'updategroupcontrols') {
 
     my $sth_Insert = $dbh->prepare('INSERT INTO group_control_map
                                     (group_id, product_id, entry, membercontrol,
-                                     othercontrol, canedit, editcomponents,
-                                     canconfirm, editbugs)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                                     othercontrol, canedit)
+                                    VALUES (?, ?, ?, ?, ?, ?)');
 
     my $sth_Update = $dbh->prepare('UPDATE group_control_map
                                        SET entry = ?, membercontrol = ?,
-                                           othercontrol = ?, canedit = ?,
-                                           editcomponents = ?, canconfirm = ?,
-                                           editbugs = ?
+                                           othercontrol = ?, canedit = ?
                                      WHERE group_id = ? AND product_id = ?');
 
     my $sth_Delete = $dbh->prepare('DELETE FROM group_control_map
                                      WHERE group_id = ? AND product_id = ?');
 
     $groups = $dbh->selectall_arrayref('SELECT id, name, entry, membercontrol,
-                                               othercontrol, canedit,
-                                               editcomponents, canconfirm, editbugs
+                                               othercontrol, canedit
                                           FROM groups
                                      LEFT JOIN group_control_map
                                             ON group_control_map.group_id = id
@@ -621,60 +598,35 @@ if ($action eq 'updategroupcontrols') {
                                          undef, $product->id);
 
     foreach my $group (@$groups) {
-        my ($groupid, $groupname, $entry, $membercontrol, $othercontrol,
-            $canedit, $editcomponents, $canconfirm, $editbugs) = @$group;
+        my ($groupid, $groupname, $entry, $membercontrol, 
+            $othercontrol, $canedit) = @$group;
         my $newentry = $cgi->param("entry_$groupid") || 0;
         my $newmembercontrol = $cgi->param("membercontrol_$groupid") || 0;
         my $newothercontrol = $cgi->param("othercontrol_$groupid") || 0;
         my $newcanedit = $cgi->param("canedit_$groupid") || 0;
-        my $new_editcomponents = $cgi->param("editcomponents_$groupid") || 0;
-        my $new_canconfirm = $cgi->param("canconfirm_$groupid") || 0;
-        my $new_editbugs = $cgi->param("editbugs_$groupid") || 0;
-
         my $oldentry = $entry;
-        # Set undefined values to 0.
-        $entry ||= 0;
-        $membercontrol ||= 0;
-        $othercontrol ||= 0;
-        $canedit ||= 0;
-        $editcomponents ||= 0;
-        $canconfirm ||= 0;
-        $editbugs ||= 0;
-
-        # We use them in placeholders only. So it's safe to detaint them.
+        $entry = $entry || 0;
+        $membercontrol = $membercontrol || 0;
+        $othercontrol = $othercontrol || 0;
+        $canedit = $canedit || 0;
         detaint_natural($newentry);
         detaint_natural($newothercontrol);
         detaint_natural($newmembercontrol);
         detaint_natural($newcanedit);
-        detaint_natural($new_editcomponents);
-        detaint_natural($new_canconfirm);
-        detaint_natural($new_editbugs);
-
-        if (!defined($oldentry)
-            && ($newentry || $newmembercontrol || $newcanedit
-                || $new_editcomponents || $new_canconfirm || $new_editbugs))
-        {
+        if ((!defined($oldentry)) && 
+             (($newentry) || ($newmembercontrol) || ($newcanedit))) {
             $sth_Insert->execute($groupid, $product->id, $newentry,
-                                 $newmembercontrol, $newothercontrol, $newcanedit,
-                                 $new_editcomponents, $new_canconfirm, $new_editbugs);
-        }
-        elsif (($newentry != $entry)
-               || ($newmembercontrol != $membercontrol)
-               || ($newothercontrol != $othercontrol)
-               || ($newcanedit != $canedit)
-               || ($new_editcomponents != $editcomponents)
-               || ($new_canconfirm != $canconfirm)
-               || ($new_editbugs != $editbugs))
-        {
+                                 $newmembercontrol, $newothercontrol, $newcanedit);
+        } elsif (($newentry != $entry) 
+                  || ($newmembercontrol != $membercontrol) 
+                  || ($newothercontrol != $othercontrol) 
+                  || ($newcanedit != $canedit)) {
             $sth_Update->execute($newentry, $newmembercontrol, $newothercontrol,
-                                 $newcanedit, $new_editcomponents, $new_canconfirm,
-                                 $new_editbugs, $groupid, $product->id);
+                                 $newcanedit, $groupid, $product->id);
         }
 
-        if (!$newentry && !$newmembercontrol && !$newothercontrol
-            && !$newcanedit && !$new_editcomponents && !$new_canconfirm
-            && !$new_editbugs)
-        {
+        if (($newentry == 0) && ($newmembercontrol == 0)
+          && ($newothercontrol == 0) && ($newcanedit == 0)) {
             $sth_Delete->execute($groupid, $product->id);
         }
     }
@@ -705,12 +657,11 @@ if ($action eq 'updategroupcontrols') {
         my $bugs = $dbh->selectall_arrayref($sth_Select, undef,
                                             ($groupid, $product->id));
 
-        my ($removed, $timestamp) =
-            $dbh->selectrow_array($sth_Select2, undef, $groupid);
-
         foreach my $bug (@$bugs) {
             my ($bugid, $mailiscurrent) = @$bug;
             $sth_Delete->execute($bugid, $groupid);
+            my ($removed, $timestamp) =
+                $dbh->selectrow_array($sth_Select2, undef, $groupid);
 
             LogActivityEntry($bugid, "bug_group", $removed, "",
                              $whoid, $timestamp);
@@ -723,7 +674,8 @@ if ($action eq 'updategroupcontrols') {
             }
             $count++;
         }
-        my %group = (name => $removed, bug_count => $count);
+        my %group = (name => GroupIdToName($groupid),
+                     bug_count => $count);
 
         push(@removed_na, \%group);
     }
@@ -748,12 +700,11 @@ if ($action eq 'updategroupcontrols') {
         my $bugs = $dbh->selectall_arrayref($sth_Select, undef,
                                             ($groupid, $product->id));
 
-        my ($added, $timestamp) =
-            $dbh->selectrow_array($sth_Select2, undef, $groupid);
-
         foreach my $bug (@$bugs) {
             my ($bugid, $mailiscurrent) = @$bug;
             $sth_Insert->execute($bugid, $groupid);
+            my ($added, $timestamp) =
+                $dbh->selectrow_array($sth_Select2, undef, $groupid);
 
             LogActivityEntry($bugid, "bug_group", "", $added,
                              $whoid, $timestamp);
@@ -766,16 +717,17 @@ if ($action eq 'updategroupcontrols') {
             }
             $count++;
         }
-        my %group = (name => $added, bug_count => $count);
+        my %group = (name => GroupIdToName($groupid),
+                     bug_count => $count);
 
         push(@added_mandatory, \%group);
     }
     $dbh->bz_unlock_tables();
 
-    delete_token($token);
-
     $vars->{'removed_na'} = \@removed_na;
+
     $vars->{'added_mandatory'} = \@added_mandatory;
+
     $vars->{'product'} = $product;
 
     $template->process("admin/products/groupcontrol/updated.html.tmpl", $vars)
@@ -787,7 +739,7 @@ if ($action eq 'updategroupcontrols') {
 # action='update' -> update the product
 #
 if ($action eq 'update') {
-    check_token_data($token, 'edit_product');
+
     my $product_old_name    = trim($cgi->param('product_old_name')    || '');
     my $description         = trim($cgi->param('description')         || '');
     my $disallownew         = trim($cgi->param('disallownew')         || '');
@@ -799,9 +751,14 @@ if ($action eq 'update') {
 
     my $checkvotes = 0;
 
-    my $product_old = $user->check_can_admin_product($product_old_name);
+    # First make sure the product name is valid.
+    my $product_old = Bugzilla::Product::check_product($product_old_name);
 
-    if (Bugzilla->params->{'useclassification'}) {
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product_old->name)
+      || ThrowUserError('product_access_denied', {product => $product_old->name});
+
+    if (Param('useclassification')) {
         my $classification; 
         if (!$classification_name) {
             $classification = 
@@ -819,50 +776,55 @@ if ($action eq 'update') {
     }
 
     unless ($product_name) {
-        ThrowUserError('product_cant_delete_name',
+        ThrowUserError('prod_cant_delete_name',
                        {product => $product_old->name});
     }
 
     unless ($description) {
-        ThrowUserError('product_cant_delete_description',
+        ThrowUserError('prod_cant_delete_description',
                        {product => $product_old->name});
     }
 
     my $stored_maxvotesperbug = $maxvotesperbug;
     if (!detaint_natural($maxvotesperbug)) {
-        ThrowUserError('product_votes_per_bug_must_be_nonnegative',
+        ThrowUserError('prod_votes_per_bug_must_be_nonnegative',
                        {maxvotesperbug => $stored_maxvotesperbug});
     }
 
     my $stored_votesperuser = $votesperuser;
     if (!detaint_natural($votesperuser)) {
-        ThrowUserError('product_votes_per_user_must_be_nonnegative',
+        ThrowUserError('prod_votes_per_user_must_be_nonnegative',
                        {votesperuser => $stored_votesperuser});
     }
 
     my $stored_votestoconfirm = $votestoconfirm;
     if (!detaint_natural($votestoconfirm)) {
-        ThrowUserError('product_votes_to_confirm_must_be_nonnegative',
+        ThrowUserError('prod_votes_to_confirm_must_be_nonnegative',
                        {votestoconfirm => $stored_votestoconfirm});
     }
 
-    $dbh->bz_lock_tables('products WRITE', 'milestones READ');
+    $dbh->bz_lock_tables('products WRITE',
+                         'versions READ',
+                         'groups WRITE',
+                         'group_control_map WRITE',
+                         'profiles WRITE',
+                         'milestones READ');
 
     my $testproduct = 
         new Bugzilla::Product({name => $product_name});
     if (lc($product_name) ne lc($product_old->name) &&
         $testproduct) {
-        ThrowUserError('product_name_already_in_use',
+        ThrowUserError('prod_name_already_in_use',
                        {product => $product_name});
     }
 
     # Only update milestone related stuff if 'usetargetmilestone' is on.
-    if (Bugzilla->params->{'usetargetmilestone'}) {
-        my $milestone = new Bugzilla::Milestone(
-            { product => $product_old, name => $defaultmilestone });
+    if (Param('usetargetmilestone')) {
+        my $milestone = new Bugzilla::Milestone($product_old->id,
+                                                $defaultmilestone);
 
         unless ($milestone) {
-            ThrowUserError('product_must_define_defaultmilestone',
+            ThrowUserError('prod_must_define_defaultmilestone',
                            {product          => $product_old->name,
                             defaultmilestone => $defaultmilestone,
                             classification   => $classification_name});
@@ -917,6 +879,7 @@ if ($action eq 'update') {
     }
 
     $dbh->bz_unlock_tables();
+    unlink "$datadir/versioncache";
 
     my $product = new Bugzilla::Product({name => $product_name});
 
@@ -937,16 +900,10 @@ if ($action eq 'update') {
 
             foreach my $vote (@$votes) {
                 my ($who, $id) = (@$vote);
-                # If some votes are removed, RemoveVotes() returns a list
-                # of messages to send to voters.
-                my $msgs =
-                    RemoveVotes($id, $who, "The rules for voting on this product " .
-                                           "has changed;\nyou had too many votes " .
-                                           "for a single bug.");
-                foreach my $msg (@$msgs) {
-                    MessageToMTA($msg);
-                }
-                my $name = user_id_to_login($who);
+                RemoveVotes($id, $who, "The rules for voting on this product " .
+                                       "has changed;\nyou had too many votes " .
+                                       "for a single bug.");
+                my $name = DBID_to_name($who);
 
                 push(@toomanyvotes_list,
                      {id => $id, name => $name});
@@ -989,17 +946,11 @@ if ($action eq 'update') {
                                undef, ($product->id, $who));
 
                 foreach my $bug_id (@$bug_ids) {
-                    # RemoveVotes() returns a list of messages to send
-                    # in case some voters had too many votes.
-                    my $msgs =
-                        RemoveVotes($bug_id, $who, "The rules for voting on this " .
-                                                   "product has changed; you had " .
-                                                   "too many\ntotal votes, so all " .
-                                                   "votes have been removed.");
-                    foreach my $msg (@$msgs) {
-                        MessageToMTA($msg);
-                    }
-                    my $name = user_id_to_login($who);
+                    RemoveVotes($bug_id, $who, "The rules for voting on this " .
+                                               "product has changed; you had " .
+                                               "too many\ntotal votes, so all " .
+                                               "votes have been removed.");
+                    my $name = DBID_to_name($who);
 
                     push(@toomanytotalvotes_list,
                          {id => $bug_id, name => $name});
@@ -1023,9 +974,8 @@ if ($action eq 'update') {
         }
 
         $vars->{'confirmedbugs'} = \@updated_bugs;
-        $vars->{'changer'} = $user->login;
+        $vars->{'changer'} = $whoid;
     }
-    delete_token($token);
 
     $vars->{'old_product'} = $product_old;
     $vars->{'product'} = $product;
@@ -1040,12 +990,16 @@ if ($action eq 'update') {
 #
 
 if ($action eq 'editgroupcontrols') {
-    my $product = $user->check_can_admin_product($product_name);
+    # First make sure the product name is valid.
+    my $product = Bugzilla::Product::check_product($product_name);
+
+    # Then make sure the user is allowed to edit properties of this product.
+    $user->can_see_product($product->name)
+      || ThrowUserError('product_access_denied', {product => $product->name});
 
     # Display a group if it is either enabled or has bugs for this product.
     my $groups = $dbh->selectall_arrayref(
         'SELECT id, name, entry, membercontrol, othercontrol, canedit,
-                editcomponents, editbugs, canconfirm,
                 isactive, COUNT(bugs.bug_id) AS bugcount
            FROM groups
       LEFT JOIN group_control_map
@@ -1059,13 +1013,11 @@ if ($action eq 'editgroupcontrols') {
           WHERE isbuggroup != 0
             AND (isactive != 0 OR entry IS NOT NULL OR bugs.bug_id IS NOT NULL) ' .
            $dbh->sql_group_by('name', 'id, entry, membercontrol,
-                              othercontrol, canedit, isactive,
-                              editcomponents, canconfirm, editbugs'),
+                              othercontrol, canedit, isactive'),
         {'Slice' => {}}, ($product->id, $product->id));
 
     $vars->{'product'} = $product;
     $vars->{'groups'} = $groups;
-    $vars->{'token'} = issue_session_token('edit_group_controls');
 
     $vars->{'const'} = {
         'CONTROLMAPNA' => CONTROLMAPNA,

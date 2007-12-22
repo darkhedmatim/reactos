@@ -11,8 +11,8 @@
 #define PAGE_UNLOCKED_FUNCTION	PLACE_IN_SECTION("pagepo")
 #else
 #define INIT_FUNCTION
-#define PAGE_LOCKED_FUNCTION
-#define PAGE_UNLOCKED_FUNCTION
+#define PAGE_LOCKED_FUNCTION	
+#define PAGE_UNLOCKED_FUNCTION	
 #endif
 
 #ifdef _NTOSKRNL_
@@ -30,7 +30,6 @@
 #include "ob.h"
 #include "mm.h"
 #include "ex.h"
-#include "cm.h"
 #include "ps.h"
 #include "cc.h"
 #include "io.h"
@@ -73,7 +72,9 @@ typedef struct __DESCRIPTOR
  */
 BOOLEAN NTAPI ObInit(VOID);
 BOOLEAN NTAPI CmInitSystem1(VOID);
-VOID NTAPI CmShutdownSystem(VOID);
+VOID CmShutdownRegistry(VOID);
+//BOOLEAN CmImportSystemHive(PCHAR ChunkBase, ULONG ChunkSize);
+//BOOLEAN CmImportHardwareHive(PCHAR ChunkBase, ULONG ChunkSize);
 BOOLEAN NTAPI KdInitSystem(ULONG Reserved, PLOADER_PARAMETER_BLOCK LoaderBlock);
 
 /* FIXME - RtlpCreateUnicodeString is obsolete and should be removed ASAP! */
@@ -280,7 +281,7 @@ DefaultQueryInfoBufferCheck(ULONG Class,
  * Use IsPointerOffset to test whether a pointer should be interpreted as an offset
  * or as a pointer
  */
-#if defined(_X86_) || defined(_M_AMD64) || defined(_MIPS_) || defined(_PPC_)
+#if defined(_X86_) || defined(_M_AMD64) || defined(_MIPS_)
 
 /* for x86 and x86-64 the MSB is 1 so we can simply test on that */
 #define IsPointerOffset(Ptr) ((LONG_PTR)(Ptr) >= 0)
@@ -313,7 +314,6 @@ C_ASSERT(FIELD_OFFSET(KPROCESS, DirectoryTableBase) == KPROCESS_DIRECTORY_TABLE_
 C_ASSERT(FIELD_OFFSET(KPCR, IRR) == KPCR_IRR);
 C_ASSERT(FIELD_OFFSET(KPCR, IDR) == KPCR_IDR);
 C_ASSERT(FIELD_OFFSET(KPCR, Irql) == KPCR_IRQL);
-#ifdef _M_IX86
 C_ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, CurrentThread) == KPCR_CURRENT_THREAD);
 C_ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, NextThread) == KPCR_PRCB_NEXT_THREAD);
 C_ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, NpxThread) == KPCR_NPX_THREAD);
@@ -337,6 +337,7 @@ C_ASSERT(FIELD_OFFSET(KIPCR, PrcbData) + FIELD_OFFSET(KPRCB, DpcStack) == KPCR_P
 C_ASSERT(sizeof(FX_SAVE_AREA) == SIZEOF_FX_SAVE_AREA);
 
 /* Platform specific checks */
+#ifdef _M_IX86
 C_ASSERT(FIELD_OFFSET(KPROCESS, IopmOffset) == KPROCESS_IOPM_OFFSET);
 C_ASSERT(FIELD_OFFSET(KPROCESS, LdtDescriptor) == KPROCESS_LDT_DESCRIPTOR0);
 C_ASSERT(FIELD_OFFSET(KV86M_TRAP_FRAME, SavedExceptionStack) == TF_SAVED_EXCEPTION_STACK);

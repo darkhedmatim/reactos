@@ -19,7 +19,6 @@
 # Rights Reserved.
 #
 # Contributor(s): Myk Melez <myk@mozilla.org>
-#                 Frédéric Buclin <LpSolit@gmail.com>
 
 ################################################################################
 # Script Initialization
@@ -29,19 +28,20 @@
 use strict;
 
 use lib qw(.);
-
+require "globals.pl";
 use Bugzilla;
-use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::Flag;
 use Bugzilla::FlagType;
 use Bugzilla::User;
-use Bugzilla::Product;
-use Bugzilla::Component;
 
 # Make sure the user is logged in.
 my $user = Bugzilla->login();
+my $userid = $user->id;
+
 my $cgi = Bugzilla->cgi;
+my $template = Bugzilla->template;
+my $vars = {};
+
 
 ################################################################################
 # Main Body Execution
@@ -68,15 +68,15 @@ exit;
 
 sub queue {
     my $cgi = Bugzilla->cgi;
-    # There are some user privilege checks to do. We do them against the main DB.
     my $dbh = Bugzilla->dbh;
-    my $template = Bugzilla->template;
-    my $user = Bugzilla->user;
-    my $userid = $user->id;
-    my $vars = {};
 
     my $status = validateStatus($cgi->param('status'));
     my $form_group = validateGroup($cgi->param('group'));
+
+    my $attach_join_clause = "flags.attach_id = attachments.attach_id";
+    if (Param("insidergroup") && !UserInGroup(Param("insidergroup"))) {
+        $attach_join_clause .= " AND attachments.isprivate < 1";
+    }
 
     my $query = 
     # Select columns describing each flag, the bug/attachment on which
@@ -88,7 +88,7 @@ sub queue {
                 flags.attach_id, attachments.description,
                 requesters.realname, requesters.login_name,
                 requestees.realname, requestees.login_name,
-    " . $dbh->sql_date_format('flags.modification_date', '%Y.%m.%d %H:%i') .
+    " . $dbh->sql_date_format('flags.creation_date', '%Y.%m.%d %H:%i') .
     # Use the flags and flagtypes tables for information about the flags,
     # the bugs and attachments tables for target info, the profiles tables
     # for setter and requestee info, the products/components tables
@@ -98,7 +98,7 @@ sub queue {
     "
       FROM           flags 
            LEFT JOIN attachments
-                  ON flags.attach_id = attachments.attach_id
+                  ON ($attach_join_clause)
           INNER JOIN flagtypes
                   ON flags.type_id = flagtypes.id
           INNER JOIN profiles AS requesters
@@ -125,23 +125,18 @@ sub queue {
                  (ccmap.who IS NOT NULL AND cclist_accessible = 1) OR
                  (bugs.reporter = $userid AND bugs.reporter_accessible = 1) OR
                  (bugs.assigned_to = $userid) " .
-                 (Bugzilla->params->{'useqacontact'} ? "OR
+                 (Param('useqacontact') ? "OR
                  (bugs.qa_contact = $userid))" : ")");
-
-    unless ($user->is_insider) {
-        $query .= " AND (attachments.attach_id IS NULL
-                         OR attachments.isprivate = 0
-                         OR attachments.submitter_id = $userid)";
-    }
-
+    
+    # Non-deleted flags only
+    $query .= " AND flags.is_active = 1 ";
+    
     # Limit query to pending requests.
     $query .= " AND flags.status = '?' " unless $status;
 
     # The set of criteria by which we filter records to display in the queue.
-    # We now move to the shadow DB to query the DB.
     my @criteria = ();
-    $dbh = Bugzilla->switch_to_shadow_db;
-
+    
     # A list of columns to exclude from the report because the report conditions
     # limit the data being displayed to exact matches for those columns.
     # In other words, if we are only displaying "pending" , we don't
@@ -182,26 +177,36 @@ sub queue {
     
     # Filter results by exact product or component.
     if (defined $cgi->param('product') && $cgi->param('product') ne "") {
-        my $product = Bugzilla::Product::check_product(scalar $cgi->param('product'));
-        push(@criteria, "bugs.product_id = " . $product->id);
-        push(@excluded_columns, 'product') unless $cgi->param('do_union');
-        if (defined $cgi->param('component') && $cgi->param('component') ne "") {
-            my $component =
-                Bugzilla::Component::check_component($product, scalar $cgi->param('component'));
-            push(@criteria, "bugs.component_id = " . $component->id);
-            push(@excluded_columns, 'component') unless $cgi->param('do_union');
+        my $product_id = get_product_id($cgi->param('product'));
+        if ($product_id) {
+            push(@criteria, "bugs.product_id = $product_id");
+            push(@excluded_columns, 'product') unless $cgi->param('do_union');
+            if (defined $cgi->param('component') && $cgi->param('component') ne "") {
+                my $component_id = get_component_id($product_id, $cgi->param('component'));
+                if ($component_id) {
+                    push(@criteria, "bugs.component_id = $component_id");
+                    push(@excluded_columns, 'component') unless $cgi->param('do_union');
+                }
+                else { ThrowUserError("component_not_valid", { 'product' => $cgi->param('product'),
+                                                               'name' => $cgi->param('component') }) }
+            }
         }
+        else { ThrowUserError("product_doesnt_exist", { 'product' => $cgi->param('product') }) }
     }
-
+    
     # Filter results by flag types.
     my $form_type = $cgi->param('type');
     if (defined $form_type && !grep($form_type eq $_, ("", "all"))) {
         # Check if any matching types are for attachments.  If not, don't show
         # the attachment column in the report.
-        my $has_attachment_type =
-            Bugzilla::FlagType::count({ 'name' => $form_type,
-                                        'target_type' => 'attachment' });
-
+        my $types = Bugzilla::FlagType::match({ 'name' => $form_type });
+        my $has_attachment_type = 0;
+        foreach my $type (@$types) {
+            if ($type->{'target_type'} eq "attachment") {
+                $has_attachment_type = 1;
+                last;
+            }
+        }
         if (!$has_attachment_type) { push(@excluded_columns, 'attachment') }
 
         my $quoted_form_type = $dbh->quote($form_type);
@@ -224,7 +229,7 @@ sub queue {
                 products.name, components.name, flags.attach_id,
                 attachments.description, requesters.realname,
                 requesters.login_name, requestees.realname,
-                requestees.login_name, flags.modification_date,
+                requestees.login_name, flags.creation_date,
                 cclist_accessible, bugs.reporter, bugs.reporter_accessible,
                 bugs.assigned_to');
 
@@ -247,8 +252,8 @@ sub queue {
     }
 
     # Order the records (within each group).
-    $query .= " , flags.modification_date";
-
+    $query .= " , flags.creation_date";
+    
     # Pass the query to the template for use when debugging this script.
     $vars->{'query'} = $query;
     $vars->{'debug'} = $cgi->param('debug') ? 1 : 0;
@@ -278,10 +283,7 @@ sub queue {
     my $flagtypes = $dbh->selectcol_arrayref(
                          "SELECT DISTINCT(name) FROM flagtypes ORDER BY name");
     push(@types, @$flagtypes);
-
-    # We move back to the main DB to get the list of products the user can see.
-    $dbh = Bugzilla->switch_to_main_db;
-
+    
     $vars->{'products'} = $user->get_selectable_products;
     $vars->{'excluded_columns'} = \@excluded_columns;
     $vars->{'group_field'} = $form_group;
@@ -289,7 +291,7 @@ sub queue {
     $vars->{'types'} = \@types;
 
     # Return the appropriate HTTP response headers.
-    print $cgi->header();
+    print Bugzilla->cgi->header();
 
     # Generate and return the UI (HTML page) from the appropriate template.
     $template->process("request/queue.html.tmpl", $vars)

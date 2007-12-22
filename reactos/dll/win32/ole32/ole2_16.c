@@ -35,8 +35,12 @@
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"
+#include "winnls.h"
+#include "commctrl.h"
 #include "ole2.h"
+#include "ole2ver.h"
 #include "winerror.h"
+#include "wownt32.h"
 
 #include "wine/winbase16.h"
 #include "wine/wingdi16.h"
@@ -104,7 +108,7 @@ HGLOBAL16 WINAPI OleMetaFilePictFromIconAndLabel16(
 	    return 0;
     }
 
-    FIXME("(%04x, '%s', '%s', %d): incorrect metrics, please try to correct them !\n",
+    FIXME("(%04x, '%s', '%s', %d): incorrect metrics, please try to correct them !\n", 
           hIcon, lpszLabel, lpszSourceFile, iIconIndex);
 
     hdc = CreateMetaFileW(NULL);

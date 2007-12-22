@@ -11,9 +11,7 @@
 
 #include <ntddk.h>
 #include <ntddbeep.h>
-#ifndef NDEBUG
 #define NDEBUG
-#endif
 #include <debug.h>
 
 /* TYPES *********************************************************************/
@@ -45,7 +43,6 @@ BeepDPC(IN PKDPC Dpc,
     InterlockedDecrement(&DeviceExtension->TimerActive);
 }
 
-DRIVER_DISPATCH BeepCreate;
 NTSTATUS
 NTAPI
 BeepCreate(IN PDEVICE_OBJECT DeviceObject,
@@ -71,7 +68,6 @@ BeepCreate(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
-DRIVER_DISPATCH BeepClose;
 NTSTATUS
 NTAPI
 BeepClose(IN PDEVICE_OBJECT DeviceObject,
@@ -108,7 +104,6 @@ BeepClose(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
-DRIVER_CANCEL BeepCancel;
 VOID
 NTAPI
 BeepCancel(IN PDEVICE_OBJECT DeviceObject,
@@ -138,7 +133,6 @@ BeepCancel(IN PDEVICE_OBJECT DeviceObject,
     IoCompleteRequest (Irp, IO_NO_INCREMENT);
 }
 
-DRIVER_DISPATCH BeepCleanup;
 NTSTATUS
 NTAPI
 BeepCleanup(IN PDEVICE_OBJECT DeviceObject,
@@ -199,7 +193,6 @@ BeepCleanup(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
-DRIVER_DISPATCH BeepDeviceControl;
 NTSTATUS
 NTAPI
 BeepDeviceControl(IN PDEVICE_OBJECT DeviceObject,
@@ -261,7 +254,6 @@ BeepDeviceControl(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_UNLOAD BeepUnload;
 VOID
 NTAPI
 BeepUnload(IN PDRIVER_OBJECT DriverObject)
@@ -288,7 +280,6 @@ BeepUnload(IN PDRIVER_OBJECT DriverObject)
     IoDeleteDevice(DeviceObject);
 }
 
-DRIVER_STARTIO BeepStartIo;
 VOID
 NTAPI
 BeepStartIo(IN PDEVICE_OBJECT DeviceObject,

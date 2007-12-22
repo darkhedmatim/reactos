@@ -16,7 +16,7 @@ $(GENDIB_OUT): | $(TOOLS_OUT)
 endif
 
 GENDIB_TARGET = \
-	$(GENDIB_OUT_)gendib$(EXEPOSTFIX)
+	$(EXEPREFIX)$(GENDIB_OUT_)gendib$(EXEPOSTFIX)
 
 GENDIB_SOURCES = \
 	$(GENDIB_BASE_)gendib.c
@@ -36,15 +36,12 @@ $(GENDIB_INT_)gendib.o: $(GENDIB_BASE_)gendib.c | $(GENDIB_INT)
 	$(ECHO_CC)
 	${host_gcc} $(GENDIB_HOST_CFLAGS) -c $< -o $@
 
-.PHONY: gendib
-gendib: $(GENDIB_TARGET)
-
 .PHONY: gendib_clean
 gendib_clean:
 	-@$(rm) $(GENDIB_TARGET) $(GENDIB_OBJECTS) 2>$(NUL)
 clean: gendib_clean
 
-GENDIB_DIB_DIR = $(INTERMEDIATE_)subsystems$(SEP)win32$(SEP)win32k$(SEP)dib
+GENDIB_DIB_DIR = subsystems$(SEP)win32$(SEP)win32k$(SEP)dib
 
 GENDIB_DIB_FILES = \
 	$(GENDIB_DIB_DIR)$(SEP)dib32gen.c \
@@ -52,6 +49,5 @@ GENDIB_DIB_FILES = \
 	$(GENDIB_DIB_DIR)$(SEP)dib8gen.c
 
 $(GENDIB_DIB_FILES): $(GENDIB_TARGET)
-	${mkdir} $(GENDIB_DIB_DIR) 2>$(NUL)
 	$(ECHO_GENDIB)
 	$(Q)$(GENDIB_TARGET) $(GENDIB_DIB_DIR)

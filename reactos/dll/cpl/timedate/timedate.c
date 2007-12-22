@@ -12,7 +12,7 @@
 
 #define NUM_APPLETS 1
 
-static LONG APIENTRY Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam);
+LONG APIENTRY Applet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam);
 
 HINSTANCE hApplet;
 
@@ -30,23 +30,23 @@ VOID DisplayWin32Error(DWORD dwErrorCode)
 {
     LPVOID lpMsgBuf;
 #if DBG
-    WCHAR szMsg[255];
+    TCHAR szMsg[255];
 #endif
 
-    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                   FORMAT_MESSAGE_FROM_SYSTEM |
-                   FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL,
-                   dwErrorCode,
-                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                   (LPWSTR) &lpMsgBuf,
-                   0,
-                   NULL );
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                  FORMAT_MESSAGE_FROM_SYSTEM |
+                  FORMAT_MESSAGE_IGNORE_INSERTS,
+                  NULL,
+                  dwErrorCode,
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                  (LPTSTR) &lpMsgBuf,
+                  0,
+                  NULL );
 
 #if DBG
-    if (swprintf(szMsg, L"%hs:%d: %s", file, line, lpMsgBuf))
+    if (_stprintf(szMsg, _T("%hs:%d: %s"), file, line, lpMsgBuf))
     {
-        MessageBoxW(NULL, szMsg, NULL, MB_OK | MB_ICONERROR);
+        MessageBox(NULL, szMsg, NULL, MB_OK | MB_ICONERROR);
     }
 #else
     MessageBox(NULL, lpMsgBuf, NULL, MB_OK | MB_ICONERROR);
@@ -57,23 +57,23 @@ VOID DisplayWin32Error(DWORD dwErrorCode)
 
 
 static VOID
-InitPropSheetPage(PROPSHEETPAGEW *psp, WORD idDlg, DLGPROC DlgProc)
+InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
 {
-    ZeroMemory(psp, sizeof(PROPSHEETPAGEW));
-    psp->dwSize = sizeof(PROPSHEETPAGEW);
+    ZeroMemory(psp, sizeof(PROPSHEETPAGE));
+    psp->dwSize = sizeof(PROPSHEETPAGE);
     psp->dwFlags = PSP_DEFAULT;
     psp->hInstance = hApplet;
-    psp->pszTemplate = MAKEINTRESOURCEW(idDlg);
+    psp->pszTemplate = MAKEINTRESOURCE(idDlg);
     psp->pfnDlgProc = DlgProc;
 }
 
 
-static LONG APIENTRY
-Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
+LONG APIENTRY
+Applet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam)
 {
     PROPSHEETHEADER psh;
-    PROPSHEETPAGEW psp[3];
-    WCHAR Caption[256];
+    PROPSHEETPAGE psp[3];
+    TCHAR Caption[256];
     LONG Ret = 0;
 
     UNREFERENCED_PARAMETER(hwnd);
@@ -81,19 +81,19 @@ Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
     UNREFERENCED_PARAMETER(wParam);
     UNREFERENCED_PARAMETER(lParam);
 
-    if (RegisterMonthCalControl(hApplet) &&
+    if (RegisterMonthCalControl(hApplet) && 
         RegisterClockControl())
     {
-        LoadStringW(hApplet, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(WCHAR));
+        LoadString(hApplet, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
 
-        ZeroMemory(&psh, sizeof(PROPSHEETHEADERW));
-        psh.dwSize = sizeof(PROPSHEETHEADERW);
+        ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
+        psh.dwSize = sizeof(PROPSHEETHEADER);
         psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE;
         psh.hwndParent = NULL;
         psh.hInstance = hApplet;
-        psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCEW(IDC_CPLICON));
+        psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON));
         psh.pszCaption = Caption;
-        psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGEW);
+        psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
         psh.nStartPage = 0;
         psh.ppsp = psp;
 
@@ -101,7 +101,7 @@ Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
         InitPropSheetPage(&psp[1], IDD_TIMEZONEPAGE, (DLGPROC) TimeZonePageProc);
         InitPropSheetPage(&psp[2], IDD_INETTIMEPAGE, (DLGPROC) InetTimePageProc);
 
-        Ret = (LONG)(PropertySheetW(&psh) != -1);
+        Ret = (LONG)(PropertySheet(&psh) != -1);
 
         UnregisterMonthCalControl(hApplet);
         UnregisterClockControl();
@@ -118,7 +118,7 @@ CPlApplet(HWND hwndCpl,
           LPARAM lParam1,
           LPARAM lParam2)
 {
-    INT i = (INT)lParam1;
+    int i = (int)lParam1;
 
     switch (uMsg)
     {

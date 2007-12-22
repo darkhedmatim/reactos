@@ -1,4 +1,4 @@
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 IDD_PROPPAGENETWORK DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -20,7 +20,7 @@ BEGIN
  LTEXT "Collegati usando:", -1, 9,9,217,8
  EDITTEXT IDC_NETCARDNAME, 9, 21, 230, 12, WS_DISABLED | WS_BORDER | WS_TABSTOP
  PUSHBUTTON "&Configura", IDC_CONFIGURE, 189, 38, 50, 14
- LTEXT "I componenti marcati sono usati da questa connessione:", -1, 9, 59, 217, 8
+ LTEXT "I componentis marcati sono usati da questa connessione:", -1, 9, 59, 217, 8
  LISTBOX IDC_COMPONENTSLIST, 9, 71, 230, 55, LBS_STANDARD | LBS_NOINTEGRALHEIGHT
  PUSHBUTTON "&Installa", IDC_INSTALL, 9, 130, 65, 14, WS_DISABLED | WS_TABSTOP
  PUSHBUTTON "&Disinstalla", IDC_UNINSTALL, 90, 130, 65, 14, WS_DISABLED | WS_TABSTOP
@@ -33,7 +33,7 @@ END
 
 IDD_CARDPROPERTIES DIALOG DISCARDABLE  0, 0, 200,180
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Generale"
+CAPTION "General"
 FONT 8, "MS Shell Dlg"
 BEGIN
  GROUPBOX "Connessione", -1, 9, 8, 182, 58, BS_GROUPBOX
@@ -52,9 +52,6 @@ BEGIN
  RTEXT "000.000.000", IDC_RECEIVED, 139, 115, 44, 8
  PUSHBUTTON "&Proprietà", IDC_PROPERTIES, 10, 150, 50, 14
  PUSHBUTTON "&Disabilita", IDC_ENDISABLE, 66, 150, 50, 14
- RTEXT "",IDC_STATUS,83,20,98,8
- RTEXT "",IDC_DURATION,83,34,98,8
- RTEXT "",IDC_SPEED,83,48,98,8
 END
 
 IDD_CARDSUPPORT DIALOG DISCARDABLE  0, 0, 200,180
@@ -67,18 +64,18 @@ BEGIN
  LTEXT "Indirizzo IP:", -1, 22, 34, 80, 8
  LTEXT "SubNet mask:", -1, 22, 48, 80, 8
  LTEXT "Default gateway:", -1, 22, 62, 80, 8
-
+ 
  RTEXT "N/A", IDC_DETAILSTYPE, 122, 20, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSIP, 122, 34, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSSUBNET, 122, 48, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSGATEWAY, 122, 62, 80, 8
-
+ 
  PUSHBUTTON "&Dettagli...", IDC_DETAILS, 22, 76, 62, 14
 END
 
 IDD_TCPIPPROPERTIES DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Generale"
+CAPTION "General"
 FONT 8, "MS Shell Dlg"
 BEGIN
  LTEXT "Puoi ottenere automaticamente la configurazione IP se la vostra rete lo supporta. Altrimenti è necessario contattare l'amministratore di rete per farsi dare le impostazioni appropriate.", -1, 9, 9, 228, 27
@@ -102,19 +99,13 @@ BEGIN
 END
 
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_CPLSYSTEMNAME "Proprietà"
   IDS_CPLSYSTEMDESCRIPTION "Personalizza le impostazioni di rete."
 END
 
-STRINGTABLE
-BEGIN
-  IDS_ASSIGNED_DHCP "Assegnato da DHCP"
-  IDS_ASSIGNED_MANUAL "Configurato manualmente"
-END
-
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_ERROR "Errore"
   IDS_ENTER_VALID_IPADDRESS "Devi indicare un indirizzo IP valido"
@@ -123,13 +114,4 @@ BEGIN
   IDS_CANNOT_CREATE_PROPSHEET "Impossibile creare la pagina delle proprietà"
   IDS_OUT_OF_MEMORY "Memoria esaurita"
   IDS_CANNOT_SAVE_CHANGES "Impossibile salvare le modifiche effettuate"
-  IDS_STATUS_NON_OPERATIONAL "Non-operativo"
-  IDS_STATUS_UNREACHABLE "Nessun adattatore WAN trovato"
-  IDS_STATUS_DISCONNECTED "Disconnesso"
-  IDS_STATUS_CONNECTING "Connessione in corso"
-  IDS_STATUS_CONNECTED "Connesso"
-  IDS_STATUS_OPERATIONAL "Connesso"
-  IDS_SPEED_MBPS "%d Mbps"
-  IDS_DURATION_DAY "%d giorno %s"
-  IDS_DURATION_DAYS "%d giorni %s"
 END

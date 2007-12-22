@@ -31,60 +31,19 @@
 //#include "msvcrt/string.h"
 #include "eh.h"
 
-typedef unsigned short MSVCRT_wchar_t;
-typedef unsigned short MSVCRT_wint_t;
-typedef unsigned short MSVCRT_wctype_t;
-typedef unsigned short MSVCRT__ino_t;
-typedef unsigned long  MSVCRT__fsize_t;
-#ifdef _WIN64
-typedef unsigned __int64 MSVCRT_size_t;
-typedef __int64 MSVCRT_intptr_t;
-typedef unsigned __int64 MSVCRT_uintptr_t;
-#else
-typedef unsigned int MSVCRT_size_t;
-typedef int MSVCRT_intptr_t;
-typedef unsigned int MSVCRT_uintptr_t;
-#endif
-typedef unsigned int   MSVCRT__dev_t;
-typedef int  MSVCRT__off_t;
-typedef long MSVCRT_clock_t;
-typedef long MSVCRT_time_t;
-typedef __int64 MSVCRT___time64_t;
-typedef __int64 MSVCRT_fpos_t;
-
-struct MSVCRT_tm {
-    int tm_sec;
-    int tm_min;
-    int tm_hour;
-    int tm_mday;
-    int tm_mon;
-    int tm_year;
-    int tm_wday;
-    int tm_yday;
-    int tm_isdst;
-};
-
 /* TLS data */
 extern DWORD MSVCRT_tls_index;
 
 typedef struct __MSVCRT_thread_data
 {
-    int                             thread_errno;
-    unsigned long                   thread_doserrno;
-    unsigned int                    random_seed;        /* seed for rand() */
-    char                           *strtok_next;        /* next ptr for strtok() */
-    unsigned char                  *mbstok_next;        /* next ptr for mbstok() */
-    MSVCRT_wchar_t                        *wcstok_next;        /* next ptr for wcstok() */
-    char                           *efcvt_buffer;       /* buffer for ecvt/fcvt */
-    char                           *asctime_buffer;     /* buffer for asctime */
-    MSVCRT_wchar_t                        *wasctime_buffer;    /* buffer for wasctime */
-    struct MSVCRT_tm                time_buffer;        /* buffer for localtime/gmtime */
-    char                           *strerror_buffer;    /* buffer for strerror */
-    int                             fpecode;
-    terminate_function              terminate_handler;
-    unexpected_function             unexpected_handler;
-    _se_translator_function         se_translator;
-    EXCEPTION_RECORD               *exc_record;
+    int                      _errno; // ros
+    unsigned long            doserrno;
+    char                    *mbstok_next;        /* next ptr for mbstok() */
+    char                    *efcvt_buffer;       /* buffer for ecvt/fcvt */
+    terminate_function       terminate_handler;
+    unexpected_function      unexpected_handler;
+    _se_translator_function  se_translator;
+    EXCEPTION_RECORD        *exc_record;
 } MSVCRT_thread_data;
 
 extern MSVCRT_thread_data *msvcrt_get_thread_data(void);
@@ -165,23 +124,6 @@ extern void msvcrt_free_args(void);
 #define _RT_TLOSS       122
 #define _RT_CRNL        252
 #define _RT_BANNER      255
-
-#ifdef __i386__
-struct MSVCRT___JUMP_BUFFER {
-    unsigned long Ebp;
-    unsigned long Ebx;
-    unsigned long Edi;
-    unsigned long Esi;
-    unsigned long Esp;
-    unsigned long Eip;
-    unsigned long Registration;
-    unsigned long TryLevel;
-    /* Start of new struct members */
-    unsigned long Cookie;
-    unsigned long UnwindFunc;
-    unsigned long UnwindData[6];
-};
-#endif /* __i386__ */
 
 typedef void* (*malloc_func_t)(size_t);
 typedef void  (*free_func_t)(void*);

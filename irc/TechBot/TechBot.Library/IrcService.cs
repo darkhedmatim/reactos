@@ -1,8 +1,6 @@
 using System;
-using System.Text;
 using System.Collections;
 using System.Threading;
-
 using TechBot.IRCLibrary;
 
 namespace TechBot.Library
@@ -22,7 +20,7 @@ namespace TechBot.Library
 		private string wmXml;
 		private string svnCommand;
 		private string bugUrl, WineBugUrl, SambaBugUrl;
-		private IrcClient m_IrcClient;
+		private IrcClient client;
 		private ArrayList channels = new ArrayList(); /* IrcChannel */
 		private TechBotService service;
 		private bool isStopped = false;
@@ -34,11 +32,11 @@ namespace TechBot.Library
 		                  string password,
 		                  string chmPath,
 		                  string mainChm,
-                          //string ntstatusXml,
-                          //string winerrorXml,
-                          //string hresultXml,
-                          //string wmXml,
-		                  //string svnCommand,
+		                  string ntstatusXml,
+		                  string winerrorXml,
+		                  string hresultXml,
+		                  string wmXml,
+		                  string svnCommand,
 		                  string BugUrl,
 		                  string WineBugUrl,
 		                  string SambaBugUrl)
@@ -63,43 +61,42 @@ namespace TechBot.Library
 			this.SambaBugUrl = SambaBugUrl;
 		}
 
-        public void Run()
-        {
-            service = new TechBotService(this,
-                                         chmPath,
-                                         mainChm);
-                                         //ntstatusXml,
-                                         //winerrorXml,
-                                         //hresultXml,
-                                         //wmXml,
-                                         //svnCommand,
-                                         //bugUrl,
-                                         //WineBugUrl,
-                                         //SambaBugUrl);
-            service.Run();
+		public void Run()
+		{
+			service = new TechBotService(this,
+			                             chmPath,
+			                             mainChm,
+			                             ntstatusXml,
+			                             winerrorXml,
+			                             hresultXml,
+			                             wmXml,
+			                             svnCommand,
+			                             bugUrl,
+			                             WineBugUrl,
+			                             SambaBugUrl);
+			service.Run();
 
-            m_IrcClient = new IrcClient();
-            m_IrcClient.Encoding = Encoding.GetEncoding("iso-8859-1");
-            m_IrcClient.MessageReceived += new MessageReceivedHandler(client_MessageReceived);
-            m_IrcClient.ChannelUserDatabaseChanged += new ChannelUserDatabaseChangedHandler(client_ChannelUserDatabaseChanged);
-            Console.WriteLine("Connecting to {0} port {1}",
-                                                   hostname,
-                                                   port);
-            m_IrcClient.Connect(hostname, port);
-            Console.WriteLine("Connected...");
-            m_IrcClient.Register(botname, password, null);
-            Console.WriteLine("Registered as {0}...", botname);
-            JoinChannels();
+			client = new IrcClient();
+			client.Encoding = System.Text.Encoding.GetEncoding("iso-8859-1");
+			client.MessageReceived += new MessageReceivedHandler(client_MessageReceived);
+			client.ChannelUserDatabaseChanged += new ChannelUserDatabaseChangedHandler(client_ChannelUserDatabaseChanged);
+			System.Console.WriteLine(String.Format("Connecting to {0} port {1}",
+			                                       hostname, port));
+			client.Connect(hostname, port);
+			System.Console.WriteLine("Connected...");
+			client.Register(botname, password, null);
+			System.Console.WriteLine(String.Format("Registered as {0}...", botname));
+			JoinChannels();
+			
+			while (!isStopped)
+			{
+				Thread.Sleep(1000);
+			}
 
-            while (!isStopped)
-            {
-                Thread.Sleep(1000);
-            }
-
-            PartChannels();
-            m_IrcClient.Diconnect();
-            Console.WriteLine("Disconnected...");
-        }
+			PartChannels();
+			client.Diconnect();
+			System.Console.WriteLine("Disconnected...");
+		}
 
 		public void Stop()
 		{
@@ -110,7 +107,7 @@ namespace TechBot.Library
 		{
 			foreach (string channelname in channelnames.Split(new char[] { ';' }))
 			{
-				IrcChannel channel = m_IrcClient.JoinChannel(channelname);
+				IrcChannel channel = client.JoinChannel(channelname);
 				channels.Add(channel);
 				System.Console.WriteLine(String.Format("Joined channel #{0}...",
 				                                       channel.Name));
@@ -121,7 +118,7 @@ namespace TechBot.Library
 		{
 			foreach (IrcChannel channel in channels)
 			{
-				m_IrcClient.PartChannel(channel, "Caught in the bitstream...");
+				client.PartChannel(channel, "Caught in the bitstream...");
 				System.Console.WriteLine(String.Format("Parted channel #{0}...",
 				                                       channel.Name));
 			}
@@ -238,11 +235,11 @@ namespace TechBot.Library
 				else if (GetTargetNickname(message,
 				                           out nickname))
 				{
-					IrcUser targetUser = new IrcUser(m_IrcClient,
+					IrcUser targetUser = new IrcUser(client,
 					                                 nickname);
 					if (String.Compare(targetUser.Nickname, botname, true) == 0)
 					{
-						IrcUser sourceUser = new IrcUser(m_IrcClient,
+						IrcUser sourceUser = new IrcUser(client,
 						                                 message.PrefixNickname);
 						context = new UserMessageContext(sourceUser);
 						return true;

@@ -17,6 +17,7 @@
 
 
 #include <precomp.h>
+#include "resource.h"
 
 #if (  defined(INCLUDE_CMD_WINDOW) ||  defined(INCLUDE_CMD_ACTIVATE)  )
 

@@ -22,20 +22,20 @@
 
 #include <precomp.h>
 
-int      nlastBarsUsed = 0;
+int                nlastBarsUsed = 0;
 
-WNDPROC  OldGraphWndProc;
+WNDPROC                OldGraphWndProc;
 
-void     Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd);
-void     Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd);
-void     Graph_DrawMemUsageHistoryGraph(HDC hDC, HWND hWnd);
+void                Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd);
+void                Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd);
+void                Graph_DrawMemUsageHistoryGraph(HDC hDC, HWND hWnd);
 
 INT_PTR CALLBACK
 Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    HDC          hdc;
-    PAINTSTRUCT  ps;
-    LONG         WindowId;
+    HDC                hdc;
+    PAINTSTRUCT        ps;
+    LONG            WindowId;
 
     switch (message)
     {
@@ -102,7 +102,7 @@ Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         hdc = BeginPaint(hWnd, &ps);
 
-        WindowId = GetWindowLongW(hWnd, GWL_ID);
+        WindowId = GetWindowLong(hWnd, GWL_ID);
 
         switch (WindowId)
         {
@@ -126,28 +126,27 @@ Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     /*
      * We pass on all non-handled messages
      */
-    return CallWindowProcW((WNDPROC)OldGraphWndProc, hWnd, message, wParam, lParam);
+    return CallWindowProc((WNDPROC)OldGraphWndProc, hWnd, message, wParam, lParam);
 }
 
 void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
 {
-    RECT      rcClient;
-    RECT      rcBarLeft;
-    RECT      rcBarRight;
-    RECT      rcText;
-    COLORREF  crPrevForeground;
-    WCHAR     Text[260];
-    HFONT     hOldFont;
-    ULONG     CpuUsage;
-    ULONG     CpuKernelUsage;
-    int       nBars;
-    int       nBarsUsed;
+    RECT            rcClient;
+    RECT            rcBarLeft;
+    RECT            rcBarRight;
+    RECT            rcText;
+    COLORREF        crPrevForeground;
+    TCHAR            Text[260];
+    ULONG            CpuUsage;
+    ULONG            CpuKernelUsage;
+    int                nBars;
+    int                nBarsUsed;
 /* Bottom bars that are "used", i.e. are bright green, representing used cpu time */
-    int       nBarsUsedKernel;
+    int                nBarsUsedKernel;
 /* Bottom bars that are "used", i.e. are bright green, representing used cpu kernel time */
-    int       nBarsFree;
+    int                nBarsFree;
 /* Top bars that are "unused", i.e. are dark green, representing free cpu time */
-    int       i;
+    int                i;
 
     /*
      * Get the client area rectangle
@@ -163,10 +162,10 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
      * Get the CPU usage
      */
     CpuUsage = PerfDataGetProcessorUsage();
-    if (CpuUsage <= 0)   CpuUsage = 0;
-    if (CpuUsage > 100)  CpuUsage = 100;
+    if (CpuUsage <= 0)         CpuUsage = 0;
+    if (CpuUsage > 100)       CpuUsage = 100;
 
-    wsprintfW(Text, L"%d%%", (int)CpuUsage);
+    _stprintf(Text, _T("%d%%"), (int)CpuUsage);
 
     /*
      * Draw the font text onto the graph
@@ -174,9 +173,7 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
     rcText = rcClient;
     InflateRect(&rcText, -2, -2);
     crPrevForeground = SetTextColor(hDC, RGB(0, 255, 0));
-    hOldFont = SelectObject(hDC, GetStockObject(DEFAULT_GUI_FONT));
-    DrawTextW(hDC, Text, -1, &rcText, DT_BOTTOM | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
-    SelectObject(hDC, hOldFont);
+    DrawText(hDC, Text, -1, &rcText, DT_BOTTOM | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
     SetTextColor(hDC, crPrevForeground);
 
     /*
@@ -190,7 +187,7 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
         nBarsUsed = 1;
     }
     nBarsFree = nBars - (nlastBarsUsed>nBarsUsed ? nlastBarsUsed : nBarsUsed);
-
+    
     if (TaskManagerSettings.ShowKernelTimes)
     {
         CpuKernelUsage = PerfDataGetProcessorSystemUsage();
@@ -221,7 +218,7 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
 
     if (nBarsUsedKernel < 0)     nBarsUsedKernel = 0;
     if (nBarsUsedKernel > nBars) nBarsUsedKernel = nBars;
-
+    
     /*
      * Draw the "free" bars
      */
@@ -240,22 +237,22 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
     /*
      * Draw the last "used" bars
      */
-    if ((nlastBarsUsed - nBarsUsed) > 0) {
-        for (i=0; i< (nlastBarsUsed - nBarsUsed); i++)
-        {
-            if (nlastBarsUsed > 5000) nlastBarsUsed = 5000;
-
-            FillSolidRect(hDC, &rcBarLeft, MEDIUM_GREEN);
-            FillSolidRect(hDC, &rcBarRight, MEDIUM_GREEN);
-
-            rcBarLeft.top += 3;
-            rcBarLeft.bottom += 3;
-
-            rcBarRight.top += 3;
-            rcBarRight.bottom += 3;
-        }
-    }
-    nlastBarsUsed = nBarsUsed;
+	if ((nlastBarsUsed - nBarsUsed) > 0) {
+	    for (i=0; i< (nlastBarsUsed - nBarsUsed); i++)
+	    {
+	        if (nlastBarsUsed > 5000) nlastBarsUsed = 5000;
+	
+	        FillSolidRect(hDC, &rcBarLeft, MEDIUM_GREEN);
+	        FillSolidRect(hDC, &rcBarRight, MEDIUM_GREEN);
+	
+	        rcBarLeft.top += 3;
+	        rcBarLeft.bottom += 3;
+	
+	        rcBarRight.top += 3;
+	        rcBarRight.bottom += 3;
+	    }
+	}
+	nlastBarsUsed = nBarsUsed;
     /*
      * Draw the "used" bars
      */
@@ -276,13 +273,13 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
     /*
      * Draw the "used" kernel bars
      */
-
+    
     rcBarLeft.top -=3;
     rcBarLeft.bottom -=3;
 
     rcBarRight.top -=3;
     rcBarRight.bottom -=3;
-
+    
     for (i=0; i<nBarsUsedKernel; i++)
     {
 
@@ -296,27 +293,24 @@ void Graph_DrawCpuUsageGraph(HDC hDC, HWND hWnd)
         rcBarRight.bottom -=3;
 
     }
-    
-    SelectObject(hDC, hOldFont);
 }
 
 void Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd)
 {
-    RECT       rcClient;
-    RECT       rcBarLeft;
-    RECT       rcBarRight;
-    RECT       rcText;
-    COLORREF   crPrevForeground;
-    WCHAR      Text[260];
-    HFONT      hOldFont;
-    ULONGLONG  CommitChargeTotal;
-    ULONGLONG  CommitChargeLimit;
-    int        nBars;
-    int        nBarsUsed = 0;
+    RECT            rcClient;
+    RECT            rcBarLeft;
+    RECT            rcBarRight;
+    RECT            rcText;
+    COLORREF        crPrevForeground;
+    TCHAR            Text[260];
+    ULONGLONG        CommitChargeTotal;
+    ULONGLONG        CommitChargeLimit;
+    int                nBars;
+    int                nBarsUsed = 0;
 /* Bottom bars that are "used", i.e. are bright green, representing used memory */
-    int        nBarsFree;
+    int                nBarsFree;
 /* Top bars that are "unused", i.e. are dark green, representing free memory */
-    int        i;
+    int                i;
 
     /*
      * Get the client area rectangle
@@ -335,18 +329,16 @@ void Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd)
     CommitChargeLimit = (ULONGLONG)PerfDataGetCommitChargeLimitK();
 
     if (CommitChargeTotal > 1024)
-        wsprintfW(Text, L"%d MB", (int)(CommitChargeTotal / 1024));
-    else
-        wsprintfW(Text, L"%d K", (int)CommitChargeTotal);
+    	_stprintf(Text, _T("%d MB"), (int)(CommitChargeTotal / 1024));
+	else
+		_stprintf(Text, _T("%d K"), (int)CommitChargeTotal);
     /*
      * Draw the font text onto the graph
      */
     rcText = rcClient;
     InflateRect(&rcText, -2, -2);
     crPrevForeground = SetTextColor(hDC, RGB(0, 255, 0));
-    hOldFont = SelectObject(hDC, GetStockObject(DEFAULT_GUI_FONT));
-    DrawTextW(hDC, Text, -1, &rcText, DT_BOTTOM | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
-    SelectObject(hDC, hOldFont);
+    DrawText(hDC, Text, -1, &rcText, DT_BOTTOM | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
     SetTextColor(hDC, crPrevForeground);
 
     /*
@@ -403,16 +395,14 @@ void Graph_DrawMemUsageGraph(HDC hDC, HWND hWnd)
         rcBarRight.top += 3;
         rcBarRight.bottom += 3;
     }
-    
-    SelectObject(hDC, hOldFont);
 }
 
 void Graph_DrawMemUsageHistoryGraph(HDC hDC, HWND hWnd)
 {
-    RECT        rcClient;
-    ULONGLONG   CommitChargeLimit;
-    int         i;
-    static int  offset = 0;
+    RECT            rcClient;
+    ULONGLONG        CommitChargeLimit;
+    int                i;
+    static int        offset = 0;
 
     if (offset++ >= 10)
         offset = 0;

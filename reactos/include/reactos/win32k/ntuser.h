@@ -3,57 +3,19 @@
 
 struct _W32PROCESSINFO;
 struct _W32THREADINFO;
-struct _WINDOW;
-
-/* FIXME: UserHMGetHandle needs to be updated once the new handle manager is implemented */
-#define UserHMGetHandle(obj) ((obj)->hdr.Handle)
-
-typedef struct _REGISTER_SYSCLASS
-{
-    /* This is a reactos specific class used to initialize the
-       system window classes during user32 initialization */
-    UNICODE_STRING ClassName;
-    UINT Style;
-    WNDPROC ProcW;
-    WNDPROC ProcA;
-    UINT ExtraBytes;
-    HICON hCursor;
-    HBRUSH hBrush;
-    UINT ClassId;
-} REGISTER_SYSCLASS, *PREGISTER_SYSCLASS;
-
-typedef struct _USER_OBJHDR
-{
-    /* This is the common header for all user handle objects */
-    HANDLE Handle;
-} USER_OBJHDR, PUSER_OBJHDR;
 
 typedef struct _DESKTOP
 {
     HANDLE hKernelHeap;
-    ULONG_PTR HeapLimit;
+    WCHAR szDesktopName[1];
     HWND hTaskManWindow;
     HWND hProgmanWindow;
-    struct _WINDOW *Wnd;
-
-    union
-    {
-        UINT Dummy;
-        struct
-        {
-            UINT LastInputWasKbd : 1;
-        };
-    };
-
-    WCHAR szDesktopName[1];
 } DESKTOP, *PDESKTOP;
 
 typedef struct _CALLPROC
 {
-    USER_OBJHDR hdr; /* FIXME: Move out of the structure once new handle manager is implemented */
     struct _W32PROCESSINFO *pi;
     WNDPROC WndProc;
-    struct _CALLPROC *Next;
     UINT Unicode : 1;
 } CALLPROC, *PCALLPROC;
 
@@ -73,7 +35,7 @@ typedef struct _WINDOWCLASS
         WNDPROC WndProcExtra;
         PCALLPROC CallProc;
     };
-    PCALLPROC CallProcList;
+    PCALLPROC CallProc2;
     INT ClsExtra;
     INT WndExtra;
     HINSTANCE hInstance;
@@ -85,100 +47,22 @@ typedef struct _WINDOWCLASS
     PWSTR MenuName;
     PSTR AnsiMenuName;
 
+    ULONG_PTR ClassExtraDataOffset;
+
     UINT Destroying : 1;
     UINT Unicode : 1;
     UINT System : 1;
     UINT Global : 1;
-    UINT MenuNameIsString : 1;
-
-#define CLASS_DEFAULT    0x0
-#define CLASS_DESKTOP    0x1
-#define CLASS_DIALOG     0x2
-#define CLASS_POPUPMENU  0x3
-#define CLASS_COMBO      0x4
-#define CLASS_COMBOLBOX  0x5
-#define CLASS_MDICLIENT  0x6
-#define CLASS_MENU       0x7
-#define CLASS_SCROLL     0x8
-#define CLASS_BUTTON     0x9
-#define CLASS_LISTBOX    0xA
-#define CLASS_EDIT       0xB
-#define CLASS_ICONTITLE  0xC
-#define CLASS_STATIC     0xD
-    UINT ClassId : 4;
-
+    UINT GlobalCallProc : 1;
+    UINT GlobalCallProc2 : 1;
 } WINDOWCLASS, *PWINDOWCLASS;
-
-typedef struct _WINDOW
-{
-    USER_OBJHDR hdr; /* FIXME: Move out of the structure once new handle manager is implemented */
-
-    /* NOTE: This structure is located in the desktop heap and will
-             eventually replace WINDOW_OBJECT. Right now WINDOW_OBJECT
-             keeps a reference to this structure until all the information
-             is moved to this structure */
-    struct _W32PROCESSINFO *pi; /* FIXME: Move to object header some day */
-    struct _W32THREADINFO *ti;
-    RECT WindowRect;
-    RECT ClientRect;
-
-    WNDPROC WndProc;
-    union
-    {
-        /* Pointer to a call procedure handle */
-        PCALLPROC CallProc;
-        /* Extra Wnd proc (windows of system classes) */
-        WNDPROC WndProcExtra;
-    };
-
-    struct _WINDOW *Parent;
-    struct _WINDOW *Owner;
-
-    /* Size of the extra data associated with the window. */
-    ULONG ExtraDataSize;
-    /* Style. */
-    DWORD Style;
-    /* Extended style. */
-    DWORD ExStyle;
-    /* Handle of the module that created the window. */
-    HINSTANCE Instance;
-    /* Window menu handle or window id */
-    UINT IDMenu;
-    LONG UserData;
-    /* Pointer to the window class. */
-    PWINDOWCLASS Class;
-    /* Window name. */
-    UNICODE_STRING WindowName;
-    /* Context help id */
-    DWORD ContextHelpId;
-
-    struct
-    {
-        RECT NormalRect;
-        POINT IconPos;
-        POINT MaxPos;
-    } InternalPos;
-
-    UINT Unicode : 1;
-    /* Indicates whether the window is derived from a system class */
-    UINT IsSystem : 1;
-    UINT InternalPosInitialized : 1;
-    UINT HideFocus : 1;
-    UINT HideAccel : 1;
-} WINDOW, *PWINDOW;
 
 typedef struct _W32PROCESSINFO
 {
     PVOID UserHandleTable;
-    HANDLE hUserHeap;
-    ULONG_PTR UserHeapDelta;
-    HINSTANCE hModUser;
     PWINDOWCLASS LocalClassList;
     PWINDOWCLASS GlobalClassList;
     PWINDOWCLASS SystemClassList;
-
-    UINT RegisteredSysClasses : 1;
-
 } W32PROCESSINFO, *PW32PROCESSINFO;
 
 typedef struct _W32THREADINFO
@@ -186,66 +70,11 @@ typedef struct _W32THREADINFO
     PW32PROCESSINFO pi; /* [USER] */
     PW32PROCESSINFO kpi; /* [KERNEL] */
     PDESKTOP Desktop;
-    PVOID DesktopHeapBase;
-    ULONG_PTR DesktopHeapLimit;
     ULONG_PTR DesktopHeapDelta;
-    /* A mask of what hooks are currently active */
-    ULONG Hooks;
 } W32THREADINFO, *PW32THREADINFO;
-
-/* Window Client Information structure */
-
-typedef struct _CALLBACKWND
-{
-     HWND hWnd;
-     PVOID pvWnd;
-} CALLBACKWND, *PCALLBACKWND;
-
-
-typedef struct _W32CLIENTINFO
-{
-    ULONG CI_flags;
-    ULONG cSpins;
-    ULONG ulWindowsVersion;
-    ULONG ulAppCompatFlags;
-    ULONG ulAppCompatFlags2;
-    DWORD dwTIFlags;
-    PVOID pDeskInfo;
-    ULONG_PTR ulClientDelta;
-    PVOID phkCurrent;
-    ULONG fsHooks;
-    HWND  hWND;  // Well be replaced with CALLBACKWND.
-    PVOID pvWND; // " "
-    DWORD dwHookCurrent;
-    ULONG Win32ClientInfo1;
-    PVOID pClientThreadInfo;
-    DWORD dwHookData;
-    ULONG Win32ClientInfo2[8];
-    HANDLE hKL;
-    USHORT CodePage;
-    USHORT csCF;
-    ULONG Win32ClientInfo3[36];
-} W32CLIENTINFO, *PW32CLIENTINFO;
-
-#define GetWin32ClientInfo() (PW32CLIENTINFO)(NtCurrentTeb()->Win32ClientInfo)
 
 PW32THREADINFO GetW32ThreadInfo(VOID);
 PW32PROCESSINFO GetW32ProcessInfo(VOID);
-
-DWORD
-NTAPI
-NtUserAssociateInputContext(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserBuildHimcList(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
 
 DWORD
 NTAPI
@@ -257,26 +86,14 @@ NtUserBuildMenuItemList(
 
 DWORD
 NTAPI
-NtUserCalcMenuBar(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5);
-
-DWORD
-NTAPI
 NtUserCheckMenuItem(
   HMENU hmenu,
   UINT uIDCheckItem,
   UINT uCheck);
 
-DWORD
+HMENU
 NTAPI
-NtUserCtxDisplayIOCtl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
+NtUserCreateMenu(BOOL PopupMenu);
 
 BOOL
 NTAPI
@@ -464,6 +281,9 @@ NtUserGetClassLong(HWND hWnd, INT Offset, BOOL Ansi);
 LONG NTAPI
 NtUserGetWindowLong(HWND hWnd, DWORD Index, BOOL Ansi);
 
+INT NTAPI
+NtUserReleaseDC(HWND hWnd, HDC hDc);
+
 BOOL NTAPI
 NtUserGetWindowRect(HWND hWnd, LPRECT Rect);
 
@@ -599,7 +419,7 @@ NTAPI
 NtUserCallMsgFilter(
   LPMSG msg,
   INT code);
-
+ 
 LRESULT
 NTAPI
 NtUserCallNextHookEx(
@@ -608,8 +428,6 @@ NtUserCallNextHookEx(
   WPARAM wParam,
   LPARAM lParam);
 
-#define NOPARAM_ROUTINE_CREATEMENU            0x0
-#define NOPARAM_ROUTINE_CREATEMENUPOPUP       0x1
 #define NOPARAM_ROUTINE_MSQCLEARWAKEMASK      0x3
 #define NOPARAM_ROUTINE_REGISTER_PRIMITIVE	  0xffff0001 /* Private ROS */
 #define NOPARAM_ROUTINE_DESTROY_CARET         0xffff0002
@@ -636,15 +454,11 @@ NtUserCallNoParam(
 #define ONEPARAM_ROUTINE_GETCURSORPOSITION    0x0b
 #define ONEPARAM_ROUTINE_ISWINDOWINDESTROY    0x0c
 #define ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING 0x0d
-#define ONEPARAM_ROUTINE_GETDESKTOPMAPPING    0x0e
 #define ONEPARAM_ROUTINE_GETWINDOWINSTANCE    0x10
-#define ONEPARAM_ROUTINE_CREATECURICONHANDLE  0x25
 #define ONEPARAM_ROUTINE_MSQSETWAKEMASK       0x27
 #define ONEPARAM_ROUTINE_GETKEYBOARDTYPE      0x28
 #define ONEPARAM_ROUTINE_GETKEYBOARDLAYOUT    0x29
-#define ONEPARAM_ROUTINE_SHOWCURSOR           0x30
-#define ONEPARAM_ROUTINE_REGISTERUSERMODULE   0x31
-#define ONEPARAM_ROUTINE_RELEASEDC            0x39
+#define ONEPARAM_ROUTINE_SHOWCURSOR           0x30 
 DWORD
 NTAPI
 NtUserCallOneParam(
@@ -680,8 +494,6 @@ NtUserCallOneParam(
 #define TWOPARAM_ROUTINE_ROS_SHOWWINDOW     0x1000
 #define TWOPARAM_ROUTINE_ROS_ISACTIVEICON   0x1001
 #define TWOPARAM_ROUTINE_ROS_NCDESTROY      0x1002
-#define TWOPARAM_ROUTINE_ROS_REGSYSCLASSES  0x1003
-#define TWOPARAM_ROUTINE_ROS_UPDATEUISTATE  0x1004
 DWORD
 NTAPI
 NtUserCallTwoParam(
@@ -703,12 +515,6 @@ NtUserChangeDisplaySettings(
   HWND hwnd,
   DWORD dwflags,
   LPVOID lParam);
-
-DWORD
-STDCALL
-NtUserCheckImeHotKey(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
 
 HWND NTAPI
 NtUserChildWindowFromPointEx(HWND Parent,
@@ -734,13 +540,6 @@ BOOL
 NTAPI
 NtUserCloseWindowStation(
   HWINSTA hWinSta);
-
-DWORD
-NTAPI
-NtUserConsoleControl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
 
 DWORD
 NTAPI
@@ -790,11 +589,6 @@ NtUserCreateDesktop(
 
 DWORD
 NTAPI
-NtUserCreateInputContext(
-    DWORD dwUnknown1);
-
-DWORD
-NTAPI
 NtUserCreateLocalMemHandle(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -817,8 +611,7 @@ NtUserCreateWindowEx(
   HINSTANCE hInstance,
   LPVOID lpParam,
   DWORD dwShowMode,
-  BOOL bUnicodeWindow,
-  DWORD dwUnknown);
+  BOOL bUnicodeWindow);
 
 HWINSTA
 NTAPI
@@ -828,8 +621,7 @@ NtUserCreateWindowStation(
   LPSECURITY_ATTRIBUTES lpSecurity,
   DWORD Unknown3,
   DWORD Unknown4,
-  DWORD Unknown5,
-  DWORD Unknown6);
+  DWORD Unknown5);
 
 DWORD
 NTAPI
@@ -873,22 +665,12 @@ NtUserDestroyAcceleratorTable(
 
 BOOL
 NTAPI
-NtUserDestroyCursor(
+NtUserDestroyCursorIcon(
   HANDLE Handle,
   DWORD Unknown);
 
-DWORD
-NTAPI
-NtUserDestroyInputContext(
-    DWORD dwUnknown1);
-
 BOOLEAN NTAPI
 NtUserDestroyWindow(HWND Wnd);
-
-DWORD
-NTAPI
-NtUserDisableThreadIme(
-    DWORD dwUnknown1);
 
 typedef struct tagNTUSERDISPATCHMESSAGEINFO
 {
@@ -1047,8 +829,7 @@ NtUserFindWindowEx(
   HWND  hwndParent,
   HWND  hwndChildAfter,
   PUNICODE_STRING  ucClassName,
-  PUNICODE_STRING  ucWindowName,
-  DWORD dwUnknown
+  PUNICODE_STRING  ucWindowName
   );
 
 DWORD
@@ -1069,21 +850,11 @@ NtUserGetAltTabInfo(
 HWND NTAPI
 NtUserGetAncestor(HWND hWnd, UINT Flags);
 
-DWORD
-NTAPI
-NtUserGetAppImeLevel(
-    DWORD dwUnknown1);
 
 DWORD
 NTAPI
 NtUserGetAsyncKeyState(
   DWORD Unknown0);
-
-DWORD
-NTAPI
-NtUserGetAtomName(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
 
 UINT
 NTAPI
@@ -1136,11 +907,11 @@ NTAPI
 NtUserGetClipCursor(
   RECT *lpRect);
 
-BOOL
+DWORD
 NTAPI
 NtUserGetComboBoxInfo(
-  HWND hWnd,
-  PCOMBOBOXINFO pcbi);
+  DWORD Unknown0,
+  DWORD Unknown1);
 
 DWORD
 NTAPI
@@ -1211,21 +982,16 @@ NtUserGetGUIThreadInfo(
 
 BOOL
 NTAPI
-NtUserGetIconInfo(
-   HANDLE hCurIcon,
-   PICONINFO IconInfo,
-   PUNICODE_STRING lpInstName,
-   PUNICODE_STRING lpResName,
-   LPDWORD pbpp,
-   BOOL bInternal);
+NtUserGetCursorIconInfo(
+  HANDLE Handle,
+  PICONINFO IconInfo);
 
 BOOL
 NTAPI
-NtUserGetIconSize(
-    HANDLE Handle,
-    UINT istepIfAniCur,
-    LONG  *plcx,
-    LONG  *plcy);
+NtUserGetCursorIconSize(
+  HANDLE Handle,
+  BOOL *fIcon,
+  SIZE *Size);
 
 DWORD
 NTAPI
@@ -1237,19 +1003,13 @@ NtUserGetImeHotKey(
 
 DWORD
 NTAPI
-NtUserGetImeInfoEx(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
-DWORD
-NTAPI
 NtUserGetInternalWindowPos(
   DWORD Unknown0,
   DWORD Unknown1,
   DWORD Unknown2);
 
 HKL
-NTAPI
+NTAPI 
 NtUserGetKeyboardLayout(
   DWORD dwThreadid);
 
@@ -1277,7 +1037,7 @@ NtUserGetKeyboardType(
 DWORD
 NTAPI
 NtUserGetKeyNameText( LONG lParam, LPWSTR lpString, int nSize );
-
+  
 DWORD
 NTAPI
 NtUserGetKeyState(
@@ -1290,16 +1050,8 @@ NtUserGetLastInputInfo(
 
 DWORD
 NTAPI
-NtUserGetLayeredWindowAttributes(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
-
-DWORD
-NTAPI
 NtUserGetListBoxInfo(
-  HWND hWnd);
+  DWORD Unknown0);
 
 typedef struct tagNTUSERGETMESSAGEINFO
 {
@@ -1353,56 +1105,18 @@ HWINSTA
 NTAPI
 NtUserGetProcessWindowStation(VOID);
 
-DWORD
-NTAPI
-NtUserGetRawInputBuffer(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserGetRawInputData(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5);
-
-DWORD
-NTAPI
-NtUserGetRawInputDeviceInfo(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
-
-DWORD
-NTAPI
-NtUserGetRawInputDeviceList(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserGetRegisteredRawInputDevices(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
 BOOL
 NTAPI
 NtUserGetScrollBarInfo(
-  HWND hWnd,
-  LONG idObject,
+  HWND hWnd, 
+  LONG idObject, 
   PSCROLLBARINFO psbi);
 
 BOOL
 NTAPI
 NtUserGetScrollInfo(
-  HWND hwnd,
-  int fnBar,
+  HWND hwnd, 
+  int fnBar, 
   LPSCROLLINFO lpsi);
 
 HDESK
@@ -1456,23 +1170,9 @@ NtUserGetWOWClass(
 
 DWORD
 NTAPI
-NtUserHardErrorControl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
 NtUserImpersonateDdeClientWindow(
   DWORD Unknown0,
   DWORD Unknown1);
-
-DWORD
-NTAPI
-NtUserInitialize(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
 
 DWORD
 NTAPI
@@ -1504,19 +1204,6 @@ NtUserInternalGetWindowText(
   LPWSTR lpString,
   INT nMaxCount);
 
-BOOL
-NTAPI
-NtUserInvalidateRect(
-    HWND hWnd,
-    CONST RECT *lpRect,
-    BOOL bErase);
-
-BOOL
-NTAPI
-NtUserInvalidateRgn(
-    HWND hWnd,
-    HRGN hRgn,
-    BOOL bErase);
 
 BOOL
 NTAPI
@@ -1541,10 +1228,9 @@ NtUserKillTimer
 
 HKL
 STDCALL
-NtUserLoadKeyboardLayoutEx(
+NtUserLoadKeyboardLayoutEx( 
    IN HANDLE Handle,
    IN DWORD offTable,
-   IN PUNICODE_STRING puszKeyboardName,
    IN HKL hKL,
    IN PUNICODE_STRING puszKLID,
    IN DWORD dwKLID,
@@ -1581,13 +1267,6 @@ NtUserMessageCall(
   DWORD Unknown4,
   DWORD Unknown5,
   DWORD Unknown6);
-
-DWORD
-NTAPI
-NtUserMinMaximize(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
 
 BOOL
 NTAPI
@@ -1633,7 +1312,7 @@ NtUserMonitorFromWindow(
 
 BOOL
 NTAPI
-NtUserMoveWindow(
+NtUserMoveWindow(      
     HWND hWnd,
     int X,
     int Y,
@@ -1648,14 +1327,6 @@ NtUserNotifyIMEStatus(
   DWORD Unknown0,
   DWORD Unknown1,
   DWORD Unknown2);
-
-DWORD
-NTAPI
-NtUserNotifyProcessCreate(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
 
 DWORD
 NTAPI
@@ -1696,16 +1367,6 @@ NTAPI
 NtUserPaintDesktop(
   HDC hDC);
 
-DWORD
-NTAPI
-NtUserPaintMenuBar(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5,
-    DWORD dwUnknown6);
-
 BOOL
 NTAPI
 NtUserPeekMessage(
@@ -1733,35 +1394,6 @@ NtUserPostThreadMessage(
 
 DWORD
 NTAPI
-NtUserPrintWindow(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserProcessConnect(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserQueryInformationThread(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5);
-
-DWORD
-NTAPI
-NtUserQueryInputContext(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
-DWORD
-NTAPI
 NtUserQuerySendMessage(
   DWORD Unknown0);
 
@@ -1783,16 +1415,6 @@ NtUserQueryWindow(
   HWND hWnd,
   DWORD Index);
 
-DWORD
-NTAPI
-NtUserRealInternalGetMessage(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5,
-    DWORD dwUnknown6);
-
 UINT
 NTAPI
 NtUserRealizePalette(HDC hDC);
@@ -1804,12 +1426,6 @@ NtUserRealChildWindowFromPoint(
   DWORD Unknown1,
   DWORD Unknown2);
 
-DWORD
-NTAPI
-NtUserRealWaitMessageEx(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
 BOOL
 NTAPI
 NtUserRedrawWindow
@@ -1820,33 +1436,10 @@ NtUserRedrawWindow
  UINT flags
 );
 
-HWINSTA
-NTAPI
-NtUserRegisterClassExWOW(
-    CONST WNDCLASSEXW* lpwcx,
-    BOOL bUnicodeClass,
-    WNDPROC wpExtra,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5,
-    DWORD dwUnknown6,
-    DWORD dwUnknown7);
-
-DWORD
-NTAPI
-NtUserRegisterRawInputDevices(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserRegisterUserApiHook(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
 /* FIXME: These flag constans aren't what Windows uses. */
 #define REGISTERCLASS_ANSI	2
-#define REGISTERCLASS_ALL	(REGISTERCLASS_ANSI)
+#define REGISTERCLASS_SYSTEM	4
+#define REGISTERCLASS_ALL	(REGISTERCLASS_ANSI | REGISTERCLASS_SYSTEM)
 
 RTL_ATOM NTAPI
 NtUserRegisterClassEx(
@@ -1856,7 +1449,7 @@ NtUserRegisterClassEx(
    WNDPROC wpExtra,
    DWORD Flags,
    HMENU hMenu);
-
+   
 UINT
 NTAPI
 NtUserRegisterClipboardFormat(
@@ -1869,6 +1462,7 @@ NtUserRegisterHotKey(HWND hWnd,
 		     UINT fsModifiers,
 		     UINT vk);
 
+		     
 BOOL
 NTAPI
 NtUserGetLastInputInfo(
@@ -1882,39 +1476,8 @@ NtUserRegisterTasklist(
 UINT NTAPI
 NtUserRegisterWindowMessage(PUNICODE_STRING MessageName);
 
-DWORD
-NTAPI
-NtUserRemoteConnect(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
-
-DWORD
-NTAPI
-NtUserRemoteRedrawRectangle(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
-
-DWORD
-NTAPI
-NtUserRemoteRedrawScreen(VOID);
-
-DWORD
-NTAPI
-NtUserRemoteStopScreenUpdates(VOID);
-
 HANDLE NTAPI
 NtUserRemoveProp(HWND hWnd, ATOM Atom);
-
-DWORD
-NTAPI
-NtUserResolveDesktop(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
 
 DWORD
 NTAPI
@@ -1929,7 +1492,7 @@ NtUserSBGetParms(
   DWORD Unknown2,
   DWORD Unknown3);
 
-BOOL
+DWORD
 NTAPI
 NtUserScrollDC(
   HDC hDC,
@@ -1983,7 +1546,7 @@ NtUserSendMessageTimeout(HWND hWnd,
 			 UINT uFlags,
 			 UINT uTimeout,
 			 ULONG_PTR *uResult,
-             PNTUSERSENDMESSAGEINFO Info);
+	                 PNTUSERSENDMESSAGEINFO Info);
 
 BOOL
 NTAPI
@@ -1995,19 +1558,11 @@ NtUserSendNotifyMessage(
 
 HWND NTAPI
 NtUserSetActiveWindow(HWND Wnd);
-
 HWND NTAPI
 NtUserGetActiveWindow(VOID);
 
-DWORD
-NTAPI
-NtUserSetAppImeLevel(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
 HWND NTAPI
 NtUserSetCapture(HWND Wnd);
-
 HWND NTAPI
 NtUserGetCapture(VOID);
 
@@ -2017,6 +1572,7 @@ NtUserSetClassLong(
   INT Offset,
   ULONG_PTR  dwNewLong,
   BOOL  Ansi );
+
 
 DWORD
 NTAPI
@@ -2058,7 +1614,7 @@ NtUserSetCursor(
 
 BOOL
 NTAPI
-NtUserSetCursorContents(
+NtUserSetCursorIconContents(
   HANDLE Handle,
   PICONINFO IconInfo);
 
@@ -2066,9 +1622,11 @@ BOOL
 NTAPI
 NtUserSetCursorIconData(
   HANDLE Handle,
+  PBOOL fIcon,
+  POINT *Hotspot,
   HMODULE hModule,
-  PUNICODE_STRING pstrResName,
-  PICONINFO pIconInfo);
+  HRSRC hRsrc,
+  HRSRC hGroupRsrc);
 
 DWORD
 NTAPI
@@ -2092,30 +1650,9 @@ NtUserSetImeHotKey(
 
 DWORD
 NTAPI
-NtUserSetImeInfoEx(
-    DWORD dwUnknown1);
-
-DWORD
-NTAPI
 NtUserSetImeOwnerWindow(
   DWORD Unknown0,
   DWORD Unknown1);
-
-DWORD
-NTAPI
-NtUserSetInformationProcess(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
-
-DWORD
-NTAPI
-NtUserSetInformationThread(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4);
 
 DWORD
 NTAPI
@@ -2174,9 +1711,9 @@ NtUserSetRipFlags(
 DWORD
 NTAPI
 NtUserSetScrollInfo(
-  HWND hwnd,
-  int fnBar,
-  LPCSCROLLINFO lpsi,
+  HWND hwnd, 
+  int fnBar, 
+  LPCSCROLLINFO lpsi, 
   BOOL bRedraw);
 
 BOOL
@@ -2224,12 +1761,6 @@ NtUserSetSystemTimer
  TIMERPROC lpTimerFunc
 );
 
-DWORD
-NTAPI
-NtUserSetThreadLayoutHandles(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2);
-
 UINT_PTR
 NTAPI
 NtUserSetTimer
@@ -2260,8 +1791,8 @@ NtUserSetWindowPlacement(
   HWND hWnd,
   WINDOWPLACEMENT *lpwndpl);
 
-BOOL
-NTAPI NtUserSetWindowPos(
+BOOL 
+NTAPI NtUserSetWindowPos(      
     HWND hWnd,
     HWND hWndInsertAfter,
     int X,
@@ -2321,12 +1852,8 @@ NtUserSetWinEventHook(
 BOOL
 NTAPI
 NtUserShowCaret(
-  HWND hWnd);
-
-BOOL
-NTAPI
-NtUserHideCaret(
-  HWND hWnd);
+  HWND hWnd,
+  BOOL bShow);
 
 DWORD
 NTAPI
@@ -2344,10 +1871,6 @@ NtUserShowWindowAsync(
   HWND hWnd,
   LONG nCmdShow);
 
-DWORD
-NTAPI
-NtUserSoundSentry(VOID);
-
 BOOL
 NTAPI
 NtUserSwitchDesktop(
@@ -2361,12 +1884,7 @@ NtUserSystemParametersInfo(
   PVOID pvParam,
   UINT fWinIni);
 
-DWORD
-NTAPI
-NtUserTestForInteractiveUser(
-    DWORD dwUnknown1);
-
-INT
+int
 NTAPI
 NtUserToUnicodeEx(
 		  UINT wVirtKey,
@@ -2428,10 +1946,6 @@ NtUserUnregisterHotKey(HWND hWnd,
 
 DWORD
 NTAPI
-NtUserUnregisterUserApiHook(VOID);
-
-DWORD
-NTAPI
 NtUserUpdateInputContext(
   DWORD Unknown0,
   DWORD Unknown1,
@@ -2470,30 +1984,16 @@ NtUserUserHandleGrantAccess(
   DWORD Unknown1,
   DWORD Unknown2);
 
-BOOL
-NTAPI
-NtUserValidateHandleSecure(
-  HANDLE hHdl,
-  BOOL Restricted);
-
-BOOL
-NTAPI
-NtUserValidateRect(
-    HWND hWnd,
-    CONST RECT *lpRect);
-
 DWORD
 NTAPI
-NtUserValidateTimerCallback(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3);
+NtUserValidateHandleSecure(
+  DWORD Unknown0);
 
 DWORD
 NTAPI
 NtUserVkKeyScanEx(
-  WCHAR wChar,
-  HKL KeyboardLayout,
+  DWORD Unknown0,
+  DWORD Unknown1,
   DWORD Unknown2);
 
 DWORD
@@ -2552,7 +2052,7 @@ typedef struct _WNDPROC_INFO
     WNDPROC WindowProc;
     BOOL IsUnicode;
 } WNDPROC_INFO, *PWNDPROC_INFO;
-
+                                    
 BOOL NTAPI
 NtUserDereferenceWndProcHandle(IN HANDLE wpHandle, OUT PWNDPROC_INFO wpInfo);
 
@@ -2573,7 +2073,7 @@ NtUserManualGuiCheck(LONG Check);
 
 typedef struct _SETSCROLLBARINFO
 {
-  int nTrackPos;
+  int nTrackPos; 
   int reserved;
   DWORD rgstate[CCHILDREN_SCROLLBAR+1];
 } SETSCROLLBARINFO, *PSETSCROLLBARINFO;
@@ -2591,7 +2091,7 @@ typedef struct tagKMDDEEXECUTEDATA
   HWND Sender;
   HGLOBAL ClientMem;
   /* BYTE Data[DataSize] */
-} KMDDEEXECUTEDATA, *PKMDDEEXECUTEDATA;
+} KMDDEEXECUTEDATA, *PKMDDEEXECUTEDATA; 
 
 typedef struct tagKMDDELPARAM
 {

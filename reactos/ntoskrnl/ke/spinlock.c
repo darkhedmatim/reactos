@@ -19,68 +19,68 @@
 
 VOID
 FASTCALL
-KeAcquireQueuedSpinLockAtDpcLevel(IN PKSPIN_LOCK_QUEUE LockHandle)
+KeAcquireQueuedSpinLockAtDpcLevel(IN PKLOCK_QUEUE_HANDLE LockHandle)
 {
 #ifdef CONFIG_SMP
     PKSPIN_LOCK_QUEUE Prev;
 
     /* Set the new lock */
     Prev = (PKSPIN_LOCK_QUEUE)
-           InterlockedExchange((PLONG)LockHandle->Next,
+           InterlockedExchange((PLONG)LockHandle->LockQueue.Lock,
                                (LONG)LockHandle);
     if (!Prev)
     {
         /* There was nothing there before. We now own it */
-         *LockHandle->Lock |= LQ_OWN;
+         *(ULONG_PTR*)&LockHandle->LockQueue.Lock |= LQ_OWN;
         return;
     }
 
     /* Set the wait flag */
-     *LockHandle->Lock |= LQ_WAIT;
+     *(ULONG_PTR*)&LockHandle->LockQueue.Lock |= LQ_WAIT;
 
     /* Link us */
     Prev->Next = (PKSPIN_LOCK_QUEUE)LockHandle;
 
     /* Loop and wait */
-    while (*LockHandle->Lock & LQ_WAIT)
-        YieldProcessor();
+    while ( *(ULONG_PTR*)&LockHandle->LockQueue.Lock & LQ_WAIT) YieldProcessor();
+    return;
 #endif
 }
 
 VOID
 FASTCALL
-KeReleaseQueuedSpinLockFromDpcLevel(IN PKSPIN_LOCK_QUEUE LockHandle)
+KeReleaseQueuedSpinLockFromDpcLevel(IN PKLOCK_QUEUE_HANDLE LockHandle)
 {
 #ifdef CONFIG_SMP
     KSPIN_LOCK LockVal;
     PKSPIN_LOCK_QUEUE Waiter;
 
     /* Remove own and wait flags */
-    *LockHandle->Lock &= ~(LQ_OWN | LQ_WAIT);
-    LockVal = *LockHandle->Lock;
+     *(ULONG_PTR*)&LockHandle->LockQueue.Lock &= ~(LQ_OWN | LQ_WAIT);
+    LockVal = *LockHandle->LockQueue.Lock;
 
     /* Check if we already own it */
     if (LockVal == (KSPIN_LOCK)LockHandle)
     {
         /* Disown it */
         LockVal = (KSPIN_LOCK)
-                  InterlockedCompareExchangePointer(LockHandle->Lock,
+                  InterlockedCompareExchangePointer(LockHandle->LockQueue.Lock,
                                                     NULL,
                                                     LockHandle);
     }
     if (LockVal == (KSPIN_LOCK)LockHandle) return;
 
     /* Need to wait for it */
-    Waiter = LockHandle->Next;
+    Waiter = LockHandle->LockQueue.Next;
     while (!Waiter)
     {
         YieldProcessor();
-        Waiter = LockHandle->Next;
+        Waiter = LockHandle->LockQueue.Next;
     }
 
     /* It's gone */
     *(ULONG_PTR*)&Waiter->Lock ^= (LQ_OWN | LQ_WAIT);
-    LockHandle->Next = NULL;
+    LockHandle->LockQueue.Next = NULL;
 #endif
 }
 
@@ -211,7 +211,8 @@ KeAcquireInStackQueuedSpinLockAtDpcLevel(IN PKSPIN_LOCK SpinLock,
     /* Set it up properly */
     LockHandle->LockQueue.Next = NULL;
     LockHandle->LockQueue.Lock = SpinLock;
-    KeAcquireQueuedSpinLockAtDpcLevel(LockHandle->LockQueue.Next);
+    KeAcquireQueuedSpinLockAtDpcLevel((PKLOCK_QUEUE_HANDLE)
+                                      &LockHandle->LockQueue.Next);
 #endif
 }
 
@@ -224,7 +225,8 @@ KeReleaseInStackQueuedSpinLockFromDpcLevel(IN PKLOCK_QUEUE_HANDLE LockHandle)
 {
 #ifdef CONFIG_SMP
     /* Call the internal function */
-    KeReleaseQueuedSpinLockFromDpcLevel(LockHandle->LockQueue.Next);
+    KeReleaseQueuedSpinLockFromDpcLevel((PKLOCK_QUEUE_HANDLE)
+                                        &LockHandle->LockQueue.Next);
 #endif
 }
 

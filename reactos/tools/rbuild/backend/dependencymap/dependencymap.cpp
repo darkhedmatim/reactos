@@ -50,7 +50,7 @@ static class DepMapFactory : public Backend::Factory
 		{
 			return new DepMapBackend(project, configuration);
 		}
-
+		
 } factory;
 
 
@@ -97,7 +97,7 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
 		Module& module = *ProjectNode.modules[i];
-		if ((module.type != Iso) &&
+		if ((module.type != Iso) && 
 			(module.type != LiveIso) &&
 			(module.type != IsoRegTest) &&
 			(module.type != LiveIsoRegTest))
@@ -128,7 +128,7 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 				for ( size_t j = 0; j < libs.size(); j++ )
 				{
 					ModuleMap::iterator it = module_map.find ( libs[j]->name );
-
+					
 					if ( it != module_map.end ())
 					{
 						module_data * data = it->second;
@@ -146,9 +146,9 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 					current_data->libraries.push_back ( libs[j]->name );
 				}
 			}
-		}
+		}	
 	}
-
+	
 	fprintf ( m_DepMapFile, "<?xml version=\"1.0\" encoding=\"iso-8859-1\" ?>\r\n" );
 	fprintf ( m_DepMapFile, "<?xml-stylesheet type=\"text/xsl\" href=\"depmap.xsl\"?>\r\n" );
 	fprintf ( m_DepMapFile, "<components>\r\n" );
@@ -156,20 +156,20 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
 		Module& module = *ProjectNode.modules[i];
-
+		
 		ModuleMap::iterator it = module_map.find ( module.name );
 		if ( it != module_map.end () )
 		{
 			module_data * data = it->second;
-
-
+			
+			
 
 			fprintf ( m_DepMapFile, "\t<component>\r\n" );
 			fprintf ( m_DepMapFile, "\t\t<name>%s</name>\r\n", module.name.c_str () );
-			fprintf ( m_DepMapFile, "\t\t<base>%s</base>\r\n", module.output->relative_path.c_str () );
+			fprintf ( m_DepMapFile, "\t\t<base>%s</base>\r\n", module.GetBasePath ().c_str () );
 			fprintf ( m_DepMapFile, "\t\t<ref_count>%u</ref_count>\r\n", (unsigned int)data->references.size () );
 			fprintf ( m_DepMapFile, "\t\t<lib_count>%u</lib_count>\r\n", (unsigned int)data->libraries.size () );
-#if 0
+#if 0			
 			if ( data->references.size () )
 			{
 				fprintf ( m_DepMapFile, "\t<references>\r\n" );
@@ -179,7 +179,7 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 				}
 				fprintf ( m_DepMapFile, "\t</references>\r\n" );
 			}
-
+			
 			if ( data->libraries.size () )
 			{
 				fprintf ( m_DepMapFile, "\t<libraries>\r\n" );

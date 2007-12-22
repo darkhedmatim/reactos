@@ -38,6 +38,7 @@ Author:
 #include <excpt.h>          // C Standard Header
 #include <stdarg.h>         // C Standard Header
 #include <umtypes.h>        // General Definitions
+#include <intrin.h>         // Use Inlined Intrinsics
 
 //
 // Type Headers

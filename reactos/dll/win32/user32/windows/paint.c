@@ -32,8 +32,6 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
 static HBRUSH FrameBrushes[13];
 static HBITMAP hHatch;
 const DWORD HatchBitmap[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
@@ -149,6 +147,18 @@ GetUpdateRgn(
 }
 
 
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+InvalidateRect(
+  HWND hWnd,
+  CONST RECT *lpRect,
+  BOOL bErase)
+{
+  return RedrawWindow( hWnd, lpRect, 0, RDW_INVALIDATE | (bErase ? RDW_ERASE : 0) ); 
+}
 
 
 /*
@@ -161,7 +171,7 @@ InvalidateRgn(
   HRGN hRgn,
   BOOL bErase)
 {
-  return NtUserInvalidateRgn(hWnd, hRgn, bErase);
+  return RedrawWindow(hWnd, NULL, hRgn, RDW_INVALIDATE | (bErase ? RDW_ERASE : 0) ); 
 }
 
 
@@ -187,16 +197,6 @@ BOOL STDCALL
 ScrollDC(HDC hDC, int dx, int dy, CONST RECT *lprcScroll, CONST RECT *lprcClip,
    HRGN hrgnUpdate, LPRECT lprcUpdate)
 {
-   if (hDC == NULL) return FALSE;
-
-   if (dx == 0 && dy == 0)
-   {
-      if (hrgnUpdate) SetRectRgn(hrgnUpdate, 0, 0, 0, 0);
-      if (lprcUpdate) lprcUpdate->left = lprcUpdate->right =
-                      lprcUpdate->top = lprcUpdate->bottom = 0;
-      return TRUE;
-   }
-
    return NtUserScrollDC(hDC, dx, dy, lprcScroll, lprcClip, hrgnUpdate,
       lprcUpdate);
 }

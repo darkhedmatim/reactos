@@ -13,7 +13,6 @@ extern ULONG MmPagedPoolSize;
 extern ULONG MmTotalPagedPoolQuota;
 extern ULONG MmTotalNonPagedPoolQuota;
 extern PHYSICAL_ADDRESS MmSharedDataPagePhysicalAddress;
-extern ULONG MmNumberOfPhysicalPages;
 
 extern PVOID MmPagedPoolBase;
 extern ULONG MmPagedPoolSize;
@@ -61,10 +60,11 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 #define NR_SECTION_PAGE_ENTRIES             1024
 
 #define TEB_BASE                            0x7FFDE000
+#define KPCR_BASE                           0xFF000000
 
 /* Although Microsoft says this isn't hardcoded anymore,
    they won't be able to change it. Stuff depends on it */
-#define MM_VIRTMEM_GRANULARITY              (64 * 1024)
+#define MM_VIRTMEM_GRANULARITY              (64 * 1024) 
 
 #define STATUS_MM_RESTART_OPERATION         ((NTSTATUS)0xD0000001)
 
@@ -165,7 +165,7 @@ typedef struct
 
 typedef struct _MM_SECTION_SEGMENT
 {
-    LONG FileOffset;		/* start offset into the file for image sections */
+    LONGLONG FileOffset;		/* start offset into the file for image sections */		     
     ULONG_PTR VirtualAddress;	/* dtart offset into the address range for image sections */
     ULONG RawLength;		/* length of the segment which is part of the mapped file */
     ULONG Length;			/* absolute length of the segment */
@@ -184,8 +184,8 @@ typedef struct _MM_IMAGE_SECTION_OBJECT
     ULONG_PTR StackReserve;
     ULONG_PTR StackCommit;
     ULONG_PTR EntryPoint;
-    USHORT Subsystem;
-    USHORT ImageCharacteristics;
+    ULONG Subsystem;
+    ULONG ImageCharacteristics;
     USHORT MinorSubsystemVersion;
     USHORT MajorSubsystemVersion;
     USHORT Machine;
@@ -335,7 +335,7 @@ typedef VOID
 
 /* aspace.c ******************************************************************/
 
-VOID
+VOID 
 NTAPI
 MmLockAddressSpace(PMADDRESS_SPACE AddressSpace);
 
@@ -490,11 +490,11 @@ VOID
 NTAPI
 ExFreeNonPagedPool(PVOID block);
 
-VOID
+VOID 
 NTAPI
 ExFreePagedPool(IN PVOID Block);
 
-VOID
+VOID 
 NTAPI
 MmInitializePagedPool(VOID);
 
@@ -613,11 +613,9 @@ MmShowOutOfSpaceMessagePagingFile(VOID);
 
 NTSTATUS
 NTAPI
-MmInitializeProcessAddressSpace(
+MmCreateProcessAddressSpace(
     IN PEPROCESS Process,
-    IN PEPROCESS Clone OPTIONAL,
-    IN PVOID Section OPTIONAL,
-    IN OUT PULONG Flags,
+    IN PROS_SECTION_OBJECT Section OPTIONAL,
     IN POBJECT_NAME_INFORMATION *AuditName OPTIONAL
 );
 
@@ -805,7 +803,7 @@ MmInitializePageOp(VOID);
 
 PVOID
 NTAPI
-MmCreateKernelStack(BOOLEAN GuiStack, UCHAR Node);
+MmCreateKernelStack(BOOLEAN GuiStack);
 
 VOID
 NTAPI
@@ -821,14 +819,14 @@ MmInitializeMemoryConsumer(
     NTSTATUS (*Trim)(ULONG Target, ULONG Priority, PULONG NrFreed)
 );
 
-VOID
+VOID 
 NTAPI
 MmInitializeBalancer(
     ULONG NrAvailablePages,
     ULONG NrSystemPages
 );
 
-NTSTATUS
+NTSTATUS 
 NTAPI
 MmReleasePageMemoryConsumer(
     ULONG Consumer,
@@ -1192,26 +1190,12 @@ MmGetPfnForProcess(
     PVOID Address
 );
 
-BOOLEAN
-NTAPI
-MmCreateProcessAddressSpace(
-    IN ULONG MinWs,
-    IN PEPROCESS Dest,
-    IN PLARGE_INTEGER DirectoryTableBase
-);
-
 NTSTATUS
 NTAPI
-MmInitializeHandBuiltProcess(
-    IN PEPROCESS Process,
-    IN PLARGE_INTEGER DirectoryTableBase
-);
-
-
-NTSTATUS
-NTAPI
-MmInitializeHandBuiltProcess2(
-    IN PEPROCESS Process
+MmCopyMmInfo(
+    struct _EPROCESS *Src,
+    struct _EPROCESS *Dest,
+    PPHYSICAL_ADDRESS DirectoryTableBase
 );
 
 NTSTATUS
@@ -1326,7 +1310,7 @@ MmGetFileNameForSection(
     OUT POBJECT_NAME_INFORMATION *ModuleName
 );
 
-PVOID
+PVOID 
 NTAPI
 MmAllocateSection(
     IN ULONG Length,
@@ -1473,15 +1457,5 @@ MmCheckSystemImage(
     IN HANDLE ImageHandle,
     IN BOOLEAN PurgeSection
 );
-
-FORCEINLINE
-VOID
-NTAPI
-MiSyncThreadProcessViews(IN PVOID Process,
-                         IN PVOID Address,
-                         IN ULONG Size)
-{
-    MmUpdatePageDir((PEPROCESS)Process, Address, Size);
-}
 
 #endif

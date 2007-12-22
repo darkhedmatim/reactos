@@ -15,7 +15,7 @@
 #include <include/class2.h>
 #include <stdio.h>
 
-#define NDEBUG
+//#define NDEBUG
 #include <debug.h>
 
 #define IO_WRITE_CACHE_ENABLED  ((NTSTATUS)0x80040020L)
@@ -27,12 +27,6 @@
 #endif
 #define ExAllocatePool(a,b) ExAllocatePoolWithTag(a,b,'DscS')
 #endif
-
-typedef enum {
-    NotInitialized,
-    Initializing,
-    Initialized
-} PARTITION_LIST_STATE;
 
 //
 // Disk device data
@@ -106,16 +100,10 @@ typedef struct _DISK_DATA {
 
     //
     // DriveNotReady - inidicates that the this device is currenly not ready
-    // because there is no media in the device.
+    // beacasue there is no media in the device.
     //
 
     BOOLEAN DriveNotReady;
-
-    //
-    // State of PartitionList initialization
-    //
-
-    PARTITION_LIST_STATE PartitionListState;
 
 } DISK_DATA, *PDISK_DATA;
 
@@ -280,13 +268,6 @@ CreateDiskDeviceObject(
     IN PIO_SCSI_CAPABILITIES PortCapabilities,
     IN PSCSI_INQUIRY_DATA LunInfo,
     IN PCLASS_INIT_DATA InitData
-    );
-
-NTSTATUS
-STDCALL
-CreatePartitionDeviceObjects(
-    IN PDEVICE_OBJECT PhysicalDeviceObject,
-    IN PUNICODE_STRING RegistryPath
     );
 
 VOID
@@ -647,21 +628,30 @@ Return Value:
     CCHAR          ntNameBuffer[MAXIMUM_FILENAME_LENGTH];
     STRING         ntNameString;
     UNICODE_STRING ntUnicodeString;
+    ULONG          partitionNumber = 0;
     OBJECT_ATTRIBUTES objectAttributes;
     HANDLE         handle;
     NTSTATUS       status;
     PDEVICE_OBJECT deviceObject = NULL;
     PDEVICE_OBJECT physicalDevice;
     PDISK_GEOMETRY diskGeometry = NULL;
+    PDRIVE_LAYOUT_INFORMATION partitionList;
     PDEVICE_EXTENSION deviceExtension = NULL;
     PDEVICE_EXTENSION physicalDeviceExtension;
+    PDISK_DATA     diskData;
+    ULONG          bytesPerSector;
+    UCHAR          sectorShift;
     UCHAR          pathId = LunInfo->PathId;
     UCHAR          targetId = LunInfo->TargetId;
     UCHAR          lun = LunInfo->Lun;
     BOOLEAN        writeCache;
     PVOID          senseData = NULL;
     ULONG          srbFlags;
+    ULONG          dmByteSkew = 0;
+    PULONG         dmSkew;
+    BOOLEAN        dmActive = FALSE;
     ULONG          timeOut = 0;
+    ULONG          numberListElements = 0;
     BOOLEAN        srbListInitialized = FALSE;
 
 
@@ -1005,88 +995,19 @@ Return Value:
         deviceObject->Flags &= ~DO_VERIFY_VOLUME;
     }
 
-    status = CreatePartitionDeviceObjects(deviceObject, RegistryPath);
-
-    if (NT_SUCCESS(status))
-        return STATUS_SUCCESS;
-
-
-CreateDiskDeviceObjectsExit:
-
     //
-    // Release the device since an error occurred.
+    // Set up sector size fields.
     //
-
-    ScsiClassClaimDevice(PortDeviceObject,
-                         LunInfo,
-                         TRUE,
-                         NULL);
-
-    if (diskGeometry != NULL) {
-        ExFreePool(diskGeometry);
-    }
-
-    if (senseData != NULL) {
-        ExFreePool(senseData);
-    }
-
-    if (deviceObject != NULL) {
-
-        if (srbListInitialized) {
-            ExDeleteNPagedLookasideList(&deviceExtension->SrbLookasideListHead);
-        }
-
-        IoDeleteDevice(deviceObject);
-    }
-
+    // Stack variables will be used to update
+    // the partition device extensions.
     //
-    // Delete directory and return.
+    // The device extension field SectorShift is
+    // used to calculate sectors in I/O transfers.
+    //
+    // The DiskGeometry structure is used to service
+    // IOCTls used by the format utility.
     //
 
-    if (!NT_SUCCESS(status)) {
-        ZwMakeTemporaryObject(handle);
-    }
-
-    ZwClose(handle);
-
-    return(status);
-
-} // end CreateDiskDeviceObjects()
-
-
-NTSTATUS
-STDCALL
-CreatePartitionDeviceObjects(
-    IN PDEVICE_OBJECT PhysicalDeviceObject,
-    IN PUNICODE_STRING RegistryPath
-    )
-{
-    CCHAR          ntNameBuffer[MAXIMUM_FILENAME_LENGTH];
-    ULONG          partitionNumber = 0;
-    NTSTATUS       status;
-    PDEVICE_OBJECT deviceObject = NULL;
-    PDISK_GEOMETRY diskGeometry = NULL;
-    PDRIVE_LAYOUT_INFORMATION partitionList = NULL;
-    PDEVICE_EXTENSION deviceExtension;
-    PDEVICE_EXTENSION physicalDeviceExtension;
-    PCLASS_INIT_DATA initData = NULL;
-    PDISK_DATA     diskData;
-    PDISK_DATA     physicalDiskData;
-    ULONG          bytesPerSector;
-    UCHAR          sectorShift;
-    ULONG          srbFlags;
-    ULONG          dmByteSkew = 0;
-    PULONG         dmSkew;
-    BOOLEAN        dmActive = FALSE;
-    ULONG          numberListElements = 0;
-
-
-    //
-    // Get physical device geometry information for partition table reads.
-    //
-
-    physicalDeviceExtension = PhysicalDeviceObject->DeviceExtension;
-    diskGeometry = physicalDeviceExtension->DiskGeometry;
     bytesPerSector = diskGeometry->BytesPerSector;
 
     //
@@ -1102,14 +1023,13 @@ CreatePartitionDeviceObjects(
         bytesPerSector = diskGeometry->BytesPerSector = 512;
     }
 
-    sectorShift = physicalDeviceExtension->SectorShift;
+    sectorShift = deviceExtension->SectorShift;
 
     //
     // Set pointer to disk data area that follows device extension.
     //
 
-    diskData = (PDISK_DATA)(physicalDeviceExtension + 1);
-    diskData->PartitionListState = Initializing;
+    diskData = (PDISK_DATA)(deviceExtension + 1);
 
     //
     // Determine is DM Driver is loaded on an IDE drive that is
@@ -1117,8 +1037,8 @@ CreatePartitionDeviceObjects(
     // an Atapi device is sharing the controller with an IDE disk.
     //
 
-    HalExamineMBR(PhysicalDeviceObject,
-                  physicalDeviceExtension->DiskGeometry->BytesPerSector,
+    HalExamineMBR(deviceExtension->DeviceObject,
+                  deviceExtension->DiskGeometry->BytesPerSector,
                   (ULONG)0x54,
                   (PVOID)&dmSkew);
 
@@ -1130,9 +1050,9 @@ CreatePartitionDeviceObjects(
         // to be skewed by *dmSkew sectors aka DMByteSkew.
         //
 
-        physicalDeviceExtension->DMSkew = *dmSkew;
-        physicalDeviceExtension->DMActive = TRUE;
-        physicalDeviceExtension->DMByteSkew = physicalDeviceExtension->DMSkew * bytesPerSector;
+        deviceExtension->DMSkew = *dmSkew;
+        deviceExtension->DMActive = TRUE;
+        deviceExtension->DMByteSkew = deviceExtension->DMSkew * bytesPerSector;
 
         //
         // Save away the infomation that we need, since this deviceExtension will soon be
@@ -1140,7 +1060,7 @@ CreatePartitionDeviceObjects(
         //
 
         dmActive = TRUE;
-        dmByteSkew = physicalDeviceExtension->DMByteSkew;
+        dmByteSkew = deviceExtension->DMByteSkew;
 
     }
 
@@ -1148,8 +1068,8 @@ CreatePartitionDeviceObjects(
     // Create objects for all the partitions on the device.
     //
 
-    status = IoReadPartitionTable(PhysicalDeviceObject,
-                                  physicalDeviceExtension->DiskGeometry->BytesPerSector,
+    status = IoReadPartitionTable(deviceObject,
+                                  deviceExtension->DiskGeometry->BytesPerSector,
                                   TRUE,
                                   (PVOID)&partitionList);
 
@@ -1158,9 +1078,9 @@ CreatePartitionDeviceObjects(
     // then fix up the partition list to make it look like there is one
     // zero length partition.
     //
-    DPRINT("IoReadPartitionTable() status: 0x%08X\n", status);
+
     if ((!NT_SUCCESS(status) || partitionList->PartitionCount == 0) &&
-        PhysicalDeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) {
+        deviceObject->Characteristics & FILE_REMOVABLE_MEDIA) {
 
         if (!NT_SUCCESS(status)) {
 
@@ -1216,53 +1136,28 @@ CreatePartitionDeviceObjects(
 
         if (!diskData->Signature) {
 
-            if (!CalculateMbrCheckSum(physicalDeviceExtension,
+            if (!CalculateMbrCheckSum(deviceExtension,
                                       &diskData->MbrCheckSum)) {
 
                 DebugPrint((1,
                             "SCSIDISK: Can't calculate MBR checksum for disk %x\n",
-                            physicalDeviceExtension->DeviceNumber));
+                            deviceExtension->DeviceNumber));
             } else {
 
                 DebugPrint((2,
                            "SCSIDISK: MBR checksum for disk %x is %x\n",
-                           physicalDeviceExtension->DeviceNumber,
+                           deviceExtension->DeviceNumber,
                            diskData->MbrCheckSum));
             }
         }
+
 
         //
         // Check the registry and determine if the BIOS knew about this drive.  If
         // it did then update the geometry with the BIOS information.
         //
 
-        UpdateGeometry(physicalDeviceExtension);
-
-        srbFlags = physicalDeviceExtension->SrbFlags;
-
-        initData = ExAllocatePool(NonPagedPool, sizeof(CLASS_INIT_DATA));
-        if (!initData)
-        {
-            DebugPrint((1,
-                        "Disk.CreatePartionDeviceObjects - Allocation of initData failed\n"));
-
-            status = STATUS_INSUFFICIENT_RESOURCES;
-            goto CreatePartitionDeviceObjectsExit;
-        }
-
-        RtlZeroMemory(initData, sizeof(CLASS_INIT_DATA));
-
-        initData->InitializationDataSize     = sizeof(CLASS_INIT_DATA);
-        initData->DeviceExtensionSize        = DEVICE_EXTENSION_SIZE;
-        initData->DeviceType                 = FILE_DEVICE_DISK;
-        initData->DeviceCharacteristics      = PhysicalDeviceObject->Characteristics;
-        initData->ClassError                 = physicalDeviceExtension->ClassError;
-        initData->ClassReadWriteVerification = physicalDeviceExtension->ClassReadWriteVerification;
-        initData->ClassFindDevices           = physicalDeviceExtension->ClassFindDevices;
-        initData->ClassDeviceControl         = physicalDeviceExtension->ClassDeviceControl;
-        initData->ClassShutdownFlush         = physicalDeviceExtension->ClassShutdownFlush;
-        initData->ClassCreateClose           = physicalDeviceExtension->ClassCreateClose;
-        initData->ClassStartIo               = physicalDeviceExtension->ClassStartIo;
+        UpdateGeometry(deviceExtension);
 
         //
         // Create device objects for the device partitions (if any).
@@ -1283,18 +1178,18 @@ CreatePartitionDeviceObjects(
 
             sprintf(ntNameBuffer,
                     "\\Device\\Harddisk%lu\\Partition%lu",
-                    physicalDeviceExtension->DeviceNumber,
+                    *DeviceCount,
                     partitionNumber + 1);
 
             DebugPrint((2,
                         "CreateDiskDeviceObjects: Create device object %s\n",
                         ntNameBuffer));
 
-            status = ScsiClassCreateDeviceObject(PhysicalDeviceObject->DriverObject,
+            status = ScsiClassCreateDeviceObject(DriverObject,
                                                  ntNameBuffer,
-                                                 PhysicalDeviceObject,
+                                                 physicalDevice,
                                                  &deviceObject,
-                                                 initData);
+                                                 InitData);
 
             if (!NT_SUCCESS(status)) {
 
@@ -1319,7 +1214,7 @@ CreatePartitionDeviceObjects(
                 deviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
             }
 
-            deviceObject->StackSize = (CCHAR)physicalDeviceExtension->PortDeviceObject->StackSize + 1;
+            deviceObject->StackSize = (CCHAR)PortDeviceObject->StackSize + 1;
 
             //
             // Set up device extension fields.
@@ -1369,15 +1264,16 @@ CreatePartitionDeviceObjects(
             // Copy port device object pointer to device extension.
             //
 
-            deviceExtension->PortDeviceObject = physicalDeviceExtension->PortDeviceObject;
+            deviceExtension->PortDeviceObject = PortDeviceObject;
+            deviceExtension->PortNumber = (UCHAR)PortNumber;
 
             //
             // Set the alignment requirements for the device based on the
             // host adapter requirements
             //
 
-            if (physicalDeviceExtension->PortDeviceObject->AlignmentRequirement > deviceObject->AlignmentRequirement) {
-                deviceObject->AlignmentRequirement = physicalDeviceExtension->PortDeviceObject->AlignmentRequirement;
+            if (PortDeviceObject->AlignmentRequirement > deviceObject->AlignmentRequirement) {
+                deviceObject->AlignmentRequirement = PortDeviceObject->AlignmentRequirement;
             }
 
 
@@ -1401,8 +1297,8 @@ CreatePartitionDeviceObjects(
             // Set the sense-data pointer in the device extension.
             //
 
-            deviceExtension->SenseData        = physicalDeviceExtension->SenseData;
-            deviceExtension->PortCapabilities = physicalDeviceExtension->PortCapabilities;
+            deviceExtension->SenseData        = senseData;
+            deviceExtension->PortCapabilities = PortCapabilities;
             deviceExtension->DiskGeometry     = diskGeometry;
             diskData->PartitionOrdinal        = diskData->PartitionNumber = partitionNumber + 1;
             diskData->PartitionType           = partitionList->PartitionEntry[partitionNumber].PartitionType;
@@ -1414,16 +1310,16 @@ CreatePartitionDeviceObjects(
             deviceExtension->StartingOffset  = partitionList->PartitionEntry[partitionNumber].StartingOffset;
             deviceExtension->PartitionLength = partitionList->PartitionEntry[partitionNumber].PartitionLength;
             diskData->HiddenSectors          = partitionList->PartitionEntry[partitionNumber].HiddenSectors;
-            deviceExtension->PortNumber      = physicalDeviceExtension->PortNumber;
-            deviceExtension->PathId          = physicalDeviceExtension->PathId;
-            deviceExtension->TargetId        = physicalDeviceExtension->TargetId;
-            deviceExtension->Lun             = physicalDeviceExtension->Lun;
+            deviceExtension->PortNumber      = (UCHAR)PortNumber;
+            deviceExtension->PathId          = pathId;
+            deviceExtension->TargetId        = targetId;
+            deviceExtension->Lun             = lun;
 
             //
             // Check for removable media support.
             //
 
-            if (PhysicalDeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) {
+            if (((PINQUIRYDATA)LunInfo->InquiryData)->RemovableMedia) {
                 deviceObject->Characteristics |= FILE_REMOVABLE_MEDIA;
             }
 
@@ -1431,7 +1327,7 @@ CreatePartitionDeviceObjects(
             // Set timeout value in seconds.
             //
 
-            deviceExtension->TimeOutValue = physicalDeviceExtension->TimeOutValue;
+            deviceExtension->TimeOutValue = SCSI_DISK_TIMEOUT;
             deviceExtension->DiskGeometry->BytesPerSector = bytesPerSector;
             deviceExtension->SectorShift  = sectorShift;
             deviceExtension->DeviceObject = deviceObject;
@@ -1448,27 +1344,54 @@ CreatePartitionDeviceObjects(
 
     } else {
 
-CreatePartitionDeviceObjectsExit:
-
-        if (partitionList) {
-            ExFreePool(partitionList);
-        }
-        if (initData) {
-            ExFreePool(initData);
-        }
-
-        return status;
+        DebugPrint((1,
+                    "CreateDiskDeviceObjects: IoReadPartitionTable failed\n"));
 
     } // end if...else
 
-
-    physicalDiskData = (PDISK_DATA)(physicalDeviceExtension + 1);
-    physicalDiskData->PartitionListState = Initialized;
-
     return(STATUS_SUCCESS);
 
+CreateDiskDeviceObjectsExit:
 
-} // end CreatePartitionDeviceObjects()
+    //
+    // Release the device since an error occurred.
+    //
+
+    ScsiClassClaimDevice(PortDeviceObject,
+                         LunInfo,
+                         TRUE,
+                         NULL);
+
+    if (diskGeometry != NULL) {
+        ExFreePool(diskGeometry);
+    }
+
+    if (senseData != NULL) {
+        ExFreePool(senseData);
+    }
+
+    if (deviceObject != NULL) {
+
+        if (srbListInitialized) {
+            ExDeleteNPagedLookasideList(&deviceExtension->SrbLookasideListHead);
+        }
+
+        IoDeleteDevice(deviceObject);
+    }
+
+    //
+    // Delete directory and return.
+    //
+
+    if (!NT_SUCCESS(status)) {
+        ZwMakeTemporaryObject(handle);
+    }
+
+    ZwClose(handle);
+
+    return(status);
+
+} // end CreateDiskDeviceObjects()
 
 
 NTSTATUS
@@ -2014,12 +1937,6 @@ Return Value:
     }
 
     case IOCTL_DISK_GET_DRIVE_GEOMETRY:
-        {
-
-        PDEVICE_EXTENSION physicalDeviceExtension;
-        PDISK_DATA        physicalDiskData;
-        BOOLEAN           removable = FALSE;
-        BOOLEAN           listInitialized = FALSE;
 
         if ( irpStack->Parameters.DeviceIoControl.OutputBufferLength <
             sizeof( DISK_GEOMETRY ) ) {
@@ -2028,26 +1945,14 @@ Return Value:
             break;
         }
 
-        status = STATUS_SUCCESS;
+        if (DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) {
 
-        physicalDeviceExtension = deviceExtension->PhysicalDevice->DeviceExtension;
-        physicalDiskData = (PDISK_DATA)(physicalDeviceExtension + 1);
-
-        removable = (BOOLEAN)DeviceObject->Characteristics & FILE_REMOVABLE_MEDIA;
-        listInitialized = (physicalDiskData->PartitionListState == Initialized);
-
-        if (removable || (!listInitialized))
-        {
             //
             // Issue ReadCapacity to update device extension
             // with information for current media.
             //
 
             status = ScsiClassReadDriveCapacity(deviceExtension->PhysicalDevice);
-
-        }
-
-        if (removable) {
 
             if (!NT_SUCCESS(status)) {
 
@@ -2065,33 +1970,20 @@ Return Value:
             //
 
             diskData->DriveNotReady = FALSE;
-
-        } else if (NT_SUCCESS(status)) {
-
-            // ReadDriveCapacity was allright, create Partition Objects
-
-            if (physicalDiskData->PartitionListState == NotInitialized) {
-                    status = CreatePartitionDeviceObjects(deviceExtension->PhysicalDevice, NULL);
-            }
         }
 
-        if (NT_SUCCESS(status)) {
+        //
+        // Copy drive geometry information from device extension.
+        //
 
-            //
-            // Copy drive geometry information from device extension.
-            //
+        RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer,
+                      deviceExtension->DiskGeometry,
+                      sizeof(DISK_GEOMETRY));
 
-            RtlMoveMemory(Irp->AssociatedIrp.SystemBuffer,
-                          deviceExtension->DiskGeometry,
-                          sizeof(DISK_GEOMETRY));
-
-            status = STATUS_SUCCESS;
-            Irp->IoStatus.Information = sizeof(DISK_GEOMETRY);
-        }
+        status = STATUS_SUCCESS;
+        Irp->IoStatus.Information = sizeof(DISK_GEOMETRY);
 
         break;
-
-        }
 
     case IOCTL_DISK_VERIFY:
 

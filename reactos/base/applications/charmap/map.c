@@ -1,20 +1,11 @@
-/*
- * PROJECT:     ReactOS Character Map
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/charmap/map.c
- * PURPOSE:     class implementation for painting glyph region
- * COPYRIGHT:   Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
- *
- */
-
 #include <precomp.h>
 
-static const WCHAR szMapWndClass[] = L"FontMapWnd";
-static const WCHAR szLrgCellWndClass[] = L"LrgCellWnd";
+static const TCHAR szMapWndClass[] = TEXT("FontMapWnd");
+static const TCHAR szLrgCellWndClass[] = TEXT("LrgCellWnd");
 
 static VOID
 TagFontToCell(PCELL pCell,
-              WCHAR ch)
+              TCHAR ch)
 {
     pCell->ch = ch;
 }
@@ -82,7 +73,7 @@ FillGrid(PMAP infoPtr,
          HDC hdc)
 {
     HFONT hOldFont;
-    WCHAR ch;
+    TCHAR ch;
     INT x, y;
 
     hOldFont = SelectObject(hdc,
@@ -91,15 +82,15 @@ FillGrid(PMAP infoPtr,
     for (y = 0; y < YCELLS; y++)
     for (x = 0; x < XCELLS; x++)
     {
-        ch = (WCHAR)((XCELLS * (y + infoPtr->iYStart)) + x);
+        ch = (TCHAR)((256 * infoPtr->iPage) + (XCELLS * y) + x);
 
         TagFontToCell(&infoPtr->Cells[y][x], ch);
 
-        DrawTextW(hdc,
-                  &ch,
-                  1,
-                  &infoPtr->Cells[y][x].CellInt,
-                  DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        DrawText(hdc,
+                 &ch,
+                 1,
+                 &infoPtr->Cells[y][x].CellInt,
+                 DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
     SelectObject(hdc,
@@ -124,18 +115,18 @@ CreateLargeCell(PMAP infoPtr)
                 XLARGE - XCELLS,
                 YLARGE - YCELLS);
 
-    infoPtr->hLrgWnd = CreateWindowExW(0,
-                                       szLrgCellWndClass,
-                                       NULL,
-                                       WS_CHILDWINDOW | WS_VISIBLE,
-                                       rLarge.left,
-                                       rLarge.top,
-                                       rLarge.right - rLarge.left,
-                                       rLarge.bottom - rLarge.top,
-                                       infoPtr->hParent,
-                                       NULL,
-                                       hInstance,
-                                       infoPtr);
+    infoPtr->hLrgWnd = CreateWindowEx(0,
+                                      szLrgCellWndClass,
+                                      NULL,
+                                      WS_CHILDWINDOW | WS_VISIBLE,
+                                      rLarge.left,
+                                      rLarge.top,
+                                      rLarge.right - rLarge.left,
+                                      rLarge.bottom - rLarge.top,
+                                      infoPtr->hParent,
+                                      NULL,
+                                      hInstance,
+                                      infoPtr);
     if (!infoPtr->hLrgWnd)
         return FALSE;
 
@@ -175,7 +166,7 @@ MoveLargeCell(PMAP infoPtr)
 
 static VOID
 SetFont(PMAP infoPtr,
-        LPWSTR lpFontName)
+        LPTSTR lpFontName)
 {
     HDC hdc;
 
@@ -183,7 +174,7 @@ SetFont(PMAP infoPtr,
         DeleteObject(infoPtr->hFont);
 
     ZeroMemory(&infoPtr->CurrentFont,
-               sizeof(LOGFONTW));
+               sizeof(LOGFONT));
 
     hdc = GetDC(infoPtr->hMapWnd);
     infoPtr->CurrentFont.lfHeight = GetDeviceCaps(hdc,
@@ -191,10 +182,10 @@ SetFont(PMAP infoPtr,
     ReleaseDC(infoPtr->hMapWnd, hdc);
 
     infoPtr->CurrentFont.lfCharSet =  DEFAULT_CHARSET;
-    wcscpy(infoPtr->CurrentFont.lfFaceName,
-           lpFontName);
+    lstrcpy(infoPtr->CurrentFont.lfFaceName,
+            lpFontName);
 
-    infoPtr->hFont = CreateFontIndirectW(&infoPtr->CurrentFont);
+    infoPtr->hFont = CreateFontIndirect(&infoPtr->CurrentFont);
 
     InvalidateRect(infoPtr->hMapWnd,
                    NULL,
@@ -205,22 +196,25 @@ SetFont(PMAP infoPtr,
 static LRESULT
 NotifyParentOfSelection(PMAP infoPtr,
                         UINT code,
-                        WCHAR ch)
+                        TCHAR ch)
 {
     LRESULT Ret = 0;
 
     if (infoPtr->hParent != NULL)
     {
-        DWORD dwIdc = GetWindowLongPtr(infoPtr->hMapWnd, GWLP_ID);
-        /*
-         * Push directly into the event queue instead of waiting
-         * the parent to be unlocked.
-         * High word of LPARAM is still available for future needs...
-         */
-        Ret = PostMessage(infoPtr->hParent,
-                          WM_COMMAND,
-                          MAKELPARAM((WORD)dwIdc, (WORD)code),
-                          (LPARAM)LOWORD(ch));
+        MAPNOTIFY mnmh;
+
+        mnmh.hdr.hwndFrom = infoPtr->hMapWnd;
+        mnmh.hdr.idFrom = GetWindowLongPtr(infoPtr->hMapWnd,
+                                           GWLP_ID);
+        mnmh.hdr.code = code;
+
+        mnmh.ch = ch;
+
+        Ret = SendMessage(infoPtr->hParent,
+                          WM_NOTIFY,
+                          (WPARAM)mnmh.hdr.idFrom,
+                          (LPARAM)&mnmh);
     }
 
     return Ret;
@@ -308,9 +302,9 @@ OnCreate(PMAP infoPtr,
     if (infoPtr)
     {
         SetLastError(0);
-        SetWindowLongPtrW(hwnd,
-                          0,
-                          (DWORD_PTR)infoPtr);
+        SetWindowLongPtr(hwnd,
+                         0,
+                         (DWORD_PTR)infoPtr);
         if (GetLastError() == 0)
         {
             ZeroMemory(infoPtr,
@@ -345,67 +339,44 @@ OnVScroll(PMAP infoPtr,
           INT Value,
           INT Pos)
 {
-    INT iYDiff, iOldYStart = infoPtr->iYStart;
-
     switch (Value)
     {
         case SB_LINEUP:
-            infoPtr->iYStart -=  1;
+            infoPtr->iPage -=  1;
             break;
 
         case SB_LINEDOWN:
-            infoPtr->iYStart +=  1;
+            infoPtr->iPage +=  1;
             break;
 
         case SB_PAGEUP:
-            infoPtr->iYStart -= YCELLS;
+            infoPtr->iPage -= 16;
             break;
 
         case SB_PAGEDOWN:
-            infoPtr->iYStart += YCELLS;
+            infoPtr->iPage += 16;
             break;
 
-        case SB_THUMBTRACK:
-            infoPtr->iYStart = Pos;
+        case SB_THUMBPOSITION:
+            infoPtr->iPage = Pos;
             break;
 
        default:
             break;
        }
 
-    infoPtr->iYStart = max(0,
-                         min(infoPtr->iYStart, 255*16));
+    infoPtr->iPage = max(0,
+                         min(infoPtr->iPage,
+                             255));
 
-    iYDiff = iOldYStart - infoPtr->iYStart;
-    if (iYDiff)
-    {
-        SetScrollPos(infoPtr->hMapWnd,
-                     SB_VERT,
-                     infoPtr->iYStart,
-                     TRUE);
+    SetScrollPos(infoPtr->hMapWnd,
+                 SB_VERT,
+                 infoPtr->iPage,
+                 TRUE);
 
-        if (abs(iYDiff) < YCELLS)
-        {
-            RECT rect;
-            GetClientRect(infoPtr->hMapWnd, &rect);
-            rect.top += 2;
-            rect.bottom -= 2;
-            ScrollWindowEx(infoPtr->hMapWnd,
-                           0,
-                           iYDiff * infoPtr->CellSize.cy,
-                           &rect,
-                           &rect,
-                           NULL,
-                           NULL,
-                           SW_INVALIDATE);
-        }
-        else
-        {
-            InvalidateRect(infoPtr->hMapWnd,
-                           NULL,
-                           TRUE);
-        }
-    }
+    InvalidateRect(infoPtr->hMapWnd,
+                   NULL,
+                   TRUE);
 }
 
 
@@ -460,8 +431,8 @@ MapWndProc(HWND hwnd,
     PMAP infoPtr;
     LRESULT Ret = 0;
 
-    infoPtr = (PMAP)GetWindowLongPtrW(hwnd,
-                                      0);
+    infoPtr = (PMAP)GetWindowLongPtr(hwnd,
+                                     0);
 
     switch (uMsg)
     {
@@ -506,8 +477,18 @@ MapWndProc(HWND hwnd,
         }
 
         case FM_SETFONT:
-            SetFont(infoPtr, (LPWSTR)lParam);
+        {
+            LPTSTR lpFontName = (LPTSTR)lParam;
+
+            SetFont(infoPtr,
+                    lpFontName);
+
+            HeapFree(GetProcessHeap(),
+                     0,
+                     lpFontName);
+
             break;
+        }
 
         case FM_GETCHAR:
         {
@@ -528,18 +509,18 @@ MapWndProc(HWND hwnd,
             HeapFree(GetProcessHeap(),
                      0,
                      infoPtr);
-            SetWindowLongPtrW(hwnd,
-                              0,
-                              (DWORD_PTR)NULL);
+            SetWindowLongPtr(hwnd,
+                             0,
+                             (DWORD_PTR)NULL);
             break;
         }
 
         default:
         {
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
+            Ret = DefWindowProc(hwnd,
+                                uMsg,
+                                wParam,
+                                lParam);
             break;
         }
     }
@@ -551,24 +532,24 @@ MapWndProc(HWND hwnd,
 BOOL
 RegisterMapClasses(HINSTANCE hInstance)
 {
-    WNDCLASSW wc = {0};
+    WNDCLASS wc = {0};
 
     wc.style = CS_DBLCLKS;
     wc.lpfnWndProc = MapWndProc;
     wc.cbWndExtra = sizeof(PMAP);
     wc.hInstance = hInstance;
-    wc.hCursor = LoadCursorW(NULL,
-                            (LPWSTR)IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL,
+                            (LPTSTR)IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = szMapWndClass;
 
-    if (RegisterClassW(&wc))
+    if (RegisterClass(&wc))
     {
         wc.lpfnWndProc = LrgCellWndProc;
         wc.cbWndExtra = 0;
         wc.lpszClassName = szLrgCellWndClass;
 
-        return RegisterClassW(&wc) != 0;
+        return RegisterClass(&wc) != 0;
     }
 
     return FALSE;
@@ -577,9 +558,9 @@ RegisterMapClasses(HINSTANCE hInstance)
 VOID
 UnregisterMapClasses(HINSTANCE hInstance)
 {
-    UnregisterClassW(szMapWndClass,
+    UnregisterClass(szMapWndClass,
                     hInstance);
 
-    UnregisterClassW(szLrgCellWndClass,
+    UnregisterClass(szLrgCellWndClass,
                     hInstance);
 }

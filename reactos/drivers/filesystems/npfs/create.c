@@ -532,7 +532,7 @@ NpfsCreateNamedPipe(PDEVICE_OBJECT DeviceObject,
 	Ccb->PipeState = FILE_PIPE_LISTENING_STATE;
 	Ccb->OtherSide = NULL;
 
-	DPRINT("CCB: %p\n", Ccb);
+	DPRINT("CCB: %x\n", Ccb);
 
 	KeInitializeEvent(&Ccb->ConnectEvent, SynchronizationEvent, FALSE);
 	KeInitializeEvent(&Ccb->ReadEvent, SynchronizationEvent, FALSE);
@@ -718,7 +718,7 @@ NpfsClose(PDEVICE_OBJECT DeviceObject,
 		return STATUS_SUCCESS;
 	}
 
-	DPRINT("CCB %p\n", Ccb);
+	DPRINT("CCB %x\n", Ccb);
 	Fcb = Ccb->Fcb;
 
 	DPRINT("Closing pipe %wZ\n", &Fcb->PipeName);

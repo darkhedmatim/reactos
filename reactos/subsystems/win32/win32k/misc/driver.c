@@ -54,13 +54,13 @@ BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PGD_ENABLEDRIVER  EnableDriver)
     Driver->Name = ExAllocatePoolWithTag(PagedPool,
                                          (wcslen(Name) + 1) * sizeof(WCHAR),
                                          TAG_DRIVER);
-    if (Driver->Name == NULL)
+    if (Driver->Name == NULL)                                         
     {
         DPRINT1("Out of memory\n");
         ExFreePool(Driver);
         return  FALSE;
     }
-
+    
     wcscpy(Driver->Name, Name);
     Driver->Next  = DriverList;
     DriverList = Driver;
@@ -77,27 +77,12 @@ BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PGD_ENABLEDRIVER  EnableDriver)
   return  TRUE;
 }
 
-PGD_ENABLEDRIVER DRIVER_FindExistingDDIDriver(LPCWSTR Name)
-{
-  GRAPHICS_DRIVER *Driver = DriverList;
-  while (Driver && Name)
-  {
-    if (!_wcsicmp(Driver->Name, Name))
-    {
-      return Driver->EnableDriver;
-    }
-    Driver = Driver->Next;
-  }
-
-  return NULL;
-}
-
 PGD_ENABLEDRIVER DRIVER_FindDDIDriver(LPCWSTR Name)
 {
   static WCHAR DefaultPath[] = L"\\SystemRoot\\System32\\";
   static WCHAR DefaultExtension[] = L".DLL";
-  PGD_ENABLEDRIVER ExistingDriver;
   SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
+  GRAPHICS_DRIVER *Driver = DriverList;
   NTSTATUS Status;
   LPWSTR FullName;
   LPCWSTR p;
@@ -152,26 +137,22 @@ PGD_ENABLEDRIVER DRIVER_FindDDIDriver(LPCWSTR Name)
   }
 
   /* First see if the driver hasn't already been loaded */
-  ExistingDriver = DRIVER_FindExistingDDIDriver(FullName);
-  if (ExistingDriver)
+  while (Driver && FullName)
   {
-    ExFreePool(FullName);
-    return ExistingDriver;
+    if (!_wcsicmp( Driver->Name, FullName))
+    {
+      return Driver->EnableDriver;
+    }
+    Driver = Driver->Next;
   }
 
   /* If not, then load it */
   RtlInitUnicodeString (&GdiDriverInfo.DriverName, FullName);
   Status = ZwSetSystemInformation (SystemLoadGdiDriverInformation, &GdiDriverInfo, sizeof(SYSTEM_GDI_DRIVER_INFORMATION));
-
-  if (!NT_SUCCESS(Status))
-  {
-    ExFreePool(FullName);
-    return NULL;
-  }
+  ExFreePool(FullName);
+  if (!NT_SUCCESS(Status)) return NULL;
 
   DRIVER_RegisterDriver( L"DISPLAY", GdiDriverInfo.EntryPoint);
-  DRIVER_RegisterDriver( FullName, GdiDriverInfo.EntryPoint);
-  ExFreePool(FullName);
   return (PGD_ENABLEDRIVER)GdiDriverInfo.EntryPoint;
 }
 
@@ -284,7 +265,6 @@ TRACEDRV_ROUTINE(GetDirectDrawInfo)
 TRACEDRV_ROUTINE(EnableDirectDraw)
 TRACEDRV_ROUTINE(DisableDirectDraw)
 TRACEDRV_ROUTINE(QuerySpoolType)
-TRACEDRV_ROUTINE(IcmSetDeviceGammaRamp)
 TRACEDRV_ROUTINE(GradientFill)
 TRACEDRV_ROUTINE(SynchronizeSurface)
 TRACEDRV_ROUTINE(AlphaBlend)
@@ -353,7 +333,6 @@ static TRACEDRVINFO TraceDrvInfo[] =
     TRACEDRVINFO_ENTRY(EnableDirectDraw),
     TRACEDRVINFO_ENTRY(DisableDirectDraw),
     TRACEDRVINFO_ENTRY(QuerySpoolType),
-    TRACEDRVINFO_ENTRY(IcmSetDeviceGammaRamp),
     TRACEDRVINFO_ENTRY(GradientFill),
     TRACEDRVINFO_ENTRY(SynchronizeSurface),
     TRACEDRVINFO_ENTRY(AlphaBlend)
@@ -452,7 +431,6 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
     DRIVER_FUNCTION(EnableDirectDraw);
     DRIVER_FUNCTION(DisableDirectDraw);
     DRIVER_FUNCTION(QuerySpoolType);
-    DRIVER_FUNCTION(IcmSetDeviceGammaRamp);
     DRIVER_FUNCTION(GradientFill);
     DRIVER_FUNCTION(SynchronizeSurface);
     DRIVER_FUNCTION(AlphaBlend);

@@ -92,7 +92,7 @@ static void	RTFPutCodePageChar(RTF_Info *info, int c);
 /*
  * Saves a string on the heap and returns a pointer to it.
  */
-static inline char *RTFStrSave(const char *s)
+static inline char *RTFStrSave(char *s)
 {
 	char	*p;
 
@@ -254,7 +254,7 @@ void RTFInit(RTF_Info *info)
  * to be accurate, only insofar as the calling program makes them so.
  */
 
-void RTFSetInputName(RTF_Info *info, const char *name)
+void RTFSetInputName(RTF_Info *info, char *name)
 {
 	info->inputName = RTFStrSave (name);
 	if (info->inputName == NULL)
@@ -262,13 +262,13 @@ void RTFSetInputName(RTF_Info *info, const char *name)
 }
 
 
-char *RTFGetInputName(const RTF_Info *info)
+char *RTFGetInputName(RTF_Info *info)
 {
 	return (info->inputName);
 }
 
 
-void RTFSetOutputName(RTF_Info *info, const char *name)
+void RTFSetOutputName(RTF_Info *info, char *name)
 {
 	info->outputName = RTFStrSave (name);
 	if (info->outputName == NULL)
@@ -276,7 +276,7 @@ void RTFSetOutputName(RTF_Info *info, const char *name)
 }
 
 
-char *RTFGetOutputName(const RTF_Info *info)
+char *RTFGetOutputName(RTF_Info *info)
 {
 	return (info->outputName);
 }
@@ -301,7 +301,7 @@ void RTFSetClassCallback(RTF_Info *info, int class, RTFFuncPtr callback)
 }
 
 
-RTFFuncPtr RTFGetClassCallback(const RTF_Info *info, int class)
+RTFFuncPtr RTFGetClassCallback(RTF_Info *info, int class)
 {
 	if (class >= 0 && class < rtfMaxClass)
 		return info->ccb[class];
@@ -320,7 +320,7 @@ void RTFSetDestinationCallback(RTF_Info *info, int dest, RTFFuncPtr callback)
 }
 
 
-RTFFuncPtr RTFGetDestinationCallback(const RTF_Info *info, int dest)
+RTFFuncPtr RTFGetDestinationCallback(RTF_Info *info, int dest)
 {
 	if (dest >= 0 && dest < rtfMaxDestination)
 		return info->dcb[dest];
@@ -447,7 +447,7 @@ void RTFSetReadHook(RTF_Info *info, RTFFuncPtr f)
 }
 
 
-RTFFuncPtr RTFGetReadHook(const RTF_Info *info)
+RTFFuncPtr RTFGetReadHook(RTF_Info *info)
 {
 	return (info->readHook);
 }
@@ -1258,7 +1258,7 @@ static void ReadObjGroup(RTF_Info *info)
  */
 
 
-RTFStyle *RTFGetStyle(const RTF_Info *info, int num)
+RTFStyle *RTFGetStyle(RTF_Info *info, int num)
 {
 	RTFStyle	*s;
 
@@ -1273,7 +1273,7 @@ RTFStyle *RTFGetStyle(const RTF_Info *info, int num)
 }
 
 
-RTFFont *RTFGetFont(const RTF_Info *info, int num)
+RTFFont *RTFGetFont(RTF_Info *info, int num)
 {
 	RTFFont	*f;
 
@@ -1288,7 +1288,7 @@ RTFFont *RTFGetFont(const RTF_Info *info, int num)
 }
 
 
-RTFColor *RTFGetColor(const RTF_Info *info, int num)
+RTFColor *RTFGetColor(RTF_Info *info, int num)
 {
 	RTFColor	*c;
 
@@ -2373,19 +2373,19 @@ static int Hash(const char *s)
  * Token comparison routines
  */
 
-int RTFCheckCM(const RTF_Info *info, int class, int major)
+int RTFCheckCM(RTF_Info *info, int class, int major)
 {
 	return (info->rtfClass == class && info->rtfMajor == major);
 }
 
 
-int RTFCheckCMM(const RTF_Info *info, int class, int major, int minor)
+int RTFCheckCMM(RTF_Info *info, int class, int major, int minor)
 {
 	return (info->rtfClass == class && info->rtfMajor == major && info->rtfMinor == minor);
 }
 
 
-int RTFCheckMM(const RTF_Info *info, int major, int minor)
+int RTFCheckMM(RTF_Info *info, int major, int minor)
 {
 	return (info->rtfMajor == major && info->rtfMinor == minor);
 }
@@ -2661,7 +2661,7 @@ RTFFlushUnicodeOutputBuffer(RTF_Info *info)
 }
 
 static void
-RTFPutUnicodeString(RTF_Info *info, const WCHAR *string, int length)
+RTFPutUnicodeString(RTF_Info *info, WCHAR *string, int length)
 {
         if (info->dwCPOutputCount)
                 RTFFlushCPOutputBuffer(info);
@@ -2682,7 +2682,7 @@ static void
 RTFFlushCPOutputBuffer(RTF_Info *info)
 {
         int bufferMax = info->dwCPOutputCount * 2 * sizeof(WCHAR);
-        WCHAR *buffer = RTFAlloc(bufferMax);
+        WCHAR *buffer = (WCHAR *)RTFAlloc(bufferMax);
         int length;
 
         length = MultiByteToWideChar(info->codePage, 0, info->cpOutputBuffer,

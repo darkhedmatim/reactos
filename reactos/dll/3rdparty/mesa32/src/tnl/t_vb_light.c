@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -135,7 +135,7 @@ prepare_materials(GLcontext *ctx,
     * update_materials(), above, that'll actually copy the vertex color to
     * the material attribute(s).
     */
-   for (i = _TNL_FIRST_MAT; i <= _TNL_LAST_MAT; i++) {
+   for (i = _TNL_ATTRIB_MAT_FRONT_AMBIENT ; i < _TNL_ATTRIB_INDEX ; i++) {
       if (VB->AttribPtr[i]->stride) {
 	 const GLuint j = store->mat_count++;
 	 const GLuint attr = i - _TNL_ATTRIB_MAT_FRONT_AMBIENT;
@@ -203,7 +203,7 @@ static GLboolean run_lighting( GLcontext *ctx,
    GLvector4f *input = ctx->_NeedEyeCoords ? VB->EyePtr : VB->ObjPtr;
    GLuint idx;
 
-   if (!ctx->Light.Enabled || ctx->VertexProgram._Current)
+   if (!ctx->Light.Enabled || ctx->VertexProgram._Enabled)
       return GL_TRUE;
 
    /* Make sure we can talk about position x,y and z:
@@ -248,7 +248,7 @@ static GLboolean run_lighting( GLcontext *ctx,
 
    VB->AttribPtr[_TNL_ATTRIB_COLOR0] = VB->ColorPtr[0];
    VB->AttribPtr[_TNL_ATTRIB_COLOR1] = VB->SecondaryColorPtr[0];
-   VB->AttribPtr[_TNL_ATTRIB_COLOR_INDEX] = VB->IndexPtr[0];
+   VB->AttribPtr[_TNL_ATTRIB_INDEX] = VB->IndexPtr[0];
 
    return GL_TRUE;
 }
@@ -261,7 +261,7 @@ static void validate_lighting( GLcontext *ctx,
 {
    light_func *tab;
 
-   if (!ctx->Light.Enabled || ctx->VertexProgram._Current)
+   if (!ctx->Light.Enabled || ctx->VertexProgram._Enabled)
       return;
 
    if (ctx->Visual.rgbMode) {

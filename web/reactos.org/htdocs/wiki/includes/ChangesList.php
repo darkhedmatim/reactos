@@ -497,19 +497,18 @@ class EnhancedChangesList extends ChangesList {
 
 			$r .= ') . . ';
 
-			if( $wgRCShowChangedSize ) {
-				# Character difference
-				$chardiff = $rcObj->getCharacterDifference( $block[ count( $block ) - 1 ]->mAttribs['rc_old_len'],
-						$block[0]->mAttribs['rc_new_len'] );
-				if( $chardiff == '' ) {
-					$r .= ' (';
-				} else {
-					$r .= ' ' . $chardiff. ' . . ';
-				}
-			}	
+			# Character difference
+			$chardiff = $rcObj->getCharacterDifference( $block[ count( $block ) - 1 ]->mAttribs['rc_old_len'],
+					$block[0]->mAttribs['rc_new_len'] );
+			if( $chardiff == '' ) {
+				$r .= ' (';
+			} else {
+				$r .= ' ' . $chardiff. ' . . (';
+			}
+			
 
 			# History
-			$r .= '(' . $this->skin->makeKnownLinkObj( $block[0]->getTitle(),
+			$r .= $this->skin->makeKnownLinkObj( $block[0]->getTitle(),
 				$this->message['history'], $curIdEq.'&action=history' );
 			$r .= ')';
 		}

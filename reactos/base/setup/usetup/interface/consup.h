@@ -57,9 +57,6 @@ VOID
 CONSOLE_ConOutPuts(
 	IN LPCSTR szText);
 
-BOOL
-CONSOLE_Flush(VOID);
-
 SHORT
 CONSOLE_GetCursorX(VOID);
 

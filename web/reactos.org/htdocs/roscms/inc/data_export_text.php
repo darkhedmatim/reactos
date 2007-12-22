@@ -42,6 +42,9 @@
 		case "uqi": // user quick info
 			user_quick_info();
 			break;
+		case "xyz":
+			// temp
+			break;
 	}
 
 
@@ -49,24 +52,20 @@
 	function main_edit_frame() {
 		global $RosCMS_GET_d_flag;
 
-		require("inc/data_edit.php");
+		include("inc/data_edit.php");
 	}
 	
 	
 	function user_quick_info() { // user quick info
 		global $roscms_intern_account_id;
-		global $roscms_security_level;
-
-		global $h_a;
-		global $h_a2;
 
 		global $RosCMS_GET_d_value; // uqi-type
 		global $RosCMS_GET_d_id; // data_id
 		global $RosCMS_GET_d_r_id; // data rev id
 
 
-		$query_uqi_revision = mysql_query("SELECT d.data_id, d.data_name, d.data_type, d.data_acl, r.rev_id, r.rev_version, r.rev_usrid, r.rev_language, r.rev_datetime, r.rev_date, r.rev_time  
-									FROM data_".$h_a2." d, data_revision".$h_a." r 
+		$query_uqi_revision = mysql_query("SELECT d.data_id, d.data_name, d.data_type, r.rev_id, r.rev_version, r.rev_usrid, r.rev_language, r.rev_datetime, r.rev_date, r.rev_time  
+									FROM data_ d, data_revision r 
 									WHERE r.rev_id = '".mysql_real_escape_string($RosCMS_GET_d_r_id)."' 
 									AND r.data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."' 
 									AND r.data_id = d.data_id
@@ -98,7 +97,7 @@
 		
 		// Tags
 		$query_edit_mef_data_tag = mysql_query("SELECT a.tag_id, a.tag_usrid, n.tn_name, v.tv_value 
-												FROM data_".$h_a2." d, data_revision".$h_a." r, data_tag".$h_a." a, data_tag_name".$h_a." n, data_tag_value".$h_a." v
+												FROM data_ d, data_revision r, data_tag a, data_tag_name n, data_tag_value v
 												WHERE (a.data_id = '0' OR (
 															a.data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
 															AND a.data_id = d.data_id
@@ -117,19 +116,14 @@
 			echo $t_s.ucfirst($result_edit_mef_data_tag['tn_name']).$t_e.$result_edit_mef_data_tag['tv_value'].$t_lb;
 		}
 			
-		
-		if ($roscms_security_level > 1) {
-			echo $t_s."Rev-ID".$t_e.$result_uqi_revision['rev_id'].$t_lb;
-			echo $t_s."Data-ID".$t_e.$result_uqi_revision['data_id'].$t_lb;
-			echo $t_s."ACL".$t_e.$result_uqi_revision['data_acl'].$t_lb;
-		}
-		
+		echo $t_s."Data-ID".$t_e.$result_uqi_revision['data_id'].$t_lb;
+		echo $t_s."Rev-ID".$t_e.$result_uqi_revision['rev_id'].$t_lb;
 		echo $t_s."Date / Time".$t_e.$t_lb.$result_uqi_revision['rev_date'].$t_lb.$result_uqi_revision['rev_time'];
 	}
 	
 	function user_filter_storage() { // user filter storage
 		global $roscms_intern_account_id;
-		
+
 		global $RosCMS_GET_d_value; // ufs-action
 		global $RosCMS_GET_d_value2; // ufs-type
 		global $RosCMS_GET_d_value3; // filter-title
@@ -202,7 +196,7 @@
 											ORDER BY filt_title ASC;");
 		while ($result_user_filter = mysql_fetch_array($query_user_filter)) {
 			//echo "<span style=\"cursor: pointer;\" onclick=\"tbl_user_filter('".$result_user_filter['filt_string']."')\">".$result_user_filter['filt_title']."</span> <span onclick=\"#\"><img src=\"images/remove.gif\" alt=\"-\" style=\"width:11px; height:11px; border:0px;\" /></span><br />";
-			echo "<span style=\"cursor: pointer;\" onclick=\"tbl_user_filter('".$result_user_filter['filt_string']."', '".$temp_filter_type."', '".$result_user_filter['filt_title']."')\" style=\"text-decoration:underline;\">".$result_user_filter['filt_title']."</span>  <span style=\"cursor: pointer;\" onclick=\"delete_user_filter('".$result_user_filter['filt_id']."', '".$temp2_filter_type."', '".$result_user_filter['filt_title']."')\"><img src=\"images/remove.gif\" alt=\"-\" style=\"width:11px; height:11px; border:0px;\" /></span><br />";
+			echo "<span style=\"cursor: pointer;\" onclick=\"tbl_user_filter('".$result_user_filter['filt_string']."')\" style=\"text-decoration:underline;\">".$result_user_filter['filt_title']."</span>  <span style=\"cursor: pointer;\" onclick=\"delete_user_filter('".$result_user_filter['filt_id']."', '".$temp2_filter_type."', '".$result_user_filter['filt_title']."')\"><img src=\"images/remove.gif\" alt=\"-\" style=\"width:11px; height:11px; border:0px;\" /></span><br />";
 			//echo $result_user_filter['filt_title']."<br />";
 			$temp_entry_counter++;
 		}
@@ -223,10 +217,8 @@
 		if (array_key_exists("stextsum", $_POST)) $RosCMS_POST_d_stextsum=htmlspecialchars($_POST["stextsum"]);
 		if (array_key_exists("plmsum", $_POST)) $RosCMS_POST_d_textsum=htmlspecialchars($_POST["plmsum"]);
 
-		//echo "<h3>POST: ".$_POST["plm1"]."</h3>";
-
-		require("inc/data_edit.php");
-		require("inc/data_edit_tag.php");
+		include("inc/data_edit.php");
+		include("inc/data_edit_tag.php");
 		
 		
 		global $roscms_intern_account_id;
@@ -238,7 +230,6 @@
 		global $RosCMS_GET_d_value;
 		global $RosCMS_GET_d_value2;
 		global $RosCMS_GET_d_value3;
-		global $RosCMS_GET_d_value4;
 		
 		$RosCMS_intern_save_rev_id = "";
 		$RosCMS_intern_d_rev_version = 0;
@@ -247,53 +238,30 @@
 //		echo "<h2>lang: ".$RosCMS_intern_d_rev_lang."</h2>";
 		$RosCMS_intern_d_rev_usrid = "";
 		
-		$RosCMS_intern_d_rev_number = "";
-		
-		echo "<p>!!!!!!!!!!!!!!!!!</p><hr /><p>asdadasdawddsda</p>";
-		
-		echo "<p>DynNumber: ".$RosCMS_GET_d_value4."</p>";
-		
-
-
-		if ($RosCMS_GET_d_value3 == "draft") { // draft
-			$roscms_sql_tags = "";
-			$roscms_sql_tags2 = "";
-			$roscms_sql_tags3 = "";
-
-			if ($RosCMS_GET_d_value4 != "no") {
-				$roscms_sql_tags .= ", data_tag a, data_tag_name n, data_tag_value v ";
-				$roscms_sql_tags2 .= ", n.tn_name, v.tv_value ";
-				$roscms_sql_tags3 .= " AND r.data_id = a.data_id 
-										AND r.rev_id = a.data_rev_id 
-										AND a.tag_usrid = '-1' 
-										AND a.tag_name_id = n.tn_id  
-										AND n.tn_name = 'number'  
-										AND a.tag_value_id  = v.tv_id
-										AND v.tv_value = '".mysql_real_escape_string($RosCMS_GET_d_value4)."' ";			
-			}
-
-			$query_data_save_find_draft = mysql_query("SELECT r.rev_id, r.data_id, r.rev_version, r.rev_language, r.rev_usrid, r.rev_datetime ".$roscms_sql_tags2."
-														FROM data_revision r ".$roscms_sql_tags."
-														WHERE r.data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
-														AND r.rev_usrid = '".mysql_real_escape_string($roscms_intern_account_id)."'
-														AND r.rev_date = '".mysql_real_escape_string(date("Y-m-d"))."'
-														AND r.rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
-														".$roscms_sql_tags3."
-														ORDER BY r.rev_id DESC
+		if ($RosCMS_GET_d_value3 == "draft") { /* draft */
+			$query_data_save_find_draft = mysql_query("SELECT rev_id, data_id  rev_version, rev_language, rev_usrid, rev_datetime
+														FROM data_revision
+														WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+														AND rev_usrid = '".mysql_real_escape_string($roscms_intern_account_id)."'
+														AND rev_datetime LIKE '".mysql_real_escape_string(date("Y-m-d"))."%'
+														AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
+														ORDER BY rev_id DESC
 														LIMIT 1;");
 			$result_data_save_find_draft = mysql_fetch_array($query_data_save_find_draft);
-
-			//echo "<p>DraftEntry: ".$result_data_save_find_draft['rev_id'].", ".$result_data_save_find_draft['data_id'].", ".$result_data_save_find_draft['rev_version'].", ".$result_data_save_find_draft['tv_value']."</p>";
-
-			if (getTagValue($RosCMS_GET_d_id, $result_data_save_find_draft['rev_id'], "-1", "status") == "draft") {
-				//echo "<p>draft-lang: ".$RosCMS_GET_d_value3."|".$RosCMS_GET_d_value4."|".$result_data_save_find_draft['rev_language']."</p>";
+			//echo "<p>".getTagValue($RosCMS_GET_d_id, $result_data_save_find_draft['rev_id'], "-1", "status")."</p>";
+			
+			
+			if(getTagValue($RosCMS_GET_d_id, $result_data_save_find_draft['rev_id'], "-1", "status") == "draft") {
+//				echo "<p>draft-lang: ".$result_data_save_find_draft['rev_language']."</p>";
 				$RosCMS_intern_save_rev_id = $result_data_save_find_draft['rev_id'];
 				$RosCMS_intern_d_rev_lang = $result_data_save_find_draft['rev_language'];
 				$RosCMS_intern_d_rev_usrid = $result_data_save_find_draft['rev_usrid'];
 				$RosCMS_intern_d_rev_version = 0;
+				/*$RosCMS_intern_d_rev_stext_id = $result_data_save_find_draft['rev_usrid'];
+				$RosCMS_intern_d_rev_stext_id = $result_data_save_find_draft['rev_usrid'];*/
 			}
 			else { // save changes as draft based on a new/stable entry
-				//echo "<p>else-lang: ".$RosCMS_GET_d_value3."|".$RosCMS_GET_d_value4."|".$RosCMS_GET_d_r_lang."</p>";
+//				echo "<p>else-lang: ".$RosCMS_GET_d_value3."|".$RosCMS_GET_d_r_lang."</p>";
 				//$RosCMS_GET_d_value3 = "submit"; // save instead of update
 				$RosCMS_intern_save_rev_id = "";
 				$RosCMS_intern_d_rev_version = 0;
@@ -301,21 +269,26 @@
 				$RosCMS_intern_d_rev_usrid = $roscms_intern_account_id;
 				//die("Saving draft not possible !?!");
 			}
-
-
 		}
 		
 		
-		if (($RosCMS_GET_d_value3 == "draft" && $RosCMS_intern_save_rev_id == "") || $RosCMS_GET_d_value3 == "submit") { // add 
-			//echo "<p>ADD</p>";
+		if ($RosCMS_intern_save_rev_id == "" || $RosCMS_GET_d_value3 == "submit") { /* add */
+			echo "<p>ADD</p>";
 			
-/*			if ($RosCMS_GET_d_value3 == "submit") {
+			if ($RosCMS_GET_d_value3 == "submit") {
 				$query_data_save_find_submit = mysql_query("SELECT rev_id, data_id  rev_version, rev_language, rev_usrid, rev_datetime
 															FROM data_revision
 															WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
 															AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
 															ORDER BY rev_id DESC
 															LIMIT 1;");
+/*				echo "<p>SELECT rev_id, data_id  rev_version, rev_language, rev_usrid, rev_datetime
+															FROM data_revision
+															WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+															AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
+															ORDER BY rev_id DESC
+															LIMIT 1;</p>";
+*/
 				$result_data_save_find_submit = mysql_fetch_array($query_data_save_find_submit);
 				
 				$RosCMS_intern_d_rev_version = 0;
@@ -332,35 +305,49 @@
 															AND rev_version = 0
 															AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
 															AND rev_usrid = '".mysql_real_escape_string($RosCMS_intern_d_rev_usrid)."' ;");
+/*				echo "<p>delete_draft: SELECT * 
+															FROM data_revision 
+															WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+															AND rev_version = 0
+															AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
+															AND rev_usrid = '".mysql_real_escape_string($RosCMS_intern_d_rev_usrid)."' ;";
+*/
 				while ($result_data_delete_old_drafts = mysql_fetch_array($query_data_delete_old_drafts)) {
 //					echo "<p>delete draft: ".$result_data_delete_old_drafts['rev_id']."</p>";
 					deleteRevision($result_data_delete_old_drafts['rev_id']);
 				}
 			}
-*/
 			
 			$insert_data_save = mysql_query("INSERT INTO data_revision ( rev_id , data_id , rev_version , rev_language , rev_usrid , rev_datetime , rev_date , rev_time ) 
 												VALUES (
 													NULL , 
 													'".mysql_real_escape_string($RosCMS_GET_d_id)."', 
-													'0', 
+													'".mysql_real_escape_string($RosCMS_intern_d_rev_version)."', 
 													'".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."', 
 													'".mysql_real_escape_string($RosCMS_intern_d_rev_usrid)."', 
 													NOW( ),
 													CURDATE( ),
 													CURTIME( )
-												);");//$RosCMS_intern_d_rev_version
+												);");
 			$query_data_save_find_submit2 = mysql_query("SELECT rev_id
 														FROM data_revision
 														WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
-														AND rev_version = '0'
+														AND rev_version = '".mysql_real_escape_string($RosCMS_intern_d_rev_version)."'
 														AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
 														AND rev_usrid = '".mysql_real_escape_string($roscms_intern_account_id)."'
 														ORDER BY rev_datetime DESC;");
+/*			echo "<p>SELECT rev_id
+														FROM data_revision
+														WHERE data_id = '".mysql_real_escape_string($RosCMS_GET_d_id)."'
+														AND rev_version = '".mysql_real_escape_string($RosCMS_intern_d_rev_version)."'
+														AND rev_language = '".mysql_real_escape_string($RosCMS_intern_d_rev_lang)."'
+														AND rev_usrid = '".mysql_real_escape_string($roscms_intern_account_id)."'
+														ORDER BY rev_datetime DESC;</p>";
+*/
 			$result_data_save_find_submit2 = mysql_fetch_array($query_data_save_find_submit2);
 			//$result_data_save_find_submit2['rev_id'];
 			
-			for ($i=1; $i <= $RosCMS_POST_d_stextsum; $i++) {  //short text
+			for ($i=1; $i <= $RosCMS_POST_d_stextsum; $i++) { /* short text */
 				$insert_data_save_stext = mysql_query("INSERT INTO data_stext ( stext_id , data_rev_id , stext_name , stext_content ) 
 														VALUES (
 															NULL , 
@@ -369,7 +356,7 @@
 															'".mysql_real_escape_string($_POST["pstext".$i])."'
 														);");
 			}
-			for ($i=1; $i <= $RosCMS_POST_d_textsum; $i++) { // text
+			for ($i=1; $i <= $RosCMS_POST_d_textsum; $i++) { /* text */
 				$insert_data_save_text = mysql_query("INSERT INTO data_text ( text_id , data_rev_id , text_name , text_content ) 
 														VALUES (
 															NULL , 
@@ -388,19 +375,21 @@
 //				echo "<h4>submit_process: tag_add(".$RosCMS_GET_d_id.", ".$result_data_save_find_submit2['rev_id'].", 'status', 'draft', '-1');</h4>";
 				tag_add($RosCMS_GET_d_id, $result_data_save_find_submit2['rev_id'], 'status', 'draft', '-1');
 			}
-			
-			if ($RosCMS_GET_d_value4 != "no") {
-				tag_add($RosCMS_GET_d_id, $result_data_save_find_submit2['rev_id'], 'number', $RosCMS_GET_d_value4, '-1');
-			}
-			//tag_add($RosCMS_GET_d_id, $result_data_save_find_submit2['rev_id'], 'debug', '1', '-1');
 		}
 		else if ($RosCMS_intern_save_rev_id != "" && $RosCMS_GET_d_value3 == "draft") {
-			//echo "<p>UPDATE</p>";
+			echo "<p>UPDATE</p>";
+			
+			/*
+				$RosCMS_intern_d_rev_version = 
+				$RosCMS_intern_d_rev_lang = 
+				$RosCMS_intern_d_rev_usrid = 
+				$RosCMS_intern_save_rev_id
+			*/
 			
 			$insert_data_save_stext = mysql_query("DELETE FROM data_stext WHERE data_rev_id = '".mysql_real_escape_string($RosCMS_intern_save_rev_id)."';");
 			$insert_data_save_stext = mysql_query("DELETE FROM data_text WHERE data_rev_id = '".mysql_real_escape_string($RosCMS_intern_save_rev_id)."';");
 				
-			for ($i=1; $i <= $RosCMS_POST_d_stextsum; $i++) { // short text
+			for ($i=1; $i <= $RosCMS_POST_d_stextsum; $i++) { /* short text */
 				if (array_key_exists("pdstext".$i, $_POST)) {
 					$insert_data_save_stext = mysql_query("INSERT INTO data_stext ( stext_id , data_rev_id , stext_name , stext_content ) 
 															VALUES (
@@ -411,7 +400,7 @@
 															);");
 				}
 			}
-			for ($i=1; $i <= $RosCMS_POST_d_textsum; $i++) { // text 
+			for ($i=1; $i <= $RosCMS_POST_d_textsum; $i++) { /* text */
 				if (array_key_exists("pdtext".$i, $_POST)) {
 					$insert_data_save_text = mysql_query("INSERT INTO data_text ( text_id , data_rev_id , text_name , text_content ) 
 															VALUES (
@@ -421,17 +410,13 @@
 																'".mysql_real_escape_string($_POST["plm".$i])."'
 															);");
 				}
-				//echo "<p><pre>".$_POST["pdtext".$i].": <br />\n".$_POST["plm".$i]."</pre></p>";
 			}
-			//tag_add($RosCMS_GET_d_id, $RosCMS_intern_save_rev_id, 'debug', '2', '-1');
 				
 		}
 		else {
 			echo "not enough data ...";
 		
 		}
-		
-
 		
 	}
 

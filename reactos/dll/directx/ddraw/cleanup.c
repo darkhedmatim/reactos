@@ -3,7 +3,7 @@
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
  * FILE:                 lib/ddraw/ddraw.c
- * PURPOSE:              DirectDraw Library
+ * PURPOSE:              DirectDraw Library 
  * PROGRAMMER:           Magnus Olsen (greatlrd)
  *
  */
@@ -12,19 +12,16 @@
 #include "rosdraw.h"
 #include "d3dhal.h"
 
-VOID
-Cleanup(LPDDRAWI_DIRECTDRAW_INT This)
+VOID 
+Cleanup(LPDIRECTDRAW7 iface) 
 {
+    //LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
+
     DX_WINDBG_trace();
 
     if (ddgbl.lpDDCBtmp != NULL)
     {
         DxHeapMemFree(ddgbl.lpDDCBtmp);
-    }
-
-    if (ddgbl.lpdwFourCC != NULL)
-    {
-        DxHeapMemFree(ddgbl.lpdwFourCC);
     }
 
     if (ddgbl.lpModeInfo != NULL)
@@ -34,7 +31,7 @@ Cleanup(LPDDRAWI_DIRECTDRAW_INT This)
 
     DdDeleteDirectDrawObject(&ddgbl);
 
-    /*
+    /* 
        are it any more I forget to release ?
     */
 
@@ -53,10 +50,11 @@ Cleanup(LPDDRAWI_DIRECTDRAW_INT This)
     //}
 
     /* release unlinked interface */
-    if (This->lpLcl != NULL)
-    {
-        DxHeapMemFree(This->lpLcl);
-    }
+    //if (This->lpLcl != NULL)
+    //{
+    //    DeleteDC(This->lpLcl->hDC);
+    //    DxHeapMemFree(This->lpLcl);
+    //}
     //if (This != NULL)
     //{
     //    DxHeapMemFree(This);

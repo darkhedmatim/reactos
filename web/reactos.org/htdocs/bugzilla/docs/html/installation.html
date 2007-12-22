@@ -7,7 +7,8 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 3.0.2  Release"
+TITLE="The Bugzilla Guide - 2.22 
+    Release"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Installing Bugzilla"
@@ -37,7 +38,8 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 3.0.2  Release</TH
+>The Bugzilla Guide - 2.22 
+    Release</TH
 ></TR
 ><TR
 ><TD
@@ -113,7 +115,7 @@ VALIGN="TOP"
     Solaris. 
     If you are installing on another OS, check <A
 HREF="os-specific.html"
->Section 2.5</A
+>Section 2.4</A
 >
     before you start your installation to see if there are any special
     instructions.
@@ -182,7 +184,7 @@ TYPE="1"
 HREF="installation.html#install-perl"
 >Install Perl</A
 >
-        (5.8.0 or above for non-Windows platforms; 5.8.1
+        (5.6.1 or above for non-Windows platforms; 5.8.1
         for Windows)
         </P
 ></LI
@@ -255,7 +257,7 @@ HREF="http://www.perl.com"
 TARGET="_top"
 >http://www.perl.com</A
 >.
-      Although Bugzilla runs with Perl 5.8.0,
+      Although Bugzilla runs with Perl 5.6.1,
       it's a good idea to be using the latest stable version.
       </P
 ></DIV
@@ -291,7 +293,7 @@ HREF="http://www.mysql.com"
 TARGET="_top"
 >http://www.mysql.com</A
 >. You need MySQL version
-          4.1.2 or higher.
+          4.0.14 or higher.
           </P
 ><DIV
 CLASS="note"
@@ -358,7 +360,7 @@ HREF="http://www.postgresql.org/"
 TARGET="_top"
 >http://www.postgresql.org/</A
 >. You need PostgreSQL
-          version 8.00.0000 or higher.
+          version 7.3.x or higher.
           </P
 ><P
 >If you install from something other than a packaging/installation
@@ -394,7 +396,7 @@ CLASS="glossterm"
        the installation instructions usually assume you are
         using it. If you have got Bugzilla working using another webserver,
         please share your experiences with us by filing a bug in <A
-HREF="https://bugzilla.mozilla.org/enter_bug.cgi?product=Bugzilla&#38;component=Documentation"
+HREF="http://bugzilla.mozilla.org/enter_bug.cgi?product=Bugzilla&#38;component=Documentation"
 TARGET="_top"
 >Bugzilla Documentation</A
 >.
@@ -548,7 +550,7 @@ CLASS="filename"
 >&#13;        The preferred way of installing Perl modules is via CPAN on Unix, 
         or PPM on Windows (see <A
 HREF="os-specific.html#win32-perl-modules"
->Section 2.5.1.2</A
+>Section 2.4.1.2</A
 >). These
         instructions assume you are using CPAN; if for some reason you need 
         to install the Perl modules manually, see 
@@ -611,7 +613,7 @@ VALIGN="TOP"
         <SPAN
 CLASS="QUOTE"
 >"@INC"</SPAN
->.
+>. 
         Virtually every time, this error is due to permissions being set too
         restrictively for you to compile Perl modules or not having the
         necessary Perl development libraries installed on your system.
@@ -671,7 +673,17 @@ CLASS="filename"
 TYPE="1"
 ><LI
 ><P
->&#13;            CGI 2.93 or CGI 3.11 if using mod_perl
+>&#13;            AppConfig (1.52)
+          </P
+></LI
+><LI
+><P
+>&#13;            CGI (2.93)
+          </P
+></LI
+><LI
+><P
+>&#13;            Data::Dumper (any)
           </P
 ></LI
 ><LI
@@ -681,7 +693,7 @@ TYPE="1"
 ></LI
 ><LI
 ><P
->&#13;            DBI (1.41)
+>&#13;            DBI (1.38)
           </P
 ></LI
 ><LI
@@ -695,7 +707,7 @@ HREF="installation.html#install-modules-dbd-mysql"
 ></LI
 ><LI
 ><P
->&#13;            DBD::Pg (1.45) if using PostgreSQL
+>&#13;            DBD::Pg (1.31) if using PostgreSQL
           </P
 ></LI
 ><LI
@@ -705,21 +717,41 @@ HREF="installation.html#install-modules-dbd-mysql"
 ></LI
 ><LI
 ><P
+>&#13;            File::Temp (any)
+          </P
+></LI
+><LI
+><P
 >&#13;            <A
 HREF="installation.html#install-modules-template"
 >Template</A
 >
-            (2.12)
+            (2.08)
           </P
 ></LI
 ><LI
 ><P
->&#13;            Email::Send (2.00)
+>&#13;            Text::Wrap (2001.0131)
           </P
 ></LI
 ><LI
 ><P
->&#13;            Email::MIME::Modifier (any)
+>&#13;            Mail::Mailer (1.67)
+          </P
+></LI
+><LI
+><P
+>&#13;            MIME::Base64 (3.01)
+          </P
+></LI
+><LI
+><P
+>&#13;            MIME::Parser (5.406)
+          </P
+></LI
+><LI
+><P
+>&#13;            Storable (any)
           </P
 ></LI
 ></OL
@@ -737,12 +769,6 @@ HREF="installation.html#install-modules-gd"
 >GD</A
 >
             (1.20) for bug charting
-          </P
-></LI
-><LI
-><P
->&#13;            Template::Plugin::GD::Image
-            (1.20) for Graphical Reports
           </P
 ></LI
 ><LI
@@ -766,8 +792,8 @@ HREF="installation.html#install-modules-gd-graph"
 ><LI
 ><P
 >&#13;            <A
-HREF="installation.html#install-modules-gd-text"
->GD::Text</A
+HREF="installation.html#install-modules-gd-text-align"
+>GD::Text::Align</A
 >
             (any) for bug charting
           </P
@@ -775,21 +801,10 @@ HREF="installation.html#install-modules-gd-text"
 ><LI
 ><P
 >&#13;            <A
-HREF="installation.html#install-modules-xml-twig"
->XML::Twig</A
+HREF="installation.html#install-modules-xml-parser"
+>XML::Parser</A
 >
-            (any) for bug import/export
-          </P
-></LI
-><LI
-><P
->&#13;            MIME::Parser (5.406) for bug import/export
-          </P
-></LI
-><LI
-><P
->&#13;            LWP::UserAgent
-            (any) for Automatic Update Notifications
+            (any) for the XML interface
           </P
 ></LI
 ><LI
@@ -806,65 +821,8 @@ HREF="installation.html#install-modules-patchreader"
 >&#13;            Image::Magick (any) for converting BMP image attachments to PNG
           </P
 ></LI
-><LI
-><P
->&#13;            Net::LDAP
-            (any) for LDAP Authentication
-          </P
-></LI
-><LI
-><P
->&#13;            <A
-HREF="installation.html#install-modules-soap-lite"
->SOAP::Lite</A
->
-            (any) for the web service interface
-          </P
-></LI
-><LI
-><P
->&#13;            HTML::Parser
-            (3.40) for More HTML in Product/Group Descriptions
-          </P
-></LI
-><LI
-><P
->&#13;            HTML::Scrubber
-            (any) for More HTML in Product/Group Descriptions
-          </P
-></LI
-><LI
-><P
->&#13;            Email::MIME::Attachment::Stripper
-            (any) for Inbound Email
-          </P
-></LI
-><LI
-><P
->&#13;            Email::Reply
-            (any) for Inbound Email
-          </P
-></LI
-><LI
-><P
->&#13;            mod_perl2
-            (1.999022) for mod_perl
-          </P
-></LI
-><LI
-><P
->&#13;            CGI
-            (2.93) for mod_perl
-          </P
-></LI
-><LI
-><P
->&#13;            Apache::DBI
-            (0.96) for mod_perl2
-          </P
-></LI
 ></OL
->
+>          
       </P
 ><DIV
 CLASS="section"
@@ -894,7 +852,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="install-modules-template"
->2.1.5.2. Template Toolkit (2.12)</A
+>2.1.5.2. Template Toolkit (2.08)</A
 ></H3
 ><P
 >When you install Template Toolkit, you'll get asked various
@@ -1022,11 +980,11 @@ CLASS="section"
 ><H3
 CLASS="section"
 ><A
-NAME="install-modules-gd-text"
->2.1.5.6. GD::Text (any)</A
+NAME="install-modules-gd-text-align"
+>2.1.5.6. GD::Text::Align (any)</A
 ></H3
 ><P
->The GD::Text module is only required if you want graphical 
+>The GD::Text::Align module is only required if you want graphical 
         reports.
         </P
 ></DIV
@@ -1035,31 +993,22 @@ CLASS="section"
 ><H3
 CLASS="section"
 ><A
-NAME="install-modules-xml-twig"
->2.1.5.7. XML::Twig (any)</A
+NAME="install-modules-xml-parser"
+>2.1.5.7. XML::Parser (any)</A
 ></H3
 ><P
->The XML::Twig module is only required if you want to import
+>The XML::Parser module is only required if you want to import
         XML bugs using the <TT
 CLASS="filename"
 >importxml.pl</TT
 >
         script. This is required to use Bugzilla's "move bugs" feature;
         you may also want to use it for migrating from another bug database.
-        </P
-></DIV
-><DIV
-CLASS="section"
-><H3
-CLASS="section"
-><A
-NAME="install-modules-soap-lite"
->2.1.5.8. SOAP::Lite (any)</A
-></H3
-><P
->Installing SOAP::Lite enables your Bugzilla installation to be
-        accessible at a standardized Web Service interface (SOAP/XML-RPC)
-        by third-party applications via HTTP(S).
+        XML::Parser requires that the
+        <CODE
+CLASS="classname"
+>expat</CODE
+> library is already installed on your machine.
         </P
 ></DIV
 ><DIV
@@ -1068,7 +1017,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="install-modules-patchreader"
->2.1.5.9. PatchReader (0.9.4)</A
+>2.1.5.8. PatchReader (0.9.4)</A
 ></H3
 ><P
 >The PatchReader module is only required if you want to use
@@ -1119,11 +1068,8 @@ VALIGN="TOP"
           as bug changes or the creation of new accounts).
         </P
 ><P
->&#13;          For more information, see the <SPAN
-CLASS="QUOTE"
->"mail_delivery_method"</SPAN
-> parameter
-          in <A
+>&#13;          For more information, see the "maildeliverymethod" parameter in 
+          <A
 HREF="parameters.html"
 >Section 3.1</A
 >.
@@ -1157,49 +1103,6 @@ HREF="parameters.html"
 >&#13;        If a simple mail sent with the command-line 'mail' program 
         succeeds, then Bugzilla should also be fine.
       </P
-></DIV
-><DIV
-CLASS="section"
-><H2
-CLASS="section"
-><A
-NAME="using-mod_perl-with-bugzilla"
->2.1.7. Installing Bugzilla on mod_perl</A
-></H2
-><P
->It is now possible to run the Bugzilla software under <VAR
-CLASS="literal"
->mod_perl</VAR
-> on
-      Apache. <VAR
-CLASS="literal"
->mod_perl</VAR
-> has some additional requirements to that of running
-      Bugzilla under <VAR
-CLASS="literal"
->mod_cgi</VAR
-> (the standard and previous way).</P
-><P
->Bugzilla requires <VAR
-CLASS="literal"
->mod_perl</VAR
-> to be installed, which can be
-      obtained from <A
-HREF="http://perl.apache.org"
-TARGET="_top"
->http://perl.apache.org</A
-> - Bugzilla requires
-      version 1.999022 (AKA 2.0.0-RC5) to be installed.</P
-><P
->Bugzilla also requires a more up-to-date version of the CGI
-      perl module to be installed, version 3.11 as opposed to 2.93
-      </P
-><P
->Finally, Bugzilla also requires <VAR
-CLASS="literal"
->Apache::DBI</VAR
->
-      (0.96) to be installed as well.</P
 ></DIV
 ></DIV
 ><DIV

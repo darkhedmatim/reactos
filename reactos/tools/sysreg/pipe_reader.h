@@ -13,9 +13,8 @@
 
 
 #include "user_types.h"
-#include "data_source.h"
-#include <cstdio>
-//#include <stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace System_
 {
@@ -23,10 +22,10 @@ namespace System_
 ///
 /// class PipeReader
 ///
-/// Description: this class implements a pipe reader. It uses _popen to perform opening of
+/// Description: this class implements a pipe reader. It uses _popen to perform opening of 
 ///              pipe / _pclose
 
-    class PipeReader : public DataSource
+	class PipeReader
 	{
 	public:
 
@@ -61,7 +60,7 @@ namespace System_
 ///                           w ... allows writing to the pipe
 /// @return bool
 
-		virtual bool openSource(const string & PipeCmd);
+		bool openPipe(const string & PipeCmd, string AccessMode = _T("rt"));
 
 //---------------------------------------------------------------------------------------
 ///
@@ -71,7 +70,7 @@ namespace System_
 ///
 /// @return bool
 
-		virtual bool closeSource();
+		bool closePipe();
 
 //---------------------------------------------------------------------------------------
 ///
@@ -83,7 +82,17 @@ namespace System_
 /// @param Buffer to be written to
 /// @return string::size_type
 
-		bool readSource(std::vector<string> & lines);
+		string::size_type readPipe(string & Buffer);
+
+//---------------------------------------------------------------------------------------
+///
+/// writePipe
+///
+/// Description: attempts to write to the pipe. Returns true on success. 
+///
+/// @param Buffer containing information which is written to the pipe
+
+	bool writePipe(const string & Buffer);
 
 //---------------------------------------------------------------------------------------
 ///
@@ -92,7 +101,7 @@ namespace System_
 /// Description: returns true if the pipe has reached end of file. The caller should call
 /// closePipe if this function returns true
 
-	virtual bool isSourceOpen();
+	bool isEof();
 
 protected:
 	FILE * m_File;

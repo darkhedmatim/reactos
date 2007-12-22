@@ -8,136 +8,49 @@
  *
  */
 
-/* TODO
- * add warper functions for dx 1 - 6
- * map the  DirectDraw4_Vtable, DirectDraw2_Vtable, DirectDraw_Vtable
- * table to right version of the functions
- */
-
-
 
 #include "rosdraw.h"
-
-#include <string.h>
 
 /* PSEH for SEH Support */
 #include <pseh/pseh.h>
 
-
-
-LPDDRAWI_DIRECTDRAW_INT
-internal_directdraw_int_alloc(LPDDRAWI_DIRECTDRAW_INT This)
-{
-    LPDDRAWI_DIRECTDRAW_INT  newThis;
-    DxHeapMemAlloc(newThis, sizeof(DDRAWI_DIRECTDRAW_INT));
-    if (newThis)
-    {
-        newThis->lpLcl = This->lpLcl;
-        newThis->lpLink = This;
-    }
-
-    return  newThis;
-}
-
 HRESULT WINAPI
-Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
+Main_DirectDraw_QueryInterface (LPDIRECTDRAW7 iface,
                                 REFIID id,
                                 LPVOID *obj)
 {
-    HRESULT retVal = DD_OK;
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
 
     DX_WINDBG_trace();
 
-    _SEH_TRY
+    /* FIXME
+       the D3D object can be optained from here
+       Direct3D7
+    */
+    if (IsEqualGUID(&IID_IDirectDraw7, id))
     {
-        /* FIXME
-            the D3D object can be optained from here
-            Direct3D7
-        */
-        if (IsEqualGUID(&IID_IDirectDraw7, id))
-        {
-            if (This->lpVtbl != &DirectDraw7_Vtable)
-            {
-                This = internal_directdraw_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH_LEAVE;
-                }
-            }
-
-            This->lpVtbl = &DirectDraw7_Vtable;
-            *obj = This;
-            Main_DirectDraw_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDraw4, id))
-        {
-            if (This->lpVtbl != &DirectDraw4_Vtable)
-            {
-                This = internal_directdraw_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH_LEAVE;
-                }
-            }
-
-            This->lpVtbl = &DirectDraw4_Vtable;
-            *obj = This;
-            Main_DirectDraw_AddRef(This);
-        }
-
-        else if (IsEqualGUID(&IID_IDirectDraw2, id))
-        {
-            if (This->lpVtbl != &DirectDraw2_Vtable)
-            {
-                This = internal_directdraw_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH_LEAVE;
-                }
-            }
-
-            This->lpVtbl = &DirectDraw2_Vtable;
-            *obj = This;
-            Main_DirectDraw_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDraw, id))
-        {
-            if (This->lpVtbl != &DirectDraw_Vtable)
-            {
-                This = internal_directdraw_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH_LEAVE;
-                }
-            }
-
-            This->lpVtbl = &DirectDraw_Vtable;
-            *obj = This;
-            Main_DirectDraw_AddRef(This);
-        }
-        else
-        {
-            *obj = NULL;
-            DX_STUB_str("E_NOINTERFACE");
-            retVal = E_NOINTERFACE;
-        }
+        /* DirectDraw7 Vtable */
+        This->lpVtbl = &DirectDraw7_Vtable;
+        This->lpLcl->dwLocalFlags = This->lpLcl->dwLocalFlags + DDRAWILCL_DIRECTDRAW7;
+        *obj = &This->lpVtbl;
     }
-    _SEH_HANDLE
+    else
     {
+        *obj = NULL;
+        DX_STUB_str("E_NOINTERFACE");
+        return E_NOINTERFACE;
     }
-    _SEH_END;
 
-    return retVal;
+    Main_DirectDraw_AddRef(iface);
+    DX_STUB_str("DD_OK");
+    return DD_OK;
 }
 
 ULONG WINAPI
-Main_DirectDraw_AddRef (LPDDRAWI_DIRECTDRAW_INT This)
+Main_DirectDraw_AddRef (LPDIRECTDRAW7 iface)
 {
     ULONG retValue = 0;
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
 
     DX_WINDBG_trace();
 
@@ -173,213 +86,110 @@ Main_DirectDraw_AddRef (LPDDRAWI_DIRECTDRAW_INT This)
 
 
 ULONG WINAPI
-Main_DirectDraw_Release (LPDDRAWI_DIRECTDRAW_INT This)
+Main_DirectDraw_Release (LPDIRECTDRAW7 iface)
 {
-    ULONG Counter = 0;
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
 
     DX_WINDBG_trace();
-    _SEH_TRY
+
+    if (iface!=NULL)
     {
-        if (This!=NULL)
+        This->lpLcl->dwLocalRefCnt--;
+        This->dwIntRefCnt--;
+
+        if (This->lpLcl->lpGbl != NULL)
         {
-            This->lpLcl->dwLocalRefCnt--;
-            This->dwIntRefCnt--;
-
-            if (This->lpLcl->lpGbl != NULL)
-            {
-                This->lpLcl->lpGbl->dwRefCnt--;
-            }
-
-            if ( This->lpLcl->lpGbl->dwRefCnt == 0)
-            {
-                // set resoltion back to the one in registry
-                /*if(This->cooperative_level & DDSCL_EXCLUSIVE)
-                {
-                    ChangeDisplaySettings(NULL, 0);
-                }*/
-
-                Cleanup(This);
-            }
-
-            /* FIXME cleanup being not call why ?? */
-            Counter = This->dwIntRefCnt;
+            This->lpLcl->lpGbl->dwRefCnt--;
         }
-        else
+
+        if ( This->lpLcl->lpGbl->dwRefCnt == 0)
         {
-            Counter = This->dwIntRefCnt;
+            // set resoltion back to the one in registry
+            /*if(This->cooperative_level & DDSCL_EXCLUSIVE)
+            {
+                ChangeDisplaySettings(NULL, 0);
+            }*/
+
+            Cleanup(iface);
+            return 0;
         }
     }
-    _SEH_HANDLE
-    {
-    }
-    _SEH_END;
-    return Counter;
+    return This->dwIntRefCnt;
 }
 
 HRESULT WINAPI
-Main_DirectDraw_Initialize (LPDDRAWI_DIRECTDRAW_INT This, LPGUID lpGUID)
+Main_DirectDraw_Initialize (LPDIRECTDRAW7 iface, LPGUID lpGUID)
 {
 	return DDERR_ALREADYINITIALIZED;
 }
 
-/*
+/* 
  * Main_DirectDraw_Compact
  * ms say this one is not implement but it return  DDERR_NOEXCLUSIVEMODE
- * when no exclusive owner are set in corpativelevel
+ * when no exclusive owner are set in corpativelevel 
  */
 HRESULT WINAPI
-Main_DirectDraw_Compact(LPDDRAWI_DIRECTDRAW_INT This)
+Main_DirectDraw_Compact(LPDIRECTDRAW7 iface)
 {
     HRESULT retVal = DD_OK;
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT) iface;
 
     DX_WINDBG_trace();
     // EnterCriticalSection(&ddcs);
 
-    _SEH_TRY
+    if (This->lpLcl->lpGbl->lpExclusiveOwner == This->lpLcl)
     {
-        if (This->lpLcl->lpGbl->lpExclusiveOwner != This->lpLcl)
-        {
-            retVal = DDERR_NOEXCLUSIVEMODE;
-        }
+        retVal = DDERR_NOEXCLUSIVEMODE;
     }
-    _SEH_HANDLE
-    {
-    }
-    _SEH_END;
     // LeaveCriticalSection(&ddcs);
     return retVal;
 }
 
-HRESULT WINAPI
-Main_DirectDraw_GetAvailableVidMem(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS ddscaps, LPDWORD dwTotal, LPDWORD dwFree)
-{
-    DDSCAPS2 myddscaps;
-    HRESULT retValue = DD_OK;
-
-    ZeroMemory(&myddscaps, sizeof(DDSCAPS2));
-
-    _SEH_TRY
-    {
-        myddscaps.dwCaps =  ddscaps->dwCaps;
-        retValue = Main_DirectDraw_GetAvailableVidMem4(This, &myddscaps, dwTotal, dwFree);
-    }
-    _SEH_HANDLE
-    {
-         retValue = DDERR_INVALIDPARAMS;
-    }
-    _SEH_END;
-
-    return retValue;
-}
-
-HRESULT WINAPI
-Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 ddscaps,
+HRESULT WINAPI 
+Main_DirectDraw_GetAvailableVidMem(LPDIRECTDRAW7 iface, LPDDSCAPS2 ddscaps,
                    LPDWORD dwTotal, LPDWORD dwFree)
 {
-    HRESULT retVal = DD_OK;
-    DDHAL_GETAVAILDRIVERMEMORYDATA  memdata;
-
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
     DX_WINDBG_trace();
 
-    _SEH_TRY
+    // There is no HEL implentation of this api
+    if (!(This->lpLcl->lpDDCB->cbDDMiscellaneousCallbacks.dwFlags & DDHAL_MISCCB32_GETAVAILDRIVERMEMORY))
     {
-        // There is no HEL implentation of this api
-        if (!(This->lpLcl->lpDDCB->HALDDMiscellaneous.dwFlags & DDHAL_MISCCB32_GETAVAILDRIVERMEMORY) ||
-            (This->lpLcl->lpGbl->dwFlags & DDRAWI_NOHARDWARE) )
-        {
-            retVal = DDERR_NODIRECTDRAWHW;
-        }
-        else
-        {
-            if ((!dwTotal && !dwFree) || !ddscaps)
-            {
-                retVal = DDERR_INVALIDPARAMS;
-                _SEH_LEAVE;
-            }
-
-            if ( ddscaps->dwCaps & (DDSCAPS_BACKBUFFER  | DDSCAPS_COMPLEX   | DDSCAPS_FLIP |
-                                    DDSCAPS_FRONTBUFFER | DDSCAPS_PALETTE   | DDSCAPS_SYSTEMMEMORY |
-                                    DDSCAPS_VISIBLE     | DDSCAPS_WRITEONLY | DDSCAPS_OWNDC))
-            {
-                retVal = DDERR_INVALIDPARAMS;
-                _SEH_LEAVE;
-            }
-
-
-            /*   ddscaps->dwCaps2 & 0x01
-                this flag is outdate and are
-                set to 0 in ms dxsdk  the name of
-                this flag is DDSCAPS2_HARDWAREDEINTERLACE
-            */
-
-            if ( ddscaps->dwCaps2 & 0x01)
-            {
-                retVal = DDERR_INVALIDCAPS;
-                _SEH_LEAVE;
-            }
-
-            if ( ddscaps->dwCaps3 & ~( DDSCAPS3_MULTISAMPLE_QUALITY_MASK | DDSCAPS3_MULTISAMPLE_MASK |
-                                       DDSCAPS3_RESERVED1                | DDSCAPS3_RESERVED2        |
-                                       DDSCAPS3_LIGHTWEIGHTMIPMAP        | DDSCAPS3_AUTOGENMIPMAP    |
-                                       DDSCAPS3_DMAP))
-            {
-                retVal = DDERR_INVALIDCAPS;
-                _SEH_LEAVE;
-            }
-
-            if ( ddscaps->dwCaps4)
-            {
-                retVal = DDERR_INVALIDCAPS;
-                _SEH_LEAVE;
-            }
-
-            ZeroMemory(&memdata, sizeof(DDHAL_GETAVAILDRIVERMEMORYDATA));
-            memdata.lpDD = This->lpLcl->lpGbl;
-            memdata.ddRVal = DDERR_INVALIDPARAMS;
-
-            memdata.ddsCapsEx.dwCaps2 = ddscaps->dwCaps2;
-            memdata.ddsCapsEx.dwCaps3 = ddscaps->dwCaps3;
-
-            This->lpLcl->lpGbl->hDD = This->lpLcl->hDD;
-
-            if (This->lpLcl->lpDDCB->HALDDMiscellaneous.GetAvailDriverMemory(&memdata) == DDHAL_DRIVER_NOTHANDLED)
-            {
-                retVal = DDERR_NODIRECTDRAWHW;
-
-                if (dwTotal)
-                    *dwTotal = 0;
-
-                if (dwFree)
-                    *dwFree = 0;
-            }
-            else
-            {
-                if (dwTotal)
-                    *dwTotal = memdata.dwTotal;
-
-                if (dwFree)
-                    *dwFree = memdata.dwFree;
-
-                retVal = memdata.ddRVal;
-            }
-        }
+        return DDERR_NODIRECTDRAWHW;
     }
-    _SEH_HANDLE
+
+    if ((!dwTotal && !dwFree) || !ddscaps)
     {
+        return DDERR_INVALIDPARAMS;
     }
-    _SEH_END;
 
-    return retVal;
+    DDHAL_GETAVAILDRIVERMEMORYDATA  memdata;
+    ZeroMemory(&memdata, sizeof(DDHAL_GETAVAILDRIVERMEMORYDATA));
+    memdata.lpDD = This->lpLcl->lpGbl;
+    memdata.ddRVal = DDERR_INVALIDPARAMS;
+    memcpy(&memdata.DDSCaps, ddscaps, sizeof(DDSCAPS2));
+
+    if (This->lpLcl->lpDDCB->HALDDMiscellaneous.GetAvailDriverMemory(&memdata) == DDHAL_DRIVER_NOTHANDLED)
+        return DDERR_NODIRECTDRAWHW;
+
+    if (dwTotal)
+       *dwTotal = memdata.dwTotal;
+
+    if (dwFree)
+       *dwFree = memdata.dwFree;
+
+    return memdata.ddRVal;
 }
 
 HRESULT WINAPI
-Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes, LPDWORD lpCodes)
+Main_DirectDraw_GetFourCCCodes(LPDIRECTDRAW7 iface, LPDWORD lpNumCodes, LPDWORD lpCodes)
 {
+    LPDDRAWI_DIRECTDRAW_INT This = (LPDDRAWI_DIRECTDRAW_INT)iface;
     HRESULT retVal = DD_OK;
 
     DX_WINDBG_trace();
 
-
+    
      // EnterCriticalSection(&ddcs);
 
     _SEH_TRY
@@ -390,25 +200,13 @@ Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes,
         }
         else
         {
-            if(!(IsBadWritePtr(lpNumCodes,sizeof(LPDWORD))))
+            if(!IsBadWritePtr(lpCodes,sizeof(LPDWORD)))
             {
-                DWORD size;
-
-                if (*lpNumCodes > This->lpLcl->lpGbl->dwNumFourCC)
-                {
-                    *lpNumCodes = This->lpLcl->lpGbl->dwNumFourCC;
-                }
-
-                size =  *lpNumCodes * sizeof(DWORD);
-
-                if(!IsBadWritePtr(lpCodes, size ))
-                {
-                    memcpy(lpCodes, This->lpLcl->lpGbl->lpdwFourCC, size );
-                }
-                else
-                {
-                    *lpNumCodes = This->lpLcl->lpGbl->dwNumFourCC;
-                }
+                memcpy(lpCodes, This->lpLcl->lpGbl->lpdwFourCC, sizeof(DWORD)* min(This->lpLcl->lpGbl->dwNumFourCC, *lpNumCodes));
+            }
+            else
+            {
+                *lpNumCodes = This->lpLcl->lpGbl->dwNumFourCC;
             }
         }
     }
@@ -422,19 +220,20 @@ Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes,
 }
 
 
-/*
- * We can optain the version of the directdraw object by compare the
- * vtl table pointer from iface we do not need pass which version
+
+/* 
+ * We can optain the version of the directdraw object by compare the 
+ * vtl table pointer from iface we do not need pass which version 
  * we whant to use
  *
  * Main_DirectDraw_CreateSurface is dead at moment we do only support
- * directdraw 7 at moment
+ * directdraw 7 at moment 
  */
 
 /* For DirectDraw 1 - 3 */
-HRESULT WINAPI
-Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf, IUnknown *pUnkOuter)
+HRESULT WINAPI 
+Main_DirectDraw_CreateSurface (LPDIRECTDRAW iface, LPDDSURFACEDESC pDDSD,
+                               LPDIRECTDRAWSURFACE *ppSurf, IUnknown *pUnkOuter)
 {
    HRESULT ret = DDERR_GENERIC;
    DDSURFACEDESC2 dd_desc_v2;
@@ -442,16 +241,14 @@ Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDD
    DX_WINDBG_trace();
 
     // EnterCriticalSection(&ddcs);
-    *ppSurf = NULL;
-
     _SEH_TRY
     {
         if (pDDSD->dwSize == sizeof(DDSURFACEDESC))
         {
             CopyDDSurfDescToDDSurfDesc2(&dd_desc_v2, (LPDDSURFACEDESC)pDDSD);
-            ret = Internal_CreateSurface(This,
+            ret = Internal_CreateSurface((LPDDRAWI_DIRECTDRAW_INT)iface,
                                          &dd_desc_v2,
-                                         ppSurf,
+                                         (LPDIRECTDRAWSURFACE7 *)ppSurf,
                                          pUnkOuter);
         }
         else
@@ -461,7 +258,7 @@ Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDD
     }
     _SEH_HANDLE
     {
-        ret = DDERR_INVALIDPARAMS;
+        ret = DDERR_GENERIC;
     }
     _SEH_END;
   // LeaveCriticalSection(&ddcs);
@@ -470,37 +267,56 @@ Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDD
 
 
 /* For DirectDraw 4 - 7 */
-HRESULT WINAPI
-Main_DirectDraw_CreateSurface4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC2 pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf, IUnknown *pUnkOuter)
+HRESULT WINAPI 
+Main_DirectDraw_CreateSurface4(LPDIRECTDRAW7 iface, LPDDSURFACEDESC2 pDDSD,
+                               LPDIRECTDRAWSURFACE7 *ppSurf, IUnknown *pUnkOuter)
 {
-    HRESULT ret;
+   HRESULT ret;
     DX_WINDBG_trace();
     // EnterCriticalSection(&ddcs);
-    *ppSurf = NULL;
-
     _SEH_TRY
     {
-        ret = Internal_CreateSurface(This, pDDSD, ppSurf, pUnkOuter);
+        ret = Internal_CreateSurface( (LPDDRAWI_DIRECTDRAW_INT)iface,pDDSD, ppSurf,pUnkOuter);
     }
-    _SEH_HANDLE
+        _SEH_HANDLE
     {
-        ret = DDERR_INVALIDPARAMS;
+        ret = DDERR_GENERIC;
     }
     _SEH_END;
 
     // LeaveCriticalSection(&ddcs);
     return ret;
 }
-
-/* 5 of 31 DirectDraw7_Vtable api are working simluare to windows */
-/* 8 of 31 DirectDraw7_Vtable api are under devloping / testing */
-
-
-
-
-
-
-
-
-
+IDirectDraw7Vtbl DirectDraw7_Vtable =
+{
+    Main_DirectDraw_QueryInterface,
+    Main_DirectDraw_AddRef,
+    Main_DirectDraw_Release,
+    Main_DirectDraw_Compact,
+    Main_DirectDraw_CreateClipper,
+    Main_DirectDraw_CreatePalette,
+    Main_DirectDraw_CreateSurface4,
+    Main_DirectDraw_DuplicateSurface,
+    Main_DirectDraw_EnumDisplayModes,
+    Main_DirectDraw_EnumSurfaces,
+    Main_DirectDraw_FlipToGDISurface,
+    Main_DirectDraw_GetCaps,
+    Main_DirectDraw_GetDisplayMode,
+    Main_DirectDraw_GetFourCCCodes,
+    Main_DirectDraw_GetGDISurface,
+    Main_DirectDraw_GetMonitorFrequency,
+    Main_DirectDraw_GetScanLine,
+    Main_DirectDraw_GetVerticalBlankStatus,
+    Main_DirectDraw_Initialize,
+    Main_DirectDraw_RestoreDisplayMode,
+    Main_DirectDraw_SetCooperativeLevel,
+    Main_DirectDraw_SetDisplayMode,
+    Main_DirectDraw_WaitForVerticalBlank,
+    Main_DirectDraw_GetAvailableVidMem,
+    Main_DirectDraw_GetSurfaceFromDC,
+    Main_DirectDraw_RestoreAllSurfaces,
+    Main_DirectDraw_TestCooperativeLevel,
+    Main_DirectDraw_GetDeviceIdentifier,
+    Main_DirectDraw_StartModeTest,
+    Main_DirectDraw_EvaluateMode
+};

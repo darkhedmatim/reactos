@@ -291,7 +291,6 @@ typedef struct tagME_TextEditor
   int nCursors;
   SIZE sizeWindow;
   int nTotalLength, nLastTotalLength;
-  int nHeight;
   int nUDArrowX;
   int nSequence;
   COLORREF rgbBackColor;
@@ -322,9 +321,6 @@ typedef struct tagME_TextEditor
   BOOL bHideSelection;
   BOOL AutoURLDetect_bEnable;
   WCHAR cPasswordMask;
-  BOOL bHaveFocus;
-  /*for IME */
-  int imeStartIndex;
 } ME_TextEditor;
 
 typedef struct tagME_Context

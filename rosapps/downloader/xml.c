@@ -51,7 +51,7 @@ void tag_opened (void* usrdata, const char* tag, const char** arg)
 		}
 		TagOpen = TRUE;
 
-		for (i=0; arg[i]; i+=2)
+		for (i=0; arg[i]; i+=2) 
 		{
 			if(!strcmp(arg[i], "name"))
 			{
@@ -82,7 +82,7 @@ void tag_opened (void* usrdata, const char* tag, const char** arg)
 			CurrentApplication = Current->Apps;
 		}
 
-		for (i=0; arg[i]; i+=2)
+		for (i=0; arg[i]; i+=2) 
 		{
 			if(!strcmp(arg[i], "name"))
 			{
@@ -157,7 +157,7 @@ void tag_closed (void* tree, const char* tag)
 	}
 }
 
-BOOL ProcessXML (const char* filename, struct Category* Root)
+BOOL ProcessXML (const char* filename, struct Category* Root) 
 {
 	int done = 0;
 	char buffer[255];
@@ -170,11 +170,11 @@ BOOL ProcessXML (const char* filename, struct Category* Root)
 	Current = Root;
 	TagOpen = TRUE;
 
-	file = fopen("downloader.xml", "r");
-	if(!file)
+	file = fopen(filename, "r");
+	if(!file) 
 	{
-		file = fopen(filename, "r");
-		if(!file)
+		file = fopen("downloader.xml", "r"); 
+		if(!file) 
 		{
 			MessageBoxW(0,Strings[IDS_XMLERROR_1],0,0);
 			return FALSE;
@@ -190,7 +190,8 @@ BOOL ProcessXML (const char* filename, struct Category* Root)
 		size_t len = fread (buffer, 1, sizeof(buffer), file);
 		done = len < sizeof(buffer);
 
-		if(!XML_Parse(parser, buffer, len, done))
+		buffer[len] = 0;
+		if(!XML_Parse(parser, buffer, len, done)) 
 		{
 			MessageBoxW(0,Strings[IDS_XMLERROR_2],0,0);
 			return FALSE;

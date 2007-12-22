@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.4
  *
  * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
@@ -39,11 +39,13 @@
 
 #include "glheader.h"
 #include "context.h"
+#include "hash.h"
 #include "imports.h"
 #include "macros.h"
-#include "prog_parameter.h"
-#include "prog_instruction.h"
+#include "mtypes.h"
+#include "nvfragprog.h"
 #include "nvfragparse.h"
+#include "nvprogram.h"
 #include "program.h"
 
 
@@ -77,60 +79,60 @@
 
 struct instruction_pattern {
    const char *name;
-   enum prog_opcode opcode;
+   enum fp_opcode opcode;
    GLuint inputs;
    GLuint outputs;
    GLuint suffixes;
 };
 
 static const struct instruction_pattern Instructions[] = {
-   { "ADD", OPCODE_ADD, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "COS", OPCODE_COS, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "DDX", OPCODE_DDX, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
-   { "DDY", OPCODE_DDY, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
-   { "DP3", OPCODE_DP3, INPUT_2V, OUTPUT_S, _R | _H | _X | _C | _S },
-   { "DP4", OPCODE_DP4, INPUT_2V, OUTPUT_S, _R | _H | _X | _C | _S },
-   { "DST", OPCODE_DP4, INPUT_2V, OUTPUT_V, _R | _H |      _C | _S },
-   { "EX2", OPCODE_DP4, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "FLR", OPCODE_FLR, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "FRC", OPCODE_FRC, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "KIL", OPCODE_KIL_NV, INPUT_CC, OUTPUT_NONE, 0                },
-   { "LG2", OPCODE_LG2, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "LIT", OPCODE_LIT, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
-   { "LRP", OPCODE_LRP, INPUT_3V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "MAD", OPCODE_MAD, INPUT_3V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "MAX", OPCODE_MAX, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "MIN", OPCODE_MIN, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "MOV", OPCODE_MOV, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "MUL", OPCODE_MUL, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "PK2H",  OPCODE_PK2H,  INPUT_1V, OUTPUT_S, 0                  },
-   { "PK2US", OPCODE_PK2US, INPUT_1V, OUTPUT_S, 0                  },
-   { "PK4B",  OPCODE_PK4B,  INPUT_1V, OUTPUT_S, 0                  },
-   { "PK4UB", OPCODE_PK4UB, INPUT_1V, OUTPUT_S, 0                  },
-   { "POW", OPCODE_POW, INPUT_2S, OUTPUT_S, _R | _H |      _C | _S },
-   { "RCP", OPCODE_RCP, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "RFL", OPCODE_RFL, INPUT_2V, OUTPUT_V, _R | _H |      _C | _S },
-   { "RSQ", OPCODE_RSQ, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "SEQ", OPCODE_SEQ, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SFL", OPCODE_SFL, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SGE", OPCODE_SGE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SGT", OPCODE_SGT, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SIN", OPCODE_SIN, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
-   { "SLE", OPCODE_SLE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SLT", OPCODE_SLT, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SNE", OPCODE_SNE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "STR", OPCODE_STR, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "SUB", OPCODE_SUB, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
-   { "TEX", OPCODE_TEX, INPUT_1V_T, OUTPUT_V,              _C | _S },
-   { "TXD", OPCODE_TXD, INPUT_3V_T, OUTPUT_V,              _C | _S },
-   { "TXP", OPCODE_TXP_NV, INPUT_1V_T, OUTPUT_V,           _C | _S },
-   { "UP2H",  OPCODE_UP2H,  INPUT_1S, OUTPUT_V,            _C | _S },
-   { "UP2US", OPCODE_UP2US, INPUT_1S, OUTPUT_V,            _C | _S },
-   { "UP4B",  OPCODE_UP4B,  INPUT_1S, OUTPUT_V,            _C | _S },
-   { "UP4UB", OPCODE_UP4UB, INPUT_1S, OUTPUT_V,            _C | _S },
-   { "X2D", OPCODE_X2D, INPUT_3V, OUTPUT_V, _R | _H |      _C | _S },
-   { "PRINT", OPCODE_PRINT, INPUT_1V_S, OUTPUT_NONE, 0               },
-   { NULL, (enum prog_opcode) -1, 0, 0, 0 }
+   { "ADD", FP_OPCODE_ADD, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "COS", FP_OPCODE_COS, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "DDX", FP_OPCODE_DDX, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
+   { "DDY", FP_OPCODE_DDY, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
+   { "DP3", FP_OPCODE_DP3, INPUT_2V, OUTPUT_S, _R | _H | _X | _C | _S },
+   { "DP4", FP_OPCODE_DP4, INPUT_2V, OUTPUT_S, _R | _H | _X | _C | _S },
+   { "DST", FP_OPCODE_DP4, INPUT_2V, OUTPUT_V, _R | _H |      _C | _S },
+   { "EX2", FP_OPCODE_DP4, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "FLR", FP_OPCODE_FLR, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "FRC", FP_OPCODE_FRC, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "KIL", FP_OPCODE_KIL_NV, INPUT_CC, OUTPUT_NONE, 0                },
+   { "LG2", FP_OPCODE_LG2, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "LIT", FP_OPCODE_LIT, INPUT_1V, OUTPUT_V, _R | _H |      _C | _S },
+   { "LRP", FP_OPCODE_LRP, INPUT_3V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "MAD", FP_OPCODE_MAD, INPUT_3V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "MAX", FP_OPCODE_MAX, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "MIN", FP_OPCODE_MIN, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "MOV", FP_OPCODE_MOV, INPUT_1V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "MUL", FP_OPCODE_MUL, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "PK2H",  FP_OPCODE_PK2H,  INPUT_1V, OUTPUT_S, 0                  },
+   { "PK2US", FP_OPCODE_PK2US, INPUT_1V, OUTPUT_S, 0                  },
+   { "PK4B",  FP_OPCODE_PK4B,  INPUT_1V, OUTPUT_S, 0                  },
+   { "PK4UB", FP_OPCODE_PK4UB, INPUT_1V, OUTPUT_S, 0                  },
+   { "POW", FP_OPCODE_POW, INPUT_2S, OUTPUT_S, _R | _H |      _C | _S },
+   { "RCP", FP_OPCODE_RCP, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "RFL", FP_OPCODE_RFL, INPUT_2V, OUTPUT_V, _R | _H |      _C | _S },
+   { "RSQ", FP_OPCODE_RSQ, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "SEQ", FP_OPCODE_SEQ, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SFL", FP_OPCODE_SFL, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SGE", FP_OPCODE_SGE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SGT", FP_OPCODE_SGT, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SIN", FP_OPCODE_SIN, INPUT_1S, OUTPUT_S, _R | _H |      _C | _S },
+   { "SLE", FP_OPCODE_SLE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SLT", FP_OPCODE_SLT, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SNE", FP_OPCODE_SNE, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "STR", FP_OPCODE_STR, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "SUB", FP_OPCODE_SUB, INPUT_2V, OUTPUT_V, _R | _H | _X | _C | _S },
+   { "TEX", FP_OPCODE_TEX, INPUT_1V_T, OUTPUT_V,              _C | _S },
+   { "TXD", FP_OPCODE_TXD, INPUT_3V_T, OUTPUT_V,              _C | _S },
+   { "TXP", FP_OPCODE_TXP_NV, INPUT_1V_T, OUTPUT_V,           _C | _S },
+   { "UP2H",  FP_OPCODE_UP2H,  INPUT_1S, OUTPUT_V,            _C | _S },
+   { "UP2US", FP_OPCODE_UP2US, INPUT_1S, OUTPUT_V,            _C | _S },
+   { "UP4B",  FP_OPCODE_UP4B,  INPUT_1S, OUTPUT_V,            _C | _S },
+   { "UP4UB", FP_OPCODE_UP4UB, INPUT_1S, OUTPUT_V,            _C | _S },
+   { "X2D", FP_OPCODE_X2D, INPUT_3V, OUTPUT_V, _R | _H |      _C | _S },
+   { "PRINT", FP_OPCODE_PRINT, INPUT_1V_S, OUTPUT_NONE, 0               },
+   { NULL, (enum fp_opcode) -1, 0, 0, 0 }
 };
 
 
@@ -144,9 +146,9 @@ struct parse_state {
    const GLubyte *start;              /* start of program string */
    const GLubyte *pos;                /* current position */
    const GLubyte *curLine;
-   struct gl_fragment_program *program;  /* current program */
+   struct fragment_program *program;  /* current program */
 
-   struct gl_program_parameter_list *parameters;
+   struct program_parameter_list *parameters;
 
    GLuint numInst;                    /* number of instructions parsed */
    GLuint inputsRead;                 /* bitmask of input registers used */
@@ -246,7 +248,7 @@ MatchInstruction(const GLubyte *token)
          return result;
       }
    }
-   result.opcode = MAX_OPCODE; /* i.e. invalid instruction */
+   result.opcode = (enum fp_opcode) -1;
    return result;
 }
 
@@ -666,7 +668,7 @@ Parse_SwizzleSuffix(const GLubyte *token, GLuint swizzle[4])
 
 static GLboolean
 Parse_CondCodeMask(struct parse_state *parseState,
-                   struct prog_dst_register *dstReg)
+                   struct fp_dst_register *dstReg)
 {
    if (Parse_String(parseState, "EQ"))
       dstReg->CondMask = COND_EQ;
@@ -698,7 +700,7 @@ Parse_CondCodeMask(struct parse_state *parseState,
       if (!Parse_SwizzleSuffix(token, swz))
          RETURN_ERROR1("Invalid swizzle suffix");
 
-      dstReg->CondSwizzle = MAKE_SWIZZLE4(swz[0], swz[1], swz[2], swz[3]);
+      dstReg->CondSwizzle = MAKE_SWIZZLE(swz);
    }
 
    return GL_TRUE;
@@ -841,7 +843,7 @@ Parse_OutputReg(struct parse_state *parseState, GLint *outputRegNum)
    /* try to match an output register name */
    for (j = 0; OutputRegisters[j]; j++) {
       if (_mesa_strcmp((const char *) token, OutputRegisters[j]) == 0) {
-         static GLuint bothColors = (1 << FRAG_RESULT_COLR) | (1 << FRAG_RESULT_COLH);
+         static GLuint bothColors = (1 << FRAG_OUTPUT_COLR) | (1 << FRAG_OUTPUT_COLH);
          *outputRegNum = j;
          parseState->outputsWritten |= (1 << j);
          if ((parseState->outputsWritten & bothColors) == bothColors) {
@@ -863,7 +865,7 @@ Parse_OutputReg(struct parse_state *parseState, GLint *outputRegNum)
 
 static GLboolean
 Parse_MaskedDstReg(struct parse_state *parseState,
-                   struct prog_dst_register *dstReg)
+                   struct fp_dst_register *dstReg)
 {
    GLubyte token[100];
    GLint idx;
@@ -962,7 +964,7 @@ Parse_MaskedDstReg(struct parse_state *parseState,
  */
 static GLboolean
 Parse_VectorSrc(struct parse_state *parseState,
-                struct prog_src_register *srcReg)
+                struct fp_src_register *srcReg)
 {
    GLfloat sign = 1.0F;
    GLubyte token[100];
@@ -981,16 +983,16 @@ Parse_VectorSrc(struct parse_state *parseState,
       srcReg->NegateAbs = (sign < 0.0F) ? GL_TRUE : GL_FALSE;
 
       if (Parse_String(parseState, "-"))
-         srcReg->NegateBase = NEGATE_XYZW;
+         srcReg->NegateBase = GL_TRUE;
       else if (Parse_String(parseState, "+"))
-         srcReg->NegateBase = NEGATE_NONE;
+         srcReg->NegateBase = GL_FALSE;
       else
-         srcReg->NegateBase = NEGATE_NONE;
+         srcReg->NegateBase = GL_FALSE;
    }
    else {
       srcReg->Abs = GL_FALSE;
       srcReg->NegateAbs = GL_FALSE;
-      srcReg->NegateBase = (sign < 0.0F) ? NEGATE_XYZW : NEGATE_NONE;
+      srcReg->NegateBase = (sign < 0.0F) ? GL_TRUE : GL_FALSE;
    }
 
    /* This should be the real src vector/register name */
@@ -1007,14 +1009,14 @@ Parse_VectorSrc(struct parse_state *parseState,
       srcReg->Index = idx;
    }
    else if (token[0] == 'f') {
-      /* XXX this might be an identifier! */
+      /* XXX this might be an identier! */
       srcReg->File = PROGRAM_INPUT;
       if (!Parse_FragReg(parseState, &idx))
          RETURN_ERROR;
       srcReg->Index = idx;
    }
    else if (token[0] == 'p') {
-      /* XXX this might be an identifier! */
+      /* XXX this might be an identier! */
       srcReg->File = PROGRAM_LOCAL_PARAM;
       if (!Parse_ProgramParamReg(parseState, &idx))
          RETURN_ERROR;
@@ -1039,8 +1041,7 @@ Parse_VectorSrc(struct parse_state *parseState,
       GLuint paramIndex;
       if (!Parse_ScalarConstant(parseState, values))
          RETURN_ERROR;
-      paramIndex = _mesa_add_unnamed_constant(parseState->parameters,
-                                              values, 4, NULL);
+      paramIndex = _mesa_add_unnamed_constant(parseState->parameters, values);
       srcReg->File = PROGRAM_NAMED_PARAM;
       srcReg->Index = paramIndex;
    }
@@ -1051,8 +1052,7 @@ Parse_VectorSrc(struct parse_state *parseState,
       (void) Parse_String(parseState, "{");
       if (!Parse_VectorConstant(parseState, values))
          RETURN_ERROR;
-      paramIndex = _mesa_add_unnamed_constant(parseState->parameters,
-                                              values, 4, NULL);
+      paramIndex = _mesa_add_unnamed_constant(parseState->parameters, values);
       srcReg->File = PROGRAM_NAMED_PARAM;
       srcReg->Index = paramIndex;      
    }
@@ -1073,7 +1073,7 @@ Parse_VectorSrc(struct parse_state *parseState,
       if (!Parse_SwizzleSuffix(token, swz))
          RETURN_ERROR1("Invalid swizzle suffix");
 
-      srcReg->Swizzle = MAKE_SWIZZLE4(swz[0], swz[1], swz[2], swz[3]);
+      srcReg->Swizzle = MAKE_SWIZZLE(swz);
    }
 
    /* Finish absolute value */
@@ -1087,7 +1087,7 @@ Parse_VectorSrc(struct parse_state *parseState,
 
 static GLboolean
 Parse_ScalarSrcReg(struct parse_state *parseState,
-                   struct prog_src_register *srcReg)
+                   struct fp_src_register *srcReg)
 {
    GLubyte token[100];
    GLfloat sign = 1.0F;
@@ -1107,16 +1107,16 @@ Parse_ScalarSrcReg(struct parse_state *parseState,
       srcReg->NegateAbs = (sign < 0.0F) ? GL_TRUE : GL_FALSE;
 
       if (Parse_String(parseState, "-"))
-         srcReg->NegateBase = NEGATE_XYZW;
+         srcReg->NegateBase = GL_TRUE;
       else if (Parse_String(parseState, "+"))
-         srcReg->NegateBase = NEGATE_NONE;
+         srcReg->NegateBase = GL_FALSE;
       else
-         srcReg->NegateBase = NEGATE_NONE;
+         srcReg->NegateBase = GL_FALSE;
    }
    else {
       srcReg->Abs = GL_FALSE;
       srcReg->NegateAbs = GL_FALSE;
-      srcReg->NegateBase = (sign < 0.0F) ? NEGATE_XYZW : NEGATE_NONE;
+      srcReg->NegateBase = (sign < 0.0F) ? GL_TRUE : GL_FALSE;
    }
 
    if (!Peek_Token(parseState, token))
@@ -1142,22 +1142,7 @@ Parse_ScalarSrcReg(struct parse_state *parseState,
       (void) Parse_String(parseState, "{");
       if (!Parse_VectorConstant(parseState, values))
          RETURN_ERROR;
-      paramIndex = _mesa_add_unnamed_constant(parseState->parameters,
-                                              values, 4, NULL);
-      srcReg->File = PROGRAM_NAMED_PARAM;
-      srcReg->Index = paramIndex;      
-   }
-   else if (IsLetter(token[0])){
-      /* named param/constant */
-      GLubyte ident[100];
-      GLint paramIndex;
-      if (!Parse_Identifier(parseState, ident))
-         RETURN_ERROR;
-      paramIndex = _mesa_lookup_parameter_index(parseState->parameters,
-                                                -1, (const char *) ident);
-      if (paramIndex < 0) {
-         RETURN_ERROR2("Undefined constant or parameter: ", ident);
-      }
+      paramIndex = _mesa_add_unnamed_constant(parseState->parameters, values);
       srcReg->File = PROGRAM_NAMED_PARAM;
       srcReg->Index = paramIndex;      
    }
@@ -1167,8 +1152,7 @@ Parse_ScalarSrcReg(struct parse_state *parseState,
       GLuint paramIndex;
       if (!Parse_ScalarConstant(parseState, values))
          RETURN_ERROR;
-      paramIndex = _mesa_add_unnamed_constant(parseState->parameters,
-                                              values, 4, NULL);
+      paramIndex = _mesa_add_unnamed_constant(parseState->parameters, values);
       srcReg->Index = paramIndex;      
       srcReg->File = PROGRAM_NAMED_PARAM;
       needSuffix = GL_FALSE;
@@ -1214,7 +1198,7 @@ Parse_ScalarSrcReg(struct parse_state *parseState,
 
 static GLboolean
 Parse_PrintInstruction(struct parse_state *parseState,
-                       struct prog_instruction *inst)
+                       struct fp_instruction *inst)
 {
    const GLubyte *str;
    GLubyte *msg;
@@ -1229,7 +1213,7 @@ Parse_PrintInstruction(struct parse_state *parseState,
    for (len = 0; str[len] != '\''; len++) /* find closing quote */
       ;
    parseState->pos += len + 1;
-   msg = (GLubyte*) _mesa_malloc(len + 1);
+   msg = _mesa_malloc(len + 1);
 
    _mesa_memcpy(msg, str, len);
    msg[len] = 0;
@@ -1253,11 +1237,12 @@ Parse_PrintInstruction(struct parse_state *parseState,
       }
    }
    else {
+      /* File = 0 indicates no register to print */
       inst->SrcReg[0].File = PROGRAM_UNDEFINED;
    }
 
    inst->SrcReg[0].Swizzle = SWIZZLE_NOOP;
-   inst->SrcReg[0].NegateBase = NEGATE_NONE;
+   inst->SrcReg[0].NegateBase = GL_FALSE;
    inst->SrcReg[0].Abs = GL_FALSE;
    inst->SrcReg[0].NegateAbs = GL_FALSE;
 
@@ -1267,15 +1252,20 @@ Parse_PrintInstruction(struct parse_state *parseState,
 
 static GLboolean
 Parse_InstructionSequence(struct parse_state *parseState,
-                          struct prog_instruction program[])
+                          struct fp_instruction program[])
 {
    while (1) {
-      struct prog_instruction *inst = program + parseState->numInst;
+      struct fp_instruction *inst = program + parseState->numInst;
       struct instruction_pattern instMatch;
       GLubyte token[100];
 
       /* Initialize the instruction */
-      _mesa_init_instructions(inst, 1);
+      inst->SrcReg[0].File = PROGRAM_UNDEFINED;
+      inst->SrcReg[1].File = PROGRAM_UNDEFINED;
+      inst->SrcReg[2].File = PROGRAM_UNDEFINED;
+      inst->DstReg.File = PROGRAM_UNDEFINED;
+      inst->DstReg.CondSwizzle = SWIZZLE_NOOP;
+      inst->Data = NULL;
 
       /* special instructions */
       if (Parse_String(parseState, "DEFINE")) {
@@ -1317,7 +1307,7 @@ Parse_InstructionSequence(struct parse_state *parseState,
                                    (const char *) id, value);
       }
       else if (Parse_String(parseState, "END")) {
-         inst->Opcode = OPCODE_END;
+         inst->Opcode = FP_OPCODE_END;
          inst->StringPos = parseState->curLine - parseState->start;
          assert(inst->StringPos >= 0);
          parseState->numInst++;
@@ -1336,16 +1326,15 @@ Parse_InstructionSequence(struct parse_state *parseState,
 
          /* try to find matching instuction */
          instMatch = MatchInstruction(token);
-         if (instMatch.opcode >= MAX_OPCODE) {
+         if (instMatch.opcode < 0) {
             /* bad instruction name */
             RETURN_ERROR2("Unexpected token: ", token);
          }
 
          inst->Opcode = instMatch.opcode;
          inst->Precision = instMatch.suffixes & (_R | _H | _X);
-         inst->SaturateMode = (instMatch.suffixes & (_S))
-            ? SATURATE_ZERO_ONE : SATURATE_OFF;
-         inst->CondUpdate = (instMatch.suffixes & (_C)) ? GL_TRUE : GL_FALSE;
+         inst->Saturate = (instMatch.suffixes & (_S)) ? GL_TRUE : GL_FALSE;
+         inst->UpdateCondRegister = (instMatch.suffixes & (_C)) ? GL_TRUE : GL_FALSE;
          inst->StringPos = parseState->curLine - parseState->start;
          assert(inst->StringPos >= 0);
 
@@ -1359,7 +1348,7 @@ Parse_InstructionSequence(struct parse_state *parseState,
                RETURN_ERROR1("Expected ,");
          }
          else if (instMatch.outputs == OUTPUT_NONE) {
-            if (instMatch.opcode == OPCODE_KIL_NV) {
+            if (instMatch.opcode == FP_OPCODE_KIL_NV) {
                /* This is a little weird, the cond code info is in
                 * the dest register.
                 */
@@ -1367,7 +1356,7 @@ Parse_InstructionSequence(struct parse_state *parseState,
                   RETURN_ERROR;
             }
             else {
-               ASSERT(instMatch.opcode == OPCODE_PRINT);
+               ASSERT(instMatch.opcode == FP_OPCODE_PRINT);
             }
          }
 
@@ -1419,7 +1408,7 @@ Parse_InstructionSequence(struct parse_state *parseState,
             if (!Parse_TextureImageId(parseState, &unit, &idx))
                RETURN_ERROR;
 	    inst->TexSrcUnit = unit;
-	    inst->TexSrcTarget = idx;
+	    inst->TexSrcIdx = idx;
          }
          else if (instMatch.inputs == INPUT_3V_T) {
 	    GLubyte unit, idx;
@@ -1438,7 +1427,7 @@ Parse_InstructionSequence(struct parse_state *parseState,
             if (!Parse_TextureImageId(parseState, &unit, &idx))
                RETURN_ERROR;
 	    inst->TexSrcUnit = unit;
-	    inst->TexSrcTarget = idx;
+	    inst->TexSrcIdx = idx;
          }
          else if (instMatch.inputs == INPUT_1V_S) {
             if (!Parse_PrintInstruction(parseState, inst))
@@ -1468,11 +1457,11 @@ Parse_InstructionSequence(struct parse_state *parseState,
 void
 _mesa_parse_nv_fragment_program(GLcontext *ctx, GLenum dstTarget,
                                 const GLubyte *str, GLsizei len,
-                                struct gl_fragment_program *program)
+                                struct fragment_program *program)
 {
    struct parse_state parseState;
-   struct prog_instruction instBuffer[MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS];
-   struct prog_instruction *newInst;
+   struct fp_instruction instBuffer[MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS];
+   struct fp_instruction *newInst;
    GLenum target;
    GLubyte *programString;
 
@@ -1536,12 +1525,14 @@ _mesa_parse_nv_fragment_program(GLcontext *ctx, GLenum dstTarget,
 
       /* copy the compiled instructions */
       assert(parseState.numInst <= MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS);
-      newInst = _mesa_alloc_instructions(parseState.numInst);
+      newInst = (struct fp_instruction *)
+         MALLOC(parseState.numInst * sizeof(struct fp_instruction));
       if (!newInst) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glLoadProgramNV");
          return;  /* out of memory */
       }
-      _mesa_copy_instructions(newInst, instBuffer, parseState.numInst);
+      MEMCPY(newInst, instBuffer,
+             parseState.numInst * sizeof(struct fp_instruction));
 
       /* install the program */
       program->Base.Target = target;
@@ -1550,18 +1541,17 @@ _mesa_parse_nv_fragment_program(GLcontext *ctx, GLenum dstTarget,
       }
       program->Base.String = programString;
       program->Base.Format = GL_PROGRAM_FORMAT_ASCII_ARB;
-      if (program->Base.Instructions) {
-         _mesa_free(program->Base.Instructions);
+      if (program->Instructions) {
+         FREE(program->Instructions);
       }
-      program->Base.Instructions = newInst;
-      program->Base.NumInstructions = parseState.numInst;
-      program->Base.InputsRead = parseState.inputsRead;
-      program->Base.OutputsWritten = parseState.outputsWritten;
+      program->Instructions = newInst;
+      program->InputsRead = parseState.inputsRead;
+      program->OutputsWritten = parseState.outputsWritten;
       for (u = 0; u < ctx->Const.MaxTextureImageUnits; u++)
-         program->Base.TexturesUsed[u] = parseState.texturesUsed[u];
+         program->TexturesUsed[u] = parseState.texturesUsed[u];
 
       /* save program parameters */
-      program->Base.Parameters = parseState.parameters;
+      program->Parameters = parseState.parameters;
 
       /* allocate registers for declared program parameters */
 #if 00
@@ -1583,8 +1573,8 @@ _mesa_parse_nv_fragment_program(GLcontext *ctx, GLenum dstTarget,
 
 
 static void
-PrintSrcReg(const struct gl_fragment_program *program,
-            const struct prog_src_register *src)
+PrintSrcReg(const struct fragment_program *program,
+            const struct fp_src_register *src)
 {
    static const char comps[5] = "xyzw";
 
@@ -1598,16 +1588,17 @@ PrintSrcReg(const struct gl_fragment_program *program,
       _mesa_printf("-");
    }
    if (src->File == PROGRAM_NAMED_PARAM) {
-      if (program->Base.Parameters->Parameters[src->Index].Type
-          == PROGRAM_CONSTANT) {
-         const GLfloat *v;
-         v = program->Base.Parameters->ParameterValues[src->Index];
-         _mesa_printf("{%g, %g, %g, %g}", v[0], v[1], v[2], v[3]);
+      if (program->Parameters->Parameters[src->Index].Type == CONSTANT) {
+         _mesa_printf("{%g, %g, %g, %g}",
+                program->Parameters->ParameterValues[src->Index][0],
+                program->Parameters->ParameterValues[src->Index][1],
+                program->Parameters->ParameterValues[src->Index][2],
+                program->Parameters->ParameterValues[src->Index][3]);
       }
       else {
-         ASSERT(program->Base.Parameters->Parameters[src->Index].Type
-                == PROGRAM_NAMED_PARAM);
-         _mesa_printf("%s", program->Base.Parameters->Parameters[src->Index].Name);
+         ASSERT(program->Parameters->Parameters[src->Index].Type
+                == NAMED_PARAMETER);
+         _mesa_printf("%s", program->Parameters->Parameters[src->Index].Name);
       }
    }
    else if (src->File == PROGRAM_OUTPUT) {
@@ -1650,10 +1641,10 @@ PrintSrcReg(const struct gl_fragment_program *program,
 }
 
 static void
-PrintTextureSrc(const struct prog_instruction *inst)
+PrintTextureSrc(const struct fp_instruction *inst)
 {
    _mesa_printf("TEX%d, ", inst->TexSrcUnit);
-   switch (inst->TexSrcTarget) {
+   switch (inst->TexSrcIdx) {
    case TEXTURE_1D_INDEX:
       _mesa_printf("1D");
       break;
@@ -1675,7 +1666,7 @@ PrintTextureSrc(const struct prog_instruction *inst)
 }
 
 static void
-PrintCondCode(const struct prog_dst_register *dst)
+PrintCondCode(const struct fp_dst_register *dst)
 {
    static const char *comps = "xyzw";
    static const char *ccString[] = {
@@ -1699,7 +1690,7 @@ PrintCondCode(const struct prog_dst_register *dst)
 
 
 static void
-PrintDstReg(const struct prog_dst_register *dst)
+PrintDstReg(const struct fp_dst_register *dst)
 {
    if (dst->File == PROGRAM_OUTPUT) {
       _mesa_printf("o[%s]", OutputRegisters[dst->Index]);
@@ -1720,15 +1711,15 @@ PrintDstReg(const struct prog_dst_register *dst)
       _mesa_printf("???");
    }
 
-   if (dst->WriteMask != 0 && dst->WriteMask != WRITEMASK_XYZW) {
+   if (dst->WriteMask != 0 && dst->WriteMask != 0xf) {
       _mesa_printf(".");
-      if (dst->WriteMask & WRITEMASK_X)
+      if (dst->WriteMask & 0x1)
          _mesa_printf("x");
-      if (dst->WriteMask & WRITEMASK_Y)
+      if (dst->WriteMask & 0x2)
          _mesa_printf("y");
-      if (dst->WriteMask & WRITEMASK_Z)
+      if (dst->WriteMask & 0x4)
          _mesa_printf("z");
-      if (dst->WriteMask & WRITEMASK_W)
+      if (dst->WriteMask & 0x8)
          _mesa_printf("w");
    }
 
@@ -1745,11 +1736,11 @@ PrintDstReg(const struct prog_dst_register *dst)
  * Print (unparse) the given vertex program.  Just for debugging.
  */
 void
-_mesa_print_nv_fragment_program(const struct gl_fragment_program *program)
+_mesa_print_nv_fragment_program(const struct fragment_program *program)
 {
-   const struct prog_instruction *inst;
+   const struct fp_instruction *inst;
 
-   for (inst = program->Base.Instructions; inst->Opcode != OPCODE_END; inst++) {
+   for (inst = program->Instructions; inst->Opcode != FP_OPCODE_END; inst++) {
       int i;
       for (i = 0; Instructions[i].name; i++) {
          if (inst->Opcode == Instructions[i].opcode) {
@@ -1759,9 +1750,9 @@ _mesa_print_nv_fragment_program(const struct gl_fragment_program *program)
                _mesa_printf("H");
             else if (inst->Precision == FIXED12)
                _mesa_printf("X");
-            if (inst->CondUpdate)
+            if (inst->UpdateCondRegister)
                _mesa_printf("C");
-            if (inst->SaturateMode == SATURATE_ZERO_ONE)
+            if (inst->Saturate)
                _mesa_printf("_SAT");
             _mesa_printf(" ");
 

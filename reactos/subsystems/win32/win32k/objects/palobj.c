@@ -172,7 +172,7 @@ HPALETTE FASTCALL PALETTE_Init(VOID)
     palPtr->palPalEntry[i].peFlags = 0;
   }
 
-  hpalette = NtGdiCreatePaletteInternal(palPtr,NB_RESERVED_COLORS);
+  hpalette = NtGdiCreatePalette(palPtr);
   ExFreePool(palPtr);
 
 #ifndef NO_MAPPING
@@ -329,7 +329,7 @@ INT STDCALL PALETTE_SetMapping(PALOBJ *palPtr, UINT uStart, UINT uNum, BOOL mapO
         }
 
         if( !prevMapping || palPtr->mapping[uStart] != index ) iRemapped++;
-        if (palPtr->mapping != NULL)
+        if (palPtr->mapping != NULL)            
         {
             palPtr->mapping[uStart] = index;
         }

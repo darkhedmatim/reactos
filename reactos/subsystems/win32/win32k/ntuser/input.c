@@ -85,20 +85,20 @@ STDCALL
 NtUserGetLastInputInfo(PLASTINPUTINFO plii)
 {
     BOOL ret = TRUE;
-
+    
     UserEnterShared();
-
+    
     _SEH_TRY
     {
         if (ProbeForReadUint(&plii->cbSize) != sizeof(LASTINPUTINFO))
         {
             SetLastWin32Error(ERROR_INVALID_PARAMETER);
             ret = FALSE;
-            _SEH_LEAVE;
+            _SEH_LEAVE; 
         }
 
         ProbeForWrite(plii, sizeof(LASTINPUTINFO), sizeof(DWORD));
-
+        
         plii->dwTime = IntLastInputTick(FALSE);
     }
     _SEH_HANDLE
@@ -107,9 +107,9 @@ NtUserGetLastInputInfo(PLASTINPUTINFO plii)
         ret = FALSE;
     }
     _SEH_END;
-
-    UserLeave();
-
+   
+    UserLeave(); 
+    
     return ret;
 }
 
@@ -274,7 +274,7 @@ MouseThreadMain(PVOID StartContext)
             DPRINT1("Win32K: Failed to read from mouse.\n");
             return; //(Status);
          }
-         DPRINT("MouseEvent\n");
+         DPRINT("MouseEvent\n");         
 		 IntLastInputTick(TRUE);
 
          UserEnterExclusive();
@@ -537,7 +537,6 @@ KeyboardThreadMain(PVOID StartContext)
       while (InputThreadsRunning)
       {
          BOOLEAN NumKeys = 1;
-         BOOLEAN bLeftAlt;
          KEYBOARD_INPUT_DATA KeyInput;
          KEYBOARD_INPUT_DATA NextKeyInput;
          LPARAM lParam = 0;
@@ -586,8 +585,8 @@ KeyboardThreadMain(PVOID StartContext)
             return; //(Status);
          }
 
-         /* Set LastInputTick */
-         IntLastInputTick(TRUE);
+		 /* Set LastInputTick */
+		 IntLastInputTick(TRUE);
 
          /* Update modifier state */
          fsModifiers = IntKeyboardGetModifiers(&KeyInput);
@@ -597,22 +596,6 @@ KeyboardThreadMain(PVOID StartContext)
             if (KeyInput.Flags & KEY_BREAK)
             {
                ModifierState &= ~fsModifiers;
-               if(fsModifiers == MOD_ALT)
-               {
-                   if(KeyInput.Flags & KEY_E0)
-                   {
-                      gQueueKeyStateTable[VK_RMENU] = 0;
-                   }
-                   else
-                   {
-                      gQueueKeyStateTable[VK_LMENU] = 0;
-                   }
-                   if (gQueueKeyStateTable[VK_RMENU] == 0 &&
-                       gQueueKeyStateTable[VK_LMENU] == 0)
-                   {
-                      gQueueKeyStateTable[VK_MENU] = 0;
-                   }
-               }
             }
             else
             {
@@ -625,21 +608,6 @@ KeyboardThreadMain(PVOID StartContext)
                    * (For alt, the message that turns on accelerator
                    * display, not sure what for win. Both TODO though.)
                    */
-                   bLeftAlt = FALSE;
-                   if(fsModifiers == MOD_ALT)
-                   {
-                      if(KeyInput.Flags & KEY_E0)
-                      {
-                         gQueueKeyStateTable[VK_RMENU] = 0x80;
-                      }
-                      else
-                      {
-                         gQueueKeyStateTable[VK_LMENU] = 0x80;
-                         bLeftAlt = TRUE;
-                      }
-
-                      gQueueKeyStateTable[VK_MENU] = 0x80;
-                   }
 
                   /* Read the next key before sending this one */
                   do
@@ -682,18 +650,7 @@ KeyboardThreadMain(PVOID StartContext)
                      if (fsModifiers == MOD_WIN)
                         IntKeyboardSendWinKeyMsg();
                      else if (fsModifiers == MOD_ALT)
-                     {
-                        gQueueKeyStateTable[VK_MENU] = 0;
-                        if(bLeftAlt)
-                        {
-                           gQueueKeyStateTable[VK_LMENU] = 0;
-                        }
-                        else
-                        {
-                           gQueueKeyStateTable[VK_RMENU] = 0;
-                        }
                         co_IntKeyboardSendAltKeyMsg();
-                     }
                      continue;
                   }
 
@@ -1027,7 +984,7 @@ IntMouseInput(MOUSEINPUT *mi)
    {
       LARGE_INTEGER LargeTickCount;
       KeQueryTickCount(&LargeTickCount);
-      mi->time = MsqCalculateMessageTime(&LargeTickCount);
+      mi->time = LargeTickCount.u.LowPart;
    }
 
    SwapButtons = CurInfo->SwapButtons;
@@ -1054,10 +1011,10 @@ IntMouseInput(MOUSEINPUT *mi)
 
       if (DesktopWindow)
       {
-         if(MousePos.x >= DesktopWindow->Wnd->ClientRect.right)
-            MousePos.x = DesktopWindow->Wnd->ClientRect.right - 1;
-         if(MousePos.y >= DesktopWindow->Wnd->ClientRect.bottom)
-            MousePos.y = DesktopWindow->Wnd->ClientRect.bottom - 1;
+         if(MousePos.x >= DesktopWindow->ClientRect.right)
+            MousePos.x = DesktopWindow->ClientRect.right - 1;
+         if(MousePos.y >= DesktopWindow->ClientRect.bottom)
+            MousePos.y = DesktopWindow->ClientRect.bottom - 1;
          ObmDereferenceObject(DesktopWindow);
       }
 

@@ -194,14 +194,14 @@ PNP_InitDetection(handle_t BindingHandle)
 /* Function 5 */
 CONFIGRET
 PNP_ReportLogOn(handle_t BindingHandle,
-                BOOL Admin,
-                DWORD ProcessId)
+                unsigned long Admin,
+                unsigned long ProcessId)
 {
     HANDLE hProcess;
 
     UNREFERENCED_PARAMETER(BindingHandle);
 
-    DPRINT("PNP_ReportLogOn(%u, %u) called\n", Admin, ProcessId);
+    DPRINT1("PNP_ReportLogOn(%lu, %lu) called\n", Admin, ProcessId);
 
     /* Get the users token */
     hProcess = OpenProcess(PROCESS_ALL_ACCESS,
@@ -233,7 +233,7 @@ PNP_ReportLogOn(handle_t BindingHandle,
 CONFIGRET
 PNP_ValidateDeviceInstance(handle_t BindingHandle,
                            wchar_t *DeviceInstance,
-                           DWORD Flags)
+                           unsigned long Flags)
 {
     CONFIGRET ret = CR_SUCCESS;
     HKEY hDeviceKey = NULL;
@@ -270,7 +270,7 @@ Done:
 CONFIGRET
 PNP_GetRootDeviceInstance(handle_t BindingHandle,
                           wchar_t *DeviceInstance,
-                          DWORD Length)
+                          unsigned long Length)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -297,11 +297,11 @@ Done:
 /* Function 8 */
 CONFIGRET
 PNP_GetRelatedDeviceInstance(handle_t BindingHandle,
-                             DWORD Relationship,
+                             unsigned long Relationship,
                              wchar_t *DeviceId,
                              wchar_t *RelatedDeviceId,
-                             DWORD Length,
-                             DWORD Flags)
+                             unsigned long Length,
+                             unsigned long Flags)
 {
     PLUGPLAY_CONTROL_RELATED_DEVICE_DATA PlugPlayData;
     CONFIGRET ret = CR_SUCCESS;
@@ -343,11 +343,11 @@ PNP_GetRelatedDeviceInstance(handle_t BindingHandle,
 /* Function 9 */
 CONFIGRET
 PNP_EnumerateSubKeys(handle_t BindingHandle,
-                     DWORD Branch,
-                     DWORD Index,
+                     unsigned long Branch,
+                     unsigned long Index,
                      wchar_t *Buffer,
-                     DWORD Length,
-                     DWORD *RequiredLength,
+                     unsigned long Length,
+                     unsigned long *RequiredLength,
                      DWORD Flags)
 {
     CONFIGRET ret = CR_SUCCESS;
@@ -458,11 +458,11 @@ PNP_GetDepth(handle_t BindingHandle,
 CONFIGRET
 PNP_GetDeviceRegProp(handle_t BindingHandle,
                      wchar_t *DeviceInstance,
-                     DWORD Property,
-                     DWORD *DataType,
+                     unsigned long Property,
+                     unsigned long *DataType,
                      char *Buffer,
-                     DWORD *TransferLen,
-                     DWORD *Length,
+                     unsigned long *TransferLen,
+                     unsigned long *Length,
                      DWORD Flags)
 {
     PLUGPLAY_CONTROL_PROPERTY_DATA PlugPlayData;
@@ -881,7 +881,7 @@ PNP_GetClassName(handle_t BindingHandle,
     WCHAR szKeyName[MAX_PATH];
     CONFIGRET ret = CR_SUCCESS;
     HKEY hKey = NULL;
-    DWORD dwSize;
+    ULONG ulSize;
 
     UNREFERENCED_PARAMETER(BindingHandle);
     UNREFERENCED_PARAMETER(Flags);
@@ -891,7 +891,7 @@ PNP_GetClassName(handle_t BindingHandle,
     lstrcpyW(szKeyName, L"System\\CurrentControlSet\\Control\\Class");
     lstrcatW(szKeyName, L"\\");
     if(lstrlenW(ClassGuid) < sizeof(szKeyName)/sizeof(WCHAR)-lstrlenW(szKeyName))
-        lstrcatW(szKeyName, ClassGuid);
+    	lstrcatW(szKeyName, ClassGuid);
     else return CR_INVALID_DATA;
 
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
@@ -901,20 +901,20 @@ PNP_GetClassName(handle_t BindingHandle,
                       &hKey))
         return CR_REGISTRY_ERROR;
 
-    dwSize = *Length * sizeof(WCHAR);
+    ulSize = *Length * sizeof(WCHAR);
     if (RegQueryValueExW(hKey,
                          L"Class",
                          NULL,
                          NULL,
                          (LPBYTE)Buffer,
-                         &dwSize))
+                         &ulSize))
     {
         *Length = 0;
         ret = CR_REGISTRY_ERROR;
     }
     else
     {
-        *Length = dwSize / sizeof(WCHAR);
+        *Length = ulSize / sizeof(WCHAR);
     }
 
     RegCloseKey(hKey);
@@ -1316,11 +1316,11 @@ PNP_RequestEjectPC(handle_t BindingHandle)
 /* Function 40 */
 CONFIGRET
 PNP_HwProfFlags(handle_t BindingHandle,
-                DWORD Action,
+                unsigned long Action,
                 wchar_t *DeviceId,
-                DWORD ProfileId,
-                DWORD *Value, // out
-                DWORD Flags)
+                unsigned long ProfileId,
+                unsigned long *Value, // out
+                unsigned long Flags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1345,9 +1345,9 @@ PNP_HwProfFlags(handle_t BindingHandle,
 CONFIGRET
 PNP_AddEmptyLogConf(handle_t BindingHandle,
                     wchar_t *DeviceInstance,
-                    unsigned long ulPriority,
-                    unsigned long *pulLogConfTag,
-                    unsigned long ulFlags)
+                    ULONG ulPriority,
+                    ULONG *pulLogConfTag,
+                    ULONG ulFlags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1370,9 +1370,9 @@ PNP_AddEmptyLogConf(handle_t BindingHandle,
 CONFIGRET
 PNP_FreeLogConf(handle_t BindingHandle,
                 wchar_t *DeviceInstance,
-                unsigned long ulType,
-                unsigned long ulLogConfTag,
-                unsigned long ulFlags)
+                ULONG ulType,
+                ULONG ulLogConfTag,
+                ULONG ulFlags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1395,9 +1395,9 @@ PNP_FreeLogConf(handle_t BindingHandle,
 CONFIGRET
 PNP_GetFirstLogConf(handle_t BindingHandle,
                     wchar_t *DeviceInstance,
-                    unsigned long ulPriority,
-                    unsigned long *pulLogConfTag,
-                    unsigned long ulFlags)
+                    ULONG ulPriority,
+                    ULONG *pulLogConfTag,
+                    ULONG ulFlags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1420,10 +1420,10 @@ PNP_GetFirstLogConf(handle_t BindingHandle,
 CONFIGRET
 PNP_GetNextLogConf(handle_t BindingHandle,
                    wchar_t *DeviceInstance,
-                   unsigned long ulLogConfType,
-                   unsigned long ulCurrentTag,
-                   unsigned long *pulNextTag,
-                   unsigned long ulFlags)
+                   ULONG ulLogConfType,
+                   ULONG ulCurrentTag,
+                   ULONG *pulNextTag,
+                   ULONG ulFlags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1447,10 +1447,10 @@ PNP_GetNextLogConf(handle_t BindingHandle,
 CONFIGRET
 PNP_GetLogConfPriority(handle_t BindingHandle,
                        wchar_t *DeviceInstance,
-                       unsigned long ulLogConfType,
-                       unsigned long ulCurrentTag,
-                       unsigned long *pPriority,
-                       unsigned long ulFlags)
+                       ULONG ulLogConfType,
+                       ULONG ulCurrentTag,
+                       ULONG *pPriority,
+                       ULONG ulFlags)
 {
     CONFIGRET ret = CR_SUCCESS;
 
@@ -1486,7 +1486,7 @@ PNP_RunDetection(handle_t BindingHandle,
 typedef BOOL (WINAPI *PDEV_INSTALL_W)(HWND, HINSTANCE, LPCWSTR, INT);
 
 static BOOL
-InstallDevice(PCWSTR DeviceInstance, BOOL ShowWizard)
+InstallDevice(PCWSTR DeviceInstance, BOOL SetupIsActive)
 {
     PLUGPLAY_CONTROL_STATUS_DATA PlugPlayData;
     HMODULE hNewDev = NULL;
@@ -1520,7 +1520,7 @@ InstallDevice(PCWSTR DeviceInstance, BOOL ShowWizard)
     if (!DevInstallW)
         goto cleanup;
 
-    if (!DevInstallW(NULL, NULL, DeviceInstance, ShowWizard ? SW_SHOWNOACTIVATE : SW_HIDE))
+    if (!DevInstallW(NULL, NULL, DeviceInstance, SetupIsActive ? SW_HIDE : SW_SHOWNOACTIVATE))
         goto cleanup;
 
     DeviceInstalled = TRUE;
@@ -1530,43 +1530,6 @@ cleanup:
         FreeLibrary(hNewDev);
 
     return DeviceInstalled;
-}
-
-
-static LONG
-ReadRegSzKey(
-    IN HKEY hKey,
-    IN LPCWSTR pszKey,
-    OUT LPWSTR* pValue)
-{
-    LONG rc;
-    DWORD dwType;
-    DWORD cbData = 0;
-    LPWSTR Value;
-
-    if (!pValue)
-        return ERROR_INVALID_PARAMETER;
-
-    *pValue = NULL;
-    rc = RegQueryValueExW(hKey, pszKey, NULL, &dwType, NULL, &cbData);
-    if (rc != ERROR_SUCCESS)
-        return rc;
-    if (dwType != REG_SZ)
-        return ERROR_FILE_NOT_FOUND;
-    Value = HeapAlloc(GetProcessHeap(), 0, cbData + sizeof(WCHAR));
-    if (!Value)
-        return ERROR_NOT_ENOUGH_MEMORY;
-    rc = RegQueryValueExW(hKey, pszKey, NULL, NULL, (LPBYTE)Value, &cbData);
-    if (rc != ERROR_SUCCESS)
-    {
-        HeapFree(GetProcessHeap(), 0, Value);
-        return rc;
-    }
-    /* NULL-terminate the string */
-    Value[cbData / sizeof(WCHAR)] = '\0';
-
-    *pValue = Value;
-    return ERROR_SUCCESS;
 }
 
 
@@ -1601,50 +1564,6 @@ cleanup:
 }
 
 
-static BOOL
-IsConsoleBoot(VOID)
-{
-    HKEY ControlKey = NULL;
-    LPWSTR SystemStartOptions = NULL;
-    LPWSTR CurrentOption, NextOption; /* Pointers into SystemStartOptions */
-    BOOL ConsoleBoot = FALSE;
-    LONG rc;
-
-    rc = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SYSTEM\\CurrentControlSet\\Control",
-        0,
-        KEY_QUERY_VALUE,
-        &ControlKey);
-
-    rc = ReadRegSzKey(ControlKey, L"SystemStartOptions", &SystemStartOptions);
-    if (rc != ERROR_SUCCESS)
-        goto cleanup;
-
-    /* Check for CMDCONS in SystemStartOptions */
-    CurrentOption = SystemStartOptions;
-    while (CurrentOption)
-    {
-        NextOption = wcschr(CurrentOption, L' ');
-        if (NextOption)
-            *NextOption = L'\0';
-        if (wcsicmp(CurrentOption, L"CONSOLE") == 0)
-        {
-            DPRINT("Found %S. Switching to console boot\n", CurrentOption);
-            ConsoleBoot = TRUE;
-            goto cleanup;
-        }
-        CurrentOption = NextOption ? NextOption + 1 : NULL;
-    }
-
-cleanup:
-    if (ControlKey != NULL)
-        RegCloseKey(ControlKey);
-    HeapFree(GetProcessHeap(), 0, SystemStartOptions);
-    return ConsoleBoot;
-}
-
-
 /* Loop to install all queued devices installations */
 static DWORD WINAPI
 DeviceInstallThread(LPVOID lpParameter)
@@ -1655,11 +1574,11 @@ DeviceInstallThread(LPVOID lpParameter)
     PLIST_ENTRY ListEntry;
 #endif
     DeviceInstallParams* Params;
-    BOOL showWizard;
+    BOOL setupActive;
 
     UNREFERENCED_PARAMETER(lpParameter);
 
-    showWizard = !SetupIsActive() && !IsConsoleBoot();
+    setupActive = SetupIsActive();
 
     SetEnvironmentVariable(L"USERPROFILE", L"."); /* FIXME: why is it needed? */
 
@@ -1682,7 +1601,7 @@ DeviceInstallThread(LPVOID lpParameter)
         {
             ResetEvent(hNoPendingInstalls);
             Params = CONTAINING_RECORD(ListEntry, DeviceInstallParams, ListEntry);
-            InstallDevice(Params->DeviceIds, showWizard);
+            InstallDevice(Params->DeviceIds, setupActive);
         }
     }
 
@@ -1724,7 +1643,7 @@ PnpEventThread(LPVOID lpParameter)
 
         if (!NT_SUCCESS(Status))
         {
-            DPRINT("NtGetPlugPlayEvent() failed (Status %lx)\n", Status);
+            DPRINT("NtPlugPlayEvent() failed (Status %lx)\n", Status);
             break;
         }
 

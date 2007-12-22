@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.1
  *
- * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -149,7 +149,7 @@ void _mesa_print_info( void )
  */
 static void add_debug_flags( const char *debug )
 {
-#ifdef DEBUG
+#ifdef MESA_DEBUG
    if (_mesa_strstr(debug, "varray")) 
       MESA_VERBOSE |= VERBOSE_VARRAY;
 
@@ -184,18 +184,6 @@ static void add_debug_flags( const char *debug )
     */
    if (_mesa_strstr(debug, "flush")) 
       MESA_DEBUG_FLAGS |= DEBUG_ALWAYS_FLUSH;
-
-#if defined(_FPU_GETCW) && defined(_FPU_SETCW)
-   if (_mesa_strstr(debug, "fpexceptions")) {
-      /* raise FP exceptions */
-      fpu_control_t mask;
-      _FPU_GETCW(mask);
-      mask &= ~(_FPU_MASK_IM | _FPU_MASK_DM | _FPU_MASK_ZM
-                | _FPU_MASK_OM | _FPU_MASK_UM);
-      _FPU_SETCW(mask);
-   }
-#endif
-
 #else
    (void) debug;
 #endif
@@ -206,6 +194,9 @@ void
 _mesa_init_debug( GLcontext *ctx )
 {
    char *c;
+
+   /* For debug/development only */
+   ctx->FirstTimeCurrent = GL_TRUE;
 
    /* Dither disable */
    ctx->NoDither = _mesa_getenv("MESA_NO_DITHER") ? GL_TRUE : GL_FALSE;

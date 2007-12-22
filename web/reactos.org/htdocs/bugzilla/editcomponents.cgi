@@ -21,7 +21,6 @@
 # Contributor(s): Holger Schurig <holgerschurig@nikocity.de>
 #                 Terry Weissman <terry@mozilla.org>
 #                 Frédéric Buclin <LpSolit@gmail.com>
-#                 Akamai Technologies <bugzilla-dev@akamai.com>
 #
 # Direct any questions on this source code to
 #
@@ -30,35 +29,16 @@
 use strict;
 use lib ".";
 
-use Bugzilla;
+require "globals.pl";
+
 use Bugzilla::Constants;
+use Bugzilla::Config qw(:DEFAULT $datadir);
 use Bugzilla::Series;
 use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::User;
+use Bugzilla::Product;
 use Bugzilla::Component;
 use Bugzilla::Bug;
-use Bugzilla::Token;
-
-###############
-# Subroutines #
-###############
-
-# Takes an arrayref of login names and returns an arrayref of user ids.
-sub check_initial_cc {
-    my ($user_names) = @_;
-
-    my %cc_ids;
-    foreach my $cc (@$user_names) {
-        my $id = login_to_id($cc, THROW_ERROR);
-        $cc_ids{$id} = 1;
-    }
-    return [keys %cc_ids];
-}
-
-###############
-# Main Script #
-###############
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
@@ -75,7 +55,6 @@ my $whoid = $user->id;
 print $cgi->header();
 
 $user->in_group('editcomponents')
-  || scalar(@{$user->get_products_by_permission('editcomponents')})
   || ThrowUserError("auth_failure", {group  => "editcomponents",
                                      action => "edit",
                                      object => "components"});
@@ -87,20 +66,13 @@ my $product_name  = trim($cgi->param('product')     || '');
 my $comp_name     = trim($cgi->param('component')   || '');
 my $action        = trim($cgi->param('action')      || '');
 my $showbugcounts = (defined $cgi->param('showbugcounts'));
-my $token         = $cgi->param('token');
 
 #
 # product = '' -> Show nice list of products
 #
 
 unless ($product_name) {
-    my $selectable_products = $user->get_selectable_products;
-    # If the user has editcomponents privs for some products only,
-    # we have to restrict the list of products to display.
-    unless ($user->in_group('editcomponents')) {
-        $selectable_products = $user->get_products_by_permission('editcomponents');
-    }
-    $vars->{'products'} = $selectable_products;
+    $vars->{'products'} = $user->get_selectable_products;
     $vars->{'showbugcounts'} = $showbugcounts;
 
     $template->process("admin/components/select-product.html.tmpl", $vars)
@@ -108,7 +80,13 @@ unless ($product_name) {
     exit;
 }
 
-my $product = $user->check_can_admin_product($product_name);
+# First make sure the product name is valid.
+my $product = Bugzilla::Product::check_product($product_name);
+
+# Then make sure the user is allowed to edit properties of this product.
+$user->can_see_product($product->name)
+  || ThrowUserError('product_access_denied', {product => $product->name});
+
 
 #
 # action='' -> Show nice list of components
@@ -117,7 +95,8 @@ my $product = $user->check_can_admin_product($product_name);
 unless ($action) {
 
     $vars->{'showbugcounts'} = $showbugcounts;
-    $vars->{'product'} = $product;
+    $vars->{'product'} = $product->name;
+    $vars->{'components'} = $product->components;
     $template->process("admin/components/list.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
 
@@ -132,8 +111,8 @@ unless ($action) {
 #
 
 if ($action eq 'add') {
-    $vars->{'token'} = issue_session_token('add_component');
-    $vars->{'product'} = $product;
+
+    $vars->{'product'} = $product->name;
     $template->process("admin/components/create.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
 
@@ -147,18 +126,16 @@ if ($action eq 'add') {
 #
 
 if ($action eq 'new') {
-    check_token_data($token, 'add_component');
+    
     # Do the user matching
     Bugzilla::User::match_field ($cgi, {
         'initialowner'     => { 'type' => 'single' },
         'initialqacontact' => { 'type' => 'single' },
-        'initialcc'        => { 'type' => 'multi'  },
     });
 
     my $default_assignee   = trim($cgi->param('initialowner')     || '');
     my $default_qa_contact = trim($cgi->param('initialqacontact') || '');
     my $description        = trim($cgi->param('description')      || '');
-    my @initial_cc         = $cgi->param('initialcc');
 
     $comp_name || ThrowUserError('component_blank_name');
 
@@ -168,7 +145,7 @@ if ($action eq 'new') {
     }
 
     my $component =
-        new Bugzilla::Component({product => $product,
+        new Bugzilla::Component({product_id => $product->id,
                                  name => $comp_name});
 
     if ($component) {
@@ -183,15 +160,11 @@ if ($action eq 'new') {
                                         {name => $comp_name});
 
     my $default_assignee_id   = login_to_id($default_assignee);
-    my $default_qa_contact_id = Bugzilla->params->{'useqacontact'} ?
+    my $default_qa_contact_id = Param('useqacontact') ?
         (login_to_id($default_qa_contact) || undef) : undef;
-
-    my $initial_cc_ids = check_initial_cc(\@initial_cc);
 
     trick_taint($comp_name);
     trick_taint($description);
-
-    $dbh->bz_lock_tables('components WRITE', 'component_cc WRITE');
 
     $dbh->do("INSERT INTO components
                 (product_id, name, description, initialowner,
@@ -200,25 +173,16 @@ if ($action eq 'new') {
              ($product->id, $comp_name, $description,
               $default_assignee_id, $default_qa_contact_id));
 
-    $component = new Bugzilla::Component({ product => $product,
-                                           name => $comp_name });
-
-    my $sth = $dbh->prepare("INSERT INTO component_cc 
-                             (user_id, component_id) VALUES (?, ?)");
-    foreach my $user_id (@$initial_cc_ids) {
-        $sth->execute($user_id, $component->id);
-    }
-
-    $dbh->bz_unlock_tables;
-
     # Insert default charting queries for this product.
     # If they aren't using charting, this won't do any harm.
+    GetVersionTable();
+
     my @series;
 
     my $prodcomp = "&product="   . url_quote($product->name) .
                    "&component=" . url_quote($comp_name);
 
-    # For localization reasons, we get the title of the queries from the
+    # For localisation reasons, we get the title of the queries from the
     # submitted form.
     my $open_name = $cgi->param('open_name');
     my $nonopen_name = $cgi->param('nonopen_name');
@@ -244,10 +208,11 @@ if ($action eq 'new') {
         $series->writeToDatabase();
     }
 
-    $vars->{'comp'} = $component;
-    $vars->{'product'} = $product;
-    delete_token($token);
+    # Make versioncache flush
+    unlink "$datadir/versioncache";
 
+    $vars->{'name'} = $comp_name;
+    $vars->{'product'} = $product->name;
     $template->process("admin/components/created.html.tmpl",
                        $vars)
       || ThrowTemplateError($template->error());
@@ -264,11 +229,11 @@ if ($action eq 'new') {
 #
 
 if ($action eq 'del') {
-    $vars->{'token'} = issue_session_token('delete_component');
+    
     $vars->{'comp'} =
         Bugzilla::Component::check_component($product, $comp_name);
 
-    $vars->{'product'} = $product;
+    $vars->{'prod'} = $product;
 
     $template->process("admin/components/confirm-delete.html.tmpl", $vars)
         || ThrowTemplateError($template->error());
@@ -283,16 +248,14 @@ if ($action eq 'del') {
 #
 
 if ($action eq 'delete') {
-    check_token_data($token, 'delete_component');
+
     my $component =
         Bugzilla::Component::check_component($product, $comp_name);
 
     if ($component->bug_count) {
-        if (Bugzilla->params->{"allowbugdeletion"}) {
+        if (Param("allowbugdeletion")) {
             foreach my $bug_id (@{$component->bug_ids}) {
-                # Note: We allow admins to delete bugs even if they can't
-                # see them, as long as they can see the product.
-                my $bug = new Bugzilla::Bug($bug_id);
+                my $bug = new Bugzilla::Bug($bug_id, $whoid);
                 $bug->remove_from_db();
             }
         } else {
@@ -300,25 +263,25 @@ if ($action eq 'delete') {
                            {nb => $component->bug_count });
         }
     }
-    
-    $dbh->bz_lock_tables('components WRITE', 'component_cc WRITE',
-                         'flaginclusions WRITE', 'flagexclusions WRITE');
+
+    $vars->{'deleted_bug_count'} = $component->bug_count;
+
+    $dbh->bz_lock_tables('components WRITE', 'flaginclusions WRITE',
+                         'flagexclusions WRITE');
 
     $dbh->do("DELETE FROM flaginclusions WHERE component_id = ?",
              undef, $component->id);
     $dbh->do("DELETE FROM flagexclusions WHERE component_id = ?",
-             undef, $component->id);
-    $dbh->do("DELETE FROM component_cc WHERE component_id = ?",
              undef, $component->id);
     $dbh->do("DELETE FROM components WHERE id = ?",
              undef, $component->id);
 
     $dbh->bz_unlock_tables();
 
-    $vars->{'comp'} = $component;
-    $vars->{'product'} = $product;
-    delete_token($token);
+    unlink "$datadir/versioncache";
 
+    $vars->{'name'} = $component->name;
+    $vars->{'product'} = $product->name;
     $template->process("admin/components/deleted.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
     exit;
@@ -333,15 +296,11 @@ if ($action eq 'delete') {
 #
 
 if ($action eq 'edit') {
-    $vars->{'token'} = issue_session_token('edit_component');
-    my $component =
+
+    $vars->{'comp'} =
         Bugzilla::Component::check_component($product, $comp_name);
-    $vars->{'comp'} = $component;
 
-    $vars->{'initial_cc_names'} = 
-        join(', ', map($_->login, @{$component->initial_cc}));
-
-    $vars->{'product'} = $product;
+    $vars->{'prod'} = $product;
 
     $template->process("admin/components/edit.html.tmpl",
                        $vars)
@@ -357,19 +316,17 @@ if ($action eq 'edit') {
 #
 
 if ($action eq 'update') {
-    check_token_data($token, 'edit_component');
+
     # Do the user matching
     Bugzilla::User::match_field ($cgi, {
         'initialowner'     => { 'type' => 'single' },
         'initialqacontact' => { 'type' => 'single' },
-        'initialcc'        => { 'type' => 'multi'  },
     });
 
     my $comp_old_name         = trim($cgi->param('componentold')     || '');
     my $default_assignee      = trim($cgi->param('initialowner')     || '');
     my $default_qa_contact    = trim($cgi->param('initialqacontact') || '');
     my $description           = trim($cgi->param('description')      || '');
-    my @initial_cc            = $cgi->param('initialcc');
 
     my $component_old =
         Bugzilla::Component::check_component($product, $comp_old_name);
@@ -383,7 +340,7 @@ if ($action eq 'update') {
 
     if ($comp_name ne $component_old->name) {
         my $component =
-            new Bugzilla::Component({product => $product,
+            new Bugzilla::Component({product_id => $product->id,
                                      name => $comp_name});
         if ($component) {
             ThrowUserError('component_already_exists',
@@ -400,9 +357,7 @@ if ($action eq 'update') {
     my $default_assignee_id   = login_to_id($default_assignee);
     my $default_qa_contact_id = login_to_id($default_qa_contact) || undef;
 
-    my $initial_cc_ids = check_initial_cc(\@initial_cc);
-
-    $dbh->bz_lock_tables('components WRITE', 'component_cc WRITE', 
+    $dbh->bz_lock_tables('components WRITE', 'products READ',
                          'profiles READ');
 
     if ($comp_name ne $component_old->name) {
@@ -411,6 +366,7 @@ if ($action eq 'update') {
         $dbh->do("UPDATE components SET name = ? WHERE id = ?",
                  undef, ($comp_name, $component_old->id));
 
+        unlink "$datadir/versioncache";
         $vars->{'updated_name'} = 1;
 
     }
@@ -422,6 +378,7 @@ if ($action eq 'update') {
                  undef, ($description, $component_old->id));
 
         $vars->{'updated_description'} = 1;
+        $vars->{'description'} = $description;
     }
 
     if ($default_assignee ne $component_old->default_assignee->login) {
@@ -430,43 +387,24 @@ if ($action eq 'update') {
                  undef, ($default_assignee_id, $component_old->id));
 
         $vars->{'updated_initialowner'} = 1;
+        $vars->{'initialowner'} = $default_assignee;
+
     }
 
-    if (Bugzilla->params->{'useqacontact'}
+    if (Param('useqacontact')
         && $default_qa_contact ne $component_old->default_qa_contact->login) {
         $dbh->do("UPDATE components SET initialqacontact = ?
                   WHERE id = ?", undef,
                  ($default_qa_contact_id, $component_old->id));
 
         $vars->{'updated_initialqacontact'} = 1;
-    }
-
-    my @initial_cc_old = map($_->id, @{$component_old->initial_cc});
-    my ($removed, $added) = diff_arrays(\@initial_cc_old, $initial_cc_ids);
-
-    foreach my $user_id (@$removed) {
-        $dbh->do('DELETE FROM component_cc 
-                   WHERE component_id = ? AND user_id = ?', undef,
-                 $component_old->id, $user_id);
-        $vars->{'updated_initialcc'} = 1;
-    }
-
-    foreach my $user_id (@$added) {
-        $dbh->do("INSERT INTO component_cc (user_id, component_id) 
-                       VALUES (?, ?)", undef, $user_id, $component_old->id);
-        $vars->{'updated_initialcc'} = 1;
+        $vars->{'initialqacontact'} = $default_qa_contact;
     }
 
     $dbh->bz_unlock_tables();
 
-    my $component = new Bugzilla::Component($component_old->id);
-    
-    $vars->{'comp'} = $component;
-    $vars->{'initial_cc_names'} = 
-        join(', ', map($_->login, @{$component->initial_cc}));
-    $vars->{'product'} = $product;
-    delete_token($token);
-
+    $vars->{'name'} = $comp_name;
+    $vars->{'product'} = $product->name;
     $template->process("admin/components/updated.html.tmpl",
                        $vars)
       || ThrowTemplateError($template->error());

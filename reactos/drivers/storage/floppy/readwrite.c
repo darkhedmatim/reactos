@@ -52,9 +52,9 @@
  * TODO: Figure out specify timings
  */
 
-#include <ntddk.h>
 #define NDEBUG
 #include <debug.h>
+#include <ntddk.h>
 
 #include "floppy.h"
 #include "csqrtns.h"
@@ -291,7 +291,7 @@ static NTSTATUS NTAPI RWSeekToCylinder(PDRIVE_INFO DriveInfo,
 
   PAGED_CODE();
 
-  DPRINT("floppy: RWSeekToCylinder called drive 0x%p cylinder %d\n", DriveInfo, Cylinder);
+  DPRINT("floppy: RWSeekToCylinder called drive 0x%x cylinder %d\n", DriveInfo, Cylinder);
 
   /* Clear any spurious interrupts */
   KeClearEvent(&DriveInfo->ControllerInfo->SynchEvent);

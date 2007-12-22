@@ -1,6 +1,3 @@
-#ifndef __CMD_PRECOMP_H
-#define __CMD_PRECOMP_H
-
 #ifdef _MSC_VER
 #pragma warning ( disable : 4103 ) /* use #pragma pack to change alignment */
 #undef _CRT_SECURE_NO_DEPRECATE
@@ -8,7 +5,6 @@
 #endif//_MSC_VER
 
 #include <stdlib.h>
-#include <malloc.h>
 #define WIN32_NO_STATUS
 #include <windows.h>
 #include <winnt.h>
@@ -27,12 +23,7 @@
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
-#include "resource.h"
-
 #include "cmd.h"
 #include "config.h"
 #include "batch.h"
 
-#include <reactos/resource.h>
-
-#endif /* __CMD_PRECOMP_H */

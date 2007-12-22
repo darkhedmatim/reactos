@@ -34,7 +34,6 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 /* MACROS/DEFINITIONS ********************************************************/
 
@@ -612,7 +611,7 @@ static LPCSTR DIALOG_ParseTemplate32( LPCSTR template, DLG_TEMPLATE * result )
     }
 
     /* First control is on dword boundary */
-    return (LPCSTR)((((UINT_PTR)p) + 3) & ~3);
+    return (LPCSTR)((((int)p) + 3) & ~3);
 }
 
  /***********************************************************************
@@ -735,11 +734,10 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
 
     if (unicode)
     {
-        hwnd = User32CreateWindowEx(template.exStyle, (LPCSTR)template.className, (LPCSTR)template.caption,
-                                    template.style & ~WS_VISIBLE,
-                                    rect.left, rect.top, rect.right, rect.bottom,
-                                    owner, hMenu, hInst, NULL,
-                                    TRUE);
+        hwnd = CreateWindowExW(template.exStyle, template.className, template.caption,
+                               template.style & ~WS_VISIBLE,
+                               rect.left, rect.top, rect.right, rect.bottom,
+                               owner, hMenu, hInst, NULL );
     }
     else
     {
@@ -758,11 +756,10 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
             caption = HeapAlloc( GetProcessHeap(), 0, len );
             WideCharToMultiByte( CP_ACP, 0, template.caption, -1, caption, len, NULL, NULL );
         }
-        hwnd = User32CreateWindowEx(template.exStyle, class, caption,
-                                    template.style & ~WS_VISIBLE,
-                                    rect.left, rect.top, rect.right, rect.bottom,
-                                    owner, hMenu, hInst, NULL,
-                                    FALSE);
+        hwnd = CreateWindowExA(template.exStyle, class, caption,
+                               template.style & ~WS_VISIBLE,
+                               rect.left, rect.top, rect.right, rect.bottom,
+                               owner, hMenu, hInst, NULL );
         if (HIWORD(class)) HeapFree( GetProcessHeap(), 0, class );
         if (HIWORD(caption)) HeapFree( GetProcessHeap(), 0, caption );
     }
@@ -798,7 +795,7 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
     if (unicode) SetWindowLongPtrW( hwnd, DWLP_DLGPROC, (ULONG_PTR)dlgProc );
     else SetWindowLongPtrA( hwnd, DWLP_DLGPROC, (ULONG_PTR)dlgProc );
 
-    if (dlgProc && dlgInfo->hUserFont)
+    if (dlgInfo->hUserFont)
         SendMessageW( hwnd, WM_SETFONT, (WPARAM)dlgInfo->hUserFont, 0 );
 
     /* Create controls */
@@ -806,19 +803,15 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
     if (DIALOG_CreateControls32( hwnd, dlgTemplate, &template, hInst, unicode ))
     {
         /* Send initialisation messages and set focus */
-        if (dlgProc)
+
+        if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ) &&
+            ((~template.style & DS_CONTROL) || (template.style & WS_VISIBLE)))
         {
-            if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ) &&
-                ((~template.style & DS_CONTROL) || (template.style & WS_VISIBLE)))
-            {
-                /* By returning TRUE, app has requested a default focus assignment */
-                dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
-                if( dlgInfo->hwndFocus )
-                    SetFocus( dlgInfo->hwndFocus );
-            }
+            /* By returning TRUE, app has requested a default focus assignment */
+            dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
+            if( dlgInfo->hwndFocus )
+                SetFocus( dlgInfo->hwndFocus );
         }
-        if (!(GetWindowLongW( hwnd, GWL_STYLE ) & WS_CHILD))
-            SendMessageW( hwnd, WM_CHANGEUISTATE, MAKEWPARAM(UIS_INITIALIZE, 0), 0);
 
         if (template.style & WS_VISIBLE && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE))
         {
@@ -882,7 +875,7 @@ static void DEFDLG_RestoreFocus( HWND hwnd )
         infoPtr->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE );
        if (!IsWindow( infoPtr->hwndFocus )) return;
     }
-    SetFocus( infoPtr->hwndFocus );
+    SetFocus( infoPtr->hwndFocus );    
 
     /* This used to set infoPtr->hwndFocus to NULL for no apparent reason,
        sometimes losing focus when receiving WM_SETFOCUS messages. */
@@ -1187,7 +1180,7 @@ static INT DIALOG_DlgDirListW( HWND hDlg, LPWSTR spec, INT idLBox,
     ((attrib & DDL_POSTMSGS) ? PostMessageW( hwnd, msg, wparam, lparam ) \
                              : SendMessageW( hwnd, msg, wparam, lparam ))
 
-//    TRACE("%p '%s' %d %d %04x\n",
+//    DPRINT("%p '%s' %d %d %04x\n",
 //          hDlg, spec ? spec : "NULL", idLBox, idStatic, attrib );
 
     /* If the path exists and is a directory, chdir to it */
@@ -1211,7 +1204,7 @@ static INT DIALOG_DlgDirListW( HWND hDlg, LPWSTR spec, INT idLBox,
         }
     }
 
-    TRACE( "mask=%s\n", spec );
+    DPRINT( "mask=%s\n", spec );
 
     if (idLBox && ((hwnd = GetDlgItem( hDlg, idLBox )) != 0))
     {
@@ -1292,7 +1285,7 @@ static BOOL DIALOG_DlgDirSelect( HWND hwnd, LPWSTR str, INT len,
     BOOL ret;
     HWND listbox = GetDlgItem( hwnd, id );
 
-    TRACE("%p '%s' %d\n", hwnd, str, id );
+    DPRINT("%p '%s' %d\n", hwnd, str, id );
     if (!listbox) return FALSE;
 
     item = SendMessageW(listbox, combo ? CB_GETCURSEL : LB_GETCURSEL, 0, 0 );
@@ -1327,7 +1320,7 @@ static BOOL DIALOG_DlgDirSelect( HWND hwnd, LPWSTR str, INT len,
     }
     else lstrcpynW( str, ptr, len );
     HeapFree( GetProcessHeap(), 0, buffer );
-    TRACE("Returning %d '%s'\n", ret, str );
+    DPRINT("Returning %d '%s'\n", ret, str );
     return ret;
 }
 
@@ -1366,7 +1359,7 @@ CreateDialogIndirectParamAorW(
 /* FIXME:
  *   This function might be obsolete since I don't think it is exported by NT
  *   Also wine has one more parameter identifying weather it should call
- *   the function with unicode or not
+ *   the function with unicode or not 
  */
   return DIALOG_CreateIndirect( hInstance, lpTemplate, hWndParent, lpDialogFunc, lParamInit , !Flags, FALSE );
 }
@@ -2009,7 +2002,7 @@ GetNextDlgGroupItem(
 
     }
 
-    /* Always go forward around the group and list of controls; for the
+    /* Always go forward around the group and list of controls; for the 
      * previous control keep track; for the next break when you find one
      */
     retvalue = hCtl;
@@ -2162,7 +2155,7 @@ static void DIALOG_FixChildrenOnChangeFocus (HWND hwndDlg, HWND hwndNext)
             {
                 INT dlgcode_def = SendMessageW (hwndDef, WM_GETDLGCODE, 0, 0);
                 /* I know that if it is a button then it should already be a
-                 * UNDEFPUSHBUTTON, since we have just told the buttons to
+                 * UNDEFPUSHBUTTON, since we have just told the buttons to 
                  * change style.  But maybe they ignored our request
                  */
                 if ((dlgcode_def & DLGC_BUTTON) &&
@@ -2211,8 +2204,6 @@ IsDialogMessageW(
          case VK_TAB:
             if (!(dlgCode & DLGC_WANTTAB))
             {
-                SendMessageW(hDlg, WM_CHANGEUISTATE, MAKEWPARAM(UIS_CLEAR, UISF_HIDEFOCUS), 0);
-
                 /* I am not sure under which circumstances the TAB is handled
                  * each way.  All I do know is that it does not always simply
                  * send WM_NEXTDLGCTL.  (Personally I have never yet seen it
@@ -2282,7 +2273,7 @@ IsDialogMessageW(
                  if ((GetFocus() == lpMsg->hwnd) &&
                      (SendMessageW (lpMsg->hwnd, WM_GETDLGCODE, 0, 0) & DLGC_DEFPUSHBUTTON))
                  {
-                     SendMessageW (hDlg, WM_COMMAND, MAKEWPARAM (GetDlgCtrlID(lpMsg->hwnd),BN_CLICKED), (LPARAM)lpMsg->hwnd);
+                     SendMessageW (hDlg, WM_COMMAND, MAKEWPARAM (GetDlgCtrlID(lpMsg->hwnd),BN_CLICKED), (LPARAM)lpMsg->hwnd); 
                  }
                  else if (DC_HASDEFID == HIWORD(dw = SendMessageW (hDlg, DM_GETDEFID, 0, 0)))
                  {
@@ -2311,12 +2302,6 @@ IsDialogMessageW(
              /* don't translate or dispatch */
              return TRUE;
          }
-         break;
-
-     case WM_SYSKEYDOWN:
-         /* If the ALT key is being pressed display the keyboard cues */
-         if (lpMsg->lParam & (1 << 29))
-             SendMessageW(hDlg, WM_CHANGEUISTATE, MAKEWPARAM(UIS_CLEAR, UISF_HIDEACCEL | UISF_HIDEFOCUS), 0);
          break;
      }
 

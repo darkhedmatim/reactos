@@ -108,7 +108,7 @@ AcpiCreateInstanceIDString(PUNICODE_STRING InstanceID,
     swprintf(Buffer, L"%S", Node->device.id.uid);
   else
     /* FIXME: Generate unique id! */
-    swprintf(Buffer, L"%S", L"0000");
+    swprintf(Buffer, L"0000");
 
   return AcpiCreateUnicodeString(InstanceID, Buffer, PagedPool);
 }
@@ -209,7 +209,7 @@ AcpiCreateResourceList(PCM_RESOURCE_LIST* pResourceList,
         break;
       }
     }
-    resource = NEXT_RESOURCE(resource);
+    resource = (RESOURCE *) ((NATIVE_UINT) resource + (NATIVE_UINT) resource->length);
   }
 
   /* Allocate memory */
@@ -350,7 +350,7 @@ AcpiCreateResourceList(PCM_RESOURCE_LIST* pResourceList,
         break;
       }
     }
-    resource = NEXT_RESOURCE(resource);
+    resource = (RESOURCE *) ((NATIVE_UINT) resource + (NATIVE_UINT) resource->length);
   }
 
   acpi_rs_dump_resource_list(resource);
@@ -367,6 +367,9 @@ AcpiCheckIfIsSerialDebugPort(
   ACPI_BUFFER Buffer;
   BOOLEAN Done;
   RESOURCE* resource;
+
+  if (!KdComPortInUse)
+    return FALSE;
 
   AcpiStatus = bm_get_node(Device->BmHandle, 0, &Node);
   if (!ACPI_SUCCESS(AcpiStatus))
@@ -868,41 +871,41 @@ FdoPnpControl(
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
   switch (IrpSp->MinorFunction) {
-  //case IRP_MN_CANCEL_REMOVE_DEVICE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_CANCEL_REMOVE_DEVICE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_CANCEL_STOP_DEVICE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_CANCEL_STOP_DEVICE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_DEVICE_USAGE_NOTIFICATION:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_DEVICE_USAGE_NOTIFICATION:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
   case IRP_MN_QUERY_DEVICE_RELATIONS:
     Status = FdoQueryBusRelations(DeviceObject, Irp, IrpSp);
     break;
 
-  //case IRP_MN_QUERY_PNP_DEVICE_STATE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_QUERY_PNP_DEVICE_STATE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_QUERY_REMOVE_DEVICE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_QUERY_REMOVE_DEVICE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_QUERY_STOP_DEVICE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_QUERY_STOP_DEVICE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
-  //case IRP_MN_REMOVE_DEVICE:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_REMOVE_DEVICE:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
   case IRP_MN_START_DEVICE:
     DPRINT("IRP_MN_START_DEVICE received\n");
@@ -915,13 +918,13 @@ FdoPnpControl(
     Status = STATUS_UNSUCCESSFUL;
     break;
 
-  //case IRP_MN_SURPRISE_REMOVAL:
-  //  Status = STATUS_NOT_IMPLEMENTED;
-  //  break;
+  case IRP_MN_SURPRISE_REMOVAL:
+    Status = STATUS_NOT_IMPLEMENTED;
+    break;
 
   default:
     DPRINT("Unknown IOCTL 0x%X\n", IrpSp->MinorFunction);
-    Status = Irp->IoStatus.Status;
+    Status = STATUS_NOT_IMPLEMENTED;
     break;
   }
 

@@ -32,17 +32,17 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
   PDD_ENHMETAFILEOBJ phmf;
   HANDLE hMapping = 0;
   EMREOF emr;
-  PDC Dc;
+  PDC Dc;   
 
-  IO_STATUS_BLOCK Iosb;
-  NTSTATUS Status;
+  IO_STATUS_BLOCK Iosb;	      
+  NTSTATUS Status;    
 
-
-
+  
+  
   Dc = DC_LockDc(hDC);
   if (Dc == NULL)
-  {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
+  {  
+      SetLastWin32Error(ERROR_INVALID_HANDLE);	 
       return NULL;
   }
 
@@ -51,10 +51,10 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
   emr.nPalEntries = 0;
   emr.offPalEntries = 0;
   emr.nSizeLast = emr.emr.nSize;
-
-  if(Dc->hFile)
-  {
-     Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&emr, emr.emr.nSize, NULL, NULL);
+  
+  if(Dc->hFile) 
+  {  
+     Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&emr, emr.emr.nSize, NULL, NULL);       
      if (Status == STATUS_PENDING)
       {
           Status = NtWaitForSingleObject(Dc->hFile,FALSE,NULL);
@@ -65,8 +65,8 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
       }
 
       if (NT_SUCCESS(Status))
-      {
-		  DWORD len = Dc->emh->nBytes + emr.emr.nSize;
+      {                		  		  		 	  
+		  DWORD len = Dc->emh->nBytes + emr.emr.nSize;	
 		  /* always resize the buffer */
 		  emh = EngAllocMem(FL_ZERO_MEMORY, len, 0);
 		  if (emh != NULL)
@@ -87,14 +87,14 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
       else
       {
           Dc->hFile = NULL;
-		  DPRINT1("Write to EnhMetaFile fail\n");
-      }
+		  DPRINT1("Write to EnhMetaFile fail\n");        		   		
+      }	
   }
-
+ 
   Dc->emh->nBytes += emr.emr.nSize;
   Dc->emh->nRecords++;
 
-  if(Dc->emh->rclFrame.left > Dc->emh->rclFrame.right)
+  if(Dc->emh->rclFrame.left > Dc->emh->rclFrame.right) 
   {
      Dc->emh->rclFrame.left = Dc->emh->rclBounds.left * Dc->emh->szlMillimeters.cx * 100 / Dc->emh->szlDevice.cx;
      Dc->emh->rclFrame.top = Dc->emh->rclBounds.top * Dc->emh->szlMillimeters.cy * 100 / Dc->emh->szlDevice.cy;
@@ -104,7 +104,7 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
 
   if (Dc->hFile)  /* disk based metafile */
   {
-	  FILE_POSITION_INFORMATION FilePosition;
+	  FILE_POSITION_INFORMATION FilePosition;	  
 	  LARGE_INTEGER Distance ;
 	  IO_STATUS_BLOCK IoStatusBlock;
 
@@ -122,37 +122,37 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
       Distance.u.HighPart = 0;
 	  FilePosition.CurrentByteOffset.QuadPart = Distance.QuadPart;
 
-	  DPRINT1("Trying write to metafile and map it\n");
+	  DPRINT1("Trying write to metafile and map it\n"); 
 
-	  Status = NtSetInformationFile(Dc->hFile, &IoStatusBlock, &FilePosition,
+	  Status = NtSetInformationFile(Dc->hFile, &IoStatusBlock, &FilePosition, 
 		                             sizeof(FILE_POSITION_INFORMATION), FilePositionInformation);
 
 	 if (!NT_SUCCESS(Status))
      {
 		 // SetLastErrorByStatus(Status);
-         SetLastWin32Error(ERROR_INVALID_HANDLE);
+         SetLastWin32Error(ERROR_INVALID_HANDLE);	  
 
 		 NtClose( Dc->hFile );
 		 DC_UnlockDc(Dc);
-		 NtGdiDeleteObjectApp(hDC);
+		 NtGdiDeleteObjectApp(hDC); 
 
-		 DPRINT1("NtSetInformationFile fail\n");
+		 DPRINT1("NtSetInformationFile fail\n"); 
 	     return hmf;
      }
 
 	 if (FilePosition.CurrentByteOffset.u.LowPart != 0)
 	 {
 		 // SetLastErrorByStatus(Status);
-		 SetLastWin32Error(ERROR_INVALID_HANDLE);
+		 SetLastWin32Error(ERROR_INVALID_HANDLE);	 
 
 		 NtClose( Dc->hFile );
 		 DC_UnlockDc(Dc);
-		 NtGdiDeleteObjectApp(hDC);
-		 DPRINT1("FilePosition.CurrentByteOffset.u.LowPart is not 0\n");
+		 NtGdiDeleteObjectApp(hDC); 
+		 DPRINT1("FilePosition.CurrentByteOffset.u.LowPart is not 0\n"); 
 	     return hmf;
 	 }
 
-	 Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&Dc->emh,  sizeof(*Dc->emh), NULL, NULL);
+	 Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&Dc->emh,  sizeof(*Dc->emh), NULL, NULL);       
      if (Status == STATUS_PENDING)
      {
           Status = NtWaitForSingleObject(Dc->hFile,FALSE,NULL);
@@ -162,43 +162,43 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
           }
       }
 
-      if (!NT_SUCCESS(Status))
+      if (!NT_SUCCESS(Status))      
       {
-         NtClose( Dc->hFile );
+         NtClose( Dc->hFile );            
 		 DC_UnlockDc(Dc);
-         NtGdiDeleteObjectApp(hDC);
-		 DPRINT1("fail to write 0\n");
+         NtGdiDeleteObjectApp(hDC);  
+		 DPRINT1("fail to write 0\n"); 
          return hmf;
       }
-
+	  
 	  EngFreeMem(Dc->emh);
 
-      /* create maping */
-      DesiredAccess = STANDARD_RIGHTS_REQUIRED | SECTION_QUERY | SECTION_MAP_READ;
+      /* create maping */    
+      DesiredAccess = STANDARD_RIGHTS_REQUIRED | SECTION_QUERY | SECTION_MAP_READ;   
       Attributes = (PAGE_READONLY & (SEC_FILE | SEC_IMAGE | SEC_RESERVE | SEC_NOCACHE | SEC_COMMIT));
-      flProtect = PAGE_READONLY ^ (PAGE_READONLY & (SEC_FILE | SEC_IMAGE | SEC_RESERVE | SEC_NOCACHE | SEC_COMMIT));
+      flProtect = PAGE_READONLY ^ (PAGE_READONLY & (SEC_FILE | SEC_IMAGE | SEC_RESERVE | SEC_NOCACHE | SEC_COMMIT));   
 
-      if (!Attributes) Attributes = SEC_COMMIT;
-
+      if (!Attributes) Attributes = SEC_COMMIT;    
+    	       
       if (Dc->hFile == INVALID_HANDLE_VALUE)
-      {
+      {     
           Dc->hFile = NULL;
           if (!SectionSize)
-          {
-			 SetLastWin32Error(ERROR_INVALID_PARAMETER);
-             hMapping = NULL;
-			 DPRINT1("fail !SectionSize \n");
+          {             
+			 SetLastWin32Error(ERROR_INVALID_PARAMETER);	 
+             hMapping = NULL; 
+			 DPRINT1("fail !SectionSize \n"); 
           }
       }
 	  else
 	  {
           Status = NtCreateSection(&hMapping, DesiredAccess, ObjectAttributes, SectionSize, flProtect, Attributes, Dc->hFile);
           if (!NT_SUCCESS(Status))
-          {
+          {        
           //SetLastErrorByStatus(Status);
-		      SetLastWin32Error(ERROR_INVALID_HANDLE);
+		      SetLastWin32Error(ERROR_INVALID_HANDLE);	 
               hMapping =  NULL;
-			  DPRINT1("fail NtCreateSection \n");
+			  DPRINT1("fail NtCreateSection \n"); 
           }
 	  }
 
@@ -207,17 +207,17 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
       SectionOffset.HighPart = 0;
       ViewBase = NULL;
       ViewSize = 0;
-
+       
       Protect = PAGE_READONLY;
-
-      Status = ZwMapViewOfSection(&hMapping, NtCurrentProcess(), &ViewBase, 0,
+       
+      Status = ZwMapViewOfSection(&hMapping, NtCurrentProcess(), &ViewBase, 0, 
 		                          0, &SectionOffset, &ViewSize, ViewShare, 0, Protect);
       if (!NT_SUCCESS(Status))
-      {
+      {    
           //SetLastErrorByStatus(Status);
-		  SetLastWin32Error(ERROR_INVALID_HANDLE);
+		  SetLastWin32Error(ERROR_INVALID_HANDLE);	 
           Dc->emh = NULL;
-		  DPRINT1("fail ZwMapViewOfSection \n");
+		  DPRINT1("fail ZwMapViewOfSection \n"); 
       }
 	  else
       {
@@ -229,7 +229,7 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
 	  if (Dc->hFile != NULL)
           NtClose( Dc->hFile );
     }
-
+ 
   hmf = GDIOBJ_AllocObj(GdiHandleTable, GDI_OBJECT_TYPE_ENHMETAFILE);
   if (hmf != NULL)
   {
@@ -239,20 +239,28 @@ NtGdiCloseEnhMetaFile(HDC  hDC)
          if (Dc->hFile != NULL)
          {
              phmf->on_disk = TRUE;
-	     }
+	     }  
          else
          {
 	         phmf->on_disk = FALSE;
          }
 		 GDIOBJ_UnlockObjByPtr(GdiHandleTable, phmf);
 		 phmf->emh = Dc->emh;
-	 }
-  }
+	 }	 
+  }  
 
   Dc->emh = NULL;  /* So it won't be deleted */
   DC_UnlockDc(Dc);
-  NtGdiDeleteObjectApp(hDC);
+  NtGdiDeleteObjectApp(hDC);   
   return hmf;
+}
+
+HMETAFILE
+STDCALL
+NtGdiCloseMetaFile(HDC  hDC)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 HENHMETAFILE
@@ -264,6 +272,14 @@ NtGdiCopyEnhMetaFile(HENHMETAFILE  Src,
   return 0;
 }
 
+HMETAFILE
+STDCALL
+NtGdiCopyMetaFile(HMETAFILE  Src,
+                            LPCWSTR  File)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
 //
 //
 // Rewrite is in progress, this function is subject to change at any time.
@@ -276,81 +292,80 @@ NtGdiCreateEnhMetaFile(HDC  hDCRef,
                            CONST LPRECT  Rect,
                            LPCWSTR  Description)
 {
-   PDC Dc;
-   HDC ret = NULL;
+   PDC Dc;   
+   HDC ret = NULL;       
    DWORD length = 0;
    HDC tempHDC;
    DWORD MemSize;
-   DWORD dwDesiredAccess;
-
+  
    tempHDC = hDCRef;
    if (hDCRef == NULL)
    {
-       /* FIXME ??
-        * Shall we create hdc NtGdiHdcCompatible hdc ??
-        */
-       UNICODE_STRING DriverName;
-       RtlInitUnicodeString(&DriverName, L"DISPLAY");
-       //IntGdiCreateDC(&DriverName, NULL, NULL, NULL, FALSE);
+	   /* FIXME ??
+	    * Shall we create hdc NtGdiHdcCompatible hdc ?? 
+		*/
+	   UNICODE_STRING DriverName;
+	   RtlInitUnicodeString(&DriverName, L"DISPLAY");              
+	   //IntGdiCreateDC(&DriverName, NULL, NULL, NULL, FALSE);
            tempHDC = NtGdiOpenDCW( &DriverName,
                                           NULL,
                                           NULL,
                                              0,  // DCW 0 and ICW 1.
                                           NULL,
                                   (PVOID) NULL,
-                                  (PVOID) NULL );
+                                  (PVOID) NULL );                                                                                                                                 
    }
 
    GDIOBJ_SetOwnership(GdiHandleTable, tempHDC, PsGetCurrentProcess());
    DC_SetOwnership(tempHDC, PsGetCurrentProcess());
-
+	  
    Dc = DC_LockDc(tempHDC);
    if (Dc == NULL)
-   {
+   {  
 	  if (hDCRef == NULL)
 	  {
-          NtGdiDeleteObjectApp(tempHDC);
+          NtGdiDeleteObjectApp(tempHDC);          
 	  }
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
+      SetLastWin32Error(ERROR_INVALID_HANDLE);	 
       return NULL;
    }
-
-   if(Description)
-   {
+    
+   if(Description) 
+   { 
       length = wcslen(Description);
       length += wcslen(Description + length + 1);
       length += 3;
       length *= 2;
    }
-
+	      
    MemSize = sizeof(ENHMETAHEADER) + (length + 3) / 4 * 4;
-
-   if (!(Dc->emh = EngAllocMem(FL_ZERO_MEMORY, MemSize, 0)))
+		   
+   if (!(Dc->emh = EngAllocMem(FL_ZERO_MEMORY, MemSize, 0))) 
    {
        DC_UnlockDc(Dc);
        if (hDCRef == NULL)
        {
-           NtGdiDeleteObjectApp(tempHDC);
-       }
+           NtGdiDeleteObjectApp(tempHDC);        
+       }       
        SetLastWin32Error(ERROR_INVALID_HANDLE);
        return NULL;
    }
-
+    
    Dc->emh->iType = EMR_HEADER;
    Dc->emh->nSize = MemSize;
 
    Dc->emh->rclBounds.left = Dc->emh->rclBounds.top = 0;
    Dc->emh->rclBounds.right = Dc->emh->rclBounds.bottom = -1;
 
-   if(Rect)
+   if(Rect) 
    {
       Dc->emh->rclFrame.left   = Rect->left;
       Dc->emh->rclFrame.top    = Rect->top;
       Dc->emh->rclFrame.right  = Rect->right;
       Dc->emh->rclFrame.bottom = Rect->bottom;
-   }
-   else
-   {
+   } 
+   else 
+   {  
       /* Set this to {0,0 - -1,-1} and update it at the end */
       Dc->emh->rclFrame.left = Dc->emh->rclFrame.top = 0;
       Dc->emh->rclFrame.right = Dc->emh->rclFrame.bottom = -1;
@@ -371,7 +386,7 @@ NtGdiCreateEnhMetaFile(HDC  hDCRef,
 
    /* Size in pixels */
    Dc->emh->szlDevice.cx = NtGdiGetDeviceCaps(tempHDC, HORZRES);
-   Dc->emh->szlDevice.cy = NtGdiGetDeviceCaps(tempHDC, VERTRES);
+   Dc->emh->szlDevice.cy = NtGdiGetDeviceCaps(tempHDC, VERTRES); 
 
    /* Size in millimeters */
    Dc->emh->szlMillimeters.cx = NtGdiGetDeviceCaps(tempHDC, HORZSIZE);
@@ -386,57 +401,57 @@ NtGdiCreateEnhMetaFile(HDC  hDCRef,
       memcpy((char *)Dc->emh + sizeof(ENHMETAHEADER), Description, length);
    }
 
-   ret = tempHDC;
-   if (File)
+   ret = tempHDC;   
+   if (File)  
    {
-      OBJECT_ATTRIBUTES ObjectAttributes;
-      IO_STATUS_BLOCK IoStatusBlock;
-      IO_STATUS_BLOCK Iosb;
-      UNICODE_STRING NtPathU;
-      NTSTATUS Status;
-      ULONG FileAttributes = (FILE_ATTRIBUTE_VALID_FLAGS & ~FILE_ATTRIBUTE_DIRECTORY);
-
       DPRINT1("Trying Create EnhMetaFile\n");
 
-      /* disk based metafile */
-      dwDesiredAccess = GENERIC_WRITE | GENERIC_READ | SYNCHRONIZE | FILE_READ_ATTRIBUTES;
-
-      if (!RtlDosPathNameToNtPathName_U (File, &NtPathU, NULL, NULL))
-      {
+      /* disk based metafile */	  
+      DWORD dwDesiredAccess = GENERIC_WRITE | GENERIC_READ | SYNCHRONIZE | FILE_READ_ATTRIBUTES;      
+      OBJECT_ATTRIBUTES ObjectAttributes;
+      IO_STATUS_BLOCK IoStatusBlock;
+	  IO_STATUS_BLOCK Iosb;	 
+      UNICODE_STRING NtPathU;
+      NTSTATUS Status;      	     
+      ULONG FileAttributes = (FILE_ATTRIBUTE_VALID_FLAGS & ~FILE_ATTRIBUTE_DIRECTORY);
+     
+	  if (!RtlDosPathNameToNtPathName_U (File, &NtPathU, NULL, NULL))
+      {        
          DC_UnlockDc(Dc);
          if (hDCRef == NULL)
          {
-             NtGdiDeleteObjectApp(tempHDC);
-         }
+             NtGdiDeleteObjectApp(tempHDC);        
+         }       
          DPRINT1("Can not Create EnhMetaFile\n");
          SetLastWin32Error(ERROR_PATH_NOT_FOUND);
          return NULL;
       }
+	  
 
-      InitializeObjectAttributes(&ObjectAttributes, &NtPathU, 0, NULL, NULL);
-
+	  InitializeObjectAttributes(&ObjectAttributes, &NtPathU, 0, NULL, NULL);
+      
       Status = NtCreateFile (&Dc->hFile, dwDesiredAccess, &ObjectAttributes, &IoStatusBlock,
-                             NULL, FileAttributes, 0, FILE_OVERWRITE_IF, FILE_NON_DIRECTORY_FILE,
-                             NULL, 0);
+			                NULL, FileAttributes, 0, FILE_OVERWRITE_IF, FILE_NON_DIRECTORY_FILE,
+						    NULL, 0);
 
       RtlFreeHeap(RtlGetProcessHeap(), 0, NtPathU.Buffer);
-
+   
       if (!NT_SUCCESS(Status))
-      {
-         Dc->hFile = NULL;
-         DC_UnlockDc(Dc);
+      {   
+	     Dc->hFile = NULL;
+		 DC_UnlockDc(Dc);
          if (hDCRef == NULL)
          {
-             NtGdiDeleteObjectApp(tempHDC);
-         }
-         DPRINT1("Create EnhMetaFile fail\n");
-         SetLastWin32Error(ERROR_INVALID_HANDLE);
+             NtGdiDeleteObjectApp(tempHDC);        
+         }  
+		 DPRINT1("Create EnhMetaFile fail\n");
+		 SetLastWin32Error(ERROR_INVALID_HANDLE);	
          return NULL;
       }
 
       SetLastWin32Error(IoStatusBlock.Information == FILE_OVERWRITTEN ? ERROR_ALREADY_EXISTS : 0);
 
-      Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&Dc->emh, Dc->emh->nSize, NULL, NULL);
+      Status = NtWriteFile(Dc->hFile, NULL, NULL, NULL, &Iosb, (PVOID)&Dc->emh, Dc->emh->nSize, NULL, NULL);       
       if (Status == STATUS_PENDING)
       {
           Status = NtWaitForSingleObject(Dc->hFile,FALSE,NULL);
@@ -447,20 +462,20 @@ NtGdiCreateEnhMetaFile(HDC  hDCRef,
       }
 
       if (NT_SUCCESS(Status))
-      {
-          ret = tempHDC;
-          DC_UnlockDc(Dc);
+      {                		  		  
+		  ret = tempHDC;		  
+		  DC_UnlockDc(Dc);		  
       }
       else
       {
           Dc->hFile = NULL;
-          DPRINT1("Write to EnhMetaFile fail\n");
-          SetLastWin32Error(ERROR_CAN_NOT_COMPLETE);
-          ret = NULL;
-          DC_UnlockDc(Dc);
-          if (hDCRef == NULL)
+		  DPRINT1("Write to EnhMetaFile fail\n");        
+		  SetLastWin32Error(ERROR_CAN_NOT_COMPLETE);
+		  ret = NULL;                                	     		  
+		  DC_UnlockDc(Dc);
+          if (hDCRef == NULL) 
           {
-             NtGdiDeleteObjectApp(tempHDC);
+             NtGdiDeleteObjectApp(tempHDC);        
           }
       }
     }
@@ -468,8 +483,19 @@ NtGdiCreateEnhMetaFile(HDC  hDCRef,
     {
       DC_UnlockDc(Dc);
     }
+   
+    return ret;  
+}
 
-    return ret;
+
+
+
+HDC
+STDCALL
+NtGdiCreateMetaFile(LPCWSTR  File)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 BOOL
@@ -482,11 +508,30 @@ NtGdiDeleteEnhMetaFile(HENHMETAFILE  emf)
 
 BOOL
 STDCALL
+NtGdiDeleteMetaFile(HMETAFILE  mf)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
 NtGdiEnumEnhMetaFile(HDC  hDC,
                           HENHMETAFILE  emf,
                           ENHMFENUMPROC  EnhMetaFunc,
                           LPVOID  Data,
                           CONST LPRECT  Rect)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
+NtGdiEnumMetaFile(HDC  hDC,
+                       HMETAFILE  mf,
+                       MFENUMPROC  MetaFunc,
+                       LPARAM  lParam)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -550,6 +595,36 @@ NtGdiGetEnhMetaFilePaletteEntries(HENHMETAFILE  hemf,
   return 0;
 }
 
+HMETAFILE
+STDCALL
+NtGdiGetMetaFile(LPCWSTR  MetaFile)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+UINT
+STDCALL
+NtGdiGetMetaFileBitsEx(HMETAFILE  hmf,
+                            UINT  Size,
+                            LPVOID  Data)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+UINT
+STDCALL
+NtGdiGetWinMetaFileBits(HENHMETAFILE  hemf,
+                             UINT  BufSize,
+                             LPBYTE  Buffer,
+                             INT  MapMode,
+                             HDC  Ref)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
 BOOL
 STDCALL
 NtGdiPlayEnhMetaFile(HDC  hDC,
@@ -571,10 +646,51 @@ NtGdiPlayEnhMetaFileRecord(HDC  hDC,
   return FALSE;
 }
 
+BOOL
+STDCALL
+NtGdiPlayMetaFile(HDC  hDC,
+                       HMETAFILE  hmf)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
+NtGdiPlayMetaFileRecord(HDC  hDC,
+                             LPHANDLETABLE  Handletable,
+                             LPMETARECORD  MetaRecord,
+                             UINT  Handles)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
 HENHMETAFILE
 STDCALL
 NtGdiSetEnhMetaFileBits(UINT  BufSize,
                                      CONST PBYTE  Data)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HMETAFILE
+STDCALL
+NtGdiSetMetaFileBitsEx(UINT  Size,
+                                 CONST PBYTE  Data)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HENHMETAFILE
+STDCALL
+NtGdiSetWinMetaFileBits(UINT  BufSize,
+                                     CONST PBYTE  Buffer,
+                                     HDC  Ref,
+//                                     CONST METAFILEPICT *mfp)
+				     PVOID mfp)
 {
   UNIMPLEMENTED;
   return 0;

@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
  * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
@@ -26,16 +26,49 @@
 #ifndef ARBPROGPARSE_H
 #define ARBPROGPARSE_H
 
+#include "context.h"
 #include "mtypes.h"
+#include "nvvertprog.h"
+#include "nvfragprog.h"
 
-extern void
-_mesa_parse_arb_vertex_program(GLcontext *ctx, GLenum target,
-			       const GLvoid *str, GLsizei len,
-			       struct gl_vertex_program *program);
+/**
+ * This is basically a union of the vertex_program and fragment_program
+ * structs that we can use to parse the program into
+ *
+ * XXX: this should go into mtypes.h?
+ */
+struct arb_program
+{
+   struct program Base;
+   struct program_parameter_list *Parameters; 
+   GLuint InputsRead;
+   GLuint OutputsWritten;
 
-extern void
-_mesa_parse_arb_fragment_program(GLcontext *ctx, GLenum target,
-                                 const GLvoid *str, GLsizei len,
-                                 struct gl_fragment_program *program);
+   GLuint Position;       /* Just used for error reporting while parsing */
+   GLuint MajorVersion;
+   GLuint MinorVersion;
 
+   /* ARB_vertex_program specifics */ 
+   struct vp_instruction *VPInstructions;
+
+   /* Options currently recognized by the parser */
+   /* ARB_fp */
+   GLenum PrecisionOption; /* GL_DONT_CARE, GL_NICEST or GL_FASTEST */
+   GLenum FogOption;       /* GL_NONE, GL_LINEAR, GL_EXP or GL_EXP2 */
+
+   /* ARB_fp & _vp */
+   GLboolean HintPositionInvariant;
+
+   /* ARB_fragment_program specifics */
+   struct fp_instruction *FPInstructions;
+   GLuint TexturesUsed[MAX_TEXTURE_IMAGE_UNITS]; 
+   GLuint NumAluInstructions; 
+   GLuint NumTexInstructions;
+   GLuint NumTexIndirections;
+};
+
+extern GLuint 
+_mesa_parse_arb_program( GLcontext *ctx, const GLubyte *str, GLsizei len, 
+                         struct arb_program *Program );
+                          
 #endif

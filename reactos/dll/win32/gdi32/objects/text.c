@@ -5,8 +5,8 @@
 /*
  * @implemented
  */
-BOOL
-STDCALL
+BOOL  
+STDCALL 
 TextOutA(
 	HDC  hdc,
 	int  nXStart,
@@ -43,38 +43,21 @@ TextOutW(
 	LPCWSTR  lpString,
 	int  cbString)
 {
-  return NtGdiExtTextOut(hdc, nXStart, nYStart, 0, NULL, lpString, cbString, NULL);
+  return NtGdiTextOut(hdc, nXStart, nYStart, lpString, cbString);
 }
 
 
 /*
  * @implemented
  */
-DWORD
-STDCALL
-GdiGetCodePage(HDC hdc)
-{
-  PDC_ATTR Dc_Attr;
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return 0;
-  if (Dc_Attr->ulDirty_ & DIRTY_CHARSET) return LOWORD(NtGdiGetCharSet(hdc));
-  return LOWORD(Dc_Attr->iCS_CP);
-}
-
-
-/*
- * @unimplemented
- */
 int
 STDCALL
-GetTextCharacterExtra(
-	HDC	hDc
+GetTextCharset(
+	HDC	hdc
 	)
 {
-  PDC_ATTR Dc_Attr;
-
-  if (!GdiGetHandleUserData((HGDIOBJ) hDc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return 0;
-  return Dc_Attr->lTextExtra;
-// return GetDCDWord( hDc, GdiGetTextCharExtra, 0);
+    /* MSDN docs say this is equivalent */
+        return GetTextCharsetInfo(hdc, NULL, 0);        
 }
 
 
@@ -83,55 +66,48 @@ GetTextCharacterExtra(
  */
 int
 STDCALL
-GetTextCharset(HDC hdc)
+GetTextCharsetInfo(
+	HDC		hdc,
+	LPFONTSIGNATURE	lpSig,
+	DWORD		dwFlags
+	)
 {
-    /* MSDN docs say this is equivalent */
-    return NtGdiGetTextCharsetInfo(hdc,NULL,0);
+        return NtGdiGetTextCharsetInfo(hdc, lpSig, dwFlags);
 }
-
-
 
 
 /*
  * @implemented
  */
-BOOL
-STDCALL
+BOOL 
+STDCALL 
 GetTextMetricsA(
-	HDC		hdc,
+	HDC		hdc, 
 	LPTEXTMETRICA	lptm
 	)
 {
-  TMW_INTERNAL tmwi;
+  TEXTMETRICW tmw;
 
-  if (! NtGdiGetTextMetricsW(hdc, &tmwi, sizeof(TMW_INTERNAL)))
-  {
-    return FALSE;
-  }
+  if (! NtGdiGetTextMetrics(hdc, &tmw))
+    {
+      return FALSE;
+    }
 
-  return TextMetricW2A(lptm, &tmwi.TextMetric);
+  return TextMetricW2A(lptm, &tmw);
 }
 
 
 /*
  * @implemented
  */
-BOOL
-STDCALL
+BOOL 
+STDCALL 
 GetTextMetricsW(
-	HDC		hdc,
+	HDC		hdc, 
 	LPTEXTMETRICW	lptm
 	)
 {
-  TMW_INTERNAL tmwi;
-
-  if (! NtGdiGetTextMetricsW(hdc, &tmwi, sizeof(TMW_INTERNAL)))
-  {
-    return FALSE;
-  }
-
-  *lptm = tmwi.TextMetric;
-  return TRUE;
+  return NtGdiGetTextMetrics(hdc, lptm);
 }
 
 
@@ -193,8 +169,8 @@ GetTextExtentExPointW(
 	LPSIZE		lpSize
 	)
 {
-  return NtGdiGetTextExtentExW (
-    hdc, (LPWSTR)lpszStr, cchString, nMaxExtent, (PULONG)lpnFit, (PULONG)alpDx, lpSize, 0 );
+  return NtGdiGetTextExtentExPoint (
+    hdc, lpszStr, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
 }
 
 
@@ -222,8 +198,8 @@ GetTextExtentExPointA(
     SetLastError (RtlNtStatusToDosError(Status));
   else
   {
-    rc = NtGdiGetTextExtentExW (
-      hdc, lpszStrW, cchString, nMaxExtent, (PULONG)lpnFit, (PULONG)alpDx, lpSize, 0 );
+    rc = NtGdiGetTextExtentExPoint (
+      hdc, lpszStrW, cchString, nMaxExtent, lpnFit, alpDx, lpSize );
 
     HEAP_free ( lpszStrW );
   }
@@ -274,48 +250,20 @@ GetTextExtentPoint32W(
   return NtGdiGetTextExtentPoint32(hdc, lpString, cbString, lpSize);
 }
 
-/*
- * @implemented
- */
-BOOL
-STDCALL
-GetTextExtentExPointI(HDC hdc,
-                      LPWORD pgiIn,
-                      int cgi,
-                      int nMaxExtent,
-                      LPINT lpnFit,
-                      LPINT alpDx,
-                      LPSIZE lpSize)
-{
-    return NtGdiGetTextExtentExW(hdc,pgiIn,cgi,nMaxExtent,(ULONG *)lpnFit, (PULONG) alpDx,lpSize,1);
-}
 
 /*
  * @implemented
  */
-BOOL
-STDCALL
-GetTextExtentPointI(HDC hdc,
-                    LPWORD pgiIn,
-                    int cgi,
-                    LPSIZE lpSize)
-{
-    return NtGdiGetTextExtent(hdc,pgiIn,cgi,lpSize,2);
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
+BOOL  
+STDCALL 
 ExtTextOutA(
-	HDC		hdc,
-	int		X,
-	int		Y,
-	UINT		fuOptions,
+	HDC		hdc, 
+	int		X, 
+	int		Y, 
+	UINT		fuOptions, 
 	CONST RECT	*lprc,
-	LPCSTR		lpString,
-	UINT		cbCount,
+	LPCSTR		lpString, 
+	UINT		cbCount, 
 	CONST INT	*lpDx
 	)
 {
@@ -337,16 +285,16 @@ ExtTextOutA(
 /*
  * @implemented
  */
-BOOL
-STDCALL
+BOOL  
+STDCALL 
 ExtTextOutW(
-	HDC		hdc,
-	int		X,
-	int		Y,
-	UINT		fuOptions,
+	HDC		hdc, 
+	int		X, 
+	int		Y, 
+	UINT		fuOptions,	 
 	CONST RECT	*lprc,
-	LPCWSTR		lpString,
-	UINT		cbCount,
+	LPCWSTR		lpString, 
+	UINT		cbCount, 
 	CONST INT	*lpDx
 	)
 {
@@ -357,22 +305,15 @@ ExtTextOutW(
 /*
  * @implemented
  */
-INT
+int
 STDCALL
-GetTextFaceW(HDC hDC,
-             int nCount,
-             LPWSTR	lpFaceName)
+GetTextFaceW(
+	HDC	a0,
+	int	a1,
+	LPWSTR	a2
+	)
 {
-    INT retValue = 0;
-    if ((!lpFaceName) || (nCount))
-    {
-        retValue = NtGdiGetTextFaceW(hDC,nCount,lpFaceName,0);
-    }
-    else
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-    }
-    return retValue;
+	return NtGdiGetTextFace(a0, a1, a2);
 }
 
 
@@ -397,249 +338,6 @@ GetTextFaceA( HDC hdc, INT count, LPSTR name )
         res = WideCharToMultiByte( CP_ACP, 0, nameW, -1, NULL, 0, NULL, NULL);
     HeapFree( GetProcessHeap(), 0, nameW );
     return res;
-}
-
-BOOL
-STDCALL
-GetFontResourceInfoW(
-    LPCWSTR lpFileName,
-    DWORD *pdwBufSize,
-    void* lpBuffer,
-    DWORD dwType
-    )
-{
-    BOOL bRet;
-    UNICODE_STRING NtFileName;
-
-    if (!lpFileName || !pdwBufSize || !lpBuffer)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (!RtlDosPathNameToNtPathName_U(lpFileName,
-                                      &NtFileName,
-                                      NULL,
-                                      NULL))
-    {
-        SetLastError(ERROR_PATH_NOT_FOUND);
-        return FALSE;
-    }
-
-    bRet = NtGdiGetFontResourceInfoInternalW(
-        NtFileName.Buffer,
-        NtFileName.Length,
-        1,
-        *pdwBufSize,
-        pdwBufSize,
-        lpBuffer,
-        dwType);
-
-    RtlFreeHeap(RtlGetProcessHeap(), 0, NtFileName.Buffer);
-
-    if (!bRet)
-    {
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-
-/*
- * @unimplemented
- */
-int
-STDCALL
-SetTextCharacterExtra(
-	HDC	hDC,
-	int	CharExtra
-	)
-{
-  INT cExtra = 0x80000000;
-  PDC_ATTR Dc_Attr;
-
-  if (CharExtra == cExtra)
-  {
-     SetLastError(ERROR_INVALID_PARAMETER);
-     return cExtra;
-  }
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-  {
-    return MFDRV_SetTextCharacterExtra( hDC, CharExtra ); // Wine port.
-  }
-#endif
-  if (!GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return cExtra;
-
-  if (NtCurrentTeb()->GdiTebBatch.HDC == (ULONG)hDC)
-  {
-     if (Dc_Attr->ulDirty_ & DC_FONTTEXT_DIRTY)
-     {
-       NtGdiFlush(); // Sync up Dc_Attr from Kernel space.
-       Dc_Attr->ulDirty_ &= ~(DC_MODE_DIRTY|DC_FONTTEXT_DIRTY);
-     }
-  }
-  cExtra = Dc_Attr->lTextExtra;
-  Dc_Attr->lTextExtra = CharExtra;
-  return cExtra;
-// return GetAndSetDCDWord( hDC, GdiGetSetTextCharExtra, CharExtra, 0, 0, 0 );
-}
-
-/*
- * @implemented
- *
- */
-UINT
-STDCALL
-GetTextAlign(HDC hdc)
-{
-  PDC_ATTR Dc_Attr;
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return 0;
-  return Dc_Attr->lTextAlign;
-}
-
-
-/*
- * @implemented
- *
- */
-COLORREF
-STDCALL
-GetTextColor(HDC hdc)
-{
-  PDC_ATTR Dc_Attr;
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return 0;
-  return Dc_Attr->ulForegroundClr;
-}
-
-
-
-/*
- * @unimplemented
- */
-UINT
-STDCALL
-SetTextAlign(HDC hdc,
-             UINT fMode)
-{
-  PDC_ATTR Dc_Attr;
-  INT OldMode = 0;
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return MFDRV_SetTextAlign( hdc, fMode )
-    else
-    {
-      PLDC pLDC = Dc_Attr->pvLDC;
-      if ( !pLDC )
-      {
-         SetLastError(ERROR_INVALID_HANDLE);
-         return FALSE;
-      }
-      if (pLDC->iType == LDC_EMFLDC)
-      {
-        if return EMFDRV_SetTextAlign( hdc, fMode )
-      }
-    }
-  }
-#endif
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return OldMode;
-
-  OldMode = Dc_Attr->lTextAlign;
-  Dc_Attr->lTextAlign = fMode; // Raw
-  if (Dc_Attr->dwLayout & LAYOUT_RTL)
-  {
-     if(!(fMode & TA_CENTER))  fMode |= TA_RIGHT;
-  }
-  Dc_Attr->flTextAlign = fMode & (TA_BASELINE|TA_UPDATECP|TA_CENTER);
-  return OldMode;
-
-}
-
-
-/*
- * @implemented
- */
-COLORREF
-STDCALL
-SetTextColor(
-	HDC hdc,
-	COLORREF crColor
-)
-{
-  PDC_ATTR Dc_Attr;
-  COLORREF OldColor = CLR_INVALID;
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return MFDRV_SetTextColor( hDC, crColor );
-    else
-    {
-      PLDC pLDC = Dc_Attr->pvLDC;
-      if ( !pLDC )
-      {
-         SetLastError(ERROR_INVALID_HANDLE);
-         return FALSE;
-      }
-      if (pLDC->iType == LDC_EMFLDC)
-      {
-        if return EMFDRV_SetTextColor( hDC, crColor );
-      }
-    }
-  }
-#endif
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return OldColor;
-
-  OldColor = (COLORREF) Dc_Attr->ulForegroundClr;
-  Dc_Attr->ulForegroundClr = (ULONG) crColor;
-
-  if ( Dc_Attr->crForegroundClr != crColor )
-  {
-     Dc_Attr->ulDirty_ |= DIRTY_TEXT;
-     Dc_Attr->crForegroundClr = crColor;
-  }
-  return OldColor;
-}
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-SetTextJustification(
-	HDC	hdc,
-	int	extra,
-	int	breaks
-	)
-{
-  PDC_ATTR Dc_Attr;
-#if 0
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return MFDRV_SetTextJustification( hdc, extra, breaks )
-    else
-    {
-      SetLastError(ERROR_INVALID_HANDLE);
-      return FALSE;
-    }
-#endif
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
-
-  if (NtCurrentTeb()->GdiTebBatch.HDC == (ULONG)hdc)
-  {
-     if (Dc_Attr->ulDirty_ & DC_FONTTEXT_DIRTY)
-     {
-       NtGdiFlush(); // Sync up Dc_Attr from Kernel space.
-       Dc_Attr->ulDirty_ &= ~(DC_MODE_DIRTY|DC_FONTTEXT_DIRTY);
-     }
-  }
-  Dc_Attr->cBreak = breaks;
-  Dc_Attr->lBreakExtra = extra;
-  return TRUE;
 }
 
 

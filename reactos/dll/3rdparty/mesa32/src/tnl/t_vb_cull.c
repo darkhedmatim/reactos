@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,12 +52,12 @@ static GLboolean run_cull_stage( GLcontext *ctx,
    const GLfloat a = ctx->Transform.CullObjPos[0];
    const GLfloat b = ctx->Transform.CullObjPos[1];
    const GLfloat c = ctx->Transform.CullObjPos[2];
-   GLfloat *norm = (GLfloat *)VB->AttribPtr[_TNL_ATTRIB_NORMAL]->data;
-   GLuint stride = VB->AttribPtr[_TNL_ATTRIB_NORMAL]->stride;
+   GLfloat *norm = (GLfloat *)VB->NormalPtr->data;
+   GLuint stride = VB->NormalPtr->stride;
    GLuint count = VB->Count;
    GLuint i;
 
-   if (ctx->VertexProgram._Current ||
+   if (ctx->VertexProgram._Enabled ||
        !ctx->Transform.CullVertexFlag) 
       return GL_TRUE;
 

@@ -67,11 +67,9 @@ CloneCallProc(IN PDESKTOP Desktop,
                                              sizeof(CALLPROC));
     if (NewCallProc != NULL)
     {
-        NewCallProc->hdr.Handle = Handle; /* FIXME: Remove hack */
         NewCallProc->pi = CallProc->pi;
         NewCallProc->WndProc = CallProc->WndProc;
         NewCallProc->Unicode = CallProc->Unicode;
-        NewCallProc->Next = NULL;
     }
 
     return NewCallProc;
@@ -93,11 +91,9 @@ CreateCallProc(IN PDESKTOP Desktop,
                                              sizeof(CALLPROC));
     if (NewCallProc != NULL)
     {
-        NewCallProc->hdr.Handle = Handle; /* FIXME: Remove hack */
         NewCallProc->pi = pi;
         NewCallProc->WndProc = WndProc;
         NewCallProc->Unicode = Unicode;
-        NewCallProc->Next = NULL;
     }
 
     return NewCallProc;

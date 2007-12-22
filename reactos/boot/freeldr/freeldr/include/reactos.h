@@ -21,7 +21,7 @@
 #define __REACTOS_H
 
 /* Base Addres of Kernel in Physical Memory */
-#define KERNEL_BASE_PHYS 0x800000
+#define KERNEL_BASE_PHYS 0x200000
 
 /* Bits to shift to convert a Virtual Address into an Offset in the Page Table */
 #define PFN_SHIFT 12
@@ -29,6 +29,10 @@
 /* Bits to shift to convert a Virtual Address into an Offset in the Page Directory */
 #define PDE_SHIFT 22
 #define PDE_SHIFT_PAE 18
+
+/* Converts a Relative Address read from the Kernel into a Physical Address */
+#define RaToPa(p) \
+    (ULONG_PTR)((ULONG_PTR)p + KERNEL_BASE_PHYS)
 
 /* Converts a Physical Address Pointer into a Page Frame Number */
 #define PaPtrToPfn(p) \
@@ -40,12 +44,18 @@
 
 #define STARTUP_BASE                0xC0000000
 #define HYPERSPACE_BASE             0xC0400000
-#define HAL_BASE                    0xFFC00000
+#define HYPERSPACE_PAE_BASE         0xC0800000
+#define APIC_BASE                   0xFEC00000
+#define KPCR_BASE                   0xFF000000
 
 #define LowMemPageTableIndex        0
 #define StartupPageTableIndex       (STARTUP_BASE >> 22)
 #define HyperspacePageTableIndex    (HYPERSPACE_BASE >> 22)
-#define HalPageTableIndex           (HAL_BASE >> 22)
+#define KpcrPageTableIndex          (KPCR_BASE >> 22)
+#define ApicPageTableIndex          (APIC_BASE >> 22)
+#define KuserPageTableIndex         (KI_USER_SHARED_DATA >> 22)
+
+#define KernelEntryPoint            (KernelEntry - KERNEL_BASE_PHYS) + KernelBase
 
 typedef struct _PAGE_DIRECTORY_X86
 {
@@ -84,13 +94,8 @@ extern ROS_LOADER_PARAMETER_BLOCK LoaderBlock; /* Multiboot info structure passe
 extern char					reactos_kernel_cmdline[255];	// Command line passed to kernel
 extern LOADER_MODULE		reactos_modules[64];		// Array to hold boot module info loaded for the kernel
 extern char					reactos_module_strings[64][256];	// Array to hold module names
-typedef struct _reactos_mem_data {
-    unsigned long			memory_map_descriptor_size;
-    memory_map_t			memory_map[32];		// Memory map
-} reactos_mem_data_t;
-extern reactos_mem_data_t reactos_mem_data;
-#define reactos_memory_map_descriptor_size reactos_mem_data.memory_map_descriptor_size
-#define reactos_memory_map reactos_mem_data.memory_map
+extern unsigned long		reactos_memory_map_descriptor_size;
+extern memory_map_t			reactos_memory_map[32];		// Memory map
 
 VOID FASTCALL FrLdrSetupPae(ULONG Magic);
 VOID FASTCALL FrLdrSetupPageDirectory(VOID);
@@ -100,7 +105,7 @@ ULONG_PTR NTAPI FrLdrCreateModule(LPCSTR ModuleName);
 ULONG_PTR NTAPI FrLdrLoadModule(FILE *ModuleImage, LPCSTR ModuleName, PULONG ModuleSize);
 BOOLEAN NTAPI FrLdrCloseModule(ULONG_PTR ModuleBase, ULONG dwModuleSize);
 VOID NTAPI FrLdrStartup(ULONG Magic);
-typedef VOID (FASTCALL *ROS_KERNEL_ENTRY_POINT)(ULONG Magic, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
+typedef VOID (FASTCALL *ASMCODE)(ULONG Magic, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
 
 PVOID
 NTAPI

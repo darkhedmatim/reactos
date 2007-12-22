@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.5
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,7 @@
 #include "state.h"
 
 
-/**
+/*
  * Given an internalFormat token passed to glColorTable,
  * return the corresponding base format.
  * Return -1 if invalid token.
@@ -92,16 +92,34 @@ base_colortab_format( GLenum format )
 
 
 
-/**
+/*
  * Examine table's format and set the component sizes accordingly.
  */
 static void
 set_component_sizes( struct gl_color_table *table )
 {
-   /* assuming the ubyte table */
-   const GLubyte sz = 8;
+   GLubyte sz;
 
-   switch (table->_BaseFormat) {
+   switch (table->Type) {
+   case GL_UNSIGNED_BYTE:
+      sz = 8 * sizeof(GLubyte);
+      break;
+   case GL_UNSIGNED_SHORT:
+      sz = 8 * sizeof(GLushort);
+      break;
+   case GL_FLOAT:
+      /* Don't actually return 32 here since that causes the conformance
+       * tests to blow up.  Conform thinks the component is an integer,
+       * not a float.
+       */
+      sz = 8;  /** 8 * sizeof(GLfloat); **/
+      break;
+   default:
+      _mesa_problem(NULL, "bad color table type in set_component_sizes 0x%x", table->Type);
+      return;
+   }
+
+   switch (table->Format) {
       case GL_ALPHA:
          table->RedSize = 0;
          table->GreenSize = 0;
@@ -199,7 +217,7 @@ store_colortable_entries(GLcontext *ctx, struct gl_color_table *table,
    }
 
 
-   {
+   if (table->Type == GL_FLOAT) {
       /* convert user-provided data to GLfloat values */
       GLfloat tempTab[MAX_COLOR_TABLE_SIZE * 4];
       GLfloat *tableF;
@@ -207,7 +225,7 @@ store_colortable_entries(GLcontext *ctx, struct gl_color_table *table,
 
       _mesa_unpack_color_span_float(ctx,
                                     count,         /* number of pixels */
-                                    table->_BaseFormat, /* dest format */
+                                    table->Format, /* dest format */
                                     tempTab,       /* dest address */
                                     format, type,  /* src format/type */
                                     data,          /* src data */
@@ -215,10 +233,10 @@ store_colortable_entries(GLcontext *ctx, struct gl_color_table *table,
                                     IMAGE_CLAMP_BIT); /* transfer ops */
 
       /* the destination */
-      tableF = table->TableF;
+      tableF = (GLfloat *) table->Table;
 
       /* Apply scale & bias & clamp now */
-      switch (table->_BaseFormat) {
+      switch (table->Format) {
          case GL_INTENSITY:
             for (i = 0; i < count; i++) {
                GLuint j = start + i;
@@ -266,16 +284,16 @@ store_colortable_entries(GLcontext *ctx, struct gl_color_table *table,
             return;
          }
    }
-
-   /* update the ubyte table */
-   {
-      const GLint comps = _mesa_components_in_format(table->_BaseFormat);
-      const GLfloat *tableF = table->TableF + start * comps;
-      GLubyte *tableUB = table->TableUB + start * comps;
-      GLint i;
-      for (i = 0; i < count * comps; i++) {
-         CLAMPED_FLOAT_TO_UBYTE(tableUB[i], tableF[i]);
-      }
+   else {
+      /* non-float (GLchan) */
+      const GLint comps = _mesa_components_in_format(table->Format);
+      GLchan *dest = (GLchan *) table->Table + start * comps;
+      _mesa_unpack_color_span_chan(ctx, count,         /* number of entries */
+				   table->Format,      /* dest format */
+				   dest,               /* dest address */
+                                   format, type, data, /* src data */
+				   &ctx->Unpack,
+				   0);                 /* transfer ops */
    }
 
    if (ctx->Unpack.BufferObj->Name) {
@@ -291,17 +309,16 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
                   GLsizei width, GLenum format, GLenum type,
                   const GLvoid *data )
 {
-   static const GLfloat one[4] = { 1.0, 1.0, 1.0, 1.0 };
-   static const GLfloat zero[4] = { 0.0, 0.0, 0.0, 0.0 };
    GET_CURRENT_CONTEXT(ctx);
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
    struct gl_texture_object *texObj = NULL;
    struct gl_color_table *table = NULL;
    GLboolean proxy = GL_FALSE;
    GLint baseFormat;
-   const GLfloat *scale = one, *bias = zero;
+   GLfloat rScale = 1.0, gScale = 1.0, bScale = 1.0, aScale = 1.0;
+   GLfloat rBias  = 0.0, gBias  = 0.0, bBias  = 0.0, aBias  = 0.0;
+   GLenum tableType = CHAN_TYPE;
    GLint comps;
-
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx); /* too complex */
 
    switch (target) {
@@ -350,14 +367,22 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
          break;
       case GL_SHARED_TEXTURE_PALETTE_EXT:
          table = &ctx->Texture.Palette;
+	 tableType = GL_FLOAT;
          break;
       case GL_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_PRECONVOLUTION];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_PRECONVOLUTION];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ColorTable;
+	 tableType = GL_FLOAT;
+         rScale = ctx->Pixel.ColorTableScale[0];
+         gScale = ctx->Pixel.ColorTableScale[1];
+         bScale = ctx->Pixel.ColorTableScale[2];
+         aScale = ctx->Pixel.ColorTableScale[3];
+         rBias = ctx->Pixel.ColorTableBias[0];
+         gBias = ctx->Pixel.ColorTableBias[1];
+         bBias = ctx->Pixel.ColorTableBias[2];
+         aBias = ctx->Pixel.ColorTableBias[3];
          break;
       case GL_PROXY_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ProxyColorTable;
          proxy = GL_TRUE;
          break;
       case GL_TEXTURE_COLOR_TABLE_SGI:
@@ -366,8 +391,15 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
             return;
          }
          table = &(texUnit->ColorTable);
-         scale = ctx->Pixel.TextureColorTableScale;
-         bias = ctx->Pixel.TextureColorTableBias;
+	 tableType = GL_FLOAT;
+         rScale = ctx->Pixel.TextureColorTableScale[0];
+         gScale = ctx->Pixel.TextureColorTableScale[1];
+         bScale = ctx->Pixel.TextureColorTableScale[2];
+         aScale = ctx->Pixel.TextureColorTableScale[3];
+         rBias = ctx->Pixel.TextureColorTableBias[0];
+         gBias = ctx->Pixel.TextureColorTableBias[1];
+         bBias = ctx->Pixel.TextureColorTableBias[2];
+         aBias = ctx->Pixel.TextureColorTableBias[3];
          break;
       case GL_PROXY_TEXTURE_COLOR_TABLE_SGI:
          if (!ctx->Extensions.SGI_texture_color_table) {
@@ -375,24 +407,41 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
             return;
          }
          table = &(texUnit->ProxyColorTable);
+	 tableType = GL_FLOAT;
          proxy = GL_TRUE;
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCONVOLUTION];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCONVOLUTION];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->PostConvolutionColorTable;
+	 tableType = GL_FLOAT;
+         rScale = ctx->Pixel.PCCTscale[0];
+         gScale = ctx->Pixel.PCCTscale[1];
+         bScale = ctx->Pixel.PCCTscale[2];
+         aScale = ctx->Pixel.PCCTscale[3];
+         rBias = ctx->Pixel.PCCTbias[0];
+         gBias = ctx->Pixel.PCCTbias[1];
+         bBias = ctx->Pixel.PCCTbias[2];
+         aBias = ctx->Pixel.PCCTbias[3];
          break;
       case GL_PROXY_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->ProxyPostConvolutionColorTable;
+	 tableType = GL_FLOAT;
          proxy = GL_TRUE;
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->PostColorMatrixColorTable;
+	 tableType = GL_FLOAT;
+         rScale = ctx->Pixel.PCMCTscale[0];
+         gScale = ctx->Pixel.PCMCTscale[1];
+         bScale = ctx->Pixel.PCMCTscale[2];
+         aScale = ctx->Pixel.PCMCTscale[3];
+         rBias = ctx->Pixel.PCMCTbias[0];
+         gBias = ctx->Pixel.PCMCTbias[1];
+         bBias = ctx->Pixel.PCMCTbias[2];
+         aBias = ctx->Pixel.PCMCTbias[3];
          break;
       case GL_PROXY_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->ProxyPostColorMatrixColorTable;
+	 tableType = GL_FLOAT;
          proxy = GL_TRUE;
          break;
       default:
@@ -409,7 +458,7 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
    }
 
    baseFormat = base_colortab_format(internalFormat);
-   if (baseFormat < 0) {
+   if (baseFormat < 0 || baseFormat == GL_COLOR_INDEX) {
       _mesa_error(ctx, GL_INVALID_ENUM, "glColorTable(internalFormat)");
       return;
    }
@@ -418,8 +467,8 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
       /* error */
       if (proxy) {
          table->Size = 0;
-         table->InternalFormat = (GLenum) 0;
-         table->_BaseFormat = (GLenum) 0;
+         table->IntFormat = (GLenum) 0;
+         table->Format = (GLenum) 0;
       }
       else {
          _mesa_error(ctx, GL_INVALID_VALUE, "glColorTable(width=%d)", width);
@@ -430,8 +479,8 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
    if (width > (GLsizei) ctx->Const.MaxColorTableSize) {
       if (proxy) {
          table->Size = 0;
-         table->InternalFormat = (GLenum) 0;
-         table->_BaseFormat = (GLenum) 0;
+         table->IntFormat = (GLenum) 0;
+         table->Format = (GLenum) 0;
       }
       else {
          _mesa_error(ctx, GL_TABLE_TOO_LARGE, "glColorTable(width)");
@@ -440,20 +489,29 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
    }
 
    table->Size = width;
-   table->InternalFormat = internalFormat;
-   table->_BaseFormat = (GLenum) baseFormat;
+   table->IntFormat = internalFormat;
+   table->Format = (GLenum) baseFormat;
+   table->Type = (tableType == GL_FLOAT) ? GL_FLOAT : CHAN_TYPE;
 
-   comps = _mesa_components_in_format(table->_BaseFormat);
+   comps = _mesa_components_in_format(table->Format);
    assert(comps > 0);  /* error should have been caught sooner */
 
    if (!proxy) {
-      _mesa_free_colortable_data(table);
+      /* free old table, if any */
+      if (table->Table) {
+         FREE(table->Table);
+         table->Table = NULL;
+      }
 
       if (width > 0) {
-         table->TableF = (GLfloat *) _mesa_malloc(comps * width * sizeof(GLfloat));
-         table->TableUB = (GLubyte *) _mesa_malloc(comps * width * sizeof(GLubyte));
+         if (table->Type == GL_FLOAT) {
+	    table->Table = MALLOC(comps * width * sizeof(GLfloat));
+	 }
+	 else {
+            table->Table = MALLOC(comps * width * sizeof(GLchan));
+	 }
 
-	 if (!table->TableF || !table->TableUB) {
+	 if (!table->Table) {
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glColorTable");
 	    return;
 	 }
@@ -461,10 +519,10 @@ _mesa_ColorTable( GLenum target, GLenum internalFormat,
 	 store_colortable_entries(ctx, table,
 				  0, width,  /* start, count */
 				  format, type, data,
-				  scale[0], bias[0],
-				  scale[1], bias[1],
-				  scale[2], bias[2],
-				  scale[3], bias[3]);
+				  rScale, rBias,
+				  gScale, gBias,
+				  bScale, bBias,
+				  aScale, aBias);
       }
    } /* proxy */
 
@@ -488,14 +546,12 @@ _mesa_ColorSubTable( GLenum target, GLsizei start,
                      GLsizei count, GLenum format, GLenum type,
                      const GLvoid *data )
 {
-   static const GLfloat one[4] = { 1.0, 1.0, 1.0, 1.0 };
-   static const GLfloat zero[4] = { 0.0, 0.0, 0.0, 0.0 };
    GET_CURRENT_CONTEXT(ctx);
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
    struct gl_texture_object *texObj = NULL;
    struct gl_color_table *table = NULL;
-   const GLfloat *scale = one, *bias = zero;
-
+   GLfloat rScale = 1.0, gScale = 1.0, bScale = 1.0, aScale = 1.0;
+   GLfloat rBias  = 0.0, gBias  = 0.0, bBias  = 0.0, aBias  = 0.0;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    switch (target) {
@@ -523,9 +579,15 @@ _mesa_ColorSubTable( GLenum target, GLsizei start,
          table = &ctx->Texture.Palette;
          break;
       case GL_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_PRECONVOLUTION];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_PRECONVOLUTION];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ColorTable;
+         rScale = ctx->Pixel.ColorTableScale[0];
+         gScale = ctx->Pixel.ColorTableScale[1];
+         bScale = ctx->Pixel.ColorTableScale[2];
+         aScale = ctx->Pixel.ColorTableScale[3];
+         rBias = ctx->Pixel.ColorTableBias[0];
+         gBias = ctx->Pixel.ColorTableBias[1];
+         bBias = ctx->Pixel.ColorTableBias[2];
+         aBias = ctx->Pixel.ColorTableBias[3];
          break;
       case GL_TEXTURE_COLOR_TABLE_SGI:
          if (!ctx->Extensions.SGI_texture_color_table) {
@@ -533,18 +595,36 @@ _mesa_ColorSubTable( GLenum target, GLsizei start,
             return;
          }
          table = &(texUnit->ColorTable);
-         scale = ctx->Pixel.TextureColorTableScale;
-         bias = ctx->Pixel.TextureColorTableBias;
+         rScale = ctx->Pixel.TextureColorTableScale[0];
+         gScale = ctx->Pixel.TextureColorTableScale[1];
+         bScale = ctx->Pixel.TextureColorTableScale[2];
+         aScale = ctx->Pixel.TextureColorTableScale[3];
+         rBias = ctx->Pixel.TextureColorTableBias[0];
+         gBias = ctx->Pixel.TextureColorTableBias[1];
+         bBias = ctx->Pixel.TextureColorTableBias[2];
+         aBias = ctx->Pixel.TextureColorTableBias[3];
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCONVOLUTION];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCONVOLUTION];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->PostConvolutionColorTable;
+         rScale = ctx->Pixel.PCCTscale[0];
+         gScale = ctx->Pixel.PCCTscale[1];
+         bScale = ctx->Pixel.PCCTscale[2];
+         aScale = ctx->Pixel.PCCTscale[3];
+         rBias = ctx->Pixel.PCCTbias[0];
+         gBias = ctx->Pixel.PCCTbias[1];
+         bBias = ctx->Pixel.PCCTbias[2];
+         aBias = ctx->Pixel.PCCTbias[3];
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX];
-         scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX];
-         bias = ctx->Pixel.ColorTableBias[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->PostColorMatrixColorTable;
+         rScale = ctx->Pixel.PCMCTscale[0];
+         gScale = ctx->Pixel.PCMCTscale[1];
+         bScale = ctx->Pixel.PCMCTscale[2];
+         aScale = ctx->Pixel.PCMCTscale[3];
+         rBias = ctx->Pixel.PCMCTbias[0];
+         gBias = ctx->Pixel.PCMCTbias[1];
+         bBias = ctx->Pixel.PCMCTbias[2];
+         aBias = ctx->Pixel.PCMCTbias[3];
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glColorSubTable(target)");
@@ -565,24 +645,24 @@ _mesa_ColorSubTable( GLenum target, GLsizei start,
    }
 
    /* error should have been caught sooner */
-   assert(_mesa_components_in_format(table->_BaseFormat) > 0);
+   assert(_mesa_components_in_format(table->Format) > 0);
 
    if (start + count > (GLint) table->Size) {
       _mesa_error(ctx, GL_INVALID_VALUE, "glColorSubTable(count)");
       return;
    }
 
-   if (!table->TableF || !table->TableUB) {
-      /* a GL_OUT_OF_MEMORY error would have been recorded previously */
+   if (!table->Table) {
+      _mesa_error(ctx, GL_OUT_OF_MEMORY, "glColorSubTable");
       return;
    }
 
    store_colortable_entries(ctx, table, start, count,
 			    format, type, data,
-                            scale[0], bias[0],
-                            scale[1], bias[1],
-                            scale[2], bias[2],
-                            scale[3], bias[3]);
+			    rScale, rBias,
+			    gScale, gBias,
+			    bScale, bBias,
+			    aScale, aBias);
 
    if (texObj || target == GL_SHARED_TEXTURE_PALETTE_EXT) {
       /* per-texture object palette */
@@ -628,7 +708,7 @@ _mesa_GetColorTable( GLenum target, GLenum format,
    GET_CURRENT_CONTEXT(ctx);
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
    struct gl_color_table *table = NULL;
-   GLfloat rgba[MAX_COLOR_TABLE_SIZE][4];
+   GLchan rgba[MAX_COLOR_TABLE_SIZE][4];
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (ctx->NewState) {
@@ -656,7 +736,7 @@ _mesa_GetColorTable( GLenum target, GLenum format,
          table = &ctx->Texture.Palette;
          break;
       case GL_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ColorTable;
          break;
       case GL_TEXTURE_COLOR_TABLE_SGI:
          if (!ctx->Extensions.SGI_texture_color_table) {
@@ -666,10 +746,10 @@ _mesa_GetColorTable( GLenum target, GLenum format,
          table = &(texUnit->ColorTable);
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->PostConvolutionColorTable;
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->PostColorMatrixColorTable;
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetColorTable(target)");
@@ -678,72 +758,142 @@ _mesa_GetColorTable( GLenum target, GLenum format,
 
    ASSERT(table);
 
-   if (table->Size <= 0) {
-      return;
-   }
-
-   switch (table->_BaseFormat) {
-   case GL_ALPHA:
-      {
-         GLuint i;
-         for (i = 0; i < table->Size; i++) {
-            rgba[i][RCOMP] = 0;
-            rgba[i][GCOMP] = 0;
-            rgba[i][BCOMP] = 0;
-            rgba[i][ACOMP] = table->TableF[i];
+   switch (table->Format) {
+      case GL_ALPHA:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = 0;
+               rgba[i][GCOMP] = 0;
+               rgba[i][BCOMP] = 0;
+               rgba[i][ACOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+            }
          }
-      }
-      break;
-   case GL_LUMINANCE:
-      {
-         GLuint i;
-         for (i = 0; i < table->Size; i++) {
-            rgba[i][RCOMP] =
-            rgba[i][GCOMP] =
-            rgba[i][BCOMP] = table->TableF[i];
-            rgba[i][ACOMP] = 1.0F;
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = 0;
+               rgba[i][GCOMP] = 0;
+               rgba[i][BCOMP] = 0;
+               rgba[i][ACOMP] = tableUB[i];
+            }
          }
-      }
-      break;
-   case GL_LUMINANCE_ALPHA:
-      {
-         GLuint i;
-         for (i = 0; i < table->Size; i++) {
-            rgba[i][RCOMP] =
-            rgba[i][GCOMP] =
-            rgba[i][BCOMP] = table->TableF[i*2+0];
-            rgba[i][ACOMP] = table->TableF[i*2+1];
+         break;
+      case GL_LUMINANCE:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][GCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][BCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][ACOMP] = CHAN_MAX;
+            }
          }
-      }
-      break;
-   case GL_INTENSITY:
-      {
-         GLuint i;
-         for (i = 0; i < table->Size; i++) {
-            rgba[i][RCOMP] =
-            rgba[i][GCOMP] =
-            rgba[i][BCOMP] =
-            rgba[i][ACOMP] = table->TableF[i];
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = tableUB[i];
+               rgba[i][GCOMP] = tableUB[i];
+               rgba[i][BCOMP] = tableUB[i];
+               rgba[i][ACOMP] = CHAN_MAX;
+            }
          }
-      }
-      break;
-   case GL_RGB:
-      {
-         GLuint i;
-         for (i = 0; i < table->Size; i++) {
-            rgba[i][RCOMP] = table->TableF[i*3+0];
-            rgba[i][GCOMP] = table->TableF[i*3+1];
-            rgba[i][BCOMP] = table->TableF[i*3+2];
-            rgba[i][ACOMP] = 1.0F;
+         break;
+      case GL_LUMINANCE_ALPHA:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = IROUND_POS(tableF[i*2+0] * CHAN_MAXF);
+               rgba[i][GCOMP] = IROUND_POS(tableF[i*2+0] * CHAN_MAXF);
+               rgba[i][BCOMP] = IROUND_POS(tableF[i*2+0] * CHAN_MAXF);
+               rgba[i][ACOMP] = IROUND_POS(tableF[i*2+1] * CHAN_MAXF);
+            }
          }
-      }
-      break;
-   case GL_RGBA:
-      _mesa_memcpy(rgba, table->TableF, 4 * table->Size * sizeof(GLfloat));
-      break;
-   default:
-      _mesa_problem(ctx, "bad table format in glGetColorTable");
-      return;
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = tableUB[i*2+0];
+               rgba[i][GCOMP] = tableUB[i*2+0];
+               rgba[i][BCOMP] = tableUB[i*2+0];
+               rgba[i][ACOMP] = tableUB[i*2+1];
+            }
+         }
+         break;
+      case GL_INTENSITY:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][GCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][BCOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+               rgba[i][ACOMP] = IROUND_POS(tableF[i] * CHAN_MAXF);
+            }
+         }
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = tableUB[i];
+               rgba[i][GCOMP] = tableUB[i];
+               rgba[i][BCOMP] = tableUB[i];
+               rgba[i][ACOMP] = tableUB[i];
+            }
+         }
+         break;
+      case GL_RGB:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = IROUND_POS(tableF[i*3+0] * CHAN_MAXF);
+               rgba[i][GCOMP] = IROUND_POS(tableF[i*3+1] * CHAN_MAXF);
+               rgba[i][BCOMP] = IROUND_POS(tableF[i*3+2] * CHAN_MAXF);
+               rgba[i][ACOMP] = CHAN_MAX;
+            }
+         }
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = tableUB[i*3+0];
+               rgba[i][GCOMP] = tableUB[i*3+1];
+               rgba[i][BCOMP] = tableUB[i*3+2];
+               rgba[i][ACOMP] = CHAN_MAX;
+            }
+         }
+         break;
+      case GL_RGBA:
+         if (table->Type == GL_FLOAT) {
+            const GLfloat *tableF = (const GLfloat *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = IROUND_POS(tableF[i*4+0] * CHAN_MAXF);
+               rgba[i][GCOMP] = IROUND_POS(tableF[i*4+1] * CHAN_MAXF);
+               rgba[i][BCOMP] = IROUND_POS(tableF[i*4+2] * CHAN_MAXF);
+               rgba[i][ACOMP] = IROUND_POS(tableF[i*4+3] * CHAN_MAXF);
+            }
+         }
+         else {
+            const GLchan *tableUB = (const GLchan *) table->Table;
+            GLuint i;
+            for (i = 0; i < table->Size; i++) {
+               rgba[i][RCOMP] = tableUB[i*4+0];
+               rgba[i][GCOMP] = tableUB[i*4+1];
+               rgba[i][BCOMP] = tableUB[i*4+2];
+               rgba[i][ACOMP] = tableUB[i*4+3];
+            }
+         }
+         break;
+      default:
+         _mesa_problem(ctx, "bad table format in glGetColorTable");
+         return;
    }
 
    if (ctx->Pack.BufferObj->Name) {
@@ -767,8 +917,8 @@ _mesa_GetColorTable( GLenum target, GLenum format,
       data = ADD_POINTERS(buf, data);
    }
 
-   _mesa_pack_rgba_span_float(ctx, table->Size, rgba,
-                              format, type, data, &ctx->Pack, 0x0);
+   _mesa_pack_rgba_span_chan(ctx, table->Size, (const GLchan (*)[4]) rgba,
+                        format, type, data, &ctx->Pack, GL_FALSE);
 
    if (ctx->Pack.BufferObj->Name) {
       ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_PACK_BUFFER_EXT,
@@ -787,10 +937,16 @@ _mesa_ColorTableParameterfv(GLenum target, GLenum pname, const GLfloat *params)
    switch (target) {
       case GL_COLOR_TABLE_SGI:
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableScale[COLORTABLE_PRECONVOLUTION], params);
+            ctx->Pixel.ColorTableScale[0] = params[0];
+            ctx->Pixel.ColorTableScale[1] = params[1];
+            ctx->Pixel.ColorTableScale[2] = params[2];
+            ctx->Pixel.ColorTableScale[3] = params[3];
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableBias[COLORTABLE_PRECONVOLUTION], params);
+            ctx->Pixel.ColorTableBias[0] = params[0];
+            ctx->Pixel.ColorTableBias[1] = params[1];
+            ctx->Pixel.ColorTableBias[2] = params[2];
+            ctx->Pixel.ColorTableBias[3] = params[3];
          }
          else {
             _mesa_error(ctx, GL_INVALID_ENUM, "glColorTableParameterfv(pname)");
@@ -803,10 +959,16 @@ _mesa_ColorTableParameterfv(GLenum target, GLenum pname, const GLfloat *params)
             return;
          }
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(ctx->Pixel.TextureColorTableScale, params);
+            ctx->Pixel.TextureColorTableScale[0] = params[0];
+            ctx->Pixel.TextureColorTableScale[1] = params[1];
+            ctx->Pixel.TextureColorTableScale[2] = params[2];
+            ctx->Pixel.TextureColorTableScale[3] = params[3];
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(ctx->Pixel.TextureColorTableBias, params);
+            ctx->Pixel.TextureColorTableBias[0] = params[0];
+            ctx->Pixel.TextureColorTableBias[1] = params[1];
+            ctx->Pixel.TextureColorTableBias[2] = params[2];
+            ctx->Pixel.TextureColorTableBias[3] = params[3];
          }
          else {
             _mesa_error(ctx, GL_INVALID_ENUM, "glColorTableParameterfv(pname)");
@@ -815,10 +977,16 @@ _mesa_ColorTableParameterfv(GLenum target, GLenum pname, const GLfloat *params)
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE_SGI:
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableScale[COLORTABLE_POSTCONVOLUTION], params);
+            ctx->Pixel.PCCTscale[0] = params[0];
+            ctx->Pixel.PCCTscale[1] = params[1];
+            ctx->Pixel.PCCTscale[2] = params[2];
+            ctx->Pixel.PCCTscale[3] = params[3];
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableBias[COLORTABLE_POSTCONVOLUTION], params);
+            ctx->Pixel.PCCTbias[0] = params[0];
+            ctx->Pixel.PCCTbias[1] = params[1];
+            ctx->Pixel.PCCTbias[2] = params[2];
+            ctx->Pixel.PCCTbias[3] = params[3];
          }
          else {
             _mesa_error(ctx, GL_INVALID_ENUM, "glColorTableParameterfv(pname)");
@@ -827,10 +995,16 @@ _mesa_ColorTableParameterfv(GLenum target, GLenum pname, const GLfloat *params)
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE_SGI:
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX], params);
+            ctx->Pixel.PCMCTscale[0] = params[0];
+            ctx->Pixel.PCMCTscale[1] = params[1];
+            ctx->Pixel.PCMCTscale[2] = params[2];
+            ctx->Pixel.PCMCTscale[3] = params[3];
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(ctx->Pixel.ColorTableBias[COLORTABLE_POSTCOLORMATRIX], params);
+            ctx->Pixel.PCMCTbias[0] = params[0];
+            ctx->Pixel.PCMCTbias[1] = params[1];
+            ctx->Pixel.PCMCTbias[2] = params[2];
+            ctx->Pixel.PCMCTbias[3] = params[3];
          }
          else {
             _mesa_error(ctx, GL_INVALID_ENUM, "glColorTableParameterfv(pname)");
@@ -917,18 +1091,24 @@ _mesa_GetColorTableParameterfv( GLenum target, GLenum pname, GLfloat *params )
          table = &ctx->Texture.Palette;
          break;
       case GL_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableScale[COLORTABLE_PRECONVOLUTION]);
+            params[0] = ctx->Pixel.ColorTableScale[0];
+            params[1] = ctx->Pixel.ColorTableScale[1];
+            params[2] = ctx->Pixel.ColorTableScale[2];
+            params[3] = ctx->Pixel.ColorTableScale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableBias[COLORTABLE_PRECONVOLUTION]);
+            params[0] = ctx->Pixel.ColorTableBias[0];
+            params[1] = ctx->Pixel.ColorTableBias[1];
+            params[2] = ctx->Pixel.ColorTableBias[2];
+            params[3] = ctx->Pixel.ColorTableBias[3];
             return;
          }
          break;
       case GL_PROXY_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ProxyColorTable;
          break;
       case GL_TEXTURE_COLOR_TABLE_SGI:
          if (!ctx->Extensions.SGI_texture_color_table) {
@@ -937,11 +1117,17 @@ _mesa_GetColorTableParameterfv( GLenum target, GLenum pname, GLfloat *params )
          }
          table = &(texUnit->ColorTable);
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(params, ctx->Pixel.TextureColorTableScale);
+            params[0] = ctx->Pixel.TextureColorTableScale[0];
+            params[1] = ctx->Pixel.TextureColorTableScale[1];
+            params[2] = ctx->Pixel.TextureColorTableScale[2];
+            params[3] = ctx->Pixel.TextureColorTableScale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(params, ctx->Pixel.TextureColorTableBias);
+            params[0] = ctx->Pixel.TextureColorTableBias[0];
+            params[1] = ctx->Pixel.TextureColorTableBias[1];
+            params[2] = ctx->Pixel.TextureColorTableBias[2];
+            params[3] = ctx->Pixel.TextureColorTableBias[3];
             return;
          }
          break;
@@ -953,32 +1139,44 @@ _mesa_GetColorTableParameterfv( GLenum target, GLenum pname, GLfloat *params )
          table = &(texUnit->ProxyColorTable);
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->PostConvolutionColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableScale[COLORTABLE_POSTCONVOLUTION]);
+            params[0] = ctx->Pixel.PCCTscale[0];
+            params[1] = ctx->Pixel.PCCTscale[1];
+            params[2] = ctx->Pixel.PCCTscale[2];
+            params[3] = ctx->Pixel.PCCTscale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableBias[COLORTABLE_POSTCONVOLUTION]);
+            params[0] = ctx->Pixel.PCCTbias[0];
+            params[1] = ctx->Pixel.PCCTbias[1];
+            params[2] = ctx->Pixel.PCCTbias[2];
+            params[3] = ctx->Pixel.PCCTbias[3];
             return;
          }
          break;
       case GL_PROXY_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->ProxyPostConvolutionColorTable;
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->PostColorMatrixColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX]);
+            params[0] = ctx->Pixel.PCMCTscale[0];
+            params[1] = ctx->Pixel.PCMCTscale[1];
+            params[2] = ctx->Pixel.PCMCTscale[2];
+            params[3] = ctx->Pixel.PCMCTscale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            COPY_4V(params, ctx->Pixel.ColorTableBias[COLORTABLE_POSTCOLORMATRIX]);
+            params[0] = ctx->Pixel.PCMCTbias[0];
+            params[1] = ctx->Pixel.PCMCTbias[1];
+            params[2] = ctx->Pixel.PCMCTbias[2];
+            params[3] = ctx->Pixel.PCMCTbias[3];
             return;
          }
          break;
       case GL_PROXY_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->ProxyPostColorMatrixColorTable;
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetColorTableParameterfv(target)");
@@ -989,7 +1187,7 @@ _mesa_GetColorTableParameterfv( GLenum target, GLenum pname, GLfloat *params )
 
    switch (pname) {
       case GL_COLOR_TABLE_FORMAT:
-         *params = (GLfloat) table->InternalFormat;
+         *params = (GLfloat) table->IntFormat;
          break;
       case GL_COLOR_TABLE_WIDTH:
          *params = (GLfloat) table->Size;
@@ -1067,26 +1265,24 @@ _mesa_GetColorTableParameteriv( GLenum target, GLenum pname, GLint *params )
          table = &ctx->Texture.Palette;
          break;
       case GL_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            GLfloat *scale = ctx->Pixel.ColorTableScale[COLORTABLE_PRECONVOLUTION];
-            params[0] = (GLint) scale[0];
-            params[1] = (GLint) scale[1];
-            params[2] = (GLint) scale[2];
-            params[3] = (GLint) scale[3];
+            params[0] = (GLint) ctx->Pixel.ColorTableScale[0];
+            params[1] = (GLint) ctx->Pixel.ColorTableScale[1];
+            params[2] = (GLint) ctx->Pixel.ColorTableScale[2];
+            params[3] = (GLint) ctx->Pixel.ColorTableScale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            GLfloat *bias = ctx->Pixel.ColorTableBias[COLORTABLE_PRECONVOLUTION];
-            params[0] = (GLint) bias[0];
-            params[1] = (GLint) bias[1];
-            params[2] = (GLint) bias[2];
-            params[3] = (GLint) bias[3];
+            params[0] = (GLint) ctx->Pixel.ColorTableBias[0];
+            params[1] = (GLint) ctx->Pixel.ColorTableBias[1];
+            params[2] = (GLint) ctx->Pixel.ColorTableBias[2];
+            params[3] = (GLint) ctx->Pixel.ColorTableBias[3];
             return;
          }
          break;
       case GL_PROXY_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_PRECONVOLUTION];
+         table = &ctx->ProxyColorTable;
          break;
       case GL_TEXTURE_COLOR_TABLE_SGI:
          if (!ctx->Extensions.SGI_texture_color_table) {
@@ -1117,48 +1313,44 @@ _mesa_GetColorTableParameteriv( GLenum target, GLenum pname, GLint *params )
          table = &(texUnit->ProxyColorTable);
          break;
       case GL_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->PostConvolutionColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            GLfloat *scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCONVOLUTION];
-            params[0] = (GLint) scale[0];
-            params[1] = (GLint) scale[1];
-            params[2] = (GLint) scale[2];
-            params[3] = (GLint) scale[3];
+            params[0] = (GLint) ctx->Pixel.PCCTscale[0];
+            params[1] = (GLint) ctx->Pixel.PCCTscale[1];
+            params[2] = (GLint) ctx->Pixel.PCCTscale[2];
+            params[3] = (GLint) ctx->Pixel.PCCTscale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            GLfloat *bias = ctx->Pixel.ColorTableBias[COLORTABLE_POSTCONVOLUTION];
-            params[0] = (GLint) bias[0];
-            params[1] = (GLint) bias[1];
-            params[2] = (GLint) bias[2];
-            params[3] = (GLint) bias[3];
+            params[0] = (GLint) ctx->Pixel.PCCTbias[0];
+            params[1] = (GLint) ctx->Pixel.PCCTbias[1];
+            params[2] = (GLint) ctx->Pixel.PCCTbias[2];
+            params[3] = (GLint) ctx->Pixel.PCCTbias[3];
             return;
          }
          break;
       case GL_PROXY_POST_CONVOLUTION_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCONVOLUTION];
+         table = &ctx->ProxyPostConvolutionColorTable;
          break;
       case GL_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->PostColorMatrixColorTable;
          if (pname == GL_COLOR_TABLE_SCALE_SGI) {
-            GLfloat *scale = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX];
-            params[0] = (GLint) scale[0];
-            params[0] = (GLint) scale[1];
-            params[0] = (GLint) scale[2];
-            params[0] = (GLint) scale[3];
+            params[0] = (GLint) ctx->Pixel.PCMCTscale[0];
+            params[1] = (GLint) ctx->Pixel.PCMCTscale[1];
+            params[2] = (GLint) ctx->Pixel.PCMCTscale[2];
+            params[3] = (GLint) ctx->Pixel.PCMCTscale[3];
             return;
          }
          else if (pname == GL_COLOR_TABLE_BIAS_SGI) {
-            GLfloat *bias = ctx->Pixel.ColorTableScale[COLORTABLE_POSTCOLORMATRIX];
-            params[0] = (GLint) bias[0];
-            params[1] = (GLint) bias[1];
-            params[2] = (GLint) bias[2];
-            params[3] = (GLint) bias[3];
+            params[0] = (GLint) ctx->Pixel.PCMCTbias[0];
+            params[1] = (GLint) ctx->Pixel.PCMCTbias[1];
+            params[2] = (GLint) ctx->Pixel.PCMCTbias[2];
+            params[3] = (GLint) ctx->Pixel.PCMCTbias[3];
             return;
          }
          break;
       case GL_PROXY_POST_COLOR_MATRIX_COLOR_TABLE:
-         table = &ctx->ProxyColorTable[COLORTABLE_POSTCOLORMATRIX];
+         table = &ctx->ProxyPostColorMatrixColorTable;
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetColorTableParameteriv(target)");
@@ -1169,7 +1361,7 @@ _mesa_GetColorTableParameteriv( GLenum target, GLenum pname, GLint *params )
 
    switch (pname) {
       case GL_COLOR_TABLE_FORMAT:
-         *params = table->InternalFormat;
+         *params = table->IntFormat;
          break;
       case GL_COLOR_TABLE_WIDTH:
          *params = table->Size;
@@ -1206,10 +1398,10 @@ _mesa_GetColorTableParameteriv( GLenum target, GLenum pname, GLint *params )
 void
 _mesa_init_colortable( struct gl_color_table *p )
 {
-   p->TableF = NULL;
-   p->TableUB = NULL;
+   p->Type = CHAN_TYPE;
+   p->Table = NULL;
    p->Size = 0;
-   p->InternalFormat = GL_RGBA;
+   p->IntFormat = GL_RGBA;
 }
 
 
@@ -1217,13 +1409,9 @@ _mesa_init_colortable( struct gl_color_table *p )
 void
 _mesa_free_colortable_data( struct gl_color_table *p )
 {
-   if (p->TableF) {
-      _mesa_free(p->TableF);
-      p->TableF = NULL;
-   }
-   if (p->TableUB) {
-      _mesa_free(p->TableUB);
-      p->TableUB = NULL;
+   if (p->Table) {
+      FREE(p->Table);
+      p->Table = NULL;
    }
 }
 
@@ -1231,26 +1419,27 @@ _mesa_free_colortable_data( struct gl_color_table *p )
 /*
  * Initialize all colortables for a context.
  */
-void
-_mesa_init_colortables( GLcontext * ctx )
+void _mesa_init_colortables( GLcontext * ctx )
 {
-   GLuint i;
-   for (i = 0; i < COLORTABLE_MAX; i++) {
-      _mesa_init_colortable(&ctx->ColorTable[i]);
-      _mesa_init_colortable(&ctx->ProxyColorTable[i]);
-   }
+   /* Color tables */
+   _mesa_init_colortable(&ctx->ColorTable);
+   _mesa_init_colortable(&ctx->ProxyColorTable);
+   _mesa_init_colortable(&ctx->PostConvolutionColorTable);
+   _mesa_init_colortable(&ctx->ProxyPostConvolutionColorTable);
+   _mesa_init_colortable(&ctx->PostColorMatrixColorTable);
+   _mesa_init_colortable(&ctx->ProxyPostColorMatrixColorTable);
 }
 
 
 /*
  * Free all colortable data for a context
  */
-void
-_mesa_free_colortables_data( GLcontext *ctx )
+void _mesa_free_colortables_data( GLcontext *ctx )
 {
-   GLuint i;
-   for (i = 0; i < COLORTABLE_MAX; i++) {
-      _mesa_free_colortable_data(&ctx->ColorTable[i]);
-      _mesa_free_colortable_data(&ctx->ProxyColorTable[i]);
-   }
+   _mesa_free_colortable_data(&ctx->ColorTable);
+   _mesa_free_colortable_data(&ctx->ProxyColorTable);
+   _mesa_free_colortable_data(&ctx->PostConvolutionColorTable);
+   _mesa_free_colortable_data(&ctx->ProxyPostConvolutionColorTable);
+   _mesa_free_colortable_data(&ctx->PostColorMatrixColorTable);
+   _mesa_free_colortable_data(&ctx->ProxyPostColorMatrixColorTable);
 }

@@ -4,32 +4,30 @@ using System.Collections;
 
 namespace TechBot.Library
 {
-	public class ErrorCommand : Command
+	public class ErrorCommand : BaseCommand, ICommand
 	{
+		private IServiceOutput serviceOutput;
 		private NtStatusCommand ntStatus;
 		private WinerrorCommand winerror;
-		private HResultCommand hresult;
+		private HresultCommand hresult;
 
-        public ErrorCommand(TechBotService techBot)
-            : base(techBot)
+		public ErrorCommand(IServiceOutput serviceOutput, string ntstatusXml,
+									string winerrorXml, string hresultXml)
 		{
-			this.ntStatus = new NtStatusCommand(techBot);
-			this.winerror = new WinerrorCommand(techBot);
-			this.hresult = new HResultCommand(techBot);
+			this.serviceOutput = serviceOutput;
+			this.ntStatus = new NtStatusCommand(serviceOutput,
+											 ntstatusXml);
+			this.winerror = new WinerrorCommand(serviceOutput,
+											winerrorXml);
+			this.hresult = new HresultCommand(serviceOutput,
+											hresultXml);
 		}
 		
-        /*
 		public bool CanHandle(string commandName)
 		{
 			return CanHandle(commandName,
 			                 new string[] { "error" });
 		}
-        */
-
-        public override string[] AvailableCommands
-        {
-            get { return new string[] { "error" }; }
-        }
 
 		private static int GetSeverity(long error)
 		{
@@ -81,14 +79,14 @@ namespace TechBot.Library
 			return code.ToString();
 		}
 
-		public override  void Handle(MessageContext context,
+		public void Handle(MessageContext context,
 		                   string commandName,
 		                   string parameters)
 		{
 			string originalErrorText = parameters.Trim();
 			if (originalErrorText.Equals(String.Empty))
 			{
-				TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        "Please provide an Error Code.");
 				return;
 			}
@@ -100,7 +98,7 @@ namespace TechBot.Library
 			long error = np.Parse(errorText);
 			if (np.Error)
 			{
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        String.Format("{0} is not a valid Error Code.",
 													  originalErrorText));
 				return;
@@ -175,30 +173,30 @@ namespace TechBot.Library
 					goto retry;
 				}
 
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 										String.Format("I don't know about Error Code {0}.",
 													  originalErrorText));
 			}
 			else if (descriptions.Count == 1)
 			{
 				string description = (string)descriptions[0];
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 										String.Format("{0} is {1}.",
 													  originalErrorText,
 													  description));
 			}
 			else
 			{
-                TechBot.ServiceOutput.WriteLine(context,
+				serviceOutput.WriteLine(context,
 				                        String.Format("{0} could be:",
 				                                      originalErrorText));
 				
 				foreach(string description in descriptions)
-                    TechBot.ServiceOutput.WriteLine(context, String.Format("\t{0}", description));
+					serviceOutput.WriteLine(context, String.Format("\t{0}", description));
 			}
 		}
-
-        public override string Help()
+		
+		public string Help()
 		{
 			return "!error <value>";
 		}

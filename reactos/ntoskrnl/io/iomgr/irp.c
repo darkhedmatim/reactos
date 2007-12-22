@@ -272,7 +272,7 @@ IopCompleteRequest(IN PKAPC Apc,
     if (Irp->Flags & IRP_BUFFERED_IO)
     {
         /* Check if we have an input buffer and if we succeeded */
-        if ((Irp->Flags & IRP_INPUT_OPERATION) &&
+        if ((Irp->Flags & IRP_INPUT_OPERATION) && 
             (Irp->IoStatus.Status != STATUS_VERIFY_REQUIRED) &&
             !(NT_ERROR(Irp->IoStatus.Status)))
         {
@@ -346,16 +346,8 @@ IopCompleteRequest(IN PKAPC Apc,
                 /* Check if this is an Asynch API */
                 if (!(Irp->Flags & IRP_SYNCHRONOUS_API))
                 {
-                  /* HACK */
-                  if (*((PULONG)(Irp->UserEvent) - 1) != 0x87878787)
-                  {
                     /* Dereference the event */
                     ObDereferenceObject(Irp->UserEvent);
-                  }
-                  else
-                  {
-                    DPRINT1("Not an executive event -- should not be dereferenced\n");
-                  }
                 }
 
                 /*
@@ -1411,56 +1403,16 @@ IofCompleteRequest(IN PIRP Irp,
     }
 }
 
-NTSTATUS
-NTAPI
-IopSynchronousCompletion(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN PIRP Irp,
-    IN PVOID Context)
-{
-    if (Irp->PendingReturned)
-        KeSetEvent((PKEVENT)Context, IO_NO_INCREMENT, FALSE);
-    return STATUS_MORE_PROCESSING_REQUIRED;
-}
-
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN
 NTAPI
 IoForwardIrpSynchronously(IN PDEVICE_OBJECT DeviceObject,
                           IN PIRP Irp)
 {
-    KEVENT Event;
-    NTSTATUS Status;
-
-    /* Check if next stack location is available */
-    if (Irp->CurrentLocation < Irp->StackCount)
-    {
-        /* No more stack location */
-        return FALSE;
-    }
-
-    /* Initialize event */
-    KeInitializeEvent(&Event, NotificationEvent, FALSE);
-
-    /* Copy stack location for next driver */
-    IoCopyCurrentIrpStackLocationToNext(Irp);
-
-    /* Set a completion routine, which will signal the event */
-    IoSetCompletionRoutine(Irp, IopSynchronousCompletion, &Event, TRUE, TRUE, TRUE);
-
-    /* Call next driver */
-    Status = IoCallDriver(DeviceObject, Irp);
-
-    /* Check if irp is pending */
-    if (Status == STATUS_PENDING)
-    {
-        /* Yes, wait for its completion */
-        KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
-    }
-
-    return TRUE;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 /*

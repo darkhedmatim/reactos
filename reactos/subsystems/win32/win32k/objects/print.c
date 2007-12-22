@@ -119,7 +119,7 @@ IntGdiExtEscape(
 
    /* FIXME - Handle BitmapObj == NULL !!!!!! */
 
-   if ( NULL == ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape )
+   if ( NULL == dc->DriverFunctions.Escape )
    {
       Result = IntEngExtEscape(
          &BitmapObj->SurfObj,
@@ -131,7 +131,7 @@ IntGdiExtEscape(
    }
    else
    {
-      Result = ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape(
+      Result = dc->DriverFunctions.Escape(
          &BitmapObj->SurfObj,
          Escape,
          InSize,
@@ -156,18 +156,12 @@ NtGdiExtEscape(
    INT    OutSize,
    OPTIONAL LPSTR  UnsafeOutData)
 {
-   PDC      pDC;
+   PDC      pDC = DC_LockDc(hDC);
    LPVOID   SafeInData = NULL;
    LPVOID   SafeOutData = NULL;
    NTSTATUS Status = STATUS_SUCCESS;
    INT      Result;
 
-   if (hDC == 0)
-   {
-       hDC = (HDC)UserGetWindowDC(NULL);
-   }
-
-   pDC = DC_LockDc(hDC);
    if ( pDC == NULL )
    {
       SetLastWin32Error(ERROR_INVALID_HANDLE);
@@ -192,14 +186,14 @@ NtGdiExtEscape(
         Status = _SEH_GetExceptionCode();
       }
       _SEH_END;
-
+      
       if (!NT_SUCCESS(Status))
       {
         DC_UnlockDc(pDC);
         SetLastNtError(Status);
         return -1;
       }
-
+      
       SafeInData = ExAllocatePoolWithTag ( PagedPool, InSize, TAG_PRINT );
       if ( !SafeInData )
       {
@@ -207,7 +201,7 @@ NtGdiExtEscape(
          SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
          return -1;
       }
-
+      
       _SEH_TRY
       {
         /* pointers were already probed! */
@@ -249,7 +243,7 @@ NtGdiExtEscape(
         SetLastNtError(Status);
         goto freeout;
       }
-
+      
       SafeOutData = ExAllocatePoolWithTag ( PagedPool, OutSize, TAG_PRINT );
       if ( !SafeOutData )
       {
@@ -293,6 +287,15 @@ freeout:
    }
 
    return Result;
+}
+
+INT
+STDCALL
+NtGdiSetAbortProc(HDC  hDC,
+                      ABORTPROC  AbortProc)
+{
+  UNIMPLEMENTED;
+  return 0;
 }
 
 INT

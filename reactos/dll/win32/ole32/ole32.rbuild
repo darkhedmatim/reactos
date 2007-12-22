@@ -53,6 +53,5 @@
 	<file>usrmarshal.c</file>
 	<file>ole32res.rc</file>
 	<file>dcom.idl</file>
-	<include base="ole32" root="intermediate">.</include>
 	<file>ole32.spec</file>
 </module>

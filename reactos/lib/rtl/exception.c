@@ -27,13 +27,9 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
     CONTEXT Context;
     NTSTATUS Status;
 
-    /* Capture the context */
+    /* Capture the context and fixup ESP */
     RtlCaptureContext(&Context);
-
-#ifdef _M_IX86
-    /* Fixup ESP */
     Context.Esp += sizeof(ULONG);
-#endif
 
     /* Save the exception address */
     ExceptionRecord->ExceptionAddress = RtlpGetExceptionAddress();
@@ -79,10 +75,8 @@ RtlRaiseStatus(NTSTATUS Status)
      /* Capture the context */
     RtlCaptureContext(&Context);
 
-#ifdef _M_IX86
     /* Add one argument to ESP */
     Context.Esp += sizeof(PVOID);
-#endif
 
     /* Create an exception record */
     ExceptionRecord.ExceptionAddress = RtlpGetExceptionAddress();
@@ -111,6 +105,90 @@ RtlRaiseStatus(NTSTATUS Status)
 
     /* If we returned, raise a status */
     RtlRaiseStatus(Status);
+}
+
+/*
+ * @implemented
+ */
+ULONG
+NTAPI
+RtlWalkFrameChain(OUT PVOID *Callers,
+                  IN ULONG Count,
+                  IN ULONG Flags)
+{
+    PULONG Stack, NewStack;
+    ULONG Eip;
+    ULONG_PTR StackBegin, StackEnd;
+    BOOLEAN Result, StopSearch = FALSE;
+    ULONG i = 0;
+
+    /* Get current EBP */
+#if defined __GNUC__
+    __asm__("mov %%ebp, %0" : "=r" (Stack) : );
+#elif defined(_MSC_VER)
+    __asm mov Stack, ebp
+#endif
+
+    /* Set it as the stack begin limit as well */
+    StackBegin = (ULONG_PTR)Stack;
+
+    /* Check if we're called for non-logging mode */
+    if (!Flags)
+    {
+        /* Get the actual safe limits */
+        Result = RtlpCaptureStackLimits((ULONG_PTR)Stack,
+                                        &StackBegin,
+                                        &StackEnd);
+        if (!Result) return 0;
+    }
+
+    /* Loop the frames */
+    for (i = 0; i < Count; i++)
+    {
+        /* Check if we're past the stack */
+        if ((ULONG_PTR)Stack >= StackEnd) break;
+
+        /* Check if this is the first entry */
+#if 0
+        if (!i)
+        {
+            if ((ULONG_PTR)Stack != StackBegin) break;
+        }
+        else
+        {
+            if ((ULONG_PTR)Stack == StackBegin) break;
+        }
+#endif
+
+        /* Make sure there's enough frames */
+        if ((StackEnd - (ULONG_PTR)Stack) < (2 * sizeof(ULONG_PTR))) break;
+
+        /* Get new stack and EIP */
+        NewStack = (PULONG)Stack[0];
+        Eip = Stack[1];
+
+        /* Check if the new pointer is above the oldone and past the end */
+        if (!((Stack < NewStack) && ((ULONG_PTR)NewStack < StackEnd)))
+        {
+            /* Stop searching after this entry */
+            StopSearch = TRUE;
+        }
+
+        /* Also make sure that the EIP isn't a stack address */
+        if ((StackBegin < Eip) && (Eip < StackEnd)) break;
+
+        /* Save this frame */
+        Callers[i] = (PVOID)Eip;
+
+        /* Check if we should continue */
+        if (StopSearch) break;
+
+        /* Move to the next stack */
+        Stack = NewStack;
+    }
+
+    /* Return frames parsed */
+    return i;
 }
 
 /*

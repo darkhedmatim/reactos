@@ -22,7 +22,6 @@
 #define IDD_APPEARANCE                  102
 #define IDD_SETTINGS                    103
 #define IDD_ADVAPPEARANCE               104
-#define IDD_ADVANCED_GENERAL            200
 
 /* Background Page */
 #define IDC_BACKGROUND_LIST             1000
@@ -64,23 +63,11 @@
 #define IDC_SETTINGS_RESOLUTION      203
 #define IDC_SETTINGS_RESOLUTION_TEXT 204
 #define IDC_SETTINGS_ADVANCED        205
-#define IDC_SETTINGS_MONSEL          206
-#define IDC_SETTINGS_SPECTRUM        207
-
-#define IDB_SPECTRUM_4               208
-#define IDB_SPECTRUM_8               209
-#define IDB_SPECTRUM_16              210
 
 #define IDR_PREVIEW_MENU     2100
 #define ID_MENU_NORMAL       2101
 #define ID_MENU_DISABLED     2102
 #define ID_MENU_SELECTED     2103
-
-#define IDM_MONITOR_MENU    2110
-#define ID_MENU_ATTACHED    2111
-#define ID_MENU_PRIMARY     2112
-#define ID_MENU_IDENTIFY    2113
-#define ID_MENU_PROPERTIES  2114
 
 /* Settings Page */
 
@@ -158,10 +145,6 @@
 #define IDS_ELEMENT_22				3222
 #define IDS_ELEMENT_23				3223
 
-#define IDS_MULTIPLEMONITORS	3300
-#define IDS_UNKNOWNMONITOR	3301
-#define IDS_ADVANCEDTITLEFMT	3302
 
 #endif /* __CPL_DESK_RESOURCE_H__ */
-
 

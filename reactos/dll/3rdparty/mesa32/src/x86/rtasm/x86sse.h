@@ -2,7 +2,7 @@
 #ifndef _X86SSE_H_
 #define _X86SSE_H_
 
-#if defined(USE_X86_ASM) || defined(SLANG_X86)
+#if defined(USE_X86_ASM)
 
 #include "glheader.h"
 
@@ -80,7 +80,7 @@ enum sse_cc {
  */
 
 
-GLboolean x86_init_func( struct x86_function *p, GLuint code_size );
+void x86_init_func( struct x86_function *p );
 void x86_release_func( struct x86_function *p );
 void (*x86_get_func( struct x86_function *p ))( void );
 
@@ -110,22 +110,8 @@ void x86_jcc( struct x86_function *p,
 GLubyte *x86_jcc_forward( struct x86_function *p,
 			  enum x86_cc cc );
 
-GLubyte *x86_jmp_forward( struct x86_function *p);
-
-GLubyte *x86_call_forward( struct x86_function *p);
-
 void x86_fixup_fwd_jump( struct x86_function *p,
 			 GLubyte *fixup );
-
-void x86_jmp( struct x86_function *p, GLubyte *label );
-
-void x86_call( struct x86_function *p, GLubyte *label );
-
-/* michal:
- * Temporary. As I need immediate operands, and dont want to mess with the codegen,
- * I load the immediate into general purpose register and use it.
- */
-void x86_mov_reg_imm( struct x86_function *p, struct x86_reg dst, GLint imm );
 
 
 /* Macro for sse_shufps() and sse2_pshufd():
@@ -155,7 +141,6 @@ void sse_divss( struct x86_function *p, struct x86_reg dst, struct x86_reg src )
 void sse_andps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_cmpps( struct x86_function *p, struct x86_reg dst, struct x86_reg src, GLubyte cc );
 void sse_maxps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
-void sse_maxss( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_minps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_movaps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_movhlps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
@@ -165,24 +150,18 @@ void sse_movlps( struct x86_function *p, struct x86_reg dst, struct x86_reg src 
 void sse_movss( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_movups( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_mulps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
-void sse_mulss( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_subps( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_rsqrtss( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void sse_shufps( struct x86_function *p, struct x86_reg dest, struct x86_reg arg0, GLubyte shuf );
 
-void x86_add( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
-void x86_and( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_cmp( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_dec( struct x86_function *p, struct x86_reg reg );
 void x86_inc( struct x86_function *p, struct x86_reg reg );
 void x86_lea( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_mov( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
-void x86_mul( struct x86_function *p, struct x86_reg src );
-void x86_or( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_pop( struct x86_function *p, struct x86_reg reg );
 void x86_push( struct x86_function *p, struct x86_reg reg );
 void x86_ret( struct x86_function *p );
-void x86_sub( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_test( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_xor( struct x86_function *p, struct x86_reg dst, struct x86_reg src );
 void x86_sahf( struct x86_function *p );
@@ -200,7 +179,6 @@ void x87_fdiv( struct x86_function *p, struct x86_reg dst, struct x86_reg arg );
 void x87_fdivp( struct x86_function *p, struct x86_reg dst );
 void x87_fdivr( struct x86_function *p, struct x86_reg dst, struct x86_reg arg );
 void x87_fdivrp( struct x86_function *p, struct x86_reg dst );
-void x87_fild( struct x86_function *p, struct x86_reg arg );
 void x87_fist( struct x86_function *p, struct x86_reg dst );
 void x87_fistp( struct x86_function *p, struct x86_reg dst );
 void x87_fld( struct x86_function *p, struct x86_reg arg );

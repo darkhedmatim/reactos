@@ -27,14 +27,6 @@
 #define PspClearCrossThreadFlag(Thread, Flag)               \
     InterlockedAnd((PLONG)&Thread->CrossThreadFlags, ~Flag)
 
-//
-// Process flag routines
-//
-#define PspSetProcessFlag(Process, Flag) \
-    InterlockedOr((PLONG)&Process->Flags, Flag)
-#define PspClearProcessFlag(Process, Flag) \
-    InterlockedAnd((PLONG)&Process->Flags, ~Flag)
-
 VOID
 FORCEINLINE
 PspRunCreateThreadNotifyRoutines(IN PETHREAD CurrentThread,

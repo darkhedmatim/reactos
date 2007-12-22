@@ -7,7 +7,8 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 3.0.2  Release"
+TITLE="The Bugzilla Guide - 2.22 
+    Release"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Installing Bugzilla"
@@ -37,7 +38,8 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 3.0.2  Release</TH
+>The Bugzilla Guide - 2.22 
+    Release</TH
 ></TR
 ><TR
 ><TD
@@ -214,44 +216,22 @@ NAME="database-engine"
 >2.2.2. Database Server</A
 ></H2
 ><P
->&#13;        This section deals with configuring your database server for use
-        with Bugzilla. Currently, MySQL (<A
+>This section deals with configuring your database server for use
+      with Bugzilla. Currently <A
 HREF="configuration.html#mysql"
->Section 2.2.2.2</A
->) and
-        PostgreSQL (<A
+>Section 2.2.2.1</A
+> and
+      <A
 HREF="configuration.html#postgresql"
->Section 2.2.2.3</A
->) are available.
-      </P
-><DIV
-CLASS="section"
-><H3
-CLASS="section"
-><A
-NAME="database-schema"
->2.2.2.1. Bugzilla Database Schema</A
-></H3
-><P
->&#13;          The Bugzilla database schema is available at
-          <A
-HREF="http://www.ravenbrook.com/project/p4dti/tool/cgi/bugzilla-schema/"
-TARGET="_top"
->Ravenbrook</A
->.
-          This very valuable tool can generate a written description of
-          the Bugzilla database schema for any version of Bugzilla. It
-          can also generate a diff between two versions to help someone
-          see what has changed.
-        </P
-></DIV
+>Section 2.2.2.2</A
+> are available.</P
 ><DIV
 CLASS="section"
 ><H3
 CLASS="section"
 ><A
 NAME="mysql"
->2.2.2.2. MySQL</A
+>2.2.2.1. MySQL</A
 ></H3
 ><DIV
 CLASS="caution"
@@ -291,7 +271,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="install-setupdatabase"
->2.2.2.2.1. Allow large attachments</A
+>2.2.2.1.1. Allow large attachments</A
 ></H4
 ><P
 >&#13;            By default, MySQL will only accept packets up to 64Kb in size.
@@ -300,6 +280,9 @@ NAME="install-setupdatabase"
 CLASS="filename"
 >/etc/my.cnf</TT
 > as below.
+          </P
+><P
+>&#13;            If you are using MySQL 4.0 or newer, enter:
           </P
 ><TABLE
 BORDER="0"
@@ -314,6 +297,26 @@ CLASS="screen"
 >  [mysqld]
   # Allow packets up to 1M
   max_allowed_packet=1M</PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>&#13;            If you are using an older version of MySQL, enter:
+          </P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="screen"
+>  [mysqld]
+  # Allow packets up to 1M
+  set-variable = max_allowed_packet=1M</PRE
 ></FONT
 ></TD
 ></TR
@@ -362,8 +365,8 @@ CLASS="section"
 ><H4
 CLASS="section"
 ><A
-NAME="AEN473"
->2.2.2.2.2. Allow small words in full-text indexes</A
+NAME="AEN444"
+>2.2.2.1.2. Allow small words in full-text indexes</A
 ></H4
 ><P
 >By default, words must be at least four characters in length
@@ -403,6 +406,108 @@ TARGET="_top"
 >http://www.mysql.com/doc/en/Fulltext_Fine-tuning.html</A
 >.
           </P
+><DIV
+CLASS="note"
+><P
+></P
+><TABLE
+CLASS="note"
+WIDTH="100%"
+BORDER="0"
+><TR
+><TD
+WIDTH="25"
+ALIGN="CENTER"
+VALIGN="TOP"
+><IMG
+SRC="../images/note.gif"
+HSPACE="5"
+ALT="Note"></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+><P
+>&#13;              The ft_min_word_len parameter is only supported in MySQL v4 or higher.
+            </P
+></TD
+></TR
+></TABLE
+></DIV
+></DIV
+><DIV
+CLASS="section"
+><H4
+CLASS="section"
+><A
+NAME="AEN454"
+>2.2.2.1.3. Permit attachments table to grow beyond 4GB</A
+></H4
+><P
+>&#13;            By default, MySQL will limit the size of a table to 4GB.
+            This limit is present even if the underlying filesystem
+            has no such limit.  To set a higher limit, follow these
+            instructions.
+          </P
+><P
+>&#13;            Run the <TT
+CLASS="filename"
+>MySQL</TT
+> command-line client and
+            enter:
+          </P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="screen"
+>  <SAMP
+CLASS="prompt"
+>mysql&#62;</SAMP
+> ALTER TABLE attachments 
+            AVG_ROW_LENGTH=1000000, MAX_ROWS=20000;
+          </PRE
+></FONT
+></TD
+></TR
+></TABLE
+><P
+>&#13;            The above command will change the limit to 20GB. Mysql will have 
+            to make a temporary copy of your entire table to do this. Ideally, 
+            you should do this when your attachments table is still small.
+          </P
+><DIV
+CLASS="note"
+><P
+></P
+><TABLE
+CLASS="note"
+WIDTH="100%"
+BORDER="0"
+><TR
+><TD
+WIDTH="25"
+ALIGN="CENTER"
+VALIGN="TOP"
+><IMG
+SRC="../images/note.gif"
+HSPACE="5"
+ALT="Note"></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+><P
+>&#13;              This does not affect Big Files, attachments that are stored directly
+              on disk instead of in the database.
+            </P
+></TD
+></TR
+></TABLE
+></DIV
 ></DIV
 ><DIV
 CLASS="section"
@@ -410,7 +515,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="install-setupdatabase-adduser"
->2.2.2.2.3. Add a user to MySQL</A
+>2.2.2.1.4. Add a user to MySQL</A
 ></H4
 ><P
 >&#13;            You need to add a new MySQL user for Bugzilla to use.
@@ -462,7 +567,10 @@ CLASS="QUOTE"
 >&#13;            Run the <TT
 CLASS="filename"
 >mysql</TT
-> command-line client and enter:
+> command-line client.
+          </P
+><P
+>&#13;            If you are using MySQL 4.0 or newer, enter:
           </P
 ><TABLE
 BORDER="0"
@@ -492,34 +600,19 @@ CLASS="prompt"
 ></TD
 ></TR
 ></TABLE
-></DIV
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="AEN500"
->2.2.2.2.4. Permit attachments table to grow beyond 4GB</A
-></H4
 ><P
->&#13;            By default, MySQL will limit the size of a table to 4GB.
-            This limit is present even if the underlying filesystem
-            has no such limit.  To set a higher limit, follow these
-            instructions.
-          </P
-><P
->&#13;            After you have completed the rest of the installation (or at least the
-            database setup parts), you should run the <TT
-CLASS="filename"
->MySQL</TT
+>&#13;            If you are using an older version of MySQL,the
+            <SAMP
+CLASS="computeroutput"
+>LOCK TABLES</SAMP
+> and 
+            <SAMP
+CLASS="computeroutput"
+>CREATE TEMPORARY TABLES</SAMP
 >
-            command-line client and enter the following, replacing <VAR
-CLASS="literal"
->$bugs_db</VAR
->
-            with your Bugzilla database name (<EM
->bugs</EM
-> by default):
+            permissions will be unavailable and should be removed from
+            the permissions list. In this case, the following command
+            line can be used:
           </P
 ><TABLE
 BORDER="0"
@@ -531,28 +624,34 @@ WIDTH="100%"
 COLOR="#000000"
 ><PRE
 CLASS="screen"
->&#13;            <SAMP
+>  <SAMP
 CLASS="prompt"
 >mysql&#62;</SAMP
-> use <VAR
+> GRANT SELECT, INSERT,
+           UPDATE, DELETE, INDEX, ALTER, CREATE, DROP,
+           REFERENCES ON bugs.* TO bugs@localhost IDENTIFIED BY
+           '<VAR
 CLASS="replaceable"
->$bugs_db</VAR
->
-            <SAMP
+>$db_pass</VAR
+>';
+           <SAMP
 CLASS="prompt"
 >mysql&#62;</SAMP
-> ALTER TABLE attachments 
-            AVG_ROW_LENGTH=1000000, MAX_ROWS=20000;
-          </PRE
+> FLUSH PRIVILEGES;</PRE
 ></FONT
 ></TD
 ></TR
 ></TABLE
-><P
->&#13;            The above command will change the limit to 20GB. Mysql will have 
-            to make a temporary copy of your entire table to do this. Ideally, 
-            you should do this when your attachments table is still small. 
-          </P
+></DIV
+></DIV
+><DIV
+CLASS="section"
+><H3
+CLASS="section"
+><A
+NAME="postgresql"
+>2.2.2.2. PostgreSQL</A
+></H3
 ><DIV
 CLASS="note"
 ><P
@@ -574,30 +673,21 @@ ALT="Note"></TD
 ALIGN="LEFT"
 VALIGN="TOP"
 ><P
->&#13;              This does not affect Big Files, attachments that are stored directly
-              on disk instead of in the database.
-            </P
+>If you are using PostgreSQL 8.0.1 or higher, then you
+          will require to use a version of DBD::Pg which is equal to or
+          greater than version 1.41
+          </P
 ></TD
 ></TR
 ></TABLE
 ></DIV
-></DIV
-></DIV
-><DIV
-CLASS="section"
-><H3
-CLASS="section"
-><A
-NAME="postgresql"
->2.2.2.3. PostgreSQL</A
-></H3
 ><DIV
 CLASS="section"
 ><H4
 CLASS="section"
 ><A
-NAME="AEN516"
->2.2.2.3.1. Add a User to PostgreSQL</A
+NAME="AEN495"
+>2.2.2.2.1. Add a User to PostgreSQL</A
 ></H4
 ><P
 >You need to add a new user to PostgreSQL for the Bugzilla
@@ -677,8 +767,8 @@ CLASS="section"
 ><H4
 CLASS="section"
 ><A
-NAME="AEN532"
->2.2.2.3.2. Configure PostgreSQL</A
+NAME="AEN511"
+>2.2.2.2.2. Configure PostgreSQL</A
 ></H4
 ><P
 >Now, you will need to edit <TT
@@ -691,7 +781,7 @@ CLASS="filename"
 >. In this file,
           you will need to add a new line to it as follows:</P
 ><P
->&#13;            <SAMP
+>&#13;	    <SAMP
 CLASS="computeroutput"
 >host   all    bugs   127.0.0.1    255.255.255.255  md5</SAMP
 >
@@ -700,6 +790,33 @@ CLASS="computeroutput"
 >This means that for TCP/IP (host) connections, allow connections from
           '127.0.0.1' to 'all' databases on this server from the 'bugs' user, and use
           password authentication (md5) for that user.</P
+><P
+>If you are using <EM
+>versions of PostgreSQL
+          before version 8</EM
+>, you may also need to edit <TT
+CLASS="filename"
+>postgresql.conf</TT
+>
+          , also usually found in the <TT
+CLASS="filename"
+>/var/lib/pgsql/data/</TT
+> folder.
+          You will need to make a single line change, changing</P
+><P
+>&#13;            <SAMP
+CLASS="computeroutput"
+># tcpip_socket = false</SAMP
+>
+          </P
+><P
+>to</P
+><P
+>&#13;            <SAMP
+CLASS="computeroutput"
+>tcpip_socket = true</SAMP
+>
+	  </P
 ><P
 >Now, you will need to restart PostgreSQL, but you will need to fully
           stop and start the server rather than just restarting due to the possibility
@@ -731,7 +848,7 @@ CLASS="section"
 ><H2
 CLASS="section"
 ><A
-NAME="AEN546"
+NAME="AEN534"
 >2.2.3. checksetup.pl</A
 ></H2
 ><P
@@ -775,24 +892,13 @@ NAME="http"
 ><P
 >&#13;        Configure your web server according to the instructions in the
         appropriate section. (If it makes a difference in your choice,
-        the Bugzilla Team recommends Apache.) To check whether your web server
-	is correctly configured, try to access <TT
-CLASS="filename"
->testagent.cgi</TT
->
-	from your web server. If "OK" is displayed, then your configuration
-	is successful. Regardless of which web server
+        the Bugzilla Team recommends Apache.) Regardless of which webserver
         you are using, however, ensure that sensitive information is
         not remotely available by properly applying the access controls in
         <A
 HREF="security-webserver.html#security-webserver-access"
 >Section 4.3.1</A
->. You can run
-        <TT
-CLASS="filename"
->testserver.pl</TT
-> to check if your web server serves
-        Bugzilla files as expected.
+>.
       </P
 ><DIV
 CLASS="section"
@@ -800,68 +906,48 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="http-apache"
->2.2.4.1. Bugzilla using Apache</A
-></H3
-><P
->You have two options for running Bugzilla under Apache - 
-          <A
-HREF="configuration.html#http-apache-mod_cgi"
->mod_cgi</A
-> (the default) and
-          <A
-HREF="configuration.html#http-apache-mod_perl"
->mod_perl</A
-> (new in Bugzilla
-          2.23)
-        </P
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="http-apache-mod_cgi"
->2.2.4.1.1. Apache <SPAN
+>2.2.4.1. Apache <SPAN
 CLASS="productname"
 >httpd</SPAN
-> with mod_cgi</A
-></H4
+></A
+></H3
 ><P
->&#13;            To configure your Apache web server to work with Bugzilla while using
-            mod_cgi, do the following:
-            </P
+>&#13;          To configure your Apache web server to work with Bugzilla,
+          do the following:
+        </P
 ><DIV
 CLASS="procedure"
 ><OL
 TYPE="1"
 ><LI
 ><P
->&#13;                Load <TT
+>&#13;              Load <TT
 CLASS="filename"
 >httpd.conf</TT
 > in your editor.
-                In Fedora and Red Hat Linux, this file is found in
-                <TT
+              In Fedora and Red Hat Linux, this file is found in
+              <TT
 CLASS="filename"
 >/etc/httpd/conf</TT
 >.
-                </P
+            </P
 ></LI
 ><LI
 ><P
->&#13;                Apache uses <SAMP
+>&#13;              Apache uses <SAMP
 CLASS="computeroutput"
 >&#60;Directory&#62;</SAMP
 >
-                directives to permit fine-grained permission setting. Add the
-                following lines to a directive that applies to the location
-                of your Bugzilla installation. (If such a section does not
-                exist, you'll want to add one.) In this example, Bugzilla has
-                been installed at 
-                <TT
+              directives to permit fine-grained permission setting. Add the
+              following lines to a directive that applies to the location
+              of your Bugzilla installation. (If such a section does not
+              exist, you'll want to add one.) In this example, Bugzilla has
+              been installed at 
+              <TT
 CLASS="filename"
 >/var/www/html/bugzilla</TT
 >.
-                </P
+            </P
 ><TABLE
 BORDER="0"
 BGCOLOR="#E0E0E0"
@@ -872,31 +958,31 @@ WIDTH="100%"
 COLOR="#000000"
 ><PRE
 CLASS="programlisting"
->&#13;    &#60;Directory /var/www/html/bugzilla&#62;
-    AddHandler cgi-script .cgi
-    Options +Indexes +ExecCGI
-    DirectoryIndex index.cgi
-    AllowOverride Limit
-    &#60;/Directory&#62;
-                </PRE
+>&#13;&#60;Directory /var/www/html/bugzilla&#62;
+  AddHandler cgi-script .cgi
+  Options +Indexes +ExecCGI
+  DirectoryIndex index.cgi
+  AllowOverride Limit
+&#60;/Directory&#62;
+            </PRE
 ></FONT
 ></TD
 ></TR
 ></TABLE
 ><P
->&#13;                These instructions: allow apache to run .cgi files found
-                within the bugzilla directory; instructs the server to look
-                for a file called <TT
+>&#13;              These instructions: allow apache to run .cgi files found
+              within the bugzilla directory; instructs the server to look
+              for a file called <TT
 CLASS="filename"
 >index.cgi</TT
 > if someone
-                only types the directory name into the browser; and allows
-                Bugzilla's <TT
+              only types the directory name into the browser; and allows
+              Bugzilla's <TT
 CLASS="filename"
 >.htaccess</TT
 > files to override
-                global permissions.
-                </P
+              global permissions.
+            </P
 ><DIV
 CLASS="note"
 ><P
@@ -918,18 +1004,18 @@ ALT="Note"></TD
 ALIGN="LEFT"
 VALIGN="TOP"
 ><P
->&#13;                    It is possible to make these changes globally, or to the
-                    directive controlling Bugzilla's parent directory (e.g.
-                    <SAMP
+>&#13;                It is possible to make these changes globally, or to the
+                directive controlling Bugzilla's parent directory (e.g.
+                <SAMP
 CLASS="computeroutput"
 >&#60;Directory /var/www/html/&#62;</SAMP
 >).
-                    Such changes would also apply to the Bugzilla directory...
-                    but they would also apply to many other places where they
-                    may or may not be appropriate. In most cases, including
-                    this one, it is better to be as restrictive as possible
-                    when granting extra access.
-                </P
+                Such changes would also apply to the Bugzilla directory...
+                but they would also apply to many other places where they
+                may or may not be appropriate. In most cases, including
+                this one, it is better to be as restrictive as possible
+                when granting extra access.
+              </P
 ></TD
 ></TR
 ></TABLE
@@ -937,304 +1023,71 @@ CLASS="computeroutput"
 ></LI
 ><LI
 ><P
->&#13;                <TT
+>&#13;              <TT
 CLASS="filename"
 >checksetup.pl</TT
 > can set tighter permissions
-                on Bugzilla's files and directories if it knows what group the
-                webserver runs as. Find the <SAMP
+              on Bugzilla's files and directories if it knows what group the
+              webserver runs as. Find the <SAMP
 CLASS="computeroutput"
 >Group</SAMP
 >
-                line in <TT
+              line in <TT
 CLASS="filename"
 >httpd.conf</TT
 >, place the value found
-                there in the <VAR
+              there in the <VAR
 CLASS="replaceable"
 >$webservergroup</VAR
 > variable
-                in <TT
+              in <TT
 CLASS="filename"
 >localconfig</TT
 >, then rerun
-                <TT
+              <TT
 CLASS="filename"
 >checksetup.pl</TT
 >.
-                </P
+            </P
 ></LI
 ><LI
 ><P
->&#13;                Optional: If Bugzilla does not actually reside in the webspace
-                directory, but instead has been symbolically linked there, you
-                will need to add the following to the
-                <SAMP
+>&#13;              Optional: If Bugzilla does not actually reside in the webspace
+              directory, but instead has been symbolically linked there, you
+              will need to add the following to the
+              <SAMP
 CLASS="computeroutput"
 >Options</SAMP
 > line of the Bugzilla 
-                <SAMP
+              <SAMP
 CLASS="computeroutput"
 >&#60;Directory&#62;</SAMP
 > directive
-                (the same one as in the step above):
-                </P
-><TABLE
-BORDER="0"
-BGCOLOR="#E0E0E0"
-WIDTH="100%"
-><TR
-><TD
-><FONT
-COLOR="#000000"
-><PRE
-CLASS="programlisting"
->&#13;    +FollowSymLinks
-                </PRE
-></FONT
-></TD
-></TR
-></TABLE
-><P
->&#13;                Without this directive, Apache will not follow symbolic links
-                to places outside its own directory structure, and you will be
-                unable to run Bugzilla.
-                </P
-></LI
-></OL
-></DIV
-></DIV
-><DIV
-CLASS="section"
-><H4
-CLASS="section"
-><A
-NAME="http-apache-mod_perl"
->2.2.4.1.2. Apache <SPAN
-CLASS="productname"
->httpd</SPAN
-> with mod_perl</A
-></H4
-><P
->Some configuration is required to make Bugzilla work with Apache
-            and mod_perl</P
-><DIV
-CLASS="procedure"
-><OL
-TYPE="1"
-><LI
-><P
->&#13;                Load <TT
-CLASS="filename"
->httpd.conf</TT
-> in your editor.
-                In Fedora and Red Hat Linux, this file is found in
-                <TT
-CLASS="filename"
->/etc/httpd/conf</TT
->.
-                </P
-></LI
-><LI
-><P
->Add the following information to your httpd.conf file, substituting
-                where appropriate with your own local paths.</P
-><DIV
-CLASS="note"
-><P
-></P
-><TABLE
-CLASS="note"
-WIDTH="100%"
-BORDER="0"
-><TR
-><TD
-WIDTH="25"
-ALIGN="CENTER"
-VALIGN="TOP"
-><IMG
-SRC="../images/note.gif"
-HSPACE="5"
-ALT="Note"></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->This should be used instead of the &#60;Directory&#62; block
-                shown above. This should also be above any other <VAR
-CLASS="literal"
->mod_perl</VAR
->
-                directives within the <TT
-CLASS="filename"
->httpd.conf</TT
-> and must be specified
-                in the order as below.</P
-></TD
-></TR
-></TABLE
-></DIV
-><DIV
-CLASS="warning"
-><P
-></P
-><TABLE
-CLASS="warning"
-WIDTH="100%"
-BORDER="0"
-><TR
-><TD
-WIDTH="25"
-ALIGN="CENTER"
-VALIGN="TOP"
-><IMG
-SRC="../images/warning.gif"
-HSPACE="5"
-ALT="Warning"></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->You should also ensure that you have disabled <VAR
-CLASS="literal"
->KeepAlive</VAR
->
-                support in your Apache install when utilizing Bugzilla under mod_perl</P
-></TD
-></TR
-></TABLE
-></DIV
-><TABLE
-BORDER="0"
-BGCOLOR="#E0E0E0"
-WIDTH="100%"
-><TR
-><TD
-><FONT
-COLOR="#000000"
-><PRE
-CLASS="programlisting"
->&#13;    PerlSwitches -I/var/www/html/bugzilla -w -T
-    PerlConfigRequire /var/www/html/bugzilla/mod_perl.pl
-                </PRE
-></FONT
-></TD
-></TR
-></TABLE
-></LI
-><LI
-><P
->&#13;					<TT
-CLASS="filename"
->checksetup.pl</TT
-> can set tighter permissions
-					on Bugzilla's files and directories if it knows what group the
-					webserver runs as. Find the <SAMP
-CLASS="computeroutput"
->Group</SAMP
->
-					line in <TT
-CLASS="filename"
->httpd.conf</TT
->, place the value found
-					there in the <VAR
-CLASS="replaceable"
->$webservergroup</VAR
-> variable
-					in <TT
-CLASS="filename"
->localconfig</TT
->, then rerun
-					<TT
-CLASS="filename"
->checksetup.pl</TT
->.
-				</P
-></LI
-></OL
-></DIV
-><P
->On restarting Apache, Bugzilla should now be running within the
-            mod_perl environment. Please ensure you have run checksetup.pl to set
-		    permissions before you restart Apache.</P
-><DIV
-CLASS="note"
-><P
-></P
-><TABLE
-CLASS="note"
-WIDTH="100%"
-BORDER="0"
-><TR
-><TD
-WIDTH="25"
-ALIGN="CENTER"
-VALIGN="TOP"
-><IMG
-SRC="../images/note.gif"
-HSPACE="5"
-ALT="Note"></TD
-><TD
-ALIGN="LEFT"
-VALIGN="TOP"
-><P
->Please bear the following points in mind when looking at using 
-                Bugzilla under mod_perl: 
-            <P
-></P
-><UL
-><LI
-><P
->&#13;                    mod_perl support in Bugzilla can take up a HUGE amount of RAM. You could be
-                    looking at 30MB per httpd child, easily. Basically, you just need a lot of RAM.
-                    The more RAM you can get, the better. mod_perl is basically trading RAM for
-                    speed. At least 2GB total system RAM is recommended for running Bugzilla under
-                    mod_perl.
-                </P
-></LI
-><LI
-><P
->&#13;                    Under mod_perl, you have to restart Apache if you make any manual change to
-                    any Bugzilla file. You can't just reload--you have to actually 
-					<EM
->restart</EM
-> the server (as in make sure it stops and starts 
-					again). You <EM
->can</EM
-> change localconfig and the params file 
-					manually, if you want, because those are re-read every time you load a page.
-                </P
-></LI
-><LI
-><P
->&#13;                    You must run in Apache's Prefork MPM (this is the default). The Worker MPM
-                    may not work--we haven't tested Bugzilla's mod_perl support under threads.
-					(And, in fact, we're fairly sure it <EM
->won't</EM
-> work.)
-                </P
-></LI
-><LI
-><P
->&#13;                    Bugzilla generally expects to be the only mod_perl application running on
-                    your entire server. It may or may not work if there are other applications also
-                    running under mod_perl. It does try its best to play nice with other mod_perl
-                    applications, but it still may have conflicts.
-                </P
-></LI
-><LI
-><P
->&#13;                    It is recommended that you have one Bugzilla instance running under mod_perl
-                    on your server. Bugzilla has not been tested with more than one instance running.
-                </P
-></LI
-></UL
->
+              (the same one as in the step above):
             </P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><FONT
+COLOR="#000000"
+><PRE
+CLASS="programlisting"
+>&#13; +FollowSymLinks
+            </PRE
+></FONT
 ></TD
 ></TR
 ></TABLE
-></DIV
+><P
+>&#13;              Without this directive, Apache will not follow symbolic links
+              to places outside its own directory structure, and you will be
+              unable to run Bugzilla.
+            </P
+></LI
+></OL
 ></DIV
 ></DIV
 ><DIV

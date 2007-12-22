@@ -7,7 +7,8 @@
 NAME="GENERATOR"
 CONTENT="Modular DocBook HTML Stylesheet Version 1.7"><LINK
 REL="HOME"
-TITLE="The Bugzilla Guide - 3.0.2  Release"
+TITLE="The Bugzilla Guide - 2.22 
+    Release"
 HREF="index.html"><LINK
 REL="UP"
 TITLE="Using Bugzilla"
@@ -16,8 +17,8 @@ REL="PREVIOUS"
 TITLE="Flags"
 HREF="flags.html"><LINK
 REL="NEXT"
-TITLE="Customizing Bugzilla"
-HREF="customization.html"></HEAD
+TITLE="The Bugzilla FAQ"
+HREF="faq.html"></HEAD
 ><BODY
 CLASS="section"
 BGCOLOR="#FFFFFF"
@@ -37,7 +38,8 @@ CELLSPACING="0"
 ><TH
 COLSPAN="3"
 ALIGN="center"
->The Bugzilla Guide - 3.0.2  Release</TH
+>The Bugzilla Guide - 2.22 
+    Release</TH
 ></TR
 ><TR
 ><TD
@@ -53,13 +55,13 @@ ACCESSKEY="P"
 WIDTH="80%"
 ALIGN="center"
 VALIGN="bottom"
->Chapter 5. Using Bugzilla</TD
+>Chapter 6. Using Bugzilla</TD
 ><TD
 WIDTH="10%"
 ALIGN="right"
 VALIGN="bottom"
 ><A
-HREF="customization.html"
+HREF="faq.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -74,7 +76,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="whining"
->5.13. Whining</A
+>6.13. Whining</A
 ></H1
 ><P
 >&#13;      Whining is a feature in Bugzilla that can regularly annoy users at 
@@ -192,7 +194,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="whining-overview"
->5.13.1. The Event</A
+>6.13.1. The Event</A
 ></H2
 ><P
 >&#13;        The whining system defines an "Event" as one or more queries being 
@@ -210,7 +212,7 @@ NAME="whining-overview"
       </P
 ><P
 >&#13;        The next step is to specify when the Event is to be run (the Schedule) 
-        and what searches are to be performed (the Searches).
+        and what searches are to be performed (the Queries).
       </P
 ></DIV
 ><DIV
@@ -219,7 +221,7 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="whining-schedule"
->5.13.2. Whining Schedule</A
+>6.13.2. Whining Schedule</A
 ></H2
 ><P
 >&#13;         Each whining event is associated with zero or more schedules.  A 
@@ -318,20 +320,20 @@ CLASS="section"
 CLASS="section"
 ><A
 NAME="whining-query"
->5.13.3. Whining Searches</A
+>6.13.3. Whining Queries</A
 ></H2
 ><P
->&#13;        Each whining event is associated with zero or more searches.  A search
-        is any saved search to be run as part of the specified schedule (see
-        above).  You start out without any searches associated with the event
-        (which means that the event will not run, as there will never be any
-        results to return).  To add a search, press the "Include search" button.
+>&#13;        Each whining event is associated with zero or more queries.  A query is
+        a saved search that is executed on the schedule specified (see above).
+        You start out with zero queries attached to the event (which means that
+        the event will not run, as there will never be any results to return).
+        To add a query, press the "Add a new query" button.
       </P
 ><P
->&#13;        The first field to examine in your newly added search is the Sort field.
-        Searches are run, and results included, in the order specified by the
-        Sort field.  Searches with smaller Sort values will run before searches
-        with bigger Sort values.
+>&#13;        The first field to examine in your new query is the Sort field.  Queries
+        are executed, and results returned, in the order specified by the Sort 
+        field.  Queries with lower Sort values will run before queries with 
+        higher Sort values.
       </P
 ><P
 >&#13;        The next field to examine is the Search field.  This is where you 
@@ -342,8 +344,8 @@ NAME="whining-query"
         saved yourself (the default saved search, "My Bugs", is not a valid 
         choice).  If you do not have any saved searches, you can take this 
         opportunity to create one (see <A
-HREF="query.html#list"
->Section 5.5.3</A
+HREF="list.html"
+>Section 6.6</A
 >).
       </P
 ><DIV
@@ -421,8 +423,8 @@ CLASS="section"
 ><H2
 CLASS="section"
 ><A
-NAME="AEN2551"
->5.13.4. Saving Your Changes</A
+NAME="AEN2623"
+>6.13.4. Saving Your Changes</A
 ></H2
 ><P
 >&#13;        Once you have defined at least one schedule, and created at least one 
@@ -495,7 +497,7 @@ WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
 ><A
-HREF="customization.html"
+HREF="faq.html"
 ACCESSKEY="N"
 >Next</A
 ></TD
@@ -519,7 +521,7 @@ ACCESSKEY="U"
 WIDTH="33%"
 ALIGN="right"
 VALIGN="top"
->Customizing Bugzilla</TD
+>The Bugzilla FAQ</TD
 ></TR
 ></TABLE
 ></DIV

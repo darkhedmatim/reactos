@@ -33,8 +33,6 @@ KiInsertTreeTimer(IN PKTIMER Timer,
     LARGE_INTEGER InterruptTime, SystemTime, DifferenceTime;
     PKTIMER_TABLE_ENTRY TimerEntry;
 
-    DPRINT("KiInsertTreeTimer(): Timer %p, Interval: %I64d\n", Timer, Interval.QuadPart);
-
     /* Convert to relative time if needed */
     Timer->Header.Absolute = FALSE;
     if (Interval.HighPart >= 0)
@@ -111,8 +109,6 @@ KiInsertTimerTable(IN PKTIMER Timer,
     PLIST_ENTRY ListHead, NextEntry;
     PKTIMER CurrentTimer;
 
-    DPRINT("KiInsertTimerTable(): Timer %p, Hand: %d\n", Timer, Hand);
-
     /* Check if the period is zero */
     if (!Timer->Period) Timer->Header.SignalState = FALSE;
 
@@ -160,8 +156,6 @@ KiSignalTimer(IN PKTIMER Timer)
     PKDPC Dpc = Timer->Dpc;
     ULONG Period = Timer->Period;
     LARGE_INTEGER Interval, SystemTime;
-
-    DPRINT("KiSignalTimer(): Timer %p\n", Timer);
 
     /* Set default values */
     Timer->Header.Inserted = FALSE;
@@ -215,8 +209,6 @@ KiCompleteTimer(IN PKTIMER Timer,
     PKTIMER_TABLE_ENTRY TimerEntry;
     BOOLEAN RequestInterrupt = FALSE;
 
-    DPRINT("KiCompleteTimer(): Timer %p, LockQueue: %p\n", Timer, LockQueue);
-
     /* Remove it from the timer list */
     if (RemoveEntryList(&Timer->TimerListEntry))
     {
@@ -265,8 +257,6 @@ KeCancelTimer(IN OUT PKTIMER Timer)
     ASSERT_TIMER(Timer);
     ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
 
-    DPRINT("KeCancelTimer(): Timer %p\n", Timer);
-
     /* Lock the Database and Raise IRQL */
     OldIrql = KiAcquireDispatcherLock();
 
@@ -300,9 +290,6 @@ NTAPI
 KeInitializeTimerEx(OUT PKTIMER Timer,
                     IN TIMER_TYPE Type)
 {
-    DPRINT("KeInitializeTimerEx(): Timer %p, Type %s\n",
-        Timer, (Type == NotificationTimer) ? "NotificationTimer" : "SynchronizationTimer");
-
     /* Initialize the Dispatch Header */
     KeInitializeDispatcherHeader(&Timer->Header,
                                  TimerNotificationObject + Type,
@@ -356,9 +343,6 @@ KeSetTimerEx(IN OUT PKTIMER Timer,
     BOOLEAN RequestInterrupt = FALSE;
     ASSERT_TIMER(Timer);
     ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-
-    DPRINT("KeSetTimerEx(): Timer %p, DueTime %I64d, Period %d, Dpc %p\n",
-        Timer, DueTime.QuadPart, Period, Dpc);
 
     /* Lock the Database and Raise IRQL */
     OldIrql = KiAcquireDispatcherLock();

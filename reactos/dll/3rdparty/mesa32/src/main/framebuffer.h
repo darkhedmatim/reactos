@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,20 +37,22 @@ extern void
 _mesa_initialize_framebuffer(struct gl_framebuffer *fb, const GLvisual *visual);
 
 extern void
+_mesa_add_soft_renderbuffers(struct gl_framebuffer *fb,
+                             GLboolean color,
+                             GLboolean depth,
+                             GLboolean stencil,
+                             GLboolean accum,
+                             GLboolean alpha,
+                             GLboolean aux);
+
+extern void
 _mesa_destroy_framebuffer(struct gl_framebuffer *buffer);
 
 extern void
 _mesa_free_framebuffer_data(struct gl_framebuffer *buffer);
 
 extern void
-_mesa_reference_framebuffer(struct gl_framebuffer **ptr,
-                            struct gl_framebuffer *fb);
-
-extern void
-_mesa_unreference_framebuffer(struct gl_framebuffer **fb);
-
-extern void
-_mesa_resize_framebuffer(GLcontext *ctx, struct gl_framebuffer *fb,
+_mesa_resize_framebuffer(GLcontext *ctx, struct gl_framebuffer *b,
                          GLuint width, GLuint height);
 
 extern void 
@@ -60,21 +62,6 @@ extern void
 _mesa_update_framebuffer_visual(struct gl_framebuffer *fb);
 
 extern void
-_mesa_update_depth_buffer(GLcontext *ctx, struct gl_framebuffer *fb,
-                            GLuint attIndex);
-
-extern void
-_mesa_update_stencil_buffer(GLcontext *ctx, struct gl_framebuffer *fb,
-                            GLuint attIndex);
-
-extern void
 _mesa_update_framebuffer(GLcontext *ctx);
-
-extern GLboolean
-_mesa_source_buffer_exists(GLcontext *ctx, GLenum format);
-
-extern GLboolean
-_mesa_dest_buffer_exists(GLcontext *ctx, GLenum format);
-
 
 #endif /* FRAMEBUFFER_H */

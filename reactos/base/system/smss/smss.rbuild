@@ -1,9 +1,11 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="smss" type="nativecui" installbase="system32" installname="smss.exe">
 	<include base="smss">.</include>
 	<include base="ReactOS">include/reactos/subsys</include>
+	<define name="__USE_W32API" />
 	<define name="_DISABLE_TIDENTS" />
+	<if property="NTLPC" value="1">
+		<define name="NTLPC" />
+	</if>
 	<library>nt</library>
 	<library>smlib</library>
 	<library>ntdll</library>

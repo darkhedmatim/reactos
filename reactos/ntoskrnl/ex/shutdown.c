@@ -48,6 +48,7 @@ VOID STDCALL
 ShutdownThreadMain(PVOID Context)
 {
    SHUTDOWN_ACTION Action = (SHUTDOWN_ACTION)Context;
+   LARGE_INTEGER Waittime;
 
    static PCH FamousLastWords[] =
      {
@@ -166,12 +167,15 @@ ShutdownThreadMain(PVOID Context)
      }
 
    PspShutdownProcessManager();
-   
-   CmShutdownSystem();
+   Waittime.QuadPart = (LONGLONG)-10000000; /* 1sec */
+   KeDelayExecutionThread(KernelMode, FALSE, &Waittime);
+
+   CmShutdownRegistry();
    IoShutdownRegisteredFileSystems();
    IoShutdownRegisteredDevices();
 
    MiShutdownMemoryManager();
+
 
    if (Action == ShutdownNoReboot)
      {

@@ -9,7 +9,6 @@
  *                  27 Jan 07   Created
  */
 
-#include "private.h"
 #include <portcls.h>
 
 /*
@@ -19,7 +18,7 @@
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcNewDmaChannel(
     OUT PDMACHANNEL* OutDmaChannel,
     IN  PUNKNOWN OuterUnknown OPTIONAL,
@@ -34,7 +33,7 @@ PcNewDmaChannel(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcNewInterruptSync(
     OUT PINTERRUPTSYNC* OUtInterruptSync,
     IN  PUNKNOWN OuterUnknown OPTIONAL,
@@ -49,7 +48,7 @@ PcNewInterruptSync(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcNewMiniport(
     OUT PMINIPORT* OutMiniport,
     IN  REFCLSID ClassId)
@@ -61,7 +60,7 @@ PcNewMiniport(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcNewRegistryKey(
     OUT PREGISTRYKEY* OutRegistryKey,
     IN  PUNKNOWN OuterUnknown OPTIONAL,
@@ -80,7 +79,7 @@ PcNewRegistryKey(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcNewServiceGroup(
     OUT PSERVICEGROUP* OutServiceGroup,
     IN  PUNKNOWN OuterUnknown OPTIONAL)
@@ -97,7 +96,7 @@ PcNewServiceGroup(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterAdapterPowerManagement(
     IN  PUNKNOWN pUnknown,
     IN  PVOID pvContext1)
@@ -109,7 +108,7 @@ PcRegisterAdapterPowerManagement(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRequestNewPowerState(
     IN  PDEVICE_OBJECT pDeviceObject,
     IN  DEVICE_POWER_STATE RequestedNewState)
@@ -126,7 +125,7 @@ PcRequestNewPowerState(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcGetDeviceProperty(
     IN  PVOID DeviceObject,
     IN  DEVICE_REGISTRY_PROPERTY DeviceProperty,
@@ -141,7 +140,7 @@ PcGetDeviceProperty(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcCompletePendingPropertyRequest(
     IN  PPCPROPERTY_REQUEST PropertyRequest,
     IN  NTSTATUS NtStatus)
@@ -158,7 +157,7 @@ PcCompletePendingPropertyRequest(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterIoTimeout(
     IN  PDEVICE_OBJECT pDeviceObject,
     IN  PIO_TIMER_ROUTINE pTimerRoutine,
@@ -171,7 +170,7 @@ PcRegisterIoTimeout(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcUnregisterIoTimeout(
     IN  PDEVICE_OBJECT pDeviceObject,
     IN  PIO_TIMER_ROUTINE pTimerRoutine,
@@ -189,7 +188,7 @@ PcUnregisterIoTimeout(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterPhysicalConnection(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PUNKNOWN FromUnknown,
@@ -204,7 +203,7 @@ PcRegisterPhysicalConnection(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterPhysicalConnectionFromExternal(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PUNICODE_STRING FromString,
@@ -219,7 +218,7 @@ PcRegisterPhysicalConnectionFromExternal(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterPhysicalConnectionToExternal(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PUNKNOWN FromUnknown,
@@ -239,7 +238,7 @@ PcRegisterPhysicalConnectionToExternal(
 /*
  * @unimplemented
  */
-ULONGLONG NTAPI
+PORTCLASSAPI ULONGLONG NTAPI
 PcGetTimeInterval(
     IN  ULONGLONG Since)
 {
@@ -250,7 +249,7 @@ PcGetTimeInterval(
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcRegisterSubdevice(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PWCHAR Name,

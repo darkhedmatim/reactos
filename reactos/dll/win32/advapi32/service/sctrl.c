@@ -1,14 +1,14 @@
-/*
- * PROJECT:     ReactOS advapi32
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        dll/win32/advapi32/service/sctrl.c
- * PURPOSE:     Service control manager functions
- * COPYRIGHT:   Copyright 1999 Emanuele Aliberti
- *              Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
- *                             Gregor Brunmar <gregor.brunmar@home.se>
+/* $Id$
  *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS system libraries
+ * FILE:            lib/advapi32/service/sctrl.c
+ * PURPOSE:         Service control manager functions
+ * PROGRAMMER:      Emanuele Aliberti
+ * UPDATE HISTORY:
+ *	19990413 EA	created
+ *	19990515 EA
  */
-
 
 /* INCLUDES ******************************************************************/
 
@@ -20,11 +20,9 @@
 
 /* TYPES *********************************************************************/
 
-VOID HandleBind(VOID);
-
 typedef struct _ACTIVE_SERVICE
 {
-    CLIENT_HANDLE hService;
+    DWORD ThreadId;
     UNICODE_STRING ServiceName;
     union
     {
@@ -42,7 +40,6 @@ typedef struct _ACTIVE_SERVICE
 
 /* GLOBALS *******************************************************************/
 
-extern handle_t BindingHandle;
 static DWORD dwActiveServiceCount = 0;
 static PACTIVE_SERVICE lpActiveServices = NULL;
 
@@ -57,6 +54,25 @@ ScLookupServiceByServiceName(LPCWSTR lpServiceName)
     for (i = 0; i < dwActiveServiceCount; i++)
     {
         if (_wcsicmp(lpActiveServices[i].ServiceName.Buffer, lpServiceName) == 0)
+        {
+            return &lpActiveServices[i];
+        }
+    }
+
+    SetLastError(ERROR_SERVICE_DOES_NOT_EXIST);
+
+    return NULL;
+}
+
+
+static PACTIVE_SERVICE
+ScLookupServiceByThreadId(DWORD ThreadId)
+{
+    DWORD i;
+
+    for (i = 0; i < dwActiveServiceCount; i++)
+    {
+        if (lpActiveServices[i].ThreadId == ThreadId)
         {
             return &lpActiveServices[i];
         }
@@ -161,12 +177,7 @@ ScServiceMainStub(LPVOID Context)
                                 0,
                                 (dwArgCount + 1) * sizeof(LPSTR));
         if (lpArgVector == NULL)
-        {
-            HeapFree(GetProcessHeap(),
-                        0,
-                        AnsiString);
             return ERROR_OUTOFMEMORY;
-        }
 
         dwArgCount = 0;
         Ptr = AnsiString;
@@ -197,41 +208,16 @@ static DWORD
 ScConnectControlPipe(HANDLE *hPipe)
 {
     DWORD dwBytesWritten;
+    DWORD dwProcessId;
     DWORD dwState;
-    DWORD dwServiceCurrent = 0;
-    NTSTATUS Status;
-    WCHAR NtControlPipeName[MAX_PATH + 1];
-    RTL_QUERY_REGISTRY_TABLE QueryTable[2];
 
-    /* Get the service number and create the named pipe */
-    RtlZeroMemory(&QueryTable,
-                  sizeof(QueryTable));
-
-    QueryTable[0].Name = L"";
-    QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_REQUIRED;
-    QueryTable[0].EntryContext = &dwServiceCurrent;
-
-    Status = RtlQueryRegistryValues(RTL_REGISTRY_CONTROL,
-                                    L"ServiceCurrent",
-                                    QueryTable,
-                                    NULL,
-                                    NULL);
-
-    if (!NT_SUCCESS(Status))
+    if (!WaitNamedPipeW(L"\\\\.\\pipe\\net\\NtControlPipe", 15000))
     {
-        DPRINT1("RtlQueryRegistryValues() failed (Status %lx)\n", Status);
-        return RtlNtStatusToDosError(Status);
-    }
-
-    swprintf(NtControlPipeName, L"\\\\.\\pipe\\net\\NtControlPipe%u", dwServiceCurrent);
-
-    if (!WaitNamedPipeW(NtControlPipeName, 15000))
-    {
-        DPRINT1("WaitNamedPipe(%S) failed (Error %lu)\n", NtControlPipeName, GetLastError());
+        DPRINT1("WaitNamedPipe() failed (Error %lu)\n", GetLastError());
         return ERROR_FAILED_SERVICE_CONTROLLER_CONNECT;
     }
 
-    *hPipe = CreateFileW(NtControlPipeName,
+    *hPipe = CreateFileW(L"\\\\.\\pipe\\net\\NtControlPipe",
                          GENERIC_READ | GENERIC_WRITE,
                          0,
                          NULL,
@@ -247,22 +233,23 @@ ScConnectControlPipe(HANDLE *hPipe)
     dwState = PIPE_READMODE_MESSAGE;
     if (!SetNamedPipeHandleState(*hPipe, &dwState, NULL, NULL))
     {
-        CloseHandle(*hPipe);
+        CloseHandle(hPipe);
         *hPipe = INVALID_HANDLE_VALUE;
         return ERROR_FAILED_SERVICE_CONTROLLER_CONNECT;
     }
 
-    /* Share the SERVICE_HANDLE handle with the SCM */
+    dwProcessId = GetCurrentProcessId();
     WriteFile(*hPipe,
-              (DWORD *)&lpActiveServices->hService,
-              sizeof(CLIENT_HANDLE),
+              &dwProcessId,
+              sizeof(DWORD),
               &dwBytesWritten,
               NULL);
 
-    DPRINT("Sent SERVICE_HANDLE %lu\n", lpActiveServices->hService);
+    DPRINT("Sent process id %lu\n", dwProcessId);
 
     return ERROR_SUCCESS;
 }
+
 
 
 static DWORD
@@ -270,19 +257,14 @@ ScStartService(PSCM_CONTROL_PACKET ControlPacket)
 {
     PACTIVE_SERVICE lpService;
     HANDLE ThreadHandle;
-    DWORD ThreadId;
 
     DPRINT("ScStartService() called\n");
-    DPRINT("client handle: %lu\n", ControlPacket->hClient);
     DPRINT("Size: %lu\n", ControlPacket->dwSize);
     DPRINT("Service: %S\n", &ControlPacket->szArguments[0]);
 
-    lpService = (PACTIVE_SERVICE)ControlPacket->hClient;
+    lpService = ScLookupServiceByServiceName(&ControlPacket->szArguments[0]);
     if (lpService == NULL)
-    {
-        DPRINT1("Service not found\n");
         return ERROR_SERVICE_DOES_NOT_EXIST;
-    }
 
     lpService->Arguments = HeapAlloc(GetProcessHeap(),
                                      HEAP_ZERO_MEMORY,
@@ -294,57 +276,17 @@ ScStartService(PSCM_CONTROL_PACKET ControlPacket)
            ControlPacket->szArguments,
            ControlPacket->dwSize * sizeof(WCHAR));
 
-    /* invoke the services entry point and implement the command loop */
     ThreadHandle = CreateThread(NULL,
                                 0,
                                 ScServiceMainStub,
                                 lpService,
                                 CREATE_SUSPENDED,
-                                &ThreadId);
+                                &lpService->ThreadId);
     if (ThreadHandle == NULL)
         return ERROR_SERVICE_NO_THREAD;
 
     ResumeThread(ThreadHandle);
     CloseHandle(ThreadHandle);
-
-    return ERROR_SUCCESS;
-}
-
-
-static DWORD
-ScControlService(PSCM_CONTROL_PACKET ControlPacket)
-{
-    PACTIVE_SERVICE lpService;
-
-    DPRINT("ScControlService() called\n");
-    DPRINT("Size: %lu\n", ControlPacket->dwSize);
-    DPRINT("Service: %S\n", &ControlPacket->szArguments[0]);
-
-    lpService = (PACTIVE_SERVICE)ControlPacket->hClient;
-    if (lpService == NULL)
-    {
-        DPRINT1("Service not found\n");
-        return ERROR_SERVICE_DOES_NOT_EXIST;
-    }
-
-    if (lpService->HandlerFunction)
-    {
-        (lpService->HandlerFunction)(ControlPacket->dwControl);
-    }
-    else if (lpService->HandlerFunctionEx)
-    {
-        /* FIXME: send correct params */
-        (lpService->HandlerFunctionEx)(ControlPacket->dwControl, 0, NULL, NULL);
-    }
-
-    if (ControlPacket->dwControl == SERVICE_CONTROL_STOP)
-    {
-        HeapFree(GetProcessHeap(),
-                 0,
-                 lpService->Arguments);
-    }
-
-    DPRINT("ScControlService() done\n");
 
     return ERROR_SUCCESS;
 }
@@ -363,8 +305,8 @@ ScServiceDispatcher(HANDLE hPipe,
     DPRINT("ScDispatcherLoop() called\n");
 
     ControlPacket = HeapAlloc(GetProcessHeap(),
-                              HEAP_ZERO_MEMORY,
-                              1024);
+                       HEAP_ZERO_MEMORY,
+                       1024);
     if (ControlPacket == NULL)
         return FALSE;
 
@@ -386,20 +328,19 @@ ScServiceDispatcher(HANDLE hPipe,
         switch (ControlPacket->dwControl)
         {
             case SERVICE_CONTROL_START:
-                DPRINT("Start command - recieved SERVICE_CONTROL_START\n");
+                DPRINT("Start command\n");
                 if (ScStartService(ControlPacket) == ERROR_SUCCESS)
                     dwRunningServices++;
                 break;
 
             case SERVICE_CONTROL_STOP:
-                DPRINT("Stop command - recieved SERVICE_CONTROL_STOP\n");
-                if (ScControlService(ControlPacket) == ERROR_SUCCESS)
-                    dwRunningServices--;
+                DPRINT("Stop command\n");
+                dwRunningServices--;
                 break;
 
             default:
-                DPRINT("Unknown command %lu", ControlPacket->dwControl);
-                continue;
+                DPRINT1("Unknown command %lu", ControlPacket->dwControl);
+                break;
         }
 
         if (dwRunningServices == 0)
@@ -463,9 +404,7 @@ RegisterServiceCtrlHandlerW(LPCWSTR lpServiceName,
     Service->HandlerFunction = lpHandlerProc;
     Service->HandlerFunctionEx = NULL;
 
-    DPRINT("RegisterServiceCtrlHandler returning %lu\n", Service->hService);
-
-    return (SERVICE_STATUS_HANDLE)Service->hService;
+    return (SERVICE_STATUS_HANDLE)Service->ThreadId;
 }
 
 
@@ -522,9 +461,7 @@ RegisterServiceCtrlHandlerExW(LPCWSTR lpServiceName,
     Service->HandlerFunctionEx = lpHandlerProc;
     Service->HandlerContext = lpContext;
 
-    DPRINT("RegisterServiceCtrlHandlerEx returning %lu", Service->hService);
-
-    return (SERVICE_STATUS_HANDLE)Service->hService;
+    return (SERVICE_STATUS_HANDLE)Service->ThreadId;
 }
 
 
@@ -553,25 +490,18 @@ BOOL STDCALL
 SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
                  LPSERVICE_STATUS lpServiceStatus)
 {
-    DWORD dwError;
+    PACTIVE_SERVICE Service;
 
-    DPRINT("SetServiceStatus() called\n");
-    DPRINT("hServiceStatus %lu\n", hServiceStatus);
-
-    HandleBind();
-
-    /* Call to services.exe using RPC */
-    dwError = ScmrSetServiceStatus(BindingHandle,
-                                   (unsigned long)hServiceStatus,
-                                   lpServiceStatus);
-    if (dwError != ERROR_SUCCESS)
+    Service = ScLookupServiceByThreadId((DWORD)hServiceStatus);
+    if (!Service)
     {
-        DPRINT1("ScmrSetServiceStatus() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
+        SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
 
-    DPRINT("SetServiceStatus() done (ret %lu)\n", dwError);
+    RtlCopyMemory(&Service->ServiceStatus,
+                  lpServiceStatus,
+                  sizeof(SERVICE_STATUS));
 
     return TRUE;
 }
@@ -580,7 +510,7 @@ SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
 /**********************************************************************
  *	StartServiceCtrlDispatcherA
  *
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
@@ -613,7 +543,6 @@ StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
         RtlCreateUnicodeStringFromAsciiz(&lpActiveServices[i].ServiceName,
                                          lpServiceStartTable[i].lpServiceName);
         lpActiveServices[i].Main.lpFuncA = lpServiceStartTable[i].lpServiceProc;
-        lpActiveServices[i].hService = (CLIENT_HANDLE)&lpActiveServices[i];
         lpActiveServices[i].bUnicode = FALSE;
     }
 
@@ -658,7 +587,7 @@ StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
 /**********************************************************************
  *	StartServiceCtrlDispatcherW
  *
- * @implemented
+ * @unimplemented
  */
 BOOL STDCALL
 StartServiceCtrlDispatcherW(LPSERVICE_TABLE_ENTRYW lpServiceStartTable)
@@ -691,7 +620,6 @@ StartServiceCtrlDispatcherW(LPSERVICE_TABLE_ENTRYW lpServiceStartTable)
         RtlCreateUnicodeString(&lpActiveServices[i].ServiceName,
                                lpServiceStartTable[i].lpServiceName);
         lpActiveServices[i].Main.lpFuncW = lpServiceStartTable[i].lpServiceProc;
-        lpActiveServices[i].hService = (CLIENT_HANDLE)&lpActiveServices[i];
         lpActiveServices[i].bUnicode = TRUE;
     }
 

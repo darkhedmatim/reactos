@@ -115,7 +115,7 @@ function create_structure($page )
 			}
 
 		  ?>
-            <select id="select" size="1" name="select" class="selectbox" style="width:140px" onchange="window.location.href = '<?php echo $roscms_intern_path_server.$roscms_intern_path_gererator; ?>?page=<?php echo $rpm_page; ?>&amp;lang=' + this.options[this.selectedIndex].value">
+            <select id="select" size="1" name="select" class="selectbox" style="width:140px" onchange="window.open(this.options[this.selectedIndex].value,'_main')">
 			<optgroup label="current language"> 
 			  <?php 
 			$query_roscms_lang = mysql_query("SELECT * 
@@ -127,13 +127,10 @@ function create_structure($page )
               ?>
               </optgroup>
 			  <optgroup label="most popular">
-              <option value="en">English</option>
-              <option value="de">Deutsch (German)</option>
-              <option value="fr">Français (French)</option>
-              <option value="it">Italiano (Italian)</option>
-              <option value="no">Norsk (Norwegian)</option>
-              <option value="pl">Polski (Polish)</option>
-              <option value="ru">Русский (Russian)</option>
+              <option value="<?php echo $roscms_intern_path_server.$roscms_intern_path_gererator; ?>?page=<?php echo $rpm_page; ?>&amp;lang=en">English</option>
+              <option value="<?php echo $roscms_intern_path_server.$roscms_intern_path_gererator; ?>?page=<?php echo $rpm_page; ?>&amp;lang=de">Deutsch (German)</option>
+              <option value="<?php echo $roscms_intern_path_server.$roscms_intern_path_gererator; ?>?page=<?php echo $rpm_page; ?>&amp;lang=fr">Fran�ais (French)</option>
+              <option value="<?php echo $roscms_intern_path_server.$roscms_intern_path_gererator; ?>?page=<?php echo $rpm_page; ?>&amp;lang=ru">Russian (Russian)</option>
               </optgroup>
             </select>
           </div>
@@ -154,7 +151,12 @@ function create_structure($page )
 	  <td id="content">
 <?php
 	if ($page == "admin" || $page == "home" || $page == "dev" || $page == "team" || $page == "trans") { 
-		//
+?>
+		<div class="contentSmall"> <span class="contentSmallTitle">RosCMS</span> 
+			  <p>A powerful and easy to use CMS interface (for administrator, developer and translator) to manage the ReactOS 
+				homepage and its components.</p>
+	    </div>
+<?php
 	}
 	elseif ($page == "user") { 
 ?>

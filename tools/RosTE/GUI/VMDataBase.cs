@@ -1,72 +1,43 @@
-using System;
 using System.Data;
 using System.IO;
 using System.Xml;
-using System.Windows.Forms;
 
 namespace RosTEGUI
 {
-    public class Data
+    public class MainConfig
     {
-        private DataSet data = null;
+        private DataSet mainConfig;
 
-        public Data()
+        public MainConfig(MainForm mf)
         {
-        }
-
-        public DataSet DataSet
-        {
-            get { return data; }
-        }
-
-        public bool LoadMainData()
-        {
-            string filename = "MainConfig.xsd";
-            bool ret = false;
-
-            data = new DataSet();
+            string filename = "Config.xsd";
+            mainConfig = new DataSet();
             if (File.Exists(filename))
             {
-                try
-                {
-                    FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
-                    XmlTextReader xtr = new XmlTextReader(fs);
-                    data.ReadXmlSchema(xtr);
-                    xtr.Close();
-                    ret = true;
-                }
-                catch (Exception e)
-                {
-                    MessageBox.Show("error loading main config schema: " + e.Message);
-                }
+                FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
+                XmlTextReader xtr = new XmlTextReader(fs);
+                mainConfig.ReadXmlSchema(xtr);
+                xtr.Close();
             }
 
-            return ret;
+            // Add the data bindings
+            DataTable dt = mainConfig.Tables["MainConfig"];
+
+            //mf.im
+
+        }
+    }
+
+    public class VMConfig
+    {
+        public VMConfig()
+        {
+
         }
 
-        public bool LoadVirtMachData()
+        public VMConfig(string name)
         {
-            string filename = "VMConfig.xsd";
-            bool ret = false;
 
-            data = new DataSet();
-            if (File.Exists(filename))
-            {
-                try
-                {
-                    FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
-                    XmlTextReader xtr = new XmlTextReader(fs);
-                    data.ReadXmlSchema(xtr);
-                    xtr.Close();
-                    ret = true;
-                }
-                catch (Exception e)
-                {
-                    MessageBox.Show("error loading VM config schema: " + e.Message);
-                }
-            }
-
-            return ret;
         }
     }
 }

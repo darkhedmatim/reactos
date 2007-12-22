@@ -6,7 +6,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 #define STUB \
@@ -1327,7 +1327,8 @@ UINT STDCALL SetCPGlobal(UINT CodePage)
 BOOL
 STDCALL
 SetClientTimeZoneInformation(
-    CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation)
+		       CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation
+		       )
 {
     STUB;
     return 0;
@@ -1339,14 +1340,6 @@ NlsGetCacheUpdateCount(VOID)
 {
     STUB;
     return 0;
-}
-
-BOOL
-STDCALL
-Wow64EnableWow64FsRedirection (BOOL Wow64EnableWow64FsRedirection)
-{
-    STUB;
-    return FALSE;
 }
 
 BOOL

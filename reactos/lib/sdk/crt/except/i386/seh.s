@@ -1,468 +1,380 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS CRT
- * FILE:            lib/crt/misc/i386/seh.S
- * PURPOSE:         SEH Support for the CRT
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
+/* $Id$
+ *
+ * COPYRIGHT:         See COPYING in the top level directory
+ * PROJECT:           ReactOS MSVCRT Runtime Library
+ * PURPOSE:           Runtime library exception support for IA-32
+ * FILE:              lib/msvcrt/except/seh.s
+ * PROGRAMER:         Casper S. Hornstrup (chorns@users.sourceforge.net)
+ * NOTES:             This file is shared with ntoskrnl/rtl/i386/seh.s.
+ *                    Please keep them in sync.
  */
 
-/* INCLUDES ******************************************************************/
+#define ExceptionContinueExecution	0
+#define ExceptionContinueSearch		1
+#define ExceptionNestedException	2
+#define ExceptionCollidedUnwind		3
 
-#include <ndk/asm.h>
-.intel_syntax noprefix
+#define EXCEPTION_NONCONTINUABLE	0x01
+#define EXCEPTION_UNWINDING			0x02
+#define EXCEPTION_EXIT_UNWIND		0x04
+#define EXCEPTION_STACK_INVALID		0x08
+#define EXCEPTION_NESTED_CALL		0x10
+#define EXCEPTION_TARGET_UNWIND		0x20
+#define EXCEPTION_COLLIDED_UNWIND	0x40
 
-#define DISPOSITION_DISMISS         0
-#define DISPOSITION_CONTINUE_SEARCH 1
-#define DISPOSITION_COLLIDED_UNWIND 3
+#define EXCEPTION_UNWIND_MODE \
+(  EXCEPTION_UNWINDING \
+ | EXCEPTION_EXIT_UNWIND \
+ | EXCEPTION_TARGET_UNWIND \
+ | EXCEPTION_COLLIDED_UNWIND)
 
-/* GLOBALS *******************************************************************/
+#define EREC_CODE		0x00
+#define EREC_FLAGS		0x04
+#define EREC_RECORD		0x08
+#define EREC_ADDRESS	0x0C
+#define EREC_NUMPARAMS	0x10
+#define EREC_INFO		0x14
 
-.globl __global_unwind2
+#define TRYLEVEL_NONE    -1
+#define TRYLEVEL_INVALID -2
+
+#define ER_STANDARDESP	-0x08
+#define ER_EPOINTERS	-0x04
+#define ER_PREVFRAME	0x00
+#define ER_HANDLER		0x04
+#define ER_SCOPETABLE	0x08
+#define ER_TRYLEVEL		0x0C
+#define ER_EBP			0x10
+
+#define ST_TRYLEVEL		0x00
+#define ST_FILTER		0x04
+#define ST_HANDLER		0x08
+
+#define CONTEXT_EDI		0x9C
+#define CONTEXT_EBX		0xA4
+#define CONTEXT_EIP		0xB8
+
 .globl __local_unwind2
-.globl __abnormal_termination
-.globl __except_handler2
 .globl __except_handler3
+.globl __EH_prolog
 
-/* FUNCTIONS *****************************************************************/
+// EAX = value to print
+_do_debug:
+	pushal
+	pushl	%eax
+	call	_MsvcrtDebug@4
+	popal
+	ret
 
-.func unwind_handler
-_unwind_handler:
+#define LU2_TRYLEVEL	0x08
+#define LU2_REGFRAME	0x04
 
-    /* Check if we were unwinding and continue search if not */
-    mov ecx, [esp+4]
-    test dword ptr [ecx+4], EXCEPTION_EXIT_UNWIND + EXCEPTION_UNWINDING
-    mov eax, DISPOSITION_CONTINUE_SEARCH
-    jz unwind_handler_return
-
-    /* We have a collision, do a local unwind */
-    mov eax, [esp+20]
-    push ebp
-    mov ebp, [eax+16]
-    mov edx, [eax+40]
-    push edx
-    mov edx, [eax+36]
-    push edx
-    call __local_unwind2
-    add esp, 8
-    pop ebp
-
-    /* Set new try level */
-    mov eax, [esp+8]
-    mov edx, [esp+16]
-    mov [edx], eax
-
-    /* Return collided unwind */
-    mov eax, DISPOSITION_COLLIDED_UNWIND
-
-unwind_handler_return:
-    ret
-.endfunc
-
-.func _global_unwind2
-__global_unwind2:
-
-    /* Create stack and save all registers */
-    push ebp
-    mov ebp, esp
-    push ebx
-    push esi
-    push edi
-    push ebp
-
-    /* Call unwind */
-    push 0
-    push 0
-    push glu_return
-    push [ebp+8]
-    call _RtlUnwind@16
-
-glu_return:
-    /* Restore registers and return */
-    pop ebp
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret
-.endfunc
-
-.func _abnormal_termination
-__abnormal_termination:
-
-    /* Assume false */
-    xor eax, eax
-
-    /* Check if the handler is the unwind handler */
-    mov ecx, fs:0
-    cmp dword ptr [ecx+4], offset _unwind_handler
-    jne short ab_return
-
-    /* Get the try level */
-    mov edx, [ecx+12]
-    mov edx, [edx+12]
-
-    /* Compare it */
-    cmp [ecx+8], edx
-    jne ab_return
-
-    /* Return true */
-    mov eax, 1
-
-    /* Return */
-ab_return:
-    ret
-.endfunc
-
-.func _local_unwind2
+//
+// void
+// _local_unwind2(PEXCEPTION_REGISTRATION RegistrationFrame,
+//			      LONG TryLevel)
+//
+// Parameters:
+//   [EDX+08h] - PEXCEPTION_REGISTRATION RegistrationFrame
+//   [EDX+04h] - LONG TryLevel
+// Registers:
+//   EBP - EBP of call frame we are unwinding
+// Returns:
+//   Nothing
+// Notes:
+//   Run all termination handlers for a call frame from the current
+//   try-level up to (but not including) the given stop try-level.
 __local_unwind2:
+    // Setup our call frame so we can access parameters using EDX
+    //pushl    %ebp
+    movl     %esp, %edx
 
-    /* Save volatiles */
-    push ebx
-    push esi
-    push edi
+    // FIXME: Setup an EXCEPTION_REGISTRATION entry to protect the
+    // unwinding in case something goes wrong
 
-    /* Get the exception registration */
-    mov eax, [esp+16]
+.lu2_next_scope:
 
-    /* Setup SEH to protect the unwind */
-    push ebp
-    push eax
-    push -2
-    push offset _unwind_handler
-    push fs:0
-    mov fs:0, esp
+    // Keep a pointer to the exception registration in EBX
+    movl     LU2_REGFRAME(%edx), %ebx
 
-unwind_loop:
-    /* Get the exception registration and try level */
-    mov eax, [esp+36]
-    mov ebx, [eax+8]
-    mov esi, [eax+12]
+    // If we have reached the end of the chain or we're asked to stop here
+    // by the caller then exit
+    test     %ebx, %ebx
+    je       .lu2_done
 
-    /* Validate the unwind */
-    cmp esi, -1
-    je unwind_return
-    cmp dword ptr [esp+40], -1
-    je unwind_ok
-    cmp esi, [esp+40]
-    jbe unwind_return
+    movl     ER_TRYLEVEL(%ebx), %eax
+    cmpl     $-1, %eax
+    je       .lu2_done
 
-unwind_ok:
-    /* Get the new enclosing level and save it */
-    lea esi, [esi+esi*2]
-    mov ecx, [ebx+esi*4]
-    mov [esp+8], ecx
-    mov [eax+12], ecx
+    cmpl     LU2_TRYLEVEL(%edx), %eax
+    je       .lu2_done
 
-    /* Check the filter type */
-    cmp dword ptr [ebx+esi*4+4], 0
-    jnz __NLG_Return2
+    // Keep a pointer to the scopetable in ESI
+    movl     ER_SCOPETABLE(%ebx), %esi
 
-    /* FIXME: NLG Notification */
+    // Compute the offset of the entry in the scopetable that describes
+    // the scope that is to be unwound. Put the offset in EDI.
+    movl	ST_TRYLEVEL(%esi), %edi
+    lea     (%edi, %edi, 2), %edi
+    shll    $2, %edi
+    addl    %esi, %edi
 
-    /* Call the handler */
-    call dword ptr [ebx+esi*4+8]
+    // If this is not a termination handler then skip it
+    cmpl     $0, ST_FILTER(%edi)
+    jne      .lu2_next_scope
 
-__NLG_Return2:
-    /* Unwind again */
-    jmp unwind_loop
+    // Save the previous try-level in the exception registration structure
+    movl     ST_TRYLEVEL(%edi), %eax
+    movl     %eax, ER_TRYLEVEL(%ebx)
 
-unwind_return:
-    /* Cleanup SEH */
-    pop fs:0
-    add esp, 16
-    pop edi
-    pop esi
-    pop ebx
+    // Fetch the address of the termination handler
+    movl     ST_HANDLER(%edi), %eax
+
+    // Termination handlers may trash all registers so save the
+    // important ones and then call the handler
+    pushl    %edx
+    call 	 *%eax
+
+	// Get our base pointer back
+    popl     %edx
+
+    jmp      .lu2_next_scope
+
+.lu2_done:
+
+    // FIXME: Tear down the EXCEPTION_REGISTRATION entry setup to protect
+    // the unwinding
+
+	//movl	%esi, %esp
+    //popl	%ebp
     ret
-.endfunc
 
-.func _except_handler2
-__except_handler2:
+#define EH3_DISPCONTEXT	0x14
+#define EH3_CONTEXT		0x10
+#define EH3_REGFRAME	0x0C
+#define EH3_ERECORD		0x08
 
-    /* Setup stack and save volatiles */
-    push ebp
-    mov ebp, esp
-    sub esp, 8
-    push ebx
-    push esi
-    push edi
-    push ebp
-
-    /* Clear direction flag */
-    cld
-
-    /* Get exception registration and record */
-    mov ebx, [ebp+12]
-    mov eax, [ebp+8]
-
-    /* Check if this is an unwind */
-    test dword ptr [eax+4], EXCEPTION_EXIT_UNWIND + EXCEPTION_UNWINDING
-    jnz except_unwind2
-
-    /* Save exception pointers structure */
-    mov [ebp-8], eax
-    mov eax, [ebp+16]
-    mov [ebp-4], eax
-    lea eax, [ebp-8]
-    mov [ebx+20], eax
-
-    /* Get the try level and scope table */
-    mov esi, [ebx+12]
-    mov edi, [ebx+8]
-
-except_loop2:
-    /* Validate try level */
-    cmp esi, -1
-    je except_search2
-
-    /* Check if this is the termination handler */
-    lea ecx, [esi+esi*2]
-    cmp dword ptr [edi+ecx*4+4], 0
-    jz except_continue2
-
-    /* Save registers and call filter, then restore them */
-    push esi
-    push ebp
-    mov ebp, [ebx+16]
-    call dword ptr [edi+ecx*4+4]
-    pop ebp
-    pop esi
-
-    /* Restore ebx and check the result */
-    mov ebx, [ebp+12]
-    or eax, eax
-    jz except_continue2
-    js except_dismiss2
-
-    /* So this is an accept, call the termination handlers */
-    mov edi, [ebx+8]
-    push ebx
-    call __global_unwind2
-    add esp, 4
-
-    /* Restore ebp */
-    mov ebp, [ebx+16]
-
-    /* Do local unwind */
-    push esi
-    push ebx
-    call __local_unwind2
-    add esp, 8
-
-    /* Set new try level */
-    lea ecx, [esi+esi*2]
-    mov eax, [edi+ecx*4]
-    mov [ebx+12], eax
-
-    /* Call except handler */
-    call [edi+ecx*4+8]
-
-except_continue2:
-    /* Reload try level and except again */
-    mov edi, [ebx+8]
-    lea ecx, [esi+esi*2]
-    mov esi, [edi+ecx*4]
-    jmp except_loop2
-
-except_dismiss2:
-    /* Dismiss it */
-    mov eax, DISPOSITION_DISMISS
-    jmp except_return2
-
-except_search2:
-    /* Continue searching */
-    mov eax, DISPOSITION_CONTINUE_SEARCH
-    jmp except_return2
-
-    /* Do local unwind */
-except_unwind2:
-    push ebp
-    mov ebp, [ebx+16]
-    push -1
-    push ebx
-    call __local_unwind2
-    add esp, 8
-
-    /* Retore EBP and set return disposition */
-    pop ebp
-    mov eax, DISPOSITION_CONTINUE_SEARCH
-
-except_return2:
-    /* Restore registers and stack */
-    pop ebp
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret
-.endfunc
-
-.func _except_handler3
+// Parameters:
+//   [ESP+14h] - PVOID DispatcherContext
+//   [ESP+10h] - PCONTEXT Context
+//   [ESP+0Ch] - PEXCEPTION_REGISTRATION RegistrationFrame
+//   [ESP+08h] - PEXCEPTION_RECORD ExceptionRecord
+// Registers:
+//   Unknown
+// Returns:
+//   EXCEPTION_DISPOSITION - How this handler handled the exception
+// Notes:
+//   Try to find an exception handler that will handle the exception.
+//   Traverse the entries in the scopetable that is associated with the
+//   exception registration passed as a parameter to this function.
+//   If an exception handler that will handle the exception is found, it
+//   is called and this function never returns
 __except_handler3:
+    // Setup our call frame so we can access parameters using EBP
+    pushl    %ebp				// Standard ESP in frame (considered part of EXCEPTION_REGISTRATION)
+    movl     %esp, %ebp
 
-    /* Setup stack and save volatiles */
-    push ebp
-    mov ebp, esp
-    sub esp, 8
-    push ebx
-    push esi
-    push edi
-    push ebp
-
-    /* Clear direction flag */
+    // Don't trust the direction flag to be cleared
     cld
 
-    /* Get exception registration and record */
-    mov ebx, [ebp+12]
-    mov eax, [ebp+8]
+    // Either we're called to handle an exception or we're called to unwind    
+    movl	EH3_ERECORD(%ebp), %eax
+    testl	$EXCEPTION_UNWIND_MODE, EREC_FLAGS(%eax)
+    jnz		.eh3_unwind
 
-    /* Check if this is an unwind */
-    test dword ptr [eax+4], EXCEPTION_EXIT_UNWIND + EXCEPTION_UNWINDING
-    jnz except_unwind3
+    // Keep a pointer to the exception registration in EBX
+    movl     EH3_REGFRAME(%ebp), %ebx
 
-    /* Save exception pointers structure */
-    mov [ebp-8], eax
-    mov eax, [ebp+16]
-    mov [ebp-4], eax
-    lea eax, [ebp-8]
-    mov [ebx-4], eax
+    // Build an EXCEPTION_POINTERS structure on the stack and store it's
+    // address in the EXCEPTION_REGISTRATION structure
+    movl     EH3_CONTEXT(%esp), %eax
+    pushl    %ebx						// Registration frame
+    pushl    %eax						// Context
+    movl     %esp, ER_EPOINTERS(%ebx)	// Pointer to EXCEPTION_REGISTRATION on the stack
 
-    /* Get the try level and scope table */
-    mov esi, [ebx+12]
-    mov edi, [ebx+8]
+    // Keep current try-level in EDI
+    movl     ER_TRYLEVEL(%ebx), %edi
 
-    /* FIXME: Validate the SEH exception */
+    // Keep a pointer to the scopetable in ESI
+    movl     ER_SCOPETABLE(%ebx), %esi
 
-except_loop3:
-    /* Validate try level */
-    cmp esi, -1
-    je except_search3
+.eh3_next_scope:
 
-    /* Check if this is the termination handler */
-    lea ecx, [esi+esi*2]
-    mov eax, [edi+ecx*4+4]
-    or eax, eax
-    jz except_continue3
+    // If we have reached the end of the chain then exit
+    cmpl     $-1, %edi
+    je       .eh3_search
 
-    /* Save registers clear them all */
-    push esi
-    push ebp
-    lea ebp, [ebx+16]
-    xor ebx, ebx
-    xor ecx, ecx
-    xor edx, edx
-    xor esi, esi
-    xor edi, edi
+    // Compute the offset of the entry in the scopetable and store
+    // the absolute address in EAX
+    lea     (%edi, %edi, 2), %eax
+    shll    $2, %eax
+    addl    %esi, %eax
 
-    /* Call the filter and restore our registers */
-    call eax
-    pop ebp
-    pop esi
+    // Fetch the address of the filter routine
+    movl     ST_FILTER(%eax), %eax
 
-    /* Restore ebx and check the result */
-    mov ebx, [ebp+12]
-    or eax, eax
-    jz except_continue3
-    js except_dismiss3
+    // If this is a termination handler then skip it
+    cmpl     $0, %eax
+    je       .eh3_continue
 
-    /* So this is an accept, call the termination handlers */
-    mov edi, [ebx+8]
-    push ebx
-    call __global_unwind2
-    add esp, 4
+    // Filter routines may trash all registers so save the important
+    // ones before restoring the call frame ebp and calling the handler
+    pushl	%ebp
+    pushl	%edi				// Stop try-level
+    lea		ER_EBP(%ebx), %ebp
+    call	*%eax
+    popl	%edi				// Stop try-level
+    popl	%ebp
 
-    /* Restore ebp */
-    lea ebp, [ebx+16]
+    // Reload EBX with registration frame address
+    movl	EH3_REGFRAME(%ebp), %ebx
 
-    /* Do local unwind */
-    push esi
-    push ebx
-    call __local_unwind2
-    add esp, 8
+    // Be more flexible here by checking if the return value is less than
+    // zero, equal to zero, or larger than zero instead of the defined
+    // values:
+    //   -1 (EXCEPTION_CONTINUE_EXECUTION)
+    //    0 (EXCEPTION_CONTINUE_SEARCH)
+    //   +1 (EXCEPTION_EXECUTE_HANDLER)
+    orl      %eax, %eax
+    jz       .eh3_continue
+    js       .eh3_dismiss
 
-    /* FIXME: Do NLG Notification */
+    // Filter returned: EXCEPTION_EXECUTE_HANDLER
 
-    /* Set new try level */
-    lea ecx, [esi+esi*2]
-    mov eax, [edi+ecx*4]
-    mov [ebx+12], eax
+    // Ask the OS to perform global unwinding.
+    pushl	%edi		// Save stop try-level
+    pushl	%ebx		// Save registration frame address
+    pushl	%ebx		// Registration frame address
+    call	__global_unwind2
+    popl	%eax		// Remove parameter to __global_unwind2
+    popl	%ebx		// Restore registration frame address
+    popl	%edi		// Restore stop try-level
 
-    /* Clear registers and call except handler */
-    mov eax, [edi+ecx*4+8]
-    xor ebx, ebx
-    xor ecx, ecx
-    xor edx, edx
-    xor esi, esi
-    xor edi, edi
-    call eax
+    // Change the context structure so _except_finish is called in the
+    // correct context since we return ExceptionContinueExecution.
+    movl     EH3_CONTEXT(%ebp), %eax
+    
+    movl     %edi, CONTEXT_EDI(%eax)		// Stop try-level
+    movl     %ebx, CONTEXT_EBX(%eax)		// Registration frame address
+    movl     $_except_finish, CONTEXT_EIP(%eax)
 
-except_continue3:
-    /* Reload try level and except again */
-    mov edi, [ebx+8]
-    lea ecx, [esi+esi*2]
-    mov esi, [edi+ecx*4]
-    jmp except_loop3
+    movl     $ExceptionContinueExecution, %eax
+    jmp      .eh3_return
 
-except_dismiss3:
-    /* Dismiss it */
-    mov eax, DISPOSITION_DISMISS
-    jmp except_return3
+    // Filter returned: EXCEPTION_CONTINUE_SEARCH
+.eh3_continue:
 
-except_search3:
-    /* Continue searching */
-    mov eax, DISPOSITION_CONTINUE_SEARCH
-    jmp except_return3
+    // Reload ESI because the filter routine may have trashed it
+    movl     ER_SCOPETABLE(%ebx), %esi
 
-    /* Do local unwind */
-except_unwind3:
-    push ebp
-    mov ebp, [ebx+16]
-    push -1
-    push ebx
-    call __local_unwind2
-    add esp, 8
+    // Go one try-level closer to the top
+    lea      (%edi, %edi, 2), %edi
+    shll     $2, %edi
+    addl     %esi, %edi
+    movl     ST_TRYLEVEL(%edi), %edi
 
-    /* Retore EBP and set return disposition */
-    pop ebp
-    mov eax, DISPOSITION_CONTINUE_SEARCH
+    jmp      .eh3_next_scope
 
-except_return3:
-    /* Restore registers and stack */
-    pop ebp
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
+    // Filter returned: EXCEPTION_CONTINUE_EXECUTION
+    // Continue execution like nothing happened
+.eh3_dismiss:
+    movl     $ExceptionContinueExecution, %eax
+    jmp      .eh3_return
+
+    // Tell the OS to search for another handler that will handle the exception
+.eh3_search:
+
+    movl     $ExceptionContinueSearch, %eax
+    jmp      .eh3_return
+
+    // Perform local unwinding
+.eh3_unwind:
+
+    testl    $EXCEPTION_TARGET_UNWIND, EREC_FLAGS(%eax)
+    jnz      .eh3_return
+
+	// Save some important registers
+    pushl	%ebp
+
+    lea		 ER_EBP(%ebx), %ebp
+    pushl    $-1
+    pushl    %ebx
+    call     __local_unwind2
+    addl     $8, %esp
+
+	// Restore some important registers
+    popl     %ebp
+
+    movl     $ExceptionContinueSearch, %eax
+
+    // Get me out of here
+.eh3_return:
+
+	movl	%ebp, %esp
+    popl	%ebp
     ret
-.endfunc
 
-//
-//
-// REMOVE ME REMOVE ME REMOVE ME REMOVE ME REMOVE ME REMOVE ME REMOVE ME
-//
-//
-.func RtlpGetStackLimits@8
-.globl _RtlpGetStackLimits@8
-_RtlpGetStackLimits@8:
+// Parameters:
+//   None
+// Registers:
+//   EBX - Pointer to exception registration structure
+//   EDI - Stop try-level
+// Returns:
+//   -
+// Notes:
+//   -
+_except_finish:
 
-    /* Get the current thread */
-    mov eax, [fs:KPCR_CURRENT_THREAD]
+    // Setup EBP for the exception handler. By doing this the exception
+    // handler can access local variables as normal
+    lea		ER_EBP(%ebx), %ebp
 
-    /* Get the stack limits */
-    mov ecx, [eax+KTHREAD_STACK_LIMIT]
-    mov edx, [eax+KTHREAD_INITIAL_STACK]
-    sub edx, SIZEOF_FX_SAVE_AREA
+	// Save some important registers
+    pushl	%ebp
+    pushl	%ebx
+    pushl	%edi
 
-    /* Return them */
-    mov eax, [esp+4]
-    mov [eax], ecx
+    // Stop try-level
+    pushl	%edi
 
-    mov eax, [esp+8]
-    mov [eax], edx
+    // Pointer to exception registration structure
+    pushl    %ebx
+    call     __local_unwind2
+    addl     $8, %esp
 
-    /* return */
-    ret 8
-.endfunc
+	// Restore some important registers
+    popl     %edi
+    popl     %ebx
+    popl     %ebp
+
+    // Keep a pointer to the scopetable in ESI
+    movl     ER_SCOPETABLE(%ebx), %esi
+
+    // Compute the offset of the entry in the scopetable and store
+    // the absolute address in EDI
+    lea     (%edi, %edi, 2), %edi
+    shll    $2, %edi
+    addl    %esi, %edi
+
+    // Set the current try-level to the previous try-level and call
+    // the exception handler
+    movl     ST_TRYLEVEL(%edi), %eax
+    movl     %eax, ER_TRYLEVEL(%ebx)
+    movl     ST_HANDLER(%edi), %eax
+
+    call    *%eax
+
+    // We should never get here
+    ret
+
+// Copied from Wine.
+__EH_prolog:
+    pushl    $-1
+    pushl    %eax
+    pushl    %fs:0
+    movl     %esp, %fs:0
+    movl     12(%esp), %eax
+    movl     %ebp, 12(%esp)
+    leal     12(%esp), %ebp
+    pushl    %eax
+    ret

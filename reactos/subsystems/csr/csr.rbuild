@@ -1,9 +1,6 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group>
 <module name="csr" type="nativecui" installbase="system32" installname="csr.exe">
 	<include base="csr">.</include>
-	<include base="ReactOS">include/reactos/subsys</include>
+	<define name="__USE_W32API" />
 	<define name="_WIN32_WINNT">0x0600</define>
 	<define name="WINVER">0x0501</define>
 	<library>nt</library>
@@ -14,4 +11,3 @@
 <directory name="csrsrv">
 	<xi:include href="csrsrv/csrsrv.rbuild" />
 </directory>
-</group>

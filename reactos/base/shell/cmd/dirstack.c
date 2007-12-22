@@ -15,6 +15,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef FEATURE_DIRECTORY_STACK
 
@@ -38,7 +39,7 @@ PushDirectory (LPTSTR pszPath)
 
 	nErrorLevel = 0;
 
-	lpDir = (LPDIRENTRY)cmd_alloc (sizeof (DIRENTRY));
+	lpDir = (LPDIRENTRY)malloc (sizeof (DIRENTRY));
 	if (!lpDir)
 	{
 		error_out_of_memory ();
@@ -58,10 +59,10 @@ PushDirectory (LPTSTR pszPath)
 	}
 	lpStackTop = lpDir;
 
-	lpDir->pszPath = (LPTSTR)cmd_alloc ((_tcslen(pszPath)+1)*sizeof(TCHAR));
+	lpDir->pszPath = (LPTSTR)malloc ((_tcslen(pszPath)+1)*sizeof(TCHAR));
 	if (!lpDir->pszPath)
 	{
-		cmd_free (lpDir);
+		free (lpDir);
 		error_out_of_memory ();
 		return -1;
 	}
@@ -91,8 +92,8 @@ PopDirectory (VOID)
 	else
 		lpStackBottom = NULL;
 
-	cmd_free (lpDir->pszPath);
-	cmd_free (lpDir);
+	free (lpDir->pszPath);
+	free (lpDir);
 
 	nStackDepth--;
 }

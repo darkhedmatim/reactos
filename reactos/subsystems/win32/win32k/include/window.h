@@ -13,28 +13,65 @@ typedef struct _WINDOW_OBJECT *PWINDOW_OBJECT;
 #include <include/prop.h>
 #include <include/scroll.h>
 
-BOOL FASTCALL UserUpdateUiState(PWINDOW Wnd, WPARAM wParam);
+
+VOID FASTCALL
+WinPosSetupInternalPos(VOID);
+
+typedef struct _INTERNALPOS
+{
+  RECT NormalRect;
+  POINT IconPos;
+  POINT MaxPos;
+} INTERNALPOS, *PINTERNALPOS;
 
 typedef struct _WINDOW_OBJECT
 {
-  /* NOTE: Do *NOT* Move this pointer anywhere in this structure! This
-           is a pointer to the WINDOW structure that eventually replaces
-           the WINDOW_OBJECT structure! USER32 expects this pointer to
-           be here until WINDOW_OBJECT has completely been superseded! */
-  PWINDOW Wnd;
-
   /* Pointer to the thread information */
   PW32THREADINFO ti;
   /* Pointer to the desktop */
   PDESKTOP Desktop;
+  union
+  {
+    /* Pointer to a call procedure handle */
+    PCALLPROC CallProc;
+    /* Extra Wnd proc (windows of system classes) */
+    WNDPROC WndProcExtra;
+  };
+  /* Pointer to another call procedure handle (used for returning the previous
+     window proc in SetWindowLongPtr) */
+  PCALLPROC CallProc2;
+  /* Indicates whether the window is derived from a system class */
+  BOOL IsSystem;
+  /* Pointer to the window class. */
+  PWINDOWCLASS Class;
+  /* Extended style. */
+  DWORD ExStyle;
+  /* Window name. */
+  UNICODE_STRING WindowName;
+  /* Style. */
+  DWORD Style;
+  /* Context help id */
+  DWORD ContextHelpId;
   /* system menu handle. */
   HMENU SystemMenu;
+  /* Handle of the module that created the window. */
+  HINSTANCE Instance;
   /* Entry in the thread's list of windows. */
   LIST_ENTRY ListEntry;
+  /* Pointer to the extra data associated with the window. */
+  PCHAR ExtraData;
+  /* Size of the extra data associated with the window. */
+  ULONG ExtraDataSize;
+  /* Position of the window. */
+  RECT WindowRect;
+  /* Position of the window's client area. */
+  RECT ClientRect;
   /* Handle for the window. */
   HWND hSelf;
   /* Window flags. */
   ULONG Flags;
+  /* Window menu handle or window id */
+  UINT IDMenu;
   /* Handle of region of the window to be updated. */
   HANDLE UpdateRegion;
   /* Handle of the window region. */
@@ -58,8 +95,12 @@ typedef struct _WINDOW_OBJECT
   ULONG PropListItems;
   /* Scrollbar info */
   PWINDOW_SCROLLINFO Scroll;
+  LONG UserData;
+  BOOL Unicode;
+  WNDPROC WndProc;
   PETHREAD OwnerThread;
   HWND hWndLastPopup; /* handle to last active popup window (wine doesn't use pointer, for unk. reason)*/
+  PINTERNALPOS InternalPos;
   ULONG Status;
   /* counter for tiled child windows */
   ULONG TiledCounter;

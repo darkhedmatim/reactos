@@ -92,18 +92,38 @@ class RosCMSTemplate extends QuickTemplate {
 		<!-- Head Scripts -->
 <?php $this->html('headscripts') ?>
 	</head>
-<body <?php if($this->data['body_ondblclick']) { echo "ondblclick=\"". $this->text('body_ondblclick') ."\""; } ?>
-<?php if($this->data['body_onload']) { echo "onload=\"". $this->text('body_onload') ."\""; } ?>
+<body <?php if($this->data['body_ondblclick']) { ?>ondblclick="<?php $this->text('body_ondblclick') ?>"<?php } ?>
+<?php if($this->data['body_onload'    ]) { ?>onload="<?php     $this->text('body_onload')     ?>"<?php } ?>
  class="mediawiki <?php $this->text('nsclass') ?> <?php $this->text('dir') ?> <?php $this->text('pageclass') ?>">
+ 
+<div id="top">
+	<div id="topMenu"> 
+		<!-- 
+			Use <p> to align things for links/lynx, then in the css make it
+			margin: 0; and use text-align: left/right/etc;.
+		-->
+		<p align="center"> 
+			<a href="/?page=index">Home</a> <font color="#ffffff">|</font> 
+			<a href="/?page=about">Info</a> <font color="#ffffff">|</font> 
+			<a href="/?page=community">Community</a> <font color="#ffffff">|</font> 
+			<a href="/?page=dev">Development</a> <font color="#ffffff">|</font> 
+			<a href="/roscms/?page=user">myReactOS</a>
+		</p>
+	</div>
+</div>
 
-<?php
-	$userlang = $_COOKIE["roscms_usrset_lang"];
-	if(strlen($userlang) != 2)
-		$userlang = "en";
-	
-	readfile("http://www.reactos.org/$userlang/subsys_extern_menu_top.html");
-	readfile("http://www.reactos.org/$userlang/subsys_extern_menu_left.html");
-?>
+<table border="0" width="100%" cellpadding="0" cellspacing="0">
+	<tr valign="top">
+		<td width="147" id="leftNav">
+			<div class="navTitle">Navigation</div>
+			<ol>
+				<li><a href="/?page=index">Home</a></li>
+				<li><a href="/?page=about">Info</a></li>
+				<li><a href="/?page=community">Community</a></li>
+				<li><a href="/?page=dev">Development</a></li>
+				<li><a href="/roscms/?page=user">myReactOS</a></li>
+			</ol>
+			<p></p>
 
 			<div class="navTitle">Wiki</div>
 			<ol>
@@ -117,7 +137,7 @@ class RosCMSTemplate extends QuickTemplate {
 			
 			<div class="navTitle">Wiki Toolbox</div>
 			<ol>
-				<?php if($this->data['notspecialpage']) { foreach( array( 'whatlinkshere', 'recentchangeslinked', 'permalink' ) as $special ) { ?>
+				<?php if($this->data['notspecialpage']) { foreach( array( 'whatlinkshere', 'recentchangeslinked' ) as $special ) { ?>
 					<li><a href="<?php echo htmlspecialchars($this->data['nav_urls'][$special]['href']) ?>"><?php echo $this->msg($special) ?></a></li>
 					<?php } } ?>
 					<?php if(/*$this->data['feeds'] Let's not do this now*/ 0) { ?>
@@ -168,16 +188,6 @@ class RosCMSTemplate extends QuickTemplate {
 				<?php } ?>
 			</ol>
 			<p></p>
-			
-			<?php if( $this->data['language_urls'] ) { ?>
-				<div class="navTitle"><?php $this->msg('otherlanguages'); ?></div>
-				<ol>
-					<?php foreach($this->data['language_urls'] as $langlink) { ?>
-						<li><a href="<?php echo htmlspecialchars($langlink['href']) ?>"><?php echo $langlink['text'] ?></a></li>
-					<?php } ?>
-				</ol>
-				<p></p>
-			<?php } ?>
 			
 			<!-- Google AdSense - start -->
 			<script type="text/javascript"><!--
@@ -235,11 +245,11 @@ class RosCMSTemplate extends QuickTemplate {
 		
 		<div id="p-cactions" class="portlet">
 			<h5><?php $this->msg('views') ?></h5>
-			<ul>
-				<?php foreach($this->data['content_actions'] as $key => $tab) { ?>
-					<li id="ca-<?php echo Sanitizer::escapeId($key) ?>"<?php if($tab['class']) { ?> class="<?php echo htmlspecialchars($tab['class']) ?>"<?php } ?>><a href="<?php echo htmlspecialchars($tab['href']) ?>"<?php echo $skin->tooltipAndAccesskey('ca-'.$key) ?>><?php echo htmlspecialchars($tab['text']) ?></a></li>
-				<?php } ?>
-			</ul>
+			
+				<ul>
+					<?php foreach($this->data['content_actions'] as $key => $tab) { ?><li id="ca-<?php echo Sanitizer::escapeId($key) ?>"<?php if($tab['class']) { ?> class="<?php echo htmlspecialchars($tab['class']) ?>"<?php } ?>><a href="<?php echo htmlspecialchars($tab['href']) ?>"<?php echo $skin->tooltipAndAccesskey('ca-'.$key) ?>><?php echo htmlspecialchars($tab['text']) ?></a></li><?php } ?>
+				</ul>
+			
 		</div>
 		<div class="visualClear"></div>
 			

@@ -419,7 +419,10 @@ TiDispatchOpenClose(
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS
+#ifndef _MSC_VER
+STDCALL
+#endif
 TiDispatchInternal(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)
@@ -523,7 +526,10 @@ TiDispatchInternal(
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS
+#ifndef _MSC_VER
+STDCALL
+#endif
 TiDispatch(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)
@@ -681,7 +687,10 @@ VOID STDCALL IPTimeoutDpcFn(
     }
 }
 
-NTSTATUS NTAPI
+NTSTATUS
+#ifndef _MSC_VER
+STDCALL
+#endif
 DriverEntry(
   PDRIVER_OBJECT DriverObject,
   PUNICODE_STRING RegistryPath)
@@ -861,14 +870,14 @@ DriverEntry(
   DueTime.QuadPart = -(LONGLONG)IP_TIMEOUT * 10000;
   KeSetTimerEx(&IPTimer, DueTime, IP_TIMEOUT, &IPTimeoutDpc);
 
-  /* ROS Hack: ideally, DebugTraceLevel variable should be removed */
-  DbgSetDebugFilterState(DPFLTR_TCPIP_ID, DebugTraceLevel, TRUE);
-
   return STATUS_SUCCESS;
 }
 
 
-VOID NTAPI
+VOID
+#ifndef _MSC_VER
+STDCALL
+#endif
 IPAddInterface(
 	DWORD	Unknown0,
 	DWORD	Unknown1,
@@ -880,7 +889,10 @@ IPAddInterface(
 }
 
 
-VOID NTAPI
+VOID
+#ifndef _MSC_VER
+STDCALL
+#endif
 IPDelInterface(
 	DWORD	Unknown0)
 {
@@ -888,7 +900,10 @@ IPDelInterface(
 }
 
 
-VOID NTAPI
+VOID
+#ifndef _MSC_VER
+STDCALL
+#endif
 LookupRoute(
 	DWORD	Unknown0,
 	DWORD	Unknown1)

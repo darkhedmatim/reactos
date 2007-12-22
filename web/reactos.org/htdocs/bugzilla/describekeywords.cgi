@@ -25,18 +25,29 @@ use strict;
 use lib ".";
 
 use Bugzilla;
-use Bugzilla::Error;
 use Bugzilla::User;
-use Bugzilla::Keyword;
+
+require "globals.pl";
 
 Bugzilla->login();
 
 my $cgi = Bugzilla->cgi;
+my $dbh = Bugzilla->dbh;
 my $template = Bugzilla->template;
 my $vars = {};
 
-$vars->{'keywords'} = Bugzilla::Keyword->get_all_with_bug_count();
-$vars->{'caneditkeywords'} = Bugzilla->user->in_group("editkeywords");
+my $keywords = $dbh->selectall_arrayref(
+                   q{SELECT keyworddefs.name, keyworddefs.description,
+                            COUNT(keywords.bug_id) AS bugcount
+                       FROM keyworddefs
+                  LEFT JOIN keywords
+                         ON keyworddefs.id = keywords.keywordid } .
+         $dbh->sql_group_by('keyworddefs.id',
+                            'keyworddefs.name, keyworddefs.description') .
+                 " ORDER BY keyworddefs.name", {'Slice' => {}});
+
+$vars->{'keywords'} = $keywords;
+$vars->{'caneditkeywords'} = UserInGroup("editkeywords");
 
 print Bugzilla->cgi->header();
 $template->process("reports/keywords.html.tmpl", $vars)

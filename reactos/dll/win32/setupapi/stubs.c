@@ -42,22 +42,82 @@ DWORD WINAPI suErrorToIds16( WORD w1, WORD w2 )
 }
 
 /***********************************************************************
+ *		SetupDiGetDeviceInfoListDetailA  (SETUPAPI.@)
+ */
+BOOL WINAPI SetupDiGetDeviceInfoListDetailA(HDEVINFO devinfo, PSP_DEVINFO_LIST_DETAIL_DATA_A devinfo_data )
+{
+  FIXME("\n");
+  return FALSE;
+}
+
+/***********************************************************************
  *		SetupInitializeFileLogW(SETUPAPI.@)
  */
-HSPFILELOG WINAPI SetupInitializeFileLogW(LPCWSTR LogFileName, DWORD Flags)
+HANDLE WINAPI SetupInitializeFileLogW(LPCWSTR LogFileName, DWORD Flags)
 {
-    FIXME("Stub %s, 0x%x\n",debugstr_w(LogFileName),Flags);
+    FIXME("Stub %s, 0x%lx\n",debugstr_w(LogFileName),Flags);
     return INVALID_HANDLE_VALUE;
 }
 
 /***********************************************************************
  *		SetupInitializeFileLogA(SETUPAPI.@)
  */
-HSPFILELOG WINAPI SetupInitializeFileLogA(LPCSTR LogFileName, DWORD Flags)
+HANDLE WINAPI SetupInitializeFileLogA(LPCSTR LogFileName, DWORD Flags)
 {
-    FIXME("Stub %s, 0x%x\n",debugstr_a(LogFileName),Flags);
+    FIXME("Stub %s, 0x%lx\n",debugstr_a(LogFileName),Flags);
     return INVALID_HANDLE_VALUE;
 }
+
+/***********************************************************************
+ *		SetupPromptReboot(SETUPAPI.@)
+ */
+INT WINAPI SetupPromptReboot(HSPFILEQ FileQueue, HWND Owner, BOOL ScanOnly)
+{
+#if 0
+    int ret;
+    TCHAR RebootText[RC_STRING_MAX_SIZE];
+    TCHAR RebootCaption[RC_STRING_MAX_SIZE];
+    INT rc = 0;
+
+    TRACE("%p %p %d\n", FileQueue, Owner, ScanOnly);
+
+    if (ScanOnly && !FileQueue)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return -1;
+    }
+
+    if (FileQueue)
+    {
+        FIXME("Case 'FileQueue != NULL' not implemented\n");
+        /* In some cases, do 'rc |= SPFILEQ_FILE_IN_USE' */
+    }
+
+    if (ScanOnly)
+        return rc;
+
+    /* We need to ask the question to the user. */
+    rc |= SPFILEQ_REBOOT_RECOMMENDED;
+    if (0 == LoadString(hInstance, IDS_QUERY_REBOOT_TEXT, RebootText, RC_STRING_MAX_SIZE))
+        return -1;
+    if (0 == LoadString(hInstance, IDS_QUERY_REBOOT_CAPTION, RebootCaption, RC_STRING_MAX_SIZE))
+        return -1;
+    ret = MessageBox(Owner, RebootText, RebootCaption, MB_YESNO | MB_DEFBUTTON1);
+    if (IDNO == ret)
+        return rc;
+    else
+    {
+        if (ExitWindowsEx(EWX_REBOOT, 0))
+            return rc | SPFILEQ_REBOOT_IN_PROGRESS;
+        else
+            return -1;
+    }
+#endif
+    FIXME("Stub %p %p %d\n", FileQueue, Owner, ScanOnly);
+    SetLastError(ERROR_GEN_FAILURE);
+    return -1;
+}
+
 
 /***********************************************************************
  *		SetupTerminateFileLog(SETUPAPI.@)
@@ -68,19 +128,11 @@ BOOL WINAPI SetupTerminateFileLog(HANDLE FileLogHandle)
     return TRUE;
 }
 
-/***********************************************************************
- *		RegistryDelnode(SETUPAPI.@)
- */
-BOOL WINAPI RegistryDelnode(DWORD x, DWORD y)
-{
-    FIXME("%08x %08x: stub\n", x, y);
-    return FALSE;
-}
 
 /***********************************************************************
  *      SetupCloseLog(SETUPAPI.@)
  */
-void WINAPI SetupCloseLog(void)
+void WINAPI SetupCloseLog()
 {
     FIXME("() stub\n");
 }
@@ -88,9 +140,9 @@ void WINAPI SetupCloseLog(void)
 /***********************************************************************
  *      SetupLogErrorW(SETUPAPI.@)
  */
-BOOL WINAPI SetupLogErrorW(LPCWSTR MessageString, LogSeverity Severity)
+BOOL WINAPI SetupLogErrorW(PCWSTR MessageString, LogSeverity Severity)
 {
-    FIXME("(%s, %d) stub\n", debugstr_w(MessageString), Severity);
+    FIXME("(%s, %ld) stub\n", debugstr_w(MessageString), Severity);
     return TRUE;
 }
 
@@ -101,33 +153,6 @@ BOOL WINAPI SetupOpenLog(BOOL Reserved)
 {
     FIXME("(%d) stub\n", Reserved);
     return TRUE;
-}
-
-/***********************************************************************
- *      SetupPromptReboot(SETUPAPI.@)
- */
-INT WINAPI SetupPromptReboot( HSPFILEQ file_queue, HWND owner, BOOL scan_only )
-{
-    FIXME("%p, %p, %d\n", file_queue, owner, scan_only);
-    return 0;
-}
-
-/***********************************************************************
- *      SetupSetSourceListA (SETUPAPI.@)
- */
-BOOL WINAPI SetupSetSourceListA(DWORD flags, PCSTR *list, UINT count)
-{
-    FIXME("0x%08x %p %d\n", flags, list, count);
-    return FALSE;
-}
-
-/***********************************************************************
- *      SetupSetSourceListW (SETUPAPI.@)
- */
-BOOL WINAPI SetupSetSourceListW(DWORD flags, PCWSTR *list, UINT count)
-{
-    FIXME("0x%08x %p %d\n", flags, list, count);
-    return FALSE;
 }
 
 /***********************************************************************

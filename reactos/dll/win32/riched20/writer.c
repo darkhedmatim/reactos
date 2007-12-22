@@ -25,7 +25,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
 
 static BOOL
-ME_StreamOutRTFText(ME_OutStream *pStream, const WCHAR *text, LONG nChars);
+ME_StreamOutRTFText(ME_OutStream *pStream, WCHAR *text, LONG nChars);
 
 
 static ME_OutStream*
@@ -92,7 +92,7 @@ ME_StreamOutMove(ME_OutStream *pStream, const char *buffer, int len)
     int space = STREAMOUT_BUFFER_SIZE - pStream->pos;
     int fit = min(space, len);
 
-    TRACE("%u:%u:%s\n", pStream->pos, fit, debugstr_an(buffer,fit));
+    TRACE("%u:%u:%.*s\n", pStream->pos, fit, fit, buffer);
     memmove(pStream->buffer + pStream->pos, buffer, fit);
     len -= fit;
     buffer += fit;
@@ -192,7 +192,7 @@ ME_StreamOutRTFHeader(ME_OutStream *pStream, int dwFormat)
 
 
 static BOOL
-ME_StreamOutRTFFontAndColorTbl(ME_OutStream *pStream, ME_DisplayItem *pFirstRun, const ME_DisplayItem *pLastRun)
+ME_StreamOutRTFFontAndColorTbl(ME_OutStream *pStream, ME_DisplayItem *pFirstRun, ME_DisplayItem *pLastRun)
 {
   ME_DisplayItem *item = pFirstRun;
   ME_FontTableItem *table = pStream->fonttbl;
@@ -282,7 +282,7 @@ ME_StreamOutRTFFontAndColorTbl(ME_OutStream *pStream, ME_DisplayItem *pFirstRun,
 
 
 static BOOL
-ME_StreamOutRTFParaProps(ME_OutStream *pStream, const ME_DisplayItem *para)
+ME_StreamOutRTFParaProps(ME_OutStream *pStream, ME_DisplayItem *para)
 {
   PARAFORMAT2 *fmt = para->member.para.pFmt;
   char props[STREAMOUT_BUFFER_SIZE] = "";
@@ -579,7 +579,7 @@ ME_StreamOutRTFCharProps(ME_OutStream *pStream, CHARFORMAT2W *fmt)
 
 
 static BOOL
-ME_StreamOutRTFText(ME_OutStream *pStream, const WCHAR *text, LONG nChars)
+ME_StreamOutRTFText(ME_OutStream *pStream, WCHAR *text, LONG nChars)
 {
   char buffer[STREAMOUT_BUFFER_SIZE];
   int pos = 0;

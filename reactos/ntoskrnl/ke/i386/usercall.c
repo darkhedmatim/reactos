@@ -12,8 +12,6 @@
 #define NDEBUG
 #include <internal/debug.h>
 
-extern PGDI_BATCHFLUSH_ROUTINE KeGdiFlushUserBatch;
-
 /* PRIVATE FUNCTIONS *********************************************************/
 
 _SEH_DEFINE_LOCALS(KiCopyInfo)
@@ -217,8 +215,8 @@ KeUserModeCallback(IN ULONG RoutineIndex,
     /* Check if we have GDI Batch operations */
     if (GdiBatchCount)
     {
-          *UserEsp -= 256;
-          KeGdiFlushUserBatch();
+        /* Shouldn't happen in ROS yet */
+        ASSERT(FALSE);
     }
 
     /* Restore stack and return */

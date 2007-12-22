@@ -105,8 +105,7 @@ NTSTATUS
 NTAPI
 PspMapSystemDll(
     IN PEPROCESS Process,
-    OUT PVOID *DllBase,
-    IN BOOLEAN UseLargePages
+    OUT PVOID *DllBase
 );
 
 NTSTATUS
@@ -351,23 +350,6 @@ PsSuspendThread(
 );
 
 //
-// Process Quotas
-//
-NTSTATUS
-NTAPI
-PsReturnProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
-NTSTATUS
-NTAPI
-PsChargeProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
-//
 // Global data inside the Process Manager
 //
 extern ULONG PspTraceLevel;
@@ -376,6 +358,7 @@ extern LCID PsDefaultSystemLocaleId;
 extern LIST_ENTRY PspReaperListHead;
 extern WORK_QUEUE_ITEM PspReaperWorkItem;
 extern BOOLEAN PspReaping;
+extern PEPROCESS PsInitialSystemProcess;
 extern PEPROCESS PsIdleProcess;
 extern LIST_ENTRY PsActiveProcessHead;
 extern KGUARDED_MUTEX PspActiveProcessMutex;

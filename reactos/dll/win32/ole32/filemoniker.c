@@ -252,7 +252,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
         goto fail;
 
     if (!dwbuffer) /* No W-string */
-    {
+    {        
         bytesA--;
         len=MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, filePathA, bytesA, NULL, 0);
         if (!len)
@@ -325,7 +325,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
  * 3) path string type A
  * 4) DWORD constant : 0xDEADFFFF
  * 5) five DWORD constant: zero
- * 6) If we're only writing the multibyte version,
+ * 6) If we're only writing the multibyte version, 
  *     write a zero DWORD and finish.
  *
  * 7) DWORD: double-length of the the path string type W ("\0" not
@@ -386,16 +386,16 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
     }
 
     /* Write the wide version if:
-     *    + couldn't convert to CP_ACP,
-     * or + it's a directory,
-     * or + there's a character > 0xFF
+     *    + couldn't convert to CP_ACP, 
+     * or + it's a directory, 
+     * or + there's a character > 0xFF 
      */
     len = lstrlenW(filePathW);
     bWriteWide = (bUsedDefault || (len > 0 && filePathW[len-1]=='\\' ));
     if (!bWriteWide)
     {
         WCHAR* pch;
-        for(pch=filePathW;*pch;++pch)
+        for(pch=filePathW;*pch;++pch) 
         {
             if (*pch > 0xFF)
             {
@@ -985,17 +985,17 @@ FileMonikerImpl_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** p
         {
             for(i=0;i<sameIdx;i++)
                 strcatW(commonPath,stringTable1[i]);
-
+    
             for(i=0;i<nb1;i++)
                 CoTaskMemFree(stringTable1[i]);
-
+    
             CoTaskMemFree(stringTable1);
-
+    
             for(i=0;i<nb2;i++)
                 CoTaskMemFree(stringTable2[i]);
-
+    
             CoTaskMemFree(stringTable2);
-
+    
             ret = CreateFileMoniker(commonPath,ppmkPrefix);
         }
         HeapFree(GetProcessHeap(),0,commonPath);
@@ -1011,26 +1011,18 @@ FileMonikerImpl_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** p
 int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
 {
     static const WCHAR bSlash[] = {'\\',0};
-    LPOLESTR word;
-    int i=0,j,tabIndex=0, ret=0;
+    WCHAR word[MAX_PATH];
+    int i=0,j,tabIndex=0;
     LPOLESTR *strgtable ;
 
     int len=lstrlenW(str);
 
     TRACE("%s, %p\n", debugstr_w(str), *stringTable);
 
-    strgtable = CoTaskMemAlloc(len*sizeof(WCHAR));
+    strgtable =CoTaskMemAlloc(len*sizeof(LPOLESTR));
 
     if (strgtable==NULL)
 	return E_OUTOFMEMORY;
-
-    word = CoTaskMemAlloc((len + 1)*sizeof(WCHAR));
-
-    if (word==NULL)
-    {
-        ret = E_OUTOFMEMORY;
-        goto lend;
-    }
 
     while(str[i]!=0){
 
@@ -1039,10 +1031,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
             strgtable[tabIndex]=CoTaskMemAlloc(2*sizeof(WCHAR));
 
             if (strgtable[tabIndex]==NULL)
-            {
-                ret = E_OUTOFMEMORY;
-                goto lend;
-            }
+	    	return E_OUTOFMEMORY;
 
             strcpyW(strgtable[tabIndex++],bSlash);
 
@@ -1059,10 +1048,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
             strgtable[tabIndex]=CoTaskMemAlloc(sizeof(WCHAR)*(j+1));
 
             if (strgtable[tabIndex]==NULL)
-            {
-                ret = E_OUTOFMEMORY;
-                goto lend;
-            }
+                return E_OUTOFMEMORY;
 
             strcpyW(strgtable[tabIndex++],word);
         }
@@ -1071,21 +1057,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
 
     *stringTable=strgtable;
 
-    ret = tabIndex;
-
-lend:
-    if (ret < 0)
-    {
-        for (i = 0; i < tabIndex; i++)
-            CoTaskMemFree(strgtable[i]);
-
-        CoTaskMemFree(strgtable);
-    }
-
-    if (word)
-        CoTaskMemFree(word);
-
-    return ret;
+    return tabIndex;
 }
 
 /******************************************************************************
@@ -1190,7 +1162,7 @@ FileMonikerImpl_GetDisplayName(IMoniker* iface, IBindCtx* pbc,
     strcpyW(*ppszDisplayName,This->filePathName);
 
     TRACE("-- %s\n", debugstr_w(*ppszDisplayName));
-
+    
     return S_OK;
 }
 

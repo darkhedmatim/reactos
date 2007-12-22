@@ -1,12 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="cmd_base" type="objectlibrary">
 	<include base="ReactOS">include/reactos/wine</include>
 	<include base="cmd_base">.</include>
+	<define name="__USE_W32API" />
 	<define name="ANONYMOUSUNIONS" />
 	<define name="_WIN32_WINNT">0x0501</define>
-	<define name="_DEBUG_MEM" />
 	<define name="UNICODE" />
 	<define name="_UNICODE" />
 	<pch>precomp.h</pch>
@@ -20,7 +17,6 @@
 		<file>choice.c</file>
 		<file>cls.c</file>
 		<file>cmd.c</file>
-		<file>cmddbg.c</file>
 		<file>cmdinput.c</file>
 		<file>cmdtable.c</file>
 		<file>color.c</file>
@@ -51,7 +47,6 @@
 		<file>prompt.c</file>
 		<file>redir.c</file>
 		<file>ren.c</file>
-		<file>replace.c</file>
 		<file>screen.c</file>
 		<file>set.c</file>
 		<file>shift.c</file>
@@ -68,17 +63,19 @@
 		<file>window.c</file>
 	</compilationunit>
 </module>
-<module name="cmd" type="win32cui" installbase="system32" installname="cmd.exe" unicode="yes">
+<module name="cmd" type="win32cui" installbase="system32" installname="cmd.exe" usewrc="false">
 	<include base="ReactOS">include/reactos/wine</include>
 	<include base="cmd">.</include>
+	<define name="__USE_W32API" />
 	<define name="ANONYMOUSUNIONS" />
 	<define name="_WIN32_WINNT">0x0501</define>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>cmd_base</library>
 	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>shell32</library>
 	<library>user32</library>
-	<file>cmd.rc</file>
 	<file>main.c</file>
+	<file>cmd.rc</file>
 </module>
-</group>

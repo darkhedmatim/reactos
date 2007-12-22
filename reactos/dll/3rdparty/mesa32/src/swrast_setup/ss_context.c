@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.1
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,9 +40,6 @@
  * if two-sided lighting is in effect.
  */
 #define _SWSETUP_NEW_RENDERINDEX (_NEW_POLYGON|_NEW_LIGHT|_NEW_PROGRAM)
-
-
-#define VARYING_EMIT_STYLE  EMIT_4F
 
 
 GLboolean
@@ -85,10 +82,6 @@ _swsetup_RenderPrimitive( GLcontext *ctx, GLenum mode )
    _swrast_render_primitive( ctx, mode );
 }
 
-
-/**
- * Helper macros for setup_vertex_format()
- */
 #define SWZ ((SWvertex *)0)
 #define SWOffset(MEMBER) (((char *)&(SWZ->MEMBER)) - ((char *)SWZ))
 
@@ -101,77 +94,9 @@ do {						\
 } while (0)
 
 
-/**
- * Tell the tnl module how to build SWvertex objects for swrast.
- * We'll build the map[] array with that info and pass it to
- * _tnl_install_attrs().
- */
-static void
-setup_vertex_format(GLcontext *ctx)
-{
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-   SScontext *swsetup = SWSETUP_CONTEXT(ctx);
-
-   if (!RENDERINPUTS_EQUAL(tnl->render_inputs_bitset,
-                           swsetup->last_index_bitset)) {
-      DECLARE_RENDERINPUTS(index_bitset);
-      struct tnl_attr_map map[_TNL_ATTRIB_MAX];
-      int i, e = 0;
-
-      RENDERINPUTS_COPY( index_bitset, tnl->render_inputs_bitset );
-
-      EMIT_ATTR( _TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, win );
-
-      if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_COLOR0 ))
-         EMIT_ATTR( _TNL_ATTRIB_COLOR0, EMIT_4CHAN_4F_RGBA, color );
-
-      if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_COLOR1 ))
-         EMIT_ATTR( _TNL_ATTRIB_COLOR1, EMIT_4CHAN_4F_RGBA, specular);
-
-      if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_COLOR_INDEX ))
-         EMIT_ATTR( _TNL_ATTRIB_COLOR_INDEX, EMIT_1F, index );
-
-      if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_FOG )) {
-         const GLint emit = ctx->FragmentProgram._Current ? EMIT_4F : EMIT_1F;
-         EMIT_ATTR( _TNL_ATTRIB_FOG, emit, attrib[FRAG_ATTRIB_FOGC]);
-      }
-
-      if (RENDERINPUTS_TEST_RANGE(index_bitset, _TNL_FIRST_TEX, _TNL_LAST_TEX))
-      {
-         for (i = 0; i < MAX_TEXTURE_COORD_UNITS; i++) {
-            if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_TEX(i) )) {
-               EMIT_ATTR( _TNL_ATTRIB_TEX(i), EMIT_4F,
-                          attrib[FRAG_ATTRIB_TEX0 + i] );
-            }
-         }
-      }
-
-      /* shader varying vars */
-      if (RENDERINPUTS_TEST_RANGE( index_bitset,
-                                   _TNL_FIRST_GENERIC, _TNL_LAST_GENERIC )) {
-         for (i = 0; i < ctx->Const.MaxVarying; i++) {
-            if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_GENERIC(i) )) {
-               EMIT_ATTR( _TNL_ATTRIB_GENERIC(i), VARYING_EMIT_STYLE,
-                          attrib[FRAG_ATTRIB_VAR0 + i] );
-            }
-         }
-      }
-
-      if (RENDERINPUTS_TEST( index_bitset, _TNL_ATTRIB_POINTSIZE ))
-         EMIT_ATTR( _TNL_ATTRIB_POINTSIZE, EMIT_1F, pointSize );
-
-      _tnl_install_attrs( ctx, map, e,
-                          ctx->Viewport._WindowMap.m,
-                          sizeof(SWvertex) );
-
-      RENDERINPUTS_COPY( swsetup->last_index_bitset, index_bitset );
-   }
-}
-
-
-/**
- * Prepare to render a vertex buffer.
- * Called via tnl->Driver.Render.Start.
+/*
+ * We patch this function into tnl->Driver.Render.Start.
+ * It's called when we start rendering a vertex buffer.
  */
 static void
 _swsetup_RenderStart( GLcontext *ctx )
@@ -179,21 +104,59 @@ _swsetup_RenderStart( GLcontext *ctx )
    SScontext *swsetup = SWSETUP_CONTEXT(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
+   GLuint new_state = swsetup->NewState;
 
-   if (swsetup->NewState & _SWSETUP_NEW_RENDERINDEX) {
-      _swsetup_choose_trifuncs(ctx);
+   if (new_state & _SWSETUP_NEW_RENDERINDEX) {
+      _swsetup_choose_trifuncs( ctx );
    }
 
    swsetup->NewState = 0;
 
-   _swrast_render_start(ctx);
+   _swrast_render_start( ctx );
 
-   /* Important */
+   /* Important:
+    */
    VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
 
-   setup_vertex_format(ctx);
-}
 
+   if (tnl->render_inputs != swsetup->last_index) {
+      GLuint index = tnl->render_inputs;
+      struct tnl_attr_map map[_TNL_ATTRIB_MAX];
+      int i, e = 0;
+
+      EMIT_ATTR( _TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, win );
+   
+      if (index & _TNL_BIT_COLOR0)
+	 EMIT_ATTR( _TNL_ATTRIB_COLOR0, EMIT_4CHAN_4F_RGBA, color );
+
+      if (index & _TNL_BIT_COLOR1)
+	 EMIT_ATTR( _TNL_ATTRIB_COLOR1, EMIT_4CHAN_4F_RGBA, specular);
+
+      if (index & _TNL_BIT_FOG) 
+	 EMIT_ATTR( _TNL_ATTRIB_FOG, EMIT_1F, fog);
+	 
+      if (index & _TNL_BITS_TEX_ANY) {
+	 for (i = 0; i < MAX_TEXTURE_COORD_UNITS; i++) {
+	    if (index & _TNL_BIT_TEX(i)) {
+	       EMIT_ATTR( _TNL_ATTRIB_TEX0+i, EMIT_4F, texcoord[i] );
+	    }
+	 }
+      }
+      
+      if (index & _TNL_BIT_INDEX) 
+	 EMIT_ATTR( _TNL_ATTRIB_INDEX, EMIT_1F, index );
+ 
+      if (index & _TNL_BIT_POINTSIZE)
+	 EMIT_ATTR( _TNL_ATTRIB_POINTSIZE, EMIT_1F, pointSize );
+   
+      _tnl_install_attrs( ctx, map, e,
+			  ctx->Viewport._WindowMap.m,
+			  sizeof(SWvertex) ); 
+      
+      swsetup->last_index = index;
+   }
+
+}
 
 /*
  * We patch this function into tnl->Driver.Render.Finish.
@@ -242,12 +205,14 @@ _swsetup_Wakeup( GLcontext *ctx )
    _swsetup_InvalidateState( ctx, ~0 );
 
    swsetup->verts = (SWvertex *)tnl->clipspace.vertex_buf;
-   RENDERINPUTS_ZERO( swsetup->last_index_bitset );
+   swsetup->last_index = 0;
 }
 
 
-/**
- * Populate a swrast SWvertex from an attrib-style vertex.
+
+
+
+/* Populate a swrast SWvertex from an attrib-style vertex.
  */
 void 
 _swsetup_Translate( GLcontext *ctx, const void *vertex, SWvertex *dest )
@@ -263,15 +228,10 @@ _swsetup_Translate( GLcontext *ctx, const void *vertex, SWvertex *dest )
    dest->win[2] = m[10] * tmp[2] + m[14];
    dest->win[3] =         tmp[3];
 
-   /** XXX try to limit these loops someday */
-   for (i = 0 ; i < ctx->Const.MaxTextureCoordUnits ; i++)
-      _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_TEX0+i,
-                     dest->attrib[FRAG_ATTRIB_TEX0 + i] );
 
-   for (i = 0 ; i < ctx->Const.MaxVarying ; i++)
-      _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_GENERIC0+i,
-                     dest->attrib[FRAG_ATTRIB_VAR0 + i] );
-
+   for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
+      _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_TEX0+i, dest->texcoord[i] );
+	  
    _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_COLOR0, tmp );
    UNCLAMPED_FLOAT_TO_RGBA_CHAN( dest->color, tmp );
 
@@ -279,12 +239,11 @@ _swsetup_Translate( GLcontext *ctx, const void *vertex, SWvertex *dest )
    UNCLAMPED_FLOAT_TO_RGBA_CHAN( dest->specular, tmp );
 
    _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_FOG, tmp );
-   dest->attrib[FRAG_ATTRIB_FOGC][0] = tmp[0];
+   dest->fog = tmp[0];
 
-   _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_COLOR_INDEX, tmp );
-   dest->index = tmp[0];
+   _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_INDEX, tmp );
+   dest->index = (GLuint) tmp[0];
 
-   /* XXX See _tnl_get_attr about pointsize ... */
    _tnl_get_attr( ctx, vertex, _TNL_ATTRIB_POINTSIZE, tmp );
    dest->pointSize = tmp[0];
 }

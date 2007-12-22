@@ -20,10 +20,16 @@
 
 #include "rbuild.h"
 
-LinkerScript::LinkerScript ( const XMLElement& node_,
-                             const Module& module_,
-                             const FileLocation& file_ )
-	: node(node_), module(module_), file(file_)
+using std::string;
+using std::vector;
+
+LinkerScript::LinkerScript ( const Project& project,
+                             const Module* module,
+                             const XMLElement& node )
+	: project ( project ),
+	  module ( module ),
+	  node ( node ),
+	  baseModule ( NULL )
 {
 }
 
@@ -34,4 +40,36 @@ LinkerScript::~LinkerScript ()
 void
 LinkerScript::ProcessXML()
 {
+	const XMLAttribute* att;
+	att = node.GetAttribute ( "base",
+	                          false );
+	if ( att )
+	{
+		bool referenceResolved = false;
+		if ( att->value == project.name )
+		{
+			basePath = ".";
+			referenceResolved = true;
+		}
+		else
+		{
+			const Module* base = project.LocateModule ( att->value );
+			if ( base != NULL )
+			{
+				baseModule = base;
+				basePath = base->GetBasePath ();
+				referenceResolved = true;
+			}
+		}
+		if ( !referenceResolved )
+		{
+			throw XMLInvalidBuildFileException (
+				node.location,
+				"<linkerscript> attribute 'base' references non-existant project or module '%s'",
+				att->value.c_str() );
+		}
+		directory = NormalizeFilename ( basePath + sSep + node.value );
+	}
+	else
+		directory = NormalizeFilename ( node.value );
 }

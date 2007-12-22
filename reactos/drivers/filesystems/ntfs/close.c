@@ -47,13 +47,13 @@ NtfsCloseFile(PDEVICE_EXTENSION DeviceExt,
 {
   PCCB Ccb;
 
-  DPRINT("NtfsCloseFile(DeviceExt %p, FileObject %p)\n",
+  DPRINT("NtfsCloseFile(DeviceExt %x, FileObject %x)\n",
 	 DeviceExt,
 	 FileObject);
 
   Ccb = (PCCB)(FileObject->FsContext2);
 
-  DPRINT("Ccb %p\n", Ccb);
+  DPRINT("Ccb %x\n", Ccb);
   if (Ccb == NULL)
     {
       return(STATUS_SUCCESS);

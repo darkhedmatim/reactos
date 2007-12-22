@@ -82,7 +82,7 @@ PsGetThreadHardErrorsAreDisabled(
 );
 
 NTKERNELAPI
-VOID
+VOID 
 NTAPI
 PsSetThreadHardErrorsAreDisabled(
     PETHREAD Thread,
@@ -90,7 +90,7 @@ PsSetThreadHardErrorsAreDisabled(
 );
 
 NTKERNELAPI
-VOID
+VOID 
 NTAPI
 PsEstablishWin32Callouts(
     PWIN32_CALLOUTS_FPNS CalloutData
@@ -118,6 +118,11 @@ PsRevertThreadToSelf(
 // Misc. Functions
 //
 NTKERNELAPI
+HANDLE
+NTAPI
+PsGetProcessId(PEPROCESS Process);
+
+NTKERNELAPI
 NTSTATUS
 NTAPI
 PsLookupProcessThreadByCid(
@@ -130,68 +135,6 @@ BOOLEAN
 NTAPI
 PsIsProtectedProcess(
     IN PEPROCESS Process
-);
-
-//
-// Quota Functions
-//
-NTKERNELAPI
-VOID
-NTAPI
-PsChargePoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessNonPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN ULONG_PTR Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnProcessNonPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnProcessPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN ULONG_PTR Amount
 );
 
 #endif

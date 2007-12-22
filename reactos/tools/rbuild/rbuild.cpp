@@ -33,9 +33,8 @@ using std::string;
 using std::vector;
 
 static string BuildSystem;
-static string RootXmlFile;
+static string RootXmlFile = "ReactOS.rbuild";
 static Configuration configuration;
-static std::map<string, string> properties;
 
 bool
 ParseAutomaticDependencySwitch (
@@ -124,7 +123,7 @@ ParseVCProjectSwitch (
 			temp = string (&switchStart[3]);
 			if ( temp.find ("configuration") != string::npos )
 				configuration.UseConfigurationInPath = true;
-
+			
 			if ( temp.find ("version") != string::npos )
 				configuration.UseVSVersionInPath = true;
 			break;
@@ -169,28 +168,6 @@ ParseProxyMakefileSwitch ( char switchChar2 )
 }
 
 bool
-ParseDefineSwitch ( char* switchStart )
-{
-	string s = string ( switchStart + 2 );
-	string::size_type separator =  s.find ( '=' );
-	if ( separator == string::npos || separator == 0 )
-	{
-		printf ( "Invalid define switch: '%s'\n", switchStart );
-		return false;
-	}
-	if ( s.find ( '=', separator + 1 ) != string::npos )
-	{
-		printf ( "Invalid define switch: '%s'\n", switchStart );
-		return false;
-	}
-
-	string var = s.substr ( 0, separator );
-	string val = s.substr ( separator + 1 );
-	properties.insert ( std::pair<string, string> ( var, val ) );
-	return true;
-}
-
-bool
 ParseSwitch ( int argc, char** argv, int index )
 {
 	char switchChar = strlen ( argv[index] ) > 1 ? argv[index][1] : ' ';
@@ -225,8 +202,6 @@ ParseSwitch ( int argc, char** argv, int index )
 			return ParseMakeSwitch ( switchChar2 );
 		case 'p':
 			return ParseProxyMakefileSwitch ( switchChar2 );
-		case 'D':
-			return ParseDefineSwitch ( argv[index] );
 		default:
 			printf (
 				"Unknown switch -%c\n",
@@ -241,7 +216,7 @@ ParseArguments ( int argc, char** argv )
 {
 	if ( argc < 2 )
 		return false;
-
+	
 	for ( int i = 1; i < argc; i++ )
 	{
 		if ( argv[i][0] == '-' )
@@ -252,7 +227,7 @@ ParseArguments ( int argc, char** argv )
 		else
 			BuildSystem = argv[i];
 	}
-
+	
 	return true;
 }
 
@@ -264,11 +239,12 @@ main ( int argc, char** argv )
 	if ( !ParseArguments ( argc, argv ) )
 	{
 		printf ( "Generates project files for buildsystems\n\n" );
-		printf ( "  rbuild [switches] -r{rootfile.rbuild} buildsystem\n\n" );
+		printf ( "  rbuild [switches] buildsystem\n\n" );
 		printf ( "Switches:\n" );
 		printf ( "  -v            Be verbose.\n" );
 		printf ( "  -c            Clean as you go. Delete generated files as soon as they are not\n" );
 		printf ( "                needed anymore.\n" );
+		printf ( "  -r{file.rbuild}  Name of the root rbuild file. Default is ReactOS.rbuild.\n" );
 		printf ( "  -dd           Disable automatic dependencies.\n" );
 		printf ( "  -dm{module}   Check only automatic dependencies for this module.\n" );
 		printf ( "  -ud           Disable multiple source files per compilation unit.\n" );
@@ -278,7 +254,6 @@ main ( int argc, char** argv )
 		printf ( "                tree.\n" );
 		printf ( "  -vs{version}  Version of MS VS project files. Default is %s.\n", MS_VS_DEF_VERSION );
 		printf ( "  -vo{version|configuration} Adds subdirectory path to the default Intermediate-Outputdirectory.\n" );
-		printf ( "  -Dvar=val     Set the value of 'var' variable to 'val'.\n" );
 		printf ( "\n" );
 		printf ( "  buildsystem   Target build system. Can be one of:\n" );
 
@@ -292,13 +267,10 @@ main ( int argc, char** argv )
 	}
 	try
 	{
-		if ( RootXmlFile.length () == 0 )
-			throw MissingArgumentException ( "-r" );
-
 		string projectFilename ( RootXmlFile );
 
 		printf ( "Reading build files..." );
-		Project project ( configuration, projectFilename, &properties );
+		Project project ( configuration, projectFilename );
 		printf ( "done\n" );
 
 		project.SetBackend ( Backend::Factory::Create (

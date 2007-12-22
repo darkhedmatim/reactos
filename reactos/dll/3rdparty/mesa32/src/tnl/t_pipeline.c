@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  5.1
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +31,9 @@
 #include "imports.h"
 #include "state.h"
 #include "mtypes.h"
+
+#include "math/m_translate.h"
+#include "math/m_xform.h"
 
 #include "t_context.h"
 #include "t_pipeline.h"
@@ -77,7 +81,7 @@ static GLuint check_input_changes( GLcontext *ctx )
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    GLuint i;
    
-   for (i = 0; i <= _TNL_LAST_MAT; i++) {
+   for (i = 0; i < _TNL_ATTRIB_EDGEFLAG; i++) {
       if (tnl->vb.AttribPtr[i]->size != tnl->pipeline.last_attrib_size[i] ||
 	  tnl->vb.AttribPtr[i]->stride != tnl->pipeline.last_attrib_stride[i]) {
 	 tnl->pipeline.last_attrib_size[i] = tnl->vb.AttribPtr[i]->size;
@@ -85,10 +89,6 @@ static GLuint check_input_changes( GLcontext *ctx )
 	 tnl->pipeline.input_changes |= 1<<i;
       }
    }
-
-   if (tnl->pipeline.input_changes &&
-      tnl->Driver.NotifyInputChanges) 
-      tnl->Driver.NotifyInputChanges( ctx, tnl->pipeline.input_changes );
 
    return tnl->pipeline.input_changes;
 }
@@ -131,7 +131,7 @@ void _tnl_run_pipeline( GLcontext *ctx )
     * (ie const or non-const).
     */
    if (check_input_changes( ctx ) || tnl->pipeline.new_state) {
-      if (ctx->VertexProgram._MaintainTnlProgram)
+      if (ctx->_MaintainTnlProgram)
 	 _tnl_UpdateFixedFunctionProgram( ctx );
 
       for (i = 0; i < tnl->pipeline.nr_stages ; i++) {
@@ -203,13 +203,16 @@ const struct tnl_pipeline_stage *_tnl_default_pipeline[] = {
    &_tnl_texgen_stage,
    &_tnl_texture_transform_stage,
    &_tnl_point_attenuation_stage,
+#if defined(FEATURE_NV_vertex_program) || defined(FEATURE_ARB_vertex_program)
+   &_tnl_arb_vertex_program_stage,
    &_tnl_vertex_program_stage, 
+#endif
    &_tnl_render_stage,
    NULL 
 };
 
 const struct tnl_pipeline_stage *_tnl_vp_pipeline[] = {
-   &_tnl_vertex_program_stage,
+   &_tnl_arb_vertex_program_stage,
    &_tnl_render_stage,
    NULL
 };

@@ -77,7 +77,7 @@ typedef struct _BIOSDISKENTRY
   BOOLEAN Recognized;
   CM_DISK_GEOMETRY_DEVICE_DATA DiskGeometry;
   CM_INT13_DRIVE_PARAMETER Int13DiskData;
-} BIOSDISKENTRY, *PBIOSDISKENTRY;
+} BIOSDISKENTRY, *PBIOSDISKENTRY; 
 
 
 typedef struct _DISKENTRY
@@ -188,7 +188,7 @@ DestroyPartitionList (PPARTLIST List);
 VOID
 DrawPartitionList (PPARTLIST List);
 
-DWORD
+VOID
 SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber);
 
 BOOL

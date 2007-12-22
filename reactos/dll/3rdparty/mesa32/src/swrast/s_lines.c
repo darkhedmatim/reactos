@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #include "context.h"
 #include "colormac.h"
 #include "macros.h"
+#include "nvfragprog.h"
 #include "s_aaline.h"
 #include "s_context.h"
 #include "s_depth.h"
@@ -61,7 +62,7 @@ compute_stipple_mask( GLcontext *ctx, GLuint len, GLubyte mask[] )
  * To draw a wide line we can simply redraw the span N times, side by side.
  */
 static void
-draw_wide_line( GLcontext *ctx, SWspan *span, GLboolean xMajor )
+draw_wide_line( GLcontext *ctx, struct sw_span *span, GLboolean xMajor )
 {
    GLint width, start;
 
@@ -171,13 +172,33 @@ draw_wide_line( GLcontext *ctx, SWspan *span, GLboolean xMajor )
 #include "s_linetemp.h"
 
 
-/* General-purpose textured line (any/all features). */
+/* Single-texture line, w/ fog, Z, specular, etc. */
 #define NAME textured_line
+#define INTERP_RGBA
+#define INTERP_Z
+#define INTERP_FOG
+#define INTERP_TEX
+#define RENDER_SPAN(span)					\
+   if (ctx->Line.StippleFlag) {					\
+      span.arrayMask |= SPAN_MASK;				\
+      compute_stipple_mask(ctx, span.end, span.array->mask);	\
+   }								\
+   if (ctx->Line._Width > 1.0) {					\
+      draw_wide_line(ctx, &span, (GLboolean)(dx > dy));		\
+   }								\
+   else {							\
+      _swrast_write_rgba_span(ctx, &span);			\
+   }
+#include "s_linetemp.h"
+
+
+/* Multi-texture or separate specular line, w/ fog, Z, specular, etc. */
+#define NAME multitextured_line
 #define INTERP_RGBA
 #define INTERP_SPEC
 #define INTERP_Z
 #define INTERP_FOG
-#define INTERP_ATTRIBS
+#define INTERP_MULTITEX
 #define RENDER_SPAN(span)					\
    if (ctx->Line.StippleFlag) {					\
       span.arrayMask |= SPAN_MASK;				\
@@ -230,6 +251,8 @@ _mesa_print_line_function(GLcontext *ctx)
       _mesa_printf("general_rgba_line\n");
    else if (swrast->Line == textured_line)
       _mesa_printf("textured_line\n");
+   else if (swrast->Line == multitextured_line)
+      _mesa_printf("multitextured_line\n");
    else
       _mesa_printf("Driver func %p\n", (void *(*)()) swrast->Line);
 }
@@ -276,12 +299,18 @@ _swrast_choose_line( GLcontext *ctx )
          _swrast_choose_aa_line_function(ctx);
          ASSERT(swrast->Line);
       }
-      else if (ctx->Texture._EnabledCoordUnits
-             || ctx->FragmentProgram._Current) {
+      else if (ctx->Texture._EnabledCoordUnits) {
          /* textured lines */
-         USE(textured_line);
+         if (ctx->Texture._EnabledCoordUnits > 0x1
+             || NEED_SECONDARY_COLOR(ctx)) {
+            /* multi-texture and/or separate specular color */
+            USE(multitextured_line);
+         }
+         else {
+            USE(textured_line);
+         }
       }
-      else if (ctx->Depth.Test || swrast->_FogEnabled || ctx->Line._Width != 1.0
+      else if (ctx->Depth.Test || ctx->Fog.Enabled || ctx->Line._Width != 1.0
                || ctx->Line.StippleFlag) {
          /* no texture, but Z, fog, width>1, stipple, etc. */
          if (rgbmode)

@@ -23,15 +23,16 @@ use lib qw(.);
 use Date::Parse;         # strptime
 use Date::Format;        # strftime
 
-use Bugzilla;
-use Bugzilla::Constants; # LOGIN_*
 use Bugzilla::Bug;       # EmitDependList
 use Bugzilla::Util;      # trim
-use Bugzilla::Error;
-use Bugzilla::User;      # Bugzilla->user->in_group
+use Bugzilla::Constants; # LOGIN_*
+use Bugzilla::User;      # UserInGroup
+require "globals.pl";
 
 my $template = Bugzilla->template;
 my $vars = {};
+
+GetVersionTable();
 
 #
 # Date handling
@@ -404,7 +405,7 @@ my $cgi = Bugzilla->cgi;
 
 Bugzilla->switch_to_shadow_db();
 
-Bugzilla->user->in_group(Bugzilla->params->{"timetrackinggroup"})
+UserInGroup(Param("timetrackinggroup"))
     || ThrowUserError("auth_failure", {group  => "time-tracking",
                                        action => "access",
                                        object => "timetracking_summaries"});
@@ -521,6 +522,7 @@ $vars->{'do_report'} = $do_report;
 $vars->{'do_depends'} = $do_depends;
 $vars->{'check_time'} = \&check_time;
 $vars->{'sort_bug_keys'} = \&sort_bug_keys;
+$vars->{'GetBugLink'} = \&GetBugLink;
 
 my $format = $template->get_format("bug/summarize-time", undef, $ctype);
 

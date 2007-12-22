@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 /* GLOBALS *******************************************************************/
@@ -566,9 +566,6 @@ ExitProcess(UINT uExitCode)
   CSR_API_MESSAGE CsrRequest;
   ULONG Request;
   NTSTATUS Status;
-
-  /* kill sibling threads ... we want to be alone at this point */
-  NtTerminateProcess (NULL, 0);
 
   /* unload all dll's */
   LdrShutdownProcess ();

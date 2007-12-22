@@ -1,4 +1,4 @@
-/* $Id: wgl.c,v 1.12 2006/03/30 07:58:24 kschultz Exp $ */
+/* $Id: wgl.c,v 1.9 2005/07/01 15:56:14 kschultz Exp $ */
 
 /*
  * This library is free software; you can redistribute it and/or
@@ -32,32 +32,12 @@
 
 /* We're essentially building part of GDI here, so define this so that
  * we get the right export linkage. */
-#ifdef __MINGW32__
-
-#include <stdarg.h>
-#include <windef.h>
-#include <wincon.h>
-#include <winbase.h>
-
-#  if defined(BUILD_GL32)
-#    define WINGDIAPI __declspec(dllexport)	
-#  else
-#    define __W32API_USE_DLLIMPORT__
-#  endif
-
-#include <wingdi.h>
-#include "GL/mesa_wgl.h"
-#include <stdlib.h>
-
-#else
-
 #define _GDI32_
 #include <windows.h>
 
-#endif
-
-#include "glapi.h"
 #include "GL/wmesa.h"   /* protos for wmesa* functions */
+
+typedef struct wmesa_context *PWMC;
 
 /*
  * Pixel Format Descriptors
@@ -162,6 +142,7 @@ int npfd = sizeof(pfd) / sizeof(pfd[0]);
 
 typedef struct {
     WMesaContext ctx;
+    HDC hdc;
 } MesaWglCtx;
 
 #define MESAWGL_CTX_MAX_COUNT 20
@@ -172,27 +153,30 @@ static unsigned ctx_count = 0;
 static int ctx_current = -1;
 static unsigned curPFD = 0;
 
-static HDC CurrentHDC = 0;
-
-
 WINGDIAPI HGLRC GLAPIENTRY wglCreateContext(HDC hdc)
 {
+    HWND hWnd;
     int i = 0;
+    if(!(hWnd = WindowFromDC(hdc))) {
+	SetLastError(0);
+	return(NULL);
+    }
     if (!ctx_count) {
 	for(i=0;i<MESAWGL_CTX_MAX_COUNT;i++) {
 	    wgl_ctx[i].ctx = NULL;
+	    wgl_ctx[i].hdc = NULL;
 	}
     }
     for( i = 0; i < MESAWGL_CTX_MAX_COUNT; i++ ) {
         if ( wgl_ctx[i].ctx == NULL ) {
             wgl_ctx[i].ctx = 
-		WMesaCreateContext(hdc, NULL, (GLboolean)GL_TRUE,
-				   (GLboolean) (pfd[curPFD-1].doubleBuffered ?
-                                   GL_TRUE : GL_FALSE), 
-				   (GLboolean)(pfd[curPFD-1].pfd.cAlphaBits ? 
-				   GL_TRUE : GL_FALSE) );
+		WMesaCreateContext(hWnd, NULL, GL_TRUE,
+				   pfd[curPFD-1].doubleBuffered, 
+				   pfd[curPFD-1].pfd.cAlphaBits ? 
+				   GL_TRUE : GL_FALSE);
             if (wgl_ctx[i].ctx == NULL)
                 break;
+            wgl_ctx[i].hdc = hdc;
             ctx_count++;
             return ((HGLRC)wgl_ctx[i].ctx);
         }
@@ -205,10 +189,11 @@ WINGDIAPI BOOL GLAPIENTRY wglDeleteContext(HGLRC hglrc)
 {
     int i;
     for ( i = 0; i < MESAWGL_CTX_MAX_COUNT; i++ ) {
-    	if ( wgl_ctx[i].ctx == (WMesaContext) hglrc ){
-            WMesaMakeCurrent((WMesaContext) hglrc, NULL);
-            WMesaDestroyContext(wgl_ctx[i].ctx);
+    	if ( wgl_ctx[i].ctx == (PWMC) hglrc ){
+            WMesaMakeCurrent((PWMC) hglrc);
+            WMesaDestroyContext();
             wgl_ctx[i].ctx = NULL;
+            wgl_ctx[i].hdc = NULL;
             ctx_count--;
             return(TRUE);
     	}
@@ -227,24 +212,26 @@ WINGDIAPI HGLRC GLAPIENTRY wglGetCurrentContext(VOID)
 
 WINGDIAPI HDC GLAPIENTRY wglGetCurrentDC(VOID)
 {
-    return CurrentHDC;
+    if (ctx_current < 0)
+	return 0;
+    else
+	return wgl_ctx[ctx_current].hdc;
 }
 
-WINGDIAPI BOOL GLAPIENTRY wglMakeCurrent(HDC hdc, HGLRC hglrc)
+WINGDIAPI BOOL GLAPIENTRY wglMakeCurrent(HDC hdc,HGLRC hglrc)
 {
     int i;
     
-    CurrentHDC = hdc;
-
     if (!hdc || !hglrc) {
-	WMesaMakeCurrent(NULL, NULL);
+	WMesaMakeCurrent(NULL);
 	ctx_current = -1;
 	return TRUE;
     }
     
     for ( i = 0; i < MESAWGL_CTX_MAX_COUNT; i++ ) {
-	if ( wgl_ctx[i].ctx == (WMesaContext) hglrc ) {
-	    WMesaMakeCurrent( (WMesaContext) hglrc, hdc );
+	if ( wgl_ctx[i].ctx == (PWMC) hglrc ) {
+	    wgl_ctx[i].hdc = hdc;
+	    WMesaMakeCurrent( (WMesaContext) hglrc );
 	    ctx_current = i;
 	    return TRUE;
 	}
@@ -354,7 +341,7 @@ WINGDIAPI int GLAPIENTRY wglGetPixelFormat(HDC hdc)
 }
 
 WINGDIAPI BOOL GLAPIENTRY wglSetPixelFormat(HDC hdc,int iPixelFormat,
-					const PIXELFORMATDESCRIPTOR *ppfd)
+					    PIXELFORMATDESCRIPTOR *ppfd)
 {
     (void) hdc;
     
@@ -369,8 +356,16 @@ WINGDIAPI BOOL GLAPIENTRY wglSetPixelFormat(HDC hdc,int iPixelFormat,
 
 WINGDIAPI BOOL GLAPIENTRY wglSwapBuffers(HDC hdc)
 {
-    WMesaSwapBuffers(hdc);
-    return TRUE;
+    (void) hdc;
+    if (ctx_current < 0)
+	return FALSE;
+    
+    if(wgl_ctx[ctx_current].ctx == NULL) {
+	SetLastError(0);
+	return(FALSE);
+    }
+    WMesaSwapBuffers();
+    return(TRUE);
 }
 
 static FIXED FixedFromDouble(double d)
@@ -407,12 +402,12 @@ static BOOL wglUseFontBitmaps_FX(HDC fontDevice, DWORD firstChar,
     
     bitDevice = CreateCompatibleDC(fontDevice);
     
-    /* Swap fore and back colors so the bitmap has the right polarity */
+    // Swap fore and back colors so the bitmap has the right polarity
     tempColor = GetBkColor(bitDevice);
     SetBkColor(bitDevice, GetTextColor(bitDevice));
     SetTextColor(bitDevice, tempColor);
     
-    /* Place chars based on base line */
+    // Place chars based on base line
     VERIFY(SetTextAlign(bitDevice, TA_BASELINE) != GDI_ERROR ? 1 : 0);
     
     for(i = 0; i < (int)numChars; i++) {
@@ -423,38 +418,38 @@ static BOOL wglUseFontBitmaps_FX(HDC fontDevice, DWORD firstChar,
 	HGDIOBJ origBmap;
 	unsigned char *bmap;
 	
-	curChar = (char)(i + firstChar);
+	curChar = i + firstChar;
 	
-	/* Find how high/wide this character is */
+	// Find how high/wide this character is
 	VERIFY(GetTextExtentPoint32(bitDevice, &curChar, 1, &size));
 	
-	/* Create the output bitmap */
+	// Create the output bitmap
 	charWidth = size.cx;
 	charHeight = size.cy;
-	/* Round up to the next multiple of 32 bits */
+	// Round up to the next multiple of 32 bits
 	bmapWidth = ((charWidth + 31) / 32) * 32;   
 	bmapHeight = charHeight;
 	bitObject = CreateCompatibleBitmap(bitDevice,
 					   bmapWidth,
 					   bmapHeight);
-	/* VERIFY(bitObject); */
+	//VERIFY(bitObject);
 	
-	/* Assign the output bitmap to the device */
+	// Assign the output bitmap to the device
 	origBmap = SelectObject(bitDevice, bitObject);
 	(void) VERIFY(origBmap);
 	
 	VERIFY( PatBlt( bitDevice, 0, 0, bmapWidth, bmapHeight,BLACKNESS ) );
 	
-	/* Use our source font on the device */
+	// Use our source font on the device
 	VERIFY(SelectObject(bitDevice, GetCurrentObject(fontDevice,OBJ_FONT)));
 	
-	/* Draw the character */
+	// Draw the character
 	VERIFY(TextOut(bitDevice, 0, metric.tmAscent, &curChar, 1));
 	
-	/* Unselect our bmap object */
+	// Unselect our bmap object
 	VERIFY(SelectObject(bitDevice, origBmap));
 	
-	/* Convert the display dependant representation to a 1 bit deep DIB */
+	// Convert the display dependant representation to a 1 bit deep DIB
 	numBytes = (bmapWidth * bmapHeight) / 8;
 	bmap = malloc(numBytes);
 	dibInfo->bmiHeader.biWidth = bmapWidth;
@@ -462,24 +457,24 @@ static BOOL wglUseFontBitmaps_FX(HDC fontDevice, DWORD firstChar,
 	res = GetDIBits(bitDevice, bitObject, 0, bmapHeight, bmap,
 			dibInfo,
 			DIB_RGB_COLORS);
-	/* VERIFY(res); */
+	//VERIFY(res);
 	
-	/* Create the GL object */
+	// Create the GL object
 	glNewList(i + listBase, GL_COMPILE);
-	glBitmap(bmapWidth, bmapHeight, 0.0, (GLfloat)metric.tmDescent,
-		 (GLfloat)charWidth, 0.0,
+	glBitmap(bmapWidth, bmapHeight, 0.0, metric.tmDescent,
+		 charWidth, 0.0,
 		 bmap);
 	glEndList();
-	/* CheckGL(); */
+	// CheckGL();
 	
-	/* Destroy the bmap object */
+	// Destroy the bmap object
 	DeleteObject(bitObject);
 	
-	/* Deallocate the bitmap data */
+	// Deallocate the bitmap data
 	free(bmap);
     }
     
-    /* Destroy the DC */
+    // Destroy the DC
     VERIFY(DeleteDC(bitDevice));
     
     free(dibInfo);
@@ -564,10 +559,9 @@ WINGDIAPI BOOL GLAPIENTRY wglUseFontBitmapsA(HDC hdc, DWORD first,
 	}
 	
 	glBitmap(gm.gmBlackBoxX,gm.gmBlackBoxY,
-		 (GLfloat)-gm.gmptGlyphOrigin.x,
-		 (GLfloat)gm.gmptGlyphOrigin.y,
-		 (GLfloat)gm.gmCellIncX,
-		 (GLfloat)gm.gmCellIncY,
+		 -gm.gmptGlyphOrigin.x,
+		 gm.gmptGlyphOrigin.y,
+		 gm.gmCellIncX,gm.gmCellIncY,
 		 (const GLubyte * )lpBits);
 	
 	GlobalUnlock(hBits);
@@ -692,1306 +686,10 @@ WINGDIAPI BOOL GLAPIENTRY wglRealizeLayerPalette(HDC hdc,
 }
 
 WINGDIAPI BOOL GLAPIENTRY wglSwapLayerBuffers(HDC hdc,
-                                              UINT fuPlanes)
+					      UINT fuPlanes)
 {
     (void) hdc; (void) fuPlanes;
     SetLastError(0);
     return(FALSE);
 }
-
-WINGDIAPI const char * GLAPIENTRY wglGetExtensionsStringARB(HDC hdc)
-{
-     /* WGL_ARB_render_texture */
-    return "WGL_ARB_extensions_string WGL_"
-           "ARB_pixel_format WGL_ARB_multi"
-           "sample WGL_EXT_swap_control WG"
-           "L_ARB_pbuffer WGL_ARB_render_t"
-           "exture WGL_ARB_make_current_re"
-           "ad WGL_EXT_extensions_string W"
-           "GL_ARB_buffer_region ";
-}
-
-GLAPI const char * GLAPIENTRY
-wglGetExtensionsStringEXT (void)
-{
-    /* WGL_ARB_render_texture */
-    return "WGL_ARB_extensions_string WGL_"
-           "ARB_pixel_format WGL_ARB_multi"
-           "sample WGL_EXT_swap_control WG"
-           "L_ARB_pbuffer WGL_ARB_render_t"
-           "exture WGL_ARB_make_current_re"
-           "ad WGL_EXT_extensions_string W"
-           "GL_ARB_buffer_region ";
-}
-
-GLAPI BOOL GLAPIENTRY
-wglChoosePixelFormatARB (HDC hdc,
-                         const int *piAttribIList,
-                         const FLOAT *pfAttribFList,
-                         UINT nMaxFormats,
-                         int *piFormats,
-                         UINT *nNumFormats)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglSwapIntervalEXT (int interval)
-{
-   /*
-   WMesaContext ctx = wglGetCurrentContext();
-   if (ctx == NULL) {
-      return FALSE;
-   }
-   if (interval < 0) {
-      interval = 0;
-   } else if (interval > 3) {
-      interval = 3;
-   }
-   ctx->gl_ctx.swapInterval = interval;
-   return TRUE;
-   */
-    return FALSE;
-}
-
-GLAPI int GLAPIENTRY
-wglGetSwapIntervalEXT (void)
-{
-    /*
-
-   WMesaContext ctx = wglGetCurrentContext();
-
-   if (ctx == NULL) {
-      return -1;
-   }
-   return (int)ctx->gl_ctx.swapInterval;
-   */
-    return -1;
-}
-
-/* WGL_ARB_pixel_format */
-#define WGL_NUMBER_PIXEL_FORMATS_ARB    0x2000
-#define WGL_DRAW_TO_WINDOW_ARB          0x2001
-#define WGL_DRAW_TO_BITMAP_ARB          0x2002
-#define WGL_ACCELERATION_ARB            0x2003
-#define WGL_NEED_PALETTE_ARB            0x2004
-#define WGL_NEED_SYSTEM_PALETTE_ARB     0x2005
-#define WGL_SWAP_LAYER_BUFFERS_ARB      0x2006
-#define WGL_SWAP_METHOD_ARB             0x2007
-#define WGL_NUMBER_UNDERLAYS_ARB        0x2009
-#define WGL_TRANSPARENT_ARB             0x200A
-#define WGL_SHARE_DEPTH_ARB             0x200C
-#define WGL_SHARE_ACCUM_ARB             0x200E
-#define WGL_SUPPORT_GDI_ARB             0x200F
-#define WGL_SUPPORT_OPENGL_ARB          0x2010
-#define WGL_DOUBLE_BUFFER_ARB           0x2011
-#define WGL_STEREO_ARB                  0x2012
-#define WGL_PIXEL_TYPE_ARB              0x2013
-#define WGL_COLOR_BITS_ARB              0x2014
-#define WGL_RED_BITS_ARB                0x2015
-#define WGL_RED_SHIFT_ARB               0x2016
-#define WGL_GREEN_BITS_ARB              0x2017
-#define WGL_GREEN_SHIFT_ARB             0x2018
-#define WGL_BLUE_BITS_ARB               0x2019
-#define WGL_BLUE_SHIFT_ARB              0x201A
-#define WGL_ALPHA_BITS_ARB              0x201B
-#define WGL_ALPHA_SHIFT_ARB             0x201C
-#define WGL_ACCUM_BITS_ARB              0x201D
-#define WGL_ACCUM_RED_BITS_ARB          0x201E
-#define WGL_ACCUM_GREEN_BITS_ARB        0x201F
-#define WGL_ACCUM_BLUE_BITS_ARB         0x2020
-#define WGL_ACCUM_ALPHA_BITS_ARB        0x2021
-#define WGL_DEPTH_BITS_ARB              0x2022
-#define WGL_STENCIL_BITS_ARB            0x2023
-#define WGL_AUX_BUFFERS_ARB             0x2024
-#define WGL_NO_ACCELERATION_ARB         0x2025
-#define WGL_GENERIC_ACCELERATION_ARB    0x2026
-#define WGL_FULL_ACCELERATION_ARB       0x2027
-#define WGL_DRAW_TO_PBUFFER_ARB         0x202D
-#define WGL_MAX_PBUFFER_PIXELS_ARB      0x202E
-#define WGL_MAX_PBUFFER_WIDTH_ARB       0x202F
-#define WGL_MAX_PBUFFER_HEIGHT_ARB      0x2030
-#define WGL_SAMPLE_BUFFERS_ARB          0x2041
-#define WGL_SAMPLES_ARB                 0x2042
-
-
-GLAPI BOOL GLAPIENTRY
-wglGetPixelFormatAttribivARB (HDC hdc,
-                              int iPixelFormat,
-                              int iLayerPlane,
-                              UINT nAttributes,
-                              int *piAttributes,
-                              int *piValues)
-{
-    BOOL retVal = FALSE;
-    BOOL Count = 0;
-    int i;
-
-    for (i=0;i<nAttributes;i++)
-    {
-        switch (piAttributes[i])
-        {
-
-            case WGL_ACCELERATION_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ( ( pfd[iPixelFormat - 1].pfd.dwFlags & PFD_GENERIC_FORMAT ) == PFD_GENERIC_FORMAT)
-                    {
-                        piValues[i] = WGL_NO_ACCELERATION_ARB;  // or WGL_GENERIC_ACCELERATION_ARB ?
-                    }
-
-                    else if ( ( pfd[iPixelFormat - 1].pfd.dwFlags & PFD_GENERIC_FORMAT ) == PFD_GENERIC_ACCELERATED)
-                    {
-                        piValues[i] = WGL_GENERIC_ACCELERATION_ARB;  // or WGL_FULL_ACCELERATION_ARB ?
-                    }
-                    else
-                    {
-                        piValues[i] = WGL_FULL_ACCELERATION_ARB;  // or WGL_NO_ACCELERATION_ARB ?
-                    }
-                    Count++;
-                }
-                else
-                {
-                     SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                /* note from http://developer.3dlabs.com/documents/WGLmanpages/wglgetpixelformatattribarb.htm
-                 *
-                 * WGL_NO_ACCELERATION_ARB
-                 * Only the software renderer supports this pixel format.
-                 *
-                 * WGL_GENERIC_ACCELERATION_ARB
-                 * The pixel format is supported by an MCD driver.
-                 *
-                 * WGL_FULL_ACCELERATION_ARB
-                 * The pixel format is supported by an ICD driver.  
-                 */
-                break;
-
-            case WGL_ACCUM_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_ALPHA_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumAlphaBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-
-            case WGL_ACCUM_BLUE_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumBlueBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_GREEN_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumGreenBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_RED_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumRedBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ALPHA_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAlphaBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ALPHA_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAlphaShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_AUX_BUFFERS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAuxBuffers;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_BLUE_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cBlueBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_BLUE_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cBlueShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_COLOR_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cColorBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_DEPTH_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cDepthBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_DRAW_TO_BITMAP_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.dwFlags & ~PFD_DRAW_TO_BITMAP;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_DRAW_TO_WINDOW_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.dwFlags & ~PFD_DRAW_TO_WINDOW;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_DRAW_TO_PBUFFER_ARB :
-                piValues[i] = GL_TRUE;
-                break;
-
-            case WGL_DOUBLE_BUFFER_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_DOUBLEBUFFER) == PFD_DOUBLEBUFFER)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_GREEN_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cGreenBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_GREEN_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cGreenShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-
-            case WGL_MAX_PBUFFER_PIXELS_ARB :
-                // FIXME
-                break;
-
-            case WGL_MAX_PBUFFER_WIDTH_ARB :
-                // FIXME
-                break;
-
-            case WGL_MAX_PBUFFER_HEIGHT_ARB :
-                // FIXME
-                break;
-
-            case WGL_NEED_PALETTE_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_NEED_PALETTE) == PFD_NEED_PALETTE)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_NEED_SYSTEM_PALETTE_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_NEED_PALETTE) == PFD_NEED_SYSTEM_PALETTE)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_NUMBER_PIXEL_FORMATS_ARB :
-                piValues[i] = (int)npfd;
-                Count++;
-                break;
-
-            case WGL_NUMBER_UNDERLAYS_ARB :
-                // FIXME
-                break;
-/*
-            case WGL_OPTIMAL_PBUFFER_WIDTH_ARB
-                // FIXME
-                break;
-
-            case WGL_OPTIMAL_PBUFFER_HEIGHT_ARB
-                // FIXME
-                break;
-*/
-            case WGL_PIXEL_TYPE_ARB :
-                // FIXME
-                break;
-
-            case WGL_RED_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cRedBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_RED_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cRedShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_SAMPLES_ARB :
-                // FIXME
-                break;
-
-            case WGL_SAMPLE_BUFFERS_ARB :
-                // FIXME
-                break;
-
-            case WGL_SHARE_ACCUM_ARB :
-                // FIXME - True if the layer plane shares the accumulation buffer with the main planes. If iLayerPlane is zero, this is always true.
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if (iLayerPlane == 0)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SHARE_DEPTH_ARB :
-                // FIXME - True if the layer plane shares the depth buffer with the main planes. If iLayerPlane is zero, this is always true.
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if (iLayerPlane == 0)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-                break;
-
-            case WGL_STENCIL_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    piValues[i] = (int)pfd[iPixelFormat - 1].pfd.cStencilBits ;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_STEREO_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_STEREO) == PFD_STEREO)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SUPPORT_GDI_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_GDI) == PFD_SUPPORT_GDI)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SUPPORT_OPENGL_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_OPENGL) == PFD_SUPPORT_OPENGL)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SWAP_LAYER_BUFFERS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_OPENGL) == PFD_SWAP_LAYER_BUFFERS)
-                    {
-                        piValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        piValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SWAP_METHOD_ARB :
-                // FIXME
-                break;
-
-            case WGL_TRANSPARENT_ARB :
-                //FIXME after WGL_TRANSPARENT_VALUE been implement piValues[i] = GL_TRUE;
-                piValues[i] = GL_FALSE;
-                Count++;
-                break;
-
-            default :
-                SetLastError(0);
-                break;
-        }
-    }
-
-    if(GetObjectType(hdc) != OBJ_DC)
-    {
-        SetLastError(ERROR_DC_NOT_FOUND);
-    }
-    else if (Count == nAttributes)
-    {
-       retVal = TRUE;
-    }
-    
-
-    return retVal;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglGetPixelFormatAttribfvARB (HDC hdc,
-                              int iPixelFormat,
-                              int iLayerPlane,
-                              UINT nAttributes,
-                              int *piAttributes,
-                              FLOAT *pfValues)
-{
-    BOOL retVal = FALSE;
-    BOOL Count = 0;
-    int i;
-
-    for (i=0;i<nAttributes;i++)
-    {
-        switch (piAttributes[i])
-        {
-
-            case WGL_ACCELERATION_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ( ( pfd[iPixelFormat - 1].pfd.dwFlags & PFD_GENERIC_FORMAT ) == PFD_GENERIC_FORMAT)
-                    {
-                        pfValues[i] = WGL_NO_ACCELERATION_ARB;  // or WGL_GENERIC_ACCELERATION_ARB ?
-                    }
-
-                    else if ( ( pfd[iPixelFormat - 1].pfd.dwFlags & PFD_GENERIC_FORMAT ) == PFD_GENERIC_ACCELERATED)
-                    {
-                        pfValues[i] = WGL_GENERIC_ACCELERATION_ARB;  // or WGL_FULL_ACCELERATION_ARB ?
-                    }
-                    else
-                    {
-                        pfValues[i] = WGL_FULL_ACCELERATION_ARB;  // or WGL_NO_ACCELERATION_ARB ?
-                    }
-                    Count++;
-                }
-                else
-                {
-                     SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                /* note from http://developer.3dlabs.com/documents/WGLmanpages/wglgetpixelformatattribarb.htm
-                 *
-                 * WGL_NO_ACCELERATION_ARB
-                 * Only the software renderer supports this pixel format.
-                 *
-                 * WGL_GENERIC_ACCELERATION_ARB
-                 * The pixel format is supported by an MCD driver.
-                 *
-                 * WGL_FULL_ACCELERATION_ARB
-                 * The pixel format is supported by an ICD driver.  
-                 */
-                break;
-
-            case WGL_ACCUM_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_ALPHA_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumAlphaBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-
-            case WGL_ACCUM_BLUE_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumBlueBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_GREEN_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumGreenBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ACCUM_RED_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAccumRedBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ALPHA_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAlphaBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_ALPHA_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAlphaShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_AUX_BUFFERS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cAuxBuffers;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_BLUE_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cBlueBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_BLUE_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cBlueShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_COLOR_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cColorBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_DEPTH_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cDepthBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_DRAW_TO_BITMAP_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.dwFlags & ~PFD_DRAW_TO_BITMAP;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_DRAW_TO_WINDOW_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.dwFlags & ~PFD_DRAW_TO_WINDOW;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_DRAW_TO_PBUFFER_ARB :
-                pfValues[i] = GL_TRUE;
-                break;
-
-            case WGL_DOUBLE_BUFFER_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_DOUBLEBUFFER) == PFD_DOUBLEBUFFER)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_GREEN_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cGreenBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_GREEN_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cGreenShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-
-            case WGL_MAX_PBUFFER_PIXELS_ARB :
-                // FIXME
-                break;
-
-            case WGL_MAX_PBUFFER_WIDTH_ARB :
-                // FIXME
-                break;
-
-            case WGL_MAX_PBUFFER_HEIGHT_ARB :
-                // FIXME
-                break;
-
-            case WGL_NEED_PALETTE_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_NEED_PALETTE) == PFD_NEED_PALETTE)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_NEED_SYSTEM_PALETTE_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_NEED_PALETTE) == PFD_NEED_SYSTEM_PALETTE)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_NUMBER_PIXEL_FORMATS_ARB :
-                pfValues[i] = (int)npfd;
-                Count++;
-                break;
-
-            case WGL_NUMBER_UNDERLAYS_ARB :
-                // FIXME
-                break;
-/*
-            case WGL_OPTIMAL_PBUFFER_WIDTH_ARB
-                // FIXME
-                break;
-
-            case WGL_OPTIMAL_PBUFFER_HEIGHT_ARB
-                // FIXME
-                break;
-*/
-            case WGL_PIXEL_TYPE_ARB :
-                // FIXME
-                break;
-
-            case WGL_RED_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cRedBits;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_RED_SHIFT_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cRedShift;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-
-                break;
-
-            case WGL_SAMPLES_ARB :
-                // FIXME
-                break;
-
-            case WGL_SAMPLE_BUFFERS_ARB :
-                // FIXME
-                break;
-
-            case WGL_SHARE_ACCUM_ARB :
-                // FIXME - True if the layer plane shares the accumulation buffer with the main planes. If iLayerPlane is zero, this is always true.
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if (iLayerPlane == 0)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SHARE_DEPTH_ARB :
-                // FIXME - True if the layer plane shares the depth buffer with the main planes. If iLayerPlane is zero, this is always true.
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if (iLayerPlane == 0)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_STENCIL_BITS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    pfValues[i] = (int)pfd[iPixelFormat - 1].pfd.cStencilBits ;
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_STEREO_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_STEREO) == PFD_STEREO)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SUPPORT_GDI_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_GDI) == PFD_SUPPORT_GDI)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SUPPORT_OPENGL_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_OPENGL) == PFD_SUPPORT_OPENGL)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SWAP_LAYER_BUFFERS_ARB :
-                if ((iPixelFormat > 0) &&  (iPixelFormat<=npfd))
-                {
-                    if ((pfd[iPixelFormat - 1].pfd.dwFlags & PFD_SUPPORT_OPENGL) == PFD_SWAP_LAYER_BUFFERS)
-                    {
-                        pfValues[i] = GL_TRUE;
-                    }
-                    else
-                    {
-                        pfValues[i] = GL_FALSE;
-                    }
-                    Count++;
-                }
-                else
-                {
-                    SetLastError(ERROR_INVALID_PIXEL_FORMAT);
-                }
-                break;
-
-            case WGL_SWAP_METHOD_ARB :
-                // FIXME
-                break;
-
-            case WGL_TRANSPARENT_ARB :
-                //FIXME after WGL_TRANSPARENT_VALUE been implement piValues[i] = GL_TRUE;
-                pfValues[i] = GL_FALSE;
-                Count++;
-                break;
-
-            default :
-                SetLastError(0);
-                break;
-        }
-    }
-
-    if(GetObjectType(hdc) != OBJ_DC)
-    {
-        SetLastError(ERROR_DC_NOT_FOUND);
-    }
-    else if (Count == nAttributes)
-    {
-       retVal = TRUE;
-    }
-
-    return retVal;
-}
-
-
-GLAPI BOOL GLAPIENTRY
-wglMakeContextCurrentARB(HDC hDrawDC,
-                         HDC hReadDC,
-                         HGLRC hglrc)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI HANDLE GLAPIENTRY
-wglGetCurrentReadDCARB(void)
-{
-   SetLastError(0);
-   return NULL;
-}
-
-typedef void *HPBUFFERARB;
-
-/* WGL_ARB_pbuffer */
-GLAPI HPBUFFERARB GLAPIENTRY
-wglCreatePbufferARB (HDC hDC,
-                     int iPixelFormat,
-                     int iWidth,
-                     int iHeight,
-                     const int *piAttribList)
-{
-   SetLastError(0);
-   return NULL;
-}
-
-GLAPI HDC GLAPIENTRY
-wglGetPbufferDCARB (HPBUFFERARB hPbuffer)
-{
-   SetLastError(0);
-   return NULL;
-}
-
-GLAPI int GLAPIENTRY
-wglReleasePbufferDCARB (HPBUFFERARB hPbuffer, HDC hDC)
-{
-   SetLastError(0);
-   return -1;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglDestroyPbufferARB (HPBUFFERARB hPbuffer)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglQueryPbufferARB (HPBUFFERARB hPbuffer,
-                    int iAttribute,
-                    int *piValue)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI HANDLE GLAPIENTRY
-wglCreateBufferRegionARB(HDC hDC,
-                         int iLayerPlane,
-                         UINT uType)
-{
-   SetLastError(0);
-   return NULL;
-}
-
-GLAPI VOID GLAPIENTRY
-wglDeleteBufferRegionARB(HANDLE hRegion)
-{
-   SetLastError(0);
-   return;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglSaveBufferRegionARB(HANDLE hRegion,
-                       int x,
-                       int y,
-                       int width,
-                       int height)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglRestoreBufferRegionARB(HANDLE hRegion,
-                          int x,
-                          int y,
-                          int width,
-                          int height,
-                          int xSrc,
-                          int ySrc)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-/* WGL_ARB_render_texture */
-GLAPI BOOL GLAPIENTRY
-wglSetPbufferAttribARB (HPBUFFERARB hPbuffer,
-                        const int *piAttribList)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglBindTexImageARB (HPBUFFERARB hPbuffer, int iBuffer)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-GLAPI BOOL GLAPIENTRY
-wglReleaseTexImageARB (HPBUFFERARB hPbuffer, int iBuffer)
-{
-   SetLastError(0);
-   return FALSE;
-}
-
-
-
 

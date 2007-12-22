@@ -23,7 +23,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
-void ME_PaintContent(ME_TextEditor *editor, HDC hDC, BOOL bOnlyNew, const RECT *rcUpdate) {
+void ME_PaintContent(ME_TextEditor *editor, HDC hDC, BOOL bOnlyNew, RECT *rcUpdate) {
   ME_DisplayItem *item;
   ME_Context c;
   int yoffset;
@@ -120,9 +120,7 @@ void ME_UpdateRepaint(ME_TextEditor *editor)
   /* send EN_CHANGE if the event mask asks for it */
   if(editor->nEventMask & ENM_CHANGE)
   {
-    editor->nEventMask &= ~ENM_CHANGE;
     ME_SendOldNotify(editor, EN_CHANGE);
-    editor->nEventMask |= ENM_CHANGE;
   }
   ME_Repaint(editor);
   ME_SendSelChange(editor);
@@ -198,7 +196,7 @@ static void ME_DrawTextWithStyle(ME_Context *c, int x, int y, LPCWSTR szText, in
   ME_UnselectStyleFont(c->editor, hDC, s, hOldFont);
 }
 
-static void ME_DebugWrite(HDC hDC, const POINT *pt, LPCWSTR szText) {
+static void ME_DebugWrite(HDC hDC, POINT *pt, WCHAR *szText) {
   int align = SetTextAlign(hDC, TA_LEFT|TA_TOP);
   HGDIOBJ hFont = SelectObject(hDC, GetStockObject(DEFAULT_GUI_FONT));
   COLORREF color = SetTextColor(hDC, RGB(128,128,128));
@@ -278,7 +276,7 @@ static void ME_DrawRun(ME_Context *c, int x, int y, ME_DisplayItem *rundi, ME_Pa
     }
 }
 
-COLORREF ME_GetBackColor(const ME_TextEditor *editor)
+COLORREF ME_GetBackColor(ME_TextEditor *editor)
 {
 /* Looks like I was seriously confused
     return GetSysColor((GetWindowLong(editor->hWnd, GWL_STYLE) & ES_READONLY) ? COLOR_3DFACE: COLOR_WINDOW);
@@ -462,7 +460,7 @@ void ME_Scroll(ME_TextEditor *editor, int value, int type)
   hWnd = editor->hWnd;
   si.cbSize = sizeof(si);
   bScrollBarWasVisible = ME_GetYScrollVisible(editor);
-  bScrollBarWillBeVisible = editor->nHeight > editor->sizeWindow.cy;
+  bScrollBarWillBeVisible = editor->nTotalLength > editor->sizeWindow.cy;
   
   if (bScrollBarWasVisible != bScrollBarWillBeVisible)
   {

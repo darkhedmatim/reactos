@@ -14,28 +14,20 @@
 # Contributor(s): Joel Peshkin <bugreport@peshkin.net>
 #                 Byron Jones <byron@glob.com.au>
 
-# testserver.pl is invoked with the baseurl of the Bugzilla installation
+# testserver.pl is involked with the baseurl of the Bugzilla installation
 # as its only argument.  It attempts to troubleshoot as many installation
 # issues as possible.
 
-use strict;
-use lib ".";
-
-BEGIN {
-    my $envpath = $ENV{'PATH'};
-    require Bugzilla;
-    # $ENV{'PATH'} is required by the 'ps' command to run correctly.
-    $ENV{'PATH'} = $envpath;
-}
-
-use Bugzilla::Constants;
-
 use Socket;
-
-my $datadir = bz_locations()->{'datadir'};
-
+use Bugzilla::Config qw($datadir);
+my $envpath = $ENV{'PATH'};
+use lib ".";
+use strict;
+require "globals.pl";
 eval "require LWP; require LWP::UserAgent;";
 my $lwp = $@ ? 0 : 1;
+
+$ENV{'PATH'}= $envpath;
 
 if ((@ARGV != 1) || ($ARGV[0] !~ /^https?:/))
 {
@@ -62,16 +54,15 @@ if ($^O !~ /MSWin32/i) {
 
 # Determine the numeric GID of $webservergroup
 my $webgroupnum = 0;
-my $webservergroup = Bugzilla->localconfig->{webservergroup};
-if ($webservergroup =~ /^(\d+)$/) {
+if ($::webservergroup =~ /^(\d+)$/) {
     $webgroupnum = $1;
 } else {
-    eval { $webgroupnum = (getgrnam $webservergroup) || 0; };
+    eval { $webgroupnum = (getgrnam $::webservergroup) || 0; };
 }
 
 # Check $webservergroup against the server's GID
 if ($sgid > 0) {
-    if ($webservergroup eq "") {
+    if ($::webservergroup eq "") {
         print 
 "WARNING \$webservergroup is set to an empty string.
 That is a very insecure practice. Please refer to the
@@ -107,8 +98,8 @@ Check your webserver configuration and try again.\n";
 
 # Try to execute a cgi script
 my $response = fetch($ARGV[0] . "/testagent.cgi");
-if ($response =~ /^OK (.*)$/) {
-    print "TEST-OK Webserver is executing CGIs via $1.\n";
+if ($response =~ /^OK/) {
+    print "TEST-OK Webserver is executing CGIs.\n";
 } elsif ($response =~ /^#!/) {
     print 
 "TEST-FAILED Webserver is fetching rather than executing CGI files.
@@ -119,9 +110,8 @@ Check the AddHandler statement in your httpd.conf file.\n";
 }
 
 # Make sure that webserver is honoring .htaccess files
-my $localconfig = bz_locations()->{'localconfig'};
-$localconfig =~ s~^\./~~;
-$url = $ARGV[0] . "/$localconfig";
+$::localconfig =~ s~^\./~~;
+$url = $ARGV[0] . "/$::localconfig";
 $response = fetch($url);
 if ($response) {
     print 
@@ -203,14 +193,6 @@ if ($@ eq '') {
         if ($@ ne '') {
             print "TEST-FAILED Chart returned: $@\n";
         }
-    }
-
-    eval 'use Template::Plugin::GD::Image';
-    if ($@) {
-        print "TEST-FAILED Template::Plugin::GD is not installed.\n";
-    }
-    else {
-        print "TEST-OK Template::Plugin::GD is installed.\n";
     }
 }
 

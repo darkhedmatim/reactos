@@ -73,14 +73,6 @@ _mesa_Fogiv(GLenum pname, const GLint *params )
 }
 
 
-#define UPDATE_FOG_SCALE(ctx) do {\
-      if (ctx->Fog.End == ctx->Fog.Start)\
-         ctx->Fog._Scale = 1.0f;\
-      else\
-         ctx->Fog._Scale = 1.0f / (ctx->Fog.End - ctx->Fog.Start);\
-   } while(0)
-
-
 void GLAPIENTRY
 _mesa_Fogfv( GLenum pname, const GLfloat *params )
 {
@@ -116,19 +108,17 @@ _mesa_Fogfv( GLenum pname, const GLfloat *params )
 	 ctx->Fog.Density = *params;
 	 break;
       case GL_FOG_START:
-         if (ctx->Fog.Start == *params)
-            return;
-         FLUSH_VERTICES(ctx, _NEW_FOG);
-         ctx->Fog.Start = *params;
-         UPDATE_FOG_SCALE(ctx);
-         break;
+	 if (ctx->Fog.Start == *params)
+	    return;
+	 FLUSH_VERTICES(ctx, _NEW_FOG);
+	 ctx->Fog.Start = *params;
+	 break;
       case GL_FOG_END:
-         if (ctx->Fog.End == *params)
-            return;
-         FLUSH_VERTICES(ctx, _NEW_FOG);
-         ctx->Fog.End = *params;
-         UPDATE_FOG_SCALE(ctx);
-         break;
+	 if (ctx->Fog.End == *params)
+	    return;
+	 FLUSH_VERTICES(ctx, _NEW_FOG);
+	 ctx->Fog.End = *params;
+	 break;
       case GL_FOG_INDEX:
  	 if (ctx->Fog.Index == *params)
 	    return;
@@ -184,5 +174,4 @@ void _mesa_init_fog( GLcontext * ctx )
    ctx->Fog.End = 1.0;
    ctx->Fog.ColorSumEnabled = GL_FALSE;
    ctx->Fog.FogCoordinateSource = GL_FRAGMENT_DEPTH_EXT;
-   ctx->Fog._Scale = 1.0f;
 }

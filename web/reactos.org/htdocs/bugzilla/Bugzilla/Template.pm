@@ -27,7 +27,6 @@
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
 #                 Frédéric Buclin <LpSolit@gmail.com>
 #                 Greg Hendricks <ghendricks@novell.com>
-#                 David D. Kilzer <ddkilzer@kilzer.net>
 
 
 package Bugzilla::Template;
@@ -35,19 +34,14 @@ package Bugzilla::Template;
 use strict;
 
 use Bugzilla::Constants;
-use Bugzilla::Install::Requirements;
+use Bugzilla::Config qw(:DEFAULT $templatedir $datadir $project);
 use Bugzilla::Util;
 use Bugzilla::User;
 use Bugzilla::Error;
 use MIME::Base64;
-use Bugzilla::Bug;
 
 # for time2str - replace by TT Date plugin??
 use Date::Format ();
-use File::Find;
-use File::Path;
-use File::Spec;
-use IO::Dir;
 
 use base qw(Template);
 
@@ -57,26 +51,26 @@ use base qw(Template);
 # traverse the arrays of exported and exportable symbols, pulling out functions
 # (which is how Perl implements constants) and ignoring the rest (which, if
 # Constants.pm exports only constants, as it should, will be nothing else).
-sub _load_constants {
-    my %constants;
-    foreach my $constant (@Bugzilla::Constants::EXPORT,
-                          @Bugzilla::Constants::EXPORT_OK)
-    {
-        if (defined Bugzilla::Constants->$constant) {
-            # Constants can be lists, and we can't know whether we're
-            # getting a scalar or a list in advance, since they come to us
-            # as the return value of a function call, so we have to
-            # retrieve them all in list context into anonymous arrays,
-            # then extract the scalar ones (i.e. the ones whose arrays
-            # contain a single element) from their arrays.
-            $constants{$constant} = [&{$Bugzilla::Constants::{$constant}}];
-            if (scalar(@{$constants{$constant}}) == 1) {
-                $constants{$constant} = @{$constants{$constant}}[0];
-            }
+use Bugzilla::Constants ();
+my %constants;
+foreach my $constant (@Bugzilla::Constants::EXPORT,
+                      @Bugzilla::Constants::EXPORT_OK)
+{
+    if (defined &{$Bugzilla::Constants::{$constant}}) {
+        # Constants can be lists, and we can't know whether we're getting
+        # a scalar or a list in advance, since they come to us as the return
+        # value of a function call, so we have to retrieve them all in list
+        # context into anonymous arrays, then extract the scalar ones (i.e.
+        # the ones whose arrays contain a single element) from their arrays.
+        $constants{$constant} = [&{$Bugzilla::Constants::{$constant}}];
+        if (scalar(@{$constants{$constant}}) == 1) {
+            $constants{$constant} = @{$constants{$constant}}[0];
         }
     }
-    return \%constants;
 }
+
+# XXX - mod_perl
+my $template_include_path;
 
 # Make an ordered list out of a HTTP Accept-Language header see RFC 2616, 14.4
 # We ignore '*' and <language-range>;q=0
@@ -106,85 +100,66 @@ sub sortAcceptLanguage {
 # Returns the path to the templates based on the Accept-Language
 # settings of the user and of the available languages
 # If no Accept-Language is present it uses the defined default
-# Templates may also be found in the extensions/ tree
 sub getTemplateIncludePath {
-    my $lang = Bugzilla->request_cache->{'language'} || "";
     # Return cached value if available
 
-    my $include_path = Bugzilla->request_cache->{"template_include_path_$lang"};
-    return $include_path if $include_path;
-
-    my $templatedir = bz_locations()->{'templatedir'};
-    my $project     = bz_locations()->{'project'};
-
-    my $languages = trim(Bugzilla->params->{'languages'});
+    # XXXX - mod_perl!
+    if ($template_include_path) {
+        return $template_include_path;
+    }
+    my $languages = trim(Param('languages'));
     if (not ($languages =~ /,/)) {
        if ($project) {
-           $include_path = [
+           $template_include_path = [
                "$templatedir/$languages/$project",
                "$templatedir/$languages/custom",
+               "$templatedir/$languages/extension",
                "$templatedir/$languages/default"
            ];
        } else {
-           $include_path = [
+           $template_include_path = [
                "$templatedir/$languages/custom",
+               "$templatedir/$languages/extension",
                "$templatedir/$languages/default"
            ];
        }
+        return $template_include_path;
     }
     my @languages       = sortAcceptLanguage($languages);
-    # If $lang is specified, only consider this language.
-    my @accept_language = ($lang) || sortAcceptLanguage($ENV{'HTTP_ACCEPT_LANGUAGE'} || "");
+    my @accept_language = sortAcceptLanguage($ENV{'HTTP_ACCEPT_LANGUAGE'} || "" );
     my @usedlanguages;
-    foreach my $language (@accept_language) {
+    foreach my $lang (@accept_language) {
         # Per RFC 1766 and RFC 2616 any language tag matches also its 
-        # primary tag. That is 'en' (accept language)  matches 'en-us',
-        # 'en-uk' etc. but not the otherway round. (This is unfortunately
+        # primary tag. That is 'en' (accept lanuage)  matches 'en-us',
+        # 'en-uk' etc. but not the otherway round. (This is unfortunally
         # not very clearly stated in those RFC; see comment just over 14.5
         # in http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.4)
-        if(my @found = grep /^\Q$language\E(-.+)?$/i, @languages) {
+        if(my @found = grep /^\Q$lang\E(-.+)?$/i, @languages) {
             push (@usedlanguages, @found);
         }
     }
-    push(@usedlanguages, Bugzilla->params->{'defaultlanguage'});
+    push(@usedlanguages, Param('defaultlanguage'));
     if ($project) {
-        $include_path = [
+        $template_include_path = [
            map((
                "$templatedir/$_/$project",
                "$templatedir/$_/custom",
+               "$templatedir/$_/extension",
                "$templatedir/$_/default"
                ), @usedlanguages
             )
         ];
     } else {
-        $include_path = [
+        $template_include_path = [
            map((
                "$templatedir/$_/custom",
+               "$templatedir/$_/extension",
                "$templatedir/$_/default"
                ), @usedlanguages
             )
         ];
     }
-    
-    # add in extension template directories:
-    my @extensions = glob(bz_locations()->{'extensionsdir'} . "/*");
-    foreach my $extension (@extensions) {
-        trick_taint($extension); # since this comes right from the filesystem
-                                 # we have bigger issues if it is insecure
-        push(@$include_path,
-            map((
-                $extension."/template/".$_),
-               @usedlanguages));
-    }
-    
-    # remove duplicates since they keep popping up:
-    my @dirs;
-    foreach my $dir (@$include_path) {
-        push(@dirs, $dir) unless grep ($dir eq $_, @dirs);
-    }
-    Bugzilla->request_cache->{"template_include_path_$lang"} = \@dirs;
-    
-    return Bugzilla->request_cache->{"template_include_path_$lang"};
+    return $template_include_path;
 }
 
 sub put_header {
@@ -225,7 +200,7 @@ sub get_format {
     eval {
         $self->context->template($template);
     };
-    # This parsing may seem fragile, but it's OK:
+    # This parsing may seem fragile, but its OK:
     # http://lists.template-toolkit.org/pipermail/templates/2003-March/004370.html
     # Even if it is wrong, any sort of error is going to cause a failure
     # eventually, so the only issue would be an incorrect error message
@@ -241,214 +216,6 @@ sub get_format {
         'extension'   => $ctype,
         'ctype'       => Bugzilla::Constants::contenttypes->{$ctype}
     };
-}
-
-# This routine quoteUrls contains inspirations from the HTML::FromText CPAN
-# module by Gareth Rees <garethr@cre.canon.co.uk>.  It has been heavily hacked,
-# all that is really recognizable from the original is bits of the regular
-# expressions.
-# This has been rewritten to be faster, mainly by substituting 'as we go'.
-# If you want to modify this routine, read the comments carefully
-
-sub quoteUrls {
-    my ($text, $curr_bugid) = (@_);
-    return $text unless $text;
-
-    # We use /g for speed, but uris can have other things inside them
-    # (http://foo/bug#3 for example). Filtering that out filters valid
-    # bug refs out, so we have to do replacements.
-    # mailto can't contain space or #, so we don't have to bother for that
-    # Do this by escaping \0 to \1\0, and replacing matches with \0\0$count\0\0
-    # \0 is used because it's unlikely to occur in the text, so the cost of
-    # doing this should be very small
-    # Also, \0 won't appear in the value_quote'd bug title, so we don't have
-    # to worry about bogus substitutions from there
-
-    # escape the 2nd escape char we're using
-    my $chr1 = chr(1);
-    $text =~ s/\0/$chr1\0/g;
-
-    # However, note that adding the title (for buglinks) can affect things
-    # In particular, attachment matches go before bug titles, so that titles
-    # with 'attachment 1' don't double match.
-    # Dupe checks go afterwards, because that uses ^ and \Z, which won't occur
-    # if it was substituted as a bug title (since that always involve leading
-    # and trailing text)
-
-    # Because of entities, it's easier (and quicker) to do this before escaping
-
-    my @things;
-    my $count = 0;
-    my $tmp;
-
-    # Provide tooltips for full bug links (Bug 74355)
-    my $urlbase_re = '(' . join('|',
-        map { qr/$_/ } grep($_, Bugzilla->params->{'urlbase'}, 
-                            Bugzilla->params->{'sslbase'})) . ')';
-    $text =~ s~\b(${urlbase_re}\Qshow_bug.cgi?id=\E([0-9]+)(\#c([0-9]+))?)\b
-              ~($things[$count++] = get_bug_link($3, $1, $5)) &&
-               ("\0\0" . ($count-1) . "\0\0")
-              ~egox;
-
-    # non-mailto protocols
-    my $safe_protocols = join('|', SAFE_PROTOCOLS);
-    my $protocol_re = qr/($safe_protocols)/i;
-
-    $text =~ s~\b(${protocol_re}:  # The protocol:
-                  [^\s<>\"]+       # Any non-whitespace
-                  [\w\/])          # so that we end in \w or /
-              ~($tmp = html_quote($1)) &&
-               ($things[$count++] = "<a href=\"$tmp\">$tmp</a>") &&
-               ("\0\0" . ($count-1) . "\0\0")
-              ~egox;
-
-    # We have to quote now, otherwise the html itself is escaped
-    # THIS MEANS THAT A LITERAL ", <, >, ' MUST BE ESCAPED FOR A MATCH
-
-    $text = html_quote($text);
-
-    # Color quoted text
-    $text =~ s~^(&gt;.+)$~<span class="quote">$1</span >~mg;
-    $text =~ s~</span >\n<span class="quote">~\n~g;
-
-    # mailto:
-    # Use |<nothing> so that $1 is defined regardless
-    $text =~ s~\b(mailto:|)?([\w\.\-\+\=]+\@[\w\-]+(?:\.[\w\-]+)+)\b
-              ~<a href=\"mailto:$2\">$1$2</a>~igx;
-
-    # attachment links - handle both cases separately for simplicity
-    $text =~ s~((?:^Created\ an\ |\b)attachment\s*\(id=(\d+)\)(\s\[edit\])?)
-              ~($things[$count++] = get_attachment_link($2, $1)) &&
-               ("\0\0" . ($count-1) . "\0\0")
-              ~egmx;
-
-    $text =~ s~\b(attachment\s*\#?\s*(\d+))
-              ~($things[$count++] = get_attachment_link($2, $1)) &&
-               ("\0\0" . ($count-1) . "\0\0")
-              ~egmxi;
-
-    # Current bug ID this comment belongs to
-    my $current_bugurl = $curr_bugid ? "show_bug.cgi?id=$curr_bugid" : "";
-
-    # This handles bug a, comment b type stuff. Because we're using /g
-    # we have to do this in one pattern, and so this is semi-messy.
-    # Also, we can't use $bug_re?$comment_re? because that will match the
-    # empty string
-    my $bug_word = get_text('term', { term => 'bug' });
-    my $bug_re = qr/\Q$bug_word\E\s*\#?\s*(\d+)/i;
-    my $comment_re = qr/comment\s*\#?\s*(\d+)/i;
-    $text =~ s~\b($bug_re(?:\s*,?\s*$comment_re)?|$comment_re)
-              ~ # We have several choices. $1 here is the link, and $2-4 are set
-                # depending on which part matched
-               (defined($2) ? get_bug_link($2,$1,$3) :
-                              "<a href=\"$current_bugurl#c$4\">$1</a>")
-              ~egox;
-
-    # Old duplicate markers. These don't use $bug_word because they are old
-    # and were never customizable.
-    $text =~ s~(?<=^\*\*\*\ This\ bug\ has\ been\ marked\ as\ a\ duplicate\ of\ )
-               (\d+)
-               (?=\ \*\*\*\Z)
-              ~get_bug_link($1, $1)
-              ~egmx;
-
-    # Now remove the encoding hacks
-    $text =~ s/\0\0(\d+)\0\0/$things[$1]/eg;
-    $text =~ s/$chr1\0/\0/g;
-
-    return $text;
-}
-
-# Creates a link to an attachment, including its title.
-sub get_attachment_link {
-    my ($attachid, $link_text) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    detaint_natural($attachid)
-      || die "get_attachment_link() called with non-integer attachment number";
-
-    my ($bugid, $isobsolete, $desc) =
-        $dbh->selectrow_array('SELECT bug_id, isobsolete, description
-                               FROM attachments WHERE attach_id = ?',
-                               undef, $attachid);
-
-    if ($bugid) {
-        my $title = "";
-        my $className = "";
-        if (Bugzilla->user->can_see_bug($bugid)) {
-            $title = $desc;
-        }
-        if ($isobsolete) {
-            $className = "bz_obsolete";
-        }
-        # Prevent code injection in the title.
-        $title = value_quote($title);
-
-        $link_text =~ s/ \[details\]$//;
-        my $linkval = "attachment.cgi?id=$attachid";
-        # Whitespace matters here because these links are in <pre> tags.
-        return qq|<span class="$className">|
-               . qq|<a href="${linkval}" name="attach_${attachid}" title="$title">$link_text</a>|
-               . qq| <a href="${linkval}&amp;action=edit" title="$title">[details]</a>|
-               . qq|</span>|;
-    }
-    else {
-        return qq{$link_text};
-    }
-}
-
-# Creates a link to a bug, including its title.
-# It takes either two or three parameters:
-#  - The bug number
-#  - The link text, to place between the <a>..</a>
-#  - An optional comment number, for linking to a particular
-#    comment in the bug
-
-sub get_bug_link {
-    my ($bug_num, $link_text, $comment_num) = @_;
-    my $dbh = Bugzilla->dbh;
-
-    if (!defined($bug_num) || ($bug_num eq "")) {
-        return "&lt;missing bug number&gt;";
-    }
-    my $quote_bug_num = html_quote($bug_num);
-    detaint_natural($bug_num) || return "&lt;invalid bug number: $quote_bug_num&gt;";
-
-    my ($bug_state, $bug_res, $bug_desc) =
-        $dbh->selectrow_array('SELECT bugs.bug_status, resolution, short_desc
-                               FROM bugs WHERE bugs.bug_id = ?',
-                               undef, $bug_num);
-
-    if ($bug_state) {
-        # Initialize these variables to be "" so that we don't get warnings
-        # if we don't change them below (which is highly likely).
-        my ($pre, $title, $post) = ("", "", "");
-
-        $title = $bug_state;
-        if ($bug_state eq 'UNCONFIRMED') {
-            $pre = "<i>";
-            $post = "</i>";
-        }
-        elsif (!is_open_state($bug_state)) {
-            $pre = '<span class="bz_closed">';
-            $title .= " $bug_res";
-            $post = '</span>';
-        }
-        if (Bugzilla->user->can_see_bug($bug_num)) {
-            $title .= " - $bug_desc";
-        }
-        # Prevent code injection in the title.
-        $title = value_quote($title);
-
-        my $linkval = "show_bug.cgi?id=$bug_num";
-        if (defined $comment_num) {
-            $linkval .= "#c$comment_num";
-        }
-        return qq{$pre<a href="$linkval" title="$title">$link_text</a>$post};
-    }
-    else {
-        return qq{$link_text};
-    }
 }
 
 ###############################################################################
@@ -529,7 +296,7 @@ sub create {
     # We need a possibility to reset the cache, so that no files from
     # the previous language pollute the action.
     if ($opts{'clean_cache'}) {
-        delete Bugzilla->request_cache->{template_include_path_};
+        $template_include_path = undef;
     }
 
     # IMPORTANT - If you make any configuration changes here, make sure to
@@ -546,7 +313,7 @@ sub create {
         PRE_CHOMP => 1,
         TRIM => 1,
 
-        COMPILE_DIR => bz_locations()->{'datadir'} . "/template",
+        COMPILE_DIR => "$datadir/template",
 
         # Initialize templates (f.e. by loading plugins like Hook).
         PRE_PROCESS => "global/initialize.none.tmpl",
@@ -639,7 +406,7 @@ sub create {
                                my ($context, $bug) = @_;
                                return sub {
                                    my $text = shift;
-                                   return quoteUrls($text, $bug);
+                                   return &::quoteUrls($text, $bug);
                                };
                            },
                            1
@@ -649,17 +416,11 @@ sub create {
                               my ($context, $bug) = @_;
                               return sub {
                                   my $text = shift;
-                                  return get_bug_link($bug, $text);
+                                  return &::GetBugLink($bug, $text);
                               };
                           },
                           1
                         ],
-
-            bug_list_link => sub
-            {
-                my $buglist = shift;
-                return join(", ", map(get_bug_link($_, $_), split(/ *, */, $buglist)));
-            },
 
             # In CSV, quotes are doubled, and any value containing a quote or a
             # comma is enclosed in quotes.
@@ -707,7 +468,7 @@ sub create {
                 my ($var) = Template::Filters::html_filter(@_);
                 # Obscure '@'.
                 $var =~ s/\@/\&#64;/g;
-                if (Bugzilla->params->{'utf8'}) {
+                if (Param('utf8')) {
                     # Remove the following characters because they're
                     # influencing BiDi:
                     # --------------------------------------------------------
@@ -737,9 +498,7 @@ sub create {
                 }
                 return $var;
             },
-
-            html_light => \&Bugzilla::Util::html_light_quote,
-
+            
             # iCalendar contentline filter
             ics => [ sub {
                          my ($context, @args) = @_;
@@ -749,7 +508,7 @@ sub create {
                              my ($output) = "";
 
                              $var =~ s/[\r\n]/ /g;
-                             $var =~ s/([;\\\",])/\\$1/g;
+                             $var =~ s/([;\\\"])/\\$1/g;
 
                              if ($par) {
                                  $output = sprintf("%s:%s", $par, $var);
@@ -765,22 +524,6 @@ sub create {
                      1
                      ],
 
-            # Note that using this filter is even more dangerous than
-            # using "none," and you should only use it when you're SURE
-            # the output won't be displayed directly to a web browser.
-            txt => sub {
-                my ($var) = @_;
-                # Trivial HTML tag remover
-                $var =~ s/<[^>]*>//g;
-                # And this basically reverses the html filter.
-                $var =~ s/\&#64;/@/g;
-                $var =~ s/\&lt;/</g;
-                $var =~ s/\&gt;/>/g;
-                $var =~ s/\&quot;/\"/g;
-                $var =~ s/\&amp;/\&/g;
-                return $var;
-            },
-
             # Wrap a displayed comment to the appropriate length
             wrap_comment => \&Bugzilla::Util::wrap_comment,
 
@@ -792,12 +535,12 @@ sub create {
 
         PLUGIN_BASE => 'Bugzilla::Template::Plugin',
 
-        CONSTANTS => _load_constants(),
+        CONSTANTS => \%constants,
 
         # Default variables for all templates
         VARIABLES => {
             # Function for retrieving global parameters.
-            'Param' => sub { return Bugzilla->params->{$_[0]}; },
+            'Param' => \&Bugzilla::Config::Param,
 
             # Function to create date strings
             'time2str' => \&Date::Format::time2str,
@@ -813,6 +556,9 @@ sub create {
             # started the session.
             'sudoer' => sub { return Bugzilla->sudoer; },
 
+            # UserInGroup. Deprecated - use the user.* functions instead
+            'UserInGroup' => \&Bugzilla::User::UserInGroup,
+
             # SendBugMail - sends mail about a bug, using Bugzilla::BugMail.pm
             'SendBugMail' => sub {
                 my ($id, $mailrecipients) = (@_);
@@ -820,97 +566,12 @@ sub create {
                 Bugzilla::BugMail::Send($id, $mailrecipients);
             },
 
-            # These don't work as normal constants.
-            DB_MODULE        => \&Bugzilla::Constants::DB_MODULE,
-            REQUIRED_MODULES => 
-                \&Bugzilla::Install::Requirements::REQUIRED_MODULES,
-            OPTIONAL_MODULES => sub {
-                my @optional = @{OPTIONAL_MODULES()};
-                @optional    = sort {$a->{feature} cmp $b->{feature}} 
-                                    @optional;
-                return \@optional;
-            },
+            # Bugzilla version
+            # This could be made a ref, or even a CONSTANT with TT2.08
+            'VERSION' => $Bugzilla::Config::VERSION ,
         },
 
    }) || die("Template creation failed: " . $class->error());
-}
-
-# Used as part of the two subroutines below.
-our (%_templates_to_precompile, $_current_path);
-
-sub precompile_templates {
-    my ($output) = @_;
-
-    # Remove the compiled templates.
-    my $datadir = bz_locations()->{'datadir'};
-    if (-e "$datadir/template") {
-        print "Removing existing compiled templates ...\n" if $output;
-
-        # XXX This frequently fails if the webserver made the files, because
-        # then the webserver owns the directories. We could fix that by
-        # doing a chmod/chown on all the directories here.
-        rmtree("$datadir/template");
-
-        # Check that the directory was really removed
-        if(-e "$datadir/template") {
-            print "\n\n";
-            print "The directory '$datadir/template' could not be removed.\n";
-            print "Please remove it manually and rerun checksetup.pl.\n\n";
-            exit;
-        }
-    }
-
-    print "Precompiling templates...\n" if $output;
-
-    my $templatedir = bz_locations()->{'templatedir'};
-    # Don't hang on templates which use the CGI library
-    eval("use CGI qw(-no_debug)");
-    
-    my $dir_reader    = new IO::Dir($templatedir) || die "$templatedir: $!";
-    my @language_dirs = grep { /^[a-z-]+$/i } $dir_reader->read;
-    $dir_reader->close;
-
-    foreach my $dir (@language_dirs) {
-        next if ($dir eq 'CVS');
-        -d "$templatedir/$dir/default" || -d "$templatedir/$dir/custom" 
-            || next;
-        local $ENV{'HTTP_ACCEPT_LANGUAGE'} = $dir;
-        # We locally hack this parameter so that Bugzilla::Template
-        # accepts this language no matter what.
-        local Bugzilla->params->{'languages'} = "$dir,en";
-        my $template = Bugzilla::Template->create(clean_cache => 1);
-
-        # Precompile all the templates found in all the directories.
-        %_templates_to_precompile = ();
-        foreach my $subdir (qw(custom extension default), bz_locations()->{'project'}) {
-            next unless $subdir; # If 'project' is empty.
-            $_current_path = File::Spec->catdir($templatedir, $dir, $subdir);
-            next unless -d $_current_path;
-            # Traverse the template hierarchy.
-            find({ wanted => \&_precompile_push, no_chdir => 1 }, $_current_path);
-        }
-        # The sort isn't totally necessary, but it makes debugging easier
-        # by making the templates always be compiled in the same order.
-        foreach my $file (sort keys %_templates_to_precompile) {
-            # Compile the template but throw away the result. This has the side-
-            # effect of writing the compiled version to disk.
-            $template->context->template($file);
-        }
-    }
-
-    # If anything created a Template object before now, clear it out.
-    delete Bugzilla->request_cache->{template};
-}
-
-# Helper for precompile_templates
-sub _precompile_push {
-    my $name = $File::Find::name;
-    return if (-d $name);
-    return if ($name =~ /\/CVS\//);
-    return if ($name !~ /\.tmpl$/);
-   
-    $name =~ s/\Q$_current_path\E\///;
-    $_templates_to_precompile{$name} = 1;
 }
 
 1;
@@ -939,22 +600,6 @@ the C<Template> constructor.
 
 It should not be used directly by scripts or modules - instead, use
 C<Bugzilla-E<gt>instance-E<gt>template> to get an already created module.
-
-=head1 SUBROUTINES
-
-=over
-
-=item C<precompile_templates($output)>
-
-Description: Compiles all of Bugzilla's templates in every language.
-             Used mostly by F<checksetup.pl>.
-
-Params:      C<$output> - C<true> if you want the function to print
-               out information about what it's doing.
-
-Returns:     nothing
-
-=back
 
 =head1 METHODS
 

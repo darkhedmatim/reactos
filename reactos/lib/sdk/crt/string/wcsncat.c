@@ -3,6 +3,6 @@
 
 #define _UNICODE
 #include <wchar.h>
-#include "tcsncat.h"
+#include "internal/tcsncat.h"
 
 /* EOF */

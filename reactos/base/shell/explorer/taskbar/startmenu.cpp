@@ -1482,7 +1482,7 @@ void StartMenu::ResizeToButtons()
 	if (rect.bottom > cyscreen) {
 		_arrow_btns = true;
 
-		_invisible_lines = (rect.bottom-cyscreen+(STARTMENU_LINE_HEIGHT(icon_size)+1))/STARTMENU_LINE_HEIGHT(icon_size)+1;
+		_invisible_lines = (rect.bottom-cyscreen+(STARTMENU_LINE_HEIGHT(icon_size)+1))/STARTMENU_LINE_HEIGHT(icon_size)+1; 
 		rect.bottom -= _invisible_lines * STARTMENU_LINE_HEIGHT(icon_size);
 
 		bottom_max = rect.bottom;
@@ -1752,22 +1752,20 @@ LRESULT	StartMenuRoot::Init(LPCREATESTRUCT pcs)
 
 
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
-	if (!g_Globals._SHRestricted || SHRestricted(REST_STARTMENULOGOFF) != 1)
+	if (!g_Globals._SHRestricted || !SHRestricted(REST_NOCLOSE))
 #else
 	if (IS_VALUE_NOT_ZERO(hkeyAdv, _T("StartMenuLogoff")))
 #endif
 		AddButton(ResString(IDS_LOGOFF),	ICID_LOGOFF, false, IDC_LOGOFF);
 
-#ifdef _ROS_
-		AddButton(ResString(IDS_RESTART), ICID_RESTART, false, IDC_RESTART);
-#endif
 
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
-	if (!g_Globals._SHRestricted || !SHRestricted(REST_NOCLOSE))
+	if (!g_Globals._SHRestricted || SHRestricted(REST_STARTMENULOGOFF) != 1)
 #else
 	if (IS_VALUE_ZERO(hkey, _T("NoClose")))
 #endif
 		AddButton(ResString(IDS_SHUTDOWN),	ICID_SHUTDOWN, false, IDC_SHUTDOWN);
+
 
 #ifndef _ROS_
 	AddButton(ResString(IDS_TERMINATE),	ICID_LOGOFF, false, IDC_TERMINATE);
@@ -1942,15 +1940,9 @@ int StartMenuHandler::Command(int id, int code)
 
 	  case IDC_SHUTDOWN:
 		CloseStartMenu(id);
-		ShowExitWindowsDialog(g_Globals._hwndDesktop);
+		ShowExitWindowsDialog(g_Globals._hwndDesktopBar);
 		break;
 
-      case IDC_RESTART:
-		CloseStartMenu(id);
-        ShowRestartDialog(g_Globals._hwndDesktop, EWX_REBOOT);
-        /* An alternative way to do restart without shell32 help */
-        //launch_file(_hwnd, TEXT("shutdown.exe"), SW_HIDE, TEXT("-r"));
-		break;
 
 	// settings menu
 
@@ -1984,6 +1976,9 @@ int StartMenuHandler::Command(int id, int code)
 		CloseStartMenu(id);
 
 #ifndef ROSSHELL
+#ifdef _ROS_	// to be removed when printer folder will be implemented
+		MessageBox(0, TEXT("printer folder not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
+#else
 #ifndef _NO_MDI
 		XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
 		bool mdi = XMLBool(explorer_options, "mdi", true);
@@ -1993,6 +1988,7 @@ int StartMenuHandler::Command(int id, int code)
 		else
 #endif
 			SDIMainFrame::Create(TEXT("::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\::{21EC2020-3AEA-1069-A2DD-08002B30309D}\\::{2227A280-3AEA-1069-A2DE-08002B30309D}"), 0);
+#endif
 #else
 		launch_file(_hwnd, SHELLPATH_PRINTERS);
 #endif
@@ -2153,15 +2149,6 @@ void ShowExitWindowsDialog(HWND hwndOwner)
 		MessageBox(hwndOwner, TEXT("ExitWindowsDialog() not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
 }
 
-void StartMenuHandler::ShowRestartDialog(HWND hwndOwner, UINT flags)
-{
-	static DynamicFct<RESTARTWINDOWSDLG> RestartDlg(TEXT("SHELL32"), 59);
-
-	if (RestartDlg)
-		(*RestartDlg)(hwndOwner, (LPWSTR)L"You selected restart.\n\n", flags);
-	else
-		MessageBox(hwndOwner, TEXT("RestartDlg() not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
-}
 
 void SettingsMenu::AddEntries()
 {

@@ -9,18 +9,18 @@
 /* INCLUDES ******************************************************************/
 
 /* Version Data */
-#include <psdk/ntverp.h>
+#include <ntverp.h>
 #define _WIN32_WINNT _WIN32_WINNT_WS03
 #define NTDDI_VERSION NTDDI_WS03SP1
+#define NTKERNELAPI
+#define NOEXTAPI
 
 /* DDK/IFS/NDK Headers */
-#ifdef _MSC_VER
-#include <excpt.h>
-#include <ntdef.h>
-#undef DECLSPEC_IMPORT
-#define DECLSPEC_IMPORT
-#endif
+#define NTKERNELAPI
+#define NOEXTAPI
 #include <ntifs.h>
+#undef _KPROCESS
+#undef _EPROCESS
 #include <wdmguid.h>
 #include <arc/arc.h>
 #include <ntndk.h>
@@ -55,7 +55,6 @@
 #include <arc/setupblk.h>
 
 /* KD Support */
-#define NOEXTAPI
 #include <windbgkd.h>
 #include <wdbgexts.h>
 #include <kddll.h>

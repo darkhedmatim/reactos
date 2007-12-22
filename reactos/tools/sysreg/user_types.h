@@ -11,19 +11,28 @@
  */
 
 #include <string>
+#include <tchar.h>
 #include <iostream>
 
-#ifndef __LINUX__
-#define popen _popen
-#define pclose _pclose
+	typedef std::basic_string<TCHAR> string;
+	typedef std::basic_istringstream<TCHAR> istringstream;
+
+#ifdef UNICODE
+
+	using std::wcout;
+	using std::wcerr;
+	using std::endl;
+
+#define cout wcout
+#define cerr wcerr
+
+#else
+
+	using std::cout;
+	using std::cerr;
+	using std::endl;
+
 #endif
 
-typedef std::basic_string<char> string;
-typedef std::basic_istringstream<char> istringstream;
 
-using std::cout;
-using std::cerr;
-using std::endl;
-
-
-#endif // end of USER_TYPES_H__
+#endif // end of USER_TYPES_H__ 

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * NOTES:
  *
@@ -60,9 +60,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 HGLOBAL RenderHDROP(LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 {
 	UINT i;
-	int rootlen = 0,size = 0;
-	WCHAR wszRootPath[MAX_PATH];
-	WCHAR wszFileName[MAX_PATH];
+	int rootsize = 0,size = 0;
+	char szRootPath[MAX_PATH];
+	char szFileName[MAX_PATH];
 	HGLOBAL hGlobal;
 	DROPFILES *pDropFiles;
 	int offset;
@@ -72,38 +72,39 @@ HGLOBAL RenderHDROP(LPITEMIDLIST pidlRoot, LPITEMIDLIST * apidl, UINT cidl)
 	/* get the size needed */
 	size = sizeof(DROPFILES);
 
-	SHGetPathFromIDListW(pidlRoot, wszRootPath);
-	PathAddBackslashW(wszRootPath);
-	rootlen = strlenW(wszRootPath);
+	SHGetPathFromIDListA(pidlRoot, szRootPath);
+	PathAddBackslashA(szRootPath);
+	rootsize = strlen(szRootPath);
 
 	for (i=0; i<cidl;i++)
 	{
-	  _ILSimpleGetTextW(apidl[i], wszFileName, MAX_PATH);
-	  size += (rootlen + strlenW(wszFileName) + 1) * sizeof(WCHAR);
+	  _ILSimpleGetText(apidl[i], szFileName, MAX_PATH);
+	  size += rootsize + strlen(szFileName) + 1;
 	}
 
-	size += sizeof(WCHAR);
+	size++;
 
 	/* Fill the structure */
 	hGlobal = GlobalAlloc(GHND|GMEM_SHARE, size);
 	if(!hGlobal) return hGlobal;
 
         pDropFiles = (DROPFILES *)GlobalLock(hGlobal);
-	offset = (sizeof(DROPFILES) + sizeof(WCHAR) - 1) / sizeof(WCHAR);
-        pDropFiles->pFiles = offset * sizeof(WCHAR);
-        pDropFiles->fWide = TRUE;
+        pDropFiles->pFiles = sizeof(DROPFILES);
+        pDropFiles->fWide = FALSE;
 
-	strcpyW(wszFileName, wszRootPath);
+	offset = pDropFiles->pFiles;
+	strcpy(szFileName, szRootPath);
 
 	for (i=0; i<cidl;i++)
 	{
 
-	  _ILSimpleGetTextW(apidl[i], wszFileName + rootlen, MAX_PATH - rootlen);
-	  strcpyW(((WCHAR*)pDropFiles)+offset, wszFileName);
-	  offset += strlenW(wszFileName) + 1;
+	  _ILSimpleGetText(apidl[i], szFileName + rootsize, MAX_PATH - rootsize);
+	  size = strlen(szFileName) + 1;
+	  strcpy(((char*)pDropFiles)+offset, szFileName);
+	  offset += size;
 	}
 
-	((WCHAR*)pDropFiles)[offset] = 0;
+	((char*)pDropFiles)[offset] = 0;
 	GlobalUnlock(hGlobal);
 
 	return hGlobal;
@@ -238,7 +239,7 @@ HGLOBAL RenderPREFEREDDROPEFFECT (DWORD dwFlags)
 	DWORD * pdwFlag;
 	HGLOBAL hGlobal;
 
-	TRACE("(0x%08x)\n", dwFlags);
+	TRACE("(0x%08lx)\n", dwFlags);
 
 	hGlobal = GlobalAlloc(GHND|GMEM_SHARE, sizeof(DWORD));
 	if(!hGlobal) return hGlobal;
@@ -246,4 +247,24 @@ HGLOBAL RenderPREFEREDDROPEFFECT (DWORD dwFlags)
 	*pdwFlag = dwFlags;
 	GlobalUnlock(hGlobal);
 	return hGlobal;
+}
+
+/**************************************************************************
+ * IsDataInClipboard
+ *
+ * checks if there is something in the clipboard we can use
+ */
+BOOL IsDataInClipboard (HWND hwnd)
+{
+	BOOL ret = FALSE;
+
+	if (OpenClipboard(hwnd))
+	{
+	  if (GetOpenClipboardWindow())
+	  {
+	    ret = IsClipboardFormatAvailable(CF_TEXT);
+	  }
+	  CloseClipboard();
+	}
+	return ret;
 }

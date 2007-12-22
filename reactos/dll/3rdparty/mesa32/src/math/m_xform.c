@@ -43,7 +43,7 @@
 #include "mathmod.h"
 
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
 #include "m_debug.h"
 #endif
 
@@ -204,7 +204,7 @@ _math_init_transformation( void )
    init_copy0();
    init_dotprod();
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
    _math_test_all_transform_functions( "default" );
    _math_test_all_normal_transform_functions( "default" );
    _math_test_all_cliptest_functions( "default" );

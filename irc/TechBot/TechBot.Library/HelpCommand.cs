@@ -3,33 +3,38 @@ using System.Collections;
 
 namespace TechBot.Library
 {
-	public class HelpCommand : Command
+	public class HelpCommand : BaseCommand, ICommand
 	{
-        public HelpCommand(TechBotService techBot)
-            : base(techBot)
+		private IServiceOutput serviceOutput;
+		private ArrayList commands;
+		
+		public HelpCommand(IServiceOutput serviceOutput,
+		                   ArrayList commands)
 		{
+			this.serviceOutput = serviceOutput;
+			this.commands = commands;
 		}
 
-        public override string[] AvailableCommands
-        {
-            get { return new string[] { "help" }; }
-        }
-
-        public override void Handle(
-            MessageContext context,
-                           string commandName,
-                           string parameters)
-        {
-            TechBot.ServiceOutput.WriteLine(context, "I support the following commands:");
-
-            foreach (Command command in TechBot.Commands)
-            {
-                TechBot.ServiceOutput.WriteLine(context,
-                                        command.Help());
-            }
-        }
-
-        public override string Help()
+		public bool CanHandle(string commandName)
+		{
+			return CanHandle(commandName,
+			                 new string[] { "help" });
+		}
+		
+		public void Handle(MessageContext context,
+		                   string commandName,
+		                   string parameters)
+		{
+			serviceOutput.WriteLine(context,
+			                        "I support the following commands:");
+			foreach (ICommand command in commands)
+			{
+				serviceOutput.WriteLine(context,
+				                        command.Help());
+			}
+		}
+		
+		public string Help()
 		{
 			return "!help";
 		}

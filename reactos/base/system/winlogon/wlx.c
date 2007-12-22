@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Winlogon
- * FILE:            base/system/winlogon/wlx.c
+ * FILE:            services/winlogon/wlx.c
  * PURPOSE:         Logon
  * PROGRAMMERS:     Thomas Weidenmueller (w3seek@users.sourceforge.net)
  *                  Ge van Geldorp (gvg@reactos.com)
@@ -12,16 +12,11 @@
 
 #include "winlogon.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
-
-/* GLOBALS ******************************************************************/
 
 static DLGPROC PreviousWindowProc;
 static UINT_PTR IdTimer;
-
-/* FUNCTIONS ****************************************************************/
 
 static BOOL CALLBACK
 DefaultWlxWindowProc(
@@ -666,7 +661,7 @@ LoadGina(
 	}
 	else
 	{
-		TRACE("About to negociate with Gina %S. Winlogon uses version %x\n",
+		TRACE("About to negociate with Gina %S. Winlogon uses version %lx\n",
 			GinaDll, WLX_CURRENT_VERSION);
 		if (!Functions->WlxNegotiate(WLX_CURRENT_VERSION, DllVersion))
 			goto cleanup;

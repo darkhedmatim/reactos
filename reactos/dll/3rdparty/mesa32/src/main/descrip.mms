@@ -15,7 +15,7 @@ VPATH = RCS
 
 INCDIR = [---.include],[-.glapi],[-.shader]
 LIBDIR = [---.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
 SOURCES =accum.c \
 	api_arrayelt.c \
@@ -23,7 +23,6 @@ SOURCES =accum.c \
 	api_noop.c \
 	api_validate.c \
  	attrib.c \
-	arrayobj.c \
 	blend.c \
 	bufferobj.c \
 	buffers.c \
@@ -33,7 +32,6 @@ SOURCES =accum.c \
 	convolve.c \
 	debug.c \
 	depth.c \
-	depthstencil.c \
 	dispatch.c \
 	dlist.c \
 	drawpix.c \
@@ -56,14 +54,12 @@ SOURCES =accum.c \
 	light.c \
 	lines.c \
 	matrix.c \
-	mipmap.c \
 	mm.c \
 	occlude.c \
 	pixel.c \
 	points.c \
 	polygon.c \
 	rastpos.c \
-	rbadaptors.c \
 	renderbuffer.c \
 	state.c \
 	stencil.c \
@@ -85,7 +81,6 @@ api_arrayelt.obj,\
 api_loopback.obj,\
 api_noop.obj,\
 api_validate.obj,\
-arrayobj.obj,\
 attrib.obj,\
 blend.obj,\
 bufferobj.obj,\
@@ -96,7 +91,6 @@ context.obj,\
 convolve.obj,\
 debug.obj,\
 depth.obj,\
-depthstencil.obj,\
 dispatch.obj,\
 dlist.obj,\
 drawpix.obj,\
@@ -119,7 +113,6 @@ imports.obj,\
 light.obj,\
 lines.obj,\
 matrix.obj,\
-mipmap.obj,\
 mm.obj,\
 occlude.obj,\
 pixel.obj,\
@@ -161,7 +154,6 @@ api_arrayelt.obj : api_arrayelt.c
 api_loopback.obj : api_loopback.c
 api_noop.obj : api_noop.c
 api_validate.obj : api_validate.c
-arrayobj.obj : arrayobj.c
 attrib.obj : attrib.c
 blend.obj : blend.c
 bufferobj.obj : bufferobj.c
@@ -172,7 +164,6 @@ context.obj : context.c
 convolve.obj : convolve.c
 debug.obj : debug.c
 depth.obj : depth.c
-depthstencil.obj : depthstencil.c
 dispatch.obj : dispatch.c
 dlist.obj : dlist.c
 drawpix.obj : drawpix.c
@@ -195,14 +186,12 @@ imports.obj : imports.c vsnprintf.c
 light.obj : light.c
 lines.obj : lines.c
 matrix.obj : matrix.c
-mipmap.obj : mipmap.c
-mm.obj : mm.c
+mm.obj: mm.c
 occlude.obj : occlude.c
 pixel.obj : pixel.c
 points.obj : points.c
 polygon.obj : polygon.c
 rastpos.obj : rastpos.c
-rbadaptors.obj : rbadaptors.c
 renderbuffer.obj : renderbuffer.c
 state.obj : state.c
 stencil.obj : stencil.c

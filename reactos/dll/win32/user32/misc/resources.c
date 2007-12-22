@@ -2,23 +2,10 @@
 
 #include <wine/debug.h>
 
-#ifndef _CFGMGR32_H_
-#define CR_SUCCESS                        0x00000000
-#define CR_OUT_OF_MEMORY                  0x00000002
-#define CR_INVALID_POINTER                0x00000003
-#define CR_INVALID_DATA                   0x0000001F
-#endif
-
-typedef DWORD STDCALL (*CMP_REGNOTIFY) (HANDLE, LPVOID, DWORD, PULONG);
-typedef DWORD STDCALL (*CMP_UNREGNOTIFY) (ULONG );
-
 /* FIXME: Currently IsBadWritePtr is implemented using VirtualQuery which
           does not seem to work properly for stack address space. */
 /* kill `left-hand operand of comma expression has no effect' warning */
 #define IsBadWritePtr(lp, n) ((DWORD)lp==n?0:0)
-
-
-static HINSTANCE hSetupApi = NULL;
 
 BOOL STDCALL _InternalLoadString
 (
@@ -198,8 +185,8 @@ int STDCALL LoadStringW
   (
     (nBufferMax < 1) ||
     ((nBufferMax > 0)  && IsBadWritePtr(lpBuffer, nBufferMax * sizeof(lpBuffer[0]))) ||
-    /* undocumented: If nBufferMax is 0, LoadStringW will copy a pointer to the
-       in-memory image of the string to the specified buffer and return the length
+    /* undocumented: If nBufferMax is 0, LoadStringW will copy a pointer to the 
+       in-memory image of the string to the specified buffer and return the length 
        of the string in WCHARs */
     ((nBufferMax == 0) && IsBadWritePtr(lpBuffer, sizeof(lpBuffer)))
   )
@@ -239,92 +226,6 @@ int STDCALL LoadStringW
   }
   /* success */
   return nStringLen;
-}
-
-
-/*
- * @implemented
- */
-HDEVNOTIFY
-STDCALL
-RegisterDeviceNotificationW(
-    HANDLE hRecipient,
-    LPVOID NotificationFilter,
-    DWORD Flags
-    )
-{
-  DWORD ConfigRet = 0;
-  CMP_REGNOTIFY RegNotify = NULL;
-  HDEVNOTIFY hDevNotify = NULL;
-  if ( hSetupApi == NULL ) hSetupApi = LoadLibraryA("SETUPAPI.DLL");
-  if ( hSetupApi == NULL ) return NULL;
-  RegNotify = (CMP_REGNOTIFY) GetProcAddress ( hSetupApi, "CMP_RegisterNotification");
-  if (RegNotify == NULL)
-  {
-    FreeLibrary ( hSetupApi );
-    hSetupApi = NULL;
-    return NULL;
-  }
-  ConfigRet  = RegNotify ( hRecipient, NotificationFilter, Flags, (PULONG) &hDevNotify);
-  if (ConfigRet != CR_SUCCESS)
-  {
-    switch (ConfigRet)
-    {
-       case CR_OUT_OF_MEMORY:
-         SetLastError (ERROR_NOT_ENOUGH_MEMORY);
-         break;
-       case CR_INVALID_POINTER:
-         SetLastError (ERROR_INVALID_PARAMETER);
-         break;
-       case CR_INVALID_DATA:
-         SetLastError (ERROR_INVALID_DATA);
-         break;
-       default:
-         SetLastError (ERROR_SERVICE_SPECIFIC_ERROR);
-         break;
-    }
-  }
-  return hDevNotify;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-STDCALL
-UnregisterDeviceNotification(
-  HDEVNOTIFY Handle)
-{
-  DWORD ConfigRet = 0;
-  CMP_UNREGNOTIFY UnRegNotify = NULL;
-  if ( hSetupApi == NULL ) hSetupApi = LoadLibraryA("SETUPAPI.DLL");
-  if ( hSetupApi == NULL ) return FALSE;
-  UnRegNotify = (CMP_UNREGNOTIFY) GetProcAddress ( hSetupApi, "CMP_UnregisterNotification");
-  if (UnRegNotify == NULL)
-  {
-    FreeLibrary ( hSetupApi );
-    hSetupApi = NULL;
-    return FALSE;
-  }
-  ConfigRet  = UnRegNotify ( (ULONG) Handle );
-  if (ConfigRet != CR_SUCCESS)
-  {
-    switch (ConfigRet)
-    {
-       case CR_INVALID_POINTER:
-         SetLastError (ERROR_INVALID_PARAMETER);
-         break;
-       case CR_INVALID_DATA:
-         SetLastError (ERROR_INVALID_DATA);
-         break;
-       default:
-         SetLastError (ERROR_SERVICE_SPECIFIC_ERROR);
-         break;
-    }
-    return FALSE;
-  }
-  return TRUE;
 }
 
 /* EOF */

@@ -533,8 +533,8 @@ IopQueryBusDescription(
 
       /* Enumerate the Bus. */
       BusString.Buffer = BasicInformation->Name;
-      BusString.Length = (USHORT)BasicInformation->NameLength;
-      BusString.MaximumLength = (USHORT)BasicInformation->NameLength;
+      BusString.Length = BasicInformation->NameLength;
+      BusString.MaximumLength = BasicInformation->NameLength;
 
       /* Open a handle to the Root Registry Key */
       InitializeObjectAttributes(
@@ -698,7 +698,7 @@ IoReportResourceUsage(PUNICODE_STRING DriverClassName,
       *       a conflict is detected with another driver.
       */
 {
-   UNIMPLEMENTED;
+   DPRINT1("IoReportResourceUsage is unimplemented\n");
    *ConflictDetected = FALSE;
    return STATUS_SUCCESS;
 }

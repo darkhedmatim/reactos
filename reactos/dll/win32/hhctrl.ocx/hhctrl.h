@@ -38,7 +38,7 @@
 #include "initguid.h"
 #endif
 
-#include "wine/itss.h"
+#include "itss.h"
 #include "wine/unicode.h"
 
 #define WB_GOBACK     0

@@ -1,4 +1,4 @@
-; $Id: videoprt.def 27062 2007-06-07 21:13:06Z greatlrd $
+; $Id$
 ;
 ; videoprt.def - export definition file for ReactOS
 ;
@@ -8,7 +8,7 @@ VideoPortAcquireSpinLock@12
 VideoPortAcquireSpinLockAtDpcLevel@8
 VideoPortAllocateBuffer@12
 VideoPortAllocateCommonBuffer@24
-VideoPortAllocateContiguousMemory
+;VideoPortAllocateContiguousMemory
 VideoPortAllocatePool@16
 ;VideoPortAssociateEventsWithDmaHandle
 VideoPortCheckForDeviceExistence@28
@@ -27,7 +27,7 @@ VideoPortDisableInterrupt@4
 VideoPortEnableInterrupt@4
 VideoPortEnumerateChildren@8
 ;VideoPortFlushRegistry
-VideoPortFreeCommonBuffer
+;VideoPortFreeCommonBuffer
 VideoPortFreeDeviceBase@8
 VideoPortFreePool@8
 VideoPortGetAccessRanges@32

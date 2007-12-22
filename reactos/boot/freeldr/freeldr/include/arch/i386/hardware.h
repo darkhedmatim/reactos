@@ -25,60 +25,33 @@
 #include "../../reactos/registry.h"
 #endif
 
+/* CM_PARTIAL_RESOURCE_DESCRIPTOR.Flags */
+#define CM_RESOURCE_PORT_MEMORY               0x0000
+#define CM_RESOURCE_PORT_IO                   0x0001
+
+#define CM_RESOURCE_INTERRUPT_LEVEL_SENSITIVE 0x0000
+#define CM_RESOURCE_INTERRUPT_LATCHED         0x0001
+
+typedef struct _CM_COMPONENT_INFORMATION
+{
+  ULONG Flags;
+  ULONG Version;
+  ULONG Key;
+  ULONG Affinity;
+} __attribute__((packed)) CM_COMPONENT_INFORMATION, *PCM_COMPONENT_INFORMATION;
+
+
+/* CM_COMPONENT_INFORMATION.Flags */
+#define Failed      0x00000001
+//#define ReadOnly    0x00000002
+#define Removable   0x00000004
+#define ConsoleIn   0x00000008
+#define ConsoleOut  0x00000010
+#define Input       0x00000020
+#define Output      0x00000040
+
 #define CONFIG_CMD(bus, dev_fn, where) \
 	(0x80000000 | (((ULONG)(bus)) << 16) | (((dev_fn) & 0x1F) << 11) | (((dev_fn) & 0xE0) << 3) | ((where) & ~3))
-
-
-//
-// Static heap for ARC Hardware Component Tree
-// 16KB oughta be enough for anyone.
-//
-#define HW_MAX_ARC_HEAP_SIZE 16 * 1024
-
-//
-// ARC Component Configuration Routines
-//
-VOID
-NTAPI
-FldrSetComponentInformation(
-    IN PCONFIGURATION_COMPONENT_DATA ComponentKey,
-    IN IDENTIFIER_FLAG Flags,
-    IN ULONG Key,
-    IN ULONG Affinity
-);
-
-VOID
-NTAPI
-FldrSetIdentifier(
-    IN PCONFIGURATION_COMPONENT_DATA ComponentKey,
-    IN PWCHAR Identifier
-);
-
-VOID
-NTAPI
-FldrCreateSystemKey(
-    OUT PCONFIGURATION_COMPONENT_DATA *SystemKey
-);
-
-VOID
-NTAPI
-FldrCreateComponentKey(
-    IN PCONFIGURATION_COMPONENT_DATA SystemKey,
-    IN PWCHAR BusName,
-    IN ULONG BusNumber,
-    IN CONFIGURATION_CLASS Class,
-    IN CONFIGURATION_TYPE Type,
-    OUT PCONFIGURATION_COMPONENT_DATA *ComponentKey
-);
-
-VOID
-NTAPI
-FldrSetConfigurationData(
-    IN PCONFIGURATION_COMPONENT_DATA ComponentKey,
-    IN PCM_PARTIAL_RESOURCE_LIST ResourceList,
-    IN ULONG Size
-);
-
 
 /* PROTOTYPES ***************************************************************/
 
@@ -88,14 +61,22 @@ VOID StallExecutionProcessor(ULONG Microseconds);
 
 VOID HalpCalibrateStallExecution(VOID);
 
+VOID SetComponentInformation(FRLDRHKEY ComponentKey,
+			     ULONG Flags,
+			     ULONG Key,
+			     ULONG Affinity);
+
 /* hwacpi.c */
-VOID DetectAcpiBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber);
+VOID DetectAcpiBios(FRLDRHKEY SystemKey, ULONG *BusNumber);
 
 /* hwapm.c */
-VOID DetectApmBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber);
+VOID DetectApmBios(FRLDRHKEY SystemKey, ULONG *BusNumber);
+
+/* hwcpu.c */
+VOID DetectCPUs(FRLDRHKEY SystemKey);
 
 /* hwpci.c */
-VOID DetectPciBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber);
+VOID DetectPciBios(FRLDRHKEY SystemKey, ULONG *BusNumber);
 
 /* i386cpu.S */
 ULONG CpuidSupported(VOID);

@@ -1,20 +1,15 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Winlogon
- * FILE:            base/system/winlogon/screensaver.c
+ * PROJECT:         ReactOS kernel
+ * FILE:            services/winlogon/screensaver.c
  * PURPOSE:         Screen saver management
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-/* INCLUDES *****************************************************************/
-
 #include "winlogon.h"
 
+#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
-
-/* FUNCTIONS ****************************************************************/
 
 #ifndef USE_GETLASTINPUTINFO
 static LRESULT CALLBACK
@@ -279,7 +274,7 @@ StartScreenSaver(
 
 	if (bufferSize == 0)
 		goto cleanup;
-
+	
 	szApplicationName[bufferSize] = 0; /* Terminate the string */
 
 	if (wcslen(szApplicationName) == 0)

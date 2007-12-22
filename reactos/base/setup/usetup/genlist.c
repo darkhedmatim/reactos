@@ -115,7 +115,7 @@ static VOID
 DrawListFrame(PGENERIC_LIST GenericList)
 {
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   SHORT i;
 
   /* Draw upper left corner */
@@ -199,7 +199,7 @@ DrawListEntries(PGENERIC_LIST GenericList)
   PGENERIC_LIST_ENTRY ListEntry;
   PLIST_ENTRY Entry;
   COORD coPos;
-  DWORD Written;
+  ULONG Written;
   USHORT Width;
 
   coPos.X = GenericList->Left + 1;

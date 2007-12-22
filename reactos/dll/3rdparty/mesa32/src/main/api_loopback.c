@@ -146,7 +146,7 @@ static void GLAPIENTRY
 loopback_Color3iv_f( const GLint *v )
 {
    COLORF( INT_TO_FLOAT(v[0]), INT_TO_FLOAT(v[1]),
-	   INT_TO_FLOAT(v[2]), 1.0 );
+	   INT_TO_FLOAT(v[2]), INT_TO_FLOAT(v[3]) );
 }
 
 static void GLAPIENTRY
@@ -281,7 +281,6 @@ loopback_Color4ubv_f( const GLubyte *v)
 	   UBYTE_TO_FLOAT(v[2]), UBYTE_TO_FLOAT(v[3]) );
 }
 
-
 static void GLAPIENTRY
 loopback_FogCoorddEXT( GLdouble d )
 {
@@ -342,14 +341,6 @@ loopback_Indexubv( const GLubyte *c )
 {
    INDEX( (GLfloat) *c );
 }
-
-
-static void GLAPIENTRY
-loopback_EdgeFlagv(const GLboolean *flag)
-{
-   CALL_EdgeFlag(GET_DISPATCH(), (*flag));
-}
-
 
 static void GLAPIENTRY
 loopback_Normal3b( GLbyte nx, GLbyte ny, GLbyte nz )
@@ -510,7 +501,7 @@ loopback_TexCoord2sv( const GLshort *v )
 static void GLAPIENTRY
 loopback_TexCoord3dv( const GLdouble *v )
 {
-   TEXCOORD3((GLfloat) v[0],(GLfloat) v[1],(GLfloat) v[2]);
+   TEXCOORD2((GLfloat) v[0],(GLfloat) v[1]);
 }
 
 static void GLAPIENTRY
@@ -1492,8 +1483,6 @@ _mesa_loopback_init_api_table( struct _glapi_table *dest )
    SET_SecondaryColor3usvEXT(dest, loopback_SecondaryColor3usvEXT_f);
    SET_SecondaryColor3ubvEXT(dest, loopback_SecondaryColor3ubvEXT_f);
       
-   SET_EdgeFlagv(dest, loopback_EdgeFlagv);
-
    SET_Indexd(dest, loopback_Indexd);
    SET_Indexi(dest, loopback_Indexi);
    SET_Indexs(dest, loopback_Indexs);

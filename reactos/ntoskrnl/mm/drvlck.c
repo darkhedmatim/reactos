@@ -15,8 +15,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-#undef MmLockPagableDataSection
-
 #if 0
 VOID
 MmUnlockPagableImageSection(IN PVOID ImageSectionHandle)

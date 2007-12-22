@@ -1,14 +1,15 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="dhcp" type="win32cui" installbase="system32" installname="dhcp.exe" allowwarnings="true">
 	<include base="dhcp">.</include>
 	<include base="dhcp">include</include>
+	<define name="__USE_W32API" />
+	<define name="__REACTOS__" />
 	<define name="_WIN32_WINNT">0x0501</define>
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>ws2_32</library>
 	<library>iphlpapi</library>
 	<library>advapi32</library>
+	<pch>include/rosdhcp.h</pch>
 	<file>adapter.c</file>
 	<file>alloc.c</file>
 	<file>api.c</file>
@@ -24,7 +25,4 @@
 	<file>timer.c</file>
 	<file>util.c</file>
 	<file>dhcp.rc</file>
-	<directory name="include">
-		<pch>rosdhcp.h</pch>
-	</directory>
 </module>

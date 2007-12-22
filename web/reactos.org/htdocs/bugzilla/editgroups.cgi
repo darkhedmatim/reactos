@@ -24,21 +24,16 @@
 #                 Vlad Dascalu <jocuri@softhome.net>
 #                 Frédéric Buclin <LpSolit@gmail.com>
 
+# Code derived from editowners.cgi and editusers.cgi
+
 use strict;
 use lib ".";
 
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Config qw(:admin);
-use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::Group;
-use Bugzilla::Product;
 use Bugzilla::User;
-use Bugzilla::Token;
-
-use constant SPECIAL_GROUPS => ('chartgroup', 'insidergroup',
-                                'timetrackinggroup', 'querysharegroup');
+require "globals.pl";
 
 my $cgi = Bugzilla->cgi;
 my $dbh = Bugzilla->dbh;
@@ -55,7 +50,36 @@ $user->in_group('creategroups')
                                      object => "groups"});
 
 my $action = trim($cgi->param('action') || '');
-my $token  = $cgi->param('token');
+
+# RederiveRegexp: update user_group_map with regexp-based grants
+sub RederiveRegexp
+{
+    my $regexp = shift;
+    my $gid = shift;
+    my $dbh = Bugzilla->dbh;
+    my $sth = $dbh->prepare("SELECT userid, login_name, group_id
+                               FROM profiles
+                          LEFT JOIN user_group_map
+                                 ON user_group_map.user_id = profiles.userid
+                                AND group_id = ?
+                                AND grant_type = ?
+                                AND isbless = 0");
+    my $sthadd = $dbh->prepare("INSERT INTO user_group_map
+                                 (user_id, group_id, grant_type, isbless)
+                                 VALUES (?, ?, ?, 0)");
+    my $sthdel = $dbh->prepare("DELETE FROM user_group_map
+                                 WHERE user_id = ? AND group_id = ?
+                                 AND grant_type = ? and isbless = 0");
+    $sth->execute($gid, GRANT_REGEXP);
+    while (my ($uid, $login, $present) = $sth->fetchrow_array()) {
+        if (($regexp =~ /\S+/) && ($login =~ m/$regexp/i))
+        {
+            $sthadd->execute($uid, $gid, GRANT_REGEXP) unless $present;
+        } else {
+            $sthdel->execute($uid, $gid, GRANT_REGEXP) if $present;
+        }
+    }
+}
 
 # Add missing entries in bug_group_map for bugs created while
 # a mandatory group was disabled and which is now enabled again.
@@ -151,7 +175,7 @@ sub CheckGroupRegexp {
 # If no action is specified, get a list of all groups available.
 
 unless ($action) {
-    my @groups = Bugzilla::Group->get_all;
+    my @groups = Bugzilla::Group::get_all_groups();
     $vars->{'groups'} = \@groups;
     
     print $cgi->header();
@@ -225,7 +249,6 @@ if ($action eq 'changeform') {
     $vars->{'isactive'}    = $isactive;
     $vars->{'isbuggroup'}  = $isbuggroup;
     $vars->{'groups'}      = \@groups;
-    $vars->{'token'}       = issue_session_token('edit_group');
 
     print $cgi->header();
     $template->process("admin/groups/edit.html.tmpl", $vars)
@@ -241,7 +264,6 @@ if ($action eq 'changeform') {
 #
 
 if ($action eq 'add') {
-    $vars->{'token'} = issue_session_token('add_group');
     print $cgi->header();
     $template->process("admin/groups/create.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
@@ -256,7 +278,6 @@ if ($action eq 'add') {
 #
 
 if ($action eq 'new') {
-    check_token_data($token, 'add_group');
     # Check that a not already used group name is given, that
     # a description is also given and check if the regular
     # expression is valid (if any).
@@ -267,12 +288,13 @@ if ($action eq 'new') {
 
     # Add the new group
     $dbh->do('INSERT INTO groups
-              (name, description, isbuggroup, userregexp, isactive)
-              VALUES (?, ?, 1, ?, ?)',
+              (name, description, isbuggroup,
+               userregexp, isactive, last_changed)
+              VALUES (?, ?, 1, ?, ?, NOW())',
               undef, ($name, $desc, $regexp, $isactive));
 
     my $gid = $dbh->bz_last_key('groups', 'id');
-    my $admin = Bugzilla::Group->new({name => 'admin'})->id();
+    my $admin = GroupNameToId('admin');
     # Since we created a new group, give the "admin" group all privileges
     # initially.
     my $sth = $dbh->prepare('INSERT INTO group_group_map
@@ -291,8 +313,7 @@ if ($action eq 'new') {
                   SELECT ?, products.id, 0, ?, ?, 0 FROM products',
                   undef, ($gid, CONTROLMAPSHOWN, CONTROLMAPNA));
     }
-    Bugzilla::Group::RederiveRegexp($regexp, $gid);
-    delete_token($token);
+    RederiveRegexp($regexp, $gid);
 
     print $cgi->header();
     $template->process("admin/groups/created.html.tmpl", $vars)
@@ -317,17 +338,6 @@ if ($action eq 'del') {
     if (!$isbuggroup) {
         ThrowUserError("system_group_not_deletable", { name => $name });
     }
-    # Groups having a special role cannot be deleted.
-    my @special_groups;
-    foreach my $special_group (SPECIAL_GROUPS) {
-        if ($name eq Bugzilla->params->{$special_group}) {
-            push(@special_groups, $special_group);
-        }
-    }
-    if (scalar(@special_groups)) {
-        ThrowUserError('group_has_special_role', {'name'  => $name,
-                                                  'groups' => \@special_groups});
-    }
 
     # Group inheritance no longer appears in user_group_map.
     my $grouplist = join(',', @{Bugzilla::User->flatten_group_membership($gid)});
@@ -336,19 +346,13 @@ if ($action eq 'del') {
                                WHERE group_id IN ($grouplist) AND isbless = 0 " .
                                $dbh->sql_limit(1)) || 0;
 
-    my ($shared_queries) =
-        $dbh->selectrow_array('SELECT COUNT(*)
-                                 FROM namedquery_group_map
-                                WHERE group_id = ?',
-                              undef, $gid);
-
     my $bug_ids = $dbh->selectcol_arrayref('SELECT bug_id FROM bug_group_map
                                             WHERE group_id = ?', undef, $gid);
 
     my $hasbugs = scalar(@$bug_ids) ? 1 : 0;
     my $buglist = join(',', @$bug_ids);
 
-    my $hasproduct = Bugzilla::Product->new({'name' => $name}) ? 1 : 0;
+    my $hasproduct = get_product_id($name) ? 1 : 0;
 
     my $hasflags = $dbh->selectrow_array('SELECT 1 FROM flagtypes 
                                            WHERE grant_group_id = ?
@@ -356,16 +360,14 @@ if ($action eq 'del') {
                                           $dbh->sql_limit(1),
                                           undef, ($gid, $gid)) || 0;
 
-    $vars->{'gid'}            = $gid;
-    $vars->{'name'}           = $name;
-    $vars->{'description'}    = $desc;
-    $vars->{'hasusers'}       = $hasusers;
-    $vars->{'hasbugs'}        = $hasbugs;
-    $vars->{'hasproduct'}     = $hasproduct;
-    $vars->{'hasflags'}       = $hasflags;
-    $vars->{'shared_queries'} = $shared_queries;
-    $vars->{'buglist'}        = $buglist;
-    $vars->{'token'}          = issue_session_token('delete_group');
+    $vars->{'gid'}         = $gid;
+    $vars->{'name'}        = $name;
+    $vars->{'description'} = $desc;
+    $vars->{'hasusers'}    = $hasusers;
+    $vars->{'hasbugs'}     = $hasbugs;
+    $vars->{'hasproduct'}  = $hasproduct;
+    $vars->{'hasflags'}    = $hasflags;
+    $vars->{'buglist'}     = $buglist;
 
     print $cgi->header();
     $template->process("admin/groups/delete.html.tmpl", $vars)
@@ -379,7 +381,6 @@ if ($action eq 'del') {
 #
 
 if ($action eq 'delete') {
-    check_token_data($token, 'delete_group');
     # Check that an existing group ID is given
     my $gid = CheckGroupID($cgi->param('group'));
     my ($name, $isbuggroup) =
@@ -389,17 +390,6 @@ if ($action eq 'delete') {
     # System groups cannot be deleted!
     if (!$isbuggroup) {
         ThrowUserError("system_group_not_deletable", { name => $name });
-    }
-    # Groups having a special role cannot be deleted.
-    my @special_groups;
-    foreach my $special_group (SPECIAL_GROUPS) {
-        if ($name eq Bugzilla->params->{$special_group}) {
-            push(@special_groups, $special_group);
-        }
-    }
-    if (scalar(@special_groups)) {
-        ThrowUserError('group_has_special_role', {'name'  => $name,
-                                                  'groups' => \@special_groups});
     }
 
     my $cantdelete = 0;
@@ -423,9 +413,7 @@ if ($action eq 'delete') {
         $cantdelete = 1;
     }
 
-    if (Bugzilla::Product->new({'name' => $name})
-        && !defined $cgi->param('unbind'))
-    {
+    if (get_product_id($name) && !defined $cgi->param('unbind')) {
         $cantdelete = 1;
     }
 
@@ -438,35 +426,32 @@ if ($action eq 'delete') {
         $cantdelete = 1;
     }
 
+    if (!$cantdelete) {
+        $dbh->do('UPDATE flagtypes SET grant_group_id = ?
+                   WHERE grant_group_id = ?',
+                  undef, (undef, $gid));
+        $dbh->do('UPDATE flagtypes SET request_group_id = ?
+                   WHERE request_group_id = ?',
+                  undef, (undef, $gid));
+        $dbh->do('DELETE FROM user_group_map WHERE group_id = ?',
+                  undef, $gid);
+        $dbh->do('DELETE FROM group_group_map 
+                   WHERE grantor_id = ? OR member_id = ?',
+                  undef, ($gid, $gid));
+        $dbh->do('DELETE FROM bug_group_map WHERE group_id = ?',
+                  undef, $gid);
+        $dbh->do('DELETE FROM group_control_map WHERE group_id = ?',
+                  undef, $gid);
+        $dbh->do('DELETE FROM whine_schedules
+                   WHERE mailto_type = ? AND mailto = ?',
+                  undef, (MAILTO_GROUP, $gid));
+        $dbh->do('DELETE FROM groups WHERE id = ?',
+                  undef, $gid);
+    }
+
     $vars->{'gid'}        = $gid;
     $vars->{'name'}       = $name;
-
-    ThrowUserError('group_cannot_delete', $vars) if $cantdelete;
-
-    $dbh->do('UPDATE flagtypes SET grant_group_id = ?
-               WHERE grant_group_id = ?',
-              undef, (undef, $gid));
-    $dbh->do('UPDATE flagtypes SET request_group_id = ?
-               WHERE request_group_id = ?',
-              undef, (undef, $gid));
-    $dbh->do('DELETE FROM namedquery_group_map WHERE group_id = ?',
-              undef, $gid);
-    $dbh->do('DELETE FROM user_group_map WHERE group_id = ?',
-              undef, $gid);
-    $dbh->do('DELETE FROM group_group_map 
-               WHERE grantor_id = ? OR member_id = ?',
-              undef, ($gid, $gid));
-    $dbh->do('DELETE FROM bug_group_map WHERE group_id = ?',
-              undef, $gid);
-    $dbh->do('DELETE FROM group_control_map WHERE group_id = ?',
-              undef, $gid);
-    $dbh->do('DELETE FROM whine_schedules
-               WHERE mailto_type = ? AND mailto = ?',
-              undef, (MAILTO_GROUP, $gid));
-    $dbh->do('DELETE FROM groups WHERE id = ?',
-              undef, $gid);
-
-    delete_token($token);
+    $vars->{'cantdelete'} = $cantdelete;
 
     print $cgi->header();
     $template->process("admin/groups/deleted.html.tmpl", $vars)
@@ -480,8 +465,7 @@ if ($action eq 'delete') {
 #
 
 if ($action eq 'postchanges') {
-    check_token_data($token, 'edit_group');
-    # ZLL: Bug 181589: we need to have something to remove explicitly listed users from
+    # ZLL: Bug 181589: we need to have something to remove explictly listed users from
     # groups in order for the conversion to 2.18 groups to work
     my $action;
 
@@ -502,8 +486,7 @@ if ($action eq 'postchanges') {
     if ($action == 2) {
         $vars->{'regexp'} = $regexp;
     }
-    delete_token($token);
-
+    
     print $cgi->header();
     $template->process("admin/groups/change.html.tmpl", $vars)
       || ThrowTemplateError($template->error());
@@ -550,6 +533,9 @@ if (($action eq 'remove_all_regexp') || ($action eq 'remove_all')) {
             push(@users, $user);
         }
     }
+
+    $dbh->do('UPDATE groups SET last_changed = NOW()
+              WHERE id = ?', undef, $gid);
     $dbh->bz_unlock_tables();
 
     $vars->{'users'}      = \@users;
@@ -581,10 +567,7 @@ sub doGroupChanges {
     $dbh->bz_lock_tables('groups WRITE', 'group_group_map WRITE',
                          'bug_group_map WRITE', 'user_group_map WRITE',
                          'group_control_map READ', 'bugs READ', 'profiles READ',
-                         # Due to the way Bugzilla::Config::BugFields::get_param_list()
-                         # works, we need to lock these tables too.
-                         'priority READ', 'bug_severity READ', 'rep_platform READ',
-                         'op_sys READ');
+                         'namedqueries READ', 'whine_queries READ');
 
     # Check that the given group ID and regular expression are valid.
     # If tests are successful, trimmed values are returned by CheckGroup*.
@@ -615,16 +598,6 @@ sub doGroupChanges {
             $chgs = 1;
             $dbh->do('UPDATE groups SET name = ? WHERE id = ?',
                       undef, ($name, $gid));
-            # If the group is used by some parameters, we have to update
-            # these parameters too.
-            my $update_params = 0;
-            foreach my $group (SPECIAL_GROUPS) {
-                if ($cgi->param('oldname') eq Bugzilla->params->{$group}) {
-                    SetParam($group, $name);
-                    $update_params = 1;
-                }
-            }
-            write_params() if $update_params;
         }
         if ($desc ne $cgi->param('olddesc')) {
             $chgs = 1;
@@ -646,7 +619,7 @@ sub doGroupChanges {
         $chgs = 1;
         $dbh->do('UPDATE groups SET userregexp = ? WHERE id = ?',
                   undef, ($regexp, $gid));
-        Bugzilla::Group::RederiveRegexp($regexp, $gid);
+        RederiveRegexp($regexp, $gid);
     }
 
     my $sthInsert = $dbh->prepare('INSERT INTO group_group_map
@@ -684,7 +657,7 @@ sub doGroupChanges {
             }
 
             my $cansee = $cgi->param("cansee-$v") || 0;
-            if (Bugzilla->params->{"usevisibilitygroups"} 
+            if (Param("usevisibilitygroups") 
                && ($cgi->param("oldcansee-$v") != $cansee)) {
                 $chgs = 1;
                 if ($cansee != 0) {
@@ -695,6 +668,12 @@ sub doGroupChanges {
             }
 
         }
+    }
+
+    if ($chgs) {
+        # mark the changes
+        $dbh->do('UPDATE groups SET last_changed = NOW()
+                  WHERE id = ?', undef, $gid);
     }
     $dbh->bz_unlock_tables();
     return $gid, $chgs, $name, $regexp;

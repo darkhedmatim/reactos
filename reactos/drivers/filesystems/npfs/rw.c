@@ -43,7 +43,6 @@ VOID HexDump(PUCHAR Buffer, ULONG Length)
 }
 #endif
 
-static DRIVER_CANCEL NpfsReadWriteCancelRoutine;
 static VOID STDCALL
 NpfsReadWriteCancelRoutine(IN PDEVICE_OBJECT DeviceObject,
 						   IN PIRP Irp)
@@ -54,7 +53,7 @@ NpfsReadWriteCancelRoutine(IN PDEVICE_OBJECT DeviceObject,
 	PNPFS_CCB Ccb;
 	BOOLEAN Complete = FALSE;
 
-	DPRINT("NpfsReadWriteCancelRoutine(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
+	DPRINT("NpfsReadWriteCancelRoutine(DeviceObject %x, Irp %x)\n", DeviceObject, Irp);
 
 	IoReleaseCancelSpinLock(Irp->CancelIrql);
 

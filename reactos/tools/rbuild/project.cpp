@@ -35,12 +35,6 @@ Environment::GetVariable ( const string& name )
 		return "";
 }
 
-string
-Environment::GetArch ()
-{
-	return GetEnvironmentVariablePathOrDefault ( "ROS_ARCH", "i386" );
-}
-
 /* static */ string
 Environment::GetEnvironmentVariablePathOrDefault ( const string& name,
                                                    const string& defaultValue )
@@ -56,7 +50,7 @@ Environment::GetEnvironmentVariablePathOrDefault ( const string& name,
 Environment::GetIntermediatePath ()
 {
 	string defaultIntermediate =
-		string( "obj-" ) + GetArch ();
+		string( "obj-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INTERMEDIATE",
 	                                             defaultIntermediate );
 }
@@ -65,7 +59,7 @@ Environment::GetIntermediatePath ()
 Environment::GetOutputPath ()
 {
 	string defaultOutput =
-		string( "output-" ) + GetArch ();
+		string( "output-" ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "i386" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_OUTPUT",
 	                                             defaultOutput );
 }
@@ -73,7 +67,8 @@ Environment::GetOutputPath ()
 /* static */ string
 Environment::GetInstallPath ()
 {
-	string defaultInstall = GetCdOutputPath ();
+	string defaultInstall =
+		string( "reactos." ) + GetEnvironmentVariablePathOrDefault ( "ROS_CDOUTPUT", "" );
 	return GetEnvironmentVariablePathOrDefault ( "ROS_INSTALL",
 	                                             defaultInstall );
 }
@@ -99,84 +94,21 @@ ParseContext::ParseContext ()
 }
 
 
-FileLocation::FileLocation ( const DirectoryLocation directory,
-                             const std::string& relative_path,
-                             const std::string& name,
-                             const XMLElement *node )
-	: directory ( directory ),
-	  relative_path ( NormalizeFilename ( relative_path ) ),
-	  name ( name )
-{
-	if ( relative_path[0] == '/' ||
-	     relative_path[0] == '\\' ||
-	     relative_path.find ( '$' ) != string::npos ||
-	     ( relative_path.length () > 1 && ( relative_path[1] == ':' ||
-	                                        relative_path.find_last_of ( "/\\" ) == relative_path.length () - 1 ) ) ||
-	     ( relative_path.length () > 3 && relative_path.find ( ':' ) != string::npos )
-	     )
-	{
-		if ( node )
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid relative path '%s' at %s",
-			                                  relative_path.c_str (),
-			                                  node->location.c_str () );
-		else
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid relative path '%s'",
-			                                  relative_path.c_str () );
-	}
-
-	if ( name.find_first_of ( "/\\:" ) != string::npos )
-	{
-		if ( node )
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid file name '%s' at %s",
-			                                  name.c_str (),
-			                                  node->location.c_str () );
-		else
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid file name '%s'",
-			                                  name.c_str () );
-	}
-}
-
-
-FileLocation::FileLocation ( const FileLocation& other )
-	: directory ( other.directory ),
-	  relative_path ( other.relative_path ),
-	  name ( other.name )
+FileLocation::FileLocation ( Directory* directory,
+                             std::string filename )
+                             : directory (directory),
+                               filename (filename)
 {
 }
 
 
 Project::Project ( const Configuration& configuration,
-                   const string& filename,
-                   const std::map<std::string, std::string>* properties )
+                   const string& filename )
 	: xmlfile (filename),
 	  node (NULL),
 	  head (NULL),
 	  configuration (configuration)
 {
-	_backend = NULL;
-
-	if ( properties )
-	{
-		std::map<string, string>::const_iterator it;
-		for (it = properties->begin (); it != properties->end (); it++)
-		{
-			const Property *existing = LookupProperty( it->first );
-			if ( !existing )
-			{
-				Property* property = new Property ( *this, NULL, it->first, it->second );
-				non_if_data.properties.push_back (property );
-			}
-		}
-	}
-
 	ReadXml();
 }
 
@@ -211,7 +143,7 @@ Project::LookupProperty ( const string& name ) const
 }
 
 string
-Project::ResolveNextProperty ( const string& s ) const
+Project::ResolveNextProperty ( string& s ) const
 {
 	size_t i = s.find ( "${" );
 	if ( i == string::npos )
@@ -230,7 +162,7 @@ Project::ResolveNextProperty ( const string& s ) const
 			string propertyName = s.substr ( i + 2, propertyNameLength );
 			const Property* property = LookupProperty ( propertyName );
 			if ( property != NULL )
-				return string ( s ).replace ( i, propertyNameLength + 3, property->value );
+				return s.replace ( i, propertyNameLength + 3, property->value );
 		}
 	}
 	return s;
@@ -292,7 +224,7 @@ Project::WriteConfigurationFile ()
 	buf = (char*) malloc ( 10*1024 );
 	if ( buf == NULL )
 		throw OutOfMemoryException ();
-
+	
 	s = buf;
 	s = s + sprintf ( s, "/* Automatically generated. " );
 	s = s + sprintf ( s, "Edit config.xml to change configuration */\n" );
@@ -307,7 +239,7 @@ Project::WriteConfigurationFile ()
 
 	s = s + sprintf ( s, "#endif /* __INCLUDE_CONFIG_H */\n" );
 
-	FileSupportCode::WriteIfChanged ( buf, Environment::GetIntermediatePath() + sSep + "include" + sSep + "roscfg.h" );
+	FileSupportCode::WriteIfChanged ( buf, "include" + sSep + "roscfg.h" );
 
 	free ( buf );
 }
@@ -367,20 +299,20 @@ Project::ProcessXML ( const string& path )
 		ParseContext parseContext;
 		ProcessXMLSubElement ( *node->subElements[i], path, parseContext );
 	}
-
+	
 	non_if_data.ProcessXML ();
 
 	non_if_data.ExtractModules( modules );
 
 	for ( i = 0; i < non_if_data.ifs.size (); i++ )
 	{
-		const Property *property =
+		const Property *property = 
 		    LookupProperty( non_if_data.ifs[i]->property );
 
 		if( !property ) continue;
 
-		bool conditionTrue =
-			(non_if_data.ifs[i]->negated &&
+		bool conditionTrue = 
+			(non_if_data.ifs[i]->negated && 
 			 (property->value != non_if_data.ifs[i]->value)) ||
 			(property->value == non_if_data.ifs[i]->value);
 		if ( conditionTrue )
@@ -410,7 +342,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 {
 	bool subs_invalid = false;
 	If* pOldIf = parseContext.ifData;
-
+	
 	string subpath(path);
 	if ( e.name == "module" )
 	{
@@ -443,7 +375,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	{
 		const XMLAttribute* att = e.GetAttribute ( "name", true );
 		assert(att);
-		subpath = GetSubPath ( *this, e.location, path, att->value );
+		subpath = GetSubPath ( e.location, path, att->value );
 	}
 	else if ( e.name == "include" )
 	{

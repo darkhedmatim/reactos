@@ -19,14 +19,11 @@
 #ifndef __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H
 #define __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H
 
-#include <ndk/powerpc/ketypes.h>
-
 #if __GNUC__ >=3
 #pragma GCC system_header
 #endif
 
 /* Possible values for KTHREAD's NpxState */
-#define KPCR_BASE 0xff000000
 #define NPX_STATE_INVALID   0x01
 #define NPX_STATE_VALID     0x02
 #define NPX_STATE_DIRTY     0x04
@@ -110,7 +107,7 @@ static inline LONG KePPCTestAndSetBit(ULONG BitPos, volatile PULONG Addr)
     return NewValue & (1 << BitPos);
 }
 
-#define KePPCRdmsr(msr,val1,val2) __asm__ __volatile__("mfmsr 3")
+#define KePPCRdmsr(msr,val1,val2) __asm__ __volatile__("mfmsr 2")
 
 #define KePPCWrmsr(msr,val1,val2) __asm__ __volatile__("mtmsr 3")
 
@@ -123,66 +120,16 @@ __asm__ __volatile__("mfmsr 0\n\t" \
 
 #define KePPCEnableInterrupts() \
  __asm__ __volatile__("mfmsr 0\n\t" \
-                      "lis    8,0x8000@ha\n\t" \
+                      "li    8,0x8000\n\t" \
                       "or    0,8,0\n\t" \
                       "mtmsr 0\n\t")
 
-#define KePPCHaltProcessor()
-
-#define KeArchEraseFlags()
-#define KeArchDisableInterrupts() KePPCDisableInterrupts()
-
-#define PPC_MIN_CACHE_LINE_SIZE 32
-
-FORCEINLINE struct _KPCR * NTHALAPI KeGetCurrentKPCR(
-    VOID)
-{
-    return (struct _KPCR *)__readfsdword(0x1c);
-}
-
-VOID
-STDCALL
-KePPCInitThreadWithContext(
-	PKTHREAD Thread,
-	PKSYSTEM_ROUTINE SystemRoutine,
-	PKSTART_ROUTINE StartRoutine,
-	PVOID StartContext,
-	PCONTEXT Context);
-
-VOID
-STDCALL
-KeApplicationProcessorInitDispatcher(
-  VOID);
-
-VOID
-STDCALL
-KeCreateApplicationProcessorIdleThread(
-  ULONG Id);
-
-static VOID KePPCFnInit()
-{
-    __asm__("mfmsr 0\n\tori 0,0,0x2000\n\tmtmsr 0");
-}
-
-#ifdef _NTOSKRNL_ /* FIXME: Move flags above to NDK instead of here */
-VOID
-STDCALL
-KiThreadStartup(PKSYSTEM_ROUTINE SystemRoutine,
-                PKSTART_ROUTINE StartRoutine,
-                PVOID StartContext,
-                BOOLEAN UserThread,
-                KTRAP_FRAME TrapFrame);
-#endif
-VOID
-NTAPI
-KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState);
+#define KePPCHaltProcessor()     ;
 
 #endif /* __ASM__ */
 
-#define KeArchFnInit() KePPCFnInit()
-#define KeArchHaltProcessor() KePPCHaltProcessor()
-#define KeArchInitThreadWithContext(Thread,SystemRoutine,StartRoutine,StartContext,Context) \
-  KePPCInitThreadWithContext(Thread,SystemRoutine,StartRoutine,StartContext,Context)
+#define KeArchEraseFlags()
+#define KeArchDisableInterrupts() KePPCDisableInterrupts()
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H */
 

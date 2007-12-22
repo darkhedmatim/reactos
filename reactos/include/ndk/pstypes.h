@@ -37,6 +37,16 @@ Author:
 #define USER_SHARED_DATA                        (0x7FFE0000)
 
 //
+// Kernel Exports
+//
+#ifndef NTOS_MODE_USER
+
+//extern NTSYSAPI struct _EPROCESS* PsInitialSystemProcess;
+//extern NTSYSAPI POBJECT_TYPE PsProcessType;
+
+#endif
+
+//
 // Global Flags
 //
 #define FLG_STOP_ON_EXCEPTION                   0x00000001
@@ -85,11 +95,11 @@ Author:
 #define PS_REQUEST_BREAKAWAY                    1
 #define PS_NO_DEBUG_INHERIT                     2
 #define PS_INHERIT_HANDLES                      4
-#define PS_LARGE_PAGES                          8
+#define PS_UNKNOWN_VALUE                        8
 #define PS_ALL_FLAGS                            (PS_REQUEST_BREAKAWAY | \
                                                  PS_NO_DEBUG_INHERIT  | \
                                                  PS_INHERIT_HANDLES   | \
-                                                 PS_LARGE_PAGES)
+                                                 PS_UNKNOWN_VALUE)
 
 //
 // Process base priorities
@@ -97,13 +107,6 @@ Author:
 #define PROCESS_PRIORITY_IDLE                   3
 #define PROCESS_PRIORITY_NORMAL                 8
 #define PROCESS_PRIORITY_NORMAL_FOREGROUND      9
-
-//
-// Process memory priorities
-//
-#define MEMORY_PRIORITY_BACKGROUND             0
-#define MEMORY_PRIORITY_UNKNOWN                1
-#define MEMORY_PRIORITY_FOREGROUND             2
 
 //
 // Process Priority Separation Values (OR)
@@ -198,7 +201,6 @@ Author:
 #define STA_LPC_RECEIVED_MSG_ID_VALID_BIT       0x1
 #define STA_LPC_EXIT_THREAD_CALLED_BIT          0x2
 #define STA_ADDRESS_SPACE_OWNER_BIT             0x4
-#define STA_OWNS_WORKING_SET_BITS               0x1F8
 #endif
 
 #define TLS_EXPANSION_SLOTS                     1024
@@ -421,7 +423,7 @@ typedef enum _PSW32THREADCALLOUTTYPE
 //
 struct _W32THREAD;
 struct _W32PROCESS;
-//struct _ETHREAD;
+struct _ETHREAD;
 struct _WIN32_POWEREVENT_PARAMETERS;
 struct _WIN32_POWERSTATE_PARAMETERS;
 struct _WIN32_JOBCALLOUT_PARAMETERS;
@@ -627,7 +629,7 @@ typedef struct _PEB
     PVOID* ProcessHeaps;
     PVOID GdiSharedHandleTable;
     PVOID ProcessStarterHelper;
-    ULONG GdiDCAttributeList;
+    PVOID GdiDCAttributeList;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     struct _RTL_CRITICAL_SECTION *LoaderLock;
 #else
@@ -697,7 +699,7 @@ typedef struct _INITIAL_TEB
 //
 // TEB Active Frame Structures
 //
-typedef struct _TEB_ACTIVE_FRAME_CONTEXT
+typedef struct _TEB_ACTIVE_FRAME_CONTEXT 
 {
     ULONG Flags;
     LPSTR FrameName;
@@ -1146,7 +1148,7 @@ typedef struct _ETHREAD
     KSEMAPHORE AlpcWaitSemaphore;
     ULONG CacheManagerCount;
 #endif
-} ETHREAD, *PETHREAD;
+} ETHREAD;
 
 //
 // Executive Process (EPROCESS)
@@ -1160,8 +1162,8 @@ typedef struct _EPROCESS
     EX_RUNDOWN_REF RundownProtect;
     HANDLE UniqueProcessId;
     LIST_ENTRY ActiveProcessLinks;
-    ULONG QuotaUsage[3]; /* 0=PagedPool, 1=NonPagedPool, 2=Pagefile */
-    ULONG QuotaPeak[3];  /* ditto */
+    ULONG QuotaUsage[3];
+    ULONG QuotaPeak[3];
     ULONG CommitCharge;
     ULONG PeakVirtualSize;
     ULONG VirtualSize;
@@ -1184,12 +1186,16 @@ typedef struct _EPROCESS
     EX_PUSH_LOCK AddressCreationLock;
     PETHREAD RotateInProgress;
 #else
-    KGUARDED_MUTEX AddressCreationLock;
+    FAST_MUTEX AddressCreationLock; // FIXME: FAST_MUTEX for XP, KGUARDED_MUTEX for 2K3
     KSPIN_LOCK HyperSpaceLock;
 #endif
     PETHREAD ForkInProgress;
     ULONG HardwareTrigger;
-    PMM_AVL_TABLE PhysicalVadRoot;
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    PMM_AVL_TABLE PhysicalVadroot;
+#else
+    MM_AVL_TABLE PhysicalVadroot;
+#endif
     PVOID CloneRoot;
     ULONG NumberOfPrivatePages;
     ULONG NumberOfLockedPages;
@@ -1338,7 +1344,7 @@ typedef struct _EPROCESS
     UCHAR PriorityClass;
     MM_AVL_TABLE VadRoot;
     ULONG Cookie;
-} EPROCESS, *PEPROCESS;
+} EPROCESS;
 
 //
 // Job Token Filter Data

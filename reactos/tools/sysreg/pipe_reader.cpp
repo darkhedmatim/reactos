@@ -14,7 +14,6 @@
 
 namespace System_
 {
-	using std::vector;
 //---------------------------------------------------------------------------------------
 	PipeReader::PipeReader() : m_File(NULL)
 	{
@@ -29,16 +28,14 @@ namespace System_
 
 //---------------------------------------------------------------------------------------
 
-	bool PipeReader::openSource(string const & PipeCmd)
+	bool PipeReader::openPipe(string const & PipeCmd, string AccessMode)
 	{
 		if (m_File != NULL)
 		{
 			cerr << "PipeReader::openPipe> pipe already open" << endl;
 			return false;
 		}
-
-		cerr << "cmd>" << PipeCmd << endl;
-
+		// 
 		m_File = popen(PipeCmd.c_str(), "r"); //AccessMode.c_str());
 		if (m_File)
 		{
@@ -52,7 +49,7 @@ namespace System_
 
 //---------------------------------------------------------------------------------------
 
-	bool PipeReader::closeSource()
+	bool PipeReader::closePipe() 
 	{
 		if (!m_File)
 		{
@@ -61,7 +58,7 @@ namespace System_
 		}
 
 		int res = pclose(m_File);
-
+		
 		if (res == INT_MAX)
 		{
 			cerr << "Error: _pclose failed " <<endl;
@@ -74,30 +71,41 @@ namespace System_
 
 //---------------------------------------------------------------------------------------
 
-	bool PipeReader::isSourceOpen()
+	bool PipeReader::isEof()
 	{
 		return feof(m_File);
 	}
 
 //---------------------------------------------------------------------------------------
 
-	bool PipeReader::readSource(vector<string> & lines)
+	string::size_type PipeReader::readPipe(string &Buffer)
 	{
-		char * buf = (char*)malloc(100 * sizeof(char));
+		
+		TCHAR * buf = (TCHAR *)Buffer.c_str();
+		string::size_type size = Buffer.capacity();
+
 //#ifdef NDEBUG
-		memset(buf, 0x0, sizeof(char) * 100);
+		memset(buf, 0x0, sizeof(TCHAR) * size);
 //#endif
 
-		char * res = fgets(buf, 100, m_File);
+		TCHAR * res = _fgetts(buf, size, m_File);
 		if (!res)
 		{
-			//cerr << "Error: PipeReader::readPipe failed" << endl;
-			free(buf);
-			return false;
+			cerr << "Error: PipeReader::readPipe failed" << endl;
+			return 0;
 		}
-		string line(buf);
-		lines.push_back(line);
-		return true;
+		return _tcslen(buf);
+	}
+
+//---------------------------------------------------------------------------------------
+
+	bool PipeReader::writePipe(const string & Buffer)
+	{
+		//TODO
+		// implement me
+		cerr << "PipeReader::writePipe is not yet implemented" << endl;
+
+		return false;
 	}
 
 } // end of namespace System_

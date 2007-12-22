@@ -4,7 +4,7 @@
  * PROJECT:         ReactOS Display Control Panel
  * FILE:            lib/cpl/desk/appearance.c
  * PURPOSE:         Appearance property page
- *
+ * 
  * PROGRAMMERS:     Trevor McCort (lycan359@gmail.com)
  *                  Timo Kreuzer (timo[dot]kreuzer[at]web[dot]de
  */
@@ -17,7 +17,7 @@
 /* This const assigns the color and metric numbers to the elements from the elements list */
 
 /* Size 1 (width)	Size 2 (height)	Color 1					Color 2							Font			Fontcolor */
-const ASSIGNMENT g_Assignment[NUM_ELEMENTS] =
+const ASSIGNMENT g_Assignment[NUM_ELEMENTS] = 
 { {-1,				-1,				COLOR_DESKTOP,			-1,								-1,				-1},				/* -Desktop */
   {SIZE_CAPTION_Y,	-1,				COLOR_INACTIVECAPTION,	COLOR_GRADIENTINACTIVECAPTION,	FONT_CAPTION,	-1},				/* inactive window caption */
   {SIZE_BORDER_X,	SIZE_BORDER_Y,	COLOR_INACTIVEBORDER,	-1,								-1,				-1},  				/* inactive window border */
@@ -42,7 +42,7 @@ const ASSIGNMENT g_Assignment[NUM_ELEMENTS] =
   {SIZE_ICON_X,		SIZE_ICON_Y,	-1,						-1,								FONT_ICON,		-1}};				/* symbol */
 
 /* This is the list of names for the colors stored in the registry */
-const TCHAR g_RegColorNames[NUM_COLORS][MAX_COLORNAMELENGTH] =
+const TCHAR g_RegColorNames[NUM_COLORS][MAX_COLORNAMELENGTH] = 
 	{TEXT("Scrollbar"),				/* 00 = COLOR_SCROLLBAR */
 	TEXT("Background"),				/* 01 = COLOR_DESKTOP */
 	TEXT("ActiveTitle"),			/* 02 = COLOR_ACTIVECAPTION  */
@@ -130,7 +130,7 @@ LoadCurrentTheme(GLOBALS* g)
 }
 
 
-static BOOL
+static VOID
 LoadThemeFromReg(GLOBALS* g, INT iPreset)
 {
 	INT i;
@@ -138,9 +138,8 @@ LoadThemeFromReg(GLOBALS* g, INT iPreset)
 	TCHAR strValueName[10];
 	HKEY hkNewSchemes, hkScheme, hkSize;
 	DWORD dwType, dwLength;
-	BOOL Ret = FALSE;
 
-	if(RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"),
+	if(RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"), 
 		0, KEY_READ, &hkNewSchemes) == ERROR_SUCCESS)
 	{
 		if(RegOpenKeyEx(hkNewSchemes, g->ThemeTemplates[iPreset].strKeyName, 0, KEY_READ, &hkScheme) == ERROR_SUCCESS)
@@ -148,52 +147,27 @@ LoadThemeFromReg(GLOBALS* g, INT iPreset)
 			lstrcpyn(&strSizeName[6],g->ThemeTemplates[iPreset].strSizeName, 3);
 			if(RegOpenKeyEx(hkScheme, strSizeName, 0, KEY_READ, &hkSize) == ERROR_SUCCESS)
 			{
-				Ret = TRUE;
-
-				dwLength = sizeof(DWORD);
-				if (RegQueryValueEx(hkSize, TEXT("FlatMenus"), NULL, &dwType, (LPBYTE)&g->Theme.bFlatMenus, &dwLength) != ERROR_SUCCESS ||
-				    dwType != REG_DWORD || dwLength != sizeof(DWORD))
-				{
-					/* Failed to read registry value */
-					g->Theme.bFlatMenus = FALSE;
-					Ret = FALSE;
-				}
+				dwLength = sizeof(BOOL);
+				RegQueryValueEx(hkSize, TEXT("FlatMenus"), NULL, &dwType, (LPBYTE)&g->Theme.bFlatMenus, &dwLength);
 
 				for (i = 0; i <= 30; i++)
 				{
 					wsprintf(strValueName, TEXT("Color #%d"), i);
 					dwLength = sizeof(COLORREF);
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.crColor[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_DWORD || dwLength != sizeof(COLORREF))
-					{
-						/* Failed to read registry value, initialize with current setting for now */
-						g->Theme.crColor[i] = GetSysColor(i);
-						Ret = FALSE;
-					}
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.crColor[i], &dwLength);
 				}
 				for (i = 0; i <= 5; i++)
 				{
 					wsprintf(strValueName, TEXT("Font #%d"), i);
 					dwLength = sizeof(LOGFONT);
 					g->Theme.lfFont[i].lfFaceName[0] = 'x';
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.lfFont[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_BINARY || dwLength != sizeof(LOGFONT))
-					{
-						/* Failed to read registry value */
-						Ret = FALSE;
-					}
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.lfFont[i], &dwLength);
 				}
 				for (i = 0; i <= 8; i++)
 				{
 					wsprintf(strValueName, TEXT("Size #%d"), i);
-					dwLength = sizeof(UINT64);
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.Size[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_QWORD || dwLength != sizeof(UINT64))
-					{
-						/* Failed to read registry value, initialize with current setting for now */
-						g->Theme.Size[i] = GetSystemMetrics(g_SizeMetric[i]);
-						Ret = FALSE;
-					}
+					dwLength = sizeof(DWORD);
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.Size[i], &dwLength);
 				}
 				RegCloseKey(hkScheme);
 			}
@@ -201,8 +175,6 @@ LoadThemeFromReg(GLOBALS* g, INT iPreset)
 		}
 		RegCloseKey(hkNewSchemes);
 	}
-
-	return Ret;
 }
 
 
@@ -228,7 +200,7 @@ ApplyTheme(GLOBALS* g)
 	g->crCOLOR_BTNSHADOW = g->Theme.crColor[COLOR_BTNSHADOW];
 	g->crCOLOR_BTNHIGHLIGHT = g->Theme.crColor[COLOR_BTNHIGHLIGHT];
 	lfButtonFont = g->Theme.lfFont[FONT_DIALOG];
-
+	
 	/* Create new font for bold button */
 	lfButtonFont.lfWeight = FW_BOLD;
 	lfButtonFont.lfItalic = FALSE;
@@ -275,7 +247,7 @@ ApplyTheme(GLOBALS* g)
 
 		RegCloseKey(hKey);
 	}
-
+	
 	/* Apply the fonts */
 	NonClientMetrics.cbSize = sizeof(NONCLIENTMETRICS);
 	SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &NonClientMetrics, 0);
@@ -359,7 +331,7 @@ AppearancePage_OnInit(HWND hwndDlg, GLOBALS *g)
 	LoadCurrentTheme(g);
 
 	/* Fill color schemes combo */
-	Result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"),
+	Result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"), 
 		0, KEY_READ, &hkNewSchemes);
 	if (Result != ERROR_SUCCESS)
 	{

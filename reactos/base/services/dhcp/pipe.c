@@ -34,19 +34,9 @@ DWORD WINAPI PipeThreadProc( LPVOID Parameter ) {
     DWORD BytesRead, BytesWritten;
     COMM_DHCP_REQ Req;
     COMM_DHCP_REPLY Reply;
-    BOOL Result, Connected;
+    BOOL Result, Connection;
 
-    while( TRUE ) {
-        Connected = ConnectNamedPipe( CommPipe, NULL ) ?
-            TRUE : GetLastError() == ERROR_PIPE_CONNECTED;
-
-        if (!Connected) {
-            DbgPrint("DHCP: Could not connect named pipe\n");
-            CloseHandle( CommPipe );
-            CommPipe = INVALID_HANDLE_VALUE;
-            break;
-        }
-
+    while( (Connection = ConnectNamedPipe( CommPipe, NULL )) ) {
         Result = ReadFile( CommPipe, &Req, sizeof(Req), &BytesRead, NULL );
         if( Result ) {
             switch( Req.Type ) {
@@ -84,7 +74,7 @@ DWORD WINAPI PipeThreadProc( LPVOID Parameter ) {
         }
         DisconnectNamedPipe( CommPipe );
     }
-
+    
     return TRUE;
 }
 

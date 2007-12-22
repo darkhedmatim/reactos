@@ -68,7 +68,7 @@ static ATOM atSubclassProp;
 /* Generate a number of subclass window procs.
  * With a single proc alone, we can't really reliably find out the superclass,
  * so have one for each subclass. The subclass number is also stored in a prop
- * since it's needed by THEMING_CallOriginalClass(). Then, the subclass
+ * since it's needed by THEMING_CallOriginalClass(). Then, the the subclass 
  * proc and ref data are fetched and the proc called.
  */
 #define MAKE_SUBCLASS_PROC(N)                                               \
@@ -79,7 +79,7 @@ static LRESULT CALLBACK subclass_proc ## N (HWND wnd, UINT msg,             \
     ULONG_PTR refData;                                                      \
     SetPropW (wnd, (LPCWSTR)MAKEINTATOM(atSubclassProp), (HANDLE)N);        \
     refData = (ULONG_PTR)GetPropW (wnd, (LPCWSTR)MAKEINTATOM(atRefDataProp)); \
-    TRACE ("%d; (%p, %x, %lx, %lx, %lx)\n", N, wnd, msg, wParam, lParam,     \
+    TRACE ("%d; (%p, %x, %x, %lx, %lx)\n", N, wnd, msg, wParam, lParam,     \
         refData);                                                           \
     result = subclasses[N].subclassProc (wnd, msg, wParam, lParam, refData);\
     TRACE ("result = %lx\n", result);                                       \

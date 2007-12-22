@@ -825,7 +825,7 @@ MONTHCAL_SetColor(MONTHCAL_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
 {
   int prev = -1;
 
-  TRACE("%ld: color %08lx\n", wParam, lParam);
+  TRACE("%d: color %08lx\n", wParam, lParam);
 
   switch((int)wParam) {
     case MCSC_BACKGROUND:
@@ -876,7 +876,7 @@ MONTHCAL_SetMonthDelta(MONTHCAL_INFO *infoPtr, WPARAM wParam)
 {
   int prev = infoPtr->delta;
 
-  TRACE("delta %ld\n", wParam);
+  TRACE("delta %d\n", wParam);
 
   infoPtr->delta = (int)wParam;
   return prev;
@@ -950,7 +950,7 @@ MONTHCAL_SetRange(MONTHCAL_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
     SYSTEMTIME *lprgSysTimeArray=(SYSTEMTIME *)lParam;
     FILETIME ft_min, ft_max;
 
-    TRACE("%lx %lx\n", wParam, lParam);
+    TRACE("%x %lx\n", wParam, lParam);
 
     if ((wParam & GDTR_MIN && !MONTHCAL_ValidateTime(lprgSysTimeArray[0])) ||
         (wParam & GDTR_MAX && !MONTHCAL_ValidateTime(lprgSysTimeArray[1])))
@@ -1019,7 +1019,7 @@ MONTHCAL_SetDayState(const MONTHCAL_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
   int i, iMonths = (int)wParam;
   MONTHDAYSTATE *dayStates = (LPMONTHDAYSTATE)lParam;
 
-  TRACE("%lx %lx\n", wParam, lParam);
+  TRACE("%x %lx\n", wParam, lParam);
   if(iMonths!=infoPtr->monthRange) return 0;
 
   for(i=0; i<iMonths; i++)
@@ -1076,7 +1076,7 @@ MONTHCAL_GetMaxSelCount(const MONTHCAL_INFO *infoPtr)
 static LRESULT
 MONTHCAL_SetMaxSelCount(MONTHCAL_INFO *infoPtr, WPARAM wParam)
 {
-  TRACE("%lx\n", wParam);
+  TRACE("%x\n", wParam);
 
   if(GetWindowLongW(infoPtr->hwndSelf, GWL_STYLE) & MCS_MULTISELECT)  {
     infoPtr->maxSelCount = wParam;
@@ -1415,14 +1415,14 @@ MONTHCAL_LButtonDown(MONTHCAL_INFO *infoPtr, LPARAM lParam)
     infoPtr->status = MC_NEXTPRESSED;
     SetTimer(infoPtr->hwndSelf, MC_NEXTMONTHTIMER, MC_NEXTMONTHDELAY, 0);
     InvalidateRect(infoPtr->hwndSelf, NULL, FALSE);
-    return 0;
+    return TRUE;
   }
   if(hit == MCHT_TITLEBTNPREV){
     MONTHCAL_GoToPrevMonth(infoPtr);
     infoPtr->status = MC_PREVPRESSED;
     SetTimer(infoPtr->hwndSelf, MC_PREVMONTHTIMER, MC_NEXTMONTHDELAY, 0);
     InvalidateRect(infoPtr->hwndSelf, NULL, FALSE);
-    return 0;
+    return TRUE;
   }
 
   if(hit == MCHT_TITLEMONTH) {
@@ -1471,30 +1471,14 @@ MONTHCAL_LButtonDown(MONTHCAL_INFO *infoPtr, LPARAM lParam)
     SendMessageW( infoPtr->hWndYearUpDown, UDM_SETRANGE, (WPARAM) 0, MAKELONG (9999, 1753));
     SendMessageW( infoPtr->hWndYearUpDown, UDM_SETBUDDY, (WPARAM) infoPtr->hWndYearEdit, (LPARAM)0 );
     SendMessageW( infoPtr->hWndYearUpDown, UDM_SETPOS,   (WPARAM) 0,(LPARAM)infoPtr->currentYear );
-    return 0;
+    return TRUE;
 
   }
   if(hit == MCHT_TODAYLINK) {
-    NMSELCHANGE nmsc;
-
-    infoPtr->curSelDay = infoPtr->todaysDate.wDay;
-    infoPtr->firstSelDay = infoPtr->todaysDate.wDay;
     infoPtr->currentMonth=infoPtr->todaysDate.wMonth;
     infoPtr->currentYear=infoPtr->todaysDate.wYear;
-    MONTHCAL_CopyTime(&infoPtr->todaysDate, &infoPtr->minSel);
-    MONTHCAL_CopyTime(&infoPtr->todaysDate, &infoPtr->maxSel);
     InvalidateRect(infoPtr->hwndSelf, NULL, FALSE);
-
-    nmsc.nmhdr.hwndFrom = infoPtr->hwndSelf;
-    nmsc.nmhdr.idFrom   = GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_ID);
-    nmsc.nmhdr.code     = MCN_SELCHANGE;
-    MONTHCAL_CopyTime(&infoPtr->minSel, &nmsc.stSelStart);
-    MONTHCAL_CopyTime(&infoPtr->maxSel, &nmsc.stSelEnd);
-    SendMessageW(infoPtr->hwndNotify, WM_NOTIFY, (WPARAM)nmsc.nmhdr.idFrom, (LPARAM)&nmsc);
-
-    nmsc.nmhdr.code     = MCN_SELECT;
-    SendMessageW(infoPtr->hwndNotify, WM_NOTIFY, (WPARAM)nmsc.nmhdr.idFrom,(LPARAM)&nmsc);
-    return 0;
+    return TRUE;
   }
   if(hit == MCHT_CALENDARDATE) {
     SYSTEMTIME selArray[2];
@@ -1527,10 +1511,10 @@ MONTHCAL_LButtonDown(MONTHCAL_INFO *infoPtr, LPARAM lParam)
     infoPtr->firstSelDay = ht.st.wDay;
     infoPtr->curSelDay = ht.st.wDay;
     infoPtr->status = MC_SEL_LBUTDOWN;
-    return 0;
+    return TRUE;
   }
 
-  return 1;
+  return 0;
 }
 
 
@@ -1601,7 +1585,7 @@ MONTHCAL_Timer(MONTHCAL_INFO *infoPtr, WPARAM wParam)
 {
   BOOL redraw = FALSE;
 
-  TRACE("%ld\n", wParam);
+  TRACE("%d\n", wParam);
 
   switch(wParam) {
   case MC_NEXTMONTHTIMER:
@@ -1719,14 +1703,11 @@ MONTHCAL_Paint(MONTHCAL_INFO *infoPtr, WPARAM wParam)
 
 
 static LRESULT
-MONTHCAL_KillFocus(const MONTHCAL_INFO *infoPtr, HWND hFocusWnd)
+MONTHCAL_KillFocus(const MONTHCAL_INFO *infoPtr)
 {
   TRACE("\n");
 
-  if (infoPtr->hwndNotify != hFocusWnd)
-    ShowWindow(infoPtr->hwndSelf, SW_HIDE);
-  else
-    InvalidateRect(infoPtr->hwndSelf, NULL, TRUE);
+  InvalidateRect(infoPtr->hwndSelf, NULL, TRUE);
 
   return 0;
 }
@@ -1960,7 +1941,7 @@ MONTHCAL_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   MONTHCAL_INFO *infoPtr;
 
-  TRACE("hwnd=%p msg=%x wparam=%lx lparam=%lx\n", hwnd, uMsg, wParam, lParam);
+  TRACE("hwnd=%p msg=%x wparam=%x lparam=%lx\n", hwnd, uMsg, wParam, lParam);
 
   infoPtr = MONTHCAL_GetInfoPtr(hwnd);
   if (!infoPtr && (uMsg != WM_CREATE))
@@ -2034,7 +2015,7 @@ MONTHCAL_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DLGC_WANTARROWS | DLGC_WANTCHARS;
 
   case WM_KILLFOCUS:
-    return MONTHCAL_KillFocus(infoPtr, (HWND)wParam);
+    return MONTHCAL_KillFocus(infoPtr);
 
   case WM_RBUTTONDOWN:
     return MONTHCAL_RButtonDown(infoPtr, lParam);
@@ -2078,7 +2059,7 @@ MONTHCAL_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
   default:
     if ((uMsg >= WM_USER) && (uMsg < WM_APP))
-      ERR( "unknown msg %04x wp=%08lx lp=%08lx\n", uMsg, wParam, lParam);
+      ERR( "unknown msg %04x wp=%08x lp=%08lx\n", uMsg, wParam, lParam);
     return DefWindowProcW(hwnd, uMsg, wParam, lParam);
   }
 }

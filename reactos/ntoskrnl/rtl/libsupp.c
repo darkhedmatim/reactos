@@ -22,7 +22,6 @@ typedef struct _RTL_RANGE_ENTRY
 } RTL_RANGE_ENTRY, *PRTL_RANGE_ENTRY;
 
 PAGED_LOOKASIDE_LIST RtlpRangeListEntryLookasideList;
-SIZE_T RtlpAllocDeallocQueryBufferSize = 128;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -198,11 +197,11 @@ RtlpHandleDpcStackException(IN PEXCEPTION_REGISTRATION_RECORD RegistrationFrame,
         /* Check if we are in a DPC and the stack matches */
         if ((Prcb->DpcRoutineActive) &&
             (RegistrationFrameEnd <= DpcStack) &&
-            ((ULONG_PTR)RegistrationFrame >= DpcStack - KERNEL_STACK_SIZE))
+            ((ULONG_PTR)RegistrationFrame >= DpcStack - 4096))
         {
             /* Update the limits to the DPC Stack's */
             *StackHigh = DpcStack;
-            *StackLow = DpcStack - KERNEL_STACK_SIZE;
+            *StackLow = DpcStack - 4096;
             return TRUE;
         }
     }
@@ -219,183 +218,22 @@ RtlpCaptureStackLimits(IN ULONG_PTR Ebp,
 {
     PKTHREAD Thread = KeGetCurrentThread();
 
-    /* Don't even try at ISR level or later */
-    if (KeGetCurrentIrql() > DISPATCH_LEVEL) return FALSE;
+    /* FIXME: Super native implementation */
 
     /* Start with defaults */
     *StackBegin = Thread->StackLimit;
     *StackEnd = (ULONG_PTR)Thread->StackBase;
 
-    /* Check if EBP is inside the stack */
-    if ((*StackBegin <= Ebp) && (Ebp <= *StackEnd))
+    /* Check if we seem to be on the DPC stack */
+    if ((*StackBegin > Ebp) || (Ebp > *StackEnd))
     {
-        /* Then make the stack start at EBP */
-        *StackBegin = Ebp;
-    }
-    else
-    {
-        /* Now we're going to assume we're on the DPC stack */
-        *StackEnd = (ULONG_PTR)(KeGetPcr()->Prcb->DpcStack);
-        *StackBegin = *StackEnd - KERNEL_STACK_SIZE;
-
-        /* Check if we seem to be on the DPC stack */
-        if ((*StackEnd) && (*StackBegin < Ebp) && (Ebp <= *StackEnd))
-        {
-            /* We're on the DPC stack */
-            *StackBegin = Ebp;
-        }
-        else
-        {
-            /* We're somewhere else entirely... use EBP for safety */
-            *StackBegin = Ebp;
-            *StackEnd = (ULONG_PTR)PAGE_ALIGN(*StackBegin);
-        }
+        /* FIXME: TODO */
+        //ASSERT(FALSE);
+        DPRINT1("Stacks: %p %p %p\n", Ebp, *StackBegin, *StackEnd);
     }
 
     /* Return success */
     return TRUE;
-}
-
-/*
- * @implemented
- */
-ULONG
-NTAPI
-RtlWalkFrameChain(OUT PVOID *Callers,
-                  IN ULONG Count,
-                  IN ULONG Flags)
-{
-    ULONG_PTR Stack, NewStack, StackBegin, StackEnd = 0;
-    ULONG Eip;
-    BOOLEAN Result, StopSearch = FALSE;
-    ULONG i = 0;
-    PKTHREAD Thread = KeGetCurrentThread();
-    PTEB Teb;
-    PKTRAP_FRAME TrapFrame;
-
-    /* Get current EBP */
-#if defined(_M_IX86)
-#if defined __GNUC__
-    __asm__("mov %%ebp, %0" : "=r" (Stack) : );
-#elif defined(_MSC_VER)
-    __asm mov Stack, ebp
-#endif
-#elif defined(_M_MIPS)
-        __asm__("move $sp, %0" : "=r" (Stack) : );
-#elif defined(_M_PPC)
-    __asm__("mr %0,1" : "=r" (Stack) : );
-#else
-#error Unknown architecture
-#endif
-
-    /* Set it as the stack begin limit as well */
-    StackBegin = (ULONG_PTR)Stack;
-
-    /* Check if we're called for non-logging mode */
-    if (!Flags)
-    {
-        /* Get the actual safe limits */
-        Result = RtlpCaptureStackLimits((ULONG_PTR)Stack,
-                                        &StackBegin,
-                                        &StackEnd);
-        if (!Result) return 0;
-    }
-
-    /* Use a SEH block for maximum protection */
-    _SEH_TRY
-    {
-        /* Check if we want the user-mode stack frame */
-        if (Flags == 1)
-        {
-            /* Get the trap frame and TEB */
-            TrapFrame = Thread->TrapFrame;
-            Teb = Thread->Teb;
-
-            /* Make sure we can trust the TEB and trap frame */
-            if (!(Teb) ||
-                !((PVOID)((ULONG_PTR)TrapFrame & 0x80000000)) ||
-                ((PVOID)TrapFrame <= (PVOID)Thread->StackLimit) ||
-                ((PVOID)TrapFrame >= (PVOID)Thread->StackBase) ||
-                (KeIsAttachedProcess()) ||
-                (KeGetCurrentIrql() >= DISPATCH_LEVEL))
-            {
-                /* Invalid or unsafe attempt to get the stack */
-                return 0;
-            }
-
-            /* Get the stack limits */
-            StackBegin = (ULONG_PTR)Teb->Tib.StackLimit;
-            StackEnd = (ULONG_PTR)Teb->Tib.StackBase;
-#ifdef _M_IX86
-            Stack = TrapFrame->Ebp;
-#elif defined(_M_PPC)
-            Stack = TrapFrame->Gpr1;
-#endif
-
-            /* Validate them */
-            if (StackEnd <= StackBegin) return 0;
-            ProbeForRead((PVOID)StackBegin,
-                         StackEnd - StackBegin,
-                         sizeof(CHAR));
-        }
-
-        /* Loop the frames */
-        for (i = 0; i < Count; i++)
-        {
-            /*
-             * Leave if we're past the stack,
-             * if we're before the stack,
-             * or if we've reached ourselves.
-             */
-            if ((Stack >= StackEnd) ||
-                (!i ? (Stack < StackBegin) : (Stack <= StackBegin)) ||
-                ((StackEnd - Stack) < (2 * sizeof(ULONG_PTR))))
-            {
-                /* We're done or hit a bad address */
-                break;
-            }
-
-            /* Get new stack and EIP */
-            NewStack = *(PULONG_PTR)Stack;
-            Eip = *(PULONG_PTR)(Stack + sizeof(ULONG_PTR));
-
-            /* Check if the new pointer is above the oldone and past the end */
-            if (!((Stack < NewStack) && (NewStack < StackEnd)))
-            {
-                /* Stop searching after this entry */
-                StopSearch = TRUE;
-            }
-
-            /* Also make sure that the EIP isn't a stack address */
-            if ((StackBegin < Eip) && (Eip < StackEnd)) break;
-
-            /* Check if we reached a user-mode address */
-            if (!(Flags) && !(Eip & 0x80000000)) break;
-
-            /* Save this frame */
-            Callers[i] = (PVOID)Eip;
-
-            /* Check if we should continue */
-            if (StopSearch)
-            {
-                /* Return the next index */
-                i++;
-                break;
-            }
-
-            /* Move to the next stack */
-            Stack = NewStack;
-        }
-    }
-    _SEH_HANDLE
-    {
-        /* No index */
-        i = 0;
-    }
-    _SEH_END;
-
-    /* Return frames parsed */
-    return i;
 }
 
 /* RTL Atom Tables ************************************************************/
@@ -458,7 +296,7 @@ RtlpAllocAtomTable(ULONG Size)
       RtlZeroMemory(Table,
                     Size);
    }
-
+   
    return Table;
 }
 
@@ -502,10 +340,10 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
    HANDLE_TABLE_ENTRY ExEntry;
    HANDLE Handle;
    USHORT HandleIndex;
-
+   
    ExEntry.Object = Entry;
    ExEntry.GrantedAccess = 0x1; /* FIXME - valid handle */
-
+   
    Handle = ExCreateHandle(AtomTable->ExHandleTable,
                                 &ExEntry);
    if (Handle != NULL)
@@ -516,7 +354,7 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
       {
          Entry->HandleIndex = HandleIndex;
          Entry->Atom = 0xC000 + HandleIndex;
-
+         
          return TRUE;
       }
       else
@@ -524,7 +362,7 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
                          Handle,
                          NULL);
    }
-
+   
    return FALSE;
 }
 
@@ -533,21 +371,21 @@ RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
 {
    PHANDLE_TABLE_ENTRY ExEntry;
    PRTL_ATOM_TABLE_ENTRY Entry = NULL;
-
+   
    /* NOTE: There's no need to explicitly enter a critical region because it's
             guaranteed that we're in a critical region right now (as we hold
             the atom table lock) */
-
+   
    ExEntry = ExMapHandleToPointer(AtomTable->ExHandleTable,
                                   (HANDLE)((ULONG_PTR)Index << 2));
    if (ExEntry != NULL)
    {
       Entry = ExEntry->Object;
-
+      
       ExUnlockHandleTableEntry(AtomTable->ExHandleTable,
                                ExEntry);
    }
-
+   
    return Entry;
 }
 

@@ -66,7 +66,7 @@
   + EM_GETSELTEXT (ANSI&Unicode)
   + EM_GETSCROLLPOS 3.0 (only Y value valid)
 ! - EM_GETTHUMB
-  + EM_GETTEXTEX 2.0
+  - EM_GETTEXTEX 2.0
   + EM_GETTEXTLENGTHEX (GTL_PRECISE unimplemented)
   - EM_GETTEXTMODE 2.0
 ? + EM_GETTEXTRANGE (ANSI&Unicode)
@@ -114,7 +114,7 @@
   + EM_SETSCROLLPOS 3.0
   - EM_SETTABSTOPS 3.0
   - EM_SETTARGETDEVICE
-  + EM_SETTEXTEX 3.0 (no rich text insertion handling, proper style?)
+  + EM_SETTEXTEX 3.0 (unicode only, no rich text insertion handling, proper style?)
   - EM_SETTEXTMODE 2.0
   - EM_SETTYPOGRAPHYOPTIONS 3.0
   + EM_SETUNDOLIMIT 2.0
@@ -226,8 +226,9 @@
 #include "winreg.h"
 #define NO_SHLWAPI_STREAM 
 #include "shlwapi.h"
-#include "rtf.h"
 #include "imm.h"
+#include "textserv.h"
+#include "rtf.h"
 
 #define STACK_SIZE_DEFAULT  100
 #define STACK_SIZE_MAX     1000
@@ -782,7 +783,7 @@ ME_FindItemAtOffset(ME_TextEditor *editor, ME_DIType nItemType, int nOffset, int
 
 
 static int
-ME_FindText(ME_TextEditor *editor, DWORD flags, const CHARRANGE *chrg, const WCHAR *text, CHARRANGE *chrgText)
+ME_FindText(ME_TextEditor *editor, DWORD flags, CHARRANGE *chrg, const WCHAR *text, CHARRANGE *chrgText)
 {
   const int nLen = lstrlenW(text);
   const int nTextLen = ME_GetTextLength(editor);
@@ -1131,7 +1132,6 @@ ME_TextEditor *ME_MakeEditor(HWND hWnd) {
   ed->pCursors[1].pRun = ME_FindItemFwd(ed->pBuffer->pFirst, diRun);
   ed->pCursors[1].nOffset = 0;
   ed->nLastTotalLength = ed->nTotalLength = 0;
-  ed->nHeight = 0;
   ed->nUDArrowX = -1;
   ed->nSequence = 0;
   ed->rgbBackColor = -1;
@@ -1155,7 +1155,6 @@ ME_TextEditor *ME_MakeEditor(HWND hWnd) {
   ed->lpOleCallback = NULL;
   ed->mode = TM_RICHTEXT | TM_MULTILEVELUNDO | TM_MULTICODEPAGE;
   ed->AutoURLDetect_bEnable = FALSE;
-  ed->bHaveFocus = FALSE;
   GetClientRect(hWnd, &ed->rcFormat);
   for (i=0; i<HFONT_CACHE_SIZE; i++)
   {
@@ -1419,7 +1418,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
 {
   ME_TextEditor *editor = (ME_TextEditor *)GetWindowLongPtrW(hWnd, 0);
   
-  TRACE("hwnd %p msg %04x (%s) %lx %lx, unicode %d\n",
+  TRACE("hwnd %p msg %04x (%s) %x %lx, unicode %d\n",
         hWnd, msg, get_msg_name(msg), wParam, lParam, unicode);
   
   if (!editor && msg != WM_NCCREATE && msg != WM_NCDESTROY) {
@@ -1521,7 +1520,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
       editor->nUndoLimit = min(wParam, STACK_SIZE_MAX);
     /* Setting a max stack size keeps wine from getting killed 
       for hogging memory. Windows allocates all this memory at once, so
-      no program would realistically set a value above our maximum. */
+      no program would realistically set a value above our maxiumum. */  
     return editor->nUndoLimit;
   }
   case EM_CANUNDO:
@@ -1636,23 +1635,17 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
   }
   case EM_SETTEXTEX:
   {
-    LPWSTR wszText;
+    LPWSTR wszText = (LPWSTR)lParam;
     SETTEXTEX *pStruct = (SETTEXTEX *)wParam;
-    size_t len;
+    size_t len = wszText ? lstrlenW(wszText) : 0;
     int from, to;
     ME_Style *style;
     int oldModify = editor->nModifyStep;
-
-    if (!pStruct) return 0;
-
-    TRACE("EM_SETTEXTEX - %s, flags %d, cp %d\n",
-          pStruct->codepage == 1200 ? debugstr_w((LPCWSTR)lParam) : debugstr_a((LPCSTR)lParam),
-          pStruct->flags, pStruct->codepage);
-
-    /* FIXME: make use of pStruct->codepage in the to unicode translation */
-    wszText = lParam ? ME_ToUnicode(pStruct->codepage == 1200, (void *)lParam) : NULL;
-    len = wszText ? lstrlenW(wszText) : 0;
-
+    TRACE("EM_SETTEXTEX - %s, flags %d, cp %d\n", debugstr_w(wszText), (int)pStruct->flags, pStruct->codepage);
+    if (pStruct->codepage != 1200) {
+      FIXME("EM_SETTEXTEX only supports unicode right now!\n"); 
+      return 0;
+    }
     /* FIXME: this should support RTF strings too, according to MSDN */
     if (pStruct->flags & ST_SELECTION) {
       ME_GetSelection(editor, &from, &to);
@@ -1732,20 +1725,13 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     CHARFORMAT2W buf, *p;
     BOOL bRepaint = TRUE;
     p = ME_ToCF2W(&buf, (CHARFORMAT2W *)lParam);
-    if (p == NULL) return 0;
-    if (!wParam)
+    if (!wParam || (editor->mode & TM_PLAINTEXT))
       ME_SetDefaultCharFormat(editor, p);
-    else if (wParam == (SCF_WORD | SCF_SELECTION)) {
+    else if (wParam == (SCF_WORD | SCF_SELECTION))
       FIXME("EM_SETCHARFORMAT: word selection not supported\n");
-      return 0;
-    } else if (wParam == SCF_ALL) {
-      if (editor->mode & TM_PLAINTEXT)
-        ME_SetDefaultCharFormat(editor, p);
-      else
-        ME_SetCharFormat(editor, 0, ME_GetTextLength(editor), p);
-    } else if (editor->mode & TM_PLAINTEXT) {
-      return 0;
-    } else {
+    else if (wParam == SCF_ALL)
+      ME_SetCharFormat(editor, 0, ME_GetTextLength(editor), p);
+    else {
       int from, to;
       ME_GetSelection(editor, &from, &to);
       bRepaint = (from != to);
@@ -1755,7 +1741,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     ME_CommitUndo(editor);
     if (bRepaint)
       ME_RewrapRepaint(editor);
-    return 1;
+    return 0;
   }
   case EM_GETCHARFORMAT:
   {
@@ -1829,8 +1815,8 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
   {
     int from, to;
     ME_Style *style;
-    LPWSTR wszText = lParam ? ME_ToUnicode(unicode, (void *)lParam) : NULL;
-    size_t len = wszText ? lstrlenW(wszText) : 0;
+    LPWSTR wszText = ME_ToUnicode(unicode, (void *)lParam);
+    size_t len = lstrlenW(wszText);
     TRACE("EM_REPLACESEL - %s\n", debugstr_w(wszText));
 
     ME_GetSelection(editor, &from, &to);
@@ -1850,7 +1836,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     if (!wParam)
       ME_EmptyUndoStack(editor);
     ME_UpdateRepaint(editor);
-    return len;
+    return 0;
   }
   case EM_SCROLLCARET:
   {
@@ -1908,18 +1894,8 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
         TRACE("WM_SETTEXT - %s\n", debugstr_w(wszText)); /* debugstr_w() */
         if (lstrlenW(wszText) > 0)
         {
-          int len = -1;
-
           /* uses default style! */
-          if (!(GetWindowLongW(hWnd, GWL_STYLE) & ES_MULTILINE))
-          {
-            WCHAR * p;
-
-            p = wszText;
-            while (*p != '\0' && *p != '\r' && *p != '\n') p++;
-            len = p - wszText;
-          }
-          ME_InsertTextFromCursor(editor, 0, wszText, len, editor->pBuffer->pDefaultStyle);
+          ME_InsertTextFromCursor(editor, 0, wszText, -1, editor->pBuffer->pDefaultStyle);
         }
         ME_EndToUnicode(unicode, wszText);
       }
@@ -1929,7 +1905,6 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     ME_CommitUndo(editor);
     ME_EmptyUndoStack(editor);
     ME_SetSelection(editor, 0, 0);
-    editor->nModifyStep = 0;
     ME_UpdateRepaint(editor);
     return 1;
   }
@@ -2001,14 +1976,11 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     return ME_GetTextLengthEx(editor, (GETTEXTLENGTHEX *)wParam);
   case WM_GETTEXT:
   {
-    GETTEXTEX ex;
-
-    ex.cb = wParam;
-    ex.flags = GT_USECRLF;
-    ex.codepage = unicode ? 1200 : CP_ACP;
-    ex.lpDefaultChar = NULL;
-    ex.lpUsedDefaultChar = NULL;
-    return RichEditWndProc_common(hWnd, EM_GETTEXTEX, (WPARAM)&ex, lParam, unicode);
+    TEXTRANGEW tr; /* W and A differ only by rng->lpstrText */
+    tr.chrg.cpMin = 0;
+    tr.chrg.cpMax = wParam ? (wParam - 1) : 0;
+    tr.lpstrText = (WCHAR *)lParam;
+    return RichEditWndProc_common(hWnd, EM_GETTEXTRANGE, 0, (LPARAM)&tr, unicode);
   }
   case EM_GETTEXTEX:
   {
@@ -2029,7 +2001,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
       nStart = 0;
       nCount = ex->cb - 1;
     }
-    if (ex->codepage == 1200)
+    if (ex->codepage == 1200 || unicode)
     {
       nCount = min(nCount, ex->cb / sizeof(WCHAR) - 1);
       return ME_GetTextW(editor, (LPWSTR)lParam, nStart, nCount, ex->flags & GT_USECRLF);
@@ -2046,7 +2018,6 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
 
       buflen = ME_GetTextW(editor, buffer, nStart, nCount, ex->flags & GT_USECRLF);
       rc = WideCharToMultiByte(ex->codepage, flags, buffer, -1, (LPSTR)lParam, ex->cb, ex->lpDefaultChar, ex->lpUsedDefaultChar);
-      if (rc) rc--; /* do not count 0 terminator */
 
       richedit_free(buffer);
       return rc;
@@ -2212,7 +2183,7 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
       nNextLineOfs = ME_FindItemFwd(item, diParagraphOrEnd)->member.para.nCharOfs
        - (editor->bEmulateVersion10?2:1);
     nChars = nNextLineOfs - nThisLineOfs;
-    TRACE("EM_LINELENGTH(%ld)==%d\n",wParam, nChars);
+    TRACE("EM_LINELENGTH(%d)==%d\n",wParam, nChars);
     return nChars;
   }
   case EM_EXLIMITTEXT:
@@ -2359,13 +2330,11 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     }
     break;
   case WM_SETFOCUS:
-    editor->bHaveFocus = TRUE;
     ME_ShowCaret(editor);
     ME_SendOldNotify(editor, EN_SETFOCUS);
     return 0;
   case WM_KILLFOCUS:
     ME_HideCaret(editor);
-    editor->bHaveFocus = FALSE;
     ME_SendOldNotify(editor, EN_KILLFOCUS);
     return 0;
   case WM_ERASEBKGND:
@@ -2432,21 +2401,13 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
       SendMessageW(editor->hWnd, EM_UNDO, 0, 0);
       return 0;
     }
-    if (((unsigned)wstr)>=' '
-        || (wstr=='\r' && (GetWindowLongW(hWnd, GWL_STYLE) & ES_MULTILINE))
-        || wstr=='\t') {
+    if (((unsigned)wstr)>=' ' || wstr=='\r' || wstr=='\t') {
       /* FIXME maybe it would make sense to call EM_REPLACESEL instead ? */
-      /* WM_CHAR is restricted to nTextLimit */
-      int from, to;
-      ME_GetSelection(editor, &from, &to);
-      if(editor->nTextLimit > ME_GetTextLength(editor) - (to-from))
-      {
-        ME_Style *style = ME_GetInsertStyle(editor, 0);
-        ME_SaveTempStyle(editor);
-        ME_InsertTextFromCursor(editor, 0, &wstr, 1, style);
-        ME_ReleaseStyle(style);
-        ME_CommitUndo(editor);
-      }
+      ME_Style *style = ME_GetInsertStyle(editor, 0);
+      ME_SaveTempStyle(editor);
+      ME_InsertTextFromCursor(editor, 0, &wstr, 1, style);
+      ME_ReleaseStyle(style);
+      ME_CommitUndo(editor);
       ME_UpdateRepaint(editor);
     }
     return 0;
@@ -2545,64 +2506,6 @@ static LRESULT RichEditWndProc_common(HWND hWnd, UINT msg, WPARAM wParam,
     GetClientRect(hWnd, &editor->rcFormat);
     ME_RewrapRepaint(editor);
     return DefWindowProcW(hWnd, msg, wParam, lParam);
-  }
-  /* IME messages to make richedit controls IME aware */
-  case WM_IME_SETCONTEXT:
-  case WM_IME_CONTROL:
-  case WM_IME_SELECT:
-  case WM_IME_COMPOSITIONFULL:
-    return 0;
-  case WM_IME_STARTCOMPOSITION:
-  {
-    editor->imeStartIndex=ME_GetCursorOfs(editor,0);
-    ME_DeleteSelection(editor);
-    ME_CommitUndo(editor);
-    ME_UpdateRepaint(editor);
-    return 0;
-  }
-  case WM_IME_COMPOSITION:
-  {
-    HIMC hIMC;
-
-    ME_Style *style = ME_GetInsertStyle(editor, 0);
-    hIMC = ImmGetContext(hWnd);
-    ME_DeleteSelection(editor);
-    ME_CommitUndo(editor);
-    ME_SaveTempStyle(editor);
-    if (lParam & GCS_RESULTSTR)
-    {
-        LPWSTR lpCompStr = NULL;
-        DWORD dwBufLen;
-
-        dwBufLen = ImmGetCompositionStringW(hIMC, GCS_RESULTSTR, NULL, 0);
-        lpCompStr = HeapAlloc(GetProcessHeap(),0,dwBufLen + sizeof(WCHAR));
-        ImmGetCompositionStringW(hIMC, GCS_RESULTSTR, lpCompStr, dwBufLen);
-        lpCompStr[dwBufLen/sizeof(WCHAR)] = 0;
-        ME_InsertTextFromCursor(editor,0,lpCompStr,dwBufLen/sizeof(WCHAR),style);
-    }
-    else if (lParam & GCS_COMPSTR)
-    {
-        LPWSTR lpCompStr = NULL;
-        DWORD dwBufLen;
-
-        dwBufLen = ImmGetCompositionStringW(hIMC, GCS_COMPSTR, NULL, 0);
-        lpCompStr = HeapAlloc(GetProcessHeap(),0,dwBufLen + sizeof(WCHAR));
-        ImmGetCompositionStringW(hIMC, GCS_COMPSTR, lpCompStr, dwBufLen);
-        lpCompStr[dwBufLen/sizeof(WCHAR)] = 0;
-
-        ME_InsertTextFromCursor(editor,0,lpCompStr,dwBufLen/sizeof(WCHAR),style);
-        ME_SetSelection(editor,editor->imeStartIndex,
-                        editor->imeStartIndex + dwBufLen/sizeof(WCHAR));
-    }
-    ME_ReleaseStyle(style);
-    ME_UpdateRepaint(editor);
-    return 0;
-  }
-  case WM_IME_ENDCOMPOSITION:
-  {
-    ME_DeleteSelection(editor);
-    editor->imeStartIndex=-1;
-    return 0;
   }
   case EM_GETOLEINTERFACE:
   {
@@ -2886,14 +2789,14 @@ static BOOL ME_RegisterEditorClass(HINSTANCE hInstance)
 
 LRESULT WINAPI REComboWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   /* FIXME: Not implemented */
-  TRACE("hWnd %p msg %04x (%s) %08lx %08lx\n",
+  TRACE("hWnd %p msg %04x (%s) %08x %08lx\n",
         hWnd, msg, get_msg_name(msg), wParam, lParam);
   return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
 LRESULT WINAPI REListWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   /* FIXME: Not implemented */
-  TRACE("hWnd %p msg %04x (%s) %08lx %08lx\n",
+  TRACE("hWnd %p msg %04x (%s) %08x %08lx\n",
         hWnd, msg, get_msg_name(msg), wParam, lParam);
   return DefWindowProcW(hWnd, msg, wParam, lParam);
 }

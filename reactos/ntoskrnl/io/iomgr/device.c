@@ -37,9 +37,18 @@ IopAttachDeviceToDeviceStackSafe(IN PDEVICE_OBJECT SourceDevice,
     SourceDeviceExtension = IoGetDevObjExtension(SourceDevice);
     ASSERT(SourceDeviceExtension->AttachedTo == NULL);
 
+    /* FIXME: ROS HACK */
+    if (AttachedDevice->Flags & DO_DEVICE_INITIALIZING)
+    {
+        DPRINT1("Io: CRITICAL: Allowing attach to device which hasn't "
+                "cleared its DO_DEVICE_INITIALIZING flag. Fix the damn "
+                "thing: %p %wZ\n",
+                AttachedDevice,
+                &AttachedDevice->DriverObject->DriverName);
+    }
+
     /* Make sure that it's in a correct state */
-    if ((AttachedDevice->Flags & DO_DEVICE_INITIALIZING) ||
-        (IoGetDevObjExtension(AttachedDevice)->ExtensionFlags &
+    if ((IoGetDevObjExtension(AttachedDevice)->ExtensionFlags &
          (DOE_UNLOAD_PENDING |
           DOE_DELETE_PENDING |
           DOE_REMOVE_PENDING |
@@ -765,7 +774,7 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
      * because that's only padding for the DevObjExt and not part of the Object.
      */
     CreatedDeviceObject->Type = IO_TYPE_DEVICE;
-    CreatedDeviceObject->Size = sizeof(DEVICE_OBJECT) + (USHORT)DeviceExtensionSize;
+    CreatedDeviceObject->Size = sizeof(DEVICE_OBJECT) + DeviceExtensionSize;
 
     /* The kernel extension is after the driver internal extension */
     DeviceObjectExtension = (PDEVOBJ_EXTENSION)
@@ -1402,7 +1411,7 @@ IoStartNextPacketByKey(IN PDEVICE_OBJECT DeviceObject,
         IopStartNextPacketByKeyEx(DeviceObject,
                                   Key,
                                   DOE_SIO_WITH_KEY |
-                                  (Cancelable ? DOE_SIO_CANCELABLE : 0));
+                                  (Cancelable) ? DOE_SIO_CANCELABLE : 0);
     }
     else
     {
@@ -1431,7 +1440,7 @@ IoStartNextPacket(IN PDEVICE_OBJECT DeviceObject,
         IopStartNextPacketByKeyEx(DeviceObject,
                                   0,
                                   DOE_SIO_NO_KEY |
-                                  (Cancelable ? DOE_SIO_CANCELABLE : 0));
+                                  (Cancelable) ? DOE_SIO_CANCELABLE : 0);
     }
     else
     {

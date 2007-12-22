@@ -21,7 +21,7 @@
 
 handle_t BindingHandle = NULL;
 
-VOID
+static VOID
 HandleBind(VOID)
 {
     LPWSTR pszStringBinding;
@@ -139,42 +139,20 @@ ChangeServiceConfig2W(SC_HANDLE hService,
                       DWORD dwInfoLevel,
                       LPVOID lpInfo)
 {
-    LPBYTE lpSendData = NULL;
-    DWORD dwInfoSize;
+    DWORD lpInfoSize;
     DWORD dwError;
 
     DPRINT("ChangeServiceConfig2W() called\n");
 
+    /* Determine the length of the lpInfo parameter */
     switch (dwInfoLevel)
     {
         case SERVICE_CONFIG_DESCRIPTION:
-        {
-            LPSERVICE_DESCRIPTIONW lpServiceDescription = lpInfo;
-            DWORD dwStringSize;
-
-            dwInfoSize = sizeof(SERVICE_DESCRIPTIONW);
-            dwStringSize = (wcslen(lpServiceDescription->lpDescription) + 1) * sizeof(WCHAR);
-            dwInfoSize += dwStringSize;
-
-            lpSendData = HeapAlloc(GetProcessHeap(), 0, dwInfoSize);
-            if (lpSendData)
-            {
-                LPBYTE pt = lpSendData;
-
-                CopyMemory(pt, lpInfo, sizeof(SERVICE_DESCRIPTIONW));
-                pt += sizeof(SERVICE_DESCRIPTIONW);
-                CopyMemory(pt, lpServiceDescription->lpDescription, dwStringSize);
-            }
-            else
-            {
-                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-                return FALSE;
-            }
+            lpInfoSize = sizeof(SERVICE_DESCRIPTIONW);
             break;
-        }
 
         case SERVICE_CONFIG_FAILURE_ACTIONS:
-            dwInfoSize = sizeof(SERVICE_FAILURE_ACTIONSW);
+            lpInfoSize = sizeof(SERVICE_FAILURE_ACTIONSW);
             break;
 
         default:
@@ -184,27 +162,21 @@ ChangeServiceConfig2W(SC_HANDLE hService,
     }
 
     if (lpInfo == NULL)
-        goto done;
+        return TRUE;
 
     HandleBind();
 
     dwError = ScmrChangeServiceConfig2W(BindingHandle,
                                         (unsigned int)hService,
                                         dwInfoLevel,
-                                        lpSendData,
-                                        dwInfoSize);
+                                        lpInfo,
+                                        lpInfoSize);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrChangeServiceConfig2W() failed (Error %lu)\n", dwError);
         SetLastError(dwError);
         return FALSE;
     }
-
-done:
-    if (lpSendData != NULL)
-        HeapFree(GetProcessHeap(), 0, lpSendData);
-
-    DPRINT("ChangeServiceConfig2W() done\n");
 
     return TRUE;
 }
@@ -657,7 +629,7 @@ CreateServiceW(SC_HANDLE hSCManager,
                                  (LPWSTR)lpServiceStartName,
                                  NULL,              /* FIXME: lpPassword */
                                  0,                 /* FIXME: dwPasswordLength */
-                                 (unsigned long *)&hService);
+                                 (unsigned int *)&hService);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT("ScmrCreateServiceW() failed (Error %lu)\n", dwError);
@@ -990,29 +962,21 @@ EnumServicesStatusExA(SC_HANDLE hSCManager,
                                         lpResumeHandle,
                                         (char *)pszGroupName);
 
-    if (dwError == ERROR_MORE_DATA)
+    lpStatusPtr = (LPENUM_SERVICE_STATUS_PROCESSA)lpServices;
+    for (dwCount = 0; dwCount < *lpServicesReturned; dwCount++)
     {
-        DPRINT("Required buffer size %ul\n", *pcbBytesNeeded);
-        SetLastError(dwError);
-        return FALSE;
-    }
-    else if (dwError == ERROR_SUCCESS)
-    {
-        lpStatusPtr = (LPENUM_SERVICE_STATUS_PROCESSA)lpServices;
-        for (dwCount = 0; dwCount < *lpServicesReturned; dwCount++)
-        {
-            if (lpStatusPtr->lpServiceName)
-                lpStatusPtr->lpServiceName =
-                    (LPSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpServiceName);
+        if (lpStatusPtr->lpServiceName)
+            lpStatusPtr->lpServiceName =
+                (LPSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpServiceName);
 
-            if (lpStatusPtr->lpDisplayName)
-                lpStatusPtr->lpDisplayName =
-                    (LPSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpDisplayName);
+        if (lpStatusPtr->lpDisplayName)
+            lpStatusPtr->lpDisplayName =
+                (LPSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpDisplayName);
 
-            lpStatusPtr++;
-        }
+        lpStatusPtr++;
     }
-    else
+
+    if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrEnumServicesStatusExA() failed (Error %lu)\n", dwError);
         SetLastError(dwError);
@@ -1062,29 +1026,22 @@ EnumServicesStatusExW(SC_HANDLE hSCManager,
                                         lpResumeHandle,
                                         (wchar_t *)pszGroupName);
 
-    if (dwError == ERROR_MORE_DATA)
+    lpStatusPtr = (LPENUM_SERVICE_STATUS_PROCESSW)lpServices;
+    for (dwCount = 0; dwCount < *lpServicesReturned; dwCount++)
     {
-        DPRINT("Required buffer size %ul\n", *pcbBytesNeeded);
-        SetLastError(dwError);
-        return FALSE;
-    }
-    else if (dwError == ERROR_SUCCESS)
-    {
-        lpStatusPtr = (LPENUM_SERVICE_STATUS_PROCESSW)lpServices;
-        for (dwCount = 0; dwCount < *lpServicesReturned; dwCount++)
-        {
-            if (lpStatusPtr->lpServiceName)
-                lpStatusPtr->lpServiceName =
-                    (LPWSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpServiceName);
+        if (lpStatusPtr->lpServiceName)
+            lpStatusPtr->lpServiceName =
+                (LPWSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpServiceName);
 
-            if (lpStatusPtr->lpDisplayName)
-                lpStatusPtr->lpDisplayName =
-                    (LPWSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpDisplayName);
+        if (lpStatusPtr->lpDisplayName)
+            lpStatusPtr->lpDisplayName =
+                (LPWSTR)((ULONG_PTR)lpServices + (ULONG_PTR)lpStatusPtr->lpDisplayName);
 
-            lpStatusPtr++;
-        }
+        lpStatusPtr++;
     }
-    else
+
+    if (dwError != ERROR_SUCCESS &&
+        dwError != ERROR_MORE_DATA)
     {
         DPRINT1("ScmrEnumServicesStatusExW() failed (Error %lu)\n", dwError);
         SetLastError(dwError);
@@ -1279,7 +1236,7 @@ WaitForSCManager(VOID)
     /* Try to open the existing event */
     hEvent = OpenEventW(SYNCHRONIZE,
                         FALSE,
-                        L"SvcctrlStartEvent_A3752DX");
+                        L"SvcctrlStartEvent_A3725DX");
     if (hEvent == NULL)
     {
         if (GetLastError() != ERROR_FILE_NOT_FOUND)
@@ -1289,13 +1246,13 @@ WaitForSCManager(VOID)
         hEvent = CreateEventW(NULL,
                               TRUE,
                               FALSE,
-                              L"SvcctrlStartEvent_A3752DX");
+                              L"SvcctrlStartEvent_A3725DX");
         if (hEvent == NULL)
         {
             /* Try to open the existing event again */
             hEvent = OpenEventW(SYNCHRONIZE,
                                 FALSE,
-                                L"SvcctrlStartEvent_A3752DX");
+                                L"SvcctrlStartEvent_A3725DX");
             if (hEvent == NULL)
                 return;
         }
@@ -1334,7 +1291,7 @@ OpenSCManagerA(LPCSTR lpMachineName,
                                  (LPSTR)lpMachineName,
                                  (LPSTR)lpDatabaseName,
                                  dwDesiredAccess,
-                                 (unsigned long*)&hScm);
+                                 (unsigned int*)&hScm);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrOpenSCManagerA() failed (Error %lu)\n", dwError);
@@ -1373,7 +1330,7 @@ OpenSCManagerW(LPCWSTR lpMachineName,
                                  (LPWSTR)lpMachineName,
                                  (LPWSTR)lpDatabaseName,
                                  dwDesiredAccess,
-                                 (unsigned long*)&hScm);
+                                 (unsigned int*)&hScm);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrOpenSCManagerW() failed (Error %lu)\n", dwError);
@@ -1410,7 +1367,7 @@ OpenServiceA(SC_HANDLE hSCManager,
                                (unsigned int)hSCManager,
                                (LPSTR)lpServiceName,
                                dwDesiredAccess,
-                               (unsigned long*)&hService);
+                               (unsigned int*)&hService);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT1("ScmrOpenServiceA() failed (Error %lu)\n", dwError);
@@ -1447,7 +1404,7 @@ OpenServiceW(SC_HANDLE hSCManager,
                                (unsigned int)hSCManager,
                                (LPWSTR)lpServiceName,
                                dwDesiredAccess,
-                               (unsigned long*)&hService);
+                               (unsigned int*)&hService);
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT("ScmrOpenServiceW() failed (Error %lu)\n", dwError);
@@ -1857,69 +1814,6 @@ QueryServiceObjectSecurity(SC_HANDLE hService,
     return TRUE;
 }
 
-/**********************************************************************
- *  SetServiceObjectSecurity
- *
- * @implemented
- */
-BOOL STDCALL
-SetServiceObjectSecurity(SC_HANDLE hService,
-                         SECURITY_INFORMATION dwSecurityInformation,
-                         PSECURITY_DESCRIPTOR lpSecurityDescriptor)
-{
-    PSECURITY_DESCRIPTOR SelfRelativeSD = NULL;
-    ULONG Length;
-    NTSTATUS Status;
-    DWORD dwError;
-
-    Length = 0;
-    Status = RtlMakeSelfRelativeSD(lpSecurityDescriptor,
-                                   SelfRelativeSD,
-                                   &Length);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    SelfRelativeSD = HeapAlloc(GetProcessHeap(), 0, Length);
-    if (SelfRelativeSD == NULL)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
-
-    Status = RtlMakeSelfRelativeSD(lpSecurityDescriptor,
-                                   SelfRelativeSD,
-                                   &Length);
-    if (!NT_SUCCESS(Status))
-    {
-        HeapFree(GetProcessHeap(), 0, SelfRelativeSD);
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    HandleBind();
-
-    /* Call to services.exe using RPC */
-    dwError = ScmrSetServiceObjectSecurity(BindingHandle,
-                                           (unsigned int)hService,
-                                           dwSecurityInformation,
-                                           (unsigned char *)SelfRelativeSD,
-                                           Length);
-
-    HeapFree(GetProcessHeap(), 0, SelfRelativeSD);
-
-    if (dwError != ERROR_SUCCESS)
-    {
-        DPRINT1("ScmrServiceObjectSecurity() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
 
 /**********************************************************************
  *  QueryServiceStatus
@@ -1980,6 +1874,70 @@ QueryServiceStatusEx(SC_HANDLE hService,
     if (dwError != ERROR_SUCCESS)
     {
         DPRINT("ScmrQueryServiceStatusEx() failed (Error %lu)\n", dwError);
+        SetLastError(dwError);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+
+/**********************************************************************
+ *  SetServiceObjectSecurity
+ *
+ * @implemented
+ */
+BOOL STDCALL
+SetServiceObjectSecurity(SC_HANDLE hService,
+                         SECURITY_INFORMATION dwSecurityInformation,
+                         PSECURITY_DESCRIPTOR lpSecurityDescriptor)
+{
+    PSECURITY_DESCRIPTOR SelfRelativeSD = NULL;
+    ULONG Length;
+    NTSTATUS Status;
+    DWORD dwError;
+
+    Length = 0;
+    Status = RtlMakeSelfRelativeSD(lpSecurityDescriptor,
+                                   SelfRelativeSD,
+                                   &Length);
+    if (Status != STATUS_BUFFER_TOO_SMALL)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
+    SelfRelativeSD = HeapAlloc(GetProcessHeap(), 0, Length);
+    if (SelfRelativeSD == NULL)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+
+    Status = RtlMakeSelfRelativeSD(lpSecurityDescriptor,
+                                   SelfRelativeSD,
+                                   &Length);
+    if (!NT_SUCCESS(Status))
+    {
+        HeapFree(GetProcessHeap(), 0, SelfRelativeSD);
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
+    }
+
+    HandleBind();
+
+    /* Call to services.exe using RPC */
+    dwError = ScmrSetServiceObjectSecurity(BindingHandle,
+                                           (unsigned int)hService,
+                                           dwSecurityInformation,
+                                           (unsigned char *)SelfRelativeSD,
+                                           Length);
+
+    HeapFree(GetProcessHeap(), 0, SelfRelativeSD);
+
+    if (dwError != ERROR_SUCCESS)
+    {
+        DPRINT1("ScmrServiceObjectSecurity() failed (Error %lu)\n", dwError);
         SetLastError(dwError);
         return FALSE;
     }
@@ -2157,6 +2115,18 @@ NotifyBootConfigStatus(BOOL BootAcceptable)
     }
 
     return TRUE;
+}
+
+
+void __RPC_FAR * __RPC_USER midl_user_allocate(size_t len)
+{
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, len);
+}
+
+
+void __RPC_USER midl_user_free(void __RPC_FAR * ptr)
+{
+    HeapFree(GetProcessHeap(), 0, ptr);
 }
 
 /* EOF */

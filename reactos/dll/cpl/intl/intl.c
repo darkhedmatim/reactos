@@ -35,24 +35,21 @@
 
 #define NUM_APPLETS	(1)
 
-static LONG APIENTRY
-Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam);
+LONG APIENTRY
+Applet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam);
 
 
 HINSTANCE hApplet = 0;
 HINF hSetupInf = INVALID_HANDLE_VALUE;
-DWORD IsUnattendedSetupEnabled = 0;
-DWORD UnattendLCID = 0;
-
 
 /* Applets */
-APPLET Applets[NUM_APPLETS] =
+APPLET Applets[NUM_APPLETS] = 
 {
   {IDC_CPLICON, IDS_CPLNAME, IDS_CPLDESCRIPTION, Applet}
 };
 
 
-static VOID
+VOID
 InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
 {
   ZeroMemory(psp, sizeof(PROPSHEETPAGE));
@@ -64,14 +61,14 @@ InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
 }
 
 BOOL
-OpenSetupInf(VOID)
+OpenSetupInf()
 {
   LPTSTR lpCmdLine;
   LPTSTR lpSwitch;
   size_t len;
 
   lpCmdLine = GetCommandLine();
-
+  
   lpSwitch = _tcsstr(lpCmdLine, _T("/f:\""));
 
   if(!lpSwitch)
@@ -91,7 +88,7 @@ OpenSetupInf(VOID)
   }
 
   lpSwitch[len-1] = _T('\0');
-
+  
   hSetupInf = SetupOpenInfFile(&lpSwitch[4],
                                NULL,
                                INF_STYLE_OLDNT,
@@ -100,10 +97,10 @@ OpenSetupInf(VOID)
   return (hSetupInf != INVALID_HANDLE_VALUE);
 }
 
-VOID
-ParseSetupInf(VOID)
+LONG ParseSetupInf()
 {
   INFCONTEXT InfContext;
+  INT LocaleID;
   TCHAR szBuffer[30];
 
   if (!SetupFindFirstLine(hSetupInf,
@@ -111,8 +108,7 @@ ParseSetupInf(VOID)
               _T("LocaleID"),
               &InfContext))
   {
-    SetupCloseInfFile(hSetupInf);
-    return;
+    return -1;
   }
 
   if (!SetupGetStringField(&InfContext,
@@ -121,25 +117,25 @@ ParseSetupInf(VOID)
                         sizeof(szBuffer) / sizeof(TCHAR),
                         NULL))
   {
-    SetupCloseInfFile(hSetupInf);
-    return;
+    return -1;
   }
-
-  UnattendLCID = _tcstoul(szBuffer, NULL, 16);
-  IsUnattendedSetupEnabled = 1;
+  LocaleID = _ttoi(szBuffer);
+  SetNewLocale((LCID)LocaleID);
   SetupCloseInfFile(hSetupInf);
+
+  return 0;
 }
 
-static LONG APIENTRY
-Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
+LONG APIENTRY
+Applet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam)
 {
-  PROPSHEETPAGE psp[3];
+  PROPSHEETPAGE psp[6];
   PROPSHEETHEADER psh;
   TCHAR Caption[256];
 
   if (OpenSetupInf())
   {
-    ParseSetupInf();
+    return ParseSetupInf();
   }
 
   LoadString(hApplet, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
@@ -156,15 +152,18 @@ Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
   psh.ppsp = psp;
 
   InitPropSheetPage(&psp[0], IDD_GENERALPAGE, GeneralPageProc);
-  InitPropSheetPage(&psp[1], IDD_LANGUAGESPAGE, LanguagesPageProc);
-  InitPropSheetPage(&psp[2], IDD_ADVANCEDPAGE, AdvancedPageProc);
+  InitPropSheetPage(&psp[1], IDD_NUMBERSPAGE, NumbersPageProc);
+  InitPropSheetPage(&psp[2], IDD_CURRENCYPAGE, CurrencyPageProc);
+  InitPropSheetPage(&psp[3], IDD_TIMEPAGE, TimePageProc);
+  InitPropSheetPage(&psp[4], IDD_DATEPAGE, DatePageProc);
+  InitPropSheetPage(&psp[5], IDD_LOCALEPAGE, InpLocalePageProc);
 
   return (LONG)(PropertySheet(&psh) != -1);
 }
 
 
 /* Control Panel Callback */
-LONG APIENTRY
+LONG APIENTRY 
 CPlApplet(HWND hwndCpl,
 	  UINT uMsg,
 	  LPARAM lParam1,

@@ -57,21 +57,17 @@
 #include <fs/ntfs.h>
 #include <fs/iso.h>
 /* ui support */
-#include <ui/gui.h>
-#include <ui/minitui.h>
-#include <ui/noui.h>
 #include <ui/tui.h>
+#include <ui/gui.h>
 /* arch files */
-#if defined(_M_IX86)
+#ifdef _X86_
 #include <arch/i386/hardware.h>
 #include <arch/i386/i386.h>
 #include <arch/i386/machpc.h>
 #include <arch/i386/machxbox.h>
 #include <internal/i386/intrin_i.h>
 #include <internal/i386/ke.h>
-#elif defined(_M_PPC)
-#include <arch/powerpc/hardware.h>
-#elif defined(_M_MIPS)
+#elif _MIPS_
 #include <arch/mips/arcbios.h>
 #endif
 /* misc files */
@@ -91,13 +87,10 @@
 #include <reactos/helper.h>
 /* Needed if debuging is enabled */
 #include <comm.h>
-/* Swap */
-#include <bytesex.h>
 
-/* arch defines */
-#ifdef _X86_
 #define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
-#endif
+
+extern BOOLEAN UserInterfaceUp;	/* Tells us if the user interface is displayed */
 
 VOID BootMain(LPSTR CmdLine);
 VOID RunLoader(VOID);

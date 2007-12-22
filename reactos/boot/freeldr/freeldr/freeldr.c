@@ -30,15 +30,10 @@ VOID BootMain(LPSTR CmdLine)
 
 	DbgPrint((DPRINT_WARNING, "BootMain() called.\n"));
 
-	if (!UiInitialize(FALSE))
-	{
-		UiMessageBoxCritical("Unable to initialize UI.\n");
-		return;
-	}
-
 	if (!MmInitializeMemoryManager())
 	{
-		UiMessageBoxCritical("Unable to initialize memory manager");
+		printf("Press any key to reboot.\n");
+		MachConsGetCh();
 		return;
 	}
 

@@ -33,9 +33,7 @@ $(WRC_PORT_OUT): | $(WRC_OUT)
 endif
 
 WRC_TARGET = \
-	$(WRC_OUT_)wrc$(EXEPOSTFIX)
-
-WRC_DEPENDS = $(BUILDNO_H)
+	$(EXEPREFIX)$(WRC_OUT_)wrc$(EXEPOSTFIX)
 
 WRC_SOURCES = $(addprefix $(WRC_BASE_), \
 	dumpres.c \
@@ -56,9 +54,12 @@ WRC_OBJECTS = \
 
 WRC_HOST_CFLAGS = -I$(WRC_BASE) $(TOOLS_CFLAGS) \
                   -D__USE_W32API -DWINE_UNICODE_API= \
+		  -DDWORD="unsigned int" -DDWORD_DEFINED \
+		  -DLONG="int" -DULONG="unsigned int" \
+		  -DPULONG="unsigned int *" -DLONG_DEFINED \
+                  -Dwchar_t="unsigned short" -D_WCHAR_T_DEFINED \
                   -I$(UNICODE_BASE) -I$(WPP_BASE) \
-                  -Iinclude/reactos/wine -Iinclude/reactos -Iinclude \
-                  -I$(INTERMEDIATE_)include
+                  -Iinclude/reactos/wine -Iinclude/reactos -Iinclude -Iinclude/psdk
 
 WRC_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
@@ -71,47 +72,47 @@ $(WRC_TARGET): $(WRC_OBJECTS) $(WRC_LIBS) | $(WRC_OUT)
 	$(ECHO_LD)
 	${host_gcc} $(WRC_OBJECTS) $(WRC_LIBS) $(WRC_HOST_LFLAGS) -o $@
 
-$(WRC_INT_)dumpres.o: $(WRC_BASE_)dumpres.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)dumpres.o: $(WRC_BASE_)dumpres.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)genres.o: $(WRC_BASE_)genres.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)genres.o: $(WRC_BASE_)genres.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)newstruc.o: $(WRC_BASE_)newstruc.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)newstruc.o: $(WRC_BASE_)newstruc.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)readres.o: $(WRC_BASE_)readres.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)readres.o: $(WRC_BASE_)readres.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)translation.o: $(WRC_BASE_)translation.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)translation.o: $(WRC_BASE_)translation.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)utils.o: $(WRC_BASE_)utils.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)utils.o: $(WRC_BASE_)utils.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)wrc.o: $(WRC_BASE_)wrc.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)wrc.o: $(WRC_BASE_)wrc.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)writeres.o: $(WRC_BASE_)writeres.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)writeres.o: $(WRC_BASE_)writeres.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)parser.tab.o: $(WRC_BASE_)parser.tab.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)parser.tab.o: $(WRC_BASE_)parser.tab.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_INT_)lex.yy.o: $(WRC_BASE_)lex.yy.c $(WRC_DEPENDS) | $(WRC_INT)
+$(WRC_INT_)lex.yy.o: $(WRC_BASE_)lex.yy.c | $(WRC_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 
-$(WRC_PORT_INT_)mkstemps.o: $(WRC_PORT_BASE_)mkstemps.c $(WRC_DEPENDS) | $(WRC_PORT_INT)
+$(WRC_PORT_INT_)mkstemps.o: $(WRC_PORT_BASE_)mkstemps.c | $(WRC_PORT_INT)
 	$(ECHO_CC)
 	${host_gcc} $(WRC_HOST_CFLAGS) -c $< -o $@
 

@@ -932,7 +932,7 @@ RtlNtStatusToDosErrorNoTeb(IN NTSTATUS Status)
  *
  * @implemented
  */
-ULONG NTAPI
+DWORD NTAPI
 RtlNtStatusToDosError(IN NTSTATUS Status)
 {
    PTEB Teb = NtCurrentTeb ();

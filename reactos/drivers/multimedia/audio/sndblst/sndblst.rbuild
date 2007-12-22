@@ -1,7 +1,6 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
 <module name="sndblst" type="kernelmodedriver" allowwarnings="true">
 	<include base="sndblst">.</include>
+	<define name="__USE_W32API" />
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<file>card.c</file>

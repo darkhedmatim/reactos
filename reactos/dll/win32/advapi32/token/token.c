@@ -11,6 +11,7 @@
 #include <advapi32.h>
 
 #define NDEBUG
+#include <wine/debug.h>
 #include <debug.h>
 
 /*
@@ -18,20 +19,20 @@
  */
 BOOL STDCALL
 AdjustTokenGroups (HANDLE TokenHandle,
-                   BOOL ResetToDefault,
-                   PTOKEN_GROUPS NewState,
-                   DWORD BufferLength,
-                   PTOKEN_GROUPS PreviousState,
-                   PDWORD ReturnLength)
+		   BOOL ResetToDefault,
+		   PTOKEN_GROUPS NewState,
+		   DWORD BufferLength,
+		   PTOKEN_GROUPS PreviousState,
+		   PDWORD ReturnLength)
 {
   NTSTATUS Status;
 
   Status = NtAdjustGroupsToken (TokenHandle,
-                                ResetToDefault,
-                                NewState,
-                                BufferLength,
-                                PreviousState,
-                                (PULONG)ReturnLength);
+				ResetToDefault,
+				NewState,
+				BufferLength,
+				PreviousState,
+				(PULONG)ReturnLength);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -47,20 +48,20 @@ AdjustTokenGroups (HANDLE TokenHandle,
  */
 BOOL STDCALL
 AdjustTokenPrivileges (HANDLE TokenHandle,
-                       BOOL DisableAllPrivileges,
-                       PTOKEN_PRIVILEGES NewState,
-                       DWORD BufferLength,
-                       PTOKEN_PRIVILEGES PreviousState,
-                       PDWORD ReturnLength)
+		       BOOL DisableAllPrivileges,
+		       PTOKEN_PRIVILEGES NewState,
+		       DWORD BufferLength,
+		       PTOKEN_PRIVILEGES PreviousState,
+		       PDWORD ReturnLength)
 {
   NTSTATUS Status;
 
   Status = NtAdjustPrivilegesToken (TokenHandle,
-                                    DisableAllPrivileges,
-                                    NewState,
-                                    BufferLength,
-                                    PreviousState,
-                                    (PULONG)ReturnLength);
+				    DisableAllPrivileges,
+				    NewState,
+				    BufferLength,
+				    PreviousState,
+				    (PULONG)ReturnLength);
   if (STATUS_NOT_ALL_ASSIGNED == Status)
     {
       SetLastError(ERROR_NOT_ALL_ASSIGNED);
@@ -82,18 +83,18 @@ AdjustTokenPrivileges (HANDLE TokenHandle,
  */
 BOOL STDCALL
 GetTokenInformation (HANDLE TokenHandle,
-                     TOKEN_INFORMATION_CLASS TokenInformationClass,
-                     LPVOID TokenInformation,
-                     DWORD TokenInformationLength,
-                     PDWORD ReturnLength)
+		     TOKEN_INFORMATION_CLASS TokenInformationClass,
+		     LPVOID TokenInformation,
+		     DWORD TokenInformationLength,
+		     PDWORD ReturnLength)
 {
   NTSTATUS Status;
 
   Status = NtQueryInformationToken (TokenHandle,
-                                    TokenInformationClass,
-                                    TokenInformation,
-                                    TokenInformationLength,
-                                    (PULONG)ReturnLength);
+				    TokenInformationClass,
+				    TokenInformation,
+				    TokenInformationLength,
+				    (PULONG)ReturnLength);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -109,16 +110,16 @@ GetTokenInformation (HANDLE TokenHandle,
  */
 BOOL STDCALL
 SetTokenInformation (HANDLE TokenHandle,
-                     TOKEN_INFORMATION_CLASS TokenInformationClass,
-                     LPVOID TokenInformation,
-                     DWORD TokenInformationLength)
+		     TOKEN_INFORMATION_CLASS TokenInformationClass,
+		     LPVOID TokenInformation,
+		     DWORD TokenInformationLength)
 {
   NTSTATUS Status;
 
   Status = NtSetInformationToken (TokenHandle,
-                                  TokenInformationClass,
-                                  TokenInformation,
-                                  TokenInformationLength);
+				  TokenInformationClass,
+				  TokenInformation,
+				  TokenInformationLength);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -134,25 +135,25 @@ SetTokenInformation (HANDLE TokenHandle,
  */
 BOOL STDCALL
 AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
-             HANDLE ClientToken,
-             DWORD DesiredAccess,
-             PGENERIC_MAPPING GenericMapping,
-             PPRIVILEGE_SET PrivilegeSet,
-             LPDWORD PrivilegeSetLength,
-             LPDWORD GrantedAccess,
-             LPBOOL AccessStatus)
+	     HANDLE ClientToken,
+	     DWORD DesiredAccess,
+	     PGENERIC_MAPPING GenericMapping,
+	     PPRIVILEGE_SET PrivilegeSet,
+	     LPDWORD PrivilegeSetLength,
+	     LPDWORD GrantedAccess,
+	     LPBOOL AccessStatus)
 {
   NTSTATUS Status;
   NTSTATUS AccessStat;
 
   Status = NtAccessCheck (pSecurityDescriptor,
-                          ClientToken,
-                          DesiredAccess,
-                          GenericMapping,
-                          PrivilegeSet,
-                          (PULONG)PrivilegeSetLength,
-                          (PACCESS_MASK)GrantedAccess,
-                          &AccessStat);
+			  ClientToken,
+			  DesiredAccess,
+			  GenericMapping,
+			  PrivilegeSet,
+			  (PULONG)PrivilegeSetLength,
+			  (PACCESS_MASK)GrantedAccess,
+			  &AccessStat);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -177,14 +178,14 @@ AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
  */
 BOOL STDCALL
 OpenProcessToken (HANDLE ProcessHandle,
-                  DWORD DesiredAccess,
-                  PHANDLE TokenHandle)
+		  DWORD DesiredAccess,
+		  PHANDLE TokenHandle)
 {
   NTSTATUS Status;
 
   Status = NtOpenProcessToken (ProcessHandle,
-                               DesiredAccess,
-                               TokenHandle);
+			       DesiredAccess,
+			       TokenHandle);
   if (!NT_SUCCESS (Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -200,16 +201,16 @@ OpenProcessToken (HANDLE ProcessHandle,
  */
 BOOL STDCALL
 OpenThreadToken (HANDLE ThreadHandle,
-                 DWORD DesiredAccess,
-                 BOOL OpenAsSelf,
-                 PHANDLE TokenHandle)
+		 DWORD DesiredAccess,
+		 BOOL OpenAsSelf,
+		 PHANDLE TokenHandle)
 {
   NTSTATUS Status;
 
   Status = NtOpenThreadToken (ThreadHandle,
-                              DesiredAccess,
-                              OpenAsSelf,
-                              TokenHandle);
+			      DesiredAccess,
+			      OpenAsSelf,
+			      TokenHandle);
   if (!NT_SUCCESS(Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -233,9 +234,9 @@ SetThreadToken (IN PHANDLE ThreadHandle  OPTIONAL,
   hThread = ((ThreadHandle != NULL) ? *ThreadHandle : NtCurrentThread());
 
   Status = NtSetInformationThread (hThread,
-                                   ThreadImpersonationToken,
-                                   &TokenHandle,
-                                   sizeof(HANDLE));
+				   ThreadImpersonationToken,
+				   &TokenHandle,
+				   sizeof(HANDLE));
   if (!NT_SUCCESS(Status))
     {
       SetLastError (RtlNtStatusToDosError (Status));
@@ -286,11 +287,11 @@ DuplicateTokenEx (IN HANDLE ExistingTokenHandle,
   ObjectAttributes.SecurityQualityOfService = &Sqos;
 
   Status = NtDuplicateToken (ExistingTokenHandle,
-                             dwDesiredAccess,
-                             &ObjectAttributes,
-                             FALSE,
-                             TokenType,
-                             DuplicateTokenHandle);
+			     dwDesiredAccess,
+			     &ObjectAttributes,
+			     FALSE,
+			     TokenType,
+			     DuplicateTokenHandle);
   if (!NT_SUCCESS(Status))
     {
       SetLastError(RtlNtStatusToDosError(Status));
@@ -515,7 +516,7 @@ IsTokenRestricted(HANDLE TokenHandle)
   PTOKEN_GROUPS lpGroups;
   NTSTATUS Status;
   BOOL Ret = FALSE;
-
+  
   /* determine the required buffer size and allocate enough memory to read the
      list of restricted SIDs */
 
@@ -529,7 +530,7 @@ IsTokenRestricted(HANDLE TokenHandle)
     SetLastError(RtlNtStatusToDosError(Status));
     return FALSE;
   }
-
+  
 AllocAndReadRestrictedSids:
   lpGroups = (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(),
                                       0,
@@ -539,9 +540,9 @@ AllocAndReadRestrictedSids:
     SetLastError(ERROR_OUTOFMEMORY);
     return FALSE;
   }
-
+  
   /* actually read the list of the restricted SIDs */
-
+  
   Status = NtQueryInformationToken(TokenHandle,
                                    TokenRestrictedSids,
                                    lpGroups,
@@ -565,7 +566,7 @@ AllocAndReadRestrictedSids:
   {
     SetLastError(RtlNtStatusToDosError(Status));
   }
-
+  
   /* free allocated memory */
 
   HeapFree(GetProcessHeap(),
@@ -575,7 +576,7 @@ AllocAndReadRestrictedSids:
   return Ret;
 }
 
-BOOL STDCALL
+BOOL STDCALL 
 CreateRestrictedToken(
             HANDLE TokenHandle,
             DWORD Flags,
@@ -588,7 +589,7 @@ CreateRestrictedToken(
             PHANDLE NewTokenHandle
 )
 {
-    UNIMPLEMENTED;
+    FIXME("unimplemented!\n", __FUNCTION__);
     return FALSE;
 }
 
@@ -633,7 +634,7 @@ GetSiteSidFromToken(IN HANDLE TokenHandle)
                                      &RetLen);
     if (NT_SUCCESS(Status))
     {
-        for (i = 0; i < RestrictedSids->GroupCount; i++)
+        for (i = 0; i < RestrictedSids->GroupCount; i++) 
         {
             SID* RSSid = RestrictedSids->Groups[i].Sid;
 
@@ -646,7 +647,7 @@ GetSiteSidFromToken(IN HANDLE TokenHandle)
                                            0,
                                            RtlLengthSid((RestrictedSids->
                                                          Groups[i]).Sid));
-                if (PSiteSid == NULL)
+                if (PSiteSid == NULL) 
                 {
                     SetLastError(ERROR_OUTOFMEMORY);
                 }

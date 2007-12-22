@@ -143,7 +143,6 @@ static NTSTATUS TdiOpenDevice(
         }
     } else {
         AFD_DbgPrint(MIN_TRACE, ("ZwCreateFile() failed with status (0x%X)\n", Status));
-        *Handle = NULL;
     }
 
     return Status;

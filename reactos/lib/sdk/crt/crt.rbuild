@@ -1,12 +1,12 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="crt" type="staticlibrary">
 	<include base="crt">.</include>
 	<include base="crt">include</include>
 	<define name="_DISABLE_TIDENTS" />
 	<define name="__MINGW_IMPORT">extern</define>
+	<define name="__USE_W32API" />
 	<define name="_WIN32_IE">0x600</define>
 	<define name="_WIN32_WINNT">0x501</define>
+	<define name="__REACTOS__" />
 	<define name="USE_MSVCRT_PREFIX" />
 	<define name="_MSVCRT_LIB_" />
 	<define name="_MSVCRT_" />
@@ -22,6 +22,9 @@
 		<file>kbhit.c</file>
 		<file>putch.c</file>
 		<file>ungetch.c</file>
+	</directory>
+	<directory name="ctype">
+		<file>ctype.c</file>
 	</directory>
 	<directory name="direct">
 		<file>chdir.c</file>
@@ -40,20 +43,12 @@
 	</directory>
 	<directory name="except">
 		<file>abnorter.c</file>
-		<file>cpp.c</file>
-		<file>cppexcept.c</file>
+		<file>exhand2.c</file>
 		<file>matherr.c</file>
 		<if property="ARCH" value="i386">
 			<directory name="i386">
-				<file>prolog.s</file>
 				<file>seh.s</file>
 				<file>unwind.c</file>
-			</directory>
-		</if>
-		<if property="ARCH" value="powerpc">
-			<directory name="powerpc">
-				<file>seh.s</file>
-				<file>chkstk_asm.s</file>
 			</directory>
 		</if>
 		<file>xcptfil.c</file>
@@ -125,16 +120,13 @@
 		<file>asin.c</file>
 		<file>cabs.c</file>
 		<file>cosh.c</file>
-		<file>div.c</file>
 		<file>frexp.c</file>
 		<file>huge_val.c</file>
 		<file>hypot.c</file>
 		<file>j0_y0.c</file>
 		<file>j1_y1.c</file>
 		<file>jn_yn.c</file>
-		<file>ldiv.c</file>
 		<file>modf.c</file>
-		<file>rand.c</file>
 		<file>s_modf.c</file>
 		<file>sinh.c</file>
 		<file>stubs.c</file>
@@ -213,26 +205,6 @@
 		<file>mbstrlen.c</file>
 		<file>mbsupr.c</file>
 	</directory>
-
-	<directory name="mem">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>memchr_asm.s</file>
-				<file>memcpy_asm.s</file>
-				<file>memmove_asm.s</file>
-				<file>memset_asm.s</file>
-			</directory>
-		</if>
-		<ifnot property="ARCH" value="i386">
-			<file>memchr.c</file>
-			<file>memcpy.c</file>
-			<file>memmove.c</file>
-			<file>memset.c</file>
-		</ifnot>
-		<file>memcmp.c</file>
-		<file>memicmp.c</file>
-	</directory>
-
 	<directory name="misc">
 		<file>amsg.c</file>
 		<file>assert.c</file>
@@ -349,6 +321,8 @@
 		<file>_exit.c</file>
 		<file>abort.c</file>
 		<file>atexit.c</file>
+		<file>atof.c</file>
+		<file>div.c</file>
 		<file>ecvt.c</file>
 		<file>ecvtbuf.c</file>
 		<file>errno.c</file>
@@ -357,22 +331,35 @@
 		<file>fullpath.c</file>
 		<file>gcvt.c</file>
 		<file>getenv.c</file>
+		<file>ldiv.c</file>
 		<file>makepath.c</file>
 		<file>malloc.c</file>
 		<file>mbtowc.c</file>
 		<file>obsol.c</file>
 		<file>putenv.c</file>
+		<file>rand.c</file>
 		<file>rot.c</file>
 		<file>senv.c</file>
+		<file>strtod.c</file>
+		<file>strtoul.c</file>
+		<file>strtoull.c</file>
 		<file>swab.c</file>
+		<file>wcstod.c</file>
+		<file>wcstombs.c</file>
+		<file>wctomb.c</file>
 		<file>wfulpath.c</file>
 		<file>wputenv.c</file>
 		<file>wsenv.c</file>
+		<file>wsplitp.c</file>
 		<file>wmakpath.c</file>
 	</directory>
 	<directory name="string">
 		<if property="ARCH" value="i386">
 			<directory name="i386">
+				<file>memchr_asm.s</file>
+				<file>memcpy_asm.s</file>
+				<file>memmove_asm.s</file>
+				<file>memset_asm.s</file>
 				<file>strcat_asm.s</file>
 				<file>strchr_asm.s</file>
 				<file>strcmp_asm.s</file>
@@ -396,6 +383,10 @@
 			</directory>
 		</if>
 		<ifnot property="ARCH" value="i386">
+			<file>memchr.c</file>
+			<file>memcpy.c</file>
+			<file>memmove.c</file>
+			<file>memset.c</file>
 			<file>strcat.c</file>
 			<file>strchr.c</file>
 			<file>strcmp.c</file>
@@ -417,9 +408,9 @@
 			<file>wcsnlen.c</file>
 			<file>wcsrchr.c</file>
 		</ifnot>
-		<file>atof.c</file>
-		<file>ctype.c</file>
 		<file>lasttok.c</file>
+		<file>memcmp.c</file>
+		<file>memicmp.c</file>
 		<file>strcoll.c</file>
 		<file>strdup.c</file>
 		<file>strerror.c</file>
@@ -431,16 +422,9 @@
 		<file>strrev.c</file>
 		<file>strset.c</file>
 		<file>strstr.c</file>
-		<file>strtod.c</file>
 		<file>strtok.c</file>
-		<file>strtoul.c</file>
-		<file>strtoull.c</file>
 		<file>strupr.c</file>
 		<file>strxfrm.c</file>
-		<file>wcstod.c</file>
-		<file>wcstombs.c</file>
-		<file>wctomb.c</file>
-		<file>wsplitp.c</file>
 	</directory>
 	<directory name="sys_stat">
 		<file>fstat.c</file>
@@ -482,6 +466,8 @@
 		<file>wlasttok.c</file>
 	</directory>
 	<directory name="wine">
+		<file>cpp.c</file>
+		<file>cppexcept.c</file>
 		<file>heap.c</file>
 		<file>scanf.c</file>
 		<file>thread.c</file>

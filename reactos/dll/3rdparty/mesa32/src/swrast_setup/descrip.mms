@@ -17,7 +17,7 @@ VPATH = RCS
 
 INCDIR = [---.include],[-.main],[-.glapi]
 LIBDIR = [---.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
 SOURCES = ss_context.c ss_triangle.c
 

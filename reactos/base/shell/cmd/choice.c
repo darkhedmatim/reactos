@@ -20,6 +20,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_CHOICE
 
@@ -227,7 +228,7 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 
 		for (i = 1; (unsigned)i < _tcslen (lpOptions); i++)
 			ConOutPrintf (_T(",%c"), lpOptions[i]);
-
+     
 		ConOutPrintf (_T("]?"));
 	}
 
@@ -248,7 +249,7 @@ CommandChoice (LPTSTR cmd, LPTSTR param)
 			                     bCaseSensitive);
 
 			if (val >= 0)
-			{
+			{        
 				ConOutPrintf (_T("%c\n"), lpOptions[val]);
 
 				nErrorLevel = val + 1;

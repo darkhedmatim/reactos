@@ -39,131 +39,130 @@ use lib qw(.);
 
 use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::Bug;
 use Bugzilla::User;
-use Bugzilla::Hook;
 use Bugzilla::Product;
-use Bugzilla::Classification;
-use Bugzilla::Keyword;
-use Bugzilla::Token;
-use Bugzilla::Field;
+require "globals.pl";
 
-my $user = Bugzilla->login(LOGIN_REQUIRED);
+use vars qw(
+  @enterable_products
+  @legal_opsys
+  @legal_platform
+  @legal_priority
+  @legal_severity
+  @legal_keywords
+  %versions
+  %target_milestone
+  $proddesc
+);
+
+# If we're using bug groups to restrict bug entry, we need to know who the 
+# user is right from the start. 
+Bugzilla->login(LOGIN_REQUIRED) if AnyEntryGroups();
 
 my $cloned_bug;
 my $cloned_bug_id;
 
 my $cgi = Bugzilla->cgi;
-my $dbh = Bugzilla->dbh;
 my $template = Bugzilla->template;
 my $vars = {};
 
-my $product_name = trim($cgi->param('product') || '');
-# Will contain the product object the bug is created in.
-my $product;
+my $product = $cgi->param('product');
 
-if ($product_name eq '') {
-    # If the user cannot enter bugs in any product, stop here.
-    my @enterable_products = @{$user->get_enterable_products};
-    ThrowUserError('no_products') unless scalar(@enterable_products);
+if (!defined $product || $product eq "") {
+    GetVersionTable();
+    Bugzilla->login();
 
-    my $classification = Bugzilla->params->{'useclassification'} ?
-        scalar($cgi->param('classification')) : '__all';
-
-    # Unless a real classification name is given, we sort products
-    # by classification.
-    my @classifications;
-
-    unless ($classification && $classification ne '__all') {
-        if (Bugzilla->params->{'useclassification'}) {
-            my $class;
-            # Get all classifications with at least one enterable product.
-            foreach my $product (@enterable_products) {
-                $class->{$product->classification_id}->{'object'} ||=
-                    new Bugzilla::Classification($product->classification_id);
-                # Nice way to group products per classification, without querying
-                # the DB again.
-                push(@{$class->{$product->classification_id}->{'products'}}, $product);
-            }
-            @classifications = sort {$a->{'object'}->sortkey <=> $b->{'object'}->sortkey
-                                     || lc($a->{'object'}->name) cmp lc($b->{'object'}->name)}
-                                    (values %$class);
-        }
-        else {
-            @classifications = ({object => undef, products => \@enterable_products});
-        }
+    if ( ! Param('useclassification') ) {
+        # Just use a fake value for the Classification.
+        $cgi->param(-name => 'classification', 
+                    -value => '__all');
     }
 
-    unless ($classification) {
-        # We know there is at least one classification available,
-        # else we would have stopped earlier.
-        if (scalar(@classifications) > 1) {
-            # We only need classification objects.
-            $vars->{'classifications'} = [map {$_->{'object'}} @classifications];
+    if (!$cgi->param('classification')) {
+        my $classifications = Bugzilla->user->get_selectable_classifications();
+        foreach my $classification (@$classifications) {
+            my $found = 0;
+            foreach my $p (@enterable_products) {
+               if (Bugzilla->user->can_enter_product($p)
+                   && IsInClassification($classification->{name},$p)) {
+                       $found = 1; 
+               }
+            }
+            if ($found == 0) {
+                @$classifications = grep($_->{name} ne $classification->{name},
+                                         @$classifications);
+            }
+        }
+
+        if (scalar(@$classifications) == 0) {
+            ThrowUserError("no_products");
+        } 
+        elsif (scalar(@$classifications) > 1) {
+            $vars->{'classifications'} = $classifications;
 
             $vars->{'target'} = "enter_bug.cgi";
             $vars->{'format'} = $cgi->param('format');
+           
             $vars->{'cloned_bug_id'} = $cgi->param('cloned_bug_id');
 
             print $cgi->header();
             $template->process("global/choose-classification.html.tmpl", $vars)
                || ThrowTemplateError($template->error());
-            exit;
+            exit;        
         }
-        # If we come here, then there is only one classification available.
-        $classification = $classifications[0]->{'object'}->name;
+        $cgi->param(-name => 'classification', -value => @$classifications[0]->name);
     }
 
-    # Keep only enterable products which are in the specified classification.
-    if ($classification ne "__all") {
-        my $class = new Bugzilla::Classification({'name' => $classification});
-        # If the classification doesn't exist, then there is no product in it.
-        if ($class) {
-            @enterable_products
-              = grep {$_->classification_id == $class->id} @enterable_products;
-            @classifications = ({object => $class, products => \@enterable_products});
-        }
-        else {
-            @enterable_products = ();
+    my %products;
+    foreach my $p (@enterable_products) {
+        if (Bugzilla->user->can_enter_product($p)) {
+            if (IsInClassification(scalar $cgi->param('classification'),$p) ||
+                $cgi->param('classification') eq "__all") {
+                $products{$p} = $::proddesc{$p};
+            }
         }
     }
+ 
+    my $prodsize = scalar(keys %products);
+    if ($prodsize == 0) {
+        ThrowUserError("no_products");
+    } 
+    elsif ($prodsize > 1) {
+        my %classifications;
+        if ( ! Param('useclassification') ) {
+            @{$classifications{"all"}} = keys %products;
+        }
+        elsif ($cgi->param('classification') eq "__all") {
+            %classifications = %::classifications;
+        } else {
+            $classifications{$cgi->param('classification')} =
+                $::classifications{$cgi->param('classification')};
+        }
+        $vars->{'proddesc'} = \%products;
+        $vars->{'classifications'} = \%classifications;
 
-    if (scalar(@enterable_products) == 0) {
-        ThrowUserError('no_products');
-    }
-    elsif (scalar(@enterable_products) > 1) {
-        $vars->{'classifications'} = \@classifications;
         $vars->{'target'} = "enter_bug.cgi";
         $vars->{'format'} = $cgi->param('format');
-        $vars->{'cloned_bug_id'} = $cgi->param('cloned_bug_id');
 
+        $vars->{'cloned_bug_id'} = $cgi->param('cloned_bug_id');
+        
         print $cgi->header();
         $template->process("global/choose-product.html.tmpl", $vars)
           || ThrowTemplateError($template->error());
-        exit;
+        exit;        
     } else {
-        # Only one product exists.
-        $product = $enterable_products[0];
+        # Only one product exists
+        $product = (keys %products)[0];
     }
 }
-else {
-    # Do not use Bugzilla::Product::check_product() here, else the user
-    # could know whether the product doesn't exist or is not accessible.
-    $product = new Bugzilla::Product({'name' => $product_name});
-}
-
-# We need to check and make sure that the user has permission
-# to enter a bug against this product.
-$user->can_enter_product($product ? $product->name : $product_name, THROW_ERROR);
 
 ##############################################################################
 # Useful Subroutines
 ##############################################################################
 sub formvalue {
     my ($name, $default) = (@_);
-    return Bugzilla->cgi->param($name) || $default || "";
+    return $cgi->param($name) || $default || "";
 }
 
 # Takes the name of a field and a list of possible values for that 
@@ -187,8 +186,8 @@ sub pickplatform {
 
     my @platform;
 
-    if (Bugzilla->params->{'defaultplatform'}) {
-        @platform = Bugzilla->params->{'defaultplatform'};
+    if (Param('defaultplatform')) {
+        @platform = Param('defaultplatform');
     } else {
         # If @platform is a list, this function will return the first
         # item in the list that is a valid platform choice. If
@@ -199,11 +198,10 @@ sub pickplatform {
             /\(.*PPC.*\)/ && do {@platform = "Macintosh"; last;};
             /\(.*AIX.*\)/ && do {@platform = "Macintosh"; last;};
         #Intel x86
-            /\(.*Intel.*\)/ && do {@platform = "PC"; last;};
             /\(.*[ix0-9]86.*\)/ && do {@platform = "PC"; last;};
         #Versions of Windows that only run on Intel x86
-            /\(.*Win(?:dows |)[39M].*\)/ && do {@platform = "PC"; last};
-            /\(.*Win(?:dows |)16.*\)/ && do {@platform = "PC"; last;};
+            /\(.*Win(?:dows )[39M].*\)/ && do {@platform = "PC"; last};
+            /\(.*Win(?:dows )16.*\)/ && do {@platform = "PC"; last;};
         #Sparc
             /\(.*sparc.*\)/ && do {@platform = "Sun"; last;};
             /\(.*sun4.*\)/ && do {@platform = "Sun"; last;};
@@ -244,68 +242,66 @@ sub pickos {
         return formvalue('op_sys');
     }
 
-    my @os = ();
+    my @os;
 
-    if (Bugzilla->params->{'defaultopsys'}) {
-        @os = Bugzilla->params->{'defaultopsys'};
+    if (Param('defaultopsys')) {
+        @os = Param('defaultopsys');
     } else {
         # This function will return the first
         # item in @os that is a valid platform choice. If
         # no choice is valid, we return "Other".
         for ($ENV{'HTTP_USER_AGENT'}) {
-            /\(.*IRIX.*\)/ && do {push @os, "IRIX"; };
-            /\(.*OSF.*\)/ && do {push @os, "OSF/1";};
-            /\(.*Linux.*\)/ && do {push @os, "Linux";};
-            /\(.*Solaris.*\)/ && do {push @os, "Solaris";};
-            /\(.*SunOS 5.*\)/ && do {push @os, "Solaris";};
-            /\(.*SunOS.*sun4u.*\)/ && do {push @os, "Solaris";};
-            /\(.*SunOS.*\)/ && do {push @os, "SunOS";};
-            /\(.*HP-?UX.*\)/ && do {push @os, "HP-UX";};
-            /\(.*BSD\/(?:OS|386).*\)/ && do {push @os, "BSDI";};
-            /\(.*FreeBSD.*\)/ && do {push @os, "FreeBSD";};
-            /\(.*OpenBSD.*\)/ && do {push @os, "OpenBSD";};
-            /\(.*NetBSD.*\)/ && do {push @os, "NetBSD";};
-            /\(.*BeOS.*\)/ && do {push @os, "BeOS";};
-            /\(.*AIX.*\)/ && do {push @os, "AIX";};
-            /\(.*OS\/2.*\)/ && do {push @os, "OS/2";};
-            /\(.*QNX.*\)/ && do {push @os, "Neutrino";};
-            /\(.*VMS.*\)/ && do {push @os, "OpenVMS";};
-            /\(.*Windows XP.*\)/ && do {push @os, "Windows XP";};
-            /\(.*Windows NT 6\.0.*\)/ && do {push @os, "Windows Vista";};
-            /\(.*Windows NT 5\.2.*\)/ && do {push @os, "Windows Server 2003";};
-            /\(.*Windows NT 5\.1.*\)/ && do {push @os, "Windows XP";};
-            /\(.*Windows 2000.*\)/ && do {push @os, "Windows 2000";};
-            /\(.*Windows NT 5.*\)/ && do {push @os, "Windows 2000";};
-            /\(.*Win.*9[8x].*4\.9.*\)/ && do {push @os, "Windows ME";};
-            /\(.*Win(?:dows |)M[Ee].*\)/ && do {push @os, "Windows ME";};
-            /\(.*Win(?:dows |)98.*\)/ && do {push @os, "Windows 98";};
-            /\(.*Win(?:dows |)95.*\)/ && do {push @os, "Windows 95";};
-            /\(.*Win(?:dows |)16.*\)/ && do {push @os, "Windows 3.1";};
-            /\(.*Win(?:dows[ -]|)NT.*\)/ && do {push @os, "Windows NT";};
-            /\(.*Windows.*NT.*\)/ && do {push @os, "Windows NT";};
-            /\(.*32bit.*\)/ && do {push @os, "Windows 95";};
-            /\(.*16bit.*\)/ && do {push @os, "Windows 3.1";};
-            /\(.*Mac OS 9.*\)/ && do {push @os, "Mac System 9.x";};
-            /\(.*Mac OS 8\.6.*\)/ && do {push @os, "Mac System 8.6";};
-            /\(.*Mac OS 8\.5.*\)/ && do {push @os, "Mac System 8.5";};
+            /\(.*IRIX.*\)/ && do {@os = "IRIX"; last;};
+            /\(.*OSF.*\)/ && do {@os = "OSF/1"; last;};
+            /\(.*Linux.*\)/ && do {@os = "Linux"; last;};
+            /\(.*Solaris.*\)/ && do {@os = "Solaris"; last;};
+            /\(.*SunOS 5.*\)/ && do {@os = "Solaris"; last;};
+            /\(.*SunOS.*sun4u.*\)/ && do {@os = "Solaris"; last;};
+            /\(.*SunOS.*\)/ && do {@os = "SunOS"; last;};
+            /\(.*HP-?UX.*\)/ && do {@os = "HP-UX"; last;};
+            /\(.*BSD\/(?:OS|386).*\)/ && do {@os = "BSDI"; last;};
+            /\(.*FreeBSD.*\)/ && do {@os = "FreeBSD"; last;};
+            /\(.*OpenBSD.*\)/ && do {@os = "OpenBSD"; last;};
+            /\(.*NetBSD.*\)/ && do {@os = "NetBSD"; last;};
+            /\(.*BeOS.*\)/ && do {@os = "BeOS"; last;};
+            /\(.*AIX.*\)/ && do {@os = "AIX"; last;};
+            /\(.*OS\/2.*\)/ && do {@os = "OS/2"; last;};
+            /\(.*QNX.*\)/ && do {@os = "Neutrino"; last;};
+            /\(.*VMS.*\)/ && do {@os = "OpenVMS"; last;};
+            /\(.*Windows XP.*\)/ && do {@os = "Windows XP"; last;};
+            /\(.*Windows NT 5\.2.*\)/ && do {@os = "Windows Server 2003"; last;};
+            /\(.*Windows NT 5\.1.*\)/ && do {@os = "Windows XP"; last;};
+            /\(.*Windows 2000.*\)/ && do {@os = "Windows 2000"; last;};
+            /\(.*Windows NT 5.*\)/ && do {@os = "Windows 2000"; last;};
+            /\(.*Win.*9[8x].*4\.9.*\)/ && do {@os = "Windows ME"; last;};
+            /\(.*Win(?:dows )M[Ee].*\)/ && do {@os = "Windows ME"; last;};
+            /\(.*Win(?:dows )98.*\)/ && do {@os = "Windows 98"; last;};
+            /\(.*Win(?:dows )95.*\)/ && do {@os = "Windows 95"; last;};
+            /\(.*Win(?:dows )16.*\)/ && do {@os = "Windows 3.1"; last;};
+            /\(.*Win(?:dows[ -])NT.*\)/ && do {@os = "Windows NT"; last;};
+            /\(.*Windows.*NT.*\)/ && do {@os = "Windows NT"; last;};
+            /\(.*32bit.*\)/ && do {@os = "Windows 95"; last;};
+            /\(.*16bit.*\)/ && do {@os = "Windows 3.1"; last;};
+            /\(.*Mac OS 9.*\)/ && do {@os = "Mac System 9.x"; last;};
+            /\(.*Mac OS 8\.6.*\)/ && do {@os = "Mac System 8.6"; last;};
+            /\(.*Mac OS 8\.5.*\)/ && do {@os = "Mac System 8.5"; last;};
         # Bugzilla doesn't have an entry for 8.1
-            /\(.*Mac OS 8\.1.*\)/ && do {push @os, "Mac System 8.0";};
-            /\(.*Mac OS 8\.0.*\)/ && do {push @os, "Mac System 8.0";};
-            /\(.*Mac OS 8[^.].*\)/ && do {push @os, "Mac System 8.0";};
-            /\(.*Mac OS 8.*\)/ && do {push @os, "Mac System 8.6";};
-            /\(.*Intel.*Mac OS X.*\)/ && do {push @os, "Mac OS X 10.4";};
-            /\(.*Mac OS X.*\)/ && do {push @os, ("Mac OS X 10.3", "Mac OS X 10.0");};
-            /\(.*Darwin.*\)/ && do {push @os, "Mac OS X 10.0";};
+            /\(.*Mac OS 8\.1.*\)/ && do {@os = "Mac System 8.0"; last;};
+            /\(.*Mac OS 8\.0.*\)/ && do {@os = "Mac System 8.0"; last;};
+            /\(.*Mac OS 8[^.].*\)/ && do {@os = "Mac System 8.0"; last;};
+            /\(.*Mac OS 8.*\)/ && do {@os = "Mac System 8.6"; last;};
+            /\(.*Mac OS X.*\)/ && do {@os = "Mac OS X 10.0"; last;};
+            /\(.*Darwin.*\)/ && do {@os = "Mac OS X 10.0"; last;};
         # Silly
-            /\(.*Mac.*PowerPC.*\)/ && do {push @os, "Mac System 9.x";};
-            /\(.*Mac.*PPC.*\)/ && do {push @os, "Mac System 9.x";};
-            /\(.*Mac.*68k.*\)/ && do {push @os, "Mac System 8.0";};
+            /\(.*Mac.*PowerPC.*\)/ && do {@os = "Mac System 9.x"; last;};
+            /\(.*Mac.*PPC.*\)/ && do {@os = "Mac System 9.x"; last;};
+            /\(.*Mac.*68k.*\)/ && do {@os = "Mac System 8.0"; last;};
         # Evil
-            /Amiga/i && do {push @os, "Other";};
-            /WinMosaic/ && do {push @os, "Windows 95";};
-            /\(.*PowerPC.*\)/ && do {push @os, "Mac System 9.x";};
-            /\(.*PPC.*\)/ && do {push @os, "Mac System 9.x";};
-            /\(.*68K.*\)/ && do {push @os, "Mac System 8.0";};
+            /Amiga/i && do {@os = "Other"; last;};
+            /WinMosaic/ && do {@os = "Windows 95"; last;};
+            /\(.*PowerPC.*\)/ && do {@os = "Mac System 9.x"; last;};
+            /\(.*PPC.*\)/ && do {@os = "Mac System 9.x"; last;};
+            /\(.*68K.*\)/ && do {@os = "Mac System 8.0"; last;};
         }
     }
 
@@ -318,8 +314,7 @@ sub pickos {
 # End of subroutines
 ##############################################################################
 
-my $has_editbugs = $user->in_group('editbugs', $product->id);
-my $has_canconfirm = $user->in_group('canconfirm', $product->id);
+Bugzilla->login(LOGIN_REQUIRED) if (!(AnyEntryGroups()));
 
 # If a user is trying to clone a bug
 #   Check that the user has authorization to view the parent bug
@@ -328,46 +323,71 @@ $cloned_bug_id = $cgi->param('cloned_bug_id');
 
 if ($cloned_bug_id) {
     ValidateBugID($cloned_bug_id);
-    $cloned_bug = new Bugzilla::Bug($cloned_bug_id);
+    $cloned_bug = new Bugzilla::Bug($cloned_bug_id, Bugzilla->user->id);
 }
 
-if (scalar(@{$product->components}) == 1) {
+# We need to check and make sure
+# that the user has permission to enter a bug against this product.
+my $prod_obj = new Bugzilla::Product({name => $product});
+# Update the product name to get the correct case.
+$product = $prod_obj->name if defined $prod_obj;
+Bugzilla->user->can_enter_product($product, 1);
+
+GetVersionTable();
+
+my $product_id = get_product_id($product);
+
+if (1 == @{$::components{$product}}) {
     # Only one component; just pick it.
-    $cgi->param('component', $product->components->[0]->name);
+    $cgi->param('component', $::components{$product}->[0]);
+}
+
+my @components;
+
+my $dbh = Bugzilla->dbh;
+my $sth = $dbh->prepare(
+       q{SELECT name, description, p1.login_name, p2.login_name 
+           FROM components 
+      LEFT JOIN profiles p1 ON components.initialowner = p1.userid
+      LEFT JOIN profiles p2 ON components.initialqacontact = p2.userid
+          WHERE product_id = ?
+          ORDER BY name});
+
+$sth->execute($product_id);
+while (my ($name, $description, $owner, $qacontact)
+       = $sth->fetchrow_array()) {
+    push @components, {
+        name => $name,
+        description => $description,
+        initialowner => $owner,
+        initialqacontact => $qacontact || '',
+    };
 }
 
 my %default;
 
 $vars->{'product'}               = $product;
+$vars->{'component_'}            = \@components;
 
-$vars->{'priority'}              = get_legal_field_values('priority');
-$vars->{'bug_severity'}          = get_legal_field_values('bug_severity');
-$vars->{'rep_platform'}          = get_legal_field_values('rep_platform');
-$vars->{'op_sys'}                = get_legal_field_values('op_sys');
+$vars->{'priority'}              = \@legal_priority;
+$vars->{'bug_severity'}          = \@legal_severity;
+$vars->{'rep_platform'}          = \@legal_platform;
+$vars->{'op_sys'}                = \@legal_opsys; 
 
-$vars->{'use_keywords'}          = 1 if Bugzilla::Keyword::keyword_count();
+$vars->{'use_keywords'}          = 1 if (@::legal_keywords);
 
 $vars->{'assigned_to'}           = formvalue('assigned_to');
-$vars->{'assigned_to_disabled'}  = !$has_editbugs;
+$vars->{'assigned_to_disabled'}  = !UserInGroup('editbugs');
 $vars->{'cc_disabled'}           = 0;
 
 $vars->{'qa_contact'}           = formvalue('qa_contact');
-$vars->{'qa_contact_disabled'}  = !$has_editbugs;
+$vars->{'qa_contact_disabled'}  = !UserInGroup('editbugs');
 
 $vars->{'cloned_bug_id'}         = $cloned_bug_id;
 
-$vars->{'token'}             = issue_session_token('createbug:');
-
-
-my @enter_bug_fields = Bugzilla->get_fields({ custom => 1, obsolete => 0, 
-                                              enter_bug => 1 });
-foreach my $field (@enter_bug_fields) {
-    $vars->{$field->name} = formvalue($field->name);
-}
-
 if ($cloned_bug_id) {
 
-    $default{'component_'}    = $cloned_bug->component;
+    $default{'component_'}    = $cloned_bug->{'component'};
     $default{'priority'}      = $cloned_bug->{'priority'};
     $default{'bug_severity'}  = $cloned_bug->{'bug_severity'};
     $default{'rep_platform'}  = $cloned_bug->{'rep_platform'};
@@ -386,10 +406,6 @@ if ($cloned_bug_id) {
         $vars->{'cc'}         = formvalue('cc');
     }
 
-    foreach my $field (@enter_bug_fields) {
-        $vars->{$field->name} = $cloned_bug->{$field->name};
-    }
-
 # We need to ensure that we respect the 'insider' status of
 # the first comment, if it has one. Either way, make a note
 # that this bug was cloned from another bug.
@@ -401,8 +417,8 @@ if ($cloned_bug_id) {
     $vars->{'commentprivacy'} = 0;
 
     if ( !($isprivate) ||
-         ( ( Bugzilla->params->{"insidergroup"} ) && 
-           ( Bugzilla->user->in_group(Bugzilla->params->{"insidergroup"}) ) ) 
+         ( ( Param("insidergroup") ) && 
+           ( UserInGroup(Param("insidergroup")) ) ) 
        ) {
         $vars->{'comment'}        = $cloned_bug->{'longdescs'}->[0]->{'body'};
         $vars->{'commentprivacy'} = $isprivate;
@@ -416,8 +432,8 @@ if ($cloned_bug_id) {
 else {
 
     $default{'component_'}    = formvalue('component');
-    $default{'priority'}      = formvalue('priority', Bugzilla->params->{'defaultpriority'});
-    $default{'bug_severity'}  = formvalue('bug_severity', Bugzilla->params->{'defaultseverity'});
+    $default{'priority'}      = formvalue('priority', Param('defaultpriority'));
+    $default{'bug_severity'}  = formvalue('bug_severity', Param('defaultseverity'));
     $default{'rep_platform'}  = pickplatform();
     $default{'op_sys'}        = pickos();
 
@@ -449,44 +465,56 @@ else {
 #
 # Eventually maybe each product should have a "current version"
 # parameter.
-$vars->{'version'} = [map($_->name, @{$product->versions})];
+$vars->{'version'} = $::versions{$product} || [];
 
 if ( ($cloned_bug_id) &&
-     ($product->name eq $cloned_bug->product ) ) {
+     ("$product" eq "$cloned_bug->{'product'}" ) ) {
     $default{'version'} = $cloned_bug->{'version'};
 } elsif (formvalue('version')) {
     $default{'version'} = formvalue('version');
-} elsif (defined $cgi->cookie("VERSION-" . $product->name) &&
-    lsearch($vars->{'version'}, $cgi->cookie("VERSION-" . $product->name)) != -1) {
-    $default{'version'} = $cgi->cookie("VERSION-" . $product->name);
+} elsif (defined $cgi->cookie("VERSION-$product") &&
+    lsearch($vars->{'version'}, $cgi->cookie("VERSION-$product")) != -1) {
+    $default{'version'} = $cgi->cookie("VERSION-$product");
 } else {
     $default{'version'} = $vars->{'version'}->[$#{$vars->{'version'}}];
 }
 
+# Only used with placeholders below
+trick_taint($product);
+
 # Get list of milestones.
-if ( Bugzilla->params->{'usetargetmilestone'} ) {
-    $vars->{'target_milestone'} = [map($_->name, @{$product->milestones})];
+if ( Param('usetargetmilestone') ) {
+    $vars->{'target_milestone'} = $::target_milestone{$product};
     if (formvalue('target_milestone')) {
        $default{'target_milestone'} = formvalue('target_milestone');
     } else {
-       $default{'target_milestone'} = $product->default_milestone;
+       $default{'target_milestone'} =
+                $dbh->selectrow_array('SELECT defaultmilestone FROM products
+                                       WHERE name = ?', undef, $product);
     }
 }
 
-# Construct the list of allowable statuses.
-#
-# * If the product requires votes to confirm:
-#   users with privs   : NEW + ASSI + UNCO
-#   users with no privs: UNCO
-#
-# * If the product doesn't require votes to confirm:
-#   users with privs   : NEW + ASSI
-#   users with no privs: NEW (as these users cannot reassign
-#                             bugs to them, it doesn't make sense
-#                             to let them mark bugs as ASSIGNED)
 
+# List of status values for drop-down.
 my @status;
-@status = ('UNCONFIRMED');
+
+# Construct the list of allowable values.  There are three cases:
+# 
+#  case                                 values
+#  product does not have confirmation   NEW
+#  confirmation, user cannot confirm    UNCONFIRMED
+#  confirmation, user can confirm       NEW, UNCONFIRMED.
+
+my $votestoconfirm = $dbh->selectrow_array('SELECT votestoconfirm FROM products
+                                            WHERE name = ?', undef, $product);
+if ($votestoconfirm) {
+    if (UserInGroup("editbugs") || UserInGroup("canconfirm")) {
+        push(@status, "NEW");
+    }
+    push(@status, 'UNCONFIRMED');
+} else {
+    push(@status, "NEW");
+}
 
 $vars->{'bug_status'} = \@status; 
 
@@ -506,7 +534,7 @@ my $grouplist = $dbh->selectall_arrayref(
                  LEFT JOIN group_control_map
                         ON group_id = id AND product_id = ?
                      WHERE isbuggroup != 0 AND isactive != 0
-                  ORDER BY description}, undef, $product->id);
+                  ORDER BY description}, undef, $product_id);
 
 my @groups;
 
@@ -518,7 +546,7 @@ foreach my $row (@$grouplist) {
                || ($membercontrol == CONTROLMAPMANDATORY)
                || (($othercontrol != CONTROLMAPSHOWN) 
                     && ($othercontrol != CONTROLMAPDEFAULT)
-                    && (!Bugzilla->user->in_group($groupname)))
+                    && (!UserInGroup($groupname)))
              );
     my $check;
 
@@ -531,7 +559,7 @@ foreach my $row (@$grouplist) {
     #   set a groups's checkbox based on the group control map
     #
     if ( ($cloned_bug_id) &&
-         ($product->name eq $cloned_bug->product ) ) {
+         ("$product" eq "$cloned_bug->{'product'}" ) ) {
         foreach my $i (0..(@{$cloned_bug->{'groups'}}-1) ) {
             if ($cloned_bug->{'groups'}->[$i]->{'bit'} == $id) {
                 $check = $cloned_bug->{'groups'}->[$i]->{'ison'};
@@ -545,7 +573,7 @@ foreach my $row (@$grouplist) {
         # Checkbox is checked by default if $control is a default state.
         $check = (($membercontrol == CONTROLMAPDEFAULT)
                  || (($othercontrol == CONTROLMAPDEFAULT)
-                      && (!Bugzilla->user->in_group($groupname))));
+                      && (!UserInGroup($groupname))));
     }
 
     my $group = 
@@ -559,8 +587,6 @@ foreach my $row (@$grouplist) {
 }
 
 $vars->{'group'} = \@groups;
-
-Bugzilla::Hook::process("enter_bug-entrydefaultvars", { vars => $vars });
 
 $vars->{'default'} = \%default;
 

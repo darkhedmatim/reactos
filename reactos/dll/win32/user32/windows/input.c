@@ -31,10 +31,19 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+
 
 /* GLOBALS *******************************************************************/
 
+typedef struct __TRACKINGLIST {
+    TRACKMOUSEEVENT tme;
+    POINT pos; /* center of hover rectangle */
+} _TRACKINGLIST;
+
+/* FIXME: move tracking stuff into a per thread data */
+static _TRACKINGLIST tracking_info;
+static UINT_PTR timer;
+static const INT iTimerInterval = 50; /* msec for timer interval */
 
 
 /* FUNCTIONS *****************************************************************/
@@ -109,7 +118,7 @@ BOOL STDCALL
 EnableWindow(HWND hWnd,
 	     BOOL bEnable)
 {
-    LONG Style = GetWindowLongW(hWnd, GWL_STYLE);
+    LONG Style = NtUserGetWindowLong(hWnd, GWL_STYLE, FALSE);
     /* check if updating is needed */
     UINT bIsDisabled = (Style & WS_DISABLED);
     if ( (bIsDisabled && bEnable) || (!bIsDisabled && !bEnable) )
@@ -234,7 +243,7 @@ BOOL STDCALL
 GetKeyboardLayoutNameA(LPSTR pwszKLID)
 {
   WCHAR buf[KL_NAMELENGTH];
-
+    
   if (GetKeyboardLayoutNameW(buf))
     return WideCharToMultiByte( CP_ACP, 0, buf, -1, pwszKLID, KL_NAMELENGTH, NULL, NULL ) != 0;
   return FALSE;
@@ -289,7 +298,7 @@ HKL STDCALL
 LoadKeyboardLayoutA(LPCSTR pwszKLID,
 		    UINT Flags)
 {
-  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL, NULL,
+  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL,
                strtoul(pwszKLID, NULL, 16),
                Flags);
 }
@@ -304,7 +313,7 @@ LoadKeyboardLayoutW(LPCWSTR pwszKLID,
 {
   // Look at revision 25596 to see how it's done in windows.
   // We will do things our own way. Also be compatible too!
-  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL, NULL,
+  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL,
                wcstoul(pwszKLID, NULL, 16),
                Flags);
 }
@@ -358,7 +367,7 @@ MapVirtualKeyW(UINT uCode,
 
 /*
  * @implemented
- */
+ */ 
 DWORD STDCALL
 OemKeyScan(WORD wOemChar)
 {
@@ -370,7 +379,7 @@ OemKeyScan(WORD wOemChar)
   Vk = VkKeyScanW(p);
   Scan = MapVirtualKeyW((Vk & 0x00ff), 0);
   if(!Scan) return -1;
-  /*
+  /* 
      Page 450-1, MS W2k SuperBible by SAMS. Return, low word has the
      scan code and high word has the shift state.
    */
@@ -547,7 +556,7 @@ SHORT STDCALL
 VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
-  return (SHORT) NtUserVkKeyScanEx(ch, dwhkl, 0);
+  return (SHORT) NtUserVkKeyScanEx((DWORD) ch,(DWORD) dwhkl,(DWORD)NULL);
 }
 
 
@@ -679,33 +688,28 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
     HWND hwnd;
     INT hoverwidth = 0, hoverheight = 0;
     RECT client;
-    PUSER32_TRACKINGLIST ptracking_info;
-
-    ptracking_info = & User32GetThreadData()->tracking_info;
 
     GetCursorPos(&pos);
     hwnd = WindowFromPoint(pos);
 
-    SystemParametersInfoW(SPI_GETMOUSEHOVERWIDTH, 0, &hoverwidth, 0);
-    SystemParametersInfoW(SPI_GETMOUSEHOVERHEIGHT, 0, &hoverheight, 0);
+//    SystemParametersInfoW(SPI_GETMOUSEHOVERWIDTH, 0, &hoverwidth, 0);
+    hoverwidth = 4;
+//    SystemParametersInfoW(SPI_GETMOUSEHOVERHEIGHT, 0, &hoverheight, 0);
+    hoverheight = 4;
 
     /* see if this tracking event is looking for TME_LEAVE and that the */
     /* mouse has left the window */
-    if (ptracking_info->tme.dwFlags & TME_LEAVE)
+    if (tracking_info.tme.dwFlags & TME_LEAVE)
     {
-        if (ptracking_info->tme.hwndTrack != hwnd)
+        if (tracking_info.tme.hwndTrack != hwnd)
         {
-            if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
-            }
+            if (tracking_info.tme.dwFlags & TME_NONCLIENT)
+                PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
             else
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
-            }
+                PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
 
             /* remove the TME_LEAVE flag */
-            ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+            tracking_info.tme.dwFlags &= ~TME_LEAVE;
         }
         else
         {
@@ -713,35 +717,35 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
             MapWindowPoints(hwnd, NULL, (LPPOINT)&client, 2);
             if (PtInRect(&client, pos))
             {
-                if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
+                if (tracking_info.tme.dwFlags & TME_NONCLIENT)
                 {
-                    PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
+                    PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
                     /* remove the TME_LEAVE flag */
-                    ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+                    tracking_info.tme.dwFlags &= ~TME_LEAVE;
                 }
             }
             else
             {
-                if (!(ptracking_info->tme.dwFlags & TME_NONCLIENT))
+                if (!(tracking_info.tme.dwFlags & TME_NONCLIENT))
                 {
-                    PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
+                    PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
                     /* remove the TME_LEAVE flag */
-                    ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+                    tracking_info.tme.dwFlags &= ~TME_LEAVE;
                 }
             }
         }
     }
 
     /* see if we are tracking hovering for this hwnd */
-    if (ptracking_info->tme.dwFlags & TME_HOVER)
+    if (tracking_info.tme.dwFlags & TME_HOVER)
     {
         /* has the cursor moved outside the rectangle centered around pos? */
-        if ((abs(pos.x - ptracking_info->pos.x) > (hoverwidth / 2.0)) ||
-            (abs(pos.y - ptracking_info->pos.y) > (hoverheight / 2.0)))
+        if ((abs(pos.x - tracking_info.pos.x) > (hoverwidth / 2.0)) ||
+            (abs(pos.y - tracking_info.pos.y) > (hoverheight / 2.0)))
         {
             /* record this new position as the current position and reset */
             /* the iHoverTime variable to 0 */
-            ptracking_info->pos = pos;
+            tracking_info.pos = pos;
         }
         else
         {
@@ -749,27 +753,25 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
             posClient.y = pos.y;
             ScreenToClient(hwnd, &posClient);
 
-            if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSEHOVER,
+            if (tracking_info.tme.dwFlags & TME_NONCLIENT)
+                PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSEHOVER,
                             get_key_state(), MAKELPARAM( posClient.x, posClient.y ));
-            }
             else
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSEHOVER,
+                PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSEHOVER,
                             get_key_state(), MAKELPARAM( posClient.x, posClient.y ));
-            }
 
             /* stop tracking mouse hover */
-            ptracking_info->tme.dwFlags &= ~TME_HOVER;
+            tracking_info.tme.dwFlags &= ~TME_HOVER;
         }
     }
 
     /* stop the timer if the tracking list is empty */
-    if (!(ptracking_info->tme.dwFlags & (TME_HOVER | TME_LEAVE)))
+    if (!(tracking_info.tme.dwFlags & (TME_HOVER | TME_LEAVE)))
     {
-        KillTimer(0, ptracking_info->timer);
-        RtlZeroMemory(ptracking_info,sizeof(USER32_TRACKINGLIST));
+        memset(&tracking_info, 0, sizeof(tracking_info));
+
+        KillTimer(0, timer);
+        timer = 0;
     }
 }
 
@@ -796,7 +798,7 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
  *
  */
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 STDCALL
@@ -806,7 +808,6 @@ TrackMouseEvent(
     HWND hwnd;
     POINT pos;
     DWORD hover_time;
-    PUSER32_TRACKINGLIST ptracking_info;
 
     TRACE("%lx, %lx, %p, %lx\n", ptme->cbSize, ptme->dwFlags, ptme->hwndTrack, ptme->dwHoverTime);
 
@@ -816,13 +817,10 @@ TrackMouseEvent(
         return FALSE;
     }
 
-    ptracking_info = & User32GetThreadData()->tracking_info;
-
     /* fill the TRACKMOUSEEVENT struct with the current tracking for the given hwnd */
     if (ptme->dwFlags & TME_QUERY )
     {
-        *ptme = ptracking_info->tme;
-        ptme->cbSize = sizeof(TRACKMOUSEEVENT);
+        *ptme = tracking_info.tme;
 
         return TRUE; /* return here, TME_QUERY is retrieving information */
     }
@@ -837,50 +835,47 @@ TrackMouseEvent(
 
     /* if HOVER_DEFAULT was specified replace this with the systems current value */
     if (hover_time == HOVER_DEFAULT || hover_time == 0)
-    {
-        SystemParametersInfoW(SPI_GETMOUSEHOVERTIME, 0, &hover_time, 0);
-    }
+//        SystemParametersInfoW(SPI_GETMOUSEHOVERTIME, 0, &hover_time, 0);
+        hover_time = 400;
 
     GetCursorPos(&pos);
     hwnd = WindowFromPoint(pos);
 
     if (ptme->dwFlags & ~(TME_CANCEL | TME_HOVER | TME_LEAVE | TME_NONCLIENT))
-    {
         FIXME("Unknown flag(s) %08lx\n", ptme->dwFlags & ~(TME_CANCEL | TME_HOVER | TME_LEAVE | TME_NONCLIENT));
-    }
 
     if (ptme->dwFlags & TME_CANCEL)
     {
-        if (ptracking_info->tme.hwndTrack == ptme->hwndTrack)
+        if (tracking_info.tme.hwndTrack == ptme->hwndTrack)
         {
-            ptracking_info->tme.dwFlags &= ~(ptme->dwFlags & ~TME_CANCEL);
+            tracking_info.tme.dwFlags &= ~(ptme->dwFlags & ~TME_CANCEL);
 
             /* if we aren't tracking on hover or leave remove this entry */
-            if (!(ptracking_info->tme.dwFlags & (TME_HOVER | TME_LEAVE)))
+            if (!(tracking_info.tme.dwFlags & (TME_HOVER | TME_LEAVE)))
             {
-                KillTimer(0, ptracking_info->timer);
-                RtlZeroMemory(ptracking_info,sizeof(USER32_TRACKINGLIST));
+                memset(&tracking_info, 0, sizeof(tracking_info));
+
+                KillTimer(0, timer);
+                timer = 0;
             }
         }
     } else {
         if (ptme->hwndTrack == hwnd)
         {
             /* Adding new mouse event to the tracking list */
-            ptracking_info->tme = *ptme;
-            ptracking_info->tme.dwHoverTime = hover_time;
+            tracking_info.tme = *ptme;
+            tracking_info.tme.dwHoverTime = hover_time;
 
             /* Initialize HoverInfo variables even if not hover tracking */
-            ptracking_info->pos = pos;
+            tracking_info.pos = pos;
 
-            if (!ptracking_info->timer)
-            {
-                ptracking_info->timer = SetTimer(0, 0, hover_time, TrackMouseEventProc);
-            }
+            if (!timer)
+                timer = SetTimer(0, 0, hover_time, TrackMouseEventProc);
         }
     }
 
     return TRUE;
-
+ 
 }
 
 /* EOF */

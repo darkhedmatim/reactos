@@ -24,7 +24,6 @@
 #                 Christopher Aillon <christopher@aillon.com>
 #                 Max Kanat-Alexander <mkanat@bugzilla.org>
 #                 Frédéric Buclin <LpSolit@gmail.com>
-#                 Marc Schumann <wurblzap@gmail.com>
 
 package Bugzilla::Util;
 
@@ -34,25 +33,25 @@ use base qw(Exporter);
 @Bugzilla::Util::EXPORT = qw(is_tainted trick_taint detaint_natural
                              detaint_signed
                              html_quote url_quote value_quote xml_quote
-                             css_class_quote html_light_quote url_decode
-                             i_am_cgi get_netaddr correct_urlbase
-                             lsearch
+                             css_class_quote
+                             i_am_cgi
+                             lsearch max min
                              diff_arrays diff_strings
                              trim wrap_comment find_wrap_point
                              perform_substs
                              format_time format_time_decimal validate_date
                              file_mod_time is_7bit_clean
                              bz_crypt generate_random_password
-                             validate_email_syntax clean_text
-                             get_text);
+                             validate_email_syntax clean_text);
 
+use Bugzilla::Config;
 use Bugzilla::Constants;
 
 use Date::Parse;
 use Date::Format;
 use Text::Wrap;
 
-# This is from the perlsec page, slightly modified to remove a warning
+# This is from the perlsec page, slightly modifed to remove a warning
 # From that page:
 #      This function makes use of the fact that the presence of
 #      tainted data anywhere within an expression renders the
@@ -65,20 +64,20 @@ sub is_tainted {
 sub trick_taint {
     require Carp;
     Carp::confess("Undef to trick_taint") unless defined $_[0];
-    my $match = $_[0] =~ /^(.*)$/s;
-    $_[0] = $match ? $1 : undef;
+    my ($match) = $_[0] =~ /^(.*)$/s;
+    $_[0] = $match;
     return (defined($_[0]));
 }
 
 sub detaint_natural {
-    my $match = $_[0] =~ /^(\d+)$/;
-    $_[0] = $match ? $1 : undef;
+    my ($match) = $_[0] =~ /^(\d+)$/;
+    $_[0] = $match;
     return (defined($_[0]));
 }
 
 sub detaint_signed {
-    my $match = $_[0] =~ /^([-+]?\d+)$/;
-    $_[0] = $match ? $1 : undef;
+    my ($match) = $_[0] =~ /^([-+]?\d+)$/;
+    $_[0] = $match;
     # Remove any leading plus sign.
     if (defined($_[0]) && $_[0] =~ /^\+(\d+)$/) {
         $_[0] = $1;
@@ -93,93 +92,6 @@ sub html_quote {
     $var =~ s/>/\&gt;/g;
     $var =~ s/\"/\&quot;/g;
     return $var;
-}
-
-sub html_light_quote {
-    my ($text) = @_;
-
-    # List of allowed HTML elements having no attributes.
-    my @allow = qw(b strong em i u p br abbr acronym ins del cite code var
-                   dfn samp kbd big small sub sup tt dd dt dl ul li ol);
-
-    # Are HTML::Scrubber and HTML::Parser installed?
-    eval { require HTML::Scrubber;
-           require HTML::Parser;
-    };
-
-    # We need utf8_mode() from HTML::Parser 3.40 if running Perl >= 5.8.
-    if ($@ || ($] >= 5.008 && $HTML::Parser::VERSION < 3.40)) { # Package(s) not installed.
-        my $safe = join('|', @allow);
-        my $chr = chr(1);
-
-        # First, escape safe elements.
-        $text =~ s#<($safe)>#$chr$1$chr#go;
-        $text =~ s#</($safe)>#$chr/$1$chr#go;
-        # Now filter < and >.
-        $text =~ s#<#&lt;#g;
-        $text =~ s#>#&gt;#g;
-        # Restore safe elements.
-        $text =~ s#$chr/($safe)$chr#</$1>#go;
-        $text =~ s#$chr($safe)$chr#<$1>#go;
-        return $text;
-    }
-    else { # Packages installed.
-        # We can be less restrictive. We can accept elements with attributes.
-        push(@allow, qw(a blockquote q span));
-
-        # Allowed protocols.
-        my $safe_protocols = join('|', SAFE_PROTOCOLS);
-        my $protocol_regexp = qr{(^(?:$safe_protocols):|^[^:]+$)}i;
-
-        # Deny all elements and attributes unless explicitly authorized.
-        my @default = (0 => {
-                             id    => 1,
-                             name  => 1,
-                             class => 1,
-                             '*'   => 0, # Reject all other attributes.
-                            }
-                       );
-
-        # Specific rules for allowed elements. If no specific rule is set
-        # for a given element, then the default is used.
-        my @rules = (a => {
-                           href  => $protocol_regexp,
-                           title => 1,
-                           id    => 1,
-                           name  => 1,
-                           class => 1,
-                           '*'   => 0, # Reject all other attributes.
-                          },
-                     blockquote => {
-                                    cite => $protocol_regexp,
-                                    id    => 1,
-                                    name  => 1,
-                                    class => 1,
-                                    '*'  => 0, # Reject all other attributes.
-                                   },
-                     'q' => {
-                             cite => $protocol_regexp,
-                             id    => 1,
-                             name  => 1,
-                             class => 1,
-                             '*'  => 0, # Reject all other attributes.
-                          },
-                    );
-
-        my $scrubber = HTML::Scrubber->new(default => \@default,
-                                           allow   => \@allow,
-                                           rules   => \@rules,
-                                           comment => 0,
-                                           process => 0);
-
-        # Avoid filling the web server error log with Perl 5.8.x.
-        # In HTML::Scrubber 0.08, the HTML::Parser object is stored in
-        # the "_p" key, but this may change in future versions.
-        if ($] >= 5.008 && ref($scrubber->{_p}) eq 'HTML::Parser') {
-            $scrubber->{_p}->utf8_mode(1);
-        }
-        return $scrubber->scrub($text);
-    }
 }
 
 # This originally came from CGI.pm, by Lincoln D. Stein
@@ -203,7 +115,7 @@ sub value_quote {
     $var =~ s/>/\&gt;/g;
     $var =~ s/\"/\&quot;/g;
     # See bug http://bugzilla.mozilla.org/show_bug.cgi?id=4928 for 
-    # explanation of why Bugzilla does this linebreak substitution. 
+    # explanaion of why bugzilla does this linebreak substitution. 
     # This caused form submission problems in mozilla (bug 22983, 32000).
     $var =~ s/\r\n/\&#013;/g;
     $var =~ s/\n\r/\&#013;/g;
@@ -235,22 +147,6 @@ sub i_am_cgi {
     return exists $ENV{'SERVER_SOFTWARE'} ? 1 : 0;
 }
 
-sub correct_urlbase {
-    my $ssl = Bugzilla->params->{'ssl'};
-    return Bugzilla->params->{'urlbase'} if $ssl eq 'never';
-
-    my $sslbase = Bugzilla->params->{'sslbase'};
-    if ($sslbase) {
-        return $sslbase if $ssl eq 'always';
-        # Authenticated Sessions
-        return $sslbase if Bugzilla->user->id;
-    }
-
-    # Set to "authenticated sessions" but nobody's logged in, or
-    # sslbase isn't set.
-    return Bugzilla->params->{'urlbase'};
-}
-
 sub lsearch {
     my ($list,$item) = (@_);
     my $count = 0;
@@ -261,6 +157,22 @@ sub lsearch {
         $count++;
     }
     return -1;
+}
+
+sub max {
+    my $max = shift(@_);
+    foreach my $val (@_) {
+        $max = $val if $val > $max;
+    }
+    return $max;
+}
+
+sub min {
+    my $min = shift(@_);
+    foreach my $val (@_) {
+        $min = $val if $val < $min;
+    }
+    return $min;
 }
 
 sub diff_arrays {
@@ -357,7 +269,7 @@ sub find_wrap_point {
 
 sub perform_substs {
     my ($str, $substs) = (@_);
-    $str =~ s/%([a-z]*)%/(defined $substs->{$1} ? $substs->{$1} : Bugzilla->params->{$1})/eg;
+    $str =~ s/%([a-z]*)%/(defined $substs->{$1} ? $substs->{$1} : Param($1))/eg;
     return $str;
 }
 
@@ -383,8 +295,7 @@ sub format_time {
     }
     else {
         # Search for %Z or %z, meaning we want the timezone to be displayed.
-        # Till bug 182238 gets fixed, we assume Bugzilla->params->{'timezone'}
-        # is used.
+        # Till bug 182238 gets fixed, we assume Param('timezone') is used.
         $show_timezone = ($format =~ s/\s?%Z$//i);
     }
 
@@ -393,7 +304,7 @@ sub format_time {
 
     if (defined $time) {
         $date = time2str($format, $time);
-        $date .= " " . Bugzilla->params->{'timezone'} if $show_timezone;
+        $date .= " " . &::Param('timezone') if $show_timezone;
     }
     else {
         # Don't let invalid (time) strings to be passed to templates!
@@ -454,12 +365,8 @@ sub generate_random_password {
 
 sub validate_email_syntax {
     my ($addr) = @_;
-    my $match = Bugzilla->params->{'emailregexp'};
+    my $match = Param('emailregexp');
     my $ret = ($addr =~ /$match/ && $addr !~ /[\\\(\)<>&,;:"\[\] \t\r\n]/);
-    if ($ret) {
-        # We assume these checks to suffice to consider the address untainted.
-        trick_taint($_[0]);
-    }
     return $ret ? 1 : 0;
 }
 
@@ -487,41 +394,6 @@ sub clean_text {
     my ($dtext) = shift;
     $dtext =~  s/[\x00-\x1F\x7F]+/ /g;   # change control characters into a space
     return trim($dtext);
-}
-
-sub get_text {
-    my ($name, $vars) = @_;
-    my $template = Bugzilla->template_inner;
-    $vars ||= {};
-    $vars->{'message'} = $name;
-    my $message;
-    $template->process('global/message.txt.tmpl', $vars, \$message)
-        || ThrowTemplateError($template->error());
-    # Remove the indenting that exists in messages.html.tmpl.
-    $message =~ s/^    //gm;
-    return $message;
-}
-
-
-sub get_netaddr {
-    my $ipaddr = shift;
-
-    # Check for a valid IPv4 addr which we know how to parse
-    if (!$ipaddr || $ipaddr !~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/) {
-        return undef;
-    }
-
-    my $addr = unpack("N", pack("CCCC", split(/\./, $ipaddr)));
-
-    my $maskbits = Bugzilla->params->{'loginnetmask'};
-
-    # Make Bugzilla ignore the IP address if loginnetmask is set to 0
-    return "0.0.0.0" if ($maskbits == 0);
-
-    $addr >>= (32-$maskbits);
-
-    $addr <<= (32-$maskbits);
-    return join(".", unpack("CCCC", pack("N", $addr)));
 }
 
 1;
@@ -552,12 +424,12 @@ Bugzilla::Util - Generic utility functions for bugzilla
   $rv = url_decode($var);
 
   # Functions that tell you about your environment
-  my $is_cgi   = i_am_cgi();
-  my $net_addr = get_netaddr($ip_addr);
-  my $urlbase  = correct_urlbase();
+  my $is_cgi = i_am_cgi();
 
   # Functions for searching
   $loc = lsearch(\@arr, $val);
+  $val = max($a, $b, $c);
+  $val = min($a, $b, $c);
 
   # Data manipulation
   ($removed, $added) = diff_arrays(\@old, \@new);
@@ -644,12 +516,6 @@ be done in the template where possible.
 Returns a value quoted for use in HTML, with &, E<lt>, E<gt>, and E<34> being
 replaced with their appropriate HTML entities.
 
-=item C<html_light_quote($val)>
-
-Returns a string where only explicitly allowed HTML elements and attributes
-are kept. All HTML elements and attributes not being in the whitelist are either
-escaped (if HTML::Scrubber is not installed) or removed.
-
 =item C<url_quote($val)>
 
 Quotes characters so that they may be included as part of a url.
@@ -674,31 +540,11 @@ is kept separate from html_quote partly for compatibility with previous code
 
 Converts the %xx encoding from the given URL back to its original form.
 
-=back
-
-=head2 Environment and Location
-
-Functions returning information about your environment or location.
-
-=over 4
-
 =item C<i_am_cgi()>
 
 Tells you whether or not you are being run as a CGI script in a web
 server. For example, it would return false if the caller is running
 in a command-line script.
-
-=item C<get_netaddr($ipaddr)>
-
-Given an IP address, this returns the associated network address, using
-C<Bugzilla->params->{'loginnetmask'}> as the netmask. This can be used
-to obtain data in order to restrict weak authentication methods (such as
-cookies) to only some addresses.
-
-=item C<correct_urlbase()>
-
-Returns either the C<sslbase> or C<urlbase> parameter, depending on the
-current setting for the C<ssl> parameter.
 
 =back
 
@@ -714,6 +560,14 @@ Returns the position of C<$item> in C<$list>. C<$list> must be a list
 reference.
 
 If the item is not in the list, returns -1.
+
+=item C<max($a, $b, ...)>
+
+Returns the maximum from a set of values.
+
+=item C<min($a, $b, ...)>
+
+Returns the minimum from a set of values.
 
 =back
 
@@ -795,34 +649,6 @@ ASCII 10 (LineFeed) and ASCII 13 (Carrage Return).
 Returns the parameter "cleaned" by exchanging non-printable characters with spaces.
 Specifically characters (ASCII 0 through 31) and (ASCII 127) will become ASCII 32 (Space).
 
-=item C<get_text>
-
-=over
-
-=item B<Description>
-
-This is a method of getting localized strings within Bugzilla code.
-Use this when you don't want to display a whole template, you just
-want a particular string.
-
-It uses the F<global/message.txt.tmpl> template to return a string.
-
-=item B<Params>
-
-=over
-
-=item C<$message> - The identifier for the message.
-
-=item C<$vars> - A hashref. Any variables you want to pass to the template.
-
-=back
-
-=item B<Returns>
-
-A string.
-
-=back
-
 =back
 
 =head2 Formatting Time
@@ -897,7 +723,6 @@ and tokens.
 
 Do a syntax checking for a legal email address and returns 1 if
 the check is successful, else returns 0.
-Untaints C<$email> if successful.
 
 =item C<validate_date($date)>
 

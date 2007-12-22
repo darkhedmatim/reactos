@@ -1,12 +1,12 @@
 /*
  * PROJECT:     Network Control Panel Applet
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        dll/cpl/ncpa/lang/uk-UA.rc
+ * FILE:        dll/cpl/ncpa/Uk.rc
  * PURPOSE:     Ukraianian Language File for Network Applet
  * TRANSLATOR:  Artem Reznikov
  */
 
-LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_UKRAINIAN, SUBLANG_NEUTRAL
 
 IDD_PROPPAGENETWORK DIALOG DISCARDABLE  0, 0, 246, 228
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -49,39 +49,36 @@ BEGIN
  LTEXT "Тривалість:", -1, 19, 34, 60, 8
  LTEXT "Швидкість:", -1, 19, 48, 60, 8
  GROUPBOX "Активність", -1, 9, 74, 182, 70, BS_GROUPBOX
- RTEXT "Надіслано", -1, 26, 90, 60, 8
+ RTEXT "Відправлено", -1, 26, 90, 60, 8
  ICON IDI_HORIZONTAL, -1, 90, 85, 18, 20
  ICON IDI_NETSTAT, -1, 110, 85, 18, 20
  ICON IDI_HORIZONTAL, -1, 130, 85, 18, 20
- LTEXT "Отримано", -1, 149, 90, 37, 8
+ LTEXT "Прийнято", -1, 149, 90, 37, 8
  LTEXT "Пакетів:", -1, 17, 115, 32, 8
  RTEXT "000.000.000", IDC_SEND, 63, 115, 44, 8
  ICON IDI_VERTICAL, -1, 110, 108, 18, 20
  RTEXT "000.000.000", IDC_RECEIVED, 139, 115, 44, 8
- PUSHBUTTON "Влас&тивості", IDC_PROPERTIES, 10, 150, 50, 14
- PUSHBUTTON "Ви&мкнути", IDC_ENDISABLE, 66, 150, 50, 14
- RTEXT "",IDC_STATUS,83,20,98,8
- RTEXT "",IDC_DURATION,83,34,98,8
- RTEXT "",IDC_SPEED,83,48,98,8
+ PUSHBUTTON "&Властивості", IDC_PROPERTIES, 10, 150, 50, 14
+ PUSHBUTTON "В&ідключити", IDC_ENDISABLE, 66, 150, 50, 14
 END
 
 IDD_CARDSUPPORT DIALOG DISCARDABLE  0, 0, 200,180
 STYLE DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Підтримка"
+CAPTION "Support"
 FONT 8, "MS Shell Dlg"
 BEGIN
- GROUPBOX "Стан підключення", -1, 9, 8, 200, 88, BS_GROUPBOX
- LTEXT "Тип адреси:", -1, 22, 20, 80, 8
- LTEXT "IP-адреса:", -1, 22, 34, 80, 8
- LTEXT "Маска підмережі:", -1, 22, 48, 80, 8
- LTEXT "Основний шлюз:", -1, 22, 62, 80, 8
-
+ GROUPBOX "Connection Status", -1, 9, 8, 200, 88, BS_GROUPBOX
+ LTEXT "Address type:", -1, 22, 20, 80, 8
+ LTEXT "IP address:", -1, 22, 34, 80, 8
+ LTEXT "SubNet mask:", -1, 22, 48, 80, 8
+ LTEXT "Default gateway:", -1, 22, 62, 80, 8
+ 
  RTEXT "N/A", IDC_DETAILSTYPE, 122, 20, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSIP, 122, 34, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSSUBNET, 122, 48, 80, 8
  RTEXT "000.000.000.000", IDC_DETAILSGATEWAY, 122, 62, 80, 8
-
- PUSHBUTTON "&Склад...", IDC_DETAILS, 22, 76, 62, 14
+ 
+ PUSHBUTTON "&Details...", IDC_DETAILS, 22, 76, 62, 14
 END
 
 IDD_TCPIPPROPERTIES DIALOG DISCARDABLE  0, 0, 246, 228
@@ -110,19 +107,13 @@ BEGIN
 END
 
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_CPLSYSTEMNAME "Настройки мережі"
   IDS_CPLSYSTEMDESCRIPTION "Встановлює настройки мережі."
 END
 
-STRINGTABLE
-BEGIN
-  IDS_ASSIGNED_DHCP "Надано DHCP"
-  IDS_ASSIGNED_MANUAL "Налаштовано вручну"
-END
-
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_ERROR "Помилка"
   IDS_ENTER_VALID_IPADDRESS "Ви маєте ввести правильну IP-адресу"
@@ -131,13 +122,4 @@ BEGIN
   IDS_CANNOT_CREATE_PROPSHEET "Неможливо створити вікно властивостей"
   IDS_OUT_OF_MEMORY "Недостатньо пам'яті"
   IDS_CANNOT_SAVE_CHANGES "Неможливо зберегти внесені зміни"
-  IDS_STATUS_NON_OPERATIONAL "Не працює"
-  IDS_STATUS_UNREACHABLE "Не знайдений адаптер WAN"
-  IDS_STATUS_DISCONNECTED "Відключено"
-  IDS_STATUS_CONNECTING "Підключення"
-  IDS_STATUS_CONNECTED "Підключено"
-  IDS_STATUS_OPERATIONAL "Підключено"
-  IDS_SPEED_MBPS "%d Мбіт/с"
-  IDS_DURATION_DAY "%d день %s"
-  IDS_DURATION_DAYS "%d днів %s"
 END

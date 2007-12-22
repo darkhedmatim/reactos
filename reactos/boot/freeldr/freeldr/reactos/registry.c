@@ -27,6 +27,11 @@ static FRLDRHKEY RootKey;
 VOID
 RegInitializeRegistry (VOID)
 {
+#if 0
+  FRLDRHKEY TestKey;
+  WCHAR szTestString[] = L"TestString";
+#endif
+
   /* Create root key */
   RootKey = (FRLDRHKEY) MmAllocateMemory (sizeof(KEY));
 
@@ -49,6 +54,39 @@ RegInitializeRegistry (VOID)
   RegCreateKey (RootKey,
 		L"Registry\\Machine\\SYSTEM",
 		NULL);
+
+  /* Create 'HARDWARE' key */
+  RegCreateKey (RootKey,
+		L"Registry\\Machine\\HARDWARE",
+		NULL);
+
+  /* Create 'HARDWARE\DESCRIPTION' key */
+  RegCreateKey (RootKey,
+		L"Registry\\Machine\\HARDWARE\\DESCRIPTION",
+		NULL);
+
+  /* Create 'HARDWARE\DEVICEMAP' key */
+  RegCreateKey (RootKey,
+		L"Registry\\Machine\\HARDWARE\\DEVICEMAP",
+		NULL);
+
+  /* Create 'HARDWARE\RESOURCEMAP' key */
+  RegCreateKey (RootKey,
+		L"Registry\\Machine\\HARDWARE\\RESOURCEMAP",
+		NULL);
+
+/* Testcode */
+#if 0
+  RegCreateKey (RootKey,
+		L"Registry\\Machine\\HARDWARE\\DESCRIPTION\\TestKey",
+		&TestKey);
+
+  RegSetValue (TestKey,
+	       L"TestValue",
+	       REG_SZ,
+	       szTestString,
+	       sizeof(szTestString));
+#endif
 }
 
 
@@ -220,7 +258,7 @@ RegCreateKey(FRLDRHKEY ParentKey,
 	  name = KeyName;
 	}
       NameSize = (subkeyLength + 1) * sizeof(WCHAR);
-
+      
       Ptr = CurrentKey->SubKeyList.Flink;
       CmpResult = 1;
       while (Ptr != &CurrentKey->SubKeyList)
@@ -233,7 +271,7 @@ RegCreateKey(FRLDRHKEY ParentKey,
 	  DbgPrint((DPRINT_REGISTRY, "SearchKey 0x%x\n", SearchKey));
 	  DbgPrint((DPRINT_REGISTRY, "Searching '%S'\n", SearchKey->Name));
 	  CmpResult = _wcsnicmp(SearchKey->Name, name, subkeyLength);
-	  if (CmpResult == 0 && SearchKey->NameSize == NameSize)
+	  if (CmpResult == 0 && SearchKey->NameSize == NameSize)	  
 	    break;
 	  else if (CmpResult == -1)
 	    break;

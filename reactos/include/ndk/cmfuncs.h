@@ -23,7 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <cmtypes.h>
 
 //
 // Native calls
@@ -114,7 +113,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtInitializeRegistry(
-    USHORT Flag
+    BOOLEAN SetUpBoot
 );
 
 NTSYSCALLAPI
@@ -140,7 +139,10 @@ NtLoadKeyEx(
     IN POBJECT_ATTRIBUTES TargetKey,
     IN POBJECT_ATTRIBUTES SourceFile,
     IN ULONG Flags,
-    IN HANDLE TrustClassKey
+    IN HANDLE TrustClassKey,
+    IN HANDLE Event,
+    IN ACCESS_MASK DesiredAccess,
+    OUT PHANDLE RootHandle
 );
 
 NTSTATUS
@@ -418,6 +420,13 @@ ZwGetPlugPlayEvent(
 NTSYSAPI
 NTSTATUS
 NTAPI
+ZwInitializeRegistry(
+    BOOLEAN SetUpBoot
+);
+
+NTSYSAPI
+NTSTATUS
+NTAPI
 ZwLoadKey(
     IN POBJECT_ATTRIBUTES KeyObjectAttributes,
     IN POBJECT_ATTRIBUTES FileObjectAttributes
@@ -558,13 +567,6 @@ ZwSetValueKey(
     IN ULONG DataSize
 );
 #endif
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwInitializeRegistry(
-    USHORT Flag
-);
 
 NTSYSAPI
 NTSTATUS

@@ -10,11 +10,10 @@
         http://www.osronline.com/ddkx/stream/aud-prop_9f77.htm
 */
 
-#include "private.h"
 #include <portcls.h>
 #include <drmk.h>
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcAddContentHandlers(
     IN  ULONG ContentId,
     IN  PVOID *paHandlers,
@@ -23,7 +22,7 @@ PcAddContentHandlers(
     return DrmAddContentHandlers(ContentId, paHandlers, NumHandlers);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcCreateContentMixed(
     IN  PULONG paContentId,
     IN  ULONG cContentId,
@@ -32,14 +31,14 @@ PcCreateContentMixed(
     return DrmCreateContentMixed(paContentId, cContentId, pMixedContentId);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcDestroyContent(
     IN  ULONG ContentId)
 {
     return DrmDestroyContent(ContentId);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcForwardContentToDeviceObject(
     IN  ULONG ContentId,
     IN  PVOID Reserved,
@@ -48,7 +47,7 @@ PcForwardContentToDeviceObject(
     return DrmForwardContentToDeviceObject(ContentId, Reserved, DrmForward);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcForwardContentToFileObject(
     IN  ULONG ContentId,
     IN  PFILE_OBJECT FileObject)
@@ -56,7 +55,7 @@ PcForwardContentToFileObject(
     return DrmForwardContentToFileObject(ContentId, FileObject);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcForwardContentToInterface(
     IN  ULONG ContentId,
     IN  PUNKNOWN pUnknown,
@@ -65,7 +64,7 @@ PcForwardContentToInterface(
     return DrmForwardContentToInterface(ContentId, pUnknown, NumMethods);
 }
 
-NTSTATUS NTAPI
+PORTCLASSAPI NTSTATUS NTAPI
 PcGetContentRights(
     IN  ULONG ContentId,
     OUT PDRMRIGHTS DrmRights)

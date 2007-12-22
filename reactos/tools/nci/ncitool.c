@@ -14,14 +14,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if !defined(__FreeBSD__) && !defined(__APPLE__)
+#ifndef __FreeBSD__
 # include <malloc.h>
 #endif // __FreeBSD__
 
 /* DEFINES  ****************************************************************/
 
 #define INPUT_BUFFER_SIZE 255
-#define Arguments 7
+#define Arguments 8
 
 /******* Table Indexes ************/
 #define MAIN_INDEX 0x0
@@ -39,7 +39,8 @@
 /* And finally, the stub files. */
 #define NtosUserStubs 4
 #define NtosKernelStubs 5
-#define Win32kStubs 6
+#define Win32kGdiStubs 6
+#define Win32kUserStubs 7
 
 /********** Stub Code ************/
 
@@ -54,20 +55,14 @@
                             "    ret $0x%x\n\n"
 
 #define UserModeStub_ppc    "    mflr 0\n" \
-                            "    addi 1,1,-16\n" \
-                            "    li   0,%x\n" \
-                            "    stw  0,1(0)\n" \
-                            "    sc\n" \
-                            "    lwz  0,1(0)\n" \
-                            "    mtlr 0\n" \
-                            "    addi 1,1,16\n" \
-                            "    blr\n"
-
-#define UserModeStub_mips   "    li $8, KUSER_SHARED_SYSCALL\n" \
-                            "    lw $8,0($8)\n" \
-                            "    j $8\n" \
-                            "    nop\n"
-
+			    "    addi 1,1,-16\n" \
+			    "	 li   0,%x\n" \
+			    "    stw  0,1(0)\n" \
+			    "    sc\n" \
+			    "    lwz  0,1(0)\n" \
+			    "    mtlr 0\n" \
+			    "    addi 1,1,16\n" \
+			    "    blr\n"
 #elif defined(_MSC_VER)
 #define UserModeStub_x86    "    asm { \n" \
                             "        mov eax, %xh\n" \
@@ -92,11 +87,7 @@
                             "    ret $0x%x\n\n"
 
 #define KernelModeStub_ppc  "    bl KiSystemService\n" \
-                            "    rfi\n"
-
-#define KernelModeStub_mips "    j KiSystemService\n" \
-                            "    nop\n"
-
+			    "    rfi\n"
 #elif defined(_MSC_VER)
 #define KernelModeStub_x86  "    asm { \n" \
                             "        mov eax, %xh\n" \
@@ -124,8 +115,6 @@ struct ncitool_data_t ncitool_data[] = {
 	{ "i386", 4, KernelModeStub_x86, UserModeStub_x86,
 	  ".global _%s@%d\n", "_%s@%d:\n" },
 	{ "powerpc", 4, KernelModeStub_ppc, UserModeStub_ppc,
-	  "\t.globl %s\n", "%s:\n" },
-	{ "mips", 4, KernelModeStub_mips, UserModeStub_mips,
 	  "\t.globl %s\n", "%s:\n" },
 	{ 0, }
 };
@@ -344,11 +333,11 @@ GetNameAndArgumentsFromDb(char Line[],
  *
  *     KernelModeFile - Kernelmode Stub Files to which to write the stubs.
  *
- *     Index - Number of first syscall
+ *     Index - Name of System Call for which to add the stub.
  *
- *     UserFiles - Number of Usermode Stub Files to create
+ *     UserFiles - Number of bytes on the stack to return after doing the system call.
  *
- *     NeedsZw - Write Zw prefix?
+ *     NeedsZw - Service Descriptor Table ID for this System Call.
  *
  * Returns:
  *     None.
@@ -590,9 +579,14 @@ int main(int argc, char* argv[])
                     argv[NtosKernelStubs + ArgOffset]);
     fputs("#include <ndk/asm.h>\n\n", Files[NtosKernelStubs]);
 
-    WriteFileHeader(Files[Win32kStubs], 
+    WriteFileHeader(Files[Win32kGdiStubs], 
                     "System Call Stubs for Native API", 
-                    argv[Win32kStubs + ArgOffset]);
+                    argv[Win32kGdiStubs + ArgOffset]);
+    
+    WriteFileHeader(Files[Win32kUserStubs], 
+                    "System Call Stubs for Native API", 
+                    argv[Win32kUserStubs + ArgOffset]);
+
 
     /* Create the System Stubs */
     CreateStubs(Files[NativeSystemDb],
@@ -604,10 +598,10 @@ int main(int argc, char* argv[])
 
     /* Create the Graphics Stubs */
     CreateStubs(Files[NativeGuiDb], 
-                &Files[Win32kStubs], 
+                &Files[Win32kGdiStubs], 
                 NULL, 
                 WIN32K_INDEX, 
-                1,
+                2,
                 0);
 
     /* Rewind the databases */

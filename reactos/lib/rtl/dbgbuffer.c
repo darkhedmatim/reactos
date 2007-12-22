@@ -54,8 +54,8 @@ RtlDestroyQueryDebugBuffer(IN PRTL_DEBUG_INFORMATION Buf)
    if (NULL != Buf)
      {
      Status = NtFreeVirtualMemory( NtCurrentProcess(),
-                                   (PVOID)&Buf,
-                                   (PSIZE_T)&Buf->ViewSize, /* FIXME: not portable! */
+                                  (PVOID)&Buf,
+                                  &Buf->ViewSize,
                                    MEM_RELEASE);
      }
    if (!NT_SUCCESS(Status))

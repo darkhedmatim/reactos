@@ -49,20 +49,20 @@ IDB_SDI                 BITMAP  MOVEABLE PURE   "res/sdi.bmp"
 // Accelerator
 //
 
-IDA_EXPLORER ACCELERATORS MOVEABLE PURE
+IDA_EXPLORER ACCELERATORS MOVEABLE PURE 
 BEGIN
-    "S",            ID_VIEW_FULLSCREEN,     VIRTKEY, SHIFT, CONTROL,
+    "S",            ID_VIEW_FULLSCREEN,     VIRTKEY, SHIFT, CONTROL, 
                                                     NOINVERT
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
     "X",            ID_FILE_EXIT,           VIRTKEY, ALT, NOINVERT
 END
 
-IDA_SEARCH_PROGRAM ACCELERATORS MOVEABLE PURE
+IDA_SEARCH_PROGRAM ACCELERATORS MOVEABLE PURE 
 BEGIN
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
 END
 
-IDA_TRAYNOTIFY ACCELERATORS MOVEABLE PURE
+IDA_TRAYNOTIFY ACCELERATORS MOVEABLE PURE 
 BEGIN
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
 END
@@ -74,18 +74,18 @@ END
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE MOVEABLE PURE
+1 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE MOVEABLE PURE
+2 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#include <windows.h>\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE MOVEABLE PURE
+3 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#ifndef ROSSHELL\r\n"
     "IDB_IMAGES BITMAP DISCARDABLE ""res/images.bmp""\r\n"
@@ -107,7 +107,6 @@ BEGIN
     "CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE ""explorer.exe.manifest""\r\n"
     "#endif\r\n"
     "\r\n"
-    "#include ""explorer-bg.rc""\r\n"
     "#include ""explorer-cz.rc""\r\n"
     "#include ""explorer-de.rc""\r\n"
     "#include ""explorer-en.rc""\r\n"
@@ -124,7 +123,6 @@ BEGIN
     "#include ""explorer-pt.rc""\r\n"
     "#include ""explorer-ro.rc""\r\n"
     "#include ""explorer-ru.rc""\r\n"
-    "#include ""explorer-sk.rc""\r\n"
     "#include ""explorer-sv.rc""\r\n"
     "#include ""explorer-uk.rc""\r\n"
     "\r\n"
@@ -152,7 +150,6 @@ IDI_EXPLORER            ICON    DISCARDABLE     "res/explorer.ico"
 IDI_STARTMENU           ICON    DISCARDABLE     "res/startmenu.ico"
 IDI_LOGOFF              ICON    DISCARDABLE     "res/logoff.ico"
 IDI_SHUTDOWN            ICON    DISCARDABLE     "res/shutdown.ico"
-IDI_RESTART             ICON    DISCARDABLE     "res/restart.ico"
 IDI_ARROW               ICON    DISCARDABLE     "res/arrow.ico"
 IDI_ARROW_SELECTED      ICON    DISCARDABLE     "res/arrowsel.ico"
 IDI_APPICON             ICON    DISCARDABLE     "res/appicon.ico"
@@ -200,7 +197,7 @@ IDB_TOOLBAR BITMAP DISCARDABLE "res/toolbar.bmp"
 #endif
 #ifndef _ROS_
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
 IDS_VERSION_STR ""
 #ifdef UNICODE
@@ -214,7 +211,6 @@ END
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.manifest"
 #endif
 
-#include "explorer-bg.rc"
 #include "explorer-cz.rc"
 #include "explorer-de.rc"
 #include "explorer-en.rc"
@@ -231,7 +227,6 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.ma
 #include "explorer-pt.rc"
 #include "explorer-ro.rc"
 #include "explorer-ru.rc"
-#include "explorer-sk.rc"
 #include "explorer-sv.rc"
 #include "explorer-uk.rc"
 
@@ -244,5 +239,4 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.ma
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
 

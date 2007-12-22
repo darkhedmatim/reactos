@@ -1,13 +1,3 @@
-/*
- * PROJECT:     ReactOS Character Map
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/charmap/about.c
- * PURPOSE:     about dialog
- * COPYRIGHT:   Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
- *
- */
-
-
 #include <precomp.h>
 
 
@@ -24,34 +14,30 @@ AboutDialogProc(HWND hDlg,
         case WM_INITDIALOG:
         {
             HWND  hLicenseEditWnd;
-            WCHAR strLicense[700];
+            TCHAR strLicense[700];
 
-            hIcon = LoadImageW(hInstance,
-                               MAKEINTRESOURCEW(IDI_ICON),
-                               IMAGE_ICON,
-                               16,
-                               16,
-                               0);
-            if (hIcon)
-            {
-                SendMessageW(hDlg,
-                             WM_SETICON,
-                             ICON_SMALL,
-                             (LPARAM)hIcon);
-            }
+            hIcon = LoadImage(hInstance,
+                              MAKEINTRESOURCE(IDI_ICON),
+                              IMAGE_ICON,
+                              16,
+                              16,
+                              0);
+
+            SendMessage(hDlg,
+                        WM_SETICON,
+                        ICON_SMALL,
+                        (LPARAM)hIcon);
 
             hLicenseEditWnd = GetDlgItem(hDlg,
                                          IDC_LICENSE_EDIT);
 
-            if (LoadStringW(hInstance,
-                            IDS_LICENSE,
-                            strLicense,
-                            sizeof(strLicense) / sizeof(WCHAR)))
-            {
-                SetWindowTextW(hLicenseEditWnd,
-                               strLicense);
-            }
+            LoadString(hInstance,
+                       IDS_LICENSE,
+                       strLicense,
+                       sizeof(strLicense) / sizeof(TCHAR));
 
+            SetWindowText(hLicenseEditWnd,
+                          strLicense);
             return TRUE;
         }
 
@@ -76,8 +62,8 @@ AboutDialogProc(HWND hDlg,
 VOID
 ShowAboutDlg(HWND hWndParent)
 {
-    DialogBoxW(hInstance,
-               MAKEINTRESOURCEW(IDD_ABOUTBOX),
-               hWndParent,
-               AboutDialogProc);
+    DialogBox(hInstance,
+              MAKEINTRESOURCE(IDD_ABOUTBOX),
+              hWndParent,
+              AboutDialogProc);
 }

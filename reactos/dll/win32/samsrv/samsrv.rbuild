@@ -1,10 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="samsrv" type="win32dll" baseaddress="${BASEADDRESS_SAMSRV}" entrypoint="0" installbase="system32" installname="samsrv.dll">
+<module name="samsrv" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_SAMSRV}" entrypoint="0" installbase="system32" installname="samsrv.dll">
 	<importlibrary definition="samsrv.def" />
 	<include base="samsrv">.</include>
 	<define name="UNICODE" />
 	<define name="_UNICODE" />
+	<define name="__USE_W32API" />
 	<linkerflag>-nostartfiles</linkerflag>
 	<linkerflag>-nostdlib</linkerflag>
 	<library>ntdll</library>

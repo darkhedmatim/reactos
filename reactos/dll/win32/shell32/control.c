@@ -367,10 +367,10 @@ static	void	Control_DoLaunch(CPanel* panel, HWND hWnd, LPCWSTR wszCmd)
 	    if (beg) {
 	        if (*beg == '@') {
 		    sp = atoiW(beg + 1);
-		    spSet = TRUE;
+                    spSet = TRUE;
 		} else if (*beg == '\0') {
 		    sp = 0;
-		    spSet = TRUE;
+                    spSet = TRUE;
 		} else {
 		    extraPmts = beg;
 		}

@@ -27,6 +27,7 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
+#include "winnls.h"
 #include "objbase.h"
 #include "mapi.h"
 #include "winreg.h"

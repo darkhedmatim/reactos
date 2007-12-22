@@ -25,8 +25,10 @@
 use strict;
 use lib qw(.);
 
+require "globals.pl";
+
 use Bugzilla;
-use Bugzilla::Mailer;
+use Bugzilla::BugMail;
 use Bugzilla::Constants;
 use Bugzilla::Error;
 use Bugzilla::Token;
@@ -60,7 +62,7 @@ if ($action eq 'prepare-sudo') {
     }
 
     # Keep a temporary record of the user visiting this page
-    $vars->{'token'} = issue_session_token('sudo_prepared');
+    $vars->{'token'} = Bugzilla::Token::IssueSessionToken('sudo_prepared');
 
     # Show the sudo page
     $vars->{'target_login_default'} = $cgi->param('target_login');
@@ -73,7 +75,8 @@ elsif ($action eq 'begin-sudo') {
     # and password.
     # We only need to do this for authentication methods that involve Bugzilla 
     # directly obtaining a login (i.e. normal CGI login), as opposed to other 
-    # methods (like Environment vars login). 
+    # methods (like Environment vars login).  We assume that if a user can log 
+    # out, they can also log in:
 
     # First, record if Bugzilla_login and Bugzilla_password were provided
     my $credentials_provided;
@@ -89,7 +92,7 @@ elsif ($action eq 'begin-sudo') {
     # At this point, the user is logged in.  However, if they used a method
     # where they could have provided a username/password (i.e. CGI), but they 
     # did not provide a username/password, then throw an error.
-    if ($user->authorizer->can_login && !$credentials_provided) {
+    if ($user->get_flag('can_logout') && !$credentials_provided) {
         ThrowUserError('sudo_password_required',
                        { target_login => $cgi->param('target_login'),
                                reason => $cgi->param('reason')});
@@ -121,11 +124,11 @@ elsif ($action eq 'begin-sudo') {
                        { target_login => scalar $cgi->param('target_login'),
                                reason => scalar $cgi->param('reason')});
     }
-    delete_token($cgi->param('token'));
+    Bugzilla::Token::DeleteToken($cgi->param('token'));
 
     # Get & verify the target user (the user who we will be impersonating)
     my $target_user = 
-        new Bugzilla::User({ name => $cgi->param('target_login') });
+        Bugzilla::User->new_from_login($cgi->param('target_login'));
     unless (defined($target_user)
             && $target_user->id
             && $user->can_see_user($target_user))
@@ -161,7 +164,7 @@ elsif ($action eq 'begin-sudo') {
     $template->process('email/sudo.txt.tmpl', 
                        { reason => $reason },
                        \$message);
-    MessageToMTA($message);
+    Bugzilla::BugMail::MessageToMTA($message);
         
     $vars->{'message'} = 'sudo_started';
     $vars->{'target'} = $target_user->login;

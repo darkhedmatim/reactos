@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2005 Casper S. Hornstrup
- * Copyright (C) 2007 Hervé Poussineau
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +17,6 @@
  */
 #include "pch.h"
 #include <assert.h>
-#include <algorithm>
 
 #include "rbuild.h"
 
@@ -31,15 +29,34 @@ using std::map;
 
 SourceFile::SourceFile ( AutomaticDependency* automaticDependency,
                          const Module& module,
-                         const File& file,
-                         SourceFile* parent )
-	: file ( file ),
-	  automaticDependency ( automaticDependency),
+                         const string& filename,
+                         SourceFile* parent,
+                         bool isNonAutomaticDependency )
+	: automaticDependency ( automaticDependency ),
 	  module ( module ),
+	  filename ( filename ),
+	  isNonAutomaticDependency ( isNonAutomaticDependency ),
 	  youngestLastWriteTime ( 0 )
 {
-	if (parent != NULL )
+	if ( parent != NULL )
 		parents.push_back ( parent );
+	GetDirectoryAndFilenameParts ();
+}
+
+void
+SourceFile::GetDirectoryAndFilenameParts ()
+{
+	size_t index = filename.find_last_of ( cSep );
+	if ( index != string::npos )
+	{
+		directoryPart = filename.substr ( 0, index );
+		filenamePart = filename.substr ( index + 1, filename.length () - index );
+	}
+	else
+	{
+		directoryPart = "";
+		filenamePart = filename;
+	}
 }
 
 void
@@ -53,7 +70,6 @@ void
 SourceFile::Open ()
 {
 	struct stat statbuf;
-	string filename = file.GetFullPath ();
 
 	Close ();
 	FILE* f = fopen ( filename.c_str (), "rb" );
@@ -91,14 +107,7 @@ SourceFile::ReadInclude ( string& filename,
 {
 	while ( p < end )
 	{
-		if ( p != buf.c_str () )
-		{
-			/* Go to end of line */
-			while ( *p != '\n' && p < end )
-				p++;
-			SkipWhitespace ();
-		}
-		if ( ( end - p > 13 ) && ( *p == '#') )
+		if ( ( *p == '#') && ( end - p > 13 ) )
 		{
 			bool include = false;
 			p++;
@@ -111,14 +120,14 @@ SourceFile::ReadInclude ( string& filename,
 					includeNext = false;
 					include = true;
 				}
-				if ( strncmp ( p, "include_next ", 13 ) == 0 )
-				{
+			        if ( strncmp ( p, "include_next ", 13 ) == 0 )
+			        {
 					p += 13;
 					includeNext = true;
-					include = true;
-				}
-
-				if ( include )
+		        		include = true;
+			        }
+	
+	       			if ( include )
 				{
 					SkipWhitespace ();
 					if ( p < end )
@@ -179,56 +188,58 @@ SourceFile::IsParentOf ( const SourceFile* parent,
 }
 
 bool
-SourceFile::IsIncludedFrom ( const File& file )
+SourceFile::IsIncludedFrom ( const string& normalizedFilename )
 {
-	SourceFile* sourceFile = automaticDependency->RetrieveFromCache ( file );
+	if ( normalizedFilename == filename )
+		return true;
+	
+	SourceFile* sourceFile = automaticDependency->RetrieveFromCache ( normalizedFilename );
 	if ( sourceFile == NULL )
 		return false;
-
-	if ( sourceFile == this )
-		return true;
 
 	return IsParentOf ( sourceFile,
 	                    this );
 }
 
-bool
-SourceFile::CanProcessFile ( const File& file )
+SourceFile*
+SourceFile::GetParentSourceFile ()
 {
-	string extension = GetExtension ( file.file );
-	std::transform ( extension.begin (), extension.end (), extension.begin (), tolower );
-	if ( extension == ".h" )
+	if ( isNonAutomaticDependency )
+		return NULL;
+	return this;
+}
+
+bool
+SourceFile::CanProcessFile ( const string& extension )
+{
+	if ( extension == ".h" || extension == ".H" )
 		return true;
-	if ( extension == ".c" )
+	if ( extension == ".c" || extension == ".C" )
 		return true;
-	if ( extension == ".cpp" )
+	if ( extension == ".cpp" || extension == ".CPP" )
 		return true;
-	if ( extension == ".rc" )
+	if ( extension == ".rc" || extension == ".RC" )
 		return true;
-	if ( extension == ".s" )
+	if ( extension == ".s" || extension == ".S" )
 		return true;
-	if ( extension == ".nls" )
-		return true;
-	if ( extension == ".idl" )
-		return true;
-	if ( automaticDependency->project.configuration.Verbose )
-		printf ( "Skipping file %s, as its extension is not recognized\n", file.file.name.c_str () );
 	return false;
 }
 
 SourceFile*
-SourceFile::ParseFile ( const File& file )
+SourceFile::ParseFile ( const string& normalizedFilename )
 {
-	if ( !CanProcessFile ( file ) )
-		return NULL;
-
-	if ( IsIncludedFrom ( file ) )
-		return NULL;
-
-	SourceFile* sourceFile = automaticDependency->RetrieveFromCacheOrParse ( module,
-	                                                                         file,
-	                                                                         this );
-	return sourceFile;
+	string extension = GetExtension ( normalizedFilename );
+	if ( CanProcessFile ( extension ) )
+	{
+		if ( IsIncludedFrom ( normalizedFilename ) )
+			return NULL;
+		
+		SourceFile* sourceFile = automaticDependency->RetrieveFromCacheOrParse ( module,
+		                                                                         normalizedFilename,
+		                                                                         GetParentSourceFile () );
+		return sourceFile;
+	}
+	return NULL;
 }
 
 void
@@ -237,39 +248,48 @@ SourceFile::Parse ()
 	Open ();
 	while ( p < end )
 	{
-		string includedFilename;
-
+		string includedFilename ( "" );
+		
 		bool searchCurrentDirectory;
 		bool includeNext;
 		while ( ReadInclude ( includedFilename,
 		                      searchCurrentDirectory,
 		                      includeNext ) )
 		{
-			File resolvedFile ( SourceDirectory, "", "", false, "", false ) ;
+			string resolvedFilename ( "" );
 			bool locatedFile = automaticDependency->LocateIncludedFile ( this,
 			                                                             module,
 			                                                             includedFilename,
 			                                                             searchCurrentDirectory,
 			                                                             includeNext,
-			                                                             resolvedFile );
+			                                                             resolvedFilename );
 			if ( locatedFile )
 			{
-				SourceFile* sourceFile = ParseFile ( *new File ( resolvedFile ) );
+				SourceFile* sourceFile = ParseFile ( resolvedFilename );
 				if ( sourceFile != NULL )
 					files.push_back ( sourceFile );
-			} else if ( automaticDependency->project.configuration.Verbose )
-				printf ( "Unable to find %c%s%c, included in %s%c%s\n",
-				         searchCurrentDirectory ? '\"' : '<',
-				         includedFilename.c_str (),
-				         searchCurrentDirectory ? '\"' : '>',
-				         this->file.file.relative_path.c_str (),
-				         cSep,
-				         this->file.file.name.c_str () );
 			}
+		}
 		p++;
 	}
 	Close ();
 }
+
+string
+SourceFile::Location () const
+{
+	int line = 1;
+	const char* end_of_line = strchr ( buf.c_str (), '\n' );
+	while ( end_of_line && end_of_line < p )
+	{
+		++line;
+		end_of_line = strchr ( end_of_line + 1, '\n' );
+	}
+	return ssprintf ( "%s(%i)",
+	                  filename.c_str (),
+	                  line );
+}
+
 
 AutomaticDependency::AutomaticDependency ( const Project& project )
 	: project ( project )
@@ -300,11 +320,7 @@ AutomaticDependency::GetModuleFiles ( const Module& module,
 	/* FIXME: Collect files in IFs here */
 
 	if ( module.pch != NULL )
-	{
-		const FileLocation& pch = module.pch->file;
-		File *file = new File ( pch.directory, pch.relative_path, pch.name , false, "", true );
-		files.push_back ( file );
-	}
+		files.push_back ( &module.pch->file );
 }
 
 void
@@ -320,55 +336,49 @@ void
 AutomaticDependency::ParseFile ( const Module& module,
                                  const File& file )
 {
+	string normalizedFilename = NormalizeFilename ( file.name );
 	RetrieveFromCacheOrParse ( module,
-	                           file,
+	                           normalizedFilename,
 	                           NULL );
 }
 
 bool
-AutomaticDependency::LocateIncludedFile ( const FileLocation& directory,
-                                          const string& includedFilename )
+AutomaticDependency::LocateIncludedFile ( const string& directory,
+                                          const string& includedFilename,
+                                          string& resolvedFilename )
 {
-	string path;
-	switch ( directory.directory )
-	{
-		case SourceDirectory:
-			path = "";
-			break;
-		case IntermediateDirectory:
-			path = Environment::GetIntermediatePath ();
-			break;
-		case OutputDirectory:
-			path = Environment::GetOutputPath ();
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  directory.directory );
-	}
-	if ( directory.relative_path.length () > 0 )
-	{
-		if ( path.length () > 0 )
-			path += sSep;
-		path += directory.relative_path;
-	}
-
-	string normalizedFilename = NormalizeFilename ( path + sSep + includedFilename );
+	string normalizedFilename = NormalizeFilename ( directory + sSep + includedFilename );
 	FILE* f = fopen ( normalizedFilename.c_str (), "rb" );
 	if ( f != NULL )
 	{
 		fclose ( f );
+		resolvedFilename = normalizedFilename;
 		return true;
 	}
+	resolvedFilename = "";
 	return false;
+}
+
+string
+AutomaticDependency::GetFilename ( const string& filename )
+{
+	size_t index = filename.find_last_of ( cSep );
+	if (index == string::npos)
+		return filename;
+	else
+		return filename.substr ( index + 1,
+		                         filename.length () - index - 1);
 }
 
 void
 AutomaticDependency::GetIncludeDirectories ( vector<Include*>& includes,
-                                             const Module& module )
+                                             const Module& module,
+                                             Include& currentDirectory,
+                                             bool searchCurrentDirectory )
 {
 	size_t i;
+	if ( searchCurrentDirectory )
+		includes.push_back( &currentDirectory );
 	for ( i = 0; i < module.non_if_data.includes.size (); i++ )
 		includes.push_back( module.non_if_data.includes[i] );
 	for ( i = 0; i < module.project.non_if_data.includes.size (); i++ )
@@ -381,61 +391,41 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
                                           const string& includedFilename,
                                           bool searchCurrentDirectory,
                                           bool includeNext,
-                                          File& resolvedFile )
+                                          string& resolvedFilename )
 {
 	vector<Include*> includes;
-	string includedFileDir;
-	Include currentDirectory ( module.project, SourceDirectory, sourceFile->file.file.relative_path );
-	if ( searchCurrentDirectory )
-		includes.push_back ( &currentDirectory );
-	GetIncludeDirectories ( includes, module );
-
+	Include currentDirectory ( module.project, ".", sourceFile->directoryPart );
+	GetIncludeDirectories ( includes, module, currentDirectory, searchCurrentDirectory );
 	for ( size_t j = 0; j < includes.size (); j++ )
 	{
 		Include& include = *includes[j];
-		if ( LocateIncludedFile ( *include.directory,
-		                          includedFilename ) )
+		if ( LocateIncludedFile ( include.directory,
+		                          includedFilename,
+		                          resolvedFilename ) )
 		{
-			if ( includeNext &&
-			     include.directory->directory == sourceFile->file.file.directory &&
-			     include.directory->relative_path == sourceFile->file.file.relative_path )
-			{
-				includeNext = false;
+			if ( includeNext && stricmp ( resolvedFilename.c_str (),
+			                              sourceFile->filename.c_str () ) == 0 )
 				continue;
-			}
-			resolvedFile.file.directory = include.directory->directory;
-			size_t index = includedFilename.find_last_of ( "/\\" );
-			if ( index == string::npos )
-			{
-				resolvedFile.file.name = includedFilename;
-				resolvedFile.file.relative_path = include.directory->relative_path;
-			}
-			else
-			{
-				resolvedFile.file.relative_path = NormalizeFilename (
-					include.directory->relative_path + sSep +
-					includedFilename.substr ( 0, index ) );
-				resolvedFile.file.name = includedFilename.substr ( index + 1 );
-			}
 			return true;
 		}
 	}
+	resolvedFilename = "";
 	return false;
 }
 
 SourceFile*
 AutomaticDependency::RetrieveFromCacheOrParse ( const Module& module,
-                                                const File& file,
+                                                const string& filename,
                                                 SourceFile* parentSourceFile )
 {
-	string filename = file.GetFullPath();
 	SourceFile* sourceFile = sourcefile_map[filename];
 	if ( sourceFile == NULL )
 	{
 		sourceFile = new SourceFile ( this,
 		                              module,
-		                              file,
-		                              parentSourceFile );
+		                              filename,
+		                              parentSourceFile,
+		                              false );
 		sourcefile_map[filename] = sourceFile;
 		sourceFile->Parse ();
 	}
@@ -445,9 +435,8 @@ AutomaticDependency::RetrieveFromCacheOrParse ( const Module& module,
 }
 
 SourceFile*
-AutomaticDependency::RetrieveFromCache ( const File& file )
+AutomaticDependency::RetrieveFromCache ( const string& filename )
 {
-	string filename = file.GetFullPath();
 	return sourcefile_map[filename];
 }
 
@@ -500,7 +489,9 @@ AutomaticDependency::CheckAutomaticDependencies ( const Module& module,
 	for ( size_t fi = 0; fi < files.size (); fi++ )
 	{
 		File& file = *files[fi];
-		SourceFile* sourceFile = RetrieveFromCache ( file );
+		string normalizedFilename = NormalizeFilename ( file.name );
+
+		SourceFile* sourceFile = RetrieveFromCache ( normalizedFilename );
 		if ( sourceFile != NULL )
 		{
 			CheckAutomaticDependenciesForFile ( sourceFile );
@@ -509,15 +500,13 @@ AutomaticDependency::CheckAutomaticDependencies ( const Module& module,
 			{
 				if ( verbose )
 				{
-					printf ( "Marking %s%c%s for rebuild due to younger file %s%c%s\n",
-					         sourceFile->file.file.relative_path.c_str (),
-					         cSep, sourceFile->file.file.name.c_str (),
-					         sourceFile->youngestFile->file.file.relative_path.c_str (),
-					         cSep, sourceFile->youngestFile->file.file.name.c_str () );
+					printf ( "Marking %s for rebuild due to younger file %s\n",
+					         sourceFile->filename.c_str (),
+					         sourceFile->youngestFile->filename.c_str () );
 				}
 				timebuf.actime = sourceFile->youngestLastWriteTime;
 				timebuf.modtime = sourceFile->youngestLastWriteTime;
-				utime ( sourceFile->file.GetFullPath ().c_str (),
+				utime ( sourceFile->filename.c_str (),
 				        &timebuf );
 			}
 		}
@@ -540,7 +529,7 @@ AutomaticDependency::CheckAutomaticDependenciesForFile ( SourceFile* sourceFile 
 	for ( size_t i = 0; i < sourceFile->files.size (); i++ )
 	{
 		SourceFile* childSourceFile = sourceFile->files[i];
-
+		
 		CheckAutomaticDependenciesForFile ( childSourceFile );
 		if ( ( childSourceFile->youngestLastWriteTime > sourceFile->youngestLastWriteTime ) ||
 		     ( childSourceFile->lastWriteTime > sourceFile->youngestLastWriteTime ) )

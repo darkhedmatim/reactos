@@ -32,8 +32,6 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
 #undef CopyCursor
 
 HBITMAP
@@ -74,7 +72,7 @@ CopyCursor(HCURSOR pcur)
 {
   ICONINFO IconInfo;
 
-  if(GetIconInfo((HANDLE)pcur, &IconInfo))
+  if(NtUserGetCursorIconInfo((HANDLE)pcur, &IconInfo))
   {
     return (HCURSOR)NtUserCreateCursorIconHandle(&IconInfo, FALSE);
   }
@@ -155,7 +153,7 @@ CreateCursor(HINSTANCE hInst,
 BOOL STDCALL
 DestroyCursor(HCURSOR hCursor)
 {
-  return (BOOL)NtUserDestroyCursor((HANDLE)hCursor, 0);
+  return (BOOL)NtUserDestroyCursorIcon((HANDLE)hCursor, 0);
 }
 
 

@@ -426,9 +426,9 @@ _FUNCTION_ {
           if (!suppress) {
          int*n = va_arg(ap, int*);
 
-         /*
+         /* 
          *n = consumed - (nch!=_EOF_);
-
+         
          FIXME: The above is the Wine version and it doesnt work in ros
          when %n is at end of input string (return one too many).
          But does it fail in Wine too?? If so wine also needs fixin.
@@ -460,11 +460,7 @@ _FUNCTION_ {
           int invert = 0; /* Set if we are NOT to find the chars */
 
           /* Init our bitmap */
-#ifdef _LIBCNT_
-          Mask = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, _BITMAPSIZE_/8);
-#else
           Mask = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, _BITMAPSIZE_/8);
-#endif
           RtlInitializeBitMap(&bitMask, Mask, _BITMAPSIZE_);
 
           /* Read the format */
@@ -485,7 +481,7 @@ _FUNCTION_ {
              if ((*(format - 1)) < *(format + 1))
             RtlSetBits(&bitMask, *(format - 1) +1 , *(format + 1) - *(format - 1));
              else
-            RtlSetBits(&bitMask, *(format + 1)    , *(format - 1) - *(format + 1));
+            RtlSetBits(&bitMask, *(format + 1)    , *(format - 1) - *(format + 1));             
              format++;
          } else
              RtlSetBits(&bitMask, *format, 1);
@@ -510,11 +506,7 @@ _FUNCTION_ {
                     }
                     /* terminate */
                     if (!suppress) *sptr = 0;
-#ifdef _LIBCNT_
-                    RtlFreeHeap(RtlGetProcessHeap(), 0, Mask);
-#else
           HeapFree(GetProcessHeap(), 0, Mask);
-#endif
                 }
                 break;
             default:

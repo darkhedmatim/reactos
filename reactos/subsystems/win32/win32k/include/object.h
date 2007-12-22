@@ -20,12 +20,6 @@
 typedef struct _USER_HANDLE_ENTRY
 {
     void          *ptr;          /* pointer to object */
-    union
-    {
-        PVOID pi;
-        PW32THREADINFO pti;          // pointer to Win32ThreadInfo
-        PW32PROCESSINFO ppi;         // pointer to W32ProcessInfo
-    };
     unsigned short type;         /* object type (0 if free) */
     unsigned short generation;   /* generation counter */
 } USER_HANDLE_ENTRY, * PUSER_HANDLE_ENTRY;
@@ -47,12 +41,12 @@ typedef enum _USER_OBJECT_TYPE
   otFree = 0,
   otWindow,
   otMenu,
-  otCursorIcon,
-  otHook = 5,
-  otCallProc = 7,
   otAccel,
-  otMonitor = 12
-
+  otCursorIcon,
+  otHook,
+  otMonitor,
+  otCallProc
+  
 } USER_OBJECT_TYPE;
 
 

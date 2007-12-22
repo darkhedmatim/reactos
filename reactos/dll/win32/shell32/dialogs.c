@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -52,8 +52,8 @@ typedef struct
 typedef BOOL (*LPFNOFN) (OPENFILENAMEA *) ;
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
-static INT_PTR CALLBACK RunDlgProc (HWND, UINT, WPARAM, LPARAM) ;
-static void FillList (HWND, char *) ;
+INT_PTR CALLBACK RunDlgProc (HWND, UINT, WPARAM, LPARAM) ;
+void FillList (HWND, char *) ;
 
 
 /*************************************************************************
@@ -62,11 +62,11 @@ static void FillList (HWND, char *) ;
  */
 BOOL WINAPI PickIconDlg(
 	HWND hwndOwner,
-	LPWSTR lpstrFile,
-	UINT nMaxFile,
-	INT* lpdwIconIndex)
+	LPSTR lpstrFile,
+	DWORD nMaxFile,
+	LPDWORD lpdwIconIndex)
 {
-	FIXME("(%p,%s,%08x,%p):stub.\n",
+	FIXME("(%p,%s,%08lx,%p):stub.\n",
 	  hwndOwner, lpstrFile, nMaxFile,lpdwIconIndex);
 	return 0xffffffff;
 }
@@ -116,10 +116,10 @@ void WINAPI RunFileDlg(
 }
 
 /* Dialog procedure for RunFileDlg */
-static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     int ic ;
-    char *psz, *pdir, szMsg[256];
+    char *psz, szMsg[256] ;
     static RUNFILEDLGPARAMS *prfdp = NULL ;
 
     switch (message)
@@ -144,16 +144,8 @@ static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPAR
                         {
                         psz = HeapAlloc( GetProcessHeap(), 0, (ic + 2) );
                         GetWindowTextA (htxt, psz, ic + 1) ;
-                        pdir = HeapAlloc(  GetProcessHeap(), 0, (ic + 2) );
-                        if (pdir)
-                            {
-                            char * ptr;
-                            strcpy(pdir, psz);
-                            ptr = strrchr(pdir, '\\');
-                            if(ptr)
-                                ptr[0] = '\0';
-                            }
-                        if (ShellExecuteA(NULL, "open", psz, NULL, pdir, SW_SHOWNORMAL) < (HINSTANCE)33)
+
+                        if (ShellExecuteA(NULL, "open", psz, NULL, NULL, SW_SHOWNORMAL) < (HINSTANCE)33)
                             {
                             char *pszSysMsg = NULL ;
                             FormatMessageA (
@@ -169,13 +161,12 @@ static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPAR
                             MessageBoxA (hwnd, szMsg, "Nix", MB_OK | MB_ICONEXCLAMATION) ;
 
                             HeapFree(GetProcessHeap(), 0, psz);
-                            HeapFree(GetProcessHeap(), 0, pdir);
                             SendMessageA (htxt, CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
+                            SetFocus(htxt);
                             return TRUE ;
                             }
                         FillList (htxt, psz) ;
                         HeapFree(GetProcessHeap(), 0, psz);
-                        HeapFree(GetProcessHeap(), 0, pdir);
                         EndDialog (hwnd, 0) ;
                         }
                     }
@@ -227,15 +218,19 @@ static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPAR
                         return TRUE ;
                         }
 
-                    ofnProc (&ofn) ;
-
-                    SetFocus (GetDlgItem (hwnd, IDOK)) ;
-                    SetWindowTextA (GetDlgItem (hwnd, 12298), szFName) ;
-                    SendMessageA (GetDlgItem (hwnd, 12298), CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
-                    SetFocus (GetDlgItem (hwnd, IDOK)) ;
+                    if(ofnProc (&ofn))
+                       {
+                        SetFocus (GetDlgItem (hwnd, IDOK)) ;
+                        SetWindowTextA (GetDlgItem (hwnd, 12298), szFName) ;
+                        SendMessageA (GetDlgItem (hwnd, 12298), CB_SETEDITSEL, 0, MAKELPARAM (0, -1)) ;
+                        SetFocus (GetDlgItem (hwnd, IDOK)) ;
+                        }
+                    else
+                        {
+                        SetFocus(GetDlgItem(hwnd, 12288));
+                        }
 
                     FreeLibrary (hComdlg) ;
-
                     return TRUE ;
                     }
                 }
@@ -245,7 +240,7 @@ static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPAR
     }
 
 /* This grabs the MRU list from the registry and fills the combo for the "Run" dialog above */
-static void FillList (HWND hCb, char *pszLatest)
+void FillList (HWND hCb, char *pszLatest)
     {
     HKEY hkey ;
 /*    char szDbgMsg[256] = "" ; */
@@ -257,7 +252,7 @@ static void FillList (HWND hCb, char *pszLatest)
 
     if (ERROR_SUCCESS != RegCreateKeyExA (
         HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
-        0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hkey, NULL))
+        0, "", REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hkey, NULL))
         MessageBoxA (hCb, "Unable to open registry key !", "Nix", MB_OK) ;
 
     RegQueryValueExA (hkey, "MRUList", NULL, NULL, NULL, &icList) ;
@@ -417,14 +412,14 @@ int WINAPI RestartDialogEx(HWND hWndOwner, LPCWSTR lpwstrReason, DWORD uFlags, D
 }
 
 /*************************************************************************
- * LogoffWindowsDialog                          [SHELL32.54]
+ * LogoffWindowsDialog				[SHELL32.54]
  */
 
 int WINAPI LogoffWindowsDialog(DWORD uFlags)
 {
-   UNIMPLEMENTED;
-   ExitWindowsEx(EWX_LOGOFF, 0);
-   return 0;
+    ERR("LogoffWindowsDialog is UNIMPLEMENTED\n");
+    ExitWindowsEx(EWX_LOGOFF, 0);
+    return 0;
 }
 
 /*************************************************************************

@@ -205,7 +205,7 @@ FindDriverProc(
 			NULL))
 		{
 			config_flags |= CONFIGFLAG_FAILEDINSTALL;
-			SetupDiSetDeviceRegistryPropertyW(
+			SetupDiSetDeviceRegistryProperty(
 				DevInstData->hDevInfo,
 				&DevInstData->devInfoData,
 				SPDRP_CONFIGFLAGS,
@@ -236,7 +236,7 @@ PopulateCustomPathCombo(
 {
 	HKEY hKey = NULL;
 	DWORD dwRegType;
-	DWORD dwPathLength = 0;
+	DWORD dwPathLength;
 	LPWSTR Buffer = NULL;
 	LPCWSTR Path;
 	LONG rc;
@@ -587,7 +587,7 @@ CHSourceDlgProc(
 
 				case IDC_BROWSE:
 				{
-					BROWSEINFO bi = { 0 };
+					BROWSEINFO bi = { 0, };
 					LPITEMIDLIST pidl;
 
 					bi.hwndOwner = hwndDlg;

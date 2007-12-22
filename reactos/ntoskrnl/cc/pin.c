@@ -5,7 +5,7 @@
  * FILE:            ntoskrnl/cc/pin.c
  * PURPOSE:         Implements cache managers pinning interface
  *
- * PROGRAMMERS:
+ * PROGRAMMERS:     
  */
 
 /* INCLUDES ******************************************************************/
@@ -236,7 +236,7 @@ CcUnpinRepinnedBcb (
       IoStatus->Information = 0;
       if (WriteThrough)
         {
-          ExAcquirePushLockExclusive(&iBcb->CacheSegment->Lock);
+          ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&iBcb->CacheSegment->Lock);
           if (iBcb->CacheSegment->Dirty)
             {
               IoStatus->Status = CcRosFlushCacheSegment(iBcb->CacheSegment);
@@ -245,7 +245,7 @@ CcUnpinRepinnedBcb (
             {
               IoStatus->Status = STATUS_SUCCESS;
             }
-          ExReleasePushLockExclusive(&iBcb->CacheSegment->Lock);
+          ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&iBcb->CacheSegment->Lock);
         }
       else
         {

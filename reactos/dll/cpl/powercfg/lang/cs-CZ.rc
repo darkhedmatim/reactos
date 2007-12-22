@@ -1,6 +1,6 @@
 // Czech (cz) resources by tykef (at atlas cz)
 
-LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
+LANGUAGE LANG_CZECH, SUBLANG_NEUTRAL
 
 IDD_PROPPAGEPOWERSHEMES DIALOGEX 0, 0, 250, 220
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -12,8 +12,8 @@ BEGIN
 	-1,45,13,194,36
   GROUPBOX "&Schéma napájení", -1, 7,57,240,46
   COMBOBOX IDC_ENERGYLIST, 14,70,224,92, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-  PUSHBUTTON "&Uložit jako...", IDC_SAVEAS_BTN, 100,85,75,15,WS_DISABLED
-  PUSHBUTTON "&Odstranit", IDC_DELETE_BTN, 180,85,55,15,WS_DISABLED
+  PUSHBUTTON "&Uložit jako...", -1, 100,85,75,15,WS_DISABLED
+  PUSHBUTTON "&Odstranit", -1, 180,85,55,15,WS_DISABLED
   GROUPBOX "Neznámý", IDC_GRPDETAIL, 7,108,240,105
   LTEXT "Pokud je poèítaè:",IDC_SAT,15,120,60,10
   LTEXT "Pøipojen",IDC_SAC,100,120,45,15
@@ -44,7 +44,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,25,180,15
     LTEXT           "unknown",IDC_ALARMVALUE1,200,25,40,10
     LTEXT           "0%",-1,20,40,15,15
-    CONTROL         "Slider1",IDC_ALARMBAR1,"msctls_trackbar32",TBS_HORZ |
+    CONTROL         "Slider1",IDC_ALARMBAR1,"msctls_trackbar32",TBS_HORZ | 
                     TBS_AUTOTICKS | WS_TABSTOP,30,40,170,15
     LTEXT           "100%",-1,215,40,25,10
     PUSHBUTTON      "Alar&m Action...",-1,20,70,70,15,WS_DISABLED
@@ -60,7 +60,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,125,180,15
     LTEXT           "unknown",IDC_ALARMVALUE2,200,125,40,10
     LTEXT           "0%",-1,20,140,15,15
-    CONTROL         "Slider1",IDC_ALARMBAR2,"msctls_trackbar32",TBS_HORZ |
+    CONTROL         "Slider1",IDC_ALARMBAR2,"msctls_trackbar32",TBS_HORZ | 
                     TBS_AUTOTICKS | WS_TABSTOP,30,140,170,15
     LTEXT           "100%",-1,215,140,25,10
     PUSHBUTTON      "Alar&m Action...",-1,20,170,70,15,WS_DISABLED
@@ -80,21 +80,21 @@ BEGIN
     ICON            IDI_ACDC,IDI_ACDC,5,5,20,20
     LTEXT           "Vyberte, které nastavení snížené spotøeby chcete použít.",-1,30,5,205,20
     GROUPBOX        "Možnosti",-1,5,35,225,55
-    CONTROL         "Vždy zobrazovat &ikonu na hlavním panelu",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "Vždy zobrazovat &ikonu na hlavním panelu",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,45,200,10
-    CONTROL         "Dotázat se na &heslo pøi pøechodu z úsporného režimu",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "Dotázat se na &heslo pøi pøechodu z úsporného režimu",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,55,200,10
-    CONTROL         "&Snížit jas displeje pøi chodu na baterie.",IDC_VIDEODIMDISPLAY,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "&Snížit jas displeje pøi chodu na baterie.",IDC_VIDEODIMDISPLAY,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,15,65,200,10
     GROUPBOX        "Tlaèítka napájení",-1,5,100,230,105
     LTEXT           "&Pøi sklopení displeje pøenosného poèítaèe:", IDC_SLIDCLOSE,10,110,210,10
-    COMBOBOX        IDC_LIDCLOSE,10,120,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_LIDCLOSE,10,120,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     LTEXT           "Pøi stisknutí tlaèítka &napájení:", IDC_SPOWERBUTTON,10,135,210,10
-    COMBOBOX        IDC_POWERBUTTON,10,150,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_POWERBUTTON,10,150,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     LTEXT           "Pøi stisknutí tlaèítka režimu &spánku:", IDC_SSLEEPBUTTON,10,165,210,10
-    COMBOBOX        IDC_SLEEPBUTTON,10,180,220,90,CBS_DROPDOWNLIST | CBS_SORT |
+    COMBOBOX        IDC_SLEEPBUTTON,10,180,220,90,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
 END
 
@@ -107,7 +107,7 @@ BEGIN
     LTEXT           "Pokud Váš poèítaè pøejde do režimu spánku, uloží obsah své pamìti na pevný disk a vypne se. Po opìtovném spuštìní se vrátí do pùvodního stavu.",
                     -1,35,5,195,35
     GROUPBOX        "Režim spánku",-1,5,45,235,25
-    CONTROL         "Zapnout funkci režim &spánku",IDC_HIBERNATEFILE,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "Zapnout funkci režim &spánku",IDC_HIBERNATEFILE,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,10,55,210,10
     GROUPBOX        "Místo na disku potøebné pro režim spánku",-1,5,80,240,60
     LTEXT           "Volné místo:",-1,10,90,100,10
@@ -158,9 +158,5 @@ BEGIN
   IDS_TIMEOUT14 "Po 4 hodinách"
   IDS_TIMEOUT15 "Po 5 hodinách"
   IDS_TIMEOUT16 "Nikdy"
-
-  IDS_DEL_SCHEME "Are you sure you want to delete the power scheme?"
-  IDS_DEL_SCHEME_TITLE "Delete Scheme"
 END
-
 

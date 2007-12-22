@@ -1,6 +1,6 @@
 //encoded=samcharly_at_hotmail_dot_com
 //Spanish Language Resource
-LANGUAGE LANG_SPANISH, SUBLANG_NEUTRAL
+LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_MODERN
 
 IDD_WELCOMEPAGE DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
@@ -88,7 +88,7 @@ BEGIN
   LTEXT "El instalador de ReactOS va a proceder a desinstalar su controlador SVGA VMware(r)!!!\n\n\nHaga click en 'Finalizar' para desinstalar el controlador o 'Cancelar' para dejarlo como está.",-1,25,25,225,85
 END
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
   IDS_WIZARD_NAME "VMware(r) detectado"
   IDS_FAILEDTOLOCATEDRIVERS "El instalador de ReactOS no puede encontrar los archivos requeridos.\nPor favor asegúrese que el CD-ROM de VMware(r) tools está insertado."

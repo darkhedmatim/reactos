@@ -28,15 +28,11 @@
 use strict;
 
 use lib ".";
+require "globals.pl";
 
-use Bugzilla;
 use Bugzilla::Constants;
-use Bugzilla::Util;
-use Bugzilla::Error;
 use Bugzilla::User;
 use Bugzilla::Group;
-use Bugzilla::Token;
-
 # require the user to have logged in
 my $user = Bugzilla->login(LOGIN_REQUIRED);
 
@@ -50,7 +46,7 @@ my $vars     = {};
 my $dbh      = Bugzilla->dbh;
 
 my $userid   = $user->id;
-my $token    = $cgi->param('token');
+
 my $sth; # database statement handle
 
 # $events is a hash ref, keyed by event id, that stores the active user's
@@ -81,14 +77,12 @@ $user->in_group('bz_canusewhines')
                                      object => "reports"});
 
 # May this user send mail to other users?
-my $can_mail_others = Bugzilla->user->in_group('bz_canusewhineatothers');
+my $can_mail_others = UserInGroup('bz_canusewhineatothers');
 
 # If the form was submitted, we need to look for what needs to be added or
 # removed, then what was altered.
 
 if ($cgi->param('update')) {
-    check_token_data($token, 'edit_whine');
-
     if ($cgi->param("add_event")) {
         # we create a new event
         $sth = $dbh->prepare("INSERT INTO whine_events " .
@@ -239,7 +233,7 @@ if ($cgi->param('update')) {
                     if ($can_mail_others && $mailto) {
                         if ($mailto_type == MAILTO_USER) {
                             # detaint
-                            my $emailregexp = Bugzilla->params->{'emailregexp'};
+                            my $emailregexp = Param('emailregexp');
                             if ($mailto =~ /($emailregexp)/) {
                                 $mailto_id = login_to_id($1);
                             }
@@ -352,7 +346,6 @@ if ($cgi->param('update')) {
             }
         }
     }
-    delete_token($token);
 }
 
 $vars->{'mail_others'} = $can_mail_others;
@@ -440,7 +433,6 @@ $vars->{'available_queries'} = [];
 while (my ($query) = $sth->fetchrow_array) {
     push @{$vars->{'available_queries'}}, $query;
 }
-$vars->{'token'} = issue_session_token('edit_whine');
 
 $template->process("whine/schedule.html.tmpl", $vars)
   || ThrowTemplateError($template->error());
@@ -449,7 +441,6 @@ $template->process("whine/schedule.html.tmpl", $vars)
 # the subject and body of each event that user owns
 sub get_events {
     my $userid = shift;
-    my $dbh = Bugzilla->dbh;
     my $events = {};
 
     my $sth = $dbh->prepare("SELECT DISTINCT id, subject, body " .

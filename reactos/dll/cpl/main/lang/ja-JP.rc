@@ -63,7 +63,7 @@ BEGIN
   CONTROL "", IDC_IMAGE_DOUBLE_CLICK_SPEED, "Static", SS_ICON | SS_NOTIFY | SS_CENTERIMAGE | WS_VISIBLE, 165, 85, 65, 57, WS_EX_STATICEDGE
   GROUPBOX "ClickLock", -1, 5, 150, 230, 70
   CHECKBOX "&Turn on ClickLock", IDC_CHECK_CLICK_LOCK, 10, 160, 70, 20
-  PUSHBUTTON "&Settings...", IDC_BUTTON_CLICK_LOCK, 170, 160, 50, 10
+  PUSHBUTTON "&Settings...", IDC_BUTTON_CLICK_LOCK, 170, 160, 50, 10 
   LTEXT "Enables you to highlight or drag without holding down the mouse button. To set, briefly press the mouse button. To release, click the mouse button again", -1, 10, 180, 190, 30
 END
 
@@ -115,7 +115,7 @@ BEGIN
   GROUPBOX "Visibility", -1, 5, 105, 230, 95
   CHECKBOX "&Display pointer trails", IDC_CHECK_POINTER_TRAIL, 60, 115, 80, 10
   LTEXT "Short", IDC_TEXT_TRAIL_SHORT, 60, 130, 30, 10
-  LTEXT "Long", IDC_TEXT_TRAIL_LONG, 160, 130, 30, 10
+  LTEXT "Long", IDC_TEXT_TRAIL_SHORT, 160, 130, 30, 10
   ICON -1, IDC_ICON_POINTER_TRAIL, 15, 115, 15, 15
   CONTROL "", IDC_SLIDER_POINTER_TRAIL ,"msctls_trackbar32", TBS_AUTOTICKS | WS_TABSTOP, 80, 130, 70, 17
   CHECKBOX "&Hide pointer while typing", IDC_CHECK_HIDE_POINTER, 60, 150, 90, 10

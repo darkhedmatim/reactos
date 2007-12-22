@@ -1,13 +1,13 @@
 // German language resource file (frik85, 2005-03-08)
 
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
 
-IDM_MAINMENU MENU DISCARDABLE
+IDM_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&Datei"
     BEGIN
@@ -26,12 +26,3 @@ BEGIN
     END
 END
 
-STRINGTABLE
-BEGIN
-    IDS_WINDOW_TITLE "Systemsteuerung"
-	IDS_ABOUT "Einfache Systemsteuerung (nicht Shell-namespace basiert)\rCopyright 2004 GkWare e.K.\rhttp://www.gkware.com\rVeröffentlicht unter der GPL"
-	IDS_ABOUT_TITLE "Über Systemsteuerung"
-	IDS_NO_ITEMS "Keine Items in ListView"
-	IDS_NAME "Name"
-	IDS_COMMENT "Kommentar"
-END

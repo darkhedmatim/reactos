@@ -11,7 +11,7 @@
 
 /* INCLUDES *****************************************************************/
 
-#include "halxbox.h"
+#include <halxbox.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -21,12 +21,25 @@
 VOID
 HalpInitPhase0(PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
-    HalpXboxInitPartIo();
+  HalpHooks.InitPciBus = HalpXboxInitPciBus;
+
+  HalpInitPICs();
+
+  /* Setup busy waiting */
+  //HalpCalibrateStallExecution();
+
+  HalpXboxInitPartIo();
 }
 
 VOID
 HalpInitPhase1(VOID)
 {
+    /* Enable the clock interrupt */
+    ((PKIPCR)KeGetPcr())->IDT[0x30].ExtendedOffset =
+        (USHORT)(((ULONG_PTR)HalpClockInterrupt >> 16) & 0xFFFF);
+    ((PKIPCR)KeGetPcr())->IDT[0x30].Offset =
+        (USHORT)HalpClockInterrupt;
+    HalEnableSystemInterrupt(0x30, CLOCK2_LEVEL, Latched);
 }
 
 /* EOF */

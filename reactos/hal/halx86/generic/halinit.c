@@ -14,6 +14,7 @@
 
 /* GLOBALS *******************************************************************/
 
+HALP_HOOKS HalpHooks;
 BOOLEAN HalpPciLockSettings;
 
 /* PRIVATE FUNCTIONS *********************************************************/
@@ -109,13 +110,9 @@ HalInitSystem(IN ULONG BootPhase,
         HalInitPnpDriver = NULL; // FIXME: TODO
         HalGetDmaAdapter = HalpGetDmaAdapter;
         HalGetInterruptTranslator = NULL;  // FIXME: TODO
-        HalResetDisplay = HalpBiosDisplayReset;
 
         /* Initialize the hardware lock (CMOS) */
         KeInitializeSpinLock(&HalpSystemHardwareLock);
-
-        /* Do some HAL-specific initialization */
-        HalpInitPhase0(LoaderBlock);
     }
     else if (BootPhase == 1)
     {
@@ -131,9 +128,6 @@ HalInitSystem(IN ULONG BootPhase,
 
         /* Initialize DMA. NT does this in Phase 0 */
         HalpInitDma();
-
-        /* Do some HAL-specific initialization */
-        HalpInitPhase1();
     }
 
     /* All done, return */

@@ -3,7 +3,7 @@
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Timer Queue implementation
  * FILE:              lib/rtl/timerqueue.c
- * PROGRAMMER:
+ * PROGRAMMER:        
  */
 
 /* INCLUDES *****************************************************************/
@@ -32,11 +32,11 @@ NTSTATUS
 NTAPI
 RtlCreateTimer(HANDLE TimerQueue,
                PHANDLE phNewTimer,
-               WAITORTIMERCALLBACKFUNC Callback,
-               PVOID Parameter,
-               ULONG DueTime,
-               ULONG Period,
-               ULONG Flags)
+	       WAITORTIMERCALLBACKFUNC Callback,
+	       PVOID Parameter,
+	       DWORD DueTime,
+	       DWORD Period,
+	       ULONG Flags)
 {
   DPRINT1("RtlCreateTimer: stub\n");
   return STATUS_NOT_IMPLEMENTED;

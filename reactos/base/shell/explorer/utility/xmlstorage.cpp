@@ -1,6 +1,6 @@
 
  //
- // XML storage C++ classes version 1.2
+ // XML storage classes version 1.2
  //
  // Copyright (c) 2004, 2005, 2006, 2007 Martin Fuchs <martin-fuchs@gmx.net>
  //
@@ -152,7 +152,50 @@ const XMLNode* XMLNode::find_relative(const char* path) const
 
 	 // parse relative path
 	while(*path) {
-		node = const_cast<XMLNode*>(node)->get_child_relative(path, false);	// get_child_relative() ist const for create==false
+		const char* slash = strchr(path, '/');
+		if (slash == path)
+			return NULL;
+
+		size_t l = slash? slash-path: strlen(path);
+		std::string comp(path, l);
+		path += l;
+
+		 // look for [n] and [@attr_name="attr_value"] expressions in path components
+		const char* bracket = strchr(comp.c_str(), '[');
+		l = bracket? bracket-comp.c_str(): comp.length();
+		std::string child_name(comp.c_str(), l);
+		std::string attr_name, attr_value;
+
+		int n = 0;
+		if (bracket) {
+			std::string expr = unescape(bracket, '[', ']');
+			const char* p = expr.c_str();
+
+			n = atoi(p);	// read index number
+
+			if (n)
+				n = n - 1;	// convert into zero based index
+
+			const char* at = strchr(p, '@');
+
+			if (at) {
+				p = at + 1;
+				const char* equal = strchr(p, '=');
+
+				 // read attribute name and value
+				if (equal) {
+					attr_name = unescape(p, equal-p);
+					attr_value = unescape(equal+1);
+				}
+			}
+		}
+
+		if (attr_name.empty())
+			 // search n.th child node with specified name
+			node = node->find(child_name, n);
+		else
+			 // search n.th child node with specified name and matching attribute value
+			node = node->find(child_name, attr_name, attr_value, n);
 
 		if (!node)
 			return NULL;
@@ -170,73 +213,68 @@ XMLNode* XMLNode::create_relative(const char* path)
 
 	 // parse relative path
 	while(*path) {
-		node = node->get_child_relative(path, true);
+		const char* slash = strchr(path, '/');
+		if (slash == path)
+			return NULL;
+
+		size_t l = slash? slash-path: strlen(path);
+		std::string comp(path, l);
+		path += l;
+
+		 // look for [n] and [@attr_name="attr_value"] expressions in path components
+		const char* bracket = strchr(comp.c_str(), '[');
+		l = bracket? bracket-comp.c_str(): comp.length();
+		std::string child_name(comp.c_str(), l);
+		std::string attr_name, attr_value;
+
+		int n = 0;
+		if (bracket) {
+			std::string expr = unescape(bracket, '[', ']');
+			const char* p = expr.c_str();
+
+			n = atoi(p);	// read index number
+
+			if (n)
+				n = n - 1;	// convert into zero based index
+
+			const char* at = strchr(p, '@');
+
+			if (at) {
+				p = at + 1;
+				const char* equal = strchr(p, '=');
+
+				 // read attribute name and value
+				if (equal) {
+					attr_name = unescape(p, equal-p);
+					attr_value = unescape(equal+1);
+				}
+			}
+		}
+
+		XMLNode* child;
+
+		if (attr_name.empty())
+			 // search n.th child node with specified name
+			child = node->find(child_name, n);
+		else
+			 // search n.th child node with specified name and matching attribute value
+			child = node->find(child_name, attr_name, attr_value, n);
+
+		if (!child) {
+			child = new XMLNode(child_name);
+			node->add_child(child);
+
+			if (!attr_name.empty())
+				(*node)[attr_name] = attr_value;
+		}
+
+		node = child;
 
 		if (*path == '/')
 			++path;
 	}
 
 	return node;
-}
-
-XMLNode* XMLNode::get_child_relative(const char*& path, bool create)
-{
-	const char* slash = strchr(path, '/');
-	if (slash == path)
-		return NULL;
-
-	size_t l = slash? slash-path: strlen(path);
-	std::string comp(path, l);
-	path += l;
-
-	 // look for [n] and [@attr_name="attr_value"] expressions in path components
-	const char* bracket = strchr(comp.c_str(), '[');
-	l = bracket? bracket-comp.c_str(): comp.length();
-	std::string child_name(comp.c_str(), l);
-	std::string attr_name, attr_value;
-
-	int n = 0;
-	if (bracket) {
-		std::string expr = unescape(bracket, '[', ']');
-		const char* p = expr.c_str();
-
-		n = atoi(p);	// read index number
-
-		if (n)
-			n = n - 1;	// convert into zero based index
-
-		const char* at = strchr(p, '@');
-
-		if (at) {
-			p = at + 1;
-			const char* equal = strchr(p, '=');
-
-			 // read attribute name and value
-			if (equal) {
-				attr_name = unescape(p, equal-p);
-				attr_value = unescape(equal+1);
-			}
-		}
-	}
-
-	XMLNode* child;
-
-	if (attr_name.empty())
-		 // search n.th child node with specified name
-		child = find(child_name, n);
-	else
-		 // search n.th child node with specified name and matching attribute value
-		child = find(child_name, attr_name, attr_value, n);
-
-	if (!child && create) {
-		child = new XMLNode(child_name);
-		add_child(child);
-
-		if (!attr_name.empty())
-			(*this)[attr_name] = attr_value;
-	}
-
-	return child;
 }
 
 
@@ -388,7 +426,7 @@ XS_String DecodeXMLString(const XS_String& str)
 
 
  /// write node with children tree to output stream using original white space
-void XMLNode::write_worker(std::ostream& out) const
+void XMLNode::write_worker(std::ostream& out, int indent) const
 {
 	out << _leading << '<' << EncodeXMLString(*this);
 
@@ -399,7 +437,7 @@ void XMLNode::write_worker(std::ostream& out) const
 		out << '>' << _content;
 
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
-			(*it)->write_worker(out);
+			(*it)->write_worker(out, indent+1);
 
 		out << _end_leading << "</" << EncodeXMLString(*this) << '>';
 	} else
@@ -417,12 +455,8 @@ void XMLNode::plain_write_worker(std::ostream& out) const
 	for(AttributeMap::const_iterator it=_attributes.begin(); it!=_attributes.end(); ++it)
 		out << ' ' << EncodeXMLString(it->first) << "=\"" << EncodeXMLString(it->second) << "\"";
 
-	 // strip leading white space from content
-	const char* content = _content.c_str();
-	while(isspace((unsigned char)*content)) ++content;
-
-	if (!_children.empty() || *content) {
-		out << ">" << content;
+	if (!_children.empty()/*@@ || !_content.empty()*/) {
+		out << ">";
 
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
 			(*it)->plain_write_worker(out);
@@ -444,15 +478,8 @@ void XMLNode::pretty_write_worker(std::ostream& out, const XMLFormat& format, in
 	for(AttributeMap::const_iterator it=_attributes.begin(); it!=_attributes.end(); ++it)
 		out << ' ' << EncodeXMLString(it->first) << "=\"" << EncodeXMLString(it->second) << "\"";
 
-	 // strip leading white space from content
-	const char* content = _content.c_str();
-	while(isspace((unsigned char)*content)) ++content;
-
-	if (!_children.empty() || *content) {
-		out << '>' << content;
-
-		if (!_children.empty())
-			out << format._endl;
+	if (!_children.empty()/*@@ || !_content.empty()*/) {
+		out << '>' << format._endl;
 
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
 			(*it)->pretty_write_worker(out, format, indent+1);
@@ -469,34 +496,26 @@ void XMLNode::pretty_write_worker(std::ostream& out, const XMLFormat& format, in
  /// write node with children tree to output stream using smart formating
 void XMLNode::smart_write_worker(std::ostream& out, const XMLFormat& format, int indent) const
 {
-	 // strip the first line feed from _leading
-	const char* leading = _leading.c_str();
-	if (*leading == '\n') ++leading;
-
-	if (!*leading)
+	if (_leading.empty())
 		for(int i=indent; i--; )
 			out << XML_INDENT_SPACE;
 	else
-		out << leading;
+		out << _leading;
 
 	out << '<' << EncodeXMLString(*this);
 
 	for(AttributeMap::const_iterator it=_attributes.begin(); it!=_attributes.end(); ++it)
 		out << ' ' << EncodeXMLString(it->first) << "=\"" << EncodeXMLString(it->second) << "\"";
 
-	 // strip leading white space from content
-	const char* content = _content.c_str();
-	while(isspace((unsigned char)*content)) ++content;
-
-	if (_children.empty() && !*content)
+	if (_children.empty() && _content.empty())
 		out << "/>";
 	else {
 		out << '>';
 
-		if (!*content)
+		if (_content.empty())
 			out << format._endl;
 		else
-			out << content;
+			out << _content;
 
 		Children::const_iterator it = _children.begin();
 
@@ -504,15 +523,11 @@ void XMLNode::smart_write_worker(std::ostream& out, const XMLFormat& format, int
 			for(; it!=_children.end(); ++it)
 				(*it)->smart_write_worker(out, format, indent+1);
 
-			 // strip the first line feed from _end_leading
-			const char* end_leading = _end_leading.c_str();
-			if (*end_leading == '\n') ++end_leading;
-
-			if (!*end_leading)
+			if (_end_leading.empty())
 				for(int i=indent; i--; )
 					out << XML_INDENT_SPACE;
 			else
-				out << end_leading;
+				out << _end_leading;
 		} else
 			out << _end_leading;
 
@@ -695,14 +710,16 @@ void XMLReaderBase::XmlDeclHandler(const char* version, const char* encoding, in
  /// notifications about XML start tag
 void XMLReaderBase::StartElementHandler(const XS_String& name, const XMLNode::AttributeMap& attributes)
 {
+	 // search for end of first line
 	const char* s = _content.c_str();
-	const char* e = s + _content.length();
 	const char* p = s;
+	const char* e = p + _content.length();
 
-	 // search for content end leaving only white space for leading
-	for(p=e; p>s; --p)
-		if (!isspace((unsigned char)p[-1]))
+	for(; p<e; ++p)
+		if (*p == '\n') {
+			++p;
 			break;
+		}
 
 	if (p != s)
 		if (_pos->_children.empty()) {	// no children in last node?
@@ -737,27 +754,29 @@ void XMLReaderBase::StartElementHandler(const XS_String& name, const XMLNode::At
  /// notifications about XML end tag
 void XMLReaderBase::EndElementHandler()
 {
+	 // search for end of first line
 	const char* s = _content.c_str();
-	const char* e = s + _content.length();
-	const char* p;
+	const char* p = s;
+	const char* e = p + _content.length();
 
 	if (!strncmp(s,"<![CDATA[",9) && !strncmp(e-3,"]]>",3)) {
 		s += 9;
 		p = (e-=3);
-	} else {
-		 // search for content end leaving only white space for _end_leading
-		for(p=e; p>s; --p)
-			if (!isspace((unsigned char)p[-1]))
+	} else
+		for(; p<e; ++p)
+			if (*p == '\n') {
+				++p;
 				break;
-	}
+			}
 
 	if (p != s)
 		if (_pos->_children.empty())	// no children in current node?
 			_pos->_content.append(s, p-s);
-		else if (_last_tag == TAG_START)
-			_pos->_content.append(s, p-s);
 		else
-			_pos->_children.back()->_trailing.append(s, p-s);
+			if (_last_tag == TAG_START)
+				_pos->_content.append(s, p-s);
+			else
+				_pos->_children.back()->_trailing.append(s, p-s);
 
 	if (p != e)
 		_pos->_end_leading.assign(p, e-p);

@@ -30,8 +30,6 @@ class Directory;
 class MingwModuleHandler;
 
 extern std::string
-v2s ( const Backend* backend, const std::vector<FileLocation>& files, int wrap_at );
-extern std::string
 v2s ( const string_list& v, int wrap_at );
 
 
@@ -54,20 +52,17 @@ public:
 	Directory* intermediateDirectory;
 	Directory* outputDirectory;
 	Directory* installDirectory;
-
-	std::string GetFullName ( const FileLocation& file ) const;
-	std::string GetFullPath ( const FileLocation& file ) const;
-
 private:
 	void CreateMakefile ();
 	void CloseMakefile () const;
 	void GenerateHeader () const;
+	std::string GenerateIncludesAndDefines ( IfableData& data ) const;
 	void GenerateProjectCFlagsMacro ( const char* assignmentOperation,
-	                                  const IfableData& data ) const;
+	                                  IfableData& data ) const;
 	void GenerateGlobalCFlagsAndProperties ( const char* op,
-	                                         const IfableData& data ) const;
+	                                         IfableData& data ) const;
 	void GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
-	                                      IfableData& data ) const;
+                                              IfableData& data ) const;
 	void GenerateProjectGccOptions ( const char* assignmentOperation,
 	                                 IfableData& data ) const;
 	std::string GenerateProjectLFLAGS () const;
@@ -87,6 +82,7 @@ private:
 	std::string GetProxyMakefileTree () const;
 	void GenerateProxyMakefiles ();
 	void CheckAutomaticDependencies ();
+	bool IncludeDirectoryTarget ( const std::string& directory ) const;
 	bool TryToDetectThisCompiler ( const std::string& compiler );
 	void DetectCompiler ();
 	std::string GetCompilerVersion ( const std::string& compilerCommand );
@@ -110,10 +106,12 @@ private:
 	std::string GetInstallDirectories ( const std::string& installDirectory );
 	void GetNonModuleInstallFiles ( std::vector<std::string>& out ) const;
 	void GetInstallFiles ( std::vector<std::string>& out ) const;
-	void GetNonModuleInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void GetModuleInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void GetInstallTargetFiles ( std::vector<FileLocation>& out ) const;
-	void OutputInstallTarget ( const FileLocation& source, const FileLocation& target );
+	void GetNonModuleInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void GetModuleInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void GetInstallTargetFiles ( std::vector<std::string>& out ) const;
+	void OutputInstallTarget ( const std::string& sourceFilename,
+	                           const std::string& targetFilename,
+	                           const std::string& targetDirectory );
 	void OutputNonModuleInstallTargets ();
 	void OutputModuleInstallTargets ();
 	std::string GetRegistrySourceFiles ();

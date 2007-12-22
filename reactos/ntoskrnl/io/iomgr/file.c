@@ -390,28 +390,28 @@ IopParseDevice(IN PVOID ParseObject,
     /* Check if this is a direct open */
     if (!(RemainingName->Length) &&
         !(OpenPacket->RelatedFileObject) &&
+#if 0 // USETUP IS BROKEN!
         ((DesiredAccess & ~(SYNCHRONIZE |
-                            FILE_READ_ATTRIBUTES |
-                            READ_CONTROL |
-                            ACCESS_SYSTEM_SECURITY |
-                            WRITE_OWNER |
-                            WRITE_DAC)) == 0) &&
+                             FILE_READ_ATTRIBUTES |
+                             READ_CONTROL |
+                             ACCESS_SYSTEM_SECURITY |
+                             WRITE_OWNER |
+                             WRITE_DAC)) &&
+#endif
         !(UseDummyFile))
     {
-        /* Remember this for later */
-        DirectOpen = TRUE;
-    }
+        if (DesiredAccess & ~(SYNCHRONIZE |
+                              FILE_READ_ATTRIBUTES |
+                              READ_CONTROL |
+                              ACCESS_SYSTEM_SECURITY |
+                              WRITE_OWNER |
+                              WRITE_DAC))
+        {
+            DPRINT1("FIXME: Broken Parse due to invalid DesiredAccess: %lx\n",
+                    DesiredAccess);
+        }
 
-    /* FIXME: Small hack still exists, have to check why...
-     * This is triggered multiple times by usetup and then once per boot.
-     */
-    if (!(DirectOpen) &&
-        !(RemainingName->Length) &&
-        !(OpenPacket->RelatedFileObject) &&
-        ((wcsstr(CompleteName->Buffer, L"Harddisk"))) &&
-        !(UseDummyFile))
-    {
-        DPRINT1("Using IopParseDevice() hack\n");
+        /* Remember this for later */
         DirectOpen = TRUE;
     }
 
@@ -512,7 +512,7 @@ IopParseDevice(IN PVOID ParseObject,
             StackLoc->Parameters.Create.EaLength = OpenPacket->EaLength;
 
             /* Set the flags */
-            StackLoc->Flags = (UCHAR)OpenPacket->Options;
+            StackLoc->Flags = OpenPacket->Options;
             StackLoc->Flags |= !(Attributes & OBJ_CASE_INSENSITIVE) ?
                                 SL_CASE_SENSITIVE: 0;
             break;
@@ -522,7 +522,7 @@ IopParseDevice(IN PVOID ParseObject,
 
             /* Set the named pipe MJ and set the parameters */
             StackLoc->MajorFunction = IRP_MJ_CREATE_NAMED_PIPE;
-            StackLoc->Parameters.CreatePipe.Parameters =
+            StackLoc->Parameters.CreatePipe.Parameters = 
                 OpenPacket->MailslotOrPipeParameters;
             break;
 
@@ -764,8 +764,7 @@ IopParseDevice(IN PVOID ParseObject,
         FileObject->DeviceObject = NULL;
 
         /* Save this now because the FO might go away */
-        OpenCancelled = FileObject->Flags & FO_FILE_OPEN_CANCELLED ?
-                        TRUE : FALSE;
+        OpenCancelled = FileObject->Flags & FO_FILE_OPEN_CANCELLED;
 
         /* Clear the file object in the open packet */
         OpenPacket->FileObject = NULL;
@@ -1371,10 +1370,9 @@ IopQueryNameFile(IN PVOID ObjectBody,
 
     /* Setup the length and maximum length */
     FileLength = (ULONG_PTR)p - (ULONG_PTR)ObjectNameInfo;
-    ObjectNameInfo->Name.Length = (USHORT)FileLength -
-                                          sizeof(OBJECT_NAME_INFORMATION);
-    ObjectNameInfo->Name.MaximumLength = (USHORT)ObjectNameInfo->Name.Length +
-                                                 sizeof(UNICODE_NULL);
+    ObjectNameInfo->Name.Length = FileLength - sizeof(OBJECT_NAME_INFORMATION);
+    ObjectNameInfo->Name.MaximumLength = ObjectNameInfo->Name.Length +
+                                         sizeof(UNICODE_NULL);
 
     /* Free buffer and return */
     ExFreePool(LocalInfo);
@@ -1637,8 +1635,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
     PVOID SystemEaBuffer = NULL;
     NTSTATUS Status = STATUS_SUCCESS;
     OPEN_PACKET OpenPacket;
-    ULONG EaErrorOffset;
-
     PAGED_CODE();
     IOTRACE(IO_FILE_DEBUG, "FileName: %wZ\n", ObjectAttributes->ObjectName);
 
@@ -1734,11 +1730,10 @@ IoCreateFile(OUT PHANDLE FileHandle,
             /* Validate the buffer */
             Status = IoCheckEaBufferValidity(SystemEaBuffer,
                                              EaLength,
-                                             &EaErrorOffset);
+                                             NULL);
             if (!NT_SUCCESS(Status))
             {
-                DPRINT1("FIXME: IoCheckEaBufferValidity() failed with "
-                        "Status: %lx\n",Status);
+                /* FIXME: Fail once function is implemented */
             }
         }
     }
@@ -1750,8 +1745,8 @@ IoCreateFile(OUT PHANDLE FileHandle,
     OpenPacket.OriginalAttributes = *ObjectAttributes;
     OpenPacket.AllocationSize = SafeAllocationSize;
     OpenPacket.CreateOptions = CreateOptions;
-    OpenPacket.FileAttributes = (USHORT)FileAttributes;
-    OpenPacket.ShareAccess = (USHORT)ShareAccess;
+    OpenPacket.FileAttributes = FileAttributes;
+    OpenPacket.ShareAccess = ShareAccess;
     OpenPacket.EaBuffer = SystemEaBuffer;
     OpenPacket.EaLength = EaLength;
     OpenPacket.Options = Options;
@@ -1939,7 +1934,7 @@ IoCreateStreamFileObjectEx(IN PFILE_OBJECT FileObject OPTIONAL,
 
     /* Set File Object Data */
     RtlZeroMemory(CreatedFileObject, sizeof(FILE_OBJECT));
-    CreatedFileObject->DeviceObject = DeviceObject;
+    CreatedFileObject->DeviceObject = DeviceObject; 
     CreatedFileObject->Type = IO_TYPE_FILE;
     CreatedFileObject->Size = sizeof(FILE_OBJECT);
     CreatedFileObject->Flags = FO_STREAM_FILE;
@@ -2036,7 +2031,7 @@ IoCreateStreamFileObjectLite(IN PFILE_OBJECT FileObject OPTIONAL,
 
     /* Set File Object Data */
     RtlZeroMemory(CreatedFileObject, sizeof(FILE_OBJECT));
-    CreatedFileObject->DeviceObject = DeviceObject;
+    CreatedFileObject->DeviceObject = DeviceObject; 
     CreatedFileObject->Type = IO_TYPE_FILE;
     CreatedFileObject->Size = sizeof(FILE_OBJECT);
     CreatedFileObject->Flags = FO_STREAM_FILE;
@@ -2083,7 +2078,7 @@ STDCALL
 IoIsFileOriginRemote(IN PFILE_OBJECT FileObject)
 {
     /* Return the flag status */
-    return FileObject->Flags & FO_REMOTE_ORIGIN ? TRUE : FALSE;
+    return (FileObject->Flags & FO_REMOTE_ORIGIN);
 }
 
 /*
@@ -2824,7 +2819,7 @@ NtCancelIoFile(IN HANDLE FileHandle,
     }
     _SEH_HANDLE
     {
-
+    
     }
     _SEH_END;
 

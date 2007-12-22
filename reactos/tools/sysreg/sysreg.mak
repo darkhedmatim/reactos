@@ -16,27 +16,24 @@ $(SYSREGBUILD_OUT): | $(TOOLS_OUT)
 endif
 
 SYSREGBUILD_TARGET = \
-	$(SYSREGBUILD_OUT_)sysreg$(EXEPOSTFIX)
+	$(EXEPREFIX)$(SYSREGBUILD_OUT_)sysreg$(EXEPOSTFIX)
 
 SYSREGBUILD_SOURCES = $(addprefix $(SYSREGBUILD_BASE_),\
 	conf_parser.cpp \
 	env_var.cpp \
-	rosboot_test.cpp \
+	pipe_reader.cpp \
 	namedpipe_reader.cpp \
+	rosboot_test.cpp \
 	sysreg.cpp \
 	file_reader.cpp \
 	os_support.cpp \
+	unicode.cpp \
 	)
 
 SYSREGBUILD_OBJECTS = \
   $(addprefix $(INTERMEDIATE_), $(SYSREGBUILD_SOURCES:.cpp=.o))
 
-
-ifeq ($(HOST),mingw32-linux)
-SYSREGBUILD_HOST_CFLAGS = $(TOOLS_CPPFLAGS) -D__LINUX__ -Wall
-else
-SYSREGBUILD_HOST_CFLAGS = $(TOOLS_CPPFLAGS) -D__USE_W32API -Iinclude -Iinclude/reactos -Iinclude/psdk -Iinclude$(SEP)crt -Iinclude/reactos/libs -I$(INTERMEDIATE_)$(SEP)include$(SEP)psdk -Wall
-endif
+SYSREGBUILD_HOST_CFLAGS = $(TOOLS_CPPFLAGS) -D__USE_W32API -Iinclude -Iinclude/reactos -Iinclude/psdk
 
 SYSREGBUILD_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
@@ -59,7 +56,7 @@ $(SYSREGBUILD_INT_)env_var.o: $(SYSREGBUILD_BASE_)env_var.cpp | $(SYSREGBUILD_IN
 $(SYSREGBUILD_INT_)pipe_reader.o: $(SYSREGBUILD_BASE_)pipe_reader.cpp | $(SYSREGBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(SYSREGBUILD_HOST_CFLAGS) -c $< -o $@
-	
+
 $(SYSREGBUILD_INT_)namedpipe_reader.o: $(SYSREGBUILD_BASE_)namedpipe_reader.cpp | $(SYSREGBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(SYSREGBUILD_HOST_CFLAGS) -c $< -o $@
@@ -81,6 +78,10 @@ $(SYSREGBUILD_INT_)file_reader.o: $(SYSREGBUILD_BASE_)file_reader.cpp | $(SYSREG
 	${host_gpp} $(SYSREGBUILD_HOST_CFLAGS) -c $< -o $@
 
 $(SYSREGBUILD_INT_)os_support.o: $(SYSREGBUILD_BASE_)os_support.cpp | $(SYSREGBUILD_INT)
+	$(ECHO_CC)
+	${host_gpp} $(SYSREGBUILD_HOST_CFLAGS) -c $< -o $@
+
+$(SYSREGBUILD_INT_)unicode.o: $(SYSREGBUILD_BASE_)unicode.cpp | $(SYSREGBUILD_INT)
 	$(ECHO_CC)
 	${host_gpp} $(SYSREGBUILD_HOST_CFLAGS) -c $< -o $@
 

@@ -4,6 +4,81 @@
 
 #include "driver.h"
 
+typedef enum tagGdiPathState
+{
+   PATH_Null,
+   PATH_Open,
+   PATH_Closed
+} GdiPathState;
+
+typedef struct tagGdiPath
+{
+   GdiPathState state;
+   POINT      *pPoints;
+   BYTE         *pFlags;
+   int          numEntriesUsed, numEntriesAllocated;
+   BOOL       newStroke;
+} GdiPath;
+
+typedef struct _WIN_DC_INFO
+{
+  int  flags;
+  HRGN  hClipRgn;     /* Clip region (may be 0) */
+  HRGN  hVisRgn;      /* Visible region (must never be 0) */
+  HRGN  hGCClipRgn;   /* GC clip region (ClipRgn AND VisRgn) */
+  HPEN  hPen;
+  HBRUSH  hBrush;
+  HFONT  hFont;
+  HBITMAP  hBitmap;
+  HBITMAP  hFirstBitmap; /* Bitmap selected at creation of the DC */
+
+/* #if 0 */
+    HANDLE      hDevice;
+    HPALETTE    hPalette;
+
+    GdiPath       path;
+/* #endif */
+
+  WORD  ROPmode;
+  WORD  polyFillMode;
+  WORD  stretchBltMode;
+  WORD  relAbsMode;
+  WORD  backgroundMode;
+  COLORREF  backgroundColor;
+  COLORREF  textColor;
+
+  short  brushOrgX;
+  short  brushOrgY;
+
+  WORD  textAlign;         /* Text alignment from SetTextAlign() */
+  short  charExtra;         /* Spacing from SetTextCharacterExtra() */
+  short  breakTotalExtra;   /* Total extra space for justification */
+  short  breakCount;        /* Break char. count */
+  short  breakExtra;        /* breakTotalExtra / breakCount */
+  short  breakRem;          /* breakTotalExtra % breakCount */
+
+  RECT   totalExtent;
+  BYTE   bitsPerPixel;
+
+  INT  MapMode;
+  INT  GraphicsMode;      /* Graphics mode */
+  INT  DCOrgX;            /* DC origin */
+  INT  DCOrgY;
+
+#if 0
+    FARPROC     lpfnPrint;         /* AbortProc for Printing */
+#endif
+
+  INT  CursPosX;          /* Current position */
+  INT  CursPosY;
+  INT  ArcDirection;
+
+  XFORM  xformWorld2Wnd;    /* World-to-window transformation */
+  XFORM  xformWorld2Vport;  /* World-to-viewport transformation */
+  XFORM  xformVport2World;  /* Inverse of the above transformation */
+  BOOL  vport2WorldValid;  /* Is xformVport2World valid? */
+} WIN_DC_INFO;
+
   /* DC flags */
 #define DC_MEMORY     0x0001   /* It is a memory DC */
 #define DC_SAVED      0x0002   /* It is a saved DC */
@@ -12,23 +87,46 @@
 
 #define  GDI_DC_TYPE  (1)
 
-// GDIDEVICE flags
-#define PDEV_DISPLAY             0x00000001 // Display device
-#define PDEV_HARDWARE_POINTER    0x00000002 // Supports hardware cursor
-#define PDEV_SOFTWARE_POINTER    0x00000004
-#define PDEV_GOTFONTS            0x00000040 // Has font driver
-#define PDEV_PRINTER             0x00000080
-#define PDEV_ALLOCATEDBRUSHES    0x00000100
-#define PDEV_HTPAL_IS_DEVPAL     0x00000200
-#define PDEV_DISABLED            0x00000400
-#define PDEV_SYNCHRONIZE_ENABLED 0x00000800
-#define PDEV_FONTDRIVER          0x00002000 // Font device
-#define PDEV_GAMMARAMP_TABLE     0x00004000
-#define PDEV_UMPD                0x00008000
-#define PDEV_SHARED_DEVLOCK      0x00010000
-#define PDEV_META_DEVICE         0x00020000
-#define PDEV_DRIVER_PUNTED_CALL  0x00040000 // Driver calls back to GDI engine
-#define PDEV_CLONE_DEVICE        0x00080000
+typedef struct _DC
+{
+  HDC  hSelf;
+  HDC  hNext;
+  PDC_ATTR pDc_Attr;
+  DHPDEV  PDev;
+  HSURF  FillPatternSurfaces[HS_DDI_MAX];
+  PGDIINFO  GDIInfo;
+  PDEVINFO  DevInfo;
+  HDEV   GDIDevice;
+
+  DRIVER_FUNCTIONS  DriverFunctions;
+  UNICODE_STRING    DriverName;
+  HANDLE  DeviceDriver;
+
+  INT  wndOrgX;          /* Window origin */
+  INT  wndOrgY;
+  INT  wndExtX;          /* Window extent */
+  INT  wndExtY;
+  INT  vportOrgX;        /* Viewport origin */
+  INT  vportOrgY;
+  INT  vportExtX;        /* Viewport extent */
+  INT  vportExtY;
+
+  CLIPOBJ *CombinedClip;
+
+  XLATEOBJ *XlateBrush;
+  XLATEOBJ *XlatePen;
+
+  INT  saveLevel;
+  BOOL IsIC;
+
+  HPALETTE PalIndexed;
+
+  WIN_DC_INFO  w;
+
+  HANDLE hFile;  
+  LPENHMETAHEADER emh;
+
+} DC, *PDC;
 
 typedef struct _GDIPOINTER /* should stay private to ENG */
 {
@@ -42,7 +140,7 @@ typedef struct _GDIPOINTER /* should stay private to ENG */
   HSURF MaskSurface;
   HSURF SaveSurface;
   int  ShowPointer; /* counter negtive  do not show the mouse postive show the mouse */
-
+  
   /* public pointer information */
   RECTL Exclude; /* required publicly for SPS_ACCEPT_EXCLUDE */
   PGD_MOVEPOINTER MovePointer;
@@ -51,38 +149,24 @@ typedef struct _GDIPOINTER /* should stay private to ENG */
 
 typedef struct
 {
-  HANDLE Handle;                 // HSURF
-  PVOID  pvEntry;
-  ULONG  lucExcLock;
-  ULONG  Tid;
-
-  FLONG  flFlags;
-  PERESOURCE hsemDevLock;
-
-  PVOID  pvGammaRamp;
-
+  HANDLE Handle;
   DHPDEV PDev;
   DEVMODEW DMW;
   HSURF FillPatterns[HS_DDI_MAX];
-  DEVINFO DevInfo;
   GDIINFO GDIInfo;
-
-  HANDLE hSpooler;
-  ULONG DisplayNumber;
-
+  DEVINFO DevInfo;
+  DRIVER_FUNCTIONS DriverFunctions;
   PFILE_OBJECT VideoFileObject;
   BOOLEAN PreparedDriver;
+  ULONG DisplayNumber;
+
   GDIPOINTER Pointer;
 
   /* Stuff to keep track of software cursors; win32k gdi part */
   UINT SafetyRemoveLevel; /* at what level was the cursor removed?
 			     0 for not removed */
   UINT SafetyRemoveCount;
-
-  struct _EDD_DIRECTDRAW_GLOBAL * pEDDgpl;
-
-  DRIVER_FUNCTIONS DriverFunctions;
-} GDIDEVICE, *PGDIDEVICE;
+} GDIDEVICE;
 
 /*  Internal functions  */
 
@@ -93,46 +177,22 @@ typedef struct
 
 NTSTATUS FASTCALL InitDcImpl(VOID);
 HDC  FASTCALL RetrieveDisplayHDC(VOID);
-PGDIDEVICE FASTCALL IntEnumHDev(VOID);
 HDC  FASTCALL DC_AllocDC(PUNICODE_STRING  Driver);
 VOID FASTCALL DC_InitDC(HDC  DCToInit);
 HDC  FASTCALL DC_FindOpenDC(PUNICODE_STRING  Driver);
-VOID FASTCALL DC_FreeDC(HDC);
-VOID FASTCALL DC_AllocateDcAttr(HDC);
-VOID FASTCALL DC_FreeDcAttr(HDC);
+VOID FASTCALL DC_FreeDC(HDC  DCToFree);
 BOOL INTERNAL_CALL DC_Cleanup(PVOID ObjectBody);
 HDC  FASTCALL DC_GetNextDC (PDC pDC);
 VOID FASTCALL DC_SetNextDC (PDC pDC, HDC hNextDC);
 VOID FASTCALL DC_SetOwnership(HDC DC, PEPROCESS Owner);
-VOID FASTCALL DC_LockDisplay(HDC);
-VOID FASTCALL DC_UnlockDisplay(HDC);
-VOID FASTCALL IntGdiCopyFromSaveState(PDC, PDC, HDC);
-VOID FASTCALL IntGdiCopyToSaveState(PDC, PDC);
-BOOL FASTCALL IntGdiDeleteDC(HDC, BOOL);
 
 VOID FASTCALL DC_UpdateXforms(PDC  dc);
 BOOL FASTCALL DC_InvertXform(const XFORM *xformSrc, XFORM *xformDest);
-
-BOOL FASTCALL DCU_SyncDcAttrtoUser(PDC);
-BOOL FASTCALL DCU_SynchDcAttrtoUser(HDC);
-VOID FASTCALL DCU_SetDcUndeletable(HDC);
 
 VOID FASTCALL IntGetViewportExtEx(PDC dc, LPSIZE pt);
 VOID FASTCALL IntGetViewportOrgEx(PDC dc, LPPOINT pt);
 VOID FASTCALL IntGetWindowExtEx(PDC dc, LPSIZE pt);
 VOID FASTCALL IntGetWindowOrgEx(PDC dc, LPPOINT pt);
-
-NTSTATUS STDCALL NtGdiFlushUserBatch(VOID);
-
-COLORREF FASTCALL NtGdiSetBkColor (HDC hDC, COLORREF Color);
-INT FASTCALL NtGdiSetBkMode(HDC  hDC, INT  backgroundMode);
-COLORREF STDCALL  NtGdiGetBkColor(HDC  hDC);
-INT STDCALL  NtGdiGetBkMode(HDC  hDC);
-COLORREF FASTCALL  NtGdiSetTextColor(HDC hDC, COLORREF color);
-UINT FASTCALL NtGdiSetTextAlign(HDC  hDC, UINT  Mode);
-UINT STDCALL  NtGdiGetTextAlign(HDC  hDC);
-COLORREF STDCALL  NtGdiGetTextColor(HDC  hDC);
-INT STDCALL  NtGdiSetStretchBltMode(HDC  hDC, INT  stretchBltMode);
 
 /* For Metafile and MetaEnhFile not in windows this struct taken from wine cvs 15/9-2006*/
 typedef struct

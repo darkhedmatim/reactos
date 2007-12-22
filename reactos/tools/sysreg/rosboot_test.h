@@ -9,48 +9,39 @@
  * PURPOSE:     ReactOS boot test
  * PROGRAMMERS: Johannes Anderwald (johannes.anderwald at sbox tugraz at)
  */
-#include "data_source.h"
-#include "conf_parser.h"
-#include "os_support.h"
-#include "user_types.h"
+
+
+#include "reg_test.h"
 #include <vector>
-#ifdef __LINUX__
+#ifndef WIN32
 #include <unistd.h>
+#define _sleep sleep
 #endif
 
 namespace Sysreg_
 {
 	using std::vector;
-    using System_::DataSource;
-    using System_::OsSupport;
-
 
 //---------------------------------------------------------------------------------------
 ///
 /// class RosBootTest
 ///
 /// Description: this class attempts to boot ReactOS in an emulator with console logging enabled.
-/// It
+/// It 
 
-	class RosBootTest
+	class RosBootTest : public RegressionTest
 	{
 	public:
-
-		static string ROS_EMU_TYPE;
-		static string EMU_TYPE_QEMU;
-		static string EMU_TYPE_VMWARE;
-		static string ROS_EMU_PATH;
-		static string ROS_HDD_IMAGE;
-		static string ROS_CD_IMAGE;
-		static string ROS_MAX_TIME;
-		static string ROS_LOG_FILE;
-		static string ROS_SYM_DIR;
-		static string ROS_DELAY_READ;
-		static string ROS_SYSREG_CHECKPOINT;
-		static string ROS_CRITICAL_IMAGE;
-		static string ROS_EMU_KILL;
-		static string ROS_EMU_MEM;
-		static string ROS_BOOT_CMD;
+		static string VARIABLE_NAME;
+		static string CLASS_NAME;
+		static string DEBUG_PORT;
+		static string DEBUG_FILE;
+		static string TIME_OUT;
+		static string PID_FILE;
+		static string CHECK_POINT;
+		static string SYSREG_CHECKPOINT;
+		static string DELAY_READ;
+		static string CRITICAL_APP;
 
 //---------------------------------------------------------------------------------------
 ///
@@ -83,28 +74,32 @@ namespace Sysreg_
 	virtual bool execute(ConfigParser & conf_parser);
 
 	protected:
+//---------------------------------------------------------------------------------------
+///
+/// fetchDebugByPipe
+///
+/// Description: this functions debugs ReactOS by PipeReader class
+///
+/// Note: if an error occurs, this function returns false
+///
+/// @param BootCmd the command which is passed to PipeReader class
+/// @return bool
 
-    void getDefaultHDDImage(string & img);
-    bool isFileExisting(string filename);
-    bool isDefaultHDDImageExisting();
-    bool createHDDImage(string filename);
-    bool isQemuPathValid();
-    bool getQemuDir(string &);
-    bool createBootCmd();
-    bool extractPipeFromBootCmd();
-    bool configureCDImage();
-    bool configureHDDImage();
-    void getPidFromFile();
-    bool executeBootCmd();
-    void delayRead();
-    bool configurePipe();
-    bool configureFile();
-    bool analyzeDebugData();
-    bool readConfigurationValues(ConfigParser & conf_parser);
-    bool configureQemu();
-    bool configureVmWare();
-    bool hasQemuNoRebootOption();
-    void cleanup();
+	bool fetchDebugByPipe(string BootCmd);
+
+//---------------------------------------------------------------------------------------
+///
+/// fetchDebugByFile
+///
+/// Description: this functions fetches debug info by reading a debug log
+///
+/// Note: if an error occurs, this function returns false
+///
+/// @param BootCmd the command which is passed to PipeReader class
+/// @return bool
+
+	bool fetchDebugByFile(string BootCmd);
+
 //---------------------------------------------------------------------------------------
 ///
 /// dumpCheckpoints
@@ -133,30 +128,26 @@ typedef enum DebugState
 
 	DebugState checkDebugData(vector<string> & debug_data);
 
+//---------------------------------------------------------------------------------------
+///
+/// checkTimeOut
+///
+/// Description: this function checks if the ReactOS has run longer than the maximum available
+/// time
+
+	bool isTimeout(double max_timeout);
+
 protected:
 
-    string m_EmuType;
-    string m_EmuPath;
-    string m_HDDImage;
-    string m_CDImage;
-    long int m_MaxTime;
-    string m_DebugFile;
-    string m_SymDir;
-    long int m_DelayRead;
-    string m_Checkpoint;
-    string m_CriticalImage;
-    string m_KillEmulator;
-    string m_MaxMem;
-    string m_BootCmd;
-    string m_Src;
-    string m_DebugPort;
-    string m_PidFile;
+	double m_Timeout;
+	string m_PidFile;
+	string m_Checkpoint;
+	string m_CriticalApp;
+	string m_DebugFile;
+	vector <string> m_Checkpoints;
+	unsigned long m_Delayread;
 
-    DataSource * m_DataSource;
-    OsSupport::ProcessID m_Pid;
-    std::vector<string> m_Checkpoints;
-
-    }; // end of class RosBootTest
+	}; // end of class RosBootTest
 
 } // end of namespace Sysreg_
 

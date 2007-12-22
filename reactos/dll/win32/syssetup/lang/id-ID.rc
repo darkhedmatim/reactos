@@ -39,7 +39,7 @@ BEGIN
     LTEXT           "The ReactOS developers would like to acknowledge the following Open Source projects, "\
                     "(parts of) which were used to create ReactOS:",
                     IDC_STATIC,15,7,286,19
-    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS |
+    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS | 
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL
     LTEXT           "ReactOS is licensed under the GPL, so if you want to reuse or redistribute "\
                     "(parts of) it you must respect the GPL",
@@ -156,18 +156,9 @@ STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL |
+    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL
     DEFPUSHBUTTON   "OK",IDOK,141,209,50,14
-END
-
-
-IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
-CAPTION "Please wait..."
-FONT 8,"MS Shell Dlg 2",400,0,1
-BEGIN
-    LTEXT           "",IDC_STATUSLABEL,7,8,234,12,SS_WORDELLIPSIS
 END
 
 
@@ -189,6 +180,9 @@ END
 
 STRINGTABLE
 BEGIN
+    IDS_CMT_WINEFILE    "Jalankan Winefile"
+    IDS_CMT_IBROWSER	"Jalankan iBrowser"
+    IDS_CMT_GETFIREFOX	"Download/instalasi Firefox"
     IDS_CMT_DOWNLOADER  "Download dan instalasi berbagai aplikasi"
 END
 
@@ -202,9 +196,6 @@ BEGIN
     IDS_CMT_REGEDIT     "Jalankan Editor Registri"
     IDS_CMT_WORDPAD     "Jalankan Editor Dokumen"
     IDS_CMT_SCREENSHOT  "Ambil foto layar"
-    IDS_CMT_DEVMGMT     "Launch Device Manager"
-    IDS_CMT_SERVMAN     "Launch Service Manager"
-    IDS_CMT_RDESKTOP    "Launch Remote Desktop"
 END
 
 STRINGTABLE
@@ -212,18 +203,6 @@ BEGIN
     IDS_GAMES		"Games"
     IDS_CMT_SOLITAIRE	"Solitaire"
     IDS_CMT_WINEMINE	"WineMine"
-END
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_TOOLS        "System Tools"
-	IDS_CMT_CHARMAP      "CharMap"
-END
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_ACCESSIBILITY        "Accessibility"
-	IDS_CMT_MAGNIFY      	     "Magnify"
 END
 
 STRINGTABLE
@@ -244,6 +223,7 @@ BEGIN
     IDS_SHORT_CMD        "Command Prompt.lnk"
     IDS_SHORT_EXPLORER   "ReactOS Explorer.lnk"
     IDS_SHORT_DOWNLOADER "Download !.lnk"
+    IDS_SHORT_FIREFOX    "Get Firefox.lnk"
     IDS_SHORT_SERVICE    "Service Manager.lnk"
     IDS_SHORT_DEVICE     "Device Manager.lnk"
     IDS_SHORT_CALC       "Calculator.lnk"
@@ -253,9 +233,6 @@ BEGIN
     IDS_SHORT_SNAP       "SnapShot.lnk"
     IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
     IDS_SHORT_WINEMINE   "WineMine.lnk"
-	IDS_SHORT_CHARMAP    "CharMap.lnk"
-	IDS_SHORT_MAGNIFY    "Magnify.lnk"
-    IDS_SHORT_RDESKTOP   "Remote Desktop.lnk"
 END
 
 STRINGTABLE
@@ -268,10 +245,4 @@ BEGIN
     IDS_WZD_PASSWORDCHAR  "The password you entered contains invalid characters. Please enter a cleaned password."
     IDS_WZD_LOCALTIME    "Setup was unable to set the local time."
 END
-
-STRINGTABLE
-BEGIN
-    IDS_STATUS_INSTALL_DEV "Installing devices..."
-END
-
 /* EOF */

@@ -25,7 +25,6 @@
 #include "winerror.h"
 #include "objbase.h"
 #include "mapix.h"
-#include "mapiform.h"
 #include "mapi.h"
 #include "wine/debug.h"
 
@@ -50,16 +49,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
 	break;
     }
     return TRUE;
-}
-
-/***********************************************************************
- *		DllGetClassObject (MAPI32.27)
- */
-HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
-{
-    *ppv = NULL;
-    FIXME("\n\tCLSID:\t%s,\n\tIID:\t%s\n", debugstr_guid(rclsid), debugstr_guid(iid));
-    return CLASS_E_CLASSNOTAVAILABLE;
 }
 
 /***********************************************************************

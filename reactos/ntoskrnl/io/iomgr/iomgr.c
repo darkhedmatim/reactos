@@ -149,7 +149,7 @@ IopInitLookasideLists(VOID)
     for (i = 0; i < KeNumberProcessors; i++)
     {
         /* Get the PRCB for this CPU */
-        Prcb = KiProcessorBlock[i];
+        Prcb = ((PKPCR)(KPCR_BASE + i * PAGE_SIZE))->Prcb;
         DPRINT("Setting up lookaside for CPU: %x, PRCB: %p\n", i, Prcb);
 
         /* Set the Large IRP List */
@@ -497,6 +497,11 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     /* Initialize PnP manager */
     PnpInit();
 
+    /* Initialize PnP root relations */
+    IoSynchronousInvalidateDeviceRelations(IopRootDeviceNode->
+                                           PhysicalDeviceObject,
+                                           BusRelations);
+
     /* Create the group driver list */
     IoCreateDriverList();
 
@@ -505,11 +510,6 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 
     /* Call back drivers that asked for */
     IopReinitializeBootDrivers();
-
-    /* Initialize PnP root relations */
-    IoSynchronousInvalidateDeviceRelations(IopRootDeviceNode->
-                                           PhysicalDeviceObject,
-                                           BusRelations);
 
     /* Create ARC names for boot devices */
     IopCreateArcNames(LoaderBlock);

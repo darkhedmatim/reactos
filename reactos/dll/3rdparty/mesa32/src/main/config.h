@@ -5,9 +5,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  7.0
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,8 +28,8 @@
  */
 
 
-#ifndef MESA_CONFIG_H_INCLUDED
-#define MESA_CONFIG_H_INCLUDED
+#ifndef CONFIG_H
+#define CONFIG_H
 
 /**
  * \name OpenGL implementation limits
@@ -108,11 +108,7 @@
 /** Maximum rectangular texture size - GL_NV_texture_rectangle */
 #define MAX_TEXTURE_RECT_SIZE 2048
 
-/** Number of texture units - GL_ARB_multitexture
- * This needs to be the larger of MAX_TEXTURE_COORD_UNITS and
- * MAX_TEXTURE_IMAGE_UNITS seen below, since MAX_TEXTURE_UNITS is used
- * to dimension some arrays that store both coord and image data.
-*/
+/** Number of texture units - GL_ARB_multitexture */
 #define MAX_TEXTURE_UNITS 8
 
 /*@}*/
@@ -171,7 +167,7 @@
 
 /** For GL_NV_fragment_program */
 /*@{*/
-#define MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS 1024 /* 72 for GL_ARB_f_p */
+#define MAX_NV_FRAGMENT_PROGRAM_INSTRUCTIONS 128
 #define MAX_NV_FRAGMENT_PROGRAM_TEMPS         96
 #define MAX_NV_FRAGMENT_PROGRAM_PARAMS        64
 #define MAX_NV_FRAGMENT_PROGRAM_INPUTS        12
@@ -187,7 +183,7 @@
 
 /** For GL_ARB_fragment_program */
 /*@{*/
-#define MAX_FRAGMENT_PROGRAM_ADDRESS_REGS 0
+#define MAX_FRAGMENT_PROGRAM_ADDRESS_REGS 1
 #define MAX_FRAGMENT_PROGRAM_ALU_INSTRUCTIONS 48
 #define MAX_FRAGMENT_PROGRAM_TEX_INSTRUCTIONS 24
 #define MAX_FRAGMENT_PROGRAM_TEX_INDIRECTIONS  4
@@ -196,19 +192,19 @@
 /** For any program target/extension */
 /*@{*/
 #define MAX_PROGRAM_LOCAL_PARAMS 128 /* KW: power of two */
-#define MAX_PROGRAM_ENV_PARAMS 128
 #define MAX_PROGRAM_MATRICES 8
 #define MAX_PROGRAM_MATRIX_STACK_DEPTH 4
-#define MAX_PROGRAM_CALL_DEPTH 8
-#define MAX_PROGRAM_TEMPS 128
-#define MAX_PROGRAM_ADDRESS_REGS 2
-#define MAX_UNIFORMS 128
-#define MAX_VARYING 8
+/*@}*/
+
+/** For GL_ARB_fragment_shader */
+/*@{*/
+#define MAX_FRAGMENT_UNIFORM_COMPONENTS 64
 /*@}*/
 
 /** For GL_ARB_vertex_shader */
 /*@{*/
-#define MAX_VERTEX_ATTRIBS 16
+#define MAX_VERTEX_UNIFORM_COMPONENTS 512
+#define MAX_VARYING_FLOATS 32
 #define MAX_VERTEX_TEXTURE_IMAGE_UNITS 0
 #define MAX_COMBINED_TEXTURE_IMAGE_UNITS (MAX_TEXTURE_IMAGE_UNITS + MAX_VERTEX_TEXTURE_IMAGE_UNITS)
 /*@}*/
@@ -216,7 +212,7 @@
 
 /** For GL_ARB_draw_buffers */
 /*@{*/
-#define MAX_DRAW_BUFFERS 4
+#define MAX_DRAW_BUFFERS 1
 /*@}*/
 
 
@@ -238,9 +234,16 @@
  */
 #define TRIANGLE_WALK_DOUBLE 0
 
+/**
+ * Bits per accumulation buffer color component:  8, 16 or 32
+ */
+#define ACCUM_BITS 16
 
 /**
- * Bits per depth buffer value (max is 32).
+ * Bits per depth buffer value.  
+ *
+ * Any reasonable value up to 31 will work.  32 doesn't work because of integer
+ * overflow problems in the rasterizer code.
  */
 #ifndef DEFAULT_SOFTWARE_DEPTH_BITS
 #define DEFAULT_SOFTWARE_DEPTH_BITS 16
@@ -285,30 +288,24 @@
 #define _HAVE_FULL_GL 1
 #endif
 
-#define FEATURE_userclip  _HAVE_FULL_GL
-#define FEATURE_texgen  _HAVE_FULL_GL
-#define FEATURE_windowpos  _HAVE_FULL_GL
-#define FEATURE_ARB_occlusion_query  _HAVE_FULL_GL
-#define FEATURE_ARB_fragment_program  _HAVE_FULL_GL
 #define FEATURE_ARB_vertex_buffer_object  _HAVE_FULL_GL
 #define FEATURE_ARB_vertex_program  _HAVE_FULL_GL
-
-#define FEATURE_ARB_vertex_shader _HAVE_FULL_GL
-#define FEATURE_ARB_fragment_shader _HAVE_FULL_GL
-#define FEATURE_ARB_shader_objects (FEATURE_ARB_vertex_shader || FEATURE_ARB_fragment_shader)
-#define FEATURE_ARB_shading_language_100 FEATURE_ARB_shader_objects
-#define FEATURE_ARB_shading_language_120 FEATURE_ARB_shader_objects
-
-#define FEATURE_EXT_framebuffer_blit _HAVE_FULL_GL
-#define FEATURE_EXT_framebuffer_object _HAVE_FULL_GL
+#define FEATURE_ARB_fragment_program  _HAVE_FULL_GL
+#define FEATURE_ARB_occlusion_query  _HAVE_FULL_GL
 #define FEATURE_EXT_pixel_buffer_object  _HAVE_FULL_GL
-#define FEATURE_EXT_texture_sRGB _HAVE_FULL_GL
-#define FEATURE_EXT_timer_query  _HAVE_FULL_GL
-#define FEATURE_ATI_fragment_shader _HAVE_FULL_GL
 #define FEATURE_MESA_program_debug  _HAVE_FULL_GL
 #define FEATURE_NV_fence  _HAVE_FULL_GL
 #define FEATURE_NV_fragment_program  _HAVE_FULL_GL
 #define FEATURE_NV_vertex_program  _HAVE_FULL_GL
+#define FEATURE_userclip  _HAVE_FULL_GL
+#define FEATURE_texgen  _HAVE_FULL_GL
+#define FEATURE_windowpos  _HAVE_FULL_GL
+#define FEATURE_ARB_vertex_shader _HAVE_FULL_GL
+#define FEATURE_ARB_fragment_shader _HAVE_FULL_GL
+#define FEATURE_ARB_shader_objects (FEATURE_ARB_vertex_shader || FEATURE_ARB_fragment_shader)
+#define FEATURE_ARB_shading_language_100 FEATURE_ARB_shader_objects
+#define FEATURE_ATI_fragment_shader _HAVE_FULL_GL
+#define FEATURE_EXT_framebuffer_object _HAVE_FULL_GL
 /*@}*/
 
 
@@ -320,4 +317,8 @@
 #define MAX_CLIPPED_VERTICES ((2 * (6 + MAX_CLIP_PLANES))+1)
 
 
-#endif /* MESA_CONFIG_H_INCLUDED */
+/* XXX everything marked with OLD_RENDERBUFFER will be going away... */
+#define OLD_RENDERBUFFER 1
+
+
+#endif /* CONFIG_H */

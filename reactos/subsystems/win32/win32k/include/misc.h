@@ -8,4 +8,5 @@
 
 ULONG FASTCALL IntSystemParametersInfo(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni);
 
+
 #endif /* __WIN32K_MISC_H */

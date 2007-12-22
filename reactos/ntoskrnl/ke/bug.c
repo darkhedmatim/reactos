@@ -29,10 +29,6 @@ ULONG KiHardwareTrigger;
 PUNICODE_STRING KiBugCheckDriver;
 ULONG_PTR KiBugCheckData[5];
 
-/* Bugzilla Reporting */
-UNICODE_STRING KeRosProcessorName, KeRosBiosDate, KeRosBiosVersion;
-UNICODE_STRING KeRosVideoBiosDate, KeRosVideoBiosVersion;
-
 /* PRIVATE FUNCTIONS *********************************************************/
 
 PVOID
@@ -136,97 +132,6 @@ KiRosPrintAddress(PVOID address)
     return(FALSE);
 }
 
-PVOID
-NTAPI
-KiRosPcToUserFileHeader(IN PVOID Eip,
-                        OUT PLDR_DATA_TABLE_ENTRY *LdrEntry)
-{
-    PVOID ImageBase, EipBase = NULL;
-    PLDR_DATA_TABLE_ENTRY Entry;
-    PLIST_ENTRY ListHead, NextEntry;
-
-    /*
-     * We know this is valid because we should only be called after a
-     * succesfull address from RtlWalkFrameChain for UserMode, which
-     * validates everything for us.
-     */
-    ListHead = &KeGetCurrentThread()->
-               Teb->ProcessEnvironmentBlock->Ldr->InLoadOrderModuleList;
-
-    /* Set list pointers and make sure it's valid */
-    NextEntry = ListHead->Flink;
-    if (NextEntry)
-    {
-        /* Start loop */
-        while (NextEntry != ListHead)
-        {
-            /* Get the loader entry */
-            Entry = CONTAINING_RECORD(NextEntry,
-                                      LDR_DATA_TABLE_ENTRY,
-                                      InLoadOrderLinks);
-
-            /* Move to the next entry */
-            NextEntry = NextEntry->Flink;
-            ImageBase = Entry->DllBase;
-
-            /* Check if this is the right one */
-            if (((ULONG_PTR)Eip >= (ULONG_PTR)Entry->DllBase) &&
-                ((ULONG_PTR)Eip < ((ULONG_PTR)Entry->DllBase + Entry->SizeOfImage)))
-            {
-                /* Return this entry */
-                *LdrEntry = Entry;
-                EipBase = ImageBase;
-                break;
-            }
-        }
-    }
-
-    /* Return the base address */
-    return EipBase;
-}
-
-USHORT
-NTAPI
-KeRosCaptureUserStackBackTrace(IN ULONG FramesToSkip,
-                               IN ULONG FramesToCapture,
-                               OUT PVOID *BackTrace,
-                               OUT PULONG BackTraceHash OPTIONAL)
-{
-    PVOID Frames[2 * 64];
-    ULONG FrameCount;
-    ULONG Hash = 0, i;
-
-    /* Skip a frame for the caller */
-    FramesToSkip++;
-
-    /* Don't go past the limit */
-    if ((FramesToCapture + FramesToSkip) >= 128) return 0;
-
-    /* Do the back trace */
-    FrameCount = RtlWalkFrameChain(Frames, FramesToCapture + FramesToSkip, 1);
-
-    /* Make sure we're not skipping all of them */
-    if (FrameCount <= FramesToSkip) return 0;
-
-    /* Loop all the frames */
-    for (i = 0; i < FramesToCapture; i++)
-    {
-        /* Don't go past the limit */
-        if ((FramesToSkip + i) >= FrameCount) break;
-
-        /* Save this entry and hash it */
-        BackTrace[i] = Frames[FramesToSkip + i];
-        Hash += PtrToUlong(BackTrace[i]);
-    }
-
-    /* Write the hash */
-    if (BackTraceHash) *BackTraceHash = Hash;
-
-    /* Clear the other entries and return count */
-    RtlFillMemoryUlong(Frames, 128, 0);
-    return (USHORT)i;
-}
-
 VOID
 NTAPI
 KeRosDumpStackFrames(IN PULONG Frame OPTIONAL,
@@ -238,7 +143,7 @@ KeRosDumpStackFrames(IN PULONG Frame OPTIONAL,
     PLDR_DATA_TABLE_ENTRY LdrEntry;
 
     /* If the caller didn't ask, assume 32 frames */
-    if (!FrameCount || FrameCount > 32) FrameCount = 32;
+    if (!FrameCount) FrameCount = 32;
 
     /* Get the current frames */
     FrameCount = RtlCaptureStackBackTrace(2, FrameCount, (PVOID*)Frames, NULL);
@@ -263,51 +168,9 @@ KeRosDumpStackFrames(IN PULONG Frame OPTIONAL,
         /* Get the base for this file */
         if (KiPcToFileHeader((PVOID)Addr, &LdrEntry, FALSE, &InSystem))
         {
-#ifdef KDBG
-            if (!KdbSymPrintAddress((PVOID)Addr))
-#endif
-            {
-                /* Print out the module name */
-                Addr -= (ULONG_PTR)LdrEntry->DllBase;
-                DbgPrint("<%wZ: %x>", &LdrEntry->FullDllName, Addr);
-            }
-        }
-        else if (Addr)
-        {
-            /* Print only the address */
-            DbgPrint("<%x>", Addr);
-        }
-
-        /* Go to the next frame */
-        DbgPrint("\n");
-    }
-
-    /* Get the current frames */
-    FrameCount = KeRosCaptureUserStackBackTrace(-1, 32, (PVOID*)Frames, NULL);
-
-    /* Now loop them */
-    for (i = 0; i < FrameCount; i++)
-    {
-        /* Get the EIP */
-        Addr = Frames[i];
-
-        /* Get the base for this file */
-        if (KiRosPcToUserFileHeader((PVOID)Addr, &LdrEntry))
-        {
             /* Print out the module name */
-#ifdef KDBG
-            if (!KdbSymPrintAddress((PVOID)Addr))
-#endif
-            {
-                /* Fall back to usual printing */
-                Addr -= (ULONG_PTR)LdrEntry->DllBase;
-                DbgPrint("<%wZ: %x>", &LdrEntry->FullDllName, Addr);
-            }
-        }
-        else if (Addr)
-        {
-            /* Print only the address */
-            DbgPrint("<%x>", Addr);
+            Addr -= (ULONG_PTR)LdrEntry->DllBase;
+            DbgPrint("<%wZ: %x>", &LdrEntry->FullDllName, Addr);
         }
 
         /* Go to the next frame */
@@ -316,74 +179,6 @@ KeRosDumpStackFrames(IN PULONG Frame OPTIONAL,
 
     /* Finish the output */
     DbgPrint("\n");
-}
-
-VOID
-NTAPI
-KeRosDumpTriageForBugZillaReport(VOID)
-{
-#if 0
-    extern BOOLEAN KiFastSystemCallDisable, KiSMTProcessorsPresent;
-    extern ULONG KeI386MachineType, MxcsrFeatureMask;
-    extern BOOLEAN Ke386Pae, Ke386NoExecute;
-
-    DbgPrint("ReactOS has crashed! Please go to http://www.reactos.org/bugzilla/enter_bug.cgi to file a bug!\n");
-    DbgPrint("\nHardware Information\n");
-    DbgPrint("Processor Architecture: %d\n"
-             "Feature Bits: %d\n"
-             "System Call Disabled: %d\n"
-             "NPX Present: %d\n"
-             "MXCsr Mask: %d\n"
-             "MXCsr Feature Mask: %d\n"
-             "XMMI Present: %d\n"
-             "FXSR Present: %d\n"
-             "Machine Type: %d\n"
-             "PAE: %d\n"
-             "NX: %d\n"
-             "Processors: %d\n"
-             "Active Processors: %d\n"
-             "Pentium LOCK Bug: %d\n"
-             "Hyperthreading: %d\n"
-             "CPU Manufacturer: %s\n"
-             "CPU Name: %wZ\n"
-             "CPUID: %d\n"
-             "CPU Type: %d\n"
-             "CPU Stepping: %d\n"
-             "CPU Speed: %d\n"
-             "CPU L2 Cache: %d\n"
-             "BIOS Date: %wZ\n"
-             "BIOS Version: %wZ\n"
-             "Video BIOS Date: %wZ\n"
-             "Video BIOS Version: %wZ\n"
-             "Memory: %d\n",
-             KeProcessorArchitecture,
-             KeFeatureBits,
-             KiFastSystemCallDisable,
-             KeI386NpxPresent,
-             KiMXCsrMask,
-             MxcsrFeatureMask,
-             KeI386XMMIPresent,
-             KeI386FxsrPresent,
-             KeI386MachineType,
-             Ke386Pae,
-             Ke386NoExecute,
-             KeNumberProcessors,
-             KeActiveProcessors,
-             KiI386PentiumLockErrataPresent,
-             KiSMTProcessorsPresent,
-             KeGetCurrentPrcb()->VendorString,
-             &KeRosProcessorName,
-             KeGetCurrentPrcb()->CpuID,
-             KeGetCurrentPrcb()->CpuType,
-             KeGetCurrentPrcb()->CpuStep,
-             KeGetCurrentPrcb()->MHz,
-             ((PKIPCR)KeGetPcr())->SecondLevelCacheSize,
-             &KeRosBiosDate,
-             &KeRosBiosVersion,
-             &KeRosVideoBiosDate,
-             &KeRosVideoBiosVersion,
-             MmNumberOfPhysicalPages * PAGE_SIZE);
-#endif
 }
 
 VOID
@@ -550,7 +345,7 @@ NTAPI
 KiBugCheckDebugBreak(IN ULONG StatusCode)
 {
     /* If KDBG isn't connected, freeze the CPU, otherwise, break */
-    if (KdDebuggerNotPresent) for (;;) KeArchHaltProcessor();
+    if (KdDebuggerNotPresent) for (;;) Ke386HaltProcessor();
     DbgBreakPointWithStatus(StatusCode);
 }
 
@@ -769,6 +564,7 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
     PVOID DriverBase;
     PLDR_DATA_TABLE_ENTRY LdrEntry;
     PULONG_PTR HardErrorParameters;
+    KIRQL OldIrql;
 #ifdef CONFIG_SMP
     LONG i = 0;
 #endif
@@ -878,12 +674,8 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
             if ((TrapFrame) &&
                 (BugCheckCode != KERNEL_MODE_EXCEPTION_NOT_HANDLED))
             {
-#ifdef _M_IX86
                 /* Get EIP */
                 Eip = (PVOID)TrapFrame->Eip;
-#elif defined(_M_PPC)
-                Eip = (PVOID)TrapFrame->Dr0; /* srr0 */
-#endif
             }
             break;
 
@@ -978,14 +770,9 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
             /* Check if we have a frame now */
             if (TrapFrame)
             {
-#ifdef _M_IX86
                 /* Get EIP */
                 Eip = (PVOID)TrapFrame->Eip;
                 KiBugCheckData[3] = (ULONG)Eip;
-#elif defined(_M_PPC)
-                Eip = (PVOID)TrapFrame->Dr0; /* srr0 */
-                KiBugCheckData[3] = (ULONG)Eip;
-#endif
 
                 /* Find out if was in the kernel or drivers */
                 DriverBase = KiPcToFileHeader(Eip,
@@ -1107,15 +894,18 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
              * We'll manually dump the stack for the user.
              */
             KeRosDumpStackFrames(NULL, 0);
-
-            /* ROS HACK 2: Generate something useful for Bugzilla */
-            KeRosDumpTriageForBugZillaReport();
         }
     }
 
     /* Raise IRQL to HIGH_LEVEL */
     _disable();
-    KfRaiseIrql(HIGH_LEVEL);
+    KeRaiseIrql(HIGH_LEVEL, &OldIrql);
+
+    /* ROS HACK: Unlock the Kernel Address Space if we own it */
+    if (KernelAddressSpaceLock.Owner == KeGetCurrentThread())
+    {
+        MmUnlockAddressSpace(MmGetKernelAddressSpace());
+    }
 
     /* Avoid recursion */
     if (!InterlockedDecrement((PLONG)&KeBugCheckCount))
@@ -1137,13 +927,11 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
 #endif
 
         /* Display the BSOD */
-        KfLowerIrql(APC_LEVEL); // This is a nastier hack than any ever before
         KiDisplayBlueScreen(MessageId,
                             IsHardError,
                             HardErrCaption,
                             HardErrMessage,
                             AnsiName);
-        KfRaiseIrql(HIGH_LEVEL);
 
         /* Check if the debugger is disabled but we can enable it */
         if (!(KdDebuggerEnabled) && !(KdPitchDebugger))
@@ -1184,7 +972,7 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
         else if (KeBugCheckOwnerRecursionCount > 2)
         {
             /* Halt the CPU */
-            for (;;) KeArchHaltProcessor();
+            for (;;) Ke386HaltProcessor();
         }
     }
 

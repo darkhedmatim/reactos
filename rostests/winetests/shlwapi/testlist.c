@@ -13,17 +13,15 @@ extern void func_ordinal(void);
 extern void func_path(void);
 extern void func_shreg(void);
 extern void func_string(void);
-extern void func_url(void);
 
 const struct test winetest_testlist[] =
 {
     { "clist", func_clist },
-    { "clsid", func_clsid },
-    { "generated", func_generated },
+//    { "clsid", func_clsid },
+//    { "generated", func_generated },
     { "ordinal", func_ordinal },
-    { "path", func_path },
+//    { "path", func_path },
     { "shreg", func_shreg },
     { "string", func_string },
-    { "url", func_url },
     { 0, 0 }
 };

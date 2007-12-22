@@ -17,7 +17,6 @@
 
 PKWIN32_PROCESS_CALLOUT PspW32ProcessCallout = NULL;
 PKWIN32_THREAD_CALLOUT PspW32ThreadCallout = NULL;
-PGDI_BATCHFLUSH_ROUTINE KeGdiFlushUserBatch = NULL;
 extern PKWIN32_PARSEMETHOD_CALLOUT ExpWindowStationObjectParse;
 extern PKWIN32_DELETEMETHOD_CALLOUT ExpWindowStationObjectDelete;
 extern PKWIN32_DELETEMETHOD_CALLOUT ExpDesktopObjectDelete;
@@ -53,7 +52,7 @@ PsConvertToGuiThread(VOID)
     if (!Thread->Tcb.LargeStack)
     {
         /* We don't create one */
-        NewStack = (ULONG_PTR)MmCreateKernelStack(TRUE, 0);
+        NewStack = (ULONG_PTR)MmCreateKernelStack(TRUE) + KERNEL_LARGE_STACK_SIZE;
         if (!NewStack)
         {
             /* Panic in user-mode */
@@ -61,15 +60,15 @@ PsConvertToGuiThread(VOID)
             return STATUS_NO_MEMORY;
         }
 
-        /* We're about to switch stacks. Enter a guarded region */
-        KeEnterGuardedRegion();
+        /* We're about to switch stacks. Enter a critical region */
+        KeEnterCriticalRegion();
 
         /* Switch stacks */
         OldStack = KeSwitchKernelStack((PVOID)NewStack,
                                        (PVOID)(NewStack - KERNEL_STACK_SIZE));
 
-        /* Leave the guarded region */
-        KeLeaveGuardedRegion();
+        /* Leave the critical region */
+        KeLeaveCriticalRegion();
 
         /* Delete the old stack */
         MmDeleteKernelStack(OldStack, FALSE);
@@ -115,7 +114,6 @@ PsEstablishWin32Callouts(IN PWIN32_CALLOUTS_FPNS CalloutData)
     ExpWindowStationObjectDelete = CalloutData->WindowStationDeleteProcedure;
     ExpDesktopObjectDelete = CalloutData->DesktopDeleteProcedure;
     PopEventCallout = CalloutData->PowerEventCallout;
-    KeGdiFlushUserBatch = CalloutData->BatchFlushRoutine;
 }
 
 NTSTATUS
