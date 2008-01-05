@@ -47,6 +47,7 @@ typedef struct _importlib_t importlib_t;
 typedef struct _importinfo_t importinfo_t;
 typedef struct _typelib_t typelib_t;
 typedef struct _user_type_t user_type_t;
+typedef struct _user_type_t context_handle_t;
 
 typedef struct list attr_list_t;
 typedef struct list str_list_t;
@@ -57,6 +58,7 @@ typedef struct list pident_list_t;
 typedef struct list ifref_list_t;
 typedef struct list array_dims_t;
 typedef struct list user_type_list_t;
+typedef struct list context_handle_list_t;
 
 enum attr_type
 {
@@ -152,6 +154,7 @@ enum expr_type
     EXPR_OR,
     EXPR_COND,
     EXPR_TRUEFALSE,
+    EXPR_ADDRESSOF,
 };
 
 enum type_kind
@@ -214,6 +217,7 @@ struct _type_t {
   expr_t *size_is, *length_is;
   type_t *orig;                   /* dup'd types */
   unsigned int typestring_offset;
+  unsigned int ptrdesc;           /* used for complex structs */
   int typelib_idx;
   unsigned int declarray : 1;     /* if declared as an array */
   unsigned int ignore : 1;
@@ -304,10 +308,14 @@ struct _user_type_t {
     const char *name;
 };
 
+extern unsigned char pointer_default;
+
 extern user_type_list_t user_type_list;
-void check_for_user_types(const var_list_t *list);
+void check_for_user_types_and_context_handles(const var_list_t *list);
 
 void init_types(void);
+type_t *alloc_type(void);
+void set_all_tfswrite(int val);
 
 type_t *duptype(type_t *t, int dupname);
 type_t *alias(type_t *t, const char *name);

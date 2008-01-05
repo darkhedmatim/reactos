@@ -52,7 +52,7 @@ static typelib_t *typelib;
 
 type_t *duptype(type_t *t, int dupname)
 {
-  type_t *d = xmalloc(sizeof *d);
+  type_t *d = alloc_type();
 
   *d = *t;
   if (dupname && t->name)
@@ -103,7 +103,7 @@ int is_array(const type_t *t)
 /* List of oleauto types that should be recognized by name.
  * (most of) these seem to be intrinsic types in mktyplib. */
 
-static struct oatype {
+static const struct oatype {
   const char *kw;
   unsigned short vt;
 } oatypes[] = {
@@ -126,9 +126,11 @@ static int kw_cmp_func(const void *s1, const void *s2)
         return strcmp(KWP(s1)->kw, KWP(s2)->kw);
 }
 
-static unsigned short builtin_vt(const char *kw)
+static unsigned short builtin_vt(const type_t *t)
 {
-  struct oatype key, *kwp;
+  const char *kw = t->name;
+  struct oatype key;
+  const struct oatype *kwp;
   key.kw = kw;
 #ifdef KW_BSEARCH
   kwp = bsearch(&key, oatypes, NTYPES, sizeof(oatypes[0]), kw_cmp_func);
@@ -145,6 +147,13 @@ static unsigned short builtin_vt(const char *kw)
   if (kwp) {
     return kwp->vt;
   }
+  if (is_string_type (t->attrs, t))
+    switch (t->ref->type)
+      {
+      case RPC_FC_CHAR: return VT_LPSTR;
+      case RPC_FC_WCHAR: return VT_LPWSTR;
+      default: break;
+      }
   return 0;
 }
 
@@ -160,7 +169,7 @@ unsigned short get_type_vt(type_t *t)
 
   chat("get_type_vt: %p type->name %s\n", t, t->name);
   if (t->name) {
-    vt = builtin_vt(t->name);
+    vt = builtin_vt(t);
     if (vt) return vt;
   }
 
@@ -198,6 +207,8 @@ unsigned short get_type_vt(type_t *t)
   case RPC_FC_UP:
   case RPC_FC_OP:
   case RPC_FC_FP:
+  case RPC_FC_CARRAY:
+  case RPC_FC_CVARRAY:
     if(t->ref)
     {
       if (match(t->ref->name, "SAFEARRAY"))
@@ -241,6 +252,9 @@ void start_typelib(char *name, attr_list_t *attrs)
     typelib->attrs = attrs;
     list_init( &typelib->entries );
     list_init( &typelib->importlibs );
+
+    if (is_attr(attrs, ATTR_POINTERDEFAULT))
+        pointer_default = get_attrv(attrs, ATTR_POINTERDEFAULT);
 }
 
 void end_typelib(void)
@@ -249,6 +263,7 @@ void end_typelib(void)
     if (!typelib) return;
 
     create_msft_typelib(typelib);
+    pointer_default = RPC_FC_UP;
     return;
 }
 

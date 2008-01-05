@@ -43,11 +43,14 @@ extern int do_proxies;
 extern int do_client;
 extern int do_server;
 extern int do_idfile;
+extern int do_dlldata;
 extern int old_names;
 
 extern char *input_name;
 extern char *header_name;
+extern char *local_stubs_name;
 extern char *typelib_name;
+extern char *dlldata_name;
 extern char *proxy_name;
 extern char *proxy_token;
 extern char *client_name;
@@ -62,10 +65,12 @@ extern int line_number;
 extern int char_number;
 
 extern FILE* header;
+extern FILE* local_stubs;
 extern FILE* idfile;
 
 extern void write_proxies(ifref_list_t *ifaces);
 extern void write_client(ifref_list_t *ifaces);
 extern void write_server(ifref_list_t *ifaces);
+extern void write_dlldata(ifref_list_t *ifaces);
 
 #endif

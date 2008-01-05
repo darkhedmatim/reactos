@@ -78,7 +78,7 @@ int import_stack_ptr = 0;
 
 static void pop_import(void);
 
-static UUID* parse_uuid(const char*u)
+UUID *parse_uuid(const char *u)
 {
   UUID* uuid = xmalloc(sizeof(UUID));
   char b[3];
@@ -113,14 +113,14 @@ static UUID* parse_uuid(const char*u)
                             yy_pop_state();
                             lineno = (int)strtol(yytext, &cptr, 10);
                             if(!lineno)
-                                parser_error("Malformed '#...' line-directive; invalid linenumber");
+                                error_loc("Malformed '#...' line-directive; invalid linenumber\n");
                             fname = strchr(cptr, '"');
                             if(!fname)
-                                parser_error("Malformed '#...' line-directive; missing filename");
+                                error_loc("Malformed '#...' line-directive; missing filename\n");
                             fname++;
                             cptr = strchr(fname, '"');
                             if(!cptr)
-                                parser_error("Malformed '#...' line-directive; missing terminating \"");
+                                error_loc("Malformed '#...' line-directive; missing terminating \"\n");
                             *cptr = '\0';
                             line_number = lineno - 1;  /* We didn't read the newline */
                             free( input_name );
@@ -352,7 +352,7 @@ static void addcchar(char c)
 		cbufalloc += 1024;
 		cbuffer = xrealloc(cbuffer, cbufalloc * sizeof(cbuffer[0]));
 		if(cbufalloc > 65536)
-			parser_warning("Reallocating string buffer larger than 64kB");
+			parser_warning("Reallocating string buffer larger than 64kB\n");
 	}
 	cbuffer[cbufidx++] = c;
 }
@@ -414,7 +414,7 @@ int do_import(char *fname)
 	first_import = import;
 
         if (!(path = wpp_find_include( fname, input_name )))
-            parser_error("Unable to open include file %s", fname);
+            error_loc("Unable to open include file %s\n", fname);
 
 	import_stack[ptr].temp_name = temp_name;
 	import_stack[ptr].input_name = input_name;
@@ -427,7 +427,7 @@ int do_import(char *fname)
         if (ret) exit(1);
 
 	if((f = fopen(temp_name, "r")) == NULL)
-		parser_error("Unable to open %s", temp_name);
+		error_loc("Unable to open %s\n", temp_name);
 
 	import_stack[ptr].state = YY_CURRENT_BUFFER;
 	yy_switch_to_buffer(yy_create_buffer(f, YY_BUF_SIZE));
