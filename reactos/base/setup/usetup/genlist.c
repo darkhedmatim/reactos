@@ -21,7 +21,6 @@
  * FILE:            subsys/system/usetup/genlist.c
  * PURPOSE:         Generic list functions
  * PROGRAMMER:      Eric Kohl
- *                  Christoph von Wittich <christoph at reactos.org>
  */
 
 /* INCLUDES *****************************************************************/
@@ -313,42 +312,6 @@ ScrollUpGenericList (PGENERIC_LIST List)
     }
 }
 
-VOID
-GenericListKeyPress (PGENERIC_LIST GenericList, CHAR AsciChar)
-{
-  PGENERIC_LIST_ENTRY ListEntry;
-  PLIST_ENTRY Entry;
-
-  Entry = &GenericList->CurrentEntry->Entry;
-  ListEntry = CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry);
-
-Reset:
-
-  if (tolower(ListEntry->Text[0]) != AsciChar)
-    Entry = GenericList->ListHead.Flink;
-
-  while (Entry != &GenericList->ListHead)
-    {
-      ListEntry = CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry);
-      if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciChar))
-        {
-          if (CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry) == GenericList->CurrentEntry)
-            {
-              Entry = Entry->Flink;
-              if (Entry == &GenericList->ListHead)
-                goto Reset;
-              ListEntry = CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry);
-              if ((strlen(ListEntry->Text) < 1) || (tolower(ListEntry->Text[0]) != AsciChar))
-                goto Reset;
-            }
-          GenericList->CurrentEntry = CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry);
-          break;
-        }
-      Entry = Entry->Flink;
-    }
-  if (Entry)
-    DrawListEntries(GenericList);
-}
 
 PGENERIC_LIST_ENTRY
 GetGenericListEntry(PGENERIC_LIST List)

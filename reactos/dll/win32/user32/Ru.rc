@@ -5,8 +5,8 @@ LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 // Dialogs
 //
 
-SELWINDOW DIALOGEX DISCARDABLE 20, 20, 220, 140
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+SELWINDOW DIALOG DISCARDABLE 20, 20, 220, 140
+STYLE DS_SYSMODAL | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Выбор окна"
@@ -22,7 +22,7 @@ END
 //
 
 EDITMENU MENU LOADONCALL MOVEABLE DISCARDABLE
-BEGIN
+{
   POPUP "DUMMY"
   BEGIN
     MENUITEM "&Отменить", EM_UNDO
@@ -34,11 +34,11 @@ BEGIN
     MENUITEM SEPARATOR
     MENUITEM "Выделить &все", EM_SETSEL
   END
-END
+}
 
 
 SYSMENU MENU LOADONCALL MOVEABLE DISCARDABLE
-BEGIN
+{
   MENUITEM "&Востановить", 61728
   MENUITEM "&Переместить", 61456
   MENUITEM "Р&азмер", 61440
@@ -46,7 +46,7 @@ BEGIN
   MENUITEM "&Развернуть", 61488
   MENUITEM SEPARATOR
   MENUITEM "&Закрыть\tAlt-F4", 61536
-END
+}
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -54,7 +54,7 @@ END
 //
 
 STRINGTABLE
-BEGIN
+{
   IDS_ERROR,    "Ошибка"
   IDS_OK,       "OK"
   IDS_CANCEL,   "Отмена"
@@ -66,10 +66,10 @@ BEGIN
   IDS_HELP,     "Справка"
   IDS_TRYAGAIN, "&Повторить позднее"
   IDS_CONTINUE, "П&родолжить"
-END
+}
 
 STRINGTABLE
-BEGIN
+{
   IDS_MDI_MOREWINDOWS, "&Другие окна..."
-END
+}
 

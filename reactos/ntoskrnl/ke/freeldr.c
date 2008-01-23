@@ -9,16 +9,11 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-//#define NDEBUG
+#define NDEBUG
 #include <debug.h>
 
 #ifdef _M_PPC
 #include <ppcmmu/mmu.h>
-#define KERNEL_RVA(x) RVA(x,0x80800000)
-#define KERNEL_DESCRIPTOR_PAGE(x) (((ULONG_PTR)x + KernelBase) >> PAGE_SHIFT)
-#else
-#define KERNEL_RVA(x) RVA(x,KSEG0_BASE)
-#define KERNEL_DESCRIPTOR_PAGE(x) (((ULONG_PTR)x &~ KSEG0_BASE) >> PAGE_SHIFT)
 #endif
 
 typedef struct _BIOS_MEMORY_DESCRIPTOR
@@ -131,8 +126,8 @@ VOID
 NTAPI
 KiRosBuildBiosMemoryMap(VOID)
 {
-    ULONG BlockBegin, BlockEnd;
     ULONG j;
+    ULONG BlockBegin, BlockEnd;
 
     /* Loop the BIOS Memory Map */
     for (j = 0; j < KeMemoryMapRangeCount; j++)
@@ -972,19 +967,17 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         ModStart = (PVOID)RosEntry->ModStart;
         ModSize = RosEntry->ModEnd - (ULONG_PTR)ModStart;
 
-#ifdef _M_PPC
-        ModStart -= KernelBase;
-#endif
-
         /* Check if this is any of the NLS files */
         if (!_stricmp(DriverName, "ansi.nls"))
         {
             /* ANSI Code page */
-            LoaderBlock->NlsData->AnsiCodePageData = KERNEL_RVA(ModStart);
+            ModStart = RVA(ModStart, KSEG0_BASE);
+            LoaderBlock->NlsData->AnsiCodePageData = ModStart;
 
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderNlsData,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -993,11 +986,13 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         else if (!_stricmp(DriverName, "oem.nls"))
         {
             /* OEM Code page */
-            LoaderBlock->NlsData->OemCodePageData = KERNEL_RVA(ModStart);
+            ModStart = RVA(ModStart, KSEG0_BASE);
+            LoaderBlock->NlsData->OemCodePageData = ModStart;
 
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderNlsData,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1006,11 +1001,13 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         else if (!_stricmp(DriverName, "casemap.nls"))
         {
             /* Unicode Code page */
-            LoaderBlock->NlsData->UnicodeCodePageData = KERNEL_RVA(ModStart);
+            ModStart = RVA(ModStart, KSEG0_BASE);
+            LoaderBlock->NlsData->UnicodeCodePageData = ModStart;
 
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderNlsData,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1022,7 +1019,8 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
             !(_stricmp(DriverName, "system.hiv")))
         {
             /* Save registry data */
-            LoaderBlock->RegistryBase = KERNEL_RVA(ModStart);
+            ModStart = RVA(ModStart, KSEG0_BASE);
+            LoaderBlock->RegistryBase = ModStart;
             LoaderBlock->RegistryLength = ModSize;
 
             /* Disable setup mode */
@@ -1030,7 +1028,8 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
 
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderRegistryData,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1043,7 +1042,7 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         {
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderRegistryData,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      (ULONG_PTR)ModStart >> PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1055,7 +1054,8 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         {
             /* Create an MD for it */
             KiRosAllocateNtDescriptor(LoaderSystemCode,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1064,7 +1064,8 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         {
             /* Create an MD for the HAL */
             KiRosAllocateNtDescriptor(LoaderHalCode,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
@@ -1073,14 +1074,15 @@ KiRosFrldrLpbToNtLpb(IN PROS_LOADER_PARAMETER_BLOCK RosLoaderBlock,
         {
             /* Create an MD for any driver */
             KiRosAllocateNtDescriptor(LoaderBootDriver,
-                                      KERNEL_DESCRIPTOR_PAGE(ModStart),
+                                      ((ULONG_PTR)ModStart &~ KSEG0_BASE) >>
+                                      PAGE_SHIFT,
                                       (ModSize + PAGE_SIZE - 1)>> PAGE_SHIFT,
                                       0,
                                       &Base);
         }
 
 #ifdef _M_PPC
-        ModStart += 0x80800000;
+        ModStart = (PVOID)((ULONG)ModStart + 0x80800000 - KernelBase);
 #endif
 
         /* Lowercase the drivername so we can check its extension later */
@@ -1289,7 +1291,6 @@ KiRosPrepareForSystemStartup(IN ULONG Dummy,
 #if defined(_M_PPC)
     MmFreeLdrFirstKrnlPhysAddr = KeRosLoaderBlock->ModsAddr[0].ModStart;
     MmFreeLdrLastKrnlPhysAddr = MmFreeLdrLastKernelAddress;
-    MmFreeLdrLastKernelAddress = 0x80800000 + KeRosLoaderBlock->ModsAddr[KeRosLoaderBlock->ModsCount - 1].ModEnd - MmFreeLdrFirstKrnlPhysAddr;
     DbgPrint("kernel phys = %08x-%08x\n", 
              MmFreeLdrFirstKrnlPhysAddr,
              MmFreeLdrLastKrnlPhysAddr);

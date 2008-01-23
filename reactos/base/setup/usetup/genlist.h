@@ -85,9 +85,6 @@ SaveGenericListState(PGENERIC_LIST List);
 VOID
 RestoreGenericListState(PGENERIC_LIST List);
 
-VOID
-GenericListKeyPress (PGENERIC_LIST List, CHAR AsciChar);
-
 #endif /* __GENLIST_H__ */
 
 /* EOF */

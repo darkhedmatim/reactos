@@ -11,7 +11,6 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
-#include <ppcmmu/mmu.h>
 
 NTSTATUS
 NTAPI
@@ -138,17 +137,13 @@ VOID
 NTAPI
 KiSwapProcess(struct _KPROCESS *NewProcess, struct _KPROCESS *OldProcess)
 {
-    PEPROCESS EProcess = (PEPROCESS)NewProcess;
-    MmuSetVsid(0, 8, EProcess ? (ULONG)EProcess->UniqueProcessId : 0);
 }
 
 BOOLEAN
 NTAPI
 KiSwapContext(PKTHREAD CurrentThread, PKTHREAD NewThread)
 {
-    KeGetPcr()->Prcb->NextThread = NewThread;
-    __asm__("mtdec %0" : : "r" (1));
-    return TRUE;
+    return FALSE;
 }
 
 NTSTATUS

@@ -86,8 +86,6 @@
 
 #include "ppcmmu/mmu.h"
 
-#define GDB_SAVE_SIZE 0x66
-
 typedef struct _BREAKPOINT {
     int OldCode;
     int *Address;
@@ -139,7 +137,7 @@ inline void send(char *serport, char c) {
 	/* Wait for Clear to Send */
     while( !(GetPhysByte((paddr_t)serport+LSR) & 0x20) ) sync();
 
-    SetPhysByte((paddr_t)serport+THR, c);
+    SetPhysByte(serport+THR, c);
     sync();
 }
 
@@ -315,7 +313,7 @@ void GotPacket()
     {
     case 'g':
         PacketStart();
-        for (i = 0; i < GDB_SAVE_SIZE; i++)
+        for (i = 0; i < sizeof(*RegisterSaveArea) / sizeof(int); i++)
         {
             PacketWriteHexNumber(((int *)RegisterSaveArea)[i], 8);
         }
@@ -412,7 +410,7 @@ int SerialInterrupt(int signal, ppc_trap_frame_t *tf)
             Continue = 0;
             PacketWriteSignal(3);
         }
-        else if (ch == '+')
+        else if (ch == '-' || ch == '+')
         {
             /* Nothing */
         }

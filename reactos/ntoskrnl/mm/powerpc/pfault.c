@@ -33,23 +33,14 @@ VOID MmpPpcTrapFrameToTrapFrame(ppc_trap_frame_t *frame, PKTRAP_FRAME Tf)
     Tf->Cr = frame->cr;
     Tf->Ctr = frame->ctr;
     Tf->Xer = frame->xer;
-    Tf->Iar = frame->srr0;
     Tf->Msr = frame->srr1 & 0xffff;
-    Tf->Dr0 = frame->dar;
-    Tf->Dr1 = frame->dsisr;
+    Tf->Dr0 = frame->srr0;
+    Tf->Dr1 = frame->srr1;
+    Tf->Dr2 = frame->dar;
+    Tf->Dr3 = frame->dsisr;
 }
 
-void CopyFrame(int *oldframe, int *ourframe)
-{
-    int i;
-
-    for (i = 0; i < sizeof(ppc_trap_frame_t) / sizeof(int); i++)
-    {
-        ourframe[i] = GetPhys((int)&oldframe[i]);
-    }
-}
-
-void KiPageFaultHandler(int trap, ppc_trap_frame_t *frame)
+int KiPageFaultHandler(int trap, ppc_trap_frame_t *frame)
 {
     NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE Mode;
@@ -66,8 +57,7 @@ void KiPageFaultHandler(int trap, ppc_trap_frame_t *frame)
 	VirtualAddr = frame->dar;
 
     /* MSR_PR */
-    Mode = frame->srr1 & 0x4000 ? UserMode : KernelMode;
-    DPRINT("Page Fault at %08x\n", frame->srr0);
+    Mode = frame->srr1 & 0x4000 ? KernelMode : UserMode;
 
     /* handle the fault */
     if (AccessFault)
@@ -80,9 +70,7 @@ void KiPageFaultHandler(int trap, ppc_trap_frame_t *frame)
     }
 
     if (NT_SUCCESS(Status))
-    {
-        MmuCallbackRet();
-    }
+	return 1;
 
     if (KeGetCurrentThread()->ApcState.UserApcPending)
     {
@@ -107,6 +95,6 @@ void KiPageFaultHandler(int trap, ppc_trap_frame_t *frame)
     Er.ExceptionFlags = 0;
 
     KiDispatchException(&Er, 0, &Tf, Mode, TRUE);
-    MmuCallbackRet();
+    return 1;
 }
 

@@ -5,8 +5,8 @@ LANGUAGE LANG_SPANISH, SUBLANG_NEUTRAL
 // Dialogs
 //
 
-SELWINDOW DIALOGEX DISCARDABLE 20, 20, 220, 140
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+SELWINDOW DIALOG DISCARDABLE 20, 20, 220, 140
+STYLE DS_SYSMODAL | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Selecciones Ventana"
@@ -22,7 +22,7 @@ END
 //
 
 EDITMENU MENU LOADONCALL MOVEABLE DISCARDABLE
-BEGIN
+{
   POPUP "DUMMY"
   BEGIN
     MENUITEM "&Deshacer", EM_UNDO
@@ -34,11 +34,11 @@ BEGIN
     MENUITEM SEPARATOR
     MENUITEM "Seleccionar &Todo", EM_SETSEL
   END
-END
+}
 
 
 SYSMENU MENU LOADONCALL MOVEABLE DISCARDABLE
-BEGIN
+{
   MENUITEM "&Restaurar", 61728
   MENUITEM "&Mover", 61456
   MENUITEM "Tamaño", 61440
@@ -46,7 +46,7 @@ BEGIN
   MENUITEM "Ma&ximizar", 61488
   MENUITEM SEPARATOR
   MENUITEM "&Cerrar\tAlt-F4", 61536
-END
+}
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -54,7 +54,7 @@ END
 //
 
 STRINGTABLE
-BEGIN
+{
   IDS_ERROR,    "Error"
   IDS_OK,       "Acceptar"
   IDS_CANCEL,   "Cancelar"
@@ -66,11 +66,11 @@ BEGIN
   IDS_HELP,     "Ayuda"
   IDS_TRYAGAIN, "In&tentar Otra vez"
   IDS_CONTINUE, "&Continuar"
-END
+}
 
 STRINGTABLE
-BEGIN
+{
   IDS_MDI_MOREWINDOWS, "&Más Ventanas..."
-END
+}
 
 

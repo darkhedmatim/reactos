@@ -1,7 +1,7 @@
 LANGUAGE LANG_SPANISH, SUBLANG_NEUTRAL
 
 IDD_DATETIMEPAGE DIALOGEX 0, 0, 252, 146
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Fecha y Hora"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -25,7 +25,7 @@ END
 
 
 IDD_TIMEZONEPAGE DIALOGEX 0, 0, 252, 146
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Zona horaria"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -37,7 +37,7 @@ BEGIN
 END
 
 IDD_INETTIMEPAGE DIALOGEX 0, 0, 252, 146
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Hora de Internet"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -58,8 +58,8 @@ BEGIN
     IDS_TIMEZONETEXT "Zona horaria actual: %s"
     IDS_TIMEZONEINVALID "Invalido"
     IDS_TIMEZONEUNKNOWN "Desconocido"
-    IDS_INETTIMESUCSYNC "La hora ha sido sincronizada satisfactoriamente con %s el %s a las %s"
-    IDS_INETTIMENEXTSYNC "Próxima sincronización: %s a las %s"
-    IDS_INETTIMESYNCING "Por favor espere mientras ReactOS sincroniza la hora con %s"
-    IDS_INETTIMEERROR "Ha ocurrido un error mientras ReactOS se sincronizaba con %s"
+    IDS_INETTIMESUCSYNC "The time has been successfully synchronized with %s on %s at %s"
+    IDS_INETTIMENEXTSYNC "Next synchronization: %s at %s"
+    IDS_INETTIMESYNCING "Please wait while ReactOS synchronizes the time with %s"
+    IDS_INETTIMEERROR "An error occured while ReactOS was synchronizing with %s"
 END

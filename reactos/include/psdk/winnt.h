@@ -2561,37 +2561,35 @@ typedef struct _EXCEPTION_POINTERS {
 	PEXCEPTION_RECORD ExceptionRecord;
 	PCONTEXT ContextRecord;
 } EXCEPTION_POINTERS,*PEXCEPTION_POINTERS,*LPEXCEPTION_POINTERS;
-
-#ifdef _M_PPC
-#define LARGE_INTEGER_ORDER(x) x HighPart; DWORD LowPart;
-#else
-#define LARGE_INTEGER_ORDER(x) DWORD LowPart; x HighPart;
-#endif
-
 typedef union _LARGE_INTEGER {
 #if ! defined(NONAMELESSUNION) || defined(__cplusplus)
   _ANONYMOUS_STRUCT struct {
-      LARGE_INTEGER_ORDER(LONG)
+    DWORD LowPart;
+    LONG  HighPart;
   };
 #endif /* NONAMELESSUNION */
   struct {
-      LARGE_INTEGER_ORDER(LONG)
+    DWORD LowPart;
+    LONG  HighPart;
   } u;
   LONGLONG QuadPart;
 } LARGE_INTEGER, *PLARGE_INTEGER;
 typedef union _ULARGE_INTEGER {
 #if ! defined(NONAMELESSUNION) || defined(__cplusplus)
   _ANONYMOUS_STRUCT struct {
-      LARGE_INTEGER_ORDER(DWORD)
+    DWORD LowPart;
+    DWORD HighPart;
   };
 #endif /* NONAMELESSUNION */
   struct {
-      LARGE_INTEGER_ORDER(DWORD)
+    DWORD LowPart;
+    DWORD HighPart;
   } u;
   ULONGLONG QuadPart;
 } ULARGE_INTEGER, *PULARGE_INTEGER;
 typedef struct _LUID {
-    LARGE_INTEGER_ORDER(LONG)
+    DWORD LowPart;
+    LONG HighPart;
 } LUID, *PLUID;
 #pragma pack(push,4)
 typedef struct _LUID_AND_ATTRIBUTES {
@@ -4217,7 +4215,7 @@ BitScanReverse(OUT ULONG *Index,
 	return BitPosition;
 #else
 	/* Slow implementation for now */
-	for( *Index = 31; *Index; (*Index)-- ) {
+	for( *Index = 31; *Index; *Index-- ) {
 		if( (1<<*Index) & Mask ) {
 			return TRUE;
 		}

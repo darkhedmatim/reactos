@@ -8,14 +8,14 @@ LANGUAGE LANG_SLOVAK, SUBLANG_DEFAULT
 
 STRINGTABLE
 BEGIN
-	IDS_SECONDS, "sek."
-	IDS_NOBODY,  "Nikto" //windows = Anonym
-	IDS_ABOUT,   "od Joshua Thielen a v˝voj·rov ReactOS-u"
+	IDS_SECONDS, "seconds"
+	IDS_NOBODY,  "Nobody"
+	IDS_ABOUT,   "by Joshua Thielen and ReactOS developers"
 END
 
 IDM_WINEMINE MENU DISCARDABLE
 BEGIN
-	POPUP "&Hra"
+	POPUP "&Game"
         BEGIN
 		MENUITEM "&Nov· hra\tF2",      IDM_NEW
 		MENUITEM SEPARATOR
@@ -30,7 +30,7 @@ BEGIN
 		MENUITEM SEPARATOR
 		MENUITEM "Sk&onËiù",           IDM_EXIT
 	END
-	POPUP "&Info" //windows = &PomocnÌk
+	POPUP "&Info"
         BEGIN
 		MENUITEM "»&o je hra MÌny...", IDM_ABOUT
 	END
@@ -52,7 +52,7 @@ BEGIN
 	LTEXT           "",               IDC_NAME2, 132,  30,  55,   8
 	LTEXT           "",               IDC_NAME3, 132,  40,  55,   8
 	DEFPUSHBUTTON   "OK",             IDOK,      127,  57,  50,  15
-	PUSHBUTTON      "&Vynulovaù v˝sledky",  IDRESET,    18,  57,  67,  15
+	PUSHBUTTON      "&Reset Scores",  IDRESET,    18,  57,  67,  15
 END
 
 IDD_CONGRATS DIALOGEX DISCARDABLE  0, 0, 160, 60
@@ -62,12 +62,12 @@ FONT 8, "MS Shell Dlg"
 BEGIN
 	LTEXT           "Zadajte svoje meno, prosÌm!", IDIGNORE,      25,  10, 150,  10
 	EDITTEXT                                       IDC_EDITNAME,  25,  20, 110,  12
-	DEFPUSHBUTTON   "OK",                          IDOK,          60,  40,  40,  15
+	DEFPUSHBUTTON   "Ok",                          IDOK,          60,  40,  40,  15
 END
 
 IDD_CUSTOM DIALOGEX DISCARDABLE  0, 0, 139, 80
 STYLE  DS_MODALFRAME | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_POPUP | DS_SHELLFONT
-CAPTION "VlastnÈ pole"
+CAPTION "Custom Game"
 FONT 8, "MS Shell Dlg"
 BEGIN
 	LTEXT           "V˝öka:", IDNONE,         5,  15,  43,  10

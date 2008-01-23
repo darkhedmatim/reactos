@@ -659,11 +659,6 @@ LanguagePage(PINPUT_RECORD Ir)
 
             return INTRO_PAGE;
         }
-        else if ((Ir->Event.KeyEvent.uChar.AsciiChar > 0x60) && (Ir->Event.KeyEvent.uChar.AsciiChar < 0x7b))
-        {
-            /* a-z */
-            GenericListKeyPress (LanguageList, Ir->Event.KeyEvent.uChar.AsciiChar);
-        }
     }
 
     return INTRO_PAGE;
@@ -767,7 +762,8 @@ SetupStartPage(PINPUT_RECORD Ir)
     /* Start PnP thread */
     if (hPnpThread != INVALID_HANDLE_VALUE)
     {
-        NtResumeThread(hPnpThread, NULL);
+        //HACK: Commented out till the problem with CM is solved
+        //NtResumeThread(hPnpThread, NULL);
         hPnpThread = INVALID_HANDLE_VALUE;
     }
 
