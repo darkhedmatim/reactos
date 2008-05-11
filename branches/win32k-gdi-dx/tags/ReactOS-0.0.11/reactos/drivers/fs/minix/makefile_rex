@@ -1,2 +1,0 @@
-all: minix.o blockdev.o
-	$(LD) -r minix.o blockdev.o -o minixfsd.o

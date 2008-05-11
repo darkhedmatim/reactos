@@ -1,7 +1,0 @@
-Debug
-Release
-*.d
-*.o
-*.dll
-*.gch
-*.h.pch

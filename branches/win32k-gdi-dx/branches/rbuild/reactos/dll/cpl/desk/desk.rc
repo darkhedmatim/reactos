@@ -1,9 +1,0 @@
-#include <windows.h>
-#include <commctrl.h>
-#include "resource.h"
-
-IDC_DESK_ICON   ICON     "resources/applet.ico"
-IDC_DESK_ICON2  ICON     "resources/applet.ico"
-IDC_MONITOR     BITMAP   "resources/monitor.bmp"
-
-#include "auto.rc"

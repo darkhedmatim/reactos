@@ -1,4 +1,0 @@
-#include <poppler.h>
-
-poppler_document_get_type
-poppler_page_get_type
