@@ -1,0 +1,30 @@
+; WS2HELP.DLL - Windows Sockets 2 Helper DLL
+
+LIBRARY ws2help.dll
+
+EXPORTS
+WahCloseApcHelper
+WahCloseHandleHelper
+WahCloseNotificationHandleHelper
+WahCloseSocketHandle
+WahCloseThread
+WahCompleteRequest
+WahCreateHandleContextTable
+WahCreateNotificationHandle
+WahCreateSocketHandle
+WahDestroyHandleContextTable
+WahDisableNonIFSHandleSupport
+WahEnableNonIFSHandleSupport
+WahEnumerateHandleContexts
+WahInsertHandleContext
+WahNotifyAllProcesses
+WahOpenApcHelper
+WahOpenCurrentThread
+WahOpenHandleHelper
+WahOpenNotificationHandleHelper
+WahQueueUserApc
+WahReferenceContextByHandle
+WahRemoveHandleContext
+WahWaitForNotification
+
+; EOF

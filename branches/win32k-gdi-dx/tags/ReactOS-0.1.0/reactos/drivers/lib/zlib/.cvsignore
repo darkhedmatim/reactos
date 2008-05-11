@@ -1,0 +1,5 @@
+zlib.a
+zlib.nostrip.a
+*.d
+*.o
+*.sym

@@ -1,0 +1,9 @@
+OBJECTS = block.o rw.o inode.o dir.o mount.o blockdev.o
+
+all: minix.o
+
+minix.o: $(OBJECTS)
+	$(LD) -r $(OBJECTS) -o minix.o
+
+WIN32_LEAN_AND_MEAN = yes
+include ../../../rules.mak

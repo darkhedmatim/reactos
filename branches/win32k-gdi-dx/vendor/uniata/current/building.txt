@@ -1,0 +1,69 @@
+UniATA build envirinment
+========================
+
+source tree:
+------------
+
+work\UniATA\BusMaster             - files from archive with sources:
+work\UniATA\BusMaster\atactl        - future management utility
+work\UniATA\BusMaster\build_inf     - hw-detection and .inf-construction utility
+work\UniATA\BusMaster\driver        - driver inself
+
+dependences:
+
+work\PCIDump                      - PciDump utility. Is used by 'build_inf'
+work\PCIDump\Head\Client            - user-mode part
+work\PCIDump\Head\Driver            - kernel driver for PCI Configspace access
+
+PS. 'work' is any directory you like. But it must be the same
+for UniATA and PCIDump
+
+
+environment:
+------------
+
+MS VisualC 6.0 with sp5 or higher
+Platform SDK 2001 or higher (I'm not sure if it is really required)
+NT4 DDK
+rar archiver (2.60 or higher)
+
+path to NT4 DDK installation directory must be set in BASEDIR environment 
+variable. Note, variable name is case-sensetive.
+
+path to MS VisualStudio binaries (such as nmake.exe, cl.exe, link.exe)
+must be added to PATH environment variable.
+
+path to rar.exe must be added to PATH environment variable.
+
+
+building:
+---------
+
+1. change working directory to "driver"
+2. execute one of the following commands:
+
+Release/Debug version of UniATA without build_inf.exe
+-----------------------------------------------------
+
+nmake CFG="UniATA - Win32 Release" NO_BUILD_INF=1
+nmake CFG="UniATA - Win32 Debug" NO_BUILD_INF=1
+
+Release/Debug version of UniATA with build_inf.exe
+--------------------------------------------------
+
+nmake CFG="UniATA - Win32 Release"
+nmake CFG="UniATA - Win32 Debug"
+
+Build all and pack source tree to archive
+-----------------------------------------
+
+assume version is 384.r
+
+nmake PKG VER="384r"
+or
+nmake PKG VER="384r" NO_BUILD_INF=1
+
+new archives
+BusMaster_v384r.rar and BusMaster_v384r_src.rar
+will be created
+

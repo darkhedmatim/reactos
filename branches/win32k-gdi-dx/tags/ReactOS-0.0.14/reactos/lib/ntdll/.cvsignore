@@ -1,0 +1,7 @@
+napi.asm
+napi.c
+ntdll.lib
+base.tmp
+junk.tmp
+ntdll.dll
+temp.exp

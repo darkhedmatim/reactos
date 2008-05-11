@@ -1,0 +1,5 @@
+rpcss.coff
+*.d
+*.o
+*.sym
+*.exe
