@@ -43,6 +43,7 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 	{
 		case Kernel:
 		case KernelModeDLL:
+		case KeyboardLayout:
 		case NativeDLL:
 		case NativeCUI:
 		case Win32DLL:
@@ -70,6 +71,7 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case RpcProxy:
 		case Alias:
 		case IdlHeader:
+		case MessageHeader:
 		case EmbeddedTypeLib:
 		case ElfExecutable:
 			return false;
