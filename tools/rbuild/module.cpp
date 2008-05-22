@@ -242,12 +242,15 @@ Module::Module ( const Project& project,
 	  node (moduleNode),
 	  importLibrary (NULL),
 	  metadata (NULL),
+	  bootSector (NULL),
 	  bootstrap (NULL),
 	  autoRegister(NULL),
 	  linkerScript (NULL),
 	  pch (NULL),
 	  cplusplus (false),
-	  host (HostDefault)
+	  host (HostDefault),
+	  output (NULL),
+	  install (NULL)
 {
 	if ( node.name != "module" )
 		throw InvalidOperationException ( __FILE__,
@@ -417,13 +420,31 @@ Module::Module ( const Project& project,
 		                            att->value,
 		                            &moduleNode );
 	}
-	else
+
+	att = moduleNode.GetAttribute ( "output", false );
+	if ( att != NULL )
 	{
-		install = NULL;
+		if (output != NULL)
+		{
+			printf ( "%s: WARNING: 'installname' overrides 'output' also defined for this module.\n",
+				moduleNode.location.c_str() );
+		}
+		else
+		{
+			output = new FileLocation ( GetTargetDirectoryTree (),
+										modulePath,
+										att->value,
+										&moduleNode );
+		}
+	}
+
+	/* If no one has set the output file for this module set it automatically */
+	if (output == NULL)
+	{
 		output = new FileLocation ( GetTargetDirectoryTree (),
-		                            modulePath,
-		                            name + extension,
-		                            &moduleNode );
+									modulePath,
+									name + extension,
+									&moduleNode );
 	}
 
 	att = moduleNode.GetAttribute ( "allowwarnings", false );
@@ -466,6 +487,32 @@ Module::Module ( const Project& project,
 		}
 	}
 
+	att = moduleNode.GetAttribute ( "description", false );
+	if (att != NULL )
+	{
+		description = project.ResolveProperties(att->value);
+	}
+	else
+		description = "";
+
+	att = moduleNode.GetAttribute ( "lcid", false );
+	if (type == KeyboardLayout && att != NULL )
+		lcid = att->value;
+	else
+		lcid = "";
+
+	att = moduleNode.GetAttribute ( "layoutid", false );
+	if (type == KeyboardLayout && att != NULL )
+		layoutId = att->value;
+	else
+		layoutId = "";
+
+	att = moduleNode.GetAttribute ( "layoutnameresid", false );
+	if (type == KeyboardLayout && att != NULL )
+		layoutNameResId = att->value;
+	else
+		layoutNameResId = "";
+
 	SetImportLibrary ( NULL );
 }
 
@@ -494,6 +541,8 @@ Module::~Module ()
 		delete bootstrap;
 	if ( importLibrary )
 		delete importLibrary;
+	if ( bootSector )
+		delete 	bootSector;
 	if ( dependency )
 		delete 	dependency;
 	if ( autoRegister )
@@ -717,6 +766,17 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		dependencies.push_back ( new Dependency ( e, *this ) );
 		subs_invalid = true;
 	}
+	else if ( e.name == "bootsector" )
+	{
+		if ( parseContext.ifData )
+		{
+			throw XMLInvalidBuildFileException (
+				e.location,
+				"<bootsector> is not a valid sub-element of <if>" );
+		}
+		bootSector = new Bootsector ( e, this );
+		subs_invalid = true;
+	}
 	else if ( e.name == "importlibrary" )
 	{
 		if ( parseContext.ifData )
@@ -899,6 +959,8 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return NativeDLL;
 	if ( attribute.value == "nativecui" )
 		return NativeCUI;
+	if ( attribute.value == "keyboardlayout" )
+		return KeyboardLayout;
 	if ( attribute.value == "win32dll" )
 		return Win32DLL;
 	if ( attribute.value == "win32ocx" )
@@ -941,6 +1003,8 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return ElfExecutable;
 	if ( attribute.value == "cabinet" )
 		return Cabinet;
+	if ( attribute.value == "messageheader" )
+		return MessageHeader;
 	throw InvalidAttributeValueException ( location,
 	                                       attribute.name,
 	                                       attribute.value );
@@ -953,6 +1017,7 @@ Module::GetTargetDirectoryTree () const
 	{
 		case Kernel:
 		case KernelModeDLL:
+		case KeyboardLayout:
 		case NativeDLL:
 		case Win32DLL:
 		case Win32OCX:
@@ -982,6 +1047,7 @@ Module::GetTargetDirectoryTree () const
 		case RpcProxy:
 		case Alias:
 		case IdlHeader:
+		case MessageHeader:
 			return IntermediateDirectory;
 		case TypeDontCare:
 			break;
@@ -1015,6 +1081,7 @@ Module::GetDefaultModuleExtension () const
 
 		case KernelModeDLL:
 		case NativeDLL:
+		case KeyboardLayout:
 		case Win32DLL:
 			return ".dll";
 		case Win32OCX:
@@ -1040,6 +1107,7 @@ Module::GetDefaultModuleExtension () const
 		case Alias:
 		case ElfExecutable:
 		case IdlHeader:
+		case MessageHeader:
 			return "";
 		case EmbeddedTypeLib:
 			return ".tlb";
@@ -1057,6 +1125,7 @@ Module::GetDefaultModuleEntrypoint () const
 	{
 		case Kernel:
 			return "KiSystemStartup";
+		case KeyboardLayout:
 		case KernelModeDLL:
 		case KernelModeDriver:
 			return "DriverEntry@8";
@@ -1095,6 +1164,7 @@ Module::GetDefaultModuleEntrypoint () const
 		case Alias:
 		case BootProgram:
 		case IdlHeader:
+		case MessageHeader:
 		case ElfExecutable:
 		case EmbeddedTypeLib:
 		case Cabinet:
@@ -1124,6 +1194,7 @@ Module::GetDefaultModuleBaseaddress () const
 		case Win32SCR:
 		case Win32GUI:
 			return "0x00400000";
+		case KeyboardLayout:
 		case KernelModeDLL:
 		case KernelModeDriver:
 			return "0x00010000";
@@ -1145,6 +1216,7 @@ Module::GetDefaultModuleBaseaddress () const
 		case Alias:
 		case BootProgram:
 		case IdlHeader:
+		case MessageHeader:
 		case EmbeddedTypeLib:
 		case Cabinet:
 			return "";
@@ -1169,6 +1241,7 @@ Module::IsDLL () const
 		case Kernel:
 		case KernelModeDLL:
 		case NativeDLL:
+		case KeyboardLayout:
 		case Win32DLL:
 		case Win32OCX:
 		case KernelModeDriver:
@@ -1194,6 +1267,7 @@ Module::IsDLL () const
 		case RpcProxy:
 		case Alias:
 		case IdlHeader:
+		case MessageHeader:
 		case EmbeddedTypeLib:
 		case ElfExecutable:
 		case Cabinet:
@@ -1559,6 +1633,57 @@ Dependency::ProcessXML()
 	}
 }
 
+Bootsector::Bootsector ( const XMLElement& _node,
+                         const Module* _module )
+	: node (_node),
+	  module (_module),
+	  bootSectorModule (NULL)
+{
+	if ( !IsSupportedModuleType ( module->type ) )
+	{
+		throw XMLInvalidBuildFileException (
+			node.location,
+			"<bootsector> is not applicable for this module type." );
+	}
+
+	bootSectorModule = module->project.LocateModule ( node.value );
+	if ( bootSectorModule == NULL )
+	{
+		throw XMLInvalidBuildFileException (
+			node.location,
+			"module '%s' depend on non-existant module '%s'",
+			module->name.c_str(),
+			node.value.c_str() );
+	}
+
+	if (bootSectorModule->type != BootSector)
+	{
+		throw XMLInvalidBuildFileException (
+			node.location,
+			"module '%s' is referencing non BootSector module '%s'",
+			module->name.c_str(),
+			node.value.c_str() );
+	}
+}
+
+void
+Bootsector::ProcessXML()
+{
+}
+
+bool
+Bootsector::IsSupportedModuleType ( ModuleType type )
+{
+	if ( type == Iso ||
+	     type == LiveIso ||
+ 	     type == IsoRegTest ||
+		 type == LiveIsoRegTest )
+	{
+		return true;
+	}
+
+	return false;
+}
 
 Metadata::Metadata ( const XMLElement& _node,
                      const Module& _module )
@@ -1705,6 +1830,25 @@ Property::Property ( const XMLElement& node_,
 	att = node_.GetAttribute ( "value", true );
 	assert(att);
 	value = att->value;
+
+	att = node_.GetAttribute ( "internal", false );
+	if ( att != NULL )
+	{
+		const char* p = att->value.c_str();
+		if ( !stricmp ( p, "true" ) || !stricmp ( p, "yes" ) )
+			isInternal = true;
+		else if ( !stricmp ( p, "false" ) || !stricmp ( p, "no" ) )
+			isInternal = false;
+		else
+		{
+			throw InvalidAttributeValueException (
+				node_.location,
+				"internal",
+				att->value );
+		}
+	}
+	else
+		isInternal = false;
 }
 
 Property::Property ( const Project& project_,

@@ -190,6 +190,7 @@ MingwModuleHandler::InstanciateHandler (
 		case Win32GUI:
 			handler = new MingwWin32GUIModuleHandler ( module );
 			break;
+		case KeyboardLayout:
 		case KernelModeDLL:
 			handler = new MingwKernelModeDLLModuleHandler ( module );
 			break;
@@ -240,6 +241,9 @@ MingwModuleHandler::InstanciateHandler (
 			break;
 		case Alias:
 			handler = new MingwAliasModuleHandler ( module );
+			break;
+		case MessageHeader:
+			handler = new MingwMessageHeaderModuleHandler (module);
 			break;
 		case IdlHeader:
 			handler = new MingwIdlHeaderModuleHandler ( module );
@@ -393,6 +397,8 @@ MingwModuleHandler::ReferenceObjects (
 	if ( module.type == RpcProxy )
 		return true;
 	if ( module.type == IdlHeader )
+		return true;
+	if ( module.type == MessageHeader)
 		return true;
 	return false;
 }
@@ -1244,7 +1250,7 @@ MingwModuleHandler::GetPrecompiledHeaderFilename () const
 		return NULL;
 	return new FileLocation ( IntermediateDirectory,
 	                          module.pch->file->relative_path,
-	                          ReplaceExtension ( module.pch->file->name, "_" + module.name + ".gch" ) );
+	                          module.pch->file->name + ".gch" );
 }
 
 Rule arRule1 ( "$(INTERMEDIATE)$(SEP)$(source_dir)$(SEP)$(source_name_noext).a: $($(module_name)_OBJS) | $(INTERMEDIATE)$(SEP)$(source_dir)\n",
@@ -2308,22 +2314,31 @@ MingwModuleHandler::GetDefaultDependencies (
 		dependencies.push_back ( "$(DXSDK_TARGET) $(dxsdk_HEADERS)" );
 	}
 
-	/* Check if any dependent library relies on the generated headers */
-	for ( size_t i = 0; i < module.project.modules.size (); i++ )
+	if (module.name != "errcodes" && 
+		module.name != "bugcodes" &&
+		module.name != "ntstatus")
 	{
-		const Module& m = *module.project.modules[i];
-		for ( size_t j = 0; j < m.non_if_data.compilationUnits.size (); j++ )
-		{
-			CompilationUnit& compilationUnit = *m.non_if_data.compilationUnits[j];
-			const FileLocation& sourceFile = compilationUnit.GetFilename ();
-			string extension = GetExtension ( sourceFile );
-			if (extension == ".mc" || extension == ".MC" )
-			{
-				string dependency = ssprintf ( "$(%s_MCHEADERS)", m.name.c_str () );
-				dependencies.push_back ( dependency );
-			}
-		}
+		dependencies.push_back ( "$(ERRCODES_TARGET) $(ERRCODES_MCHEADERS)" );
+		dependencies.push_back ( "$(BUGCODES_TARGET) $(BUGCODES_MCHEADERS)" );
+		dependencies.push_back ( "$(NTSTATUS_TARGET) $(NTSTATUS_MCHEADERS)" );
 	}
+
+	///* Check if any dependent library relies on the generated headers */
+	//for ( size_t i = 0; i < module.project.modules.size (); i++ )
+	//{
+	//	const Module& m = *module.project.modules[i];
+	//	for ( size_t j = 0; j < m.non_if_data.compilationUnits.size (); j++ )
+	//	{
+	//		CompilationUnit& compilationUnit = *m.non_if_data.compilationUnits[j];
+	//		const FileLocation& sourceFile = compilationUnit.GetFilename ();
+	//		string extension = GetExtension ( sourceFile );
+	//		if (extension == ".mc" || extension == ".MC" )
+	//		{
+	//			string dependency = ssprintf ( "$(%s_MCHEADERS)", m.name.c_str () );
+	//			dependencies.push_back ( dependency );
+	//		}
+	//	}
+	//}
 }
 
 void
@@ -2921,7 +2936,7 @@ MingwAddImplicitLibraries( Module &module )
 	  && module.type != Win32OCX
 	  && module.type != Win32CUI
 	  && module.type != Win32GUI
-	  && module.type != Win32SCR )
+	  && module.type != Win32SCR)
 	{
 		// no implicit libraries
 		return;
@@ -3479,10 +3494,16 @@ MingwIsoModuleHandler::GenerateIsoModuleTarget ()
 		vSourceFiles.push_back ( srcunattend );
 
 	// bootsector
-	const Module* bootModule;
-	bootModule = module.project.LocateModule ( module.type == IsoRegTest
-	                                               ? "isobtrt"
-	                                               : "isoboot" );
+	const Module* bootModule = module.bootSector->bootSectorModule;
+
+	if (!bootModule)
+	{
+		throw InvalidOperationException ( module.node.location.c_str(),
+										  0,
+										  "Invalid bootsector. module '%s' requires <bootsector>",
+										  module.name.c_str ());
+	}
+
 	const FileLocation *isoboot = bootModule->output;
 	vSourceFiles.push_back ( *isoboot );
 
@@ -3496,13 +3517,11 @@ MingwIsoModuleHandler::GenerateIsoModuleTarget ()
 
 	vSourceFiles.push_back ( reactosDff );
 
-	string IsoName;
-
-	if (module.type == IsoRegTest)
-		IsoName = "ReactOS-RegTest.iso";
-	else
-		IsoName = "ReactOS.iso";
-
+	/* 
+		We use only the name and not full FileLocation(ouput) because Iso/LiveIso are an exception to the general rule.
+		Iso/LiveIso outputs are generated in code base root 
+	*/
+	string IsoName = module.output->name;
 
 	string sourceFiles = v2s ( backend, vSourceFiles, 5 );
 
@@ -3666,15 +3685,24 @@ MingwLiveIsoModuleHandler::GenerateLiveIsoModuleTarget ()
 
 	string IsoName;
 
-	const Module* bootModule;
-	bootModule = module.project.LocateModule ( module.name == "livecdregtest"
-	                                               ? "isobtrt"
-	                                               : "isoboot" );
+	// bootsector
+	const Module* bootModule = module.bootSector->bootSectorModule;
+
+	if (!bootModule)
+	{
+		throw InvalidOperationException ( module.node.location.c_str(),
+										  0,
+										  "Invalid bootsector. module '%s' requires <bootsector>",
+										  module.name.c_str ());
+	}
+
 	const FileLocation *isoboot = bootModule->output;
-	if (module.name == "livecdregtest")
-		IsoName = "ReactOS-LiveCD-RegTest.iso";
-	else
-		IsoName = "ReactOS-LiveCD.iso";
+
+	/* 
+		We use only the name and not full FileLocation(ouput) because Iso/LiveIso are an exception to the general rule.
+		Iso/LiveIso outputs are generated in code base root 
+	*/
+	IsoName = module.output->name;
 
 	string reactosDirectory = "reactos";
 	string livecdReactosNoFixup = livecdDirectory + sSep + reactosDirectory;
@@ -3811,6 +3839,19 @@ MingwAliasModuleHandler::MingwAliasModuleHandler (
 void
 MingwAliasModuleHandler::Process ()
 {
+}
+
+MingwMessageHeaderModuleHandler::MingwMessageHeaderModuleHandler (
+	const Module& module_ )
+
+	: MingwModuleHandler ( module_ )
+{
+}
+
+void
+MingwMessageHeaderModuleHandler::Process ()
+{
+	GenerateRules ();
 }
 
 MingwIdlHeaderModuleHandler::MingwIdlHeaderModuleHandler (

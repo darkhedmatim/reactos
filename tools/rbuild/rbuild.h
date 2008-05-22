@@ -102,6 +102,7 @@ class AutoRegister;
 
 class SourceFileTest;
 class Metadata;
+class Bootsector;
 
 typedef std::map<std::string,Directory*> directory_map;
 
@@ -303,7 +304,9 @@ enum ModuleType
 	RpcProxy,
 	HostStaticLibrary,
 	TypeDontCare,
-	Cabinet
+	Cabinet,
+	KeyboardLayout,
+	MessageHeader
 };
 
 enum HostType
@@ -351,6 +354,7 @@ public:
 	ModuleType type;
 	ImportLibrary* importLibrary;
 	Metadata* metadata;
+	Bootsector* bootSector;
 	bool mangledSymbols;
 	bool underscoreSymbols;
 	bool isUnicode;
@@ -375,6 +379,10 @@ public:
 	FileLocation *output; // "path/foo.exe"
 	FileLocation *dependency; // "path/foo.exe" or "path/libfoo.a"
 	FileLocation *install;
+	std::string description;
+	std::string lcid;
+	std::string layoutId;
+	std::string layoutNameResId;
 
 	Module ( const Project& project,
 	         const XMLElement& moduleNode,
@@ -543,6 +551,21 @@ public:
 	void ProcessXML();
 };
 
+class Bootsector
+{
+public:
+	const XMLElement& node;
+	const Module* module;
+	const Module* bootSectorModule;
+
+	Bootsector ( const XMLElement& _node,
+	             const Module* _module );
+
+	void ProcessXML();
+private:
+	bool IsSupportedModuleType ( ModuleType type );
+};
+
 class Metadata
 {
 public:
@@ -658,6 +681,7 @@ public:
 	const Project& project;
 	const Module* module;
 	std::string name, value;
+	bool isInternal;
 
 	Property ( const XMLElement& node_,
 	           const Project& project_,
