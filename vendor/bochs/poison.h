@@ -19,7 +19,7 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 
-_POISONAPI void _POISON(const void * addr, int flags)
+_POISONAPI void _POISON(const volatile void * addr, int flags)
 {
 	_ReadWriteBarrier();
 	__asm mov eax, flags
@@ -28,7 +28,7 @@ _POISONAPI void _POISON(const void * addr, int flags)
 	__asm _emit 027h
 }
 
-_POISONAPI void _REP_POISON(const void * addr, int flags, size_t count)
+_POISONAPI void _REP_POISON(const volatile void * addr, int flags, size_t count)
 {
 	_ReadWriteBarrier();
 	__asm mov eax, flags
@@ -41,32 +41,32 @@ _POISONAPI void _REP_POISON(const void * addr, int flags, size_t count)
 #endif
 
 #if defined(__GNUC__)
-_POISONAPI void _POISON(const void * addr, int flags)
+_POISONAPI void _POISON(const volatile void * addr, int flags)
 {
 	__asm__ __volatile__("" : : : "memory");
 	__asm__ __volatile__(".byte 0x0f; .byte 0x27" : "=S"(addr) : "S"(addr), "a"(flags) : "memory");
 }
 
-_POISONAPI void _REP_POISON(const void * addr, int flags, size_t count)
+_POISONAPI void _REP_POISON(const volatile void * addr, int flags, size_t count)
 {
 	__asm__ __volatile__("" : : : "memory");
 	__asm__ __volatile__("rep; .byte 0x0f; .byte 0x27" : "=S"(addr), "=c"(count) : "S"(addr), "a"(flags), "c"(count) : "memory");
 }
 #endif
 
-_POISONAPI void POISON_BYTE_R(const void * addr) { _POISON(addr, _POISON_R); }
-_POISONAPI void POISON_BYTE_W(const void * addr) { _POISON(addr, _POISON_W); }
-_POISONAPI void POISON_BYTE_RW(const void * addr) { _POISON(addr, _POISON_R | _POISON_W); }
-_POISONAPI void POISON_MEMORY_R(const void * addr, size_t count) { _REP_POISON(addr, _POISON_R, count); }
-_POISONAPI void POISON_MEMORY_W(const void * addr, size_t count) { _REP_POISON(addr, _POISON_W, count); }
-_POISONAPI void POISON_MEMORY_RW(const void * addr, size_t count) { _REP_POISON(addr, _POISON_R | _POISON_W, count); }
+_POISONAPI void POISON_BYTE_R(const volatile void * addr) { _POISON(addr, _POISON_R); }
+_POISONAPI void POISON_BYTE_W(const volatile void * addr) { _POISON(addr, _POISON_W); }
+_POISONAPI void POISON_BYTE_RW(const volatile void * addr) { _POISON(addr, _POISON_R | _POISON_W); }
+_POISONAPI void POISON_MEMORY_R(const volatile void * addr, size_t count) { _REP_POISON(addr, _POISON_R, count); }
+_POISONAPI void POISON_MEMORY_W(const volatile void * addr, size_t count) { _REP_POISON(addr, _POISON_W, count); }
+_POISONAPI void POISON_MEMORY_RW(const volatile void * addr, size_t count) { _REP_POISON(addr, _POISON_R | _POISON_W, count); }
 
-_POISONAPI void UNPOISON_BYTE_R(const void * addr) { _POISON(addr, _UNPOISON_R); }
-_POISONAPI void UNPOISON_BYTE_W(const void * addr) { _POISON(addr, _UNPOISON_W); }
-_POISONAPI void UNPOISON_BYTE_RW(const void * addr) { _POISON(addr, _UNPOISON_R | _UNPOISON_W); }
-_POISONAPI void UNPOISON_MEMORY_R(const void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_R, count); }
-_POISONAPI void UNPOISON_MEMORY_W(const void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_W, count); }
-_POISONAPI void UNPOISON_MEMORY_RW(const void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_R | _UNPOISON_W, count); }
+_POISONAPI void UNPOISON_BYTE_R(const volatile void * addr) { _POISON(addr, _UNPOISON_R); }
+_POISONAPI void UNPOISON_BYTE_W(const volatile void * addr) { _POISON(addr, _UNPOISON_W); }
+_POISONAPI void UNPOISON_BYTE_RW(const volatile void * addr) { _POISON(addr, _UNPOISON_R | _UNPOISON_W); }
+_POISONAPI void UNPOISON_MEMORY_R(const volatile void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_R, count); }
+_POISONAPI void UNPOISON_MEMORY_W(const volatile void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_W, count); }
+_POISONAPI void UNPOISON_MEMORY_RW(const volatile void * addr, size_t count) { _REP_POISON(addr, _UNPOISON_R | _UNPOISON_W, count); }
 
 #undef _POISONAPI
 
