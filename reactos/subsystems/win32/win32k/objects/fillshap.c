@@ -77,7 +77,7 @@ IntGdiPolygon(PDC    dc,
         UnsafePoints[CurrentPoint].y += dc->ptlDCOrig.y;
     }
 
-    if (PATH_IsPathOpen(dc->DcLevel))
+    if (PATH_IsPathOpen(dc->w.path))
         ret = PATH_Polygon(dc, UnsafePoints, Count );
     else
     {
@@ -222,16 +222,10 @@ NtGdiEllipse(
      * Check the parameters.
      */
     DPRINT("nLeftRect: %d, nTopRect: %d, nRightRect: %d, nBottomRect: %d\n",nLeftRect,nTopRect,nRightRect,nBottomRect);
-
-    if ((nLeftRect == nRightRect) || (nTopRect == nBottomRect)) return TRUE;
-
-    if (nRightRect < nLeftRect)
+    if (nRightRect <= nLeftRect || nTopRect <= nBottomRect)
     {
-       INT tmp = nRightRect; nRightRect = nLeftRect; nLeftRect = tmp;
-    }
-    if (nBottomRect < nTopRect)
-    {
-       INT tmp = nBottomRect; nBottomRect = nTopRect; nTopRect = tmp;
+        SetLastWin32Error(ERROR_INVALID_PARAMETER);
+        return FALSE;
     }
 
     /*
@@ -300,23 +294,15 @@ NtGdiEllipse(
     DPRINT("2: Left: %d, Top: %d, Right: %d, Bottom: %d\n",
                RectBounds.left,RectBounds.top,RectBounds.right,RectBounds.bottom);
 
-    RadiusX = max((RectBounds.right - RectBounds.left) >> 1, 1);
-    RadiusY = max((RectBounds.bottom - RectBounds.top) >> 1, 1);
+    RadiusX = (RectBounds.right - RectBounds.left)/2;
+    RadiusY = (RectBounds.bottom - RectBounds.top)/2;
     CenterX = RectBounds.left + RadiusX;
     CenterY = RectBounds.top + RadiusY;
     DPRINT("3: RadiusX: %d, RadiusY: %d, CenterX: %d, CenterY: %d\n",
            RadiusX,RadiusY,CenterX,CenterY);
 
-    if (RadiusX > RadiusY) 	 
-    { 	 
-       nx = RadiusX;
-       ny = RadiusY;
-    } 	 
-    else 	 
-    { 	 
-       nx = RadiusY; 	 
-       ny = RadiusX; 	 
-    }
+    nx = RadiusX;
+    ny = -RadiusY;
     da = -1;
     db = 0xFFFF;
     ix = 0;
@@ -646,7 +632,7 @@ IntRectangle(PDC dc,
     Dc_Attr = dc->pDc_Attr;
     if(!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
-    if ( PATH_IsPathOpen(dc->DcLevel) )
+    if ( PATH_IsPathOpen(dc->w.path) )
     {
         ret = PATH_Rectangle ( dc, LeftRect, TopRect, RightRect, BottomRect );
     }
@@ -803,7 +789,7 @@ IntRoundRect(
 
     ASSERT ( dc ); // caller's responsibility to set this up
 
-    if ( PATH_IsPathOpen(dc->DcLevel) )
+    if ( PATH_IsPathOpen(dc->w.path) )
         return PATH_RoundRect ( dc, left, top, right, bottom,
                                 xCurveDiameter, yCurveDiameter );
     Dc_Attr = dc->pDc_Attr;

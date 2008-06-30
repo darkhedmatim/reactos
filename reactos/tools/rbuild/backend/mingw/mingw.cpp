@@ -526,9 +526,8 @@ MingwBackend::GenerateGlobalVariables () const
 
 	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
 	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_LFLAGS := \"$(shell ${TARGET_CC} -print-libgcc-file-name)\" %s\n",
+	fprintf ( fMakefile, "PROJECT_LFLAGS := %s\n",
 	          GenerateProjectLFLAGS ().c_str () );
-	fprintf ( fMakefile, "PROJECT_LPPFLAGS := \"$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)\" \"$(shell ${TARGET_CPP} -print-file-name=libgcc.a)\" \"$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)\" \"$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)\"\n" );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
 	fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
@@ -1075,38 +1074,30 @@ MingwBackend::DetectPCHSupport ()
 {
 	printf ( "Detecting compiler pre-compiled header support..." );
 
-	if ( configuration.PrecompiledHeadersEnabled )
-	{
-		string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
-		string cmd = ssprintf (
-			"%s -c %s 1>%s 2>%s",
-			FixSeparatorForSystemCommand(compilerCommand).c_str (),
-			path.c_str (),
-			NUL,
-			NUL );
-		system ( cmd.c_str () );
-		path += ".gch";
-	
-		FILE* f = fopen ( path.c_str (), "rb" );
-		if ( f )
-		{
-			use_pch = true;
-			fclose ( f );
-			unlink ( path.c_str () );
-		}
-		else
-			use_pch = false;
+	string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
+	string cmd = ssprintf (
+		"%s -c %s 1>%s 2>%s",
+		FixSeparatorForSystemCommand(compilerCommand).c_str (),
+		path.c_str (),
+		NUL,
+		NUL );
+	system ( cmd.c_str () );
+	path += ".gch";
 
-		if ( use_pch )
-			printf ( "detected\n" );
-		else
-			printf ( "not detected\n" );
+	FILE* f = fopen ( path.c_str (), "rb" );
+	if ( f )
+	{
+		use_pch = true;
+		fclose ( f );
+		unlink ( path.c_str () );
 	}
 	else
-	{
 		use_pch = false;
-		printf ( "disabled\n" );
-	}
+
+	if ( use_pch )
+		printf ( "detected\n" );
+	else
+		printf ( "not detected\n" );
 }
 
 void

@@ -680,10 +680,12 @@ static HRESULT WINAPI
 RecycleBin_IContextMenu_QueryContextMenu( IContextMenu* iface, HMENU hmenu, UINT indexMenu,
                             UINT idCmdFirst, UINT idCmdLast, UINT uFlags )
 {
-    WCHAR szBuffer[100];
+    RecycleBin * This = impl_from_IContextMenu(iface);
+    static WCHAR szOpen[] = { 'O','p','e','n',0 };
+    static WCHAR szEmpty[] = { 'E','m','p','t','y',' ','R','e','c','y','c','l','e',' ','B','i','n',0 };
+    static WCHAR szProperties[] = { 'P','r','o','p','e','r','t','i','e','s',0 };
     MENUITEMINFOW mii;
     int id = 1;
-    RecycleBin * This = impl_from_IContextMenu(iface);
 
     TRACE("%p %p %u %u %u %u\n", This,
           hmenu, indexMenu, idCmdFirst, idCmdLast, uFlags );
@@ -694,10 +696,7 @@ RecycleBin_IContextMenu_QueryContextMenu( IContextMenu* iface, HMENU hmenu, UINT
     memset( &mii, 0, sizeof(mii) );
     mii.cbSize = sizeof(mii);
     mii.fMask = MIIM_TYPE | MIIM_ID | MIIM_STATE;
-    szBuffer[0] = L'\0';
-    LoadStringW(shell32_hInstance, IDS_OPEN, szBuffer, sizeof(szBuffer)/sizeof(WCHAR));
-    szBuffer[(sizeof(szBuffer)/sizeof(WCHAR))-1] = L'\0';
-    mii.dwTypeData = (LPWSTR)szBuffer;
+    mii.dwTypeData = (LPWSTR)szOpen;
     mii.cch = strlenW( mii.dwTypeData );
     mii.wID = idCmdFirst + id++;
     mii.fState = MFS_ENABLED;
@@ -708,9 +707,7 @@ RecycleBin_IContextMenu_QueryContextMenu( IContextMenu* iface, HMENU hmenu, UINT
     This->iIdOpen = 1;
 
     mii.fState = MFS_ENABLED;
-    szBuffer[0] = L'\0';
-    LoadStringW(shell32_hInstance, IDS_EMPTY_BITBUCKET, szBuffer, sizeof(szBuffer)/sizeof(WCHAR));
-    szBuffer[(sizeof(szBuffer)/sizeof(WCHAR))-1] = L'\0';
+    mii.dwTypeData = (LPWSTR)szEmpty;
     mii.cch = strlenW( mii.dwTypeData );
     mii.wID = idCmdFirst + id++;
     if (!InsertMenuItemW( hmenu, idCmdLast, TRUE, &mii ))
@@ -719,6 +716,16 @@ RecycleBin_IContextMenu_QueryContextMenu( IContextMenu* iface, HMENU hmenu, UINT
         return E_FAIL;
     }
     This->iIdEmpty = 2;
+    mii.fState = MFS_ENABLED;
+    mii.dwTypeData = (LPWSTR)szProperties;
+    mii.cch = strlenW( mii.dwTypeData );
+    mii.wID = idCmdFirst + id++;
+    if (!InsertMenuItemW( hmenu, idCmdLast, TRUE, &mii ))
+    {
+        TRACE("RecycleBin_IContextMenu_QueryContextMenu failed to insert item properties");
+        return E_FAIL;
+    }
+    This->iIdProperties = 3;
     return MAKE_HRESULT( SEVERITY_SUCCESS, 0, id );
 }
 

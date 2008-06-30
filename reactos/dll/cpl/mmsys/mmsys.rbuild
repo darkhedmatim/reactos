@@ -14,7 +14,6 @@
 	<library>winmm</library>
 	<library>advapi32</library>
 	<library>shell32</library>
-	<library>setupapi</library>
 	<file>mmsys.c</file>
 	<file>sounds.c</file>
 	<file>volume.c</file>

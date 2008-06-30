@@ -27,7 +27,6 @@ Configuration::Configuration ()
 	AutomaticDependencies = true;
 	CheckDependenciesForModuleOnly = false;
 	CompilationUnitsEnabled = true;
-	PrecompiledHeadersEnabled = true;
 	MakeHandlesInstallDirectories = false;
 	GenerateProxyMakefilesInSourceTree = false;
 	InstallFiles = false;

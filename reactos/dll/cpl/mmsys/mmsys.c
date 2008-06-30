@@ -16,7 +16,6 @@
 #include <setupapi.h>
 #include <devguid.h>
 #include <cpl.h>
-#include <tchar.h>
 #include <debug.h>
 
 #include "mmsys.h"
@@ -35,7 +34,7 @@ DeviceCreateHardwarePageEx(HWND hWndParent,
                            UINT uNumberOfGuids,
                            HWPAGE_DISPLAYMODE DisplayMode);
 
-#define NUM_APPLETS    (1)
+#define NUM_APPLETS	(1)
 
 
 HINSTANCE hApplet = 0;
@@ -158,43 +157,43 @@ ShowFullControlPanel(HWND hwnd,
 DWORD
 MMSYS_InstallDevice(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD
 MMSYS_RemoveDevice(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD
 MMSYS_AllowInstallDevice(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD
 MMSYS_SelectDevice(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD
 MMSYS_DetectDevice(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD
 MMSYS_SelectBestCompatDRV(HDEVINFO hDevInfo, PSP_DEVINFO_DATA pspDevInfoData)
 {
-    return ERROR_DI_DO_DEFAULT;
+    return 0x0;
 }
 
 DWORD WINAPI
-MediaClassInstaller(IN DI_FUNCTION diFunction,
-                    IN HDEVINFO hDevInfo,
-                    IN PSP_DEVINFO_DATA pspDevInfoData OPTIONAL)
+MediaClassInstaller(DI_FUNCTION diFunction,
+                    HDEVINFO hDevInfo,
+                    PSP_DEVINFO_DATA pspDevInfoData)
 {
     switch (diFunction)
     {
@@ -211,7 +210,10 @@ MediaClassInstaller(IN DI_FUNCTION diFunction,
         case DIF_SELECTBESTCOMPATDRV:
             return MMSYS_SelectBestCompatDRV(hDevInfo, pspDevInfoData);
         default:
-            return ERROR_DI_DO_DEFAULT;
+        {
+            DPRINT1("MediaClassInstaller() not supported function\n");
+            return 0x0;
+        }
     }
 }
 

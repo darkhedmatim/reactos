@@ -575,17 +575,13 @@ typedef struct _PEB
     UCHAR InheritedAddressSpace;
     UCHAR ReadImageFileExecOptions;
     UCHAR BeingDebugged;
-#if (NTDDI_VERSION >= NTDDI_WS03)
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
     struct
     {
         UCHAR ImageUsesLargePages:1;
-    #if (NTDDI_VERSION >= NTDDI_LONGHORN)
         UCHAR IsProtectedProcess:1;
         UCHAR IsLegacyProcess:1;
         UCHAR SpareBits:5;
-    #else
-        UCHAR SpareBits:7;
-    #endif
     };
 #else
     BOOLEAN SpareBool;
@@ -1236,7 +1232,7 @@ typedef struct _EPROCESS
 #endif
     union
     {
-        HARDWARE_PTE PageDirectoryPte;
+        HARDWARE_PTE PagedirectoryPte;
         ULONGLONG Filler;
     };
     ULONG Session;

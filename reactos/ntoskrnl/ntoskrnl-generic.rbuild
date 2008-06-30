@@ -458,5 +458,8 @@
 		<file>wmi.c</file>
 	</directory>
 	<file>ntoskrnl.rc</file>
+	<linkerflag>-nostartfiles</linkerflag>
+	<linkerflag>-nostdlib</linkerflag>
+	<linkerflag>-lgcc</linkerflag>
 	<linkerscript>ntoskrnl_$(ARCH).lnk</linkerscript>
 </group>

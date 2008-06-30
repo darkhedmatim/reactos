@@ -1646,7 +1646,6 @@ BOOL STDCALL FreeConsole(VOID)
 	 return FALSE;
       }
 
-   NtCurrentPeb()->ProcessParameters->ConsoleHandle = NULL;
    return TRUE;
 }
 
@@ -3216,7 +3215,6 @@ RemoveConsoleCtrlHandler(PHANDLER_ROUTINE HandlerRoutine)
 	    }
 	}
     }
-  SetLastError(ERROR_INVALID_PARAMETER);
   return(FALSE);
 }
 
@@ -3845,7 +3843,6 @@ GetConsoleInputExeNameW(DWORD nBufferLength, LPWSTR lpBuffer)
   {
     /* buffer is not large enough, return the required size */
     RtlLeaveCriticalSection(&ConsoleLock);
-    SetLastError(ERROR_BUFFER_OVERFLOW);
     return lenName + 1;
   }
 

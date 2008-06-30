@@ -1959,7 +1959,7 @@ REGION_CreateFrameRgn(
 
 BOOL FASTCALL
 REGION_LPTODP(
-    PDC  dc,
+    HDC hdc,
     HRGN hDest,
     HRGN hSrc)
 {
@@ -1967,6 +1967,7 @@ REGION_LPTODP(
     PROSRGNDATA srcObj = NULL;
     PROSRGNDATA destObj = NULL;
 
+    DC * dc = DC_LockDc(hdc);
     RECT tmpRect;
     BOOL ret = FALSE;
     PDC_ATTR Dc_Attr;
@@ -2026,6 +2027,7 @@ REGION_LPTODP(
     REGION_UnlockRgn(destObj);
 
 done:
+    DC_UnlockDc(dc);
     return ret;
 }
 
@@ -2876,7 +2878,8 @@ IntGdiPaintRgn(
     HRGN hRgn
 )
 {
-    HRGN tmpVisRgn;
+    //RECT box;
+    HRGN tmpVisRgn; //, prevVisRgn;
     PROSRGNDATA visrgn;
     CLIPOBJ* ClipRegion;
     BOOL bRet = FALSE;
@@ -2886,26 +2889,36 @@ IntGdiPaintRgn(
     BITMAPOBJ *BitmapObj;
     PDC_ATTR Dc_Attr;
 
-    if (!dc) return FALSE;
+    if (!dc)
+        return FALSE;
     Dc_Attr = dc->pDc_Attr;
     if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
-    if (!(tmpVisRgn = NtGdiCreateRectRgn(0, 0, 0, 0))) return FALSE;
-
-    // Transform region into device co-ords
-    if (!REGION_LPTODP(dc, tmpVisRgn, hRgn) || 
-         NtGdiOffsetRgn(tmpVisRgn, dc->ptlDCOrig.x, dc->ptlDCOrig.y) == ERROR)
+    if (!(tmpVisRgn = NtGdiCreateRectRgn(0, 0, 0, 0)))
     {
-        NtGdiDeleteObject(tmpVisRgn);
+        DC_UnlockDc(dc);
         return FALSE;
     }
 
+    /* ei enable later
+      // Transform region into device co-ords
+      if (!REGION_LPTODP(hDC, tmpVisRgn, hRgn) || NtGdiOffsetRgn(tmpVisRgn, dc->ptlDCOrig.x, dc->ptlDCOrig.y) == ERROR)
+      {
+        NtGdiDeleteObject(tmpVisRgn);
+        DC_UnlockDc(dc);
+        return FALSE;
+      }
+    */
+    /* enable when clipping is implemented
     NtGdiCombineRgn(tmpVisRgn, tmpVisRgn, dc->w.hGCClipRgn, RGN_AND);
+    */
 
-    visrgn = REGION_LockRgn(tmpVisRgn);
+    //visrgn = REGION_LockRgn(tmpVisRgn);
+    visrgn = REGION_LockRgn(hRgn);
     if (visrgn == NULL)
     {
         NtGdiDeleteObject(tmpVisRgn);
+        DC_UnlockDc(dc);
         return FALSE;
     }
 
@@ -3635,7 +3648,7 @@ REGION_CreateETandAET(
 }
 
 HRGN FASTCALL
-IntCreatePolyPolygonRgn(
+IntCreatePolyPolgonRgn(
     POINT *Pts,
     INT *Count,
     INT nbpolygons,
@@ -3959,7 +3972,7 @@ GdiCreatePolyPolygonRgn(
     }
 
     /* now we're ready to calculate the region safely */
-    hRgn = IntCreatePolyPolygonRgn(Safept, SafePolyCounts, Count, PolyFillMode);
+    hRgn = IntCreatePolyPolgonRgn(Safept, SafePolyCounts, Count, PolyFillMode);
 
     ExFreePool(Safept);
     ExFreePool(SafePolyCounts);

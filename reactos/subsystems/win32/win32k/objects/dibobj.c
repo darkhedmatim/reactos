@@ -1354,18 +1354,11 @@ BuildDIBPalette (CONST BITMAPINFO *bmi, PINT paletteType)
       *paletteType = PAL_INDEXED;
       RedMask = GreenMask = BlueMask = 0;
     }
-  else if(bmi->bmiHeader.biCompression == BI_BITFIELDS)
-    {
-      *paletteType = PAL_BITFIELDS;
-      RedMask = ((ULONG *)bmi->bmiColors)[0];
-      GreenMask = ((ULONG *)bmi->bmiColors)[1];
-      BlueMask = ((ULONG *)bmi->bmiColors)[2];
-    }
   else if(bits < 24)
     {
       *paletteType = PAL_BITFIELDS;
-      RedMask = 0x7c00;
-      GreenMask = 0x03e0;
+      RedMask = 0xf800;
+      GreenMask = 0x07e0;
       BlueMask = 0x001f;
     }
   else

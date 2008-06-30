@@ -14,7 +14,7 @@ SnmpTfxClose
 SnmpTfxOpen
 SnmpTfxQuery
 SnmpUtilAnsiToUnicode
-SnmpUtilAsnAnyCpy@8
+SnmpUtilAsnAnyCpy
 SnmpUtilAsnAnyFree
 SnmpUtilDbgPrint
 SnmpUtilIdsToA
@@ -25,12 +25,12 @@ SnmpUtilOctetsCmp
 SnmpUtilOctetsCpy
 SnmpUtilOctetsFree
 SnmpUtilOctetsNCmp
-SnmpUtilOidAppend@8
+SnmpUtilOidAppend
 SnmpUtilOidCmp
-SnmpUtilOidCpy@8
-SnmpUtilOidFree@4
-SnmpUtilOidNCmp@12
-SnmpUtilOidToA@4
+SnmpUtilOidCpy
+SnmpUtilOidFree
+SnmpUtilOidNCmp
+SnmpUtilOidToA
 SnmpUtilPrintAsnAny
 SnmpUtilPrintOid
 SnmpUtilUTF8ToUnicode
