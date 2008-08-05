@@ -16,7 +16,6 @@
 /* Not defined in any header file */
 extern VOID STDCALL PrivateCsrssManualGuiCheck(LONG Check);
 extern VOID STDCALL PrivateCsrssInitialized();
-extern VOID STDCALL InitializeAppSwitchHook();
 
 /* GLOBALS *******************************************************************/
 
@@ -75,7 +74,6 @@ static CSRSS_API_DEFINITION Win32CsrApiDefinitions[] =
     CSRSS_DEFINE_API(GET_ALL_CONSOLE_ALIASES_LENGTH,  CsrGetAllConsoleAliasesLength),
     CSRSS_DEFINE_API(GET_CONSOLE_ALIASES_EXES,        CsrGetConsoleAliasesExes),
     CSRSS_DEFINE_API(GET_CONSOLE_ALIASES_EXES_LENGTH, CsrGetConsoleAliasesExesLength),
-    CSRSS_DEFINE_API(GENERATE_CTRL_EVENT,          CsrGenerateCtrlEvent),
     { 0, 0, NULL }
   };
 
@@ -96,7 +94,6 @@ DllMain(HANDLE hDll,
   if (DLL_PROCESS_ATTACH == dwReason)
     {
       Win32CsrDllHandle = hDll;
-      InitializeAppSwitchHook();
     }
 
   return TRUE;

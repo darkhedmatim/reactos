@@ -228,6 +228,7 @@ CSR_API(CsrCreateProcess)
    NewProcessData = CsrCreateProcessData(Request->Data.CreateProcessRequest.NewProcessId);
    if (NewProcessData == NULL)
      {
+	Request->Status = STATUS_NO_MEMORY;
 	return(STATUS_NO_MEMORY);
      }
 
@@ -241,15 +242,11 @@ CSR_API(CsrCreateProcess)
          }
      }
 
-   if (Request->Data.CreateProcessRequest.Flags & CREATE_NEW_PROCESS_GROUP)
-     {
-       NewProcessData->ProcessGroup = (DWORD)NewProcessData->ProcessId;
-     }
-   else
-     {
-       NewProcessData->ProcessGroup = ProcessData->ProcessGroup;
-     }
+   /* Set default shutdown parameters */
+   NewProcessData->ShutdownLevel = 0x280;
+   NewProcessData->ShutdownFlags = 0;
 
+   Request->Status = STATUS_SUCCESS;
    return(STATUS_SUCCESS);
 }
 
@@ -258,7 +255,13 @@ CSR_API(CsrTerminateProcess)
    Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
    Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
+   if (ProcessData == NULL)
+   {
+      return(Request->Status = STATUS_INVALID_PARAMETER);
+   }
+
    ProcessData->Terminated = TRUE;
+   Request->Status = STATUS_SUCCESS;
    return STATUS_SUCCESS;
 }
 
@@ -266,6 +269,8 @@ CSR_API(CsrConnectProcess)
 {
    Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
    Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
+
+   Request->Status = STATUS_SUCCESS;
 
    return(STATUS_SUCCESS);
 }
@@ -275,8 +280,15 @@ CSR_API(CsrGetShutdownParameters)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
+  if (ProcessData == NULL)
+  {
+     return(Request->Status = STATUS_INVALID_PARAMETER);
+  }
+
   Request->Data.GetShutdownParametersRequest.Level = ProcessData->ShutdownLevel;
   Request->Data.GetShutdownParametersRequest.Flags = ProcessData->ShutdownFlags;
+
+  Request->Status = STATUS_SUCCESS;
 
   return(STATUS_SUCCESS);
 }
@@ -286,8 +298,15 @@ CSR_API(CsrSetShutdownParameters)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
+  if (ProcessData == NULL)
+  {
+     return(Request->Status = STATUS_INVALID_PARAMETER);
+  }
+
   ProcessData->ShutdownLevel = Request->Data.SetShutdownParametersRequest.Level;
   ProcessData->ShutdownFlags = Request->Data.SetShutdownParametersRequest.Flags;
+
+  Request->Status = STATUS_SUCCESS;
 
   return(STATUS_SUCCESS);
 }
@@ -297,7 +316,12 @@ CSR_API(CsrGetInputHandle)
    Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
    Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-   if (ProcessData->Console)
+   if (ProcessData == NULL)
+   {
+      Request->Data.GetInputHandleRequest.InputHandle = INVALID_HANDLE_VALUE;
+      Request->Status = STATUS_INVALID_PARAMETER;
+   }
+   else if (ProcessData->Console)
    {
       Request->Status = CsrInsertObject(ProcessData,
 		                      &Request->Data.GetInputHandleRequest.InputHandle,
@@ -319,7 +343,12 @@ CSR_API(CsrGetOutputHandle)
    Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
    Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-   if (ProcessData->Console)
+   if (ProcessData == NULL)
+   {
+      Request->Data.GetOutputHandleRequest.OutputHandle = INVALID_HANDLE_VALUE;
+      Request->Status = STATUS_INVALID_PARAMETER;
+   }
+   else if (ProcessData->Console)
    {
       RtlEnterCriticalSection(&ProcessDataLock);
       Request->Status = CsrInsertObject(ProcessData,
@@ -343,7 +372,15 @@ CSR_API(CsrCloseHandle)
    Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
    Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-   return CsrReleaseObject(ProcessData, Request->Data.CloseHandleRequest.Handle);
+   if (ProcessData == NULL)
+   {
+      Request->Status = STATUS_INVALID_PARAMETER;
+   }
+   else
+   {
+      Request->Status = CsrReleaseObject(ProcessData, Request->Data.CloseHandleRequest.Handle);
+   }
+   return Request->Status;
 }
 
 CSR_API(CsrVerifyHandle)
@@ -369,14 +406,22 @@ CSR_API(CsrDuplicateHandle)
     Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
     Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
+    if (NULL == ProcessData)
+    {
+        DPRINT1("Invalid source process\n");
+        Request->Status = STATUS_INVALID_PARAMETER;
+        return Request->Status;
+    }
+
     Index = (ULONG)Request->Data.DuplicateHandleRequest.Handle >> 2;
     RtlEnterCriticalSection(&ProcessData->HandleTableLock);
     if (Index >= ProcessData->HandleTableSize
         || (Entry = &ProcessData->HandleTable[Index])->Object == NULL)
     {
         DPRINT1("Couldn't dup invalid handle %p\n", Request->Data.DuplicateHandleRequest.Handle);
+        Request->Status = STATUS_INVALID_HANDLE;
         RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-        return STATUS_INVALID_HANDLE;
+        return Request->Status;
     }
 
     if (Request->Data.DuplicateHandleRequest.Options & DUPLICATE_SAME_ACCESS)
@@ -391,8 +436,9 @@ CSR_API(CsrDuplicateHandle)
         {
             DPRINT1("Handle %p only has access %X; requested %X\n",
                 Request->Data.DuplicateHandleRequest.Handle, Entry->Access, DesiredAccess);
+            Request->Status = STATUS_INVALID_PARAMETER;
             RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-            return STATUS_INVALID_PARAMETER;
+            return Request->Status;
         }
     }
     
@@ -418,8 +464,18 @@ CSR_API(CsrGetInputWaitHandle)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Request->Data.GetConsoleInputWaitHandle.InputWaitHandle = ProcessData->ConsoleEvent;
-  return STATUS_SUCCESS;
+  if (ProcessData == NULL)
+  {
+
+     Request->Data.GetConsoleInputWaitHandle.InputWaitHandle = INVALID_HANDLE_VALUE;
+     Request->Status = STATUS_INVALID_PARAMETER;
+  }
+  else
+  {
+     Request->Data.GetConsoleInputWaitHandle.InputWaitHandle = ProcessData->ConsoleEvent;
+     Request->Status = STATUS_SUCCESS;
+  }
+  return Request->Status;
 }
 
 /* EOF */

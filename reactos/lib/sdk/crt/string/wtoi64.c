@@ -20,9 +20,6 @@ _wtoi64 (const wchar_t *nptr)
    __int64 value;
    int sign;
 
-   if (nptr == NULL)
-       return 0;
-
    while (iswctype((int)*nptr, _SPACE))
         ++nptr;
 

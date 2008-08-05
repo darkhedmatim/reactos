@@ -27,7 +27,8 @@ CSR_API(CsrRegisterLogonProcess)
     {
       if (0 != LogonProcess)
         {
-          return STATUS_LOGON_SESSION_EXISTS;
+          Request->Status = STATUS_LOGON_SESSION_EXISTS;
+          return Request->Status;
         }
       LogonProcess = Request->Data.RegisterLogonProcessRequest.ProcessId;
     }
@@ -37,12 +38,15 @@ CSR_API(CsrRegisterLogonProcess)
         {
           DPRINT1("Current logon process 0x%x, can't deregister from process 0x%x\n",
                   LogonProcess, Request->Header.ClientId.UniqueProcess);
-          return STATUS_NOT_LOGON_PROCESS;
+          Request->Status = STATUS_NOT_LOGON_PROCESS;
+          return Request->Status;
         }
       LogonProcess = 0;
     }
 
-  return STATUS_SUCCESS;
+  Request->Status = STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 CSR_API(CsrSetLogonNotifyWindow)
@@ -57,17 +61,21 @@ CSR_API(CsrSetLogonNotifyWindow)
                                     &WindowCreator))
     {
       DPRINT1("Can't get window creator\n");
-      return STATUS_INVALID_HANDLE;
+      Request->Status = STATUS_INVALID_HANDLE;
+      return Request->Status;
     }
   if (WindowCreator != (DWORD)LogonProcess)
     {
       DPRINT1("Trying to register window not created by winlogon as notify window\n");
-      return STATUS_ACCESS_DENIED;
+      Request->Status = STATUS_ACCESS_DENIED;
+      return Request->Status;
     }
 
   LogonNotifyWindow = Request->Data.SetLogonNotifyWindowRequest.LogonNotifyWindow;
 
-  return STATUS_SUCCESS;
+  Request->Status = STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 typedef struct tagSHUTDOWN_SETTINGS
@@ -930,15 +938,17 @@ CSR_API(CsrExitReactos)
 
   if (0 == (Request->Data.ExitReactosRequest.Flags & EWX_INTERNAL_FLAG))
     {
-      return UserExitReactos((DWORD) Request->Header.ClientId.UniqueProcess,
-                             Request->Data.ExitReactosRequest.Flags);
+      Request->Status = UserExitReactos((DWORD) Request->Header.ClientId.UniqueProcess,
+                                        Request->Data.ExitReactosRequest.Flags);
     }
   else
     {
-      return InternalExitReactos((DWORD) Request->Header.ClientId.UniqueProcess,
-                                 (DWORD) Request->Header.ClientId.UniqueThread,
-                                 Request->Data.ExitReactosRequest.Flags);
+      Request->Status = InternalExitReactos((DWORD) Request->Header.ClientId.UniqueProcess,
+                                            (DWORD) Request->Header.ClientId.UniqueThread,
+                                            Request->Data.ExitReactosRequest.Flags);
     }
+
+  return Request->Status;
 }
 
 /* EOF */

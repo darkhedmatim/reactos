@@ -32,8 +32,6 @@
  *	Add symbol size to internal symbol table.
  */
 
-#define NONAMELESSUNION
-
 #include "config.h"
 #include "wine/port.h"
 
@@ -127,21 +125,12 @@ static void codeview_init_basic_types(struct module* module)
     cv_basic_types[T_USHORT] = &symt_new_basic(module, btUInt,  "unsigned short", 2)->symt;
     cv_basic_types[T_ULONG]  = &symt_new_basic(module, btUInt,  "unsigned long", 4)->symt;
     cv_basic_types[T_UQUAD]  = &symt_new_basic(module, btUInt,  "unsigned long long", 8)->symt;
-    cv_basic_types[T_BOOL08] = &symt_new_basic(module, btBool,  "BOOL08", 1)->symt;
-    cv_basic_types[T_BOOL16] = &symt_new_basic(module, btBool,  "BOOL16", 2)->symt;
-    cv_basic_types[T_BOOL32] = &symt_new_basic(module, btBool,  "BOOL32", 4)->symt;
-    cv_basic_types[T_BOOL64] = &symt_new_basic(module, btBool,  "BOOL64", 8)->symt;
     cv_basic_types[T_REAL32] = &symt_new_basic(module, btFloat, "float", 4)->symt;
     cv_basic_types[T_REAL64] = &symt_new_basic(module, btFloat, "double", 8)->symt;
     cv_basic_types[T_RCHAR]  = &symt_new_basic(module, btInt,   "signed char", 1)->symt;
     cv_basic_types[T_WCHAR]  = &symt_new_basic(module, btWChar, "wchar_t", 2)->symt;
-    cv_basic_types[T_INT2]   = &symt_new_basic(module, btInt,   "INT2", 2)->symt;
-    cv_basic_types[T_UINT2]  = &symt_new_basic(module, btUInt,  "UINT2", 2)->symt;
     cv_basic_types[T_INT4]   = &symt_new_basic(module, btInt,   "INT4", 4)->symt;
     cv_basic_types[T_UINT4]  = &symt_new_basic(module, btUInt,  "UINT4", 4)->symt;
-    cv_basic_types[T_INT8]   = &symt_new_basic(module, btInt,   "INT8", 8)->symt;
-    cv_basic_types[T_UINT8]  = &symt_new_basic(module, btUInt,  "UINT8", 8)->symt;
-    cv_basic_types[T_HRESULT]= &symt_new_basic(module, btUInt,  "HRESULT", 4)->symt;
 
     cv_basic_types[T_32PVOID]   = &symt_new_pointer(module, cv_basic_types[T_VOID])->symt;
     cv_basic_types[T_32PCHAR]   = &symt_new_pointer(module, cv_basic_types[T_CHAR])->symt;
@@ -152,21 +141,12 @@ static void codeview_init_basic_types(struct module* module)
     cv_basic_types[T_32PUSHORT] = &symt_new_pointer(module, cv_basic_types[T_USHORT])->symt;
     cv_basic_types[T_32PULONG]  = &symt_new_pointer(module, cv_basic_types[T_ULONG])->symt;
     cv_basic_types[T_32PUQUAD]  = &symt_new_pointer(module, cv_basic_types[T_UQUAD])->symt;
-    cv_basic_types[T_32PBOOL08] = &symt_new_pointer(module, cv_basic_types[T_BOOL08])->symt;
-    cv_basic_types[T_32PBOOL16] = &symt_new_pointer(module, cv_basic_types[T_BOOL16])->symt;
-    cv_basic_types[T_32PBOOL32] = &symt_new_pointer(module, cv_basic_types[T_BOOL32])->symt;
-    cv_basic_types[T_32PBOOL64] = &symt_new_pointer(module, cv_basic_types[T_BOOL64])->symt;
     cv_basic_types[T_32PREAL32] = &symt_new_pointer(module, cv_basic_types[T_REAL32])->symt;
     cv_basic_types[T_32PREAL64] = &symt_new_pointer(module, cv_basic_types[T_REAL64])->symt;
     cv_basic_types[T_32PRCHAR]  = &symt_new_pointer(module, cv_basic_types[T_RCHAR])->symt;
     cv_basic_types[T_32PWCHAR]  = &symt_new_pointer(module, cv_basic_types[T_WCHAR])->symt;
-    cv_basic_types[T_32PINT2]   = &symt_new_pointer(module, cv_basic_types[T_INT2])->symt;
-    cv_basic_types[T_32PUINT2]  = &symt_new_pointer(module, cv_basic_types[T_UINT2])->symt;
     cv_basic_types[T_32PINT4]   = &symt_new_pointer(module, cv_basic_types[T_INT4])->symt;
     cv_basic_types[T_32PUINT4]  = &symt_new_pointer(module, cv_basic_types[T_UINT4])->symt;
-    cv_basic_types[T_32PINT8]   = &symt_new_pointer(module, cv_basic_types[T_INT8])->symt;
-    cv_basic_types[T_32PUINT8]  = &symt_new_pointer(module, cv_basic_types[T_UINT8])->symt;
-    cv_basic_types[T_32PHRESULT]= &symt_new_pointer(module, cv_basic_types[T_HRESULT])->symt;
 }
 
 static int numeric_leaf(int* value, const unsigned short int* leaf)
@@ -411,7 +391,7 @@ static void* codeview_cast_symt(struct symt* symt, enum SymTagEnum tag)
 }
 
 static struct symt* codeview_fetch_type(struct codeview_type_parse* ctp,
-                                        unsigned typeno, BOOL details)
+                                        unsigned typeno)
 {
     struct symt*                symt;
     const union codeview_type*  p;
@@ -425,7 +405,7 @@ static struct symt* codeview_fetch_type(struct codeview_type_parse* ctp,
         FIXME("Cannot locate type %x\n", typeno);
         return NULL;
     }
-    symt = codeview_parse_one_type(ctp, typeno, p, details);
+    symt = codeview_parse_one_type(ctp, typeno, p, FALSE);
     if (!symt) FIXME("Couldn't load forward type %x\n", typeno);
     return symt;
 }
@@ -441,7 +421,7 @@ static struct symt* codeview_add_type_pointer(struct codeview_type_parse* ctp,
         existing = codeview_cast_symt(existing, SymTagPointerType);
         return existing;
     }
-    pointee = codeview_fetch_type(ctp, pointee_type, FALSE);
+    pointee = codeview_fetch_type(ctp, pointee_type);
     return &symt_new_pointer(ctp->module, pointee)->symt;
 }
 
@@ -451,8 +431,8 @@ static struct symt* codeview_add_type_array(struct codeview_type_parse* ctp,
                                             unsigned int indextype,
                                             unsigned int arr_len)
 {
-    struct symt*        elem = codeview_fetch_type(ctp, elemtype, FALSE);
-    struct symt*        index = codeview_fetch_type(ctp, indextype, FALSE);
+    struct symt*        elem = codeview_fetch_type(ctp, elemtype);
+    struct symt*        index = codeview_fetch_type(ctp, indextype);
     DWORD               arr_max = 0;
 
     if (elem)
@@ -524,19 +504,19 @@ static void codeview_add_udt_element(struct codeview_type_parse* ctp,
         {
         case LF_BITFIELD_V1:
             symt_add_udt_element(ctp->module, symt, name,
-                                 codeview_fetch_type(ctp, cv_type->bitfield_v1.type, FALSE),
+                                 codeview_fetch_type(ctp, cv_type->bitfield_v1.type),
                                  cv_type->bitfield_v1.bitoff,
                                  cv_type->bitfield_v1.nbits);
             return;
         case LF_BITFIELD_V2:
             symt_add_udt_element(ctp->module, symt, name,
-                                 codeview_fetch_type(ctp, cv_type->bitfield_v2.type, FALSE),
+                                 codeview_fetch_type(ctp, cv_type->bitfield_v2.type),
                                  cv_type->bitfield_v2.bitoff,
                                  cv_type->bitfield_v2.nbits);
             return;
         }
     }
-    subtype = codeview_fetch_type(ctp, type, FALSE);
+    subtype = codeview_fetch_type(ctp, type);
 
     if (subtype)
     {
@@ -661,11 +641,6 @@ static int codeview_add_type_struct_field_list(struct codeview_type_parse* ctp,
             ptr += 2 + 4 + 2 + (1 + type->stmember_v2.p_name.namelen);
             break;
 
-        case LF_STMEMBER_V3:
-            /* FIXME: ignored for now */
-            ptr += 2 + 4 + 2 + (strlen(type->stmember_v3.name) + 1);
-            break;
-
         case LF_METHOD_V1:
             /* FIXME: ignored for now */
             ptr += 2 + 2 + 2 + (1 + type->method_v1.p_name.namelen);
@@ -676,11 +651,6 @@ static int codeview_add_type_struct_field_list(struct codeview_type_parse* ctp,
             ptr += 2 + 2 + 4 + (1 + type->method_v2.p_name.namelen);
             break;
 
-        case LF_METHOD_V3:
-            /* FIXME: ignored for now */
-            ptr += 2 + 2 + 4 + (strlen(type->method_v3.name) + 1);
-            break;
-
         case LF_NESTTYPE_V1:
             /* FIXME: ignored for now */
             ptr += 2 + 2 + (1 + type->nesttype_v1.p_name.namelen);
@@ -689,11 +659,6 @@ static int codeview_add_type_struct_field_list(struct codeview_type_parse* ctp,
         case LF_NESTTYPE_V2:
             /* FIXME: ignored for now */
             ptr += 2 + 2 + 4 + (1 + type->nesttype_v2.p_name.namelen);
-            break;
-
-        case LF_NESTTYPE_V3:
-            /* FIXME: ignored for now */
-            ptr += 2 + 2 + 4 + (strlen(type->nesttype_v3.name) + 1);
             break;
 
         case LF_VFUNCTAB_V1:
@@ -734,20 +699,6 @@ static int codeview_add_type_struct_field_list(struct codeview_type_parse* ctp,
             }
             break;
 
-        case LF_ONEMETHOD_V3:
-            /* FIXME: ignored for now */
-            switch ((type->onemethod_v3.attribute >> 2) & 7)
-            {
-            case 4: case 6: /* (pure) introducing virtual method */
-                ptr += 2 + 2 + 4 + 4 + (strlen(type->onemethod_virt_v3.name) + 1);
-                break;
-
-            default:
-                ptr += 2 + 2 + 4 + (strlen(type->onemethod_v3.name) + 1);
-                break;
-            }
-            break;
-
         default:
             FIXME("Unsupported type %04x in STRUCT field list\n", type->generic.id);
             return FALSE;
@@ -760,8 +711,7 @@ static int codeview_add_type_struct_field_list(struct codeview_type_parse* ctp,
 static struct symt* codeview_add_type_enum(struct codeview_type_parse* ctp,
                                            struct symt* existing,
                                            const char* name,
-                                           unsigned fieldlistno,
-                                           unsigned basetype)
+                                           unsigned fieldlistno)
 {
     struct symt_enum*   symt;
 
@@ -772,8 +722,7 @@ static struct symt* codeview_add_type_enum(struct codeview_type_parse* ctp,
     }
     else
     {
-        symt = symt_new_enum(ctp->module, name,
-                             codeview_fetch_type(ctp, basetype, FALSE));
+        symt = symt_new_enum(ctp->module, name);
         if (fieldlistno)
         {
             const union codeview_reftype* fieldlist;
@@ -826,7 +775,7 @@ static void codeview_add_func_signature_args(struct codeview_type_parse* ctp,
 {
     const union codeview_reftype*       reftype;
 
-    sym->rettype = codeview_fetch_type(ctp, ret_type, FALSE);
+    sym->rettype = codeview_fetch_type(ctp, ret_type);
     if (args_list && (reftype = codeview_jump_to_type(ctp, args_list)))
     {
         int i;
@@ -835,12 +784,12 @@ static void codeview_add_func_signature_args(struct codeview_type_parse* ctp,
         case LF_ARGLIST_V1:
             for (i = 0; i < reftype->arglist_v1.num; i++)
                 symt_add_function_signature_parameter(ctp->module, sym,
-                                                      codeview_fetch_type(ctp, reftype->arglist_v1.args[i], FALSE));
+                                                      codeview_fetch_type(ctp, reftype->arglist_v1.args[i]));
             break;
         case LF_ARGLIST_V2:
             for (i = 0; i < reftype->arglist_v2.num; i++)
                 symt_add_function_signature_parameter(ctp->module, sym,
-                                                      codeview_fetch_type(ctp, reftype->arglist_v2.args[i], FALSE));
+                                                      codeview_fetch_type(ctp, reftype->arglist_v2.args[i]));
             break;
         default:
             FIXME("Unexpected leaf %x for signature's pmt\n", reftype->generic.id);
@@ -863,8 +812,8 @@ static struct symt* codeview_parse_one_type(struct codeview_type_parse* ctp,
     switch (type->generic.id)
     {
     case LF_MODIFIER_V1:
-        /* FIXME: we don't handle modifiers,
-         * but read previous type on the curr_type
+        /* FIXME: we don't handle modifiers, 
+         * but readd previous type on the curr_type 
          */
         WARN("Modifier on %x: %s%s%s%s\n",
              type->modifier_v1.type,
@@ -872,7 +821,9 @@ static struct symt* codeview_parse_one_type(struct codeview_type_parse* ctp,
              type->modifier_v1.attribute & 0x02 ? "volatile " : "",
              type->modifier_v1.attribute & 0x04 ? "unaligned " : "",
              type->modifier_v1.attribute & ~0x07 ? "unknown " : "");
-        symt = codeview_fetch_type(ctp, type->modifier_v1.type, details);
+        if (!(symt = codeview_get_type(type->modifier_v1.type, TRUE)))
+            symt = codeview_parse_one_type(ctp, type->modifier_v1.type,
+                                           codeview_jump_to_type(ctp, type->modifier_v1.type), details);
         break;
     case LF_MODIFIER_V2:
         /* FIXME: we don't handle modifiers, but readd previous type on the curr_type */
@@ -882,7 +833,9 @@ static struct symt* codeview_parse_one_type(struct codeview_type_parse* ctp,
              type->modifier_v2.attribute & 0x02 ? "volatile " : "",
              type->modifier_v2.attribute & 0x04 ? "unaligned " : "",
              type->modifier_v2.attribute & ~0x07 ? "unknown " : "");
-        symt = codeview_fetch_type(ctp, type->modifier_v2.type, details);
+        if (!(symt = codeview_get_type(type->modifier_v2.type, TRUE)))
+            symt = codeview_parse_one_type(ctp, type->modifier_v2.type,
+                                           codeview_jump_to_type(ctp, type->modifier_v2.type), details);
         break;
 
     case LF_POINTER_V1:
@@ -1012,21 +965,18 @@ static struct symt* codeview_parse_one_type(struct codeview_type_parse* ctp,
     case LF_ENUM_V1:
         symt = codeview_add_type_enum(ctp, existing,
                                       terminate_string(&type->enumeration_v1.p_name),
-                                      type->enumeration_v1.fieldlist,
-                                      type->enumeration_v1.type);
+                                      type->enumeration_v1.fieldlist);
         break;
 
     case LF_ENUM_V2:
         symt = codeview_add_type_enum(ctp, existing,
                                       terminate_string(&type->enumeration_v2.p_name),
-                                      type->enumeration_v2.fieldlist,
-                                      type->enumeration_v2.type);
+                                      type->enumeration_v2.fieldlist);
         break;
 
     case LF_ENUM_V3:
         symt = codeview_add_type_enum(ctp, existing, type->enumeration_v3.name,
-                                      type->enumeration_v3.fieldlist,
-                                      type->enumeration_v3.type);
+                                      type->enumeration_v3.fieldlist);
         break;
 
     case LF_PROCEDURE_V1:
@@ -1118,8 +1068,8 @@ static int codeview_parse_type_table(struct codeview_type_parse* ctp)
          *   X  1500-150d       for V3 types
          *      8000-8010       for numeric leafes
          */
-        if (!(type->generic.id & 0x8600) || (type->generic.id & 0x0100))
-            codeview_parse_one_type(ctp, curr_type, type, TRUE);
+        if (type->generic.id & 0x8600) continue;
+        codeview_parse_one_type(ctp, curr_type, type, TRUE);
     }
 
     return TRUE;
@@ -1322,7 +1272,6 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
         const union codeview_symbol* sym = (const union codeview_symbol*)(root + i);
         length = sym->generic.len + 2;
         if (i + length > size) break;
-        if (!sym->generic.id || length < 4) break;
         if (length & 3) FIXME("unpadded len %u\n", length);
 
         switch (sym->generic.id)
@@ -1484,17 +1433,6 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                                 codeview_get_type(sym->stack_v3.symtype, FALSE),
                                 sym->stack_v3.name);
             break;
-	case S_BPREL_XXXX_V3:
-            loc.kind = loc_regrel;
-            loc.reg = 0; /* FIXME */
-            loc.offset = sym->stack_xxxx_v3.offset;
-            WARN("Supposed stack variable %s (%d)\n", sym->stack_xxxx_v3.name, sym->stack_xxxx_v3.unknown);
-            symt_add_func_local(msc_dbg->module, curr_func,
-                                sym->stack_xxxx_v3.offset > 0 ? DataIsParam : DataIsLocal,
-                                &loc, block,
-                                codeview_get_type(sym->stack_xxxx_v3.symtype, FALSE),
-                                sym->stack_xxxx_v3.name);
-            break;
 
         case S_REGISTER_V1:
             loc.kind = loc_register;
@@ -1513,15 +1451,6 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                                 DataIsLocal, &loc,
                                 block, codeview_get_type(sym->register_v2.type, FALSE),
                                 terminate_string(&sym->register_v2.p_name));
-            break;
-        case S_REGISTER_V3:
-            loc.kind = loc_register;
-            loc.reg = sym->register_v3.reg;
-            loc.offset = 0;
-            symt_add_func_local(msc_dbg->module, curr_func,
-                                DataIsLocal, &loc,
-                                block, codeview_get_type(sym->register_v3.type, FALSE),
-                                sym->register_v3.name);
             break;
 
         case S_BLOCK_V1:
@@ -1561,7 +1490,7 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                 while (*ptr1)
                 {
                     ptr2 = ptr1 + strlen(ptr1) + 1;
-                    TRACE("\t%s => %s\n", ptr1, debugstr_a(ptr2));
+                    TRACE("\t%s => %s\n", ptr1, ptr2); 
                     ptr1 = ptr2 + strlen(ptr2) + 1;
                 }
             }
@@ -1575,7 +1504,7 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                 while (*ptr1)
                 {
                     ptr2 = ptr1 + strlen(ptr1) + 1;
-                    TRACE("\t%s => %s\n", ptr1, debugstr_a(ptr2));
+                    TRACE("\t%s => %s\n", ptr1, ptr2); 
                     ptr1 = ptr2 + strlen(ptr2) + 1;
                 }
             }
@@ -1596,9 +1525,9 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                 symt_add_function_point(msc_dbg->module, curr_func, SymTagLabel, &loc,
                                         terminate_string(&sym->label_v1.p_name));
             }
-            else symt_new_label(msc_dbg->module, compiland,
-                                terminate_string(&sym->label_v1.p_name),
-                                codeview_get_address(msc_dbg, sym->label_v1.segment, sym->label_v1.offset));
+            else
+                FIXME("No current function for label %s\n",
+                      terminate_string(&sym->label_v1.p_name));
             break;
         case S_LABEL_V3:
             if (curr_func)
@@ -1608,8 +1537,8 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                 symt_add_function_point(msc_dbg->module, curr_func, SymTagLabel, 
                                         &loc, sym->label_v3.name);
             }
-            else symt_new_label(msc_dbg->module, compiland, sym->label_v3.name,
-                                codeview_get_address(msc_dbg, sym->label_v3.segment, sym->label_v3.offset));
+            else
+                FIXME("No current function for label %s\n", sym->label_v3.name);
             break;
 
         case S_CONSTANT_V1:
@@ -1722,8 +1651,6 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
             break;
         case S_PUB_FUNC1_V3:
         case S_PUB_FUNC2_V3: /* using a data_v3 isn't what we'd expect */
-#if 0
-            /* FIXME: this is plain wrong (from a simple test) */
             if (!(dbghelp_options & SYMOPT_NO_PUBLICS))
             {
                 symt_new_public(msc_dbg->module, compiland,
@@ -1731,7 +1658,6 @@ static int codeview_snarf(const struct msc_debug_info* msc_dbg, const BYTE* root
                                 codeview_get_address(msc_dbg, sym->data_v3.segment, sym->data_v3.offset),
                                 1, TRUE /* FIXME */, TRUE);
             }
-#endif
             break;
 
         case S_MSTOOL_V3: /* just to silence a few warnings */

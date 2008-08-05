@@ -1208,21 +1208,6 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
 /* PUBLIC FUNCTIONS **********************************************************/
 
 /*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KeInitializeCrashDumpHeader(IN ULONG Type,
-                            IN ULONG Flags,
-                            OUT PVOID Buffer,
-                            IN ULONG BufferSize,
-                            OUT ULONG BufferNeeded OPTIONAL)
-{
-    UNIMPLEMENTED;
-    return STATUS_UNSUCCESSFUL;
-}
-
-/*
  * @implemented
  */
 BOOLEAN
@@ -1275,17 +1260,6 @@ KeDeregisterBugCheckReasonCallback(
     /* Lower IRQL and return */
     KeLowerIrql(OldIrql);
     return Status;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KeDeregisterNmiCallback(PVOID Handle)
-{
-    UNIMPLEMENTED;
-    return STATUS_UNSUCCESSFUL;
 }
 
 /*
@@ -1356,18 +1330,6 @@ KeRegisterBugCheckReasonCallback(
     /* Lower IRQL and return */
     KeLowerIrql(OldIrql);
     return Status;
-}
-
-/*
- * @unimplemented
- */
-PVOID
-NTAPI
-KeRegisterNmiCallback(IN PNMI_CALLBACK CallbackRoutine,
-                      IN PVOID Context)
-{
-    UNIMPLEMENTED;
-    return NULL;
 }
 
 /*

@@ -227,14 +227,6 @@ enum StringAlignment
     StringAlignmentFar     = 2
 };
 
-enum  StringDigitSubstitute
-{
-    StringDigitSubstituteUser        = 0,
-    StringDigitSubstituteNone        = 1,
-    StringDigitSubstituteNational    = 2,
-    StringDigitSubstituteTraditional = 3
-};
-
 enum StringFormatFlags
 {
     StringFormatFlagsDirectionRightToLeft  = 0x00000001,
@@ -322,13 +314,6 @@ enum FlushIntention
     FlushIntentionSync  = 1
 };
 
-enum CoordinateSpace
-{
-    CoordinateSpaceWorld,
-    CoordinateSpacePage,
-    CoordinateSpaceDevice
-};
-
 #ifndef __cplusplus
 
 typedef enum Unit Unit;
@@ -354,7 +339,6 @@ typedef enum EmfType EmfType;
 typedef enum CompositingMode CompositingMode;
 typedef enum TextRenderingHint TextRenderingHint;
 typedef enum StringAlignment StringAlignment;
-typedef enum StringDigitSubstitute StringDigitSubstitute;
 typedef enum StringTrimming StringTrimming;
 typedef enum FontStyle FontStyle;
 typedef enum StringFormatFlags StringFormatFlags;
@@ -363,7 +347,6 @@ typedef enum PenAlignment GpPenAlignment;
 typedef enum ImageCodecFlags ImageCodecFlags;
 typedef enum CombineMode CombineMode;
 typedef enum FlushIntention FlushIntention;
-typedef enum CoordinateSpace CoordinateSpace;
 
 #endif /* end of c typedefs */
 

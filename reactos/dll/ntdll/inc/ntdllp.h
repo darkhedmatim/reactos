@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS System Libraries
- * FILE:            dll/ntdll/include/ntdllp.h
+ * FILE:            lib/ntdll/inc/ntdllp.h
  * PURPOSE:         Native Libary Internal Header
  * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
  */

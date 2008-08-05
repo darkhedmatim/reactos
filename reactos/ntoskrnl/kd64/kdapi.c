@@ -1300,17 +1300,6 @@ KdDisableDebugger(VOID)
     return STATUS_SUCCESS;
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-KdRefreshDebuggerNotPresent(VOID)
-{
-    /* HACK */
-    return KdDebuggerNotPresent;
-}
-
 NTSTATUS
 NTAPI
 NtQueryDebugFilterState(ULONG ComponentId,

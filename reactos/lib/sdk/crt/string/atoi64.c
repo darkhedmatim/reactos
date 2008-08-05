@@ -20,9 +20,6 @@ _atoi64(const char *nptr)
   __int64 acc = 0;
   int neg = 0;
 
-  if (nptr == NULL)
-    return 0;
-
   while(isspace((int)*s))
     s++;
   if (*s == '-')

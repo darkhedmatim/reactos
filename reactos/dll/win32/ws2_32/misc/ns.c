@@ -1407,33 +1407,28 @@ getaddrinfo(const char FAR * nodename,
     if (!WSAINITIALIZED)
         return WSANOTINITIALISED;
 
-    if (servname)
+    /* converting port number */
+    port = strtoul(servname, NULL, 10);
+    /* service name was specified? */
+    if (port == 0)
     {
-        /* converting port number */
-        port = strtoul(servname, NULL, 10);
-        /* service name was specified? */
-        if (port == 0)
+        /* protocol was specified? */
+        if (hints && hints->ai_protocol)
         {
-            /* protocol was specified? */
-            if (hints && hints->ai_protocol)
-            {
-                pent = getprotobynumber(hints->ai_protocol);
-                if (pent == NULL)
-                  return WSAEINVAL;
-                proto = pent->p_name;
-            }
-            else
-                proto = NULL;
-            se = getservbyname(servname, proto);
-            if (se == NULL)
-                return WSATYPE_NOT_FOUND;
-            port = se->s_port;
+            pent = getprotobynumber(hints->ai_protocol);
+            if (pent == NULL)
+              return WSAEINVAL;
+            proto = pent->p_name;
         }
         else
-            port = htons(port);
+            proto = NULL;
+        se = getservbyname(servname, proto);
+        if (se == NULL)
+            return WSAHOST_NOT_FOUND;
+        port = se->s_port;
     }
     else
-        port = 0;
+        port = htons(port);
 
     if (nodename)
     {

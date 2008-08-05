@@ -637,12 +637,7 @@ namespace TechBot.IRCLibrary
 				throw new ArgumentNullException("nickname", "Nickname cannot be null.");
 			firstPingReceived = false;
 			if (password != null)
-			{
-				/* First ghost ourself and then register */
-				if (nickname != null)
-					SendMessage(new IrcMessage(IRC.GHOST, nickname + " " + password));
 				SubmitPassword(password);
-			}
 			ChangeNick(nickname);
 			/* OLD: USER <username> <hostname> <servername> <realname> */
 			/* NEW: USER <user> <mode> <unused> <realname> */

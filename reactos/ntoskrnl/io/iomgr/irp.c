@@ -1535,19 +1535,6 @@ IoFreeIrp(IN PIRP Irp)
 }
 
 /*
- * @unimplemented
- */
-IO_PAGING_PRIORITY
-NTAPI
-IoGetPagingIoPriority(IN PIRP Irp)
-{
-    UNIMPLEMENTED;
-
-    /* Lie and say this isn't a paging IRP -- FIXME! */
-    return IoPagingPriorityInvalid;
-}
-
-/*
  * @implemented
  */
 PEPROCESS NTAPI

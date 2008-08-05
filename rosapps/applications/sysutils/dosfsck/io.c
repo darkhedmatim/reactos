@@ -68,7 +68,7 @@ static loff_t WIN32llseek(int fd, loff_t offset, int whence);
 #endif
 #define llseek	WIN32llseek
 
-//static int is_device = 0;
+static int is_device = 0;
 
 void fs_open(char *path,int rw)
 {
@@ -107,8 +107,13 @@ void fs_read(loff_t pos,int size,void *data)
  	const size_t seek_delta = (size_t)(pos - seekpos_aligned);          // TMN:
 	const size_t readsize = (size_t)(pos - seekpos_aligned) + readsize_aligned; // TMN:
 	char* tmpBuf = malloc(readsize_aligned);                                    // TMN:
+#ifdef _MSC_VER
     if (llseek(fd,seekpos_aligned,0) != seekpos_aligned) pdie("Seek to %I64d",pos);
-    if ((got = read(fd,tmpBuf,readsize_aligned)) < 0) pdie("Read %d bytes at %I64d",size,pos);
+    if ((got = read(fd,tmpBuf,readsize_aligned)) < 0) pdie("Read %d bytes at %I64dd",size,pos);
+#else
+     if (llseek(fd,seekpos_aligned,0) != seekpos_aligned) pdie("Seek to %lld",pos);
+     if ((got = read(fd,tmpBuf,readsize_aligned)) < 0) pdie("Read %d bytes at %lld",size,pos);
+#endif
 	assert(got >= size);
 	got = size;
 	assert(seek_delta + size <= readsize);
@@ -118,7 +123,7 @@ void fs_read(loff_t pos,int size,void *data)
     if (llseek(fd,pos,0) != pos) pdie("Seek to %lld",pos);
     if ((got = read(fd,data,size)) < 0) pdie("Read %d bytes at %lld",size,pos);
 #endif // TMN:
-    if (got != size) die("Got %d bytes instead of %d at %I64d",got,size,pos);
+    if (got != size) die("Got %d bytes instead of %d at %lld",got,size,pos);
     for (walk = changes; walk; walk = walk->next) {
 	if (walk->pos < pos+size && walk->pos+walk->size > pos) {
 	    if (walk->pos < pos)
@@ -139,6 +144,8 @@ int fs_test(loff_t pos,int size)
 #if 1 // TMN
 	const size_t readsize_aligned = (size % 512) ? (size + (512 - (size % 512))) : size;        // TMN:
 	const loff_t seekpos_aligned = pos - (pos % 512);                   // TMN:
+	const size_t seek_delta = (size_t)(pos - seekpos_aligned);          // TMN:
+	const size_t readsize = (size_t)(pos - seekpos_aligned) + readsize_aligned; // TMN:
     scratch = alloc(readsize_aligned);
     if (llseek(fd,seekpos_aligned,0) != seekpos_aligned) pdie("Seek to %lld",pos);
     okay = read(fd,scratch,readsize_aligned) == (int)readsize_aligned;
@@ -159,44 +166,27 @@ void fs_write(loff_t pos,int size,void *data)
     int did;
 
 #if 1 //SAE
+    void *scratch;
+    const size_t readsize_aligned = (size % 512) ? (size + (512 - (size % 512))) : size;
+    const loff_t seekpos_aligned = pos - (pos % 512);
+    const size_t seek_delta = (size_t)(pos - seekpos_aligned);
+    const size_t readsize = (size_t)(pos - seekpos_aligned) + readsize_aligned;
+    scratch = alloc(readsize_aligned);
+
     if (write_immed) {
-        void *scratch;
-        const size_t readsize_aligned = (size % 512) ? (size + (512 - (size % 512))) : size;
-        const loff_t seekpos_aligned = pos - (pos % 512);
-        const size_t seek_delta = (size_t)(pos - seekpos_aligned);
-        boolean use_read = (seek_delta != 0) || ((readsize_aligned-size) != 0);
-
-        /* Aloc temp buffer if write is not aligned */
-        if (use_read)
-            scratch = alloc(readsize_aligned);
-        else
-            scratch = data;
-
-        did_change = 1;
-        if (llseek(fd,seekpos_aligned,0) != seekpos_aligned) pdie("Seek to %I64d",seekpos_aligned);
-
-        if (use_read)
-        {
-            /* Read aligned data */
-            if (read(fd,scratch,readsize_aligned) < 0) pdie("Read %d bytes at %I64d",size,pos);
-
-            /* Patch data in memory */
-            memcpy((char *)scratch+seek_delta, data, size);
-        }
-
-        /* Write it back */
-        if ((did = write(fd,scratch,readsize_aligned)) == (int)readsize_aligned)
-        {
-            if (use_read) free(scratch);
-            return;
-        }
-        if (did < 0) pdie("Write %d bytes at %I64d",size,pos);
-        die("Wrote %d bytes instead of %d at %I64d",did,size,pos);
+	did_change = 1;
+	if (llseek(fd,seekpos_aligned,0) != seekpos_aligned) pdie("Seek to %lld",pos);
+	if ((did = write(fd,data,readsize_aligned)) == (int)readsize_aligned)
+	{
+	    free(scratch);
+	    return;
+	}
+	if (did < 0) pdie("Write %d bytes at %lld",size,pos);
+	die("Wrote %d bytes instead of %d at %lld",did,size,pos);
     }
-
     new = alloc(sizeof(CHANGE));
     new->pos = pos;
-    memcpy(new->data = alloc(new->size = size),data,size);
+    memcpy(new->data = alloc(new->size = readsize_aligned),data,readsize_aligned);
     new->next = NULL;
     if (last) last->next = new;
     else changes = new;
@@ -224,16 +214,11 @@ void fs_write(loff_t pos,int size,void *data)
 static void fs_flush(void)
 {
     CHANGE *this;
-    //int size;
-    int old_write_immed = write_immed;
-
-    /* Disable writes to the list now */
-    write_immed = 1;
+    int size;
 
     while (changes) {
 	this = changes;
 	changes = changes->next;
-#if 0
 	if (llseek(fd,this->pos,0) != this->pos)
 	    fprintf(stderr,"Seek to %lld failed: %s\n  Did not write %d bytes.\n",
 	      (__int64)this->pos,strerror(errno),this->size);
@@ -243,16 +228,9 @@ static void fs_flush(void)
 	    else if (size != this->size)
 		    fprintf(stderr,"Wrote %d bytes instead of %d bytes at %lld."
 		      "\n",size,this->size,(__int64)this->pos);
-#else
-    fs_write(this->pos, this->size, this->data);
-#endif
-
 	free(this->data);
 	free(this);
     }
-
-    /* Restore values */
-    write_immed = old_write_immed;
 }
 
 
@@ -293,9 +271,9 @@ int fs_changed(void)
 static int WIN32open(const char *path, int oflag, ...)
 {
 	HANDLE fh;
-	DWORD desiredAccess = 0;
-	DWORD shareMode = 0;
-	DWORD creationDisposition = 0;
+	DWORD desiredAccess;
+	DWORD shareMode;
+	DWORD creationDisposition;
 	DWORD flagsAttributes = FILE_ATTRIBUTE_NORMAL;
 	SECURITY_ATTRIBUTES securityAttributes;
 	va_list ap;

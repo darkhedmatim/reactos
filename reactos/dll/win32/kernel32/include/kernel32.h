@@ -69,11 +69,9 @@ GetConsoleInputWaitHandle (VOID);
 HANDLE STDCALL OpenConsoleW (LPCWSTR wsName,
 			     DWORD  dwDesiredAccess,
 			     BOOL   bInheritHandle,
-			     DWORD  dwShareMode);
+			     DWORD  dwCreationDistribution);
 
 PTEB GetTeb(VOID);
-
-HANDLE FASTCALL TranslateStdHandle(HANDLE hHandle);
 
 PWCHAR FilenameA2W(LPCSTR NameA, BOOL alloc);
 

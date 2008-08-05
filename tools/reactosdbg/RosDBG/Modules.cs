@@ -10,7 +10,7 @@ using DebugProtocol;
 
 namespace RosDBG
 {
-    [DebugControl,BuildAtStartup]
+    [DebugControl]
     public partial class Modules : UserControl, IUseDebugConnection
     {
         public SortedList<uint, string> mModules = new SortedList<uint, string>();

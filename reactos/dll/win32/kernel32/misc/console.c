@@ -27,6 +27,8 @@ extern BOOL WINAPI IsDebuggerPresent(VOID);
 
 /* GLOBALS *******************************************************************/
 
+static BOOL IgnoreCtrlEvents = FALSE;
+
 static PHANDLER_ROUTINE* CtrlHandlers = NULL;
 static ULONG NrCtrlHandlers = 0;
 static WCHAR InputExeName[MAX_PATH + 1] = L"";
@@ -3139,7 +3141,7 @@ SetConsoleTextAttribute(
 
    CsrRequest = MAKE_CSR_API(SET_ATTRIB, CSR_CONSOLE);
    Request.Data.SetAttribRequest.ConsoleHandle = hConsoleOutput;
-   Request.Data.SetAttribRequest.Attrib = wAttributes;
+   Request.Data.SetAttribRequest.Attrib = (CHAR)wAttributes;
    Status = CsrClientCallServer( &Request, NULL, CsrRequest, sizeof( CSR_API_MESSAGE ) );
    if( !NT_SUCCESS( Status ) || !NT_SUCCESS( Status = Request.Status ) )
       {
@@ -3155,7 +3157,7 @@ AddConsoleCtrlHandler(PHANDLER_ROUTINE HandlerRoutine)
 {
   if (HandlerRoutine == NULL)
     {
-      NtCurrentPeb()->ProcessParameters->ConsoleFlags = TRUE;
+      IgnoreCtrlEvents = TRUE;
       return(TRUE);
     }
   else
@@ -3191,7 +3193,7 @@ RemoveConsoleCtrlHandler(PHANDLER_ROUTINE HandlerRoutine)
 
   if (HandlerRoutine == NULL)
     {
-      NtCurrentPeb()->ProcessParameters->ConsoleFlags = FALSE;
+      IgnoreCtrlEvents = FALSE;
       return(TRUE);
     }
   else
@@ -3243,7 +3245,7 @@ SetConsoleCtrlHandler(PHANDLER_ROUTINE HandlerRoutine,
 /*--------------------------------------------------------------
  * 	GenerateConsoleCtrlEvent
  *
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI
 GenerateConsoleCtrlEvent(
@@ -3251,30 +3253,9 @@ GenerateConsoleCtrlEvent(
 	DWORD		dwProcessGroupId
 	)
 {
-    CSR_API_MESSAGE Request;
-    ULONG CsrRequest;
-    NTSTATUS Status;
-
-    if (dwCtrlEvent != CTRL_C_EVENT && dwCtrlEvent != CTRL_BREAK_EVENT)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    CsrRequest = MAKE_CSR_API(GENERATE_CTRL_EVENT, CSR_CONSOLE);
-    Request.Data.GenerateCtrlEvent.Event = dwCtrlEvent;
-    Request.Data.GenerateCtrlEvent.ProcessGroup = dwProcessGroupId;
-    Status = CsrClientCallServer(&Request, 
-                                 NULL, 
-                                 CsrRequest, 
-                                 sizeof(CSR_API_MESSAGE));
-    if(!NT_SUCCESS(Status) || !(NT_SUCCESS(Status = Request.Status)))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-  
-    return TRUE;
+  DPRINT1("GenerateConsoleCtrlEvent(0x%x, 0x%x) UNIMPLEMENTED!\n", dwCtrlEvent, dwProcessGroupId);
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return FALSE;
 }
 
 

@@ -240,12 +240,12 @@ MapViewOfFile(HANDLE hFileMappingObject,
  */
 BOOL
 NTAPI
-UnmapViewOfFile(LPCVOID lpBaseAddress)
+UnmapViewOfFile(LPVOID lpBaseAddress)
 {
     NTSTATUS Status;
 
     /* Unmap the section */
-    Status = NtUnmapViewOfSection(NtCurrentProcess(), (PVOID)lpBaseAddress);
+    Status = NtUnmapViewOfSection(NtCurrentProcess(), lpBaseAddress);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */

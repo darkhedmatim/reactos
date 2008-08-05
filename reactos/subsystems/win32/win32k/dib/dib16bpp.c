@@ -499,8 +499,7 @@ __inline PIXEL average16(PIXEL a, PIXEL b)
 
     return res;
 */
-  // This one is the short form of the correct one ;-)
-  return (((a ^ b) & 0xf7deU) >> 1) + (a & b);
+  return a; // FIXME: Depend on SetStretchMode
 }
 
 //NOTE: If you change something here, please do the same in other dibXXbpp.c files!

@@ -210,19 +210,6 @@ KdpCallGdb(IN PKTRAP_FRAME TrapFrame,
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
-KdRefreshDebuggerNotPresent(VOID)
-{
-    UNIMPLEMENTED;
-
-    /* Just return whatever was set previously -- FIXME! */
-    return KdDebuggerNotPresent;
-}
-
-/*
- * @implemented
- */
 NTSTATUS
 STDCALL
 KdDisableDebugger(VOID)

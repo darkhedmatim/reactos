@@ -18,10 +18,7 @@ static VOID SatisfyAccept( PAFD_DEVICE_EXTENSION DeviceExt,
 		                   PAFD_TDI_OBJECT_QELT Qelt ) {
     PAFD_FCB FCB = NewFileObject->FsContext;
 
-    if( !SocketAcquireStateLock( FCB ) ) { 
-        LostSocket( Irp );
-        return;
-    }
+    if( !SocketAcquireStateLock( FCB ) ) return;
 
     /* Transfer the connection to the new socket, launch the opening read */
     AFD_DbgPrint(MID_TRACE,("Completing a real accept (FCB %x)\n", FCB));

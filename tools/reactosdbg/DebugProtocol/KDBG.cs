@@ -39,7 +39,6 @@ namespace KDBGProtocol
         static Regex mRegLineEFLAGS = new Regex("EFLAGS  0x(?<eflags>[0-9a-fA-F]+).*");
         static Regex mSregLine = new Regex("[CDEFGS]S  0x(?<seg>[0-9a-fA-F]+).*");
 
-        bool mFirstModuleUpdate = false;
         StringBuilder mInputBuffer = new StringBuilder();
         int usedInput;
 
@@ -84,13 +83,8 @@ namespace KDBGProtocol
                         if (cleanedLine.StartsWith("Entered debugger on "))
                         {
                             GetRegisterUpdate();
-                            continue;
-                        }
-
-                        if (!mFirstModuleUpdate)
-                        {
                             GetModuleUpdate();
-                            mFirstModuleUpdate = true;
+                            continue;
                         }
 
                         Match memoryMatch = mMemoryRowUpdate.Match(cleanedLine);
@@ -295,27 +289,23 @@ namespace KDBGProtocol
         {
             QueueCommand("step");
             GetRegisterUpdate();
-            GetModuleUpdate();
         }
 
         public void Next()
         {
             QueueCommand("next");
             GetRegisterUpdate();
-            GetModuleUpdate();
         }
 
         public void Break()
         {
             mConnection.Write("\r");
             GetRegisterUpdate();
-            GetModuleUpdate();
         }
 
         public void Go(ulong address)
         {
             mRunning = true;
-            mFirstModuleUpdate = false;
             QueueCommand("cont");
         }
 
