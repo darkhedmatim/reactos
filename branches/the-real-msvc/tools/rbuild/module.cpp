@@ -992,9 +992,9 @@ Module::GetDefaultModuleExtension () const
 		case BootProgram:
 		case StaticLibrary:
 		case HostStaticLibrary:
-			return ".a";
+			return ".lib";
 		case ObjectLibrary:
-			return ".o";
+			return ".obj";
 		case Kernel:
 		case NativeCUI:
 		case Win32CUI:
@@ -1016,7 +1016,7 @@ Module::GetDefaultModuleExtension () const
 		case Cabinet:
 			return ".cab";
 		case BootSector:
-			return ".o";
+			return ".obj";
 		case Iso:
 		case LiveIso:
 		case IsoRegTest:
@@ -1027,7 +1027,7 @@ Module::GetDefaultModuleExtension () const
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
-			return ".o";
+			return ".obj";
 		case Alias:
 		case ElfExecutable:
 		case IdlHeader:
@@ -1284,7 +1284,7 @@ Module::SetImportLibrary ( ImportLibrary* importLibrary )
 	this->importLibrary = importLibrary;
 	dependency = new FileLocation ( HasImportLibrary () ? IntermediateDirectory : output->directory,
 	                                output->relative_path,
-	                                HasImportLibrary () ? "lib" + name + ".a" : output->name );
+	                                HasImportLibrary () ? name + ".lib" : output->name );
 }
 
 
