@@ -1904,8 +1904,8 @@ MingwModuleHandler::GenerateOtherMacros ()
 		if ( !module.allowWarnings )
 			globalCflags += " -WX";
 
-		globalCflags += " -Zl -MD";
-		globalCflags += " -D__MSVCRT__ -D__MINGW_IMPORT=__declspec(dllimport)";
+		globalCflags += " -X -Zl -MT";
+		globalCflags += " -D__MSVCRT__ -D__MINGW_IMPORT=__declspec(dllimport) -Dinline=__inline";
 		globalCflags += " -D_CRT_SECURE_NO_WARNINGS";
 		globalCflags += " -D_CRT_NON_CONFORMING_SWPRINTFS";
 	}

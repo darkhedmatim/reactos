@@ -497,7 +497,7 @@ MingwBackend::GenerateGlobalVariables () const
 	fprintf ( fMakefile, "PROJECT_LFLAGS := '$(shell ${TARGET_CC} -print-libgcc-file-name)' %s\n", GenerateProjectLFLAGS ().c_str () );
 	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)'\n" );
 	//~ fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall -W4 -wd4820 -wd4214 -wd4201 -wd4668 -wd4255 -wd4005 -wd4127 -wd4710 -wd4711 -wd4100 -wd4738 -wd4706\n" );
+	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall -W4 -wd4820 -wd4214 -wd4201 -wd4668 -wd4255 -wd4005 -wd4127 -wd4710 -wd4711 -wd4100 -wd4738 -wd4706 -wd4245 -wd4242 -wd4244 -wd4152 -wd4717 -wd4273 -wd4018 -wd4204 -wd4054 -wd4055 -wd4514\n" );
 	//~ fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
 	//~ fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
 	//~ fprintf ( fMakefile, "endif\n" );
