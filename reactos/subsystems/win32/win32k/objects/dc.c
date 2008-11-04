@@ -144,7 +144,6 @@ NtGdiCreateCompatibleDC(HDC hDC)
   if (oDc_Attr->dwLayout & LAYOUT_ORIENTATIONMASK) Layout = oDc_Attr->dwLayout;
   NewDC->DcLevel.flPath     = OrigDC->DcLevel.flPath;
   nDc_Attr->ulDirty_        = oDc_Attr->ulDirty_;
-  nDc_Attr->iCS_CP          = oDc_Attr->iCS_CP;
 
   DC_UnlockDc(NewDC);
   DC_UnlockDc(OrigDC);
@@ -877,7 +876,6 @@ IntGdiCreateDC(PUNICODE_STRING Driver,
     NewDC->DC_Type = DC_TYPE_INFO;
     DC_UnlockDc( NewDC );
   }
-  nDc_Attr->iCS_CP = IntGdiGetCharSet(hNewDC);
   return hNewDC;
 }
 
@@ -2169,7 +2167,6 @@ NtGdiSelectBrush(
     if (pBrush == NULL)
     {
         SetLastWin32Error(ERROR_INVALID_HANDLE);
-        DC_UnlockDc(pDC);
         return NULL;
     }
 
@@ -2177,7 +2174,6 @@ NtGdiSelectBrush(
     BRUSHOBJ_UnlockBrush(pBrush);
     if(bFailed)
     {
-        DC_UnlockDc(pDC);
         return NULL;
     }
 
@@ -2218,7 +2214,7 @@ NtGdiSelectFont(
     if(!pDc_Attr) pDc_Attr = &pDC->Dc_Attr;
 
     /* FIXME: what if not successful? */
-    if(NT_SUCCESS(TextIntRealizeFont((HFONT)hFont,NULL)))
+    if(NT_SUCCESS(TextIntRealizeFont((HFONT)hFont)))
     {
         hOrgFont = pDc_Attr->hlfntNew;
         pDc_Attr->hlfntNew = hFont;
@@ -2413,7 +2409,6 @@ NtGdiGetDCDword(
     case GdiGetEMFRestorDc:
       break;
     case GdiGetFontLanguageInfo:
-          SafeResult = ftGetFontLanguageInfo(dc);
       break;
     case GdiGetIsMemDc:
           SafeResult = dc->DC_Type;
@@ -2670,7 +2665,7 @@ DC_AllocDC(PUNICODE_STRING Driver)
   Dc_Attr->hpen = NtGdiGetStockObject( BLACK_PEN );
 ////
   Dc_Attr->hlfntNew = NtGdiGetStockObject(SYSTEM_FONT);
-  TextIntRealizeFont(Dc_Attr->hlfntNew,NULL);
+  TextIntRealizeFont(Dc_Attr->hlfntNew);
 
   NewDC->DcLevel.hpal = NtGdiGetStockObject(DEFAULT_PALETTE);
   NewDC->DcLevel.laPath.eMiterLimit = 10.0;

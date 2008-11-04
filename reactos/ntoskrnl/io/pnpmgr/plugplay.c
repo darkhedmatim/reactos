@@ -529,6 +529,10 @@ IopGetDeviceDepth(PPLUGPLAY_CONTROL_DEPTH_DATA DepthData)
 
     DeviceNode = IopGetDeviceNode(DeviceObject);
 
+    DepthData->Depth = DeviceNode->Level;
+
+    ObDereferenceObject(DeviceObject);
+
     _SEH_TRY
     {
 	DepthData->Depth = DeviceNode->Level;
@@ -538,8 +542,6 @@ IopGetDeviceDepth(PPLUGPLAY_CONTROL_DEPTH_DATA DepthData)
         Status = _SEH_GetExceptionCode();
     }
     _SEH_END;
-
-    ObDereferenceObject(DeviceObject);
 
     return Status;
 }

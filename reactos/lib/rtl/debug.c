@@ -79,7 +79,7 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
 
         /* Copy it */
         strncpy(Buffer, Prefix, PrefixLength);
-
+        
         /* Do the printf */
         Length = _vsnprintf(Buffer + PrefixLength,
                             sizeof(Buffer) - PrefixLength,
@@ -109,7 +109,7 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
         /* Add the prefix */
         Length += PrefixLength;
     }
-
+    
     /* Build the string */
     DebugString.Length = Length;
     DebugString.Buffer = Buffer;
@@ -202,19 +202,17 @@ __cdecl
 DbgPrint(PCCH Format,
          ...)
 {
-	ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
+    return vDbgPrintExWithPrefixInternal("",
                                          -1,
                                          DPFLTR_ERROR_LEVEL,
                                          Format,
                                          ap,
                                          TRUE);
     va_end(ap);
-	return n;
 }
 
 /*
@@ -227,19 +225,17 @@ DbgPrintEx(IN ULONG ComponentId,
            IN PCCH Format,
            ...)
 {
-	ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
+    return vDbgPrintExWithPrefixInternal("",
                                          ComponentId,
                                          Level,
                                          Format,
                                          ap,
                                          TRUE);
     va_end(ap);
-	return n;
 }
 
 /*
@@ -250,19 +246,16 @@ __cdecl
 DbgPrintReturnControlC(PCH Format,
                        ...)
 {
-	ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
+    return vDbgPrintExWithPrefixInternal("",
                                          -1,
                                          DPFLTR_ERROR_LEVEL,
                                          Format,
                                          ap,
                                          FALSE);
-    va_end(ap);
-	return n;
 }
 
 /*

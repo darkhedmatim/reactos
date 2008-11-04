@@ -18,6 +18,7 @@
 	<file>rsa.c</file>
 	<file>rsaenh.c</file>
 	<file>version.rc</file>
+	<file>rsaenh.spec</file>
 	<library>wine</library>
 	<library>crypt32</library>
 	<library>advapi32</library>

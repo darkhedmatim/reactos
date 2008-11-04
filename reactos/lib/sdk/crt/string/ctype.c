@@ -591,7 +591,7 @@ int toupper(int c)
 /*
  * @implemented
  */
-wint_t towlower(wint_t c)
+wchar_t towlower(wchar_t c)
 {
    if (iswctype (c, _UPPER))
        return (c - upalpha);
@@ -601,7 +601,7 @@ wint_t towlower(wint_t c)
 /*
  * @implemented
  */
-wint_t towupper(wint_t c)
+wchar_t towupper(wchar_t c)
 {
    if (iswctype (c, _LOWER))
       return (c + upalpha);

@@ -750,34 +750,21 @@ EngDitherColor(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL APIENTRY
 EngQuerySystemAttribute(
    IN ENG_SYSTEM_ATTRIBUTE CapNum,
    OUT PDWORD pCapability)
 {
-  SYSTEM_BASIC_INFORMATION sbi;
-  SYSTEM_PROCESSOR_INFORMATION spi;
-
    switch (CapNum)
    {
       case EngNumberOfProcessors:
-         NtQuerySystemInformation(
-                SystemBasicInformation,
-               &sbi,
-                sizeof(SYSTEM_BASIC_INFORMATION),
-                NULL);
-         *pCapability = sbi.NumberOfProcessors;
+         *pCapability = 1;
          return TRUE;
 
       case EngProcessorFeature:
-         NtQuerySystemInformation(
-                SystemProcessorInformation,
-               &spi,
-                sizeof(SYSTEM_PROCESSOR_INFORMATION),
-                NULL);
-         *pCapability = spi.ProcessorFeatureBits;
+         *pCapability = 0;
          return TRUE;
 
       default:
@@ -2235,6 +2222,19 @@ ULONG
 APIENTRY
 NtGdiQueryFontAssocInfo(
     IN HDC hdc)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+APIENTRY
+NtGdiGetFontUnicodeRanges(
+    IN HDC hdc,
+    OUT OPTIONAL LPGLYPHSET pgs)
 {
     UNIMPLEMENTED;
     return 0;

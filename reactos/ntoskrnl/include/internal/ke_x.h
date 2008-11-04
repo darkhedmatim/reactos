@@ -88,46 +88,6 @@ Ke386SanitizeDr(IN PVOID DrAddress,
 }
 #endif /* _M_IX86 */
 
-#ifndef _M_ARM
-PRKTHREAD
-FORCEINLINE
-KeGetCurrentThread(VOID)
-{
-#ifdef _M_IX86
-    /* Return the current thread */
-    return ((PKIPCR)KeGetPcr())->PrcbData.CurrentThread;
-#else
-    PKPRCB Prcb = KeGetCurrentPrcb();
-    return Prcb->CurrentThread;
-#endif
-}
-
-UCHAR
-FORCEINLINE
-KeGetPreviousMode(VOID)
-{
-    /* Return the current mode */
-    return KeGetCurrentThread()->PreviousMode;
-}
-#endif
-
-VOID
-FORCEINLINE
-KeFlushProcessTb(VOID)
-{
-    /* Flush the TLB by resetting CR3 */
-#ifdef _M_PPC
-    __asm__("sync\n\tisync\n\t");
-#elif _M_ARM
-    //
-    // We need to implement this!
-    //
-    ASSERTMSG("Need ARM flush routine\n", FALSE);
-#else
-    __writecr3(__readcr3());
-#endif
-}
-
 //
 // Enters a Guarded Region
 //
@@ -451,10 +411,7 @@ KxAcquireSpinLock(IN PKSPIN_LOCK SpinLock)
             {
 #ifdef DBG
                 /* On debug builds, we use a much slower but useful routine */
-                //Kii386SpinOnSpinLock(SpinLock, 5);
-
-                /* FIXME: Do normal yield for now */
-                YieldProcessor();
+                Kii386SpinOnSpinLock(SpinLock, 5);
 #else
                 /* Otherwise, just yield and keep looping */
                 YieldProcessor();
@@ -465,7 +422,7 @@ KxAcquireSpinLock(IN PKSPIN_LOCK SpinLock)
         {
 #ifdef DBG
             /* On debug builds, we OR in the KTHREAD */
-            *SpinLock = (KSPIN_LOCK)KeGetCurrentThread() | 1;
+            *SpinLock = KeGetCurrentThread() | 1;
 #endif
             /* All is well, break out */
             break;
@@ -482,21 +439,21 @@ KxReleaseSpinLock(IN PKSPIN_LOCK SpinLock)
 {
 #ifdef DBG
     /* Make sure that the threads match */
-    if (((KSPIN_LOCK)KeGetCurrentThread() | 1) != *SpinLock)
+    if ((KeGetCurrentThread() | 1) != *SpinLock)
     {
         /* They don't, bugcheck */
-        KeBugCheckEx(SPIN_LOCK_NOT_OWNED, (ULONG_PTR)SpinLock, 0, 0, 0);
+        KeBugCheckEx(SPIN_LOCK_NOT_OWNED, SpinLock, 0, 0, 0);
     }
 #endif
     /* Clear the lock */
-    InterlockedAnd((PLONG)SpinLock, 0);
+    InterlockedAnd(SpinLock, 0);
 }
 
-VOID
+KIRQL
 FORCEINLINE
 KiAcquireDispatcherObject(IN DISPATCHER_HEADER* Object)
 {
-    LONG OldValue;
+    LONG OldValue, NewValue;
 
     /* Make sure we're at a safe level to touch the lock */
     ASSERT(KeGetCurrentIrql() >= DISPATCH_LEVEL);
@@ -505,23 +462,20 @@ KiAcquireDispatcherObject(IN DISPATCHER_HEADER* Object)
     do
     {
         /* Loop until the other CPU releases it */
-        while (TRUE)
+        while ((UCHAR)Object->Lock & KOBJECT_LOCK_BIT)
         {
-            /* Check if it got released */
-            OldValue = Object->Lock;
-            if ((OldValue & KOBJECT_LOCK_BIT) == 0) break;
-
             /* Let the CPU know that this is a loop */
             YieldProcessor();
-        } 
+        };
 
         /* Try acquiring the lock now */
-    } while (InterlockedCompareExchange(&Object->Lock,
-                                        OldValue | KOBJECT_LOCK_BIT,
-                                        OldValue) != OldValue);
+        NewValue = InterlockedCompareExchange(&Object->Lock,
+                                              OldValue | KOBJECT_LOCK_BIT,
+                                              OldValue);
+    } while (NewValue != OldValue);
 }
 
-VOID
+KIRQL
 FORCEINLINE
 KiReleaseDispatcherObject(IN DISPATCHER_HEADER* Object)
 {
@@ -552,22 +506,6 @@ KiReleaseDispatcherLock(IN KIRQL OldIrql)
     KiExitDispatcher(OldIrql);
 }
 
-VOID
-FORCEINLINE
-KiAcquireDispatcherLockAtDpcLevel(VOID)
-{
-    /* Acquire the dispatcher lock */
-    KeAcquireQueuedSpinLockAtDpcLevel(LockQueueDispatcherLock);
-}
-
-VOID
-FORCEINLINE
-KiReleaseDispatcherLockFromDpcLevel(VOID)
-{
-    /* Release the dispatcher lock */
-    KeReleaseQueuedSpinLockFromDpcLevel(LockQueueDispatcherLock);
-}
-
 //
 // This routine inserts a thread into the deferred ready list of the given CPU
 //
@@ -594,7 +532,7 @@ KiRescheduleThread(IN BOOLEAN NewThread,
     if ((NewThread) && !(KeGetPcr()->Number == Cpu))
     {
         /* Send an IPI to request delivery */
-        KiIpiSend(AFFINITY_MASK(Cpu), IPI_DPC);
+        KiIpiSendRequest(AFFINITY_MASK(Cpu), IPI_DPC);
     }
 }
 
@@ -631,7 +569,7 @@ KiAcquirePrcbLock(IN PKPRCB Prcb)
     for (;;)
     {
         /* Acquire the lock and break out if we acquired it first */
-        if (!InterlockedExchange((PLONG)&Prcb->PrcbLock, 1)) break;
+        if (!InterlockedExchange(&Prcb->PrcbLock, 1)) break;
 
         /* Loop until the other CPU releases it */
         do
@@ -657,7 +595,7 @@ KiReleasePrcbLock(IN PKPRCB Prcb)
     ASSERT(Prcb->PrcbLock != 0);
 
     /* Release it */
-    InterlockedAnd((PLONG)&Prcb->PrcbLock, 0);
+    InterlockedAnd(&Prcb->PrcbLock, 0);
 }
 
 //
@@ -678,7 +616,7 @@ KiAcquireThreadLock(IN PKTHREAD Thread)
     for (;;)
     {
         /* Acquire the lock and break out if we acquired it first */
-        if (!InterlockedExchange((PLONG)&Thread->ThreadLock, 1)) break;
+        if (!InterlockedExchange(&Thread->ThreadLock, 1)) break;
 
         /* Loop until the other CPU releases it */
         do
@@ -701,7 +639,7 @@ VOID
 KiReleaseThreadLock(IN PKTHREAD Thread)
 {
     /* Release it */
-    InterlockedAnd((PLONG)&Thread->ThreadLock, 0);
+    InterlockedAnd(&Thread->ThreadLock, 0);
 }
 
 FORCEINLINE
@@ -715,7 +653,7 @@ KiTryThreadLock(IN PKTHREAD Thread)
 
     /* Otherwise, try to acquire it and check the result */
     Value = 1;
-    Value = InterlockedExchange((PLONG)&Thread->ThreadLock, Value);
+    Value = InterlockedExchange(&Thread->ThreadLock, &Value);
 
     /* Return the lock state */
     return (Value == TRUE);
@@ -731,16 +669,6 @@ KiCheckDeferredReadyList(IN PKPRCB Prcb)
 
 FORCEINLINE
 VOID
-KiRundownThread(IN PKTHREAD Thread)
-{
-#if defined(_M_IX86) || defined(_M_AMD64)
-    /* FIXME: TODO */
-    ASSERTMSG("Not yet implemented\n", FALSE);
-#endif
-}
-
-FORCEINLINE
-VOID
 KiRequestApcInterrupt(IN BOOLEAN NeedApc,
                       IN UCHAR Processor)
 {
@@ -748,10 +676,10 @@ KiRequestApcInterrupt(IN BOOLEAN NeedApc,
     if (NeedApc)
     {
         /* Check if it's on another CPU */
-        if (KeGetPcr()->Number != Processor)
+        if (KeGetPcr()->Number != Cpu)
         {
             /* Send an IPI to request delivery */
-            KiIpiSend(AFFINITY_MASK(Processor), IPI_APC);
+            KiIpiSendRequest(AFFINITY_MASK(Cpu), IPI_DPC);
         }
         else
         {
@@ -759,36 +687,6 @@ KiRequestApcInterrupt(IN BOOLEAN NeedApc,
             HalRequestSoftwareInterrupt(APC_LEVEL);
         }
     }
-}
-
-FORCEINLINE
-PKSPIN_LOCK_QUEUE
-KiAcquireTimerLock(IN ULONG Hand)
-{
-    PKSPIN_LOCK_QUEUE LockQueue;
-    ULONG LockIndex;
-    ASSERT(KeGetCurrentIrql() >= DISPATCH_LEVEL);
-
-    /* Get the lock index */
-    LockIndex = Hand >> LOCK_QUEUE_TIMER_LOCK_SHIFT;
-    LockIndex &= (LOCK_QUEUE_TIMER_TABLE_LOCKS - 1);
-
-    /* Now get the lock */
-    LockQueue = &KeGetCurrentPrcb()->LockQueue[LockQueueTimerTableLock + LockIndex];
-
-    /* Acquire it and return */
-    KeAcquireQueuedSpinLockAtDpcLevel(LockQueue);
-    return LockQueue;
-}
-
-FORCEINLINE
-VOID
-KiReleaseTimerLock(IN PKSPIN_LOCK_QUEUE LockQueue)
-{
-    ASSERT(KeGetCurrentIrql() >= DISPATCH_LEVEL);
-
-    /* Release the lock */
-    KeReleaseQueuedSpinLockFromDpcLevel(LockQueue);
 }
 
 #endif
@@ -1100,37 +998,6 @@ KiCheckAlertability(IN PKTHREAD Thread,
 }
 
 //
-// Called from KiCompleteTimer, KiInsertTreeTimer, KeSetSystemTime
-// to remove timer entries
-// See Windows HPI blog for more information.
-VOID
-FORCEINLINE
-KiRemoveEntryTimer(IN PKTIMER Timer)
-{
-    ULONG Hand;
-    PKTIMER_TABLE_ENTRY TableEntry;
-    
-    /* Remove the timer from the timer list and check if it's empty */
-    Hand = Timer->Header.Hand;
-    if (RemoveEntryList(&Timer->TimerListEntry))
-    {
-        /* Get the respective timer table entry */
-        TableEntry = &KiTimerTableListHead[Hand];
-        if (&TableEntry->Entry == TableEntry->Entry.Flink)
-        {
-            /* Set the entry to an infinite absolute time */
-            TableEntry->Time.HighPart = 0xFFFFFFFF;
-        }
-    }
-
-    /* Clear the list entries on dbg builds so we can tell the timer is gone */
-#if DBG
-    Timer->TimerListEntry.Flink = NULL;
-    Timer->TimerListEntry.Blink = NULL;
-#endif
-}
-
-//
 // Called by Wait and Queue code to insert a timer for dispatching.
 // Also called by KeSetTimerEx to insert a timer from the caller.
 //
@@ -1156,57 +1023,6 @@ KxInsertTimer(IN PKTIMER Timer,
         /* Do nothing, just release the lock */
         KiReleaseTimerLock(LockQueue);
     }
-}
-
-//
-// Called by KeSetTimerEx and KiInsertTreeTimer to calculate Due Time
-// See the Windows HPI Blog for more information
-//
-BOOLEAN
-FORCEINLINE
-KiComputeDueTime(IN PKTIMER Timer,
-                 IN LARGE_INTEGER DueTime,
-                 OUT PULONG Hand)
-{
-    LARGE_INTEGER InterruptTime, SystemTime, DifferenceTime;
-    
-    /* Convert to relative time if needed */
-    Timer->Header.Absolute = FALSE;
-    if (DueTime.HighPart >= 0)
-    {
-        /* Get System Time */
-        KeQuerySystemTime(&SystemTime);
-        
-        /* Do the conversion */
-        DifferenceTime.QuadPart = SystemTime.QuadPart - DueTime.QuadPart;
-        
-        /* Make sure it hasn't already expired */
-        Timer->Header.Absolute = TRUE;
-        if (DifferenceTime.HighPart >= 0)
-        {
-            /* Cancel everything */
-            Timer->Header.SignalState = TRUE;
-            Timer->Header.Hand = 0;
-            Timer->DueTime.QuadPart = 0;
-            *Hand = 0;
-            return FALSE;
-        }
-        
-        /* Set the time as Absolute */
-        DueTime = DifferenceTime;
-    }
-    
-    /* Get the Interrupt Time */
-    InterruptTime.QuadPart = KeQueryInterruptTime();
-    
-    /* Recalculate due time */
-    Timer->DueTime.QuadPart = InterruptTime.QuadPart - DueTime.QuadPart;
-    
-    /* Get the handle */
-    *Hand = KiComputeTimerTableIndex(Timer->DueTime.QuadPart);
-    Timer->Header.Hand = (UCHAR)*Hand;
-    Timer->Header.Inserted = TRUE;
-    return TRUE;
 }
 
 //
@@ -1709,3 +1525,44 @@ KiComputeNewPriority(IN PKTHREAD Thread,
     /* Return the new priority */
     return Priority;
 }
+
+#ifndef _M_ARM
+PRKTHREAD
+FORCEINLINE
+KeGetCurrentThread(VOID)
+{
+#ifdef _M_IX86
+    /* Return the current thread */
+    return ((PKIPCR)KeGetPcr())->PrcbData.CurrentThread;
+#else
+    PKPRCB Prcb = KeGetCurrentPrcb();
+    return Prcb->CurrentThread;
+#endif
+}
+
+UCHAR
+FORCEINLINE
+KeGetPreviousMode(VOID)
+{
+    /* Return the current mode */
+    return KeGetCurrentThread()->PreviousMode;
+}
+#endif
+
+VOID
+FORCEINLINE
+KeFlushProcessTb(VOID)
+{
+    /* Flush the TLB by resetting CR3 */
+#ifdef _M_PPC
+    __asm__("sync\n\tisync\n\t");
+#elif _M_ARM
+    //
+    // We need to implement this!
+    //
+    ASSERTMSG("Need ARM flush routine\n", FALSE);
+#else
+    __writecr3(__readcr3());
+#endif
+}
+

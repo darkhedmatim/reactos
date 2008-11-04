@@ -296,11 +296,6 @@ GetFreeBytesShare(LARGE_INTEGER TotalNumberOfFreeBytes, LARGE_INTEGER TotalNumbe
 {
    LARGE_INTEGER Temp, Result, Remainder;
 
-   if (TotalNumberOfFreeBytes.QuadPart == 0LL)
-   {
-      return ConvertUlongToLargeInteger(0);
-   }
-
    Temp = LargeIntegerDivide(TotalNumberOfBytes, ConvertUlongToLargeInteger(100), &Remainder);
    if (Temp.QuadPart >= TotalNumberOfFreeBytes.QuadPart)
    {
@@ -393,7 +388,7 @@ InitializeGeneralDriveDialog(HWND hwndDlg, WCHAR * szDrive)
    }
 
    DriveType = GetDriveTypeW(szDrive);
-   if (DriveType == DRIVE_FIXED || DriveType == DRIVE_CDROM)
+   if (DriveType == DRIVE_FIXED)
    {
 
       if(GetDiskFreeSpaceExW(szDrive, &FreeBytesAvailable, (PULARGE_INTEGER)&TotalNumberOfBytes, (PULARGE_INTEGER)&TotalNumberOfFreeBytes))
@@ -683,7 +678,7 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
    PROPSHEETHEADERW psh;
    BOOL ret;
    UINT i;
-   WCHAR szName[MAX_PATH+6];
+   WCHAR szName[MAX_PATH];
    DWORD dwMaxComponent, dwFileSysFlags;
    IDataObject * pDataObj = NULL;
 
@@ -705,8 +700,8 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
           /* FIXME
            * check if disk is a really a local hdd 
            */
-          i = LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szName, sizeof(szName)/sizeof(WCHAR)-6);
-          if (i > 0 && i < (sizeof(szName)/sizeof(WCHAR)) - 6)
+          i = LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szName, sizeof(szName)/sizeof(WCHAR));
+          if (i > 0 && i < (sizeof(szName)/sizeof(WCHAR)) + 6)
           {
               szName[i] = L' ';
               szName[i+1] = L'(';
@@ -934,8 +929,6 @@ InitializeFormatDriveDlg(HWND hwndDlg, PFORMAT_DRIVE_CONTEXT pContext)
     HWND hDlgCtrl;
 
     Length = GetWindowTextW(hwndDlg, szText, sizeof(szText)/sizeof(WCHAR));
-    if (Length < 0)
-        Length = 0;
     szDrive[0] = pContext->Drive + L'A';
     if (GetVolumeInformationW(szDrive, &szText[Length+1], (sizeof(szText)/sizeof(WCHAR))- Length - 2, &dwSerial, &dwMaxComp, &dwFileSys, szFs, sizeof(szFs)/sizeof(WCHAR)))
     {

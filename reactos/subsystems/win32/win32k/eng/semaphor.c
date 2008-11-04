@@ -16,7 +16,7 @@ EngCreateSemaphore ( VOID )
     return NULL;
   if ( !NT_SUCCESS(ExInitializeResourceLite ( psem )) )
   {
-    ExFreePoolWithTag ( psem, TAG_GSEM );
+    ExFreePool ( psem );
     return NULL;
   }
   return (HSEMAPHORE)psem;
@@ -81,7 +81,7 @@ EngDeleteSemaphore ( IN HSEMAPHORE hsem )
 
   ExDeleteResourceLite((PERESOURCE)hsem);
 
-  ExFreePoolWithTag( (PVOID)hsem, TAG_GSEM);
+  ExFreePool ( (PVOID)hsem );
 }
 
 /*

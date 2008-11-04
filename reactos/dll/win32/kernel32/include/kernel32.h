@@ -38,15 +38,6 @@
 #define SetLastErrorByStatus(__S__) \
  ((void)SetLastError(RtlNtStatusToDosError(__S__)))
 
-typedef struct _CODEPAGE_ENTRY
-{
-   LIST_ENTRY Entry;
-   UINT CodePage;
-   HANDLE SectionHandle;
-   PBYTE SectionMapping;
-   CPTABLEINFO CodePageTable;
-} CODEPAGE_ENTRY, *PCODEPAGE_ENTRY;
-
 typedef
 DWORD
 (*WaitForInputIdleType)(
@@ -179,9 +170,6 @@ STDCALL
 BasepMapFile(IN LPCWSTR lpApplicationName,
              OUT PHANDLE hSection,
              IN PUNICODE_STRING ApplicationName);
-
-PCODEPAGE_ENTRY FASTCALL
-IntGetCodePageEntry(UINT CodePage);
 
 #endif /* ndef _KERNEL32_INCLUDE_KERNEL32_H */
 

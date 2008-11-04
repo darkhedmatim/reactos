@@ -286,13 +286,6 @@ KiInsertTimerTable(
     IN ULONG Hand
 );
 
-VOID
-FASTCALL
-KiTimerListExpire(
-    IN PLIST_ENTRY ExpiredListHead,
-    IN KIRQL OldIrql
-);
-
 BOOLEAN
 FASTCALL
 KiInsertTreeTimer(
@@ -334,33 +327,10 @@ KeWaitForGate(
 /* ipi.c ********************************************************************/
 
 VOID
-FASTCALL
-KiIpiSend(
+NTAPI
+KiIpiSendRequest(
     KAFFINITY TargetSet,
     ULONG IpiRequest
-);
-
-VOID
-NTAPI
-KiIpiSendPacket(
-    IN KAFFINITY TargetProcessors,
-    IN PKIPI_WORKER WorkerFunction,
-    IN PKIPI_BROADCAST_WORKER BroadcastFunction,
-    IN ULONG_PTR Context,
-    IN PULONG Count
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDone(
-    IN PKIPI_CONTEXT PacketContext
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDoneAndStall(
-    IN PKIPI_CONTEXT PacketContext,
-    IN volatile PULONG ReverseStall
 );
 
 /* next file ***************************************************************/

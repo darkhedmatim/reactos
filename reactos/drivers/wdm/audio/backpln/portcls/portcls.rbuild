@@ -48,4 +48,5 @@
 	<file>MiniportWavePci.cpp</file>
 
 	<file>portcls.rc</file>
+	<file>portcls.spec</file>
 </module>

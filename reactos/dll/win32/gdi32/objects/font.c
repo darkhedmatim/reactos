@@ -101,7 +101,7 @@ static void FONT_TextMetricWToA(const TEXTMETRICW *ptmW, LPTEXTMETRICA ptmA )
  */
 static LPWSTR FONT_mbtowc(HDC hdc, LPCSTR str, INT count, INT *plenW, UINT *pCP)
 {
-    UINT cp = GdiGetCodePage( hdc );
+    UINT cp = CP_ACP; // GdiGetCodePage( hdc );
     INT lenW;
     LPWSTR strW;
 
@@ -660,7 +660,7 @@ GetCharWidthA(
         str[i] = (BYTE)(iFirstChar + i);
     str[i] = '\0';
 
-    wstr = FONT_mbtowc(hdc, str, count+1, &wlen, NULL);
+    wstr = FONT_mbtowc(NULL, str, count+1, &wlen, NULL);
     if (!wstr)
     {
         HeapFree(GetProcessHeap(), 0, str);
@@ -707,7 +707,7 @@ GetCharWidth32A(
         str[i] = (BYTE)(iFirstChar + i);
     str[i] = '\0';
 
-    wstr = FONT_mbtowc(hdc, str, count+1, &wlen, NULL);
+    wstr = FONT_mbtowc(NULL, str, count+1, &wlen, NULL);
     if (!wstr)
     {
         HeapFree(GetProcessHeap(), 0, str);
@@ -754,7 +754,7 @@ GetCharWidthFloatA(
         str[i] = (BYTE)(iFirstChar + i);
     str[i] = '\0';
 
-    wstr = FONT_mbtowc(hdc, str, count+1, &wlen, NULL);
+    wstr = FONT_mbtowc(NULL, str, count+1, &wlen, NULL);
     if (!wstr)
     {
         HeapFree(GetProcessHeap(), 0, str);
@@ -909,18 +909,6 @@ GetCharWidthI(HDC hdc,
  */
 DWORD
 STDCALL
-GetFontLanguageInfo(
-	HDC 	hDc
-	)
-{
-  return GetDCDWord(hDc, GdiGetFontLanguageInfo, GCP_ERROR); 
-}
-
-/*
- * @implemented
- */
-DWORD
-STDCALL
 GetGlyphIndicesA(
         HDC hdc,
         LPCSTR lpstr,
@@ -970,7 +958,7 @@ GetGlyphOutlineA(
             len = 1;
             mbchs[0] = (uChar & 0xff);
         }
-        p = FONT_mbtowc(hdc, mbchs, len, NULL, NULL);
+        p = FONT_mbtowc(NULL, mbchs, len, NULL, NULL);
 	c = p[0];
     } else
         c = uChar;
@@ -1354,8 +1342,6 @@ CreateFontIndirectW(
                                  sizeof(Logfont.elfEnumLogfontEx.elfStyle));
     RtlZeroMemory( &Logfont.elfEnumLogfontEx.elfScript,
                                  sizeof(Logfont.elfEnumLogfontEx.elfScript));
-
-    Logfont.elfDesignVector.dvNumAxes = 0; // No more than MM_MAX_NUMAXES
 
     RtlZeroMemory( &Logfont.elfDesignVector, sizeof(DESIGNVECTOR));
 

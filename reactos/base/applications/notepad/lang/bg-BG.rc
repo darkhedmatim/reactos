@@ -201,5 +201,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Уьиндоуьс"
 STRING_LF,                                      "Юникс"
 STRING_CR,                                      "Мак"
-STRING_LINE_COLUMN,                             "Line %d, column %d"
 END

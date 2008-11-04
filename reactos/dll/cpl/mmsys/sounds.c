@@ -648,35 +648,35 @@ LoadSoundProfiles(HWND hwndDlg)
 BOOL
 LoadSoundFiles(HWND hwndDlg)
 {
-    WCHAR szPath[MAX_PATH];
-    WCHAR * ptr;
-    WIN32_FIND_DATAW FileData;
+    TCHAR szPath[MAX_PATH];
+    TCHAR szNone[MAX_PATH];
+    TCHAR * ptr;
+    WIN32_FIND_DATA FileData;
     HANDLE hFile;
     LRESULT lResult;
     UINT length;
 
-    length = GetWindowsDirectoryW(szPath, MAX_PATH);
-    if (length == 0 || length >= MAX_PATH - 9)
+    length = GetWindowsDirectory(szPath, sizeof(szPath) / sizeof(TCHAR));
+    if (length == 0 || length > (sizeof(szPath) / sizeof(TCHAR)))
     {
         return FALSE;
     }
-    if (szPath[length-1] != L'\\')
+    if (szPath[length-1] != _T('\\'))
     {
-        szPath[length] = L'\\';
+        szPath[length] = _T('\\');
         length++;
     }
-    wcscpy(&szPath[length], L"media\\*");
+    _tcscpy(&szPath[length], _T("media\\*"));
     length += 7;
 
-    hFile = FindFirstFileW(szPath, &FileData);
+    hFile = FindFirstFile(szPath, &FileData);
     if (hFile == INVALID_HANDLE_VALUE)
     {
         return FALSE;
     }
-    if (LoadString(hApplet, IDS_NO_SOUND, szPath, MAX_PATH))
+    if (LoadString(hApplet, IDS_NO_SOUND, szNone, MAX_PATH))
     {
-        szPath[(sizeof(szPath)/sizeof(WCHAR))-1] = L'\0';
-        SendDlgItemMessageW(hwndDlg, IDC_SOUND_LIST, CB_ADDSTRING, (WPARAM)0, (LPARAM)szPath);
+        SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_ADDSTRING, (WPARAM)0, (LPARAM)szNone);
     }
 
     do
@@ -684,7 +684,7 @@ LoadSoundFiles(HWND hwndDlg)
         if (FileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             continue;
 
-        ptr = wcsrchr(FileData.cFileName, L'\\');
+        ptr = _tcsrchr(FileData.cFileName, _T('\\'));
         if (ptr)
         {
             ptr++;
@@ -693,13 +693,13 @@ LoadSoundFiles(HWND hwndDlg)
         {
             ptr = FileData.cFileName;
         }
-        lResult = SendDlgItemMessageW(hwndDlg, IDC_SOUND_LIST, CB_ADDSTRING, (WPARAM)0, (LPARAM)ptr);
+        lResult = SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_ADDSTRING, (WPARAM)0, (LPARAM)ptr);
         if (lResult != CB_ERR)
         {
-            wcscpy(&szPath[length-1], FileData.cFileName);
-            SendDlgItemMessageW(hwndDlg, IDC_SOUND_LIST, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)wcsdup(szPath));
+            _tcscpy(&szPath[length-1], FileData.cFileName);
+            SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)_tcsdup(szPath));
         }
-    }while(FindNextFileW(hFile, &FileData) != 0);
+    }while(FindNextFile(hFile, &FileData) != 0);
 
     FindClose(hFile);
     return TRUE;

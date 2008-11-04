@@ -146,7 +146,7 @@ Cleanup:
     KeLeaveCriticalRegion();
 
     /* Free the table if we failed and return status */
-    if (ThunkTable) ExFreePool(ThunkTable);
+    ExFreePool(ThunkTable);
     return Status;
 }
 

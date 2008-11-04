@@ -4,5 +4,6 @@
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<file>vdmdbg.c</file>
+	<file>vdmdbg.spec</file>
 	<pch>vdmdbg.h</pch>
 </module>

@@ -5,5 +5,6 @@
 	<include base="wmilib">.</include>
 	<library>ntoskrnl</library>
 	<file>wmilib.c</file>
+	<file>wmilib.spec</file>
 	<file>wmilib.rc</file>
 </module>

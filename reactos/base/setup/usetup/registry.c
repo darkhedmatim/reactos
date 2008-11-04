@@ -679,7 +679,7 @@ SetInstallPathValue(PUNICODE_STRING InstallPath)
                           0,
                           REG_SZ,
                           (PVOID)InstallPath->Buffer,
-                          InstallPath->Length + sizeof(WCHAR));
+                          InstallPath->Length);
   NtClose(KeyHandle);
   if (!NT_SUCCESS(Status))
     {

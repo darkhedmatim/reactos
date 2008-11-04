@@ -8,5 +8,6 @@
 	<library>user32</library>
 	<file>ntmarta.c</file>
 	<file>ntmarta.rc</file>
+	<file>ntmarta.spec</file>
 	<pch>ntmarta.h</pch>
 </module>

@@ -57,7 +57,6 @@
 			<file>actctx.c</file>
 			<file>atom.c</file>
 			<file>chartype.c</file>
-			<file>casemap.c</file>
 			<file>comm.c</file>
 			<file>computername.c</file>
 			<file>console.c</file>
@@ -65,7 +64,6 @@
 			<file>env.c</file>
 			<file>error.c</file>
 			<file>errormsg.c</file>
-			<file>fold.c</file>
 			<file>handle.c</file>
 			<file>lang.c</file>
 			<file>ldr.c</file>

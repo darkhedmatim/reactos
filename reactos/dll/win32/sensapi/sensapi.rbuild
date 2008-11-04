@@ -9,4 +9,5 @@
 	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>sensapi.c</file>
+	<file>sensapi.spec</file>
 </module>

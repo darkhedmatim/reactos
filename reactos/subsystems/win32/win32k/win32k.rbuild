@@ -161,8 +161,6 @@
 		<file>dibobj.c</file>
 		<file>drawing.c</file>
 		<file>fillshap.c</file>
-		<file>font.c</file>
-		<file>freetype.c</file>
 		<file>gdibatch.c</file>
 		<file>gdiobj.c</file>
 		<file>icm.c</file>
@@ -185,7 +183,7 @@
 	</directory>
 </module>
 <module name="win32k" type="kernelmodedriver" installbase="system32" installname="win32k.sys" allowwarnings="true">
-	<importlibrary definition="win32k.pspec" />
+	<importlibrary definition="win32k.spec" />
 	<library>win32k_base</library>
 	<library>pseh</library>
 	<library>ntoskrnl</library>

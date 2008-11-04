@@ -12,4 +12,5 @@
 	<library>winmm</library>
 	<file>wavemap.c</file>
 	<file>wavemap.rc</file>
+	<file>msacm.spec</file>
 </module>

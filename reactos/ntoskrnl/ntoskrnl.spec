@@ -80,8 +80,8 @@
 @ stdcall ExDisableResourceBoostLite(ptr)
 @ fastcall ExEnterCriticalRegionAndAcquireFastMutexUnsafe(ptr)
 @ stdcall ExEnterCriticalRegionAndAcquireResourceExclusive(ptr)
-@ stdcall ExEnterCriticalRegionAndAcquireResourceShared(ptr)
-@ stdcall ExEnterCriticalRegionAndAcquireSharedWaitForExclusive(ptr)
+;ExEnterCriticalRegionAndAcquireResourceShared
+;ExEnterCriticalRegionAndAcquireSharedWaitForExclusive
 @ stdcall ExEnumHandleTable(ptr ptr ptr ptr)
 @ extern ExEventObjectType _ExEventObjectType
 @ stdcall ExExtendZone(ptr ptr long)
@@ -494,7 +494,7 @@
 @ stdcall IoSynchronousInvalidateDeviceRelations(ptr long)
 @ stdcall IoSynchronousPageWrite(ptr ptr ptr ptr ptr)
 @ stdcall IoThreadToProcess(ptr)
-@ stdcall IoTranslateBusAddress(long long long long ptr ptr)
+;IoTranslateBusAddress
 @ stdcall IoUnregisterFileSystem(ptr)
 @ stdcall IoUnregisterFsRegistrationChange(ptr ptr)
 @ stdcall IoUnregisterPlugPlayNotification(ptr)
@@ -538,9 +538,9 @@
 @ stdcall KdSystemDebugControl(long ptr long ptr long ptr long)
 #ifdef _M_IX86
 @ stdcall Ke386CallBios(long ptr)
-@ stdcall Ke386IoSetAccessProcess(ptr long)
-@ stdcall Ke386QueryIoAccessMap(long ptr)
-@ stdcall Ke386SetIoAccessMap(long ptr)
+;Ke386IoSetAccessProcess
+;Ke386QueryIoAccessMap
+;Ke386SetIoAccessMap
 #endif
 @ fastcall KeAcquireGuardedMutex(ptr)
 @ fastcall KeAcquireGuardedMutexUnsafe(ptr)
@@ -705,7 +705,6 @@
 @ fastcall KiAcquireSpinLock(ptr)
 @ extern KiBugCheckData
 @ stdcall KiCheckForKernelApcDelivery()
-;KiCheckForSListAddress
 #ifdef _M_IX86
 @ stdcall KiCoprocessorError()
 #endif
@@ -916,17 +915,17 @@
 ;PfxInsertPrefix
 ;PfxRemovePrefix
 @ stdcall PoCallDriver(ptr ptr)
-@ stdcall PoCancelDeviceNotify(ptr)
+;PoCancelDeviceNotify
 @ stdcall PoQueueShutdownWorkItem(ptr)
 @ stdcall PoRegisterDeviceForIdleDetection(ptr long long long)
-@ stdcall PoRegisterDeviceNotify(ptr long long long ptr ptr)
+;PoRegisterDeviceNotify
 @ stdcall PoRegisterSystemState(ptr long)
 @ stdcall PoRequestPowerIrp(ptr long long ptr ptr ptr)
-@ stdcall PoRequestShutdownEvent(ptr)
-@ stdcall PoSetHiberRange(ptr long ptr long long)
+;PoRequestShutdownEvent
+;PoSetHiberRange
 @ stdcall PoSetPowerState(ptr long long)
 @ stdcall PoSetSystemState(long)
-@ stdcall PoShutdownBugCheck(long long ptr ptr ptr ptr)
+;PoShutdownBugCheck
 @ stdcall PoStartNextPowerIrp(ptr)
 @ stdcall PoUnregisterSystemState(ptr)
 @ stdcall ProbeForRead(ptr long long)

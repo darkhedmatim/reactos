@@ -9,4 +9,5 @@
 	<define name="BUILDING_DRMK" />
 	<file>stubs.cpp</file>
 	<file>drmk.rc</file>
+	<file>drmk.spec</file>
 </module>

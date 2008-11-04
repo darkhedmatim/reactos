@@ -96,7 +96,6 @@ IopNotifyPlugPlayNotification(
 		default:
 		{
 			DPRINT1("IopNotifyPlugPlayNotification(): unknown EventCategory 0x%x UNIMPLEMENTED\n", EventCategory);
-			KeReleaseGuardedMutex(&PnpNotifyListLock);
 			return;
 		}
 	}

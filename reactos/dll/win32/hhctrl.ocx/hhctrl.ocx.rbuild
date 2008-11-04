@@ -17,6 +17,7 @@
 	<file>regsvr.c</file>
 	<file>webbrowser.c</file>
 	<file>hhctrl.rc</file>
+	<file>hhctrl.ocx.spec</file>
 	<library>wine</library>
 	<library>advapi32</library>
 	<library>comctl32</library>

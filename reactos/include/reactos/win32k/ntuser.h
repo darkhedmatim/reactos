@@ -1724,12 +1724,12 @@ NtUserImpersonateDdeClientWindow(
   HWND hWndClient,
   HWND hWndServer);
 
-NTSTATUS
+DWORD
 NTAPI
 NtUserInitialize(
-  DWORD   dwWinVersion,
-  HANDLE  hPowerRequestEvent,
-  HANDLE  hMediaRequestEvent);
+    DWORD dwUnknown1,
+    DWORD dwUnknown2,
+    DWORD dwUnknown3);
 
 NTSTATUS
 NTAPI

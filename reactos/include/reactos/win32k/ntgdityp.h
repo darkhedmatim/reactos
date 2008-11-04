@@ -218,11 +218,11 @@ typedef PVOID PUMDHPDEV;
 typedef D3DNTHAL_CONTEXTCREATEDATA D3DNTHAL_CONTEXTCREATEI;
 typedef LONG FIX;
 
-typedef struct _CHWIDTHINFO // Based on FD_DEVICEMETRICS
+typedef struct _CHWIDTHINFO
 {
-   LONG    lMinA;
-   LONG    lMinC;
-   LONG    lMinD;
+   LONG    lMaxNegA;
+   LONG    lMaxNegC;
+   LONG    lMinWidthD;
 } CHWIDTHINFO, *PCHWIDTHINFO;
 
 typedef struct _UNIVERSAL_FONT_ID
@@ -231,15 +231,10 @@ typedef struct _UNIVERSAL_FONT_ID
     ULONG Index;
 } UNIVERSAL_FONT_ID, *PUNIVERSAL_FONT_ID;
 
-#define RI_TECH_BITMAP   1
-#define RI_TECH_FIXED    2
-#define RI_TECH_SCALABLE 3
-
-typedef struct _REALIZATION_INFO
+typedef struct _REALIZATION_INFO // Based on LOCALESIGNATURE
 {
-    DWORD  iTechnology;
-    DWORD  iUniq;
-    DWORD  dwUnknown;
+    DWORD  dwCsbDefault[2];
+    DWORD  dwCsbSupported0;
 } REALIZATION_INFO, *PREALIZATION_INFO;
 
 typedef struct _WIDTHDATA
@@ -407,10 +402,7 @@ typedef struct _CFONT
     USHORT          sWidth[256];        // Widths in pels.
     ULONG           ulAveWidth;         // bogus average used by USER
     TMW_INTERNAL    tmw;                // cached metrics
-    DWORD           iTechnology;
-    DWORD           iUniq;
-    DWORD           dwUnknown;
-    DWORD           dwCFCount;
+    LOCALESIGNATURE lsLocSig;           // font signature information
 } CFONT, *PCFONT;
 
 //

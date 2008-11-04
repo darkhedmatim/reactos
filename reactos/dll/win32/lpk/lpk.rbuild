@@ -12,4 +12,5 @@
 	<file>stub.c</file>
 
 	<file>lpk.rc</file>
+	<file>lpk.spec</file>
 </module>

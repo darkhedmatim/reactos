@@ -64,7 +64,6 @@ FASTCALL
 GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
 {
   PDC_ATTR Dc_Attr = NULL;
-
   if (dc)
   {
     Dc_Attr = dc->pDc_Attr;
@@ -96,8 +95,8 @@ GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
         PGDIBSOBJECT pgO;
         if(!dc) break;
         pgO = (PGDIBSOBJECT) pHdr;
-        TextIntRealizeFont((HFONT) pgO->hgdiobj, NULL);
-        Dc_Attr->ulDirty_ &= ~(DIRTY_CHARSET);
+        if(NT_SUCCESS(TextIntRealizeFont((HFONT) pgO->hgdiobj)))
+                      Dc_Attr->hlfntNew = (HFONT) pgO->hgdiobj;
      }
      case GdiBCDelObj:
      case GdiBCDelRgn:

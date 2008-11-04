@@ -10,4 +10,5 @@
 	<library>user32</library>
 	<file>cards.c</file>
 	<file>cards.rc</file>
+	<file>cards.spec</file>
 </module>

@@ -12,6 +12,7 @@
 	<file>net.c</file>
 	<file>request.c</file>
 	<file>session.c</file>
+	<file>winhttp.spec</file>
 	<library>wine</library>
 	<library>wininet</library>
 	<library>ws2_32</library>

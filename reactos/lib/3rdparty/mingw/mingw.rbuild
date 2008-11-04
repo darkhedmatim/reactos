@@ -13,7 +13,10 @@
 	<file>isascii.c</file>
 	<file>iscsym.c</file>
 	<file>iscsymf.c</file>
+	<file>strcasecmp.c</file>
+	<file>strncasecmp.c</file>
 	<file>toascii.c</file>
+	<file>wcscmpi.c</file>
 	<file>_wgetopt.c</file>
 	<if property="ARCH" value="i386">
 		<file>pseudo-reloc.c</file>
