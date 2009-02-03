@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/update.cmd
 :: PURPOSE:     RosBE Updater.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2008 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 ::
 @echo off
@@ -21,7 +21,7 @@ title Updating...
 ::
 :: The Update Server.
 ::
-set _ROSBE_URL=http://danielreimer.5x.to/rosbe
+set _ROSBE_URL=http://mitglied.lycos.de/reimerdaniel/rosbe
 
 ::
 :: Save the recent dir to cd back there at the end.
@@ -185,10 +185,7 @@ if exist "%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.txt" (
     echo Install?
     setlocal enabledelayedexpansion
     set /p YESNO="(yes), (no)"
-    if /i "!YESNO!"=="yes" goto :updyes
-    if /i "!YESNO!"=="y" goto :updyes
-    goto :no
-    :updyes
+    if /i "!YESNO!"=="yes" (
         if not exist "%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.7z" (
             "%_ROSBE_BASEDIR%\Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.7z 1> NUL 2> NUL
         )
@@ -202,15 +199,12 @@ if exist "%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.txt" (
             echo ERROR: This Update does not seem to exist or the Internet connection is not working correctly.
             goto :EOF
         )
-        goto :EOF
-    :no
+    ) else if /i "!YESNO!"=="no" (
         echo Do you want to be asked again to install this update?
         set /p YESNO="(yes), (no)"
-        if /i "!YESNO!"=="yes" goto :yesagain
-        if /i "!YESNO!"=="y" goto :yesagain
-        goto :EOF
-        :yesagain
-        del "%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.txt" 1> NUL 2> NUL
+        if /i "!YESNO!"=="yes" (
+            del "%_ROSBE_VERSION%-%_ROSBE_STATCOUNT%.txt" 1> NUL 2> NUL
+        )
         goto :EOF
     )
     endlocal

@@ -516,7 +516,7 @@ static HRESULT WINAPI xmlelem_collection_QueryInterface(IXMLElementCollection *i
     }
     else if (IsEqualGUID(riid, &IID_IEnumVARIANT))
     {
-        *ppvObject = &(This->lpvtblIEnumVARIANT);
+        *ppvObject = (IEnumVARIANT *)&(This->lpvtblIEnumVARIANT);
     }
     else
     {

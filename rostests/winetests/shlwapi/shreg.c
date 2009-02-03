@@ -31,7 +31,7 @@
 
 /* Keys used for testing */
 #define REG_TEST_KEY        "Software\\Wine\\Test"
-#define REG_CURRENT_VERSION "Software\\Microsoft\\Windows\\CurrentVersion\\explorer"
+#define REG_CURRENT_VERSION "Software\\Microsoft\\Windows\\CurrentVersion"
 
 static HMODULE hshlwapi;
 typedef DWORD (WINAPI *SHCopyKeyA_func)(HKEY,LPCSTR,HKEY,DWORD);
@@ -284,12 +284,6 @@ static void test_SHCopyKey(void)
 	HKEY hKeySrc, hKeyDst;
         DWORD dwRet;
 
-        if (!pSHCopyKeyA)
-        {
-            win_skip("SHCopyKeyA is not available\n");
-            return;
-        }
-
 	/* Delete existing destination sub keys */
 	hKeyDst = NULL;
 	if (!RegOpenKeyA(HKEY_CURRENT_USER, REG_TEST_KEY "\\CopyDestination", &hKeyDst) && hKeyDst)
@@ -311,19 +305,22 @@ static void test_SHCopyKey(void)
         if (dwRet || !hKeySrc)
 	{
                 ok( 0, "Source couldn't be opened, RegOpenKeyA returned (%u)\n", dwRet);
-                RegCloseKey(hKeyDst);
 		return;
 	}
 
-        dwRet = (*pSHCopyKeyA)(hKeySrc, NULL, hKeyDst, 0);
-        ok ( ERROR_SUCCESS == dwRet, "Copy failed, ret=(%u)\n", dwRet);
+
+	if (pSHCopyKeyA)
+        {
+                dwRet = (*pSHCopyKeyA)(hKeySrc, NULL, hKeyDst, 0);
+                ok ( ERROR_SUCCESS == dwRet, "Copy failed, ret=(%u)\n", dwRet);
+        }
 
 	RegCloseKey(hKeySrc);
 	RegCloseKey(hKeyDst);
 
         /* Check we copied the sub keys, i.e. something that's on every windows system (including Wine) */
 	hKeyDst = NULL;
-        dwRet = RegOpenKeyA(HKEY_CURRENT_USER, REG_TEST_KEY "\\CopyDestination\\Shell Folders", &hKeyDst);
+        dwRet = RegOpenKeyA(HKEY_CURRENT_USER, REG_TEST_KEY "\\CopyDestination\\Setup", &hKeyDst);
         if (dwRet || !hKeyDst)
 	{
                 ok ( 0, "Copy couldn't be opened, RegOpenKeyA returned (%u)\n", dwRet);
@@ -331,7 +328,7 @@ static void test_SHCopyKey(void)
 	}
 
 	/* And the we copied the values too */
-	ok(!SHQueryValueExA(hKeyDst, "Common AppData", NULL, NULL, NULL, NULL), "SHQueryValueExA failed\n");
+	ok(!SHQueryValueExA(hKeyDst, "BootDir", NULL, NULL, NULL, NULL), "SHQueryValueExA failed\n");
 
 	RegCloseKey(hKeyDst);
 }

@@ -82,7 +82,8 @@ static inline void __GetMoniker(HlinkImpl* This, IMoniker** moniker)
     else if (This->Site)
     {
         IHlinkSite_GetMoniker(This->Site, This->SiteData,
-                OLEGETMONIKER_FORCEASSIGN, OLEWHICHMK_CONTAINER, moniker);
+                OLEGETMONIKER_FORCEASSIGN, OLEWHICHMK_CONTAINER,
+                (LPVOID)moniker);
     }
 }
 
@@ -122,9 +123,9 @@ static HRESULT WINAPI IHlink_fnQueryInterface(IHlink* iface, REFIID riid,
     if (IsEqualIID(riid, &IID_IUnknown) || (IsEqualIID(riid, &IID_IHlink)))
         *ppvObj = This;
     else if (IsEqualIID(riid, &IID_IPersistStream))
-        *ppvObj = &(This->lpPSVtbl);
+        *ppvObj = (LPVOID*)&(This->lpPSVtbl);
     else if (IsEqualIID(riid, &IID_IDataObject))
-        *ppvObj = &(This->lpDOVtbl);
+        *ppvObj = (LPVOID*)&(This->lpDOVtbl);
 
     if (*ppvObj)
     {

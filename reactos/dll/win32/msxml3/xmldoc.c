@@ -86,7 +86,7 @@ static HRESULT WINAPI xmldoc_QueryInterface(IXMLDocument *iface, REFIID riid, vo
     else if (IsEqualGUID(&IID_IPersistStreamInit, riid) ||
              IsEqualGUID(&IID_IPersistStream, riid))
     {
-        *ppvObject = &(This->lpvtblIPersistStreamInit);
+        *ppvObject = (IPersistStreamInit *)&(This->lpvtblIPersistStreamInit);
     }
     else
     {

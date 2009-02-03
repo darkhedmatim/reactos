@@ -1,7 +1,5 @@
 /*
- * cryptdlg dll Dutch resources
- *
- * Copyright 2009 Frans Kool
+ * Copyright 2001 Dmitry Timoshkov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,19 +16,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-LANGUAGE LANG_DUTCH, SUBLANG_NEUTRAL
+#define WINE_FILEDESCRIPTION_STR "Wine core dll"
+#define WINE_FILENAME_STR "shell.dll"
+#define WINE_FILEVERSION 4,0,0,0
+#define WINE_FILEVERSION_STR "4.0"
 
-STRINGTABLE DISCARDABLE
-{
-    IDS_CERT_POLICY "Certificaat beleid"
-    IDS_POLICY_ID "Beleid Identificatie: "
-    IDS_POLICY_QUALIFIER_INFO "Beleid kwalificator informatie"
-    IDS_POLICY_QUALIFIER_ID "Beleid kwalificator Id="
-    IDS_CPS "CPS"
-    IDS_USER_NOTICE "Gebruikers verklaring"
-    IDS_QUALIFIER "Kwalificator"
-    IDS_NOTICE_REF "Verklaring referentie"
-    IDS_ORGANIZATION "Organisatie="
-    IDS_NOTICE_NUM "Verklaring nummer="
-    IDS_NOTICE_TEXT "Verklaring tekst="
-}
+#include "wine/wine_common_ver.rc"

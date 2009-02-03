@@ -37,11 +37,9 @@ base\applications\cmdutils\dbgprint\dbgprint.exe        1
 base\applications\cmdutils\doskey\doskey.exe            1
 base\applications\cmdutils\find\find.exe                1
 base\applications\cmdutils\hostname\hostname.exe        1
-base\applications\cmdutils\lodctr\lodctr.exe            1
 base\applications\cmdutils\more\more.exe                1
 base\applications\cmdutils\xcopy\xcopy.exe              1
 base\applications\control\control.exe                   1
-base\applications\dxdiag\dxdiag.exe                     1
 base\applications\mscutils\devmgmt\devmgmt.exe          1
 base\applications\mscutils\eventvwr\eventvwr.exe        1
 base\applications\games\solitaire\sol.exe               1
@@ -66,7 +64,6 @@ base\applications\network\whois\whois.exe               1
 base\applications\notepad\notepad.exe                   1
 base\applications\regedit\regedit.exe                   4
 base\applications\regedit\clb\clb.dll                   1
-base\applications\regedt32\regedt32.exe                 1
 base\applications\sc\sc.exe                             1
 base\applications\screensavers\3dtext\3dtext.scr        1
 base\applications\screensavers\logon\logon.scr          1
@@ -121,19 +118,15 @@ dll\cpl\appwiz\appwiz.cpl                           1
 dll\cpl\console\console.dll                         1
 dll\cpl\desk\desk.cpl                               1
 dll\cpl\hdwwiz\hdwwiz.cpl                           1
-dll\cpl\input\input.dll                             1
 dll\cpl\intl\intl.cpl                               1
-dll\cpl\joy\joy.cpl                                 1
-;dll\cpl\liccpa\liccpa.cpl                          1
 dll\cpl\main\main.cpl                               1
 dll\cpl\mmsys\mmsys.cpl                             1
 dll\cpl\ncpa\ncpa.cpl                               1
-;dll\cpl\odbccp32\odbccp32.cpl                      1
 dll\cpl\powercfg\powercfg.cpl                       1
 dll\cpl\sysdm\sysdm.cpl                             1
-;dll\cpl\telephon\telephon.cpl                      1
 dll\cpl\timedate\timedate.cpl                       1
-;dll\cpl\usrmgr\usrmgr.cpl                          1
+dll\cpl\input\input.dll                             1
+dll\cpl\joy\joy.cpl                                 1
 
 dll\directx\dinput\dinput.dll                       1
 dll\directx\dinput8\dinput8.dll                     1
@@ -237,7 +230,6 @@ dll\ntdll\ntdll.dll                                 1
 
 dll\win32\acledit\acledit.dll                       1
 dll\win32\aclui\aclui.dll                           1
-dll\win32\activeds\activeds.dll                     1
 dll\win32\advapi32\advapi32.dll                     1
 dll\win32\advpack\advpack.dll                       1
 dll\win32\atl\atl.dll                               1
@@ -284,7 +276,6 @@ dll\win32\iphlpapi\iphlpapi.dll                     1
 dll\win32\itss\itss.dll                             1
 dll\win32\jscript\jscript.dll                       1
 dll\win32\kernel32\kernel32.dll                     1
-dll\win32\loadperf\loadperf.dll                     1
 dll\win32\localui\localui.dll                       1
 dll\win32\lsasrv\lsasrv.dll                         1
 dll\win32\lz32\lz32.dll                             1
@@ -334,7 +325,6 @@ dll\win32\powrprof\powrprof.dll                     1
 dll\win32\printui\printui.dll                       1
 dll\win32\psapi\psapi.dll                           1
 dll\win32\pstorec\pstorec.dll                       1
-dll\win32\qmgr\qmgr.dll                             1
 dll\win32\rasapi32\rasapi32.dll                     1
 dll\win32\rasdlg\rasdlg.dll                         1
 dll\win32\rasman\rasman.dll                         1

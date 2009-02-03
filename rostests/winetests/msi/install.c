@@ -1365,7 +1365,6 @@ static void get_user_sid(LPSTR *usersid)
     GetTokenInformation(token, TokenUser, buf, size, &size);
     user = (PTOKEN_USER)buf;
     pConvertSidToStringSidA(user->User.Sid, usersid);
-    CloseHandle(token);
 }
 
 static BOOL check_record(MSIHANDLE rec, UINT field, LPCSTR val)
@@ -2395,41 +2394,6 @@ static void check_reg_dword(HKEY prodkey, LPCSTR name, DWORD expected, DWORD lin
     ok_(__FILE__, line)(val == expected, "Expected %d, got %d\n", expected, val);
 }
 
-static void check_reg_dword2(HKEY prodkey, LPCSTR name, DWORD expected1, DWORD expected2, DWORD line)
-{
-    DWORD val, size, type;
-    LONG res;
-
-    size = sizeof(DWORD);
-    res = RegQueryValueExA(prodkey, name, NULL, &type, (LPBYTE)&val, &size);
-
-    if (res != ERROR_SUCCESS || type != REG_DWORD)
-    {
-        ok_(__FILE__, line)(FALSE, "Key doesn't exist or wrong type\n");
-        return;
-    }
-
-    ok_(__FILE__, line)(val == expected1 || val == expected2, "Expected %d or %d, got %d\n", expected1, expected2, val);
-}
-
-static void check_reg_dword3(HKEY prodkey, LPCSTR name, DWORD expected1, DWORD expected2, DWORD expected3, DWORD line)
-{
-    DWORD val, size, type;
-    LONG res;
-
-    size = sizeof(DWORD);
-    res = RegQueryValueExA(prodkey, name, NULL, &type, (LPBYTE)&val, &size);
-
-    if (res != ERROR_SUCCESS || type != REG_DWORD)
-    {
-        ok_(__FILE__, line)(FALSE, "Key doesn't exist or wrong type\n");
-        return;
-    }
-
-    ok_(__FILE__, line)(val == expected1 || val == expected2 || val == expected3,
-                        "Expected %d, %d or %d, got %d\n", expected1, expected2, expected3, val);
-}
-
 #define CHECK_REG_STR(prodkey, name, expected) \
     check_reg_str(prodkey, name, expected, TRUE, __LINE__);
 
@@ -2449,20 +2413,6 @@ static void check_reg_dword3(HKEY prodkey, LPCSTR name, DWORD expected1, DWORD e
 
 #define CHECK_DEL_REG_DWORD(prodkey, name, expected) \
     check_reg_dword(prodkey, name, expected, __LINE__); \
-    RegDeleteValueA(prodkey, name);
-
-#define CHECK_REG_DWORD2(prodkey, name, expected1, expected2) \
-    check_reg_dword2(prodkey, name, expected1, expected2, __LINE__);
-
-#define CHECK_DEL_REG_DWORD2(prodkey, name, expected1, expected2) \
-    check_reg_dword2(prodkey, name, expected1, expected2, __LINE__); \
-    RegDeleteValueA(prodkey, name);
-
-#define CHECK_REG_DWORD3(prodkey, name, expected1, expected2, expected3) \
-    check_reg_dword3(prodkey, name, expected1, expected2, expected3, __LINE__);
-
-#define CHECK_DEL_REG_DWORD3(prodkey, name, expected1, expected2, expected3) \
-    check_reg_dword3(prodkey, name, expected1, expected2, expected3, __LINE__); \
     RegDeleteValueA(prodkey, name);
 
 static void get_date_str(LPSTR date)
@@ -2547,7 +2497,7 @@ static void test_publish_registerproduct(void)
     CHECK_DEL_REG_DWORD(hkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_DEL_REG_DWORD3(hkey, "EstimatedSize", 12, -12, 4);
+        CHECK_DEL_REG_DWORD(hkey, "EstimatedSize", 12);
     }
 
     RegDeleteKeyA(hkey, "");
@@ -2585,7 +2535,7 @@ static void test_publish_registerproduct(void)
     CHECK_DEL_REG_DWORD(props, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_DEL_REG_DWORD3(props, "EstimatedSize", 12, -12, 4);
+        CHECK_DEL_REG_DWORD(props, "EstimatedSize", 12);
     }
 
     RegDeleteKeyA(props, "");
@@ -2646,7 +2596,7 @@ static void test_publish_registerproduct(void)
     CHECK_DEL_REG_DWORD(hkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_DEL_REG_DWORD3(hkey, "EstimatedSize", 12, -12, 4);
+        CHECK_DEL_REG_DWORD(hkey, "EstimatedSize", 12);
     }
 
     RegDeleteKeyA(hkey, "");
@@ -2684,7 +2634,7 @@ static void test_publish_registerproduct(void)
     CHECK_DEL_REG_DWORD(props, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_DEL_REG_DWORD3(props, "EstimatedSize", 12, -12, 4);
+        CHECK_DEL_REG_DWORD(props, "EstimatedSize", 12);
     }
 
     RegDeleteKeyA(props, "");
@@ -3409,7 +3359,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -12);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3483,7 +3433,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -12);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3561,7 +3511,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -12);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3613,7 +3563,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -12);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3665,7 +3615,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -20);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3743,7 +3693,7 @@ static void test_publish(void)
     CHECK_REG_DWORD(prodkey, "WindowsInstaller", 1);
     todo_wine
     {
-        CHECK_REG_DWORD2(prodkey, "EstimatedSize", 12, -12);
+        CHECK_REG_DWORD(prodkey, "EstimatedSize", 12);
     }
 
     RegCloseKey(prodkey);
@@ -3810,21 +3760,17 @@ static void test_publishsourcelist(void)
     ok(pf_exists("msitest"), "File not installed\n");
 
     /* nothing published */
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListGetInfoA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, value, &size);
+                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListEnumSourcesA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, value, &size);
+                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
     r = MsiInstallProductA(msifile, "REGISTER_PRODUCT=1");
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
@@ -3832,21 +3778,17 @@ static void test_publishsourcelist(void)
     ok(pf_exists("msitest"), "File not installed\n");
 
     /* after RegisterProduct */
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListGetInfoA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, value, &size);
+                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListEnumSourcesA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, value, &size);
+                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
     r = MsiInstallProductA(msifile, "PROCESS_COMPONENTS=1");
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
@@ -3854,21 +3796,17 @@ static void test_publishsourcelist(void)
     ok(pf_exists("msitest"), "File not installed\n");
 
     /* after ProcessComponents */
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListGetInfoA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, value, &size);
+                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListEnumSourcesA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, value, &size);
+                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
     r = MsiInstallProductA(msifile, "PUBLISH_FEATURES=1");
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
@@ -3876,21 +3814,17 @@ static void test_publishsourcelist(void)
     ok(pf_exists("msitest"), "File not installed\n");
 
     /* after PublishFeatures */
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListGetInfoA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, value, &size);
+                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
-    size = MAX_PATH;
-    lstrcpyA(value, "aaa");
+    size = 0xdeadbeef;
     r = pMsiSourceListEnumSourcesA(prodcode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, value, &size);
+                                   MSICODE_PRODUCT | MSISOURCETYPE_URL, 0, NULL, &size);
     ok(r == ERROR_UNKNOWN_PRODUCT, "Expected ERROR_UNKNOWN_PRODUCT, got %d\n", r);
-    ok(size == MAX_PATH, "Expected %d, got %d\n", MAX_PATH, size);
-    ok(!lstrcmpA(value, "aaa"), "Expected \"aaa\", got \"%s\"\n", value);
+    ok(size == 0xdeadbeef, "Expected 0xdeadbeef, got %d\n", size);
 
     r = MsiInstallProductA(msifile, "PUBLISH_PRODUCT=1");
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);

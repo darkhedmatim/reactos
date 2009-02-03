@@ -103,8 +103,10 @@ WINE_DEFAULT_DEBUG_CHANNEL(netbios);
 #define MIN_CACHE_TIMEOUT   60000
 #define CACHE_TIMEOUT       360000
 
-#define MAX_NBT_NAME_SZ            255
-#define SIMPLE_NAME_QUERY_PKT_SIZE 16 + MAX_NBT_NAME_SZ
+#define MAX_NBT_NAME_SZ (NCBNAMSZ * 2 + MAX_DOMAIN_NAME_LEN + 2)
+#define SIMPLE_NAME_QUERY_PKT_SIZE 26 + MAX_NBT_NAME_SZ
+
+#define DEFAULT_NBT_SESSIONS 16
 
 #define NBNS_TYPE_NB             0x0020
 #define NBNS_TYPE_NBSTAT         0x0021
@@ -154,7 +156,7 @@ static DWORD gWINSQueries;
 static DWORD gWINSQueryTimeout;
 static DWORD gWINSServers[MAX_WINS_SERVERS];
 static int   gNumWINSServers;
-static char  gScopeID[MAX_SCOPE_ID_LEN];
+static char  gScopeID[MAX_DOMAIN_NAME_LEN];
 static DWORD gCacheTimeout;
 static struct NBNameCache *gNameCache;
 
@@ -1491,7 +1493,7 @@ void NetBTInit(void)
          (LPBYTE)&dword, &size) == ERROR_SUCCESS && dword >= MIN_QUERY_TIMEOUT
          && dword <= MAX_QUERY_TIMEOUT)
             gWINSQueryTimeout = dword;
-        size = sizeof(gScopeID) - 1;
+        size = MAX_DOMAIN_NAME_LEN - 1;
         if (RegQueryValueExW(hKey, ScopeIDW, NULL, NULL, (LPBYTE)gScopeID + 1, &size)
          == ERROR_SUCCESS)
         {
@@ -1499,11 +1501,11 @@ void NetBTInit(void)
                NetBTNameEncode */
             char *ptr, *lenPtr;
 
-            for (ptr = gScopeID + 1; ptr - gScopeID < sizeof(gScopeID) && *ptr; )
+            for (ptr = gScopeID + 1; *ptr &&
+             ptr - gScopeID < MAX_DOMAIN_NAME_LEN; )
             {
-                for (lenPtr = ptr - 1, *lenPtr = 0;
-                     ptr - gScopeID < sizeof(gScopeID) && *ptr && *ptr != '.';
-                     ptr++)
+                for (lenPtr = ptr - 1, *lenPtr = 0; *ptr && *ptr != '.' &&
+                 ptr - gScopeID < MAX_DOMAIN_NAME_LEN; ptr++)
                     *lenPtr += 1;
                 ptr++;
             }

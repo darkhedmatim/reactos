@@ -69,7 +69,6 @@
 	<file>shpolicy.c</file>
 	<file>shv_def_cmenu.c</file>
 	<file>startmenu.c</file>
-	<file>stubs.c</file>
 	<file>ros-systray.c</file>
 	<file>fprop.c</file>
 	<file>drive.c</file>

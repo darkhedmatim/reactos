@@ -5,6 +5,7 @@
 		
 		switch($lang)
 		{
+			case 'ar':
 			case 'bg':
 			case 'ca':
 			case 'cz':
@@ -13,7 +14,6 @@
 			case 'el':
 			case 'en':
 			case 'es':
-			case 'fi':
 			case 'fr':
 			case 'he':
 			case 'hu':

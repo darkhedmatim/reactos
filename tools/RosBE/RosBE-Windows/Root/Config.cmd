@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/Config.cmd
 :: PURPOSE:     A Basic Config.rbuild Creator for ReactOS.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 ::
 @echo off
@@ -24,7 +24,6 @@ if /i "%1" == "delete" (
     echo Continue?
     set /p YESNO="(yes), (no)"
     if /i "!YESNO!"=="yes" goto :CONT
-    if /i "!YESNO!"=="y" goto :CONT
     goto :NOK
 
     :CONT
@@ -48,7 +47,6 @@ if /i "%1" == "update" (
     echo Continue?
     set /p YESNO="(yes), (no)"
     if /i "!YESNO!"=="yes" goto :CONT2
-    if /i "!YESNO!"=="y" goto :CONT2
     goto :NOK
 
     :CONT2
@@ -82,7 +80,6 @@ echo.
 
 set /p YESNO="(yes), (no)"
 if /i "%YESNO%"=="yes" goto :OK
-if /i "%YESNO%"=="y" goto :OK
 goto :NOK
 
 :OK
@@ -101,15 +98,9 @@ if exist ".\config.rbuild" (
         echo *** previously made settings.                                  ***
         echo.
         set /p YESNO="(yes), (no)"
-        if /i "!YESNO!"=="yes" goto :YES
-        if /i "!YESNO!"=="y" goto :YES
-        goto :NOK
-        :YES
-        del "%APPDATA%\RosBE\*.rbuild"
-        del "config.rbuild"
-        copy "config.template.rbuild" "%APPDATA%\RosBE\config.rbuild"
-        goto :OK
+        if /i "!YESNO!"=="yes" del "%APPDATA%\RosBE\*.rbuild" | del "config.rbuild" | copy "config.template.rbuild" "%APPDATA%\RosBE\config.rbuild" | goto :OK
         endlocal
+        goto :NOK
     )
 )
 

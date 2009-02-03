@@ -48,7 +48,7 @@
 @ stub HlinkGoForward
 @ stub HlinkNavigateMoniker
 @ stdcall HlinkNavigateString(ptr wstr)
-@ stdcall HlinkSimpleNavigateToMoniker(ptr wstr wstr ptr ptr ptr long long)
+@ stub HlinkSimpleNavigateToMoniker
 @ stdcall HlinkSimpleNavigateToString(wstr wstr wstr ptr ptr ptr long long)
 @ stdcall IsAsyncMoniker(ptr)
 @ stdcall IsLoggingEnabledA(str)

@@ -1,9 +1,9 @@
 #
 # PROJECT:     RosBE - ReactOS Build Environment for Windows
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
-# FILE:        Root/sSVN.ps1
+# FILE:        Root/sSVN.cmd
 # PURPOSE:     Integrated SVN Client.
-# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 #
 #
 
@@ -14,7 +14,7 @@ function UP {
     if ($OFFSVN -lt $ONSVN) {
         "Your tree is not up to date. Do you want to update it?"
         $UP = Read-Host "Please enter 'yes' or 'no': "
-        if (($UP -eq "yes") -or ($UP -eq "y")) {
+        if ($UP -eq "yes") {
             IEX "&'$_ROSBE_BASEDIR\ssvn' update"
         }
     }

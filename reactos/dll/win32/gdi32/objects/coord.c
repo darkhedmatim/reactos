@@ -327,6 +327,7 @@ SetViewportExtEx(HDC hdc,
                  int nYExtent,
                  LPSIZE lpSize)
 {
+#if 0
   PDC_ATTR Dc_Attr;
 #if 0
   if (GDI_HANDLE_GET_TYPE(hdc) != GDI_OBJECT_TYPE_DC)
@@ -348,23 +349,20 @@ SetViewportExtEx(HDC hdc,
     }
   }
 #endif
-  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr))
-  {
-      return FALSE;
-  }
+  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
 
   if (lpSize)
   {
-     lpSize->cx = Dc_Attr->szlViewportExt.cx;
-     lpSize->cy = Dc_Attr->szlViewportExt.cy;
+     lpSize->cx = Dc_Attr->szlWindowExt.cx;
+     lpSize->cy = Dc_Attr->szlWindowExt.cy;
   }
 
-  if ((Dc_Attr->szlViewportExt.cx == nXExtent) && (Dc_Attr->szlViewportExt.cy == nYExtent))
+  if ((Dc_Attr->ptlWindowExt.cx == nXExtent) && (Dc_Attr->ptlWindowExt.cy == nYExtent))
      return TRUE;
 
-  if ((Dc_Attr->iMapMode == MM_ISOTROPIC) || (Dc_Attr->iMapMode == MM_ANISOTROPIC))
+  if ((Dc_Attr->iMapMode == MM_ISOTROPIC) && (Dc_Attr->iMapMode == MM_ANISOTROPIC))
   {
-     if (NtCurrentTeb()->GdiTebBatch.HDC == hdc)
+     if (NtCurrentTeb()->GdiTebBatch.HDC == (ULONG)hdc)
      {
         if (Dc_Attr->ulDirty_ & DC_FONTTEXT_DIRTY)
         {
@@ -372,12 +370,14 @@ SetViewportExtEx(HDC hdc,
            Dc_Attr->ulDirty_ &= ~(DC_MODE_DIRTY|DC_FONTTEXT_DIRTY);
         }
      }
-     Dc_Attr->szlViewportExt.cx = nXExtent;
-     Dc_Attr->szlViewportExt.cy = nYExtent;
+     Dc_Attr->szlWindowExt.cx = nXExtent;
+     Dc_Attr->szlWindowExt.cy = nYExtent;
      if (Dc_Attr->dwLayout & LAYOUT_RTL) NtGdiMirrorWindowOrg(hdc);
      Dc_Attr->flXform |= (PAGE_EXTENTS_CHANGED|INVALIDATE_ATTRIBUTES|DEVICE_TO_WORLD_INVALID);
   }
   return TRUE;
+#endif
+  return NtGdiSetViewportExtEx(hdc, nXExtent, nYExtent, lpSize);
 }
 
 /*
@@ -452,6 +452,7 @@ SetWindowExtEx(HDC hdc,
                int nYExtent,
                LPSIZE lpSize)
 {
+#if 0
   PDC_ATTR Dc_Attr;
 #if 0
   if (GDI_HANDLE_GET_TYPE(hdc) != GDI_OBJECT_TYPE_DC)
@@ -487,14 +488,14 @@ SetWindowExtEx(HDC hdc,
      NtGdiMirrorWindowOrg(hdc);
      Dc_Attr->flXform |= (PAGE_EXTENTS_CHANGED|INVALIDATE_ATTRIBUTES|DEVICE_TO_WORLD_INVALID);
   }
-  else if ((Dc_Attr->iMapMode == MM_ISOTROPIC) || (Dc_Attr->iMapMode == MM_ANISOTROPIC))
+  else if ((Dc_Attr->iMapMode == MM_ISOTROPIC) && (Dc_Attr->iMapMode == MM_ANISOTROPIC))
   {
      if ((Dc_Attr->szlWindowExt.cx == nXExtent) && (Dc_Attr->szlWindowExt.cy == nYExtent))
         return TRUE;
 
-     if ((!nXExtent) || (!nYExtent)) return FALSE;
+     if ((!nXExtent) && (!nYExtent)) return FALSE;
 
-     if (NtCurrentTeb()->GdiTebBatch.HDC == hdc)
+     if (NtCurrentTeb()->GdiTebBatch.HDC == (ULONG)hdc)
      {
         if (Dc_Attr->ulDirty_ & DC_FONTTEXT_DIRTY)
         {
@@ -508,6 +509,8 @@ SetWindowExtEx(HDC hdc,
      Dc_Attr->flXform |= (PAGE_EXTENTS_CHANGED|INVALIDATE_ATTRIBUTES|DEVICE_TO_WORLD_INVALID);  
   }
   return TRUE; // Return TRUE.
+#endif
+  return NtGdiSetWindowExtEx(hdc, nXExtent, nYExtent, lpSize);
 }
 
 /*

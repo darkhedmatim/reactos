@@ -224,12 +224,6 @@ VOID DestroySocket( PAFD_FCB FCB ) {
     if( FCB->TdiDeviceName.Buffer )
 	ExFreePool(FCB->TdiDeviceName.Buffer);
 
-    /* HACK HACK HACK */
-    TdiCloseDevice( FCB->Connection.Handle,
-		    FCB->Connection.Object );
-    TdiCloseDevice( FCB->AddressFile.Handle,
-		    FCB->AddressFile.Object );
-
     ExFreePool(FCB);
     AFD_DbgPrint(MIN_TRACE,("Deleted (%x)\n", FCB));
 

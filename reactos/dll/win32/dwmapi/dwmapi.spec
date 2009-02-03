@@ -24,7 +24,7 @@
 @ stub DwmDefWindowProc
 @ stub DwmDetachMilContent
 @ stub DwmEnableBlurBehindWindow
-@ stdcall DwmEnableMMCSS(long)
+@ stub DwmEnableMMCSS
 @ stdcall DwmExtendFrameIntoClientArea(long ptr)
 @ stdcall DwmFlush()
 @ stdcall DwmGetColorizationColor(ptr long)

@@ -1421,11 +1421,10 @@ HRESULT WINAPI DriveType(int DriveType)
 }
 /*************************************************************************
  * InvalidateDriveType			[SHELL32.65]
- * Unimplemented in XP SP3
+ *
  */
 int WINAPI InvalidateDriveType(int u)
-{
-	TRACE("0x%08x stub\n",u);
+{	FIXME("0x%08x stub\n",u);
 	return 0;
 }
 /*************************************************************************
@@ -1468,6 +1467,21 @@ BOOL WINAPI SHWaitForFileToOpen(
 {
 	FIXME("%p 0x%08x 0x%08x stub\n", pidl, dwFlags, dwTimeout);
 	return 0;
+}
+
+/************************************************************************
+ *	@				[SHELL32.654]
+ *
+ * NOTES
+ *  first parameter seems to be a pointer (same as passed to WriteCabinetState)
+ *  second one could be a size (0x0c). The size is the same as the structure saved to
+ *  HCU\Software\Microsoft\Windows\CurrentVersion\Explorer\CabinetState
+ *  I'm (js) guessing: this one is just ReadCabinetState ;-)
+ */
+HRESULT WINAPI shell32_654 (CABINETSTATE *cs, int length)
+{
+	TRACE("%p %d\n",cs,length);
+	return ReadCabinetState(cs,length);
 }
 
 /************************************************************************
@@ -1563,6 +1577,19 @@ DWORD WINAPI DoEnvironmentSubstAW(LPVOID x, UINT y)
 }
 
 /*************************************************************************
+ *      @                             [SHELL32.243]
+ *
+ * Win98+ by-ordinal routine.  In Win98 this routine returns zero and
+ * does nothing else.  Possibly this does something in NT or SHELL32 5.0?
+ *
+ */
+
+BOOL WINAPI shell32_243(DWORD a, DWORD b)
+{
+  return FALSE;
+}
+
+/*************************************************************************
  *      GUIDFromStringW   [SHELL32.704]
  */
 BOOL WINAPI GUIDFromStringW(LPCWSTR str, LPGUID guid)
@@ -1574,11 +1601,11 @@ BOOL WINAPI GUIDFromStringW(LPCWSTR str, LPGUID guid)
 }
 
 /*************************************************************************
- *      PathIsTemporaryW	[SHELL32.714]
+ *      @	[SHELL32.714]
  */
-DWORD WINAPI PathIsTemporaryW(LPWSTR Str)
+DWORD WINAPI SHELL32_714(LPVOID x)
 {
- 	FIXME("(%s)stub\n", debugstr_w(Str));
+ 	FIXME("(%s)stub\n", debugstr_w(x));
 	return 0;
 }
 
@@ -1868,15 +1895,15 @@ HRESULT WINAPI SHCreateStdEnumFmtEtc(
 
 
 /*************************************************************************
- *		SHCreateShellFolderView (SHELL32.256)
+ *		SHELL32_256 (SHELL32.256)
  */
-HRESULT WINAPI SHCreateShellFolderView(const SFV_CREATE *pcsfv, IShellView **ppsv)
+HRESULT WINAPI SHELL32_256(LPDWORD lpdw0, LPDWORD lpdw1)
 {
     HRESULT ret = S_OK;
 
-    FIXME("SHCreateShellFolderView() stub\n");
+    FIXME("stub %p 0x%08x %p\n", lpdw0, lpdw0 ? *lpdw0 : 0, lpdw1);
 
-    if (!pcsfv || sizeof(*pcsfv) != pcsfv->cbSize)
+    if (!lpdw0 || *lpdw0 != 0x10)
         ret = E_INVALIDARG;
     else
     {
@@ -2135,26 +2162,6 @@ BOOL WINAPI LinkWindow_UnregisterClass(void)
     return TRUE;
 
 }
-
-/*************************************************************************
- *              SHFlushSFCache (SHELL32.526)
- *
- * Notifies the shell that a user-specified special folder location has changed.
- *
- * NOTES
- *   In Wine, the shell folder registry values are not cached, so this function
- *   has no effect.
- */
-void WINAPI SHFlushSFCache(void)
-{
-}
-
-HRESULT WINAPI SHGetImageList(int iImageList, REFIID riid, void **ppv)
-{
-    FIXME("STUB: %i %s\n",iImageList,debugstr_guid(riid));
-    return E_NOINTERFACE;
-}
-
 /*************************************************************************
  *    SHParseDisplayName        [shell version 6.0]
  */

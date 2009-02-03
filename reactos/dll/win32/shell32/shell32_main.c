@@ -1355,6 +1355,6 @@ HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
-    TRACE("stub\n");
+    FIXME("stub\n");
     return S_FALSE;
 }

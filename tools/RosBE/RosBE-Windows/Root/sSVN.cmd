@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/sSVN.cmd
 :: PURPOSE:     Integrated SVN Client.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 ::
 @echo off
@@ -97,8 +97,7 @@ if %OFFSVN% equ %ONSVN% (
 
 set /p UP="Please enter 'yes' or 'no': "
 if /i "%UP%"=="yes" "%_ROSBE_BASEDIR%\ssvn" update
-if /i "%UP%"=="y" "%_ROSBE_BASEDIR%\ssvn" update
-goto :EOF
+if /i "%UP%"=="no" goto :EOF
 
 :EOC
 

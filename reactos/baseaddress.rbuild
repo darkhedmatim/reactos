@@ -9,7 +9,6 @@
   <property name="BASEADDRESS_RSABASE" value="0x35700000" />
   <property name="BASEADDRESS_RSAENH" value="0x35780000" />
   <property name="BASEADDRESS_DWMAPI" value="0x4A3F0000" />
-  <property name="BASEADDRESS_LOADPERF" value="0x4B920000" />
   <property name="BASEADDRESS_MPRAPI" value="0x4C400000" />
   <property name="BASEADDRESS_PSTOREC" value="0x513D0000" />
   <property name="BASEADDRESS_LPK" value="0x516C0000" />
@@ -17,7 +16,6 @@
   <property name="BASEADDRESS_PWRCFG" value="0x587e0000" />
   <property name="BASEADDRESS_MMSYS" value="0x588a0000" />
   <property name="BASEADDRESS_JOY" value="0x589b0000" />
-  <property name="BASEADDRESS_QMGR" value="0x59620000" />
   <property name="BASEADDRESS_UXTHEME" value="0x5ad70000" />
   <property name="BASEADDRESS_VDMDBG" value="0x5b0d0000" />
   <property name="BASEADDRESS_UNTFS" value="0x5b340000" />
@@ -194,7 +192,6 @@
   <property name="BASEADDRESS_VERSION" value="0x77a40000" />
   <property name="BASEADDRESS_OLE32" value="0x77a50000" />
   <property name="BASEADDRESS_OLEPRO32" value="0x77b10000" />
-  <property name="BASEADDRESS_ACTIVEDS" value="0x77cb0000" />
   <property name="BASEADDRESS_ADVAPI32" value="0x77dc0000" />
   <property name="BASEADDRESS_USER32" value="0x77e30000" />
   <property name="BASEADDRESS_GDI32" value="0x77f70000" />

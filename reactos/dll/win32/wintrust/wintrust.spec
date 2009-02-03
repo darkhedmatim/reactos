@@ -9,14 +9,14 @@
 @ stdcall CryptCATAdminReleaseContext(long long)
 @ stdcall CryptCATAdminRemoveCatalog(ptr wstr long)
 @ stdcall CryptCATAdminResolveCatalogPath(ptr wstr ptr long)
-@ stdcall CryptCATCDFClose(ptr)
+@ stub CryptCATCDFClose
 @ stub CryptCATCDFEnumAttributes
 @ stub CryptCATCDFEnumAttributesWithCDFTag
-@ stdcall CryptCATCDFEnumCatAttributes(ptr ptr ptr)
+@ stub CryptCATCDFEnumCatAttributes
 @ stub CryptCATCDFEnumMembers
 @ stub CryptCATCDFEnumMembersByCDFTag
-@ stdcall CryptCATCDFEnumMembersByCDFTagEx(ptr wstr ptr ptr long ptr)
-@ stdcall CryptCATCDFOpen(wstr ptr)
+@ stub CryptCATCDFEnumMembersByCDFTagEx
+@ stub CryptCATCDFOpen
 @ stdcall CryptCATCatalogInfoFromContext(ptr ptr long)
 @ stdcall CryptCATClose(long)
 @ stdcall CryptCATEnumerateAttr(ptr ptr ptr)

@@ -408,7 +408,6 @@
 		<file>strspn.c</file>
 		<file>strstr.c</file>
 		<file>strtod.c</file>
-		<file>strtoi64.c</file>
 		<file>strtok.c</file>
 		<file>strtol.c</file>
 		<file>strtoul.c</file>

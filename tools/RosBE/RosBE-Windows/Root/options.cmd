@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/options.cmd
 :: PURPOSE:     Starts options.exe and restarts RosBE afterwards.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 ::
 @echo off
@@ -18,9 +18,7 @@ title Options
 :: Run options.exe
 ::
 if exist "%_ROSBE_BASEDIR%\Tools\options.exe" (
-    pushd "%_ROSBE_BASEDIR%"
     call "%_ROSBE_BASEDIR%\Tools\options.exe"
-    popd
     if exist "%APPDATA%\RosBE\rosbe-options.cmd" (
         call "%APPDATA%\RosBE\rosbe-options.cmd"
     )

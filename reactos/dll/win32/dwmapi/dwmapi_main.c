@@ -93,7 +93,7 @@ HRESULT WINAPI DwmGetColorizationColor(DWORD *colorization, BOOL opaque_blend)
 /**********************************************************************
  *                  DwmFlush              (DWMAPI.@)
  */
-HRESULT WINAPI DwmFlush(void)
+HRESULT WINAPI DwmFlush()
 {
     FIXME("() stub\n");
 
@@ -118,14 +118,4 @@ HRESULT WINAPI DwmUnregisterThumbnail(HTHUMBNAIL thumbnail)
     FIXME("(%p) stub\n", thumbnail);
 
     return E_NOTIMPL;
-}
-
-/**********************************************************************
- *           DwmEnableMMCSS         (DWMAPI.@)
- */
-HRESULT WINAPI DwmEnableMMCSS(BOOL enableMMCSS)
-{
-    FIXME("(%d) stub\n", enableMMCSS);
-
-    return S_OK;
 }

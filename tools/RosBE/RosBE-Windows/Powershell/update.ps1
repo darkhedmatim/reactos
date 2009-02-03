@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/update.ps1
 # PURPOSE:     RosBE Updater.
-# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2008 Daniel Reimer <reimer.daniel@freenet.de>
 #
 #
 
@@ -34,7 +34,7 @@ function UPDCHECK {
         ""
         "Install?"
         $YESNO = Read-Host "(yes), (no)"
-        if (($YESNO -eq "yes") -or ($YESNO -eq "y")) {
+        if ($YESNO -eq "yes") {
             if (!(Test-Path "$_ROSBE_VERSION-$_ROSBE_STATCOUNT.7z")) {
                 get-webfile $_ROSBE_URL/$_ROSBE_VERSION-$_ROSBE_STATCOUNT.txt $PWD\$_ROSBE_VERSION-$_ROSBE_STATCOUNT.txt
             }
@@ -51,7 +51,7 @@ function UPDCHECK {
         } elseif ($YESNO -eq "no") {
             "Do you want to be asked again to install this update?"
             $YESNO = Read-Host "(yes), (no)"
-            if (($YESNO -eq "yes") -or ($YESNO -eq "y")) {
+            if ($YESNO -eq "yes") {
                 remove-item "$_ROSBE_VERSION-$_ROSBE_STATCOUNT.txt" -force -EA SilentlyContinue
             }
             return
@@ -67,7 +67,7 @@ function UPDCHECK {
 #
 # The Update Server.
 #
-$_ROSBE_URL = "http://danielreimer.5x.to/rosbe"
+$_ROSBE_URL = "http://mitglied.lycos.de/reimerdaniel/rosbe"
 
 #
 # Save the recent dir to cd back there at the end.

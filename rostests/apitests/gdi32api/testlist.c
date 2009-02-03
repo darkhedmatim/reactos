@@ -40,7 +40,6 @@
 #include "tests/SetDCPenColor.c"
 #include "tests/SetMapMode.c"
 #include "tests/SetSysColors.c"
-#include "tests/SetWindowExtEx.c"
 #include "tests/SetWorldTransform.c"
 
 
@@ -83,7 +82,6 @@ TESTENTRY TestList[] =
 	{ L"SetDCPenColor", Test_SetDCPenColor },
 	{ L"SetMapMode", Test_SetMapMode },
 	{ L"SetSysColors", Test_SetSysColors },
-	{ L"SetWindowExtEx", Test_SetWindowExtEx },
 	{ L"SetWorldTransform", Test_SetWorldTransform },
 };
 

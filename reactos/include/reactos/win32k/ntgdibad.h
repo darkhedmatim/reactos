@@ -94,11 +94,31 @@ NtGdiOffsetWindowOrgEx (
 /* Needs to be done in user-mode. */
 BOOL
 APIENTRY
+NtGdiSetWindowExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+APIENTRY
 NtGdiSetViewportOrgEx (
 	HDC	hDC,
 	int	X,
 	int	Y,
 	LPPOINT	Point
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+APIENTRY
+NtGdiSetViewportExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
 	);
 
 /* Needs to be done in user-mode. */

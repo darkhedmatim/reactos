@@ -457,8 +457,9 @@ static HRESULT WINAPI ivbsaxattributes_getIndexFromName(
 {
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getIndexFromName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, uri, SysStringLen(uri),
-            localName, SysStringLen(localName), index);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)uri, SysStringLen(uri),
+            (const WCHAR*)localName, SysStringLen(localName), index);
 }
 
 static HRESULT WINAPI ivbsaxattributes_getIndexFromQName(
@@ -468,8 +469,8 @@ static HRESULT WINAPI ivbsaxattributes_getIndexFromQName(
 {
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getIndexFromQName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, QName,
-            SysStringLen(QName), index);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)QName, SysStringLen(QName), index);
 }
 
 static HRESULT WINAPI ivbsaxattributes_getType(
@@ -493,8 +494,10 @@ static HRESULT WINAPI ivbsaxattributes_getTypeFromName(
     int len;
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getTypeFromName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, uri, SysStringLen(uri),
-            localName, SysStringLen(localName), (const WCHAR**)type, &len);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)uri, SysStringLen(uri),
+            (const WCHAR*)localName, SysStringLen(localName),
+            (const WCHAR**)type, &len);
 }
 
 static HRESULT WINAPI ivbsaxattributes_getTypeFromQName(
@@ -505,8 +508,9 @@ static HRESULT WINAPI ivbsaxattributes_getTypeFromQName(
     int len;
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getTypeFromQName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, QName,
-            SysStringLen(QName), (const WCHAR**)type, &len);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)QName, SysStringLen(QName),
+            (const WCHAR**)type, &len);
 }
 
 static HRESULT WINAPI ivbsaxattributes_getValue(
@@ -530,8 +534,10 @@ static HRESULT WINAPI ivbsaxattributes_getValueFromName(
     int len;
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getValueFromName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, uri, SysStringLen(uri),
-            localName, SysStringLen(localName), (const WCHAR**)value, &len);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)uri, SysStringLen(uri),
+            (const WCHAR*)localName, SysStringLen(localName),
+            (const WCHAR**)value, &len);
 }
 
 static HRESULT WINAPI ivbsaxattributes_getValueFromQName(
@@ -542,8 +548,9 @@ static HRESULT WINAPI ivbsaxattributes_getValueFromQName(
     int len;
     saxattributes *This = impl_from_IVBSAXAttributes( iface );
     return ISAXAttributes_getValueFromQName(
-            (ISAXAttributes*)&This->lpSAXAttributesVtbl, QName,
-            SysStringLen(QName), (const WCHAR**)value, &len);
+            (ISAXAttributes*)&This->lpSAXAttributesVtbl,
+            (const WCHAR*)QName, SysStringLen(QName),
+            (const WCHAR**)value, &len);
 }
 
 static const struct IVBSAXAttributesVtbl ivbsaxattributes_vtbl =
@@ -1322,7 +1329,7 @@ static void libxmlFatalError(void *ctx, const char *msg, ...)
     len = MultiByteToWideChar(CP_UNIXCP, 0, message, -1, NULL, 0);
     wszError = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
     if(wszError)
-        MultiByteToWideChar(CP_UNIXCP, 0, message, -1, wszError, len);
+        MultiByteToWideChar(CP_UNIXCP, 0, message, -1, (LPWSTR)wszError, len);
 
     if(This->vbInterface)
     {
@@ -2024,7 +2031,7 @@ static HRESULT internal_parse(
             hr = SafeArrayGetUBound(V_ARRAY(&varInput), 1, &uBound);
             if(hr != S_OK) break;
             dataRead = (uBound-lBound)*SafeArrayGetElemsize(V_ARRAY(&varInput));
-            hr = SafeArrayAccessData(V_ARRAY(&varInput), &pSAData);
+            hr = SafeArrayAccessData(V_ARRAY(&varInput), (void**)&pSAData);
             if(hr != S_OK) break;
             hr = internal_parseBuffer(This, pSAData, dataRead, vbInterface);
             SafeArrayUnaccessData(V_ARRAY(&varInput));
@@ -2260,7 +2267,7 @@ static HRESULT WINAPI saxxmlreader_QueryInterface(IVBSAXXMLReader* iface, REFIID
     }
     else if( IsEqualGUID( riid, &IID_ISAXXMLReader ))
     {
-        *ppvObject = &This->lpSAXXMLReaderVtbl;
+        *ppvObject = (ISAXXMLReader*)&This->lpSAXXMLReaderVtbl;
     }
     else
     {

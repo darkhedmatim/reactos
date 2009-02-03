@@ -1,9 +1,9 @@
 #
 # PROJECT:     RosBE - ReactOS Build Environment for Windows
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
-# FILE:        Root/Config.ps1
+# FILE:        Root/Config.cmd
 # PURPOSE:     A Basic Config.rbuild Creator for ReactOS.
-# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 #
 #
 
@@ -23,7 +23,7 @@ if ($args[0] -eq "delete") {
     "config.rbuild will be permanently deleted. All your settings will be gone."
     "Continue?"
     $YESNO = Read-Host "(yes), (no)"
-    if (($YESNO -eq "yes") -or ($YESNO -eq "y")) {
+    if ($YESNO -eq "yes") {
         if (Test-Path ".\config.rbuild") {
             remove-item ".\config.rbuild"
             "Main Configuration File was found and deleted."
@@ -44,7 +44,7 @@ elseif ($args[0] -eq "update") {
     "default one. You will need to reconfigure it to your wishes later."
     "Continue?"
     $YESNO = Read-Host "(yes), (no)"
-    if (($YESNO -eq "yes") -or ($YESNO -eq "y")) {
+    if ($YESNO -eq "yes") {
         remove-item "$_ROSBE_BASEDIR\*.rbuild"
         remove-item ".\config.rbuild"
         copy-item ".\config.template.rbuild" "$ENV:APPDATA\RosBE\config.rbuild"
@@ -75,7 +75,7 @@ if (!(Test-Path "$ENV:APPDATA\RosBE\config.rbuild")) {
 ""
 
 $YESNO = Read-Host "(yes), (no)"
-if (($YESNO -ne "yes") -and ($YESNO -ne "y")) {settitle}
+if ($YESNO -ne "yes") {settitle}
 
 #
 # Check if config.template.rbuild is newer than config.rbuild, if it is then
@@ -90,7 +90,7 @@ if (Test-Path ".\config.rbuild") {
         "*** previously made settings.                                  ***"
         ""
         $YESNO = Read-Host "(yes), (no)"
-        if (($YESNO -eq "yes") -or ($YESNO -eq "y")) {remove-item "$ENV:APPDATA\RosBE\*.rbuild" | remove-item ".\config.rbuild" | copy-item ".\config.template.rbuild" "$ENV:APPDATA\RosBE\config.rbuild"}
+        if ($YESNO -eq "yes") {remove-item "$ENV:APPDATA\RosBE\*.rbuild" | remove-item ".\config.rbuild" | copy-item ".\config.template.rbuild" "$ENV:APPDATA\RosBE\config.rbuild"}
         else {settitle}
     }
 }

@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/rosbe-gcc-env.ps1
 # PURPOSE:     Set up the GCC 4.x.x build environment.
-# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2008 Daniel Reimer <reimer.daniel@freenet.de>
 #
 #
 
@@ -24,9 +24,6 @@ if ($_ROSBE_HOST_MINGWPATH -eq $null) {
 
 $ENV:ROS_ARCH = $null
 $ENV:ROS_PREFIX = $null
-$_ROSBE_OBJPATH = "$_ROSBE_i386_OBJPATH"
-$_ROSBE_OUTPATH = "$_ROSBE_i386_OUTPATH"
-
 
 if ($_ROSBE_ARCH -ne $null) {
     $ENV:ROS_ARCH = $_ROSBE_ARCH
@@ -34,17 +31,8 @@ if ($_ROSBE_ARCH -ne $null) {
     $_ROSBE_TARGET_MINGWPATH = "$_ROSBE_BASEDIR\$_ROSBE_ARCH"
 
     # HAXX
-    if ($_ROSBE_ARCH -eq "arm") {
-        $_ROSBE_OBJPATH = "$_ROSBE_ARM_OBJPATH"
-        $_ROSBE_OUTPATH = "$_ROSBE_ARM_OUTPATH"
-    }
-    if ($_ROSBE_ARCH -eq "ppc") {
-        $_ROSBE_OBJPATH = "$_ROSBE_PPC_OBJPATH"
-        $_ROSBE_OUTPATH = "$_ROSBE_PPC_OUTPATH"
-    }
+
     if ($_ROSBE_ARCH -eq "amd64") {
-        $_ROSBE_OBJPATH = "$_ROSBE_AMD64_OBJPATH"
-        $_ROSBE_OUTPATH = "$_ROSBE_AMD64_OUTPATH"
         $ENV:ROS_PREFIX = "x86_64-pc-mingw32"
         $_ROSBE_TARGET_MINGWPATH = "$_ROSBE_BASEDIR\x86_64"
     }
@@ -54,8 +42,6 @@ if ($_ROSBE_ARCH -ne $null) {
     if (Test-Path "$_ROSBE_TARGET_MINGWPATH\.") {   
     "Unsupported arch specified. Fallback to Default."
     pause
-    $_ROSBE_OBJPATH = "$_ROSBE_i386_OBJPATH"
-    $_ROSBE_OUTPATH = "$_ROSBE_i386_OUTPATH"
     $ENV:ROS_ARCH = $null
     $ENV:ROS_PREFIX = $null
     $_ROSBE_TARGET_MINGWPATH = $null

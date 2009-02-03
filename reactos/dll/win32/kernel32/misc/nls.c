@@ -523,14 +523,6 @@ IntMultiByteToWideCharCP(UINT CodePage,
         if (WideCharCount == 0)
             return MultiByteCount;
 
-        /* Fill the WideCharString buffer with what will fit: Verified on WinXP */
-        for (TempLength = (WideCharCount < MultiByteCount) ? WideCharCount : MultiByteCount;
-            TempLength > 0;
-            MultiByteString++, TempLength--)
-        {
-            *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
-        }
-
         /* Adjust buffer size. Wine trick ;-) */
         if (WideCharCount < MultiByteCount)
         {
@@ -538,7 +530,15 @@ IntMultiByteToWideCharCP(UINT CodePage,
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             return 0;
         }
-	    return MultiByteCount;
+
+        for (TempLength = MultiByteCount;
+            TempLength > 0;
+            MultiByteString++, TempLength--)
+        {
+            *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
+        }
+
+        return MultiByteCount;
     }
 }
 
