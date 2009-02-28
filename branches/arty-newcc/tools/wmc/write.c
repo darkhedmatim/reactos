@@ -91,7 +91,7 @@ static const char str_header[] =
 	"/* This file is generated with wmc version " PACKAGE_VERSION ". Do not edit! */\n"
 	"/* Source : %s */\n"
 	"/* Cmdline: %s */\n"
-	"/* Date   : %s */\n"
+    //	"/* Date   : %s */\n"
 	"\n"
         ;
 
@@ -174,7 +174,7 @@ void write_h_file(const char *fname)
 	}
 	cptr = ctime(&now);
 	killnl(cptr, 0);
-	fprintf(fp, str_header, input_name ? input_name : "<stdin>", cmdline, cptr);
+	fprintf(fp, str_header, input_name ? input_name : "<stdin>", cmdline/*, cptr*/);
 	fprintf(fp, "#ifndef __WMCGENERATED_%08lx_H\n", (long)now);
 	fprintf(fp, "#define __WMCGENERATED_%08lx_H\n", (long)now);
 	fprintf(fp, "\n");
@@ -243,7 +243,7 @@ void write_h_file(const char *fname)
 			cptr = dup_u2c(ndp->u.msg->msgs[idx_en]->cp, ndp->u.msg->msgs[idx_en]->msg);
 			killnl(cptr, 0);
 			killcomment(cptr);
-			fprintf(fp, "/* Approx. msg: %s */\n", cptr);
+			fprintf(fp, "/* Approximate msg: %s */\n", cptr);
 			free(cptr);
 			cptr = dup_u2c(WMC_DEFAULT_CODEPAGE, ndp->u.msg->sym);
 			if(ndp->u.msg->cast)
@@ -274,8 +274,7 @@ void write_h_file(const char *fname)
 				internal_error(__FILE__, __LINE__, "Invalid base for number print\n");
 			}
 			free(cptr);
-			if(cast)
-				free(cast);
+			free(cast);
 			break;
 		default:
 			internal_error(__FILE__, __LINE__, "Invalid node type %d\n", ndp->type);
@@ -500,7 +499,7 @@ void write_rc_file(const char *fname)
 	}
 	cptr = ctime(&now);
 	killnl(cptr, 0);
-	fprintf(fp, str_header, input_name ? input_name : "<stdin>", cmdline, cptr);
+	fprintf(fp, str_header, input_name ? input_name : "<stdin>", cmdline/*, cptr*/);
 
 	if(rcinline)
 		write_rcinline(fp);

@@ -32,6 +32,13 @@ PrefixFilename (
 	const std::string& filename,
 	const std::string& prefix );
 
+enum SpecFileType
+{
+    None,
+    Spec = 1,
+    PSpec = 2
+};
+
 class MingwModuleHandler
 {
 public:
@@ -67,9 +74,6 @@ public:
 	                                                MingwBackend* backend_ );
 	void GeneratePreconditionDependencies ();
 	virtual void Process () { GenerateRules (); }
-	virtual std::string TypeSpecificCFlags() { return ""; }
-	virtual std::string TypeSpecificNasmFlags() { return ""; }
-	virtual std::string TypeSpecificLinkerFlags() { return ""; }
 	void GenerateInvocations () const;
 	void GenerateCleanTarget () const;
 	void GenerateInstallTarget () const;
@@ -83,7 +87,6 @@ protected:
 	virtual void GetModuleSpecificCompilationUnits ( std::vector<CompilationUnit*>& compilationUnits );
 	std::string GetWorkingDirectory () const;
 	std::string GetBasename ( const std::string& filename ) const;
-	std::string GetExtraDependencies ( const FileLocation *file ) const;
 	std::string GetCompilationUnitDependencies ( const CompilationUnit& compilationUnit ) const;
 	const FileLocation* GetModuleArchiveFilename () const;
 	std::string GetImportLibraryDependency ( const Module& importedModule );
@@ -94,14 +97,12 @@ protected:
 	const FileLocation* GetObjectFilename ( const FileLocation* sourceFile,
 	                                        const Module& module ) const;
 
-	std::string GetObjectFilenames ();
-
 	std::string GetPreconditionDependenciesName () const;
-	std::string GetCFlagsMacro () const;
 	static std::string GetObjectsMacro ( const Module& );
 	std::string GetLinkingDependenciesMacro () const;
 	std::string GetLibsMacro () const;
 	std::string GetLinkerMacro () const;
+	std::string GetDebugFormat () const;
 	void GenerateCleanObjectsAsYouGoCode () const;
 	void GenerateRunRsymCode () const;
 	void GenerateRunStripCode () const;
@@ -120,7 +121,6 @@ protected:
 private:
 	std::string ConcatenatePaths ( const std::string& path1,
 	                               const std::string& path2 ) const;
-	std::string GenerateGccDefineParameters () const;
 	std::string GenerateCompilerParametersFromVector ( const std::vector<CompilerFlag*>& compilerFlags, const CompilerType type ) const;
 	std::string GenerateLinkerParametersFromVector ( const std::vector<LinkerFlag*>& linkerFlags ) const;
 	std::string GenerateImportLibraryDependenciesFromVector ( const std::vector<Library*>& libraries );
@@ -136,10 +136,8 @@ private:
 	                      std::set<const Define *>& used_defs );
 	void GenerateSourceMacros ( const IfableData& data );
 	void GenerateObjectMacros ( const IfableData& data );
-	std::string GenerateGccIncludeParameters () const;
-	std::string GenerateGccParameters () const;
-	std::string GenerateNasmParameters () const;
 	const FileLocation* GetPrecompiledHeaderFilename () const;
+	const FileLocation* GetDlldataFilename () const;
 	void GenerateGccCommand ( const FileLocation* sourceFile,
 	                          const Rule *rule,
 	                          const std::string& extraDependencies );
@@ -152,11 +150,13 @@ private:
 	                                 const FileLocation *file ) const;
 	void GetSpecObjectDependencies ( std::vector<FileLocation>& dependencies,
 	                                 const FileLocation *file ) const;
+	void GetSpecImplibDependencies ( std::vector<FileLocation>& dependencies,
+	                                 const FileLocation *file ) const;
 	void GetWidlObjectDependencies ( std::vector<FileLocation>& dependencies,
 	                                 const FileLocation *file ) const;
 	void GetDefaultDependencies ( string_list& dependencies ) const;
 	void GetInvocationDependencies ( const Module& module, string_list& dependencies );
-	bool IsWineModule () const;
+	SpecFileType IsSpecDefinitionFile () const;
 	const FileLocation* GetDefinitionFilename () const;
 	void GenerateBuildNonSymbolStrippedCode ();
 	void CleanupCompilationUnitVector ( std::vector<CompilationUnit*>& compilationUnits );
@@ -173,7 +173,9 @@ private:
 public:
 	const Module& module;
 	string_list clean_files;
+	std::string commonflagsMacro;
 	std::string cflagsMacro;
+	std::string cxxflagsMacro;
 	std::string nasmflagsMacro;
 	std::string windresflagsMacro;
 	std::string widlflagsMacro;
@@ -216,18 +218,6 @@ private:
 };
 
 
-class MingwKernelModeDriverModuleHandler : public MingwModuleHandler
-{
-public:
-	MingwKernelModeDriverModuleHandler ( const Module& module );
-	virtual void Process ();
-	std::string TypeSpecificCFlags() { return "-D__NTDRIVER__"; }
-	void AddImplicitLibraries ( Module& module );
-private:
-	void GenerateKernelModeDriverModuleTarget ();
-};
-
-
 class MingwNativeDLLModuleHandler : public MingwModuleHandler
 {
 public:
@@ -244,7 +234,6 @@ class MingwNativeCUIModuleHandler : public MingwModuleHandler
 public:
 	MingwNativeCUIModuleHandler ( const Module& module );
 	virtual void Process ();
-	std::string TypeSpecificCFlags() { return "-D__NTAPP__"; }
 	void AddImplicitLibraries ( Module& module );
 private:
 	void GenerateNativeCUIModuleTarget ();
@@ -300,20 +289,8 @@ class MingwBootLoaderModuleHandler : public MingwModuleHandler
 public:
 	MingwBootLoaderModuleHandler ( const Module& module );
 	virtual void Process ();
-	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
 private:
 	void GenerateBootLoaderModuleTarget ();
-};
-
-
-class MingwBootSectorModuleHandler : public MingwModuleHandler
-{
-public:
-	MingwBootSectorModuleHandler ( const Module& module );
-	virtual void Process ();
-	std::string TypeSpecificNasmFlags() { return "-f bin"; }
-private:
-	void GenerateBootSectorModuleTarget ();
 };
 
 
@@ -323,7 +300,6 @@ public:
 	MingwBootProgramModuleHandler ( const Module& module );
 	virtual void Process ();
 	std::string GetProgTextAddrMacro ();
-	std::string TypeSpecificLinkerFlags() { return "-nostartfiles -nostdlib"; }
 private:
 	void GenerateBootProgramModuleTarget ();
 };

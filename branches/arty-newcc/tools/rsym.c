@@ -489,7 +489,7 @@ ProcessRelocations(ULONG *ProcessedRelocsLength, void **ProcessedRelocs,
   *ProcessedRelocs = malloc(RelocSectionHeader->SizeOfRawData);
   if (NULL == *ProcessedRelocs)
     {
-      fprintf(stderr, "Failed to allocate %lu bytes for relocations\n", RelocSectionHeader->SizeOfRawData);
+      fprintf(stderr, "Failed to allocate %u bytes for relocations\n", (unsigned int)RelocSectionHeader->SizeOfRawData);
       return 1;
     }
   *ProcessedRelocsLength = 0;
@@ -565,7 +565,7 @@ CreateOutputFile(FILE *OutFile, void *InData,
   OutHeader = malloc(StartOfRawData);
   if (NULL == OutHeader)
     {
-      fprintf(stderr, "Failed to allocate %lu bytes for output file header\n", StartOfRawData);
+      fprintf(stderr, "Failed to allocate %u bytes for output file header\n", (unsigned int)StartOfRawData);
       return 1;
     }
   memset(OutHeader, '\0', StartOfRawData);
@@ -678,7 +678,7 @@ CreateOutputFile(FILE *OutFile, void *InData,
       PaddedRosSym = malloc(RosSymFileLength);
       if (NULL == PaddedRosSym)
         {
-          fprintf(stderr, "Failed to allocate %lu bytes for padded .rossym\n", RosSymFileLength);
+          fprintf(stderr, "Failed to allocate %u bytes for padded .rossym\n", (unsigned int)RosSymFileLength);
           return 1;
         }
       memcpy(PaddedRosSym, RosSymSection, RosSymLength);
@@ -697,19 +697,23 @@ CreateOutputFile(FILE *OutFile, void *InData,
   Length = StartOfRawData;
   for (Section = 0; Section < OutFileHeader->NumberOfSections; Section++)
     {
+      DWORD SizeOfRawData;
       if (OutRelocSection == OutSectionHeaders + Section)
         {
           Data = (void *) ProcessedRelocs;
+	  SizeOfRawData = ProcessedRelocsLength;
         }
       else if (RosSymLength > 0 && Section + 1 == OutFileHeader->NumberOfSections)
         {
           Data = (void *) PaddedRosSym;
+	  SizeOfRawData = OutSectionHeaders[Section].SizeOfRawData;
         }
       else
         {
           Data = (void *) ((char *) InData + OutSectionHeaders[Section].PointerToRawData);
+	  SizeOfRawData = OutSectionHeaders[Section].SizeOfRawData;
         }
-      for (i = 0; i < OutSectionHeaders[Section].SizeOfRawData / 2; i++)
+      for (i = 0; i < SizeOfRawData / 2; i++)
         {
           CheckSum += ((unsigned short*) Data)[i];
           CheckSum = 0xffff & (CheckSum + (CheckSum >> 16));
@@ -730,21 +734,24 @@ CreateOutputFile(FILE *OutFile, void *InData,
     {
       if (0 != OutSectionHeaders[Section].SizeOfRawData)
         {
+	  DWORD SizeOfRawData;
           fseek(OutFile, OutSectionHeaders[Section].PointerToRawData, SEEK_SET);
           if (OutRelocSection == OutSectionHeaders + Section)
             {
               Data = (void *) ProcessedRelocs;
+	      SizeOfRawData = ProcessedRelocsLength;
             }
           else if (RosSymLength > 0 && Section + 1 == OutFileHeader->NumberOfSections)
             {
               Data = (void *) PaddedRosSym;
+	      SizeOfRawData = OutSectionHeaders[Section].SizeOfRawData;
             }
           else
             {
               Data = (void *) ((char *) InData + OutSectionHeaders[Section].PointerToRawData);
+	      SizeOfRawData = OutSectionHeaders[Section].SizeOfRawData;
             }
-          if (fwrite(Data, 1, OutSectionHeaders[Section].SizeOfRawData, OutFile) !=
-              OutSectionHeaders[Section].SizeOfRawData)
+          if (fwrite(Data, 1, SizeOfRawData, OutFile) != SizeOfRawData)
             {
               perror("Error writing section data\n");
               free(PaddedRosSym);

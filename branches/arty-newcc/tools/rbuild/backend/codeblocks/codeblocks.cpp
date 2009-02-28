@@ -94,9 +94,9 @@ void CBBackend::Process()
 
 void CBBackend::ProcessModules()
 {
-	for(size_t i = 0; i < ProjectNode.modules.size(); i++)
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module &module = *ProjectNode.modules[i];
+		Module &module = *p->second;
 		MingwAddImplicitLibraries( module );
 		_generate_cbproj ( module );
 	}
@@ -211,7 +211,7 @@ std::string
 CBBackend::CbpFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.cbp" )
+		ReplaceExtension ( module.output->relative_path + sSep + module.output->name, "_auto.cbp" )
 		);
 }
 
@@ -219,7 +219,7 @@ std::string
 CBBackend::LayoutFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.layout" )
+		ReplaceExtension ( module.output->relative_path + sSep + module.output->name, "_auto.layout" )
 		);
 }
 
@@ -227,7 +227,7 @@ std::string
 CBBackend::DependFileName ( const Module& module ) const
 {
 	return DosSeparator(
-		ReplaceExtension ( module.output->relative_path + "\\" + module.output->name, "_auto.depend" )
+		ReplaceExtension ( module.output->relative_path + sSep + module.output->name, "_auto.depend" )
 		);
 }
 
@@ -236,8 +236,8 @@ CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 {
 	string basepath = module.output->relative_path;
 	size_t i;
-	string intenv = Environment::GetIntermediatePath () + "\\" + basepath + "\\";
-	string outenv = Environment::GetOutputPath () + "\\" + basepath + "\\";
+	string intenv = Environment::GetIntermediatePath () + sSep + basepath + sSep;
+	string outenv = Environment::GetOutputPath () + sSep + basepath + sSep;
 
 	vector<string> cfgs;
 
@@ -265,7 +265,7 @@ CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 		for ( i = 0; i < files.size (); i++ )
 		{
 			string file = files[i]->file.relative_path + sSep + files[i]->file.name;
-			string::size_type pos = file.find_last_of ("\\");
+			string::size_type pos = file.find_last_of (sSep);
 			if ( pos != string::npos )
 				file.erase ( 0, pos+1 );
 			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
@@ -273,7 +273,7 @@ CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 			else
 				file = ReplaceExtension ( file, ".obj" );
 			for ( size_t j = 0; j < cfgs.size () / 2; j++ )
-				out.push_back ( cfgs[j] + "\\" + file );
+				out.push_back ( cfgs[j] + sSep + file );
 		}
 
 	}
@@ -282,9 +282,9 @@ CBBackend::_get_object_files ( const Module& module, vector<string>& out) const
 void
 CBBackend::_clean_project_files ( void )
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 		vector<string> out;
 		printf("Cleaning project %s %s\n", module.name.c_str (), module.output->relative_path.c_str () );
 
@@ -312,9 +312,9 @@ CBBackend::_generate_workspace ( FILE* OUT )
 	fprintf ( OUT, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\r\n" );
 	fprintf ( OUT, "<CodeBlocks_workspace_file>\r\n" );
 	fprintf ( OUT, "\t<Workspace title=\"ReactOS\">\r\n" );
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 
 		if ((module.type != Iso) &&
 			(module.type != LiveIso) &&
@@ -334,7 +334,7 @@ CBBackend::_generate_workspace ( FILE* OUT )
 				ifs_list.pop_back();
 				const vector<Library*>& libs = data.libraries;
 				for ( size_t j = 0; j < libs.size(); j++ )
-					fprintf ( OUT, "\t\t\t<Depends filename=\"%s\\%s_auto.cbp\" />\r\n", libs[j]->importedModule->output->relative_path.c_str(), libs[j]->name.c_str() );
+					fprintf ( OUT, "\t\t\t<Depends filename=\"%s%s%s_auto.cbp\" />\r\n", libs[j]->importedModule->output->relative_path.c_str(), sSep.c_str(), libs[j]->name.c_str() );
 			}
 			fprintf ( OUT, "\t\t</Project>\r\n" );
 		}
@@ -447,7 +447,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 		const vector<Library*>& libs = data.libraries;
 		for ( i = 0; i < libs.size(); i++ )
 		{
-			string libpath = intdir + "\\" + libs[i]->importedModule->output->relative_path;
+			string libpath = intdir + sSep + libs[i]->importedModule->output->relative_path;
 			libraries.push_back ( libs[i]->name );
 			libpaths.push_back ( libpath );
 		}
@@ -477,9 +477,9 @@ CBBackend::_generate_cbproj ( const Module& module )
 			vars.push_back( variables[i]->name );
 			values.push_back( variables[i]->value );
 		}*/
-		for ( i = 0; i < data.properties.size(); i++ )
+		for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
 		{
-			Property& prop = *data.properties[i];
+			Property& prop = *p->second;
 			if ( strstr ( module.baseaddress.c_str(), prop.name.c_str() ) )
 				baseaddr = prop.value;
 		}
@@ -516,18 +516,18 @@ CBBackend::_generate_cbproj ( const Module& module )
 		if ( configuration.UseConfigurationInPath )
 		{
 			if ( IsStaticLibrary ( module ) ||module.type == ObjectLibrary )
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.output->relative_path.c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s%s%s%s%s%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), sSep.c_str(), module.output->relative_path.c_str (), cfg.name.c_str(), sSep.c_str(), module.name.c_str(), module_type.c_str());
 			else
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.output->relative_path.c_str (), cfg.name.c_str(), module.name.c_str(), module_type.c_str());
-			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s%s\" />\r\n", intdir.c_str(), module.output->relative_path.c_str (), cfg.name.c_str() );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s%s%s%s%s%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), sSep.c_str(), module.output->relative_path.c_str (), cfg.name.c_str(), sSep.c_str(), module.name.c_str(), module_type.c_str());
+			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s%s%s%s\" />\r\n", intdir.c_str(), sSep.c_str(), module.output->relative_path.c_str (), cfg.name.c_str() );
 		}
 		else
 		{
 			if ( IsStaticLibrary ( module ) || module.type == ObjectLibrary )
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), module.output->relative_path.c_str (), module.name.c_str(), module_type.c_str() );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s%s%s%s%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", intdir.c_str (), sSep.c_str(), module.output->relative_path.c_str (), sSep.c_str(), module.name.c_str(), module_type.c_str() );
 			else
-				fprintf ( OUT, "\t\t\t\t<Option output=\"%s\\%s\\%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), module.output->relative_path.c_str (), module.name.c_str(), module_type.c_str() );
-			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s\\%s\" />\r\n", intdir.c_str(), module.output->relative_path.c_str () );
+				fprintf ( OUT, "\t\t\t\t<Option output=\"%s%s%s%s%s%s\" prefix_auto=\"0\" extension_auto=\"0\" />\r\n", outdir.c_str (), sSep.c_str(), module.output->relative_path.c_str (), sSep.c_str(), module.name.c_str(), module_type.c_str() );
+			fprintf ( OUT, "\t\t\t\t<Option object_output=\"%s%s%s\" />\r\n", intdir.c_str(), sSep.c_str(), module.output->relative_path.c_str () );
 		}
 
 		if ( lib )
@@ -674,8 +674,8 @@ CBBackend::_generate_cbproj ( const Module& module )
 		{
 			const string& resource_file = resource_files[i];
 #ifdef WIN32
-			fprintf ( OUT, "\t\t\t\t\t<Add after=\"cmd /c del $(TARGET_OBJECT_DIR)\\%s.rci.tmp 2&gt;NUL\" />\r\n", resource_file.c_str() );
-			fprintf ( OUT, "\t\t\t\t\t<Add after=\"cmd /c del $(TARGET_OBJECT_DIR)\\%s.res.tmp 2&gt;NUL\" />\r\n", resource_file.c_str() );
+			fprintf ( OUT, "\t\t\t\t\t<Add after=\"cmd /c del $(TARGET_OBJECT_DIR)%s%s.rci.tmp 2&gt;NUL\" />\r\n", sSep.c_str(), resource_file.c_str() );
+			fprintf ( OUT, "\t\t\t\t\t<Add after=\"cmd /c del $(TARGET_OBJECT_DIR)%s%s.res.tmp 2&gt;NUL\" />\r\n", sSep.c_str(), resource_file.c_str() );
 #else
 			fprintf ( OUT, "\t\t\t\t\t<Add after=\"rm $(TARGET_OBJECT_DIR)/%s.rci.tmp 2&gt;/dev/null\" />\r\n", resource_file.c_str() );
 			fprintf ( OUT, "\t\t\t\t\t<Add after=\"rm $(TARGET_OBJECT_DIR)/%s.res.tmp 2&gt;/dev/null\" />\r\n", resource_file.c_str() );
@@ -685,10 +685,10 @@ CBBackend::_generate_cbproj ( const Module& module )
 #if 0
 		if ( dll )
 		{
-			if (IsWineModule( module ))
-				fprintf ( OUT, "\t\t\t\t\t<Add before=\"%s\\tools\\winebuild\\winebuild.exe -o %s --def -E %s.spec\" />\r\n", outdir.c_str(), module.importLibrary->definition.c_str(),  module.name.c_str());
+			if (IsSpecDefinitionFile( module ))
+				fprintf ( OUT, "\t\t\t\t\t<Add before=\"%s%stools%swinebuild%swinebuild.exe -o %s --def -E %s.spec\" />\r\n", outdir.c_str(), sSep, sSep, sSep, module.importLibrary->definition.c_str(),  module.name.c_str());
 			fprintf ( OUT, "\t\t\t\t\t<Add before=\"dlltool --dllname %s --def %s --output-exp %s.temp.exp %s\" />\r\n", module.GetTargetName ().c_str(), module.importLibrary->definition.c_str(), module.name.c_str(), module.mangledSymbols ? "" : "--kill-at" );
-			fprintf ( OUT, "\t\t\t\t\t<Add after=\"%s\\tools\\pefixup $exe_output -exports\" />\r\n", outdir.c_str() );
+			fprintf ( OUT, "\t\t\t\t\t<Add after=\"%s%stools%spefixup $exe_output -exports\" />\r\n", outdir.c_str(), sSep, sSep );
 #ifdef WIN32
 			fprintf ( OUT, "\t\t\t\t\t<Add after=\"cmd /c del %s.temp.exp 2&gt;NUL\" />\r\n", module.name.c_str() );
 #else
@@ -764,13 +764,13 @@ CBBackend::_generate_cbproj ( const Module& module )
 		else if ( extension == ".idl" || extension == ".IDL" )
 		{
 			fprintf ( OUT, "\t\t\t<Option compile=\"1\" />\r\n" );
-			fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"%s\\tools\\widl\\widl.exe %s %s -h -H &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.h&quot; -c -C &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.c&quot; $file\\ngcc %s -c &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.c&quot; -o &quot;$(TARGET_OUTPUT_DIR)$file_c.o&quot;\" />\r\n", outdir.c_str(), widl_options.c_str(), windres_defines.c_str(), widl_options.c_str() );
+			fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"%s%stools%swidl%swidl.exe %s %s -h -H &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.h&quot; -c -C &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.c&quot; $file%sngcc %s -c &quot;$(TARGET_OUTPUT_DIR)$filetitle_c.c&quot; -o &quot;$(TARGET_OUTPUT_DIR)$file_c.o&quot;\" />\r\n", outdir.c_str(), sSep.c_str(), sSep.c_str(), sSep.c_str(), widl_options.c_str(), windres_defines.c_str(), sSep.c_str(), widl_options.c_str() );
 		}
 		else if ( extension == ".spec" || extension == ".SPEC" )
 		{
 			fprintf ( OUT, "\t\t\t<Option compile=\"1\" />\r\n" );
 			fprintf ( OUT, "\t\t\t<Option link=\"1\" />\r\n" );
-			fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"%s\\tools\\winebuild\\winebuild.exe -o $file.stubs.c --pedll $file\\n$compiler -c $options $includes $file.stubs.c -o $(TARGET_OBJECT_DIR)\\$file.o\" />\r\n", outdir.c_str() );
+			fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"%s%stools%swinebuild%swinebuild.exe -o $file.stubs.c --pedll $file\\n$compiler -c $options $includes $file.stubs.c -o $(TARGET_OBJECT_DIR)%s$file.o\" />\r\n", outdir.c_str(), sSep.c_str(), sSep.c_str(), sSep.c_str(), sSep.c_str() );
 		}
 
 		for ( size_t icfg = 0; icfg < m_configurations.size(); icfg++ )
@@ -788,7 +788,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 		fprintf ( OUT, "\t\t<Unit filename=\"%s\">\r\n", resource_file.c_str() );
 		fprintf ( OUT, "\t\t\t<Option compilerVar=\"WINDRES\" />\r\n" );
 		string extension = GetExtension ( resource_file );
-		fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"gcc -xc -E -DRC_INVOKED $includes %s $file -o $(TARGET_OBJECT_DIR)\\$file.rci.tmp\\n%s\\tools\\wrc\\wrc.exe $includes %s $(TARGET_OBJECT_DIR)\\$file.rci.tmp $(TARGET_OBJECT_DIR)\\$file.res.tmp\\n$rescomp --output-format=coff $(TARGET_OBJECT_DIR)\\$file.res.tmp -o $resource_output\" />\r\n" , windres_defines.c_str(), outdir.c_str(),  windres_defines.c_str() );
+		fprintf ( OUT, "\t\t\t<Option compiler=\"gcc\" use=\"1\" buildCommand=\"gcc -xc -E -DRC_INVOKED $includes %s $file -o $(TARGET_OBJECT_DIR)%s$file.rci.tmp\\n%s%stools%swrc%swrc.exe $includes %s $(TARGET_OBJECT_DIR)%s$file.rci.tmp $(TARGET_OBJECT_DIR)%s$file.res.tmp\\n$rescomp --output-format=coff $(TARGET_OBJECT_DIR)%s$file.res.tmp -o $resource_output\" />\r\n" , windres_defines.c_str(), sSep.c_str(), outdir.c_str(), sSep.c_str(), sSep.c_str(), sSep.c_str(), windres_defines.c_str(), sSep.c_str(), sSep.c_str(), sSep.c_str() );
 		for ( size_t icfg = 0; icfg < m_configurations.size(); icfg++ )
 		{
 			const CBConfiguration& cfg = *m_configurations[icfg];
@@ -883,30 +883,30 @@ CBBackend::MingwAddImplicitLibraries( Module &module )
 const Property*
 CBBackend::_lookup_property ( const Module& module, const std::string& name ) const
 {
+	std::map<std::string, Property*>::const_iterator p;
+
 	/* Check local values */
-	for ( size_t i = 0; i < module.non_if_data.properties.size(); i++ )
-	{
-		const Property& property = *module.non_if_data.properties[i];
-		if ( property.name == name )
-			return &property;
-	}
+	p = module.non_if_data.properties.find(name);
+
+	if ( p != module.non_if_data.properties.end() )
+		return p->second;
+
 	// TODO FIXME - should we check local if-ed properties?
-	for ( size_t i = 0; i < module.project.non_if_data.properties.size(); i++ )
-	{
-		const Property& property = *module.project.non_if_data.properties[i];
-		if ( property.name == name )
-			return &property;
-	}
+	p = module.project.non_if_data.properties.find(name);
+
+	if ( p != module.project.non_if_data.properties.end() )
+		return p->second;
+
 	// TODO FIXME - should we check global if-ed properties?
 	return NULL;
 }
 
 bool
-CBBackend::IsWineModule ( const Module& module ) const
+CBBackend::IsSpecDefinitionFile ( const Module& module ) const
 {
 	if ( module.importLibrary == NULL)
 		return false;
 
-	size_t index = module.importLibrary->source->name.rfind ( ".spec.def" );
+	size_t index = module.importLibrary->source->name.rfind ( ".spec" );
 	return ( index != string::npos );
 }

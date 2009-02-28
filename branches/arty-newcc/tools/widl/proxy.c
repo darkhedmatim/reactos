@@ -28,15 +28,14 @@
 # include <unistd.h>
 #endif
 #include <string.h>
-#include <assert.h>
 #include <ctype.h>
-#include <signal.h>
 
 #include "widl.h"
 #include "utils.h"
 #include "parser.h"
 #include "header.h"
 #include "typegen.h"
+#include "expr.h"
 
 #define END_OF_LIST(list)       \
   do {                          \
@@ -90,7 +89,7 @@ static void write_stubdesc(int expr_eval_routines)
   print_proxy( "\n");
 }
 
-static void init_proxy(ifref_list_t *ifaces)
+static void init_proxy(const statement_list_t *stmts)
 {
   if (proxy) return;
   if(!(proxy = fopen(proxy_name, "w")))
@@ -110,8 +109,26 @@ static void init_proxy(ifref_list_t *ifaces)
   print_proxy( "\n");
   print_proxy( "#include \"%s\"\n", header_name);
   print_proxy( "\n");
-  write_formatstringsdecl(proxy, indent, ifaces, need_proxy);
-  write_stubdescproto();
+  print_proxy( "#ifndef DECLSPEC_HIDDEN\n");
+  print_proxy( "#define DECLSPEC_HIDDEN\n");
+  print_proxy( "#endif\n");
+  print_proxy( "\n");
+  write_exceptions( proxy );
+  print_proxy( "\n");
+  print_proxy( "struct __proxy_frame\n");
+  print_proxy( "{\n");
+  print_proxy( "    __DECL_EXCEPTION_FRAME\n");
+  print_proxy( "    MIDL_STUB_MESSAGE _StubMsg;\n");
+  print_proxy( "    void             *This;\n");
+  print_proxy( "};\n");
+  print_proxy( "\n");
+  print_proxy("#ifndef USE_COMPILER_EXCEPTIONS\n");
+  print_proxy("static int __proxy_filter( struct __proxy_frame *__frame )\n");
+  print_proxy( "{\n");
+  print_proxy( "    return (__frame->_StubMsg.dwStubPhase != PROXY_SENDRECEIVE);\n");
+  print_proxy( "}\n");
+  print_proxy("#endif /* USE_COMPILER_EXCEPTIONS */\n");
+  print_proxy( "\n");
 }
 
 static void clear_output_vars( const var_list_t *args )
@@ -141,10 +158,18 @@ int cant_be_null(const var_t *v)
   const attr_list_t *attrs = v->attrs;
   const type_t *type = v->type;
 
-  if (! attrs && type)
+  /* context handles have their own checking so they can be null for the
+   * purposes of null ref pointer checking */
+  if (is_aliaschain_attr(type, ATTR_CONTEXTHANDLE))
+      return 0;
+
+  if (is_user_type(type))
+      return 0;
+
+  if (!attrs && is_ptr(type))
   {
     attrs = type->attrs;
-    type = type->ref;
+    type = type_pointer_get_ref(type);
   }
 
   while (attrs)
@@ -157,16 +182,41 @@ int cant_be_null(const var_t *v)
     if (t == RPC_FC_RP)
       return 1;
 
-    if (type)
+    if (is_ptr(type))
     {
       attrs = type->attrs;
-      type = type->ref;
+      type = type_pointer_get_ref(type);
     }
     else
       attrs = NULL;
   }
 
   return 1;                             /* Default is RPC_FC_RP.  */
+}
+
+static int need_delegation(const type_t *iface)
+{
+    return type_iface_get_inherit(iface) &&
+           type_iface_get_inherit(type_iface_get_inherit(iface)) &&
+           type_iface_get_inherit(iface)->ignore;
+}
+
+static int get_delegation_indirect(const type_t *iface, const type_t ** delegate_to)
+{
+  const type_t * cur_iface;
+  for (cur_iface = iface; cur_iface != NULL; cur_iface = type_iface_get_inherit(cur_iface))
+    if (need_delegation(cur_iface))
+    {
+      if(delegate_to)
+        *delegate_to = type_iface_get_inherit(cur_iface);
+      return 1;
+    }
+  return 0;
+}
+
+static int need_delegation_indirect(const type_t *iface)
+{
+  return get_delegation_indirect(iface, NULL);
 }
 
 static void proxy_check_pointers( const var_list_t *args )
@@ -185,7 +235,7 @@ static void proxy_check_pointers( const var_list_t *args )
   }
 }
 
-static void free_variable( const var_t *arg )
+static void free_variable( const var_t *arg, const char *local_var_prefix )
 {
   unsigned int type_offset = arg->type->typestring_offset;
   expr_t *iid;
@@ -194,10 +244,10 @@ static void free_variable( const var_t *arg )
 
   if (size)
   {
-    print_proxy( "_StubMsg.MaxCount = " );
-    write_expr(proxy, size, 0);
+    print_proxy( "__frame->_StubMsg.MaxCount = " );
+    write_expr(proxy, size, 0, 1, NULL, NULL, local_var_prefix);
     fprintf(proxy, ";\n\n");
-    print_proxy( "NdrClearOutParameters( &_StubMsg, ");
+    print_proxy( "NdrClearOutParameters( &__frame->_StubMsg, ");
     fprintf(proxy, "&__MIDL_TypeFormatString.Format[%u], ", type_offset );
     fprintf(proxy, "(void*)%s );\n", arg->name );
     return;
@@ -222,11 +272,11 @@ static void free_variable( const var_t *arg )
     iid = get_attrp( arg->attrs, ATTR_IIDIS );
     if( iid )
     {
-      print_proxy( "_StubMsg.MaxCount = (unsigned long) " );
-      write_expr(proxy, iid, 1);
+      print_proxy( "__frame->_StubMsg.MaxCount = (ULONG_PTR) " );
+      write_expr(proxy, iid, 1, 1, NULL, NULL, local_var_prefix);
       print_proxy( ";\n\n" );
     }
-    print_proxy( "NdrClearOutParameters( &_StubMsg, ");
+    print_proxy( "NdrClearOutParameters( &__frame->_StubMsg, ");
     fprintf(proxy, "&__MIDL_TypeFormatString.Format[%u], ", type_offset );
     fprintf(proxy, "(void*)%s );\n", arg->name );
     break;
@@ -236,7 +286,7 @@ static void free_variable( const var_t *arg )
   }
 }
 
-static void proxy_free_variables( var_list_t *args )
+static void proxy_free_variables( var_list_t *args, const char *local_var_prefix )
 {
   const var_t *arg;
 
@@ -244,84 +294,97 @@ static void proxy_free_variables( var_list_t *args )
   LIST_FOR_EACH_ENTRY( arg, args, const var_t, entry )
     if (is_attr(arg->attrs, ATTR_OUT))
     {
-      free_variable( arg );
+      free_variable( arg, local_var_prefix );
       fprintf(proxy, "\n");
     }
 }
 
-static void gen_proxy(type_t *iface, const func_t *cur, int idx,
+static void gen_proxy(type_t *iface, const var_t *func, int idx,
                       unsigned int proc_offset)
 {
-  var_t *def = cur->def;
-  int has_ret = !is_void(def->type);
-  int has_full_pointer = is_full_pointer_function(cur);
+  int has_ret = !is_void(type_function_get_rettype(func->type));
+  int has_full_pointer = is_full_pointer_function(func);
+  const char *callconv = get_attrp(func->type->attrs, ATTR_CALLCONV);
+  if (!callconv) callconv = "";
 
   indent = 0;
-  write_type_decl_left(proxy, def->type);
-  print_proxy( " STDMETHODCALLTYPE %s_", iface->name);
-  write_name(proxy, def);
-  print_proxy( "_Proxy(\n");
-  write_args(proxy, cur->args, iface->name, 1, TRUE);
+  print_proxy( "static void __finally_%s_%s_Proxy( struct __proxy_frame *__frame )\n",
+               iface->name, get_name(func) );
+  print_proxy( "{\n");
+  indent++;
+  if (has_full_pointer) write_full_pointer_free(proxy, indent, func);
+  print_proxy( "NdrProxyFreeBuffer( __frame->This, &__frame->_StubMsg );\n" );
+  indent--;
+  print_proxy( "}\n");
+  print_proxy( "\n");
+
+  write_type_decl_left(proxy, type_function_get_rettype(func->type));
+  print_proxy( " %s %s_%s_Proxy(\n", callconv, iface->name, get_name(func));
+  write_args(proxy, type_get_function_args(func->type), iface->name, 1, TRUE);
   print_proxy( ")\n");
   print_proxy( "{\n");
   indent ++;
+  print_proxy( "struct __proxy_frame __f, * const __frame = &__f;\n" );
   /* local variables */
   if (has_ret) {
     print_proxy( "" );
-    write_type_decl_left(proxy, def->type);
-    print_proxy( " _RetVal;\n");
+    write_type_decl_left(proxy, type_function_get_rettype(func->type));
+    print_proxy(" _RetVal;\n");
   }
   print_proxy( "RPC_MESSAGE _RpcMessage;\n" );
-  print_proxy( "MIDL_STUB_MESSAGE _StubMsg;\n" );
   if (has_ret) {
-    if (decl_indirect(def->type))
+    if (decl_indirect(type_function_get_rettype(func->type)))
       print_proxy("void *_p_%s = &%s;\n",
                  "_RetVal", "_RetVal");
   }
   print_proxy( "\n");
 
+  print_proxy( "RpcExceptionInit( __proxy_filter, __finally_%s_%s_Proxy );\n", iface->name, get_name(func) );
+  print_proxy( "__frame->This = This;\n" );
+
   if (has_full_pointer)
-    write_full_pointer_init(proxy, indent, cur, FALSE);
+    write_full_pointer_init(proxy, indent, func, FALSE);
 
   /* FIXME: trace */
-  clear_output_vars( cur->args );
+  clear_output_vars( type_get_function_args(func->type) );
 
   print_proxy( "RpcTryExcept\n" );
   print_proxy( "{\n" );
   indent++;
-  print_proxy( "NdrProxyInitialize(This, &_RpcMessage, &_StubMsg, &Object_StubDesc, %d);\n", idx);
-  proxy_check_pointers( cur->args );
+  print_proxy( "NdrProxyInitialize(This, &_RpcMessage, &__frame->_StubMsg, &Object_StubDesc, %d);\n", idx);
+  proxy_check_pointers( type_get_function_args(func->type) );
 
   print_proxy( "RpcTryFinally\n" );
   print_proxy( "{\n" );
   indent++;
 
-  write_remoting_arguments(proxy, indent, cur, PASS_IN, PHASE_BUFFERSIZE);
+  write_remoting_arguments(proxy, indent, func, "", PASS_IN, PHASE_BUFFERSIZE);
 
-  print_proxy( "NdrProxyGetBuffer(This, &_StubMsg);\n" );
+  print_proxy( "NdrProxyGetBuffer(This, &__frame->_StubMsg);\n" );
 
-  write_remoting_arguments(proxy, indent, cur, PASS_IN, PHASE_MARSHAL);
+  write_remoting_arguments(proxy, indent, func, "", PASS_IN, PHASE_MARSHAL);
 
-  print_proxy( "NdrProxySendReceive(This, &_StubMsg);\n" );
+  print_proxy( "NdrProxySendReceive(This, &__frame->_StubMsg);\n" );
   fprintf(proxy, "\n");
-  print_proxy( "_StubMsg.BufferStart = _RpcMessage.Buffer;\n" );
-  print_proxy( "_StubMsg.BufferEnd   = _StubMsg.BufferStart + _RpcMessage.BufferLength;\n\n" );
+  print_proxy( "__frame->_StubMsg.BufferStart = _RpcMessage.Buffer;\n" );
+  print_proxy( "__frame->_StubMsg.BufferEnd   = __frame->_StubMsg.BufferStart + _RpcMessage.BufferLength;\n\n" );
 
   print_proxy("if ((_RpcMessage.DataRepresentation & 0xffff) != NDR_LOCAL_DATA_REPRESENTATION)\n");
   indent++;
-  print_proxy("NdrConvert( &_StubMsg, &__MIDL_ProcFormatString.Format[%u]);\n", proc_offset );
+  print_proxy("NdrConvert( &__frame->_StubMsg, &__MIDL_ProcFormatString.Format[%u]);\n", proc_offset );
   indent--;
   fprintf(proxy, "\n");
 
-  write_remoting_arguments(proxy, indent, cur, PASS_OUT, PHASE_UNMARSHAL);
+  write_remoting_arguments(proxy, indent, func, "", PASS_OUT, PHASE_UNMARSHAL);
 
   if (has_ret)
   {
-      if (decl_indirect(def->type))
+      if (decl_indirect(type_function_get_rettype(func->type)))
           print_proxy("MIDL_memset(&%s, 0, sizeof(%s));\n", "_RetVal", "_RetVal");
-      else if (is_ptr(def->type) || is_array(def->type))
+      else if (is_ptr(type_function_get_rettype(func->type)) ||
+               is_array(type_function_get_rettype(func->type)))
           print_proxy("%s = 0;\n", "_RetVal");
-      write_remoting_arguments(proxy, indent, cur, PASS_RETURN, PHASE_UNMARSHAL);
+      write_remoting_arguments(proxy, indent, func, "", PASS_RETURN, PHASE_UNMARSHAL);
   }
 
   indent--;
@@ -329,19 +392,17 @@ static void gen_proxy(type_t *iface, const func_t *cur, int idx,
   print_proxy( "RpcFinally\n" );
   print_proxy( "{\n" );
   indent++;
-  if (has_full_pointer)
-    write_full_pointer_free(proxy, indent, cur);
-  print_proxy( "NdrProxyFreeBuffer(This, &_StubMsg);\n" );
+  print_proxy( "__finally_%s_%s_Proxy( __frame );\n", iface->name, get_name(func) );
   indent--;
   print_proxy( "}\n");
   print_proxy( "RpcEndFinally\n" );
   indent--;
   print_proxy( "}\n" );
-  print_proxy( "RpcExcept(_StubMsg.dwStubPhase != PROXY_SENDRECEIVE)\n" );
+  print_proxy( "RpcExcept(__frame->_StubMsg.dwStubPhase != PROXY_SENDRECEIVE)\n" );
   print_proxy( "{\n" );
   if (has_ret) {
     indent++;
-    proxy_free_variables( cur->args );
+    proxy_free_variables( type_get_function_args(func->type), "" );
     print_proxy( "_RetVal = NdrProxyErrorHandler(RpcExceptionCode());\n" );
     indent--;
   }
@@ -356,18 +417,33 @@ static void gen_proxy(type_t *iface, const func_t *cur, int idx,
   print_proxy( "\n");
 }
 
-static void gen_stub(type_t *iface, const func_t *cur, const char *cas,
+static void gen_stub(type_t *iface, const var_t *func, const char *cas,
                      unsigned int proc_offset)
 {
-  var_t *def = cur->def;
   const var_t *arg;
-  int has_ret = !is_void(def->type);
-  int has_full_pointer = is_full_pointer_function(cur);
+  int has_ret = !is_void(type_function_get_rettype(func->type));
+  int has_full_pointer = is_full_pointer_function(func);
 
   indent = 0;
-  print_proxy( "void __RPC_STUB %s_", iface->name);
-  write_name(proxy, def);
-  print_proxy( "_Stub(\n");
+  print_proxy( "struct __frame_%s_%s_Stub\n{\n", iface->name, get_name(func));
+  indent++;
+  print_proxy( "__DECL_EXCEPTION_FRAME\n" );
+  print_proxy( "MIDL_STUB_MESSAGE _StubMsg;\n");
+  print_proxy( "%s * _This;\n", iface->name );
+  declare_stub_args( proxy, indent, func );
+  indent--;
+  print_proxy( "};\n\n" );
+
+  print_proxy( "static void __finally_%s_%s_Stub(", iface->name, get_name(func) );
+  print_proxy( " struct __frame_%s_%s_Stub *__frame )\n{\n", iface->name, get_name(func) );
+  indent++;
+  write_remoting_arguments(proxy, indent, func, "__frame->", PASS_OUT, PHASE_FREE);
+  if (has_full_pointer)
+    write_full_pointer_free(proxy, indent, func);
+  indent--;
+  print_proxy( "}\n\n" );
+
+  print_proxy( "void __RPC_STUB %s_%s_Stub(\n", iface->name, get_name(func));
   indent++;
   print_proxy( "IRpcStubBuffer* This,\n");
   print_proxy( "IRpcChannelBuffer *_pRpcChannelBuffer,\n");
@@ -376,125 +452,158 @@ static void gen_stub(type_t *iface, const func_t *cur, const char *cas,
   indent--;
   print_proxy( "{\n");
   indent++;
-  print_proxy("%s * _This = (%s*)((CStdStubBuffer*)This)->pvServerObject;\n", iface->name, iface->name);
-  print_proxy("MIDL_STUB_MESSAGE _StubMsg;\n");
-  declare_stub_args( proxy, indent, cur );
-  fprintf(proxy, "\n");
+  print_proxy( "struct __frame_%s_%s_Stub __f, * const __frame = &__f;\n\n",
+               iface->name, get_name(func) );
+
+  print_proxy("__frame->_This = (%s*)((CStdStubBuffer*)This)->pvServerObject;\n\n", iface->name);
 
   /* FIXME: trace */
 
-  print_proxy("NdrStubInitialize(_pRpcMessage, &_StubMsg, &Object_StubDesc, _pRpcChannelBuffer);\n");
+  print_proxy("NdrStubInitialize(_pRpcMessage, &__frame->_StubMsg, &Object_StubDesc, _pRpcChannelBuffer);\n");
   fprintf(proxy, "\n");
+  print_proxy( "RpcExceptionInit( 0, __finally_%s_%s_Stub );\n", iface->name, get_name(func) );
 
-  write_parameters_init(proxy, indent, cur);
+  write_parameters_init(proxy, indent, func, "__frame->");
 
   print_proxy("RpcTryFinally\n");
   print_proxy("{\n");
   indent++;
   if (has_full_pointer)
-    write_full_pointer_init(proxy, indent, cur, TRUE);
+    write_full_pointer_init(proxy, indent, func, TRUE);
   print_proxy("if ((_pRpcMessage->DataRepresentation & 0xffff) != NDR_LOCAL_DATA_REPRESENTATION)\n");
   indent++;
-  print_proxy("NdrConvert( &_StubMsg, &__MIDL_ProcFormatString.Format[%u]);\n", proc_offset );
+  print_proxy("NdrConvert( &__frame->_StubMsg, &__MIDL_ProcFormatString.Format[%u]);\n", proc_offset );
   indent--;
   fprintf(proxy, "\n");
 
-  write_remoting_arguments(proxy, indent, cur, PASS_IN, PHASE_UNMARSHAL);
+  write_remoting_arguments(proxy, indent, func, "__frame->", PASS_IN, PHASE_UNMARSHAL);
   fprintf(proxy, "\n");
 
-  assign_stub_out_args( proxy, indent, cur );
+  assign_stub_out_args( proxy, indent, func, "__frame->" );
 
   print_proxy("*_pdwStubPhase = STUB_CALL_SERVER;\n");
   fprintf(proxy, "\n");
   print_proxy("");
-  if (has_ret) fprintf(proxy, "_RetVal = ");
+  if (has_ret) fprintf(proxy, "__frame->_RetVal = ");
   if (cas) fprintf(proxy, "%s_%s_Stub", iface->name, cas);
-  else
-  {
-      fprintf(proxy, "_This->lpVtbl->");
-      write_name(proxy, def);
-  }
-  fprintf(proxy, "(_This");
+  else fprintf(proxy, "__frame->_This->lpVtbl->%s", get_name(func));
+  fprintf(proxy, "(__frame->_This");
 
-  if (cur->args)
+  if (type_get_function_args(func->type))
   {
-      LIST_FOR_EACH_ENTRY( arg, cur->args, const var_t, entry )
-      {
-          fprintf(proxy, ", ");
-          if (arg->type->declarray)
-              fprintf(proxy, "*");
-          write_name(proxy, arg);
-      }
+      LIST_FOR_EACH_ENTRY( arg, type_get_function_args(func->type), const var_t, entry )
+          fprintf(proxy, ", %s__frame->%s", arg->type->declarray ? "*" : "", arg->name);
   }
   fprintf(proxy, ");\n");
   fprintf(proxy, "\n");
   print_proxy("*_pdwStubPhase = STUB_MARSHAL;\n");
   fprintf(proxy, "\n");
 
-  write_remoting_arguments(proxy, indent, cur, PASS_OUT, PHASE_BUFFERSIZE);
+  write_remoting_arguments(proxy, indent, func, "__frame->", PASS_OUT, PHASE_BUFFERSIZE);
 
-  print_proxy("NdrStubGetBuffer(This, _pRpcChannelBuffer, &_StubMsg);\n");
+  if (!is_void(type_function_get_rettype(func->type)))
+    write_remoting_arguments(proxy, indent, func, "__frame->", PASS_RETURN, PHASE_BUFFERSIZE);
 
-  write_remoting_arguments(proxy, indent, cur, PASS_OUT, PHASE_MARSHAL);
+  print_proxy("NdrStubGetBuffer(This, _pRpcChannelBuffer, &__frame->_StubMsg);\n");
+
+  write_remoting_arguments(proxy, indent, func, "__frame->", PASS_OUT, PHASE_MARSHAL);
   fprintf(proxy, "\n");
 
-  if (has_ret)
-      print_phase_basetype(proxy, indent, PHASE_MARSHAL, PASS_RETURN, def, "_RetVal");
+  /* marshall the return value */
+  if (!is_void(type_function_get_rettype(func->type)))
+    write_remoting_arguments(proxy, indent, func, "__frame->", PASS_RETURN, PHASE_MARSHAL);
 
   indent--;
   print_proxy("}\n");
   print_proxy("RpcFinally\n");
   print_proxy("{\n");
-
-  write_remoting_arguments(proxy, indent+1, cur, PASS_OUT, PHASE_FREE);
-
-  if (has_full_pointer)
-    write_full_pointer_free(proxy, indent, cur);
-
+  indent++;
+  print_proxy( "__finally_%s_%s_Stub( __frame );\n", iface->name, get_name(func) );
+  indent--;
   print_proxy("}\n");
   print_proxy("RpcEndFinally\n");
 
-  print_proxy("_pRpcMessage->BufferLength = _StubMsg.Buffer - (unsigned char *)_pRpcMessage->Buffer;\n");
+  print_proxy("_pRpcMessage->BufferLength = __frame->_StubMsg.Buffer - (unsigned char *)_pRpcMessage->Buffer;\n");
   indent--;
 
   print_proxy("}\n");
   print_proxy("\n");
 }
 
-static int write_proxy_methods(type_t *iface)
+static int count_methods(type_t *iface)
 {
-  const func_t *cur;
+    const statement_t *stmt;
+    int count = 0;
+
+    if (type_iface_get_inherit(iface))
+        count = count_methods(type_iface_get_inherit(iface));
+
+    STATEMENTS_FOR_EACH_FUNC(stmt, type_iface_get_stmts(iface)) {
+        const var_t *func = stmt->u.var;
+        if (!is_callas(func->attrs)) count++;
+    }
+    return count;
+}
+
+static const statement_t * get_callas_source(const type_t * iface, const var_t * def)
+{
+  const statement_t * source;
+  STATEMENTS_FOR_EACH_FUNC( source, type_iface_get_stmts(iface)) {
+    const var_t * cas = is_callas(source->u.var->attrs );
+    if (cas && !strcmp(def->name, cas->name))
+      return source;
+  }
+  return NULL;
+}
+
+static int write_proxy_methods(type_t *iface, int skip)
+{
+  const statement_t *stmt;
   int i = 0;
 
-  if (iface->ref) i = write_proxy_methods(iface->ref);
-  if (iface->funcs) LIST_FOR_EACH_ENTRY( cur, iface->funcs, const func_t, entry ) {
-    var_t *def = cur->def;
-    if (!is_callas(def->attrs)) {
+  if (type_iface_get_inherit(iface))
+    i = write_proxy_methods(type_iface_get_inherit(iface),
+                            need_delegation(iface));
+  STATEMENTS_FOR_EACH_FUNC(stmt, type_iface_get_stmts(iface)) {
+    const var_t *func = stmt->u.var;
+    if (!is_callas(func->attrs)) {
+      if (i != func->type->details.function->idx )
+        error("widl internal error: method index mismatch\n");
       if (i) fprintf(proxy, ",\n");
-      print_proxy( "%s_", iface->name);
-      write_name(proxy, def);
-      fprintf(proxy, "_Proxy");
+      if (skip || (is_local(func->attrs) && !get_callas_source(iface, func)))
+           print_proxy( "0  /* %s_%s_Proxy */", iface->name, get_name(func));
+      else print_proxy( "%s_%s_Proxy", iface->name, get_name(func));
       i++;
     }
   }
   return i;
 }
 
-static int write_stub_methods(type_t *iface)
+static int write_stub_methods(type_t *iface, int skip)
 {
-  const func_t *cur;
+  const statement_t *stmt;
   int i = 0;
 
-  if (iface->ref) i = write_stub_methods(iface->ref);
-  else return i; /* skip IUnknown */
+  if (type_iface_get_inherit(iface))
+    i = write_stub_methods(type_iface_get_inherit(iface), need_delegation(iface));
+  else
+    return i; /* skip IUnknown */
 
-  if (iface->funcs) LIST_FOR_EACH_ENTRY( cur, iface->funcs, const func_t, entry ) {
-    var_t *def = cur->def;
-    if (!is_local(def->attrs)) {
+  STATEMENTS_FOR_EACH_FUNC(stmt, type_iface_get_stmts(iface)) {
+    const var_t *func = stmt->u.var;
+    if (!is_callas(func->attrs)) {
+      int missing = 0;
+      const char * fname = get_name(func);
+      if(is_local(func->attrs)) {
+        const statement_t * callas_source = get_callas_source(iface, func);
+        if(!callas_source)
+          missing = 1;
+        else
+          fname = get_name(callas_source->u.var);
+      }
       if (i) fprintf(proxy,",\n");
-      print_proxy( "%s_", iface->name);
-      write_name(proxy, def);
-      fprintf(proxy, "_Stub");
+      if (skip || missing) print_proxy("STUB_FORWARDING_FUNCTION");
+      else print_proxy( "%s_%s_Stub", iface->name, fname);
       i++;
     }
   }
@@ -503,43 +612,45 @@ static int write_stub_methods(type_t *iface)
 
 static void write_proxy(type_t *iface, unsigned int *proc_offset)
 {
-  int midx = -1, stubs;
-  const func_t *cur;
-
-  if (!iface->funcs) return;
+  int count;
+  const statement_t *stmt;
+  int first_func = 1;
 
   /* FIXME: check for [oleautomation], shouldn't generate proxies/stubs if specified */
 
-  fprintf(proxy, "/*****************************************************************************\n");
-  fprintf(proxy, " * %s interface\n", iface->name);
-  fprintf(proxy, " */\n");
-  LIST_FOR_EACH_ENTRY( cur, iface->funcs, const func_t, entry )
-  {
-    const var_t *def = cur->def;
-    if (!is_local(def->attrs)) {
-      const var_t *cas = is_callas(def->attrs);
+  STATEMENTS_FOR_EACH_FUNC(stmt, type_iface_get_stmts(iface)) {
+    const var_t *func = stmt->u.var;
+    if (first_func) {
+      fprintf(proxy, "/*****************************************************************************\n");
+      fprintf(proxy, " * %s interface\n", iface->name);
+      fprintf(proxy, " */\n");
+      first_func = 0;
+    }
+    if (!is_local(func->attrs)) {
+      const var_t *cas = is_callas(func->attrs);
       const char *cname = cas ? cas->name : NULL;
-      int idx = cur->idx;
+      int idx = func->type->details.function->idx;
       if (cname) {
-          const func_t *m;
-          LIST_FOR_EACH_ENTRY( m, iface->funcs, const func_t, entry )
-              if (!strcmp(m->def->name, cname))
+          const statement_t *stmt2;
+          STATEMENTS_FOR_EACH_FUNC(stmt2, type_iface_get_stmts(iface)) {
+              const var_t *m = stmt2->u.var;
+              if (!strcmp(m->name, cname))
               {
-                  idx = m->idx;
+                  idx = m->type->details.function->idx;
                   break;
               }
+          }
       }
-      gen_proxy(iface, cur, idx, *proc_offset);
-      gen_stub(iface, cur, cname, *proc_offset);
-      *proc_offset += get_size_procformatstring_func( cur );
-      if (midx == -1) midx = idx;
-      else if (midx != idx) error("method index mismatch in write_proxy\n");
-      midx++;
+      gen_proxy(iface, func, idx, *proc_offset);
+      gen_stub(iface, func, cname, *proc_offset);
+      *proc_offset += get_size_procformatstring_func( func );
     }
   }
 
+  count = count_methods(iface);
+
   /* proxy vtable */
-  print_proxy( "static const CINTERFACE_PROXY_VTABLE(%d) _%sProxyVtbl =\n", midx, iface->name);
+  print_proxy( "static const CINTERFACE_PROXY_VTABLE(%d) _%sProxyVtbl =\n", count, iface->name);
   print_proxy( "{\n");
   indent++;
   print_proxy( "{\n", iface->name);
@@ -549,7 +660,7 @@ static void write_proxy(type_t *iface, unsigned int *proc_offset)
   print_proxy( "},\n");
   print_proxy( "{\n");
   indent++;
-  write_proxy_methods(iface);
+  write_proxy_methods(iface, FALSE);
   fprintf(proxy, "\n");
   indent--;
   print_proxy( "}\n");
@@ -561,25 +672,26 @@ static void write_proxy(type_t *iface, unsigned int *proc_offset)
   print_proxy( "static const PRPC_STUB_FUNCTION %s_table[] =\n", iface->name);
   print_proxy( "{\n");
   indent++;
-  stubs = write_stub_methods(iface);
+  write_stub_methods(iface, FALSE);
   fprintf(proxy, "\n");
   indent--;
   fprintf(proxy, "};\n");
   print_proxy( "\n");
-  print_proxy( "static const CInterfaceStubVtbl _%sStubVtbl =\n", iface->name);
+  print_proxy( "static %sCInterfaceStubVtbl _%sStubVtbl =\n",
+               need_delegation_indirect(iface) ? "" : "const ", iface->name);
   print_proxy( "{\n");
   indent++;
   print_proxy( "{\n");
   indent++;
   print_proxy( "&IID_%s,\n", iface->name);
   print_proxy( "0,\n");
-  print_proxy( "%d,\n", stubs+3);
+  print_proxy( "%d,\n", count);
   print_proxy( "&%s_table[-3],\n", iface->name);
   indent--;
   print_proxy( "},\n", iface->name);
   print_proxy( "{\n");
   indent++;
-  print_proxy( "CStdStubBuffer_METHODS\n");
+  print_proxy( "CStdStubBuffer_%s\n", need_delegation_indirect(iface) ? "DELEGATING_METHODS" : "METHODS");
   indent--;
   print_proxy( "}\n");
   indent--;
@@ -587,14 +699,24 @@ static void write_proxy(type_t *iface, unsigned int *proc_offset)
   print_proxy( "\n");
 }
 
-static int does_any_iface(const ifref_list_t *ifaces, type_pred_t pred)
+static int does_any_iface(const statement_list_t *stmts, type_pred_t pred)
 {
-  ifref_t *ir;
+  const statement_t *stmt;
 
-  if (ifaces)
-    LIST_FOR_EACH_ENTRY(ir, ifaces, ifref_t, entry)
-      if (pred(ir->iface))
-        return TRUE;
+  if (stmts)
+    LIST_FOR_EACH_ENTRY(stmt, stmts, const statement_t, entry)
+    {
+      if (stmt->type == STMT_LIBRARY)
+      {
+          if (does_any_iface(stmt->u.lib->stmts, pred))
+              return TRUE;
+      }
+      else if (stmt->type == STMT_TYPE && stmt->u.type->type == RPC_FC_IP)
+      {
+        if (pred(stmt->u.type))
+          return TRUE;
+      }
+    }
 
   return FALSE;
 }
@@ -609,34 +731,79 @@ int need_stub(const type_t *iface)
   return !is_object(iface->attrs) && !is_local(iface->attrs);
 }
 
-int need_proxy_file(const ifref_list_t *ifaces)
+int need_proxy_file(const statement_list_t *stmts)
 {
-  return does_any_iface(ifaces, need_proxy);
+  return does_any_iface(stmts, need_proxy);
 }
 
-int need_stub_files(const ifref_list_t *ifaces)
+int need_stub_files(const statement_list_t *stmts)
 {
-  return does_any_iface(ifaces, need_stub);
+  return does_any_iface(stmts, need_stub);
 }
 
-void write_proxies(ifref_list_t *ifaces)
+static void write_proxy_stmts(const statement_list_t *stmts, unsigned int *proc_offset)
 {
-  ifref_t *cur;
+  const statement_t *stmt;
+  if (stmts) LIST_FOR_EACH_ENTRY( stmt, stmts, const statement_t, entry )
+  {
+    if (stmt->type == STMT_LIBRARY)
+      write_proxy_stmts(stmt->u.lib->stmts, proc_offset);
+    else if (stmt->type == STMT_TYPE && stmt->u.type->type == RPC_FC_IP)
+    {
+      if (need_proxy(stmt->u.type))
+        write_proxy(stmt->u.type, proc_offset);
+    }
+  }
+}
+
+static int cmp_iid( const void *ptr1, const void *ptr2 )
+{
+    const type_t * const *iface1 = ptr1;
+    const type_t * const *iface2 = ptr2;
+    const UUID *uuid1 = get_attrp( (*iface1)->attrs, ATTR_UUID );
+    const UUID *uuid2 = get_attrp( (*iface2)->attrs, ATTR_UUID );
+    return memcmp( uuid1, uuid2, sizeof(UUID) );
+}
+
+static void build_iface_list( const statement_list_t *stmts, type_t **ifaces[], int *count )
+{
+    const statement_t *stmt;
+
+    if (!stmts) return;
+    LIST_FOR_EACH_ENTRY( stmt, stmts, const statement_t, entry )
+    {
+        if (stmt->type == STMT_LIBRARY)
+            build_iface_list(stmt->u.lib->stmts, ifaces, count);
+        else if (stmt->type == STMT_TYPE && stmt->u.type->type == RPC_FC_IP)
+        {
+            type_t *iface = stmt->u.type;
+            if (type_iface_get_inherit(iface) && need_proxy(iface))
+            {
+                *ifaces = xrealloc( *ifaces, (*count + 1) * sizeof(*ifaces) );
+                (*ifaces)[(*count)++] = iface;
+            }
+        }
+    }
+}
+
+static type_t **sort_interfaces( const statement_list_t *stmts, int *count )
+{
+    type_t **ifaces = NULL;
+
+    *count = 0;
+    build_iface_list( stmts, &ifaces, count );
+    qsort( ifaces, *count, sizeof(*ifaces), cmp_iid );
+    return ifaces;
+}
+
+static void write_proxy_routines(const statement_list_t *stmts)
+{
   int expr_eval_routines;
-  char *file_id = proxy_token;
-  int c;
   unsigned int proc_offset = 0;
 
-  if (!do_proxies) return;
-  if (do_everything && !need_proxy_file(ifaces)) return;
-
-  init_proxy(ifaces);
-  if(!proxy) return;
-
-  if (ifaces)
-      LIST_FOR_EACH_ENTRY( cur, ifaces, ifref_t, entry )
-          if (need_proxy(cur->iface))
-              write_proxy(cur->iface, &proc_offset);
+  write_formatstringsdecl(proxy, indent, stmts, need_proxy);
+  write_stubdescproto();
+  write_proxy_stmts(stmts, &proc_offset);
 
   expr_eval_routines = write_expr_eval_routines(proxy, proxy_token);
   if (expr_eval_routines)
@@ -644,72 +811,115 @@ void write_proxies(ifref_list_t *ifaces)
   write_user_quad_list(proxy);
   write_stubdesc(expr_eval_routines);
 
-  print_proxy( "#if !defined(__RPC_WIN32__)\n");
+  print_proxy( "#if !defined(__RPC_WIN%u__)\n", pointer_size == 8 ? 64 : 32);
   print_proxy( "#error Currently only Wine and WIN32 are supported.\n");
   print_proxy( "#endif\n");
   print_proxy( "\n");
-  write_procformatstring(proxy, ifaces, need_proxy);
-  write_typeformatstring(proxy, ifaces, need_proxy);
+  write_procformatstring(proxy, stmts, need_proxy);
+  write_typeformatstring(proxy, stmts, need_proxy);
 
+}
+
+void write_proxies(const statement_list_t *stmts)
+{
+  char *file_id = proxy_token;
+  int i, count, have_baseiid;
+  type_t **interfaces;
+  const type_t * delegate_to;
+
+  if (!do_proxies) return;
+  if (do_everything && !need_proxy_file(stmts)) return;
+
+  init_proxy(stmts);
+  if(!proxy) return;
+
+  if (do_win32 && do_win64)
+  {
+      fprintf(proxy, "\n#ifndef _WIN64\n\n");
+      pointer_size = 4;
+      write_proxy_routines( stmts );
+      fprintf(proxy, "\n#else /* _WIN64 */\n\n");
+      pointer_size = 8;
+      write_proxy_routines( stmts );
+      fprintf(proxy, "#endif /* _WIN64 */\n\n");
+  }
+  else if (do_win32)
+  {
+      pointer_size = 4;
+      write_proxy_routines( stmts );
+  }
+  else if (do_win64)
+  {
+      pointer_size = 8;
+      write_proxy_routines( stmts );
+  }
+
+  interfaces = sort_interfaces(stmts, &count);
   fprintf(proxy, "static const CInterfaceProxyVtbl* const _%s_ProxyVtblList[] =\n", file_id);
   fprintf(proxy, "{\n");
-  if (ifaces)
-      LIST_FOR_EACH_ENTRY( cur, ifaces, ifref_t, entry )
-          if(cur->iface->ref && cur->iface->funcs && need_proxy(cur->iface))
-              fprintf(proxy, "    (const CInterfaceProxyVtbl*)&_%sProxyVtbl,\n", cur->iface->name);
-
+  for (i = 0; i < count; i++)
+      fprintf(proxy, "    (const CInterfaceProxyVtbl*)&_%sProxyVtbl,\n", interfaces[i]->name);
   fprintf(proxy, "    0\n");
   fprintf(proxy, "};\n");
   fprintf(proxy, "\n");
 
   fprintf(proxy, "static const CInterfaceStubVtbl* const _%s_StubVtblList[] =\n", file_id);
   fprintf(proxy, "{\n");
-  if (ifaces)
-      LIST_FOR_EACH_ENTRY( cur, ifaces, ifref_t, entry )
-          if(cur->iface->ref && cur->iface->funcs && need_proxy(cur->iface))
-              fprintf(proxy, "    (const CInterfaceStubVtbl*)&_%sStubVtbl,\n", cur->iface->name);
+  for (i = 0; i < count; i++)
+      fprintf(proxy, "    &_%sStubVtbl,\n", interfaces[i]->name);
   fprintf(proxy, "    0\n");
   fprintf(proxy, "};\n");
   fprintf(proxy, "\n");
 
   fprintf(proxy, "static PCInterfaceName const _%s_InterfaceNamesList[] =\n", file_id);
   fprintf(proxy, "{\n");
-  if (ifaces)
-      LIST_FOR_EACH_ENTRY( cur, ifaces, ifref_t, entry )
-          if(cur->iface->ref && cur->iface->funcs && need_proxy(cur->iface))
-              fprintf(proxy, "    \"%s\",\n", cur->iface->name);
+  for (i = 0; i < count; i++)
+      fprintf(proxy, "    \"%s\",\n", interfaces[i]->name);
   fprintf(proxy, "    0\n");
   fprintf(proxy, "};\n");
   fprintf(proxy, "\n");
 
-  fprintf(proxy, "#define _%s_CHECK_IID(n) IID_GENERIC_CHECK_IID(_%s, pIID, n)\n", file_id, file_id);
-  fprintf(proxy, "\n");
-  fprintf(proxy, "int __stdcall _%s_IID_Lookup(const IID* pIID, int* pIndex)\n", file_id);
+  if ((have_baseiid = does_any_iface(stmts, need_delegation_indirect)))
+  {
+      fprintf(proxy, "static const IID * _%s_BaseIIDList[] =\n", file_id);
+      fprintf(proxy, "{\n");
+      for (i = 0; i < count; i++)
+      {
+          if (get_delegation_indirect(interfaces[i], &delegate_to))
+              fprintf( proxy, "    &IID_%s,  /* %s */\n", delegate_to->name, interfaces[i]->name );
+          else
+              fprintf( proxy, "    0,\n" );
+      }
+      fprintf(proxy, "    0\n");
+      fprintf(proxy, "};\n");
+      fprintf(proxy, "\n");
+  }
+
+  fprintf(proxy, "static int __stdcall _%s_IID_Lookup(const IID* pIID, int* pIndex)\n", file_id);
   fprintf(proxy, "{\n");
-  c = 0;
-  if (ifaces)
-      LIST_FOR_EACH_ENTRY( cur, ifaces, ifref_t, entry )
-          if(cur->iface->ref && cur->iface->funcs && need_proxy(cur->iface))
-          {
-              fprintf(proxy, "    if (!_%s_CHECK_IID(%d))\n", file_id, c);
-              fprintf(proxy, "    {\n");
-              fprintf(proxy, "        *pIndex = %d;\n", c);
-              fprintf(proxy, "        return 1;\n");
-              fprintf(proxy, "    }\n");
-              c++;
-          }
+  fprintf(proxy, "    int low = 0, high = %d;\n", count - 1);
+  fprintf(proxy, "\n");
+  fprintf(proxy, "    while (low <= high)\n");
+  fprintf(proxy, "    {\n");
+  fprintf(proxy, "        int pos = (low + high) / 2;\n");
+  fprintf(proxy, "        int res = IID_GENERIC_CHECK_IID(_%s, pIID, pos);\n", file_id);
+  fprintf(proxy, "        if (!res) { *pIndex = pos; return 1; }\n");
+  fprintf(proxy, "        if (res > 0) low = pos + 1;\n");
+  fprintf(proxy, "        else high = pos - 1;\n");
+  fprintf(proxy, "    }\n");
   fprintf(proxy, "    return 0;\n");
   fprintf(proxy, "}\n");
   fprintf(proxy, "\n");
 
-  fprintf(proxy, "const ExtendedProxyFileInfo %s_ProxyFileInfo =\n", file_id);
+  fprintf(proxy, "const ExtendedProxyFileInfo %s_ProxyFileInfo DECLSPEC_HIDDEN =\n", file_id);
   fprintf(proxy, "{\n");
-  fprintf(proxy, "    (const PCInterfaceProxyVtblList*)&_%s_ProxyVtblList,\n", file_id);
-  fprintf(proxy, "    (const PCInterfaceStubVtblList*)&_%s_StubVtblList,\n", file_id);
+  fprintf(proxy, "    (const PCInterfaceProxyVtblList*)_%s_ProxyVtblList,\n", file_id);
+  fprintf(proxy, "    (const PCInterfaceStubVtblList*)_%s_StubVtblList,\n", file_id);
   fprintf(proxy, "    _%s_InterfaceNamesList,\n", file_id);
-  fprintf(proxy, "    0,\n");
-  fprintf(proxy, "    &_%s_IID_Lookup,\n", file_id);
-  fprintf(proxy, "    %d,\n", c);
+  if (have_baseiid) fprintf(proxy, "    _%s_BaseIIDList,\n", file_id);
+  else fprintf(proxy, "    0,\n");
+  fprintf(proxy, "    _%s_IID_Lookup,\n", file_id);
+  fprintf(proxy, "    %d,\n", count);
   fprintf(proxy, "    1,\n");
   fprintf(proxy, "    0,\n");
   fprintf(proxy, "    0,\n");

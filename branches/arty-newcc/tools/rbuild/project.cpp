@@ -172,7 +172,7 @@ Project::Project ( const Configuration& configuration,
 			if ( !existing )
 			{
 				Property* property = new Property ( *this, NULL, it->first, it->second );
-				non_if_data.properties.push_back (property );
+				non_if_data.properties.insert ( std::make_pair ( property->name, property ) );
 			}
 		}
 	}
@@ -202,13 +202,12 @@ Project::~Project ()
 const Property*
 Project::LookupProperty ( const string& name ) const
 {
-	for ( size_t i = 0; i < non_if_data.properties.size (); i++ )
-	{
-		const Property* property = non_if_data.properties[i];
-		if ( property->name == name )
-			return property;
-	}
-	return NULL;
+	std::map<std::string, Property*>::const_iterator p = non_if_data.properties.find(name);
+
+	if ( p == non_if_data.properties.end () )
+		return NULL;
+
+	return p->second;
 }
 
 string
@@ -251,73 +250,10 @@ Project::ResolveProperties ( const string& s ) const
 }
 
 void
-Project::SetConfigurationOption ( char* s,
-                                  string name,
-                                  string alternativeName )
-{
-	const Property* property = LookupProperty ( name );
-	if ( property != NULL && property->value.length () > 0 )
-	{
-		s = s + sprintf ( s,
-		                  "#define %s=%s\n",
-		                  property->name.c_str (),
-		                  property->value.c_str () );
-	}
-	else if ( property != NULL )
-	{
-		s = s + sprintf ( s,
-		                  "#define %s\n",
-		                  property->name.c_str () );
-	}
-	else if ( !alternativeName.empty()  )
-	{
-		s = s + sprintf ( s,
-		                  "#define %s\n",
-		                  alternativeName.c_str () );
-	}
-}
-
-void
-Project::SetConfigurationOption ( char* s,
-	                              string name )
-{
-	SetConfigurationOption ( s, name, "" );
-}
-
-void
-Project::WriteConfigurationFile ()
-{
-	char* buf;
-	char* s;
-
-	buf = (char*) malloc ( 10*1024 );
-	if ( buf == NULL )
-		throw OutOfMemoryException ();
-
-	s = buf;
-	s = s + sprintf ( s, "/* Automatically generated. " );
-	s = s + sprintf ( s, "Edit config.xml to change configuration */\n" );
-	s = s + sprintf ( s, "#ifndef __INCLUDE_CONFIG_H\n" );
-	s = s + sprintf ( s, "#define __INCLUDE_CONFIG_H\n" );
-
-	SetConfigurationOption ( s, "ARCH" );
-	SetConfigurationOption ( s, "OPTIMIZED" );
-	SetConfigurationOption ( s, "MP", "UP");
-	SetConfigurationOption ( s, "ACPI" );
-	SetConfigurationOption ( s, "_3GB" );
-
-	s = s + sprintf ( s, "#endif /* __INCLUDE_CONFIG_H */\n" );
-
-	FileSupportCode::WriteIfChanged ( buf, Environment::GetIntermediatePath() + sSep + "include" + sSep + "roscfg.h" );
-
-	free ( buf );
-}
-
-void
 Project::ExecuteInvocations ()
 {
-	for ( size_t i = 0; i < modules.size (); i++ )
-		modules[i]->InvokeModule ();
+	for( std::map<std::string, Module*>::const_iterator p = modules.begin(); p != modules.end(); ++ p )
+		p->second->InvokeModule ();
 }
 
 void
@@ -362,6 +298,11 @@ Project::ProcessXML ( const string& path )
 	assert(att);
 	makefile = Environment::GetAutomakeFile ( att->value );
 
+	att = node->GetAttribute ( "allowwarnings", false );
+	allowWarningsSet = att != NULL;
+	if ( att != NULL )
+		allowWarnings = att->value == "true";
+
 	size_t i;
 	for ( i = 0; i < node->subElements.size (); i++ )
 	{
@@ -370,13 +311,14 @@ Project::ProcessXML ( const string& path )
 	}
 
 	non_if_data.ProcessXML ();
+	host_non_if_data.ProcessXML ();
 
 	non_if_data.ExtractModules( modules );
 
 	for ( i = 0; i < linkerFlags.size (); i++ )
 		linkerFlags[i]->ProcessXML ();
-	for ( i = 0; i < modules.size (); i++ )
-		modules[i]->ProcessXML ();
+	for( std::map<std::string, Module*>::const_iterator p = modules.begin(); p != modules.end(); ++ p )
+		p->second->ProcessXML ();
 	for ( i = 0; i < cdfiles.size (); i++ )
 		cdfiles[i]->ProcessXML ();
 	for ( i = 0; i < installfiles.size (); i++ )
@@ -423,14 +365,26 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	}
 	else if ( e.name == "include" )
 	{
+		const XMLAttribute* host = e.GetAttribute("host", false);
 		Include* include = new Include ( *this, &e );
-		non_if_data.includes.push_back ( include );
+
+		if(host && host->value == "true")
+			host_non_if_data.includes.push_back(include);
+		else
+			non_if_data.includes.push_back ( include );
+
 		subs_invalid = true;
 	}
 	else if ( e.name == "define" )
 	{
+		const XMLAttribute* host = e.GetAttribute("host", false);
 		Define* define = new Define ( *this, e );
-		non_if_data.defines.push_back ( define );
+
+		if(host && host->value == "true")
+			host_non_if_data.defines.push_back(define);
+		else
+			non_if_data.defines.push_back ( define );
+
 		subs_invalid = true;
 	}
 	else if ( e.name == "compilerflag" )
@@ -450,13 +404,17 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		name = e.GetAttribute ( "property", true );
 		assert( name );
 		const Property *property = LookupProperty( name->value );
-		if ( !property )
+		const string *PropertyValue;
+		const string EmptyString;
+
+		if (property)
 		{
-			// Property not found
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Test on unknown property '%s' at %s",
-			                                  name->value.c_str (), e.location.c_str () );
+			PropertyValue = &property->value;
+		}
+		else
+		{
+			// Property does not exist, treat it as being empty
+			PropertyValue = &EmptyString;
 		}
 
 		const XMLAttribute* value;
@@ -464,7 +422,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		assert( value );
 
 		bool negate = ( e.name == "ifnot" );
-		bool equality = ( property->value == value->value );
+		bool equality = ( *PropertyValue == value->value );
 		if ( equality == negate )
 		{
 			// Failed, skip this element
@@ -477,7 +435,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	else if ( e.name == "property" )
 	{
 		Property* property = new Property ( e, *this, NULL );
-		non_if_data.properties.push_back ( property );
+		non_if_data.properties.insert ( std::make_pair ( property->name, property ) );
 	}
 	if ( subs_invalid && e.subElements.size() )
 	{
@@ -493,25 +451,23 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 Module*
 Project::LocateModule ( const string& name )
 {
-	for ( size_t i = 0; i < modules.size (); i++ )
-	{
-		if (modules[i]->name == name)
-			return modules[i];
-	}
+	std::map<std::string, Module*>::const_iterator p = modules.find(name);
 
-	return NULL;
+	if ( p == modules.end() )
+		return NULL;
+
+	return p->second;
 }
 
 const Module*
 Project::LocateModule ( const string& name ) const
 {
-	for ( size_t i = 0; i < modules.size (); i++ )
-	{
-		if ( modules[i]->name == name )
-			return modules[i];
-	}
+	std::map<std::string, Module*>::const_iterator p = modules.find(name);
 
-	return NULL;
+	if ( p == modules.end() )
+		return NULL;
+
+	return p->second;
 }
 
 const std::string&

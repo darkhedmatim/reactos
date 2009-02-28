@@ -125,9 +125,9 @@ void DevCppBackend::Process()
 
 void DevCppBackend::ProcessModules()
 {
-	for(size_t i = 0; i < ProjectNode.modules.size(); i++)
+	for(std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p)
 	{
-		Module &module = *ProjectNode.modules[i];
+		Module &module = *p->second;
 
 		for(size_t k = 0; k < module.non_if_data.files.size(); k++)
 		{
@@ -244,6 +244,6 @@ void DevCppBackend::OutputFileUnits()
 		m_devFile << "Link=1" 				<< endl;
 		m_devFile << "Priority=1000"		<< endl;
 		m_devFile << "OverrideBuildCmd=0"	<< endl;
-		m_devFile << "BuildCmd="			<< endl << endl;;
+		m_devFile << "BuildCmd="			<< endl << endl;
 	}
 }

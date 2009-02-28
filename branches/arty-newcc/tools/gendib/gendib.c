@@ -147,7 +147,7 @@ FindRopInfo(unsigned RopCode)
       { ROPCODE_SRCINVERT,   "SRCINVERT",  "D ^ S",        1, 1, 0 },
       { ROPCODE_SRCAND,      "SRCAND",     "D & S",        1, 1, 0 },
       { ROPCODE_NOOP,        "NOOP",       "D",            1, 0, 0 },
-      { ROPCODE_MERGEPAINT,  "MERGEPAINT", "D & (~S)",     1, 1, 0 },
+      { ROPCODE_MERGEPAINT,  "MERGEPAINT", "D | (~S)",     1, 1, 0 },
       { ROPCODE_MERGECOPY,   "MERGECOPY",  "S & P",        0, 1, 1 },
       { ROPCODE_SRCCOPY,     "SRCCOPY",    "S",            0, 1, 0 },
       { ROPCODE_SRCPAINT,    "SRCPAINT",   "D | S",        1, 1, 0 },
@@ -529,12 +529,12 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
     {
       if (0 == (Flags & FLAG_BOTTOMUP))
         {
-          Output(Out, "PatternY = (BltInfo->DestRect.top + BltInfo->BrushOrigin.y) %%\n");
+          Output(Out, "PatternY = (BltInfo->DestRect.top - BltInfo->BrushOrigin.y) %%\n");
           Output(Out, "           BltInfo->PatternSurface->sizlBitmap.cy;\n");
         }
       else
         {
-          Output(Out, "PatternY = (BltInfo->DestRect.bottom - 1 +\n");
+          Output(Out, "PatternY = (BltInfo->DestRect.bottom - 1 -\n");
           Output(Out, "            BltInfo->BrushOrigin.y) %%\n");
           Output(Out, "           BltInfo->PatternSurface->sizlBitmap.cy;\n");
         }
@@ -542,12 +542,12 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
   if (ROPCODE_SRCCOPY == RopInfo->RopCode &&
       0 != (Flags & FLAG_TRIVIALXLATE) && Bpp == SourceBpp)
     {
-      Output(Out, "CenterCount = 2 * (BltInfo->DestRect.right -\n");
+      Output(Out, "CenterCount = %u * (BltInfo->DestRect.right -\n", Bpp >> 3);
       Output(Out, "                   BltInfo->DestRect.left);\n");
     }
   if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
     {
-      Output(Out, "BasePatternX = (BltInfo->DestRect.left + BltInfo->BrushOrigin.x) %%\n");
+      Output(Out, "BasePatternX = (BltInfo->DestRect.left - BltInfo->BrushOrigin.x) %%\n");
       Output(Out, "           BltInfo->PatternSurface->sizlBitmap.cx;\n");
     }
 
