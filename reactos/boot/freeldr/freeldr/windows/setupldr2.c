@@ -157,9 +157,11 @@ VOID LoadReactOSSetup2(VOID)
     CHAR  SystemPath[512], SearchPath[512];
     CHAR  FileName[512];
     CHAR  BootPath[512];
+    CHAR  LoadOptions[512];
     LPCSTR BootOptions;
     PVOID NtosBase = NULL, HalBase = NULL, KdComBase = NULL;
     BOOLEAN Status;
+    ULONG BootDevice;
     ULONG i, ErrorLine;
     HINF InfHandle;
     INFCONTEXT InfContext;
@@ -186,11 +188,10 @@ VOID LoadReactOSSetup2(VOID)
         NULL
     };
 
-    /* Try to open system drive */
-    FsOpenBootVolume();
+    /* Get boot device number */
+    MachDiskGetBootDevice(&BootDevice);
 
     /* Open 'txtsetup.sif' from any of source paths */
-    MachDiskGetBootPath(SystemPath, sizeof(SystemPath));
     for (i = MachDiskBootingFromFloppy() ? 0 : 1; ; i++)
     {
         SourcePath = SourcePaths[i];
@@ -199,13 +200,14 @@ VOID LoadReactOSSetup2(VOID)
             printf("Failed to open 'txtsetup.sif'\n");
             return;
         }
-        sprintf(FileName, "%s\\txtsetup.sif", SourcePath);
+        sprintf(FileName,"%s\\txtsetup.sif", SourcePath);
         if (InfOpenFile (&InfHandle, FileName, &ErrorLine))
-        {
-            sprintf(BootPath, "%s%s\\", SystemPath, SourcePath);
             break;
-        }
     }
+
+    /* If we didn't find it anywhere, then just use root */
+    if (!*SourcePath)
+        SourcePath = "\\";
 
     /* Load options */
     if (!InfFindFirstLine(InfHandle,
@@ -223,6 +225,9 @@ VOID LoadReactOSSetup2(VOID)
         return;
     }
 
+    /* Save source path */
+    strcpy(BootPath, SourcePath);
+
     SetupUiInitialize();
     UiDrawStatusText("");
     UiDrawStatusText("Detecting Hardware...");
@@ -230,10 +235,20 @@ VOID LoadReactOSSetup2(VOID)
     /* Let user know we started loading */
     UiDrawStatusText("Loading...");
 
-    /* Construct the system path */
-    sprintf(SystemPath, "%s\\", SourcePath);
+    /* Try to open system drive */
+    FsOpenBootVolume();
 
-    DPRINTM(DPRINT_WINDOWS,"BootPath: '%s', SystemPath: '%s'\n", BootPath, SystemPath);
+    /* Append a backslash to the bootpath if needed */
+    if ((strlen(BootPath)==0) || BootPath[strlen(BootPath)] != '\\')
+    {
+        strcat(BootPath, "\\");
+    }
+
+    /* Construct the system path */
+    MachDiskGetBootPath(SystemPath, sizeof(SystemPath));
+    strcat(SystemPath, SourcePath);
+
+    DPRINTM(DPRINT_WINDOWS,"SystemRoot: '%s', SystemPath: '%s'\n", BootPath, SystemPath);
 
     /* Allocate and minimalistic-initialize LPB */
     AllocateAndInitLPB(&LoaderBlock);
@@ -297,7 +312,8 @@ VOID LoadReactOSSetup2(VOID)
     WinLdrSetupForNt(LoaderBlock, &GdtIdt, &PcrBasePage, &TssBasePage);
 
     /* Initialize Phase 1 - no drivers loading anymore */
-    WinLdrInitializePhase1(LoaderBlock, (PCHAR)BootOptions, SystemPath, BootPath, _WIN32_WINNT_WS03);
+    LoadOptions[0] = 0;
+    WinLdrInitializePhase1(LoaderBlock, LoadOptions, SystemPath, BootPath, _WIN32_WINNT_WS03);
 
     /* Save entry-point pointer and Loader block VAs */
     KiSystemStartup = (KERNEL_ENTRY_POINT)KernelDTE->EntryPoint;

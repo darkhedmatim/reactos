@@ -242,7 +242,6 @@ IInterruptSync_fnConnect(
     PCM_PARTIAL_RESOURCE_DESCRIPTOR Descriptor;
 
     DPRINT("IInterruptSync_fnConnect\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     Descriptor = This->ResourceList->lpVtbl->FindTranslatedEntry(This->ResourceList, CmResourceTypeInterrupt, This->ResourceIndex);
     if (!Descriptor)
@@ -274,9 +273,7 @@ IInterruptSync_fnDisconnect(
     IN IInterruptSync * iface)
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
-
     DPRINT("IInterruptSync_fnDisconnect\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!This->Interrupt)
     {
@@ -300,7 +297,6 @@ IInterruptSync_fnRegisterServiceRoutine(
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
 
     DPRINT("IInterruptSync_fnRegisterServiceRoutine\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     NewEntry = AllocateItem(NonPagedPool, sizeof(SYNC_ENTRY), TAG_PORTCLASS);
     if (!NewEntry)

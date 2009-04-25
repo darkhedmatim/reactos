@@ -23,50 +23,61 @@ if not defined _ROSBE_HOST_MINGWPATH (
     set _ROSBE_ORIGINALPATH=%PATH%
 )
 
+::
+:: Set the Arch Variables
+::
+set ROS_ARCH=
+set ROS_PREFIX=
+
 if "%1" == "chdefgcc" (
     goto :main
 )
 
+setlocal enabledelayedexpansion
+
 set _ROSBE_OBJPATH=%_ROSBE_i386_OBJPATH%
 set _ROSBE_OUTPATH=%_ROSBE_i386_OUTPATH%
 
-if not "%ROS_ARCH%" == "" (
-    set ROS_PREFIX=%ROS_ARCH%-pc-mingw32
-    set _ROSBE_TARGET_MINGWPATH=%_ROSBE_BASEDIR%\%ROS_ARCH%
+if not "!_ROSBE_ARCH!" == "" (
+    set ROS_ARCH=!_ROSBE_ARCH!
+    set ROS_PREFIX=!_ROSBE_ARCH!-pc-mingw32
+    set _ROSBE_TARGET_MINGWPATH=!_ROSBE_BASEDIR!\!_ROSBE_ARCH!
 
-    if "%ROS_ARCH%" == "arm" (
-        set _ROSBE_OBJPATH=%_ROSBE_ARM_OBJPATH%
-        set _ROSBE_OUTPATH=%_ROSBE_ARM_OUTPATH%
+    REM HAXX
+
+    if "!_ROSBE_ARCH!" == "arm" (
+        set _ROSBE_OBJPATH=!_ROSBE_ARM_OBJPATH!
+        set _ROSBE_OUTPATH=!_ROSBE_ARM_OUTPATH!
     )
-    if "%ROS_ARCH%" == "ppc" (
-        set _ROSBE_OBJPATH=%_ROSBE_PPC_OBJPATH%
-        set _ROSBE_OUTPATH=%_ROSBE_PPC_OUTPATH%
+    if "!_ROSBE_ARCH!" == "ppc" (
+        set _ROSBE_OBJPATH=!_ROSBE_PPC_OBJPATH!
+        set _ROSBE_OUTPATH=!_ROSBE_PPC_OUTPATH!
     )
-    if "%ROS_ARCH%" == "amd64" (
-        set _ROSBE_OBJPATH=%_ROSBE_AMD64_OBJPATH%
-        set _ROSBE_OUTPATH=%_ROSBE_AMD64_OUTPATH%
+    if "!_ROSBE_ARCH!" == "amd64" (
+        set _ROSBE_OBJPATH=!_ROSBE_AMD64_OBJPATH!
+        set _ROSBE_OUTPATH=!_ROSBE_AMD64_OUTPATH!
         set ROS_PREFIX=x86_64-pc-mingw32
-        set _ROSBE_TARGET_MINGWPATH=%_ROSBE_BASEDIR%\x86_64
+        set _ROSBE_TARGET_MINGWPATH=!_ROSBE_BASEDIR!\x86_64
+    )
+
+    REM Check if existant arch
+
+    if not exist "!_ROSBE_TARGET_MINGWPATH!\." (   
+        echo Unsupported arch specified. Fallback to Default.
+        pause
+        set _ROSBE_OBJPATH=!_ROSBE_i386_OBJPATH!
+        set _ROSBE_OUTPATH=!_ROSBE_i386_OUTPATH!
+        set ROS_ARCH=
+        set ROS_PREFIX=
+        set _ROSBE_TARGET_MINGWPATH=
     )
 )
-
-REM Check if existant arch
-
-if not exist "%_ROSBE_TARGET_MINGWPATH%\." (   
-    echo Unsupported arch specified. Fallback to Default.
-    pause
-    set _ROSBE_OBJPATH=%_ROSBE_i386_OBJPATH%
-    set _ROSBE_OUTPATH=%_ROSBE_i386_OUTPATH%
-    set ROS_ARCH=
-    set ROS_PREFIX=
-    set _ROSBE_TARGET_MINGWPATH=%_ROSBE_HOST_MINGWPATH%
-)
-
-REM HAXX
 
 ::
 :: Set up the GCC 4.x.x build environment.
 ::
+
+endlocal
 
 :main
 
@@ -113,9 +124,3 @@ if "%_ROSBE_HOST_GCCVERSION%" == "3.4.5" (
     set ROSBE_TARGET_CFLAGS=
     set ROSBE_TARGET_CXXFLAGS=
 )
-
-:: HAX !!!!
-set HOST_CFLAGS=%ROSBE_HOST_CFLAGS%
-set HOST_CPPFLAGS=%ROSBE_HOST_CXXFLAGS%
-set TARGET_CFLAGS=%ROSBE_TARGET_CFLAGS%
-set TARGET_CPPFLAGS=%ROSBE_TARGET_CXXFLAGS%

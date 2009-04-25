@@ -19,7 +19,11 @@
 
 LANGUAGE LANG_ROMANIAN, SUBLANG_NEUTRAL
 
+#pragma code_page(65001)
+
 STRINGTABLE
 {
-    IDS_FAILED, "Execuþia Wordpad a eºuat"
+    IDS_FAILED, "ExecuÈ›ia Wordpad a eÈ™uat"
 }
+
+#pragma code_page(default)

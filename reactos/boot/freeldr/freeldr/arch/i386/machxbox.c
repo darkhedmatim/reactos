@@ -57,7 +57,7 @@ XboxMachInit(const char *CmdLine)
   MachVtbl.DiskGetPartitionEntry = XboxDiskGetPartitionEntry;
   MachVtbl.DiskGetDriveGeometry = XboxDiskGetDriveGeometry;
   MachVtbl.DiskGetCacheableBlockCount = XboxDiskGetCacheableBlockCount;
-  MachVtbl.GetTime = XboxGetTime;
+  MachVtbl.RTCGetCurrentDateTime = XboxRTCGetCurrentDateTime;
   MachVtbl.HwDetect = XboxHwDetect;
 
   /* Set LEDs to orange after init */

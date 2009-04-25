@@ -49,7 +49,7 @@ DEFINE_GUID(IID_IIrpTargetFactory, 0xB4C90A62, 0x5791, 0x11D0, 0xF9, 0x86, 0x00,
         IN PDEVICE_OBJECT DeviceObject,                    \
         IN PIRP Irp)PURE;                                  \
                                                            \
-    STDMETHOD_(BOOLEAN, FastDeviceIoControl)(THIS_        \
+    STDMETHOD_(NTSTATUS, FastDeviceIoControl)(THIS_        \
         IN PFILE_OBJECT FileObject,                        \
         IN BOOLEAN Wait,                                   \
         IN PVOID InputBuffer,                              \
@@ -60,7 +60,7 @@ DEFINE_GUID(IID_IIrpTargetFactory, 0xB4C90A62, 0x5791, 0x11D0, 0xF9, 0x86, 0x00,
         OUT PIO_STATUS_BLOCK StatusBlock,                  \
         IN PDEVICE_OBJECT DeviceObject)PURE;               \
                                                            \
-    STDMETHOD_(BOOLEAN, FastRead)(THIS_                    \
+    STDMETHOD_(NTSTATUS, FastRead)(THIS_                   \
         IN PFILE_OBJECT FileObject,                        \
         IN PLARGE_INTEGER FileOffset,                      \
         IN ULONG Length,                                   \
@@ -70,7 +70,7 @@ DEFINE_GUID(IID_IIrpTargetFactory, 0xB4C90A62, 0x5791, 0x11D0, 0xF9, 0x86, 0x00,
         OUT PIO_STATUS_BLOCK StatusBlock,                  \
         IN PDEVICE_OBJECT DeviceObject)PURE;               \
                                                            \
-    STDMETHOD_(BOOLEAN, FastWrite)(THIS_                   \
+    STDMETHOD_(NTSTATUS, FastWrite)(THIS_                  \
         IN PFILE_OBJECT FileObject,                        \
         IN PLARGE_INTEGER FileOffset,                      \
         IN ULONG Length,                                   \
@@ -425,53 +425,6 @@ DECLARE_INTERFACE_(IIrpStreamVirtual, IIrpStream)
     STDMETHOD_(ULONG, GetIrpStreamPositionLock)(THIS);
 };
 
-/*****************************************************************************
- * IPortFilterWavePci
- *****************************************************************************
- */
-
-#undef INTERFACE
-#define INTERFACE IPortFilterWavePci
-
-DECLARE_INTERFACE_(IPortFilterWavePci, IIrpTarget)
-{
-    DEFINE_ABSTRACT_UNKNOWN()
-
-    DEFINE_ABSTRACT_IRPTARGET()
-
-    STDMETHOD_(NTSTATUS, Init)(THIS_
-        IN PPORTWAVEPCI Port)PURE;
-};
-
-typedef IPortFilterWavePci *PPORTFILTERWAVEPCI;
-
-
-/*****************************************************************************
- * IPortPinWavePci
- *****************************************************************************
- */
-
-#undef INTERFACE
-#define INTERFACE IPortPinWavePci
-
-DECLARE_INTERFACE_(IPortPinWavePci, IIrpTarget)
-{
-    DEFINE_ABSTRACT_UNKNOWN()
-
-    DEFINE_ABSTRACT_IRPTARGET()
-
-    STDMETHOD_(NTSTATUS, Init)(THIS_
-        IN PPORTWAVEPCI Port,
-        IN PPORTFILTERWAVEPCI Filter,
-        IN KSPIN_CONNECT * ConnectDetails,
-        IN KSPIN_DESCRIPTOR * PinDescriptor,
-        IN PDEVICE_OBJECT DeviceObject) PURE;
-
-    STDMETHOD_(PVOID, GetIrpStream)(THIS);
-    STDMETHOD_(PMINIPORT, GetMiniport)(THIS);
-};
-
-typedef IPortPinWavePci *PPORTPINWAVEPCI;
 
 /*****************************************************************************
  * IPortFilterWaveCyclic
@@ -518,62 +471,6 @@ DECLARE_INTERFACE_(IPortPinWaveCyclic, IIrpTarget)
     STDMETHOD_(ULONG, GetDeviceBufferSize)(THIS);
     STDMETHOD_(PVOID, GetIrpStream)(THIS);
     STDMETHOD_(PMINIPORT, GetMiniport)(THIS);
-};
-
-/*****************************************************************************
- * IDmaChannelInit
- *****************************************************************************
- */
-
-#undef INTERFACE
-#define INTERFACE IDmaChannelInit
-
-DECLARE_INTERFACE_(IDmaChannelInit, IUnknown)
-{
-    DEFINE_ABSTRACT_UNKNOWN()
-
-    STDMETHOD_(NTSTATUS,AllocateBuffer)(THIS_
-        IN  ULONG BufferSize,
-        IN  PPHYSICAL_ADDRESS PhysicalAddressConstraint OPTIONAL);
-
-    STDMETHOD_(VOID, FreeBuffer)(THIS);
-    STDMETHOD_(ULONG, TransferCount)(THIS);
-    STDMETHOD_(ULONG, MaximumBufferSize)(THIS);
-    STDMETHOD_(ULONG, AllocatedBufferSize)(THIS);
-    STDMETHOD_(ULONG, BufferSize)(THIS);
-
-    STDMETHOD_(VOID, SetBufferSize)(THIS_ 
-        IN  ULONG BufferSize);
-
-    STDMETHOD_(PVOID, SystemAddress)(THIS);
-    STDMETHOD_(PHYSICAL_ADDRESS, PhysicalAddress)(THIS_
-        IN PPHYSICAL_ADDRESS Address);
-
-    STDMETHOD_(PADAPTER_OBJECT, GetAdapterObject)(THIS);
-
-    STDMETHOD_(VOID, CopyTo)(THIS_
-        IN  PVOID Destination,
-        IN  PVOID Source,
-        IN  ULONG ByteCount);
-
-    STDMETHOD_(VOID, CopyFrom)(THIS_
-        IN  PVOID Destination,
-        IN  PVOID Source,
-        IN  ULONG ByteCount);
-
-    STDMETHOD_(NTSTATUS, Start)( THIS_ 
-        IN  ULONG MapSize,
-        IN  BOOLEAN WriteToDevice) PURE;
-
-    STDMETHOD_(NTSTATUS, Stop)( THIS ) PURE;
-    STDMETHOD_(ULONG, ReadCounter)( THIS ) PURE;
-
-    STDMETHOD_(NTSTATUS, WaitForTC)( THIS_
-        ULONG Timeout) PURE;
-
-    STDMETHOD_(NTSTATUS, Init)( THIS_
-        IN PDEVICE_DESCRIPTION DeviceDescription,
-        IN PDEVICE_OBJECT DeviceObject) PURE;
 };
 
 #endif

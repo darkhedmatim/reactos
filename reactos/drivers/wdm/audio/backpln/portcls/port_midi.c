@@ -134,8 +134,6 @@ IPortMidi_fnGetDeviceProperty(
 {
     IPortMidiImpl * This = (IPortMidiImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     if (!This->bInitialized)
     {
         DPRINT("IPortMidi_fnNewRegistryKey called w/o initiazed\n");
@@ -162,7 +160,6 @@ IPortMidi_fnInit(
 
     DPRINT("IPortMidi_fnInit entered This %p DeviceObject %p Irp %p UnknownMiniport %p UnknownAdapter %p ResourceList %p\n",
             This, DeviceObject, Irp, UnknownMiniport, UnknownAdapter, ResourceList);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (This->bInitialized)
     {
@@ -242,8 +239,6 @@ IPortMidi_fnNewRegistryKey(
 {
     IPortMidiImpl * This = (IPortMidiImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     if (!This->bInitialized)
     {
         DPRINT("IPortMidi_fnNewRegistryKey called w/o initialized\n");
@@ -277,7 +272,6 @@ IPortMidi_fnRegisterServiceGroup(
     IN PSERVICEGROUP  ServiceGroup)
 {
     UNIMPLEMENTED
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return STATUS_SUCCESS;
 }
 

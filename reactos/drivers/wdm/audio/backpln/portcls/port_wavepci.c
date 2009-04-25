@@ -30,7 +30,6 @@ typedef struct
     PPOWERNOTIFY pPowerNotify;
     PPCFILTER_DESCRIPTOR pDescriptor;
     PSUBDEVICE_DESCRIPTOR SubDeviceDescriptor;
-    IPortFilterWavePci * Filter;
 }IPortWavePciImpl;
 
 static GUID InterfaceGuids[3] = 
@@ -114,7 +113,6 @@ IPortEvents_fnAddEventToEventList(
     IN PKSEVENT_ENTRY EventEntry)
 {
     UNIMPLEMENTED
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 }
 
 
@@ -349,7 +347,6 @@ IPortWavePci_fnInit(
 
     DPRINT("IPortWavePci_fnInit entered with This %p, DeviceObject %p Irp %p UnknownMiniport %p, UnknownAdapter %p ResourceList %p\n", 
             This, DeviceObject, Irp, UnknownMiniport, UnknownAdapter, ResourceList);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (This->bInitialized)
     {
@@ -473,7 +470,6 @@ IPortWavePci_fnNewRegistryKey(
     IPortWavePciImpl * This = (IPortWavePciImpl*)iface;
 
     DPRINT("IPortWavePci_fnNewRegistryKey entered\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!This->bInitialized)
     {
@@ -504,7 +500,6 @@ IPortWavePci_fnGetDeviceProperty(
     IPortWavePciImpl * This = (IPortWavePciImpl*)iface;
 
     DPRINT("IPortWavePci_fnGetDeviceProperty entered\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!This->bInitialized)
     {
@@ -537,7 +532,6 @@ IPortWavePci_fnNewMasterDmaChannel(
     IPortWavePciImpl * This = (IPortWavePciImpl*)iface;
 
     DPRINT("IPortWavePci_fnNewMasterDmaChannel This %p entered\n", This);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     Status = PcDmaMasterDescription(ResourceList, ScatterGather, Dma32BitAddresses, IgnoreCount, Dma64BitAddresses, DmaWidth, DmaSpeed, MaximumLength, DmaPort, &DeviceDescription);
     if (NT_SUCCESS(Status))
@@ -634,33 +628,10 @@ ISubDevice_fnNewIrpTarget(
     IN PIRP Irp, 
     IN KSOBJECT_CREATE *CreateObject)
 {
-    NTSTATUS Status;
-    IPortFilterWavePci * Filter;
-    IPortWavePciImpl * This = (IPortWavePciImpl*)CONTAINING_RECORD(iface, IPortWavePciImpl, lpVtblSubDevice);
+    //IPortWavePciImpl * This = (IPortWavePciImpl*)CONTAINING_RECORD(iface, IPortWavePciImpl, lpVtblSubDevice);
 
-    DPRINT("ISubDevice_NewIrpTarget this %p\n", This);
-
-    if (This->Filter)
-    {
-        *OutTarget = (IIrpTarget*)This->Filter;
-        return STATUS_SUCCESS;
-    }
-
-    Status = NewPortFilterWavePci(&Filter);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    Status = Filter->lpVtbl->Init(Filter, (IPortWavePci*)This);
-    if (!NT_SUCCESS(Status))
-    {
-        Filter->lpVtbl->Release(Filter);
-        return Status;
-    }
-
-    *OutTarget = (IIrpTarget*)Filter;
-    return Status;
+    UNIMPLEMENTED
+    return STATUS_UNSUCCESSFUL;
 }
 
 static
@@ -789,12 +760,3 @@ NewPortWavePci(
     DPRINT("NewPortWavePci %p\n", *OutPort);
     return STATUS_SUCCESS;
 }
-
-PDEVICE_OBJECT
-GetDeviceObjectFromWaveCyclic(
-    IPortWavePci* iface)
-{
-    IPortWavePciImpl * This = (IPortWavePciImpl*)iface;
-    return This->pDeviceObject;
-}
-

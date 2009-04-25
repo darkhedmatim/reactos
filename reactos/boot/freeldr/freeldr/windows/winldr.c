@@ -75,7 +75,7 @@ AllocateAndInitLPB(PLOADER_PARAMETER_BLOCK *OutLoaderBlock)
 VOID
 WinLdrInitializePhase1(PLOADER_PARAMETER_BLOCK LoaderBlock,
                        PCHAR Options,
-                       PCHAR SystemRoot,
+                       PCHAR SystemPath,
                        PCHAR BootPath,
                        USHORT VersionToBoot)
 {
@@ -86,6 +86,7 @@ WinLdrInitializePhase1(PLOADER_PARAMETER_BLOCK LoaderBlock,
 	//CHAR	ArcBoot[] = "multi(0)disk(0)rdisk(0)partition(1)";
 
 	CHAR	HalPath[] = "\\";
+	CHAR	SystemRoot[256];
 	CHAR	ArcBoot[256];
 	CHAR	MiscFiles[256];
 	ULONG i, PathSeparator;
@@ -94,9 +95,11 @@ WinLdrInitializePhase1(PLOADER_PARAMETER_BLOCK LoaderBlock,
 	LoaderBlock->u.I386.CommonDataArea = NULL; // Force No ABIOS support
 
 	/* Construct SystemRoot and ArcBoot from SystemPath */
-	PathSeparator = strstr(BootPath, "\\") - BootPath;
-	strncpy(ArcBoot, BootPath, PathSeparator);
+	PathSeparator = strstr(SystemPath, "\\") - SystemPath;
+	strncpy(ArcBoot, SystemPath, PathSeparator);
 	ArcBoot[PathSeparator] = 0;
+	strcpy(SystemRoot, &SystemPath[PathSeparator]);
+	strcat(SystemRoot, "\\");
 
 	DPRINTM(DPRINT_WINDOWS, "ArcBoot: %s\n", ArcBoot);
 	DPRINTM(DPRINT_WINDOWS, "SystemRoot: %s\n", SystemRoot);
@@ -371,12 +374,10 @@ WinLdrLoadBootDrivers(PLOADER_PARAMETER_BLOCK LoaderBlock,
 PVOID WinLdrLoadModule(PCSTR ModuleName, ULONG *Size,
 					   TYPE_OF_MEMORY MemoryType)
 {
-	ULONG FileId;
+	PFILE FileHandle;
 	PVOID PhysicalBase;
-	FILEINFORMATION FileInfo;
 	ULONG FileSize;
-	ULONG Status;
-	ULONG BytesRead;
+	BOOLEAN Status;
 
 	//CHAR ProgressString[256];
 
@@ -388,40 +389,38 @@ PVOID WinLdrLoadModule(PCSTR ModuleName, ULONG *Size,
 	*Size = 0;
 
 	/* Open the image file */
-	Status = ArcOpen((PCHAR)ModuleName, OpenReadOnly, &FileId);
-	if (Status != ESUCCESS)
+	FileHandle = FsOpenFile(ModuleName);
+
+	if (FileHandle == NULL)
 	{
 		/* In case of errors, we just return, without complaining to the user */
 		return NULL;
 	}
 
 	/* Get this file's size */
-	Status = ArcGetFileInformation(FileId, &FileInfo);
-	if (Status != ESUCCESS)
-	{
-		ArcClose(FileId);
-		return NULL;
-	}
-	FileSize = FileInfo.EndingAddress.LowPart;
+	FileSize = FsGetFileSize(FileHandle);
 	*Size = FileSize;
 
 	/* Allocate memory */
 	PhysicalBase = MmAllocateMemoryWithType(FileSize, MemoryType);
 	if (PhysicalBase == NULL)
 	{
-		ArcClose(FileId);
+		FsCloseFile(FileHandle);
 		return NULL;
 	}
 
 	/* Load whole file */
-	Status = ArcRead(FileId, PhysicalBase, FileSize, &BytesRead);
-	ArcClose(FileId);
-	if (Status != ESUCCESS)
+	Status = FsReadFile(FileHandle, FileSize, NULL, PhysicalBase);
+	if (!Status)
 	{
+		FsCloseFile(FileHandle);
 		return NULL;
 	}
 
 	DPRINTM(DPRINT_WINDOWS, "Loaded %s at 0x%x with size 0x%x\n", ModuleName, PhysicalBase, FileSize);
+
+	/* We are done with the file - close it */
+	FsCloseFile(FileHandle);
 
 	return PhysicalBase;
 }
@@ -431,13 +430,14 @@ VOID
 LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 {
 	CHAR  MsgBuffer[256];
-	CHAR  FullPath[MAX_PATH], SystemRoot[MAX_PATH], BootPath[MAX_PATH];
-	CHAR  FileName[MAX_PATH];
+	CHAR  SystemPath[512], SearchPath[512];
+	CHAR  FileName[512];
+	CHAR  BootPath[512];
 	CHAR  BootOptions[256];
-	PCHAR PathSeparator;
 	PVOID NtosBase = NULL, HalBase = NULL, KdComBase = NULL;
 	BOOLEAN Status;
 	ULONG SectionId;
+	ULONG BootDevice;
 	PLOADER_PARAMETER_BLOCK LoaderBlock, LoaderBlockVA;
 	KERNEL_ENTRY_POINT KiSystemStartup;
 	PLDR_DATA_TABLE_ENTRY KernelDTE, HalDTE, KdComDTE = NULL;
@@ -463,24 +463,11 @@ LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 	UiDrawProgressBarCenter(1, 100, "Loading Windows...");
 
 	/* Make sure the system path is set in the .ini file */
-	if (!IniReadSettingByName(SectionId, "SystemPath", FullPath, sizeof(FullPath)))
+	if (!IniReadSettingByName(SectionId, "SystemPath", SystemPath, sizeof(SystemPath)))
 	{
 		UiMessageBox("System path not specified for selected operating system.");
 		return;
 	}
-
-	/* Special case for LiveCD */
-	if (!_strnicmp(FullPath, "LiveCD", strlen("LiveCD")))
-	{
-		strcpy(BootPath, FullPath + strlen("LiveCD"));
-		MachDiskGetBootPath(FullPath, sizeof(FullPath));
-		strcat(FullPath, BootPath);
-	}
-
-	/* Convert FullPath to SystemRoot */
-	PathSeparator = strstr(FullPath, "\\");
-	strcpy(SystemRoot, PathSeparator);
-	strcat(SystemRoot, "\\");
 
 	/* Read booting options */
 	if (!IniReadSettingByName(SectionId, "Options", BootOptions, sizeof(BootOptions)))
@@ -489,16 +476,30 @@ LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 		strcpy(BootOptions, "");
 	}
 
+	/* Normalize system path */
+	if (!MachDiskNormalizeSystemPath(SystemPath, sizeof(SystemPath)))
+	{
+		UiMessageBox("Invalid system path");
+		return;
+	}
+
 	/* Let user know we started loading */
 	UiDrawStatusText("Loading...");
 
+	/* Try to open system drive */
+	BootDevice = 0xffffffff;
+	if (!FsOpenSystemVolume(SystemPath, BootPath, &BootDevice))
+	{
+		UiMessageBox("Failed to open boot drive.");
+		return;
+	}
+
 	/* append a backslash */
-	strcpy(BootPath, FullPath);
 	if ((strlen(BootPath)==0) ||
 	    BootPath[strlen(BootPath)] != '\\')
 		strcat(BootPath, "\\");
 
-	DPRINTM(DPRINT_WINDOWS,"BootPath: '%s'\n", BootPath);
+	DPRINTM(DPRINT_WINDOWS,"SystemRoot: '%s'\n", BootPath);
 
 	/* Allocate and minimalistic-initialize LPB */
 	AllocateAndInitLPB(&LoaderBlock);
@@ -540,12 +541,12 @@ LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 	}
 
 	/* Load all referenced DLLs for kernel, HAL and kdcom.dll */
-	strcpy(FileName, BootPath);
-	strcat(FileName, "SYSTEM32\\");
-	WinLdrScanImportDescriptorTable(LoaderBlock, FileName, KernelDTE);
-	WinLdrScanImportDescriptorTable(LoaderBlock, FileName, HalDTE);
+	strcpy(SearchPath, BootPath);
+	strcat(SearchPath, "SYSTEM32\\");
+	WinLdrScanImportDescriptorTable(LoaderBlock, SearchPath, KernelDTE);
+	WinLdrScanImportDescriptorTable(LoaderBlock, SearchPath, HalDTE);
 	if (KdComDTE)
-		WinLdrScanImportDescriptorTable(LoaderBlock, FileName, KdComDTE);
+		WinLdrScanImportDescriptorTable(LoaderBlock, SearchPath, KdComDTE);
 
 	/* Load Hive, and then NLS data, OEM font, and prepare boot drivers list */
 	Status = WinLdrLoadAndScanSystemHive(LoaderBlock, BootPath);
@@ -559,7 +560,7 @@ LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 	WinLdrSetupForNt(LoaderBlock, &GdtIdt, &PcrBasePage, &TssBasePage);
 
 	/* Initialize Phase 1 - no drivers loading anymore */
-	WinLdrInitializePhase1(LoaderBlock, BootOptions, SystemRoot, BootPath, OperatingSystemVersion);
+	WinLdrInitializePhase1(LoaderBlock, BootOptions, SystemPath, BootPath, OperatingSystemVersion);
 
 	/* Save entry-point pointer and Loader block VAs */
 	KiSystemStartup = (KERNEL_ENTRY_POINT)KernelDTE->EntryPoint;

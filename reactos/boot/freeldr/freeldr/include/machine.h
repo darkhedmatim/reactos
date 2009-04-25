@@ -28,10 +28,6 @@
 #include "mm.h"
 #endif
 
-#ifndef __FS_H
-#include "fs.h"
-#endif
-
 typedef enum tagVIDEODISPLAYMODE
 {
   VideoTextMode,
@@ -72,8 +68,7 @@ typedef struct tagMACHVTBL
   BOOLEAN (*DiskGetDriveGeometry)(ULONG DriveNumber, PGEOMETRY DriveGeometry);
   ULONG (*DiskGetCacheableBlockCount)(ULONG DriveNumber);
 
-  TIMEINFO* (*GetTime)(VOID);
-  ULONG (*GetRelativeTime)(VOID);
+  VOID (*RTCGetCurrentDateTime)(PULONG Year, PULONG Month, PULONG Day, PULONG Hour, PULONG Minute, PULONG Second);
 
   PCONFIGURATION_COMPONENT_DATA (*HwDetect)(VOID);
 } MACHVTBL, *PMACHVTBL;
@@ -116,8 +111,7 @@ BOOLEAN MachDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, UL
 BOOLEAN MachDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTITION_TABLE_ENTRY PartitionTableEntry);
 BOOLEAN MachDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry);
 ULONG MachDiskGetCacheableBlockCount(ULONG DriveNumber);
-TIMEINFO* ArcGetTime(VOID);
-ULONG ArcGetRelativeTime(VOID);
+VOID MachRTCGetCurrentDateTime(PULONG Year, PULONG Month, PULONG Day, PULONG Hour, PULONG Minute, PULONG Second);
 VOID MachHwDetect(VOID);
 VOID MachPrepareForReactOS(IN BOOLEAN Setup);
 
@@ -149,6 +143,7 @@ VOID MachPrepareForReactOS(IN BOOLEAN Setup);
 #define MachDiskGetPartitionEntry(Drive, Part, Entry)	MachVtbl.DiskGetPartitionEntry((Drive), (Part), (Entry))
 #define MachDiskGetDriveGeometry(Drive, Geom)	MachVtbl.DiskGetDriveGeometry((Drive), (Geom))
 #define MachDiskGetCacheableBlockCount(Drive)	MachVtbl.DiskGetCacheableBlockCount(Drive)
+#define MachRTCGetCurrentDateTime(Y, Mo, D, H, Mi, S)	MachVtbl.RTCGetCurrentDateTime((Y), (Mo), (D), (H), (Mi), (S));
 #define MachHwDetect()				MachVtbl.HwDetect()
 
 #endif /* __MACHINE_H_ */

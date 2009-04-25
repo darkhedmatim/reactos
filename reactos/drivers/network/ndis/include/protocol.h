@@ -49,12 +49,6 @@ ProIndicatePacket(
     PLOGICAL_ADAPTER Adapter,
     PNDIS_PACKET Packet);
 
-VOID NTAPI
-ProSendPackets(
-    IN  NDIS_HANDLE     NdisBindingHandle,
-    IN  PPNDIS_PACKET   PacketArray,
-    IN  UINT            NumberOfPackets);
-
 #endif /* __PROTOCOL_H */
 
 /* EOF */

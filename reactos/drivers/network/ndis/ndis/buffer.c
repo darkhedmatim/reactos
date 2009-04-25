@@ -420,15 +420,12 @@ NdisAllocatePacket(
 
     if (Pool->FreeList) {
         Temp           = Pool->FreeList;
-        Pool->FreeList = (PNDIS_PACKET)Temp->Reserved[0];
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
 
         KeReleaseSpinLock(&Pool->SpinLock.SpinLock, OldIrql);
 
-        RtlZeroMemory(Temp, Pool->PacketLength);
+        RtlZeroMemory(Temp, sizeof(NDIS_PACKET));
         Temp->Private.Pool = Pool;
-        Temp->Private.ValidCounts = TRUE;
-        Temp->Private.NdisPacketFlags = fPACKET_ALLOCATED_BY_NDIS;
-        Temp->Private.NdisPacketOobOffset = Pool->PacketLength - sizeof(NDIS_PACKET_OOB_DATA);
 
         *Packet = Temp;
         *Status = NDIS_STATUS_SUCCESS;
@@ -507,7 +504,7 @@ NdisAllocatePacketPoolEx(
             NumberOfDescriptors = 0xffff;
         }
 
-        Length = sizeof(NDIS_PACKET) + sizeof(NDIS_PACKET_OOB_DATA) + ProtocolReservedLength;
+        Length = sizeof(NDIS_PACKET) + ProtocolReservedLength;
         Size   = sizeof(NDISI_PACKET_POOL) + Length * NumberOfDescriptors;
 
         Pool   = ExAllocatePool(NonPagedPool, Size);
@@ -524,11 +521,11 @@ NdisAllocatePacketPoolEx(
                 NextPacket = (PNDIS_PACKET)((ULONG_PTR)Packet + Length);
                 for (i = 1; i < NumberOfDescriptors; i++)
                 {
-                    Packet->Reserved[0]  = (ULONG_PTR)NextPacket;
+                    Packet->Private.Head = (PNDIS_BUFFER)NextPacket;
                     Packet               = NextPacket;
                     NextPacket           = (PNDIS_PACKET)((ULONG_PTR)Packet + Length);
                 }
-                Packet->Reserved[0] = 0;
+                Packet->Private.Head = NULL;
             }
             else
                 Pool->FreeList = NULL;
@@ -704,15 +701,12 @@ NdisDprAllocatePacket(
 
     if (Pool->FreeList) {
         Temp           = Pool->FreeList;
-        Pool->FreeList = (PNDIS_PACKET)Temp->Reserved[0];
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
 
         KeReleaseSpinLockFromDpcLevel(&Pool->SpinLock.SpinLock);
 
-        RtlZeroMemory(Temp, Pool->PacketLength);
+        RtlZeroMemory(&Temp->Private, sizeof(NDIS_PACKET_PRIVATE));
         Temp->Private.Pool = Pool;
-        Temp->Private.ValidCounts = TRUE;
-        Temp->Private.NdisPacketFlags = fPACKET_ALLOCATED_BY_NDIS;
-        Temp->Private.NdisPacketOobOffset = Pool->PacketLength - sizeof(NDIS_PACKET_OOB_DATA);
 
         *Packet = Temp;
         *Status = NDIS_STATUS_SUCCESS;
@@ -756,13 +750,10 @@ NdisDprAllocatePacketNonInterlocked(
 
     if (Pool->FreeList) {
         Temp           = Pool->FreeList;
-        Pool->FreeList = (PNDIS_PACKET)Temp->Reserved[0];
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
 
-        RtlZeroMemory(Temp, Pool->PacketLength);
+        RtlZeroMemory(&Temp->Private, sizeof(NDIS_PACKET_PRIVATE));
         Temp->Private.Pool = Pool;
-        Temp->Private.ValidCounts = TRUE;
-        Temp->Private.NdisPacketFlags = fPACKET_ALLOCATED_BY_NDIS;
-        Temp->Private.NdisPacketOobOffset = Pool->PacketLength - sizeof(NDIS_PACKET_OOB_DATA);
 
         *Packet = Temp;
         *Status = NDIS_STATUS_SUCCESS;
@@ -788,7 +779,7 @@ NdisDprFreePacket(
     NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
 
     KeAcquireSpinLockAtDpcLevel(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock);
-    Packet->Reserved[0]           = (ULONG_PTR)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
     ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
     KeReleaseSpinLockFromDpcLevel(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock);
 }
@@ -809,7 +800,7 @@ NdisDprFreePacketNonInterlocked(
 {
     NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
 
-    Packet->Reserved[0]          = (ULONG_PTR)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
     ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
 }
 
@@ -883,7 +874,7 @@ NdisFreePacket(
     NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
 
     KeAcquireSpinLock(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock, &OldIrql);
-    Packet->Reserved[0]           = (ULONG_PTR)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
     ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
     KeReleaseSpinLock(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock, OldIrql);
 }

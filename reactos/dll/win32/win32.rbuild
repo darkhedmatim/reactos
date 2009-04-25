@@ -511,9 +511,6 @@
 <directory name="syssetup">
 	<xi:include href="syssetup/syssetup.rbuild" />
 </directory>
-<directory name="t2embed">
-	<xi:include href="t2embed/t2embed.rbuild" />
-</directory>
 <directory name="tapi32">
 	<xi:include href="tapi32/tapi32.rbuild" />
 </directory>
@@ -588,6 +585,9 @@
 </directory>
 <directory name="winsta">
 	<xi:include href="winsta/winsta.rbuild" />
+</directory>
+<directory name="wintab32">
+	<xi:include href="wintab32/wintab32.rbuild" />
 </directory>
 <directory name="wintrust">
 	<xi:include href="wintrust/wintrust.rbuild" />

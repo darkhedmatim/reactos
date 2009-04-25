@@ -6,7 +6,7 @@
 	<library>kernel32</library>
 	<library>ws2_32</library>
 	<library>user32</library>
-	<compilerflag compiler="cxx">-Wno-non-virtual-dtor</compilerflag>
+	<compilerflag compiler="cpp">-Wno-non-virtual-dtor</compilerflag>
 	<file>config.cpp</file>
 	<file>error.cpp</file>
 	<file>http.cpp</file>

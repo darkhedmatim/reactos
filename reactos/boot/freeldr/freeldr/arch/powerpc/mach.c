@@ -342,12 +342,9 @@ ULONG PpcDiskGetCacheableBlockCount( ULONG DriveNumber ) {
     return 1;
 }
 
-TIMEINFO*
-PpcGetTime(VOID)
-{
-    static TIMEINFO TimeInfo;
-    //printf("PpcGetTime\n");
-    return &TimeInfo;
+VOID PpcRTCGetCurrentDateTime( PULONG Hear, PULONG Month, PULONG Day,
+                               PULONG Hour, PULONG Minute, PULONG Second ) {
+    //printf("RTCGeturrentDateTime\n");
 }
 
 VOID NarrowToWide(WCHAR *wide_name, char *name)
@@ -537,7 +534,7 @@ void PpcDefaultMachVtbl()
     MachVtbl.DiskGetDriveGeometry = PpcDiskGetDriveGeometry;
     MachVtbl.DiskGetCacheableBlockCount = PpcDiskGetCacheableBlockCount;
 
-    MachVtbl.GetTime = PpcGetTime;
+    MachVtbl.RTCGetCurrentDateTime = PpcRTCGetCurrentDateTime;
 
     MachVtbl.HwDetect = PpcHwDetect;
 }

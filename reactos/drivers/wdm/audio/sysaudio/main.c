@@ -24,7 +24,7 @@ VOID
 NTAPI
 SysAudio_Unload(IN PDRIVER_OBJECT DriverObject)
 {
-    DPRINT("SysAudio_Unload called\n");
+    DPRINT1("SysAudio_Unload called\n");
 }
 
 NTSTATUS
@@ -79,7 +79,7 @@ SysAudio_InstallDevice(
     SYSAUDIODEVEXT *DeviceExtension;
 
 
-    DPRINT("SysAudio_InstallDevice called\n");
+    DPRINT1("SysAudio_InstallDevice called\n");
 
     /* Create the device */
     Status = IoCreateDevice(DriverObject,
@@ -118,7 +118,7 @@ SysAudio_InstallDevice(
     RtlZeroMemory(DeviceExtension, sizeof(SYSAUDIODEVEXT));
 
     /* Initialize the mutex */
-    KeInitializeSpinLock(&DeviceExtension->Lock);
+    KeInitializeMutex(&DeviceExtension->Mutex, 0);
 
     /* Initialize the ks audio device list */
     InitializeListHead(&DeviceExtension->KsAudioDeviceList);
@@ -128,6 +128,22 @@ SysAudio_InstallDevice(
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("KsAllocateDeviceHeader failed with %x\n", Status);
+        goto cleanup;
+    }
+
+    /* allocate work item */
+    DeviceExtension->WorkItem = IoAllocateWorkItem(DeviceObject);
+    if (!DeviceExtension->WorkItem)
+    {
+        DPRINT1("Failed to allocate work item\n");
+        goto cleanup;
+    }
+
+    /* allocate work item context */
+    DeviceExtension->WorkerContext = ExAllocatePool(NonPagedPool, sizeof(PIN_WORKER_CONTEXT));
+    if (!DeviceExtension->WorkerContext)
+    {
+        DPRINT1("Failed to allocate work item context\n");
         goto cleanup;
     }
 
@@ -175,7 +191,7 @@ DriverEntry(
     IN  PDRIVER_OBJECT DriverObject,
     IN  PUNICODE_STRING RegistryPath)
 {
-    DPRINT("System audio graph builder (sysaudio) started\n");
+    DPRINT1("System audio graph builder (sysaudio) started\n");
 
     /* Let ks handle these */
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_CREATE);

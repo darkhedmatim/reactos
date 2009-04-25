@@ -735,7 +735,7 @@ VideoPortReleaseBuffer(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 
 PVOID NTAPI
@@ -745,16 +745,8 @@ VideoPortLockBuffer(
    IN ULONG Length,
    IN VP_LOCK_OPERATION Operation)
 {
-    PMDL Mdl;
-
-    Mdl = IoAllocateMdl(BaseAddress, Length, FALSE, FALSE, NULL);
-    if (!Mdl)
-    {
-        return NULL;
-    }
-    /* FIXME use seh */
-    MmProbeAndLockPages(Mdl, KernelMode,Operation);
-    return Mdl;
+    UNIMPLEMENTED;
+    return NULL;
 }
 
 /*
@@ -766,11 +758,7 @@ VideoPortUnlockBuffer(
    IN PVOID HwDeviceExtension,
    IN PVOID Mdl)
 {
-    if (Mdl)
-    {
-        MmUnlockPages((PMDL)Mdl);
-        IoFreeMdl(Mdl);
-    }
+    UNIMPLEMENTED;
 }
 
 /*

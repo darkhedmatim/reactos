@@ -72,7 +72,7 @@ IopDeleteDriver(IN PVOID ObjectBody)
     if (DriverObject->DriverSection)
     {
         /* Unload it */
-        MmUnloadSystemImage(DriverObject->DriverSection);
+        //LdrpUnloadImage(DriverObject->DriverSection);
     }
 
     /* Check if it has a name */
@@ -1108,6 +1108,9 @@ IopUnloadDriver(PUNICODE_STRING DriverServiceName, BOOLEAN UnloadPnpDrivers)
       /* Dereference it 2 times */
       ObDereferenceObject(DriverObject);
       ObDereferenceObject(DriverObject);
+
+      /* Unload the driver */
+      MmUnloadSystemImage(DriverObject->DriverSection);
 
       return STATUS_SUCCESS;
    }

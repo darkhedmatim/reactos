@@ -320,7 +320,6 @@ DWORD MsafdReturnWithErrno(NTSTATUS Status,
             if( ReturnedBytes ) 
                 *ReturnedBytes = Received;
             break;
-        case STATUS_FILE_CLOSED:
         case STATUS_END_OF_FILE:
             *Errno = WSAESHUTDOWN;
             break;
@@ -343,20 +342,20 @@ DWORD MsafdReturnWithErrno(NTSTATUS Status,
             break;
         case STATUS_REMOTE_NOT_LISTENING:
             DbgPrint("MSAFD: STATUS_REMOTE_NOT_LISTENING\n");
-            *Errno = WSAECONNREFUSED;
+            *Errno = WSAECONNRESET;
             break;
-        case STATUS_NETWORK_UNREACHABLE:
-            DbgPrint("MSAFD: STATUS_NETWORK_UNREACHABLE\n");
-            *Errno = WSAENETUNREACH;
+        case STATUS_FILE_CLOSED:
+            DbgPrint("MSAFD: STATUS_FILE_CLOSED\n");
+            *Errno = WSAENOTSOCK;
             break;
         case STATUS_INVALID_PARAMETER:
             DbgPrint("MSAFD: STATUS_INVALID_PARAMETER\n");
             *Errno = WSAEINVAL;
             break;
-        case STATUS_CANCELLED:
-            DbgPrint("MSAFD: STATUS_CANCELLED\n");
-            *Errno = WSA_OPERATION_ABORTED;
-            break;
+		case STATUS_CANCELLED:
+			DbgPrint("MSAFD: STATUS_CANCELLED\n");
+			*Errno = WSAENOTSOCK;
+			break;
         default:
             DbgPrint("MSAFD: Error %x is unknown\n", Status);
             *Errno = WSAEINVAL;

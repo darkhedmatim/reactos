@@ -1630,7 +1630,6 @@ BOOL UserDrawCaption(
    if (pWnd)
        Wnd = pWnd->Wnd;
 
-   RECTL_vMakeWellOrdered(lpRc);
    hMemBmp = NtGdiCreateCompatibleBitmap(hDc,
       lpRc->right - lpRc->left,
       lpRc->bottom - lpRc->top);

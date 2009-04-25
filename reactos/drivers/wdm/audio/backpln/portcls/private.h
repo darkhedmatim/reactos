@@ -29,8 +29,6 @@
   #define DDKAPI
 #endif
 
-#define ASSERT_IRQL(x) ASSERT(KeGetCurrentIrql() <= (x))
-
 NTSTATUS
 NTAPI
 PortClsCreate(
@@ -89,18 +87,6 @@ NTSTATUS NewPortFilterWaveCyclic(
 
 NTSTATUS NewPortPinWaveCyclic(
     OUT IPortPinWaveCyclic ** OutPin);
-
-NTSTATUS 
-NewPortFilterWavePci(
-    OUT IPortFilterWavePci ** OutFilter);
-
-NTSTATUS NewPortPinWavePci(
-    OUT IPortPinWavePci ** OutPin);
-
-PDEVICE_OBJECT
-GetDeviceObjectFromWaveCyclic(
-    IPortWavePci* iface);
-
 
 NTSTATUS
 NTAPI
@@ -166,10 +152,13 @@ typedef struct
     PDEVICE_OBJECT PhysicalDeviceObject;
     PDEVICE_OBJECT PrevDeviceObject;
     PCPFNSTARTDEVICE StartDevice;
-    ULONG_PTR Unused[4];
     IAdapterPowerManagement * AdapterPowerManagement;
     ULONG MaxSubDevices;
     KSOBJECT_CREATE_ITEM * CreateItems;
+
+    PIO_WORKITEM StartWorkItem;
+    PIO_WORKITEM StopWorkItem;
+    PIO_WORKITEM CloseWorkItem;
 
     IResourceList* resources;
     LIST_ENTRY SubDeviceList;
@@ -183,13 +172,6 @@ typedef struct
     KSSTREAM_HEADER Header;
     PIRP Irp;
 }CONTEXT_WRITE, *PCONTEXT_WRITE;
-
-typedef struct
-{
-    PVOID Pin;
-    PIO_WORKITEM WorkItem;
-    PIRP Irp;
-}CLOSESTREAM_CONTEXT, *PCLOSESTREAM_CONTEXT;
 
 NTSTATUS
 NTAPI
@@ -253,20 +235,6 @@ NTAPI
 PcPropertyHandler(
     IN PIRP Irp,
     IN PSUBDEVICE_DESCRIPTOR Descriptor);
-
-NTSTATUS
-NTAPI
-FastPropertyHandler(
-    IN PFILE_OBJECT  FileObject,
-    IN PKSPROPERTY UNALIGNED  Property,
-    IN ULONG  PropertyLength,
-    IN OUT PVOID UNALIGNED  Data,
-    IN ULONG  DataLength,
-    OUT PIO_STATUS_BLOCK  IoStatus,
-    IN ULONG  PropertySetsCount,
-    IN const KSPROPERTY_SET *PropertySet,
-    IN PSUBDEVICE_DESCRIPTOR Descriptor,
-    IN ISubdevice *SubDevice);
 
 PDEVICE_OBJECT
 GetDeviceObject(

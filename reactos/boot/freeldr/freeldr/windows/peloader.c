@@ -255,15 +255,14 @@ WinLdrLoadImage(IN PCHAR FileName,
                 TYPE_OF_MEMORY MemoryType,
                 OUT PVOID *ImageBasePA)
 {
-	ULONG FileId;
+	PFILE FileHandle;
 	PVOID PhysicalBase;
 	PVOID VirtualBase = NULL;
 	UCHAR HeadersBuffer[SECTOR_SIZE * 2];
 	PIMAGE_NT_HEADERS NtHeaders;
 	PIMAGE_SECTION_HEADER SectionHeader;
 	ULONG VirtualSize, SizeOfRawData, NumberOfSections;
-	LONG Status;
-	LARGE_INTEGER Position;
+	BOOLEAN Status;
 	ULONG i, BytesRead;
 
 	CHAR ProgressString[256];
@@ -273,19 +272,22 @@ WinLdrLoadImage(IN PCHAR FileName,
 	UiDrawProgressBarCenter(1, 100, ProgressString);
 
 	/* Open the image file */
-	Status = ArcOpen(FileName, OpenReadOnly, &FileId);
-	if (Status != ESUCCESS)
+	FileHandle = FsOpenFile(FileName);
+
+	if (FileHandle == NULL)
 	{
+		//Print(L"Can not open the file %s\n",FileName);
 		UiMessageBox("Can not open the file");
 		return FALSE;
 	}
 
 	/* Load the first 2 sectors of the image so we can read the PE header */
-	Status = ArcRead(FileId, HeadersBuffer, SECTOR_SIZE * 2, &BytesRead);
-	if (Status != ESUCCESS)
+	Status = FsReadFile(FileHandle, SECTOR_SIZE * 2, NULL, HeadersBuffer);
+	if (!Status)
 	{
+		//Print(L"Error reading from file %s\n", FileName);
 		UiMessageBox("Error reading from file");
-		ArcClose(FileId);
+		FsCloseFile(FileHandle);
 		return FALSE;
 	}
 
@@ -296,7 +298,7 @@ WinLdrLoadImage(IN PCHAR FileName,
 	{
 		//Print(L"Error - no NT header found in %s\n", FileName);
 		UiMessageBox("Error - no NT header found");
-		ArcClose(FileId);
+		FsCloseFile(FileHandle);
 		return FALSE;
 	}
 
@@ -305,7 +307,7 @@ WinLdrLoadImage(IN PCHAR FileName,
 	{
 		//Print(L"Not an executable image %s\n", FileName);
 		UiMessageBox("Not an executable image");
-		ArcClose(FileId);
+		FsCloseFile(FileHandle);
 		return FALSE;
 	}
 
@@ -327,7 +329,7 @@ WinLdrLoadImage(IN PCHAR FileName,
 		{
 			//Print(L"Failed to alloc pages for image %s\n", FileName);
 			UiMessageBox("Failed to alloc pages for image");
-			ArcClose(FileId);
+			FsCloseFile(FileHandle);
 			return FALSE;
 		}
 	}
@@ -338,22 +340,15 @@ WinLdrLoadImage(IN PCHAR FileName,
 	DPRINTM(DPRINT_PELOADER, "Base PA: 0x%X, VA: 0x%X\n", PhysicalBase, VirtualBase);
 
 	/* Set to 0 position and fully load the file image */
-	Position.HighPart = Position.LowPart = 0;
-	Status = ArcSeek(FileId, &Position, SeekAbsolute);
-	if (Status != ESUCCESS)
-	{
-		UiMessageBox("Error seeking to start of file");
-		ArcClose(FileId);
-		return FALSE;
-	}
+	FsSetFilePointer(FileHandle, 0);
 
-	Status = ArcRead(FileId, PhysicalBase, NtHeaders->OptionalHeader.SizeOfHeaders, &BytesRead);
+	Status = FsReadFile(FileHandle, NtHeaders->OptionalHeader.SizeOfHeaders, NULL, PhysicalBase);
 
-	if (Status != ESUCCESS)
+	if (!Status)
 	{
 		//Print(L"Error reading headers %s\n", FileName);
 		UiMessageBox("Error reading headers");
-		ArcClose(FileId);
+		FsCloseFile(FileHandle);
 		return FALSE;
 	}
 
@@ -393,15 +388,14 @@ WinLdrLoadImage(IN PCHAR FileName,
 		if (SizeOfRawData != 0)
 		{
 			/* Seek to the correct position */
-			Position.LowPart = SectionHeader->PointerToRawData;
-			Status = ArcSeek(FileId, &Position, SeekAbsolute);
+			FsSetFilePointer(FileHandle, SectionHeader->PointerToRawData);
 
 			DPRINTM(DPRINT_PELOADER, "SH->VA: 0x%X\n", SectionHeader->VirtualAddress);
 
 			/* Read this section from the file, size = SizeOfRawData */
-			Status = ArcRead(FileId, (PUCHAR)PhysicalBase + SectionHeader->VirtualAddress, SizeOfRawData, &BytesRead);
+			Status = FsReadFile(FileHandle, SizeOfRawData, &BytesRead, (PUCHAR)PhysicalBase + SectionHeader->VirtualAddress);
 
-			if (Status != ESUCCESS)
+			if (!Status && (BytesRead == 0))
 			{
 				DPRINTM(DPRINT_PELOADER, "WinLdrLoadImage(): Error reading section from file!\n");
 				break;
@@ -419,10 +413,10 @@ WinLdrLoadImage(IN PCHAR FileName,
 	}
 
 	/* We are done with the file - close it */
-	ArcClose(FileId);
+	FsCloseFile(FileHandle);
 
 	/* If loading failed - return right now */
-	if (Status != ESUCCESS)
+	if (!Status)
 		return FALSE;
 
 
@@ -431,7 +425,7 @@ WinLdrLoadImage(IN PCHAR FileName,
 	{
 		DPRINTM(DPRINT_PELOADER, "Relocating %p -> %p\n",
 			NtHeaders->OptionalHeader.ImageBase, VirtualBase);
-		return (BOOLEAN)LdrRelocateImageWithBias(PhysicalBase,
+		Status = (BOOLEAN)LdrRelocateImageWithBias(PhysicalBase,
 			(ULONG_PTR)VirtualBase - (ULONG_PTR)PhysicalBase,
 			"FreeLdr",
 			TRUE,
@@ -439,7 +433,7 @@ WinLdrLoadImage(IN PCHAR FileName,
 			FALSE);
 	}
 
-	return TRUE;
+	return Status;
 }
 
 /* PRIVATE FUNCTIONS *******************************************************/

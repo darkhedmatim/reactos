@@ -20,7 +20,6 @@ PcGetDeviceProperty(
     OUT PVOID PropertyBuffer,
     OUT PULONG ResultLength)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return IoGetDeviceProperty(DeviceObject, DeviceProperty, BufferLength, PropertyBuffer, ResultLength);
 }
 
@@ -50,7 +49,6 @@ PcRegisterIoTimeout(
 {
     NTSTATUS Status;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     /* FIXME 
      * check if timer is already used 
@@ -76,8 +74,6 @@ PcUnregisterIoTimeout(
     IN  PIO_TIMER_ROUTINE pTimerRoutine,
     IN  PVOID pContext)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     /* FIXME 
      * check if timer is already used 
      */
@@ -97,7 +93,6 @@ PcCompletePendingPropertyRequest(
     IN  NTSTATUS NtStatus)
 {
     /* sanity checks */
-    ASSERT_IRQL(DISPATCH_LEVEL);
 
     if (!PropertyRequest)
         return STATUS_INVALID_PARAMETER;

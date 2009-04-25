@@ -244,5 +244,7 @@ USHORT BiosIsVesaSupported(VOID)
 	//	}
 	//}
 
+	DPRINTM(DPRINT_UI, "\n");
+
 	return SvgaInfo->VesaVersion;
 }

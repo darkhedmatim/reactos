@@ -259,22 +259,6 @@ MiniIndicateData(
   NDIS_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
 
-VOID NTAPI
-MiniQueryComplete(
-  IN NDIS_HANDLE  MiniportAdapterHandle,
-  IN NDIS_STATUS  Status)
-{
-    UNIMPLEMENTED;
-}
-
-VOID NTAPI
-MiniSetComplete(
-  IN NDIS_HANDLE  MiniportAdapterHandle,
-  IN NDIS_STATUS  Status)
-{
-    UNIMPLEMENTED;
-}
-
 
 VOID NTAPI
 MiniIndicateReceivePacket(
@@ -457,7 +441,7 @@ MiniSendComplete(
 
     NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
 
-    AdapterBinding = (PADAPTER_BINDING)Packet->Reserved[1];
+    AdapterBinding = (PADAPTER_BINDING)Packet->Reserved[0];
 
     KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
     (*AdapterBinding->ProtocolBinding->Chars.SendCompleteHandler)(
@@ -490,7 +474,7 @@ MiniTransferDataComplete(
 
     NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
 
-    AdapterBinding = (PADAPTER_BINDING)Packet->Reserved[1];
+    AdapterBinding = (PADAPTER_BINDING)Packet->Reserved[0];
 
     KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
     (*AdapterBinding->ProtocolBinding->Chars.TransferDataCompleteHandler)(
@@ -1841,9 +1825,6 @@ NdisIPnPStartDevice(
   Adapter->NdisMiniportBlock.PacketIndicateHandler= MiniIndicateReceivePacket;
   Adapter->NdisMiniportBlock.StatusHandler        = MiniStatus;
   Adapter->NdisMiniportBlock.StatusCompleteHandler= MiniStatusComplete;
-  Adapter->NdisMiniportBlock.SendPacketsHandler   = ProSendPackets;
-  Adapter->NdisMiniportBlock.QueryCompleteHandler = MiniQueryComplete;
-  Adapter->NdisMiniportBlock.SetCompleteHandler   = MiniSetComplete;
 
   /*
    * Call MiniportInitialize.
@@ -2619,186 +2600,6 @@ NdisRegisterAdapterShutdownHandler(
     NdisMRegisterAdapterShutdownHandler(NdisAdapterHandle,
                                         ShutdownContext,
                                         ShutdownHandler);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisMGetDeviceProperty(
-    IN      NDIS_HANDLE         MiniportAdapterHandle,
-    IN OUT  PDEVICE_OBJECT      *PhysicalDeviceObject           OPTIONAL,
-    IN OUT  PDEVICE_OBJECT      *FunctionalDeviceObject         OPTIONAL,
-    IN OUT  PDEVICE_OBJECT      *NextDeviceObject               OPTIONAL,
-    IN OUT  PCM_RESOURCE_LIST   *AllocatedResources             OPTIONAL,
-    IN OUT  PCM_RESOURCE_LIST   *AllocatedResourcesTranslated   OPTIONAL)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PLOGICAL_ADAPTER Adapter = MiniportAdapterHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called\n"));
-
-    if (PhysicalDeviceObject != NULL)
-        *PhysicalDeviceObject = Adapter->NdisMiniportBlock.PhysicalDeviceObject;
-
-    if (FunctionalDeviceObject != NULL)
-        *FunctionalDeviceObject = Adapter->NdisMiniportBlock.DeviceObject;
-
-    if (NextDeviceObject != NULL)
-        *NextDeviceObject = Adapter->NdisMiniportBlock.NextDeviceObject;
-
-    if (AllocatedResources != NULL)
-        *AllocatedResources = Adapter->NdisMiniportBlock.AllocatedResources;
-
-    if (AllocatedResourcesTranslated != NULL)
-        *AllocatedResourcesTranslated = Adapter->NdisMiniportBlock.AllocatedResourcesTranslated;
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisMRegisterUnloadHandler(
-    IN  NDIS_HANDLE     NdisWrapperHandle,
-    IN  PDRIVER_UNLOAD  UnloadHandler)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PNDIS_M_DRIVER_BLOCK DriverBlock = NdisWrapperHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Miniport registered unload handler\n"));
-
-    DriverBlock->DriverObject->DriverUnload = UnloadHandler;
-}
-
-/*
- * @implemented
- */
-NDIS_STATUS
-EXPORT
-NdisMRegisterDevice(
-    IN  NDIS_HANDLE         NdisWrapperHandle,
-    IN  PNDIS_STRING        DeviceName,
-    IN  PNDIS_STRING        SymbolicName,
-    IN  PDRIVER_DISPATCH    MajorFunctions[],
-    OUT PDEVICE_OBJECT      *pDeviceObject,
-    OUT NDIS_HANDLE         *NdisDeviceHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PNDIS_M_DRIVER_BLOCK DriverBlock = NdisWrapperHandle;
-    PNDIS_M_DEVICE_BLOCK DeviceBlock;
-    PDEVICE_OBJECT DeviceObject;
-    NDIS_STATUS Status;
-    UINT i;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called\n"));
-
-    Status = IoCreateDevice(DriverBlock->DriverObject,
-                            0, /* This space is reserved for us. Should we use it? */
-                            DeviceName,
-                            FILE_DEVICE_NETWORK,
-                            0,
-                            FALSE,
-                            &DeviceObject);
-
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-    
-    Status = IoCreateSymbolicLink(SymbolicName, DeviceName);
-
-    if (!NT_SUCCESS(Status))
-    {
-        IoDeleteDevice(DeviceObject);
-        return Status;
-    }
-
-    DeviceBlock = ExAllocatePool(NonPagedPool, sizeof(NDIS_M_DEVICE_BLOCK));
-
-    if (!DeviceBlock)
-    {
-        IoDeleteDevice(DeviceObject);
-        IoDeleteSymbolicLink(SymbolicName);
-        return NDIS_STATUS_RESOURCES;
-    }
-
-    for (i = 0; i < IRP_MJ_MAXIMUM_FUNCTION; i++)
-         DriverBlock->DriverObject->MajorFunction[i] = MajorFunctions[i];
-
-    DriverBlock->DriverObject->MajorFunction[IRP_MJ_PNP] = NdisIDispatchPnp;
-    DriverBlock->DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = NdisIShutdown;
-
-    DeviceBlock->DeviceObject = DeviceObject;
-    DeviceBlock->SymbolicName = SymbolicName;
-
-    *pDeviceObject = DeviceObject;
-    *NdisDeviceHandle = DeviceBlock;
-
-    return NDIS_STATUS_SUCCESS;
-}
-
-/*
- * @implemented
- */
-NDIS_STATUS
-EXPORT
-NdisMDeregisterDevice(
-    IN  NDIS_HANDLE NdisDeviceHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PNDIS_M_DEVICE_BLOCK DeviceBlock = NdisDeviceHandle;
-
-    IoDeleteDevice(DeviceBlock->DeviceObject);
-
-    IoDeleteSymbolicLink(DeviceBlock->SymbolicName);
-
-    ExFreePool(DeviceBlock);
-
-    return NDIS_STATUS_SUCCESS;
-}
-
-/*
- * @implemented
- */
-NDIS_STATUS
-EXPORT
-NdisQueryAdapterInstanceName(
-    OUT PNDIS_STRING    AdapterInstanceName,
-    IN  NDIS_HANDLE     NdisBindingHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PADAPTER_BINDING AdapterBinding = NdisBindingHandle;
-    PLOGICAL_ADAPTER Adapter = AdapterBinding->Adapter;
-
-    return NdisMQueryAdapterInstanceName(AdapterInstanceName,
-                                         Adapter);
 }
 
 /* EOF */

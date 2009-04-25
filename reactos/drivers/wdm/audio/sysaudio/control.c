@@ -122,7 +122,7 @@ SetMixerInputOutputFormat(
 
     /* set the input format */
     PinRequest.PinId = 0;
-    DPRINT("InputFormat %p Size %u WaveFormatSize %u DataFormat %u WaveEx %u\n", InputFormat, InputFormat->FormatSize, sizeof(KSDATAFORMAT_WAVEFORMATEX), sizeof(KSDATAFORMAT), sizeof(WAVEFORMATEX));
+    //DPRINT1("InputFormat %p Size %u WaveFormatSize %u DataFormat %u WaveEx %u\n", InputFormat, InputFormat->FormatSize, sizeof(KSDATAFORMAT_WAVEFORMATEX), sizeof(KSDATAFORMAT), sizeof(WAVEFORMATEX));
     Status = KsSynchronousIoControlDevice(FileObject, KernelMode, IOCTL_KS_PROPERTY,
                                           (PVOID)&PinRequest,
                                            sizeof(KSP_PIN),
@@ -134,7 +134,7 @@ SetMixerInputOutputFormat(
 
     /* set the the output format */
     PinRequest.PinId = 1;
-    DPRINT("OutputFormat %p Size %u WaveFormatSize %u DataFormat %u WaveEx %u\n", OutputFormat, OutputFormat->FormatSize, sizeof(KSDATAFORMAT_WAVEFORMATEX), sizeof(KSDATAFORMAT), sizeof(WAVEFORMATEX));
+    //DPRINT1("OutputFormat %p Size %u WaveFormatSize %u DataFormat %u WaveEx %u\n", OutputFormat, OutputFormat->FormatSize, sizeof(KSDATAFORMAT_WAVEFORMATEX), sizeof(KSDATAFORMAT), sizeof(WAVEFORMATEX));
     Status = KsSynchronousIoControlDevice(FileObject, KernelMode, IOCTL_KS_PROPERTY,
                                           (PVOID)&PinRequest,
                                            sizeof(KSP_PIN),
@@ -236,8 +236,6 @@ CreatePinWorkerRoutine(
         {
             SetIrpIoStatus(WorkerContext->Irp, STATUS_UNSUCCESSFUL, 0);
             ExFreePool(WorkerContext->DispatchContext);
-            IoFreeWorkItem(WorkerContext->WorkItem);
-            ExFreePool(WorkerContext);
             return;
         }
 
@@ -254,8 +252,6 @@ CreatePinWorkerRoutine(
             SetIrpIoStatus(WorkerContext->Irp, STATUS_UNSUCCESSFUL, 0);
             ExFreePool(WorkerContext->DispatchContext);
             ExFreePool(MixerPinConnect);
-            IoFreeWorkItem(WorkerContext->WorkItem);
-            ExFreePool(WorkerContext);
             return;
         }
 
@@ -263,18 +259,13 @@ CreatePinWorkerRoutine(
         Status = KsCreatePin(WorkerContext->Entry->Handle, MixerPinConnect, GENERIC_READ | GENERIC_WRITE, &RealPinHandle);
         if (!NT_SUCCESS(Status))
         {
-           /* This should not fail */
             DPRINT1("KsCreatePin failed with %x\n", Status);
-            DPRINT1(" InputFormat: SampleRate %u Bits %u Channels %u\n", InputFormat->WaveFormatEx.nSamplesPerSec, InputFormat->WaveFormatEx.wBitsPerSample, InputFormat->WaveFormatEx.nChannels);
-            DPRINT1("OutputFormat: SampleRate %u Bits %u Channels %u\n", OutputFormat->WaveFormatEx.nSamplesPerSec, OutputFormat->WaveFormatEx.wBitsPerSample, OutputFormat->WaveFormatEx.nChannels);
- 
-            SetIrpIoStatus(WorkerContext->Irp, STATUS_UNSUCCESSFUL, 0);
-            ExFreePool(WorkerContext->DispatchContext);
-            ExFreePool(MixerPinConnect);
-            IoFreeWorkItem(WorkerContext->WorkItem);
-            ExFreePool(WorkerContext);
+            /* This should not fail */
+            KeBugCheck(0);
             return;
         }
+        DPRINT(" InputFormat: SampleRate %u Bits %u Channels %u\n", InputFormat->WaveFormatEx.nSamplesPerSec, InputFormat->WaveFormatEx.wBitsPerSample, InputFormat->WaveFormatEx.nChannels);
+        DPRINT("OutputFormat: SampleRate %u Bits %u Channels %u\n", OutputFormat->WaveFormatEx.nSamplesPerSec, OutputFormat->WaveFormatEx.wBitsPerSample, OutputFormat->WaveFormatEx.nChannels);
     }
 
     /* get pin file object */
@@ -400,9 +391,8 @@ CreatePinWorkerRoutine(
     *((PHANDLE)WorkerContext->Irp->UserBuffer) = VirtualPinHandle;
 
     SetIrpIoStatus(WorkerContext->Irp, STATUS_SUCCESS, sizeof(HANDLE));
-    IoFreeWorkItem(WorkerContext->WorkItem);
-    ExFreePool(WorkerContext);
     return;
+
 
 cleanup:
     if (RealFileObject)
@@ -420,8 +410,7 @@ cleanup:
 
     ExFreePool(WorkerContext->DispatchContext);
     SetIrpIoStatus(WorkerContext->Irp, Status, 0);
-    IoFreeWorkItem(WorkerContext->WorkItem);
-    ExFreePool(WorkerContext);
+
 }
 
 NTSTATUS
@@ -733,7 +722,8 @@ HandleSysAudioFilterPinCreation(
     KSPIN_CINSTANCES PinInstances;
     PPIN_WORKER_CONTEXT WorkerContext;
     PDISPATCH_CONTEXT DispatchContext;
-    PIO_WORKITEM WorkItem;
+
+
 
     IoStack = IoGetCurrentIrpStackLocation(Irp);
 
@@ -816,7 +806,10 @@ HandleSysAudioFilterPinCreation(
         }
     }
 
-    /* create dispatch pin context */
+    ASSERT(DeviceExtension->WorkItem);
+    ASSERT(DeviceExtension->WorkerContext);
+
+    /* create worker context */
     DispatchContext = ExAllocatePool(NonPagedPool, sizeof(DISPATCH_CONTEXT));
     if (!DispatchContext)
     {
@@ -824,24 +817,11 @@ HandleSysAudioFilterPinCreation(
         return SetIrpIoStatus(Irp, STATUS_NO_MEMORY, 0);
     }
 
-    /* allocate worker context */
-    WorkerContext = ExAllocatePool(NonPagedPool, sizeof(PIN_WORKER_CONTEXT));
-    if (!WorkerContext)
-    {
-        /* no memory */
-        ExFreePool(DispatchContext);
-        return SetIrpIoStatus(Irp, STATUS_NO_MEMORY, 0);
-    }
+    // FIXME
+    // mutal exclusion
 
-    /* allocate work item */
-    WorkItem = IoAllocateWorkItem(DeviceObject);
-    if (!WorkerContext)
-    {
-        /* no memory */
-        ExFreePool(DispatchContext);
-        ExFreePool(WorkerContext);
-        return SetIrpIoStatus(Irp, STATUS_NO_MEMORY, 0);
-    }
+    /* get worker context */
+    WorkerContext = (PPIN_WORKER_CONTEXT)DeviceExtension->WorkerContext;
 
     /* prepare context */
     RtlZeroMemory(WorkerContext, sizeof(PIN_WORKER_CONTEXT));
@@ -861,14 +841,13 @@ HandleSysAudioFilterPinCreation(
     WorkerContext->PinConnect = PinConnect;
     WorkerContext->AudioClient = ClientInfo;
     WorkerContext->DeviceExtension = DeviceExtension;
-    WorkerContext->WorkItem = WorkItem;
 
     DPRINT("Queing Irp %p\n", Irp);
     /* queue the work item */
     IoMarkIrpPending(Irp);
     Irp->IoStatus.Status = STATUS_PENDING;
     Irp->IoStatus.Information = 0;
-    IoQueueWorkItem(WorkItem, CreatePinWorkerRoutine, DelayedWorkQueue, (PVOID)WorkerContext);
+    IoQueueWorkItem(DeviceExtension->WorkItem, CreatePinWorkerRoutine, DelayedWorkQueue, (PVOID)WorkerContext);
 
     /* mark irp as pending */
     return STATUS_PENDING;

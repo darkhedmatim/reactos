@@ -340,11 +340,9 @@ IntVideoPortPnPStartDevice(
 
       /* Save the resource list */
       ResourceCount = AllocatedResources->List[0].PartialResourceList.Count;
-      ResourceListSize = sizeof(CM_RESOURCE_LIST);
-
-      if (ResourceCount > 1)
-         ResourceListSize += (ResourceCount-1) * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
-
+      ResourceListSize =
+         FIELD_OFFSET(CM_RESOURCE_LIST, List[0].PartialResourceList.
+                      PartialDescriptors[ResourceCount]);
       DeviceExtension->AllocatedResources = ExAllocatePool(PagedPool, ResourceListSize);
       if (DeviceExtension->AllocatedResources == NULL)
       {

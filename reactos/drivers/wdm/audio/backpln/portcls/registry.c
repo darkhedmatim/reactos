@@ -14,7 +14,6 @@ typedef struct
 
     LONG ref;
     HANDLE hKey;
-    BOOL Deleted;
 
 }IRegistryKeyImpl;
 
@@ -23,7 +22,7 @@ static IRegistryKeyVtbl vt_IRegistryKey;
 
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnAddRef(
     IN IRegistryKey* iface)
 {
@@ -35,7 +34,7 @@ IRegistryKey_fnAddRef(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnRelease(
     IN IRegistryKey* iface)
 {
@@ -57,7 +56,7 @@ IRegistryKey_fnRelease(
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryInterface(
     IN IRegistryKey* iface,
     IN  REFIID refiid,
@@ -78,29 +77,17 @@ IRegistryKey_fnQueryInterface(
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnDeleteKey(
     IN IRegistryKey* iface)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    NTSTATUS Status;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
-    Status = ZwDeleteKey(This->hKey);
-    if (NT_SUCCESS(Status))
-    {
-        This->Deleted = TRUE;
-    }
-    return Status;
+    DPRINT("IRegistryKey_fnDeleteKey entered\n");
+    return ZwDeleteKey(This->hKey);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnEnumerateKey(
     IN IRegistryKey* iface,
     IN ULONG  Index,
@@ -110,18 +97,12 @@ IRegistryKey_fnEnumerateKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT("IRegistryKey_fnEnumerateKey entered\n");
     return ZwEnumerateKey(This->hKey, Index, KeyInformationClass, KeyInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnEnumerateKeyValue(
     IN IRegistryKey* iface,
     IN ULONG  Index,
@@ -131,18 +112,12 @@ IRegistryKey_fnEnumerateKeyValue(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT("IRegistryKey_fnEnumerateKeyValue entered\n");
     return ZwEnumerateValueKey(This->hKey, Index, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnNewSubKey(
     IN IRegistryKey* iface,
     OUT PREGISTRYKEY  *RegistrySubKey,
@@ -157,14 +132,7 @@ IRegistryKey_fnNewSubKey(
     HANDLE hKey;
     IRegistryKeyImpl * NewThis, *This = (IRegistryKeyImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     DPRINT("IRegistryKey_fnNewSubKey entered %S\n", SubKeyName);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
 
     InitializeObjectAttributes(&Attributes, SubKeyName, 0, This->hKey, NULL);
     Status = ZwCreateKey(&hKey, KEY_READ | KEY_WRITE, &Attributes, 0, NULL, 0, Disposition);
@@ -196,7 +164,7 @@ IRegistryKey_fnNewSubKey(
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryKey(
     IN IRegistryKey* iface,
     IN KEY_INFORMATION_CLASS  KeyInformationClass,
@@ -205,36 +173,25 @@ IRegistryKey_fnQueryKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT("IRegistryKey_fnQueryKey entered\n");
     return ZwQueryKey(This->hKey, KeyInformationClass, KeyInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryRegistryValues(
     IN IRegistryKey* iface,
     IN PRTL_QUERY_REGISTRY_TABLE  QueryTable,
     IN PVOID  Context  OPTIONAL)
 {
-    IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
-    return RtlQueryRegistryValues(RTL_REGISTRY_HANDLE, (PCWSTR)This->hKey, QueryTable, Context, NULL);
+    //IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
+    UNIMPLEMENTED
+    DbgBreakPoint();
+    return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryValueKey(
     IN IRegistryKey* iface,
     IN PUNICODE_STRING  ValueName,
@@ -244,20 +201,12 @@ IRegistryKey_fnQueryValueKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-
     DPRINT("IRegistryKey_fnQueryValueKey entered %p value %wZ\n", This, ValueName);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
     return ZwQueryValueKey(This->hKey, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnSetValueKey(
     IN IRegistryKey* iface,
     IN PUNICODE_STRING  ValueName  OPTIONAL,
@@ -268,13 +217,6 @@ IRegistryKey_fnSetValueKey(
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
     DPRINT("IRegistryKey_fnSetValueKey entered %S\n", ValueName->Buffer);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
     return ZwSetValueKey(This->hKey, ValueName, 0, Type, Data, DataSize);
 }
 

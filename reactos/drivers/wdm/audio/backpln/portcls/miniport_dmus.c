@@ -21,7 +21,7 @@ typedef struct
 /* IUnknown methods */
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMus_fnQueryInterface(
     IMiniportDMus* iface,
     IN  REFIID refiid,
@@ -39,7 +39,7 @@ IMiniportDMus_fnQueryInterface(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMus_fnAddRef(
     IMiniportDMus* iface)
 {
@@ -49,7 +49,7 @@ IMiniportDMus_fnAddRef(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMust_fnRelease(
     IMiniportDMus* iface)
 {

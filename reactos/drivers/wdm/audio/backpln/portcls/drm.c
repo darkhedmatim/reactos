@@ -18,7 +18,6 @@ PcAddContentHandlers(
     IN  PVOID *paHandlers,
     IN  ULONG NumHandlers)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmAddContentHandlers(ContentId, paHandlers, NumHandlers);
 }
 
@@ -32,7 +31,6 @@ PcCreateContentMixed(
     IN  ULONG cContentId,
     OUT PULONG pMixedContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmCreateContentMixed(paContentId, cContentId, pMixedContentId);
 }
 
@@ -44,7 +42,6 @@ NTAPI
 PcDestroyContent(
     IN  ULONG ContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmDestroyContent(ContentId);
 }
 
@@ -58,7 +55,6 @@ PcForwardContentToDeviceObject(
     IN  PVOID Reserved,
     IN  PCDRMFORWARD DrmForward)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToDeviceObject(ContentId, Reserved, DrmForward);
 }
 
@@ -71,7 +67,6 @@ PcForwardContentToFileObject(
     IN  ULONG ContentId,
     IN  PFILE_OBJECT FileObject)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToFileObject(ContentId, FileObject);
 }
 
@@ -97,6 +92,5 @@ PcGetContentRights(
     IN  ULONG ContentId,
     OUT PDRMRIGHTS DrmRights)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmGetContentRights(ContentId, DrmRights);
 }

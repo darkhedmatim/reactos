@@ -279,7 +279,7 @@ ProSend(
   ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
 
   /* XXX what is this crazy black magic? */
-  Packet->Reserved[1] = (ULONG_PTR)MacBindingHandle;
+  Packet->Reserved[0] = (ULONG_PTR)MacBindingHandle;
 
   /*
    * Test the packet to see if it is a MAC loopback.
@@ -407,8 +407,6 @@ ProTransferData(
                                    BytesTransferred);
         return NDIS_STATUS_SUCCESS;
     }
-
-    ASSERT(Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.TransferDataHandler);
 
     KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
 

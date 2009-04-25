@@ -28,10 +28,7 @@ FilterPinWorkerRoutine(
     NTSTATUS Status;
     ULONG BytesReturned;
     PSYSAUDIODEVEXT DeviceExtension;
-    PKSAUDIO_DEVICE_ENTRY DeviceEntry;
-    PFILTER_WORKER_CONTEXT Ctx = (PFILTER_WORKER_CONTEXT)Context;
-
-    DeviceEntry = Ctx->DeviceEntry;
+    PKSAUDIO_DEVICE_ENTRY DeviceEntry = (PKSAUDIO_DEVICE_ENTRY)Context;
 
 
     DPRINT("Querying filter...\n");
@@ -44,14 +41,14 @@ FilterPinWorkerRoutine(
     Status = KsSynchronousIoControlDevice(DeviceEntry->FileObject, KernelMode, IOCTL_KS_PROPERTY, (PVOID)&PropertyRequest, sizeof(KSPROPERTY), (PVOID)&Count, sizeof(ULONG), &BytesReturned);
     if (!NT_SUCCESS(Status))
     {
-        DPRINT1("Failed to query number of pins Status %x\n", Status);
-        goto cleanup;
+        ExFreePool(DeviceEntry);
+        return;
     }
 
     if (!Count)
     {
-        DPRINT1("Filter has no pins!\n");
-        goto cleanup;
+        ExFreePool(DeviceEntry);
+        return;
     }
 
     /* allocate pin array */
@@ -59,8 +56,8 @@ FilterPinWorkerRoutine(
     if (!DeviceEntry->Pins)
     {
         /* no memory */
-        DPRINT1("Failed to allocate memory Block %x\n", Count * sizeof(PIN_INFO));
-        goto cleanup;
+        ExFreePool(DeviceEntry);
+        return;
     }
     /* clear array */
     RtlZeroMemory(DeviceEntry->Pins, sizeof(PIN_INFO) * Count);
@@ -104,28 +101,13 @@ FilterPinWorkerRoutine(
 
     }
 
-    DPRINT("Num Pins %u Num WaveIn Pins %u Name WaveOut Pins %u\n", DeviceEntry->NumberOfPins, DeviceEntry->NumWaveInPin, DeviceEntry->NumWaveOutPin);
-    /* fetch device extension */
+    DPRINT1("Num Pins %u Num WaveIn Pins %u Name WaveOut Pins %u\n", DeviceEntry->NumberOfPins, DeviceEntry->NumWaveInPin, DeviceEntry->NumWaveOutPin);
+
     DeviceExtension = (PSYSAUDIODEVEXT)DeviceObject->DeviceExtension;
-    /* insert new audio device */
-    ExInterlockedInsertTailList(&DeviceExtension->KsAudioDeviceList, &DeviceEntry->Entry, &DeviceExtension->Lock);
-    /* increment audio device count */
-    InterlockedIncrement((PLONG)&DeviceExtension->NumberOfKsAudioDevices);
 
-    /* free work item */
-    IoFreeWorkItem(Ctx->WorkItem);
-    /* free work item context */
-    ExFreePool(Ctx);
-    return;
+    InsertTailList(&DeviceExtension->KsAudioDeviceList, &DeviceEntry->Entry);
+    DeviceExtension->NumberOfKsAudioDevices++;
 
-cleanup:
-
-    ObDereferenceObject(DeviceEntry->FileObject);
-    ZwClose(DeviceEntry->Handle);
-    ExFreePool(DeviceEntry->DeviceName.Buffer);
-    ExFreePool(DeviceEntry);
-    IoFreeWorkItem(Ctx->WorkItem);
-    ExFreePool(Ctx);
 }
 
 NTSTATUS
@@ -157,7 +139,7 @@ OpenDevice(
 
     if (!NT_SUCCESS(Status))
     {
-        DPRINT("ZwCreateFile failed with %x\n", Status);
+        DPRINT1("ZwCreateFile failed with %x\n", Status);
         return Status;
     }
 
@@ -165,7 +147,7 @@ OpenDevice(
     if (!NT_SUCCESS(Status))
     {
         ZwClose(NodeHandle);
-        DPRINT("ObReferenceObjectByHandle failed with %x\n", Status);
+        DPRINT1("ObReferenceObjectByHandle failed with %x\n", Status);
         return Status;
     }
 
@@ -183,9 +165,7 @@ DeviceInterfaceChangeCallback(
     DEVICE_INTERFACE_CHANGE_NOTIFICATION * Event;
     NTSTATUS Status = STATUS_SUCCESS;
     PSYSAUDIODEVEXT DeviceExtension;
-    PKSAUDIO_DEVICE_ENTRY DeviceEntry = NULL;
-    PIO_WORKITEM WorkItem = NULL;
-    PFILTER_WORKER_CONTEXT Ctx = NULL;
+    PKSAUDIO_DEVICE_ENTRY DeviceEntry;
     PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)Context;
 
     DeviceExtension = (PSYSAUDIODEVEXT)DeviceObject->DeviceExtension;
@@ -199,92 +179,55 @@ DeviceInterfaceChangeCallback(
         DeviceEntry = ExAllocatePool(NonPagedPool, sizeof(KSAUDIO_DEVICE_ENTRY));
         if (!DeviceEntry)
         {
-            /* no memory */
+
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        /* initialize audio device entry */
         RtlZeroMemory(DeviceEntry, sizeof(KSAUDIO_DEVICE_ENTRY));
-
-        /* allocate filter ctx */
-        Ctx = ExAllocatePool(NonPagedPool, sizeof(FILTER_WORKER_CONTEXT));
-        if (!Ctx)
-        {
-            /* no memory */
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto cleanup;
-        }
-
-        /* allocate work item */
-        WorkItem = IoAllocateWorkItem(DeviceObject);
-        if (!WorkItem)
-        {
-            /* no memory */
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto cleanup;
-        }
-
-        /* set device name */
         DeviceEntry->DeviceName.Length = 0;
         DeviceEntry->DeviceName.MaximumLength = Event->SymbolicLinkName->Length + 5 * sizeof(WCHAR);
         DeviceEntry->DeviceName.Buffer = ExAllocatePool(NonPagedPool, DeviceEntry->DeviceName.MaximumLength);
-
         if (!DeviceEntry->DeviceName.Buffer)
         {
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto cleanup;
+            ExFreePool(DeviceEntry);
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         if (!NT_SUCCESS(RtlAppendUnicodeToString(&DeviceEntry->DeviceName, L"\\??\\")))
         {
-            DPRINT1("RtlAppendUnicodeToString failed with %x\n", Status);
-            goto cleanup;
+            ExFreePool(DeviceEntry->DeviceName.Buffer);
+            ExFreePool(DeviceEntry);
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         if (!NT_SUCCESS(RtlAppendUnicodeStringToString(&DeviceEntry->DeviceName, Event->SymbolicLinkName)))
         {
-            DPRINT1("RtlAppendUnicodeStringToString failed with %x\n", Status);
-            goto cleanup;
+            ExFreePool(DeviceEntry->DeviceName.Buffer);
+            ExFreePool(DeviceEntry);
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         Status = OpenDevice(&DeviceEntry->DeviceName, &DeviceEntry->Handle, &DeviceEntry->FileObject);
         if (!NT_SUCCESS(Status))
         {
-            DPRINT("ZwCreateFile failed with %x\n", Status);
-            goto cleanup;
+            DPRINT1("ZwCreateFile failed with %x\n", Status);
+            ExFreePool(DeviceEntry);
+            return Status;
         }
 
-        DPRINT("Successfully opened audio device %u handle %p file object %p device object %p\n", DeviceExtension->NumberOfKsAudioDevices, DeviceEntry->Handle, DeviceEntry->FileObject, DeviceEntry->FileObject->DeviceObject);
+        DPRINT1("Successfully opened audio device %u handle %p file object %p device object %p\n", DeviceExtension->NumberOfKsAudioDevices, DeviceEntry->Handle, DeviceEntry->FileObject, DeviceEntry->FileObject->DeviceObject);
 
-        Ctx->DeviceEntry = DeviceEntry;
-        Ctx->WorkItem = WorkItem;
-
-        IoQueueWorkItem(WorkItem, FilterPinWorkerRoutine, DelayedWorkQueue, (PVOID)Ctx);
+        //FIXME
+        // mutal exclusion
+        IoQueueWorkItem(DeviceExtension->WorkItem, FilterPinWorkerRoutine, DelayedWorkQueue, (PVOID)DeviceEntry);
         return Status;
     }
     else
     {
-        DPRINT("Remove interface to audio device!\n");
+        DPRINT1("Remove interface to audio device!\n");
         UNIMPLEMENTED
         return STATUS_SUCCESS;
     }
-
-cleanup:
-    if (Ctx)
-        ExFreePool(Ctx);
-
-    if (WorkItem)
-        IoFreeWorkItem(WorkItem);
-
-    if (DeviceEntry)
-    {
-        if (DeviceEntry->DeviceName.Buffer)
-            ExFreePool(DeviceEntry->DeviceName.Buffer);
-
-        ExFreePool(DeviceEntry);
-    }
-
-    return Status;
 }
 
 NTSTATUS
@@ -307,7 +250,7 @@ SysAudioRegisterNotifications(
 
     if (!NT_SUCCESS(Status))
     {
-        DPRINT("IoRegisterPlugPlayNotification failed with %x\n", Status);
+        DPRINT1("IoRegisterPlugPlayNotification failed with %x\n", Status);
     }
 
     Status = IoRegisterPlugPlayNotification(EventCategoryDeviceInterfaceChange,
@@ -321,7 +264,7 @@ SysAudioRegisterNotifications(
     if (!NT_SUCCESS(Status))
     {
         /* ignore failure for now */
-        DPRINT("IoRegisterPlugPlayNotification failed for DMOCATEGORY_ACOUSTIC_ECHO_CANCEL\n", Status);
+        DPRINT1("IoRegisterPlugPlayNotification failed for DMOCATEGORY_ACOUSTIC_ECHO_CANCEL\n", Status);
     }
 
     return STATUS_SUCCESS;
@@ -344,7 +287,7 @@ SysAudioRegisterDeviceInterfaces(
     }
     else
     {
-        DPRINT("Failed to register KSCATEGORY_PREFERRED_MIDIOUT_DEVICE interface Status %x\n", Status);
+        DPRINT1("Failed to register KSCATEGORY_PREFERRED_MIDIOUT_DEVICE interface Status %x\n", Status);
         return Status;
     }
 
@@ -356,7 +299,7 @@ SysAudioRegisterDeviceInterfaces(
     }
     else
     {
-        DPRINT("Failed to register KSCATEGORY_PREFERRED_WAVEIN_DEVICE interface Status %x\n", Status);
+        DPRINT1("Failed to register KSCATEGORY_PREFERRED_WAVEIN_DEVICE interface Status %x\n", Status);
         return Status;
     }
 
@@ -368,7 +311,7 @@ SysAudioRegisterDeviceInterfaces(
     }
     else
     {
-        DPRINT("Failed to register KSCATEGORY_PREFERRED_WAVEOUT_DEVICE interface Status %x\n", Status);
+        DPRINT1("Failed to register KSCATEGORY_PREFERRED_WAVEOUT_DEVICE interface Status %x\n", Status);
     }
 
     Status = IoRegisterDeviceInterface(DeviceObject, &KSCATEGORY_SYSAUDIO, NULL, &SymbolicLink);
@@ -379,7 +322,7 @@ SysAudioRegisterDeviceInterfaces(
     }
     else
     {
-        DPRINT("Failed to register KSCATEGORY_SYSAUDIO interface Status %x\n", Status);
+        DPRINT1("Failed to register KSCATEGORY_SYSAUDIO interface Status %x\n", Status);
     }
 
     return Status;
